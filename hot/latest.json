@@ -1,5 +1,5 @@
 {
-  "version": "1.5.6",
+  "version": "1.5.7",
   "files": [
     {"source":"src/index.html","target":"src/index.html"},
     {"source":"src/access.js","target":"src/access.js"},
