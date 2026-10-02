@@ -34,8 +34,6 @@ jobs:
           "tag=v$version" >> $env:GITHUB_OUTPUT
 
       - name: Build installer
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-builder --win nsis --publish never
 
       - name: Publish one release
@@ -47,8 +45,8 @@ jobs:
         run: |
           gh release delete "$env:TAG" --cleanup-tag --yes 2>$null
           gh release create "$env:TAG" `
-            "dist/IR-Project-Setup-$env:VERSION.exe" `
-            "dist/IR-Project-Setup-$env:VERSION.exe.blockmap" `
+            "dist/IR Project Setup $env:VERSION.exe" `
+            "dist/IR Project Setup $env:VERSION.exe.blockmap" `
             "dist/latest.yml" `
             --title "$env:VERSION" `
             --target "${{ github.sha }}" `
