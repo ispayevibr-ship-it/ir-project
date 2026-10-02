@@ -1,8 +1,9 @@
 {
-  "version": "1.5.24",
+  "version": "1.5.25",
   "files": [
     {"source":"src/index.html","target":"src/index.html"},
     {"source":"src/object-filters.js","target":"src/object-filters.js"},
-    {"source":"src/object-filters.css","target":"src/object-filters.css"}
+    {"source":"src/object-filters.css","target":"src/object-filters.css"},
+    {"source":"src/styles.css","target":"src/styles.css"}
   ]
 }
