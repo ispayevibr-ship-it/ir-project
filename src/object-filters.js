@@ -12,6 +12,8 @@
     const section=document.querySelector(".objects-section"),grid=section?.querySelector(".objects"),head=section?.querySelector(".section-head");
     if(!section||!grid||!head||head.dataset.filtersReady)return;
     head.dataset.filtersReady="1";
+    const addButton=head.querySelector("#add");
+    if(addButton&&window.irAccess?.role?.()==="guest")addButton.remove();
     const cards=[...grid.querySelectorAll(".object-card")];
     const meta=await Promise.all(cards.map(async card=>({card,id:card.dataset.object,status:card.querySelector(".status")?.textContent.trim()||"В работе",activity:await latestActivity(card.dataset.object)})));
     meta.sort((a,b)=>{
@@ -32,5 +34,5 @@
     head.querySelectorAll(".object-filter").forEach(b=>b.onclick=()=>apply(b.dataset.filter));
     apply("all");
   }
-  setInterval(()=>{const sig=location.hash+":"+(document.querySelector(".objects")?.childElementCount||0);if(sig!==lastSignature){lastSignature=sig;enhance().catch(console.error)}},300);
+  setInterval(()=>{const sig=location.hash+":"+(document.querySelector(".objects")?.childElementCount||0)+":"+(window.irAccess?.role?.()||"");if(sig!==lastSignature){lastSignature=sig;enhance().catch(console.error)}},300);
 })();
