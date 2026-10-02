@@ -66,8 +66,8 @@ jobs:
           TAG: ${{ steps.version.outputs.tag }}
         run: |
           gh release create "$env:TAG" `
-            "dist/IR Project Setup $env:VERSION.exe" `
-            "dist/IR Project Setup $env:VERSION.exe.blockmap" `
+            "dist/IR-Project-Setup-$env:VERSION.exe" `
+            "dist/IR-Project-Setup-$env:VERSION.exe.blockmap" `
             "dist/latest.yml" `
             --title "$env:VERSION" `
             --target "${{ github.sha }}" `
