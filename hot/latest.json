@@ -1,9 +1,11 @@
 {
-  "version": "1.5.27",
+  "version": "1.5.28",
   "files": [
     {"source":"src/index.html","target":"src/index.html"},
     {"source":"src/object-filters.js","target":"src/object-filters.js"},
     {"source":"src/object-filters.css","target":"src/object-filters.css"},
-    {"source":"src/styles.css","target":"src/styles.css"}
+    {"source":"src/styles.css","target":"src/styles.css"},
+    {"source":"src/marks-page.js","target":"src/marks-page.js"},
+    {"source":"src/marks-page.css","target":"src/marks-page.css"}
   ]
 }
