@@ -2,14 +2,15 @@
 window.irAccess=(()=>{
  const KEYS=["reports","work-types","marks","schedule","photos","scheme","acted-days","penalties","finance"];
  const defaults=()=>Object.fromEntries(KEYS.map(k=>[k,true]));
- function load(){try{return JSON.parse(localStorage.getItem("ir-access"))||{role:"admin",engineer:defaults()}}catch{return {role:"admin",engineer:defaults()}}}
- function save(s){localStorage.setItem("ir-access",JSON.stringify(s));return s}
+ function load(){try{const saved=JSON.parse(localStorage.getItem("ir-access"))||{};return {role:sessionStorage.getItem("ir-role")||"guest",engineer:{...defaults(),...(saved.engineer||{})}}}catch{return {role:"guest",engineer:defaults()}}}
+ function savePermissions(s){localStorage.setItem("ir-access",JSON.stringify({engineer:s.engineer}));return s}
  function state(){const s=load();s.engineer={...defaults(),...(s.engineer||{})};return s}
- function role(){return state().role||"admin"}
- function setRole(role){const s=state();s.role=["admin","engineer","guest"].includes(role)?role:"guest";save(s)}
+ function role(){return state().role||"guest"}
+ function setRole(role){const next=["admin","engineer","guest"].includes(role)?role:"guest";sessionStorage.setItem("ir-role",next);return next}
  function canEdit(section){const s=state();if(s.role==="admin")return true;if(s.role==="guest")return false;return section?Boolean(s.engineer[section]):false}
  function canView(){return true}
- function setEngineer(section,enabled){if(!KEYS.includes(section))return;const s=state();s.engineer[section]=Boolean(enabled);save(s)}
+ function setEngineer(section,enabled){if(!KEYS.includes(section))return;const s=state();s.engineer[section]=Boolean(enabled);savePermissions(s)}
  function engineer(){return state().engineer}
+ sessionStorage.setItem("ir-role","guest");
  return {KEYS,role,setRole,canEdit,canView,setEngineer,engineer};
 })();
