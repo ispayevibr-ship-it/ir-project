@@ -9,6 +9,10 @@
   <link rel="stylesheet" href="./home-enhancements.css">
 </head>
 <body>
+  <div class="window-titlebar">
+    <div class="window-titlebar-name">IR Project <span id="titlebarVersion"></span></div>
+    <button id="titlebarUpdate" class="window-update" title="Проверить обновление" aria-label="Проверить обновление">↻</button>
+  </div>
   <main id="app"></main>
   <script src="./access.js"></script>
   <script src="./app.js"></script>
@@ -18,6 +22,8 @@
   <script src="./company-profile.js"></script>
   <script src="./home-enhancements.js"></script>
   <script>
+    (async()=>{try{const v=await irProject.updater.version();document.getElementById('titlebarVersion').textContent='('+v+')'}catch{}})();
+    document.getElementById('titlebarUpdate').onclick=()=>{const b=document.getElementById('checkUpdate');if(b)b.click();else irProject.updater.check()};
     setTimeout(() => {
       const root = document.getElementById('app');
       if (!root || root.children.length) return;
