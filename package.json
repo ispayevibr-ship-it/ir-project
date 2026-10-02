@@ -1,36 +1,18 @@
 {
   "name": "ir-project",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "description": "IR Project",
   "main": "main.js",
-  "scripts": {
-    "start": "electron .",
-    "build": "electron-builder --win nsis",
-    "publish": "electron-builder --win nsis --publish always"
-  },
-  "dependencies": {
-    "electron-updater": "^6.8.10"
-  },
-  "devDependencies": {
-    "electron": "^38.1.2",
-    "electron-builder": "26.17.0"
-  },
+  "scripts": {"start":"electron .","build":"electron-builder --win nsis","publish":"electron-builder --win nsis --publish always"},
+  "dependencies": {},
+  "devDependencies": {"electron":"^38.1.2","electron-builder":"26.17.0"},
   "build": {
-    "appId": "com.irproject.app",
-    "productName": "IR Project",
-    "artifactName": "IR-Project-Setup-${version}.${ext}",
-    "files": ["main.js", "preload.js", "src/**/*", "assets/**/*", "package.json"],
-    "win": {
-      "target": "nsis",
-      "icon": "assets/icon.ico"
-    },
-    "nsis": {
-      "oneClick": true,
-      "perMachine": false,
-      "allowElevation": true,
-      "deleteAppDataOnUninstall": false,
-      "differentialPackage": "store-asar"
-    },
-    "publish": {"provider": "github", "owner": "ispayevibr-ship-it", "repo": "ir-project"}
+    "appId":"com.irproject.app",
+    "productName":"IR Project",
+    "asar":true,
+    "artifactName":"IR-Project-Setup-${version}.${ext}",
+    "files":["main.js","preload.js","src/**/*","assets/**/*","package.json"],
+    "win":{"target":"nsis","icon":"assets/icon.ico"},
+    "nsis":{"oneClick":true,"perMachine":false,"allowElevation":true,"deleteAppDataOnUninstall":false}
   }
 }
