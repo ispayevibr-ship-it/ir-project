@@ -5,6 +5,6 @@ autoUpdater.autoInstallOnAppQuit = false;
 module.exports = {
   check: () => autoUpdater.checkForUpdates(),
   download: () => autoUpdater.downloadUpdate(),
-  install: () => autoUpdater.quitAndInstall(false, true),
+  install: () => autoUpdater.quitAndInstall(true, true),
   updater: autoUpdater
 };
