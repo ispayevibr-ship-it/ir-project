@@ -5,7 +5,8 @@ const fs = require("fs");
 const path = require("path");
 
 const logPath = path.join(app.getPath("userData"), "updater.log");
-const updaterCacheDir = path.join(app.getPath("localAppData"), "ir-project-updater");
+const localAppData = process.env.LOCALAPPDATA || path.dirname(app.getPath("userData"));
+const updaterCacheDir = path.join(localAppData, "ir-project-updater");
 const pendingDir = path.join(updaterCacheDir, "pending");
 
 function write(level, args) {
@@ -38,7 +39,7 @@ autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = false;
 autoUpdater.disableDifferentialDownload = false;
 
-write("info", ["IR Project updater started", `version=${app.getVersion()}`, `log=${logPath}`]);
+write("info", ["IR Project updater started", `version=${app.getVersion()}`, `log=${logPath}`, `cache=${updaterCacheDir}`]);
 
 module.exports = {
   check: () => {
