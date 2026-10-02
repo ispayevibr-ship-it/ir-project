@@ -2,6 +2,11 @@ name: Release Windows
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - package.json
 
 permissions:
   contents: write
@@ -33,17 +38,33 @@ jobs:
           "version=$version" >> $env:GITHUB_OUTPUT
           "tag=v$version" >> $env:GITHUB_OUTPUT
 
+      - name: Check release
+        id: release_check
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          gh release view "$env:TAG" *> $null
+          if ($LASTEXITCODE -eq 0) {
+            "exists=true" >> $env:GITHUB_OUTPUT
+          } else {
+            "exists=false" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
       - name: Build installer
+        if: steps.release_check.outputs.exists != 'true'
         run: npx electron-builder --win nsis --publish never
 
-      - name: Publish one release
+      - name: Publish release
+        if: steps.release_check.outputs.exists != 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}
           TAG: ${{ steps.version.outputs.tag }}
         run: |
-          gh release delete "$env:TAG" --cleanup-tag --yes 2>$null
           gh release create "$env:TAG" `
             "dist/IR Project Setup $env:VERSION.exe" `
             "dist/IR Project Setup $env:VERSION.exe.blockmap" `
