@@ -5,11 +5,27 @@ const fs = require("fs");
 const path = require("path");
 
 const logPath = path.join(app.getPath("userData"), "updater.log");
+const updaterCacheDir = path.join(app.getPath("localAppData"), "ir-project-updater");
+const pendingDir = path.join(updaterCacheDir, "pending");
+
 function write(level, args) {
   const text = args.map(v => typeof v === "string" ? v : JSON.stringify(v)).join(" ");
   const line = `[${new Date().toISOString()}] [${level}] ${text}\n`;
   try { fs.appendFileSync(logPath, line, "utf8"); } catch (_) {}
   console[level === "error" ? "error" : level === "warn" ? "warn" : "log"](text);
+}
+
+function cleanStalePendingCache() {
+  try {
+    if (!fs.existsSync(pendingDir)) return;
+    const entries = fs.readdirSync(pendingDir);
+    if (entries.length === 0) return;
+    write("info", ["Cleaning stale updater pending cache", pendingDir]);
+    fs.rmSync(pendingDir, { recursive: true, force: true });
+    fs.mkdirSync(pendingDir, { recursive: true });
+  } catch (error) {
+    write("warn", ["Could not clean updater pending cache", error && error.message ? error.message : String(error)]);
+  }
 }
 
 autoUpdater.logger = {
@@ -31,6 +47,7 @@ module.exports = {
   },
   download: () => {
     write("info", ["Manual update download", "differential=true"]);
+    cleanStalePendingCache();
     return autoUpdater.downloadUpdate();
   },
   install: () => {
