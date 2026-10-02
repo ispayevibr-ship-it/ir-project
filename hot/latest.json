@@ -1,6 +1,6 @@
 {
-  "version": "1.5.10",
+  "version": "1.5.12",
   "files": [
-    {"source":"src/company-profile.js","target":"src/company-profile.js"}
+    {"source":"src/styles.css","target":"src/styles.css"}
   ]
 }
