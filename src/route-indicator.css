@@ -1,0 +1,1 @@
+.route-indicator{position:fixed;left:12px;bottom:10px;z-index:9998;max-width:55vw;padding:5px 9px;border:1px solid #d7dde5;border-radius:7px;background:rgba(255,255,255,.94);box-shadow:0 2px 8px rgba(18,31,53,.06);color:#7a8592;font:10px/1.2 "Segoe UI",Arial,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
