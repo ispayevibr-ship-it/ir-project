@@ -1,4 +1,6 @@
 {
-  "version": "1.2.0",
-  "files": []
+  "version": "1.2.1",
+  "files": [
+    {"source":"src/profile-ui.js","target":"src/profile-ui.js","size":6800}
+  ]
 }
