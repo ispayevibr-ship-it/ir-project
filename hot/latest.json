@@ -1,4 +1,7 @@
 {
-  "version": "1.1.8",
-  "files": []
+  "version": "1.1.9",
+  "files": [
+    {"source":"src/access.js","target":"src/access.js","size":1424},
+    {"source":"src/profile-ui.js","target":"src/profile-ui.js","size":4200}
+  ]
 }
