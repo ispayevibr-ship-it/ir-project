@@ -1,0 +1,6 @@
+{
+  "version": "1.0.22",
+  "type": "lightweight",
+  "description": "Local access profiles: Administrator, Engineer, Guest",
+  "files": ["src/index.html","src/app.js","src/styles.css","src/access.js","src/profile-ui.js"]
+}
