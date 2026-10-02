@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="./object-card-actions.css">
   <link rel="stylesheet" href="./object-filters.css">
   <link rel="stylesheet" href="./marks-page.css">
+  <link rel="stylesheet" href="./route-indicator.css">
 </head>
 <body>
   <div class="window-titlebar"><div class="window-titlebar-name">IR Project <span id="titlebarVersion"></span></div><button id="titlebarUpdate" class="window-update" title="Проверить обновление" aria-label="Проверить обновление">↻</button></div>
@@ -20,6 +21,7 @@
   <script src="./profile-ui.js"></script>
   <script src="./company-profile.js"></script>
   <script src="./object-filters.js"></script>
+  <script src="./route-indicator.js"></script>
   <script>
     (async()=>{try{const v=await irProject.updater.version();document.getElementById('titlebarVersion').textContent='('+v+')'}catch{}})();
     document.getElementById('titlebarUpdate').onclick=async()=>{const b=document.getElementById('checkUpdate');if(b){b.click();return;}const btn=document.getElementById('titlebarUpdate');btn.disabled=true;try{const r=await irProject.updater.check(),remote=r&&r.updateInfo&&r.updateInfo.version,current=await irProject.updater.version();if(!remote||remote===current){alert('У вас установлена последняя версия IR Project '+current+'.');return;}if(!confirm('Доступна версия '+remote+'. Обновить IR Project?'))return;await irProject.updater.download();await irProject.updater.install();}catch(e){alert('Не удалось проверить обновление: '+(e&&e.message?e.message:e));}finally{btn.disabled=false;}};
