@@ -26,7 +26,7 @@
       "perMachine": false,
       "allowElevation": true,
       "deleteAppDataOnUninstall": false,
-      "differentialPackage": "store-asar"
+      "differentialPackage": true
     },
     "publish": {"provider": "github", "owner": "ispayevibr-ship-it", "repo": "ir-project"}
   }
