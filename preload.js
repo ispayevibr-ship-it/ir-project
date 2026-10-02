@@ -1,7 +1,7 @@
 "use strict";
 const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("irProject",{
- objects:{list:()=>ipcRenderer.invoke("objects:list"),get:id=>ipcRenderer.invoke("objects:get",id),create:data=>ipcRenderer.invoke("objects:create",data),selectImage:()=>ipcRenderer.invoke("objects:select-image")},
+ objects:{list:()=>ipcRenderer.invoke("objects:list"),get:id=>ipcRenderer.invoke("objects:get",id),create:data=>ipcRenderer.invoke("objects:create",data),update:(id,data)=>ipcRenderer.invoke("objects:update",{id,data}),delete:id=>ipcRenderer.invoke("objects:delete",id),selectImage:()=>ipcRenderer.invoke("objects:select-image")},
  sections:{get:objectId=>ipcRenderer.invoke("sections:get",objectId),set:(objectId,key,enabled)=>ipcRenderer.invoke("sections:set",{objectId,key,enabled})},
  access:{login:(role,password)=>ipcRenderer.invoke("access:login",{role,password})},
  backup:{create:()=>ipcRenderer.invoke("backup:create"),restore:()=>ipcRenderer.invoke("backup:restore")},
