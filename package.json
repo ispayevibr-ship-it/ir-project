@@ -1,6 +1,6 @@
 {
   "name": "ir-project",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "IR Project",
   "main": "main.js",
   "scripts": {
