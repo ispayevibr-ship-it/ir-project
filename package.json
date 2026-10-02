@@ -1,6 +1,6 @@
 {
   "name": "ir-project",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "IR Project",
   "main": "main.js",
   "scripts": {
@@ -25,7 +25,8 @@
       "oneClick": true,
       "perMachine": false,
       "allowElevation": true,
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "differentialPackage": "store-asar"
     },
     "publish": {"provider": "github", "owner": "ispayevibr-ship-it", "repo": "ir-project"}
   }
