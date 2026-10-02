@@ -1,5 +1,5 @@
 {
-  "version": "1.5.26",
+  "version": "1.5.27",
   "files": [
     {"source":"src/index.html","target":"src/index.html"},
     {"source":"src/object-filters.js","target":"src/object-filters.js"},
