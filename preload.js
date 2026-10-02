@@ -5,5 +5,5 @@ contextBridge.exposeInMainWorld("irProject",{
  sections:{get:objectId=>ipcRenderer.invoke("sections:get",objectId),set:(objectId,key,enabled)=>ipcRenderer.invoke("sections:set",{objectId,key,enabled})},
  access:{login:(role,password)=>ipcRenderer.invoke("access:login",{role,password})},
  backup:{create:()=>ipcRenderer.invoke("backup:create"),restore:()=>ipcRenderer.invoke("backup:restore")},
- updater:{check:()=>ipcRenderer.invoke("update:check"),download:()=>ipcRenderer.invoke("update:download"),install:()=>ipcRenderer.invoke("update:install"),onStatus:callback=>ipcRenderer.on("update:status",(_event,data)=>callback(data))}
+ updater:{check:()=>ipcRenderer.invoke("update:check"),download:()=>ipcRenderer.invoke("update:download"),install:()=>ipcRenderer.invoke("update:install"),version:()=>ipcRenderer.invoke("update:version"),onStatus:callback=>ipcRenderer.on("update:status",(_event,data)=>callback(data))}
 });
