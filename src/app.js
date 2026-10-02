@@ -1,12 +1,5 @@
 "use strict";
-const app = document.getElementById("app");
-function render() {
-  const route = location.hash.slice(1) || "/objects";
-  if (route !== "/objects") {
-    location.hash = "/objects";
-    return;
-  }
-  app.innerHTML = "<h1>Objects</h1>";
-}
-window.addEventListener("hashchange", render);
-render();
+const app=document.getElementById("app");
+const esc=v=>String(v??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+async function render(){const route=location.hash.slice(1)||"/objects";if(route!=="/objects"){location.hash="/objects";return;}const objects=await irProject.objects.list();app.innerHTML=`<div class="page-head"><h1>Objects</h1><button id="add">Добавить объект</button></div><div class="objects">${objects.map(o=>`<article><h2>${esc(o.name)}</h2><p>${esc(o.customer)}</p><p>${esc(o.address)}</p><strong>${esc(o.status)}</strong></article>`).join("")}</div><dialog id="formDialog"><form id="form"><h2>Добавить объект</h2><label>Название<input name="name" required></label><label>Заказчик<input name="customer" required></label><label>Адрес<input name="address" required></label><label>Статус<select name="status"><option>В работе</option><option>Завершен</option></select></label><label>Фото объекта<div><button type="button" id="photoButton">Выбрать</button><span id="photoName"></span></div></label><label>Баннер объекта<div><button type="button" id="bannerButton">Выбрать</button><span id="bannerName"></span></div></label><div class="actions"><button type="button" id="cancel">Отмена</button><button type="submit">Сохранить</button></div></form></dialog>`;let photo="",banner="";const d=document.getElementById("formDialog");add.onclick=()=>d.showModal();cancel.onclick=()=>d.close();photoButton.onclick=async()=>{photo=await irProject.objects.selectImage();photoName.textContent=photo?photo.split(/[\\/]/).pop():"";};bannerButton.onclick=async()=>{banner=await irProject.objects.selectImage();bannerName.textContent=banner?banner.split(/[\\/]/).pop():"";};form.onsubmit=async e=>{e.preventDefault();const f=new FormData(e.currentTarget);await irProject.objects.create({name:f.get("name"),customer:f.get("customer"),address:f.get("address"),status:f.get("status"),photo,banner});d.close();render();};}
+window.addEventListener("hashchange",render);render();
