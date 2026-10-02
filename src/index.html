@@ -11,5 +11,14 @@
   <script src="./access.js"></script>
   <script src="./app.js"></script>
   <script src="./profile-ui.js"></script>
+  <script>
+    setTimeout(() => {
+      const root = document.getElementById('app');
+      if (!root || root.children.length) return;
+      root.innerHTML = '<div style="max-width:560px;margin:80px auto;padding:28px;background:#fff;border:1px solid #e1e6ed;border-radius:14px;font-family:Segoe UI,Arial"><h2 style="margin:0 0 10px">IR Project не загрузил интерфейс</h2><p style="color:#66717e;line-height:1.5">Данные не затронуты. Можно проверить и установить исправление без переустановки программы.</p><button id="runtimeRepair" style="padding:10px 16px;border:0;border-radius:8px;background:#1769e0;color:#fff;cursor:pointer">Проверить исправление</button><p id="runtimeRepairStatus" style="font-size:12px;color:#66717e"></p></div>';
+      const btn=document.getElementById('runtimeRepair'),status=document.getElementById('runtimeRepairStatus');
+      btn.onclick=async()=>{btn.disabled=true;status.textContent='Проверяем обновление…';try{const r=await irProject.updater.check();const remote=r&&r.updateInfo&&r.updateInfo.version;status.textContent=remote?'Найдена версия '+remote+'. Скачиваем…':'Скачиваем исправление…';await irProject.updater.download();status.textContent='Готово. Перезапускаем IR Project…';await irProject.updater.install();}catch(e){status.textContent='Не удалось восстановить: '+(e&&e.message?e.message:e);btn.disabled=false;}};
+    },1200);
+  </script>
 </body>
 </html>
