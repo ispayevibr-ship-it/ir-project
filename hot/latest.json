@@ -1,5 +1,5 @@
 {
-  "version": "1.4.2",
+  "version": "1.4.3",
   "files": [
     {"source":"src/index.html","target":"src/index.html"},
     {"source":"src/access.js","target":"src/access.js"},
@@ -7,6 +7,7 @@
     {"source":"src/profile-ui.js","target":"src/profile-ui.js"},
     {"source":"src/styles.css","target":"src/styles.css"},
     {"source":"src/object-card-actions.js","target":"src/object-card-actions.js"},
-    {"source":"src/object-card-actions.css","target":"src/object-card-actions.css"}
+    {"source":"src/object-card-actions.css","target":"src/object-card-actions.css"},
+    {"source":"src/object-card-photo.js","target":"src/object-card-photo.js"}
   ]
 }
