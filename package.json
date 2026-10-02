@@ -18,6 +18,7 @@
   "build": {
     "appId": "com.irproject.app",
     "productName": "IR Project",
+    "artifactName": "IR-Project-Setup-${version}.${ext}",
     "files": ["main.js", "preload.js", "src/**/*", "package.json"],
     "win": {"target": "nsis"},
     "nsis": {"oneClick": false, "allowToChangeInstallationDirectory": true},
