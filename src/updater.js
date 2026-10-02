@@ -1,9 +1,10 @@
 "use strict";
 const { autoUpdater } = require("electron-updater");
 autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = false;
 module.exports = {
   check: () => autoUpdater.checkForUpdates(),
   download: () => autoUpdater.downloadUpdate(),
-  install: () => autoUpdater.quitAndInstall(),
+  install: () => autoUpdater.quitAndInstall(false, true),
   updater: autoUpdater
 };
