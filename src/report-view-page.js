@@ -8,7 +8,7 @@
  const dmy=v=>{const p=String(v||"").slice(0,10).split("-");return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:"—"};
  const canEdit=()=>window.irAccess?window.irAccess.canEdit("reports"):false;
  const reportData=r=>({id:String(r.id),record_type:r.record_type||"item",title:r.title||"",...(r.data||{})});
- const countPeople=r=>arr(r.workers||r.people).reduce((s,x)=>s+num(x.count??x.qty),0);
+ const countPeople=r=>{const workers=arr(r.workers).length?arr(r.workers):arr(r.people),responsible=arr(r.responsible).length?arr(r.responsible):arr(r.responsibles),workersCount=workers.reduce((s,x)=>s+num(x.count??x.qty),0),responsibleCount=responsible.reduce((s,x)=>{const explicit=num(x.count??x.qty);return s+(explicit>0?explicit:(String(x.name||x.role||"").trim()?1:0))},0);return workersCount+responsibleCount};
  const countEquipment=r=>arr(r.equipment).reduce((s,x)=>s+num(x.count??x.qty),0);
  const measure=()=>window.irMeasure||{meta:()=>({totalLabel:"Общий объём",itemLabel:"Объём 1 ед.",accent:"slate"}),totals:()=>[]};
  const tempText=v=>{if(v===""||v==null)return"Температура не указана";const n=num(v);return`${n>0?"+":""}${fmt(n)}°C`};
