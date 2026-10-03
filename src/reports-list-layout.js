@@ -6,59 +6,16 @@
  const fmt=v=>{const n=num(v);return Number.isInteger(n)?String(n):String(Number(n.toFixed(4))).replace(".",",")};
  const esc=v=>String(v??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
  const date=v=>{if(!v)return"—";const p=String(v).slice(0,10).split("-");return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:v};
+ const windText=v=>{const s=String(v??"").trim();if(!s)return"";return /(?:м\s*\/\s*с|m\s*\/\s*s)$/i.test(s)?s:`${s} м/с`};
  const oid=()=>location.hash.match(/^#?\/objects\/object\/(\d+)\/reports/)?.[1]||"";
  const icon=name=>{
-  const icons={
-   calendar:'<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M8 14l2 2 5-5"/>',
-   user:'<circle cx="12" cy="7" r="3"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/>',
-   equipment:'<circle cx="5" cy="19" r="2"/><circle cx="12" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M2 16h19v2H2zM4 16v-5h7v5M10 11h5l4 5h-8M11 11V8l7-5 2 2-6 6v5M19 5h2v7M21 12v2"/>',
-   image:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m5 17 4-4 3 3 2-2 5 3"/>',
-   copy:'<rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
-   edit:'<path d="M4 20h4l11-11-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/>',
-   trash:'<path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/>',
-   sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>',
-   cloud:'<path d="M6 18h11a4 4 0 0 0 .4-7.98A6 6 0 0 0 6.2 9.1 4.5 4.5 0 0 0 6 18z"/>',
-   rain:'<path d="M6 15h11a4 4 0 0 0 .4-7.98A6 6 0 0 0 6.2 6.1 4.5 4.5 0 0 0 6 15zM8 18l-1 3M13 18l-1 3M18 18l-1 3"/>',
-   snow:'<path d="M6 14h11a4 4 0 0 0 .4-7.98A6 6 0 0 0 6.2 5.1 4.5 4.5 0 0 0 6 14zM8 18h.01M13 19h.01M18 18h.01"/>',
-   storm:'<path d="M6 14h11a4 4 0 0 0 .4-7.98A6 6 0 0 0 6.2 5.1 4.5 4.5 0 0 0 6 14zM13 15l-3 5h3l-1 3 4-6h-3z"/>',
-   fog:'<path d="M4 8h16M2 12h20M5 16h14"/>'
-  };
+  if(name==="equipment")return '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="13" cy="51" r="6"/><circle cx="31" cy="51" r="6"/><circle cx="51" cy="51" r="6"/><path d="M5 45h48v6H5zM28 44V29l19-17 4 4-17 18v10M47 16h7v22M54 38v5"/><path d="M50 45a4 4 0 0 0 8 0M35 33h12l7 12H35zM38 36h6l4 7H38zM10 45V35h16v10"/></svg>';
+  const icons={calendar:'<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M8 14l2 2 5-5"/>',user:'<circle cx="12" cy="7" r="3"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/>',image:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m5 17 4-4 3 3 2-2 5 3"/>',copy:'<rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',edit:'<path d="M4 20h4l11-11-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/>',trash:'<path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/>',sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>',cloud:'<path d="M6 18h11a4 4 0 0 0 .4-7.98A6 6 0 0 0 6.2 9.1 4.5 4.5 0 0 0 6 18z"/>',rain:'<path d="M6 15h11a4 4 0 0 0 .4-7.98A6 6 0 0 0 6.2 6.1 4.5 4.5 0 0 0 6 15zM8 18l-1 3M13 18l-1 3M18 18l-1 3"/>',snow:'<path d="M6 14h11a4 4 0 0 0 .4-7.98A6 6 0 0 0 6.2 5.1 4.5 4.5 0 0 0 6 14zM8 18h.01M13 19h.01M18 18h.01"/>',storm:'<path d="M6 14h11a4 4 0 0 0 .4-7.98A6 6 0 0 0 6.2 5.1 4.5 4.5 0 0 0 6 14zM13 15l-3 5h3l-1 3 4-6h-3z"/>',fog:'<path d="M4 8h16M2 12h20M5 16h14"/>'};
   return `<svg viewBox="0 0 24 24" aria-hidden="true">${icons[name]||icons.cloud}</svg>`;
  };
  const weatherType=w=>({"Ясно":"sun","Облачно":"cloud","Дождь":"rain","Снег":"snow","Гроза":"storm","Туман":"fog"})[w]||"cloud";
  const reportData=r=>({id:String(r.id),...(r.data||{})});
- const groups=d=>{
-  const types=new Map();
-  for(const w of arr(d.items||d.works)){
-   const type=w.work_type||"Работа";
-   if(!types.has(type))types.set(type,new Map());
-   const code=w.project_code||"Без шифра",unit=w.unit||"",key=code+"|"+unit,byCode=types.get(type);
-   if(!byCode.has(key))byCode.set(key,{project_code:code,unit,volume:0});
-   byCode.get(key).volume+=num(w.volume)||num(w.qty)*num(w.unit_volume);
-  }
-  return [...types.entries()].map(([work_type,codes])=>({work_type,codes:[...codes.values()]}));
- };
- async function enhance(){
-  if(running)return;const id=oid(),list=document.querySelector(".reports-list");if(!id||!list||!document.querySelector(".reports-page"))return;
-  const key=id+":"+[...list.querySelectorAll(".report-row")].map(x=>x.dataset.reportId).join(",");
-  if(key===lastKey&&[...list.querySelectorAll(".report-row")].every(x=>x.dataset.referenceLayout==="1"))return;
-  running=true;
-  try{
-   const api=irProject.data.forObject(id).section("reports"),raw=await api.list().catch(()=>[]),map=new Map(raw.map(r=>[String(r.id),reportData(r)]));
-   const reportNo=new Map([...raw].sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0)).map((r,i)=>[String(r.id),i+1]));
-   for(const row of list.querySelectorAll(".report-row[data-report-id]")){
-    const r=map.get(String(row.dataset.reportId));if(!r)continue;
-    const people=arr(r.workers).reduce((s,x)=>s+num(x.count),0)+arr(r.people).reduce((s,x)=>s+num(x.count),0),equipment=arr(r.equipment).reduce((s,x)=>s+num(x.count),0),photos=arr(r.photos||r.reportPhotos).length,w=typeof r.weather==="string"?r.weather:(r.weather?.text||r.weather_text||"Не указана"),wind=String(r.wind||"").trim(),workGroups=groups(r);
-    const workHtml=workGroups.length?workGroups.map(g=>`<div class="reference-work-group"><strong>${esc(g.work_type)}</strong><div class="reference-work-codes">${g.codes.map(c=>`<span>${esc(c.project_code)} — ${fmt(c.volume)} ${esc(c.unit)}</span>`).join("")}</div></div>`).join(""):`<div class="reference-work-group"><strong>${esc(r.note||"Работы не указаны")}</strong></div>`;
-    const wt=weatherType(w),no=reportNo.get(String(r.id))||1;
-    row.classList.add("ir-reference-row");row.dataset.referenceLayout="1";
-    row.innerHTML=`<div class="report-cell report-cell-date"><span class="report-list-icon">${icon("calendar")}</span><div><b>${date(r.date||r.report_date)}</b><small>Отчёт №${no}</small></div></div><div class="report-cell report-cell-people"><span class="report-list-icon">${icon("user")}</span><div><b>${fmt(people)}</b><small>чел.</small></div></div><div class="report-cell report-cell-equipment"><span class="report-list-icon">${icon("equipment")}</span><div><b>${fmt(equipment)}</b><small>ед. техники</small></div></div><div class="report-cell report-cell-photo"><span class="report-list-icon">${icon("image")}</span><div><b>${fmt(photos)}</b><small>фото</small></div></div><div class="report-cell report-cell-weather weather-${wt}"><span class="report-list-icon">${icon(wt)}</span><div><b>${esc(w)}</b>${wind?`<small>≈ ${esc(wind)}</small>`:"<small>—</small>"}</div></div><div class="report-cell report-cell-work">${workHtml}</div><div class="report-cell report-cell-actions">${window.irAccess&&window.irAccess.canEdit("reports")?`<div class="report-actions"><button type="button" data-ref-copy="${r.id}" title="Копировать">${icon("copy")}</button><button type="button" data-ref-edit="${r.id}" title="Редактировать">${icon("edit")}</button><button type="button" data-ref-delete="${r.id}" class="report-delete" title="Удалить">${icon("trash")}</button></div>`:""}</div>`;
-    row.querySelector('[data-ref-edit]')?.addEventListener("click",e=>{e.stopPropagation();location.hash=`/objects/object/${id}/reports/${r.id}/edit`});
-    row.querySelector('[data-ref-copy]')?.addEventListener("click",e=>{e.stopPropagation();sessionStorage.setItem(`ir-report-copy-${id}`,JSON.stringify(r));location.hash=`/objects/object/${id}/reports/new`});
-    row.querySelector('[data-ref-delete]')?.addEventListener("click",async e=>{e.stopPropagation();if(!confirm(`Удалить ежедневный отчёт №${no}?`))return;await api.remove(r.id);if(window.irSyncMountedFromReports)await window.irSyncMountedFromReports(id);await window.irReportsPage(id)});
-   }
-   lastKey=key;
-  }catch(e){console.error("reports reference layout",e)}finally{running=false}
- }
+ const groups=d=>{const types=new Map();for(const w of arr(d.items||d.works)){const type=w.work_type||"Работа";if(!types.has(type))types.set(type,new Map());const code=w.project_code||"Без шифра",unit=w.unit||"",key=code+"|"+unit,byCode=types.get(type);if(!byCode.has(key))byCode.set(key,{project_code:code,unit,volume:0});byCode.get(key).volume+=num(w.volume)||num(w.qty)*num(w.unit_volume)}return [...types.entries()].map(([work_type,codes])=>({work_type,codes:[...codes.values()]}))};
+ async function enhance(){if(running)return;const id=oid(),list=document.querySelector(".reports-list");if(!id||!list||!document.querySelector(".reports-page"))return;const key=id+":"+[...list.querySelectorAll(".report-row")].map(x=>x.dataset.reportId).join(",");if(key===lastKey&&[...list.querySelectorAll(".report-row")].every(x=>x.dataset.referenceLayout==="1"))return;running=true;try{const api=irProject.data.forObject(id).section("reports"),raw=await api.list().catch(()=>[]),map=new Map(raw.map(r=>[String(r.id),reportData(r)])),reportNo=new Map([...raw].sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0)).map((r,i)=>[String(r.id),i+1]));for(const row of list.querySelectorAll(".report-row[data-report-id]")){const r=map.get(String(row.dataset.reportId));if(!r)continue;const people=arr(r.workers).reduce((s,x)=>s+num(x.count),0)+arr(r.people).reduce((s,x)=>s+num(x.count),0),equipment=arr(r.equipment).reduce((s,x)=>s+num(x.count),0),photos=arr(r.photos||r.reportPhotos).length,w=typeof r.weather==="string"?r.weather:(r.weather?.text||r.weather_text||"Не указана"),wind=windText(r.wind),workGroups=groups(r),workHtml=workGroups.length?workGroups.map(g=>`<div class="reference-work-group"><strong>${esc(g.work_type)}</strong><div class="reference-work-codes">${g.codes.map(c=>`<span>${esc(c.project_code)} — ${fmt(c.volume)} ${esc(c.unit)}</span>`).join("")}</div></div>`).join(""):`<div class="reference-work-group"><strong>${esc(r.note||"Работы не указаны")}</strong></div>`,wt=weatherType(w),no=reportNo.get(String(r.id))||1;row.classList.add("ir-reference-row");row.dataset.referenceLayout="1";row.innerHTML=`<div class="report-cell report-cell-date"><span class="report-list-icon">${icon("calendar")}</span><div><b>${date(r.date||r.report_date)}</b><small>Отчёт №${no}</small></div></div><div class="report-cell report-cell-people"><span class="report-list-icon">${icon("user")}</span><div><b>${fmt(people)}</b><small>чел.</small></div></div><div class="report-cell report-cell-equipment"><span class="report-list-icon">${icon("equipment")}</span><div><b>${fmt(equipment)}</b><small>ед. техники</small></div></div><div class="report-cell report-cell-photo"><span class="report-list-icon">${icon("image")}</span><div><b>${fmt(photos)}</b><small>фото</small></div></div><div class="report-cell report-cell-weather weather-${wt}"><span class="report-list-icon">${icon(wt)}</span><div><b>${esc(w)}</b>${wind?`<small>≈ ${esc(wind)}</small>`:"<small>—</small>"}</div></div><div class="report-cell report-cell-work">${workHtml}</div><div class="report-cell report-cell-actions">${window.irAccess&&window.irAccess.canEdit("reports")?`<div class="report-actions"><button type="button" data-ref-copy="${r.id}" title="Копировать">${icon("copy")}</button><button type="button" data-ref-edit="${r.id}" title="Редактировать">${icon("edit")}</button><button type="button" data-ref-delete="${r.id}" class="report-delete" title="Удалить">${icon("trash")}</button></div>`:""}</div>`;row.querySelector('[data-ref-edit]')?.addEventListener("click",e=>{e.stopPropagation();location.hash=`/objects/object/${id}/reports/${r.id}/edit`});row.querySelector('[data-ref-copy]')?.addEventListener("click",e=>{e.stopPropagation();sessionStorage.setItem(`ir-report-copy-${id}`,JSON.stringify(r));location.hash=`/objects/object/${id}/reports/new`});row.querySelector('[data-ref-delete]')?.addEventListener("click",async e=>{e.stopPropagation();if(!confirm(`Удалить ежедневный отчёт №${no}?`))return;await api.remove(r.id);if(window.irSyncMountedFromReports)await window.irSyncMountedFromReports(id);await window.irReportsPage(id)})}lastKey=key}catch(e){console.error("reports reference layout",e)}finally{running=false}}
  const mo=new MutationObserver(()=>setTimeout(enhance,0));mo.observe(document.documentElement,{subtree:true,childList:true});window.addEventListener("hashchange",()=>{lastKey="";setTimeout(enhance,0)});setTimeout(enhance,0);
 })();
