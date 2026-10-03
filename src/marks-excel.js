@@ -4,7 +4,8 @@ const path=require("path");
 const XLSX=require("xlsx");
 const clean=s=>String(s??"").trim().toLowerCase().replace(/ё/g,"е").replace(/²/g,"2").replace(/³/g,"3").replace(/\s+/g," ");
 const toNum=v=>{if(typeof v==="number")return Number.isFinite(v)?v:NaN;const s=String(v??"").trim().replace(/\s/g,"").replace(",",".");const n=Number(s);return Number.isFinite(n)?n:NaN};
-const pick=(row,names)=>{for(const [k,v] of Object.entries(row||{})){if(names.includes(clean(k)))return v}return""};
+const headerMatch=(header,name)=>header===name||header.startsWith(name+",")||header.startsWith(name+" (")||header.startsWith(name+" [");
+const pick=(row,names)=>{const normalized=names.map(clean);for(const [k,v] of Object.entries(row||{})){const header=clean(k);if(normalized.some(name=>headerMatch(header,name)))return v}return""};
 function parseWorkbook(file){
  const wb=XLSX.readFile(file,{cellDates:false,cellFormula:true}),sheet=wb.Sheets[wb.SheetNames[0]];
  if(!sheet)throw new Error("В Excel-файле нет листов");
