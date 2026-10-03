@@ -1,1 +1,1 @@
-{"version":"1.5.71","files":[{"source":"src/measurement-utils.js","target":"src/measurement-utils.js"}]}
+{"version":"1.5.72","files":[{"source":"src/index.html","target":"src/index.html"},{"source":"src/measurement-utils.js","target":"src/measurement-utils.js"},{"source":"src/wind-units.js","target":"src/wind-units.js"}]}
