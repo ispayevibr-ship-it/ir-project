@@ -1,1 +1,1 @@
-{"version":"1.5.80","files":[{"source":"src/index.html","target":"src/index.html"},{"source":"src/report-extra-sections.js","target":"src/report-extra-sections.js"},{"source":"src/report-extra-sections.css","target":"src/report-extra-sections.css"}]}
+{"version":"1.5.81","files":[{"source":"src/index.html","target":"src/index.html"},{"source":"src/report-extra-sections.js","target":"src/report-extra-sections.js"},{"source":"src/report-extra-sections.css","target":"src/report-extra-sections.css"},{"source":"src/report-people-total.js","target":"src/report-people-total.js"}]}
