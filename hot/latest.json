@@ -1,5 +1,5 @@
 {
-  "version": "1.5.43",
+  "version": "1.5.44",
   "files": [
     {"source":"src/index.html","target":"src/index.html"},
     {"source":"src/styles.css","target":"src/styles.css"},
@@ -10,6 +10,8 @@
     {"source":"src/marks-page.css","target":"src/marks-page.css"},
     {"source":"src/work-types-page.js","target":"src/work-types-page.js"},
     {"source":"src/work-types-page.css","target":"src/work-types-page.css"},
+    {"source":"src/reports-page.js","target":"src/reports-page.js"},
+    {"source":"src/reports-page.css","target":"src/reports-page.css"},
     {"source":"src/route-indicator.js","target":"src/route-indicator.js"},
     {"source":"src/route-indicator.css","target":"src/route-indicator.css"},
     {"source":"src/company-profile.js","target":"src/company-profile.js"},
