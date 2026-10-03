@@ -1,6 +1,8 @@
 "use strict";
 const {contextBridge,ipcRenderer}=require("electron");
-const section=(objectId,key)=>({list:()=>ipcRenderer.invoke("entity:list",{objectId,entity:key}),get:id=>ipcRenderer.invoke("entity:get",{objectId,entity:key,id}),create:data=>ipcRenderer.invoke("entity:create",{objectId,entity:key,data}),update:(id,data)=>ipcRenderer.invoke("entity:update",{objectId,entity:key,id,data}),remove:id=>ipcRenderer.invoke("entity:delete",{objectId,entity:key,id})});
+const markCollator=new Intl.Collator("ru",{numeric:true,sensitivity:"base"});
+const sortMarkRows=rows=>Array.isArray(rows)?[...rows].sort((a,b)=>markCollator.compare(String(a?.data?.mark??a?.title??a?.data?.title??""),String(b?.data?.mark??b?.title??b?.data?.title??""))):rows;
+const section=(objectId,key)=>({list:()=>ipcRenderer.invoke("entity:list",{objectId,entity:key}).then(rows=>key==="marks"?sortMarkRows(rows):rows),get:id=>ipcRenderer.invoke("entity:get",{objectId,entity:key,id}),create:data=>ipcRenderer.invoke("entity:create",{objectId,entity:key,data}),update:(id,data)=>ipcRenderer.invoke("entity:update",{objectId,entity:key,id,data}),remove:id=>ipcRenderer.invoke("entity:delete",{objectId,entity:key,id})});
 const objects={list:()=>ipcRenderer.invoke("objects:list"),get:id=>ipcRenderer.invoke("objects:get",id),create:data=>ipcRenderer.invoke("objects:create",data),update:(id,data)=>ipcRenderer.invoke("objects:update",{id,data}),remove:id=>ipcRenderer.invoke("objects:delete",id),selectImage:()=>ipcRenderer.invoke("objects:select-image")};
 const sections={get:id=>ipcRenderer.invoke("sections:get",id),set:(objectId,key,enabled)=>ipcRenderer.invoke("sections:set",{objectId,key,enabled}),create:(objectId,key,title,settings={})=>ipcRenderer.invoke("sections:create",{objectId,key,title,settings})};
 const company={get:()=>ipcRenderer.invoke("company:get"),save:data=>ipcRenderer.invoke("company:save",data),selectLogo:()=>ipcRenderer.invoke("company:select-logo")};
