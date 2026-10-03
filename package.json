@@ -1,10 +1,10 @@
 {
   "name": "ir-project",
-  "version": "1.5.79",
+  "version": "1.5.83",
   "description": "IR Project",
   "main": "main.js",
   "scripts": {"start":"electron .","build":"electron-builder --win nsis","publish":"electron-builder --win nsis --publish always"},
-  "dependencies": {},
+  "dependencies": {"xlsx":"^0.18.5"},
   "devDependencies": {"electron":"38.1.2","electron-builder":"26.17.0"},
   "build": {
     "appId":"com.irproject.app",
