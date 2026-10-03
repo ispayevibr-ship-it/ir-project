@@ -1,6 +1,6 @@
 "use strict";
 const {dialog}=require("electron");
-const path=require("path");
+const fs=require("fs"),path=require("path");
 const XLSX=require("xlsx");
 const clean=s=>String(s??"").trim().toLowerCase().replace(/ё/g,"е").replace(/²/g,"2").replace(/³/g,"3").replace(/\s+/g," ");
 const toNum=v=>{if(typeof v==="number")return Number.isFinite(v)?v:NaN;const s=String(v??"").trim().replace(/\s/g,"").replace(",",".");const n=Number(s);return Number.isFinite(n)?n:NaN};
@@ -25,10 +25,21 @@ function parseWorkbook(file){
  return{name:path.basename(file),rows};
 }
 async function select(win){const r=await dialog.showOpenDialog(win,{properties:["openFile"],filters:[{name:"Excel",extensions:["xlsx","xls"]}]});if(r.canceled||!r.filePaths[0])return null;return parseWorkbook(r.filePaths[0])}
+function nextFreeFile(file){
+ const dir=path.dirname(file),ext=path.extname(file)||".xlsx",base=path.basename(file,ext);
+ for(let i=2;i<1000;i++){const candidate=path.join(dir,`${base} (${i})${ext}`);if(!fs.existsSync(candidate))return candidate}
+ return path.join(dir,`${base} (${Date.now()})${ext}`);
+}
+function writeExample(wb,file){
+ try{XLSX.writeFile(wb,file);return file}catch(err){
+  if(!["EBUSY","EPERM","EACCES"].includes(err?.code))throw err;
+  const fallback=nextFreeFile(file);XLSX.writeFile(wb,fallback);return fallback;
+ }
+}
 async function saveExample(win){
  const r=await dialog.showSaveDialog(win,{defaultPath:"Пример_ведомости_марок.xlsx",filters:[{name:"Excel",extensions:["xlsx"]}]});if(r.canceled||!r.filePath)return false;
  const ws=XLSX.utils.aoa_to_sheet([["Марка","Наименование","Кол-во","Объём 1 ед.","Общий объём"],["М1","Колонна К1",4,0.245,0.98],["Б1","Балка Б1",2,0.138,0.276]]);
  ws["!cols"]=[{wch:18},{wch:32},{wch:12},{wch:18},{wch:18}];
- const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Ведомость");XLSX.writeFile(wb,r.filePath);return r.filePath;
+ const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Ведомость");return writeExample(wb,r.filePath);
 }
 module.exports={select,saveExample,parseWorkbook};
