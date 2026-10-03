@@ -1,0 +1,14 @@
+"use strict";
+(()=>{
+ let busy=false;
+ const getOid=()=>{const m=location.hash.match(/objects\/object\/([^/]+)/);return m?m[1]:null};
+ const getApi=()=>{const id=getOid();return id?irProject.data.forObject(id).section("reports"):null};
+ const records=async()=>{const api=getApi();if(!api)return[];const rows=await api.list().catch(()=>[]);return rows.map((r,i)=>({raw:r,id:r.id,title:r.title||"",...(r.data||{}),_sort:i})).sort((a,b)=>String(b.date||b.report_date||"").localeCompare(String(a.date||a.report_date||""))||b._sort-a._sort)};
+ async function refresh(){const id=getOid();if(id&&window.irReportsPage)await window.irReportsPage(id)}
+ async function enhance(){if(busy||!document.querySelector(".reports-page")||!document.querySelector("#reportNew"))return;const els=[...document.querySelectorAll(".report-row")];if(!els.length||els.every(x=>x.dataset.actionsReady))return;busy=true;try{const data=await records();els.forEach((row,i)=>{if(row.dataset.actionsReady)return;const rec=data[i];if(!rec)return;row.dataset.actionsReady="1";const side=row.querySelector(".report-side");if(!side)return;const actions=document.createElement("div");actions.className="report-actions";actions.innerHTML='<button type="button" class="report-action report-edit" title="Редактировать" aria-label="Редактировать">✎</button><button type="button" class="report-action report-copy" title="Копировать" aria-label="Копировать">⧉</button><button type="button" class="report-action report-delete" title="Удалить" aria-label="Удалить">⌫</button>';side.appendChild(actions);
+ actions.querySelector(".report-edit").onclick=async e=>{e.stopPropagation();const api=getApi();const current=await api.get(rec.id).catch(()=>rec.raw);const d=current?.data||rec;const nextDate=prompt("Дата отчёта (ГГГГ-ММ-ДД)",d.date||d.report_date||"");if(nextDate===null)return;const nextNote=prompt("Дополнительная информация",d.note||"");if(nextNote===null)return;await api.update(rec.id,{record_type:current?.record_type||"item",title:`Отчёт ${nextDate}`,data:{...d,date:nextDate,note:nextNote}});await refresh()};
+ actions.querySelector(".report-copy").onclick=async e=>{e.stopPropagation();const api=getApi();const current=await api.get(rec.id).catch(()=>rec.raw),d=current?.data||rec;await api.create({record_type:current?.record_type||"item",title:(current?.title||rec.title||"Отчёт")+" — копия",data:{...d}});await refresh()};
+ actions.querySelector(".report-delete").onclick=async e=>{e.stopPropagation();if(!confirm("Удалить этот ежедневный отчёт?"))return;await getApi().remove(rec.id);await refresh()};
+ })}catch(e){console.error("report actions",e)}finally{busy=false}}
+ const observer=new MutationObserver(()=>enhance());observer.observe(document.documentElement,{subtree:true,childList:true});window.addEventListener("hashchange",()=>setTimeout(enhance,50));setTimeout(enhance,50);
+})();
