@@ -1,7 +1,6 @@
 {
-  "version": "1.5.39",
+  "version": "1.5.40",
   "files": [
-    {"source":"src/marks-page.js","target":"src/marks-page.js"},
-    {"source":"src/marks-page.css","target":"src/marks-page.css"}
+    {"source":"src/object-filters.js","target":"src/object-filters.js"}
   ]
 }
