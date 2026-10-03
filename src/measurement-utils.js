@@ -14,7 +14,11 @@
  const valueOf=w=>num(w?.volume)||num(w?.qty??w?.count)*num(w?.unit_volume??w?.volume_one??w?.volume1);
  const totals=items=>{
   const map=new Map();
-  for(const w of Array.isArray(items)?items:[]){const unit=String(w?.unit||"").trim()||"ед.",key=clean(unit)||unit;if(!map.has(key))map.set(key,{unit,label:meta(unit).totalLabel,kind:meta(unit).kind,accent:meta(unit).accent,value:0});map.get(key).value+=valueOf(w)}
+  for(const w of Array.isArray(items)?items:[]){
+   const unit=String(w?.unit||"").trim()||"ед.",workType=String(w?.work_type||w?.type||"Работа").trim(),code=String(w?.project_code||w?.code||"Без шифра").trim(),m=meta(unit),key=[workType.toLowerCase(),code.toLowerCase(),clean(unit)||unit].join("|");
+   if(!map.has(key))map.set(key,{unit,workType,projectCode:code,label:`${m.totalLabel} · ${code}`,kind:m.kind,accent:m.accent,value:0});
+   map.get(key).value+=valueOf(w);
+  }
   return [...map.values()];
  };
  window.irMeasure={clean,meta,valueOf,totals};
