@@ -21,7 +21,7 @@
   const rows=[...list.querySelectorAll(':scope > .report-row')],total=rows.length,key=objectKey();
   if(!total){list.parentElement.querySelector(':scope > .reports-pagination')?.remove();return}
   const totalPages=Math.ceil(total/PAGE_SIZE);let page=pages.get(key)||1;if(page>totalPages)page=totalPages;if(page<1)page=1;pages.set(key,page);
-  rows.forEach((row,i)=>{row.style.display=totalPages<=1||Math.floor(i/PAGE_SIZE)+1===page?'':'none'});
+  rows.forEach((row,i)=>{const visible=totalPages<=1||Math.floor(i/PAGE_SIZE)+1===page;if(visible)row.style.removeProperty('display');else row.style.setProperty('display','none','important')});
   controls(list,total,page,totalPages);
   if(fromClick){document.querySelector('.reports-toolbar')?.scrollIntoView({block:'nearest'})}
  }
