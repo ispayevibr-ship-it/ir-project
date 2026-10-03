@@ -11,7 +11,7 @@
   const icons={
    calendar:'<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M8 14l2 2 5-5"/>',
    user:'<circle cx="12" cy="7" r="3"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/>',
-   equipment:'<path d="M3 17h12l2-5h-4l-2 3H8V8h3l2 3"/><path d="M8 8 6 5H3M15 17h3l2 2M5 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM17 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"/>',
+   equipment:'<path d="M3 17h12l2-4h3l1 4"/><path d="M6 17V12h6l2-3h2"/><path d="M14 9 20 4M19 4h2M18 6l3 3"/><path d="M5 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM17 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"/>',
    image:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m5 17 4-4 3 3 2-2 5 3"/>',
    copy:'<rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
    edit:'<path d="M4 20h4l11-11-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/>',
@@ -27,7 +27,17 @@
  };
  const weatherType=w=>({"Ясно":"sun","Облачно":"cloud","Дождь":"rain","Снег":"snow","Гроза":"storm","Туман":"fog"})[w]||"cloud";
  const reportData=r=>({id:String(r.id),...(r.data||{})});
- const groups=d=>{const m=new Map();for(const w of arr(d.items||d.works)){const k=[w.work_type||"Работа",w.project_code||"",w.unit||""].join("|");if(!m.has(k))m.set(k,{work_type:w.work_type||"Работа",project_code:w.project_code||"",unit:w.unit||"",volume:0});m.get(k).volume+=num(w.volume)||num(w.qty)*num(w.unit_volume)}return [...m.values()]};
+ const groups=d=>{
+  const types=new Map();
+  for(const w of arr(d.items||d.works)){
+   const type=w.work_type||"Работа";
+   if(!types.has(type))types.set(type,new Map());
+   const code=w.project_code||"Без шифра",unit=w.unit||"",key=code+"|"+unit,byCode=types.get(type);
+   if(!byCode.has(key))byCode.set(key,{project_code:code,unit,volume:0});
+   byCode.get(key).volume+=num(w.volume)||num(w.qty)*num(w.unit_volume);
+  }
+  return [...types.entries()].map(([work_type,codes])=>({work_type,codes:[...codes.values()]}));
+ };
  async function enhance(){
   if(running)return;const id=oid(),list=document.querySelector(".reports-list");if(!id||!list||!document.querySelector(".reports-page"))return;
   const key=id+":"+[...list.querySelectorAll(".report-row")].map(x=>x.dataset.reportId).join(",");
@@ -39,7 +49,7 @@
    for(const row of list.querySelectorAll(".report-row[data-report-id]")){
     const r=map.get(String(row.dataset.reportId));if(!r)continue;
     const people=arr(r.workers).reduce((s,x)=>s+num(x.count),0)+arr(r.people).reduce((s,x)=>s+num(x.count),0),equipment=arr(r.equipment).reduce((s,x)=>s+num(x.count),0),photos=arr(r.photos||r.reportPhotos).length,w=typeof r.weather==="string"?r.weather:(r.weather?.text||r.weather_text||"Не указана"),wind=String(r.wind||"").trim(),workGroups=groups(r);
-    const workHtml=workGroups.length?workGroups.map(g=>`<div class="reference-work"><strong>${esc(g.work_type)}</strong><span>${g.project_code?`${esc(g.project_code)} · `:""}${fmt(g.volume)} ${esc(g.unit)}</span></div>`).join(""):`<div class="reference-work"><strong>${esc(r.note||"Работы не указаны")}</strong></div>`;
+    const workHtml=workGroups.length?workGroups.map(g=>`<div class="reference-work-group"><strong>${esc(g.work_type)}</strong><div class="reference-work-codes">${g.codes.map(c=>`<span>${esc(c.project_code)} — ${fmt(c.volume)} ${esc(c.unit)}</span>`).join("")}</div></div>`).join(""):`<div class="reference-work-group"><strong>${esc(r.note||"Работы не указаны")}</strong></div>`;
     const wt=weatherType(w),no=reportNo.get(String(r.id))||1;
     row.classList.add("ir-reference-row");row.dataset.referenceLayout="1";
     row.innerHTML=`<div class="report-cell report-cell-date"><span class="report-list-icon">${icon("calendar")}</span><div><b>${date(r.date||r.report_date)}</b><small>Отчёт №${no}</small></div></div><div class="report-cell report-cell-people"><span class="report-list-icon">${icon("user")}</span><div><b>${fmt(people)}</b><small>чел.</small></div></div><div class="report-cell report-cell-equipment"><span class="report-list-icon">${icon("equipment")}</span><div><b>${fmt(equipment)}</b><small>ед. техники</small></div></div><div class="report-cell report-cell-photo"><span class="report-list-icon">${icon("image")}</span><div><b>${fmt(photos)}</b><small>фото</small></div></div><div class="report-cell report-cell-weather weather-${wt}"><span class="report-list-icon">${icon(wt)}</span><div><b>${esc(w)}</b>${wind?`<small>≈ ${esc(wind)}</small>`:"<small>—</small>"}</div></div><div class="report-cell report-cell-work">${workHtml}</div><div class="report-cell report-cell-actions">${window.irAccess&&window.irAccess.canEdit("reports")?`<div class="report-actions"><button type="button" data-ref-copy="${r.id}" title="Копировать">${icon("copy")}</button><button type="button" data-ref-edit="${r.id}" title="Редактировать">${icon("edit")}</button><button type="button" data-ref-delete="${r.id}" class="report-delete" title="Удалить">${icon("trash")}</button></div>`:""}</div>`;
