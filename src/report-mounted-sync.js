@@ -29,11 +29,18 @@
  window.irSyncMountedFromReports=syncMounted;
  const originalMarks=window.irMarksPage;
  if(typeof originalMarks==="function")window.irMarksPage=async oid=>{await syncMounted(oid);return originalMarks(oid)};
+ const originalReports=window.irReportsPage;
+ if(typeof originalReports==="function")window.irReportsPage=async(oid,route={})=>{await syncMounted(oid);return originalReports(oid,route)};
+ const style=document.createElement("style");
+ style.textContent=`.mark-results .mark-result-done{background:#ffe8e8!important;color:#9d2222!important;border-left:3px solid #d64545!important;cursor:not-allowed!important;opacity:.78}.mark-results .mark-result-done:hover{background:#ffe8e8!important}.mark-results .mark-result-done b,.mark-results .mark-result-done span,.mark-results .mark-result-done i{color:#9d2222!important}`;
+ document.head.appendChild(style);
+ const lockCompleted=()=>document.querySelectorAll(".mark-results .mark-result-done").forEach(b=>{b.disabled=true;b.setAttribute("aria-disabled","true");b.title="Марка смонтирована на 100%"});
+ const observer=new MutationObserver(lockCompleted);observer.observe(document.documentElement,{subtree:true,childList:true});
  const oidFromHash=()=>location.hash.match(/\/objects\/object\/(\d+)/)?.[1]||"";
  document.addEventListener("click",e=>{
   if(!e.target.closest(".report-delete"))return;
   const oid=oidFromHash();
-  setTimeout(()=>syncMounted(oid).catch(console.error),150);
+  setTimeout(()=>syncMounted(oid).catch(console.error),200);
  },true);
  window.addEventListener("hashchange",()=>{
   const oid=oidFromHash();
