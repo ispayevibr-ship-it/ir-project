@@ -1,0 +1,50 @@
+"use strict";
+(()=>{
+ let running=false,lastKey="";
+ const arr=v=>Array.isArray(v)?v:[];
+ const num=v=>Number(String(v??0).replace(",","."))||0;
+ const fmt=v=>{const n=num(v);return Number.isInteger(n)?String(n):String(Number(n.toFixed(4))).replace(".",",")};
+ const esc=v=>String(v??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+ const date=v=>{if(!v)return"—";const p=String(v).slice(0,10).split("-");return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:v};
+ const oid=()=>location.hash.match(/^#?\/objects\/object\/(\d+)\/reports/)?.[1]||"";
+ const icon=(name)=>{
+  const icons={
+   calendar:'<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M8 14l2 2 5-5"/>',
+   user:'<circle cx="12" cy="7" r="3"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/>',
+   crane:'<path d="M4 21h16M6 21V6h9M6 6h11l3 3M11 6V3h3v3M15 9v5M12 14h6l-1 4h-4z"/>',
+   image:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m5 17 4-4 3 3 2-2 5 3"/>',
+   sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>',
+   cloud:'<path d="M6 18h11a4 4 0 0 0 .4-7.98A6 6 0 0 0 6.2 9.1 4.5 4.5 0 0 0 6 18z"/>',
+   rain:'<path d="M6 15h11a4 4 0 0 0 .4-7.98A6 6 0 0 0 6.2 6.1 4.5 4.5 0 0 0 6 15zM8 18l-1 3M13 18l-1 3M18 18l-1 3"/>',
+   snow:'<path d="M6 14h11a4 4 0 0 0 .4-7.98A6 6 0 0 0 6.2 5.1 4.5 4.5 0 0 0 6 14zM8 18h.01M13 19h.01M18 18h.01"/>',
+   storm:'<path d="M6 14h11a4 4 0 0 0 .4-7.98A6 6 0 0 0 6.2 5.1 4.5 4.5 0 0 0 6 14zM13 15l-3 5h3l-1 3 4-6h-3z"/>',
+   fog:'<path d="M4 8h16M2 12h20M5 16h14"/>'
+  };
+  return `<svg viewBox="0 0 24 24" aria-hidden="true">${icons[name]||icons.cloud}</svg>`;
+ };
+ const weatherType=w=>({"Ясно":"sun","Облачно":"cloud","Дождь":"rain","Снег":"snow","Гроза":"storm","Туман":"fog"})[w]||"cloud";
+ const reportData=r=>({id:String(r.id),...(r.data||{})});
+ const groups=d=>{const m=new Map();for(const w of arr(d.items||d.works)){const k=[w.work_type||"Работа",w.project_code||"",w.unit||""].join("|");if(!m.has(k))m.set(k,{work_type:w.work_type||"Работа",project_code:w.project_code||"",unit:w.unit||"",volume:0});m.get(k).volume+=num(w.volume)||num(w.qty)*num(w.unit_volume)}return [...m.values()]};
+ async function enhance(){
+  if(running)return;const id=oid(),list=document.querySelector(".reports-list");if(!id||!list||!document.querySelector(".reports-page"))return;
+  const key=id+":"+[...list.querySelectorAll(".report-row")].map(x=>x.dataset.reportId).join(",");
+  if(key===lastKey&&[...list.querySelectorAll(".report-row")].every(x=>x.dataset.referenceLayout==="1"))return;
+  running=true;
+  try{
+   const api=irProject.data.forObject(id).section("reports"),raw=await api.list().catch(()=>[]),map=new Map(raw.map(r=>[String(r.id),reportData(r)]));
+   for(const row of list.querySelectorAll(".report-row[data-report-id]")){
+    const r=map.get(String(row.dataset.reportId));if(!r)continue;
+    const people=arr(r.workers).reduce((s,x)=>s+num(x.count),0)+arr(r.people).reduce((s,x)=>s+num(x.count),0),equipment=arr(r.equipment).reduce((s,x)=>s+num(x.count),0),photos=arr(r.photos||r.reportPhotos).length,w=typeof r.weather==="string"?r.weather:(r.weather?.text||r.weather_text||"Не указана"),wind=String(r.wind||"").trim(),workGroups=groups(r);
+    const workHtml=workGroups.length?workGroups.map(g=>`<div class="reference-work"><strong>${esc(g.work_type)}${g.project_code?` — ${esc(g.project_code)}`:""}</strong><span>${fmt(g.volume)} ${esc(g.unit)}</span></div>`).join(""):`<div class="reference-work"><strong>${esc(r.note||"Работы не указаны")}</strong></div>`;
+    const wt=weatherType(w);
+    row.classList.add("ir-reference-row");row.dataset.referenceLayout="1";
+    row.innerHTML=`<div class="report-cell report-cell-date"><span class="report-list-icon">${icon("calendar")}</span><div><b>${date(r.date||r.report_date)}</b><small>Отчёт #${esc(r.id)}</small></div></div><div class="report-cell report-cell-metric"><span class="report-list-icon">${icon("user")}</span><div><b>${fmt(people)}</b><small>чел.</small></div></div><div class="report-cell report-cell-metric"><span class="report-list-icon">${icon("crane")}</span><div><b>${fmt(equipment)}</b><small>ед. техники</small></div></div><div class="report-cell report-cell-metric"><span class="report-list-icon">${icon("image")}</span><div><b>${fmt(photos)}</b><small>фото</small></div></div><div class="report-cell report-cell-weather weather-${wt}"><span class="report-list-icon">${icon(wt)}</span><div><b>${esc(w)}</b>${wind?`<small>≈ ${esc(wind)}</small>`:"<small>—</small>"}</div></div><div class="report-cell report-cell-work">${workHtml}</div><div class="report-cell report-cell-actions">${window.irAccess&&window.irAccess.canEdit("reports")?`<div class="report-actions"><button type="button" data-ref-copy="${r.id}" title="Копировать">${icon("image")}</button><button type="button" data-ref-edit="${r.id}" title="Редактировать">✎</button><button type="button" data-ref-delete="${r.id}" class="report-delete" title="Удалить">⌫</button></div>`:""}</div>`;
+    row.querySelector('[data-ref-edit]')?.addEventListener("click",e=>{e.stopPropagation();location.hash=`/objects/object/${id}/reports/${r.id}/edit`});
+    row.querySelector('[data-ref-copy]')?.addEventListener("click",e=>{e.stopPropagation();sessionStorage.setItem(`ir-report-copy-${id}`,JSON.stringify(r));location.hash=`/objects/object/${id}/reports/new`});
+    row.querySelector('[data-ref-delete]')?.addEventListener("click",async e=>{e.stopPropagation();if(!confirm(`Удалить ежедневный отчёт #${r.id}?`))return;await api.remove(r.id);if(window.irSyncMountedFromReports)await window.irSyncMountedFromReports(id);await window.irReportsPage(id)});
+   }
+   lastKey=key;
+  }catch(e){console.error("reports reference layout",e)}finally{running=false}
+ }
+ const mo=new MutationObserver(()=>setTimeout(enhance,0));mo.observe(document.documentElement,{subtree:true,childList:true});window.addEventListener("hashchange",()=>{lastKey="";setTimeout(enhance,0)});setTimeout(enhance,0);
+})();
