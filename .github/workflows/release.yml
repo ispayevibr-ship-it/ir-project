@@ -59,8 +59,21 @@ jobs:
         if: steps.release_check.outputs.exists != 'true'
         run: npx electron-builder --win nsis --publish never
 
+      - name: Upload installer artifact
+        if: steps.release_check.outputs.exists != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: IR-Project-${{ steps.version.outputs.version }}
+          path: |
+            dist/IR-Project-Setup-${{ steps.version.outputs.version }}.exe
+            dist/IR-Project-Setup-${{ steps.version.outputs.version }}.exe.blockmap
+            dist/latest.yml
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Publish release
         if: steps.release_check.outputs.exists != 'true'
+        continue-on-error: true
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
