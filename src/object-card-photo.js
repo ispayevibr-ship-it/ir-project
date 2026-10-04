@@ -17,8 +17,9 @@
         const url=imageApi?.read?await imageApi.read(file):"";
         if(!url)continue;
         cover.style.backgroundImage=`linear-gradient(180deg,rgba(10,17,27,.08),rgba(10,17,27,.70)),url("${url}")`;
-        cover.style.backgroundSize="cover";
-        cover.style.backgroundPosition="center";
+        cover.style.backgroundSize="100% 100%,900px 155px";
+        cover.style.backgroundPosition="center,center";
+        cover.style.backgroundRepeat="no-repeat,no-repeat";
         cover.classList.add("has-object-photo");
       }catch(e){console.warn("Object cover:",e)}
     }
