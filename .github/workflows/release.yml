@@ -22,7 +22,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -78,7 +78,9 @@ jobs:
       - name: Publish hot update manifest
         shell: pwsh
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
           $index = Get-Content "src/index.html" -Raw
           $files = New-Object System.Collections.Generic.List[object]
@@ -96,7 +98,17 @@ jobs:
             Add-RuntimeFile ("src/" + $_.Groups[1].Value)
           }
 
-          $changed = @(git diff --name-only HEAD^ HEAD)
+          $releaseRows = @(gh release list --limit 30 --json tagName,publishedAt | ConvertFrom-Json)
+          $previousTag = ($releaseRows | Where-Object { $_.tagName -ne $env:TAG } | Select-Object -First 1).tagName
+          if ($previousTag) {
+            $base = gh release view "$previousTag" --json targetCommitish --jq '.targetCommitish'
+            Write-Host "Checking hot-update safety from $previousTag ($base) to HEAD"
+            $changed = @(git diff --name-only $base HEAD)
+          } else {
+            Write-Host "No previous release found; checking only current commit"
+            $changed = @(git diff --name-only HEAD^ HEAD)
+          }
+
           $unsafe = @()
           foreach ($path in $changed) {
             if ($path -eq "package.json") { continue }
