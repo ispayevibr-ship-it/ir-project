@@ -1,6 +1,6 @@
 {
   "name": "ir-project",
-  "version": "1.6.3",
+  "version": "1.6.4",
   "description": "IR Project",
   "main": "main.js",
   "scripts": {"start":"electron .","build":"electron-builder --win nsis","publish":"electron-builder --win nsis --publish always"},
