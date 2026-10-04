@@ -1,0 +1,41 @@
+/* Unified layout for every object section page except the object overview */
+body.ir-object-route:not(.ir-object-overview) #app{padding:15px!important;background:#f4f6f9!important}
+body.ir-object-route:not(.ir-object-overview) #app>.reports-page,
+body.ir-object-route:not(.ir-object-overview) #app>.report-form-page,
+body.ir-object-route:not(.ir-object-overview) #app>.marks-page,
+body.ir-object-route:not(.ir-object-overview) #app>.wt-page,
+body.ir-object-route:not(.ir-object-overview) #app>.schedule-page,
+body.ir-object-route:not(.ir-object-overview) #app>.section-unified-page{box-sizing:border-box!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important;color:#263b4a}
+
+/* One header system */
+.reports-titlebar,.report-form-head,.marks-top,.wt-head,.schedule-head,.section-unified-head{display:grid!important;grid-template-columns:auto minmax(0,1fr) auto!important;align-items:center!important;gap:14px!important;margin:0 0 15px!important;min-height:34px!important}
+.reports-titlebar h1,.report-form-head h1,.marks-top h1,.wt-head h1,.schedule-head h1,.section-unified-head h1{margin:0 0 3px!important;font-size:20px!important;line-height:1.2!important;font-weight:750!important;color:#18364b!important}
+.reports-titlebar p,.report-form-head p,.marks-top p,.wt-head p,.schedule-head p,.section-unified-head p{margin:0!important;color:#87919f!important;font-size:10px!important;line-height:1.35!important}
+.reports-titlebar .back,.report-form-head .back,.marks-top .back,.wt-head .back,.schedule-head .back,.section-unified-head .back{height:32px!important;min-height:32px!important;padding:0 10px!important;border:1px solid #d8e1e7!important;border-radius:7px!important;background:#fff!important;color:#536a7a!important;font-size:9px!important;font-weight:600!important;box-shadow:none!important}
+.reports-titlebar .back:hover,.report-form-head .back:hover,.marks-top .back:hover,.wt-head .back:hover,.schedule-head .back:hover,.section-unified-head .back:hover{background:#f5f8fa!important;border-color:#bdcbd5!important}
+.reports-titlebar .reports-new,.report-form-head .report-save,.wt-head>.primary,.schedule-head>.primary,.section-unified-head>.primary{height:34px!important;min-height:34px!important;padding:0 13px!important;border-radius:7px!important;font-size:9px!important;font-weight:700!important}
+
+/* One surface system */
+.reports-summary>div,.reports-toolbar,.reports-list,.report-form-section,.marks-stat,.marks-tools,.marks-table,.marks-work-card,.marks-unit-summary,.wt-list,.schedule-card,.section-unified-card{background:#fff!important;border:1px solid #dfe7ed!important;border-radius:9px!important;box-shadow:0 1px 4px rgba(23,54,77,.04)!important}
+.reports-summary,.marks-work-types,.marks-all-summary,.marks-stats,.reports-toolbar,.marks-tools{margin-bottom:10px!important}
+.wt-table-head,.marks-head,.schedule-table-head{background:#f3f6f8!important;color:#718392!important;font-size:9.5px!important}
+.wt-row,.marks-row,.schedule-row{border-color:#e7edf1!important}
+.wt-row:hover,.marks-row:hover,.schedule-row:hover{background:#f9fbfc!important}
+
+/* Empty states */
+.reports-empty,.wt-empty,.schedule-empty,.marks-table>.marks-empty,.section-unified-empty{box-sizing:border-box!important;min-height:120px!important;padding:44px 20px!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;color:#82909c!important;font-size:0!important;background:#fff!important}
+.reports-empty::after{content:"Раздел Ежедневные отчёты пуст";font-size:11px}
+.wt-empty::after{content:"Раздел Виды работ пуст";font-size:11px}
+.schedule-empty::after{content:"Раздел График работ пуст";font-size:11px}
+.marks-table>.marks-empty::after{content:"Раздел Ведомость марок пуст";font-size:11px}
+.marks-all-summary>.marks-empty{display:none!important}
+.section-unified-empty::after{content:attr(data-empty);font-size:11px}
+
+/* Generic section content */
+.section-unified-card{overflow:hidden}
+.section-unified-list{display:grid}
+.section-unified-row{display:grid;grid-template-columns:minmax(180px,1fr) auto;gap:12px;align-items:center;min-height:52px;padding:10px 14px;border-top:1px solid #e7edf1;background:#fff}
+.section-unified-row:first-child{border-top:0}.section-unified-row:hover{background:#f9fbfc}
+.section-unified-row b{font-size:11px;color:#263b4a}.section-unified-row span{font-size:9px;color:#87919f}
+
+@media(max-width:900px){body.ir-object-route:not(.ir-object-overview) #app{padding:15px!important}.reports-titlebar,.report-form-head,.marks-top,.wt-head,.schedule-head,.section-unified-head{grid-template-columns:auto minmax(0,1fr)!important}.reports-titlebar>:last-child:not(:nth-child(2)),.report-form-head>:last-child:not(:nth-child(2)),.wt-head>.primary,.schedule-head>.primary,.section-unified-head>.primary{grid-column:1/-1;justify-self:start}.reports-page,.report-form-page,.marks-page,.wt-page,.schedule-page,.section-unified-page{padding:0!important}}
