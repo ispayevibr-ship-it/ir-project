@@ -21,6 +21,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -72,3 +74,57 @@ jobs:
             --title "$env:VERSION" `
             --target "${{ github.sha }}" `
             --latest
+
+      - name: Publish hot update manifest
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $index = Get-Content "src/index.html" -Raw
+          $files = New-Object System.Collections.Generic.List[object]
+          $allowed = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+
+          function Add-RuntimeFile([string]$path) {
+            if (-not (Test-Path $path)) { throw "Runtime file not found: $path" }
+            if ($allowed.Add($path)) {
+              $files.Add([ordered]@{ source = $path; target = $path }) | Out-Null
+            }
+          }
+
+          Add-RuntimeFile "src/index.html"
+          [regex]::Matches($index, '(?:src|href)="\./([^"?]+)') | ForEach-Object {
+            Add-RuntimeFile ("src/" + $_.Groups[1].Value)
+          }
+
+          $changed = @(git diff --name-only HEAD^ HEAD)
+          $unsafe = @()
+          foreach ($path in $changed) {
+            if ($path -eq "package.json") { continue }
+            if (-not $allowed.Contains($path)) { $unsafe += $path }
+          }
+
+          if ($unsafe.Count -gt 0) {
+            Write-Host "Hot update skipped because non-runtime files changed: $($unsafe -join ', ')"
+            exit 0
+          }
+
+          $manifest = [ordered]@{
+            version = $env:VERSION
+            files = $files
+          } | ConvertTo-Json -Depth 5 -Compress
+
+          [System.IO.Directory]::CreateDirectory("hot") | Out-Null
+          [System.IO.File]::WriteAllText(
+            (Join-Path (Get-Location) "hot/latest.json"),
+            $manifest,
+            (New-Object System.Text.UTF8Encoding($false))
+          )
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hot/latest.json
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "Update hot manifest to $env:VERSION"
+            git push origin HEAD:main
+          }
