@@ -26,7 +26,7 @@
   }
   draw();
  };
- async function activate(){const oid=route();if(!oid)return;await window.irSchedulePage(oid)}
- window.addEventListener("hashchange",()=>setTimeout(activate,0));
- setTimeout(activate,0);
+ const baseSectionPage=typeof sectionPage==="function"?sectionPage:null;
+ if(baseSectionPage){sectionPage=async(id,key)=>key==="schedule"?window.irSchedulePage(id):baseSectionPage(id,key)}
+ const initial=route();if(initial)setTimeout(()=>window.irSchedulePage(initial),0);
 })();
