@@ -8,12 +8,13 @@
       if(card.dataset.photoReady==="1")continue;
       card.dataset.photoReady="1";
       try{
-        const objectId=card.dataset.object;
-        const photos=await root.forObject(objectId).section("photos").list();
+        const objectId=card.dataset.object,photosApi=root.forObject(objectId).section("photos");
+        const photos=await photosApi.list();
         const photo=photos.find(x=>x.record_type==="cover"||x.data?.photo_type==="cover");
-        const file=photo?.data?.file_path||photo?.data?.file||"";
+        let file=photo?.data?.file_path||photo?.data?.file||"";
         const cover=card.querySelector(".object-cover");
         if(!cover||!file)continue;
+        if(imageApi?.optimize&&photo){const optimized=await imageApi.optimize(file,"cover");if(optimized&&optimized!==file){file=optimized;await photosApi.update(photo.id,{record_type:photo.record_type||"cover",title:photo.title||"cover",data:{...(photo.data||{}),photo_type:"cover",file_path:file}})}}
         const url=imageApi?.read?await imageApi.read(file):"";
         if(!url)continue;
         cover.style.backgroundImage=`linear-gradient(180deg,rgba(10,17,27,.08),rgba(10,17,27,.70)),url("${url}")`;
