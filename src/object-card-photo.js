@@ -14,7 +14,7 @@
         let file=photo?.data?.file_path||photo?.data?.file||"";
         const cover=card.querySelector(".object-cover");
         if(!cover||!file)continue;
-        if(imageApi?.optimize&&photo){const optimized=await imageApi.optimize(file,"cover");if(optimized&&optimized!==file){file=optimized;await photosApi.update(photo.id,{record_type:photo.record_type||"cover",title:photo.title||"cover",data:{...(photo.data||{}),photo_type:"cover",file_path:file}})}}
+        if(imageApi?.optimize&&photo){const old=file,optimized=await imageApi.optimize(file,"cover");if(optimized&&optimized!==file){await photosApi.update(photo.id,{record_type:photo.record_type||"cover",title:photo.title||"cover",data:{...(photo.data||{}),photo_type:"cover",file_path:optimized}});file=optimized;if(imageApi.remove)await imageApi.remove(old)}}
         const url=imageApi?.read?await imageApi.read(file):"";
         if(!url)continue;
         cover.style.backgroundImage=`linear-gradient(180deg,rgba(10,17,27,.08),rgba(10,17,27,.70)),url("${url}")`;
