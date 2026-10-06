@@ -1,6 +1,6 @@
 "use strict";
 window.irAccess=(()=>{
- const KEYS=["reports","work-types","marks","schedule","photos","scheme","acted-days","penalties","finance"];
+ const KEYS=["reports","work-types","marks","deliveries","schedule","photos","scheme","acted-days","penalties","finance"];
  const defaults=()=>Object.fromEntries(KEYS.map(k=>[k,true]));
  function load(){try{const saved=JSON.parse(localStorage.getItem("ir-access"))||{};const savedRole=localStorage.getItem("ir-active-role");return {role:["admin","engineer","guest"].includes(savedRole)?savedRole:"guest",engineer:{...defaults(),...(saved.engineer||{})}}}catch{return {role:"guest",engineer:defaults()}}}
  function savePermissions(s){localStorage.setItem("ir-access",JSON.stringify({engineer:s.engineer}));return s}
