@@ -5,7 +5,11 @@
  const previous=typeof sectionPage==="function"?sectionPage:null;
  sectionPage=async(id,key)=>{
   if(key==="schedule"&&previous)return previous(id,key);
-  if(key==="deliveries"&&typeof window.irDeliveriesPage==="function")return window.irDeliveriesPage(id);
+  const deliveryMatch=String(key||"").match(/^deliveries(?:\?(.*))?$/);
+  if(deliveryMatch&&typeof window.irDeliveriesPage==="function"){
+   const params=new URLSearchParams(deliveryMatch[1]||"");
+   return window.irDeliveriesPage(id,{deliveryId:params.get("id")||"",page:Number(params.get("page")||1)});
+  }
   const o=await irProject.data.objects.get(id);if(!o){location.hash="/objects";return}
   const sections=await irProject.data.sections.get(id).catch(()=>[]),section=sections.find(x=>x.section_key===key);if(section&&!section.enabled){location.hash=`/objects/object/${id}`;return}
   document.body.classList.remove("ir-object-overview");
