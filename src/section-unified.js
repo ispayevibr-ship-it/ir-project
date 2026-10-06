@@ -8,7 +8,7 @@
   const deliveryMatch=String(key||"").match(/^deliveries(?:\?(.*))?$/);
   if(deliveryMatch&&typeof window.irDeliveriesPage==="function"){
    const params=new URLSearchParams(deliveryMatch[1]||"");
-   return window.irDeliveriesPage(id,{deliveryId:params.get("id")||"",page:Number(params.get("page")||1)});
+   return window.irDeliveriesPage(id,{deliveryId:params.get("id")||"",page:Number(params.get("page")||1),mode:params.get("mode")||""});
   }
   const o=await irProject.data.objects.get(id);if(!o){location.hash="/objects";return}
   const sections=await irProject.data.sections.get(id).catch(()=>[]),section=sections.find(x=>x.section_key===key);if(section&&!section.enabled){location.hash=`/objects/object/${id}`;return}
