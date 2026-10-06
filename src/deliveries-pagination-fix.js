@@ -1,7 +1,7 @@
 "use strict";
 (()=>{
  const PAGE_SIZE=15;
- let token=0;
+ let token=0,lastSig="";
  const route=()=>{
   const m=location.hash.match(/^#?\/objects\/object\/(\d+)\/deliveries(?:\?([^#]*))?$/);
   if(!m)return null;
@@ -47,8 +47,12 @@
   };
   setTimeout(run,20);
  }
- window.addEventListener("hashchange",schedule);
- const mo=new MutationObserver(()=>{if(route())schedule()});
- mo.observe(document.getElementById("app"),{childList:true,subtree:true});
+ window.addEventListener("hashchange",()=>{lastSig="";schedule()});
+ setInterval(()=>{
+  const r=route();if(!r)return;
+  const count=document.querySelectorAll(".delivery-list .delivery-row[data-delivery-id]").length;
+  const sig=`${location.hash}|${count}|${!!document.querySelector(".delivery-card")}`;
+  if(sig!==lastSig){lastSig=sig;schedule()}
+ },300);
  schedule();
 })();
