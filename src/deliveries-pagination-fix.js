@@ -14,8 +14,12 @@
   const r=route();if(!r)return false;
   const list=document.querySelector(".delivery-list");
   if(!list)return false;
-  const rows=[...list.querySelectorAll(".delivery-row[data-delivery-id]")];
-  if(!rows.length){document.querySelector(".delivery-pagination")?.remove();return true}
+  const allRows=[...list.querySelectorAll(".delivery-row[data-delivery-id]")];
+  if(!allRows.length){document.querySelectorAll(".delivery-pagination").forEach(x=>x.remove());return true}
+  const rows=allRows.filter(row=>row.dataset.filterMatch!=="0");
+  allRows.filter(row=>row.dataset.filterMatch==="0").forEach(row=>{row.hidden=true;row.style.display="none"});
+  document.querySelectorAll(".delivery-pagination").forEach(x=>x.remove());
+  if(!rows.length)return true;
   const totalPages=Math.max(1,Math.ceil(rows.length/PAGE_SIZE));
   const current=Math.min(totalPages,r.page);
   if(current!==r.page){location.hash=hashFor(r.oid,current);return true}
@@ -24,7 +28,6 @@
    row.hidden=!visible;
    row.style.display=visible?"":"none";
   });
-  document.querySelectorAll(".delivery-pagination").forEach(x=>x.remove());
   if(totalPages<=1)return true;
   const start=(current-1)*PAGE_SIZE+1,end=Math.min(current*PAGE_SIZE,rows.length);
   const wrap=document.createElement("div");wrap.className="delivery-pagination delivery-pagination-fixed";
@@ -48,10 +51,12 @@
   setTimeout(run,20);
  }
  window.addEventListener("hashchange",()=>{lastSig="";schedule()});
+ window.addEventListener("deliveries-filter-change",()=>{lastSig="";schedule()});
  setInterval(()=>{
   const r=route();if(!r)return;
-  const count=document.querySelectorAll(".delivery-list .delivery-row[data-delivery-id]").length;
-  const sig=`${location.hash}|${count}|${!!document.querySelector(".delivery-card")}`;
+  const rows=[...document.querySelectorAll(".delivery-list .delivery-row[data-delivery-id]")];
+  const matched=rows.filter(x=>x.dataset.filterMatch!=="0").length;
+  const sig=`${location.hash}|${rows.length}|${matched}|${!!document.querySelector(".delivery-card")}`;
   if(sig!==lastSig){lastSig=sig;schedule()}
  },300);
  schedule();
