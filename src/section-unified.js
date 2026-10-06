@@ -5,6 +5,7 @@
  const previous=typeof sectionPage==="function"?sectionPage:null;
  sectionPage=async(id,key)=>{
   if(key==="schedule"&&previous)return previous(id,key);
+  if(key==="deliveries"&&typeof window.irDeliveriesPage==="function")return window.irDeliveriesPage(id);
   const o=await irProject.data.objects.get(id);if(!o){location.hash="/objects";return}
   const sections=await irProject.data.sections.get(id).catch(()=>[]),section=sections.find(x=>x.section_key===key);if(section&&!section.enabled){location.hash=`/objects/object/${id}`;return}
   document.body.classList.remove("ir-object-overview");
