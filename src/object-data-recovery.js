@@ -62,7 +62,7 @@
  }
  window.irObjectDataRecovery={ensureObject,readRetry,readAny};
  const overviewId=()=>location.hash.match(/^#\/objects\/object\/(\d+)\/?$/)?.[1]||"";
- let busy=false,lastRefresh="";
+ let busy=false,lastRefresh="",lastRouteObject=overviewId();
  async function run(){
   const oid=overviewId();if(!oid||busy)return;busy=true;
   try{
@@ -75,6 +75,6 @@
    }
   }catch(e){console.error("IR object data recovery",e)}finally{busy=false}
  }
- window.addEventListener("hashchange",()=>{lastRefresh="";setTimeout(run,60)});
+ window.addEventListener("hashchange",()=>{const oid=overviewId();if(oid!==lastRouteObject){lastRefresh="";lastRouteObject=oid}setTimeout(run,60)});
  setTimeout(run,80);
 })();
