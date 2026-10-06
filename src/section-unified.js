@@ -5,6 +5,7 @@
  const previous=typeof sectionPage==="function"?sectionPage:null;
  sectionPage=async(id,key)=>{
   if(key==="schedule"&&previous)return previous(id,key);
+  if(key==="photos"&&typeof window.irPhotosPage==="function")return window.irPhotosPage(id);
   const deliveryMatch=String(key||"").match(/^deliveries(?:\?(.*))?$/);
   if(deliveryMatch&&typeof window.irDeliveriesPage==="function"){
    const params=new URLSearchParams(deliveryMatch[1]||"");
