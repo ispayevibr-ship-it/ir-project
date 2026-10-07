@@ -6,6 +6,7 @@ const DAY=86400000;
 const arr=v=>Array.isArray(v)?v:[];
 const num=v=>{const n=Number(String(v??"").trim().replace(/\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};
 const fmt=v=>{const n=num(v);return Number.isInteger(n)?String(n):String(Number(n.toFixed(4))).replace(".",",")};
+const norm=v=>String(v??"").trim().toLowerCase().replace(/\s+/g," ");
 const isoDate=v=>String(v||"").slice(0,10);
 const dateMs=v=>{const s=isoDate(v),t=s?Date.parse(`${s}T00:00:00Z`):NaN;return Number.isFinite(t)?t:null};
 const formatDate=v=>{if(!v)return"";const p=isoDate(v).split("-");return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:String(v)};
@@ -15,7 +16,7 @@ const todayMs=()=>{const n=new Date();return Date.UTC(n.getFullYear(),n.getMonth
 function scheduleDates(rows){const starts=[],ends=[];for(const row of arr(rows)){const d=row?.data||row||{};if(d.start_date)starts.push(isoDate(d.start_date));if(d.end_date)ends.push(isoDate(d.end_date))}starts.sort();ends.sort();return{start:starts[0]?formatDate(starts[0]):"",end:ends.length?formatDate(ends[ends.length-1]):""}}
 function markTotal(x){const d=x?.data||x||{},raw=d.total_value??d.total_volume;if(raw!==undefined&&raw!==null&&String(raw).trim()!=="")return num(raw);return num(d.qty??d.count)*num(d.unit_volume??d.volume_one)}
 function reportVolume(w){const raw=w?.volume??w?.total_volume;if(raw!==undefined&&raw!==null&&String(raw).trim()!=="")return num(raw);return num(w?.qty??w?.count??w?.quantity)*num(w?.unit_volume??w?.volume_one)}
-function workTypeMeta(rows){return new Map(arr(rows).map(r=>{const d=r.data||{};return[String(r.id),{id:String(r.id),name:d.work_type||r.title||"Без названия",code:d.project_code||"",unit:d.unit||"",accounting_type:d.accounting_type||"volume"}]}))}
+function workTypeMeta(rows){return new Map(arr(rows).map(r=>{const d=r.data||{};return[String(r.id),{id:String(r.id),name:d.work_type||r.title||"Без названия",code:d.project_code||"",unit:d.unit||"",accounting_type:(d.accounting_type==="service"||norm(d.unit)==="услуга")?"service":"volume"}]}))}
 function planByWork(marks){const map=new Map();for(const r of arr(marks)){const d=r.data||{},id=String(d.work_type_id||"");if(!id)continue;map.set(id,(map.get(id)||0)+markTotal(r))}return map}
 function factByWork(reports){const map=new Map(),days=new Map(),first=new Map();for(const r of arr(reports)){const d=r.data||r||{},day=isoDate(d.date||d.report_date);for(const w of arr(d.items||d.works)){const id=String(w.work_type_id||"");if(!id)continue;const v=reportVolume(w);if(v<=0)continue;map.set(id,(map.get(id)||0)+v);if(day){if(!days.has(id))days.set(id,new Set());days.get(id).add(day);const t=dateMs(day);if(t!==null&&(first.get(id)==null||t<first.get(id)))first.set(id,t)}}}return{map,days,first}}
 function controlRows(schedule,workTypes,marks,reports){
