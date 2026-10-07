@@ -11,12 +11,12 @@
   return{kind:"other",totalLabel:"Общий объём",itemLabel:"Объём 1 ед.",accent:"slate"};
  };
  const num=v=>Number(String(v??0).replace(",","."))||0;
- const valueOf=w=>num(w?.volume)||num(w?.qty??w?.count)*num(w?.unit_volume??w?.volume_one??w?.volume1);
+ const valueOf=w=>{const direct=num(w?.volume),q=num(w?.qty??w?.count),uv=num(w?.unit_volume??w?.volume_one??w?.volume1),hasMark=Boolean(String(w?.mark_id||w?.mark||"").trim());return direct||(uv?q*uv:(!hasMark?q:0))};
  const totals=items=>{
   const map=new Map();
   for(const w of Array.isArray(items)?items:[]){
-   const unit=String(w?.unit||"").trim()||"ед.",workType=String(w?.work_type||w?.type||"Работа").trim(),code=String(w?.project_code||w?.code||"Без шифра").trim(),m=meta(unit),key=[workType.toLowerCase(),code.toLowerCase(),clean(unit)||unit].join("|");
-   if(!map.has(key))map.set(key,{unit,workType,projectCode:code,label:`${m.totalLabel} · ${code}`,kind:m.kind,accent:m.accent,value:0});
+   const unit=String(w?.unit||"").trim()||"ед.",workType=String(w?.work_type||w?.type||"Работа").trim(),code=String(w?.project_code||w?.code||"").trim(),m=meta(unit),key=[workType.toLowerCase(),code.toLowerCase(),clean(unit)||unit].join("|");
+   if(!map.has(key))map.set(key,{unit,workType,projectCode:code,label:code?`${m.totalLabel} · ${code}`:m.totalLabel,kind:m.kind,accent:m.accent,value:0});
    map.get(key).value+=valueOf(w);
   }
   return [...map.values()];
