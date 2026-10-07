@@ -13,7 +13,7 @@
  const todayMs=()=>{const d=new Date();return Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())};
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const markTotal=x=>{const d=x?.data||x||{},raw=d.total_value??d.total_volume;if(raw!==undefined&&raw!==null&&String(raw).trim()!=="")return num(raw);return num(d.qty??d.count)*num(d.unit_volume??d.volume_one)};
- const reportVolume=w=>{const raw=w?.volume??w?.total_volume;if(raw!==undefined&&raw!==null&&String(raw).trim()!=="")return num(raw);return num(w?.qty??w?.count??w?.quantity)*num(w?.unit_volume??w?.volume_one)};
+ const reportVolume=w=>{const raw=w?.volume??w?.total_volume,q=num(w?.qty??w?.count??w?.quantity),hasMark=Boolean(String(w?.mark_id||w?.mark||"").trim());if(raw!==undefined&&raw!==null&&String(raw).trim()!==""){const v=num(raw);return v||(!hasMark?q:0)}const uv=num(w?.unit_volume??w?.volume_one);return uv?q*uv:(!hasMark?q:0)};
  window.irSchedulePage=async oid=>{
   document.body.classList.remove("ir-object-overview");
   const app=document.getElementById("app"),o=await irProject.data.objects.get(oid);if(!app||!o)return;
@@ -22,10 +22,11 @@
   const canEdit=()=>window.irAccess?window.irAccess.canEdit("schedule"):false;
   const sortRows=()=>rows.sort((a,b)=>String(a.data?.start_date||"").localeCompare(String(b.data?.start_date||""))||Number(a.id)-Number(b.id));
   const optionText=w=>{const d=w.data||{},service=d.accounting_type==="service"||norm(d.unit)==="услуга";return `${d.work_type||w.title||"Без названия"}${service?" · Услуга":d.project_code?` · ${d.project_code}`:""}`};
-  const catalog=()=>arr(workTypes).map(w=>{const d=w.data||{};return{id:String(w.id),name:d.work_type||w.title||"Без названия",code:d.project_code||"",unit:d.unit||"",accounting_type:(d.accounting_type==="service"||norm(d.unit)==="услуга")?"service":"volume"}});
+  const catalog=()=>arr(workTypes).map(w=>{const d=w.data||{},service=d.accounting_type==="service"||norm(d.unit)==="услуга",explicitMarked=d.has_marks===true||["installation","fabrication"].includes(d.work_category),has_marks=!service&&(explicitMarked||(!d.work_category&&d.has_marks!==false&&(norm(d.work_type||w.title).includes("монтаж")||norm(d.work_type||w.title).includes("изготов")||arr(marks).some(m=>String(m.data?.work_type_id||"")===String(w.id)))));return{id:String(w.id),name:d.work_type||w.title||"Без названия",code:d.project_code||"",unit:d.unit||"",accounting_type:service?"service":"volume",has_marks,planned_volume:num(d.planned_volume??d.plan_volume)}});
   const resolveWork=(rawId,name,code)=>{const list=catalog(),id=String(rawId||""),byId=list.find(x=>x.id===id);if(byId){const nameOk=!name||norm(byId.name)===norm(name),codeOk=!code||!byId.code||norm(byId.code)===norm(code);if(nameOk&&codeOk)return byId}let hit=list.find(x=>norm(x.name)===norm(name)&&norm(x.code)===norm(code));if(!hit&&code){const a=list.filter(x=>norm(x.code)===norm(code));if(a.length===1)hit=a[0]}if(!hit&&name){const a=list.filter(x=>norm(x.name)===norm(name));if(a.length===1)hit=a[0]}return hit||{id,name:name||"Без названия",code:code||"",unit:""}};
   function analysisMaps(){
    const plans=new Map(),facts=new Map(),days=new Map(),first=new Map();
+   for(const w of catalog())if(w.accounting_type!=="service"&&!w.has_marks&&w.planned_volume>0)plans.set(w.id,w.planned_volume);
    for(const r of arr(marks)){const d=r.data||{},m=resolveWork(d.work_type_id,d.work_type,d.project_code);if(!m?.id||m.accounting_type==="service")continue;plans.set(m.id,(plans.get(m.id)||0)+markTotal(r))}
    for(const r of arr(reports)){const d=r.data||r,day=iso(d.date||d.report_date);for(const w of arr(d.items||d.works)){const m=resolveWork(w.work_type_id,w.work_type||w.type,w.project_code||w.code);if(!m?.id||m.accounting_type==="service"||w.accounting_type==="service"||w.is_service===true||norm(w.unit)==="услуга")continue;const v=reportVolume(w);if(v<=0)continue;facts.set(m.id,(facts.get(m.id)||0)+v);if(day){if(!days.has(m.id))days.set(m.id,new Set());days.get(m.id).add(day);const t=dateMs(day);if(t!==null&&(first.get(m.id)==null||t<first.get(m.id)))first.set(m.id,t)}}}
    return{plans,facts,days,first}
@@ -47,7 +48,7 @@
    const firstMs=maps.first.get(id),calendarDays=firstMs!=null?Math.max(1,Math.floor((Math.max(firstMs,today)-firstMs)/DAY)+1):0,calendarRate=calendarDays?fact/calendarDays:0;
    let forecast="Нет темпа",forecastMs=null;if(plan<=0)forecast="Нет плана";else if(remain<=1e-9){forecast="Завершено";forecastMs=today}else if(calendarRate>0){forecastMs=today+Math.ceil(remain/calendarRate)*DAY;forecast=fmt(new Date(forecastMs).toISOString().slice(0,10))}
    let tone="neutral",status="Не начато",note="Фактические объёмы ещё не отражены в ежедневных отчётах.";
-   if(plan<=0){status="Нет плана";note="В ведомости марок нет планового объёма для этого вида работ."}
+   if(plan<=0){status="Нет плана";note=m.has_marks?"В ведомости марок нет планового объёма для этого вида работ.":"Не указан объём выполняемой работы."}
    else if(factPct>=99.999){tone="good";status="Выполнено";note="Плановый объём выполнен."}
    else if(end!==null&&today>end&&remain>0){tone="bad";status="Срок истёк";note=`До выполнения плана осталось ${nfmt(remain)} ${unit}; плановый срок уже завершён.`}
    else if(start!==null&&today<start){status="Ещё не начато";note=`Работы по графику начинаются ${fmt(d.start_date)}.`}
