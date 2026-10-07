@@ -15,7 +15,7 @@
   let [markRows,workRows,reportRows,deliveryRows]=await Promise.all([marksApi.list().catch(()=>[]),wtApi.list().catch(()=>[]),reportsApi.list().catch(()=>[]),deliveriesApi.list().catch(()=>[])]),active="all",query="",statusFilter="all",page=1,usage=new Map(),usageDetails=new Map(),excelRows=null,excelFile="";const pageSize=20;
   const canEdit=()=>window.irAccess?window.irAccess.canEdit("marks"):false;
   const workTypes=()=>workRows.filter(r=>(r.data?.accounting_type||"volume")!=="service").map(r=>({id:String(r.id),name:r.data?.work_type||r.title||"Без названия",code:r.data?.project_code||"",unit:r.data?.unit||""}));
-  const items=()=>markRows.map(x=>({id:String(x.id),...(x.data||{}),title:x.title||x.data?.title||""}));
+  const items=()=>{const allowed=new Set(workTypes().map(w=>w.id));return markRows.map(x=>({id:String(x.id),...(x.data||{}),title:x.title||x.data?.title||""})).filter(x=>!x.work_type_id||allowed.has(String(x.work_type_id)))};
   const countFor=id=>items().filter(x=>String(x.work_type_id||"")===String(id)).length;
   const state=x=>{const q=num(x.qty??x.count),d=Math.min(q,num(x.mounted??x.done));return q>0&&d>=q?"done":d>0?"partial":"left"};
   const markTotal=x=>{const raw=x?.total_value??x?.total_volume;if(raw!==undefined&&raw!==null&&String(raw).trim()!==""){const n=parseNum(raw);if(Number.isFinite(n))return n}return num(x?.qty??x?.count)*num(x?.unit_volume??x?.volume_one)};
