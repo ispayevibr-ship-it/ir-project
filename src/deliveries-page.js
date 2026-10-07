@@ -16,7 +16,7 @@
   let [raw,workRows,markRows]=await Promise.all([api.list().catch(()=>[]),wtApi.list().catch(()=>[]),marksApi.list().catch(()=>[])]),selectedId="";
   const canEdit=()=>window.irAccess?window.irAccess.canEdit("deliveries"):false;
   const rows=()=>raw.map(record).sort((a,b)=>String(b.date||b.delivery_date||"").localeCompare(String(a.date||a.delivery_date||""))||Number(b.id)-Number(a.id));
-  const workTypes=()=>arr(workRows).filter(r=>(r.data?.accounting_type||"")!=="service"&&norm(r.data?.unit)!=="услуга").map(r=>({id:String(r.id),name:r.data?.work_type||r.title||"Без названия",code:r.data?.project_code||"",unit:r.data?.unit||""}));
+  const workTypes=()=>arr(workRows).filter(r=>{const d=r.data||{},service=(d.accounting_type||"")==="service"||norm(d.unit)==="услуга";if(service||d.has_marks===false||d.work_category==="other")return false;if(d.has_marks===true||["installation","fabrication"].includes(d.work_category))return true;const id=String(r.id),name=norm(d.work_type||r.title||"");return name.includes("монтаж")||name.includes("изготов")||arr(markRows).some(m=>String(m.data?.work_type_id||"")===id)}).map(r=>{const d=r.data||{};return{id:String(r.id),name:d.work_type||r.title||"Без названия",code:d.project_code||"",unit:d.unit||""}});
   const serviceWorkIds=()=>new Set(arr(workRows).filter(r=>(r.data?.accounting_type||"")==="service"||norm(r.data?.unit)==="услуга").map(r=>String(r.id)));
   const isServiceItem=x=>x?.accounting_type==="service"||x?.is_service===true||norm(x?.unit)==="услуга"||serviceWorkIds().has(String(x?.work_type_id||""));
   const deliveryItems=r=>itemsOf(r).filter(x=>!isServiceItem(x));
