@@ -57,9 +57,21 @@
   }catch{return{error:true}}
  }
  function weatherHtml(w,address){
-  if(!w)return`<section class="oos-card oos-weather"><div class="oos-weather-loading"><span>Погода сегодня</span><b>Загрузка…</b><small>${esc(address||"Адрес объекта не указан")}</small></div></section>`;
-  if(w.error)return`<section class="oos-card oos-weather"><div class="oos-weather-loading"><span>Погода сегодня</span><b>Нет данных</b><small>Не удалось получить погоду по адресу объекта</small></div></section>`;
-  return`<section class="oos-card oos-weather"><div class="oos-weather-main"><div class="oos-weather-title"><span>Погода сегодня</span><small>${esc(w.place||"")}</small></div><div class="oos-weather-current"><i>${w.icon}</i><div><b>${w.temp>0?"+":""}${w.temp} °C</b><span>${esc(w.text)}</span></div></div></div><div class="oos-weather-meta"><span>Ветер <b>${esc(w.wind)} м/с</b></span><span>Осадки <b>${esc(w.precip)} мм</b></span></div></section>`;
+  if(!w)return`<section class="oos-card oos-weather oos-weather-cloud"><div class="oos-weather-loading"><span>Погода сегодня</span><b>Загрузка…</b><small>${esc(address||"Адрес объекта не указан")}</small></div></section>`;
+  if(w.error)return`<section class="oos-card oos-weather oos-weather-cloud"><div class="oos-weather-loading"><span>Погода сегодня</span><b>Нет данных</b><small>Не удалось получить погоду по адресу объекта</small></div></section>`;
+  const kind=/ясно/i.test(w.text)?"sun":/гроз/i.test(w.text)?"storm":/снег/i.test(w.text)?"snow":/дожд|ливень|морось/i.test(w.text)?"rain":/туман/i.test(w.text)?"fog":/облач|пасмур/i.test(w.text)?"cloud":"sun";
+  const wind=Number(w.wind)||0,windTone=wind>=15?" danger":wind>=10?" warn":"";
+  return`<section class="oos-card oos-weather oos-weather-${kind}">
+   <span class="oos-weather-orb orb-one"></span><span class="oos-weather-orb orb-two"></span>
+   <div class="oos-weather-main">
+    <div class="oos-weather-title"><span>Погода сегодня</span><small>${esc(w.place||"")}</small></div>
+    <div class="oos-weather-current"><div class="oos-weather-icon"><i>${w.icon}</i></div><div class="oos-weather-temp"><b>${w.temp>0?"+":""}${w.temp}°</b><span>${esc(w.text)}</span></div></div>
+   </div>
+   <div class="oos-weather-meta">
+    <span class="oos-weather-chip${windTone}"><small>Ветер</small><b>${esc(w.wind)} м/с</b></span>
+    <span class="oos-weather-chip"><small>Осадки</small><b>${esc(w.precip)} мм</b></span>
+   </div>
+  </section>`;
  }
  async function renderOnce(){
   const oid=objectId();if(!oid)return true;
