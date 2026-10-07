@@ -54,7 +54,7 @@
   const [raw,workRows,markRows]=await Promise.all([api.list().catch(()=>[]),wtApi.list().catch(()=>[]),marksApi.list().catch(()=>[])]),records=raw.map(record),editing=route.mode==="edit",editId=editing?String(route.deliveryId||""):"",current=editing?records.find(x=>String(x.id)===editId):null;
   if(editing&&!current){location.hash=baseHash(oid);return}
   const canEdit=()=>window.irAccess?window.irAccess.canEdit("deliveries"):false;if(!canEdit()){location.hash=editing?detailHash(oid,editId):baseHash(oid);return}
-  const workTypes=()=>arr(workRows).map(r=>({id:String(r.id),name:r.data?.work_type||r.title||"Без названия",code:r.data?.project_code||"",unit:normUnit(r.data?.unit||"")}));
+  const workTypes=()=>arr(workRows).filter(r=>(r.data?.accounting_type||"volume")!=="service").map(r=>({id:String(r.id),name:r.data?.work_type||r.title||"Без названия",code:r.data?.project_code||"",unit:normUnit(r.data?.unit||"")}));
   const marks=()=>arr(markRows).map(r=>({id:String(r.id),record_type:r.record_type||"item",title:r.title||"",...(r.data||{})}));
   const deliveredMap=excludeId=>{const map={};for(const r of records){if(excludeId&&String(r.id)===String(excludeId))continue;for(const x of itemsOf(r)){const mid=String(x.mark_id||"");if(mid)map[mid]=(map[mid]||0)+num(x.qty??x.count??x.quantity)}}return map};
   const delivered=deliveredMap(editId);
