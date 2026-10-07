@@ -21,7 +21,7 @@
   let [rows,workTypes,marks,reports]=await Promise.all([scheduleApi.list().catch(()=>[]),workApi.list().catch(()=>[]),marksApi.list().catch(()=>[]),reportsApi.list().catch(()=>[])]);
   const canEdit=()=>window.irAccess?window.irAccess.canEdit("schedule"):false;
   const sortRows=()=>rows.sort((a,b)=>String(a.data?.start_date||"").localeCompare(String(b.data?.start_date||""))||Number(a.id)-Number(b.id));
-  const optionText=w=>{const d=w.data||{},service=(d.accounting_type||"volume")==="service";return `${d.work_type||w.title||"Без названия"}${service?" · Услуга":d.project_code?` · ${d.project_code}`:""}`};
+  const optionText=w=>{const d=w.data||{},service=d.accounting_type==="service"||norm(d.unit)==="услуга";return `${d.work_type||w.title||"Без названия"}${service?" · Услуга":d.project_code?` · ${d.project_code}`:""}`};
   const catalog=()=>arr(workTypes).map(w=>{const d=w.data||{};return{id:String(w.id),name:d.work_type||w.title||"Без названия",code:d.project_code||"",unit:d.unit||"",accounting_type:(d.accounting_type==="service"||norm(d.unit)==="услуга")?"service":"volume"}});
   const resolveWork=(rawId,name,code)=>{const list=catalog(),id=String(rawId||""),byId=list.find(x=>x.id===id);if(byId){const nameOk=!name||norm(byId.name)===norm(name),codeOk=!code||!byId.code||norm(byId.code)===norm(code);if(nameOk&&codeOk)return byId}let hit=list.find(x=>norm(x.name)===norm(name)&&norm(x.code)===norm(code));if(!hit&&code){const a=list.filter(x=>norm(x.code)===norm(code));if(a.length===1)hit=a[0]}if(!hit&&name){const a=list.filter(x=>norm(x.name)===norm(name));if(a.length===1)hit=a[0]}return hit||{id,name:name||"Без названия",code:code||"",unit:""}};
   function analysisMaps(){
