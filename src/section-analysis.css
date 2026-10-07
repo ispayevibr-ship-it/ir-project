@@ -1,0 +1,17 @@
+.acted-analysis,.penalty-analysis{margin:0 0 12px;padding:14px;border:1px solid #dfe7ed;border-radius:10px;background:#fff;box-shadow:0 1px 4px rgba(23,54,77,.04)}
+.acted-analysis .analysis-head,.penalty-analysis .analysis-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:12px}
+.acted-analysis .analysis-head h2,.penalty-analysis .analysis-head h2{margin:0 0 3px;color:#18364b;font-size:13px}
+.acted-analysis .analysis-head p,.penalty-analysis .analysis-head p{margin:0;color:#87919f;font-size:8px}
+.acted-analysis .analysis-head>span,.penalty-analysis .analysis-head>span{color:#607482;font-size:8px;font-weight:700}
+.acted-analysis .analysis-list,.penalty-analysis .analysis-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px}
+.acted-analysis .analysis-row,.penalty-analysis .analysis-row{min-width:0;padding:9px 10px;border:1px solid #e7edf1;border-radius:8px;background:#fbfcfd}
+.acted-analysis .analysis-row-top,.penalty-analysis .analysis-row-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:7px}
+.acted-analysis .analysis-row-top>div,.penalty-analysis .analysis-row-top>div{min-width:0}
+.acted-analysis .analysis-row-top b,.penalty-analysis .analysis-row-top b{display:block;overflow:hidden;text-overflow:ellipsis;color:#294356;font-size:9px;font-weight:750;line-height:1.3}
+.acted-analysis .analysis-row-top span,.penalty-analysis .analysis-row-top span{display:block;margin-top:3px;color:#85939e;font-size:7.5px;line-height:1.3}
+.acted-analysis .analysis-row-top strong,.penalty-analysis .analysis-row-top strong{flex:0 0 auto;color:#1769e0;font-size:10px;font-variant-numeric:tabular-nums}
+.acted-analysis .analysis-bar,.penalty-analysis .analysis-bar{height:6px;overflow:hidden;border-radius:999px;background:#e9eef2}
+.acted-analysis .analysis-bar i,.penalty-analysis .analysis-bar i{display:block;height:100%;min-width:2px;border-radius:999px;background:#2598c7}
+.penalty-analysis .analysis-bar i{background:#d76969}
+.acted-analysis .analysis-empty,.penalty-analysis .analysis-empty{min-height:76px;display:flex;align-items:center;justify-content:center;border:1px dashed #dce5eb;border-radius:8px;background:#fafcfd;color:#8796a1;font-size:9px}
+@media(max-width:850px){.acted-analysis .analysis-list,.penalty-analysis .analysis-list{grid-template-columns:1fr}.acted-analysis .analysis-head,.penalty-analysis .analysis-head{align-items:flex-start;flex-direction:column}}
