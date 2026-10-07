@@ -1,0 +1,22 @@
+.ir-global-native{position:absolute!important;width:1px!important;height:1px!important;min-width:1px!important;min-height:1px!important;margin:0!important;padding:0!important;opacity:0!important;pointer-events:none!important;overflow:hidden!important;clip:rect(0 0 0 0)!important;white-space:nowrap!important}
+.ir-global-select,.ir-pretty-select{position:relative;width:100%;min-width:0}
+.ir-global-select-trigger,.ir-pretty-trigger{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;height:40px;padding:0 12px;border:1px solid #cfd9e1;border-radius:8px;background:#fff;color:#2e4352;font:inherit;font-size:10px;font-weight:600;line-height:1;text-align:left;box-shadow:0 1px 2px rgba(24,54,75,.04);transition:border-color .15s,box-shadow .15s,background .15s}
+.ir-global-select-trigger:hover,.ir-pretty-trigger:hover{border-color:#b7c7d2;background:#fbfcfd}
+.ir-global-select.open .ir-global-select-trigger,.ir-global-select.invalid .ir-global-select-trigger,.ir-pretty-select.open .ir-pretty-trigger{border-color:#75a9e8;box-shadow:0 0 0 3px rgba(23,105,224,.09)}
+.ir-global-select.invalid .ir-global-select-trigger{border-color:#d96c6c;box-shadow:0 0 0 3px rgba(217,108,108,.10)}
+.ir-global-select-trigger:disabled,.ir-global-select.disabled .ir-global-select-trigger{background:#f5f7f9;color:#8a98a3;cursor:default}
+.ir-global-select-trigger>span,.ir-pretty-trigger>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ir-global-select-trigger>i,.ir-pretty-trigger>i{flex:0 0 auto;width:8px;height:8px;border-right:1.7px solid #5b6f7e;border-bottom:1.7px solid #5b6f7e;transform:rotate(45deg) translateY(-2px);transition:transform .15s}
+.ir-global-select.open .ir-global-select-trigger>i,.ir-pretty-select.open .ir-pretty-trigger>i{transform:rotate(225deg) translate(-1px,-1px)}
+.ir-global-select-menu,.ir-pretty-menu{position:fixed;z-index:30000;overflow:auto;padding:5px;border:1px solid #cfd9e1;border-radius:9px;background:#fff;box-shadow:0 14px 34px rgba(24,54,75,.20);scrollbar-width:thin}
+.ir-global-select-menu[hidden],.ir-pretty-menu[hidden]{display:none!important}
+.ir-global-select-menu button,.ir-pretty-menu button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:34px;padding:8px 10px;border:0;border-radius:6px;background:#fff;color:#304757;font:inherit;font-size:10px;font-weight:500;text-align:left}
+.ir-global-select-menu button:hover,.ir-pretty-menu button:hover{background:#f2f7fb}
+.ir-global-select-menu button.selected,.ir-pretty-menu button.selected{background:#eaf3ff;color:#1769e0;font-weight:700}
+.ir-global-select-menu button:disabled,.ir-pretty-menu button:disabled{opacity:.42;cursor:not-allowed;background:#f7f8f9}
+.ir-global-select-menu button i{font-style:normal;font-size:11px;color:#1769e0}
+.rfs-body .ir-global-select-trigger,.work-row .ir-global-select-trigger,.delivery-form-position .ir-global-select-trigger,.delivery-position-row .ir-global-select-trigger,.schedule-dialog .ir-global-select-trigger{height:34px;border-radius:6px;font-size:9px}
+.profile-menu .ir-global-select-trigger{height:36px;font-size:10px}
+.ood-head>.ir-global-select{min-width:310px;max-width:48%;width:420px;flex:0 1 420px}.ood-head>.ir-global-select .ir-global-select-trigger{height:30px;border-radius:7px;font-size:9px}
+.schedule-trend-head>.ir-global-select{min-width:250px;max-width:420px;width:100%;flex:0 1 420px}.schedule-trend-head>.ir-global-select .ir-global-select-trigger{height:32px;border-radius:7px;font-size:9px}
+@media(max-width:900px){.ood-head>.ir-global-select,.schedule-trend-head>.ir-global-select{width:100%;max-width:none;min-width:0;flex-basis:auto}}
