@@ -8,7 +8,9 @@
 .ir-global-select-trigger>span,.ir-pretty-trigger>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ir-global-select-trigger>i,.ir-pretty-trigger>i{flex:0 0 auto;width:8px;height:8px;border-right:1.7px solid #5b6f7e;border-bottom:1.7px solid #5b6f7e;transform:rotate(45deg) translateY(-2px);transition:transform .15s}
 .ir-global-select.open .ir-global-select-trigger>i,.ir-pretty-select.open .ir-pretty-trigger>i{transform:rotate(225deg) translate(-1px,-1px)}
-.ir-global-select-menu,.ir-pretty-menu{position:fixed;z-index:30000;overflow:auto;padding:5px;border:1px solid #cfd9e1;border-radius:9px;background:#fff;box-shadow:0 14px 34px rgba(24,54,75,.20);scrollbar-width:thin}
+.ir-global-select-menu{position:fixed;z-index:30000;overflow:auto;padding:5px;border:1px solid #cfd9e1;border-radius:9px;background:#fff;box-shadow:0 14px 34px rgba(24,54,75,.20);scrollbar-width:thin}
+.ir-pretty-menu{position:absolute;z-index:1000;left:0;right:0;top:calc(100% + 6px);max-height:280px;overflow:auto;padding:5px;border:1px solid #cfd9e1;border-radius:9px;background:#fff;box-shadow:0 14px 34px rgba(24,54,75,.20);scrollbar-width:thin}
+.ir-pretty-select.open-up .ir-pretty-menu{top:auto;bottom:calc(100% + 6px)}
 .ir-global-select-menu[hidden],.ir-pretty-menu[hidden]{display:none!important}
 .ir-global-select-menu button,.ir-pretty-menu button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:34px;padding:8px 10px;border:0;border-radius:6px;background:#fff;color:#304757;font:inherit;font-size:10px;font-weight:500;text-align:left}
 .ir-global-select-menu button:hover,.ir-pretty-menu button:hover{background:#f2f7fb}
