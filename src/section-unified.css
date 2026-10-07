@@ -22,6 +22,8 @@ body.ir-object-route:not(.ir-object-overview) #app>.section-unified-page{box-siz
 .wt-row,.marks-row,.schedule-row{border-color:#e7edf1!important}
 .wt-row:hover,.marks-row:hover,.schedule-row:hover{background:#f9fbfc!important}
 
+.reports-page .reports-list{background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow:visible!important}
+
 /* Empty states */
 .reports-empty,.wt-empty,.schedule-empty,.marks-table>.marks-empty,.section-unified-empty{box-sizing:border-box!important;min-height:120px!important;padding:44px 20px!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;color:#82909c!important;font-size:0!important;background:#fff!important}
 .reports-empty::after{content:"Раздел Ежедневные отчёты пуст";font-size:11px}
