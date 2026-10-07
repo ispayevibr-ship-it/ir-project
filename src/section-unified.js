@@ -8,6 +8,7 @@
   if(key==="photos"&&typeof window.irPhotosPage==="function")return window.irPhotosPage(id);
   if(key==="acted-days"&&typeof window.irActedDaysPageV2==="function")return window.irActedDaysPageV2(id);
   if(key==="acted-days"&&typeof window.irActedDaysPage==="function")return window.irActedDaysPage(id);
+  if(key==="penalties"&&typeof window.irPenaltiesPage==="function")return window.irPenaltiesPage(id);
   const deliveryMatch=String(key||"").match(/^deliveries(?:\?(.*))?$/);
   if(deliveryMatch&&typeof window.irDeliveriesPage==="function"){
    const params=new URLSearchParams(deliveryMatch[1]||"");
