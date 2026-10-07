@@ -10,6 +10,9 @@
  const record=r=>({id:String(r.id),record_type:r.record_type||"delivery",title:r.title||"",...(r.data||{})});
  const itemsOf=r=>{for(const k of ["items","marks","positions","rows"]){if(Array.isArray(r?.[k]))return r[k]}return[]};
  const normUnit=u=>{const s=String(u||"").trim().toLowerCase().replace(/²/g,"2").replace(/³/g,"3").replace(/\s/g,"");if(["т","тн","tn","ton","tons"].includes(s))return"тн";if(["м2","m2"].includes(s))return"м2";if(["м3","m3"].includes(s))return"м3";return s||"ед."};
+ const serviceIdsFromRows=rows=>new Set(arr(rows).filter(r=>(r.data?.accounting_type||"")==="service"||norm(r.data?.unit)==="услуга").map(r=>String(r.id)));
+ const isServiceItem=(x,ids)=>x?.accounting_type==="service"||x?.is_service===true||norm(x?.unit)==="услуга"||ids?.has(String(x?.work_type_id||""));
+ const visibleItems=(r,ids)=>itemsOf(r).filter(x=>!isServiceItem(x,ids));
  const baseHash=oid=>`/objects/object/${oid}/deliveries`;
  const detailHash=(oid,id)=>`${baseHash(oid)}?id=${encodeURIComponent(id)}`;
  const newHash=oid=>`${baseHash(oid)}?mode=new`;
@@ -19,22 +22,22 @@
  function syncBodyClass(){document.body.classList.toggle("ir-delivery-form-route",/^#?\/objects\/object\/\d+\/deliveries\?(?=[^#]*mode=(?:new|edit))/.test(location.hash))}
  window.addEventListener("hashchange",syncBodyClass);syncBodyClass();
  function replaceButton(el,handler){if(!el)return null;const clone=el.cloneNode(true);el.replaceWith(clone);clone.onclick=e=>{e.preventDefault();e.stopPropagation();handler(e)};return clone}
- function workGroups(r){const map=new Map();for(const x of itemsOf(r)){const key=`${x.work_type_id||x.work_type||""}|${x.project_code||""}`;if(!map.has(key))map.set(key,{name:x.work_type||"Работа",code:x.project_code||"",count:0});map.get(key).count++}return[...map.values()]}
- function volumeTotals(r){const totals={};for(const x of itemsOf(r)){const u=normUnit(x.unit),v=num(x.volume??x.total_volume??(num(x.qty??x.count)*num(x.unit_volume??x.volume_one)));totals[u]=(totals[u]||0)+v}if(!Object.keys(totals).length&&r?.totals_by_unit&&typeof r.totals_by_unit==="object")for(const [u,v] of Object.entries(r.totals_by_unit))totals[normUnit(u)]=(totals[normUnit(u)]||0)+num(v);return totals}
+ function workGroups(r,serviceIds){const map=new Map();for(const x of visibleItems(r,serviceIds)){const key=`${x.work_type_id||x.work_type||""}|${x.project_code||""}`;if(!map.has(key))map.set(key,{name:x.work_type||"Работа",code:x.project_code||"",count:0});map.get(key).count++}return[...map.values()]}
+ function volumeTotals(r,serviceIds){const totals={};for(const x of visibleItems(r,serviceIds)){const u=normUnit(x.unit),v=num(x.volume??x.total_volume??(num(x.qty??x.count)*num(x.unit_volume??x.volume_one)));totals[u]=(totals[u]||0)+v}if(!Object.keys(totals).length&&!itemsOf(r).length&&r?.totals_by_unit&&typeof r.totals_by_unit==="object")for(const [u,v] of Object.entries(r.totals_by_unit))totals[normUnit(u)]=(totals[normUnit(u)]||0)+num(v);return totals}
  function totalsText(totals){const parts=Object.entries(totals).filter(([,v])=>Math.abs(num(v))>1e-9).map(([u,v])=>`${fmt(v)} ${u}`);return parts.length?parts.join(" · "):"0"}
- function patchList(oid,records){
+ function patchList(oid,records,serviceIds){
   const byId=new Map(records.map(r=>[String(r.id),r]));
   const head=document.querySelector(".delivery-table-head span:nth-child(3)");if(head)head.textContent="Наименование работы · Шифр · Позиций";
   const volumeHead=document.querySelector(".delivery-table-head span:nth-child(6)");if(volumeHead)volumeHead.textContent="Объём";
   document.querySelectorAll(".delivery-row[data-delivery-id]").forEach(row=>{
    const r=byId.get(String(row.dataset.deliveryId));if(!r)return;
-   const cell=row.querySelector(".delivery-row-composition");if(cell){const groups=workGroups(r);cell.innerHTML=`<span>Наименование работы · Шифр · Позиций</span>${groups.length?`<div class="delivery-composition">${groups.map(g=>`<div><b>${esc(g.name)}</b><span>${esc(g.code||"Шифр не указан")} · ${g.count} поз.</span></div>`).join("")}</div>`:'<span class="delivery-composition-empty">Позиции не указаны</span>'}`}
-   const total=row.querySelector(".delivery-tonnage b");if(total)total.textContent=totalsText(volumeTotals(r));
+   const cell=row.querySelector(".delivery-row-composition");if(cell){const groups=workGroups(r,serviceIds);cell.innerHTML=`<span>Наименование работы · Шифр · Позиций</span>${groups.length?`<div class="delivery-composition">${groups.map(g=>`<div><b>${esc(g.name)}</b><span>${esc(g.code||"Шифр не указан")} · ${g.count} поз.</span></div>`).join("")}</div>`:'<span class="delivery-composition-empty">Позиции не указаны</span>'}`}
+   const total=row.querySelector(".delivery-tonnage b");if(total)total.textContent=totalsText(volumeTotals(r,serviceIds));
   });
   replaceButton(document.getElementById("deliveryAdd"),()=>location.hash=newHash(oid));
   document.querySelectorAll("[data-delivery-edit]").forEach(btn=>replaceButton(btn,()=>location.hash=editHash(oid,btn.dataset.deliveryEdit)));
  }
- function wireDetail(oid,id,r){
+ function wireDetail(oid,id,r,serviceIds){
   const back=document.getElementById("deliveryDetailBack");if(back)back.onclick=()=>location.hash=baseHash(oid);
   replaceButton(document.getElementById("deliveryDetailEdit"),()=>location.hash=editHash(oid,id));
   const grid=document.querySelector(".delivery-detail-grid");if(grid){const accent=grid.querySelector(".accent");if(accent){const s=accent.querySelector("span"),b=accent.querySelector("b");if(s)s.textContent="Общий объём";if(b)b.textContent=totalsText(volumeTotals(r))}}
@@ -55,14 +58,15 @@
   const [raw,workRows,markRows]=await Promise.all([api.list().catch(()=>[]),wtApi.list().catch(()=>[]),marksApi.list().catch(()=>[])]),records=raw.map(record),editing=route.mode==="edit",editId=editing?String(route.deliveryId||""):"",current=editing?records.find(x=>String(x.id)===editId):null;
   if(editing&&!current){location.hash=baseHash(oid);return}
   const canEdit=()=>window.irAccess?window.irAccess.canEdit("deliveries"):false;if(!canEdit()){location.hash=editing?detailHash(oid,editId):baseHash(oid);return}
+  const serviceWorkIds=serviceIdsFromRows(workRows);
   const workTypes=()=>arr(workRows).filter(r=>(r.data?.accounting_type||"")!=="service"&&norm(r.data?.unit)!=="услуга").map(r=>({id:String(r.id),name:r.data?.work_type||r.title||"Без названия",code:r.data?.project_code||"",unit:normUnit(r.data?.unit||"")}));
   const marks=()=>arr(markRows).map(r=>({id:String(r.id),record_type:r.record_type||"item",title:r.title||"",...(r.data||{})}));
-  const deliveredMap=excludeId=>{const map={};for(const r of records){if(excludeId&&String(r.id)===String(excludeId))continue;for(const x of itemsOf(r)){const mid=String(x.mark_id||"");if(mid)map[mid]=(map[mid]||0)+num(x.qty??x.count??x.quantity)}}return map};
+  const deliveredMap=excludeId=>{const map={};for(const r of records){if(excludeId&&String(r.id)===String(excludeId))continue;for(const x of visibleItems(r,serviceWorkIds)){const mid=String(x.mark_id||"");if(mid)map[mid]=(map[mid]||0)+num(x.qty??x.count??x.quantity)}}return map};
   const delivered=deliveredMap(editId);
   const baseState=m=>{const total=num(m.qty??m.count),done=Math.min(total,delivered[String(m.id)]||0),uv=num(m.unit_volume??m.volume_one);return{total,done,left:Math.max(0,total-done),uv}};
   const wtOptions=selected=>`<option value="">Выберите вид работы</option>${workTypes().map(w=>`<option value="${w.id}" ${String(selected||"")===w.id?"selected":""}>${esc(w.name)}${w.code?` · ${esc(w.code)}`:""}</option>`).join("")}`;
   const positionRow=x=>`<div class="delivery-form-position"><label class="dfp-work">Вид работы<select name="work_type_id">${wtOptions(x?.work_type_id)}</select></label><label class="dfp-code">Шифр<input name="project_code" readonly value="${esc(x?.project_code||"")}" placeholder="—"></label><label class="dfp-mark">Марка из ведомости<div class="mark-picker"><input name="mark_search" autocomplete="off" value="${esc(x?.mark?`${x.mark}${x.name?" — "+x.name:""}`:"")}" placeholder="Поиск по марке или наименованию…"><input type="hidden" name="mark_id" value="${esc(x?.mark_id||"")}"><div class="mark-results" hidden></div></div><div class="selected-mark-balance" hidden></div></label><label class="dfp-qty">Количество<input name="qty" inputmode="decimal" value="${esc(x?.qty??x?.count??"")}" placeholder="0"></label><label class="dfp-volume">Объём<input name="volume" readonly value="${esc(x?.volume??x?.total_volume??"")}" placeholder="0"></label><label class="dfp-unit">Ед.<input name="unit" readonly value="${esc(normUnit(x?.unit||""))}" placeholder="—"></label><button type="button" class="delivery-form-copy" title="Копировать позицию">${copyIcon}</button><button type="button" class="row-remove delivery-form-remove" title="Удалить позицию">×</button></div>`;
-  const initial=editing?itemsOf(current):[];
+  const initial=editing?visibleItems(current,serviceWorkIds):[];
   app.innerHTML=`<div class="delivery-form-page"><div class="delivery-form-page-head"><button class="back" id="deliveryFormBack">← К накладным</button><div><h1>${editing?`Редактирование накладной №${esc(current.number||current.delivery_number||current.id)}`:"Новая накладная"}</h1><p>${esc(object.name||"")}</p></div><button class="delivery-form-save-top" form="deliveryStandaloneForm">${editing?"Сохранить изменения":"Сохранить накладную"}</button></div><form id="deliveryStandaloneForm" class="delivery-standalone-form"><section class="delivery-form-section"><div class="delivery-form-section-head"><span>01</span><div><h2>Данные накладной</h2><p>Номер, дата и транспорт</p></div></div><div class="delivery-form-section-body delivery-form-main-grid"><label>Номер накладной<input name="number" required value="${esc(current?.number||current?.delivery_number||"")}" placeholder="Например: 154"></label><label>Дата<input type="date" name="date" required value="${esc(String(current?.date||current?.delivery_date||"").slice(0,10))}"></label><label>Машина №<input name="vehicle_number" value="${esc(current?.vehicle_number||"")}" placeholder="Например: 777 ABC 09"></label><label>ФИО водителя<input name="driver_name" value="${esc(current?.driver_name||"")}" placeholder="ФИО водителя"></label><label>Общий объём<input id="deliveryAutoTotal" readonly value=""><small>Рассчитывается автоматически по выбранным маркам</small></label></div></section><section class="delivery-form-section"><div class="delivery-form-section-head"><span>02</span><div><h2>Марки по накладной</h2><p>Вид работы → шифр → марка → количество</p></div><button type="button" class="delivery-form-add-position" id="deliveryFormAddPosition">＋ Добавить марку</button></div><div class="delivery-form-section-body"><div id="deliveryFormPositions" class="delivery-form-positions">${(initial.length?initial:[{}]).map(positionRow).join("")}</div></div></section><div class="delivery-form-bottom"><button type="button" id="deliveryFormCancel">Отмена</button><button type="submit" class="delivery-form-save">${editing?"Сохранить изменения":"Сохранить накладную"}</button></div></form></div>`;
   const list=document.getElementById("deliveryFormPositions"),form=document.getElementById("deliveryStandaloneForm"),totalField=document.getElementById("deliveryAutoTotal");
   const rowQtyForMark=(mid,except)=>[...list.querySelectorAll(".delivery-form-position")].reduce((s,r)=>r===except||String(r.querySelector('[name="mark_id"]')?.value||"")!==String(mid)?s:s+num(r.querySelector('[name="qty"]')?.value),0);
@@ -98,9 +102,9 @@
  window.irDeliveriesPage=async(oid,route={})=>{
   if(route.mode==="new"||route.mode==="edit")return renderForm(oid,route);
   document.body.classList.remove("ir-delivery-form-route");
-  const api=irProject.data.forObject(oid).section("deliveries"),records=(await api.list().catch(()=>[])).map(record);
+  const root=irProject.data.forObject(oid),api=root.section("deliveries"),[deliveryRows,workRows]=await Promise.all([api.list().catch(()=>[]),root.section("work-types").list().catch(()=>[])]),records=deliveryRows.map(record),serviceIds=serviceIdsFromRows(workRows);
   await base(oid);
-  const id=String(route.deliveryId||"");if(id){const row=[...document.querySelectorAll(".delivery-row[data-delivery-id]")].find(x=>String(x.dataset.deliveryId)===id);if(!row){location.hash=baseHash(oid);return}row.click();wireDetail(oid,id,records.find(r=>String(r.id)===id));return}
-  patchList(oid,records);paginate(oid,route.page||1);
+  const id=String(route.deliveryId||"");if(id){const row=[...document.querySelectorAll(".delivery-row[data-delivery-id]")].find(x=>String(x.dataset.deliveryId)===id);if(!row){location.hash=baseHash(oid);return}row.click();wireDetail(oid,id,records.find(r=>String(r.id)===id),serviceIds);return}
+  patchList(oid,records,serviceIds);paginate(oid,route.page||1);
  };
 })();
