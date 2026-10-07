@@ -15,7 +15,7 @@
   let [raw,workRows,markRows]=await Promise.all([api.list().catch(()=>[]),wtApi.list().catch(()=>[]),marksApi.list().catch(()=>[])]),selectedId="";
   const canEdit=()=>window.irAccess?window.irAccess.canEdit("deliveries"):false;
   const rows=()=>raw.map(record).sort((a,b)=>String(b.date||b.delivery_date||"").localeCompare(String(a.date||a.delivery_date||""))||Number(b.id)-Number(a.id));
-  const workTypes=()=>arr(workRows).map(r=>({id:String(r.id),name:r.data?.work_type||r.title||"Без названия",code:r.data?.project_code||"",unit:r.data?.unit||""}));
+  const workTypes=()=>arr(workRows).filter(r=>(r.data?.accounting_type||"volume")!=="service").map(r=>({id:String(r.id),name:r.data?.work_type||r.title||"Без названия",code:r.data?.project_code||"",unit:r.data?.unit||""}));
   const marks=()=>arr(markRows).map(r=>({id:String(r.id),record_type:r.record_type||"item",title:r.title||"",...(r.data||{})}));
   const totalTonnage=()=>rows().reduce((s,x)=>s+num(x.total_tonnage??x.tonnage),0);
   const deliveredMap=excludeId=>{const map={};for(const r of rows()){if(excludeId&&String(r.id)===String(excludeId))continue;for(const x of itemsOf(r)){const mid=String(x.mark_id||"");if(mid)map[mid]=(map[mid]||0)+num(x.qty??x.count??x.quantity)}}return map};
