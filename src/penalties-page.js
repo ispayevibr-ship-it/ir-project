@@ -1,0 +1,31 @@
+"use strict";
+window.irPenaltiesPage=async function(objectId){
+ const oid=String(objectId||"");if(!oid)return;
+ const app=document.getElementById("app"),root=irProject.data.forObject(oid),api=root.section("penalties"),object=await irProject.data.objects.get(oid);
+ if(!object){location.hash="/objects";return}
+ const canEdit=()=>window.irAccess?window.irAccess.canEdit("penalties"):false;
+ const esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+ const num=v=>{const n=Number(String(v??"").replace(/\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};
+ const money=v=>Math.round(num(v)).toLocaleString("ru-RU")+" тг";
+ const dmy=v=>{const s=String(v||"").slice(0,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return s||"—";const[y,m,d]=s.split("-");return`${d}.${m}.${y}`};
+ const data=r=>({id:r.id,title:r.title||"",...(r.data||{})});
+ let rows=await api.list().catch(()=>[]);
+ const sorted=()=>rows.map(data).sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))||Number(b.id)-Number(a.id));
+ function dialogHtml(){if(!canEdit())return"";return `<dialog id="penaltyDialog" class="penalty-dialog"><form id="penaltyForm" novalidate><input type="hidden" name="id"><div class="penalty-form-head"><div><h2 id="penaltyFormTitle">Добавить штраф</h2><p>Дата, ответственный, причина и сумма штрафа</p></div><button type="button" id="penaltyX" class="penalty-x">×</button></div><label>Дата<input type="date" name="date" required></label><label>Ответственный<input name="responsible" required placeholder="ФИО ответственного"></label><label>Причина штрафа<textarea name="reason" required placeholder="Укажите причину штрафа"></textarea></label><label>Сумма штрафа, тг<input name="amount" inputmode="decimal" required placeholder="Например: 50 000"></label><div class="penalty-form-error" id="penaltyError" hidden></div><div class="actions"><button type="button" id="penaltyCancel">Отмена</button><button type="submit" class="primary">Сохранить</button></div></form></dialog>`}
+ function draw(){
+  const all=sorted(),total=all.reduce((s,r)=>s+num(r.amount),0),latest=all[0]?.date||"",people=new Set(all.map(r=>String(r.responsible||"").trim()).filter(Boolean)).size;
+  const body=all.length?all.map(r=>`<div class="penalty-row" data-id="${esc(r.id)}"><div><span>Дата</span><b>${dmy(r.date)}</b></div><div class="penalty-responsible"><span>Ответственный</span><b>${esc(r.responsible||"—")}</b></div><div class="penalty-reason"><span>Причина штрафа</span><b>${esc(r.reason||"—")}</b></div><div class="penalty-amount"><span>Сумма</span><b>${money(r.amount)}</b></div>${canEdit()?`<div class="penalty-actions"><button type="button" data-edit="${esc(r.id)}">Редактировать</button><button type="button" class="danger" data-delete="${esc(r.id)}">Удалить</button></div>`:"<div></div>"}</div>`).join(""):'<div class="penalty-empty">Штрафы пока не добавлены</div>';
+  app.innerHTML=`<div class="penalties-page"><div class="penalties-head"><button class="back" id="penaltiesBack">← Назад</button><div><h1>Штрафы</h1><p>${esc(object.name||"")}</p></div>${canEdit()?'<button class="primary" id="penaltyAdd">＋ Добавить штраф</button>':""}</div><div class="penalty-summary"><div><span>Всего штрафов</span><b>${all.length}</b></div><div><span>Общая сумма</span><b>${money(total)}</b></div><div><span>Ответственных</span><b>${people}</b></div><div><span>Последний штраф</span><b>${latest?dmy(latest):"—"}</b></div></div><div class="penalty-card"><div class="penalty-table-head"><span>Дата</span><span>Ответственный</span><span>Причина штрафа</span><span>Сумма</span><span></span></div><div class="penalty-list">${body}</div></div>${dialogHtml()}</div>`;
+  document.getElementById("penaltiesBack").onclick=()=>location.hash=`/objects/object/${oid}`;
+  if(canEdit())wireForm(all);
+ }
+ function wireForm(all){
+  const dialog=document.getElementById("penaltyDialog"),form=document.getElementById("penaltyForm"),error=document.getElementById("penaltyError");
+  const open=r=>{form.reset();error.hidden=true;form.elements.id.value=r?.id||"";form.elements.date.value=r?.date||new Date().toISOString().slice(0,10);form.elements.responsible.value=r?.responsible||"";form.elements.reason.value=r?.reason||"";form.elements.amount.value=r?.amount??"";document.getElementById("penaltyFormTitle").textContent=r?"Редактировать штраф":"Добавить штраф";dialog.showModal()};
+  document.getElementById("penaltyAdd").onclick=()=>open(null);document.getElementById("penaltyX").onclick=()=>dialog.close();document.getElementById("penaltyCancel").onclick=()=>dialog.close();
+  document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>open(all.find(r=>String(r.id)===String(b.dataset.edit))));
+  document.querySelectorAll("[data-delete]").forEach(b=>b.onclick=async()=>{const r=all.find(x=>String(x.id)===String(b.dataset.delete));if(!r||!confirm(`Удалить штраф за ${dmy(r.date)} на сумму ${money(r.amount)}?`))return;await api.remove(r.id);rows=await api.list().catch(()=>[]);draw()});
+  form.onsubmit=async e=>{e.preventDefault();error.hidden=true;const fd=new FormData(form),id=String(fd.get("id")||""),date=String(fd.get("date")||""),responsible=String(fd.get("responsible")||"").trim(),reason=String(fd.get("reason")||"").trim(),amount=num(fd.get("amount"));if(!date||!responsible||!reason){error.textContent="Заполните дату, ответственного и причину штрафа.";error.hidden=false;return}if(amount<=0){error.textContent="Сумма штрафа должна быть больше 0.";error.hidden=false;return}const payload={record_type:"penalty",title:`Штраф ${dmy(date)} · ${responsible}`,data:{date,responsible,reason,amount}};if(id)await api.update(id,payload);else await api.create(payload);rows=await api.list().catch(()=>[]);dialog.close();draw()};
+ }
+ draw();
+};
