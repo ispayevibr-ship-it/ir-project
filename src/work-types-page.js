@@ -1,6 +1,11 @@
 "use strict";
 (()=>{
  const esc=v=>String(v??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+ const num=v=>{const n=Number(String(v??"").trim().replace(/\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};
+ const fmt=v=>{const n=num(v);return Number.isInteger(n)?String(n):String(Number(n.toFixed(4))).replace(".",",")};
+ const norm=v=>String(v??"").trim().toLowerCase().replace(/\s+/g," ");
+ const markTotal=x=>{const d=x?.data||x||{},raw=d.total_value??d.total_volume;if(raw!==undefined&&raw!==null&&String(raw).trim()!=="")return num(raw);return num(d.qty??d.count)*num(d.unit_volume??d.volume_one)};
+ const mountedTotal=x=>{const d=x?.data||x||{},q=num(d.qty??d.count);if(!q)return 0;const mounted=Math.min(q,num(d.mounted??d.done));return markTotal(x)*(mounted/q)};
  window.irWorkTypesPage=async oid=>{
   const app=document.getElementById("app"),root=irProject.data.forObject(oid),api=root.section("work-types"),marksApi=root.section("marks"),o=await irProject.data.objects.get(oid);let [rows,marks]=await Promise.all([api.list().catch(()=>[]),marksApi.list().catch(()=>[])]);
   const canEdit=()=>window.irAccess?window.irAccess.canEdit("work-types"):false;
