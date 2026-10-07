@@ -15,6 +15,7 @@
   let [markRows,workRows,reportRows,deliveryRows]=await Promise.all([marksApi.list().catch(()=>[]),wtApi.list().catch(()=>[]),reportsApi.list().catch(()=>[]),deliveriesApi.list().catch(()=>[])]),active="all",query="",statusFilter="all",page=1,usage=new Map(),usageDetails=new Map(),excelRows=null,excelFile="";const pageSize=20;
   const canEdit=()=>window.irAccess?window.irAccess.canEdit("marks"):false;
   const workTypes=()=>workRows.filter(r=>(r.data?.accounting_type||"")!=="service"&&norm(r.data?.unit)!=="услуга").map(r=>({id:String(r.id),name:r.data?.work_type||r.title||"Без названия",code:r.data?.project_code||"",unit:r.data?.unit||""}));
+  const serviceWorkIds=()=>new Set(workRows.filter(r=>(r.data?.accounting_type||"")==="service"||norm(r.data?.unit)==="услуга").map(r=>String(r.id)));
   const items=()=>{const allowed=new Set(workTypes().map(w=>w.id));return markRows.map(x=>({id:String(x.id),...(x.data||{}),title:x.title||x.data?.title||""})).filter(x=>!x.work_type_id||allowed.has(String(x.work_type_id)))};
   const countFor=id=>items().filter(x=>String(x.work_type_id||"")===String(id)).length;
   const state=x=>{const q=num(x.qty??x.count),d=Math.min(q,num(x.mounted??x.done));return q>0&&d>=q?"done":d>0?"partial":"left"};
@@ -29,6 +30,7 @@
    const markUsed=(id,source,record)=>{id=String(id||"");if(!byId.has(id))return;if(!usage.has(id))usage.set(id,new Set());usage.get(id).add(source);if(!record)return;const rd=record.data||record,detail={source,id:String(record.id||rd.id||""),date:rd.date||rd.report_date||rd.delivery_date||rd.invoice_date||record.created_at||"",number:rd.number||rd.no||rd.invoice_number||rd.delivery_number||""},list=usageDetails.get(id)||[],key=`${source}|${detail.id}`;if(detail.id&&!list.some(x=>`${x.source}|${x.id}`===key)){list.push(detail);usageDetails.set(id,list)}};
    const resolveObject=(obj,source,record)=>{
     if(!obj||typeof obj!=="object")return;
+    const wid=String(obj.work_type_id??obj.workTypeId??""),service=obj.accounting_type==="service"||obj.is_service===true||norm(obj.unit)==="услуга"||(wid&&serviceWorkIds().has(wid));if(service)return;
     const direct=obj.mark_id??obj.markId??obj.mark_record_id??obj.markRecordId;
     if(direct!=null&&direct!=="")markUsed(direct,source,record);
     const ids=obj.mark_ids??obj.markIds;if(Array.isArray(ids))ids.forEach(id=>markUsed(id,source,record));
