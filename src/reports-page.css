@@ -68,3 +68,8 @@
 .work-row.report-work-picker.service-mode{column-gap:14px;padding-top:16px;padding-bottom:16px}
 .work-row.report-work-picker.service-mode .rw-service{padding-left:2px}
 .work-row.report-work-picker.service-mode .rw-service select{min-width:0}
+
+.work-row.report-work-picker.plain-mode{grid-template-columns:minmax(320px,1.4fr) minmax(180px,.6fr) 34px 34px;column-gap:14px}
+.work-row.report-work-picker.plain-mode .rw-mark,.work-row.report-work-picker.plain-mode .rw-volume,.work-row.report-work-picker.plain-mode .rw-service{display:none!important}
+.work-row.report-work-picker.plain-mode .rw-qty{display:grid!important}
+@media(max-width:900px){.work-row.report-work-picker.plain-mode{grid-template-columns:1fr}.work-row.report-work-picker.plain-mode .work-copy,.work-row.report-work-picker.plain-mode .row-remove{width:100%}}
