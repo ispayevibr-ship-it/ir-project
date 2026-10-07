@@ -12,7 +12,7 @@
  function objectId(){return location.hash.match(/^#\/objects\/object\/(\d+)\/?$/)?.[1]||""}
  async function buildData(oid){
   const root=irProject.data.forObject(oid),[reports,workTypes]=await Promise.all([root.section("reports").list().catch(()=>[]),root.section("work-types").list().catch(()=>[])]);
-  const catalog=arr(workTypes).filter(r=>(r.data?.accounting_type||"volume")!=="service").map(r=>{const d=r.data||{};return{id:String(r.id),name:d.work_type||r.title||"Без названия",code:d.project_code||"",unit:d.unit||""}}),byId=new Map(catalog.map(x=>[x.id,x]));
+  const catalog=arr(workTypes).filter(r=>(r.data?.accounting_type||"")!=="service"&&norm(r.data?.unit)!=="услуга").map(r=>{const d=r.data||{};return{id:String(r.id),name:d.work_type||r.title||"Без названия",code:d.project_code||"",unit:d.unit||""}}),byId=new Map(catalog.map(x=>[x.id,x]));
   const exact=(name,code)=>catalog.find(x=>norm(x.name)===norm(name)&&norm(x.code)===norm(code));
   const resolve=w=>{
    const rawId=String(w.work_type_id||""),name=w.work_type||w.type||"",code=w.project_code||w.code||"",unit=w.unit||"";
@@ -28,7 +28,7 @@
   for(const r of arr(reports)){
    const d=r.data||r,date=iso(d.date||d.report_date);if(!date)continue;
    for(const w of arr(d.items||d.works)){
-    if(w.accounting_type==="service"||w.is_service===true)continue;const type=resolve(w),id=type.id;used.set(id,type);
+    if(w.accounting_type==="service"||w.is_service===true||norm(w.unit)==="услуга")continue;const type=resolve(w),id=type.id;used.set(id,type);
     if(!volumes.has(id))volumes.set(id,new Map());
     const byDate=volumes.get(id);byDate.set(date,(byDate.get(date)||0)+reportVolume(w));
    }
