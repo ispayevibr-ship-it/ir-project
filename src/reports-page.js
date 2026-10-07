@@ -27,8 +27,9 @@
   const canEdit=()=>window.irAccess?window.irAccess.canEdit("reports"):false;
   const loadRefs=async()=>{if(!workRows||!markRows)[workRows,markRows]=await Promise.all([wtApi.list().catch(()=>[]),marksApi.list().catch(()=>[])]);};
   const workTypes=()=>arr(workRows).map(r=>{const unit=r.data?.unit||"",service=(r.data?.accounting_type||"")==="service"||norm(unit)==="услуга";return{id:String(r.id),name:r.data?.work_type||r.title||"Без названия",code:r.data?.project_code||"",unit:service?"услуга":unit,accounting_type:service?"service":"volume"}});
+  const isServiceWork=w=>w?.accounting_type==="service"||w?.is_service===true||norm(w?.unit)==="услуга"||workTypes().some(x=>x.id===String(w?.work_type_id||"")&&x.accounting_type==="service");
   const marks=()=>arr(markRows).map(r=>({id:String(r.id),record_type:r.record_type||"item",title:r.title||"",...(r.data||{})}));
-  const mountedMap=excludeId=>{const map={};for(const r of reports()){if(excludeId&&String(r.id)===String(excludeId))continue;for(const w of arr(r.items||r.works)){const id=String(w.mark_id||"");if(id)map[id]=(map[id]||0)+num(w.qty??w.count??w.quantity)}}return map};
+  const mountedMap=excludeId=>{const map={};for(const r of reports()){if(excludeId&&String(r.id)===String(excludeId))continue;for(const w of arr(r.items||r.works)){if(isServiceWork(w))continue;const id=String(w.mark_id||"");if(id)map[id]=(map[id]||0)+num(w.qty??w.count??w.quantity)}}return map};
   const allMountedMap=()=>mountedMap(null);
   async function syncMarks(){await loadRefs();const mm=allMountedMap();for(const raw of markRows){const d=raw.data||{},total=num(d.qty??d.count),next=Math.max(0,Math.min(total,mm[String(raw.id)]||0)),current=num(d.mounted??d.done);if(Math.abs(next-current)<1e-9)continue;await marksApi.update(raw.id,{record_type:raw.record_type||"item",title:raw.title||d.mark||"",data:{...d,mounted:next}})}markRows=await marksApi.list().catch(()=>markRows)}
   function list(){
