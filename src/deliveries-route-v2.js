@@ -40,7 +40,7 @@
  function wireDetail(oid,id,r,serviceIds){
   const back=document.getElementById("deliveryDetailBack");if(back)back.onclick=()=>location.hash=baseHash(oid);
   replaceButton(document.getElementById("deliveryDetailEdit"),()=>location.hash=editHash(oid,id));
-  const grid=document.querySelector(".delivery-detail-grid");if(grid){const accent=grid.querySelector(".accent");if(accent){const s=accent.querySelector("span"),b=accent.querySelector("b");if(s)s.textContent="Общий объём";if(b)b.textContent=totalsText(volumeTotals(r))}}
+  const grid=document.querySelector(".delivery-detail-grid");if(grid){const accent=grid.querySelector(".accent");if(accent){const s=accent.querySelector("span"),b=accent.querySelector("b");if(s)s.textContent="Общий объём";if(b)b.textContent=totalsText(volumeTotals(r,serviceIds))}}
  }
  function paginate(oid,page){
   const list=document.querySelector(".delivery-list");if(!list)return;
