@@ -3,4 +3,6 @@
 
 .report-cell-work .reference-work-group+.reference-work-group{margin-top:0!important;padding-top:0!important}
 
-.report-cell-work .reference-work-group+.reference-work-group::before{content:"";display:block!important;flex:0 0 auto!important;width:100%!important;height:0!important;border-top:1px solid #edf1f4!important;margin:5px 0!important;padding:0!important}
+
+
+.reference-work-separator{position:relative!important;display:block!important;flex:0 0 11px!important;width:100%!important;height:11px!important;min-height:11px!important;margin:0!important;padding:0!important}.reference-work-separator::after{content:"";position:absolute;left:0;right:0;top:5px;height:1px;background:#edf1f4}
