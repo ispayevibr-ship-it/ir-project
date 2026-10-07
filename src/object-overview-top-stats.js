@@ -3,6 +3,7 @@
  const arr=v=>Array.isArray(v)?v:[];
  const num=v=>{const n=Number(String(v??"").trim().replace(/\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};
  const norm=v=>String(v??"").trim().toLowerCase().replace(/\s+/g," ");
+ const esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
  const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
  const objectId=()=>{const m=(location.hash||"").match(/^#?\/objects\/object\/(\d+)$/);return m?m[1]:""};
  const record=r=>({id:r.id,...(r.data||r)});
@@ -33,15 +34,43 @@
  const ring=pct=>`<div class="oos-ring" style="--p:${clamp(pct,0,100)}"><div><b>${pct}%</b><span>выполнено</span></div></div>`;
  const peopleIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20v-2.2A4.8 4.8 0 0 1 7.8 13h.4a4.8 4.8 0 0 1 4.8 4.8V20M14 14.5c.7-.7 1.7-1.1 2.8-1.1h.3A3.9 3.9 0 0 1 21 17.3V20"/></svg>';
  const equipmentIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h15M5 18v-5h6v5M11 13V8l7-5 1.5 2-6.5 5v3M18 5h2v9M20 14v2"/><circle cx="6" cy="20" r="1.5"/><circle cx="14" cy="20" r="1.5"/><circle cx="20" cy="18" r="1.5"/></svg>';
+ const weatherCache=new Map();
+ const weatherCodes={0:["Ясно","☀"],1:["Преим. ясно","🌤"],2:["Переменная облачность","⛅"],3:["Пасмурно","☁"],45:["Туман","🌫"],48:["Туман","🌫"],51:["Морось","🌦"],53:["Морось","🌦"],55:["Морось","🌦"],61:["Дождь","🌧"],63:["Дождь","🌧"],65:["Сильный дождь","🌧"],71:["Снег","🌨"],73:["Снег","🌨"],75:["Сильный снег","🌨"],80:["Ливень","🌧"],81:["Ливень","🌧"],82:["Сильный ливень","🌧"],95:["Гроза","⛈"],96:["Гроза","⛈"],99:["Гроза","⛈"]};
+ async function loadWeather(address){
+  const addr=String(address||"").trim();if(!addr)return{error:true};
+  const cached=weatherCache.get(addr);if(cached&&Date.now()-cached.cachedAt<1800000)return cached;
+  try{
+   let loc=/варваринск|варваринка/i.test(addr)?{latitude:52.945736,longitude:62.125258,name:"Варваринское",country_code:"KZ"}:null;
+   if(!loc){
+    const clean=x=>String(x||"").replace(/^(республика\s+казахстан|республика|рк|город|г\.?|село|с\.?|поселок|п\.?|аул|а\.?|станция|ст\.?)\s*/i,"").replace(/\s+(область|обл\.?|район|р-н)$/i,"").trim();
+    const parts=addr.split(",").map(x=>x.trim()).filter(Boolean),candidates=[];
+    for(const x of parts.slice().reverse()){const q=clean(x);if(q&&q.length>2&&!/^(казахстан|kazakhstan)$/i.test(q)&&!/^\d/.test(q))candidates.push(q)}
+    candidates.push(addr);
+    for(const q of [...new Set(candidates)]){
+     const g=await fetch("https://geocoding-api.open-meteo.com/v1/search?count=5&language=ru&format=json&countryCode=KZ&name="+encodeURIComponent(q),{cache:"no-store"});
+     if(!g.ok)continue;const gj=await g.json(),list=arr(gj.results);loc=list.find(x=>String(x.country_code||"").toUpperCase()==="KZ")||list[0]||null;if(loc)break;
+    }
+   }
+   if(!loc)throw new Error("location_not_found");
+   const w=await fetch("https://api.open-meteo.com/v1/forecast?latitude="+encodeURIComponent(loc.latitude)+"&longitude="+encodeURIComponent(loc.longitude)+"&current=temperature_2m,weather_code,wind_speed_10m,precipitation&wind_speed_unit=ms&timezone=auto&forecast_days=1",{cache:"no-store"});
+   if(!w.ok)throw new Error("weather_failed");const j=await w.json(),wc=weatherCodes[j.current?.weather_code]||["Погода","☀"],out={cachedAt:Date.now(),place:loc.name||"",temp:Math.round(num(j.current?.temperature_2m)),text:wc[0],icon:wc[1],wind:num(j.current?.wind_speed_10m).toFixed(1),precip:num(j.current?.precipitation).toFixed(1)};weatherCache.set(addr,out);return out;
+  }catch{return{error:true}}
+ }
+ function weatherHtml(w,address){
+  if(!w)return`<section class="oos-card oos-weather"><div class="oos-weather-loading"><span>Погода сегодня</span><b>Загрузка…</b><small>${esc(address||"Адрес объекта не указан")}</small></div></section>`;
+  if(w.error)return`<section class="oos-card oos-weather"><div class="oos-weather-loading"><span>Погода сегодня</span><b>Нет данных</b><small>Не удалось получить погоду по адресу объекта</small></div></section>`;
+  return`<section class="oos-card oos-weather"><div class="oos-weather-main"><div class="oos-weather-title"><span>Погода сегодня</span><small>${esc(w.place||"")}</small></div><div class="oos-weather-current"><i>${w.icon}</i><div><b>${w.temp>0?"+":""}${w.temp} °C</b><span>${esc(w.text)}</span></div></div></div><div class="oos-weather-meta"><span>Ветер <b>${esc(w.wind)} м/с</b></span><span>Осадки <b>${esc(w.precip)} мм</b></span></div></section>`;
+ }
  async function renderOnce(){
   const oid=objectId();if(!oid)return true;
   const app=document.getElementById("app"),dashboard=app?.querySelector(".object-overview-dashboard");if(!app||!dashboard)return false;
   app.querySelector(".object-overview-top-stats")?.remove();
-  const root=irProject.data.forObject(oid),[workTypes,marks,reports]=await Promise.all([root.section("work-types").list().catch(()=>[]),root.section("marks").list().catch(()=>[]),root.section("reports").list().catch(()=>[])]);
+  const root=irProject.data.forObject(oid),[workTypes,marks,reports,object]=await Promise.all([root.section("work-types").list().catch(()=>[]),root.section("marks").list().catch(()=>[]),root.section("reports").list().catch(()=>[]),irProject.data.objects.get(oid).catch(()=>null)]);
   if(objectId()!==String(oid))return true;
   const pct=completion(workTypes,marks,reports),avg=averages(reports),wrap=document.createElement("div");wrap.className="object-overview-top-stats";
-  wrap.innerHTML=`<section class="oos-card oos-progress"><div class="oos-copy"><span>Общий показатель</span><b>Выполнение по всем работам</b><small>Средняя готовность по видам работ</small></div>${ring(pct)}</section><section class="oos-card"><div class="oos-icon people">${peopleIcon}</div><div class="oos-copy"><span>Среднее количество людей</span><b class="oos-value">${avg.people} чел.</b><small>Работники: ${avg.workers} · Ответственные: ${avg.responsible}</small></div></section><section class="oos-card"><div class="oos-icon equipment">${equipmentIcon}</div><div class="oos-copy"><span>Среднее количество техники</span><b class="oos-value">${avg.equipment} ед.</b><small>Среднее по ${avg.days} ${avg.days===1?"отчёту":"отчётам"}</small></div></section>`;
+  const address=object?.address||"";wrap.innerHTML=`<section class="oos-card oos-progress"><div class="oos-copy"><span>Общий показатель</span><b>Выполнение по всем работам</b><small>Средняя готовность по видам работ</small></div>${ring(pct)}</section><section class="oos-card"><div class="oos-icon people">${peopleIcon}</div><div class="oos-copy"><span>Среднее количество людей</span><b class="oos-value">${avg.people} чел.</b><small>Работники: ${avg.workers} · Ответственные: ${avg.responsible}</small></div></section><section class="oos-card"><div class="oos-icon equipment">${equipmentIcon}</div><div class="oos-copy"><span>Среднее количество техники</span><b class="oos-value">${avg.equipment} ед.</b><small>Среднее по ${avg.days} ${avg.days===1?"отчёту":"отчётам"}</small></div></section>${weatherHtml(null,address)}`;
   dashboard.insertAdjacentElement("beforebegin",wrap);
+  const weather=await loadWeather(address);if(objectId()===String(oid)&&wrap.isConnected){const card=wrap.querySelector(".oos-weather");if(card)card.outerHTML=weatherHtml(weather,address)}
   return true;
  }
  let token=0;
