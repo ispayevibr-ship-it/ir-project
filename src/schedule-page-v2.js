@@ -3,6 +3,17 @@
  const esc=v=>String(v??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
  const fmt=v=>{if(!v)return"—";const p=String(v).slice(0,10).split("-");return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:String(v)};
  const route=()=>location.hash.match(/^#\/objects\/object\/(\d+)\/schedule\/?$/)?.[1]||"";
+ const DAY=86400000;
+ const arr=v=>Array.isArray(v)?v:[];
+ const num=v=>{const n=Number(String(v??"").trim().replace(/\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};
+ const nfmt=v=>{const n=num(v);return Number.isInteger(n)?String(n):String(Number(n.toFixed(4))).replace(".",",")};
+ const norm=v=>String(v??"").trim().toLowerCase().replace(/\s+/g," ");
+ const iso=v=>String(v||"").slice(0,10);
+ const dateMs=v=>{const s=iso(v),t=s?Date.parse(`${s}T00:00:00Z`):NaN;return Number.isFinite(t)?t:null};
+ const todayMs=()=>{const d=new Date();return Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())};
+ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+ const markTotal=x=>{const d=x?.data||x||{},raw=d.total_value??d.total_volume;if(raw!==undefined&&raw!==null&&String(raw).trim()!=="")return num(raw);return num(d.qty??d.count)*num(d.unit_volume??d.volume_one)};
+ const reportVolume=w=>{const raw=w?.volume??w?.total_volume;if(raw!==undefined&&raw!==null&&String(raw).trim()!=="")return num(raw);return num(w?.qty??w?.count??w?.quantity)*num(w?.unit_volume??w?.volume_one)};
  window.irSchedulePage=async oid=>{
   document.body.classList.remove("ir-object-overview");
   const app=document.getElementById("app"),o=await irProject.data.objects.get(oid);if(!app||!o)return;
