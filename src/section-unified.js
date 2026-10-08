@@ -12,6 +12,7 @@
   if(key==="penalties"&&typeof window.irPenaltiesPageV2==="function")return window.irPenaltiesPageV2(id);
   if(key==="penalties"&&typeof window.irPenaltiesPage==="function")return window.irPenaltiesPage(id);
   if(key==="finance"&&typeof window.irFinancePage==="function")return window.irFinancePage(id);
+  if(key==="scheme"&&typeof window.irSchemePage==="function")return window.irSchemePage(id);
   const deliveryMatch=String(key||"").match(/^deliveries(?:\?(.*))?$/);
   if(deliveryMatch&&typeof window.irDeliveriesPage==="function"){
    const params=new URLSearchParams(deliveryMatch[1]||"");
