@@ -10,7 +10,7 @@ window.irSchemePage=async function(objectId){
  const fmt=v=>Number(num(v).toFixed(1)).toLocaleString("ru-RU",{maximumFractionDigits:1});
  const defaultAxesX=["1","2","3","4","5","6"],defaultAxesY=["А","Б","В","Г","Д","Е","Ж","И","К","Л"],defaultSpanX=45000,defaultSpanY=60000;
  let axesX=[...defaultAxesX],axesY=[...defaultAxesY],targetSpanX=defaultSpanX,targetSpanY=defaultSpanY;
- let mode="3d",yaw=-34,zoom=1,panX=0,panY=0,selectedId="",rows=[],markRows=[],workRows=[],gridXSpans=[],gridYSpans=[],spanX=targetSpanX,spanY=targetSpanY,axisXPos=new Map(),axisYPos=new Map(),labelsVisible=false,dimensionsVisible=false;
+ let mode="3d",yaw=-34,viewRotation=0,zoom=1,panX=0,panY=0,selectedId="",rows=[],markRows=[],workRows=[],gridXSpans=[],gridYSpans=[],spanX=targetSpanX,spanY=targetSpanY,axisXPos=new Map(),axisYPos=new Map(),labelsVisible=false,dimensionsVisible=false;
  [rows,markRows,workRows]=await Promise.all([schemeApi.list().catch(()=>[]),root.section("marks").list().catch(()=>[]),root.section("work-types").list().catch(()=>[])]);
  const equalSpans=(total,count)=>{count=Math.max(1,count);const base=Math.floor(total/count),rem=Math.round(total-base*count);return Array.from({length:count},(_,i)=>base+(i<rem?1:0))};
  const validAxes=v=>Array.isArray(v)&&v.length>=2&&v.every(x=>String(x||"").trim());
@@ -42,7 +42,7 @@ window.irSchemePage=async function(objectId){
   return{total:cols.length,mounted,left:cols.length-mounted,pct:cols.length?Math.round(mounted/cols.length*100):0}
  }
  function projection(cols){
-  const W=1040,H=650,padX=105,padY=90,a=yaw*Math.PI/180,maxZ=Math.max(9,...cols.map(c=>Math.max(c.z0,c.z1)/1000));
+  const W=1040,H=650,padX=105,padY=90,a=(yaw+viewRotation)*Math.PI/180,maxZ=Math.max(9,...cols.map(c=>Math.max(c.z0,c.z1)/1000));
   const raw=(xmm,ymm,zmm)=>{const x=(xmm-spanX/2)/1000,y=(ymm-spanY/2)/1000,z=zmm/1000,rx=x*Math.cos(a)-y*Math.sin(a),ry=x*Math.sin(a)+y*Math.cos(a);return{x:rx,y:ry*.48-z}};
   const samples=[],margin=12000;
   for(const x of [-margin,spanX+margin])for(const y of [-margin,spanY+margin]){samples.push(raw(x,y,0));samples.push(raw(x,y,maxZ*1000))}
@@ -109,36 +109,43 @@ window.irSchemePage=async function(objectId){
   const offsetMid={x:(base.x+baseAxis.x)/2,y:(base.y+baseAxis.y)/2};
   return`<g class="scheme-column section-${sectionType(c)}${status}${sel}${between}" data-column="${esc(c.id)}" tabindex="0">
    <title>${esc(columnTitle(c))}</title>
+   <line x1="${base.x}" y1="${base.y}" x2="${top.x}" y2="${top.y}" class="scheme-column-hit-line"/>
    ${showOffset?`<line x1="${baseAxis.x}" y1="${baseAxis.y}" x2="${base.x}" y2="${base.y}" class="scheme-offset-line"/><text x="${offsetMid.x}" y="${offsetMid.y-7}" class="scheme-offset-text">${esc(offsetText(c))}</text>`:""}
    ${column3dShape(c,base,top)}
    ${showLabel?`<line x1="${top.x}" y1="${top.y}" x2="${anchorX}" y2="${ly+lh/2}" class="scheme-label-leader"/><g class="scheme-column-label compact${isSelected?" selected-label":""}"><rect x="${lx}" y="${ly}" width="${lw}" height="${lh}" rx="6"/><text x="${lx+7}" y="${ly+17}" class="scheme-label-position">${esc(c.mark||"—")}</text></g>`:""}
   </g>`
  }
  function planSectionSymbol(c,x,y){
-  const t=sectionType(c),rot=num(c.rotation_deg),tr=`translate(${x} ${y}) rotate(${rot})`;
+  const t=sectionType(c),rot=num(c.rotation_deg)+viewRotation,tr=`translate(${x} ${y}) rotate(${rot})`;
   if(t==="round")return`<g transform="${tr}" class="scheme-plan-section"><circle r="6" class="scheme-plan-section-outer"/><circle r="3.4" class="scheme-plan-section-inner"/></g>`;
   if(t==="square")return`<g transform="${tr}" class="scheme-plan-section"><rect x="-6" y="-6" width="12" height="12" rx="1" class="scheme-plan-section-outer"/><rect x="-3.5" y="-3.5" width="7" height="7" rx=".7" class="scheme-plan-section-inner"/></g>`;
   if(t==="box")return`<g transform="${tr}" class="scheme-plan-section"><rect x="-5.5" y="-5.5" width="11" height="11" rx="1" class="scheme-plan-box"/></g>`;
   return`<g transform="${tr}" class="scheme-plan-section"><path d="M-6 -5V5 M6 -5V5 M-6 0H6" class="scheme-plan-ibeam"/><circle r="1.8" class="scheme-plan-dot"/></g>`
  }
  function planSvg(cols){
-  const W=1040,H=650,padX=190,padY=98,availW=W-padX*2,availH=H-padY*2,scale=Math.min(availW/spanX,availH/spanY),gridW=spanX*scale,gridH=spanY*scale,left=(W-gridW)/2,top=(H-gridH)/2,xName=`${axesX[0]}–${axesX.at(-1)}`,yName=`${axesY[0]}–${axesY.at(-1)}`;
-  const sx=x=>left+x*scale,sy=y=>top+y*scale;let svg="";
-  svg+=`<rect x="${left}" y="${top}" width="${gridW}" height="${gridH}" class="scheme-grid-floor-plan"/><rect x="${left}" y="${top}" width="${gridW}" height="${gridH}" class="scheme-grid-outline-plan"/>`;
-  axesX.forEach(a=>{const x=sx(axisXPos.get(a));svg+=`<line x1="${x}" y1="${top}" x2="${x}" y2="${top+gridH}" class="scheme-grid-line"/>${svgBubble(x,top-20,a)}${svgBubble(x,top+gridH+20,a)}`});
-  axesY.forEach(a=>{const y=sy(axisYPos.get(a));svg+=`<line x1="${left}" y1="${y}" x2="${left+gridW}" y2="${y}" class="scheme-grid-line"/>${svgBubble(left-20,y,a)}${svgBubble(left+gridW+20,y,a)}`});
+  const W=1040,H=650,padX=190,padY=98,r=((viewRotation%360)+360)%360,xName=`${axesX[0]}–${axesX.at(-1)}`,yName=`${axesY[0]}–${axesY.at(-1)}`;
+  const rot90=r===90||r===270,totalW=rot90?spanY:spanX,totalH=rot90?spanX:spanY,availW=W-padX*2,availH=H-padY*2,scale=Math.min(availW/Math.max(1,totalW),availH/Math.max(1,totalH)),gridW=totalW*scale,gridH=totalH*scale,left=(W-gridW)/2,gridTop=(H-gridH)/2;
+  const p=(x,y)=>{let u=x,v=y;if(r===90){u=spanY-y;v=x}else if(r===180){u=spanX-x;v=spanY-y}else if(r===270){u=y;v=spanX-x}return{x:left+u*scale,y:gridTop+v*scale}};
+  const extend=(a,b,d)=>{const dx=b.x-a.x,dy=b.y-a.y,l=Math.max(1,Math.hypot(dx,dy)),ux=dx/l,uy=dy/l;return[{x:a.x-ux*d,y:a.y-uy*d},{x:b.x+ux*d,y:b.y+uy*d}]};
+  const outward=(q,d)=>{const dx=q.x-W/2,dy=q.y-H/2,l=Math.max(1,Math.hypot(dx,dy));return{x:q.x+dx/l*d,y:q.y+dy/l*d}};
+  const corners=[p(0,0),p(spanX,0),p(spanX,spanY),p(0,spanY)],poly=corners.map(q=>`${q.x},${q.y}`).join(" ");
+  let grid=`<polygon points="${poly}" class="scheme-grid-floor-plan"/><polygon points="${poly}" class="scheme-grid-outline-plan"/>`;
+  axesX.forEach(axis=>{const x=axisXPos.get(axis),a=p(x,0),b=p(x,spanY),[la,lb]=extend(a,b,20);grid+=`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="scheme-grid-line"/>${svgBubble(la.x,la.y,axis)}${svgBubble(lb.x,lb.y,axis)}`});
+  axesY.forEach(axis=>{const y=axisYPos.get(axis),a=p(0,y),b=p(spanX,y),[la,lb]=extend(a,b,20);grid+=`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="scheme-grid-line"/>${svgBubble(la.x,la.y,axis)}${svgBubble(lb.x,lb.y,axis)}`});
   if(dimensionsVisible){
-   gridXSpans.forEach((dist,i)=>{const x1=sx(axisXPos.get(axesX[i])),x2=sx(axisXPos.get(axesX[i+1])),mx=(x1+x2)/2;svg+=`<line x1="${x1}" y1="${top-50}" x2="${x2}" y2="${top-50}" class="scheme-span-line"/><line x1="${x1}" y1="${top-54}" x2="${x1}" y2="${top-46}" class="scheme-span-tick"/><line x1="${x2}" y1="${top-54}" x2="${x2}" y2="${top-46}" class="scheme-span-tick"/><text x="${mx}" y="${top-59}" class="scheme-span-text">${fmt(dist)}</text>`});
-   gridYSpans.forEach((dist,i)=>{const y1=sy(axisYPos.get(axesY[i])),y2=sy(axisYPos.get(axesY[i+1])),my=(y1+y2)/2;svg+=`<line x1="${left-54}" y1="${y1}" x2="${left-54}" y2="${y2}" class="scheme-span-line"/><line x1="${left-58}" y1="${y1}" x2="${left-50}" y2="${y1}" class="scheme-span-tick"/><line x1="${left-58}" y1="${y2}" x2="${left-50}" y2="${y2}" class="scheme-span-tick"/><text x="${left-65}" y="${my}" class="scheme-span-text scheme-span-y">${fmt(dist)}</text>`})
+   gridXSpans.forEach((dist,i)=>{const x1=axisXPos.get(axesX[i]),x2=axisXPos.get(axesX[i+1]),q=outward(p((x1+x2)/2,0),42);grid+=`<text x="${q.x}" y="${q.y}" class="scheme-span-text">${pairLabel(axesX,i)} · ${fmt(dist)} мм</text>`});
+   gridYSpans.forEach((dist,i)=>{const y1=axisYPos.get(axesY[i]),y2=axisYPos.get(axesY[i+1]),q=outward(p(0,(y1+y2)/2),42);grid+=`<text x="${q.x}" y="${q.y}" class="scheme-span-text">${pairLabel(axesY,i)} · ${fmt(dist)} мм</text>`})
   }
+  const horizName=rot90?yName:xName,horizSize=rot90?spanY:spanX,vertName=rot90?xName:yName,vertSize=rot90?spanX:spanY;
+  grid+=`<line x1="${left}" y1="${gridTop+gridH+52}" x2="${left+gridW}" y2="${gridTop+gridH+52}" class="scheme-dim-line"/><text x="${W/2}" y="${gridTop+gridH+71}" class="scheme-dim-text">${esc(horizName)} = ${fmt(horizSize)} мм</text>`;
+  grid+=`<line x1="${left+gridW+54}" y1="${gridTop}" x2="${left+gridW+54}" y2="${gridTop+gridH}" class="scheme-dim-line"/><text x="${left+gridW+79}" y="${H/2}" class="scheme-dim-text scheme-dim-vertical">${esc(vertName)} = ${fmt(vertSize)} мм</text>`;
+  let columnsSvg="";
   cols.forEach((c,index)=>{
-   const x=sx(c.x),y=sy(c.y),axisX=sx(axisXPos.get(c.axisX)),axisY=sy(axisYPos.get(c.axisY)),isSelected=c.id===selectedId,sel=isSelected?" selected":"",status=c.status==="mounted"?" mounted":" planned",between=c.dx||c.dy?" between":"",showLabel=isSelected||labelsVisible,lw=78,lh=27,placeBelow=y<top+70,preferLeft=index%2===1,rawX=x+(preferLeft?-lw-9:9),rawY=placeBelow?y+9:y-lh-9,lx=Math.max(6,Math.min(W-lw-6,rawX)),ly=Math.max(8,Math.min(H-lh-8,rawY)),anchorX=preferLeft?lx+lw:lx;
-   const showOffset=!!(c.dx||c.dy)&&dimensionsVisible,baseX=axisX,baseY=axisY,midX=(x+baseX)/2,midY=(y+baseY)/2;
-   svg+=`<g class="scheme-column${status}${sel}${between}" data-column="${esc(c.id)}" tabindex="0"><title>${esc(columnTitle(c))}</title>${showOffset?`<line x1="${baseX}" y1="${baseY}" x2="${x}" y2="${y}" class="scheme-offset-line"/><circle cx="${baseX}" cy="${baseY}" r="3" class="scheme-offset-origin"/><text x="${midX}" y="${midY-7}" class="scheme-offset-text">${esc(offsetText(c))}</text>`:""}${planSectionSymbol(c,x,y)}${showLabel?`<line x1="${x}" y1="${y}" x2="${anchorX}" y2="${ly+lh/2}" class="scheme-label-leader"/><g class="scheme-column-label compact${isSelected?" selected-label":""}"><rect x="${lx}" y="${ly}" width="${lw}" height="${lh}" rx="6"/><text x="${lx+7}" y="${ly+17}" class="scheme-label-position">${esc(c.mark||"—")}</text></g>`:""}</g>`;
+   const q=p(c.x,c.y),axis=p(axisXPos.get(c.axisX),axisYPos.get(c.axisY)),x=q.x,y=q.y,axisX=axis.x,axisY=axis.y,isSelected=c.id===selectedId,sel=isSelected?" selected":"",status=c.status==="mounted"?" mounted":" planned",between=c.dx||c.dy?" between":"",showLabel=isSelected||labelsVisible,lw=78,lh=27,placeBelow=y<gridTop+70,preferLeft=index%2===1,rawX=x+(preferLeft?-lw-9:9),rawY=placeBelow?y+9:y-lh-9,lx=Math.max(6,Math.min(W-lw-6,rawX)),ly=Math.max(8,Math.min(H-lh-8,rawY)),anchorX=preferLeft?lx+lw:lx;
+   const showOffset=!!(c.dx||c.dy)&&dimensionsVisible,midX=(x+axisX)/2,midY=(y+axisY)/2;
+   columnsSvg+=`<g class="scheme-column${status}${sel}${between}" data-column="${esc(c.id)}" tabindex="0"><title>${esc(columnTitle(c))}</title><circle cx="${x}" cy="${y}" r="11" class="scheme-column-hit"/>${showOffset?`<line x1="${axisX}" y1="${axisY}" x2="${x}" y2="${y}" class="scheme-offset-line"/><circle cx="${axisX}" cy="${axisY}" r="3" class="scheme-offset-origin"/><text x="${midX}" y="${midY-7}" class="scheme-offset-text">${esc(offsetText(c))}</text>`:""}${planSectionSymbol(c,x,y)}${showLabel?`<line x1="${x}" y1="${y}" x2="${anchorX}" y2="${ly+lh/2}" class="scheme-label-leader"/><g class="scheme-column-label compact${isSelected?" selected-label":""}"><rect x="${lx}" y="${ly}" width="${lw}" height="${lh}" rx="6"/><text x="${lx+7}" y="${ly+17}" class="scheme-label-position">${esc(c.mark||"—")}</text></g>`:""}</g>`;
   });
-  svg+=`<line x1="${left}" y1="${top+gridH+52}" x2="${left+gridW}" y2="${top+gridH+52}" class="scheme-dim-line"/><text x="${W/2}" y="${top+gridH+71}" class="scheme-dim-text">${esc(xName)} = ${fmt(spanX)} мм</text>`;
-  svg+=`<line x1="${left+gridW+54}" y1="${top}" x2="${left+gridW+54}" y2="${top+gridH}" class="scheme-dim-line"/><text x="${left+gridW+79}" y="${H/2}" class="scheme-dim-text scheme-dim-vertical">${esc(yName)} = ${fmt(spanY)} мм</text>`;
-  return svg
+  return`<g class="scheme-grid-layer">${grid}</g><g class="scheme-column-layer">${columnsSvg}</g>`
  }
  function zoomTransform(){return `translate(${520+panX} ${325+panY}) scale(${zoom}) translate(-520 -325)`}
  function setZoom(next,resetPan=false){
@@ -154,8 +161,8 @@ window.irSchemePage=async function(objectId){
   svg.onwheel=e=>{if(!e.ctrlKey)return;e.preventDefault();setZoom(zoom+(e.deltaY<0?.15:-.15))};
  }
  function renderScene(){
-  const box=document.getElementById("schemeCanvas");if(!box)return;const cols=columns(),xName=`${axesX[0]}–${axesX.at(-1)}`,yName=`${axesY[0]}–${axesY.at(-1)}`,meta=`<div class="scheme-grid-meta"><b>${fmt(spanX)} × ${fmt(spanY)} мм</b><span>${esc(xName)}: ${axesX.length} осей</span><span>${esc(yName)}: ${axesY.length} осей</span><small>Колесо + Ctrl — масштаб · потяните пустое место — перемещение</small></div>`;
-  if(mode==="3d"){const g=grid3d(cols);box.innerHTML=`${meta}<svg viewBox="0 0 1040 650" aria-label="3D монтажная схема"><g id="schemeZoomLayer" transform="${zoomTransform()}">${g.html}${cols.map((c,i)=>prism(c,g.p,i)).join("")}</g><text x="520" y="626" class="scheme-demo-note" text-anchor="middle">${labelsVisible?"Подписи включены":"Подписи скрыты — выберите колонну для просмотра"} · ${dimensionsVisible?"Размеры пролётов включены":"Размеры пролётов скрыты"}</text></svg>`}
+  const box=document.getElementById("schemeCanvas");if(!box)return;const cols=columns(),xName=`${axesX[0]}–${axesX.at(-1)}`,yName=`${axesY[0]}–${axesY.at(-1)}`,meta=`<div class="scheme-grid-meta"><b>${fmt(spanX)} × ${fmt(spanY)} мм</b><span>${esc(xName)}: ${axesX.length} осей</span><span>${esc(yName)}: ${axesY.length} осей</span><small>Поворот ${viewRotation}° · Ctrl + колесо — масштаб · пустое место — перемещение</small></div>`;
+  if(mode==="3d"){const g=grid3d(cols);box.innerHTML=`${meta}<svg viewBox="0 0 1040 650" aria-label="3D монтажная схема"><g id="schemeZoomLayer" transform="${zoomTransform()}"><g class="scheme-grid-layer">${g.html}</g><g class="scheme-column-layer">${cols.map((c,i)=>prism(c,g.p,i)).join("")}</g></g><text x="520" y="626" class="scheme-demo-note" text-anchor="middle">${labelsVisible?"Подписи включены":"Подписи скрыты — выберите колонну для просмотра"} · ${dimensionsVisible?"Размеры пролётов включены":"Размеры пролётов скрыты"}</text></svg>`}
   else box.innerHTML=`${meta}<svg viewBox="0 0 1040 650" aria-label="План монтажной схемы"><g id="schemeZoomLayer" transform="${zoomTransform()}">${planSvg(cols)}</g><text x="520" y="626" class="scheme-demo-note" text-anchor="middle">${labelsVisible?"Подписи включены":"Подписи скрыты — выберите колонну для просмотра"} · масштаб X/Y одинаковый</text></svg>`;
   box.querySelectorAll("[data-column]").forEach(el=>{const pick=()=>{selectedId=el.dataset.column;renderScene();renderDetails()};el.onclick=pick;el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();pick()}}});
   bindScenePanZoom(box)
@@ -287,7 +294,7 @@ window.irSchemePage=async function(objectId){
     <section class="scheme-stage">
      <div class="scheme-stage-toolbar">
       <div class="scheme-legend"><span><i class="mounted"></i>Смонтировано</span><span><i class="planned"></i>Не смонтировано</span><span><i class="between"></i>Со смещением от оси</span></div>
-      <div class="scheme-toolbar-actions"><button type="button" id="schemeToggleLabels" class="${labelsVisible?"on":""}">Подписи</button><button type="button" id="schemeToggleDimensions" class="${dimensionsVisible?"on":""}">Размеры</button><div class="scheme-zoom"><button type="button" id="schemeZoomOut" title="Уменьшить">−</button><button type="button" id="schemeZoomValue" title="Вернуть 100%">${Math.round(zoom*100)}%</button><button type="button" id="schemeZoomIn" title="Увеличить">+</button></div><div class="scheme-rotate" ${mode==="plan"?"hidden":""}><button id="schemeLeft">↶</button><button id="schemeReset">Центр</button><button id="schemeRight">↷</button></div></div>
+      <div class="scheme-toolbar-actions"><button type="button" id="schemeToggleLabels" class="${labelsVisible?"on":""}">Подписи</button><button type="button" id="schemeToggleDimensions" class="${dimensionsVisible?"on":""}">Размеры</button><div class="scheme-zoom"><button type="button" id="schemeZoomOut" title="Уменьшить">−</button><button type="button" id="schemeZoomValue" title="Вернуть 100%">${Math.round(zoom*100)}%</button><button type="button" id="schemeZoomIn" title="Увеличить">+</button></div><div class="scheme-orient"><button type="button" id="schemeRotate90Left" title="Повернуть на 90° влево">↶90°</button><button type="button" id="schemeRotationValue" title="Вернуть поворот в 0°">${viewRotation}°</button><button type="button" id="schemeRotate90Right" title="Повернуть на 90° вправо">↷90°</button></div><div class="scheme-rotate" ${mode==="plan"?"hidden":""}><button id="schemeLeft" title="Повернуть 3D на 10°">↶10°</button><button id="schemeReset" title="Вернуть 3D ракурс">3D</button><button id="schemeRight" title="Повернуть 3D на 10°">↷10°</button></div></div>
      </div>
      <div class="scheme-canvas" id="schemeCanvas"></div>
      ${s.total?"":'<div class="scheme-empty-overlay"><b>Схема пока пустая</b><span>Нажмите «Добавить колонну» и задайте её марку, оси и смещение.</span></div>'}
@@ -300,6 +307,7 @@ window.irSchemePage=async function(objectId){
   document.getElementById("schemeBack").onclick=()=>location.hash=`/objects/object/${oid}`;document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{mode=b.dataset.mode;draw()});
   document.getElementById("schemeToggleLabels")?.addEventListener("click",()=>{labelsVisible=!labelsVisible;draw()});document.getElementById("schemeToggleDimensions")?.addEventListener("click",()=>{dimensionsVisible=!dimensionsVisible;draw()});
   document.getElementById("schemeZoomOut")?.addEventListener("click",()=>setZoom(zoom-.15));document.getElementById("schemeZoomIn")?.addEventListener("click",()=>setZoom(zoom+.15));document.getElementById("schemeZoomValue")?.addEventListener("click",()=>setZoom(1,true));
+  const rotateView=delta=>{viewRotation=((viewRotation+delta)%360+360)%360;panX=0;panY=0;renderScene();const v=document.getElementById("schemeRotationValue");if(v)v.textContent=`${viewRotation}°`};document.getElementById("schemeRotate90Left")?.addEventListener("click",()=>rotateView(-90));document.getElementById("schemeRotate90Right")?.addEventListener("click",()=>rotateView(90));document.getElementById("schemeRotationValue")?.addEventListener("click",()=>{viewRotation=0;panX=0;panY=0;renderScene()});
   document.getElementById("schemeLeft")?.addEventListener("click",()=>{yaw-=10;renderScene()});document.getElementById("schemeRight")?.addEventListener("click",()=>{yaw+=10;renderScene()});document.getElementById("schemeReset")?.addEventListener("click",()=>{yaw=-34;panX=0;panY=0;renderScene()});
   renderScene();renderDetails();bindGridEditor();bindEditor()
  }
