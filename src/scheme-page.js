@@ -31,6 +31,10 @@ window.irSchemePage=async function(objectId){
  const markOptions=(selectedMark,query="",unresolved=false)=>{const q=String(query||"").trim(),visible=searchMarks(q),hasSelected=visible.some(m=>m.id===String(selectedMark));let prefix="";if(unresolved&&!q)prefix='<option value="" selected>Марка не найдена — выберите заново</option>';else if(q&&!hasSelected)prefix='<option value="" selected>Выберите из найденных марок</option>';if(!visible.length)return'<option value="" selected>Ничего не найдено</option>';return prefix+visible.map(m=>`<option value="${esc(m.id)}" ${hasSelected&&String(selectedMark)===m.id?"selected":""}>${esc(markLabel(m))}</option>`).join("")};
  const axisOptions=(items,value)=>items.map(x=>`<option value="${esc(x)}" ${String(value)===x?"selected":""}>${esc(x)}</option>`).join("");
  const statusText=s=>s==="mounted"?"Смонтирована":"Не смонтирована";
+ const sectionType=c=>{const explicit=String(c?.section_type||"").trim().toLowerCase();if(["ibeam","square","round","box"].includes(explicit))return explicit;const s=`${c?.profile_name||""} ${c?.mark_name||""}`.toLowerCase();if(/круг|труб.*ø|труб.*ф|ø|⌀/.test(s))return"round";if(/квад|проф.*труб|\d+\s*[xх×]\s*\d+/.test(s))return"square";if(/короб|сварн.*короб/.test(s))return"box";return"ibeam"};
+ const sectionTypeLabel=t=>({ibeam:"Двутавр",square:"Квадратная труба",round:"Круглая труба",box:"Короб / сплошное"}[t]||"Двутавр");
+ const profileText=c=>String(c?.profile_name||"").trim()||sectionTypeLabel(sectionType(c));
+ const sectionOptions=value=>[["ibeam","Двутавр"],["square","Квадратная труба"],["round","Круглая труба"],["box","Короб / сплошное"]].map(([v,n])=>`<option value="${v}" ${value===v?"selected":""}>${n}</option>`).join("");
  const spanSummary=spans=>{const min=Math.min(...spans),max=Math.max(...spans),avg=spans.reduce((s,x)=>s+x,0)/Math.max(1,spans.length);return max-min<=1?`≈ по ${fmt(avg)} мм`:"индивидуальные размеры"};
  const pairLabel=(items,i)=>`${items[i]}–${items[i+1]}`;
  function stats(){
@@ -58,7 +62,7 @@ window.irSchemePage=async function(objectId){
  }
  function columnTitle(c){
   const a=axisText(c),mark=c.mark||"—",name=c.mark_name||"";
-  return `${mark}${name?" · "+name:""}\nОси: ${a.x} / ${a.y}\nX: ${fmt(c.x)} мм · Y: ${fmt(c.y)} мм\nНиз: ${fmt(c.z0)} мм · Верх: ${fmt(c.z1)} мм${c.dx||c.dy?"\nСмещение: "+offsetText(c):""}`
+  return `${mark}${name?" · "+name:""}\nПрофиль: ${profileText(c)}\nОси: ${a.x} / ${a.y}\nX: ${fmt(c.x)} мм · Y: ${fmt(c.y)} мм\nНиз: ${fmt(c.z0)} мм · Верх: ${fmt(c.z1)} мм${c.dx||c.dy?"\nСмещение: "+offsetText(c):""}`
  }
  function svgBubble(x,y,label,cls="scheme-axis-bubble"){
   return `<g class="${cls}"><circle cx="${x}" cy="${y}" r="10"/><text x="${x}" y="${y+3.4}">${esc(label)}</text></g>`
@@ -79,19 +83,43 @@ window.irSchemePage=async function(objectId){
   out+=`<g class="scheme-3d-dim"><rect x="${d2.x-50}" y="${d2.y-11}" width="100" height="20" rx="5"/><text x="${d2.x}" y="${d2.y+3}">${esc(yName)}: ${fmt(spanY)} мм</text></g>`;
   return{html:out,p}
  }
+ function column3dShape(c,base,top){
+  const t=sectionType(c),dx=top.x-base.x,dy=top.y-base.y,len=Math.max(1,Math.hypot(dx,dy)),nx=-dy/len,ny=dx/len,pt=(p,off)=>({x:p.x+nx*off,y:p.y+ny*off}),poly=(a,b,c1,d,cls)=>`<polygon points="${a.x},${a.y} ${b.x},${b.y} ${c1.x},${c1.y} ${d.x},${d.y}" class="${cls}"/>`;
+  const plate=[pt(base,-6),pt(base,6),{x:pt(base,6).x+4,y:pt(base,6).y+2},{x:pt(base,-6).x+4,y:pt(base,-6).y+2}];
+  let out=`<polygon points="${plate.map(q=>`${q.x},${q.y}`).join(" ")}" class="scheme-base-plate"/>`;
+  if(t==="round"){
+   out+=`<line x1="${base.x}" y1="${base.y}" x2="${top.x}" y2="${top.y}" class="scheme-round-column"/><ellipse cx="${top.x}" cy="${top.y}" rx="4.2" ry="2.2" class="scheme-section-cap"/>`;return out
+  }
+  if(t==="square"){
+   out+=poly(pt(base,-4.5),pt(base,4.5),pt(top,4.5),pt(top,-4.5),"scheme-square-column");
+   out+=poly(pt(base,-2.2),pt(base,2.2),pt(top,2.2),pt(top,-2.2),"scheme-square-inner");return out
+  }
+  if(t==="box"){
+   out+=poly(pt(base,-4),pt(base,4),pt(top,4),pt(top,-4),"scheme-box-column");
+   out+=`<line x1="${pt(base,-4).x}" y1="${pt(base,-4).y}" x2="${pt(top,-4).x}" y2="${pt(top,-4).y}" class="scheme-section-edge"/><line x1="${pt(base,4).x}" y1="${pt(base,4).y}" x2="${pt(top,4).x}" y2="${pt(top,4).y}" class="scheme-section-edge"/>`;return out
+  }
+  out+=poly(pt(base,-1.4),pt(base,1.4),pt(top,1.4),pt(top,-1.4),"scheme-ibeam-web");
+  out+=`<line x1="${pt(base,-4.8).x}" y1="${pt(base,-4.8).y}" x2="${pt(top,-4.8).x}" y2="${pt(top,-4.8).y}" class="scheme-ibeam-flange"/><line x1="${pt(base,4.8).x}" y1="${pt(base,4.8).y}" x2="${pt(top,4.8).x}" y2="${pt(top,4.8).y}" class="scheme-ibeam-flange"/><line x1="${pt(top,-5.7).x}" y1="${pt(top,-5.7).y}" x2="${pt(top,5.7).x}" y2="${pt(top,5.7).y}" class="scheme-ibeam-cap"/>`;
+  return out
+ }
  function prism(c,p,index){
-  const base=p(c.x,c.y,c.z0),top=p(c.x,c.y,c.z1),w=3.6,h=2.6,isSelected=c.id===selectedId,sel=isSelected?" selected":"",status=c.status==="mounted"?" mounted":" planned",between=c.dx||c.dy?" between":"";
+  const base=p(c.x,c.y,c.z0),top=p(c.x,c.y,c.z1),isSelected=c.id===selectedId,sel=isSelected?" selected":"",status=c.status==="mounted"?" mounted":" planned",between=c.dx||c.dy?" between":"";
   const baseAxis=p(axisXPos.get(c.axisX),axisYPos.get(c.axisY),c.z0),showOffset=!!(c.dx||c.dy)&&dimensionsVisible,showLabel=isSelected||labelsVisible;
   const lw=82,lh=28,placeBelow=top.y<150,preferLeft=index%2===1,rawX=top.x+(preferLeft?-lw-12:12),rawY=placeBelow?top.y+12:top.y-lh-12,lx=Math.max(8,Math.min(1040-lw-8,rawX)),ly=Math.max(8,Math.min(650-lh-8,rawY)),anchorX=preferLeft?lx+lw:lx;
   const offsetMid={x:(base.x+baseAxis.x)/2,y:(base.y+baseAxis.y)/2};
-  return`<g class="scheme-column${status}${sel}${between}" data-column="${esc(c.id)}" tabindex="0">
+  return`<g class="scheme-column section-${sectionType(c)}${status}${sel}${between}" data-column="${esc(c.id)}" tabindex="0">
    <title>${esc(columnTitle(c))}</title>
    ${showOffset?`<line x1="${baseAxis.x}" y1="${baseAxis.y}" x2="${base.x}" y2="${base.y}" class="scheme-offset-line"/><text x="${offsetMid.x}" y="${offsetMid.y-7}" class="scheme-offset-text">${esc(offsetText(c))}</text>`:""}
-   <polygon points="${base.x-w},${base.y} ${base.x},${base.y-h} ${base.x+w},${base.y} ${top.x+w},${top.y} ${top.x},${top.y-h} ${top.x-w},${top.y}" class="scheme-column-body"/>
-   <line x1="${base.x}" y1="${base.y-h}" x2="${top.x}" y2="${top.y-h}" class="scheme-column-edge"/>
-   <circle cx="${top.x}" cy="${top.y-h}" r="4.5" class="scheme-column-top"/>
-   ${showLabel?`<line x1="${top.x}" y1="${top.y-h}" x2="${anchorX}" y2="${ly+lh/2}" class="scheme-label-leader"/><g class="scheme-column-label compact${isSelected?" selected-label":""}"><rect x="${lx}" y="${ly}" width="${lw}" height="${lh}" rx="6"/><text x="${lx+7}" y="${ly+17}" class="scheme-label-position">${esc(c.mark||"—")}</text></g>`:""}
+   ${column3dShape(c,base,top)}
+   ${showLabel?`<line x1="${top.x}" y1="${top.y}" x2="${anchorX}" y2="${ly+lh/2}" class="scheme-label-leader"/><g class="scheme-column-label compact${isSelected?" selected-label":""}"><rect x="${lx}" y="${ly}" width="${lw}" height="${lh}" rx="6"/><text x="${lx+7}" y="${ly+17}" class="scheme-label-position">${esc(c.mark||"—")}</text></g>`:""}
   </g>`
+ }
+ function planSectionSymbol(c,x,y){
+  const t=sectionType(c),rot=num(c.rotation_deg),tr=`translate(${x} ${y}) rotate(${rot})`;
+  if(t==="round")return`<g transform="${tr}" class="scheme-plan-section"><circle r="6" class="scheme-plan-section-outer"/><circle r="3.4" class="scheme-plan-section-inner"/></g>`;
+  if(t==="square")return`<g transform="${tr}" class="scheme-plan-section"><rect x="-6" y="-6" width="12" height="12" rx="1" class="scheme-plan-section-outer"/><rect x="-3.5" y="-3.5" width="7" height="7" rx=".7" class="scheme-plan-section-inner"/></g>`;
+  if(t==="box")return`<g transform="${tr}" class="scheme-plan-section"><rect x="-5.5" y="-5.5" width="11" height="11" rx="1" class="scheme-plan-box"/></g>`;
+  return`<g transform="${tr}" class="scheme-plan-section"><path d="M-6 -5V5 M6 -5V5 M-6 0H6" class="scheme-plan-ibeam"/><circle r="1.8" class="scheme-plan-dot"/></g>`
  }
  function planSvg(cols){
   const W=1040,H=650,padX=190,padY=98,availW=W-padX*2,availH=H-padY*2,scale=Math.min(availW/spanX,availH/spanY),gridW=spanX*scale,gridH=spanY*scale,left=(W-gridW)/2,top=(H-gridH)/2,xName=`${axesX[0]}–${axesX.at(-1)}`,yName=`${axesY[0]}–${axesY.at(-1)}`;
@@ -106,7 +134,7 @@ window.irSchemePage=async function(objectId){
   cols.forEach((c,index)=>{
    const x=sx(c.x),y=sy(c.y),axisX=sx(axisXPos.get(c.axisX)),axisY=sy(axisYPos.get(c.axisY)),isSelected=c.id===selectedId,sel=isSelected?" selected":"",status=c.status==="mounted"?" mounted":" planned",between=c.dx||c.dy?" between":"",showLabel=isSelected||labelsVisible,lw=78,lh=27,placeBelow=y<top+70,preferLeft=index%2===1,rawX=x+(preferLeft?-lw-9:9),rawY=placeBelow?y+9:y-lh-9,lx=Math.max(6,Math.min(W-lw-6,rawX)),ly=Math.max(8,Math.min(H-lh-8,rawY)),anchorX=preferLeft?lx+lw:lx;
    const showOffset=!!(c.dx||c.dy)&&dimensionsVisible,baseX=axisX,baseY=axisY,midX=(x+baseX)/2,midY=(y+baseY)/2;
-   svg+=`<g class="scheme-column${status}${sel}${between}" data-column="${esc(c.id)}" tabindex="0"><title>${esc(columnTitle(c))}</title>${showOffset?`<line x1="${baseX}" y1="${baseY}" x2="${x}" y2="${y}" class="scheme-offset-line"/><circle cx="${baseX}" cy="${baseY}" r="3" class="scheme-offset-origin"/><text x="${midX}" y="${midY-7}" class="scheme-offset-text">${esc(offsetText(c))}</text>`:""}<rect x="${x-6}" y="${y-6}" width="12" height="12" rx="2" class="scheme-plan-column"/><circle cx="${x}" cy="${y}" r="2.3" class="scheme-plan-dot"/>${showLabel?`<line x1="${x}" y1="${y}" x2="${anchorX}" y2="${ly+lh/2}" class="scheme-label-leader"/><g class="scheme-column-label compact${isSelected?" selected-label":""}"><rect x="${lx}" y="${ly}" width="${lw}" height="${lh}" rx="6"/><text x="${lx+7}" y="${ly+17}" class="scheme-label-position">${esc(c.mark||"—")}</text></g>`:""}</g>`;
+   svg+=`<g class="scheme-column${status}${sel}${between}" data-column="${esc(c.id)}" tabindex="0"><title>${esc(columnTitle(c))}</title>${showOffset?`<line x1="${baseX}" y1="${baseY}" x2="${x}" y2="${y}" class="scheme-offset-line"/><circle cx="${baseX}" cy="${baseY}" r="3" class="scheme-offset-origin"/><text x="${midX}" y="${midY-7}" class="scheme-offset-text">${esc(offsetText(c))}</text>`:""}${planSectionSymbol(c,x,y)}${showLabel?`<line x1="${x}" y1="${y}" x2="${anchorX}" y2="${ly+lh/2}" class="scheme-label-leader"/><g class="scheme-column-label compact${isSelected?" selected-label":""}"><rect x="${lx}" y="${ly}" width="${lw}" height="${lh}" rx="6"/><text x="${lx+7}" y="${ly+17}" class="scheme-label-position">${esc(c.mark||"—")}</text></g>`:""}</g>`;
   });
   svg+=`<line x1="${left}" y1="${top+gridH+52}" x2="${left+gridW}" y2="${top+gridH+52}" class="scheme-dim-line"/><text x="${W/2}" y="${top+gridH+71}" class="scheme-dim-text">${esc(xName)} = ${fmt(spanX)} мм</text>`;
   svg+=`<line x1="${left+gridW+54}" y1="${top}" x2="${left+gridW+54}" y2="${top+gridH}" class="scheme-dim-line"/><text x="${left+gridW+79}" y="${H/2}" class="scheme-dim-text scheme-dim-vertical">${esc(yName)} = ${fmt(spanY)} мм</text>`;
@@ -139,6 +167,8 @@ window.irSchemePage=async function(objectId){
   panel.innerHTML=`<div class="scheme-detail-title"><span>Выбранная колонна</span><b>${esc(c.mark||"—")}</b>${c.mark_name?`<small>${esc(c.mark_name)}</small>`:""}</div>
    <div class="scheme-detail-grid">
     <div><span>Наименование</span><b>${esc(c.mark_name||"—")}</b></div>
+    <div><span>Сечение</span><b>${esc(sectionTypeLabel(sectionType(c)))}</b></div>
+    <div><span>Профиль</span><b>${esc(profileText(c))}</b></div>
     <div><span>Статус</span><b class="${c.status==="mounted"?"ok":"wait"}">${statusText(c.status)}</b></div>
     <div><span>Ось ${esc(axesX[0])}–${esc(axesX.at(-1))}</span><b>${esc(a.x)}</b></div>
     <div><span>Ось ${esc(axesY[0])}–${esc(axesY.at(-1))}</span><b>${esc(a.y)}</b></div>
@@ -211,7 +241,9 @@ window.irSchemePage=async function(objectId){
   return`<dialog id="schemeEditor" class="scheme-editor"><form id="schemeForm" novalidate><input type="hidden" name="id"><div class="scheme-editor-head"><div><h2 id="schemeEditorTitle">Добавить колонну</h2><p>Укажите марку и точное положение относительно осей.</p></div><button type="button" id="schemeEditorX">×</button></div>
    <div class="scheme-form-grid">
     <label class="wide scheme-mark-field">Марка из ведомости<div class="scheme-mark-search"><input id="schemeMarkSearch" type="search" autocomplete="off" placeholder="Поиск по марке или наименованию…"><span id="schemeMarkCount"></span></div><select name="mark_id" ${marks.length?"required":"disabled"}>${markOptions("")}</select></label>
-    <label class="wide">Статус<select name="status"><option value="planned">Не смонтирована</option><option value="mounted">Смонтирована</option></select></label>
+    <label>Статус<select name="status"><option value="planned">Не смонтирована</option><option value="mounted">Смонтирована</option></select></label>
+    <label>Тип сечения<select name="section_type">${sectionOptions("ibeam")}</select></label>
+    <label class="wide">Профиль / обозначение<input name="profile_name" placeholder="Например: 40К2, 300×300×10, Ø273×8"></label>
     <div class="scheme-form-axis"><b>Направление ${esc(axesX[0])}–${esc(axesX.at(-1))}</b><label>Базовая ось<select name="axis_x">${axisOptions(axesX,axesX[0])}</select></label><label>Смещение, мм<input name="offset_x_mm" inputmode="decimal" value="0"></label></div>
     <div class="scheme-form-axis"><b>Направление ${esc(axesY[0])}–${esc(axesY.at(-1))}</b><label>Базовая ось<select name="axis_y">${axisOptions(axesY,axesY[0])}</select></label><label>Смещение, мм<input name="offset_y_mm" inputmode="decimal" value="0"></label></div>
     <label>Отметка низа, мм<input name="z0_mm" inputmode="decimal" value="0"></label>
@@ -228,10 +260,10 @@ window.irSchemePage=async function(objectId){
   f.reset();err.hidden=true;document.getElementById("schemeEditorTitle").textContent=c?"Редактировать колонну":"Добавить колонну";f.elements.id.value=c?.id||"";
   const currentMark=resolveSavedMarkId(c),unresolvedExisting=!!c&&!currentMark,search=document.getElementById("schemeMarkSearch"),count=document.getElementById("schemeMarkCount");let chosenMark=currentMark;
   f.elements.mark_id.innerHTML=markOptions(chosenMark,"",unresolvedExisting);if(chosenMark)f.elements.mark_id.value=chosenMark;
-  f.elements.mark_id.onchange=()=>{const value=String(f.elements.mark_id.value||"");if(value)chosenMark=value};
+  f.elements.mark_id.onchange=()=>{const value=String(f.elements.mark_id.value||"");if(value){chosenMark=value;if(!c){const same=records().find(x=>String(x.mark_id||"")===value);f.elements.section_type.value=sectionType(same||{});f.elements.profile_name.value=same?.profile_name||""}}};
   const applyMarkSearch=()=>{const q=search?.value||"",matched=searchMarks(q);f.elements.mark_id.innerHTML=markOptions(chosenMark,q,unresolvedExisting&&!chosenMark);if(!q&&chosenMark&&[...f.elements.mark_id.options].some(o=>o.value===chosenMark))f.elements.mark_id.value=chosenMark;count.textContent=q?`Найдено: ${matched.length}`:`Марок: ${marks.length}`;f.elements.mark_id._irSelectUI?.refresh?.()};
   if(search){search.value="";search.oninput=applyMarkSearch}applyMarkSearch();
-  f.elements.status.value=c?.status||"planned";f.elements.axis_x.value=c?.axis_x||axesX[0]||"";f.elements.axis_y.value=c?.axis_y||axesY[0]||"";
+  f.elements.status.value=c?.status||"planned";const sameMark=records().find(x=>String(x.mark_id||"")===currentMark&&(!c||x.id!==c.id)),shapeSource=c||sameMark||{};f.elements.section_type.value=sectionType(shapeSource);f.elements.profile_name.value=shapeSource.profile_name||"";f.elements.axis_x.value=c?.axis_x||axesX[0]||"";f.elements.axis_y.value=c?.axis_y||axesY[0]||"";
   f.elements.offset_x_mm.value=c?.offset_x_mm??0;f.elements.offset_y_mm.value=c?.offset_y_mm??0;f.elements.z0_mm.value=c?.z0_mm??0;f.elements.z1_mm.value=c?.z1_mm??8400;f.elements.rotation_deg.value=c?.rotation_deg??0;
   const refreshPreview=()=>{const ax=f.elements.axis_x.value,ay=f.elements.axis_y.value,dx=num(f.elements.offset_x_mm.value),dy=num(f.elements.offset_y_mm.value),x=num(axisXPos.get(ax))+dx,y=num(axisYPos.get(ay))+dy;document.getElementById("schemeCoordPreview").innerHTML=`<span>Точная координата</span><b>X = ${fmt(x)} мм · Y = ${fmt(y)} мм</b><small>${ax}${dx?` ${dx>=0?"+":"−"} ${fmt(Math.abs(dx))} мм`:""} / ${ay}${dy?` ${dy>=0?"+":"−"} ${fmt(Math.abs(dy))} мм`:""}</small>`};
   ["axis_x","axis_y","offset_x_mm","offset_y_mm"].forEach(n=>f.elements[n].addEventListener("input",refreshPreview));refreshPreview();d.showModal()
@@ -239,7 +271,7 @@ window.irSchemePage=async function(objectId){
  function bindEditor(){
   if(!canEdit())return;const d=document.getElementById("schemeEditor"),f=document.getElementById("schemeForm"),err=document.getElementById("schemeFormError");
   document.getElementById("schemeAdd")?.addEventListener("click",()=>openEditor());document.getElementById("schemeEditorX").onclick=()=>d.close();document.getElementById("schemeEditorCancel").onclick=()=>d.close();
-  f.onsubmit=async e=>{e.preventDefault();err.hidden=true;if(!marks.length){err.textContent="Сначала добавьте марки колонн в ведомость марок.";err.hidden=false;return}const fd=new FormData(f),id=String(fd.get("id")||""),markId=String(fd.get("mark_id")||""),m=marks.find(x=>x.id===markId),axisX=String(fd.get("axis_x")||axesX[0]||""),axisY=String(fd.get("axis_y")||axesY[0]||""),dx=num(fd.get("offset_x_mm")),dy=num(fd.get("offset_y_mm")),z0=num(fd.get("z0_mm")),z1=num(fd.get("z1_mm")),rot=num(fd.get("rotation_deg")),status=String(fd.get("status")||"planned");if(!m){err.textContent="Выберите марку колонны.";err.hidden=false;return}if(z1<=z0){err.textContent="Отметка верха должна быть выше отметки низа.";err.hidden=false;return}const existing=id?records().find(x=>x.id===id):null,used=new Set(records().map(x=>String(x.position||x.title||"")));let internalPosition=String(existing?.position||existing?.title||"");if(!internalPosition){let n=1;do{internalPosition="COL-"+String(n++).padStart(4,"0")}while(used.has(internalPosition))}const payload={record_type:"scheme_column",title:internalPosition,data:{entity_type:"column",position:internalPosition,mark_id:m.id,mark:m.mark||m.title||"",mark_name:m.name||"",work_type_id:m.work_type_id||"",axis_x:axisX,axis_y:axisY,offset_x_mm:dx,offset_y_mm:dy,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status}};let saved;if(id){saved=await schemeApi.update(id,payload)}else saved=await schemeApi.create(payload);rows=await schemeApi.list().catch(()=>rows);selectedId=String(saved?.id||id||records().at(-1)?.id||"");d.close();draw()}
+  f.onsubmit=async e=>{e.preventDefault();err.hidden=true;if(!marks.length){err.textContent="Сначала добавьте марки колонн в ведомость марок.";err.hidden=false;return}const fd=new FormData(f),id=String(fd.get("id")||""),markId=String(fd.get("mark_id")||""),m=marks.find(x=>x.id===markId),axisX=String(fd.get("axis_x")||axesX[0]||""),axisY=String(fd.get("axis_y")||axesY[0]||""),dx=num(fd.get("offset_x_mm")),dy=num(fd.get("offset_y_mm")),z0=num(fd.get("z0_mm")),z1=num(fd.get("z1_mm")),rot=num(fd.get("rotation_deg")),status=String(fd.get("status")||"planned"),section_type=String(fd.get("section_type")||"ibeam"),profile_name=String(fd.get("profile_name")||"").trim();if(!m){err.textContent="Выберите марку колонны.";err.hidden=false;return}if(z1<=z0){err.textContent="Отметка верха должна быть выше отметки низа.";err.hidden=false;return}const existing=id?records().find(x=>x.id===id):null,used=new Set(records().map(x=>String(x.position||x.title||"")));let internalPosition=String(existing?.position||existing?.title||"");if(!internalPosition){let n=1;do{internalPosition="COL-"+String(n++).padStart(4,"0")}while(used.has(internalPosition))}const payload={record_type:"scheme_column",title:internalPosition,data:{entity_type:"column",position:internalPosition,mark_id:m.id,mark:m.mark||m.title||"",mark_name:m.name||"",work_type_id:m.work_type_id||"",axis_x:axisX,axis_y:axisY,offset_x_mm:dx,offset_y_mm:dy,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name}};let saved;if(id){saved=await schemeApi.update(id,payload)}else saved=await schemeApi.create(payload);rows=await schemeApi.list().catch(()=>rows);selectedId=String(saved?.id||id||records().at(-1)?.id||"");d.close();draw()}
  }
  function draw(){
   const s=stats();
