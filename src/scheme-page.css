@@ -81,9 +81,8 @@
 .scheme-grid-direction select{width:100%;height:34px;padding:0 9px;border:1px solid #d5dee5;border-radius:7px;background:#fff;color:#263f50;font-size:8px;font-weight:700;outline:none}
 .scheme-grid-direction select:focus{border-color:#75a9e8;box-shadow:0 0 0 3px rgba(23,105,224,.08)}
 
-.scheme-type-bar{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:14px;margin:0 0 10px;padding:10px 12px;border:1px solid #dfe7ed;border-radius:10px;background:#fff;box-shadow:0 1px 4px rgba(23,54,77,.04)}
-.scheme-type-bar>div:first-child{min-width:120px;padding-top:3px}.scheme-type-bar>div:first-child b{display:block;color:#294356;font-size:9px}.scheme-type-bar>div:first-child span{display:block;margin-top:3px;color:#8796a1;font-size:7px}
-.scheme-type-tabs{display:flex;flex-wrap:wrap;gap:6px}.scheme-type-tabs button{display:grid;gap:2px;min-width:118px;padding:8px 10px;border:1px solid #d8e2e9;border-radius:8px;background:#f9fbfc;text-align:left;color:#506879}
-.scheme-type-tabs button b{font-size:8.5px;color:#294356}.scheme-type-tabs button small{font-size:6.8px;color:#8a99a4}.scheme-type-tabs button:hover{border-color:#9ebbd0;background:#f5f9fc}
-.scheme-type-tabs button.on{border-color:#6ca2dd;background:#eaf3ff;box-shadow:0 0 0 2px rgba(23,105,224,.06)}.scheme-type-tabs button.on b{color:#1769e0}.scheme-type-tabs button.on small{color:#5f83aa}
-@media(max-width:900px){.scheme-type-bar{grid-template-columns:1fr}.scheme-type-tabs button{min-width:105px;flex:1 1 105px}}
+.scheme-type-bar{display:flex;align-items:center;margin:0 0 10px;padding:10px 12px;border:1px solid #dfe7ed;border-radius:10px;background:#fff;box-shadow:0 1px 4px rgba(23,54,77,.04)}
+.scheme-type-bar label{display:grid;grid-template-columns:auto minmax(260px,380px);align-items:center;gap:12px;color:#294356;font-size:8.5px;font-weight:750}
+.scheme-type-bar select{width:100%;height:36px;padding:0 10px;border:1px solid #cfdbe3;border-radius:8px;background:#fff;color:#294356;font-size:8.5px;font-weight:700;outline:none}
+.scheme-type-bar select:focus{border-color:#75a9e8;box-shadow:0 0 0 3px rgba(23,105,224,.08)}
+@media(max-width:900px){.scheme-type-bar label{grid-template-columns:1fr;width:100%}.scheme-type-bar select{width:100%}}
