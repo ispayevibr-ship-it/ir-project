@@ -8,11 +8,15 @@ window.irSchemePage=async function(objectId){
  const arr=v=>Array.isArray(v)?v:[];
  const num=v=>{const n=Number(String(v??"").trim().replace(/\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};
  const fmt=v=>Number(num(v).toFixed(1)).toLocaleString("ru-RU",{maximumFractionDigits:1});
- const axesX=["1","2","3","4","5","6"],axesY=["А","Б","В","Г","Д","Е","Ж","И","К","Л"];
- const spanX=45000,spanY=60000,stepX=spanX/(axesX.length-1),stepY=spanY/(axesY.length-1);
- const axisXPos=new Map(axesX.map((a,i)=>[a,i*stepX])),axisYPos=new Map(axesY.map((a,i)=>[a,i*stepY]));
- let mode="3d",yaw=-34,selectedId="",rows=[],markRows=[],workRows=[];
+ const axesX=["1","2","3","4","5","6"],axesY=["А","Б","В","Г","Д","Е","Ж","И","К","Л"],targetSpanX=45000,targetSpanY=60000;
+ let mode="3d",yaw=-34,selectedId="",rows=[],markRows=[],workRows=[],gridXSpans=[],gridYSpans=[],spanX=targetSpanX,spanY=targetSpanY,axisXPos=new Map(),axisYPos=new Map();
  [rows,markRows,workRows]=await Promise.all([schemeApi.list().catch(()=>[]),root.section("marks").list().catch(()=>[]),root.section("work-types").list().catch(()=>[])]);
+ const equalSpans=(total,count)=>{const base=Math.floor(total/count),rem=Math.round(total-base*count);return Array.from({length:count},(_,i)=>base+(i<rem?1:0))};
+ const validSpans=(v,count,total)=>Array.isArray(v)&&v.length===count&&v.every(x=>num(x)>0)&&Math.abs(v.reduce((s,x)=>s+num(x),0)-total)<.11;
+ const gridRecord=()=>arr(rows).find(r=>r.record_type==="scheme_grid"||r.data?.entity_type==="grid")||null;
+ const cumulative=(axes,spans)=>{let at=0;return new Map(axes.map((axis,i)=>{const here=at;if(i<spans.length)at+=num(spans[i]);return[axis,here]}))};
+ const refreshGridModel=()=>{const g=gridRecord()?.data||{},gx=validSpans(g.x_spans_mm,axesX.length-1,targetSpanX)?g.x_spans_mm.map(num):equalSpans(targetSpanX,axesX.length-1),gy=validSpans(g.y_spans_mm,axesY.length-1,targetSpanY)?g.y_spans_mm.map(num):equalSpans(targetSpanY,axesY.length-1);gridXSpans=gx;gridYSpans=gy;spanX=gx.reduce((s,x)=>s+x,0);spanY=gy.reduce((s,x)=>s+x,0);axisXPos=cumulative(axesX,gx);axisYPos=cumulative(axesY,gy)};
+ refreshGridModel();
  const workById=new Map(arr(workRows).map(r=>[String(r.id),r.data||{}]));
  const marks=arr(markRows).map(r=>({id:String(r.id),title:r.title||"",...(r.data||{})}));
  const markLabel=m=>{const w=workById.get(String(m.work_type_id||""))||{},name=m.name||"",wt=w.work_type||m.work_type||"";return [m.mark||m.title||"Без марки",name||wt].filter(Boolean).join(" · ")};
@@ -23,6 +27,8 @@ window.irSchemePage=async function(objectId){
  const markOptions=(selectedMark,query="")=>{const q=String(query||"").trim().toLowerCase(),list=q?marks.filter(m=>`${m.mark||m.title||""} ${m.name||""}`.toLowerCase().includes(q)):marks;return list.length?list.map(m=>`<option value="${esc(m.id)}" ${String(selectedMark)===m.id?"selected":""}>${esc(markLabel(m))}</option>`).join(""):`<option value="">${marks.length?"Ничего не найдено":"Ведомость марок пустая"}</option>`};
  const axisOptions=(items,value)=>items.map(x=>`<option value="${esc(x)}" ${String(value)===x?"selected":""}>${esc(x)}</option>`).join("");
  const statusText=s=>s==="mounted"?"Смонтирована":"Не смонтирована";
+ const spanSummary=spans=>{const min=Math.min(...spans),max=Math.max(...spans),avg=spans.reduce((s,x)=>s+x,0)/Math.max(1,spans.length);return max-min<=1?`≈ по ${fmt(avg)} мм`:"индивидуальные размеры"};
+ const pairLabel=(items,i)=>`${items[i]}–${items[i+1]}`;
  function stats(){
   const cols=columns(),mounted=cols.filter(x=>x.status==="mounted").length;
   return{total:cols.length,mounted,left:cols.length-mounted,pct:cols.length?Math.round(mounted/cols.length*100):0}
