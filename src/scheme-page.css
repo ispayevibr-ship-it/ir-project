@@ -66,3 +66,12 @@
 .scheme-column.planned:not(.selected) .scheme-plan-box{fill:#d94b4b;stroke:#a92a2a}
 .scheme-column.planned:not(.selected) .scheme-plan-section-inner{fill:#fff4f4;stroke:#a92a2a}
 .scheme-column.planned:not(.selected) .scheme-plan-ibeam{stroke:#a92a2a}
+
+.scheme-grid-layer{pointer-events:none}
+.scheme-column-layer{pointer-events:auto}
+.scheme-column-hit{fill:transparent;stroke:transparent;stroke-width:0;pointer-events:all}
+.scheme-column-hit-line{stroke:transparent;stroke-width:16;pointer-events:stroke}
+.scheme-orient{display:flex;align-items:center;gap:3px;padding:2px;border:1px solid #d9e2e8;border-radius:7px;background:#fff}
+.scheme-orient button{height:24px;min-width:42px;padding:0 7px;border:0;border-radius:5px;background:transparent;color:#526b7c;font-size:8px;font-weight:800}
+.scheme-orient button:hover{background:#f1f5f8}
+.scheme-orient #schemeRotationValue{min-width:38px;color:#1769e0}
