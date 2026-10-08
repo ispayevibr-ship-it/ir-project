@@ -75,8 +75,8 @@ window.irSchemePage=async function(objectId){
   for(const axis of axesX){const x=axisXPos.get(axis),a=p(x,0,0),b=p(x,spanY,0),la=p(x,-4200,0),lb=p(x,spanY+4200,0);out+=line(a,b,"scheme-grid-line")+svgBubble(la.x,la.y,axis,"scheme-axis-bubble3d")+svgBubble(lb.x,lb.y,axis,"scheme-axis-bubble3d")}
   for(const axis of axesY){const y=axisYPos.get(axis),a=p(0,y,0),b=p(spanX,y,0),la=p(-4200,y,0),lb=p(spanX+4200,y,0);out+=line(a,b,"scheme-grid-line")+svgBubble(la.x,la.y,axis,"scheme-axis-bubble3d")+svgBubble(lb.x,lb.y,axis,"scheme-axis-bubble3d")}
   if(dimensionsVisible){
-   gridXSpans.forEach((dist,i)=>{const x1=axisXPos.get(axesX[i]),x2=axisXPos.get(axesX[i+1]),m=p((x1+x2)/2,-7600,0);out+=`<text x="${m.x}" y="${m.y}" class="scheme-3d-span-text">${pairLabel(axesX,i)} · ${fmt(dist)} мм</text>`});
-   gridYSpans.forEach((dist,i)=>{const y1=axisYPos.get(axesY[i]),y2=axisYPos.get(axesY[i+1]),m=p(-7600,(y1+y2)/2,0);out+=`<text x="${m.x}" y="${m.y}" class="scheme-3d-span-text">${pairLabel(axesY,i)} · ${fmt(dist)} мм</text>`})
+   gridXSpans.forEach((dist,i)=>{const x1=axisXPos.get(axesX[i]),x2=axisXPos.get(axesX[i+1]),m=p((x1+x2)/2,-7600,0);out+=`<text x="${m.x}" y="${m.y}" class="scheme-3d-span-text">${fmt(dist)} мм</text>`});
+   gridYSpans.forEach((dist,i)=>{const y1=axisYPos.get(axesY[i]),y2=axisYPos.get(axesY[i+1]),m=p(-7600,(y1+y2)/2,0);out+=`<text x="${m.x}" y="${m.y}" class="scheme-3d-span-text">${fmt(dist)} мм</text>`})
   }
   const d1=p(spanX/2,-10800,0),d2=p(-10800,spanY/2,0);
   out+=`<g class="scheme-3d-dim"><rect x="${d1.x-50}" y="${d1.y-11}" width="100" height="20" rx="5"/><text x="${d1.x}" y="${d1.y+3}">${esc(xName)}: ${fmt(spanX)} мм</text></g>`;
@@ -104,7 +104,7 @@ window.irSchemePage=async function(objectId){
  }
  function prism(c,p,index){
   const base=p(c.x,c.y,c.z0),top=p(c.x,c.y,c.z1),isSelected=c.id===selectedId,sel=isSelected?" selected":"",status=c.status==="mounted"?" mounted":" planned",between=c.dx||c.dy?" between":"";
-  const baseAxis=p(axisXPos.get(c.axisX),axisYPos.get(c.axisY),c.z0),showOffset=!!(c.dx||c.dy)&&dimensionsVisible,showLabel=isSelected||labelsVisible;
+  const baseAxis=p(axisXPos.get(c.axisX),axisYPos.get(c.axisY),c.z0),showOffset=!!(c.dx||c.dy)&&dimensionsVisible&&isSelected,showLabel=isSelected||labelsVisible;
   const lw=82,lh=28,placeBelow=top.y<150,preferLeft=index%2===1,rawX=top.x+(preferLeft?-lw-12:12),rawY=placeBelow?top.y+12:top.y-lh-12,lx=Math.max(8,Math.min(1040-lw-8,rawX)),ly=Math.max(8,Math.min(650-lh-8,rawY)),anchorX=preferLeft?lx+lw:lx;
   const offsetMid={x:(base.x+baseAxis.x)/2,y:(base.y+baseAxis.y)/2};
   return`<g class="scheme-column section-${sectionType(c)}${status}${sel}${between}" data-column="${esc(c.id)}" tabindex="0">
@@ -133,8 +133,8 @@ window.irSchemePage=async function(objectId){
   axesX.forEach(axis=>{const x=axisXPos.get(axis),a=p(x,0),b=p(x,spanY),[la,lb]=extend(a,b,20);grid+=`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="scheme-grid-line"/>${svgBubble(la.x,la.y,axis)}${svgBubble(lb.x,lb.y,axis)}`});
   axesY.forEach(axis=>{const y=axisYPos.get(axis),a=p(0,y),b=p(spanX,y),[la,lb]=extend(a,b,20);grid+=`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="scheme-grid-line"/>${svgBubble(la.x,la.y,axis)}${svgBubble(lb.x,lb.y,axis)}`});
   if(dimensionsVisible){
-   gridXSpans.forEach((dist,i)=>{const x1=axisXPos.get(axesX[i]),x2=axisXPos.get(axesX[i+1]),q=outward(p((x1+x2)/2,0),42);grid+=`<text x="${q.x}" y="${q.y}" class="scheme-span-text">${pairLabel(axesX,i)} · ${fmt(dist)} мм</text>`});
-   gridYSpans.forEach((dist,i)=>{const y1=axisYPos.get(axesY[i]),y2=axisYPos.get(axesY[i+1]),q=outward(p(0,(y1+y2)/2),42);grid+=`<text x="${q.x}" y="${q.y}" class="scheme-span-text">${pairLabel(axesY,i)} · ${fmt(dist)} мм</text>`})
+   gridXSpans.forEach((dist,i)=>{const x1=axisXPos.get(axesX[i]),x2=axisXPos.get(axesX[i+1]),q=outward(p((x1+x2)/2,0),42);grid+=`<text x="${q.x}" y="${q.y}" class="scheme-span-text">${fmt(dist)} мм</text>`});
+   gridYSpans.forEach((dist,i)=>{const y1=axisYPos.get(axesY[i]),y2=axisYPos.get(axesY[i+1]),q=outward(p(0,(y1+y2)/2),42);grid+=`<text x="${q.x}" y="${q.y}" class="scheme-span-text">${fmt(dist)} мм</text>`})
   }
   const horizName=rot90?yName:xName,horizSize=rot90?spanY:spanX,vertName=rot90?xName:yName,vertSize=rot90?spanX:spanY;
   grid+=`<line x1="${left}" y1="${gridTop+gridH+52}" x2="${left+gridW}" y2="${gridTop+gridH+52}" class="scheme-dim-line"/><text x="${W/2}" y="${gridTop+gridH+71}" class="scheme-dim-text">${esc(horizName)} = ${fmt(horizSize)} мм</text>`;
@@ -142,7 +142,7 @@ window.irSchemePage=async function(objectId){
   let columnsSvg="";
   cols.forEach((c,index)=>{
    const q=p(c.x,c.y),axis=p(axisXPos.get(c.axisX),axisYPos.get(c.axisY)),x=q.x,y=q.y,axisX=axis.x,axisY=axis.y,isSelected=c.id===selectedId,sel=isSelected?" selected":"",status=c.status==="mounted"?" mounted":" planned",between=c.dx||c.dy?" between":"",showLabel=isSelected||labelsVisible,lw=78,lh=27,placeBelow=y<gridTop+70,preferLeft=index%2===1,rawX=x+(preferLeft?-lw-9:9),rawY=placeBelow?y+9:y-lh-9,lx=Math.max(6,Math.min(W-lw-6,rawX)),ly=Math.max(8,Math.min(H-lh-8,rawY)),anchorX=preferLeft?lx+lw:lx;
-   const showOffset=!!(c.dx||c.dy)&&dimensionsVisible,midX=(x+axisX)/2,midY=(y+axisY)/2;
+   const showOffset=!!(c.dx||c.dy)&&dimensionsVisible&&isSelected,midX=(x+axisX)/2,midY=(y+axisY)/2;
    columnsSvg+=`<g class="scheme-column${status}${sel}${between}" data-column="${esc(c.id)}" tabindex="0"><title>${esc(columnTitle(c))}</title><circle cx="${x}" cy="${y}" r="11" class="scheme-column-hit"/>${showOffset?`<line x1="${axisX}" y1="${axisY}" x2="${x}" y2="${y}" class="scheme-offset-line"/><circle cx="${axisX}" cy="${axisY}" r="3" class="scheme-offset-origin"/><text x="${midX}" y="${midY-7}" class="scheme-offset-text">${esc(offsetText(c))}</text>`:""}${planSectionSymbol(c,x,y)}${showLabel?`<line x1="${x}" y1="${y}" x2="${anchorX}" y2="${ly+lh/2}" class="scheme-label-leader"/><g class="scheme-column-label compact${isSelected?" selected-label":""}"><rect x="${lx}" y="${ly}" width="${lw}" height="${lh}" rx="6"/><text x="${lx+7}" y="${ly+17}" class="scheme-label-position">${esc(c.mark||"—")}</text></g>`:""}</g>`;
   });
   return`<g class="scheme-grid-layer">${grid}</g><g class="scheme-column-layer">${columnsSvg}</g>`
