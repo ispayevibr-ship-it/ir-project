@@ -133,12 +133,22 @@ window.irSchemePage=async function(objectId){
   axesX.forEach(axis=>{const x=axisXPos.get(axis),a=p(x,0),b=p(x,spanY),[la,lb]=extend(a,b,20);grid+=`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="scheme-grid-line"/>${svgBubble(la.x,la.y,axis)}${svgBubble(lb.x,lb.y,axis)}`});
   axesY.forEach(axis=>{const y=axisYPos.get(axis),a=p(0,y),b=p(spanX,y),[la,lb]=extend(a,b,20);grid+=`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="scheme-grid-line"/>${svgBubble(la.x,la.y,axis)}${svgBubble(lb.x,lb.y,axis)}`});
   if(dimensionsVisible){
-   gridXSpans.forEach((dist,i)=>{const x1=axisXPos.get(axesX[i]),x2=axisXPos.get(axesX[i+1]),q=outward(p((x1+x2)/2,0),42);grid+=`<text x="${q.x}" y="${q.y}" class="scheme-span-text">${fmt(dist)} мм</text>`});
-   gridYSpans.forEach((dist,i)=>{const y1=axisYPos.get(axesY[i]),y2=axisYPos.get(axesY[i+1]),q=outward(p(0,(y1+y2)/2),42);grid+=`<text x="${q.x}" y="${q.y}" class="scheme-span-text">${fmt(dist)} мм</text>`})
+   const drawSpan=(q1,q2,dist)=>{
+    const horizontal=Math.abs(q2.x-q1.x)>=Math.abs(q2.y-q1.y);
+    if(horizontal){
+     const y=gridTop+gridH+28,x1=q1.x,x2=q2.x,mx=(x1+x2)/2;
+     grid+=`<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" class="scheme-span-line"/><line x1="${x1}" y1="${y-4}" x2="${x1}" y2="${y+4}" class="scheme-span-tick"/><line x1="${x2}" y1="${y-4}" x2="${x2}" y2="${y+4}" class="scheme-span-tick"/><text x="${mx}" y="${y+13}" class="scheme-span-text">${fmt(dist)} мм</text>`
+    }else{
+     const x=left-38,y1=q1.y,y2=q2.y,my=(y1+y2)/2,tx=x-12;
+     grid+=`<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" class="scheme-span-line"/><line x1="${x-4}" y1="${y1}" x2="${x+4}" y2="${y1}" class="scheme-span-tick"/><line x1="${x-4}" y1="${y2}" x2="${x+4}" y2="${y2}" class="scheme-span-tick"/><text x="${tx}" y="${my}" class="scheme-span-text" transform="rotate(-90 ${tx} ${my})">${fmt(dist)} мм</text>`
+    }
+   };
+   gridXSpans.forEach((dist,i)=>drawSpan(p(axisXPos.get(axesX[i]),0),p(axisXPos.get(axesX[i+1]),0),dist));
+   gridYSpans.forEach((dist,i)=>drawSpan(p(0,axisYPos.get(axesY[i])),p(0,axisYPos.get(axesY[i+1])),dist))
   }
-  const horizName=rot90?yName:xName,horizSize=rot90?spanY:spanX,vertName=rot90?xName:yName,vertSize=rot90?spanX:spanY;
-  grid+=`<line x1="${left}" y1="${gridTop+gridH+52}" x2="${left+gridW}" y2="${gridTop+gridH+52}" class="scheme-dim-line"/><text x="${W/2}" y="${gridTop+gridH+71}" class="scheme-dim-text">${esc(horizName)} = ${fmt(horizSize)} мм</text>`;
-  grid+=`<line x1="${left+gridW+54}" y1="${gridTop}" x2="${left+gridW+54}" y2="${gridTop+gridH}" class="scheme-dim-line"/><text x="${left+gridW+79}" y="${H/2}" class="scheme-dim-text scheme-dim-vertical">${esc(vertName)} = ${fmt(vertSize)} мм</text>`;
+  const horizName=rot90?yName:xName,horizSize=rot90?spanY:spanX,vertName=rot90?xName:yName,vertSize=rot90?spanX:spanY,totalY=gridTop+gridH+(dimensionsVisible?64:52),totalX=left+gridW+(dimensionsVisible?66:54);
+  grid+=`<line x1="${left}" y1="${totalY}" x2="${left+gridW}" y2="${totalY}" class="scheme-dim-line"/><line x1="${left}" y1="${totalY-5}" x2="${left}" y2="${totalY+5}" class="scheme-dim-line"/><line x1="${left+gridW}" y1="${totalY-5}" x2="${left+gridW}" y2="${totalY+5}" class="scheme-dim-line"/><text x="${W/2}" y="${totalY+17}" class="scheme-dim-text">${esc(horizName)} = ${fmt(horizSize)} мм</text>`;
+  grid+=`<line x1="${totalX}" y1="${gridTop}" x2="${totalX}" y2="${gridTop+gridH}" class="scheme-dim-line"/><line x1="${totalX-5}" y1="${gridTop}" x2="${totalX+5}" y2="${gridTop}" class="scheme-dim-line"/><line x1="${totalX-5}" y1="${gridTop+gridH}" x2="${totalX+5}" y2="${gridTop+gridH}" class="scheme-dim-line"/><text x="${totalX+18}" y="${H/2}" class="scheme-dim-text" transform="rotate(-90 ${totalX+18} ${H/2})">${esc(vertName)} = ${fmt(vertSize)} мм</text>`;
   let columnsSvg="";
   cols.forEach((c,index)=>{
    const q=p(c.x,c.y),axis=p(axisXPos.get(c.axisX),axisYPos.get(c.axisY)),x=q.x,y=q.y,axisX=axis.x,axisY=axis.y,isSelected=c.id===selectedId,sel=isSelected?" selected":"",status=c.status==="mounted"?" mounted":" planned",between=c.dx||c.dy?" between":"",showLabel=isSelected||labelsVisible,lw=78,lh=27,placeBelow=y<gridTop+70,preferLeft=index%2===1,rawX=x+(preferLeft?-lw-9:9),rawY=placeBelow?y+9:y-lh-9,lx=Math.max(6,Math.min(W-lw-6,rawX)),ly=Math.max(8,Math.min(H-lh-8,rawY)),anchorX=preferLeft?lx+lw:lx;
@@ -162,8 +172,8 @@ window.irSchemePage=async function(objectId){
  }
  function renderScene(){
   const box=document.getElementById("schemeCanvas");if(!box)return;const cols=columns(),xName=`${axesX[0]}–${axesX.at(-1)}`,yName=`${axesY[0]}–${axesY.at(-1)}`,meta=`<div class="scheme-grid-meta"><b>${fmt(spanX)} × ${fmt(spanY)} мм</b><span>${esc(xName)}: ${axesX.length} осей</span><span>${esc(yName)}: ${axesY.length} осей</span><small>Поворот ${viewRotation}° · Ctrl + колесо — масштаб · пустое место — перемещение</small></div>`;
-  if(mode==="3d"){const g=grid3d(cols);box.innerHTML=`${meta}<svg viewBox="0 0 1040 650" aria-label="3D монтажная схема"><g id="schemeZoomLayer" transform="${zoomTransform()}"><g class="scheme-grid-layer">${g.html}</g><g class="scheme-column-layer">${cols.map((c,i)=>prism(c,g.p,i)).join("")}</g></g><text x="520" y="626" class="scheme-demo-note" text-anchor="middle">${labelsVisible?"Подписи включены":"Подписи скрыты — выберите колонну для просмотра"} · ${dimensionsVisible?"Размеры пролётов включены":"Размеры пролётов скрыты"}</text></svg>`}
-  else box.innerHTML=`${meta}<svg viewBox="0 0 1040 650" aria-label="План монтажной схемы"><g id="schemeZoomLayer" transform="${zoomTransform()}">${planSvg(cols)}</g><text x="520" y="626" class="scheme-demo-note" text-anchor="middle">${labelsVisible?"Подписи включены":"Подписи скрыты — выберите колонну для просмотра"} · масштаб X/Y одинаковый</text></svg>`;
+  if(mode==="3d"){const g=grid3d(cols);box.innerHTML=`${meta}<svg viewBox="0 0 1040 650" aria-label="3D монтажная схема"><g id="schemeZoomLayer" transform="${zoomTransform()}"><g class="scheme-grid-layer">${g.html}</g><g class="scheme-column-layer">${cols.map((c,i)=>prism(c,g.p,i)).join("")}</g></g></svg>`}
+  else box.innerHTML=`${meta}<svg viewBox="0 0 1040 650" aria-label="План монтажной схемы"><g id="schemeZoomLayer" transform="${zoomTransform()}">${planSvg(cols)}</g></svg>`;
   box.querySelectorAll("[data-column]").forEach(el=>{const pick=()=>{selectedId=el.dataset.column;renderScene();renderDetails()};el.onclick=pick;el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();pick()}}});
   bindScenePanZoom(box)
  }
