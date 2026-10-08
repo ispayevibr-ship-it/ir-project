@@ -26,7 +26,7 @@ window.irSchemePage=async function(objectId){
  const coord=c=>{const axisX=axesX.includes(String(c.axis_x))?String(c.axis_x):(axesX[0]||""),axisY=axesY.includes(String(c.axis_y))?String(c.axis_y):(axesY[0]||""),dx=num(c.offset_x_mm),dy=num(c.offset_y_mm);return{x:num(axisXPos.get(axisX))+dx,y:num(axisYPos.get(axisY))+dy,z0:num(c.z0_mm),z1:num(c.z1_mm||8400),axisX,axisY,dx,dy}};
  const columns=()=>records().map(c=>({...c,...coord(c)}));
  const selected=()=>columns().find(x=>x.id===selectedId)||null;
- const markOptions=(selectedMark,query="")=>{const q=String(query||"").trim().toLowerCase(),list=q?marks.filter(m=>`${m.mark||m.title||""} ${m.name||""}`.toLowerCase().includes(q)):marks;return list.length?list.map(m=>`<option value="${esc(m.id)}" ${String(selectedMark)===m.id?"selected":""}>${esc(markLabel(m))}</option>`).join(""):`<option value="">${marks.length?"Ничего не найдено":"Ведомость марок пустая"}</option>`};
+ const markOptions=(selectedMark,query="")=>{const q=String(query||"").trim().toLowerCase(),selected=marks.find(m=>m.id===String(selectedMark)),matched=q?marks.filter(m=>`${m.mark||m.title||""} ${m.name||""}`.toLowerCase().includes(q)):marks,visible=selected&&q&&!matched.some(m=>m.id===selected.id)?[selected,...matched]:matched;return visible.length?visible.map(m=>`<option value="${esc(m.id)}" ${String(selectedMark)===m.id?"selected":""}>${esc(markLabel(m))}</option>`).join(""):`<option value="">${marks.length?"Ничего не найдено":"Ведомость марок пустая"}</option>`};
  const axisOptions=(items,value)=>items.map(x=>`<option value="${esc(x)}" ${String(value)===x?"selected":""}>${esc(x)}</option>`).join("");
  const statusText=s=>s==="mounted"?"Смонтирована":"Не смонтирована";
  const spanSummary=spans=>{const min=Math.min(...spans),max=Math.max(...spans),avg=spans.reduce((s,x)=>s+x,0)/Math.max(1,spans.length);return max-min<=1?`≈ по ${fmt(avg)} мм`:"индивидуальные размеры"};
@@ -211,8 +211,10 @@ window.irSchemePage=async function(objectId){
  function openEditor(c=null){
   const d=document.getElementById("schemeEditor"),f=document.getElementById("schemeForm"),err=document.getElementById("schemeFormError");if(!d||!f)return;
   f.reset();err.hidden=true;document.getElementById("schemeEditorTitle").textContent=c?"Редактировать колонну":"Добавить колонну";f.elements.id.value=c?.id||"";
-  const currentMark=String(c?.mark_id||marks[0]?.id||""),search=document.getElementById("schemeMarkSearch"),count=document.getElementById("schemeMarkCount");
-  const applyMarkSearch=()=>{const q=search?.value||"",previous=String(f.elements.mark_id.value||currentMark||"");f.elements.mark_id.innerHTML=markOptions(previous,q);const visible=[...f.elements.mark_id.options].filter(o=>o.value);if(visible.some(o=>o.value===previous))f.elements.mark_id.value=previous;else if(visible[0])f.elements.mark_id.value=visible[0].value;count.textContent=q?`Найдено: ${visible.length}`:`Марок: ${marks.length}`;f.elements.mark_id._irSelectUI?.refresh?.()};
+  const currentMark=String(c?.mark_id||marks[0]?.id||""),search=document.getElementById("schemeMarkSearch"),count=document.getElementById("schemeMarkCount");let chosenMark=currentMark;
+  f.elements.mark_id.innerHTML=markOptions(chosenMark,"");f.elements.mark_id.value=chosenMark;
+  f.elements.mark_id.onchange=()=>{chosenMark=String(f.elements.mark_id.value||chosenMark||"")};
+  const applyMarkSearch=()=>{const q=search?.value||"",matched=q?marks.filter(m=>`${m.mark||m.title||""} ${m.name||""}`.toLowerCase().includes(q)).length:marks.length;f.elements.mark_id.innerHTML=markOptions(chosenMark,q);if([...f.elements.mark_id.options].some(o=>o.value===chosenMark))f.elements.mark_id.value=chosenMark;count.textContent=q?`Найдено: ${matched}`:`Марок: ${marks.length}`;f.elements.mark_id._irSelectUI?.refresh?.()};
   if(search){search.value="";search.oninput=applyMarkSearch}applyMarkSearch();
   f.elements.position.value=c?.position||c?.title||"";
   f.elements.status.value=c?.status||"planned";f.elements.axis_x.value=c?.axis_x||axesX[0]||"";f.elements.axis_y.value=c?.axis_y||axesY[0]||"";
