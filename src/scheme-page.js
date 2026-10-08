@@ -56,13 +56,27 @@ window.irSchemePage=async function(objectId){
   const a=axisText(c),position=c.position||c.title||"Колонна",mark=c.mark||"—";
   return `${position} · ${mark}\nОси: ${a.x} / ${a.y}\nX: ${fmt(c.x)} мм · Y: ${fmt(c.y)} мм\nНиз: ${fmt(c.z0)} мм · Верх: ${fmt(c.z1)} мм${c.dx||c.dy?"\nСмещение: "+offsetText(c):""}`
  }
+ function svgBubble(x,y,label,cls="scheme-axis-bubble"){
+  return `<g class="${cls}"><circle cx="${x}" cy="${y}" r="10"/><text x="${x}" y="${y+3.4}">${esc(label)}</text></g>`
+ }
  function grid3d(cols){
   const p=projection(cols);let out="";
-  for(const axis of axesX){const x=axisXPos.get(axis),a=p(x,0,0),b=p(x,spanY,0),label=p(x,-4200,0);out+=line(a,b,"scheme-grid-line")+ `<text x="${label.x}" y="${label.y}" class="scheme-axis-label">${axis}</text>`}
-  for(const axis of axesY){const y=axisYPos.get(axis),a=p(0,y,0),b=p(spanX,y,0),label=p(-4200,y,0);out+=line(a,b,"scheme-grid-line")+ `<text x="${label.x}" y="${label.y}" class="scheme-axis-label">${axis}</text>`}
-  const d1=p(spanX/2,-7600,0),d2=p(-7600,spanY/2,0);
-  out+=`<g class="scheme-3d-dim"><rect x="${d1.x-46}" y="${d1.y-11}" width="92" height="20" rx="5"/><text x="${d1.x}" y="${d1.y+3}">1–6: 45 000 мм</text></g>`;
-  out+=`<g class="scheme-3d-dim"><rect x="${d2.x-46}" y="${d2.y-11}" width="92" height="20" rx="5"/><text x="${d2.x}" y="${d2.y+3}">А–Л: 60 000 мм</text></g>`;
+  const c1=p(0,0,0),c2=p(spanX,0,0),c3=p(spanX,spanY,0),c4=p(0,spanY,0);
+  out+=`<polygon points="${c1.x},${c1.y} ${c2.x},${c2.y} ${c3.x},${c3.y} ${c4.x},${c4.y}" class="scheme-grid-floor3d"/>`;
+  out+=line(c1,c2,"scheme-grid-outline")+line(c2,c3,"scheme-grid-outline")+line(c3,c4,"scheme-grid-outline")+line(c4,c1,"scheme-grid-outline");
+  for(const axis of axesX){
+   const x=axisXPos.get(axis),a=p(x,0,0),b=p(x,spanY,0),la=p(x,-4200,0),lb=p(x,spanY+4200,0);
+   out+=line(a,b,"scheme-grid-line")+svgBubble(la.x,la.y,axis,"scheme-axis-bubble3d")+svgBubble(lb.x,lb.y,axis,"scheme-axis-bubble3d")
+  }
+  for(const axis of axesY){
+   const y=axisYPos.get(axis),a=p(0,y,0),b=p(spanX,y,0),la=p(-4200,y,0),lb=p(spanX+4200,y,0);
+   out+=line(a,b,"scheme-grid-line")+svgBubble(la.x,la.y,axis,"scheme-axis-bubble3d")+svgBubble(lb.x,lb.y,axis,"scheme-axis-bubble3d")
+  }
+  gridXSpans.forEach((dist,i)=>{const x1=axisXPos.get(axesX[i]),x2=axisXPos.get(axesX[i+1]),m=p((x1+x2)/2,-7600,0);out+=`<text x="${m.x}" y="${m.y}" class="scheme-3d-span-text">${pairLabel(axesX,i)} · ${fmt(dist)} мм</text>`});
+  gridYSpans.forEach((dist,i)=>{const y1=axisYPos.get(axesY[i]),y2=axisYPos.get(axesY[i+1]),m=p(-7600,(y1+y2)/2,0);out+=`<text x="${m.x}" y="${m.y}" class="scheme-3d-span-text">${pairLabel(axesY,i)} · ${fmt(dist)} мм</text>`});
+  const d1=p(spanX/2,-10800,0),d2=p(-10800,spanY/2,0);
+  out+=`<g class="scheme-3d-dim"><rect x="${d1.x-50}" y="${d1.y-11}" width="100" height="20" rx="5"/><text x="${d1.x}" y="${d1.y+3}">1–6: ${fmt(spanX)} мм</text></g>`;
+  out+=`<g class="scheme-3d-dim"><rect x="${d2.x-50}" y="${d2.y-11}" width="100" height="20" rx="5"/><text x="${d2.x}" y="${d2.y+3}">А–Л: ${fmt(spanY)} мм</text></g>`;
   return{html:out,p}
  }
  function prism(c,p,index){
@@ -81,25 +95,26 @@ window.irSchemePage=async function(objectId){
   </g>`
  }
  function planSvg(cols){
-  const W=1040,H=650,padX=170,padY=94,availW=W-padX*2,availH=H-padY*2,scale=Math.min(availW/spanX,availH/spanY),gridW=spanX*scale,gridH=spanY*scale,left=(W-gridW)/2,top=(H-gridH)/2;
+  const W=1040,H=650,padX=190,padY=98,availW=W-padX*2,availH=H-padY*2,scale=Math.min(availW/spanX,availH/spanY),gridW=spanX*scale,gridH=spanY*scale,left=(W-gridW)/2,top=(H-gridH)/2;
   const sx=x=>left+x*scale,sy=y=>top+y*scale;let svg="";
-  axesX.forEach(a=>{const x=sx(axisXPos.get(a));svg+=`<line x1="${x}" y1="${top}" x2="${x}" y2="${top+gridH}" class="scheme-grid-line"/><text x="${x}" y="${top-24}" class="scheme-axis-label">${a}</text>`});
-  axesY.forEach(a=>{const y=sy(axisYPos.get(a));svg+=`<line x1="${left}" y1="${y}" x2="${left+gridW}" y2="${y}" class="scheme-grid-line"/><text x="${left-30}" y="${y}" class="scheme-axis-label">${a}</text>`});
-  axesX.slice(0,-1).forEach((a,i)=>{const x1=sx(axisXPos.get(axesX[i])),x2=sx(axisXPos.get(axesX[i+1])),mx=(x1+x2)/2;svg+=`<line x1="${x1}" y1="${top-50}" x2="${x2}" y2="${top-50}" class="scheme-span-line"/><text x="${mx}" y="${top-58}" class="scheme-span-text">${fmt(stepX)} мм</text>`});
-  axesY.slice(0,-1).forEach((a,i)=>{const y1=sy(axisYPos.get(axesY[i])),y2=sy(axisYPos.get(axesY[i+1])),my=(y1+y2)/2;svg+=`<line x1="${left-56}" y1="${y1}" x2="${left-56}" y2="${y2}" class="scheme-span-line"/><text x="${left-66}" y="${my}" class="scheme-span-text scheme-span-y">${fmt(stepY)} мм</text>`});
+  svg+=`<rect x="${left}" y="${top}" width="${gridW}" height="${gridH}" class="scheme-grid-floor-plan"/><rect x="${left}" y="${top}" width="${gridW}" height="${gridH}" class="scheme-grid-outline-plan"/>`;
+  axesX.forEach(a=>{const x=sx(axisXPos.get(a));svg+=`<line x1="${x}" y1="${top}" x2="${x}" y2="${top+gridH}" class="scheme-grid-line"/>${svgBubble(x,top-20,a)}${svgBubble(x,top+gridH+20,a)}`});
+  axesY.forEach(a=>{const y=sy(axisYPos.get(a));svg+=`<line x1="${left}" y1="${y}" x2="${left+gridW}" y2="${y}" class="scheme-grid-line"/>${svgBubble(left-20,y,a)}${svgBubble(left+gridW+20,y,a)}`});
+  gridXSpans.forEach((dist,i)=>{const x1=sx(axisXPos.get(axesX[i])),x2=sx(axisXPos.get(axesX[i+1])),mx=(x1+x2)/2;svg+=`<line x1="${x1}" y1="${top-50}" x2="${x2}" y2="${top-50}" class="scheme-span-line"/><line x1="${x1}" y1="${top-54}" x2="${x1}" y2="${top-46}" class="scheme-span-tick"/><line x1="${x2}" y1="${top-54}" x2="${x2}" y2="${top-46}" class="scheme-span-tick"/><text x="${mx}" y="${top-59}" class="scheme-span-text">${fmt(dist)}</text>`});
+  gridYSpans.forEach((dist,i)=>{const y1=sy(axisYPos.get(axesY[i])),y2=sy(axisYPos.get(axesY[i+1])),my=(y1+y2)/2;svg+=`<line x1="${left-54}" y1="${y1}" x2="${left-54}" y2="${y2}" class="scheme-span-line"/><line x1="${left-58}" y1="${y1}" x2="${left-50}" y2="${y1}" class="scheme-span-tick"/><line x1="${left-58}" y1="${y2}" x2="${left-50}" y2="${y2}" class="scheme-span-tick"/><text x="${left-65}" y="${my}" class="scheme-span-text scheme-span-y">${fmt(dist)}</text>`});
   cols.forEach((c,index)=>{
    const x=sx(c.x),y=sy(c.y),axisX=sx(axisXPos.get(c.axisX)),axisY=sy(axisYPos.get(c.axisY)),sel=c.id===selectedId?" selected":"",status=c.status==="mounted"?" mounted":" planned",between=c.dx||c.dy?" between":"",a=axisText(c),lw=118,lh=42,preferLeft=index%2===1,rawX=x+(preferLeft?-lw-12:12),lx=Math.max(6,Math.min(W-lw-6,rawX)),ly=Math.max(8,Math.min(H-lh-8,y-20-(index%3)*9)),anchorX=preferLeft?lx+lw:lx;
    const showOffset=!!(c.dx||c.dy),baseX=axisX,baseY=axisY,midX=(x+baseX)/2,midY=(y+baseY)/2;
    svg+=`<g class="scheme-column${status}${sel}${between}" data-column="${esc(c.id)}" tabindex="0"><title>${esc(columnTitle(c))}</title>${showOffset?`<line x1="${baseX}" y1="${baseY}" x2="${x}" y2="${y}" class="scheme-offset-line"/><circle cx="${baseX}" cy="${baseY}" r="3" class="scheme-offset-origin"/><text x="${midX}" y="${midY-7}" class="scheme-offset-text">${esc(offsetText(c))}</text>`:""}<rect x="${x-6}" y="${y-6}" width="12" height="12" rx="2" class="scheme-plan-column"/><circle cx="${x}" cy="${y}" r="2.3" class="scheme-plan-dot"/><line x1="${x}" y1="${y}" x2="${anchorX}" y2="${ly+lh/2}" class="scheme-label-leader"/><g class="scheme-column-label${showOffset?" offset":""}"><rect x="${lx}" y="${ly}" width="${lw}" height="${lh}" rx="6"/><text x="${lx+8}" y="${ly+13}" class="scheme-label-position">${esc(c.position||c.title||"Колонна")}</text><text x="${lx+8}" y="${ly+26}" class="scheme-label-mark">${esc(c.mark||"—")}</text><text x="${lx+8}" y="${ly+37}" class="scheme-label-axis">${esc(a.x)} / ${esc(a.y)}</text></g></g>`;
   });
-  svg+=`<line x1="${left}" y1="${top+gridH+42}" x2="${left+gridW}" y2="${top+gridH+42}" class="scheme-dim-line"/><text x="${W/2}" y="${top+gridH+62}" class="scheme-dim-text">Общий размер 1–6: 45 000 мм</text>`;
-  svg+=`<line x1="${left+gridW+48}" y1="${top}" x2="${left+gridW+48}" y2="${top+gridH}" class="scheme-dim-line"/><text x="${left+gridW+72}" y="${H/2}" class="scheme-dim-text scheme-dim-vertical">Общий размер А–Л: 60 000 мм</text>`;
+  svg+=`<line x1="${left}" y1="${top+gridH+52}" x2="${left+gridW}" y2="${top+gridH+52}" class="scheme-dim-line"/><text x="${W/2}" y="${top+gridH+71}" class="scheme-dim-text">1–6 = ${fmt(spanX)} мм</text>`;
+  svg+=`<line x1="${left+gridW+54}" y1="${top}" x2="${left+gridW+54}" y2="${top+gridH}" class="scheme-dim-line"/><text x="${left+gridW+79}" y="${H/2}" class="scheme-dim-text scheme-dim-vertical">А–Л = ${fmt(spanY)} мм</text>`;
   return svg
  }
  function renderScene(){
-  const box=document.getElementById("schemeCanvas");if(!box)return;const cols=columns(),meta=`<div class="scheme-grid-meta"><b>45 000 × 60 000 мм</b><span>1–6: ${fmt(stepX)} мм/пролёт</span><span>А–Л: ${fmt(stepY)} мм/пролёт</span><small>Подпись: позиция · марка · привязка к осям</small></div>`;
-  if(mode==="3d"){const g=grid3d(cols);box.innerHTML=`${meta}<svg viewBox="0 0 1040 650" aria-label="3D монтажная схема"><g>${g.html}${cols.map((c,i)=>prism(c,g.p,i)).join("")}</g><text x="520" y="626" class="scheme-demo-note" text-anchor="middle">Синим пунктиром показано смещение колонны от базового пересечения осей</text></svg>`}
-  else box.innerHTML=`${meta}<svg viewBox="0 0 1040 650" aria-label="План монтажной схемы">${planSvg(cols)}<text x="520" y="626" class="scheme-demo-note" text-anchor="middle">Для колонн между осями показана линия привязки и точный отступ</text></svg>`;
+  const box=document.getElementById("schemeCanvas");if(!box)return;const cols=columns(),xList=gridXSpans.map(fmt).join(" / "),yList=gridYSpans.map(fmt).join(" / "),meta=`<div class="scheme-grid-meta"><b>${fmt(spanX)} × ${fmt(spanY)} мм</b><span>1–6: ${xList}</span><span>А–Л: ${yList}</span><small>Масштаб X/Y одинаковый — пропорция 45×60 видна реально</small></div>`;
+  if(mode==="3d"){const g=grid3d(cols);box.innerHTML=`${meta}<svg viewBox="0 0 1040 650" aria-label="3D монтажная схема"><g>${g.html}${cols.map((c,i)=>prism(c,g.p,i)).join("")}</g><text x="520" y="626" class="scheme-demo-note" text-anchor="middle">Размеры пролётов берутся из настройки осей</text></svg>`}
+  else box.innerHTML=`${meta}<svg viewBox="0 0 1040 650" aria-label="План монтажной схемы">${planSvg(cols)}<text x="520" y="626" class="scheme-demo-note" text-anchor="middle">Одинаковый масштаб по X и Y: 45 м визуально короче 60 м</text></svg>`;
   box.querySelectorAll("[data-column]").forEach(el=>{const pick=()=>{selectedId=el.dataset.column;renderScene();renderDetails()};el.onclick=pick;el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();pick()}}})
  }
  function renderDetails(){
@@ -121,6 +136,39 @@ window.irSchemePage=async function(objectId){
    ${canEdit()?`<div class="scheme-detail-actions"><button type="button" data-scheme-edit>Редактировать</button><button type="button" class="danger" data-scheme-delete>Удалить</button></div>`:""}`;
   panel.querySelector("[data-scheme-edit]")?.addEventListener("click",()=>openEditor(c));
   panel.querySelector("[data-scheme-delete]")?.addEventListener("click",async()=>{if(!confirm(`Удалить колонну «${c.position||c.title||""}» со схемы?`))return;await schemeApi.remove(c.id);rows=await schemeApi.list().catch(()=>rows);selectedId="";draw()})
+ }
+ function gridSpanFields(items,spans,key){
+  return spans.map((value,i)=>`<label><span>${pairLabel(items,i)}</span><input type="text" inputmode="decimal" data-grid-span="${key}" data-index="${i}" value="${esc(fmt(value))}"><small>мм</small></label>`).join("")
+ }
+ function gridEditorHtml(){
+  return`<dialog id="schemeGridEditor" class="scheme-grid-editor"><form id="schemeGridForm" novalidate><div class="scheme-editor-head"><div><h2>Настроить оси</h2><p>Введите реальные расстояния между соседними осями. Общий размер должен остаться 45 000 × 60 000 мм.</p></div><button type="button" id="schemeGridX">×</button></div>
+   <div class="scheme-grid-warning">Колонны привязаны к осям. После изменения пролётов их координаты автоматически пересчитаются, а заданные смещения сохранятся.</div>
+   <div class="scheme-grid-config">
+    <section><div class="scheme-grid-config-head"><div><b>Оси 1–6</b><span>Общий размер: 45 000 мм</span></div><button type="button" data-grid-equal="x">Распределить равномерно</button></div><div class="scheme-grid-spans">${gridSpanFields(axesX,gridXSpans,"x")}</div><div class="scheme-grid-total" id="schemeGridTotalX"></div></section>
+    <section><div class="scheme-grid-config-head"><div><b>Оси А–Л</b><span>Общий размер: 60 000 мм</span></div><button type="button" data-grid-equal="y">Распределить равномерно</button></div><div class="scheme-grid-spans">${gridSpanFields(axesY,gridYSpans,"y")}</div><div class="scheme-grid-total" id="schemeGridTotalY"></div></section>
+   </div>
+   <div class="scheme-form-error" id="schemeGridError" hidden></div>
+   <div class="actions"><button type="button" id="schemeGridCancel">Отмена</button><button type="submit" class="primary" id="schemeGridSave">Сохранить сетку</button></div>
+  </form></dialog>`
+ }
+ function openGridEditor(){
+  const d=document.getElementById("schemeGridEditor");if(!d)return;
+  [...d.querySelectorAll('[data-grid-span="x"]')].forEach((el,i)=>el.value=fmt(gridXSpans[i]));
+  [...d.querySelectorAll('[data-grid-span="y"]')].forEach((el,i)=>el.value=fmt(gridYSpans[i]));
+  refreshGridEditor();d.showModal()
+ }
+ function gridFormValues(key){return [...document.querySelectorAll(`[data-grid-span="${key}"]`)].map(el=>num(el.value))}
+ function refreshGridEditor(){
+  const xs=gridFormValues("x"),ys=gridFormValues("y"),sx=xs.reduce((s,x)=>s+x,0),sy=ys.reduce((s,x)=>s+x,0),tx=document.getElementById("schemeGridTotalX"),ty=document.getElementById("schemeGridTotalY"),save=document.getElementById("schemeGridSave");
+  const paint=(el,sum,target)=>{const diff=target-sum,ok=Math.abs(diff)<.11;el.className=`scheme-grid-total ${ok?"ok":"bad"}`;el.innerHTML=`<span>Сумма</span><b>${fmt(sum)} мм</b><small>${ok?"Размер совпадает":diff>0?`Не хватает ${fmt(diff)} мм`:`Превышение ${fmt(Math.abs(diff))} мм`}</small>`;return ok};
+  const okX=paint(tx,sx,targetSpanX),okY=paint(ty,sy,targetSpanY),positive=xs.every(x=>x>0)&&ys.every(x=>x>0);save.disabled=!(okX&&okY&&positive)
+ }
+ function bindGridEditor(){
+  if(!canEdit())return;const d=document.getElementById("schemeGridEditor"),form=document.getElementById("schemeGridForm"),err=document.getElementById("schemeGridError");if(!d||!form)return;
+  document.getElementById("schemeGridConfig")?.addEventListener("click",openGridEditor);document.getElementById("schemeGridX").onclick=()=>d.close();document.getElementById("schemeGridCancel").onclick=()=>d.close();
+  d.querySelectorAll("[data-grid-span]").forEach(el=>el.addEventListener("input",refreshGridEditor));
+  d.querySelectorAll("[data-grid-equal]").forEach(btn=>btn.onclick=()=>{const key=btn.dataset.gridEqual,total=key==="x"?targetSpanX:targetSpanY,els=[...d.querySelectorAll(`[data-grid-span="${key}"]`)],vals=equalSpans(total,els.length);els.forEach((el,i)=>el.value=fmt(vals[i]));refreshGridEditor()});
+  form.onsubmit=async e=>{e.preventDefault();err.hidden=true;const xs=gridFormValues("x"),ys=gridFormValues("y"),sx=xs.reduce((s,x)=>s+x,0),sy=ys.reduce((s,x)=>s+x,0);if(xs.some(x=>x<=0)||ys.some(x=>x<=0)){err.textContent="Все расстояния между осями должны быть больше 0.";err.hidden=false;return}if(Math.abs(sx-targetSpanX)>=.11||Math.abs(sy-targetSpanY)>=.11){err.textContent="Сумма пролётов должна точно составлять 45 000 мм и 60 000 мм.";err.hidden=false;return}const existing=gridRecord(),payload={record_type:"scheme_grid",title:"Сетка осей",data:{entity_type:"grid",axes_x:axesX,axes_y:axesY,x_spans_mm:xs,y_spans_mm:ys,span_x_mm:targetSpanX,span_y_mm:targetSpanY}};if(existing)await schemeApi.update(existing.id,payload);else await schemeApi.create(payload);rows=await schemeApi.list().catch(()=>rows);refreshGridModel();d.close();draw()}
  }
  function editorHtml(){
   return`<dialog id="schemeEditor" class="scheme-editor"><form id="schemeForm" novalidate><input type="hidden" name="id"><div class="scheme-editor-head"><div><h2 id="schemeEditorTitle">Добавить колонну</h2><p>Укажите марку и точное положение относительно осей.</p></div><button type="button" id="schemeEditorX">×</button></div>
@@ -160,10 +208,10 @@ window.irSchemePage=async function(objectId){
  function draw(){
   const s=stats();
   app.innerHTML=`<div class="scheme-page">
-   <div class="scheme-head"><button class="back" id="schemeBack">← Назад</button><div><h1>Монтажная схема</h1><p>${esc(object.name||"")} · колонны</p></div><div class="scheme-head-actions"><div class="scheme-view-switch"><button data-mode="plan" class="${mode==="plan"?"on":""}">План</button><button data-mode="3d" class="${mode==="3d"?"on":""}">3D</button></div>${canEdit()?'<button type="button" class="primary" id="schemeAdd">＋ Добавить колонну</button>':""}</div></div>
+   <div class="scheme-head"><button class="back" id="schemeBack">← Назад</button><div><h1>Монтажная схема</h1><p>${esc(object.name||"")} · колонны</p></div><div class="scheme-head-actions"><div class="scheme-view-switch"><button data-mode="plan" class="${mode==="plan"?"on":""}">План</button><button data-mode="3d" class="${mode==="3d"?"on":""}">3D</button></div>${canEdit()?'<button type="button" class="scheme-grid-button" id="schemeGridConfig">⚙ Настроить оси</button><button type="button" class="primary" id="schemeAdd">＋ Добавить колонну</button>':""}</div></div>
    <div class="scheme-summary">
-    <div><span>Оси 1–6</span><b>45 000 мм</b><small>5 пролётов · по 9 000 мм</small></div>
-    <div><span>Оси А–Л</span><b>60 000 мм</b><small>9 пролётов · по ${fmt(stepY)} мм</small></div>
+    <div><span>Оси 1–6</span><b>${fmt(spanX)} мм</b><small>5 пролётов · ${spanSummary(gridXSpans)}</small></div>
+    <div><span>Оси А–Л</span><b>${fmt(spanY)} мм</b><small>9 пролётов · ${spanSummary(gridYSpans)}</small></div>
     <div><span>Колонн на схеме</span><b>${s.total}</b><small>Задаются вручную</small></div>
     <div><span>Смонтировано</span><b>${s.mounted} / ${s.total}</b><small>${s.pct}%</small></div>
    </div>
@@ -179,11 +227,11 @@ window.irSchemePage=async function(objectId){
     <aside class="scheme-details" id="schemeDetails"></aside>
    </div>
    <div class="scheme-hint"><b>Размер сетки:</b><span><strong>1–6 = 45 000 мм</strong>, <strong>А–Л = 60 000 мм</strong>. Колонна между осями задаётся базовой осью и смещением, например «3 / Б + 2200 мм».</span></div>
-   ${canEdit()?editorHtml():""}
+   ${canEdit()?gridEditorHtml()+editorHtml():""}
   </div>`;
   document.getElementById("schemeBack").onclick=()=>location.hash=`/objects/object/${oid}`;document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{mode=b.dataset.mode;draw()});
   document.getElementById("schemeLeft")?.addEventListener("click",()=>{yaw-=10;renderScene()});document.getElementById("schemeRight")?.addEventListener("click",()=>{yaw+=10;renderScene()});document.getElementById("schemeReset")?.addEventListener("click",()=>{yaw=-34;renderScene()});
-  renderScene();renderDetails();bindEditor()
+  renderScene();renderDetails();bindGridEditor();bindEditor()
  }
  draw();
 };
