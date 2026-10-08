@@ -39,39 +39,62 @@ window.irSchemePage=async function(objectId){
   return(x,y,z)=>{const p=raw(x,y,z);return{x:W/2+(p.x-cx)*scale,y:H/2+(p.y-cy)*scale}}
  }
  const line=(a,b,cls)=>`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" class="${cls}"/>`;
+ function axisText(c){
+  const x=c.dx?`${c.axisX} ${c.dx>=0?"+":"−"} ${fmt(Math.abs(c.dx))} мм`:c.axisX,y=c.dy?`${c.axisY} ${c.dy>=0?"+":"−"} ${fmt(Math.abs(c.dy))} мм`:c.axisY;
+  return{x,y}
+ }
+ function offsetText(c){
+  const parts=[];if(c.dx)parts.push(`по 1–6: ${c.dx>=0?"+":"−"}${fmt(Math.abs(c.dx))} мм`);if(c.dy)parts.push(`по А–Л: ${c.dy>=0?"+":"−"}${fmt(Math.abs(c.dy))} мм`);return parts.join(" · ")
+ }
+ function columnTitle(c){
+  const a=axisText(c),position=c.position||c.title||"Колонна",mark=c.mark||"—";
+  return `${position} · ${mark}\nОси: ${a.x} / ${a.y}\nX: ${fmt(c.x)} мм · Y: ${fmt(c.y)} мм\nНиз: ${fmt(c.z0)} мм · Верх: ${fmt(c.z1)} мм${c.dx||c.dy?"\nСмещение: "+offsetText(c):""}`
+ }
  function grid3d(cols){
   const p=projection(cols);let out="";
   for(const axis of axesX){const x=axisXPos.get(axis),a=p(x,0,0),b=p(x,spanY,0),label=p(x,-4200,0);out+=line(a,b,"scheme-grid-line")+ `<text x="${label.x}" y="${label.y}" class="scheme-axis-label">${axis}</text>`}
   for(const axis of axesY){const y=axisYPos.get(axis),a=p(0,y,0),b=p(spanX,y,0),label=p(-4200,y,0);out+=line(a,b,"scheme-grid-line")+ `<text x="${label.x}" y="${label.y}" class="scheme-axis-label">${axis}</text>`}
+  const d1=p(spanX/2,-7600,0),d2=p(-7600,spanY/2,0);
+  out+=`<g class="scheme-3d-dim"><rect x="${d1.x-46}" y="${d1.y-11}" width="92" height="20" rx="5"/><text x="${d1.x}" y="${d1.y+3}">1–6: 45 000 мм</text></g>`;
+  out+=`<g class="scheme-3d-dim"><rect x="${d2.x-46}" y="${d2.y-11}" width="92" height="20" rx="5"/><text x="${d2.x}" y="${d2.y+3}">А–Л: 60 000 мм</text></g>`;
   return{html:out,p}
  }
- function prism(c,p){
-  const base=p(c.x,c.y,c.z0),top=p(c.x,c.y,c.z1),w=3.6,h=2.6,sel=c.id===selectedId?" selected":"",status=c.status==="mounted"?" mounted":" planned",between=c.dx||c.dy?" between":"";
+ function prism(c,p,index){
+  const base=p(c.x,c.y,c.z0),top=p(c.x,c.y,c.z1),w=3.6,h=2.6,sel=c.id===selectedId?" selected":"",status=c.status==="mounted"?" mounted":" planned",between=c.dx||c.dy?" between":"",a=axisText(c);
+  const baseAxis=p(axisXPos.get(c.axisX),axisYPos.get(c.axisY),c.z0),showOffset=!!(c.dx||c.dy);
+  const lw=122,lh=43,preferLeft=index%2===1,rawX=top.x+(preferLeft?-lw-13:13),lx=Math.max(8,Math.min(1040-lw-8,rawX)),ly=Math.max(8,Math.min(650-lh-8,top.y-28-(index%3)*7)),anchorX=preferLeft?lx+lw:lx;
+  const offsetMid={x:(base.x+baseAxis.x)/2,y:(base.y+baseAxis.y)/2};
   return`<g class="scheme-column${status}${sel}${between}" data-column="${esc(c.id)}" tabindex="0">
+   <title>${esc(columnTitle(c))}</title>
+   ${showOffset?`<line x1="${baseAxis.x}" y1="${baseAxis.y}" x2="${base.x}" y2="${base.y}" class="scheme-offset-line"/><text x="${offsetMid.x}" y="${offsetMid.y-7}" class="scheme-offset-text">${esc(offsetText(c))}</text>`:""}
    <polygon points="${base.x-w},${base.y} ${base.x},${base.y-h} ${base.x+w},${base.y} ${top.x+w},${top.y} ${top.x},${top.y-h} ${top.x-w},${top.y}" class="scheme-column-body"/>
    <line x1="${base.x}" y1="${base.y-h}" x2="${top.x}" y2="${top.y-h}" class="scheme-column-edge"/>
    <circle cx="${top.x}" cy="${top.y-h}" r="4.5" class="scheme-column-top"/>
+   <line x1="${top.x}" y1="${top.y-h}" x2="${anchorX}" y2="${ly+lh/2}" class="scheme-label-leader"/>
+   <g class="scheme-column-label${showOffset?" offset":""}"><rect x="${lx}" y="${ly}" width="${lw}" height="${lh}" rx="6"/><text x="${lx+8}" y="${ly+13}" class="scheme-label-position">${esc(c.position||c.title||"Колонна")}</text><text x="${lx+8}" y="${ly+26}" class="scheme-label-mark">${esc(c.mark||"—")}</text><text x="${lx+8}" y="${ly+37}" class="scheme-label-axis">${esc(a.x)} / ${esc(a.y)}</text></g>
   </g>`
  }
  function planSvg(cols){
-  const W=1040,H=650,padX=150,padY=78,availW=W-padX*2,availH=H-padY*2,scale=Math.min(availW/spanX,availH/spanY),gridW=spanX*scale,gridH=spanY*scale,left=(W-gridW)/2,top=(H-gridH)/2;
+  const W=1040,H=650,padX=170,padY=94,availW=W-padX*2,availH=H-padY*2,scale=Math.min(availW/spanX,availH/spanY),gridW=spanX*scale,gridH=spanY*scale,left=(W-gridW)/2,top=(H-gridH)/2;
   const sx=x=>left+x*scale,sy=y=>top+y*scale;let svg="";
   axesX.forEach(a=>{const x=sx(axisXPos.get(a));svg+=`<line x1="${x}" y1="${top}" x2="${x}" y2="${top+gridH}" class="scheme-grid-line"/><text x="${x}" y="${top-24}" class="scheme-axis-label">${a}</text>`});
   axesY.forEach(a=>{const y=sy(axisYPos.get(a));svg+=`<line x1="${left}" y1="${y}" x2="${left+gridW}" y2="${y}" class="scheme-grid-line"/><text x="${left-30}" y="${y}" class="scheme-axis-label">${a}</text>`});
-  cols.forEach(c=>{const x=sx(c.x),y=sy(c.y),sel=c.id===selectedId?" selected":"",status=c.status==="mounted"?" mounted":" planned",between=c.dx||c.dy?" between":"";svg+=`<g class="scheme-column${status}${sel}${between}" data-column="${esc(c.id)}" tabindex="0"><rect x="${x-6}" y="${y-6}" width="12" height="12" rx="2" class="scheme-plan-column"/><circle cx="${x}" cy="${y}" r="2.3" class="scheme-plan-dot"/></g>`});
-  svg+=`<line x1="${left}" y1="${top+gridH+35}" x2="${left+gridW}" y2="${top+gridH+35}" class="scheme-dim-line"/><text x="${W/2}" y="${top+gridH+56}" class="scheme-dim-text">45 000 мм</text>`;
-  svg+=`<line x1="${left+gridW+42}" y1="${top}" x2="${left+gridW+42}" y2="${top+gridH}" class="scheme-dim-line"/><text x="${left+gridW+66}" y="${H/2}" class="scheme-dim-text scheme-dim-vertical">60 000 мм</text>`;
+  axesX.slice(0,-1).forEach((a,i)=>{const x1=sx(axisXPos.get(axesX[i])),x2=sx(axisXPos.get(axesX[i+1])),mx=(x1+x2)/2;svg+=`<line x1="${x1}" y1="${top-50}" x2="${x2}" y2="${top-50}" class="scheme-span-line"/><text x="${mx}" y="${top-58}" class="scheme-span-text">${fmt(stepX)} мм</text>`});
+  axesY.slice(0,-1).forEach((a,i)=>{const y1=sy(axisYPos.get(axesY[i])),y2=sy(axisYPos.get(axesY[i+1])),my=(y1+y2)/2;svg+=`<line x1="${left-56}" y1="${y1}" x2="${left-56}" y2="${y2}" class="scheme-span-line"/><text x="${left-66}" y="${my}" class="scheme-span-text scheme-span-y">${fmt(stepY)} мм</text>`});
+  cols.forEach((c,index)=>{
+   const x=sx(c.x),y=sy(c.y),axisX=sx(axisXPos.get(c.axisX)),axisY=sy(axisYPos.get(c.axisY)),sel=c.id===selectedId?" selected":"",status=c.status==="mounted"?" mounted":" planned",between=c.dx||c.dy?" between":"",a=axisText(c),lw=118,lh=42,preferLeft=index%2===1,rawX=x+(preferLeft?-lw-12:12),lx=Math.max(6,Math.min(W-lw-6,rawX)),ly=Math.max(8,Math.min(H-lh-8,y-20-(index%3)*9)),anchorX=preferLeft?lx+lw:lx;
+   const showOffset=!!(c.dx||c.dy),baseX=axisX,baseY=axisY,midX=(x+baseX)/2,midY=(y+baseY)/2;
+   svg+=`<g class="scheme-column${status}${sel}${between}" data-column="${esc(c.id)}" tabindex="0"><title>${esc(columnTitle(c))}</title>${showOffset?`<line x1="${baseX}" y1="${baseY}" x2="${x}" y2="${y}" class="scheme-offset-line"/><circle cx="${baseX}" cy="${baseY}" r="3" class="scheme-offset-origin"/><text x="${midX}" y="${midY-7}" class="scheme-offset-text">${esc(offsetText(c))}</text>`:""}<rect x="${x-6}" y="${y-6}" width="12" height="12" rx="2" class="scheme-plan-column"/><circle cx="${x}" cy="${y}" r="2.3" class="scheme-plan-dot"/><line x1="${x}" y1="${y}" x2="${anchorX}" y2="${ly+lh/2}" class="scheme-label-leader"/><g class="scheme-column-label${showOffset?" offset":""}"><rect x="${lx}" y="${ly}" width="${lw}" height="${lh}" rx="6"/><text x="${lx+8}" y="${ly+13}" class="scheme-label-position">${esc(c.position||c.title||"Колонна")}</text><text x="${lx+8}" y="${ly+26}" class="scheme-label-mark">${esc(c.mark||"—")}</text><text x="${lx+8}" y="${ly+37}" class="scheme-label-axis">${esc(a.x)} / ${esc(a.y)}</text></g></g>`;
+  });
+  svg+=`<line x1="${left}" y1="${top+gridH+42}" x2="${left+gridW}" y2="${top+gridH+42}" class="scheme-dim-line"/><text x="${W/2}" y="${top+gridH+62}" class="scheme-dim-text">Общий размер 1–6: 45 000 мм</text>`;
+  svg+=`<line x1="${left+gridW+48}" y1="${top}" x2="${left+gridW+48}" y2="${top+gridH}" class="scheme-dim-line"/><text x="${left+gridW+72}" y="${H/2}" class="scheme-dim-text scheme-dim-vertical">Общий размер А–Л: 60 000 мм</text>`;
   return svg
  }
  function renderScene(){
-  const box=document.getElementById("schemeCanvas");if(!box)return;const cols=columns();
-  if(mode==="3d"){const g=grid3d(cols);box.innerHTML=`<svg viewBox="0 0 1040 650" aria-label="3D монтажная схема"><g>${g.html}${cols.map(c=>prism(c,g.p)).join("")}</g><text x="520" y="626" class="scheme-demo-note" text-anchor="middle">Сетка 45 000 × 60 000 мм · оси 1–6 / А–Л</text></svg>`}
-  else box.innerHTML=`<svg viewBox="0 0 1040 650" aria-label="План монтажной схемы">${planSvg(cols)}<text x="520" y="626" class="scheme-demo-note" text-anchor="middle">Колонны можно ставить на оси или со смещением в мм</text></svg>`;
+  const box=document.getElementById("schemeCanvas");if(!box)return;const cols=columns(),meta=`<div class="scheme-grid-meta"><b>45 000 × 60 000 мм</b><span>1–6: ${fmt(stepX)} мм/пролёт</span><span>А–Л: ${fmt(stepY)} мм/пролёт</span><small>Подпись: позиция · марка · привязка к осям</small></div>`;
+  if(mode==="3d"){const g=grid3d(cols);box.innerHTML=`${meta}<svg viewBox="0 0 1040 650" aria-label="3D монтажная схема"><g>${g.html}${cols.map((c,i)=>prism(c,g.p,i)).join("")}</g><text x="520" y="626" class="scheme-demo-note" text-anchor="middle">Синим пунктиром показано смещение колонны от базового пересечения осей</text></svg>`}
+  else box.innerHTML=`${meta}<svg viewBox="0 0 1040 650" aria-label="План монтажной схемы">${planSvg(cols)}<text x="520" y="626" class="scheme-demo-note" text-anchor="middle">Для колонн между осями показана линия привязки и точный отступ</text></svg>`;
   box.querySelectorAll("[data-column]").forEach(el=>{const pick=()=>{selectedId=el.dataset.column;renderScene();renderDetails()};el.onclick=pick;el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();pick()}}})
- }
- function axisText(c){
-  const x=c.dx?`${c.axisX} ${c.dx>=0?"+":"−"} ${fmt(Math.abs(c.dx))} мм`:c.axisX,y=c.dy?`${c.axisY} ${c.dy>=0?"+":"−"} ${fmt(Math.abs(c.dy))} мм`:c.axisY;
-  return{x,y}
  }
  function renderDetails(){
   const panel=document.getElementById("schemeDetails");if(!panel)return;const c=selected();
