@@ -52,7 +52,7 @@ window.irSchemePage=async function(objectId){
   return{x,y}
  }
  function offsetText(c){
-  const parts=[];if(c.dx)parts.push(`по 1–6: ${c.dx>=0?"+":"−"}${fmt(Math.abs(c.dx))} мм`);if(c.dy)parts.push(`по А–Л: ${c.dy>=0?"+":"−"}${fmt(Math.abs(c.dy))} мм`);return parts.join(" · ")
+  const parts=[],xn=`${axesX[0]}–${axesX.at(-1)}`,yn=`${axesY[0]}–${axesY.at(-1)}`;if(c.dx)parts.push(`по ${xn}: ${c.dx>=0?"+":"−"}${fmt(Math.abs(c.dx))} мм`);if(c.dy)parts.push(`по ${yn}: ${c.dy>=0?"+":"−"}${fmt(Math.abs(c.dy))} мм`);return parts.join(" · ")
  }
  function columnTitle(c){
   const a=axisText(c),position=c.position||c.title||"Колонна",mark=c.mark||"—";
@@ -124,8 +124,8 @@ window.irSchemePage=async function(objectId){
    <div class="scheme-detail-grid">
     <div><span>Марка</span><b>${esc(c.mark||"—")}</b></div>
     <div><span>Статус</span><b class="${c.status==="mounted"?"ok":"wait"}">${statusText(c.status)}</b></div>
-    <div><span>Ось 1–6</span><b>${esc(a.x)}</b></div>
-    <div><span>Ось А–Л</span><b>${esc(a.y)}</b></div>
+    <div><span>Ось ${esc(axesX[0])}–${esc(axesX.at(-1))}</span><b>${esc(a.x)}</b></div>
+    <div><span>Ось ${esc(axesY[0])}–${esc(axesY.at(-1))}</span><b>${esc(a.y)}</b></div>
     <div><span>Коорд. X</span><b>${fmt(c.x)} мм</b></div>
     <div><span>Коорд. Y</span><b>${fmt(c.y)} мм</b></div>
     <div><span>Низ</span><b>${fmt(c.z0)} мм</b></div>
