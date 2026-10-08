@@ -30,3 +30,32 @@
 .oos-weather-loading>b{color:#fff;font-size:17px;line-height:1.1}
 .oos-weather-loading>small{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.80);font-size:7.5px}
 @media(max-width:760px){.oos-weather{align-items:flex-start}.oos-weather-meta{width:100%;min-width:0}}
+
+@media(max-width:1280px) and (max-height:800px){
+ .object-overview-top-stats{grid-template-columns:1fr 1fr;gap:8px;margin:10px 12px 0}
+ .oos-card{min-height:86px;padding:10px 12px;gap:11px}
+ .oos-copy{gap:2px}
+ .oos-copy>span{font-size:7px}
+ .oos-copy>b{font-size:10px}
+ .oos-copy>b.oos-value{font-size:19px}
+ .oos-copy>small{font-size:6.8px}
+ .oos-icon{flex-basis:40px;width:40px;height:40px;border-radius:10px}
+ .oos-icon svg{width:23px;height:23px}
+ .oos-ring{flex-basis:62px;width:62px;height:62px}
+ .oos-ring:after{inset:7px}
+ .oos-ring b{font-size:14px}
+ .oos-ring span{font-size:5.5px;margin-top:2px}
+ .oos-weather{gap:10px}
+ .oos-weather-main{gap:6px}
+ .oos-weather-current{gap:8px}
+ .oos-weather-icon{flex-basis:40px;width:40px;height:40px;border-radius:11px}
+ .oos-weather-icon i{font-size:24px}
+ .oos-weather-temp b{font-size:21px}
+ .oos-weather-temp span{font-size:7px}
+ .oos-weather-meta{min-width:124px;gap:5px}
+ .oos-weather-chip{padding:6px 7px;border-radius:8px}
+ .oos-weather-chip small{font-size:6px}
+ .oos-weather-chip b{font-size:8px}
+ .oos-weather-title>span,.oos-weather-loading>span{font-size:7px}
+ .oos-weather-title>small{font-size:6.5px}
+}
