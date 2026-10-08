@@ -197,8 +197,8 @@ window.irSchemePage=async function(objectId){
     <label class="wide scheme-mark-field">Марка из ведомости<div class="scheme-mark-search"><input id="schemeMarkSearch" type="search" autocomplete="off" placeholder="Поиск по марке или наименованию…"><span id="schemeMarkCount"></span></div><select name="mark_id" ${marks.length?"required":"disabled"}>${markOptions("")}</select></label>
     <label>Позиция / обозначение<input name="position" required placeholder="Например: К1-01"></label>
     <label>Статус<select name="status"><option value="planned">Не смонтирована</option><option value="mounted">Смонтирована</option></select></label>
-    <div class="scheme-form-axis"><b>Направление 1–6</b><label>Базовая ось<select name="axis_x">${axisOptions(axesX,"1")}</select></label><label>Смещение, мм<input name="offset_x_mm" inputmode="decimal" value="0"></label></div>
-    <div class="scheme-form-axis"><b>Направление А–Л</b><label>Базовая ось<select name="axis_y">${axisOptions(axesY,"А")}</select></label><label>Смещение, мм<input name="offset_y_mm" inputmode="decimal" value="0"></label></div>
+    <div class="scheme-form-axis"><b>Направление ${esc(axesX[0])}–${esc(axesX.at(-1))}</b><label>Базовая ось<select name="axis_x">${axisOptions(axesX,axesX[0])}</select></label><label>Смещение, мм<input name="offset_x_mm" inputmode="decimal" value="0"></label></div>
+    <div class="scheme-form-axis"><b>Направление ${esc(axesY[0])}–${esc(axesY.at(-1))}</b><label>Базовая ось<select name="axis_y">${axisOptions(axesY,axesY[0])}</select></label><label>Смещение, мм<input name="offset_y_mm" inputmode="decimal" value="0"></label></div>
     <label>Отметка низа, мм<input name="z0_mm" inputmode="decimal" value="0"></label>
     <label>Отметка верха, мм<input name="z1_mm" inputmode="decimal" value="8400"></label>
     <label>Поворот, °<input name="rotation_deg" inputmode="decimal" value="0"></label>
@@ -215,7 +215,7 @@ window.irSchemePage=async function(objectId){
   const applyMarkSearch=()=>{const q=search?.value||"",previous=String(f.elements.mark_id.value||currentMark||"");f.elements.mark_id.innerHTML=markOptions(previous,q);const visible=[...f.elements.mark_id.options].filter(o=>o.value);if(visible.some(o=>o.value===previous))f.elements.mark_id.value=previous;else if(visible[0])f.elements.mark_id.value=visible[0].value;count.textContent=q?`Найдено: ${visible.length}`:`Марок: ${marks.length}`;f.elements.mark_id._irSelectUI?.refresh?.()};
   if(search){search.value="";search.oninput=applyMarkSearch}applyMarkSearch();
   f.elements.position.value=c?.position||c?.title||"";
-  f.elements.status.value=c?.status||"planned";f.elements.axis_x.value=c?.axis_x||"1";f.elements.axis_y.value=c?.axis_y||"А";
+  f.elements.status.value=c?.status||"planned";f.elements.axis_x.value=c?.axis_x||axesX[0]||"";f.elements.axis_y.value=c?.axis_y||axesY[0]||"";
   f.elements.offset_x_mm.value=c?.offset_x_mm??0;f.elements.offset_y_mm.value=c?.offset_y_mm??0;f.elements.z0_mm.value=c?.z0_mm??0;f.elements.z1_mm.value=c?.z1_mm??8400;f.elements.rotation_deg.value=c?.rotation_deg??0;
   if(!c&&marks.length){const m=marks.find(x=>x.id===currentMark),base=String(m?.mark||m?.title||"К").trim()||"К",used=new Set(columns().map(x=>String(x.position||x.title)));let n=1,name="";do{name=`${base}-${String(n++).padStart(2,"0")}`}while(used.has(name));f.elements.position.value=name}
   const refreshPreview=()=>{const ax=f.elements.axis_x.value,ay=f.elements.axis_y.value,dx=num(f.elements.offset_x_mm.value),dy=num(f.elements.offset_y_mm.value),x=num(axisXPos.get(ax))+dx,y=num(axisYPos.get(ay))+dy;document.getElementById("schemeCoordPreview").innerHTML=`<span>Точная координата</span><b>X = ${fmt(x)} мм · Y = ${fmt(y)} мм</b><small>${ax}${dx?` ${dx>=0?"+":"−"} ${fmt(Math.abs(dx))} мм`:""} / ${ay}${dy?` ${dy>=0?"+":"−"} ${fmt(Math.abs(dy))} мм`:""}</small>`};
@@ -224,15 +224,15 @@ window.irSchemePage=async function(objectId){
  function bindEditor(){
   if(!canEdit())return;const d=document.getElementById("schemeEditor"),f=document.getElementById("schemeForm"),err=document.getElementById("schemeFormError");
   document.getElementById("schemeAdd")?.addEventListener("click",()=>openEditor());document.getElementById("schemeEditorX").onclick=()=>d.close();document.getElementById("schemeEditorCancel").onclick=()=>d.close();
-  f.onsubmit=async e=>{e.preventDefault();err.hidden=true;if(!marks.length){err.textContent="Сначала добавьте марки колонн в ведомость марок.";err.hidden=false;return}const fd=new FormData(f),id=String(fd.get("id")||""),markId=String(fd.get("mark_id")||""),m=marks.find(x=>x.id===markId),position=String(fd.get("position")||"").trim(),axisX=String(fd.get("axis_x")||"1"),axisY=String(fd.get("axis_y")||"А"),dx=num(fd.get("offset_x_mm")),dy=num(fd.get("offset_y_mm")),z0=num(fd.get("z0_mm")),z1=num(fd.get("z1_mm")),rot=num(fd.get("rotation_deg")),status=String(fd.get("status")||"planned");if(!m||!position){err.textContent="Выберите марку и укажите обозначение колонны.";err.hidden=false;return}if(z1<=z0){err.textContent="Отметка верха должна быть выше отметки низа.";err.hidden=false;return}if(columns().some(x=>x.id!==id&&String(x.position||x.title).trim().toLowerCase()===position.toLowerCase())){err.textContent="Колонна с таким обозначением уже есть на схеме.";err.hidden=false;return}const payload={record_type:"scheme_column",title:position,data:{entity_type:"column",position,mark_id:m.id,mark:m.mark||m.title||"",mark_name:m.name||"",work_type_id:m.work_type_id||"",axis_x:axisX,axis_y:axisY,offset_x_mm:dx,offset_y_mm:dy,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status}};let saved;if(id){saved=await schemeApi.update(id,payload)}else saved=await schemeApi.create(payload);rows=await schemeApi.list().catch(()=>rows);selectedId=String(saved?.id||id||records().at(-1)?.id||"");d.close();draw()}
+  f.onsubmit=async e=>{e.preventDefault();err.hidden=true;if(!marks.length){err.textContent="Сначала добавьте марки колонн в ведомость марок.";err.hidden=false;return}const fd=new FormData(f),id=String(fd.get("id")||""),markId=String(fd.get("mark_id")||""),m=marks.find(x=>x.id===markId),position=String(fd.get("position")||"").trim(),axisX=String(fd.get("axis_x")||axesX[0]||""),axisY=String(fd.get("axis_y")||axesY[0]||""),dx=num(fd.get("offset_x_mm")),dy=num(fd.get("offset_y_mm")),z0=num(fd.get("z0_mm")),z1=num(fd.get("z1_mm")),rot=num(fd.get("rotation_deg")),status=String(fd.get("status")||"planned");if(!m||!position){err.textContent="Выберите марку и укажите обозначение колонны.";err.hidden=false;return}if(z1<=z0){err.textContent="Отметка верха должна быть выше отметки низа.";err.hidden=false;return}if(columns().some(x=>x.id!==id&&String(x.position||x.title).trim().toLowerCase()===position.toLowerCase())){err.textContent="Колонна с таким обозначением уже есть на схеме.";err.hidden=false;return}const payload={record_type:"scheme_column",title:position,data:{entity_type:"column",position,mark_id:m.id,mark:m.mark||m.title||"",mark_name:m.name||"",work_type_id:m.work_type_id||"",axis_x:axisX,axis_y:axisY,offset_x_mm:dx,offset_y_mm:dy,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status}};let saved;if(id){saved=await schemeApi.update(id,payload)}else saved=await schemeApi.create(payload);rows=await schemeApi.list().catch(()=>rows);selectedId=String(saved?.id||id||records().at(-1)?.id||"");d.close();draw()}
  }
  function draw(){
   const s=stats();
   app.innerHTML=`<div class="scheme-page">
-   <div class="scheme-head"><button class="back" id="schemeBack">← Назад</button><div><h1>Монтажная схема</h1><p>${esc(object.name||"")} · колонны</p></div><div class="scheme-head-actions"><div class="scheme-view-switch"><button data-mode="plan" class="${mode==="plan"?"on":""}">План</button><button data-mode="3d" class="${mode==="3d"?"on":""}">3D</button></div>${canEdit()?'<button type="button" class="scheme-grid-button" id="schemeGridConfig">⚙ Настроить оси</button><button type="button" class="primary" id="schemeAdd">＋ Добавить колонну</button>':""}</div></div>
+   <div class="scheme-head"><button class="back" id="schemeBack">← Назад</button><div><h1>Монтажная схема</h1><p>${esc(object.name||"")} · колонны</p></div><div class="scheme-head-actions"><div class="scheme-view-switch"><button data-mode="plan" class="${mode==="plan"?"on":""}">План</button><button data-mode="3d" class="${mode==="3d"?"on":""}">3D</button></div>${canEdit()?'<button type="button" class="scheme-grid-button" id="schemeGridConfig">⚙ Параметры сетки</button><button type="button" class="primary" id="schemeAdd">＋ Добавить колонну</button>':""}</div></div>
    <div class="scheme-summary">
-    <div><span>Оси 1–6</span><b>${fmt(spanX)} мм</b><small>5 пролётов · ${spanSummary(gridXSpans)}</small></div>
-    <div><span>Оси А–Л</span><b>${fmt(spanY)} мм</b><small>9 пролётов · ${spanSummary(gridYSpans)}</small></div>
+    <div><span>Оси ${esc(axesX[0])}–${esc(axesX.at(-1))}</span><b>${fmt(spanX)} мм</b><small>${axesX.length} осей · ${gridXSpans.length} пролётов · ${spanSummary(gridXSpans)}</small></div>
+    <div><span>Оси ${esc(axesY[0])}–${esc(axesY.at(-1))}</span><b>${fmt(spanY)} мм</b><small>${axesY.length} осей · ${gridYSpans.length} пролётов · ${spanSummary(gridYSpans)}</small></div>
     <div><span>Колонн на схеме</span><b>${s.total}</b><small>Задаются вручную</small></div>
     <div><span>Смонтировано</span><b>${s.mounted} / ${s.total}</b><small>${s.pct}%</small></div>
    </div>
@@ -240,17 +240,18 @@ window.irSchemePage=async function(objectId){
     <section class="scheme-stage">
      <div class="scheme-stage-toolbar">
       <div class="scheme-legend"><span><i class="mounted"></i>Смонтировано</span><span><i class="planned"></i>Не смонтировано</span><span><i class="between"></i>Со смещением от оси</span></div>
-      <div class="scheme-rotate" ${mode==="plan"?"hidden":""}><button id="schemeLeft">↶ Повернуть</button><button id="schemeReset">По центру</button><button id="schemeRight">Повернуть ↷</button></div>
+      <div class="scheme-toolbar-actions"><button type="button" id="schemeToggleLabels" class="${labelsVisible?"on":""}">Подписи</button><button type="button" id="schemeToggleDimensions" class="${dimensionsVisible?"on":""}">Размеры</button><div class="scheme-rotate" ${mode==="plan"?"hidden":""}><button id="schemeLeft">↶</button><button id="schemeReset">Центр</button><button id="schemeRight">↷</button></div></div>
      </div>
      <div class="scheme-canvas" id="schemeCanvas"></div>
      ${s.total?"":'<div class="scheme-empty-overlay"><b>Схема пока пустая</b><span>Нажмите «Добавить колонну» и задайте её марку, оси и смещение.</span></div>'}
     </section>
     <aside class="scheme-details" id="schemeDetails"></aside>
    </div>
-   <div class="scheme-hint"><b>Размер сетки:</b><span><strong>1–6 = 45 000 мм</strong>, <strong>А–Л = 60 000 мм</strong>. Колонна между осями задаётся базовой осью и смещением, например «3 / Б + 2200 мм».</span></div>
+   <div class="scheme-hint"><b>Сетка:</b><span><strong>${esc(axesX[0])}–${esc(axesX.at(-1))} = ${fmt(spanX)} мм</strong>, <strong>${esc(axesY[0])}–${esc(axesY.at(-1))} = ${fmt(spanY)} мм</strong>. Подписи и межосевые размеры можно включать только когда они нужны, чтобы схема не превращалась в кашу.</span></div>
    ${canEdit()?gridEditorHtml()+editorHtml():""}
   </div>`;
   document.getElementById("schemeBack").onclick=()=>location.hash=`/objects/object/${oid}`;document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{mode=b.dataset.mode;draw()});
+  document.getElementById("schemeToggleLabels")?.addEventListener("click",()=>{labelsVisible=!labelsVisible;draw()});document.getElementById("schemeToggleDimensions")?.addEventListener("click",()=>{dimensionsVisible=!dimensionsVisible;draw()});
   document.getElementById("schemeLeft")?.addEventListener("click",()=>{yaw-=10;renderScene()});document.getElementById("schemeRight")?.addEventListener("click",()=>{yaw+=10;renderScene()});document.getElementById("schemeReset")?.addEventListener("click",()=>{yaw=-34;renderScene()});
   renderScene();renderDetails();bindGridEditor();bindEditor()
  }
