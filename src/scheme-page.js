@@ -36,8 +36,8 @@ window.irSchemePage=async function(objectId){
  function projection(cols){
   const W=1040,H=650,padX=105,padY=90,a=yaw*Math.PI/180,maxZ=Math.max(9,...cols.map(c=>Math.max(c.z0,c.z1)/1000));
   const raw=(xmm,ymm,zmm)=>{const x=(xmm-spanX/2)/1000,y=(ymm-spanY/2)/1000,z=zmm/1000,rx=x*Math.cos(a)-y*Math.sin(a),ry=x*Math.sin(a)+y*Math.cos(a);return{x:rx,y:ry*.48-z}};
-  const samples=[];
-  for(const x of [0,spanX])for(const y of [0,spanY]){samples.push(raw(x,y,0));samples.push(raw(x,y,maxZ*1000))}
+  const samples=[],margin=12000;
+  for(const x of [-margin,spanX+margin])for(const y of [-margin,spanY+margin]){samples.push(raw(x,y,0));samples.push(raw(x,y,maxZ*1000))}
   for(const c of cols){samples.push(raw(c.x,c.y,c.z0));samples.push(raw(c.x,c.y,c.z1))}
   const minX=Math.min(...samples.map(p=>p.x)),maxX=Math.max(...samples.map(p=>p.x)),minY=Math.min(...samples.map(p=>p.y)),maxY=Math.max(...samples.map(p=>p.y));
   const scale=Math.min((W-padX*2)/Math.max(1,maxX-minX),(H-padY*2)/Math.max(1,maxY-minY));
