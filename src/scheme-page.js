@@ -136,38 +136,60 @@ window.irSchemePage=async function(objectId){
   panel.querySelector("[data-scheme-edit]")?.addEventListener("click",()=>openEditor(c));
   panel.querySelector("[data-scheme-delete]")?.addEventListener("click",async()=>{if(!confirm(`Удалить колонну «${c.position||c.title||""}» со схемы?`))return;await schemeApi.remove(c.id);rows=await schemeApi.list().catch(()=>rows);selectedId="";draw()})
  }
- function gridSpanFields(items,spans,key){
-  return spans.map((value,i)=>`<label><span>${pairLabel(items,i)}</span><input type="text" inputmode="decimal" data-grid-span="${key}" data-index="${i}" value="${esc(fmt(value))}"><small>мм</small></label>`).join("")
+ let gridDraft=null;
+ const yAlphabet=["А","Б","В","Г","Д","Е","Ж","З","И","К","Л","М","Н","П","Р","С","Т","У","Ф","Х","Ц","Ч","Ш","Щ","Э","Ю","Я"];
+ function nextAxisLabel(key,items){
+  if(key==="x"){const nums=items.map(x=>Number(x)).filter(Number.isFinite);return String((nums.length?Math.max(...nums):items.length)+1)}
+  return yAlphabet.find(x=>!items.includes(x))||`Ось ${items.length+1}`
+ }
+ function gridDirectionHtml(key){
+  const isX=key==="x",items=isX?gridDraft.axesX:gridDraft.axesY,spans=isX?gridDraft.spansX:gridDraft.spansY,size=isX?gridDraft.sizeX:gridDraft.sizeY,title=`${items[0]}–${items.at(-1)}`;
+  return`<section data-grid-section="${key}">
+   <div class="scheme-grid-config-head"><div><b>Направление ${esc(title)}</b><span>${items.length} осей · ${spans.length} пролётов</span></div><button type="button" data-grid-equal="${key}">Распределить равномерно</button></div>
+   <label class="scheme-grid-size"><span>Общий размер</span><input type="text" inputmode="decimal" data-grid-size="${key}" value="${esc(fmt(size))}"><small>мм</small></label>
+   <div class="scheme-grid-axis-title"><span>Оси</span><small>Название оси можно изменить</small></div>
+   <div class="scheme-axis-list">${items.map((axis,i)=>`<div class="scheme-axis-item"><input type="text" data-grid-axis="${key}" data-index="${i}" value="${esc(axis)}"><button type="button" data-grid-remove-axis="${key}" data-index="${i}" ${items.length<=2?"disabled":""} title="Удалить ось">×</button></div>`).join("")}<button type="button" class="scheme-add-axis" data-grid-add-axis="${key}">＋ Добавить ось</button></div>
+   <div class="scheme-grid-axis-title"><span>Пролёты</span><small>Расстояние между соседними осями</small></div>
+   <div class="scheme-grid-spans">${spans.map((value,i)=>`<label><span>${esc(pairLabel(items,i))}</span><input type="text" inputmode="decimal" data-grid-span="${key}" data-index="${i}" value="${esc(fmt(value))}"><small>мм</small></label>`).join("")}</div>
+   <div class="scheme-grid-total" id="schemeGridTotal${isX?"X":"Y"}"></div>
+  </section>`
  }
  function gridEditorHtml(){
-  return`<dialog id="schemeGridEditor" class="scheme-grid-editor"><form id="schemeGridForm" novalidate><div class="scheme-editor-head"><div><h2>Настроить оси</h2><p>Введите реальные расстояния между соседними осями. Общий размер должен остаться 45 000 × 60 000 мм.</p></div><button type="button" id="schemeGridX">×</button></div>
-   <div class="scheme-grid-warning">Колонны привязаны к осям. После изменения пролётов их координаты автоматически пересчитаются, а заданные смещения сохранятся.</div>
-   <div class="scheme-grid-config">
-    <section><div class="scheme-grid-config-head"><div><b>Оси 1–6</b><span>Общий размер: 45 000 мм</span></div><button type="button" data-grid-equal="x">Распределить равномерно</button></div><div class="scheme-grid-spans">${gridSpanFields(axesX,gridXSpans,"x")}</div><div class="scheme-grid-total" id="schemeGridTotalX"></div></section>
-    <section><div class="scheme-grid-config-head"><div><b>Оси А–Л</b><span>Общий размер: 60 000 мм</span></div><button type="button" data-grid-equal="y">Распределить равномерно</button></div><div class="scheme-grid-spans">${gridSpanFields(axesY,gridYSpans,"y")}</div><div class="scheme-grid-total" id="schemeGridTotalY"></div></section>
-   </div>
+  return`<dialog id="schemeGridEditor" class="scheme-grid-editor"><form id="schemeGridForm" novalidate><div class="scheme-editor-head"><div><h2>Параметры сетки</h2><p>Добавляйте и удаляйте оси, меняйте их названия, пролёты и общий размер сетки.</p></div><button type="button" id="schemeGridX">×</button></div>
+   <div class="scheme-grid-warning">Колонны остаются привязаны к своим осям. Используемую колоннами ось удалить нельзя, но её можно переименовать — привязки обновятся автоматически.</div>
+   <div class="scheme-grid-config" id="schemeGridBody"></div>
    <div class="scheme-form-error" id="schemeGridError" hidden></div>
    <div class="actions"><button type="button" id="schemeGridCancel">Отмена</button><button type="submit" class="primary" id="schemeGridSave">Сохранить сетку</button></div>
   </form></dialog>`
  }
- function openGridEditor(){
-  const d=document.getElementById("schemeGridEditor");if(!d)return;
-  [...d.querySelectorAll('[data-grid-span="x"]')].forEach((el,i)=>el.value=fmt(gridXSpans[i]));
-  [...d.querySelectorAll('[data-grid-span="y"]')].forEach((el,i)=>el.value=fmt(gridYSpans[i]));
-  refreshGridEditor();d.showModal()
+ function showGridError(message){
+  const err=document.getElementById("schemeGridError");if(!err)return;err.textContent=message||"";err.hidden=!message
  }
- function gridFormValues(key){return [...document.querySelectorAll(`[data-grid-span="${key}"]`)].map(el=>num(el.value))}
+ function renderGridEditor(){
+  const body=document.getElementById("schemeGridBody");if(!body||!gridDraft)return;body.innerHTML=gridDirectionHtml("x")+gridDirectionHtml("y");
+  body.querySelectorAll("[data-grid-axis]").forEach(el=>el.oninput=()=>{const key=el.dataset.gridAxis,i=Number(el.dataset.index),items=key==="x"?gridDraft.axesX:gridDraft.axesY;items[i]=el.value.trim();renderGridEditor()});
+  body.querySelectorAll("[data-grid-span]").forEach(el=>el.oninput=()=>{const key=el.dataset.gridSpan,i=Number(el.dataset.index),spans=key==="x"?gridDraft.spansX:gridDraft.spansY;spans[i]=num(el.value);refreshGridEditor()});
+  body.querySelectorAll("[data-grid-size]").forEach(el=>el.oninput=()=>{if(el.dataset.gridSize==="x")gridDraft.sizeX=num(el.value);else gridDraft.sizeY=num(el.value);refreshGridEditor()});
+  body.querySelectorAll("[data-grid-equal]").forEach(btn=>btn.onclick=()=>{const key=btn.dataset.gridEqual,count=(key==="x"?gridDraft.axesX:gridDraft.axesY).length-1,total=key==="x"?gridDraft.sizeX:gridDraft.sizeY,vals=equalSpans(total,count);if(key==="x")gridDraft.spansX=vals;else gridDraft.spansY=vals;renderGridEditor()});
+  body.querySelectorAll("[data-grid-add-axis]").forEach(btn=>btn.onclick=()=>{const key=btn.dataset.gridAddAxis,items=key==="x"?gridDraft.axesX:gridDraft.axesY,sources=key==="x"?gridDraft.sourceX:gridDraft.sourceY,spans=key==="x"?gridDraft.spansX:gridDraft.spansY,sizeKey=key==="x"?"sizeX":"sizeY",suggested=Math.max(1,Math.round(spans.length?spans.reduce((s,x)=>s+num(x),0)/spans.length:6000));items.push(nextAxisLabel(key,items));sources.push(null);spans.push(suggested);gridDraft[sizeKey]+=suggested;renderGridEditor()});
+  body.querySelectorAll("[data-grid-remove-axis]").forEach(btn=>btn.onclick=()=>{const key=btn.dataset.gridRemoveAxis,i=Number(btn.dataset.index),items=key==="x"?gridDraft.axesX:gridDraft.axesY,sources=key==="x"?gridDraft.sourceX:gridDraft.sourceY,spans=key==="x"?gridDraft.spansX:gridDraft.spansY,sizeKey=key==="x"?"sizeX":"sizeY";if(items.length<=2)return;const source=sources[i],used=source&&records().some(r=>String(key==="x"?r.axis_x:r.axis_y)===String(source));if(used){showGridError(`Ось «${source}» используется колоннами. Сначала перенесите эти колонны на другую ось.`);return}showGridError("");if(i===0){gridDraft[sizeKey]-=num(spans.shift());items.shift();sources.shift()}else if(i===items.length-1){gridDraft[sizeKey]-=num(spans.pop());items.pop();sources.pop()}else{spans[i-1]=num(spans[i-1])+num(spans[i]);spans.splice(i,1);items.splice(i,1);sources.splice(i,1)}renderGridEditor()});
+  refreshGridEditor()
+ }
+ function openGridEditor(){
+  const d=document.getElementById("schemeGridEditor");if(!d)return;gridDraft={axesX:[...axesX],axesY:[...axesY],sourceX:[...axesX],sourceY:[...axesY],spansX:[...gridXSpans],spansY:[...gridYSpans],sizeX:targetSpanX,sizeY:targetSpanY};showGridError("");renderGridEditor();d.showModal()
+ }
  function refreshGridEditor(){
-  const xs=gridFormValues("x"),ys=gridFormValues("y"),sx=xs.reduce((s,x)=>s+x,0),sy=ys.reduce((s,x)=>s+x,0),tx=document.getElementById("schemeGridTotalX"),ty=document.getElementById("schemeGridTotalY"),save=document.getElementById("schemeGridSave");
-  const paint=(el,sum,target)=>{const diff=target-sum,ok=Math.abs(diff)<.11;el.className=`scheme-grid-total ${ok?"ok":"bad"}`;el.innerHTML=`<span>Сумма</span><b>${fmt(sum)} мм</b><small>${ok?"Размер совпадает":diff>0?`Не хватает ${fmt(diff)} мм`:`Превышение ${fmt(Math.abs(diff))} мм`}</small>`;return ok};
-  const okX=paint(tx,sx,targetSpanX),okY=paint(ty,sy,targetSpanY),positive=xs.every(x=>x>0)&&ys.every(x=>x>0);save.disabled=!(okX&&okY&&positive)
+  if(!gridDraft)return;const tx=document.getElementById("schemeGridTotalX"),ty=document.getElementById("schemeGridTotalY"),save=document.getElementById("schemeGridSave"),sx=gridDraft.spansX.reduce((s,x)=>s+num(x),0),sy=gridDraft.spansY.reduce((s,x)=>s+num(x),0);
+  const paint=(el,sum,target)=>{const diff=target-sum,ok=target>0&&Math.abs(diff)<.11;el.className=`scheme-grid-total ${ok?"ok":"bad"}`;el.innerHTML=`<span>Сумма пролётов</span><b>${fmt(sum)} мм</b><small>${ok?"Совпадает с размером":diff>0?`Не хватает ${fmt(diff)} мм`:`Превышение ${fmt(Math.abs(diff))} мм`}</small>`;return ok};
+  const unique=a=>a.length===new Set(a.map(x=>String(x).trim().toLowerCase())).size&&a.every(x=>String(x).trim()),okX=paint(tx,sx,gridDraft.sizeX),okY=paint(ty,sy,gridDraft.sizeY),positive=gridDraft.spansX.every(x=>num(x)>0)&&gridDraft.spansY.every(x=>num(x)>0),names=unique(gridDraft.axesX)&&unique(gridDraft.axesY);save.disabled=!(okX&&okY&&positive&&names&&gridDraft.axesX.length>=2&&gridDraft.axesY.length>=2)
  }
  function bindGridEditor(){
-  if(!canEdit())return;const d=document.getElementById("schemeGridEditor"),form=document.getElementById("schemeGridForm"),err=document.getElementById("schemeGridError");if(!d||!form)return;
+  if(!canEdit())return;const d=document.getElementById("schemeGridEditor"),form=document.getElementById("schemeGridForm");if(!d||!form)return;
   document.getElementById("schemeGridConfig")?.addEventListener("click",openGridEditor);document.getElementById("schemeGridX").onclick=()=>d.close();document.getElementById("schemeGridCancel").onclick=()=>d.close();
-  d.querySelectorAll("[data-grid-span]").forEach(el=>el.addEventListener("input",refreshGridEditor));
-  d.querySelectorAll("[data-grid-equal]").forEach(btn=>btn.onclick=()=>{const key=btn.dataset.gridEqual,total=key==="x"?targetSpanX:targetSpanY,els=[...d.querySelectorAll(`[data-grid-span="${key}"]`)],vals=equalSpans(total,els.length);els.forEach((el,i)=>el.value=fmt(vals[i]));refreshGridEditor()});
-  form.onsubmit=async e=>{e.preventDefault();err.hidden=true;const xs=gridFormValues("x"),ys=gridFormValues("y"),sx=xs.reduce((s,x)=>s+x,0),sy=ys.reduce((s,x)=>s+x,0);if(xs.some(x=>x<=0)||ys.some(x=>x<=0)){err.textContent="Все расстояния между осями должны быть больше 0.";err.hidden=false;return}if(Math.abs(sx-targetSpanX)>=.11||Math.abs(sy-targetSpanY)>=.11){err.textContent="Сумма пролётов должна точно составлять 45 000 мм и 60 000 мм.";err.hidden=false;return}const existing=gridRecord(),payload={record_type:"scheme_grid",title:"Сетка осей",data:{entity_type:"grid",axes_x:axesX,axes_y:axesY,x_spans_mm:xs,y_spans_mm:ys,span_x_mm:targetSpanX,span_y_mm:targetSpanY}};if(existing)await schemeApi.update(existing.id,payload);else await schemeApi.create(payload);rows=await schemeApi.list().catch(()=>rows);refreshGridModel();d.close();draw()}
+  form.onsubmit=async e=>{e.preventDefault();showGridError("");if(!gridDraft)return;const ax=gridDraft.axesX.map(x=>String(x).trim()),ay=gridDraft.axesY.map(x=>String(x).trim()),xs=gridDraft.spansX.map(num),ys=gridDraft.spansY.map(num),sx=xs.reduce((s,x)=>s+x,0),sy=ys.reduce((s,x)=>s+x,0);if(ax.some(x=>!x)||ay.some(x=>!x)||new Set(ax.map(x=>x.toLowerCase())).size!==ax.length||new Set(ay.map(x=>x.toLowerCase())).size!==ay.length){showGridError("Названия осей должны быть заполнены и не должны повторяться.");return}if(xs.some(x=>x<=0)||ys.some(x=>x<=0)||gridDraft.sizeX<=0||gridDraft.sizeY<=0){showGridError("Размеры и расстояния между осями должны быть больше 0.");return}if(Math.abs(sx-gridDraft.sizeX)>=.11||Math.abs(sy-gridDraft.sizeY)>=.11){showGridError("Сумма пролётов должна совпадать с общим размером каждого направления.");return}
+   const mapX=new Map(gridDraft.sourceX.map((old,i)=>old?[String(old),ax[i]]:null).filter(Boolean)),mapY=new Map(gridDraft.sourceY.map((old,i)=>old?[String(old),ay[i]]:null).filter(Boolean));
+   for(const row of arr(rows).filter(r=>r.record_type==="scheme_column"||r.data?.entity_type==="column")){const d0=row.data||{},nx=mapX.get(String(d0.axis_x||""))||String(d0.axis_x||""),ny=mapY.get(String(d0.axis_y||""))||String(d0.axis_y||"");if(nx!==String(d0.axis_x||"")||ny!==String(d0.axis_y||""))await schemeApi.update(row.id,{record_type:row.record_type||"scheme_column",title:row.title||d0.position||"Колонна",data:{...d0,axis_x:nx,axis_y:ny}})}
+   const existing=gridRecord(),payload={record_type:"scheme_grid",title:"Сетка осей",data:{entity_type:"grid",axes_x:ax,axes_y:ay,x_spans_mm:xs,y_spans_mm:ys,span_x_mm:gridDraft.sizeX,span_y_mm:gridDraft.sizeY}};if(existing)await schemeApi.update(existing.id,payload);else await schemeApi.create(payload);rows=await schemeApi.list().catch(()=>rows);refreshGridModel();d.close();gridDraft=null;draw()}
  }
  function editorHtml(){
   return`<dialog id="schemeEditor" class="scheme-editor"><form id="schemeForm" novalidate><input type="hidden" name="id"><div class="scheme-editor-head"><div><h2 id="schemeEditorTitle">Добавить колонну</h2><p>Укажите марку и точное положение относительно осей.</p></div><button type="button" id="schemeEditorX">×</button></div>
