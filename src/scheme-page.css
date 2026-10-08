@@ -75,3 +75,8 @@
 .scheme-orient button{height:24px;min-width:42px;padding:0 7px;border:0;border-radius:5px;background:transparent;color:#526b7c;font-size:8px;font-weight:800}
 .scheme-orient button:hover{background:#f1f5f8}
 .scheme-orient #schemeRotationValue{min-width:38px;color:#1769e0}
+
+.scheme-grid-direction{display:grid;grid-template-columns:95px minmax(0,1fr);align-items:center;gap:7px;margin:-3px 0 11px;padding:9px 10px;border:1px solid #dfe7ed;border-radius:8px;background:#fff}
+.scheme-grid-direction>span{color:#4e687a;font-size:8px;font-weight:750}
+.scheme-grid-direction select{width:100%;height:34px;padding:0 9px;border:1px solid #d5dee5;border-radius:7px;background:#fff;color:#263f50;font-size:8px;font-weight:700;outline:none}
+.scheme-grid-direction select:focus{border-color:#75a9e8;box-shadow:0 0 0 3px rgba(23,105,224,.08)}
