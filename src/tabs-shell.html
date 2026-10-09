@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>IR Project — вкладки</title>
+<link rel="stylesheet" href="./tabs-shell.css?v=1757">
+</head><body>
+<div class="tabs-titlebar"><span class="tabs-brand">IR <b>Project</b></span><span class="tabs-caption">Вкладки объектов и документов</span><span class="tabs-drag-space"></span><span class="tabs-app-name">IR Project</span></div>
+<header class="tabs-bar">
+ <nav id="tabsList" class="tabs-list" aria-label="Открытые вкладки"></nav>
+ <button id="tabsAdd" class="tabs-add" type="button" title="Новая вкладка (Ctrl+T)" aria-label="Создать вкладку">＋</button>
+ <div class="tabs-tools"><button type="button" id="tabsDuplicate" title="Открыть копию текущей страницы во вкладке">Дублировать</button><button type="button" id="tabsDetach" title="Открыть текущую страницу в новом окне Windows">↗ В отдельное окно</button></div>
+</header>
+<div id="tabsContent" class="tabs-content" aria-label="Содержимое вкладок"></div>
+<div class="tabs-footer"><span id="tabsStatus">Готово</span><span class="tabs-help">Ctrl+T — новая · Ctrl+Tab — следующая · Ctrl+W — закрыть</span></div>
+<script src="./tabs-shell.js?v=1757"></script>
+</body></html>
