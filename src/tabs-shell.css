@@ -1,36 +1,41 @@
-/* IR Project: compact one-row native window tabs */
+/* Light native-style tab strip matching IR Project */
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
-body{display:flex;flex-direction:column;min-width:760px;overflow:hidden;font-family:Inter,"Segoe UI",Arial,sans-serif;background:#f4f6f9;color:#182b3b}
+body{display:flex;flex-direction:column;min-width:760px;overflow:hidden;font-family:Inter,"Segoe UI",Arial,sans-serif;background:#f4f6f9;color:#263c50}
 button{font-family:inherit}
-.tabs-bar{height:40px;min-height:40px;background:#14283c;display:flex;align-items:center;gap:7px;padding:0 143px 0 10px;border-bottom:1px solid #102236;-webkit-app-region:drag;user-select:none}
-.tabs-list{display:flex;flex:1 1 auto;align-items:center;gap:5px;min-width:0;height:100%;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:#5e7b94 transparent;-webkit-app-region:no-drag}
-.tabs-item{flex:0 1 214px;min-width:121px;max-width:236px;height:31px;display:flex;align-items:center;gap:7px;padding:0 4px 0 12px;border:1px solid #365571;border-radius:6px;background:#203d56;color:#c1d3e1;cursor:pointer;text-align:left;font-size:11px;transition:background .14s,border-color .14s;-webkit-app-region:no-drag}
-.tabs-item:hover{background:#31516d;color:#fff;border-color:#436583}
-.tabs-item.active{background:#f4f6f9;border-color:#f4f6f9;color:#173e5b;box-shadow:0 2px 4px rgba(2,14,28,.1);font-weight:750}
+.tabs-bar{height:43px;min-height:43px;background:#f3f6fa;display:flex;align-items:center;gap:8px;padding:0 141px 0 9px;border-bottom:1px solid #dce5ee;-webkit-app-region:drag;user-select:none}
+.tabs-list{display:flex;flex:1 1 auto;align-items:center;gap:6px;min-width:0;height:100%;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:#bfd0e0 transparent;-webkit-app-region:no-drag}
+.tabs-item{flex:0 1 225px;min-width:122px;max-width:245px;height:34px;display:flex;align-items:center;gap:8px;padding:0 5px 0 8px;border:1px solid #d9e4ee;border-radius:8px;background:#e8eef5;color:#5e778d;cursor:pointer;text-align:left;font-size:11px;transition:background .14s,border-color .14s;-webkit-app-region:no-drag}
+.tabs-item:hover{background:#e0ecf9;color:#24445e;border-color:#bcd5ea}
+.tabs-item.active{position:relative;background:#fff;border-color:#b8d3ed;color:#153b56;box-shadow:0 1px 5px rgba(40,85,127,.08);font-weight:750}
+.tabs-item.active:before{content:"";position:absolute;left:10px;right:10px;top:-1px;height:2px;border-radius:0 0 3px 3px;background:#2175cf}
 .tabs-item .tabs-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tabs-icon{flex:0 0 14px;font-size:12px;color:#85adce;text-align:center}
-.tabs-item.active .tabs-icon{color:#1769e0}
-.tabs-item .tabs-close{flex:none;width:23px;height:23px;padding:0;border:0;background:transparent;color:#9cb4c7;font-size:16px;line-height:22px;border-radius:5px;cursor:pointer;-webkit-app-region:no-drag}
-.tabs-item .tabs-close:hover{background:#fae7e7;color:#bd4444}
-.tabs-item.active .tabs-close{color:#7d97ab}
-.tabs-item.unsaved .tabs-title:after{content:" •";color:#eda33e}
-.tabs-add{flex:0 0 28px;display:grid;place-items:center;width:28px;height:28px;margin-right:6px;padding:0;border:1px solid #3f5f7b;border-radius:6px;background:#26445f;color:#d6e8f7;font-size:18px;font-weight:600;cursor:pointer;-webkit-app-region:no-drag}
-.tabs-add:hover{border-color:#5699d9;background:#1769e0;color:white}
-.tabs-tools{flex:0 0 auto;display:flex;align-items:center;gap:5px;-webkit-app-region:no-drag}
-.tabs-tools button{height:29px;padding:0 10px;background:#203d56;border:1px solid #365571;border-radius:6px;color:#d4e2ec;font-size:10px;font-weight:650;white-space:nowrap;cursor:pointer}
-.tabs-tools button:hover{background:#31516d;border-color:#6484a1;color:#fff}
+.tabs-icon{flex:0 0 23px;width:23px;height:23px;display:grid;place-items:center;border-radius:6px;color:#6486a4;background:#f6f9fc}
+.tabs-icon svg{display:block;flex:none;width:15px;height:15px;stroke:currentColor}
+.tabs-item.active .tabs-icon{color:#1769e0;background:#e9f3ff}
+.tabs-item:hover:not(.active) .tabs-icon{color:#367eb9;background:#f2f8ff}
+.tabs-item .tabs-close{flex:none;width:23px;height:23px;padding:0;border:0;background:transparent;color:#8da4b7;font-size:16px;line-height:22px;border-radius:5px;cursor:pointer;-webkit-app-region:no-drag}
+.tabs-item .tabs-close:hover{background:#fee9e9;color:#bb4545}
+.tabs-item.active .tabs-close{color:#6e859a}
+.tabs-item.unsaved .tabs-title:after{content:" •";color:#df912a}
+.tabs-add{flex:0 0 29px;display:grid;place-items:center;width:29px;height:29px;margin-right:7px;padding:0;border:1px solid #d4e2ef;border-radius:7px;background:#fff;color:#347bb6;font-size:19px;font-weight:600;cursor:pointer;-webkit-app-region:no-drag}
+.tabs-add:hover{border-color:#95bee5;background:#eaf4ff;color:#1769e0}
+.tabs-tools{flex:0 0 auto;display:flex;align-items:center;gap:6px;-webkit-app-region:no-drag}
+.tabs-tools button{height:31px;padding:0 11px;background:#fff;border:1px solid #d5e2ed;border-radius:7px;color:#476b89;font-size:10px;font-weight:700;white-space:nowrap;cursor:pointer}
+.tabs-tools button:hover{background:#edf6ff;border-color:#a6cbe9;color:#1769e0}
 .tabs-tools button:disabled{opacity:.5;cursor:wait}
+.tabs-item:focus-visible,.tabs-add:focus-visible,.tabs-tools button:focus-visible{outline:2px solid #277bd5;outline-offset:2px}
 .tabs-content{flex:1;min-height:0;position:relative;background:#f4f6f9}
 .tabs-pane{position:absolute;inset:0;width:100%;height:100%;border:0;background:#f4f6f9;visibility:hidden;pointer-events:none}
 .tabs-pane.active{visibility:visible;pointer-events:auto}
 @media(max-width:1150px){
- .tabs-tools button{font-size:0;padding:0 9px}
+ .tabs-tools button{font-size:0;padding:0 10px}
  .tabs-tools #tabsReload:after{content:"↻";font-size:17px;line-height:24px}
  .tabs-tools #tabsDuplicate:after{content:"⧉";font-size:17px;line-height:24px}
  .tabs-tools #tabsDetach:after{content:"↗";font-size:17px;line-height:24px}
 }
-@media(max-width:800px){.tabs-bar{padding-left:5px;padding-right:139px;gap:4px}.tabs-item{min-width:105px;padding-left:7px}.tabs-tools{gap:3px}}
+@media(max-width:800px){.tabs-bar{padding-left:5px;padding-right:139px;gap:4px}.tabs-item{min-width:108px;padding-left:6px;gap:5px}.tabs-tools{gap:3px}}
+@media(prefers-reduced-motion:reduce){.tabs-item,.tabs-tools button{transition:none}}
 
 /* One update dialog for the whole multi-tab Electron window */
 .tabs-update-dialog{position:fixed;inset:0;width:min(560px,calc(100vw - 40px));max-width:560px;max-height:min(85vh,660px);margin:auto;overflow:auto;border:1px solid #dce7f0;border-radius:15px;padding:24px;background:#fff;color:#263e52;box-shadow:0 22px 65px rgba(19,45,72,.23)}
