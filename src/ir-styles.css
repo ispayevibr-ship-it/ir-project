@@ -977,6 +977,17 @@ body.ir-delivery-form-route .delivery-form-page *{box-sizing:border-box}
 .scheme-stage[data-scheme-contrast="dark"] .scheme-3d-span-text{fill:#c1d6e6}
 
 
+/* 1.7.66: mounting grid and controlled mark placement editor */
+.scheme-editor-grid-field{display:grid;gap:6px}
+.scheme-editor-grid-field select{font-weight:700;color:#244e70;background:#f7fbff;border-color:#c9def2}
+.scheme-editor-grid-field small{font-size:9px;font-weight:500;color:#7e95a5;line-height:1.5}
+.scheme-mark-placement-info{margin-top:6px;padding:9px 11px;border:1px solid #cfe4d9;border-radius:7px;background:#f1faf5;color:#277a50;font-size:10px;font-weight:750;line-height:1.6}
+.scheme-mark-placement-info.exhausted{color:#bf3434;background:#fff0f0;border-color:#eabbbb}
+.scheme-mark-field.exhausted>select,.scheme-mark-field.exhausted>.ir-global-select>.ir-global-select-trigger{border-color:#e0a1a1!important;background:#fff2f2!important;color:#b42d2d!important}
+.scheme-editor .ir-global-select-menu button.exhausted:disabled{opacity:1!important;color:#b42d2d!important;background:#fff1f1!important;border-left:3px solid #e1a1a1;cursor:not-allowed}
+.scheme-editor .ir-global-select-menu button.exhausted:disabled:hover{color:#b42d2d;background:#fff1f1}
+
+
 /* #40: src/section-action-buttons.css */
 .acted-actions,.penalty-actions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:10px!important}.acted-actions button,.penalty-actions button{display:flex!important;align-items:center!important;justify-content:center!important;width:36px!important;height:36px!important;min-width:36px!important;padding:7px!important;border:1px solid #d9e2e8!important;border-radius:7px!important;background:#fff!important;color:#2598c7!important;font-size:0!important;line-height:0!important;cursor:pointer!important;box-shadow:none!important}.acted-actions button:hover,.penalty-actions button:hover{background:#f2f8fb!important;border-color:#b9d5e3!important}.acted-actions button svg,.penalty-actions button svg{display:block!important;width:18px!important;height:18px!important;fill:none!important;stroke:currentColor!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important}.acted-actions .acted-delete,.penalty-actions .penalty-delete{color:#d76969!important}.acted-actions .acted-delete:hover,.penalty-actions .penalty-delete:hover{background:#fff4f4!important;border-color:#efc7c7!important}
 
