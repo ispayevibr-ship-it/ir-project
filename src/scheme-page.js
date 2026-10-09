@@ -35,6 +35,22 @@ window.irSchemePage=async function(objectId){
  const markLabel=m=>{const w=workById.get(String(m.work_type_id||""))||{},name=m.name||"",wt=w.work_type||m.work_type||"";return [m.mark||m.title||"Без марки",name||wt].filter(Boolean).join(" · ")};
 
  const markById=new Map(marks.map(m=>[m.id,m]));
+ let updatingMarkProgress=false;
+ async function refreshSchemeMarkProgress(){
+  if(updatingMarkProgress)return;updatingMarkProgress=true;
+  const button=document.getElementById("schemeRefreshMarkProgress");if(button){button.disabled=true;button.textContent="Обновляем…"}
+  try{
+   const fresh=await root.section("marks").list();
+   markRows=fresh;
+   const updated=arr(fresh).map(x=>({id:String(x.id),title:x.title||"",...(x.data||{})}));
+   marks.splice(0,marks.length,...updated);
+   markById.clear();marks.forEach(x=>markById.set(x.id,x));
+   draw()
+  }catch(e){
+   alert("Не удалось обновить данные ведомости: "+String(e?.message||e));
+   if(button){button.disabled=false;button.textContent="↻ Обновить по ведомости"}
+  }finally{updatingMarkProgress=false}
+ }
  const markProgress=m=>{
   if(!m)return null;
   const total=Math.max(0,num(m.qty??m.count)),mounted=Math.min(total,Math.max(0,num(m.mounted??m.done)));
@@ -329,7 +345,7 @@ window.irSchemePage=async function(objectId){
     <div><span>Наименование</span><b>${esc(c.mark_name||"—")}</b></div>
     <div><span>Тип элемента</span><b>${esc(geometryLabel(c.geometryType))}</b></div><div><span>Сечение</span><b>${esc(sectionTypeLabel(sectionType(c)))}</b></div>
     <div><span>Профиль</span><b>${esc(profileText(c))}</b></div>
-    <div><span>Статус по ведомости</span><b class="${c.status==="mounted"?"ok":c.status==="partial"?"partial":"wait"}">${statusText(c.status)}</b></div>
+    <div><span>${progress?.total>0?"Статус по ведомости":"Статус (ручной)"}</span><b class="${c.status==="mounted"?"ok":c.status==="partial"?"partial":"wait"}">${statusText(c.status)}</b></div>
     <div><span>Ось ${esc(axesX[0])}–${esc(axesX.at(-1))}</span><b>${esc(a.x)}</b></div>
     <div><span>Ось ${esc(axesY[0])}–${esc(axesY.at(-1))}</span><b>${esc(a.y)}</b></div>
     <div><span>Коорд. X</span><b>${fmt(c.x)} мм</b></div>
@@ -662,6 +678,7 @@ window.irSchemePage=async function(objectId){
     <div class="remaining"><span>Осталось</span><b>${fmt(mp.left)} <small>шт.</small></b></div>
     <div><span>На схеме</span><b>${mp.placed} <small>элем.</small></b><small>${mp.placedMounted} полностью смонтировано · ${mp.placedPartial} частично</small></div>
    </div>
+   <div class="scheme-mark-sync-hint"><span>Статусы связаны с ведомостью марок и ежедневными отчётами. Частичное выполнение не определяет конкретную установленную конструкцию.</span><button type="button" id="schemeRefreshMarkProgress">↻ Обновить по ведомости</button></div>
    <section class="scheme-visibility" aria-label="Фильтры монтажной схемы">
     <div class="scheme-visibility-top">
      <details class="scheme-layers" ${layersPanelOpen?"open":""}><summary>Слои по видам марок <small>${allVisibleTypes().filter(g=>!hiddenGroups.has(g.key)).length} из ${allVisibleTypes().length}</small></summary>
@@ -696,6 +713,7 @@ window.irSchemePage=async function(objectId){
   document.querySelectorAll("[data-scheme-layer]").forEach(btn=>btn.addEventListener("click",()=>{layersPanelOpen=true;const key=btn.dataset.schemeLayer;if(hiddenGroups.has(key))hiddenGroups.delete(key);else hiddenGroups.add(key);draw()}));
   document.getElementById("schemeLayersShowAll")?.addEventListener("click",()=>{layersPanelOpen=true;hiddenGroups.clear();draw()});
   document.getElementById("schemeLayersHideAll")?.addEventListener("click",()=>{layersPanelOpen=true;allVisibleTypes().forEach(g=>hiddenGroups.add(g.key));draw()});
+  document.getElementById("schemeRefreshMarkProgress")?.addEventListener("click",refreshSchemeMarkProgress);
   document.getElementById("schemeStatusFilter")?.addEventListener("change",e=>{statusFilter=e.target.value;draw()});
   document.getElementById("schemeLevelMin")?.addEventListener("change",e=>{levelMin=e.target.value;draw()});
   document.getElementById("schemeLevelMax")?.addEventListener("change",e=>{levelMax=e.target.value;draw()});
