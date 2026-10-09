@@ -1,0 +1,25 @@
+*{box-sizing:border-box}html,body{height:100%;margin:0}body{display:flex;flex-direction:column;min-width:760px;overflow:hidden;font-family:Inter,"Segoe UI",Arial,sans-serif;background:#f0f4f8;color:#273e52}
+.tabs-titlebar{height:38px;min-height:38px;display:flex;align-items:center;gap:14px;background:#f7f8fa;border-bottom:1px solid #e0e6ec;-webkit-app-region:drag;user-select:none;padding:0 15px;font-size:11px}
+.tabs-brand{font-size:14px;font-weight:800;color:#204260;letter-spacing:.1px}.tabs-brand b{color:#1769e0}
+.tabs-caption{color:#8595a3;font-size:10px}.tabs-drag-space{flex:1}.tabs-app-name{margin-right:125px;color:#a5b1bb;font-size:10px}
+.tabs-bar{height:46px;min-height:46px;background:#e9eff5;display:flex;align-items:end;gap:8px;padding:7px 13px 0;border-bottom:1px solid #cbd9e5}
+.tabs-list{display:flex;flex:1 1 auto;gap:5px;min-width:0;overflow-x:auto;overflow-y:hidden;height:39px;align-items:end;scrollbar-width:thin;scrollbar-color:#b9cad9 transparent}
+.tabs-item{flex:0 1 225px;min-width:122px;max-width:250px;display:flex;align-items:center;gap:4px;height:35px;padding:0 5px 0 11px;border:1px solid #d2dfeb;border-bottom-color:#c7d6e3;border-radius:8px 8px 0 0;background:#dce7f0;color:#557084;cursor:pointer;text-align:left;position:relative;font-size:11px;-webkit-app-region:no-drag}
+.tabs-item:hover{background:#e8f3ff}.tabs-item.active{background:white;border-color:#c2d5e7;border-bottom-color:white;color:#154563;font-weight:750;box-shadow:0 -2px 8px rgba(32,69,110,.08)}
+.tabs-item .tabs-title{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tabs-icon{flex:0 0 14px;font-size:12px;color:#4580af;text-align:center}
+.tabs-item .tabs-close{flex:none;border:0;background:transparent;color:#8798a6;font-size:15px;width:22px;height:24px;border-radius:5px;cursor:pointer;padding:0}
+.tabs-item .tabs-close:hover{background:#fbe8e8;color:#b44949}
+.tabs-item.unsaved .tabs-title:after{content:" •";color:#e09b25}
+.tabs-add{align-self:center;flex:none;width:31px;height:31px;border:1px solid #ccdbea;border-radius:7px;background:#fff;color:#2775b3;font-size:19px;cursor:pointer}
+.tabs-add:hover{background:#edf7ff}
+.tabs-tools{display:flex;align-items:center;gap:6px;align-self:center;padding-bottom:4px;flex:none}
+.tabs-tools button{height:30px;padding:0 10px;border:1px solid #bed1e2;border-radius:6px;color:#35749e;background:#f9fcfe;font-size:10px;font-weight:750;cursor:pointer}
+.tabs-tools button:hover{background:#dfefff;border-color:#87b7df}
+.tabs-content{flex:1;min-height:0;position:relative;background:#fff}
+.tabs-pane{position:absolute;inset:0;width:100%;height:100%;border:0;background:white;visibility:hidden;pointer-events:none}
+.tabs-pane.active{visibility:visible;pointer-events:auto}
+.tabs-footer{height:21px;min-height:21px;padding:0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#f7f9fb;border-top:1px solid #e2e9ef;color:#8396a5;font-size:9px}
+.tabs-footer .tabs-help{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:1060px){.tabs-tools button{font-size:0;padding:0 10px}.tabs-tools #tabsDuplicate:after{content:"⧉";font-size:16px}.tabs-tools #tabsDetach:after{content:"↗";font-size:16px}}
+@media(max-width:800px){.tabs-caption,.tabs-footer .tabs-help{display:none}.tabs-item{min-width:110px}}
