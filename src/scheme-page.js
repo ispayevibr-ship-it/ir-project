@@ -577,12 +577,13 @@ window.irSchemePage=async function(objectId){
  }
  function leaveSchemeFullscreen(redraw=true){
   if(!previewFullscreen)return;
+  const wasNative=previewNativeFullscreen;
   previewFullscreen=false;previewNativeFullscreen=false;
   document.body.style.overflow=previewOriginalOverflow;
   document.removeEventListener("keydown",onSchemePreviewKeydown);
   document.removeEventListener("fullscreenchange",onSchemePreviewNativeChange);
   window.removeEventListener("hashchange",onSchemePreviewRouteChange);
-  if(document.fullscreenElement&&typeof document.exitFullscreen==="function")Promise.resolve(document.exitFullscreen()).catch(()=>{});
+  if(wasNative&&document.fullscreenElement&&typeof document.exitFullscreen==="function")Promise.resolve(document.exitFullscreen()).catch(()=>{});
   if(redraw)draw()
  }
  function enterSchemeFullscreen(){
