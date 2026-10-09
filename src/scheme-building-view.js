@@ -210,11 +210,13 @@ window.irBuildingView=(()=>{
       '<div class="irb-row"><span>Координаты, мм</span><b>X '+fmt(c.x)+' · Y '+fmt(c.y)+'</b></div>'+
       '<div class="irb-row"><span>Отметка низа, мм</span><b>'+fmt(c.z0)+'</b></div>'+
       '<div class="irb-row"><span>Отметка конца, мм</span><b>'+fmt(c.z2)+'</b></div>'+
-      '<button class="irb-secondary" id="irbSelectDetails">Подробнее и редактирование →</button>':
+      (props.canEdit?'<button type="button" class="irb-secondary" id="irbSelectDetails">Подробнее и редактирование →</button>':''):
       '<div class="irb-empty">Выберите конструкцию на общей модели, чтобы посмотреть её марку и положение. Все реальные элементы берутся из вашей монтажной схемы.</div>')+
       (props.canEdit?'<button class="irb-save" id="irbStartRight">＋ Добавить марку</button>':'');
     const btn=el("irbStartRight");if(btn)btn.onclick=startPlacement;
-    const detail=el("irbSelectDetails");if(detail)detail.onclick=()=>props.onSelect(String(c.id));
+    const detail=el("irbSelectDetails");if(detail)detail.onclick=()=>{
+     if(props.canEdit&&typeof props.onEdit==="function")props.onEdit(String(c.id));
+    };
    }
    if(!pane.hidden){
     const dismiss=document.createElement("button");dismiss.type="button";

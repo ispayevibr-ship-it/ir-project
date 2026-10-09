@@ -255,6 +255,42 @@ body.ir-object-route:has(.wt-page){max-width:100vw;overflow-x:clip}
 .rv-extra-open:hover{background:#deeeff;text-decoration:none}
 
 
+/* 1.7.72 — headings unified with Reports, Work Types and Deliveries */
+.additional-works-page{gap:12px}
+.additional-works-top{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:14px;min-height:44px;margin-bottom:2px}
+.additional-works-top>div{min-width:0}
+.additional-works-back{height:32px;min-height:32px;padding:0 11px;border:1px solid #d8e1e7;border-radius:7px;background:#fff;color:#536a7a;font-size:9px;font-weight:650}
+.additional-works-back:hover{background:#f0f7ff;border-color:#94bce2;color:#1769df}
+.additional-works-back:focus-visible{outline:2px solid #70a9ee;outline-offset:2px}
+.additional-works-top h1{margin:0 0 3px;color:#18364b;font-size:20px;line-height:1.2;font-weight:800}
+.additional-works-top p{margin:0;color:#87919f;font-size:10px;line-height:1.4}
+.aw-list-toolbar{min-height:60px;align-items:center;gap:14px;padding:12px 15px;background:#fbfcfd;border-color:#dfe8ef;border-bottom:1px solid #e7edf2}
+.aw-list-toolbar>div{min-width:0;flex:1}
+.aw-list-toolbar h2,.aw-document-heading h2{margin:0 0 4px;color:#294356;font-size:13px;line-height:1.3;font-weight:800}
+.aw-list-toolbar p,.aw-document-heading p{margin:0;color:#8799a7;font-size:9px;line-height:1.5}
+.aw-list-toolbar input{font-size:10px}
+.aw-list-wrap{margin-top:-12px}
+.aw-table thead th{height:38px;padding:10px 13px;background:#f3f6f8;border-bottom:1px solid #e3e9ee;color:#718392;font-size:9px;line-height:1.3;font-weight:750}
+.aw-detail-head{min-height:90px;gap:14px;padding:15px 17px;border-color:#dfe8ef;background:#fff;border-left:3px solid #2778d7}
+.aw-detail-head span:not(.aw-status){font-size:9px;color:#8799a7}
+.aw-detail-head h2{margin:8px 0 0;color:#294356;font-size:16px;line-height:1.3;font-weight:800}
+.aw-detail-head strong{font-size:10px}
+.aw-document{padding:0;overflow:hidden}
+.aw-document-heading{display:flex;align-items:center;min-height:58px;padding:12px 15px;background:#fbfcfd;border-bottom:1px solid #e7edf2}
+.aw-document-body{margin:14px 15px}
+.aw-document-actions{padding:0 15px 5px}
+.aw-document .aw-action-note{margin:8px 15px 12px}
+.aw-legacy-document{border-color:#dfe8ef;border-left:3px solid #b5cfe7;background:#fbfcfd}
+.aw-legacy-document b{color:#294356;font-size:12px;font-weight:800}
+@media(max-width:680px){
+ .additional-works-top{gap:9px}
+ .additional-works-top h1{font-size:17px}
+ .aw-list-toolbar{align-items:stretch;flex-wrap:wrap}
+ .aw-list-toolbar input{flex:1 1 100%;width:100%;max-width:none}
+ .aw-detail-head{flex-wrap:wrap}
+}
+
+
 /* #14: src/report-photo-manager.css */
 .report-photo-slot{position:relative;overflow:hidden}.report-photo-slot.has-photo{padding:0;border-style:solid;background:#eef3f6}.report-photo-slot.has-photo img{display:block;width:100%;height:100%;min-height:90px;object-fit:cover}.report-photo-slot.has-photo>span{position:absolute;left:7px;bottom:7px;padding:3px 5px;border-radius:4px;background:rgba(17,37,51,.68);color:#fff;font-size:7px}.report-photo-remove{position:absolute!important;top:7px;right:7px;display:grid!important;place-items:center;width:28px!important;height:28px!important;padding:0!important;border:1px solid #ffd5d5!important;border-radius:8px!important;background:rgba(255,255,255,.94)!important;color:#df4545!important;cursor:pointer!important;box-shadow:0 3px 10px rgba(30,45,55,.14)}.report-photo-remove svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.report-photo-remove:hover{background:#fff1f1!important;border-color:#ffbaba!important;color:#c92f2f!important}
 

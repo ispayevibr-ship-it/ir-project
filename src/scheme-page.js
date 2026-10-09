@@ -363,6 +363,11 @@ window.irSchemePage=async function(objectId){
    groups:allVisibleTypes().map(g=>({...g,visible:!hiddenGroups.has(g.key)})),
    canEdit:canEdit(),selected:selectedId,showLabels:labelsVisible,
    onSelect:id=>{selectedId=id;renderDetails()},
+   onEdit:id=>{
+    if(!canEdit())return;
+    const record=workRecords().find(x=>String(x.id)===String(id));
+    if(record)openEditor({...record,...coord(record)});
+   },
    onLayer:key=>{hiddenGroups.has(key)?hiddenGroups.delete(key):hiddenGroups.add(key);draw()},
    onPlacement:placement=>openEditor(null,false,placement)
   })
