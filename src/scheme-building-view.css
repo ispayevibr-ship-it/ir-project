@@ -65,3 +65,96 @@
 @media(max-width:1280px){.irb-wrap{grid-template-columns:175px minmax(0,1fr) 225px}.irb-tags span:nth-child(2){display:none}}
 @media(max-width:1080px){.irb-wrap{grid-template-columns:165px minmax(0,1fr)}.irb-properties{grid-column:1/-1;max-height:330px;border-left:0;border-top:1px solid #e1eaf2;display:block}.irb-properties>*{margin-bottom:10px}}
 @media(max-width:740px){.irb-wrap{grid-template-columns:1fr}.irb-layers{max-height:200px;overflow:auto}.irb-viewport{min-height:470px}.irb-properties{grid-column:1}.irb-hint{max-width:80%}}
+
+
+/* 1.7.70: immersive common 3D takes all available page space, preserving other scheme modes. */
+.scheme-page.scheme-page-building{
+ position:fixed!important;inset:0!important;z-index:85!important;
+ display:flex!important;flex-direction:column!important;
+ width:100%!important;max-width:none!important;height:100dvh!important;
+ min-height:0!important;margin:0!important;padding:0!important;
+ overflow:hidden!important;background:#f5f9fd!important
+}
+.scheme-page-building .scheme-head{
+ flex:0 0 auto!important;min-height:54px!important;margin:0!important;
+ padding:8px 15px!important;border-bottom:1px solid #dbe6f1!important;
+ background:#fff!important;box-shadow:0 2px 10px rgba(28,69,101,.04)
+}
+.scheme-page-building .scheme-head h1{font-size:16px!important;margin:0!important}
+.scheme-page-building .scheme-head p{font-size:10px!important}
+.scheme-page-building .scheme-head-actions{gap:9px!important}
+.scheme-page-building .scheme-head .scheme-type-select-wrap:not(.work),
+.scheme-page-building .scheme-grid-button,
+.scheme-page-building .scheme-summary,
+.scheme-page-building .scheme-mark-summary,
+.scheme-page-building .scheme-mark-sync-hint,
+.scheme-page-building .scheme-mark-sync-result,
+.scheme-page-building .scheme-visibility,
+.scheme-page-building .scheme-hint,
+.scheme-page-building .scheme-add-dock{display:none!important}
+.scheme-page-building .scheme-workspace{
+ display:flex!important;flex:1 1 auto!important;min-width:0!important;min-height:0!important;
+ height:auto!important;width:100%!important;margin:0!important;padding:0!important
+}
+.scheme-page-building .scheme-stage.scheme-building-stage{
+ display:flex!important;flex:1 1 auto!important;min-height:0!important;
+ width:100%!important;height:100%!important;min-width:0!important;
+ border:0!important;border-radius:0!important;box-shadow:none!important
+}
+.scheme-page-building .scheme-stage-toolbar{display:none!important}
+.scheme-page-building .scheme-stage .scheme-canvas{
+ display:block!important;flex:1 1 auto!important;min-height:0!important;
+ height:100%!important;width:100%!important;margin:0!important;padding:0!important;
+ overflow:hidden!important
+}
+.scheme-page-building .scheme-details,
+.scheme-page-building .scheme-empty-overlay{display:none!important}
+.irb-wrap.irb-immersive{
+ display:block!important;position:relative!important;
+ width:100%!important;height:100%!important;min-height:0!important
+}
+.irb-immersive>.irb-viewport{
+ position:absolute!important;inset:0!important;display:block!important;
+ width:100%!important;height:100%!important;min-height:0!important
+}
+.irb-immersive .irb-layers,.irb-immersive .irb-properties{
+ position:absolute!important;z-index:12!important;
+ top:64px!important;bottom:57px!important;
+ margin:0!important;width:min(280px,calc(100% - 24px))!important;
+ min-height:0!important;max-height:none!important;
+ padding:20px 15px 15px!important;
+ overflow-y:auto!important;overflow-x:hidden!important;
+ background:rgba(255,255,255,.98)!important;
+ border:1px solid #d5e4f2!important;border-radius:12px!important;
+ box-shadow:0 12px 40px rgba(29,67,105,.15)!important
+}
+.irb-immersive .irb-layers{left:13px!important}
+.irb-immersive .irb-properties{right:13px!important;display:flex!important;flex-direction:column!important;gap:10px!important}
+.irb-immersive .irb-layers[hidden],.irb-immersive .irb-properties[hidden]{display:none!important}
+.irb-pane-close{
+ position:absolute;top:5px;right:7px;display:grid;place-items:center;
+ width:26px;height:26px;min-width:26px;border:0;border-radius:6px;
+ background:#edf4fa;color:#517591;font-size:20px;cursor:pointer;z-index:1
+}
+.irb-pane-close:hover{background:#dae9f7;color:#225d92}
+.irb-top-actions{position:absolute;top:13px;left:13px;z-index:8;display:flex;gap:8px;flex-wrap:wrap}
+.irb-top-actions button{height:36px;padding:0 15px;border:1px solid #d1e1f0;border-radius:8px;background:#fff;
+ color:#2e597c;box-shadow:0 2px 9px rgba(30,73,111,.08);cursor:pointer;font-size:11px;font-weight:800}
+.irb-top-actions button:hover{background:#eaf4ff}
+.irb-top-actions .irb-top-add{border-color:#1768d3;background:#1769dc;color:white}
+.irb-top-actions .irb-top-add:hover{background:#0e59bc}
+.irb-immersive .irb-tags{top:64px!important;left:14px!important;max-width:75%}
+.irb-immersive .irb-hint{top:auto!important;bottom:64px!important;max-width:min(550px,75%)!important}
+.irb-immersive .irb-camera{top:13px!important;right:13px!important}
+.irb-immersive .irb-bottom{left:14px;right:14px;bottom:13px!important}
+.irb-immersive .irb-count{margin-top:20px!important}
+.irb-immersive .irb-viewport canvas{width:100%!important;height:100%!important}
+@media(max-width:850px){
+ .scheme-page-building .scheme-head{flex-wrap:wrap!important;gap:5px!important}
+ .scheme-page-building .scheme-head-actions{flex-wrap:wrap!important}
+ .scheme-page-building .scheme-head-actions>.scheme-view-switch{min-width:0}
+ .irb-immersive .irb-layers,.irb-immersive .irb-properties{top:62px!important;bottom:54px!important;width:min(275px,calc(100% - 20px))!important}
+ .irb-immersive .irb-legend{display:none}
+ .irb-immersive .irb-tags{display:none}
+ .irb-immersive .irb-hint{left:50%;bottom:56px!important;max-width:92%!important}
+}

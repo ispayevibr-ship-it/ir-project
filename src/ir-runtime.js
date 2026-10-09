@@ -1956,7 +1956,7 @@ window.irSchemePage=async function(objectId){
   if(activeScheme!=="all"&&!activeView()){activeScheme="all";refreshGridModel()}
   if(selectedId&&!columns().some(c=>c.id===selectedId))selectedId="";
   const s=stats(),mp=statusCounts(),works=enabledWorks(),currentWork=works.find(w=>w.id===activeWorkId)||null,workOptions=works.length?works.map(w=>`<option value="${esc(w.id)}" ${w.id===activeWorkId?"selected":""}>${esc(w.name)}${w.code?` · ${esc(w.code)}`:""}</option>`).join(""):`<option value="">Монтажная схема не включена</option>`,groupOptions=schemeGroups().map(g=>`<option value="${esc(g.key)}" ${g.key===activeScheme?"selected":""}>${esc(g.label)} · ${g.marks} марок · ${g.placed} элементов</option>`).join(""),editActions=canEdit()?`<button type="button" class="scheme-grid-button" id="schemeGridConfig">⚙ Параметры сетки</button>${activeWorkId?`<button type="button" class="scheme-grid-button" id="schemeNewView">＋ Добавить сетку</button>${activeView()?`<button type="button" class="scheme-grid-button" id="schemeEditView">Изменить</button><button type="button" class="scheme-grid-button danger" id="schemeDeleteView">Удалить сетку</button>`:""}`:""}`:"",emptyOverlay=activeWorkId?(s.total?"":`<div class="scheme-empty-overlay"><b>Схема пока пустая</b><span>Нажмите «Добавить элемент» и выберите марку для этой монтажной схемы.</span></div>`):`<div class="scheme-empty-overlay"><b>Монтажная схема не включена</b><span>Откройте «Виды работ» и включите галочку «Нужна монтажная схема» у нужного вида работ.</span></div>`;
-  app.innerHTML=`<div class="scheme-page ${canEdit()&&activeWorkId?"has-add-dock":""}">
+  app.innerHTML=`<div class="scheme-page ${canEdit()&&activeWorkId?"has-add-dock":""} ${mode==="building"?"scheme-page-building":""}">
    <div class="scheme-head"><button class="back" id="schemeBack">← Назад</button><div><h1>Монтажная схема</h1><p>${esc(object.name||"")}${currentWork?` · ${esc(currentWork.name)}`:""} · ${esc(activeGroup().label)}</p></div><div class="scheme-head-actions"><label class="scheme-type-select-wrap work"><span>Вид работ</span><select id="schemeWorkSelect" data-native-select="1" ${activeWorkId?"":"disabled"}>${workOptions}</select></label><label class="scheme-type-select-wrap"><span>Схема</span><select id="schemeTypeSelect" data-native-select="1" ${activeWorkId?"":"disabled"}>${groupOptions}</select></label><div class="scheme-view-switch"><button data-mode="building" class="${mode==="building"?"on":""}">Общий 3D</button><button data-mode="plan" class="${mode==="plan"?"on":""}">План</button><button data-mode="3d" class="${mode==="3d"?"on":""}">Схема 3D</button></div>${editActions}</div></div>
    <div class="scheme-summary">
     <div><span>Оси ${esc(axesX[0])}–${esc(axesX.at(-1))}</span><b>${fmt(spanX)} мм</b><small>${gridDirX==="ltr"?"Слева направо":"Справа налево"}: ${esc(axesX[0])} → ${esc(axesX.at(-1))} · ${gridXSpans.length} пролётов</small></div>
@@ -3568,7 +3568,7 @@ window.irSelectUI=(()=>{
  * 2D canvas projection: offline, no dependencies or database access.
  */
 window.irBuildingView=(()=>{
- const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:true,placing:false,mark:"",start:null,end:null,hover:"",selected:""};
+ const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:true,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false};
  let observer=null,paint=null;
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const html=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -3601,6 +3601,27 @@ window.irBuildingView=(()=>{
    '<div class="irb-bottom"><div class="irb-legend"><i class="green"></i> Смонтировано <i class="red"></i> Не смонтировано <i class="orange"></i> Частично <i class="blue"></i> Выбрано</div>'+
    '<div class="irb-controls"><button type="button" id="irbMinus">−</button><button type="button" id="irbPlus">＋</button><button type="button" id="irbFit">⛶</button></div></div>'+
    '</div><aside class="irb-properties" id="irbProperties"></aside></div>';
+  // The panels float over one full-size viewport rather than defining its dimensions.
+  const shell=host.querySelector(".irb-wrap"),viewport=host.querySelector(".irb-viewport"),
+   layerPanel=host.querySelector(".irb-layers"),detailPanel=host.querySelector(".irb-properties");
+  shell.classList.add("irb-immersive");
+  viewport.prepend(layerPanel,detailPanel);
+  const topControls=document.createElement("div");
+  topControls.className="irb-top-actions";
+  topControls.innerHTML='<button type="button" id="irbLayerToggle" aria-expanded="'+(state.layersOpen?'true':'false')+'">☷ Слои</button>'+
+   (props.canEdit?'<button type="button" id="irbQuickAdd" class="irb-top-add">＋ Добавить марку</button>':'');
+  viewport.appendChild(topControls);
+  const layerClose=document.createElement("button");layerClose.type="button";
+  layerClose.className="irb-pane-close";layerClose.textContent="×";layerClose.title="Скрыть слои";
+  layerClose.setAttribute("aria-label","Закрыть панель слоёв");
+  layerPanel.prepend(layerClose);
+  const updateLayers=()=>{
+   layerPanel.hidden=!state.layersOpen;
+   topControls.querySelector("#irbLayerToggle")?.setAttribute("aria-expanded",state.layersOpen?"true":"false");
+  };
+  layerClose.onclick=()=>{state.layersOpen=false;updateLayers()};
+  topControls.querySelector("#irbLayerToggle").onclick=()=>{state.layersOpen=!state.layersOpen;updateLayers()};
+  updateLayers();detailPanel.hidden=true;
   const el=id=>host.querySelector("#"+id),canvas=el("irbCanvas"),ctx=canvas.getContext("2d");
   if(!ctx){el("irbProperties").textContent="3D Canvas недоступен";return}
   const maxZ=Math.max(7000,8400,...cols.map(c=>Math.max(num(c.z0),num(c.z2))),1);
@@ -3689,6 +3710,8 @@ window.irBuildingView=(()=>{
    const m=selectedMark(),left=num(m?.left),column=m?.geometry==="column",available=left>0;
    el("irbHint").textContent=state.placing?(!state.start?"Выберите начальную точку":column||state.end?"Точки заданы — продолжайте в редакторе":"Выберите конечную точку"):"ЛКМ — вращение · колесо — масштаб · нажатие на элемент — свойства";
    const pane=el("irbProperties");
+   const current=cols.find(c=>String(c.id)===String(state.selected));
+   pane.hidden=!state.placing&&!current;
    if(state.placing){
     pane.innerHTML='<div class="irb-panel-head"><b>Размещение элемента</b><small>НОВАЯ МАРКА</small></div>'+
     '<label class="irb-field">Марка из ведомости<select id="irbMark"><option value="">Выберите марку</option>'+
@@ -3721,6 +3744,13 @@ window.irBuildingView=(()=>{
     const btn=el("irbStartRight");if(btn)btn.onclick=startPlacement;
     const detail=el("irbSelectDetails");if(detail)detail.onclick=()=>props.onSelect(String(c.id));
    }
+   if(!pane.hidden){
+    const dismiss=document.createElement("button");dismiss.type="button";
+    dismiss.className="irb-pane-close";dismiss.textContent="×";dismiss.title="Скрыть свойства";
+    dismiss.setAttribute("aria-label","Закрыть свойства");
+    dismiss.onclick=()=>{state.placing=false;state.selected="";props.onSelect("");refreshPanel();paint()};
+    pane.prepend(dismiss);
+   }
   }
   function startPlacement(){
    if(!props.canEdit||!marks.some(m=>m.left>0))return;
@@ -3738,6 +3768,7 @@ window.irBuildingView=(()=>{
   el("irbGrid").onchange=e=>{state.grid=e.target.checked;paint()};
   el("irbRoof").onchange=e=>{state.roof=e.target.checked;paint()};
   if(el("irbStart"))el("irbStart").onclick=startPlacement;
+  if(el("irbQuickAdd"))el("irbQuickAdd").onclick=startPlacement;
   el("irbView").value=state.preset==="free"?"iso":state.preset;
   el("irbView").onchange=e=>setCamera(e.target.value);
   el("irbMinus").onclick=()=>setZoom(state.zoom/1.18);
