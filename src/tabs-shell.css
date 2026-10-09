@@ -57,3 +57,11 @@ button{font-family:inherit}
 .tabs-update-actions button.primary{background:#1769e0;border-color:#1769e0;color:white}
 .tabs-update-actions button.primary:hover{background:#0f5dd0}
 .tabs-update-actions button:disabled{opacity:.56;cursor:wait}
+
+
+/* Lightweight visible progress during a cold tab startup */
+.tabs-loading{position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:#f4f6f9;color:#7490a5;font-size:12px;pointer-events:none}
+.tabs-loading[hidden]{display:none!important}
+.tabs-loading-spinner{width:30px;height:30px;border:3px solid #d7e5f1;border-top-color:#2479d0;border-radius:50%;animation:tabs-loading-spin .8s linear infinite}
+@keyframes tabs-loading-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.tabs-loading-spinner{animation:none;border-top-color:#2479d0}}
