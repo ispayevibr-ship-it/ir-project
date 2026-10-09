@@ -27,7 +27,7 @@ window.irSelectUI=(()=>{
  };
  const renderMenu=api=>{
   const select=api.select;
-  api.menu.innerHTML=[...select.options].map((o,i)=>`<button type="button" data-index="${i}" class="${o.selected?"selected":""}" ${o.disabled?"disabled":""}><span>${optionText(o)}</span>${o.selected?'<i>✓</i>':""}</button>`).join("");
+  api.menu.innerHTML=[...select.options].map((o,i)=>`<button type="button" data-index="${i}" class="${o.selected?"selected":""}${o.dataset.exhausted==="1"?" exhausted":""}" ${o.disabled?"disabled":""}><span>${optionText(o)}</span>${o.selected?'<i>✓</i>':""}</button>`).join("");
  };
  const refresh=api=>{
   const s=api.select,o=s.options[s.selectedIndex];
