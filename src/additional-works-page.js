@@ -13,8 +13,22 @@ window.irAdditionalWorksPage=async function(objectId,route={}){
  const canEdit=()=>window.irAccess?window.irAccess.canEdit("reports"):false;
  const safeAct=act=>act&&typeof act==="object"&&typeof act.path==="string"&&act.path?{path:act.path,name:String(act.name||"Подписанный акт")}:null;
  const sections=await Promise.all([irProject.data.objects.get(oid),reportsApi.list()]);
- const [object,reportRows]=sections;
+ let [object,reportRows]=sections;
  if(!object){location.hash="/objects";return}
+ // Assign each old additional-work line its own permanent ID, retaining its report and data.
+ if(canEdit()){
+  const normalized=[];
+  for(const report of arr(reportRows)){
+   const previous=arr(report.data?.additional_works);
+   if(!previous.some(w=>!w?.id&&!w?.work_id)){normalized.push(report);continue}
+   const additional_works=previous.map((w,i)=>({...w,id:String(w?.id||w?.work_id||legacyId(report.id,i))}));
+   try{
+    await reportsApi.update(report.id,{record_type:report.record_type||"item",title:report.title||"",data:{...(report.data||{}),additional_works}});
+    normalized.push({...report,data:{...(report.data||{}),additional_works}})
+   }catch(error){normalized.push(report);console.warn("Не удалось закрепить ID доп. работ в отчёте "+report.id,error)}
+  }
+  reportRows=normalized
+ }
  const all=arr(reportRows).flatMap(report=>{
   const d=report.data||{},items=arr(d.additional_works);
   return items.map((w,index)=>({
