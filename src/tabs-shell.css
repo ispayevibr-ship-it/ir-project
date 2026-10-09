@@ -23,3 +23,25 @@
 .tabs-footer .tabs-help{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:1060px){.tabs-tools button{font-size:0;padding:0 10px}.tabs-tools #tabsDuplicate:after{content:"⧉";font-size:16px}.tabs-tools #tabsDetach:after{content:"↗";font-size:16px}.tabs-tools #tabsReload:after{content:"↻";font-size:16px}.tabs-tools #tabsCheckUpdate:after{content:"⇪";font-size:16px}}
 @media(max-width:800px){.tabs-caption,.tabs-footer .tabs-help{display:none}.tabs-item{min-width:110px}}
+
+
+/* One update dialog for the whole multi-tab Electron window */
+.tabs-update-dialog{position:fixed;inset:0;width:min(560px,calc(100vw - 40px));max-width:560px;max-height:min(85vh,660px);margin:auto;overflow:auto;border:1px solid #dce7f0;border-radius:15px;padding:24px;background:#fff;color:#263e52;box-shadow:0 22px 65px rgba(19,45,72,.23)}
+.tabs-update-dialog::backdrop{background:rgba(17,34,52,.43);backdrop-filter:blur(2px)}
+.tabs-update-header{display:flex;align-items:center;gap:11px}
+.tabs-update-icon{display:grid;place-items:center;width:37px;height:37px;border-radius:10px;color:#1769e0;background:#eaf3ff;font-size:22px}
+.tabs-update-header h2{flex:1;margin:0;font-size:19px;line-height:1.35;color:#193c55}
+.tabs-update-close{height:30px;width:30px;border:0;background:#f0f4f7;border-radius:7px;font-size:22px;color:#718698;cursor:pointer}
+.tabs-update-close:hover{background:#e7eef4;color:#1b405a}
+.tabs-update-message{font-size:13px;line-height:1.6;color:#637b8e;margin:20px 0 21px;overflow-wrap:anywhere}
+.tabs-update-progress{display:flex;align-items:center;gap:12px;margin:-4px 0 22px}
+.tabs-update-progress[hidden]{display:none!important}
+.tabs-update-progress-track{height:9px;border-radius:99px;background:#e5edf5;flex:1;overflow:hidden}
+#tabsUpdateProgressBar{height:100%;width:0;background:linear-gradient(90deg,#4aa1f6,#1769e0);border-radius:99px;transition:width .15s}
+#tabsUpdateProgressLabel{min-width:38px;text-align:right;font-size:11px;font-weight:800;color:#347aac}
+.tabs-update-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:9px}
+.tabs-update-actions button{min-height:36px;border:1px solid #cfdae5;border-radius:8px;background:#fff;color:#42617a;font-weight:750;font-size:12px;padding:0 15px;cursor:pointer}
+.tabs-update-actions button:hover{background:#f3f8fd}
+.tabs-update-actions button.primary{background:#1769e0;border-color:#1769e0;color:white}
+.tabs-update-actions button.primary:hover{background:#0f5dd0}
+.tabs-update-actions button:disabled{opacity:.56;cursor:wait}
