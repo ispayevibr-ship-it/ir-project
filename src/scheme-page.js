@@ -10,7 +10,7 @@ window.irSchemePage=async function(objectId){
  const fmt=v=>Number(num(v).toFixed(1)).toLocaleString("ru-RU",{maximumFractionDigits:1});
  const defaultAxesX=["1","2","3","4","5","6"],defaultAxesY=["А","Б","В","Г","Д","Е","Ж","И","К","Л"],defaultSpanX=45000,defaultSpanY=60000;
  let axesX=[...defaultAxesX],axesY=[...defaultAxesY],targetSpanX=defaultSpanX,targetSpanY=defaultSpanY,gridDirX="ltr",gridDirY="btt";
- let mode="3d",yaw=-34,viewRotation=0,zoom=1,panX=0,panY=0,selectedId="",activeWorkId="",activeScheme="all",rows=[],markRows=[],workRows=[],gridXSpans=[],gridYSpans=[],spanX=targetSpanX,spanY=targetSpanY,axisXPos=new Map(),axisYPos=new Map(),labelsVisible=false,dimensionsVisible=false,hiddenGroups=new Set(),statusFilter="all",levelMin="",levelMax="",layersPanelOpen=false,elementSearch="",pickerScrollTop=0;
+ let mode="3d",yaw=-34,viewRotation=0,zoom=1,panX=0,panY=0,selectedId="",activeWorkId="",activeScheme="all",rows=[],markRows=[],workRows=[],gridXSpans=[],gridYSpans=[],spanX=targetSpanX,spanY=targetSpanY,axisXPos=new Map(),axisYPos=new Map(),labelsVisible=false,dimensionsVisible=false,hiddenGroups=new Set(),statusFilter="all",levelMin="",levelMax="",layersPanelOpen=false,elementSearch="",pickerScrollTop=0,previewFullscreen=false,previewNativeFullscreen=false,previewOriginalOverflow="";
  [rows,markRows,workRows]=await Promise.all([schemeApi.list().catch(()=>[]),root.section("marks").list().catch(()=>[]),root.section("work-types").list().catch(()=>[])]);
  const equalSpans=(total,count)=>{count=Math.max(1,count);const base=Math.floor(total/count),rem=Math.round(total-base*count);return Array.from({length:count},(_,i)=>base+(i<rem?1:0))};
  const validAxes=v=>Array.isArray(v)&&v.length>=2&&v.every(x=>String(x||"").trim());
@@ -563,6 +563,41 @@ window.irSchemePage=async function(objectId){
    try{const saved=id?await schemeApi.update(id,{record_type:"scheme_view",title:name,data}):await schemeApi.create({record_type:"scheme_view",title:name,data});rows=await schemeApi.list();const v=customViews().find(v=>String(v.id)===String(saved?.id||id))||customViews().find(v=>v.data?.name===name);
     activeScheme=v?"view:"+v.id:"all";selectedId="";refreshGridModel();dlg.close();draw()
    }catch(e){err.textContent="Ошибка сохранения сетки: "+String(e?.message||e);err.hidden=false}
+  }
+ }
+
+ function onSchemePreviewKeydown(event){
+  if(event.key==="Escape"&&previewFullscreen){event.preventDefault();leaveSchemeFullscreen()}
+ }
+ function onSchemePreviewNativeChange(){
+  if(previewFullscreen&&previewNativeFullscreen&&!document.fullscreenElement)leaveSchemeFullscreen()
+ }
+ function onSchemePreviewRouteChange(){
+  if(previewFullscreen)leaveSchemeFullscreen(false)
+ }
+ function leaveSchemeFullscreen(redraw=true){
+  if(!previewFullscreen)return;
+  previewFullscreen=false;previewNativeFullscreen=false;
+  document.body.style.overflow=previewOriginalOverflow;
+  document.removeEventListener("keydown",onSchemePreviewKeydown);
+  document.removeEventListener("fullscreenchange",onSchemePreviewNativeChange);
+  window.removeEventListener("hashchange",onSchemePreviewRouteChange);
+  if(document.fullscreenElement&&typeof document.exitFullscreen==="function")Promise.resolve(document.exitFullscreen()).catch(()=>{});
+  if(redraw)draw()
+ }
+ function enterSchemeFullscreen(){
+  if(previewFullscreen)return;
+  previewOriginalOverflow=document.body.style.overflow;
+  previewFullscreen=true;document.body.style.overflow="hidden";
+  document.addEventListener("keydown",onSchemePreviewKeydown);
+  document.addEventListener("fullscreenchange",onSchemePreviewNativeChange);
+  window.addEventListener("hashchange",onSchemePreviewRouteChange);
+  draw();
+  if(!document.fullscreenElement&&typeof document.documentElement?.requestFullscreen==="function"){
+   Promise.resolve(document.documentElement.requestFullscreen()).then(()=>{
+    if(previewFullscreen)previewNativeFullscreen=true;
+    else if(document.fullscreenElement&&typeof document.exitFullscreen==="function")return document.exitFullscreen()
+   }).catch(()=>{})
   }
  }
  function draw(){
