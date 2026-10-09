@@ -541,14 +541,39 @@ window.irSchemePage=async function(objectId){
    c={...c,id:"",axisX:ax,axisY:ay,dx:x-num(axisXPos.get(ax)),dy:y-num(axisYPos.get(ay)),x,y,x2,y2,status:"planned",position:"",title:""}
   }
   f.reset();err.hidden=true;document.getElementById("schemeEditorTitle").textContent=copy?"Копировать элемент — новое положение":c?"Редактировать элемент":"Добавить элемент";f.elements.id.value=copy?"":c?.id||"";
-  const currentMark=resolveSavedMarkId(c),unresolvedExisting=!!c&&!currentMark,search=document.getElementById("schemeMarkSearch"),count=document.getElementById("schemeMarkCount");let chosenMark=currentMark;
-  f.elements.mark_id.innerHTML=markOptions(chosenMark,"",unresolvedExisting);if(chosenMark)f.elements.mark_id.value=chosenMark;
-  f.elements.mark_id.onchange=()=>{const value=String(f.elements.mark_id.value||"");if(value){chosenMark=value;if(!c){const m=activeMarks().find(x=>x.id===value),same=allRecords().find(x=>String(x.mark_id||"")===value);f.elements.section_type.value=sectionType(same||{});f.elements.profile_name.value=same?.profile_name||"";f.elements.geometry_type.value=m?guessGeometry(m):"column";updateGeometry(true)}refreshEditorProgress()}};
-  const applyMarkSearch=()=>{const q=search?.value||"",matched=searchMarks(q);f.elements.mark_id.innerHTML=markOptions(chosenMark,q,unresolvedExisting&&!chosenMark);if(!q&&chosenMark&&[...f.elements.mark_id.options].some(o=>o.value===chosenMark))f.elements.mark_id.value=chosenMark;count.textContent=q?`Найдено: ${matched.length}`:`Марок: ${activeMarks().length}`;f.elements.mark_id._irSelectUI?.refresh?.()};
-  if(search){search.value="";search.oninput=applyMarkSearch}applyMarkSearch();
+  const sourceView=c?.scheme_view_id&&!copy?customViews().find(x=>String(x.id)===String(c.scheme_view_id)):null;
+  let gridChoice=sourceView?"view:"+sourceView.id:activeScheme,editorGrid=gridForEditor(gridChoice),editorMarks=marksForGrid(gridChoice);
+  f.elements.scheme_target.value=gridChoice;
+  let chosenMark=resolveSavedMarkId(c),currentMark=chosenMark;
+  const editingId=String(f.elements.id.value||""),unresolvedExisting=!!editingId&&!currentMark,
+   search=document.getElementById("schemeMarkSearch"),count=document.getElementById("schemeMarkCount"),
+   selection=f.elements.mark_id,availability=document.getElementById("schemeMarkPlacementInfo");
+  if(!editorMarks.some(m=>m.id===chosenMark&&markAvailable(m,editingId)))chosenMark=editorMarks.find(m=>markAvailable(m,editingId))?.id||"";
+  const renderMarkOptions=()=>{
+   const q=search?.value||"",matched=searchMarks(q,editorMarks),valid=matched.some(m=>m.id===chosenMark&&markAvailable(m,editingId));
+   if(!valid)chosenMark="";
+   selection.innerHTML=markOptions(chosenMark,q,unresolvedExisting&&!chosenMark,editorMarks,editingId);
+   selection.value=chosenMark;
+   count.textContent=q?`Найдено: ${matched.length} · Доступно: ${matched.filter(m=>markAvailable(m,editingId)).length}`:`Марок: ${editorMarks.length} · Доступно: ${editorMarks.filter(m=>markAvailable(m,editingId)).length}`;
+   selection._irSelectUI?.refresh?.();refreshEditorProgress()
+  };
+  selection.onchange=()=>{
+   const value=String(selection.value||"");
+   if(value&&!editorMarks.some(m=>m.id===value&&markAvailable(m,editingId))){selection.value="";chosenMark="";renderMarkOptions();return}
+   chosenMark=value;
+   if(value&&!editingId){const m=editorMarks.find(x=>x.id===value),same=allRecords().find(x=>String(x.mark_id||"")===value);f.elements.section_type.value=sectionType(same||{});f.elements.profile_name.value=same?.profile_name||"";f.elements.geometry_type.value=m?guessGeometry(m):"column";updateGeometry(true)}
+   refreshEditorProgress()
+  };
+  if(search){search.value="";search.oninput=renderMarkOptions}
   f.elements.status.value=c?.status||"planned";
   function refreshEditorProgress(){
-   const m=activeMarks().find(x=>x.id===String(f.elements.mark_id.value||"")),progress=markProgress(m),info=document.getElementById("schemeEditorMountInfo");
+   const m=editorMarks.find(x=>x.id===String(selection.value||"")),progress=markProgress(m),info=document.getElementById("schemeEditorMountInfo");
+   const q=markPlacement(m),remaining=m?markAvailable(m,editingId):false;
+   availability.classList.toggle("exhausted",!remaining);
+   selection.classList.toggle("exhausted",!remaining);
+   const field=selection.closest(".scheme-mark-field");field?.classList.toggle("exhausted",!remaining);
+   availability.textContent=m?`По ведомости: ${q.total} шт. · На схеме: ${q.placed} шт. · Осталось разместить: ${q.left} шт.${remaining?"":" · НЕТ ОСТАТКА"}`:"Выберите марку, доступную для размещения. Красные марки уже полностью размещены.";
+
    f.elements.status.disabled=!!progress&&progress.total>0;
    if(progress?.total>0){
     f.elements.status.value=progress.state;
@@ -559,16 +584,48 @@ window.irSchemePage=async function(objectId){
    }
   }
   refreshEditorProgress();
-  const sameMark=allRecords().find(x=>String(x.mark_id||"")===currentMark&&(!c||x.id!==c.id)),shapeSource=c||sameMark||{},chosen=activeMarks().find(x=>x.id===currentMark);
+  const sameMark=allRecords().find(x=>String(x.mark_id||"")===currentMark&&(!c||x.id!==c.id)),shapeSource=c||sameMark||{},chosen=editorMarks.find(x=>x.id===chosenMark);
   f.elements.section_type.value=sectionType(shapeSource);f.elements.profile_name.value=shapeSource.profile_name||"";
-  f.elements.axis_x.value=c?.axisX||axesX[0]||"";f.elements.axis_y.value=c?.axisY||axesY[0]||"";
+  f.elements.axis_x.value=c?.axisX||editorGrid.axesX[0]||"";f.elements.axis_y.value=c?.axisY||editorGrid.axesY[0]||"";
   f.elements.offset_x_mm.value=c?.dx??0;f.elements.offset_y_mm.value=c?.dy??0;
   f.elements.z0_mm.value=c?.z0??c?.z0_mm??0;f.elements.z1_mm.value=c?.z2??c?.z1_mm??8400;f.elements.rotation_deg.value=c?.rotation_deg??0;
   f.elements.geometry_type.value=c?.geometryType||c?.geometry_type||(chosen?guessGeometry(chosen):"column");
-  const nextX=axesX[Math.min(axesX.length-1,Math.max(0,axesX.indexOf(f.elements.axis_x.value)+1))]||axesX[0];
-  const bx=c?closestAxis(c.x2,axesX,axisXPos):nextX,by=c?closestAxis(c.y2,axesY,axisYPos):f.elements.axis_y.value;
-  f.elements.end_axis_x.value=bx;f.elements.end_axis_y.value=by;
-  f.elements.end_offset_x_mm.value=c?c.x2-num(axisXPos.get(bx)):0;f.elements.end_offset_y_mm.value=c?c.y2-num(axisYPos.get(by)):0;
+  const assignAxes=(reset=false)=>{
+   editorGrid=gridForEditor(gridChoice);
+   const prevX=reset?editorGrid.axesX[0]:f.elements.axis_x.value,
+    prevY=reset?editorGrid.axesY[0]:f.elements.axis_y.value;
+   f.elements.axis_x.innerHTML=axisOptions(editorGrid.axesX,prevX);
+   f.elements.axis_y.innerHTML=axisOptions(editorGrid.axesY,prevY);
+   f.elements.end_axis_x.innerHTML=axisOptions(editorGrid.axesX,editorGrid.axesX[1]||editorGrid.axesX[0]);
+   f.elements.end_axis_y.innerHTML=axisOptions(editorGrid.axesY,editorGrid.axesY[0]);
+   if(!reset&&c){
+    const firstX=editorGrid.axesX.includes(String(c.axisX))?c.axisX:closestAxis(c.x,editorGrid.axesX,editorGrid.xPos);
+    const firstY=editorGrid.axesY.includes(String(c.axisY))?c.axisY:closestAxis(c.y,editorGrid.axesY,editorGrid.yPos);
+    f.elements.axis_x.value=firstX;f.elements.axis_y.value=firstY;
+    const eX=closestAxis(c.x2,editorGrid.axesX,editorGrid.xPos),eY=closestAxis(c.y2,editorGrid.axesY,editorGrid.yPos);
+    f.elements.end_axis_x.value=eX;f.elements.end_axis_y.value=eY;
+    f.elements.offset_x_mm.value=c.x-num(editorGrid.xPos.get(firstX));
+    f.elements.offset_y_mm.value=c.y-num(editorGrid.yPos.get(firstY));
+    f.elements.end_offset_x_mm.value=c.x2-num(editorGrid.xPos.get(eX));
+    f.elements.end_offset_y_mm.value=c.y2-num(editorGrid.yPos.get(eY));
+   }else{
+    f.elements.offset_x_mm.value=0;f.elements.offset_y_mm.value=0;
+    f.elements.end_offset_x_mm.value=0;f.elements.end_offset_y_mm.value=0
+   }
+   const heads=f.querySelectorAll(".scheme-form-axis>b");
+   if(heads[0])heads[0].textContent="Направление "+editorGrid.axesX[0]+"–"+editorGrid.axesX.at(-1);
+   if(heads[1])heads[1].textContent="Направление "+editorGrid.axesY[0]+"–"+editorGrid.axesY.at(-1);
+   f.elements.axis_x._irSelectUI?.refresh?.();f.elements.axis_y._irSelectUI?.refresh?.();
+   f.elements.end_axis_x._irSelectUI?.refresh?.();f.elements.end_axis_y._irSelectUI?.refresh?.()
+  };
+  assignAxes(false);
+  f.elements.scheme_target.onchange=()=>{
+   gridChoice=f.elements.scheme_target.value;
+   editorGrid=gridForEditor(gridChoice);editorMarks=marksForGrid(gridChoice);
+   chosenMark=editorMarks.some(m=>m.id===chosenMark&&markAvailable(m,editingId))?chosenMark:editorMarks.find(m=>markAvailable(m,editingId))?.id||"";
+   assignAxes(true);renderMarkOptions();refreshPreview()
+  };
+  renderMarkOptions();
   function updateGeometry(defaultHeights=false){
    const kind=f.elements.geometry_type.value,member=kind!=="column",end=document.getElementById("schemeMemberEnd");
    if(end)end.hidden=!member;
@@ -577,7 +634,7 @@ window.irSchemePage=async function(objectId){
    refreshPreview()
   }
   const refreshPreview=()=>{
-   const ax=f.elements.axis_x.value,ay=f.elements.axis_y.value,x=num(axisXPos.get(ax))+num(f.elements.offset_x_mm.value),y=num(axisYPos.get(ay))+num(f.elements.offset_y_mm.value),member=f.elements.geometry_type.value!=="column",endX=num(axisXPos.get(f.elements.end_axis_x.value))+num(f.elements.end_offset_x_mm.value),endY=num(axisYPos.get(f.elements.end_axis_y.value))+num(f.elements.end_offset_y_mm.value);
+   const ax=f.elements.axis_x.value,ay=f.elements.axis_y.value,x=num(editorGrid.xPos.get(ax))+num(f.elements.offset_x_mm.value),y=num(editorGrid.yPos.get(ay))+num(f.elements.offset_y_mm.value),member=f.elements.geometry_type.value!=="column",endX=num(editorGrid.xPos.get(f.elements.end_axis_x.value))+num(f.elements.end_offset_x_mm.value),endY=num(editorGrid.yPos.get(f.elements.end_axis_y.value))+num(f.elements.end_offset_y_mm.value);
    document.getElementById("schemeCoordPreview").innerHTML=`<span>Точные координаты</span><b>Начало X = ${fmt(x)} мм · Y = ${fmt(y)} мм</b><small>${member?`Конец X = ${fmt(endX)} мм · Y = ${fmt(endY)} мм`:"Колонна расположена вертикально"}</small>`;
   };
   f.elements.geometry_type.onchange=()=>updateGeometry(false);updateGeometry(!c&&f.elements.geometry_type.value!=="column");
