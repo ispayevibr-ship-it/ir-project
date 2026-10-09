@@ -1,29 +1,36 @@
-*{box-sizing:border-box}html,body{height:100%;margin:0}body{display:flex;flex-direction:column;min-width:760px;overflow:hidden;font-family:Inter,"Segoe UI",Arial,sans-serif;background:#f0f4f8;color:#273e52}
-.tabs-titlebar{height:38px;min-height:38px;display:flex;align-items:center;gap:14px;background:#f7f8fa;border-bottom:1px solid #e0e6ec;-webkit-app-region:drag;user-select:none;padding:0 15px;font-size:11px}
-.tabs-brand{font-size:14px;font-weight:800;color:#204260;letter-spacing:.1px}.tabs-brand b{color:#1769e0}
-.tabs-caption{color:#8595a3;font-size:10px}.tabs-drag-space{flex:1}.tabs-app-name{margin-right:125px;color:#a5b1bb;font-size:10px}
-.tabs-bar{height:46px;min-height:46px;background:#e9eff5;display:flex;align-items:end;gap:8px;padding:7px 13px 0;border-bottom:1px solid #cbd9e5}
-.tabs-list{display:flex;flex:1 1 auto;gap:5px;min-width:0;overflow-x:auto;overflow-y:hidden;height:39px;align-items:end;scrollbar-width:thin;scrollbar-color:#b9cad9 transparent}
-.tabs-item{flex:0 1 225px;min-width:122px;max-width:250px;display:flex;align-items:center;gap:4px;height:35px;padding:0 5px 0 11px;border:1px solid #d2dfeb;border-bottom-color:#c7d6e3;border-radius:8px 8px 0 0;background:#dce7f0;color:#557084;cursor:pointer;text-align:left;position:relative;font-size:11px;-webkit-app-region:no-drag}
-.tabs-item:hover{background:#e8f3ff}.tabs-item.active{background:white;border-color:#c2d5e7;border-bottom-color:white;color:#154563;font-weight:750;box-shadow:0 -2px 8px rgba(32,69,110,.08)}
-.tabs-item .tabs-title{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tabs-icon{flex:0 0 14px;font-size:12px;color:#4580af;text-align:center}
-.tabs-item .tabs-close{flex:none;border:0;background:transparent;color:#8798a6;font-size:15px;width:22px;height:24px;border-radius:5px;cursor:pointer;padding:0}
-.tabs-item .tabs-close:hover{background:#fbe8e8;color:#b44949}
-.tabs-item.unsaved .tabs-title:after{content:" •";color:#e09b25}
-.tabs-add{align-self:center;flex:none;width:31px;height:31px;border:1px solid #ccdbea;border-radius:7px;background:#fff;color:#2775b3;font-size:19px;cursor:pointer}
-.tabs-add:hover{background:#edf7ff}
-.tabs-tools{display:flex;align-items:center;gap:6px;align-self:center;padding-bottom:4px;flex:none}
-.tabs-tools button{height:30px;padding:0 10px;border:1px solid #bed1e2;border-radius:6px;color:#35749e;background:#f9fcfe;font-size:10px;font-weight:750;cursor:pointer}
-.tabs-tools button:hover{background:#dfefff;border-color:#87b7df}
-.tabs-content{flex:1;min-height:0;position:relative;background:#fff}
-.tabs-pane{position:absolute;inset:0;width:100%;height:100%;border:0;background:white;visibility:hidden;pointer-events:none}
+/* IR Project: compact one-row native window tabs */
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{display:flex;flex-direction:column;min-width:760px;overflow:hidden;font-family:Inter,"Segoe UI",Arial,sans-serif;background:#f4f6f9;color:#182b3b}
+button{font-family:inherit}
+.tabs-bar{height:40px;min-height:40px;background:#14283c;display:flex;align-items:center;gap:7px;padding:0 143px 0 10px;border-bottom:1px solid #102236;-webkit-app-region:drag;user-select:none}
+.tabs-list{display:flex;flex:1 1 auto;align-items:center;gap:5px;min-width:0;height:100%;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:#5e7b94 transparent;-webkit-app-region:no-drag}
+.tabs-item{flex:0 1 214px;min-width:121px;max-width:236px;height:31px;display:flex;align-items:center;gap:7px;padding:0 4px 0 12px;border:1px solid #365571;border-radius:6px;background:#203d56;color:#c1d3e1;cursor:pointer;text-align:left;font-size:11px;transition:background .14s,border-color .14s;-webkit-app-region:no-drag}
+.tabs-item:hover{background:#31516d;color:#fff;border-color:#436583}
+.tabs-item.active{background:#f4f6f9;border-color:#f4f6f9;color:#173e5b;box-shadow:0 2px 4px rgba(2,14,28,.1);font-weight:750}
+.tabs-item .tabs-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tabs-icon{flex:0 0 14px;font-size:12px;color:#85adce;text-align:center}
+.tabs-item.active .tabs-icon{color:#1769e0}
+.tabs-item .tabs-close{flex:none;width:23px;height:23px;padding:0;border:0;background:transparent;color:#9cb4c7;font-size:16px;line-height:22px;border-radius:5px;cursor:pointer;-webkit-app-region:no-drag}
+.tabs-item .tabs-close:hover{background:#fae7e7;color:#bd4444}
+.tabs-item.active .tabs-close{color:#7d97ab}
+.tabs-item.unsaved .tabs-title:after{content:" •";color:#eda33e}
+.tabs-add{flex:0 0 28px;display:grid;place-items:center;width:28px;height:28px;margin-right:6px;padding:0;border:1px solid #3f5f7b;border-radius:6px;background:#26445f;color:#d6e8f7;font-size:18px;font-weight:600;cursor:pointer;-webkit-app-region:no-drag}
+.tabs-add:hover{border-color:#5699d9;background:#1769e0;color:white}
+.tabs-tools{flex:0 0 auto;display:flex;align-items:center;gap:5px;-webkit-app-region:no-drag}
+.tabs-tools button{height:29px;padding:0 10px;background:#203d56;border:1px solid #365571;border-radius:6px;color:#d4e2ec;font-size:10px;font-weight:650;white-space:nowrap;cursor:pointer}
+.tabs-tools button:hover{background:#31516d;border-color:#6484a1;color:#fff}
+.tabs-tools button:disabled{opacity:.5;cursor:wait}
+.tabs-content{flex:1;min-height:0;position:relative;background:#f4f6f9}
+.tabs-pane{position:absolute;inset:0;width:100%;height:100%;border:0;background:#f4f6f9;visibility:hidden;pointer-events:none}
 .tabs-pane.active{visibility:visible;pointer-events:auto}
-.tabs-footer{height:21px;min-height:21px;padding:0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#f7f9fb;border-top:1px solid #e2e9ef;color:#8396a5;font-size:9px}
-.tabs-footer .tabs-help{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-@media(max-width:1060px){.tabs-tools button{font-size:0;padding:0 10px}.tabs-tools #tabsDuplicate:after{content:"⧉";font-size:16px}.tabs-tools #tabsDetach:after{content:"↗";font-size:16px}.tabs-tools #tabsReload:after{content:"↻";font-size:16px}.tabs-tools #tabsCheckUpdate:after{content:"⇪";font-size:16px}}
-@media(max-width:800px){.tabs-caption,.tabs-footer .tabs-help{display:none}.tabs-item{min-width:110px}}
-
+@media(max-width:1150px){
+ .tabs-tools button{font-size:0;padding:0 9px}
+ .tabs-tools #tabsReload:after{content:"↻";font-size:17px;line-height:24px}
+ .tabs-tools #tabsDuplicate:after{content:"⧉";font-size:17px;line-height:24px}
+ .tabs-tools #tabsDetach:after{content:"↗";font-size:17px;line-height:24px}
+}
+@media(max-width:800px){.tabs-bar{padding-left:5px;padding-right:139px;gap:4px}.tabs-item{min-width:105px;padding-left:7px}.tabs-tools{gap:3px}}
 
 /* One update dialog for the whole multi-tab Electron window */
 .tabs-update-dialog{position:fixed;inset:0;width:min(560px,calc(100vw - 40px));max-width:560px;max-height:min(85vh,660px);margin:auto;overflow:auto;border:1px solid #dce7f0;border-radius:15px;padding:24px;background:#fff;color:#263e52;box-shadow:0 22px 65px rgba(19,45,72,.23)}
