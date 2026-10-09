@@ -1782,11 +1782,11 @@ window.irSchemePage=async function(objectId){
    f.elements.mark_id.value=placement.markId;chosenMark=placement.markId;
    f.elements.geometry_type.value=placement.geometry;
    f.elements.axis_x.value=start.ax;f.elements.axis_y.value=start.ay;
-   f.elements.offset_x_mm.value=0;f.elements.offset_y_mm.value=0;
+   f.elements.offset_x_mm.value=start.dx??0;f.elements.offset_y_mm.value=start.dy??0;
    f.elements.end_axis_x.value=end.ax;f.elements.end_axis_y.value=end.ay;
-   f.elements.end_offset_x_mm.value=0;f.elements.end_offset_y_mm.value=0;
-   f.elements.z0_mm.value=placement.geometry==="column"?0:placement.height;
-   f.elements.z1_mm.value=placement.height;
+   f.elements.end_offset_x_mm.value=end.dx??0;f.elements.end_offset_y_mm.value=end.dy??0;
+   f.elements.z0_mm.value=placement.geometry==="column"?0:(start.z??placement.height);
+   f.elements.z1_mm.value=placement.geometry==="column"?placement.height:(end.z??placement.height);
    updateGeometry(false);renderMarkOptions();
   }
   ["axis_x","axis_y","offset_x_mm","offset_y_mm","end_axis_x","end_axis_y","end_offset_x_mm","end_offset_y_mm","z0_mm","z1_mm"].forEach(n=>f.elements[n].addEventListener("input",refreshPreview));refreshPreview();d.showModal()
@@ -3641,8 +3641,25 @@ window.irBuildingView=(()=>{
   };
   const pickGeometry=()=>selectedMark()?.geometry||"column";
   const anchorZ=()=>pickGeometry()==="column"?0:maxZ*.94;
-  const originAxis=(xMap,axis)=>num(xMap[axis]);
-  const anchorPoint=(a,z=anchorZ())=>pt(originAxis(gridX,a.x),originAxis(gridY,a.y),z);
+  const originAxis=(m,a)=>num(m[a]);
+  const anchorPoint=(a,z=a?.z??anchorZ())=>pt(
+   Number.isFinite(Number(a?.worldX))?Number(a.worldX):originAxis(gridX,a.x),
+   Number.isFinite(Number(a?.worldY))?Number(a.worldY):originAxis(gridY,a.y),z);
+  // Independent column-head anchors retain exact X, Y and elevation, even
+  // for columns located between grid axes or having different heights.
+  const gridAnchors=()=>axesX.flatMap(x=>axesY.map(y=>({
+   kind:"grid",x,y,worldX:originAxis(gridX,x),worldY:originAxis(gridY,y),z:anchorZ()
+  })));
+  const closest=(axes,map,value)=>axes.reduce((best,a)=>
+   Math.abs(originAxis(map,a)-value)<Math.abs(originAxis(map,best)-value)?a:best,axes[0]);
+  const columnAnchors=()=>cols.filter(c=>c.geometryType==="column").map(c=>{
+   const x=axesX.includes(String(c.axisX))?String(c.axisX):closest(axesX,gridX,num(c.x));
+   const y=axesY.includes(String(c.axisY))?String(c.axisY):closest(axesY,gridY,num(c.y));
+   return {kind:"column",columnId:String(c.id),label:String(c.mark||"Колонна"),
+    x,y,worldX:num(c.x),worldY:num(c.y),z:num(c.z2)}
+  });
+  const availableAnchors=()=>pickGeometry()==="column"?gridAnchors():[...gridAnchors(),...columnAnchors()];
+  const sameAnchor=(a,b)=>Boolean(a&&b&&Math.hypot(num(a.worldX)-num(b.worldX),num(a.worldY)-num(b.worldY),num(a.z)-num(b.z))<1);
   const memberSegments=()=>cols.map(c=>{
     const start=pt(c.x,c.y,c.z0),end=pt(c.geometryType==="column"?c.x:c.x2,c.geometryType==="column"?c.y:c.y2,c.z2);
     return {c,start,end};
@@ -3688,24 +3705,40 @@ window.irBuildingView=(()=>{
     if(chosen||props.showLabels&&segments.length<120)paintLabel({x:(s.a.x+s.b.x)/2,y:(s.a.y+s.b.y)/2},String(s.c.mark||"?"),chosen?"#2c85e9":"#c7d9e9");
    }
    if(state.placing){
-    const selected=a=>Boolean((state.start&&state.start.x===a.x&&state.start.y===a.y)||(state.end&&state.end.x===a.x&&state.end.y===a.y));
-    for(const x of axesX)for(const y of axesY){const a={x,y},p=m.project(anchorPoint(a));circle(p,selected(a)?5.9:3.2,selected(a)?"#e79324":"#297ad6")}
+    // Free grid nodes are small; real column heads are prominent blue points.
+    for(const a of gridAnchors()){
+     const q=m.project(anchorPoint(a)),selected=sameAnchor(a,state.start)||sameAnchor(a,state.end);
+     circle(q,selected?5.8:2.7,selected?"#ed9a2b":"rgba(88,143,194,.62)");
+    }
+    if(pickGeometry()!=="column")for(const a of columnAnchors()){
+     const q=m.project(anchorPoint(a)),selected=sameAnchor(a,state.start)||sameAnchor(a,state.end);
+     circle(q,selected?8.5:6.2,"#fff");
+     circle(q,selected?6.2:4.5,selected?"#ee9a25":"#217ce7");
+    }
     if(state.start){
      const a=m.project(anchorPoint(state.start));
      const b=m.project(pickGeometry()==="column"?anchorPoint(state.start,maxZ*.94):state.end?anchorPoint(state.end):anchorPoint(state.start));
      line(a,b,"#e5982e",4,[7,4]);
+     circle(a,5.8,"#e5982e");if(state.end)circle(b,5.8,"#e5982e");
     }
-   }
+   };
   };
   const nearestMember=(x,y)=>{
    const m=projectFactory(),point={x,y};let best=null,distance=14;
    for(const s of memberSegments()){const d=dist(point,m.project(s.start),m.project(s.end));if(d<distance){distance=d;best=s.c}}return best;
   };
   const nearestAxis=(x,y)=>{
-   const m=projectFactory();let best=null,distance=17;
-   for(const ax of axesX)for(const ay of axesY){const p=m.project(anchorPoint({x:ax,y:ay})),d=Math.hypot(p.x-x,p.y-y);if(d<distance){distance=d;best={x:ax,y:ay}}}return best;
+   const m=projectFactory();let best=null,minScore=18;
+   for(const a of availableAnchors()){
+    const q=m.project(anchorPoint(a)),d=Math.hypot(q.x-x,q.y-y);
+    if(d>19)continue;
+    const score=d-(a.kind==="column"?3:0);
+    if(score<minScore){minScore=score;best=a}
+   }
+   return best;
   };
-  const position=a=>a?html(a.x+" / "+a.y):"Выберите точку на сетке";
+  const position=a=>a?html((a.kind==="column"?a.label+" · верх колонны · ":"Ось ")+a.x+" / "+a.y+
+   " · Z "+fmt(a.z)+" мм"+(a.kind==="column"?"":" (сетка)")):"Выберите точку на модели";
   function refreshPanel(){
    const m=selectedMark(),left=num(m?.left),column=m?.geometry==="column",available=left>0;
    el("irbHint").textContent=state.placing?(!state.start?"Выберите начальную точку":column||state.end?"Точки заданы — продолжайте в редакторе":"Выберите конечную точку"):"ЛКМ — вращение · колесо — масштаб · нажатие на элемент — свойства";
@@ -3719,7 +3752,7 @@ window.irBuildingView=(()=>{
     '<div class="irb-quota">По ведомости: '+num(m?.total)+' шт.<br>На схеме: '+num(m?.placed)+' шт.<br><b>Осталось: '+left+' шт.</b></div>'+
     '<div class="irb-anchor"><b>1. Начало</b><span>'+position(state.start)+'</span></div>'+
     '<div class="irb-anchor"><b>2. '+(column?"Колонна":"Конец")+'</b><span>'+(column?"Вертикально":position(state.end))+'</span></div>'+
-    '<p class="irb-help">Нажимайте на голубые точки на модели. Точные высоты и смещения можно указать в сохранённом редакторе IR Project.</p>'+
+    '<p class="irb-help">Синие точки с белой окантовкой — верх каждой колонны. Маленькие точки — узлы сетки. Отметки и смещения автоматически передаются в редактор.</p>'+
     '<button class="irb-save" id="irbContinue" '+(!(state.start&&(column||state.end)&&available)?'disabled':'')+'>Продолжить в редакторе →</button>'+
     '<button class="irb-secondary" id="irbClear">Сбросить точки</button><button class="irb-secondary" id="irbCancel">Отмена</button>';
     el("irbMark").onchange=e=>{state.mark=e.target.value;state.start=null;state.end=null;refreshPanel();paint()};
@@ -3727,7 +3760,8 @@ window.irBuildingView=(()=>{
     el("irbCancel").onclick=()=>{state.placing=false;refreshPanel();paint()};
     el("irbContinue").onclick=()=>{
      if(!state.start||!selectedMark()||left<=0||!column&&!state.end)return;
-     const data={markId:state.mark,start:{ax:state.start.x,ay:state.start.y},end:state.end?{ax:state.end.x,ay:state.end.y}:null,geometry:m.geometry,height:maxZ};
+     const pack=a=>a?{ax:a.x,ay:a.y,dx:num(a.worldX)-originAxis(gridX,a.x),dy:num(a.worldY)-originAxis(gridY,a.y),z:num(a.z),source:a.kind,columnId:a.columnId||""}:null;
+     const data={markId:state.mark,start:pack(state.start),end:pack(state.end),geometry:m.geometry,height:maxZ};
      state.placing=false;refreshPanel();paint();props.onPlacement(data);
     };
    }else{
@@ -3793,7 +3827,7 @@ window.irBuildingView=(()=>{
    if(state.placing){
     if(!selectedMark())return;const a=nearestAxis(p.x,p.y);if(!a)return;
     if(!state.start||state.end||pickGeometry()==="column"){state.start=a;state.end=null}
-    else if(a.x!==state.start.x||a.y!==state.start.y)state.end=a;
+    else if(!sameAnchor(a,state.start))state.end=a;
     refreshPanel();paint();
    }else{state.selected=String(nearestMember(p.x,p.y)?.id||"");props.onSelect(state.selected);refreshPanel();paint()}
   };

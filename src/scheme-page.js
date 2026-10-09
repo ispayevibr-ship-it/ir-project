@@ -660,11 +660,11 @@ window.irSchemePage=async function(objectId){
    f.elements.mark_id.value=placement.markId;chosenMark=placement.markId;
    f.elements.geometry_type.value=placement.geometry;
    f.elements.axis_x.value=start.ax;f.elements.axis_y.value=start.ay;
-   f.elements.offset_x_mm.value=0;f.elements.offset_y_mm.value=0;
+   f.elements.offset_x_mm.value=start.dx??0;f.elements.offset_y_mm.value=start.dy??0;
    f.elements.end_axis_x.value=end.ax;f.elements.end_axis_y.value=end.ay;
-   f.elements.end_offset_x_mm.value=0;f.elements.end_offset_y_mm.value=0;
-   f.elements.z0_mm.value=placement.geometry==="column"?0:placement.height;
-   f.elements.z1_mm.value=placement.height;
+   f.elements.end_offset_x_mm.value=end.dx??0;f.elements.end_offset_y_mm.value=end.dy??0;
+   f.elements.z0_mm.value=placement.geometry==="column"?0:(start.z??placement.height);
+   f.elements.z1_mm.value=placement.geometry==="column"?placement.height:(end.z??placement.height);
    updateGeometry(false);renderMarkOptions();
   }
   ["axis_x","axis_y","offset_x_mm","offset_y_mm","end_axis_x","end_axis_y","end_offset_x_mm","end_offset_y_mm","z0_mm","z1_mm"].forEach(n=>f.elements[n].addEventListener("input",refreshPreview));refreshPreview();d.showModal()
