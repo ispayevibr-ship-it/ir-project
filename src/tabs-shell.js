@@ -30,6 +30,28 @@
   if(section==="extra-works"&&entry)return"Доп. работа "+entry+" · "+object;
   return sectionName+" · "+object
  };
+
+ // Small section-specific line icons, consistently styled for the IR Project tab bar.
+ const iconPaths={
+  objects:'<rect x="3" y="7" width="7" height="14" rx="1"/><path d="M5 7V3h11v18M10 12h11v9M6 10h1m-1 4h1m-1 4h1m7-11h1m-1 4h1m-1 4h1m-1 4h1"/>',
+  object:'<path d="M3 21V5l9-3 9 3v16H3Z"/><path d="M9 21v-5h6v5M7 8h2m6 0h2M7 12h2m6 0h2"/>',
+  scheme:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/><circle cx="9" cy="9" r="1.25"/><circle cx="15" cy="15" r="1.25"/>',
+  reports:'<path d="M7 3h8l4 4v14H5V3h2z"/><path d="M15 3v5h4M9 12h6M9 16h6"/>',
+  marks:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11M14 12h4m-4 4h4M5 6h.01"/>',
+  "work-types":'<path d="M7 3h12v18H5V5l2-2z"/><path d="M9 9h7m-7 4h7m-7 4h4M3 8h3"/>',
+  deliveries:'<path d="m3 8 9-5 9 5v10l-9 5-9-5V8Z"/><path d="m3 8 9 5 9-5M12 13v10M7.5 5.5l9 5"/>',
+  schedule:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18m-13 4h3m2 0h3m-8 4h3"/>',
+  "extra-works":'<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10"/><path d="M7 9h8M7 13h5M7 17h3M17 13v8m-4-4h8"/>',
+  photos:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.4"/><path d="m4 18 5.5-5 4 3 3-3 4.5 5"/>',
+  "acted-days":'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 3v3m8-3v3M4 9h16m-12 5 3 3 5-5"/>',
+  penalties:'<path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 9v5m0 3v.2"/>',
+  finance:'<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 9h18m-14 6h4"/>'
+ };
+ function iconForRoute(route){
+  const match=String(route||"").match(/^\/objects\/object\/\d+(?:\/([^/]+))?/);
+  const key=route==="/objects"?"objects":match?(match[1]||"object"):"objects";
+  return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(iconPaths[key]||iconPaths.object)+'</svg>'
+ }
  const save=()=>{
   if(restoring)return;
   const state={active:activeId,tabs:order.map(id=>{const t=frames.get(id);return{id,route:t?.route||"/objects"}}).filter(x=>x.route)};
@@ -44,7 +66,7 @@
    button.className="tabs-item"+(id===activeId?" active":"")+(tab.dirty?" unsaved":"");
    button.dataset.tabId=id;button.role="tab";button.tabIndex=0;button.ariaSelected=id===activeId?"true":"false";
    button.title=tab.title+(tab.dirty?" · Есть несохранённые изменения":"");
-   const icon=document.createElement("span");icon.className="tabs-icon";icon.textContent="▣";
+   const icon=document.createElement("span");icon.className="tabs-icon";icon.setAttribute("aria-hidden","true");icon.innerHTML=iconForRoute(tab.route);
    const name=document.createElement("span");name.className="tabs-title";name.textContent=tab.title;
    const close=document.createElement("button");close.type="button";close.className="tabs-close";close.textContent="×";close.title="Закрыть вкладку";
    close.onclick=e=>{e.stopPropagation();closeTab(id)};
