@@ -1,11 +1,11 @@
 "use strict";
 (()=>{
- const list=document.getElementById("tabsList"),stage=document.getElementById("tabsContent"),status=document.getElementById("tabsStatus");
+ const list=document.getElementById("tabsList"),stage=document.getElementById("tabsContent"),addButton=document.getElementById("tabsAdd");
  if(!list||!stage)return;
  const openerBridge=()=>{try{return window.opener?.irProject||null}catch{return null}};
  const api=window.irProject||openerBridge();
  if(!api?.data?.objects){
-  status.textContent="Нет подключения к данным. Откройте эту вкладку из главного окна IR Project.";
+  const error=document.createElement("div");error.style.cssText="padding:25px;color:#a94444;font:13px Segoe UI";error.textContent="Нет подключения к данным. Откройте страницу из главного окна IR Project.";stage.append(error);
   return
  }
  // Each iframe receives the existing (read-only IPC) bridge before the original app scripts run.
@@ -35,7 +35,7 @@
   const state={active:activeId,tabs:order.map(id=>{const t=frames.get(id);return{id,route:t?.route||"/objects"}}).filter(x=>x.route)};
   try{localStorage.setItem(storeKey,JSON.stringify(state))}catch{}
  };
- function notify(text){if(status)status.textContent=String(text||"Готово")}
+ function notify(text){/* Bottom status bar removed; preserve nonvisual status call sites. */}
  function renderTabBar(){
   list.replaceChildren();
   for(const id of order){
@@ -53,6 +53,8 @@
    button.onauxclick=e=>{if(e.button===1){e.preventDefault();closeTab(id)}};
    list.append(button)
   }
+  // Keep the "+" control immediately after the last tab, even when the tab list rerenders.
+  if(addButton)list.append(addButton);
   const activeElement=list.querySelector(".tabs-item.active");
   if(activeElement)activeElement.scrollIntoView({block:"nearest",inline:"nearest"})
  }
@@ -231,8 +233,7 @@
   if(!api.updater){notify("Проверка обновлений недоступна.");return}
   showUpdateDialog();
   updateBusy=true;updateProgress.hidden=true;setUpdate("Проверка обновлений","Проверяем доступную версию IR Project…");updateButtons([]);
-  const button=document.getElementById("tabsCheckUpdate");
-  if(button)button.disabled=true;
+  const button=null;
   try{
    const result=await api.updater.check();
    const current=await api.updater.version(),remote=result?.updateInfo?.version;
@@ -260,7 +261,6 @@
  document.addEventListener("keydown",shortcuts,true);
  document.getElementById("tabsAdd").onclick=()=>createTab("/objects");
  document.getElementById("tabsReload").onclick=reloadCurrent;
- document.getElementById("tabsCheckUpdate").onclick=checkAppUpdate;
  document.getElementById("tabsDuplicate").onclick=()=>{const selected=frames.get(activeId);if(selected)createTab(selected.route)};
  document.getElementById("tabsDetach").onclick=()=>{
   const selected=frames.get(activeId);if(!selected)return;
@@ -268,7 +268,7 @@
   const id=newId();
   const url="./tabs-shell.html?detached="+encodeURIComponent(id)+"#"+selected.route;
   const popup=window.open(url,"_blank","width=1180,height=780");
-  if(!popup)notify("Открытие окна заблокировано. Разрешите открывать новые окна IR Project.");
+  if(!popup)alert("Не удалось открыть отдельное окно IR Project. Разрешите открывать новые окна.");
   else notify("Страница открыта в отдельном окне. Исходная вкладка сохранена.")
  };
  const initialHash=location.hash.slice(1);
