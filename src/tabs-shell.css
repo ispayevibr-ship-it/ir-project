@@ -21,5 +21,5 @@
 .tabs-pane.active{visibility:visible;pointer-events:auto}
 .tabs-footer{height:21px;min-height:21px;padding:0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#f7f9fb;border-top:1px solid #e2e9ef;color:#8396a5;font-size:9px}
 .tabs-footer .tabs-help{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-@media(max-width:1060px){.tabs-tools button{font-size:0;padding:0 10px}.tabs-tools #tabsDuplicate:after{content:"⧉";font-size:16px}.tabs-tools #tabsDetach:after{content:"↗";font-size:16px}}
+@media(max-width:1060px){.tabs-tools button{font-size:0;padding:0 10px}.tabs-tools #tabsDuplicate:after{content:"⧉";font-size:16px}.tabs-tools #tabsDetach:after{content:"↗";font-size:16px}.tabs-tools #tabsReload:after{content:"↻";font-size:16px}.tabs-tools #tabsCheckUpdate:after{content:"⇪";font-size:16px}}
 @media(max-width:800px){.tabs-caption,.tabs-footer .tabs-help{display:none}.tabs-item{min-width:110px}}
