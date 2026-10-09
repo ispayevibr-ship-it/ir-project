@@ -35,21 +35,33 @@ window.irSchemePage=async function(objectId){
  const markLabel=m=>{const w=workById.get(String(m.work_type_id||""))||{},name=m.name||"",wt=w.work_type||m.work_type||"";return [m.mark||m.title||"Без марки",name||wt].filter(Boolean).join(" · ")};
 
  const markById=new Map(marks.map(m=>[m.id,m]));
- let updatingMarkProgress=false;
+ let updatingMarkProgress=false,syncNotice=null;
  async function refreshSchemeMarkProgress(){
-  if(updatingMarkProgress)return;updatingMarkProgress=true;
-  const button=document.getElementById("schemeRefreshMarkProgress");if(button){button.disabled=true;button.textContent="Обновляем…"}
+  if(updatingMarkProgress)return;updatingMarkProgress=true;syncNotice=null;
+  const button=document.getElementById("schemeRefreshMarkProgress"),message=document.getElementById("schemeMarkSyncNotice");
+  if(button){button.disabled=true;button.textContent="Обновляем…"}
+  if(message){message.hidden=false;message.className="scheme-mark-sync-result pending";message.textContent="Проверяем данные ведомости…"}
+  const snapshot=m=>({id:String(m.id),mark:String(m.mark||m.title||""),workId:String(m.work_type_id||""),qty:Math.max(0,num(m.qty??m.count)),mounted:Math.max(0,num(m.mounted??m.done))});
+  const before=new Map(activeMarks().map(m=>{const v=snapshot(m);return[v.id,v]}));
   try{
    const fresh=await root.section("marks").list();
-   markRows=fresh;
    const updated=arr(fresh).map(x=>({id:String(x.id),title:x.title||"",...(x.data||{})}));
-   marks.splice(0,marks.length,...updated);
+   markRows=fresh;marks.splice(0,marks.length,...updated);
    markById.clear();marks.forEach(x=>markById.set(x.id,x));
-   draw()
+   const after=activeMarks().map(snapshot),seen=new Set(),changed=[];
+   for(const v of after){
+    seen.add(v.id);const old=before.get(v.id);
+    if(!old||old.qty!==v.qty||old.mounted!==v.mounted)changed.push(v.mark||v.id)
+   }
+   for(const old of before.values())if(!seen.has(old.id))changed.push(old.mark||old.id);
+   const summary=statusCounts(),names=[...new Set(changed)].slice(0,5);
+   const details=changed.length?"Изменено марок: "+changed.length+(names.length?" ("+names.join(", ")+(changed.length>names.length?", …":"")+")":"")+".":"Изменений нет.";
+   syncNotice={ok:true,text:"✓ Данные ведомости обновлены. "+details+" Смонтировано "+fmt(summary.mounted)+" из "+fmt(summary.total)+" шт., осталось "+fmt(summary.left)+" шт."};
   }catch(e){
-   alert("Не удалось обновить данные ведомости: "+String(e?.message||e));
-   if(button){button.disabled=false;button.textContent="↻ Обновить по ведомости"}
-  }finally{updatingMarkProgress=false}
+   syncNotice={ok:false,text:"Не удалось обновить ведомость: "+String(e?.message||e)}
+  }finally{
+   updatingMarkProgress=false;draw()
+  }
  }
  const markProgress=m=>{
   if(!m)return null;
@@ -679,6 +691,7 @@ window.irSchemePage=async function(objectId){
     <div><span>На схеме</span><b>${mp.placed} <small>элем.</small></b><small>${mp.placedMounted} полностью смонтировано · ${mp.placedPartial} частично</small></div>
    </div>
    <div class="scheme-mark-sync-hint"><span>Статусы связаны с ведомостью марок и ежедневными отчётами. Частичное выполнение не определяет конкретную установленную конструкцию.</span><button type="button" id="schemeRefreshMarkProgress">↻ Обновить по ведомости</button></div>
+   <div id="schemeMarkSyncNotice" class="scheme-mark-sync-result ${syncNotice?(syncNotice.ok?"success":"error"):""}" role="status" aria-live="polite" ${syncNotice?"":"hidden"}>${syncNotice?esc(syncNotice.text):""}</div>
    <section class="scheme-visibility" aria-label="Фильтры монтажной схемы">
     <div class="scheme-visibility-top">
      <details class="scheme-layers" ${layersPanelOpen?"open":""}><summary>Слои по видам марок <small>${allVisibleTypes().filter(g=>!hiddenGroups.has(g.key)).length} из ${allVisibleTypes().length}</small></summary>
@@ -709,7 +722,7 @@ window.irSchemePage=async function(objectId){
    <div class="scheme-hint"><b>Сетка:</b><span><strong>${esc(axesX[0])} → ${esc(axesX.at(-1))}</strong> — ${gridDirX==="ltr"?"слева направо":"справа налево"}, <strong>${esc(axesY[0])} → ${esc(axesY.at(-1))}</strong> — ${gridDirY==="btt"?"снизу вверх":"сверху вниз"}. Направление можно изменить в «Параметрах сетки».</span></div>
    ${canEdit()?gridEditorHtml()+editorHtml()+viewDialogHtml():""}
   </div>`;
-  document.getElementById("schemeBack").onclick=()=>location.hash=`/objects/object/${oid}`;document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{mode=b.dataset.mode;draw()});document.getElementById("schemeWorkSelect")?.addEventListener("change",e=>{activeWorkId=e.target.value;activeScheme="all";selectedId="";elementSearch="";pickerScrollTop=0;hiddenGroups.clear();statusFilter="all";levelMin="";levelMax="";panX=0;panY=0;refreshGridModel();draw()});document.getElementById("schemeTypeSelect")?.addEventListener("change",e=>{activeScheme=e.target.value;selectedId="";elementSearch="";pickerScrollTop=0;panX=0;panY=0;refreshGridModel();draw()});
+  document.getElementById("schemeBack").onclick=()=>location.hash=`/objects/object/${oid}`;document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{mode=b.dataset.mode;draw()});document.getElementById("schemeWorkSelect")?.addEventListener("change",e=>{activeWorkId=e.target.value;activeScheme="all";selectedId="";syncNotice=null;elementSearch="";pickerScrollTop=0;hiddenGroups.clear();statusFilter="all";levelMin="";levelMax="";panX=0;panY=0;refreshGridModel();draw()});document.getElementById("schemeTypeSelect")?.addEventListener("change",e=>{activeScheme=e.target.value;selectedId="";syncNotice=null;elementSearch="";pickerScrollTop=0;panX=0;panY=0;refreshGridModel();draw()});
   document.querySelector(".scheme-layers")?.addEventListener("toggle",e=>{layersPanelOpen=e.target.open});
   document.querySelectorAll("[data-scheme-layer]").forEach(btn=>btn.addEventListener("click",()=>{layersPanelOpen=true;const key=btn.dataset.schemeLayer;if(hiddenGroups.has(key))hiddenGroups.delete(key);else hiddenGroups.add(key);draw()}));
   document.getElementById("schemeLayersShowAll")?.addEventListener("click",()=>{layersPanelOpen=true;hiddenGroups.clear();draw()});
