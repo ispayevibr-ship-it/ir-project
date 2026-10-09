@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>IR Project — вкладки</title>
-<link rel="stylesheet" href="./tabs-shell.css?v=1762">
+<link rel="stylesheet" href="./tabs-shell.css?v=1763">
 </head><body>
 <header class="tabs-bar">
  <nav id="tabsList" class="tabs-list" aria-label="Открытые вкладки"><button id="tabsAdd" class="tabs-add" type="button" title="Новая вкладка (Ctrl+T)" aria-label="Создать вкладку">＋</button></nav>
@@ -10,8 +10,10 @@
 <dialog id="tabsUpdateDialog" class="tabs-update-dialog" aria-labelledby="tabsUpdateTitle">
  <div class="tabs-update-header"><span class="tabs-update-icon" aria-hidden="true">↻</span><h2 id="tabsUpdateTitle">Проверка обновлений</h2><button id="tabsUpdateClose" type="button" class="tabs-update-close" aria-label="Закрыть окно">×</button></div>
  <p id="tabsUpdateText" class="tabs-update-message" aria-live="polite">Проверяем доступную версию IR Project…</p>
+ <div id="tabsUpdateSize" class="tabs-update-size" hidden>Размер обновления: уточняется…</div>
  <div id="tabsUpdateProgress" class="tabs-update-progress" hidden><div class="tabs-update-progress-track"><div id="tabsUpdateProgressBar"></div></div><span id="tabsUpdateProgressLabel">0%</span></div>
+ <div id="tabsUpdateTransfer" class="tabs-update-transfer" hidden>Скачано: 0 МБ</div>
  <div id="tabsUpdateActions" class="tabs-update-actions"></div>
 </dialog>
-<script src="./tabs-shell.js?v=1762"></script>
+<script src="./tabs-shell.js?v=1763"></script>
 </body></html>
