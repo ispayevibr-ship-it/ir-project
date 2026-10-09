@@ -111,7 +111,7 @@ window.irAdditionalWorksPage=async function(objectId,route={}){
    if(!file?.path){note.textContent="Загрузка отменена.";document.querySelectorAll(".aw-document-actions button").forEach(b=>b.disabled=false);return}
    try{await saveAct({path:file.path,name:file.name||"Подписанный акт"})}catch(e){await irProject.reportDocuments?.remove?.(file.path).catch(()=>{});throw e}
   }));
-  document.getElementById("awRemoveAct")?.addEventListener("click",()=>{if(!confirm("Убрать подписанный акт из карточки этой работы?"))return;run(()=>saveAct(null))});
+  document.getElementById("awRemoveAct")?.addEventListener("click",()=>{if(!confirm("Убрать подписанный акт из карточки этой работы?"))return;return run(()=>saveAct(null))});
  }
  if(!workId){listView();return}
  const entry=byId.get(workId);
