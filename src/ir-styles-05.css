@@ -1,0 +1,107 @@
+/* #41: src/section-analysis.css */
+.acted-analysis,.penalty-analysis{margin:0 0 12px;padding:14px;border:1px solid #dfe7ed;border-radius:10px;background:#fff;box-shadow:0 1px 4px rgba(23,54,77,.04)}
+.acted-analysis .analysis-head,.penalty-analysis .analysis-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:12px}
+.acted-analysis .analysis-head h2,.penalty-analysis .analysis-head h2{margin:0 0 3px;color:#18364b;font-size:13px}
+.acted-analysis .analysis-head p,.penalty-analysis .analysis-head p{margin:0;color:#87919f;font-size:8px}
+.acted-analysis .analysis-head>span,.penalty-analysis .analysis-head>span{color:#607482;font-size:8px;font-weight:700}
+.acted-analysis .analysis-list,.penalty-analysis .analysis-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px}
+.acted-analysis .analysis-row,.penalty-analysis .analysis-row{min-width:0;padding:9px 10px;border:1px solid #e7edf1;border-radius:8px;background:#fbfcfd}
+.acted-analysis .analysis-row-top,.penalty-analysis .analysis-row-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:7px}
+.acted-analysis .analysis-row-top>div,.penalty-analysis .analysis-row-top>div{min-width:0}
+.acted-analysis .analysis-row-top b,.penalty-analysis .analysis-row-top b{display:block;overflow:hidden;text-overflow:ellipsis;color:#294356;font-size:9px;font-weight:750;line-height:1.3}
+.acted-analysis .analysis-row-top span,.penalty-analysis .analysis-row-top span{display:block;margin-top:3px;color:#85939e;font-size:7.5px;line-height:1.3}
+.acted-analysis .analysis-row-top strong,.penalty-analysis .analysis-row-top strong{flex:0 0 auto;color:#1769e0;font-size:10px;font-variant-numeric:tabular-nums}
+.acted-analysis .analysis-bar,.penalty-analysis .analysis-bar{height:6px;overflow:hidden;border-radius:999px;background:#e9eef2}
+.acted-analysis .analysis-bar i,.penalty-analysis .analysis-bar i{display:block;height:100%;min-width:2px;border-radius:999px;background:#2598c7}
+.penalty-analysis .analysis-bar i{background:#d76969}
+.acted-analysis .analysis-empty,.penalty-analysis .analysis-empty{min-height:76px;display:flex;align-items:center;justify-content:center;border:1px dashed #dce5eb;border-radius:8px;background:#fafcfd;color:#8796a1;font-size:9px}
+@media(max-width:850px){.acted-analysis .analysis-list,.penalty-analysis .analysis-list{grid-template-columns:1fr}.acted-analysis .analysis-head,.penalty-analysis .analysis-head{align-items:flex-start;flex-direction:column}}
+
+
+/* #42: src/section-unified.css */
+/* Unified layout for every object section page except the object overview */
+body.ir-object-route:not(.ir-object-overview) #app{padding:15px!important;background:#f4f6f9!important}
+body.ir-object-route:not(.ir-object-overview) #app>.reports-page,
+body.ir-object-route:not(.ir-object-overview) #app>.report-form-page,
+body.ir-object-route:not(.ir-object-overview) #app>.marks-page,
+body.ir-object-route:not(.ir-object-overview) #app>.wt-page,
+body.ir-object-route:not(.ir-object-overview) #app>.schedule-page,
+body.ir-object-route:not(.ir-object-overview) #app>.acted-days-page,
+body.ir-object-route:not(.ir-object-overview) #app>.penalties-page,
+body.ir-object-route:not(.ir-object-overview) #app>.finance-page,
+body.ir-object-route:not(.ir-object-overview) #app>.section-unified-page{box-sizing:border-box!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important;color:#263b4a}
+
+/* One header system */
+.reports-titlebar,.report-form-head,.marks-top,.wt-head,.schedule-head,.section-unified-head{display:grid!important;grid-template-columns:auto minmax(0,1fr) auto!important;align-items:center!important;gap:14px!important;margin:0 0 15px!important;min-height:34px!important}
+.reports-titlebar h1,.report-form-head h1,.marks-top h1,.wt-head h1,.schedule-head h1,.section-unified-head h1{margin:0 0 3px!important;font-size:20px!important;line-height:1.2!important;font-weight:750!important;color:#18364b!important}
+.reports-titlebar p,.report-form-head p,.marks-top p,.wt-head p,.schedule-head p,.section-unified-head p{margin:0!important;color:#87919f!important;font-size:10px!important;line-height:1.35!important}
+.reports-titlebar .back,.report-form-head .back,.marks-top .back,.wt-head .back,.schedule-head .back,.section-unified-head .back{height:32px!important;min-height:32px!important;padding:0 10px!important;border:1px solid #d8e1e7!important;border-radius:7px!important;background:#fff!important;color:#536a7a!important;font-size:9px!important;font-weight:600!important;box-shadow:none!important}
+.reports-titlebar .back:hover,.report-form-head .back:hover,.marks-top .back:hover,.wt-head .back:hover,.schedule-head .back:hover,.section-unified-head .back:hover{background:#f5f8fa!important;border-color:#bdcbd5!important}
+.reports-titlebar .reports-new,.report-form-head .report-save,.wt-head>.primary,.schedule-head>.primary,.section-unified-head>.primary{height:34px!important;min-height:34px!important;padding:0 13px!important;border-radius:7px!important;font-size:9px!important;font-weight:700!important}
+
+/* One surface system */
+.reports-summary>div,.reports-toolbar,.reports-list,.report-form-section,.marks-stat,.marks-tools,.marks-table,.marks-work-card,.marks-unit-summary,.wt-list,.schedule-card,.section-unified-card{background:#fff!important;border:1px solid #dfe7ed!important;border-radius:9px!important;box-shadow:0 1px 4px rgba(23,54,77,.04)!important}
+.reports-summary,.marks-work-types,.marks-all-summary,.marks-stats,.reports-toolbar,.marks-tools{margin-bottom:10px!important}
+.wt-table-head,.marks-head,.schedule-table-head{background:#f3f6f8!important;color:#718392!important;font-size:9.5px!important}
+.wt-row,.marks-row,.schedule-row{border-color:#e7edf1!important}
+.wt-row:hover,.marks-row:hover,.schedule-row:hover{background:#f9fbfc!important}
+
+.reports-page .reports-list{background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow:visible!important}
+
+/* Empty states */
+.reports-empty,.wt-empty,.schedule-empty,.marks-table>.marks-empty,.section-unified-empty{box-sizing:border-box!important;min-height:120px!important;padding:44px 20px!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;color:#82909c!important;font-size:0!important;background:#fff!important}
+.reports-empty::after{content:"Раздел Ежедневные отчёты пуст";font-size:11px}
+.wt-empty::after{content:"Раздел Виды работ пуст";font-size:11px}
+.schedule-empty::after{content:"Раздел График работ пуст";font-size:11px}
+.marks-table>.marks-empty::after{content:"Раздел Ведомость марок пуст";font-size:11px}
+.marks-all-summary>.marks-empty{display:none!important}
+.section-unified-empty::after{content:attr(data-empty);font-size:11px}
+
+/* Generic section content */
+.section-unified-card{overflow:hidden}
+.section-unified-list{display:grid}
+.section-unified-row{display:grid;grid-template-columns:minmax(180px,1fr) auto;gap:12px;align-items:center;min-height:52px;padding:10px 14px;border-top:1px solid #e7edf1;background:#fff}
+.section-unified-row:first-child{border-top:0}.section-unified-row:hover{background:#f9fbfc}
+.section-unified-row b{font-size:11px;color:#263b4a}.section-unified-row span{font-size:9px;color:#87919f}
+
+/* Object overview: force deliveries headers to be exactly the same as other overview blocks */
+body.ir-object-overview .object-overview-deliveries-wrap .ood-head{box-sizing:border-box!important;min-height:56px!important;padding:12px 14px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:16px!important;border-bottom:1px solid #e7edf1!important;background:#fff!important}
+body.ir-object-overview .object-overview-deliveries-wrap .ood-head>div{min-width:0!important}
+body.ir-object-overview .object-overview-deliveries-wrap .ood-head h2{margin:0 0 3px!important;color:#17364d!important;font-size:14px!important;line-height:1.2!important;font-weight:700!important}
+body.ir-object-overview .object-overview-deliveries-wrap .ood-head p{margin:0!important;color:#81909c!important;font-size:9px!important;line-height:1.2!important;font-weight:400!important}
+body.ir-object-overview .object-overview-deliveries-wrap .ood-head button{box-sizing:border-box!important;height:30px!important;min-height:30px!important;padding:0 10px!important;border:1px solid #d8e1e7!important;border-radius:7px!important;background:#fff!important;color:#1769e0!important;font-size:9px!important;line-height:1!important;font-weight:700!important;white-space:nowrap!important;box-shadow:none!important}
+body.ir-object-overview .object-overview-deliveries-wrap .ood-head select{box-sizing:border-box!important;height:30px!important;min-height:30px!important;max-height:30px!important;padding:0 32px 0 10px!important;border:1px solid #d8e1e7!important;border-radius:7px!important;background:#fff!important;color:#405867!important;font-size:9px!important;line-height:30px!important;font-weight:600!important;box-shadow:none!important}
+body.ir-object-overview .object-overview-deliveries-wrap{gap:15px!important;margin:0 15px 15px!important}
+
+@media(max-width:900px){body.ir-object-route:not(.ir-object-overview) #app{padding:15px!important}.reports-titlebar,.report-form-head,.marks-top,.wt-head,.schedule-head,.section-unified-head{grid-template-columns:auto minmax(0,1fr)!important}.reports-titlebar>:last-child:not(:nth-child(2)),.report-form-head>:last-child:not(:nth-child(2)),.wt-head>.primary,.schedule-head>.primary,.section-unified-head>.primary{grid-column:1/-1;justify-self:start}.reports-page,.report-form-page,.marks-page,.wt-page,.schedule-page,.acted-days-page,.penalties-page,.finance-page,.section-unified-page{padding:0!important}body.ir-object-overview .object-overview-deliveries-wrap{margin:0 12px 12px!important}body.ir-object-overview .object-overview-deliveries-wrap .ood-head{align-items:flex-start!important;flex-direction:column!important}body.ir-object-overview .object-overview-deliveries-wrap .ood-head select{width:100%!important;max-width:none!important;min-width:0!important}}
+
+body.ir-object-route:not(.ir-object-overview) .wt-switch{display:inline-flex!important;visibility:visible!important;opacity:1!important;position:relative!important;z-index:2!important}
+body.ir-object-route:not(.ir-object-overview) .wt-row[hidden]{display:none!important}
+
+
+/* #43: src/select-ui.css */
+.ir-global-native{position:absolute!important;width:1px!important;height:1px!important;min-width:1px!important;min-height:1px!important;margin:0!important;padding:0!important;opacity:0!important;pointer-events:none!important;overflow:hidden!important;clip:rect(0 0 0 0)!important;white-space:nowrap!important}
+.ir-global-select,.ir-pretty-select{position:relative;width:100%;min-width:0}
+.ir-global-select-trigger,.ir-pretty-trigger{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;height:40px;padding:0 12px;border:1px solid #cfd9e1;border-radius:8px;background:#fff;color:#2e4352;font:inherit;font-size:10px;font-weight:600;line-height:1;text-align:left;box-shadow:0 1px 2px rgba(24,54,75,.04);transition:border-color .15s,box-shadow .15s,background .15s}
+.ir-global-select-trigger:hover,.ir-pretty-trigger:hover{border-color:#b7c7d2;background:#fbfcfd}
+.ir-global-select.open .ir-global-select-trigger,.ir-global-select.invalid .ir-global-select-trigger,.ir-pretty-select.open .ir-pretty-trigger{border-color:#75a9e8;box-shadow:0 0 0 3px rgba(23,105,224,.09)}
+.ir-global-select.invalid .ir-global-select-trigger{border-color:#d96c6c;box-shadow:0 0 0 3px rgba(217,108,108,.10)}
+.ir-global-select-trigger:disabled,.ir-global-select.disabled .ir-global-select-trigger{background:#f5f7f9;color:#8a98a3;cursor:default}
+.ir-global-select-trigger>span,.ir-pretty-trigger>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ir-global-select-trigger>i,.ir-pretty-trigger>i{flex:0 0 auto;width:8px;height:8px;border-right:1.7px solid #5b6f7e;border-bottom:1.7px solid #5b6f7e;transform:rotate(45deg) translateY(-2px);transition:transform .15s}
+.ir-global-select.open .ir-global-select-trigger>i,.ir-pretty-select.open .ir-pretty-trigger>i{transform:rotate(225deg) translate(-1px,-1px)}
+.ir-global-select-menu{position:fixed;z-index:30000;overflow:auto;padding:5px;border:1px solid #cfd9e1;border-radius:9px;background:#fff;box-shadow:0 14px 34px rgba(24,54,75,.20);scrollbar-width:thin}
+.ir-pretty-menu{position:absolute;z-index:1000;left:0;right:0;top:calc(100% + 6px);max-height:280px;overflow:auto;padding:5px;border:1px solid #cfd9e1;border-radius:9px;background:#fff;box-shadow:0 14px 34px rgba(24,54,75,.20);scrollbar-width:thin}
+.ir-pretty-select.open-up .ir-pretty-menu{top:auto;bottom:calc(100% + 6px)}
+.ir-global-select-menu[hidden],.ir-pretty-menu[hidden]{display:none!important}
+.ir-global-select-menu button,.ir-pretty-menu button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:34px;padding:8px 10px;border:0;border-radius:6px;background:#fff;color:#304757;font:inherit;font-size:10px;font-weight:500;text-align:left}
+.ir-global-select-menu button:hover,.ir-pretty-menu button:hover{background:#f2f7fb}
+.ir-global-select-menu button.selected,.ir-pretty-menu button.selected{background:#eaf3ff;color:#1769e0;font-weight:700}
+.ir-global-select-menu button:disabled,.ir-pretty-menu button:disabled{opacity:.42;cursor:not-allowed;background:#f7f8f9}
+.ir-global-select-menu button i{font-style:normal;font-size:11px;color:#1769e0}
+.rfs-body .ir-global-select-trigger,.work-row .ir-global-select-trigger,.delivery-form-position .ir-global-select-trigger,.delivery-position-row .ir-global-select-trigger,.schedule-dialog .ir-global-select-trigger{height:34px;border-radius:6px;font-size:9px}
+.profile-menu .ir-global-select-trigger{height:36px;font-size:10px}
+.ood-head>.ir-global-select{min-width:310px;max-width:48%;width:420px;flex:0 1 420px}.ood-head>.ir-global-select .ir-global-select-trigger{height:30px;border-radius:7px;font-size:9px}
+.schedule-trend-head>.ir-global-select{min-width:250px;max-width:420px;width:100%;flex:0 1 420px}.schedule-trend-head>.ir-global-select .ir-global-select-trigger{height:32px;border-radius:7px;font-size:9px}
+@media(max-width:900px){.ood-head>.ir-global-select,.schedule-trend-head>.ir-global-select{width:100%;max-width:none;min-width:0;flex-basis:auto}}
+
