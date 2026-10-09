@@ -1243,7 +1243,7 @@ window.irSchemePage=async function(objectId){
  const workRecords=()=>activeWorkId?allRecords().filter(r=>recordWorkId(r)===activeWorkId):[];
  const recordGroup=r=>r?.scheme_group&&String(r.scheme_group)!=="all"?{key:String(r.scheme_group),label:String(r.scheme_group_label||schemeGroupOf(r.mark_name,r.mark).label)}:schemeGroupOf(r?.mark_name,r?.mark);
  const recordMarkGroup=r=>{const m=marks.find(x=>x.id===String(r.mark_id||""));return m?markGroup(m):recordGroup(r)};
- const inView=(r,v)=>groupKeys(v).includes(recordMarkGroup(r).key);
+ const inView=(r,v)=>{const assigned=String(r.scheme_view_id||"");return assigned?assigned===String(v.id):groupKeys(v).includes(recordMarkGroup(r).key)};
  const schemeGroups=()=>{const scoped=workMarks(),placed=workRecords();return[{key:"all",label:"Общая схема",marks:scoped.length,placed:placed.length},...customViews().map(v=>({key:"view:"+v.id,label:v.data?.name||v.title||"Новая сетка",marks:scoped.filter(m=>groupKeys(v).includes(markGroup(m).key)).length,placed:placed.filter(r=>inView(r,v)).length}))]};
  const records=()=>{const v=activeView();return activeScheme==="all"?workRecords():v?workRecords().filter(r=>inView(r,v)):[]};
  const activeGroup=()=>schemeGroups().find(g=>g.key===activeScheme)||schemeGroups()[0];
@@ -1259,8 +1259,41 @@ window.irSchemePage=async function(objectId){
  const columns=()=>records().filter(isShown).map(c=>({...c,...coord(c),status:effectiveStatus(c)}));
  const selected=()=>columns().find(x=>x.id===selectedId)||null;
  const resolveSavedMarkId=c=>{const pool=activeMarks();if(!c)return String(pool[0]?.id||"");const direct=pool.find(m=>m.id===String(c.mark_id||""));if(direct)return direct.id;const snap=String(c.mark||"").trim().toLowerCase(),snapName=String(c.mark_name||"").trim().toLowerCase();const exact=snap&&pool.find(m=>String(m.mark||m.title||"").trim().toLowerCase()===snap);if(exact)return exact.id;const byName=snapName&&pool.find(m=>String(m.name||"").trim().toLowerCase()===snapName);return byName?.id||""};
- const searchMarks=query=>{const pool=activeMarks(),q=String(query||"").trim().toLowerCase();if(!q)return [...pool];return pool.map(m=>{const mark=String(m.mark||m.title||"").trim().toLowerCase(),name=String(m.name||"").trim().toLowerCase(),text=`${mark} ${name}`;let score=99;if(mark===q)score=0;else if(mark.startsWith(q))score=1;else if(mark.includes(q))score=2;else if(name.startsWith(q))score=3;else if(name.includes(q)||text.includes(q))score=4;return{m,score}}).filter(x=>x.score<99).sort((a,b)=>a.score-b.score||String(a.m.mark||a.m.title||"").localeCompare(String(b.m.mark||b.m.title||""),"ru",{numeric:true,sensitivity:"base"})).map(x=>x.m)};
- const markOptions=(selectedMark,query="",unresolved=false)=>{const q=String(query||"").trim(),visible=searchMarks(q),hasSelected=visible.some(m=>m.id===String(selectedMark));let prefix="";if(unresolved&&!q)prefix='<option value="" selected>Марка не найдена — выберите заново</option>';else if(q&&!hasSelected)prefix='<option value="" selected>Выберите из найденных марок</option>';if(!visible.length)return'<option value="" selected>Ничего не найдено</option>';return prefix+visible.map(m=>`<option value="${esc(m.id)}" ${hasSelected&&String(selectedMark)===m.id?"selected":""}>${esc(markLabel(m))}</option>`).join("")};
+ const gridForEditor=key=>{
+  const v=String(key||"")==="all"?null:customViews().find(view=>"view:"+view.id===key)||null;
+  const g=v?.data?.grid||baseGrid();
+  const ax=validAxes(g.axes_x)?g.axes_x.map(String):[...defaultAxesX],ay=validAxes(g.axes_y)?g.axes_y.map(String):[...defaultAxesY];
+  return{view:v,key:v?"view:"+v.id:"all",axesX:ax,axesY:ay,xPos:gridCoords(g,"x"),yPos:gridCoords(g,"y")}
+ };
+ const marksForGrid=key=>{
+  const v=key==="all"?null:customViews().find(x=>"view:"+x.id===key);
+  return v?workMarks().filter(m=>groupKeys(v).includes(markGroup(m).key)):workMarks()
+ };
+ const markPlacement=m=>{
+  if(!m)return{total:0,placed:0,left:0};
+  const total=Math.max(0,Math.floor(num(m.qty??m.count)));
+  const placed=allRecords().filter(r=>String(r.mark_id||"")===String(m.id)||linkedMark(r)?.id===String(m.id)).length;
+  return{total,placed,left:Math.max(0,total-placed)}
+ };
+ const markAvailable=(m,editingId="")=>{
+  const q=markPlacement(m);
+  const own=editingId&&allRecords().some(r=>String(r.id)===String(editingId)&&(String(r.mark_id||"")===String(m.id)||linkedMark(r)?.id===String(m.id)));
+  // Existing placements remain editable even if older data exceeded today's quantity.
+  return Boolean(own)||q.placed<q.total
+ };
+ const searchMarks=(query,pool=activeMarks())=>{const q=String(query||"").trim().toLowerCase();if(!q)return [...pool];return pool.map(m=>{const mark=String(m.mark||m.title||"").trim().toLowerCase(),name=String(m.name||"").trim().toLowerCase(),text=`${mark} ${name}`;let score=99;if(mark===q)score=0;else if(mark.startsWith(q))score=1;else if(mark.includes(q))score=2;else if(name.startsWith(q))score=3;else if(name.includes(q)||text.includes(q))score=4;return{m,score}}).filter(x=>x.score<99).sort((a,b)=>a.score-b.score||String(a.m.mark||a.m.title||"").localeCompare(String(b.m.mark||b.m.title||""),"ru",{numeric:true,sensitivity:"base"})).map(x=>x.m)};
+ const markOptions=(selectedMark,query="",unresolved=false,pool=activeMarks(),editingId="")=>{
+  const q=String(query||"").trim(),visible=searchMarks(q,pool),available=visible.filter(m=>markAvailable(m,editingId));
+  const hasSelected=visible.some(m=>m.id===String(selectedMark)&&markAvailable(m,editingId));
+  let prefix="";
+  if(unresolved&&!q)prefix='<option value="" selected>Марка не найдена — выберите заново</option>';
+  else if(!hasSelected)prefix='<option value="" selected>Выберите марку (доступно: '+available.length+')</option>';
+  if(!visible.length)return'<option value="" selected>Ничего не найдено</option>';
+  return prefix+visible.map(m=>{
+   const q=markPlacement(m),remaining=markAvailable(m,editingId),disabled=!remaining;
+   return `<option value="${esc(m.id)}" ${disabled?'disabled data-exhausted="1"':''} ${hasSelected&&String(selectedMark)===m.id?"selected":""}>${esc(markLabel(m))} · На схеме: ${q.placed} из ${q.total} · Осталось: ${q.left}${disabled?" · НЕТ ОСТАТКА":""}</option>`
+  }).join("")
+ };
  const axisOptions=(items,value)=>items.map(x=>`<option value="${esc(x)}" ${String(value)===x?"selected":""}>${esc(x)}</option>`).join("");
  const statusText=s=>s==="mounted"?"Смонтирована":s==="partial"?"Частично смонтирована":"Не смонтирована";
  const sectionType=c=>{const explicit=String(c?.section_type||"").trim().toLowerCase();if(["ibeam","square","round","box"].includes(explicit))return explicit;const s=`${c?.profile_name||""} ${c?.mark_name||""}`.toLowerCase();if(/круг|труб.*ø|труб.*ф|ø|⌀/.test(s))return"round";if(/квад|проф.*труб|\d+\s*[xх×]\s*\d+/.test(s))return"square";if(/короб|сварн.*короб/.test(s))return"box";return"ibeam"};
@@ -1604,7 +1637,8 @@ window.irSchemePage=async function(objectId){
  function editorHtml(){
   return`<dialog id="schemeEditor" class="scheme-editor"><form id="schemeForm" novalidate><input type="hidden" name="id"><div class="scheme-editor-head"><div><h2 id="schemeEditorTitle">Добавить элемент</h2><p>Выберите марку для текущей монтажной схемы и задайте положение относительно осей.</p></div><button type="button" id="schemeEditorX">×</button></div>
    <div class="scheme-form-grid">
-    <label class="wide scheme-mark-field">Марка из ведомости<div class="scheme-mark-search"><input id="schemeMarkSearch" type="search" autocomplete="off" placeholder="Поиск по марке или наименованию…"><span id="schemeMarkCount"></span></div><select name="mark_id" ${activeMarks().length?"required":"disabled"}>${markOptions("")}</select></label>
+    <label class="wide scheme-editor-grid-field">Сетка размещения<select name="scheme_target" id="schemeEditorGridSelect" data-native-select="1">${schemeGroups().map(g=>`<option value="${esc(g.key)}">${esc(g.label)}</option>`).join("")}</select><small>По умолчанию — текущая сетка. На Общей схеме видны все размещённые конструкции.</small></label>
+    <label class="wide scheme-mark-field">Марка из ведомости<div class="scheme-mark-search"><input id="schemeMarkSearch" type="search" autocomplete="off" placeholder="Поиск по марке или наименованию…"><span id="schemeMarkCount"></span></div><select name="mark_id" required>${markOptions("")}</select><div id="schemeMarkPlacementInfo" class="scheme-mark-placement-info" aria-live="polite"></div></label>
     <label>Статус монтажа<select name="status"><option value="planned">Не смонтирована</option><option value="partial">Частично</option><option value="mounted">Смонтирована</option></select></label><div class="scheme-editor-mount-info wide" id="schemeEditorMountInfo"></div>
     <label>Геометрия элемента<select name="geometry_type" id="schemeGeometryType">${geometryOptions("column")}</select></label>
     <label>Тип сечения<select name="section_type">${sectionOptions("ibeam")}</select></label>
@@ -1630,14 +1664,39 @@ window.irSchemePage=async function(objectId){
    c={...c,id:"",axisX:ax,axisY:ay,dx:x-num(axisXPos.get(ax)),dy:y-num(axisYPos.get(ay)),x,y,x2,y2,status:"planned",position:"",title:""}
   }
   f.reset();err.hidden=true;document.getElementById("schemeEditorTitle").textContent=copy?"Копировать элемент — новое положение":c?"Редактировать элемент":"Добавить элемент";f.elements.id.value=copy?"":c?.id||"";
-  const currentMark=resolveSavedMarkId(c),unresolvedExisting=!!c&&!currentMark,search=document.getElementById("schemeMarkSearch"),count=document.getElementById("schemeMarkCount");let chosenMark=currentMark;
-  f.elements.mark_id.innerHTML=markOptions(chosenMark,"",unresolvedExisting);if(chosenMark)f.elements.mark_id.value=chosenMark;
-  f.elements.mark_id.onchange=()=>{const value=String(f.elements.mark_id.value||"");if(value){chosenMark=value;if(!c){const m=activeMarks().find(x=>x.id===value),same=allRecords().find(x=>String(x.mark_id||"")===value);f.elements.section_type.value=sectionType(same||{});f.elements.profile_name.value=same?.profile_name||"";f.elements.geometry_type.value=m?guessGeometry(m):"column";updateGeometry(true)}refreshEditorProgress()}};
-  const applyMarkSearch=()=>{const q=search?.value||"",matched=searchMarks(q);f.elements.mark_id.innerHTML=markOptions(chosenMark,q,unresolvedExisting&&!chosenMark);if(!q&&chosenMark&&[...f.elements.mark_id.options].some(o=>o.value===chosenMark))f.elements.mark_id.value=chosenMark;count.textContent=q?`Найдено: ${matched.length}`:`Марок: ${activeMarks().length}`;f.elements.mark_id._irSelectUI?.refresh?.()};
-  if(search){search.value="";search.oninput=applyMarkSearch}applyMarkSearch();
+  const sourceView=c?.scheme_view_id&&!copy?customViews().find(x=>String(x.id)===String(c.scheme_view_id)):null;
+  let gridChoice=sourceView?"view:"+sourceView.id:activeScheme,editorGrid=gridForEditor(gridChoice),editorMarks=marksForGrid(gridChoice);
+  f.elements.scheme_target.value=gridChoice;
+  let chosenMark=resolveSavedMarkId(c),currentMark=chosenMark;
+  const editingId=String(f.elements.id.value||""),unresolvedExisting=!!editingId&&!currentMark,
+   search=document.getElementById("schemeMarkSearch"),count=document.getElementById("schemeMarkCount"),
+   selection=f.elements.mark_id,availability=document.getElementById("schemeMarkPlacementInfo");
+  if(!editorMarks.some(m=>m.id===chosenMark&&markAvailable(m,editingId)))chosenMark=editorMarks.find(m=>markAvailable(m,editingId))?.id||"";
+  const renderMarkOptions=()=>{
+   const q=search?.value||"",matched=searchMarks(q,editorMarks),valid=matched.some(m=>m.id===chosenMark&&markAvailable(m,editingId));
+   if(!valid)chosenMark="";
+   selection.innerHTML=markOptions(chosenMark,q,unresolvedExisting&&!chosenMark,editorMarks,editingId);
+   selection.value=chosenMark;
+   count.textContent=q?`Найдено: ${matched.length} · Доступно: ${matched.filter(m=>markAvailable(m,editingId)).length}`:`Марок: ${editorMarks.length} · Доступно: ${editorMarks.filter(m=>markAvailable(m,editingId)).length}`;
+   selection._irSelectUI?.refresh?.();refreshEditorProgress()
+  };
+  selection.onchange=()=>{
+   const value=String(selection.value||"");
+   if(value&&!editorMarks.some(m=>m.id===value&&markAvailable(m,editingId))){selection.value="";chosenMark="";renderMarkOptions();return}
+   chosenMark=value;
+   if(value&&!editingId){const m=editorMarks.find(x=>x.id===value),same=allRecords().find(x=>String(x.mark_id||"")===value);f.elements.section_type.value=sectionType(same||{});f.elements.profile_name.value=same?.profile_name||"";f.elements.geometry_type.value=m?guessGeometry(m):"column";updateGeometry(true)}
+   refreshEditorProgress()
+  };
+  if(search){search.value="";search.oninput=renderMarkOptions}
   f.elements.status.value=c?.status||"planned";
   function refreshEditorProgress(){
-   const m=activeMarks().find(x=>x.id===String(f.elements.mark_id.value||"")),progress=markProgress(m),info=document.getElementById("schemeEditorMountInfo");
+   const m=editorMarks.find(x=>x.id===String(selection.value||"")),progress=markProgress(m),info=document.getElementById("schemeEditorMountInfo");
+   const q=markPlacement(m),remaining=m?markAvailable(m,editingId):false;
+   availability.classList.toggle("exhausted",!remaining);
+   selection.classList.toggle("exhausted",!remaining);
+   const field=selection.closest(".scheme-mark-field");field?.classList.toggle("exhausted",!remaining);
+   availability.textContent=m?`По ведомости: ${q.total} шт. · На схеме: ${q.placed} шт. · Осталось разместить: ${q.left} шт.${remaining?"":" · НЕТ ОСТАТКА"}`:"Выберите марку, доступную для размещения. Красные марки уже полностью размещены.";
+
    f.elements.status.disabled=!!progress&&progress.total>0;
    if(progress?.total>0){
     f.elements.status.value=progress.state;
@@ -1648,16 +1707,48 @@ window.irSchemePage=async function(objectId){
    }
   }
   refreshEditorProgress();
-  const sameMark=allRecords().find(x=>String(x.mark_id||"")===currentMark&&(!c||x.id!==c.id)),shapeSource=c||sameMark||{},chosen=activeMarks().find(x=>x.id===currentMark);
+  const sameMark=allRecords().find(x=>String(x.mark_id||"")===currentMark&&(!c||x.id!==c.id)),shapeSource=c||sameMark||{},chosen=editorMarks.find(x=>x.id===chosenMark);
   f.elements.section_type.value=sectionType(shapeSource);f.elements.profile_name.value=shapeSource.profile_name||"";
-  f.elements.axis_x.value=c?.axisX||axesX[0]||"";f.elements.axis_y.value=c?.axisY||axesY[0]||"";
+  f.elements.axis_x.value=c?.axisX||editorGrid.axesX[0]||"";f.elements.axis_y.value=c?.axisY||editorGrid.axesY[0]||"";
   f.elements.offset_x_mm.value=c?.dx??0;f.elements.offset_y_mm.value=c?.dy??0;
   f.elements.z0_mm.value=c?.z0??c?.z0_mm??0;f.elements.z1_mm.value=c?.z2??c?.z1_mm??8400;f.elements.rotation_deg.value=c?.rotation_deg??0;
   f.elements.geometry_type.value=c?.geometryType||c?.geometry_type||(chosen?guessGeometry(chosen):"column");
-  const nextX=axesX[Math.min(axesX.length-1,Math.max(0,axesX.indexOf(f.elements.axis_x.value)+1))]||axesX[0];
-  const bx=c?closestAxis(c.x2,axesX,axisXPos):nextX,by=c?closestAxis(c.y2,axesY,axisYPos):f.elements.axis_y.value;
-  f.elements.end_axis_x.value=bx;f.elements.end_axis_y.value=by;
-  f.elements.end_offset_x_mm.value=c?c.x2-num(axisXPos.get(bx)):0;f.elements.end_offset_y_mm.value=c?c.y2-num(axisYPos.get(by)):0;
+  const assignAxes=(reset=false)=>{
+   editorGrid=gridForEditor(gridChoice);
+   const prevX=reset?editorGrid.axesX[0]:f.elements.axis_x.value,
+    prevY=reset?editorGrid.axesY[0]:f.elements.axis_y.value;
+   f.elements.axis_x.innerHTML=axisOptions(editorGrid.axesX,prevX);
+   f.elements.axis_y.innerHTML=axisOptions(editorGrid.axesY,prevY);
+   f.elements.end_axis_x.innerHTML=axisOptions(editorGrid.axesX,editorGrid.axesX[1]||editorGrid.axesX[0]);
+   f.elements.end_axis_y.innerHTML=axisOptions(editorGrid.axesY,editorGrid.axesY[0]);
+   if(!reset&&c){
+    const firstX=editorGrid.axesX.includes(String(c.axisX))?c.axisX:closestAxis(c.x,editorGrid.axesX,editorGrid.xPos);
+    const firstY=editorGrid.axesY.includes(String(c.axisY))?c.axisY:closestAxis(c.y,editorGrid.axesY,editorGrid.yPos);
+    f.elements.axis_x.value=firstX;f.elements.axis_y.value=firstY;
+    const eX=closestAxis(c.x2,editorGrid.axesX,editorGrid.xPos),eY=closestAxis(c.y2,editorGrid.axesY,editorGrid.yPos);
+    f.elements.end_axis_x.value=eX;f.elements.end_axis_y.value=eY;
+    f.elements.offset_x_mm.value=c.x-num(editorGrid.xPos.get(firstX));
+    f.elements.offset_y_mm.value=c.y-num(editorGrid.yPos.get(firstY));
+    f.elements.end_offset_x_mm.value=c.x2-num(editorGrid.xPos.get(eX));
+    f.elements.end_offset_y_mm.value=c.y2-num(editorGrid.yPos.get(eY));
+   }else{
+    f.elements.offset_x_mm.value=0;f.elements.offset_y_mm.value=0;
+    f.elements.end_offset_x_mm.value=0;f.elements.end_offset_y_mm.value=0
+   }
+   const heads=f.querySelectorAll(".scheme-form-axis>b");
+   if(heads[0])heads[0].textContent="Направление "+editorGrid.axesX[0]+"–"+editorGrid.axesX.at(-1);
+   if(heads[1])heads[1].textContent="Направление "+editorGrid.axesY[0]+"–"+editorGrid.axesY.at(-1);
+   f.elements.axis_x._irSelectUI?.refresh?.();f.elements.axis_y._irSelectUI?.refresh?.();
+   f.elements.end_axis_x._irSelectUI?.refresh?.();f.elements.end_axis_y._irSelectUI?.refresh?.()
+  };
+  assignAxes(false);
+  f.elements.scheme_target.onchange=()=>{
+   gridChoice=f.elements.scheme_target.value;
+   editorGrid=gridForEditor(gridChoice);editorMarks=marksForGrid(gridChoice);
+   chosenMark=editorMarks.some(m=>m.id===chosenMark&&markAvailable(m,editingId))?chosenMark:editorMarks.find(m=>markAvailable(m,editingId))?.id||"";
+   assignAxes(true);renderMarkOptions();refreshPreview()
+  };
+  renderMarkOptions();
   function updateGeometry(defaultHeights=false){
    const kind=f.elements.geometry_type.value,member=kind!=="column",end=document.getElementById("schemeMemberEnd");
    if(end)end.hidden=!member;
@@ -1666,7 +1757,7 @@ window.irSchemePage=async function(objectId){
    refreshPreview()
   }
   const refreshPreview=()=>{
-   const ax=f.elements.axis_x.value,ay=f.elements.axis_y.value,x=num(axisXPos.get(ax))+num(f.elements.offset_x_mm.value),y=num(axisYPos.get(ay))+num(f.elements.offset_y_mm.value),member=f.elements.geometry_type.value!=="column",endX=num(axisXPos.get(f.elements.end_axis_x.value))+num(f.elements.end_offset_x_mm.value),endY=num(axisYPos.get(f.elements.end_axis_y.value))+num(f.elements.end_offset_y_mm.value);
+   const ax=f.elements.axis_x.value,ay=f.elements.axis_y.value,x=num(editorGrid.xPos.get(ax))+num(f.elements.offset_x_mm.value),y=num(editorGrid.yPos.get(ay))+num(f.elements.offset_y_mm.value),member=f.elements.geometry_type.value!=="column",endX=num(editorGrid.xPos.get(f.elements.end_axis_x.value))+num(f.elements.end_offset_x_mm.value),endY=num(editorGrid.yPos.get(f.elements.end_axis_y.value))+num(f.elements.end_offset_y_mm.value);
    document.getElementById("schemeCoordPreview").innerHTML=`<span>Точные координаты</span><b>Начало X = ${fmt(x)} мм · Y = ${fmt(y)} мм</b><small>${member?`Конец X = ${fmt(endX)} мм · Y = ${fmt(endY)} мм`:"Колонна расположена вертикально"}</small>`;
   };
   f.elements.geometry_type.onchange=()=>updateGeometry(false);updateGeometry(!c&&f.elements.geometry_type.value!=="column");
@@ -1677,21 +1768,26 @@ window.irSchemePage=async function(objectId){
   document.getElementById("schemeAdd")?.addEventListener("click",()=>openEditor());document.getElementById("schemeEditorX").onclick=()=>d.close();document.getElementById("schemeEditorCancel").onclick=()=>d.close();
   f.onsubmit=async e=>{
    e.preventDefault();err.hidden=true;
-   if(!activeMarks().length){err.textContent="Для этой схемы нет подходящих марок.";err.hidden=false;return}
-   const fd=new FormData(f),id=String(fd.get("id")||""),m=activeMarks().find(x=>x.id===String(fd.get("mark_id")||""));
-   if(!m){err.textContent="Выберите марку.";err.hidden=false;return}
-   const axisX=String(fd.get("axis_x")||axesX[0]),axisY=String(fd.get("axis_y")||axesY[0]),dx=num(fd.get("offset_x_mm")),dy=num(fd.get("offset_y_mm")),x=num(axisXPos.get(axisX))+dx,y=num(axisYPos.get(axisY))+dy;
+   const fd=new FormData(f),id=String(fd.get("id")||"");
+   const choice=String(fd.get("scheme_target")||"all"),allowed=schemeGroups().some(g=>g.key===choice);
+   if(!allowed){err.textContent="Выбранная сетка больше не существует.";err.hidden=false;return}
+   const targetGrid=gridForEditor(choice),pool=marksForGrid(choice);
+   if(!pool.length){err.textContent="Для выбранной сетки нет подходящих марок.";err.hidden=false;return}
+   const m=pool.find(x=>x.id===String(fd.get("mark_id")||""));
+   if(!m){err.textContent="Выберите доступную марку из ведомости.";err.hidden=false;return}
+   if(!markAvailable(m,id)){const quota=markPlacement(m);err.textContent="Марка "+(m.mark||m.title)+" полностью размещена: "+quota.placed+" из "+quota.total+" шт. Добавление невозможно.";err.hidden=false;return}
+   const axisX=String(fd.get("axis_x")||targetGrid.axesX[0]),axisY=String(fd.get("axis_y")||targetGrid.axesY[0]),dx=num(fd.get("offset_x_mm")),dy=num(fd.get("offset_y_mm")),x=num(targetGrid.xPos.get(axisX))+dx,y=num(targetGrid.yPos.get(axisY))+dy;
    const kind=String(fd.get("geometry_type")||"column"),z0=num(fd.get("z0_mm")),z1=num(fd.get("z1_mm"));
-   const endX=String(fd.get("end_axis_x")||axesX[0]),endY=String(fd.get("end_axis_y")||axesY[0]),endDx=num(fd.get("end_offset_x_mm")),endDy=num(fd.get("end_offset_y_mm")),x2=num(axisXPos.get(endX))+endDx,y2=num(axisYPos.get(endY))+endDy;
-   if(!axesX.includes(axisX)||!axesY.includes(axisY)||kind!=="column"&&(!axesX.includes(endX)||!axesY.includes(endY))){err.textContent="Выберите существующие оси.";err.hidden=false;return}
+   const endX=String(fd.get("end_axis_x")||targetGrid.axesX[0]),endY=String(fd.get("end_axis_y")||targetGrid.axesY[0]),endDx=num(fd.get("end_offset_x_mm")),endDy=num(fd.get("end_offset_y_mm")),x2=num(targetGrid.xPos.get(endX))+endDx,y2=num(targetGrid.yPos.get(endY))+endDy;
+   if(!targetGrid.axesX.includes(axisX)||!targetGrid.axesY.includes(axisY)||kind!=="column"&&(!targetGrid.axesX.includes(endX)||!targetGrid.axesY.includes(endY))){err.textContent="Выберите существующие оси выбранной сетки.";err.hidden=false;return}
    if(kind==="column"&&z1<=z0){err.textContent="У колонны верх должен быть выше низа.";err.hidden=false;return}
    if(kind!=="column"&&Math.hypot(x2-x,y2-y,z1-z0)<1){err.textContent="Конечная точка должна отличаться от начальной.";err.hidden=false;return}
    const storedRow=id?records().find(x=>String(x.id)===id):null,status=String(fd.get("status")||storedRow?.status||"planned"),section_type=String(fd.get("section_type")||"ibeam"),profile_name=String(fd.get("profile_name")||"").trim(),rot=num(fd.get("rotation_deg"));
    const existing=id?records().find(r=>r.id===id):null,used=new Set(allRecords().map(r=>String(r.position||r.title||"")));
    let internalPosition=String(existing?.position||existing?.title||"");
    if(!internalPosition){let n=1;do{internalPosition="COL-"+String(n++).padStart(4,"0")}while(used.has(internalPosition))}
-   const g=markGroup(m),oldRow=id?arr(rows).find(r=>String(r.id)===id):null,previous=oldRow?.data||{},view=activeView();
-   const payload={record_type:"scheme_column",title:internalPosition,data:{...previous,entity_type:"column",position:internalPosition,mark_id:m.id,mark:m.mark||m.title||"",mark_name:m.name||"",work_type_id:m.work_type_id||"",axis_x:axisX,axis_y:axisY,offset_x_mm:dx,offset_y_mm:dy,absolute_x_mm:x,absolute_y_mm:y,geometry_type:kind,absolute_x2_mm:kind==="column"?undefined:x2,absolute_y2_mm:kind==="column"?undefined:y2,end_z_mm:kind==="column"?undefined:z1,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name,scheme_group:g.key,scheme_group_label:g.label,scheme_view_id:view?.id||previous.scheme_view_id||""}};
+   const g=markGroup(m),oldRow=id?arr(rows).find(r=>String(r.id)===id):null,previous=oldRow?.data||{},view=targetGrid.view;
+   const payload={record_type:"scheme_column",title:internalPosition,data:{...previous,entity_type:"column",position:internalPosition,mark_id:m.id,mark:m.mark||m.title||"",mark_name:m.name||"",work_type_id:m.work_type_id||"",axis_x:axisX,axis_y:axisY,offset_x_mm:dx,offset_y_mm:dy,absolute_x_mm:x,absolute_y_mm:y,geometry_type:kind,absolute_x2_mm:kind==="column"?undefined:x2,absolute_y2_mm:kind==="column"?undefined:y2,end_z_mm:kind==="column"?undefined:z1,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name,scheme_group:g.key,scheme_group_label:g.label,scheme_view_id:view?.id||""}};
    try{const saved=id?await schemeApi.update(id,payload):await schemeApi.create(payload);rows=await schemeApi.list();selectedId=String(saved?.id||id||"");d.close();draw()}catch(error){err.textContent="Не удалось сохранить элемент: "+String(error?.message||error);err.hidden=false}
   }
  }
@@ -1901,7 +1997,6 @@ window.irSchemePage=async function(objectId){
 };
 ;
 
-;
 /* #31: src/additional-works-page.js */
 "use strict";
 window.irAdditionalWorksPage=async function(objectId,route={}){
@@ -3360,7 +3455,7 @@ window.irSelectUI=(()=>{
  };
  const renderMenu=api=>{
   const select=api.select;
-  api.menu.innerHTML=[...select.options].map((o,i)=>`<button type="button" data-index="${i}" class="${o.selected?"selected":""}" ${o.disabled?"disabled":""}><span>${optionText(o)}</span>${o.selected?'<i>✓</i>':""}</button>`).join("");
+  api.menu.innerHTML=[...select.options].map((o,i)=>`<button type="button" data-index="${i}" class="${o.selected?"selected":""}${o.dataset.exhausted==="1"?" exhausted":""}" ${o.disabled?"disabled":""}><span>${optionText(o)}</span>${o.selected?'<i>✓</i>':""}</button>`).join("");
  };
  const refresh=api=>{
   const s=api.select,o=s.options[s.selectedIndex];
