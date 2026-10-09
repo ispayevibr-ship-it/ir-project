@@ -205,12 +205,32 @@
  const updateDialog=document.getElementById("tabsUpdateDialog"),
   updateTitle=document.getElementById("tabsUpdateTitle"),
   updateText=document.getElementById("tabsUpdateText"),
+  updateSize=document.getElementById("tabsUpdateSize"),
+  updateTransfer=document.getElementById("tabsUpdateTransfer"),
   updateProgress=document.getElementById("tabsUpdateProgress"),
   updateBar=document.getElementById("tabsUpdateProgressBar"),
   updatePercent=document.getElementById("tabsUpdateProgressLabel"),
   updateActions=document.getElementById("tabsUpdateActions"),
   updateClose=document.getElementById("tabsUpdateClose");
- let updateBusy=false;
+ let updateBusy=false,updateTotalBytes=0,updateTransferredBytes=0,updateLatestVersion="";
+ const bytesText=raw=>{
+  const count=Number(raw);
+  if(!Number.isFinite(count)||count<0)return "—";
+  if(count===0)return "0 Б";
+  if(count<1024)return Math.round(count).toLocaleString("ru-RU")+" Б";
+  const unit=count>=1048576?"МБ":"КБ",denom=count>=1048576?1048576:1024;
+  return (count/denom).toLocaleString("ru-RU",{maximumFractionDigits:2,minimumFractionDigits:count>=denom?1:0})+" "+unit
+ };
+ function showUpdateSize(){
+  updateSize.hidden=!(updateTotalBytes>0);
+  if(!updateSize.hidden)updateSize.textContent="Размер обновления: "+bytesText(updateTotalBytes)
+ }
+ function showTransfer(){
+  updateTransfer.hidden=false;
+  updateTransfer.textContent=updateTotalBytes>0?
+   "Скачано: "+bytesText(updateTransferredBytes)+" из "+bytesText(updateTotalBytes)+" · Осталось: "+bytesText(Math.max(0,updateTotalBytes-updateTransferredBytes)):
+   "Скачано: "+bytesText(updateTransferredBytes)+" · Общий размер уточняется"
+ }
  const setUpdate=(title,message)=>{updateTitle.textContent=title;updateText.textContent=message};
  function showUpdateDialog(){
   if(!updateDialog.open)updateDialog.showModal();
