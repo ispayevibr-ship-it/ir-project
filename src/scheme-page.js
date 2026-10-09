@@ -60,7 +60,8 @@ window.irSchemePage=async function(objectId){
   }catch(e){
    syncNotice={ok:false,text:"Не удалось обновить ведомость: "+String(e?.message||e)}
   }finally{
-   updatingMarkProgress=false;draw()
+   updatingMarkProgress=false;draw();
+   const ready=document.getElementById("schemeRefreshMarkProgress");if(ready){ready.disabled=false;ready.textContent="↻ Обновить по ведомости"}
   }
  }
  const markProgress=m=>{
