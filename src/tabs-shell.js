@@ -105,7 +105,7 @@
   const id=savedId||newId(),path=cleanRoute(route);
   if(frames.has(id))return id;
   const frame=document.createElement("iframe");
-  frame.className="tabs-pane";frame.title=routeLabel(path);frame.referrerPolicy="same-origin";
+  frame.className="tabs-pane";frame.title=routeLabel(path);frame.name="ir-tab-"+id;frame.referrerPolicy="same-origin";
   frame.setAttribute("aria-hidden","true");
   const tab={id,frame,route:path,title:routeLabel(path),dirty:false};
   frames.set(id,tab);order.push(id);
