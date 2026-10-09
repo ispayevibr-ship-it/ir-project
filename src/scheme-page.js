@@ -297,9 +297,9 @@ window.irSchemePage=async function(objectId){
  }
  function renderDetails(){
   const panel=document.getElementById("schemeDetails");if(!panel)return;const c=selected();
-  if(!c){panel.innerHTML=`<div class="scheme-detail-empty"><b>Элемент не выбран</b><span>Нажмите на элемент на схеме или добавьте новый.</span>${canEdit()?'<button type="button" data-scheme-add>＋ Добавить элемент</button>':""}</div>`;panel.querySelector("[data-scheme-add]")?.addEventListener("click",()=>openEditor());return}
+  if(!c){panel.innerHTML=pickerHtml()+`<div class="scheme-detail-empty"><b>Элемент не выбран</b><span>Нажмите на элемент на схеме или добавьте новый.</span>${canEdit()?'<button type="button" data-scheme-add>＋ Добавить элемент</button>':""}</div>`;panel.querySelector("[data-scheme-add]")?.addEventListener("click",()=>openEditor());bindElementPicker(panel);return}
   const a=axisText(c),between=c.dx||c.dy;
-  panel.innerHTML=`${c.import_requires_verification?`<div class="scheme-import-review-warning">Черновое размещение по КМД · координаты и отметки требуют проверки${c.source_import_doc?" · "+esc(c.source_import_doc):""}</div>`:""}<div class="scheme-detail-title"><span>Выбранный элемент</span><b>${esc(c.mark||"—")}</b>${c.mark_name?`<small>${esc(c.mark_name)}</small>`:""}</div>
+  panel.innerHTML=pickerHtml()+`${c.import_requires_verification?`<div class="scheme-import-review-warning">Черновое размещение по КМД · координаты и отметки требуют проверки${c.source_import_doc?" · "+esc(c.source_import_doc):""}</div>`:""}<div class="scheme-detail-title"><span>Выбранный элемент</span><b>${esc(c.mark||"—")}</b>${c.mark_name?`<small>${esc(c.mark_name)}</small>`:""}</div>
    <div class="scheme-detail-grid">
     <div><span>Наименование</span><b>${esc(c.mark_name||"—")}</b></div>
     <div><span>Тип элемента</span><b>${esc(geometryLabel(c.geometryType))}</b></div><div><span>Сечение</span><b>${esc(sectionTypeLabel(sectionType(c)))}</b></div>
@@ -313,9 +313,10 @@ window.irSchemePage=async function(objectId){
     <div><span>Верх / конец Z</span><b>${fmt(c.z2)} мм</b></div>${c.geometryType!=="column"?`<div><span>Конец X</span><b>${fmt(c.x2)} мм</b></div><div><span>Конец Y</span><b>${fmt(c.y2)} мм</b></div>`:""}
    </div>
    ${between?`<div class="scheme-between"><b>Элемент между осями</b><span>${esc(a.x)} / ${esc(a.y)}</span><small>Положение вычисляется от выбранных базовых осей и сохраняется точно в миллиметрах.</small></div>`:""}
-   ${canEdit()?`<div class="scheme-detail-actions"><button type="button" data-scheme-edit>Редактировать</button><button type="button" class="danger" data-scheme-delete>Удалить</button></div>`:""}`;
+   ${canEdit()?`<div class="scheme-detail-actions"><button type="button" data-scheme-edit>Редактировать</button><button type="button" data-scheme-copy>⧉ Копировать</button><button type="button" class="danger" data-scheme-delete>Удалить</button></div>`:""}`;
   panel.querySelector("[data-scheme-edit]")?.addEventListener("click",()=>openEditor(c));
-  panel.querySelector("[data-scheme-delete]")?.addEventListener("click",async()=>{if(!confirm(`Удалить элемент ${c.mark?`«${c.mark}» `:""}со схемы?`))return;await schemeApi.remove(c.id);rows=await schemeApi.list().catch(()=>rows);selectedId="";draw()})
+  panel.querySelector("[data-scheme-copy]")?.addEventListener("click",()=>openEditor(c,true));
+  panel.querySelector("[data-scheme-delete]")?.addEventListener("click",async()=>{if(!confirm(`Удалить элемент ${c.mark?`«${c.mark}» `:""}со схемы?`))return;await schemeApi.remove(c.id);rows=await schemeApi.list().catch(()=>rows);selectedId="";draw()});bindElementPicker(panel)
  }
  let gridDraft=null;
  const yAlphabet=["А","Б","В","Г","Д","Е","Ж","З","И","К","Л","М","Н","П","Р","С","Т","У","Ф","Х","Ц","Ч","Ш","Щ","Э","Ю","Я"];
@@ -408,9 +409,13 @@ window.irSchemePage=async function(objectId){
    <div class="actions"><button type="button" id="schemeEditorCancel">Отмена</button><button type="submit" class="primary">Сохранить элемент</button></div>
   </form></dialog>`
  }
- function openEditor(c=null){
+ function openEditor(c=null,copy=false){
   const d=document.getElementById("schemeEditor"),f=document.getElementById("schemeForm"),err=document.getElementById("schemeFormError");if(!d||!f)return;
-  f.reset();err.hidden=true;document.getElementById("schemeEditorTitle").textContent=c?"Редактировать элемент":"Добавить элемент";f.elements.id.value=c?.id||"";
+  if(c&&copy){
+   const [shiftX,shiftY]=cloneOffset(c),x=c.x+shiftX,y=c.y+shiftY,x2=c.x2+shiftX,y2=c.y2+shiftY,ax=closestAxis(x,axesX,axisXPos),ay=closestAxis(y,axesY,axisYPos);
+   c={...c,id:"",axisX:ax,axisY:ay,dx:x-num(axisXPos.get(ax)),dy:y-num(axisYPos.get(ay)),x,y,x2,y2,status:"planned",position:"",title:""}
+  }
+  f.reset();err.hidden=true;document.getElementById("schemeEditorTitle").textContent=copy?"Копировать элемент — новое положение":c?"Редактировать элемент":"Добавить элемент";f.elements.id.value=copy?"":c?.id||"";
   const currentMark=resolveSavedMarkId(c),unresolvedExisting=!!c&&!currentMark,search=document.getElementById("schemeMarkSearch"),count=document.getElementById("schemeMarkCount");let chosenMark=currentMark;
   f.elements.mark_id.innerHTML=markOptions(chosenMark,"",unresolvedExisting);if(chosenMark)f.elements.mark_id.value=chosenMark;
   f.elements.mark_id.onchange=()=>{const value=String(f.elements.mark_id.value||"");if(value){chosenMark=value;if(!c){const m=activeMarks().find(x=>x.id===value),same=allRecords().find(x=>String(x.mark_id||"")===value);f.elements.section_type.value=sectionType(same||{});f.elements.profile_name.value=same?.profile_name||"";f.elements.geometry_type.value=m?guessGeometry(m):"column";updateGeometry(true)}}};
@@ -600,7 +605,7 @@ window.irSchemePage=async function(objectId){
    <div class="scheme-hint"><b>Сетка:</b><span><strong>${esc(axesX[0])} → ${esc(axesX.at(-1))}</strong> — ${gridDirX==="ltr"?"слева направо":"справа налево"}, <strong>${esc(axesY[0])} → ${esc(axesY.at(-1))}</strong> — ${gridDirY==="btt"?"снизу вверх":"сверху вниз"}. Направление можно изменить в «Параметрах сетки».</span></div>
    ${canEdit()?gridEditorHtml()+editorHtml()+viewDialogHtml()+importDialogHtml():""}
   </div>`;
-  document.getElementById("schemeBack").onclick=()=>location.hash=`/objects/object/${oid}`;document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{mode=b.dataset.mode;draw()});document.getElementById("schemeWorkSelect")?.addEventListener("change",e=>{activeWorkId=e.target.value;activeScheme="all";selectedId="";hiddenGroups.clear();statusFilter="all";levelMin="";levelMax="";panX=0;panY=0;refreshGridModel();draw()});document.getElementById("schemeTypeSelect")?.addEventListener("change",e=>{activeScheme=e.target.value;selectedId="";panX=0;panY=0;refreshGridModel();draw()});
+  document.getElementById("schemeBack").onclick=()=>location.hash=`/objects/object/${oid}`;document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{mode=b.dataset.mode;draw()});document.getElementById("schemeWorkSelect")?.addEventListener("change",e=>{activeWorkId=e.target.value;activeScheme="all";selectedId="";elementSearch="";hiddenGroups.clear();statusFilter="all";levelMin="";levelMax="";panX=0;panY=0;refreshGridModel();draw()});document.getElementById("schemeTypeSelect")?.addEventListener("change",e=>{activeScheme=e.target.value;selectedId="";elementSearch="";panX=0;panY=0;refreshGridModel();draw()});
   document.querySelector(".scheme-layers")?.addEventListener("toggle",e=>{layersPanelOpen=e.target.open});
   document.querySelectorAll("[data-scheme-layer]").forEach(btn=>btn.addEventListener("click",()=>{layersPanelOpen=true;const key=btn.dataset.schemeLayer;if(hiddenGroups.has(key))hiddenGroups.delete(key);else hiddenGroups.add(key);draw()}));
   document.getElementById("schemeLayersShowAll")?.addEventListener("click",()=>{layersPanelOpen=true;hiddenGroups.clear();draw()});
