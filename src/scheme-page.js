@@ -537,13 +537,12 @@ window.irSchemePage=async function(objectId){
  }
  function openEditor(c=null,copy=false){
   const d=document.getElementById("schemeEditor"),f=document.getElementById("schemeForm"),err=document.getElementById("schemeFormError");if(!d||!f)return;
-  if(c&&copy){
-   const [shiftX,shiftY]=cloneOffset(c),x=c.x+shiftX,y=c.y+shiftY,x2=c.x2+shiftX,y2=c.y2+shiftY,ax=closestAxis(x,axesX,axisXPos),ay=closestAxis(y,axesY,axisYPos);
-   c={...c,id:"",axisX:ax,axisY:ay,dx:x-num(axisXPos.get(ax)),dy:y-num(axisYPos.get(ay)),x,y,x2,y2,status:"planned",position:"",title:""}
-  }
+  // A copy starts with unchanged coordinates; its placement can be adjusted manually.
+  if(c&&copy)c={...c,id:"",status:"planned",position:"",title:""};
   f.reset();err.hidden=true;document.getElementById("schemeEditorTitle").textContent=copy?"Копировать элемент — новое положение":c?"Редактировать элемент":"Добавить элемент";f.elements.id.value=copy?"":c?.id||"";
-  const sourceView=c?.scheme_view_id&&!copy?customViews().find(x=>String(x.id)===String(c.scheme_view_id)):null;
-  let gridChoice=sourceView?"view:"+sourceView.id:activeScheme,editorGrid=gridForEditor(gridChoice),editorMarks=marksForGrid(gridChoice);
+  // Reopen the actual stored grid for edits and copies, including the shared grid.
+  const sourceView=c?.scheme_view_id&&c.scheme_view_id!=="all"?customViews().find(x=>String(x.id)===String(c.scheme_view_id)):null;
+  let gridChoice=c?.scheme_view_id==="all"?"all":sourceView?"view:"+sourceView.id:activeScheme,editorGrid=gridForEditor(gridChoice),editorMarks=marksForGrid(gridChoice);
   f.elements.scheme_target.value=gridChoice;
   let chosenMark=resolveSavedMarkId(c),currentMark=chosenMark;
   const editingId=String(f.elements.id.value||""),unresolvedExisting=!!editingId&&!currentMark,
@@ -600,15 +599,17 @@ window.irSchemePage=async function(objectId){
    f.elements.end_axis_x.innerHTML=axisOptions(editorGrid.axesX,editorGrid.axesX[1]||editorGrid.axesX[0]);
    f.elements.end_axis_y.innerHTML=axisOptions(editorGrid.axesY,editorGrid.axesY[0]);
    if(!reset&&c){
-    const firstX=editorGrid.axesX.includes(String(c.axisX))?c.axisX:closestAxis(c.x,editorGrid.axesX,editorGrid.xPos);
-    const firstY=editorGrid.axesY.includes(String(c.axisY))?c.axisY:closestAxis(c.y,editorGrid.axesY,editorGrid.yPos);
+    // Prefer the saved axes and offsets. Nearest-axis matching is only for legacy records.
+    const firstX=editorGrid.axesX.includes(String(c.axis_x||""))?String(c.axis_x):editorGrid.axesX.includes(String(c.axisX||""))?String(c.axisX):closestAxis(c.x,editorGrid.axesX,editorGrid.xPos);
+    const firstY=editorGrid.axesY.includes(String(c.axis_y||""))?String(c.axis_y):editorGrid.axesY.includes(String(c.axisY||""))?String(c.axisY):closestAxis(c.y,editorGrid.axesY,editorGrid.yPos);
     f.elements.axis_x.value=firstX;f.elements.axis_y.value=firstY;
-    const eX=closestAxis(c.x2,editorGrid.axesX,editorGrid.xPos),eY=closestAxis(c.y2,editorGrid.axesY,editorGrid.yPos);
+    const eX=editorGrid.axesX.includes(String(c.end_axis_x||""))?String(c.end_axis_x):closestAxis(c.x2,editorGrid.axesX,editorGrid.xPos);
+    const eY=editorGrid.axesY.includes(String(c.end_axis_y||""))?String(c.end_axis_y):closestAxis(c.y2,editorGrid.axesY,editorGrid.yPos);
     f.elements.end_axis_x.value=eX;f.elements.end_axis_y.value=eY;
-    f.elements.offset_x_mm.value=c.x-num(editorGrid.xPos.get(firstX));
-    f.elements.offset_y_mm.value=c.y-num(editorGrid.yPos.get(firstY));
-    f.elements.end_offset_x_mm.value=c.x2-num(editorGrid.xPos.get(eX));
-    f.elements.end_offset_y_mm.value=c.y2-num(editorGrid.yPos.get(eY));
+    f.elements.offset_x_mm.value=c.offset_x_mm!==undefined?c.offset_x_mm:c.x-num(editorGrid.xPos.get(firstX));
+    f.elements.offset_y_mm.value=c.offset_y_mm!==undefined?c.offset_y_mm:c.y-num(editorGrid.yPos.get(firstY));
+    f.elements.end_offset_x_mm.value=c.end_offset_x_mm!==undefined?c.end_offset_x_mm:c.x2-num(editorGrid.xPos.get(eX));
+    f.elements.end_offset_y_mm.value=c.end_offset_y_mm!==undefined?c.end_offset_y_mm:c.y2-num(editorGrid.yPos.get(eY));
    }else{
     f.elements.offset_x_mm.value=0;f.elements.offset_y_mm.value=0;
     f.elements.end_offset_x_mm.value=0;f.elements.end_offset_y_mm.value=0
@@ -666,7 +667,7 @@ window.irSchemePage=async function(objectId){
    let internalPosition=String(existing?.position||existing?.title||"");
    if(!internalPosition){let n=1;do{internalPosition="COL-"+String(n++).padStart(4,"0")}while(used.has(internalPosition))}
    const g=markGroup(m),oldRow=id?arr(rows).find(r=>String(r.id)===id):null,previous=oldRow?.data||{},view=targetGrid.view;
-   const payload={record_type:"scheme_column",title:internalPosition,data:{...previous,entity_type:"column",position:internalPosition,mark_id:m.id,mark:m.mark||m.title||"",mark_name:m.name||"",work_type_id:m.work_type_id||"",axis_x:axisX,axis_y:axisY,offset_x_mm:dx,offset_y_mm:dy,absolute_x_mm:x,absolute_y_mm:y,geometry_type:kind,absolute_x2_mm:kind==="column"?undefined:x2,absolute_y2_mm:kind==="column"?undefined:y2,end_z_mm:kind==="column"?undefined:z1,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name,scheme_group:g.key,scheme_group_label:g.label,scheme_view_id:view?.id||"all"}};
+   const payload={record_type:"scheme_column",title:internalPosition,data:{...previous,entity_type:"column",position:internalPosition,mark_id:m.id,mark:m.mark||m.title||"",mark_name:m.name||"",work_type_id:m.work_type_id||"",axis_x:axisX,axis_y:axisY,offset_x_mm:dx,offset_y_mm:dy,absolute_x_mm:x,absolute_y_mm:y,geometry_type:kind,absolute_x2_mm:kind==="column"?undefined:x2,absolute_y2_mm:kind==="column"?undefined:y2,end_axis_x:kind==="column"?undefined:endX,end_axis_y:kind==="column"?undefined:endY,end_offset_x_mm:kind==="column"?undefined:endDx,end_offset_y_mm:kind==="column"?undefined:endDy,end_z_mm:kind==="column"?undefined:z1,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name,scheme_group:g.key,scheme_group_label:g.label,scheme_view_id:view?.id||"all"}};
    try{const saved=id?await schemeApi.update(id,payload):await schemeApi.create(payload);rows=await schemeApi.list();selectedId=String(saved?.id||id||"");d.close();draw()}catch(error){err.textContent="Не удалось сохранить элемент: "+String(error?.message||error);err.hidden=false}
   }
  }
