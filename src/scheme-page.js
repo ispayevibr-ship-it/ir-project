@@ -155,8 +155,9 @@ window.irSchemePage=async function(objectId){
  };
  const markAvailable=(m,editingId="")=>{
   const q=markPlacement(m);
-  const own=editingId&&allRecords().some(r=>String(r.id)===String(editingId)&&(String(r.mark_id||"")===String(m.id)||linkedMark(r)?.id===String(m.id)))?1:0;
-  return q.placed-own<q.total
+  const own=editingId&&allRecords().some(r=>String(r.id)===String(editingId)&&(String(r.mark_id||"")===String(m.id)||linkedMark(r)?.id===String(m.id)));
+  // Existing placements remain editable even if older data exceeded today's quantity.
+  return Boolean(own)||q.placed<q.total
  };
  const searchMarks=(query,pool=activeMarks())=>{const q=String(query||"").trim().toLowerCase();if(!q)return [...pool];return pool.map(m=>{const mark=String(m.mark||m.title||"").trim().toLowerCase(),name=String(m.name||"").trim().toLowerCase(),text=`${mark} ${name}`;let score=99;if(mark===q)score=0;else if(mark.startsWith(q))score=1;else if(mark.includes(q))score=2;else if(name.startsWith(q))score=3;else if(name.includes(q)||text.includes(q))score=4;return{m,score}}).filter(x=>x.score<99).sort((a,b)=>a.score-b.score||String(a.m.mark||a.m.title||"").localeCompare(String(b.m.mark||b.m.title||""),"ru",{numeric:true,sensitivity:"base"})).map(x=>x.m)};
  const markOptions=(selectedMark,query="",unresolved=false,pool=activeMarks(),editingId="")=>{
