@@ -383,3 +383,11 @@
 .scheme-column.partial .scheme-plan-brace,.scheme-column.partial .scheme-plan-truss{stroke:#b07a18}
 @media(max-width:1000px){.scheme-mark-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.scheme-mark-summary{grid-template-columns:1fr 1fr}.scheme-mark-summary>div{padding:9px}.scheme-mark-summary>div>b{font-size:15px}}
+
+
+.scheme-mark-sync-hint{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-1px 0 10px;padding:6px 11px;border:1px solid #d9e6ee;border-radius:8px;background:#f7fbfe;color:#718b9c;font-size:9px;line-height:1.45}
+.scheme-mark-sync-hint span{min-width:0;flex:1}
+.scheme-mark-sync-hint button{flex:none;min-height:29px;padding:0 10px;border:1px solid #b6d0e3;border-radius:7px;background:#fff;color:#2678b4;font-size:9px;font-weight:750;cursor:pointer}
+.scheme-mark-sync-hint button:hover{background:#eaf5ff;border-color:#7baed8}
+.scheme-mark-sync-hint button:disabled{opacity:.6;cursor:wait}
+@media(max-width:650px){.scheme-mark-sync-hint{flex-wrap:wrap}.scheme-mark-sync-hint button{width:100%}}
