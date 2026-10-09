@@ -41,7 +41,7 @@
    const s=document.getElementById("reportsSearch");if(s)s.oninput=e=>{query=e.target.value;list();const n=document.getElementById("reportsSearch");n.focus();n.setSelectionRange(n.value.length,n.value.length)};
    document.querySelectorAll("[data-report-id]").forEach(row=>{row.onclick=e=>{if(e.target.closest(".report-actions"))return;location.hash=`/objects/object/${oid}/reports/${row.dataset.reportId}`}});
    document.querySelectorAll("[data-report-edit]").forEach(b=>b.onclick=e=>{e.stopPropagation();location.hash=`/objects/object/${oid}/reports/${b.dataset.reportEdit}/edit`});
-   document.querySelectorAll("[data-report-copy]").forEach(b=>b.onclick=e=>{e.stopPropagation();const r=all.find(x=>String(x.id)===String(b.dataset.reportCopy));if(!r)return;sessionStorage.setItem(`ir-report-copy-${oid}`,JSON.stringify(r));location.hash=`/objects/object/${oid}/reports/new`});
+   document.querySelectorAll("[data-report-copy]").forEach(b=>b.onclick=e=>{e.stopPropagation();const r=all.find(x=>String(x.id)===String(b.dataset.reportCopy));if(!r)return;sessionStorage.setItem(`ir-report-copy-${window.name?.startsWith("ir-tab-")?window.name+"-":""}${oid}`,JSON.stringify(r));location.hash=`/objects/object/${oid}/reports/new`});
    document.querySelectorAll("[data-report-delete]").forEach(b=>b.onclick=async e=>{e.stopPropagation();const id=b.dataset.reportDelete;if(!confirm(`Удалить ежедневный отчёт #${id}?`))return;await api.remove(id);reportRows=await api.list().catch(()=>[]);await syncMarks();list()});
   }
   function card(r){
@@ -86,7 +86,7 @@
    };
   }
   if(route.mode==="new"){
-   let copied={};try{const raw=sessionStorage.getItem(`ir-report-copy-${oid}`);if(raw){copied=JSON.parse(raw)||{};sessionStorage.removeItem(`ir-report-copy-${oid}`)}}catch{}return form("new",copied);
+   let copied={};try{const raw=sessionStorage.getItem(`ir-report-copy-${window.name?.startsWith("ir-tab-")?window.name+"-":""}${oid}`);if(raw){copied=JSON.parse(raw)||{};sessionStorage.removeItem(`ir-report-copy-${window.name?.startsWith("ir-tab-")?window.name+"-":""}${oid}`)}}catch{}return form("new",copied);
   }
   if(route.mode==="edit"||route.mode==="view"){
    const rec=reports().find(r=>String(r.id)===String(route.reportId));if(!rec){location.hash=`/objects/object/${oid}/reports`;return}return form(route.mode,rec);
