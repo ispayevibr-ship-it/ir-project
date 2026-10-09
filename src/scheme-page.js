@@ -150,17 +150,32 @@ window.irSchemePage=async function(objectId){
   out+=`<line x1="${pt(base,-4.8).x}" y1="${pt(base,-4.8).y}" x2="${pt(top,-4.8).x}" y2="${pt(top,-4.8).y}" class="scheme-ibeam-flange"/><line x1="${pt(base,4.8).x}" y1="${pt(base,4.8).y}" x2="${pt(top,4.8).x}" y2="${pt(top,4.8).y}" class="scheme-ibeam-flange"/><line x1="${pt(top,-5.7).x}" y1="${pt(top,-5.7).y}" x2="${pt(top,5.7).x}" y2="${pt(top,5.7).y}" class="scheme-ibeam-cap"/>`;
   return out
  }
+ function member3dShape(c,base,top){
+  const kind=c.geometryType;
+  if(kind==="column")return column3dShape(c,base,top);
+  const dx=top.x-base.x,dy=top.y-base.y,len=Math.max(1,Math.hypot(dx,dy)),nx=-dy/len,ny=dx/len,point=(t,o=0)=>({x:base.x+dx*t+nx*o,y:base.y+dy*t+ny*o}),segment=(q,r,cls)=>line(q,r,cls);
+  if(kind==="truss"){
+   const a=point(0,-5),b=point(1,-5),c1=point(0,5),d=point(1,5),n=Math.max(2,Math.min(12,Math.ceil(len/45)));
+   let out=segment(a,b,"scheme-truss-chord")+segment(c1,d,"scheme-truss-chord");
+   for(let i=0;i<n;i++)out+=segment(point(i/n,-5),point((i+1)/n,i%2?-5:5),"scheme-truss-web");
+   return out
+  }
+  if(kind==="brace")return segment(base,top,"scheme-brace-main")+segment(point(0,-2),point(1,-2),"scheme-brace-detail");
+  const thickness=Math.min(7,Math.max(2.5,len*.03)),points=[point(0,-thickness),point(0,thickness),point(1,thickness),point(1,-thickness)];
+  return `<polygon points="${points.map(q=>`${q.x},${q.y}`).join(" ")}" class="scheme-beam-body"/>${segment(point(0,0),point(1,0),"scheme-beam-axis")}`
+ }
  function prism(c,p,index,labelBoxes){
-  const base=p(c.x,c.y,c.z0),top=p(c.x,c.y,c.z1),isSelected=c.id===selectedId,sel=isSelected?" selected":"",status=c.status==="mounted"?" mounted":" planned",between=c.dx||c.dy?" between":"";
-  const baseAxis=p(axisXPos.get(c.axisX),axisYPos.get(c.axisY),c.z0),showOffset=!!(c.dx||c.dy)&&dimensionsVisible&&isSelected,showLabel=isSelected||labelsVisible;
-  const label=String(c.mark||"—"),lw=Math.max(28,Math.min(64,14+label.length*6.2)),lh=20,placed=showLabel?placeSchemeLabel(top.x,top.y,lw,lh,index,labelBoxes||[],1040,650,top.y<150):null,lx=placed?.lx||0,ly=placed?.ly||0,anchorX=placed?.anchorX||top.x,anchorY=placed?.anchorY||top.y;
+  const kind=c.geometryType,base=p(c.x,c.y,c.z0),top=p(c.x2,c.y2,c.z2),isSelected=c.id===selectedId,sel=isSelected?" selected":"",status=c.status==="mounted"?" mounted":" planned",between=c.dx||c.dy?" between":"";
+  const baseAxis=p(axisXPos.get(c.axisX),axisYPos.get(c.axisY),c.z0),showOffset=!!(c.dx||c.dy)&&dimensionsVisible&&isSelected,showLabel=isSelected||(labelsVisible&&index<Math.max(24,zoom>1.8?70:36));
+  const anchor=kind==="column"?top:{x:(base.x+top.x)/2,y:(base.y+top.y)/2};
+  const label=String(c.mark||"—"),lw=Math.max(28,Math.min(64,14+label.length*6.2)),lh=20,placed=showLabel?placeSchemeLabel(anchor.x,anchor.y,lw,lh,index,labelBoxes||[],1040,650,anchor.y<150):null,lx=placed?.lx||0,ly=placed?.ly||0,anchorX=placed?.anchorX||anchor.x,anchorY=placed?.anchorY||anchor.y;
   const offsetMid={x:(base.x+baseAxis.x)/2,y:(base.y+baseAxis.y)/2};
-  return`<g class="scheme-column section-${sectionType(c)}${status}${sel}${between}" data-column="${esc(c.id)}" tabindex="0">
+  return`<g class="scheme-column scheme-geometry-${kind} section-${sectionType(c)}${status}${sel}${between}" data-column="${esc(c.id)}" tabindex="0">
    <title>${esc(columnTitle(c))}</title>
    <line x1="${base.x}" y1="${base.y}" x2="${top.x}" y2="${top.y}" class="scheme-column-hit-line"/>
    ${showOffset?`<line x1="${baseAxis.x}" y1="${baseAxis.y}" x2="${base.x}" y2="${base.y}" class="scheme-offset-line"/><text x="${offsetMid.x}" y="${offsetMid.y-7}" class="scheme-offset-text">${esc(offsetText(c))}</text>`:""}
-   ${column3dShape(c,base,top)}
-   ${showLabel?`<line x1="${top.x}" y1="${top.y}" x2="${anchorX}" y2="${anchorY}" class="scheme-label-leader"/><g class="scheme-column-label compact${isSelected?" selected-label":""}"><rect x="${lx}" y="${ly}" width="${lw}" height="${lh}" rx="5"/><text x="${lx+7}" y="${ly+13.5}" class="scheme-label-position">${esc(label)}</text></g>`:""}
+   ${member3dShape(c,base,top)}
+   ${showLabel?`<line x1="${anchor.x}" y1="${anchor.y}" x2="${anchorX}" y2="${anchorY}" class="scheme-label-leader"/><g class="scheme-column-label compact${isSelected?" selected-label":""}"><rect x="${lx}" y="${ly}" width="${lw}" height="${lh}" rx="5"/><text x="${lx+7}" y="${ly+13.5}" class="scheme-label-position">${esc(label)}</text></g>`:""}
   </g>`
  }
  function planSectionSymbol(c,x,y){
@@ -199,9 +214,11 @@ window.irSchemePage=async function(objectId){
   grid+=`<line x1="${totalX}" y1="${gridTop}" x2="${totalX}" y2="${gridTop+gridH}" class="scheme-dim-line"/><line x1="${totalX-5}" y1="${gridTop}" x2="${totalX+5}" y2="${gridTop}" class="scheme-dim-line"/><line x1="${totalX-5}" y1="${gridTop+gridH}" x2="${totalX+5}" y2="${gridTop+gridH}" class="scheme-dim-line"/><text x="${totalX+18}" y="${H/2}" class="scheme-dim-text" transform="rotate(-90 ${totalX+18} ${H/2})">${esc(vertName)} = ${fmt(vertSize)} мм</text>`;
   let columnsSvg="",labelBoxes=[];
   cols.forEach((c,index)=>{
-   const q=p(c.x,c.y),axis=p(axisXPos.get(c.axisX),axisYPos.get(c.axisY)),x=q.x,y=q.y,axisX=axis.x,axisY=axis.y,isSelected=c.id===selectedId,sel=isSelected?" selected":"",status=c.status==="mounted"?" mounted":" planned",between=c.dx||c.dy?" between":"",showLabel=isSelected||labelsVisible,label=String(c.mark||"—"),lw=Math.max(28,Math.min(64,14+label.length*6.2)),lh=20,placed=showLabel?placeSchemeLabel(x,y,lw,lh,index,labelBoxes,W,H,y<gridTop+70):null,lx=placed?.lx||0,ly=placed?.ly||0,anchorX=placed?.anchorX||x,anchorY=placed?.anchorY||y;
-   const showOffset=!!(c.dx||c.dy)&&dimensionsVisible&&isSelected,midX=(x+axisX)/2,midY=(y+axisY)/2;
-   columnsSvg+=`<g class="scheme-column${status}${sel}${between}" data-column="${esc(c.id)}" tabindex="0"><title>${esc(columnTitle(c))}</title><circle cx="${x}" cy="${y}" r="11" class="scheme-column-hit"/>${showOffset?`<line x1="${axisX}" y1="${axisY}" x2="${x}" y2="${y}" class="scheme-offset-line"/><circle cx="${axisX}" cy="${axisY}" r="3" class="scheme-offset-origin"/><text x="${midX}" y="${midY-7}" class="scheme-offset-text">${esc(offsetText(c))}</text>`:""}${planSectionSymbol(c,x,y)}${showLabel?`<line x1="${x}" y1="${y}" x2="${anchorX}" y2="${anchorY}" class="scheme-label-leader"/><g class="scheme-column-label compact${isSelected?" selected-label":""}"><rect x="${lx}" y="${ly}" width="${lw}" height="${lh}" rx="5"/><text x="${lx+7}" y="${ly+13.5}" class="scheme-label-position">${esc(label)}</text></g>`:""}</g>`;
+   const q=p(c.x,c.y),end=p(c.x2,c.y2),isColumn=c.geometryType==="column",center=isColumn?q:{x:(q.x+end.x)/2,y:(q.y+end.y)/2},axis=p(axisXPos.get(c.axisX),axisYPos.get(c.axisY)),x=center.x,y=center.y,axisX=axis.x,axisY=axis.y,isSelected=c.id===selectedId,sel=isSelected?" selected":"",status=c.status==="mounted"?" mounted":" planned",between=c.dx||c.dy?" between":"",showLabel=isSelected||(labelsVisible&&index<Math.max(24,zoom>1.8?70:36)),label=String(c.mark||"—"),lw=Math.max(28,Math.min(64,14+label.length*6.2)),lh=20,placed=showLabel?placeSchemeLabel(x,y,lw,lh,index,labelBoxes,W,H,y<gridTop+70):null,lx=placed?.lx||0,ly=placed?.ly||0,anchorX=placed?.anchorX||x,anchorY=placed?.anchorY||y;
+   const showOffset=!!(c.dx||c.dy)&&dimensionsVisible&&isSelected,midX=(q.x+axisX)/2,midY=(q.y+axisY)/2,kind=c.geometryType;
+   const symbol=isColumn?planSectionSymbol(c,q.x,q.y):kind==="truss"?`${line(q,end,"scheme-plan-member")}${line({x:q.x,y:q.y+3},{x:end.x,y:end.y+3},"scheme-plan-truss")}`:line(q,end,kind==="brace"?"scheme-plan-brace":"scheme-plan-member");
+   columnsSvg+=`<g class="scheme-column scheme-geometry-${kind}${status}${sel}${between}" data-column="${esc(c.id)}" tabindex="0"><title>${esc(columnTitle(c))}</title><circle cx="${q.x}" cy="${q.y}" r="10" class="scheme-column-hit"/>${isColumn?"":`<line x1="${q.x}" y1="${q.y}" x2="${end.x}" y2="${end.y}" class="scheme-column-hit-line"/>`}${showOffset?`<line x1="${axisX}" y1="${axisY}" x2="${q.x}" y2="${q.y}" class="scheme-offset-line"/><circle cx="${axisX}" cy="${axisY}" r="3" class="scheme-offset-origin"/><text x="${midX}" y="${midY-7}" class="scheme-offset-text">${esc(offsetText(c))}</text>`:""}${symbol}${showLabel?`<line x1="${x}" y1="${y}" x2="${anchorX}" y2="${anchorY}" class="scheme-label-leader"/><g class="scheme-column-label compact${isSelected?" selected-label":""}"><rect x="${lx}" y="${ly}" width="${lw}" height="${lh}" rx="5"/><text x="${lx+7}" y="${ly+13.5}" class="scheme-label-position">${esc(label)}</text></g>`:""}</g>`;
+
   });
   return`<g class="scheme-grid-layer">${grid}</g><g class="scheme-column-layer">${columnsSvg}</g>`
  }
