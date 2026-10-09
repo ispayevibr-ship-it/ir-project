@@ -290,23 +290,32 @@
   try{await api.updater.install()}catch(e){updateError(e)}
  }
  function onUpdaterStatus(info){
-  if(!updateDialog.open||!info)return;
-  if(info.type==="available"&&!updateBusy)updateAvailable(info.version,info.installedVersion);
-  else if(info.type==="current"&&!updateBusy)updateCurrent(info.version);
-  else if(info.type==="progress"){
-   const pct=Math.max(0,Math.min(100,Number(info.percent)||0));
+  if(!info)return;
+  if(info.type==="available"){
+   // Updater emits manifest sizes while check() is in progress.
+   updateTotalBytes=Math.max(0,Number(info.size)||0);
+   updateLatestVersion=info.version||"";
+   if(updateDialog.open&&!updateBusy)updateAvailable(info.version,info.installedVersion);
+  }else if(info.type==="current"&&updateDialog.open&&!updateBusy)updateCurrent(info.version);
+  else if(info.type==="progress"&&updateDialog.open){
+   updateTransferredBytes=Math.max(0,Number(info.transferred)||0);
+   // Native updater's "total" equals bytes downloaded so far; it is NOT the actual package size.
+   const pct=updateTotalBytes>0?
+    Math.min(100,Math.round(updateTransferredBytes/updateTotalBytes*100)):
+    Math.max(0,Math.min(100,Number(info.percent)||0));
    updateProgress.hidden=false;updateBar.style.width=pct+"%";updatePercent.textContent=pct+"%";
-   updateText.textContent="Скачиваем обновление: "+pct+"%.";
-  }
-  else if(info.type==="downloaded")updateDownloaded(info.version);
-  else if(info.type==="error")updateError(info.message||"Ошибка обновления")
+   showUpdateSize();showTransfer();updateText.textContent="Скачиваем файлы обновления…";
+  }else if(info.type==="downloaded"&&updateDialog.open)updateDownloaded(info.version);
+  else if(info.type==="error"&&updateDialog.open)updateError(info.message||"Ошибка обновления")
  }
  api.updater?.onStatus?.(onUpdaterStatus);
  async function checkAppUpdate(){
   if(updateBusy)return;
   if(!api.updater){notify("Проверка обновлений недоступна.");return}
   showUpdateDialog();
-  updateBusy=true;updateProgress.hidden=true;setUpdate("Проверка обновлений","Проверяем доступную версию IR Project…");updateButtons([]);
+  updateBusy=true;updateTotalBytes=0;updateTransferredBytes=0;updateLatestVersion="";
+  updateProgress.hidden=true;updateSize.hidden=true;updateTransfer.hidden=true;
+  setUpdate("Проверка обновлений","Проверяем доступную версию IR Project…");updateButtons([]);
   const button=null;
   try{
    const result=await api.updater.check();
