@@ -450,3 +450,31 @@
 .scheme-mark-sync-result[hidden]{display:none!important}
 .scheme-mark-sync-result.pending{border-color:#d8e4ef;background:#f4f8fc;color:#557a95}
 .scheme-mark-sync-result.error{border-color:#edc9c9;background:#fff2f2;color:#b34242}
+
+
+/* 1.7.53 selectable scheme backgrounds */
+.scheme-toolbar-actions{flex-wrap:wrap}
+.scheme-background-picker{height:30px;display:inline-flex;align-items:center;gap:6px;padding:2px 7px;border:1px solid #d7e3ed;border-radius:7px;background:#fff;color:#537086;white-space:nowrap;flex:none}
+.scheme-background-picker>span{font-size:9px;font-weight:750}
+.scheme-background-picker select{height:24px;min-width:110px;max-width:135px;padding:0 6px;border:0;outline:none;background:transparent;color:#274c66;font-size:10px;font-weight:750;cursor:pointer}
+.scheme-background-picker select:focus-visible{outline:2px solid #74a8de;outline-offset:1px}
+.scheme-background-picker input[type="color"]{box-sizing:border-box;width:29px;height:24px;padding:2px;border:1px solid #afc7da;border-radius:5px;background:white;cursor:pointer}
+.scheme-background-picker input[type="color"][hidden]{display:none!important}
+.scheme-stage[data-scheme-background="standard"] .scheme-canvas{background:linear-gradient(180deg,#fbfdff,#f5f8fb)}
+.scheme-stage[data-scheme-background="white"] .scheme-canvas{background:#fff}
+.scheme-stage[data-scheme-background="gray"] .scheme-canvas{background:#e7ebf0}
+.scheme-stage[data-scheme-background="blue"] .scheme-canvas{background:#e2f1ff}
+.scheme-stage[data-scheme-background="sand"] .scheme-canvas{background:#f5efdf}
+.scheme-stage[data-scheme-background="dark"] .scheme-canvas{background:#26394b}
+.scheme-stage[data-scheme-background="custom"] .scheme-canvas{background:var(--scheme-custom-background,#e9f2ff)}
+.scheme-stage[data-scheme-contrast="dark"] .scheme-grid-line{stroke:#657e94}
+.scheme-stage[data-scheme-contrast="dark"] .scheme-axis-label{fill:#e8f0f8}
+.scheme-stage[data-scheme-contrast="dark"] .scheme-demo-note{fill:#b5c5d2}
+.scheme-stage[data-scheme-contrast="dark"] .scheme-dim-line{stroke:#8eabbc}
+.scheme-stage[data-scheme-contrast="dark"] .scheme-dim-text{fill:#e2ecf6}
+.scheme-stage[data-scheme-contrast="dark"] .scheme-label-leader{stroke:#bbcee0}
+.scheme-stage[data-scheme-contrast="dark"] .scheme-offset-text{fill:#e3edfa}
+@media(max-width:700px){
+ .scheme-background-picker{max-width:100%;flex:1 1 auto}
+ .scheme-background-picker select{max-width:none;flex:1}
+}
