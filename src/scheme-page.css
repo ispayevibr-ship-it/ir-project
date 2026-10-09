@@ -391,3 +391,44 @@
 .scheme-mark-sync-hint button:hover{background:#eaf5ff;border-color:#7baed8}
 .scheme-mark-sync-hint button:disabled{opacity:.6;cursor:wait}
 @media(max-width:650px){.scheme-mark-sync-hint{flex-wrap:wrap}.scheme-mark-sync-hint button{width:100%}}
+
+
+/* 1.7.51 sticky scheme add element */
+.scheme-page.has-add-dock{padding-bottom:78px}
+.scheme-add-dock{
+ position:fixed;
+ right:24px;
+ bottom:18px;
+ z-index:850;
+ display:flex;
+ justify-content:flex-end;
+ pointer-events:none
+}
+.scheme-add-dock #schemeAdd{
+ pointer-events:auto;
+ display:inline-flex;
+ align-items:center;
+ justify-content:center;
+ min-width:178px;
+ min-height:44px;
+ padding:0 20px;
+ border:1px solid #1262cd;
+ border-radius:10px;
+ background:#1769e0;
+ box-shadow:0 9px 26px rgba(23,105,224,.26),0 2px 6px rgba(13,62,110,.12);
+ color:white;
+ font-size:12px;
+ font-weight:800;
+ white-space:nowrap;
+ cursor:pointer;
+ transition:background .15s,transform .15s,box-shadow .15s
+}
+.scheme-add-dock #schemeAdd:hover{background:#0f5acb;transform:translateY(-2px);box-shadow:0 12px 30px rgba(23,105,224,.32)}
+.scheme-add-dock #schemeAdd:active{transform:translateY(0)}
+.scheme-add-dock #schemeAdd:focus-visible{outline:3px solid #93c5fd;outline-offset:3px}
+.scheme-page:has(.scheme-preview-fullscreen) .scheme-add-dock{display:none}
+@media(max-width:640px){
+ .scheme-page.has-add-dock{padding-bottom:88px}
+ .scheme-add-dock{right:12px;bottom:12px;left:12px}
+ .scheme-add-dock #schemeAdd{width:100%;min-height:46px}
+}
