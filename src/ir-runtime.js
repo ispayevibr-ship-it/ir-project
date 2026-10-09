@@ -1243,7 +1243,7 @@ window.irSchemePage=async function(objectId){
  const workRecords=()=>activeWorkId?allRecords().filter(r=>recordWorkId(r)===activeWorkId):[];
  const recordGroup=r=>r?.scheme_group&&String(r.scheme_group)!=="all"?{key:String(r.scheme_group),label:String(r.scheme_group_label||schemeGroupOf(r.mark_name,r.mark).label)}:schemeGroupOf(r?.mark_name,r?.mark);
  const recordMarkGroup=r=>{const m=marks.find(x=>x.id===String(r.mark_id||""));return m?markGroup(m):recordGroup(r)};
- const inView=(r,v)=>{const assigned=String(r.scheme_view_id||"");return assigned?assigned===String(v.id):groupKeys(v).includes(recordMarkGroup(r).key)};
+ const inView=(r,v)=>{const assigned=String(r.scheme_view_id||"");return assigned?assigned!=="all"&&assigned===String(v.id):groupKeys(v).includes(recordMarkGroup(r).key)};
  const schemeGroups=()=>{const scoped=workMarks(),placed=workRecords();return[{key:"all",label:"Общая схема",marks:scoped.length,placed:placed.length},...customViews().map(v=>({key:"view:"+v.id,label:v.data?.name||v.title||"Новая сетка",marks:scoped.filter(m=>groupKeys(v).includes(markGroup(m).key)).length,placed:placed.filter(r=>inView(r,v)).length}))]};
  const records=()=>{const v=activeView();return activeScheme==="all"?workRecords():v?workRecords().filter(r=>inView(r,v)):[]};
  const activeGroup=()=>schemeGroups().find(g=>g.key===activeScheme)||schemeGroups()[0];
@@ -1775,6 +1775,7 @@ window.irSchemePage=async function(objectId){
    if(!pool.length){err.textContent="Для выбранной сетки нет подходящих марок.";err.hidden=false;return}
    const m=pool.find(x=>x.id===String(fd.get("mark_id")||""));
    if(!m){err.textContent="Выберите доступную марку из ведомости.";err.hidden=false;return}
+   try{rows=await schemeApi.list()}catch(error){err.textContent="Не удалось проверить остатки по схеме: "+String(error?.message||error);err.hidden=false;return}
    if(!markAvailable(m,id)){const quota=markPlacement(m);err.textContent="Марка "+(m.mark||m.title)+" полностью размещена: "+quota.placed+" из "+quota.total+" шт. Добавление невозможно.";err.hidden=false;return}
    const axisX=String(fd.get("axis_x")||targetGrid.axesX[0]),axisY=String(fd.get("axis_y")||targetGrid.axesY[0]),dx=num(fd.get("offset_x_mm")),dy=num(fd.get("offset_y_mm")),x=num(targetGrid.xPos.get(axisX))+dx,y=num(targetGrid.yPos.get(axisY))+dy;
    const kind=String(fd.get("geometry_type")||"column"),z0=num(fd.get("z0_mm")),z1=num(fd.get("z1_mm"));
@@ -1787,7 +1788,7 @@ window.irSchemePage=async function(objectId){
    let internalPosition=String(existing?.position||existing?.title||"");
    if(!internalPosition){let n=1;do{internalPosition="COL-"+String(n++).padStart(4,"0")}while(used.has(internalPosition))}
    const g=markGroup(m),oldRow=id?arr(rows).find(r=>String(r.id)===id):null,previous=oldRow?.data||{},view=targetGrid.view;
-   const payload={record_type:"scheme_column",title:internalPosition,data:{...previous,entity_type:"column",position:internalPosition,mark_id:m.id,mark:m.mark||m.title||"",mark_name:m.name||"",work_type_id:m.work_type_id||"",axis_x:axisX,axis_y:axisY,offset_x_mm:dx,offset_y_mm:dy,absolute_x_mm:x,absolute_y_mm:y,geometry_type:kind,absolute_x2_mm:kind==="column"?undefined:x2,absolute_y2_mm:kind==="column"?undefined:y2,end_z_mm:kind==="column"?undefined:z1,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name,scheme_group:g.key,scheme_group_label:g.label,scheme_view_id:view?.id||""}};
+   const payload={record_type:"scheme_column",title:internalPosition,data:{...previous,entity_type:"column",position:internalPosition,mark_id:m.id,mark:m.mark||m.title||"",mark_name:m.name||"",work_type_id:m.work_type_id||"",axis_x:axisX,axis_y:axisY,offset_x_mm:dx,offset_y_mm:dy,absolute_x_mm:x,absolute_y_mm:y,geometry_type:kind,absolute_x2_mm:kind==="column"?undefined:x2,absolute_y2_mm:kind==="column"?undefined:y2,end_z_mm:kind==="column"?undefined:z1,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name,scheme_group:g.key,scheme_group_label:g.label,scheme_view_id:view?.id||"all"}};
    try{const saved=id?await schemeApi.update(id,payload):await schemeApi.create(payload);rows=await schemeApi.list();selectedId=String(saved?.id||id||"");d.close();draw()}catch(error){err.textContent="Не удалось сохранить элемент: "+String(error?.message||error);err.hidden=false}
   }
  }
