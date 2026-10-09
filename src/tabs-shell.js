@@ -1,6 +1,6 @@
 "use strict";
 (()=>{
- const list=document.getElementById("tabsList"),stage=document.getElementById("tabsContent"),addButton=document.getElementById("tabsAdd");
+ const list=document.getElementById("tabsList"),stage=document.getElementById("tabsContent"),addButton=document.getElementById("tabsAdd"),loader=document.getElementById("tabsLoading"),loadingText=document.getElementById("tabsLoadingText");
  if(!list||!stage)return;
  const openerBridge=()=>{try{return window.opener?.irProject||null}catch{return null}};
  const api=window.irProject||openerBridge();
@@ -96,6 +96,32 @@
   if(oid)resolveName(id,oid);
   renderTabBar();save()
  }
+ function showLoading(){
+  const current=frames.get(activeId);
+  if(!loader)return;
+  loader.hidden=Boolean(!current||current.ready);
+  if(!loader.hidden&&loadingText)loadingText.textContent="Открываем "+(current.title||"страницу")+"…"
+ }
+ function watchPageReady(tab){
+  // Main page renders asynchronously; iframe load alone does not mean cards/reports are ready.
+  tab.readyObserver?.disconnect();
+  tab.readyObserver=null;
+  const done=()=>{
+   tab.readyObserver?.disconnect();tab.readyObserver=null;
+   if(frames.get(tab.id)!==tab)return;
+   tab.ready=true;
+   if(activeId===tab.id)showLoading()
+  };
+  try{
+   const page=tab.frame.contentDocument?.getElementById("app");
+   if(!page||page.childElementCount>0){done();return}
+   const observer=new MutationObserver(()=>{
+    if(page.childElementCount>0)done()
+   });
+   tab.readyObserver=observer;
+   observer.observe(page,{childList:true})
+  }catch{done()}
+ }
  function startTab(tab){
   if(!tab||tab.started)return;
   tab.started=true;
@@ -114,6 +140,7 @@
    }
   }
   startTab(frames.get(id));
+  showLoading();
   if(!wasActive)renderTabBar();
   save();notify("Вкладка: "+frames.get(id).title)
  }
@@ -148,9 +175,9 @@
   const frame=document.createElement("iframe");
   frame.className="tabs-pane";frame.title=routeLabel(path);frame.name="ir-tab-"+id;frame.referrerPolicy="same-origin";
   frame.setAttribute("aria-hidden","true");
-  const tab={id,frame,route:path,title:routeLabel(path),dirty:false,started:false,active:false};
+  const tab={id,frame,route:path,title:routeLabel(path),dirty:false,started:false,active:false,ready:false,readyObserver:null};
   frames.set(id,tab);order.push(id);
-  frame.addEventListener("load",()=>{if(frames.get(id)!==tab||!tab.started)return;attachHandlers(tab)});
+  frame.addEventListener("load",()=>{if(frames.get(id)!==tab||!tab.started)return;attachHandlers(tab);watchPageReady(tab)});
   // Inactive/restored tabs keep their address, but do not run the full app until selected.
   stage.append(frame);
   if(activate)selectTab(id);else{renderTabBar();save()}
@@ -161,7 +188,7 @@
   const tab=frames.get(id);if(!tab)return false;
   if(tab.dirty&&!confirm("Во вкладке есть несохранённые изменения. Закрыть её?"))return false;
   const index=order.indexOf(id),wasActive=activeId===id;
-  tab.frame.remove();frames.delete(id);order=order.filter(x=>x!==id);
+  tab.readyObserver?.disconnect();tab.frame.remove();frames.delete(id);order=order.filter(x=>x!==id);
   if(!order.length){activeId="";createTab("/objects");return true}
   if(wasActive)selectTab(order[Math.min(index,order.length-1)]);
   else{renderTabBar();save()}
@@ -170,7 +197,8 @@
  function reloadCurrent(){
   const tab=frames.get(activeId);if(!tab)return;
   if(tab.dirty&&!confirm("При обновлении вкладки несохранённые изменения пропадут. Продолжить?"))return;
-  tab.dirty=false;
+  tab.dirty=false;tab.ready=false;tab.readyObserver?.disconnect();tab.readyObserver=null;
+  showLoading();
   tab.frame.src="./index.html?tabContent=1#"+cleanRoute(tab.route);
   renderTabBar();notify("Обновляем вкладку: "+tab.title)
  }
