@@ -68,10 +68,12 @@ window.irSchemePage=async function(objectId){
   if(updatingMarkProgress)return;updatingMarkProgress=true;syncNotice=null;
   const button=document.getElementById("schemeRefreshMarkProgress"),message=document.getElementById("schemeMarkSyncNotice");
   if(button){button.disabled=true;button.textContent="Обновляем…"}
-  if(message){message.hidden=false;message.className="scheme-mark-sync-result pending";message.textContent="Проверяем данные ведомости…"}
+  if(message){message.hidden=false;message.className="scheme-mark-sync-result pending";message.textContent="Сверяем ежедневные отчёты и обновляем ведомость марок…"}
   const snapshot=m=>({id:String(m.id),mark:String(m.mark||m.title||""),workId:String(m.work_type_id||""),qty:Math.max(0,num(m.qty??m.count)),mounted:Math.max(0,num(m.mounted??m.done))});
   const before=new Map(activeMarks().map(m=>{const v=snapshot(m);return[v.id,v]}));
   try{
+   if(typeof window.irSyncMountedFromReports!=="function")throw Error("Модуль сверки отчётов не подключён. Перезапустите приложение после обновления.");
+   const audit=await window.irSyncMountedFromReports(oid);
    const fresh=await root.section("marks").list();
    const updated=arr(fresh).map(x=>({id:String(x.id),title:x.title||"",...(x.data||{})}));
    markRows=fresh;marks.splice(0,marks.length,...updated);
@@ -84,7 +86,9 @@ window.irSchemePage=async function(objectId){
    for(const old of before.values())if(!seen.has(old.id))changed.push(old.mark||old.id);
    const summary=statusCounts(),names=[...new Set(changed)].slice(0,5);
    const details=changed.length?"Изменено марок: "+changed.length+(names.length?" ("+names.join(", ")+(changed.length>names.length?", …":"")+")":"")+".":"Изменений нет.";
-   syncNotice={ok:true,text:"✓ Данные ведомости обновлены. "+details+" Смонтировано "+fmt(summary.mounted)+" из "+fmt(summary.total)+" шт., осталось "+fmt(summary.left)+" шт."};
+   const verified="Сверено отчётов: "+audit.reportsChecked+", строк с привязкой к маркам: "+audit.linkedLines+". ";
+   const warnings=(audit.unrecognizedIds?.length?" В отчётах найдены отсутствующие в ведомости ID марок: "+audit.unrecognizedIds.length+".":"")+(audit.withoutMarkId?" Строк с названием марки, но без ID: "+audit.withoutMarkId+".":"");
+   syncNotice={ok:true,text:"✓ Сверка с ежедневными отчётами выполнена. "+verified+details+" Смонтировано "+fmt(summary.mounted)+" из "+fmt(summary.total)+" шт., осталось "+fmt(summary.left)+" шт."+warnings};
   }catch(e){
    syncNotice={ok:false,text:"Не удалось обновить ведомость: "+String(e?.message||e)}
   }finally{
