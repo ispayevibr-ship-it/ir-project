@@ -432,3 +432,21 @@
  .scheme-add-dock{right:12px;bottom:12px;left:12px}
  .scheme-add-dock #schemeAdd{width:100%;min-height:46px}
 }
+
+
+/* 1.7.52 register refresh result */
+.scheme-mark-sync-result{
+ margin:-3px 0 10px;
+ padding:10px 13px;
+ border:1px solid #c7e1d3;
+ border-radius:8px;
+ background:#f0faf3;
+ color:#287449;
+ font-size:11px;
+ font-weight:700;
+ line-height:1.5;
+ overflow-wrap:anywhere;
+}
+.scheme-mark-sync-result[hidden]{display:none!important}
+.scheme-mark-sync-result.pending{border-color:#d8e4ef;background:#f4f8fc;color:#557a95}
+.scheme-mark-sync-result.error{border-color:#edc9c9;background:#fff2f2;color:#b34242}
