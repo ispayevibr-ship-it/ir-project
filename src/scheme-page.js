@@ -262,7 +262,7 @@ window.irSchemePage=async function(objectId){
    ${between?`<div class="scheme-between"><b>Колонна между осями</b><span>${esc(a.x)} / ${esc(a.y)}</span><small>Положение вычисляется от выбранных базовых осей и сохраняется точно в миллиметрах.</small></div>`:""}
    ${canEdit()?`<div class="scheme-detail-actions"><button type="button" data-scheme-edit>Редактировать</button><button type="button" class="danger" data-scheme-delete>Удалить</button></div>`:""}`;
   panel.querySelector("[data-scheme-edit]")?.addEventListener("click",()=>openEditor(c));
-  panel.querySelector("[data-scheme-delete]")?.addEventListener("click",async()=>{if(!confirm(`Удалить колонну ${c.mark?`«${c.mark}» `:""}со схемы?`))return;await schemeApi.remove(c.id);rows=await schemeApi.list().catch(()=>rows);selectedId="";draw()})
+  panel.querySelector("[data-scheme-delete]")?.addEventListener("click",async()=>{if(!confirm(`Удалить элемент ${c.mark?`«${c.mark}» `:""}со схемы?`))return;await schemeApi.remove(c.id);rows=await schemeApi.list().catch(()=>rows);selectedId="";draw()})
  }
  let gridDraft=null;
  const yAlphabet=["А","Б","В","Г","Д","Е","Ж","З","И","К","Л","М","Н","П","Р","С","Т","У","Ф","Х","Ц","Ч","Ш","Щ","Э","Ю","Я"];
@@ -352,7 +352,7 @@ window.irSchemePage=async function(objectId){
     <div class="scheme-coordinate-preview wide" id="schemeCoordPreview"></div>
    </div>
    <div class="scheme-form-error" id="schemeFormError" hidden></div>
-   <div class="actions"><button type="button" id="schemeEditorCancel">Отмена</button><button type="submit" class="primary">Сохранить колонну</button></div>
+   <div class="actions"><button type="button" id="schemeEditorCancel">Отмена</button><button type="submit" class="primary">Сохранить элемент</button></div>
   </form></dialog>`
  }
  function openEditor(c=null){
@@ -391,7 +391,25 @@ window.irSchemePage=async function(objectId){
  function bindEditor(){
   if(!canEdit())return;const d=document.getElementById("schemeEditor"),f=document.getElementById("schemeForm"),err=document.getElementById("schemeFormError");
   document.getElementById("schemeAdd")?.addEventListener("click",()=>openEditor());document.getElementById("schemeEditorX").onclick=()=>d.close();document.getElementById("schemeEditorCancel").onclick=()=>d.close();
-  f.onsubmit=async e=>{e.preventDefault();err.hidden=true;if(!activeMarks().length){err.textContent="Для этой монтажной схемы в ведомости нет подходящих марок.";err.hidden=false;return}const fd=new FormData(f),id=String(fd.get("id")||""),markId=String(fd.get("mark_id")||""),m=activeMarks().find(x=>x.id===markId),axisX=String(fd.get("axis_x")||axesX[0]||""),axisY=String(fd.get("axis_y")||axesY[0]||""),dx=num(fd.get("offset_x_mm")),dy=num(fd.get("offset_y_mm")),z0=num(fd.get("z0_mm")),z1=num(fd.get("z1_mm")),rot=num(fd.get("rotation_deg")),status=String(fd.get("status")||"planned"),section_type=String(fd.get("section_type")||"ibeam"),profile_name=String(fd.get("profile_name")||"").trim();if(!m){err.textContent="Выберите марку для этой монтажной схемы.";err.hidden=false;return}if(z1<=z0){err.textContent="Отметка верха должна быть выше отметки низа.";err.hidden=false;return}const existing=id?records().find(x=>x.id===id):null,used=new Set(allRecords().map(x=>String(x.position||x.title||"")));let internalPosition=String(existing?.position||existing?.title||"");if(!internalPosition){let n=1;do{internalPosition="COL-"+String(n++).padStart(4,"0")}while(used.has(internalPosition))}const targetGroup=markGroup(m),oldRow=id?arr(rows).find(x=>String(x.id)===id):null,previous=oldRow?.data||{},view=activeView(),payload={record_type:"scheme_column",title:internalPosition,data:{...previous,entity_type:"column",position:internalPosition,mark_id:m.id,mark:m.mark||m.title||"",mark_name:m.name||"",work_type_id:m.work_type_id||"",axis_x:axisX,axis_y:axisY,offset_x_mm:dx,offset_y_mm:dy,absolute_x_mm:num(axisXPos.get(axisX))+dx,absolute_y_mm:num(axisYPos.get(axisY))+dy,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name,scheme_group:targetGroup.key,scheme_group_label:targetGroup.label,scheme_view_id:view?.id||previous.scheme_view_id||""}};try{const saved=id?await schemeApi.update(id,payload):await schemeApi.create(payload);rows=await schemeApi.list();selectedId=String(saved?.id||id||"");d.close();draw()}catch(error){err.textContent="Не удалось сохранить элемент: "+String(error?.message||error);err.hidden=false}}
+  f.onsubmit=async e=>{
+   e.preventDefault();err.hidden=true;
+   if(!activeMarks().length){err.textContent="Для этой схемы нет подходящих марок.";err.hidden=false;return}
+   const fd=new FormData(f),id=String(fd.get("id")||""),m=activeMarks().find(x=>x.id===String(fd.get("mark_id")||""));
+   if(!m){err.textContent="Выберите марку.";err.hidden=false;return}
+   const axisX=String(fd.get("axis_x")||axesX[0]),axisY=String(fd.get("axis_y")||axesY[0]),dx=num(fd.get("offset_x_mm")),dy=num(fd.get("offset_y_mm")),x=num(axisXPos.get(axisX))+dx,y=num(axisYPos.get(axisY))+dy;
+   const kind=String(fd.get("geometry_type")||"column"),z0=num(fd.get("z0_mm")),z1=num(fd.get("z1_mm"));
+   const endX=String(fd.get("end_axis_x")||axesX[0]),endY=String(fd.get("end_axis_y")||axesY[0]),endDx=num(fd.get("end_offset_x_mm")),endDy=num(fd.get("end_offset_y_mm")),x2=num(axisXPos.get(endX))+endDx,y2=num(axisYPos.get(endY))+endDy;
+   if(!axesX.includes(axisX)||!axesY.includes(axisY)||kind!=="column"&&(!axesX.includes(endX)||!axesY.includes(endY))){err.textContent="Выберите существующие оси.";err.hidden=false;return}
+   if(kind==="column"&&z1<=z0){err.textContent="У колонны верх должен быть выше низа.";err.hidden=false;return}
+   if(kind!=="column"&&Math.hypot(x2-x,y2-y,z1-z0)<1){err.textContent="Конечная точка должна отличаться от начальной.";err.hidden=false;return}
+   const status=String(fd.get("status")||"planned"),section_type=String(fd.get("section_type")||"ibeam"),profile_name=String(fd.get("profile_name")||"").trim(),rot=num(fd.get("rotation_deg"));
+   const existing=id?records().find(r=>r.id===id):null,used=new Set(allRecords().map(r=>String(r.position||r.title||"")));
+   let internalPosition=String(existing?.position||existing?.title||"");
+   if(!internalPosition){let n=1;do{internalPosition="COL-"+String(n++).padStart(4,"0")}while(used.has(internalPosition))}
+   const g=markGroup(m),oldRow=id?arr(rows).find(r=>String(r.id)===id):null,previous=oldRow?.data||{},view=activeView();
+   const payload={record_type:"scheme_column",title:internalPosition,data:{...previous,entity_type:"column",position:internalPosition,mark_id:m.id,mark:m.mark||m.title||"",mark_name:m.name||"",work_type_id:m.work_type_id||"",axis_x:axisX,axis_y:axisY,offset_x_mm:dx,offset_y_mm:dy,absolute_x_mm:x,absolute_y_mm:y,geometry_type:kind,absolute_x2_mm:kind==="column"?undefined:x2,absolute_y2_mm:kind==="column"?undefined:y2,end_z_mm:kind==="column"?undefined:z1,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name,scheme_group:g.key,scheme_group_label:g.label,scheme_view_id:view?.id||previous.scheme_view_id||""}};
+   try{const saved=id?await schemeApi.update(id,payload):await schemeApi.create(payload);rows=await schemeApi.list();selectedId=String(saved?.id||id||"");d.close();draw()}catch(error){err.textContent="Не удалось сохранить элемент: "+String(error?.message||error);err.hidden=false}
+  }
  }
  function viewDialogHtml(){
   const types=availableGroups();
