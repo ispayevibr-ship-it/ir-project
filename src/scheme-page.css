@@ -478,3 +478,21 @@
  .scheme-background-picker{max-width:100%;flex:1 1 auto}
  .scheme-background-picker select{max-width:none;flex:1}
 }
+
+
+/* 1.7.55 color the actual SVG grid surface, not just the surrounding canvas */
+.scheme-stage{--scheme-field-fill:#f7fbfd;--scheme-field-fill3d:var(--scheme-field-fill);--scheme-floor3d-opacity:1}
+.scheme-stage[data-scheme-background="standard"]{--scheme-field-fill:#f7fbfd;--scheme-field-fill3d:#eef5f8;--scheme-floor3d-opacity:.72}
+.scheme-stage[data-scheme-background="white"]{--scheme-field-fill:#ffffff}
+.scheme-stage[data-scheme-background="gray"]{--scheme-field-fill:#e7ebf0}
+.scheme-stage[data-scheme-background="blue"]{--scheme-field-fill:#e2f1ff}
+.scheme-stage[data-scheme-background="sand"]{--scheme-field-fill:#f5efdf}
+.scheme-stage[data-scheme-background="dark"]{--scheme-field-fill:#26394b}
+.scheme-stage[data-scheme-background="custom"]{--scheme-field-fill:var(--scheme-custom-background,#e9f2ff)}
+.scheme-stage .scheme-grid-floor-plan{fill:var(--scheme-field-fill,#f7fbfd)}
+.scheme-stage .scheme-grid-floor3d{fill:var(--scheme-field-fill3d,var(--scheme-field-fill,#eef5f8));fill-opacity:var(--scheme-floor3d-opacity,1)}
+.scheme-stage[data-scheme-contrast="dark"] .scheme-grid-outline-plan,
+.scheme-stage[data-scheme-contrast="dark"] .scheme-grid-outline{stroke:#a5bed0}
+.scheme-stage[data-scheme-contrast="dark"] .scheme-grid-line{stroke:#7893a8}
+.scheme-stage[data-scheme-contrast="dark"] .scheme-span-tick{stroke:#8da7bb}
+.scheme-stage[data-scheme-contrast="dark"] .scheme-3d-span-text{fill:#c1d6e6}
