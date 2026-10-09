@@ -126,11 +126,32 @@
   else{renderTabBar();save()}
   return true
  }
+ function reloadCurrent(){
+  const tab=frames.get(activeId);if(!tab)return;
+  if(tab.dirty&&!confirm("При обновлении вкладки несохранённые изменения пропадут. Продолжить?"))return;
+  tab.dirty=false;
+  tab.frame.src="./index.html?tabContent=1#"+cleanRoute(tab.route);
+  renderTabBar();notify("Обновляем вкладку: "+tab.title)
+ }
+ async function checkAppUpdate(){
+  const button=document.getElementById("tabsCheckUpdate");if(!api.updater){notify("Проверка обновлений недоступна.");return}
+  if(button){button.disabled=true;button.textContent="Проверяем…"}
+  try{
+   const result=await api.updater.check(),current=await api.updater.version(),remote=result?.updateInfo?.version;
+   if(!remote||String(remote)===String(current)){alert("Установлена последняя версия IR Project: "+current);return}
+   if(!confirm("Доступна версия "+remote+" (сейчас "+current+"). Скачать и установить?"))return;
+   notify("Скачиваем обновление "+remote+"…");
+   await api.updater.download();
+   await api.updater.install()
+  }catch(error){alert("Не удалось проверить или установить обновление: "+String(error?.message||error))}
+  finally{if(button){button.disabled=false;button.textContent="Обновление"}}
+ }
  function shortcuts(event){
   const ctrl=event.ctrlKey||event.metaKey;
   if(!ctrl||event.altKey)return;
   const k=String(event.key).toLowerCase();
   if(k==="t"){event.preventDefault();createTab("/objects");return}
+  if(k==="r"){event.preventDefault();reloadCurrent();return}
   if(k==="w"){event.preventDefault();closeTab(activeId);return}
   if(k==="tab"||k==="pagedown"||k==="pageup"){
    event.preventDefault();if(!order.length)return;
@@ -140,6 +161,8 @@
  }
  document.addEventListener("keydown",shortcuts,true);
  document.getElementById("tabsAdd").onclick=()=>createTab("/objects");
+ document.getElementById("tabsReload").onclick=reloadCurrent;
+ document.getElementById("tabsCheckUpdate").onclick=checkAppUpdate;
  document.getElementById("tabsDuplicate").onclick=()=>{const selected=frames.get(activeId);if(selected)createTab(selected.route)};
  document.getElementById("tabsDetach").onclick=()=>{
   const selected=frames.get(activeId);if(!selected)return;
