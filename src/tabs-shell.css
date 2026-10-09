@@ -8,7 +8,7 @@ button{font-family:inherit}
 .tabs-item{flex:0 1 225px;min-width:122px;max-width:245px;height:34px;display:flex;align-items:center;gap:8px;padding:0 5px 0 8px;border:1px solid #d9e4ee;border-radius:8px;background:#e8eef5;color:#5e778d;cursor:pointer;text-align:left;font-size:11px;transition:background .14s,border-color .14s;-webkit-app-region:no-drag}
 .tabs-item:hover{background:#e0ecf9;color:#24445e;border-color:#bcd5ea}
 .tabs-item.active{position:relative;background:#fff;border-color:#b8d3ed;color:#153b56;box-shadow:0 1px 5px rgba(40,85,127,.08);font-weight:750}
-.tabs-item.active:before{content:"";position:absolute;left:10px;right:10px;top:-1px;height:2px;border-radius:0 0 3px 3px;background:#2175cf}
+.tabs-item.active:before{content:"";position:absolute;left:10px;right:10px;top:-1px;height:2px;border-radius:0 0 3px 3px;background:#a0caf0}
 .tabs-item .tabs-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tabs-icon{flex:0 0 23px;width:23px;height:23px;display:grid;place-items:center;border-radius:6px;color:#6486a4;background:#f6f9fc}
 .tabs-icon svg{display:block;flex:none;width:15px;height:15px;stroke:currentColor}
