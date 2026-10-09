@@ -248,24 +248,26 @@
  updateClose.onclick=closeUpdate;
  updateDialog.addEventListener("cancel",event=>{if(updateBusy)event.preventDefault()});
  function updateError(error){
-  updateBusy=false;updateProgress.hidden=true;
+  updateBusy=false;updateProgress.hidden=true;updateTransfer.hidden=true;
   setUpdate("Ошибка обновления","Не удалось завершить обновление: "+String(error?.message||error));
   updateButtons([["Закрыть",false,closeUpdate],["Повторить",true,checkAppUpdate]])
  }
  function updateCurrent(version){
-  updateProgress.hidden=true;
+  updateProgress.hidden=true;updateTransfer.hidden=true;updateSize.hidden=true;
   setUpdate("Обновление не требуется","Установлена последняя версия IR Project "+version+".");
   updateButtons([["Закрыть",true,closeUpdate]])
  }
  function updateAvailable(version,current){
-  updateProgress.hidden=true;
+  updateLatestVersion=version||updateLatestVersion;
+  updateProgress.hidden=true;updateTransfer.hidden=true;showUpdateSize();
   setUpdate("Доступно обновление","Доступна версия "+version+(current?" (сейчас "+current+")":"")+". Установить обновление IR Project?");
   updateButtons([["Не сейчас",false,closeUpdate],["Да, обновить",true,downloadUpdate]])
  }
  async function downloadUpdate(){
   if(updateBusy)return;
-  updateBusy=true;
+  updateBusy=true;updateTransferredBytes=0;
   setUpdate("Скачивание обновления","Загружаем файлы новой версии IR Project…");
+  showUpdateSize();showTransfer();
   updateProgress.hidden=false;updateBar.style.width="0%";updatePercent.textContent="0%";updateButtons([]);
   try{await api.updater.download();updateDownloaded()}
   catch(e){updateError(e)}
@@ -273,7 +275,9 @@
  }
  function updateDownloaded(version){
   updateBusy=false;updateProgress.hidden=true;
-  setUpdate("Обновление готово","Версия "+(version||"IR Project")+" скачана. Установить её и перезапустить программу?");
+  if(updateTotalBytes>0)updateTransferredBytes=updateTotalBytes;
+  showUpdateSize();showTransfer();
+  setUpdate("Обновление готово","Версия "+(version||updateLatestVersion||"IR Project")+" скачана. Установить её и перезапустить программу?");
   updateButtons([["Позже",false,closeUpdate],["Установить и перезапустить",true,installUpdate]])
  }
  async function installUpdate(){
