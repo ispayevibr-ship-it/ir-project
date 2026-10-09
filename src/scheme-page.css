@@ -88,3 +88,6 @@
 .scheme-type-select-wrap select:hover{border-color:#9eb6c7}
 .scheme-type-select-wrap select:focus{border-color:#75a9e8;box-shadow:0 0 0 3px rgba(23,105,224,.08)}
 @media(max-width:1050px){.scheme-head-actions{flex-wrap:wrap}.scheme-type-select-wrap select{width:200px}}
+
+.scheme-type-select-wrap.work select{width:260px}
+@media(max-width:1250px){.scheme-type-select-wrap.work select{width:220px}.scheme-type-select-wrap:not(.work) select{width:190px}}
