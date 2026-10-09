@@ -65,16 +65,33 @@
  }
  function setRoute(id,route){
   const tab=frames.get(id);if(!tab)return;
-  tab.route=cleanRoute(route);tab.title=routeLabel(tab.route);
+  const next=cleanRoute(route);
+  if(tab.route===next)return;
+  tab.route=next;tab.title=routeLabel(tab.route);
   const oid=tab.route.match(/^\/objects\/object\/(\d+)/)?.[1];
   if(oid)resolveName(id,oid);
   renderTabBar();save()
  }
+ function startTab(tab){
+  if(!tab||tab.started)return;
+  tab.started=true;
+  tab.frame.src="./index.html?tabContent=1#"+cleanRoute(tab.route)
+ }
  function selectTab(id){
   if(!frames.has(id))return;
+  const wasActive=activeId===id;
   activeId=id;
-  for(const [key,tab] of frames){const selected=key===id;tab.frame.classList.toggle("active",selected);tab.frame.hidden=false;tab.frame.setAttribute("aria-hidden",selected?"false":"true")}
-  renderTabBar();save();notify("Вкладка: "+frames.get(id).title)
+  for(const [key,tab] of frames){
+   const selected=key===id;
+   if(selected!==tab.active){
+    tab.active=selected;
+    tab.frame.classList.toggle("active",selected);
+    tab.frame.setAttribute("aria-hidden",selected?"false":"true")
+   }
+  }
+  startTab(frames.get(id));
+  if(!wasActive)renderTabBar();
+  save();notify("Вкладка: "+frames.get(id).title)
  }
  function markDirty(id){const t=frames.get(id);if(t&&!t.dirty){t.dirty=true;renderTabBar()}}
  function attachHandlers(tab){
@@ -107,10 +124,10 @@
   const frame=document.createElement("iframe");
   frame.className="tabs-pane";frame.title=routeLabel(path);frame.name="ir-tab-"+id;frame.referrerPolicy="same-origin";
   frame.setAttribute("aria-hidden","true");
-  const tab={id,frame,route:path,title:routeLabel(path),dirty:false};
+  const tab={id,frame,route:path,title:routeLabel(path),dirty:false,started:false,active:false};
   frames.set(id,tab);order.push(id);
-  frame.addEventListener("load",()=>{if(frames.get(id)!==tab)return;attachHandlers(tab)});
-  frame.src="./index.html?tabContent=1#"+path;
+  frame.addEventListener("load",()=>{if(frames.get(id)!==tab||!tab.started)return;attachHandlers(tab)});
+  // Inactive/restored tabs keep their address, but do not run the full app until selected.
   stage.append(frame);
   if(activate)selectTab(id);else{renderTabBar();save()}
   const oid=path.match(/^\/objects\/object\/(\d+)/)?.[1];if(oid)resolveName(id,oid);
