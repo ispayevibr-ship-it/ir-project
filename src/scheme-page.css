@@ -496,3 +496,14 @@
 .scheme-stage[data-scheme-contrast="dark"] .scheme-grid-line{stroke:#7893a8}
 .scheme-stage[data-scheme-contrast="dark"] .scheme-span-tick{stroke:#8da7bb}
 .scheme-stage[data-scheme-contrast="dark"] .scheme-3d-span-text{fill:#c1d6e6}
+
+
+/* 1.7.66: mounting grid and controlled mark placement editor */
+.scheme-editor-grid-field{display:grid;gap:6px}
+.scheme-editor-grid-field select{font-weight:700;color:#244e70;background:#f7fbff;border-color:#c9def2}
+.scheme-editor-grid-field small{font-size:9px;font-weight:500;color:#7e95a5;line-height:1.5}
+.scheme-mark-placement-info{margin-top:6px;padding:9px 11px;border:1px solid #cfe4d9;border-radius:7px;background:#f1faf5;color:#277a50;font-size:10px;font-weight:750;line-height:1.6}
+.scheme-mark-placement-info.exhausted{color:#bf3434;background:#fff0f0;border-color:#eabbbb}
+.scheme-mark-field.exhausted>select,.scheme-mark-field.exhausted>.ir-global-select>.ir-global-select-trigger{border-color:#e0a1a1!important;background:#fff2f2!important;color:#b42d2d!important}
+.scheme-editor .ir-global-select-menu button.exhausted:disabled{opacity:1!important;color:#b42d2d!important;background:#fff1f1!important;border-left:3px solid #e1a1a1;cursor:not-allowed}
+.scheme-editor .ir-global-select-menu button.exhausted:disabled:hover{color:#b42d2d;background:#fff1f1}
