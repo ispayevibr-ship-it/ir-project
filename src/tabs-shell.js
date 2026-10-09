@@ -150,19 +150,100 @@
   tab.frame.src="./index.html?tabContent=1#"+cleanRoute(tab.route);
   renderTabBar();notify("Обновляем вкладку: "+tab.title)
  }
- async function checkAppUpdate(){
-  const button=document.getElementById("tabsCheckUpdate");if(!api.updater){notify("Проверка обновлений недоступна.");return}
-  if(button){button.disabled=true;button.textContent="Проверяем…"}
-  try{
-   const result=await api.updater.check(),current=await api.updater.version(),remote=result?.updateInfo?.version;
-   if(!remote||String(remote)===String(current)){alert("Установлена последняя версия IR Project: "+current);return}
-   if(!confirm("Доступна версия "+remote+" (сейчас "+current+"). Скачать и установить?"))return;
-   notify("Скачиваем обновление "+remote+"…");
-   await api.updater.download();
-   await api.updater.install()
-  }catch(error){alert("Не удалось проверить или установить обновление: "+String(error?.message||error))}
-  finally{if(button){button.disabled=false;button.textContent="Обновление"}}
+ const updateDialog=document.getElementById("tabsUpdateDialog"),
+  updateTitle=document.getElementById("tabsUpdateTitle"),
+  updateText=document.getElementById("tabsUpdateText"),
+  updateProgress=document.getElementById("tabsUpdateProgress"),
+  updateBar=document.getElementById("tabsUpdateProgressBar"),
+  updatePercent=document.getElementById("tabsUpdateProgressLabel"),
+  updateActions=document.getElementById("tabsUpdateActions"),
+  updateClose=document.getElementById("tabsUpdateClose");
+ let updateBusy=false;
+ const setUpdate=(title,message)=>{updateTitle.textContent=title;updateText.textContent=message};
+ function showUpdateDialog(){
+  if(!updateDialog.open)updateDialog.showModal();
  }
+ function updateButtons(buttons){
+  updateActions.replaceChildren();
+  for(const [label,primary,callback] of buttons){
+   const button=document.createElement("button");
+   button.type="button";button.textContent=label;
+   if(primary)button.className="primary";
+   button.onclick=callback;updateActions.append(button)
+  }
+ }
+ const closeUpdate=()=>{if(!updateBusy&&updateDialog.open)updateDialog.close()};
+ updateClose.onclick=closeUpdate;
+ updateDialog.addEventListener("cancel",event=>{if(updateBusy)event.preventDefault()});
+ function updateError(error){
+  updateBusy=false;updateProgress.hidden=true;
+  setUpdate("Ошибка обновления","Не удалось завершить обновление: "+String(error?.message||error));
+  updateButtons([["Закрыть",false,closeUpdate],["Повторить",true,checkAppUpdate]])
+ }
+ function updateCurrent(version){
+  updateProgress.hidden=true;
+  setUpdate("Обновление не требуется","Установлена последняя версия IR Project "+version+".");
+  updateButtons([["Закрыть",true,closeUpdate]])
+ }
+ function updateAvailable(version,current){
+  updateProgress.hidden=true;
+  setUpdate("Доступно обновление","Доступна версия "+version+(current?" (сейчас "+current+")":"")+". Установить обновление IR Project?");
+  updateButtons([["Не сейчас",false,closeUpdate],["Да, обновить",true,downloadUpdate]])
+ }
+ async function downloadUpdate(){
+  if(updateBusy)return;
+  updateBusy=true;
+  setUpdate("Скачивание обновления","Загружаем файлы новой версии IR Project…");
+  updateProgress.hidden=false;updateBar.style.width="0%";updatePercent.textContent="0%";updateButtons([]);
+  try{await api.updater.download();updateDownloaded()}
+  catch(e){updateError(e)}
+  finally{updateBusy=false}
+ }
+ function updateDownloaded(version){
+  updateBusy=false;updateProgress.hidden=true;
+  setUpdate("Обновление готово","Версия "+(version||"IR Project")+" скачана. Установить её и перезапустить программу?");
+  updateButtons([["Позже",false,closeUpdate],["Установить и перезапустить",true,installUpdate]])
+ }
+ async function installUpdate(){
+  if(updateBusy)return;
+  if([...frames.values()].some(tab=>tab.dirty)){
+   updateText.textContent="Есть вкладки с несохранёнными изменениями. Сохраните отчёты и другие формы перед перезапуском, затем повторите установку.";
+   return
+  }
+  updateBusy=true;setUpdate("Установка обновления","Перезапускаем IR Project…");updateButtons([]);
+  try{await api.updater.install()}catch(e){updateError(e)}
+ }
+ function onUpdaterStatus(info){
+  if(!updateDialog.open||!info)return;
+  if(info.type==="available"&&!updateBusy)updateAvailable(info.version,info.installedVersion);
+  else if(info.type==="current"&&!updateBusy)updateCurrent(info.version);
+  else if(info.type==="progress"){
+   const pct=Math.max(0,Math.min(100,Number(info.percent)||0));
+   updateProgress.hidden=false;updateBar.style.width=pct+"%";updatePercent.textContent=pct+"%";
+   updateText.textContent="Скачиваем обновление: "+pct+"%.";
+  }
+  else if(info.type==="downloaded")updateDownloaded(info.version);
+  else if(info.type==="error")updateError(info.message||"Ошибка обновления")
+ }
+ api.updater?.onStatus?.(onUpdaterStatus);
+ async function checkAppUpdate(){
+  if(updateBusy)return;
+  if(!api.updater){notify("Проверка обновлений недоступна.");return}
+  showUpdateDialog();
+  updateBusy=true;updateProgress.hidden=true;setUpdate("Проверка обновлений","Проверяем доступную версию IR Project…");updateButtons([]);
+  const button=document.getElementById("tabsCheckUpdate");
+  if(button)button.disabled=true;
+  try{
+   const result=await api.updater.check();
+   const current=await api.updater.version(),remote=result?.updateInfo?.version;
+   updateBusy=false;
+   if(!remote||String(remote)===String(current))updateCurrent(current);
+   else updateAvailable(remote,current)
+  }catch(e){updateError(e)}
+  finally{updateBusy=false;if(button)button.disabled=false}
+ }
+ // Pages hosted in iframes delegate all update UI to this single host window.
+ window.irTabUpdates={open:checkAppUpdate};
  function shortcuts(event){
   const ctrl=event.ctrlKey||event.metaKey;
   if(!ctrl||event.altKey)return;
