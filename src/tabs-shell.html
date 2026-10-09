@@ -1,17 +1,17 @@
 <!doctype html>
 <html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>IR Project — вкладки</title>
-<link rel="stylesheet" href="./tabs-shell.css?v=1761">
+<link rel="stylesheet" href="./tabs-shell.css?v=1762">
 </head><body>
 <header class="tabs-bar">
  <nav id="tabsList" class="tabs-list" aria-label="Открытые вкладки"><button id="tabsAdd" class="tabs-add" type="button" title="Новая вкладка (Ctrl+T)" aria-label="Создать вкладку">＋</button></nav>
  <div class="tabs-tools"><button type="button" id="tabsReload" title="Обновить текущую вкладку">↻</button><button type="button" id="tabsDuplicate" title="Открыть копию текущей страницы во вкладке">Дублировать</button><button type="button" id="tabsDetach" title="Открыть текущую страницу в новом окне Windows">↗ В отдельное окно</button></div>
 </header>
-<div id="tabsContent" class="tabs-content" aria-label="Содержимое вкладок"></div>
+<div id="tabsContent" class="tabs-content" aria-label="Содержимое вкладок"><div id="tabsLoading" class="tabs-loading" hidden aria-live="polite"><span class="tabs-loading-spinner" aria-hidden="true"></span><span id="tabsLoadingText">Открываем страницу…</span></div></div>
 <dialog id="tabsUpdateDialog" class="tabs-update-dialog" aria-labelledby="tabsUpdateTitle">
  <div class="tabs-update-header"><span class="tabs-update-icon" aria-hidden="true">↻</span><h2 id="tabsUpdateTitle">Проверка обновлений</h2><button id="tabsUpdateClose" type="button" class="tabs-update-close" aria-label="Закрыть окно">×</button></div>
  <p id="tabsUpdateText" class="tabs-update-message" aria-live="polite">Проверяем доступную версию IR Project…</p>
  <div id="tabsUpdateProgress" class="tabs-update-progress" hidden><div class="tabs-update-progress-track"><div id="tabsUpdateProgressBar"></div></div><span id="tabsUpdateProgressLabel">0%</span></div>
  <div id="tabsUpdateActions" class="tabs-update-actions"></div>
 </dialog>
-<script src="./tabs-shell.js?v=1761"></script>
+<script src="./tabs-shell.js?v=1762"></script>
 </body></html>
