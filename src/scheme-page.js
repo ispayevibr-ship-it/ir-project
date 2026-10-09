@@ -131,12 +131,12 @@ window.irSchemePage=async function(objectId){
   out+=`<g class="scheme-3d-dim"><rect x="${d2.x-50}" y="${d2.y-11}" width="100" height="20" rx="5"/><text x="${d2.x}" y="${d2.y+3}">${esc(yName)}: ${fmt(spanY)} мм</text></g>`;
   return{html:out,p}
  }
- function column3dShape(c,base,top){
-  const t=sectionType(c),dx=top.x-base.x,dy=top.y-base.y,len=Math.max(1,Math.hypot(dx,dy)),nx=-dy/len,ny=dx/len,pt=(p,off)=>({x:p.x+nx*off,y:p.y+ny*off}),poly=(a,b,c1,d,cls)=>`<polygon points="${a.x},${a.y} ${b.x},${b.y} ${c1.x},${c1.y} ${d.x},${d.y}" class="${cls}"/>`;
-  const plate=[pt(base,-6),pt(base,6),{x:pt(base,6).x+4,y:pt(base,6).y+2},{x:pt(base,-6).x+4,y:pt(base,-6).y+2}];
+ function column3dShape(c,base,top,compact=1){
+  const t=sectionType(c),dx=top.x-base.x,dy=top.y-base.y,len=Math.max(1,Math.hypot(dx,dy)),nx=-dy/len,ny=dx/len,pt=(p,off)=>({x:p.x+nx*off*compact,y:p.y+ny*off*compact}),poly=(a,b,c1,d,cls)=>`<polygon points="${a.x},${a.y} ${b.x},${b.y} ${c1.x},${c1.y} ${d.x},${d.y}" class="${cls}"/>`;
+  const plate=[pt(base,-6),pt(base,6),{x:pt(base,6).x+4*compact,y:pt(base,6).y+2*compact},{x:pt(base,-6).x+4*compact,y:pt(base,-6).y+2*compact}];
   let out=`<polygon points="${plate.map(q=>`${q.x},${q.y}`).join(" ")}" class="scheme-base-plate"/>`;
   if(t==="round"){
-   out+=`<line x1="${base.x}" y1="${base.y}" x2="${top.x}" y2="${top.y}" class="scheme-round-column"/><ellipse cx="${top.x}" cy="${top.y}" rx="4.2" ry="2.2" class="scheme-section-cap"/>`;return out
+   out+=`<line x1="${base.x}" y1="${base.y}" x2="${top.x}" y2="${top.y}" class="scheme-round-column"/><ellipse cx="${top.x}" cy="${top.y}" rx="${4.2*compact}" ry="${2.2*compact}" class="scheme-section-cap"/>`;return out
   }
   if(t==="square"){
    out+=poly(pt(base,-4.5),pt(base,4.5),pt(top,4.5),pt(top,-4.5),"scheme-square-column");
@@ -150,9 +150,9 @@ window.irSchemePage=async function(objectId){
   out+=`<line x1="${pt(base,-4.8).x}" y1="${pt(base,-4.8).y}" x2="${pt(top,-4.8).x}" y2="${pt(top,-4.8).y}" class="scheme-ibeam-flange"/><line x1="${pt(base,4.8).x}" y1="${pt(base,4.8).y}" x2="${pt(top,4.8).x}" y2="${pt(top,4.8).y}" class="scheme-ibeam-flange"/><line x1="${pt(top,-5.7).x}" y1="${pt(top,-5.7).y}" x2="${pt(top,5.7).x}" y2="${pt(top,5.7).y}" class="scheme-ibeam-cap"/>`;
   return out
  }
- function member3dShape(c,base,top){
+ function member3dShape(c,base,top,compact=1){
   const kind=c.geometryType;
-  if(kind==="column")return column3dShape(c,base,top);
+  if(kind==="column")return column3dShape(c,base,top,compact);
   const dx=top.x-base.x,dy=top.y-base.y,len=Math.max(1,Math.hypot(dx,dy)),nx=-dy/len,ny=dx/len,point=(t,o=0)=>({x:base.x+dx*t+nx*o,y:base.y+dy*t+ny*o}),segment=(q,r,cls)=>line(q,r,cls);
   if(kind==="truss"){
    const a=point(0,-5),b=point(1,-5),c1=point(0,5),d=point(1,5),n=Math.max(2,Math.min(12,Math.ceil(len/45)));
@@ -164,17 +164,17 @@ window.irSchemePage=async function(objectId){
   const thickness=Math.min(7,Math.max(2.5,len*.03)),points=[point(0,-thickness),point(0,thickness),point(1,thickness),point(1,-thickness)];
   return `<polygon points="${points.map(q=>`${q.x},${q.y}`).join(" ")}" class="scheme-beam-body"/>${segment(point(0,0),point(1,0),"scheme-beam-axis")}`
  }
- function prism(c,p,index,labelBoxes){
+ function prism(c,p,index,labelBoxes,compact=1){
   const kind=c.geometryType,base=p(c.x,c.y,c.z0),top=p(c.x2,c.y2,c.z2),isSelected=c.id===selectedId,sel=isSelected?" selected":"",status=c.status==="mounted"?" mounted":" planned",between=c.dx||c.dy?" between":"";
   const baseAxis=p(axisXPos.get(c.axisX),axisYPos.get(c.axisY),c.z0),showOffset=!!(c.dx||c.dy)&&dimensionsVisible&&isSelected,showLabel=isSelected||(labelsVisible&&index<Math.max(24,zoom>1.8?70:36));
   const anchor=kind==="column"?top:{x:(base.x+top.x)/2,y:(base.y+top.y)/2};
   const label=String(c.mark||"—"),lw=Math.max(28,Math.min(64,14+label.length*6.2)),lh=20,placed=showLabel?placeSchemeLabel(anchor.x,anchor.y,lw,lh,index,labelBoxes||[],1040,650,anchor.y<150):null,lx=placed?.lx||0,ly=placed?.ly||0,anchorX=placed?.anchorX||anchor.x,anchorY=placed?.anchorY||anchor.y;
   const offsetMid={x:(base.x+baseAxis.x)/2,y:(base.y+baseAxis.y)/2};
-  return`<g class="scheme-column scheme-geometry-${kind} section-${sectionType(c)}${status}${sel}${between}" data-column="${esc(c.id)}" tabindex="0">
+  return`<g class="scheme-column scheme-geometry-${kind} section-${sectionType(c)}${status}${sel}${between}" data-column="${esc(c.id)}" tabindex="0" style="--scheme-3d-stroke:${Math.max(.55,3.3*compact).toFixed(2)}px;--scheme-3d-cap:${Math.max(.5,2.2*compact).toFixed(2)}px;--scheme-3d-round:${Math.max(.8,7*compact).toFixed(2)}px;--scheme-hit-stroke:${Math.max(2,14*compact).toFixed(2)}px">
    <title>${esc(columnTitle(c))}</title>
    <line x1="${base.x}" y1="${base.y}" x2="${top.x}" y2="${top.y}" class="scheme-column-hit-line"/>
    ${showOffset?`<line x1="${baseAxis.x}" y1="${baseAxis.y}" x2="${base.x}" y2="${base.y}" class="scheme-offset-line"/><text x="${offsetMid.x}" y="${offsetMid.y-7}" class="scheme-offset-text">${esc(offsetText(c))}</text>`:""}
-   ${member3dShape(c,base,top)}
+   ${member3dShape(c,base,top,compact)}
    ${showLabel?`<line x1="${anchor.x}" y1="${anchor.y}" x2="${anchorX}" y2="${anchorY}" class="scheme-label-leader"/><g class="scheme-column-label compact${isSelected?" selected-label":""}"><rect x="${lx}" y="${ly}" width="${lw}" height="${lh}" rx="5"/><text x="${lx+7}" y="${ly+13.5}" class="scheme-label-position">${esc(label)}</text></g>`:""}
   </g>`
  }
@@ -240,7 +240,7 @@ window.irSchemePage=async function(objectId){
  }
  function renderScene(){
   const box=document.getElementById("schemeCanvas");if(!box)return;const cols=columns(),xName=`${axesX[0]}–${axesX.at(-1)}`,yName=`${axesY[0]}–${axesY.at(-1)}`,meta=`<div class="scheme-grid-meta"><b>${fmt(spanX)} × ${fmt(spanY)} мм</b><span>${esc(xName)}: ${axesX.length} осей</span><span>${esc(yName)}: ${axesY.length} осей</span><small>Поворот ${viewRotation}° · Ctrl + колесо — масштаб · перетащить — перемещение · клик по пустому месту — снять выбор</small></div>`;
-  if(mode==="3d"){const g=grid3d(cols);box.innerHTML=`${meta}<svg viewBox="0 0 1040 650" aria-label="3D монтажная схема"><g id="schemeZoomLayer" transform="${zoomTransform()}"><g class="scheme-grid-layer">${g.html}</g><g class="scheme-column-layer">${(()=>{const labelBoxes=[];return cols.map((c,i)=>prism(c,g.p,i,labelBoxes)).join("")})()}</g></g></svg>`}
+  if(mode==="3d"){const g=grid3d(cols),points=cols.filter(c=>c.geometryType==="column").map(c=>({id:c.id,p:g.p(c.x,c.y,0)}));const compactFor=c=>{if(c.geometryType!=="column")return 1;const point=g.p(c.x,c.y,0);let nearest=Infinity;for(const other of points){if(other.id===c.id)continue;const d=Math.hypot(point.x-other.p.x,point.y-other.p.y);if(d>.01&&d<nearest)nearest=d}return Math.max(.12,Math.min(1,(nearest-2.6)/14))};box.innerHTML=`${meta}<svg viewBox="0 0 1040 650" aria-label="3D монтажная схема"><g id="schemeZoomLayer" transform="${zoomTransform()}"><g class="scheme-grid-layer">${g.html}</g><g class="scheme-column-layer">${(()=>{const labelBoxes=[];return cols.map((c,i)=>prism(c,g.p,i,labelBoxes,compactFor(c))).join("")})()}</g></g></svg>`}
   else box.innerHTML=`${meta}<svg viewBox="0 0 1040 650" aria-label="План монтажной схемы"><g id="schemeZoomLayer" transform="${zoomTransform()}">${planSvg(cols)}</g></svg>`;
   box.querySelectorAll("[data-column]").forEach(el=>{const pick=()=>{selectedId=el.dataset.column;renderScene();renderDetails()};el.onclick=pick;el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();pick()}}});
   bindScenePanZoom(box)
