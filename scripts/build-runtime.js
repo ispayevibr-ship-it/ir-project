@@ -45,5 +45,5 @@ function build(bundle,expected,size,kind){
   process.stdout.write("Rebuilt "+bundle+" ("+list.length+" files)\n");
  }
 }
-build("src/ir-runtime.js",58,10,"js");
-build("src/ir-styles.css",43,10,"css");
+build("src/ir-runtime.js",59,10,"js");
+build("src/ir-styles.css",44,10,"css");

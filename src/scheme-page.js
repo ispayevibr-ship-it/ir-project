@@ -10,7 +10,7 @@ window.irSchemePage=async function(objectId){
  const fmt=v=>Number(num(v).toFixed(1)).toLocaleString("ru-RU",{maximumFractionDigits:1});
  const defaultAxesX=["1","2","3","4","5","6"],defaultAxesY=["А","Б","В","Г","Д","Е","Ж","И","К","Л"],defaultSpanX=45000,defaultSpanY=60000;
  let axesX=[...defaultAxesX],axesY=[...defaultAxesY],targetSpanX=defaultSpanX,targetSpanY=defaultSpanY,gridDirX="ltr",gridDirY="btt";
- let mode="3d",yaw=-34,viewRotation=0,zoom=1,panX=0,panY=0,selectedId="",activeWorkId="",activeScheme="all",rows=[],markRows=[],workRows=[],gridXSpans=[],gridYSpans=[],spanX=targetSpanX,spanY=targetSpanY,axisXPos=new Map(),axisYPos=new Map(),labelsVisible=false,dimensionsVisible=false,hiddenGroups=new Set(),statusFilter="all",levelMin="",levelMax="",layersPanelOpen=false,elementSearch="",pickerScrollTop=0,previewFullscreen=false,previewNativeFullscreen=false,previewOriginalOverflow="";
+ let mode="building",yaw=-34,viewRotation=0,zoom=1,panX=0,panY=0,selectedId="",activeWorkId="",activeScheme="all",rows=[],markRows=[],workRows=[],gridXSpans=[],gridYSpans=[],spanX=targetSpanX,spanY=targetSpanY,axisXPos=new Map(),axisYPos=new Map(),labelsVisible=false,dimensionsVisible=false,hiddenGroups=new Set(),statusFilter="all",levelMin="",levelMax="",layersPanelOpen=false,elementSearch="",pickerScrollTop=0,previewFullscreen=false,previewNativeFullscreen=false,previewOriginalOverflow="";
  const backgroundChoices=["standard","white","gray","blue","sand","dark","custom"],backgroundStorageKey="ir-project.scheme-background."+oid;
  let schemeBackground="standard",schemeCustomBackground="#e9f2ff";
  const isHexColor=v=>/^#[\da-f]{6}$/i.test(String(v||""));
@@ -353,8 +353,23 @@ window.irSchemePage=async function(objectId){
   svg.onpointerup=e=>stop(e,true);svg.onpointercancel=e=>stop(e,false);svg.onpointerleave=e=>{if(dragging&&e.buttons===0)stop(e,false)};
   svg.onwheel=e=>{if(!e.ctrlKey)return;e.preventDefault();setZoom(zoom+(e.deltaY<0?.15:-.15))};
  }
+ function renderUnifiedBuilding(box){
+  if(!window.irBuildingView){box.innerHTML='<p>Модель загружается…</p>';return}
+  window.irBuildingView.render(box,{
+   axesX:[...axesX],axesY:[...axesY],spanX,spanY,
+   gridX:Object.fromEntries(axisXPos),gridY:Object.fromEntries(axisYPos),
+   elements:columns(),
+   marks:workMarks().map(m=>{const q=markPlacement(m);return{id:m.id,title:markLabel(m),mark:m.mark||m.title,total:q.total,placed:q.placed,left:q.left,geometry:guessGeometry(m)}}),
+   groups:allVisibleTypes().map(g=>({...g,visible:!hiddenGroups.has(g.key)})),
+   canEdit:canEdit(),selected:selectedId,showLabels:labelsVisible,
+   onSelect:id=>{selectedId=id;renderDetails()},
+   onLayer:key=>{hiddenGroups.has(key)?hiddenGroups.delete(key):hiddenGroups.add(key);draw()},
+   onPlacement:placement=>openEditor(null,false,placement)
+  })
+ }
  function renderScene(){
   const box=document.getElementById("schemeCanvas");if(!box)return;const cols=columns(),xName=`${axesX[0]}–${axesX.at(-1)}`,yName=`${axesY[0]}–${axesY.at(-1)}`,meta=`<div class="scheme-grid-meta"><b>${fmt(spanX)} × ${fmt(spanY)} мм</b><span>${esc(xName)}: ${axesX.length} осей</span><span>${esc(yName)}: ${axesY.length} осей</span><small>Поворот ${viewRotation}° · Ctrl + колесо — масштаб · перетащить — перемещение · клик по пустому месту — снять выбор</small></div>`;
+  if(mode==="building"){renderUnifiedBuilding(box);return}
   if(mode==="3d"){const g=grid3d(cols),points=cols.filter(c=>c.geometryType==="column").map(c=>({id:c.id,p:g.p(c.x,c.y,0)}));const compactFor=c=>{if(c.geometryType!=="column")return 1;const point=g.p(c.x,c.y,0);let nearest=Infinity;for(const other of points){if(other.id===c.id)continue;const d=Math.hypot(point.x-other.p.x,point.y-other.p.y);if(d>.01&&d<nearest)nearest=d}return Math.max(.12,Math.min(1,(nearest-2.6)/14))};box.innerHTML=`${meta}<svg viewBox="0 0 1040 650" aria-label="3D монтажная схема"><g id="schemeZoomLayer" transform="${zoomTransform()}"><g class="scheme-grid-layer">${g.html}</g><g class="scheme-column-layer">${(()=>{const labelBoxes=[];return cols.map((c,i)=>prism(c,g.p,i,labelBoxes,compactFor(c))).join("")})()}</g></g></svg>`}
   else box.innerHTML=`${meta}<svg viewBox="0 0 1040 650" aria-label="План монтажной схемы"><g id="schemeZoomLayer" transform="${zoomTransform()}">${planSvg(cols)}</g></svg>`;
   box.querySelectorAll("[data-column]").forEach(el=>{const pick=()=>{selectedId=el.dataset.column;renderScene();renderDetails()};el.onclick=pick;el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();pick()}}});
@@ -535,7 +550,7 @@ window.irSchemePage=async function(objectId){
    <div class="actions"><button type="button" id="schemeEditorCancel">Отмена</button><button type="submit" class="primary">Сохранить элемент</button></div>
   </form></dialog>`
  }
- function openEditor(c=null,copy=false){
+ function openEditor(c=null,copy=false,placement=null){
   const d=document.getElementById("schemeEditor"),f=document.getElementById("schemeForm"),err=document.getElementById("schemeFormError");if(!d||!f)return;
   // A copy starts with unchanged coordinates; its placement can be adjusted manually.
   if(c&&copy)c={...c,id:"",status:"planned",position:"",title:""};
@@ -544,7 +559,7 @@ window.irSchemePage=async function(objectId){
   const sourceView=c?.scheme_view_id&&c.scheme_view_id!=="all"?customViews().find(x=>String(x.id)===String(c.scheme_view_id)):null;
   let gridChoice=c?.scheme_view_id==="all"?"all":sourceView?"view:"+sourceView.id:activeScheme,editorGrid=gridForEditor(gridChoice),editorMarks=marksForGrid(gridChoice);
   f.elements.scheme_target.value=gridChoice;
-  let chosenMark=resolveSavedMarkId(c),currentMark=chosenMark;
+  let chosenMark=placement?.markId||resolveSavedMarkId(c),currentMark=chosenMark;
   const editingId=String(f.elements.id.value||""),unresolvedExisting=!!editingId&&!currentMark,
    search=document.getElementById("schemeMarkSearch"),count=document.getElementById("schemeMarkCount"),
    selection=f.elements.mark_id,availability=document.getElementById("schemeMarkPlacementInfo");
@@ -640,11 +655,23 @@ window.irSchemePage=async function(objectId){
    document.getElementById("schemeCoordPreview").innerHTML=`<span>Точные координаты</span><b>Начало X = ${fmt(x)} мм · Y = ${fmt(y)} мм</b><small>${member?`Конец X = ${fmt(endX)} мм · Y = ${fmt(endY)} мм`:"Колонна расположена вертикально"}</small>`;
   };
   f.elements.geometry_type.onchange=()=>updateGeometry(false);updateGeometry(!c&&f.elements.geometry_type.value!=="column");
+  if(placement){
+   const start=placement.start,end=placement.end||start;
+   f.elements.mark_id.value=placement.markId;chosenMark=placement.markId;
+   f.elements.geometry_type.value=placement.geometry;
+   f.elements.axis_x.value=start.ax;f.elements.axis_y.value=start.ay;
+   f.elements.offset_x_mm.value=0;f.elements.offset_y_mm.value=0;
+   f.elements.end_axis_x.value=end.ax;f.elements.end_axis_y.value=end.ay;
+   f.elements.end_offset_x_mm.value=0;f.elements.end_offset_y_mm.value=0;
+   f.elements.z0_mm.value=placement.geometry==="column"?0:placement.height;
+   f.elements.z1_mm.value=placement.height;
+   updateGeometry(false);renderMarkOptions();
+  }
   ["axis_x","axis_y","offset_x_mm","offset_y_mm","end_axis_x","end_axis_y","end_offset_x_mm","end_offset_y_mm","z0_mm","z1_mm"].forEach(n=>f.elements[n].addEventListener("input",refreshPreview));refreshPreview();d.showModal()
  }
  function bindEditor(){
   if(!canEdit())return;const d=document.getElementById("schemeEditor"),f=document.getElementById("schemeForm"),err=document.getElementById("schemeFormError");
-  document.getElementById("schemeAdd")?.addEventListener("click",()=>openEditor());document.getElementById("schemeEditorX").onclick=()=>d.close();document.getElementById("schemeEditorCancel").onclick=()=>d.close();
+  document.getElementById("schemeAdd")?.addEventListener("click",()=>mode==="building"?window.irBuildingView?.start():openEditor());document.getElementById("schemeEditorX").onclick=()=>d.close();document.getElementById("schemeEditorCancel").onclick=()=>d.close();
   f.onsubmit=async e=>{
    e.preventDefault();err.hidden=true;
    const fd=new FormData(f),id=String(fd.get("id")||"");
@@ -808,7 +835,7 @@ window.irSchemePage=async function(objectId){
   if(selectedId&&!columns().some(c=>c.id===selectedId))selectedId="";
   const s=stats(),mp=statusCounts(),works=enabledWorks(),currentWork=works.find(w=>w.id===activeWorkId)||null,workOptions=works.length?works.map(w=>`<option value="${esc(w.id)}" ${w.id===activeWorkId?"selected":""}>${esc(w.name)}${w.code?` · ${esc(w.code)}`:""}</option>`).join(""):`<option value="">Монтажная схема не включена</option>`,groupOptions=schemeGroups().map(g=>`<option value="${esc(g.key)}" ${g.key===activeScheme?"selected":""}>${esc(g.label)} · ${g.marks} марок · ${g.placed} элементов</option>`).join(""),editActions=canEdit()?`<button type="button" class="scheme-grid-button" id="schemeGridConfig">⚙ Параметры сетки</button>${activeWorkId?`<button type="button" class="scheme-grid-button" id="schemeNewView">＋ Добавить сетку</button>${activeView()?`<button type="button" class="scheme-grid-button" id="schemeEditView">Изменить</button><button type="button" class="scheme-grid-button danger" id="schemeDeleteView">Удалить сетку</button>`:""}`:""}`:"",emptyOverlay=activeWorkId?(s.total?"":`<div class="scheme-empty-overlay"><b>Схема пока пустая</b><span>Нажмите «Добавить элемент» и выберите марку для этой монтажной схемы.</span></div>`):`<div class="scheme-empty-overlay"><b>Монтажная схема не включена</b><span>Откройте «Виды работ» и включите галочку «Нужна монтажная схема» у нужного вида работ.</span></div>`;
   app.innerHTML=`<div class="scheme-page ${canEdit()&&activeWorkId?"has-add-dock":""}">
-   <div class="scheme-head"><button class="back" id="schemeBack">← Назад</button><div><h1>Монтажная схема</h1><p>${esc(object.name||"")}${currentWork?` · ${esc(currentWork.name)}`:""} · ${esc(activeGroup().label)}</p></div><div class="scheme-head-actions"><label class="scheme-type-select-wrap work"><span>Вид работ</span><select id="schemeWorkSelect" data-native-select="1" ${activeWorkId?"":"disabled"}>${workOptions}</select></label><label class="scheme-type-select-wrap"><span>Схема</span><select id="schemeTypeSelect" data-native-select="1" ${activeWorkId?"":"disabled"}>${groupOptions}</select></label><div class="scheme-view-switch"><button data-mode="plan" class="${mode==="plan"?"on":""}">План</button><button data-mode="3d" class="${mode==="3d"?"on":""}">3D</button></div>${editActions}</div></div>
+   <div class="scheme-head"><button class="back" id="schemeBack">← Назад</button><div><h1>Монтажная схема</h1><p>${esc(object.name||"")}${currentWork?` · ${esc(currentWork.name)}`:""} · ${esc(activeGroup().label)}</p></div><div class="scheme-head-actions"><label class="scheme-type-select-wrap work"><span>Вид работ</span><select id="schemeWorkSelect" data-native-select="1" ${activeWorkId?"":"disabled"}>${workOptions}</select></label><label class="scheme-type-select-wrap"><span>Схема</span><select id="schemeTypeSelect" data-native-select="1" ${activeWorkId?"":"disabled"}>${groupOptions}</select></label><div class="scheme-view-switch"><button data-mode="building" class="${mode==="building"?"on":""}">Общий 3D</button><button data-mode="plan" class="${mode==="plan"?"on":""}">План</button><button data-mode="3d" class="${mode==="3d"?"on":""}">Схема 3D</button></div>${editActions}</div></div>
    <div class="scheme-summary">
     <div><span>Оси ${esc(axesX[0])}–${esc(axesX.at(-1))}</span><b>${fmt(spanX)} мм</b><small>${gridDirX==="ltr"?"Слева направо":"Справа налево"}: ${esc(axesX[0])} → ${esc(axesX.at(-1))} · ${gridXSpans.length} пролётов</small></div>
     <div><span>Оси ${esc(axesY[0])}–${esc(axesY.at(-1))}</span><b>${fmt(spanY)} мм</b><small>${gridDirY==="btt"?"Снизу вверх":"Сверху вниз"}: ${esc(axesY[0])} → ${esc(axesY.at(-1))} · ${gridYSpans.length} пролётов</small></div>
@@ -839,21 +866,21 @@ window.irSchemePage=async function(objectId){
     </div>
    </section>
    <div class="scheme-workspace">
-    <section class="scheme-stage ${previewFullscreen?"scheme-preview-fullscreen":""}" id="schemePreviewStage" aria-label="Предпросмотр монтажной схемы" data-scheme-background="${schemeBackground}" data-scheme-contrast="${backgroundIsDark()?"dark":"light"}" style="--scheme-custom-background:${schemeCustomBackground}">
-     <div class="scheme-stage-toolbar"><div class="scheme-preview-title"><b>Монтажная схема · ${esc(activeGroup().label)}</b><span>${s.total} элементов · ${mode==="plan"?"План":"3D"}</span></div>
+    <section class="scheme-stage ${mode==="building"?"scheme-building-stage":""} ${previewFullscreen?"scheme-preview-fullscreen":""}" id="schemePreviewStage" aria-label="Предпросмотр монтажной схемы" data-scheme-background="${schemeBackground}" data-scheme-contrast="${backgroundIsDark()?"dark":"light"}" style="--scheme-custom-background:${schemeCustomBackground}">
+     <div class="scheme-stage-toolbar"><div class="scheme-preview-title"><b>Монтажная схема · ${esc(activeGroup().label)}</b><span>${s.total} элементов · ${mode==="building"?"Общий 3D":mode==="plan"?"План":"3D"}</span></div>
       <div class="scheme-legend"><span><i class="mounted"></i>Смонтировано</span><span><i class="planned"></i>Не смонтировано</span><span><i class="partial"></i>Частично</span><span><i class="between"></i>Со смещением от оси</span></div>
-      <div class="scheme-toolbar-actions"><div class="scheme-preview-mode-switch"><button type="button" data-mode="plan" class="${mode==="plan"?"on":""}">План</button><button type="button" data-mode="3d" class="${mode==="3d"?"on":""}">3D</button></div><button type="button" id="schemeFullscreenToggle" class="scheme-fullscreen-toggle" title="${previewFullscreen?"Закрыть полноэкранный просмотр":"Предпросмотр схемы на весь экран"}">${previewFullscreen?"✕ Закрыть":"⛶ На весь экран"}</button><label class="scheme-background-picker" title="Цвет фона поля монтажной схемы"><span>Фон</span><select id="schemeBackgroundSelect" data-native-select="1" aria-label="Цвет фона монтажной схемы"><option value="standard" ${schemeBackground==="standard"?"selected":""}>Стандартный</option><option value="white" ${schemeBackground==="white"?"selected":""}>Белый</option><option value="gray" ${schemeBackground==="gray"?"selected":""}>Серый</option><option value="blue" ${schemeBackground==="blue"?"selected":""}>Голубой</option><option value="sand" ${schemeBackground==="sand"?"selected":""}>Бежевый</option><option value="dark" ${schemeBackground==="dark"?"selected":""}>Тёмный</option><option value="custom" ${schemeBackground==="custom"?"selected":""}>Свой цвет</option></select><input id="schemeBackgroundCustom" type="color" aria-label="Выбрать свой цвет фона" value="${schemeCustomBackground}" ${schemeBackground==="custom"?"":"hidden"}></label><button type="button" id="schemeToggleLabels" class="${labelsVisible?"on":""}">Подписи</button><button type="button" id="schemeToggleDimensions" class="${dimensionsVisible?"on":""}" title="Показать межосевые размеры сетки">Размеры</button><div class="scheme-zoom"><button type="button" id="schemeZoomOut" title="Уменьшить">−</button><button type="button" id="schemeZoomValue" title="Вернуть 100%">${Math.round(zoom*100)}%</button><button type="button" id="schemeZoomIn" title="Увеличить">+</button></div><div class="scheme-orient"><button type="button" id="schemeRotate90Left" title="Повернуть на 90° влево">↶90°</button><button type="button" id="schemeRotationValue" title="Вернуть поворот в 0°">${viewRotation}°</button><button type="button" id="schemeRotate90Right" title="Повернуть на 90° вправо">↷90°</button></div><div class="scheme-rotate" ${mode==="plan"?"hidden":""}><button id="schemeLeft" title="Повернуть 3D на 10°">↶10°</button><button id="schemeReset" title="Вернуть 3D ракурс">3D</button><button id="schemeRight" title="Повернуть 3D на 10°">↷10°</button></div></div>
+      <div class="scheme-toolbar-actions"><div class="scheme-preview-mode-switch"><button type="button" data-mode="building" class="${mode==="building"?"on":""}">Общий 3D</button><button type="button" data-mode="plan" class="${mode==="plan"?"on":""}">План</button><button type="button" data-mode="3d" class="${mode==="3d"?"on":""}">3D</button></div><button type="button" id="schemeFullscreenToggle" class="scheme-fullscreen-toggle" title="${previewFullscreen?"Закрыть полноэкранный просмотр":"Предпросмотр схемы на весь экран"}">${previewFullscreen?"✕ Закрыть":"⛶ На весь экран"}</button><label class="scheme-background-picker" title="Цвет фона поля монтажной схемы"><span>Фон</span><select id="schemeBackgroundSelect" data-native-select="1" aria-label="Цвет фона монтажной схемы"><option value="standard" ${schemeBackground==="standard"?"selected":""}>Стандартный</option><option value="white" ${schemeBackground==="white"?"selected":""}>Белый</option><option value="gray" ${schemeBackground==="gray"?"selected":""}>Серый</option><option value="blue" ${schemeBackground==="blue"?"selected":""}>Голубой</option><option value="sand" ${schemeBackground==="sand"?"selected":""}>Бежевый</option><option value="dark" ${schemeBackground==="dark"?"selected":""}>Тёмный</option><option value="custom" ${schemeBackground==="custom"?"selected":""}>Свой цвет</option></select><input id="schemeBackgroundCustom" type="color" aria-label="Выбрать свой цвет фона" value="${schemeCustomBackground}" ${schemeBackground==="custom"?"":"hidden"}></label><button type="button" id="schemeToggleLabels" class="${labelsVisible?"on":""}">Подписи</button><button type="button" id="schemeToggleDimensions" class="${dimensionsVisible?"on":""}" title="Показать межосевые размеры сетки">Размеры</button><div class="scheme-zoom"><button type="button" id="schemeZoomOut" title="Уменьшить">−</button><button type="button" id="schemeZoomValue" title="Вернуть 100%">${Math.round(zoom*100)}%</button><button type="button" id="schemeZoomIn" title="Увеличить">+</button></div><div class="scheme-orient"><button type="button" id="schemeRotate90Left" title="Повернуть на 90° влево">↶90°</button><button type="button" id="schemeRotationValue" title="Вернуть поворот в 0°">${viewRotation}°</button><button type="button" id="schemeRotate90Right" title="Повернуть на 90° вправо">↷90°</button></div><div class="scheme-rotate" ${mode!=="3d"?"hidden":""}><button id="schemeLeft" title="Повернуть 3D на 10°">↶10°</button><button id="schemeReset" title="Вернуть 3D ракурс">3D</button><button id="schemeRight" title="Повернуть 3D на 10°">↷10°</button></div></div>
      </div>
      <div class="scheme-canvas" id="schemeCanvas"></div>
-     ${emptyOverlay}
+     ${mode==="building"?"":emptyOverlay}
     </section>
-    <aside class="scheme-details" id="schemeDetails"></aside>
+    <aside class="scheme-details" id="schemeDetails" ${mode==="building"?"hidden":""}></aside>
    </div>
    ${canEdit()&&activeWorkId?'<div class="scheme-add-dock"><button type="button" class="primary" id="schemeAdd">＋ Добавить элемент</button></div>':""}
    <div class="scheme-hint"><b>Сетка:</b><span><strong>${esc(axesX[0])} → ${esc(axesX.at(-1))}</strong> — ${gridDirX==="ltr"?"слева направо":"справа налево"}, <strong>${esc(axesY[0])} → ${esc(axesY.at(-1))}</strong> — ${gridDirY==="btt"?"снизу вверх":"сверху вниз"}. Направление можно изменить в «Параметрах сетки».</span></div>
    ${canEdit()?gridEditorHtml()+editorHtml()+viewDialogHtml():""}
   </div>`;
-  document.getElementById("schemeBack").onclick=()=>location.hash=`/objects/object/${oid}`;document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{mode=b.dataset.mode;draw()});document.getElementById("schemeWorkSelect")?.addEventListener("change",e=>{activeWorkId=e.target.value;activeScheme="all";selectedId="";syncNotice=null;elementSearch="";pickerScrollTop=0;hiddenGroups.clear();statusFilter="all";levelMin="";levelMax="";panX=0;panY=0;refreshGridModel();draw()});document.getElementById("schemeTypeSelect")?.addEventListener("change",e=>{activeScheme=e.target.value;selectedId="";syncNotice=null;elementSearch="";pickerScrollTop=0;panX=0;panY=0;refreshGridModel();draw()});
+  document.getElementById("schemeBack").onclick=()=>location.hash=`/objects/object/${oid}`;document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{mode=b.dataset.mode;if(mode==="building"){activeScheme="all";refreshGridModel()}draw()});document.getElementById("schemeWorkSelect")?.addEventListener("change",e=>{activeWorkId=e.target.value;activeScheme="all";selectedId="";syncNotice=null;elementSearch="";pickerScrollTop=0;hiddenGroups.clear();statusFilter="all";levelMin="";levelMax="";panX=0;panY=0;refreshGridModel();draw()});document.getElementById("schemeTypeSelect")?.addEventListener("change",e=>{activeScheme=e.target.value;selectedId="";syncNotice=null;elementSearch="";pickerScrollTop=0;panX=0;panY=0;refreshGridModel();draw()});
   document.querySelector(".scheme-layers")?.addEventListener("toggle",e=>{layersPanelOpen=e.target.open});
   document.querySelectorAll("[data-scheme-layer]").forEach(btn=>btn.addEventListener("click",()=>{layersPanelOpen=true;const key=btn.dataset.schemeLayer;if(hiddenGroups.has(key))hiddenGroups.delete(key);else hiddenGroups.add(key);draw()}));
   document.getElementById("schemeLayersShowAll")?.addEventListener("click",()=>{layersPanelOpen=true;hiddenGroups.clear();draw()});
