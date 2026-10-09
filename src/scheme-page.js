@@ -422,7 +422,7 @@ window.irSchemePage=async function(objectId){
   return`<dialog id="schemeEditor" class="scheme-editor"><form id="schemeForm" novalidate><input type="hidden" name="id"><div class="scheme-editor-head"><div><h2 id="schemeEditorTitle">Добавить элемент</h2><p>Выберите марку для текущей монтажной схемы и задайте положение относительно осей.</p></div><button type="button" id="schemeEditorX">×</button></div>
    <div class="scheme-form-grid">
     <label class="wide scheme-mark-field">Марка из ведомости<div class="scheme-mark-search"><input id="schemeMarkSearch" type="search" autocomplete="off" placeholder="Поиск по марке или наименованию…"><span id="schemeMarkCount"></span></div><select name="mark_id" ${activeMarks().length?"required":"disabled"}>${markOptions("")}</select></label>
-    <label>Статус<select name="status"><option value="planned">Не смонтирована</option><option value="mounted">Смонтирована</option></select></label>
+    <label>Статус монтажа<select name="status"><option value="planned">Не смонтирована</option><option value="partial">Частично</option><option value="mounted">Смонтирована</option></select></label><div class="scheme-editor-mount-info wide" id="schemeEditorMountInfo"></div>
     <label>Геометрия элемента<select name="geometry_type" id="schemeGeometryType">${geometryOptions("column")}</select></label>
     <label>Тип сечения<select name="section_type">${sectionOptions("ibeam")}</select></label>
     <label class="wide">Профиль / обозначение<input name="profile_name" placeholder="Например: 40К2, 300×300×10, Ø273×8"></label>
@@ -449,10 +449,22 @@ window.irSchemePage=async function(objectId){
   f.reset();err.hidden=true;document.getElementById("schemeEditorTitle").textContent=copy?"Копировать элемент — новое положение":c?"Редактировать элемент":"Добавить элемент";f.elements.id.value=copy?"":c?.id||"";
   const currentMark=resolveSavedMarkId(c),unresolvedExisting=!!c&&!currentMark,search=document.getElementById("schemeMarkSearch"),count=document.getElementById("schemeMarkCount");let chosenMark=currentMark;
   f.elements.mark_id.innerHTML=markOptions(chosenMark,"",unresolvedExisting);if(chosenMark)f.elements.mark_id.value=chosenMark;
-  f.elements.mark_id.onchange=()=>{const value=String(f.elements.mark_id.value||"");if(value){chosenMark=value;if(!c){const m=activeMarks().find(x=>x.id===value),same=allRecords().find(x=>String(x.mark_id||"")===value);f.elements.section_type.value=sectionType(same||{});f.elements.profile_name.value=same?.profile_name||"";f.elements.geometry_type.value=m?guessGeometry(m):"column";updateGeometry(true)}}};
+  f.elements.mark_id.onchange=()=>{const value=String(f.elements.mark_id.value||"");if(value){chosenMark=value;if(!c){const m=activeMarks().find(x=>x.id===value),same=allRecords().find(x=>String(x.mark_id||"")===value);f.elements.section_type.value=sectionType(same||{});f.elements.profile_name.value=same?.profile_name||"";f.elements.geometry_type.value=m?guessGeometry(m):"column";updateGeometry(true)}refreshEditorProgress()}};
   const applyMarkSearch=()=>{const q=search?.value||"",matched=searchMarks(q);f.elements.mark_id.innerHTML=markOptions(chosenMark,q,unresolvedExisting&&!chosenMark);if(!q&&chosenMark&&[...f.elements.mark_id.options].some(o=>o.value===chosenMark))f.elements.mark_id.value=chosenMark;count.textContent=q?`Найдено: ${matched.length}`:`Марок: ${activeMarks().length}`;f.elements.mark_id._irSelectUI?.refresh?.()};
   if(search){search.value="";search.oninput=applyMarkSearch}applyMarkSearch();
   f.elements.status.value=c?.status||"planned";
+  function refreshEditorProgress(){
+   const m=activeMarks().find(x=>x.id===String(f.elements.mark_id.value||"")),progress=markProgress(m),info=document.getElementById("schemeEditorMountInfo");
+   f.elements.status.disabled=!!progress&&progress.total>0;
+   if(progress?.total>0){
+    f.elements.status.value=progress.state;
+    if(info)info.innerHTML=`<b>Статус определяется по ведомости марок</b><span>Всего: ${fmt(progress.total)} шт. · Смонтировано: ${fmt(progress.mounted)} шт. · Осталось: ${fmt(progress.left)} шт.</span>${progress.state==="partial"?"<small>Частичный монтаж: конкретные экземпляры пока не сопоставлены с отчётами.</small>":""}`
+   }else{
+    f.elements.status.value=c?.status||"planned";
+    if(info)info.innerHTML='<span>У этой марки нет количества в ведомости. Доступен ручной статус.</span>'
+   }
+  }
+  refreshEditorProgress();
   const sameMark=allRecords().find(x=>String(x.mark_id||"")===currentMark&&(!c||x.id!==c.id)),shapeSource=c||sameMark||{},chosen=activeMarks().find(x=>x.id===currentMark);
   f.elements.section_type.value=sectionType(shapeSource);f.elements.profile_name.value=shapeSource.profile_name||"";
   f.elements.axis_x.value=c?.axisX||axesX[0]||"";f.elements.axis_y.value=c?.axisY||axesY[0]||"";
@@ -491,7 +503,7 @@ window.irSchemePage=async function(objectId){
    if(!axesX.includes(axisX)||!axesY.includes(axisY)||kind!=="column"&&(!axesX.includes(endX)||!axesY.includes(endY))){err.textContent="Выберите существующие оси.";err.hidden=false;return}
    if(kind==="column"&&z1<=z0){err.textContent="У колонны верх должен быть выше низа.";err.hidden=false;return}
    if(kind!=="column"&&Math.hypot(x2-x,y2-y,z1-z0)<1){err.textContent="Конечная точка должна отличаться от начальной.";err.hidden=false;return}
-   const status=String(fd.get("status")||"planned"),section_type=String(fd.get("section_type")||"ibeam"),profile_name=String(fd.get("profile_name")||"").trim(),rot=num(fd.get("rotation_deg"));
+   const storedRow=id?records().find(x=>String(x.id)===id):null,status=String(fd.get("status")||storedRow?.status||"planned"),section_type=String(fd.get("section_type")||"ibeam"),profile_name=String(fd.get("profile_name")||"").trim(),rot=num(fd.get("rotation_deg"));
    const existing=id?records().find(r=>r.id===id):null,used=new Set(allRecords().map(r=>String(r.position||r.title||"")));
    let internalPosition=String(existing?.position||existing?.title||"");
    if(!internalPosition){let n=1;do{internalPosition="COL-"+String(n++).padStart(4,"0")}while(used.has(internalPosition))}
