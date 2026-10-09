@@ -333,3 +333,14 @@
  .scheme-preview-fullscreen .scheme-toolbar-actions{justify-content:flex-start}
  .scheme-preview-fullscreen .scheme-legend{display:none}
 }
+
+
+/* 1.7.49 adaptive projected column scale */
+.scheme-column .scheme-plan-ibeam{stroke-width:var(--scheme-symbol-stroke,2.6px)}
+.scheme-column .scheme-plan-section-outer{stroke-width:var(--scheme-symbol-stroke,1px)}
+.scheme-column .scheme-plan-section-inner{stroke-width:var(--scheme-symbol-stroke,0.8px)}
+.scheme-column .scheme-plan-box{stroke-width:var(--scheme-symbol-stroke,1px)}
+.scheme-column .scheme-ibeam-flange{stroke-width:var(--scheme-3d-stroke,3.3px)}
+.scheme-column .scheme-ibeam-cap{stroke-width:var(--scheme-3d-cap,2.2px)}
+.scheme-column .scheme-round-column{stroke-width:var(--scheme-3d-round,7px)}
+.scheme-column .scheme-column-hit-line{stroke-width:var(--scheme-hit-stroke,16px)}
