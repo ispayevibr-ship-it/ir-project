@@ -594,7 +594,8 @@ window.irSchemePage=async function(objectId){
   window.addEventListener("hashchange",onSchemePreviewRouteChange);
   draw();
   if(!document.fullscreenElement&&typeof document.documentElement?.requestFullscreen==="function"){
-   Promise.resolve(document.documentElement.requestFullscreen()).then(()=>{
+   let fullscreenPromise;try{fullscreenPromise=document.documentElement.requestFullscreen()}catch(e){fullscreenPromise=Promise.reject(e)}
+   Promise.resolve(fullscreenPromise).then(()=>{
     if(previewFullscreen)previewNativeFullscreen=true;
     else if(document.fullscreenElement&&typeof document.exitFullscreen==="function")return document.exitFullscreen()
    }).catch(()=>{})
