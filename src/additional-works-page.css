@@ -61,3 +61,6 @@
 .aw-not-found>p{background:#fff;padding:25px;border-radius:10px;color:#8b7a68}
 @media(max-width:900px){.aw-detail-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.aw-list-toolbar{flex-wrap:wrap}.aw-list-toolbar input{width:100%}}
 @media(max-width:600px){.aw-stats{grid-template-columns:1fr}.aw-detail-metrics{grid-template-columns:1fr 1fr}.aw-detail-head{flex-wrap:wrap}.aw-legacy-document{align-items:stretch;flex-direction:column}}
+
+.rv-extra-open{display:inline-block;white-space:nowrap;color:#1769e0!important;text-decoration:none;font-size:10px;font-weight:800;padding:6px 8px;border:1px solid #cfe1f2;border-radius:6px;background:#f2f8ff}
+.rv-extra-open:hover{background:#deeeff;text-decoration:none}
