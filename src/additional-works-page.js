@@ -74,7 +74,7 @@ window.irAdditionalWorksPage=async function(objectId,route={}){
    '<section class="aw-document"><div class="aw-document-heading"><div><h2>Подписанный акт</h2><p>Отдельный документ, закреплённый за этой дополнительной работой. PDF, JPG или PNG.</p></div></div>'+
    '<div class="aw-document-body"><div class="aw-file-icon">PDF</div><div class="aw-document-info"><b>'+esc(act?.name||"Подписанный акт не прикреплён")+'</b><small>'+(act?"Файл хранится в документах IR Project":"Выберите подписанный акт для этой работы")+'</small></div></div>'+
    '<div class="aw-document-actions">'+(act?'<button id="awOpenAct" class="aw-primary">Открыть акт</button>':'')+(canEdit()?'<button id="awUploadAct" class="'+(act?"":"aw-primary")+'">'+(act?"Заменить акт":"＋ Загрузить подписанный акт")+'</button>':'')+(act&&canEdit()?'<button id="awRemoveAct" class="aw-danger">Удалить акт</button>':'')+'</div><p id="awActionNote" class="aw-action-note" role="status" aria-live="polite"></p></section>'+
-   (reportAct?'<section class="aw-legacy-document"><div><b>Общий акт ежедневного отчёта</b><p>Этот документ прикреплён к отчёту целиком и не считается индивидуальным актом дополнительной работы.</p></div><button id="awOpenReportAct">Открыть общий акт</button></section>':'')+
+   (reportAct?'<section class="aw-legacy-document"><div><b>Приложение к ежедневному отчёту</b><p>Подтверждающий документ относится к отчёту целиком и не является индивидуальным актом дополнительной работы.</p></div><button id="awOpenReportAct">Открыть приложение</button></section>':'')+
    '</div>';
   document.getElementById("additionalWorksBack").onclick=()=>location.hash=listRoute;
   document.getElementById("awSourceReport").onclick=()=>location.hash="/objects/object/"+oid+"/reports/"+entry.reportId;

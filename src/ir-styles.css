@@ -186,6 +186,20 @@ body.ir-object-route:has(.wt-page){max-width:100vw;overflow-x:clip}
 @media(max-width:1100px){.report-additional-works-section .additional-work-row{grid-template-columns:1fr 100px 110px 120px 34px}}
 @media(max-width:760px){.report-additional-works-section .additional-work-row,.report-daily-summary-section .daily-summary-row{grid-template-columns:1fr}.report-additional-works-section .row-remove,.report-daily-summary-section .row-remove{width:100%}.report-act-box,.rv-act{align-items:flex-start;flex-direction:column}}
 
+/* 1.7.76: collapsible daily report form sections */
+.report-form-page .report-form-section .rfs-head:has(.report-fold-toggle){cursor:pointer}
+.report-form-page .report-form-section .rfs-head:has(.report-fold-toggle):hover{background:#f5f9fe}
+.report-form-page .report-fold-toggle{flex:none;display:flex;align-items:center;justify-content:center;width:32px;height:30px;margin-left:7px;padding:0;border:1px solid #d6e1ea;border-radius:7px;background:#fff;color:#456a89;cursor:pointer}
+.report-form-page .report-fold-toggle:hover{background:#eaf4ff;border-color:#9cbfdf}
+.report-form-page .report-fold-toggle:focus-visible{outline:2px solid #2678d7;outline-offset:2px}
+.report-form-page .report-fold-chevron{display:inline-block;font-size:19px;line-height:1;transform:rotate(180deg);transition:transform .15s ease}
+.report-form-page .report-section-collapsed .report-fold-chevron{transform:none}
+.report-form-page .report-section-collapsed .rfs-head{border-bottom:0;border-radius:9px;background:#fbfcfd}
+.report-form-page .report-form-section>.rfs-body[hidden],.report-form-page .report-form-section>.report-act-box[hidden]{display:none!important}
+.report-form-page .report-form-section .rfs-add{flex:none}
+@media(max-width:680px){.report-form-page .report-form-section .rfs-head{flex-wrap:wrap}.report-form-page .report-form-section .rfs-head>div{flex-basis:50%}.report-form-page .report-fold-toggle{margin-left:auto}}
+
+
 /* #13: src/additional-works-page.css */
 /* Additional works register / individual signed acts */
 .additional-works-page{width:100%;min-width:0;color:#2b4356;display:grid;gap:14px;padding-bottom:30px}
