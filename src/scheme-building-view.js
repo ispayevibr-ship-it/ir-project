@@ -6,7 +6,7 @@
  * 2D canvas projection: offline, no dependencies or database access.
  */
 window.irBuildingView=(()=>{
- const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false};
+ const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false};
  let observer=null,paint=null;
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const html=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -145,6 +145,14 @@ window.irBuildingView=(()=>{
    }
    return hit;
   };
+  // Choose the closest projected member instead of always prioritising a column.
+  const segmentHit=(x,y)=>{
+   const hits=[columnSegmentHit(x,y),memberSegmentHit(x,y)].filter(Boolean);
+   if(hits.length<2)return hits[0]||null;
+   const project=projectFactory().project;
+   const d=a=>{const p=project(anchorPoint(a));return Math.hypot(p.x-x,p.y-y)};
+   return d(hits[0])<=d(hits[1])?hits[0]:hits[1];
+  };
   const sameAnchor=(a,b)=>Boolean(a&&b&&Math.hypot(num(a.worldX)-num(b.worldX),num(a.worldY)-num(b.worldY),num(a.z)-num(b.z))<1);
   const memberSegments=()=>cols.map(c=>{
     const start=pt(c.x,c.y,c.z0),end=pt(c.geometryType==="column"?c.x:c.x2,c.geometryType==="column"?c.y:c.y2,c.z2);
@@ -225,11 +233,11 @@ window.irBuildingView=(()=>{
     const score=d-(a.kind==="column"?3:0);
     if(score<minScore){minScore=score;best=a}
    }
-   const segment=columnSegmentHit(x,y)||memberSegmentHit(x,y);
+   const segment=segmentHit(x,y);
    return segment&&(!best||minScore>5)?segment:best
   };
   const position=a=>a?html((a.kind==="column"||a.kind==="member"?a.label+" · крепление · ":"Ось ")+a.x+" / "+a.y+
-   " · Z "+(a.zConfirmed===false?"нужно указать":fmt(a.z)+" мм")+(a.kind==="grid"?" (сетка)":"")):"Выберите точку на модели";
+   " · X "+fmt(a.worldX)+" · Y "+fmt(a.worldY)+" · Z "+(a.zConfirmed===false?"нужно указать":fmt(a.z)+" мм")+(a.kind==="grid"?" (сетка)":"")):"Выберите точку на модели";
   const searchMatches=m=>!state.markSearch.trim()||String(m.title+" "+(m.mark||"")).toLocaleLowerCase("ru").includes(state.markSearch.trim().toLocaleLowerCase("ru"));
   const markOptions=()=>'<option value="">Выберите марку</option>'+
    marks.filter(searchMatches).map(a=>'<option value="'+html(a.id)+'" '+(a.left>0?"":"disabled")+
@@ -242,7 +250,7 @@ window.irBuildingView=(()=>{
    '" value="'+(a.zConfirmed===false?"":Math.round(num(a.z)))+'" placeholder="Отметка по КМД"></label>':"";
   function refreshPanel(){
    const m=selectedMark(),left=num(m?.left),column=m?.geometry==="column",available=left>0;
-   el("irbHint").textContent=state.placing?(!state.start?"Выберите начальную точку":column||state.end?"Точки заданы — продолжайте в редакторе":"Выберите конечную точку"):"ЛКМ — вращение · колесо — масштаб · нажатие на элемент — свойства";
+   el("irbHint").textContent=state.placing?(!state.start?"1. Выберите начальную точку":column||state.end?"Проверьте отметки и нажмите «Сохранить на схеме»":"2. Выберите конечную точку"):"ЛКМ — вращение · колесо — масштаб · нажатие на элемент — свойства";
    const pane=el("irbProperties");
     const ready=!!(state.start&&available&&(column||state.end)&&state.start.zConfirmed!==false&&
      (column?state.topZ!==""&&Number.isFinite(Number(state.topZ))&&Number(state.topZ)>num(state.start.z):state.end?.zConfirmed!==false));
@@ -255,7 +263,8 @@ window.irBuildingView=(()=>{
     '<div class="irb-quota">По ведомости: '+num(m?.total)+' шт.<br>На схеме: '+num(m?.placed)+' шт.<br><b>Осталось: '+left+' шт.</b></div>'+
     '<div class="irb-anchor"><b>1. Начало</b><span>'+position(state.start)+'</span>'+zEditor(state.start,"start")+'</div>'+
     '<div class="irb-anchor"><b>2. '+(column?"Верх колонны":"Конец")+'</b><span>'+(column?"Укажите проектную отметку":position(state.end))+'</span>'+(column?'<label class="irb-level">Верх Z, мм<input type="number" step="1" id="irbTopZ" placeholder="По КМД" value="'+html(state.topZ)+'"></label>':zEditor(state.end,"end"))+'</div>'+
-    (!column?'<label class="irb-zigzag"><input id="irbZigzag" type="checkbox" '+(state.zigzag?"checked":"")+'><span><b>Зигзаг / цепочка</b><small>После сохранения следующая связь начнётся от конца предыдущей. Каждому отрезку соответствует своя марка из ведомости.</small></span></label>':"")+
+    (typeof props.onQuickPlace==="function"?'<label class="irb-zigzag"><input id="irbRepeat" type="checkbox" '+(state.repeat?"checked":"")+'><span><b>Серия одной марки</b><small>После сохранения выбирайте следующие точки без повторного поиска марки (пока есть остаток).</small></span></label>':"")+
+     (!column?'<label class="irb-zigzag"><input id="irbZigzag" type="checkbox" '+(state.zigzag?"checked":"")+'><span><b>Зигзаг / цепочка</b><small>После сохранения следующая связь начнётся от конца предыдущей. Каждому отрезку соответствует своя марка из ведомости.</small></span></label>':"")+
     '<p class="irb-help">Привязка к колоннам, балкам и ригелям. Для точек сетки требуется проектная отметка Z по КМД.</p>'+
      '<div class="irb-form-error" id="irbQuickError" role="alert" '+(state.error?'':'hidden')+'>'+html(state.error)+'</div>'+
      (typeof props.onQuickPlace==="function"?'<button type="button" class="irb-save irb-quick-save" id="irbQuickSave" '+(!ready||state.busy?'disabled':'')+'>✓ Сохранить на схеме</button>':'')+
@@ -280,7 +289,8 @@ window.irBuildingView=(()=>{
      refreshPanel();paint();
      const input=el("irbMarkSearch");input.focus();input.setSelectionRange(cursor,cursor)
     };
-    if(el("irbZigzag"))el("irbZigzag").onchange=e=>{state.zigzag=e.target.checked};
+    if(el("irbRepeat"))el("irbRepeat").onchange=e=>{state.repeat=e.target.checked};
+     if(el("irbZigzag"))el("irbZigzag").onchange=e=>{state.zigzag=e.target.checked};
     if(el("irbTopZ"))el("irbTopZ").oninput=e=>{
       state.topZ=e.target.value;const save=el("irbQuickSave");
       if(save)save.disabled=!state.start||!available||!e.target.value||!Number.isFinite(Number(e.target.value))||Number(e.target.value)<=num(state.start.z);
@@ -290,6 +300,22 @@ window.irBuildingView=(()=>{
      if(!a)return;
      const value=Number(e.target.value);
      if(e.target.value===""||!Number.isFinite(value)||value<num(a.kind==="column"?a.minZ:-20000)||value>num(a.kind==="column"?a.maxZ:200000)){e.target.value=a.zConfirmed===false?"":String(a.z);return}
+     // Editing Z on a sloping member also moves X/Y along its actual centreline.
+     if(a.kind==="member"&&a.memberId){
+      const ref=cols.find(c=>String(c.id)===String(a.memberId));
+      if(ref){
+       const base=num(ref.z0),dz=num(ref.z2)-base;
+       if(Math.abs(dz)<1){
+        if(Math.abs(value-base)>.5){e.target.value=String(Math.round(a.z));return}
+       }else{
+        const t=(value-base)/dz;
+        if(t<0||t>1){e.target.value=String(Math.round(a.z));return}
+        a.worldX=Math.round(num(ref.x)+(num(ref.x2)-num(ref.x))*t);
+        a.worldY=Math.round(num(ref.y)+(num(ref.y2)-num(ref.y))*t);
+        a.x=closest(axesX,gridX,a.worldX);a.y=closest(axesY,gridY,a.worldY)
+       }
+      }
+     }
      a.z=Math.round(value);a.zConfirmed=true;refreshPanel();paint()
     });
     el("irbClear").onclick=()=>{state.start=null;state.end=null;state.continuing=false;refreshPanel();paint()};
@@ -305,6 +331,8 @@ window.irBuildingView=(()=>{
        if(state.zigzag&&!column&&state.end){
         state.start={...state.end,zConfirmed:true,worldX:num(result.savedEnd.x),worldY:num(result.savedEnd.y),z:num(result.savedEnd.z)};
         state.end=null;state.placing=true;state.continuing=true;
+       }else if(state.repeat&&num(m.left)>1){
+        state.start=null;state.end=null;state.placing=true;state.continuing=false;
        }else{state.start=null;state.end=null;state.placing=false;state.continuing=false}
        state.topZ="";state.error="";state.busy=false;
        props.onQuickPlaced?.(result);
@@ -383,7 +411,7 @@ window.irBuildingView=(()=>{
    }
    if(!state.placing){const id=nearestMember(p.x,p.y)?.id||"";if(state.hover!==id){state.hover=id;paint()}canvas.style.cursor=id?"pointer":"grab"}
    else{
-    const anchor=columnSegmentHit(p.x,p.y)||memberSegmentHit(p.x,p.y);
+    const anchor=segmentHit(p.x,p.y);
     const changed=!!anchor!==!!state.hoverAnchor||anchor&&state.hoverAnchor&&((anchor.columnId||anchor.memberId)!==(state.hoverAnchor.columnId||state.hoverAnchor.memberId)||Math.abs(anchor.z-state.hoverAnchor.z)>50);
     if(changed){state.hoverAnchor=anchor;paint()}
     canvas.style.cursor="crosshair"
