@@ -1,6 +1,6 @@
 "use strict";
 (()=>{
- const list=document.getElementById("tabsList"),stage=document.getElementById("tabsContent"),addButton=document.getElementById("tabsAdd"),loader=document.getElementById("tabsLoading"),loadingText=document.getElementById("tabsLoadingText");
+ const list=document.getElementById("tabsList"),stage=document.getElementById("tabsContent"),addButton=document.getElementById("tabsAdd"),loader=document.getElementById("tabsLoading"),loadingText=document.getElementById("tabsLoadingText"),retryButton=document.getElementById("tabsLoadingRetry"),showButton=document.getElementById("tabsLoadingShow"),profileSlot=document.getElementById("tabsProfileSlot");
  if(!list||!stage)return;
  const openerBridge=()=>{try{return window.opener?.irProject||null}catch{return null}};
  const api=window.irProject||openerBridge();
@@ -97,34 +97,52 @@
   renderTabBar();save()
  }
  function showLoading(){
-  const current=frames.get(activeId);
-  if(!loader)return;
-  loader.hidden=Boolean(!current||current.ready);
-  if(!loader.hidden&&loadingText)loadingText.textContent="Открываем "+(current.title||"страницу")+"…"
+  const t=frames.get(activeId);if(!loader)return;
+  loader.hidden=!t||t.ready;if(loader.hidden)return;
+  loadingText.textContent=t.loadError?"Страница не завершила загрузку. Повторите обновление или покажите её содержимое.":"Открываем "+(t.title||"страницу")+"…";
+  const spin=loader.querySelector(".tabs-loading-spinner");if(spin)spin.hidden=!!t.loadError;
+  if(retryButton)retryButton.hidden=!t.loadError;
+  if(showButton)showButton.hidden=!t.loadError
  }
- function watchPageReady(tab){
-  // Main page renders asynchronously; iframe load alone does not mean cards/reports are ready.
-  tab.readyObserver?.disconnect();
-  tab.readyObserver=null;
-  const done=()=>{
-   tab.readyObserver?.disconnect();tab.readyObserver=null;
-   if(frames.get(tab.id)!==tab)return;
-   tab.ready=true;
-   if(activeId===tab.id)showLoading()
-  };
+ function clearTabWait(t){t.readyObserver?.disconnect();t.readyObserver=null;if(t.readyTimer)clearTimeout(t.readyTimer);t.readyTimer=null}
+ function timeoutTab(t){if(frames.get(t.id)!==t||t.ready)return;t.loadError=true;if(activeId===t.id)showLoading()}
+ function armTabTimeout(t){clearTabWait(t);t.loadError=false;t.readyTimer=setTimeout(()=>timeoutTab(t),15000)}
+ function watchPageReady(t){
+  clearTabWait(t);
+  const done=()=>{if(frames.get(t.id)!==t)return;clearTabWait(t);t.ready=true;t.loadError=false;if(activeId===t.id)showLoading()};
   try{
-   const page=tab.frame.contentDocument?.getElementById("app");
-   if(!page||page.childElementCount>0){done();return}
-   const observer=new MutationObserver(()=>{
-    if(page.childElementCount>0)done()
-   });
-   tab.readyObserver=observer;
-   observer.observe(page,{childList:true})
-  }catch{done()}
+   const app=t.frame.contentDocument?.getElementById("app");
+   if(app?.childElementCount>0){done();return}
+   if(app){t.readyObserver=new MutationObserver(()=>{if(app.childElementCount>0)done()});t.readyObserver.observe(app,{childList:true})}
+  }catch(e){t.loadError=true}
+  if(!t.loadError)t.readyTimer=setTimeout(()=>timeoutTab(t),12000);
+  if(t.loadError&&activeId===t.id)showLoading()
+ }
+ const roleLabels={admin:"Администратор",engineer:"Инженер ПТО",guest:"Гость"};
+ function syncProfile(){
+  const role=localStorage.getItem("ir-active-role")||"guest";
+  for(const [id,t] of frames){
+   const panel=t.profilePanel;if(!panel)continue;
+   panel.hidden=id!==activeId;
+   const badge=panel.querySelector("#profileBadge");if(badge)badge.textContent=roleLabels[role]||roleLabels.guest;
+   const select=panel.querySelector("#roleSelect");if(select)select.value=role;
+   if(id!==activeId){const menu=panel.querySelector("#profileMenu");if(menu)menu.hidden=true}
+  }
+ }
+ function bridgeProfile(t){
+  if(!profileSlot)return;
+  try{
+   const panel=t.frame.contentDocument?.querySelector(".profile-panel");
+   if(!panel)return;
+   if(t.profilePanel&&t.profilePanel!==panel)t.profilePanel.remove();
+   t.profilePanel=panel;panel.classList.add("tabs-profile-bridge");
+   profileSlot.appendChild(panel);syncProfile()
+  }catch(e){console.warn("Профиль вкладки недоступен",e)}
  }
  function startTab(tab){
   if(!tab||tab.started)return;
   tab.started=true;
+  armTabTimeout(tab);
   tab.frame.src="./index.html?tabContent=1#"+cleanRoute(tab.route)
  }
  function selectTab(id){
@@ -140,7 +158,7 @@
    }
   }
   startTab(frames.get(id));
-  showLoading();
+  showLoading();syncProfile();
   if(!wasActive)renderTabBar();
   save();notify("Вкладка: "+frames.get(id).title)
  }
@@ -175,9 +193,9 @@
   const frame=document.createElement("iframe");
   frame.className="tabs-pane";frame.title=routeLabel(path);frame.name="ir-tab-"+id;frame.referrerPolicy="same-origin";
   frame.setAttribute("aria-hidden","true");
-  const tab={id,frame,route:path,title:routeLabel(path),dirty:false,started:false,active:false,ready:false,readyObserver:null};
+  const tab={id,frame,route:path,title:routeLabel(path),dirty:false,started:false,active:false,ready:false,readyObserver:null,readyTimer:null,loadError:false,profilePanel:null};
   frames.set(id,tab);order.push(id);
-  frame.addEventListener("load",()=>{if(frames.get(id)!==tab||!tab.started)return;attachHandlers(tab);watchPageReady(tab)});
+  frame.addEventListener("load",()=>{if(frames.get(id)!==tab||!tab.started)return;attachHandlers(tab);bridgeProfile(tab);watchPageReady(tab)});
   // Inactive/restored tabs keep their address, but do not run the full app until selected.
   stage.append(frame);
   if(activate)selectTab(id);else{renderTabBar();save()}
@@ -188,7 +206,7 @@
   const tab=frames.get(id);if(!tab)return false;
   if(tab.dirty&&!confirm("Во вкладке есть несохранённые изменения. Закрыть её?"))return false;
   const index=order.indexOf(id),wasActive=activeId===id;
-  tab.readyObserver?.disconnect();tab.frame.remove();frames.delete(id);order=order.filter(x=>x!==id);
+  clearTabWait(tab);tab.profilePanel?.remove();tab.frame.remove();frames.delete(id);order=order.filter(x=>x!==id);
   if(!order.length){activeId="";createTab("/objects");return true}
   if(wasActive)selectTab(order[Math.min(index,order.length-1)]);
   else{renderTabBar();save()}
@@ -197,10 +215,14 @@
  function reloadCurrent(){
   const tab=frames.get(activeId);if(!tab)return;
   if(tab.dirty&&!confirm("При обновлении вкладки несохранённые изменения пропадут. Продолжить?"))return;
-  tab.dirty=false;tab.ready=false;tab.readyObserver?.disconnect();tab.readyObserver=null;
+  try{
+   const actual=tab.frame.contentWindow?.location.hash.slice(1);
+   if(routeValid(actual))tab.route=actual
+  }catch{}
+  tab.dirty=false;tab.ready=false;armTabTimeout(tab);
   showLoading();
-  tab.frame.src="./index.html?tabContent=1#"+cleanRoute(tab.route);
-  renderTabBar();notify("Обновляем вкладку: "+tab.title)
+  tab.frame.src="./index.html?tabContent=1&reload="+Date.now()+"#"+cleanRoute(tab.route);
+  renderTabBar();save();notify("Обновляем вкладку: "+tab.title)
  }
  const updateDialog=document.getElementById("tabsUpdateDialog"),
   updateTitle=document.getElementById("tabsUpdateTitle"),
@@ -344,6 +366,9 @@
  document.addEventListener("keydown",shortcuts,true);
  document.getElementById("tabsAdd").onclick=()=>createTab("/objects");
  document.getElementById("tabsReload").onclick=reloadCurrent;
+ if(retryButton)retryButton.onclick=reloadCurrent;
+ if(showButton)showButton.onclick=()=>{const t=frames.get(activeId);if(!t)return;clearTabWait(t);t.ready=true;t.loadError=false;showLoading()};
+ window.addEventListener("storage",e=>{if(e.key==="ir-active-role"||e.key==="ir-access")syncProfile()});
  document.getElementById("tabsDuplicate").onclick=()=>{const selected=frames.get(activeId);if(selected)createTab(selected.route)};
  document.getElementById("tabsDetach").onclick=()=>{
   const selected=frames.get(activeId);if(!selected)return;

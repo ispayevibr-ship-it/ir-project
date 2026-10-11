@@ -68,3 +68,23 @@ button{font-family:inherit}
 .tabs-loading-spinner{width:30px;height:30px;border:3px solid #d7e5f1;border-top-color:#2479d0;border-radius:50%;animation:tabs-loading-spin .8s linear infinite}
 @keyframes tabs-loading-spin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.tabs-loading-spinner{animation:none;border-top-color:#2479d0}}
+
+
+/* 1.7.74: active profile in the tab bar beside the separate-window control. */
+.tabs-profile-slot{display:flex;align-items:center;flex:0 0 auto;-webkit-app-region:no-drag}
+.tabs-profile-slot .tabs-profile-bridge.profile-panel{position:relative;right:auto;bottom:auto;z-index:25}
+.tabs-profile-slot .tabs-profile-bridge[hidden]{display:none!important}
+.tabs-profile-slot .profile-badge{display:flex;align-items:center;gap:7px;min-height:31px;padding:0 11px;border:1px solid #d2e0ee;background:#fff;border-radius:7px;color:#315f80;white-space:nowrap;font-size:10px;font-weight:750;cursor:pointer}
+.tabs-profile-slot .profile-badge:before{content:"";display:block;width:16px;height:16px;border-radius:50%;background:#e6f2ff;border:1px solid #c5def4;box-shadow:inset 0 0 0 5px #458ad5}
+.tabs-profile-slot .profile-badge:hover{border-color:#95bfe5;background:#f2f8ff}
+.tabs-profile-slot .profile-menu{position:absolute;z-index:55;top:calc(100% + 8px);bottom:auto;right:0;width:238px;padding:13px;background:#fff;border:1px solid #dbe5ee;border-radius:9px;box-shadow:0 14px 35px #152f502b}
+.tabs-profile-slot .profile-menu[hidden]{display:none!important}
+.tabs-profile-slot .profile-menu label{display:grid;gap:7px;font-size:10px;color:#516f84}
+.tabs-profile-slot .profile-menu select{height:34px;width:100%;padding:0 9px;border:1px solid #ccdce9;border-radius:6px;background:white;color:#294a65;font-size:11px}
+.tabs-profile-slot .profile-menu button{width:100%;margin-top:10px;min-height:32px;border:1px solid #d6e3ed;border-radius:7px;background:#f5f9fd;color:#2b6896;font-size:10px;cursor:pointer}
+.tabs-loading-spinner[hidden]{display:none!important}
+.tabs-loading-help{display:flex;gap:10px;align-items:center;justify-content:center}
+.tabs-loading-help[hidden],.tabs-loading-help button[hidden]{display:none!important}
+.tabs-loading-help button{pointer-events:auto;padding:9px 13px;border:1px solid #c8dced;background:#fff;color:#23689e;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer}
+.tabs-loading-help button:hover{background:#ebf4ff}
+@media(max-width:980px){.tabs-tools{gap:4px}.tabs-profile-slot .profile-badge{font-size:9px;padding:0 8px}.tabs-bar{padding-right:130px}}
