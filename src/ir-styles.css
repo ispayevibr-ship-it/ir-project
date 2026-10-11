@@ -26,8 +26,8 @@
 .hpk-track i{display:block;height:100%;border-radius:8px;background:#2379df}
 .home-portfolio-reports-title{margin-top:28px}
 .home-portfolio-report-scroll{overflow-x:auto;max-width:100%;padding:0 0 6px}
-.home-portfolio-report-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));min-width:1020px;gap:11px}
-.home-portfolio-report{min-width:0;min-height:172px;display:flex;flex-direction:column;gap:10px;align-items:stretch;padding:13px 12px;text-align:left;border:1px solid #dce6f2;border-radius:11px;background:#fff;box-shadow:0 2px 8px rgba(27,66,105,.03);color:#36566e;cursor:pointer}
+.home-portfolio-report-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));min-width:0;gap:12px}
+.home-portfolio-report{min-width:0;min-height:216px;display:flex;flex-direction:column;gap:10px;align-items:stretch;padding:13px 12px;text-align:left;border:1px solid #dce6f2;border-radius:11px;background:#fff;box-shadow:0 2px 8px rgba(27,66,105,.03);color:#36566e;cursor:pointer}
 .home-portfolio-report:hover{border-color:#90bce5;box-shadow:0 6px 16px rgba(27,80,138,.1);background:#fbfdff;transform:translateY(-2px)}
 .home-portfolio-report:focus-visible{outline:2px solid #2379df;outline-offset:2px}
 .hpr-top{display:flex;justify-content:space-between;align-items:center;gap:5px;color:#577d9b;font-weight:700;font-size:10px}
@@ -40,6 +40,15 @@
 .home-portfolio-warning{font-size:11px;color:#a36c2f}
 @media(max-width:1000px){.home-portfolio{padding-left:22px;padding-right:22px}.home-portfolio-kpis{gap:9px}.home-portfolio-kpi{padding:15px}.home-portfolio-heading,.home-portfolio-reports-title{flex-wrap:wrap}}
 @media(max-width:760px){.home-portfolio-kpis{grid-template-columns:1fr}}
+
+/* 1.7.83: per-work volumes for the four most recent reports. */
+.hpr-volume-title{font-size:10px;font-weight:750;color:#365f83}
+.hpr-volumes{display:grid;gap:8px;min-width:0;align-content:start}
+.hpr-volume-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:8px;padding-bottom:6px;border-bottom:1px solid #eff3f8;font-size:10px}
+.hpr-volume-row span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:#68849c;min-width:0}
+.hpr-volume-row strong{font-size:10px;color:#255c8c;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hpr-volume-more,.hpr-volume-empty{font-size:9px;color:#8ba0b2}
+@media(max-width:1050px){.home-portfolio-report-grid{min-width:900px}.home-portfolio-report-scroll{overflow-x:auto}}
 
 
 /* #2: src/object-card-actions.css */

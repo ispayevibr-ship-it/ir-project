@@ -32,6 +32,23 @@ async function renderHomePortfolio(objects){
  const equipment=r=>arr(r.equipment).reduce((s,x)=>s+val(x.count??x.qty),0);
  const volume=w=>{const n=w.volume??w.total_volume,q=val(w.qty??w.count??w.quantity),marked=!!String(w.mark_id||w.mark||"").trim(),uv=val(w.unit_volume??w.volume_one);return n!==undefined&&n!==null&&String(n).trim()!==""?(val(n)||(!marked?q:0)):(uv?q*uv:(!marked?q:0))};
  const markVolume=m=>{const d=m.data||m,n=d.total_value??d.total_volume;return n!==undefined&&n!==null&&String(n).trim()!==""?val(n):val(d.qty??d.count)*val(d.unit_volume??d.volume_one)};
+  const reportVolumes=r=>{
+   const grouped=new Map();
+   for(const w of arr(r.items||r.works)){
+    const service=w.accounting_type==="service"||w.is_service===true||norm(w.unit)==="услуга";
+    const name=String(w.work_type||w.type||"Работа").trim()||"Работа";
+    const unit=String(w.unit||w.measure_unit||"").trim()||(service?"":"ед.");
+    const quantity=service?0:volume(w);
+    if(!service&&quantity<=0)continue;
+    const key=name.toLowerCase()+"|"+(service?"service":unit.toLowerCase());
+    if(!grouped.has(key))grouped.set(key,{name,unit,total:0,service,done:false});
+    const item=grouped.get(key);
+    if(service)item.done=item.done||w.completed===true||w.service_completed===true||["done","выполнено"].includes(norm(w.status));
+    else item.total+=quantity;
+   }
+   return [...grouped.values()];
+  };
+
  function completion(work,marks,reports){
   const t=new Map(arr(work).map(r=>{const d=r.data||{},id=String(r.id),service=d.accounting_type==="service"||norm(d.unit)==="услуга",marked=d.has_marks===true||["installation","fabrication"].includes(d.work_category)||(!d.work_category&&d.has_marks!==false&&(norm(d.work_type||r.title).includes("монтаж")||norm(d.work_type||r.title).includes("изготов")||arr(marks).some(m=>String(m.data?.work_type_id||"")===id)));return[id,{service,marked,plan:val(d.planned_volume??d.plan_volume)}]}));
   const plan=new Map(),fact=new Map(),done=new Set();
@@ -54,14 +71,25 @@ async function renderHomePortfolio(objects){
   if(!host.isConnected||location.hash.slice(1)!=="/objects")return;
   const active=bundles.filter(b=>b.active),last=active.map(b=>b.reports[0]).filter(Boolean),staff=last.reduce((s,r)=>s+personnel(r),0),avgEq=active.length?last.reduce((s,r)=>s+equipment(r),0)/active.length:0;
   const sum=bundles.reduce((s,b)=>s+b.progress.sum,0),count=bundles.reduce((s,b)=>s+b.progress.count,0),pct=count?Math.round(sum/count):0;
-  const recent=active.flatMap(b=>b.reports.map(r=>({r,obj:b.object,num:b.numbers.get(r.id)||1}))).sort((a,b)=>time(b.r)-time(a.r)||val(b.r.id)-val(a.r.id)).slice(0,6);
-  const tile=x=>{const r=x.r,works=[...new Set(arr(r.items||r.works).map(w=>String(w.work_type||w.type||"").trim()).filter(Boolean))],summary=works.slice(0,2).join(" · ")+(works.length>2?" · ещё "+(works.length-2):"");return '<button type="button" class="home-portfolio-report" data-home-object="'+esc(x.obj.id)+'" data-home-report="'+esc(r.id)+'" title="'+esc(x.obj.name)+'"><span class="hpr-top"><span>'+esc(day(r))+'</span><small>№ '+x.num+'</small></span><strong class="hpr-object">'+esc(x.obj.name)+'</strong><span class="hpr-works">'+esc(summary||"Работы не указаны")+'</span><span class="hpr-footer"><span>♟ '+fmt(personnel(r))+' чел.</span><span>⚙ '+fmt(equipment(r))+' ед.</span></span></button>'};
+  const recent=active.flatMap(b=>b.reports.map(r=>({r,obj:b.object,num:b.numbers.get(r.id)||1}))).sort((a,b)=>time(b.r)-time(a.r)||val(b.r.id)-val(a.r.id)).slice(0,4);
+  const tile=x=>{
+   const r=x.r,rows=reportVolumes(r),display=rows.slice(0,4);
+   const volumeFmt=x=>Number(x.toFixed(4)).toLocaleString("ru-RU",{maximumFractionDigits:4});
+   const volumeBlock=display.length
+    ?display.map(item=>'<div class="hpr-volume-row"><span title="'+esc(item.name)+'">'+esc(item.name)+'</span><strong>'+(item.service?(item.done?"✓ Выполнено":"Не выполнено"):volumeFmt(item.total)+" "+esc(item.unit))+'</strong></div>').join("")+(rows.length>4?'<small class="hpr-volume-more">+ ещё '+(rows.length-4)+' видов работ</small>':"")
+    :'<span class="hpr-volume-empty">Объёмы не указаны</span>';
+   return '<button type="button" class="home-portfolio-report" data-home-object="'+esc(x.obj.id)+'" data-home-report="'+esc(r.id)+'" title="'+esc(x.obj.name)+'">'+
+    '<span class="hpr-top"><span>'+esc(day(r))+'</span><small>№ '+x.num+'</small></span>'+
+    '<strong class="hpr-object">'+esc(x.obj.name)+'</strong>'+
+    '<span class="hpr-volume-title">Выполненные объёмы</span><div class="hpr-volumes">'+volumeBlock+'</div>'+
+    '<span class="hpr-footer"><span>♟ '+fmt(personnel(r))+' чел.</span><span>⚙ '+fmt(equipment(r))+' ед.</span></span></button>';
+  };
   host.innerHTML='<div class="home-portfolio-heading"><h2>Общая статистика по объектам</h2><p>Готовность — все объекты, люди и техника — только в работе</p></div>'+
    '<div class="home-portfolio-kpis">'+
    '<article class="home-portfolio-kpi"><span>Среднее выполнение по всем видам работ</span><strong>'+(count?pct+"%":"—")+'</strong><small>'+count+' видов работ с планом · все объекты</small><div class="hpk-track"><i style="width:'+pct+'%"></i></div></article>'+
    '<article class="home-portfolio-kpi"><span>Людей на объектах в работе</span><strong>'+fmt(staff)+' <em>чел.</em></strong><small>Последние отчёты: '+last.length+' из '+active.length+' объектов</small></article>'+
    '<article class="home-portfolio-kpi"><span>Среднее техники на объекте в работе</span><strong>'+fmt(avgEq)+' <em>ед.</em></strong><small>По '+active.length+' объектам · без отчёта 0</small></article></div>'+
-   '<div class="home-portfolio-reports-title"><h2>Последние 6 отчётов</h2><p>По всем объектам со статусом «В работе»</p></div>'+
+   '<div class="home-portfolio-reports-title"><h2>Последние 4 отчёта</h2><p>По всем объектам со статусом «В работе»</p></div>'+
    '<div class="home-portfolio-report-scroll"><div class="home-portfolio-report-grid">'+(recent.length?recent.map(tile).join(""):'<div class="home-portfolio-empty">По действующим объектам пока нет отчётов</div>')+'</div></div>'+
    (incomplete?'<p class="home-portfolio-warning">Часть данных не загружена — статистика может быть неполной.</p>':"");
   host.querySelectorAll("[data-home-report]").forEach(b=>b.onclick=()=>go("/objects/object/"+b.dataset.homeObject+"/reports/"+b.dataset.homeReport));
