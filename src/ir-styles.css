@@ -11,6 +11,36 @@
 .home-update-button span{font-size:16px;line-height:1}
 .home-update-version{font-size:10px;color:#93a4b2;font-weight:500}
 
+/* IR Project 1.7.82: company-level home overview. */
+.home-portfolio{padding:25px 42px 12px;background:#f6f9fd}
+.home-portfolio-heading,.home-portfolio-reports-title{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:14px}
+.home-portfolio-heading h2,.home-portfolio-reports-title h2{margin:0;color:#213a54;font-size:16px}
+.home-portfolio-heading p,.home-portfolio-reports-title p{margin:0;color:#8194a7;font-size:10px}
+.home-portfolio-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.home-portfolio-kpi{min-width:0;min-height:146px;display:flex;flex-direction:column;gap:10px;padding:19px 20px;background:#fff;border:1px solid #dee8f2;border-radius:13px;box-shadow:0 2px 12px rgba(27,66,105,.04)}
+.home-portfolio-kpi>span{font-weight:700;font-size:11px;color:#5b7891}
+.home-portfolio-kpi>strong{font-size:33px;line-height:1.1;color:#205c91;letter-spacing:-.5px;font-weight:850;font-variant-numeric:tabular-nums}
+.home-portfolio-kpi>strong em{font-size:15px;font-weight:600;font-style:normal;color:#86a0b6}
+.home-portfolio-kpi>small{font-size:10px;color:#899bab;line-height:1.4}
+.hpk-track{margin-top:auto;height:7px;border-radius:8px;overflow:hidden;background:#e7f0fa}
+.hpk-track i{display:block;height:100%;border-radius:8px;background:#2379df}
+.home-portfolio-reports-title{margin-top:28px}
+.home-portfolio-report-scroll{overflow-x:auto;max-width:100%;padding:0 0 6px}
+.home-portfolio-report-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));min-width:1020px;gap:11px}
+.home-portfolio-report{min-width:0;min-height:172px;display:flex;flex-direction:column;gap:10px;align-items:stretch;padding:13px 12px;text-align:left;border:1px solid #dce6f2;border-radius:11px;background:#fff;box-shadow:0 2px 8px rgba(27,66,105,.03);color:#36566e;cursor:pointer}
+.home-portfolio-report:hover{border-color:#90bce5;box-shadow:0 6px 16px rgba(27,80,138,.1);background:#fbfdff;transform:translateY(-2px)}
+.home-portfolio-report:focus-visible{outline:2px solid #2379df;outline-offset:2px}
+.hpr-top{display:flex;justify-content:space-between;align-items:center;gap:5px;color:#577d9b;font-weight:700;font-size:10px}
+.hpr-top small{font-size:9px;white-space:nowrap;color:#9aacbc}
+.hpr-object{font-size:11px;line-height:1.4;min-height:30px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.hpr-works{min-height:28px;color:#7991a5;font-size:10px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hpr-footer{margin-top:auto;padding-top:10px;border-top:1px solid #ecf1f7;display:flex;justify-content:space-between;flex-wrap:wrap;gap:5px;color:#467399;font-size:9px;font-weight:750}
+.home-portfolio-loading,.home-portfolio-empty,.home-portfolio-error{padding:22px;background:#fff;border:1px dashed #d8e6f2;border-radius:10px;color:#8298ab;font-size:11px}
+.home-portfolio-empty{grid-column:1/-1}
+.home-portfolio-warning{font-size:11px;color:#a36c2f}
+@media(max-width:1000px){.home-portfolio{padding-left:22px;padding-right:22px}.home-portfolio-kpis{gap:9px}.home-portfolio-kpi{padding:15px}.home-portfolio-heading,.home-portfolio-reports-title{flex-wrap:wrap}}
+@media(max-width:760px){.home-portfolio-kpis{grid-template-columns:1fr}}
+
 
 /* #2: src/object-card-actions.css */
 .object-card-actions{display:flex;gap:8px;padding:0 15px 14px;background:#fff}.object-card-actions button{flex:1;min-height:34px;border-radius:8px;font-size:11px;font-weight:700;border:1px solid #dce1e8;background:#fff;color:#485363}.object-card-actions .object-card-edit:hover{border-color:#9fc1f1;background:#f3f8ff;color:#1769e0}.object-card-actions .object-card-delete{flex:0 0 auto;padding:0 13px;color:#b42318;border-color:#f0cfcb;background:#fff}.object-card-actions .object-card-delete:hover{background:#fff1ef;border-color:#e9aaa3}.object-card:hover .object-card-actions{transform:none}
