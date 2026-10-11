@@ -108,13 +108,17 @@ async function renderHomePortfolio(objects){
   const tile=x=>{
    const r=x.r,all=reportVolumes(r),shown=all.slice(0,4);
    const pretty=v=>Number(v.toFixed(4)).toLocaleString("ru-RU",{maximumFractionDigits:4});
-   const volumeHtml=shown.length
+   const hasMeasuredVolume=all.some(w=>!w.service&&w.total>0);
+   const dailySummaries=arr(r.daily_summary).map(w=>typeof w==="string"?w:String(w?.text||w?.name||w?.point||"")).map(t=>t.trim()).filter(Boolean);
+   const volumeHtml=!hasMeasuredVolume&&dailySummaries.length
+    ?dailySummaries.slice(0,3).map(t=>'<span class="hpr-summary-line">'+esc(t)+'</span>').join("")+(dailySummaries.length>3?'<small class="hpr-volume-more">+ ещё '+(dailySummaries.length-3)+' пункт.</small>':"")
+    :shown.length
     ?shown.map(w=>'<span class="hpr-volume-row"><span class="hpr-volume-name" title="'+esc(w.name)+'">'+esc(w.name)+'</span><strong class="hpr-volume-value">'+(w.service?(w.done?"✓ Выполнено":"Не выполнено"):pretty(w.total)+" "+esc(w.unit))+'</strong></span>').join("")+(all.length>4?'<small class="hpr-volume-more">+ ещё '+(all.length-4)+' видов работ</small>':"")
     :'<small class="hpr-volume-empty">Объёмы не указаны</small>';
    return '<button class="home-portfolio-report" type="button" data-home-object="'+esc(x.obj.id)+'" data-home-report="'+esc(r.id)+'" title="'+esc(x.obj.name)+'">'+
     '<span class="hpr-head"><span class="hpr-date">'+esc(day(r))+'</span><span class="hpr-number">Отчёт №'+x.num+'</span></span>'+
     '<strong class="hpr-object">'+esc(x.obj.name)+'</strong>'+
-    '<span class="hpr-section-title">Выполненные объёмы</span>'+
+    '<span class="hpr-section-title">'+(!hasMeasuredVolume&&dailySummaries.length?"Сводка за день":"Выполненные объёмы")+'</span>'+
     '<span class="hpr-volumes">'+volumeHtml+'</span>'+
     '<span class="hpr-footer"><span class="hpr-footer-stat">'+peopleIcon+' '+fmt(personnel(r))+' чел.</span><span class="hpr-footer-stat">'+craneIcon+' '+fmt(equipment(r))+' ед.</span><span class="hpr-arrow" aria-hidden="true">↗</span></span>'+
    '</button>';
@@ -133,16 +137,16 @@ async function renderHomePortfolio(objects){
   };
   host.innerHTML=
    '<div class="home-portfolio-shell">'+
-    '<div class="home-portfolio-heading"><div><small class="home-portfolio-kicker">СВОДКА ПО ОБЪЕКТАМ</small><h2>Общая статистика</h2></div><p>Выполнение работ и последние ежедневные отчёты</p></div>'+
+    '<div class="home-portfolio-heading"><div><h2>Общая статистика</h2></div></div>'+
     '<div class="home-portfolio-kpis">'+
-     '<article class="home-portfolio-kpi hpk-progress"><div class="home-kpi-top"><span class="home-kpi-icon">'+chartIcon+'</span><span class="home-kpi-scope">Все объекты</span></div><h3>Среднее выполнение работ</h3><div class="home-kpi-value">'+(count?pct+"%":"—")+'</div><div class="home-kpi-foot"><span>'+count+' видов работ с планом</span><div class="hpk-track"><i style="width:'+pct+'%"></i></div></div></article>'+
-     '<article class="home-portfolio-kpi hpk-workers"><div class="home-kpi-top"><span class="home-kpi-icon">'+peopleIcon+'</span><span class="home-kpi-scope">Объекты в работе</span></div><h3>Всего людей на объектах</h3><div class="home-kpi-value">'+fmt(staff)+' <em>чел.</em></div><div class="home-kpi-foot"><span>По последним отчётам · '+last.length+' из '+active.length+' объектов</span></div></article>'+
-     '<article class="home-portfolio-kpi hpk-equipment"><div class="home-kpi-top"><span class="home-kpi-icon">'+craneIcon+'</span><span class="home-kpi-scope">Объекты в работе</span></div><h3>Всего техники на объектах</h3><div class="home-kpi-value">'+fmt(totalEquipment)+' <em>ед.</em></div><div class="home-kpi-foot"><span>По последним отчётам · '+last.length+' из '+active.length+' объектов</span></div></article>'+
+     '<article class="home-portfolio-kpi hpk-progress"><div class="home-kpi-top"><span class="home-kpi-icon">'+chartIcon+'</span><span class="home-kpi-scope">Все объекты</span></div><h3>Среднее выполнение работ</h3><div class="home-kpi-value">'+(count?pct+"%":"—")+'</div><div class="home-kpi-foot"><div class="hpk-track"><i style="width:'+pct+'%"></i></div></div></article>'+
+     '<article class="home-portfolio-kpi hpk-workers"><div class="home-kpi-top"><span class="home-kpi-icon">'+peopleIcon+'</span><span class="home-kpi-scope">Объекты в работе</span></div><h3>Всего людей на объектах</h3><div class="home-kpi-value">'+fmt(staff)+' <em>чел.</em></div><div class="home-kpi-foot"></div></article>'+
+     '<article class="home-portfolio-kpi hpk-equipment"><div class="home-kpi-top"><span class="home-kpi-icon">'+craneIcon+'</span><span class="home-kpi-scope">Объекты в работе</span></div><h3>Всего техники на объектах</h3><div class="home-kpi-value">'+fmt(totalEquipment)+' <em>ед.</em></div><div class="home-kpi-foot"></div></article>'+
     '</div>'+
-    '<section class="home-portfolio-reports"><div class="home-portfolio-reports-title"><div><small class="home-portfolio-kicker">ЕЖЕДНЕВНЫЕ ОТЧЁТЫ</small><h2>Последние 4 отчёта</h2></div><p>Только объекты со статусом «В работе»</p></div>'+
+    '<section class="home-portfolio-reports"><div class="home-portfolio-reports-title"><div><h2>Последние 4 отчёта</h2></div></div>'+
      '<div class="home-portfolio-report-scroll"><div class="home-portfolio-report-grid">'+(recent.length?recent.map(tile).join(""):'<div class="home-portfolio-empty">По действующим объектам пока нет отчётов</div>')+'</div></div></section>'+
     '<section class="home-late-section">'+
-     '<div class="home-late-heading"><div><small class="home-portfolio-kicker">КОНТРОЛЬ СРОКОВ</small><h2>Объекты, требующие внимания</h2><p>Истёкшие сроки и отставание более 10 п.п. от плана · объекты в работе</p></div>'+
+     '<div class="home-late-heading"><div><h2>Объекты, требующие внимания</h2></div>'+
       '<span class="home-late-count">'+lateObjects.length+' '+(lateObjects.length===1?"объект":lateObjects.length<5?"объекта":"объектов")+'</span></div>'+
      '<div class="home-late-grid">'+(lateObjects.length?lateObjects.map(lateTile).join(""):'<div class="home-late-empty">По заполненным графикам работ отстающих объектов нет.</div>')+'</div>'+
     '</section>'+

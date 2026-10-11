@@ -90,3 +90,9 @@
 .home-late-open{display:flex;justify-content:space-between;align-items:center;margin-top:auto;font-size:10px;font-weight:750;color:#8c684e}
 .home-late-empty{grid-column:1/-1;background:#f7fafc;border:1px dashed #d8e7df;color:#70877d;border-radius:9px;font-size:12px;padding:20px}
 @media(max-width:820px){.home-late-grid{grid-template-columns:1fr}.home-late-heading{align-items:start;flex-wrap:wrap}}
+
+/* 1.7.88: compact overview headings and fallback daily summary. */
+.home-portfolio-heading h2,.home-portfolio-reports-title h2,.home-late-heading h2{font-size:14px!important;line-height:1.4!important;letter-spacing:0!important}
+.home-portfolio-heading,.home-portfolio-reports-title,.home-late-heading{margin-bottom:12px!important}
+.home-portfolio-report .hpr-summary-line{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;white-space:normal;padding:6px 0;border-bottom:1px solid #edf1f5;color:#586f82;font-size:11px;line-height:1.5}
+.home-portfolio-report .hpr-summary-line:last-child{border-bottom:0}

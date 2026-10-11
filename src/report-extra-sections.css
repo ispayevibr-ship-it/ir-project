@@ -25,3 +25,8 @@
 .report-form-page .report-form-section>.rfs-body[hidden],.report-form-page .report-form-section>.report-act-box[hidden]{display:none!important}
 .report-form-page .report-form-section .rfs-add{flex:none}
 @media(max-width:680px){.report-form-page .report-form-section .rfs-head{flex-wrap:wrap}.report-form-page .report-form-section .rfs-head>div{flex-basis:50%}.report-form-page .report-fold-toggle{margin-left:auto}}
+
+/* 1.7.88: hide incorrectly rendered fold arrows (headings remain clickable). */
+.report-form-page .report-fold-toggle{display:none!important}
+.report-form-page .report-inline-error{display:block;margin:10px 15px;padding:11px 14px;border:1px solid #e2aaa6;border-radius:8px;background:#fff2f0;color:#a23933;font-size:11px;line-height:1.5}
+.report-form-page .report-inline-error[hidden]{display:none!important}
