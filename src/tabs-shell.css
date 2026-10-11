@@ -121,3 +121,20 @@ button{font-family:inherit}
 .tabs-profile-slot .program-settings-menu button:hover{
  background:#ecf5ff;border-color:#b6d4ed
 }
+
+/* 1.7.91: compact, scrollable tabs without changing the native Windows titlebar area. */
+body{min-width:0}
+.tabs-bar{min-width:0;max-width:100%;overflow:hidden;flex-wrap:nowrap}
+.tabs-list{overflow-x:auto;overflow-y:hidden;min-width:40px;flex:1 1 0;overscroll-behavior-x:contain}
+.tabs-list .tabs-item{flex:0 0 175px;min-width:115px;max-width:175px}
+.tabs-list.tabs-many .tabs-item{flex-basis:132px;min-width:110px;max-width:132px}
+.tabs-list.tabs-packed .tabs-item{flex-basis:102px;min-width:94px;max-width:102px;gap:3px;padding-left:5px}
+.tabs-list.tabs-packed .tabs-icon{display:none}
+.tabs-list.tabs-packed .tabs-close{width:19px;height:23px}
+.tabs-list .tabs-add{flex-shrink:0}
+.tabs-tools{flex:none;min-width:0;white-space:nowrap}
+.tabs-tools #tabsDuplicate,.tabs-tools #tabsDetach{display:grid;place-items:center;flex:0 0 33px;width:33px;height:31px;padding:0;font-size:0}
+.tabs-tools #tabsDuplicate svg,.tabs-tools #tabsDetach svg{display:block;width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tabs-tools #tabsDuplicate::after,.tabs-tools #tabsDetach::after{content:none!important}
+.tabs-tools .tabs-profile-slot{flex-shrink:0}
+@media(max-width:900px){.tabs-bar{gap:4px;padding-left:5px;padding-right:139px}.tabs-list .tabs-item{flex-basis:118px;max-width:118px;min-width:92px}.tabs-list.tabs-packed .tabs-item{flex-basis:96px;max-width:96px;min-width:85px}.tabs-tools{gap:3px}}

@@ -59,7 +59,10 @@
  };
  function notify(text){/* Bottom status bar removed; preserve nonvisual status call sites. */}
  function renderTabBar(){
+  const savedScroll=list.scrollLeft;
   list.replaceChildren();
+  list.classList.toggle("tabs-many",order.length>=7);
+  list.classList.toggle("tabs-packed",order.length>=10);
   for(const id of order){
    const tab=frames.get(id);if(!tab)continue;
    const button=document.createElement("div");
@@ -77,16 +80,25 @@
   }
   // Keep the "+" control immediately after the last tab, even when the tab list rerenders.
   if(addButton)list.append(addButton);
+  list.scrollLeft=savedScroll;
   const activeElement=list.querySelector(".tabs-item.active");
-  if(activeElement)activeElement.scrollIntoView({block:"nearest",inline:"nearest"})
+  if(activeElement){const left=activeElement.offsetLeft-list.offsetLeft,right=left+activeElement.offsetWidth;
+   if(left<list.scrollLeft)list.scrollLeft=Math.max(0,left-7);
+   else if(right>list.scrollLeft+list.clientWidth)list.scrollLeft=right-list.clientWidth+7
+  }
  }
  async function resolveName(id,objectId){
   if(!objectId||objectsCache.has(objectId))return;
   try{
    const obj=await api.data.objects.get(objectId);
-   if(obj?.name){objectsCache.set(objectId,String(obj.name));for(const tab of frames.values())tab.title=routeLabel(tab.route);renderTabBar()}
+   if(obj?.name){const records=await api.data.forObject(objectId).section("object-meta").list().catch(()=>[]);
+    const short=records.find(x=>x.record_type==="object_short_name"||x.data?.entity_type==="object_short_name");
+    objectsCache.set(objectId,String(short?.data?.value||obj.name));
+    for(const tab of frames.values())tab.title=routeLabel(tab.route);renderTabBar()
+   }
   }catch{}
  }
+ window.irTabRefreshObjectName=id=>{const key=String(id||"");if(!key)return;objectsCache.delete(key);resolveName("",key)};
  function setRoute(id,route){
   const tab=frames.get(id);if(!tab)return;
   const next=cleanRoute(route);

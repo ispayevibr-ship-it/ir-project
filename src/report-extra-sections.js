@@ -5,7 +5,18 @@
  const tabScope=()=>window.name?.startsWith("ir-tab-")?window.name+"-":"";
  const pendingKey=oid=>`ir-report-extra-pending-${tabScope()}${oid}`,api=oid=>irProject.data.forObject(oid).section("reports");
  const summaryText=x=>{if(typeof x==="string")return x;if(x?.text)return String(x.text);const parts=[];if(x?.name||x?.point)parts.push(String(x.name||x.point));if(x?.work||x?.stage)parts.push(String(x.work||x.stage));if(x?.percent!==""&&x?.percent!=null)parts.push(`${x.percent}% завершено`);else if(x?.progress!==""&&x?.progress!=null)parts.push(`${x.progress}% завершено`);return parts.join(" — ")};
- const summaryRow=x=>`<div class="dynamic-row daily-summary-row"><label>Сводка<textarea name="summary_text" rows="2" placeholder="Например: Конвейер 1 — укрупнительная сборка завершена на 75%">${esc(summaryText(x))}</textarea></label><button type="button" class="row-remove" title="Удалить">×</button></div>`;
+ window.irReportActivityPreview=r=>{
+   const summaries=arr(r?.daily_summary).map(summaryText).map(s=>String(s||"").trim()).filter(Boolean);
+   if(summaries.length)return{kind:"summary",label:"Сводка за день",lines:summaries};
+   const notes=[r?.note,r?.extra].map(s=>String(s||"").trim()).filter(Boolean);
+   const additional=arr(r?.additional_works).map(x=>{
+    const name=String(x?.name||x?.work||"").trim(),qty=String(x?.qty??x?.count??"").trim(),unit=String(x?.unit||"").trim();
+    return[name,qty?[qty,unit].filter(Boolean).join(" "):""].filter(Boolean).join(" · ")
+   }).filter(Boolean);
+   if(notes.length||additional.length)return{kind:"additional",label:"Дополнительная информация / работы",lines:[...notes,...additional]};
+   return{kind:"empty",label:"Работы",lines:["Работы не проводились"]}
+  };
+  const summaryRow=x=>`<div class="dynamic-row daily-summary-row"><label>Сводка<textarea name="summary_text" rows="2" placeholder="Например: Конвейер 1 — укрупнительная сборка завершена на 75%">${esc(summaryText(x))}</textarea></label><button type="button" class="row-remove" title="Удалить">×</button></div>`;
  const newExtraId=()=>["EW",Date.now().toString(36),Math.random().toString(36).slice(2,10)].join("-");
  const extraId=(entry,rid,index)=>String(entry?.id||entry?.work_id||((rid&&index>=0)?"EW-"+rid+"-"+(index+1):newExtraId()));
  const extraAct=x=>x?.signed_act?.path?x.signed_act:null;
