@@ -110,3 +110,46 @@
 .ir-object-overview-right{display:flex!important;width:100%!important;min-width:0!important;align-items:stretch!important}
 @media(max-width:1250px){.ir-object-overview-left>.object-overview-top-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 @media(max-width:650px){.ir-object-overview-left>.object-overview-top-stats{grid-template-columns:minmax(0,1fr)!important}}
+
+
+/* 1.7.75: keep the report collapse/expand button at the right edge of
+   its summary row at all widths; do not let it wrap into a third row. */
+.ir-object-overview-right .oor2-brief{
+ display:grid;
+ grid-template-areas:"date weather people equipment volume toggle";
+ grid-template-columns:minmax(0,1fr) minmax(0,1.15fr) minmax(0,.75fr) minmax(0,.75fr) minmax(0,1.6fr) 48px;
+ gap:9px;align-items:stretch
+}
+.ir-object-overview-right .oor2-brief>.oor2-date{grid-area:date;min-width:0}
+.ir-object-overview-right .oor2-brief>.oor2-weather{grid-area:weather;min-width:0}
+.ir-object-overview-right .oor2-brief>.oor2-cell:nth-child(3){grid-area:people;min-width:0}
+.ir-object-overview-right .oor2-brief>.oor2-cell:nth-child(4){grid-area:equipment;min-width:0}
+.ir-object-overview-right .oor2-brief>.oor2-volume{
+ grid-area:volume;grid-column:auto;min-width:0
+}
+.ir-object-overview-right .oor2-brief>.oor2-toggle{
+ grid-area:toggle;grid-column:auto;justify-self:end;align-self:center;
+ width:48px;min-width:48px;height:44px;margin:0;max-width:100%
+}
+@media(max-width:1180px){
+ .ir-object-overview-right .oor2-brief{
+  grid-template-areas:"date weather people equipment" "volume volume volume toggle";
+  grid-template-columns:repeat(4,minmax(0,1fr))
+ }
+ .ir-object-overview-right .oor2-brief>.oor2-toggle{
+  justify-self:end;width:48px;min-width:48px
+ }
+}
+@media(max-width:750px){
+ .ir-object-overview-right .oor2-brief{
+  grid-template-areas:"date weather" "people equipment" "volume toggle";
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px
+ }
+ .ir-object-overview-right .oor2-brief>.oor2-date{grid-column:1;grid-row:1}
+ .ir-object-overview-right .oor2-brief>.oor2-weather{grid-column:2;grid-row:1}
+ .ir-object-overview-right .oor2-brief>.oor2-cell:nth-child(3){grid-column:1;grid-row:2}
+ .ir-object-overview-right .oor2-brief>.oor2-cell:nth-child(4){grid-column:2;grid-row:2}
+ .ir-object-overview-right .oor2-brief>.oor2-volume{grid-column:1;grid-row:3}
+ .ir-object-overview-right .oor2-brief>.oor2-toggle{grid-column:2;grid-row:3}
+}
