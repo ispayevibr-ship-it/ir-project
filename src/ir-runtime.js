@@ -2279,7 +2279,7 @@ async function renderHomePortfolio(objects){
    return{object:o,active:o.status==="В работе",reports,numbers,progress:completion(w,m,reports)};
   }));
   if(!host.isConnected||location.hash.slice(1)!=="/objects")return;
-  const active=bundles.filter(b=>b.active),last=active.map(b=>b.reports[0]).filter(Boolean),staff=last.reduce((s,r)=>s+personnel(r),0),avgEq=active.length?last.reduce((s,r)=>s+equipment(r),0)/active.length:0;
+  const active=bundles.filter(b=>b.active),last=active.map(b=>b.reports[0]).filter(Boolean),staff=last.reduce((s,r)=>s+personnel(r),0),totalEquipment=last.reduce((s,r)=>s+equipment(r),0);
   const sum=bundles.reduce((s,b)=>s+b.progress.sum,0),count=bundles.reduce((s,b)=>s+b.progress.count,0),pct=count?Math.round(sum/count):0;
   const recent=active.flatMap(b=>b.reports.map(r=>({r,obj:b.object,num:b.numbers.get(r.id)||1}))).sort((a,b)=>time(b.r)-time(a.r)||val(b.r.id)-val(a.r.id)).slice(0,4);
   const tile=x=>{
@@ -2298,7 +2298,7 @@ async function renderHomePortfolio(objects){
    '<div class="home-portfolio-kpis">'+
    '<article class="home-portfolio-kpi"><span>Среднее выполнение по всем видам работ</span><strong>'+(count?pct+"%":"—")+'</strong><small>'+count+' видов работ с планом · все объекты</small><div class="hpk-track"><i style="width:'+pct+'%"></i></div></article>'+
    '<article class="home-portfolio-kpi"><span>Людей на объектах в работе</span><strong>'+fmt(staff)+' <em>чел.</em></strong><small>Последние отчёты: '+last.length+' из '+active.length+' объектов</small></article>'+
-   '<article class="home-portfolio-kpi"><span>Среднее техники на объекте в работе</span><strong>'+fmt(avgEq)+' <em>ед.</em></strong><small>По '+active.length+' объектам · без отчёта 0</small></article></div>'+
+   '<article class="home-portfolio-kpi"><span>Всего техники на объектах в работе</span><strong>'+fmt(totalEquipment)+' <em>ед.</em></strong><small>По последнему отчёту каждого объекта · отчётов: '+last.length+' из '+active.length+'</small></article></div>'+
    '<div class="home-portfolio-reports-title"><h2>Последние 4 отчёта</h2><p>По всем объектам со статусом «В работе»</p></div>'+
    '<div class="home-portfolio-report-scroll"><div class="home-portfolio-report-grid">'+(recent.length?recent.map(tile).join(""):'<div class="home-portfolio-empty">По действующим объектам пока нет отчётов</div>')+'</div></div>'+
    (incomplete?'<p class="home-portfolio-warning">Часть данных не загружена — статистика может быть неполной.</p>':"");
