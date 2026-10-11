@@ -234,7 +234,7 @@
   updatePercent=document.getElementById("tabsUpdateProgressLabel"),
   updateActions=document.getElementById("tabsUpdateActions"),
   updateClose=document.getElementById("tabsUpdateClose");
- let updateBusy=false,updateTotalBytes=0,updateTransferredBytes=0,updateLatestVersion="";
+ let updateBusy=false,updateTotalBytes=0,updateTransferredBytes=0,updateLatestVersion="",pendingRestartVersion="";
  const bytesText=raw=>{
   const count=Number(raw);
   if(!Number.isFinite(count)||count<0)return "—";
@@ -275,6 +275,7 @@
   updateButtons([["Закрыть",false,closeUpdate],["Повторить",true,checkAppUpdate]])
  }
  function updateCurrent(version){
+  if(pendingRestartVersion){updateDownloaded(pendingRestartVersion);return}
   updateProgress.hidden=true;updateTransfer.hidden=true;updateSize.hidden=true;
   setUpdate("Обновление не требуется","Установлена последняя версия IR Project "+version+".");
   updateButtons([["Закрыть",true,closeUpdate]])
@@ -296,10 +297,11 @@
   finally{updateBusy=false}
  }
  function updateDownloaded(version){
+  pendingRestartVersion=version||pendingRestartVersion||updateLatestVersion;
   updateBusy=false;updateProgress.hidden=true;
   if(updateTotalBytes>0)updateTransferredBytes=updateTotalBytes;
   showUpdateSize();showTransfer();
-  setUpdate("Обновление готово","Версия "+(version||updateLatestVersion||"IR Project")+" скачана. Установить её и перезапустить программу?");
+  setUpdate("Требуется перезапуск","Версия "+(pendingRestartVersion||"IR Project")+" скачана. Код открытых вкладок остаётся прежним, пока IR Project не будет перезапущен.");
   updateButtons([["Позже",false,closeUpdate],["Установить и перезапустить",true,installUpdate]])
  }
  async function installUpdate(){
@@ -327,14 +329,19 @@
     Math.max(0,Math.min(100,Number(info.percent)||0));
    updateProgress.hidden=false;updateBar.style.width=pct+"%";updatePercent.textContent=pct+"%";
    showUpdateSize();showTransfer();updateText.textContent="Скачиваем файлы обновления…";
-  }else if(info.type==="downloaded"&&updateDialog.open)updateDownloaded(info.version);
-  else if(info.type==="error"&&updateDialog.open)updateError(info.message||"Ошибка обновления")
+  }else if(info.type==="downloaded"){
+   pendingRestartVersion=info.version||updateLatestVersion;
+   if(updateDialog.open)updateDownloaded(info.version)
+  }else if(info.type==="error"&&updateDialog.open)updateError(info.message||"Ошибка обновления")
  }
  api.updater?.onStatus?.(onUpdaterStatus);
  async function checkAppUpdate(){
   if(updateBusy)return;
   if(!api.updater){notify("Проверка обновлений недоступна.");return}
   showUpdateDialog();
+  // The updater already reports the downloaded manifest as "installed" before
+  // the Electron process restarts. Do not claim that open tabs use that code.
+  if(pendingRestartVersion){updateDownloaded(pendingRestartVersion);return}
   updateBusy=true;updateTotalBytes=0;updateTransferredBytes=0;updateLatestVersion="";
   updateProgress.hidden=true;updateSize.hidden=true;updateTransfer.hidden=true;
   setUpdate("Проверка обновлений","Проверяем доступную версию IR Project…");updateButtons([]);
