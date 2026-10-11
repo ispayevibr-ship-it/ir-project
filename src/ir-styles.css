@@ -1460,6 +1460,14 @@ body.ir-object-route:not(.ir-object-overview) .wt-row[hidden]{display:none!impor
 .irb-immersive .irb-properties .irb-action-row .irb-icon-delete{flex:0 0 36px!important;width:36px!important;min-width:36px!important;max-width:36px!important;height:36px!important;min-height:36px!important;max-height:36px!important;padding:0!important}
 .irb-immersive .irb-properties>.irb-save{flex:0 0 auto!important;align-self:flex-start!important;width:auto!important;height:36px!important;min-height:36px!important;max-height:36px!important;padding:0 11px!important}
 
+/* IR Project 1.7.89: quick positioning by endpoints and member nodes. */
+.irb-immersive .irb-properties .irb-quick-save{flex:0 0 auto!important;height:36px!important;min-height:36px!important;max-height:36px!important;padding:0 11px!important;align-self:stretch!important}
+.irb-immersive .irb-properties .irb-form-error{padding:9px;border-radius:7px;border:1px solid #eebdb7;color:#a7463b;background:#fff4f2;font-size:10px;line-height:1.5}
+.irb-immersive .irb-properties .irb-form-error[hidden]{display:none!important}
+.irb-immersive .irb-properties .irb-level{display:grid;gap:5px;min-width:0}
+.irb-immersive .irb-properties .irb-level input{height:35px;width:100%;max-width:100%;border:1px solid #d3e0ea;background:#fff;border-radius:6px;padding:0 8px}
+.irb-immersive .irb-properties .irb-quick-save:disabled{opacity:.5;cursor:not-allowed}
+
 
 /* #45: src/object-overview-right-column.css */
 /* IR Project 1.7.73: shared overview cards in a fixed ordered right column. */
