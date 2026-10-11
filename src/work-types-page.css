@@ -46,3 +46,17 @@ body.ir-object-route:has(.wt-page){max-width:100vw;overflow-x:clip}
 .wt-actions button:focus-visible{outline:2px solid #2d8ada;outline-offset:2px}
 @media(max-width:1200px){.wt-table-head,.wt-row{grid-template-columns:minmax(180px,1.25fr) minmax(135px,.85fr) 68px 105px 125px 120px 90px}}
 @media(max-width:900px){.wt-row{grid-template-columns:repeat(2,minmax(0,1fr))}.wt-actions{grid-column:1/-1;justify-content:flex-end}}
+
+/* IR Project 1.7.95: table no longer contains a mounting scheme status column. */
+.wt-table-head,.wt-row{
+ grid-template-columns:minmax(200px,1.45fr) minmax(145px,.95fr) 76px minmax(120px,.8fr) minmax(155px,1fr) 90px;
+ min-width:890px;
+}
+@media(max-width:1200px){
+ .wt-table-head,.wt-row{grid-template-columns:minmax(170px,1.3fr) minmax(135px,.9fr) 68px minmax(105px,.75fr) minmax(135px,.9fr) 90px;min-width:800px}
+}
+@media(max-width:900px){
+ .wt-table-head{display:none}
+ .wt-row{min-width:0;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .wt-actions{grid-column:1/-1;justify-content:flex-end}
+}
