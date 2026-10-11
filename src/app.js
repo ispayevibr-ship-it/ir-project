@@ -92,32 +92,32 @@ async function renderHomePortfolio(objects){
   let incomplete=false;
   const bundles=await Promise.all(objects.map(async o=>{
    const load=async section=>{try{return arr(await objectSection(o.id,section).list())}catch(e){console.warn("Home portfolio:",o.id,section,e);incomplete=true;return[]}};
-   const [w,m,raw,schedule]=await Promise.all([load("work-types"),load("marks"),load("reports"),o.status==="В работе"?load("schedule"):Promise.resolve([])]);
+   const [w,m,raw,schedule,objectMeta]=await Promise.all([load("work-types"),load("marks"),load("reports"),o.status==="В работе"?load("schedule"):Promise.resolve([]),load("object-meta")]);
    const reports=raw.map(rec).filter(r=>time(r)>0).sort((a,b)=>time(b)-time(a)||val(b.id)-val(a.id));
    const numbers=new Map([...reports].sort((a,b)=>val(a.id)-val(b.id)).map((x,i)=>[x.id,i+1]));
-   return{object:o,active:o.status==="В работе",reports,numbers,progress:completion(w,m,reports),late:o.status==="В работе"?lateWorkRows(schedule,w,m,reports):[]};
+   return{object:o,shortName:String(objectMeta.find(x=>x.record_type==="object_short_name"||x.data?.entity_type==="object_short_name")?.data?.value||o.name),active:o.status==="В работе",reports,numbers,progress:completion(w,m,reports),late:o.status==="В работе"?lateWorkRows(schedule,w,m,reports):[]};
   }));
   if(!host.isConnected||location.hash.slice(1)!=="/objects")return;
   const active=bundles.filter(b=>b.active),last=active.map(b=>b.reports[0]).filter(Boolean),staff=last.reduce((s,r)=>s+personnel(r),0),totalEquipment=last.reduce((s,r)=>s+equipment(r),0);
   const sum=bundles.reduce((s,b)=>s+b.progress.sum,0),count=bundles.reduce((s,b)=>s+b.progress.count,0),pct=count?Math.round(sum/count):0;
-  const recent=active.flatMap(b=>b.reports.map(r=>({r,obj:b.object,num:b.numbers.get(r.id)||1}))).sort((a,b)=>time(b.r)-time(a.r)||val(b.r.id)-val(a.r.id)).slice(0,4);
+  const recent=active.flatMap(b=>b.reports.map(r=>({r,obj:b.object,shortName:b.shortName,num:b.numbers.get(r.id)||1}))).sort((a,b)=>time(b.r)-time(a.r)||val(b.r.id)-val(a.r.id)).slice(0,4);
   const homeSvg=b=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+b+'</svg>';
   const chartIcon=homeSvg('<path d="M3 20h18M6 17v-6m6 6V5m6 12V9"/><path d="m5 8 4-4 4 4 6-5"/>');
   const peopleIcon=homeSvg('<circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 5v1"/>');
   const craneIcon=homeSvg('<path d="M3 17h14M5 17v-5h6v5M11 12V8l6-5 2 2-6 6v6M17 5h4v8"/><circle cx="6" cy="20" r="1.5"/><circle cx="15" cy="20" r="1.5"/><circle cx="21" cy="17" r="1.5"/>');
   const tile=x=>{
-   const r=x.r,all=reportVolumes(r),shown=all.slice(0,4);
+   const r=x.r,all=reportVolumes(r),shown=all.slice(0,3);
    const pretty=v=>Number(v.toFixed(4)).toLocaleString("ru-RU",{maximumFractionDigits:4});
    const hasMeasuredVolume=all.some(w=>!w.service&&w.total>0);
    const activity=window.irReportActivityPreview?.(r),dailySummaries=activity?.kind!=="empty"?activity?.lines||[]:[];
    const volumeHtml=!hasMeasuredVolume&&dailySummaries.length
-    ?dailySummaries.slice(0,3).map(t=>'<span class="hpr-summary-line">'+esc(t)+'</span>').join("")+(dailySummaries.length>3?'<small class="hpr-volume-more">+ ещё '+(dailySummaries.length-3)+' пункт.</small>':"")
+    ?dailySummaries.slice(0,2).map(t=>'<span class="hpr-summary-line">'+esc(t)+'</span>').join("")+(dailySummaries.length>2?'<small class="hpr-volume-more">+ ещё '+(dailySummaries.length-2)+' пункт.</small>':"")
     :shown.length
-    ?shown.map(w=>'<span class="hpr-volume-row"><span class="hpr-volume-name" title="'+esc(w.name)+'">'+esc(w.name)+'</span><strong class="hpr-volume-value">'+(w.service?(w.done?"✓ Выполнено":"Не выполнено"):pretty(w.total)+" "+esc(w.unit))+'</strong></span>').join("")+(all.length>4?'<small class="hpr-volume-more">+ ещё '+(all.length-4)+' видов работ</small>':"")
+    ?shown.map(w=>'<span class="hpr-volume-row"><span class="hpr-volume-name" title="'+esc(w.name)+'">'+esc(w.name)+'</span><strong class="hpr-volume-value">'+(w.service?(w.done?"✓ Выполнено":"Не выполнено"):pretty(w.total)+" "+esc(w.unit))+'</strong></span>').join("")+(all.length>3?'<small class="hpr-volume-more">+ ещё '+(all.length-3)+' видов работ</small>':"")
     :'<small class="hpr-volume-empty">Работы не проводились</small>';
    return '<button class="home-portfolio-report" type="button" data-home-object="'+esc(x.obj.id)+'" data-home-report="'+esc(r.id)+'" title="'+esc(x.obj.name)+'">'+
     '<span class="hpr-head"><span class="hpr-date">'+esc(day(r))+'</span><span class="hpr-number">Отчёт №'+x.num+'</span></span>'+
-    '<strong class="hpr-object">'+esc(x.obj.name)+'</strong>'+
+    '<strong class="hpr-object">'+esc(x.shortName||x.obj.name)+'</strong>'+
     '<span class="hpr-section-title">'+(!hasMeasuredVolume&&dailySummaries.length?activity.label:hasMeasuredVolume?"Выполненные объёмы":"Работы за день")+'</span>'+
     '<span class="hpr-volumes">'+volumeHtml+'</span>'+
     '<span class="hpr-footer"><span class="hpr-footer-stat">'+peopleIcon+' '+fmt(personnel(r))+' чел.</span><span class="hpr-footer-stat">'+craneIcon+' '+fmt(equipment(r))+' ед.</span><span class="hpr-arrow" aria-hidden="true">↗</span></span>'+
@@ -139,6 +139,7 @@ async function renderHomePortfolio(objects){
    '<div class="home-portfolio-shell">'+
     '<div class="home-portfolio-heading"><div><h2>Общая статистика</h2></div></div>'+
     '<div class="home-portfolio-kpis">'+
+      '<article class="home-portfolio-kpi hpk-active"><div class="home-kpi-top"><span class="home-kpi-icon">'+homeSvg('<path d="M3 21V6l9-4 9 4v15M3 21h18M8 21v-7h8v7M7 8h2M15 8h2M7 11h2M15 11h2"/>')+'</span><span class="home-kpi-scope">Объекты компании</span></div><h3>Объектов в работе</h3><div class="home-kpi-value">'+active.length+' <em>объектов</em></div><div class="home-kpi-foot"></div></article>'+
      '<article class="home-portfolio-kpi hpk-progress"><div class="home-kpi-top"><span class="home-kpi-icon">'+chartIcon+'</span><span class="home-kpi-scope">Все объекты</span></div><h3>Среднее выполнение работ</h3><div class="home-kpi-value">'+(count?pct+"%":"—")+'</div><div class="home-kpi-foot"><div class="hpk-track"><i style="width:'+pct+'%"></i></div></div></article>'+
      '<article class="home-portfolio-kpi hpk-workers"><div class="home-kpi-top"><span class="home-kpi-icon">'+peopleIcon+'</span><span class="home-kpi-scope">Объекты в работе</span></div><h3>Всего людей на объектах</h3><div class="home-kpi-value">'+fmt(staff)+' <em>чел.</em></div><div class="home-kpi-foot"></div></article>'+
      '<article class="home-portfolio-kpi hpk-equipment"><div class="home-kpi-top"><span class="home-kpi-icon">'+craneIcon+'</span><span class="home-kpi-scope">Объекты в работе</span></div><h3>Всего техники на объектах</h3><div class="home-kpi-value">'+fmt(totalEquipment)+' <em>ед.</em></div><div class="home-kpi-foot"></div></article>'+

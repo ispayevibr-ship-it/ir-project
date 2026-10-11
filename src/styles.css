@@ -96,3 +96,28 @@
 .home-portfolio-heading,.home-portfolio-reports-title,.home-late-heading{margin-bottom:12px!important}
 .home-portfolio-report .hpr-summary-line{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;white-space:normal;padding:6px 0;border-bottom:1px solid #edf1f5;color:#586f82;font-size:11px;line-height:1.5}
 .home-portfolio-report .hpr-summary-line:last-child{border-bottom:0}
+
+/* IR Project 1.7.94: compact dashboard with four metrics and four small report cards */
+.home-portfolio-kpis{grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}
+.home-portfolio-kpi{min-height:144px;padding:13px 15px 12px;border-radius:11px}
+.home-kpi-top{margin:0 0 7px}
+.home-kpi-icon{width:30px;height:30px}
+.home-portfolio-kpi .home-kpi-value{font-size:29px}
+.home-portfolio-kpi .home-kpi-foot{padding-top:8px}
+.hpk-active:before{background:#3479c8}
+.hpk-active .home-kpi-icon{color:#3479c8;background:#eaf2ff}
+.home-portfolio-reports{margin-top:16px;padding:14px}
+.home-portfolio-reports-title{margin-bottom:9px!important}
+.home-portfolio-report-grid{grid-template-columns:repeat(4,minmax(0,1fr));min-width:0!important;gap:9px}
+.home-portfolio-report{gap:7px;min-height:164px;padding:11px 12px;border-radius:9px}
+.home-portfolio-report .hpr-object{min-height:0;line-height:1.25;font-size:11px;-webkit-line-clamp:1}
+.home-portfolio-report .hpr-section-title{padding-top:7px;font-size:8px;letter-spacing:.2px}
+.home-portfolio-report .hpr-date{font-size:10px}
+.home-portfolio-report .hpr-number{font-size:8px;padding:3px 5px}
+.home-portfolio-report .hpr-volume-row{padding:4px 0}
+.home-portfolio-report .hpr-volume-name,.home-portfolio-report .hpr-volume-value{font-size:9px}
+.home-portfolio-report .hpr-summary-line{padding:3px 0;font-size:9px;line-height:1.35;-webkit-line-clamp:2}
+.home-portfolio-report .hpr-footer{gap:5px;padding-top:6px}
+.home-portfolio-report .hpr-footer-stat{gap:4px;padding:4px 6px;font-size:8px}
+@media(max-width:1150px){.home-portfolio-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.home-portfolio-report-grid{grid-template-columns:repeat(2,minmax(0,1fr));min-width:0!important}}
+@media(max-width:700px){.home-portfolio-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.home-portfolio-report-grid{grid-template-columns:minmax(0,1fr)}}

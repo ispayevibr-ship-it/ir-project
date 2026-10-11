@@ -5,3 +5,33 @@
 .oor2-work-block{margin-top:12px}.oor2-work-block:first-of-type{margin-top:0}.oor2-work-block-title{margin:0 0 7px;color:#667b89;font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}.oor2-plain-table{min-width:620px!important}.oor2-plain-table th:nth-child(1),.oor2-plain-table td:nth-child(1){width:38%}.oor2-plain-table th:nth-child(2),.oor2-plain-table td:nth-child(2){width:12%}.oor2-plain-table th:nth-child(3),.oor2-plain-table td:nth-child(3){width:24%}.oor2-plain-table th:nth-child(4),.oor2-plain-table td:nth-child(4){width:26%}.oor2-service-table{min-width:460px!important}.oor2-service-table th:first-child,.oor2-service-table td:first-child{width:70%}.oor2-service-done{color:#267b50!important}.oor2-service-pending{color:#7b8790!important}
 
 .oor-marks-card{margin-bottom:15px}.oor-marks-stats{display:grid;grid-template-columns:repeat(4,minmax(100px,.75fr)) minmax(220px,1.4fr);gap:8px;padding:10px 12px}.oor-marks-stats>div{min-width:0;padding:9px 10px;border:1px solid #e4eaee;border-radius:8px;background:#fbfcfd}.oor-marks-stats span{display:block;color:#8796a1;font-size:7.5px}.oor-marks-stats b{display:block;margin-top:3px;color:#243f52;font-size:13px;font-variant-numeric:tabular-nums}.oor-marks-ready{display:grid!important;grid-template-columns:1fr auto;grid-template-rows:auto auto;column-gap:10px;align-items:center}.oor-marks-ready>span{grid-column:1}.oor-marks-ready>b{grid-column:2;grid-row:1/3;margin:0!important;font-size:16px!important}.oor-marks-ready>i{grid-column:1;display:block;height:5px;margin-top:6px;overflow:hidden;border-radius:999px;background:#e6edf1}.oor-marks-ready>i em{display:block;height:100%;border-radius:999px;background:#2f91cc}.oor-marks-head,.oor-marks-row{display:grid;grid-template-columns:minmax(150px,.9fr) minmax(250px,1.5fr) 120px minmax(160px,.8fr) 105px;gap:12px;align-items:center;padding:0 14px}.oor-marks-head{height:34px;border-top:1px solid #e8edf1;background:#f3f6f8;color:#718392;font-size:8.5px}.oor-marks-row{min-height:52px;border-top:1px solid #edf1f4;background:#fff}.oor-marks-row:hover{background:#f9fbfc}.oor-marks-row>div{min-width:0}.oor-marks-row b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#294356;font-size:9px}.oor-marks-row div>span{display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#8998a3;font-size:7px}.oor-marks-progress{display:grid!important;grid-template-columns:minmax(80px,1fr) 34px;gap:8px;align-items:center}.oor-marks-progress>i{height:6px;overflow:hidden;border-radius:999px;background:#e6edf1}.oor-marks-progress>i em{display:block;height:100%;border-radius:999px;background:#2f91cc}.oor-marks-progress>b{text-align:right;font-size:8px!important}.oor-marks-status{display:inline-flex!important;align-items:center;justify-content:center;width:max-content;max-width:100%;height:22px;padding:0 7px;border-radius:999px;font-size:7px!important;font-weight:800!important}.oor-marks-status.left{background:#f3f5f7;color:#70808d}.oor-marks-status.partial{background:#fff4df;color:#a36c12}.oor-marks-status.done{background:#e9f7ef;color:#277d52}.oor-marks-footer{min-height:42px;padding:6px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #edf1f4;background:#fbfcfd}.oor-marks-footer span{color:#8998a3;font-size:8px}.oor-marks-footer button{height:30px;padding:0 10px;border:1px solid #d8e1e7;border-radius:7px;background:#fff;color:#1769e0;font-size:9px;font-weight:700}@media(max-width:1150px){.oor-marks-stats{grid-template-columns:repeat(4,1fr)}.oor-marks-ready{grid-column:1/-1}.oor-marks-head,.oor-marks-row{grid-template-columns:130px minmax(200px,1.4fr) 100px minmax(130px,.8fr) 95px}}@media(max-width:800px){.oor-marks-stats{grid-template-columns:1fr 1fr}.oor-marks-ready{grid-column:1/-1}.oor-marks-head{display:none}.oor-marks-row{grid-template-columns:1fr 1fr;padding:10px 12px}.oor-marks-progress{grid-column:1/-1}.oor-marks-footer{align-items:flex-start;flex-direction:column}}
+
+/* 1.7.94: individually readable narrative items in expanded daily reports */
+.oor2-activity{max-width:100%;border:1px solid #dfeaf3;border-radius:10px;background:#f8fbff;padding:12px 14px}
+.oor2-activity-kind{margin-bottom:9px;color:#286e99;font-weight:800;font-size:10px}
+.oor2-activity-list{display:grid;gap:8px}
+.oor2-activity-line{display:grid;grid-template-columns:26px minmax(0,1fr);gap:10px;align-items:start;padding:8px 10px;background:#fff;border:1px solid #e3ecf4;border-radius:8px}
+.oor2-activity-line>span{display:grid;place-items:center;width:25px;height:25px;border-radius:7px;background:#e8f3fb;color:#357aab;font-weight:800;font-size:9px}
+.oor2-activity-line p{margin:2px 0 0;text-align:left;color:#3c5870;font-size:11px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.oor2-volume-line>span b{white-space:normal!important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.3}
+.oor2-brief{gap:8px}
+.oor2-cell{min-width:0}
+.object-overview-reports{container:ir-overview-reports / inline-size}
+@container ir-overview-reports (max-width:1100px){
+ .oor2-brief{grid-template-columns:minmax(125px,1fr) minmax(100px,.7fr) minmax(105px,.65fr) minmax(180px,1.55fr) 42px!important}
+ .oor2-brief .oor2-weather{display:none!important}
+ .oor2-brief .oor2-volume{grid-column:auto!important}
+ .oor2-brief .oor2-toggle{grid-column:auto!important;justify-self:center!important}
+}
+@container ir-overview-reports (max-width:830px){
+ .oor2-brief{grid-template-columns:minmax(125px,1fr) minmax(90px,.7fr) minmax(165px,1.6fr) 42px!important}
+ .oor2-brief .oor2-cell.equipment{display:none!important}
+ .oor2-brief .oor2-volume{grid-column:auto!important}
+ .oor2-brief .oor2-toggle{grid-column:auto!important}
+}
+@container ir-overview-reports (max-width:570px){
+ .oor2-brief{grid-template-columns:minmax(105px,1fr) minmax(90px,.75fr) minmax(0,1.35fr) 38px!important;padding:7px;gap:5px}
+ .oor2-brief .oor2-cell{padding:5px;gap:5px}
+ .oor2-brief .oor2-icon{flex-basis:24px;width:24px;height:24px}
+ .oor2-brief .oor2-icon svg{width:15px;height:15px}
+}
