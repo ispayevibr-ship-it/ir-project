@@ -340,7 +340,7 @@ body.ir-object-route:not(.ir-object-overview) #app{padding:18px 20px 22px!import
 @media(max-width:900px){body.ir-object-route #app{margin-left:150px!important;width:calc(100% - 150px)!important}.ir-object-sidebar-fixed{width:150px}.ir-object-nav button{font-size:9px;padding:0 7px}.ir-object-all,.ir-object-top{font-size:9px}body.ir-object-route:not(.ir-object-overview) #app{padding:12px!important}body.ir-object-overview #app>.object-page-head{padding:14px!important;grid-template-columns:1fr!important}}
 
 /* 1.7.77 — Sidebar company logo navigates to the objects home page. */
-.ir-object-brand{padding:0;cursor:pointer;font-family:inherit}
+.ir-object-brand{padding:8px 0 9px;cursor:pointer;font-family:inherit}
 .ir-object-brand:hover{background:#f2f8ff}
 .ir-object-brand:focus-visible{outline:2px solid #4697eb;outline-offset:-3px}
 
