@@ -272,18 +272,26 @@ window.irBuildingView=(()=>{
     };
    }else{
     const c=cols.find(c=>String(c.id)===String(state.selected));
-    pane.innerHTML='<div class="irb-panel-head"><b>Свойства конструкции</b><small>'+(c?'ВЫБРАНО':'ОБЗОР')+'</small></div>'+
+    pane.innerHTML='<div class="irb-panel-head"><b>Свойства конструкции</b></div>'+
       (c?'<div class="irb-selected"><small>Выбранная марка</small><strong>'+html(c.mark||"—")+'</strong><span>'+html(c.mark_name||c.title||"")+'</span><em>'+html(c.status==="mounted"?"Смонтировано":c.status==="partial"?"Частично":"Не смонтировано")+'</em></div>'+
       '<div class="irb-row"><span>Начальная ось</span><b>'+html(c.axisX+" / "+c.axisY)+'</b></div>'+
       '<div class="irb-row"><span>Координаты, мм</span><b>X '+fmt(c.x)+' · Y '+fmt(c.y)+'</b></div>'+
       '<div class="irb-row"><span>Отметка низа, мм</span><b>'+fmt(c.z0)+'</b></div>'+
       '<div class="irb-row"><span>Отметка конца, мм</span><b>'+fmt(c.z2)+'</b></div>'+
-      (props.canEdit?'<button type="button" class="irb-secondary" id="irbSelectDetails">Подробнее и редактирование →</button>':''):
+      (props.canEdit?'<div class="irb-action-row">'+
+       '<button type="button" class="irb-secondary" id="irbSelectDetails">Подробнее и редактирование →</button>'+
+       '<button type="button" class="irb-icon-delete" id="irbDeleteSelected" title="Удалить элемент со схемы" aria-label="Удалить выбранный элемент со схемы">'+
+        '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
+         '<path d="M4 7h16M10 4h4M6 7l1 13h10l1-13M10 11v6m4-6v6"/>'+
+        '</svg></button></div>':''):
       '<div class="irb-empty">Выберите конструкцию на общей модели, чтобы посмотреть её марку и положение. Все реальные элементы берутся из вашей монтажной схемы.</div>')+
       (props.canEdit?'<button class="irb-save" id="irbStartRight">＋ Добавить марку</button>':'');
     const btn=el("irbStartRight");if(btn)btn.onclick=startPlacement;
     const detail=el("irbSelectDetails");if(detail)detail.onclick=()=>{
      if(props.canEdit&&typeof props.onEdit==="function")props.onEdit(String(c.id));
+    };
+    const deleteButton=el("irbDeleteSelected");if(deleteButton)deleteButton.onclick=()=>{
+     if(props.canEdit&&typeof props.onDelete==="function")props.onDelete(String(c.id));
     };
    }
    if(!pane.hidden){

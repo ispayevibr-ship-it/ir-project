@@ -177,3 +177,17 @@
 .irb-zigzag b{font-size:11px;color:#2c658c}
 .irb-zigzag small{font-size:9px;font-weight:400;line-height:1.5;color:#7990a4}
 .irb-zigzag:has(input:checked){border-color:#6ca5db;background:#e9f4ff}
+
+/* IR Project 1.7.81: compact selected-member controls in unified 3D. */
+.irb-immersive .irb-properties>.irb-panel-head{padding-right:32px;min-height:24px}
+.irb-action-row{display:flex;align-items:stretch;gap:8px;min-width:0}
+.irb-action-row .irb-secondary{flex:1 1 auto;min-width:0;white-space:normal}
+.irb-icon-delete{
+ flex:0 0 42px;width:42px;min-height:42px;padding:0;
+ display:grid;place-items:center;cursor:pointer;
+ border:1px solid #e7caca;border-radius:8px;
+ color:#c14747;background:#fff;transition:background .15s,border-color .15s,color .15s
+}
+.irb-icon-delete:hover{background:#fff0f0;border-color:#d89090;color:#a72d2d}
+.irb-icon-delete:focus-visible{outline:2px solid #d77878;outline-offset:2px}
+.irb-icon-delete svg{display:block;pointer-events:none}

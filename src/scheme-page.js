@@ -368,6 +368,21 @@ window.irSchemePage=async function(objectId){
     const record=workRecords().find(x=>String(x.id)===String(id));
     if(record)openEditor({...record,...coord(record)});
    },
+   onDelete:async id=>{
+    if(!canEdit())return;
+    const record=workRecords().find(x=>String(x.id)===String(id));
+    if(!record)return;
+    const name=String(record.mark||record.title||"").trim();
+    if(!confirm(`Удалить элемент ${name?`«${name}» `:""}со схемы?`))return;
+    try{
+     await schemeApi.remove(id);
+     rows=await schemeApi.list().catch(()=>rows.filter(r=>String(r.id)!==String(id)));
+     selectedId="";
+     draw();
+    }catch(error){
+     alert("Не удалось удалить элемент: "+String(error?.message||error))
+    }
+   },
    onLayer:key=>{hiddenGroups.has(key)?hiddenGroups.delete(key):hiddenGroups.add(key);draw()},
    onPlacement:placement=>openEditor(null,false,placement)
   })
