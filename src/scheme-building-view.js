@@ -6,7 +6,7 @@
  * 2D canvas projection: offline, no dependencies or database access.
  */
 window.irBuildingView=(()=>{
- const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:true,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null};
+ const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:true,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false};
  let observer=null,paint=null;
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const html=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -22,8 +22,10 @@ window.irBuildingView=(()=>{
   const selectedMark=()=>markById(state.mark);
   const leftMark=()=>marks.filter(m=>m.left>0);
   if(!markById(state.mark)||selectedMark()?.left<=0){
-   if(state.zigzag&&state.placing&&state.mark){state.placing=false;state.zigzag=false;state.start=null;state.end=null}
-   state.mark=leftMark()[0]?.id||"";
+   // Keep the chain endpoint when the previous mark is exhausted.
+   const next=state.continuing?leftMark().find(m=>m.geometry!=="column"):leftMark()[0];
+   if(!next){state.placing=false;state.zigzag=false;state.start=null;state.end=null;state.continuing=false}
+   state.mark=next?.id||"";
   }
   const header='<div class="irb-panel-head"><b>Слои модели</b><small>ПО ТИПАМ</small></div>';
   host.innerHTML='<div class="irb-wrap"><aside class="irb-layers">'+header+
@@ -232,12 +234,22 @@ window.irBuildingView=(()=>{
     '<p class="irb-help">Нажимайте на любую высоту колонны, затем уточняйте отметку в мм. Маленькие точки — узлы сетки.</p>'+
     '<button class="irb-save" id="irbContinue" '+(!(state.start&&(column||state.end)&&available)?'disabled':'')+'>Продолжить в редакторе →</button>'+
     '<button class="irb-secondary" id="irbClear">Сбросить точки</button><button class="irb-secondary" id="irbCancel">Отмена</button>';
-    el("irbMark").onchange=e=>{state.mark=e.target.value;state.start=null;state.end=null;refreshPanel();paint()};
+    el("irbMark").onchange=e=>{
+     const next=markById(e.target.value),keep=state.continuing&&next?.geometry!=="column";
+     state.mark=e.target.value;if(!keep){state.start=null;state.continuing=false}
+     if(next?.geometry==="column")state.zigzag=false;
+     state.end=null;refreshPanel();paint()
+    };
     el("irbMarkSearch").oninput=e=>{
      const cursor=e.target.selectionStart;
      state.markSearch=e.target.value;
      const matched=marks.filter(a=>a.left>0&&searchMatches(a));
-     if(!matched.some(a=>a.id===state.mark)){state.mark=matched[0]?.id||"";state.start=null;state.end=null}
+     if(!matched.some(a=>a.id===state.mark)){
+      const next=matched[0];state.mark=next?.id||"";
+      if(!state.continuing||next?.geometry==="column"){state.start=null;state.continuing=false}
+      if(next?.geometry==="column")state.zigzag=false;
+      state.end=null
+     }
      refreshPanel();paint();
      const input=el("irbMarkSearch");input.focus();input.setSelectionRange(cursor,cursor)
     };
@@ -249,14 +261,14 @@ window.irBuildingView=(()=>{
      if(!Number.isFinite(value)||value<num(a.minZ)||value>num(a.maxZ)){e.target.value=String(a.z);return}
      a.z=Math.round(value);refreshPanel();paint()
     });
-    el("irbClear").onclick=()=>{state.start=null;state.end=null;refreshPanel();paint()};
-    el("irbCancel").onclick=()=>{state.placing=false;refreshPanel();paint()};
+    el("irbClear").onclick=()=>{state.start=null;state.end=null;state.continuing=false;refreshPanel();paint()};
+    el("irbCancel").onclick=()=>{state.placing=false;state.start=null;state.end=null;state.chainNext=null;state.continuing=false;refreshPanel();paint()};
     el("irbContinue").onclick=()=>{
      if(!state.start||!selectedMark()||left<=0||!column&&!state.end)return;
      const pack=a=>a?{ax:a.x,ay:a.y,dx:num(a.worldX)-originAxis(gridX,a.x),dy:num(a.worldY)-originAxis(gridY,a.y),z:num(a.z),source:a.kind,columnId:a.columnId||""}:null;
      const data={markId:state.mark,start:pack(state.start),end:pack(state.end),geometry:m.geometry,height:maxZ,zigzag:state.zigzag};
      state.chainNext=state.zigzag&&state.end?{...state.end}:null;
-     state.placing=false;refreshPanel();paint();props.onPlacement(data);
+     state.placing=false;state.continuing=false;refreshPanel();paint();props.onPlacement(data);
     };
    }else{
     const c=cols.find(c=>String(c.id)===String(state.selected));
@@ -278,13 +290,13 @@ window.irBuildingView=(()=>{
     const dismiss=document.createElement("button");dismiss.type="button";
     dismiss.className="irb-pane-close";dismiss.textContent="×";dismiss.title="Скрыть свойства";
     dismiss.setAttribute("aria-label","Закрыть свойства");
-    dismiss.onclick=()=>{state.placing=false;state.selected="";props.onSelect("");refreshPanel();paint()};
+    dismiss.onclick=()=>{state.placing=false;state.continuing=false;state.chainNext=null;state.start=null;state.end=null;state.selected="";props.onSelect("");refreshPanel();paint()};
     pane.prepend(dismiss);
    }
   }
   function startPlacement(){
    if(!props.canEdit||!marks.some(m=>m.left>0))return;
-   state.placing=true;state.start=null;state.end=null;state.chainNext=null;state.markSearch="";state.mark=leftMark().find(m=>m.id===state.mark)?.id||leftMark()[0]?.id||"";
+   state.placing=true;state.start=null;state.end=null;state.chainNext=null;state.continuing=false;state.markSearch="";state.mark=leftMark().find(m=>m.id===state.mark)?.id||leftMark()[0]?.id||"";
    refreshPanel();paint();
   }
   const setCamera=mode=>{
@@ -341,8 +353,18 @@ window.irBuildingView=(()=>{
  return {render,start:()=>{const b=document.getElementById("irbStart");if(b)b.click()},
   placementSaved:placement=>{
    if(!placement?.zigzag||!state.chainNext)return;
-   state.start={...state.chainNext};state.end=null;state.placing=true;
-   state.hoverAnchor=null;state.chainNext=null
+   const previous=state.chainNext,saved=placement.savedEnd;
+   // Continue from the actual endpoint persisted in the standard editor.
+   const sameColumn=saved&&previous.kind==="column"&&
+    Math.hypot(num(saved.x)-num(previous.worldX),num(saved.y)-num(previous.worldY))<1&&
+    num(saved.z)>=num(previous.minZ)&&num(saved.z)<=num(previous.maxZ);
+   state.start=!saved?{...previous}:sameColumn?{...previous,z:num(saved.z)}:{
+    kind:"grid",x:String(saved.ax),y:String(saved.ay),
+    worldX:num(saved.x),worldY:num(saved.y),z:num(saved.z)
+   };
+   state.end=null;state.placing=true;state.continuing=true;
+   state.markSearch="";state.hoverAnchor=null;state.chainNext=null
   },
+  placementCancelled:()=>{state.chainNext=null;state.continuing=false;state.placing=false;state.start=null;state.end=null;state.hoverAnchor=null},
   dispose:()=>{observer?.disconnect();observer=null;paint=null}};
 })();

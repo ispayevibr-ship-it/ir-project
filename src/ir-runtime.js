@@ -1834,7 +1834,9 @@ window.irSchemePage=async function(objectId){
  }
  function bindEditor(){
   if(!canEdit())return;const d=document.getElementById("schemeEditor"),f=document.getElementById("schemeForm"),err=document.getElementById("schemeFormError");
-  document.getElementById("schemeAdd")?.addEventListener("click",()=>mode==="building"?window.irBuildingView?.start():openEditor());document.getElementById("schemeEditorX").onclick=()=>{pendingBuildingPlacement=null;d.close()};document.getElementById("schemeEditorCancel").onclick=()=>{pendingBuildingPlacement=null;d.close()};
+  const cancelPending=()=>{pendingBuildingPlacement=null;window.irBuildingView?.placementCancelled?.()};
+   document.getElementById("schemeAdd")?.addEventListener("click",()=>mode==="building"?window.irBuildingView?.start():openEditor());document.getElementById("schemeEditorX").onclick=()=>{cancelPending();d.close()};document.getElementById("schemeEditorCancel").onclick=()=>{cancelPending();d.close()};
+   d.addEventListener("cancel",cancelPending);
   f.onsubmit=async e=>{
    e.preventDefault();err.hidden=true;
    const fd=new FormData(f),id=String(fd.get("id")||"");
@@ -1858,7 +1860,7 @@ window.irSchemePage=async function(objectId){
    if(!internalPosition){let n=1;do{internalPosition="COL-"+String(n++).padStart(4,"0")}while(used.has(internalPosition))}
    const g=markGroup(m),oldRow=id?arr(rows).find(r=>String(r.id)===id):null,previous=oldRow?.data||{},view=targetGrid.view;
    const payload={record_type:"scheme_column",title:internalPosition,data:{...previous,entity_type:"column",position:internalPosition,mark_id:m.id,mark:m.mark||m.title||"",mark_name:m.name||"",work_type_id:m.work_type_id||"",axis_x:axisX,axis_y:axisY,offset_x_mm:dx,offset_y_mm:dy,absolute_x_mm:x,absolute_y_mm:y,geometry_type:kind,absolute_x2_mm:kind==="column"?undefined:x2,absolute_y2_mm:kind==="column"?undefined:y2,end_axis_x:kind==="column"?undefined:endX,end_axis_y:kind==="column"?undefined:endY,end_offset_x_mm:kind==="column"?undefined:endDx,end_offset_y_mm:kind==="column"?undefined:endDy,end_z_mm:kind==="column"?undefined:z1,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name,scheme_group:g.key,scheme_group_label:g.label,scheme_view_id:view?.id||"all"}};
-   try{const saved=id?await schemeApi.update(id,payload):await schemeApi.create(payload);rows=await schemeApi.list();selectedId=String(saved?.id||id||"");d.close();if(pendingBuildingPlacement){window.irBuildingView?.placementSaved?.(pendingBuildingPlacement);pendingBuildingPlacement=null}draw()}catch(error){err.textContent="Не удалось сохранить элемент: "+String(error?.message||error);err.hidden=false}
+   try{const saved=id?await schemeApi.update(id,payload):await schemeApi.create(payload);rows=await schemeApi.list();selectedId=String(saved?.id||id||"");d.close();if(pendingBuildingPlacement){if(kind!=="column")window.irBuildingView?.placementSaved?.({...pendingBuildingPlacement,savedEnd:{ax:endX,ay:endY,x:x2,y:y2,z:z1}});else window.irBuildingView?.placementCancelled?.();pendingBuildingPlacement=null}draw()}catch(error){err.textContent="Не удалось сохранить элемент: "+String(error?.message||error);err.hidden=false}
   }
  }
 
@@ -3639,7 +3641,7 @@ window.irSelectUI=(()=>{
  * 2D canvas projection: offline, no dependencies or database access.
  */
 window.irBuildingView=(()=>{
- const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:true,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null};
+ const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:true,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false};
  let observer=null,paint=null;
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const html=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -3655,8 +3657,10 @@ window.irBuildingView=(()=>{
   const selectedMark=()=>markById(state.mark);
   const leftMark=()=>marks.filter(m=>m.left>0);
   if(!markById(state.mark)||selectedMark()?.left<=0){
-   if(state.zigzag&&state.placing&&state.mark){state.placing=false;state.zigzag=false;state.start=null;state.end=null}
-   state.mark=leftMark()[0]?.id||"";
+   // Keep the chain endpoint when the previous mark is exhausted.
+   const next=state.continuing?leftMark().find(m=>m.geometry!=="column"):leftMark()[0];
+   if(!next){state.placing=false;state.zigzag=false;state.start=null;state.end=null;state.continuing=false}
+   state.mark=next?.id||"";
   }
   const header='<div class="irb-panel-head"><b>Слои модели</b><small>ПО ТИПАМ</small></div>';
   host.innerHTML='<div class="irb-wrap"><aside class="irb-layers">'+header+
@@ -3865,12 +3869,22 @@ window.irBuildingView=(()=>{
     '<p class="irb-help">Нажимайте на любую высоту колонны, затем уточняйте отметку в мм. Маленькие точки — узлы сетки.</p>'+
     '<button class="irb-save" id="irbContinue" '+(!(state.start&&(column||state.end)&&available)?'disabled':'')+'>Продолжить в редакторе →</button>'+
     '<button class="irb-secondary" id="irbClear">Сбросить точки</button><button class="irb-secondary" id="irbCancel">Отмена</button>';
-    el("irbMark").onchange=e=>{state.mark=e.target.value;state.start=null;state.end=null;refreshPanel();paint()};
+    el("irbMark").onchange=e=>{
+     const next=markById(e.target.value),keep=state.continuing&&next?.geometry!=="column";
+     state.mark=e.target.value;if(!keep){state.start=null;state.continuing=false}
+     if(next?.geometry==="column")state.zigzag=false;
+     state.end=null;refreshPanel();paint()
+    };
     el("irbMarkSearch").oninput=e=>{
      const cursor=e.target.selectionStart;
      state.markSearch=e.target.value;
      const matched=marks.filter(a=>a.left>0&&searchMatches(a));
-     if(!matched.some(a=>a.id===state.mark)){state.mark=matched[0]?.id||"";state.start=null;state.end=null}
+     if(!matched.some(a=>a.id===state.mark)){
+      const next=matched[0];state.mark=next?.id||"";
+      if(!state.continuing||next?.geometry==="column"){state.start=null;state.continuing=false}
+      if(next?.geometry==="column")state.zigzag=false;
+      state.end=null
+     }
      refreshPanel();paint();
      const input=el("irbMarkSearch");input.focus();input.setSelectionRange(cursor,cursor)
     };
@@ -3882,14 +3896,14 @@ window.irBuildingView=(()=>{
      if(!Number.isFinite(value)||value<num(a.minZ)||value>num(a.maxZ)){e.target.value=String(a.z);return}
      a.z=Math.round(value);refreshPanel();paint()
     });
-    el("irbClear").onclick=()=>{state.start=null;state.end=null;refreshPanel();paint()};
-    el("irbCancel").onclick=()=>{state.placing=false;refreshPanel();paint()};
+    el("irbClear").onclick=()=>{state.start=null;state.end=null;state.continuing=false;refreshPanel();paint()};
+    el("irbCancel").onclick=()=>{state.placing=false;state.start=null;state.end=null;state.chainNext=null;state.continuing=false;refreshPanel();paint()};
     el("irbContinue").onclick=()=>{
      if(!state.start||!selectedMark()||left<=0||!column&&!state.end)return;
      const pack=a=>a?{ax:a.x,ay:a.y,dx:num(a.worldX)-originAxis(gridX,a.x),dy:num(a.worldY)-originAxis(gridY,a.y),z:num(a.z),source:a.kind,columnId:a.columnId||""}:null;
      const data={markId:state.mark,start:pack(state.start),end:pack(state.end),geometry:m.geometry,height:maxZ,zigzag:state.zigzag};
      state.chainNext=state.zigzag&&state.end?{...state.end}:null;
-     state.placing=false;refreshPanel();paint();props.onPlacement(data);
+     state.placing=false;state.continuing=false;refreshPanel();paint();props.onPlacement(data);
     };
    }else{
     const c=cols.find(c=>String(c.id)===String(state.selected));
@@ -3911,13 +3925,13 @@ window.irBuildingView=(()=>{
     const dismiss=document.createElement("button");dismiss.type="button";
     dismiss.className="irb-pane-close";dismiss.textContent="×";dismiss.title="Скрыть свойства";
     dismiss.setAttribute("aria-label","Закрыть свойства");
-    dismiss.onclick=()=>{state.placing=false;state.selected="";props.onSelect("");refreshPanel();paint()};
+    dismiss.onclick=()=>{state.placing=false;state.continuing=false;state.chainNext=null;state.start=null;state.end=null;state.selected="";props.onSelect("");refreshPanel();paint()};
     pane.prepend(dismiss);
    }
   }
   function startPlacement(){
    if(!props.canEdit||!marks.some(m=>m.left>0))return;
-   state.placing=true;state.start=null;state.end=null;state.chainNext=null;state.markSearch="";state.mark=leftMark().find(m=>m.id===state.mark)?.id||leftMark()[0]?.id||"";
+   state.placing=true;state.start=null;state.end=null;state.chainNext=null;state.continuing=false;state.markSearch="";state.mark=leftMark().find(m=>m.id===state.mark)?.id||leftMark()[0]?.id||"";
    refreshPanel();paint();
   }
   const setCamera=mode=>{
@@ -3974,9 +3988,19 @@ window.irBuildingView=(()=>{
  return {render,start:()=>{const b=document.getElementById("irbStart");if(b)b.click()},
   placementSaved:placement=>{
    if(!placement?.zigzag||!state.chainNext)return;
-   state.start={...state.chainNext};state.end=null;state.placing=true;
-   state.hoverAnchor=null;state.chainNext=null
+   const previous=state.chainNext,saved=placement.savedEnd;
+   // Continue from the actual endpoint persisted in the standard editor.
+   const sameColumn=saved&&previous.kind==="column"&&
+    Math.hypot(num(saved.x)-num(previous.worldX),num(saved.y)-num(previous.worldY))<1&&
+    num(saved.z)>=num(previous.minZ)&&num(saved.z)<=num(previous.maxZ);
+   state.start=!saved?{...previous}:sameColumn?{...previous,z:num(saved.z)}:{
+    kind:"grid",x:String(saved.ax),y:String(saved.ay),
+    worldX:num(saved.x),worldY:num(saved.y),z:num(saved.z)
+   };
+   state.end=null;state.placing=true;state.continuing=true;
+   state.markSearch="";state.hoverAnchor=null;state.chainNext=null
   },
+  placementCancelled:()=>{state.chainNext=null;state.continuing=false;state.placing=false;state.start=null;state.end=null;state.hoverAnchor=null},
   dispose:()=>{observer?.disconnect();observer=null;paint=null}};
 })();
 ;

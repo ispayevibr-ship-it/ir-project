@@ -678,7 +678,9 @@ window.irSchemePage=async function(objectId){
  }
  function bindEditor(){
   if(!canEdit())return;const d=document.getElementById("schemeEditor"),f=document.getElementById("schemeForm"),err=document.getElementById("schemeFormError");
-  document.getElementById("schemeAdd")?.addEventListener("click",()=>mode==="building"?window.irBuildingView?.start():openEditor());document.getElementById("schemeEditorX").onclick=()=>{pendingBuildingPlacement=null;d.close()};document.getElementById("schemeEditorCancel").onclick=()=>{pendingBuildingPlacement=null;d.close()};
+  const cancelPending=()=>{pendingBuildingPlacement=null;window.irBuildingView?.placementCancelled?.()};
+   document.getElementById("schemeAdd")?.addEventListener("click",()=>mode==="building"?window.irBuildingView?.start():openEditor());document.getElementById("schemeEditorX").onclick=()=>{cancelPending();d.close()};document.getElementById("schemeEditorCancel").onclick=()=>{cancelPending();d.close()};
+   d.addEventListener("cancel",cancelPending);
   f.onsubmit=async e=>{
    e.preventDefault();err.hidden=true;
    const fd=new FormData(f),id=String(fd.get("id")||"");
@@ -702,7 +704,7 @@ window.irSchemePage=async function(objectId){
    if(!internalPosition){let n=1;do{internalPosition="COL-"+String(n++).padStart(4,"0")}while(used.has(internalPosition))}
    const g=markGroup(m),oldRow=id?arr(rows).find(r=>String(r.id)===id):null,previous=oldRow?.data||{},view=targetGrid.view;
    const payload={record_type:"scheme_column",title:internalPosition,data:{...previous,entity_type:"column",position:internalPosition,mark_id:m.id,mark:m.mark||m.title||"",mark_name:m.name||"",work_type_id:m.work_type_id||"",axis_x:axisX,axis_y:axisY,offset_x_mm:dx,offset_y_mm:dy,absolute_x_mm:x,absolute_y_mm:y,geometry_type:kind,absolute_x2_mm:kind==="column"?undefined:x2,absolute_y2_mm:kind==="column"?undefined:y2,end_axis_x:kind==="column"?undefined:endX,end_axis_y:kind==="column"?undefined:endY,end_offset_x_mm:kind==="column"?undefined:endDx,end_offset_y_mm:kind==="column"?undefined:endDy,end_z_mm:kind==="column"?undefined:z1,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name,scheme_group:g.key,scheme_group_label:g.label,scheme_view_id:view?.id||"all"}};
-   try{const saved=id?await schemeApi.update(id,payload):await schemeApi.create(payload);rows=await schemeApi.list();selectedId=String(saved?.id||id||"");d.close();if(pendingBuildingPlacement){window.irBuildingView?.placementSaved?.(pendingBuildingPlacement);pendingBuildingPlacement=null}draw()}catch(error){err.textContent="Не удалось сохранить элемент: "+String(error?.message||error);err.hidden=false}
+   try{const saved=id?await schemeApi.update(id,payload):await schemeApi.create(payload);rows=await schemeApi.list();selectedId=String(saved?.id||id||"");d.close();if(pendingBuildingPlacement){if(kind!=="column")window.irBuildingView?.placementSaved?.({...pendingBuildingPlacement,savedEnd:{ax:endX,ay:endY,x:x2,y:y2,z:z1}});else window.irBuildingView?.placementCancelled?.();pendingBuildingPlacement=null}draw()}catch(error){err.textContent="Не удалось сохранить элемент: "+String(error?.message||error);err.hidden=false}
   }
  }
 
