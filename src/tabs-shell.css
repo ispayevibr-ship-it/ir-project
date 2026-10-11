@@ -88,3 +88,36 @@ button{font-family:inherit}
 .tabs-loading-help button{pointer-events:auto;padding:9px 13px;border:1px solid #c8dced;background:#fff;color:#23689e;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer}
 .tabs-loading-help button:hover{background:#ebf4ff}
 @media(max-width:980px){.tabs-tools{gap:4px}.tabs-profile-slot .profile-badge{font-size:9px;padding:0 8px}.tabs-bar{padding-right:130px}}
+
+
+/* 1.7.77 — Settings gear next to active user's role in the tab bar. */
+.tabs-profile-slot .tabs-profile-bridge{display:flex;align-items:center;gap:6px}
+.tabs-profile-slot .tabs-profile-bridge .program-settings-button{
+ display:grid;place-items:center;width:31px;min-width:31px;height:31px;
+ padding:0;border:1px solid #d2e0ee;border-radius:7px;
+ background:#fff;color:#426f91;cursor:pointer;font-size:initial
+}
+.tabs-profile-slot .program-settings-button svg{
+ width:17px;height:17px;fill:none;stroke:currentColor;
+ stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round
+}
+.tabs-profile-slot .program-settings-button:hover{
+ background:#edf6ff;border-color:#9bc3e6;color:#1769e0
+}
+.tabs-profile-slot .program-settings-menu{
+ position:absolute;top:calc(100% + 8px);right:0;bottom:auto;z-index:60;
+ width:238px;padding:13px;border:1px solid #d8e5f1;border-radius:9px;
+ background:#fff;color:#31536d;box-shadow:0 14px 35px #173a542b
+}
+.tabs-profile-slot .program-settings-menu[hidden]{display:none!important}
+.tabs-profile-slot .program-settings-menu-title{
+ margin:1px 3px 10px;font-size:11px;font-weight:800
+}
+.tabs-profile-slot .program-settings-menu button{
+ display:flex;align-items:center;width:100%;min-height:36px;
+ padding:7px 10px;font-size:10px;font-weight:700;text-align:left;
+ background:#f5f9fd;border:1px solid #dce7f1;color:#315d7c
+}
+.tabs-profile-slot .program-settings-menu button:hover{
+ background:#ecf5ff;border-color:#b6d4ed
+}

@@ -10,3 +10,20 @@ body.ir-object-route #app{margin-left:174px!important;width:calc(100% - 174px)!i
 body.ir-object-overview #app>.object-page-banner{margin:0!important;width:100%!important}body.ir-object-overview #app>.object-page-head{margin:0!important;padding:18px 22px!important;background:#fff;border-bottom:1px solid #e1e7ec;display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important;gap:18px!important}body.ir-object-overview #app>.object-page-head>#back{display:none!important}body.ir-object-overview #app>.object-page-head>div{min-width:0}body.ir-object-overview #app>.object-page-head h1{margin:0 0 5px!important;font-size:22px!important;line-height:1.2!important;color:#152a3b}body.ir-object-overview #app>.object-page-head p{margin:0!important;font-size:10px!important;color:#748695!important;line-height:1.5}body.ir-object-overview #app>.sections{display:none!important}
 body.ir-object-route:not(.ir-object-overview) #app{padding:18px 20px 22px!important}body.ir-object-route:not(.ir-object-overview) #app>.back:first-child{display:none!important}body.ir-object-route:not(.ir-object-overview) #app>h1:first-of-type{margin-top:0}body.ir-object-route:not(.ir-object-overview) #app>.marks-page,body.ir-object-route:not(.ir-object-overview) #app>.reports-page,body.ir-object-route:not(.ir-object-overview) #app>.wt-page{margin-top:0!important}
 @media(max-width:900px){body.ir-object-route #app{margin-left:150px!important;width:calc(100% - 150px)!important}.ir-object-sidebar-fixed{width:150px}.ir-object-nav button{font-size:9px;padding:0 7px}.ir-object-all,.ir-object-top{font-size:9px}body.ir-object-route:not(.ir-object-overview) #app{padding:12px!important}body.ir-object-overview #app>.object-page-head{padding:14px!important;grid-template-columns:1fr!important}}
+
+/* 1.7.77 — Sidebar company logo navigates to the objects home page. */
+.ir-object-brand{padding:0;cursor:pointer;font-family:inherit}
+.ir-object-brand:hover{background:#f2f8ff}
+.ir-object-brand:focus-visible{outline:2px solid #4697eb;outline-offset:-3px}
+
+/* 1.7.77 — Settings gear also available when an object is opened in a standalone window. */
+.profile-panel{display:flex;align-items:center;gap:6px}
+.profile-panel .program-settings-button{display:grid;place-items:center;flex:0 0 33px;width:33px;height:33px;padding:0;border:1px solid #d4e2ee;border-radius:8px;background:#fff;color:#406d90;cursor:pointer}
+.profile-panel .program-settings-button svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.profile-panel .program-settings-button:hover{background:#edf6ff;border-color:#9bc3e6;color:#1769e0}
+.profile-panel .program-settings-button:focus-visible{outline:2px solid #277bd5;outline-offset:2px}
+.profile-panel .program-settings-menu{position:absolute;right:0;bottom:calc(100% + 7px);z-index:45;width:238px;padding:12px;border:1px solid #d9e5ee;border-radius:10px;background:#fff;box-shadow:0 14px 35px #1d47602a;color:#304f67}
+.profile-panel .program-settings-menu[hidden]{display:none!important}
+.profile-panel .program-settings-menu-title{font-size:11px;font-weight:800;margin:2px 3px 9px}
+.profile-panel .program-settings-menu button{display:flex;align-items:center;gap:8px;width:100%;min-height:34px;padding:8px 10px;border:1px solid #dce7f1;border-radius:7px;background:#f6f9fd;color:#315d7c;text-align:left;font-size:10px;font-weight:700;cursor:pointer}
+.profile-panel .program-settings-menu button:hover{background:#ebf4ff;border-color:#b5d3ec}
