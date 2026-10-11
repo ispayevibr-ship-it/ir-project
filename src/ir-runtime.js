@@ -2259,6 +2259,35 @@ async function renderHomePortfolio(objects){
    return [...grouped.values()];
   };
 
+ // Identifies overdue scheduled works and works more than 10 percentage points behind plan.
+ function lateWorkRows(schedule,work,marks,reports){
+  const DAY=86400000,todayLocal=new Date(),today=Date.UTC(todayLocal.getFullYear(),todayLocal.getMonth(),todayLocal.getDate());
+  const parse=x=>{const s=String(x||"").slice(0,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return null;const ms=Date.parse(s+"T00:00:00Z");return Number.isFinite(ms)&&new Date(ms).toISOString().slice(0,10)===s?ms:null};
+  const types=new Map(arr(work).map(row=>{const d=row.data||row,id=String(row.id),service=d.accounting_type==="service"||norm(d.unit)==="услуга";const hasMarks=!service&&(d.has_marks===true||["installation","fabrication"].includes(d.work_category)||(!d.work_category&&d.has_marks!==false&&(norm(d.work_type||row.title).includes("монтаж")||norm(d.work_type||row.title).includes("изготов")||arr(marks).some(m=>String(m.data?.work_type_id||"")===id))));return[id,{name:d.work_type||row.title||"Без названия",service,hasMarks,plan:val(d.planned_volume??d.plan_volume)}]}));
+  const plans=new Map(),facts=new Map(),done=new Set();
+  for(const [id,t] of types)if(!t.service&&!t.hasMarks&&t.plan>0)plans.set(id,t.plan);
+  for(const m of arr(marks)){const d=m.data||m,id=String(d.work_type_id||""),t=types.get(id),amount=markVolume(m);if(t&&!t.service&&amount>0)plans.set(id,(plans.get(id)||0)+amount)}
+  for(const r of reports)for(const w of arr(r.items||r.works)){
+   const id=String(w.work_type_id||""),type=types.get(id),finished=w.completed===true||w.service_completed===true||["done","выполнено"].includes(norm(w.status));
+   if(type?.service){if(finished)done.add(id)}
+   else if(type){if(w.accounting_type==="service"||w.is_service===true||norm(w.unit)==="услуга")continue;const amount=volume(w);if(amount>0)facts.set(id,(facts.get(id)||0)+amount)}
+   else if(finished&&!id){for(const [key,t] of types)if(t.service&&norm(t.name)===norm(w.work_type||w.type))done.add(key)}
+  }
+  const results=[];
+  for(const row of arr(schedule)){
+   const d=row.data||row||{},id=String(d.work_type_id||""),type=types.get(id),start=parse(d.start_date),end=parse(d.end_date);
+   if(!type||start===null||end===null||end<start||today<start)continue;
+   const expired=today>end,days=expired?Math.floor((today-end)/DAY):0,name=type.name;
+   if(type.service){if(expired&&!done.has(id))results.push({name,end:String(d.end_date).slice(0,10),days,lag:null,kind:"overdue"});continue}
+   const plan=plans.get(id)||0;if(plan<=0)continue;
+   const percentage=Math.max(0,Math.min(100,(facts.get(id)||0)/plan*100));
+   if(percentage>=99.999)continue;
+   const duration=Math.max(1,Math.floor((end-start)/DAY)+1),elapsed=expired?duration:Math.floor((today-start)/DAY)+1,expected=Math.max(0,Math.min(100,elapsed/duration*100)),lag=expected-percentage;
+   if(expired||lag>10)results.push({name,end:String(d.end_date).slice(0,10),days,lag:Number(lag.toFixed(1)),kind:expired?"overdue":"behind"});
+  }
+  return results.sort((a,b)=>b.days-a.days||(b.lag??0)-(a.lag??0)||a.end.localeCompare(b.end));
+ }
+
  function completion(work,marks,reports){
   const t=new Map(arr(work).map(r=>{const d=r.data||{},id=String(r.id),service=d.accounting_type==="service"||norm(d.unit)==="услуга",marked=d.has_marks===true||["installation","fabrication"].includes(d.work_category)||(!d.work_category&&d.has_marks!==false&&(norm(d.work_type||r.title).includes("монтаж")||norm(d.work_type||r.title).includes("изготов")||arr(marks).some(m=>String(m.data?.work_type_id||"")===id)));return[id,{service,marked,plan:val(d.planned_volume??d.plan_volume)}]}));
   const plan=new Map(),fact=new Map(),done=new Set();
@@ -2273,10 +2302,10 @@ async function renderHomePortfolio(objects){
   let incomplete=false;
   const bundles=await Promise.all(objects.map(async o=>{
    const load=async section=>{try{return arr(await objectSection(o.id,section).list())}catch(e){console.warn("Home portfolio:",o.id,section,e);incomplete=true;return[]}};
-   const [w,m,raw]=await Promise.all([load("work-types"),load("marks"),load("reports")]);
+   const [w,m,raw,schedule]=await Promise.all([load("work-types"),load("marks"),load("reports"),o.status==="В работе"?load("schedule"):Promise.resolve([])]);
    const reports=raw.map(rec).filter(r=>time(r)>0).sort((a,b)=>time(b)-time(a)||val(b.id)-val(a.id));
    const numbers=new Map([...reports].sort((a,b)=>val(a.id)-val(b.id)).map((x,i)=>[x.id,i+1]));
-   return{object:o,active:o.status==="В работе",reports,numbers,progress:completion(w,m,reports)};
+   return{object:o,active:o.status==="В работе",reports,numbers,progress:completion(w,m,reports),late:o.status==="В работе"?lateWorkRows(schedule,w,m,reports):[]};
   }));
   if(!host.isConnected||location.hash.slice(1)!=="/objects")return;
   const active=bundles.filter(b=>b.active),last=active.map(b=>b.reports[0]).filter(Boolean),staff=last.reduce((s,r)=>s+personnel(r),0),totalEquipment=last.reduce((s,r)=>s+equipment(r),0);
@@ -2300,6 +2329,18 @@ async function renderHomePortfolio(objects){
     '<span class="hpr-footer"><span class="hpr-footer-stat">'+peopleIcon+' '+fmt(personnel(r))+' чел.</span><span class="hpr-footer-stat">'+craneIcon+' '+fmt(equipment(r))+' ед.</span><span class="hpr-arrow" aria-hidden="true">↗</span></span>'+
    '</button>';
   };
+  const lateObjects=active.filter(b=>b.late.length).sort((a,b)=>(b.late[0]?.days||0)-(a.late[0]?.days||0)||(b.late[0]?.lag||0)-(a.late[0]?.lag||0)||String(a.object.name).localeCompare(String(b.object.name),"ru"));
+  const lateDate=s=>{const p=String(s||"").split("-");return p.length===3?p[2]+"."+p[1]+"."+p[0]:"—"};
+  const lateTile=b=>{
+   const expired=b.late.filter(x=>x.kind==="overdue"),main=expired[0]||b.late[0],shown=b.late.slice(0,3);
+   return '<button type="button" class="home-late-object" data-late-object="'+esc(b.object.id)+'" title="Открыть график работ">'+
+    '<span class="home-late-top"><strong>'+esc(b.object.name)+'</strong><span class="home-late-badge '+(expired.length?"is-expired":"is-behind")+'">'+(expired.length?"Срок истёк":"Отставание")+'</span></span>'+
+    '<span class="home-late-summary">'+b.late.length+' '+(b.late.length===1?"вид работы отстаёт":b.late.length<5?"вида работ отстают":"видов работ отстают")+
+    (expired.length?" · "+main.days+" дн. просрочки":" · отставание "+String(main.lag).replace(".",",")+" п.п.")+'</span>'+
+    '<span class="home-late-work-list">'+shown.map(x=>'<span class="home-late-work"><span title="'+esc(x.name)+'">'+esc(x.name)+'</span><em>'+esc(x.kind==="overdue"?"Срок "+lateDate(x.end)+" · "+x.days+" дн.":"−"+String(x.lag).replace(".",",")+" п.п.")+'</em></span>').join("")+
+    (b.late.length>3?'<small>И ещё '+(b.late.length-3)+' видов работ</small>':"")+'</span>'+
+    '<span class="home-late-open">Открыть график <span aria-hidden="true">→</span></span></button>';
+  };
   host.innerHTML=
    '<div class="home-portfolio-shell">'+
     '<div class="home-portfolio-heading"><div><small class="home-portfolio-kicker">СВОДКА ПО ОБЪЕКТАМ</small><h2>Общая статистика</h2></div><p>Выполнение работ и последние ежедневные отчёты</p></div>'+
@@ -2310,9 +2351,15 @@ async function renderHomePortfolio(objects){
     '</div>'+
     '<section class="home-portfolio-reports"><div class="home-portfolio-reports-title"><div><small class="home-portfolio-kicker">ЕЖЕДНЕВНЫЕ ОТЧЁТЫ</small><h2>Последние 4 отчёта</h2></div><p>Только объекты со статусом «В работе»</p></div>'+
      '<div class="home-portfolio-report-scroll"><div class="home-portfolio-report-grid">'+(recent.length?recent.map(tile).join(""):'<div class="home-portfolio-empty">По действующим объектам пока нет отчётов</div>')+'</div></div></section>'+
+    '<section class="home-late-section">'+
+     '<div class="home-late-heading"><div><small class="home-portfolio-kicker">КОНТРОЛЬ СРОКОВ</small><h2>Объекты, требующие внимания</h2><p>Истёкшие сроки и отставание более 10 п.п. от плана · объекты в работе</p></div>'+
+      '<span class="home-late-count">'+lateObjects.length+' '+(lateObjects.length===1?"объект":lateObjects.length<5?"объекта":"объектов")+'</span></div>'+
+     '<div class="home-late-grid">'+(lateObjects.length?lateObjects.map(lateTile).join(""):'<div class="home-late-empty">По заполненным графикам работ отстающих объектов нет.</div>')+'</div>'+
+    '</section>'+
     (incomplete?'<p class="home-portfolio-warning">Часть данных не загружена — статистика может быть неполной.</p>':"")+
    '</div>';
   host.querySelectorAll("[data-home-report]").forEach(b=>b.onclick=()=>go("/objects/object/"+b.dataset.homeObject+"/reports/"+b.dataset.homeReport));
+  host.querySelectorAll("[data-late-object]").forEach(b=>b.onclick=()=>go("/objects/object/"+b.dataset.lateObject+"/schedule"));
  }catch(e){console.error("Home portfolio",e);if(host.isConnected)host.innerHTML='<div class="home-portfolio-error">Не удалось загрузить общую статистику</div>'}
 }
 
