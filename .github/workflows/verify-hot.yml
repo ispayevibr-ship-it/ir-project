@@ -2,7 +2,7 @@ name: Verify IR Project hot update
 
 on:
   push:
-    branches: [main]
+    branches: [main, fix/3d-z-input-focus]
     paths:
       - 'src/**'
       - 'hot/latest.json'
