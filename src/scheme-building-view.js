@@ -6,7 +6,7 @@
  * 2D canvas projection: offline, no dependencies or database access.
  */
 window.irBuildingView=(()=>{
- const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true,bent:false,middle:null};
+ const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true,bent:false,middle:null,colorMode:"status"};
  let observer=null,paint=null,webgl=null,panelsInitialized=false;
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const html=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -19,6 +19,22 @@ window.irBuildingView=(()=>{
    num(c.geometryType==="bent"?c.mz:c.z2)-num(c.z0));
   return c.geometryType==="bent"?first+Math.hypot(num(c.x2)-num(c.mx),num(c.y2)-num(c.my),num(c.z2)-num(c.mz)):first;
  };
+ // Every distinct mark gets a stable deterministic colour, unaffected by layer
+ // filters and placement order. All copies of a mark share one colour.
+ const markName=c=>String(c?.mark||c?.mark_name||c?.title||c?.id||"Без марки").trim().toLocaleUpperCase("ru");
+ const markRgb=c=>{
+  const key=markName(c);let hash=2166136261;
+  for(const char of key){hash^=char.codePointAt(0);hash=Math.imul(hash,16777619)}
+  // Large spread across the spectrum; varied lightness reduces adjacent confusion.
+  const hue=((hash>>>0)*.6180339887498949%1)*360,
+   saturation=.66+((hash>>>9)%3)*.045,
+   lightness=.39+((hash>>>13)%4)*.033;
+  const k=n=>(n+hue/30)%12,
+   a=saturation*Math.min(lightness,1-lightness),
+   channel=n=>lightness-a*Math.max(-1,Math.min(k(n)-3,9-k(n),1));
+  return[channel(0),channel(8),channel(4)];
+ };
+ const markCss=c=>"rgb("+markRgb(c).map(x=>Math.round(x*255)).join(",")+")";
  const dist=(q,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,t=clamp(((q.x-a.x)*dx+(q.y-a.y)*dy)/(dx*dx+dy*dy||1),0,1);return Math.hypot(q.x-(a.x+dx*t),q.y-(a.y+dy*t))};
 
  // Offline WebGL renderer; real 3D prisms, depth testing and per-face lighting.
@@ -69,7 +85,8 @@ window.irBuildingView=(()=>{
        add(mul(right,-widthMm),mul(up,-breadth)),add(mul(right,widthMm),mul(up,-breadth))],
      cornersA=outset.map(v=>add(a,v)),cornersB=outset.map(v=>add(b,v)),
      rgb=String(c.id)===String(state.selected)?palette.selected:
-       String(c.id)===String(state.hover)?palette.hover:palette[c.status]||palette.planned;
+       String(c.id)===String(state.hover)?palette.hover:
+       state.colorMode==="mark"?markRgb(c):palette[c.status]||palette.planned;
     quad([cornersA[0],cornersB[0],cornersB[1],cornersA[1]],rgb,1.17);
     quad([cornersA[1],cornersB[1],cornersB[2],cornersA[2]],rgb,.88);
     quad([cornersA[2],cornersB[2],cornersB[3],cornersA[3]],rgb,.72);
@@ -93,7 +110,11 @@ window.irBuildingView=(()=>{
  }
 
  function render(host,props){
-  if(!panelsInitialized){state.layersOpen=window.innerWidth>=1000;panelsInitialized=true}
+  if(!panelsInitialized){
+   state.layersOpen=window.innerWidth>=1000;
+   try{state.colorMode=localStorage.getItem("ir-project-3d-colors")==="mark"?"mark":"status"}catch(_error){}
+   panelsInitialized=true
+  }
   if(observer){observer.disconnect();observer=null}
   if(webgl){webgl.dispose();webgl=null}
   const axesX=props.axesX,axesY=props.axesY,spanX=props.spanX,spanY=props.spanY,
@@ -111,6 +132,13 @@ window.irBuildingView=(()=>{
   host.innerHTML='<div class="irb-wrap"><aside class="irb-layers">'+header+
    '<div class="irb-layer-list">'+groups.map(g=>'<button type="button" class="irb-layer '+(g.visible?'active':'')+'" data-irb-layer="'+html(g.key)+'"><i>'+(g.visible?'✓':'')+'</i><b>'+html(g.label)+'</b><small>'+g.count+'</small></button>').join("")+'</div>'+
    '<label class="irb-find-label">Найти конструкцию</label><input id="irbFindMark" type="search" autocomplete="off" placeholder="Например, К178" aria-label="Поиск марки в 3D">'+
+   '<div class="irb-panel-head"><b>Цвет конструкций</b></div>'+
+   '<div class="irb-color-modes" role="group" aria-label="Раскраска 3D-модели">'+
+    '<button type="button" id="irbColorStatus" aria-pressed="true">По статусу</button>'+
+    '<button type="button" id="irbColorMarks" aria-pressed="false">По маркам</button>'+
+   '</div>'+
+   '<div class="irb-color-caption" id="irbColorCaption">Зелёный — смонтировано, красный — не смонтировано, жёлтый — частично.</div>'+
+   '<div class="irb-color-legend" id="irbColorLegend" hidden></div>'+
    '<div class="irb-panel-head"><b>Отображение</b></div>'+
    '<label class="irb-switch"><input type="checkbox" id="irbGrid" '+(state.grid?'checked':'')+'><span>Сетка осей</span></label>'+
    '<label class="irb-switch"><input type="checkbox" id="irbRoof" '+(state.roof?'checked':'')+'><span>Контур кровли (эскиз)</span></label>'+
@@ -124,7 +152,7 @@ window.irBuildingView=(()=>{
    '<div class="irb-tags"><span>● Общая модель здания</span><span>'+fmt(spanX/1000)+' × '+fmt(spanY/1000)+' м · '+axesX.length+' × '+axesY.length+' осей</span></div>'+
    '<label class="irb-camera">Вид <select id="irbView"><option value="iso">Изометрия</option><option value="top">Сверху</option><option value="front">Фасад</option><option value="side">Сбоку</option><option value="free" disabled>Свободный ракурс</option></select></label>'+
    '<div class="irb-hint" id="irbHint"></div>'+
-   '<div class="irb-bottom"><div class="irb-legend"><i class="green"></i> Смонтировано <i class="red"></i> Не смонтировано <i class="orange"></i> Частично <i class="blue"></i> Выбрано</div>'+
+   '<div class="irb-bottom"><div class="irb-legend" id="irbLegend"><i class="green"></i> Смонтировано <i class="red"></i> Не смонтировано <i class="orange"></i> Частично <i class="blue"></i> Выбрано</div>'+
    '<div class="irb-controls"><button type="button" id="irbMinus">−</button><button type="button" id="irbPlus">＋</button><button type="button" id="irbFit">⛶</button></div></div>'+
    '</div><aside class="irb-properties" id="irbProperties"></aside></div>';
   // The panels float over one full-size viewport rather than defining its dimensions.
@@ -135,6 +163,7 @@ window.irBuildingView=(()=>{
   const topControls=document.createElement("div");
   topControls.className="irb-top-actions";
   topControls.innerHTML='<button type="button" id="irbLayerToggle" aria-expanded="'+(state.layersOpen?'true':'false')+'">☷ Слои</button>'+
+   '<button type="button" id="irbColorToggle" title="Переключить цветовой режим" aria-label="Переключить цветовой режим">◉ Цвет: статус</button>'+
    (props.canEdit?'<button type="button" id="irbQuickAdd" class="irb-top-add">＋ Добавить марку</button>':'');
   viewport.appendChild(topControls);
   const layerClose=document.createElement("button");layerClose.type="button";
@@ -149,6 +178,42 @@ window.irBuildingView=(()=>{
   topControls.querySelector("#irbLayerToggle").onclick=()=>{state.layersOpen=!state.layersOpen;updateLayers();paint()};
   updateLayers();detailPanel.hidden=true;
   const el=id=>host.querySelector("#"+id),canvas=el("irbCanvas"),ctx=canvas.getContext("2d");
+  const colorSummary=(()=>{
+   const summary=new Map();
+   for(const member of cols){
+    const key=markName(member),row=summary.get(key);
+    if(row)row.count++;
+    else summary.set(key,{key,count:1,rgb:markCss(member)})
+   }
+   return [...summary.values()].sort((a,b)=>a.key.localeCompare(b.key,"ru",{numeric:true}));
+  })();
+  const showColorMode=()=>{
+   const byMark=state.colorMode==="mark",status=el("irbColorStatus"),marksButton=el("irbColorMarks"),
+    top=el("irbColorToggle"),caption=el("irbColorCaption"),list=el("irbColorLegend"),footer=el("irbLegend");
+   for(const [button,active] of [[status,!byMark],[marksButton,byMark]]){
+    if(!button)continue;button.classList.toggle("active",active);button.setAttribute("aria-pressed",String(active))
+   }
+   if(top){top.textContent=byMark?"◉ Цвет: марки":"◉ Цвет: статус";top.setAttribute("aria-label",byMark?"Сейчас цвета по маркам. Переключить на статус монтажа":"Сейчас цвета по статусу монтажа. Переключить на марки")}
+   if(caption)caption.textContent=byMark?"Каждая марка получает свой цвет; повторяющиеся марки одинаковые. Статус монтажа остаётся в свойствах.":"Зелёный — смонтировано, красный — не смонтировано, жёлтый — частично.";
+   if(list){
+    list.hidden=!byMark;
+    if(byMark)list.innerHTML='<div class="irb-color-legend-title">Марки на экране · '+colorSummary.length+'</div>'+
+     colorSummary.map(row=>'<div class="irb-color-entry"><i style="background:'+row.rgb+'"></i><span title="'+html(row.key)+'">'+html(row.key)+'</span><small>'+row.count+' шт.</small></div>').join("");
+   }
+   if(footer)footer.innerHTML=byMark?'<i class="blue"></i> Выбрано <span>· Разные цвета — разные марки</span>':
+    '<i class="green"></i> Смонтировано <i class="red"></i> Не смонтировано <i class="orange"></i> Частично <i class="blue"></i> Выбрано';
+  };
+  const setColorMode=mode=>{
+   const next=mode==="mark"?"mark":"status";
+   if(state.colorMode===next)return;
+   state.colorMode=next;
+   try{localStorage.setItem("ir-project-3d-colors",next)}catch(_error){}
+   showColorMode();paint();
+  };
+  el("irbColorStatus").onclick=()=>setColorMode("status");
+  el("irbColorMarks").onclick=()=>setColorMode("mark");
+  el("irbColorToggle").onclick=()=>setColorMode(state.colorMode==="mark"?"status":"mark");
+  showColorMode();
   if(!ctx){el("irbProperties").textContent="3D Canvas недоступен";return}
   webgl=makeWebGL(el("irbSolid"));
   viewport.classList.toggle("irb-webgl",!!webgl);
@@ -297,7 +362,8 @@ window.irBuildingView=(()=>{
    if(webgl)webgl.render(segments,m,rect.width,rect.height,dpr);
    for(const s of segments){
     const chosen=String(s.c.id)===String(state.selected),hover=String(s.c.id)===String(state.hover),
-     color=chosen?"#2879df":hover?"#168fca":s.c.status==="mounted"?"#2e9b7b":s.c.status==="partial"?"#c4a051":"#c16670";
+     color=chosen?"#2879df":hover?"#168fca":state.colorMode==="mark"?markCss(s.c):
+      s.c.status==="mounted"?"#2e9b7b":s.c.status==="partial"?"#c4a051":"#c16670";
     const width=s.c.geometryType==="column"?7:s.c.geometryType==="truss"?6:s.c.geometryType==="brace"?3.7:4.8;
     if(!webgl){
      line(s.a,s.b,"rgba(35,63,87,.25)",width+2);line(s.a,s.b,color,width);
