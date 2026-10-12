@@ -2,7 +2,7 @@ name: Verify IR Project hot update
 
 on:
   push:
-    branches: [main, perf/3d-interaction-117]
+    branches: [main]
     paths:
       - 'src/**'
       - 'hot/latest.json'
