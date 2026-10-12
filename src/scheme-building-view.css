@@ -455,3 +455,11 @@
  .irb-webgl .irb-layers>.irb-pane-close{top:10px!important;right:10px!important}
  .irb-find{padding:10px}
 }
+
+/* IR Project 1.7.117: symmetric ridge by default, optional manual coordinates. */
+.irb-ridge-mode{display:grid;gap:8px;padding:12px;border:1px solid #bbd8ef;border-radius:9px;background:#eff7ff;color:#315d7e}
+.irb-ridge-mode>b{font-size:11px;font-weight:850}
+.irb-ridge-mode>label{display:flex;gap:9px;align-items:center;cursor:pointer;font-size:10px;font-weight:750;line-height:1.4}
+.irb-ridge-mode>label input{width:16px;height:16px;flex:none;accent-color:#1b77c9}
+.irb-ridge-mode>small,.irb-ridge-note{font-size:10px;line-height:1.5;color:#587f99}
+.irb-ridge-note{display:block;margin-top:4px}
