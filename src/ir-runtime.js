@@ -1377,11 +1377,11 @@ window.irSchemePage=async function(objectId){
  if(!activeWorkId)activeWorkId=enabledWorks()[0]?.id||String(workRows[0]?.id||"");
  refreshGridModel();
  const guessGeometry=m=>{const key=markGroup(m).key;if(["columns","fahwerk","posts"].includes(key))return"column";if(key==="ties")return"brace";if(key==="trusses")return"truss";return"beam"};
- const geometry=c=>["column","beam","brace","truss"].includes(c.geometry_type)?c.geometry_type:c.absolute_x2_mm!==undefined&&c.absolute_y2_mm!==undefined?guessGeometry(c):"column";
+ const geometry=c=>["column","beam","bent","brace","truss"].includes(c.geometry_type)?c.geometry_type:c.absolute_x2_mm!==undefined&&c.absolute_y2_mm!==undefined?guessGeometry(c):"column";
  const closestAxis=(value,axes,pos)=>axes.reduce((best,a)=>Math.abs(num(pos.get(a))-value)<Math.abs(num(pos.get(best))-value)?a:best,axes[0]||"");
- const coord=c=>{const p=worldPosition(c),v=activeView(),own=v&&String(c.scheme_view_id||"")===String(v.id),axisX=own&&axesX.includes(String(c.axis_x))?String(c.axis_x):closestAxis(p.x,axesX,axisXPos),axisY=own&&axesY.includes(String(c.axis_y))?String(c.axis_y):closestAxis(p.y,axesY,axisYPos),dx=p.x-num(axisXPos.get(axisX)),dy=p.y-num(axisYPos.get(axisY)),x2=c.absolute_x2_mm!==undefined?num(c.absolute_x2_mm):p.x,y2=c.absolute_y2_mm!==undefined?num(c.absolute_y2_mm):p.y,z0=num(c.z0_mm),z1=num(c.z1_mm??8400),kind=geometry(c);return{x:p.x,y:p.y,x2,y2,z0,z1,z2:kind==="column"?z1:num(c.end_z_mm??c.z1_mm??8400),axisX,axisY,dx,dy,geometryType:kind}};
+ const coord=c=>{const p=worldPosition(c),v=activeView(),own=v&&String(c.scheme_view_id||"")===String(v.id),axisX=own&&axesX.includes(String(c.axis_x))?String(c.axis_x):closestAxis(p.x,axesX,axisXPos),axisY=own&&axesY.includes(String(c.axis_y))?String(c.axis_y):closestAxis(p.y,axesY,axisYPos),dx=p.x-num(axisXPos.get(axisX)),dy=p.y-num(axisYPos.get(axisY)),x2=c.absolute_x2_mm!==undefined?num(c.absolute_x2_mm):p.x,y2=c.absolute_y2_mm!==undefined?num(c.absolute_y2_mm):p.y,z0=num(c.z0_mm),z1=num(c.z1_mm??8400),kind=geometry(c);return{x:p.x,y:p.y,x2,y2,z0,z1,z2:kind==="column"?z1:num(c.end_z_mm??c.z1_mm??8400),mx:num(c.absolute_mid_x_mm??p.x),my:num(c.absolute_mid_y_mm??p.y),mz:num(c.mid_z_mm??z1),axisX,axisY,dx,dy,geometryType:kind}};
  const allVisibleTypes=()=>availableGroups().filter(g=>activeScheme==="all"||(frameMode?g.key===activeScheme:groupKeys(activeView()).includes(g.key))).sort((a,b)=>frameMode?frameCategories.indexOf(a.key)-frameCategories.indexOf(b.key):a.label.localeCompare(b.label,"ru"));
- const isShown=c=>{if(hiddenGroups.has(recordMarkGroup(c).key))return false;if(statusFilter!=="all"&&effectiveStatus(c)!==statusFilter)return false;const start=num(c.z0_mm),end=num(c.end_z_mm??c.z1_mm??8400),lo=Math.min(start,end),hi=Math.max(start,end),min=String(levelMin).trim()===""?null:Number(levelMin),max=String(levelMax).trim()===""?null:Number(levelMax);if(min!==null&&Number.isFinite(min)&&hi<min)return false;if(max!==null&&Number.isFinite(max)&&lo>max)return false;return true};
+ const isShown=c=>{if(hiddenGroups.has(recordMarkGroup(c).key))return false;if(statusFilter!=="all"&&effectiveStatus(c)!==statusFilter)return false;const start=num(c.z0_mm),end=num(c.end_z_mm??c.z1_mm??8400),mid=geometry(c)==="bent"?num(c.mid_z_mm):start,lo=Math.min(start,end,mid),hi=Math.max(start,end,mid),min=String(levelMin).trim()===""?null:Number(levelMin),max=String(levelMax).trim()===""?null:Number(levelMax);if(min!==null&&Number.isFinite(min)&&hi<min)return false;if(max!==null&&Number.isFinite(max)&&lo>max)return false;return true};
  const columns=()=>records().filter(isShown).map(c=>({...c,...coord(c),status:effectiveStatus(c)}));
  const selected=()=>columns().find(x=>x.id===selectedId)||null;
  const resolveSavedMarkId=c=>{const pool=activeMarks();if(!c)return String(pool[0]?.id||"");const direct=pool.find(m=>m.id===String(c.mark_id||""));if(direct)return direct.id;const snap=String(c.mark||"").trim().toLowerCase(),snapName=String(c.mark_name||"").trim().toLowerCase();const exact=snap&&pool.find(m=>String(m.mark||m.title||"").trim().toLowerCase()===snap);if(exact)return exact.id;const byName=snapName&&pool.find(m=>String(m.name||"").trim().toLowerCase()===snapName);return byName?.id||""};
@@ -1426,8 +1426,8 @@ window.irSchemePage=async function(objectId){
  const sectionTypeLabel=t=>({ibeam:"Двутавр",square:"Квадратная труба",round:"Круглая труба",box:"Короб / сплошное"}[t]||"Двутавр");
  const profileText=c=>String(c?.profile_name||"").trim()||sectionTypeLabel(sectionType(c));
  const sectionOptions=value=>[["ibeam","Двутавр"],["square","Квадратная труба"],["round","Круглая труба"],["box","Короб / сплошное"]].map(([v,n])=>`<option value="${v}" ${value===v?"selected":""}>${n}</option>`).join("");
- const geometryLabel=kind=>({column:"Колонна / стойка",beam:"Балка / прогон / ригель",brace:"Связь / раскос",truss:"Ферма"}[kind]||"Колонна / стойка");
- const geometryOptions=kind=>[["column","Колонна / стойка"],["beam","Балка / прогон / ригель"],["brace","Связь / раскос"],["truss","Ферма"]].map(([k,label])=>`<option value="${k}" ${k===kind?"selected":""}>${label}</option>`).join("");
+ const geometryLabel=kind=>({column:"Колонна / стойка",beam:"Балка / прогон / ригель",bent:"Ломаная балка (3 точки)",brace:"Связь / раскос",truss:"Ферма"}[kind]||"Колонна / стойка");
+ const geometryOptions=kind=>[["column","Колонна / стойка"],["beam","Балка / прогон / ригель"],["bent","Ломаная балка (3 точки)"],["brace","Связь / раскос"],["truss","Ферма"]].map(([k,label])=>`<option value="${k}" ${k===kind?"selected":""}>${label}</option>`).join("");
  const spanSummary=spans=>{const min=Math.min(...spans),max=Math.max(...spans),avg=spans.reduce((s,x)=>s+x,0)/Math.max(1,spans.length);return max-min<=1?`≈ по ${fmt(avg)} мм`:"индивидуальные размеры"};
  const pairLabel=(items,i)=>`${items[i]}–${items[i+1]}`;
  function stats(){
@@ -1455,7 +1455,7 @@ window.irSchemePage=async function(objectId){
  }
  function columnTitle(c){
   const a=axisText(c),mark=c.mark||"—",name=c.mark_name||"",kind=c.geometryType||geometry(c),progress=markProgress(linkedMark(c));
-  return `${mark}${name?" · "+name:""}\nТип: ${geometryLabel(kind)}\nПрофиль: ${profileText(c)}${progress?.total>0?"\nПо ведомости: "+fmt(progress.mounted)+" из "+fmt(progress.total)+" смонтировано · осталось "+fmt(progress.left):""}\nОси: ${a.x} / ${a.y}\nНачало: X ${fmt(c.x)} · Y ${fmt(c.y)} · Z ${fmt(c.z0)} мм\nКонец: X ${fmt(c.x2)} · Y ${fmt(c.y2)} · Z ${fmt(c.z2)} мм${c.dx||c.dy?"\nСмещение: "+offsetText(c):""}`
+  return `${mark}${name?" · "+name:""}\nТип: ${geometryLabel(kind)}\nПрофиль: ${profileText(c)}${progress?.total>0?"\nПо ведомости: "+fmt(progress.mounted)+" из "+fmt(progress.total)+" смонтировано · осталось "+fmt(progress.left):""}\nОси: ${a.x} / ${a.y}\nНачало: X ${fmt(c.x)} · Y ${fmt(c.y)} · Z ${fmt(c.z0)} мм${kind==="bent"?"\nКонёк: X "+fmt(c.mx)+" · Y "+fmt(c.my)+" · Z "+fmt(c.mz)+" мм":""}\nКонец: X ${fmt(c.x2)} · Y ${fmt(c.y2)} · Z ${fmt(c.z2)} мм${kind==="bent"?"\nДлина: "+fmt(Math.hypot(c.mx-c.x,c.my-c.y,c.mz-c.z0)+Math.hypot(c.x2-c.mx,c.y2-c.my,c.z2-c.mz))+" мм":""}${c.dx||c.dy?"\nСмещение: "+offsetText(c):""}`
  }
  function placeSchemeLabel(px,py,lw,lh,index,occupied,W,H,preferBelow=false){
   const gap=9,side=index%2?-1:1,clamp=(v,min,max)=>Math.max(min,Math.min(max,v)),hits=r=>occupied.some(o=>!(r.x+r.w+4<o.x||r.x>o.x+o.w+4||r.y+r.h+4<o.y||r.y>o.y+o.h+4));
@@ -1530,14 +1530,14 @@ window.irSchemePage=async function(objectId){
  function prism(c,p,index,labelBoxes,compact=1){
   const kind=c.geometryType,base=p(c.x,c.y,c.z0),top=p(c.x2,c.y2,c.z2),isSelected=c.id===selectedId,sel=isSelected?" selected":"",status=c.status==="mounted"?" mounted":c.status==="partial"?" partial":" planned",between=c.dx||c.dy?" between":"";
   const baseAxis=p(axisXPos.get(c.axisX),axisYPos.get(c.axisY),c.z0),showOffset=!!(c.dx||c.dy)&&dimensionsVisible&&isSelected,showLabel=isSelected||(labelsVisible&&index<Math.max(24,zoom>1.8?70:36));
-  const anchor=kind==="column"?top:{x:(base.x+top.x)/2,y:(base.y+top.y)/2};
+  const mid=kind==="bent"?p(c.mx,c.my,c.mz):null,anchor=kind==="column"?top:mid||{x:(base.x+top.x)/2,y:(base.y+top.y)/2};
   const label=String(c.mark||"—"),lw=Math.max(28,Math.min(64,14+label.length*6.2)),lh=20,placed=showLabel?placeSchemeLabel(anchor.x,anchor.y,lw,lh,index,labelBoxes||[],1040,650,anchor.y<150):null,lx=placed?.lx||0,ly=placed?.ly||0,anchorX=placed?.anchorX||anchor.x,anchorY=placed?.anchorY||anchor.y;
   const offsetMid={x:(base.x+baseAxis.x)/2,y:(base.y+baseAxis.y)/2};
   return`<g class="scheme-column scheme-geometry-${kind} section-${sectionType(c)}${status}${sel}${between}" data-column="${esc(c.id)}" tabindex="0" style="--scheme-3d-stroke:${Math.max(.55,3.3*compact).toFixed(2)}px;--scheme-3d-cap:${Math.max(.5,2.2*compact).toFixed(2)}px;--scheme-3d-round:${Math.max(.8,7*compact).toFixed(2)}px;--scheme-hit-stroke:${Math.max(2,14*compact).toFixed(2)}px">
    <title>${esc(columnTitle(c))}</title>
-   <line x1="${base.x}" y1="${base.y}" x2="${top.x}" y2="${top.y}" class="scheme-column-hit-line"/>
+   <line x1="${base.x}" y1="${base.y}" x2="${mid?mid.x:top.x}" y2="${mid?mid.y:top.y}" class="scheme-column-hit-line"/>${mid?`<line x1="${mid.x}" y1="${mid.y}" x2="${top.x}" y2="${top.y}" class="scheme-column-hit-line"/>`:""}
    ${showOffset?`<line x1="${baseAxis.x}" y1="${baseAxis.y}" x2="${base.x}" y2="${base.y}" class="scheme-offset-line"/><text x="${offsetMid.x}" y="${offsetMid.y-7}" class="scheme-offset-text">${esc(offsetText(c))}</text>`:""}
-   ${member3dShape(c,base,top,compact)}
+   ${mid?member3dShape({...c,geometryType:"beam"},base,mid,compact)+member3dShape({...c,geometryType:"beam"},mid,top,compact):member3dShape(c,base,top,compact)}
    ${showLabel?`<line x1="${anchor.x}" y1="${anchor.y}" x2="${anchorX}" y2="${anchorY}" class="scheme-label-leader"/><g class="scheme-column-label compact${isSelected?" selected-label":""}"><rect x="${lx}" y="${ly}" width="${lw}" height="${lh}" rx="5"/><text x="${lx+7}" y="${ly+13.5}" class="scheme-label-position">${esc(label)}</text></g>`:""}
   </g>`
  }
@@ -1579,11 +1579,11 @@ window.irSchemePage=async function(objectId){
   const nearestPlanDistance=(id,at)=>{let nearest=Infinity;for(const other of projectedColumns){if(other.id===id)continue;const d=Math.hypot(other.at.x-at.x,other.at.y-at.y);if(d>.01&&d<nearest)nearest=d}return nearest};
   let columnsSvg="",labelBoxes=[];
   cols.forEach((c,index)=>{
-   const q=p(c.x,c.y),end=p(c.x2,c.y2),isColumn=c.geometryType==="column",center=isColumn?q:{x:(q.x+end.x)/2,y:(q.y+end.y)/2},axis=p(axisXPos.get(c.axisX),axisYPos.get(c.axisY)),x=center.x,y=center.y,axisX=axis.x,axisY=axis.y,isSelected=c.id===selectedId,sel=isSelected?" selected":"",status=c.status==="mounted"?" mounted":c.status==="partial"?" partial":" planned",between=c.dx||c.dy?" between":"",showLabel=isSelected||(labelsVisible&&index<Math.max(24,zoom>1.8?70:36)),label=String(c.mark||"—"),lw=Math.max(28,Math.min(64,14+label.length*6.2)),lh=20,placed=showLabel?placeSchemeLabel(x,y,lw,lh,index,labelBoxes,W,H,y<gridTop+70):null,lx=placed?.lx||0,ly=placed?.ly||0,anchorX=placed?.anchorX||x,anchorY=placed?.anchorY||y;
+   const q=p(c.x,c.y),end=p(c.x2,c.y2),kink=c.geometryType==="bent"?p(c.mx,c.my):null,isColumn=c.geometryType==="column",center=isColumn?q:kink||{x:(q.x+end.x)/2,y:(q.y+end.y)/2},axis=p(axisXPos.get(c.axisX),axisYPos.get(c.axisY)),x=center.x,y=center.y,axisX=axis.x,axisY=axis.y,isSelected=c.id===selectedId,sel=isSelected?" selected":"",status=c.status==="mounted"?" mounted":c.status==="partial"?" partial":" planned",between=c.dx||c.dy?" between":"",showLabel=isSelected||(labelsVisible&&index<Math.max(24,zoom>1.8?70:36)),label=String(c.mark||"—"),lw=Math.max(28,Math.min(64,14+label.length*6.2)),lh=20,placed=showLabel?placeSchemeLabel(x,y,lw,lh,index,labelBoxes,W,H,y<gridTop+70):null,lx=placed?.lx||0,ly=placed?.ly||0,anchorX=placed?.anchorX||x,anchorY=placed?.anchorY||y;
    const showOffset=!!(c.dx||c.dy)&&dimensionsVisible&&isSelected,midX=(q.x+axisX)/2,midY=(q.y+axisY)/2,kind=c.geometryType;
    const nearest=isColumn?nearestPlanDistance(c.id,q):Infinity,symbolRadius=isColumn?Math.max(.8,Math.min(6,650*scale,(nearest-3.5)/2)):6,hitRadius=isColumn?Math.max(1.5,Math.min(10,nearest*.42)):10;
-   const symbol=isColumn?planSectionSymbol(c,q.x,q.y,symbolRadius):kind==="truss"?`${line(q,end,"scheme-plan-member")}${line({x:q.x,y:q.y+3},{x:end.x,y:end.y+3},"scheme-plan-truss")}`:line(q,end,kind==="brace"?"scheme-plan-brace":"scheme-plan-member");
-   columnsSvg+=`<g class="scheme-column scheme-geometry-${kind}${status}${sel}${between}" data-column="${esc(c.id)}" tabindex="0"><title>${esc(columnTitle(c))}</title><circle cx="${q.x}" cy="${q.y}" r="${hitRadius}" class="scheme-column-hit"/>${isColumn?"":`<line x1="${q.x}" y1="${q.y}" x2="${end.x}" y2="${end.y}" class="scheme-column-hit-line"/>`}${showOffset?`<line x1="${axisX}" y1="${axisY}" x2="${q.x}" y2="${q.y}" class="scheme-offset-line"/><circle cx="${axisX}" cy="${axisY}" r="3" class="scheme-offset-origin"/><text x="${midX}" y="${midY-7}" class="scheme-offset-text">${esc(offsetText(c))}</text>`:""}${symbol}${showLabel?`<line x1="${x}" y1="${y}" x2="${anchorX}" y2="${anchorY}" class="scheme-label-leader"/><g class="scheme-column-label compact${isSelected?" selected-label":""}"><rect x="${lx}" y="${ly}" width="${lw}" height="${lh}" rx="5"/><text x="${lx+7}" y="${ly+13.5}" class="scheme-label-position">${esc(label)}</text></g>`:""}</g>`;
+   const symbol=isColumn?planSectionSymbol(c,q.x,q.y,symbolRadius):kind==="bent"?line(q,kink,"scheme-plan-member")+line(kink,end,"scheme-plan-member"):kind==="truss"?`${line(q,end,"scheme-plan-member")}${line({x:q.x,y:q.y+3},{x:end.x,y:end.y+3},"scheme-plan-truss")}`:line(q,end,kind==="brace"?"scheme-plan-brace":"scheme-plan-member");
+   columnsSvg+=`<g class="scheme-column scheme-geometry-${kind}${status}${sel}${between}" data-column="${esc(c.id)}" tabindex="0"><title>${esc(columnTitle(c))}</title><circle cx="${q.x}" cy="${q.y}" r="${hitRadius}" class="scheme-column-hit"/>${isColumn?"":kink?`<line x1="${q.x}" y1="${q.y}" x2="${kink.x}" y2="${kink.y}" class="scheme-column-hit-line"/><line x1="${kink.x}" y1="${kink.y}" x2="${end.x}" y2="${end.y}" class="scheme-column-hit-line"/>`:`<line x1="${q.x}" y1="${q.y}" x2="${end.x}" y2="${end.y}" class="scheme-column-hit-line"/>`}${showOffset?`<line x1="${axisX}" y1="${axisY}" x2="${q.x}" y2="${q.y}" class="scheme-offset-line"/><circle cx="${axisX}" cy="${axisY}" r="3" class="scheme-offset-origin"/><text x="${midX}" y="${midY-7}" class="scheme-offset-text">${esc(offsetText(c))}</text>`:""}${symbol}${showLabel?`<line x1="${x}" y1="${y}" x2="${anchorX}" y2="${anchorY}" class="scheme-label-leader"/><g class="scheme-column-label compact${isSelected?" selected-label":""}"><rect x="${lx}" y="${ly}" width="${lw}" height="${lh}" rx="5"/><text x="${lx+7}" y="${ly+13.5}" class="scheme-label-position">${esc(label)}</text></g>`:""}</g>`;
 
   });
   return`<g class="scheme-grid-layer">${grid}</g><g class="scheme-column-layer">${columnsSvg}</g>`
@@ -1608,7 +1608,7 @@ window.irSchemePage=async function(objectId){
   const mark=marks.find(m=>m.id===String(placement?.markId||""));
   if(!mark||!activeMarks().some(m=>m.id===mark.id)||!markAvailable(mark))throw Error("Марка отсутствует или все экземпляры уже размещены.");
   const kind=guessGeometry(mark);
-  if(kind!==placement.geometry)throw Error("Выбранная марка и тип конструкции не совпадают.");
+  if(kind!==placement.geometry&&!(kind==="beam"&&placement.geometry==="bent"))throw Error("Выбранная марка и тип конструкции не совпадают.");
   const existingAnchors=allRecords();
   // An existing column or beam may legitimately overhang the nominal grid.
   // The exact snap point is allowed only when it lies ON that stored element.
@@ -1617,10 +1617,13 @@ window.irSchemePage=async function(objectId){
    if(!found)return false;
    const c=coord(found),start=[c.x,c.y,c.z0],
     end=c.geometryType==="column"?[c.x,c.y,c.z2]:[c.x2,c.y2,c.z2],
-    vx=end[0]-start[0],vy=end[1]-start[1],vz=end[2]-start[2],
-    length2=vx*vx+vy*vy+vz*vz,
-    t=Math.max(0,Math.min(1,((x-start[0])*vx+(y-start[1])*vy+(z-start[2])*vz)/(length2||1)));
-   return Math.hypot(x-start[0]-vx*t,y-start[1]-vy*t,z-start[2]-vz*t)<=35;
+    vertices=c.geometryType==="bent"?[start,[c.mx,c.my,c.mz],end]:[start,end];
+   return vertices.slice(1).some((b,i)=>{
+    const a=vertices[i],vx=b[0]-a[0],vy=b[1]-a[1],vz=b[2]-a[2],
+     length2=vx*vx+vy*vy+vz*vz,
+     t=Math.max(0,Math.min(1,((x-a[0])*vx+(y-a[1])*vy+(z-a[2])*vz)/(length2||1)));
+    return Math.hypot(x-a[0]-vx*t,y-a[1]-vy*t,z-a[2]-vz*t)<=35
+   });
   };
   const point=a=>{
    if(!a||!axesX.includes(String(a.ax))||!axesY.includes(String(a.ay))||!Number.isFinite(Number(a.z)))throw Error("Укажите оси и точную отметку Z.");
@@ -1636,7 +1639,8 @@ window.irSchemePage=async function(objectId){
    return{x,y,z,ax:String(a.ax),ay:String(a.ay),dx:x-num(axisXPos.get(String(a.ax))),dy:y-num(axisYPos.get(String(a.ay))),memberId};
   };
   const start=point(placement.start);
-  const end=kind==="column"?{...start,z:Number(placement.topZ)}:point(placement.end);
+  const end=kind==="column"?{...start,z:Number(placement.topZ)}:point(placement.end),middle=placement.geometry==="bent"?point(placement.middle):null;
+  if(middle&&(Math.hypot(middle.x-start.x,middle.y-start.y,middle.z-start.z)<1||Math.hypot(end.x-middle.x,end.y-middle.y,end.z-middle.z)<1))throw Error("Для ломаной балки нужны три различные точки.");
   if(!Number.isFinite(end.z)||Math.hypot(end.x-start.x,end.y-start.y,end.z-start.z)<1)throw Error("Начало и конец должны различаться.");
   if(kind==="column"&&end.z<=start.z)throw Error("Верх колонны должен быть выше низа.");
   const existing=allRecords(),used=new Set(existing.map(r=>String(r.position||r.title||"")));
@@ -1645,7 +1649,9 @@ window.irSchemePage=async function(objectId){
   const payload={record_type:"scheme_column",title,data:{
    entity_type:"column",position:title,mark_id:mark.id,mark:mark.mark||mark.title||"",mark_name:mark.name||"",work_type_id:String(mark.work_type_id||""),
    axis_x:start.ax,axis_y:start.ay,offset_x_mm:start.dx,offset_y_mm:start.dy,absolute_x_mm:start.x,absolute_y_mm:start.y,
-   geometry_type:kind,absolute_x2_mm:kind==="column"?undefined:end.x,absolute_y2_mm:kind==="column"?undefined:end.y,
+   geometry_type:placement.geometry,absolute_x2_mm:kind==="column"?undefined:end.x,absolute_y2_mm:kind==="column"?undefined:end.y,
+   absolute_mid_x_mm:middle?.x,absolute_mid_y_mm:middle?.y,mid_z_mm:middle?.z,
+   mid_axis_x:middle?.ax,mid_axis_y:middle?.ay,mid_offset_x_mm:middle?.dx,mid_offset_y_mm:middle?.dy,mid_anchor_member_id:middle?.memberId||undefined,
    end_axis_x:kind==="column"?undefined:end.ax,end_axis_y:kind==="column"?undefined:end.ay,
    end_offset_x_mm:kind==="column"?undefined:end.dx,end_offset_y_mm:kind==="column"?undefined:end.dy,
    z0_mm:start.z,z1_mm:end.z,end_z_mm:kind==="column"?undefined:end.z,
@@ -1869,6 +1875,10 @@ window.irSchemePage=async function(objectId){
     <div class="scheme-member-end wide" id="schemeMemberEnd" hidden><b>Конец элемента — вторая точка для балки, связи или фермы</b>
      <div><label>Ось по X<select name="end_axis_x">${axisOptions(axesX,axesX[1]||axesX[0])}</select></label><label>Смещение X, мм<input name="end_offset_x_mm" inputmode="decimal" value="0"></label>
      <label>Ось по Y<select name="end_axis_y">${axisOptions(axesY,axesY[0])}</select></label><label>Смещение Y, мм<input name="end_offset_y_mm" inputmode="decimal" value="0"></label></div></div>
+    <div class="scheme-member-end wide" id="schemeMemberMiddle" hidden><b>Конёк / излом — вторая точка одной балки</b><div>
+     <label>Ось по X<select name="mid_axis_x">${axisOptions(axesX,axesX[1]||axesX[0])}</select></label><label>Смещение X, мм<input name="mid_offset_x_mm" inputmode="decimal" value="0"></label>
+     <label>Ось по Y<select name="mid_axis_y">${axisOptions(axesY,axesY[0])}</select></label><label>Смещение Y, мм<input name="mid_offset_y_mm" inputmode="decimal" value="0"></label>
+     <label>Конёк Z, мм<input name="mid_z_mm" inputmode="decimal" value="10000"></label></div><small>Одна марка, две наклонные части.</small></div>
     <label>Отметка низа / начала, мм<input name="z0_mm" inputmode="decimal" value="0"></label>
     <label>Отметка верха / конца, мм<input name="z1_mm" inputmode="decimal" value="8400"></label>
     <label>Поворот, °<input name="rotation_deg" inputmode="decimal" value="0"></label>
@@ -1943,6 +1953,8 @@ window.irSchemePage=async function(objectId){
    f.elements.axis_y.innerHTML=axisOptions(editorGrid.axesY,prevY);
    f.elements.end_axis_x.innerHTML=axisOptions(editorGrid.axesX,editorGrid.axesX[1]||editorGrid.axesX[0]);
    f.elements.end_axis_y.innerHTML=axisOptions(editorGrid.axesY,editorGrid.axesY[0]);
+   f.elements.mid_axis_x.innerHTML=axisOptions(editorGrid.axesX,editorGrid.axesX[1]||editorGrid.axesX[0]);
+   f.elements.mid_axis_y.innerHTML=axisOptions(editorGrid.axesY,editorGrid.axesY[0]);
    if(!reset&&c){
     // Prefer the saved axes and offsets. Nearest-axis matching is only for legacy records.
     const firstX=editorGrid.axesX.includes(String(c.axis_x||""))?String(c.axis_x):editorGrid.axesX.includes(String(c.axisX||""))?String(c.axisX):closestAxis(c.x,editorGrid.axesX,editorGrid.xPos);
@@ -1955,15 +1967,23 @@ window.irSchemePage=async function(objectId){
     f.elements.offset_y_mm.value=c.offset_y_mm!==undefined?c.offset_y_mm:c.y-num(editorGrid.yPos.get(firstY));
     f.elements.end_offset_x_mm.value=c.end_offset_x_mm!==undefined?c.end_offset_x_mm:c.x2-num(editorGrid.xPos.get(eX));
     f.elements.end_offset_y_mm.value=c.end_offset_y_mm!==undefined?c.end_offset_y_mm:c.y2-num(editorGrid.yPos.get(eY));
+    const mxAxis=closestAxis(c.mx,editorGrid.axesX,editorGrid.xPos),myAxis=closestAxis(c.my,editorGrid.axesY,editorGrid.yPos);
+    f.elements.mid_axis_x.value=editorGrid.axesX.includes(String(c.mid_axis_x))?String(c.mid_axis_x):mxAxis;
+    f.elements.mid_axis_y.value=editorGrid.axesY.includes(String(c.mid_axis_y))?String(c.mid_axis_y):myAxis;
+    f.elements.mid_offset_x_mm.value=c.mx-num(editorGrid.xPos.get(f.elements.mid_axis_x.value));
+    f.elements.mid_offset_y_mm.value=c.my-num(editorGrid.yPos.get(f.elements.mid_axis_y.value));
+    f.elements.mid_z_mm.value=c.mz;
    }else{
     f.elements.offset_x_mm.value=0;f.elements.offset_y_mm.value=0;
-    f.elements.end_offset_x_mm.value=0;f.elements.end_offset_y_mm.value=0
+    f.elements.end_offset_x_mm.value=0;f.elements.end_offset_y_mm.value=0;
+    f.elements.mid_offset_x_mm.value=0;f.elements.mid_offset_y_mm.value=0
    }
    const heads=f.querySelectorAll(".scheme-form-axis>b");
    if(heads[0])heads[0].textContent="Направление "+editorGrid.axesX[0]+"–"+editorGrid.axesX.at(-1);
    if(heads[1])heads[1].textContent="Направление "+editorGrid.axesY[0]+"–"+editorGrid.axesY.at(-1);
    f.elements.axis_x._irSelectUI?.refresh?.();f.elements.axis_y._irSelectUI?.refresh?.();
-   f.elements.end_axis_x._irSelectUI?.refresh?.();f.elements.end_axis_y._irSelectUI?.refresh?.()
+   f.elements.end_axis_x._irSelectUI?.refresh?.();f.elements.end_axis_y._irSelectUI?.refresh?.();
+   f.elements.mid_axis_x._irSelectUI?.refresh?.();f.elements.mid_axis_y._irSelectUI?.refresh?.()
   };
   assignAxes(false);
   f.elements.scheme_target.onchange=()=>{
@@ -1976,13 +1996,19 @@ window.irSchemePage=async function(objectId){
   function updateGeometry(defaultHeights=false){
    const kind=f.elements.geometry_type.value,member=kind!=="column",end=document.getElementById("schemeMemberEnd");
    if(end)end.hidden=!member;
+   const middle=document.getElementById("schemeMemberMiddle");if(middle)middle.hidden=kind!=="bent";
    if(defaultHeights&&member){if(kind==="brace"){f.elements.z0_mm.value=0;f.elements.z1_mm.value=8400}else{f.elements.z0_mm.value=8400;f.elements.z1_mm.value=8400}}
    if(defaultHeights&&!member){f.elements.z0_mm.value=0;f.elements.z1_mm.value=8400}
+   if(defaultHeights&&kind==="bent"){f.elements.z0_mm.value=9400;f.elements.z1_mm.value=9400;f.elements.mid_z_mm.value=10000}
    refreshPreview()
   }
   const refreshPreview=()=>{
-   const ax=f.elements.axis_x.value,ay=f.elements.axis_y.value,x=num(editorGrid.xPos.get(ax))+num(f.elements.offset_x_mm.value),y=num(editorGrid.yPos.get(ay))+num(f.elements.offset_y_mm.value),member=f.elements.geometry_type.value!=="column",endX=num(editorGrid.xPos.get(f.elements.end_axis_x.value))+num(f.elements.end_offset_x_mm.value),endY=num(editorGrid.yPos.get(f.elements.end_axis_y.value))+num(f.elements.end_offset_y_mm.value);
-   document.getElementById("schemeCoordPreview").innerHTML=`<span>Точные координаты</span><b>Начало X = ${fmt(x)} мм · Y = ${fmt(y)} мм</b><small>${member?`Конец X = ${fmt(endX)} мм · Y = ${fmt(endY)} мм`:"Колонна расположена вертикально"}</small>`;
+   const ax=f.elements.axis_x.value,ay=f.elements.axis_y.value,x=num(editorGrid.xPos.get(ax))+num(f.elements.offset_x_mm.value),y=num(editorGrid.yPos.get(ay))+num(f.elements.offset_y_mm.value),member=f.elements.geometry_type.value!=="column",endX=num(editorGrid.xPos.get(f.elements.end_axis_x.value))+num(f.elements.end_offset_x_mm.value),endY=num(editorGrid.yPos.get(f.elements.end_axis_y.value))+num(f.elements.end_offset_y_mm.value),
+   bent=f.elements.geometry_type.value==="bent",
+   mx=num(editorGrid.xPos.get(f.elements.mid_axis_x.value))+num(f.elements.mid_offset_x_mm.value),
+   my=num(editorGrid.yPos.get(f.elements.mid_axis_y.value))+num(f.elements.mid_offset_y_mm.value),
+   length=bent?Math.hypot(mx-x,my-y,num(f.elements.mid_z_mm.value)-num(f.elements.z0_mm.value))+Math.hypot(endX-mx,endY-my,num(f.elements.z1_mm.value)-num(f.elements.mid_z_mm.value)):0;
+   document.getElementById("schemeCoordPreview").innerHTML=`<span>Точные координаты</span><b>Начало X = ${fmt(x)} мм · Y = ${fmt(y)} мм</b><small>${member?`${bent?"Конёк X = "+fmt(mx)+" мм · Y = "+fmt(my)+" мм · Z = "+fmt(f.elements.mid_z_mm.value)+" мм · ":""}Конец X = ${fmt(endX)} мм · Y = ${fmt(endY)} мм${bent?" · Длина "+fmt(length)+" мм":""}`:"Колонна расположена вертикально"}</small>`;
   };
   f.elements.geometry_type.onchange=()=>updateGeometry(false);updateGeometry(!c&&f.elements.geometry_type.value!=="column");
   if(placement){
@@ -1995,9 +2021,10 @@ window.irSchemePage=async function(objectId){
    f.elements.end_offset_x_mm.value=end.dx??0;f.elements.end_offset_y_mm.value=end.dy??0;
    f.elements.z0_mm.value=placement.geometry==="column"?0:(start.z??placement.height);
    f.elements.z1_mm.value=placement.geometry==="column"?placement.height:(end.z??placement.height);
+   if(placement.middle){const mid=placement.middle;f.elements.mid_axis_x.value=mid.ax;f.elements.mid_axis_y.value=mid.ay;f.elements.mid_offset_x_mm.value=mid.dx??0;f.elements.mid_offset_y_mm.value=mid.dy??0;f.elements.mid_z_mm.value=mid.z??10000}
    updateGeometry(false);renderMarkOptions();
   }
-  ["axis_x","axis_y","offset_x_mm","offset_y_mm","end_axis_x","end_axis_y","end_offset_x_mm","end_offset_y_mm","z0_mm","z1_mm"].forEach(n=>f.elements[n].addEventListener("input",refreshPreview));refreshPreview();d.showModal()
+  ["axis_x","axis_y","offset_x_mm","offset_y_mm","end_axis_x","end_axis_y","end_offset_x_mm","end_offset_y_mm","mid_axis_x","mid_axis_y","mid_offset_x_mm","mid_offset_y_mm","mid_z_mm","z0_mm","z1_mm"].forEach(n=>f.elements[n].addEventListener("input",refreshPreview));refreshPreview();d.showModal()
  }
  function bindEditor(){
   if(!canEdit())return;const d=document.getElementById("schemeEditor"),f=document.getElementById("schemeForm"),err=document.getElementById("schemeFormError");
@@ -2018,7 +2045,12 @@ window.irSchemePage=async function(objectId){
    const axisX=String(fd.get("axis_x")||targetGrid.axesX[0]),axisY=String(fd.get("axis_y")||targetGrid.axesY[0]),dx=num(fd.get("offset_x_mm")),dy=num(fd.get("offset_y_mm")),x=num(targetGrid.xPos.get(axisX))+dx,y=num(targetGrid.yPos.get(axisY))+dy;
    const kind=String(fd.get("geometry_type")||"column"),z0=num(fd.get("z0_mm")),z1=num(fd.get("z1_mm"));
    const endX=String(fd.get("end_axis_x")||targetGrid.axesX[0]),endY=String(fd.get("end_axis_y")||targetGrid.axesY[0]),endDx=num(fd.get("end_offset_x_mm")),endDy=num(fd.get("end_offset_y_mm")),x2=num(targetGrid.xPos.get(endX))+endDx,y2=num(targetGrid.yPos.get(endY))+endDy;
+   const midX=String(fd.get("mid_axis_x")||targetGrid.axesX[0]),midY=String(fd.get("mid_axis_y")||targetGrid.axesY[0]),mdx=num(fd.get("mid_offset_x_mm")),mdy=num(fd.get("mid_offset_y_mm")),mx=num(targetGrid.xPos.get(midX))+mdx,my=num(targetGrid.yPos.get(midY))+mdy,mz=num(fd.get("mid_z_mm"));
    if(!targetGrid.axesX.includes(axisX)||!targetGrid.axesY.includes(axisY)||kind!=="column"&&(!targetGrid.axesX.includes(endX)||!targetGrid.axesY.includes(endY))){err.textContent="Выберите существующие оси выбранной сетки.";err.hidden=false;return}
+   if(kind==="bent"){
+    if(guessGeometry(m)!=="beam"||!targetGrid.axesX.includes(midX)||!targetGrid.axesY.includes(midY)){err.textContent="Ломаная балка подходит только для балок, ригелей и прогонов. Проверьте оси конька.";err.hidden=false;return}
+    if(!String(fd.get("mid_z_mm")||"").trim()||Math.hypot(mx-x,my-y,mz-z0)<1||Math.hypot(x2-mx,y2-my,z1-mz)<1){err.textContent="Нужны три различные точки и отметка Z конька.";err.hidden=false;return}
+   }
    if(kind==="column"&&z1<=z0){err.textContent="У колонны верх должен быть выше низа.";err.hidden=false;return}
    if(kind!=="column"&&Math.hypot(x2-x,y2-y,z1-z0)<1){err.textContent="Конечная точка должна отличаться от начальной.";err.hidden=false;return}
    const storedRow=id?records().find(x=>String(x.id)===id):null,status=String(fd.get("status")||storedRow?.status||"planned"),section_type=String(fd.get("section_type")||"ibeam"),profile_name=String(fd.get("profile_name")||"").trim(),rot=num(fd.get("rotation_deg"));
@@ -2026,7 +2058,11 @@ window.irSchemePage=async function(objectId){
    let internalPosition=String(existing?.position||existing?.title||"");
    if(!internalPosition){let n=1;do{internalPosition="COL-"+String(n++).padStart(4,"0")}while(used.has(internalPosition))}
    const g=markGroup(m),oldRow=id?arr(rows).find(r=>String(r.id)===id):null,previous=oldRow?.data||{},view=targetGrid.view;
-   const payload={record_type:"scheme_column",title:internalPosition,data:{...previous,entity_type:"column",position:internalPosition,mark_id:m.id,mark:m.mark||m.title||"",mark_name:m.name||"",work_type_id:m.work_type_id||"",axis_x:axisX,axis_y:axisY,offset_x_mm:dx,offset_y_mm:dy,absolute_x_mm:x,absolute_y_mm:y,geometry_type:kind,absolute_x2_mm:kind==="column"?undefined:x2,absolute_y2_mm:kind==="column"?undefined:y2,end_axis_x:kind==="column"?undefined:endX,end_axis_y:kind==="column"?undefined:endY,end_offset_x_mm:kind==="column"?undefined:endDx,end_offset_y_mm:kind==="column"?undefined:endDy,end_z_mm:kind==="column"?undefined:z1,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name,scheme_group:g.key,scheme_group_label:g.label,scheme_view_id:view?.id||"all"}};
+   const payload={record_type:"scheme_column",title:internalPosition,data:{...previous,entity_type:"column",position:internalPosition,mark_id:m.id,mark:m.mark||m.title||"",mark_name:m.name||"",work_type_id:m.work_type_id||"",axis_x:axisX,axis_y:axisY,offset_x_mm:dx,offset_y_mm:dy,absolute_x_mm:x,absolute_y_mm:y,geometry_type:kind,absolute_x2_mm:kind==="column"?undefined:x2,absolute_y2_mm:kind==="column"?undefined:y2,
+   absolute_mid_x_mm:kind==="bent"?mx:undefined,absolute_mid_y_mm:kind==="bent"?my:undefined,mid_z_mm:kind==="bent"?mz:undefined,
+   mid_axis_x:kind==="bent"?midX:undefined,mid_axis_y:kind==="bent"?midY:undefined,
+   mid_offset_x_mm:kind==="bent"?mdx:undefined,mid_offset_y_mm:kind==="bent"?mdy:undefined,
+   mid_anchor_member_id:kind==="bent"?previous.mid_anchor_member_id:undefined,end_axis_x:kind==="column"?undefined:endX,end_axis_y:kind==="column"?undefined:endY,end_offset_x_mm:kind==="column"?undefined:endDx,end_offset_y_mm:kind==="column"?undefined:endDy,end_z_mm:kind==="column"?undefined:z1,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name,scheme_group:g.key,scheme_group_label:g.label,scheme_view_id:view?.id||"all"}};
    try{const saved=id?await schemeApi.update(id,payload):await schemeApi.create(payload);rows=await schemeApi.list();selectedId=String(saved?.id||id||"");d.close();if(pendingBuildingPlacement){if(kind!=="column")window.irBuildingView?.placementSaved?.({...pendingBuildingPlacement,savedEnd:{ax:endX,ay:endY,x:x2,y:y2,z:z1}});else window.irBuildingView?.placementCancelled?.();pendingBuildingPlacement=null}draw()}catch(error){err.textContent="Не удалось сохранить элемент: "+String(error?.message||error);err.hidden=false}
   }
  }
@@ -3998,7 +4034,7 @@ window.irSelectUI=(()=>{
  * 2D canvas projection: offline, no dependencies or database access.
  */
 window.irBuildingView=(()=>{
- const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true};
+ const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true,bent:false,middle:null};
  let observer=null,paint=null;
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const html=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -4059,7 +4095,7 @@ window.irBuildingView=(()=>{
   updateLayers();detailPanel.hidden=true;
   const el=id=>host.querySelector("#"+id),canvas=el("irbCanvas"),ctx=canvas.getContext("2d");
   if(!ctx){el("irbProperties").textContent="3D Canvas недоступен";return}
-  const maxZ=Math.max(7000,8400,...cols.map(c=>Math.max(num(c.z0),num(c.z2))),1);
+  const maxZ=Math.max(7000,8400,...cols.map(c=>Math.max(num(c.z0),num(c.z2),c.geometryType==="bent"?num(c.mz):0)),1);
   const projectFactory=()=>{
    const rect=canvas.getBoundingClientRect(),w=Math.max(260,rect.width),h=Math.max(320,rect.height);
     const insetL=state.layersOpen?Math.min(305,w*.24):0,insetR=state.selected||state.placing?Math.min(305,w*.24):0;
@@ -4076,7 +4112,7 @@ window.irBuildingView=(()=>{
    const project=point=>{const v=raw(point);return{x:centerX+state.panX+(v.x-(minX+maxX)/2)*scale,y:h/2+state.panY+(v.y-(minY+maxY)/2)*scale,depth:v.depth}};
    return {w,h,raw,project};
   };
-  const pickGeometry=()=>selectedMark()?.geometry||"column";
+  const pickGeometry=()=>selectedMark()?.geometry==="beam"&&state.bent?"bent":selectedMark()?.geometry||"column";
   const anchorZ=()=>pickGeometry()==="column"?0:maxZ*.94;
   const originAxis=(m,a)=>num(m[a]);
   const anchorPoint=(a,z=a?.z??anchorZ())=>pt(
@@ -4091,10 +4127,10 @@ window.irBuildingView=(()=>{
    Math.abs(originAxis(map,a)-value)<Math.abs(originAxis(map,best)-value)?a:best,axes[0]);
   // Invert the orthographic projection on Z=0: this also allows placing
   // columns between axes, instead of restricting users to grid intersections.
-  const groundAt=(x,y)=>{
+  const groundAt=(x,y,z=0)=>{
    if(Math.abs(Math.sin(state.pitch))<.18)return null; // front/side views are edge-on
-   const project=projectFactory().project,o=project(pt(0,0,0)),
-    xp=project(pt(1000,0,0)),yp=project(pt(0,1000,0)),
+   const project=projectFactory().project,o=project(pt(0,0,z)),
+    xp=project(pt(1000,0,z)),yp=project(pt(0,1000,z)),
     xx=xp.x-o.x,xy=xp.y-o.y,yx=yp.x-o.x,yy=yp.y-o.y,
     det=xx*yy-yx*xy;
    if(Math.abs(det)<.01)return null;
@@ -4103,7 +4139,7 @@ window.irBuildingView=(()=>{
     worldY=Math.round(1000*(xx*dy-xy*dx)/det);
    if(worldX<0||worldX>spanX||worldY<0||worldY>spanY)return null;
    return{kind:"ground",x:closest(axesX,gridX,worldX),y:closest(axesY,gridY,worldY),
-    worldX,worldY,z:0,zConfirmed:true};
+    worldX,worldY,z,zConfirmed:pickGeometry()==="column"};
   };
   const columnOccupied=a=>!!a&&cols.some(c=>c.geometryType==="column"&&
    Math.hypot(num(c.x)-num(a.worldX),num(c.y)-num(a.worldY))<25&&Math.abs(num(c.z0)-num(a.z))<25);
@@ -4114,7 +4150,7 @@ window.irBuildingView=(()=>{
     x,y,worldX:num(c.x),worldY:num(c.y),z:num(c.z2),zConfirmed:true,minZ:Math.min(num(c.z0),num(c.z2)),maxZ:Math.max(num(c.z0),num(c.z2))}
   });
   const memberAnchors=()=>cols.filter(c=>c.geometryType!=="column").flatMap(c=>
-   [{worldX:num(c.x),worldY:num(c.y),z:num(c.z0)},{worldX:num(c.x2),worldY:num(c.y2),z:num(c.z2)}].map(v=>({
+   [{worldX:num(c.x),worldY:num(c.y),z:num(c.z0)},...(c.geometryType==="bent"?[{worldX:num(c.mx),worldY:num(c.my),z:num(c.mz)}]:[]),{worldX:num(c.x2),worldY:num(c.y2),z:num(c.z2)}].map(v=>({
     kind:"member",memberId:String(c.id),label:String(c.mark||"Элемент"),
     x:closest(axesX,gridX,v.worldX),y:closest(axesY,gridY,v.worldY),...v,zConfirmed:true
    }))
@@ -4122,16 +4158,16 @@ window.irBuildingView=(()=>{
   const memberSegmentHit=(x,y)=>{
    if(pickGeometry()==="column")return null;
    const project=projectFactory().project;let best=11,hit=null;
-   for(const c of cols){
-    if(c.geometryType==="column")continue;
-    const a=project(pt(c.x,c.y,c.z0)),b=project(pt(c.x2,c.y2,c.z2)),dx=b.x-a.x,dy=b.y-a.y,den=dx*dx+dy*dy;
+   for(const s of memberSegments()){
+    if(s.c.geometryType==="column")continue;
+    const a=project(s.start),b=project(s.end),dx=b.x-a.x,dy=b.y-a.y,den=dx*dx+dy*dy;
     if(den<20)continue;
     const t=clamp(((x-a.x)*dx+(y-a.y)*dy)/den,0,1),distance=Math.hypot(x-a.x-dx*t,y-a.y-dy*t);
     if(distance>best)continue;
-    const px=num(c.x)+(num(c.x2)-num(c.x))*t,py=num(c.y)+(num(c.y2)-num(c.y))*t;
-    best=distance;hit={kind:"member",memberId:String(c.id),label:String(c.mark||"Элемент"),
+    const px=s.start.x+(s.end.x-s.start.x)*t,py=s.start.y+(s.end.y-s.start.y)*t;
+    best=distance;hit={kind:"member",memberId:String(s.c.id),memberPart:s.part,label:String(s.c.mark||"Элемент"),
      x:closest(axesX,gridX,px),y:closest(axesY,gridY,py),worldX:Math.round(px),worldY:Math.round(py),
-     z:Math.round(num(c.z0)+(num(c.z2)-num(c.z0))*t),zConfirmed:true};
+     z:Math.round(s.start.z+(s.end.z-s.start.z)*t),zConfirmed:true};
    }
    return hit;
   };
@@ -4166,9 +4202,10 @@ window.irBuildingView=(()=>{
    return d(hits[0])<=d(hits[1])?hits[0]:hits[1];
   };
   const sameAnchor=(a,b)=>Boolean(a&&b&&Math.hypot(num(a.worldX)-num(b.worldX),num(a.worldY)-num(b.worldY),num(a.z)-num(b.z))<1);
-  const memberSegments=()=>cols.map(c=>{
+  const memberSegments=()=>cols.flatMap(c=>{
     const start=pt(c.x,c.y,c.z0),end=pt(c.geometryType==="column"?c.x:c.x2,c.geometryType==="column"?c.y:c.y2,c.z2);
-    return {c,start,end};
+    if(c.geometryType==="bent"){const mid=pt(c.mx,c.my,c.mz);return[{c,start,end:mid,part:0},{c,start:mid,end,part:1}]}
+    return[{c,start,end,part:0}];
   });
   const paintLabel=(p,label,border)=>{ctx.font="700 10px Segoe UI,Arial";const w=Math.max(24,ctx.measureText(label).width+15);ctx.fillStyle="#fff";ctx.strokeStyle=border;ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(p.x-w/2,p.y-25,w,20,5);ctx.fill();ctx.stroke();ctx.fillStyle="#24649a";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(label,p.x,p.y-15)};
   const line=(a,b,color,width=1,dash=[])=>{ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.setLineDash(dash);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke();ctx.setLineDash([])};
@@ -4208,20 +4245,20 @@ window.irBuildingView=(()=>{
      const steps=Math.max(2,Math.min(9,Math.round(len/35)));
      for(let i=0;i<steps;i++)line({x:s.a.x+dx*i/steps,y:s.a.y+dy*i/steps},{x:s.a.x+dx*(i+1)/steps+ox*(i%2),y:s.a.y+dy*(i+1)/steps+oy*(i%2)},color,1.2);
     }
-    if(chosen||props.showLabels&&segments.length<120)paintLabel({x:(s.a.x+s.b.x)/2,y:(s.a.y+s.b.y)/2},String(s.c.mark||"?"),chosen?"#2c85e9":"#c7d9e9");
+    if(s.part===0&&(chosen||props.showLabels&&segments.length<120))paintLabel({x:(s.a.x+s.b.x)/2,y:(s.a.y+s.b.y)/2},String(s.c.mark||"?"),chosen?"#2c85e9":"#c7d9e9");
    }
    if(state.placing){
     // Free grid nodes are small; real column heads are prominent blue points.
     for(const a of gridAnchors()){
-     const q=m.project(anchorPoint(a)),selected=sameAnchor(a,state.start)||sameAnchor(a,state.end);
+     const q=m.project(anchorPoint(a)),selected=sameAnchor(a,state.start)||sameAnchor(a,state.middle)||sameAnchor(a,state.end);
      circle(q,selected?5.8:2.7,selected?"#ed9a2b":"rgba(88,143,194,.62)");
     }
     if(pickGeometry()!=="column")for(const a of [...columnAnchors(),...memberAnchors()]){
-     const q=m.project(anchorPoint(a)),selected=sameAnchor(a,state.start)||sameAnchor(a,state.end);
+     const q=m.project(anchorPoint(a)),selected=sameAnchor(a,state.start)||sameAnchor(a,state.middle)||sameAnchor(a,state.end);
      circle(q,selected?8.5:6.2,"#fff");
      circle(q,selected?6.2:4.5,selected?"#ee9a25":"#217ce7");
     }
-    if(state.hoverAnchor&&!sameAnchor(state.hoverAnchor,state.start)&&!sameAnchor(state.hoverAnchor,state.end)){
+    if(state.hoverAnchor&&!sameAnchor(state.hoverAnchor,state.start)&&!sameAnchor(state.hoverAnchor,state.middle)&&!sameAnchor(state.hoverAnchor,state.end)){
      const hover=m.project(anchorPoint(state.hoverAnchor));
      circle(hover,7,"#fff");circle(hover,5,"#e89927")
     }
@@ -4243,9 +4280,16 @@ window.irBuildingView=(()=>{
      }
     }else if(state.start){
      const a=m.project(anchorPoint(state.start));
-     const b=m.project(pickGeometry()==="column"?anchorPoint(state.start,maxZ*.94):state.end?anchorPoint(state.end):anchorPoint(state.start));
-     line(a,b,"#e5982e",4,[7,4]);
-     circle(a,5.8,"#e5982e");if(state.end)circle(b,5.8,"#e5982e");
+     if(pickGeometry()==="bent"){
+      const middle=state.middle?m.project(anchorPoint(state.middle)):state.hoverAnchor?m.project(anchorPoint(state.hoverAnchor)):null,
+       end=state.end?m.project(anchorPoint(state.end)):state.middle&&state.hoverAnchor?m.project(anchorPoint(state.hoverAnchor)):null;
+      if(middle){line(a,middle,"#e5982e",4,[7,4]);circle(middle,5.8,"#e5982e")}
+      if(middle&&end){line(middle,end,"#e5982e",4,[7,4]);circle(end,5.8,"#e5982e")}
+     }else{
+      const b=m.project(pickGeometry()==="column"?anchorPoint(state.start,maxZ*.94):state.end?anchorPoint(state.end):anchorPoint(state.start));
+      line(a,b,"#e5982e",4,[7,4]);if(state.end)circle(b,5.8,"#e5982e");
+     }
+     circle(a,5.8,"#e5982e");
     }
    };
   };
@@ -4263,7 +4307,8 @@ window.irBuildingView=(()=>{
    }
    const segment=segmentHit(x,y);
    if(pickGeometry()==="column")return best||groundAt(x,y);
-   return segment&&(!best||minScore>5)?segment:best
+   const snap=segment&&(!best||minScore>5)?segment:best;
+   return snap||(pickGeometry()==="bent"?groundAt(x,y,anchorZ()):null)
   };
   const position=a=>a?html((a.kind==="column"||a.kind==="member"?a.label+" · крепление · ":a.kind==="ground"?"Между осями · ":"Ось ")+a.x+" / "+a.y+
    " · X "+fmt(a.worldX)+" · Y "+fmt(a.worldY)+" · Z "+(a.zConfirmed===false?"нужно указать":fmt(a.z)+" мм")+
@@ -4290,14 +4335,16 @@ window.irBuildingView=(()=>{
    el("irbHint").textContent=!state.placing?"ЛКМ — вращение · колесо — масштаб · нажатие на элемент — свойства":
     column&&state.directColumns?(!hasHeight?"Сначала задайте «Верх Z, мм» · затем щёлкните по месту колонны":
      "Наведите курсор — появится колонна · щелчок — установить · перетаскивание — вращать"):
+    pickGeometry()==="bent"?(!state.start?"1. Выберите начало балки":!state.middle?"2. Выберите конёк / излом":!state.end?"3. Выберите конец балки":"Проверьте три отметки Z и сохраните одну марку"):
     !state.start?"1. Выберите начальную точку":column||state.end?"Проверьте отметки и нажмите «Сохранить на схеме»":"2. Выберите конечную точку";
   };
   function refreshPanel(){
    const m=selectedMark(),left=num(m?.left),column=m?.geometry==="column",available=left>0;
    updateHint();
    const pane=el("irbProperties");
-    const readyToSave=()=>!!(state.start&&selectedMark()?.left>0&&(selectedMark()?.geometry==="column"||state.end)&&state.start.zConfirmed!==false&&
-     (selectedMark()?.geometry==="column"?state.topZ!==""&&Number.isFinite(Number(state.topZ))&&Number(state.topZ)>num(state.start.z):state.end?.zConfirmed!==false));
+    const readyToSave=()=>!!(state.start&&selectedMark()?.left>0&&(column||state.end)&&state.start.zConfirmed!==false&&
+     (column?state.topZ!==""&&Number.isFinite(Number(state.topZ))&&Number(state.topZ)>num(state.start.z):
+      state.end?.zConfirmed!==false&&(pickGeometry()!=="bent"||state.middle&&state.middle.zConfirmed!==false)));
    const ready=readyToSave();
    const current=cols.find(c=>String(c.id)===String(state.selected));
    pane.hidden=!state.placing&&!current;
@@ -4307,22 +4354,24 @@ window.irBuildingView=(()=>{
     '<label class="irb-field">Марка из ведомости<select id="irbMark">'+markOptions()+'</select><small>Найдено: '+matchedCount()+' из '+marks.length+'</small></label>'+
     '<div class="irb-placement-type"><span>Тип выбранной марки</span><b>'+html(column?"Колонна / стойка":m?.geometry==="brace"?"Связь / раскос":m?.geometry==="truss"?"Ферма":"Балка / ригель / прогон")+'</b>'+
      (!column?'<small>Для установки колонн щелчком выберите марку из категории «Колонны», «Фахверки» или «Стойки».</small>':"")+'</div>'+
+    (m?.geometry==="beam"?'<label class="irb-zigzag"><input id="irbBentMode" type="checkbox" '+(state.bent?"checked":"")+'><span><b>Ломаная балка (3 точки)</b><small>Начало → конёк → конец. Два ската считаются одной отправочной маркой.</small></span></label>':"")+
     '<div class="irb-quota">По ведомости: '+num(m?.total)+' шт.<br>На схеме: '+num(m?.placed)+' шт.<br><b>Осталось: '+left+' шт.</b></div>'+
     (column?'<div class="irb-direct-info"><b>Установка колонн на каркасе</b><span>Укажите верх Z по КМД. Затем наведите мышь на модель: появится контур колонны. Один щелчок размещает её на выбранной точке, в том числе между осями.</span></div>'+
     '<label class="irb-click-toggle"><input type="checkbox" id="irbClickPlace" '+(state.directColumns?"checked":"")+'><span>Устанавливать колонны щелчком</span></label>'+
     '<div class="irb-hover-position" id="irbHoverPosition"></div>':"")+
     '<div class="irb-anchor"><b>1. Начало</b><span>'+position(state.start)+'</span>'+zEditor(state.start,"start")+'</div>'+
-    '<div class="irb-anchor"><b>2. '+(column?"Верх колонны":"Конец")+'</b><span>'+(column?"Укажите проектную отметку":position(state.end))+'</span>'+(column?'<label class="irb-level">Верх Z, мм<input type="number" step="1" id="irbTopZ" placeholder="По КМД" value="'+html(state.topZ)+'"></label>':zEditor(state.end,"end"))+'</div>'+
+    (pickGeometry()==="bent"?'<div class="irb-anchor"><b>2. Конёк / излом</b><span>'+position(state.middle)+'</span>'+zEditor(state.middle,"middle")+'</div>':"")+
+    '<div class="irb-anchor"><b>'+(pickGeometry()==="bent"?"3. Конец":column?"2. Верх колонны":"2. Конец")+'</b><span>'+(column?"Укажите проектную отметку":position(state.end))+'</span>'+(column?'<label class="irb-level">Верх Z, мм<input type="number" step="1" id="irbTopZ" placeholder="По КМД" value="'+html(state.topZ)+'"></label>':zEditor(state.end,"end"))+'</div>'+
     (typeof props.onQuickPlace==="function"?'<label class="irb-zigzag"><input id="irbRepeat" type="checkbox" '+(state.repeat?"checked":"")+'><span><b>Серия одной марки</b><small>После сохранения выбирайте следующие точки без повторного поиска марки (пока есть остаток).</small></span></label>':"")+
-     (!column?'<label class="irb-zigzag"><input id="irbZigzag" type="checkbox" '+(state.zigzag?"checked":"")+'><span><b>Зигзаг / цепочка</b><small>После сохранения следующая связь начнётся от конца предыдущей. Каждому отрезку соответствует своя марка из ведомости.</small></span></label>':"")+
+     (!column&&pickGeometry()!=="bent"?'<label class="irb-zigzag"><input id="irbZigzag" type="checkbox" '+(state.zigzag?"checked":"")+'><span><b>Зигзаг / цепочка</b><small>После сохранения следующая связь начнётся от конца предыдущей. Каждому отрезку соответствует своя марка из ведомости.</small></span></label>':"")+
     '<p class="irb-help">'+(column?"Точная привязка к сетке либо свободная точка между осями. В виде «Фасад» и «Сбоку» для установки используйте изометрию или вид сверху.":"Привязка к колоннам, балкам и ригелям. Для точек сетки требуется проектная отметка Z по КМД.")+'</p>'+
      '<div class="irb-form-error" id="irbQuickError" role="alert" '+(state.error?'':'hidden')+'>'+html(state.error)+'</div>'+
      (typeof props.onQuickPlace==="function"?'<button type="button" class="irb-save irb-quick-save" id="irbQuickSave" '+(!ready||state.busy?'disabled':'')+'>✓ Сохранить на схеме</button>':'')+
-    '<button class="irb-save" id="irbContinue" '+(!(state.start&&(column||state.end)&&available)?'disabled':'')+'>Продолжить в редакторе →</button>'+
+    '<button class="irb-save" id="irbContinue" '+(!(state.start&&(column||state.end)&&(pickGeometry()!=="bent"||state.middle)&&available)?'disabled':'')+'>Продолжить в редакторе →</button>'+
     '<button class="irb-secondary" id="irbClear">Сбросить точки</button><button class="irb-secondary" id="irbCancel">Отмена</button>';
     el("irbMark").onchange=e=>{
      const next=markById(e.target.value),keep=state.continuing&&next?.geometry!=="column";
-     state.mark=e.target.value;state.topZ="";state.error="";if(!keep){state.start=null;state.continuing=false}
+     state.mark=e.target.value;state.topZ="";state.error="";state.bent=false;state.middle=null;if(!keep){state.start=null;state.continuing=false}
      if(next?.geometry==="column")state.zigzag=false;
      state.repeat=next?.geometry==="column";
      state.hoverAnchor=null;state.end=null;refreshPanel();paint()
@@ -4332,7 +4381,7 @@ window.irBuildingView=(()=>{
      state.markSearch=e.target.value;state.topZ="";state.error="";
      const matched=marks.filter(a=>a.left>0&&searchMatches(a));
      if(!matched.some(a=>a.id===state.mark)){
-      const next=matched[0];state.mark=next?.id||"";
+      const next=matched[0];state.mark=next?.id||"";state.bent=false;state.middle=null;
       if(!state.continuing||next?.geometry==="column"){state.start=null;state.continuing=false}
       if(next?.geometry==="column")state.zigzag=false;
       state.repeat=next?.geometry==="column";
@@ -4340,6 +4389,9 @@ window.irBuildingView=(()=>{
      }
      refreshPanel();paint();
      const input=el("irbMarkSearch");input.focus();input.setSelectionRange(cursor,cursor)
+    };
+    if(el("irbBentMode"))el("irbBentMode").onchange=e=>{
+     state.bent=e.target.checked;state.start=null;state.middle=null;state.end=null;state.error="";state.zigzag=false;state.repeat=false;refreshPanel();paint()
     };
     if(el("irbRepeat"))el("irbRepeat").onchange=e=>{state.repeat=e.target.checked};
     if(el("irbClickPlace"))el("irbClickPlace").onchange=e=>{state.directColumns=e.target.checked;updateHint();paint()};
@@ -4351,7 +4403,7 @@ window.irBuildingView=(()=>{
       updateHint();paint();
      };
      pane.querySelectorAll("[data-irb-level]").forEach(input=>input.onchange=e=>{
-     const a=e.target.dataset.irbLevel==="start"?state.start:state.end;
+     const a=e.target.dataset.irbLevel==="start"?state.start:e.target.dataset.irbLevel==="middle"?state.middle:state.end;
      if(!a)return;
      const value=Number(e.target.value);
      if(e.target.value===""||!Number.isFinite(value)||value<num(a.kind==="column"?a.minZ:-20000)||value>num(a.kind==="column"?a.maxZ:200000)){e.target.value=a.zConfirmed===false?"":String(a.z);return}
@@ -4359,21 +4411,32 @@ window.irBuildingView=(()=>{
      if(a.kind==="member"&&a.memberId){
       const ref=cols.find(c=>String(c.id)===String(a.memberId));
       if(ref){
-       const base=num(ref.z0),dz=num(ref.z2)-base;
+       const joints=ref.geometryType==="bent"?[
+        [pt(ref.x,ref.y,ref.z0),pt(ref.mx,ref.my,ref.mz)],
+        [pt(ref.mx,ref.my,ref.mz),pt(ref.x2,ref.y2,ref.z2)]]:
+        [[pt(ref.x,ref.y,ref.z0),pt(ref.x2,ref.y2,ref.z2)]];
+       const closeSegment=([start,end])=>{
+        const v=pt(end.x-start.x,end.y-start.y,end.z-start.z),
+         t=clamp(((num(a.worldX)-start.x)*v.x+(num(a.worldY)-start.y)*v.y+(num(a.z)-start.z)*v.z)/(v.x*v.x+v.y*v.y+v.z*v.z||1),0,1);
+        return Math.hypot(num(a.worldX)-start.x-v.x*t,num(a.worldY)-start.y-v.y*t,num(a.z)-start.z-v.z*t)
+       };
+       const segment=a.memberPart!==undefined?joints[a.memberPart]:joints.slice().sort((q,t)=>closeSegment(q)-closeSegment(t))[0];
+       if(!segment){e.target.value=String(Math.round(a.z));return}
+       const [start,end]=segment,dz=end.z-start.z;
        if(Math.abs(dz)<1){
-        if(Math.abs(value-base)>.5){e.target.value=String(Math.round(a.z));return}
+        if(Math.abs(value-start.z)>.5){e.target.value=String(Math.round(a.z));return}
        }else{
-        const t=(value-base)/dz;
+        const t=(value-start.z)/dz;
         if(t<0||t>1){e.target.value=String(Math.round(a.z));return}
-        a.worldX=Math.round(num(ref.x)+(num(ref.x2)-num(ref.x))*t);
-        a.worldY=Math.round(num(ref.y)+(num(ref.y2)-num(ref.y))*t);
+        a.worldX=Math.round(start.x+(end.x-start.x)*t);
+        a.worldY=Math.round(start.y+(end.y-start.y)*t);
         a.x=closest(axesX,gridX,a.worldX);a.y=closest(axesY,gridY,a.worldY)
        }
       }
      }
      a.z=Math.round(value);a.zConfirmed=true;state.error="";refreshPanel();paint()
     });
-    el("irbClear").onclick=()=>{state.start=null;state.end=null;state.error="";state.continuing=false;refreshPanel();paint()};
+    el("irbClear").onclick=()=>{state.start=null;state.middle=null;state.end=null;state.error="";state.continuing=false;refreshPanel();paint()};
     el("irbCancel").onclick=()=>{state.placing=false;state.start=null;state.end=null;state.chainNext=null;state.continuing=false;refreshPanel();paint()};
          const quickSave=el("irbQuickSave");
      commitQuickPlacement=async()=>{
@@ -4384,7 +4447,7 @@ window.irBuildingView=(()=>{
        return
       }
       const pack=a=>a?{ax:a.x,ay:a.y,dx:num(a.worldX)-originAxis(gridX,a.x),dy:num(a.worldY)-originAxis(gridY,a.y),z:num(a.z),memberId:a.memberId||a.columnId||""}:null;
-      const data={markId:state.mark,start:pack(state.start),end:column?null:pack(state.end),topZ:column?Number(state.topZ):undefined,geometry:m.geometry,zigzag:state.zigzag};
+      const data={markId:state.mark,start:pack(state.start),middle:pickGeometry()==="bent"?pack(state.middle):null,end:column?null:pack(state.end),topZ:column?Number(state.topZ):undefined,geometry:pickGeometry(),zigzag:state.zigzag&&!state.bent};
       state.busy=true;quickSave.disabled=true;state.error="";
       try{
        const result=await props.onQuickPlace(data);
@@ -4392,8 +4455,8 @@ window.irBuildingView=(()=>{
         state.start={...state.end,zConfirmed:true,worldX:num(result.savedEnd.x),worldY:num(result.savedEnd.y),z:num(result.savedEnd.z)};
         state.end=null;state.placing=true;state.continuing=true;
        }else if(state.repeat&&num(m.left)>1){
-        state.start=null;state.end=null;state.placing=true;state.continuing=false;
-       }else{state.start=null;state.end=null;state.placing=false;state.continuing=false}
+        state.start=null;state.middle=null;state.end=null;state.placing=true;state.continuing=false;
+       }else{state.start=null;state.middle=null;state.end=null;state.placing=false;state.continuing=false}
        if(!(column&&state.placing&&state.repeat))state.topZ="";
        state.error="";state.busy=false;state.hoverAnchor=null;
        props.onQuickPlaced?.(result);
@@ -4401,9 +4464,9 @@ window.irBuildingView=(()=>{
      };
      if(quickSave)quickSave.onclick=commitQuickPlacement;
      el("irbContinue").onclick=()=>{
-     if(!state.start||!selectedMark()||left<=0||!column&&!state.end)return;
+     if(!state.start||!selectedMark()||left<=0||!column&&!state.end||pickGeometry()==="bent"&&!state.middle)return;
      const pack=a=>a?{ax:a.x,ay:a.y,dx:num(a.worldX)-originAxis(gridX,a.x),dy:num(a.worldY)-originAxis(gridY,a.y),z:num(a.z),source:a.kind,columnId:a.columnId||""}:null;
-     const data={markId:state.mark,start:pack(state.start),end:pack(state.end),geometry:m.geometry,height:maxZ,zigzag:state.zigzag};
+     const data={markId:state.mark,start:pack(state.start),middle:pickGeometry()==="bent"?pack(state.middle):null,end:pack(state.end),geometry:pickGeometry(),height:maxZ,zigzag:state.zigzag&&!state.bent};
      state.chainNext=state.zigzag&&state.end?{...state.end}:null;
      state.placing=false;state.continuing=false;refreshPanel();paint();props.onPlacement(data);
     };
@@ -4413,8 +4476,9 @@ window.irBuildingView=(()=>{
       (c?'<div class="irb-selected"><small>Выбранная марка</small><strong>'+html(c.mark||"—")+'</strong><span>'+html(c.mark_name||c.title||"")+'</span><em>'+html(c.status==="mounted"?"Смонтировано":c.status==="partial"?"Частично":"Не смонтировано")+'</em></div>'+
       '<div class="irb-row"><span>Начальная ось</span><b>'+html(c.axisX+" / "+c.axisY)+'</b></div>'+
       '<div class="irb-row"><span>Начало, мм</span><b>X '+fmt(c.x)+' · Y '+fmt(c.y)+' · Z '+fmt(c.z0)+'</b></div>'+
+       (c.geometryType==="bent"?'<div class="irb-row"><span>Конёк / излом, мм</span><b>X '+fmt(c.mx)+' · Y '+fmt(c.my)+' · Z '+fmt(c.mz)+'</b></div>':"")+
        '<div class="irb-row"><span>Конец, мм</span><b>X '+fmt(c.x2??c.x)+' · Y '+fmt(c.y2??c.y)+' · Z '+fmt(c.z2)+'</b></div>'+
-       '<div class="irb-row irb-length"><span>Длина элемента по осям</span><b>'+fmt(Math.hypot(num(c.x2??c.x)-num(c.x),num(c.y2??c.y)-num(c.y),num(c.z2)-num(c.z0)))+' мм · '+(Math.hypot(num(c.x2??c.x)-num(c.x),num(c.y2??c.y)-num(c.y),num(c.z2)-num(c.z0))/1000).toLocaleString("ru-RU",{minimumFractionDigits:3,maximumFractionDigits:3})+' м</b></div>'+
+       '<div class="irb-row irb-length"><span>Длина элемента по осям</span><b>'+fmt(c.geometryType==="bent"?Math.hypot(num(c.mx)-num(c.x),num(c.my)-num(c.y),num(c.mz)-num(c.z0))+Math.hypot(num(c.x2)-num(c.mx),num(c.y2)-num(c.my),num(c.z2)-num(c.mz)):Math.hypot(num(c.x2??c.x)-num(c.x),num(c.y2??c.y)-num(c.y),num(c.z2)-num(c.z0)))+' мм · '+(c.geometryType==="bent"?Math.hypot(num(c.mx)-num(c.x),num(c.my)-num(c.y),num(c.mz)-num(c.z0))+Math.hypot(num(c.x2)-num(c.mx),num(c.y2)-num(c.my),num(c.z2)-num(c.mz)):Math.hypot(num(c.x2??c.x)-num(c.x),num(c.y2??c.y)-num(c.y),num(c.z2)-num(c.z0)))/1000.toLocaleString("ru-RU",{minimumFractionDigits:3,maximumFractionDigits:3})+' м</b></div>'+
       '<div class="irb-row"><span>Отметка низа, мм</span><b>'+fmt(c.z0)+'</b></div>'+
       '<div class="irb-row"><span>Отметка конца, мм</span><b>'+fmt(c.z2)+'</b></div>'+
       (props.canEdit?'<div class="irb-action-row">'+
@@ -4443,7 +4507,7 @@ window.irBuildingView=(()=>{
   }
   function startPlacement(){
    if(!props.canEdit||!marks.some(m=>m.left>0))return;
-   state.placing=true;state.start=null;state.end=null;state.chainNext=null;state.continuing=false;state.topZ="";state.error="";state.markSearch="";state.hoverAnchor=null;state.directColumns=true;state.mark=leftMark().find(m=>m.id===state.mark)?.id||leftMark()[0]?.id||"";state.repeat=selectedMark()?.geometry==="column";
+   state.placing=true;state.start=null;state.middle=null;state.end=null;state.chainNext=null;state.continuing=false;state.topZ="";state.error="";state.markSearch="";state.hoverAnchor=null;state.directColumns=true;state.bent=false;state.mark=leftMark().find(m=>m.id===state.mark)?.id||leftMark()[0]?.id||"";state.repeat=selectedMark()?.geometry==="column";
    refreshPanel();paint();
   }
   const setCamera=mode=>{
@@ -4481,7 +4545,7 @@ window.irBuildingView=(()=>{
      (Math.hypot(num(anchor.worldX)-num(previous.worldX),num(anchor.worldY)-num(previous.worldY))>15||
       Math.abs(num(anchor.z)-num(previous.z))>50||anchor.kind!==previous.kind);
     if(changed){state.hoverAnchor=anchor;updateHoverInfo();paint()}
-    canvas.style.cursor=columnOccupied(anchor)?"not-allowed":"crosshair"
+    canvas.style.cursor=pickGeometry()==="column"&&columnOccupied(anchor)?"not-allowed":"crosshair"
    }
   };
   canvas.onpointerup=e=>{
@@ -4495,8 +4559,11 @@ window.irBuildingView=(()=>{
      state.error="В выбранной точке уже есть колонна. Выберите свободное место.";
      refreshPanel();paint();return
     }
-    if(!state.start||state.end||column){state.start=a;state.end=null;if(!column)state.topZ="";}
-    else if(!sameAnchor(a,state.start))state.end=a;
+    if(!state.start||state.end||column){state.start=a;state.middle=null;state.end=null;if(!column)state.topZ="";}
+    else if(pickGeometry()==="bent"){
+     if(!state.middle){if(!sameAnchor(a,state.start))state.middle=a}
+     else if(!sameAnchor(a,state.middle)&&!sameAnchor(a,state.start))state.end=a;
+    }else if(!sameAnchor(a,state.start))state.end=a;
     state.error="";refreshPanel();paint();
     if(column&&state.directColumns&&state.topZ!==""&&
      Number.isFinite(Number(state.topZ))&&Number(state.topZ)>num(a.z)){
@@ -4527,7 +4594,7 @@ window.irBuildingView=(()=>{
    state.end=null;state.placing=true;state.continuing=true;
    state.markSearch="";state.hoverAnchor=null;state.chainNext=null
   },
-  placementCancelled:()=>{state.chainNext=null;state.continuing=false;state.placing=false;state.start=null;state.end=null;state.hoverAnchor=null},
+  placementCancelled:()=>{state.chainNext=null;state.continuing=false;state.placing=false;state.start=null;state.middle=null;state.end=null;state.hoverAnchor=null},
   dispose:()=>{observer?.disconnect();observer=null;paint=null}};
 })();
 ;
