@@ -6,7 +6,7 @@
  * 2D canvas projection: offline, no dependencies or database access.
  */
 window.irBuildingView=(()=>{
- const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true,bent:false,middle:null,colorMode:"status",hiddenSections:[],sectionKey:"",sectionsOpen:false,findQuery:""};
+ const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true,bent:false,middle:null,ridgeMode:"center",colorMode:"status",hiddenSections:[],sectionKey:"",sectionsOpen:false,findQuery:""};
  let observer=null,paint=null,webgl=null,panelsInitialized=false,animationFrame=0,drawFrame=null;
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const html=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -349,6 +349,16 @@ window.irBuildingView=(()=>{
   };
   const closest=(axes,map,value)=>axes.reduce((best,a)=>
    Math.abs(originAxis(map,a)-value)<Math.abs(originAxis(map,best)-value)?a:best,axes[0]);
+  const centeredRidge=()=>state.bent&&state.ridgeMode==="center";
+  const recenterRidge=()=>{
+   if(!centeredRidge()||!state.start||!state.end)return;
+   const x=Math.round((num(state.start.worldX)+num(state.end.worldX))/2),
+    y=Math.round((num(state.start.worldY)+num(state.end.worldY))/2),
+    previous=state.middle,initialZ=Math.round((num(state.start.z)+num(state.end.z))/2);
+   state.middle={kind:"ground",x:closest(axesX,gridX,x),y:closest(axesY,gridY,y),
+    worldX:x,worldY:y,z:previous?num(previous.z):initialZ,
+    zConfirmed:previous?.zConfirmed===true,autoCentered:true};
+  };
   // Invert the orthographic projection on Z=0: this also allows placing
   // columns between axes, instead of restricting users to grid intersections.
   const groundAt=(x,y,z=0)=>{
@@ -594,7 +604,9 @@ window.irBuildingView=(()=>{
    el("irbHint").textContent=!state.placing?"ЛКМ — вращение · колесо — масштаб · нажатие на элемент — свойства":
     column&&state.directColumns?(!hasHeight?"Сначала задайте «Верх Z, мм» · затем щёлкните по месту колонны":
      "Наведите курсор — появится колонна · щелчок — установить · перетаскивание — вращать"):
-    pickGeometry()==="bent"?(!state.start?"1. Выберите начало балки":!state.middle?"2. Выберите конёк / излом":!state.end?"3. Выберите конец балки":"Проверьте три отметки Z и сохраните одну марку"):
+    pickGeometry()==="bent"?(centeredRidge()?
+     (!state.start?"1. Выберите начало балки":!state.end?"2. Выберите конец балки — конёк X/Y встанет по центру":!state.middle?.zConfirmed?"3. Введите отметку Z конька":"Проверьте отметки Z и сохраните одну марку"):
+     (!state.start?"1. Выберите начало балки":!state.middle?"2. Выберите конёк / излом":!state.end?"3. Выберите конец балки":"Проверьте три отметки Z и сохраните одну марку")):
     !state.start?"1. Выберите начальную точку":column||state.end?"Проверьте отметки и нажмите «Сохранить на схеме»":"2. Выберите конечную точку";
   };
   function refreshPanel(){
@@ -613,14 +625,19 @@ window.irBuildingView=(()=>{
     '<label class="irb-field">Марка из ведомости<select id="irbMark">'+markOptions()+'</select><small>Найдено: '+matchedCount()+' из '+marks.length+'</small></label>'+
     '<div class="irb-placement-type"><span>Тип выбранной марки</span><b>'+html(column?"Колонна / стойка":m?.geometry==="brace"?"Связь / раскос":m?.geometry==="truss"?"Ферма":"Балка / ригель / прогон")+'</b>'+
      (!column?'<small>Для установки колонн щелчком выберите марку из категории «Колонны», «Фахверки» или «Стойки».</small>':"")+'</div>'+
-    (m?.geometry==="beam"?'<label class="irb-zigzag"><input id="irbBentMode" type="checkbox" '+(state.bent?"checked":"")+'><span><b>Ломаная балка (3 точки)</b><small>Начало → конёк → конец. Два ската считаются одной отправочной маркой.</small></span></label>':"")+
+    (m?.geometry==="beam"?'<label class="irb-zigzag"><input id="irbBentMode" type="checkbox" '+(state.bent?"checked":"")+'><span><b>Ломаная балка (3 точки)</b><small>Два наклонных участка — одна отправочная марка.</small></span></label>':"")+
+    (pickGeometry()==="bent"?'<div class="irb-ridge-mode"><b>Положение конька</b>'+
+     '<label><input type="radio" name="irbRidgeMode" value="center" '+(centeredRidge()?"checked":"")+'> По центру (автоматически X/Y)</label>'+
+     '<label><input type="radio" name="irbRidgeMode" value="manual" '+(!centeredRidge()?"checked":"")+'> Вручную (три точки на каркасе)</label>'+
+     '<small>В режиме «По центру» выбирайте начало и конец, а отметку Z конька задайте ниже. Случайные смещения от клика не применяются.</small></div>':"")+
     '<div class="irb-quota">По ведомости: '+num(m?.total)+' шт.<br>На схеме: '+num(m?.placed)+' шт.<br><b>Осталось: '+left+' шт.</b></div>'+
     (column?'<div class="irb-direct-info"><b>Установка колонн на каркасе</b><span>Укажите верх Z по КМД. Затем наведите мышь на модель: появится контур колонны. Один щелчок размещает её на выбранной точке, в том числе между осями.</span></div>'+
     '<label class="irb-click-toggle"><input type="checkbox" id="irbClickPlace" '+(state.directColumns?"checked":"")+'><span>Устанавливать колонны щелчком</span></label>'+
     '<div class="irb-hover-position" id="irbHoverPosition"></div>':"")+
     '<div class="irb-anchor"><b>1. Начало</b><span>'+position(state.start)+'</span>'+zEditor(state.start,"start")+'</div>'+
-    (pickGeometry()==="bent"?'<div class="irb-anchor"><b>2. Конёк / излом</b><span>'+position(state.middle)+'</span>'+zEditor(state.middle,"middle")+'</div>':"")+
-    '<div class="irb-anchor"><b>'+(pickGeometry()==="bent"?"3. Конец":column?"2. Верх колонны":"2. Конец")+'</b><span>'+(column?"Укажите проектную отметку":position(state.end))+'</span>'+(column?'<label class="irb-level">Верх Z, мм<input type="number" step="1" id="irbTopZ" placeholder="По КМД" value="'+html(state.topZ)+'"></label>':zEditor(state.end,"end"))+'</div>'+
+    (pickGeometry()==="bent"?'<div class="irb-anchor"><b>'+(centeredRidge()?"Конёк — автоматически между началом и концом":"2. Конёк / излом")+'</b><span>'+position(state.middle)+'</span>'+zEditor(state.middle,"middle")+
+     (centeredRidge()?'<small class="irb-ridge-note">X/Y рассчитаны по середине пролёта. Для несимметричной балки переключите режим «Вручную».</small>':"")+'</div>':"")+
+    '<div class="irb-anchor"><b>'+(pickGeometry()==="bent"?(centeredRidge()?"2. Конец":"3. Конец"):column?"2. Верх колонны":"2. Конец")+'</b><span>'+(column?"Укажите проектную отметку":position(state.end))+'</span>'+(column?'<label class="irb-level">Верх Z, мм<input type="number" step="1" id="irbTopZ" placeholder="По КМД" value="'+html(state.topZ)+'"></label>':zEditor(state.end,"end"))+'</div>'+
     (typeof props.onQuickPlace==="function"?'<label class="irb-zigzag"><input id="irbRepeat" type="checkbox" '+(state.repeat?"checked":"")+'><span><b>Серия одной марки</b><small>После сохранения выбирайте следующие точки без повторного поиска марки (пока есть остаток).</small></span></label>':"")+
      (!column&&pickGeometry()!=="bent"?'<label class="irb-zigzag"><input id="irbZigzag" type="checkbox" '+(state.zigzag?"checked":"")+'><span><b>Зигзаг / цепочка</b><small>После сохранения следующая связь начнётся от конца предыдущей. Каждому отрезку соответствует своя марка из ведомости.</small></span></label>':"")+
     '<p class="irb-help">'+(column?"Точная привязка к сетке либо свободная точка между осями. В виде «Фасад» и «Сбоку» для установки используйте изометрию или вид сверху.":"Привязка к колоннам, балкам и ригелям. Для точек сетки требуется проектная отметка Z по КМД.")+'</p>'+
@@ -630,7 +647,7 @@ window.irBuildingView=(()=>{
     '<button class="irb-secondary" id="irbClear">Сбросить точки</button><button class="irb-secondary" id="irbCancel">Отмена</button>';
     el("irbMark").onchange=e=>{
      const next=markById(e.target.value),keep=state.continuing&&next?.geometry!=="column";
-     state.mark=e.target.value;state.topZ="";state.error="";state.bent=false;state.middle=null;if(!keep){state.start=null;state.continuing=false}
+     state.mark=e.target.value;state.topZ="";state.error="";state.bent=false;state.ridgeMode="center";state.middle=null;if(!keep){state.start=null;state.continuing=false}
      if(next?.geometry==="column")state.zigzag=false;
      state.repeat=next?.geometry==="column";
      state.hoverAnchor=null;state.end=null;refreshPanel();paint()
@@ -668,8 +685,16 @@ window.irBuildingView=(()=>{
      markSelect.dispatchEvent(new Event("change",{bubbles:true}));
     });
     if(el("irbBentMode"))el("irbBentMode").onchange=e=>{
-     state.bent=e.target.checked;state.start=null;state.middle=null;state.end=null;state.error="";state.zigzag=false;state.repeat=false;refreshPanel();paint()
+     state.bent=e.target.checked;state.ridgeMode="center";state.start=null;state.middle=null;state.end=null;state.error="";state.zigzag=false;state.repeat=false;refreshPanel();paint()
     };
+    pane.querySelectorAll('input[name="irbRidgeMode"]').forEach(radio=>radio.onchange=e=>{
+     const value=e.target.value;
+     if(state.ridgeMode===value)return;
+     state.ridgeMode=value;state.error="";
+     if(value==="center")recenterRidge();
+     else{state.middle=null;state.end=null}
+     refreshPanel();paint()
+    });
     if(el("irbRepeat"))el("irbRepeat").onchange=e=>{state.repeat=e.target.checked};
     if(el("irbClickPlace"))el("irbClickPlace").onchange=e=>{state.directColumns=e.target.checked;updateHint();paint()};
     updateHoverInfo();
@@ -734,6 +759,11 @@ window.irBuildingView=(()=>{
        a.x=closest(axesX,gridX,a.worldX);a.y=closest(axesY,gridY,a.worldY);
       }
       a.z=Math.round(numeric);a.zConfirmed=true;state.error="";
+      if(part!=="middle"&&centeredRidge()){
+       recenterRidge();
+       const label=el("irbProperties")?.querySelector('.irb-anchor:nth-of-type(2) span');
+       if(label&&state.middle)label.innerHTML=position(state.middle)
+      }
       if(finalize)input.value=String(a.z);
      }
      const row=input.closest(".irb-anchor"),label=row?.querySelector("span");
@@ -763,7 +793,8 @@ window.irBuildingView=(()=>{
        return
       }
       const pack=a=>a?{ax:a.x,ay:a.y,dx:num(a.worldX)-originAxis(gridX,a.x),dy:num(a.worldY)-originAxis(gridY,a.y),z:num(a.z),memberId:a.memberId||a.columnId||""}:null;
-      const data={markId:state.mark,start:pack(state.start),middle:pickGeometry()==="bent"?pack(state.middle):null,end:column?null:pack(state.end),topZ:column?Number(state.topZ):undefined,geometry:pickGeometry(),zigzag:state.zigzag&&!state.bent};
+      if(centeredRidge())recenterRidge();
+      const data={markId:state.mark,start:pack(state.start),middle:pickGeometry()==="bent"?pack(state.middle):null,end:column?null:pack(state.end),topZ:column?Number(state.topZ):undefined,geometry:pickGeometry(),ridgeMode:state.ridgeMode,zigzag:state.zigzag&&!state.bent};
       state.busy=true;quickSave.disabled=true;state.error="";
       try{
        const result=await props.onQuickPlace(data);
@@ -782,7 +813,8 @@ window.irBuildingView=(()=>{
      el("irbContinue").onclick=()=>{
      if(!state.start||!selectedMark()||left<=0||!column&&!state.end||pickGeometry()==="bent"&&!state.middle)return;
      const pack=a=>a?{ax:a.x,ay:a.y,dx:num(a.worldX)-originAxis(gridX,a.x),dy:num(a.worldY)-originAxis(gridY,a.y),z:num(a.z),source:a.kind,columnId:a.columnId||""}:null;
-     const data={markId:state.mark,start:pack(state.start),middle:pickGeometry()==="bent"?pack(state.middle):null,end:pack(state.end),geometry:pickGeometry(),height:maxZ,zigzag:state.zigzag&&!state.bent};
+     if(centeredRidge())recenterRidge();
+     const data={markId:state.mark,start:pack(state.start),middle:pickGeometry()==="bent"?pack(state.middle):null,end:pack(state.end),geometry:pickGeometry(),ridgeMode:state.ridgeMode,height:maxZ,zigzag:state.zigzag&&!state.bent};
      state.chainNext=state.zigzag&&state.end?{...state.end}:null;
      state.placing=false;state.continuing=false;refreshPanel();paint();props.onPlacement(data);
     };
@@ -826,7 +858,7 @@ window.irBuildingView=(()=>{
   }
   function startPlacement(){
    if(!props.canEdit||!marks.some(m=>m.left>0))return;
-   state.placing=true;state.start=null;state.middle=null;state.end=null;state.chainNext=null;state.continuing=false;state.topZ="";state.error="";state.markSearch="";state.hoverAnchor=null;state.directColumns=true;state.bent=false;state.mark=leftMark().find(m=>m.id===state.mark)?.id||leftMark()[0]?.id||"";state.repeat=selectedMark()?.geometry==="column";
+   state.placing=true;state.start=null;state.middle=null;state.end=null;state.chainNext=null;state.continuing=false;state.topZ="";state.error="";state.markSearch="";state.hoverAnchor=null;state.directColumns=true;state.bent=false;state.ridgeMode="center";state.mark=leftMark().find(m=>m.id===state.mark)?.id||leftMark()[0]?.id||"";state.repeat=selectedMark()?.geometry==="column";
    refreshPanel();paint();
    // Opening placement after deleting a member should immediately make the
    // search usable, rather than leaving keyboard focus on the removed button.
@@ -1018,7 +1050,9 @@ window.irBuildingView=(()=>{
     }
     if(!state.start||state.end||column){state.start=a;state.middle=null;state.end=null;if(!column)state.topZ="";}
     else if(pickGeometry()==="bent"){
-     if(!state.middle){if(!sameAnchor(a,state.start))state.middle=a}
+     if(centeredRidge()){
+      if(!sameAnchor(a,state.start)){state.end=a;recenterRidge()}
+     }else if(!state.middle){if(!sameAnchor(a,state.start))state.middle=a}
      else if(!sameAnchor(a,state.middle)&&!sameAnchor(a,state.start))state.end=a;
     }else if(!sameAnchor(a,state.start))state.end=a;
     state.error="";refreshPanel();paint();
