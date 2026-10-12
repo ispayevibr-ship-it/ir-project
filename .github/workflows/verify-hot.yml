@@ -2,7 +2,7 @@ name: Verify IR Project hot update
 
 on:
   push:
-    branches: [main, feature/webgl-model-v2]
+    branches: [main]
     paths:
       - 'src/**'
       - 'hot/latest.json'
