@@ -2346,12 +2346,12 @@ async function renderHomePortfolio(objects){
    const d=row.data||row||{},id=String(d.work_type_id||""),type=types.get(id),start=parse(d.start_date),end=parse(d.end_date);
    if(!type||start===null||end===null||end<start||today<start)continue;
    const expired=today>end,days=expired?Math.floor((today-end)/DAY):0,name=type.name;
-   if(type.service){if(expired&&!done.has(id))results.push({name,end:String(d.end_date).slice(0,10),days,lag:null,kind:"overdue"});continue}
+   if(type.service){if(expired&&!done.has(id))results.push({name,start:String(d.start_date).slice(0,10),end:String(d.end_date).slice(0,10),days,lag:null,progress:0,kind:"overdue"});continue}
    const plan=plans.get(id)||0;if(plan<=0)continue;
    const percentage=Math.max(0,Math.min(100,(facts.get(id)||0)/plan*100));
    if(percentage>=99.999)continue;
    const duration=Math.max(1,Math.floor((end-start)/DAY)+1),elapsed=expired?duration:Math.floor((today-start)/DAY)+1,expected=Math.max(0,Math.min(100,elapsed/duration*100)),lag=expected-percentage;
-   if(expired||lag>10)results.push({name,end:String(d.end_date).slice(0,10),days,lag:Number(lag.toFixed(1)),kind:expired?"overdue":"behind"});
+   if(expired||lag>10)results.push({name,start:String(d.start_date).slice(0,10),end:String(d.end_date).slice(0,10),days,lag:Number(lag.toFixed(1)),progress:Number(percentage.toFixed(1)),kind:expired?"overdue":"behind"});
   }
   return results.sort((a,b)=>b.days-a.days||(b.lag??0)-(a.lag??0)||a.end.localeCompare(b.end));
  }
@@ -2385,6 +2385,12 @@ async function renderHomePortfolio(objects){
   const craneIcon=homeSvg('<path d="M3 17h14M5 17v-5h6v5M11 12V8l6-5 2 2-6 6v6M17 5h4v8"/><circle cx="6" cy="20" r="1.5"/><circle cx="15" cy="20" r="1.5"/><circle cx="21" cy="17" r="1.5"/>');
   const tile=x=>{
    const r=x.r,all=reportVolumes(r),shown=all.slice(0,3);
+   const weather=String(typeof r.weather==="string"?r.weather:r.weather?.text||r.weather?.condition||r.weather_text||"Не указана");
+   const rawTemperature=r.temperature??r.temp??r.weather?.temperature??r.weather?.temp;
+   const temperature=rawTemperature===null||rawTemperature===undefined||String(rawTemperature).trim()===""?"":String(rawTemperature).trim();
+   const w=norm(weather),weatherKey=w.includes("ясно")?"sun":w.includes("дожд")?"rain":w.includes("снег")?"snow":w.includes("гроз")?"storm":w.includes("туман")?"fog":"cloud";
+   const weatherShapes={sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2"/>',cloud:'<path d="M6 18h11a4 4 0 0 0 .4-8A6 6 0 0 0 6.2 9.1 4.5 4.5 0 0 0 6 18z"/>',rain:'<path d="M6 14h11a4 4 0 0 0 .4-8A6 6 0 0 0 6.2 5.1 4.5 4.5 0 0 0 6 14zM8 18l-1 3M13 18l-1 3M18 18l-1 3"/>',snow:'<path d="M6 14h11a4 4 0 0 0 .4-8A6 6 0 0 0 6.2 5.1 4.5 4.5 0 0 0 6 14zM8 18h.01M13 19h.01M18 18h.01"/>',storm:'<path d="M6 14h11a4 4 0 0 0 .4-8A6 6 0 0 0 6.2 5.1 4.5 4.5 0 0 0 6 14zM13 15l-3 5h3l-1 3 4-6h-3z"/>',fog:'<path d="M4 8h16M2 12h20M5 16h14"/>'};
+   const weatherIcon=homeSvg(weatherShapes[weatherKey]);
    const pretty=v=>Number(v.toFixed(4)).toLocaleString("ru-RU",{maximumFractionDigits:4});
    const hasMeasuredVolume=all.some(w=>!w.service&&w.total>0);
    const activity=window.irReportActivityPreview?.(r),dailySummaries=activity?.kind!=="empty"?activity?.lines||[]:[];
@@ -2399,19 +2405,37 @@ async function renderHomePortfolio(objects){
     '<span class="hpr-section-title">'+(!hasMeasuredVolume&&dailySummaries.length?activity.label:hasMeasuredVolume?"Выполненные объёмы":"Работы за день")+'</span>'+
     '<span class="hpr-volumes">'+volumeHtml+'</span>'+
     '<span class="hpr-footer"><span class="hpr-footer-stat">'+peopleIcon+' '+fmt(personnel(r))+' чел.</span><span class="hpr-footer-stat">'+craneIcon+' '+fmt(equipment(r))+' ед.</span><span class="hpr-arrow" aria-hidden="true">↗</span></span>'+
+    '<span class="hpr-weather">'+weatherIcon+'<span>'+esc(weather)+(temperature?" · "+esc(temperature)+(temperature.includes("°")?"":"°C"):"")+'</span></span>'+
    '</button>';
   };
   const lateObjects=active.filter(b=>b.late.length).sort((a,b)=>(b.late[0]?.days||0)-(a.late[0]?.days||0)||(b.late[0]?.lag||0)-(a.late[0]?.lag||0)||String(a.object.name).localeCompare(String(b.object.name),"ru"));
   const lateDate=s=>{const p=String(s||"").split("-");return p.length===3?p[2]+"."+p[1]+"."+p[0]:"—"};
+  const ganttMarkup=rows=>{
+   const DAY=86400000,parse=s=>Date.parse(String(s||"")+"T00:00:00Z"),dates=rows.flatMap(x=>[parse(x.start),parse(x.end)]).filter(Number.isFinite);
+   if(!dates.length)return"";
+   const nowLocal=new Date(),now=Date.UTC(nowLocal.getFullYear(),nowLocal.getMonth(),nowLocal.getDate());
+   const min=Math.min(...dates),max=Math.max(...dates,now),span=Math.max(DAY,max-min+DAY);
+   const scale=t=>Math.max(0,Math.min(100,(t-min)/span*100)),today=scale(now);
+   const rowsHtml=rows.map(x=>{
+    const a=parse(x.start),z=parse(x.end);if(!Number.isFinite(a)||!Number.isFinite(z))return"";
+    const left=scale(a),width=Math.max(.8,Math.min(100-left,(z-a+DAY)/span*100)),done=Math.max(0,Math.min(100,Number(x.progress)||0));
+    return '<span class="home-gantt-row"><span class="home-gantt-head"><span title="'+esc(x.name)+'">'+esc(x.name)+'</span><b>'+Number(done.toFixed(1)).toLocaleString("ru-RU",{maximumFractionDigits:1})+'%</b></span>'+
+     '<span class="home-gantt-track" title="План: '+lateDate(x.start)+' — '+lateDate(x.end)+' · Факт '+done+'%">'+
+     '<i class="home-gantt-plan" style="left:'+left.toFixed(3)+'%;width:'+width.toFixed(3)+'%"></i>'+
+     '<i class="home-gantt-fact" style="left:'+left.toFixed(3)+'%;width:'+(width*done/100).toFixed(3)+'%"></i>'+
+     '<i class="home-gantt-today" style="left:'+today.toFixed(3)+'%"></i></span></span>'
+   }).join("");
+   return '<span class="home-gantt"><span class="home-gantt-range"><span>'+lateDate(new Date(min).toISOString().slice(0,10))+'</span><span>'+lateDate(new Date(max).toISOString().slice(0,10))+'</span></span>'+rowsHtml+
+    '<span class="home-gantt-legend"><span><i class="plan"></i>План</span><span><i class="fact"></i>Факт</span><span><i class="today"></i>Сегодня</span></span></span>'
+  };
   const lateTile=b=>{
-   const expired=b.late.filter(x=>x.kind==="overdue"),main=expired[0]||b.late[0],shown=b.late.slice(0,3);
+   const overdue=b.late.filter(x=>x.kind==="overdue"),main=overdue[0]||b.late[0],visible=b.late.slice(0,4);
    return '<button type="button" class="home-late-object" data-late-object="'+esc(b.object.id)+'" title="Открыть график работ">'+
-    '<span class="home-late-top"><strong>'+esc(b.object.name)+'</strong><span class="home-late-badge '+(expired.length?"is-expired":"is-behind")+'">'+(expired.length?"Срок истёк":"Отставание")+'</span></span>'+
+    '<span class="home-late-top"><strong>'+esc(b.shortName||b.object.name)+'</strong><span class="home-late-badge '+(overdue.length?"is-expired":"is-behind")+'">'+(overdue.length?"Срок истёк":"Отставание")+'</span></span>'+
     '<span class="home-late-summary">'+b.late.length+' '+(b.late.length===1?"вид работы отстаёт":b.late.length<5?"вида работ отстают":"видов работ отстают")+
-    (expired.length?" · "+main.days+" дн. просрочки":" · отставание "+String(main.lag).replace(".",",")+" п.п.")+'</span>'+
-    '<span class="home-late-work-list">'+shown.map(x=>'<span class="home-late-work"><span title="'+esc(x.name)+'">'+esc(x.name)+'</span><em>'+esc(x.kind==="overdue"?"Срок "+lateDate(x.end)+" · "+x.days+" дн.":"−"+String(x.lag).replace(".",",")+" п.п.")+'</em></span>').join("")+
-    (b.late.length>3?'<small>И ещё '+(b.late.length-3)+' видов работ</small>':"")+'</span>'+
-    '<span class="home-late-open">Открыть график <span aria-hidden="true">→</span></span></button>';
+    (overdue.length?" · "+main.days+" дн. просрочки":" · отставание "+String(main.lag).replace(".",",")+" п.п.")+'</span>'+
+    ganttMarkup(visible)+(b.late.length>4?'<small class="home-gantt-more">Ещё '+(b.late.length-4)+' видов работ</small>':"")+
+    '<span class="home-late-open">Открыть график Ганта <span aria-hidden="true">→</span></span></button>'
   };
   host.innerHTML=
    '<div class="home-portfolio-shell">'+
@@ -2422,7 +2446,7 @@ async function renderHomePortfolio(objects){
      '<article class="home-portfolio-kpi hpk-workers"><div class="home-kpi-top"><span class="home-kpi-icon">'+peopleIcon+'</span><span class="home-kpi-scope">Объекты в работе</span></div><h3>Всего людей на объектах</h3><div class="home-kpi-value">'+fmt(staff)+' <em>чел.</em></div><div class="home-kpi-foot"></div></article>'+
      '<article class="home-portfolio-kpi hpk-equipment"><div class="home-kpi-top"><span class="home-kpi-icon">'+craneIcon+'</span><span class="home-kpi-scope">Объекты в работе</span></div><h3>Всего техники на объектах</h3><div class="home-kpi-value">'+fmt(totalEquipment)+' <em>ед.</em></div><div class="home-kpi-foot"></div></article>'+
     '</div>'+
-    '<section class="home-portfolio-reports"><div class="home-portfolio-reports-title"><div><h2>Последние 4 отчёта</h2></div></div>'+
+    '<section class="home-portfolio-reports"><div class="home-portfolio-reports-title"><div><h2>Последние отчёты с объектов</h2></div></div>'+
      '<div class="home-portfolio-report-scroll"><div class="home-portfolio-report-grid">'+(recent.length?recent.map(tile).join(""):'<div class="home-portfolio-empty">По действующим объектам пока нет отчётов</div>')+'</div></div></section>'+
     '<section class="home-late-section">'+
      '<div class="home-late-heading"><div><h2>Объекты, требующие внимания</h2></div>'+
