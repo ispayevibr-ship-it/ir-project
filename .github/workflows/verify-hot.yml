@@ -2,7 +2,7 @@ name: Verify IR Project hot update
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/bent-beam-3pt]
     paths:
       - 'src/**'
       - 'hot/latest.json'
