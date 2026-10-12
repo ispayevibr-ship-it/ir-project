@@ -254,8 +254,9 @@ window.irBuildingView=(()=>{
    const m=selectedMark(),left=num(m?.left),column=m?.geometry==="column",available=left>0;
    el("irbHint").textContent=state.placing?(!state.start?"1. Выберите начальную точку":column||state.end?"Проверьте отметки и нажмите «Сохранить на схеме»":"2. Выберите конечную точку"):"ЛКМ — вращение · колесо — масштаб · нажатие на элемент — свойства";
    const pane=el("irbProperties");
-    const ready=!!(state.start&&available&&(column||state.end)&&state.start.zConfirmed!==false&&
-     (column?state.topZ!==""&&Number.isFinite(Number(state.topZ))&&Number(state.topZ)>num(state.start.z):state.end?.zConfirmed!==false));
+    const readyToSave=()=>!!(state.start&&selectedMark()?.left>0&&(selectedMark()?.geometry==="column"||state.end)&&state.start.zConfirmed!==false&&
+     (selectedMark()?.geometry==="column"?state.topZ!==""&&Number.isFinite(Number(state.topZ))&&Number(state.topZ)>num(state.start.z):state.end?.zConfirmed!==false));
+   const ready=readyToSave();
    const current=cols.find(c=>String(c.id)===String(state.selected));
    pane.hidden=!state.placing&&!current;
    if(state.placing){
@@ -295,7 +296,7 @@ window.irBuildingView=(()=>{
      if(el("irbZigzag"))el("irbZigzag").onchange=e=>{state.zigzag=e.target.checked};
     if(el("irbTopZ"))el("irbTopZ").oninput=e=>{
       state.topZ=e.target.value;const save=el("irbQuickSave");
-      if(save)save.disabled=!state.start||!available||!e.target.value||!Number.isFinite(Number(e.target.value))||Number(e.target.value)<=num(state.start.z);
+      if(save)save.disabled=state.busy||!readyToSave();
      };
      pane.querySelectorAll("[data-irb-level]").forEach(input=>input.onchange=e=>{
      const a=e.target.dataset.irbLevel==="start"?state.start:state.end;
@@ -324,7 +325,7 @@ window.irBuildingView=(()=>{
     el("irbCancel").onclick=()=>{state.placing=false;state.start=null;state.end=null;state.chainNext=null;state.continuing=false;refreshPanel();paint()};
          const quickSave=el("irbQuickSave");
      if(quickSave)quickSave.onclick=async()=>{
-      if(!ready||state.busy)return;
+      if(!readyToSave()||state.busy)return;
       const pack=a=>a?{ax:a.x,ay:a.y,dx:num(a.worldX)-originAxis(gridX,a.x),dy:num(a.worldY)-originAxis(gridY,a.y),z:num(a.z),memberId:a.memberId||a.columnId||""}:null;
       const data={markId:state.mark,start:pack(state.start),end:column?null:pack(state.end),topZ:column?Number(state.topZ):undefined,geometry:m.geometry,zigzag:state.zigzag};
       state.busy=true;quickSave.disabled=true;state.error="";
