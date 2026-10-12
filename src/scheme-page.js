@@ -190,7 +190,7 @@ window.irSchemePage=async function(objectId){
   return{total:cols.length,mounted,partial,left:cols.length-mounted-partial,pct:cols.length?Math.round(mounted/cols.length*100):0}
  }
  function projection(cols){
-  const W=1040,H=650,padX=105,padY=90,a=(yaw+viewRotation)*Math.PI/180,maxZ=Math.max(9,...cols.map(c=>Math.max(c.z0,c.z1)/1000));
+  const W=1040,H=650,padX=105,padY=90,a=(yaw+viewRotation)*Math.PI/180,maxZ=Math.max(9,...cols.map(c=>Math.max(c.z0,c.z1,c.z2,c.mz)/1000));
   const raw=(xmm,ymm,zmm)=>{const xd=gridDirX==="rtl"?spanX-xmm:xmm,yd=gridDirY==="btt"?spanY-ymm:ymm,x=(xd-spanX/2)/1000,y=(yd-spanY/2)/1000,z=zmm/1000,rx=x*Math.cos(a)-y*Math.sin(a),ry=x*Math.sin(a)+y*Math.cos(a);return{x:rx,y:ry*.48-z}};
   const samples=[],margin=12000;
   for(const x of [-margin,spanX+margin])for(const y of [-margin,spanY+margin]){samples.push(raw(x,y,0));samples.push(raw(x,y,maxZ*1000))}
@@ -533,7 +533,9 @@ window.irSchemePage=async function(objectId){
     <div><span>Коорд. X</span><b>${fmt(c.x)} мм</b></div>
     <div><span>Коорд. Y</span><b>${fmt(c.y)} мм</b></div>
     <div><span>Низ</span><b>${fmt(c.z0)} мм</b></div>
-    <div><span>Верх / конец Z</span><b>${fmt(c.z2)} мм</b></div>${c.geometryType!=="column"?`<div><span>Конец X</span><b>${fmt(c.x2)} мм</b></div><div><span>Конец Y</span><b>${fmt(c.y2)} мм</b></div>`:""}
+    <div><span>Верх / конец Z</span><b>${fmt(c.z2)} мм</b></div>
+    ${c.geometryType==="bent"?`<div><span>Конёк X</span><b>${fmt(c.mx)} мм</b></div><div><span>Конёк Y</span><b>${fmt(c.my)} мм</b></div><div><span>Конёк Z</span><b>${fmt(c.mz)} мм</b></div><div><span>Длина обеих ветвей</span><b>${fmt(Math.hypot(c.mx-c.x,c.my-c.y,c.mz-c.z0)+Math.hypot(c.x2-c.mx,c.y2-c.my,c.z2-c.mz))} мм</b></div>`:""}
+    ${c.geometryType!=="column"?`<div><span>Конец X</span><b>${fmt(c.x2)} мм</b></div><div><span>Конец Y</span><b>${fmt(c.y2)} мм</b></div>`:""}
    </div>
    ${progress?.total>0?`<div class="scheme-mark-progress">
     <b>Марка ${esc(c.mark)} · данные из ведомости</b>
