@@ -30,7 +30,7 @@ button{font-family:inherit}
 .tabs-pane.active{visibility:visible;pointer-events:auto}
 @media(max-width:1150px){
  .tabs-tools button{font-size:0;padding:0 10px}
- .tabs-tools #tabsReload:after{content:"↻";font-size:17px;line-height:24px}
+ .tabs-tools #tabsReload:after{content:none!important}
  .tabs-tools #tabsDuplicate:after{content:"⧉";font-size:17px;line-height:24px}
  .tabs-tools #tabsDetach:after{content:"↗";font-size:17px;line-height:24px}
 }
@@ -174,3 +174,25 @@ body{min-width:0}
 #tabsList>.tabs-item{overflow:hidden}
 #tabsList>.tabs-overflow,#tabsList>.tabs-add{flex-shrink:0!important}
 .tabs-overflow-menu{z-index:2000}
+
+/* 1.7.125: SVG refresh-cw replaces the old character at all widths. */
+.tabs-tools #tabsReload{
+ display:grid;
+ place-items:center;
+ flex:0 0 33px;
+ width:33px;
+ height:31px;
+ padding:0;
+ font-size:0;
+}
+.tabs-tools #tabsReload svg{
+ display:block;
+ width:18px;
+ height:18px;
+ fill:none;
+ stroke:currentColor;
+ stroke-width:1.8;
+ stroke-linecap:round;
+ stroke-linejoin:round;
+}
+.tabs-tools #tabsReload::after{content:none!important}
