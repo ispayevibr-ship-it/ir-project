@@ -798,10 +798,10 @@ window.irBuildingView=(()=>{
      for(const input of levelInputs){
       const dirty=isLevelPending(input),info=input.parentElement.querySelector(".irb-level-feedback");
       input.classList.toggle("irb-level-editing",dirty);
-      if(info&&dirty){
+      if(info&&dirty&&!input.classList.contains("irb-level-invalid")){
        info.hidden=false;
        info.textContent="Нажмите Enter или выйдите из поля, чтобы применить отметку Z."
-      }else if(info&&!input.classList.contains("irb-level-invalid"))info.hidden=true
+      }else if(info&&!dirty&&!input.classList.contains("irb-level-invalid"))info.hidden=true
      }
     };
     levelInputs.forEach(input=>{
