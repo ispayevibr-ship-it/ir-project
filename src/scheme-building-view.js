@@ -717,52 +717,49 @@ window.irBuildingView=(()=>{
      else if(numeric<minimum||numeric>maximum)message=a.kind==="column"?
       "Точка на колонне допускает Z от "+fmt(minimum)+" до "+fmt(maximum)+" мм.":
       "Допустимая отметка Z: от "+fmt(minimum)+" до "+fmt(maximum)+" мм.";
-     let nextXY=null;
-     // An attachment to a sloping member must move along its real centreline;
-     // changing only its Z would detach it from the supporting member.
+     // Editing elevation must not move the chosen X/Y attachment point.
+     // The persisted quick-placement validator checks anchors in 3D within
+     // 35 mm. Use the same tolerance here to keep preview and saved model
+     // identical, without touching any existing construction record.
+     let detachMember=false;
      if(!message&&a.kind==="member"&&a.memberId){
       const ref=cols.find(c=>String(c.id)===String(a.memberId));
-      if(ref){
-       const joints=ref.geometryType==="bent"?[
-        [pt(ref.x,ref.y,ref.z0),pt(ref.mx,ref.my,ref.mz)],
-        [pt(ref.mx,ref.my,ref.mz),pt(ref.x2,ref.y2,ref.z2)]]:
-        [[pt(ref.x,ref.y,ref.z0),pt(ref.x2,ref.y2,ref.z2)]];
-       const closeSegment=([start,end])=>{
-        const v=pt(end.x-start.x,end.y-start.y,end.z-start.z),
-         t=clamp(((num(a.worldX)-start.x)*v.x+(num(a.worldY)-start.y)*v.y+(num(a.z)-start.z)*v.z)/(v.x*v.x+v.y*v.y+v.z*v.z||1),0,1);
-        return Math.hypot(num(a.worldX)-start.x-v.x*t,num(a.worldY)-start.y-v.y*t,num(a.z)-start.z-v.z*t)
-       };
-       const segment=a.memberPart!==undefined?joints[a.memberPart]:joints.slice().sort((q,t)=>closeSegment(q)-closeSegment(t))[0];
-       if(!segment)message="Не удалось определить участок крепления к балке.";
-       else{
-        const [first,last]=segment,dz=last.z-first.z;
-        if(Math.abs(dz)<1){
-         if(Math.abs(numeric-first.z)>.5)message="У этой балки фиксированная отметка Z "+fmt(first.z)+" мм. Для изменения высоты откройте редактор.";
-        }else{
-         const t=(numeric-first.z)/dz;
-         if(t<0||t>1)message="Отметка Z выходит за пределы выбранного участка балки: "+fmt(Math.min(first.z,last.z))+"–"+fmt(Math.max(first.z,last.z))+" мм.";
-         else nextXY={x:Math.round(first.x+(last.x-first.x)*t),y:Math.round(first.y+(last.y-first.y)*t)};
-        }
-       }
+      const x=num(a.worldX),y=num(a.worldY);
+      const vertices=!ref?[]:ref.geometryType==="bent"?
+       [pt(ref.x,ref.y,ref.z0),pt(ref.mx,ref.my,ref.mz),pt(ref.x2,ref.y2,ref.z2)]:
+       [pt(ref.x,ref.y,ref.z0),pt(ref.x2,ref.y2,ref.z2)];
+      const stillAttached=vertices.slice(1).some((end,i)=>{
+       const start=vertices[i],vx=end.x-start.x,vy=end.y-start.y,vz=end.z-start.z;
+       const length2=vx*vx+vy*vy+vz*vz;
+       const t=clamp(((x-start.x)*vx+(y-start.y)*vy+(numeric-start.z)*vz)/(length2||1),0,1);
+       return Math.hypot(x-start.x-vx*t,y-start.y-vy*t,numeric-start.z-vz*t)<=35;
+      });
+      if(!stillAttached){
+       if(x<0||x>spanX||y<0||y>spanY)
+        message="Точка за границами сетки должна оставаться на опорной конструкции. Выберите допустимую отметку Z.";
+       else detachMember=true;
       }
      }
      const feedback=input.parentElement.querySelector(".irb-level-feedback");
      input.classList.toggle("irb-level-invalid",!!message&&finalize);
      input.setAttribute("aria-invalid",String(!!message&&finalize));
-     if(feedback){feedback.hidden=!message||!finalize;if(message&&finalize)feedback.textContent=message}
+     if(feedback){feedback.classList.remove("irb-level-detached");feedback.hidden=!message||!finalize;if(message&&finalize)feedback.textContent=message}
      if(message){
       a.zConfirmed=false;
       if(finalize)state.error=message;
      }else{
-      if(nextXY){
-       a.worldX=nextXY.x;a.worldY=nextXY.y;
-       a.x=closest(axesX,gridX,a.worldX);a.y=closest(axesY,gridY,a.worldY);
+      if(detachMember){
+       // An unsaved attachment no longer lies on its supporting beam at this
+       // Z. Turn it into a free point, rather than moving X/Y along the beam.
+       a.kind="ground";delete a.memberId;delete a.memberPart;
       }
       a.z=Math.round(numeric);a.zConfirmed=true;state.error="";
-      if(part!=="middle"&&centeredRidge()){
-       recenterRidge();
-       const label=el("irbProperties")?.querySelectorAll(".irb-anchor")[1]?.querySelector("span");
-       if(label&&state.middle)label.innerHTML=position(state.middle)
+      // A centered ridge depends on endpoint X/Y only; editing Z must never
+      // recenter or shift any of the three horizontal coordinates.
+      if(detachMember&&feedback){
+       feedback.classList.add("irb-level-detached");
+       feedback.textContent="Привязка к балке снята; координаты X/Y сохранены.";
+       feedback.hidden=false;
       }
       if(finalize)input.value=String(a.z);
      }
@@ -801,7 +798,7 @@ window.irBuildingView=(()=>{
       if(info&&dirty&&!input.classList.contains("irb-level-invalid")){
        info.hidden=false;
        info.textContent="Нажмите Enter или выйдите из поля, чтобы применить отметку Z."
-      }else if(info&&!dirty&&!input.classList.contains("irb-level-invalid"))info.hidden=true
+      }else if(info&&!dirty&&!input.classList.contains("irb-level-invalid")&&!info.classList.contains("irb-level-detached"))info.hidden=true
      }
     };
     levelInputs.forEach(input=>{

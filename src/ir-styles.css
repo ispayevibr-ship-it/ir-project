@@ -1920,6 +1920,26 @@ body.ir-object-route:not(.ir-object-overview) .wt-row[hidden]{display:none!impor
  color:#4e7d9f;font-weight:600
 }
 
+/* IR Project 1.7.120: keep the selected construction heading alongside the
+   close control at desktop and mobile widths; placement form is unaffected. */
+.irb-immersive .irb-webgl .irb-properties[data-irb-panel-mode="details"]{
+ padding-top:14px!important;gap:10px!important
+}
+.irb-immersive .irb-webgl .irb-properties[data-irb-panel-mode="details"]>.irb-panel-head{
+ display:flex!important;align-items:center!important;min-height:30px!important;
+ padding:0!important;margin:0 38px 2px 0!important;line-height:1.35!important
+}
+.irb-immersive .irb-webgl .irb-properties[data-irb-panel-mode="details"]>.irb-pane-close{
+ top:12px!important;right:14px!important
+}
+@media(max-width:820px){
+ .irb-immersive .irb-webgl .irb-properties[data-irb-panel-mode="details"]{padding-top:12px!important}
+ .irb-immersive .irb-webgl .irb-properties[data-irb-panel-mode="details"]>.irb-pane-close{top:10px!important;right:12px!important}
+}
+.irb-immersive .irb-properties .irb-level-feedback.irb-level-detached{
+ color:#437b9f!important;font-weight:650
+}
+
 
 /* #45: src/object-overview-right-column.css */
 /* IR Project 1.7.73: shared overview cards in a fixed ordered right column. */
