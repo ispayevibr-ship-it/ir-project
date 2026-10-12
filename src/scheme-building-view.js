@@ -217,20 +217,20 @@ window.irBuildingView=(()=>{
      const steps=Math.max(2,Math.min(9,Math.round(len/35)));
      for(let i=0;i<steps;i++)line({x:s.a.x+dx*i/steps,y:s.a.y+dy*i/steps},{x:s.a.x+dx*(i+1)/steps+ox*(i%2),y:s.a.y+dy*(i+1)/steps+oy*(i%2)},color,1.2);
     }
-    if(chosen||props.showLabels&&segments.length<120)paintLabel({x:(s.a.x+s.b.x)/2,y:(s.a.y+s.b.y)/2},String(s.c.mark||"?"),chosen?"#2c85e9":"#c7d9e9");
+    if(s.part===0&&(chosen||props.showLabels&&segments.length<120))paintLabel({x:(s.a.x+s.b.x)/2,y:(s.a.y+s.b.y)/2},String(s.c.mark||"?"),chosen?"#2c85e9":"#c7d9e9");
    }
    if(state.placing){
     // Free grid nodes are small; real column heads are prominent blue points.
     for(const a of gridAnchors()){
-     const q=m.project(anchorPoint(a)),selected=sameAnchor(a,state.start)||sameAnchor(a,state.end);
+     const q=m.project(anchorPoint(a)),selected=sameAnchor(a,state.start)||sameAnchor(a,state.middle)||sameAnchor(a,state.end);
      circle(q,selected?5.8:2.7,selected?"#ed9a2b":"rgba(88,143,194,.62)");
     }
     if(pickGeometry()!=="column")for(const a of [...columnAnchors(),...memberAnchors()]){
-     const q=m.project(anchorPoint(a)),selected=sameAnchor(a,state.start)||sameAnchor(a,state.end);
+     const q=m.project(anchorPoint(a)),selected=sameAnchor(a,state.start)||sameAnchor(a,state.middle)||sameAnchor(a,state.end);
      circle(q,selected?8.5:6.2,"#fff");
      circle(q,selected?6.2:4.5,selected?"#ee9a25":"#217ce7");
     }
-    if(state.hoverAnchor&&!sameAnchor(state.hoverAnchor,state.start)&&!sameAnchor(state.hoverAnchor,state.end)){
+    if(state.hoverAnchor&&!sameAnchor(state.hoverAnchor,state.start)&&!sameAnchor(state.hoverAnchor,state.middle)&&!sameAnchor(state.hoverAnchor,state.end)){
      const hover=m.project(anchorPoint(state.hoverAnchor));
      circle(hover,7,"#fff");circle(hover,5,"#e89927")
     }
@@ -252,9 +252,16 @@ window.irBuildingView=(()=>{
      }
     }else if(state.start){
      const a=m.project(anchorPoint(state.start));
-     const b=m.project(pickGeometry()==="column"?anchorPoint(state.start,maxZ*.94):state.end?anchorPoint(state.end):anchorPoint(state.start));
-     line(a,b,"#e5982e",4,[7,4]);
-     circle(a,5.8,"#e5982e");if(state.end)circle(b,5.8,"#e5982e");
+     if(pickGeometry()==="bent"){
+      const middle=state.middle?m.project(anchorPoint(state.middle)):state.hoverAnchor?m.project(anchorPoint(state.hoverAnchor)):null,
+       end=state.end?m.project(anchorPoint(state.end)):state.middle&&state.hoverAnchor?m.project(anchorPoint(state.hoverAnchor)):null;
+      if(middle){line(a,middle,"#e5982e",4,[7,4]);circle(middle,5.8,"#e5982e")}
+      if(middle&&end){line(middle,end,"#e5982e",4,[7,4]);circle(end,5.8,"#e5982e")}
+     }else{
+      const b=m.project(pickGeometry()==="column"?anchorPoint(state.start,maxZ*.94):state.end?anchorPoint(state.end):anchorPoint(state.start));
+      line(a,b,"#e5982e",4,[7,4]);if(state.end)circle(b,5.8,"#e5982e");
+     }
+     circle(a,5.8,"#e5982e");
     }
    };
   };
@@ -422,8 +429,9 @@ window.irBuildingView=(()=>{
       (c?'<div class="irb-selected"><small>Выбранная марка</small><strong>'+html(c.mark||"—")+'</strong><span>'+html(c.mark_name||c.title||"")+'</span><em>'+html(c.status==="mounted"?"Смонтировано":c.status==="partial"?"Частично":"Не смонтировано")+'</em></div>'+
       '<div class="irb-row"><span>Начальная ось</span><b>'+html(c.axisX+" / "+c.axisY)+'</b></div>'+
       '<div class="irb-row"><span>Начало, мм</span><b>X '+fmt(c.x)+' · Y '+fmt(c.y)+' · Z '+fmt(c.z0)+'</b></div>'+
+       (c.geometryType==="bent"?'<div class="irb-row"><span>Конёк / излом, мм</span><b>X '+fmt(c.mx)+' · Y '+fmt(c.my)+' · Z '+fmt(c.mz)+'</b></div>':"")+
        '<div class="irb-row"><span>Конец, мм</span><b>X '+fmt(c.x2??c.x)+' · Y '+fmt(c.y2??c.y)+' · Z '+fmt(c.z2)+'</b></div>'+
-       '<div class="irb-row irb-length"><span>Длина элемента по осям</span><b>'+fmt(Math.hypot(num(c.x2??c.x)-num(c.x),num(c.y2??c.y)-num(c.y),num(c.z2)-num(c.z0)))+' мм · '+(Math.hypot(num(c.x2??c.x)-num(c.x),num(c.y2??c.y)-num(c.y),num(c.z2)-num(c.z0))/1000).toLocaleString("ru-RU",{minimumFractionDigits:3,maximumFractionDigits:3})+' м</b></div>'+
+       '<div class="irb-row irb-length"><span>Длина элемента по осям</span><b>'+fmt(c.geometryType==="bent"?Math.hypot(num(c.mx)-num(c.x),num(c.my)-num(c.y),num(c.mz)-num(c.z0))+Math.hypot(num(c.x2)-num(c.mx),num(c.y2)-num(c.my),num(c.z2)-num(c.mz)):Math.hypot(num(c.x2??c.x)-num(c.x),num(c.y2??c.y)-num(c.y),num(c.z2)-num(c.z0)))+' мм · '+(c.geometryType==="bent"?Math.hypot(num(c.mx)-num(c.x),num(c.my)-num(c.y),num(c.mz)-num(c.z0))+Math.hypot(num(c.x2)-num(c.mx),num(c.y2)-num(c.my),num(c.z2)-num(c.mz)):Math.hypot(num(c.x2??c.x)-num(c.x),num(c.y2??c.y)-num(c.y),num(c.z2)-num(c.z0)))/1000.toLocaleString("ru-RU",{minimumFractionDigits:3,maximumFractionDigits:3})+' м</b></div>'+
       '<div class="irb-row"><span>Отметка низа, мм</span><b>'+fmt(c.z0)+'</b></div>'+
       '<div class="irb-row"><span>Отметка конца, мм</span><b>'+fmt(c.z2)+'</b></div>'+
       (props.canEdit?'<div class="irb-action-row">'+
