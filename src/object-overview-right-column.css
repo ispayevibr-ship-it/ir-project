@@ -153,3 +153,54 @@
  .ir-object-overview-right .oor2-brief>.oor2-volume{grid-column:1;grid-row:3}
  .ir-object-overview-right .oor2-brief>.oor2-toggle{grid-column:2;grid-row:3}
 }
+
+/* IR Project 1.7.122: report summary cards wrap by available content width.
+   Keep the expand/collapse chevron in its own right-hand column on the first row. */
+.oor2-brief.oor2-brief-wrap{
+ display:grid;
+ grid-template-columns:minmax(0,1fr) 48px!important;
+ grid-template-areas:none!important;
+ align-items:start;
+ gap:8px;
+}
+.oor2-brief.oor2-brief-wrap>.oor2-brief-metrics{
+ display:flex;
+ flex-wrap:wrap;
+ align-items:stretch;
+ gap:8px;
+ min-width:0;
+ grid-area:1 / 1 / 2 / 2!important;
+}
+.oor2-brief.oor2-brief-wrap>.oor2-brief-metrics>.oor2-cell{
+ min-width:0;
+ display:flex!important;
+ flex:1 1 135px;
+}
+.oor2-brief.oor2-brief-wrap>.oor2-brief-metrics>.oor2-date{
+ flex-basis:155px;
+}
+.oor2-brief.oor2-brief-wrap>.oor2-brief-metrics>.oor2-weather{
+ flex-basis:185px;
+ display:flex!important;
+}
+.oor2-brief.oor2-brief-wrap>.oor2-brief-metrics>.oor2-volume{
+ flex-basis:220px;
+ grid-column:auto!important;
+}
+.oor2-brief.oor2-brief-wrap>.oor2-toggle,
+.ir-object-overview-right .oor2-brief.oor2-brief-wrap>.oor2-toggle{
+ grid-area:1 / 2 / 2 / 3!important;
+ grid-column:2!important;
+ grid-row:1!important;
+ align-self:start!important;
+ justify-self:end!important;
+ width:48px;
+ min-width:48px;
+ height:44px;
+ margin:5px 0 0;
+}
+@container ir-overview-reports (max-width:570px){
+ .oor2-brief.oor2-brief-wrap>.oor2-brief-metrics{gap:6px}
+ .oor2-brief.oor2-brief-wrap>.oor2-brief-metrics>.oor2-cell{padding:7px}
+ .oor2-brief.oor2-brief-wrap{gap:6px}
+}
