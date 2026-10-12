@@ -2374,9 +2374,31 @@ window.irAdditionalWorksPage=async function(objectId,route={}){
  const byId=new Map();for(const entry of all){if(!byId.has(entry.id))byId.set(entry.id,entry)}
  const workId=String(route.workId||"");
  let search="";
- const head=caption=>'<div class="additional-works-top"><button type="button" id="additionalWorksBack" class="additional-works-back">← '+(workId?"К списку дополнительных работ":"К объекту")+'</button><div><h1>'+esc(caption)+'</h1><p>'+esc(object.name||"Объект")+'</p></div></div>';
+ const head=caption=>'<div class="additional-works-top"><button type="button" id="additionalWorksBack" class="additional-works-back">← '+(workId?"К списку дополнительных работ":"К объекту")+'</button><div><h1 style="font-size:20px!important;line-height:1.2!important;font-weight:750!important;color:#18364b!important">'+esc(caption)+'</h1><p>'+esc(object.name||"Объект")+'</p></div></div>';
  function openAct(path){
   return irProject.reportDocuments?.open?.(path).then(ok=>{if(ok===false)alert("Не удалось открыть акт: файл не найден.")}).catch(e=>alert("Не удалось открыть акт: "+String(e.message||e)))
+ }
+ // Match the other object section KPIs even in an existing Electron tab
+ // where a stale stylesheet or more specific theme rules might remain loaded.
+ function enforceCompactSummary(){
+  const set=(selector,props)=>{
+   app.querySelectorAll(selector).forEach(node=>{
+    for(const [property,value] of Object.entries(props))node.style.setProperty(property,value,"important");
+   });
+  };
+  set(".aw-stats",{gap:"9px"});
+  set(".aw-stats > div",{
+   "min-height":"64px",padding:"11px 13px",gap:"5px",
+   "align-content":"center","border-radius":"9px"
+  });
+  set(".aw-stats span",{
+   "font-size":"8px","font-weight":"400","line-height":"1.35",
+   color:"#7c8d99"
+  });
+  set(".aw-stats b",{
+   "font-size":"16px","font-weight":"750","line-height":"1.15",
+   color:"#17364d"
+  });
  }
  function listView(){
   const matched=all.filter(w=>!search||[w.name,w.id,w.reportId,w.date,w.unit].join(" ").toLowerCase().includes(search.toLowerCase())),withActs=all.filter(w=>w.signedAct).length;
@@ -2386,6 +2408,7 @@ window.irAdditionalWorksPage=async function(objectId,route={}){
    '<div class="aw-list-wrap"><table class="aw-table"><thead><tr><th>ID</th><th>Дата отчёта</th><th>Дополнительная работа</th><th>Количество</th><th>Объём</th><th>Подписанный акт</th></tr></thead><tbody>'+
    (matched.length?matched.map(w=>'<tr data-aw-id="'+esc(w.id)+'" tabindex="0" role="link"><td><span class="aw-id">'+esc(w.id)+'</span></td><td>'+esc(date(w.date))+'</td><td><b>'+esc(w.name||"Без наименования")+'</b><small>Ежедневный отчёт · ID '+esc(w.reportId)+'</small></td><td>'+esc(value(w.qty))+' '+esc(w.unit)+'</td><td>'+esc(value(w.volume))+' '+esc(w.unit)+'</td><td><span class="aw-status '+(w.signedAct?"ok":"pending")+'">'+(w.signedAct?"✓ Загружен":"Не загружен")+'</span></td></tr>').join(""):'<tr><td colspan="6" class="aw-empty">Дополнительных работ'+(search?" по запросу не найдено":" в ежедневных отчётах пока нет")+'.</td></tr>')+
    '</tbody></table></div><p class="aw-help">Список формируется из сохранённых ежедневных отчётов объекта. Для добавления работы откройте нужный отчёт.</p></div>';
+  enforceCompactSummary();
   document.getElementById("additionalWorksBack").onclick=()=>location.hash="/objects/object/"+oid;
   document.getElementById("awSearch").oninput=e=>{const pos=e.target.selectionStart;search=e.target.value;listView();const i=document.getElementById("awSearch");i.focus();i.setSelectionRange(pos,pos)};
   document.querySelectorAll("[data-aw-id]").forEach(row=>{const go=()=>location.hash=itemRoute(row.dataset.awId);row.onclick=go;row.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go()}}})
