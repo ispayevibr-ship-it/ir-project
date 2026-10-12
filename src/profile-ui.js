@@ -14,19 +14,29 @@
   p.innerHTML='<button type="button" id="profileBadge" class="profile-badge">'+names[irAccess.role()]+'</button>'+
    '<button type="button" id="programSettingsButton" class="program-settings-button" title="Настройки программы" aria-label="Настройки программы" aria-expanded="false">'+gear+'</button>'+
    '<div id="programSettingsMenu" class="program-settings-menu" hidden><div class="program-settings-menu-title">Настройки программы</div>'+
-   '<button type="button" id="companyProfileSettings">Профиль компании</button></div>'+
+   '<button type="button" id="companyProfileSettings">Профиль компании</button>'+
+   '<button type="button" id="programCheckUpdates" style="margin-top:6px">↻ Проверить обновления</button></div>'+
    '<div id="profileMenu" class="profile-menu" hidden><label>Профиль<select id="roleSelect"><option value="guest">Гость</option><option value="admin">Администратор</option><option value="engineer">Инженер ПТО</option></select></label><button id="engineerSettings" hidden>Доступ инженера</button></div>';
   document.body.appendChild(p);
   const badge=p.querySelector("#profileBadge"),menu=p.querySelector("#profileMenu"),
    select=p.querySelector("#roleSelect"),settings=p.querySelector("#engineerSettings"),
    settingsButton=p.querySelector("#programSettingsButton"),settingsMenu=p.querySelector("#programSettingsMenu"),
-   companyButton=p.querySelector("#companyProfileSettings");
+   companyButton=p.querySelector("#companyProfileSettings"),updateButton=p.querySelector("#programCheckUpdates");
   const closeSettings=()=>{settingsMenu.hidden=true;settingsButton.setAttribute("aria-expanded","false")};
   select.value=irAccess.role();
   badge.onclick=()=>{closeSettings();menu.hidden=!menu.hidden};
   settingsButton.onclick=()=>{const open=settingsMenu.hidden;menu.hidden=true;settingsMenu.hidden=!open;settingsButton.setAttribute("aria-expanded",String(open))};
   select.onchange=async()=>{const requested=select.value;select.value=irAccess.role();menu.hidden=true;await switchRole(requested);select.value=irAccess.role()};
   settings.onclick=()=>permissions();
+  updateButton.onclick=()=>{
+   closeSettings();
+   try{
+    const host=window.parent!==window?window.parent:window;
+    if(typeof host.irTabUpdates?.open==="function"){host.irTabUpdates.open();return}
+   }catch(error){console.warn("Settings update dialog:",error)}
+   if(typeof showUpdate==="function"){showUpdate();return}
+   alert("Проверка обновлений недоступна в этом окне IR Project.");
+  };
   companyButton.onclick=async()=>{
    closeSettings();
    if(irAccess.role()!=="admin"){alert("Профиль компании может изменять только администратор.");return}
