@@ -87,12 +87,21 @@
  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!overflowMenu.hidden)closeOverflow()});
  function renderTabBar(){
   closeOverflow();
+  // The old CSS allowed scrolling and caused tabs to be partially clipped.
+  // The shell now measures its own actual width, reserves space for (N) and +,
+  // and never renders more tabs than the bar can contain.
+  list.style.overflowX="hidden";
+  list.style.overflowY="hidden";
+  list.style.scrollbarWidth="none";
+  list.scrollLeft=0;
   list.replaceChildren();
+  list.classList.remove("tabs-many","tabs-packed");
   const itemWidth=window.matchMedia("(max-width: 1000px)").matches?145:175;
-  const available=list.clientWidth||Math.max(200,window.innerWidth-440);
-  const gap=6,addWidth=36,overflowWidth=56;
-  const needed=order.length*(itemWidth+gap)+addWidth;
-  const count=needed<=available?order.length:Math.max(1,Math.min(order.length-1,Math.floor((available-addWidth-overflowWidth)/(itemWidth+gap))));
+  const gap=6,addWidth=29,overflowWidth=48,fitPadding=18;
+  const available=Math.floor(list.getBoundingClientRect().width)||Math.max(160,window.innerWidth-500);
+  const fullWidth=order.length*itemWidth+Math.max(0,order.length-1)*gap+addWidth+gap;
+  const maxVisible=Math.max(1,Math.floor((available-addWidth-overflowWidth-fitPadding)/(itemWidth+gap)));
+  const count=fullWidth<=available?order.length:Math.min(order.length-1,maxVisible);
   const activeIndex=order.indexOf(activeId);
   const start=activeIndex<count?0:Math.max(0,activeIndex-count+1);
   const visible=order.slice(start,start+count),visibleIds=new Set(visible);
@@ -101,6 +110,9 @@
    const button=document.createElement("div");
    button.className="tabs-item"+(id===activeId?" active":"")+(tab.dirty?" unsaved":"");
    button.dataset.tabId=id;button.role="tab";button.tabIndex=0;button.ariaSelected=id===activeId?"true":"false";
+   button.style.setProperty("flex","0 0 "+itemWidth+"px","important");
+   button.style.setProperty("min-width",itemWidth+"px","important");
+   button.style.setProperty("max-width",itemWidth+"px","important");
    button.title=tab.title+(tab.dirty?" · Есть несохранённые изменения":"");
    const icon=document.createElement("span");icon.className="tabs-icon";icon.setAttribute("aria-hidden","true");icon.innerHTML=iconForRoute(tab.route);
    const name=document.createElement("span");name.className="tabs-title";name.textContent=tab.title;
@@ -132,14 +144,18 @@
    }
    list.append(overflowButton)
   }
-  if(addButton)list.append(addButton)
+  if(addButton)list.append(addButton);
+  list.scrollLeft=0;
  }
  if(typeof ResizeObserver!=="undefined"){
   const observer=new ResizeObserver(()=>{
-   const width=Math.round(list.clientWidth);
+   const width=Math.round(list.getBoundingClientRect().width);
    if(width!==lastTabWidth){lastTabWidth=width;renderTabBar()}
   });
-  observer.observe(list)
+  observer.observe(list);
+  // The profile/settings controls can appear after initial load and reduce the
+  // available space without triggering a window resize.
+  if(profileSlot)observer.observe(profileSlot)
  }
  window.addEventListener("resize",()=>{closeOverflow();renderTabBar()});
  async function resolveName(id,objectId){

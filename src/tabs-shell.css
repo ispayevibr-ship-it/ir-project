@@ -166,3 +166,11 @@ body{min-width:0}
   flex-basis:145px!important;min-width:145px!important;max-width:145px!important
  }
 }
+
+/* 1.7.97: prevent the legacy tab scrollbar at any viewport width. */
+#tabsList.tabs-list{overflow-x:hidden!important;overflow-y:hidden!important;scrollbar-width:none!important;flex-shrink:1;min-width:0}
+#tabsList.tabs-list::-webkit-scrollbar{display:none!important;height:0!important;width:0!important}
+.tabs-bar{overflow:visible!important}
+#tabsList>.tabs-item{overflow:hidden}
+#tabsList>.tabs-overflow,#tabsList>.tabs-add{flex-shrink:0!important}
+.tabs-overflow-menu{z-index:2000}
