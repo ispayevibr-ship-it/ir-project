@@ -4187,7 +4187,9 @@ window.irBuildingView=(()=>{
   const maxZ=Math.max(7000,8400,...cols.map(c=>Math.max(num(c.z0),num(c.z2),c.geometryType==="bent"?num(c.mz):0)),1);
   const projectFactory=()=>{
    const rect=canvas.getBoundingClientRect(),w=Math.max(260,rect.width),h=Math.max(320,rect.height);
-    const insetL=state.layersOpen?Math.min(305,w*.24):0,insetR=state.selected||state.placing?Math.min(305,w*.24):0;
+    const smallScreen=window.innerWidth<=820,
+    insetL=!smallScreen&&state.layersOpen?Math.min(257,w*.25):0,
+    insetR=!smallScreen&&(state.selected||state.placing)?Math.min(305,w*.28):0;
     const safeW=Math.max(200,w-insetL-insetR),centerX=insetL+safeW/2;
    const raw=point=>{
     const x=(point.x-spanX/2)/1000,y=(point.y-spanY/2)/1000,z=(point.z-maxZ/2)/1000;
