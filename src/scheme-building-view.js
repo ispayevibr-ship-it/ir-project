@@ -7,7 +7,7 @@
  */
 window.irBuildingView=(()=>{
  const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true,bent:false,middle:null};
- let observer=null,paint=null,webgl=null;
+ let observer=null,paint=null,webgl=null,panelsInitialized=false;
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const html=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  const pt=(x,y,z)=>({x:Number(x)||0,y:Number(y)||0,z:Number(z)||0});
@@ -93,6 +93,7 @@ window.irBuildingView=(()=>{
  }
 
  function render(host,props){
+  if(!panelsInitialized){state.layersOpen=window.innerWidth>=1000;panelsInitialized=true}
   if(observer){observer.disconnect();observer=null}
   if(webgl){webgl.dispose();webgl=null}
   const axesX=props.axesX,axesY=props.axesY,spanX=props.spanX,spanY=props.spanY,
@@ -112,11 +113,13 @@ window.irBuildingView=(()=>{
    '<div class="irb-panel-head"><b>Отображение</b></div>'+
    '<label class="irb-switch"><input type="checkbox" id="irbGrid" '+(state.grid?'checked':'')+'><span>Сетка осей</span></label>'+
    '<label class="irb-switch"><input type="checkbox" id="irbRoof" '+(state.roof?'checked':'')+'><span>Контур кровли (эскиз)</span></label>'+
-   '<div class="irb-info">Голубой пунктир — условный контур здания. Цветные конструкции — ваши размещённые марки. Проектные формы уточняются по КМ/КМД.</div>'+
+   '<div class="irb-info"><b>Управление каркасом</b><span>ЛКМ / один палец — вращение. ПКМ / два пальца — перемещение. Колесо / разведение пальцев — масштаб. Щелчок — выбор марки.</span></div>'+
    '<div class="irb-count"><span>'+html(props.scopeLabel||"На схеме")+'</span><strong>'+cols.length+'</strong><small>Размещённых элементов</small></div>'+
    (props.canEdit?'<button type="button" class="irb-add" id="irbStart">＋ Разместить марку</button>':'')+
    '</aside><div class="irb-viewport">'+
    '<canvas id="irbSolid" aria-hidden="true"></canvas><canvas id="irbCanvas" aria-label="Интерактивный 3D-каркас здания"></canvas>'+
+   '<div class="irb-view-title"><b>3D-каркас</b><small>Живая модель монтажной схемы · WebGL</small></div>'+
+   '<div class="irb-view-modes" id="irbCameraButtons"><button data-irb-camera="iso" type="button">3D</button><button data-irb-camera="top" type="button">Сверху</button><button data-irb-camera="front" type="button">Фасад</button><button data-irb-camera="side" type="button">Сбоку</button></div>'+
    '<div class="irb-tags"><span>● Общая модель здания</span><span>'+fmt(spanX/1000)+' × '+fmt(spanY/1000)+' м · '+axesX.length+' × '+axesY.length+' осей</span></div>'+
    '<label class="irb-camera">Вид <select id="irbView"><option value="iso">Изометрия</option><option value="top">Сверху</option><option value="front">Фасад</option><option value="side">Сбоку</option><option value="free" disabled>Свободный ракурс</option></select></label>'+
    '<div class="irb-hint" id="irbHint"></div>'+
@@ -572,7 +575,10 @@ window.irBuildingView=(()=>{
    state.preset=mode;state.zoom=1;state.panX=0;state.panY=0;
    if(mode==="top"){state.yaw=0;state.pitch=Math.PI/2}else if(mode==="front"){state.yaw=0;state.pitch=.03}
    else if(mode==="side"){state.yaw=Math.PI/2;state.pitch=.03}else{state.yaw=-.75;state.pitch=.60}
-   paint();
+   syncCameraButtons();paint();
+  };
+  const syncCameraButtons=()=>{
+   host.querySelectorAll("[data-irb-camera]").forEach(b=>b.classList.toggle("active",b.dataset.irbCamera===state.preset))
   };
   const setZoom=v=>{state.zoom=clamp(v,.45,4);paint()};
   host.querySelectorAll("[data-irb-layer]").forEach(b=>b.onclick=()=>props.onLayer(b.dataset.irbLayer));
@@ -582,17 +588,48 @@ window.irBuildingView=(()=>{
   if(el("irbQuickAdd"))el("irbQuickAdd").onclick=startPlacement;
   el("irbView").value=state.preset;
   el("irbView").onchange=e=>setCamera(e.target.value);
+  host.querySelectorAll("[data-irb-camera]").forEach(b=>b.onclick=()=>{el("irbView").value=b.dataset.irbCamera;setCamera(b.dataset.irbCamera)});
+  syncCameraButtons();
   el("irbMinus").onclick=()=>setZoom(state.zoom/1.18);
   el("irbPlus").onclick=()=>setZoom(state.zoom*1.18);
   el("irbFit").onclick=()=>setCamera("iso");
-  let drag=null;
+  let drag=null,twoFinger=null,multiTouch=false;
+  const pointers=new Map();
   const point=e=>{const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}};
-  canvas.onpointerdown=e=>{if(e.button!==0)return;const p=point(e);drag={...p,lastX:p.x,lastY:p.y,moved:false};try{canvas.setPointerCapture(e.pointerId)}catch(_e){}};
+  const pair=()=>{
+   const [a,b]=[...pointers.values()];
+   return{cx:(a.x+b.x)/2,cy:(a.y+b.y)/2,distance:Math.max(1,Math.hypot(a.x-b.x,a.y-b.y))}
+  };
+  canvas.oncontextmenu=e=>e.preventDefault();
+  canvas.onpointerdown=e=>{
+   if(e.button!==0&&e.button!==2)return;
+   const p=point(e);
+   if(e.pointerType==="touch"){
+    pointers.set(e.pointerId,p);
+    if(pointers.size===2){const t=pair();twoFinger={...t,panX:state.panX,panY:state.panY,zoom:state.zoom};multiTouch=true;drag=null}
+   }
+   if(!twoFinger)drag={...p,lastX:p.x,lastY:p.y,moved:false,mode:e.button===2?"pan":"orbit"};
+   try{canvas.setPointerCapture(e.pointerId)}catch(_e){}
+  };
   canvas.onpointermove=e=>{
    const p=point(e);
+   if(e.pointerType==="touch"&&pointers.has(e.pointerId)){
+    pointers.set(e.pointerId,p);
+    if(twoFinger&&pointers.size>=2){
+     const t=pair();
+     state.panX=twoFinger.panX+t.cx-twoFinger.cx;
+     state.panY=twoFinger.panY+t.cy-twoFinger.cy;
+     state.zoom=clamp(twoFinger.zoom*t.distance/twoFinger.distance,.45,4);
+     paint();return
+    }
+   }
    if(drag){
     if(Math.hypot(p.x-drag.x,p.y-drag.y)>4)drag.moved=true;
-    if(drag.moved){state.yaw+=(p.x-drag.lastX)*.008;state.pitch=clamp(state.pitch+(p.y-drag.lastY)*.006,.02,Math.PI/2);state.preset="free";el("irbView").value="free";paint()}
+    if(drag.moved){
+     if(drag.mode==="pan"){state.panX+=p.x-drag.lastX;state.panY+=p.y-drag.lastY}
+     else{state.yaw+=(p.x-drag.lastX)*.008;state.pitch=clamp(state.pitch+(p.y-drag.lastY)*.006,.02,Math.PI/2);state.preset="free";el("irbView").value="free";syncCameraButtons()}
+     paint()
+    }
     drag.lastX=p.x;drag.lastY=p.y;return;
    }
    if(!state.placing){const id=nearestMember(p.x,p.y)?.id||"";if(state.hover!==id){state.hover=id;paint()}canvas.style.cursor=id?"pointer":"grab"}
@@ -607,7 +644,11 @@ window.irBuildingView=(()=>{
    }
   };
   canvas.onpointerup=e=>{
-   if(!drag)return;const moved=drag.moved;drag=null;if(moved)return;
+   if(e.pointerType==="touch"){
+    pointers.delete(e.pointerId);
+    if(twoFinger||multiTouch){twoFinger=null;drag=null;if(!pointers.size)multiTouch=false;return}
+   }
+   if(!drag)return;const moved=drag.moved,mode=drag.mode;drag=null;if(moved||mode==="pan")return;
    const p=point(e);
    if(state.placing){
     if(state.busy||!selectedMark())return;
@@ -631,7 +672,7 @@ window.irBuildingView=(()=>{
    }else{state.selected=String(nearestMember(p.x,p.y)?.id||"");props.onSelect(state.selected);refreshPanel();paint()}
   };
   canvas.onpointerleave=()=>{if(!drag&&state.hoverAnchor){state.hoverAnchor=null;updateHoverInfo();paint()}};
-  canvas.onpointercancel=()=>{drag=null};
+  canvas.onpointercancel=e=>{pointers.delete(e.pointerId);drag=null;twoFinger=null;if(!pointers.size)multiTouch=false};
   canvas.onwheel=e=>{e.preventDefault();setZoom(state.zoom*(e.deltaY>0?.9:1.1))};
   if(window.ResizeObserver){observer=new ResizeObserver(()=>paint());observer.observe(canvas)}
   state.selected=String(props.selected||"");
