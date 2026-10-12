@@ -7,7 +7,7 @@
  */
 window.irBuildingView=(()=>{
  const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true,bent:false,middle:null,colorMode:"status",hiddenSections:[],sectionKey:"",sectionsOpen:false,findQuery:""};
- let observer=null,paint=null,webgl=null,panelsInitialized=false;
+ let observer=null,paint=null,webgl=null,panelsInitialized=false,animationFrame=0,drawFrame=null;
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const html=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  const pt=(x,y,z)=>({x:Number(x)||0,y:Number(y)||0,z:Number(z)||0});
@@ -22,8 +22,11 @@ window.irBuildingView=(()=>{
  // Every distinct mark gets a stable deterministic colour, unaffected by layer
  // filters and placement order. All copies of a mark share one colour.
  const markName=c=>String(c?.mark||c?.mark_name||c?.title||c?.id||"Без марки").trim().toLocaleUpperCase("ru");
+ const markColorCache=new Map();
  const markRgb=c=>{
-  const key=markName(c);let hash=2166136261;
+  const key=markName(c),cached=markColorCache.get(key);
+  if(cached)return cached;
+  let hash=2166136261;
   for(const char of key){hash^=char.codePointAt(0);hash=Math.imul(hash,16777619)}
   // Large spread across the spectrum; varied lightness reduces adjacent confusion.
   const hue=((hash>>>0)*.6180339887498949%1)*360,
@@ -32,7 +35,7 @@ window.irBuildingView=(()=>{
   const k=n=>(n+hue/30)%12,
    a=saturation*Math.min(lightness,1-lightness),
    channel=n=>lightness-a*Math.max(-1,Math.min(k(n)-3,9-k(n),1));
-  return[channel(0),channel(8),channel(4)];
+  const rgb=[channel(0),channel(8),channel(4)];markColorCache.set(key,rgb);return rgb;
  };
  const markCss=c=>"rgb("+markRgb(c).map(x=>Math.round(x*255)).join(",")+")";
  const dist=(q,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,t=clamp(((q.x-a.x)*dx+(q.y-a.y)*dy)/(dx*dx+dy*dy||1),0,1);return Math.hypot(q.x-(a.x+dx*t),q.y-(a.y+dy*t))};
@@ -116,6 +119,8 @@ window.irBuildingView=(()=>{
    panelsInitialized=true
   }
   if(observer){observer.disconnect();observer=null}
+  if(animationFrame){window.cancelAnimationFrame(animationFrame);animationFrame=0}
+  drawFrame=null;
   if(webgl){webgl.dispose();webgl=null}
   const axesX=props.axesX,axesY=props.axesY,spanX=props.spanX,spanY=props.spanY,
    gridX=props.gridX,gridY=props.gridY,cols=props.elements,marks=props.marks,groups=props.groups;
@@ -156,7 +161,13 @@ window.irBuildingView=(()=>{
    const band=sectionFor(c,axis);
    return band&&state.hiddenSections.includes(band.id)
   });
-  const visibleCols=()=>cols.filter(visibleMember);
+  // Bay visibility is stable until a section checkbox changes.
+  let visibleKey=null,visibleMembers=null;
+  const visibleCols=()=>{
+   const key=state.hiddenSections.join("\u001f");
+   if(key!==visibleKey||!visibleMembers){visibleKey=key;visibleMembers=cols.filter(visibleMember)}
+   return visibleMembers
+  };
   const saveSections=()=>{
    try{localStorage.setItem(sectionKey,JSON.stringify(state.hiddenSections))}catch(_error){}
   };
@@ -397,11 +408,18 @@ window.irBuildingView=(()=>{
    return d(hits[0])<=d(hits[1])?hits[0]:hits[1];
   };
   const sameAnchor=(a,b)=>Boolean(a&&b&&Math.hypot(num(a.worldX)-num(b.worldX),num(a.worldY)-num(b.worldY),num(a.z)-num(b.z))<1);
-  const memberSegments=()=>visibleCols().flatMap(c=>{
+  let segmentsKey=null,segmentsCache=null;
+  const memberSegments=()=>{
+   const key=state.hiddenSections.join("\u001f");
+   if(segmentsCache&&segmentsKey===key)return segmentsCache;
+   segmentsKey=key;
+   segmentsCache=visibleCols().flatMap(c=>{
     const start=pt(c.x,c.y,c.z0),end=pt(c.geometryType==="column"?c.x:c.x2,c.geometryType==="column"?c.y:c.y2,c.z2);
     if(c.geometryType==="bent"){const mid=pt(c.mx,c.my,c.mz);return[{c,start,end:mid,part:0},{c,start:mid,end,part:1}]}
     return[{c,start,end,part:0}];
-  });
+   });
+   return segmentsCache
+  };
   const paintLabel=(p,label,border)=>{ctx.font="700 10px Segoe UI,Arial";const w=Math.max(24,ctx.measureText(label).width+15);ctx.fillStyle="#fff";ctx.strokeStyle=border;ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(p.x-w/2,p.y-25,w,20,5);ctx.fill();ctx.stroke();ctx.fillStyle="#24649a";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(label,p.x,p.y-15)};
   const line=(a,b,color,width=1,dash=[])=>{ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.setLineDash(dash);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke();ctx.setLineDash([])};
   const circle=(p,r,color)=>{ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fillStyle=color;ctx.fill()};
@@ -421,13 +439,16 @@ window.irBuildingView=(()=>{
     for(const x of [0,spanX])for(const y of [0,spanY])line(p(pt(x,y,0)),rf(x,y),"rgba(104,155,200,.28)",1,[5,6]);
    }
   };
+  let projectedSegments=[];
   paint=()=>{
    const rect=canvas.getBoundingClientRect();if(rect.width<2||rect.height<2)return;
-   const dpr=Math.min(2,window.devicePixelRatio||1),w=Math.floor(rect.width*dpr),h=Math.floor(rect.height*dpr);
+   const dpr=Math.min(1.5,window.devicePixelRatio||1),w=Math.floor(rect.width*dpr),h=Math.floor(rect.height*dpr);
    if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}
    ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,rect.width,rect.height);ctx.lineJoin="round";ctx.lineCap="round";
    const m=projectFactory();outline(m);
-   const segments=memberSegments().map(s=>({...s,a:m.project(s.start),b:m.project(s.end),depth:(m.raw(s.start).depth+m.raw(s.end).depth)/2})).sort((a,b)=>a.depth-b.depth);
+   const segments=memberSegments().map(s=>({...s,a:m.project(s.start),b:m.project(s.end),depth:(m.raw(s.start).depth+m.raw(s.end).depth)/2}));
+   if(!webgl)segments.sort((a,b)=>a.depth-b.depth);
+   projectedSegments=segments;
    if(webgl)webgl.render(segments,m,rect.width,rect.height,dpr);
    for(const s of segments){
     const chosen=String(s.c.id)===String(state.selected),hover=String(s.c.id)===String(state.hover),
@@ -492,9 +513,21 @@ window.irBuildingView=(()=>{
     }
    };
   };
+  // Batch pointer/zoom/resize requests into a single draw per display frame.
+  drawFrame=paint;
+  paint=()=>{
+   if(animationFrame)return;
+   const current=drawFrame;
+   animationFrame=window.requestAnimationFrame(()=>{
+    animationFrame=0;
+    if(drawFrame===current)current()
+   });
+  };
+  // Fast hover picking uses the projected segments from the last frame.
   const nearestMember=(x,y)=>{
-   const m=projectFactory(),point={x,y};let best=null,distance=14;
-   for(const s of memberSegments()){const d=dist(point,m.project(s.start),m.project(s.end));if(d<distance){distance=d;best=s.c}}return best;
+   const point={x,y};let best=null,distance=14;
+   for(const s of projectedSegments){const d=dist(point,s.a,s.b);if(d<distance){distance=d;best=s.c}}
+   return best;
   };
   const nearestAxis=(x,y)=>{
    const m=projectFactory();let best=null,minScore=18;
@@ -993,5 +1026,9 @@ window.irBuildingView=(()=>{
    state.markSearch="";state.hoverAnchor=null;state.chainNext=null
   },
   placementCancelled:()=>{state.chainNext=null;state.continuing=false;state.placing=false;state.start=null;state.middle=null;state.end=null;state.hoverAnchor=null},
-  dispose:()=>{observer?.disconnect();observer=null;webgl?.dispose();webgl=null;paint=null}};
+  dispose:()=>{
+   observer?.disconnect();observer=null;
+   if(animationFrame){window.cancelAnimationFrame(animationFrame);animationFrame=0}
+   drawFrame=null;webgl?.dispose();webgl=null;paint=null
+  }};
 })();
