@@ -1891,6 +1891,26 @@ body.ir-object-route:not(.ir-object-overview) .wt-row[hidden]{display:none!impor
 .irb-ridge-mode>small,.irb-ridge-note{font-size:10px;line-height:1.5;color:#587f99}
 .irb-ridge-note{display:block;margin-top:4px}
 
+/* IR Project 1.7.118: align construction properties title with close control. */
+@media(min-width:821px){
+ .irb-webgl .irb-properties{
+  padding-top:17px!important;
+  gap:12px!important;
+ }
+ .irb-webgl .irb-properties>.irb-panel-head:first-of-type{
+  display:flex!important;
+  align-items:center!important;
+  min-height:30px!important;
+  margin:0 36px 0 0!important;
+  padding:0!important;
+  line-height:1.35!important;
+ }
+ .irb-webgl .irb-properties>.irb-pane-close{
+  top:13px!important;
+  right:14px!important;
+ }
+}
+
 
 /* #45: src/object-overview-right-column.css */
 /* IR Project 1.7.73: shared overview cards in a fixed ordered right column. */
