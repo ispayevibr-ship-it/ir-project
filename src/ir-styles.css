@@ -1911,6 +1911,15 @@ body.ir-object-route:not(.ir-object-overview) .wt-row[hidden]{display:none!impor
  }
 }
 
+/* IR Project 1.7.119 — elevation draft stays separate from preview until commit. */
+.irb-immersive .irb-properties .irb-level input.irb-level-editing:not(.irb-level-invalid){
+ border-color:#7db2de!important;background:#f5faff!important;
+ box-shadow:0 0 0 2px #c9e4f533
+}
+.irb-immersive .irb-properties .irb-level input.irb-level-editing:not(.irb-level-invalid)~.irb-level-feedback{
+ color:#4e7d9f;font-weight:600
+}
+
 
 /* #45: src/object-overview-right-column.css */
 /* IR Project 1.7.73: shared overview cards in a fixed ordered right column. */
