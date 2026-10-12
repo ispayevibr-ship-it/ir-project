@@ -2,7 +2,7 @@ name: Verify IR Project hot update
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/3d-color-by-mark]
     paths:
       - 'src/**'
       - 'hot/latest.json'
