@@ -4041,6 +4041,12 @@ window.irBuildingView=(()=>{
  const pt=(x,y,z)=>({x:Number(x)||0,y:Number(y)||0,z:Number(z)||0});
  const num=v=>Number(v)||0;
  const fmt=n=>Math.round(n).toLocaleString("ru-RU");
+ const memberLength=c=>{
+  const first=Math.hypot(num(c.geometryType==="bent"?c.mx:c.x2??c.x)-num(c.x),
+   num(c.geometryType==="bent"?c.my:c.y2??c.y)-num(c.y),
+   num(c.geometryType==="bent"?c.mz:c.z2)-num(c.z0));
+  return c.geometryType==="bent"?first+Math.hypot(num(c.x2)-num(c.mx),num(c.y2)-num(c.my),num(c.z2)-num(c.mz)):first;
+ };
  const dist=(q,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,t=clamp(((q.x-a.x)*dx+(q.y-a.y)*dy)/(dx*dx+dy*dy||1),0,1);return Math.hypot(q.x-(a.x+dx*t),q.y-(a.y+dy*t))};
  function render(host,props){
   if(observer){observer.disconnect();observer=null}
@@ -4478,7 +4484,7 @@ window.irBuildingView=(()=>{
       '<div class="irb-row"><span>Начало, мм</span><b>X '+fmt(c.x)+' · Y '+fmt(c.y)+' · Z '+fmt(c.z0)+'</b></div>'+
        (c.geometryType==="bent"?'<div class="irb-row"><span>Конёк / излом, мм</span><b>X '+fmt(c.mx)+' · Y '+fmt(c.my)+' · Z '+fmt(c.mz)+'</b></div>':"")+
        '<div class="irb-row"><span>Конец, мм</span><b>X '+fmt(c.x2??c.x)+' · Y '+fmt(c.y2??c.y)+' · Z '+fmt(c.z2)+'</b></div>'+
-       '<div class="irb-row irb-length"><span>Длина элемента по осям</span><b>'+fmt(c.geometryType==="bent"?Math.hypot(num(c.mx)-num(c.x),num(c.my)-num(c.y),num(c.mz)-num(c.z0))+Math.hypot(num(c.x2)-num(c.mx),num(c.y2)-num(c.my),num(c.z2)-num(c.mz)):Math.hypot(num(c.x2??c.x)-num(c.x),num(c.y2??c.y)-num(c.y),num(c.z2)-num(c.z0)))+' мм · '+(c.geometryType==="bent"?Math.hypot(num(c.mx)-num(c.x),num(c.my)-num(c.y),num(c.mz)-num(c.z0))+Math.hypot(num(c.x2)-num(c.mx),num(c.y2)-num(c.my),num(c.z2)-num(c.mz)):Math.hypot(num(c.x2??c.x)-num(c.x),num(c.y2??c.y)-num(c.y),num(c.z2)-num(c.z0)))/1000.toLocaleString("ru-RU",{minimumFractionDigits:3,maximumFractionDigits:3})+' м</b></div>'+
+       '<div class="irb-row irb-length"><span>Длина элемента по осям</span><b>'+fmt(memberLength(c))+' мм · '+(memberLength(c)/1000).toLocaleString("ru-RU",{minimumFractionDigits:3,maximumFractionDigits:3})+' м</b></div>'+
       '<div class="irb-row"><span>Отметка низа, мм</span><b>'+fmt(c.z0)+'</b></div>'+
       '<div class="irb-row"><span>Отметка конца, мм</span><b>'+fmt(c.z2)+'</b></div>'+
       (props.canEdit?'<div class="irb-action-row">'+
