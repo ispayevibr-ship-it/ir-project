@@ -6,7 +6,7 @@
  * 2D canvas projection: offline, no dependencies or database access.
  */
 window.irBuildingView=(()=>{
- const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true,bent:false,middle:null,colorMode:"status",hiddenSections:[],sectionKey:"",sectionsOpen:false};
+ const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true,bent:false,middle:null,colorMode:"status",hiddenSections:[],sectionKey:"",sectionsOpen:false,findQuery:""};
  let observer=null,paint=null,webgl=null,panelsInitialized=false;
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const html=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -184,7 +184,22 @@ window.irBuildingView=(()=>{
   host.innerHTML='<div class="irb-wrap"><aside class="irb-layers">'+header+
    '<div class="irb-layer-list">'+groups.map(g=>'<button type="button" class="irb-layer '+(g.visible?'active':'')+'" data-irb-layer="'+html(g.key)+'"><i>'+(g.visible?'✓':'')+'</i><b>'+html(g.label)+'</b><small>'+g.count+'</small></button>').join("")+'</div>'+
    sectionsMarkup()+
-   '<label class="irb-find-label">Найти конструкцию</label><input id="irbFindMark" type="search" autocomplete="off" placeholder="Например, К178" aria-label="Поиск марки в 3D">'+
+   '<section class="irb-find" role="search" aria-label="Поиск конструкций в 3D">'+
+    '<label class="irb-find-label" for="irbFindMark">Найти конструкцию</label>'+
+    '<div class="irb-find-input-wrap">'+
+     '<span class="irb-find-icon" aria-hidden="true">⌕</span>'+
+     '<input id="irbFindMark" type="search" autocomplete="off" spellcheck="false" placeholder="Марка, например К41" aria-label="Найти конструкцию по марке" value="'+html(state.findQuery)+'">'+
+     '<button id="irbFindClear" class="irb-find-clear" type="button" title="Очистить поиск" aria-label="Очистить поиск">×</button>'+
+    '</div>'+
+    '<div class="irb-find-actions">'+
+     '<span id="irbFindCount" class="irb-find-count" role="status" aria-live="polite">Введите марку</span>'+
+     '<div class="irb-find-pager">'+
+      '<button id="irbFindPrev" type="button" title="Предыдущая конструкция (Shift+Enter)" aria-label="Предыдущая найденная конструкция">‹</button>'+
+      '<button id="irbFindNext" type="button" title="Следующая конструкция (Enter)" aria-label="Следующая найденная конструкция">›</button>'+
+     '</div>'+
+    '</div>'+
+    '<small class="irb-find-hint">Enter — далее · Shift+Enter — назад</small>'+
+   '</section>'+
    '<div class="irb-panel-head"><b>Цвет конструкций</b></div>'+
    '<div class="irb-color-modes" role="group" aria-label="Раскраска 3D-модели">'+
     '<button type="button" id="irbColorStatus" aria-pressed="true">По статусу</button>'+
@@ -290,7 +305,7 @@ window.irBuildingView=(()=>{
     minY=Math.min(...vertices.map(p=>p.y)),maxY=Math.max(...vertices.map(p=>p.y));
    const scale=Math.min((safeW-100)/Math.max(1,maxX-minX),(h-118)/Math.max(1,maxY-minY))*state.zoom;
    const project=point=>{const v=raw(point);return{x:centerX+state.panX+(v.x-(minX+maxX)/2)*scale,y:h/2+state.panY+(v.y-(minY+maxY)/2)*scale,depth:v.depth}};
-   return {w,h,raw,project};
+   return {w,h,raw,project,centerX};
   };
   const pickGeometry=()=>selectedMark()?.geometry==="beam"&&state.bent?"bent":selectedMark()?.geometry||"column";
   const anchorZ=()=>pickGeometry()==="column"?0:maxZ*.94;
@@ -758,6 +773,7 @@ window.irBuildingView=(()=>{
   const cutsChanged=()=>{
    state.hiddenSections=[...new Set(state.hiddenSections)].filter(id=>sections.some(a=>a.id===id));
    saveSections();updateCutControls();
+   refreshFindControls();
    // A hidden member cannot remain selected or intercept picking.
    if(state.selected&&!visibleCols().some(c=>String(c.id)===String(state.selected))){
     state.selected="";state.hover="";props.onSelect("");refreshPanel()
@@ -783,15 +799,66 @@ window.irBuildingView=(()=>{
   };
   updateCutControls();
   host.querySelectorAll("[data-irb-layer]").forEach(b=>b.onclick=()=>props.onLayer(b.dataset.irbLayer));
-  el("irbFindMark").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();el("irbFindMark").dispatchEvent(new Event("change"))}};
-  el("irbFindMark").onchange=e=>{
-   const q=e.target.value.trim().toLocaleLowerCase("ru");if(!q)return;
-   const found=visibleCols().find(c=>String(c.mark||"").toLocaleLowerCase("ru")===q)||
-    visibleCols().find(c=>String(c.mark||"").toLocaleLowerCase("ru").includes(q)||String(c.mark_name||"").toLocaleLowerCase("ru").includes(q));
-   if(!found){e.target.setCustomValidity("Марка не найдена среди видимых конструкций. Проверьте разрезы.");e.target.reportValidity();return}
-   e.target.setCustomValidity("");state.selected=String(found.id);state.placing=false;
-   props.onSelect(state.selected);refreshPanel();paint();
+  const findInput=el("irbFindMark");
+  const findVisibleMatches=()=>{
+   const query=state.findQuery.trim().toLocaleLowerCase("ru");
+   if(!query)return[];
+   const members=visibleCols();
+   const exact=members.filter(c=>markName(c).toLocaleLowerCase("ru")===query);
+   const selected=exact.length?exact:members.filter(c=>
+    markName(c).toLocaleLowerCase("ru").includes(query)||
+    String(c.mark_name||c.title||"").toLocaleLowerCase("ru").includes(query));
+   // Stable order between repeated finds, even after camera rotation.
+   return selected.slice().sort((a,b)=>
+    num(a.x)-num(b.x)||num(a.y)-num(b.y)||num(a.z0)-num(b.z0)||
+    String(a.id).localeCompare(String(b.id),"ru",{numeric:true}));
   };
+  const refreshFindControls=()=>{
+   const matches=findVisibleMatches(),total=matches.length,
+    idx=matches.findIndex(c=>String(c.id)===String(state.selected)),
+    current=idx<0?0:idx+1,
+    message=el("irbFindCount");
+   if(message){
+    message.textContent=!state.findQuery.trim()?"Введите марку":
+     !total?"Ничего не найдено":current+" из "+total+" найдено";
+    message.classList.toggle("irb-find-empty",Boolean(state.findQuery.trim()&&!total))
+   }
+   for(const id of ["irbFindPrev","irbFindNext"]){const button=el(id);if(button)button.disabled=!total}
+   const clear=el("irbFindClear");if(clear)clear.hidden=!findInput.value;
+  };
+  const focusFound=c=>{
+   state.placing=false;state.selected=String(c.id);state.hover="";
+   props.onSelect(state.selected);refreshPanel();
+   const focusPoint=c.geometryType==="bent"?pt(c.mx,c.my,c.mz):
+    c.geometryType==="column"?pt(c.x,c.y,(num(c.z0)+num(c.z2))/2):
+    pt((num(c.x)+num(c.x2))/2,(num(c.y)+num(c.y2))/2,(num(c.z0)+num(c.z2))/2);
+   const projection=projectFactory(),screen=projection.project(focusPoint);
+   state.panX+=projection.centerX-screen.x;
+   state.panY+=projection.h/2-screen.y;
+   refreshFindControls();paint()
+  };
+  const moveFound=direction=>{
+   const matches=findVisibleMatches();if(!matches.length){refreshFindControls();return}
+   const index=matches.findIndex(c=>String(c.id)===String(state.selected));
+   const next=index<0?(direction<0?matches.length-1:0):(index+direction+matches.length)%matches.length;
+   focusFound(matches[next]);
+  };
+  findInput.oninput=()=>{
+   state.findQuery=findInput.value;
+   refreshFindControls()
+  };
+  findInput.onkeydown=e=>{
+   if(e.key==="Enter"){e.preventDefault();moveFound(e.shiftKey?-1:1)}
+   else if(e.key==="Escape"&&findInput.value){
+    e.preventDefault();findInput.value="";state.findQuery="";refreshFindControls()
+   }
+  };
+  el("irbFindPrev").onclick=()=>moveFound(-1);
+  el("irbFindNext").onclick=()=>moveFound(1);
+  el("irbFindClear").onclick=()=>{
+   findInput.value="";state.findQuery="";refreshFindControls();findInput.focus()
+  };
+  refreshFindControls();
   el("irbGrid").onchange=e=>{state.grid=e.target.checked;paint()};
   el("irbRoof").onchange=e=>{state.roof=e.target.checked;paint()};
   if(el("irbStart"))el("irbStart").onclick=startPlacement;
@@ -879,7 +946,7 @@ window.irBuildingView=(()=>{
      // Use exactly the same validated save path as the sidebar button.
      void commitQuickPlacement()
     }
-   }else{state.selected=String(nearestMember(p.x,p.y)?.id||"");props.onSelect(state.selected);refreshPanel();paint()}
+   }else{state.selected=String(nearestMember(p.x,p.y)?.id||"");props.onSelect(state.selected);refreshPanel();refreshFindControls();paint()}
   };
   canvas.onpointerleave=()=>{if(!drag&&state.hoverAnchor){state.hoverAnchor=null;updateHoverInfo();paint()}};
   canvas.onpointercancel=e=>{pointers.delete(e.pointerId);drag=null;twoFinger=null;if(!pointers.size)multiTouch=false};
@@ -887,7 +954,7 @@ window.irBuildingView=(()=>{
   if(window.ResizeObserver){observer=new ResizeObserver(()=>paint());observer.observe(canvas)}
   state.selected=String(props.selected||"");
   if(!visibleCols().some(c=>String(c.id)===state.selected))state.selected="";
-  refreshPanel();paint();
+  refreshPanel();refreshFindControls();paint();
  }
  return {render,start:()=>{const b=document.getElementById("irbStart");if(b)b.click()},
   placementSaved:placement=>{
