@@ -6,7 +6,7 @@
  * 2D canvas projection: offline, no dependencies or database access.
  */
 window.irBuildingView=(()=>{
- const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true,bent:false,middle:null,colorMode:"status"};
+ const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true,bent:false,middle:null,colorMode:"status",hiddenSections:[],sectionKey:"",sectionsOpen:false};
  let observer=null,paint=null,webgl=null,panelsInitialized=false;
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const html=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -119,6 +119,47 @@ window.irBuildingView=(()=>{
   if(webgl){webgl.dispose();webgl=null}
   const axesX=props.axesX,axesY=props.axesY,spanX=props.spanX,spanY=props.spanY,
    gridX=props.gridX,gridY=props.gridY,cols=props.elements,marks=props.marks,groups=props.groups;
+  const sectionKey="ir-project-3d-sections."+String(props.objectId||"default");
+  const sections=[
+   ...axesX.slice(0,-1).map((axis,i)=>({
+    id:"x:"+axis+":"+axesX[i+1],axis:"X",label:axis+"–"+axesX[i+1],
+    center:(num(gridX[axis])+num(gridX[axesX[i+1]]))/2,index:i
+   })),
+   ...axesY.slice(0,-1).map((axis,i)=>({
+    id:"y:"+axis+":"+axesY[i+1],axis:"Y",label:axis+"–"+axesY[i+1],
+    center:(num(gridY[axis])+num(gridY[axesY[i+1]]))/2,index:i
+   }))
+  ];
+  if(state.sectionKey!==sectionKey){
+   state.sectionKey=sectionKey;state.hiddenSections=[];state.sectionsOpen=false;
+   try{
+    const stored=JSON.parse(localStorage.getItem(sectionKey)||"[]");
+    if(Array.isArray(stored))state.hiddenSections=stored.filter(id=>sections.some(a=>a.id===id))
+   }catch(_error){}
+  }
+  const sectionFor=(c,axis)=>{
+   const choices=sections.filter(a=>a.axis===axis);
+   if(!choices.length)return null;
+   const position=axis==="X"?
+    c.geometryType==="column"?num(c.x):c.geometryType==="bent"?(num(c.x)+num(c.mx)+num(c.x2))/3:(num(c.x)+num(c.x2))/2:
+    c.geometryType==="column"?num(c.y):c.geometryType==="bent"?(num(c.y)+num(c.my)+num(c.y2))/3:(num(c.y)+num(c.y2))/2;
+   const coords=axis==="X"?axesX.map(a=>num(gridX[a])):axesY.map(a=>num(gridY[a]));
+   // A member on a shared boundary is consistently assigned to one bay.
+   const first=choices.find(row=>{
+    const lo=Math.min(coords[row.index],coords[row.index+1]),
+     hi=Math.max(coords[row.index],coords[row.index+1]);
+    return position>=lo-.1&&position<=hi+.1
+   });
+   return first||choices.reduce((best,row)=>Math.abs(row.center-position)<Math.abs(best.center-position)?row:best,choices[0])
+  };
+  const visibleMember=c=>!["X","Y"].some(axis=>{
+   const band=sectionFor(c,axis);
+   return band&&state.hiddenSections.includes(band.id)
+  });
+  const visibleCols=()=>cols.filter(visibleMember);
+  const saveSections=()=>{
+   try{localStorage.setItem(sectionKey,JSON.stringify(state.hiddenSections))}catch(_error){}
+  };
   const markById=id=>marks.find(m=>String(m.id)===String(id));
   const selectedMark=()=>markById(state.mark);
   const leftMark=()=>marks.filter(m=>m.left>0);
@@ -128,9 +169,21 @@ window.irBuildingView=(()=>{
    if(!next){state.placing=false;state.zigzag=false;state.start=null;state.end=null;state.continuing=false}
    state.mark=next?.id||"";
   }
+  const sectionsMarkup=()=>{
+   const rows=axis=>'<div class="irb-cut-axis"><b>'+(axis==="X"?"Между цифровыми осями":"Между буквенными осями")+'</b>'+
+    sections.filter(s=>s.axis===axis).map(row=>'<label class="irb-cut-row"><input type="checkbox" data-irb-cut="'+html(row.id)+'" '+
+     (state.hiddenSections.includes(row.id)?"":"checked")+'><span>'+html(row.label)+'</span></label>').join("")+'</div>';
+   return '<details class="irb-cuts" id="irbCuts" '+(state.sectionsOpen?"open":"")+'>'+
+    '<summary>Разрезы / участки <small id="irbHiddenCount"></small></summary>'+
+    '<p>Снимите галочку, чтобы скрыть конструкции участка между осями. Марки не удаляются.</p>'+
+    '<div class="irb-cuts-list">'+rows("X")+rows("Y")+'</div>'+
+    '<button type="button" id="irbCutsReset">Показать все участки</button>'+
+    '<div class="irb-cuts-result" id="irbCutsResult"></div></details>'
+  };
   const header='<div class="irb-panel-head"><b>Слои модели</b></div>';
   host.innerHTML='<div class="irb-wrap"><aside class="irb-layers">'+header+
    '<div class="irb-layer-list">'+groups.map(g=>'<button type="button" class="irb-layer '+(g.visible?'active':'')+'" data-irb-layer="'+html(g.key)+'"><i>'+(g.visible?'✓':'')+'</i><b>'+html(g.label)+'</b><small>'+g.count+'</small></button>').join("")+'</div>'+
+   sectionsMarkup()+
    '<label class="irb-find-label">Найти конструкцию</label><input id="irbFindMark" type="search" autocomplete="off" placeholder="Например, К178" aria-label="Поиск марки в 3D">'+
    '<div class="irb-panel-head"><b>Цвет конструкций</b></div>'+
    '<div class="irb-color-modes" role="group" aria-label="Раскраска 3D-модели">'+
@@ -143,7 +196,7 @@ window.irBuildingView=(()=>{
    '<label class="irb-switch"><input type="checkbox" id="irbGrid" '+(state.grid?'checked':'')+'><span>Сетка осей</span></label>'+
    '<label class="irb-switch"><input type="checkbox" id="irbRoof" '+(state.roof?'checked':'')+'><span>Контур кровли (эскиз)</span></label>'+
    '<div class="irb-info"><b>Управление каркасом</b><span>ЛКМ / один палец — вращение. ПКМ / два пальца — перемещение. Колесо / разведение пальцев — масштаб. Щелчок — выбор марки.</span></div>'+
-   '<div class="irb-count"><span>'+html(props.scopeLabel||"На схеме")+'</span><strong>'+cols.length+'</strong><small>Размещённых элементов</small></div>'+
+   '<div class="irb-count"><span>'+html(props.scopeLabel||"На схеме")+'</span><strong id="irbVisibleCount">'+visibleCols().length+'</strong><small>Показано из '+cols.length+' размещённых элементов</small></div>'+
    (props.canEdit?'<button type="button" class="irb-add" id="irbStart">＋ Разместить марку</button>':'')+
    '</aside><div class="irb-viewport">'+
    '<canvas id="irbSolid" aria-hidden="true"></canvas><canvas id="irbCanvas" aria-label="Интерактивный 3D-каркас здания"></canvas>'+
@@ -163,6 +216,7 @@ window.irBuildingView=(()=>{
   const topControls=document.createElement("div");
   topControls.className="irb-top-actions";
   topControls.innerHTML='<button type="button" id="irbLayerToggle" aria-expanded="'+(state.layersOpen?'true':'false')+'">☷ Слои</button>'+
+   '<button type="button" id="irbCutsToggle" title="Скрыть или показать участки каркаса по осям">▤ Разрезы</button>'+
    '<button type="button" id="irbColorToggle" title="Переключить цветовой режим" aria-label="Переключить цветовой режим">◉ Цвет: статус</button>'+
    (props.canEdit?'<button type="button" id="irbQuickAdd" class="irb-top-add">＋ Добавить марку</button>':'');
   viewport.appendChild(topControls);
@@ -180,7 +234,7 @@ window.irBuildingView=(()=>{
   const el=id=>host.querySelector("#"+id),canvas=el("irbCanvas"),ctx=canvas.getContext("2d");
   const colorSummary=(()=>{
    const summary=new Map();
-   for(const member of cols){
+   for(const member of visibleCols()){
     const key=markName(member),row=summary.get(key);
     if(row)row.count++;
     else summary.set(key,{key,count:1,rgb:markCss(member)})
@@ -269,13 +323,13 @@ window.irBuildingView=(()=>{
   };
   const columnOccupied=a=>!!a&&cols.some(c=>c.geometryType==="column"&&
    Math.hypot(num(c.x)-num(a.worldX),num(c.y)-num(a.worldY))<25&&Math.abs(num(c.z0)-num(a.z))<25);
-  const columnAnchors=()=>cols.filter(c=>c.geometryType==="column").map(c=>{
+  const columnAnchors=()=>visibleCols().filter(c=>c.geometryType==="column").map(c=>{
    const x=axesX.includes(String(c.axisX))?String(c.axisX):closest(axesX,gridX,num(c.x));
    const y=axesY.includes(String(c.axisY))?String(c.axisY):closest(axesY,gridY,num(c.y));
    return {kind:"column",columnId:String(c.id),label:String(c.mark||"Колонна"),
     x,y,worldX:num(c.x),worldY:num(c.y),z:num(c.z2),zConfirmed:true,minZ:Math.min(num(c.z0),num(c.z2)),maxZ:Math.max(num(c.z0),num(c.z2))}
   });
-  const memberAnchors=()=>cols.filter(c=>c.geometryType!=="column").flatMap(c=>
+  const memberAnchors=()=>visibleCols().filter(c=>c.geometryType!=="column").flatMap(c=>
    [{worldX:num(c.x),worldY:num(c.y),z:num(c.z0)},...(c.geometryType==="bent"?[{worldX:num(c.mx),worldY:num(c.my),z:num(c.mz)}]:[]),{worldX:num(c.x2),worldY:num(c.y2),z:num(c.z2)}].map(v=>({
     kind:"member",memberId:String(c.id),label:String(c.mark||"Элемент"),
     x:closest(axesX,gridX,v.worldX),y:closest(axesY,gridY,v.worldY),...v,zConfirmed:true
@@ -301,7 +355,7 @@ window.irBuildingView=(()=>{
   const columnSegmentHit=(x,y)=>{
    if(pickGeometry()==="column")return null;
    const project=projectFactory().project;let best=12,hit=null;
-   for(const c of cols){
+   for(const c of visibleCols()){
     if(c.geometryType!=="column")continue;
     const a=project(pt(c.x,c.y,c.z0)),b=project(pt(c.x,c.y,c.z2)),
      dx=b.x-a.x,dy=b.y-a.y,length2=dx*dx+dy*dy;
@@ -328,7 +382,7 @@ window.irBuildingView=(()=>{
    return d(hits[0])<=d(hits[1])?hits[0]:hits[1];
   };
   const sameAnchor=(a,b)=>Boolean(a&&b&&Math.hypot(num(a.worldX)-num(b.worldX),num(a.worldY)-num(b.worldY),num(a.z)-num(b.z))<1);
-  const memberSegments=()=>cols.flatMap(c=>{
+  const memberSegments=()=>visibleCols().flatMap(c=>{
     const start=pt(c.x,c.y,c.z0),end=pt(c.geometryType==="column"?c.x:c.x2,c.geometryType==="column"?c.y:c.y2,c.z2);
     if(c.geometryType==="bent"){const mid=pt(c.mx,c.my,c.mz);return[{c,start,end:mid,part:0},{c,start:mid,end,part:1}]}
     return[{c,start,end,part:0}];
@@ -692,13 +746,49 @@ window.irBuildingView=(()=>{
    host.querySelectorAll("[data-irb-camera]").forEach(b=>b.classList.toggle("active",b.dataset.irbCamera===state.preset))
   };
   const setZoom=v=>{state.zoom=clamp(v,.45,4);paint()};
+  const cutDetails=el("irbCuts");
+  const updateCutControls=()=>{
+   const n=state.hiddenSections.length,visible=visibleCols().length;
+   const count=el("irbHiddenCount");if(count)count.textContent=n?"Скрыто: "+n:"Все видны";
+   const text=el("irbCutsResult");if(text)text.textContent="Показано "+visible+" из "+cols.length+" конструкций";
+   const title=el("irbVisibleCount");if(title)title.textContent=String(visible);
+   const toggle=el("irbCutsToggle");
+   if(toggle){toggle.textContent=n?"▤ Разрезы ("+n+")":"▤ Разрезы";toggle.classList.toggle("has-hidden",n>0)}
+  };
+  const cutsChanged=()=>{
+   state.hiddenSections=[...new Set(state.hiddenSections)].filter(id=>sections.some(a=>a.id===id));
+   saveSections();updateCutControls();
+   // A hidden member cannot remain selected or intercept picking.
+   if(state.selected&&!visibleCols().some(c=>String(c.id)===String(state.selected))){
+    state.selected="";state.hover="";props.onSelect("");refreshPanel()
+   }
+   if(state.colorMode==="mark")showColorMode();
+   paint();
+  };
+  if(cutDetails)cutDetails.addEventListener("toggle",()=>{state.sectionsOpen=cutDetails.open});
+  host.querySelectorAll("[data-irb-cut]").forEach(input=>input.onchange=()=>{
+   const id=input.dataset.irbCut;
+   state.hiddenSections=input.checked?state.hiddenSections.filter(x=>x!==id):[...state.hiddenSections,id];
+   cutsChanged()
+  });
+  el("irbCutsReset").onclick=()=>{
+   state.hiddenSections=[];
+   host.querySelectorAll("[data-irb-cut]").forEach(input=>input.checked=true);
+   cutsChanged()
+  };
+  el("irbCutsToggle").onclick=()=>{
+   state.layersOpen=true;updateLayers();
+   state.sectionsOpen=true;cutDetails.open=true;
+   layerPanel.scrollTop=Math.max(0,cutDetails.offsetTop-layerPanel.offsetTop-12)
+  };
+  updateCutControls();
   host.querySelectorAll("[data-irb-layer]").forEach(b=>b.onclick=()=>props.onLayer(b.dataset.irbLayer));
   el("irbFindMark").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();el("irbFindMark").dispatchEvent(new Event("change"))}};
   el("irbFindMark").onchange=e=>{
    const q=e.target.value.trim().toLocaleLowerCase("ru");if(!q)return;
-   const found=cols.find(c=>String(c.mark||"").toLocaleLowerCase("ru")===q)||
-    cols.find(c=>String(c.mark||"").toLocaleLowerCase("ru").includes(q)||String(c.mark_name||"").toLocaleLowerCase("ru").includes(q));
-   if(!found){e.target.setCustomValidity("Марка не найдена на текущей модели");e.target.reportValidity();return}
+   const found=visibleCols().find(c=>String(c.mark||"").toLocaleLowerCase("ru")===q)||
+    visibleCols().find(c=>String(c.mark||"").toLocaleLowerCase("ru").includes(q)||String(c.mark_name||"").toLocaleLowerCase("ru").includes(q));
+   if(!found){e.target.setCustomValidity("Марка не найдена среди видимых конструкций. Проверьте разрезы.");e.target.reportValidity();return}
    e.target.setCustomValidity("");state.selected=String(found.id);state.placing=false;
    props.onSelect(state.selected);refreshPanel();paint();
   };
@@ -796,6 +886,7 @@ window.irBuildingView=(()=>{
   canvas.onwheel=e=>{e.preventDefault();setZoom(state.zoom*(e.deltaY>0?.9:1.1))};
   if(window.ResizeObserver){observer=new ResizeObserver(()=>paint());observer.observe(canvas)}
   state.selected=String(props.selected||"");
+  if(!visibleCols().some(c=>String(c.id)===state.selected))state.selected="";
   refreshPanel();paint();
  }
  return {render,start:()=>{const b=document.getElementById("irbStart");if(b)b.click()},
