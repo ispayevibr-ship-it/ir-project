@@ -353,3 +353,18 @@
  .irb-color-legend{max-height:170px}
  .irb-webgl .irb-color-legend{max-height:min(23dvh,155px)}
 }
+
+/* 1.7.112 — editable Z inputs retain focus and show validation inline. */
+.irb-immersive .irb-properties .irb-level input{
+ user-select:text!important;-webkit-user-select:text!important;
+ caret-color:#155b9b;touch-action:manipulation
+}
+.irb-immersive .irb-properties .irb-level input.irb-level-invalid{
+ border-color:#d77166!important;background:#fff9f8!important;color:#91392f!important;
+ box-shadow:0 0 0 2px #e99f951f
+}
+.irb-immersive .irb-properties .irb-level-feedback{
+ display:block;font-size:10px;line-height:1.45;font-weight:650;
+ color:#b34d44;white-space:normal;overflow-wrap:anywhere
+}
+.irb-immersive .irb-properties .irb-level-feedback[hidden]{display:none!important}
