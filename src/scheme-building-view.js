@@ -306,14 +306,16 @@ window.irBuildingView=(()=>{
    el("irbHint").textContent=!state.placing?"ЛКМ — вращение · колесо — масштаб · нажатие на элемент — свойства":
     column&&state.directColumns?(!hasHeight?"Сначала задайте «Верх Z, мм» · затем щёлкните по месту колонны":
      "Наведите курсор — появится колонна · щелчок — установить · перетаскивание — вращать"):
+    pickGeometry()==="bent"?(!state.start?"1. Выберите начало балки":!state.middle?"2. Выберите конёк / излом":!state.end?"3. Выберите конец балки":"Проверьте три отметки Z и сохраните одну марку"):
     !state.start?"1. Выберите начальную точку":column||state.end?"Проверьте отметки и нажмите «Сохранить на схеме»":"2. Выберите конечную точку";
   };
   function refreshPanel(){
    const m=selectedMark(),left=num(m?.left),column=m?.geometry==="column",available=left>0;
    updateHint();
    const pane=el("irbProperties");
-    const readyToSave=()=>!!(state.start&&selectedMark()?.left>0&&(selectedMark()?.geometry==="column"||state.end)&&state.start.zConfirmed!==false&&
-     (selectedMark()?.geometry==="column"?state.topZ!==""&&Number.isFinite(Number(state.topZ))&&Number(state.topZ)>num(state.start.z):state.end?.zConfirmed!==false));
+    const readyToSave=()=>!!(state.start&&selectedMark()?.left>0&&(column||state.end)&&state.start.zConfirmed!==false&&
+     (column?state.topZ!==""&&Number.isFinite(Number(state.topZ))&&Number(state.topZ)>num(state.start.z):
+      state.end?.zConfirmed!==false&&(pickGeometry()!=="bent"||state.middle&&state.middle.zConfirmed!==false)));
    const ready=readyToSave();
    const current=cols.find(c=>String(c.id)===String(state.selected));
    pane.hidden=!state.placing&&!current;
@@ -323,22 +325,24 @@ window.irBuildingView=(()=>{
     '<label class="irb-field">Марка из ведомости<select id="irbMark">'+markOptions()+'</select><small>Найдено: '+matchedCount()+' из '+marks.length+'</small></label>'+
     '<div class="irb-placement-type"><span>Тип выбранной марки</span><b>'+html(column?"Колонна / стойка":m?.geometry==="brace"?"Связь / раскос":m?.geometry==="truss"?"Ферма":"Балка / ригель / прогон")+'</b>'+
      (!column?'<small>Для установки колонн щелчком выберите марку из категории «Колонны», «Фахверки» или «Стойки».</small>':"")+'</div>'+
+    (m?.geometry==="beam"?'<label class="irb-zigzag"><input id="irbBentMode" type="checkbox" '+(state.bent?"checked":"")+'><span><b>Ломаная балка (3 точки)</b><small>Начало → конёк → конец. Два ската считаются одной отправочной маркой.</small></span></label>':"")+
     '<div class="irb-quota">По ведомости: '+num(m?.total)+' шт.<br>На схеме: '+num(m?.placed)+' шт.<br><b>Осталось: '+left+' шт.</b></div>'+
     (column?'<div class="irb-direct-info"><b>Установка колонн на каркасе</b><span>Укажите верх Z по КМД. Затем наведите мышь на модель: появится контур колонны. Один щелчок размещает её на выбранной точке, в том числе между осями.</span></div>'+
     '<label class="irb-click-toggle"><input type="checkbox" id="irbClickPlace" '+(state.directColumns?"checked":"")+'><span>Устанавливать колонны щелчком</span></label>'+
     '<div class="irb-hover-position" id="irbHoverPosition"></div>':"")+
     '<div class="irb-anchor"><b>1. Начало</b><span>'+position(state.start)+'</span>'+zEditor(state.start,"start")+'</div>'+
-    '<div class="irb-anchor"><b>2. '+(column?"Верх колонны":"Конец")+'</b><span>'+(column?"Укажите проектную отметку":position(state.end))+'</span>'+(column?'<label class="irb-level">Верх Z, мм<input type="number" step="1" id="irbTopZ" placeholder="По КМД" value="'+html(state.topZ)+'"></label>':zEditor(state.end,"end"))+'</div>'+
+    (pickGeometry()==="bent"?'<div class="irb-anchor"><b>2. Конёк / излом</b><span>'+position(state.middle)+'</span>'+zEditor(state.middle,"middle")+'</div>':"")+
+    '<div class="irb-anchor"><b>'+(pickGeometry()==="bent"?"3. Конец":column?"2. Верх колонны":"2. Конец")+'</b><span>'+(column?"Укажите проектную отметку":position(state.end))+'</span>'+(column?'<label class="irb-level">Верх Z, мм<input type="number" step="1" id="irbTopZ" placeholder="По КМД" value="'+html(state.topZ)+'"></label>':zEditor(state.end,"end"))+'</div>'+
     (typeof props.onQuickPlace==="function"?'<label class="irb-zigzag"><input id="irbRepeat" type="checkbox" '+(state.repeat?"checked":"")+'><span><b>Серия одной марки</b><small>После сохранения выбирайте следующие точки без повторного поиска марки (пока есть остаток).</small></span></label>':"")+
-     (!column?'<label class="irb-zigzag"><input id="irbZigzag" type="checkbox" '+(state.zigzag?"checked":"")+'><span><b>Зигзаг / цепочка</b><small>После сохранения следующая связь начнётся от конца предыдущей. Каждому отрезку соответствует своя марка из ведомости.</small></span></label>':"")+
+     (!column&&pickGeometry()!=="bent"?'<label class="irb-zigzag"><input id="irbZigzag" type="checkbox" '+(state.zigzag?"checked":"")+'><span><b>Зигзаг / цепочка</b><small>После сохранения следующая связь начнётся от конца предыдущей. Каждому отрезку соответствует своя марка из ведомости.</small></span></label>':"")+
     '<p class="irb-help">'+(column?"Точная привязка к сетке либо свободная точка между осями. В виде «Фасад» и «Сбоку» для установки используйте изометрию или вид сверху.":"Привязка к колоннам, балкам и ригелям. Для точек сетки требуется проектная отметка Z по КМД.")+'</p>'+
      '<div class="irb-form-error" id="irbQuickError" role="alert" '+(state.error?'':'hidden')+'>'+html(state.error)+'</div>'+
      (typeof props.onQuickPlace==="function"?'<button type="button" class="irb-save irb-quick-save" id="irbQuickSave" '+(!ready||state.busy?'disabled':'')+'>✓ Сохранить на схеме</button>':'')+
-    '<button class="irb-save" id="irbContinue" '+(!(state.start&&(column||state.end)&&available)?'disabled':'')+'>Продолжить в редакторе →</button>'+
+    '<button class="irb-save" id="irbContinue" '+(!(state.start&&(column||state.end)&&(pickGeometry()!=="bent"||state.middle)&&available)?'disabled':'')+'>Продолжить в редакторе →</button>'+
     '<button class="irb-secondary" id="irbClear">Сбросить точки</button><button class="irb-secondary" id="irbCancel">Отмена</button>';
     el("irbMark").onchange=e=>{
      const next=markById(e.target.value),keep=state.continuing&&next?.geometry!=="column";
-     state.mark=e.target.value;state.topZ="";state.error="";if(!keep){state.start=null;state.continuing=false}
+     state.mark=e.target.value;state.topZ="";state.error="";state.bent=false;state.middle=null;if(!keep){state.start=null;state.continuing=false}
      if(next?.geometry==="column")state.zigzag=false;
      state.repeat=next?.geometry==="column";
      state.hoverAnchor=null;state.end=null;refreshPanel();paint()
@@ -357,6 +361,9 @@ window.irBuildingView=(()=>{
      refreshPanel();paint();
      const input=el("irbMarkSearch");input.focus();input.setSelectionRange(cursor,cursor)
     };
+    if(el("irbBentMode"))el("irbBentMode").onchange=e=>{
+     state.bent=e.target.checked;state.start=null;state.middle=null;state.end=null;state.error="";state.zigzag=false;state.repeat=false;refreshPanel();paint()
+    };
     if(el("irbRepeat"))el("irbRepeat").onchange=e=>{state.repeat=e.target.checked};
     if(el("irbClickPlace"))el("irbClickPlace").onchange=e=>{state.directColumns=e.target.checked;updateHint();paint()};
     updateHoverInfo();
@@ -367,7 +374,7 @@ window.irBuildingView=(()=>{
       updateHint();paint();
      };
      pane.querySelectorAll("[data-irb-level]").forEach(input=>input.onchange=e=>{
-     const a=e.target.dataset.irbLevel==="start"?state.start:state.end;
+     const a=e.target.dataset.irbLevel==="start"?state.start:e.target.dataset.irbLevel==="middle"?state.middle:state.end;
      if(!a)return;
      const value=Number(e.target.value);
      if(e.target.value===""||!Number.isFinite(value)||value<num(a.kind==="column"?a.minZ:-20000)||value>num(a.kind==="column"?a.maxZ:200000)){e.target.value=a.zConfirmed===false?"":String(a.z);return}
@@ -389,7 +396,7 @@ window.irBuildingView=(()=>{
      }
      a.z=Math.round(value);a.zConfirmed=true;state.error="";refreshPanel();paint()
     });
-    el("irbClear").onclick=()=>{state.start=null;state.end=null;state.error="";state.continuing=false;refreshPanel();paint()};
+    el("irbClear").onclick=()=>{state.start=null;state.middle=null;state.end=null;state.error="";state.continuing=false;refreshPanel();paint()};
     el("irbCancel").onclick=()=>{state.placing=false;state.start=null;state.end=null;state.chainNext=null;state.continuing=false;refreshPanel();paint()};
          const quickSave=el("irbQuickSave");
      commitQuickPlacement=async()=>{
