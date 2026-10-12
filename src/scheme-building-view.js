@@ -407,7 +407,7 @@ window.irBuildingView=(()=>{
        return
       }
       const pack=a=>a?{ax:a.x,ay:a.y,dx:num(a.worldX)-originAxis(gridX,a.x),dy:num(a.worldY)-originAxis(gridY,a.y),z:num(a.z),memberId:a.memberId||a.columnId||""}:null;
-      const data={markId:state.mark,start:pack(state.start),end:column?null:pack(state.end),topZ:column?Number(state.topZ):undefined,geometry:m.geometry,zigzag:state.zigzag};
+      const data={markId:state.mark,start:pack(state.start),middle:pickGeometry()==="bent"?pack(state.middle):null,end:column?null:pack(state.end),topZ:column?Number(state.topZ):undefined,geometry:pickGeometry(),zigzag:state.zigzag&&!state.bent};
       state.busy=true;quickSave.disabled=true;state.error="";
       try{
        const result=await props.onQuickPlace(data);
@@ -415,8 +415,8 @@ window.irBuildingView=(()=>{
         state.start={...state.end,zConfirmed:true,worldX:num(result.savedEnd.x),worldY:num(result.savedEnd.y),z:num(result.savedEnd.z)};
         state.end=null;state.placing=true;state.continuing=true;
        }else if(state.repeat&&num(m.left)>1){
-        state.start=null;state.end=null;state.placing=true;state.continuing=false;
-       }else{state.start=null;state.end=null;state.placing=false;state.continuing=false}
+        state.start=null;state.middle=null;state.end=null;state.placing=true;state.continuing=false;
+       }else{state.start=null;state.middle=null;state.end=null;state.placing=false;state.continuing=false}
        if(!(column&&state.placing&&state.repeat))state.topZ="";
        state.error="";state.busy=false;state.hoverAnchor=null;
        props.onQuickPlaced?.(result);
@@ -424,9 +424,9 @@ window.irBuildingView=(()=>{
      };
      if(quickSave)quickSave.onclick=commitQuickPlacement;
      el("irbContinue").onclick=()=>{
-     if(!state.start||!selectedMark()||left<=0||!column&&!state.end)return;
+     if(!state.start||!selectedMark()||left<=0||!column&&!state.end||pickGeometry()==="bent"&&!state.middle)return;
      const pack=a=>a?{ax:a.x,ay:a.y,dx:num(a.worldX)-originAxis(gridX,a.x),dy:num(a.worldY)-originAxis(gridY,a.y),z:num(a.z),source:a.kind,columnId:a.columnId||""}:null;
-     const data={markId:state.mark,start:pack(state.start),end:pack(state.end),geometry:m.geometry,height:maxZ,zigzag:state.zigzag};
+     const data={markId:state.mark,start:pack(state.start),middle:pickGeometry()==="bent"?pack(state.middle):null,end:pack(state.end),geometry:pickGeometry(),height:maxZ,zigzag:state.zigzag&&!state.bent};
      state.chainNext=state.zigzag&&state.end?{...state.end}:null;
      state.placing=false;state.continuing=false;refreshPanel();paint();props.onPlacement(data);
     };
@@ -467,7 +467,7 @@ window.irBuildingView=(()=>{
   }
   function startPlacement(){
    if(!props.canEdit||!marks.some(m=>m.left>0))return;
-   state.placing=true;state.start=null;state.end=null;state.chainNext=null;state.continuing=false;state.topZ="";state.error="";state.markSearch="";state.hoverAnchor=null;state.directColumns=true;state.mark=leftMark().find(m=>m.id===state.mark)?.id||leftMark()[0]?.id||"";state.repeat=selectedMark()?.geometry==="column";
+   state.placing=true;state.start=null;state.middle=null;state.end=null;state.chainNext=null;state.continuing=false;state.topZ="";state.error="";state.markSearch="";state.hoverAnchor=null;state.directColumns=true;state.bent=false;state.mark=leftMark().find(m=>m.id===state.mark)?.id||leftMark()[0]?.id||"";state.repeat=selectedMark()?.geometry==="column";
    refreshPanel();paint();
   }
   const setCamera=mode=>{
@@ -519,8 +519,11 @@ window.irBuildingView=(()=>{
      state.error="В выбранной точке уже есть колонна. Выберите свободное место.";
      refreshPanel();paint();return
     }
-    if(!state.start||state.end||column){state.start=a;state.end=null;if(!column)state.topZ="";}
-    else if(!sameAnchor(a,state.start))state.end=a;
+    if(!state.start||state.end||column){state.start=a;state.middle=null;state.end=null;if(!column)state.topZ="";}
+    else if(pickGeometry()==="bent"){
+     if(!state.middle){if(!sameAnchor(a,state.start))state.middle=a}
+     else if(!sameAnchor(a,state.middle)&&!sameAnchor(a,state.start))state.end=a;
+    }else if(!sameAnchor(a,state.start))state.end=a;
     state.error="";refreshPanel();paint();
     if(column&&state.directColumns&&state.topZ!==""&&
      Number.isFinite(Number(state.topZ))&&Number(state.topZ)>num(a.z)){
