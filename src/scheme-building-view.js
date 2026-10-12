@@ -337,9 +337,16 @@ window.irBuildingView=(()=>{
    Number.isFinite(Number(a?.worldY))?Number(a.worldY):originAxis(gridY,a.y),z);
   // Independent column-head anchors retain exact X, Y and elevation, even
   // for columns located between grid axes or having different heights.
-  const gridAnchors=()=>axesX.flatMap(x=>axesY.map(y=>({
-   kind:"grid",x,y,worldX:originAxis(gridX,x),worldY:originAxis(gridY,y),z:anchorZ(),zConfirmed:pickGeometry()==="column"
-  })));
+  let gridAnchorKey=null,gridAnchorCache=null;
+  const gridAnchors=()=>{
+   const key=pickGeometry();
+   if(gridAnchorCache&&gridAnchorKey===key)return gridAnchorCache;
+   gridAnchorKey=key;
+   gridAnchorCache=axesX.flatMap(x=>axesY.map(y=>({
+    kind:"grid",x,y,worldX:originAxis(gridX,x),worldY:originAxis(gridY,y),z:anchorZ(),zConfirmed:key==="column"
+   })));
+   return gridAnchorCache
+  };
   const closest=(axes,map,value)=>axes.reduce((best,a)=>
    Math.abs(originAxis(map,a)-value)<Math.abs(originAxis(map,best)-value)?a:best,axes[0]);
   // Invert the orthographic projection on Z=0: this also allows placing
@@ -360,18 +367,27 @@ window.irBuildingView=(()=>{
   };
   const columnOccupied=a=>!!a&&cols.some(c=>c.geometryType==="column"&&
    Math.hypot(num(c.x)-num(a.worldX),num(c.y)-num(a.worldY))<25&&Math.abs(num(c.z0)-num(a.z))<25);
-  const columnAnchors=()=>visibleCols().filter(c=>c.geometryType==="column").map(c=>{
-   const x=axesX.includes(String(c.axisX))?String(c.axisX):closest(axesX,gridX,num(c.x));
-   const y=axesY.includes(String(c.axisY))?String(c.axisY):closest(axesY,gridY,num(c.y));
-   return {kind:"column",columnId:String(c.id),label:String(c.mark||"Колонна"),
-    x,y,worldX:num(c.x),worldY:num(c.y),z:num(c.z2),zConfirmed:true,minZ:Math.min(num(c.z0),num(c.z2)),maxZ:Math.max(num(c.z0),num(c.z2))}
-  });
-  const memberAnchors=()=>visibleCols().filter(c=>c.geometryType!=="column").flatMap(c=>
-   [{worldX:num(c.x),worldY:num(c.y),z:num(c.z0)},...(c.geometryType==="bent"?[{worldX:num(c.mx),worldY:num(c.my),z:num(c.mz)}]:[]),{worldX:num(c.x2),worldY:num(c.y2),z:num(c.z2)}].map(v=>({
-    kind:"member",memberId:String(c.id),label:String(c.mark||"Элемент"),
-    x:closest(axesX,gridX,v.worldX),y:closest(axesY,gridY,v.worldY),...v,zConfirmed:true
-   }))
-  );
+  let memberAnchorKey=null,memberAnchorCache=null,columnAnchorCache=null;
+  const updateAttachmentAnchors=()=>{
+   const key=state.hiddenSections.join("\u001f");
+   if(memberAnchorKey===key&&memberAnchorCache&&columnAnchorCache)return;
+   memberAnchorKey=key;
+   const visible=visibleCols();
+   columnAnchorCache=visible.filter(c=>c.geometryType==="column").map(c=>{
+    const x=axesX.includes(String(c.axisX))?String(c.axisX):closest(axesX,gridX,num(c.x));
+    const y=axesY.includes(String(c.axisY))?String(c.axisY):closest(axesY,gridY,num(c.y));
+    return {kind:"column",columnId:String(c.id),label:String(c.mark||"Колонна"),
+     x,y,worldX:num(c.x),worldY:num(c.y),z:num(c.z2),zConfirmed:true,minZ:Math.min(num(c.z0),num(c.z2)),maxZ:Math.max(num(c.z0),num(c.z2))}
+   });
+   memberAnchorCache=visible.filter(c=>c.geometryType!=="column").flatMap(c=>
+    [{worldX:num(c.x),worldY:num(c.y),z:num(c.z0)},...(c.geometryType==="bent"?[{worldX:num(c.mx),worldY:num(c.my),z:num(c.mz)}]:[]),{worldX:num(c.x2),worldY:num(c.y2),z:num(c.z2)}].map(v=>({
+     kind:"member",memberId:String(c.id),label:String(c.mark||"Элемент"),
+     x:closest(axesX,gridX,v.worldX),y:closest(axesY,gridY,v.worldY),...v,zConfirmed:true
+    }))
+   );
+  };
+  const columnAnchors=()=>{updateAttachmentAnchors();return columnAnchorCache};
+  const memberAnchors=()=>{updateAttachmentAnchors();return memberAnchorCache};
   const memberSegmentHit=(x,y)=>{
    if(pickGeometry()==="column")return null;
    const project=projectFactory().project;let best=11,hit=null;
