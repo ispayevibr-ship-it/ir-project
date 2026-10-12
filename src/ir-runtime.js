@@ -3978,7 +3978,7 @@ window.irSelectUI=(()=>{
  * 2D canvas projection: offline, no dependencies or database access.
  */
 window.irBuildingView=(()=>{
- const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false};
+ const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true};
  let observer=null,paint=null;
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const html=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -4069,6 +4069,24 @@ window.irBuildingView=(()=>{
   })));
   const closest=(axes,map,value)=>axes.reduce((best,a)=>
    Math.abs(originAxis(map,a)-value)<Math.abs(originAxis(map,best)-value)?a:best,axes[0]);
+  // Invert the orthographic projection on Z=0: this also allows placing
+  // columns between axes, instead of restricting users to grid intersections.
+  const groundAt=(x,y)=>{
+   if(Math.abs(Math.sin(state.pitch))<.18)return null; // front/side views are edge-on
+   const project=projectFactory().project,o=project(pt(0,0,0)),
+    xp=project(pt(1000,0,0)),yp=project(pt(0,1000,0)),
+    xx=xp.x-o.x,xy=xp.y-o.y,yx=yp.x-o.x,yy=yp.y-o.y,
+    det=xx*yy-yx*xy;
+   if(Math.abs(det)<.01)return null;
+   const dx=x-o.x,dy=y-o.y,
+    worldX=Math.round(1000*(dx*yy-dy*yx)/det),
+    worldY=Math.round(1000*(xx*dy-xy*dx)/det);
+   if(worldX<0||worldX>spanX||worldY<0||worldY>spanY)return null;
+   return{kind:"ground",x:closest(axesX,gridX,worldX),y:closest(axesY,gridY,worldY),
+    worldX,worldY,z:0,zConfirmed:true};
+  };
+  const columnOccupied=a=>!!a&&cols.some(c=>c.geometryType==="column"&&
+   Math.hypot(num(c.x)-num(a.worldX),num(c.y)-num(a.worldY))<25&&Math.abs(num(c.z0)-num(a.z))<25);
   const columnAnchors=()=>cols.filter(c=>c.geometryType==="column").map(c=>{
    const x=axesX.includes(String(c.axisX))?String(c.axisX):closest(axesX,gridX,num(c.x));
    const y=axesY.includes(String(c.axisY))?String(c.axisY):closest(axesY,gridY,num(c.y));
@@ -4187,7 +4205,23 @@ window.irBuildingView=(()=>{
      const hover=m.project(anchorPoint(state.hoverAnchor));
      circle(hover,7,"#fff");circle(hover,5,"#e89927")
     }
-    if(state.start){
+    if(pickGeometry()==="column"&&state.directColumns){
+     const anchor=state.hoverAnchor||state.start;
+     if(anchor){
+      const height=Number(state.topZ),valid=state.topZ!==""&&Number.isFinite(height)&&height>num(anchor.z),
+       previewZ=valid?height:maxZ*.94,occupied=columnOccupied(anchor);
+      const a=m.project(anchorPoint(anchor)),b=m.project(anchorPoint(anchor,previewZ)),
+       color=occupied?"#c94c4c":valid?"#168ee0":"#b68e45";
+      line(a,b,"rgba(255,255,255,.88)",10);
+      line(a,b,color,6,[9,5]);circle(a,8,"#fff");circle(a,5.5,color);
+      ctx.font="800 11px Segoe UI,Arial";ctx.textAlign="left";ctx.textBaseline="middle";
+      const text=occupied?"Место занято":valid?String(selectedMark()?.mark||selectedMark()?.title||"Колонна"):"Задайте верх Z";
+      const tw=Math.min(180,ctx.measureText(text).width+16),tx=Math.min(m.w-tw-6,Math.max(5,b.x+12)),ty=Math.max(6,Math.min(m.h-26,b.y-12));
+      ctx.fillStyle="rgba(255,255,255,.95)";ctx.fillRect(tx,ty,tw,23);
+      ctx.strokeStyle=color;ctx.lineWidth=1;ctx.strokeRect(tx,ty,tw,23);
+      ctx.fillStyle=color;ctx.fillText(text,tx+8,ty+12,tw-12);
+     }
+    }else if(state.start){
      const a=m.project(anchorPoint(state.start));
      const b=m.project(pickGeometry()==="column"?anchorPoint(state.start,maxZ*.94):state.end?anchorPoint(state.end):anchorPoint(state.start));
      line(a,b,"#e5982e",4,[7,4]);
@@ -4208,10 +4242,12 @@ window.irBuildingView=(()=>{
     if(score<minScore){minScore=score;best=a}
    }
    const segment=segmentHit(x,y);
+   if(pickGeometry()==="column")return best||groundAt(x,y);
    return segment&&(!best||minScore>5)?segment:best
   };
-  const position=a=>a?html((a.kind==="column"||a.kind==="member"?a.label+" · крепление · ":"Ось ")+a.x+" / "+a.y+
-   " · X "+fmt(a.worldX)+" · Y "+fmt(a.worldY)+" · Z "+(a.zConfirmed===false?"нужно указать":fmt(a.z)+" мм")+(a.kind==="grid"?" (сетка)":"")):"Выберите точку на модели";
+  const position=a=>a?html((a.kind==="column"||a.kind==="member"?a.label+" · крепление · ":a.kind==="ground"?"Между осями · ":"Ось ")+a.x+" / "+a.y+
+   " · X "+fmt(a.worldX)+" · Y "+fmt(a.worldY)+" · Z "+(a.zConfirmed===false?"нужно указать":fmt(a.z)+" мм")+
+   (a.kind==="ground"?" · смещение X "+fmt(num(a.worldX)-originAxis(gridX,a.x))+" / Y "+fmt(num(a.worldY)-originAxis(gridY,a.y))+" мм":a.kind==="grid"?" (сетка)":"")):"Выберите точку на модели";
   const searchMatches=m=>!state.markSearch.trim()||String(m.title+" "+(m.mark||"")).toLocaleLowerCase("ru").includes(state.markSearch.trim().toLocaleLowerCase("ru"));
   const markOptions=()=>'<option value="">Выберите марку</option>'+
    marks.filter(searchMatches).map(a=>'<option value="'+html(a.id)+'" '+(a.left>0?"":"disabled")+
@@ -4222,9 +4258,23 @@ window.irBuildingView=(()=>{
    '<label class="irb-level">Отметка Z, мм<input type="number" step="1" data-irb-level="'+index+
    '" min="'+(a.kind==="column"?num(a.minZ):-20000)+'" max="'+(a.kind==="column"?num(a.maxZ):200000)+
    '" value="'+(a.zConfirmed===false?"":Math.round(num(a.z)))+'" placeholder="Отметка по КМД"></label>':"";
+  let commitQuickPlacement=()=>{};
+  const updateHoverInfo=()=>{
+   const field=el("irbHoverPosition");if(!field)return;
+   field.textContent=state.hoverAnchor?position(state.hoverAnchor):"Наведите курсор на точку установки на каркасе";
+   field.classList.toggle("occupied",columnOccupied(state.hoverAnchor));
+  };
+  const updateHint=()=>{
+   const column=selectedMark()?.geometry==="column";
+   const hasHeight=state.topZ!==""&&Number.isFinite(Number(state.topZ))&&Number(state.topZ)>0;
+   el("irbHint").textContent=!state.placing?"ЛКМ — вращение · колесо — масштаб · нажатие на элемент — свойства":
+    column&&state.directColumns?(!hasHeight?"Сначала задайте «Верх Z, мм» · затем щёлкните по месту колонны":
+     "Наведите курсор — появится колонна · щелчок — установить · перетаскивание — вращать"):
+    !state.start?"1. Выберите начальную точку":column||state.end?"Проверьте отметки и нажмите «Сохранить на схеме»":"2. Выберите конечную точку";
+  };
   function refreshPanel(){
    const m=selectedMark(),left=num(m?.left),column=m?.geometry==="column",available=left>0;
-   el("irbHint").textContent=state.placing?(!state.start?"1. Выберите начальную точку":column||state.end?"Проверьте отметки и нажмите «Сохранить на схеме»":"2. Выберите конечную точку"):"ЛКМ — вращение · колесо — масштаб · нажатие на элемент — свойства";
+   updateHint();
    const pane=el("irbProperties");
     const readyToSave=()=>!!(state.start&&selectedMark()?.left>0&&(selectedMark()?.geometry==="column"||state.end)&&state.start.zConfirmed!==false&&
      (selectedMark()?.geometry==="column"?state.topZ!==""&&Number.isFinite(Number(state.topZ))&&Number(state.topZ)>num(state.start.z):state.end?.zConfirmed!==false));
@@ -4236,11 +4286,14 @@ window.irBuildingView=(()=>{
     '<label class="irb-field">Поиск марки<input type="search" id="irbMarkSearch" autocomplete="off" placeholder="Марка или наименование…" value="'+html(state.markSearch)+'"></label>'+
     '<label class="irb-field">Марка из ведомости<select id="irbMark">'+markOptions()+'</select><small>Найдено: '+matchedCount()+' из '+marks.length+'</small></label>'+
     '<div class="irb-quota">По ведомости: '+num(m?.total)+' шт.<br>На схеме: '+num(m?.placed)+' шт.<br><b>Осталось: '+left+' шт.</b></div>'+
+    (column?'<div class="irb-direct-info"><b>Установка колонн на каркасе</b><span>Укажите верх Z по КМД. Затем наведите мышь на модель: появится контур колонны. Один щелчок размещает её на выбранной точке, в том числе между осями.</span></div>'+
+    '<label class="irb-click-toggle"><input type="checkbox" id="irbClickPlace" '+(state.directColumns?"checked":"")+'><span>Устанавливать колонны щелчком</span></label>'+
+    '<div class="irb-hover-position" id="irbHoverPosition"></div>':"")+
     '<div class="irb-anchor"><b>1. Начало</b><span>'+position(state.start)+'</span>'+zEditor(state.start,"start")+'</div>'+
     '<div class="irb-anchor"><b>2. '+(column?"Верх колонны":"Конец")+'</b><span>'+(column?"Укажите проектную отметку":position(state.end))+'</span>'+(column?'<label class="irb-level">Верх Z, мм<input type="number" step="1" id="irbTopZ" placeholder="По КМД" value="'+html(state.topZ)+'"></label>':zEditor(state.end,"end"))+'</div>'+
     (typeof props.onQuickPlace==="function"?'<label class="irb-zigzag"><input id="irbRepeat" type="checkbox" '+(state.repeat?"checked":"")+'><span><b>Серия одной марки</b><small>После сохранения выбирайте следующие точки без повторного поиска марки (пока есть остаток).</small></span></label>':"")+
      (!column?'<label class="irb-zigzag"><input id="irbZigzag" type="checkbox" '+(state.zigzag?"checked":"")+'><span><b>Зигзаг / цепочка</b><small>После сохранения следующая связь начнётся от конца предыдущей. Каждому отрезку соответствует своя марка из ведомости.</small></span></label>':"")+
-    '<p class="irb-help">Привязка к колоннам, балкам и ригелям. Для точек сетки требуется проектная отметка Z по КМД.</p>'+
+    '<p class="irb-help">'+(column?"Точная привязка к сетке либо свободная точка между осями. В виде «Фасад» и «Сбоку» для установки используйте изометрию или вид сверху.":"Привязка к колоннам, балкам и ригелям. Для точек сетки требуется проектная отметка Z по КМД.")+'</p>'+
      '<div class="irb-form-error" id="irbQuickError" role="alert" '+(state.error?'':'hidden')+'>'+html(state.error)+'</div>'+
      (typeof props.onQuickPlace==="function"?'<button type="button" class="irb-save irb-quick-save" id="irbQuickSave" '+(!ready||state.busy?'disabled':'')+'>✓ Сохранить на схеме</button>':'')+
     '<button class="irb-save" id="irbContinue" '+(!(state.start&&(column||state.end)&&available)?'disabled':'')+'>Продолжить в редакторе →</button>'+
@@ -4249,7 +4302,8 @@ window.irBuildingView=(()=>{
      const next=markById(e.target.value),keep=state.continuing&&next?.geometry!=="column";
      state.mark=e.target.value;state.topZ="";state.error="";if(!keep){state.start=null;state.continuing=false}
      if(next?.geometry==="column")state.zigzag=false;
-     state.end=null;refreshPanel();paint()
+     state.repeat=next?.geometry==="column";
+     state.hoverAnchor=null;state.end=null;refreshPanel();paint()
     };
     el("irbMarkSearch").oninput=e=>{
      const cursor=e.target.selectionStart;
@@ -4259,16 +4313,20 @@ window.irBuildingView=(()=>{
       const next=matched[0];state.mark=next?.id||"";
       if(!state.continuing||next?.geometry==="column"){state.start=null;state.continuing=false}
       if(next?.geometry==="column")state.zigzag=false;
-      state.end=null
+      state.repeat=next?.geometry==="column";
+      state.hoverAnchor=null;state.end=null
      }
      refreshPanel();paint();
      const input=el("irbMarkSearch");input.focus();input.setSelectionRange(cursor,cursor)
     };
     if(el("irbRepeat"))el("irbRepeat").onchange=e=>{state.repeat=e.target.checked};
+    if(el("irbClickPlace"))el("irbClickPlace").onchange=e=>{state.directColumns=e.target.checked;updateHint();paint()};
+    updateHoverInfo();
      if(el("irbZigzag"))el("irbZigzag").onchange=e=>{state.zigzag=e.target.checked};
     if(el("irbTopZ"))el("irbTopZ").oninput=e=>{
       state.topZ=e.target.value;const save=el("irbQuickSave");
       if(save)save.disabled=state.busy||!readyToSave();
+      updateHint();paint();
      };
      pane.querySelectorAll("[data-irb-level]").forEach(input=>input.onchange=e=>{
      const a=e.target.dataset.irbLevel==="start"?state.start:state.end;
@@ -4296,8 +4354,13 @@ window.irBuildingView=(()=>{
     el("irbClear").onclick=()=>{state.start=null;state.end=null;state.continuing=false;refreshPanel();paint()};
     el("irbCancel").onclick=()=>{state.placing=false;state.start=null;state.end=null;state.chainNext=null;state.continuing=false;refreshPanel();paint()};
          const quickSave=el("irbQuickSave");
-     if(quickSave)quickSave.onclick=async()=>{
+     commitQuickPlacement=async()=>{
       if(!readyToSave()||state.busy)return;
+      if(m.geometry==="column"&&columnOccupied(state.start)){
+       state.error="В этой точке уже установлена колонна. Выберите другое место.";
+       const err=el("irbQuickError");if(err){err.textContent=state.error;err.hidden=false}
+       return
+      }
       const pack=a=>a?{ax:a.x,ay:a.y,dx:num(a.worldX)-originAxis(gridX,a.x),dy:num(a.worldY)-originAxis(gridY,a.y),z:num(a.z),memberId:a.memberId||a.columnId||""}:null;
       const data={markId:state.mark,start:pack(state.start),end:column?null:pack(state.end),topZ:column?Number(state.topZ):undefined,geometry:m.geometry,zigzag:state.zigzag};
       state.busy=true;quickSave.disabled=true;state.error="";
@@ -4309,10 +4372,12 @@ window.irBuildingView=(()=>{
        }else if(state.repeat&&num(m.left)>1){
         state.start=null;state.end=null;state.placing=true;state.continuing=false;
        }else{state.start=null;state.end=null;state.placing=false;state.continuing=false}
-       state.topZ="";state.error="";state.busy=false;
+       if(!(column&&state.placing&&state.repeat))state.topZ="";
+       state.error="";state.busy=false;state.hoverAnchor=null;
        props.onQuickPlaced?.(result);
       }catch(e){state.error=String(e?.message||e);state.busy=false;refreshPanel();paint()}
      };
+     if(quickSave)quickSave.onclick=commitQuickPlacement;
      el("irbContinue").onclick=()=>{
      if(!state.start||!selectedMark()||left<=0||!column&&!state.end)return;
      const pack=a=>a?{ax:a.x,ay:a.y,dx:num(a.worldX)-originAxis(gridX,a.x),dy:num(a.worldY)-originAxis(gridY,a.y),z:num(a.z),source:a.kind,columnId:a.columnId||""}:null;
@@ -4356,7 +4421,7 @@ window.irBuildingView=(()=>{
   }
   function startPlacement(){
    if(!props.canEdit||!marks.some(m=>m.left>0))return;
-   state.placing=true;state.start=null;state.end=null;state.chainNext=null;state.continuing=false;state.topZ="";state.error="";state.markSearch="";state.mark=leftMark().find(m=>m.id===state.mark)?.id||leftMark()[0]?.id||"";
+   state.placing=true;state.start=null;state.end=null;state.chainNext=null;state.continuing=false;state.topZ="";state.error="";state.markSearch="";state.hoverAnchor=null;state.directColumns=true;state.mark=leftMark().find(m=>m.id===state.mark)?.id||leftMark()[0]?.id||"";state.repeat=selectedMark()?.geometry==="column";
    refreshPanel();paint();
   }
   const setCamera=mode=>{
@@ -4388,22 +4453,37 @@ window.irBuildingView=(()=>{
    }
    if(!state.placing){const id=nearestMember(p.x,p.y)?.id||"";if(state.hover!==id){state.hover=id;paint()}canvas.style.cursor=id?"pointer":"grab"}
    else{
-    const anchor=segmentHit(p.x,p.y);
-    const changed=!!anchor!==!!state.hoverAnchor||anchor&&state.hoverAnchor&&((anchor.columnId||anchor.memberId)!==(state.hoverAnchor.columnId||state.hoverAnchor.memberId)||Math.abs(anchor.z-state.hoverAnchor.z)>50);
-    if(changed){state.hoverAnchor=anchor;paint()}
-    canvas.style.cursor="crosshair"
+    const anchor=nearestAxis(p.x,p.y);
+    const previous=state.hoverAnchor;
+    const changed=!!anchor!==!!previous||anchor&&previous&&
+     (Math.hypot(num(anchor.worldX)-num(previous.worldX),num(anchor.worldY)-num(previous.worldY))>15||
+      Math.abs(num(anchor.z)-num(previous.z))>50||anchor.kind!==previous.kind);
+    if(changed){state.hoverAnchor=anchor;updateHoverInfo();paint()}
+    canvas.style.cursor=columnOccupied(anchor)?"not-allowed":"crosshair"
    }
   };
   canvas.onpointerup=e=>{
    if(!drag)return;const moved=drag.moved;drag=null;if(moved)return;
    const p=point(e);
    if(state.placing){
-    if(!selectedMark())return;const a=nearestAxis(p.x,p.y);if(!a)return;
-    if(!state.start||state.end||pickGeometry()==="column"){state.start=a;state.end=null;state.topZ="";}
+    if(state.busy||!selectedMark())return;
+    const a=nearestAxis(p.x,p.y);if(!a)return;
+    const column=pickGeometry()==="column";
+    if(column&&columnOccupied(a)){
+     state.error="В выбранной точке уже есть колонна. Выберите свободное место.";
+     refreshPanel();paint();return
+    }
+    if(!state.start||state.end||column){state.start=a;state.end=null;if(!column)state.topZ="";}
     else if(!sameAnchor(a,state.start))state.end=a;
-    refreshPanel();paint();
+    state.error="";refreshPanel();paint();
+    if(column&&state.directColumns&&state.topZ!==""&&
+     Number.isFinite(Number(state.topZ))&&Number(state.topZ)>num(a.z)){
+     // Use exactly the same validated save path as the sidebar button.
+     void commitQuickPlacement()
+    }
    }else{state.selected=String(nearestMember(p.x,p.y)?.id||"");props.onSelect(state.selected);refreshPanel();paint()}
   };
+  canvas.onpointerleave=()=>{if(!drag&&state.hoverAnchor){state.hoverAnchor=null;updateHoverInfo();paint()}};
   canvas.onpointercancel=()=>{drag=null};
   canvas.onwheel=e=>{e.preventDefault();setZoom(state.zoom*(e.deltaY>0?.9:1.1))};
   if(window.ResizeObserver){observer=new ResizeObserver(()=>paint());observer.observe(canvas)}

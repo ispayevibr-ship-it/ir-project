@@ -1642,6 +1642,14 @@ body.ir-object-route:not(.ir-object-overview) .wt-row[hidden]{display:none!impor
 .irb-immersive .irb-properties .irb-length{padding:10px!important;background:#eff7ff!important;border:1px solid #bad8ef!important;border-radius:8px!important}
 .irb-immersive .irb-properties .irb-length b{font-weight:850!important;font-size:13px!important;color:#236ea4!important;overflow-wrap:anywhere!important}
 
+/* IR Project 1.7.107 — on-canvas ghost placement of columns, with exact axis offsets. */
+.irb-direct-info{display:grid;gap:6px;padding:11px 12px;border:1px solid #b9d8f3;border-radius:8px;background:#f0f8ff;color:#3b6b8f;font-size:10px;line-height:1.55}
+.irb-direct-info b{color:#22699e;font-size:11px}
+.irb-click-toggle{display:flex;gap:9px;align-items:center;font-size:10px;font-weight:750;color:#385f7e;cursor:pointer}
+.irb-click-toggle input{flex:none;width:16px;height:16px;accent-color:#1975db}
+.irb-hover-position{min-height:38px;padding:9px 11px;background:#f9fcff;border:1px dashed #c7daeb;border-radius:7px;color:#456a88;font-size:10px;line-height:1.5;overflow-wrap:anywhere}
+.irb-hover-position.occupied{background:#fff3f0;border-color:#e5a7a0;color:#b34d45}
+
 
 /* #45: src/object-overview-right-column.css */
 /* IR Project 1.7.73: shared overview cards in a fixed ordered right column. */
