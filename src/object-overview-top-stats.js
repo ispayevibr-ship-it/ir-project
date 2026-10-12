@@ -24,12 +24,19 @@
   if(!n)return{people:0,workers:0,responsible:0,equipment:0,days:0};
   let workers=0,responsible=0,equipment=0;
   for(const d of all){
-   workers+=arr(d.workers||d.people).reduce((s,x)=>s+num(x.count),0);
-   responsible+=arr(d.responsible).filter(x=>String(x?.name||x?.role||"").trim()).length;
-   equipment+=arr(d.equipment).reduce((s,x)=>s+num(x.count),0);
+   const workerRows=arr(d.workers).length?arr(d.workers):arr(d.people);
+   const responsibleRows=arr(d.responsible).length?arr(d.responsible):arr(d.responsibles);
+   workers+=workerRows.reduce((s,x)=>s+num(x?.count??x?.qty),0);
+   responsible+=responsibleRows.reduce((s,x)=>{
+    const count=num(x?.count??x?.qty);
+    return s+(count>0?count:(String(x?.name||x?.role||"").trim()?1:0));
+   },0);
+   equipment+=arr(d.equipment).reduce((s,x)=>s+num(x?.count??x?.qty),0);
   }
-  const avg=v=>Math.ceil(v/n);
-  return{people:avg(workers+responsible),workers:avg(workers),responsible:avg(responsible),equipment:avg(equipment),days:n};
+  // The displayed total must equal the sum of the separately rounded
+  // category averages; rounding the raw combined total can show 7 vs 6 + 2.
+  const avg=v=>Math.ceil(v/n),averageWorkers=avg(workers),averageResponsible=avg(responsible);
+  return{people:averageWorkers+averageResponsible,workers:averageWorkers,responsible:averageResponsible,equipment:avg(equipment),days:n};
  }
  const ring=pct=>`<div class="oos-ring" style="--p:${clamp(pct,0,100)}"><div><b>${pct}%</b><span>выполнено</span></div></div>`;
  const peopleIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20v-2.2A4.8 4.8 0 0 1 7.8 13h.4a4.8 4.8 0 0 1 4.8 4.8V20M14 14.5c.7-.7 1.7-1.1 2.8-1.1h.3A3.9 3.9 0 0 1 21 17.3V20"/></svg>';
