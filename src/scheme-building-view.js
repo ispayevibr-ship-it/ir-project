@@ -59,6 +59,9 @@ window.irBuildingView=(()=>{
   gl.deleteShader(vertex);gl.deleteShader(fragment);
   if(!gl.getProgramParameter(program,gl.LINK_STATUS)){gl.deleteProgram(program);return null}
   const buffer=gl.createBuffer(),position=gl.getAttribLocation(program,"aPosition"),color=gl.getAttribLocation(program,"aColor");
+  // Cuboid corners are constant until a scheme record changes. Keep them
+  // across camera frames instead of recalculating six faces on every drag.
+  const boxCache=new WeakMap();
   gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);
   const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
   const unit=v=>{const d=Math.hypot(...v)||1;return v.map(x=>x/d)};
@@ -78,15 +81,23 @@ window.irBuildingView=(()=>{
     for(const i of [0,1,2,0,2,3])push(corners[i],shade);
    };
    for(const part of segments){
-    const c=part.c,a=[part.start.x,part.start.y,part.start.z],b=[part.end.x,part.end.y,part.end.z],
-     vector=sub(b,a),len=Math.hypot(...vector);if(len<.5)continue;
-    const direction=unit(vector),ref=Math.abs(direction[2])>.78?[0,1,0]:[0,0,1],
-     right=unit(cross(direction,ref)),up=unit(cross(direction,right)),
-     widthMm=c.geometryType==="column"?180:c.geometryType==="brace"?78:c.geometryType==="truss"?145:115,
-     breadth=widthMm*.73,
-     outset=[add(mul(right,widthMm),mul(up,breadth)),add(mul(right,-widthMm),mul(up,breadth)),
-       add(mul(right,-widthMm),mul(up,-breadth)),add(mul(right,widthMm),mul(up,-breadth))],
-     cornersA=outset.map(v=>add(a,v)),cornersB=outset.map(v=>add(b,v)),
+    const c=part.c,side=part.part||0;
+    let cached=boxCache.get(c);
+    if(!cached){cached=[];boxCache.set(c,cached)}
+    let faces=cached[side];
+    if(!faces){
+     const a=[part.start.x,part.start.y,part.start.z],b=[part.end.x,part.end.y,part.end.z],
+      vector=sub(b,a),len=Math.hypot(...vector);if(len<.5)continue;
+     const direction=unit(vector),ref=Math.abs(direction[2])>.78?[0,1,0]:[0,0,1],
+      right=unit(cross(direction,ref)),up=unit(cross(direction,right)),
+      widthMm=c.geometryType==="column"?180:c.geometryType==="brace"?78:c.geometryType==="truss"?145:115,
+      breadth=widthMm*.73,
+      outset=[add(mul(right,widthMm),mul(up,breadth)),add(mul(right,-widthMm),mul(up,breadth)),
+        add(mul(right,-widthMm),mul(up,-breadth)),add(mul(right,widthMm),mul(up,-breadth))];
+     faces=[outset.map(v=>add(a,v)),outset.map(v=>add(b,v))];
+     cached[side]=faces;
+    }
+    const [cornersA,cornersB]=faces,
      rgb=String(c.id)===String(state.selected)?palette.selected:
        String(c.id)===String(state.hover)?palette.hover:
        state.colorMode==="mark"?markRgb(c):palette[c.status]||palette.planned;
