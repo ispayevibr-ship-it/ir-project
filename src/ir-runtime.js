@@ -2494,12 +2494,12 @@ async function renderHomePortfolio(objects){
   };
   const lateTile=b=>{
    const overdue=b.late.filter(x=>x.kind==="overdue"),main=overdue[0]||b.late[0],visible=b.late.slice(0,4);
-   return '<button type="button" class="home-late-object" data-late-object="'+esc(b.object.id)+'" title="Открыть график работ">'+
+   return '<button type="button" class="home-late-object" data-late-object="'+esc(b.object.id)+'" title="Перейти в график работ объекта">'+
     '<span class="home-late-top"><strong>'+esc(b.shortName||b.object.name)+'</strong><span class="home-late-badge '+(overdue.length?"is-expired":"is-behind")+'">'+(overdue.length?"Срок истёк":"Отставание")+'</span></span>'+
     '<span class="home-late-summary">'+b.late.length+' '+(b.late.length===1?"вид работы отстаёт":b.late.length<5?"вида работ отстают":"видов работ отстают")+
     (overdue.length?" · "+main.days+" дн. просрочки":" · отставание "+String(main.lag).replace(".",",")+" п.п.")+'</span>'+
     ganttMarkup(visible)+(b.late.length>4?'<small class="home-gantt-more">Ещё '+(b.late.length-4)+' видов работ</small>':"")+
-    '<span class="home-late-open">Открыть график Ганта <span aria-hidden="true">→</span></span></button>'
+    '<span class="home-late-open">Перейти в график работ объекта <span aria-hidden="true">→</span></span></button>'
   };
   host.innerHTML=
    '<div class="home-portfolio-shell">'+
