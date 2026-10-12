@@ -136,7 +136,7 @@ window.irBuildingView=(()=>{
     const stored=JSON.parse(localStorage.getItem(sectionKey)||"[]");
     if(Array.isArray(stored))state.hiddenSections=stored.filter(id=>sections.some(a=>a.id===id))
    }catch(_error){}
-  }
+  }else state.hiddenSections=state.hiddenSections.filter(id=>sections.some(a=>a.id===id));
   const sectionFor=(c,axis)=>{
    const choices=sections.filter(a=>a.axis===axis);
    if(!choices.length)return null;
@@ -232,7 +232,7 @@ window.irBuildingView=(()=>{
   topControls.querySelector("#irbLayerToggle").onclick=()=>{state.layersOpen=!state.layersOpen;updateLayers();paint()};
   updateLayers();detailPanel.hidden=true;
   const el=id=>host.querySelector("#"+id),canvas=el("irbCanvas"),ctx=canvas.getContext("2d");
-  const colorSummary=(()=>{
+  const colorSummary=()=>{
    const summary=new Map();
    for(const member of visibleCols()){
     const key=markName(member),row=summary.get(key);
@@ -240,7 +240,7 @@ window.irBuildingView=(()=>{
     else summary.set(key,{key,count:1,rgb:markCss(member)})
    }
    return [...summary.values()].sort((a,b)=>a.key.localeCompare(b.key,"ru",{numeric:true}));
-  })();
+  };
   const showColorMode=()=>{
    const byMark=state.colorMode==="mark",status=el("irbColorStatus"),marksButton=el("irbColorMarks"),
     top=el("irbColorToggle"),caption=el("irbColorCaption"),list=el("irbColorLegend"),footer=el("irbLegend");
@@ -251,8 +251,8 @@ window.irBuildingView=(()=>{
    if(caption)caption.textContent=byMark?"Каждая марка получает свой цвет; повторяющиеся марки одинаковые. Статус монтажа остаётся в свойствах.":"Зелёный — смонтировано, красный — не смонтировано, жёлтый — частично.";
    if(list){
     list.hidden=!byMark;
-    if(byMark)list.innerHTML='<div class="irb-color-legend-title">Марки на экране · '+colorSummary.length+'</div>'+
-     colorSummary.map(row=>'<div class="irb-color-entry"><i style="background:'+row.rgb+'"></i><span title="'+html(row.key)+'">'+html(row.key)+'</span><small>'+row.count+' шт.</small></div>').join("");
+    if(byMark)list.innerHTML='<div class="irb-color-legend-title">Марки на экране · '+colorSummary().length+'</div>'+
+     colorSummary().map(row=>'<div class="irb-color-entry"><i style="background:'+row.rgb+'"></i><span title="'+html(row.key)+'">'+html(row.key)+'</span><small>'+row.count+' шт.</small></div>').join("");
    }
    if(footer)footer.innerHTML=byMark?'<i class="blue"></i> Выбрано <span>· Разные цвета — разные марки</span>':
     '<i class="green"></i> Смонтировано <i class="red"></i> Не смонтировано <i class="orange"></i> Частично <i class="blue"></i> Выбрано';
