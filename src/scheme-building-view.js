@@ -110,6 +110,7 @@ window.irBuildingView=(()=>{
   const header='<div class="irb-panel-head"><b>Слои модели</b></div>';
   host.innerHTML='<div class="irb-wrap"><aside class="irb-layers">'+header+
    '<div class="irb-layer-list">'+groups.map(g=>'<button type="button" class="irb-layer '+(g.visible?'active':'')+'" data-irb-layer="'+html(g.key)+'"><i>'+(g.visible?'✓':'')+'</i><b>'+html(g.label)+'</b><small>'+g.count+'</small></button>').join("")+'</div>'+
+   '<label class="irb-find-label">Найти конструкцию</label><input id="irbFindMark" type="search" autocomplete="off" placeholder="Например, К178" aria-label="Поиск марки в 3D">'+
    '<div class="irb-panel-head"><b>Отображение</b></div>'+
    '<label class="irb-switch"><input type="checkbox" id="irbGrid" '+(state.grid?'checked':'')+'><span>Сетка осей</span></label>'+
    '<label class="irb-switch"><input type="checkbox" id="irbRoof" '+(state.roof?'checked':'')+'><span>Контур кровли (эскиз)</span></label>'+
@@ -582,6 +583,15 @@ window.irBuildingView=(()=>{
   };
   const setZoom=v=>{state.zoom=clamp(v,.45,4);paint()};
   host.querySelectorAll("[data-irb-layer]").forEach(b=>b.onclick=()=>props.onLayer(b.dataset.irbLayer));
+  el("irbFindMark").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();el("irbFindMark").dispatchEvent(new Event("change"))}};
+  el("irbFindMark").onchange=e=>{
+   const q=e.target.value.trim().toLocaleLowerCase("ru");if(!q)return;
+   const found=cols.find(c=>String(c.mark||"").toLocaleLowerCase("ru")===q)||
+    cols.find(c=>String(c.mark||"").toLocaleLowerCase("ru").includes(q)||String(c.mark_name||"").toLocaleLowerCase("ru").includes(q));
+   if(!found){e.target.setCustomValidity("Марка не найдена на текущей модели");e.target.reportValidity();return}
+   e.target.setCustomValidity("");state.selected=String(found.id);state.placing=false;
+   props.onSelect(state.selected);refreshPanel();paint();
+  };
   el("irbGrid").onchange=e=>{state.grid=e.target.checked;paint()};
   el("irbRoof").onchange=e=>{state.roof=e.target.checked;paint()};
   if(el("irbStart"))el("irbStart").onclick=startPlacement;
