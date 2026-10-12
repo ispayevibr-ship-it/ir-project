@@ -394,7 +394,18 @@ window.irSchemePage=async function(objectId){
    return{x,y,z,ax:String(a.ax),ay:String(a.ay),dx:x-num(axisXPos.get(String(a.ax))),dy:y-num(axisYPos.get(String(a.ay))),memberId};
   };
   const start=point(placement.start);
-  const end=kind==="column"?{...start,z:Number(placement.topZ)}:point(placement.end),middle=placement.geometry==="bent"?point(placement.middle):null;
+  const end=kind==="column"?{...start,z:Number(placement.topZ)}:point(placement.end);
+  const centerRidge=placement.geometry==="bent"&&placement.ridgeMode!=="manual";
+  // In center mode, X/Y are derived from the two endpoints, never from a
+  // cursor-picked coordinate or an arbitrary nearby axis.
+  const ridgeInput=placement.geometry==="bent"?placement.middle:null;
+  const middle=placement.geometry!=="bent"?null:centerRidge?
+   (()=>{
+    if(!ridgeInput||!Number.isFinite(Number(ridgeInput.z)))throw Error("Укажите отметку Z конька.");
+    const x=Math.round((start.x+end.x)/2),y=Math.round((start.y+end.y)/2),
+     ax=closestAxis(x,axesX,axisXPos),ay=closestAxis(y,axesY,axisYPos);
+    return{x,y,z:Number(ridgeInput.z),ax,ay,dx:x-num(axisXPos.get(ax)),dy:y-num(axisYPos.get(ay)),memberId:""}
+   })():point(ridgeInput);
   if(middle&&(Math.hypot(middle.x-start.x,middle.y-start.y,middle.z-start.z)<1||Math.hypot(end.x-middle.x,end.y-middle.y,end.z-middle.z)<1))throw Error("Для ломаной балки нужны три различные точки.");
   if(!Number.isFinite(end.z)||Math.hypot(end.x-start.x,end.y-start.y,end.z-start.z)<1)throw Error("Начало и конец должны различаться.");
   if(kind==="column"&&end.z<=start.z)throw Error("Верх колонны должен быть выше низа.");
@@ -407,6 +418,7 @@ window.irSchemePage=async function(objectId){
    geometry_type:placement.geometry,absolute_x2_mm:kind==="column"?undefined:end.x,absolute_y2_mm:kind==="column"?undefined:end.y,
    absolute_mid_x_mm:middle?.x,absolute_mid_y_mm:middle?.y,mid_z_mm:middle?.z,
    mid_axis_x:middle?.ax,mid_axis_y:middle?.ay,mid_offset_x_mm:middle?.dx,mid_offset_y_mm:middle?.dy,mid_anchor_member_id:middle?.memberId||undefined,
+   ridge_mode:placement.geometry==="bent"?(centerRidge?"center":"manual"):undefined,
    end_axis_x:kind==="column"?undefined:end.ax,end_axis_y:kind==="column"?undefined:end.ay,
    end_offset_x_mm:kind==="column"?undefined:end.dx,end_offset_y_mm:kind==="column"?undefined:end.dy,
    z0_mm:start.z,z1_mm:end.z,end_z_mm:kind==="column"?undefined:end.z,
@@ -633,10 +645,20 @@ window.irSchemePage=async function(objectId){
     <div class="scheme-member-end wide" id="schemeMemberEnd" hidden><b>Конец элемента — вторая точка для балки, связи или фермы</b>
      <div><label>Ось по X<select name="end_axis_x">${axisOptions(axesX,axesX[1]||axesX[0])}</select></label><label>Смещение X, мм<input name="end_offset_x_mm" inputmode="decimal" value="0"></label>
      <label>Ось по Y<select name="end_axis_y">${axisOptions(axesY,axesY[0])}</select></label><label>Смещение Y, мм<input name="end_offset_y_mm" inputmode="decimal" value="0"></label></div></div>
-    <div class="scheme-member-end wide" id="schemeMemberMiddle" hidden><b>Конёк / излом — вторая точка одной балки</b><div>
-     <label>Ось по X<select name="mid_axis_x">${axisOptions(axesX,axesX[1]||axesX[0])}</select></label><label>Смещение X, мм<input name="mid_offset_x_mm" inputmode="decimal" value="0"></label>
-     <label>Ось по Y<select name="mid_axis_y">${axisOptions(axesY,axesY[0])}</select></label><label>Смещение Y, мм<input name="mid_offset_y_mm" inputmode="decimal" value="0"></label>
-     <label>Конёк Z, мм<input name="mid_z_mm" inputmode="decimal" value="10000"></label></div><small>Одна марка, две наклонные части.</small></div>
+    <div class="scheme-member-end wide" id="schemeMemberMiddle" hidden><b>Конёк / излом — одна балка, две наклонные части</b>
+     <label class="wide scheme-ridge-mode">Расположение конька
+      <select name="ridge_mode" id="schemeRidgeMode" data-native-select="1">
+       <option value="center">По центру — X/Y между началом и концом</option>
+       <option value="manual">Вручную — точные оси и смещения X/Y</option>
+      </select>
+     </label>
+     <div class="scheme-middle-coordinates" id="schemeMiddleCoordinates">
+      <label>Ось по X<select name="mid_axis_x">${axisOptions(axesX,axesX[1]||axesX[0])}</select></label><label>Смещение X, мм<input name="mid_offset_x_mm" inputmode="decimal" value="0"></label>
+      <label>Ось по Y<select name="mid_axis_y">${axisOptions(axesY,axesY[0])}</select></label><label>Смещение Y, мм<input name="mid_offset_y_mm" inputmode="decimal" value="0"></label>
+     </div>
+     <div class="scheme-ridge-note" id="schemeRidgeNote">X/Y конька рассчитываются автоматически точно посередине между началом и концом. Смещения вручную не требуются.</div>
+     <label>Отметка конька Z, мм<input name="mid_z_mm" inputmode="decimal" value="10000"></label>
+    </div>
     <label>Отметка низа / начала, мм<input name="z0_mm" inputmode="decimal" value="0"></label>
     <label>Отметка верха / конца, мм<input name="z1_mm" inputmode="decimal" value="8400"></label>
     <label>Поворот, °<input name="rotation_deg" inputmode="decimal" value="0"></label>
@@ -755,6 +777,11 @@ window.irSchemePage=async function(objectId){
    const kind=f.elements.geometry_type.value,member=kind!=="column",end=document.getElementById("schemeMemberEnd");
    if(end)end.hidden=!member;
    const middle=document.getElementById("schemeMemberMiddle");if(middle)middle.hidden=kind!=="bent";
+   const manual=f.elements.ridge_mode.value==="manual",
+    midCoords=document.getElementById("schemeMiddleCoordinates"),
+    note=document.getElementById("schemeRidgeNote");
+   if(midCoords)midCoords.hidden=!manual;
+   if(note)note.hidden=manual;
    if(defaultHeights&&member){if(kind==="brace"){f.elements.z0_mm.value=0;f.elements.z1_mm.value=8400}else{f.elements.z0_mm.value=8400;f.elements.z1_mm.value=8400}}
    if(defaultHeights&&!member){f.elements.z0_mm.value=0;f.elements.z1_mm.value=8400}
    if(defaultHeights&&kind==="bent"){f.elements.z0_mm.value=9400;f.elements.z1_mm.value=9400;f.elements.mid_z_mm.value=10000}
@@ -762,12 +789,19 @@ window.irSchemePage=async function(objectId){
   }
   const refreshPreview=()=>{
    const ax=f.elements.axis_x.value,ay=f.elements.axis_y.value,x=num(editorGrid.xPos.get(ax))+num(f.elements.offset_x_mm.value),y=num(editorGrid.yPos.get(ay))+num(f.elements.offset_y_mm.value),member=f.elements.geometry_type.value!=="column",endX=num(editorGrid.xPos.get(f.elements.end_axis_x.value))+num(f.elements.end_offset_x_mm.value),endY=num(editorGrid.yPos.get(f.elements.end_axis_y.value))+num(f.elements.end_offset_y_mm.value),
-   bent=f.elements.geometry_type.value==="bent",
-   mx=num(editorGrid.xPos.get(f.elements.mid_axis_x.value))+num(f.elements.mid_offset_x_mm.value),
-   my=num(editorGrid.yPos.get(f.elements.mid_axis_y.value))+num(f.elements.mid_offset_y_mm.value),
+   bent=f.elements.geometry_type.value==="bent",centered=f.elements.ridge_mode.value!=="manual",
+   mx=centered?(x+endX)/2:num(editorGrid.xPos.get(f.elements.mid_axis_x.value))+num(f.elements.mid_offset_x_mm.value),
+   my=centered?(y+endY)/2:num(editorGrid.yPos.get(f.elements.mid_axis_y.value))+num(f.elements.mid_offset_y_mm.value),
    length=bent?Math.hypot(mx-x,my-y,num(f.elements.mid_z_mm.value)-num(f.elements.z0_mm.value))+Math.hypot(endX-mx,endY-my,num(f.elements.z1_mm.value)-num(f.elements.mid_z_mm.value)):0;
    document.getElementById("schemeCoordPreview").innerHTML=`<span>Точные координаты</span><b>Начало X = ${fmt(x)} мм · Y = ${fmt(y)} мм</b><small>${member?`${bent?"Конёк X = "+fmt(mx)+" мм · Y = "+fmt(my)+" мм · Z = "+fmt(f.elements.mid_z_mm.value)+" мм · ":""}Конец X = ${fmt(endX)} мм · Y = ${fmt(endY)} мм${bent?" · Длина "+fmt(length)+" мм":""}`:"Колонна расположена вертикально"}</small>`;
   };
+  // Existing asymmetric beams must stay asymmetric unless explicitly changed.
+  // Legacy records without a ridge_mode are classified using their saved X/Y.
+  const existingCentered=c?.geometryType==="bent"&&
+   Math.hypot(num(c.mx)-(num(c.x)+num(c.x2))/2,num(c.my)-(num(c.y)+num(c.y2))/2)<1.1;
+  f.elements.ridge_mode.value=c?.ridge_mode==="manual"?"manual":
+   c?.ridge_mode==="center"||!c||existingCentered?"center":"manual";
+  f.elements.ridge_mode.onchange=()=>updateGeometry(false);
   f.elements.geometry_type.onchange=()=>updateGeometry(false);updateGeometry(!c&&f.elements.geometry_type.value!=="column");
   if(placement){
    const start=placement.start,end=placement.end||start;
@@ -780,6 +814,7 @@ window.irSchemePage=async function(objectId){
    f.elements.z0_mm.value=placement.geometry==="column"?0:(start.z??placement.height);
    f.elements.z1_mm.value=placement.geometry==="column"?placement.height:(end.z??placement.height);
    if(placement.middle){const mid=placement.middle;f.elements.mid_axis_x.value=mid.ax;f.elements.mid_axis_y.value=mid.ay;f.elements.mid_offset_x_mm.value=mid.dx??0;f.elements.mid_offset_y_mm.value=mid.dy??0;f.elements.mid_z_mm.value=mid.z??10000}
+   f.elements.ridge_mode.value=placement.ridgeMode==="manual"?"manual":"center";
    updateGeometry(false);renderMarkOptions();
   }
   ["axis_x","axis_y","offset_x_mm","offset_y_mm","end_axis_x","end_axis_y","end_offset_x_mm","end_offset_y_mm","mid_axis_x","mid_axis_y","mid_offset_x_mm","mid_offset_y_mm","mid_z_mm","z0_mm","z1_mm"].forEach(n=>f.elements[n].addEventListener("input",refreshPreview));refreshPreview();d.showModal()
@@ -803,7 +838,16 @@ window.irSchemePage=async function(objectId){
    const axisX=String(fd.get("axis_x")||targetGrid.axesX[0]),axisY=String(fd.get("axis_y")||targetGrid.axesY[0]),dx=num(fd.get("offset_x_mm")),dy=num(fd.get("offset_y_mm")),x=num(targetGrid.xPos.get(axisX))+dx,y=num(targetGrid.yPos.get(axisY))+dy;
    const kind=String(fd.get("geometry_type")||"column"),z0=num(fd.get("z0_mm")),z1=num(fd.get("z1_mm"));
    const endX=String(fd.get("end_axis_x")||targetGrid.axesX[0]),endY=String(fd.get("end_axis_y")||targetGrid.axesY[0]),endDx=num(fd.get("end_offset_x_mm")),endDy=num(fd.get("end_offset_y_mm")),x2=num(targetGrid.xPos.get(endX))+endDx,y2=num(targetGrid.yPos.get(endY))+endDy;
-   const midX=String(fd.get("mid_axis_x")||targetGrid.axesX[0]),midY=String(fd.get("mid_axis_y")||targetGrid.axesY[0]),mdx=num(fd.get("mid_offset_x_mm")),mdy=num(fd.get("mid_offset_y_mm")),mx=num(targetGrid.xPos.get(midX))+mdx,my=num(targetGrid.yPos.get(midY))+mdy,mz=num(fd.get("mid_z_mm"));
+   const ridgeMode=fd.get("ridge_mode")==="manual"?"manual":"center",
+    manualMidX=String(fd.get("mid_axis_x")||targetGrid.axesX[0]),
+    manualMidY=String(fd.get("mid_axis_y")||targetGrid.axesY[0]),
+    manualDx=num(fd.get("mid_offset_x_mm")),manualDy=num(fd.get("mid_offset_y_mm")),
+    mx=ridgeMode==="center"?Math.round((x+x2)/2):num(targetGrid.xPos.get(manualMidX))+manualDx,
+    my=ridgeMode==="center"?Math.round((y+y2)/2):num(targetGrid.yPos.get(manualMidY))+manualDy,
+    midX=ridgeMode==="center"?closestAxis(mx,targetGrid.axesX,targetGrid.xPos):manualMidX,
+    midY=ridgeMode==="center"?closestAxis(my,targetGrid.axesY,targetGrid.yPos):manualMidY,
+    mdx=mx-num(targetGrid.xPos.get(midX)),mdy=my-num(targetGrid.yPos.get(midY)),
+    mz=num(fd.get("mid_z_mm"));
    if(!targetGrid.axesX.includes(axisX)||!targetGrid.axesY.includes(axisY)||kind!=="column"&&(!targetGrid.axesX.includes(endX)||!targetGrid.axesY.includes(endY))){err.textContent="Выберите существующие оси выбранной сетки.";err.hidden=false;return}
    if(kind==="bent"){
     if(guessGeometry(m)!=="beam"||!targetGrid.axesX.includes(midX)||!targetGrid.axesY.includes(midY)){err.textContent="Ломаная балка подходит только для балок, ригелей и прогонов. Проверьте оси конька.";err.hidden=false;return}
@@ -820,7 +864,8 @@ window.irSchemePage=async function(objectId){
    absolute_mid_x_mm:kind==="bent"?mx:undefined,absolute_mid_y_mm:kind==="bent"?my:undefined,mid_z_mm:kind==="bent"?mz:undefined,
    mid_axis_x:kind==="bent"?midX:undefined,mid_axis_y:kind==="bent"?midY:undefined,
    mid_offset_x_mm:kind==="bent"?mdx:undefined,mid_offset_y_mm:kind==="bent"?mdy:undefined,
-   mid_anchor_member_id:kind==="bent"?previous.mid_anchor_member_id:undefined,end_axis_x:kind==="column"?undefined:endX,end_axis_y:kind==="column"?undefined:endY,end_offset_x_mm:kind==="column"?undefined:endDx,end_offset_y_mm:kind==="column"?undefined:endDy,end_z_mm:kind==="column"?undefined:z1,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name,scheme_group:g.key,scheme_group_label:g.label,scheme_view_id:view?.id||"all"}};
+   ridge_mode:kind==="bent"?ridgeMode:undefined,
+   mid_anchor_member_id:kind==="bent"&&ridgeMode==="manual"?previous.mid_anchor_member_id:undefined,end_axis_x:kind==="column"?undefined:endX,end_axis_y:kind==="column"?undefined:endY,end_offset_x_mm:kind==="column"?undefined:endDx,end_offset_y_mm:kind==="column"?undefined:endDy,end_z_mm:kind==="column"?undefined:z1,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name,scheme_group:g.key,scheme_group_label:g.label,scheme_view_id:view?.id||"all"}};
    try{const saved=id?await schemeApi.update(id,payload):await schemeApi.create(payload);rows=await schemeApi.list();selectedId=String(saved?.id||id||"");d.close();if(pendingBuildingPlacement){if(kind!=="column")window.irBuildingView?.placementSaved?.({...pendingBuildingPlacement,savedEnd:{ax:endX,ay:endY,x:x2,y:y2,z:z1}});else window.irBuildingView?.placementCancelled?.();pendingBuildingPlacement=null}draw()}catch(error){err.textContent="Не удалось сохранить элемент: "+String(error?.message||error);err.hidden=false}
   }
  }
