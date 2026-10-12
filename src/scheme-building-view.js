@@ -99,10 +99,10 @@ window.irBuildingView=(()=>{
    Math.abs(originAxis(map,a)-value)<Math.abs(originAxis(map,best)-value)?a:best,axes[0]);
   // Invert the orthographic projection on Z=0: this also allows placing
   // columns between axes, instead of restricting users to grid intersections.
-  const groundAt=(x,y)=>{
+  const groundAt=(x,y,z=0)=>{
    if(Math.abs(Math.sin(state.pitch))<.18)return null; // front/side views are edge-on
-   const project=projectFactory().project,o=project(pt(0,0,0)),
-    xp=project(pt(1000,0,0)),yp=project(pt(0,1000,0)),
+   const project=projectFactory().project,o=project(pt(0,0,z)),
+    xp=project(pt(1000,0,z)),yp=project(pt(0,1000,z)),
     xx=xp.x-o.x,xy=xp.y-o.y,yx=yp.x-o.x,yy=yp.y-o.y,
     det=xx*yy-yx*xy;
    if(Math.abs(det)<.01)return null;
@@ -111,7 +111,7 @@ window.irBuildingView=(()=>{
     worldY=Math.round(1000*(xx*dy-xy*dx)/det);
    if(worldX<0||worldX>spanX||worldY<0||worldY>spanY)return null;
    return{kind:"ground",x:closest(axesX,gridX,worldX),y:closest(axesY,gridY,worldY),
-    worldX,worldY,z:0,zConfirmed:true};
+    worldX,worldY,z,zConfirmed:pickGeometry()==="column"};
   };
   const columnOccupied=a=>!!a&&cols.some(c=>c.geometryType==="column"&&
    Math.hypot(num(c.x)-num(a.worldX),num(c.y)-num(a.worldY))<25&&Math.abs(num(c.z0)-num(a.z))<25);
@@ -279,7 +279,8 @@ window.irBuildingView=(()=>{
    }
    const segment=segmentHit(x,y);
    if(pickGeometry()==="column")return best||groundAt(x,y);
-   return segment&&(!best||minScore>5)?segment:best
+   const snap=segment&&(!best||minScore>5)?segment:best;
+   return snap||(pickGeometry()==="bent"?groundAt(x,y,anchorZ()):null)
   };
   const position=a=>a?html((a.kind==="column"||a.kind==="member"?a.label+" · крепление · ":a.kind==="ground"?"Между осями · ":"Ось ")+a.x+" / "+a.y+
    " · X "+fmt(a.worldX)+" · Y "+fmt(a.worldY)+" · Z "+(a.zConfirmed===false?"нужно указать":fmt(a.z)+" мм")+
