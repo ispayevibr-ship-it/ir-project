@@ -7,7 +7,7 @@
  */
 window.irBuildingView=(()=>{
  const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true,bent:false,middle:null};
- let observer=null,paint=null;
+ let observer=null,paint=null,webgl=null;
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const html=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  const pt=(x,y,z)=>({x:Number(x)||0,y:Number(y)||0,z:Number(z)||0});
@@ -20,8 +20,81 @@ window.irBuildingView=(()=>{
   return c.geometryType==="bent"?first+Math.hypot(num(c.x2)-num(c.mx),num(c.y2)-num(c.my),num(c.z2)-num(c.mz)):first;
  };
  const dist=(q,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,t=clamp(((q.x-a.x)*dx+(q.y-a.y)*dy)/(dx*dx+dy*dy||1),0,1);return Math.hypot(q.x-(a.x+dx*t),q.y-(a.y+dy*t))};
+
+ // Offline WebGL renderer; real 3D prisms, depth testing and per-face lighting.
+ // The 2D canvas above it remains a precise picking/placement/annotation layer.
+ function makeWebGL(surface){
+  const gl=surface.getContext("webgl",{alpha:true,antialias:true,premultipliedAlpha:false,depth:true});
+  if(!gl)return null;
+  const shader=(type,source)=>{
+   const item=gl.createShader(type);gl.shaderSource(item,source);gl.compileShader(item);
+   if(!gl.getShaderParameter(item,gl.COMPILE_STATUS)){gl.deleteShader(item);return null}
+   return item;
+  };
+  const vertex=shader(gl.VERTEX_SHADER,
+   "attribute vec3 aPosition;attribute vec3 aColor;varying vec3 vColor;void main(){gl_Position=vec4(aPosition,1.0);vColor=aColor;}");
+  const fragment=shader(gl.FRAGMENT_SHADER,
+   "precision mediump float;varying vec3 vColor;void main(){gl_FragColor=vec4(vColor,1.0);}");
+  if(!vertex||!fragment)return null;
+  const program=gl.createProgram();gl.attachShader(program,vertex);gl.attachShader(program,fragment);gl.linkProgram(program);
+  gl.deleteShader(vertex);gl.deleteShader(fragment);
+  if(!gl.getProgramParameter(program,gl.LINK_STATUS)){gl.deleteProgram(program);return null}
+  const buffer=gl.createBuffer(),position=gl.getAttribLocation(program,"aPosition"),color=gl.getAttribLocation(program,"aColor");
+  gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);
+  const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+  const unit=v=>{const d=Math.hypot(...v)||1;return v.map(x=>x/d)};
+  const add=(a,b)=>a.map((x,i)=>x+b[i]),sub=(a,b)=>a.map((x,i)=>x-b[i]),mul=(v,s)=>v.map(x=>x*s);
+  const palette={
+   mounted:[.13,.62,.47],partial:[.82,.60,.28],planned:[.78,.42,.47],
+   selected:[.12,.45,.95],hover:[.12,.68,.93]
+  };
+  function render(segments,projection,viewWidth,viewHeight,dpr){
+   const width=Math.max(1,Math.round(viewWidth*dpr)),height=Math.max(1,Math.round(viewHeight*dpr));
+   if(surface.width!==width||surface.height!==height){surface.width=width;surface.height=height}
+   gl.viewport(0,0,width,height);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+   const data=[],extent=Math.max(40,...segments.map(s=>Math.abs(projection.raw(s.start).depth)),...segments.map(s=>Math.abs(projection.raw(s.end).depth)))*1.65;
+   const push=(v,rgb)=>{const p=projection.project(pt(...v));data.push(2*p.x/viewWidth-1,1-2*p.y/viewHeight,-clamp(p.depth/extent,-.95,.95),...rgb)};
+   const quad=(corners,rgb,factor)=>{
+    const shade=rgb.map((v,i)=>clamp(v*factor+(i===2?.014:0),0,1));
+    for(const i of [0,1,2,0,2,3])push(corners[i],shade);
+   };
+   for(const part of segments){
+    const c=part.c,a=[part.start.x,part.start.y,part.start.z],b=[part.end.x,part.end.y,part.end.z],
+     vector=sub(b,a),len=Math.hypot(...vector);if(len<.5)continue;
+    const direction=unit(vector),ref=Math.abs(direction[2])>.78?[0,1,0]:[0,0,1],
+     right=unit(cross(direction,ref)),up=unit(cross(direction,right)),
+     widthMm=c.geometryType==="column"?180:c.geometryType==="brace"?78:c.geometryType==="truss"?145:115,
+     breadth=widthMm*.73,
+     outset=[add(mul(right,widthMm),mul(up,breadth)),add(mul(right,-widthMm),mul(up,breadth)),
+       add(mul(right,-widthMm),mul(up,-breadth)),add(mul(right,widthMm),mul(up,-breadth))],
+     cornersA=outset.map(v=>add(a,v)),cornersB=outset.map(v=>add(b,v)),
+     rgb=String(c.id)===String(state.selected)?palette.selected:
+       String(c.id)===String(state.hover)?palette.hover:palette[c.status]||palette.planned;
+    quad([cornersA[0],cornersB[0],cornersB[1],cornersA[1]],rgb,1.17);
+    quad([cornersA[1],cornersB[1],cornersB[2],cornersA[2]],rgb,.88);
+    quad([cornersA[2],cornersB[2],cornersB[3],cornersA[3]],rgb,.72);
+    quad([cornersA[3],cornersB[3],cornersB[0],cornersA[0]],rgb,1.0);
+    quad([cornersA[0],cornersA[1],cornersA[2],cornersA[3]],rgb,.81);
+    quad([cornersB[3],cornersB[2],cornersB[1],cornersB[0]],rgb,1.28);
+   }
+   if(!data.length)return;
+   gl.useProgram(program);gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
+   gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.DYNAMIC_DRAW);
+   gl.enableVertexAttribArray(position);gl.enableVertexAttribArray(color);
+   gl.vertexAttribPointer(position,3,gl.FLOAT,false,24,0);
+   gl.vertexAttribPointer(color,3,gl.FLOAT,false,24,12);
+   gl.drawArrays(gl.TRIANGLES,0,data.length/6);
+  }
+  return{render,dispose(){
+   gl.deleteBuffer(buffer);gl.deleteProgram(program);
+   // A new route creates a new surface; release its old GPU context.
+   gl.getExtension("WEBGL_lose_context")?.loseContext();
+  }};
+ }
+
  function render(host,props){
   if(observer){observer.disconnect();observer=null}
+  if(webgl){webgl.dispose();webgl=null}
   const axesX=props.axesX,axesY=props.axesY,spanX=props.spanX,spanY=props.spanY,
    gridX=props.gridX,gridY=props.gridY,cols=props.elements,marks=props.marks,groups=props.groups;
   const markById=id=>marks.find(m=>String(m.id)===String(id));
@@ -43,7 +116,7 @@ window.irBuildingView=(()=>{
    '<div class="irb-count"><span>'+html(props.scopeLabel||"На схеме")+'</span><strong>'+cols.length+'</strong><small>Размещённых элементов</small></div>'+
    (props.canEdit?'<button type="button" class="irb-add" id="irbStart">＋ Разместить марку</button>':'')+
    '</aside><div class="irb-viewport">'+
-   '<canvas id="irbCanvas" aria-label="3D-модель каркаса здания"></canvas>'+
+   '<canvas id="irbSolid" aria-hidden="true"></canvas><canvas id="irbCanvas" aria-label="Интерактивный 3D-каркас здания"></canvas>'+
    '<div class="irb-tags"><span>● Общая модель здания</span><span>'+fmt(spanX/1000)+' × '+fmt(spanY/1000)+' м · '+axesX.length+' × '+axesY.length+' осей</span></div>'+
    '<label class="irb-camera">Вид <select id="irbView"><option value="iso">Изометрия</option><option value="top">Сверху</option><option value="front">Фасад</option><option value="side">Сбоку</option><option value="free" disabled>Свободный ракурс</option></select></label>'+
    '<div class="irb-hint" id="irbHint"></div>'+
@@ -73,6 +146,10 @@ window.irBuildingView=(()=>{
   updateLayers();detailPanel.hidden=true;
   const el=id=>host.querySelector("#"+id),canvas=el("irbCanvas"),ctx=canvas.getContext("2d");
   if(!ctx){el("irbProperties").textContent="3D Canvas недоступен";return}
+  webgl=makeWebGL(el("irbSolid"));
+  viewport.classList.toggle("irb-webgl",!!webgl);
+  if(!webgl){el("irbSolid").hidden=true}
+  
   const maxZ=Math.max(7000,8400,...cols.map(c=>Math.max(num(c.z0),num(c.z2),c.geometryType==="bent"?num(c.mz):0)),1);
   const projectFactory=()=>{
    const rect=canvas.getBoundingClientRect(),w=Math.max(260,rect.width),h=Math.max(320,rect.height);
@@ -211,13 +288,16 @@ window.irBuildingView=(()=>{
    ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,rect.width,rect.height);ctx.lineJoin="round";ctx.lineCap="round";
    const m=projectFactory();outline(m);
    const segments=memberSegments().map(s=>({...s,a:m.project(s.start),b:m.project(s.end),depth:(m.raw(s.start).depth+m.raw(s.end).depth)/2})).sort((a,b)=>a.depth-b.depth);
+   if(webgl)webgl.render(segments,m,rect.width,rect.height,dpr);
    for(const s of segments){
     const chosen=String(s.c.id)===String(state.selected),hover=String(s.c.id)===String(state.hover),
      color=chosen?"#2879df":hover?"#168fca":s.c.status==="mounted"?"#2e9b7b":s.c.status==="partial"?"#c4a051":"#c16670";
     const width=s.c.geometryType==="column"?7:s.c.geometryType==="truss"?6:s.c.geometryType==="brace"?3.7:4.8;
-    line(s.a,s.b,"rgba(35,63,87,.25)",width+2);line(s.a,s.b,color,width);
-    line({x:s.a.x-1.15,y:s.a.y-1.15},{x:s.b.x-1.15,y:s.b.y-1.15},"rgba(255,255,255,.5)",Math.max(1,width*.25));
-    if(s.c.geometryType==="truss"){
+    if(!webgl){
+     line(s.a,s.b,"rgba(35,63,87,.25)",width+2);line(s.a,s.b,color,width);
+     line({x:s.a.x-1.15,y:s.a.y-1.15},{x:s.b.x-1.15,y:s.b.y-1.15},"rgba(255,255,255,.5)",Math.max(1,width*.25));
+    }
+    if(!webgl&&s.c.geometryType==="truss"){
      const dx=s.b.x-s.a.x,dy=s.b.y-s.a.y,len=Math.max(1,Math.hypot(dx,dy)),ox=-dy/len*6,oy=dx/len*6;
      line({x:s.a.x+ox,y:s.a.y+oy},{x:s.b.x+ox,y:s.b.y+oy},color,2.5);
      const steps=Math.max(2,Math.min(9,Math.round(len/35)));
@@ -573,5 +653,5 @@ window.irBuildingView=(()=>{
    state.markSearch="";state.hoverAnchor=null;state.chainNext=null
   },
   placementCancelled:()=>{state.chainNext=null;state.continuing=false;state.placing=false;state.start=null;state.middle=null;state.end=null;state.hoverAnchor=null},
-  dispose:()=>{observer?.disconnect();observer=null;paint=null}};
+  dispose:()=>{observer?.disconnect();observer=null;webgl?.dispose();webgl=null;paint=null}};
 })();
