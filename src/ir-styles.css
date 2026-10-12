@@ -1305,6 +1305,12 @@ body.ir-delivery-form-route .delivery-form-page *{box-sizing:border-box}
 .scheme-editor .ir-global-select-menu button.exhausted:disabled{opacity:1!important;color:#b42d2d!important;background:#fff1f1!important;border-left:3px solid #e1a1a1;cursor:not-allowed}
 .scheme-editor .ir-global-select-menu button.exhausted:disabled:hover{color:#b42d2d;background:#fff1f1}
 
+/* IR Project 1.7.117: center/manual ridge controls in the detailed KMD editor. */
+#schemeMiddleCoordinates[hidden],#schemeRidgeNote[hidden]{display:none!important}
+#schemeMemberMiddle .scheme-ridge-mode{display:grid;gap:6px;font-size:10px;font-weight:800;color:#335f7f}
+#schemeMemberMiddle .scheme-ridge-mode select{font-weight:700;border-color:#a6cce8;background:#fff}
+#schemeMemberMiddle .scheme-ridge-note{padding:9px 11px;border:1px solid #c5dfef;border-radius:7px;background:#eaf5fe;color:#4d7898;font-size:10px;line-height:1.5}
+
 
 /* #40: src/section-action-buttons.css */
 .acted-actions,.penalty-actions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:10px!important}.acted-actions button,.penalty-actions button{display:flex!important;align-items:center!important;justify-content:center!important;width:36px!important;height:36px!important;min-width:36px!important;padding:7px!important;border:1px solid #d9e2e8!important;border-radius:7px!important;background:#fff!important;color:#2598c7!important;font-size:0!important;line-height:0!important;cursor:pointer!important;box-shadow:none!important}.acted-actions button:hover,.penalty-actions button:hover{background:#f2f8fb!important;border-color:#b9d5e3!important}.acted-actions button svg,.penalty-actions button svg{display:block!important;width:18px!important;height:18px!important;fill:none!important;stroke:currentColor!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important}.acted-actions .acted-delete,.penalty-actions .penalty-delete{color:#d76969!important}.acted-actions .acted-delete:hover,.penalty-actions .penalty-delete:hover{background:#fff4f4!important;border-color:#efc7c7!important}
@@ -1876,6 +1882,14 @@ body.ir-object-route:not(.ir-object-overview) .wt-row[hidden]{display:none!impor
  .irb-webgl .irb-layers>.irb-pane-close{top:10px!important;right:10px!important}
  .irb-find{padding:10px}
 }
+
+/* IR Project 1.7.117: symmetric ridge by default, optional manual coordinates. */
+.irb-ridge-mode{display:grid;gap:8px;padding:12px;border:1px solid #bbd8ef;border-radius:9px;background:#eff7ff;color:#315d7e}
+.irb-ridge-mode>b{font-size:11px;font-weight:850}
+.irb-ridge-mode>label{display:flex;gap:9px;align-items:center;cursor:pointer;font-size:10px;font-weight:750;line-height:1.4}
+.irb-ridge-mode>label input{width:16px;height:16px;flex:none;accent-color:#1b77c9}
+.irb-ridge-mode>small,.irb-ridge-note{font-size:10px;line-height:1.5;color:#587f99}
+.irb-ridge-note{display:block;margin-top:4px}
 
 
 /* #45: src/object-overview-right-column.css */
