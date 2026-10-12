@@ -100,3 +100,35 @@
  .aw-list-toolbar input{flex:1 1 100%;width:100%;max-width:none}
  .aw-detail-head{flex-wrap:wrap}
 }
+
+/* 1.7.123 — match headers and KPI typography of the other object sections. */
+.additional-works-top h1{
+ font-size:20px;
+ line-height:1.2;
+ font-weight:750;
+ color:#18364b;
+}
+.aw-stats{gap:9px}
+.aw-stats>div{
+ min-height:64px;
+ padding:11px 13px;
+ border:1px solid #dfe7ed;
+ border-radius:9px;
+ box-shadow:0 1px 3px rgba(23,54,77,.04);
+ align-content:center;
+ gap:5px;
+}
+.aw-stats span{
+ display:block;
+ color:#7c8d99;
+ font-size:8px;
+ line-height:1.35;
+ font-weight:400;
+}
+.aw-stats b{
+ display:block;
+ color:#17364d;
+ font-size:16px;
+ line-height:1.15;
+ font-weight:750;
+}
