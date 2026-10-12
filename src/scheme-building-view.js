@@ -353,7 +353,7 @@ window.irBuildingView=(()=>{
      state.markSearch=e.target.value;state.topZ="";state.error="";
      const matched=marks.filter(a=>a.left>0&&searchMatches(a));
      if(!matched.some(a=>a.id===state.mark)){
-      const next=matched[0];state.mark=next?.id||"";
+      const next=matched[0];state.mark=next?.id||"";state.bent=false;state.middle=null;
       if(!state.continuing||next?.geometry==="column"){state.start=null;state.continuing=false}
       if(next?.geometry==="column")state.zigzag=false;
       state.repeat=next?.geometry==="column";
@@ -383,14 +383,25 @@ window.irBuildingView=(()=>{
      if(a.kind==="member"&&a.memberId){
       const ref=cols.find(c=>String(c.id)===String(a.memberId));
       if(ref){
-       const base=num(ref.z0),dz=num(ref.z2)-base;
+       const joints=ref.geometryType==="bent"?[
+        [pt(ref.x,ref.y,ref.z0),pt(ref.mx,ref.my,ref.mz)],
+        [pt(ref.mx,ref.my,ref.mz),pt(ref.x2,ref.y2,ref.z2)]]:
+        [[pt(ref.x,ref.y,ref.z0),pt(ref.x2,ref.y2,ref.z2)]];
+       const closeSegment=([start,end])=>{
+        const v=pt(end.x-start.x,end.y-start.y,end.z-start.z),
+         t=clamp(((num(a.worldX)-start.x)*v.x+(num(a.worldY)-start.y)*v.y+(num(a.z)-start.z)*v.z)/(v.x*v.x+v.y*v.y+v.z*v.z||1),0,1);
+        return Math.hypot(num(a.worldX)-start.x-v.x*t,num(a.worldY)-start.y-v.y*t,num(a.z)-start.z-v.z*t)
+       };
+       const segment=a.memberPart!==undefined?joints[a.memberPart]:joints.slice().sort((q,t)=>closeSegment(q)-closeSegment(t))[0];
+       if(!segment){e.target.value=String(Math.round(a.z));return}
+       const [start,end]=segment,dz=end.z-start.z;
        if(Math.abs(dz)<1){
-        if(Math.abs(value-base)>.5){e.target.value=String(Math.round(a.z));return}
+        if(Math.abs(value-start.z)>.5){e.target.value=String(Math.round(a.z));return}
        }else{
-        const t=(value-base)/dz;
+        const t=(value-start.z)/dz;
         if(t<0||t>1){e.target.value=String(Math.round(a.z));return}
-        a.worldX=Math.round(num(ref.x)+(num(ref.x2)-num(ref.x))*t);
-        a.worldY=Math.round(num(ref.y)+(num(ref.y2)-num(ref.y))*t);
+        a.worldX=Math.round(start.x+(end.x-start.x)*t);
+        a.worldY=Math.round(start.y+(end.y-start.y)*t);
         a.x=closest(axesX,gridX,a.worldX);a.y=closest(axesY,gridY,a.worldY)
        }
       }
@@ -506,7 +517,7 @@ window.irBuildingView=(()=>{
      (Math.hypot(num(anchor.worldX)-num(previous.worldX),num(anchor.worldY)-num(previous.worldY))>15||
       Math.abs(num(anchor.z)-num(previous.z))>50||anchor.kind!==previous.kind);
     if(changed){state.hoverAnchor=anchor;updateHoverInfo();paint()}
-    canvas.style.cursor=columnOccupied(anchor)?"not-allowed":"crosshair"
+    canvas.style.cursor=pickGeometry()==="column"&&columnOccupied(anchor)?"not-allowed":"crosshair"
    }
   };
   canvas.onpointerup=e=>{
@@ -555,6 +566,6 @@ window.irBuildingView=(()=>{
    state.end=null;state.placing=true;state.continuing=true;
    state.markSearch="";state.hoverAnchor=null;state.chainNext=null
   },
-  placementCancelled:()=>{state.chainNext=null;state.continuing=false;state.placing=false;state.start=null;state.end=null;state.hoverAnchor=null},
+  placementCancelled:()=>{state.chainNext=null;state.continuing=false;state.placing=false;state.start=null;state.middle=null;state.end=null;state.hoverAnchor=null},
   dispose:()=>{observer?.disconnect();observer=null;paint=null}};
 })();
