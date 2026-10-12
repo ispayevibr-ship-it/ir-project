@@ -1639,7 +1639,18 @@ window.irSchemePage=async function(objectId){
    return{x,y,z,ax:String(a.ax),ay:String(a.ay),dx:x-num(axisXPos.get(String(a.ax))),dy:y-num(axisYPos.get(String(a.ay))),memberId};
   };
   const start=point(placement.start);
-  const end=kind==="column"?{...start,z:Number(placement.topZ)}:point(placement.end),middle=placement.geometry==="bent"?point(placement.middle):null;
+  const end=kind==="column"?{...start,z:Number(placement.topZ)}:point(placement.end);
+  const centerRidge=placement.geometry==="bent"&&placement.ridgeMode!=="manual";
+  // In center mode, X/Y are derived from the two endpoints, never from a
+  // cursor-picked coordinate or an arbitrary nearby axis.
+  const ridgeInput=placement.geometry==="bent"?placement.middle:null;
+  const middle=placement.geometry!=="bent"?null:centerRidge?
+   (()=>{
+    if(!ridgeInput||!Number.isFinite(Number(ridgeInput.z)))throw Error("Укажите отметку Z конька.");
+    const x=Math.round((start.x+end.x)/2),y=Math.round((start.y+end.y)/2),
+     ax=closestAxis(x,axesX,axisXPos),ay=closestAxis(y,axesY,axisYPos);
+    return{x,y,z:Number(ridgeInput.z),ax,ay,dx:x-num(axisXPos.get(ax)),dy:y-num(axisYPos.get(ay)),memberId:""}
+   })():point(ridgeInput);
   if(middle&&(Math.hypot(middle.x-start.x,middle.y-start.y,middle.z-start.z)<1||Math.hypot(end.x-middle.x,end.y-middle.y,end.z-middle.z)<1))throw Error("Для ломаной балки нужны три различные точки.");
   if(!Number.isFinite(end.z)||Math.hypot(end.x-start.x,end.y-start.y,end.z-start.z)<1)throw Error("Начало и конец должны различаться.");
   if(kind==="column"&&end.z<=start.z)throw Error("Верх колонны должен быть выше низа.");
@@ -1652,6 +1663,7 @@ window.irSchemePage=async function(objectId){
    geometry_type:placement.geometry,absolute_x2_mm:kind==="column"?undefined:end.x,absolute_y2_mm:kind==="column"?undefined:end.y,
    absolute_mid_x_mm:middle?.x,absolute_mid_y_mm:middle?.y,mid_z_mm:middle?.z,
    mid_axis_x:middle?.ax,mid_axis_y:middle?.ay,mid_offset_x_mm:middle?.dx,mid_offset_y_mm:middle?.dy,mid_anchor_member_id:middle?.memberId||undefined,
+   ridge_mode:placement.geometry==="bent"?(centerRidge?"center":"manual"):undefined,
    end_axis_x:kind==="column"?undefined:end.ax,end_axis_y:kind==="column"?undefined:end.ay,
    end_offset_x_mm:kind==="column"?undefined:end.dx,end_offset_y_mm:kind==="column"?undefined:end.dy,
    z0_mm:start.z,z1_mm:end.z,end_z_mm:kind==="column"?undefined:end.z,
@@ -1878,10 +1890,20 @@ window.irSchemePage=async function(objectId){
     <div class="scheme-member-end wide" id="schemeMemberEnd" hidden><b>Конец элемента — вторая точка для балки, связи или фермы</b>
      <div><label>Ось по X<select name="end_axis_x">${axisOptions(axesX,axesX[1]||axesX[0])}</select></label><label>Смещение X, мм<input name="end_offset_x_mm" inputmode="decimal" value="0"></label>
      <label>Ось по Y<select name="end_axis_y">${axisOptions(axesY,axesY[0])}</select></label><label>Смещение Y, мм<input name="end_offset_y_mm" inputmode="decimal" value="0"></label></div></div>
-    <div class="scheme-member-end wide" id="schemeMemberMiddle" hidden><b>Конёк / излом — вторая точка одной балки</b><div>
-     <label>Ось по X<select name="mid_axis_x">${axisOptions(axesX,axesX[1]||axesX[0])}</select></label><label>Смещение X, мм<input name="mid_offset_x_mm" inputmode="decimal" value="0"></label>
-     <label>Ось по Y<select name="mid_axis_y">${axisOptions(axesY,axesY[0])}</select></label><label>Смещение Y, мм<input name="mid_offset_y_mm" inputmode="decimal" value="0"></label>
-     <label>Конёк Z, мм<input name="mid_z_mm" inputmode="decimal" value="10000"></label></div><small>Одна марка, две наклонные части.</small></div>
+    <div class="scheme-member-end wide" id="schemeMemberMiddle" hidden><b>Конёк / излом — одна балка, две наклонные части</b>
+     <label class="wide scheme-ridge-mode">Расположение конька
+      <select name="ridge_mode" id="schemeRidgeMode" data-native-select="1">
+       <option value="center">По центру — X/Y между началом и концом</option>
+       <option value="manual">Вручную — точные оси и смещения X/Y</option>
+      </select>
+     </label>
+     <div class="scheme-middle-coordinates" id="schemeMiddleCoordinates">
+      <label>Ось по X<select name="mid_axis_x">${axisOptions(axesX,axesX[1]||axesX[0])}</select></label><label>Смещение X, мм<input name="mid_offset_x_mm" inputmode="decimal" value="0"></label>
+      <label>Ось по Y<select name="mid_axis_y">${axisOptions(axesY,axesY[0])}</select></label><label>Смещение Y, мм<input name="mid_offset_y_mm" inputmode="decimal" value="0"></label>
+     </div>
+     <div class="scheme-ridge-note" id="schemeRidgeNote">X/Y конька рассчитываются автоматически точно посередине между началом и концом. Смещения вручную не требуются.</div>
+     <label>Отметка конька Z, мм<input name="mid_z_mm" inputmode="decimal" value="10000"></label>
+    </div>
     <label>Отметка низа / начала, мм<input name="z0_mm" inputmode="decimal" value="0"></label>
     <label>Отметка верха / конца, мм<input name="z1_mm" inputmode="decimal" value="8400"></label>
     <label>Поворот, °<input name="rotation_deg" inputmode="decimal" value="0"></label>
@@ -2000,6 +2022,11 @@ window.irSchemePage=async function(objectId){
    const kind=f.elements.geometry_type.value,member=kind!=="column",end=document.getElementById("schemeMemberEnd");
    if(end)end.hidden=!member;
    const middle=document.getElementById("schemeMemberMiddle");if(middle)middle.hidden=kind!=="bent";
+   const manual=f.elements.ridge_mode.value==="manual",
+    midCoords=document.getElementById("schemeMiddleCoordinates"),
+    note=document.getElementById("schemeRidgeNote");
+   if(midCoords)midCoords.hidden=!manual;
+   if(note)note.hidden=manual;
    if(defaultHeights&&member){if(kind==="brace"){f.elements.z0_mm.value=0;f.elements.z1_mm.value=8400}else{f.elements.z0_mm.value=8400;f.elements.z1_mm.value=8400}}
    if(defaultHeights&&!member){f.elements.z0_mm.value=0;f.elements.z1_mm.value=8400}
    if(defaultHeights&&kind==="bent"){f.elements.z0_mm.value=9400;f.elements.z1_mm.value=9400;f.elements.mid_z_mm.value=10000}
@@ -2007,12 +2034,19 @@ window.irSchemePage=async function(objectId){
   }
   const refreshPreview=()=>{
    const ax=f.elements.axis_x.value,ay=f.elements.axis_y.value,x=num(editorGrid.xPos.get(ax))+num(f.elements.offset_x_mm.value),y=num(editorGrid.yPos.get(ay))+num(f.elements.offset_y_mm.value),member=f.elements.geometry_type.value!=="column",endX=num(editorGrid.xPos.get(f.elements.end_axis_x.value))+num(f.elements.end_offset_x_mm.value),endY=num(editorGrid.yPos.get(f.elements.end_axis_y.value))+num(f.elements.end_offset_y_mm.value),
-   bent=f.elements.geometry_type.value==="bent",
-   mx=num(editorGrid.xPos.get(f.elements.mid_axis_x.value))+num(f.elements.mid_offset_x_mm.value),
-   my=num(editorGrid.yPos.get(f.elements.mid_axis_y.value))+num(f.elements.mid_offset_y_mm.value),
+   bent=f.elements.geometry_type.value==="bent",centered=f.elements.ridge_mode.value!=="manual",
+   mx=centered?(x+endX)/2:num(editorGrid.xPos.get(f.elements.mid_axis_x.value))+num(f.elements.mid_offset_x_mm.value),
+   my=centered?(y+endY)/2:num(editorGrid.yPos.get(f.elements.mid_axis_y.value))+num(f.elements.mid_offset_y_mm.value),
    length=bent?Math.hypot(mx-x,my-y,num(f.elements.mid_z_mm.value)-num(f.elements.z0_mm.value))+Math.hypot(endX-mx,endY-my,num(f.elements.z1_mm.value)-num(f.elements.mid_z_mm.value)):0;
    document.getElementById("schemeCoordPreview").innerHTML=`<span>Точные координаты</span><b>Начало X = ${fmt(x)} мм · Y = ${fmt(y)} мм</b><small>${member?`${bent?"Конёк X = "+fmt(mx)+" мм · Y = "+fmt(my)+" мм · Z = "+fmt(f.elements.mid_z_mm.value)+" мм · ":""}Конец X = ${fmt(endX)} мм · Y = ${fmt(endY)} мм${bent?" · Длина "+fmt(length)+" мм":""}`:"Колонна расположена вертикально"}</small>`;
   };
+  // Existing asymmetric beams must stay asymmetric unless explicitly changed.
+  // Legacy records without a ridge_mode are classified using their saved X/Y.
+  const existingCentered=c?.geometryType==="bent"&&
+   Math.hypot(num(c.mx)-(num(c.x)+num(c.x2))/2,num(c.my)-(num(c.y)+num(c.y2))/2)<1.1;
+  f.elements.ridge_mode.value=c?.ridge_mode==="manual"?"manual":
+   c?.ridge_mode==="center"||!c||existingCentered?"center":"manual";
+  f.elements.ridge_mode.onchange=()=>updateGeometry(false);
   f.elements.geometry_type.onchange=()=>updateGeometry(false);updateGeometry(!c&&f.elements.geometry_type.value!=="column");
   if(placement){
    const start=placement.start,end=placement.end||start;
@@ -2025,6 +2059,7 @@ window.irSchemePage=async function(objectId){
    f.elements.z0_mm.value=placement.geometry==="column"?0:(start.z??placement.height);
    f.elements.z1_mm.value=placement.geometry==="column"?placement.height:(end.z??placement.height);
    if(placement.middle){const mid=placement.middle;f.elements.mid_axis_x.value=mid.ax;f.elements.mid_axis_y.value=mid.ay;f.elements.mid_offset_x_mm.value=mid.dx??0;f.elements.mid_offset_y_mm.value=mid.dy??0;f.elements.mid_z_mm.value=mid.z??10000}
+   f.elements.ridge_mode.value=placement.ridgeMode==="manual"?"manual":"center";
    updateGeometry(false);renderMarkOptions();
   }
   ["axis_x","axis_y","offset_x_mm","offset_y_mm","end_axis_x","end_axis_y","end_offset_x_mm","end_offset_y_mm","mid_axis_x","mid_axis_y","mid_offset_x_mm","mid_offset_y_mm","mid_z_mm","z0_mm","z1_mm"].forEach(n=>f.elements[n].addEventListener("input",refreshPreview));refreshPreview();d.showModal()
@@ -2048,7 +2083,16 @@ window.irSchemePage=async function(objectId){
    const axisX=String(fd.get("axis_x")||targetGrid.axesX[0]),axisY=String(fd.get("axis_y")||targetGrid.axesY[0]),dx=num(fd.get("offset_x_mm")),dy=num(fd.get("offset_y_mm")),x=num(targetGrid.xPos.get(axisX))+dx,y=num(targetGrid.yPos.get(axisY))+dy;
    const kind=String(fd.get("geometry_type")||"column"),z0=num(fd.get("z0_mm")),z1=num(fd.get("z1_mm"));
    const endX=String(fd.get("end_axis_x")||targetGrid.axesX[0]),endY=String(fd.get("end_axis_y")||targetGrid.axesY[0]),endDx=num(fd.get("end_offset_x_mm")),endDy=num(fd.get("end_offset_y_mm")),x2=num(targetGrid.xPos.get(endX))+endDx,y2=num(targetGrid.yPos.get(endY))+endDy;
-   const midX=String(fd.get("mid_axis_x")||targetGrid.axesX[0]),midY=String(fd.get("mid_axis_y")||targetGrid.axesY[0]),mdx=num(fd.get("mid_offset_x_mm")),mdy=num(fd.get("mid_offset_y_mm")),mx=num(targetGrid.xPos.get(midX))+mdx,my=num(targetGrid.yPos.get(midY))+mdy,mz=num(fd.get("mid_z_mm"));
+   const ridgeMode=fd.get("ridge_mode")==="manual"?"manual":"center",
+    manualMidX=String(fd.get("mid_axis_x")||targetGrid.axesX[0]),
+    manualMidY=String(fd.get("mid_axis_y")||targetGrid.axesY[0]),
+    manualDx=num(fd.get("mid_offset_x_mm")),manualDy=num(fd.get("mid_offset_y_mm")),
+    mx=ridgeMode==="center"?Math.round((x+x2)/2):num(targetGrid.xPos.get(manualMidX))+manualDx,
+    my=ridgeMode==="center"?Math.round((y+y2)/2):num(targetGrid.yPos.get(manualMidY))+manualDy,
+    midX=ridgeMode==="center"?closestAxis(mx,targetGrid.axesX,targetGrid.xPos):manualMidX,
+    midY=ridgeMode==="center"?closestAxis(my,targetGrid.axesY,targetGrid.yPos):manualMidY,
+    mdx=mx-num(targetGrid.xPos.get(midX)),mdy=my-num(targetGrid.yPos.get(midY)),
+    mz=num(fd.get("mid_z_mm"));
    if(!targetGrid.axesX.includes(axisX)||!targetGrid.axesY.includes(axisY)||kind!=="column"&&(!targetGrid.axesX.includes(endX)||!targetGrid.axesY.includes(endY))){err.textContent="Выберите существующие оси выбранной сетки.";err.hidden=false;return}
    if(kind==="bent"){
     if(guessGeometry(m)!=="beam"||!targetGrid.axesX.includes(midX)||!targetGrid.axesY.includes(midY)){err.textContent="Ломаная балка подходит только для балок, ригелей и прогонов. Проверьте оси конька.";err.hidden=false;return}
@@ -2065,7 +2109,8 @@ window.irSchemePage=async function(objectId){
    absolute_mid_x_mm:kind==="bent"?mx:undefined,absolute_mid_y_mm:kind==="bent"?my:undefined,mid_z_mm:kind==="bent"?mz:undefined,
    mid_axis_x:kind==="bent"?midX:undefined,mid_axis_y:kind==="bent"?midY:undefined,
    mid_offset_x_mm:kind==="bent"?mdx:undefined,mid_offset_y_mm:kind==="bent"?mdy:undefined,
-   mid_anchor_member_id:kind==="bent"?previous.mid_anchor_member_id:undefined,end_axis_x:kind==="column"?undefined:endX,end_axis_y:kind==="column"?undefined:endY,end_offset_x_mm:kind==="column"?undefined:endDx,end_offset_y_mm:kind==="column"?undefined:endDy,end_z_mm:kind==="column"?undefined:z1,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name,scheme_group:g.key,scheme_group_label:g.label,scheme_view_id:view?.id||"all"}};
+   ridge_mode:kind==="bent"?ridgeMode:undefined,
+   mid_anchor_member_id:kind==="bent"&&ridgeMode==="manual"?previous.mid_anchor_member_id:undefined,end_axis_x:kind==="column"?undefined:endX,end_axis_y:kind==="column"?undefined:endY,end_offset_x_mm:kind==="column"?undefined:endDx,end_offset_y_mm:kind==="column"?undefined:endDy,end_z_mm:kind==="column"?undefined:z1,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name,scheme_group:g.key,scheme_group_label:g.label,scheme_view_id:view?.id||"all"}};
    try{const saved=id?await schemeApi.update(id,payload):await schemeApi.create(payload);rows=await schemeApi.list();selectedId=String(saved?.id||id||"");d.close();if(pendingBuildingPlacement){if(kind!=="column")window.irBuildingView?.placementSaved?.({...pendingBuildingPlacement,savedEnd:{ax:endX,ay:endY,x:x2,y:y2,z:z1}});else window.irBuildingView?.placementCancelled?.();pendingBuildingPlacement=null}draw()}catch(error){err.textContent="Не удалось сохранить элемент: "+String(error?.message||error);err.hidden=false}
   }
  }
@@ -4037,7 +4082,7 @@ window.irSelectUI=(()=>{
  * 2D canvas projection: offline, no dependencies or database access.
  */
 window.irBuildingView=(()=>{
- const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true,bent:false,middle:null,colorMode:"status",hiddenSections:[],sectionKey:"",sectionsOpen:false,findQuery:""};
+ const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true,bent:false,middle:null,ridgeMode:"center",colorMode:"status",hiddenSections:[],sectionKey:"",sectionsOpen:false,findQuery:""};
  let observer=null,paint=null,webgl=null,panelsInitialized=false,animationFrame=0,drawFrame=null;
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const html=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -4380,6 +4425,16 @@ window.irBuildingView=(()=>{
   };
   const closest=(axes,map,value)=>axes.reduce((best,a)=>
    Math.abs(originAxis(map,a)-value)<Math.abs(originAxis(map,best)-value)?a:best,axes[0]);
+  const centeredRidge=()=>state.bent&&state.ridgeMode==="center";
+  const recenterRidge=()=>{
+   if(!centeredRidge()||!state.start||!state.end)return;
+   const x=Math.round((num(state.start.worldX)+num(state.end.worldX))/2),
+    y=Math.round((num(state.start.worldY)+num(state.end.worldY))/2),
+    previous=state.middle,initialZ=Math.round((num(state.start.z)+num(state.end.z))/2);
+   state.middle={kind:"ground",x:closest(axesX,gridX,x),y:closest(axesY,gridY,y),
+    worldX:x,worldY:y,z:previous?num(previous.z):initialZ,
+    zConfirmed:previous?.zConfirmed===true,autoCentered:true};
+  };
   // Invert the orthographic projection on Z=0: this also allows placing
   // columns between axes, instead of restricting users to grid intersections.
   const groundAt=(x,y,z=0)=>{
@@ -4625,7 +4680,9 @@ window.irBuildingView=(()=>{
    el("irbHint").textContent=!state.placing?"ЛКМ — вращение · колесо — масштаб · нажатие на элемент — свойства":
     column&&state.directColumns?(!hasHeight?"Сначала задайте «Верх Z, мм» · затем щёлкните по месту колонны":
      "Наведите курсор — появится колонна · щелчок — установить · перетаскивание — вращать"):
-    pickGeometry()==="bent"?(!state.start?"1. Выберите начало балки":!state.middle?"2. Выберите конёк / излом":!state.end?"3. Выберите конец балки":"Проверьте три отметки Z и сохраните одну марку"):
+    pickGeometry()==="bent"?(centeredRidge()?
+     (!state.start?"1. Выберите начало балки":!state.end?"2. Выберите конец балки — конёк X/Y встанет по центру":!state.middle?.zConfirmed?"3. Введите отметку Z конька":"Проверьте отметки Z и сохраните одну марку"):
+     (!state.start?"1. Выберите начало балки":!state.middle?"2. Выберите конёк / излом":!state.end?"3. Выберите конец балки":"Проверьте три отметки Z и сохраните одну марку")):
     !state.start?"1. Выберите начальную точку":column||state.end?"Проверьте отметки и нажмите «Сохранить на схеме»":"2. Выберите конечную точку";
   };
   function refreshPanel(){
@@ -4644,14 +4701,19 @@ window.irBuildingView=(()=>{
     '<label class="irb-field">Марка из ведомости<select id="irbMark">'+markOptions()+'</select><small>Найдено: '+matchedCount()+' из '+marks.length+'</small></label>'+
     '<div class="irb-placement-type"><span>Тип выбранной марки</span><b>'+html(column?"Колонна / стойка":m?.geometry==="brace"?"Связь / раскос":m?.geometry==="truss"?"Ферма":"Балка / ригель / прогон")+'</b>'+
      (!column?'<small>Для установки колонн щелчком выберите марку из категории «Колонны», «Фахверки» или «Стойки».</small>':"")+'</div>'+
-    (m?.geometry==="beam"?'<label class="irb-zigzag"><input id="irbBentMode" type="checkbox" '+(state.bent?"checked":"")+'><span><b>Ломаная балка (3 точки)</b><small>Начало → конёк → конец. Два ската считаются одной отправочной маркой.</small></span></label>':"")+
+    (m?.geometry==="beam"?'<label class="irb-zigzag"><input id="irbBentMode" type="checkbox" '+(state.bent?"checked":"")+'><span><b>Ломаная балка (3 точки)</b><small>Два наклонных участка — одна отправочная марка.</small></span></label>':"")+
+    (pickGeometry()==="bent"?'<div class="irb-ridge-mode"><b>Положение конька</b>'+
+     '<label><input type="radio" name="irbRidgeMode" value="center" '+(centeredRidge()?"checked":"")+'> По центру (автоматически X/Y)</label>'+
+     '<label><input type="radio" name="irbRidgeMode" value="manual" '+(!centeredRidge()?"checked":"")+'> Вручную (три точки на каркасе)</label>'+
+     '<small>В режиме «По центру» выбирайте начало и конец, а отметку Z конька задайте ниже. Случайные смещения от клика не применяются.</small></div>':"")+
     '<div class="irb-quota">По ведомости: '+num(m?.total)+' шт.<br>На схеме: '+num(m?.placed)+' шт.<br><b>Осталось: '+left+' шт.</b></div>'+
     (column?'<div class="irb-direct-info"><b>Установка колонн на каркасе</b><span>Укажите верх Z по КМД. Затем наведите мышь на модель: появится контур колонны. Один щелчок размещает её на выбранной точке, в том числе между осями.</span></div>'+
     '<label class="irb-click-toggle"><input type="checkbox" id="irbClickPlace" '+(state.directColumns?"checked":"")+'><span>Устанавливать колонны щелчком</span></label>'+
     '<div class="irb-hover-position" id="irbHoverPosition"></div>':"")+
     '<div class="irb-anchor"><b>1. Начало</b><span>'+position(state.start)+'</span>'+zEditor(state.start,"start")+'</div>'+
-    (pickGeometry()==="bent"?'<div class="irb-anchor"><b>2. Конёк / излом</b><span>'+position(state.middle)+'</span>'+zEditor(state.middle,"middle")+'</div>':"")+
-    '<div class="irb-anchor"><b>'+(pickGeometry()==="bent"?"3. Конец":column?"2. Верх колонны":"2. Конец")+'</b><span>'+(column?"Укажите проектную отметку":position(state.end))+'</span>'+(column?'<label class="irb-level">Верх Z, мм<input type="number" step="1" id="irbTopZ" placeholder="По КМД" value="'+html(state.topZ)+'"></label>':zEditor(state.end,"end"))+'</div>'+
+    (pickGeometry()==="bent"?'<div class="irb-anchor"><b>'+(centeredRidge()?"Конёк — автоматически между началом и концом":"2. Конёк / излом")+'</b><span>'+position(state.middle)+'</span>'+zEditor(state.middle,"middle")+
+     (centeredRidge()?'<small class="irb-ridge-note">X/Y рассчитаны по середине пролёта. Для несимметричной балки переключите режим «Вручную».</small>':"")+'</div>':"")+
+    '<div class="irb-anchor"><b>'+(pickGeometry()==="bent"?(centeredRidge()?"2. Конец":"3. Конец"):column?"2. Верх колонны":"2. Конец")+'</b><span>'+(column?"Укажите проектную отметку":position(state.end))+'</span>'+(column?'<label class="irb-level">Верх Z, мм<input type="number" step="1" id="irbTopZ" placeholder="По КМД" value="'+html(state.topZ)+'"></label>':zEditor(state.end,"end"))+'</div>'+
     (typeof props.onQuickPlace==="function"?'<label class="irb-zigzag"><input id="irbRepeat" type="checkbox" '+(state.repeat?"checked":"")+'><span><b>Серия одной марки</b><small>После сохранения выбирайте следующие точки без повторного поиска марки (пока есть остаток).</small></span></label>':"")+
      (!column&&pickGeometry()!=="bent"?'<label class="irb-zigzag"><input id="irbZigzag" type="checkbox" '+(state.zigzag?"checked":"")+'><span><b>Зигзаг / цепочка</b><small>После сохранения следующая связь начнётся от конца предыдущей. Каждому отрезку соответствует своя марка из ведомости.</small></span></label>':"")+
     '<p class="irb-help">'+(column?"Точная привязка к сетке либо свободная точка между осями. В виде «Фасад» и «Сбоку» для установки используйте изометрию или вид сверху.":"Привязка к колоннам, балкам и ригелям. Для точек сетки требуется проектная отметка Z по КМД.")+'</p>'+
@@ -4661,7 +4723,7 @@ window.irBuildingView=(()=>{
     '<button class="irb-secondary" id="irbClear">Сбросить точки</button><button class="irb-secondary" id="irbCancel">Отмена</button>';
     el("irbMark").onchange=e=>{
      const next=markById(e.target.value),keep=state.continuing&&next?.geometry!=="column";
-     state.mark=e.target.value;state.topZ="";state.error="";state.bent=false;state.middle=null;if(!keep){state.start=null;state.continuing=false}
+     state.mark=e.target.value;state.topZ="";state.error="";state.bent=false;state.ridgeMode="center";state.middle=null;if(!keep){state.start=null;state.continuing=false}
      if(next?.geometry==="column")state.zigzag=false;
      state.repeat=next?.geometry==="column";
      state.hoverAnchor=null;state.end=null;refreshPanel();paint()
@@ -4699,8 +4761,16 @@ window.irBuildingView=(()=>{
      markSelect.dispatchEvent(new Event("change",{bubbles:true}));
     });
     if(el("irbBentMode"))el("irbBentMode").onchange=e=>{
-     state.bent=e.target.checked;state.start=null;state.middle=null;state.end=null;state.error="";state.zigzag=false;state.repeat=false;refreshPanel();paint()
+     state.bent=e.target.checked;state.ridgeMode="center";state.start=null;state.middle=null;state.end=null;state.error="";state.zigzag=false;state.repeat=false;refreshPanel();paint()
     };
+    pane.querySelectorAll('input[name="irbRidgeMode"]').forEach(radio=>radio.onchange=e=>{
+     const value=e.target.value;
+     if(state.ridgeMode===value)return;
+     state.ridgeMode=value;state.error="";
+     if(value==="center")recenterRidge();
+     else{state.middle=null;state.end=null}
+     refreshPanel();paint()
+    });
     if(el("irbRepeat"))el("irbRepeat").onchange=e=>{state.repeat=e.target.checked};
     if(el("irbClickPlace"))el("irbClickPlace").onchange=e=>{state.directColumns=e.target.checked;updateHint();paint()};
     updateHoverInfo();
@@ -4765,6 +4835,11 @@ window.irBuildingView=(()=>{
        a.x=closest(axesX,gridX,a.worldX);a.y=closest(axesY,gridY,a.worldY);
       }
       a.z=Math.round(numeric);a.zConfirmed=true;state.error="";
+      if(part!=="middle"&&centeredRidge()){
+       recenterRidge();
+       const label=el("irbProperties")?.querySelectorAll(".irb-anchor")[1]?.querySelector("span");
+       if(label&&state.middle)label.innerHTML=position(state.middle)
+      }
       if(finalize)input.value=String(a.z);
      }
      const row=input.closest(".irb-anchor"),label=row?.querySelector("span");
@@ -4794,7 +4869,8 @@ window.irBuildingView=(()=>{
        return
       }
       const pack=a=>a?{ax:a.x,ay:a.y,dx:num(a.worldX)-originAxis(gridX,a.x),dy:num(a.worldY)-originAxis(gridY,a.y),z:num(a.z),memberId:a.memberId||a.columnId||""}:null;
-      const data={markId:state.mark,start:pack(state.start),middle:pickGeometry()==="bent"?pack(state.middle):null,end:column?null:pack(state.end),topZ:column?Number(state.topZ):undefined,geometry:pickGeometry(),zigzag:state.zigzag&&!state.bent};
+      if(centeredRidge())recenterRidge();
+      const data={markId:state.mark,start:pack(state.start),middle:pickGeometry()==="bent"?pack(state.middle):null,end:column?null:pack(state.end),topZ:column?Number(state.topZ):undefined,geometry:pickGeometry(),ridgeMode:state.ridgeMode,zigzag:state.zigzag&&!state.bent};
       state.busy=true;quickSave.disabled=true;state.error="";
       try{
        const result=await props.onQuickPlace(data);
@@ -4813,7 +4889,8 @@ window.irBuildingView=(()=>{
      el("irbContinue").onclick=()=>{
      if(!state.start||!selectedMark()||left<=0||!column&&!state.end||pickGeometry()==="bent"&&!state.middle)return;
      const pack=a=>a?{ax:a.x,ay:a.y,dx:num(a.worldX)-originAxis(gridX,a.x),dy:num(a.worldY)-originAxis(gridY,a.y),z:num(a.z),source:a.kind,columnId:a.columnId||""}:null;
-     const data={markId:state.mark,start:pack(state.start),middle:pickGeometry()==="bent"?pack(state.middle):null,end:pack(state.end),geometry:pickGeometry(),height:maxZ,zigzag:state.zigzag&&!state.bent};
+     if(centeredRidge())recenterRidge();
+     const data={markId:state.mark,start:pack(state.start),middle:pickGeometry()==="bent"?pack(state.middle):null,end:pack(state.end),geometry:pickGeometry(),ridgeMode:state.ridgeMode,height:maxZ,zigzag:state.zigzag&&!state.bent};
      state.chainNext=state.zigzag&&state.end?{...state.end}:null;
      state.placing=false;state.continuing=false;refreshPanel();paint();props.onPlacement(data);
     };
@@ -4857,7 +4934,7 @@ window.irBuildingView=(()=>{
   }
   function startPlacement(){
    if(!props.canEdit||!marks.some(m=>m.left>0))return;
-   state.placing=true;state.start=null;state.middle=null;state.end=null;state.chainNext=null;state.continuing=false;state.topZ="";state.error="";state.markSearch="";state.hoverAnchor=null;state.directColumns=true;state.bent=false;state.mark=leftMark().find(m=>m.id===state.mark)?.id||leftMark()[0]?.id||"";state.repeat=selectedMark()?.geometry==="column";
+   state.placing=true;state.start=null;state.middle=null;state.end=null;state.chainNext=null;state.continuing=false;state.topZ="";state.error="";state.markSearch="";state.hoverAnchor=null;state.directColumns=true;state.bent=false;state.ridgeMode="center";state.mark=leftMark().find(m=>m.id===state.mark)?.id||leftMark()[0]?.id||"";state.repeat=selectedMark()?.geometry==="column";
    refreshPanel();paint();
    // Opening placement after deleting a member should immediately make the
    // search usable, rather than leaving keyboard focus on the removed button.
@@ -5049,7 +5126,9 @@ window.irBuildingView=(()=>{
     }
     if(!state.start||state.end||column){state.start=a;state.middle=null;state.end=null;if(!column)state.topZ="";}
     else if(pickGeometry()==="bent"){
-     if(!state.middle){if(!sameAnchor(a,state.start))state.middle=a}
+     if(centeredRidge()){
+      if(!sameAnchor(a,state.start)){state.end=a;recenterRidge()}
+     }else if(!state.middle){if(!sameAnchor(a,state.start))state.middle=a}
      else if(!sameAnchor(a,state.middle)&&!sameAnchor(a,state.start))state.end=a;
     }else if(!sameAnchor(a,state.start))state.end=a;
     state.error="";refreshPanel();paint();
