@@ -58,12 +58,45 @@
   try{localStorage.setItem(storeKey,JSON.stringify(state))}catch{}
  };
  function notify(text){/* Bottom status bar removed; preserve nonvisual status call sites. */}
+ // Overflow count replaces horizontal scrolling; no iframe is destroyed or reordered.
+ const overflowButton=document.createElement("button");
+ overflowButton.type="button";
+ overflowButton.className="tabs-overflow";
+ overflowButton.setAttribute("aria-haspopup","menu");
+ overflowButton.setAttribute("aria-expanded","false");
+ overflowButton.title="Показать скрытые вкладки";
+ const overflowMenu=document.createElement("div");
+ overflowMenu.className="tabs-overflow-menu";
+ overflowMenu.setAttribute("role","menu");
+ overflowMenu.hidden=true;
+ document.body.append(overflowMenu);
+ let lastTabWidth=0;
+ const closeOverflow=()=>{overflowMenu.hidden=true;overflowButton.setAttribute("aria-expanded","false")};
+ const showOverflow=()=>{
+  if(!overflowMenu.hidden){closeOverflow();return}
+  const rect=overflowButton.getBoundingClientRect();
+  overflowMenu.style.top=Math.min(window.innerHeight-55,rect.bottom+6)+"px";
+  overflowMenu.style.left=Math.max(7,Math.min(rect.left,window.innerWidth-294))+"px";
+  overflowMenu.hidden=false;
+  overflowButton.setAttribute("aria-expanded","true");
+ };
+ overflowButton.onclick=e=>{e.stopPropagation();showOverflow()};
+ document.addEventListener("pointerdown",e=>{
+  if(!overflowMenu.hidden&&!overflowMenu.contains(e.target)&&!overflowButton.contains(e.target))closeOverflow()
+ },true);
+ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!overflowMenu.hidden)closeOverflow()});
  function renderTabBar(){
-  const savedScroll=list.scrollLeft;
+  closeOverflow();
   list.replaceChildren();
-  list.classList.toggle("tabs-many",order.length>=7);
-  list.classList.toggle("tabs-packed",order.length>=10);
-  for(const id of order){
+  const itemWidth=window.matchMedia("(max-width: 1000px)").matches?145:175;
+  const available=list.clientWidth||Math.max(200,window.innerWidth-440);
+  const gap=6,addWidth=36,overflowWidth=56;
+  const needed=order.length*(itemWidth+gap)+addWidth;
+  const count=needed<=available?order.length:Math.max(1,Math.min(order.length-1,Math.floor((available-addWidth-overflowWidth)/(itemWidth+gap))));
+  const activeIndex=order.indexOf(activeId);
+  const start=activeIndex<count?0:Math.max(0,activeIndex-count+1);
+  const visible=order.slice(start,start+count),visibleIds=new Set(visible);
+  for(const id of visible){
    const tab=frames.get(id);if(!tab)continue;
    const button=document.createElement("div");
    button.className="tabs-item"+(id===activeId?" active":"")+(tab.dirty?" unsaved":"");
@@ -78,15 +111,37 @@
    button.onauxclick=e=>{if(e.button===1){e.preventDefault();closeTab(id)}};
    list.append(button)
   }
-  // Keep the "+" control immediately after the last tab, even when the tab list rerenders.
-  if(addButton)list.append(addButton);
-  list.scrollLeft=savedScroll;
-  const activeElement=list.querySelector(".tabs-item.active");
-  if(activeElement){const left=activeElement.offsetLeft-list.offsetLeft,right=left+activeElement.offsetWidth;
-   if(left<list.scrollLeft)list.scrollLeft=Math.max(0,left-7);
-   else if(right>list.scrollLeft+list.clientWidth)list.scrollLeft=right-list.clientWidth+7
+  const hidden=order.filter(id=>frames.has(id)&&!visibleIds.has(id));
+  if(hidden.length){
+   overflowButton.textContent="("+hidden.length+")";
+   overflowButton.setAttribute("aria-label","Скрытые вкладки: "+hidden.length);
+   overflowMenu.replaceChildren();
+   for(const id of hidden){
+    const tab=frames.get(id);
+    const line=document.createElement("div");line.className="tabs-overflow-item";line.setAttribute("role","none");
+    const open=document.createElement("button");open.type="button";open.className="tabs-overflow-open";
+    open.setAttribute("role","menuitem");open.title=tab.title;
+    const icon=document.createElement("span");icon.className="tabs-overflow-icon";icon.innerHTML=iconForRoute(tab.route);icon.setAttribute("aria-hidden","true");
+    const label=document.createElement("span");label.textContent=tab.title+(tab.dirty?" •":"");
+    open.append(icon,label);
+    open.onclick=()=>{closeOverflow();selectTab(id)};
+    const close=document.createElement("button");close.type="button";close.className="tabs-overflow-close";
+    close.textContent="×";close.title="Закрыть вкладку";close.setAttribute("aria-label","Закрыть "+tab.title);
+    close.onclick=e=>{e.stopPropagation();closeOverflow();closeTab(id)};
+    line.append(open,close);overflowMenu.append(line)
+   }
+   list.append(overflowButton)
   }
+  if(addButton)list.append(addButton)
  }
+ if(typeof ResizeObserver!=="undefined"){
+  const observer=new ResizeObserver(()=>{
+   const width=Math.round(list.clientWidth);
+   if(width!==lastTabWidth){lastTabWidth=width;renderTabBar()}
+  });
+  observer.observe(list)
+ }
+ window.addEventListener("resize",()=>{closeOverflow();renderTabBar()});
  async function resolveName(id,objectId){
   if(!objectId||objectsCache.has(objectId))return;
   try{

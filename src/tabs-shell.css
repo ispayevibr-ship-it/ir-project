@@ -138,3 +138,31 @@ body{min-width:0}
 .tabs-tools #tabsDuplicate::after,.tabs-tools #tabsDetach::after{content:none!important}
 .tabs-tools .tabs-profile-slot{flex-shrink:0}
 @media(max-width:900px){.tabs-bar{gap:4px;padding-left:5px;padding-right:139px}.tabs-list .tabs-item{flex-basis:118px;max-width:118px;min-width:92px}.tabs-list.tabs-packed .tabs-item{flex-basis:96px;max-width:96px;min-width:85px}.tabs-tools{gap:3px}}
+
+/* 1.7.96: tabs that do not fit are accessible from an (N) overflow menu. */
+.tabs-list{overflow-x:hidden!important;overflow-y:hidden!important;scrollbar-width:none!important;gap:6px;min-width:0}
+.tabs-list .tabs-item,.tabs-list.tabs-many .tabs-item,.tabs-list.tabs-packed .tabs-item{
+ flex:0 0 175px!important;min-width:175px!important;max-width:175px!important;
+ padding:0 5px 0 8px!important;gap:8px!important;
+}
+.tabs-list .tabs-item .tabs-icon{display:grid!important}
+.tabs-list .tabs-add{flex:0 0 29px;width:29px;margin-right:0}
+.tabs-overflow{display:flex;align-items:center;justify-content:center;flex:0 0 48px;width:48px;height:30px;padding:0;border:1px solid #d1e2f0;border-radius:8px;background:#fff;color:#376c98;font-size:11px;font-weight:800;cursor:pointer;-webkit-app-region:no-drag}
+.tabs-overflow:hover,.tabs-overflow[aria-expanded="true"]{background:#eaf4ff;border-color:#9ec5e7;color:#1769e0}
+.tabs-overflow:focus-visible{outline:2px solid #2679d1;outline-offset:2px}
+.tabs-overflow-menu{position:fixed;z-index:1500;box-sizing:border-box;width:287px;max-width:calc(100vw - 14px);max-height:min(70vh,475px);overflow-y:auto;overflow-x:hidden;padding:5px;border:1px solid #d6e2ec;border-radius:10px;background:#fff;box-shadow:0 14px 42px rgba(27,60,87,.22);-webkit-app-region:no-drag}
+.tabs-overflow-menu[hidden]{display:none!important}
+.tabs-overflow-item{display:flex;align-items:center;gap:3px;min-height:36px;border-radius:7px}
+.tabs-overflow-item:hover{background:#f0f6fd}
+.tabs-overflow-open{display:flex;flex:1 1 auto;align-items:center;gap:9px;min-width:0;height:36px;padding:0 8px;border:0;background:transparent;text-align:left;color:#31516b;cursor:pointer;font-size:11px}
+.tabs-overflow-open>span:last-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tabs-overflow-icon{display:grid;place-items:center;flex:0 0 21px;width:21px;height:21px;color:#5385ac}
+.tabs-overflow-icon svg{width:16px;height:16px}
+.tabs-overflow-close{flex:0 0 26px;width:26px;height:26px;margin-right:4px;border:0;border-radius:5px;background:transparent;color:#839aac;font-size:17px;cursor:pointer}
+.tabs-overflow-close:hover{background:#ffe9e8;color:#bd4545}
+.tabs-overflow-open:focus-visible,.tabs-overflow-close:focus-visible{outline:2px solid #2d83cc;outline-offset:1px}
+@media(max-width:1000px){
+ .tabs-list .tabs-item,.tabs-list.tabs-many .tabs-item,.tabs-list.tabs-packed .tabs-item{
+  flex-basis:145px!important;min-width:145px!important;max-width:145px!important
+ }
+}
