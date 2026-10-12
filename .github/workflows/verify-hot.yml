@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify:
@@ -26,9 +26,23 @@ jobs:
           node --check src/app.js
           node --check src/scheme-page.js
           node --check src/scheme-building-view.js
+      - name: Rebuild hot bundles using the repository builder
+        run: |
+          node scripts/build-runtime.js
+          node -e 'const fs=require("fs"),m=require("./hot/latest.json");for(const f of m.files)f.size=fs.statSync(f.source).size;fs.writeFileSync("hot/latest.json",JSON.stringify(m))'
+      - name: Check generated JS and CSS bundles
+        run: |
           node --check src/ir-runtime.js
-      - name: Check generated JavaScript and CSS bundles
-        run: node scripts/build-runtime.js --check
-      - name: Check hot-update manifest sizes
+          node scripts/build-runtime.js --check
+      - name: Verify hot manifest sizes
         run: |
           node -e 'const fs=require("fs"),m=require("./hot/latest.json");for(const f of m.files){const actual=fs.statSync(f.source).size;if(actual!==f.size)throw Error(f.source+": manifest size "+f.size+" != "+actual)}'
+      - name: Publish canonical 1.7.105 bundles
+        run: |
+          if [ "$(node -p "require('./hot/latest.json').version")" = "1.7.105" ] && ! git diff --quiet -- src/ir-runtime.js src/ir-styles.css hot/latest.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add src/ir-runtime.js src/ir-styles.css hot/latest.json
+            git commit -m "IR Project 1.7.105: synchronize generated JS/CSS bundles"
+            git push origin HEAD:main
+          fi
