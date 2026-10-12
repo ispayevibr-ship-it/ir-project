@@ -761,7 +761,7 @@ window.irBuildingView=(()=>{
       a.z=Math.round(numeric);a.zConfirmed=true;state.error="";
       if(part!=="middle"&&centeredRidge()){
        recenterRidge();
-       const label=el("irbProperties")?.querySelector('.irb-anchor:nth-of-type(2) span');
+       const label=el("irbProperties")?.querySelectorAll(".irb-anchor")[1]?.querySelector("span");
        if(label&&state.middle)label.innerHTML=position(state.middle)
       }
       if(finalize)input.value=String(a.z);
