@@ -2,7 +2,7 @@ name: Verify IR Project hot update
 
 on:
   push:
-    branches: [main, feature/3d-section-visibility]
+    branches: [main]
     paths:
       - 'src/**'
       - 'hot/latest.json'
