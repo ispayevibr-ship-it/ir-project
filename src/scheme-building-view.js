@@ -450,9 +450,9 @@ window.irBuildingView=(()=>{
    (a.left?"":" · НЕТ ОСТАТКА")+'</option>').join("");
   const matchedCount=()=>marks.filter(searchMatches).length;
   const zEditor=(a,index)=>a?
-   '<label class="irb-level">Отметка Z, мм<input type="number" step="1" data-irb-level="'+index+
-   '" min="'+(a.kind==="column"?num(a.minZ):-20000)+'" max="'+(a.kind==="column"?num(a.maxZ):200000)+
-   '" value="'+(a.zConfirmed===false?"":Math.round(num(a.z)))+'" placeholder="Отметка по КМД"></label>':"";
+   '<label class="irb-level">Отметка Z, мм<input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" data-irb-level="'+index+
+   '" value="'+(a.zConfirmed===false?"":Math.round(num(a.z)))+'" placeholder="Отметка по КМД" aria-label="Отметка Z в миллиметрах">'+
+   '<small class="irb-level-feedback" hidden></small></label>':"";
   let commitQuickPlacement=()=>{};
   const updateHoverInfo=()=>{
    const field=el("irbHoverPosition");if(!field)return;
@@ -471,7 +471,7 @@ window.irBuildingView=(()=>{
   function refreshPanel(){
    const m=selectedMark(),left=num(m?.left),column=m?.geometry==="column",available=left>0;
    updateHint();
-   const pane=el("irbProperties");
+   const pane=el("irbProperties"),previousScroll=pane.scrollTop,previousMode=pane.dataset.irbPanelMode;
     const readyToSave=()=>!!(state.start&&selectedMark()?.left>0&&(column||state.end)&&state.start.zConfirmed!==false&&
      (column?state.topZ!==""&&Number.isFinite(Number(state.topZ))&&Number(state.topZ)>num(state.start.z):
       state.end?.zConfirmed!==false&&(pickGeometry()!=="bent"||state.middle&&state.middle.zConfirmed!==false)));
@@ -532,13 +532,23 @@ window.irBuildingView=(()=>{
       if(save)save.disabled=state.busy||!readyToSave();
       updateHint();paint();
      };
-     pane.querySelectorAll("[data-irb-level]").forEach(input=>input.onchange=e=>{
-     const a=e.target.dataset.irbLevel==="start"?state.start:e.target.dataset.irbLevel==="middle"?state.middle:state.end;
+    const applyLevel=(input,finalize=false)=>{
+     const part=input.dataset.irbLevel,
+      a=part==="start"?state.start:part==="middle"?state.middle:state.end;
      if(!a)return;
-     const value=Number(e.target.value);
-     if(e.target.value===""||!Number.isFinite(value)||value<num(a.kind==="column"?a.minZ:-20000)||value>num(a.kind==="column"?a.maxZ:200000)){e.target.value=a.zConfirmed===false?"":String(a.z);return}
-     // Editing Z on a sloping member also moves X/Y along its actual centreline.
-     if(a.kind==="member"&&a.memberId){
+     const raw=input.value.trim().replace(/\s/g,"").replace(",","."),
+      numeric=/^[+-]?\d+(?:\.\d+)?$/.test(raw)?Number(raw):NaN,
+      minimum=a.kind==="column"?num(a.minZ):-20000,
+      maximum=a.kind==="column"?num(a.maxZ):200000;
+     let message="";
+     if(!raw||!Number.isFinite(numeric))message="Укажите отметку Z числом в миллиметрах.";
+     else if(numeric<minimum||numeric>maximum)message=a.kind==="column"?
+      "Точка на колонне допускает Z от "+fmt(minimum)+" до "+fmt(maximum)+" мм.":
+      "Допустимая отметка Z: от "+fmt(minimum)+" до "+fmt(maximum)+" мм.";
+     let nextXY=null;
+     // An attachment to a sloping member must move along its real centreline;
+     // changing only its Z would detach it from the supporting member.
+     if(!message&&a.kind==="member"&&a.memberId){
       const ref=cols.find(c=>String(c.id)===String(a.memberId));
       if(ref){
        const joints=ref.geometryType==="bent"?[
@@ -551,20 +561,49 @@ window.irBuildingView=(()=>{
         return Math.hypot(num(a.worldX)-start.x-v.x*t,num(a.worldY)-start.y-v.y*t,num(a.z)-start.z-v.z*t)
        };
        const segment=a.memberPart!==undefined?joints[a.memberPart]:joints.slice().sort((q,t)=>closeSegment(q)-closeSegment(t))[0];
-       if(!segment){e.target.value=String(Math.round(a.z));return}
-       const [start,end]=segment,dz=end.z-start.z;
-       if(Math.abs(dz)<1){
-        if(Math.abs(value-start.z)>.5){e.target.value=String(Math.round(a.z));return}
-       }else{
-        const t=(value-start.z)/dz;
-        if(t<0||t>1){e.target.value=String(Math.round(a.z));return}
-        a.worldX=Math.round(start.x+(end.x-start.x)*t);
-        a.worldY=Math.round(start.y+(end.y-start.y)*t);
-        a.x=closest(axesX,gridX,a.worldX);a.y=closest(axesY,gridY,a.worldY)
+       if(!segment)message="Не удалось определить участок крепления к балке.";
+       else{
+        const [first,last]=segment,dz=last.z-first.z;
+        if(Math.abs(dz)<1){
+         if(Math.abs(numeric-first.z)>.5)message="У этой балки фиксированная отметка Z "+fmt(first.z)+" мм. Для изменения высоты откройте редактор.";
+        }else{
+         const t=(numeric-first.z)/dz;
+         if(t<0||t>1)message="Отметка Z выходит за пределы выбранного участка балки: "+fmt(Math.min(first.z,last.z))+"–"+fmt(Math.max(first.z,last.z))+" мм.";
+         else nextXY={x:Math.round(first.x+(last.x-first.x)*t),y:Math.round(first.y+(last.y-first.y)*t)};
+        }
        }
       }
      }
-     a.z=Math.round(value);a.zConfirmed=true;state.error="";refreshPanel();paint()
+     const feedback=input.parentElement.querySelector(".irb-level-feedback");
+     input.classList.toggle("irb-level-invalid",!!message&&finalize);
+     input.setAttribute("aria-invalid",String(!!message&&finalize));
+     if(feedback){feedback.hidden=!message||!finalize;if(message&&finalize)feedback.textContent=message}
+     if(message){
+      a.zConfirmed=false;
+      if(finalize)state.error=message;
+     }else{
+      if(nextXY){
+       a.worldX=nextXY.x;a.worldY=nextXY.y;
+       a.x=closest(axesX,gridX,a.worldX);a.y=closest(axesY,gridY,a.worldY);
+      }
+      a.z=Math.round(numeric);a.zConfirmed=true;state.error="";
+      if(finalize)input.value=String(a.z);
+     }
+     const row=input.closest(".irb-anchor"),label=row?.querySelector("span");
+     if(label)label.innerHTML=position(a);
+     const save=el("irbQuickSave");if(save)save.disabled=state.busy||!readyToSave();
+     const cont=el("irbContinue");
+     if(cont)cont.disabled=!(state.start&&(column||state.end)&&(pickGeometry()!=="bent"||state.middle)&&available);
+     const error=el("irbQuickError");
+     if(error){error.textContent=state.error;error.hidden=!state.error}
+     // IMPORTANT: Never call refreshPanel here. Replacing pane.innerHTML
+     // while a Z input is active used to destroy focus and cancel Save clicks.
+     updateHint();paint();
+    };
+    pane.querySelectorAll("[data-irb-level]").forEach(input=>{
+     input.addEventListener("input",()=>applyLevel(input,false));
+     input.addEventListener("change",()=>applyLevel(input,true));
+     input.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();input.blur()}});
     });
     el("irbClear").onclick=()=>{state.start=null;state.middle=null;state.end=null;state.error="";state.continuing=false;refreshPanel();paint()};
     el("irbCancel").onclick=()=>{state.placing=false;state.start=null;state.end=null;state.chainNext=null;state.continuing=false;refreshPanel();paint()};
@@ -627,6 +666,9 @@ window.irBuildingView=(()=>{
      if(props.canEdit&&typeof props.onDelete==="function")props.onDelete(String(c.id));
     };
    }
+   const nextMode=state.placing?"placing":"details";
+   pane.dataset.irbPanelMode=nextMode;
+   if(previousMode===nextMode)pane.scrollTop=previousScroll;
    if(!pane.hidden){
     const dismiss=document.createElement("button");dismiss.type="button";
     dismiss.className="irb-pane-close";dismiss.textContent="×";dismiss.title="Скрыть свойства";
