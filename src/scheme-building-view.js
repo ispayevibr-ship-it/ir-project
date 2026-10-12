@@ -131,7 +131,7 @@ window.irBuildingView=(()=>{
    }))
   ];
   if(state.sectionKey!==sectionKey){
-   state.sectionKey=sectionKey;state.hiddenSections=[];state.sectionsOpen=false;
+   state.sectionKey=sectionKey;state.hiddenSections=[];state.sectionsOpen=false;state.findQuery="";
    try{
     const stored=JSON.parse(localStorage.getItem(sectionKey)||"[]");
     if(Array.isArray(stored))state.hiddenSections=stored.filter(id=>sections.some(a=>a.id===id))
