@@ -422,6 +422,7 @@ window.irSchemePage=async function(objectId){
  function renderUnifiedBuilding(box){
   if(!window.irBuildingView){box.innerHTML='<p>Модель загружается…</p>';return}
   window.irBuildingView.render(box,{
+   objectId:oid,
    axesX:[...axesX],axesY:[...axesY],spanX,spanY,
    gridX:Object.fromEntries(axisXPos),gridY:Object.fromEntries(axisYPos),
    elements:columns(),
