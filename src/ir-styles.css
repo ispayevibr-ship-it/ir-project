@@ -1611,6 +1611,15 @@ body.ir-object-route:not(.ir-object-overview) .wt-row[hidden]{display:none!impor
 .irb-immersive .irb-properties .irb-action-row #irbDeleteSelected{position:static!important;display:grid!important;place-items:center!important;flex:none!important;margin:0!important;justify-self:end!important;align-self:center!important;width:36px!important;min-width:36px!important;max-width:36px!important;height:36px!important;min-height:36px!important;max-height:36px!important;padding:0!important;line-height:1!important}
 .irb-immersive .irb-properties .irb-action-row #irbDeleteSelected svg{display:block!important;width:19px!important;height:19px!important;min-width:19px!important;min-height:19px!important;max-width:19px!important;max-height:19px!important;flex:none!important;position:static!important;margin:0!important}
 
+/* 1.7.103: floating layer header, controls and selected element length */
+.irb-immersive .irb-layers>.irb-panel-head:first-of-type{padding-right:38px!important;justify-content:flex-start!important;min-height:30px!important;margin-bottom:8px!important}
+.irb-immersive .irb-layers>.irb-pane-close{top:10px!important;right:10px!important;z-index:4!important}
+.irb-immersive .irb-layers .irb-switch{display:grid!important;grid-template-columns:18px minmax(0,1fr)!important;gap:10px!important;align-items:center!important;justify-content:start!important;width:100%!important;max-width:100%!important;min-height:35px!important;padding:7px 3px!important;text-align:left!important}
+.irb-immersive .irb-layers .irb-switch input[type="checkbox"]{position:static!important;display:block!important;margin:0!important;padding:0!important;width:16px!important;height:16px!important;min-width:16px!important;max-width:16px!important;justify-self:start!important;align-self:center!important}
+.irb-immersive .irb-layers .irb-switch span{display:block!important;min-width:0!important;position:static!important;margin:0!important;text-align:left!important;white-space:normal!important;color:#496d87!important;font-size:10px!important}
+.irb-immersive .irb-properties .irb-length{padding:10px!important;background:#eff7ff!important;border:1px solid #bad8ef!important;border-radius:8px!important}
+.irb-immersive .irb-properties .irb-length b{font-weight:850!important;font-size:13px!important;color:#236ea4!important;overflow-wrap:anywhere!important}
+
 
 /* #45: src/object-overview-right-column.css */
 /* IR Project 1.7.73: shared overview cards in a fixed ordered right column. */

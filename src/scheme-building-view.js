@@ -27,19 +27,19 @@ window.irBuildingView=(()=>{
    if(!next){state.placing=false;state.zigzag=false;state.start=null;state.end=null;state.continuing=false}
    state.mark=next?.id||"";
   }
-  const header='<div class="irb-panel-head"><b>Слои модели</b><small>ПО ТИПАМ</small></div>';
+  const header='<div class="irb-panel-head"><b>Слои модели</b></div>';
   host.innerHTML='<div class="irb-wrap"><aside class="irb-layers">'+header+
    '<div class="irb-layer-list">'+groups.map(g=>'<button type="button" class="irb-layer '+(g.visible?'active':'')+'" data-irb-layer="'+html(g.key)+'"><i>'+(g.visible?'✓':'')+'</i><b>'+html(g.label)+'</b><small>'+g.count+'</small></button>').join("")+'</div>'+
    '<div class="irb-panel-head"><b>Отображение</b></div>'+
-   '<label class="irb-switch"><input type="checkbox" id="irbGrid" '+(state.grid?'checked':'')+'> Сетка осей</label>'+
-   '<label class="irb-switch"><input type="checkbox" id="irbRoof" '+(state.roof?'checked':'')+'> Контур кровли (эскиз)</label>'+
+   '<label class="irb-switch"><input type="checkbox" id="irbGrid" '+(state.grid?'checked':'')+'><span>Сетка осей</span></label>'+
+   '<label class="irb-switch"><input type="checkbox" id="irbRoof" '+(state.roof?'checked':'')+'><span>Контур кровли (эскиз)</span></label>'+
    '<div class="irb-info">Голубой пунктир — условный контур здания. Цветные конструкции — ваши размещённые марки. Проектные формы уточняются по КМ/КМД.</div>'+
    '<div class="irb-count"><span>'+html(props.scopeLabel||"На схеме")+'</span><strong>'+cols.length+'</strong><small>Размещённых элементов</small></div>'+
    (props.canEdit?'<button type="button" class="irb-add" id="irbStart">＋ Разместить марку</button>':'')+
    '</aside><div class="irb-viewport">'+
    '<canvas id="irbCanvas" aria-label="3D-модель каркаса здания"></canvas>'+
    '<div class="irb-tags"><span>● Общая модель здания</span><span>'+fmt(spanX/1000)+' × '+fmt(spanY/1000)+' м · '+axesX.length+' × '+axesY.length+' осей</span></div>'+
-   '<label class="irb-camera">Вид <select id="irbView"><option value="iso">Изометрия</option><option value="top">Сверху</option><option value="front">Фасад</option><option value="side">Сбоку</option></select></label>'+
+   '<label class="irb-camera">Вид <select id="irbView"><option value="iso">Изометрия</option><option value="top">Сверху</option><option value="front">Фасад</option><option value="side">Сбоку</option><option value="free" disabled>Свободный ракурс</option></select></label>'+
    '<div class="irb-hint" id="irbHint"></div>'+
    '<div class="irb-bottom"><div class="irb-legend"><i class="green"></i> Смонтировано <i class="red"></i> Не смонтировано <i class="orange"></i> Частично <i class="blue"></i> Выбрано</div>'+
    '<div class="irb-controls"><button type="button" id="irbMinus">−</button><button type="button" id="irbPlus">＋</button><button type="button" id="irbFit">⛶</button></div></div>'+
@@ -62,14 +62,16 @@ window.irBuildingView=(()=>{
    layerPanel.hidden=!state.layersOpen;
    topControls.querySelector("#irbLayerToggle")?.setAttribute("aria-expanded",state.layersOpen?"true":"false");
   };
-  layerClose.onclick=()=>{state.layersOpen=false;updateLayers()};
-  topControls.querySelector("#irbLayerToggle").onclick=()=>{state.layersOpen=!state.layersOpen;updateLayers()};
+  layerClose.onclick=()=>{state.layersOpen=false;updateLayers();paint()};
+  topControls.querySelector("#irbLayerToggle").onclick=()=>{state.layersOpen=!state.layersOpen;updateLayers();paint()};
   updateLayers();detailPanel.hidden=true;
   const el=id=>host.querySelector("#"+id),canvas=el("irbCanvas"),ctx=canvas.getContext("2d");
   if(!ctx){el("irbProperties").textContent="3D Canvas недоступен";return}
   const maxZ=Math.max(7000,8400,...cols.map(c=>Math.max(num(c.z0),num(c.z2))),1);
   const projectFactory=()=>{
    const rect=canvas.getBoundingClientRect(),w=Math.max(260,rect.width),h=Math.max(320,rect.height);
+    const insetL=state.layersOpen?Math.min(305,w*.24):0,insetR=state.selected||state.placing?Math.min(305,w*.24):0;
+    const safeW=Math.max(200,w-insetL-insetR),centerX=insetL+safeW/2;
    const raw=point=>{
     const x=(point.x-spanX/2)/1000,y=(point.y-spanY/2)/1000,z=(point.z-maxZ/2)/1000;
     const co=Math.cos(state.yaw),si=Math.sin(state.yaw),sp=Math.sin(state.pitch),cp=Math.cos(state.pitch),r=x*si+y*co;
@@ -78,8 +80,8 @@ window.irBuildingView=(()=>{
    const vertices=[];for(const x of [0,spanX])for(const y of [0,spanY])for(const z of [0,maxZ*1.23])vertices.push(raw(pt(x,y,z)));
    const minX=Math.min(...vertices.map(p=>p.x)),maxX=Math.max(...vertices.map(p=>p.x)),
     minY=Math.min(...vertices.map(p=>p.y)),maxY=Math.max(...vertices.map(p=>p.y));
-   const scale=Math.min((w-100)/Math.max(1,maxX-minX),(h-118)/Math.max(1,maxY-minY))*state.zoom;
-   const project=point=>{const v=raw(point);return{x:w/2+state.panX+(v.x-(minX+maxX)/2)*scale,y:h/2+state.panY+(v.y-(minY+maxY)/2)*scale,depth:v.depth}};
+   const scale=Math.min((safeW-100)/Math.max(1,maxX-minX),(h-118)/Math.max(1,maxY-minY))*state.zoom;
+   const project=point=>{const v=raw(point);return{x:centerX+state.panX+(v.x-(minX+maxX)/2)*scale,y:h/2+state.panY+(v.y-(minY+maxY)/2)*scale,depth:v.depth}};
    return {w,h,raw,project};
   };
   const pickGeometry=()=>selectedMark()?.geometry||"column";
@@ -350,7 +352,9 @@ window.irBuildingView=(()=>{
     pane.innerHTML='<div class="irb-panel-head"><b>Свойства конструкции</b></div>'+
       (c?'<div class="irb-selected"><small>Выбранная марка</small><strong>'+html(c.mark||"—")+'</strong><span>'+html(c.mark_name||c.title||"")+'</span><em>'+html(c.status==="mounted"?"Смонтировано":c.status==="partial"?"Частично":"Не смонтировано")+'</em></div>'+
       '<div class="irb-row"><span>Начальная ось</span><b>'+html(c.axisX+" / "+c.axisY)+'</b></div>'+
-      '<div class="irb-row"><span>Координаты, мм</span><b>X '+fmt(c.x)+' · Y '+fmt(c.y)+'</b></div>'+
+      '<div class="irb-row"><span>Начало, мм</span><b>X '+fmt(c.x)+' · Y '+fmt(c.y)+' · Z '+fmt(c.z0)+'</b></div>'+
+       '<div class="irb-row"><span>Конец, мм</span><b>X '+fmt(c.x2??c.x)+' · Y '+fmt(c.y2??c.y)+' · Z '+fmt(c.z2)+'</b></div>'+
+       '<div class="irb-row irb-length"><span>Длина элемента по осям</span><b>'+fmt(Math.hypot(num(c.x2??c.x)-num(c.x),num(c.y2??c.y)-num(c.y),num(c.z2)-num(c.z0)))+' мм · '+(Math.hypot(num(c.x2??c.x)-num(c.x),num(c.y2??c.y)-num(c.y),num(c.z2)-num(c.z0))/1000).toLocaleString("ru-RU",{minimumFractionDigits:3,maximumFractionDigits:3})+' м</b></div>'+
       '<div class="irb-row"><span>Отметка низа, мм</span><b>'+fmt(c.z0)+'</b></div>'+
       '<div class="irb-row"><span>Отметка конца, мм</span><b>'+fmt(c.z2)+'</b></div>'+
       (props.canEdit?'<div class="irb-action-row">'+
@@ -394,7 +398,7 @@ window.irBuildingView=(()=>{
   el("irbRoof").onchange=e=>{state.roof=e.target.checked;paint()};
   if(el("irbStart"))el("irbStart").onclick=startPlacement;
   if(el("irbQuickAdd"))el("irbQuickAdd").onclick=startPlacement;
-  el("irbView").value=state.preset==="free"?"iso":state.preset;
+  el("irbView").value=state.preset;
   el("irbView").onchange=e=>setCamera(e.target.value);
   el("irbMinus").onclick=()=>setZoom(state.zoom/1.18);
   el("irbPlus").onclick=()=>setZoom(state.zoom*1.18);
@@ -406,7 +410,7 @@ window.irBuildingView=(()=>{
    const p=point(e);
    if(drag){
     if(Math.hypot(p.x-drag.x,p.y-drag.y)>4)drag.moved=true;
-    if(drag.moved){state.yaw+=(p.x-drag.lastX)*.008;state.pitch=clamp(state.pitch+(p.y-drag.lastY)*.006,.02,Math.PI/2);state.preset="free";paint()}
+    if(drag.moved){state.yaw+=(p.x-drag.lastX)*.008;state.pitch=clamp(state.pitch+(p.y-drag.lastY)*.006,.02,Math.PI/2);state.preset="free";el("irbView").value="free";paint()}
     drag.lastX=p.x;drag.lastY=p.y;return;
    }
    if(!state.placing){const id=nearestMember(p.x,p.y)?.id||"";if(state.hover!==id){state.hover=id;paint()}canvas.style.cursor=id?"pointer":"grab"}
