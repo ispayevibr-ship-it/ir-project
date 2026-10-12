@@ -4580,7 +4580,7 @@ window.irBuildingView=(()=>{
    pane.hidden=!state.placing&&!current;
    if(state.placing){
     pane.innerHTML='<div class="irb-panel-head"><b>Размещение элемента</b><small>НОВАЯ МАРКА</small></div>'+
-    '<label class="irb-field">Поиск марки<input type="search" id="irbMarkSearch" autocomplete="off" placeholder="Марка или наименование…" value="'+html(state.markSearch)+'"></label>'+
+    '<label class="irb-field">Поиск марки<input type="search" id="irbMarkSearch" autocomplete="off" spellcheck="false" placeholder="Марка или наименование…" aria-label="Поиск марки для размещения" value="'+html(state.markSearch)+'"></label>'+
     '<label class="irb-field">Марка из ведомости<select id="irbMark">'+markOptions()+'</select><small>Найдено: '+matchedCount()+' из '+marks.length+'</small></label>'+
     '<div class="irb-placement-type"><span>Тип выбранной марки</span><b>'+html(column?"Колонна / стойка":m?.geometry==="brace"?"Связь / раскос":m?.geometry==="truss"?"Ферма":"Балка / ригель / прогон")+'</b>'+
      (!column?'<small>Для установки колонн щелчком выберите марку из категории «Колонны», «Фахверки» или «Стойки».</small>':"")+'</div>'+
@@ -4606,20 +4606,38 @@ window.irBuildingView=(()=>{
      state.repeat=next?.geometry==="column";
      state.hoverAnchor=null;state.end=null;refreshPanel();paint()
     };
-    el("irbMarkSearch").oninput=e=>{
-     const cursor=e.target.selectionStart;
-     state.markSearch=e.target.value;state.topZ="";state.error="";
-     const matched=marks.filter(a=>a.left>0&&searchMatches(a));
-     if(!matched.some(a=>a.id===state.mark)){
-      const next=matched[0];state.mark=next?.id||"";state.bent=false;state.middle=null;
-      if(!state.continuing||next?.geometry==="column"){state.start=null;state.continuing=false}
-      if(next?.geometry==="column")state.zigzag=false;
-      state.repeat=next?.geometry==="column";
-      state.hoverAnchor=null;state.end=null
-     }
-     refreshPanel();paint();
-     const input=el("irbMarkSearch");input.focus();input.setSelectionRange(cursor,cursor)
+    const markSearchInput=el("irbMarkSearch"),markSelect=el("irbMark"),
+     markCount=markSelect.closest(".irb-field")?.querySelector("small");
+    const updateMarkSearch=()=>{
+     // Never recreate the active search input on every keystroke: replacing
+     // pane.innerHTML cancels focus, IME composition and typed characters.
+     const matched=marks.filter(searchMatches),available=matched.filter(a=>a.left>0);
+     const keepSelection=available.some(a=>String(a.id)===String(state.mark));
+     markSelect.innerHTML=markOptions();
+     markSelect.value=keepSelection?String(state.mark):"";
+     if(markCount)markCount.textContent="Найдено: "+matched.length+" из "+marks.length+
+      (matched.length&&!available.length?" · нет остатка":"");
+     markSelect._irSelectUI?.refresh?.();
     };
+    markSearchInput.addEventListener("input",()=>{
+     state.markSearch=markSearchInput.value;
+     updateMarkSearch();
+    });
+    markSearchInput.addEventListener("search",()=>{
+     // Handles the native clear (×) control in Chromium/Electron.
+     state.markSearch=markSearchInput.value;
+     updateMarkSearch();
+    });
+    markSearchInput.addEventListener("keydown",e=>{
+     if(e.key!=="Enter"||e.isComposing||e.keyCode===229)return;
+     e.preventDefault();
+     const matched=marks.filter(a=>a.left>0&&searchMatches(a));
+     if(!matched.length)return;
+     // Pressing Enter confirms the first match without interfering with typing.
+     const choice=matched.find(a=>String(a.id)===String(state.mark))||matched[0];
+     markSelect.value=String(choice.id);
+     markSelect.dispatchEvent(new Event("change",{bubbles:true}));
+    });
     if(el("irbBentMode"))el("irbBentMode").onchange=e=>{
      state.bent=e.target.checked;state.start=null;state.middle=null;state.end=null;state.error="";state.zigzag=false;state.repeat=false;refreshPanel();paint()
     };
@@ -4781,6 +4799,9 @@ window.irBuildingView=(()=>{
    if(!props.canEdit||!marks.some(m=>m.left>0))return;
    state.placing=true;state.start=null;state.middle=null;state.end=null;state.chainNext=null;state.continuing=false;state.topZ="";state.error="";state.markSearch="";state.hoverAnchor=null;state.directColumns=true;state.bent=false;state.mark=leftMark().find(m=>m.id===state.mark)?.id||leftMark()[0]?.id||"";state.repeat=selectedMark()?.geometry==="column";
    refreshPanel();paint();
+   // Opening placement after deleting a member should immediately make the
+   // search usable, rather than leaving keyboard focus on the removed button.
+   el("irbMarkSearch")?.focus({preventScroll:true});
   }
   const setCamera=mode=>{
    state.preset=mode;state.zoom=1;state.panX=0;state.panY=0;
