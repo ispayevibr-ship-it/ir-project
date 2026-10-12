@@ -177,3 +177,6 @@
 .home-late-object .home-gantt-legend{display:flex!important;gap:13px!important;flex-wrap:wrap!important;align-items:center!important}
 .home-late-object .home-gantt-missing{padding:10px;font-size:10px;color:#ab6650;background:#fff5ee}
 @media(max-width:590px){.home-late-object .home-gantt-header,.home-late-object .home-gantt-row{grid-template-columns:minmax(80px,34%) minmax(85px,1fr) 35px!important;gap:5px!important}}
+/* IR Project 1.7.121: reserve the header without displaying placeholder text
+   until the real logo (or confirmed text fallback) has finished loading. */
+.home-header .brand:not([data-company-ready="1"]){visibility:hidden}
