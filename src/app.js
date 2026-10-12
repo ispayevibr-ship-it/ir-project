@@ -133,29 +133,35 @@ async function renderHomePortfolio(objects){
   const lateObjects=active.filter(b=>b.late.length).sort((a,b)=>(b.late[0]?.days||0)-(a.late[0]?.days||0)||(b.late[0]?.lag||0)-(a.late[0]?.lag||0)||String(a.object.name).localeCompare(String(b.object.name),"ru"));
   const lateDate=s=>{const p=String(s||"").split("-");return p.length===3?p[2]+"."+p[1]+"."+p[0]:"—"};
   const ganttMarkup=rows=>{
-   const DAY=86400000,parse=s=>Date.parse(String(s||"")+"T00:00:00Z"),dates=rows.flatMap(x=>[parse(x.start),parse(x.end)]).filter(Number.isFinite);
-   if(!dates.length)return"";
-   const nowLocal=new Date(),now=Date.UTC(nowLocal.getFullYear(),nowLocal.getMonth(),nowLocal.getDate());
-   const min=Math.min(...dates),max=Math.max(...dates,now),span=Math.max(DAY,max-min+DAY);
-   const scale=t=>Math.max(0,Math.min(100,(t-min)/span*100)),today=scale(now);
-   const rowsHtml=rows.map(x=>{
-    const a=parse(x.start),z=parse(x.end);if(!Number.isFinite(a)||!Number.isFinite(z))return"";
-    const left=scale(a),width=Math.max(.8,Math.min(100-left,(z-a+DAY)/span*100)),done=Math.max(0,Math.min(100,Number(x.progress)||0));
-    return '<span class="home-gantt-row"><span class="home-gantt-head"><span title="'+esc(x.name)+'">'+esc(x.name)+'</span><b>'+Number(done.toFixed(1)).toLocaleString("ru-RU",{maximumFractionDigits:1})+'%</b></span>'+
-     '<span class="home-gantt-track" title="План: '+lateDate(x.start)+' — '+lateDate(x.end)+' · Факт '+done+'%">'+
+   const DAY=86400000,parse=s=>Date.parse(String(s||"")+"T00:00:00Z");
+   const dates=rows.flatMap(r=>[parse(r.start),parse(r.end)]).filter(Number.isFinite);
+   if(!dates.length)return'<div class="home-gantt-missing">Не заполнены плановые даты графика.</div>';
+   const clock=new Date(),today=Date.UTC(clock.getFullYear(),clock.getMonth(),clock.getDate());
+   const min=Math.min(...dates),max=Math.max(...dates,today),span=Math.max(DAY,max-min+DAY);
+   const position=ms=>Math.max(0,Math.min(100,(ms-min)/span*100));
+   const ticks=[0,25,50,75,100].map(i=>'<i style="left:'+i+'%">'+lateDate(new Date(min+(max-min)*i/100).toISOString().slice(0,10))+'</i>').join("");
+   const bars=rows.map(r=>{
+    const start=parse(r.start),stop=parse(r.end);if(!Number.isFinite(start)||!Number.isFinite(stop))return"";
+    const left=position(start),width=Math.max(.8,Math.min(100-left,(stop-start+DAY)/span*100)),done=Math.max(0,Math.min(100,Number(r.progress)||0));
+    const percent=done.toLocaleString("ru-RU",{maximumFractionDigits:1})+"%";
+    return '<div class="home-gantt-row" title="'+esc(r.name)+' · План: '+lateDate(r.start)+' — '+lateDate(r.end)+' · Факт: '+percent+'">'+
+     '<span class="home-gantt-name">'+esc(r.name)+'</span><div class="home-gantt-track">'+
      '<i class="home-gantt-plan" style="left:'+left.toFixed(3)+'%;width:'+width.toFixed(3)+'%"></i>'+
      '<i class="home-gantt-fact" style="left:'+left.toFixed(3)+'%;width:'+(width*done/100).toFixed(3)+'%"></i>'+
-     '<i class="home-gantt-today" style="left:'+today.toFixed(3)+'%"></i></span></span>'
+     '<i class="home-gantt-today" style="left:'+position(today).toFixed(3)+'%"></i></div>'+
+     '<b class="home-gantt-percent">'+percent+'</b></div>'
    }).join("");
-   return '<span class="home-gantt"><span class="home-gantt-range"><span>'+lateDate(new Date(min).toISOString().slice(0,10))+'</span><span>'+lateDate(new Date(max).toISOString().slice(0,10))+'</span></span>'+rowsHtml+
-    '<span class="home-gantt-legend"><span><i class="plan"></i>План</span><span><i class="fact"></i>Факт</span><span><i class="today"></i>Сегодня</span></span></span>'
+   return '<div class="home-gantt" role="group" aria-label="График Ганта: план и фактическое выполнение">'+
+    '<div class="home-gantt-title">План и факт по срокам</div>'+
+    '<div class="home-gantt-header"><span>Виды работ</span><div class="home-gantt-ticks">'+ticks+'</div><span>Факт</span></div>'+
+    '<div class="home-gantt-rows">'+bars+'</div>'+
+    '<div class="home-gantt-legend"><span><i class="plan"></i>План</span><span><i class="fact"></i>Выполнено</span><span><i class="today"></i>Сегодня</span></div></div>'
   };
   const lateTile=b=>{
    const overdue=b.late.filter(x=>x.kind==="overdue"),main=overdue[0]||b.late[0],visible=b.late.slice(0,4);
    return '<button type="button" class="home-late-object" data-late-object="'+esc(b.object.id)+'" title="Перейти в график работ объекта">'+
     '<span class="home-late-top"><strong>'+esc(b.shortName||b.object.name)+'</strong><span class="home-late-badge '+(overdue.length?"is-expired":"is-behind")+'">'+(overdue.length?"Срок истёк":"Отставание")+'</span></span>'+
-    '<span class="home-late-summary">'+b.late.length+' '+(b.late.length===1?"вид работы отстаёт":b.late.length<5?"вида работ отстают":"видов работ отстают")+
-    (overdue.length?" · "+main.days+" дн. просрочки":" · отставание "+String(main.lag).replace(".",",")+" п.п.")+'</span>'+
+    '<span class="home-late-summary">'+b.late.length+' '+(b.late.length===1?"отстающий вид работ":b.late.length<5?"отстающих вида работ":"отстающих видов работ")+'</span>'+
     ganttMarkup(visible)+(b.late.length>4?'<small class="home-gantt-more">Ещё '+(b.late.length-4)+' видов работ</small>':"")+
     '<span class="home-late-open">Перейти в график работ объекта <span aria-hidden="true">→</span></span></button>'
   };

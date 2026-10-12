@@ -157,6 +157,28 @@
 .home-gantt-legend .today{background:#b24542;width:2px}
 .home-gantt-more{font-size:9px;color:#987763}
 
+/* 1.7.104 - graphical Gantt with the date axis and plan/fact bars */
+.home-late-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr))!important}
+.home-late-object{min-width:0!important}
+.home-late-object .home-gantt{display:grid!important;gap:10px!important;padding:12px!important;width:100%!important;min-width:0!important;border:1px solid #dce8f2!important;background:#fff!important;border-radius:9px!important;text-align:left!important}
+.home-late-object .home-gantt-title{color:#365b7a!important;font-size:11px!important;font-weight:850!important}
+.home-late-object .home-gantt-header,.home-late-object .home-gantt-row{display:grid!important;grid-template-columns:minmax(95px,35%) minmax(110px,1fr) 40px!important;align-items:center!important;gap:8px!important;min-width:0!important}
+.home-late-object .home-gantt-header{font-size:9px!important;color:#8296a7!important}
+.home-late-object .home-gantt-ticks{position:relative!important;height:18px!important;border-bottom:1px solid #d3e0eb}
+.home-late-object .home-gantt-ticks i{position:absolute!important;bottom:0!important;transform:translateX(-50%);font-size:7px!important;color:#7c91a2!important;white-space:nowrap!important;font-style:normal!important}
+.home-late-object .home-gantt-ticks i:first-child{transform:none!important}
+.home-late-object .home-gantt-ticks i:last-child{transform:translateX(-100%)!important}
+.home-late-object .home-gantt-rows{display:grid!important;gap:12px!important;min-width:0!important}
+.home-late-object .home-gantt-name{font-size:10px!important;min-width:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;color:#496781!important}
+.home-late-object .home-gantt-track{height:20px!important;position:relative!important;display:block!important;overflow:hidden!important;border:1px solid #deebf5!important;border-radius:4px!important;background:repeating-linear-gradient(90deg,#eff5fa 0,#eff5fa calc(25% - 1px),#dfeaf1 calc(25% - 1px),#dfeaf1 25%)!important}
+.home-late-object .home-gantt-plan{position:absolute!important;top:3px!important;bottom:3px!important;border:0!important;border-radius:3px!important;background:#e6b39c!important}
+.home-late-object .home-gantt-fact{position:absolute!important;top:5px!important;bottom:5px!important;border:0!important;border-radius:2px!important;background:#2b83b8!important}
+.home-late-object .home-gantt-today{position:absolute!important;top:0!important;bottom:0!important;width:2px!important;border:0!important;background:#b84545!important;z-index:3!important}
+.home-late-object .home-gantt-percent{font-size:11px!important;font-weight:800!important;color:#347ca7!important;text-align:right!important}
+.home-late-object .home-gantt-legend{display:flex!important;gap:13px!important;flex-wrap:wrap!important;align-items:center!important}
+.home-late-object .home-gantt-missing{padding:10px;font-size:10px;color:#ab6650;background:#fff5ee}
+@media(max-width:590px){.home-late-object .home-gantt-header,.home-late-object .home-gantt-row{grid-template-columns:minmax(80px,34%) minmax(85px,1fr) 35px!important;gap:5px!important}}
+
 
 /* #2: src/object-card-actions.css */
 .object-card-actions{display:flex;gap:8px;padding:0 15px 14px;background:#fff}.object-card-actions button{flex:1;min-height:34px;border-radius:8px;font-size:11px;font-weight:700;border:1px solid #dce1e8;background:#fff;color:#485363}.object-card-actions .object-card-edit:hover{border-color:#9fc1f1;background:#f3f8ff;color:#1769e0}.object-card-actions .object-card-delete{flex:0 0 auto;padding:0 13px;color:#b42318;border-color:#f0cfcb;background:#fff}.object-card-actions .object-card-delete:hover{background:#fff1ef;border-color:#e9aaa3}.object-card:hover .object-card-actions{transform:none}
