@@ -1609,11 +1609,31 @@ window.irSchemePage=async function(objectId){
   if(!mark||!activeMarks().some(m=>m.id===mark.id)||!markAvailable(mark))throw Error("Марка отсутствует или все экземпляры уже размещены.");
   const kind=guessGeometry(mark);
   if(kind!==placement.geometry)throw Error("Выбранная марка и тип конструкции не совпадают.");
+  const existingAnchors=allRecords();
+  // An existing column or beam may legitimately overhang the nominal grid.
+  // The exact snap point is allowed only when it lies ON that stored element.
+  const attachedToExisting=(id,x,y,z)=>{
+   const found=existingAnchors.find(r=>String(r.id)===id);
+   if(!found)return false;
+   const c=coord(found),start=[c.x,c.y,c.z0],
+    end=c.geometryType==="column"?[c.x,c.y,c.z2]:[c.x2,c.y2,c.z2],
+    vx=end[0]-start[0],vy=end[1]-start[1],vz=end[2]-start[2],
+    length2=vx*vx+vy*vy+vz*vz,
+    t=Math.max(0,Math.min(1,((x-start[0])*vx+(y-start[1])*vy+(z-start[2])*vz)/(length2||1)));
+   return Math.hypot(x-start[0]-vx*t,y-start[1]-vy*t,z-start[2]-vz*t)<=35;
+  };
   const point=a=>{
    if(!a||!axesX.includes(String(a.ax))||!axesY.includes(String(a.ay))||!Number.isFinite(Number(a.z)))throw Error("Укажите оси и точную отметку Z.");
-   const x=num(axisXPos.get(String(a.ax)))+num(a.dx),y=num(axisYPos.get(String(a.ay)))+num(a.dy),z=Number(a.z);
-   if(x<0||x>spanX||y<0||y>spanY)throw Error("Точка размещения выходит за пределы сетки.");
-   return{x,y,z,ax:String(a.ax),ay:String(a.ay),dx:num(a.dx),dy:num(a.dy),memberId:String(a.memberId||a.columnId||"")};
+   const rawX=num(axisXPos.get(String(a.ax)))+num(a.dx),
+    rawY=num(axisYPos.get(String(a.ay)))+num(a.dy),z=Number(a.z),
+    // Treat only sub-millimetre numeric imprecision at an edge as in-bounds.
+    x=rawX<0&&rawX>=-1?0:rawX>spanX&&rawX<=spanX+1?spanX:rawX,
+    y=rawY<0&&rawY>=-1?0:rawY>spanY&&rawY<=spanY+1?spanY:rawY,
+    memberId=String(a.memberId||a.columnId||""),
+    inBounds=x>=0&&x<=spanX&&y>=0&&y<=spanY;
+   if(!inBounds&&!memberId)throw Error("Точка X "+fmt(x)+" / Y "+fmt(y)+" мм выходит за сетку "+fmt(spanX)+" × "+fmt(spanY)+" мм. Выберите место внутри сетки или привязку к существующему элементу.");
+   if(memberId&&!attachedToExisting(memberId,x,y,z))throw Error("Точка крепления не совпадает с существующим элементом. Выберите его ещё раз.");
+   return{x,y,z,ax:String(a.ax),ay:String(a.ay),dx:x-num(axisXPos.get(String(a.ax))),dy:y-num(axisYPos.get(String(a.ay))),memberId};
   };
   const start=point(placement.start);
   const end=kind==="column"?{...start,z:Number(placement.topZ)}:point(placement.end);
@@ -4285,6 +4305,8 @@ window.irBuildingView=(()=>{
     pane.innerHTML='<div class="irb-panel-head"><b>Размещение элемента</b><small>НОВАЯ МАРКА</small></div>'+
     '<label class="irb-field">Поиск марки<input type="search" id="irbMarkSearch" autocomplete="off" placeholder="Марка или наименование…" value="'+html(state.markSearch)+'"></label>'+
     '<label class="irb-field">Марка из ведомости<select id="irbMark">'+markOptions()+'</select><small>Найдено: '+matchedCount()+' из '+marks.length+'</small></label>'+
+    '<div class="irb-placement-type"><span>Тип выбранной марки</span><b>'+html(column?"Колонна / стойка":m?.geometry==="brace"?"Связь / раскос":m?.geometry==="truss"?"Ферма":"Балка / ригель / прогон")+'</b>'+
+     (!column?'<small>Для установки колонн щелчком выберите марку из категории «Колонны», «Фахверки» или «Стойки».</small>':"")+'</div>'+
     '<div class="irb-quota">По ведомости: '+num(m?.total)+' шт.<br>На схеме: '+num(m?.placed)+' шт.<br><b>Осталось: '+left+' шт.</b></div>'+
     (column?'<div class="irb-direct-info"><b>Установка колонн на каркасе</b><span>Укажите верх Z по КМД. Затем наведите мышь на модель: появится контур колонны. Один щелчок размещает её на выбранной точке, в том числе между осями.</span></div>'+
     '<label class="irb-click-toggle"><input type="checkbox" id="irbClickPlace" '+(state.directColumns?"checked":"")+'><span>Устанавливать колонны щелчком</span></label>'+
@@ -4349,9 +4371,9 @@ window.irBuildingView=(()=>{
        }
       }
      }
-     a.z=Math.round(value);a.zConfirmed=true;refreshPanel();paint()
+     a.z=Math.round(value);a.zConfirmed=true;state.error="";refreshPanel();paint()
     });
-    el("irbClear").onclick=()=>{state.start=null;state.end=null;state.continuing=false;refreshPanel();paint()};
+    el("irbClear").onclick=()=>{state.start=null;state.end=null;state.error="";state.continuing=false;refreshPanel();paint()};
     el("irbCancel").onclick=()=>{state.placing=false;state.start=null;state.end=null;state.chainNext=null;state.continuing=false;refreshPanel();paint()};
          const quickSave=el("irbQuickSave");
      commitQuickPlacement=async()=>{
