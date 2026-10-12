@@ -768,6 +768,9 @@ window.irBuildingView=(()=>{
    if(!props.canEdit||!marks.some(m=>m.left>0))return;
    state.placing=true;state.start=null;state.middle=null;state.end=null;state.chainNext=null;state.continuing=false;state.topZ="";state.error="";state.markSearch="";state.hoverAnchor=null;state.directColumns=true;state.bent=false;state.mark=leftMark().find(m=>m.id===state.mark)?.id||leftMark()[0]?.id||"";state.repeat=selectedMark()?.geometry==="column";
    refreshPanel();paint();
+   // Opening placement after deleting a member should immediately make the
+   // search usable, rather than leaving keyboard focus on the removed button.
+   el("irbMarkSearch")?.focus({preventScroll:true});
   }
   const setCamera=mode=>{
    state.preset=mode;state.zoom=1;state.panX=0;state.panY=0;
