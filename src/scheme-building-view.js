@@ -777,10 +777,49 @@ window.irBuildingView=(()=>{
      // while a Z input is active used to destroy focus and cancel Save clicks.
      updateHint();paint();
     };
-    pane.querySelectorAll("[data-irb-level]").forEach(input=>{
-     input.addEventListener("input",()=>applyLevel(input,false));
-     input.addEventListener("change",()=>applyLevel(input,true));
-     input.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();input.blur()}});
+    // Typing a multi-digit elevation used to redraw the beam at Z=5,
+    // Z=55, Z=556, then Z=5565. Commit only the complete number on blur,
+    // Enter or Tab. Never mutate cached model anchors on each keystroke.
+    const levelInputs=[...pane.querySelectorAll("[data-irb-level]")];
+    const isLevelPending=input=>{
+     const part=input.dataset.irbLevel,
+      a=part==="start"?state.start:part==="middle"?state.middle:state.end;
+     if(!a)return false;
+     const raw=input.value.trim().replace(/\s/g,"").replace(",",".");
+     return !a.zConfirmed||!raw||!Number.isFinite(Number(raw))||
+      Math.abs(Number(raw)-num(a.z))>.001
+    };
+    const refreshLevelPending=()=>{
+     const pending=levelInputs.some(isLevelPending);
+     const save=el("irbQuickSave");
+     if(save)save.disabled=state.busy||pending||!readyToSave();
+     const next=el("irbContinue");
+     if(next)next.disabled=pending||!(state.start&&(column||state.end)&&(pickGeometry()!=="bent"||state.middle)&&available);
+     for(const input of levelInputs){
+      const dirty=isLevelPending(input),info=input.parentElement.querySelector(".irb-level-feedback");
+      input.classList.toggle("irb-level-editing",dirty);
+      if(info&&dirty){
+       info.hidden=false;
+       info.textContent="Нажмите Enter или выйдите из поля, чтобы применить отметку Z."
+      }else if(info&&!input.classList.contains("irb-level-invalid"))info.hidden=true
+     }
+    };
+    levelInputs.forEach(input=>{
+     input.addEventListener("input",refreshLevelPending);
+     input.addEventListener("change",()=>{
+      applyLevel(input,true);
+      refreshLevelPending();
+     });
+     input.addEventListener("keydown",e=>{
+      if(e.key==="Enter"){e.preventDefault();input.blur()}
+      if(e.key==="Escape"){
+       e.preventDefault();
+       const part=input.dataset.irbLevel,
+        a=part==="start"?state.start:part==="middle"?state.middle:state.end;
+       input.value=a?.zConfirmed===true?String(Math.round(num(a.z))):"";
+       input.blur();
+      }
+     });
     });
     el("irbClear").onclick=()=>{state.start=null;state.middle=null;state.end=null;state.error="";state.continuing=false;refreshPanel();paint()};
     el("irbCancel").onclick=()=>{state.placing=false;state.start=null;state.end=null;state.chainNext=null;state.continuing=false;refreshPanel();paint()};
@@ -1048,13 +1087,13 @@ window.irBuildingView=(()=>{
      state.error="В выбранной точке уже есть колонна. Выберите свободное место.";
      refreshPanel();paint();return
     }
-    if(!state.start||state.end||column){state.start=a;state.middle=null;state.end=null;if(!column)state.topZ="";}
+    if(!state.start||state.end||column){state.start={...a};state.middle=null;state.end=null;if(!column)state.topZ="";}
     else if(pickGeometry()==="bent"){
      if(centeredRidge()){
-      if(!sameAnchor(a,state.start)){state.end=a;recenterRidge()}
-     }else if(!state.middle){if(!sameAnchor(a,state.start))state.middle=a}
-     else if(!sameAnchor(a,state.middle)&&!sameAnchor(a,state.start))state.end=a;
-    }else if(!sameAnchor(a,state.start))state.end=a;
+      if(!sameAnchor(a,state.start)){state.end={...a};recenterRidge()}
+     }else if(!state.middle){if(!sameAnchor(a,state.start))state.middle={...a}}
+     else if(!sameAnchor(a,state.middle)&&!sameAnchor(a,state.start))state.end={...a};
+    }else if(!sameAnchor(a,state.start))state.end={...a};
     state.error="";refreshPanel();paint();
     if(column&&state.directColumns&&state.topZ!==""&&
      Number.isFinite(Number(state.topZ))&&Number(state.topZ)>num(a.z)){
