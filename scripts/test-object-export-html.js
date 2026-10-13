@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17159'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17160'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card:not(.oor2-photo-card):not(.oor-marks-card),.object-overview-marks-wrap > .object-overview-marks-card'),"remove duplicate latest reports and old marks previews from snapshot");
@@ -94,6 +94,13 @@ assert(!source.includes("if(!/^\\\\d+$/.test(id))"),"escaped digit matcher would
 assert(source.includes("if(String(activeHero?.dataset.objectId||\"\")!==id)"),"avoid exporting another object after navigation");
 assert(source.includes("ir-styles.css"),"all current component styles embedded");
 assert(source.includes("Content-Security-Policy"),"standalone report does not execute code");
+assert(!source.includes("IR Project / Объект"),"repeated section breadcrumb is absent across the entire HTML export source");
+assert(source.includes('ir-export-group{scroll-margin-top:14px;min-width:0;width:100%;max-width:none;margin:0;padding:0}'),"all report groups span the available content width");
+assert(source.includes('ir-export-preview{margin:18px 0 0;min-width:0;width:100%;max-width:none'),"overview cards above sections have no side margins");
+assert(source.includes('ir-export-section{box-sizing:border-box;width:100%;max-width:none;padding:18px;margin:18px 0;'),"report sections align with the wide summary block");
+assert(source.includes('ir-export-section{margin:12px 0!important}'),"responsive report sections keep equal horizontal width");
+assert(source.includes('ir-export-preview{margin:12px 0 0}'),"responsive preview cards keep equal horizontal width");
+
 assert(source.includes("default-src &#39;none&#39;"),"offline report blocks external calls");
 assert(source.includes('button,input,textarea,select,[contenteditable]'),"edit controls removed");
 assert(source.includes('irProject.reportExport.html(html'),"uses existing native save dialog");

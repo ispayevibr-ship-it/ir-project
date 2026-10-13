@@ -344,7 +344,7 @@
  function renderSection(key,rows,images,preview="",support={}){
   const body=key==="reports"?renderDailyReports(rows,images):key==="marks"?renderMarkSection(rows,support.workTypes||[],support.reports||[],images):renderRows(rows,key,images);
   return'<div class="ir-export-group" id="section-'+esc(key)+'">'+(preview?'<div class="ir-export-preview">'+preview+'</div>':"")+
-   '<section class="ir-export-section"><header class="ir-export-section-head"><div><small>IR Project / Объект</small><h2>'+esc(labels[key]||key)+'</h2></div><span class="ir-export-count">'+rows.length+' записей</span></header>'+body+'</section></div>'
+   '<section class="ir-export-section"><header class="ir-export-section-head"><div><h2>'+esc(labels[key]||key)+'</h2></div><span class="ir-export-count">'+rows.length+' записей</span></header>'+body+'</section></div>'
  }
  function sidebarHtml(aside,keys){
   const nav=aside?.querySelector(".ir-object-nav");
@@ -435,8 +435,8 @@
     "body:has(.ir-export-section:target) .ir-export-sidebar .ir-object-nav a.ir-export-nav[href=\"#overview\"].active{background:transparent!important;color:#b9c6d2!important;font-weight:500!important;box-shadow:none!important}",
     "body:has(.ir-export-section:target) .ir-export-sidebar .ir-object-nav a.ir-export-nav[href=\"#overview\"].active .nav-icon{color:#c5d4df!important}",
     "@media(max-width:900px){.ir-export-sidebar.ir-object-sidebar-fixed{width:150px!important}body.ir-object-route.ir-object-overview #app{margin-left:150px!important;width:calc(100% - 150px)!important}.ir-export-sidebar .ir-object-nav a.ir-export-nav{font-size:9px!important;padding:0 7px!important}.ir-export-sidebar .ir-object-all,.ir-export-sidebar .ir-object-top{font-size:9px!important}}",
-    ".ir-export-group{scroll-margin-top:14px;min-width:0}",
-    ".ir-export-preview{margin:18px 22px 0;min-width:0;display:grid;gap:12px}",
+    ".ir-export-group{scroll-margin-top:14px;min-width:0;width:100%;max-width:none;margin:0;padding:0}",
+    ".ir-export-preview{margin:18px 0 0;min-width:0;width:100%;max-width:none;display:grid;gap:12px}",
     ".ir-export-preview>.ir-export-preview-layout{display:block!important;margin:0!important}",
     ".ir-export-preview .ir-export-preview-layout>.object-overview-reports,.ir-export-preview .ir-export-preview-layout>.object-overview-deliveries-wrap,.ir-export-preview .ir-export-preview-layout>.object-overview-dashboard,.ir-export-preview .ir-export-preview-layout>.object-overview-marks-wrap,.ir-export-preview .ir-export-preview-layout>.object-overview-admin-analysis{display:contents!important;margin:0!important}",
     ".ir-export-preview :is(.oor2-card,.ood-card,.ooa-card,.object-overview-schedule,.object-overview-marks-card){width:100%!important;margin:0!important;min-width:0!important}",
@@ -478,7 +478,7 @@
     ".ir-export-daily-photos img{display:block;width:175px;height:120px;object-fit:cover;border-radius:8px;border:1px solid #dce6ef}",
     ".ir-export-daily-photos figcaption{font-size:10px;color:#7c94a5;padding-top:4px}",
     ".ir-export-muted{font-size:12px;color:#7f93a4;margin:0}",
-    "@media(max-width:1000px){.ir-export-preview{margin:12px 12px 0}.ir-export-daily-columns{grid-template-columns:1fr}}",
+    "@media(max-width:1000px){.ir-export-preview{margin:12px 0 0}.ir-export-daily-columns{grid-template-columns:1fr}}",
     ".ir-export-more{border:1px solid #d3e4f0;border-radius:10px;background:#f5faff;overflow:hidden;min-width:0}",
     ".ir-export-more>summary{display:flex;align-items:center;justify-content:center;gap:11px;min-height:46px;padding:10px 16px;cursor:pointer;color:#256c9e;list-style:none;font-size:12px;font-weight:750;text-align:center}",
     ".ir-export-more>summary::-webkit-details-marker{display:none}",
@@ -573,7 +573,7 @@
     "@media(max-width:1200px){.ir-export-mark-head,.ir-export-mark-row{grid-template-columns:minmax(110px,1.3fr) minmax(70px,.8fr) minmax(70px,.6fr) minmax(105px,1fr) minmax(90px,.8fr) minmax(90px,.8fr);gap:8px}.ir-export-marks-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}",
     "@media(max-width:850px){.ir-export-marks-stats{grid-template-columns:1fr 1fr}.ir-export-mark-row{font-size:10px;padding:10px 8px}.ir-export-mark-head{padding:10px 8px;font-size:9px}}",
     "@media print{.ir-export-mark-tabs{display:none!important}.ir-export-mark-panel--all{display:block!important}.ir-export-mark-raw{break-inside:avoid}.ir-export-more-items{display:grid!important}.ir-export-more-show{display:none!important}}",
-    ".ir-export-section{padding:18px;margin:18px 22px;border:1px solid #dce5ed;border-radius:13px;background:#fff;scroll-margin-top:14px;color:#21435b}",
+    ".ir-export-section{box-sizing:border-box;width:100%;max-width:none;padding:18px;margin:18px 0;border:1px solid #dce5ed;border-radius:13px;background:#fff;scroll-margin-top:14px;color:#21435b}",
     ".ir-export-section-head{display:flex;justify-content:space-between;align-items:center;gap:14px;border-bottom:1px solid #e4edf3;padding:0 0 15px;margin-bottom:12px}",
     ".ir-export-section-head small{font-size:11px;color:#7d92a3}.ir-export-section-head h2{font:750 20px/1.4 'Segoe UI',sans-serif;margin:4px 0 0}",
     ".ir-export-count{white-space:nowrap;font-size:12px;color:#63849c;background:#f2f7fb;border-radius:8px;padding:8px 12px}",
@@ -594,7 +594,7 @@
     ".ir-export-empty-card{padding:20px;text-align:center;color:#8195a6;font-size:12px}",
     "body.ir-object-overview #app button,body.ir-object-overview #app .object-hero-actions{display:none!important}",
     "body.ir-object-overview #app .ir-export-section{display:block!important}",
-    "@media(max-width:1000px){.ir-export-section{margin:12px!important}.ir-export-row-meta{display:none}}",
+    "@media(max-width:1000px){.ir-export-section{margin:12px 0!important}.ir-export-row-meta{display:none}}",
     "@media print{.ir-export-sidebar{position:static!important;width:100%!important;height:auto!important}.ir-export-sidebar .ir-object-nav{display:flex!important;flex-wrap:wrap!important}body.ir-object-overview #app{margin:0!important;width:100%!important}.ir-export-record{break-inside:avoid}.ir-export-section{break-before:page;margin:8px 0!important}details{display:block!important}}"
    ].join("\n");
    const activeHero=document.querySelector(".object-overview-hero");
