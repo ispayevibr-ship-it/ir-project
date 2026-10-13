@@ -357,6 +357,33 @@ window.irSchemePage=async function(objectId){
   return{savedEnd:{ax:end.ax,ay:end.ay,x:end.x,y:end.y,z:end.z}};
  }
 
+ // Confirm dialogs in nested Electron tabs can leave the keyboard aimed
+ // at a destroyed/hidden native browsing context, despite a visible caret.
+ function restoreKeyboardAfterConfirm(){
+  try{window.frameElement?.focus({preventScroll:true});window.focus()}catch(_error){}
+  requestAnimationFrame(()=>{
+   try{window.frameElement?.focus({preventScroll:true});window.focus()}catch(_error){}
+   const search=document.getElementById("irbMarkSearch");
+   if(search?.isConnected)search.focus({preventScroll:true});
+  });
+ }
+ // Preserve the existing 3D canvas, WebGL context and active input on
+ // layer/status/elevation changes. Only update currently visible elements.
+ function updateLayerVisibility(){
+  const groups=allVisibleTypes();
+  document.querySelectorAll("[data-scheme-layer]").forEach(btn=>{
+   const visible=!hiddenGroups.has(btn.dataset.schemeLayer);
+   btn.classList.toggle("on",visible);btn.classList.toggle("off",!visible);
+   btn.setAttribute("aria-pressed",String(visible));
+  });
+  const heading=document.querySelector(".scheme-layers>summary small");
+  if(heading)heading.textContent=groups.filter(g=>!hiddenGroups.has(g.key)).length+" из "+groups.length;
+  const visible=columns();
+  const count=document.querySelector(".scheme-visible-counter b");if(count)count.textContent=String(visible.length);
+  if(mode==="building"&&window.irBuildingView?.updateVisibility)
+   window.irBuildingView.updateVisibility(visible,groups.map(g=>({...g,visible:!hiddenGroups.has(g.key)})));
+  else renderScene();
+ }
  function renderUnifiedBuilding(box){
   if(!window.irBuildingView){box.innerHTML='<p>Модель загружается…</p>';return}
   window.irBuildingView.render(box,{
@@ -379,17 +406,18 @@ window.irSchemePage=async function(objectId){
     const record=workRecords().find(x=>String(x.id)===String(id));
     if(!record)return;
     const name=String(record.mark||record.title||"").trim();
-    if(!confirm(`Удалить элемент ${name?`«${name}» `:""}со схемы?`))return;
+    if(!confirm(`Удалить элемент ${name?`«${name}» `:""}со схемы?`)){restoreKeyboardAfterConfirm();return}
+    restoreKeyboardAfterConfirm();
     try{
      await schemeApi.remove(id);
      rows=await schemeApi.list().catch(()=>rows.filter(r=>String(r.id)!==String(id)));
      selectedId="";
-     draw();
+     draw();restoreKeyboardAfterConfirm();
     }catch(error){
      alert("Не удалось удалить элемент: "+String(error?.message||error))
     }
    },
-   onLayer:key=>{hiddenGroups.has(key)?hiddenGroups.delete(key):hiddenGroups.add(key);draw()},
+   onLayer:key=>{hiddenGroups.has(key)?hiddenGroups.delete(key):hiddenGroups.add(key);updateLayerVisibility()},
    onQuickPlace:frameMode?createFrameMember:null,
    onQuickPlaced:()=>draw(),
    onPlacement:placement=>openEditor(null,false,placement)
@@ -485,7 +513,7 @@ window.irSchemePage=async function(objectId){
    ${canEdit()?`<div class="scheme-detail-actions"><button type="button" data-scheme-edit>Редактировать</button><button type="button" data-scheme-copy>⧉ Копировать</button><button type="button" class="danger" data-scheme-delete>Удалить</button></div>`:""}`;
   panel.querySelector("[data-scheme-edit]")?.addEventListener("click",()=>openEditor(c));
   panel.querySelector("[data-scheme-copy]")?.addEventListener("click",()=>openEditor(c,true));
-  panel.querySelector("[data-scheme-delete]")?.addEventListener("click",async()=>{if(!confirm(`Удалить элемент ${c.mark?`«${c.mark}» `:""}со схемы?`))return;await schemeApi.remove(c.id);rows=await schemeApi.list().catch(()=>rows);selectedId="";draw()});bindElementPicker(panel)
+  panel.querySelector("[data-scheme-delete]")?.addEventListener("click",async()=>{if(!confirm(`Удалить элемент ${c.mark?`«${c.mark}» `:""}со схемы?`)){restoreKeyboardAfterConfirm();return}restoreKeyboardAfterConfirm();await schemeApi.remove(c.id);rows=await schemeApi.list().catch(()=>rows);selectedId="";draw();restoreKeyboardAfterConfirm()});bindElementPicker(panel)
  }
  let gridDraft=null;
  const yAlphabet=["А","Б","В","Г","Д","Е","Ж","З","И","К","Л","М","Н","П","Р","С","Т","У","Ф","Х","Ц","Ч","Ш","Щ","Э","Ю","Я"];
@@ -978,14 +1006,14 @@ window.irSchemePage=async function(objectId){
   </div>`;
   document.getElementById("schemeBack").onclick=()=>location.hash=`/objects/object/${oid}`;document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{if(!["building","plan"].includes(b.dataset.mode))return;mode=b.dataset.mode;if(mode==="building"&&!frameMode){activeScheme="all";refreshGridModel()}draw()});document.getElementById("schemeWorkSelect")?.addEventListener("change",e=>{frameMode=e.target.value==="__frame__";if(!frameMode)activeWorkId=e.target.value;activeScheme="all";selectedId="";syncNotice=null;elementSearch="";pickerScrollTop=0;hiddenGroups.clear();statusFilter="all";levelMin="";levelMax="";panX=0;panY=0;refreshGridModel();draw()});document.getElementById("schemeTypeSelect")?.addEventListener("change",e=>{activeScheme=e.target.value;selectedId="";syncNotice=null;elementSearch="";pickerScrollTop=0;panX=0;panY=0;refreshGridModel();draw()});
   document.querySelector(".scheme-layers")?.addEventListener("toggle",e=>{layersPanelOpen=e.target.open});
-  document.querySelectorAll("[data-scheme-layer]").forEach(btn=>btn.addEventListener("click",()=>{layersPanelOpen=true;const key=btn.dataset.schemeLayer;if(hiddenGroups.has(key))hiddenGroups.delete(key);else hiddenGroups.add(key);draw()}));
-  document.getElementById("schemeLayersShowAll")?.addEventListener("click",()=>{layersPanelOpen=true;hiddenGroups.clear();draw()});
-  document.getElementById("schemeLayersHideAll")?.addEventListener("click",()=>{layersPanelOpen=true;allVisibleTypes().forEach(g=>hiddenGroups.add(g.key));draw()});
+  document.querySelectorAll("[data-scheme-layer]").forEach(btn=>btn.addEventListener("click",()=>{layersPanelOpen=true;const key=btn.dataset.schemeLayer;if(hiddenGroups.has(key))hiddenGroups.delete(key);else hiddenGroups.add(key);updateLayerVisibility()}));
+  document.getElementById("schemeLayersShowAll")?.addEventListener("click",()=>{layersPanelOpen=true;hiddenGroups.clear();updateLayerVisibility()});
+  document.getElementById("schemeLayersHideAll")?.addEventListener("click",()=>{layersPanelOpen=true;allVisibleTypes().forEach(g=>hiddenGroups.add(g.key));updateLayerVisibility()});
   document.getElementById("schemeRefreshMarkProgress")?.addEventListener("click",refreshSchemeMarkProgress);
-  document.getElementById("schemeStatusFilter")?.addEventListener("change",e=>{statusFilter=e.target.value;draw()});
-  document.getElementById("schemeLevelMin")?.addEventListener("change",e=>{levelMin=e.target.value;draw()});
-  document.getElementById("schemeLevelMax")?.addEventListener("change",e=>{levelMax=e.target.value;draw()});
-  document.getElementById("schemeVisibilityReset")?.addEventListener("click",()=>{hiddenGroups.clear();statusFilter="all";levelMin="";levelMax="";draw()});
+  document.getElementById("schemeStatusFilter")?.addEventListener("change",e=>{statusFilter=e.target.value;updateLayerVisibility()});
+  document.getElementById("schemeLevelMin")?.addEventListener("change",e=>{levelMin=e.target.value;updateLayerVisibility()});
+  document.getElementById("schemeLevelMax")?.addEventListener("change",e=>{levelMax=e.target.value;updateLayerVisibility()});
+  document.getElementById("schemeVisibilityReset")?.addEventListener("click",()=>{hiddenGroups.clear();statusFilter="all";levelMin="";levelMax="";updateLayerVisibility()});
   document.getElementById("schemeFullscreenToggle")?.addEventListener("click",()=>previewFullscreen?leaveSchemeFullscreen():enterSchemeFullscreen());
   document.getElementById("schemeBackgroundSelect")?.addEventListener("change",e=>applySchemeBackground(e.target.value));
   document.getElementById("schemeBackgroundCustom")?.addEventListener("input",e=>applySchemeBackground("custom",e.target.value));

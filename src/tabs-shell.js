@@ -268,16 +268,18 @@
   return field;
  }
  function restoreEditingFocus(tab,field){
-  if(!tab||!field?.isConnected||frames.get(tab.id)!==tab||!tab.active||activeId!==tab.id||!document.hasFocus())return;
+  if(!tab||!field?.isConnected||frames.get(tab.id)!==tab||!tab.active||activeId!==tab.id)return;
   try{
    const child=tab.frame.contentWindow,doc=child?.document;
-   if(!doc?.contains(field)||doc.activeElement!==field)return;
+   if(!doc?.contains(field)||doc.activeElement!==field||tab.recoveringEditorFocus)return;
+   tab.recoveringEditorFocus=true;
    // Chromium may show a text caret while the host tab strip retains the
    // native keyboard recipient. Re-activate the iframe, then the field.
    if(document.activeElement!==tab.frame)tab.frame.focus({preventScroll:true});
    child.focus();
    field.focus({preventScroll:true});
   }catch(error){console.warn("IR Project: keyboard focus recovery failed",error)}
+  finally{tab.recoveringEditorFocus=false}
  }
  function scheduleEditingFocus(tab,field){
   if(!tab?.active||!field)return;
@@ -314,7 +316,7 @@
   },true);
   child.document.addEventListener("pointerup",event=>{
    const field=editableTarget(event.target);
-   if(field){tab.lastEditable=field;scheduleEditingFocus(tab,field)}
+   if(field){tab.lastEditable=field;if(!document.hasFocus()){try{window.focus()}catch(_error){}}scheduleEditingFocus(tab,field)}
   },true);
   child.document.addEventListener("keydown",e=>shortcuts(e),true);
   child.document.addEventListener("auxclick",e=>{

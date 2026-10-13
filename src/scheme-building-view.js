@@ -7,7 +7,7 @@
  */
 window.irBuildingView=(()=>{
  const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true,bent:false,middle:null,ridgeMode:"center",colorMode:"status",renderMode:"real",hiddenSections:[],sectionKey:"",sectionsOpen:false,findQuery:""};
- let observer=null,paint=null,webgl=null,panelsInitialized=false,animationFrame=0,drawFrame=null;
+ let observer=null,paint=null,webgl=null,panelsInitialized=false,animationFrame=0,drawFrame=null,updateVisibleScene=null;
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const html=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  const pt=(x,y,z)=>({x:Number(x)||0,y:Number(y)||0,z:Number(z)||0});
@@ -153,6 +153,7 @@ window.irBuildingView=(()=>{
  }
 
  function render(host,props){
+  updateVisibleScene=null;
   if(!panelsInitialized){
    state.layersOpen=window.innerWidth>=1000;
    try{
@@ -1190,11 +1191,34 @@ window.irBuildingView=(()=>{
   canvas.onpointercancel=e=>{pointers.delete(e.pointerId);drag=null;twoFinger=null;if(!pointers.size)multiTouch=false};
   canvas.onwheel=e=>{e.preventDefault();setZoom(state.zoom*(e.deltaY>0?.9:1.1))};
   if(window.ResizeObserver){observer=new ResizeObserver(()=>paint());observer.observe(canvas)}
+  // Changing layers must not destroy and recreate the whole Electron page
+  // or WebGL context; update only the existing GPU mesh visibility.
+  updateVisibleScene=(elements,nextGroups)=>{
+   cols.splice(0,cols.length,...elements);
+   groups.splice(0,groups.length,...nextGroups);
+   visibleKey=null;visibleMembers=null;
+   segmentsKey=null;segmentsCache=null;
+   memberAnchorKey=null;memberAnchorCache=null;columnAnchorCache=null;
+   host.querySelectorAll("[data-irb-layer]").forEach(button=>{
+    const item=groups.find(g=>g.key===button.dataset.irbLayer);
+    if(!item)return;
+    button.classList.toggle("active",!!item.visible);
+    button.setAttribute("aria-pressed",String(!!item.visible));
+    const icon=button.querySelector("i");if(icon)icon.textContent=item.visible?"✓":"";
+    const small=button.querySelector("small");if(small)small.textContent=String(item.count);
+   });
+   if(state.selected&&!cols.some(c=>String(c.id)===String(state.selected))){
+    state.selected="";state.hover="";props.onSelect("");refreshPanel();
+   }
+   updateCutControls();refreshFindControls();
+   if(state.colorMode!=="status")showColorMode();
+   paint();
+  };
   state.selected=String(props.selected||"");
   if(!visibleCols().some(c=>String(c.id)===state.selected))state.selected="";
   refreshPanel();refreshFindControls();paint();
  }
- return {render,start:()=>{const b=document.getElementById("irbStart");if(b)b.click()},
+ return {render,updateVisibility:(elements,groups)=>updateVisibleScene?.(elements,groups),start:()=>{const b=document.getElementById("irbStart");if(b)b.click()},
   placementSaved:placement=>{
    if(!placement?.zigzag||!state.chainNext)return;
    const previous=state.chainNext,saved=placement.savedEnd;
@@ -1213,6 +1237,6 @@ window.irBuildingView=(()=>{
   dispose:()=>{
    observer?.disconnect();observer=null;
    if(animationFrame){window.cancelAnimationFrame(animationFrame);animationFrame=0}
-   drawFrame=null;webgl?.dispose();webgl=null;paint=null
+   drawFrame=null;updateVisibleScene=null;webgl?.dispose();webgl=null;paint=null
   }};
 })();
