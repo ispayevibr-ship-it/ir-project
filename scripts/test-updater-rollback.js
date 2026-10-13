@@ -33,7 +33,7 @@ https.get=(url,options,callback)=>{const req=new EventEmitter();process.nextTick
  try{await assert.rejects(updates.download(),/simulated rename failure/)}finally{fs.renameSync=originalRename}
  assert.equal(updates.installedVersion(),"1.7.149","rename failure must restore last good runtime");
  assert.equal(fs.readFileSync(path.join(current,"src/sample.js"),"utf8"),fresh.toString());
- fs.rmSync(current,{recursive:true,force:true});
+ fs.renameSync(current,previous); // simulate process death after current was moved aside
  updates.cleanupStaleRuntime();
  assert.equal(updates.installedVersion(),"1.7.149","interrupted switch must recover from previous folder");
  assert.equal(fs.readFileSync(path.join(current,"src/sample.js"),"utf8"),fresh.toString());
