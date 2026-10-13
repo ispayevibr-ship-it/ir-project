@@ -1256,33 +1256,52 @@ window.irSchemePage=async function(objectId){
  const defaultAxesX=["1","2","3","4","5","6"],defaultAxesY=["А","Б","В","Г","Д","Е","Ж","И","К","Л"],defaultSpanX=45000,defaultSpanY=60000;
  let axesX=[...defaultAxesX],axesY=[...defaultAxesY],targetSpanX=defaultSpanX,targetSpanY=defaultSpanY,gridDirX="ltr",gridDirY="btt";
  let frameMode=true,mode="building",viewRotation=0,zoom=1,panX=0,panY=0,selectedId="",activeWorkId="",activeScheme="all",rows=[],markRows=[],workRows=[],gridXSpans=[],gridYSpans=[],spanX=targetSpanX,spanY=targetSpanY,axisXPos=new Map(),axisYPos=new Map(),labelsVisible=false,dimensionsVisible=false,hiddenGroups=new Set(),statusFilter="all",levelMin="",levelMax="",layersPanelOpen=false,elementSearch="",pickerScrollTop=0,previewFullscreen=false,previewNativeFullscreen=false,previewOriginalOverflow="";
- const backgroundChoices=["standard","white","gray","blue","sand","dark","custom"],backgroundStorageKey="ir-project.scheme-background."+oid;
- let schemeBackground="standard",schemeCustomBackground="#e9f2ff";
+ const backgroundChoices=["standard","white","gray","blue","sand","dark","custom"],
+  backgroundStorageKey="ir-project.scheme-background."+oid,
+  planBackgroundStorageKey=backgroundStorageKey+".plan";
+ // The former single background preference belongs to 3D. Plan starts light;
+ // users can still explicitly select and remember a dark/custom plan surface.
+ let schemeBackground="standard",schemeCustomBackground="#e9f2ff",
+  planBackground="standard",planCustomBackground="#e9f2ff";
  const isHexColor=v=>/^#[\da-f]{6}$/i.test(String(v||""));
  try{
   const stored=JSON.parse(window.localStorage?.getItem(backgroundStorageKey)||"null");
   if(stored&&backgroundChoices.includes(stored.mode))schemeBackground=stored.mode;
-  if(stored&&isHexColor(stored.color))schemeCustomBackground=stored.color.toLowerCase()
+  if(stored&&isHexColor(stored.color))schemeCustomBackground=stored.color.toLowerCase();
+  const savedPlan=JSON.parse(window.localStorage?.getItem(planBackgroundStorageKey)||"null");
+  if(savedPlan&&backgroundChoices.includes(savedPlan.mode))planBackground=savedPlan.mode;
+  if(savedPlan&&isHexColor(savedPlan.color))planCustomBackground=savedPlan.color.toLowerCase()
  }catch(e){}
- const backgroundIsDark=()=>schemeBackground==="dark"||schemeBackground==="custom"&&(()=>{
-  const hex=schemeCustomBackground;const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+ const currentBackground=()=>mode==="plan"?planBackground:schemeBackground;
+ const currentCustomBackground=()=>mode==="plan"?planCustomBackground:schemeCustomBackground;
+ const backgroundIsDark=()=>{
+  const selected=currentBackground();
+  if(selected==="dark")return true;
+  if(selected!=="custom")return false;
+  const hex=currentCustomBackground(),r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
   return(r*299+g*587+b*114)/1000<155
- })();
- function applySchemeBackground(mode=schemeBackground,color=schemeCustomBackground){
-  if(!backgroundChoices.includes(mode))mode="standard";
-  if(isHexColor(color))schemeCustomBackground=color.toLowerCase();
-  schemeBackground=mode;
+ };
+ function applySchemeBackground(selected=currentBackground(),color=currentCustomBackground()){
+  if(!backgroundChoices.includes(selected))selected="standard";
+  if(mode==="plan"){
+   planBackground=selected;
+   if(isHexColor(color))planCustomBackground=color.toLowerCase()
+  }else{
+   schemeBackground=selected;
+   if(isHexColor(color))schemeCustomBackground=color.toLowerCase()
+  }
   const stage=document.getElementById("schemePreviewStage");
   if(stage){
-   stage.dataset.schemeBackground=schemeBackground;
+   stage.dataset.schemeBackground=currentBackground();
    stage.dataset.schemeContrast=backgroundIsDark()?"dark":"light";
-   stage.style.setProperty("--scheme-custom-background",schemeCustomBackground)
+   stage.style.setProperty("--scheme-custom-background",currentCustomBackground())
   }
   const select=document.getElementById("schemeBackgroundSelect");
-  if(select)select.value=schemeBackground;
+  if(select)select.value=currentBackground();
   const custom=document.getElementById("schemeBackgroundCustom");
-  if(custom){custom.value=schemeCustomBackground;custom.hidden=schemeBackground!=="custom"}
-  try{window.localStorage?.setItem(backgroundStorageKey,JSON.stringify({mode:schemeBackground,color:schemeCustomBackground}))}catch(e){}
+  if(custom){custom.value=currentCustomBackground();custom.hidden=currentBackground()!=="custom"}
+  const key=mode==="plan"?planBackgroundStorageKey:backgroundStorageKey;
+  try{window.localStorage?.setItem(key,JSON.stringify({mode:currentBackground(),color:currentCustomBackground()}))}catch(e){}
  }
  [rows,markRows,workRows]=await Promise.all([schemeApi.list().catch(()=>[]),root.section("marks").list().catch(()=>[]),root.section("work-types").list().catch(()=>[])]);
  const equalSpans=(total,count)=>{count=Math.max(1,count);const base=Math.floor(total/count),rem=Math.round(total-base*count);return Array.from({length:count},(_,i)=>base+(i<rem?1:0))};
@@ -1791,7 +1810,7 @@ window.irSchemePage=async function(objectId){
    scopeLabel:frameMode?"Каркас всех видов работ":"Текущий вид работ",
    marks:activeMarks().map(m=>{const q=markPlacement(m);return{id:m.id,title:markLabel(m),mark:m.mark||m.title,total:q.total,placed:q.placed,left:q.left,geometry:guessGeometry(m)}}),
    groups:allVisibleTypes().map(g=>({...g,visible:!hiddenGroups.has(g.key)})),
-   canEdit:canEdit(),selected:selectedId,showLabels:labelsVisible,
+   canEdit:canEdit(),selected:selectedId,showLabels:labelsVisible,showDimensions:dimensionsVisible,
    onSelect:id=>{selectedId=id;renderDetails()},
    onEdit:id=>{
     if(!canEdit())return;
@@ -2405,10 +2424,10 @@ window.irSchemePage=async function(objectId){
     </div>
    </section>
    <div class="scheme-workspace">
-    <section class="scheme-stage ${mode==="building"?"scheme-building-stage":""} ${previewFullscreen?"scheme-preview-fullscreen":""}" id="schemePreviewStage" aria-label="Предпросмотр монтажной схемы" data-scheme-background="${schemeBackground}" data-scheme-contrast="${backgroundIsDark()?"dark":"light"}" style="--scheme-custom-background:${schemeCustomBackground}">
+    <section class="scheme-stage ${mode==="building"?"scheme-building-stage":""} ${previewFullscreen?"scheme-preview-fullscreen":""}" id="schemePreviewStage" aria-label="Предпросмотр монтажной схемы" data-scheme-background="${currentBackground()}" data-scheme-contrast="${backgroundIsDark()?"dark":"light"}" style="--scheme-custom-background:${currentCustomBackground()}">
      <div class="scheme-stage-toolbar"><div class="scheme-preview-title"><b>Монтажная схема · ${esc(activeGroup().label)}</b><span>${s.total} элементов · ${mode==="building"?"Общий 3D":"План"}</span></div>
       <div class="scheme-legend"><span><i class="mounted"></i>Смонтировано</span><span><i class="planned"></i>Не смонтировано</span><span><i class="partial"></i>Частично</span><span><i class="between"></i>Со смещением от оси</span></div>
-      <div class="scheme-toolbar-actions"><div class="scheme-preview-mode-switch"><button type="button" data-mode="building" class="${mode==="building"?"on":""}">Общий 3D</button><button type="button" data-mode="plan" class="${mode==="plan"?"on":""}">План</button></div><button type="button" id="schemeFullscreenToggle" class="scheme-fullscreen-toggle" title="${previewFullscreen?"Закрыть полноэкранный просмотр":"Предпросмотр схемы на весь экран"}">${previewFullscreen?"✕ Закрыть":"⛶ На весь экран"}</button><label class="scheme-background-picker" title="Цвет фона поля монтажной схемы"><span>Фон</span><select id="schemeBackgroundSelect" data-native-select="1" aria-label="Цвет фона монтажной схемы"><option value="standard" ${schemeBackground==="standard"?"selected":""}>Стандартный</option><option value="white" ${schemeBackground==="white"?"selected":""}>Белый</option><option value="gray" ${schemeBackground==="gray"?"selected":""}>Серый</option><option value="blue" ${schemeBackground==="blue"?"selected":""}>Голубой</option><option value="sand" ${schemeBackground==="sand"?"selected":""}>Бежевый</option><option value="dark" ${schemeBackground==="dark"?"selected":""}>Тёмный</option><option value="custom" ${schemeBackground==="custom"?"selected":""}>Свой цвет</option></select><input id="schemeBackgroundCustom" type="color" aria-label="Выбрать свой цвет фона" value="${schemeCustomBackground}" ${schemeBackground==="custom"?"":"hidden"}></label><button type="button" id="schemeToggleLabels" class="${labelsVisible?"on":""}">Подписи</button><button type="button" id="schemeToggleDimensions" class="${dimensionsVisible?"on":""}" title="Показать межосевые размеры сетки">Размеры</button><div class="scheme-zoom"><button type="button" id="schemeZoomOut" title="Уменьшить">−</button><button type="button" id="schemeZoomValue" title="Вернуть 100%">${Math.round(zoom*100)}%</button><button type="button" id="schemeZoomIn" title="Увеличить">+</button></div><div class="scheme-orient"><button type="button" id="schemeRotate90Left" title="Повернуть на 90° влево">↶90°</button><button type="button" id="schemeRotationValue" title="Вернуть поворот в 0°">${viewRotation}°</button><button type="button" id="schemeRotate90Right" title="Повернуть на 90° вправо">↷90°</button></div></div>
+      <div class="scheme-toolbar-actions"><div class="scheme-preview-mode-switch"><button type="button" data-mode="building" class="${mode==="building"?"on":""}">Общий 3D</button><button type="button" data-mode="plan" class="${mode==="plan"?"on":""}">План</button></div><button type="button" id="schemeFullscreenToggle" class="scheme-fullscreen-toggle" title="${previewFullscreen?"Закрыть полноэкранный просмотр":"Предпросмотр схемы на весь экран"}">${previewFullscreen?"✕ Закрыть":"⛶ На весь экран"}</button><label class="scheme-background-picker" title="Цвет фона поля монтажной схемы"><span>Фон</span><select id="schemeBackgroundSelect" data-native-select="1" aria-label="Цвет фона монтажной схемы"><option value="standard" ${currentBackground()==="standard"?"selected":""}>Стандартный</option><option value="white" ${currentBackground()==="white"?"selected":""}>Белый</option><option value="gray" ${currentBackground()==="gray"?"selected":""}>Серый</option><option value="blue" ${currentBackground()==="blue"?"selected":""}>Голубой</option><option value="sand" ${currentBackground()==="sand"?"selected":""}>Бежевый</option><option value="dark" ${currentBackground()==="dark"?"selected":""}>Тёмный</option><option value="custom" ${currentBackground()==="custom"?"selected":""}>Свой цвет</option></select><input id="schemeBackgroundCustom" type="color" aria-label="Выбрать свой цвет фона" value="${currentCustomBackground()}" ${currentBackground()==="custom"?"":"hidden"}></label><button type="button" id="schemeToggleLabels" class="${labelsVisible?"on":""}">Подписи</button><button type="button" id="schemeToggleDimensions" class="${dimensionsVisible?"on":""}" title="Показать межосевые размеры сетки">Размеры</button><div class="scheme-zoom"><button type="button" id="schemeZoomOut" title="Уменьшить">−</button><button type="button" id="schemeZoomValue" title="Вернуть 100%">${Math.round(zoom*100)}%</button><button type="button" id="schemeZoomIn" title="Увеличить">+</button></div><div class="scheme-orient"><button type="button" id="schemeRotate90Left" title="Повернуть на 90° влево">↶90°</button><button type="button" id="schemeRotationValue" title="Вернуть поворот в 0°">${viewRotation}°</button><button type="button" id="schemeRotate90Right" title="Повернуть на 90° вправо">↷90°</button></div></div>
      </div>
      <div class="scheme-canvas" id="schemeCanvas"></div>
      ${mode==="building"?"":emptyOverlay}
@@ -2433,7 +2452,16 @@ window.irSchemePage=async function(objectId){
   document.getElementById("schemeBackgroundSelect")?.addEventListener("change",e=>applySchemeBackground(e.target.value));
   document.getElementById("schemeBackgroundCustom")?.addEventListener("input",e=>applySchemeBackground("custom",e.target.value));
   document.getElementById("schemeBackgroundCustom")?.addEventListener("change",e=>applySchemeBackground("custom",e.target.value));
-  document.getElementById("schemeToggleLabels")?.addEventListener("click",()=>{labelsVisible=!labelsVisible;draw()});document.getElementById("schemeToggleDimensions")?.addEventListener("click",()=>{dimensionsVisible=!dimensionsVisible;draw()});
+  // Annotation switches only repaint the existing canvas; never recreate WebGL.
+  const updateAnnotations=()=>{
+   document.getElementById("schemeToggleLabels")?.classList.toggle("on",labelsVisible);
+   document.getElementById("schemeToggleDimensions")?.classList.toggle("on",dimensionsVisible);
+   if(mode==="building"&&document.getElementById("irbCanvas")&&window.irBuildingView?.updateAnnotations)
+    window.irBuildingView.updateAnnotations(labelsVisible,dimensionsVisible);
+   else renderScene();
+  };
+  document.getElementById("schemeToggleLabels")?.addEventListener("click",()=>{labelsVisible=!labelsVisible;updateAnnotations()});
+  document.getElementById("schemeToggleDimensions")?.addEventListener("click",()=>{dimensionsVisible=!dimensionsVisible;updateAnnotations()});
   document.getElementById("schemeZoomOut")?.addEventListener("click",()=>setZoom(zoom-.15));document.getElementById("schemeZoomIn")?.addEventListener("click",()=>setZoom(zoom+.15));document.getElementById("schemeZoomValue")?.addEventListener("click",()=>setZoom(1,true));
   const rotateView=delta=>{viewRotation=((viewRotation+delta)%360+360)%360;panX=0;panY=0;renderScene();const v=document.getElementById("schemeRotationValue");if(v)v.textContent=`${viewRotation}°`};document.getElementById("schemeRotate90Left")?.addEventListener("click",()=>rotateView(-90));document.getElementById("schemeRotate90Right")?.addEventListener("click",()=>rotateView(90));document.getElementById("schemeRotationValue")?.addEventListener("click",()=>{viewRotation=0;panX=0;panY=0;renderScene()});
   renderScene();renderDetails();bindGridEditor();bindEditor();bindViewManager()
@@ -4278,7 +4306,7 @@ window.irSelectUI=(()=>{
  */
 window.irBuildingView=(()=>{
  const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true,bent:false,middle:null,ridgeMode:"center",copySource:null,copyTarget:null,copyHover:null,colorMode:"status",renderMode:"real",hiddenSections:[],sectionKey:"",sectionsOpen:false,findQuery:""};
- let observer=null,paint=null,webgl=null,panelsInitialized=false,animationFrame=0,drawFrame=null,updateVisibleScene=null,updateRecordsScene=null;
+ let observer=null,paint=null,webgl=null,panelsInitialized=false,animationFrame=0,drawFrame=null,updateVisibleScene=null,updateRecordsScene=null,updateAnnotationsScene=null;
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const html=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  const pt=(x,y,z)=>({x:Number(x)||0,y:Number(y)||0,z:Number(z)||0});
@@ -4425,7 +4453,7 @@ window.irBuildingView=(()=>{
 
  function render(host,props){
   state.copySource=null;state.copyTarget=null;state.copyHover=null;
-  updateVisibleScene=null;updateRecordsScene=null;
+  updateVisibleScene=null;updateRecordsScene=null;updateAnnotationsScene=null;
   if(!panelsInitialized){
    state.layersOpen=window.innerWidth>=1000;
    try{
@@ -4444,6 +4472,7 @@ window.irBuildingView=(()=>{
   if(webgl){webgl.dispose();webgl=null}
   const axesX=props.axesX,axesY=props.axesY,spanX=props.spanX,spanY=props.spanY,
    gridX=props.gridX,gridY=props.gridY,cols=props.elements,marks=props.marks,groups=props.groups;
+  let showDimensions=Boolean(props.showDimensions),showMemberLabels=Boolean(props.showLabels);
   const sectionKey="ir-project-3d-sections."+String(props.objectId||"default");
   if(!state.renderModeInitialized){
    try{state.renderMode=localStorage.getItem("ir-project-3d-render-mode")==="simple"?"simple":"real"}catch(_error){state.renderMode="real"}
@@ -4840,6 +4869,45 @@ window.irBuildingView=(()=>{
     for(const x of [0,spanX])for(const y of [0,spanY])line(p(pt(x,y,0)),rf(x,y),"rgba(104,155,200,.28)",1,[5,6]);
    }
   };
+  // Draw actual bay dimensions in model-space, projected with the live 3D
+  // camera. A separate dimension chain for each axis follows rotation/zoom.
+  const paintGridDimensions=m=>{
+   const lineColor="#3178a6",textColor="#205b80";
+   const xOffset=Math.max(550,spanX*.025),yOffset=Math.max(550,spanY*.025);
+   const formatSpan=value=>Number(value.toFixed(3)).toLocaleString("ru-RU",{maximumFractionDigits:3})+" мм";
+   const annotate=(begin,end,span)=>{
+    const a=m.project(begin),b=m.project(end),length=Math.hypot(b.x-a.x,b.y-a.y);
+    if(length<10)return;
+    const normal={x:-(b.y-a.y)/length,y:(b.x-a.x)/length};
+    line(a,b,"rgba(255,255,255,.93)",4.5);
+    line(a,b,lineColor,1.35);
+    for(const q of [a,b])line({x:q.x-normal.x*4,y:q.y-normal.y*4},
+     {x:q.x+normal.x*4,y:q.y+normal.y*4},lineColor,1.35);
+    const label=formatSpan(span),midX=(a.x+b.x)/2,midY=(a.y+b.y)/2;
+    ctx.font="700 10px Segoe UI,Arial";
+    const width=Math.max(35,ctx.measureText(label).width+10);
+    // Skip overlapping labels on distant zoom levels; ticks remain visible.
+    if(length<width+5)return;
+    const x=midX-width/2,y=midY-10;
+    ctx.fillStyle="rgba(255,255,255,.95)";
+    ctx.strokeStyle="rgba(49,120,166,.45)";ctx.lineWidth=1;
+    ctx.beginPath();ctx.roundRect(x,y,width,18,4);ctx.fill();ctx.stroke();
+    ctx.fillStyle=textColor;ctx.textAlign="center";ctx.textBaseline="middle";
+    ctx.fillText(label,midX,midY-1);
+   };
+   for(let i=0;i<axesX.length-1;i++){
+    const start=originAxis(gridX,axesX[i]),end=originAxis(gridX,axesX[i+1]);
+    for(const x of [start,end])line(m.project(pt(x,spanY,0)),
+      m.project(pt(x,spanY+yOffset,0)),"rgba(57,115,153,.35)",.9);
+    annotate(pt(start,spanY+yOffset,0),pt(end,spanY+yOffset,0),Math.abs(end-start));
+   }
+   for(let i=0;i<axesY.length-1;i++){
+    const start=originAxis(gridY,axesY[i]),end=originAxis(gridY,axesY[i+1]);
+    for(const y of [start,end])line(m.project(pt(0,y,0)),
+      m.project(pt(-xOffset,y,0)),"rgba(57,115,153,.35)",.9);
+    annotate(pt(-xOffset,start,0),pt(-xOffset,end,0),Math.abs(end-start));
+   }
+  };
   let projectedSegments=[];
   paint=()=>{
    const rect=canvas.getBoundingClientRect();if(rect.width<2||rect.height<2)return;
@@ -4847,10 +4915,12 @@ window.irBuildingView=(()=>{
    if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}
    ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,rect.width,rect.height);ctx.lineJoin="round";ctx.lineCap="round";
    const m=projectFactory();outline(m);
+   if(showDimensions)paintGridDimensions(m);
    const segments=memberSegments().map(s=>({...s,a:m.project(s.start),b:m.project(s.end),depth:(m.raw(s.start).depth+m.raw(s.end).depth)/2}));
    if(!webgl)segments.sort((a,b)=>a.depth-b.depth);
    projectedSegments=segments;
    if(webgl)webgl.render(memberSegments(),m,rect.width,rect.height,dpr);
+   let memberLabels=0;
    for(const s of segments){
     const chosen=String(s.c.id)===String(state.selected),hover=String(s.c.id)===String(state.hover),
      color=chosen?"#2879df":hover?"#168fca":state.colorMode==="mark"?markCss(s.c):state.colorMode==="type"?typeCss(s.c):
@@ -4866,7 +4936,13 @@ window.irBuildingView=(()=>{
      const steps=Math.max(2,Math.min(9,Math.round(len/35)));
      for(let i=0;i<steps;i++)line({x:s.a.x+dx*i/steps,y:s.a.y+dy*i/steps},{x:s.a.x+dx*(i+1)/steps+ox*(i%2),y:s.a.y+dy*(i+1)/steps+oy*(i%2)},color,1.2);
     }
-    if(s.part===0&&(chosen||props.showLabels&&segments.length<120))paintLabel({x:(s.a.x+s.b.x)/2,y:(s.a.y+s.b.y)/2},String(s.c.mark||"?"),chosen?"#2c85e9":"#c7d9e9");
+    if(s.part===0&&(chosen||showMemberLabels&&memberLabels<140)){
+     const at={x:(s.a.x+s.b.x)/2,y:(s.a.y+s.b.y)/2};
+     if(chosen||(at.x>28&&at.x<m.w-28&&at.y>28&&at.y<m.h-28)){
+      paintLabel(at,String(s.c.mark||"?"),chosen?"#2c85e9":"#c7d9e9");
+      if(!chosen)memberLabels++;
+     }
+    }
    }
     if(state.copySource){
     const src=state.copySource,dst=state.copyHover||state.copyTarget;
@@ -5609,6 +5685,9 @@ window.irBuildingView=(()=>{
    if(state.colorMode!=="status")showColorMode();
    paint();
   };
+  updateAnnotationsScene=(labels,dimensions)=>{
+   showMemberLabels=Boolean(labels);showDimensions=Boolean(dimensions);paint()
+  };
   updateRecordsScene=(elements,nextGroups,nextMarks,nextSelected)=>{
    marks.splice(0,marks.length,...nextMarks);
    state.selected=String(nextSelected||"");state.hover="";
@@ -5624,6 +5703,7 @@ window.irBuildingView=(()=>{
  }
  return {render,updateVisibility:(elements,groups)=>updateVisibleScene?.(elements,groups),
   updateRecords:(elements,groups,marks,selected)=>updateRecordsScene?.(elements,groups,marks,selected),
+  updateAnnotations:(labels,dimensions)=>updateAnnotationsScene?.(labels,dimensions),
   start:()=>{const b=document.getElementById("irbStart");if(b)b.click()},
   placementSaved:placement=>{
    if(!placement?.zigzag||!state.chainNext)return;
@@ -5643,7 +5723,7 @@ window.irBuildingView=(()=>{
   dispose:()=>{
    observer?.disconnect();observer=null;
    if(animationFrame){window.cancelAnimationFrame(animationFrame);animationFrame=0}
-   drawFrame=null;updateVisibleScene=null;updateRecordsScene=null;webgl?.dispose();webgl=null;paint=null
+   drawFrame=null;updateVisibleScene=null;updateRecordsScene=null;updateAnnotationsScene=null;webgl?.dispose();webgl=null;paint=null
   }};
 })();
 ;

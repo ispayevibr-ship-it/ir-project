@@ -1,0 +1,27 @@
+"use strict";
+const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm");
+const page=fs.readFileSync("src/scheme-page.js","utf8"),view=fs.readFileSync("src/scheme-building-view.js","utf8");
+assert.match(page,/showLabels:labelsVisible,showDimensions:dimensionsVisible/);
+assert.match(page,/updateAnnotations\(labelsVisible,dimensionsVisible\)/);
+assert.match(view,/if\(showDimensions\)paintGridDimensions\(m\)/);
+assert.match(view,/updateAnnotations:\(labels,dimensions\)=>updateAnnotationsScene\?\./);
+assert.match(view,/paintGridDimensions=m=>/);
+assert.match(view,/const start=originAxis\(gridX,axesX\[i\]\),end=originAxis\(gridX,axesX\[i\+1\]\)/);
+assert.match(view,/const start=originAxis\(gridY,axesY\[i\]\),end=originAxis\(gridY,axesY\[i\+1\]\)/);
+// Separate persisted preferences for the existing 3D and Plan backgrounds.
+const start=page.indexOf(" const backgroundChoices="),end=page.indexOf("\n [rows,markRows,workRows]=",start);
+assert(start>=0&&end>start);
+const saved={"ir-project.scheme-background.7":JSON.stringify({mode:"dark",color:"#151515"})};
+const storage={getItem:key=>saved[key]||null,setItem:(key,value)=>saved[key]=value};
+const stage={dataset:{},style:{setProperty(){}}},choice={value:null},color={value:null,hidden:null};
+const document={getElementById:id=>({"schemePreviewStage":stage,"schemeBackgroundSelect":choice,"schemeBackgroundCustom":color})[id]};
+const env={oid:"7",mode:"building",window:{localStorage:storage},document};
+const api=vm.runInNewContext(page.slice(start,end)+"\n({currentBackground,currentCustomBackground,backgroundIsDark,applySchemeBackground,setPlan:()=>{mode='plan'},set3D:()=>{mode='building'}})",env);
+assert.equal(api.currentBackground(),"dark");
+api.setPlan();assert.equal(api.currentBackground(),"standard");assert.equal(api.backgroundIsDark(),false);
+api.applySchemeBackground("blue");assert.equal(api.currentBackground(),"blue");
+api.set3D();assert.equal(api.currentBackground(),"dark");
+api.setPlan();assert.equal(api.currentBackground(),"blue");
+assert.equal(JSON.parse(saved["ir-project.scheme-background.7.plan"]).mode,"blue");
+assert.equal(JSON.parse(saved["ir-project.scheme-background.7"]).mode,"dark");
+console.log("3D dimensions, label toggle and independent Plan light background verified");
