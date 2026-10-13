@@ -21,7 +21,14 @@
  }
  async function inlinePhotos(sectionRows){
   const refs=new Set();
-  for(const rows of Object.values(sectionRows))for(const row of rows)photoRefs(row.data||row,refs);
+  for(const [section,rows] of Object.entries(sectionRows))for(const row of rows){
+   const d=row.data||row;
+   photoRefs(d,refs);
+   if(section==="reports")for(const photo of array(d.photos).length?d.photos:array(d.reportPhotos)){
+    const file=typeof photo==="string"?photo:String(photo?.file_path||photo?.file||photo?.path||"");
+    if(file&&!dataUrl(file)&&!/\.(pdf|docx?|xlsx?)$/i.test(file)&&file.length<1200)refs.add(file)
+   }
+  }
   const keys=[...refs],output=new Map();let cursor=0;
   async function worker(){
    while(cursor<keys.length){
