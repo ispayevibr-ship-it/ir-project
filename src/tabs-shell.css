@@ -196,3 +196,21 @@ body{min-width:0}
  stroke-linejoin:round;
 }
 .tabs-tools #tabsReload::after{content:none!important}
+
+/* IR Project 1.7.147: About program modal, including the tab-shell bridge. */
+.ir-about-dialog{box-sizing:border-box;width:min(455px,calc(100vw - 32px));max-width:calc(100vw - 32px);max-height:calc(100vh - 32px);padding:0;overflow:auto;border:1px solid #d5e4f0;border-radius:15px;background:#fff;color:#25455f;font-family:"Segoe UI",Arial,sans-serif;box-shadow:0 24px 75px rgba(25,58,89,.28)}
+.ir-about-dialog::backdrop{background:rgba(21,42,64,.38);backdrop-filter:blur(3px)}
+.ir-about-head{display:flex;align-items:center;gap:13px;padding:24px 24px 18px;border-bottom:1px solid #e4edf5}
+.ir-about-icon{display:grid;place-items:center;flex:none;width:42px;height:42px;border-radius:11px;background:#eaf3ff;color:#176cc2;font-size:22px;font-weight:800;font-style:normal}
+.ir-about-head>div{flex:1;min-width:0}
+.ir-about-head h2{margin:0;color:#20445f;font-size:19px;font-weight:800}
+.ir-about-head p{margin:5px 0 0;color:#8298ab;font-size:12px}
+.ir-about-close{display:grid;place-items:center;flex:none;width:31px;height:31px;padding:0;border:0;border-radius:8px;background:#f0f5f9;color:#607b92;font-size:22px;cursor:pointer}
+.ir-about-info{padding:21px 24px 15px;display:grid;gap:18px}
+.ir-about-line{display:grid;gap:7px}
+.ir-about-line>span{font-size:11px;color:#7992a6;font-weight:700}
+.ir-about-line>strong{font-size:13px;line-height:1.55;color:#274962;font-weight:750;overflow-wrap:anywhere}
+.ir-about-footer{display:flex;justify-content:flex-end;padding:14px 24px 22px}
+.ir-about-done{min-height:37px;padding:9px 22px;border:0;border-radius:8px;background:#176fcb;color:#fff;font-size:12px;font-weight:750;cursor:pointer}
+.ir-about-done:hover{background:#105dab}
+.ir-about-dialog button:focus-visible{outline:2px solid #3186d8;outline-offset:2px}

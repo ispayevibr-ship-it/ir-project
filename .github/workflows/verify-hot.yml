@@ -46,6 +46,8 @@ jobs:
         run: node scripts/test-scheme-load-indexes.js
       - name: Test scheme loading overlay until first 3D frame
         run: node scripts/test-scheme-load-overlay.js
+      - name: Test About dialog and installed version
+        run: node scripts/test-program-about.js
       - name: Check generated JavaScript and CSS bundles
         run: node scripts/build-runtime.js --check
       - name: Check hot-update manifest sizes
