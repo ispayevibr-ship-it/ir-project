@@ -147,7 +147,7 @@
   const first=htmlList.slice(0,5).join("");
   if(htmlList.length<=5)return first;
   const other=htmlList.slice(5).join("");
-  const suffix=kind==="reports"?"отчётов":("групп · "+exportFormat(totalUnits)+" шт.");
+  const suffix=kind==="reports"?"отчётов":kind==="positions"?"позиций":("групп · "+exportFormat(totalUnits)+" шт.");
   return first+'<details class="ir-export-more ir-export-more-'+esc(kind)+'"><summary><span class="ir-export-more-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span><span class="ir-export-more-show">Показать ещё (всего '+totalCount+' '+suffix+')</span><span class="ir-export-more-hide">Свернуть (показать первые 5)</span></summary><div class="ir-export-more-items">'+other+'</div></details>'
  }
 
@@ -261,9 +261,83 @@
    '<div class="ir-export-mark-panel ir-export-mark-panel--remaining"><div class="ir-export-mark-head"><span>Вид работы</span><span>Шифр</span><span>Всего марок</span><span>Шкала прогресса</span><span>Смонтировано, шт. / %</span><span>Осталось, шт. / %</span></div>'+markProgressPanel(remainingGroups,"remaining")+'</div>'+
    '</div></div>'
  }
+
+ function markDetailData(markRows,workRows,reportRows){
+  const norm=v=>String(v??"").trim().toLowerCase().replace(/\s+/g," ");
+  const works=new Map(array(workRows).map(row=>{
+   const d=row.data||{};
+   return[String(row.id),{name:d.work_type||row.title||"Без вида работы",code:d.project_code||d.code||"",unit:d.unit||""}]
+  }));
+  const mounted=new Map();
+  for(const report of array(reportRows)){
+   const r=report.data||report;
+   for(const item of array(r.items).length?r.items:array(r.works)){
+    if(item?.accounting_type==="service"||item?.is_service===true||norm(item?.unit)==="услуга")continue;
+    const id=item?.mark_id??item?.markId??item?.mark_record_id;
+    if(id==null||id==="")continue;
+    const key=String(id),qty=Math.max(0,exportNumber(item.qty??item.count??item.quantity));
+    mounted.set(key,(mounted.get(key)||0)+qty)
+   }
+  }
+  return array(markRows).map((raw,i)=>{
+   const d=raw.data||{},id=String(raw.id),work=works.get(String(d.work_type_id||""))||{};
+   if(d.accounting_type==="service"||norm(d.unit)==="услуга")return null;
+   const qty=Math.max(0,exportNumber(d.qty??d.count)),fromReports=mounted.get(id);
+   const done=Math.min(qty,Math.max(0,fromReports==null?exportNumber(d.mounted??d.done):fromReports));
+   const left=Math.max(0,qty-done),pct=qty?Math.min(100,done/qty*100):0;
+   const uv=exportNumber(d.unit_volume??d.volume_one??d.volume1),unit=String(d.unit||work.unit||"").trim();
+   const rawTotal=d.total_value??d.total_volume;
+   const total=rawTotal!==null&&rawTotal!==undefined&&String(rawTotal).trim()!==""?exportNumber(rawTotal):qty*uv;
+   return{
+    id,index:i+1,mark:String(d.mark||raw.title||"—"),name:String(d.name||"").trim(),
+    work:String(work.name||d.work_type||"Без вида работы"),code:String(d.project_code||d.code||work.code||"").trim(),
+    qty,done,left,pct,uv,total,unit,
+    status:qty>0&&done>=qty-1e-9?"done":done>0?"partial":"left"
+   }
+  }).filter(Boolean).sort((a,b)=>a.mark.localeCompare(b.mark,"ru",{numeric:true})||a.id.localeCompare(b.id,"ru"))
+ }
+ function renderMarkCards(markRows,workRows,reportRows){
+  const marks=markDetailData(markRows,workRows,reportRows);
+  if(!marks.length)return'<div class="ir-export-empty-card">Ведомость пока пустая</div>';
+  const pct=n=>exportFormat(Math.round(n*10)/10)+"%";
+  const box=(title,value,sub="",kind="")=>'<div class="ir-export-mark-stat '+kind+'"><small>'+esc(title)+'</small><b>'+esc(value)+'</b>'+(sub?'<span>'+esc(sub)+'</span>':"")+'</div>';
+  const item=(m,i)=>{
+   const status=m.status==="done"?"Смонтировано":m.status==="partial"?"Частично":"Не смонтировано";
+   const unit=m.unit||"ед.",unitName=m.unit==="тн"?"Вес":m.unit==="м2"?"Площадь":m.unit==="м3"?"Объём":"Объём";
+   return'<article class="ir-export-mark-card status-'+m.status+'"><details'+(i===0?' open':'')+'>'+
+    '<summary class="ir-export-mark-brief">'+
+     '<span class="ir-export-mark-num">'+(i+1)+'</span>'+
+     '<span class="ir-export-mark-main"><b>'+esc(m.mark)+'</b><small>'+esc(m.name||m.work)+'</small></span>'+
+     '<span class="ir-export-mark-brief-code">'+esc(m.code||"Без шифра")+'</span>'+
+     '<span class="ir-export-mark-brief-qty">'+esc(exportFormat(m.qty))+' <small>шт.</small></span>'+
+     '<span class="ir-export-mark-badge status-'+m.status+'">'+esc(status)+'</span>'+
+     '<span class="ir-export-daily-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>'+
+    '</summary>'+
+    '<div class="ir-export-mark-detail">'+
+      '<div class="ir-export-mark-stats">'+
+       box("Всего",exportFormat(m.qty)+" шт.","По ведомости")+
+       box("Смонтировано",exportFormat(m.done)+" шт.",pct(m.pct),"good")+
+       box("Осталось",exportFormat(m.left)+" шт.",pct(100-m.pct),"pending")+
+       box("Готовность",pct(m.pct),"По количеству марок")+
+      '</div>'+
+      '<div class="ir-export-mark-detail-bar"><div class="ir-export-mark-track"><i style="width:'+m.pct.toFixed(2)+'%"></i></div></div>'+
+      '<div class="ir-export-mark-specs">'+
+       '<div><small>Наименование</small><b>'+esc(m.name||"—")+'</b></div>'+
+       '<div><small>Вид работы</small><b>'+esc(m.work)+'</b></div>'+
+       '<div><small>Шифр</small><b>'+esc(m.code||"—")+'</b></div>'+
+       '<div><small>'+esc(unitName)+' 1 шт.</small><b>'+esc(exportFormat(m.uv))+' '+esc(unit)+'</b></div>'+
+       '<div><small>'+esc(unitName)+' всего</small><b>'+esc(exportFormat(m.total))+' '+esc(unit)+'</b></div>'+
+      '</div>'+
+     '</div>'+
+   '</details></article>'
+  };
+  const cards=marks.map(item);
+  return'<div class="ir-export-mark-cards">'+exportMoreCards(cards,"positions",marks.length)+'</div>'
+ }
+
  function renderMarkSection(rows,workRows,reportRows,images){
   const summary=renderMarksOverview(rows,workRows,reportRows);
-  const full=rows.length?'<details class="ir-export-mark-raw"><summary>Подробная ведомость по маркам ('+rows.length+' позиций)</summary>'+renderRows(rows,"marks",images)+'</details>':"";
+  const full=rows.length?'<details class="ir-export-mark-raw"><summary>Подробная ведомость по маркам ('+rows.length+' позиций)</summary>'+renderMarkCards(rows,workRows,reportRows)+'</details>':"";
   return summary+full
  }
 
@@ -452,6 +526,44 @@
     ".ir-export-mark-rows>.ir-export-more{margin:11px 5px 0}",
     ".ir-export-mark-rows .ir-export-more-items{gap:0;padding:0}",
     ".ir-export-mark-rows .ir-export-more-items>.ir-export-mark-row:last-child{border-bottom:0}",
+    ".ir-export-mark-cards{display:grid;gap:8px;padding:12px;background:#fff}",
+    ".ir-export-mark-card{border:1px solid #dae6ef;border-radius:10px;background:#fff;overflow:hidden;box-shadow:0 1px 4px rgba(20,50,70,.035)}",
+    ".ir-export-mark-card>details>summary{list-style:none;cursor:pointer}",
+    ".ir-export-mark-card>details>summary::-webkit-details-marker{display:none}",
+    ".ir-export-mark-brief{display:flex;align-items:center;gap:11px;min-height:66px;padding:11px 14px;background:#fff;transition:background-color .15s}",
+    ".ir-export-mark-brief:hover{background:#f3f9ff}",
+    ".ir-export-mark-card>details[open]>summary{background:#f1f8fe;border-bottom:1px solid #dce9f4}",
+    ".ir-export-mark-card>details>summary:focus-visible{outline:2px solid #478ac3;outline-offset:-3px;border-radius:8px}",
+    ".ir-export-mark-num{flex:0 0 24px;text-align:center;color:#97acba;font-size:10px}",
+    ".ir-export-mark-main{display:grid;gap:4px;min-width:120px;flex:1 1 240px}",
+    ".ir-export-mark-main b{font-weight:800;font-size:13px;color:#214b67;overflow-wrap:anywhere}",
+    ".ir-export-mark-main small{font-size:11px;color:#718fa3;overflow-wrap:anywhere;line-height:1.4}",
+    ".ir-export-mark-brief-code{flex:0 1 130px;min-width:78px;padding:6px 8px;background:#f0f5fa;border-radius:6px;color:#66849a;font-size:10px;text-align:center;overflow-wrap:anywhere}",
+    ".ir-export-mark-brief-qty{flex:0 0 88px;font-size:12px;font-weight:800;color:#234f6a;text-align:center}",
+    ".ir-export-mark-brief-qty small{font-weight:600;color:#89a1b1}",
+    ".ir-export-mark-badge{flex:0 1 130px;min-width:110px;padding:7px 9px;border-radius:7px;text-align:center;font-size:10px;font-weight:750}",
+    ".ir-export-mark-badge.status-done{background:#e2f7eb;color:#16844f}",
+    ".ir-export-mark-badge.status-partial{background:#fff4dd;color:#a36c1c}",
+    ".ir-export-mark-badge.status-left{background:#fff0ed;color:#b65c47}",
+    ".ir-export-mark-card>details[open] .ir-export-daily-chevron{background:#deeffe;border-color:#bddbf3;color:#176fac}",
+    ".ir-export-mark-card>details[open] .ir-export-daily-chevron svg{transform:rotate(180deg)}",
+    ".ir-export-mark-card>details>summary:hover .ir-export-daily-chevron{background:#dbeefa;border-color:#a8d2f0;color:#1367a3}",
+    ".ir-export-mark-detail{display:grid;gap:13px;padding:16px;background:#fcfeff}",
+    ".ir-export-mark-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}",
+    ".ir-export-mark-stat{display:grid;gap:5px;min-width:0;padding:12px 13px;background:#fff;border:1px solid #e1ebf2;border-radius:9px}",
+    ".ir-export-mark-stat small{font-size:10px;color:#8298a8}",
+    ".ir-export-mark-stat b{font-size:17px;color:#284f69;font-weight:800}",
+    ".ir-export-mark-stat span{font-size:10px;color:#8fa3b0}",
+    ".ir-export-mark-stat.good b{color:#21815c}.ir-export-mark-stat.pending b{color:#b98041}",
+    ".ir-export-mark-detail-bar .ir-export-mark-track{height:11px}",
+    ".ir-export-mark-specs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:14px;background:#f4f9fd;border:1px solid #e6eff5;border-radius:9px}",
+    ".ir-export-mark-specs>div{display:grid;gap:5px;min-width:0}",
+    ".ir-export-mark-specs small{font-size:10px;color:#859bab}",
+    ".ir-export-mark-specs b{font-size:12px;color:#31556d;font-weight:650;overflow-wrap:anywhere}",
+    ".ir-export-mark-cards>.ir-export-more{margin-top:4px}",
+    "@media(max-width:1100px){.ir-export-mark-brief{flex-wrap:wrap}.ir-export-mark-main{flex:1 1 200px}.ir-export-mark-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.ir-export-mark-specs{grid-template-columns:repeat(2,minmax(0,1fr))}}",
+    "@media(max-width:700px){.ir-export-mark-badge{min-width:95px}.ir-export-mark-brief-code{flex:1 1 110px}.ir-export-mark-specs{grid-template-columns:1fr}}",
+    "@media print{.ir-export-mark-card{break-inside:avoid}.ir-export-mark-detail{display:grid!important}}",
     ".ir-export-mark-raw{margin-top:14px;border:1px solid #e2eaf2;border-radius:9px;background:#f8fbfe;overflow:hidden}",
     ".ir-export-mark-raw>summary{display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;cursor:pointer;list-style:none;font-weight:750;font-size:12px;color:#37779f}",
     ".ir-export-mark-raw>summary::-webkit-details-marker{display:none}",

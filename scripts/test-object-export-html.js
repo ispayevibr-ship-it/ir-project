@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17158'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17159'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card:not(.oor2-photo-card):not(.oor-marks-card),.object-overview-marks-wrap > .object-overview-marks-card'),"remove duplicate latest reports and old marks previews from snapshot");
@@ -27,6 +27,29 @@ assert(source.includes('markProgressPanel(groups,"all")'),"all grouped mark rows
 assert(source.includes('exportMoreCards(cards,"marks"'),"only five work and code groups are initially visible");
 assert(source.includes('renderMarkSection(rows,support.workTypes||[],support.reports||[],images)'),"marks have grouped read-only cards");
 assert(source.includes('class="ir-export-mark-raw"'),"full mark-by-mark details remain available");
+assert(source.includes("renderMarkCards(rows,workRows,reportRows)"),"mark-by-mark list uses the new designed card renderer");
+assert(source.includes('class="ir-export-mark-card status-'),"individual marks have styled cards");
+assert(source.includes('class="ir-export-daily-chevron" aria-hidden="true"><svg'),"mark cards reuse daily report SVG chevrons");
+assert(source.includes("ir-export-mark-card>details[open] .ir-export-daily-chevron svg{transform:rotate(180deg)}"),"mark card chevron turns on expansion");
+assert(source.includes('exportMoreCards(cards,"positions",marks.length)'),"show only first five individual marks initially");
+assert(!source.includes('renderRows(rows,"marks",images)'),"technical ID/Type/mounted/received list is no longer exported for marks");
+const detailStart=source.indexOf(" function markDetailData("),detailEnd=source.indexOf(" function renderMarkCards(",detailStart);
+assert(detailStart>=0&&detailEnd>detailStart,"mark detail math helper exists");
+const detailFn=vm.runInNewContext('(function(){const array=x=>Array.isArray(x)?x:[];const exportNumber=v=>{const n=Number(String(v??0).replace(/\\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};'+source.slice(detailStart,detailEnd)+';return markDetailData})()', {});
+const detailRows=detailFn(
+ [{id:101,data:{work_type_id:7,mark:"В1",name:"Связь горизонтальная",qty:36,mounted:36,unit:"тн",unit_volume:0.023}},{id:102,data:{work_type_id:7,mark:"В2",qty:4,mounted:0,unit:"тн",total_volume:0.1}}],
+ [{id:7,title:"Монтаж металлоконструкций",data:{project_code:"041-2025 КМД"}}],
+ [{id:1,data:{items:[{mark_id:101,qty:13}]}}]
+);
+assert.equal(detailRows.length,2);
+const det=detailRows.find(x=>x.mark==="В1");
+assert.equal(det.qty,36);
+assert.equal(det.done,13,"report facts override cached mounted value");
+assert.equal(det.left,23);
+assert.equal(det.status,"partial");
+assert(Math.abs(det.total-.828)<1e-9,"mark total mass calculated from unit value and qty");
+assert.equal(detailRows.find(x=>x.mark==="В2").status,"left");
+
 assert(!source.includes('["marks",".object-overview-marks-wrap > .object-overview-marks-card"]'),"old limited marks preview removed");
 assert(!source.includes('["marks",".object-overview-reports > .oor-marks-card"]'),"old duplicate marks preview removed");
 const groupStart=source.indexOf(" function markProgressGroups(");
