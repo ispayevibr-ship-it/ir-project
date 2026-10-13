@@ -53,6 +53,8 @@ jobs:
         run: node scripts/test-program-about.js
       - name: Test redesigned settings menu in standalone and tabbed windows
         run: node scripts/test-settings-menu.js
+      - name: Test full object HTML export
+        run: node scripts/test-object-export-html.js
       - name: Test database export from settings
         run: node scripts/test-database-export-settings.js
       - name: Test styled success and error notices
