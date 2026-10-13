@@ -6,12 +6,15 @@ const css=fs.readFileSync("src/scheme-page.css","utf8");
 const start=page.indexOf("const irSchemeLoading=(()=>{"),stop=page.indexOf("\nwindow.irSchemePage=",start);
 assert(start>=0&&stop>start);
 const frames=[],handlers=new Map(),children=[];
-const makeElement=()=>({
- id:"",className:"",innerHTML:"",attributes:{},removed:false, 
- setAttribute(k,v){this.attributes[k]=v},
- remove(){this.removed=true;const at=children.indexOf(this);if(at>=0)children.splice(at,1)},
- querySelector(){return {classList:{add(){}},innerHTML:"",querySelector(){return {onclick:null}}}}
-});
+const makeElement=()=>{
+ const card={classList:{add(){}},innerHTML:"",querySelector(){return {onclick:null}}};
+ return{
+  id:"",className:"",innerHTML:"",attributes:{},removed:false,
+  setAttribute(k,v){this.attributes[k]=v},
+  remove(){this.removed=true;const at=children.indexOf(this);if(at>=0)children.splice(at,1)},
+  querySelector(){return card}
+ }
+};
 const scope={
  document:{createElement:makeElement,body:{appendChild(element){children.push(element)}}},
  window:{addEventListener(k,fn){handlers.set(k,fn)}},
