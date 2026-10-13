@@ -24,6 +24,8 @@ jobs:
           node-version: '22'
       - name: Check JavaScript syntax
         run: |
+          node --check main.js
+          node --check src/database.js
           node --check src/app.js
           node --check src/scheme-page.js
           node --check src/scheme-building-view.js
@@ -52,6 +54,8 @@ jobs:
         run: node scripts/test-settings-menu.js
       - name: Test database export from settings
         run: node scripts/test-database-export-settings.js
+      - name: Test database safety on incompatible schemas
+        run: node scripts/test-database-safety.js
       - name: Check generated JavaScript and CSS bundles
         run: node scripts/build-runtime.js --check
       - name: Check hot-update manifest sizes
