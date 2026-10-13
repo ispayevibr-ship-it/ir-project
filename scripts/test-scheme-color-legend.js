@@ -11,7 +11,7 @@ const from=js.indexOf("  const showColorMode=()=>{"),to=js.indexOf("\n  const se
 assert(from>=0&&to>from);
 const values={irbColorStatus:{},irbColorTypes:{},irbColorMarks:{},irbColorToggle:{},irbColorCaption:{},
  irbColorLegend:{scrollTop:-1},irbLegend:{}};
-for(const x of Object.values(values)){x.classList={toggle(){}};x.setAttribute=()=>{}}
+for(const x of Object.values(values)){x.classList={toggle(){}};x.setAttribute=()=>{};x.replaceChildren=()=>{x.innerHTML=""}}
 const state={colorMode:"type"};
 const env={state,el:id=>values[id],typeSummary:()=>[{label:"Колонны",count:45,rgb:"#336699"},{label:"Балки",count:12,rgb:"#aabbcc"}],
  colorSummary:()=>[],html:x=>String(x)};
