@@ -380,23 +380,21 @@
    '<section class="ir-export-section"><header class="ir-export-section-head"><div><h2>'+esc(labels[key]||key)+'</h2></div><span class="ir-export-count">'+rows.length+' записей</span></header>'+body+'</section></div>'
  }
  function sidebarHtml(aside,keys){
-  const nav=aside?.querySelector(".ir-object-nav");
-  const links=nav?[...nav.querySelectorAll("button[data-key]")].filter(el=>!el.disabled):[];
+  const originalNav=aside?.querySelector(".ir-object-nav");
+  const links=originalNav?[...originalNav.querySelectorAll("button[data-key]")]:[];
   const original=key=>links.find(el=>el.dataset.key===key);
   const icon=key=>original(key)?.querySelector(".nav-icon")?.innerHTML||"";
   const name=key=>original(key)?.querySelector(".nav-label")?.textContent||labels[key]||key;
-  const link=(key,href,active=false)=>'<a class="ir-export-nav'+(active?' active':'')+'" href="'+href+'" data-key="'+esc(key)+'"><span class="nav-icon" aria-hidden="true">'+icon(key)+'</span><span class="nav-label">'+esc(name(key))+'</span></a>';
-  const navHtml=link("overview","#overview",true)+keys.map(key=>link(key,"#section-"+esc(key))).join("");
-  const logoImage=aside?.querySelector(".ir-object-brand img");
-  const logo=logoImage?'<img src="'+esc(logoImage.src)+'" alt="'+esc(logoImage.alt||"Логотип компании")+'">':'<span>'+esc(aside?.querySelector(".ir-object-brand span")?.textContent||"IR Project")+'</span>';
-  const backIcon=aside?.querySelector(".ir-object-all .menu-icon")?.innerHTML||"";
-  const upIcon=aside?.querySelector(".ir-object-top .menu-icon")?.innerHTML||"";
-  return'<aside class="ir-object-sidebar-fixed ir-export-sidebar" aria-label="Разделы HTML-отчёта">'+
-   '<a class="ir-object-brand" href="#overview" title="К обзору объекта">'+logo+'</a>'+
-   '<a class="ir-object-all" href="#overview" title="В HTML-отчёте доступен один объект"><span class="menu-icon">'+backIcon+'</span><b>Все объекты</b></a>'+
-   '<nav class="ir-object-nav" aria-label="Разделы объекта">'+navHtml+'</nav>'+
-   '<a class="ir-object-top" href="#overview"><span class="menu-icon round">'+upIcon+'</span><b>Наверх</b></a>'+
-   '</aside>'
+  const caret='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+  const item=key=>'<a class="ir-export-subnav-link" href="#section-'+esc(key)+'"><span class="nav-icon" aria-hidden="true">'+icon(key)+'</span><span class="nav-label">'+esc(name(key))+'</span></a>';
+  const items=keys.length?keys.map(item).join(""):'<span class="ir-export-menu-empty">Других разделов нет</span>';
+  return'<nav class="ir-export-topnav" aria-label="Навигация по HTML-отчёту">'+
+   '<div class="ir-export-topnav-inner">'+
+   '<a class="ir-export-toplink active" href="#overview"><span class="nav-icon" aria-hidden="true">'+icon("overview")+'</span><span>Обзор объекта</span></a>'+
+   '<details class="ir-export-menu">'+
+   '<summary class="ir-export-menu-trigger"><span class="ir-export-menu-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span><span>Разделы меню</span><span class="ir-export-menu-caret">'+caret+'</span></summary>'+
+   '<div class="ir-export-menu-items" aria-label="Разделы объекта"><div class="ir-export-menu-caption">ПЕРЕЙТИ К РАЗДЕЛУ</div>'+items+'</div>'+
+   '</details></div></nav>'
  }
  function copyCanvas(live,copy){
   const originals=[...live.querySelectorAll("canvas")],copies=[...copy.querySelectorAll("canvas")];
@@ -410,7 +408,12 @@
   copy.querySelectorAll("dialog,form,script,iframe,object,embed,video,audio,button,input,textarea,select,[contenteditable],.window-update,.profile-panel,.ir-notice-stack").forEach(el=>el.remove());
   copy.querySelectorAll("a").forEach(el=>{const t=document.createElement("span");t.innerHTML=el.innerHTML;el.replaceWith(t)});
   copy.querySelectorAll("*").forEach(el=>{for(const att of [...el.attributes]){if(/^on/i.test(att.name)||att.name==="tabindex")el.removeAttribute(att.name)}});
-  const hero=copy.querySelector(".object-overview-hero");if(hero)hero.id="overview";
+  const hero=copy.querySelector(".object-overview-hero");
+  if(hero){
+   hero.id="overview";
+   // The offline navigation belongs immediately after the object banner, not in a fixed sidebar.
+   hero.insertAdjacentHTML("afterend",sidebarHtml(document.querySelector(".ir-object-sidebar-fixed"),keys))
+  }
   const menu=copy.querySelector(".object-hero-menu");if(menu)menu.remove();
   const preview=extractOverviewPreviews(copy,keys);
   return {overview:copy.innerHTML,preview}
@@ -445,29 +448,38 @@
     "*{box-sizing:border-box}",
     "html{scroll-behavior:smooth}body.ir-object-overview{padding-top:0!important;min-width:760px;background:#f4f6f9}",
     "body.ir-object-overview #app{padding-bottom:30px!important}",
-    "body.ir-object-route.ir-object-overview #app{margin-left:174px!important;width:calc(100% - 174px)!important;max-width:none!important}",
-    ".ir-export-sidebar.ir-object-sidebar-fixed{top:0!important;left:0!important;width:174px!important;height:100vh!important;padding:0 9px 10px!important;background:linear-gradient(180deg,#14283c 0%,#0d2032 100%)!important;color:#d5dee7!important;display:flex!important;flex-direction:column!important;overflow:hidden!important;border-right:0!important}",
-    ".ir-export-sidebar .ir-object-brand{width:calc(100% + 18px)!important;margin:0 -9px 0!important;padding:8px 0 9px!important;background:#fff!important;display:flex!important;align-items:center!important;justify-content:center!important;overflow:hidden!important;min-height:0!important;border:0!important;text-decoration:none!important}",
-    ".ir-export-sidebar .ir-object-brand img{display:block!important;width:100%!important;height:auto!important;max-height:none!important;object-fit:cover!important;object-position:center!important;padding:0!important}",
-    ".ir-export-sidebar .ir-object-brand span{display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;min-height:58px!important;padding:8px!important;font-size:12px!important;font-weight:800!important;color:#17364d!important;text-align:center!important}",
-    ".ir-export-sidebar .ir-object-all{display:flex!important;align-items:center!important;gap:9px!important;flex:0 0 auto!important;width:100%!important;min-height:36px!important;margin:4px 0 5px!important;padding:0 9px!important;border:0!important;border-radius:5px!important;background:rgba(255,255,255,.045)!important;color:#d5e0e9!important;text-decoration:none!important;text-align:left!important;font-size:10px!important}",
-    ".ir-export-sidebar .ir-object-all:hover{background:rgba(255,255,255,.08)!important;color:#fff!important}",
-    ".ir-export-sidebar .ir-object-all b{font-weight:600!important;line-height:1!important}",
-    ".ir-export-sidebar .ir-object-nav{display:flex!important;flex-direction:column!important;flex:1 1 auto!important;min-height:0!important;gap:3px!important;padding:7px 0!important;overflow-y:auto!important;overflow-x:hidden!important;scrollbar-width:none!important}",
-    ".ir-export-sidebar .ir-object-nav::-webkit-scrollbar{display:none!important}",
-    ".ir-export-sidebar .ir-object-nav a.ir-export-nav{position:relative!important;display:flex!important;align-items:center!important;gap:9px!important;flex:0 0 auto!important;width:100%!important;min-height:36px!important;padding:0 9px!important;border:0!important;border-radius:5px!important;background:transparent!important;color:#b9c6d2!important;text-decoration:none!important;text-align:left!important;font-size:10px!important;font-weight:500!important;white-space:nowrap!important;cursor:pointer!important;box-shadow:none!important}",
-    ".ir-export-sidebar .ir-object-nav a.ir-export-nav:hover{background:rgba(255,255,255,.055)!important;color:#fff!important}",
-    ".ir-export-sidebar .ir-object-nav a.ir-export-nav.active{background:#1e61b4!important;color:#fff!important;font-weight:700!important;box-shadow:inset 0 0 0 1px rgba(91,157,238,.15)!important}",
-    ".ir-export-sidebar .ir-object-nav a.ir-export-nav.active .nav-icon{color:#fff!important}",
-    ".ir-export-sidebar .ir-object-nav a.ir-export-nav .nav-icon{display:grid!important;place-items:center!important;flex:0 0 18px!important;width:18px!important;height:18px!important;color:#c5d4df!important}",
-    ".ir-export-sidebar .ir-object-nav a.ir-export-nav .nav-icon svg{display:block!important;width:18px!important;height:18px!important}",
-    ".ir-export-sidebar .ir-object-nav a.ir-export-nav .nav-label{min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;color:inherit!important}",
-    ".ir-export-sidebar .ir-object-top{margin-top:auto!important;display:flex!important;align-items:center!important;gap:9px!important;flex:0 0 auto!important;width:100%!important;min-height:40px!important;padding:0 10px!important;border:0!important;border-top:1px solid rgba(255,255,255,.07)!important;background:transparent!important;color:#c5d1db!important;text-decoration:none!important;text-align:left!important;font-size:10px!important}",
-    ".ir-export-sidebar .ir-object-top:hover{background:rgba(255,255,255,.05)!important;color:#fff!important}",
-    ".ir-export-sidebar .ir-object-top b{font-weight:500!important;line-height:1!important}",
-    "body:has(.ir-export-section:target) .ir-export-sidebar .ir-object-nav a.ir-export-nav[href=\"#overview\"].active{background:transparent!important;color:#b9c6d2!important;font-weight:500!important;box-shadow:none!important}",
-    "body:has(.ir-export-section:target) .ir-export-sidebar .ir-object-nav a.ir-export-nav[href=\"#overview\"].active .nav-icon{color:#c5d4df!important}",
-    "@media(max-width:900px){.ir-export-sidebar.ir-object-sidebar-fixed{width:150px!important}body.ir-object-route.ir-object-overview #app{margin-left:150px!important;width:calc(100% - 150px)!important}.ir-export-sidebar .ir-object-nav a.ir-export-nav{font-size:9px!important;padding:0 7px!important}.ir-export-sidebar .ir-object-all,.ir-export-sidebar .ir-object-top{font-size:9px!important}}",
+    "body.ir-object-route.ir-object-overview{margin:0!important;padding:0!important}",
+    "body.ir-object-route.ir-object-overview #app{margin:0!important;width:100%!important;min-width:0!important;max-width:none!important;padding:0 0 24px!important;box-sizing:border-box!important}",
+    ".ir-export-topnav{position:sticky!important;top:0!important;z-index:95!important;display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;min-height:62px!important;margin:0!important;padding:9px 16px!important;background:rgba(255,255,255,.98)!important;border-bottom:1px solid #dce6ee!important;box-shadow:0 4px 16px rgba(29,60,82,.075)!important;overflow:visible!important;box-sizing:border-box!important}",
+    ".ir-export-topnav-inner{display:flex;align-items:center;justify-content:center;gap:10px;min-width:0;max-width:100%;position:relative}",
+    ".ir-export-topnav a,.ir-export-topnav summary{text-decoration:none!important;font:700 12px/1.4 'Segoe UI',Arial,sans-serif!important}",
+    ".ir-export-toplink,.ir-export-menu-trigger{display:flex!important;align-items:center!important;justify-content:center!important;gap:10px!important;min-height:41px!important;padding:10px 17px!important;border-radius:9px!important;border:1px solid #dae6ef!important;background:#f4f8fc!important;color:#315a76!important;white-space:nowrap!important;cursor:pointer!important;user-select:none!important}",
+    ".ir-export-toplink:hover,.ir-export-menu-trigger:hover{color:#165d94!important;border-color:#a9d3ee!important;background:#eaf4fc!important}",
+    ".ir-export-toplink.active{background:#246da7!important;color:#fff!important;border-color:#246da7!important;box-shadow:0 2px 8px rgba(29,105,170,.17)!important}",
+    ".ir-export-toplink .nav-icon{display:grid;place-items:center;width:18px;height:18px;flex:0 0 18px;color:inherit!important}",
+    ".ir-export-toplink .nav-icon svg{display:block;width:18px;height:18px;color:inherit!important}",
+    ".ir-export-menu{position:relative;min-width:0}",
+    ".ir-export-menu>summary{list-style:none!important}",
+    ".ir-export-menu>summary::-webkit-details-marker{display:none!important}",
+    ".ir-export-menu[open]>.ir-export-menu-trigger{background:#e9f4fc!important;border-color:#99c8eb!important;color:#176da3!important}",
+    ".ir-export-menu-glyph,.ir-export-menu-caret{display:grid;place-items:center;flex:0 0 17px;width:17px;height:17px}",
+    ".ir-export-menu-glyph svg,.ir-export-menu-caret svg{width:17px;height:17px;display:block}",
+    ".ir-export-menu-caret svg{width:15px;height:15px;transition:transform .18s ease}",
+    ".ir-export-menu[open] .ir-export-menu-caret svg{transform:rotate(180deg)}",
+    ".ir-export-menu-items{position:absolute!important;left:50%!important;top:calc(100% + 9px)!important;transform:translateX(-50%)!important;z-index:120!important;display:flex!important;flex-direction:column!important;gap:3px!important;width:min(330px,calc(100vw - 32px))!important;max-height:min(70vh,540px)!important;overflow-y:auto!important;overflow-x:hidden!important;padding:9px!important;border:1px solid #d8e6f0!important;border-radius:11px!important;background:#fff!important;box-shadow:0 18px 36px rgba(18,52,78,.18)!important;box-sizing:border-box!important}",
+    ".ir-export-menu-caption{padding:7px 10px 8px;color:#91a8b9;font:800 10px/1.2 'Segoe UI',Arial,sans-serif;letter-spacing:.8px}",
+    ".ir-export-subnav-link{display:flex!important;align-items:center!important;gap:10px!important;min-height:37px!important;padding:9px 11px!important;border-radius:7px!important;color:#335973!important;background:transparent!important;white-space:normal!important;font-size:12px!important;font-weight:600!important;cursor:pointer!important}",
+    ".ir-export-subnav-link:hover{background:#edf6fd!important;color:#176ba0!important}",
+    ".ir-export-subnav-link .nav-icon{display:grid!important;place-items:center!important;flex:0 0 18px!important;width:18px!important;height:18px!important;color:#5289ae!important}",
+    ".ir-export-subnav-link .nav-icon svg{display:block!important;width:18px!important;height:18px!important;color:inherit!important}",
+    ".ir-export-subnav-link .nav-label{min-width:0!important;white-space:normal!important;overflow-wrap:anywhere!important;line-height:1.35!important;color:inherit!important}",
+    ".ir-export-menu-empty{padding:13px 11px;color:#8197a8;font-size:12px}",
+    ".ir-export-topnav :is(a,summary):focus-visible{outline:2px solid #2b7cc0!important;outline-offset:2px!important}",
+    "body:has(.ir-export-group:target) .ir-export-topnav .ir-export-toplink.active{background:#f4f8fc!important;border-color:#dae6ef!important;color:#315a76!important;box-shadow:none!important}",
+    "body:has(.ir-export-group:target) .ir-export-topnav .ir-export-menu-trigger{background:#246da7!important;color:#fff!important;border-color:#246da7!important}",
+    "body.ir-object-overview #app #overview,body.ir-object-overview #app .ir-export-group{scroll-margin-top:74px!important}",
+    "@media(max-width:650px){.ir-export-topnav{padding:8px!important}.ir-export-topnav-inner{gap:6px}.ir-export-toplink,.ir-export-menu-trigger{padding:8px 10px!important;font-size:11px!important}.ir-export-menu-items{left:auto!important;right:0!important;transform:none!important}}",
+    "@media print{.ir-export-topnav{position:relative!important;box-shadow:none!important;break-after:avoid}.ir-export-menu-items{position:static!important;transform:none!important;box-shadow:none!important;max-height:none!important}}",
     ".ir-export-group{scroll-margin-top:14px;min-width:0;width:100%;max-width:none;margin:0;padding:0}",
     ".ir-export-preview{margin:18px 0 0;min-width:0;width:100%;max-width:none;display:grid;gap:12px}",
     ".ir-export-preview>.ir-export-preview-layout{display:block!important;margin:0!important}",
@@ -652,17 +664,16 @@
     "body.ir-object-overview #app button,body.ir-object-overview #app .object-hero-actions{display:none!important}",
     "body.ir-object-overview #app .ir-export-section{display:block!important}",
     "@media(max-width:1000px){.ir-export-section{margin:12px 0!important}.ir-export-row-meta{display:none}}",
-    "@media print{.ir-export-sidebar{position:static!important;width:100%!important;height:auto!important}.ir-export-sidebar .ir-object-nav{display:flex!important;flex-wrap:wrap!important}body.ir-object-overview #app{margin:0!important;width:100%!important}.ir-export-record{break-inside:avoid}.ir-export-section{break-before:page;margin:8px 0!important}details{display:block!important}}"
+    "@media print{body.ir-object-overview #app{margin:0!important;width:100%!important}.ir-export-topnav{position:relative!important;top:auto!important}.ir-export-menu-items{box-shadow:none!important}.ir-export-record{break-inside:avoid}.ir-export-section{break-before:page;margin:8px 0!important}.ir-export-daily-card details,.ir-export-mark-card details{display:block!important}}"
    ].join("\n");
    const activeHero=document.querySelector(".object-overview-hero");
    if(String(activeHero?.dataset.objectId||"")!==id)throw Error("Во время выгрузки изменился открытый объект. Повторите действие.");
    const overviewSnapshot=snapshot(keys);
    const htmlSnapshot=overviewSnapshot.overview;
-   const activeNavStyles=keys.map(key=>'body:has(#section-'+key+':target) .ir-export-sidebar .ir-object-nav a.ir-export-nav[href="#section-'+key+'"]{background:#1e61b4!important;color:#fff!important;font-weight:700!important;box-shadow:inset 0 0 0 1px rgba(91,157,238,.15)!important}body:has(#section-'+key+':target) .ir-export-sidebar .ir-object-nav a.ir-export-nav[href="#section-'+key+'"] .nav-icon{color:#fff!important}').join("\n");
-   const sidebar=sidebarHtml(document.querySelector(".ir-object-sidebar-fixed"),keys);
+   const activeNavStyles=keys.filter(key=>/^[a-z0-9_-]+$/i.test(key)).map(key=>'body:has(#section-'+key+':target) .ir-export-topnav .ir-export-subnav-link[href="#section-'+key+'"]{background:#e6f2fc!important;color:#176ca7!important;font-weight:800!important}').join("\n");
    const sectionsHtml=keys.map(key=>renderSection(key,rows[key]||[],photos,overviewSnapshot.preview[key]||"",{workTypes:supporting[0],reports:supporting[1]})).join("");
    const generated=new Date().toLocaleString("ru-RU");
-   const html='<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;; img-src data:; font-src data:"><title>'+esc(object.name||"IR Project")+' — отчёт объекта</title><style>'+css+'</style><style>'+extraStyles+'\n'+activeNavStyles+'</style></head><body class="ir-object-route ir-object-overview">'+sidebar+'<main id="app">'+htmlSnapshot+sectionsHtml+'<footer class="ir-export-section"><b>IR Project</b> · Снимок объекта от '+esc(generated)+'. Только просмотр. Данные не связаны с рабочей базой.</footer></main></body></html>';
+   const html='<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;; img-src data:; font-src data:"><title>'+esc(object.name||"IR Project")+' — отчёт объекта</title><style>'+css+'</style><style>'+extraStyles+'\n'+activeNavStyles+'</style></head><body class="ir-object-route ir-object-overview"><main id="app">'+htmlSnapshot+sectionsHtml+'<footer class="ir-export-section"><b>IR Project</b> · Снимок объекта от '+esc(generated)+'. Только просмотр. Данные не связаны с рабочей базой.</footer></main></body></html>';
    const name=safeFile(object.short_name||object.name||"Объект");
    const result=await irProject.reportExport.html(html,"IR Project — "+name+" — весь объект.html");
    if(result&&typeof window.irProjectNotice==="function")window.irProjectNotice("HTML-отчёт объекта сохранён. Файл доступен только для просмотра.","success");
