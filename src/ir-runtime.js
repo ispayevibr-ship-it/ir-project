@@ -4452,11 +4452,13 @@ window.irBuildingView=(()=>{
   const sections=[
    ...axesX.slice(0,-1).map((axis,i)=>({
     id:"x:"+axis+":"+axesX[i+1],axis:"X",label:axis+"–"+axesX[i+1],
-    center:(num(gridX[axis])+num(gridX[axesX[i+1]]))/2,index:i
+    center:(num(gridX[axis])+num(gridX[axesX[i+1]]))/2,
+    widthMm:Math.abs(num(gridX[axesX[i+1]])-num(gridX[axis])),index:i
    })),
    ...axesY.slice(0,-1).map((axis,i)=>({
     id:"y:"+axis+":"+axesY[i+1],axis:"Y",label:axis+"–"+axesY[i+1],
-    center:(num(gridY[axis])+num(gridY[axesY[i+1]]))/2,index:i
+    center:(num(gridY[axis])+num(gridY[axesY[i+1]]))/2,
+    widthMm:Math.abs(num(gridY[axesY[i+1]])-num(gridY[axis])),index:i
    }))
   ];
   if(state.sectionKey!==sectionKey){
@@ -4504,13 +4506,15 @@ window.irBuildingView=(()=>{
    if(!next){state.placing=false;state.zigzag=false;state.start=null;state.end=null;state.continuing=false}
    state.mark=next?.id||"";
   }
+  const cutWidthText=mm=>Number(mm.toFixed(3)).toLocaleString("ru-RU",{maximumFractionDigits:3})+" мм";
   const sectionsMarkup=()=>{
    const rows=axis=>'<div class="irb-cut-axis"><b>'+(axis==="X"?"Между цифровыми осями":"Между буквенными осями")+'</b>'+
     sections.filter(s=>s.axis===axis).map(row=>'<label class="irb-cut-row"><input type="checkbox" data-irb-cut="'+html(row.id)+'" '+
-     (state.hiddenSections.includes(row.id)?"":"checked")+'><span>'+html(row.label)+'</span></label>').join("")+'</div>';
+     (state.hiddenSections.includes(row.id)?"":"checked")+'><span class="irb-cut-name">Оси '+html(row.label)+'</span>'+
+     '<span class="irb-cut-width" title="Расстояние между осями '+html(row.label)+'">'+cutWidthText(row.widthMm)+'</span></label>').join("")+'</div>';
    return '<details class="irb-cuts" id="irbCuts" '+(state.sectionsOpen?"open":"")+'>'+
     '<summary>Разрезы / участки <small id="irbHiddenCount"></small></summary>'+
-    '<p>Снимите галочку, чтобы скрыть конструкции участка между осями. Марки не удаляются.</p>'+
+    '<p>Справа указана ширина участка между осями в мм. Снимите галочку, чтобы скрыть его конструкции — марки останутся на схеме.</p>'+
     '<div class="irb-cuts-list">'+rows("X")+rows("Y")+'</div>'+
     '<button type="button" id="irbCutsReset">Показать все участки</button>'+
     '<div class="irb-cuts-result" id="irbCutsResult"></div></details>'
