@@ -7,7 +7,7 @@
  */
 window.irBuildingView=(()=>{
  const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true,bent:false,middle:null,ridgeMode:"center",copySource:null,copyTarget:null,copyHover:null,colorMode:"status",renderMode:"real",hiddenSections:[],sectionKey:"",sectionsOpen:false,findQuery:""};
- let observer=null,paint=null,webgl=null,panelsInitialized=false,animationFrame=0,drawFrame=null,updateVisibleScene=null;
+ let observer=null,paint=null,webgl=null,panelsInitialized=false,animationFrame=0,drawFrame=null,updateVisibleScene=null,updateRecordsScene=null;
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const html=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  const pt=(x,y,z)=>({x:Number(x)||0,y:Number(y)||0,z:Number(z)||0});
@@ -154,7 +154,7 @@ window.irBuildingView=(()=>{
 
  function render(host,props){
   state.copySource=null;state.copyTarget=null;state.copyHover=null;
-  updateVisibleScene=null;
+  updateVisibleScene=null;updateRecordsScene=null;
   if(!panelsInitialized){
    state.layersOpen=window.innerWidth>=1000;
    try{
@@ -305,7 +305,7 @@ window.irBuildingView=(()=>{
    '<button type="button" id="irbCutsToggle" title="Скрыть или показать участки каркаса по осям">▤ Разрезы</button>'+
    '<button type="button" id="irbColorToggle" title="Переключить цветовой режим" aria-label="Переключить цветовой режим">◉ Цвет: статус</button>'+
    '<button type="button" id="irbRenderToggle" title="Переключить реалистичный / обычный 3D" aria-label="Режим 3D">⬡ Реалистичный 3D</button>'+
-   (props.canEdit?'<button type="button" id="irbQuickAdd" class="irb-top-add">＋ Добавить марку</button>':'');
+   (props.canEdit?'<button type="button" id="irbQuickAdd" class="irb-top-add">＋ Добавить элемент</button>':'');
   viewport.appendChild(topControls);
   const layerClose=document.createElement("button");layerClose.type="button";
   layerClose.className="irb-pane-close";layerClose.textContent="×";layerClose.title="Скрыть слои";
@@ -1056,7 +1056,7 @@ window.irBuildingView=(()=>{
          '<path d="M4 7h16M10 4h4M6 7l1 13h10l1-13M10 11v6m4-6v6"/>'+
         '</svg></button></div>':''):
       '<div class="irb-empty">Выберите конструкцию на общей модели, чтобы посмотреть её марку и положение. Все реальные элементы берутся из вашей монтажной схемы.</div>')+
-      (props.canEdit?'<button class="irb-save" id="irbStartRight">＋ Добавить марку</button>':'');
+      (props.canEdit?'<button class="irb-save" id="irbStartRight">＋ Добавить элемент</button>':'');
     const btn=el("irbStartRight");if(btn)btn.onclick=startPlacement;
     const detail=el("irbSelectDetails");if(detail)detail.onclick=()=>{
      if(props.canEdit&&typeof props.onEdit==="function")props.onEdit(String(c.id));
@@ -1334,11 +1334,22 @@ window.irBuildingView=(()=>{
    if(state.colorMode!=="status")showColorMode();
    paint();
   };
+  updateRecordsScene=(elements,nextGroups,nextMarks,nextSelected)=>{
+   marks.splice(0,marks.length,...nextMarks);
+   state.selected=String(nextSelected||"");state.hover="";
+   if(!marks.some(m=>String(m.id)===String(state.mark)&&m.left>0))
+    state.mark=marks.find(m=>m.left>0)?.id||"";
+   updateVisibleScene(elements,nextGroups);
+   if(!visibleCols().some(c=>String(c.id)===state.selected))state.selected="";
+   refreshPanel();refreshFindControls()
+  };
   state.selected=String(props.selected||"");
   if(!visibleCols().some(c=>String(c.id)===state.selected))state.selected="";
   refreshPanel();refreshFindControls();paint();
  }
- return {render,updateVisibility:(elements,groups)=>updateVisibleScene?.(elements,groups),start:()=>{const b=document.getElementById("irbStart");if(b)b.click()},
+ return {render,updateVisibility:(elements,groups)=>updateVisibleScene?.(elements,groups),
+  updateRecords:(elements,groups,marks,selected)=>updateRecordsScene?.(elements,groups,marks,selected),
+  start:()=>{const b=document.getElementById("irbStart");if(b)b.click()},
   placementSaved:placement=>{
    if(!placement?.zigzag||!state.chainNext)return;
    const previous=state.chainNext,saved=placement.savedEnd;
@@ -1357,6 +1368,6 @@ window.irBuildingView=(()=>{
   dispose:()=>{
    observer?.disconnect();observer=null;
    if(animationFrame){window.cancelAnimationFrame(animationFrame);animationFrame=0}
-   drawFrame=null;updateVisibleScene=null;webgl?.dispose();webgl=null;paint=null
+   drawFrame=null;updateVisibleScene=null;updateRecordsScene=null;webgl?.dispose();webgl=null;paint=null
   }};
 })();

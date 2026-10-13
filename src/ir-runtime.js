@@ -1326,6 +1326,7 @@ window.irSchemePage=async function(objectId){
    const updated=arr(fresh).map(x=>({id:String(x.id),title:x.title||"",...(x.data||{})}));
    markRows=fresh;marks.splice(0,marks.length,...updated);
    markById.clear();marks.forEach(x=>markById.set(x.id,x));
+    cachedPlacementRows=null; // refreshed mark links invalidate the quota index
    const after=activeMarks().map(snapshot),seen=new Set(),changed=[];
    for(const v of after){
     seen.add(v.id);const old=before.get(v.id);
@@ -1363,7 +1364,29 @@ window.irSchemePage=async function(objectId){
   const m=activeMarks(),placed=records(),total=m.reduce((acc,x)=>acc+(markProgress(x)?.total||0),0),mounted=m.reduce((acc,x)=>acc+(markProgress(x)?.mounted||0),0),partial=placed.filter(x=>effectiveStatus(x)==="partial").length,done=placed.filter(x=>effectiveStatus(x)==="mounted").length;
   return{total,mounted,left:Math.max(0,total-mounted),pct:total?Math.round(mounted/total*100):0,placed:placed.length,placedMounted:done,placedPartial:partial}
  };
- const allRecords=()=>arr(rows).filter(r=>r.record_type==="scheme_column"||r.data?.entity_type==="column").map(r=>({id:String(r.id),title:r.title||"",...(r.data||{})}));
+ // Cache the placed records once per database snapshot. The editor previously
+ // rescanned the complete scheme for every mark and every filter refresh.
+ let cachedSchemeRows=null,cachedSchemeElements=[],indexedSchemeElements=new Map();
+ let cachedPlacementRows=null,cachedPlacementCounts=new Map();
+ const allRecords=()=>{
+  if(cachedSchemeRows!==rows){
+   cachedSchemeRows=rows;
+   cachedSchemeElements=arr(rows).filter(r=>r.record_type==="scheme_column"||r.data?.entity_type==="column")
+    .map(r=>({id:String(r.id),title:r.title||"",...(r.data||{})}));
+   indexedSchemeElements=new Map(cachedSchemeElements.map(r=>[String(r.id),r]));
+   cachedPlacementRows=null;
+  }
+  return cachedSchemeElements;
+ };
+ const storedSchemeElement=id=>{allRecords();return indexedSchemeElements.get(String(id))||null};
+ // Merge the normalized saved row from SQLite: a second full list() is not
+ // necessary for a single create/update and would block a large 3D view.
+ function rememberSavedSchemeRecord(saved){
+  if(saved?.id==null)return false;
+  const id=String(saved.id),at=arr(rows).findIndex(r=>String(r.id)===id);
+  rows=at>=0?rows.map((r,i)=>i===at?saved:r):[saved,...rows];
+  return true
+ }
  const recordWorkId=r=>{const direct=String(r?.work_type_id||"");if(direct)return direct;const byId=marks.find(m=>String(m.id)===String(r?.mark_id||""));if(byId?.work_type_id)return String(byId.work_type_id);const snap=norm(r?.mark),matches=marks.filter(m=>norm(m.mark||m.title)===snap);return matches.length===1?String(matches[0].work_type_id||""):""};
  const workMarks=()=>frameMode?marks.filter(m=>frameKeys.has(markGroup(m).key)):activeWorkId?marks.filter(m=>String(m.work_type_id||"")===activeWorkId):[];
  const workRecords=()=>frameMode?allRecords().filter(r=>frameKeys.has(recordMarkGroup(r).key)):activeWorkId?allRecords().filter(r=>recordWorkId(r)===activeWorkId):[];
@@ -1397,15 +1420,25 @@ window.irSchemePage=async function(objectId){
  };
  const markPlacement=m=>{
   if(!m)return{total:0,placed:0,left:0};
+  allRecords();
+  if(cachedPlacementRows!==rows){
+   const counts=new Map();
+   for(const r of cachedSchemeElements){
+    const ids=new Set([String(r.mark_id||""),String(linkedMark(r)?.id||"")]);
+    ids.delete("");
+    for(const id of ids)counts.set(id,(counts.get(id)||0)+1);
+   }
+   cachedPlacementCounts=counts;
+   cachedPlacementRows=rows;
+  }
   const total=Math.max(0,Math.floor(num(m.qty??m.count)));
-  const placed=allRecords().filter(r=>String(r.mark_id||"")===String(m.id)||linkedMark(r)?.id===String(m.id)).length;
+  const placed=cachedPlacementCounts.get(String(m.id))||0;
   return{total,placed,left:Math.max(0,total-placed)}
  };
  const markAvailable=(m,editingId="")=>{
-  const q=markPlacement(m);
-  const own=editingId&&allRecords().some(r=>String(r.id)===String(editingId)&&(String(r.mark_id||"")===String(m.id)||linkedMark(r)?.id===String(m.id)));
+  const q=markPlacement(m),own=editingId&&storedSchemeElement(editingId);
   // Existing placements remain editable even if older data exceeded today's quantity.
-  return Boolean(own)||q.placed<q.total
+  return Boolean(own&&(String(own.mark_id||"")===String(m.id)||String(linkedMark(own)?.id||"")===String(m.id)))||q.placed<q.total
  };
  const searchMarks=(query,pool=activeMarks())=>{const q=String(query||"").trim().toLowerCase();if(!q)return [...pool];return pool.map(m=>{const mark=String(m.mark||m.title||"").trim().toLowerCase(),name=String(m.name||"").trim().toLowerCase(),text=`${mark} ${name}`;let score=99;if(mark===q)score=0;else if(mark.startsWith(q))score=1;else if(mark.includes(q))score=2;else if(name.startsWith(q))score=3;else if(name.includes(q)||text.includes(q))score=4;return{m,score}}).filter(x=>x.score<99).sort((a,b)=>a.score-b.score||String(a.m.mark||a.m.title||"").localeCompare(String(b.m.mark||b.m.title||""),"ru",{numeric:true,sensitivity:"base"})).map(x=>x.m)};
  const markOptions=(selectedMark,query="",unresolved=false,pool=activeMarks(),editingId="")=>{
@@ -1598,7 +1631,8 @@ window.irSchemePage=async function(objectId){
    scheme_group:group.key,scheme_group_label:group.label,scheme_view_id:"all"
   }};
   const saved=await schemeApi.create(payload);
-  rows=await schemeApi.list();selectedId=String(saved?.id||"");
+  if(!rememberSavedSchemeRecord(saved))rows=await schemeApi.list();
+  selectedId=String(saved?.id||"");
   return{savedEnd:{ax:end.ax,ay:end.ay,x:end.x,y:end.y,z:end.z}};
  }
 
@@ -1697,8 +1731,54 @@ window.irSchemePage=async function(objectId){
    scheme_group:group.key,scheme_group_label:group.label,
    scheme_view_id:String(source.scheme_view_id||"all"),status:"planned"
   }});
-  rows=await schemeApi.list();
+  if(!rememberSavedSchemeRecord(saved))rows=await schemeApi.list();
   return String(saved?.id||"");
+ }
+ // Updating the current 3D model does not require destroying the entire
+ // application layout or recreating its expensive WebGL resources.
+ function refreshAfterMemberChange(){
+  if(mode!=="building"||!document.getElementById("irbCanvas")||typeof window.irBuildingView?.updateRecords!=="function"){
+   draw();return
+  }
+  const visible=columns(),groups=allVisibleTypes();
+  const available=activeMarks().map(m=>{
+   const q=markPlacement(m);
+   return{id:m.id,title:markLabel(m),mark:m.mark||m.title,total:q.total,placed:q.placed,left:q.left,geometry:guessGeometry(m)}
+  });
+  window.irBuildingView.updateRecords(visible,groups.map(g=>({...g,visible:!hiddenGroups.has(g.key)})),available,selectedId);
+  const s=stats(),mp=statusCounts();
+  const summary=document.querySelector(".scheme-summary");
+  if(summary?.children[2]){
+   const value=summary.children[2].querySelector("b");
+   if(value)value.textContent=String(s.total);
+   const note=summary.children[2].querySelector("small");
+   if(note)note.textContent=activeGroup().label+" · "+activeMarks().length+" позиций ведомости";
+  }
+  if(summary?.children[3]){
+   const value=summary.children[3].querySelector("b");
+   if(value)value.textContent=mp.pct+"%";
+   const note=summary.children[3].querySelector("small");
+   if(note)note.textContent=fmt(mp.mounted)+" из "+fmt(mp.total)+" шт. смонтировано";
+  }
+  const markSummary=document.querySelector(".scheme-mark-summary");
+  if(markSummary?.children[3]){
+   const value=markSummary.children[3].querySelector("b");
+   if(value)value.innerHTML=mp.placed+' <small>элем.</small>';
+   const note=markSummary.children[3].querySelector("small:last-child");
+   if(note)note.textContent=mp.placedMounted+" полностью смонтировано · "+mp.placedPartial+" частично";
+  }
+  const counter=document.querySelector(".scheme-visible-counter b");
+  if(counter)counter.textContent=String(visible.length);
+  const caption=document.querySelector(".scheme-preview-title span");
+  if(caption)caption.textContent=s.total+" элементов · Общий 3D";
+  const select=document.getElementById("schemeTypeSelect");
+  if(select){
+   const byKey=new Map(schemeGroups().map(g=>[g.key,g]));
+   for(const option of select.options){
+    const g=byKey.get(option.value);
+    if(g)option.textContent=g.label+" · "+g.marks+" марок · "+g.placed+" элементов";
+   }
+  }
  }
  function renderUnifiedBuilding(box){
   if(!window.irBuildingView){box.innerHTML='<p>Модель загружается…</p>';return}
@@ -1724,7 +1804,7 @@ window.irSchemePage=async function(objectId){
     return{left:q?.left||0,total:q?.total||0,placed:q?.placed||0};
    },
    onCopyPlacement:(id,target)=>copySchemeMember(id,target),
-   onCopySaved:id=>{selectedId=String(id||"");draw()},
+   onCopySaved:id=>{selectedId=String(id||"");refreshAfterMemberChange()},
    onDelete:async id=>{
     if(!canEdit())return;
     const record=workRecords().find(x=>String(x.id)===String(id));
@@ -1743,7 +1823,7 @@ window.irSchemePage=async function(objectId){
    },
    onLayer:key=>{hiddenGroups.has(key)?hiddenGroups.delete(key):hiddenGroups.add(key);updateLayerVisibility()},
    onQuickPlace:frameMode?createFrameMember:null,
-   onQuickPlaced:()=>draw(),
+   onQuickPlaced:()=>refreshAfterMemberChange(),
    onPlacement:placement=>openEditor(null,false,placement)
   })
  }
@@ -2143,7 +2223,17 @@ window.irSchemePage=async function(objectId){
    mid_offset_x_mm:kind==="bent"?mdx:undefined,mid_offset_y_mm:kind==="bent"?mdy:undefined,
    ridge_mode:kind==="bent"?ridgeMode:undefined,
    mid_anchor_member_id:kind==="bent"&&ridgeMode==="manual"?previous.mid_anchor_member_id:undefined,end_axis_x:kind==="column"?undefined:endX,end_axis_y:kind==="column"?undefined:endY,end_offset_x_mm:kind==="column"?undefined:endDx,end_offset_y_mm:kind==="column"?undefined:endDy,end_z_mm:kind==="column"?undefined:z1,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name,scheme_group:g.key,scheme_group_label:g.label,scheme_view_id:view?.id||"all"}};
-   try{const saved=id?await schemeApi.update(id,payload):await schemeApi.create(payload);rows=await schemeApi.list();selectedId=String(saved?.id||id||"");d.close();if(pendingBuildingPlacement){if(kind!=="column")window.irBuildingView?.placementSaved?.({...pendingBuildingPlacement,savedEnd:{ax:endX,ay:endY,x:x2,y:y2,z:z1}});else window.irBuildingView?.placementCancelled?.();pendingBuildingPlacement=null}draw()}catch(error){err.textContent="Не удалось сохранить элемент: "+String(error?.message||error);err.hidden=false}
+   try{
+    const saved=id?await schemeApi.update(id,payload):await schemeApi.create(payload);
+    if(!rememberSavedSchemeRecord(saved))rows=await schemeApi.list();
+    selectedId=String(saved?.id||id||"");d.close();
+    if(pendingBuildingPlacement){
+     if(kind!=="column")window.irBuildingView?.placementSaved?.({...pendingBuildingPlacement,savedEnd:{ax:endX,ay:endY,x:x2,y:y2,z:z1}});
+     else window.irBuildingView?.placementCancelled?.();
+     pendingBuildingPlacement=null
+    }
+    refreshAfterMemberChange()
+   }catch(error){err.textContent="Не удалось сохранить элемент: "+String(error?.message||error);err.hidden=false}
   }
  }
 
@@ -4187,7 +4277,7 @@ window.irSelectUI=(()=>{
  */
 window.irBuildingView=(()=>{
  const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true,bent:false,middle:null,ridgeMode:"center",copySource:null,copyTarget:null,copyHover:null,colorMode:"status",renderMode:"real",hiddenSections:[],sectionKey:"",sectionsOpen:false,findQuery:""};
- let observer=null,paint=null,webgl=null,panelsInitialized=false,animationFrame=0,drawFrame=null,updateVisibleScene=null;
+ let observer=null,paint=null,webgl=null,panelsInitialized=false,animationFrame=0,drawFrame=null,updateVisibleScene=null,updateRecordsScene=null;
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const html=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  const pt=(x,y,z)=>({x:Number(x)||0,y:Number(y)||0,z:Number(z)||0});
@@ -4334,7 +4424,7 @@ window.irBuildingView=(()=>{
 
  function render(host,props){
   state.copySource=null;state.copyTarget=null;state.copyHover=null;
-  updateVisibleScene=null;
+  updateVisibleScene=null;updateRecordsScene=null;
   if(!panelsInitialized){
    state.layersOpen=window.innerWidth>=1000;
    try{
@@ -4485,7 +4575,7 @@ window.irBuildingView=(()=>{
    '<button type="button" id="irbCutsToggle" title="Скрыть или показать участки каркаса по осям">▤ Разрезы</button>'+
    '<button type="button" id="irbColorToggle" title="Переключить цветовой режим" aria-label="Переключить цветовой режим">◉ Цвет: статус</button>'+
    '<button type="button" id="irbRenderToggle" title="Переключить реалистичный / обычный 3D" aria-label="Режим 3D">⬡ Реалистичный 3D</button>'+
-   (props.canEdit?'<button type="button" id="irbQuickAdd" class="irb-top-add">＋ Добавить марку</button>':'');
+   (props.canEdit?'<button type="button" id="irbQuickAdd" class="irb-top-add">＋ Добавить элемент</button>':'');
   viewport.appendChild(topControls);
   const layerClose=document.createElement("button");layerClose.type="button";
   layerClose.className="irb-pane-close";layerClose.textContent="×";layerClose.title="Скрыть слои";
@@ -5236,7 +5326,7 @@ window.irBuildingView=(()=>{
          '<path d="M4 7h16M10 4h4M6 7l1 13h10l1-13M10 11v6m4-6v6"/>'+
         '</svg></button></div>':''):
       '<div class="irb-empty">Выберите конструкцию на общей модели, чтобы посмотреть её марку и положение. Все реальные элементы берутся из вашей монтажной схемы.</div>')+
-      (props.canEdit?'<button class="irb-save" id="irbStartRight">＋ Добавить марку</button>':'');
+      (props.canEdit?'<button class="irb-save" id="irbStartRight">＋ Добавить элемент</button>':'');
     const btn=el("irbStartRight");if(btn)btn.onclick=startPlacement;
     const detail=el("irbSelectDetails");if(detail)detail.onclick=()=>{
      if(props.canEdit&&typeof props.onEdit==="function")props.onEdit(String(c.id));
@@ -5514,11 +5604,22 @@ window.irBuildingView=(()=>{
    if(state.colorMode!=="status")showColorMode();
    paint();
   };
+  updateRecordsScene=(elements,nextGroups,nextMarks,nextSelected)=>{
+   marks.splice(0,marks.length,...nextMarks);
+   state.selected=String(nextSelected||"");state.hover="";
+   if(!marks.some(m=>String(m.id)===String(state.mark)&&m.left>0))
+    state.mark=marks.find(m=>m.left>0)?.id||"";
+   updateVisibleScene(elements,nextGroups);
+   if(!visibleCols().some(c=>String(c.id)===state.selected))state.selected="";
+   refreshPanel();refreshFindControls()
+  };
   state.selected=String(props.selected||"");
   if(!visibleCols().some(c=>String(c.id)===state.selected))state.selected="";
   refreshPanel();refreshFindControls();paint();
  }
- return {render,updateVisibility:(elements,groups)=>updateVisibleScene?.(elements,groups),start:()=>{const b=document.getElementById("irbStart");if(b)b.click()},
+ return {render,updateVisibility:(elements,groups)=>updateVisibleScene?.(elements,groups),
+  updateRecords:(elements,groups,marks,selected)=>updateRecordsScene?.(elements,groups,marks,selected),
+  start:()=>{const b=document.getElementById("irbStart");if(b)b.click()},
   placementSaved:placement=>{
    if(!placement?.zigzag||!state.chainNext)return;
    const previous=state.chainNext,saved=placement.savedEnd;
@@ -5537,7 +5638,7 @@ window.irBuildingView=(()=>{
   dispose:()=>{
    observer?.disconnect();observer=null;
    if(animationFrame){window.cancelAnimationFrame(animationFrame);animationFrame=0}
-   drawFrame=null;updateVisibleScene=null;webgl?.dispose();webgl=null;paint=null
+   drawFrame=null;updateVisibleScene=null;updateRecordsScene=null;webgl?.dispose();webgl=null;paint=null
   }};
 })();
 ;
