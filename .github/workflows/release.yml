@@ -32,6 +32,18 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Verify Electron safety before packaging
+        shell: pwsh
+        run: |
+          node --check main.js
+          node --check preload.js
+          node --check src/database.js
+          node --check src/updater.js
+          node scripts/test-database-safety.js
+          node scripts/test-updater-rollback.js
+          node scripts/test-database-export-settings.js
+          node scripts/build-runtime.js --check
+
       - name: Read version
         id: version
         shell: pwsh
