@@ -38,6 +38,34 @@ window.irBuildingView=(()=>{
   const rgb=[channel(0),channel(8),channel(4)];markColorCache.set(key,rgb);return rgb;
  };
  const markCss=c=>"rgb("+markRgb(c).map(x=>Math.round(x*255)).join(",")+")";
+
+ // One fixed color per construction type (not per mark number).
+ const types=[
+  ["columns","Колонны",[.16,.44,.83]],["beams","Балки",[.15,.63,.40]],
+  ["fahwerk","Фахверки",[.57,.34,.82]],["girders","Ригели",[.87,.52,.17]],
+  ["purlins","Прогоны",[.12,.67,.72]],["spacers","Распорки",[.74,.35,.24]],
+  ["ties","Связи",[.39,.47,.61]],["posts","Стойки",[.68,.64,.20]],
+  ["trusses","Фермы",[.79,.29,.51]],["guards","Ограждения",[.46,.56,.66]],
+  ["stairs","Лестницы",[.65,.48,.34]],["platforms","Площадки",[.55,.60,.72]],
+  ["other","Прочее",[.55,.61,.66]]
+ ];
+ const typeMap=new Map(types.map(([k,label,rgb])=>[k,{label,rgb}]));
+ const typeKey=c=>{
+  const key=String(c?.scheme_group||c?.schemeGroup||c?.groupKey||"").trim().toLowerCase();
+  if(typeMap.has(key))return key;
+  const name=[c?.scheme_group_label,c?.mark_name,c?.name,c?.work_type,
+   key.startsWith("name:")?key.slice(5):""].filter(Boolean).join(" ").toLowerCase().replace(/ё/g,"е");
+  for(const [rx,k] of [[/фахвер/,"fahwerk"],[/колон/,"columns"],[/связ/,"ties"],
+   [/прогон/,"purlins"],[/распорк/,"spacers"],[/балк/,"beams"],
+   [/ферм/,"trusses"],[/ригел/,"girders"],[/огражд/,"guards"],
+   [/лестниц/,"stairs"],[/площад/,"platforms"],[/стойк/,"posts"]])if(rx.test(name))return k;
+  const g=String(c?.geometryType||c?.geometry_type||"").toLowerCase();
+  return g==="column"?"columns":g==="brace"?"ties":g==="truss"?"trusses":
+   ["beam","bent"].includes(g)?"beams":"other";
+ };
+ const typeRgb=c=>typeMap.get(typeKey(c)).rgb;
+ const typeCss=c=>"rgb("+typeRgb(c).map(x=>Math.round(x*255)).join(",")+")";
+ const paletteCss=rgb=>"rgb("+rgb.map(x=>Math.round(x*255)).join(",")+")";
  const dist=(q,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,t=clamp(((q.x-a.x)*dx+(q.y-a.y)*dy)/(dx*dx+dy*dy||1),0,1);return Math.hypot(q.x-(a.x+dx*t),q.y-(a.y+dy*t))};
 
  // Offline WebGL renderer; real 3D prisms, depth testing and per-face lighting.
@@ -100,7 +128,7 @@ window.irBuildingView=(()=>{
     const [cornersA,cornersB]=faces,
      rgb=String(c.id)===String(state.selected)?palette.selected:
        String(c.id)===String(state.hover)?palette.hover:
-       state.colorMode==="mark"?markRgb(c):palette[c.status]||palette.planned;
+       state.colorMode==="mark"?markRgb(c):state.colorMode==="type"?typeRgb(c):palette[c.status]||palette.planned;
     quad([cornersA[0],cornersB[0],cornersB[1],cornersA[1]],rgb,1.17);
     quad([cornersA[1],cornersB[1],cornersB[2],cornersA[2]],rgb,.88);
     quad([cornersA[2],cornersB[2],cornersB[3],cornersA[3]],rgb,.72);
@@ -126,7 +154,14 @@ window.irBuildingView=(()=>{
  function render(host,props){
   if(!panelsInitialized){
    state.layersOpen=window.innerWidth>=1000;
-   try{state.colorMode=localStorage.getItem("ir-project-3d-colors")==="mark"?"mark":"status"}catch(_error){}
+   try{
+    const stored=localStorage.getItem("ir-project-3d-colors");
+    const v2=localStorage.getItem("ir-project-3d-colors-v2")==="ready";
+    // Show the new category colours on first upgrade from the old rainbow mode.
+    state.colorMode=v2&&["status","type","mark"].includes(stored)?stored:stored==="status"?"status":"type";
+    localStorage.setItem("ir-project-3d-colors",state.colorMode);
+    localStorage.setItem("ir-project-3d-colors-v2","ready");
+   }catch(_error){state.colorMode="type"}
    panelsInitialized=true
   }
   if(observer){observer.disconnect();observer=null}
@@ -225,7 +260,8 @@ window.irBuildingView=(()=>{
    '<div class="irb-panel-head"><b>Цвет конструкций</b></div>'+
    '<div class="irb-color-modes" role="group" aria-label="Раскраска 3D-модели">'+
     '<button type="button" id="irbColorStatus" aria-pressed="true">По статусу</button>'+
-    '<button type="button" id="irbColorMarks" aria-pressed="false">По маркам</button>'+
+    '<button type="button" id="irbColorTypes" aria-pressed="false">По видам</button>'+
+     '<button type="button" id="irbColorMarks" aria-pressed="false">По маркам</button>'+
    '</div>'+
    '<div class="irb-color-caption" id="irbColorCaption">Зелёный — смонтировано, красный — не смонтировано, жёлтый — частично.</div>'+
    '<div class="irb-color-legend" id="irbColorLegend" hidden></div>'+
@@ -270,40 +306,56 @@ window.irBuildingView=(()=>{
   updateLayers();detailPanel.hidden=true;
   const el=id=>host.querySelector("#"+id),canvas=el("irbCanvas"),ctx=canvas.getContext("2d");
   const colorSummary=()=>{
-   const summary=new Map();
-   for(const member of visibleCols()){
-    const key=markName(member),row=summary.get(key);
-    if(row)row.count++;
-    else summary.set(key,{key,count:1,rgb:markCss(member)})
+   const m=new Map();
+   for(const c of visibleCols()){
+    const key=markName(c),row=m.get(key);
+    if(row)row.count++;else m.set(key,{key,count:1,rgb:markCss(c)});
    }
-   return [...summary.values()].sort((a,b)=>a.key.localeCompare(b.key,"ru",{numeric:true}));
+   return [...m.values()].sort((a,b)=>a.key.localeCompare(b.key,"ru",{numeric:true}));
+  };
+  const typeSummary=()=>{
+   const counts=new Map();
+   for(const c of visibleCols()){const k=typeKey(c);counts.set(k,(counts.get(k)||0)+1)}
+   return types.filter(([k])=>counts.has(k)).map(([k,label,rgb])=>({label,count:counts.get(k),rgb:paletteCss(rgb)}));
   };
   const showColorMode=()=>{
-   const byMark=state.colorMode==="mark",status=el("irbColorStatus"),marksButton=el("irbColorMarks"),
+   const mode=state.colorMode,
     top=el("irbColorToggle"),caption=el("irbColorCaption"),list=el("irbColorLegend"),footer=el("irbLegend");
-   for(const [button,active] of [[status,!byMark],[marksButton,byMark]]){
-    if(!button)continue;button.classList.toggle("active",active);button.setAttribute("aria-pressed",String(active))
+   for(const [btn,on] of [[el("irbColorStatus"),mode==="status"],[el("irbColorTypes"),mode==="type"],[el("irbColorMarks"),mode==="mark"]]){
+    if(btn){btn.classList.toggle("active",on);btn.setAttribute("aria-pressed",String(on))}
    }
-   if(top){top.textContent=byMark?"◉ Цвет: марки":"◉ Цвет: статус";top.setAttribute("aria-label",byMark?"Сейчас цвета по маркам. Переключить на статус монтажа":"Сейчас цвета по статусу монтажа. Переключить на марки")}
-   if(caption)caption.textContent=byMark?"Каждая марка получает свой цвет; повторяющиеся марки одинаковые. Статус монтажа остаётся в свойствах.":"Зелёный — смонтировано, красный — не смонтировано, жёлтый — частично.";
+   if(top){
+    top.textContent=mode==="type"?"◉ Цвет: виды":mode==="mark"?"◉ Цвет: марки":"◉ Цвет: статус";
+    top.setAttribute("aria-label",top.textContent+". Нажмите для переключения режима");
+   }
+   if(caption)caption.textContent=mode==="type"?"Один цвет для всех колонн, другой для балок, фахверков, прогонов и остальных видов.":
+    mode==="mark"?"Каждая марка своим цветом. Повторяющиеся марки одного цвета.":
+    "Зелёный — смонтировано, красный — не смонтировано, жёлтый — частично.";
    if(list){
-    list.hidden=!byMark;
-    if(byMark)list.innerHTML='<div class="irb-color-legend-title">Марки на экране · '+colorSummary().length+'</div>'+
-     colorSummary().map(row=>'<div class="irb-color-entry"><i style="background:'+row.rgb+'"></i><span title="'+html(row.key)+'">'+html(row.key)+'</span><small>'+row.count+' шт.</small></div>').join("");
+    list.hidden=mode==="status";
+    if(mode!=="status"){
+     const rows=mode==="type"?typeSummary():colorSummary();
+     list.innerHTML='<div class="irb-color-legend-title">'+(mode==="type"?"Виды конструкций":"Марки на экране")+' · '+rows.length+'</div>'+
+      rows.map(r=>'<div class="irb-color-entry"><i style="background:'+r.rgb+'"></i><span>'+html(r.label||r.key)+'</span><small>'+r.count+' шт.</small></div>').join("");
+    }else list.replaceChildren();
    }
-   if(footer)footer.innerHTML=byMark?'<i class="blue"></i> Выбрано <span>· Разные цвета — разные марки</span>':
+   if(footer)footer.innerHTML=mode==="type"?'<i class="blue"></i> Выбрано <span>· Цвет по видам конструкций</span>':
+    mode==="mark"?'<i class="blue"></i> Выбрано <span>· Цвет по маркам</span>':
     '<i class="green"></i> Смонтировано <i class="red"></i> Не смонтировано <i class="orange"></i> Частично <i class="blue"></i> Выбрано';
   };
   const setColorMode=mode=>{
-   const next=mode==="mark"?"mark":"status";
-   if(state.colorMode===next)return;
-   state.colorMode=next;
-   try{localStorage.setItem("ir-project-3d-colors",next)}catch(_error){}
+   if(!["status","type","mark"].includes(mode)||state.colorMode===mode)return;
+   state.colorMode=mode;
+   try{
+    localStorage.setItem("ir-project-3d-colors",mode);
+    localStorage.setItem("ir-project-3d-colors-v2","ready");
+   }catch(_error){}
    showColorMode();paint();
   };
   el("irbColorStatus").onclick=()=>setColorMode("status");
+  el("irbColorTypes").onclick=()=>setColorMode("type");
   el("irbColorMarks").onclick=()=>setColorMode("mark");
-  el("irbColorToggle").onclick=()=>setColorMode(state.colorMode==="mark"?"status":"mark");
+  el("irbColorToggle").onclick=()=>setColorMode(state.colorMode==="status"?"type":state.colorMode==="type"?"mark":"status");
   showColorMode();
   if(!ctx){el("irbProperties").textContent="3D Canvas недоступен";return}
   webgl=makeWebGL(el("irbSolid"));
@@ -489,7 +541,7 @@ window.irBuildingView=(()=>{
    if(webgl)webgl.render(segments,m,rect.width,rect.height,dpr);
    for(const s of segments){
     const chosen=String(s.c.id)===String(state.selected),hover=String(s.c.id)===String(state.hover),
-     color=chosen?"#2879df":hover?"#168fca":state.colorMode==="mark"?markCss(s.c):
+     color=chosen?"#2879df":hover?"#168fca":state.colorMode==="mark"?markCss(s.c):state.colorMode==="type"?typeCss(s.c):
       s.c.status==="mounted"?"#2e9b7b":s.c.status==="partial"?"#c4a051":"#c16670";
     const width=s.c.geometryType==="column"?7:s.c.geometryType==="truss"?6:s.c.geometryType==="brace"?3.7:4.8;
     if(!webgl){
@@ -927,7 +979,7 @@ window.irBuildingView=(()=>{
    if(state.selected&&!visibleCols().some(c=>String(c.id)===String(state.selected))){
     state.selected="";state.hover="";props.onSelect("");refreshPanel()
    }
-   if(state.colorMode==="mark")showColorMode();
+   if(state.colorMode==="mark"||state.colorMode==="type")showColorMode();
    paint();
   };
   if(cutDetails)cutDetails.addEventListener("toggle",()=>{state.sectionsOpen=cutDetails.open});

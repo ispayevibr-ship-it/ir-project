@@ -332,8 +332,8 @@
 }
 
 /* IR Project 1.7.111: status colours (default) and per-mark colours in 3D. */
-.irb-color-modes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;padding:4px;background:#eff5fb;border:1px solid #d6e5f0;border-radius:9px}
-.irb-color-modes button{min-width:0;min-height:34px;padding:6px 5px;border:1px solid transparent;border-radius:7px;background:transparent;color:#5d7b91;font:800 10px/1.35 "Segoe UI",Arial,sans-serif;cursor:pointer}
+.irb-color-modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;padding:4px;background:#eff5fb;border:1px solid #d6e5f0;border-radius:9px}
+.irb-color-modes button{min-width:0;min-height:34px;padding:6px 3px;border:1px solid transparent;border-radius:7px;background:transparent;color:#5d7b91;font:800 10px/1.35 "Segoe UI",Arial,sans-serif;cursor:pointer}
 .irb-color-modes button.active{background:#fff;border-color:#bfd9f1;color:#1c6ebb;box-shadow:0 1px 5px #3974aa1a}
 .irb-color-modes button:hover:not(.active){color:#216ca7;background:#e3f1ff}
 .irb-color-caption{color:#7792a5;font-size:10px;line-height:1.5}
