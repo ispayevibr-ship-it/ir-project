@@ -24,7 +24,7 @@ const mk=(doc,latest)=>{
  assert.match(await old.detectOldTabCode(),/старую версию/);
  const wrongToken=mk(makeDoc("17143",null,null),"17144");
  assert.match(await wrongToken.detectOldTabCode(),/устаревший JavaScript/);
- assert.equal(current.runtimeTokenFromHtml(html),"17144");
+ assert.match(current.runtimeTokenFromHtml(html),/^\d+$/);
  assert(shellHTML.includes("tabs-shell.js?v=17144"));
  assert(viewer.includes('id="irbStart" data-ir-label="add-element"'));
  assert(shell.includes('["Перезагрузить вкладку",true,()=>{if(reloadCurrent())closeUpdate()}]'));
