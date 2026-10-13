@@ -174,7 +174,7 @@ assert(!allCardsHTML.includes('<details open>'),"all mark cards start closed, in
 const selectedCardsHTML=cardHTML.split('<div class="ir-export-work-panel ir-export-work-panel-0">')[1].split('<div class="ir-export-work-panel ir-export-work-panel-1">')[0];
 assert.equal((selectedCardsHTML.match(/class="ir-export-mark-card status-/g)||[]).length,8,"filter shows only selected work's eight marks");
 assert(selectedCardsHTML.includes("Показать всю ведомость марок (8 позиций)"));
-const otherCardsHTML=cardHTML.split('<div class="ir-export-work-panel ir-export-work-panel-1">')[1].split('</div></div></div>')[0];
+const otherCardsHTML=cardHTML.split('<div class="ir-export-work-panel ir-export-work-panel-1">')[1];
 assert(otherCardsHTML.includes("В10")&&otherCardsHTML.includes("В11"),"second work's marks remain selectable");
 
 console.log("Full object HTML export: snapshot, offline navigation, read-only records, native save and no DB writes OK");
