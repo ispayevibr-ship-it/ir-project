@@ -547,3 +547,21 @@
 .irb-webgl .irb-top-actions #irbLabelsToggle.active{background:#dceeff;border-color:#78aae0;color:#145da7;box-shadow:0 0 0 1px rgba(44,126,213,.1)}
 .irb-webgl .irb-top-actions #irbDimensionsToggle:focus-visible,
 .irb-webgl .irb-top-actions #irbLabelsToggle:focus-visible{outline:2px solid #5199e3;outline-offset:2px}
+
+/* 1.7.142: the colour legend was shrinking to a 10px tall scrollbar.
+   The sidebar itself scrolls vertically, while a long legend has its own
+   bounded scroll area. Neither can be compressed into an empty pseudo-select. */
+.irb-immersive .irb-layers > .irb-color-modes,
+.irb-immersive .irb-layers > .irb-color-caption,
+.irb-immersive .irb-layers > .irb-color-legend,
+.irb-immersive .irb-layers > .irb-render-modes,
+.irb-immersive .irb-layers > .irb-render-note{
+ flex:0 0 auto!important;min-width:0
+}
+.irb-immersive .irb-layers > #irbColorLegend:not([hidden]){
+ display:block;flex-shrink:0!important;min-height:58px!important;
+ max-height:min(32vh,235px);overflow-y:auto;overflow-x:hidden;
+ scrollbar-width:thin;overscroll-behavior:contain
+}
+.irb-immersive .irb-layers > #irbColorLegend[hidden]{display:none!important}
+.irb-color-empty{padding:10px 6px 12px;color:#6c879a;font-size:10px;line-height:1.5}

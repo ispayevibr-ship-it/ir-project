@@ -4661,7 +4661,9 @@ window.irBuildingView=(()=>{
     if(mode!=="status"){
      const rows=mode==="type"?typeSummary():colorSummary();
      list.innerHTML='<div class="irb-color-legend-title">'+(mode==="type"?"Виды конструкций":"Марки на экране")+' · '+rows.length+'</div>'+
-      rows.map(r=>'<div class="irb-color-entry"><i style="background:'+r.rgb+'"></i><span>'+html(r.label||r.key)+'</span><small>'+r.count+' шт.</small></div>').join("");
+      (rows.length?rows.map(r=>'<div class="irb-color-entry"><i style="background:'+r.rgb+'"></i><span>'+html(r.label||r.key)+'</span><small>'+r.count+' шт.</small></div>').join(""):
+      '<div class="irb-color-empty">На текущем участке нет видимых конструкций. Включите нужные слои или разрезы.</div>');
+     list.scrollTop=0;
     }else list.replaceChildren();
    }
    if(footer)footer.innerHTML=mode==="type"?'<i class="blue"></i> Выбрано <span>· Цвет по видам конструкций</span>':
