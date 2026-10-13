@@ -4174,9 +4174,33 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
    settingsButton=p.querySelector("#programSettingsButton"),settingsMenu=p.querySelector("#programSettingsMenu"),
    companyButton=p.querySelector("#companyProfileSettings"),aboutButton=p.querySelector("#programAboutButton"),
    backupButton=p.querySelector("#programExportDatabase"),updateButton=p.querySelector("#programCheckUpdates");
+  // A moved profile panel lives in the tab host, while its page remains in
+  // an iframe. Pointer events do not cross iframe boundaries, so observe both.
+  const settingsDismissDocs=new Set();
   const closeSettings=()=>{
    settingsMenu.hidden=true;settingsButton.setAttribute("aria-expanded","false");
-   settingsButton.classList.remove("is-open")
+   settingsButton.classList.remove("is-open");
+   for(const doc of settingsDismissDocs){
+    doc.removeEventListener("pointerdown",onSettingsOutside,true);
+    doc.removeEventListener("keydown",onSettingsEscape,true)
+   }
+   settingsDismissDocs.clear()
+  };
+  const onSettingsOutside=event=>{
+   if(settingsMenu.hidden)return;
+   if(settingsMenu.contains(event.target)||settingsButton.contains(event.target))return;
+   closeSettings()
+  };
+  const onSettingsEscape=event=>{
+   if(event.key==="Escape"&&!settingsMenu.hidden)closeSettings()
+  };
+  const watchSettingsDismiss=()=>{
+   for(const doc of [document,settingsMenu.ownerDocument]){
+    if(!doc||settingsDismissDocs.has(doc))continue;
+    doc.addEventListener("pointerdown",onSettingsOutside,true);
+    doc.addEventListener("keydown",onSettingsEscape,true);
+    settingsDismissDocs.add(doc)
+   }
   };
   // The tab bar clips absolute-positioned dropdowns. Position a fixed menu
   // against the real gear button using the owning document's viewport.
@@ -4196,11 +4220,12 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
   select.value=irAccess.role();
   badge.onclick=()=>{closeSettings();menu.hidden=!menu.hidden};
   settingsButton.onclick=()=>{
-   const open=settingsMenu.hidden;
-   menu.hidden=true;settingsMenu.hidden=!open;
-   settingsButton.setAttribute("aria-expanded",String(open));
-   settingsButton.classList.toggle("is-open",open);
-   if(open)positionSettings()
+   if(!settingsMenu.hidden){closeSettings();return}
+   menu.hidden=true;settingsMenu.hidden=false;
+   settingsButton.setAttribute("aria-expanded","true");
+   settingsButton.classList.add("is-open");
+   positionSettings();
+   watchSettingsDismiss()
   };
   settingsMenu.ownerDocument.defaultView?.addEventListener("resize",()=>{
    if(!settingsMenu.hidden)positionSettings()
