@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17157'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17158'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('copy.querySelectorAll(".object-overview-reports > .oor2-card:not(.oor2-photo-card):not(.oor-marks-card)").forEach(card=>card.remove())'),"remove latest reports widget from snapshot");
@@ -17,6 +17,36 @@ assert(source.includes('["photos",".object-overview-reports > .oor2-photo-card"]
 assert(source.includes('["deliveries",".object-overview-deliveries-wrap > .ood-deliveries"]'),"delivery widget is relocated");
 assert(source.includes('["schedule",".object-overview-dashboard > .object-overview-schedule"]'),"schedule widget is relocated");
 assert(source.includes("renderDailyReports(rows,images)"),"daily reports use specialized cards");
+assert(source.includes('exportMoreCards(cards,"reports")'),"only five report cards initially visible");
+assert(source.includes('<details class="ir-export-more ir-export-more-'),"show-more works with native details in offline HTML");
+assert(source.includes("renderMarksOverview(markRows,workRows,reportRows)"),"grouped marks overview is generated");
+assert(source.includes("ir-export-mark-radio--mounted"),"mounted filter is available");
+assert(source.includes("ir-export-mark-radio--remaining"),"remaining filter is available");
+assert(source.includes("ir-export-mark-radio--all:checked ~ .ir-export-mark-panel--all"),"offline CSS filters work without scripts");
+assert(source.includes('markProgressPanel(groups,"all")'),"all grouped mark rows are shown by default");
+assert(source.includes('exportMoreCards(cards,"marks"'),"only five work and code groups are initially visible");
+assert(source.includes('renderMarkSection(rows,support.workTypes||[],support.reports||[],images)'),"marks have grouped read-only cards");
+assert(source.includes('class="ir-export-mark-raw"'),"full mark-by-mark details remain available");
+assert(!source.includes('["marks",".object-overview-marks-wrap > .object-overview-marks-card"]'),"old limited marks preview removed");
+assert(!source.includes('["marks",".object-overview-reports > .oor-marks-card"]'),"old duplicate marks preview removed");
+const groupStart=source.indexOf(" function markProgressGroups(");
+const groupEnd=source.indexOf(" function markProgressRow(",groupStart);
+assert(groupStart>=0&&groupEnd>groupStart,"pure mark grouping code exists");
+const groupCalc=vm.runInNewContext('(function(){const array=x=>Array.isArray(x)?x:[];const exportNumber=v=>{const n=Number(String(v??0).replace(/\\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};'+source.slice(groupStart,groupEnd)+';return markProgressGroups})()', {});
+const sampleGroups=groupCalc(
+ [{id:101,data:{work_type_id:"7",qty:5,mark:"Б1"}},{id:102,data:{work_type_id:"7",qty:3,mark:"Б2"}},{id:103,data:{work_type_id:"8",qty:2,mark:"К1"}}],
+ [{id:7,title:"Монтаж балок",data:{project_code:"КМ-01"}},{id:8,title:"Монтаж колонн",data:{project_code:"КМ-02"}}],
+ [{id:1,data:{items:[{mark_id:101,qty:2},{mark_id:101,qty:2},{mark_id:102,qty:7}]}}]
+);
+assert.equal(sampleGroups.length,2,"group by work type and project code");
+const beam=sampleGroups.find(x=>x.name==="Монтаж балок");
+assert.equal(beam.total,8,"quantities of all individual marks are added");
+assert.equal(beam.mounted,7,"report installation is capped per mark and summed");
+assert.equal(beam.remaining,1,"remaining pieces are calculated");
+assert.equal(beam.mountedPct,87.5,"mounted percentage is based on mark quantities");
+assert.equal(beam.remainingPct,12.5,"remaining percentage complements mounted");
+assert.equal(sampleGroups.find(x=>x.name==="Монтаж колонн").remaining,2,"unmounted groups remain visible");
+
 assert(source.includes('class="ir-export-daily-card"'),"daily reports use expandable cards");
 assert(source.includes("reportFull(record,r,images)"),"daily report cards include complete detail");
 assert(source.includes("reportWorkTable(works)"),"daily report details include work list");

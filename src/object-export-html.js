@@ -142,26 +142,34 @@
    (photoHtml?'<section><h3>Фотографии · '+photos.length+'</h3><div class="ir-export-daily-photos">'+photoHtml+'</div></section>':'')+
    '</div>'
  }
+
+ function exportMoreCards(htmlList,kind,totalCount=htmlList.length,totalUnits=0){
+  const first=htmlList.slice(0,5).join("");
+  if(htmlList.length<=5)return first;
+  const other=htmlList.slice(5).join("");
+  const suffix=kind==="reports"?"отчётов":("групп · "+exportFormat(totalUnits)+" шт.");
+  return first+'<details class="ir-export-more ir-export-more-'+esc(kind)+'"><summary><span class="ir-export-more-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span><span class="ir-export-more-show">Показать ещё (всего '+totalCount+' '+suffix+')</span><span class="ir-export-more-hide">Свернуть (показать первые 5)</span></summary><div class="ir-export-more-items">'+other+'</div></details>'
+ }
+
  function renderDailyReports(rows,images){
   if(!rows.length)return'<div class="ir-export-empty-card">Ежедневных отчётов пока нет</div>';
   const numbers=new Map([...rows].sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0)).map((r,i)=>[String(r.id),i+1]));
   const ordered=[...rows].sort((a,b)=>String(b.data?.date||b.data?.report_date||"").localeCompare(String(a.data?.date||a.data?.report_date||""))||(Number(b.id)||0)-(Number(a.id)||0));
-  return'<div class="ir-export-daily-list">'+ordered.map((record,i)=>{
+  const cards=ordered.map((record,i)=>{
    const r={...record.data},no=numbers.get(String(record.id))||i+1;
    return'<article class="ir-export-daily-card"><details'+(i===0?' open':'')+'><summary>'+reportBrief(r,no)+'</summary>'+reportFull(record,r,images)+'</details></article>'
-  }).join("")+'</div>'
+  });
+  return'<div class="ir-export-daily-list">'+exportMoreCards(cards,"reports")+'</div>'
  }
  function extractOverviewPreviews(copy,keys){
   const available=new Set(keys),previews={};
-  // Reports have their own full, expandable section below: omit the short recent-reports widget.
-  copy.querySelectorAll(".object-overview-reports > .oor2-card:not(.oor2-photo-card):not(.oor-marks-card)").forEach(card=>card.remove());
+  // Daily reports and grouped marks have their own archive cards, not duplicate overview widgets.
+  copy.querySelectorAll(".object-overview-reports > .oor2-card:not(.oor2-photo-card):not(.oor-marks-card),.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-reports > .oor-marks-card").forEach(card=>card.remove());
   const sources=[
    ["photos",".object-overview-reports > .oor2-photo-card"],
    ["deliveries",".object-overview-deliveries-wrap > .ood-deliveries"],
    ["deliveries",".object-overview-deliveries-wrap > .ood-comparison"],
    ["schedule",".object-overview-dashboard > .object-overview-schedule"],
-   ["marks",".object-overview-marks-wrap > .object-overview-marks-card"],
-   ["marks",".object-overview-reports > .oor-marks-card"],
    ["acted-days",".object-overview-admin-analysis > .ooa-acted"],
    ["penalties",".object-overview-admin-analysis > .ooa-penalties"]
   ];
@@ -169,8 +177,7 @@
    if(!available.has(key))continue;
    for(const card of copy.querySelectorAll(selector)){
     if(card.closest("[hidden]")||card.hidden)continue;
-    if(key==="marks"&&previews.marks?.length)continue;
-    const wrapper=key==="photos"||selector.includes(".oor-marks-card")?"object-overview-reports":
+    const wrapper=key==="photos"?"object-overview-reports":
      key==="deliveries"?"object-overview-deliveries-wrap":key==="schedule"?"object-overview-dashboard":
      key==="marks"?"object-overview-marks-wrap":"object-overview-admin-analysis";
     (previews[key]??=[]).push('<div class="ir-object-overview-right ir-export-preview-layout"><div class="'+wrapper+'">'+card.outerHTML+'</div></div>');
@@ -183,8 +190,85 @@
   return Object.fromEntries(Object.entries(previews).map(([key,value])=>[key,value.join("")]))
  }
 
- function renderSection(key,rows,images,preview=""){
-  const body=key==="reports"?renderDailyReports(rows,images):renderRows(rows,key,images);
+
+ function markProgressGroups(markRows,workRows,reportRows){
+  const normalize=v=>String(v??"").trim().toLowerCase().replace(/\s+/g," ");
+  const catalog=new Map(array(workRows).map(row=>{
+   const d=row.data||{};
+   return[String(row.id),{name:String(d.work_type||row.title||"Без вида работ"),code:String(d.project_code||d.code||"").trim()}]
+  }));
+  const mountedMap=new Map();
+  for(const record of array(reportRows)){
+   const data=record.data||record;
+   for(const item of array(data.items).length?data.items:array(data.works)){
+    if(item?.accounting_type==="service"||item?.is_service===true||normalize(item?.unit)==="услуга")continue;
+    const id=String(item?.mark_id??item?.markId??item?.mark_record_id??"");
+    if(!id)continue;
+    const qty=Math.max(0,exportNumber(item.qty??item.count??item.quantity));
+    mountedMap.set(id,(mountedMap.get(id)||0)+qty)
+   }
+  }
+  const groups=new Map();
+  for(const raw of array(markRows)){
+   const d=raw.data||{},qty=Math.max(0,exportNumber(d.qty??d.count));
+   if(qty<=0||d.accounting_type==="service"||normalize(d.unit)==="услуга")continue;
+   const wid=String(d.work_type_id||""),work=catalog.get(wid),name=String(work?.name||d.work_type||raw.title||"Без вида работ").trim(),code=String(d.project_code||work?.code||d.code||"").trim();
+   const key=(wid||normalize(name))+"|"+normalize(code);
+   if(!groups.has(key))groups.set(key,{name,code,total:0,mounted:0,remaining:0,positions:0});
+   const mark=groups.get(key),markId=String(raw.id);
+   const fromReports=mountedMap.get(markId),done=Math.min(qty,Math.max(0,fromReports==null?exportNumber(d.mounted??d.done):fromReports));
+   mark.total+=qty;mark.mounted+=done;mark.positions++
+  }
+  return [...groups.values()].map(x=>({
+   ...x,remaining:Math.max(0,x.total-x.mounted),
+   mountedPct:x.total?Math.min(100,x.mounted/x.total*100):0,
+   remainingPct:x.total?Math.max(0,100-x.mounted/x.total*100):0
+  })).sort((a,b)=>a.name.localeCompare(b.name,"ru",{numeric:true})||a.code.localeCompare(b.code,"ru",{numeric:true}))
+ }
+ function markProgressRow(group){
+  const mounted=group.mountedPct,remaining=group.remainingPct;
+  const pct=v=>exportFormat(Math.round(v*10)/10)+"%";
+  return'<article class="ir-export-mark-row">'+
+   '<div class="ir-export-mark-name"><b>'+esc(group.name)+'</b><small>'+group.positions+' позиций</small></div>'+
+   '<div class="ir-export-mark-code">'+esc(group.code||"Без шифра")+'</div>'+
+   '<div class="ir-export-mark-count"><b>'+esc(exportFormat(group.total))+'</b><small>шт.</small></div>'+
+   '<div class="ir-export-mark-progress" role="img" aria-label="Смонтировано '+esc(pct(mounted))+'"><div class="ir-export-mark-track"><i style="width:'+mounted.toFixed(2)+'%"></i></div><small>'+esc(pct(mounted))+' готовность</small></div>'+
+   '<div class="ir-export-mark-fact"><b>'+esc(exportFormat(group.mounted))+' шт.</b><small>'+esc(pct(mounted))+'</small></div>'+
+   '<div class="ir-export-mark-left"><b>'+esc(exportFormat(group.remaining))+' шт.</b><small>'+esc(pct(remaining))+'</small></div>'+
+   '</article>'
+ }
+ function markProgressPanel(groups,kind){
+  if(!groups.length)return'<div class="ir-export-empty-card">По выбранному фильтру марок нет</div>';
+  const cards=groups.map(markProgressRow);
+  return'<div class="ir-export-mark-rows">'+exportMoreCards(cards,"marks",groups.length,groups.reduce((s,x)=>s+x.total,0))+'</div>'
+ }
+ function renderMarksOverview(markRows,workRows,reportRows){
+  const groups=markProgressGroups(markRows,workRows,reportRows);
+  const total=groups.reduce((s,x)=>s+x.total,0),mounted=groups.reduce((s,x)=>s+x.mounted,0);
+  const left=Math.max(0,total-mounted),percent=total?Math.round(mounted/total*1000)/10:0;
+  const mountedGroups=groups.filter(x=>x.mounted>0),remainingGroups=groups.filter(x=>x.remaining>0);
+  const mode=(key,label,count)=>'<label for="ir-export-marks-'+key+'">'+label+' <span>'+count+'</span></label>';
+  return'<div class="ir-export-marks-summary">'+
+   '<div class="ir-export-marks-title"><div><h3>Готовность по видам работ</h3><p>Количество отправочных марок в штуках · монтаж из ежедневных отчётов</p></div><b>'+esc(exportFormat(percent))+'%</b></div>'+
+   '<div class="ir-export-marks-stats"><div><small>Всего марок</small><b>'+esc(exportFormat(total))+' шт.</b></div><div><small>Смонтировано</small><b>'+esc(exportFormat(mounted))+' шт.</b></div><div><small>Осталось</small><b>'+esc(exportFormat(left))+' шт.</b></div><div><small>Групп видов работ / шифров</small><b>'+groups.length+'</b></div></div>'+
+   '<div class="ir-export-mark-switcher">'+
+   '<input class="ir-export-mark-radio ir-export-mark-radio--all" type="radio" name="ir-export-mark-mode" id="ir-export-marks-all" checked>'+
+   '<input class="ir-export-mark-radio ir-export-mark-radio--mounted" type="radio" name="ir-export-mark-mode" id="ir-export-marks-mounted">'+
+   '<input class="ir-export-mark-radio ir-export-mark-radio--remaining" type="radio" name="ir-export-mark-mode" id="ir-export-marks-remaining">'+
+   '<div class="ir-export-mark-tabs" role="group" aria-label="Фильтр ведомости марок">'+mode("all","Все",groups.length)+mode("mounted","Смонтировано",mountedGroups.length)+mode("remaining","Осталось",remainingGroups.length)+'</div>'+
+   '<div class="ir-export-mark-panel ir-export-mark-panel--all"><div class="ir-export-mark-head"><span>Вид работы</span><span>Шифр</span><span>Всего марок</span><span>Шкала прогресса</span><span>Смонтировано, шт. / %</span><span>Осталось, шт. / %</span></div>'+markProgressPanel(groups,"all")+'</div>'+
+   '<div class="ir-export-mark-panel ir-export-mark-panel--mounted"><div class="ir-export-mark-head"><span>Вид работы</span><span>Шифр</span><span>Всего марок</span><span>Шкала прогресса</span><span>Смонтировано, шт. / %</span><span>Осталось, шт. / %</span></div>'+markProgressPanel(mountedGroups,"mounted")+'</div>'+
+   '<div class="ir-export-mark-panel ir-export-mark-panel--remaining"><div class="ir-export-mark-head"><span>Вид работы</span><span>Шифр</span><span>Всего марок</span><span>Шкала прогресса</span><span>Смонтировано, шт. / %</span><span>Осталось, шт. / %</span></div>'+markProgressPanel(remainingGroups,"remaining")+'</div>'+
+   '</div></div>'
+ }
+ function renderMarkSection(rows,workRows,reportRows,images){
+  const summary=renderMarksOverview(rows,workRows,reportRows);
+  const full=rows.length?'<details class="ir-export-mark-raw"><summary>Подробная ведомость по маркам ('+rows.length+' позиций)</summary>'+renderRows(rows,"marks",images)+'</details>':"";
+  return summary+full
+ }
+
+ function renderSection(key,rows,images,preview="",support={}){
+  const body=key==="reports"?renderDailyReports(rows,images):key==="marks"?renderMarkSection(rows,support.workTypes||[],support.reports||[],images):renderRows(rows,key,images);
   return'<div class="ir-export-group" id="section-'+esc(key)+'">'+(preview?'<div class="ir-export-preview">'+preview+'</div>':"")+
    '<section class="ir-export-section"><header class="ir-export-section-head"><div><small>IR Project / Объект</small><h2>'+esc(labels[key]||key)+'</h2></div><span class="ir-export-count">'+rows.length+' записей</span></header>'+body+'</section></div>'
  }
@@ -242,6 +326,10 @@
     catch(error){console.warn("Object HTML: failed to load section",key,error);return[key,[]]}
    }));
    const rows=Object.fromEntries(batches);
+   const supporting=keys.includes("marks")?await Promise.all([
+    rows["work-types"]?Promise.resolve(rows["work-types"]):api.section("work-types").list().catch(()=>[]),
+    rows.reports?Promise.resolve(rows.reports):api.section("reports").list().catch(()=>[])
+   ]):[[],[]];
    const photos=await inlinePhotos(rows);
    const cssResponse=await fetch("./ir-styles.css?v=17149",{cache:"no-store"});
    if(!cssResponse.ok)throw Error("Не удалось загрузить оформление отчёта.");
@@ -317,6 +405,62 @@
     ".ir-export-daily-photos figcaption{font-size:10px;color:#7c94a5;padding-top:4px}",
     ".ir-export-muted{font-size:12px;color:#7f93a4;margin:0}",
     "@media(max-width:1000px){.ir-export-preview{margin:12px 12px 0}.ir-export-daily-columns{grid-template-columns:1fr}}",
+    ".ir-export-more{border:1px solid #d3e4f0;border-radius:10px;background:#f5faff;overflow:hidden;min-width:0}",
+    ".ir-export-more>summary{display:flex;align-items:center;justify-content:center;gap:11px;min-height:46px;padding:10px 16px;cursor:pointer;color:#256c9e;list-style:none;font-size:12px;font-weight:750;text-align:center}",
+    ".ir-export-more>summary::-webkit-details-marker{display:none}",
+    ".ir-export-more>summary:hover{background:#e8f4fc}",
+    ".ir-export-more>summary:focus-visible{outline:2px solid #397db8;outline-offset:-3px}",
+    ".ir-export-more-icon{display:grid;place-items:center;width:25px;height:25px;background:#e0eef9;border-radius:7px}",
+    ".ir-export-more-icon svg{width:16px;height:16px;transition:transform .2s ease}",
+    ".ir-export-more[open] .ir-export-more-icon svg{transform:rotate(180deg)}",
+    ".ir-export-more-hide{display:none}.ir-export-more[open] .ir-export-more-show{display:none}.ir-export-more[open] .ir-export-more-hide{display:inline}",
+    ".ir-export-more-items{display:grid;gap:10px;padding:11px 12px 13px;border-top:1px solid #dceaf3;background:#fff}",
+    ".ir-export-marks-summary{border:1px solid #dce6ee;border-radius:11px;overflow:hidden;background:#fff;box-shadow:0 2px 9px rgba(22,59,87,.05)}",
+    ".ir-export-marks-title{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid #e8eef3}",
+    ".ir-export-marks-title h3{margin:0 0 5px;font-size:15px;line-height:1.4;color:#1b425c;font-weight:800}",
+    ".ir-export-marks-title p{margin:0;font-size:11px;color:#8196a5}",
+    ".ir-export-marks-title>b{font-size:21px;color:#1f7eaf;background:#eff8fc;border-radius:9px;padding:8px 11px}",
+    ".ir-export-marks-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:12px 15px;background:#f7fbff}",
+    ".ir-export-marks-stats>div{min-width:0;display:grid;gap:5px;padding:11px 12px;background:#fff;border:1px solid #e4ecf3;border-radius:8px}",
+    ".ir-export-marks-stats small{font-size:10px;color:#839bad}.ir-export-marks-stats b{font-size:15px;color:#25485f}",
+    ".ir-export-mark-switcher{position:relative;padding:12px 15px 15px}",
+    ".ir-export-mark-radio{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}",
+    ".ir-export-mark-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:13px;padding:3px;background:#f0f5f9;border:1px solid #e2ebf2;border-radius:9px;width:max-content;max-width:100%}",
+    ".ir-export-mark-tabs label{display:flex;align-items:center;gap:7px;cursor:pointer;padding:8px 12px;border-radius:7px;font-size:11px;font-weight:700;color:#58788e;transition:background-color .15s,color .15s}",
+    ".ir-export-mark-tabs label span{font-size:10px;padding:2px 6px;background:rgba(118,152,175,.13);border-radius:5px}",
+    ".ir-export-mark-tabs label:hover{color:#216991;background:#e2eff9}",
+    ".ir-export-mark-radio--all:checked ~ .ir-export-mark-tabs label[for='ir-export-marks-all'],.ir-export-mark-radio--mounted:checked ~ .ir-export-mark-tabs label[for='ir-export-marks-mounted'],.ir-export-mark-radio--remaining:checked ~ .ir-export-mark-tabs label[for='ir-export-marks-remaining']{color:#fff;background:#236da6;box-shadow:0 2px 5px rgba(38,101,158,.17)}",
+    ".ir-export-mark-radio:focus-visible ~ .ir-export-mark-tabs{outline:2px solid #4f95c9;outline-offset:2px}",
+    ".ir-export-mark-panel{display:none!important;min-width:0}",
+    ".ir-export-mark-radio--all:checked ~ .ir-export-mark-panel--all,.ir-export-mark-radio--mounted:checked ~ .ir-export-mark-panel--mounted,.ir-export-mark-radio--remaining:checked ~ .ir-export-mark-panel--remaining{display:block!important}",
+    ".ir-export-mark-head,.ir-export-mark-row{display:grid;grid-template-columns:minmax(135px,1.55fr) minmax(95px,.85fr) minmax(80px,.65fr) minmax(130px,1.4fr) minmax(100px,.9fr) minmax(100px,.9fr);align-items:center;gap:12px}",
+    ".ir-export-mark-head{padding:10px 13px;background:#edf5fb;border:1px solid #e2edf5;border-radius:8px 8px 0 0;font-size:10px;font-weight:800;color:#698599}",
+    ".ir-export-mark-rows{display:grid;gap:0}",
+    ".ir-export-mark-row{padding:12px 13px;border-bottom:1px solid #e8eef4;font-size:11px;background:#fff;min-height:65px}",
+    ".ir-export-mark-row:nth-child(even){background:#fbfdff}",
+    ".ir-export-mark-row:hover{background:#f1f8ff}",
+    ".ir-export-mark-name{display:grid;gap:4px;min-width:0}.ir-export-mark-name b{color:#21465e;font-size:12px;overflow-wrap:anywhere}.ir-export-mark-name small{color:#8da1b0;font-size:10px}",
+    ".ir-export-mark-code{color:#617d90;overflow-wrap:anywhere}",
+    ".ir-export-mark-count{display:grid;gap:3px}.ir-export-mark-count b{font-size:13px;color:#264b68}.ir-export-mark-count small{font-size:10px;color:#8da1b0}",
+    ".ir-export-mark-progress{min-width:0;display:grid;gap:6px}",
+    ".ir-export-mark-track{height:9px;background:#e6edf4;border-radius:20px;overflow:hidden}",
+    ".ir-export-mark-track i{display:block;height:100%;background:linear-gradient(90deg,#32b59b,#219e78);border-radius:20px}",
+    ".ir-export-mark-progress small{font-size:10px;color:#6a8999}",
+    ".ir-export-mark-fact,.ir-export-mark-left{display:grid;gap:4px}",
+    ".ir-export-mark-fact b,.ir-export-mark-left b{font-size:12px;color:#23835f}.ir-export-mark-left b{color:#d17a44}",
+    ".ir-export-mark-fact small,.ir-export-mark-left small{font-size:10px;color:#8399a8}",
+    ".ir-export-mark-rows>.ir-export-more{margin:11px 5px 0}",
+    ".ir-export-mark-rows .ir-export-more-items{gap:0;padding:0}",
+    ".ir-export-mark-rows .ir-export-more-items>.ir-export-mark-row:last-child{border-bottom:0}",
+    ".ir-export-mark-raw{margin-top:14px;border:1px solid #e2eaf2;border-radius:9px;background:#f8fbfe;overflow:hidden}",
+    ".ir-export-mark-raw>summary{display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;cursor:pointer;list-style:none;font-weight:750;font-size:12px;color:#37779f}",
+    ".ir-export-mark-raw>summary::-webkit-details-marker{display:none}",
+    ".ir-export-mark-raw>summary:before{content:'';width:8px;height:8px;border-right:2px solid #3a83b3;border-bottom:2px solid #3a83b3;transform:rotate(45deg);transition:transform .2s ease}",
+    ".ir-export-mark-raw[open]>summary:before{transform:rotate(225deg)}",
+    ".ir-export-mark-raw>.ir-export-records{padding:12px;gap:8px;background:#fff}",
+    "@media(max-width:1200px){.ir-export-mark-head,.ir-export-mark-row{grid-template-columns:minmax(110px,1.3fr) minmax(70px,.8fr) minmax(70px,.6fr) minmax(105px,1fr) minmax(90px,.8fr) minmax(90px,.8fr);gap:8px}.ir-export-marks-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}",
+    "@media(max-width:850px){.ir-export-marks-stats{grid-template-columns:1fr 1fr}.ir-export-mark-row{font-size:10px;padding:10px 8px}.ir-export-mark-head{padding:10px 8px;font-size:9px}}",
+    "@media print{.ir-export-mark-tabs{display:none!important}.ir-export-mark-panel--all{display:block!important}.ir-export-mark-raw{break-inside:avoid}.ir-export-more-items{display:grid!important}.ir-export-more-show{display:none!important}}",
     ".ir-export-section{padding:18px;margin:18px 22px;border:1px solid #dce5ed;border-radius:13px;background:#fff;scroll-margin-top:14px;color:#21435b}",
     ".ir-export-section-head{display:flex;justify-content:space-between;align-items:center;gap:14px;border-bottom:1px solid #e4edf3;padding:0 0 15px;margin-bottom:12px}",
     ".ir-export-section-head small{font-size:11px;color:#7d92a3}.ir-export-section-head h2{font:750 20px/1.4 'Segoe UI',sans-serif;margin:4px 0 0}",
@@ -347,7 +491,7 @@
    const htmlSnapshot=overviewSnapshot.overview;
    const activeNavStyles=keys.map(key=>'body:has(#section-'+key+':target) .ir-export-sidebar .ir-object-nav a.ir-export-nav[href="#section-'+key+'"]{background:#1e61b4!important;color:#fff!important;font-weight:700!important;box-shadow:inset 0 0 0 1px rgba(91,157,238,.15)!important}body:has(#section-'+key+':target) .ir-export-sidebar .ir-object-nav a.ir-export-nav[href="#section-'+key+'"] .nav-icon{color:#fff!important}').join("\n");
    const sidebar=sidebarHtml(document.querySelector(".ir-object-sidebar-fixed"),keys);
-   const sectionsHtml=keys.map(key=>renderSection(key,rows[key]||[],photos,overviewSnapshot.preview[key]||"")).join("");
+   const sectionsHtml=keys.map(key=>renderSection(key,rows[key]||[],photos,overviewSnapshot.preview[key]||"",{workTypes:supporting[0],reports:supporting[1]})).join("");
    const generated=new Date().toLocaleString("ru-RU");
    const html='<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;; img-src data:; font-src data:"><title>'+esc(object.name||"IR Project")+' — отчёт объекта</title><style>'+css+'</style><style>'+extraStyles+'\n'+activeNavStyles+'</style></head><body class="ir-object-route ir-object-overview">'+sidebar+'<main id="app">'+htmlSnapshot+sectionsHtml+'<footer class="ir-export-section"><b>IR Project</b> · Снимок объекта от '+esc(generated)+'. Только просмотр. Данные не связаны с рабочей базой.</footer></main></body></html>';
    const name=safeFile(object.short_name||object.name||"Объект");
