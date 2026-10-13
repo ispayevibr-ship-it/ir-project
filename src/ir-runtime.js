@@ -4155,12 +4155,14 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
   const companyIcon=menuIcon('<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M7 7V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v3M3 12h18M10 12v2h4v-2"/>');
   const aboutIcon=menuIcon('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5h.01"/>');
   const refreshIcon=menuIcon('<path d="M20 11a8 8 0 0 0-14.8-4"/><path d="M4 4v5h5"/><path d="M4 13a8 8 0 0 0 14.8 4"/><path d="M20 20v-5h-5"/>');
+  const backupIcon=menuIcon('<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v7c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12v7c0 1.66 4.03 3 9 3s9-1.34 9-3v-7"/>');
   p.innerHTML='<button type="button" id="profileBadge" class="profile-badge">'+names[irAccess.role()]+'</button>'+
    '<button type="button" id="programSettingsButton" class="program-settings-button" title="Настройки программы" aria-label="Настройки программы" aria-expanded="false">'+gear+'</button>'+
    '<div id="programSettingsMenu" class="program-settings-menu" hidden role="group" aria-label="Настройки программы">'+
    '<div class="program-settings-menu-head"><div class="program-settings-menu-title">Настройки</div><small>IR Project</small></div>'+
    '<div class="program-settings-menu-items">'+
    '<button type="button" id="companyProfileSettings" class="program-settings-item">'+companyIcon+'<span class="program-settings-item-text"><strong>Профиль компании</strong><small>Реквизиты и логотип</small></span></button>'+
+   '<button type="button" id="programExportDatabase" class="program-settings-item" title="Выбрать папку для сохранения файла базы данных">'+backupIcon+'<span class="program-settings-item-text"><strong>Выгрузить базу данных</strong><small>Выбрать папку и сохранить .db</small></span></button>'+
    '<button type="button" id="programAboutButton" class="program-settings-item">'+aboutIcon+'<span class="program-settings-item-text"><strong>О программе</strong><small>Авторские права и версия</small></span></button>'+
    '<div class="program-settings-divider" role="separator"></div>'+
    '<button type="button" id="programCheckUpdates" class="program-settings-item program-settings-update">'+refreshIcon+'<span class="program-settings-item-text"><strong>Проверить обновления</strong><small>Найти новую версию</small></span></button>'+
@@ -4171,7 +4173,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
    select=p.querySelector("#roleSelect"),settings=p.querySelector("#engineerSettings"),
    settingsButton=p.querySelector("#programSettingsButton"),settingsMenu=p.querySelector("#programSettingsMenu"),
    companyButton=p.querySelector("#companyProfileSettings"),aboutButton=p.querySelector("#programAboutButton"),
-   updateButton=p.querySelector("#programCheckUpdates");
+   backupButton=p.querySelector("#programExportDatabase"),updateButton=p.querySelector("#programCheckUpdates");
   const closeSettings=()=>{
    settingsMenu.hidden=true;settingsButton.setAttribute("aria-expanded","false");
    settingsButton.classList.remove("is-open")
@@ -4208,6 +4210,31 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
   aboutButton.onclick=()=>{
    closeSettings();
    void aboutDialog(settingsMenu)
+  };
+  // Use the existing native Save dialog: the user selects both destination
+  // folder and .db filename. No database schema or updater code changes.
+  let exportingDatabase=false;
+  backupButton.onclick=async()=>{
+   if(exportingDatabase)return;
+   closeSettings();
+   if(irAccess.role()!=="admin"){
+    alert("Выгрузка базы данных доступна только администратору.");
+    return
+   }
+   if(typeof irProject.backup?.create!=="function"){
+    alert("Выгрузка базы данных недоступна. Перезапустите IR Project.");
+    return
+   }
+   exportingDatabase=true;backupButton.disabled=true;
+   try{
+    const saved=await irProject.backup.create();
+    if(saved===true)alert("База данных успешно выгружена в выбранную папку.");
+    // false means the user cancelled the Save dialog; no message needed.
+   }catch(error){
+    alert("Не удалось выгрузить базу данных: "+String(error?.message||error))
+   }finally{
+    exportingDatabase=false;backupButton.disabled=false
+   }
   };
   updateButton.onclick=()=>{
    closeSettings();

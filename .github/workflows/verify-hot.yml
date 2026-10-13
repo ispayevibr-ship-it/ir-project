@@ -8,6 +8,7 @@ on:
       - 'hot/latest.json'
       - 'scripts/build-runtime.js'
       - 'scripts/test-scheme-*.js'
+      - 'scripts/test-database-export-settings.js'
       - '.github/workflows/verify-hot.yml'
   workflow_dispatch:
 
@@ -50,6 +51,8 @@ jobs:
         run: node scripts/test-program-about.js
       - name: Test redesigned settings menu in standalone and tabbed windows
         run: node scripts/test-settings-menu.js
+      - name: Test database export from settings
+        run: node scripts/test-database-export-settings.js
       - name: Check generated JavaScript and CSS bundles
         run: node scripts/build-runtime.js --check
       - name: Check hot-update manifest sizes

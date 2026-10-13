@@ -85,3 +85,11 @@ body.ir-object-route:not(.ir-object-overview) #app{padding:18px 20px 22px!import
 .profile-panel .program-settings-menu .program-settings-divider{
  height:1px;margin:5px 7px;background:#e6edf5
 }
+
+/* 1.7.149: DB export in settings uses the existing native Save dialog. */
+.profile-panel .program-settings-menu #programExportDatabase .program-settings-item-icon{
+ background:#eaf4f1;color:#258675
+}
+.profile-panel .program-settings-menu .program-settings-item:disabled{
+ opacity:.6;cursor:wait;pointer-events:none
+}
