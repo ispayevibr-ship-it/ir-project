@@ -352,8 +352,8 @@
   return true
  }
  function reloadCurrent(){
-  const tab=frames.get(activeId);if(!tab)return;
-  if(tab.dirty&&!confirm("При обновлении вкладки несохранённые изменения пропадут. Продолжить?"))return;
+  const tab=frames.get(activeId);if(!tab)return false;
+  if(tab.dirty&&!confirm("При обновлении вкладки несохранённые изменения пропадут. Продолжить?"))return false;
   try{
    const actual=tab.frame.contentWindow?.location.hash.slice(1);
    if(routeValid(actual))tab.route=actual
@@ -361,7 +361,8 @@
   tab.dirty=false;tab.ready=false;armTabTimeout(tab);
   showLoading();
   tab.frame.src="./index.html?tabContent=1&reload="+Date.now()+"#"+cleanRoute(tab.route);
-  renderTabBar();save();notify("Обновляем вкладку: "+tab.title)
+  renderTabBar();save();notify("Обновляем вкладку: "+tab.title);
+  return true
  }
  const updateDialog=document.getElementById("tabsUpdateDialog"),
   updateTitle=document.getElementById("tabsUpdateTitle"),
@@ -413,10 +414,42 @@
   setUpdate("Ошибка обновления","Не удалось завершить обновление: "+String(error?.message||error));
   updateButtons([["Закрыть",false,closeUpdate],["Повторить",true,checkAppUpdate]])
  }
- function updateCurrent(version){
+ // Check what actually runs in the active Electron iframe. The installed
+ // version is a disk manifest and may be newer than a still-open tab.
+ const runtimeTokenFromHtml=html=>String(html||"").match(/ir-runtime\.js\?v=([\w.-]+)/)?.[1]||"";
+ const runtimeTokenInDoc=doc=>doc?.querySelector?.('script[src*="ir-runtime.js"]')?.getAttribute("src")?.match(/[?&]v=([\w.-]+)/)?.[1]||"";
+ const staleSchemeButton=doc=>{
+  const button=doc?.getElementById?.("irbStart");
+  return Boolean(button&&(/разместить\s+марку/i.test(String(button.textContent||""))||button.dataset?.irLabel!=="add-element"))
+ };
+ async function detectOldTabCode(){
+  const tab=frames.get(activeId);
+  if(!tab?.started||!tab.ready)return "";
+  try{
+   const doc=tab.frame.contentDocument;
+   if(!doc)return "";
+   // The button is an independent proof that the 3D panel is still rendered
+   // by an old code path, even if the script src looks up-to-date.
+   if(staleSchemeButton(doc))return "показывает старую версию монтажной схемы";
+   const loaded=runtimeTokenInDoc(doc);
+   if(!loaded)return "";
+   const response=await fetch("./index.html?verifyRuntime="+Date.now(),{cache:"no-store"});
+   if(!response.ok)return "";
+   const latest=runtimeTokenFromHtml(await response.text());
+   return latest&&loaded!==latest?"загрузила устаревший JavaScript (сборка "+loaded+" вместо "+latest+")":""
+  }catch(_error){return ""}
+ }
+ function updateCurrent(version,oldUi=""){
   if(pendingRestartVersion){updateDownloaded(pendingRestartVersion);return}
   updateProgress.hidden=true;updateTransfer.hidden=true;updateSize.hidden=true;
-  setUpdate("Обновление не требуется","Установлена последняя версия IR Project "+version+".");
+  if(oldUi){
+   setUpdate("Код вкладки устарел","IR Project "+version+" установлен, но открытая вкладка "+oldUi+". Обновите вкладку, чтобы увидеть действующие кнопки и изменения.");
+   updateButtons([["Позже",false,closeUpdate],
+    ["Перезагрузить вкладку",true,()=>{if(reloadCurrent())closeUpdate()}],
+    ["Перезапустить программу",false,installUpdate]]);
+   return
+  }
+  setUpdate("Обновление не требуется","Установлена последняя версия IR Project "+version+". Активная вкладка использует актуальные файлы, если она уже была загружена.");
   updateButtons([["Закрыть",true,closeUpdate]])
  }
  function updateAvailable(version,current){
@@ -488,9 +521,14 @@
   try{
    const result=await api.updater.check();
    const current=await api.updater.version(),remote=result?.updateInfo?.version;
-   updateBusy=false;
-   if(!remote||String(remote)===String(current))updateCurrent(current);
-   else updateAvailable(remote,current)
+   if(!remote||String(remote)===String(current)){
+    const stale=await detectOldTabCode();
+    updateBusy=false;
+    updateCurrent(current,stale)
+   }else{
+    updateBusy=false;
+    updateAvailable(remote,current)
+   }
   }catch(e){updateError(e)}
   finally{updateBusy=false;if(button)button.disabled=false}
  }

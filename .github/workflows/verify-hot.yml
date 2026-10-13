@@ -40,6 +40,8 @@ jobs:
         run: node scripts/test-scheme-visible-controls.js
       - name: Test color legend visibility in narrow 3D sidebar
         run: node scripts/test-scheme-color-legend.js
+      - name: Test runtime revision check for old Electron tabs
+        run: node scripts/test-scheme-runtime-version.js
       - name: Check generated JavaScript and CSS bundles
         run: node scripts/build-runtime.js --check
       - name: Check hot-update manifest sizes

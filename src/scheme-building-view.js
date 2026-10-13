@@ -288,7 +288,7 @@ window.irBuildingView=(()=>{
    '<label class="irb-switch"><input type="checkbox" id="irbRoof" '+(state.roof?'checked':'')+'><span>Контур кровли (эскиз)</span></label>'+
    '<div class="irb-info"><b>Управление каркасом</b><span>ЛКМ / один палец — вращение. ПКМ / два пальца — перемещение. Колесо / разведение пальцев — масштаб. Щелчок — выбор марки.</span></div>'+
    '<div class="irb-count"><span>'+html(props.scopeLabel||"На схеме")+'</span><strong id="irbVisibleCount">'+visibleCols().length+'</strong><small>Показано из '+cols.length+' размещённых элементов</small></div>'+
-   (props.canEdit?'<button type="button" class="irb-add" id="irbStart">＋ Добавить элемент</button>':'')+
+   (props.canEdit?'<button type="button" class="irb-add" id="irbStart" data-ir-label="add-element" title="Добавить элемент" aria-label="Добавить элемент">＋ Добавить элемент</button>':'')+
    '</aside><div class="irb-viewport">'+
    '<canvas id="irbSolid" aria-hidden="true"></canvas><canvas id="irbCanvas" aria-label="Интерактивный 3D-каркас здания"></canvas>'+
    '<div class="irb-view-title"><b>3D-каркас</b><small>Живая модель монтажной схемы · WebGL</small></div>'+
