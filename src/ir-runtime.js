@@ -1629,6 +1629,68 @@ window.irSchemePage=async function(objectId){
    window.irBuildingView.updateVisibility(visible,groups.map(g=>({...g,visible:!hiddenGroups.has(g.key)})));
   else renderScene();
  }
+
+ // Copy a complete member to a new XY location, preserving length,
+ // cross-section, elevations, orientation and intermediate bend.
+ async function copySchemeMember(sourceId,destination){
+  if(!canEdit())throw Error("Нет прав на копирование монтажной схемы.");
+  rows=await schemeApi.list();
+  const source=allRecords().find(r=>String(r.id)===String(sourceId));
+  if(!source)throw Error("Исходный элемент удалён. Выберите его заново.");
+  const mark=linkedMark(source);
+  if(!mark)throw Error("Марка элемента отсутствует в ведомости. Копирование недоступно.");
+  const quota=markPlacement(mark);
+  if(quota.left<=0)throw Error("Нет остатка по марке "+String(mark.mark||mark.title)+": "+quota.placed+" из "+quota.total+" шт.");
+  const original=coord(source),dx=Number(destination?.x)-original.x,dy=Number(destination?.y)-original.y;
+  if(!Number.isFinite(dx)||!Number.isFinite(dy))throw Error("Укажите точные координаты нового начала X/Y.");
+  if(Math.hypot(dx,dy)<1)throw Error("Выберите другое место: копию нельзя наложить на оригинал.");
+  const kind=original.geometryType;
+  const translate=(x,y)=>{
+   const px=Math.round((x+dx)*1000)/1000,py=Math.round((y+dy)*1000)/1000;
+   if(px<0||px>spanX||py<0||py>spanY)
+    throw Error("Весь элемент должен помещаться в сетку "+fmt(spanX)+" × "+fmt(spanY)+" мм. Точка X "+fmt(px)+" / Y "+fmt(py)+" выходит за границу.");
+   const ax=closestAxis(px,axesX,axisXPos),ay=closestAxis(py,axesY,axisYPos);
+   return{x:px,y:py,ax,ay,offX:px-num(axisXPos.get(ax)),offY:py-num(axisYPos.get(ay))}
+  };
+  const start=translate(original.x,original.y),
+   end=kind==="column"?start:translate(original.x2,original.y2),
+   middle=kind==="bent"?translate(original.mx,original.my):null;
+  const collides=allRecords().some(r=>{
+   if(String(r.mark_id||"")!==String(mark.id)&&linkedMark(r)?.id!==mark.id)return false;
+   const p=coord(r),rx=p.geometryType==="column"?p.x:p.x2,ry=p.geometryType==="column"?p.y:p.y2;
+   return Math.hypot(p.x-start.x,p.y-start.y)<5&&Math.hypot(rx-end.x,ry-end.y)<5
+    &&Math.abs(p.z0-original.z0)<5&&Math.abs(p.z2-original.z2)<5;
+  });
+  if(collides)throw Error("В этом месте уже размещён такой же элемент. Выберите другой ряд.");
+  const used=new Set(allRecords().map(r=>String(r.position||r.title||"")));
+  let index=1,title;do{title="COL-"+String(index++).padStart(4,"0")}while(used.has(title));
+  const group=recordMarkGroup(source);
+  const saved=await schemeApi.create({record_type:"scheme_column",title,data:{
+   entity_type:"column",position:title,mark_id:mark.id,
+   mark:mark.mark||mark.title||"",mark_name:mark.name||source.mark_name||"",
+   work_type_id:recordWorkId(source)||String(mark.work_type_id||""),
+   axis_x:start.ax,axis_y:start.ay,offset_x_mm:start.offX,offset_y_mm:start.offY,
+   absolute_x_mm:start.x,absolute_y_mm:start.y,
+   geometry_type:kind,
+   absolute_x2_mm:kind==="column"?undefined:end.x,
+   absolute_y2_mm:kind==="column"?undefined:end.y,
+   end_axis_x:kind==="column"?undefined:end.ax,end_axis_y:kind==="column"?undefined:end.ay,
+   end_offset_x_mm:kind==="column"?undefined:end.offX,end_offset_y_mm:kind==="column"?undefined:end.offY,
+   absolute_mid_x_mm:middle?.x,absolute_mid_y_mm:middle?.y,
+   mid_axis_x:middle?.ax,mid_axis_y:middle?.ay,
+   mid_offset_x_mm:middle?.offX,mid_offset_y_mm:middle?.offY,
+   mid_z_mm:middle?original.mz:undefined,
+   ridge_mode:kind==="bent"?String(source.ridge_mode||"manual"):undefined,
+   z0_mm:original.z0,z1_mm:original.z2,
+   end_z_mm:kind==="column"?undefined:original.z2,
+   rotation_deg:num(source.rotation_deg),
+   section_type:sectionType(source),profile_name:String(source.profile_name||""),
+   scheme_group:group.key,scheme_group_label:group.label,
+   scheme_view_id:String(source.scheme_view_id||"all"),status:"planned"
+  }});
+  rows=await schemeApi.list();
+  return String(saved?.id||"");
+ }
  function renderUnifiedBuilding(box){
   if(!window.irBuildingView){box.innerHTML='<p>Модель загружается…</p>';return}
   window.irBuildingView.render(box,{
@@ -1646,6 +1708,14 @@ window.irSchemePage=async function(objectId){
     const record=workRecords().find(x=>String(x.id)===String(id));
     if(record)openEditor({...record,...coord(record)});
    },
+   copyQuota:id=>{
+    const source=allRecords().find(r=>String(r.id)===String(id));
+    const mark=source&&linkedMark(source);
+    const q=mark?markPlacement(mark):null;
+    return{left:q?.left||0,total:q?.total||0,placed:q?.placed||0};
+   },
+   onCopyPlacement:(id,target)=>copySchemeMember(id,target),
+   onCopySaved:id=>{selectedId=String(id||"");draw()},
    onDelete:async id=>{
     if(!canEdit())return;
     const record=workRecords().find(x=>String(x.id)===String(id));
@@ -4107,7 +4177,7 @@ window.irSelectUI=(()=>{
  * 2D canvas projection: offline, no dependencies or database access.
  */
 window.irBuildingView=(()=>{
- const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true,bent:false,middle:null,ridgeMode:"center",colorMode:"status",renderMode:"real",hiddenSections:[],sectionKey:"",sectionsOpen:false,findQuery:""};
+ const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true,bent:false,middle:null,ridgeMode:"center",copySource:null,copyTarget:null,copyHover:null,colorMode:"status",renderMode:"real",hiddenSections:[],sectionKey:"",sectionsOpen:false,findQuery:""};
  let observer=null,paint=null,webgl=null,panelsInitialized=false,animationFrame=0,drawFrame=null,updateVisibleScene=null;
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const html=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -4254,6 +4324,7 @@ window.irBuildingView=(()=>{
  }
 
  function render(host,props){
+  state.copySource=null;state.copyTarget=null;state.copyHover=null;
   updateVisibleScene=null;
   if(!panelsInitialized){
    state.layersOpen=window.innerWidth>=1000;
@@ -4693,7 +4764,24 @@ window.irBuildingView=(()=>{
     }
     if(s.part===0&&(chosen||props.showLabels&&segments.length<120))paintLabel({x:(s.a.x+s.b.x)/2,y:(s.a.y+s.b.y)/2},String(s.c.mark||"?"),chosen?"#2c85e9":"#c7d9e9");
    }
-   if(state.placing){
+    if(state.copySource){
+    const src=state.copySource,dst=state.copyHover||state.copyTarget;
+    if(dst){
+     const dx=dst.x-num(src.x),dy=dst.y-num(src.y),
+      start=m.project(pt(dst.x,dst.y,num(src.z0))),
+      end=m.project(pt(src.geometryType==="column"?dst.x:num(src.x2)+dx,
+       src.geometryType==="column"?dst.y:num(src.y2)+dy,num(src.z2)));
+     const points=[start];
+     if(src.geometryType==="bent")points.push(m.project(pt(num(src.mx)+dx,num(src.my)+dy,num(src.mz))));
+     points.push(end);
+     for(let i=0;i<points.length-1;i++){
+      line(points[i],points[i+1],"rgba(255,255,255,.94)",10);
+      line(points[i],points[i+1],"#ed9a28",5,[9,5]);
+     }
+     for(const p of points){circle(p,8,"#fff");circle(p,5.6,"#eb8d20")}
+    }
+   }
+  if(state.placing){
     // Free grid nodes are small; real column heads are prominent blue points.
     for(const a of gridAnchors()){
      const q=m.project(anchorPoint(a)),selected=sameAnchor(a,state.start)||sameAnchor(a,state.middle)||sameAnchor(a,state.end);
@@ -4788,6 +4876,12 @@ window.irBuildingView=(()=>{
    field.classList.toggle("occupied",columnOccupied(state.hoverAnchor));
   };
   const updateHint=()=>{
+   if(state.copySource){
+    el("irbHint").textContent=state.copyTarget?
+     "Копия готова. Нажмите «Вставить копию» справа или выберите другое место.":
+     "Копирование: щёлкните по новому месту или укажите оси и смещения справа.";
+    return;
+   }
    const column=selectedMark()?.geometry==="column";
    const hasHeight=state.topZ!==""&&Number.isFinite(Number(state.topZ))&&Number(state.topZ)>0;
    el("irbHint").textContent=!state.placing?"ЛКМ — вращение · колесо — масштаб · нажатие на элемент — свойства":
@@ -4807,8 +4901,52 @@ window.irBuildingView=(()=>{
       state.end?.zConfirmed!==false&&(pickGeometry()!=="bent"||state.middle&&state.middle.zConfirmed!==false)));
    const ready=readyToSave();
    const current=cols.find(c=>String(c.id)===String(state.selected));
-   pane.hidden=!state.placing&&!current;
-   if(state.placing){
+   pane.hidden=!state.placing&&!state.copySource&&!current;
+   if(state.copySource){
+    const source=state.copySource,quota=props.copyQuota?.(String(source.id))||{left:0},
+     destination=state.copyTarget,current=destination||{x:num(source.x),y:num(source.y)},
+     xAxis=closest(axesX,gridX,current.x),yAxis=closest(axesY,gridY,current.y),
+     xOptions=axesX.map(a=>'<option value="'+html(a)+'" '+(a===xAxis?'selected':'')+'>'+html(a)+'</option>').join(""),
+     yOptions=axesY.map(a=>'<option value="'+html(a)+'" '+(a===yAxis?'selected':'')+'>'+html(a)+'</option>').join("");
+    pane.innerHTML='<div class="irb-panel-head"><b>Копирование конструкции</b><small>НОВАЯ МАРКА</small></div>'+
+     '<div class="irb-selected"><small>Исходный элемент</small><strong>'+html(source.mark||"—")+'</strong><span>'+html(source.mark_name||"")+'</span></div>'+
+     '<p class="irb-copy-note">Перенесите копию на другой ряд: выберите новое начало на модели или установите оси и смещения. Длина, направление, профиль, высоты и форма сохраняются. Исходный элемент остаётся.</p>'+
+     '<div class="irb-copy-axes"><label>Ось 1–6<select id="irbCopyAxisX">'+xOptions+'</select></label>'+
+     '<label>Смещение X, мм<input id="irbCopyOffsetX" type="text" inputmode="decimal" value="'+html(Math.round(current.x-originAxis(gridX,xAxis)))+'"></label>'+
+     '<label>Ось А–Л<select id="irbCopyAxisY">'+yOptions+'</select></label>'+
+     '<label>Смещение Y, мм<input id="irbCopyOffsetY" type="text" inputmode="decimal" value="'+html(Math.round(current.y-originAxis(gridY,yAxis)))+'"></label></div>'+
+     '<div class="irb-copy-position" id="irbCopyPosition">'+(destination?
+      'Новое начало: X '+fmt(destination.x)+' · Y '+fmt(destination.y)+' мм':
+      'Укажите новое положение щелчком на 3D или измените оси / смещения.')+'</div>'+
+     '<div class="irb-quota">Остаток по ведомости: <b>'+fmt(quota.left)+' шт.</b></div>'+
+     '<div class="irb-form-error" id="irbCopyError" role="alert" hidden></div>'+
+     '<button type="button" class="irb-save" id="irbCopySave" '+(!destination||quota.left<=0||state.busy?'disabled':'')+'>✓ Вставить копию</button>'+
+     '<button type="button" class="irb-secondary" id="irbCopyCancel">Отмена</button>';
+    const error=el("irbCopyError"),save=el("irbCopySave"),
+     controls=["irbCopyAxisX","irbCopyAxisY","irbCopyOffsetX","irbCopyOffsetY"].map(el);
+    const inputChanged=()=>{
+     const rawX=controls[2].value.trim().replace(/\s/g,"").replace(",","."),rawY=controls[3].value.trim().replace(/\s/g,"").replace(",","."),
+      dx=Number(rawX),dy=Number(rawY);
+     state.copyTarget=rawX!==""&&rawY!==""&&Number.isFinite(dx)&&Number.isFinite(dy)?
+      {x:Math.round(originAxis(gridX,controls[0].value)+dx),y:Math.round(originAxis(gridY,controls[1].value)+dy)}:null;
+     state.copyHover=null;
+     const dest=state.copyTarget;
+     el("irbCopyPosition").textContent=dest?"Новое начало: X "+fmt(dest.x)+" · Y "+fmt(dest.y)+" мм":"Введите корректные смещения X/Y.";
+     save.disabled=!dest||quota.left<=0||state.busy;
+     error.hidden=true;updateHint();paint();
+    };
+    controls.forEach(input=>input.addEventListener(input.tagName==="SELECT"?"change":"input",inputChanged));
+    el("irbCopyCancel").onclick=()=>{state.copySource=null;state.copyTarget=null;state.copyHover=null;refreshPanel();paint()};
+    save.onclick=async()=>{
+     if(!state.copyTarget||state.busy)return;
+     state.busy=true;save.disabled=true;error.hidden=true;
+     try{
+      const id=await props.onCopyPlacement(String(source.id),{...state.copyTarget});
+      state.busy=false;state.copySource=null;state.copyTarget=null;state.copyHover=null;
+      props.onCopySaved?.(id);
+     }catch(e){state.busy=false;save.disabled=false;error.textContent=String(e?.message||e);error.hidden=false}
+    };
+   }else if(state.placing){
     pane.innerHTML='<div class="irb-panel-head"><b>Размещение элемента</b><small>НОВАЯ МАРКА</small></div>'+
     '<label class="irb-field">Поиск марки<input type="search" id="irbMarkSearch" autocomplete="off" spellcheck="false" placeholder="Марка или наименование…" aria-label="Поиск марки для размещения" value="'+html(state.markSearch)+'"></label>'+
     '<label class="irb-field">Марка из ведомости<select id="irbMark">'+markOptions()+'</select><small>Найдено: '+matchedCount()+' из '+marks.length+'</small></label>'+
@@ -5056,6 +5194,7 @@ window.irBuildingView=(()=>{
       '<div class="irb-row"><span>Отметка конца, мм</span><b>'+fmt(c.z2)+'</b></div>'+
       (props.canEdit?'<div class="irb-action-row">'+
        '<button type="button" class="irb-secondary" id="irbSelectDetails">Подробнее и редактирование →</button>'+
+       '<button type="button" class="irb-secondary irb-copy-button" id="irbCopySelected" title="Копировать всю конструкцию в другое место">⧉ Копировать</button>'+
        '<button type="button" class="irb-icon-delete" id="irbDeleteSelected" title="Удалить элемент со схемы" aria-label="Удалить выбранный элемент со схемы">'+
         '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
          '<path d="M4 7h16M10 4h4M6 7l1 13h10l1-13M10 11v6m4-6v6"/>'+
@@ -5066,22 +5205,33 @@ window.irBuildingView=(()=>{
     const detail=el("irbSelectDetails");if(detail)detail.onclick=()=>{
      if(props.canEdit&&typeof props.onEdit==="function")props.onEdit(String(c.id));
     };
+    const copyButton=el("irbCopySelected");
+    if(copyButton){
+     const quota=props.copyQuota?.(String(c.id));
+     if(!quota?.left){copyButton.disabled=true;copyButton.title="Нет остатка марки по ведомости";}
+     copyButton.onclick=()=>{
+      if(!props.canEdit||!quota?.left)return;
+      state.copySource={...c};state.copyTarget=null;state.copyHover=null;state.placing=false;state.error="";
+      refreshPanel();paint();
+     };
+    }
     const deleteButton=el("irbDeleteSelected");if(deleteButton)deleteButton.onclick=()=>{
      if(props.canEdit&&typeof props.onDelete==="function")props.onDelete(String(c.id));
     };
    }
-   const nextMode=state.placing?"placing":"details";
+   const nextMode=state.copySource?"copy":state.placing?"placing":"details";
    pane.dataset.irbPanelMode=nextMode;
    if(previousMode===nextMode)pane.scrollTop=previousScroll;
    if(!pane.hidden){
     const dismiss=document.createElement("button");dismiss.type="button";
     dismiss.className="irb-pane-close";dismiss.textContent="×";dismiss.title="Скрыть свойства";
     dismiss.setAttribute("aria-label","Закрыть свойства");
-    dismiss.onclick=()=>{state.placing=false;state.continuing=false;state.chainNext=null;state.start=null;state.end=null;state.selected="";props.onSelect("");refreshPanel();paint()};
+    dismiss.onclick=()=>{state.copySource=null;state.copyTarget=null;state.copyHover=null;state.placing=false;state.continuing=false;state.chainNext=null;state.start=null;state.end=null;state.selected="";props.onSelect("");refreshPanel();paint()};
     pane.prepend(dismiss);
    }
   }
   function startPlacement(){
+   state.copySource=null;state.copyTarget=null;state.copyHover=null;
    if(!props.canEdit||!marks.some(m=>m.left>0))return;
    state.placing=true;state.start=null;state.middle=null;state.end=null;state.chainNext=null;state.continuing=false;state.topZ="";state.error="";state.markSearch="";state.hoverAnchor=null;state.directColumns=true;state.bent=false;state.ridgeMode="center";state.mark=leftMark().find(m=>m.id===state.mark)?.id||leftMark()[0]?.id||"";state.repeat=selectedMark()?.geometry==="column";
    refreshPanel();paint();
@@ -5247,7 +5397,14 @@ window.irBuildingView=(()=>{
     }
     drag.lastX=p.x;drag.lastY=p.y;return;
    }
-   if(!state.placing){const id=nearestMember(p.x,p.y)?.id||"";if(state.hover!==id){state.hover=id;paint()}canvas.style.cursor=id?"pointer":"grab"}
+   if(state.copySource){
+   const a=groundAt(p.x,p.y,0),target=a?{x:a.worldX,y:a.worldY}:null,old=state.copyHover;
+   if(Boolean(target)!==Boolean(old)||target&&old&&Math.hypot(target.x-old.x,target.y-old.y)>15){
+    state.copyHover=target;paint()
+   }
+   canvas.style.cursor=target?"copy":"not-allowed";return;
+  }
+  if(!state.placing){const id=nearestMember(p.x,p.y)?.id||"";if(state.hover!==id){state.hover=id;paint()}canvas.style.cursor=id?"pointer":"grab"}
    else{
     const anchor=nearestAxis(p.x,p.y);
     const previous=state.hoverAnchor;
@@ -5265,6 +5422,12 @@ window.irBuildingView=(()=>{
    }
    if(!drag)return;const moved=drag.moved,mode=drag.mode;drag=null;if(moved||mode==="pan")return;
    const p=point(e);
+   if(state.copySource){
+    const a=groundAt(p.x,p.y,0);
+    if(!a)return;
+    state.copyTarget={x:a.worldX,y:a.worldY};state.copyHover=null;
+    refreshPanel();paint();return;
+   }
    if(state.placing){
     if(state.busy||!selectedMark())return;
     const a=nearestAxis(p.x,p.y);if(!a)return;
@@ -5288,7 +5451,7 @@ window.irBuildingView=(()=>{
     }
    }else{state.selected=String(nearestMember(p.x,p.y)?.id||"");props.onSelect(state.selected);refreshPanel();refreshFindControls();paint()}
   };
-  canvas.onpointerleave=()=>{if(!drag&&state.hoverAnchor){state.hoverAnchor=null;updateHoverInfo();paint()}};
+  canvas.onpointerleave=()=>{if(state.copySource&&state.copyHover){state.copyHover=null;paint()}if(!drag&&state.hoverAnchor){state.hoverAnchor=null;updateHoverInfo();paint()}};
   canvas.onpointercancel=e=>{pointers.delete(e.pointerId);drag=null;twoFinger=null;if(!pointers.size)multiTouch=false};
   canvas.onwheel=e=>{e.preventDefault();setZoom(state.zoom*(e.deltaY>0?.9:1.1))};
   if(window.ResizeObserver){observer=new ResizeObserver(()=>paint());observer.observe(canvas)}
