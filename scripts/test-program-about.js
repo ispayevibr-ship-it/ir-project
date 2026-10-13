@@ -28,7 +28,7 @@ const about=vm.runInNewContext(code.slice(start,end)+"\naboutDialog",scope);
  assert(dialog.isConnected&&dialog.open);
  const info=dialog.innerHTML;
  assert(info.indexOf("Авторское право")<info.indexOf("Версия программы"),"copyright must precede version");
- assert(info.includes("© 2026 ТОО «А-Темир Строй»"));
+ assert(info.includes("© 2026 IR Project. Все права защищены."));
  assert.equal(dialog.versionEl.textContent,"1.7.147");
  await about({ownerDocument:dialogDocument});
  assert.equal(versionRequests,1,"duplicate dialogs should not open");

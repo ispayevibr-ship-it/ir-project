@@ -21,7 +21,7 @@
    '<button type="button" class="ir-about-close" aria-label="Закрыть">×</button></div>'+
    '<div class="ir-about-info">'+
    '<div class="ir-about-line"><span>Авторское право</span>'+
-   '<strong>© 2026 ТОО «А-Темир Строй». Все права защищены.</strong></div>'+
+   '<strong>© 2026 IR Project. Все права защищены.</strong></div>'+
    '<div class="ir-about-line"><span>Версия программы</span>'+
    '<strong class="ir-about-version">Определяется…</strong></div></div>'+
    '<div class="ir-about-footer"><button type="button" class="ir-about-done">Закрыть</button></div>';
@@ -43,12 +43,20 @@
   const old=document.querySelector(".profile-panel");if(old)old.remove();
   const p=document.createElement("div");p.className="profile-panel";
   const gear='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 2h4l.7 2.4a8 8 0 0 1 2.1 1.2l2.4-.6 2 3.5-1.7 1.8a8 8 0 0 1 0 2.4l1.7 1.8-2 3.5-2.4-.6a8 8 0 0 1-2.1 1.2L14 22h-4l-.7-2.4a8 8 0 0 1-2.1-1.2l-2.4.6-2-3.5 1.7-1.8a8 8 0 0 1 0-2.4L2.8 9.5l2-3.5 2.4.6a8 8 0 0 1 2.1-1.2L10 2Z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const menuIcon=shape=>'<span class="program-settings-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+shape+'</svg></span>';
+  const companyIcon=menuIcon('<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M7 7V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v3M3 12h18M10 12v2h4v-2"/>');
+  const aboutIcon=menuIcon('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5h.01"/>');
+  const refreshIcon=menuIcon('<path d="M20 11a8 8 0 0 0-14.8-4"/><path d="M4 4v5h5"/><path d="M4 13a8 8 0 0 0 14.8 4"/><path d="M20 20v-5h-5"/>');
   p.innerHTML='<button type="button" id="profileBadge" class="profile-badge">'+names[irAccess.role()]+'</button>'+
    '<button type="button" id="programSettingsButton" class="program-settings-button" title="Настройки программы" aria-label="Настройки программы" aria-expanded="false">'+gear+'</button>'+
-   '<div id="programSettingsMenu" class="program-settings-menu" hidden><div class="program-settings-menu-title">Настройки программы</div>'+
-   '<button type="button" id="companyProfileSettings">Профиль компании</button>'+
-   '<button type="button" id="programAboutButton">О программе</button>'+
-   '<button type="button" id="programCheckUpdates" style="margin-top:6px">↻ Проверить обновления</button></div>'+
+   '<div id="programSettingsMenu" class="program-settings-menu" hidden role="group" aria-label="Настройки программы">'+
+   '<div class="program-settings-menu-head"><div class="program-settings-menu-title">Настройки</div><small>IR Project</small></div>'+
+   '<div class="program-settings-menu-items">'+
+   '<button type="button" id="companyProfileSettings" class="program-settings-item">'+companyIcon+'<span class="program-settings-item-text"><strong>Профиль компании</strong><small>Реквизиты и логотип</small></span></button>'+
+   '<button type="button" id="programAboutButton" class="program-settings-item">'+aboutIcon+'<span class="program-settings-item-text"><strong>О программе</strong><small>Авторские права и версия</small></span></button>'+
+   '<div class="program-settings-divider" role="separator"></div>'+
+   '<button type="button" id="programCheckUpdates" class="program-settings-item program-settings-update">'+refreshIcon+'<span class="program-settings-item-text"><strong>Проверить обновления</strong><small>Найти новую версию</small></span></button>'+
+   '</div></div>'+
    '<div id="profileMenu" class="profile-menu" hidden><label>Профиль<select id="roleSelect"><option value="guest">Гость</option><option value="admin">Администратор</option><option value="engineer">Инженер ПТО</option></select></label><button id="engineerSettings" hidden>Доступ инженера</button></div>';
   document.body.appendChild(p);
   const badge=p.querySelector("#profileBadge"),menu=p.querySelector("#profileMenu"),
@@ -56,10 +64,37 @@
    settingsButton=p.querySelector("#programSettingsButton"),settingsMenu=p.querySelector("#programSettingsMenu"),
    companyButton=p.querySelector("#companyProfileSettings"),aboutButton=p.querySelector("#programAboutButton"),
    updateButton=p.querySelector("#programCheckUpdates");
-  const closeSettings=()=>{settingsMenu.hidden=true;settingsButton.setAttribute("aria-expanded","false")};
+  const closeSettings=()=>{
+   settingsMenu.hidden=true;settingsButton.setAttribute("aria-expanded","false");
+   settingsButton.classList.remove("is-open")
+  };
+  // The tab bar clips absolute-positioned dropdowns. Position a fixed menu
+  // against the real gear button using the owning document's viewport.
+  const positionSettings=()=>{
+   const doc=settingsMenu.ownerDocument;
+   if(!settingsButton.closest(".tabs-profile-slot")){
+    settingsMenu.style.left="";settingsMenu.style.top="";settingsMenu.style.right="";settingsMenu.style.bottom="";
+    return
+   }
+   const rect=settingsButton.getBoundingClientRect();
+   const viewport=doc.defaultView?.innerWidth||doc.documentElement.clientWidth;
+   const width=286,gap=8;
+   settingsMenu.style.left=Math.max(gap,Math.min(Math.round(rect.right-width),viewport-width-gap))+"px";
+   settingsMenu.style.top=Math.round(rect.bottom+8)+"px";
+   settingsMenu.style.right="auto";settingsMenu.style.bottom="auto"
+  };
   select.value=irAccess.role();
   badge.onclick=()=>{closeSettings();menu.hidden=!menu.hidden};
-  settingsButton.onclick=()=>{const open=settingsMenu.hidden;menu.hidden=true;settingsMenu.hidden=!open;settingsButton.setAttribute("aria-expanded",String(open))};
+  settingsButton.onclick=()=>{
+   const open=settingsMenu.hidden;
+   menu.hidden=true;settingsMenu.hidden=!open;
+   settingsButton.setAttribute("aria-expanded",String(open));
+   settingsButton.classList.toggle("is-open",open);
+   if(open)positionSettings()
+  };
+  settingsMenu.ownerDocument.defaultView?.addEventListener("resize",()=>{
+   if(!settingsMenu.hidden)positionSettings()
+  });
   select.onchange=async()=>{const requested=select.value;select.value=irAccess.role();menu.hidden=true;await switchRole(requested);select.value=irAccess.role()};
   settings.onclick=()=>permissions();
   aboutButton.onclick=()=>{

@@ -27,3 +27,61 @@ body.ir-object-route:not(.ir-object-overview) #app{padding:18px 20px 22px!import
 .profile-panel .program-settings-menu-title{font-size:11px;font-weight:800;margin:2px 3px 9px}
 .profile-panel .program-settings-menu button{display:flex;align-items:center;gap:8px;width:100%;min-height:34px;padding:8px 10px;border:1px solid #dce7f1;border-radius:7px;background:#f6f9fd;color:#315d7c;text-align:left;font-size:10px;font-weight:700;cursor:pointer}
 .profile-panel .program-settings-menu button:hover{background:#ebf4ff;border-color:#b5d3ec}
+
+/* IR Project 1.7.148 — unified, readable settings menu. */
+.profile-panel .program-settings-button[aria-expanded="true"]{background:#e5f2ff;border-color:#83b7e8;color:#176dc5;box-shadow:0 0 0 2px rgba(52,134,220,.1)}
+.profile-panel .program-settings-menu{
+ box-sizing:border-box;width:286px;max-width:calc(100vw - 16px);
+ padding:0;overflow:hidden;border:1px solid #dce6f0;border-radius:13px;
+ background:#fff;color:#243f55;box-shadow:0 18px 52px rgba(24,58,91,.18);
+ font-family:"Segoe UI",Arial,sans-serif
+}
+.profile-panel .program-settings-menu-head{
+ display:flex;align-items:center;justify-content:space-between;gap:12px;
+ padding:15px 17px 13px;background:linear-gradient(180deg,#f6faff,#fff);
+ border-bottom:1px solid #e9eff5
+}
+.profile-panel .program-settings-menu-head .program-settings-menu-title{
+ margin:0;color:#1d3c55;font-size:13px;line-height:1.4;font-weight:800
+}
+.profile-panel .program-settings-menu-head>small{
+ padding:4px 7px;border:1px solid #dcebf9;border-radius:5px;
+ background:#ecf5ff;color:#3879b5;font-size:10px;white-space:nowrap;font-weight:750
+}
+.profile-panel .program-settings-menu-items{padding:7px;display:grid;gap:3px}
+.profile-panel .program-settings-menu .program-settings-item{
+ box-sizing:border-box;display:flex;align-items:center;gap:11px;min-width:0;
+ width:100%;min-height:57px;padding:9px 10px;border:1px solid transparent;
+ border-radius:9px;background:transparent;color:#27455d;text-align:left;
+ font-size:12px;font-weight:600;line-height:1.3;cursor:pointer;
+ transition:background-color .14s,border-color .14s;
+}
+.profile-panel .program-settings-menu .program-settings-item:hover{
+ background:#f0f7fe;border-color:#d8eafb;color:#1767ae
+}
+.profile-panel .program-settings-menu .program-settings-item:focus-visible{
+ outline:2px solid #438bd1;outline-offset:-2px;background:#f0f7fe
+}
+.profile-panel .program-settings-menu .program-settings-item-icon{
+ box-sizing:border-box;display:grid;place-items:center;flex:0 0 36px;
+ width:36px;height:36px;border-radius:9px;background:#edf4fa;color:#417cae
+}
+.profile-panel .program-settings-menu .program-settings-update .program-settings-item-icon{
+ background:#e8f4ff;color:#186fbb
+}
+.profile-panel .program-settings-menu .program-settings-item-icon svg{
+ display:block;width:19px;height:19px;fill:none;stroke:currentColor;
+ stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round
+}
+.profile-panel .program-settings-menu .program-settings-item-text{
+ display:grid;gap:4px;flex:1 1 auto;min-width:0;
+}
+.profile-panel .program-settings-menu .program-settings-item-text strong{
+ display:block;font-size:12px;font-weight:750;color:#27465d
+}
+.profile-panel .program-settings-menu .program-settings-item-text small{
+ display:block;font-size:10px;font-weight:450;line-height:1.25;color:#8298aa
+}
+.profile-panel .program-settings-menu .program-settings-divider{
+ height:1px;margin:5px 7px;background:#e6edf5
+}
