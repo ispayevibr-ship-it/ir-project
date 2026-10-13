@@ -603,11 +603,12 @@ window.irBuildingView=(()=>{
      const points=[start];
      if(src.geometryType==="bent")points.push(m.project(pt(num(src.mx)+dx,num(src.my)+dy,num(src.mz))));
      points.push(end);
+     const invalid=Boolean(copyError(src,dst)),color=invalid?"#d54e55":"#ed9a28";
      for(let i=0;i<points.length-1;i++){
       line(points[i],points[i+1],"rgba(255,255,255,.94)",10);
-      line(points[i],points[i+1],"#ed9a28",5,[9,5]);
+      line(points[i],points[i+1],color,5,[9,5]);
      }
-     for(const p of points){circle(p,8,"#fff");circle(p,5.6,"#eb8d20")}
+     for(const p of points){circle(p,8,"#fff");circle(p,5.6,color)}
     }
    }
   if(state.placing){
@@ -721,6 +722,22 @@ window.irBuildingView=(()=>{
      (!state.start?"1. Выберите начало балки":!state.middle?"2. Выберите конёк / излом":!state.end?"3. Выберите конец балки":"Проверьте три отметки Z и сохраните одну марку")):
     !state.start?"1. Выберите начальную точку":column||state.end?"Проверьте отметки и нажмите «Сохранить на схеме»":"2. Выберите конечную точку";
   };
+  // Use this same translated-outline check for preview and insert button.
+  const copyError=(source,destination)=>{
+   if(!source||!destination)return "";
+   const dx=Number(destination.x)-Number(source.x),dy=Number(destination.y)-Number(source.y);
+   if(!Number.isFinite(dx)||!Number.isFinite(dy))return "Введите корректные координаты X/Y.";
+   if(Math.hypot(dx,dy)<1)return "Выберите другое место: это положение исходного элемента.";
+   const points=[{x:num(source.x),y:num(source.y)}];
+   if(source.geometryType==="bent")points.push({x:num(source.mx),y:num(source.my)});
+   if(source.geometryType!=="column")points.push({x:num(source.x2),y:num(source.y2)});
+   for(const p of points){
+    const x=p.x+dx,y=p.y+dy;
+    if(x<0||x>spanX||y<0||y>spanY)
+     return "Контур выходит за границу сетки: X "+fmt(x)+" / Y "+fmt(y)+" мм.";
+   }
+   return "";
+  };
   function refreshPanel(){
    const m=selectedMark(),left=num(m?.left),column=m?.geometry==="column",available=left>0;
    updateHint();
@@ -734,6 +751,7 @@ window.irBuildingView=(()=>{
    if(state.copySource){
     const source=state.copySource,quota=props.copyQuota?.(String(source.id))||{left:0},
      destination=state.copyTarget,current=destination||{x:num(source.x),y:num(source.y)},
+     positionError=copyError(source,destination),
      xAxis=closest(axesX,gridX,current.x),yAxis=closest(axesY,gridY,current.y),
      xOptions=axesX.map(a=>'<option value="'+html(a)+'" '+(a===xAxis?'selected':'')+'>'+html(a)+'</option>').join(""),
      yOptions=axesY.map(a=>'<option value="'+html(a)+'" '+(a===yAxis?'selected':'')+'>'+html(a)+'</option>').join("");
@@ -741,15 +759,16 @@ window.irBuildingView=(()=>{
      '<div class="irb-selected"><small>Исходный элемент</small><strong>'+html(source.mark||"—")+'</strong><span>'+html(source.mark_name||"")+'</span></div>'+
      '<p class="irb-copy-note">Перенесите копию на другой ряд: выберите новое начало на модели или установите оси и смещения. Длина, направление, профиль, высоты и форма сохраняются. Исходный элемент остаётся.</p>'+
      '<div class="irb-copy-axes"><label>Ось 1–6<select id="irbCopyAxisX">'+xOptions+'</select></label>'+
-     '<label>Смещение X, мм<input id="irbCopyOffsetX" type="text" inputmode="decimal" value="'+html(Math.round(current.x-originAxis(gridX,xAxis)))+'"></label>'+
+     '<label>Смещение X, мм<input id="irbCopyOffsetX" type="text" inputmode="decimal" value="'+html(Math.round((current.x-originAxis(gridX,xAxis))*1000)/1000)+'"></label>'+
      '<label>Ось А–Л<select id="irbCopyAxisY">'+yOptions+'</select></label>'+
-     '<label>Смещение Y, мм<input id="irbCopyOffsetY" type="text" inputmode="decimal" value="'+html(Math.round(current.y-originAxis(gridY,yAxis)))+'"></label></div>'+
-     '<div class="irb-copy-position" id="irbCopyPosition">'+(destination?
-      'Новое начало: X '+fmt(destination.x)+' · Y '+fmt(destination.y)+' мм':
-      'Укажите новое положение щелчком на 3D или измените оси / смещения.')+'</div>'+
+     '<label>Смещение Y, мм<input id="irbCopyOffsetY" type="text" inputmode="decimal" value="'+html(Math.round((current.y-originAxis(gridY,yAxis))*1000)/1000)+'"></label></div>'+
+     '<div class="irb-copy-position'+(positionError?' irb-copy-invalid':'')+'" id="irbCopyPosition">'+(positionError||
+      (destination?'Новое начало: X '+fmt(destination.x)+' · Y '+fmt(destination.y)+' мм':
+      'Укажите новое положение щелчком на 3D или измените оси / смещения.'))+'</div>'+
+     '<small class="irb-copy-shape">Предварительный контур: '+(source.geometryType==="bent"?'3 точки · конёк сохранён':source.geometryType==="column"?'колонна':'начало и конец')+' · Z, длина, профиль и поворот без изменений</small>'+
      '<div class="irb-quota">Остаток по ведомости: <b>'+fmt(quota.left)+' шт.</b></div>'+
      '<div class="irb-form-error" id="irbCopyError" role="alert" hidden></div>'+
-     '<button type="button" class="irb-save" id="irbCopySave" '+(!destination||quota.left<=0||state.busy?'disabled':'')+'>✓ Вставить копию</button>'+
+     '<button type="button" class="irb-save" id="irbCopySave" '+(!destination||positionError||quota.left<=0||state.busy?'disabled':'')+'>✓ Вставить копию</button>'+
      '<button type="button" class="irb-secondary" id="irbCopyCancel">Отмена</button>';
     const error=el("irbCopyError"),save=el("irbCopySave"),
      controls=["irbCopyAxisX","irbCopyAxisY","irbCopyOffsetX","irbCopyOffsetY"].map(el);
@@ -757,23 +776,31 @@ window.irBuildingView=(()=>{
      const rawX=controls[2].value.trim().replace(/\s/g,"").replace(",","."),rawY=controls[3].value.trim().replace(/\s/g,"").replace(",","."),
       dx=Number(rawX),dy=Number(rawY);
      state.copyTarget=rawX!==""&&rawY!==""&&Number.isFinite(dx)&&Number.isFinite(dy)?
-      {x:Math.round(originAxis(gridX,controls[0].value)+dx),y:Math.round(originAxis(gridY,controls[1].value)+dy)}:null;
+      {x:Math.round((originAxis(gridX,controls[0].value)+dx)*1000)/1000,
+       y:Math.round((originAxis(gridY,controls[1].value)+dy)*1000)/1000}:null;
      state.copyHover=null;
      const dest=state.copyTarget;
-     el("irbCopyPosition").textContent=dest?"Новое начало: X "+fmt(dest.x)+" · Y "+fmt(dest.y)+" мм":"Введите корректные смещения X/Y.";
-     save.disabled=!dest||quota.left<=0||state.busy;
+     const problem=dest?copyError(source,dest):"Введите корректные смещения X/Y.";
+     const preview=el("irbCopyPosition");
+     preview.textContent=problem||"Новое начало: X "+fmt(dest.x)+" · Y "+fmt(dest.y)+" мм";
+     preview.classList.toggle("irb-copy-invalid",Boolean(problem));
+     save.disabled=!dest||Boolean(problem)||quota.left<=0||state.busy;
      error.hidden=true;updateHint();paint();
     };
     controls.forEach(input=>input.addEventListener(input.tagName==="SELECT"?"change":"input",inputChanged));
     el("irbCopyCancel").onclick=()=>{state.copySource=null;state.copyTarget=null;state.copyHover=null;refreshPanel();paint()};
     save.onclick=async()=>{
-     if(!state.copyTarget||state.busy)return;
+     if(!state.copyTarget||copyError(source,state.copyTarget)||state.busy)return;
      state.busy=true;save.disabled=true;error.hidden=true;
      try{
       const id=await props.onCopyPlacement(String(source.id),{...state.copyTarget});
       state.busy=false;state.copySource=null;state.copyTarget=null;state.copyHover=null;
       props.onCopySaved?.(id);
-     }catch(e){state.busy=false;save.disabled=false;error.textContent=String(e?.message||e);error.hidden=false}
+     }catch(e){
+      state.busy=false;save.disabled=Boolean(copyError(source,state.copyTarget));
+      error.textContent=String(e?.message||e);error.hidden=false;
+      controls[2]?.focus({preventScroll:true});
+     }
     };
    }else if(state.placing){
     pane.innerHTML='<div class="irb-panel-head"><b>Размещение элемента</b><small>НОВАЯ МАРКА</small></div>'+

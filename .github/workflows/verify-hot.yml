@@ -27,6 +27,8 @@ jobs:
           node --check src/scheme-page.js
           node --check src/scheme-building-view.js
           node --check src/ir-runtime.js
+      - name: Test structural member copying
+        run: node scripts/test-scheme-copy.js
       - name: Check generated JavaScript and CSS bundles
         run: node scripts/build-runtime.js --check
       - name: Check hot-update manifest sizes

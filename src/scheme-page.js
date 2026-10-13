@@ -389,6 +389,7 @@ window.irSchemePage=async function(objectId){
  // cross-section, elevations, orientation and intermediate bend.
  async function copySchemeMember(sourceId,destination){
   if(!canEdit())throw Error("Нет прав на копирование монтажной схемы.");
+  // Re-read the authoritative rows before counting placements.
   rows=await schemeApi.list();
   const source=allRecords().find(r=>String(r.id)===String(sourceId));
   if(!source)throw Error("Исходный элемент удалён. Выберите его заново.");
@@ -396,47 +397,55 @@ window.irSchemePage=async function(objectId){
   if(!mark)throw Error("Марка элемента отсутствует в ведомости. Копирование недоступно.");
   const quota=markPlacement(mark);
   if(quota.left<=0)throw Error("Нет остатка по марке "+String(mark.mark||mark.title)+": "+quota.placed+" из "+quota.total+" шт.");
-  const original=coord(source),dx=Number(destination?.x)-original.x,dy=Number(destination?.y)-original.y;
-  if(!Number.isFinite(dx)||!Number.isFinite(dy))throw Error("Укажите точные координаты нового начала X/Y.");
+  const original=coord(source),targetX=Number(destination?.x),targetY=Number(destination?.y);
+  if(!Number.isFinite(targetX)||!Number.isFinite(targetY))throw Error("Укажите точные координаты нового начала X/Y.");
+  const dx=targetX-original.x,dy=targetY-original.y;
   if(Math.hypot(dx,dy)<1)throw Error("Выберите другое место: копию нельзя наложить на оригинал.");
-  const kind=original.geometryType;
+  const kind=original.geometryType,roundMm=value=>Math.round(value*1000)/1000;
   const translate=(x,y)=>{
-   const px=Math.round((x+dx)*1000)/1000,py=Math.round((y+dy)*1000)/1000;
-   if(px<0||px>spanX||py<0||py>spanY)
+   const px=roundMm(x+dx),py=roundMm(y+dy);
+   if(!Number.isFinite(px)||!Number.isFinite(py)||px<0||px>spanX||py<0||py>spanY)
     throw Error("Весь элемент должен помещаться в сетку "+fmt(spanX)+" × "+fmt(spanY)+" мм. Точка X "+fmt(px)+" / Y "+fmt(py)+" выходит за границу.");
    const ax=closestAxis(px,axesX,axisXPos),ay=closestAxis(py,axesY,axisYPos);
-   return{x:px,y:py,ax,ay,offX:px-num(axisXPos.get(ax)),offY:py-num(axisYPos.get(ay))}
+   return{x:px,y:py,ax,ay,offX:roundMm(px-num(axisXPos.get(ax))),offY:roundMm(py-num(axisYPos.get(ay)))}
   };
   const start=translate(original.x,original.y),
    end=kind==="column"?start:translate(original.x2,original.y2),
    middle=kind==="bent"?translate(original.mx,original.my):null;
+  const samePoint=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z)<5;
+  const destPoints=[{...start,z:original.z0},...(middle?[{...middle,z:original.mz}]:[]),{...end,z:original.z2}];
   const collides=allRecords().some(r=>{
-   if(String(r.mark_id||"")!==String(mark.id)&&linkedMark(r)?.id!==mark.id)return false;
-   const p=coord(r),rx=p.geometryType==="column"?p.x:p.x2,ry=p.geometryType==="column"?p.y:p.y2;
-   return Math.hypot(p.x-start.x,p.y-start.y)<5&&Math.hypot(rx-end.x,ry-end.y)<5
-    &&Math.abs(p.z0-original.z0)<5&&Math.abs(p.z2-original.z2)<5;
+   if(String(r.mark_id||"")!==String(mark.id)&&String(linkedMark(r)?.id||"")!==String(mark.id))return false;
+   const p=coord(r);
+   if(p.geometryType!==kind)return false;
+   const points=[{x:p.x,y:p.y,z:p.z0},...(kind==="bent"?[{x:p.mx,y:p.my,z:p.mz}]:[]),
+    {x:kind==="column"?p.x:p.x2,y:kind==="column"?p.y:p.y2,z:p.z2}];
+   return points.every((a,i)=>samePoint(a,destPoints[i]))||
+    points.every((a,i)=>samePoint(a,destPoints[points.length-1-i]));
   });
   if(collides)throw Error("В этом месте уже размещён такой же элемент. Выберите другой ряд.");
   const used=new Set(allRecords().map(r=>String(r.position||r.title||"")));
   let index=1,title;do{title="COL-"+String(index++).padStart(4,"0")}while(used.has(title));
   const group=recordMarkGroup(source);
+  const ridgeIsCentered=kind==="bent"&&Math.hypot(original.mx-(original.x+original.x2)/2,
+   original.my-(original.y+original.y2)/2)<0.01;
   const saved=await schemeApi.create({record_type:"scheme_column",title,data:{
    entity_type:"column",position:title,mark_id:mark.id,
    mark:mark.mark||mark.title||"",mark_name:mark.name||source.mark_name||"",
    work_type_id:recordWorkId(source)||String(mark.work_type_id||""),
    axis_x:start.ax,axis_y:start.ay,offset_x_mm:start.offX,offset_y_mm:start.offY,
-   absolute_x_mm:start.x,absolute_y_mm:start.y,
-   geometry_type:kind,
-   absolute_x2_mm:kind==="column"?undefined:end.x,
-   absolute_y2_mm:kind==="column"?undefined:end.y,
+   absolute_x_mm:start.x,absolute_y_mm:start.y,geometry_type:kind,
+   absolute_x2_mm:kind==="column"?undefined:end.x,absolute_y2_mm:kind==="column"?undefined:end.y,
    end_axis_x:kind==="column"?undefined:end.ax,end_axis_y:kind==="column"?undefined:end.ay,
    end_offset_x_mm:kind==="column"?undefined:end.offX,end_offset_y_mm:kind==="column"?undefined:end.offY,
    absolute_mid_x_mm:middle?.x,absolute_mid_y_mm:middle?.y,
    mid_axis_x:middle?.ax,mid_axis_y:middle?.ay,
    mid_offset_x_mm:middle?.offX,mid_offset_y_mm:middle?.offY,
    mid_z_mm:middle?original.mz:undefined,
-   ridge_mode:kind==="bent"?String(source.ridge_mode||"manual"):undefined,
-   z0_mm:original.z0,z1_mm:original.z2,
+   // Preserve an off-centre ridge without re-centring on the next edit.
+   ridge_mode:kind==="bent"?(ridgeIsCentered?String(source.ridge_mode||"manual"):"manual"):undefined,
+   z0_mm:original.z0,
+   z1_mm:source.z1_mm!=null&&Number.isFinite(Number(source.z1_mm))?Number(source.z1_mm):original.z2,
    end_z_mm:kind==="column"?undefined:original.z2,
    rotation_deg:num(source.rotation_deg),
    section_type:sectionType(source),profile_name:String(source.profile_name||""),

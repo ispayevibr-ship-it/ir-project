@@ -2005,6 +2005,9 @@ body.ir-object-route:not(.ir-object-overview) .wt-row[hidden]{display:none!impor
 .irb-copy-button{background:#eaf3fe!important;color:#1769b8!important}
 @media(max-width:850px){.irb-immersive .irb-webgl .irb-properties .irb-action-row{grid-template-columns:minmax(0,1fr) max-content 36px!important;gap:5px!important}.irb-immersive .irb-webgl .irb-properties .irb-action-row #irbCopySelected{padding:0 6px!important;font-size:9px}}
 
+.irb-copy-invalid{background:#fff2f1!important;border-color:#e6aaa8!important;color:#ac343b!important}
+.irb-copy-shape{display:block;margin:-3px 0 9px;color:#61798b;font-size:10px;line-height:1.5}
+
 
 /* #45: src/object-overview-right-column.css */
 /* IR Project 1.7.73: shared overview cards in a fixed ordered right column. */
