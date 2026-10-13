@@ -7,8 +7,7 @@ on:
       - 'src/**'
       - 'hot/latest.json'
       - 'scripts/build-runtime.js'
-      - 'scripts/test-scheme-*.js'
-      - 'scripts/test-database-export-settings.js'
+      - 'scripts/test-*.js'
       - '.github/workflows/verify-hot.yml'
   workflow_dispatch:
 
