@@ -214,10 +214,17 @@
    if(qty<=0||d.accounting_type==="service"||normalize(d.unit)==="услуга")continue;
    const wid=String(d.work_type_id||""),work=catalog.get(wid),name=String(work?.name||d.work_type||raw.title||"Без вида работ").trim(),code=String(d.project_code||work?.code||d.code||"").trim();
    const key=(wid||normalize(name))+"|"+normalize(code);
-   if(!groups.has(key))groups.set(key,{name,code,total:0,mounted:0,remaining:0,positions:0});
+   if(!groups.has(key))groups.set(key,{workId:wid,name,code,total:0,mounted:0,remaining:0,positions:0});
    const mark=groups.get(key),markId=String(raw.id);
    const fromReports=mountedMap.get(markId),done=Math.min(qty,Math.max(0,fromReports==null?exportNumber(d.mounted??d.done):fromReports));
    mark.total+=qty;mark.mounted+=done;mark.positions++
+  }
+  // Keep work types with zero marks visible in the complete readiness summary.
+  // Do not add a duplicate zero row when this work already has one or more codes.
+  for(const [wid,work] of catalog){
+   if([...groups.values()].some(group=>group.workId===wid))continue;
+   const key=wid+"|"+normalize(work.code);
+   if(!groups.has(key))groups.set(key,{workId:wid,name:work.name,code:work.code,total:0,mounted:0,remaining:0,positions:0})
   }
   return [...groups.values()].map(x=>({
    ...x,remaining:Math.max(0,x.total-x.mounted),
@@ -239,8 +246,8 @@
  }
  function markProgressPanel(groups,kind){
   if(!groups.length)return'<div class="ir-export-empty-card">По выбранному фильтру марок нет</div>';
-  const cards=groups.map(markProgressRow);
-  return'<div class="ir-export-mark-rows">'+exportMoreCards(cards,"marks",groups.length,groups.reduce((s,x)=>s+x.total,0))+'</div>'
+  // The readiness summary always shows every work type and project code.
+  return'<div class="ir-export-mark-rows">'+groups.map(markProgressRow).join("")+'</div>'
  }
  function renderMarksOverview(markRows,workRows,reportRows){
   const groups=markProgressGroups(markRows,workRows,reportRows);
@@ -289,7 +296,7 @@
    const rawTotal=d.total_value??d.total_volume;
    const total=rawTotal!==null&&rawTotal!==undefined&&String(rawTotal).trim()!==""?exportNumber(rawTotal):qty*uv;
    return{
-    id,index:i+1,mark:String(d.mark||raw.title||"—"),name:String(d.name||"").trim(),
+    id,index:i+1,workId:String(d.work_type_id||""),mark:String(d.mark||raw.title||"—"),name:String(d.name||"").trim(),
     work:String(work.name||d.work_type||"Без вида работы"),code:String(d.project_code||d.code||work.code||"").trim(),
     qty,done,left,pct,uv,total,unit,
     status:qty>0&&done>=qty-1e-9?"done":done>0?"partial":"left"
@@ -304,7 +311,7 @@
   const item=(m,i)=>{
    const status=m.status==="done"?"Смонтировано":m.status==="partial"?"Частично":"Не смонтировано";
    const unit=m.unit||"ед.",unitName=m.unit==="тн"?"Вес":m.unit==="м2"?"Площадь":m.unit==="м3"?"Объём":"Объём";
-   return'<article class="ir-export-mark-card status-'+m.status+'"><details'+(i===0?' open':'')+'>'+
+   return'<article class="ir-export-mark-card status-'+m.status+'"><details>'+
     '<summary class="ir-export-mark-brief">'+
      '<span class="ir-export-mark-num">'+(i+1)+'</span>'+
      '<span class="ir-export-mark-main"><b>'+esc(m.mark)+'</b><small>'+esc(m.name||m.work)+'</small></span>'+
@@ -331,13 +338,39 @@
      '</div>'+
    '</details></article>'
   };
-  const cards=marks.map(item);
-  return'<div class="ir-export-mark-cards">'+exportMoreCards(cards,"positions",marks.length)+'</div>'
- }
 
+  const panel=shown=>{
+   if(!shown.length)return'<div class="ir-export-empty-card">По выбранному виду работ марок нет</div>';
+   const visible=shown.slice(0,5).map(item).join("");
+   const hidden=shown.slice(5).map((m,i)=>item(m,i+5)).join("");
+   const full=hidden?'<details class="ir-export-mark-full"><summary><span class="ir-export-more-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span><span class="ir-export-more-show">Показать всю ведомость марок ('+shown.length+' позиций)</span><span class="ir-export-more-hide">Свернуть ведомость до 5 марок</span></summary><div class="ir-export-more-items">'+hidden+'</div></details>':"";
+   return'<div class="ir-export-mark-cards">'+visible+full+'</div>'
+  };
+  const catalog=new Map();
+  for(const m of marks){
+   const id=m.workId||"unassigned",workName=m.work||"Без вида работы";
+   if(!catalog.has(id))catalog.set(id,{id,name:workName,marks:[]});
+   catalog.get(id).marks.push(m)
+  }
+  const workChoices=[...catalog.values()].sort((a,b)=>a.name.localeCompare(b.name,"ru",{numeric:true}));
+  const controls='<input class="ir-export-work-radio ir-export-work-radio-all" type="radio" name="ir-export-work-filter" id="ir-export-work-all" checked>'+
+   workChoices.map((w,i)=>'<input class="ir-export-work-radio ir-export-work-radio-'+i+'" type="radio" name="ir-export-work-filter" id="ir-export-work-'+i+'">').join("");
+  const choice=(id,name,count)=>'<label for="'+id+'" title="'+esc(name)+'">'+esc(name)+' <span>'+count+'</span></label>';
+  const tabs='<div class="ir-export-work-tabs" role="group" aria-label="Выберите вид работ">'+choice("ir-export-work-all","Все виды работ",marks.length)+
+   workChoices.map((w,i)=>choice("ir-export-work-"+i,w.name,w.marks.length)).join("")+'</div>';
+  const dynamicStyles=workChoices.map((w,i)=>
+   '.ir-export-work-radio-'+i+':checked ~ .ir-export-work-tabs label[for="ir-export-work-'+i+'"]{background:#236da6;color:#fff}'+
+   '.ir-export-work-radio-'+i+':checked ~ .ir-export-work-panels > .ir-export-work-panel-'+i+'{display:block!important}').join("\n");
+  const dynamicTag='<style>'+dynamicStyles+'</style>';
+  const panels='<div class="ir-export-work-panels"><div class="ir-export-work-panel ir-export-work-panel-all">'+panel(marks)+'</div>'+
+   workChoices.map((w,i)=>'<div class="ir-export-work-panel ir-export-work-panel-'+i+'">'+panel(w.marks)+'</div>').join("")+'</div>';
+  // State is entirely CSS-driven so the saved HTML remains offline and read-only.
+  return'<div class="ir-export-work-filter"><div class="ir-export-work-head"><h3>Ведомость марок</h3><span>'+marks.length+' позиций</span></div><p class="ir-export-work-hint">Выберите вид работ. Сначала показаны 5 марок, остальные доступны по кнопке ниже.</p>'+
+   controls+tabs+dynamicTag+panels+'</div>'
+ }
  function renderMarkSection(rows,workRows,reportRows,images){
   const summary=renderMarksOverview(rows,workRows,reportRows);
-  const full=rows.length?'<details class="ir-export-mark-raw"><summary>Подробная ведомость по маркам ('+rows.length+' позиций)</summary>'+renderMarkCards(rows,workRows,reportRows)+'</details>':"";
+  const full=renderMarkCards(rows,workRows,reportRows);
   return summary+full
  }
 
@@ -564,6 +597,30 @@
     "@media(max-width:1100px){.ir-export-mark-brief{flex-wrap:wrap}.ir-export-mark-main{flex:1 1 200px}.ir-export-mark-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.ir-export-mark-specs{grid-template-columns:repeat(2,minmax(0,1fr))}}",
     "@media(max-width:700px){.ir-export-mark-badge{min-width:95px}.ir-export-mark-brief-code{flex:1 1 110px}.ir-export-mark-specs{grid-template-columns:1fr}}",
     "@media print{.ir-export-mark-card{break-inside:avoid}.ir-export-mark-detail{display:grid!important}}",
+    ".ir-export-work-filter{margin-top:17px;border:1px solid #dce6ee;border-radius:11px;background:#fff;overflow:hidden;position:relative}",
+    ".ir-export-work-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px 9px}",
+    ".ir-export-work-head h3{font-size:17px;margin:0;color:#1d455e}",
+    ".ir-export-work-head span{font-size:11px;color:#6b899e;background:#edf5fa;border-radius:7px;padding:7px 10px;white-space:nowrap}",
+    ".ir-export-work-hint{margin:0;padding:0 18px 10px;font-size:11px;color:#7e96a7}",
+    ".ir-export-work-radio{position:absolute;width:1px;height:1px;clip-path:inset(50%);overflow:hidden;white-space:nowrap}",
+    ".ir-export-work-tabs{display:flex;flex-wrap:wrap;gap:6px;padding:3px;margin:4px 15px 14px;background:#f2f6fa;border:1px solid #e2ebf2;border-radius:9px}",
+    ".ir-export-work-tabs label{display:flex;align-items:center;gap:6px;padding:9px 12px;border-radius:7px;cursor:pointer;color:#5b7c93;font-size:11px;font-weight:700;line-height:1.35;max-width:100%;overflow-wrap:anywhere}",
+    ".ir-export-work-tabs label:hover{background:#e4f0f9;color:#2675a9}",
+    ".ir-export-work-tabs label span{font-size:10px;border-radius:5px;padding:2px 6px;background:rgba(118,151,173,.13)}",
+    ".ir-export-work-radio-all:checked ~ .ir-export-work-tabs label[for='ir-export-work-all']{background:#236da6;color:#fff}",
+    ".ir-export-work-radio:focus-visible ~ .ir-export-work-tabs{outline:2px solid #4589c5;outline-offset:2px}",
+    ".ir-export-work-panel{display:none!important}.ir-export-work-radio-all:checked ~ .ir-export-work-panels > .ir-export-work-panel-all{display:block!important}",
+    ".ir-export-work-panel>.ir-export-mark-cards{padding-top:0}",
+    ".ir-export-mark-full{margin-top:7px;background:#f4f9fe;border:1px solid #d5e7f4;border-radius:9px;overflow:hidden}",
+    ".ir-export-mark-full>summary{display:flex;align-items:center;justify-content:center;gap:11px;min-height:47px;padding:11px 13px;cursor:pointer;list-style:none;font-size:12px;font-weight:750;color:#286d9f}",
+    ".ir-export-mark-full>summary::-webkit-details-marker{display:none}",
+    ".ir-export-mark-full>summary:hover{background:#eaf5fc}",
+    ".ir-export-mark-full>summary:focus-visible{outline:2px solid #438ac3;outline-offset:-3px}",
+    ".ir-export-mark-full>summary .ir-export-more-icon svg{transition:transform .2s ease}",
+    ".ir-export-mark-full[open]>summary .ir-export-more-icon svg{transform:rotate(180deg)}",
+    ".ir-export-mark-full>summary .ir-export-more-hide{display:none}.ir-export-mark-full[open]>summary .ir-export-more-hide{display:inline}.ir-export-mark-full[open]>summary .ir-export-more-show{display:none}",
+    ".ir-export-mark-full>.ir-export-more-items{display:grid;gap:8px;padding:12px;background:#fff}",
+    "@media print{.ir-export-work-tabs{display:none!important}.ir-export-work-panel-all{display:block!important}.ir-export-work-panel:not(.ir-export-work-panel-all){display:none!important}.ir-export-mark-full>.ir-export-more-items{display:grid!important}}",
     ".ir-export-mark-raw{margin-top:14px;border:1px solid #e2eaf2;border-radius:9px;background:#f8fbfe;overflow:hidden}",
     ".ir-export-mark-raw>summary{display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;cursor:pointer;list-style:none;font-weight:750;font-size:12px;color:#37779f}",
     ".ir-export-mark-raw>summary::-webkit-details-marker{display:none}",
