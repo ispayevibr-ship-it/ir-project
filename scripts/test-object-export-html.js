@@ -10,7 +10,7 @@ assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
 assert(html.includes('object-export-html.js?v=17158'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
-assert(source.includes('copy.querySelectorAll(".object-overview-reports > .oor2-card:not(.oor2-photo-card):not(.oor-marks-card)").forEach(card=>card.remove())'),"remove latest reports widget from snapshot");
+assert(source.includes('.object-overview-reports > .oor2-card:not(.oor2-photo-card):not(.oor-marks-card),.object-overview-marks-wrap > .object-overview-marks-card'),"remove duplicate latest reports and old marks previews from snapshot");
 assert(!source.includes('["reports",".object-overview-reports > .oor2-card'),"do not duplicate recent reports as an overview preview");
 assert(!source.includes("ir-export-preview-daily"),"obsolete recent report expanders removed");
 assert(source.includes('["photos",".object-overview-reports > .oor2-photo-card"]'),"latest photos are relocated");
