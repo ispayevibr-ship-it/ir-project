@@ -28,9 +28,14 @@ window.irSteelRenderer=(canvas,state,{markRgb,typeRgb,typeKey,pt})=>{
   h=bound(h,35,1600);w=bound(w,25,1600);t=bound(t||Math.min(h,w)*.06,2,Math.min(h,w)*.24);
   return{type,h:h/2,w:w/2,t,flange:bound(h*.065,4,h*.22)}
  };
- let last=null,mode="",colorMode="",vertices=0,uploads=0,ids=new Map();
+ let last=null,mode="",colorMode="",vertices=0,uploads=0,ids=new Map(),meshCache=new Map(),computedParts=0,reusedParts=0;
  const build=segments=>{
-  const data=[];ids=new Map();const realistic=state.renderMode==="real";
+  let data=[];
+  const parts=[];let totalFloats=0;
+  // Cutting away bays or hiding construction types never changes their
+  // geometry. Reuse already extruded members instead of generating again.
+  if(mode!==state.renderMode||colorMode!==state.colorMode)meshCache.clear();
+  const realistic=state.renderMode==="real";
   const tint=c=>state.colorMode==="mark"?markRgb(c):state.colorMode==="type"?typeRgb(c):({mounted:[.13,.62,.47],partial:[.82,.60,.28],planned:[.78,.42,.47]})[c.status]||[.78,.42,.47];
   const vertex=(p,color,shade,id)=>data.push(...p,...color,shade,id);
   const tri=(p,q,r,color,id,offset=0)=>{
@@ -39,6 +44,14 @@ window.irSteelRenderer=(canvas,state,{markRgb,typeRgb,typeKey,pt})=>{
   };
   const quad=(p,q,r,s,color,id,offset=0)=>{tri(p,q,r,color,id,offset);tri(p,r,s,color,id,offset)};
   for(const seg of segments){
+   const idKey=String(seg.c.id);
+   if(!ids.has(idKey))ids.set(idKey,ids.size);
+   const cacheKey=idKey+":"+String(seg.part||0);
+   const existing=meshCache.get(cacheKey);
+   if(existing){
+    parts.push(existing);totalFloats+=existing.length;reusedParts++;continue;
+   }
+   data=[];
    const c=seg.c,start=[seg.start.x,seg.start.y,seg.start.z],end=[seg.end.x,seg.end.y,seg.end.z],v=diff(end,start);
    if(Math.hypot(...v)<.5)continue;
    const key=String(c.id);if(!ids.has(key))ids.set(key,ids.size);
@@ -52,7 +65,8 @@ window.irSteelRenderer=(canvas,state,{markRgb,typeRgb,typeKey,pt})=>{
     for(let i=0;i<4;i++){const j=(i+1)%4;quad(A[i],B[i],B[j],A[j],col,id,i===0?.06:0)}
     quad(A[3],A[2],A[1],A[0],col,id);quad(B[0],B[1],B[2],B[3],col,id)
    };
-   if(!realistic){const w=c.geometryType==="column"?180:c.geometryType==="brace"?78:115;box(-w,w,-w*.73,w*.73);continue}
+   if(!realistic){const w=c.geometryType==="column"?180:c.geometryType==="brace"?78:115;box(-w,w,-w*.73,w*.73)}
+   else{
    const s=section(c),w=s.w,h=s.h,t=s.t;
    if(s.type==="ibeam"){
     const f=Math.min(s.flange,h*.4),web=Math.min(w*.32,t*.5);
@@ -74,8 +88,15 @@ window.irSteelRenderer=(canvas,state,{markRgb,typeRgb,typeKey,pt})=>{
      quad(circle(end,w,h,b),circle(end,w,h,a),circle(end,iw,ih,a),circle(end,iw,ih,b),col,id,.03)
     }
    }else box(-w,w,-h,h)
+   }
+   const chunk=new Float32Array(data);
+   meshCache.set(cacheKey,chunk);parts.push(chunk);totalFloats+=chunk.length;computedParts++;
   }
-  vertices=data.length/8;gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.STATIC_DRAW);
+  const merged=new Float32Array(totalFloats);
+  let offset=0;
+  for(const chunk of parts){merged.set(chunk,offset);offset+=chunk.length}
+  vertices=totalFloats/8;
+  gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,merged,gl.STATIC_DRAW);
   uploads++;last=segments;mode=state.renderMode;colorMode=state.colorMode
  };
  const render=(segments,projection,w,h,dpr)=>{
@@ -98,7 +119,8 @@ window.irSteelRenderer=(canvas,state,{markRgb,typeRgb,typeKey,pt})=>{
   }
   gl.drawArrays(gl.TRIANGLES,0,vertices)
  };
- return{render,stats:()=>({vertices,uploads}),dispose(){
+ return{render,stats:()=>({vertices,uploads,computedParts,reusedParts}),dispose(){
+  meshCache.clear();
   gl.deleteBuffer(buffer);gl.deleteProgram(program);gl.getExtension("WEBGL_lose_context")?.loseContext()
  }};
 };
