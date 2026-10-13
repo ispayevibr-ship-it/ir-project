@@ -17,6 +17,9 @@ function fixture(kind="bent",qty=5){
  const env={
   rows,schemeApi:{list:async()=>rows,create:async item=>{const id="copy-"+rows.length;rows.push({id,...structuredClone(item)});return{id}}},
   canEdit:()=>true,allRecords:records,linkedMark:r=>r.mark_id===mark.id?mark:null,
+  // The mock create() already appends its row. The production helper merges
+  // the normalized returned row into a fresh immutable snapshot.
+  rememberSavedSchemeRecord:saved=>saved?.id!=null,
   markPlacement:()=>{const n=records().filter(r=>r.mark_id===mark.id).length;return{total:qty,placed:n,left:Math.max(0,qty-n)}},
   coord:r=>({x:r.absolute_x_mm,y:r.absolute_y_mm,x2:r.absolute_x2_mm,y2:r.absolute_y2_mm,mx:r.absolute_mid_x_mm,
    my:r.absolute_mid_y_mm,z0:r.z0_mm,z1:r.z1_mm,z2:r.end_z_mm??r.z1_mm,mz:r.mid_z_mm,geometryType:r.geometry_type}),
