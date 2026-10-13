@@ -102,13 +102,12 @@
  }
  async function exportObject(objectId){
   const id=String(objectId);
-  if(!/^\\d+$/.test(id))throw Error("Неверный ID объекта.");
+  if(!/^\d+$/.test(id))throw Error("Неверный ID объекта.");
   if(exportObject.busy)return false;
   exportObject.busy=true;
   try{
    const object=await irProject.data.objects.get(id);
    if(!object)throw Error("Объект не найден.");
-   const htmlSnapshot=snapshot();
    const sections=array(await irProject.data.sections.get(id));
    const nav=document.querySelector(".ir-object-sidebar-fixed .ir-object-nav");
    const visibleKeys=nav?[...nav.querySelectorAll("button[data-key]")].filter(b=>!b.disabled&&b.dataset.key!=="overview").map(b=>b.dataset.key):[];
@@ -156,6 +155,9 @@
     "@media(max-width:1000px){.ir-export-section{margin:12px!important}.ir-export-row-meta{display:none}}",
     "@media print{.ir-export-sidebar{position:static!important;width:100%!important;height:auto!important}.ir-export-sidebar .ir-object-nav{display:flex!important;flex-wrap:wrap!important}body.ir-object-overview #app{margin:0!important;width:100%!important}.ir-export-record{break-inside:avoid}.ir-export-section{break-before:page;margin:8px 0!important}details{display:block!important}}"
    ].join("\n");
+   const activeHero=document.querySelector(".object-overview-hero");
+   if(String(activeHero?.dataset.objectId||"")!==id)throw Error("Во время выгрузки изменился открытый объект. Повторите действие.");
+   const htmlSnapshot=snapshot();
    const sidebar=sidebarHtml(document.querySelector(".ir-object-sidebar-fixed"),keys,object.name||"Объект");
    const sectionsHtml=keys.map(key=>renderSection(key,rows[key]||[],photos)).join("");
    const generated=new Date().toLocaleString("ru-RU");

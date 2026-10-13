@@ -9,6 +9,9 @@ assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
 assert(html.includes('object-export-html.js?v=17152'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
+assert(source.includes("if(!/^\\d+$/.test(id))"),"numeric object ID must be accepted");
+assert(!source.includes("if(!/^\\\\d+$/.test(id))"),"escaped digit matcher would reject every object");
+assert(source.includes("if(String(activeHero?.dataset.objectId||\"\")!==id)"),"avoid exporting another object after navigation");
 assert(source.includes("ir-styles.css"),"all current component styles embedded");
 assert(source.includes("Content-Security-Policy"),"standalone report does not execute code");
 assert(source.includes("default-src &#39;none&#39;"),"offline report blocks external calls");
