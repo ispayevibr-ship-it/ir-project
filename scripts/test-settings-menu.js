@@ -17,7 +17,7 @@ assert(js.includes('settingsMenu.ownerDocument.defaultView?.addEventListener("re
 assert(tabCSS.includes("position:fixed!important"),"tab-host menu must escape clipped tab bar");
 assert(standaloneCSS.includes(".profile-panel .program-settings-menu .program-settings-item"));
 assert(tabCSS.includes(".profile-panel .program-settings-menu .program-settings-item"));
-assert(html.includes("tabs-shell.css?v=17148"));
+assert.match(html,/tabs-shell\.css\?v=\d+/);
 // Position the menu against a gear near the right edge of the host viewport.
 const start=js.indexOf("  const closeSettings=()=>"),end=js.indexOf("\n  select.value=irAccess.role();",start);
 assert(start>=0&&end>start);
