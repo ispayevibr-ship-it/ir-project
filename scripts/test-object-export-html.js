@@ -146,4 +146,35 @@ assert(reportDetails.includes("ir-export-daily-photos"),"full report still inclu
 assert(source.includes('class="ir-export-daily-chevron" aria-hidden="true"><svg'),"native SVG chevron in daily report summary");
 assert(source.includes('ir-export-daily-chevron svg{transform:rotate(180deg)}'),"chevron rotates when expanded");
 assert(source.includes('ir-export-record>details[open]>summary:after'),"other record chevrons reflect disclosure state");
+
+const cardStart=source.indexOf(" function markDetailData(");
+const cardEnd=source.indexOf(" function renderMarkSection(",cardStart);
+assert(cardStart>=0&&cardEnd>cardStart,"render helpers can be executed independently");
+const renderCards=vm.runInNewContext(
+ '(function(){'+
+ 'const array=x=>Array.isArray(x)?x:[];'+
+ 'const exportNumber=v=>{const n=Number(v);return Number.isFinite(n)?n:0};'+
+ 'const exportFormat=v=>String(v);'+
+ 'const esc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;");'+
+ source.slice(cardStart,cardEnd)+';return renderMarkCards})()',{}
+);
+const cardMarks=Array.from({length:11},(_,i)=>({
+ id:100+i,data:{work_type_id:i<8?"7":"8",mark:"В"+(i+1),name:"Связь "+(i+1),qty:2,mounted:0,unit:"тн",unit_volume:0.25}
+}));
+const cardWorks=[{id:7,title:"Монтаж металлоконструкций",data:{project_code:"КМ"}},{id:8,title:"Монтаж сэндвич-панелей",data:{project_code:"СП"}}];
+const cardHTML=renderCards(cardMarks,cardWorks,[]);
+assert(cardHTML.includes("Показать всю ведомость марок (11 позиций)"),"full register button includes actual total");
+assert(cardHTML.includes('id="ir-export-work-0"')&&cardHTML.includes('id="ir-export-work-1"'),"each populated work gets a radio filter");
+assert(cardHTML.includes('ir-export-work-radio-0:checked ~ .ir-export-work-panels > .ir-export-work-panel-0'),"work filter uses offline CSS");
+const allCardsHTML=cardHTML.split('<div class="ir-export-work-panel ir-export-work-panel-all">')[1].split('<div class="ir-export-work-panel ir-export-work-panel-0">')[0];
+const beforeExpand=allCardsHTML.split('<details class="ir-export-mark-full">')[0];
+assert.equal((beforeExpand.match(/class="ir-export-mark-card status-/g)||[]).length,5,"first five cards are immediately visible");
+assert.equal((allCardsHTML.match(/class="ir-export-mark-card status-/g)||[]).length,11,"all 11 marks remain accessible");
+assert(!allCardsHTML.includes('<details open>'),"all mark cards start closed, including the first");
+const selectedCardsHTML=cardHTML.split('<div class="ir-export-work-panel ir-export-work-panel-0">')[1].split('<div class="ir-export-work-panel ir-export-work-panel-1">')[0];
+assert.equal((selectedCardsHTML.match(/class="ir-export-mark-card status-/g)||[]).length,8,"filter shows only selected work's eight marks");
+assert(selectedCardsHTML.includes("Показать всю ведомость марок (8 позиций)"));
+const otherCardsHTML=cardHTML.split('<div class="ir-export-work-panel ir-export-work-panel-1">')[1].split('</div></div></div>')[0];
+assert(otherCardsHTML.includes("В10")&&otherCardsHTML.includes("В11"),"second work's marks remain selectable");
+
 console.log("Full object HTML export: snapshot, offline navigation, read-only records, native save and no DB writes OK");
