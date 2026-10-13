@@ -288,7 +288,7 @@ window.irSchemePage=async function(objectId){
   const extend=(a,b,d)=>{const dx=b.x-a.x,dy=b.y-a.y,l=Math.max(1,Math.hypot(dx,dy)),ux=dx/l,uy=dy/l;return[{x:a.x-ux*d,y:a.y-uy*d},{x:b.x+ux*d,y:b.y+uy*d}]};
   const outward=(q,d)=>{const dx=q.x-W/2,dy=q.y-H/2,l=Math.max(1,Math.hypot(dx,dy));return{x:q.x+dx/l*d,y:q.y+dy/l*d}};
   const corners=[p(0,0),p(spanX,0),p(spanX,spanY),p(0,spanY)],poly=corners.map(q=>`${q.x},${q.y}`).join(" ");
-  let grid=`<polygon points="${poly}" class="scheme-grid-floor-plan"/><polygon points="${poly}" class="scheme-grid-outline-plan"/>`;
+  let grid=`<polygon points="${poly}" class="scheme-grid-floor-plan"/><polygon points="${poly}" class="scheme-grid-outline-plan" fill="none" stroke="#a7bfd0" stroke-width="1.2"/>`;
   axesX.forEach(axis=>{const x=axisXPos.get(axis),a=p(x,0),b=p(x,spanY),[la,lb]=extend(a,b,20);grid+=`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="scheme-grid-line"/>${svgBubble(la.x,la.y,axis)}${svgBubble(lb.x,lb.y,axis)}`});
   axesY.forEach(axis=>{const y=axisYPos.get(axis),a=p(0,y),b=p(spanX,y),[la,lb]=extend(a,b,20);grid+=`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="scheme-grid-line"/>${svgBubble(la.x,la.y,axis)}${svgBubble(lb.x,lb.y,axis)}`});
   if(dimensionsVisible){
@@ -566,6 +566,11 @@ window.irSchemePage=async function(objectId){
    marks:activeMarks().map(m=>{const q=markPlacement(m);return{id:m.id,title:markLabel(m),mark:m.mark||m.title,total:q.total,placed:q.placed,left:q.left,geometry:guessGeometry(m)}}),
    groups:allVisibleTypes().map(g=>({...g,visible:!hiddenGroups.has(g.key)})),
    canEdit:canEdit(),selected:selectedId,showLabels:labelsVisible,showDimensions:dimensionsVisible,
+   onAnnotationToggle:(labels,dimensions)=>{
+    labelsVisible=Boolean(labels);dimensionsVisible=Boolean(dimensions);
+    document.getElementById("schemeToggleLabels")?.classList.toggle("on",labelsVisible);
+    document.getElementById("schemeToggleDimensions")?.classList.toggle("on",dimensionsVisible)
+   },
    onSelect:id=>{selectedId=id;renderDetails()},
    onEdit:id=>{
     if(!canEdit())return;

@@ -308,6 +308,8 @@ window.irBuildingView=(()=>{
   topControls.className="irb-top-actions";
   topControls.innerHTML='<button type="button" id="irbLayerToggle" aria-expanded="'+(state.layersOpen?'true':'false')+'">☷ Слои</button>'+
    '<button type="button" id="irbCutsToggle" title="Скрыть или показать участки каркаса по осям">▤ Разрезы</button>'+
+   '<button type="button" id="irbDimensionsToggle" title="Показать размерные линии между осями на 3D-чертёже" aria-pressed="'+String(showDimensions)+'">↔ Размеры</button>'+
+   '<button type="button" id="irbLabelsToggle" title="Показать обозначения марок непосредственно на 3D-чертёже" aria-pressed="'+String(showMemberLabels)+'">⌗ Подписи</button>'+
    '<button type="button" id="irbColorToggle" title="Переключить цветовой режим" aria-label="Переключить цветовой режим">◉ Цвет: статус</button>'+
    '<button type="button" id="irbRenderToggle" title="Переключить реалистичный / обычный 3D" aria-label="Режим 3D">⬡ Реалистичный 3D</button>'+
    (props.canEdit?'<button type="button" id="irbQuickAdd" class="irb-top-add">＋ Добавить элемент</button>':'');
@@ -1387,8 +1389,26 @@ window.irBuildingView=(()=>{
    paint();
   };
   updateAnnotationsScene=(labels,dimensions)=>{
-   showMemberLabels=Boolean(labels);showDimensions=Boolean(dimensions);paint()
+   showMemberLabels=Boolean(labels);showDimensions=Boolean(dimensions);
+   for(const [id,enabled] of [["irbLabelsToggle",showMemberLabels],["irbDimensionsToggle",showDimensions]]){
+    const button=el(id);if(!button)continue;
+    button.classList.toggle("active",enabled);
+    button.setAttribute("aria-pressed",String(enabled));
+   }
+   paint()
   };
+  const dimensionButton=el("irbDimensionsToggle"),labelButton=el("irbLabelsToggle");
+  if(dimensionButton)dimensionButton.onclick=()=>{
+   updateAnnotationsScene(showMemberLabels,!showDimensions);
+   props.onAnnotationToggle?.(showMemberLabels,showDimensions)
+  };
+  if(labelButton)labelButton.onclick=()=>{
+   updateAnnotationsScene(!showMemberLabels,showDimensions);
+   props.onAnnotationToggle?.(showMemberLabels,showDimensions)
+  };
+  for(const [button,enabled] of [[dimensionButton,showDimensions],[labelButton,showMemberLabels]]){
+   if(button)button.classList.toggle("active",enabled)
+  }
   updateRecordsScene=(elements,nextGroups,nextMarks,nextSelected)=>{
    marks.splice(0,marks.length,...nextMarks);
    state.selected=String(nextSelected||"");state.hover="";

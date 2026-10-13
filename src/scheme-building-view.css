@@ -539,3 +539,11 @@
 
 .irb-copy-invalid{background:#fff2f1!important;border-color:#e6aaa8!important;color:#ac343b!important}
 .irb-copy-shape{display:block;margin:-3px 0 9px;color:#61798b;font-size:10px;line-height:1.5}
+
+/* IR Project 1.7.141 — annotation switches inside the visible immersive 3D toolbar. */
+.irb-webgl .irb-top-actions #irbDimensionsToggle,
+.irb-webgl .irb-top-actions #irbLabelsToggle{background:#fff;border-color:#bdcee0;color:#315d7e}
+.irb-webgl .irb-top-actions #irbDimensionsToggle.active,
+.irb-webgl .irb-top-actions #irbLabelsToggle.active{background:#dceeff;border-color:#78aae0;color:#145da7;box-shadow:0 0 0 1px rgba(44,126,213,.1)}
+.irb-webgl .irb-top-actions #irbDimensionsToggle:focus-visible,
+.irb-webgl .irb-top-actions #irbLabelsToggle:focus-visible{outline:2px solid #5199e3;outline-offset:2px}

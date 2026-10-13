@@ -36,6 +36,8 @@ jobs:
         run: node scripts/test-scheme-cut-width.js
       - name: Test 3D dimensions and Plan background
         run: node scripts/test-scheme-drawing-annotations.js
+      - name: Test visible 3D controls and Plan SVG fill
+        run: node scripts/test-scheme-visible-controls.js
       - name: Check generated JavaScript and CSS bundles
         run: node scripts/build-runtime.js --check
       - name: Check hot-update manifest sizes
