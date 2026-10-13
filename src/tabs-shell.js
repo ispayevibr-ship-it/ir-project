@@ -242,10 +242,52 @@
   }
   startTab(frames.get(id));
   showLoading();syncProfile();
-  if(!wasActive)renderTabBar();
+  if(!wasActive){
+   renderTabBar();
+   // CSS visibility alone does not activate the child keyboard context.
+   const active=frames.get(id);
+   if(active?.lastEditable?.isConnected&&active.frame.contentDocument?.activeElement===active.lastEditable)
+    scheduleEditingFocus(active,active.lastEditable);
+   else if(active?.ready&&document.hasFocus())
+    active.frame.focus({preventScroll:true});
+  }
   save();notify("Вкладка: "+frames.get(id).title)
  }
  function markDirty(id){const t=frames.get(id);if(t&&!t.dirty){t.dirty=true;renderTabBar()}}
+
+ // Electron/Chromium iframe keyboard focus can drift from DOM input focus
+ // after a modal, menu, tab switch or native window activation.
+ // On the user's actual gesture, restore both browsing-context focus and
+ // the intended editable element. Do not synthesize text or alter input values.
+ function editableTarget(node){
+  const element=node?.nodeType===1?node:node?.parentElement;
+  const field=element?.closest?.("input,textarea,[contenteditable]");
+  if(!field||field.disabled||field.readOnly)return null;
+  if(field.hasAttribute("contenteditable")&&!field.isContentEditable)return null;
+  if(field.matches('input[type="hidden"],input[type="checkbox"],input[type="radio"],input[type="button"],input[type="submit"],input[type="reset"],input[type="file"],input[type="range"],input[type="color"],input[type="date"],input[type="time"],input[type="datetime-local"]'))return null;
+  return field;
+ }
+ function restoreEditingFocus(tab,field){
+  if(!tab||!field?.isConnected||frames.get(tab.id)!==tab||!tab.active||activeId!==tab.id||!document.hasFocus())return;
+  try{
+   const child=tab.frame.contentWindow,doc=child?.document;
+   if(!doc?.contains(field)||doc.activeElement!==field)return;
+   // Chromium may show a text caret while the host tab strip retains the
+   // native keyboard recipient. Re-activate the iframe, then the field.
+   if(document.activeElement!==tab.frame)tab.frame.focus({preventScroll:true});
+   child.focus();
+   field.focus({preventScroll:true});
+  }catch(error){console.warn("IR Project: keyboard focus recovery failed",error)}
+ }
+ function scheduleEditingFocus(tab,field){
+  if(!tab?.active||!field)return;
+  const sequence=tab.focusSequence=(tab.focusSequence||0)+1;
+  try{
+   tab.frame.contentWindow.requestAnimationFrame(()=>{
+    if(sequence===tab.focusSequence)restoreEditingFocus(tab,field)
+   });
+  }catch(_error){}
+ }
  function attachHandlers(tab){
   const frame=tab.frame;
   let child;
@@ -261,6 +303,18 @@
   child.document.addEventListener("change",e=>{
    const target=e.target;
    if(target?.closest?.("form")&&!target.matches('input[type="search"]'))markDirty(tab.id)
+  },true);
+  // A real click inside an editor restores the native iframe keyboard target.
+  // This also handles an input that visually has focus but accepts no keys.
+  child.document.addEventListener("focusin",event=>{
+   const field=editableTarget(event.target);
+   if(!field)return;
+   tab.lastEditable=field;
+   if(document.activeElement!==tab.frame||!child.document.hasFocus())scheduleEditingFocus(tab,field);
+  },true);
+  child.document.addEventListener("pointerup",event=>{
+   const field=editableTarget(event.target);
+   if(field){tab.lastEditable=field;scheduleEditingFocus(tab,field)}
   },true);
   child.document.addEventListener("keydown",e=>shortcuts(e),true);
   child.document.addEventListener("auxclick",e=>{
@@ -483,5 +537,11 @@
   if([...frames.values()].some(t=>t.dirty)){event.preventDefault();event.returnValue=""}
  });
  // Keep route storage current, without reloading hidden iframe documents.
- window.addEventListener("focus",()=>{const active=frames.get(activeId);if(active)notify("Вкладка: "+active.title)});
+ window.addEventListener("focus",()=>{
+  const active=frames.get(activeId);
+  if(!active)return;
+  notify("Вкладка: "+active.title);
+  if(active.lastEditable?.isConnected&&active.frame.contentDocument?.activeElement===active.lastEditable)
+   scheduleEditingFocus(active,active.lastEditable);
+ });
 })();
