@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - package.json
+      - '.github/workflows/release.yml'
 
 permissions:
   contents: write
@@ -42,6 +43,9 @@ jobs:
           node scripts/test-database-safety.js
           node scripts/test-updater-rollback.js
           node scripts/test-database-export-settings.js
+          # Windows checkout can normalize line endings differently from the
+          # committed Linux-verified bundle. Rebuild from the current sources.
+          node scripts/build-runtime.js
           node scripts/build-runtime.js --check
 
       - name: Read version
