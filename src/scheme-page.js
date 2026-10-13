@@ -419,6 +419,52 @@ window.irSchemePage=async function(objectId){
   else renderScene();
  }
 
+ // Updating the current 3D model does not require destroying the entire
+ // application layout or recreating its expensive WebGL resources.
+ function refreshAfterMemberChange(){
+  if(mode!=="building"||!document.getElementById("irbCanvas")||typeof window.irBuildingView?.updateRecords!=="function"){
+   draw();return
+  }
+  const visible=columns(),groups=allVisibleTypes();
+  const available=activeMarks().map(m=>{
+   const q=markPlacement(m);
+   return{id:m.id,title:markLabel(m),mark:m.mark||m.title,total:q.total,placed:q.placed,left:q.left,geometry:guessGeometry(m)}
+  });
+  window.irBuildingView.updateRecords(visible,groups.map(g=>({...g,visible:!hiddenGroups.has(g.key)})),available,selectedId);
+  const s=stats(),mp=statusCounts();
+  const summary=document.querySelector(".scheme-summary");
+  if(summary?.children[2]){
+   const value=summary.children[2].querySelector("b");
+   if(value)value.textContent=String(s.total);
+   const note=summary.children[2].querySelector("small");
+   if(note)note.textContent=activeGroup().label+" · "+activeMarks().length+" позиций ведомости";
+  }
+  if(summary?.children[3]){
+   const value=summary.children[3].querySelector("b");
+   if(value)value.textContent=mp.pct+"%";
+   const note=summary.children[3].querySelector("small");
+   if(note)note.textContent=fmt(mp.mounted)+" из "+fmt(mp.total)+" шт. смонтировано";
+  }
+  const markSummary=document.querySelector(".scheme-mark-summary");
+  if(markSummary?.children[3]){
+   const value=markSummary.children[3].querySelector("b");
+   if(value)value.innerHTML=mp.placed+' <small>элем.</small>';
+   const note=markSummary.children[3].querySelector("small:last-child");
+   if(note)note.textContent=mp.placedMounted+" полностью смонтировано · "+mp.placedPartial+" частично";
+  }
+  const counter=document.querySelector(".scheme-visible-counter b");
+  if(counter)counter.textContent=String(visible.length);
+  const caption=document.querySelector(".scheme-preview-title span");
+  if(caption)caption.textContent=s.total+" элементов · Общий 3D";
+  const select=document.getElementById("schemeTypeSelect");
+  if(select){
+   const byKey=new Map(schemeGroups().map(g=>[g.key,g]));
+   for(const option of select.options){
+    const g=byKey.get(option.value);
+    if(g)option.textContent=g.label+" · "+g.marks+" марок · "+g.placed+" элементов";
+   }
+  }
+ }
  // Copy a complete member to a new XY location, preserving length,
  // cross-section, elevations, orientation and intermediate bend.
  async function copySchemeMember(sourceId,destination){
@@ -489,52 +535,7 @@ window.irSchemePage=async function(objectId){
   if(!rememberSavedSchemeRecord(saved))rows=await schemeApi.list();
   return String(saved?.id||"");
  }
- // Updating the current 3D model does not require destroying the entire
- // application layout or recreating its expensive WebGL resources.
- function refreshAfterMemberChange(){
-  if(mode!=="building"||!document.getElementById("irbCanvas")||typeof window.irBuildingView?.updateRecords!=="function"){
-   draw();return
-  }
-  const visible=columns(),groups=allVisibleTypes();
-  const available=activeMarks().map(m=>{
-   const q=markPlacement(m);
-   return{id:m.id,title:markLabel(m),mark:m.mark||m.title,total:q.total,placed:q.placed,left:q.left,geometry:guessGeometry(m)}
-  });
-  window.irBuildingView.updateRecords(visible,groups.map(g=>({...g,visible:!hiddenGroups.has(g.key)})),available,selectedId);
-  const s=stats(),mp=statusCounts();
-  const summary=document.querySelector(".scheme-summary");
-  if(summary?.children[2]){
-   const value=summary.children[2].querySelector("b");
-   if(value)value.textContent=String(s.total);
-   const note=summary.children[2].querySelector("small");
-   if(note)note.textContent=activeGroup().label+" · "+activeMarks().length+" позиций ведомости";
-  }
-  if(summary?.children[3]){
-   const value=summary.children[3].querySelector("b");
-   if(value)value.textContent=mp.pct+"%";
-   const note=summary.children[3].querySelector("small");
-   if(note)note.textContent=fmt(mp.mounted)+" из "+fmt(mp.total)+" шт. смонтировано";
-  }
-  const markSummary=document.querySelector(".scheme-mark-summary");
-  if(markSummary?.children[3]){
-   const value=markSummary.children[3].querySelector("b");
-   if(value)value.innerHTML=mp.placed+' <small>элем.</small>';
-   const note=markSummary.children[3].querySelector("small:last-child");
-   if(note)note.textContent=mp.placedMounted+" полностью смонтировано · "+mp.placedPartial+" частично";
-  }
-  const counter=document.querySelector(".scheme-visible-counter b");
-  if(counter)counter.textContent=String(visible.length);
-  const caption=document.querySelector(".scheme-preview-title span");
-  if(caption)caption.textContent=s.total+" элементов · Общий 3D";
-  const select=document.getElementById("schemeTypeSelect");
-  if(select){
-   const byKey=new Map(schemeGroups().map(g=>[g.key,g]));
-   for(const option of select.options){
-    const g=byKey.get(option.value);
-    if(g)option.textContent=g.label+" · "+g.marks+" марок · "+g.placed+" элементов";
-   }
-  }
- }
+
  function renderUnifiedBuilding(box){
   if(!window.irBuildingView){box.innerHTML='<p>Модель загружается…</p>';return}
   window.irBuildingView.render(box,{
