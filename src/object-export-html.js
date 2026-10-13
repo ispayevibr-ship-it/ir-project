@@ -157,8 +157,9 @@
  }
  function extractOverviewPreviews(copy,keys){
   const available=new Set(keys),previews={};
+  // Reports have their own full, expandable section below: omit the short recent-reports widget.
+  copy.querySelectorAll(".object-overview-reports > .oor2-card:not(.oor2-photo-card):not(.oor-marks-card)").forEach(card=>card.remove());
   const sources=[
-   ["reports",".object-overview-reports > .oor2-card:not(.oor2-photo-card):not(.oor-marks-card)"],
    ["photos",".object-overview-reports > .oor2-photo-card"],
    ["deliveries",".object-overview-deliveries-wrap > .ood-deliveries"],
    ["deliveries",".object-overview-deliveries-wrap > .ood-comparison"],
@@ -173,18 +174,7 @@
    for(const card of copy.querySelectorAll(selector)){
     if(card.closest("[hidden]")||card.hidden)continue;
     if(key==="marks"&&previews.marks?.length)continue;
-    if(key==="reports"){
-     card.querySelectorAll(".oor2-report").forEach((report,i)=>{
-      const brief=report.querySelector(".oor2-brief"),detail=report.querySelector(".oor2-details");
-      if(!brief||!detail)return;
-      const expandable=document.createElement("details");expandable.className="ir-export-preview-daily";
-      if(i===0)expandable.open=true;
-      const summary=document.createElement("summary");summary.innerHTML=brief.innerHTML;
-      detail.hidden=false;detail.removeAttribute("hidden");
-      expandable.append(summary,detail);report.replaceChildren(expandable)
-     })
-    }
-    const wrapper=key==="reports"||key==="photos"||selector.includes(".oor-marks-card")?"object-overview-reports":
+    const wrapper=key==="photos"||selector.includes(".oor-marks-card")?"object-overview-reports":
      key==="deliveries"?"object-overview-deliveries-wrap":key==="schedule"?"object-overview-dashboard":
      key==="marks"?"object-overview-marks-wrap":"object-overview-admin-analysis";
     (previews[key]??=[]).push('<div class="ir-object-overview-right ir-export-preview-layout"><div class="'+wrapper+'">'+card.outerHTML+'</div></div>');
@@ -292,15 +282,6 @@
     ".ir-export-preview>.ir-export-preview-layout{display:block!important;margin:0!important}",
     ".ir-export-preview .ir-export-preview-layout>.object-overview-reports,.ir-export-preview .ir-export-preview-layout>.object-overview-deliveries-wrap,.ir-export-preview .ir-export-preview-layout>.object-overview-dashboard,.ir-export-preview .ir-export-preview-layout>.object-overview-marks-wrap,.ir-export-preview .ir-export-preview-layout>.object-overview-admin-analysis{display:contents!important;margin:0!important}",
     ".ir-export-preview :is(.oor2-card,.ood-card,.ooa-card,.object-overview-schedule,.object-overview-marks-card){width:100%!important;margin:0!important;min-width:0!important}",
-    ".ir-export-preview .oor2-brief .oor2-toggle{display:none!important}",
-    ".ir-export-preview-daily{border-bottom:1px solid #e2eaf1}",
-    ".ir-export-preview-daily>summary{cursor:pointer;list-style:none}",
-    ".ir-export-preview-daily>summary::-webkit-details-marker{display:none}",
-    ".ir-export-preview-daily>summary:after{content:'⌄';display:inline-block;padding:3px 8px;color:#607f96;font-weight:700}",
-    ".ir-export-preview-daily[open]>summary:after{content:'⌃'}",
-    ".ir-export-preview-daily>.oor2-details{display:block!important}",
-    ".ir-export-preview-daily .oor2-brief-metrics{display:flex!important;flex-wrap:wrap!important;align-items:stretch;gap:8px;min-width:0}",
-    ".ir-export-preview-daily .oor2-brief-metrics>.oor2-cell{flex:1 1 145px!important;min-width:0}",
     ".ir-export-daily-list{display:grid;gap:10px}",
     ".ir-export-daily-card{border:1px solid #dce5ed;background:#fff;border-radius:11px;overflow:hidden;box-shadow:0 1px 5px rgba(27,60,87,.06)}",
     ".ir-export-daily-card>details>summary{list-style:none;cursor:pointer;display:block}",
