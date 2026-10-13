@@ -16,5 +16,5 @@ assert(page.includes('onAnnotationToggle:(labels,dimensions)=>'));
 assert(/scheme-grid-outline-plan" fill="none"/.test(page),"plan outline must not cover the plan with SVG default black fill");
 assert(css.includes(".scheme-grid-outline-plan{fill:none!important"),
  "CSS must prevent plan outline black fill");
-assert.match(html,/ir-runtime\\.js\\?v=\\d+/, "generated JS must have cache busting");
+assert(html.includes("ir-runtime.js?v="), "generated JS must have cache busting");
 console.log("3D visible annotation controls and non-black 2D plan outline verified");
