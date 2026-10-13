@@ -114,7 +114,7 @@
    reportMetric("people","Люди",exportFormat(reportCountPeople(r))+" чел.")+
    reportMetric("equipment","Техника",exportFormat(reportCountEquipment(r))+" ед.")+
    reportMetric("volume","Выполнено",volume.length?volume.join(" · "):(works.length?works.length+" работ":"Работы не проводились"))+
-   '<span class="ir-export-daily-chevron" aria-hidden="true">⌄</span></div>'
+   '<span class="ir-export-daily-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span></div>'
  }
  function reportChips(records,mode){
   if(!records.length)return'<p class="ir-export-muted">Не указаны</p>';
@@ -134,17 +134,13 @@
  }
  function reportFull(record,r,images){
   const works=reportWorks(r),workers=reportPeople(r),responsible=reportResponsible(r),equipment=array(r.equipment),photos=reportPhotos(r);
-  const used=new Set(["items","works","workers","people","responsible","responsibles","equipment","photos","reportPhotos"]);
-  const extra=Object.entries(r).filter(([k,v])=>!used.has(k)&&!k.startsWith("__")&&v!==undefined);
   const photoHtml=photos.map((p,i)=>{const path=photoPath(p),source=dataUrl(path)?path:images.get(path);return source?'<figure><img src="'+esc(source)+'" loading="lazy" alt="Фото отчёта '+(i+1)+'"><figcaption>Фото '+(i+1)+'</figcaption></figure>':''}).join("");
   return'<div class="ir-export-daily-full">'+
    '<section><h3>Выполненные работы</h3>'+reportWorkTable(works)+'</section>'+
    '<div class="ir-export-daily-columns"><section><h3>Работники</h3>'+reportChips(workers,"workers")+'</section><section><h3>Ответственные лица</h3>'+reportChips(responsible,"responsible")+'</section></div>'+
    '<section><h3>Техника</h3>'+reportChips(equipment,"equipment")+'</section>'+
    (photoHtml?'<section><h3>Фотографии · '+photos.length+'</h3><div class="ir-export-daily-photos">'+photoHtml+'</div></section>':'')+
-   '<section><h3>Дополнительная информация</h3><div class="ir-export-details">'+
-   [["ID",record.id],["Тип",record.record_type],...extra].map(([key,value])=>'<div class="ir-export-detail"><b>'+esc(label(key))+'</b><div>'+fieldHtml(key,value,images)+'</div></div>').join("")+
-   '</div></section></div>'
+   '</div>'
  }
  function renderDailyReports(rows,images){
   if(!rows.length)return'<div class="ir-export-empty-card">Ежедневных отчётов пока нет</div>';
@@ -297,8 +293,12 @@
     ".ir-export-daily-metric small{font-size:10px;color:#8196a6}",
     ".ir-export-daily-metric b{font-size:12px;color:#21465e;font-weight:750;line-height:1.5}",
     ".ir-export-daily-metric em{font-style:normal;font-size:10px;color:#7b94a5}",
-    ".ir-export-daily-chevron{align-self:center;color:#6487a0;font-size:22px;margin:0 3px}",
-    ".ir-export-daily-card>details[open] .ir-export-daily-chevron{transform:rotate(180deg)}",
+    ".ir-export-daily-chevron{align-self:center;flex:0 0 32px;display:grid;place-items:center;width:32px;height:32px;margin:0 2px;border:1px solid #d7e6f3;border-radius:9px;background:#eef6fd;color:#3779ab;transition:background-color .2s,border-color .2s,color .2s}",
+    ".ir-export-daily-chevron svg{display:block;width:18px;height:18px;transition:transform .2s ease;pointer-events:none}",
+    ".ir-export-daily-card>details[open] .ir-export-daily-chevron{background:#deeffe;border-color:#bddbf3;color:#176fac}",
+    ".ir-export-daily-card>details[open] .ir-export-daily-chevron svg{transform:rotate(180deg)}",
+    ".ir-export-daily-card>details>summary:hover .ir-export-daily-chevron{background:#dbeefa;border-color:#a8d2f0;color:#1367a3}",
+    ".ir-export-daily-card>details>summary:focus-visible{outline:2px solid #448ac9;outline-offset:-3px;border-radius:9px}",
     ".ir-export-daily-full{display:grid;gap:12px;padding:15px;background:#fbfdff}",
     ".ir-export-daily-full>section,.ir-export-daily-columns>section{min-width:0;padding:12px;background:#fff;border:1px solid #e2eaf0;border-radius:9px}",
     ".ir-export-daily-full h3{font-size:13px;color:#23455c;margin:0 0 12px;font-weight:800}",
@@ -323,14 +323,17 @@
     ".ir-export-count{white-space:nowrap;font-size:12px;color:#63849c;background:#f2f7fb;border-radius:8px;padding:8px 12px}",
     ".ir-export-records{display:grid;gap:8px}.ir-export-record{border:1px solid #e3ebf1;border-radius:9px;background:#fbfdff;overflow:hidden}",
     ".ir-export-record>details>summary{display:flex;align-items:center;gap:12px;min-height:45px;padding:10px 13px;cursor:pointer;list-style:none}",
-    ".ir-export-record>details>summary::-webkit-details-marker{display:none}.ir-export-record>details>summary:after{content:'▾';color:#7290a5;margin-left:auto}",
+    ".ir-export-record>details>summary::-webkit-details-marker{display:none}.ir-export-record>details>summary:after{content:'';display:block;flex:0 0 8px;width:8px;height:8px;border-right:2px solid #6087a3;border-bottom:2px solid #6087a3;transform:rotate(45deg);margin:0 8px 4px auto;transition:transform .2s ease}",
+    ".ir-export-record>details[open]>summary:after{transform:rotate(225deg);margin-top:5px;margin-bottom:0}",
     ".ir-export-record>details[open]>summary{border-bottom:1px solid #e2eaf0;background:#eff7fd}.ir-export-row-no{flex:0 0 24px;color:#91a7b6;text-align:right;font-size:11px}",
     ".ir-export-row-title{min-width:150px;flex:1;font-size:12px;font-weight:700;overflow-wrap:anywhere}.ir-export-row-meta{display:flex;flex-wrap:wrap;gap:5px}",
     ".ir-export-row-meta small{font-size:10px;color:#53839f;background:#edf5fa;border-radius:5px;padding:3px 6px}",
     ".ir-export-details{padding:4px 14px 12px}.ir-export-detail{display:grid;grid-template-columns:minmax(130px,23%) minmax(0,1fr);gap:16px;padding:9px 0;border-bottom:1px solid #edf1f4;font-size:12px}",
     ".ir-export-detail:last-child{border:0}.ir-export-detail>b{color:#627f92}.ir-export-detail>div{min-width:0;overflow-wrap:anywhere}",
     ".ir-export-detail pre{margin:8px 0;white-space:pre-wrap;overflow-wrap:anywhere;background:#f2f6f9;border-radius:7px;padding:10px;font-size:11px}",
-    ".ir-export-detail details summary{cursor:pointer;color:#3976a5}.ir-export-photo{max-width:210px;max-height:150px;object-fit:contain;border-radius:7px;margin:4px 6px 4px 0}",
+    ".ir-export-detail details>summary{cursor:pointer;color:#3976a5;list-style:none;display:flex;align-items:center;gap:9px}.ir-export-detail details>summary::-webkit-details-marker{display:none}",
+    ".ir-export-detail details>summary:before{content:'';display:block;width:7px;height:7px;border-right:2px solid #4386b4;border-bottom:2px solid #4386b4;transform:rotate(-45deg);transition:transform .2s ease}",
+    ".ir-export-detail details[open]>summary:before{transform:rotate(45deg)}.ir-export-photo{max-width:210px;max-height:150px;object-fit:contain;border-radius:7px;margin:4px 6px 4px 0}",
     ".ir-export-field-media{display:grid;gap:4px}.ir-export-field-media small{color:#8298a8;overflow-wrap:anywhere}.ir-export-empty{color:#99a9b5}",
     ".ir-export-empty-card{padding:20px;text-align:center;color:#8195a6;font-size:12px}",
     "body.ir-object-overview #app button,body.ir-object-overview #app .object-hero-actions{display:none!important}",
