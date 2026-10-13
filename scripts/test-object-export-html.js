@@ -15,7 +15,7 @@ assert(source.includes('["photos",".object-overview-reports > .oor2-photo-card"]
 assert(source.includes('["deliveries",".object-overview-deliveries-wrap > .ood-deliveries"]'),"delivery widget is relocated");
 assert(source.includes('["schedule",".object-overview-dashboard > .object-overview-schedule"]'),"schedule widget is relocated");
 assert(source.includes("renderDailyReports(rows,images)"),"daily reports use specialized cards");
-assert(source.includes('<details'+(i===0?\' open\':\'\')'),"daily report cards expand without scripts");
+assert(source.includes('class="ir-export-daily-card"'),"daily reports use expandable cards");
 assert(source.includes("reportFull(record,r,images)"),"daily report cards include complete detail");
 assert(source.includes("reportWorkTable(works)"),"daily report details include work list");
 assert(source.includes("Content-Security-Policy"),"snapshot remains offline");
@@ -47,4 +47,11 @@ assert(!source.includes('irProject.data.objects.update('),"export may not edit o
 assert(!source.includes('api.section(key).remove('),"export may not delete records");
 const scope={window:{},console};vm.runInNewContext(source,scope);
 assert.equal(typeof scope.window.irObjectHtmlExport?.save,"function");
+assert(source.includes("ir-export-daily-brief"),"report cards display a short summary");
+assert(source.includes("ir-export-daily-full"),"report cards disclose full details");
+assert(source.includes("reportWorkTable(works)"),"daily report works table included");
+assert(source.includes("reportChips(workers"),"worker details included");
+assert(source.includes("reportChips(equipment"),"equipment details included");
+assert(source.includes("ir-export-daily-photos"),"report photos included");
+assert(source.includes("reportFull(record,r,images)"),"full report detail present");
 console.log("Full object HTML export: snapshot, offline navigation, read-only records, native save and no DB writes OK");
