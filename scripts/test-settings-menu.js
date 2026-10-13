@@ -48,6 +48,7 @@ const listeners=()=>{
  }
 };
 const childDoc=listeners(),hostDoc=listeners();
+hostDoc.defaultView=hostDoc;
 const menuNode={hidden:true,style:{},ownerDocument:hostDoc,contains:target=>target==="menu"};
 const gearNode={
  classList:{add(){this.active=true},remove(){this.active=false},toggle(){}},
@@ -59,7 +60,7 @@ const profileMenu={hidden:true},badgeButton={},roleSelect={value:"guest"};
 const handlerEnd=js.indexOf('  settingsMenu.ownerDocument.defaultView?.addEventListener("resize"',start);
 assert(handlerEnd>end,"test must include click handlers");
 const init=vm.runInNewContext("(function(settingsMenu,settingsButton,menu,badge,select,document){"+
- js.slice(start,handlerEnd)+";return {closeSettings}})",{});
+ js.slice(start,handlerEnd)+";return {closeSettings}})",{irAccess:{role:()=>"guest"}});
 const state=init(menuNode,gearNode,profileMenu,badgeButton,roleSelect,childDoc);
 gearNode.onclick();
 assert.equal(menuNode.hidden,false);
