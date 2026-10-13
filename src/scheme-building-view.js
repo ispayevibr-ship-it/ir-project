@@ -6,7 +6,7 @@
  * 2D canvas projection: offline, no dependencies or database access.
  */
 window.irBuildingView=(()=>{
- const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true,bent:false,middle:null,ridgeMode:"center",colorMode:"status",hiddenSections:[],sectionKey:"",sectionsOpen:false,findQuery:""};
+ const state={yaw:-.75,pitch:.60,zoom:1,panX:0,panY:0,preset:"iso",grid:true,roof:false,placing:false,mark:"",start:null,end:null,hover:"",selected:"",layersOpen:false,markSearch:"",zigzag:false,chainNext:null,hoverAnchor:null,continuing:false,topZ:"",error:"",busy:false,repeat:false,directColumns:true,bent:false,middle:null,ridgeMode:"center",colorMode:"status",renderMode:"real",hiddenSections:[],sectionKey:"",sectionsOpen:false,findQuery:""};
  let observer=null,paint=null,webgl=null,panelsInitialized=false,animationFrame=0,drawFrame=null;
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const html=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -71,6 +71,7 @@ window.irBuildingView=(()=>{
  // Offline WebGL renderer; real 3D prisms, depth testing and per-face lighting.
  // The 2D canvas above it remains a precise picking/placement/annotation layer.
  function makeWebGL(surface){
+  if(window.irSteelRenderer)return window.irSteelRenderer(surface,state,{markRgb,typeRgb,typeKey,pt});
   const gl=surface.getContext("webgl",{alpha:true,antialias:true,premultipliedAlpha:false,depth:true});
   if(!gl)return null;
   const shader=(type,source)=>{
@@ -171,6 +172,10 @@ window.irBuildingView=(()=>{
   const axesX=props.axesX,axesY=props.axesY,spanX=props.spanX,spanY=props.spanY,
    gridX=props.gridX,gridY=props.gridY,cols=props.elements,marks=props.marks,groups=props.groups;
   const sectionKey="ir-project-3d-sections."+String(props.objectId||"default");
+  if(!state.renderModeInitialized){
+   try{state.renderMode=localStorage.getItem("ir-project-3d-render-mode")==="simple"?"simple":"real"}catch(_error){state.renderMode="real"}
+   state.renderModeInitialized=true
+  }
   const sections=[
    ...axesX.slice(0,-1).map((axis,i)=>({
     id:"x:"+axis+":"+axesX[i+1],axis:"X",label:axis+"–"+axesX[i+1],
@@ -265,6 +270,12 @@ window.irBuildingView=(()=>{
    '</div>'+
    '<div class="irb-color-caption" id="irbColorCaption">Зелёный — смонтировано, красный — не смонтировано, жёлтый — частично.</div>'+
    '<div class="irb-color-legend" id="irbColorLegend" hidden></div>'+
+   '<div class="irb-panel-head"><b>Режим 3D</b></div>'+
+   '<div class="irb-render-modes" role="group" aria-label="Детализация 3D">'+
+    '<button type="button" id="irbRenderSimple">Обычный</button>'+
+    '<button type="button" id="irbRenderReal">Реалистичный</button>'+
+   '</div>'+
+   '<small class="irb-render-note" id="irbRenderNote"></small>'+
    '<div class="irb-panel-head"><b>Отображение</b></div>'+
    '<label class="irb-switch"><input type="checkbox" id="irbGrid" '+(state.grid?'checked':'')+'><span>Сетка осей</span></label>'+
    '<label class="irb-switch"><input type="checkbox" id="irbRoof" '+(state.roof?'checked':'')+'><span>Контур кровли (эскиз)</span></label>'+
@@ -291,6 +302,7 @@ window.irBuildingView=(()=>{
   topControls.innerHTML='<button type="button" id="irbLayerToggle" aria-expanded="'+(state.layersOpen?'true':'false')+'">☷ Слои</button>'+
    '<button type="button" id="irbCutsToggle" title="Скрыть или показать участки каркаса по осям">▤ Разрезы</button>'+
    '<button type="button" id="irbColorToggle" title="Переключить цветовой режим" aria-label="Переключить цветовой режим">◉ Цвет: статус</button>'+
+   '<button type="button" id="irbRenderToggle" title="Переключить реалистичный / обычный 3D" aria-label="Режим 3D">⬡ Реалистичный 3D</button>'+
    (props.canEdit?'<button type="button" id="irbQuickAdd" class="irb-top-add">＋ Добавить марку</button>':'');
   viewport.appendChild(topControls);
   const layerClose=document.createElement("button");layerClose.type="button";
@@ -361,6 +373,29 @@ window.irBuildingView=(()=>{
   webgl=makeWebGL(el("irbSolid"));
   viewport.classList.toggle("irb-webgl",!!webgl);
   if(!webgl){el("irbSolid").hidden=true}
+  const showRenderMode=()=>{
+   const real=!!webgl&&state.renderMode==="real";
+   for(const [id,active] of [["irbRenderSimple",!real],["irbRenderReal",real]]){
+    const b=el(id);
+    if(b){b.classList.toggle("active",active);b.setAttribute("aria-pressed",String(active));b.disabled=!webgl}
+   }
+   const button=el("irbRenderToggle");
+   if(button){button.textContent=real?"⬡ Реалистичный 3D":"▤ Обычный 3D";button.setAttribute("aria-pressed",String(real));button.disabled=!webgl}
+   const caption=el("irbRenderNote");
+   if(caption)caption.textContent=!webgl?"WebGL недоступен — используется упрощённая схема.":
+    real?"Двутавры, коробчатые и круглые профили. Размеры по обозначению, если указаны.":
+    "Упрощённая геометрия для быстрого размещения конструкций.";
+  };
+  const setRenderMode=mode=>{
+   if(!webgl||!["real","simple"].includes(mode)||mode===state.renderMode)return;
+   state.renderMode=mode;
+   try{localStorage.setItem("ir-project-3d-render-mode",mode)}catch(_error){}
+   showRenderMode();paint()
+  };
+  el("irbRenderSimple").onclick=()=>setRenderMode("simple");
+  el("irbRenderReal").onclick=()=>setRenderMode("real");
+  el("irbRenderToggle").onclick=()=>setRenderMode(state.renderMode==="real"?"simple":"real");
+  showRenderMode();
   
   const maxZ=Math.max(7000,8400,...cols.map(c=>Math.max(num(c.z0),num(c.z2),c.geometryType==="bent"?num(c.mz):0)),1);
   const projectFactory=()=>{
@@ -538,7 +573,7 @@ window.irBuildingView=(()=>{
    const segments=memberSegments().map(s=>({...s,a:m.project(s.start),b:m.project(s.end),depth:(m.raw(s.start).depth+m.raw(s.end).depth)/2}));
    if(!webgl)segments.sort((a,b)=>a.depth-b.depth);
    projectedSegments=segments;
-   if(webgl)webgl.render(segments,m,rect.width,rect.height,dpr);
+   if(webgl)webgl.render(memberSegments(),m,rect.width,rect.height,dpr);
    for(const s of segments){
     const chosen=String(s.c.id)===String(state.selected),hover=String(s.c.id)===String(state.hover),
      color=chosen?"#2879df":hover?"#168fca":state.colorMode==="mark"?markCss(s.c):state.colorMode==="type"?typeCss(s.c):

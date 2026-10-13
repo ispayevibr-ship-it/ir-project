@@ -512,3 +512,12 @@
 .irb-immersive .irb-properties .irb-level-feedback.irb-level-detached{
  color:#437b9f!important;font-weight:650
 }
+
+/* 1.7.130 — switch between lightweight and realistic steel profiles. */
+.irb-render-modes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;padding:4px;background:#eff5fb;border:1px solid #d6e5f0;border-radius:9px}
+.irb-render-modes button{min-width:0;min-height:34px;padding:6px;border:1px solid transparent;border-radius:7px;background:transparent;color:#5d7b91;font:800 10px/1.35 "Segoe UI",Arial,sans-serif;cursor:pointer}
+.irb-render-modes button.active{background:#fff;border-color:#bfd9f1;color:#1c6ebb;box-shadow:0 1px 5px #3974aa1a}
+.irb-render-modes button:hover:not(.active){color:#216ca7;background:#e3f1ff}
+.irb-render-note{display:block;color:#7490a5;font-size:10px;line-height:1.5}
+.irb-webgl .irb-top-actions #irbRenderToggle[aria-pressed="true"]{background:#eaf3fb;border-color:#9bbde0;color:#206bb0}
+@media(max-width:820px){.irb-webgl .irb-top-actions #irbRenderToggle{padding:0 8px;font-size:10px}}
