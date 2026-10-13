@@ -497,3 +497,27 @@
 #schemeMemberMiddle .scheme-ridge-mode{display:grid;gap:6px;font-size:10px;font-weight:800;color:#335f7f}
 #schemeMemberMiddle .scheme-ridge-mode select{font-weight:700;border-color:#a6cce8;background:#fff}
 #schemeMemberMiddle .scheme-ridge-note{padding:9px 11px;border:1px solid #c5dfef;border-radius:7px;background:#eaf5fe;color:#4d7898;font-size:10px;line-height:1.5}
+
+/* 1.7.146 — first-frame loading overlay for the assembly drawing. */
+.ir-scheme-loading{
+ position:fixed;inset:0;z-index:40000;
+ display:flex;align-items:center;justify-content:center;padding:20px;
+ background:rgba(226,234,243,.74);backdrop-filter:blur(5px);
+ font-family:"Segoe UI",Arial,sans-serif;box-sizing:border-box
+}
+.ir-scheme-loading-card{
+ width:min(420px,100%);box-sizing:border-box;text-align:center;
+ padding:34px 28px 31px;border:1px solid #d9e5ef;border-radius:18px;
+ background:#fff;box-shadow:0 20px 60px rgba(35,71,101,.19);color:#23455f
+}
+.ir-scheme-loading-wheel{
+ width:40px;height:40px;border-radius:50%;margin:0 auto 19px;
+ border:4px solid #e6f0fa;border-top-color:#1775cf;
+ animation:ir-scheme-loading-spin .85s linear infinite
+}
+@keyframes ir-scheme-loading-spin{to{transform:rotate(360deg)}}
+.ir-scheme-loading-card strong{display:block;font-size:20px;font-weight:800;line-height:1.35}
+.ir-scheme-loading-card p{margin:13px 0 0;font-size:13px;line-height:1.6;color:#728a9c}
+.ir-scheme-loading-card.error strong{color:#ae4242}
+.ir-scheme-loading-back{margin-top:19px;border:0;border-radius:8px;padding:11px 16px;background:#176ec4;color:#fff;font-weight:700;cursor:pointer}
+@media(prefers-reduced-motion:reduce){.ir-scheme-loading-wheel{animation-duration:2.5s}}

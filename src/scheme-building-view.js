@@ -380,7 +380,10 @@ window.irBuildingView=(()=>{
   el("irbColorMarks").onclick=()=>setColorMode("mark");
   el("irbColorToggle").onclick=()=>setColorMode(state.colorMode==="status"?"type":state.colorMode==="type"?"mark":"status");
   showColorMode();
-  if(!ctx){el("irbProperties").textContent="3D Canvas недоступен";return}
+  if(!ctx){
+   el("irbProperties").textContent="3D Canvas недоступен";
+   props.onFirstPaintError?.(new Error("3D Canvas недоступен"));return
+  }
   webgl=makeWebGL(el("irbSolid"));
   viewport.classList.toggle("irb-webgl",!!webgl);
   if(!webgl){el("irbSolid").hidden=true}
@@ -714,13 +717,25 @@ window.irBuildingView=(()=>{
    };
   };
   // Batch pointer/zoom/resize requests into a single draw per display frame.
+  // The loading overlay closes only after an actual, nonzero-size canvas frame.
+  let firstFrameReady=false;
   drawFrame=paint;
   paint=()=>{
    if(animationFrame)return;
    const current=drawFrame;
    animationFrame=window.requestAnimationFrame(()=>{
     animationFrame=0;
-    if(drawFrame===current)current()
+    if(drawFrame!==current)return;
+    try{
+     current();
+     if(!firstFrameReady&&canvas.isConnected&&canvas.width>1&&canvas.height>1){
+      firstFrameReady=true;
+      props.onFirstPaint?.()
+     }
+    }catch(error){
+     if(!firstFrameReady)props.onFirstPaintError?.(error);
+     else console.error("Монтажная схема: ошибка отрисовки",error)
+    }
    });
   };
   // Fast hover picking uses the projected segments from the last frame.

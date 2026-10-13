@@ -1244,10 +1244,58 @@ window.irFinancePage=async function(objectId){
 
 /* #30: src/scheme-page.js */
 "use strict";
+// Visible immediately on navigation, before the DB and GPU work begins.
+// A generation token prevents an old paint callback from hiding a newer load.
+const irSchemeLoading=(()=>{
+ let active=null,nextId=0;
+ function begin(){
+  const id=++nextId,route=location.hash;
+  active?.element?.remove();
+  const element=document.createElement("div");
+  element.id="irSchemeLoading";
+  element.className="ir-scheme-loading";
+  element.setAttribute("role","status");
+  element.setAttribute("aria-live","polite");
+  element.innerHTML='<div class="ir-scheme-loading-card">'+
+   '<div class="ir-scheme-loading-wheel" aria-hidden="true"></div>'+
+   '<strong>Загрузка монтажной схемы</strong>'+
+   '<p>Подготавливаем оси, элементы и 3D-модель…</p>'+
+   '</div>';
+  document.body.appendChild(element);
+  active={id,route,element};
+  const current=()=>active?.id===id&&active.element===element;
+  const cancel=()=>{if(current()){element.remove();active=null}};
+  return {
+   cancel,
+   done(){
+    if(!current())return;
+    requestAnimationFrame(()=>{if(current()&&location.hash===route)cancel()})
+   },
+   fail(error){
+    if(!current())return;
+    const card=element.querySelector(".ir-scheme-loading-card");
+    if(!card)return cancel();
+    card.classList.add("error");
+    card.innerHTML='<strong>Не удалось загрузить монтажную схему</strong>'+
+     '<p>Проверьте данные или попробуйте открыть схему повторно.</p>'+
+     '<button type="button" class="ir-scheme-loading-back">Вернуться к объекту</button>';
+    card.querySelector("button").onclick=()=>{cancel();location.hash=route.replace(/\/scheme$/,"")};
+    console.error("Монтажная схема: ошибка загрузки",error)
+   }
+  }
+ }
+ window.addEventListener("hashchange",()=>{
+  if(active&&location.hash!==active.route){active.element.remove();active=null}
+ });
+ return{begin}
+})();
 window.irSchemePage=async function(objectId){
  const oid=String(objectId||"");if(!oid)return;
+ const loading=irSchemeLoading.begin(),requestedRoute=location.hash;
+ try{
  const app=document.getElementById("app"),root=irProject.data.forObject(oid),schemeApi=root.section("scheme"),object=await irProject.data.objects.get(oid);
- if(!object){location.hash="/objects";return}
+ if(location.hash!==requestedRoute){loading.cancel();return}
+ if(!object){loading.cancel();location.hash="/objects";return}
  const canEdit=()=>window.irAccess?window.irAccess.canEdit("scheme"):false;
  const esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
  const arr=v=>Array.isArray(v)?v:[];
@@ -1304,6 +1352,7 @@ window.irSchemePage=async function(objectId){
   try{window.localStorage?.setItem(key,JSON.stringify({mode:currentBackground(),color:currentCustomBackground()}))}catch(e){}
  }
  [rows,markRows,workRows]=await Promise.all([schemeApi.list().catch(()=>[]),root.section("marks").list().catch(()=>[]),root.section("work-types").list().catch(()=>[])]);
+ if(location.hash!==requestedRoute){loading.cancel();return}
  const equalSpans=(total,count)=>{count=Math.max(1,count);const base=Math.floor(total/count),rem=Math.round(total-base*count);return Array.from({length:count},(_,i)=>base+(i<rem?1:0))};
  const validAxes=v=>Array.isArray(v)&&v.length>=2&&v.every(x=>String(x||"").trim());
  const validSpans=(v,count,total)=>Array.isArray(v)&&v.length===count&&v.every(x=>num(x)>0)&&Math.abs(v.reduce((s,x)=>s+num(x),0)-total)<.11;
@@ -1910,13 +1959,17 @@ window.irSchemePage=async function(objectId){
    onLayer:key=>{hiddenGroups.has(key)?hiddenGroups.delete(key):hiddenGroups.add(key);updateLayerVisibility()},
    onQuickPlace:frameMode?createFrameMember:null,
    onQuickPlaced:()=>refreshAfterMemberChange(),
-   onPlacement:placement=>openEditor(null,false,placement)
+   onPlacement:placement=>openEditor(null,false,placement),
+   onFirstPaint:()=>loading.done(),
+   onFirstPaintError:error=>loading.fail(error)
   })
  }
  function renderScene(){
   const box=document.getElementById("schemeCanvas");if(!box)return;const cols=columns(),xName=`${axesX[0]}–${axesX.at(-1)}`,yName=`${axesY[0]}–${axesY.at(-1)}`,meta=`<div class="scheme-grid-meta"><b>${fmt(spanX)} × ${fmt(spanY)} мм</b><span>${esc(xName)}: ${axesX.length} осей</span><span>${esc(yName)}: ${axesY.length} осей</span><small>Поворот ${viewRotation}° · Ctrl + колесо — масштаб · перетащить — перемещение · клик по пустому месту — снять выбор</small></div>`;
   if(mode==="building"){renderUnifiedBuilding(box);return}
   box.innerHTML=`${meta}<svg viewBox="0 0 1040 650" aria-label="План монтажной схемы"><g id="schemeZoomLayer" transform="${zoomTransform()}">${planSvg(cols)}</g></svg>`;
+  // The initial plan needs one browser paint before releasing the overlay.
+  loading.done();
   box.querySelectorAll("[data-column]").forEach(el=>{const pick=()=>{selectedId=el.dataset.column;renderScene();renderDetails()};el.onclick=pick;el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();pick()}}});
   bindScenePanZoom(box)
  }
@@ -2533,6 +2586,7 @@ window.irSchemePage=async function(objectId){
   renderScene();renderDetails();bindGridEditor();bindEditor();bindViewManager()
  }
  draw();
+ }catch(error){loading.fail(error)}
 };
 ;
 
@@ -4745,7 +4799,10 @@ window.irBuildingView=(()=>{
   el("irbColorMarks").onclick=()=>setColorMode("mark");
   el("irbColorToggle").onclick=()=>setColorMode(state.colorMode==="status"?"type":state.colorMode==="type"?"mark":"status");
   showColorMode();
-  if(!ctx){el("irbProperties").textContent="3D Canvas недоступен";return}
+  if(!ctx){
+   el("irbProperties").textContent="3D Canvas недоступен";
+   props.onFirstPaintError?.(new Error("3D Canvas недоступен"));return
+  }
   webgl=makeWebGL(el("irbSolid"));
   viewport.classList.toggle("irb-webgl",!!webgl);
   if(!webgl){el("irbSolid").hidden=true}
@@ -5079,13 +5136,25 @@ window.irBuildingView=(()=>{
    };
   };
   // Batch pointer/zoom/resize requests into a single draw per display frame.
+  // The loading overlay closes only after an actual, nonzero-size canvas frame.
+  let firstFrameReady=false;
   drawFrame=paint;
   paint=()=>{
    if(animationFrame)return;
    const current=drawFrame;
    animationFrame=window.requestAnimationFrame(()=>{
     animationFrame=0;
-    if(drawFrame===current)current()
+    if(drawFrame!==current)return;
+    try{
+     current();
+     if(!firstFrameReady&&canvas.isConnected&&canvas.width>1&&canvas.height>1){
+      firstFrameReady=true;
+      props.onFirstPaint?.()
+     }
+    }catch(error){
+     if(!firstFrameReady)props.onFirstPaintError?.(error);
+     else console.error("Монтажная схема: ошибка отрисовки",error)
+    }
    });
   };
   // Fast hover picking uses the projected segments from the last frame.
