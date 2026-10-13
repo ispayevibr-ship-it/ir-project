@@ -79,10 +79,12 @@
   const nav=aside?.querySelector(".ir-object-nav");
   const links=nav?[...nav.querySelectorAll("button[data-key]")].filter(n=>!n.disabled):[];
   const icon=key=>links.find(el=>el.dataset.key===key)?.querySelector(".nav-icon")?.innerHTML||"";
-  const overview='<a class="ir-export-nav active" href="#overview">'+icon("overview")+'<span>Обзор</span></a>';
-  const pages=keys.map(key=>'<a class="ir-export-nav" href="#section-'+esc(key)+'">'+icon(key)+'<span>'+esc(labels[key]||key)+'</span></a>').join("");
-  const logo=aside?.querySelector(".ir-object-brand img")?.outerHTML||'<span>IR Project</span>';
-  return'<aside class="ir-object-sidebar-fixed ir-export-sidebar"><div class="ir-export-brand">'+logo+'</div><div class="ir-export-object-label">'+esc(objectName)+'</div><nav class="ir-object-nav" aria-label="Разделы объекта">'+overview+pages+'</nav><a class="ir-export-top" href="#overview">↑ Наверх</a></aside>'
+  const item=(key,text,href,active=false)=>'<a class="ir-export-nav'+(active?' active':'')+'" href="'+href+'" title="'+esc(text)+'"><span class="nav-icon" aria-hidden="true">'+icon(key)+'</span><span class="ir-export-nav-label">'+esc(text)+'</span></a>';
+  const overview=item("overview","Обзор","#overview",true);
+  const pages=keys.map(key=>item(key,labels[key]||key,"#section-"+esc(key))).join("");
+  const logoImg=aside?.querySelector(".ir-object-brand img");
+  const logo=logoImg?'<img src="'+esc(logoImg.src)+'" alt="Логотип компании">':'<strong>IR Project</strong>';
+  return'<aside class="ir-object-sidebar-fixed ir-export-sidebar" aria-label="Навигация по отчёту"><div class="ir-export-brand">'+logo+'</div><div class="ir-export-object-label"><small>ОБЪЕКТ</small><strong title="'+esc(objectName)+'">'+esc(objectName)+'</strong></div><div class="ir-export-nav-caption">РАЗДЕЛЫ ОТЧЁТА</div><nav class="ir-object-nav" aria-label="Разделы объекта">'+overview+pages+'</nav><a class="ir-export-top" href="#overview"><span aria-hidden="true">↑</span> Наверх</a></aside>'
  }
  function copyCanvas(live,copy){
   const originals=[...live.querySelectorAll("canvas")],copies=[...copy.querySelectorAll("canvas")];
@@ -134,6 +136,30 @@
     ".ir-object-nav .ir-export-nav:hover,.ir-object-nav .ir-export-nav.active{background:#e9f4fc!important;color:#196ca5!important}",
     ".ir-object-nav .ir-export-nav .nav-icon{display:inline-grid;width:18px;flex:0 0 18px}.ir-export-nav svg{width:17px;height:17px}",
     ".ir-export-top{display:block;padding:14px;color:#417592;text-decoration:none;font-size:12px}",
+    "body.ir-object-route.ir-object-overview #app{margin-left:226px!important;width:calc(100% - 226px)!important;max-width:none!important}",
+    ".ir-export-sidebar.ir-object-sidebar-fixed{position:fixed!important;top:0!important;left:0!important;bottom:0!important;width:226px!important;height:100vh!important;display:flex!important;flex-direction:column!important;gap:0!important;padding:0!important;overflow:hidden!important;background:linear-gradient(180deg,#142b41 0%,#0d2032 100%)!important;color:#e3edf6!important;border-right:1px solid #29455d!important}",
+    ".ir-export-sidebar .ir-export-brand{flex:0 0 auto;display:flex!important;align-items:center!important;justify-content:center!important;min-height:85px!important;max-height:100px!important;padding:12px 14px!important;margin:0!important;background:#fff!important;border-bottom:1px solid #dae4ec!important;color:#173b54!important;overflow:hidden!important}",
+    ".ir-export-sidebar .ir-export-brand img{display:block!important;width:auto!important;max-width:100%!important;height:auto!important;max-height:72px!important;object-fit:contain!important}",
+    ".ir-export-sidebar .ir-export-brand strong{font:800 18px/1.2 'Segoe UI',sans-serif!important}",
+    ".ir-export-sidebar .ir-export-object-label{flex:0 0 auto;display:grid!important;gap:7px!important;margin:0 12px!important;padding:15px 4px!important;border-bottom:1px solid rgba(210,231,248,.24)!important;color:#eff6fc!important}",
+    ".ir-export-sidebar .ir-export-object-label small{font:700 9px/1.4 'Segoe UI',sans-serif!important;letter-spacing:1.15px!important;color:#94bdd5!important}",
+    ".ir-export-sidebar .ir-export-object-label strong{display:-webkit-box!important;-webkit-box-orient:vertical!important;-webkit-line-clamp:5!important;overflow:hidden!important;overflow-wrap:anywhere!important;font:650 12px/1.6 'Segoe UI',sans-serif!important;color:#eff6fc!important}",
+    ".ir-export-sidebar .ir-export-nav-caption{flex:0 0 auto;padding:14px 16px 8px!important;font:700 9px/1.4 'Segoe UI',sans-serif!important;letter-spacing:1.2px!important;color:#9cbdd3!important}",
+    ".ir-export-sidebar .ir-object-nav{flex:1 1 auto!important;min-height:0!important;display:flex!important;flex-direction:column!important;gap:4px!important;padding:3px 9px 10px!important;overflow-y:auto!important;overflow-x:hidden!important;scrollbar-width:thin!important;scrollbar-color:#59798f transparent!important}",
+    ".ir-export-sidebar .ir-object-nav::-webkit-scrollbar{display:block!important;width:5px!important}.ir-export-sidebar .ir-object-nav::-webkit-scrollbar-thumb{background:#59798f!important;border-radius:8px!important}",
+    ".ir-export-sidebar .ir-object-nav a.ir-export-nav{box-sizing:border-box!important;display:flex!important;align-items:center!important;gap:10px!important;min-height:42px!important;flex:0 0 auto!important;width:100%!important;margin:0!important;padding:10px 11px!important;border:1px solid transparent!important;border-radius:9px!important;background:transparent!important;text-decoration:none!important;white-space:normal!important;color:#dce9f6!important;opacity:1!important;font:550 12px/1.4 'Segoe UI',sans-serif!important;cursor:pointer!important;transition:background-color .12s,color .12s}",
+    ".ir-export-sidebar .ir-object-nav a.ir-export-nav .nav-icon{display:grid!important;place-items:center!important;flex:0 0 18px!important;width:18px!important;height:18px!important;color:#a5c7de!important;opacity:1!important}",
+    ".ir-export-sidebar .ir-object-nav a.ir-export-nav svg{width:18px!important;height:18px!important;color:inherit!important;stroke:currentColor!important}",
+    ".ir-export-sidebar .ir-object-nav a.ir-export-nav .ir-export-nav-label{min-width:0!important;flex:1!important;white-space:normal!important;overflow-wrap:anywhere!important;color:inherit!important}",
+    ".ir-export-sidebar .ir-object-nav a.ir-export-nav:hover{background:#264b65!important;color:#fff!important;border-color:#365d7c!important}",
+    ".ir-export-sidebar .ir-object-nav a.ir-export-nav.active,.ir-export-sidebar .ir-object-nav a.ir-export-nav:focus-visible{background:#eaf4fd!important;color:#1766a0!important;border-color:#b4d6ef!important;font-weight:750!important;outline-offset:1px!important}",
+    ".ir-export-sidebar .ir-object-nav a.ir-export-nav.active .nav-icon,.ir-export-sidebar .ir-object-nav a.ir-export-nav:focus-visible .nav-icon{color:#1766a0!important}",
+    "body:has(.ir-export-section:target) .ir-export-sidebar .ir-object-nav a.ir-export-nav[href=\"#overview\"]{background:transparent!important;color:#dce9f6!important;border-color:transparent!important;font-weight:550!important}",
+    "body:has(.ir-export-section:target) .ir-export-sidebar .ir-object-nav a.ir-export-nav[href=\"#overview\"] .nav-icon{color:#a5c7de!important}",
+    ".ir-export-sidebar .ir-export-top{flex:0 0 auto;display:flex!important;align-items:center!important;gap:9px!important;min-height:45px!important;margin:0!important;padding:12px 17px!important;border-top:1px solid rgba(210,231,248,.2)!important;background:#0d2134!important;text-decoration:none!important;color:#bbd4e6!important;font:600 12px/1.4 'Segoe UI',sans-serif!important}",
+    ".ir-export-sidebar .ir-export-top:hover{background:#1c3b54!important;color:#fff!important}",
+    "#overview,.ir-export-section{scroll-margin-top:14px}",
+    "@media(max-width:900px){.ir-export-sidebar.ir-object-sidebar-fixed{width:200px!important}body.ir-object-route.ir-object-overview #app{margin-left:200px!important;width:calc(100% - 200px)!important}}",
     ".ir-export-section{padding:18px;margin:18px 22px;border:1px solid #dce5ed;border-radius:13px;background:#fff;scroll-margin-top:14px;color:#21435b}",
     ".ir-export-section-head{display:flex;justify-content:space-between;align-items:center;gap:14px;border-bottom:1px solid #e4edf3;padding:0 0 15px;margin-bottom:12px}",
     ".ir-export-section-head small{font-size:11px;color:#7d92a3}.ir-export-section-head h2{font:750 20px/1.4 'Segoe UI',sans-serif;margin:4px 0 0}",
@@ -158,10 +184,11 @@
    const activeHero=document.querySelector(".object-overview-hero");
    if(String(activeHero?.dataset.objectId||"")!==id)throw Error("Во время выгрузки изменился открытый объект. Повторите действие.");
    const htmlSnapshot=snapshot();
+   const activeNavStyles=keys.map(key=>'body:has(#section-'+key+':target) .ir-export-sidebar .ir-object-nav a.ir-export-nav[href="#section-'+key+'"]{background:#eaf4fd!important;color:#1766a0!important;border-color:#b4d6ef!important;font-weight:750!important}body:has(#section-'+key+':target) .ir-export-sidebar .ir-object-nav a.ir-export-nav[href="#section-'+key+'"] .nav-icon{color:#1766a0!important}').join("\n");
    const sidebar=sidebarHtml(document.querySelector(".ir-object-sidebar-fixed"),keys,object.name||"Объект");
    const sectionsHtml=keys.map(key=>renderSection(key,rows[key]||[],photos)).join("");
    const generated=new Date().toLocaleString("ru-RU");
-   const html='<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;; img-src data:; font-src data:"><title>'+esc(object.name||"IR Project")+' — отчёт объекта</title><style>'+css+'</style><style>'+extraStyles+'</style></head><body class="ir-object-route ir-object-overview">'+sidebar+'<main id="app">'+htmlSnapshot+sectionsHtml+'<footer class="ir-export-section"><b>IR Project</b> · Снимок объекта от '+esc(generated)+'. Только просмотр. Данные не связаны с рабочей базой.</footer></main></body></html>';
+   const html='<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;; img-src data:; font-src data:"><title>'+esc(object.name||"IR Project")+' — отчёт объекта</title><style>'+css+'</style><style>'+extraStyles+'\n'+activeNavStyles+'</style></head><body class="ir-object-route ir-object-overview">'+sidebar+'<main id="app">'+htmlSnapshot+sectionsHtml+'<footer class="ir-export-section"><b>IR Project</b> · Снимок объекта от '+esc(generated)+'. Только просмотр. Данные не связаны с рабочей базой.</footer></main></body></html>';
    const name=safeFile(object.short_name||object.name||"Объект");
    const result=await irProject.reportExport.html(html,"IR Project — "+name+" — весь объект.html");
    if(result&&typeof window.irProjectNotice==="function")window.irProjectNotice("HTML-отчёт объекта сохранён. Файл доступен только для просмотра.","success");

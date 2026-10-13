@@ -7,8 +7,17 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17152'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17153'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
+assert(source.includes('class="ir-object-sidebar-fixed ir-export-sidebar"'),"separate archive sidebar");
+assert(source.includes(".ir-export-sidebar.ir-object-sidebar-fixed"),"archive sidebar overrides original styles");
+assert(source.includes("color:#dce9f6!important"),"dark menu requires bright navigation labels");
+assert(source.includes("color:#eff6fc!important"),"object name must be readable");
+assert(source.includes("width:226px!important"),"sidebar and content remain aligned");
+assert(source.includes("scrollbar-width:thin!important"),"navigation can scroll");
+assert(source.includes("activeNavStyles"),"section navigation updates active item through CSS");
+assert(source.includes("body:has(#section-"),"section target highlight works without scripting");
+
 assert(source.includes("if(!/^\\d+$/.test(id))"),"numeric object ID must be accepted");
 assert(!source.includes("if(!/^\\\\d+$/.test(id))"),"escaped digit matcher would reject every object");
 assert(source.includes("if(String(activeHero?.dataset.objectId||\"\")!==id)"),"avoid exporting another object after navigation");
