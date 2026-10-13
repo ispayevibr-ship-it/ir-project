@@ -60,7 +60,7 @@ const profileMenu={hidden:true},badgeButton={},roleSelect={value:"guest"};
 const handlerEnd=js.indexOf('  settingsMenu.ownerDocument.defaultView?.addEventListener("resize"',start);
 assert(handlerEnd>end,"test must include click handlers");
 const init=vm.runInNewContext("(function(settingsMenu,settingsButton,menu,badge,select,document){"+
- js.slice(start,handlerEnd)+";return {closeSettings}})",{irAccess:{role:()=>"guest"}});
+ js.slice(js.indexOf("  const settingsDismissDocs=new Set();"),handlerEnd)+";return {closeSettings}})",{irAccess:{role:()=>"guest"}});
 const state=init(menuNode,gearNode,profileMenu,badgeButton,roleSelect,childDoc);
 gearNode.onclick();
 assert.equal(menuNode.hidden,false);
