@@ -62,15 +62,47 @@ window.irSchemePage=async function(objectId){
  const equalSpans=(total,count)=>{count=Math.max(1,count);const base=Math.floor(total/count),rem=Math.round(total-base*count);return Array.from({length:count},(_,i)=>base+(i<rem?1:0))};
  const validAxes=v=>Array.isArray(v)&&v.length>=2&&v.every(x=>String(x||"").trim());
  const validSpans=(v,count,total)=>Array.isArray(v)&&v.length===count&&v.every(x=>num(x)>0)&&Math.abs(v.reduce((s,x)=>s+num(x),0)-total)<.11;
- const gridRecord=()=>arr(rows).find(r=>r.record_type==="scheme_grid"||r.data?.entity_type==="grid")||null;
- const customViews=()=>arr(rows).filter(r=>(r.record_type==="scheme_view"||r.data?.entity_type==="scheme_view")&&String(r.data?.work_type_id||"")===activeWorkId);
- const activeView=()=>frameMode?null:customViews().find(r=>"view:"+r.id===activeScheme)||null;
- const baseGrid=()=>gridRecord()?.data||{};
+ // Grid and view records are unchanged during a single render. Recomputing
+ // them for every steel member made legacy placements O(members * DB rows).
+ let gridRowsSnapshot=null,gridRowSnapshot=null;
+ let viewRowsSnapshot=null,viewWorkSnapshot=null,viewRowsSnapshotValue=[];
+ const emptyGrid=Object.freeze({});
+ const gridRecord=()=>{
+  if(gridRowsSnapshot!==rows){
+   gridRowsSnapshot=rows;
+   gridRowSnapshot=arr(rows).find(r=>r.record_type==="scheme_grid"||r.data?.entity_type==="grid")||null
+  }
+  return gridRowSnapshot
+ };
+ const customViews=()=>{
+  if(viewRowsSnapshot!==rows||viewWorkSnapshot!==activeWorkId){
+   viewRowsSnapshot=rows;viewWorkSnapshot=activeWorkId;
+   viewRowsSnapshotValue=arr(rows).filter(r=>(r.record_type==="scheme_view"||r.data?.entity_type==="scheme_view")&&String(r.data?.work_type_id||"")===activeWorkId)
+  }
+  return viewRowsSnapshotValue
+ };
+ let activeViewSnapshotRows=null,activeViewSnapshotWork=null,activeViewSnapshotKey=null,activeViewSnapshot=null;
+ const activeView=()=>{
+  if(frameMode)return null;
+  if(activeViewSnapshotRows!==rows||activeViewSnapshotWork!==activeWorkId||activeViewSnapshotKey!==activeScheme){
+   activeViewSnapshotRows=rows;activeViewSnapshotWork=activeWorkId;activeViewSnapshotKey=activeScheme;
+   activeViewSnapshot=customViews().find(r=>"view:"+r.id===activeScheme)||null
+  }
+  return activeViewSnapshot
+ };
+ const baseGrid=()=>gridRecord()?.data||emptyGrid;
  const activeGrid=()=>activeView()?.data?.grid||baseGrid();
  const groupKeys=v=>arr(v?.data?.mark_groups).map(String);
  const availableGroups=()=>{const map=new Map();for(const m of workMarks()){const g=markGroup(m),x=map.get(g.key)||{...g,count:0};x.count++;map.set(g.key,x)}return [...map.values()].sort((a,b)=>a.label.localeCompare(b.label,"ru"))};
  const gridCoords=(g,key)=>{const x=key==="x",axes=validAxes(g[x?"axes_x":"axes_y"])?g[x?"axes_x":"axes_y"]:(x?defaultAxesX:defaultAxesY),total=num(g[x?"span_x_mm":"span_y_mm"])||(x?defaultSpanX:defaultSpanY),spans=validSpans(g[x?"x_spans_mm":"y_spans_mm"],axes.length-1,total)?g[x?"x_spans_mm":"y_spans_mm"]:equalSpans(total,axes.length-1);return cumulative(axes,spans)};
- const worldPosition=c=>{if(c.absolute_x_mm!==undefined&&c.absolute_y_mm!==undefined&&Number.isFinite(Number(c.absolute_x_mm))&&Number.isFinite(Number(c.absolute_y_mm)))return{x:Number(c.absolute_x_mm),y:Number(c.absolute_y_mm)};const bx=gridCoords(baseGrid(),"x"),by=gridCoords(baseGrid(),"y");return{x:num(bx.get(String(c.axis_x)))+num(c.offset_x_mm),y:num(by.get(String(c.axis_y)))+num(c.offset_y_mm)}};
+ let baseCoordGrid=null,baseCoordX=null,baseCoordY=null;
+ const worldPosition=c=>{
+  if(c.absolute_x_mm!==undefined&&c.absolute_y_mm!==undefined&&Number.isFinite(Number(c.absolute_x_mm))&&Number.isFinite(Number(c.absolute_y_mm)))
+   return{x:Number(c.absolute_x_mm),y:Number(c.absolute_y_mm)};
+  const grid=baseGrid();
+  if(baseCoordGrid!==grid){baseCoordGrid=grid;baseCoordX=gridCoords(grid,"x");baseCoordY=gridCoords(grid,"y")}
+  return{x:num(baseCoordX.get(String(c.axis_x)))+num(c.offset_x_mm),y:num(baseCoordY.get(String(c.axis_y)))+num(c.offset_y_mm)}
+ };
  const cumulative=(axes,spans)=>{let at=0;return new Map(axes.map((axis,i)=>{const here=at;if(i<spans.length)at+=num(spans[i]);return[axis,here]}))};
  const refreshGridModel=()=>{const g=activeGrid();axesX=validAxes(g.axes_x)?g.axes_x.map(x=>String(x).trim()):[...defaultAxesX];axesY=validAxes(g.axes_y)?g.axes_y.map(x=>String(x).trim()):[...defaultAxesY];gridDirX=g.x_direction==="rtl"?"rtl":"ltr";gridDirY=g.y_direction==="ttb"?"ttb":"btt";targetSpanX=num(g.span_x_mm)>0?num(g.span_x_mm):defaultSpanX;targetSpanY=num(g.span_y_mm)>0?num(g.span_y_mm):defaultSpanY;const gx=validSpans(g.x_spans_mm,axesX.length-1,targetSpanX)?g.x_spans_mm.map(num):equalSpans(targetSpanX,axesX.length-1),gy=validSpans(g.y_spans_mm,axesY.length-1,targetSpanY)?g.y_spans_mm.map(num):equalSpans(targetSpanY,axesY.length-1);gridXSpans=gx;gridYSpans=gy;spanX=gx.reduce((s,x)=>s+x,0);spanY=gy.reduce((s,x)=>s+x,0);axisXPos=cumulative(axesX,gx);axisYPos=cumulative(axesY,gy)};
  const workById=new Map(arr(workRows).map(r=>[String(r.id),r.data||{}]));
@@ -78,13 +110,35 @@ window.irSchemePage=async function(objectId){
  const norm=s=>String(s||"").trim().toLowerCase().replace(/ё/g,"е");
  const enabledWorks=()=>arr(workRows).filter(r=>r.data?.scheme_enabled===true).map(r=>({id:String(r.id),name:r.data?.work_type||r.title||"Без названия",code:r.data?.project_code||"",data:r.data||{}}));
  const schemeGroupOf=(name,mark="")=>{const s=norm(name);if(s.includes("фахвер"))return{key:"fahwerk",label:"Фахверк"};if(s.includes("колон"))return{key:"columns",label:"Колонны"};if(s.includes("связ"))return{key:"ties",label:"Связи"};if(s.includes("прогон"))return{key:"purlins",label:"Прогоны"};if(s.includes("распорк"))return{key:"spacers",label:"Распорки"};if(s.includes("балк"))return{key:"beams",label:"Балки"};if(s.includes("ферм"))return{key:"trusses",label:"Фермы"};if(s.includes("ригел"))return{key:"girders",label:"Ригели"};if(s.includes("огражд"))return{key:"guards",label:"Ограждения"};if(s.includes("лестн"))return{key:"stairs",label:"Лестницы"};if(s.includes("площад"))return{key:"platforms",label:"Площадки"};if(s.includes("стойк"))return{key:"posts",label:"Стойки"};const raw=String(name||mark||"Прочие марки").trim()||"Прочие марки",key="name:"+norm(raw).replace(/[^a-zа-я0-9]+/gi,"-").replace(/^-|-$/g,"");return{key,label:raw}};
- const markGroup=m=>schemeGroupOf([m?.name,m?.work_type,workById.get(String(m?.work_type_id||""))?.work_type].filter(Boolean).join(" "),m?.mark||m?.title);
+ const markGroupCache=new WeakMap();
+ const markGroup=m=>{
+  if(m&&typeof m==="object"&&markGroupCache.has(m))return markGroupCache.get(m);
+  const group=schemeGroupOf([m?.name,m?.work_type,workById.get(String(m?.work_type_id||""))?.work_type].filter(Boolean).join(" "),m?.mark||m?.title);
+  if(m&&typeof m==="object")markGroupCache.set(m,group);
+  return group
+ };
   const frameCategories=["columns","fahwerk","girders","purlins","spacers","ties","beams","posts"];
   const frameKeys=new Set(frameCategories);
   const frameLabels={columns:"Колонны",fahwerk:"Фахверки",girders:"Ригели",purlins:"Прогоны",spacers:"Распорки",ties:"Связи",beams:"Балки",posts:"Стойки"};
  const markLabel=m=>{const w=workById.get(String(m.work_type_id||""))||{},name=m.name||"",wt=w.work_type||m.work_type||"";return [m.mark||m.title||"Без марки",name||wt].filter(Boolean).join(" · ")};
 
  const markById=new Map(marks.map(m=>[m.id,m]));
+ // Preserve the original unique-match rules for old records without IDs,
+ // but use indexed lookups instead of filtering every mark per member.
+ const marksByName=new Map(),marksByWorkName=new Map();
+ const markLookupKey=(workId,label)=>String(workId)+"\u001f"+norm(label);
+ const appendMarkLookup=(index,key,value)=>{
+  let values=index.get(key);if(!values){values=[];index.set(key,values)}values.push(value)
+ };
+ function rebuildMarkLookup(){
+  marksByName.clear();marksByWorkName.clear();
+  for(const mark of marks){
+   const label=norm(mark.mark||mark.title);
+   appendMarkLookup(marksByName,label,mark);
+   appendMarkLookup(marksByWorkName,markLookupKey(mark.work_type_id||"",label),mark)
+  }
+ }
+ rebuildMarkLookup();
  let updatingMarkProgress=false,syncNotice=null;
  async function refreshSchemeMarkProgress(){
   if(updatingMarkProgress)return;updatingMarkProgress=true;syncNotice=null;
@@ -100,7 +154,8 @@ window.irSchemePage=async function(objectId){
    const updated=arr(fresh).map(x=>({id:String(x.id),title:x.title||"",...(x.data||{})}));
    markRows=fresh;marks.splice(0,marks.length,...updated);
    markById.clear();marks.forEach(x=>markById.set(x.id,x));
-    cachedPlacementRows=null; // refreshed mark links invalidate the quota index
+   rebuildMarkLookup();
+   cachedPlacementRows=null; // refreshed mark links invalidate the quota index
    const after=activeMarks().map(snapshot),seen=new Set(),changed=[];
    for(const v of after){
     seen.add(v.id);const old=before.get(v.id);
@@ -125,9 +180,9 @@ window.irSchemePage=async function(objectId){
   return{total,mounted,left:Math.max(0,total-mounted),state:total<=0?"unknown":mounted>=total-1e-9?"mounted":mounted>0?"partial":"planned"}
  };
  const linkedMark=r=>{
-  const id=String(r.mark_id||""),byId=markById.get(id);
-  if(byId&&String(byId.work_type_id||"")===recordWorkId(r))return byId;
-  const candidates=marks.filter(m=>String(m.work_type_id||"")===recordWorkId(r)&&norm(m.mark||m.title)===norm(r.mark));
+  const byId=markById.get(String(r.mark_id||"")),workId=recordWorkId(r);
+  if(byId&&String(byId.work_type_id||"")===workId)return byId;
+  const candidates=marksByWorkName.get(markLookupKey(workId,r.mark))||[];
   return candidates.length===1?candidates[0]:null
  };
  const effectiveStatus=r=>{
@@ -161,11 +216,17 @@ window.irSchemePage=async function(objectId){
   rows=at>=0?rows.map((r,i)=>i===at?saved:r):[saved,...rows];
   return true
  }
- const recordWorkId=r=>{const direct=String(r?.work_type_id||"");if(direct)return direct;const byId=marks.find(m=>String(m.id)===String(r?.mark_id||""));if(byId?.work_type_id)return String(byId.work_type_id);const snap=norm(r?.mark),matches=marks.filter(m=>norm(m.mark||m.title)===snap);return matches.length===1?String(matches[0].work_type_id||""):""};
+ const recordWorkId=r=>{
+  const direct=String(r?.work_type_id||"");if(direct)return direct;
+  const byId=markById.get(String(r?.mark_id||""));
+  if(byId?.work_type_id)return String(byId.work_type_id);
+  const matches=marksByName.get(norm(r?.mark))||[];
+  return matches.length===1?String(matches[0].work_type_id||""):""
+ };
  const workMarks=()=>frameMode?marks.filter(m=>frameKeys.has(markGroup(m).key)):activeWorkId?marks.filter(m=>String(m.work_type_id||"")===activeWorkId):[];
  const workRecords=()=>frameMode?allRecords().filter(r=>frameKeys.has(recordMarkGroup(r).key)):activeWorkId?allRecords().filter(r=>recordWorkId(r)===activeWorkId):[];
  const recordGroup=r=>r?.scheme_group&&String(r.scheme_group)!=="all"?{key:String(r.scheme_group),label:String(r.scheme_group_label||schemeGroupOf(r.mark_name,r.mark).label)}:schemeGroupOf(r?.mark_name,r?.mark);
- const recordMarkGroup=r=>{const m=marks.find(x=>x.id===String(r.mark_id||""));return m?markGroup(m):recordGroup(r)};
+ const recordMarkGroup=r=>{const m=markById.get(String(r.mark_id||""));return m?markGroup(m):recordGroup(r)};
  const inView=(r,v)=>{const assigned=String(r.scheme_view_id||"");return assigned?assigned!=="all"&&assigned===String(v.id):groupKeys(v).includes(recordMarkGroup(r).key)};
  const schemeGroups=()=>{const scoped=workMarks(),placed=workRecords();if(frameMode)return[{key:"all",label:"Весь каркас",marks:scoped.length,placed:placed.length},...frameCategories.map(key=>({key,label:frameLabels[key],marks:scoped.filter(m=>markGroup(m).key===key).length,placed:placed.filter(r=>recordMarkGroup(r).key===key).length}))];return[{key:"all",label:"Общая схема",marks:scoped.length,placed:placed.length},...customViews().map(v=>({key:"view:"+v.id,label:v.data?.name||v.title||"Новая сетка",marks:scoped.filter(m=>groupKeys(v).includes(markGroup(m).key)).length,placed:placed.filter(r=>inView(r,v)).length}))]};
  const records=()=>{const v=activeView();return activeScheme==="all"?workRecords():frameMode?workRecords().filter(r=>recordMarkGroup(r).key===activeScheme):v?workRecords().filter(r=>inView(r,v)):[]};
