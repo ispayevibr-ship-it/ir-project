@@ -22,13 +22,15 @@ const source=profile.slice(start,end);
 let role="admin",result=true,callCount=0,notices=[];
 const button={disabled:false};
 const irProject={backup:{async create(){callCount++;return result}}};
-const context={backupButton:button,closeSettings:()=>{},irAccess:{role:()=>role},irProject,alert:v=>notices.push(v)};
+const context={backupButton:button,closeSettings:()=>{},irAccess:{role:()=>role},irProject,alert:v=>notices.push(v),irProjectNotice:(message,type)=>notices.push({message,type})};
 vm.runInNewContext(source,context);
 (async()=>{
  await button.onclick();
  assert.equal(callCount,1);
  assert.equal(button.disabled,false);
- assert.match(notices.pop(),/успешно выгружена/);
+ const success=notices.pop();
+ assert.match(success.message,/успешно выгружена/);
+ assert.equal(success.type,"success");
  result=false;await button.onclick();
  assert.equal(callCount,2,"cancel opens dialog but performs no further actions");
  assert.equal(notices.length,0,"cancel must not show a success message");

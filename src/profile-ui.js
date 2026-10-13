@@ -120,7 +120,11 @@
    exportingDatabase=true;backupButton.disabled=true;
    try{
     const saved=await irProject.backup.create();
-    if(saved===true)alert("База данных успешно выгружена в выбранную папку.");
+    if(saved===true){
+     const message="База данных успешно выгружена в выбранную папку.";
+     if(typeof irProjectNotice==="function")irProjectNotice(message,"success");
+     else alert(message)
+    }
     // false means the user cancelled the Save dialog; no message needed.
    }catch(error){
     alert("Не удалось выгрузить базу данных: "+String(error?.message||error))

@@ -55,6 +55,8 @@ jobs:
         run: node scripts/test-settings-menu.js
       - name: Test database export from settings
         run: node scripts/test-database-export-settings.js
+      - name: Test styled success and error notices
+        run: node scripts/test-notice-variants.js
       - name: Test database safety on incompatible schemas
         run: node scripts/test-database-safety.js
       - name: Test atomic hot-update rollback
