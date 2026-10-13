@@ -53,5 +53,6 @@ assert(source.includes("reportWorkTable(works)"),"daily report works table inclu
 assert(source.includes("reportChips(workers"),"worker details included");
 assert(source.includes("reportChips(equipment"),"equipment details included");
 assert(source.includes("ir-export-daily-photos"),"report photos included");
+assert(source.includes('if(section==="reports")for(const photo'),"reportPhotos images are bundled into the offline HTML");
 assert(source.includes("reportFull(record,r,images)"),"full report detail present");
 console.log("Full object HTML export: snapshot, offline navigation, read-only records, native save and no DB writes OK");
