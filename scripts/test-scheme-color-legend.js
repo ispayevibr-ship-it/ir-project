@@ -15,14 +15,15 @@ for(const x of Object.values(values)){x.classList={toggle(){}};x.setAttribute=()
 const state={colorMode:"type"};
 const env={state,el:id=>values[id],typeSummary:()=>[{label:"Колонны",count:45,rgb:"#336699"},{label:"Балки",count:12,rgb:"#aabbcc"}],
  colorSummary:()=>[],html:x=>String(x)};
-vm.runInNewContext(js.slice(from,to)+"\nshowColorMode()",env);
+const show=vm.runInNewContext(js.slice(from,to)+"\nshowColorMode",env);
+show();
 assert.match(values.irbColorLegend.innerHTML,/Колонны/);
 assert.match(values.irbColorLegend.innerHTML,/Балки/);
 assert.equal(values.irbColorLegend.scrollTop,0);
 state.colorMode="mark";
-vm.runInNewContext(js.slice(from,to)+"\nshowColorMode()",env);
+show();
 assert.match(values.irbColorLegend.innerHTML,/нет видимых конструкций/i);
 state.colorMode="status";
-vm.runInNewContext(js.slice(from,to)+"\nshowColorMode()",env);
+show();
 assert.equal(values.irbColorLegend.hidden,true);
 console.log("Colour legend is readable, preserves category counts, and handles empty/status modes.");
