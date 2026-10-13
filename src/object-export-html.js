@@ -664,6 +664,20 @@
     "body.ir-object-overview #app button,body.ir-object-overview #app .object-hero-actions{display:none!important}",
     "body.ir-object-overview #app .ir-export-section{display:block!important}",
     "@media(max-width:1000px){.ir-export-section{margin:12px 0!important}.ir-export-row-meta{display:none}}",
+    "/* Full-width, continuous archive layout: the large outer section cards are removed. */",
+    "body.ir-object-route.ir-object-overview,body.ir-object-route.ir-object-overview #app{background:#fff!important}",
+    "body.ir-object-overview #app .ir-object-overview-layout{box-sizing:border-box!important;width:100%!important;max-width:none!important;margin:0!important;padding:19px 20px 20px!important;gap:0!important;background:#fff!important;border:0!important;border-radius:0!important;box-shadow:none!important}",
+    "body.ir-object-overview #app .ir-object-overview-left{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:0!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important}",
+    "body.ir-object-overview #app .ir-object-overview-sidehead{width:100%!important;max-width:none!important;margin:0 0 13px!important;padding:0 0 14px!important;min-height:0!important;border:0!important;border-bottom:1px solid #e2eaf0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}",
+    "body.ir-object-overview #app .ir-object-overview-left>.object-overview-top-stats{width:100%!important;max-width:none!important;margin:0!important;padding:0!important;gap:12px!important}",
+    "body.ir-object-overview #app .ir-export-group{box-sizing:border-box!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important;background:#fff!important;border:0!important;border-top:1px solid #edf1f4!important;box-shadow:none!important}",
+    "body.ir-object-overview #app .ir-export-preview{box-sizing:border-box!important;width:100%!important;max-width:none!important;margin:0!important;padding:18px 20px 0!important;gap:10px!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important}",
+    "body.ir-object-overview #app .ir-export-section{box-sizing:border-box!important;display:block!important;width:100%!important;max-width:none!important;margin:0!important;padding:22px 20px 25px!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#21435b!important}",
+    "body.ir-object-overview #app .ir-export-section-head{box-sizing:border-box!important;min-height:0!important;margin:0 0 14px!important;padding:0 0 14px!important;border-bottom:1px solid #e2eaf0!important;border-radius:0!important}",
+    "body.ir-object-overview #app .ir-export-section-head h2{margin:0!important}",
+    "body.ir-object-overview #app > footer.ir-export-section{border-top:1px solid #e3eaf0!important;padding-top:16px!important;padding-bottom:18px!important;font-size:11px!important;color:#7990a0!important}",
+    "@media(max-width:760px){body.ir-object-overview #app .ir-object-overview-layout{padding:14px 12px 16px!important}body.ir-object-overview #app .ir-export-preview{padding:12px 12px 0!important}body.ir-object-overview #app .ir-export-section{padding:18px 12px 20px!important}}",
+    "@media print{body.ir-object-overview #app .ir-export-group{border-top:0!important}body.ir-object-overview #app .ir-export-section{padding:12px 0!important}body.ir-object-overview #app .ir-object-overview-layout{padding:10px 0!important}}",
     "@media print{body.ir-object-overview #app{margin:0!important;width:100%!important}.ir-export-topnav{position:relative!important;top:auto!important}.ir-export-menu-items{box-shadow:none!important}.ir-export-record{break-inside:avoid}.ir-export-section{break-before:page;margin:8px 0!important}.ir-export-daily-card details,.ir-export-mark-card details{display:block!important}}"
    ].join("\n");
    const activeHero=document.querySelector(".object-overview-hero");

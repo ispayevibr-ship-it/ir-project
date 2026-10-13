@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17162'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17163'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card:not(.oor2-photo-card):not(.oor-marks-card),.object-overview-marks-wrap > .object-overview-marks-card'),"remove duplicate latest reports and old marks previews from snapshot");
@@ -110,10 +110,15 @@ assert(source.includes("ir-styles.css"),"all current component styles embedded")
 assert(source.includes("Content-Security-Policy"),"standalone report does not execute code");
 assert(!source.includes("IR Project / Объект"),"repeated section breadcrumb is absent across the entire HTML export source");
 assert(source.includes('ir-export-group{scroll-margin-top:14px;min-width:0;width:100%;max-width:none;margin:0;padding:0}'),"all report groups span the available content width");
-assert(source.includes('ir-export-preview{margin:18px 0 0;min-width:0;width:100%;max-width:none'),"overview cards above sections have no side margins");
-assert(source.includes('ir-export-section{box-sizing:border-box;width:100%;max-width:none;padding:18px;margin:18px 0;'),"report sections align with the wide summary block");
-assert(source.includes('ir-export-section{margin:12px 0!important}'),"responsive report sections keep equal horizontal width");
-assert(source.includes('ir-export-preview{margin:12px 0 0}'),"responsive preview cards keep equal horizontal width");
+assert(source.includes('body.ir-object-overview #app .ir-object-overview-sidehead{width:100%!important;max-width:none!important;margin:0 0 13px!important;padding:0 0 14px!important;min-height:0!important;border:0!important;border-bottom:1px solid'),"summary heading is no longer a separate outer card");
+assert(source.includes('body.ir-object-overview #app .ir-export-section-head{box-sizing:border-box!important;min-height:0!important;margin:0 0 14px!important;padding:0 0 14px!important;border-bottom:1px solid'),"headings have same aligned divider style");
+assert(source.includes('body.ir-object-overview #app .ir-export-section{padding:18px 12px 20px!important}'),"compact screens keep consistent gutters");
+assert(source.includes('ir-export-daily-card{border:1px'),"individual daily report designs remain intact");
+assert(source.includes('ir-export-mark-card{border:1px'),"individual mark designs remain intact");
+assert(source.includes('body.ir-object-overview #app .ir-export-preview{box-sizing:border-box!important;width:100%!important;max-width:none!important;margin:0!important;padding:18px 20px 0!important'),"preview content uses continuous full-width document layout");
+assert(source.includes('body.ir-object-overview #app .ir-export-section{box-sizing:border-box!important;display:block!important;width:100%!important;max-width:none!important;margin:0!important;padding:22px 20px 25px!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important'),"section outer cards no longer have frames or margins");
+assert(source.includes('body.ir-object-overview #app .ir-export-group{box-sizing:border-box!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important;background:#fff!important;border:0!important;border-top:1px solid #edf1f4!important'),"sections flow continuously with subtle separators");
+assert(source.includes('body.ir-object-overview #app .ir-object-overview-layout{box-sizing:border-box!important;width:100%!important;max-width:none!important;margin:0!important;padding:19px 20px 20px!important'),"summary also spans full report width");
 
 assert(source.includes("default-src &#39;none&#39;"),"offline report blocks external calls");
 assert(source.includes('button,input,textarea,select,[contenteditable]'),"edit controls removed");
