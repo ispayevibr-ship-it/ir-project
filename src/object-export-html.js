@@ -598,7 +598,12 @@
    if(!items.length&&d.totals_by_unit&&typeof d.totals_by_unit==="object")
     for(const [u,v]of Object.entries(d.totals_by_unit))add("delivered",u,v)
   }
-  const allUnits=new Set([...totals.mounted.keys(),...totals.delivered.keys()]);
+  // Include configured tonnage/area/volume work types even before the first report or delivery.
+  const plannedUnits=[...works,...marks].filter(r=>{
+   const d=r.data||r;
+   return d.accounting_type!=="service"&&String(d.unit||"").trim().toLowerCase()!=="услуга"
+  }).map(r=>unit((r.data||r).unit)).filter(u=>["тн","м2","м3"].includes(u));
+  const allUnits=new Set([...plannedUnits,...totals.mounted.keys(),...totals.delivered.keys()]);
   const orderedUnits=[...allUnits].sort((a,b)=>{
    const rank=u=>["тн","м2","м3"].indexOf(u)<0?3:["тн","м2","м3"].indexOf(u);
    return rank(a)-rank(b)||a.localeCompare(b,"ru")
