@@ -17,7 +17,7 @@ assert.equal(model.types[0].activeDays,4);
 assert.equal(model.events.length,6,"actual delivered and mounted positions become events");
 const both=engine.calc(model,"m","", "daily");
 assert.equal(both.delivered,12);assert.equal(both.mounted,8);assert.equal(both.remaining,4);
-assert.equal(both.unit,"тн");assert.equal(both.points.length,2);
+assert.equal(both.unit,"тн");assert.equal(both.points.length,4);
 const first=engine.calc(model,"m","KM-1","daily");
 assert.equal(first.delivered,8);assert.equal(first.mounted,3);assert.equal(first.remaining,5);
 const second=engine.calc(model,"m","KM-2","daily");
