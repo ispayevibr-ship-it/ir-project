@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17176'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17177'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -435,8 +435,54 @@ assert(all.includes('href="#section-scheme"'),"scheme remains accessible via sho
 assert.equal((all.match(/class="ir-export-indicator-link"/g)||[]).length,3,"all three local shortcuts rendered");
 const filtered=metrics.renderIndicatorBlock(fixture,["reports"]);
 assert(!filtered.includes("ir-export-indicator-link"),"no shortcuts to omitted sections");
+
 const units=metrics.renderIndicatorBlock({...fixture,deliveries:[{id:2,data:{items:[{unit:"м2",volume:130},{unit:"тн",volume:5}]}}]},["marks"]);
-assert(units.includes("Другие ед. изм. не суммируются"),"unit mixing is prevented");
+assert(units.includes('ir-export-indicator-unit-list'),"mixed units have separately displayed rows");
+assert(source.includes('const orderedUnits=[...allUnits].sort('),"stable unit order implemented");
+assert(source.includes('["м2","m2","м^2","m^2","квм","мкв"].includes(s)?"м2"'),"square metres and variants normalized");
+assert(source.includes('.ir-export-indicator-unit-row{display:flex!important'),"readable separate-unit row design");
+const getCard=(markup,key)=>{
+ const start=markup.indexOf('<article class="ir-export-indicator-card ir-export-indicator-'+key+'">');
+ assert(start>=0,"card "+key+" must exist");
+ return markup.slice(start,markup.indexOf("</article>",start))
+};
+const materialData={
+ ...fixture,
+ "work-types":[...fixture["work-types"],
+  {id:8,title:"Сэндвич-панели",data:{unit:"м²"}},
+  {id:9,title:"Профнастил",data:{unit:"м2"}},
+  {id:10,title:"Бетон",data:{unit:"м3"}}],
+ marks:[...fixture.marks,{id:11,data:{work_type_id:8,unit:"м2",qty:100,unit_volume:1}}],
+ reports:[...fixture.reports,{id:3,data:{date:"2026-10-12",items:[
+  {mark_id:11,work_type_id:8,unit:"м²",volume:300.75},
+  {work_type_id:9,unit:"кв.м",volume:250.25},
+  {work_type_id:10,unit:"м³",volume:7.25}
+ ]}}],
+ deliveries:[...fixture.deliveries,{id:4,data:{items:[
+  {work_type_id:8,unit:"м2",volume:800},
+  {work_type_id:9,unit:"м²",qty:5,unit_volume:20},
+  {work_type_id:10,unit:"м3",volume:11}
+ ]}}]
+};
+const multiHTML=metrics.renderIndicatorBlock(materialData,["overview","reports","deliveries","marks"]);
+const mountedCard=getCard(multiHTML,"mounted"),deliveredCard=getCard(multiHTML,"delivered");
+assert.equal((mountedCard.match(/class="ir-export-indicator-unit-row"/g)||[]).length,3,"three installed-unit rows");
+assert.equal((deliveredCard.match(/class="ir-export-indicator-unit-row"/g)||[]).length,3,"three delivered-unit rows");
+assert(mountedCard.includes('1,5</b><small>тн</small>'),"steel tonnage retained");
+assert(mountedCard.includes('551</b><small>м2</small>'),"sandwich and profiled sheet areas represented in m2");
+assert(mountedCard.includes('7,25</b><small>м3</small>'),"installed cubic metres separated");
+assert(deliveredCard.includes('5,25</b><small>тн</small>'),"steel delivery is shown");
+assert(deliveredCard.includes('900</b><small>м2</small>'),"panels and profiled sheet deliveries represented in m2");
+assert(deliveredCard.includes('11</b><small>м3</small>'),"cubic metre deliveries separated");
+assert(!mountedCard.includes('1451'),"unlike units never summed");
+const plannedNotStarted={
+ ...fixture,
+ "work-types":[...fixture["work-types"],{id:20,title:"Профнастил",data:{unit:"м2"}}],
+ reports:[],deliveries:[]
+};
+const plannedHTML=metrics.renderIndicatorBlock(plannedNotStarted,["overview"]);
+assert(getCard(plannedHTML,"mounted").includes('0</b><small>м2</small>'),"planned m2 work appears even with no reports");
+assert(getCard(plannedHTML,"delivered").includes('0</b><small>м2</small>'),"planned m2 work appears even with no invoices");
 const liveTopStats=fs.readFileSync("src/object-overview-top-stats.js","utf8");
 const liveStart=liveTopStats.indexOf(" function markTotal("),liveEnd=liveTopStats.indexOf(" function averages(",liveStart);
 assert(liveStart>=0&&liveEnd>liveStart,"readiness source for current live summary exists");
