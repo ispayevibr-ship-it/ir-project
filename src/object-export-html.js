@@ -696,10 +696,10 @@
    hero.id="overview";
    const bannerName=hero.querySelector(".object-hero-copy h1")?.textContent?.trim()||"";
    const bannerAddress=hero.querySelector(".object-hero-info-item.location b")?.textContent?.trim()||"";
+   const dateText=hero.querySelector(".object-hero-info-item:not(.location) b")?.textContent?.trim()||"";
    hero.classList.add("ir-export-banner-only");
    hero.querySelector(".object-hero-content")?.remove();
    hero.querySelector(".object-hero-shade")?.remove();
-   const dateText=hero.querySelector(".object-hero-info-item:not(.location) b")?.textContent?.trim()||"";
    const years=[...dateText.matchAll(/20\d{2}/g)].map(x=>x[0]);
    const period=years.length>=2?years[0]+" — "+years[years.length-1]:dateText!=="Срок не задан"?dateText:"";
    const found=bannerName.match(/(\d+(?:[,.]\d+)?)\s*мвт(?![а-яё])/i);
