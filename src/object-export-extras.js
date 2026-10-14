@@ -74,7 +74,7 @@
   return {axesX:xAxis,axesY:yAxis,x:xPos,y:yPos,members}
  }
  function schemeHtml(data){
-  return'<div class="ir-export-scheme"><div class="ir-export-scheme-controls"><b>Монтажная схема · '+data.members.length+' элементов</b><div><button type="button" data-view="3d" class="active">3D</button><button type="button" data-view="plan">План</button><button type="button" data-view="reset">Сбросить вид</button><button type="button" data-view="labels">Подписи</button></div></div><div class="ir-export-scheme-stage"><canvas id="ir-export-scheme-canvas" aria-label="Интерактивная монтажная схема"></canvas><span class="ir-export-scheme-hint">ЛКМ — вращение · ПКМ — перемещение · колесо — масштаб</span></div><div class="ir-export-scheme-info" id="ir-export-scheme-info">Просмотр без редактирования. Для выбора элемента нажмите на него.</div></div>'
+  return'<div class="ir-export-scheme"><div class="ir-export-scheme-controls"><b>Монтажная схема · '+data.members.length+' элементов</b><div><button type="button" data-view="3d" class="active" aria-pressed="true">3D</button><button type="button" data-view="plan" aria-pressed="false">План</button><button type="button" data-view="reset">Сбросить вид</button><button type="button" data-view="labels">Подписи</button></div></div><div class="ir-export-scheme-stage"><canvas id="ir-export-scheme-canvas" aria-label="Интерактивная монтажная схема"></canvas><span class="ir-export-scheme-hint">ЛКМ — вращение · ПКМ — перемещение · колесо — масштаб</span></div><div class="ir-export-scheme-info" id="ir-export-scheme-info">Просмотр без редактирования. Для выбора элемента нажмите на него.</div></div>'
  }
  function schemeViewer(){
   "use strict";
@@ -113,10 +113,21 @@
    const info=document.getElementById("ir-export-scheme-info");
    if(!members.length&&info)info.textContent="Монтажные элементы ещё не размещены на схеме."
   }
-  const reset=()=>{yaw=-.72;pitch=.60;zoom=1;panX=0;panY=0;plan=false;paint()};
-  function setPlan(enabled){plan=enabled;yaw=0;pitch=enabled?Math.PI/2:.60;panX=panY=0;zoom=1;root.querySelectorAll("[data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===(enabled?"plan":"3d")));paint()}
-  root.querySelector('[data-view="3d"]').onclick=()=>setPlan(false);
-  root.querySelector('[data-view="plan"]').onclick=()=>setPlan(true);
+  const view3D=root.querySelector('[data-view="3d"]'),viewPlan=root.querySelector('[data-view="plan"]');
+  const hint=root.querySelector(".ir-export-scheme-hint");
+  function setPlan(enabled){
+   plan=Boolean(enabled);yaw=plan?0:-.72;pitch=plan?Math.PI/2:.60;
+   zoom=1;panX=0;panY=0;
+   view3D.classList.toggle("active",!plan);
+   viewPlan.classList.toggle("active",plan);
+   view3D.setAttribute("aria-pressed",String(!plan));
+   viewPlan.setAttribute("aria-pressed",String(plan));
+   if(hint)hint.textContent=plan?"План · перетаскивание — перемещение · колесо — масштаб":"3D · ЛКМ — вращение · ПКМ — перемещение · колесо — масштаб";
+   paint()
+  }
+  const reset=()=>setPlan(plan);
+  view3D.onclick=()=>setPlan(false);
+  viewPlan.onclick=()=>setPlan(true);
   root.querySelector('[data-view="reset"]').onclick=reset;
   root.querySelector('[data-view="labels"]').onclick=e=>{labels=!labels;e.currentTarget.classList.toggle("active",labels);paint()};
   cv.addEventListener("contextmenu",e=>e.preventDefault());
