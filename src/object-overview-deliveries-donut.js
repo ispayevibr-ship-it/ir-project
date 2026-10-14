@@ -12,7 +12,7 @@
   if(legend[1])legend[1].innerHTML='<i class="mounted"></i>Смонтировано по отчётам';
  }
  function apply(){
-  const card=document.querySelector(".ood-comparison");if(!card)return;
+  const card=document.querySelector(".ood-comparison");if(!card||card.matches(".ir-supply-chart"))return;
   patchLabels(card);
   const stats=card.querySelector(".ood-stats");if(!stats||card.querySelector(".ood-donut-summary"))return;
   const values=[...stats.querySelectorAll(":scope > div b")].map(x=>x.textContent.trim());if(values.length<3)return;
