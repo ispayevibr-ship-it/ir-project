@@ -431,6 +431,9 @@ assert(source.includes('hero.insertAdjacentHTML("beforeend",')&&source.includes(
 assert(source.includes('ir-export-hero-fact-icon')&&source.includes('M20 10c0 5-8 11-8 11'),"address pin appears in project metadata");
 assert(source.includes('hero.querySelector(".object-hero-copy h1")'),"banner gets object name from current object");
 assert(source.includes('hero.querySelector(".object-hero-info-item.location b")'),"banner gets object's real location");
+const heroSnapshot=source.slice(source.indexOf(" function snapshot("),source.indexOf(" function chooseExportSections("));
+assert(heroSnapshot.indexOf('const dateText=hero.querySelector(".object-hero-info-item:not(.location) b")')>=0,"project time comes from hero source");
+assert(heroSnapshot.indexOf('const dateText=hero.querySelector(".object-hero-info-item:not(.location) b")')<heroSnapshot.indexOf('hero.querySelector(".object-hero-content")?.remove()'),"read construction period before removing old hero DOM");
 assert(source.includes(".ir-export-banner-copy h1{display:block!important"),"banner title is enlarged");
 assert(source.includes(".ir-export-banner-copy p{max-width:880px!important"),"banner address is enlarged");
 assert(source.includes('max-width:100%!important;max-height:100%!important;object-fit:contain!important'),"original logos retain proportions");
