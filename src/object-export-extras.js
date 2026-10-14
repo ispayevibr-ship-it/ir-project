@@ -84,15 +84,22 @@
   const ctx=cv.getContext("2d");if(!ctx)return;
   const members=Array.isArray(data.members)?data.members:[],xs=Object.values(data.x||{}),ys=Object.values(data.y||{});
   const all=[...xs,...ys,...members.flatMap(m=>[...m.start,...m.end,...(m.mid||[])])].filter(Number.isFinite);
-  const max=Math.max(1,...all.map(v=>Math.abs(v))),scale=220/Math.max(1000,max);
+  const finite=members.flatMap(m=>[m.start,m.end,...(m.mid?[m.mid]:[])]);
+  const positions=finite.length?finite:[[0,0,0],[Math.max(1000,...xs),Math.max(1000,...ys),8000]];
+  const axis=(i)=>positions.map(p=>Number(p[i])||0);
+  const extents=[0,1,2].map(i=>({min:Math.min(...axis(i)),max:Math.max(...axis(i))}));
+  const center=extents.map(e=>(e.min+e.max)/2);
+  const span=Math.max(1000,...extents.map(e=>e.max-e.min));
+  let scale=220/span;
   let yaw=-.72,pitch=.6,zoom=1,panX=0,panY=0,plan=false,labels=false,drag=null,moved=false,hit=[];
   const color=m=>m.status==="mounted"?"#2ca47b":m.status==="partial"?"#dcaa57":m.type.includes("column")||m.kind==="column"?"#397bb4":m.type.includes("tie")||m.kind==="brace"?"#d3a255":"#58a18b";
-  const raw=p=>{const x=p[0]*scale,y=p[1]*scale,z=p[2]*scale,cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);return {x:x*cy-y*sy,y:(x*sy+y*cy)*sp-z*cp,depth:(x*sy+y*cy)*cp+z*sp}};
+  const raw=p=>{const x=(p[0]-center[0])*scale,y=(p[1]-center[1])*scale,z=(p[2]-center[2])*scale,cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);return {x:x*cy-y*sy,y:(x*sy+y*cy)*sp-z*cp,depth:(x*sy+y*cy)*cp+z*sp}};
   const project=p=>{let o=raw(p);return{x:cv.width/2+(o.x+panX)*zoom,y:cv.height/2+(o.y+panY)*zoom,depth:o.depth}};
   const segment=(start,end,c,w)=>{const a=project(start),b=project(end);ctx.lineCap="round";ctx.lineWidth=w;ctx.strokeStyle=c;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();return {a,b}};
   function paint(){
    const rect=cv.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),w=Math.max(360,Math.round(rect.width*dpr)),h=Math.max(250,Math.round(rect.height*dpr));
    if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h}
+   scale=.74*Math.min(w,h)/span;
    ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle="#f6faff";ctx.fillRect(0,0,w,h);hit=[];
    const axesX=Array.isArray(data.axesX)?data.axesX:[],axesY=Array.isArray(data.axesY)?data.axesY:[];
    const xa=axesX.map(k=>Number(data.x?.[k])||0),ya=axesY.map(k=>Number(data.y?.[k])||0),xmax=Math.max(1000,...xa),ymax=Math.max(1000,...ya);
