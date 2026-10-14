@@ -3404,7 +3404,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
   let shapes="";
   if(mode==="daily"){shapes=pts.map((p,i)=>[["delivered","#3B82F6",-1],["mounted","#16A34A",1]].map(([key,color,side])=>{const bw=Math.min(28,IW/n*.3),h=p[key]/top*IH,xx=x(i)+(side===-1?-bw-2:2);return`<rect fill="${color}" x="${xx}" y="${y(p[key])}" width="${bw}" height="${h}" rx="3"><title>${long(p.date)}\nПоставлено: ${fmt(p.delivered)} ${s.unit}\nСмонтировано: ${fmt(p.mounted)} ${s.unit}</title></rect>`}).join("")).join("")}
   else{const path=k=>pts.map((p,i)=>`${i?"L":"M"}${x(i)},${y(p[k])}`).join(" ");shapes=`<path stroke="#3B82F6" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" fill="none" d="${path("delivered")}"/><path stroke="#16A34A" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" fill="none" d="${path("mounted")}"/>`+pts.map((p,i)=>["delivered","mounted"].map(k=>`<circle fill="${k==="delivered"?"#3B82F6":"#16A34A"}" stroke="white" stroke-width="1.5" cx="${x(i)}" cy="${y(p[k])}" r="4"><title>${long(p.date)}: ${k==="delivered"?"Поставлено":"Смонтировано"} ${fmt(p[k])} ${s.unit}</title></circle>`).join("")).join("")}
-  return`<div class="supply-scroll" tabindex="0"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Поставки и монтаж, ${esc(s.unit)}">${grid}${shapes}${labels}</svg></div>`
+  return`<div class="supply-scroll" tabindex="0"><svg width="${W}" height="${H}" style="min-width:${W}px" viewBox="0 0 ${W} ${H}" role="img" aria-label="Поставки и монтаж, ${esc(s.unit)}">${grid}${shapes}${labels}</svg></div>`
  }
  function render(model,state={}){
   const types=arr(model.types),type=types.find(t=>t.id===state.typeId)||types[0],id=type?.id,code=type?.codes.includes(state.code)?state.code:"",mode=state.mode==="cumulative"?"cumulative":"daily",s=calc(model,id,code,mode);
@@ -3438,6 +3438,39 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
  .ir-supply-chart .supply-empty{height:328px;display:flex;align-items:center;justify-content:center;text-align:center;margin:0 16px 16px;border:1px dashed #d6e1e9;border-radius:9px;color:#8fa4b2;font-size:12px}
  @media(max-width:850px){.ir-supply-chart .supply-filters{grid-template-columns:minmax(0,1fr) minmax(120px,1fr)}.ir-supply-chart .supply-modes{grid-column:1/-1;width:max-content}}
  @media(max-width:550px){.ir-supply-chart .supply-title{padding:15px 11px 5px}.ir-supply-chart .supply-filters{grid-template-columns:minmax(0,1fr);padding:11px}.ir-supply-chart .supply-modes{grid-column:auto;width:100%}.ir-supply-chart .supply-modes button{flex:1}.ir-supply-chart .supply-metrics{gap:5px;padding:0 8px 11px}.ir-supply-chart .supply-metrics>div{padding:8px 5px;text-align:center}.ir-supply-chart .supply-metrics b{font-size:14px}.ir-supply-chart .supply-scroll{margin:0 8px 12px}.ir-supply-chart .supply-empty{margin:0 8px 12px}}
+ 
+ /* IR Project shared compact chart layout: same spacing and typography in the app and exported HTML. */
+ .ir-supply-chart{width:100%;max-width:100%;min-width:0;margin:0;box-shadow:none;font-family:'Segoe UI',Arial,sans-serif;font-size:12px;line-height:1.35}
+ .ir-supply-chart .supply-title{padding:12px 14px 5px}
+ .ir-supply-chart .supply-title h2{font:800 14px/1.35 'Segoe UI',Arial,sans-serif;color:#214b66;margin:0}
+ .ir-supply-chart .supply-title p{font:400 11px/1.4 'Segoe UI',Arial,sans-serif;color:#8195a4;margin:3px 0 0}
+ .ir-supply-chart .supply-filters{grid-template-columns:minmax(0,2fr) minmax(0,1fr);align-items:end;gap:10px;padding:10px 14px}
+ .ir-supply-chart .supply-filters label{font:700 11px/1.3 'Segoe UI',Arial,sans-serif}
+ .ir-supply-chart .supply-filters select{width:100%;max-width:100%;font:600 12px/1.35 'Segoe UI',Arial,sans-serif}
+ .ir-supply-chart .supply-modes{grid-column:1/-1;justify-self:end;min-width:0;max-width:100%}
+ .ir-supply-chart .supply-modes button{font:700 11px/1.35 'Segoe UI',Arial,sans-serif}
+ .ir-supply-chart .supply-metrics{gap:9px;padding:0 14px 10px}
+ .ir-supply-chart .supply-metrics>div{padding:10px 11px}
+ .ir-supply-chart .supply-metrics span{font-size:11px}
+ .ir-supply-chart .supply-metrics b{font:800 18px/1.2 'Segoe UI',Arial,sans-serif;margin-top:5px}
+ .ir-supply-chart .supply-metrics small{font-size:11px;font-weight:600}
+ .ir-supply-chart .supply-legend{gap:15px;padding:3px 14px 9px;font:500 11px/1.35 'Segoe UI',Arial,sans-serif}
+ .ir-supply-chart .supply-scroll{box-sizing:border-box;width:calc(100% - 28px);max-width:calc(100% - 28px);margin:0 14px 12px;overflow-x:auto;overflow-y:hidden}
+ .ir-supply-chart .supply-scroll svg{width:100%;max-width:none;height:328px}
+ .ir-supply-chart .supply-empty{margin:0 14px 12px}
+ /* The offline archive wraps this card twice. Remove those extra wrappers, not the chart content. */
+ body.ir-object-overview #app #section-deliveries .ir-export-deliveries-unified{box-sizing:border-box!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;padding:14px 20px 18px!important}
+ body.ir-object-overview #app #section-deliveries .ir-export-deliveries-unified>.ir-export-preview{box-sizing:border-box!important;display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;padding:0!important}
+ body.ir-object-overview #app #section-deliveries .ir-export-preview>.ir-supply-chart{box-sizing:border-box!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;box-shadow:none!important}
+ body.ir-object-overview #app #section-deliveries .ir-supply-chart .supply-title{padding:0 0 5px!important}
+ body.ir-object-overview #app #section-deliveries .ir-supply-chart .supply-title h2{font:800 16px/1.35 'Segoe UI',Arial,sans-serif!important}
+ body.ir-object-overview #app #section-deliveries .ir-supply-chart .supply-filters{padding:10px 0!important}
+ body.ir-object-overview #app #section-deliveries .ir-supply-chart .supply-metrics{padding:0 0 10px!important}
+ body.ir-object-overview #app #section-deliveries .ir-supply-chart .supply-legend{padding:2px 0 8px!important}
+ body.ir-object-overview #app #section-deliveries .ir-supply-chart .supply-scroll{width:100%!important;max-width:100%!important;margin:0 0 12px!important}
+ body.ir-object-overview #app #section-deliveries .ir-supply-chart .supply-empty{margin:0 0 12px!important}
+ @media(max-width:850px){.ir-supply-chart .supply-filters{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}.ir-supply-chart .supply-modes{grid-column:1/-1;justify-self:end;width:auto}}
+ @media(max-width:550px){.ir-supply-chart .supply-title{padding:11px 10px 4px}.ir-supply-chart .supply-filters{grid-template-columns:minmax(0,1fr);gap:8px;padding:9px 10px}.ir-supply-chart .supply-modes{width:100%;justify-self:stretch}.ir-supply-chart .supply-metrics{gap:5px;padding:0 8px 9px}.ir-supply-chart .supply-metrics>div{padding:8px 5px}.ir-supply-chart .supply-metrics b{font-size:14px}.ir-supply-chart .supply-metrics span{font-size:10px}.ir-supply-chart .supply-legend{padding:2px 9px 8px}.ir-supply-chart .supply-scroll{width:calc(100% - 16px);max-width:calc(100% - 16px);margin:0 8px 10px}.ir-supply-chart .supply-empty{margin:0 8px 10px}body.ir-object-overview #app #section-deliveries .ir-export-deliveries-unified{padding:12px 12px 16px!important}}
  `;
  return {prepare,calc,render,bind,initOffline,css}
 };

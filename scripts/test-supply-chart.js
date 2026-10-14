@@ -57,6 +57,14 @@ assert(html.includes(">СП-01</option>")&&html.includes(">СП-02</option>"),"c
 assert.equal(engine.calc(model,"m","","daily").points.length,4,"chart plots individual activity dates");
 assert(dailyHTML.includes("01.10.2026")&&dailyHTML.includes("03.10.2026"),"daily tooltip dates");
 assert(engine.render(model).includes("По дням")&&!engine.render(model).includes("По неделям"),"daily mode default");
+
+assert(engine.css.includes(".ir-supply-chart .supply-filters{grid-template-columns:minmax(0,2fr) minmax(0,1fr)"),"selectors use the available width without overflow");
+assert(engine.css.includes(".ir-supply-chart .supply-metrics{gap:9px;padding:0 14px 10px}"),"metrics have compact consistent spacing");
+assert(engine.css.includes("#section-deliveries .ir-export-deliveries-unified>.ir-export-preview{box-sizing:border-box!important;display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;padding:0!important"),"offline outer preview has no nested padding");
+assert(engine.css.includes("#section-deliveries .ir-supply-chart .supply-scroll{width:100%!important;max-width:100%!important;margin:0 0 12px!important}"),"chart fills the full archive section width");
+assert(engine.css.includes("#section-deliveries .ir-supply-chart .supply-title h2{font:800 16px/1.35"),"offline heading matches main section typography");
+assert(engine.css.includes("@media(max-width:550px)"),"compact mobile rules retained");
+assert(dailyHTML.includes('style="min-width:'),"long timelines scroll horizontally without leaving the chart box");
 const archive=fs.readFileSync("src/object-export-html.js","utf8");
 assert(archive.includes('window.irSupplyChart.prepare(')&&archive.includes('window.irSupplyChart.render(support.supplyModel,{})'),"export builds same chart from persisted records");
 assert(archive.includes('ir-supply-chart-data')&&archive.includes('window.irSupplyChartFactory.toString()')&&archive.includes('.initOffline();'),"standalone file embeds chart engine and all data");
