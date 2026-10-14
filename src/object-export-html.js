@@ -408,8 +408,7 @@
   if(["schedule","acted-days","penalties"].includes(key))return'<div class="ir-export-group" id="section-'+esc(key)+'"><section class="ir-export-section ir-export-visual-section">'+(preview?'<div class="ir-export-preview">'+preview+'</div>':'<div class="ir-export-empty-card">Нет данных для анализа</div>')+'</section></div>';
   if(key==="marks")return'<div class="ir-export-group" id="section-marks"><section class="ir-export-section ir-export-marks-section">'+body+'</section></div>';
   if(key==="deliveries")return'<div class="ir-export-group" id="section-deliveries"><section class="ir-export-section ir-export-deliveries-unified">'+
-   '<header class="ir-export-section-head"><h2>Поставки и монтаж</h2><span class="ir-export-count">'+rows.length+' накладных</span></header>'+
-   (preview?'<div class="ir-export-preview">'+preview+'</div>':"")+
+   (support.supplyModel?'<div class="ir-export-preview">'+window.irSupplyChart.render(support.supplyModel,{})+'</div>':"")+
    '<div class="ir-export-delivery-register"><h3>Поставки (накладные)</h3>'+body+'</div></section></div>';
   return'<div class="ir-export-group" id="section-'+esc(key)+'">'+(preview?'<div class="ir-export-preview">'+preview+'</div>':"")+
    '<section class="ir-export-section"><header class="ir-export-section-head"><div><h2>'+esc(labels[key]||key)+'</h2></div>'+(key==="photos"||key==="scheme"?"":'<span class="ir-export-count">'+rows.length+' записей</span>')+'</header>'+body+'</section></div>'
@@ -1298,6 +1297,13 @@
    const activeHero=document.querySelector(".object-overview-hero");
    if(String(activeHero?.dataset.objectId||"")!==id)throw Error("Во время выгрузки изменился открытый объект. Повторите действие.");
    const indicatorTypes=["work-types","marks","reports","deliveries","scheme"];
+   // Reuse exactly the in-app chart engine, with all rows from this object's storage.
+   const supplyModel=keys.includes("deliveries")?window.irSupplyChart.prepare(
+    await api.section("work-types").list().catch(()=>[]),
+    rows.deliveries||await api.section("deliveries").list().catch(()=>[]),
+    rows.reports||await api.section("reports").list().catch(()=>[]),
+    rows.marks||await api.section("marks").list().catch(()=>[])
+   ):null;
    const indicatorRows=selection.overview?Object.fromEntries(await Promise.all(indicatorTypes.map(async key=>{
     if(rows[key])return[key,rows[key]];
     try{return[key,array(await api.section(key).list())]}
@@ -1310,18 +1316,22 @@
    const activeNavStyles=keys.filter(key=>/^[a-z0-9_-]+$/i.test(key)).map(key=>'body:has(#section-'+key+':target) .ir-export-topnav .ir-export-subnav-link[href="#section-'+key+'"]{background:#e6f2fc!important;color:#176ca7!important;font-weight:800!important}').join("\n");
    const extras=window.irObjectExportExtras;
    if(!extras)throw new Error("Модуль экспорта разделов не загружен. Перезапустите IR Project.");
-   const sectionsHtml=keys.map(key=>renderSection(key,rows[key]||[],photos,overviewSnapshot.preview[key]||"",{workTypes:supporting[0],reports:supporting[1],schemeDetails})).join("");
+   const sectionsHtml=keys.map(key=>renderSection(key,rows[key]||[],photos,overviewSnapshot.preview[key]||"",{workTypes:supporting[0],reports:supporting[1],schemeDetails,supplyModel})).join("");
    let viewerScripts="",viewerCsp="";
+   const nonce=btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
+   const safeJson=value=>JSON.stringify(value).replace(/</g,"\\u003c").replace(/\u2028/g,"\\u2028").replace(/\u2029/g,"\\u2029");
    if(keys.includes("scheme")){
     const scheme=extras.schemeData(rows.scheme||[],schemeDetails);
-    const encoded=JSON.stringify(scheme).replace(/</g,"\\u003c").replace(/\u2028/g,"\\u2028").replace(/\u2029/g,"\\u2029");
-    const nonce=btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
     const engine="("+extras.schemeViewer.toString()+")();";
-    viewerCsp="; script-src 'nonce-"+nonce+"'; connect-src 'none'; object-src 'none'";
-    viewerScripts='<script type="application/json" id="ir-export-scheme-data" nonce="'+nonce+'">'+encoded+'</script><script nonce="'+nonce+'">'+engine+'</script>'
+    viewerScripts+='<script type="application/json" id="ir-export-scheme-data" nonce="'+nonce+'">'+safeJson(scheme)+'</script><script nonce="'+nonce+'">'+engine+'</script>'
    }
+   if(supplyModel){
+    const engine="("+window.irSupplyChartFactory.toString()+")().initOffline();";
+    viewerScripts+='<script type="application/json" id="ir-supply-chart-data" nonce="'+nonce+'">'+safeJson(supplyModel)+'</script><script nonce="'+nonce+'">'+engine+'</script>';
+   }
+   if(viewerScripts)viewerCsp="; script-src 'nonce-"+nonce+"'; connect-src 'none'; object-src 'none'";
    const generated=new Date().toLocaleString("ru-RU");
-   let html='<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;; img-src data:; font-src data:'+viewerCsp+'"><title>'+esc(object.name||"IR Project")+' — отчёт объекта</title><style>'+css+'</style><style>'+extraStyles+'\n'+(extras?.css||'')+'\n'+activeNavStyles+'</style></head><body class="ir-object-route ir-object-overview"><main id="app">'+htmlSnapshot+sectionsHtml+'<footer class="ir-export-section"><b>IR Project</b> · Снимок объекта от '+esc(generated)+'. Только просмотр. Данные не связаны с рабочей базой.</footer></main>'+viewerScripts+'</body></html>';
+   let html='<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;; img-src data:; font-src data:'+viewerCsp+'"><title>'+esc(object.name||"IR Project")+' — отчёт объекта</title><style>'+css+'</style><style>'+extraStyles+'\n'+(extras?.css||'')+'\n'+(supplyModel?window.irSupplyChart.css:'')+'\n'+activeNavStyles+'</style></head><body class="ir-object-route ir-object-overview"><main id="app">'+htmlSnapshot+sectionsHtml+'<footer class="ir-export-section"><b>IR Project</b> · Снимок объекта от '+esc(generated)+'. Только просмотр. Данные не связаны с рабочей базой.</footer></main>'+viewerScripts+'</body></html>';
    if(selection.underContractor)html=redactCompanyIdentity(html,companyHeader.ownName);
    const name=safeFile(object.short_name||object.name||"Объект");
    const fileName=selection.underContractor?redactCompanyIdentity(name,companyHeader.ownName).trim()||"Объект":name;
