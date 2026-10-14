@@ -485,7 +485,7 @@
   const originals=[...live.querySelectorAll("canvas")],copies=[...copy.querySelectorAll("canvas")];
   originals.forEach((canvas,i)=>{try{const src=canvas.toDataURL("image/png");if(!dataUrl(src))return;const img=document.createElement("img");img.src=src;img.alt="График";img.style.width=canvas.width+"px";img.style.maxWidth="100%";copies[i]?.replaceWith(img)}catch{copies[i]?.remove()}})
  }
- function snapshot(keys,includeOverview=true){
+ function snapshot(keys,includeOverview=true,headerMarkup=""){
   const live=document.getElementById("app");
   if(!live?.querySelector(".object-overview-hero"))throw Error("Откройте страницу «Обзор» нужного объекта.");
   const copy=live.cloneNode(true);
@@ -496,13 +496,14 @@
   const hero=copy.querySelector(".object-overview-hero");
   if(hero){
    hero.id="overview";
+   if(headerMarkup)hero.insertAdjacentHTML("beforebegin",headerMarkup);
    // The offline navigation belongs immediately after the object banner, not in a fixed sidebar.
    hero.insertAdjacentHTML("afterend",sidebarHtml(document.querySelector(".ir-object-sidebar-fixed"),keys,includeOverview))
   }
   const menu=copy.querySelector(".object-hero-menu");if(menu)menu.remove();
   const preview=extractOverviewPreviews(copy,keys);
   if(!includeOverview){
-   const keep=new Set([hero,copy.querySelector(".ir-export-topnav")]);
+   const keep=new Set([hero,copy.querySelector(".ir-export-topnav"),copy.querySelector(".ir-export-companies")]);
    for(const child of [...copy.children])if(!keep.has(child))child.remove()
   }
   return {overview:copy.innerHTML,preview}
@@ -521,6 +522,10 @@
     ".ir-export-options-list{display:grid;gap:7px;padding:12px 20px;max-height:49vh;overflow:auto}",
     ".ir-export-options-list label{display:flex;align-items:center;gap:12px;min-height:42px;padding:9px 12px;border:1px solid #e3ecf2;border-radius:8px;cursor:pointer;font-weight:600}",
     ".ir-export-options-list label:hover{background:#eef7fc}.ir-export-options-list label:first-child{background:#f3f9fd}",
+    ".ir-export-options-flag{margin:0 20px 16px;padding:12px 13px;background:#f1f7fd;border:1px solid #c9dfef;border-radius:9px}",
+    ".ir-export-options-flag label{display:flex;gap:11px;align-items:center;font-size:12px;font-weight:750;color:#214a68;cursor:pointer}",
+    ".ir-export-options-flag input{width:17px;height:17px;flex:0 0 17px;accent-color:#2475b1}",
+    ".ir-export-options-flag p{margin:6px 0 0 28px;font-size:11px;line-height:1.5;color:#69879b}",
     ".ir-export-options-list input{width:17px;height:17px;accent-color:#287bb5;cursor:pointer;flex:0 0 17px}",
     ".ir-export-options-foot{display:flex;justify-content:flex-end;gap:9px;padding:14px 20px;border-top:1px solid #e3ebf1}.ir-export-options .ir-export-save{background:#236da6;color:#fff;border-color:#236da6}",
     ".ir-export-options button:focus-visible{outline:2px solid #3585c5;outline-offset:2px}"
@@ -532,6 +537,7 @@
    dlg.innerHTML='<div class="ir-export-options-head"><h2>Выгрузка объекта в HTML</h2><p>Выберите разделы, которые будут включены в отчёт.</p></div>'+
     '<div class="ir-export-options-tools"><small data-export-count></small><div><button type="button" data-export-all>Выбрать все</button> <button type="button" data-export-none>Снять все</button></div></div>'+
     '<div class="ir-export-options-list">'+items.map(x=>'<label><input type="checkbox" data-export-key="'+esc(x.key)+'" checked><span>'+esc(x.name)+'</span></label>').join("")+'</div>'+
+    '<div class="ir-export-options-flag"><label><input type="checkbox" data-under-contractor><span>Под флагом Генподрядчика</span></label><p>Не показывать название и логотип нашей компании в выгруженном отчёте. По умолчанию выключено.</p></div>'+
     '<div class="ir-export-options-foot"><button type="button" data-export-cancel>Отмена</button><button type="button" class="ir-export-save" data-export-confirm>Выгрузить HTML</button></div>';
    document.body.append(dlg);
    const checks=[...dlg.querySelectorAll("input[data-export-key]")],ok=dlg.querySelector("[data-export-confirm]");
@@ -543,7 +549,7 @@
    dlg.querySelector("[data-export-cancel]").addEventListener("click",()=>dlg.close());
    ok.addEventListener("click",()=>{
     if(!checks.some(x=>x.checked))return;
-    result={overview:checks.find(x=>x.dataset.exportKey==="overview")?.checked===true,keys:keys.filter(key=>checks.some(x=>x.dataset.exportKey===key&&x.checked))};
+    result={overview:checks.find(x=>x.dataset.exportKey==="overview")?.checked===true,keys:keys.filter(key=>checks.some(x=>x.dataset.exportKey===key&&x.checked)),underContractor:dlg.querySelector("[data-under-contractor]").checked===true};
     dlg.close()
    });
    dlg.addEventListener("change",refresh);
@@ -567,6 +573,7 @@
   if(!selection)return false;
   const keys=selection.keys;
    const api=irProject.data.forObject(id);
+   const companyHeader=await exportCompanyHeader(api,object,selection.underContractor);
    const batches=await Promise.all(keys.map(async key=>{
     try{return[key,array(await api.section(key).list())]}
     catch(error){console.warn("Object HTML: failed to load section",key,error);return[key,[]]}
@@ -589,6 +596,16 @@
     "body.ir-object-overview #app{padding-bottom:30px!important}",
     "body.ir-object-route.ir-object-overview{margin:0!important;padding:0!important}",
     "body.ir-object-route.ir-object-overview #app{margin:0!important;width:100%!important;min-width:0!important;max-width:none!important;padding:0 0 24px!important;box-sizing:border-box!important}",
+        ".ir-export-companies{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;align-items:stretch!important;gap:14px!important;width:100%!important;max-width:none!important;margin:0!important;padding:19px 24px!important;background:#fff!important;border-bottom:1px solid #dfe8ef!important;box-sizing:border-box!important}",
+    ".ir-export-companies-two{grid-template-columns:repeat(2,minmax(0,1fr))!important}",
+    ".ir-export-company-card{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:flex-start!important;gap:9px!important;min-width:0!important;padding:14px 15px 17px!important;background:#fbfdff!important;border:1px solid #dbe7f0!important;border-radius:12px!important;text-align:center!important;box-shadow:0 1px 4px rgba(20,53,78,.04)!important}",
+    ".ir-export-company-role{font-size:11px!important;font-weight:850!important;line-height:1.4!important;text-transform:uppercase!important;letter-spacing:.7px!important;color:#547a94!important}",
+    ".ir-export-company-logo{display:flex!important;justify-content:center!important;align-items:center!important;width:100%!important;height:118px!important;max-height:118px!important;min-height:118px!important;padding:8px!important;background:#fff!important;border-radius:9px!important;overflow:hidden!important}",
+    ".ir-export-company-logo img{display:block!important;width:auto!important;height:auto!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;flex:0 1 auto!important}",
+    ".ir-export-company-no-logo{color:#9aaaba!important;font-size:11px!important;font-weight:500!important}",
+    ".ir-export-company-name{min-width:0!important;width:100%!important;max-width:100%!important;font-size:13px!important;font-weight:800!important;line-height:1.45!important;overflow-wrap:anywhere!important;color:#244961!important}",
+    "@media(max-width:730px){.ir-export-companies{gap:7px!important;padding:12px 8px!important}.ir-export-company-card{padding:10px 5px!important}.ir-export-company-logo{height:85px!important;min-height:85px!important}.ir-export-company-name{font-size:11px!important}.ir-export-company-role{font-size:9px!important}}",
+    "@media print{.ir-export-companies{break-inside:avoid!important;padding:12px 0!important}.ir-export-company-card{break-inside:avoid!important}}",
     ".ir-export-topnav{position:sticky!important;top:0!important;z-index:95!important;display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;min-height:62px!important;margin:0!important;padding:9px 16px!important;background:rgba(255,255,255,.98)!important;border-bottom:1px solid #dce6ee!important;box-shadow:0 4px 16px rgba(29,60,82,.075)!important;overflow:visible!important;box-sizing:border-box!important}",
     ".ir-export-topnav-inner{display:flex;align-items:center;justify-content:center;gap:10px;min-width:0;max-width:100%;position:relative}",
     ".ir-export-topnav a,.ir-export-topnav summary{text-decoration:none!important;font:700 12px/1.4 'Segoe UI',Arial,sans-serif!important}",
@@ -878,7 +895,7 @@
    ].join("\n");
    const activeHero=document.querySelector(".object-overview-hero");
    if(String(activeHero?.dataset.objectId||"")!==id)throw Error("Во время выгрузки изменился открытый объект. Повторите действие.");
-   const overviewSnapshot=snapshot(keys,selection.overview);
+   const overviewSnapshot=snapshot(keys,selection.overview,companyHeader.markup);
    const htmlSnapshot=overviewSnapshot.overview;
    const activeNavStyles=keys.filter(key=>/^[a-z0-9_-]+$/i.test(key)).map(key=>'body:has(#section-'+key+':target) .ir-export-topnav .ir-export-subnav-link[href="#section-'+key+'"]{background:#e6f2fc!important;color:#176ca7!important;font-weight:800!important}').join("\n");
    const extras=window.irObjectExportExtras;
@@ -894,9 +911,11 @@
     viewerScripts='<script type="application/json" id="ir-export-scheme-data" nonce="'+nonce+'">'+encoded+'</script><script nonce="'+nonce+'">'+engine+'</script>'
    }
    const generated=new Date().toLocaleString("ru-RU");
-   const html='<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;; img-src data:; font-src data:'+viewerCsp+'"><title>'+esc(object.name||"IR Project")+' — отчёт объекта</title><style>'+css+'</style><style>'+extraStyles+'\n'+(extras?.css||'')+'\n'+activeNavStyles+'</style></head><body class="ir-object-route ir-object-overview"><main id="app">'+htmlSnapshot+sectionsHtml+'<footer class="ir-export-section"><b>IR Project</b> · Снимок объекта от '+esc(generated)+'. Только просмотр. Данные не связаны с рабочей базой.</footer></main>'+viewerScripts+'</body></html>';
+   let html='<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;; img-src data:; font-src data:'+viewerCsp+'"><title>'+esc(object.name||"IR Project")+' — отчёт объекта</title><style>'+css+'</style><style>'+extraStyles+'\n'+(extras?.css||'')+'\n'+activeNavStyles+'</style></head><body class="ir-object-route ir-object-overview"><main id="app">'+htmlSnapshot+sectionsHtml+'<footer class="ir-export-section"><b>IR Project</b> · Снимок объекта от '+esc(generated)+'. Только просмотр. Данные не связаны с рабочей базой.</footer></main>'+viewerScripts+'</body></html>';
+   if(selection.underContractor)html=redactCompanyIdentity(html,companyHeader.ownName);
    const name=safeFile(object.short_name||object.name||"Объект");
-   const result=await irProject.reportExport.html(html,"IR Project — "+name+" — весь объект.html");
+   const fileName=selection.underContractor?redactCompanyIdentity(name,companyHeader.ownName).trim()||"Объект":name;
+   const result=await irProject.reportExport.html(html,"IR Project — "+fileName+" — весь объект.html");
    if(result&&typeof window.irProjectNotice==="function")window.irProjectNotice("HTML-отчёт объекта сохранён. Файл доступен только для просмотра.","success");
    return result
   }catch(error){
