@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17166'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17167'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -154,7 +154,7 @@ assert(start>=0&&end>start,"report details function exists");
 const reportDetails=source.slice(start,end);
 assert(!reportDetails.includes("Дополнительная информация"),"technical additional-information panel removed");
 assert(!reportDetails.includes("record.record_type"),"technical record type not shown");
-assert(!reportDetails.includes("record.id"),"technical record ID not shown");
+assert(!reportDetails.includes("<small>ID</small>"),"technical record ID is not listed as a field");
 assert(reportDetails.includes("reportWorkTable(works)"),"full report still includes work table");
 assert(reportDetails.includes("reportChips(workers"),"full report still includes workers");
 assert(reportDetails.includes("reportChips(responsible"),"full report still includes supervisors");
@@ -199,7 +199,7 @@ assert(otherCardsHTML.includes("В10")&&otherCardsHTML.includes("В11"),"second 
 
 const extraSource=fs.readFileSync("src/object-export-extras.js","utf8");
 new vm.Script(extraSource,{filename:"object-export-extras.js"});
-assert(html.includes('object-export-extras.js?v=17166'),"standalone asset renderer loaded");
+assert(html.includes('object-export-extras.js?v=17167'),"standalone asset renderer loaded");
 const extraCtx={window:{},console};
 vm.runInNewContext(extraSource,extraCtx);
 const extras=extraCtx.window.irObjectExportExtras;
@@ -253,5 +253,58 @@ const secondary=groupCalc(
 );
 assert.equal(secondary[0].code2,"КМ-02","second project code is retained in work readiness");
 assert(!extras.schemeHtml(model).includes("Редактировать"),"no editing in scheme export");
+
+
+assert(source.includes("function schedulePreviewHtml(card)"),"work-specific Gantt selectors exist");
+assert(source.includes('key==="schedule"?schedulePreviewHtml(card):card.outerHTML'),"Gantt uses filtered offline snapshot");
+assert(source.includes('class="ir-export-marks-unified"'),"work readiness and marks form one visual section");
+assert(source.includes('class="ir-export-deliveries-unified"'),"deliveries summary and invoices share one visual section");
+assert(source.includes('class="ir-export-delivery-register"'),"invoice register appears directly under supply comparison");
+assert(source.includes("ir-export-gantt-options"),"Gantt includes work-type choices");
+assert(source.includes("#section-scheme>.ir-export-section{padding:0!important"),"scheme fills complete section width");
+assert(source.includes("body.ir-object-overview #app #section-scheme .ir-export-scheme-controls button{display:inline-flex!important"),"3D and plan switches override global read-only button hiding");
+assert(source.includes('class="ir-export-daily-photo-link"'),"daily report photo thumbnails are clickable");
+assert(source.includes('class="ir-export-gallery-lightbox"'),"daily report photos have standalone lightboxes");
+assert(!source.includes('<span>Редактировать</span></a>'),"no edit action linked from photos");
+assert(extras.schemeViewer.toString().includes('viewPlan.classList.toggle("active",plan)'),"Plan visibly activates after switching");
+assert(extras.schemeViewer.toString().includes('view3D.classList.toggle("active",!plan)'),"3D visibly activates on return");
+assert(extras.schemeViewer.toString().includes('view3D.setAttribute("aria-pressed",String(!plan))'),"3D button accessibility state updates");
+assert(extras.schemeViewer.toString().includes("const reset=()=>setPlan(plan)"),"Reset preserves selected scheme view");
+const scheduleStart=source.indexOf(" function schedulePreviewHtml("),scheduleEnd=source.indexOf(" function extractOverviewPreviews(",scheduleStart);
+assert(scheduleStart>=0&&scheduleEnd>scheduleStart,"Gantt filter function is available");
+const scheduleFn=vm.runInNewContext(
+ '(function(){const esc=v=>String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;");'+source.slice(scheduleStart,scheduleEnd)+';return schedulePreviewHtml})()'
+);
+const ganttRows=[
+ {label:"Колонны",code:"КМ-01",classes:[]},
+ {label:"Балки",code:"КМ-02",classes:[]},
+ {label:"Колонны",code:"КМ-01",classes:[]}
+];
+const ganttFake={
+ querySelectorAll:()=>ganttRows.map(g=>({
+  querySelector:selector=>({textContent:selector.endsWith(" b")?g.label:g.code}),
+  classList:{add:v=>g.classes.push(v)}
+ })),
+ get outerHTML(){return'<section class="object-overview-schedule">'+ganttRows.map(g=>'<div class="overview-gantt-row '+g.classes.join(" ")+'">'+g.label+'</div>').join("")+'</section>'}
+};
+const ganttHTML=scheduleFn(ganttFake);
+assert(ganttHTML.includes('id="ir-export-gantt-all"'),"all-work Gantt view exists");
+assert(ganttHTML.includes('id="ir-export-gantt-0"'),"first work radio exists");
+assert(ganttHTML.includes('id="ir-export-gantt-1"'),"second work radio exists");
+assert(ganttHTML.includes('.overview-gantt-row:not(.ir-export-gantt-type-1){display:none!important}'),"Gantt filter hides unrelated rows");
+assert(ganttRows[0].classes.includes("ir-export-gantt-type-0")&&ganttRows[2].classes.includes("ir-export-gantt-type-0"),"same work type uses a consistent selector");
+assert(ganttRows[1].classes.includes("ir-export-gantt-type-1"),"different work types have independent selectors");
+const photosStart=source.indexOf(" function reportFull("),photosEnd=source.indexOf(" function exportMoreCards(",photosStart);
+const fullReport=vm.runInNewContext(
+ '(function(){const esc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;");'+
+ 'const array=v=>Array.isArray(v)?v:[];const reportWorks=()=>[];const reportPeople=()=>[];const reportResponsible=()=>[];'+
+ 'const reportPhotos=r=>r.photos||[];const photoPath=p=>String(p||"");const dataUrl=v=>String(v).startsWith("data:image/");'+
+ 'const reportWorkTable=()=>"";const reportChips=()=>"";'+source.slice(photosStart,photosEnd)+';return reportFull})()'
+);
+const photoReport=fullReport({id:139},{photos:["picture.png"]},new Map([["picture.png","data:image/png;base64,QQ=="]]));
+assert(photoReport.includes('href="#ir-export-daily-photo-139-0"'),"clicking a daily photo opens its correct lightbox");
+assert(photoReport.includes('id="ir-export-daily-photo-139-0"'),"daily report photo has matching fullscreen target");
+assert(photoReport.includes('href="#section-reports"'),"photo can be closed without scripts");
+assert(photoReport.includes("data:image/png;base64,QQ=="),"full-sized photo bytes are inlined");
 
 console.log("Full object HTML export: snapshot, offline navigation, read-only records, native save and no DB writes OK");
