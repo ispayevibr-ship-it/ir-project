@@ -253,20 +253,11 @@
   const groups=markProgressGroups(markRows,workRows,reportRows);
   const total=groups.reduce((s,x)=>s+x.total,0),mounted=groups.reduce((s,x)=>s+x.mounted,0);
   const left=Math.max(0,total-mounted),percent=total?Math.round(mounted/total*1000)/10:0;
-  const mountedGroups=groups.filter(x=>x.mounted>0),remainingGroups=groups.filter(x=>x.remaining>0);
-  const mode=(key,label,count)=>'<label for="ir-export-marks-'+key+'">'+label+' <span>'+count+'</span></label>';
   return'<div class="ir-export-marks-summary">'+
    '<div class="ir-export-marks-title"><div><h3>Готовность по видам работ</h3><p>Количество отправочных марок в штуках · монтаж из ежедневных отчётов</p></div><b>'+esc(exportFormat(percent))+'%</b></div>'+
    '<div class="ir-export-marks-stats"><div><small>Всего марок</small><b>'+esc(exportFormat(total))+' шт.</b></div><div><small>Смонтировано</small><b>'+esc(exportFormat(mounted))+' шт.</b></div><div><small>Осталось</small><b>'+esc(exportFormat(left))+' шт.</b></div><div><small>Групп видов работ / шифров</small><b>'+groups.length+'</b></div></div>'+
    '<div class="ir-export-mark-switcher">'+
-   '<input class="ir-export-mark-radio ir-export-mark-radio--all" type="radio" name="ir-export-mark-mode" id="ir-export-marks-all" checked>'+
-   '<input class="ir-export-mark-radio ir-export-mark-radio--mounted" type="radio" name="ir-export-mark-mode" id="ir-export-marks-mounted">'+
-   '<input class="ir-export-mark-radio ir-export-mark-radio--remaining" type="radio" name="ir-export-mark-mode" id="ir-export-marks-remaining">'+
-   '<div class="ir-export-mark-tabs" role="group" aria-label="Фильтр ведомости марок">'+mode("all","Все",groups.length)+mode("mounted","Смонтировано",mountedGroups.length)+mode("remaining","Осталось",remainingGroups.length)+'</div>'+
-   '<div class="ir-export-mark-panel ir-export-mark-panel--all"><div class="ir-export-mark-head"><span>Вид работы</span><span>Шифр</span><span>Всего марок</span><span>Шкала прогресса</span><span>Смонтировано, шт. / %</span><span>Осталось, шт. / %</span></div>'+markProgressPanel(groups,"all")+'</div>'+
-   '<div class="ir-export-mark-panel ir-export-mark-panel--mounted"><div class="ir-export-mark-head"><span>Вид работы</span><span>Шифр</span><span>Всего марок</span><span>Шкала прогресса</span><span>Смонтировано, шт. / %</span><span>Осталось, шт. / %</span></div>'+markProgressPanel(mountedGroups,"mounted")+'</div>'+
-   '<div class="ir-export-mark-panel ir-export-mark-panel--remaining"><div class="ir-export-mark-head"><span>Вид работы</span><span>Шифр</span><span>Всего марок</span><span>Шкала прогресса</span><span>Смонтировано, шт. / %</span><span>Осталось, шт. / %</span></div>'+markProgressPanel(remainingGroups,"remaining")+'</div>'+
-   '</div></div>'
+   +markProgressPanel(groups,"all")+'</div></div>'
  }
 
  function markDetailData(markRows,workRows,reportRows){
@@ -379,7 +370,7 @@
   return'<div class="ir-export-group" id="section-'+esc(key)+'">'+(preview?'<div class="ir-export-preview">'+preview+'</div>':"")+
    '<section class="ir-export-section"><header class="ir-export-section-head"><div><h2>'+esc(labels[key]||key)+'</h2></div><span class="ir-export-count">'+rows.length+' записей</span></header>'+body+'</section></div>'
  }
- function sidebarHtml(aside,keys){
+ function sidebarHtml(aside,keys,includeOverview=true){
   const originalNav=aside?.querySelector(".ir-object-nav");
   const links=originalNav?[...originalNav.querySelectorAll("button[data-key]")]:[];
   const original=key=>links.find(el=>el.dataset.key===key);
@@ -390,7 +381,7 @@
   const items=keys.length?keys.map(item).join(""):'<span class="ir-export-menu-empty">Других разделов нет</span>';
   return'<nav class="ir-export-topnav" aria-label="Навигация по HTML-отчёту">'+
    '<div class="ir-export-topnav-inner">'+
-   '<a class="ir-export-toplink active" href="#overview"><span class="nav-icon" aria-hidden="true">'+icon("overview")+'</span><span>Обзор объекта</span></a>'+
+   (includeOverview?'<a class="ir-export-toplink active" href="#overview"><span class="nav-icon" aria-hidden="true">'+icon("overview")+'</span><span>Обзор объекта</span></a>':"")+
    '<details class="ir-export-menu">'+
    '<summary class="ir-export-menu-trigger"><span class="ir-export-menu-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span><span>Разделы меню</span><span class="ir-export-menu-caret">'+caret+'</span></summary>'+
    '<div class="ir-export-menu-items" aria-label="Разделы объекта"><div class="ir-export-menu-caption">ПЕРЕЙТИ К РАЗДЕЛУ</div>'+items+'</div>'+
@@ -400,7 +391,7 @@
   const originals=[...live.querySelectorAll("canvas")],copies=[...copy.querySelectorAll("canvas")];
   originals.forEach((canvas,i)=>{try{const src=canvas.toDataURL("image/png");if(!dataUrl(src))return;const img=document.createElement("img");img.src=src;img.alt="График";img.style.width=canvas.width+"px";img.style.maxWidth="100%";copies[i]?.replaceWith(img)}catch{copies[i]?.remove()}})
  }
- function snapshot(keys){
+ function snapshot(keys,includeOverview=true){
   const live=document.getElementById("app");
   if(!live?.querySelector(".object-overview-hero"))throw Error("Откройте страницу «Обзор» нужного объекта.");
   const copy=live.cloneNode(true);
@@ -412,12 +403,60 @@
   if(hero){
    hero.id="overview";
    // The offline navigation belongs immediately after the object banner, not in a fixed sidebar.
-   hero.insertAdjacentHTML("afterend",sidebarHtml(document.querySelector(".ir-object-sidebar-fixed"),keys))
+   hero.insertAdjacentHTML("afterend",sidebarHtml(document.querySelector(".ir-object-sidebar-fixed"),keys,includeOverview))
   }
   const menu=copy.querySelector(".object-hero-menu");if(menu)menu.remove();
   const preview=extractOverviewPreviews(copy,keys);
+  if(!includeOverview){
+   const keep=new Set([hero,copy.querySelector(".ir-export-topnav")]);
+   for(const child of [...copy.children])if(!keep.has(child))child.remove()
+  }
   return {overview:copy.innerHTML,preview}
  }
+
+ function chooseExportSections(keys,nav){
+  const names=new Map([...nav?.querySelectorAll("button[data-key]")||[]].map(b=>[b.dataset.key,b.querySelector(".nav-label")?.textContent?.trim()||labels[b.dataset.key]||b.dataset.key]));
+  if(!document.getElementById("ir-export-options-style")){
+   const st=document.createElement("style");st.id="ir-export-options-style";
+   st.textContent=[
+    "dialog.ir-export-options{width:min(540px,calc(100vw - 32px))!important;max-height:86vh!important;margin:auto!important;padding:0!important;border:1px solid #d8e5ee!important;border-radius:14px!important;background:#fff!important;color:#29465b!important;box-shadow:0 22px 70px rgba(11,36,57,.28)!important;overflow:hidden!important;font:13px/1.45 'Segoe UI',Arial,sans-serif!important}",
+    "dialog.ir-export-options::backdrop{background:rgba(13,30,47,.52)!important}",
+    ".ir-export-options-head{padding:20px 22px 15px;border-bottom:1px solid #e3ebf1}.ir-export-options-head h2{margin:0 0 6px;font-size:17px;color:#204861}.ir-export-options-head p{margin:0;color:#8295a3;font-size:12px}",
+    ".ir-export-options-tools{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 20px;background:#f5f9fc}.ir-export-options-tools small{color:#738da2}",
+    ".ir-export-options button{padding:8px 11px;border:1px solid #d8e6ee;border-radius:8px;background:#fff;color:#346d99;cursor:pointer;font-weight:700}.ir-export-options button:disabled{opacity:.5;cursor:not-allowed}",
+    ".ir-export-options-list{display:grid;gap:7px;padding:12px 20px;max-height:49vh;overflow:auto}",
+    ".ir-export-options-list label{display:flex;align-items:center;gap:12px;min-height:42px;padding:9px 12px;border:1px solid #e3ecf2;border-radius:8px;cursor:pointer;font-weight:600}",
+    ".ir-export-options-list label:hover{background:#eef7fc}.ir-export-options-list label:first-child{background:#f3f9fd}",
+    ".ir-export-options-list input{width:17px;height:17px;accent-color:#287bb5;cursor:pointer;flex:0 0 17px}",
+    ".ir-export-options-foot{display:flex;justify-content:flex-end;gap:9px;padding:14px 20px;border-top:1px solid #e3ebf1}.ir-export-options .ir-export-save{background:#236da6;color:#fff;border-color:#236da6}",
+    ".ir-export-options button:focus-visible{outline:2px solid #3585c5;outline-offset:2px}"
+   ].join("\n");document.head.append(st)
+  }
+  return new Promise(resolve=>{
+   const dlg=document.createElement("dialog");dlg.className="ir-export-options";
+   const items=[{key:"overview",name:"Обзор объекта — сводка, ресурсы, погода"},...keys.map(key=>({key,name:names.get(key)||labels[key]||key}))];
+   dlg.innerHTML='<div class="ir-export-options-head"><h2>Выгрузка объекта в HTML</h2><p>Выберите разделы, которые будут включены в отчёт.</p></div>'+
+    '<div class="ir-export-options-tools"><small data-export-count></small><div><button type="button" data-export-all>Выбрать все</button> <button type="button" data-export-none>Снять все</button></div></div>'+
+    '<div class="ir-export-options-list">'+items.map(x=>'<label><input type="checkbox" data-export-key="'+esc(x.key)+'" checked><span>'+esc(x.name)+'</span></label>').join("")+'</div>'+
+    '<div class="ir-export-options-foot"><button type="button" data-export-cancel>Отмена</button><button type="button" class="ir-export-save" data-export-confirm>Выгрузить HTML</button></div>';
+   document.body.append(dlg);
+   const checks=[...dlg.querySelectorAll("input[data-export-key]")],ok=dlg.querySelector("[data-export-confirm]");
+   const refresh=()=>{const n=checks.filter(x=>x.checked).length;ok.disabled=n===0;dlg.querySelector("[data-export-count]").textContent="Выбрано: "+n+" из "+checks.length};
+   let result=null;
+   dlg.addEventListener("close",()=>{dlg.remove();resolve(result)},{once:true});
+   dlg.querySelector("[data-export-all]").addEventListener("click",()=>{checks.forEach(x=>x.checked=true);refresh()});
+   dlg.querySelector("[data-export-none]").addEventListener("click",()=>{checks.forEach(x=>x.checked=false);refresh()});
+   dlg.querySelector("[data-export-cancel]").addEventListener("click",()=>dlg.close());
+   ok.addEventListener("click",()=>{
+    if(!checks.some(x=>x.checked))return;
+    result={overview:checks.find(x=>x.dataset.exportKey==="overview")?.checked===true,keys:keys.filter(key=>checks.some(x=>x.dataset.exportKey===key&&x.checked))};
+    dlg.close()
+   });
+   dlg.addEventListener("change",refresh);
+   refresh();dlg.showModal()
+  })
+ }
+
  async function exportObject(objectId){
   const id=String(objectId);
   if(!/^\d+$/.test(id))throw Error("Неверный ID объекта.");
@@ -429,7 +468,10 @@
    const sections=array(await irProject.data.sections.get(id));
    const nav=document.querySelector(".ir-object-sidebar-fixed .ir-object-nav");
    const visibleKeys=nav?[...nav.querySelectorAll("button[data-key]")].filter(b=>!b.disabled&&b.dataset.key!=="overview").map(b=>b.dataset.key):[];
-   const keys=[...new Set(visibleKeys.length?visibleKeys:sections.filter(s=>s.enabled).map(s=>s.section_key))];
+   const availableKeys=[...new Set(visibleKeys.length?visibleKeys:sections.filter(s=>s.enabled).map(s=>s.section_key))];
+  const selection=await chooseExportSections(availableKeys,nav);
+  if(!selection)return false;
+  const keys=selection.keys;
    const api=irProject.data.forObject(id);
    const batches=await Promise.all(keys.map(async key=>{
     try{return[key,array(await api.section(key).list())]}
@@ -682,7 +724,7 @@
    ].join("\n");
    const activeHero=document.querySelector(".object-overview-hero");
    if(String(activeHero?.dataset.objectId||"")!==id)throw Error("Во время выгрузки изменился открытый объект. Повторите действие.");
-   const overviewSnapshot=snapshot(keys);
+   const overviewSnapshot=snapshot(keys,selection.overview);
    const htmlSnapshot=overviewSnapshot.overview;
    const activeNavStyles=keys.filter(key=>/^[a-z0-9_-]+$/i.test(key)).map(key=>'body:has(#section-'+key+':target) .ir-export-topnav .ir-export-subnav-link[href="#section-'+key+'"]{background:#e6f2fc!important;color:#176ca7!important;font-weight:800!important}').join("\n");
    const sectionsHtml=keys.map(key=>renderSection(key,rows[key]||[],photos,overviewSnapshot.preview[key]||"",{workTypes:supporting[0],reports:supporting[1]})).join("");
