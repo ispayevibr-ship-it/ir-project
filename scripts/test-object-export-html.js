@@ -422,7 +422,7 @@ assert(source.includes('.ir-export-indicators{width:100%!important;max-width:non
 assert(source.includes('border-bottom:1px solid #dbe5ed!important'),"section boundary lines are full-width");
 assert(source.includes('#section-schedule .object-overview-dashboard'),"the schedule has a full-width wrapper without a nested card");
 assert(source.includes('const note=latest.date?"Согласно отчета от "+exportDate(latest.date)+"г."'),"snapshot gives a dated provenance label");
-assert(source.includes('copy.querySelector(".ir-object-overview-sidehead p")?.remove()'),"hide old readiness/resources/weather subtitle only from exported summary");
+assert(source.includes('copy.querySelector(".ir-object-overview-sidehead")?.remove()'),"summary heading is removed in export while its resource cards join the indicators");
 assert(source.includes("background:linear-gradient(112deg,#163c62"),"participants use edge-to-edge blue background");
 assert(source.includes("max-width:none!important;margin:0!important;padding:10px 18px 11px!important"),"participants use compact padding");
 assert(source.includes('stats?.querySelector(".oos-progress")?.remove()'),"export hides duplicated readiness tile while retaining the KPI readiness");
