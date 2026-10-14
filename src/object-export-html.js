@@ -487,7 +487,82 @@
   const originals=[...live.querySelectorAll("canvas")],copies=[...copy.querySelectorAll("canvas")];
   originals.forEach((canvas,i)=>{try{const src=canvas.toDataURL("image/png");if(!dataUrl(src))return;const img=document.createElement("img");img.src=src;img.alt="График";img.style.width=canvas.width+"px";img.style.maxWidth="100%";copies[i]?.replaceWith(img)}catch{copies[i]?.remove()}})
  }
- function snapshot(keys,includeOverview=true,headerMarkup=""){
+ 
+ function renderIndicatorBlock(data,keys){
+  const works=array(data["work-types"]),marks=array(data.marks),reports=array(data.reports),deliveries=array(data.deliveries),scheme=array(data.scheme);
+  const groups=markProgressGroups(marks,works,reports),perWork=new Map();
+  for(const g of groups){
+   if(g.total<=0)continue;
+   const id=g.workId||g.name;
+   if(!perWork.has(id))perWork.set(id,{total:0,done:0});
+   const x=perWork.get(id);x.total+=g.total;x.done+=g.mounted
+  }
+  const readiness=perWork.size?[...perWork.values()].reduce((sum,v)=>sum+100*v.done/v.total,0)/perWork.size:0;
+  const unit=u=>{
+   const s=String(u||"").trim().toLowerCase().replace(/²/g,"2").replace(/³/g,"3").replace(/\s/g,"");
+   return ["т","тн","tn","ton"].includes(s)?"тн":["м2","m2"].includes(s)?"м2":["м3","m3"].includes(s)?"м3":s||"ед."
+  };
+  const workUnits=new Map(works.map(r=>[String(r.id),r.data?.unit]));
+  const markUnits=new Map(marks.map(r=>[String(r.id),r.data?.unit]));
+  const totals={mounted:new Map(),delivered:new Map()};
+  const add=(which,u,value)=>{
+   const n=exportNumber(value);
+   if(n<=0)return;
+   const k=unit(u);totals[which].set(k,(totals[which].get(k)||0)+n)
+  };
+  const unitOf=w=>w.unit||markUnits.get(String(w.mark_id??""))||workUnits.get(String(w.work_type_id??""))||"ед.";
+  for(const row of reports){
+   const d=row.data||row;
+   for(const w of reportWorks(d))if(!reportService(w))add("mounted",unitOf(w),reportVolume(w))
+  }
+  for(const row of deliveries){
+   const d=row.data||row;
+   const items=["items","marks","positions","rows"].map(k=>d[k]).find(Array.isArray)||[];
+   for(const w of items){
+    if(reportService(w))continue;
+    const value=w.volume??w.total_volume;
+    add("delivered",unitOf(w),value!==undefined&&value!==null&&String(value).trim()!==""?value:
+     exportNumber(w.qty??w.count??w.quantity)*exportNumber(w.unit_volume??w.volume_one))
+   }
+   if(!items.length&&d.totals_by_unit&&typeof d.totals_by_unit==="object")
+    for(const [u,v]of Object.entries(d.totals_by_unit))add("delivered",u,v)
+  }
+  const allUnits=new Set([...totals.mounted.keys(),...totals.delivered.keys()]);
+  const primary=["тн","м2","м3"].find(u=>allUnits.has(u))||[...allUnits][0]||"тн";
+  const installed=totals.mounted.get(primary)||0,received=totals.delivered.get(primary)||0;
+  const fmt=v=>Number(v.toFixed(3)).toLocaleString("ru-RU",{maximumFractionDigits:3});
+  const last=reports.map(r=>String((r.data||r).date||(r.data||r).report_date||"")).filter(Boolean).sort().at(-1)||"";
+  const placed=scheme.filter(r=>r.record_type==="scheme_column"||r.data?.entity_type==="column").length;
+  const icons={
+   readiness:'<circle cx="12" cy="12" r="9"/><path d="M12 12V6M12 12l4 3"/>',
+   mounted:'<path d="M4 17 10 11l4 4 6-8M15 7h5v5"/>',
+   delivered:'<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 8h8v8H8z"/>',
+   reports:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h6"/>',
+   scheme:'<path d="M3 5h18M3 12h18M3 19h18M7 3v18M17 3v18"/>'
+  };
+  const svg=k=>'<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+icons[k]+'</svg>';
+  const cards=[
+   ["readiness","Средняя готовность",String(Math.round(readiness)),"%","Среднее по видам работ",""],
+   ["mounted","Смонтировано",fmt(installed),primary,"По ежедневным отчётам","Фактический объём"],
+   ["delivered","Поставлено",fmt(received),primary,"По накладным",allUnits.size>1?"Другие ед. изм. не суммируются":"Остаток: "+fmt(received-installed)+" "+primary],
+   ["reports","Ежедневные отчёты",String(reports.length),"шт.","История выполненных работ",last?"Последний: "+exportDate(last):"Отчётов пока нет"],
+   ["scheme","Монтажная схема",String(placed),"эл.","Интерактивная 3D / план","Нажатие на марку — информация"]
+  ];
+  const cardHtml=cards.map(([key,title,value,u,desc,footer])=>
+   '<article class="ir-export-indicator-card ir-export-indicator-'+key+'"><div class="ir-export-indicator-icon">'+svg(key)+'</div>'+
+   '<div class="ir-export-indicator-title">'+esc(title)+'</div><div class="ir-export-indicator-value">'+esc(value)+'<small>'+esc(u)+'</small></div>'+
+   '<p>'+esc(desc)+'</p><div class="ir-export-indicator-foot">'+(key==="readiness"?'<div class="ir-export-indicator-track"><i style="width:'+Math.max(0,Math.min(100,readiness)).toFixed(2)+'%"></i></div>':esc(footer))+'</div></article>'
+  ).join("");
+  const linkOptions=[["scheme","Открыть монтажную схему","♜"],["photos","Посмотреть фотографии","▧"],["marks","Объёмы и ведомость марок","▤"]];
+  const links=linkOptions.filter(x=>keys.includes(x[0])).map(([key,title,glyph])=>
+   '<a class="ir-export-indicator-link" href="#section-'+esc(key)+'"><span><i aria-hidden="true">'+glyph+'</i>'+esc(title)+'</span><b aria-hidden="true">↗</b></a>'
+  ).join("");
+  return'<section class="ir-export-indicators" aria-label="Показатели объекта">'+
+   '<div class="ir-export-indicators-heading"><h2>Показатели объекта</h2><span>на дату выгрузки</span></div>'+
+   '<div class="ir-export-indicator-cards">'+cardHtml+'</div>'+(links?'<nav class="ir-export-indicator-links" aria-label="Быстрые переходы по отчёту">'+links+'</nav>':"")+'</section>'
+ }
+
+ function snapshot(keys,includeOverview=true,headerMarkup="",indicatorsMarkup=""){
   const live=document.getElementById("app");
   if(!live?.querySelector(".object-overview-hero"))throw Error("Откройте страницу «Обзор» нужного объекта.");
   const copy=live.cloneNode(true);
@@ -500,7 +575,8 @@
    hero.id="overview";
    if(headerMarkup)hero.insertAdjacentHTML("beforebegin",headerMarkup);
    // The offline navigation belongs immediately after the object banner, not in a fixed sidebar.
-   hero.insertAdjacentHTML("afterend",sidebarHtml(document.querySelector(".ir-object-sidebar-fixed"),keys,includeOverview))
+   hero.insertAdjacentHTML("afterend",sidebarHtml(document.querySelector(".ir-object-sidebar-fixed"),keys,includeOverview));
+   if(indicatorsMarkup)copy.querySelector(".ir-export-topnav")?.insertAdjacentHTML("afterend",indicatorsMarkup)
   }
   const menu=copy.querySelector(".object-hero-menu");if(menu)menu.remove();
   const preview=extractOverviewPreviews(copy,keys);
@@ -616,7 +692,35 @@
     "@media(max-width:760px){.ir-export-companies{margin:13px 12px 12px!important}.ir-export-company-card{padding:15px 9px!important;gap:8px!important}.ir-export-company-logo{height:92px!important;min-height:92px!important;max-height:92px!important;padding:8px!important}.ir-export-company-name{font-size:11px!important}.ir-export-company-role{font-size:9px!important}}",
     "@media(max-width:560px){.ir-export-companies-grid,.ir-export-companies-two .ir-export-companies-grid{grid-template-columns:minmax(0,1fr)!important}.ir-export-company-card{border-right:0!important;border-bottom:1px solid #e4edf3!important;padding:14px 16px!important}.ir-export-company-card:last-child{border-bottom:0!important}.ir-export-company-logo{max-width:250px!important}}",
     "@media print{.ir-export-companies{margin:10px 0 14px!important;break-inside:avoid!important;box-shadow:none!important}.ir-export-company-card{break-inside:avoid!important}}",
-    ".ir-export-topnav{position:sticky!important;top:0!important;z-index:95!important;display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;min-height:62px!important;margin:0!important;padding:9px 16px!important;background:rgba(255,255,255,.98)!important;border-bottom:1px solid #dce6ee!important;box-shadow:0 4px 16px rgba(29,60,82,.075)!important;overflow:visible!important;box-sizing:border-box!important}",
+         ".ir-export-indicators{box-sizing:border-box!important;display:block!important;width:100%!important;margin:0!important;padding:18px 20px 22px!important;background:#fff!important}",
+     ".ir-export-indicators-heading{display:flex!important;justify-content:space-between!important;align-items:center!important;gap:12px!important;margin:0 0 14px!important}",
+     ".ir-export-indicators-heading h2{margin:0!important;color:#214b66!important;font:800 16px/1.35 'Segoe UI',Arial,sans-serif!important}",
+     ".ir-export-indicators-heading span{color:#95a9b8!important;font:500 11px/1.4 'Segoe UI',Arial,sans-serif!important}",
+     ".ir-export-indicator-cards{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:10px!important;align-items:stretch!important}",
+     ".ir-export-indicator-card{position:relative!important;display:flex!important;flex-direction:column!important;min-width:0!important;min-height:195px!important;gap:8px!important;overflow:hidden!important;padding:14px 12px 12px!important;border:1px solid #dce6ee!important;border-radius:12px!important;background:#fff!important;box-shadow:0 3px 12px rgba(24,60,87,.045)!important}",
+     ".ir-export-indicator-card:before{content:''!important;position:absolute!important;left:17px!important;right:17px!important;top:0!important;height:3px!important;background:#80adca!important;border-radius:0 0 3px 3px!important}",
+     ".ir-export-indicator-icon{display:flex!important;align-items:center!important;justify-content:center!important;flex:0 0 35px!important;width:35px!important;height:35px!important;border-radius:9px!important;background:#eaf2f9!important;color:#397fb4!important}",
+     ".ir-export-indicator-icon svg{width:22px!important;height:22px!important}",
+     ".ir-export-indicator-mounted .ir-export-indicator-icon{background:#e8f5f1!important;color:#2b9d7b!important}",
+     ".ir-export-indicator-delivered .ir-export-indicator-icon{background:#fff4e7!important;color:#be9154!important}",
+     ".ir-export-indicator-reports .ir-export-indicator-icon{background:#f1ecfa!important;color:#7f6dae!important}",
+     ".ir-export-indicator-scheme .ir-export-indicator-icon{background:#e8f6f7!important;color:#2c909c!important}",
+     ".ir-export-indicator-title{color:#718c9e!important;font:750 10px/1.35 'Segoe UI',Arial,sans-serif!important}",
+     ".ir-export-indicator-value{display:flex!important;align-items:baseline!important;gap:4px!important;min-width:0!important;color:#1b4968!important;white-space:nowrap!important;font:850 clamp(19px,2.6vw,32px)/1 'Segoe UI',Arial,sans-serif!important;letter-spacing:-.4px!important;font-variant-numeric:tabular-nums!important}",
+     ".ir-export-indicator-value small{color:#90a5b3!important;font:700 10px/1.3 'Segoe UI',Arial,sans-serif!important}",
+     ".ir-export-indicator-card p{margin:0!important;min-height:27px!important;color:#93a8b5!important;font:500 10px/1.35 'Segoe UI',Arial,sans-serif!important}",
+     ".ir-export-indicator-foot{display:flex!important;align-items:center!important;min-height:25px!important;margin-top:auto!important;padding-top:8px!important;border-top:1px solid #e8eef3!important;color:#7892a4!important;font:500 10px/1.4 'Segoe UI',Arial,sans-serif!important}",
+     ".ir-export-indicator-track{width:100%!important;height:6px!important;border-radius:99px!important;background:#e5edf3!important;overflow:hidden!important}",
+     ".ir-export-indicator-track i{display:block!important;height:100%!important;border-radius:99px!important;background:#398cbd!important}",
+     ".ir-export-indicator-links{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:10px!important;margin-top:14px!important}",
+     ".ir-export-indicator-link{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;min-height:52px!important;padding:12px 13px!important;border:1px solid #d0e1ef!important;border-radius:9px!important;background:#e7f2fa!important;color:#29688f!important;text-decoration:none!important;font:800 11px/1.3 'Segoe UI',Arial,sans-serif!important}",
+     ".ir-export-indicator-link:hover{background:#dceefa!important;color:#15587e!important}",
+     ".ir-export-indicator-link span{display:flex!important;align-items:center!important;gap:10px!important;min-width:0!important}",
+     ".ir-export-indicator-link i{font:700 18px/1 'Segoe UI',Arial,sans-serif!important;font-style:normal!important}",
+     "@media(max-width:830px){.ir-export-indicator-cards{grid-template-columns:repeat(3,minmax(0,1fr))!important}.ir-export-indicator-links{grid-template-columns:repeat(2,minmax(0,1fr))!important}.ir-export-indicator-value{font-size:27px!important}}",
+     "@media(max-width:560px){.ir-export-indicators{padding:14px 12px 18px!important}.ir-export-indicator-cards{grid-template-columns:repeat(2,minmax(0,1fr))!important}.ir-export-indicator-links{grid-template-columns:1fr!important}.ir-export-indicator-card{min-height:180px!important}.ir-export-indicator-value{font-size:24px!important}}",
+     "@media print{.ir-export-indicators{break-inside:avoid!important}.ir-export-indicator-card{break-inside:avoid!important}}",
+     ".ir-export-topnav{position:sticky!important;top:0!important;z-index:95!important;display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;min-height:62px!important;margin:0!important;padding:9px 16px!important;background:rgba(255,255,255,.98)!important;border-bottom:1px solid #dce6ee!important;box-shadow:0 4px 16px rgba(29,60,82,.075)!important;overflow:visible!important;box-sizing:border-box!important}",
     ".ir-export-topnav-inner{display:flex;align-items:center;justify-content:center;gap:10px;min-width:0;max-width:100%;position:relative}",
     ".ir-export-topnav a,.ir-export-topnav summary{text-decoration:none!important;font:700 12px/1.4 'Segoe UI',Arial,sans-serif!important}",
     ".ir-export-toplink,.ir-export-menu-trigger{display:flex!important;align-items:center!important;justify-content:center!important;gap:10px!important;min-height:41px!important;padding:10px 17px!important;border-radius:9px!important;border:1px solid #dae6ef!important;background:#f4f8fc!important;color:#315a76!important;white-space:nowrap!important;cursor:pointer!important;user-select:none!important}",
@@ -907,7 +1011,14 @@
    ].join("\n");
    const activeHero=document.querySelector(".object-overview-hero");
    if(String(activeHero?.dataset.objectId||"")!==id)throw Error("Во время выгрузки изменился открытый объект. Повторите действие.");
-   const overviewSnapshot=snapshot(keys,selection.overview,companyHeader.markup);
+   const indicatorTypes=["work-types","marks","reports","deliveries","scheme"];
+   const indicatorRows=selection.overview?Object.fromEntries(await Promise.all(indicatorTypes.map(async key=>{
+    if(rows[key])return[key,rows[key]];
+    try{return[key,array(await api.section(key).list())]}
+    catch(error){console.warn("Object HTML: indicators unavailable",key,error);return[key,[]]}
+   }))):{};
+   const indicatorsMarkup=selection.overview?renderIndicatorBlock(indicatorRows,keys):"";
+   const overviewSnapshot=snapshot(keys,selection.overview,companyHeader.markup,indicatorsMarkup);
    const htmlSnapshot=overviewSnapshot.overview;
    const activeNavStyles=keys.filter(key=>/^[a-z0-9_-]+$/i.test(key)).map(key=>'body:has(#section-'+key+':target) .ir-export-topnav .ir-export-subnav-link[href="#section-'+key+'"]{background:#e6f2fc!important;color:#176ca7!important;font-weight:800!important}').join("\n");
    const extras=window.irObjectExportExtras;
