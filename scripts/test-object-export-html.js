@@ -403,7 +403,7 @@ assert(source.includes('copy.querySelector(".ir-export-topnav")?.insertAdjacentH
 assert(source.includes('.ir-export-indicator-cards{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))'),"five equal KPI cards");
 assert(source.includes('linkOptions.filter(x=>keys.includes(x[0]))'),"shortcuts only to exported sections");
 assert(source.includes('href="#section-')&&source.includes('esc(key)'),"shortcuts are local HTML anchors");
-assert(source.includes('const primary=["тн","м2","м3"].find(u=>allUnits.has(u))'),"different units never summed");
+assert(source.includes('const orderedUnits=[...allUnits].sort('),"all units remain separate and sorted");
 assert(source.includes('ir-export-resource-values'),"people and equipment are visible together");
 const indicatorsStart=source.indexOf(" function exportSummaryCompletion("),indicatorsEnd=source.indexOf(" function snapshot(",indicatorsStart);
 assert(indicatorsStart>=0&&indicatorsEnd>indicatorsStart,"standalone formulas can be exercised");
