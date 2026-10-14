@@ -637,6 +637,40 @@
    '<div class="ir-export-indicator-cards">'+cardHtml+'</div>'+(links?'<nav class="ir-export-indicator-links" aria-label="Быстрые переходы по отчёту">'+links+'</nav>':"")+'</section>'
  }
 
+ // Weather in the live dashboard is populated asynchronously. A static offline
+ // export must not capture "Загрузка…" while the request is still pending.
+ async function exportWaitForWeather(timeoutMs=7000){
+  const app=document.getElementById("app");
+  if(!app)return;
+  const settled=()=>{
+   const weather=app.querySelector(".object-overview-top-stats .oos-weather");
+   return Boolean(weather&&!weather.querySelector(".oos-weather-loading"))
+  };
+  if(settled())return;
+  await new Promise(resolve=>{
+   let done=false;
+   const observer=new MutationObserver(()=>{
+    if(settled()||!app.isConnected)finish()
+   });
+   const finish=()=>{
+    if(done)return;
+    done=true;
+    observer.disconnect();
+    clearTimeout(timeout);
+    resolve()
+   };
+   const timeout=setTimeout(finish,timeoutMs);
+   observer.observe(app,{subtree:true,childList:true});
+   if(settled())finish()
+  })
+ }
+ function exportFinalizeWeather(copy){
+  const loading=copy.querySelector(".ir-export-indicators .oos-weather-loading");
+  if(!loading)return;
+  const title=loading.querySelector("b"),caption=loading.querySelector("small");
+  if(title)title.textContent="Нет данных";
+  if(caption)caption.textContent="Погода не загрузилась к моменту выгрузки"
+ }
  function snapshot(keys,includeOverview=true,headerMarkup="",indicatorsMarkup="",reportRows=[]){
   const live=document.getElementById("app");
   if(!live?.querySelector(".object-overview-hero"))throw Error("Откройте страницу «Обзор» нужного объекта.");
@@ -679,6 +713,7 @@
    const links=indicatorSection.querySelector(".ir-export-indicator-links");
    if(links)links.before(stats);else indicatorSection.append(stats)
   }
+  exportFinalizeWeather(copy);
   const preview=extractOverviewPreviews(copy,keys);
   // The remaining dashboard wrappers belong to individual export sections, not an overview column.
   copy.querySelector(".ir-object-overview-layout")?.remove();
@@ -1213,6 +1248,15 @@
     "body.ir-object-overview #app #section-schedule .ir-export-gantt-options{margin:0!important}",
     "@media(max-width:760px){body.ir-object-overview #app .ir-export-indicators{padding:15px 12px 19px!important}body.ir-object-overview #app .ir-export-group .ir-export-section{padding:18px 12px 20px!important}body.ir-object-overview #app .ir-export-indicators>.object-overview-top-stats{grid-template-columns:1fr!important}body.ir-object-overview #app #section-schedule>.ir-export-visual-section{padding:18px 12px 20px!important}}",
     "@media print{body.ir-object-overview #app .ir-export-group{break-inside:auto!important}body.ir-object-overview #app .ir-export-indicators{border-bottom:1px solid #dbe5ed!important}body.ir-object-overview #app .ir-export-group .ir-export-section{padding:16px 0!important}body.ir-object-overview #app #section-schedule>.ir-export-visual-section{padding:16px 0!important}}",
+    "/* Stabilize the archived weather widget after moving resources below object KPIs. */",
+    "body.ir-object-overview #app .ir-export-indicators>.object-overview-top-stats{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.65fr)!important;align-items:stretch!important}",
+    "body.ir-object-overview #app .ir-export-indicators>.object-overview-top-stats>.oos-weather{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;min-width:0!important;min-height:110px!important;padding:12px!important;overflow:hidden!important;flex-wrap:wrap!important}",
+    "body.ir-object-overview #app .ir-export-indicators .oos-weather-main{min-width:0!important;flex:1 1 130px!important}",
+    "body.ir-object-overview #app .ir-export-indicators .oos-weather-meta{min-width:0!important;flex:0 1 158px!important;grid-template-columns:repeat(2,minmax(0,1fr))!important}",
+    "body.ir-object-overview #app .ir-export-indicators .oos-weather-chip{min-width:0!important}",
+    "@media(max-width:830px){body.ir-object-overview #app .ir-export-indicators>.object-overview-top-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}body.ir-object-overview #app .ir-export-indicators>.object-overview-top-stats>.oos-weather{grid-column:1/-1!important}}",
+    "@media(max-width:560px){body.ir-object-overview #app .ir-export-indicators>.object-overview-top-stats{grid-template-columns:minmax(0,1fr)!important}body.ir-object-overview #app .ir-export-indicators>.object-overview-top-stats>.oos-weather{grid-column:auto!important}body.ir-object-overview #app .ir-export-indicators .oos-weather-meta{flex:1 1 100%!important}}",
+    "@media print{body.ir-object-overview #app .ir-export-indicators>.object-overview-top-stats>.oos-weather{break-inside:avoid!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}",
     "@media print{body.ir-object-route.ir-object-overview{background:#fff!important}body.ir-object-overview #app{margin:0 auto!important;width:100%!important;max-width:1000px!important;box-shadow:none!important}.ir-export-topnav{position:relative!important;top:auto!important}.ir-export-menu-items{box-shadow:none!important}.ir-export-record{break-inside:avoid}.ir-export-section{break-before:page;margin:8px 0!important}.ir-export-daily-card details,.ir-export-mark-card details{display:block!important}}"
    ].join("\n");
    const activeHero=document.querySelector(".object-overview-hero");
@@ -1224,6 +1268,7 @@
     catch(error){console.warn("Object HTML: indicators unavailable",key,error);return[key,[]]}
    }))):{};
    const indicatorsMarkup=selection.overview?renderIndicatorBlock(indicatorRows,keys):"";
+   if(selection.overview)await exportWaitForWeather();
    const overviewSnapshot=snapshot(keys,selection.overview,companyHeader.markup,indicatorsMarkup,indicatorRows.reports||[]);
    const htmlSnapshot=overviewSnapshot.overview;
    const activeNavStyles=keys.filter(key=>/^[a-z0-9_-]+$/i.test(key)).map(key=>'body:has(#section-'+key+':target) .ir-export-topnav .ir-export-subnav-link[href="#section-'+key+'"]{background:#e6f2fc!important;color:#176ca7!important;font-weight:800!important}').join("\n");
