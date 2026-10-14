@@ -13,6 +13,13 @@ for(const [raw,base,mount,supply] of [
  assert.equal(names.base(raw),base);assert.equal(names.mount(raw),mount);assert.equal(names.delivery(raw),supply);
  assert.equal(names.delivery(names.mount(raw)),supply)
 }
+for(const [raw,base,mount,supply] of [
+ ["Монтаж профнастила боксов","Профнастил боксов","Монтаж профнастила боксов","Поставка профнастила боксов"],
+ ["Монтаж профнастила кровли","Профнастил кровли","Монтаж профнастила кровли","Поставка профнастила кровли"],
+ ["Монтаж профнастила веншахт","Профнастил веншахт","Монтаж профнастила веншахт","Поставка профнастила веншахт"],
+ ["Монтаж сэндвич-панелей веншахт","Сэндвич-панели веншахт","Монтаж сэндвич-панелей веншахт","Поставка сэндвич-панелей веншахт"],
+ ["Монтаж металлоконструкций боксов","Металлоконструкции боксов","Монтаж металлоконструкций боксов","Поставка металлоконструкций боксов"]
+]){assert.equal(names.base(raw),base);assert.equal(names.mount(raw),mount);assert.equal(names.delivery(raw),supply);assert.equal(names.mount(names.delivery(raw)),mount)}
 for(const n of ["Монтаж балок","Изготовление металлоконструкций","Бетонные работы","Монтаж металлоконструкций КМ-01"]){assert.equal(names.base(n),n);assert.equal(names.delivery(n),n)}
 assert(fs.readFileSync("src/ir-runtime.js","utf8").includes("window.irWorkNames={category:workKind"),"bundled format helper");
 for(const [p,fragment] of [

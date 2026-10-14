@@ -8,16 +8,21 @@
  };
  const normalizeName=v=>String(v??"").trim().toLowerCase().replace(/ё/g,"е")
   .replace(/\s+/g," ").replace(/\s*[-–—]\s*/g,"-").replace(/^(?:монтаж|поставка)\s+/,"");
- const workKind=v=>{
-  const n=normalizeName(v);
-  if(["металлоконструкция","металлоконструкции","металлоконструкций"].includes(n))return"metal";
-  if(["сэндвич-панель","сэндвич-панели","сэндвич-панелей"].includes(n))return"sandwich";
-  if(["профнастил","профнастила"].includes(n))return"profile";
-  return null
+ // Preserve descriptive Cyrillic tails (боксов, кровли, веншахт).
+ // Numeric drawing identifiers stay untouched.
+ const parseWork=raw=>{
+  const m=normalizeName(raw).match(/^(металлоконструкция|металлоконструкции|металлоконструкций|сэндвич-панель|сэндвич-панели|сэндвич-панелей|профнастил|профнастила)(\s+[а-яё]+(?:[\s-][а-яё]+)*)?$/u);
+  if(!m)return null;
+  const kind=m[1].startsWith("металло")?"metal":m[1].startsWith("сэндвич")?"sandwich":"profile";
+  return{kind,suffix:m[2]||""}
  };
+ const workKind=raw=>parseWork(raw)?.kind||null;
  const formatName=(raw,context="base")=>{
-  const kind=workKind(raw);
-  return kind?labels[kind][context==="mount"?1:context==="delivery"?2:0]:String(raw??"")
+  const parsed=parseWork(raw);
+  if(!parsed)return String(raw??"");
+  const noun=parsed.kind==="metal"&&parsed.suffix&&context==="base"?"Металлоконструкции":
+   labels[parsed.kind][context==="mount"?1:context==="delivery"?2:0];
+  return noun+parsed.suffix
  };
  window.irWorkNames={category:workKind,format:formatName,base:v=>formatName(v),mount:v=>formatName(v,"mount"),delivery:v=>formatName(v,"delivery")};
  const clean=u=>String(u||"").trim().toLowerCase().replace(/²/g,"2").replace(/³/g,"3").replace(/\s+/g,"");

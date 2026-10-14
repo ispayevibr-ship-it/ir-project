@@ -269,9 +269,12 @@
  function renderMarksOverview(markRows,workRows,reportRows){
   const groups=markProgressGroups(markRows,workRows,reportRows);
   const total=groups.reduce((s,x)=>s+x.total,0),mounted=groups.reduce((s,x)=>s+x.mounted,0);
-  const left=Math.max(0,total-mounted),percent=total?Math.round(mounted/total*1000)/10:0;
+  const left=Math.max(0,total-mounted);
+  // This header is the same average-by-work-type KPI as "Показатели объекта".
+  // Each row below continues to show the progress by number of marks.
+  const percent=exportSummaryCompletion(workRows,markRows,reportRows);
   return'<div class="ir-export-marks-summary">'+
-   '<div class="ir-export-marks-title"><div><h3>Готовность по видам работ</h3><p>Количество отправочных марок в штуках · монтаж из ежедневных отчётов</p></div><b>'+esc(exportFormat(percent))+'%</b></div>'+
+   '<div class="ir-export-marks-title"><div><h3>Готовность по видам работ</h3><p>Средняя готовность по видам работ · ниже прогресс по количеству марок</p></div><b>'+esc(exportFormat(percent))+'%</b></div>'+
    '<div class="ir-export-marks-stats"><div><small>Всего марок</small><b>'+esc(exportFormat(total))+' шт.</b></div><div><small>Смонтировано</small><b>'+esc(exportFormat(mounted))+' шт.</b></div><div><small>Осталось</small><b>'+esc(exportFormat(left))+' шт.</b></div><div><small>Групп видов работ / шифров</small><b>'+groups.length+'</b></div></div>'+
    '<div class="ir-export-mark-switcher"><div class="ir-export-mark-head"><span>Вид работы</span><span>Шифр</span><span>Всего марок</span><span>Шкала прогресса</span><span>Смонтировано, шт. / %</span><span>Осталось, шт. / %</span></div>'+
    markProgressPanel(groups,"all")+'</div></div>'
@@ -1279,7 +1282,18 @@
     "body.ir-object-overview #app #section-marks .ir-export-work-panels,body.ir-object-overview #app #section-marks .ir-export-mark-cards,body.ir-object-overview #app #section-marks .ir-export-mark-cardlist{box-sizing:border-box!important;width:100%!important;max-width:100%!important;min-width:0!important}",
     "@media(max-width:760px){body.ir-object-overview #app #section-marks .ir-export-work-filter::before{left:-12px!important;width:calc(100% + 24px)!important}body.ir-object-overview #app #section-marks .ir-export-work-tabs{gap:5px!important;padding:3px!important}body.ir-object-overview #app #section-marks .ir-export-work-tabs label{padding:8px!important;font-size:10px!important}}",
     "@media print{body.ir-object-overview #app #section-marks .ir-export-work-filter::before{left:0!important;width:100%!important;margin:10px 0 14px!important}}",
-    "@media print{body.ir-object-route.ir-object-overview{background:#fff!important}body.ir-object-overview #app{margin:0 auto!important;width:100%!important;max-width:1000px!important;box-shadow:none!important}.ir-export-topnav{position:relative!important;top:auto!important}.ir-export-menu-items{box-shadow:none!important}.ir-export-record{break-inside:avoid}.ir-export-section{break-before:page;margin:8px 0!important}.ir-export-daily-card details,.ir-export-mark-card details{display:block!important}}"
+    "/* Mark register follows the section grid, never exceeding its right border. */",
+    "body.ir-object-overview #app #section-marks,body.ir-object-overview #app #section-marks .ir-export-marks-section,body.ir-object-overview #app #section-marks .ir-export-marks-unified,body.ir-object-overview #app #section-marks .ir-export-work-filter{box-sizing:border-box!important;display:block!important;width:100%!important;max-width:100%!important;min-width:0!important}",
+    "body.ir-object-overview #app #section-marks .ir-export-work-hint{box-sizing:border-box!important;margin:0 0 12px!important;padding:0!important;max-width:100%!important}",
+    "body.ir-object-overview #app #section-marks .ir-export-status-tabs{box-sizing:border-box!important;margin:0!important;padding:0 0 12px!important;max-width:100%!important}",
+    "body.ir-object-overview #app #section-marks .ir-export-work-tabs{box-sizing:border-box!important;display:flex!important;flex-wrap:wrap!important;gap:6px!important;align-items:center!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:4px 0 14px!important;padding:4px!important;overflow:hidden!important}",
+    "body.ir-object-overview #app #section-marks .ir-export-work-tabs label{box-sizing:border-box!important;flex:0 1 auto!important;max-width:100%!important;min-width:0!important;margin:0!important;white-space:normal!important;overflow-wrap:anywhere!important;word-break:normal!important}",
+    "body.ir-object-overview #app #section-marks .ir-export-work-tabs label span{white-space:nowrap!important;flex-shrink:0!important}",
+    "body.ir-object-overview #app #section-marks .ir-export-work-panels,body.ir-object-overview #app #section-marks .ir-export-work-panel,body.ir-object-overview #app #section-marks .ir-export-mark-cards,body.ir-object-overview #app #section-marks .ir-export-mark-cardlist{box-sizing:border-box!important;width:100%!important;max-width:100%!important;min-width:0!important}",
+    "body.ir-object-overview #app #section-marks .ir-export-mark-cards{display:grid!important;grid-template-columns:minmax(0,1fr)!important;margin:0!important;padding:0!important;gap:9px!important;background:transparent!important}",
+    "body.ir-object-overview #app #section-marks .ir-export-mark-card,body.ir-object-overview #app #section-marks .ir-export-mark-card details,body.ir-object-overview #app #section-marks .ir-export-mark-brief{box-sizing:border-box!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important}",
+    "body.ir-object-overview #app #section-marks .ir-export-mark-main{min-width:0!important}",
+    "@media(max-width:640px){body.ir-object-overview #app #section-marks .ir-export-mark-brief{flex-wrap:wrap!important;gap:8px!important}body.ir-object-overview #app #section-marks .ir-export-mark-main{flex:1 1 55%!important}body.ir-object-overview #app #section-marks .ir-export-mark-badge{flex:0 1 auto!important;min-width:0!important}}",    "@media print{body.ir-object-route.ir-object-overview{background:#fff!important}body.ir-object-overview #app{margin:0 auto!important;width:100%!important;max-width:1000px!important;box-shadow:none!important}.ir-export-topnav{position:relative!important;top:auto!important}.ir-export-menu-items{box-shadow:none!important}.ir-export-record{break-inside:avoid}.ir-export-section{break-before:page;margin:8px 0!important}.ir-export-daily-card details,.ir-export-mark-card details{display:block!important}}"
    ].join("\n");
    const activeHero=document.querySelector(".object-overview-hero");
    if(String(activeHero?.dataset.objectId||"")!==id)throw Error("Во время выгрузки изменился открытый объект. Повторите действие.");

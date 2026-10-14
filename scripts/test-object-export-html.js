@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17186'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17187'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -20,6 +20,8 @@ assert(source.includes("renderDailyReports(rows,images)"),"daily reports use spe
 assert(source.includes('exportMoreCards(cards,"reports")'),"only five report cards initially visible");
 assert(source.includes('<details class="ir-export-more ir-export-more-'),"show-more works with native details in offline HTML");
 assert(source.includes("renderMarksOverview(markRows,workRows,reportRows)"),"grouped marks overview is generated");
+assert(source.includes("const percent=exportSummaryCompletion(workRows,markRows,reportRows)"),"progress header uses the same average as top KPI");
+assert(source.includes("ниже прогресс по количеству марок"),"count-based rows are differentiated from overall readiness");
 assert(!source.includes('ir-export-mark-radio--mounted" type="radio"'),"work progress has no mounted status toggle");
 assert(!source.includes('ir-export-mark-radio--remaining" type="radio"'),"work progress has no remaining status toggle");
 assert(source.includes('markProgressPanel(groups,"all")'),"readiness shows all work types");
@@ -69,6 +71,15 @@ assert(source.includes("ir-export-mark-showmore"),"show-full register uses acces
 
 assert(!source.includes('["marks",".object-overview-marks-wrap > .object-overview-marks-card"]'),"old limited marks preview removed");
 assert(!source.includes('["marks",".object-overview-reports > .oor-marks-card"]'),"old duplicate marks preview removed");
+const summaryStart=source.indexOf(" function renderMarksOverview("),summaryEnd=source.indexOf(" function markDetailData(",summaryStart);
+const summaryFn=vm.runInNewContext('(function(){const markProgressGroups=()=>[{total:10,mounted:5}];const exportSummaryCompletion=()=>24;const exportFormat=v=>String(v);const esc=v=>String(v);const markProgressPanel=()=>"<div>Марки</div>";'+source.slice(summaryStart,summaryEnd)+';return renderMarksOverview})()', {});
+const summaryHTML=summaryFn([],[],[]);
+assert(summaryHTML.includes("<b>24%</b>"),"overall headline matches 24% average work completion, not 50% count");
+assert(!summaryHTML.includes("<b>50%</b>"),"mark count does not override the main readiness");
+assert(source.includes(".ir-export-work-hint{box-sizing:border-box!important;margin:0 0 12px!important;padding:0!important"),"hint aligns with the title");
+assert(source.includes(".ir-export-status-tabs{box-sizing:border-box!important;margin:0!important;padding:0 0 12px!important"),"status tabs align with title");
+assert(source.includes(".ir-export-mark-cards{display:grid!important;grid-template-columns:minmax(0,1fr)!important"),"full width mark cards");
+assert(source.includes(".ir-export-work-tabs{box-sizing:border-box!important;display:flex!important;flex-wrap:wrap!important;gap:6px!important"),"no overflowing tabs");
 const groupStart=source.indexOf(" function markProgressGroups(");
 const groupEnd=source.indexOf(" function markProgressRow(",groupStart);
 assert(groupStart>=0&&groupEnd>groupStart,"pure mark grouping code exists");
