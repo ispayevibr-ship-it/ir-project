@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17165'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17166'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -199,7 +199,7 @@ assert(otherCardsHTML.includes("В10")&&otherCardsHTML.includes("В11"),"second 
 
 const extraSource=fs.readFileSync("src/object-export-extras.js","utf8");
 new vm.Script(extraSource,{filename:"object-export-extras.js"});
-assert(html.includes('object-export-extras.js?v=17165'),"standalone asset renderer loaded");
+assert(html.includes('object-export-extras.js?v=17166'),"standalone asset renderer loaded");
 const extraCtx={window:{},console};
 vm.runInNewContext(extraSource,extraCtx);
 const extras=extraCtx.window.irObjectExportExtras;
@@ -244,6 +244,14 @@ assert.equal(model.members[1].end[0],10000,"beam endpoint coordinates are preser
 assert(extras.schemeHtml(model).includes('data-view="plan"'),"Plan toggle is present");
 assert(extras.schemeViewer.toString().includes("pointermove"),"3D rotates with pointer drag");
 assert(extras.schemeViewer.toString().includes("wheel"),"3D wheel zoom is implemented");
+assert(extras.schemeViewer.toString().includes('scale=.74*Math.min(w,h)/span'),"3D fits the viewport");
+assert(extras.schemeViewer.toString().includes('center[0]'),"3D model is centered");
+const secondary=groupCalc(
+ [{id:111,data:{work_type_id:"7",qty:2,mark:"Б1"}}],
+ [{id:7,title:"Монтаж балок",data:{project_code:"КМ-01",project_code_2:"КМ-02"}}],
+ []
+);
+assert.equal(secondary[0].code2,"КМ-02","second project code is retained in work readiness");
 assert(!extras.schemeHtml(model).includes("Редактировать"),"no editing in scheme export");
 
 console.log("Full object HTML export: snapshot, offline navigation, read-only records, native save and no DB writes OK");
