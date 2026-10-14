@@ -119,7 +119,7 @@ assert(source.includes('dlg.showModal()'),"native export options dialog opens");
 assert(source.includes('Выбрать все')&&source.includes('Снять все'),"select/deselect all controls exist");
 assert(source.includes('if(!selection)return false;'),"cancel never starts saving");
 assert(source.includes('const keys=selection.keys;'),"only selected sections are loaded");
-assert(source.includes('snapshot(keys,selection.overview)'),"export can omit overview");
+assert(source.includes('snapshot(keys,selection.overview,companyHeader.markup)'),"export can omit overview while retaining company header");
 assert(source.includes('if(!includeOverview)'),"unselected overview content is discarded");
 assert(!source.includes("IR Project / Объект"),"repeated section breadcrumb is absent across the entire HTML export source");
 assert(source.includes('ir-export-group{scroll-margin-top:14px;min-width:0;width:100%;max-width:none;margin:0;padding:0}'),"all report groups span the available content width");
