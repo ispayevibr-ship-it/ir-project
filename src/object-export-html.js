@@ -764,9 +764,20 @@
    const overviewSnapshot=snapshot(keys,selection.overview);
    const htmlSnapshot=overviewSnapshot.overview;
    const activeNavStyles=keys.filter(key=>/^[a-z0-9_-]+$/i.test(key)).map(key=>'body:has(#section-'+key+':target) .ir-export-topnav .ir-export-subnav-link[href="#section-'+key+'"]{background:#e6f2fc!important;color:#176ca7!important;font-weight:800!important}').join("\n");
+   const extras=window.irObjectExportExtras;
+   if(!extras)throw new Error("Модуль экспорта разделов не загружен. Перезапустите IR Project.");
    const sectionsHtml=keys.map(key=>renderSection(key,rows[key]||[],photos,overviewSnapshot.preview[key]||"",{workTypes:supporting[0],reports:supporting[1]})).join("");
+   let viewerScripts="",viewerCsp="";
+   if(keys.includes("scheme")){
+    const scheme=extras.schemeData(rows.scheme||[]);
+    const encoded=JSON.stringify(scheme).replace(/</g,"\\u003c").replace(/\u2028/g,"\\u2028").replace(/\u2029/g,"\\u2029");
+    const nonce=btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
+    const engine="("+extras.schemeViewer.toString()+")();";
+    viewerCsp="; script-src 'nonce-"+nonce+"'; connect-src 'none'; object-src 'none'";
+    viewerScripts='<script type="application/json" id="ir-export-scheme-data" nonce="'+nonce+'">'+encoded+'</script><script nonce="'+nonce+'">'+engine+'</script>'
+   }
    const generated=new Date().toLocaleString("ru-RU");
-   const html='<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;; img-src data:; font-src data:"><title>'+esc(object.name||"IR Project")+' — отчёт объекта</title><style>'+css+'</style><style>'+extraStyles+'\n'+activeNavStyles+'</style></head><body class="ir-object-route ir-object-overview"><main id="app">'+htmlSnapshot+sectionsHtml+'<footer class="ir-export-section"><b>IR Project</b> · Снимок объекта от '+esc(generated)+'. Только просмотр. Данные не связаны с рабочей базой.</footer></main></body></html>';
+   const html='<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;; img-src data:; font-src data:'+viewerCsp+'"><title>'+esc(object.name||"IR Project")+' — отчёт объекта</title><style>'+css+'</style><style>'+extraStyles+'\n'+(extras?.css||'')+'\n'+activeNavStyles+'</style></head><body class="ir-object-route ir-object-overview"><main id="app">'+htmlSnapshot+sectionsHtml+'<footer class="ir-export-section"><b>IR Project</b> · Снимок объекта от '+esc(generated)+'. Только просмотр. Данные не связаны с рабочей базой.</footer></main>'+viewerScripts+'</body></html>';
    const name=safeFile(object.short_name||object.name||"Объект");
    const result=await irProject.reportExport.html(html,"IR Project — "+name+" — весь объект.html");
    if(result&&typeof window.irProjectNotice==="function")window.irProjectNotice("HTML-отчёт объекта сохранён. Файл доступен только для просмотра.","success");
