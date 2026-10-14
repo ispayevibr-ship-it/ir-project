@@ -164,10 +164,8 @@
  function extractOverviewPreviews(copy,keys){
   const available=new Set(keys),previews={};
   // Daily reports and grouped marks have their own archive cards, not duplicate overview widgets.
-  copy.querySelectorAll(".object-overview-reports > .oor2-card:not(.oor2-photo-card):not(.oor-marks-card),.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-reports > .oor-marks-card").forEach(card=>card.remove());
+  copy.querySelectorAll(".object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries").forEach(card=>card.remove());
   const sources=[
-   ["photos",".object-overview-reports > .oor2-photo-card"],
-   ["deliveries",".object-overview-deliveries-wrap > .ood-deliveries"],
    ["deliveries",".object-overview-deliveries-wrap > .ood-comparison"],
    ["schedule",".object-overview-dashboard > .object-overview-schedule"],
    ["acted-days",".object-overview-admin-analysis > .ooa-acted"],
@@ -195,7 +193,7 @@
   const normalize=v=>String(v??"").trim().toLowerCase().replace(/\s+/g," ");
   const catalog=new Map(array(workRows).map(row=>{
    const d=row.data||{};
-   return[String(row.id),{name:String(d.work_type||row.title||"Без вида работ"),code:String(d.project_code||d.code||"").trim()}]
+   return[String(row.id),{name:String(d.work_type||row.title||"Без вида работ"),code:String(d.project_code||d.code||"").trim(),code2:String(d.project_code_2||"").trim()}]
   }));
   const mountedMap=new Map();
   for(const record of array(reportRows)){
@@ -213,8 +211,9 @@
    const d=raw.data||{},qty=Math.max(0,exportNumber(d.qty??d.count));
    if(qty<=0||d.accounting_type==="service"||normalize(d.unit)==="услуга")continue;
    const wid=String(d.work_type_id||""),work=catalog.get(wid),name=String(work?.name||d.work_type||raw.title||"Без вида работ").trim(),code=String(d.project_code||work?.code||d.code||"").trim();
-   const key=(wid||normalize(name))+"|"+normalize(code);
-   if(!groups.has(key))groups.set(key,{workId:wid,name,code,total:0,mounted:0,remaining:0,positions:0});
+   const code2=String(d.project_code_2||work?.code2||"").trim();
+   const key=(wid||normalize(name))+"|"+normalize(code)+"|"+normalize(code2);
+   if(!groups.has(key))groups.set(key,{workId:wid,name,code,code2,total:0,mounted:0,remaining:0,positions:0});
    const mark=groups.get(key),markId=String(raw.id);
    const fromReports=mountedMap.get(markId),done=Math.min(qty,Math.max(0,fromReports==null?exportNumber(d.mounted??d.done):fromReports));
    mark.total+=qty;mark.mounted+=done;mark.positions++
@@ -224,7 +223,7 @@
   for(const [wid,work] of catalog){
    if([...groups.values()].some(group=>group.workId===wid))continue;
    const key=wid+"|"+normalize(work.code);
-   if(!groups.has(key))groups.set(key,{workId:wid,name:work.name,code:work.code,total:0,mounted:0,remaining:0,positions:0})
+   if(!groups.has(key))groups.set(key,{workId:wid,name:work.name,code:work.code,code2:work.code2,total:0,mounted:0,remaining:0,positions:0})
   }
   return [...groups.values()].map(x=>({
    ...x,remaining:Math.max(0,x.total-x.mounted),
@@ -237,7 +236,7 @@
   const pct=v=>exportFormat(Math.round(v*10)/10)+"%";
   return'<article class="ir-export-mark-row">'+
    '<div class="ir-export-mark-name"><b>'+esc(group.name)+'</b><small>'+group.positions+' позиций</small></div>'+
-   '<div class="ir-export-mark-code">'+esc(group.code||"Без шифра")+'</div>'+
+   '<div class="ir-export-mark-code"><b>'+esc(group.code||"Без шифра")+'</b>'+(group.code2?'<small>Доп. шифр: '+esc(group.code2)+'</small>':"")+'</div>'+
    '<div class="ir-export-mark-count"><b>'+esc(exportFormat(group.total))+'</b><small>шт.</small></div>'+
    '<div class="ir-export-mark-progress" role="img" aria-label="Смонтировано '+esc(pct(mounted))+'"><div class="ir-export-mark-track"><i style="width:'+mounted.toFixed(2)+'%"></i></div><small>'+esc(pct(mounted))+' готовность</small></div>'+
    '<div class="ir-export-mark-fact"><b>'+esc(exportFormat(group.mounted))+' шт.</b><small>'+esc(pct(mounted))+'</small></div>'+
@@ -264,7 +263,7 @@
   const norm=v=>String(v??"").trim().toLowerCase().replace(/\s+/g," ");
   const works=new Map(array(workRows).map(row=>{
    const d=row.data||{};
-   return[String(row.id),{name:d.work_type||row.title||"Без вида работы",code:d.project_code||d.code||"",unit:d.unit||""}]
+   return[String(row.id),{name:d.work_type||row.title||"Без вида работы",code:d.project_code||d.code||"",code2:d.project_code_2||"",unit:d.unit||""}]
   }));
   const mounted=new Map();
   for(const report of array(reportRows)){
@@ -288,7 +287,7 @@
    const total=rawTotal!==null&&rawTotal!==undefined&&String(rawTotal).trim()!==""?exportNumber(rawTotal):qty*uv;
    return{
     id,index:i+1,workId:String(d.work_type_id||""),mark:String(d.mark||raw.title||"—"),name:String(d.name||"").trim(),
-    work:String(work.name||d.work_type||"Без вида работы"),code:String(d.project_code||d.code||work.code||"").trim(),
+    work:String(work.name||d.work_type||"Без вида работы"),code:String(d.project_code||d.code||work.code||"").trim(),code2:String(d.project_code_2||work.code2||"").trim(),
     qty,done,left,pct,uv,total,unit,
     status:qty>0&&done>=qty-1e-9?"done":done>0?"partial":"left"
    }
@@ -322,7 +321,7 @@
       '<div class="ir-export-mark-specs">'+
        '<div><small>Наименование</small><b>'+esc(m.name||"—")+'</b></div>'+
        '<div><small>Вид работы</small><b>'+esc(m.work)+'</b></div>'+
-       '<div><small>Шифр</small><b>'+esc(m.code||"—")+'</b></div>'+
+       '<div><small>Шифр</small><b>'+esc(m.code||"—")+'</b>'+(m.code2?'<small>Доп. шифр: '+esc(m.code2)+'</small>':"")+'</div>'+
        '<div><small>'+esc(unitName)+' 1 шт.</small><b>'+esc(exportFormat(m.uv))+' '+esc(unit)+'</b></div>'+
        '<div><small>'+esc(unitName)+' всего</small><b>'+esc(exportFormat(m.total))+' '+esc(unit)+'</b></div>'+
       '</div>'+
@@ -371,9 +370,13 @@
  }
 
  function renderSection(key,rows,images,preview="",support={}){
-  const body=key==="reports"?renderDailyReports(rows,images):key==="marks"?renderMarkSection(rows,support.workTypes||[],support.reports||[],images):renderRows(rows,key,images);
+  const extras=window.irObjectExportExtras;
+  const body=key==="reports"?renderDailyReports(rows,images):key==="marks"?renderMarkSection(rows,support.workTypes||[],support.reports||[],images):
+   key==="deliveries"?extras.deliveries(rows):key==="photos"?extras.recentPhotos(support.reports||[],images):
+   key==="scheme"?extras.schemeHtml(extras.schemeData(rows)):["schedule","acted-days","penalties"].includes(key)?"":renderRows(rows,key,images);
+  if(["schedule","acted-days","penalties"].includes(key))return'<div class="ir-export-group" id="section-'+esc(key)+'">'+(preview?'<div class="ir-export-preview">'+preview+'</div>':'<div class="ir-export-empty-card">Нет данных для анализа</div>')+'</div>';
   return'<div class="ir-export-group" id="section-'+esc(key)+'">'+(preview?'<div class="ir-export-preview">'+preview+'</div>':"")+
-   '<section class="ir-export-section"><header class="ir-export-section-head"><div><h2>'+esc(labels[key]||key)+'</h2></div><span class="ir-export-count">'+rows.length+' записей</span></header>'+body+'</section></div>'
+   '<section class="ir-export-section"><header class="ir-export-section-head"><div><h2>'+esc(labels[key]||key)+'</h2></div>'+(key==="photos"||key==="scheme"?"":'<span class="ir-export-count">'+rows.length+' записей</span>')+'</header>'+body+'</section></div>'
  }
  function sidebarHtml(aside,keys,includeOverview=true){
   const originalNav=aside?.querySelector(".ir-object-nav");
@@ -483,11 +486,12 @@
     catch(error){console.warn("Object HTML: failed to load section",key,error);return[key,[]]}
    }));
    const rows=Object.fromEntries(batches);
-   const supporting=keys.includes("marks")?await Promise.all([
-    rows["work-types"]?Promise.resolve(rows["work-types"]):api.section("work-types").list().catch(()=>[]),
+   const supporting=keys.includes("marks")||keys.includes("photos")?await Promise.all([
+    keys.includes("marks")?(rows["work-types"]?Promise.resolve(rows["work-types"]):api.section("work-types").list().catch(()=>[])):Promise.resolve([]),
     rows.reports?Promise.resolve(rows.reports):api.section("reports").list().catch(()=>[])
    ]):[[],[]];
-   const photos=await inlinePhotos(rows);
+   const photoInputs=keys.includes("photos")?{...rows,reports:supporting[1]}:rows;
+   const photos=await inlinePhotos(photoInputs);
    const cssResponse=await fetch("./ir-styles.css?v=17149",{cache:"no-store"});
    if(!cssResponse.ok)throw Error("Не удалось загрузить оформление отчёта.");
    const css=await cssResponse.text();
