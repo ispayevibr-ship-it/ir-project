@@ -391,7 +391,8 @@
   const body=key==="reports"?renderDailyReports(rows,images):key==="marks"?renderMarkSection(rows,support.workTypes||[],support.reports||[],images):
    key==="deliveries"?extras.deliveries(rows):key==="photos"?extras.recentPhotos(support.reports||[],images):
    key==="scheme"?extras.schemeHtml(extras.schemeData(rows,support.schemeDetails||[])):["schedule","acted-days","penalties"].includes(key)?"":renderRows(rows,key,images);
-  if(["schedule","acted-days","penalties"].includes(key))return'<div class="ir-export-group" id="section-'+esc(key)+'">'+(preview?'<div class="ir-export-preview">'+preview+'</div>':'<div class="ir-export-empty-card">Нет данных для анализа</div>')+'</div>';
+  if(["schedule","acted-days","penalties"].includes(key))return'<div class="ir-export-group" id="section-'+esc(key)+'"><section class="ir-export-section ir-export-visual-section">'+(preview?'<div class="ir-export-preview">'+preview+'</div>':'<div class="ir-export-empty-card">Нет данных для анализа</div>')+'</section></div>';
+  if(key==="marks")return'<div class="ir-export-group" id="section-marks"><section class="ir-export-section ir-export-marks-section">'+body+'</section></div>';
   if(key==="deliveries")return'<div class="ir-export-group" id="section-deliveries"><section class="ir-export-section ir-export-deliveries-unified">'+
    '<header class="ir-export-section-head"><h2>Поставки и монтаж</h2><span class="ir-export-count">'+rows.length+' накладных</span></header>'+
    (preview?'<div class="ir-export-preview">'+preview+'</div>':"")+
@@ -623,8 +624,8 @@
   const cardHtml=cards.map(([key,title,value,u,desc,footer])=>{
    const values=key==="mounted"||key==="delivered"?unitsHtml(key):
     '<div class="ir-export-indicator-value">'+esc(value)+'<small>'+esc(u)+'</small></div>';
-   return'<article class="ir-export-indicator-card ir-export-indicator-'+key+'"><div class="ir-export-indicator-icon">'+svg(key)+'</div>'+
-    '<div class="ir-export-indicator-title">'+esc(title)+'</div>'+values+
+   return'<article class="ir-export-indicator-card ir-export-indicator-'+key+'"><div class="ir-export-indicator-head"><div class="ir-export-indicator-icon">'+svg(key)+'</div>'+
+    '<div class="ir-export-indicator-title">'+esc(title)+'</div></div>'+values+
     '<p>'+esc(desc)+'</p><div class="ir-export-indicator-foot">'+(key==="readiness"?'<div class="ir-export-indicator-track"><i style="width:'+Math.max(0,Math.min(100,readiness)).toFixed(2)+'%"></i></div>':esc(footer))+'</div></article>'
   }).join("");
   const linkOptions=[["scheme","Открыть монтажную схему","♜"],["photos","Посмотреть фотографии","▧"],["marks","Объёмы и ведомость марок","▤"]];
@@ -661,8 +662,8 @@
    if(indicatorsMarkup)copy.querySelector(".ir-export-topnav")?.insertAdjacentHTML("afterend",indicatorsMarkup)
   }
   const menu=copy.querySelector(".object-hero-menu");if(menu)menu.remove();
-  // This subtitle describes the live dashboard only and is omitted from the archive.
-  copy.querySelector(".ir-object-overview-sidehead p")?.remove();
+  // The printed overview is one continuous "Показатели объекта" section.
+  copy.querySelector(".ir-object-overview-sidehead")?.remove();
   const latest=exportLatestResources(reportRows);
   const stats=copy.querySelector(".object-overview-top-stats");
   // The archive already has a readiness KPI; remove its duplicate summary tile.
@@ -671,8 +672,16 @@
   const tech=stats?.querySelector(".oos-icon.equipment")?.closest(".oos-card")?.querySelector(".oos-copy");
   const note=latest.date?"Согласно отчета от "+exportDate(latest.date)+"г.":"Отчётов пока нет";
   if(human){human.querySelector("span").textContent="Люди · "+note;human.querySelector("b").textContent=latest.people+" чел.";human.querySelector("small").textContent="Работники: "+latest.workers+" · Ответственные: "+latest.responsible}
-  if(tech){tech.querySelector("span").textContent="Техника · "+note;tech.querySelector("b").textContent=latest.equipment+" ед.";tech.querySelector("small").textContent=note}
+  if(tech){tech.querySelector("span").textContent="Техника · "+note;tech.querySelector("b").textContent=latest.equipment+" ед.";tech.querySelector("small")?.remove()}
+  // Include people, equipment and weather immediately under object KPIs, no second heading.
+  const indicatorSection=copy.querySelector(".ir-export-indicators");
+  if(indicatorSection&&stats){
+   const links=indicatorSection.querySelector(".ir-export-indicator-links");
+   if(links)links.before(stats);else indicatorSection.append(stats)
+  }
   const preview=extractOverviewPreviews(copy,keys);
+  // The remaining dashboard wrappers belong to individual export sections, not an overview column.
+  copy.querySelector(".ir-object-overview-layout")?.remove();
   if(!includeOverview){
    const keep=new Set([hero,copy.querySelector(".ir-export-topnav"),copy.querySelector(".ir-export-companies")]);
    for(const child of [...copy.children])if(!keep.has(child))child.remove()
@@ -1179,6 +1188,31 @@
     "@media(max-width:760px){body.ir-object-overview #app .ir-export-companies{padding:9px 10px!important}body.ir-object-overview #app .ir-export-companies-grid{gap:8px!important}body.ir-object-overview #app .ir-export-company-logo{height:80px!important;min-height:80px!important;max-height:80px!important}body.ir-object-overview #app .ir-export-company-logo img{max-height:80px!important}body.ir-object-overview #app .ir-export-company-name{font-size:10px!important}}",
     "@media(max-width:560px){body.ir-object-overview #app .ir-export-companies-grid,body.ir-object-overview #app .ir-export-companies-two .ir-export-companies-grid{grid-template-columns:minmax(0,1fr)!important;gap:13px!important}body.ir-object-overview #app .ir-export-company-logo{height:85px!important;min-height:85px!important;max-height:85px!important}body.ir-object-overview #app .ir-export-company-logo img{max-height:85px!important}body.ir-object-overview #app .ir-export-company-name{font-size:12px!important}}",
     "@media print{body.ir-object-overview #app .ir-export-companies{margin:0!important;padding:9px 12px!important;break-inside:avoid!important}body.ir-object-overview #app .ir-export-company-card{break-inside:avoid!important}}",
+    "/* Continuous full-width archive sections, one separator after each logical section. */",
+    "body.ir-object-overview #app .ir-export-indicators{width:100%!important;max-width:none!important;margin:0!important;padding:19px 20px 23px!important;border:0!important;border-bottom:1px solid #dbe5ed!important;border-radius:0!important;box-shadow:none!important;background:#fff!important}",
+    "body.ir-object-overview #app .ir-export-indicator-head{display:flex!important;align-items:center!important;gap:10px!important;width:100%!important;min-height:37px!important;flex:0 0 auto!important}",
+    "body.ir-object-overview #app .ir-export-indicator-head .ir-export-indicator-icon{flex:0 0 35px!important;margin:0!important}",
+    "body.ir-object-overview #app .ir-export-indicator-head .ir-export-indicator-title{flex:1 1 auto!important;min-width:0!important;display:block!important;margin:0!important;color:#375870!important;font:800 11px/1.3 'Segoe UI',Arial,sans-serif!important;text-align:left!important;overflow-wrap:anywhere!important}",
+    "body.ir-object-overview #app .ir-export-indicators>.object-overview-top-stats{box-sizing:border-box!important;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:10px!important;width:100%!important;max-width:none!important;margin:16px 0 0!important;padding:0!important}",
+    "body.ir-object-overview #app .ir-export-indicators>.object-overview-top-stats .oos-card{min-width:0!important;margin:0!important}",
+    "body.ir-object-overview #app .ir-export-indicators>.ir-export-indicator-links{margin-top:14px!important}",
+    "body.ir-object-overview #app .ir-export-group{box-sizing:border-box!important;display:block!important;width:100%!important;max-width:none!important;min-width:0!important;margin:0!important;padding:0!important;border:0!important;border-bottom:1px solid #dbe5ed!important;border-radius:0!important;box-shadow:none!important;background:#fff!important}",
+    "body.ir-object-overview #app .ir-export-group .ir-export-section{box-sizing:border-box!important;display:block!important;width:100%!important;max-width:none!important;min-width:0!important;margin:0!important;padding:22px 20px 23px!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}",
+    "body.ir-object-overview #app .ir-export-group .ir-export-section-head{border:0!important;padding:0!important;margin:0 0 15px!important;min-height:0!important}",
+    "body.ir-object-overview #app #section-marks>.ir-export-marks-section{padding-top:21px!important}",
+    "body.ir-object-overview #app #section-marks .ir-export-marks-unified,body.ir-object-overview #app #section-marks .ir-export-marks-summary,body.ir-object-overview #app #section-marks .ir-export-work-filter{box-sizing:border-box!important;display:block!important;width:100%!important;max-width:none!important;min-width:0!important;margin:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important}",
+    "body.ir-object-overview #app #section-marks .ir-export-marks-title{padding:0 0 12px!important;margin:0!important;border:0!important}",
+    "body.ir-object-overview #app #section-marks .ir-export-marks-stats,body.ir-object-overview #app #section-marks .ir-export-mark-switcher{width:100%!important;max-width:none!important;min-width:0!important}",
+    "body.ir-object-overview #app #section-marks .ir-export-work-head{padding:20px 0 9px!important;margin:0!important;border-top:1px solid #edf1f4!important}",
+    "body.ir-object-overview #app #section-marks .ir-export-work-hint{margin:0 0 12px!important}",
+    "body.ir-object-overview #app #section-marks .ir-export-work-tabs,body.ir-object-overview #app #section-marks .ir-export-work-panels,body.ir-object-overview #app #section-marks .ir-export-mark-cards{box-sizing:border-box!important;width:100%!important;max-width:none!important;min-width:0!important}",
+    "body.ir-object-overview #app #section-schedule>.ir-export-visual-section{padding:22px 20px 23px!important}",
+    "body.ir-object-overview #app #section-schedule .ir-export-preview{display:block!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important}",
+    "body.ir-object-overview #app #section-schedule .ir-export-preview-layout,body.ir-object-overview #app #section-schedule .object-overview-dashboard,body.ir-object-overview #app #section-schedule .ir-export-gantt-filter,body.ir-object-overview #app #section-schedule .object-overview-schedule{box-sizing:border-box!important;display:block!important;width:100%!important;max-width:none!important;min-width:0!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:transparent!important;overflow:visible!important}",
+    "body.ir-object-overview #app #section-schedule .object-overview-block-head{padding:0 0 14px!important;margin:0 0 14px!important;border:0!important;min-height:0!important}",
+    "body.ir-object-overview #app #section-schedule .ir-export-gantt-options{margin:0!important}",
+    "@media(max-width:760px){body.ir-object-overview #app .ir-export-indicators{padding:15px 12px 19px!important}body.ir-object-overview #app .ir-export-group .ir-export-section{padding:18px 12px 20px!important}body.ir-object-overview #app .ir-export-indicators>.object-overview-top-stats{grid-template-columns:1fr!important}body.ir-object-overview #app #section-schedule>.ir-export-visual-section{padding:18px 12px 20px!important}}",
+    "@media print{body.ir-object-overview #app .ir-export-group{break-inside:auto!important}body.ir-object-overview #app .ir-export-indicators{border-bottom:1px solid #dbe5ed!important}body.ir-object-overview #app .ir-export-group .ir-export-section{padding:16px 0!important}body.ir-object-overview #app #section-schedule>.ir-export-visual-section{padding:16px 0!important}}",
     "@media print{body.ir-object-route.ir-object-overview{background:#fff!important}body.ir-object-overview #app{margin:0 auto!important;width:100%!important;max-width:1000px!important;box-shadow:none!important}.ir-export-topnav{position:relative!important;top:auto!important}.ir-export-menu-items{box-shadow:none!important}.ir-export-record{break-inside:avoid}.ir-export-section{break-before:page;margin:8px 0!important}.ir-export-daily-card details,.ir-export-mark-card details{display:block!important}}"
    ].join("\n");
    const activeHero=document.querySelector(".object-overview-hero");
