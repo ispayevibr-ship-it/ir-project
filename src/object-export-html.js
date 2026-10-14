@@ -133,23 +133,7 @@
   return'<div class="ir-export-daily-table"><table><thead><tr><th>Вид работы</th><th>Шифр</th><th>Марка / наименование</th><th>Кол-во</th><th>Выполнено</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
  }
  function reportFull(record,r,images){
-  const works=reportWorks(r),workers=reportPeople(r),responsible=reportResponsible(r),equipment=array(r.equipment),photos=reportPhotos(r);
-  const photoItems=photos.map((p,i)=>{
-   const path=photoPath(p),source=dataUrl(path)?path:images.get(path);
-   if(!source)return null;
-   const id='ir-export-daily-photo-'+String(record.id).replace(/[^a-z0-9_-]/gi,'-')+'-'+i;
-   const tile='<figure><a class="ir-export-daily-photo-link" href="#'+esc(id)+'" title="Увеличить фото"><img src="'+esc(source)+'" loading="lazy" alt="Фото отчёта '+(i+1)+'"></a><figcaption>Фото '+(i+1)+'</figcaption></figure>';
-   const lightbox='<div class="ir-export-gallery-lightbox" id="'+esc(id)+'"><a class="ir-export-gallery-shade" href="#section-reports" aria-label="Закрыть фото"></a><figure><img src="'+esc(source)+'" alt="Фото отчёта '+(i+1)+'"><figcaption>Фото '+(i+1)+'<a href="#section-reports">✕ Закрыть</a></figcaption></figure></div>';
-   return{tile,lightbox}
-  }).filter(Boolean);
-  const photoHtml=photoItems.map(x=>x.tile).join("");
-  const photoLightboxes=photoItems.map(x=>x.lightbox).join("");
-  return'<div class="ir-export-daily-full">'+
-   '<section><h3>Выполненные работы</h3>'+reportWorkTable(works)+'</section>'+
-   '<div class="ir-export-daily-columns"><section><h3>Работники</h3>'+reportChips(workers,"workers")+'</section><section><h3>Ответственные лица</h3>'+reportChips(responsible,"responsible")+'</section></div>'+
-   '<section><h3>Техника</h3>'+reportChips(equipment,"equipment")+'</section>'+
-   (photoHtml?'<section><h3>Фотографии · '+photoItems.length+'</h3><div class="ir-export-daily-photos">'+photoHtml+'</div></section>':'')+
-   photoLightboxes+'</div>'
+  return '<div class="ir-export-daily-full">'+reportWorkTable(reportWorks(r))+'</div>'
  }
 
  function exportMoreCards(htmlList,kind,totalCount=htmlList.length,totalUnits=0){
@@ -417,18 +401,24 @@
  }
 
  function companyHeaderHtml(parties){
+  const icons={
+   header:'<circle cx="8" cy="8" r="3"/><circle cx="16" cy="9" r="3"/><path d="M2 20v-2a6 6 0 0 1 12 0v2M13 20v-2a5 5 0 0 1 9 0v2"/>',
+   customer:'<path d="m3 11 5-5 4 4 4-4 5 5M3 14l6 6 3-2 3 2 6-6"/>',
+   contractor:'<path d="M4 16h16M5 16v-4a7 7 0 0 1 14 0v4M12 5v6M8 19h8"/>',
+   own:'<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>'
+  };
+  const svg=k=>'<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+icons[k]+'</svg>';
   const cards=[
-   {role:"Заказчик",name:parties.customerName,logo:parties.customerLogo},
-   {role:"Генподрядчик",name:parties.contractorName,logo:parties.contractorLogo},
-   ...(!parties.underContractor?[{role:"Наша компания",name:parties.ownName,logo:parties.ownLogo}]:[])
+   {tone:"customer",role:"Заказчик",name:parties.customerName,logo:parties.customerLogo},
+   {tone:"contractor",role:"Генподрядчик",name:parties.contractorName,logo:parties.contractorLogo},
+   ...(!parties.underContractor?[{tone:"own",role:"Исполнитель",name:parties.ownName,logo:parties.ownLogo}]:[])
   ];
-  return'<section class="ir-export-companies'+(cards.length===2?' ir-export-companies-two':'')+'" aria-label="Участники строительства"><div class="ir-export-companies-heading">Участники проекта</div><div class="ir-export-companies-grid">'+cards.map(p=>{
-   const img=p.logo?'<img src="'+esc(p.logo)+'" alt="Логотип: '+esc(p.role)+'">':
-    '<span class="ir-export-company-no-logo">Логотип не указан</span>';
-   return'<article class="ir-export-company-card"><div class="ir-export-company-role">'+esc(p.role)+'</div>'+
-    '<div class="ir-export-company-logo">'+img+'</div><div class="ir-export-company-name">'+esc(p.name||"Не указано")+'</div></article>'
+  return'<section class="ir-export-companies'+(cards.length===2?' ir-export-companies-two':'')+'" aria-label="Участники строительства"><div class="ir-export-companies-heading"><span class="ir-export-companies-glyph">'+svg("header")+'</span><span><b>Участники проекта</b><small>Ключевые стороны проекта</small></span></div><div class="ir-export-companies-grid">'+cards.map(p=>{
+   const img=p.logo?'<img src="'+esc(p.logo)+'" alt="Логотип: '+esc(p.role)+'">':'<span class="ir-export-company-no-logo">Логотип не указан</span>';
+   return'<article class="ir-export-company-card ir-export-company-'+p.tone+'"><div class="ir-export-company-role"><span class="ir-export-company-role-icon">'+svg(p.tone)+'</span><span>'+esc(p.role)+'</span></div><div class="ir-export-company-logo">'+img+'</div><div class="ir-export-company-name">'+esc(p.name||"Не указано")+'</div></article>'
   }).join("")+'</div></section>'
  }
+
  async function exportCompanyHeader(api,object,underContractor){
   const [rows,profile]=await Promise.all([
    api.section("object-meta").list().catch(error=>{console.warn("Object HTML: company logos unavailable",error);return []}),
@@ -563,11 +553,29 @@
   return{people:workers+responsible,equipment:countRows(d.equipment),workers,responsible,date:String(d.date||d.report_date||"")}
  }
 
+ function exportRecentResources(reports,limit=4){
+  const newest=[...array(reports)].sort((a,b)=>{
+   const x=String((a.data||a).date||(a.data||a).report_date||"");
+   const y=String((b.data||b).date||(b.data||b).report_date||"");
+   return y.localeCompare(x)||exportNumber(b.id)-exportNumber(a.id)
+  }).slice(0,limit);
+  if(!newest.length)return{days:0,people:0,workers:0,responsible:0,equipment:0};
+  let workers=0,responsible=0,equipment=0;
+  for(const r of newest){
+   const d=r.data||r;
+   workers+=reportPeople(d).reduce((n,x)=>n+exportNumber(x.count??x.qty),0);
+   responsible+=reportResponsible(d).reduce((n,x)=>{
+    const c=exportNumber(x.count??x.qty);return n+(c>0?c:(x.name||x.role?1:0))
+   },0);
+   equipment+=reportCountEquipment(d)
+  }
+  const avg=x=>Math.ceil(x/newest.length),w=avg(workers),r=avg(responsible);
+  return{days:newest.length,people:w+r,workers:w,responsible:r,equipment:avg(equipment)}
+ }
  function renderIndicatorBlock(data,keys){
   const works=array(data["work-types"]),marks=array(data.marks),reports=array(data.reports),deliveries=array(data.deliveries);
   const readiness=exportSummaryCompletion(works,marks,reports);
-  const resources=exportLatestResources(reports);
-  const unit=u=>{
+   const unit=u=>{
    const s=String(u||"").trim().toLowerCase().replace(/²/g,"2").replace(/³/g,"3").replace(/[\s.]/g,"");
    return ["т","тн","tn","ton","tons"].includes(s)?"тн":
     ["м2","m2","м^2","m^2","квм","мкв"].includes(s)?"м2":
@@ -619,7 +627,7 @@
     '<div class="ir-export-indicator-unit-row"><b>'+esc(fmt(totals[kind].get(u)||0))+'</b><small>'+esc(u)+'</small></div>'
    ).join("")+'</div>'
   };
-  const last=resources.date;
+  const last=exportLatestResources(reports).date;
   const icons={
    readiness:'<circle cx="12" cy="12" r="9"/><path d="M12 12V6M12 12l4 3"/>',
    mounted:'<path d="M4 17 10 11l4 4 6-8M15 7h5v5"/>',
@@ -632,13 +640,10 @@
    ["readiness","Средняя готовность",String(Math.round(readiness)),"%","Среднее по видам работ",""],
    ["mounted","Смонтировано","","","По ежедневным отчётам",orderedUnits.length>1?"Объёмы отдельно по единицам":"Фактический объём"],
    ["delivered","Поставлено","","","По накладным",orderedUnits.length>1?"Объёмы отдельно по единицам":orderedUnits.length===1?"Остаток: "+fmt((totals.delivered.get(orderedUnits[0])||0)-(totals.mounted.get(orderedUnits[0])||0))+" "+orderedUnits[0]:"Нет поставок"],
-   ["reports","Ежедневные отчёты",String(reports.length),"шт.","История выполненных работ",last?"Последний: "+exportDate(last):"Отчётов пока нет"],
-   ["resources","Люди и техника","","","По последнему отчёту",last?"На "+exportDate(last):"Нет отчётов"]
+   ["reports","Ежедневные отчёты",String(reports.length),"шт.","История выполненных работ",last?"Последний: "+exportDate(last):"Отчётов пока нет"]
   ];
   const cardHtml=cards.map(([key,title,value,u,desc,footer])=>{
-   const values=key==="resources"?
-    '<div class="ir-export-resource-values"><div><b>'+esc(resources.people)+'</b><small>чел.</small></div><div><b>'+esc(resources.equipment)+'</b><small>ед. техники</small></div></div>':
-    key==="mounted"||key==="delivered"?unitsHtml(key):
+   const values=key==="mounted"||key==="delivered"?unitsHtml(key):
     '<div class="ir-export-indicator-value">'+esc(value)+'<small>'+esc(u)+'</small></div>';
    return'<article class="ir-export-indicator-card ir-export-indicator-'+key+'"><div class="ir-export-indicator-icon">'+svg(key)+'</div>'+
     '<div class="ir-export-indicator-title">'+esc(title)+'</div>'+values+
@@ -653,7 +658,7 @@
    '<div class="ir-export-indicator-cards">'+cardHtml+'</div>'+(links?'<nav class="ir-export-indicator-links" aria-label="Быстрые переходы по отчёту">'+links+'</nav>':"")+'</section>'
  }
 
- function snapshot(keys,includeOverview=true,headerMarkup="",indicatorsMarkup=""){
+ function snapshot(keys,includeOverview=true,headerMarkup="",indicatorsMarkup="",reportRows=[]){
   const live=document.getElementById("app");
   if(!live?.querySelector(".object-overview-hero"))throw Error("Откройте страницу «Обзор» нужного объекта.");
   const copy=live.cloneNode(true);
@@ -664,12 +669,24 @@
   const hero=copy.querySelector(".object-overview-hero");
   if(hero){
    hero.id="overview";
+   hero.classList.add("ir-export-banner-only");
+   hero.querySelector(".object-hero-content")?.remove();
+   hero.querySelector(".object-hero-shade")?.remove();
    if(headerMarkup)hero.insertAdjacentHTML("beforebegin",headerMarkup);
    // The offline navigation belongs immediately after the object banner, not in a fixed sidebar.
    hero.insertAdjacentHTML("afterend",sidebarHtml(document.querySelector(".ir-object-sidebar-fixed"),keys,includeOverview));
    if(indicatorsMarkup)copy.querySelector(".ir-export-topnav")?.insertAdjacentHTML("afterend",indicatorsMarkup)
   }
   const menu=copy.querySelector(".object-hero-menu");if(menu)menu.remove();
+  const recent=exportRecentResources(reportRows);
+  const stats=copy.querySelector(".object-overview-top-stats");
+  const title=stats?.querySelector(".oos-progress .oos-copy b");
+  if(title)title.textContent="Готовность объекта";
+  const human=stats?.querySelector(".oos-icon.people")?.closest(".oos-card")?.querySelector(".oos-copy");
+  const tech=stats?.querySelector(".oos-icon.equipment")?.closest(".oos-card")?.querySelector(".oos-copy");
+  const note=recent.days?"По последним "+recent.days+" "+(recent.days===1?"отчёту":"отчётам"):"Отчётов пока нет";
+  if(human){human.querySelector("span").textContent="Люди · "+note;human.querySelector("b").textContent=recent.people+" чел.";human.querySelector("small").textContent="Работники: "+recent.workers+" · Ответственные: "+recent.responsible}
+  if(tech){tech.querySelector("span").textContent="Техника · "+note;tech.querySelector("b").textContent=recent.equipment+" ед.";tech.querySelector("small").textContent=note}
   const preview=extractOverviewPreviews(copy,keys);
   if(!includeOverview){
    const keep=new Set([hero,copy.querySelector(".ir-export-topnav"),copy.querySelector(".ir-export-companies")]);
@@ -787,7 +804,7 @@
      ".ir-export-indicators-heading{display:flex!important;justify-content:space-between!important;align-items:center!important;gap:12px!important;margin:0 0 14px!important}",
      ".ir-export-indicators-heading h2{margin:0!important;color:#214b66!important;font:800 16px/1.35 'Segoe UI',Arial,sans-serif!important}",
      ".ir-export-indicators-heading span{color:#95a9b8!important;font:500 11px/1.4 'Segoe UI',Arial,sans-serif!important}",
-     ".ir-export-indicator-cards{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:10px!important;align-items:stretch!important}",
+     ".ir-export-indicator-cards{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:10px!important;align-items:stretch!important}",
      ".ir-export-indicator-card{position:relative!important;display:flex!important;flex-direction:column!important;min-width:0!important;min-height:195px!important;gap:8px!important;overflow:hidden!important;padding:14px 12px 12px!important;border:1px solid #dce6ee!important;border-radius:12px!important;background:#fff!important;box-shadow:0 3px 12px rgba(24,60,87,.045)!important}",
      ".ir-export-indicator-card:before{content:''!important;position:absolute!important;left:17px!important;right:17px!important;top:0!important;height:3px!important;background:#80adca!important;border-radius:0 0 3px 3px!important}",
      ".ir-export-indicator-icon{display:flex!important;align-items:center!important;justify-content:center!important;flex:0 0 35px!important;width:35px!important;height:35px!important;border-radius:9px!important;background:#eaf2f9!important;color:#397fb4!important}",
@@ -1108,6 +1125,17 @@
     "#section-scheme .ir-export-scheme-stage{width:100%!important;height:min(82vh,950px)!important;min-height:510px!important}",
     "body.ir-object-overview #app #section-scheme .ir-export-scheme-controls button{display:inline-flex!important;align-items:center!important;justify-content:center!important}",
     "@media(max-width:760px){#section-scheme>.ir-export-section>.ir-export-section-head{padding:14px 12px!important}#section-scheme .ir-export-scheme-stage{min-height:360px!important;height:65vh!important}}",
+    ".ir-export-companies{position:relative!important;margin:15px 20px!important;padding:22px!important;background:radial-gradient(circle at 95% 0,rgba(92,151,248,.2),transparent 35%),linear-gradient(130deg,#f9fbff,#eef5ff)!important;border:1px solid #dce8f8!important;border-radius:23px!important;box-shadow:0 12px 30px rgba(40,86,146,.08)!important;overflow:visible!important}",
+    ".ir-export-companies-heading{min-height:0!important;display:flex!important;gap:12px!important;align-items:center!important;padding:0 0 20px!important;background:transparent!important;border:0!important;text-transform:none!important}.ir-export-companies-heading:before{display:none!important}.ir-export-companies-heading>span:last-child{display:grid!important;gap:4px!important}.ir-export-companies-heading b{font-size:22px!important;color:#14284b!important}.ir-export-companies-heading small{color:#8b9ab2!important;font-size:11px!important}",
+    ".ir-export-companies-glyph{width:45px!important;height:45px!important;display:grid!important;place-items:center!important;border-radius:12px!important;color:#fff!important;background:linear-gradient(145deg,#78a6ee,#4074d1)!important}.ir-export-companies-glyph svg{width:26px!important;height:26px!important}",
+    ".ir-export-companies-grid{gap:17px!important;overflow:visible!important}.ir-export-company-card{position:relative!important;gap:12px!important;padding:16px 13px!important;border:1px solid #e3ecf8!important;border-radius:17px!important;background:#fff!important;box-shadow:0 8px 16px rgba(28,72,122,.045)!important}",
+    ".ir-export-company-card:not(:last-child):after{content:'➜'!important;position:absolute!important;right:-25px!important;top:46%!important;z-index:2!important;display:grid!important;place-items:center!important;width:31px!important;height:31px!important;border-radius:50%!important;background:#fff!important;border:1px solid #dce8f7!important;color:#5584c6!important;font-size:20px!important}",
+    ".ir-export-company-role{align-self:stretch!important;display:flex!important;align-items:center!important;gap:8px!important;color:#b85c21!important;text-align:left!important;font-size:11px!important}.ir-export-company-role-icon{width:34px!important;height:34px!important;flex:0 0 34px!important;display:grid!important;place-items:center!important;border-radius:50%!important;background:#fff0e4!important}.ir-export-company-role-icon svg{width:21px!important;height:21px!important}",
+    ".ir-export-company-contractor .ir-export-company-role{color:#5344b4!important}.ir-export-company-contractor .ir-export-company-role-icon{background:#eceafd!important}.ir-export-company-own .ir-export-company-role{color:#10754d!important}.ir-export-company-own .ir-export-company-role-icon{background:#e2f6eb!important}",
+    ".ir-export-company-logo{height:108px!important;min-height:108px!important;max-height:108px!important;background:linear-gradient(130deg,#fff9f5,#f9eee9)!important;border:0!important;border-radius:13px!important}.ir-export-company-contractor .ir-export-company-logo{background:#f5f3ff!important}.ir-export-company-own .ir-export-company-logo{background:#eef9f3!important}.ir-export-company-name{font-weight:850!important;color:#102849!important}",
+    ".ir-export-banner-only{height:180px!important;min-height:180px!important;max-height:180px!important}.ir-export-daily-full{display:block!important;padding:0!important;margin:0!important;background:#fff!important}.ir-export-daily-full>.ir-export-daily-table{width:100%!important;border:0!important;padding:0!important;margin:0!important}",
+    "@media(max-width:830px){.ir-export-indicator-cards{grid-template-columns:repeat(2,minmax(0,1fr))!important}.ir-export-companies{margin:12px!important;padding:14px!important}.ir-export-companies-grid{gap:10px!important}}",
+    "@media(max-width:560px){.ir-export-companies-grid,.ir-export-companies-two .ir-export-companies-grid{grid-template-columns:1fr!important}.ir-export-company-card:not(:last-child):after{top:auto!important;bottom:-22px!important;right:calc(50% - 16px)!important;transform:rotate(90deg)!important}.ir-export-company-name{font-size:13px!important}}",
     "@media print{body.ir-object-route.ir-object-overview{background:#fff!important}body.ir-object-overview #app{margin:0 auto!important;width:100%!important;max-width:1000px!important;box-shadow:none!important}.ir-export-topnav{position:relative!important;top:auto!important}.ir-export-menu-items{box-shadow:none!important}.ir-export-record{break-inside:avoid}.ir-export-section{break-before:page;margin:8px 0!important}.ir-export-daily-card details,.ir-export-mark-card details{display:block!important}}"
    ].join("\n");
    const activeHero=document.querySelector(".object-overview-hero");
@@ -1119,7 +1147,7 @@
     catch(error){console.warn("Object HTML: indicators unavailable",key,error);return[key,[]]}
    }))):{};
    const indicatorsMarkup=selection.overview?renderIndicatorBlock(indicatorRows,keys):"";
-   const overviewSnapshot=snapshot(keys,selection.overview,companyHeader.markup,indicatorsMarkup);
+   const overviewSnapshot=snapshot(keys,selection.overview,companyHeader.markup,indicatorsMarkup,indicatorRows.reports||[]);
    const htmlSnapshot=overviewSnapshot.overview;
    const activeNavStyles=keys.filter(key=>/^[a-z0-9_-]+$/i.test(key)).map(key=>'body:has(#section-'+key+':target) .ir-export-topnav .ir-export-subnav-link[href="#section-'+key+'"]{background:#e6f2fc!important;color:#176ca7!important;font-weight:800!important}').join("\n");
    const extras=window.irObjectExportExtras;
