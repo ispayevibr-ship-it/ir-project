@@ -415,6 +415,55 @@
   return'<div class="ir-export-group" id="section-'+esc(key)+'">'+(preview?'<div class="ir-export-preview">'+preview+'</div>':"")+
    '<section class="ir-export-section"><header class="ir-export-section-head"><div><h2>'+esc(labels[key]||key)+'</h2></div>'+(key==="photos"||key==="scheme"?"":'<span class="ir-export-count">'+rows.length+' записей</span>')+'</header>'+body+'</section></div>'
  }
+
+ function companyHeaderHtml(parties){
+  const cards=[
+   {role:"Заказчик",name:parties.customerName,logo:parties.customerLogo},
+   {role:"Генподрядчик",name:parties.contractorName,logo:parties.contractorLogo},
+   ...(!parties.underContractor?[{role:"Наша компания",name:parties.ownName,logo:parties.ownLogo}]:[])
+  ];
+  return'<section class="ir-export-companies'+(cards.length===2?' ir-export-companies-two':'')+'" aria-label="Участники строительства">'+cards.map(p=>{
+   const img=p.logo?'<img src="'+esc(p.logo)+'" alt="Логотип: '+esc(p.role)+'">':
+    '<span class="ir-export-company-no-logo">Логотип не указан</span>';
+   return'<article class="ir-export-company-card"><div class="ir-export-company-role">'+esc(p.role)+'</div>'+
+    '<div class="ir-export-company-logo">'+img+'</div><div class="ir-export-company-name">'+esc(p.name||"Не указано")+'</div></article>'
+  }).join("")+'</section>'
+ }
+ async function exportCompanyHeader(api,object,underContractor){
+  const [rows,profile]=await Promise.all([
+   api.section("object-meta").list().catch(error=>{console.warn("Object HTML: company logos unavailable",error);return []}),
+   irProject.company.get().catch(error=>{console.warn("Object HTML: company profile unavailable",error);return {name:"",logo:""}})
+  ]);
+  const records=new Map(array(rows).filter(r=>["customer_logo","general_contractor_logo"].includes(r.record_type)).map(r=>[r.record_type,r]));
+  const filePath=key=>String(records.get(key)?.data?.file_path||"");
+  const readLogo=async path=>{
+   if(!path)return"";
+   if(dataUrl(path))return path;
+   try{const src=await irProject.images.read(path);return dataUrl(src)?src:""}catch(error){
+    console.warn("Object HTML: logo unavailable",error);return""
+   }
+  };
+  const [customerLogo,contractorLogo,ownLogo]=await Promise.all([
+   readLogo(filePath("customer_logo")),readLogo(filePath("general_contractor_logo")),
+   underContractor?Promise.resolve(""):readLogo(String(profile?.logo||""))
+  ]);
+  const identity={
+   customerName:String(object.customer||""),contractorName:String(object.general_contractor||""),
+   ownName:String(profile?.name||""),customerLogo,contractorLogo,ownLogo,
+   underContractor:Boolean(underContractor)
+  };
+  return{markup:companyHeaderHtml(identity),ownName:identity.ownName}
+ }
+ function redactCompanyIdentity(html,name){
+  const tokens=String(name||"").replace(/(?:&quot;|&#0*34;|&#x0*22;|&laquo;|&raquo;|["'«»“”„])/gi," ").trim().split(/\s+/).filter(Boolean);
+  if(!tokens.length)return String(html);
+  const literal=s=>s.replace(/[-/\\^$*+?.()|[\]{}]/g,"\\ function sidebarHtml(aside,keys,includeOverview=true){");
+  const joiner="(?:\\s|&nbsp;|&#0*160;|&quot;|&#0*34;|&#x0*22;|&laquo;|&raquo;|[\"'«»“”„])+";
+  const boundary="[\\p{L}\\p{N}]";
+  const pattern="(?<!"+boundary+")"+tokens.map(literal).join(joiner)+"(?!"+boundary+")";
+  return String(html).replace(new RegExp(pattern,"giu"),"")
+ }
+
  function sidebarHtml(aside,keys,includeOverview=true){
   const originalNav=aside?.querySelector(".ir-object-nav");
   const links=originalNav?[...originalNav.querySelectorAll("button[data-key]")]:[];
