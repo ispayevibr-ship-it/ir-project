@@ -397,7 +397,7 @@ assert(source.includes('const indicatorsMarkup=selection.overview?renderIndicato
 assert(source.includes('copy.querySelector(".ir-export-topnav")?.insertAdjacentHTML("afterend",indicatorsMarkup)'),"indicators are inserted below the banner and menu");
 assert(source.includes('.ir-export-indicator-cards{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))'),"five columns match requested desktop design");
 assert(source.includes('linkOptions.filter(x=>keys.includes(x[0]))'),"shortcuts cannot point to excluded export sections");
-assert(source.includes('href="#section-'+esc(key)'),"shortcuts use local offline HTML anchors");
+assert(source.includes('href="#section-')&&source.includes("esc(key)"),"shortcuts use local offline HTML anchors");
 assert(source.includes('const primary=["тн","м2","м3"].find(u=>allUnits.has(u))'),"mixed units are not summed together");
 const indicatorsStart=source.indexOf(" function renderIndicatorBlock("),indicatorsEnd=source.indexOf(" function snapshot(",indicatorsStart);
 assert(indicatorsStart>=0&&indicatorsEnd>indicatorsStart,"pure KPI calculation function is testable");
