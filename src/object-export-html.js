@@ -702,7 +702,7 @@
    const dateText=hero.querySelector(".object-hero-info-item:not(.location) b")?.textContent?.trim()||"";
    const years=[...dateText.matchAll(/20\d{2}/g)].map(x=>x[0]);
    const period=years.length>=2?years[0]+" — "+years[years.length-1]:dateText!=="Срок не задан"?dateText:"";
-   const found=bannerName.match(/(\d+(?:[,.]\d+)?)\s*мвт\b/i);
+   const found=bannerName.match(/(\d+(?:[,.]\d+)?)\s*мвт(?![а-яё])/i);
    const power=found?found[1]+" МВт":"";
    const icon=path=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+path+'</svg>';
    const pin=icon('<path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>');
