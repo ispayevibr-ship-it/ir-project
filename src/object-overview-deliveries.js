@@ -53,42 +53,64 @@
     events.push({typeId:t.id,code,unit:u,date:dt,kind,value})
    }
   }
-  for(const t of types){if(t.code&&!t.codes.includes(t.code))t.codes.push(t.code);t.codes.sort((a,b)=>a.localeCompare(b,"ru",{numeric:true}));if(t.unit==="ед.")t.unit=events.find(e=>e.typeId===t.id)?.unit||"ед."}
-  return{types,events}
+  for(const t of types){if(t.code&&!t.codes.includes(t.code))t.codes.push(t.code);if(t.unit==="ед.")t.unit=events.find(e=>e.typeId===t.id)?.unit||"ед."}
+  // Merge duplicate work types across codes, but never across measurement units.
+  const displayName=value=>{
+   const name=str(value).replace(/^(?:монтаж|поставка)\s+/i,"");
+   const n=norm(name),pos=name.indexOf(" "),suffix=pos<0?"":name.slice(pos);
+   if(/^металлоконструкц/.test(n))return"Монтаж металлоконструкций"+suffix;
+   if(/^сэндвич-панел/.test(n))return"Монтаж сэндвич-панелей"+suffix;
+   if(/^профнастил/.test(n))return"Монтаж профнастила"+suffix;
+   return /^(?:монтаж|поставка)\s/i.test(str(value))?str(value):name
+  };
+  const groups=new Map();
+  for(const t of types){
+   const name=displayName(t.name),key=norm(name)+"|"+t.unit;
+   if(!groups.has(key))groups.set(key,{...t,name,members:[],codes:[]});
+   const group=groups.get(key);group.members.push(t.id);
+   for(const code of [t.code,...t.codes])if(code&&!group.codes.includes(code))group.codes.push(code)
+  }
+  for(const group of groups.values()){
+   group.codes.sort((a,b)=>a.localeCompare(b,"ru",{numeric:true}));
+   const activities=events.filter(e=>group.members.includes(e.typeId)&&e.unit===group.unit);
+   group.activeDays=new Set(activities.map(e=>e.date)).size;
+   group.activities=activities.length
+  }
+  const ranked=[...groups.values()].sort((a,b)=>b.activeDays-a.activeDays||b.activities-a.activities||a.name.localeCompare(b.name,"ru",{numeric:true})||a.unit.localeCompare(b.unit,"ru"));
+  return{types:ranked,events}
  }
- function calc(model,id,code="",mode="weekly"){
-  const type=arr(model.types).find(t=>t.id===id)||arr(model.types)[0];if(!type)return{type:null,points:[],delivered:0,mounted:0,remaining:0,unit:""};
-  const data=arr(model.events).filter(e=>e.typeId===type.id&&e.unit===type.unit&&(!code||code===e.code));
-  const delivered=data.filter(e=>e.kind==="delivered").reduce((s,e)=>s+e.value,0),mounted=data.filter(e=>e.kind==="mounted").reduce((s,e)=>s+e.value,0);
-  const monday=x=>{const d=new Date(x+"T00:00:00Z");d.setUTCDate(d.getUTCDate()-(d.getUTCDay()+6)%7);return d.toISOString().slice(0,10)};
-  const groups=new Map();for(const e of data){const k=mode==="weekly"?monday(e.date):e.date;if(!groups.has(k))groups.set(k,{date:k,delivered:0,mounted:0});groups.get(k)[e.kind]+=e.value}
-  let keys=[...groups.keys()].sort();
-  if(mode==="weekly"&&keys.length){const d=new Date(keys[0]+"T00:00:00Z"),end=keys.at(-1);while(d.toISOString().slice(0,10)<=end){const k=d.toISOString().slice(0,10);if(!groups.has(k))groups.set(k,{date:k,delivered:0,mounted:0});d.setUTCDate(d.getUTCDate()+7)}}
-  const points=[...groups.values()].sort((a,b)=>a.date.localeCompare(b.date));
+ function calc(model,id,code="",mode="daily"){
+  const type=arr(model.types).find(t=>t.id===id)||arr(model.types)[0];
+  if(!type)return{type:null,points:[],delivered:0,mounted:0,remaining:0,unit:""};
+  const members=new Set(type.members||[type.id]);
+  const data=arr(model.events).filter(e=>members.has(e.typeId)&&e.unit===type.unit&&(!code||code===e.code));
+  const delivered=data.filter(e=>e.kind==="delivered").reduce((sum,e)=>sum+e.value,0),mounted=data.filter(e=>e.kind==="mounted").reduce((sum,e)=>sum+e.value,0);
+  const grouped=new Map();
+  for(const e of data){if(!grouped.has(e.date))grouped.set(e.date,{date:e.date,delivered:0,mounted:0});grouped.get(e.date)[e.kind]+=e.value}
+  const points=[...grouped.values()].sort((a,b)=>a.date.localeCompare(b.date));
   if(mode==="cumulative"){let a=0,b=0;for(const p of points){a+=p.delivered;b+=p.mounted;p.delivered=a;p.mounted=b}}
   return{type,points,delivered,mounted,remaining:delivered-mounted,unit:type.unit}
  }
  function graph(s,mode){
   if(!s.points.length)return'<div class="supply-empty">Нет данных за выбранный период</div>';
-  const pts=s.points,n=pts.length,W=Math.max(660,n*(mode==="weekly"?86:76)),H=328,L=55,R=20,T=20,B=50,IW=W-L-R,IH=H-T-B,top=Math.max(1,...pts.flatMap(p=>[p.delivered,p.mounted]))*1.15,y=x=>T+IH-(x/top)*IH,x=i=>L+IW*(i+.5)/n;
+  const pts=s.points,n=pts.length,W=Math.max(660,n*(mode==="daily"?86:76)),H=328,L=55,R=20,T=20,B=50,IW=W-L-R,IH=H-T-B,top=Math.max(1,...pts.flatMap(p=>[p.delivered,p.mounted]))*1.15,y=x=>T+IH-(x/top)*IH,x=i=>L+IW*(i+.5)/n;
   const grid=[0,.25,.5,.75,1].map(z=>`<line class="sup-grid" x1="${L}" x2="${W-R}" y1="${y(top*z)}" y2="${y(top*z)}"/><text class="sup-axis" x="${L-7}" y="${y(top*z)+4}" text-anchor="end">${esc(fmt(top*z))}</text>`).join("");
   const labels=pts.map((p,i)=>`<text class="sup-axis" text-anchor="middle" x="${x(i)}" y="${H-17}">${short(p.date)}</text>`).join("");
   let shapes="";
-  if(mode==="weekly"){shapes=pts.map((p,i)=>[["delivered","#3B82F6",-1],["mounted","#16A34A",1]].map(([key,color,side])=>{const bw=Math.min(28,IW/n*.3),h=p[key]/top*IH,xx=x(i)+(side===-1?-bw-2:2),finish=new Date(p.date+"T00:00:00Z");finish.setUTCDate(finish.getUTCDate()+6);return`<rect fill="${color}" x="${xx}" y="${y(p[key])}" width="${bw}" height="${h}" rx="3"><title>${long(p.date)} — ${long(finish.toISOString().slice(0,10))}\n${key==="delivered"?"Поставлено":"Смонтировано"}: ${fmt(p[key])} ${s.unit}</title></rect>`}).join("")).join("")}
+  if(mode==="daily"){shapes=pts.map((p,i)=>[["delivered","#3B82F6",-1],["mounted","#16A34A",1]].map(([key,color,side])=>{const bw=Math.min(28,IW/n*.3),h=p[key]/top*IH,xx=x(i)+(side===-1?-bw-2:2);return`<rect fill="${color}" x="${xx}" y="${y(p[key])}" width="${bw}" height="${h}" rx="3"><title>${long(p.date)}\nПоставлено: ${fmt(p.delivered)} ${s.unit}\nСмонтировано: ${fmt(p.mounted)} ${s.unit}</title></rect>`}).join("")).join("")}
   else{const path=k=>pts.map((p,i)=>`${i?"L":"M"}${x(i)},${y(p[k])}`).join(" ");shapes=`<path stroke="#3B82F6" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" fill="none" d="${path("delivered")}"/><path stroke="#16A34A" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" fill="none" d="${path("mounted")}"/>`+pts.map((p,i)=>["delivered","mounted"].map(k=>`<circle fill="${k==="delivered"?"#3B82F6":"#16A34A"}" stroke="white" stroke-width="1.5" cx="${x(i)}" cy="${y(p[k])}" r="4"><title>${long(p.date)}: ${k==="delivered"?"Поставлено":"Смонтировано"} ${fmt(p[k])} ${s.unit}</title></circle>`).join("")).join("")}
   return`<div class="supply-scroll" tabindex="0"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Поставки и монтаж, ${esc(s.unit)}">${grid}${shapes}${labels}</svg></div>`
  }
  function render(model,state={}){
-  const types=arr(model.types),type=types.find(t=>t.id===state.typeId)||types[0],id=type?.id,code=type?.codes.includes(state.code)?state.code:"",mode=state.mode==="cumulative"?"cumulative":"weekly",s=calc(model,id,code,mode);
-  const opt=types.map(t=>`<option value="${esc(t.id)}"${t.id===id?" selected":""}>${esc(t.name)}${t.code?" · "+esc(t.code):""}</option>`).join("");
-  return`<section class="ood-card ood-comparison ir-supply-chart" data-supply-chart><div class="supply-title"><h2>Поставки и монтаж</h2><p>Поставки из накладных · монтаж из ежедневных отчётов</p></div><div class="supply-filters"><label class="supply-work">Вид работ<input type="search" data-supply-search aria-label="Поиск видов работ" placeholder="Поиск вида работ…"><select data-supply-work aria-label="Вид работ">${opt}</select></label><label>Шифр<select data-supply-code aria-label="Шифр"><option value="">Все шифры</option>${(type?.codes||[]).map(c=>`<option value="${esc(c)}"${c===code?" selected":""}>${esc(c)}</option>`).join("")}</select></label><div class="supply-modes"><button type="button" data-supply-mode="weekly" class="${mode==="weekly"?"active":""}" aria-pressed="${mode==="weekly"}">По неделям</button><button type="button" data-supply-mode="cumulative" class="${mode==="cumulative"?"active":""}" aria-pressed="${mode==="cumulative"}">Накопительно</button></div></div><div class="supply-metrics"><div><span>Поставлено</span><b>${fmt(s.delivered)} <small>${esc(s.unit)}</small></b></div><div><span>Смонтировано</span><b>${fmt(s.mounted)} <small>${esc(s.unit)}</small></b></div><div class="${s.remaining<0?"negative":""}"><span>Остаток</span><b>${fmt(s.remaining)} <small>${esc(s.unit)}</small></b></div></div><div class="supply-legend"><span><i class="delivered"></i>Поставки</span><span><i class="mounted"></i>Монтаж</span></div>${graph(s,mode)}</section>`
+  const types=arr(model.types),type=types.find(t=>t.id===state.typeId)||types[0],id=type?.id,code=type?.codes.includes(state.code)?state.code:"",mode=state.mode==="cumulative"?"cumulative":"daily",s=calc(model,id,code,mode);
+  const opt=types.map(t=>`<option value="${esc(t.id)}"${t.id===id?" selected":""}>${esc(t.name)}</option>`).join("");
+  return`<section class="ood-card ood-comparison ir-supply-chart" data-supply-chart><div class="supply-title"><h2>Поставки и монтаж</h2><p>Поставки из накладных · монтаж из ежедневных отчётов</p></div><div class="supply-filters"><label class="supply-work">Вид работ<select data-supply-work aria-label="Вид работ">${opt}</select></label><label>Шифр<select data-supply-code aria-label="Шифр"><option value="">Все шифры</option>${(type?.codes||[]).map(c=>`<option value="${esc(c)}"${c===code?" selected":""}>${esc(c)}</option>`).join("")}</select></label><div class="supply-modes"><button type="button" data-supply-mode="daily" class="${mode==="daily"?"active":""}" aria-pressed="${mode==="daily"}">По дням</button><button type="button" data-supply-mode="cumulative" class="${mode==="cumulative"?"active":""}" aria-pressed="${mode==="cumulative"}">Накопительно</button></div></div><div class="supply-metrics"><div><span>Поставлено</span><b>${fmt(s.delivered)} <small>${esc(s.unit)}</small></b></div><div><span>Смонтировано</span><b>${fmt(s.mounted)} <small>${esc(s.unit)}</small></b></div><div class="${s.remaining<0?"negative":""}"><span>Остаток</span><b>${fmt(s.remaining)} <small>${esc(s.unit)}</small></b></div></div><div class="supply-legend"><span><i class="delivered"></i>Поставки</span><span><i class="mounted"></i>Монтаж</span></div>${graph(s,mode)}</section>`
  }
  function bind(card,model,state={},onChange){
   if(!card)return;const curr={...state};
   const next=()=>{onChange?.(curr);const temp=document.createElement("div");temp.innerHTML=render(model,curr);const fresh=temp.firstElementChild;card.replaceWith(fresh);bind(fresh,model,curr,onChange)};
   card.addEventListener("change",e=>{if(e.target.matches("[data-supply-work]")){curr.typeId=e.target.value;curr.code="";next()}else if(e.target.matches("[data-supply-code]")){curr.code=e.target.value;next()}});
   card.addEventListener("click",e=>{const b=e.target.closest("[data-supply-mode]");if(b){curr.mode=b.dataset.supplyMode;next()}});
-  card.querySelector("[data-supply-search]")?.addEventListener("input",e=>{const q=norm(e.target.value);for(const o of card.querySelector("[data-supply-work]").options)o.hidden=!!q&&!norm(o.textContent).includes(q)&&!o.selected});
  }
  function initOffline(){const e=document.getElementById("ir-supply-chart-data");if(!e)return;try{const model=JSON.parse(e.textContent);for(const c of document.querySelectorAll("[data-supply-chart]"))bind(c,model)}catch{}}
  const css=`
@@ -97,7 +119,7 @@
  .ir-supply-chart .supply-filters{display:grid;grid-template-columns:minmax(0,2fr) minmax(125px,1fr) auto;align-items:end;gap:10px;padding:14px 18px}
  .ir-supply-chart .supply-filters label{display:grid;gap:5px;min-width:0;color:#56778b;font-size:11px;font-weight:700}
  .ir-supply-chart input,.ir-supply-chart select{box-sizing:border-box;width:100%;min-width:0;height:36px;padding:0 10px;background:#f9fbfe;border:1px solid #d5e3ed;border-radius:8px;color:#35546c;font:600 12px 'Segoe UI',Arial,sans-serif}
- .ir-supply-chart input{height:30px;background:white}.ir-supply-chart .supply-modes{display:flex;gap:3px;padding:3px;background:#f0f5fa;border:1px solid #dae6ef;border-radius:8px}
+.ir-supply-chart .supply-modes{display:flex;gap:3px;padding:3px;background:#f0f5fa;border:1px solid #dae6ef;border-radius:8px}
  .ir-supply-chart .supply-modes button{padding:9px 11px;border:0;border-radius:7px;background:transparent;color:#59788b;cursor:pointer;white-space:nowrap;font:700 11px 'Segoe UI',Arial,sans-serif}
  .ir-supply-chart .supply-modes button.active{background:#246da7;color:white}
  .ir-supply-chart .supply-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:0 18px 13px}
