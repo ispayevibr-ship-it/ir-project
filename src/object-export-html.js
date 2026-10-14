@@ -134,13 +134,22 @@
  }
  function reportFull(record,r,images){
   const works=reportWorks(r),workers=reportPeople(r),responsible=reportResponsible(r),equipment=array(r.equipment),photos=reportPhotos(r);
-  const photoHtml=photos.map((p,i)=>{const path=photoPath(p),source=dataUrl(path)?path:images.get(path);return source?'<figure><img src="'+esc(source)+'" loading="lazy" alt="Фото отчёта '+(i+1)+'"><figcaption>Фото '+(i+1)+'</figcaption></figure>':''}).join("");
+  const photoItems=photos.map((p,i)=>{
+   const path=photoPath(p),source=dataUrl(path)?path:images.get(path);
+   if(!source)return null;
+   const id='ir-export-daily-photo-'+String(record.id).replace(/[^a-z0-9_-]/gi,'-')+'-'+i;
+   const tile='<figure><a class="ir-export-daily-photo-link" href="#'+esc(id)+'" title="Увеличить фото"><img src="'+esc(source)+'" loading="lazy" alt="Фото отчёта '+(i+1)+'"></a><figcaption>Фото '+(i+1)+'</figcaption></figure>';
+   const lightbox='<div class="ir-export-gallery-lightbox" id="'+esc(id)+'"><a class="ir-export-gallery-shade" href="#section-reports" aria-label="Закрыть фото"></a><figure><img src="'+esc(source)+'" alt="Фото отчёта '+(i+1)+'"><figcaption>Фото '+(i+1)+'<a href="#section-reports">✕ Закрыть</a></figcaption></figure></div>';
+   return{tile,lightbox}
+  }).filter(Boolean);
+  const photoHtml=photoItems.map(x=>x.tile).join("");
+  const photoLightboxes=photoItems.map(x=>x.lightbox).join("");
   return'<div class="ir-export-daily-full">'+
    '<section><h3>Выполненные работы</h3>'+reportWorkTable(works)+'</section>'+
    '<div class="ir-export-daily-columns"><section><h3>Работники</h3>'+reportChips(workers,"workers")+'</section><section><h3>Ответственные лица</h3>'+reportChips(responsible,"responsible")+'</section></div>'+
    '<section><h3>Техника</h3>'+reportChips(equipment,"equipment")+'</section>'+
-   (photoHtml?'<section><h3>Фотографии · '+photos.length+'</h3><div class="ir-export-daily-photos">'+photoHtml+'</div></section>':'')+
-   '</div>'
+   (photoHtml?'<section><h3>Фотографии · '+photoItems.length+'</h3><div class="ir-export-daily-photos">'+photoHtml+'</div></section>':'')+
+   photoLightboxes+'</div>'
  }
 
  function exportMoreCards(htmlList,kind,totalCount=htmlList.length,totalUnits=0){
@@ -161,6 +170,30 @@
   });
   return'<div class="ir-export-daily-list">'+exportMoreCards(cards,"reports")+'</div>'
  }
+
+ function schedulePreviewHtml(card){
+  const rows=[...card.querySelectorAll(".overview-gantt-row")],types=new Map();
+  for(const row of rows){
+   const name=row.querySelector(".overview-gantt-name b")?.textContent?.trim()||"Вид работы";
+   const code=row.querySelector(".overview-gantt-name span")?.textContent?.trim()||"";
+   const key=name+"\u001f"+code;
+   if(!types.has(key))types.set(key,{name,code,index:types.size});
+   row.classList.add("ir-export-gantt-type-"+types.get(key).index)
+  }
+  if(!types.size)return card.outerHTML;
+  const typesList=[...types.values()];
+  const radios='<input type="radio" class="ir-export-gantt-radio ir-export-gantt-all" name="ir-export-gantt-choice" id="ir-export-gantt-all" checked>'+
+   typesList.map(t=>'<input type="radio" class="ir-export-gantt-radio ir-export-gantt-radio-'+t.index+'" name="ir-export-gantt-choice" id="ir-export-gantt-'+t.index+'">').join("");
+  const option=(id,text,count)=>'<label for="'+id+'">'+esc(text)+(count?'<small>'+esc(count)+'</small>':"")+'</label>';
+  const labels='<div class="ir-export-gantt-options" role="group" aria-label="Вид работы для графика">'+option("ir-export-gantt-all","Все виды работ",rows.length+"")+
+   typesList.map(t=>option("ir-export-gantt-"+t.index,t.name,t.code)).join("")+'</div>';
+  const selectors=typesList.map(t=>
+   '.ir-export-gantt-radio-'+t.index+':checked ~ .ir-export-gantt-view .overview-gantt-row:not(.ir-export-gantt-type-'+t.index+'){display:none!important}'+
+   '.ir-export-gantt-radio-'+t.index+':checked ~ .ir-export-gantt-options label[for="ir-export-gantt-'+t.index+'"]{background:#236da6!important;color:#fff!important;border-color:#236da6!important}'
+  ).join("\n");
+  return'<div class="ir-export-gantt-filter">'+radios+labels+'<style>'+selectors+'</style><div class="ir-export-gantt-view">'+card.outerHTML+'</div></div>'
+ }
+
  function extractOverviewPreviews(copy,keys){
   const available=new Set(keys),previews={};
   // Daily reports and grouped marks have their own archive cards, not duplicate overview widgets.
@@ -178,7 +211,7 @@
     const wrapper=key==="photos"?"object-overview-reports":
      key==="deliveries"?"object-overview-deliveries-wrap":key==="schedule"?"object-overview-dashboard":
      key==="marks"?"object-overview-marks-wrap":"object-overview-admin-analysis";
-    (previews[key]??=[]).push('<div class="ir-object-overview-right ir-export-preview-layout"><div class="'+wrapper+'">'+card.outerHTML+'</div></div>');
+    (previews[key]??=[]).push('<div class="ir-object-overview-right ir-export-preview-layout"><div class="'+wrapper+'">'+(key==="schedule"?schedulePreviewHtml(card):card.outerHTML)+'</div></div>');
     card.remove()
    }
   }
@@ -366,7 +399,7 @@
  function renderMarkSection(rows,workRows,reportRows,images){
   const summary=renderMarksOverview(rows,workRows,reportRows);
   const full=renderMarkCards(rows,workRows,reportRows);
-  return summary+full
+  return'<div class="ir-export-marks-unified">'+summary+full+'</div>'
  }
 
  function renderSection(key,rows,images,preview="",support={}){
@@ -375,6 +408,10 @@
    key==="deliveries"?extras.deliveries(rows):key==="photos"?extras.recentPhotos(support.reports||[],images):
    key==="scheme"?extras.schemeHtml(extras.schemeData(rows)):["schedule","acted-days","penalties"].includes(key)?"":renderRows(rows,key,images);
   if(["schedule","acted-days","penalties"].includes(key))return'<div class="ir-export-group" id="section-'+esc(key)+'">'+(preview?'<div class="ir-export-preview">'+preview+'</div>':'<div class="ir-export-empty-card">Нет данных для анализа</div>')+'</div>';
+  if(key==="deliveries")return'<div class="ir-export-group" id="section-deliveries"><section class="ir-export-section ir-export-deliveries-unified">'+
+   '<header class="ir-export-section-head"><h2>Поставки и монтаж</h2><span class="ir-export-count">'+rows.length+' накладных</span></header>'+
+   (preview?'<div class="ir-export-preview">'+preview+'</div>':"")+
+   '<div class="ir-export-delivery-register"><h3>Поставки (накладные)</h3>'+body+'</div></section></div>';
   return'<div class="ir-export-group" id="section-'+esc(key)+'">'+(preview?'<div class="ir-export-preview">'+preview+'</div>':"")+
    '<section class="ir-export-section"><header class="ir-export-section-head"><div><h2>'+esc(labels[key]||key)+'</h2></div>'+(key==="photos"||key==="scheme"?"":'<span class="ir-export-count">'+rows.length+' записей</span>')+'</header>'+body+'</section></div>'
  }
@@ -757,6 +794,35 @@
     "body.ir-object-overview #app > footer.ir-export-section{border-top:1px solid #e3eaf0!important;padding-top:16px!important;padding-bottom:18px!important;font-size:11px!important;color:#7990a0!important}",
     "@media(max-width:760px){body.ir-object-overview #app .ir-object-overview-layout{padding:14px 12px 16px!important}body.ir-object-overview #app .ir-export-preview{padding:12px 12px 0!important}body.ir-object-overview #app .ir-export-section{padding:18px 12px 20px!important}}",
     "@media print{body.ir-object-overview #app .ir-export-group{border-top:0!important}body.ir-object-overview #app .ir-export-section{padding:12px 0!important}body.ir-object-overview #app .ir-object-overview-layout{padding:10px 0!important}}",
+    ".ir-export-gantt-filter{position:relative;display:block;width:100%;min-width:0}",
+    ".ir-export-gantt-radio{position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden}",
+    ".ir-export-gantt-options{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:12px 15px;background:#f6fafe;border-bottom:1px solid #dce9f2}",
+    ".ir-export-gantt-options label{display:inline-flex;align-items:center;gap:7px;cursor:pointer;border:1px solid #d9e6f0;border-radius:7px;padding:8px 11px;color:#426b88;background:#fff;font-size:11px;font-weight:750;max-width:100%;overflow-wrap:anywhere}",
+    ".ir-export-gantt-options label:hover{background:#e6f3fc}",
+    ".ir-export-gantt-options small{font-size:10px;color:inherit;opacity:.72}",
+    ".ir-export-gantt-all:checked ~ .ir-export-gantt-options label[for='ir-export-gantt-all']{background:#236da6!important;color:#fff!important;border-color:#236da6!important}",
+    ".ir-export-gantt-radio:focus-visible ~ .ir-export-gantt-options{outline:2px solid #397eae;outline-offset:-2px}",
+    ".ir-export-marks-unified{overflow:hidden;border:1px solid #dce6ee;border-radius:11px;background:#fff;box-shadow:0 1px 4px rgba(20,50,76,.04)}",
+    ".ir-export-marks-unified>.ir-export-marks-summary{margin:0!important;border:0!important;border-bottom:1px solid #dfe9f0!important;border-radius:0!important;box-shadow:none!important}",
+    ".ir-export-marks-unified>.ir-export-work-filter{margin:0!important;border:0!important;border-radius:0!important;box-shadow:none!important}",
+    ".ir-export-marks-unified>.ir-export-work-filter>.ir-export-work-head{padding-top:17px!important}",
+    ".ir-export-deliveries-unified>.ir-export-preview{margin:0!important;padding:0!important;display:block!important}",
+    ".ir-export-deliveries-unified>.ir-export-preview :is(.ood-card,.ood-comparison){border:0!important;border-radius:0!important;box-shadow:none!important}",
+    ".ir-export-deliveries-unified{overflow:visible;border-radius:0}",
+    ".ir-export-deliveries-unified .ood-comparison .ood-head h2{display:none!important}",
+    ".ir-export-delivery-register{border-top:1px solid #e1eaf2;background:#fff}",
+    ".ir-export-delivery-register>h3{margin:0;padding:18px 17px 14px;font-size:14px;color:#234a63;font-weight:800}",
+    ".ir-export-delivery-register>.ir-export-invoice-list{margin:0;padding:0 13px 12px}",
+    ".ir-export-daily-photo-link{display:block;cursor:zoom-in;border-radius:8px;overflow:hidden}",
+    ".ir-export-daily-photo-link:focus-visible{outline:2px solid #3985c2;outline-offset:3px}",
+    ".ir-export-daily-photo-link:hover img{filter:brightness(.92);transform:scale(1.015)}",
+    ".ir-export-daily-photo-link img{transition:transform .16s ease,filter .16s ease}",
+    "#section-scheme>.ir-export-section{padding:0!important;width:100%!important;max-width:none!important}",
+    "#section-scheme>.ir-export-section>.ir-export-section-head{padding:18px 20px 15px!important;margin:0!important}",
+    "#section-scheme .ir-export-scheme{display:block!important;width:100%!important;max-width:none!important;margin:0!important;border:0!important;border-radius:0!important;box-shadow:none!important}",
+    "#section-scheme .ir-export-scheme-stage{width:100%!important;height:min(82vh,950px)!important;min-height:510px!important}",
+    "body.ir-object-overview #app #section-scheme .ir-export-scheme-controls button{display:inline-flex!important;align-items:center!important;justify-content:center!important}",
+    "@media(max-width:760px){#section-scheme>.ir-export-section>.ir-export-section-head{padding:14px 12px!important}#section-scheme .ir-export-scheme-stage{min-height:360px!important;height:65vh!important}}",
     "@media print{body.ir-object-overview #app{margin:0!important;width:100%!important}.ir-export-topnav{position:relative!important;top:auto!important}.ir-export-menu-items{box-shadow:none!important}.ir-export-record{break-inside:avoid}.ir-export-section{break-before:page;margin:8px 0!important}.ir-export-daily-card details,.ir-export-mark-card details{display:block!important}}"
    ].join("\n");
    const activeHero=document.querySelector(".object-overview-hero");
