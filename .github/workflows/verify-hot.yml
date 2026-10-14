@@ -55,6 +55,8 @@ jobs:
         run: node scripts/test-settings-menu.js
       - name: Test full object HTML export
         run: node scripts/test-object-export-html.js
+      - name: Test customer and contractor logos in object editor
+        run: node scripts/test-object-party-logos.js
       - name: Test database export from settings
         run: node scripts/test-database-export-settings.js
       - name: Test styled success and error notices
