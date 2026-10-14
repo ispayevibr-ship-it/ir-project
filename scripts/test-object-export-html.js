@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17174'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17175'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -119,7 +119,7 @@ assert(source.includes('dlg.showModal()'),"native export options dialog opens");
 assert(source.includes('Выбрать все')&&source.includes('Снять все'),"select/deselect all controls exist");
 assert(source.includes('if(!selection)return false;'),"cancel never starts saving");
 assert(source.includes('const keys=selection.keys;'),"only selected sections are loaded");
-assert(source.includes('snapshot(keys,selection.overview,companyHeader.markup)'),"export can omit overview while retaining company header");
+assert(source.includes('snapshot(keys,selection.overview,companyHeader.markup,indicatorsMarkup)'),"export can omit overview while retaining company header and optional KPI block");
 assert(source.includes('if(!includeOverview)'),"unselected overview content is discarded");
 assert(!source.includes("IR Project / Объект"),"repeated section breadcrumb is absent across the entire HTML export source");
 assert(source.includes('ir-export-group{scroll-margin-top:14px;min-width:0;width:100%;max-width:none;margin:0;padding:0}'),"all report groups span the available content width");
@@ -389,5 +389,47 @@ assert(source.includes('max-width:100%!important;max-height:100%!important;objec
 assert(source.includes('@media(max-width:560px){.ir-export-companies-grid,.ir-export-companies-two .ir-export-companies-grid{grid-template-columns:minmax(0,1fr)!important}'),"narrow layouts stack participant cards");
 assert(source.includes('max-width:1000px!important;box-shadow:none!important'),"print uses the same page max width");
 assert(!source.includes('min-width:760px;background:#f4f6f9'),"old forced width removed");
+
+
+assert(source.includes('function renderIndicatorBlock(data,keys)'),"export calculates an offline indicators panel");
+assert(source.includes('const indicatorTypes=["work-types","marks","reports","deliveries","scheme"]'),"all relevant source sections are used");
+assert(source.includes('const indicatorsMarkup=selection.overview?renderIndicatorBlock(indicatorRows,keys):""'),"indicators are displayed only when overview is chosen");
+assert(source.includes('copy.querySelector(".ir-export-topnav")?.insertAdjacentHTML("afterend",indicatorsMarkup)'),"indicators are inserted below the banner and menu");
+assert(source.includes('.ir-export-indicator-cards{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))'),"five columns match requested desktop design");
+assert(source.includes('linkOptions.filter(x=>keys.includes(x[0]))'),"shortcuts cannot point to excluded export sections");
+assert(source.includes('href="#section-'+esc(key)'),"shortcuts use local offline HTML anchors");
+assert(source.includes('const primary=["тн","м2","м3"].find(u=>allUnits.has(u))'),"mixed units are not summed together");
+const indicatorsStart=source.indexOf(" function renderIndicatorBlock("),indicatorsEnd=source.indexOf(" function snapshot(",indicatorsStart);
+assert(indicatorsStart>=0&&indicatorsEnd>indicatorsStart,"pure KPI calculation function is testable");
+const metricFn=vm.runInNewContext('(function(){'+
+ 'const array=v=>Array.isArray(v)?v:[];'+
+ 'const exportNumber=v=>{const n=Number(String(v??0).replace(/\\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};'+
+ 'const exportDate=v=>{const p=String(v||"").slice(0,10).split("-");return p.length===3?p[2]+"."+p[1]+"."+p[0]:String(v||"")};'+
+ 'const reportWorks=r=>array(r.items).length?array(r.items):array(r.works);'+
+ 'const reportService=w=>w?.accounting_type==="service"||w?.is_service===true||String(w?.unit||"").toLowerCase()==="услуга";'+
+ 'const reportVolume=w=>{const direct=exportNumber(w.volume??w.total_volume);return direct||exportNumber(w.qty??w.count)*exportNumber(w.unit_volume)};'+
+ 'const esc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");'+
+ 'const markProgressGroups='+groupCalc.toString()+';'+
+ source.slice(indicatorsStart,indicatorsEnd)+';return renderIndicatorBlock})()', {});
+const fixture={
+ "work-types":[{id:7,title:"Монтаж МК",data:{project_code:"041-КМ",unit:"тн"}}],
+ marks:[{id:10,data:{work_type_id:7,mark:"К1",qty:4,mounted:0,unit:"тн"}}],
+ reports:[{id:1,data:{date:"2026-10-11",items:[{mark_id:10,qty:2,unit:"тн",volume:1.5}]}}],
+ deliveries:[{id:2,data:{items:[{mark_id:10,unit:"тн",qty:1,unit_volume:5.25}]}}],
+ scheme:[{id:1,record_type:"scheme_grid",data:{}},{id:2,record_type:"scheme_column",data:{mark:"К1"}},{id:3,record_type:"scheme_column",data:{mark:"К2"}}]
+};
+const all=metricFn(fixture,["overview","reports","deliveries","marks","scheme","photos"]);
+assert.equal((all.match(/class="ir-export-indicator-card ir-export-indicator-/g)||[]).length,5,"five KPI cards generated");
+assert(all.includes("Средняя готовность")&&all.includes('50<small>%'),"average readiness uses actual mark progress");
+assert(all.includes('1,5<small>тн'),"installed volume from daily report is correct");
+assert(all.includes('5,25<small>тн'),"delivered volume from invoice is correct");
+assert(all.includes("Последний: 11.10.2026"),"latest daily report date is formatted");
+assert(all.includes('ir-export-indicator-scheme')&&all.includes('2<small>эл.'),"scheme count excludes grid definition");
+assert.equal((all.match(/class="ir-export-indicator-link"/g)||[]).length,3,"three local shortcut buttons rendered");
+const filtered=metricFn(fixture,["reports"]);
+assert(!filtered.includes("ir-export-indicator-link"),"excluded sections do not produce dead links");
+const units=metricFn({...fixture,deliveries:[{id:2,data:{items:[{unit:"м2",volume:130},{unit:"тн",volume:5}]}}]},["marks"]);
+assert(units.includes("Другие ед. изм. не суммируются"),"tons and square meters are never combined");
+assert(!source.includes('data-overview-export-kpi-edit'),"KPI cards do not expose editing actions");
 
 console.log("Full object HTML export: snapshot, offline navigation, read-only records, native save and no DB writes OK");
