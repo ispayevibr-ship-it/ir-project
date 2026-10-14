@@ -1,6 +1,6 @@
 "use strict";
 (()=>{
- const workLabel=(v,context="base")=>window.irWorkNames?.format?.(v,context)||String(v??"");{
+ const workLabel=(v,context="base")=>window.irWorkNames?.format?.(v,context)||String(v??"");
  const esc=v=>String(v??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
  const fmt=v=>{if(!v)return"—";const p=String(v).slice(0,10).split("-");return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:String(v)};
  const route=()=>location.hash.match(/^#\/objects\/object\/(\d+)\/schedule\/?$/)?.[1]||"";

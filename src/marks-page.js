@@ -1,6 +1,6 @@
 "use strict";
 (()=>{
- const workLabel=(v,context="base")=>window.irWorkNames?.format?.(v,context)||String(v??"");{
+ const workLabel=(v,context="base")=>window.irWorkNames?.format?.(v,context)||String(v??"");
  const esc=v=>String(v??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
  const num=v=>Number(String(v??0).replace(",","."))||0;
  const parseNum=v=>{const n=Number(String(v??"").trim().replace(/\s/g,"").replace(",","."));return Number.isFinite(n)?n:NaN};

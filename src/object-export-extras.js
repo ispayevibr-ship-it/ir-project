@@ -1,7 +1,7 @@
 "use strict";
 /* Standalone HTML export helpers only. They never change IR Project data. */
 (()=>{
- const workLabel=(v,context="base")=>window.irWorkNames?.format?.(v,context)||String(v??"");{
+ const workLabel=(v,context="base")=>window.irWorkNames?.format?.(v,context)||String(v??"");
  const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  const arr=v=>Array.isArray(v)?v:[];
  const num=v=>{const x=Number(String(v??0).replace(",",".").replace(/\s/g,""));return Number.isFinite(x)?x:0};

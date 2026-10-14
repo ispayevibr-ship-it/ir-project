@@ -1,6 +1,6 @@
 "use strict";
 (()=>{
- const workLabel=(v,context="base")=>window.irWorkNames?.format?.(v,context)||String(v??"");{
+ const workLabel=(v,context="base")=>window.irWorkNames?.format?.(v,context)||String(v??"");
  const arr=v=>Array.isArray(v)?v:[];
  const num=v=>{const n=Number(String(v??0).replace(",","."));return Number.isFinite(n)?n:0};
  const fmt=v=>{const n=num(v);return Number.isInteger(n)?String(n):String(Number(n.toFixed(4))).replace(".",",")};

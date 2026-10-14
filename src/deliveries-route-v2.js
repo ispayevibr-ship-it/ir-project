@@ -1,6 +1,6 @@
 "use strict";
 (()=>{
- const workLabel=(v,context="base")=>window.irWorkNames?.format?.(v,context)||String(v??"");{
+ const workLabel=(v,context="base")=>window.irWorkNames?.format?.(v,context)||String(v??"");
  const base=window.irDeliveriesPage;if(typeof base!=="function")return;
  const PAGE_SIZE=15;
  const arr=v=>Array.isArray(v)?v:[];
