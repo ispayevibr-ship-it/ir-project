@@ -372,7 +372,7 @@ assert(source.includes('class="ir-export-companies-grid"'),"company columns are 
 assert(source.includes("ir-export-company-card:not(:last-child):after{content:"),"participant arrows join the separate cards");
 assert(source.includes('hero.querySelector(".object-hero-content")?.remove()'),"project banner excludes overlaid copy");
 assert(source.includes('hero.querySelector(".object-hero-shade")?.remove()'),"original live banner shade removed in snapshot");
-assert(source.includes('hero.insertAdjacentHTML("beforeend",\'<div class="ir-export-banner-copy"\')'),"banner includes dedicated export-only name and address");
+assert(source.includes('hero.insertAdjacentHTML("beforeend",')&&source.includes('class="ir-export-banner-copy"><h1>'),"banner includes a dedicated name and address container");
 assert(source.includes('hero.querySelector(".object-hero-copy h1")'),"banner gets object name from current object");
 assert(source.includes('hero.querySelector(".object-hero-info-item.location b")'),"banner gets object's real location");
 assert(source.includes(".ir-export-banner-copy h1{display:block!important"),"banner title is enlarged");
