@@ -52,7 +52,8 @@
   const modal=selected.map((p,i)=>'<div class="ir-export-gallery-lightbox" id="ir-export-lightbox-'+i+'"><a class="ir-export-gallery-shade" href="#section-photos" aria-label="Закрыть"></a><figure><img src="'+esc(p.src)+'" alt="Фото '+(i+1)+'"><figcaption>'+esc(p.date)+' · Фото '+(i+1)+'<a href="#section-photos">✕ Закрыть</a></figcaption></figure></div>').join("");
   return'<div class="ir-export-gallery">'+grid+'</div>'+modal
  }
- function schemeData(rows){
+ function schemeData(rows,markDetails=[]){
+  const detailById=new Map(arr(markDetails).map(m=>[String(m.id),m]));
   const all=arr(rows),grid=all.find(r=>r.record_type==="scheme_grid"||r.data?.entity_type==="grid")?.data||{};
   const xAxis=arr(grid.axes_x).length>=2?grid.axes_x.map(String):["1","2","3","4","5","6"];
   const yAxis=arr(grid.axes_y).length>=2?grid.axes_y.map(String):["А","Б","В","Г","Д","Е","Ж","И","К","Л"];
@@ -68,13 +69,20 @@
    const d=r.data||{},p=point(d),end=point(d,true),kind=String(d.geometry_type||"column"),z0=num(d.z0_mm),z1=num(d.end_z_mm??d.z1_mm??8400);
    const start=[p.x,p.y,z0],finish=kind==="column"?[p.x,p.y,z1]:[end.x,end.y,z1];
    const mid=kind==="bent"||kind==="truss"?[num(d.absolute_mid_x_mm??(p.x+end.x)/2),num(d.absolute_mid_y_mm??(p.y+end.y)/2),num(d.mid_z_mm??z1)]:null;
-   return{id:String(r.id),mark:String(d.mark||r.title||""),type:String(d.scheme_group||d.scheme_group_label||kind),
-    status:String(d.status||"planned"),kind,start,end:finish,mid}
+   const linked=detailById.get(String(d.mark_id??""))||{};
+   return{id:String(r.id),markId:String(d.mark_id??""),mark:String(d.mark||linked.mark||r.title||""),
+    name:String(linked.name||d.mark_name||""),work:String(linked.work||""),code:String(linked.code||""),
+    code2:String(linked.code2||""),qty:linked.qty??null,done:linked.done??null,left:linked.left??null,
+    pct:linked.pct??null,unit:String(linked.unit||""),unitVolume:linked.uv??null,totalVolume:linked.total??null,
+    type:String(d.scheme_group_label||d.scheme_group||kind),status:String(d.status||"planned"),kind,
+    profile:String(d.profile_name||""),section:String(d.section_type||""),
+    axis:String(d.axis_x||"")+" / "+String(d.axis_y||""),endAxis:d.end_axis_x&&d.end_axis_y?String(d.end_axis_x)+" / "+String(d.end_axis_y):"",
+    start,end:finish,mid}
   }).filter(m=>[...m.start,...m.end].every(Number.isFinite));
   return {axesX:xAxis,axesY:yAxis,x:xPos,y:yPos,members}
  }
  function schemeHtml(data){
-  return'<div class="ir-export-scheme"><div class="ir-export-scheme-controls"><b>Монтажная схема · '+data.members.length+' элементов</b><div><button type="button" data-view="3d" class="active" aria-pressed="true">3D</button><button type="button" data-view="plan" aria-pressed="false">План</button><button type="button" data-view="reset">Сбросить вид</button><button type="button" data-view="labels">Подписи</button></div></div><div class="ir-export-scheme-stage"><canvas id="ir-export-scheme-canvas" aria-label="Интерактивная монтажная схема"></canvas><span class="ir-export-scheme-hint">ЛКМ — вращение · ПКМ — перемещение · колесо — масштаб</span></div><div class="ir-export-scheme-info" id="ir-export-scheme-info">Просмотр без редактирования. Для выбора элемента нажмите на него.</div></div>'
+  return'<div class="ir-export-scheme"><div class="ir-export-scheme-controls"><b>Монтажная схема · '+data.members.length+' элементов</b><div><button type="button" data-view="3d" class="active" aria-pressed="true">3D</button><button type="button" data-view="plan" aria-pressed="false">План</button><button type="button" data-view="reset">Сбросить вид</button></div></div><div class="ir-export-scheme-stage"><canvas id="ir-export-scheme-canvas" aria-label="Интерактивная монтажная схема. Нажмите на элемент для получения информации"></canvas><div class="ir-export-scheme-member-card" id="ir-export-scheme-member-card" hidden><div class="ir-export-scheme-member-card-head"><span>Информация о марке</span><button class="ir-export-scheme-member-close" type="button" aria-label="Закрыть информацию о марке">✕</button></div><h3 class="ir-export-scheme-member-title"></h3><div class="ir-export-scheme-member-fields"></div></div><span class="ir-export-scheme-hint">ЛКМ — вращение · ПКМ — перемещение · колесо — масштаб · щелчок — сведения о марке</span></div><div class="ir-export-scheme-info" id="ir-export-scheme-info">Просмотр без редактирования. Для выбора элемента нажмите на него.</div></div>'
  }
  function schemeViewer(){
   "use strict";
@@ -83,23 +91,70 @@
   let data;try{data=JSON.parse(document.getElementById("ir-export-scheme-data").textContent)}catch{return}
   const ctx=cv.getContext("2d");if(!ctx)return;
   const members=Array.isArray(data.members)?data.members:[],xs=Object.values(data.x||{}),ys=Object.values(data.y||{});
-  const all=[...xs,...ys,...members.flatMap(m=>[...m.start,...m.end,...(m.mid||[])])].filter(Number.isFinite);
   const finite=members.flatMap(m=>[m.start,m.end,...(m.mid?[m.mid]:[])]);
-  const positions=finite.length?finite:[[0,0,0],[Math.max(1000,...xs),Math.max(1000,...ys),8000]];
+  const gridPoints=xs.flatMap(x=>ys.map(y=>[x,y,0]));
+  const positions=finite.length?[...finite,...gridPoints]:[[0,0,0],[Math.max(1000,...xs),Math.max(1000,...ys),8000],...gridPoints];
   const axis=(i)=>positions.map(p=>Number(p[i])||0);
   const extents=[0,1,2].map(i=>({min:Math.min(...axis(i)),max:Math.max(...axis(i))}));
   const center=extents.map(e=>(e.min+e.max)/2);
   const span=Math.max(1000,...extents.map(e=>e.max-e.min));
   let scale=220/span;
-  let yaw=-.72,pitch=.6,zoom=1,panX=0,panY=0,plan=false,labels=false,drag=null,moved=false,hit=[];
+  let yaw=-.72,pitch=.6,zoom=1,panX=0,panY=0,plan=false,drag=null,moved=false,hit=[],selectedId=null;
+  const memberCard=root.querySelector("#ir-export-scheme-member-card");
+  const fmt=v=>new Intl.NumberFormat("ru-RU",{maximumFractionDigits:3}).format(Number(v)||0);
+  const field=(container,label,value)=>{
+   if(value===null||value===undefined||String(value).trim()==="")return;
+   const row=document.createElement("div");row.className="ir-export-scheme-member-field";
+   const caption=document.createElement("small");caption.textContent=label;
+   const cell=document.createElement("b");cell.textContent=String(value);
+   row.append(caption,cell);container.append(row)
+  };
+  function selectMember(m){
+   selectedId=m.id;
+   const title=memberCard.querySelector(".ir-export-scheme-member-title");
+   title.textContent=m.mark||"Без марки";
+   const fields=memberCard.querySelector(".ir-export-scheme-member-fields");
+   fields.replaceChildren();
+   const status=m.status==="mounted"?"Смонтировано":m.status==="partial"?"Частично смонтировано":"Не смонтировано";
+   field(fields,"Наименование",m.name);
+   field(fields,"Вид работы",m.work);
+   field(fields,"Шифр",m.code);
+   field(fields,"Дополнительный шифр",m.code2);
+   field(fields,"Тип элемента",m.type);
+   field(fields,"Статус на схеме",status);
+   if(m.qty!==null)field(fields,"Всего марок",fmt(m.qty)+" шт.");
+   if(m.done!==null)field(fields,"Смонтировано",fmt(m.done)+" шт.");
+   if(m.left!==null)field(fields,"Осталось",fmt(m.left)+" шт.");
+   if(m.pct!==null)field(fields,"Готовность",fmt(m.pct)+"%");
+   if(m.unitVolume!==null&&m.unit)field(fields,"Объём 1 ед.",fmt(m.unitVolume)+" "+m.unit);
+   if(m.totalVolume!==null&&m.unit)field(fields,"Общий объём",fmt(m.totalVolume)+" "+m.unit);
+   field(fields,"Профиль",m.profile);
+   field(fields,"Сечение",m.section);
+   field(fields,"Оси",m.axis===" / "?"":m.axis);
+   field(fields,"Конечные оси",m.endAxis);
+   memberCard.hidden=false;paint()
+  }
+  memberCard.querySelector(".ir-export-scheme-member-close").onclick=()=>{
+   memberCard.hidden=true;selectedId=null;paint()
+  };
   const color=m=>m.status==="mounted"?"#2ca47b":m.status==="partial"?"#dcaa57":m.type.includes("column")||m.kind==="column"?"#397bb4":m.type.includes("tie")||m.kind==="brace"?"#d3a255":"#58a18b";
   const raw=p=>{const x=(p[0]-center[0])*scale,y=(p[1]-center[1])*scale,z=(p[2]-center[2])*scale,cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);return {x:x*cy-y*sy,y:(x*sy+y*cy)*sp-z*cp,depth:(x*sy+y*cy)*cp+z*sp}};
   const project=p=>{let o=raw(p);return{x:cv.width/2+(o.x+panX)*zoom,y:cv.height/2+(o.y+panY)*zoom,depth:o.depth}};
   const segment=(start,end,c,w)=>{const a=project(start),b=project(end);ctx.lineCap="round";ctx.lineWidth=w;ctx.strokeStyle=c;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();return {a,b}};
-  function paint(){
+  function paint(fit=false){
    const rect=cv.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),w=Math.max(360,Math.round(rect.width*dpr)),h=Math.max(250,Math.round(rect.height*dpr));
    if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h}
-   scale=.74*Math.min(w,h)/span;
+   if(fit){
+    const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);
+    const projected=positions.map(p=>{
+     const x=p[0]-center[0],y=p[1]-center[1],z=p[2]-center[2];
+     return [x*cy-y*sy,(x*sy+y*cy)*sp-z*cp]
+    });
+    const minX=Math.min(...projected.map(p=>p[0])),maxX=Math.max(...projected.map(p=>p[0]));
+    const minY=Math.min(...projected.map(p=>p[1])),maxY=Math.max(...projected.map(p=>p[1]));
+    scale=Math.min(.93*w/Math.max(1,maxX-minX),.90*h/Math.max(1,maxY-minY));
+    panX=-(minX+maxX)*scale/2;panY=-(minY+maxY)*scale/2
+   }
    ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle="#f6faff";ctx.fillRect(0,0,w,h);hit=[];
    const axesX=Array.isArray(data.axesX)?data.axesX:[],axesY=Array.isArray(data.axesY)?data.axesY:[];
    const xa=axesX.map(k=>Number(data.x?.[k])||0),ya=axesY.map(k=>Number(data.y?.[k])||0),xmax=Math.max(1000,...xa),ymax=Math.max(1000,...ya);
@@ -109,7 +164,11 @@
    xa.forEach((x,i)=>{const p=project([x,0,0]);ctx.fillText(axesX[i],p.x+4,p.y-9)});
    ya.forEach((y,i)=>{const p=project([0,y,0]);ctx.fillText(axesY[i],p.x+5,p.y-9)});
    const segs=members.flatMap(m=>{const parts=m.mid?[[m.start,m.mid],[m.mid,m.end]]:[[m.start,m.end]];return parts.map(([a,b])=>({m,a,b,depth:(raw(a).depth+raw(b).depth)/2}))}).sort((a,b)=>b.depth-a.depth);
-   for(const x of segs){const c=color(x.m);segment(x.a,x.b,"rgba(17,50,76,.16)",Math.max(5,5*dpr));const ab=segment(x.a,x.b,c,Math.max(3,3*dpr));hit.push({...ab,m:x.m});if(labels){ctx.font=Math.max(10,10*dpr)+"px Segoe UI";ctx.fillStyle="#183d55";ctx.fillText(x.m.mark,(ab.a.x+ab.b.x)/2+4,(ab.a.y+ab.b.y)/2-5)}}
+   for(const x of segs){
+    const selected=x.m.id===selectedId;
+    const ab=segment(x.a,x.b,selected?"#0d5fa5":color(x.m),Math.max(selected?8:3,(selected?8:3)*dpr));
+    hit.push({...ab,m:x.m})
+   }
    const info=document.getElementById("ir-export-scheme-info");
    if(!members.length&&info)info.textContent="Монтажные элементы ещё не размещены на схеме."
   }
@@ -123,23 +182,24 @@
    view3D.setAttribute("aria-pressed",String(!plan));
    viewPlan.setAttribute("aria-pressed",String(plan));
    if(hint)hint.textContent=plan?"План · перетаскивание — перемещение · колесо — масштаб":"3D · ЛКМ — вращение · ПКМ — перемещение · колесо — масштаб";
-   paint()
+   paint(true)
   }
   const reset=()=>setPlan(plan);
   view3D.onclick=()=>setPlan(false);
   viewPlan.onclick=()=>setPlan(true);
   root.querySelector('[data-view="reset"]').onclick=reset;
-  root.querySelector('[data-view="labels"]').onclick=e=>{labels=!labels;e.currentTarget.classList.toggle("active",labels);paint()};
   cv.addEventListener("contextmenu",e=>e.preventDefault());
   cv.addEventListener("pointerdown",e=>{drag={x:e.clientX,y:e.clientY,button:e.button,yaw,pitch,panX,panY};moved=false;cv.setPointerCapture(e.pointerId)});
   cv.addEventListener("pointermove",e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;if(drag.button===2||e.shiftKey){panX=drag.panX+dx;panY=drag.panY+dy}else if(!plan){yaw=drag.yaw+dx*.008;pitch=Math.max(.06,Math.min(1.5,drag.pitch+dy*.006))}else{panX=drag.panX+dx;panY=drag.panY+dy}paint()});
   cv.addEventListener("pointerup",e=>{if(!drag)return;drag=null;if(moved)return;const rect=cv.getBoundingClientRect(),px=(e.clientX-rect.left)*(cv.width/rect.width),py=(e.clientY-rect.top)*(cv.height/rect.height);
    const distance=seg=>{const a=seg.a,b=seg.b,dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((px-a.x)*dx+(py-a.y)*dy)/Math.max(1,dx*dx+dy*dy)));return Math.hypot(px-a.x-t*dx,py-a.y-t*dy)};
-   const found=hit.map(s=>({s,d:distance(s)})).sort((a,b)=>a.d-b.d)[0];if(found?.d<17){document.getElementById("ir-export-scheme-info").textContent="Марка: "+found.s.m.mark+" · "+found.s.m.type+" · "+(found.s.m.status==="mounted"?"Смонтировано":found.s.m.status==="partial"?"Частично":"Не смонтировано")}
+   const found=hit.map(s=>({s,d:distance(s)})).sort((a,b)=>a.d-b.d)[0];
+   const hitThreshold=18*(cv.width/Math.max(1,rect.width));
+   if(found?.d<hitThreshold)selectMember(found.s.m)
   });
   cv.addEventListener("wheel",e=>{e.preventDefault();zoom=Math.max(.2,Math.min(9,zoom*(e.deltaY>0?.90:1.10)));paint()},{passive:false});
-  if(typeof ResizeObserver==="function")new ResizeObserver(paint).observe(cv);
-  window.addEventListener("resize",paint);paint()
+  if(typeof ResizeObserver==="function")new ResizeObserver(()=>paint(true)).observe(cv);
+  window.addEventListener("resize",()=>paint(true));paint(true)
  }
  const css=String.raw`
 .ir-export-gallery{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
@@ -177,6 +237,18 @@
 .ir-export-scheme-stage canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
 .ir-export-scheme-hint{position:absolute;left:12px;bottom:12px;color:#60829a;background:#fff;border:1px solid #e0eaf2;border-radius:7px;padding:7px 10px;font-size:10px;pointer-events:none}
 .ir-export-scheme-info{padding:11px 17px;color:#5e7f94;font-size:11px;border-top:1px solid #e1ebf2}
+.ir-export-scheme-member-card{position:absolute;right:18px;top:16px;z-index:5;width:min(370px,calc(100% - 36px));max-height:calc(100% - 95px);overflow-y:auto;padding:0 17px 15px;background:rgba(255,255,255,.98);border:1px solid #c6dcea;border-radius:12px;box-shadow:0 10px 35px rgba(21,64,94,.23);font-family:'Segoe UI',Arial,sans-serif}
+.ir-export-scheme-member-card[hidden]{display:none!important}
+.ir-export-scheme-member-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;position:sticky;top:0;padding:13px 0 10px;background:#fff;border-bottom:1px solid #e3ecf2}
+.ir-export-scheme-member-card-head span{font-size:10px;color:#728fa1;font-weight:800;text-transform:uppercase;letter-spacing:.6px}
+.ir-export-scheme-member-close{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0!important;border:1px solid #d8e7f0!important;border-radius:8px;background:#f5faff!important;color:#386d8f!important;cursor:pointer}
+.ir-export-scheme-member-card h3{color:#174863;margin:13px 0;font-size:20px;font-weight:800}
+.ir-export-scheme-member-fields{display:grid;gap:0}
+.ir-export-scheme-member-field{display:grid;grid-template-columns:43% minmax(0,1fr);align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid #edf2f6}
+.ir-export-scheme-member-field:last-child{border-bottom:0}
+.ir-export-scheme-member-field small{font-size:11px;color:#829bab}
+.ir-export-scheme-member-field b{font-size:12px;font-weight:700;color:#254f69;overflow-wrap:anywhere}
+@media(max-width:750px){.ir-export-scheme-member-card{right:8px;top:8px;width:min(340px,calc(100% - 16px));max-height:72%}}
 .ir-export-mark-code{display:grid;gap:3px}.ir-export-mark-code small{font-size:10px;color:#7893a7}
 @media(max-width:900px){.ir-export-gallery{grid-template-columns:repeat(3,minmax(0,1fr))}.ir-export-invoice-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:540px){.ir-export-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}}

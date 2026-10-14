@@ -406,7 +406,7 @@
   const extras=window.irObjectExportExtras;
   const body=key==="reports"?renderDailyReports(rows,images):key==="marks"?renderMarkSection(rows,support.workTypes||[],support.reports||[],images):
    key==="deliveries"?extras.deliveries(rows):key==="photos"?extras.recentPhotos(support.reports||[],images):
-   key==="scheme"?extras.schemeHtml(extras.schemeData(rows)):["schedule","acted-days","penalties"].includes(key)?"":renderRows(rows,key,images);
+   key==="scheme"?extras.schemeHtml(extras.schemeData(rows,support.schemeDetails||[])):["schedule","acted-days","penalties"].includes(key)?"":renderRows(rows,key,images);
   if(["schedule","acted-days","penalties"].includes(key))return'<div class="ir-export-group" id="section-'+esc(key)+'">'+(preview?'<div class="ir-export-preview">'+preview+'</div>':'<div class="ir-export-empty-card">Нет данных для анализа</div>')+'</div>';
   if(key==="deliveries")return'<div class="ir-export-group" id="section-deliveries"><section class="ir-export-section ir-export-deliveries-unified">'+
    '<header class="ir-export-section-head"><h2>Поставки и монтаж</h2><span class="ir-export-count">'+rows.length+' накладных</span></header>'+
@@ -523,10 +523,12 @@
     catch(error){console.warn("Object HTML: failed to load section",key,error);return[key,[]]}
    }));
    const rows=Object.fromEntries(batches);
-   const supporting=keys.includes("marks")||keys.includes("photos")?await Promise.all([
-    keys.includes("marks")?(rows["work-types"]?Promise.resolve(rows["work-types"]):api.section("work-types").list().catch(()=>[])):Promise.resolve([]),
+   const supporting=keys.includes("marks")||keys.includes("photos")||keys.includes("scheme")?await Promise.all([
+    keys.includes("marks")||keys.includes("scheme")?(rows["work-types"]?Promise.resolve(rows["work-types"]):api.section("work-types").list().catch(()=>[])):Promise.resolve([]),
     rows.reports?Promise.resolve(rows.reports):api.section("reports").list().catch(()=>[])
    ]):[[],[]];
+   const schemeMarks=keys.includes("scheme")?(rows.marks||await api.section("marks").list().catch(()=>[])):[];
+   const schemeDetails=keys.includes("scheme")?markDetailData(schemeMarks,supporting[0],supporting[1]):[];
    const photoInputs=keys.includes("photos")?{...rows,reports:supporting[1]}:rows;
    const photos=await inlinePhotos(photoInputs);
    const cssResponse=await fetch("./ir-styles.css?v=17149",{cache:"no-store"});
@@ -832,10 +834,10 @@
    const activeNavStyles=keys.filter(key=>/^[a-z0-9_-]+$/i.test(key)).map(key=>'body:has(#section-'+key+':target) .ir-export-topnav .ir-export-subnav-link[href="#section-'+key+'"]{background:#e6f2fc!important;color:#176ca7!important;font-weight:800!important}').join("\n");
    const extras=window.irObjectExportExtras;
    if(!extras)throw new Error("Модуль экспорта разделов не загружен. Перезапустите IR Project.");
-   const sectionsHtml=keys.map(key=>renderSection(key,rows[key]||[],photos,overviewSnapshot.preview[key]||"",{workTypes:supporting[0],reports:supporting[1]})).join("");
+   const sectionsHtml=keys.map(key=>renderSection(key,rows[key]||[],photos,overviewSnapshot.preview[key]||"",{workTypes:supporting[0],reports:supporting[1],schemeDetails})).join("");
    let viewerScripts="",viewerCsp="";
    if(keys.includes("scheme")){
-    const scheme=extras.schemeData(rows.scheme||[]);
+    const scheme=extras.schemeData(rows.scheme||[],schemeDetails);
     const encoded=JSON.stringify(scheme).replace(/</g,"\\u003c").replace(/\u2028/g,"\\u2028").replace(/\u2029/g,"\\u2029");
     const nonce=btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
     const engine="("+extras.schemeViewer.toString()+")();";

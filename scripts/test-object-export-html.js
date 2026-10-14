@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17167'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17168'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -199,7 +199,7 @@ assert(otherCardsHTML.includes("В10")&&otherCardsHTML.includes("В11"),"second 
 
 const extraSource=fs.readFileSync("src/object-export-extras.js","utf8");
 new vm.Script(extraSource,{filename:"object-export-extras.js"});
-assert(html.includes('object-export-extras.js?v=17167'),"standalone asset renderer loaded");
+assert(html.includes('object-export-extras.js?v=17168'),"standalone asset renderer loaded");
 const extraCtx={window:{},console};
 vm.runInNewContext(extraSource,extraCtx);
 const extras=extraCtx.window.irObjectExportExtras;
@@ -212,6 +212,8 @@ assert(source.includes("project_code_2"),"secondary project codes are printed in
 assert(source.includes('key==="deliveries"?extras.deliveries(rows)'),"invoices use a read-only dedicated view");
 assert(source.includes('key==="photos"?extras.recentPhotos('),"photo gallery is built from real report images");
 assert(source.includes('key==="scheme"?extras.schemeHtml('),"scheme uses embedded viewport");
+assert(source.includes('const schemeDetails=keys.includes("scheme")?markDetailData('),"mark quantities are available even when marks section is not selected");
+assert(source.includes('extras.schemeData(rows.scheme||[],schemeDetails)'),"export embeds complete mark details in read-only scheme");
 assert(source.includes('["schedule","acted-days","penalties"].includes(key)'),"analysis and schedule are preview-only");
 assert(source.includes("keys.includes(\"scheme\")"),"scheme data is embedded when selected");
 assert(source.includes("script-src 'nonce-"),"viewer only runs a nonce-authorized script");
@@ -241,10 +243,27 @@ const model=extras.schemeData(grid);
 assert.equal(model.members.length,2,"actual placed members are read from scheme records");
 assert.equal(model.members[0].end[2],8400,"column height is preserved");
 assert.equal(model.members[1].end[0],10000,"beam endpoint coordinates are preserved");
+const detailedModel=extras.schemeData(grid,[{id:44,mark:"К1",name:"Колонна главная",work:"Монтаж МК",code:"041-2025 КМД",code2:"КМ-2",qty:7,done:4,left:3,pct:57.14,unit:"тн",uv:1.25,total:8.75}]);
+assert.equal(detailedModel.members[0].name,"","unlinked elements keep source fallback values");
+const linkedGrid=grid.map((r,i)=>i===1?{...r,data:{...r.data,mark_id:44}}:r);
+const linkedModel=extras.schemeData(linkedGrid,[{id:44,mark:"К1",name:"Колонна главная",work:"Монтаж МК",code:"041-2025 КМД",code2:"КМ-2",qty:7,done:4,left:3,pct:57.14,unit:"тн",uv:1.25,total:8.75}]);
+assert.equal(linkedModel.members[0].name,"Колонна главная","scheme element resolves its original mark ID");
+assert.equal(linkedModel.members[0].done,4,"mounted quantities appear in selected mark details");
+assert.equal(linkedModel.members[0].left,3,"remaining quantities appear in selected mark details");
+assert.equal(linkedModel.members[0].code,"041-2025 КМД","mark work code appears");
+assert.equal(linkedModel.members[0].code2,"КМ-2","second project code appears");
+assert.equal(linkedModel.members[0].qty,7,"total mark count appears");
 assert(extras.schemeHtml(model).includes('data-view="plan"'),"Plan toggle is present");
+assert(!extras.schemeHtml(model).includes('data-view="labels"'),"inline labels control is removed");
+assert(extras.schemeHtml(model).includes('ir-export-scheme-member-card'),"selected mark info panel exists");
 assert(extras.schemeViewer.toString().includes("pointermove"),"3D rotates with pointer drag");
 assert(extras.schemeViewer.toString().includes("wheel"),"3D wheel zoom is implemented");
-assert(extras.schemeViewer.toString().includes('scale=.74*Math.min(w,h)/span'),"3D fits the viewport");
+assert(extras.schemeViewer.toString().includes('.93*w/Math.max(1,maxX-minX)'),"3D auto-fits the model using full viewport width");
+assert(extras.schemeViewer.toString().includes('.90*h/Math.max(1,maxY-minY)'),"3D auto-fits the model vertically");
+assert(extras.schemeViewer.toString().includes('paint(true)'),"3D re-fits on view changes and resizing");
+assert(extras.schemeViewer.toString().includes('selectMember(found.s.m)'),"clicking a model element opens its mark card");
+assert(extras.schemeViewer.toString().includes('field(fields,"Шифр",m.code)'),"mark card includes project code");
+assert(!extras.schemeViewer.toString().includes('if(labels)'),"3D no longer draws persistent label clutter");
 assert(extras.schemeViewer.toString().includes('center[0]'),"3D model is centered");
 const secondary=groupCalc(
  [{id:111,data:{work_type_id:"7",qty:2,mark:"Б1"}}],
