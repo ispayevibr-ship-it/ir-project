@@ -422,7 +422,7 @@
   ];
   return'<section class="ir-export-companies'+(cards.length===2?' ir-export-companies-two':'')+'" aria-label="Участники строительства"><div class="ir-export-companies-grid">'+cards.map(p=>{
    const img=p.logo?'<img src="'+esc(p.logo)+'" alt="Логотип: '+esc(p.role)+'">':'<span class="ir-export-company-no-logo">Логотип не указан</span>';
-   return'<article class="ir-export-company-card ir-export-company-'+p.tone+'"><div class="ir-export-company-role">'+esc(p.role)+'</div><div class="ir-export-company-logo">'+img+'</div><div class="ir-export-company-name">'+esc(p.name||"Не указано")+'</div></article>'
+   return'<article class="ir-export-company-card ir-export-company-'+p.tone+'"><div class="ir-export-company-logo">'+img+'</div><div class="ir-export-company-meta"><div class="ir-export-company-role">'+esc(p.role)+'</div><div class="ir-export-company-name">'+esc(p.name||"Не указано")+'</div></div></article>'
   }).join("")+'</div></section>'
  }
 
@@ -467,18 +467,17 @@
   const originalNav=aside?.querySelector(".ir-object-nav");
   const links=originalNav?[...originalNav.querySelectorAll("button[data-key]")]:[];
   const original=key=>links.find(el=>el.dataset.key===key);
-  const icon=key=>original(key)?.querySelector(".nav-icon")?.innerHTML||"";
-  const name=key=>original(key)?.querySelector(".nav-label")?.textContent||labels[key]||key;
-  const caret='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
-  const item=key=>'<a class="ir-export-subnav-link" href="#section-'+esc(key)+'"><span class="nav-icon" aria-hidden="true">'+icon(key)+'</span><span class="nav-label">'+esc(name(key))+'</span></a>';
-  const items=keys.length?keys.map(item).join(""):'<span class="ir-export-menu-empty">Других разделов нет</span>';
-  return'<nav class="ir-export-topnav" aria-label="Навигация по HTML-отчёту">'+
-   '<div class="ir-export-topnav-inner">'+
+  const icon=key=>original(key)?.querySelector(".nav-icon")?.innerHTML||'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="'+({overview:'M3 11 12 4l9 7v10h-6v-7H9v7H3z',schedule:'M3 21h18M6 18V9h3v9m3 0V5h3v13m3 0v-7h3v7',deliveries:'M5 3h13v18H5zM9 8h5m-5 4h5m-5 4h4',reports:'M5 4h14v17H5zM9 9h6m-6 4h6m-6 4h4',marks:'m12 2 9 5v10l-9 5-9-5V7zM3 7l9 5 9-5M12 12v10',photos:'M3 3h18v18H3zM3 17l6-6 4 4 3-3 5 5'}[key]||'M12 3v18M3 12h18')+'"/></svg>';
+  const name=key=>key==="deliveries"?"Поставки и монтаж":key==="marks"?"Ведомость / марки":key==="photos"?"Фото":original(key)?.querySelector(".nav-label")?.textContent||labels[key]||key;
+  const primary=["schedule","deliveries","reports","marks","photos"].filter(key=>keys.includes(key));
+  const other=keys.filter(key=>!primary.includes(key));
+  const item=(key,extra=false)=>'<a class="'+(extra?"ir-export-subnav-link":"ir-export-toplink")+'" href="#section-'+esc(key)+'"><span class="nav-icon" aria-hidden="true">'+icon(key)+'</span><span class="nav-label">'+esc(name(key))+'</span></a>';
+  const gear='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2m0-14-2 2M7 17l-2 2"/></svg>';
+  return'<nav class="ir-export-topnav" aria-label="Навигация по HTML-отчёту"><div class="ir-export-topnav-inner">'+
    (includeOverview?'<a class="ir-export-toplink active" href="#overview"><span class="nav-icon" aria-hidden="true">'+icon("overview")+'</span><span>Обзор объекта</span></a>':"")+
-   '<details class="ir-export-menu">'+
-   '<summary class="ir-export-menu-trigger"><span class="ir-export-menu-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span><span>Разделы меню</span><span class="ir-export-menu-caret">'+caret+'</span></summary>'+
-   '<div class="ir-export-menu-items" aria-label="Разделы объекта"><div class="ir-export-menu-caption">ПЕРЕЙТИ К РАЗДЕЛУ</div>'+items+'</div>'+
-   '</details></div></nav>'
+   primary.map(key=>item(key)).join("")+
+   '<details class="ir-export-menu"><summary class="ir-export-menu-trigger"><span class="nav-icon" aria-hidden="true">'+gear+'</span><span>Другое</span><span class="ir-export-menu-caret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span></summary>'+
+   '<div class="ir-export-menu-items" aria-label="Дополнительные разделы">'+(other.length?other.map(key=>item(key,true)).join(""):'<span class="ir-export-menu-empty">Других разделов нет</span>')+'</div></details></div></nav>'
  }
  function copyCanvas(live,copy){
   const originals=[...live.querySelectorAll("canvas")],copies=[...copy.querySelectorAll("canvas")];
