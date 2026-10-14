@@ -196,7 +196,7 @@ assert.equal((selectedCardsHTML.match(/class="ir-export-mark-card status-/g)||[]
 assert(selectedCardsHTML.includes('ir-export-count-all">8</span>'),"work-filtered total is correct");
 const otherCardsHTML=cardHTML.split('<div class="ir-export-work-panel ir-export-work-panel-1">')[1];
 assert(otherCardsHTML.includes("В10")&&otherCardsHTML.includes("В11"),"second work's marks remain selectable");
-assert(cardHTML.includes("Монтаж металлоконструкций · КМ"),"tabs include primary project code");
+assert(cardHTML.includes("Металлоконструкции · КМ"),"tabs use the correct material noun and primary code");
 assert(cardHTML.includes("Монтаж сэндвич-панелей · СП"),"sandwich tabs include the project code");
 const twoCodes=renderCards([
  {id:210,data:{work_type_id:"7",mark:"К1",qty:1,unit:"тн",project_code:"041-2025 КМД",project_code_2:"КМ-1"}},
@@ -204,7 +204,7 @@ const twoCodes=renderCards([
 ],[{id:"7",data:{work_type:"Монтаж металлоконструкций"}}],[]);
 assert(twoCodes.includes("Металлоконструкции · 041-2025 КМД (КМ-1)"),"first code and secondary code on one tab");
 assert(twoCodes.includes("Металлоконструкции · 043-2025 КМД (КМ-2)"),"different codes under one work type do not merge");
-assert.equal((twoCodes.match(/class="ir-export-work-radio ir-export-work-radio-\\d+"/g)||[]).length,2,"two distinct work-code filters");
+assert.equal((twoCodes.match(/class="ir-export-work-radio ir-export-work-radio-[0-9]+"/g)||[]).length,2,"two distinct work-code filters");
 const firstTwoCodes=twoCodes.split('<div class="ir-export-work-panel ir-export-work-panel-0">')[1].split('<div class="ir-export-work-panel ir-export-work-panel-1">')[0];
 const nextTwoCodes=twoCodes.split('<div class="ir-export-work-panel ir-export-work-panel-1">')[1];
 assert(firstTwoCodes.includes("К1")&&!firstTwoCodes.includes("К2"),"first code only displays its marks");
