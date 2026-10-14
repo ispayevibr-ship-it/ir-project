@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17191'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17192'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -16,7 +16,7 @@ assert(!source.includes("ir-export-preview-daily"),"obsolete recent report expan
 assert(!source.includes('["photos",".object-overview-reports > .oor2-photo-card"]'),"photos are drawn from the latest 12 actual report images");
 assert(!source.includes('["deliveries",".object-overview-deliveries-wrap > .ood-deliveries"]'),"latest invoice widget is not duplicated");
 assert(source.includes('["schedule",".object-overview-dashboard > .object-overview-schedule"]'),"schedule widget is relocated");
-assert(source.includes("renderDailyReports(rows,images)"),"daily reports use specialized cards");
+assert(source.includes("renderDailyReports(rows,images,support.markNames)"),"daily reports use specialized cards");
 assert(source.includes('exportMoreCards(cards,"reports")'),"only five report cards initially visible");
 assert(source.includes('<details class="ir-export-more ir-export-more-'),"show-more works with native details in offline HTML");
 assert(source.includes("renderMarksOverview(markRows,workRows,reportRows)"),"grouped marks overview is generated");
@@ -103,8 +103,8 @@ assert.equal(withEmptyGroup[0].positions,0);
 assert.equal(withEmptyGroup[0].total,0);
 
 assert(source.includes('class="ir-export-daily-card"'),"daily reports use expandable cards");
-assert(source.includes("reportFull(record,r,images)"),"daily report cards include complete detail");
-assert(source.includes("reportWorkTable(reportWorks(r))"),"daily report details include work list");
+assert(source.includes("reportFull(record,r,images,markNames)"),"daily report cards include complete detail");
+assert(source.includes("reportWorkTable(reportWorks(r),markNames)"),"daily report details include work list");
 assert(source.includes('class="ir-export-indicator-head"'),"KPI icon and heading share a horizontal row");
 assert(source.includes('.ir-export-indicator-head{display:flex!important;align-items:center!important'),"KPI heading row is aligned");
 assert(source.includes('if(key==="marks")return\'<div class="ir-export-group" id="section-marks"><section class="ir-export-section ir-export-marks-section">\'+body'),"marks have one progress header and one inner register header");
@@ -160,16 +160,16 @@ const scope={window:{},console};vm.runInNewContext(source,scope);
 assert.equal(typeof scope.window.irObjectHtmlExport?.save,"function");
 assert(source.includes("ir-export-daily-brief"),"report cards display a short summary");
 assert(source.includes("ir-export-daily-full"),"report cards disclose full details");
-assert(source.includes("reportWorkTable(reportWorks(r))"),"daily report works table included");
+assert(source.includes("reportWorkTable(reportWorks(r),markNames)"),"daily report works table included");
 assert(source.includes('if(section==="reports")for(const photo'),"reportPhotos images are bundled into the offline HTML");
-assert(source.includes("reportFull(record,r,images)"),"full report detail present");
+assert(source.includes("reportFull(record,r,images,markNames)"),"full report detail present");
 const start=source.indexOf(" function reportFull("),end=source.indexOf(" function renderDailyReports(",start);
 assert(start>=0&&end>start,"report details function exists");
 const reportDetails=source.slice(start,end);
 assert(!reportDetails.includes("Дополнительная информация"),"technical additional-information panel removed");
 assert(!reportDetails.includes("record.record_type"),"technical record type not shown");
 assert(!reportDetails.includes("<small>ID</small>"),"technical record ID is not listed as a field");
-assert(reportDetails.includes("reportWorkTable(reportWorks(r))"),"expanded report includes work register");
+assert(reportDetails.includes("reportWorkTable(reportWorks(r),markNames)"),"expanded report includes work register");
 assert(!reportDetails.includes("reportChips(")&&!reportDetails.includes("photoItems"),"expanded archive view excludes secondary cards");
 assert(source.includes('class="ir-export-daily-chevron" aria-hidden="true"><svg'),"native SVG chevron in daily report summary");
 assert(source.includes('ir-export-daily-chevron svg{transform:rotate(180deg)}'),"chevron rotates when expanded");
@@ -615,3 +615,34 @@ assert.equal(metrics.exportLatestResources([]).date,"","no report date when hist
 assert(!source.includes('data-overview-export-kpi-edit'),"no editing controls in exported metrics");
 
 console.log("Full object HTML export: snapshot, offline navigation, read-only records, native save and no DB writes OK");
+
+
+// Archive-specific regressions: mark names, invoice styling, grouped work types and offline dynamics.
+assert(source.includes("function reportMarkNames(rows)")&&source.includes("reportMarkLabel(w,markNames)"),"report name lookup is connected to the mark register");
+assert(source.includes('renderExportWorkTypes(rows,support.marks||[],support.reports||[])'),"work types have the same grouped table as the program");
+assert(source.includes("ir-export-wt-track")&&source.includes('id="ir-export-wt-other"'),"work types provide switchable groups and readiness bars");
+assert(source.includes("<h3>Накладные</h3>")&&!source.includes("<h3>Поставки (накладные)</h3>"),"invoice heading is simplified");
+assert(source.includes("ir-export-delivery-register{padding-top:16px!important}"),"invoices have an upper spacing");
+assert(source.includes('renderExportTrend(supporting[1],supporting[0])')&&source.includes("data-export-trend-select"),"daily report dynamics have work selection in exported file");
+assert(source.includes('select.addEventListener("change",update)')&&source.includes("ir-export-trend-panel[hidden]"),"work chart selection functions without project database");
+{
+ const first=source.indexOf(" function reportMarkNames("),last=source.indexOf(" function reportFull(",first);
+ assert(first>0&&last>first,"isolatable mark name lookup");
+ const helpers=vm.runInNewContext('(function(){const array=x=>Array.isArray(x)?x:[];const esc=v=>String(v??"");'+source.slice(first,last)+';return {reportMarkNames,reportMarkLabel}})()', {});
+ const index=helpers.reportMarkNames([{id:101,data:{work_type_id:"7",project_code:"КМ",mark:"B144",name:"Балка покрытия"}}]);
+ assert(helpers.reportMarkLabel({work_type_id:"7",project_code:"КМ",mark_id:"101",mark:"B144"},index).includes("Балка покрытия"),"archive resolves mark name from mark_id");
+ assert(!helpers.reportMarkLabel({work_type_id:"8",project_code:"СП",mark:"B144"},index).includes("Балка покрытия"),"fallback never uses unrelated work mark");
+}
+{
+ const begin=source.indexOf(" function markDetailData("),end=source.indexOf(" function renderMarkCards(",begin);
+ const trendStart=source.indexOf(" function renderExportTrend("),trendEnd=source.indexOf(" function renderSection(",trendStart);
+ assert(begin>=0&&end>begin&&trendStart>=0&&trendEnd>trendStart,"work and trend renderers found");
+ const base='const array=x=>Array.isArray(x)?x:[];const esc=v=>String(v??"");const exportNumber=v=>Number(v)||0;const exportFormat=v=>String(Number((Number(v)||0).toFixed(4)));const exportDate=v=>v;const reportService=w=>w.accounting_type==="service"||w.is_service===true||w.unit==="услуга";const reportVolume=w=>Number(w.volume??(Number(w.qty)*Number(w.unit_volume))??0)||0;const workLabel=v=>v;';
+ const api=vm.runInNewContext('(function(){'+base+source.slice(begin,end)+source.slice(trendStart,trendEnd)+';return {renderExportTrend,renderExportWorkTypes}})()', {});
+ const works=[{id:7,data:{work_type:"Монтаж металлоконструкций",project_code:"КМ",unit:"тн"}}];
+ const marks=[{id:101,data:{work_type_id:"7",project_code:"КМ",mark:"B144",name:"Балка",qty:2,unit_volume:0.3,unit:"тн"}}];
+ const reports=[{id:1,data:{date:"2026-10-08",items:[{work_type_id:"7",work_type:"Монтаж металлоконструкций",project_code:"КМ",mark_id:"101",mark:"B144",qty:1,unit:"тн",volume:0.3}]}}];
+ const table=api.renderExportWorkTypes(works,marks,reports),chart=api.renderExportTrend(reports,works);
+ assert(table.includes("50%")&&table.includes("0.6"),"work-type readiness and totals match the source register");
+ assert(chart.includes('data-export-trend-panel="0"')&&chart.includes('data-export-trend-select'),"offline dynamics render from daily data");
+}

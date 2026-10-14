@@ -125,16 +125,38 @@
    return'<div class="ir-export-daily-chip"><small>'+esc(name)+'</small><b>'+esc(value)+'</b></div>'
   }).join("")+'</div>'
  }
- function reportWorkTable(works){
+
+ function reportMarkNames(rows){
+  const norm=v=>String(v??"").trim().toLowerCase().replace(/\s+/g," ");
+  const byId=new Map(),byKey=new Map();
+  for(const row of array(rows)){
+   const d=row.data||{},mark=String(d.mark||row.title||"").trim(),name=String(d.name||"").trim();
+   if(!mark)continue;
+   const ref={mark,name},key=String(d.work_type_id||"")+"|"+norm(d.project_code||d.code)+"|"+norm(mark);
+   byId.set(String(row.id),ref);
+   if(!byKey.has(key))byKey.set(key,ref);else byKey.set(key,null)
+  }
+  return{byId,byKey}
+ }
+ function reportMarkLabel(w,index){
+  const mark=String(w.mark||"").trim(),id=String(w.mark_id??w.markId??w.mark_record_id??"");
+  const norm=v=>String(v??"").trim().toLowerCase().replace(/\s+/g," ");
+  const key=String(w.work_type_id||"")+"|"+norm(w.project_code||w.code)+"|"+norm(mark);
+  const ref=(id?index?.byId.get(id):null)||index?.byKey.get(key);
+  const realMark=mark||ref?.mark||"",name=String(ref?.name||w.name||"").trim();
+  return realMark?'<b>'+esc(realMark)+'</b>'+(name?'<small class="ir-export-work-mark-name">'+esc(name)+'</small>':""):esc(name||"—")
+ }
+
+ function reportWorkTable(works,markNames){
   if(!works.length)return'<p class="ir-export-muted">Работы не проводились</p>';
   const rows=works.map(w=>{
    const service=reportService(w),status=service?(w.completed===true||w.service_completed===true||w.status==="done"?"Выполнено":"Не выполнено"):exportFormat(reportVolume(w))+" "+String(w.unit||"");
-   return'<tr><td><b>'+esc(workLabel(w.work_type||w.type||"Работа","mount"))+'</b></td><td>'+esc(w.project_code||w.code||"—")+'</td><td>'+esc(w.mark||w.name||"—")+'</td><td>'+esc(w.qty??w.count??w.quantity??"—")+'</td><td><b>'+esc(status)+'</b></td></tr>'
+   return'<tr><td><b>'+esc(workLabel(w.work_type||w.type||"Работа","mount"))+'</b></td><td>'+esc(w.project_code||w.code||"—")+'</td><td>'+reportMarkLabel(w,markNames)+'</td><td>'+esc(w.qty??w.count??w.quantity??"—")+'</td><td><b>'+esc(status)+'</b></td></tr>'
   }).join("");
   return'<div class="ir-export-daily-table"><table><thead><tr><th>Вид работы</th><th>Шифр</th><th>Марка / наименование</th><th>Кол-во</th><th>Выполнено</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
  }
- function reportFull(record,r,images){
-  return '<div class="ir-export-daily-full">'+reportWorkTable(reportWorks(r))+'</div>'
+ function reportFull(record,r,images,markNames){
+  return '<div class="ir-export-daily-full">'+reportWorkTable(reportWorks(r),markNames)+'</div>'
  }
 
  function exportMoreCards(htmlList,kind,totalCount=htmlList.length,totalUnits=0){
@@ -145,13 +167,13 @@
   return first+'<details class="ir-export-more ir-export-more-'+esc(kind)+'"><summary><span class="ir-export-more-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span><span class="ir-export-more-show">Показать ещё (всего '+totalCount+' '+suffix+')</span><span class="ir-export-more-hide">Свернуть (показать первые 5)</span></summary><div class="ir-export-more-items">'+other+'</div></details>'
  }
 
- function renderDailyReports(rows,images){
+ function renderDailyReports(rows,images,markNames){
   if(!rows.length)return'<div class="ir-export-empty-card">Ежедневных отчётов пока нет</div>';
   const numbers=new Map([...rows].sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0)).map((r,i)=>[String(r.id),i+1]));
   const ordered=[...rows].sort((a,b)=>String(b.data?.date||b.data?.report_date||"").localeCompare(String(a.data?.date||a.data?.report_date||""))||(Number(b.id)||0)-(Number(a.id)||0));
   const cards=ordered.map((record,i)=>{
    const r={...record.data},no=numbers.get(String(record.id))||i+1;
-   return'<article class="ir-export-daily-card"><details'+(i===0?' open':'')+'><summary>'+reportBrief(r,no)+'</summary>'+reportFull(record,r,images)+'</details></article>'
+   return'<article class="ir-export-daily-card"><details'+(i===0?' open':'')+'><summary>'+reportBrief(r,no)+'</summary>'+reportFull(record,r,images,markNames)+'</details></article>'
   });
   return'<div class="ir-export-daily-list">'+exportMoreCards(cards,"reports")+'</div>'
  }
@@ -196,6 +218,7 @@
     const wrapper=key==="photos"?"object-overview-reports":
      key==="deliveries"?"object-overview-deliveries-wrap":key==="schedule"?"object-overview-dashboard":
      key==="marks"?"object-overview-marks-wrap":"object-overview-admin-analysis";
+    if(key==="schedule")card.querySelector(".schedule-trend")?.remove();
     (previews[key]??=[]).push('<div class="ir-object-overview-right ir-export-preview-layout"><div class="'+wrapper+'">'+(key==="schedule"?schedulePreviewHtml(card):card.outerHTML)+'</div></div>');
     card.remove()
    }
@@ -400,16 +423,84 @@
   return'<div class="ir-export-marks-unified">'+summary+full+'</div>'
  }
 
+
+ function renderExportTrend(reportRows,workRows){
+  const norm=v=>String(v??"").trim().toLowerCase().replace(/\s+/g," ");
+  const catalog=array(workRows).filter(x=>x.data?.accounting_type!=="service"&&norm(x.data?.unit)!=="услуга").map(x=>{const d=x.data||{};return{id:String(x.id),name:d.work_type||x.title||"Без вида работ",code:d.project_code||"",unit:d.unit||""}}),byId=new Map(catalog.map(x=>[x.id,x])),groups=new Map();
+  for(const record of array(reportRows)){
+   const d=record.data||record,day=String(d.date||d.report_date||"").slice(0,10);
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(day))continue;
+   for(const w of array(d.items).length?d.items:array(d.works)){
+    if(reportService(w))continue;
+    const wid=String(w.work_type_id||""),name=String(w.work_type||w.type||""),code=String(w.project_code||w.code||"");
+    let work=byId.get(wid);
+    if(work&&((name&&norm(name)!==norm(work.name))||(code&&work.code&&norm(code)!==norm(work.code))))work=null;
+    if(!work)work=catalog.find(x=>norm(x.name)===norm(name)&&norm(x.code)===norm(code));
+    if(!work){const matches=catalog.filter(x=>(code&&norm(x.code)===norm(code))||(name&&norm(x.name)===norm(name)));if(matches.length===1)work=matches[0]}
+    if(!work)work={id:"legacy:"+norm(name)+"|"+norm(code)+"|"+norm(w.unit),name:name||"Без вида работ",code,unit:w.unit||""};
+    if(!groups.has(work.id))groups.set(work.id,{work,values:new Map()});
+    const dates=groups.get(work.id).values;dates.set(day,(dates.get(day)||0)+reportVolume(w))
+   }
+  }
+  const types=[...groups.values()].sort((a,b)=>a.work.name.localeCompare(b.work.name,"ru")||String(a.work.code).localeCompare(String(b.work.code),"ru"));
+  if(!types.length)return'<div class="schedule-trend schedule-trend-empty"><div><b>Динамика по ежедневным отчётам</b><span>Нет выполненных объёмов в ежедневных отчётах</span></div></div>';
+  const shortDate=v=>v.slice(8,10)+"."+v.slice(5,7);
+  const panels=types.map(({work,values},index)=>{
+   const pts=[...values].sort((a,b)=>a[0].localeCompare(b[0])),total=pts.reduce((sum,p)=>sum+p[1],0),active=pts.filter(p=>p[1]>0),avg=active.length?total/active.length:0,max=Math.max(0,...pts.map(p=>p[1])),last=pts.at(-1),prev=pts.at(-2),delta=prev?last[1]-prev[1]:0,unit=work.unit||"ед.";
+   const W=Math.max(800,pts.length*50),H=210,L=48,R=20,T=20,B=34,ih=H-T-B,iw=W-L-R,step=iw/Math.max(1,pts.length),bw=Math.max(18,Math.min(64,step*.62)),maxY=Math.max(1,max,avg);
+   const bars=pts.map(([day,val],i)=>{const h=ih*val/maxY,x=L+i*step+(step-bw)/2,y=H-B-h;return'<g class="daily-bar"><rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+Math.max(1,h).toFixed(1)+'" rx="4"></rect><text x="'+(x+bw/2).toFixed(1)+'" y="'+Math.max(12,y-5).toFixed(1)+'" text-anchor="middle">'+(val>0?esc(exportFormat(val)):"")+'</text><text class="daily-date" x="'+(x+bw/2).toFixed(1)+'" y="'+(H-11)+'" text-anchor="middle">'+esc(shortDate(day))+'</text></g>'}).join("");
+   const ay=T+ih-avg/maxY*ih,txt="Среднее "+exportFormat(avg)+" "+unit,aw=Math.max(112,72+txt.length*4.6),ax=Math.max(L+4,W-R-aw-6),ty=Math.max(T+3,Math.min(H-B-22,ay-12));
+   const line=avg>0?'<g class="daily-average-overlay"><line class="daily-average" x1="'+L+'" y1="'+ay.toFixed(1)+'" x2="'+(W-R)+'" y2="'+ay.toFixed(1)+'"></line><rect class="daily-average-bg" x="'+ax.toFixed(1)+'" y="'+ty.toFixed(1)+'" width="'+aw.toFixed(1)+'" height="19" rx="5"></rect><text class="daily-average-label" x="'+(ax+aw-7).toFixed(1)+'" y="'+(ty+13).toFixed(1)+'" text-anchor="end">'+esc(txt)+'</text></g>':"";
+   const stat=(label,value,sub)=>'<div><span>'+esc(label)+'</span><b>'+esc(value)+'</b>'+(sub?'<small>'+esc(sub)+'</small>':"")+'</div>';
+   return'<div class="ir-export-trend-panel" data-export-trend-panel="'+index+'"'+(index?' hidden':'')+'><div class="schedule-trend-stats">'+stat("Последний день",exportFormat(last[1])+" "+unit,shortDate(last[0]))+stat("Выполнено за период",exportFormat(total)+" "+unit,active.length+" дн. с объёмом")+stat("Максимум за день",exportFormat(max)+" "+unit)+
+    '<div class="trend-delta '+(delta>0?"up":delta<0?"down":"flat")+'"><span>К предыдущему отчёту</span><b>'+esc(prev?(delta>0?"+":"")+exportFormat(delta)+" "+unit:"—")+'</b></div></div>'+
+    '<div class="schedule-trend-chart daily-volume-chart"><div class="daily-volume-scroll"><svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" aria-label="Объёмы '+esc(work.name)+' по дням"><line class="daily-grid" x1="'+L+'" y1="'+T+'" x2="'+(W-R)+'" y2="'+T+'"></line><line class="daily-grid" x1="'+L+'" y1="'+(T+ih/2)+'" x2="'+(W-R)+'" y2="'+(T+ih/2)+'"></line><line class="daily-grid" x1="'+L+'" y1="'+(H-B)+'" x2="'+(W-R)+'" y2="'+(H-B)+'"></line><text class="daily-axis" x="4" y="'+(T+4)+'">'+esc(exportFormat(maxY))+'</text><text class="daily-axis" x="4" y="'+(H-B+4)+'">0</text>'+bars+line+'</svg></div></div></div>'
+  }).join("");
+  const options=types.map((g,i)=>'<option value="'+i+'">'+esc(workLabel(g.work.name,"mount"))+(g.work.code?" · "+esc(g.work.code):"")+'</option>').join("");
+  return'<div class="schedule-trend ir-export-trend"><div class="schedule-trend-head"><div><b>Динамика по ежедневным отчётам</b><span>Фактический объём выбранного вида работ по дням</span></div><select class="schedule-trend-select" data-export-trend-select aria-label="Выберите вид работы">'+options+'</select></div>'+panels+'</div>'
+ }
+ function renderExportWorkTypes(rows,markRows,reportRows){
+  if(!rows.length)return'<div class="ir-export-empty-card">Виды работ пока не добавлены</div>';
+  const norm=v=>String(v??"").trim().toLowerCase().replace(/\s+/g," ");
+  const marks=markDetailData(markRows,rows,reportRows),reports=array(reportRows),main=[],other=[];
+  const display=array(rows).map(r=>{
+   const d=r.data||{},id=String(r.id),name=String(d.work_type||r.title||"Без вида работ"),code=String(d.project_code||""),service=d.accounting_type==="service"||norm(d.unit)==="услуга";
+   let category=d.work_category;
+   if(!["installation","fabrication","other"].includes(category))category=d.has_marks===false||service?"other":/изготов/i.test(name)?"fabrication":/монтаж/i.test(name)?"installation":marks.some(m=>m.workId===id)?"installation":"other";
+   const same=w=>String(w.work_type_id||"")===id||(!w.work_type_id&&norm(w.work_type||w.type)===norm(name));
+   let plan=0,done=0,count=0,note="";
+   if(service){
+    let day="";for(const rec of reports){const data=rec.data||rec,date=String(data.date||data.report_date||"").slice(0,10);for(const item of array(data.items).length?data.items:array(data.works))if(same(item)&&(item.completed===true||item.service_completed===true||["done","выполнено"].includes(norm(item.status)))&&date>day)day=date}
+    note=day?"Выполнено "+exportDate(day):"Не выполнено"
+   }else if(category==="other"){
+    plan=exportNumber(d.planned_volume??d.plan_volume);
+    for(const rec of reports){const data=rec.data||rec;for(const item of array(data.items).length?data.items:array(data.works))if(same(item)&&!reportService(item))done+=reportVolume(item)}
+    note=plan>0?"Выполнено "+exportFormat(done)+" "+String(d.unit||""):"Объём не задан"
+   }else{
+    const entries=marks.filter(m=>m.workId===id||(!m.workId&&norm(m.work)===norm(name)&&norm(m.code)===norm(code)));
+    count=entries.length;plan=entries.reduce((n,m)=>n+m.total,0);done=entries.reduce((n,m)=>n+(m.qty?m.total*m.done/m.qty:0),0);
+    note=count?count+" поз.":"Ведомость не загружена"
+   }
+   const ready=plan>0?Math.min(100,Math.max(0,done/plan*100)):0;
+   return{category,service,name,code,unit:service?"услуга":String(d.unit||"—"),plan,ready,note}
+  });
+  for(const w of display)(w.category==="other"?other:main).push(w);
+  const tableHead='<div class="ir-export-wt-head"><span>Вид работы</span><span>Шифр проекта</span><span>Ед. изм.</span><span>Общий объём</span><span>Готовность</span></div>';
+  const table=items=>tableHead+(items.length?items.map(w=>'<div class="ir-export-wt-row"><div><small>Вид работы</small><b>'+esc(workLabel(w.name))+'</b></div><div><small>Шифр проекта</small><b>'+esc(w.category==="other"?"—":w.code||"—")+'</b></div><div><small>Ед. изм.</small><b>'+esc(w.unit)+'</b></div><div><small>Общий объём</small><b>'+(w.service?"Не требуется":w.plan>0?esc(exportFormat(w.plan))+" "+esc(w.unit):"—")+'</b><small>'+esc(w.service?"Без ведомости марок":w.note)+'</small></div><div class="ir-export-wt-ready"><small>Готовность</small>'+(w.service?'<b>'+esc(w.note)+'</b>':w.plan>0?'<b>'+exportFormat(Math.round(w.ready*10)/10)+'%</b><i class="ir-export-wt-track"><em style="width:'+w.ready.toFixed(2)+'%"></em></i>':'<b>—</b>')+'</div></div>').join(""):'<div class="ir-export-wt-empty">Виды работ не добавлены</div>');
+  return'<div class="ir-export-wt"><input type="radio" class="ir-export-wt-radio" id="ir-export-wt-main" name="ir-export-wt-group" checked><input type="radio" class="ir-export-wt-radio" id="ir-export-wt-other" name="ir-export-wt-group"><div class="ir-export-wt-tabs"><label for="ir-export-wt-main">Монтаж / изготовление <span>'+main.length+'</span></label><label for="ir-export-wt-other">Другие виды работ <span>'+other.length+'</span></label></div><div class="ir-export-wt-list ir-export-wt-main">'+table(main)+'</div><div class="ir-export-wt-list ir-export-wt-other">'+table(other)+'</div></div>'
+ }
+
  function renderSection(key,rows,images,preview="",support={}){
   const extras=window.irObjectExportExtras;
-  const body=key==="reports"?renderDailyReports(rows,images):key==="marks"?renderMarkSection(rows,support.workTypes||[],support.reports||[],images):
+  const body=key==="reports"?renderDailyReports(rows,images,support.markNames):key==="work-types"?renderExportWorkTypes(rows,support.marks||[],support.reports||[]):key==="marks"?renderMarkSection(rows,support.workTypes||[],support.reports||[],images):
    key==="deliveries"?extras.deliveries(rows):key==="photos"?extras.recentPhotos(support.reports||[],images):
    key==="scheme"?extras.schemeHtml(extras.schemeData(rows,support.schemeDetails||[])):["schedule","acted-days","penalties"].includes(key)?"":renderRows(rows,key,images);
-  if(["schedule","acted-days","penalties"].includes(key))return'<div class="ir-export-group" id="section-'+esc(key)+'"><section class="ir-export-section ir-export-visual-section">'+(preview?'<div class="ir-export-preview">'+preview+'</div>':'<div class="ir-export-empty-card">Нет данных для анализа</div>')+'</section></div>';
+  if(["schedule","acted-days","penalties"].includes(key))return'<div class="ir-export-group" id="section-'+esc(key)+'"><section class="ir-export-section ir-export-visual-section">'+(preview?'<div class="ir-export-preview">'+preview+'</div>':'<div class="ir-export-empty-card">Нет данных для анализа</div>')+(key==="schedule"?(support.trendHtml||""):"")+'</section></div>';
+  if(key==="work-types")return'<div class="ir-export-group" id="section-work-types"><section class="ir-export-section ir-export-worktypes-section"><header class="ir-export-section-head"><h2>Виды работ</h2><span class="ir-export-count">'+rows.length+' видов</span></header>'+body+'</section></div>';
   if(key==="marks")return'<div class="ir-export-group" id="section-marks"><section class="ir-export-section ir-export-marks-section">'+body+'</section></div>';
   if(key==="deliveries")return'<div class="ir-export-group" id="section-deliveries"><section class="ir-export-section ir-export-deliveries-unified">'+
    (support.supplyModel?'<div class="ir-export-preview">'+window.irSupplyChart.render(support.supplyModel,{})+'</div>':"")+
-   '<div class="ir-export-delivery-register"><h3>Поставки (накладные)</h3>'+body+'</div></section></div>';
+   '<div class="ir-export-delivery-register"><h3>Накладные</h3>'+body+'</div></section></div>';
   return'<div class="ir-export-group" id="section-'+esc(key)+'">'+(preview?'<div class="ir-export-preview">'+preview+'</div>':"")+
    '<section class="ir-export-section"><header class="ir-export-section-head"><div><h2>'+esc(labels[key]||key)+'</h2></div>'+(key==="photos"||key==="scheme"?"":'<span class="ir-export-count">'+rows.length+' записей</span>')+'</header>'+body+'</section></div>'
  }
@@ -833,10 +924,15 @@
     catch(error){console.warn("Object HTML: failed to load section",key,error);return[key,[]]}
    }));
    const rows=Object.fromEntries(batches);
-   const supporting=keys.includes("marks")||keys.includes("photos")||keys.includes("scheme")?await Promise.all([
-    keys.includes("marks")||keys.includes("scheme")?(rows["work-types"]?Promise.resolve(rows["work-types"]):api.section("work-types").list().catch(()=>[])):Promise.resolve([]),
-    rows.reports?Promise.resolve(rows.reports):api.section("reports").list().catch(()=>[])
-   ]):[[],[]];
+   const needsWork=["reports","marks","scheme","work-types","schedule"].some(k=>keys.includes(k));
+   const needsReports=["reports","photos","marks","work-types","schedule","scheme"].some(k=>keys.includes(k));
+   const needsMarks=["reports","marks","work-types","scheme"].some(k=>keys.includes(k));
+   const supporting=await Promise.all([
+    needsWork?(rows["work-types"]?Promise.resolve(rows["work-types"]):api.section("work-types").list().catch(()=>[])):Promise.resolve([]),
+    needsReports?(rows.reports?Promise.resolve(rows.reports):api.section("reports").list().catch(()=>[])):Promise.resolve([]),
+    needsMarks?(rows.marks?Promise.resolve(rows.marks):api.section("marks").list().catch(()=>[])):Promise.resolve([])
+   ]);
+   const markNames=reportMarkNames(supporting[2]);
    const schemeMarks=keys.includes("scheme")?(rows.marks||await api.section("marks").list().catch(()=>[])):[];
    const schemeDetails=keys.includes("scheme")?markDetailData(schemeMarks,supporting[0],supporting[1]):[];
    const photoInputs=keys.includes("photos")?{...rows,reports:supporting[1]}:rows;
@@ -1177,6 +1273,35 @@
     ".ir-export-deliveries-unified>.ir-export-preview :is(.ood-card,.ood-comparison){border:0!important;border-radius:0!important;box-shadow:none!important}",
     ".ir-export-deliveries-unified{overflow:visible;border-radius:0}",
     ".ir-export-deliveries-unified .ood-comparison .ood-head h2{display:none!important}",
+
+    ".ir-export-work-mark-name{display:block;margin-top:3px;font-size:10px;font-weight:400;color:#8294a3}",
+    ".ir-export-delivery-register{padding-top:16px!important}",
+    ".ir-export-delivery-register>h3{padding-top:12px!important}",
+    ".ir-export-trend{margin:18px 0 10px!important}",
+    ".ir-export-trend-panel[hidden]{display:none!important}",
+    ".ir-export-wt{width:100%;min-width:0}",
+    ".ir-export-wt-radio{position:absolute;width:1px;height:1px;opacity:0}",
+    ".ir-export-wt-tabs{display:inline-flex;gap:4px;padding:4px;margin:0 0 14px;border-radius:9px;background:#eef3f6;border:1px solid #dce5eb;max-width:100%}",
+    ".ir-export-wt-tabs label{display:flex;align-items:center;gap:9px;cursor:pointer;padding:9px 13px;border-radius:6px;font-size:11px;color:#607482;font-weight:750}",
+    ".ir-export-wt-tabs label span{border-radius:99px;background:#dfe7ec;color:#6d7e89;padding:3px 7px;font-size:10px}",
+    ".ir-export-wt #ir-export-wt-main:checked~.ir-export-wt-tabs label[for=ir-export-wt-main],.ir-export-wt #ir-export-wt-other:checked~.ir-export-wt-tabs label[for=ir-export-wt-other]{background:#fff;color:#1769e0;box-shadow:0 1px 4px #21415b1a}",
+    ".ir-export-wt-other{display:none!important}",
+    ".ir-export-wt #ir-export-wt-other:checked~.ir-export-wt-main{display:none!important}",
+    ".ir-export-wt #ir-export-wt-other:checked~.ir-export-wt-other{display:block!important}",
+    ".ir-export-wt-list{border:1px solid #dce5eb;border-radius:10px;overflow:hidden;background:#fff}",
+    ".ir-export-wt-head,.ir-export-wt-row{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.4fr) 70px minmax(0,1.25fr) minmax(0,1.4fr);align-items:center;gap:12px;padding:10px 15px}",
+    ".ir-export-wt-head{background:#f3f6f8;color:#718392;font-size:10px;font-weight:700}",
+    ".ir-export-wt-row{min-height:65px;border-top:1px solid #e7edf1;font-size:11px}",
+    ".ir-export-wt-row:hover{background:#f9fbfc}",
+    ".ir-export-wt-row>div{min-width:0}",
+    ".ir-export-wt-row b{display:block;font-size:11px;color:#263b4a;overflow-wrap:anywhere}",
+    ".ir-export-wt-row small{display:block;font-size:9px;font-weight:400;color:#8897a3;margin-top:4px}",
+    ".ir-export-wt-row>div>small:first-child{display:none}",
+    ".ir-export-wt-ready{display:flex;align-items:center;gap:9px}",
+    ".ir-export-wt-track{flex:1 1 auto;display:block;height:7px;border-radius:99px;background:#e8edf2;overflow:hidden}",
+    ".ir-export-wt-track em{display:block;height:100%;border-radius:99px;background:#38a574}",
+    ".ir-export-wt-empty{padding:25px;text-align:center;color:#8799a7;font-size:12px}",
+    "@media(max-width:640px){.ir-export-wt-tabs{display:grid;grid-template-columns:1fr 1fr;width:100%}.ir-export-wt-tabs label{justify-content:center;font-size:10px;padding:8px}.ir-export-wt-head{display:none}.ir-export-wt-row{grid-template-columns:1fr 1fr;gap:12px}.ir-export-wt-row>div>small:first-child{display:block}.ir-export-wt-ready{align-items:flex-start;flex-direction:column}}",
     ".ir-export-delivery-register{border-top:1px solid #e1eaf2;background:#fff}",
     ".ir-export-delivery-register>h3{margin:0;padding:18px 17px 14px;font-size:14px;color:#234a63;font-weight:800}",
     ".ir-export-delivery-register>.ir-export-invoice-list{margin:0;padding:0 13px 12px}",
@@ -1381,7 +1506,8 @@
    const activeNavStyles=keys.filter(key=>/^[a-z0-9_-]+$/i.test(key)).map(key=>'body:has(#section-'+key+':target) .ir-export-topnav .ir-export-subnav-link[href="#section-'+key+'"]{background:#e6f2fc!important;color:#176ca7!important;font-weight:800!important}').join("\n");
    const extras=window.irObjectExportExtras;
    if(!extras)throw new Error("Модуль экспорта разделов не загружен. Перезапустите IR Project.");
-   const sectionsHtml=keys.map(key=>renderSection(key,rows[key]||[],photos,overviewSnapshot.preview[key]||"",{workTypes:supporting[0],reports:supporting[1],schemeDetails,supplyModel})).join("");
+   const trendHtml=keys.includes("schedule")?renderExportTrend(supporting[1],supporting[0]):"";
+   const sectionsHtml=keys.map(key=>renderSection(key,rows[key]||[],photos,overviewSnapshot.preview[key]||"",{workTypes:supporting[0],reports:supporting[1],marks:supporting[2],markNames,schemeDetails,supplyModel,trendHtml})).join("");
    let viewerScripts="",viewerCsp="";
    const nonce=btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
    const safeJson=value=>JSON.stringify(value).replace(/</g,"\\u003c").replace(/\u2028/g,"\\u2028").replace(/\u2029/g,"\\u2029");
@@ -1390,6 +1516,7 @@
     const engine="("+extras.schemeViewer.toString()+")();";
     viewerScripts+='<script type="application/json" id="ir-export-scheme-data" nonce="'+nonce+'">'+safeJson(scheme)+'</script><script nonce="'+nonce+'">'+engine+'</script>'
    }
+   if(trendHtml&&keys.includes("schedule"))viewerScripts+='<script nonce="'+nonce+'">(function(){document.querySelectorAll("[data-export-trend-select]").forEach(function(select){var root=select.closest(".ir-export-trend");function update(){root.querySelectorAll("[data-export-trend-panel]").forEach(function(panel){panel.hidden=panel.getAttribute("data-export-trend-panel")!==select.value;});}select.addEventListener("change",update);update();});})();</script>';
    if(supplyModel){
     const engine="("+window.irSupplyChartFactory.toString()+")().initOffline();";
     viewerScripts+='<script type="application/json" id="ir-supply-chart-data" nonce="'+nonce+'">'+safeJson(supplyModel)+'</script><script nonce="'+nonce+'">'+engine+'</script>';
