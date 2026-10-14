@@ -119,7 +119,7 @@ assert(source.includes('dlg.showModal()'),"native export options dialog opens");
 assert(source.includes('Выбрать все')&&source.includes('Снять все'),"select/deselect all controls exist");
 assert(source.includes('if(!selection)return false;'),"cancel never starts saving");
 assert(source.includes('const keys=selection.keys;'),"only selected sections are loaded");
-assert(source.includes('snapshot(keys,selection.overview,companyHeader.markup,indicatorsMarkup)'),"export can omit overview while retaining company header and optional KPI block");
+assert(source.includes('snapshot(keys,selection.overview,companyHeader.markup,indicatorsMarkup,indicatorRows.reports||[])'),"snapshot receives reports for recent-resource figures");
 assert(source.includes('if(!includeOverview)'),"unselected overview content is discarded");
 assert(!source.includes("IR Project / Объект"),"repeated section breadcrumb is absent across the entire HTML export source");
 assert(source.includes('ir-export-group{scroll-margin-top:14px;min-width:0;width:100%;max-width:none;margin:0;padding:0}'),"all report groups span the available content width");
@@ -144,9 +144,6 @@ assert.equal(typeof scope.window.irObjectHtmlExport?.save,"function");
 assert(source.includes("ir-export-daily-brief"),"report cards display a short summary");
 assert(source.includes("ir-export-daily-full"),"report cards disclose full details");
 assert(source.includes("reportWorkTable(works)"),"daily report works table included");
-assert(source.includes("reportChips(workers"),"worker details included");
-assert(source.includes("reportChips(equipment"),"equipment details included");
-assert(source.includes("ir-export-daily-photos"),"report photos included");
 assert(source.includes('if(section==="reports")for(const photo'),"reportPhotos images are bundled into the offline HTML");
 assert(source.includes("reportFull(record,r,images)"),"full report detail present");
 const start=source.indexOf(" function reportFull("),end=source.indexOf(" function renderDailyReports(",start);
@@ -155,11 +152,8 @@ const reportDetails=source.slice(start,end);
 assert(!reportDetails.includes("Дополнительная информация"),"technical additional-information panel removed");
 assert(!reportDetails.includes("record.record_type"),"technical record type not shown");
 assert(!reportDetails.includes("<small>ID</small>"),"technical record ID is not listed as a field");
-assert(reportDetails.includes("reportWorkTable(works)"),"full report still includes work table");
-assert(reportDetails.includes("reportChips(workers"),"full report still includes workers");
-assert(reportDetails.includes("reportChips(responsible"),"full report still includes supervisors");
-assert(reportDetails.includes("reportChips(equipment"),"full report still includes equipment");
-assert(reportDetails.includes("ir-export-daily-photos"),"full report still includes photos");
+assert(reportDetails.includes("reportWorkTable(reportWorks(r))"),"expanded report includes work register");
+assert(!reportDetails.includes("reportChips(")&&!reportDetails.includes("photoItems"),"expanded archive view excludes secondary cards");
 assert(source.includes('class="ir-export-daily-chevron" aria-hidden="true"><svg'),"native SVG chevron in daily report summary");
 assert(source.includes('ir-export-daily-chevron svg{transform:rotate(180deg)}'),"chevron rotates when expanded");
 assert(source.includes('ir-export-record>details[open]>summary:after'),"other record chevrons reflect disclosure state");
@@ -282,8 +276,6 @@ assert(source.includes('class="ir-export-delivery-register"'),"invoice register 
 assert(source.includes("ir-export-gantt-options"),"Gantt includes work-type choices");
 assert(source.includes("#section-scheme>.ir-export-section{padding:0!important"),"scheme fills complete section width");
 assert(source.includes("body.ir-object-overview #app #section-scheme .ir-export-scheme-controls button{display:inline-flex!important"),"3D and plan switches override global read-only button hiding");
-assert(source.includes('class="ir-export-daily-photo-link"'),"daily report photo thumbnails are clickable");
-assert(source.includes('class="ir-export-gallery-lightbox"'),"daily report photos have standalone lightboxes");
 assert(!source.includes('<span>Редактировать</span></a>'),"no edit action linked from photos");
 assert(extras.schemeViewer.toString().includes('viewPlan.classList.toggle("active",plan)'),"Plan visibly activates after switching");
 assert(extras.schemeViewer.toString().includes('view3D.classList.toggle("active",!plan)'),"3D visibly activates on return");
@@ -313,19 +305,11 @@ assert(ganttHTML.includes('id="ir-export-gantt-1"'),"second work radio exists");
 assert(ganttHTML.includes('.overview-gantt-row:not(.ir-export-gantt-type-1){display:none!important}'),"Gantt filter hides unrelated rows");
 assert(ganttRows[0].classes.includes("ir-export-gantt-type-0")&&ganttRows[2].classes.includes("ir-export-gantt-type-0"),"same work type uses a consistent selector");
 assert(ganttRows[1].classes.includes("ir-export-gantt-type-1"),"different work types have independent selectors");
-const photosStart=source.indexOf(" function reportFull("),photosEnd=source.indexOf(" function exportMoreCards(",photosStart);
-const fullReport=vm.runInNewContext(
- '(function(){const esc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;");'+
- 'const array=v=>Array.isArray(v)?v:[];const reportWorks=()=>[];const reportPeople=()=>[];const reportResponsible=()=>[];'+
- 'const reportPhotos=r=>r.photos||[];const photoPath=p=>String(p||"");const dataUrl=v=>String(v).startsWith("data:image/");'+
- 'const reportWorkTable=()=>"";const reportChips=()=>"";'+source.slice(photosStart,photosEnd)+';return reportFull})()'
-);
-const photoReport=fullReport({id:139},{photos:["picture.png"]},new Map([["picture.png","data:image/png;base64,QQ=="]]));
-assert(photoReport.includes('href="#ir-export-daily-photo-139-0"'),"clicking a daily photo opens its correct lightbox");
-assert(photoReport.includes('id="ir-export-daily-photo-139-0"'),"daily report photo has matching fullscreen target");
-assert(photoReport.includes('href="#section-reports"'),"photo can be closed without scripts");
-assert(photoReport.includes("data:image/png;base64,QQ=="),"full-sized photo bytes are inlined");
-
+const expandedStart=source.indexOf(" function reportFull("),expandedEnd=source.indexOf(" function exportMoreCards(",expandedStart);
+const expanded=vm.runInNewContext('(function(){const reportWorks=r=>r.items||[];const reportWorkTable=w=>"<table>"+w.length+"</table>";'+source.slice(expandedStart,expandedEnd)+';return reportFull})()');
+assert.equal(expanded({id:139},{items:[{name:"Монтаж"}],photos:["photo"],workers:[{count:5}],equipment:[{count:2}]},new Map()),
+ '<div class="ir-export-daily-full"><table>1</table></div>',"expanded report shows only its work table");
+assert(source.includes('.ir-export-daily-full{display:block!important;padding:0!important'),"work table occupies the expanded report width");
 
 assert(source.includes("function exportCompanyHeader(api,object,underContractor)"),"export reads the three company identities");
 assert(source.includes('api.section("object-meta").list()'),"client and general contractor logos come from object metadata");
@@ -346,11 +330,11 @@ const brandFns=vm.runInNewContext('(function(){const esc=v=>String(v??"").replac
 const companies={customerName:'АО "Заказчик"',contractorName:'ТОО "Генподрядчик"',ownName:'ТОО "А-Темир Строй"',
  customerLogo:"data:image/png;base64,QQ==",contractorLogo:"data:image/png;base64,Qg==",ownLogo:"data:image/png;base64,Qw==",underContractor:false};
 const regular=brandFns.companyHeaderHtml(companies);
-assert.equal((regular.match(/class="ir-export-company-card"/g)||[]).length,3,"normal export displays customer contractor and own company");
-assert(regular.indexOf("Заказчик")<regular.indexOf("Генподрядчик")&&regular.indexOf("Генподрядчик")<regular.indexOf("Наша компания"),"correct participant ordering");
+assert.equal((regular.match(/<article class="ir-export-company-card ir-export-company-/g)||[]).length,3,"normal export displays customer contractor and own company");
+assert(regular.indexOf("Заказчик")<regular.indexOf("Генподрядчик")&&regular.indexOf("Генподрядчик")<regular.indexOf("Исполнитель"),"correct participant ordering");
 assert(regular.includes("А-Темир Строй")&&regular.includes("data:image/png;base64,Qw=="),"owner name and logo are embedded after contractor");
 const contractor=brandFns.companyHeaderHtml({...companies,underContractor:true});
-assert.equal((contractor.match(/class="ir-export-company-card"/g)||[]).length,2,"contractor mode has exactly two participants");
+assert.equal((contractor.match(/<article class="ir-export-company-card ir-export-company-/g)||[]).length,2,"contractor mode has exactly two participants");
 assert(!contractor.includes("А-Темир")&&!contractor.includes("Наша компания")&&!contractor.includes("data:image/png;base64,Qw=="),"owner identity absent from header");
 assert(contractor.includes("data:image/png;base64,QQ==")&&contractor.includes("data:image/png;base64,Qg=="),"customer and contractor logos are preserved");
 const redacted=brandFns.redactCompanyIdentity('<p>Исполнитель: ТОО &quot;А-Темир Строй&quot;</p><div>ТОО «А-Темир Строй»</div><span>ТОО "А-Темир Строй"</span>',companies.ownName);
@@ -384,7 +368,9 @@ assert(source.includes('body.ir-object-route.ir-object-overview #app{background:
 assert(source.includes('body.ir-object-route.ir-object-overview #app>.object-overview-hero{width:100%!important;max-width:100%!important'),"banner fits the central report");
 assert(source.includes('class="ir-export-companies-heading"'),"one shared participant panel heading exists");
 assert(source.includes('class="ir-export-companies-grid"'),"company columns are inside a shared panel");
-assert(source.includes('border-right:1px solid #e4edf3!important'),"participant columns have subtle separators");
+assert(source.includes("ir-export-company-card:not(:last-child):after{content:"),"participant arrows join the separate cards");
+assert(source.includes('hero.querySelector(".object-hero-content")?.remove()'),"project banner excludes overlaid copy");
+assert(source.includes('hero.querySelector(".object-hero-shade")?.remove()'),"project banner has no darkened caption layer");
 assert(source.includes('max-width:100%!important;max-height:100%!important;object-fit:contain!important'),"original logos retain proportions");
 assert(source.includes('@media(max-width:560px){.ir-export-companies-grid,.ir-export-companies-two .ir-export-companies-grid{grid-template-columns:minmax(0,1fr)!important}'),"narrow layouts stack participant cards");
 assert(source.includes('max-width:1000px!important;box-shadow:none!important'),"print uses the same page max width");
@@ -396,15 +382,15 @@ assert(source.includes('function renderIndicatorBlock(data,keys)'),"export calcu
 assert(source.includes('function exportSummaryCompletion(workTypes,marks,reports)'),"export uses the same completion logic as live summary");
 assert(source.includes('function exportLatestResources(reports)'),"last-report resources calculated independently");
 assert(source.includes('const readiness=exportSummaryCompletion(works,marks,reports)'),"readiness no longer uses mounted piece counts");
-assert(source.includes('const resources=exportLatestResources(reports)'),"resource card refers to last daily report");
+assert(source.includes("function exportRecentResources(reports,limit=4)"),"recent report averages calculated separately for summary");
 assert(source.includes('const indicatorTypes=["work-types","marks","reports","deliveries","scheme"]'),"all relevant source sections loaded");
 assert(source.includes('const indicatorsMarkup=selection.overview?renderIndicatorBlock(indicatorRows,keys):""'),"KPI panel follows overview selection");
 assert(source.includes('copy.querySelector(".ir-export-topnav")?.insertAdjacentHTML("afterend",indicatorsMarkup)'),"KPI sits below banner and navigation");
-assert(source.includes('.ir-export-indicator-cards{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))'),"five equal KPI cards");
+assert(source.includes('.ir-export-indicator-cards{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))'),"four KPI cards after removing resource card");
 assert(source.includes('linkOptions.filter(x=>keys.includes(x[0]))'),"shortcuts only to exported sections");
 assert(source.includes('href="#section-')&&source.includes('esc(key)'),"shortcuts are local HTML anchors");
 assert(source.includes('const orderedUnits=[...allUnits].sort('),"all units remain separate and sorted");
-assert(source.includes('ir-export-resource-values'),"people and equipment are visible together");
+assert(source.includes('const recent=exportRecentResources(reportRows)'),"overview uses latest personnel and equipment average");
 const indicatorsStart=source.indexOf(" function exportSummaryCompletion("),indicatorsEnd=source.indexOf(" function snapshot(",indicatorsStart);
 assert(indicatorsStart>=0&&indicatorsEnd>indicatorsStart,"standalone formulas can be exercised");
 const metrics=vm.runInNewContext('(function(){'+
@@ -412,10 +398,13 @@ const metrics=vm.runInNewContext('(function(){'+
  'const exportNumber=v=>{const n=Number(String(v??0).replace(/\\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};'+
  'const exportDate=v=>{const p=String(v||"").slice(0,10).split("-");return p.length===3?p[2]+"."+p[1]+"."+p[0]:String(v||"")};'+
  'const reportWorks=r=>array(r.items).length?array(r.items):array(r.works);'+
+ 'const reportPeople=r=>array(r.workers).length?array(r.workers):array(r.people);'+
+ 'const reportResponsible=r=>array(r.responsible).length?array(r.responsible):array(r.responsibles);'+
+ 'const reportCountEquipment=r=>array(r.equipment).reduce((n,x)=>n+exportNumber(x.count??x.qty),0);'+
  'const reportService=w=>w?.accounting_type==="service"||w?.is_service===true||String(w?.unit||"").toLowerCase()==="услуга";'+
  'const reportVolume=w=>{const direct=exportNumber(w.volume??w.total_volume);return direct||exportNumber(w.qty??w.count)*exportNumber(w.unit_volume)};'+
  'const esc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");'+
- source.slice(indicatorsStart,indicatorsEnd)+';return {renderIndicatorBlock,exportSummaryCompletion,exportLatestResources}})()', {});
+ source.slice(indicatorsStart,indicatorsEnd)+';return {renderIndicatorBlock,exportSummaryCompletion,exportLatestResources,exportRecentResources}})()', {});
 const fixture={
  "work-types":[{id:7,title:"Монтаж МК",data:{project_code:"041-КМ",unit:"тн"}}],
  marks:[{id:10,data:{work_type_id:7,mark:"К1",qty:4,unit:"тн",unit_volume:0.75}}],
@@ -424,12 +413,12 @@ const fixture={
  scheme:[{id:1,record_type:"scheme_grid",data:{}},{id:2,record_type:"scheme_column",data:{mark:"К1"}}]
 };
 const all=metrics.renderIndicatorBlock(fixture,["overview","reports","deliveries","marks","scheme","photos"]);
-assert.equal((all.match(/class="ir-export-indicator-card ir-export-indicator-/g)||[]).length,5,"five KPI cards generated");
+assert.equal((all.match(/class="ir-export-indicator-card ir-export-indicator-/g)||[]).length,4,"four KPI cards generated");
 assert(all.includes("Средняя готовность")&&all.includes('50<small>%'),"readiness is based on work volume");
 assert(all.includes('1,5<small>тн'),"installed volume is derived from daily reports");
 assert(all.includes('5,25<small>тн'),"delivered volume derived from invoices");
 assert(all.includes("Последний: 11.10.2026"),"most recent report date formatted");
-assert(all.includes('ir-export-indicator-resources')&&all.includes('<b>9</b><small>чел.</small>')&&all.includes('<b>2</b><small>ед. техники</small>'),"fifth card shows 9 people and 2 machines");
+assert(!all.includes('ir-export-indicator-resources')&&!all.includes("Люди и техника"),"staffing and equipment card removed from KPIs");
 assert(!all.includes('ir-export-indicator-scheme'),"scheme is no longer a KPI card");
 assert(all.includes('href="#section-scheme"'),"scheme remains accessible via shortcut");
 assert.equal((all.match(/class="ir-export-indicator-link"/g)||[]).length,3,"all three local shortcuts rendered");
@@ -518,6 +507,11 @@ assert.equal(latest.people,7,"latest report includes workers and responsible");
 assert.equal(latest.equipment,2,"latest report contains exact machinery count");
 assert.equal(latest.date,"2026-10-12","latest report chosen by date");
 assert.equal(metrics.exportLatestResources([]).people,0,"missing reports are handled safely");
+const recent=metrics.exportRecentResources(lastFixture,2);
+assert.equal(recent.days,2,"only latest reports enter the snapshot average");
+assert.equal(recent.people,9,"workers and supervisors are rounded separately in recent average");
+assert.equal(recent.equipment,2,"equipment count averages latest two records");
+assert.equal(metrics.exportRecentResources([]).days,0,"empty recent history is safe");
 assert(!source.includes('data-overview-export-kpi-edit'),"no editing controls in exported metrics");
 
 console.log("Full object HTML export: snapshot, offline navigation, read-only records, native save and no DB writes OK");
