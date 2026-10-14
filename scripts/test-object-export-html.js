@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17168'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17171'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -325,5 +325,36 @@ assert(photoReport.includes('href="#ir-export-daily-photo-139-0"'),"clicking a d
 assert(photoReport.includes('id="ir-export-daily-photo-139-0"'),"daily report photo has matching fullscreen target");
 assert(photoReport.includes('href="#section-reports"'),"photo can be closed without scripts");
 assert(photoReport.includes("data:image/png;base64,QQ=="),"full-sized photo bytes are inlined");
+
+
+assert(source.includes("function exportCompanyHeader(api,object,underContractor)"),"export reads the three company identities");
+assert(source.includes('api.section("object-meta").list()'),"client and general contractor logos come from object metadata");
+assert(source.includes('irProject.company.get()'),"own company comes from company profile");
+assert(source.includes('readLogo(filePath("customer_logo"))')&&source.includes('readLogo(filePath("general_contractor_logo"))'),"party logos are inlined");
+assert(source.includes('underContractor?Promise.resolve(""):readLogo(String(profile?.logo||""))'),"owner logo is never read for contractor-flagged export");
+assert(source.includes('hero.insertAdjacentHTML("beforebegin",headerMarkup)'),"participants are above object banner");
+assert(source.includes('copy.querySelector(".ir-export-companies")'),"company header kept when overview is excluded");
+assert(source.includes('<input type="checkbox" data-under-contractor>'),"flag is off by default");
+assert(source.includes('underContractor:dlg.querySelector("[data-under-contractor]").checked===true'),"export receives checked contractor flag");
+assert(source.includes('if(selection.underContractor)html=redactCompanyIdentity(html,companyHeader.ownName)'),"own company name is redacted throughout HTML output");
+assert(source.includes('redactCompanyIdentity(name,companyHeader.ownName)'),"own company is also excluded from filename");
+assert(source.includes('.ir-export-companies{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))'),"three columns share full width");
+const brandStart=source.indexOf(" function companyHeaderHtml("),brandEnd=source.indexOf(" function sidebarHtml(",brandStart);
+assert(brandStart>=0&&brandEnd>brandStart,"standalone brand helpers can be tested");
+const brandFns=vm.runInNewContext('(function(){const esc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");const array=x=>Array.isArray(x)?x:[];'+source.slice(brandStart,brandEnd)+';return {companyHeaderHtml,redactCompanyIdentity}})()', {});
+const companies={customerName:'АО "Заказчик"',contractorName:'ТОО "Генподрядчик"',ownName:'ТОО "А-Темир Строй"',
+ customerLogo:"data:image/png;base64,QQ==",contractorLogo:"data:image/png;base64,Qg==",ownLogo:"data:image/png;base64,Qw==",underContractor:false};
+const regular=brandFns.companyHeaderHtml(companies);
+assert.equal((regular.match(/class="ir-export-company-card"/g)||[]).length,3,"normal export displays customer contractor and own company");
+assert(regular.indexOf("Заказчик")<regular.indexOf("Генподрядчик")&&regular.indexOf("Генподрядчик")<regular.indexOf("Наша компания"),"correct participant ordering");
+assert(regular.includes("А-Темир Строй")&&regular.includes("data:image/png;base64,Qw=="),"owner name and logo are embedded after contractor");
+const contractor=brandFns.companyHeaderHtml({...companies,underContractor:true});
+assert.equal((contractor.match(/class="ir-export-company-card"/g)||[]).length,2,"contractor mode has exactly two participants");
+assert(!contractor.includes("А-Темир")&&!contractor.includes("Наша компания")&&!contractor.includes("data:image/png;base64,Qw=="),"owner identity absent from header");
+assert(contractor.includes("data:image/png;base64,QQ==")&&contractor.includes("data:image/png;base64,Qg=="),"customer and contractor logos are preserved");
+const redacted=brandFns.redactCompanyIdentity('<p>Исполнитель: ТОО &quot;А-Темир Строй&quot;</p><div>ТОО «А-Темир Строй»</div><span>ТОО "А-Темир Строй"</span>',companies.ownName);
+assert(!redacted.includes("А-Темир")&&!redacted.includes("Строй"),"name is redacted across HTML entities and quote styles");
+assert(redacted.includes("<p>Исполнитель: ")&&redacted.includes("<div>"),"other content survives redaction");
+assert.equal(brandFns.redactCompanyIdentity("<p>Заказчик</p>",""),"<p>Заказчик</p>","empty owner name does not censor other content");
 
 console.log("Full object HTML export: snapshot, offline navigation, read-only records, native save and no DB writes OK");
