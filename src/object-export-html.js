@@ -683,7 +683,29 @@
   if(title)title.textContent="Нет данных";
   if(caption)caption.textContent="Погода не загрузилась к моменту выгрузки"
  }
- function snapshot(keys,includeOverview=true,headerMarkup="",indicatorsMarkup="",reportRows=[]){
+ // The "График работ" entries store dates per work type.
+ // Use the earliest planned start and latest planned finish across the object.
+ function exportWorkPeriod(rows){
+  const valid=value=>{
+   const s=String(value??"").trim().slice(0,10);
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return"";
+   const d=new Date(s+"T00:00:00Z");
+   return !Number.isNaN(d.getTime())&&d.toISOString().slice(0,10)===s?s:""
+  };
+  const starts=[],ends=[];
+  for(const row of array(rows)){
+   const data=row?.data||row||{};
+   const start=valid(data.start_date),end=valid(data.end_date);
+   if(start)starts.push(start);
+   if(end)ends.push(end)
+  }
+  if(!starts.length||!ends.length)return"";
+  const first=starts.sort()[0],last=ends.sort().at(-1);
+  if(last<first)return"";
+  const fmt=d=>d.slice(8,10)+"."+d.slice(5,7)+"."+d.slice(0,4);
+  return fmt(first)+" — "+fmt(last)
+ }
+ function snapshot(keys,includeOverview=true,headerMarkup="",indicatorsMarkup="",reportRows=[],workPeriod=""){
   const live=document.getElementById("app");
   if(!live?.querySelector(".object-overview-hero"))throw Error("Откройте страницу «Обзор» нужного объекта.");
   const copy=live.cloneNode(true);
@@ -696,21 +718,15 @@
    hero.id="overview";
    const bannerName=hero.querySelector(".object-hero-copy h1")?.textContent?.trim()||"";
    const bannerAddress=hero.querySelector(".object-hero-info-item.location b")?.textContent?.trim()||"";
-   const dateText=hero.querySelector(".object-hero-info-item:not(.location) b")?.textContent?.trim()||"";
    hero.classList.add("ir-export-banner-only");
    hero.querySelector(".object-hero-content")?.remove();
    hero.querySelector(".object-hero-shade")?.remove();
-   const years=[...dateText.matchAll(/20\d{2}/g)].map(x=>x[0]);
-   const period=years.length>=2?years[0]+" — "+years[years.length-1]:dateText!=="Срок не задан"?dateText:"";
-   const found=bannerName.match(/(\d+(?:[,.]\d+)?)\s*мвт(?![а-яё])/i);
-   const power=found?found[1]+" МВт":"";
    const icon=path=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+path+'</svg>';
    const pin=icon('<path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>');
-   const gear=icon('<circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2m0-14-2 2M7 17l-2 2"/>');
    const calendar=icon('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M8 14h2M14 14h2"/>');
    const fact=(symbol,label,value)=>'<div class="ir-export-hero-fact"><span class="ir-export-hero-fact-icon">'+symbol+'</span><span class="ir-export-hero-fact-copy">'+(label?'<span>'+esc(label)+'</span>':"")+'<b>'+esc(value)+'</b></span></div>';
    hero.insertAdjacentHTML("beforeend",'<div class="ir-export-banner-copy"><span class="ir-export-hero-type">'+icon('<path d="m13 2-9 12h7l-1 8 10-13h-7z"/>')+' ПРОМЫШЛЕННЫЙ ОБЪЕКТ</span><h1>'+esc(bannerName)+'</h1><div class="ir-export-hero-facts">'+
-    (bannerAddress?fact(pin,"",bannerAddress):"")+(power?fact(gear,"Установленная мощность",power):"")+(period?fact(calendar,"Период реализации",period):"")+'</div></div>');
+    (bannerAddress?fact(pin,"",bannerAddress):"")+(workPeriod?fact(calendar,"Период реализации",workPeriod):"")+'</div></div>');
    if(headerMarkup)hero.insertAdjacentHTML("afterend",headerMarkup);
    (copy.querySelector(".ir-export-companies")||hero).insertAdjacentHTML("afterend",sidebarHtml(document.querySelector(".ir-object-sidebar-fixed"),keys,includeOverview));
    if(indicatorsMarkup)copy.querySelector(".ir-export-topnav")?.insertAdjacentHTML("afterend",indicatorsMarkup)
@@ -1357,7 +1373,10 @@
    }))):{};
    const indicatorsMarkup=selection.overview?renderIndicatorBlock(indicatorRows,keys):"";
    if(selection.overview)await exportWaitForWeather();
-   const overviewSnapshot=snapshot(keys,selection.overview,companyHeader.markup,indicatorsMarkup,indicatorRows.reports||[]);
+   // Read work-type schedule dates even when the schedule section is not selected for export.
+   const scheduleRows=rows.schedule||await api.section("schedule").list().catch(error=>{console.warn("Object HTML: work schedule dates unavailable",error);return []});
+   const workPeriod=exportWorkPeriod(scheduleRows);
+   const overviewSnapshot=snapshot(keys,selection.overview,companyHeader.markup,indicatorsMarkup,indicatorRows.reports||[],workPeriod);
    const htmlSnapshot=overviewSnapshot.overview;
    const activeNavStyles=keys.filter(key=>/^[a-z0-9_-]+$/i.test(key)).map(key=>'body:has(#section-'+key+':target) .ir-export-topnav .ir-export-subnav-link[href="#section-'+key+'"]{background:#e6f2fc!important;color:#176ca7!important;font-weight:800!important}').join("\n");
    const extras=window.irObjectExportExtras;
