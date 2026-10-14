@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17178'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17179'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -391,6 +391,10 @@ assert(source.includes('linkOptions.filter(x=>keys.includes(x[0]))'),"shortcuts 
 assert(source.includes('href="#section-')&&source.includes('esc(key)'),"shortcuts are local HTML anchors");
 assert(source.includes('const orderedUnits=[...allUnits].sort('),"all units remain separate and sorted");
 assert(source.includes('const recent=exportRecentResources(reportRows)'),"overview uses latest personnel and equipment average");
+assert(source.includes('stats?.querySelector(".oos-progress")?.remove()'),"export hides duplicated readiness tile while retaining the KPI readiness");
+assert(source.includes("object-overview-top-stats{grid-template-columns:repeat(3,minmax(0,1fr))!important"),"remaining people/equipment/weather cards fill three summary columns");
+assert(source.includes(".ir-export-indicators-heading h2,.ir-export-section-head h2,.ir-export-companies-heading b"),"export section headings share one font size and color");
+assert(!source.includes("<span>на дату выгрузки</span>"),"export avoids the stale placeholder date");
 const indicatorsStart=source.indexOf(" function exportSummaryCompletion("),indicatorsEnd=source.indexOf(" function snapshot(",indicatorsStart);
 assert(indicatorsStart>=0&&indicatorsEnd>indicatorsStart,"standalone formulas can be exercised");
 const metrics=vm.runInNewContext('(function(){'+
@@ -404,7 +408,7 @@ const metrics=vm.runInNewContext('(function(){'+
  'const reportService=w=>w?.accounting_type==="service"||w?.is_service===true||String(w?.unit||"").toLowerCase()==="услуга";'+
  'const reportVolume=w=>{const direct=exportNumber(w.volume??w.total_volume);return direct||exportNumber(w.qty??w.count)*exportNumber(w.unit_volume)};'+
  'const esc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");'+
- source.slice(indicatorsStart,indicatorsEnd)+';return {renderIndicatorBlock,exportSummaryCompletion,exportLatestResources,exportRecentResources}})()', {});
+ source.slice(indicatorsStart,indicatorsEnd)+';return {renderIndicatorBlock,exportSummaryCompletion,exportLatestResources,exportRecentResources,exportIndicatorDate}})()', {});
 const fixture={
  "work-types":[{id:7,title:"Монтаж МК",data:{project_code:"041-КМ",unit:"тн"}}],
  marks:[{id:10,data:{work_type_id:7,mark:"К1",qty:4,unit:"тн",unit_volume:0.75}}],
@@ -412,7 +416,9 @@ const fixture={
  deliveries:[{id:2,data:{items:[{mark_id:10,unit:"тн",qty:1,unit_volume:5.25}]}}],
  scheme:[{id:1,record_type:"scheme_grid",data:{}},{id:2,record_type:"scheme_column",data:{mark:"К1"}}]
 };
+assert.equal(metrics.exportIndicatorDate(new Date(2026,9,14,12)),"14 октября 2026 г.","date is written with Russian month name");
 const all=metrics.renderIndicatorBlock(fixture,["overview","reports","deliveries","marks","scheme","photos"]);
+assert(/ir-export-indicators-heading"><h2>Показатели объекта<\/h2><span>\d{1,2} [а-яё]+ \d{4} г\.<\/span>/.test(all),"current calendar date appears in the indicator header");
 assert.equal((all.match(/class="ir-export-indicator-card ir-export-indicator-/g)||[]).length,4,"four KPI cards generated");
 assert(all.includes("Средняя готовность")&&all.includes('50<small>%'),"readiness is based on work volume");
 assert(all.includes('1,5<small>тн'),"installed volume is derived from daily reports");

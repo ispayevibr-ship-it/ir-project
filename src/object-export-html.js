@@ -572,6 +572,10 @@
   const avg=x=>Math.ceil(x/newest.length),w=avg(workers),r=avg(responsible);
   return{days:newest.length,people:w+r,workers:w,responsible:r,equipment:avg(equipment)}
  }
+ function exportIndicatorDate(date=new Date()){
+  return new Intl.DateTimeFormat("ru-RU",{day:"numeric",month:"long",year:"numeric"})
+   .format(date).replace(/\s*г\.?\s*$/u," г.");
+ }
  function renderIndicatorBlock(data,keys){
   const works=array(data["work-types"]),marks=array(data.marks),reports=array(data.reports),deliveries=array(data.deliveries);
   const readiness=exportSummaryCompletion(works,marks,reports);
@@ -654,7 +658,7 @@
    '<a class="ir-export-indicator-link" href="#section-'+esc(key)+'"><span><i aria-hidden="true">'+glyph+'</i>'+esc(title)+'</span><b aria-hidden="true">↗</b></a>'
   ).join("");
   return'<section class="ir-export-indicators" aria-label="Показатели объекта">'+
-   '<div class="ir-export-indicators-heading"><h2>Показатели объекта</h2><span>на дату выгрузки</span></div>'+
+   '<div class="ir-export-indicators-heading"><h2>Показатели объекта</h2><span>'+esc(exportIndicatorDate())+'</span></div>'+
    '<div class="ir-export-indicator-cards">'+cardHtml+'</div>'+(links?'<nav class="ir-export-indicator-links" aria-label="Быстрые переходы по отчёту">'+links+'</nav>':"")+'</section>'
  }
 
@@ -680,8 +684,8 @@
   const menu=copy.querySelector(".object-hero-menu");if(menu)menu.remove();
   const recent=exportRecentResources(reportRows);
   const stats=copy.querySelector(".object-overview-top-stats");
-  const title=stats?.querySelector(".oos-progress .oos-copy b");
-  if(title)title.textContent="Готовность объекта";
+  // The archive already has a readiness KPI; remove its duplicate summary tile.
+  stats?.querySelector(".oos-progress")?.remove();
   const human=stats?.querySelector(".oos-icon.people")?.closest(".oos-card")?.querySelector(".oos-copy");
   const tech=stats?.querySelector(".oos-icon.equipment")?.closest(".oos-card")?.querySelector(".oos-copy");
   const note=recent.days?"По последним "+recent.days+" "+(recent.days===1?"отчёту":"отчётам"):"Отчётов пока нет";
@@ -1136,6 +1140,10 @@
     ".ir-export-banner-only{height:180px!important;min-height:180px!important;max-height:180px!important}.ir-export-daily-full{display:block!important;padding:0!important;margin:0!important;background:#fff!important}.ir-export-daily-full>.ir-export-daily-table{width:100%!important;border:0!important;padding:0!important;margin:0!important}",
     "@media(max-width:830px){.ir-export-indicator-cards{grid-template-columns:repeat(2,minmax(0,1fr))!important}.ir-export-companies{margin:12px!important;padding:14px!important}.ir-export-companies-grid{gap:10px!important}}",
     "@media(max-width:560px){.ir-export-companies-grid,.ir-export-companies-two .ir-export-companies-grid{grid-template-columns:1fr!important}.ir-export-company-card:not(:last-child):after{top:auto!important;bottom:-22px!important;right:calc(50% - 16px)!important;transform:rotate(90deg)!important}.ir-export-company-name{font-size:13px!important}}",
+    "/* Consistent exported headings and three-column summary after removing duplicated readiness. */",
+    "body.ir-object-overview #app .object-overview-top-stats{grid-template-columns:repeat(3,minmax(0,1fr))!important}",
+    "body.ir-object-overview #app :is(.ir-export-indicators-heading h2,.ir-export-section-head h2,.ir-export-companies-heading b,.ir-object-overview-sidehead h2,.ir-object-overview-sidehead h3,.ir-export-marks-title h3,.ir-export-work-head h3,.ir-export-delivery-register>h3,.object-overview-block-head h2,.ood-head h2,.ooa-head h2){margin:0!important;padding:0!important;color:#214b66!important;font:800 16px/1.35 'Segoe UI',Arial,sans-serif!important;letter-spacing:0!important;text-transform:none!important}",
+    "@media(max-width:760px){body.ir-object-overview #app .object-overview-top-stats{grid-template-columns:1fr!important}}",
     "@media print{body.ir-object-route.ir-object-overview{background:#fff!important}body.ir-object-overview #app{margin:0 auto!important;width:100%!important;max-width:1000px!important;box-shadow:none!important}.ir-export-topnav{position:relative!important;top:auto!important}.ir-export-menu-items{box-shadow:none!important}.ir-export-record{break-inside:avoid}.ir-export-section{break-before:page;margin:8px 0!important}.ir-export-daily-card details,.ir-export-mark-card details{display:block!important}}"
    ].join("\n");
    const activeHero=document.querySelector(".object-overview-hero");
