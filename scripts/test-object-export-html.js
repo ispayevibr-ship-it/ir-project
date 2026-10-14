@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17172'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17173'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -357,5 +357,23 @@ assert(!redacted.includes("А-Темир")&&!redacted.includes("Строй"),"na
 assert(!redacted.includes("&quot;")&&!redacted.includes("»</div>"),"redaction does not leave dangling company-name quotes");
 assert(redacted.includes("<p>Исполнитель: ")&&redacted.includes("<div>"),"other content survives redaction");
 assert.equal(brandFns.redactCompanyIdentity("<p>Заказчик</p>",""),"<p>Заказчик</p>","empty owner name does not censor other content");
+
+
+assert(source.includes('dialog.ir-export-options[open]{display:flex!important;flex-direction:column!important}'),"only the open export modal receives flex column layout");
+assert(source.includes('height:min(760px,calc(100dvh - 28px))!important'),"modal height fits available viewport");
+assert(source.includes('max-height:calc(100dvh - 28px)!important'),"modal never exceeds viewport height");
+assert(source.includes('flex:1 1 auto!important;min-height:0!important;max-height:none!important;overflow-y:auto!important'),"section list alone scrolls and may shrink");
+assert(source.includes('align-content:start;gap:7px'),"scrollable choices do not stretch vertically");
+assert(source.includes('.ir-export-options-head,.ir-export-options-tools,.ir-export-options-foot{flex:0 0 auto!important}'),"header controls and footer do not shrink");
+assert(source.includes('.ir-export-options-foot{display:flex;position:relative;z-index:1;flex:0 0 auto'),"bottom actions remain visible");
+assert(source.includes('min-height:64px;padding:12px 20px;border-top:1px solid #e3ebf1;background:#fff!important'),"footer retains dedicated height");
+assert(source.includes('@media(max-height:540px){.ir-export-options-head{padding:12px 18px 10px}'),"short screens receive compact layout");
+const dialogStart=source.indexOf("dlg.innerHTML="),dialogEnd=source.indexOf("document.body.append(dlg)",dialogStart);
+const dialogMarkup=source.slice(dialogStart,dialogEnd);
+assert(dialogMarkup.includes('data-under-contractor'),"contractor flag remains selectable");
+assert(dialogMarkup.indexOf('ir-export-options-list')<dialogMarkup.indexOf('ir-export-options-flag'),"contractor flag follows section choices");
+assert(dialogMarkup.includes('</p></div></div>'),"contractor flag belongs to scrollable content");
+assert(dialogMarkup.indexOf('ir-export-options-flag')<dialogMarkup.indexOf('ir-export-options-foot'),"fixed export buttons remain below the scrollable content");
+assert(!source.includes('max-height:49vh;overflow:auto'),"old overflow that clipped the buttons is removed");
 
 console.log("Full object HTML export: snapshot, offline navigation, read-only records, native save and no DB writes OK");

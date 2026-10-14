@@ -516,20 +516,23 @@
   if(!document.getElementById("ir-export-options-style")){
    const st=document.createElement("style");st.id="ir-export-options-style";
    st.textContent=[
-    "dialog.ir-export-options{width:min(540px,calc(100vw - 32px))!important;max-height:86vh!important;margin:auto!important;padding:0!important;border:1px solid #d8e5ee!important;border-radius:14px!important;background:#fff!important;color:#29465b!important;box-shadow:0 22px 70px rgba(11,36,57,.28)!important;overflow:hidden!important;font:13px/1.45 'Segoe UI',Arial,sans-serif!important}",
+    "dialog.ir-export-options{box-sizing:border-box!important;width:min(540px,calc(100vw - 28px))!important;height:min(760px,calc(100dvh - 28px))!important;max-height:calc(100dvh - 28px)!important;min-height:0!important;margin:auto!important;padding:0!important;border:1px solid #d8e5ee!important;border-radius:14px!important;background:#fff!important;color:#29465b!important;box-shadow:0 22px 70px rgba(11,36,57,.28)!important;overflow:hidden!important;font:13px/1.45 'Segoe UI',Arial,sans-serif!important}",
+    "dialog.ir-export-options[open]{display:flex!important;flex-direction:column!important}",
+    ".ir-export-options-head,.ir-export-options-tools,.ir-export-options-foot{flex:0 0 auto!important}",
     "dialog.ir-export-options::backdrop{background:rgba(13,30,47,.52)!important}",
     ".ir-export-options-head{padding:20px 22px 15px;border-bottom:1px solid #e3ebf1}.ir-export-options-head h2{margin:0 0 6px;font-size:17px;color:#204861}.ir-export-options-head p{margin:0;color:#8295a3;font-size:12px}",
     ".ir-export-options-tools{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 20px;background:#f5f9fc}.ir-export-options-tools small{color:#738da2}",
     ".ir-export-options button{padding:8px 11px;border:1px solid #d8e6ee;border-radius:8px;background:#fff;color:#346d99;cursor:pointer;font-weight:700}.ir-export-options button:disabled{opacity:.5;cursor:not-allowed}",
-    ".ir-export-options-list{display:grid;gap:7px;padding:12px 20px;max-height:49vh;overflow:auto}",
+    ".ir-export-options-list{display:grid;align-content:start;gap:7px;padding:12px 20px;flex:1 1 auto!important;min-height:0!important;max-height:none!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain;scrollbar-gutter:stable}",
     ".ir-export-options-list label{display:flex;align-items:center;gap:12px;min-height:42px;padding:9px 12px;border:1px solid #e3ecf2;border-radius:8px;cursor:pointer;font-weight:600}",
-    ".ir-export-options-list label:hover{background:#eef7fc}.ir-export-options-list label:first-child{background:#f3f9fd}",
-    ".ir-export-options-flag{margin:0 20px 16px;padding:12px 13px;background:#f1f7fd;border:1px solid #c9dfef;border-radius:9px}",
-    ".ir-export-options-flag label{display:flex;gap:11px;align-items:center;font-size:12px;font-weight:750;color:#214a68;cursor:pointer}",
+    ".ir-export-options-list>label:hover{background:#eef7fc}.ir-export-options-list>label:first-child{background:#f3f9fd}",
+    ".ir-export-options-flag{margin:8px 0 4px;padding:12px 13px;background:#f1f7fd;border:1px solid #c9dfef;border-radius:9px}",
+    ".ir-export-options-flag label{display:flex;gap:11px;align-items:center;min-height:0;padding:0;border:0;border-radius:0;font-size:12px;font-weight:750;color:#214a68;cursor:pointer}",
     ".ir-export-options-flag input{width:17px;height:17px;flex:0 0 17px;accent-color:#2475b1}",
     ".ir-export-options-flag p{margin:6px 0 0 28px;font-size:11px;line-height:1.5;color:#69879b}",
     ".ir-export-options-list input{width:17px;height:17px;accent-color:#287bb5;cursor:pointer;flex:0 0 17px}",
-    ".ir-export-options-foot{display:flex;justify-content:flex-end;gap:9px;padding:14px 20px;border-top:1px solid #e3ebf1}.ir-export-options .ir-export-save{background:#236da6;color:#fff;border-color:#236da6}",
+    ".ir-export-options-foot{display:flex;position:relative;z-index:1;flex:0 0 auto;align-items:center;justify-content:flex-end;gap:9px;min-height:64px;padding:12px 20px;border-top:1px solid #e3ebf1;background:#fff!important}.ir-export-options .ir-export-save{background:#236da6;color:#fff;border-color:#236da6}",
+    "@media(max-height:540px){.ir-export-options-head{padding:12px 18px 10px}.ir-export-options-tools{padding:7px 18px}.ir-export-options-list{padding:8px 15px}.ir-export-options-foot{min-height:48px;padding:7px 16px}}",
     ".ir-export-options button:focus-visible{outline:2px solid #3585c5;outline-offset:2px}"
    ].join("\n");document.head.append(st)
   }
@@ -538,8 +541,8 @@
    const items=[{key:"overview",name:"Обзор объекта — сводка, ресурсы, погода"},...keys.map(key=>({key,name:names.get(key)||labels[key]||key}))];
    dlg.innerHTML='<div class="ir-export-options-head"><h2>Выгрузка объекта в HTML</h2><p>Выберите разделы, которые будут включены в отчёт.</p></div>'+
     '<div class="ir-export-options-tools"><small data-export-count></small><div><button type="button" data-export-all>Выбрать все</button> <button type="button" data-export-none>Снять все</button></div></div>'+
-    '<div class="ir-export-options-list">'+items.map(x=>'<label><input type="checkbox" data-export-key="'+esc(x.key)+'" checked><span>'+esc(x.name)+'</span></label>').join("")+'</div>'+
-    '<div class="ir-export-options-flag"><label><input type="checkbox" data-under-contractor><span>Под флагом Генподрядчика</span></label><p>Не показывать название и логотип нашей компании в выгруженном отчёте. По умолчанию выключено.</p></div>'+
+    '<div class="ir-export-options-list">'+items.map(x=>'<label><input type="checkbox" data-export-key="'+esc(x.key)+'" checked><span>'+esc(x.name)+'</span></label>').join("")+
+    '<div class="ir-export-options-flag"><label><input type="checkbox" data-under-contractor><span>Под флагом Генподрядчика</span></label><p>Не показывать название и логотип нашей компании в выгруженном отчёте. По умолчанию выключено.</p></div></div>'+
     '<div class="ir-export-options-foot"><button type="button" data-export-cancel>Отмена</button><button type="button" class="ir-export-save" data-export-confirm>Выгрузить HTML</button></div>';
    document.body.append(dlg);
    const checks=[...dlg.querySelectorAll("input[data-export-key]")],ok=dlg.querySelector("[data-export-confirm]");
