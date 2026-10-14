@@ -355,18 +355,28 @@
    const more=shown.length>5?'<label class="ir-export-mark-showmore" for="'+toggleId+'"><span class="ir-export-more-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span><span class="ir-export-more-show">Показать всю ведомость марок ('+counts+')</span><span class="ir-export-more-hide">Свернуть до 5 марок</span></label>':"";
    return'<div class="ir-export-mark-cards"><input class="ir-export-mark-show-check" type="checkbox" id="'+toggleId+'"><div class="ir-export-mark-cardlist">'+shown.map(item).join("")+'</div>'+more+'</div>'
   };
+  // Each unique pair of project codes has its own mark filter.
   const catalog=new Map();
-  for(const m of marks){
-   const id=m.workId||"unassigned",workName=m.work||"Без вида работы";
-   if(!catalog.has(id))catalog.set(id,{id,name:workName,marks:[]});
-   catalog.get(id).marks.push(m)
+  for(const mark of marks){
+   const code=mark.code||"",code2=mark.code2||"",name=mark.work||"Без вида работы";
+   const key=JSON.stringify([mark.workId||"legacy:"+name,code,code2]);
+   if(!catalog.has(key))catalog.set(key,{id:key,name,code,code2,marks:[]});
+   catalog.get(key).marks.push(mark)
   }
-  const workChoices=[...catalog.values()].sort((a,b)=>a.name.localeCompare(b.name,"ru",{numeric:true}));
+  const tabLabel=work=>{
+   const name=String(workLabel(work.name)).trim();
+   const noun=/^(?:металлоконструкция|монтаж металлоконструкций)$/i.test(name)?"Металлоконструкции":name;
+   return noun+(work.code?" · "+work.code:"")+(work.code2?" ("+work.code2+")":"")
+  };
+  const workChoices=[...catalog.values()].sort((a,b)=>
+   a.name.localeCompare(b.name,"ru",{numeric:true})||
+   a.code.localeCompare(b.code,"ru",{numeric:true})||
+   a.code2.localeCompare(b.code2,"ru",{numeric:true}));
   const controls='<input class="ir-export-work-radio ir-export-work-radio-all" type="radio" name="ir-export-work-filter" id="ir-export-work-all" checked>'+
    workChoices.map((w,i)=>'<input class="ir-export-work-radio ir-export-work-radio-'+i+'" type="radio" name="ir-export-work-filter" id="ir-export-work-'+i+'">').join("");
   const choice=(id,name,count)=>'<label for="'+id+'" title="'+esc(name)+'">'+esc(name)+' <span>'+count+'</span></label>';
   const tabs='<div class="ir-export-work-tabs" role="group" aria-label="Выберите вид работ">'+choice("ir-export-work-all","Все виды работ",marks.length)+
-   workChoices.map((w,i)=>choice("ir-export-work-"+i,w.name,w.marks.length)).join("")+'</div>';
+   workChoices.map((w,i)=>choice("ir-export-work-"+i,tabLabel(w),w.marks.length)).join("")+'</div>';
   const dynamicStyles=workChoices.map((w,i)=>
    '.ir-export-work-radio-'+i+':checked ~ .ir-export-work-tabs label[for="ir-export-work-'+i+'"]{background:#236da6;color:#fff}'+
    '.ir-export-work-radio-'+i+':checked ~ .ir-export-work-panels > .ir-export-work-panel-'+i+'{display:block!important}').join("\n");
@@ -1258,6 +1268,17 @@
     "@media(max-width:830px){body.ir-object-overview #app .ir-export-indicators>.object-overview-top-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}body.ir-object-overview #app .ir-export-indicators>.object-overview-top-stats>.oos-weather{grid-column:1/-1!important}}",
     "@media(max-width:560px){body.ir-object-overview #app .ir-export-indicators>.object-overview-top-stats{grid-template-columns:minmax(0,1fr)!important}body.ir-object-overview #app .ir-export-indicators>.object-overview-top-stats>.oos-weather{grid-column:auto!important}body.ir-object-overview #app .ir-export-indicators .oos-weather-meta{flex:1 1 100%!important}}",
     "@media print{body.ir-object-overview #app .ir-export-indicators>.object-overview-top-stats>.oos-weather{break-inside:avoid!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}",
+    "/* Full-width divider and contained project-code filter bar. */",
+    "body.ir-object-overview #app #section-marks .ir-export-marks-summary{border-bottom:0!important}",
+    "body.ir-object-overview #app #section-marks .ir-export-work-filter{position:relative!important;min-width:0!important;max-width:100%!important;border-top:0!important;padding:0!important}",
+    "body.ir-object-overview #app #section-marks .ir-export-work-filter::before{content:''!important;display:block!important;position:relative!important;left:-20px!important;width:calc(100% + 40px)!important;height:1px!important;margin:12px 0 18px!important;background:#dbe5ed!important;box-sizing:border-box!important}",
+    "body.ir-object-overview #app #section-marks .ir-export-work-head{margin:0!important;padding:0 0 9px!important;border-top:0!important}",
+    "body.ir-object-overview #app #section-marks .ir-export-work-tabs{box-sizing:border-box!important;display:flex!important;flex-wrap:wrap!important;align-items:stretch!important;gap:6px!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:4px 0 14px!important;padding:4px!important;overflow-wrap:anywhere!important}",
+    "body.ir-object-overview #app #section-marks .ir-export-work-tabs label{box-sizing:border-box!important;display:inline-flex!important;flex:0 1 auto!important;align-items:center!important;gap:7px!important;min-width:0!important;max-width:100%!important;margin:0!important;padding:9px 10px!important;white-space:normal!important;overflow-wrap:anywhere!important}",
+    "body.ir-object-overview #app #section-marks .ir-export-work-tabs label span{flex:0 0 auto!important;white-space:nowrap!important}",
+    "body.ir-object-overview #app #section-marks .ir-export-work-panels,body.ir-object-overview #app #section-marks .ir-export-mark-cards,body.ir-object-overview #app #section-marks .ir-export-mark-cardlist{box-sizing:border-box!important;width:100%!important;max-width:100%!important;min-width:0!important}",
+    "@media(max-width:760px){body.ir-object-overview #app #section-marks .ir-export-work-filter::before{left:-12px!important;width:calc(100% + 24px)!important}body.ir-object-overview #app #section-marks .ir-export-work-tabs{gap:5px!important;padding:3px!important}body.ir-object-overview #app #section-marks .ir-export-work-tabs label{padding:8px!important;font-size:10px!important}}",
+    "@media print{body.ir-object-overview #app #section-marks .ir-export-work-filter::before{left:0!important;width:100%!important;margin:10px 0 14px!important}}",
     "@media print{body.ir-object-route.ir-object-overview{background:#fff!important}body.ir-object-overview #app{margin:0 auto!important;width:100%!important;max-width:1000px!important;box-shadow:none!important}.ir-export-topnav{position:relative!important;top:auto!important}.ir-export-menu-items{box-shadow:none!important}.ir-export-record{break-inside:avoid}.ir-export-section{break-before:page;margin:8px 0!important}.ir-export-daily-card details,.ir-export-mark-card details{display:block!important}}"
    ].join("\n");
    const activeHero=document.querySelector(".object-overview-hero");

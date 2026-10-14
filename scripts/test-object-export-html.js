@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17185'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17186'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -196,6 +196,22 @@ assert.equal((selectedCardsHTML.match(/class="ir-export-mark-card status-/g)||[]
 assert(selectedCardsHTML.includes('ir-export-count-all">8</span>'),"work-filtered total is correct");
 const otherCardsHTML=cardHTML.split('<div class="ir-export-work-panel ir-export-work-panel-1">')[1];
 assert(otherCardsHTML.includes("В10")&&otherCardsHTML.includes("В11"),"second work's marks remain selectable");
+assert(cardHTML.includes("Монтаж металлоконструкций · КМ"),"tabs include primary project code");
+assert(cardHTML.includes("Монтаж сэндвич-панелей · СП"),"sandwich tabs include the project code");
+const twoCodes=renderCards([
+ {id:210,data:{work_type_id:"7",mark:"К1",qty:1,unit:"тн",project_code:"041-2025 КМД",project_code_2:"КМ-1"}},
+ {id:211,data:{work_type_id:"7",mark:"К2",qty:1,unit:"тн",project_code:"043-2025 КМД",project_code_2:"КМ-2"}}
+],[{id:"7",data:{work_type:"Монтаж металлоконструкций"}}],[]);
+assert(twoCodes.includes("Металлоконструкции · 041-2025 КМД (КМ-1)"),"first code and secondary code on one tab");
+assert(twoCodes.includes("Металлоконструкции · 043-2025 КМД (КМ-2)"),"different codes under one work type do not merge");
+assert.equal((twoCodes.match(/class="ir-export-work-radio ir-export-work-radio-\\d+"/g)||[]).length,2,"two distinct work-code filters");
+const firstTwoCodes=twoCodes.split('<div class="ir-export-work-panel ir-export-work-panel-0">')[1].split('<div class="ir-export-work-panel ir-export-work-panel-1">')[0];
+const nextTwoCodes=twoCodes.split('<div class="ir-export-work-panel ir-export-work-panel-1">')[1];
+assert(firstTwoCodes.includes("К1")&&!firstTwoCodes.includes("К2"),"first code only displays its marks");
+assert(nextTwoCodes.includes("К2")&&!nextTwoCodes.includes("К1"),"second code only displays its marks");
+assert(source.includes(".ir-export-marks-summary{border-bottom:0!important"),"remove the old narrow underline");
+assert(source.includes(".ir-export-work-filter::before{content:")&&source.includes("width:calc(100% + 40px)"),"full-width divider between sections");
+assert(source.includes(".ir-export-work-tabs{box-sizing:border-box!important;display:flex")&&source.includes("margin:4px 0 14px!important"),"tab filter fits inside the right edge");
 
 
 const extraSource=fs.readFileSync("src/object-export-extras.js","utf8");
