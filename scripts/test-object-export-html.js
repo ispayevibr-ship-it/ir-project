@@ -258,7 +258,7 @@ assert(!extras.schemeHtml(model).includes("Редактировать"),"no edit
 assert(source.includes("function schedulePreviewHtml(card)"),"work-specific Gantt selectors exist");
 assert(source.includes('key==="schedule"?schedulePreviewHtml(card):card.outerHTML'),"Gantt uses filtered offline snapshot");
 assert(source.includes('class="ir-export-marks-unified"'),"work readiness and marks form one visual section");
-assert(source.includes('class="ir-export-deliveries-unified"'),"deliveries summary and invoices share one visual section");
+assert(source.includes('class="ir-export-section ir-export-deliveries-unified"'),"deliveries summary and invoices share one visual section");
 assert(source.includes('class="ir-export-delivery-register"'),"invoice register appears directly under supply comparison");
 assert(source.includes("ir-export-gantt-options"),"Gantt includes work-type choices");
 assert(source.includes("#section-scheme>.ir-export-section{padding:0!important"),"scheme fills complete section width");
