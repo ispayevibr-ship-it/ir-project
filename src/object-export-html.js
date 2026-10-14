@@ -461,7 +461,8 @@
   const literal=x=>[...String(x)].map(c=>special.includes(c)?"\\"+c:c).join("");
   const joiner="(?:\\s|&nbsp;|&#0*160;|&quot;|&#0*34;|&#x0*22;|&laquo;|&raquo;|[\"'«»“”„])+";
   const boundary="[\\p{L}\\p{N}]";
-  const pattern="(?<!"+boundary+")"+tokens.map(literal).join(joiner)+"(?!"+boundary+")";
+  const closer="(?:&quot;|&#0*34;|&#x0*22;|&laquo;|&raquo;|[\"'«»“”„])+";
+  const pattern="(?<!"+boundary+")"+tokens.map(literal).join(joiner)+"(?:"+closer+")?(?!"+boundary+")";
   return String(html).replace(new RegExp(pattern,"giu"),"")
  }
 

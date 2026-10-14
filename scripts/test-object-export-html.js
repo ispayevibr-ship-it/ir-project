@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17171'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17172'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -354,6 +354,7 @@ assert(!contractor.includes("А-Темир")&&!contractor.includes("Наша к�
 assert(contractor.includes("data:image/png;base64,QQ==")&&contractor.includes("data:image/png;base64,Qg=="),"customer and contractor logos are preserved");
 const redacted=brandFns.redactCompanyIdentity('<p>Исполнитель: ТОО &quot;А-Темир Строй&quot;</p><div>ТОО «А-Темир Строй»</div><span>ТОО "А-Темир Строй"</span>',companies.ownName);
 assert(!redacted.includes("А-Темир")&&!redacted.includes("Строй"),"name is redacted across HTML entities and quote styles");
+assert(!redacted.includes("&quot;")&&!redacted.includes("»</div>"),"redaction does not leave dangling company-name quotes");
 assert(redacted.includes("<p>Исполнитель: ")&&redacted.includes("<div>"),"other content survives redaction");
 assert.equal(brandFns.redactCompanyIdentity("<p>Заказчик</p>",""),"<p>Заказчик</p>","empty owner name does not censor other content");
 
