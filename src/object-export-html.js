@@ -568,8 +568,10 @@
   const readiness=exportSummaryCompletion(works,marks,reports);
   const resources=exportLatestResources(reports);
   const unit=u=>{
-   const s=String(u||"").trim().toLowerCase().replace(/²/g,"2").replace(/³/g,"3").replace(/\s/g,"");
-   return ["т","тн","tn","ton"].includes(s)?"тн":["м2","m2"].includes(s)?"м2":["м3","m3"].includes(s)?"м3":s||"ед."
+   const s=String(u||"").trim().toLowerCase().replace(/²/g,"2").replace(/³/g,"3").replace(/[\s.]/g,"");
+   return ["т","тн","tn","ton","tons"].includes(s)?"тн":
+    ["м2","m2","м^2","m^2","квм","мкв"].includes(s)?"м2":
+    ["м3","m3","м^3","m^3","кубм"].includes(s)?"м3":s||"ед."
   };
   const workUnits=new Map(works.map(r=>[String(r.id),r.data?.unit]));
   const markUnits=new Map(marks.map(r=>[String(r.id),r.data?.unit]));
@@ -597,9 +599,21 @@
     for(const [u,v]of Object.entries(d.totals_by_unit))add("delivered",u,v)
   }
   const allUnits=new Set([...totals.mounted.keys(),...totals.delivered.keys()]);
-  const primary=["тн","м2","м3"].find(u=>allUnits.has(u))||[...allUnits][0]||"тн";
-  const installed=totals.mounted.get(primary)||0,received=totals.delivered.get(primary)||0;
+  const orderedUnits=[...allUnits].sort((a,b)=>{
+   const rank=u=>["тн","м2","м3"].indexOf(u)<0?3:["тн","м2","м3"].indexOf(u);
+   return rank(a)-rank(b)||a.localeCompare(b,"ru")
+  });
   const fmt=v=>Number(v.toFixed(3)).toLocaleString("ru-RU",{maximumFractionDigits:3});
+  const unitsHtml=kind=>{
+   if(!orderedUnits.length)return'<div class="ir-export-indicator-value">0<small>—</small></div>';
+   if(orderedUnits.length===1){
+    const u=orderedUnits[0];
+    return'<div class="ir-export-indicator-value">'+esc(fmt(totals[kind].get(u)||0))+'<small>'+esc(u)+'</small></div>'
+   }
+   return'<div class="ir-export-indicator-unit-list">'+orderedUnits.map(u=>
+    '<div class="ir-export-indicator-unit-row"><b>'+esc(fmt(totals[kind].get(u)||0))+'</b><small>'+esc(u)+'</small></div>'
+   ).join("")+'</div>'
+  };
   const last=resources.date;
   const icons={
    readiness:'<circle cx="12" cy="12" r="9"/><path d="M12 12V6M12 12l4 3"/>',
@@ -611,14 +625,15 @@
   const svg=k=>'<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+icons[k]+'</svg>';
   const cards=[
    ["readiness","Средняя готовность",String(Math.round(readiness)),"%","Среднее по видам работ",""],
-   ["mounted","Смонтировано",fmt(installed),primary,"По ежедневным отчётам","Фактический объём"],
-   ["delivered","Поставлено",fmt(received),primary,"По накладным",allUnits.size>1?"Другие ед. изм. не суммируются":"Остаток: "+fmt(received-installed)+" "+primary],
+   ["mounted","Смонтировано","","","По ежедневным отчётам",orderedUnits.length>1?"Объёмы отдельно по единицам":"Фактический объём"],
+   ["delivered","Поставлено","","","По накладным",orderedUnits.length>1?"Объёмы отдельно по единицам":orderedUnits.length===1?"Остаток: "+fmt((totals.delivered.get(orderedUnits[0])||0)-(totals.mounted.get(orderedUnits[0])||0))+" "+orderedUnits[0]:"Нет поставок"],
    ["reports","Ежедневные отчёты",String(reports.length),"шт.","История выполненных работ",last?"Последний: "+exportDate(last):"Отчётов пока нет"],
    ["resources","Люди и техника","","","По последнему отчёту",last?"На "+exportDate(last):"Нет отчётов"]
   ];
   const cardHtml=cards.map(([key,title,value,u,desc,footer])=>{
    const values=key==="resources"?
     '<div class="ir-export-resource-values"><div><b>'+esc(resources.people)+'</b><small>чел.</small></div><div><b>'+esc(resources.equipment)+'</b><small>ед. техники</small></div></div>':
+    key==="mounted"||key==="delivered"?unitsHtml(key):
     '<div class="ir-export-indicator-value">'+esc(value)+'<small>'+esc(u)+'</small></div>';
    return'<article class="ir-export-indicator-card ir-export-indicator-'+key+'"><div class="ir-export-indicator-icon">'+svg(key)+'</div>'+
     '<div class="ir-export-indicator-title">'+esc(title)+'</div>'+values+
@@ -793,6 +808,11 @@
      ".ir-export-indicator-link:hover{background:#dceefa!important;color:#15587e!important}",
      ".ir-export-indicator-link span{display:flex!important;align-items:center!important;gap:10px!important;min-width:0!important}",
      ".ir-export-indicator-link i{font:700 18px/1 'Segoe UI',Arial,sans-serif!important;font-style:normal!important}",
+          ".ir-export-indicator-unit-list{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:5px!important;width:100%!important;min-width:0!important;align-content:start!important}",
+     ".ir-export-indicator-unit-row{display:flex!important;align-items:baseline!important;justify-content:space-between!important;gap:7px!important;min-width:0!important;padding:4px 0!important;border-bottom:1px dashed #e7edf3!important}",
+     ".ir-export-indicator-unit-row:last-child{border-bottom:0!important}",
+     ".ir-export-indicator-unit-row b{min-width:0!important;color:#1b4968!important;font:800 19px/1.12 'Segoe UI',Arial,sans-serif!important;font-variant-numeric:tabular-nums!important;overflow-wrap:anywhere!important}",
+     ".ir-export-indicator-unit-row small{flex:0 0 auto!important;color:#7791a4!important;font:750 11px/1.3 'Segoe UI',Arial,sans-serif!important}",
      "@media(max-width:830px){.ir-export-indicator-cards{grid-template-columns:repeat(3,minmax(0,1fr))!important}.ir-export-indicator-links{grid-template-columns:repeat(2,minmax(0,1fr))!important}.ir-export-indicator-value{font-size:27px!important}}",
      "@media(max-width:560px){.ir-export-indicators{padding:14px 12px 18px!important}.ir-export-indicator-cards{grid-template-columns:repeat(2,minmax(0,1fr))!important}.ir-export-indicator-links{grid-template-columns:1fr!important}.ir-export-indicator-card{min-height:180px!important}.ir-export-indicator-value{font-size:24px!important}}",
      "@media print{.ir-export-indicators{break-inside:avoid!important}.ir-export-indicator-card{break-inside:avoid!important}}",
