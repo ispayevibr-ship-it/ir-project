@@ -7,14 +7,14 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17164'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17165'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
-assert(source.includes('.object-overview-reports > .oor2-card:not(.oor2-photo-card):not(.oor-marks-card),.object-overview-marks-wrap > .object-overview-marks-card'),"remove duplicate latest reports and old marks previews from snapshot");
+assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
 assert(!source.includes('["reports",".object-overview-reports > .oor2-card'),"do not duplicate recent reports as an overview preview");
 assert(!source.includes("ir-export-preview-daily"),"obsolete recent report expanders removed");
-assert(source.includes('["photos",".object-overview-reports > .oor2-photo-card"]'),"latest photos are relocated");
-assert(source.includes('["deliveries",".object-overview-deliveries-wrap > .ood-deliveries"]'),"delivery widget is relocated");
+assert(!source.includes('["photos",".object-overview-reports > .oor2-photo-card"]'),"photos are drawn from the latest 12 actual report images");
+assert(!source.includes('["deliveries",".object-overview-deliveries-wrap > .ood-deliveries"]'),"latest invoice widget is not duplicated");
 assert(source.includes('["schedule",".object-overview-dashboard > .object-overview-schedule"]'),"schedule widget is relocated");
 assert(source.includes("renderDailyReports(rows,images)"),"daily reports use specialized cards");
 assert(source.includes('exportMoreCards(cards,"reports")'),"only five report cards initially visible");
@@ -195,5 +195,55 @@ assert.equal((selectedCardsHTML.match(/class="ir-export-mark-card status-/g)||[]
 assert(selectedCardsHTML.includes('ir-export-count-all">8</span>'),"work-filtered total is correct");
 const otherCardsHTML=cardHTML.split('<div class="ir-export-work-panel ir-export-work-panel-1">')[1];
 assert(otherCardsHTML.includes("В10")&&otherCardsHTML.includes("В11"),"second work's marks remain selectable");
+
+
+const extraSource=fs.readFileSync("src/object-export-extras.js","utf8");
+new vm.Script(extraSource,{filename:"object-export-extras.js"});
+assert(html.includes('object-export-extras.js?v=17165'),"standalone asset renderer loaded");
+const extraCtx={window:{},console};
+vm.runInNewContext(extraSource,extraCtx);
+const extras=extraCtx.window.irObjectExportExtras;
+assert.equal(typeof extras?.deliveries,"function");
+assert.equal(typeof extras?.recentPhotos,"function");
+assert.equal(typeof extras?.schemeData,"function");
+assert.equal(typeof extras?.schemeHtml,"function");
+assert.equal(typeof extras?.schemeViewer,"function");
+assert(source.includes("project_code_2"),"secondary project codes are printed in readiness and mark cards");
+assert(source.includes('key==="deliveries"?extras.deliveries(rows)'),"invoices use a read-only dedicated view");
+assert(source.includes('key==="photos"?extras.recentPhotos('),"photo gallery is built from real report images");
+assert(source.includes('key==="scheme"?extras.schemeHtml('),"scheme uses embedded viewport");
+assert(source.includes('["schedule","acted-days","penalties"].includes(key)'),"analysis and schedule are preview-only");
+assert(source.includes("keys.includes(\"scheme\")"),"scheme data is embedded when selected");
+assert(source.includes("script-src 'nonce-"),"viewer only runs a nonce-authorized script");
+assert(source.includes("viewerScripts"),"offline HTML includes viewer engine");
+assert(!extras.schemeViewer.toString().includes("irProject.data"),"viewer has no DB access");
+const deliverySample=Array.from({length:5},(_,i)=>({
+ id:10+i,data:{number:"К-"+i,date:"2026-10-0"+(i+1),vehicle_number:"AB001",items:[
+  {mark:"Б1",work_type:"Монтаж",project_code:"КМ",qty:2,unit:"тн",volume:1.23}
+ ]}
+}));
+const deliveryHTML=extras.deliveries(deliverySample);
+assert((deliveryHTML.match(/ir-export-invoice-summary/g)||[]).length===5,"all five invoices exported");
+assert(deliveryHTML.includes("Показать ещё (всего 5 накладных)"),"first three invoices appear before show-more");
+assert(deliveryHTML.includes("ood-delivery-row"),"original invoice design is reused");
+const imgMap=new Map([["a.png","data:image/png;base64,QQ=="],["b.png","data:image/png;base64,Qg=="]]);
+const gallery=extras.recentPhotos([
+ {id:1,data:{date:"2026-10-10",photos:["a.png","b.png"]}},
+ {id:2,data:{date:"2026-10-09",photos:["c.png"]}}
+],imgMap);
+assert((gallery.match(/class="ir-export-gallery-tile"/g)||[]).length===2,"only available inlined photos exported");
+assert(gallery.includes('href="#ir-export-lightbox-0"'),"lightbox opens without JavaScript");
+assert(gallery.includes('data:image/png;base64,QQ=='),"embedded gallery images work offline");
+const grid=[{id:1,record_type:"scheme_grid",data:{axes_x:["1","2"],axes_y:["А","Б"],span_x_mm:10000,span_y_mm:5000}},
+ {id:2,record_type:"scheme_column",data:{mark:"К1",axis_x:"1",axis_y:"А",z0_mm:0,z1_mm:8400,geometry_type:"column",status:"mounted"}},
+ {id:3,record_type:"scheme_column",data:{mark:"Б1",axis_x:"1",axis_y:"А",absolute_x2_mm:10000,absolute_y2_mm:0,z0_mm:8400,z1_mm:8400,geometry_type:"beam"}}];
+const model=extras.schemeData(grid);
+assert.equal(model.members.length,2,"actual placed members are read from scheme records");
+assert.equal(model.members[0].end[2],8400,"column height is preserved");
+assert.equal(model.members[1].end[0],10000,"beam endpoint coordinates are preserved");
+assert(extras.schemeHtml(model).includes('data-view="plan"'),"Plan toggle is present");
+assert(extras.schemeViewer.toString().includes("pointermove"),"3D rotates with pointer drag");
+assert(extras.schemeViewer.toString().includes("wheel"),"3D wheel zoom is implemented");
+assert(!extras.schemeHtml(model).includes("Редактировать"),"no editing in scheme export");
 
 console.log("Full object HTML export: snapshot, offline navigation, read-only records, native save and no DB writes OK");
