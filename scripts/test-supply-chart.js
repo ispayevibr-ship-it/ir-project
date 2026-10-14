@@ -31,6 +31,7 @@ const dailyHTML=engine.render(model,{typeId:"m",mode:"daily"});
 assert(dailyHTML.includes('Поставки и монтаж')&&dailyHTML.includes('data-supply-work')&&dailyHTML.includes('data-supply-code'));
 assert(!dailyHTML.includes('data-supply-search')&&dailyHTML.includes('data-supply-mode="daily"')&&dailyHTML.includes('data-supply-mode="cumulative"'));
 assert(dailyHTML.includes('fill="#3B82F6"')&&dailyHTML.includes('fill="#16A34A"'),"weekly bars use exact colors");
+assert(dailyHTML.includes("<rect ")&&!dailyHTML.includes('rx="3"'),"vertical bars use square corners in app and offline export");
 const cumHTML=engine.render(model,{typeId:"m",mode:"cumulative"});
 assert(cumHTML.includes('stroke="#3B82F6"')&&cumHTML.includes('stroke="#16A34A"'),"cumulative lines use exact colors");
 assert(engine.render(model,{typeId:"b"}).includes("Нет данных за выбранный период"));
