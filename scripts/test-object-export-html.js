@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17173'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17174'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -104,7 +104,7 @@ assert(source.includes('original(key)?.querySelector(".nav-label")?.textContent'
 assert(source.includes('original(key)?.querySelector(".nav-icon")?.innerHTML'),"real menu icons reused");
 assert(source.includes('hero.insertAdjacentHTML("afterend",sidebarHtml('),"navigation follows the object banner");
 assert(source.includes('ir-export-topnav-inner{display:flex;align-items:center;justify-content:center'),"menu is centered");
-assert(source.includes('body.ir-object-route.ir-object-overview #app{margin:0!important;width:100%!important'),"right-side content fills the page");
+assert(source.includes('body.ir-object-route.ir-object-overview #app{width:100%!important;max-width:1000px!important;min-width:0!important;margin:0 auto!important'),"report is centered and max 1000px");
 assert(!source.includes('ir-export-sidebar.ir-object-sidebar-fixed'),"fixed left archive sidebar removed");
 assert(!source.includes("'+sidebar+'<main id="),"no left sidebar rendered before main");
 assert(source.includes("activeNavStyles"),"dropdown highlights current section offline");
@@ -338,7 +338,8 @@ assert(source.includes('<input type="checkbox" data-under-contractor>'),"flag is
 assert(source.includes('underContractor:dlg.querySelector("[data-under-contractor]").checked===true'),"export receives checked contractor flag");
 assert(source.includes('if(selection.underContractor)html=redactCompanyIdentity(html,companyHeader.ownName)'),"own company name is redacted throughout HTML output");
 assert(source.includes('redactCompanyIdentity(name,companyHeader.ownName)'),"own company is also excluded from filename");
-assert(source.includes('.ir-export-companies{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))'),"three columns share full width");
+assert(source.includes('.ir-export-companies-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))'),"company roles occupy balanced columns");
+assert(source.includes('.ir-export-companies-two .ir-export-companies-grid{grid-template-columns:repeat(2,minmax(0,1fr))'),"contractor mode displays two balanced columns");
 const brandStart=source.indexOf(" function companyHeaderHtml("),brandEnd=source.indexOf(" function sidebarHtml(",brandStart);
 assert(brandStart>=0&&brandEnd>brandStart,"standalone brand helpers can be tested");
 const brandFns=vm.runInNewContext('(function(){const esc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");const array=x=>Array.isArray(x)?x:[];'+source.slice(brandStart,brandEnd)+';return {companyHeaderHtml,redactCompanyIdentity}})()', {});
@@ -375,5 +376,18 @@ assert(dialogMarkup.indexOf('ir-export-options-list')<dialogMarkup.indexOf('ir-e
 assert(dialogMarkup.includes('</p></div></div>'),"contractor flag belongs to scrollable content");
 assert(dialogMarkup.indexOf('ir-export-options-flag')<dialogMarkup.indexOf('ir-export-options-foot'),"fixed export buttons remain below the scrollable content");
 assert(!source.includes('max-height:49vh;overflow:auto'),"old overflow that clipped the buttons is removed");
+
+
+assert(source.includes('body.ir-object-overview{padding-top:0!important;min-width:0!important'),"no forced desktop minimum viewport width");
+assert(source.includes('body.ir-object-route.ir-object-overview{background:#eef3f8!important}'),"side gutters use muted background");
+assert(source.includes('body.ir-object-route.ir-object-overview #app{background:#fff!important;box-shadow:'),"centered document is a white sheet");
+assert(source.includes('body.ir-object-route.ir-object-overview #app>.object-overview-hero{width:100%!important;max-width:100%!important'),"banner fits the central report");
+assert(source.includes('class="ir-export-companies-heading"'),"one shared participant panel heading exists");
+assert(source.includes('class="ir-export-companies-grid"'),"company columns are inside a shared panel");
+assert(source.includes('border-right:1px solid #e4edf3!important'),"participant columns have subtle separators");
+assert(source.includes('max-width:100%!important;max-height:100%!important;object-fit:contain!important'),"original logos retain proportions");
+assert(source.includes('@media(max-width:560px){.ir-export-companies-grid,.ir-export-companies-two .ir-export-companies-grid{grid-template-columns:minmax(0,1fr)!important}'),"narrow layouts stack participant cards");
+assert(source.includes('max-width:1000px!important;box-shadow:none!important'),"print uses the same page max width");
+assert(!source.includes('min-width:760px;background:#f4f6f9'),"old forced width removed");
 
 console.log("Full object HTML export: snapshot, offline navigation, read-only records, native save and no DB writes OK");

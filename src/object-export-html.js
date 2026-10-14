@@ -422,12 +422,12 @@
    {role:"Генподрядчик",name:parties.contractorName,logo:parties.contractorLogo},
    ...(!parties.underContractor?[{role:"Наша компания",name:parties.ownName,logo:parties.ownLogo}]:[])
   ];
-  return'<section class="ir-export-companies'+(cards.length===2?' ir-export-companies-two':'')+'" aria-label="Участники строительства">'+cards.map(p=>{
+  return'<section class="ir-export-companies'+(cards.length===2?' ir-export-companies-two':'')+'" aria-label="Участники строительства"><div class="ir-export-companies-heading">Участники проекта</div><div class="ir-export-companies-grid">'+cards.map(p=>{
    const img=p.logo?'<img src="'+esc(p.logo)+'" alt="Логотип: '+esc(p.role)+'">':
     '<span class="ir-export-company-no-logo">Логотип не указан</span>';
    return'<article class="ir-export-company-card"><div class="ir-export-company-role">'+esc(p.role)+'</div>'+
     '<div class="ir-export-company-logo">'+img+'</div><div class="ir-export-company-name">'+esc(p.name||"Не указано")+'</div></article>'
-  }).join("")+'</section>'
+  }).join("")+'</div></section>'
  }
  async function exportCompanyHeader(api,object,underContractor){
   const [rows,profile]=await Promise.all([
@@ -597,20 +597,25 @@
    const css=await cssResponse.text();
    const extraStyles=[
     "*{box-sizing:border-box}",
-    "html{scroll-behavior:smooth}body.ir-object-overview{padding-top:0!important;min-width:760px;background:#f4f6f9}",
+    "html{scroll-behavior:smooth}body.ir-object-overview{padding-top:0!important;min-width:0!important;background:#eef3f8!important}",
     "body.ir-object-overview #app{padding-bottom:30px!important}",
     "body.ir-object-route.ir-object-overview{margin:0!important;padding:0!important}",
-    "body.ir-object-route.ir-object-overview #app{margin:0!important;width:100%!important;min-width:0!important;max-width:none!important;padding:0 0 24px!important;box-sizing:border-box!important}",
-        ".ir-export-companies{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;align-items:stretch!important;gap:14px!important;width:100%!important;max-width:none!important;margin:0!important;padding:19px 24px!important;background:#fff!important;border-bottom:1px solid #dfe8ef!important;box-sizing:border-box!important}",
-    ".ir-export-companies-two{grid-template-columns:repeat(2,minmax(0,1fr))!important}",
-    ".ir-export-company-card{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:flex-start!important;gap:9px!important;min-width:0!important;padding:14px 15px 17px!important;background:#fbfdff!important;border:1px solid #dbe7f0!important;border-radius:12px!important;text-align:center!important;box-shadow:0 1px 4px rgba(20,53,78,.04)!important}",
-    ".ir-export-company-role{font-size:11px!important;font-weight:850!important;line-height:1.4!important;text-transform:uppercase!important;letter-spacing:.7px!important;color:#547a94!important}",
-    ".ir-export-company-logo{display:flex!important;justify-content:center!important;align-items:center!important;width:100%!important;height:118px!important;max-height:118px!important;min-height:118px!important;padding:8px!important;background:#fff!important;border-radius:9px!important;overflow:hidden!important}",
-    ".ir-export-company-logo img{display:block!important;width:auto!important;height:auto!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;flex:0 1 auto!important}",
-    ".ir-export-company-no-logo{color:#9aaaba!important;font-size:11px!important;font-weight:500!important}",
-    ".ir-export-company-name{min-width:0!important;width:100%!important;max-width:100%!important;font-size:13px!important;font-weight:800!important;line-height:1.45!important;overflow-wrap:anywhere!important;color:#244961!important}",
-    "@media(max-width:730px){.ir-export-companies{gap:7px!important;padding:12px 8px!important}.ir-export-company-card{padding:10px 5px!important}.ir-export-company-logo{height:85px!important;min-height:85px!important}.ir-export-company-name{font-size:11px!important}.ir-export-company-role{font-size:9px!important}}",
-    "@media print{.ir-export-companies{break-inside:avoid!important;padding:12px 0!important}.ir-export-company-card{break-inside:avoid!important}}",
+    "body.ir-object-route.ir-object-overview #app{width:100%!important;max-width:1000px!important;min-width:0!important;margin:0 auto!important;padding:0 0 24px!important;box-sizing:border-box!important}",
+            ".ir-export-companies{display:block!important;width:auto!important;max-width:none!important;margin:19px 20px 16px!important;padding:0!important;background:#fff!important;border:1px solid #dae5ee!important;border-radius:13px!important;box-shadow:0 5px 18px rgba(24,62,89,.055)!important;overflow:hidden!important;box-sizing:border-box!important}",
+    ".ir-export-companies-heading{display:flex!important;align-items:center!important;gap:8px!important;min-height:43px!important;padding:12px 19px!important;background:#f5f9fd!important;border-bottom:1px solid #dde9f2!important;color:#224c68!important;font:800 12px/1.5 'Segoe UI',Arial,sans-serif!important}",
+    ".ir-export-companies-heading:before{content:''!important;display:block!important;width:3px!important;height:16px!important;border-radius:4px!important;background:#2a7db6!important}",
+    ".ir-export-companies-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:0!important;align-items:stretch!important;width:100%!important;min-width:0!important}",
+    ".ir-export-companies-two .ir-export-companies-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}",
+    ".ir-export-company-card{display:flex!important;flex-direction:column!important;align-items:center!important;gap:10px!important;min-width:0!important;margin:0!important;padding:19px 16px 20px!important;border:0!important;border-right:1px solid #e4edf3!important;border-radius:0!important;background:#fff!important;text-align:center!important;box-shadow:none!important}",
+    ".ir-export-company-card:last-child{border-right:0!important}",
+    ".ir-export-company-role{display:block!important;min-height:16px!important;color:#69889d!important;font:800 10px/1.45 'Segoe UI',Arial,sans-serif!important;letter-spacing:.65px!important;text-transform:uppercase!important}",
+    ".ir-export-company-logo{display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;max-width:245px!important;height:108px!important;min-height:108px!important;max-height:108px!important;padding:10px 16px!important;margin:0 auto!important;border:1px solid #e9f0f5!important;border-radius:10px!important;background:#f8fbfd!important;overflow:hidden!important;box-sizing:border-box!important}",
+    ".ir-export-company-logo img{display:block!important;width:auto!important;height:auto!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important}",
+    ".ir-export-company-no-logo{color:#95aaba!important;font-size:11px!important;font-weight:500!important}",
+    ".ir-export-company-name{width:100%!important;max-width:100%!important;min-width:0!important;min-height:37px!important;color:#24475f!important;font:800 13px/1.45 'Segoe UI',Arial,sans-serif!important;overflow-wrap:anywhere!important;word-break:normal!important}",
+    "@media(max-width:760px){.ir-export-companies{margin:13px 12px 12px!important}.ir-export-company-card{padding:15px 9px!important;gap:8px!important}.ir-export-company-logo{height:92px!important;min-height:92px!important;max-height:92px!important;padding:8px!important}.ir-export-company-name{font-size:11px!important}.ir-export-company-role{font-size:9px!important}}",
+    "@media(max-width:560px){.ir-export-companies-grid,.ir-export-companies-two .ir-export-companies-grid{grid-template-columns:minmax(0,1fr)!important}.ir-export-company-card{border-right:0!important;border-bottom:1px solid #e4edf3!important;padding:14px 16px!important}.ir-export-company-card:last-child{border-bottom:0!important}.ir-export-company-logo{max-width:250px!important}}",
+    "@media print{.ir-export-companies{margin:10px 0 14px!important;break-inside:avoid!important;box-shadow:none!important}.ir-export-company-card{break-inside:avoid!important}}",
     ".ir-export-topnav{position:sticky!important;top:0!important;z-index:95!important;display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;min-height:62px!important;margin:0!important;padding:9px 16px!important;background:rgba(255,255,255,.98)!important;border-bottom:1px solid #dce6ee!important;box-shadow:0 4px 16px rgba(29,60,82,.075)!important;overflow:visible!important;box-sizing:border-box!important}",
     ".ir-export-topnav-inner{display:flex;align-items:center;justify-content:center;gap:10px;min-width:0;max-width:100%;position:relative}",
     ".ir-export-topnav a,.ir-export-topnav summary{text-decoration:none!important;font:700 12px/1.4 'Segoe UI',Arial,sans-serif!important}",
@@ -854,7 +859,9 @@
     "body.ir-object-overview #app .ir-export-section{display:block!important}",
     "@media(max-width:1000px){.ir-export-section{margin:12px 0!important}.ir-export-row-meta{display:none}}",
     "/* Full-width, continuous archive layout: the large outer section cards are removed. */",
-    "body.ir-object-route.ir-object-overview,body.ir-object-route.ir-object-overview #app{background:#fff!important}",
+    "body.ir-object-route.ir-object-overview{background:#eef3f8!important}",
+    "body.ir-object-route.ir-object-overview #app{background:#fff!important;box-shadow:0 3px 28px rgba(26,60,86,.09)!important}",
+    "body.ir-object-route.ir-object-overview #app>.object-overview-hero{width:100%!important;max-width:100%!important;box-sizing:border-box!important}",
     "body.ir-object-overview #app .ir-object-overview-layout{box-sizing:border-box!important;width:100%!important;max-width:none!important;margin:0!important;padding:19px 20px 20px!important;gap:0!important;background:#fff!important;border:0!important;border-radius:0!important;box-shadow:none!important}",
     "body.ir-object-overview #app .ir-object-overview-left{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:0!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important}",
     "body.ir-object-overview #app .ir-object-overview-sidehead{width:100%!important;max-width:none!important;margin:0 0 13px!important;padding:0 0 14px!important;min-height:0!important;border:0!important;border-bottom:1px solid #e2eaf0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}",
@@ -896,7 +903,7 @@
     "#section-scheme .ir-export-scheme-stage{width:100%!important;height:min(82vh,950px)!important;min-height:510px!important}",
     "body.ir-object-overview #app #section-scheme .ir-export-scheme-controls button{display:inline-flex!important;align-items:center!important;justify-content:center!important}",
     "@media(max-width:760px){#section-scheme>.ir-export-section>.ir-export-section-head{padding:14px 12px!important}#section-scheme .ir-export-scheme-stage{min-height:360px!important;height:65vh!important}}",
-    "@media print{body.ir-object-overview #app{margin:0!important;width:100%!important}.ir-export-topnav{position:relative!important;top:auto!important}.ir-export-menu-items{box-shadow:none!important}.ir-export-record{break-inside:avoid}.ir-export-section{break-before:page;margin:8px 0!important}.ir-export-daily-card details,.ir-export-mark-card details{display:block!important}}"
+    "@media print{body.ir-object-route.ir-object-overview{background:#fff!important}body.ir-object-overview #app{margin:0 auto!important;width:100%!important;max-width:1000px!important;box-shadow:none!important}.ir-export-topnav{position:relative!important;top:auto!important}.ir-export-menu-items{box-shadow:none!important}.ir-export-record{break-inside:avoid}.ir-export-section{break-before:page;margin:8px 0!important}.ir-export-daily-card details,.ir-export-mark-card details{display:block!important}}"
    ].join("\n");
    const activeHero=document.querySelector(".object-overview-hero");
    if(String(activeHero?.dataset.objectId||"")!==id)throw Error("Во время выгрузки изменился открытый объект. Повторите действие.");
