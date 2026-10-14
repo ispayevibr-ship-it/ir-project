@@ -457,7 +457,8 @@
  function redactCompanyIdentity(html,name){
   const tokens=String(name||"").replace(/(?:&quot;|&#0*34;|&#x0*22;|&laquo;|&raquo;|["'«»“”„])/gi," ").trim().split(/\s+/).filter(Boolean);
   if(!tokens.length)return String(html);
-  const literal=s=>s.replace(/[-/\\^$*+?.()|[\]{}]/g,"\\ function sidebarHtml(aside,keys,includeOverview=true){");
+  const special=".*+?^$(){}[]|\\/";
+  const literal=x=>[...String(x)].map(c=>special.includes(c)?"\\"+c:c).join("");
   const joiner="(?:\\s|&nbsp;|&#0*160;|&quot;|&#0*34;|&#x0*22;|&laquo;|&raquo;|[\"'«»“”„])+";
   const boundary="[\\p{L}\\p{N}]";
   const pattern="(?<!"+boundary+")"+tokens.map(literal).join(joiner)+"(?!"+boundary+")";
