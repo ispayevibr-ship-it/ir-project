@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17179'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17180'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -366,11 +366,17 @@ assert(source.includes('body.ir-object-overview{padding-top:0!important;min-widt
 assert(source.includes('body.ir-object-route.ir-object-overview{background:#eef3f8!important}'),"side gutters use muted background");
 assert(source.includes('body.ir-object-route.ir-object-overview #app{background:#fff!important;box-shadow:'),"centered document is a white sheet");
 assert(source.includes('body.ir-object-route.ir-object-overview #app>.object-overview-hero{width:100%!important;max-width:100%!important'),"banner fits the central report");
-assert(source.includes('class="ir-export-companies-heading"'),"one shared participant panel heading exists");
+assert(!regular.includes('class="ir-export-companies-heading"'),"no participants heading or leading icon in export");
+assert(!regular.includes("Участники проекта"),"participant title is removed while role names remain");
 assert(source.includes('class="ir-export-companies-grid"'),"company columns are inside a shared panel");
 assert(source.includes("ir-export-company-card:not(:last-child):after{content:"),"participant arrows join the separate cards");
 assert(source.includes('hero.querySelector(".object-hero-content")?.remove()'),"project banner excludes overlaid copy");
-assert(source.includes('hero.querySelector(".object-hero-shade")?.remove()'),"project banner has no darkened caption layer");
+assert(source.includes('hero.querySelector(".object-hero-shade")?.remove()'),"original live banner shade removed in snapshot");
+assert(source.includes('hero.insertAdjacentHTML("beforeend",\'<div class="ir-export-banner-copy"\')'),"banner includes dedicated export-only name and address");
+assert(source.includes('hero.querySelector(".object-hero-copy h1")'),"banner gets object name from current object");
+assert(source.includes('hero.querySelector(".object-hero-info-item.location b")'),"banner gets object's real location");
+assert(source.includes(".ir-export-banner-copy h1{display:block!important"),"banner title is enlarged");
+assert(source.includes(".ir-export-banner-copy p{max-width:880px!important"),"banner address is enlarged");
 assert(source.includes('max-width:100%!important;max-height:100%!important;object-fit:contain!important'),"original logos retain proportions");
 assert(source.includes('@media(max-width:560px){.ir-export-companies-grid,.ir-export-companies-two .ir-export-companies-grid{grid-template-columns:minmax(0,1fr)!important}'),"narrow layouts stack participant cards");
 assert(source.includes('max-width:1000px!important;box-shadow:none!important'),"print uses the same page max width");
@@ -382,7 +388,7 @@ assert(source.includes('function renderIndicatorBlock(data,keys)'),"export calcu
 assert(source.includes('function exportSummaryCompletion(workTypes,marks,reports)'),"export uses the same completion logic as live summary");
 assert(source.includes('function exportLatestResources(reports)'),"last-report resources calculated independently");
 assert(source.includes('const readiness=exportSummaryCompletion(works,marks,reports)'),"readiness no longer uses mounted piece counts");
-assert(source.includes("function exportRecentResources(reports,limit=4)"),"recent report averages calculated separately for summary");
+assert(!source.includes("function exportRecentResources("),"four-report averages removed from HTML exporter");
 assert(source.includes('const indicatorTypes=["work-types","marks","reports","deliveries","scheme"]'),"all relevant source sections loaded");
 assert(source.includes('const indicatorsMarkup=selection.overview?renderIndicatorBlock(indicatorRows,keys):""'),"KPI panel follows overview selection");
 assert(source.includes('copy.querySelector(".ir-export-topnav")?.insertAdjacentHTML("afterend",indicatorsMarkup)'),"KPI sits below banner and navigation");
@@ -390,10 +396,14 @@ assert(source.includes('.ir-export-indicator-cards{display:grid!important;grid-t
 assert(source.includes('linkOptions.filter(x=>keys.includes(x[0]))'),"shortcuts only to exported sections");
 assert(source.includes('href="#section-')&&source.includes('esc(key)'),"shortcuts are local HTML anchors");
 assert(source.includes('const orderedUnits=[...allUnits].sort('),"all units remain separate and sorted");
-assert(source.includes('const recent=exportRecentResources(reportRows)'),"overview uses latest personnel and equipment average");
+assert(source.includes('const latest=exportLatestResources(reportRows)'),"people and equipment derive from one newest report");
+assert(source.includes('const note=latest.date?"Согласно отчета от "+exportDate(latest.date)+"г."'),"snapshot gives a dated provenance label");
+assert(source.includes('copy.querySelector(".ir-object-overview-sidehead p")?.remove()'),"hide old readiness/resources/weather subtitle only from exported summary");
+assert(source.includes("background:linear-gradient(112deg,#163c62"),"participants use edge-to-edge blue background");
+assert(source.includes("max-width:none!important;min-width:0!important;margin:0!important;padding:20px!important"),"participants background reaches report edges");
 assert(source.includes('stats?.querySelector(".oos-progress")?.remove()'),"export hides duplicated readiness tile while retaining the KPI readiness");
 assert(source.includes("object-overview-top-stats{grid-template-columns:repeat(3,minmax(0,1fr))!important"),"remaining people/equipment/weather cards fill three summary columns");
-assert(source.includes(".ir-export-indicators-heading h2,.ir-export-section-head h2,.ir-export-companies-heading b"),"export section headings share one font size and color");
+assert(source.includes(".ir-export-indicators-heading h2,.ir-export-section-head h2,.ir-export-companies-heading b"),"remaining section headings share the same font size and color");
 assert(!source.includes("<span>на дату выгрузки</span>"),"export avoids the stale placeholder date");
 const indicatorsStart=source.indexOf(" function exportSummaryCompletion("),indicatorsEnd=source.indexOf(" function snapshot(",indicatorsStart);
 assert(indicatorsStart>=0&&indicatorsEnd>indicatorsStart,"standalone formulas can be exercised");
@@ -408,7 +418,7 @@ const metrics=vm.runInNewContext('(function(){'+
  'const reportService=w=>w?.accounting_type==="service"||w?.is_service===true||String(w?.unit||"").toLowerCase()==="услуга";'+
  'const reportVolume=w=>{const direct=exportNumber(w.volume??w.total_volume);return direct||exportNumber(w.qty??w.count)*exportNumber(w.unit_volume)};'+
  'const esc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");'+
- source.slice(indicatorsStart,indicatorsEnd)+';return {renderIndicatorBlock,exportSummaryCompletion,exportLatestResources,exportRecentResources,exportIndicatorDate}})()', {});
+ source.slice(indicatorsStart,indicatorsEnd)+';return {renderIndicatorBlock,exportSummaryCompletion,exportLatestResources,exportIndicatorDate}})()', {});
 const fixture={
  "work-types":[{id:7,title:"Монтаж МК",data:{project_code:"041-КМ",unit:"тн"}}],
  marks:[{id:10,data:{work_type_id:7,mark:"К1",qty:4,unit:"тн",unit_volume:0.75}}],
@@ -513,11 +523,9 @@ assert.equal(latest.people,7,"latest report includes workers and responsible");
 assert.equal(latest.equipment,2,"latest report contains exact machinery count");
 assert.equal(latest.date,"2026-10-12","latest report chosen by date");
 assert.equal(metrics.exportLatestResources([]).people,0,"missing reports are handled safely");
-const recent=metrics.exportRecentResources(lastFixture,2);
-assert.equal(recent.days,2,"only latest reports enter the snapshot average");
-assert.equal(recent.people,9,"workers and supervisors are rounded separately in recent average");
-assert.equal(recent.equipment,2,"equipment count averages latest two records");
-assert.equal(metrics.exportRecentResources([]).days,0,"empty recent history is safe");
+assert.equal(latest.workers,6,"latest report workers are not averaged");
+assert.equal(latest.responsible,1,"latest report responsible person included once");
+assert.equal(metrics.exportLatestResources([]).date,"","no report date when history is empty");
 assert(!source.includes('data-overview-export-kpi-edit'),"no editing controls in exported metrics");
 
 console.log("Full object HTML export: snapshot, offline navigation, read-only records, native save and no DB writes OK");
