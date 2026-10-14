@@ -1,6 +1,7 @@
 "use strict";
 /* Standalone HTML export helpers only. They never change IR Project data. */
 (()=>{
+ const workLabel=(v,context="base")=>window.irWorkNames?.format?.(v,context)||String(v??"");{
  const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  const arr=v=>Array.isArray(v)?v:[];
  const num=v=>{const x=Number(String(v??0).replace(",",".").replace(/\s/g,""));return Number.isFinite(x)?x:0};
@@ -24,7 +25,7 @@
     for(const [unit,value] of Object.entries(d.totals_by_unit))total.set(unit,num(value));
    const totalText=[...total].filter(([,v])=>v>0).map(([u,v])=>fmt(v)+" "+u).join(" · ")||"—";
    const short=[...works].slice(0,3).map(([k,n])=>{const [name,code]=k.split("|");return'<span><b>'+esc(name)+'</b> · '+esc(code||"Без шифра")+' · '+n+' поз.</span>'}).join("");
-   const rowsHtml=list.map(p=>'<div class="ir-export-delivery-detail"><strong>'+esc(p.mark||p.name||p.work_type||"Позиция")+'</strong><span>'+esc(p.project_code||p.code||"—")+'</span><b>'+esc(fmt(p.qty??p.count??p.quantity))+' шт.</b></div>').join("");
+   const rowsHtml=list.map(p=>'<div class="ir-export-delivery-detail"><strong>'+esc(p.mark||p.name||workLabel(p.work_type,"delivery")||"Позиция")+'</strong><span>'+esc(p.project_code||p.code||"—")+'</span><b>'+esc(fmt(p.qty??p.count??p.quantity))+' шт.</b></div>').join("");
    return'<article class="ood-delivery-row ir-export-invoice"><details><summary class="ir-export-invoice-summary">'+
     '<div><small>Накладная</small><b>№'+esc(d.number||d.delivery_number||row.id)+'</b><span>'+esc(date(d.date||d.delivery_date))+'</span></div>'+
     '<div><small>Транспорт</small><b>'+esc(d.vehicle_number||"—")+'</b><span>'+esc(d.driver_name||"Водитель не указан")+'</span></div>'+
@@ -117,7 +118,7 @@
    fields.replaceChildren();
    const status=m.status==="mounted"?"Смонтировано":m.status==="partial"?"Частично смонтировано":"Не смонтировано";
    field(fields,"Наименование",m.name);
-   field(fields,"Вид работы",m.work);
+   field(fields,"Вид работы",workLabel(m.work));
    field(fields,"Шифр",m.code);
    field(fields,"Дополнительный шифр",m.code2);
    field(fields,"Тип элемента",m.type);

@@ -1,6 +1,7 @@
 "use strict";
 /* Self-contained read-only HTML object archive. Source DB is never changed. */
 (()=>{
+ const workLabel=(v,context="base")=>window.irWorkNames?.format?.(v,context)||String(v??"");{
  const labels={overview:"Обзор объекта",reports:"Ежедневные отчёты","extra-works":"Дополнительные работы","work-types":"Виды работ",marks:"Ведомость марок",deliveries:"Поставки",schedule:"График работ",photos:"Фотографии объекта",scheme:"Монтажная схема","acted-days":"Актированные дни",penalties:"Штрафы",finance:"Финансы"};
  const fields={mark:"Марка",name:"Наименование",title:"Наименование",date:"Дата",report_date:"Дата отчёта",type:"Тип",work_type:"Вид работы",work_type_id:"ID вида работ",project_code:"Шифр",code:"Шифр",qty:"Кол-во",count:"Кол-во",unit:"Ед. изм.",unit_volume:"Объём 1 ед.",total_volume:"Общий объём",total_value:"Общий объём",volume:"Объём",status:"Статус",note:"Примечание",extra:"Дополнительная информация",address:"Адрес",start_date:"Начало",end_date:"Окончание",weather:"Погода",temperature:"Температура",wind:"Ветер",workers:"Работники",responsible:"Ответственные",equipment:"Техника",items:"Выполненные работы",works:"Выполненные работы",photos:"Фотографии",mark_id:"ID марки",created_at:"Создано",updated_at:"Изменено",record_type:"Тип записи",parent_id:"Родительская запись"};
  const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -128,7 +129,7 @@
   if(!works.length)return'<p class="ir-export-muted">Работы не проводились</p>';
   const rows=works.map(w=>{
    const service=reportService(w),status=service?(w.completed===true||w.service_completed===true||w.status==="done"?"Выполнено":"Не выполнено"):exportFormat(reportVolume(w))+" "+String(w.unit||"");
-   return'<tr><td><b>'+esc(w.work_type||w.type||"Работа")+'</b></td><td>'+esc(w.project_code||w.code||"—")+'</td><td>'+esc(w.mark||w.name||"—")+'</td><td>'+esc(w.qty??w.count??w.quantity??"—")+'</td><td><b>'+esc(status)+'</b></td></tr>'
+   return'<tr><td><b>'+esc(workLabel(w.work_type||w.type||"Работа","mount"))+'</b></td><td>'+esc(w.project_code||w.code||"—")+'</td><td>'+esc(w.mark||w.name||"—")+'</td><td>'+esc(w.qty??w.count??w.quantity??"—")+'</td><td><b>'+esc(status)+'</b></td></tr>'
   }).join("");
   return'<div class="ir-export-daily-table"><table><thead><tr><th>Вид работы</th><th>Шифр</th><th>Марка / наименование</th><th>Кол-во</th><th>Выполнено</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
  }
@@ -337,7 +338,7 @@
       '<div class="ir-export-mark-detail-bar"><div class="ir-export-mark-track"><i style="width:'+m.pct.toFixed(2)+'%"></i></div></div>'+
       '<div class="ir-export-mark-specs">'+
        '<div><small>Наименование</small><b>'+esc(m.name||"—")+'</b></div>'+
-       '<div><small>Вид работы</small><b>'+esc(m.work)+'</b></div>'+
+       '<div><small>Вид работы</small><b>'+esc(workLabel(m.work))+'</b></div>'+
        '<div><small>Шифр</small><b>'+esc(m.code||"—")+'</b>'+(m.code2?'<small>Доп. шифр: '+esc(m.code2)+'</small>':"")+'</div>'+
        '<div><small>'+esc(unitName)+' 1 шт.</small><b>'+esc(exportFormat(m.uv))+' '+esc(unit)+'</b></div>'+
        '<div><small>'+esc(unitName)+' всего</small><b>'+esc(exportFormat(m.total))+' '+esc(unit)+'</b></div>'+
@@ -754,7 +755,7 @@
    const items=[{key:"overview",name:"Обзор объекта — сводка, ресурсы, погода"},...keys.map(key=>({key,name:names.get(key)||labels[key]||key}))];
    dlg.innerHTML='<div class="ir-export-options-head"><h2>Выгрузка объекта в HTML</h2><p>Выберите разделы, которые будут включены в отчёт.</p></div>'+
     '<div class="ir-export-options-tools"><small data-export-count></small><div><button type="button" data-export-all>Выбрать все</button> <button type="button" data-export-none>Снять все</button></div></div>'+
-    '<div class="ir-export-options-list">'+items.map(x=>'<label><input type="checkbox" data-export-key="'+esc(x.key)+'" checked><span>'+esc(x.name)+'</span></label>').join("")+
+    '<div class="ir-export-options-list">'+items.map(x=>'<label><input type="checkbox" data-export-key="'+esc(x.key)+'" checked><span>'+esc(workLabel(x.name))+'</span></label>').join("")+
     '<div class="ir-export-options-flag"><label><input type="checkbox" data-under-contractor><span>Под флагом Генподрядчика</span></label><p>Не показывать название и логотип нашей компании в выгруженном отчёте. По умолчанию выключено.</p></div></div>'+
     '<div class="ir-export-options-foot"><button type="button" data-export-cancel>Отмена</button><button type="button" class="ir-export-save" data-export-confirm>Выгрузить HTML</button></div>';
    document.body.append(dlg);

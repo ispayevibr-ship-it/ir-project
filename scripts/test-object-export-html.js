@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17184'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17185'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -199,7 +199,7 @@ assert(otherCardsHTML.includes("В10")&&otherCardsHTML.includes("В11"),"second 
 
 const extraSource=fs.readFileSync("src/object-export-extras.js","utf8");
 new vm.Script(extraSource,{filename:"object-export-extras.js"});
-assert(html.includes('object-export-extras.js?v=17168'),"standalone asset renderer loaded");
+assert(html.includes('object-export-extras.js?v=17169'),"standalone asset renderer loaded");
 const extraCtx={window:{},console};
 vm.runInNewContext(extraSource,extraCtx);
 const extras=extraCtx.window.irObjectExportExtras;

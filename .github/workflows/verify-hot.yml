@@ -53,6 +53,8 @@ jobs:
         run: node scripts/test-program-about.js
       - name: Test redesigned settings menu in standalone and tabbed windows
         run: node scripts/test-settings-menu.js
+      - name: Test contextual Russian names
+        run: node scripts/test-work-nomenclature.js
       - name: Test full object HTML export
         run: node scripts/test-object-export-html.js
       - name: Test customer and contractor logos in object editor

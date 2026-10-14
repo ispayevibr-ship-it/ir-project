@@ -1,5 +1,25 @@
 "use strict";
 (()=>{
+ // Visual labels only; source work types and IDs are preserved.
+ const labels={
+  metal:["Металлоконструкция","Монтаж металлоконструкций","Поставка металлоконструкций"],
+  sandwich:["Сэндвич-панели","Монтаж сэндвич-панелей","Поставка сэндвич-панелей"],
+  profile:["Профнастил","Монтаж профнастила","Поставка профнастила"]
+ };
+ const normalizeName=v=>String(v??"").trim().toLowerCase().replace(/ё/g,"е")
+  .replace(/\s+/g," ").replace(/\s*[-–—]\s*/g,"-").replace(/^(?:монтаж|поставка)\s+/,"");
+ const workKind=v=>{
+  const n=normalizeName(v);
+  if(["металлоконструкция","металлоконструкции","металлоконструкций"].includes(n))return"metal";
+  if(["сэндвич-панель","сэндвич-панели","сэндвич-панелей"].includes(n))return"sandwich";
+  if(["профнастил","профнастила"].includes(n))return"profile";
+  return null
+ };
+ const formatName=(raw,context="base")=>{
+  const kind=workKind(raw);
+  return kind?labels[kind][context==="mount"?1:context==="delivery"?2:0]:String(raw??"")
+ };
+ window.irWorkNames={category:workKind,format:formatName,base:v=>formatName(v),mount:v=>formatName(v,"mount"),delivery:v=>formatName(v,"delivery")};
  const clean=u=>String(u||"").trim().toLowerCase().replace(/²/g,"2").replace(/³/g,"3").replace(/\s+/g,"");
  const meta=unit=>{
   const u=clean(unit);
