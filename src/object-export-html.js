@@ -699,12 +699,20 @@
    hero.classList.add("ir-export-banner-only");
    hero.querySelector(".object-hero-content")?.remove();
    hero.querySelector(".object-hero-shade")?.remove();
-   const locationIcon='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>';
-   hero.insertAdjacentHTML("beforeend",'<div class="ir-export-banner-copy"><h1>'+esc(bannerName)+'</h1>'+
-    (bannerAddress?'<div class="ir-export-banner-address"><span class="ir-export-banner-address-icon">'+locationIcon+'</span><p>'+esc(bannerAddress)+'</p></div>':"")+'</div>');
-   if(headerMarkup)hero.insertAdjacentHTML("beforebegin",headerMarkup);
-   // The offline navigation belongs immediately after the object banner, not in a fixed sidebar.
-   hero.insertAdjacentHTML("afterend",sidebarHtml(document.querySelector(".ir-object-sidebar-fixed"),keys,includeOverview));
+   const dateText=hero.querySelector(".object-hero-info-item:not(.location) b")?.textContent?.trim()||"";
+   const years=[...dateText.matchAll(/20\d{2}/g)].map(x=>x[0]);
+   const period=years.length>=2?years[0]+" — "+years[years.length-1]:dateText!=="Срок не задан"?dateText:"";
+   const found=bannerName.match(/(\d+(?:[,.]\d+)?)\s*мвт\b/i);
+   const power=found?found[1]+" МВт":"";
+   const icon=path=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+path+'</svg>';
+   const pin=icon('<path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>');
+   const gear=icon('<circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2m0-14-2 2M7 17l-2 2"/>');
+   const calendar=icon('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M8 14h2M14 14h2"/>');
+   const fact=(symbol,label,value)=>'<div class="ir-export-hero-fact"><span class="ir-export-hero-fact-icon">'+symbol+'</span><span class="ir-export-hero-fact-copy">'+(label?'<span>'+esc(label)+'</span>':"")+'<b>'+esc(value)+'</b></span></div>';
+   hero.insertAdjacentHTML("beforeend",'<div class="ir-export-banner-copy"><span class="ir-export-hero-type">'+icon('<path d="m13 2-9 12h7l-1 8 10-13h-7z"/>')+' ПРОМЫШЛЕННЫЙ ОБЪЕКТ</span><h1>'+esc(bannerName)+'</h1><div class="ir-export-hero-facts">'+
+    (bannerAddress?fact(pin,"",bannerAddress):"")+(power?fact(gear,"Установленная мощность",power):"")+(period?fact(calendar,"Период реализации",period):"")+'</div></div>');
+   if(headerMarkup)hero.insertAdjacentHTML("afterend",headerMarkup);
+   (copy.querySelector(".ir-export-companies")||hero).insertAdjacentHTML("afterend",sidebarHtml(document.querySelector(".ir-object-sidebar-fixed"),keys,includeOverview));
    if(indicatorsMarkup)copy.querySelector(".ir-export-topnav")?.insertAdjacentHTML("afterend",indicatorsMarkup)
   }
   const menu=copy.querySelector(".object-hero-menu");if(menu)menu.remove();
