@@ -172,6 +172,7 @@ const renderCards=vm.runInNewContext(
  'const array=x=>Array.isArray(x)?x:[];'+
  'const exportNumber=v=>{const n=Number(v);return Number.isFinite(n)?n:0};'+
  'const exportFormat=v=>String(v);'+
+ 'const workLabel=v=>String(v??" ");'+
  'const esc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;");'+
  source.slice(cardStart,cardEnd)+';return renderMarkCards})()',{}
 );
