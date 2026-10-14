@@ -114,13 +114,13 @@ assert(source.includes('ir-export-visual-section'),"schedule and analysis sectio
 assert(source.includes("Content-Security-Policy"),"snapshot remains offline");
 assert(source.includes('class="ir-export-topnav"'),"centered horizontal archive navigation exists");
 assert(source.includes('<span>Обзор объекта</span></a>'),"overview is first link");
-assert(source.includes('<span>Разделы меню</span>'),"remaining sections are under dropdown");
+assert(source.includes('<span>Другое</span>'),"extra sections use the Other dropdown");
 assert(source.includes('<details class="ir-export-menu">'),"native offline disclosure works without scripts");
 assert(source.includes('extra?"ir-export-subnav-link":"ir-export-toplink"'),"main sections inline and additional sections in dropdown");
 assert(source.includes('original(key)?.querySelector(".nav-label")?.textContent'),"real section names preserved");
 assert(source.includes('original(key)?.querySelector(".nav-icon")?.innerHTML'),"real menu icons reused");
-assert(source.includes('hero.insertAdjacentHTML("afterend",sidebarHtml('),"navigation follows the object banner");
-assert(source.includes('ir-export-topnav-inner{display:flex;align-items:center;justify-content:center'),"menu is centered");
+assert(source.includes('(copy.querySelector(".ir-export-companies")||hero).insertAdjacentHTML("afterend",sidebarHtml('),"navigation follows the company row");
+assert(source.includes('body.ir-object-overview #app .ir-export-topnav-inner{display:flex!important;align-items:stretch!important;justify-content:space-between!important'),"horizontal navigation fills the width");
 assert(source.includes('body.ir-object-route.ir-object-overview #app{width:100%!important;max-width:1000px!important;min-width:0!important;margin:0 auto!important'),"report is centered and max 1000px");
 assert(!source.includes('ir-export-sidebar.ir-object-sidebar-fixed'),"fixed left archive sidebar removed");
 assert(!source.includes("'+sidebar+'<main id="),"no left sidebar rendered before main");
