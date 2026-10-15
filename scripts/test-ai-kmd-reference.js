@@ -270,8 +270,8 @@ const {createKmdReference}=require("../src/ai-kmd-reference");
  assert.match(siteMismatch.reason,/узле № 53/);
  assert.equal(api.compare(1).referenceReady,false,
   "two distinct marks must not make one physical erection joint appear twice");
- nodes[3].status="requires_review";
- nodes[3].counted=false;
+ nodes[2].status="requires_review";
+ nodes[2].counted=false;
  assert(api.compare(1).mismatches.some(x=>x.code==="duplicate_erection_joint"&&x.actualId===54),
   "one draft site joint must still block duplicate cross-mark object identity");
  nodes.pop();nodes.pop();marks.pop();
