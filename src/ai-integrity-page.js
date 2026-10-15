@@ -47,7 +47,9 @@ window.irAiIntegrityPage={
      '<span>Деталей по этим позициям на объект: <b>'+number(row.declaredDetailUnitsInProject)+'</b></span>'+
      '<span>Позиции деталей КМД: <b>'+number(row.confirmedDetailPositions)+
       '</b> подтверждено · <b>'+number(row.pendingDetailPositions)+'</b> требуют проверки</span>'+
-     '<span>Не размещено в начатой 3D-сборке: <b>'+(row.modelStarted?number(row.pendingModelUnits):"3D ещё не начинали")+'</b></span>'+
+     '<span>Не размещено в начатой 3D-сборке: <b>'+(row.modelStarted===null?
+      "Индекс 3D недоступен":row.modelStarted?number(row.pendingModelUnits):
+      "3D ещё не начинали")+'</b></span>'+
      '<span>Узлы: <b>'+number(row.confirmedJointPositions)+'</b> позиций, заводских '+number(row.factoryJointInstances)+
       ', монтажных '+number(row.erectionJointInstances)+'</span>'+
      '<span>Метизы: <b>'+number(row.fastenerPieces)+'</b> шт. · сварка: <b>'+number(row.weldLengthM)+'</b> м</span>'+

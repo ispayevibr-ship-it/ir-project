@@ -34,11 +34,21 @@ const {createAiCoverage}=require("../src/ai-kmd-coverage");
    values:{mark:"К41",jointCode:"У1",fastenerKind:"bolt",position:"Б1"}}
  ];
  const quantities={list:()=>[mark]};
+ let placementIndexFails=false,attachmentIndexFails=false;
  const database={
   getObject:id=>Number(id)===1?{id:1}:null,
-  listEntity:(id,section)=>id===1?
-   section==="ai-assembly-placement"?placements:
-   section==="ai-assembly-attachments"?annotationRows:[]:[]
+  listEntity:(id,section)=>{
+   if(id!==1)return [];
+   if(section==="ai-assembly-placement"){
+    if(placementIndexFails)throw Error("Corrupted placement index");
+    return placements
+   }
+   if(section==="ai-assembly-attachments"){
+    if(attachmentIndexFails)throw Error("Corrupted attachment index");
+    return annotationRows
+   }
+   return []
+  }
  };
  let assemblyReadFails=false,annotationReadFails=false;
  const coverage=createAiCoverage({
@@ -65,6 +75,34 @@ const {createAiCoverage}=require("../src/ai-kmd-coverage");
   "one standard mark is modeled, not six repeated copies");
  assert.equal(first.metrics.expectedModelUnitsPerUniqueMarks,3);
  assert.equal(first.metrics.factoryJointInstances,12);
+ placementIndexFails=true;
+ const damagedIndex=coverage.report(1);
+ assert.equal(damagedIndex.metrics.confirmedMarkCopies,6,
+  "missing 3D SQLite index must not erase physical KMD assembly copies");
+ assert.equal(damagedIndex.metrics.registeredDetailUnitsInProject,18,
+  "confirmed metal detail quantities survive 3D index read failures");
+ assert.equal(damagedIndex.metrics.registeredFastenerPieces,48,
+  "confirmed fastener takeoff survives broken placement index");
+ assert.equal(damagedIndex.metrics.modeledUnitsPerUniqueMarks,null,
+  "a broken placement index must not imply zero 3D placements");
+ assert.equal(damagedIndex.marks[0].modelStarted,null,
+  "index failure must not be presented as an untouched 3D model");
+ assert.equal(damagedIndex.marks[0].modeledUnitsPerMark,null);
+ assert(damagedIndex.issues.some(x=>x.code==="kmd_invalid_3d_placement"));
+ assert(!damagedIndex.issues.some(x=>x.code==="kmd_partial_3d_placement"),
+  "unreadable index is not evidence of a physically incomplete 3D model");
+ placementIndexFails=false;
+ attachmentIndexFails=true;
+ const damagedAttachments=coverage.report(1);
+ assert.equal(damagedAttachments.metrics.modeledUnitsPerUniqueMarks,1,
+  "an attachment-index failure cannot invalidate independent 3D placement counts");
+ assert.equal(damagedAttachments.marks[0].confirmed3dAnnotations,null,
+  "an unreadable attachment index must be unknown, not a zero");
+ assert.equal(damagedAttachments.metrics.registeredFastenerPieces,48);
+ assert(damagedAttachments.issues.some(x=>x.code==="kmd_invalid_3d_placement"));
+ attachmentIndexFails=false;
+ assert.equal(coverage.report(1).metrics.modeledUnitsPerUniqueMarks,1,
+  "recovering the index restores verified 3D counts");
  placements.length=0;
  const notStarted=coverage.report(1);
  assert.equal(notStarted.marks[0].modelStarted,false);
