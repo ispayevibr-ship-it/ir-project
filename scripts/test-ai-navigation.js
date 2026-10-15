@@ -6,13 +6,13 @@ for(const path of ["main.js","preload.js","src/ai-recognition-page.js","src/app.
 assert(files["main.js"].includes('require("./src/ai-document-store")'),"node store is loaded by Electron main process");
 assert(files["main.js"].includes('registerAiDocuments();'),"IPC wired");
 assert(files["main.js"].includes('aiDocuments.deleteObjectFiles(id)'),"cascade storage cleanup after object deletion");
-assert(files["preload.js"].includes('aiDocuments,sections,data:'),"context-isolated bridge");
+assert(files["preload.js"].includes('aiDocuments,aiEngine,sections,data:'),"context-isolated bridge");
 assert(files["src/app.js"].includes('key==="ai-recognition"&&window.irAiRecognitionPage'),"route connected");
 assert(files["src/object-shell.js"].includes('makeButton("ИИ-распознавание","ai-recognition"'),"sidebar route");
 assert(files["src/tabs-shell.js"].includes('"ai-recognition":"ИИ-распознавание"'),"tab naming");
 assert(files["src/access.js"].includes('"ai-recognition"'),"role configuration");
-assert(files["src/index.html"].includes('ai-recognition-page.js?v=17207'),"UI script loads");
-assert(files["src/index.html"].includes('ai-recognition-page.css?v=17207'),"module css loads");
+assert(files["src/index.html"].includes('ai-recognition-page.js?v=17208'),"UI script loads");
+assert(files["src/index.html"].includes('ai-recognition-page.css?v=17208'),"module css loads");
 assert(files["src/ai-recognition-page.js"].includes("Пакет модели не установлен"),"no fabricated inference");
 assert(files["src/ai-recognition-page.js"].includes('runtime.analyze(id,button.dataset.aiAnalyze)'),"real image inference action");
 assert(files["src/ai-local-engine.js"].includes('"--host","127.0.0.1"'),"loopback inference");
