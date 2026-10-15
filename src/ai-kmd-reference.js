@@ -444,7 +444,7 @@ function createKmdReference({database,revisions,quantities,materials,connections
   // A per-mark comparison alone can miss this physical duplicate because
   // both local entries appear unique and correctly entered.
   const markById=new Map(marks.map(x=>[x.id,x])),seenErectionJoints=new Map();
-  for(const joint of nodes.filter(x=>x.counted&&x.scope==="erection")){
+  for(const joint of nodes.filter(x=>x.status!=="rejected"&&x.scope==="erection")){
    const k=normalize(joint.jointCode),first=seenErectionJoints.get(k);
    if(!first){seenErectionJoints.set(k,joint);continue}
    const mark=markById.get(joint.assemblyId);
@@ -453,8 +453,8 @@ function createKmdReference({database,revisions,quantities,materials,connections
     cipher:mark?.cipher||"",secondaryCipher:mark?.secondaryCipher||"",
     jointCode:joint.jointCode,sheetCode:"—",source:joint.source||{}
    },joint.instances,null,joint,
-   "Стык с таким обозначением уже учтён в узле № "+first.id+
-   ". Проверьте его размещение и исключите двойной физический учёт.")
+   "Стык с таким обозначением уже зарегистрирован в узле № "+first.id+
+   ". Проверьте область соединения и исключите двойной физический учёт.")
   }
   // Only flag unlisted *actual* positions after every active KMD sheet has
   // been explicitly reviewed. Before that point the reference is preliminary.
