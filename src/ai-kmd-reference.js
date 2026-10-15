@@ -154,7 +154,8 @@ function createKmdReference({database,revisions,quantities,materials,connections
  function checks(id,loadedEntries=null){
   const o=obj(id),active=activeSet(o);
   if(!active)return{setId:null,setIssue:null,sheets:[],total:0,reviewed:0,allSheetsReviewed:false};
-  const entries=loadedEntries||list(o),bySheet=new Map(),duplicatesBySheet=new Map(),seenKeys=new Map();
+  const entries=loadedEntries||list(o),bySheet=new Map(),duplicatesBySheet=new Map(),
+   seenKeys=new Map(),seenSiteJoints=new Map();
   for(const entry of entries){
    if(Number(entry.setId)!==active.set.id||entry.status==="rejected")continue;
    if(!bySheet.has(entry.sheetId))bySheet.set(entry.sheetId,[]);
@@ -163,7 +164,16 @@ function createKmdReference({database,revisions,quantities,materials,connections
    if(previous){
     duplicatesBySheet.set(entry.sheetId,(duplicatesBySheet.get(entry.sheetId)||0)+1);
     duplicatesBySheet.set(previous.sheetId,(duplicatesBySheet.get(previous.sheetId)||0)+1)
-   }else seenKeys.set(identity,entry)
+   }else seenKeys.set(identity,entry);
+   // Erection joints are physical object-wide connections, not per-mark
+   // instances. The same code on two marks is not two different joints.
+   if(entry.type==="joint"&&entry.scope==="erection"){
+    const k=normalize(entry.jointCode),first=seenSiteJoints.get(k);
+    if(first){
+     duplicatesBySheet.set(entry.sheetId,(duplicatesBySheet.get(entry.sheetId)||0)+1);
+     duplicatesBySheet.set(first.sheetId,(duplicatesBySheet.get(first.sheetId)||0)+1)
+    }else seenSiteJoints.set(k,entry)
+   }
   }
   const referenceRowsBySheet=new Map();
   for(const row of stored(o,RECORDS,"kmd_reference")){
@@ -429,6 +439,22 @@ function createKmdReference({database,revisions,quantities,materials,connections
     value.perJoint;
    if(actual!==entry.quantity)register("quantity_mismatch","Количество отличается от эталона",
     entry,actual,entry.quantity,value)
+  }
+  // Object-wide site joints must not be counted again under another mark.
+  // A per-mark comparison alone can miss this physical duplicate because
+  // both local entries appear unique and correctly entered.
+  const markById=new Map(marks.map(x=>[x.id,x])),seenErectionJoints=new Map();
+  for(const joint of nodes.filter(x=>x.counted&&x.scope==="erection")){
+   const k=normalize(joint.jointCode),first=seenErectionJoints.get(k);
+   if(!first){seenErectionJoints.set(k,joint);continue}
+   const mark=markById.get(joint.assemblyId);
+   register("duplicate_erection_joint","Повторный монтажный стык объекта",{
+    id:null,type:"joint",mark:mark?.mark||joint.assemblyMark||"",
+    cipher:mark?.cipher||"",secondaryCipher:mark?.secondaryCipher||"",
+    jointCode:joint.jointCode,sheetCode:"—",source:joint.source||{}
+   },joint.instances,null,joint,
+   "Стык с таким обозначением уже учтён в узле № "+first.id+
+   ". Проверьте его размещение и исключите двойной физический учёт.")
   }
   // Only flag unlisted *actual* positions after every active KMD sheet has
   // been explicitly reviewed. Before that point the reference is preliminary.
