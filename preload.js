@@ -39,6 +39,7 @@ const aiDiagnostics={
 };
 const aiModels={
  info:()=>ipcRenderer.invoke("ai-models:info"),
+ preflight:()=>ipcRenderer.invoke("ai-models:preflight"),
  checkUpdates:()=>ipcRenderer.invoke("ai-models:check-updates"),
  authorize:password=>ipcRenderer.invoke("ai-models:authorize",password),
  select:()=>ipcRenderer.invoke("ai-models:select"),

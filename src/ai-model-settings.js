@@ -12,7 +12,7 @@
   const doc=menu?.ownerDocument||document,api=window.irProject?.aiModels;
   const found=doc.querySelector(".ir-ai-model-dialog");if(found){found.showModal?.();return}
   const dlg=doc.createElement("dialog");dlg.className="ir-ai-model-dialog";
-  let data=null,notice="",failed=false,busy=false,downloading=false,progress="",hardware=null,engineState=null,diagHistory=null;
+  let data=null,notice="",failed=false,busy=false,downloading=false,progress="",hardware=null,engineState=null,diagHistory=null,preflight=null;
   dlg.innerHTML='<div class="ir-ai-model-dialog-inner">'+
    '<div class="ir-ai-model-titlebar"><div><span>IR PROJECT · НАСТРОЙКИ</span><h2>Локальные ИИ-модели</h2>'+
    '<p>Модели хранятся на вашем компьютере. Обработка чертежей не требует облачных сервисов.</p></div>'+
@@ -61,8 +61,15 @@
     '<button type="button" data-check '+(busy?'disabled':'')+'>↻ Проверить обновления</button>'+
     '<button type="button" data-select '+(busy||!isAdmin()?'disabled':'')+'>＋ Установить из файла</button>'+
     '<button type="button" data-refresh '+(busy?'disabled':'')+'>Обновить список</button>'+
+    '<button type="button" data-preflight '+(busy?'disabled':'')+'>Проверить готовность к КМД</button>'+
     (downloading?'<button type="button" data-cancel-download>✕ Отменить загрузку</button>':'')+
     '</div><div class="ir-ai-model-progress" data-download-progress>'+esc(progress)+'</div>'+
+    (preflight?'<section class="ir-ai-model-info"><b>Первое распознавание КМД · '+
+     esc(preflight.readyForFirstPdf?"Модели готовы к испытанию":"Есть препятствия")+'</b>'+
+     '<p>'+esc(preflight.reason||"")+'</p>'+
+     (preflight.checks||[]).map(c=>'<p><strong>'+esc(c.ok?"✓":"✕")+' '+
+      esc(c.title)+'</strong>: '+esc(c.description)+'</p>').join("")+
+     '<p>Эта проверка не запускает нейросети и не доказывает точность распознавания.</p></section>':"")+
     '<div class="ir-ai-model-info"><b>Обновления моделей работают отдельно от обновлений IR Project.</b>'+
      '<p>'+esc(catalog.reason||"Официальный каталог пока не настроен.")+'</p>'+
      '<p>Распознавание всегда локальное. Обновления можно устанавливать из заранее полученного подписанного файла .ir-ai-pack.</p>'+
@@ -108,6 +115,15 @@
       '<button type="button" data-rollback="'+esc(x.id)+'" '+(!x.canRollback||busy||!isAdmin()?'disabled':'')+'>↶ Откатить</button></div></article>').join("")+
     '</div><p class="ir-ai-model-note">Размер скачивания и список доступных версий появятся после подключения официального подписанного каталога. Файлы моделей не включены в установщик IR Project.</p>';
    target.querySelector("[data-refresh]").onclick=()=>reload();
+   target.querySelector("[data-preflight]").onclick=async()=>{
+    if(busy)return;
+    busy=true;status("Проверяем подписи и SHA-256 обоих локальных пакетов. Нейросети не запускаются.");render();
+    try{
+     preflight=await api.preflight();
+     status(preflight.reason,!preflight.readyForFirstPdf)
+    }catch(error){status("Не удалось проверить готовность: "+String(error.message||error),true)}
+    finally{busy=false;render()}
+   };
    target.querySelector("[data-hardware-refresh]").onclick=()=>reload();
    target.querySelector("[data-diagnostics-start]").onclick=async()=>{
     if(busy||!await authorize())return;
