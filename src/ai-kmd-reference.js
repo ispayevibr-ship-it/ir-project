@@ -54,8 +54,8 @@ function createKmdReference({database,revisions,quantities,materials,connections
  // Signed sheet review is tied to an exact snapshot of *every* reference
  // record on that sheet, including rejected rows. A direct SQLite edit or
  // extra insert cannot leave a previous sign-off looking current.
- const sheetFingerprint=(o,setId,sheetId)=>{
-  const rows=stored(o,RECORDS,"kmd_reference")
+ const sheetFingerprint=(o,setId,sheetId,cachedRows=null)=>{
+  const rows=(cachedRows||stored(o,RECORDS,"kmd_reference"))
    .filter(x=>Number(x.data?.setId)===Number(setId)&&
     Number(x.data?.sheetId)===Number(sheetId))
    .map(x=>({id:x.id,data:x.data}))
@@ -135,6 +135,13 @@ function createKmdReference({database,revisions,quantities,materials,connections
    if(!bySheet.has(entry.sheetId))bySheet.set(entry.sheetId,[]);
    bySheet.get(entry.sheetId).push(entry)
   }
+  const referenceRowsBySheet=new Map();
+  for(const row of stored(o,RECORDS,"kmd_reference")){
+   if(Number(row.data?.setId)!==active.set.id)continue;
+   const sid=Number(row.data?.sheetId);
+   if(!referenceRowsBySheet.has(sid))referenceRowsBySheet.set(sid,[]);
+   referenceRowsBySheet.get(sid).push(row)
+  }
   const checksBySheet=new Map();
   for(const check of stored(o,CHECKS,"kmd_sheet_check")){
    if(Number(check.data?.setId)!==active.set.id)continue;
@@ -150,7 +157,7 @@ function createKmdReference({database,revisions,quantities,materials,connections
    const current=Boolean(p.valid&&d.status==="sealed"&&d.reviewedEntireSheet===true&&
     ["admin","engineer"].includes(d.reviewedBy)&&unresolved===0&&
     typeof d.fingerprint==="string"&&d.fingerprint.length===64&&
-    d.fingerprint===sheetFingerprint(o,active.set.id,p.id)&&
+    d.fingerprint===sheetFingerprint(o,active.set.id,p.id,referenceRowsBySheet.get(p.id)||[])&&
     d.documentId===p.documentId&&d.sha256===p.sha256&&d.page===p.page);
    return{...p,checked:current,status:current?"sealed":d.status||"not_started",
     revision:Number(d.revision)||0,checkedAt:d.reviewedAt||null,
