@@ -2,6 +2,12 @@ name: Release Windows
 
 on:
   workflow_dispatch:
+    inputs:
+      preview_only:
+        description: "Testing installer only: never publish release or hot update"
+        type: boolean
+        required: true
+        default: true
   push:
     branches:
       - main
@@ -42,6 +48,9 @@ jobs:
           node --check src/ai-analysis.js
           node --check src/ai-local-engine.js
           node --check src/ai-paddle-ocr.js
+          node --check src/ai-acceptance-preflight.js
+          node --check scripts/test-ai-acceptance-preflight.js
+          node scripts/test-ai-acceptance-preflight.js
           node --check src/ai-complete-backup.js
           node --check src/ai-review.js
           node --check src/ai-workflow.js
@@ -101,6 +110,7 @@ jobs:
           "tag=v$version" >> $env:GITHUB_OUTPUT
 
       - name: Check release
+        if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.preview_only != true)
         id: release_check
         shell: pwsh
         env:
@@ -116,14 +126,14 @@ jobs:
           }
 
       - name: Build installer
-        if: steps.release_check.outputs.exists != 'true'
+        if: (github.event_name == 'workflow_dispatch' && inputs.preview_only == true) || (github.ref == 'refs/heads/main' && steps.release_check.outputs.exists != 'true')
         run: npx electron-builder --win nsis --publish never
 
       - name: Upload installer artifact
-        if: steps.release_check.outputs.exists != 'true'
+        if: (github.event_name == 'workflow_dispatch' && inputs.preview_only == true) || (github.ref == 'refs/heads/main' && steps.release_check.outputs.exists != 'true')
         uses: actions/upload-artifact@v4
         with:
-          name: IR-Project-${{ steps.version.outputs.version }}
+          name: IR-Project-${{ steps.version.outputs.version }}-${{ github.run_number }}${{ inputs.preview_only && '-AI-PREVIEW' || '' }}
           path: |
             dist/IR-Project-Setup-${{ steps.version.outputs.version }}.exe
             dist/IR-Project-Setup-${{ steps.version.outputs.version }}.exe.blockmap
@@ -132,7 +142,7 @@ jobs:
           retention-days: 14
 
       - name: Publish release
-        if: steps.release_check.outputs.exists != 'true'
+        if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.preview_only != true) && steps.release_check.outputs.exists != 'true'
         continue-on-error: true
         shell: pwsh
         env:
@@ -149,6 +159,7 @@ jobs:
             --latest
 
       - name: Publish hot update manifest
+        if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.preview_only != true) && steps.release_check.outputs.exists != 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
