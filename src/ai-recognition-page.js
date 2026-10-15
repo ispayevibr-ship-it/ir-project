@@ -20,11 +20,11 @@ window.irAiRecognitionPage=async function(objectId){
   compare:["Сравнение КМ и КМД","Сопоставление геометрии, металлопроката, соединений, количества и ревизий будет доступно после подготовки проверяемых данных."],
   checks:["Проверка и замечания","После запуска локального анализа здесь появятся ошибки и неопределённые значения со ссылками на исходные листы и подтверждения инженера."]
  };
- let object,documents=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,materialEntries=[],materialSummary=null,connectionNodes=[],connectionItems=[],connectionSummary=null,pdfIndexes=[],engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
+ let object,documents=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,materialEntries=[],materialSummary=null,connectionNodes=[],connectionItems=[],connectionSummary=null,comparisonEntries=[],comparisonSummary=null,comparisonFields={},pdfIndexes=[],engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
  try{object=await irProject.data.objects.get(id)}catch(error){app.textContent="Не удалось прочитать объект: "+String(error.message||error);return}
  if(!object){location.hash="/objects";return}
  const bridge=irProject.aiDocuments,ready=!!(bridge&&typeof bridge.list==="function"&&typeof bridge.select==="function");
- const runtime=irProject.aiEngine||null,pdf=irProject.aiPdf||null,reviewer=irProject.aiReview||null,quantities=irProject.aiMarkQuantities||null,materials=irProject.aiKmdMaterials||null,connections=irProject.aiKmdConnections||null;
+ const runtime=irProject.aiEngine||null,pdf=irProject.aiPdf||null,reviewer=irProject.aiReview||null,quantities=irProject.aiMarkQuantities||null,materials=irProject.aiKmdMaterials||null,connections=irProject.aiKmdConnections||null,comparisons=irProject.aiKmKmdCompare||null;
  const canEdit=!!window.irAccess?.canEdit?.("ai-recognition");
  async function reload(){
   const jobs=[];
@@ -46,6 +46,11 @@ window.irAiRecognitionPage=async function(objectId){
    jobs.push(connections.nodes(id).then(v=>{connectionNodes=v}).catch(error=>{connectionNodes=[];notice("Ошибка узлов КМД: "+String(error.message||error),"error")}));
    jobs.push(connections.items(id).then(v=>{connectionItems=v}).catch(error=>{connectionItems=[];notice("Ошибка метизов КМД: "+String(error.message||error),"error")}));
    jobs.push(connections.summary(id).then(v=>{connectionSummary=v}).catch(error=>{connectionSummary=null;notice("Ошибка сводки крепежа: "+String(error.message||error),"error")}))
+  }
+  if(comparisons){
+   jobs.push(comparisons.list(id).then(v=>{comparisonEntries=v}).catch(error=>{comparisonEntries=[];notice("Ошибка записей КМ/КМД: "+String(error.message||error),"error")}));
+   jobs.push(comparisons.summary(id).then(v=>{comparisonSummary=v}).catch(error=>{comparisonSummary=null;notice("Ошибка сводки сравнения: "+String(error.message||error),"error")}));
+   jobs.push(comparisons.fields().then(v=>{comparisonFields=v}).catch(error=>{comparisonFields={};notice("Ошибка перечня параметров КМ/КМД: "+String(error.message||error),"error")}))
   }
   if(pdf)jobs.push(pdf.list(id).then(v=>{pdfIndexes=v}).catch(error=>{pdfIndexes=[];notice("Ошибка PDF-индекса: "+String(error.message||error),"error")}));
   await Promise.all(jobs);
@@ -345,6 +350,15 @@ window.irAiRecognitionPage=async function(objectId){
      summary:connectionSummary,assemblies:quantityEntries,documents,canEdit,api:connections,
      reviewer,askPassword:requestReviewPassword,reload,notice,openPdf:openPdfPreview})
    }else box.innerHTML='<div class="ir-ai-doc-empty">Модуль соединений не загружен.</div>';
+   return
+  }
+  if(active==="compare"){
+   if(window.irAiKmKmdComparePage)window.irAiKmKmdComparePage.render(box,{
+    id,entries:comparisonEntries,summary:comparisonSummary,fields:comparisonFields,
+    documents,canEdit,api:comparisons,reviewer,askPassword:requestReviewPassword,
+    reload,notice,openPdf:openPdfPreview
+   });
+   else box.innerHTML='<div class="ir-ai-doc-empty">Модуль сравнения КМ/КМД не загружен.</div>';
    return
   }
   if(active!=="documents"){

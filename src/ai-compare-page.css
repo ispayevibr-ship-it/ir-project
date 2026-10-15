@@ -1,0 +1,41 @@
+/* IR Project AI — engineering KM/KMD comparison, WIP branch only */
+.ir-ai-compare{display:grid;gap:14px;min-width:0}
+.ir-ai-compare .ir-ai-review-heading{margin-bottom:0}
+.ir-ai-compare-stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px}
+.ir-ai-compare-stats>div{display:flex;flex-direction:column;gap:8px;min-width:0;padding:13px 11px;background:#f7fbfe;border:1px solid #d9e9f3;border-radius:9px}
+.ir-ai-compare-stats small{font-size:10px;color:#7692a5;line-height:1.4}
+.ir-ai-compare-stats strong{font-size:18px;color:#235b81;font-weight:800}
+.ir-ai-compare-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+.ir-ai-compare-toolbar select{height:36px;border-radius:7px;border:1px solid #c9dce9;background:#fff;color:#275d7f;padding:0 10px;font-size:11px}
+.ir-ai-compare-toolbar span{flex:1;color:#8097a8;font-size:11px}
+.ir-ai-compare-toolbar button{height:36px;border-radius:7px;border:1px solid #1771b8;background:#1771b8;color:#fff;padding:0 13px;font-weight:700;font-size:11px;cursor:pointer}
+.ir-ai-compare-toolbar button:disabled{opacity:.45;cursor:not-allowed}
+.ir-ai-compare-tip{margin:0;padding:10px 12px;background:#fff6e9;color:#906d35;font-size:11px;border:1px solid #ead7b7;border-radius:8px}
+.ir-ai-compare-list{display:grid;gap:13px}
+.ir-ai-compare-card{border:1px solid #d9e7f1;border-radius:11px;background:#fff;padding:16px;min-width:0}
+.ir-ai-compare-card[hidden]{display:none!important}
+.ir-ai-compare-card-head{display:flex;justify-content:space-between;align-items:start;gap:15px}
+.ir-ai-compare-card-head>div{flex:1;min-width:0}
+.ir-ai-compare-card-head b{font-size:14px;color:#245876}
+.ir-ai-compare-card-head small{display:block;color:#859dad;font-size:11px;line-height:1.55;margin-top:5px}
+.ir-ai-compare-state{font-size:10px;font-weight:750;white-space:nowrap;border-radius:7px;padding:6px 10px;border:1px solid #d0dde7;background:#f6f9fb;color:#7b8794}
+.ir-ai-compare-state.match{background:#edf9f0;color:#387754;border-color:#c8e4d0}
+.ir-ai-compare-state.difference{background:#fff2ef;color:#a4543e;border-color:#eac5be}
+.ir-ai-compare-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:13px 0}
+.ir-ai-compare-evidence{display:flex;flex-direction:column;gap:7px;padding:13px;min-width:0;background:#f7fbfd;border:1px solid #e0ebf3;border-radius:9px}
+.ir-ai-compare-evidence>b{font-size:11px;color:#2e749f}
+.ir-ai-compare-evidence>span{font-size:10px;color:#7e9aab;line-height:1.55;overflow-wrap:anywhere}
+.ir-ai-compare-evidence>strong{font-size:14px;color:#245371;overflow-wrap:anywhere}
+.ir-ai-compare-evidence button{align-self:flex-start;border:1px solid #c5ddea;color:#256b98;background:#edf7fe;border-radius:7px;padding:7px 10px;font-size:10px;cursor:pointer}
+.ir-ai-compare-decision{font-size:11px;color:#658398;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 12px}
+.ir-ai-compare-decision>b{color:#375e79}
+.ir-ai-compare-decision>p{flex-basis:100%;margin:0;color:#526d82;line-height:1.5;overflow-wrap:anywhere}
+.ir-ai-compare-dialog{width:min(790px,95vw)}
+.ir-ai-compare-source-editors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:15px 0}
+.ir-ai-compare-source-editors fieldset{min-width:0;border:1px solid #d5e6f0;border-radius:9px;background:#f7fbfd;padding:12px;display:flex;flex-direction:column;gap:10px}
+.ir-ai-compare-source-editors legend{font-size:12px;color:#2a6d9c;font-weight:800;padding:0 5px}
+.ir-ai-compare-source-editors label{display:flex;flex-direction:column;gap:5px;min-width:0;color:#496e87;font-size:11px;font-weight:650}
+.ir-ai-compare-source-editors input,.ir-ai-compare-source-editors select{height:36px;width:100%;border:1px solid #cddde8;border-radius:7px;padding:8px 10px;background:#fff;color:#25465f;font:11px "Segoe UI",Arial,sans-serif}
+.ir-ai-compare-preview{margin:12px 0;padding:10px 12px;border:1px solid #d8e8f3;border-radius:8px;background:#f2f8fd;color:#416e8e;font-size:11px;line-height:1.55}
+@media(max-width:940px){.ir-ai-compare-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:720px){.ir-ai-compare-source-editors,.ir-ai-compare-columns{grid-template-columns:1fr}.ir-ai-compare-card-head{flex-direction:column}.ir-ai-compare-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
