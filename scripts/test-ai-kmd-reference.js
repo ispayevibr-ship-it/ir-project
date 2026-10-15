@@ -34,13 +34,15 @@ const {createKmdReference}=require("../src/ai-kmd-reference");
  const sheet1={id:301,setId:201,sheetCode:"КМД-01",documentId:11,page:1,
   sha256:sha,valid:true,kind:"КМД"};
  const sheet2={...sheet1,id:302,setId:202};
- let active=null,available=true;
+ let active=null,available=true,sourceStateCalls=0;
  const rev={
   active:(o,k)=>o===1&&k==="КМД"?active:null,
   getSheets:(o,setId)=>setId===201?[sheet1]:setId===202?[sheet2]:[],
-  sourceState:(o,src)=>({
-   current:available&&o===1&&active&&src.documentId===11&&src.page===1&&src.sha256===sha
-  })
+  sourceState:(o,src)=>{
+   sourceStateCalls++;
+   return{current:available&&o===1&&active&&
+    src.documentId===11&&src.page===1&&src.sha256===sha}
+  }
  };
  const mark={id:31,mark:"К41",cipher:"041",secondaryCipher:"",
   status:"confirmed",sourceValid:true,quantity:6};
@@ -67,6 +69,10 @@ const {createKmdReference}=require("../src/ai-kmd-reference");
   {role:"engineer"});
  const missing=api.save(1,null,{...base,type:"part",position:"Д3",quantity:1,
   status:"requires_review"},{role:"engineer"});
+ sourceStateCalls=0;
+ assert.equal(api.list(1).length,3);
+ assert.equal(sourceStateCalls,1,
+  "large KMD reference registers should check the same sheet source once per listing");
  assert.equal(api.compare(1).allSheetsReviewed,false);
  assert.equal(api.compare(1).mismatches.some(x=>x.code==="unlisted_position"),false,
   "unlisted actual parts must not be diagnosed before all sheets checked");
