@@ -165,6 +165,7 @@
     if(!await authorize())return;
     busy=true;downloading=true;progress="Подключаемся к серверу…";render();
     try{
+     if(typeof api.downloadAndInstall!=="function")throw Error("Обновите IR Project для автоматической установки моделей");
      const installed=await api.downloadAndInstall(modelId,version);
      status("Модель "+installed.title+" "+installed.version+" установлена. Проверьте готовность к КМД перед использованием.")
     }catch(e){status("Скачивание или установка не завершены: "+String(e.message||e),true)}
