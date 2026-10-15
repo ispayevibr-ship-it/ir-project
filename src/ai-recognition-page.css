@@ -1,0 +1,68 @@
+/* IR Project AI — independent stage-one interface. No changes to old scheme styles. */
+.ir-ai-page{width:100%;min-width:0;padding:12px 10px 24px;font-family:"Segoe UI",Arial,sans-serif;color:#203d55}
+.ir-ai-page *{box-sizing:border-box}
+.ir-ai-page button,.ir-ai-page input,.ir-ai-page select,.ir-ai-page textarea{font:inherit}
+.ir-ai-hero{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:22px 24px;border-radius:13px;background:linear-gradient(110deg,#123654,#1a5b85 62%,#287eaa);color:#fff}
+.ir-ai-kicker{font-size:10px;font-weight:850;letter-spacing:.10em;color:#a9cee7}
+.ir-ai-heading h1{margin:7px 0 4px;font-size:27px;font-weight:850;line-height:1.2}
+.ir-ai-heading h1 span{font-weight:450;font-size:17px;color:#d3e6f4}
+.ir-ai-heading p{margin:0;color:#c2d9e8;font-size:11px}
+.ir-ai-state{display:flex;align-items:center;gap:9px;padding:12px 16px;border:1px solid #ffffff45;border-radius:10px;background:#ffffff12;flex-shrink:0}
+.ir-ai-state-dot{width:9px;height:9px;background:#e0ad3d;border-radius:50%}
+.ir-ai-state strong,.ir-ai-state small{display:block;line-height:1.55}
+.ir-ai-state strong{font-size:12px}.ir-ai-state small{font-size:10px;color:#c5dbea}
+.ir-ai-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0}
+.ir-ai-stats>div{display:grid;gap:5px;padding:13px 17px;border:1px solid #dce6ed;border-radius:10px;background:#fff;box-shadow:0 2px 7px #17364d0a}
+.ir-ai-stats small{color:#8195a5;font-size:10px}
+.ir-ai-stats b{font-size:25px;color:#214a68;line-height:1.2}
+.ir-ai-stats span{font-size:9px;color:#95a7b5}
+.ir-ai-actions{display:flex;align-items:end;flex-wrap:wrap;gap:9px;padding:10px 12px;margin-bottom:11px;border:1px solid #dae5ed;border-radius:10px;background:#fff}
+.ir-ai-actions label{display:grid;gap:5px;font-size:9px;color:#607b8d;font-weight:700}
+.ir-ai-actions select{height:34px;min-width:150px;padding:0 10px;border:1px solid #d0dfeb;border-radius:7px;background:#fff;color:#345b73;font-size:11px}
+.ir-ai-actions button{height:34px;padding:0 13px;border:1px solid #cadce7;border-radius:7px;color:#396783;background:#f7fafc;font-size:11px;font-weight:750;cursor:pointer}
+.ir-ai-actions button.ir-ai-primary{background:#1675d0;color:#fff;border-color:#1675d0}
+.ir-ai-actions button:disabled{opacity:.5;cursor:not-allowed}
+.ir-ai-action-note{margin-left:auto;color:#8297a6;font-size:10px;align-self:center}
+.ir-ai-warning,.ir-ai-message{margin:8px 0;padding:11px 14px;border:1px solid #ecd39e;border-radius:8px;background:#fff8e9;color:#875d16;font-size:11px;line-height:1.5}
+.ir-ai-message{border-color:#bcdbea;background:#f0f8ff;color:#296489}
+.ir-ai-message.error{border-color:#efc2c2;background:#fff1f1;color:#a33333}
+.ir-ai-layout{display:grid;grid-template-columns:minmax(0,1fr) 245px;align-items:start;gap:12px}
+.ir-ai-main,.ir-ai-assistant{min-width:0;border:1px solid #dce6ed;border-radius:11px;background:#fff;box-shadow:0 2px 7px #17364d0a}
+.ir-ai-tabs{display:flex;flex-wrap:wrap;gap:5px;padding:11px;border-bottom:1px solid #e6eef3}
+.ir-ai-tabs button{padding:8px 11px;border:1px solid transparent;border-radius:7px;color:#5a7488;background:transparent;font-size:10px;font-weight:750;cursor:pointer}
+.ir-ai-tabs button:hover{background:#f1f7fc}
+.ir-ai-tabs button.active{border-color:#bcd8ed;color:#166ab3;background:#eaf5ff}
+.ir-ai-content{min-height:430px;padding:16px}
+.ir-ai-doc-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}
+.ir-ai-doc-head h2{margin:0;font-size:16px;color:#254761}
+.ir-ai-doc-head p{margin:5px 0 0;font-size:10px;color:#8298a6}
+.ir-ai-doc-head input{width:225px;max-width:100%;height:34px;padding:0 10px;border:1px solid #d4e0e9;border-radius:7px;font-size:11px;outline:none}
+.ir-ai-doc-head input:focus{border-color:#489bd6}
+.ir-ai-doc-empty,.ir-ai-placeholder{display:grid;place-content:center;justify-items:center;gap:9px;min-height:305px;padding:25px 20px;text-align:center;background:#f8fbfd;border:1px dashed #cfdfeb;border-radius:9px}
+.ir-ai-doc-empty b{font-size:14px}.ir-ai-doc-empty p,.ir-ai-placeholder p{margin:0;max-width:540px;color:#8499a8;font-size:11px;line-height:1.7}
+.ir-ai-placeholder-icon{display:grid;place-items:center;border:1px solid #c9dfea;width:48px;height:48px;border-radius:12px;color:#6da3c9;font-size:25px}
+.ir-ai-placeholder h2{margin:0;font-size:16px}.ir-ai-placeholder span{color:#9f873d;font-size:10px;font-weight:800}
+.ir-ai-table-wrap{width:100%;overflow:auto}
+.ir-ai-doc-table{width:100%;border-collapse:collapse;min-width:610px;font-size:11px;text-align:left}
+.ir-ai-doc-table th{padding:11px 10px;border-bottom:1px solid #dae5ec;background:#f5f9fc;color:#668293;font-size:10px}
+.ir-ai-doc-table td{padding:12px 10px;border-bottom:1px solid #e7edf2;color:#3d5c72}
+.ir-ai-doc-table strong{display:block;color:#264f6d;font-size:11px;overflow-wrap:anywhere}
+.ir-ai-doc-table small{display:block;margin-top:4px;color:#98a7b4;font-size:9px}
+.ir-ai-doc-status{white-space:nowrap;color:#976f1d;background:#fff5df;border-radius:5px;padding:5px 7px;font-size:9px;font-weight:750}
+.ir-ai-doc-status.missing{color:#aa3030;background:#fff0f0}
+.ir-ai-doc-actions{display:flex;gap:6px;justify-content:flex-end}
+.ir-ai-doc-actions button{padding:6px 9px;border:1px solid #c9dded;border-radius:6px;background:#f0f8ff;color:#2568a1;font-size:10px;cursor:pointer}
+.ir-ai-doc-actions button.delete{border-color:#ecc9c9;color:#a13d3d;background:#fff7f7}
+.ir-ai-doc-actions button:disabled{opacity:.5;cursor:not-allowed}
+.ir-ai-storage-note{margin-top:16px;font-size:10px;color:#8c9ca9;line-height:1.6}
+.ir-ai-assistant{padding:15px;min-height:400px;display:flex;flex-direction:column;gap:11px}
+.ir-ai-assistant-head{display:flex;justify-content:space-between;align-items:center}
+.ir-ai-assistant-head b{font-size:14px}
+.ir-ai-assistant-head span{font-size:9px;color:#9b7a2d;background:#fff5dc;border-radius:5px;padding:4px 7px}
+.ir-ai-assistant p,.ir-ai-chat-empty{margin:0;font-size:10px;color:#8499a7;line-height:1.6}
+.ir-ai-chat-empty{padding:14px;border:1px dashed #d2e0e9;border-radius:8px;flex:1;background:#f9fcfe}
+.ir-ai-assistant textarea{min-height:68px;resize:none;padding:9px;border:1px solid #d8e4ed;border-radius:8px;background:#f8fbfd}
+.ir-ai-assistant button{height:33px;border:0;border-radius:7px;background:#e3edf5;color:#8199a9;font-size:11px}
+.ir-ai-footer{padding:13px 4px;color:#899ba9;font-size:10px}
+@media(max-width:1100px){.ir-ai-layout{grid-template-columns:minmax(0,1fr)}.ir-ai-assistant{min-height:220px}.ir-ai-chat-empty{min-height:60px}}
+@media(max-width:760px){.ir-ai-hero{flex-direction:column;align-items:flex-start;padding:17px}.ir-ai-heading h1 span{display:block;margin-top:4px}.ir-ai-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.ir-ai-doc-head{flex-direction:column;align-items:stretch}.ir-ai-doc-head input{width:100%}.ir-ai-actions{align-items:stretch}.ir-ai-action-note{margin-left:0}}
