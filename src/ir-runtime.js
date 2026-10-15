@@ -4634,6 +4634,8 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
     alert("Выгрузка базы данных недоступна. Перезапустите IR Project.");
     return
    }
+   const authorized=await passwordDialog("admin");
+   if(!authorized)return;
    exportingDatabase=true;backupButton.disabled=true;
    try{
     const saved=await irProject.backup.create();
@@ -4659,6 +4661,8 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
    if(typeof irProject.backup?.restore!=="function"){
     alert("Восстановление недоступно. Перезапустите IR Project.");return
    }
+   const authorized=await passwordDialog("admin");
+   if(!authorized)return;
    restoringDatabase=true;restoreButton.disabled=true;
    try{
     const ok=await irProject.backup.restore();
