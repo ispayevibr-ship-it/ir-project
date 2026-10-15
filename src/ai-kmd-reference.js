@@ -172,7 +172,15 @@ function createKmdReference({database,revisions,quantities,materials,connections
     typeof d.fingerprint==="string"&&d.fingerprint.length===64&&
     d.fingerprint===sheetFingerprint(o,active.set.id,p.id,referenceRowsBySheet.get(p.id)||[])&&
     d.documentId===p.documentId&&d.sha256===p.sha256&&d.page===p.page);
-   return{...p,checked:current,status:current?"sealed":d.status||"not_started",
+   const reason=current?"":!p.valid?
+    "Оригинальный PDF КМД изменён либо недоступен":
+    duplicatePositions?"В эталоне повторяются физические позиции":
+    unresolved?"Есть позиции без действующего подтверждения инженера":
+    d.status==="sealed"?"Прежний акт не совпадает с текущим содержанием листа":
+    "Не выполнена ручная проверка всего листа";
+   return{...p,checked:current,
+    status:current?"sealed":d.status==="sealed"?"needs_review":d.status||"not_started",
+    storedStatus:d.status||"not_started",reason,
     revision:Number(d.revision)||0,checkedAt:d.reviewedAt||null,
     checkedBy:d.reviewedBy||null,comment:String(d.comment||""),
     totalPositions:positions.length,
