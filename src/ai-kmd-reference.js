@@ -361,7 +361,8 @@ function createKmdReference({database,revisions,quantities,materials,connections
   const jointIdentity=row=>row.assemblyId+"\u0001"+row.scope+"\u0001"+normalize(row.jointCode);
   const componentIdentity=row=>row.jointId+"\u0001"+row.category+"\u0001"+
    normalize(row.kind)+"\u0001"+normalize(row.position);
-  const confirmedMarks=marks.filter(x=>x.status==="confirmed"&&x.sourceValid);
+  const confirmedMarks=marks.filter(x=>x.status==="confirmed"&&x.sourceValid&&
+   Number.isSafeInteger(x.quantity)&&x.quantity>0);
   // Existing unapproved ledger rows are not missing positions. Link the
   // engineer to the exact draft or stale row instead of suggesting a duplicate.
   const activeRows=rows=>rows.filter(x=>x.status!=="rejected");

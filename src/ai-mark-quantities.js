@@ -66,7 +66,8 @@ function createMarkQuantities({database,revisions=null,clock=()=>new Date().toIS
    .filter(x=>x.record_type==="quantity_statement").map(x=>parse(oid,x))
  }
  function summary(id){
-  const entries=list(id),confirmed=entries.filter(x=>x.status==="confirmed"&&x.sourceValid);
+  const entries=list(id),confirmed=entries.filter(x=>x.status==="confirmed"&&
+   x.sourceValid&&Number.isSafeInteger(x.quantity)&&x.quantity>0);
   const byKey=new Map();
   for(const e of confirmed){
    const k=key(e);
@@ -80,7 +81,8 @@ function createMarkQuantities({database,revisions=null,clock=()=>new Date().toIS
   const total=rows.reduce((acc,item)=>acc+item.quantity,0);
   if(!Number.isSafeInteger(total))throw Error("Общее количество превышает допустимое значение");
   return{rows,confirmedPositionCount:rows.length,confirmedPieces:total,
-   pendingCount:entries.filter(x=>x.status==="requires_review"||x.status==="confirmed"&&!x.sourceValid).length,
+   pendingCount:entries.filter(x=>x.status==="requires_review"||
+    x.status==="confirmed"&&(!x.sourceValid||!Number.isSafeInteger(x.quantity)||x.quantity<=0)).length,
    rejectedCount:entries.filter(x=>x.status==="rejected").length,
    complete:false,quantityMeaning:"Сумма проверенных позиций КМД, а не полный объём объекта"}
  }

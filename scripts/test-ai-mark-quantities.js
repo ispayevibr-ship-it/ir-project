@@ -65,6 +65,20 @@ function databaseFixture(){
   quantity:3,expectedRevision:1},{role:"engineer"});
  assert.equal(service.summary(1).confirmedPieces,10);
  assert.equal(service.summary(1).confirmedPositionCount,2);
+ const validRow=db.getEntity(1,"ai-mark-quantities",first.id);
+ db.updateEntity(1,"ai-mark-quantities",first.id,{
+  record_type:"quantity_statement",title:validRow.title,
+  data:{...validRow.data,quantity:0}
+ });
+ assert.equal(service.summary(1).confirmedPieces,3,
+  "corrupted zero-quantity confirmed marks must not contribute to verified totals");
+ assert.equal(service.summary(1).confirmedPositionCount,1);
+ assert.equal(service.summary(1).pendingCount,1,
+  "invalid confirmed quantities require engineer review, not a counted zero");
+ db.updateEntity(1,"ai-mark-quantities",first.id,{
+  record_type:"quantity_statement",title:validRow.title,data:validRow.data
+ });
+ assert.equal(service.summary(1).confirmedPieces,10);
  db.updateEntity(1,"ai-documents",pdf.id,{record_type:"document",title:"Подмена документа",
   data:{kind:"КМД",extension:".pdf",sha256:"e".repeat(64),original_name:"заменен.pdf"}});
  assert.equal(service.summary(1).confirmedPieces,0,"changed SHA must invalidate source");
