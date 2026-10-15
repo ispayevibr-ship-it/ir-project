@@ -211,3 +211,21 @@
 .ir-ai-quantity-dialog-error{font-size:11px;color:#ac3131;background:#fff1f1;padding:10px;border-radius:7px}
 .ir-ai-quantity-dialog-error[hidden]{display:none}
 @media(max-width:660px){.ir-ai-quantity-form-grid{grid-template-columns:1fr}.ir-ai-quantity-form-grid label.wide{grid-column:1}.ir-ai-quantity-dialog{padding:15px}}
+
+/* IR Project AI — KMD metal parts and mass calculations; WIP branch */
+.ir-ai-metal-section{border-top:2px solid #cee3f0;margin-top:24px;padding-top:20px}
+.ir-ai-metal-section .ir-ai-review-heading{align-items:center}
+.ir-ai-metal-section .ir-ai-table-wrap{border:1px solid #dbe8f0;border-radius:8px;overflow:auto;margin-top:12px}
+.ir-ai-metal-section .ir-ai-doc-table th{white-space:nowrap}
+.ir-ai-metal-section .ir-ai-doc-table td{vertical-align:top;white-space:normal;min-width:110px;line-height:1.6}
+.ir-ai-metal-section .ir-ai-doc-table td small{display:block;color:#8497a6;font-size:10px;margin-top:4px}
+.ir-ai-metal-section .ir-ai-doc-table td button{border:1px solid #c3ddeb;border-radius:7px;background:#eff8fd;color:#1f6997;cursor:pointer;font-size:11px;padding:7px 10px}
+.ir-ai-metal-section .ir-ai-doc-table td button:disabled{opacity:.45;cursor:not-allowed}
+.ir-ai-metal-section .ir-ai-quantity-drafts>div{overflow-wrap:anywhere}
+.ir-ai-metal-dialog{width:min(790px,96vw)}
+.ir-ai-metal-checkbox{display:flex!important;flex-direction:row!important;align-items:flex-start;gap:10px!important;background:#f1f8fd;border:1px solid #d2e6f4;border-radius:7px;padding:10px}
+.ir-ai-metal-checkbox input{flex:none;width:16px!important;height:16px!important;min-width:16px;margin:0}
+.ir-ai-metal-checkbox span{font-size:11px;line-height:1.6}
+.ir-ai-metal-section .ir-ai-quantity-totals{align-items:center}
+.ir-ai-metal-dialog .ir-ai-quantity-dialog-hint{background:#f3f9fd;border:1px solid #e0edf5;padding:11px;border-radius:7px;color:#456e89;line-height:1.65}
+@media(max-width:700px){.ir-ai-metal-section .ir-ai-review-heading{align-items:flex-start}.ir-ai-metal-section .ir-ai-quantity-totals{flex-wrap:wrap}}

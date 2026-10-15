@@ -20,11 +20,11 @@ window.irAiRecognitionPage=async function(objectId){
   compare:["Сравнение КМ и КМД","Сопоставление геометрии, металлопроката, соединений, количества и ревизий будет доступно после подготовки проверяемых данных."],
   checks:["Проверка и замечания","После запуска локального анализа здесь появятся ошибки и неопределённые значения со ссылками на исходные листы и подтверждения инженера."]
  };
- let object,documents=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,pdfIndexes=[],engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
+ let object,documents=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,materialEntries=[],materialSummary=null,pdfIndexes=[],engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
  try{object=await irProject.data.objects.get(id)}catch(error){app.textContent="Не удалось прочитать объект: "+String(error.message||error);return}
  if(!object){location.hash="/objects";return}
  const bridge=irProject.aiDocuments,ready=!!(bridge&&typeof bridge.list==="function"&&typeof bridge.select==="function");
- const runtime=irProject.aiEngine||null,pdf=irProject.aiPdf||null,reviewer=irProject.aiReview||null,quantities=irProject.aiMarkQuantities||null;
+ const runtime=irProject.aiEngine||null,pdf=irProject.aiPdf||null,reviewer=irProject.aiReview||null,quantities=irProject.aiMarkQuantities||null,materials=irProject.aiKmdMaterials||null;
  const canEdit=!!window.irAccess?.canEdit?.("ai-recognition");
  async function reload(){
   const jobs=[];
@@ -37,6 +37,10 @@ window.irAiRecognitionPage=async function(objectId){
   if(quantities){
    jobs.push(quantities.list(id).then(v=>{quantityEntries=v}).catch(error=>{quantityEntries=[];notice("Ошибка загрузки количеств: "+String(error.message||error),"error")}));
    jobs.push(quantities.summary(id).then(v=>{quantitySummary=v}).catch(error=>{quantitySummary=null;notice("Ошибка сводки отправочных марок: "+String(error.message||error),"error")}));
+  }
+  if(materials){
+   jobs.push(materials.list(id).then(v=>{materialEntries=v}).catch(error=>{materialEntries=[];notice("Ошибка спецификации металла: "+String(error.message||error),"error")}));
+   jobs.push(materials.summary(id).then(v=>{materialSummary=v}).catch(error=>{materialSummary=null;notice("Ошибка сводки массы деталей: "+String(error.message||error),"error")}))
   }
   if(pdf)jobs.push(pdf.list(id).then(v=>{pdfIndexes=v}).catch(error=>{pdfIndexes=[];notice("Ошибка PDF-индекса: "+String(error.message||error),"error")}));
   await Promise.all(jobs);
@@ -184,6 +188,69 @@ window.irAiRecognitionPage=async function(objectId){
       ' · '+esc(labels[change.current?.status]||"Требует проверки")+'</div>').join(""):
       'Изменений пока нет'
     }catch(error){slot.textContent="Ошибка журнала: "+String(error.message||error)}
+   });
+   const m=materialSummary||{confirmedDetailPositions:0,confirmedAssemblies:0,
+    confirmedMassKg:0,confirmedMassTonnes:0,pendingCount:0,rejectedCount:0,byAssembly:[]};
+   const formatKg=value=>Number(value||0).toLocaleString("ru-RU",{maximumFractionDigits:5});
+   const kindLabels={plate:"Листовая деталь",rib:"Ребро жёсткости",gusset:"Косынка",profile:"Прокатный профиль",pipe:"Труба",rod:"Пруток",other:"Другая деталь"};
+   const massLabels={drawing:"Масса по КМД",rectangular:"Расчёт прямоугольника",linear:"Масса погонного метра"};
+   const counted=materialEntries.filter(part=>part.counted);
+   box.insertAdjacentHTML("beforeend",'<section class="ir-ai-metal-section">'+
+    '<div class="ir-ai-review-heading"><div><h2>Спецификация металла и деталей КМД</h2>'+
+     '<p>Состав каждой отправочной марки: пластины, рёбра, косынки, балки, профили, трубы. Все детали привязаны к листу и позиции КМД.</p></div>'+
+     '<div class="ir-ai-quantity-totals"><b>'+m.confirmedDetailPositions+' проверенных деталей</b>'+
+      '<b>'+formatKg(m.confirmedMassKg)+' кг · '+formatKg(m.confirmedMassTonnes)+' тн</b></div></div>'+
+    '<div class="ir-ai-quantity-warning">Указана только частичная масса по подтверждённым позициям. Это не проектный тоннаж объекта и не готовность монтажной схемы. Масса метизов будет учитываться в отдельном разделе.</div>'+
+    '<div class="ir-ai-quantity-toolbar"><span>Отправочных марок с проверенными деталями: '+m.confirmedAssemblies+
+     ' · требуют проверки: '+m.pendingCount+' · отклонены: '+m.rejectedCount+'</span>'+
+     (canEdit&&materials?'<button type="button" data-metal-new>＋ Добавить деталь КМД</button>':"")+'</div>'+
+    (counted.length?'<div class="ir-ai-table-wrap"><table class="ir-ai-doc-table"><thead>'+
+     '<tr><th>Марка / позиция</th><th>Материал и профиль</th><th>Количество</th>'+
+     '<th>Масса на марку</th><th>Масса всего</th><th>Основание</th><th></th></tr></thead><tbody>'+
+     counted.map(part=>'<tr><td><strong>'+esc(part.assemblyMark)+' / '+esc(part.position)+'</strong>'+
+      '<small>'+esc(kindLabels[part.type]||part.type)+'</small></td>'+
+      '<td>'+esc(part.steelGrade)+' · '+esc(part.profile||part.name||"—")+
+       '<small>'+esc(massLabels[part.massMethod]||part.massMethod)+'</small></td>'+
+      '<td>'+part.partCount+' шт. на марку × '+part.assemblyQuantity+' марок</td>'+
+      '<td>'+formatKg(part.massPerAssemblyKg)+' кг</td>'+
+      '<td><b>'+formatKg(part.totalMassKg)+' кг</b></td>'+
+      '<td>'+esc(part.source.name)+' · лист '+part.source.page+
+       ' · '+esc(part.source.specPosition)+'</td>'+
+      '<td><button type="button" data-metal-edit="'+part.id+'" '+(!canEdit?'disabled':'')+'>Открыть</button></td></tr>').join("")+
+     '</tbody></table></div>':
+     '<div class="ir-ai-doc-empty"><b>Подтверждённой спецификации металла пока нет</b>'+
+      '<p>Добавьте детали из КМД и укажите исходную массу либо проверенные параметры для расчёта. Итоги появятся только после подтверждения инженером.</p></div>')+
+    (materialEntries.length?'<details class="ir-ai-quantity-drafts"><summary>Все детали · '+materialEntries.length+
+     ' (в том числе неподтверждённые)</summary>'+
+     materialEntries.map(part=>'<div><b>'+esc(part.assemblyMark)+' / '+esc(part.position)+'</b> · '+
+      esc(kindLabels[part.type]||"")+' · '+esc(part.steelGrade||"сталь не указана")+
+      ' · '+(part.calculatedUnitMassKg==null?"масса неизвестна":formatKg(part.calculatedUnitMassKg)+" кг/деталь")+
+      ' · '+esc(labels[part.status]||"")+
+      (!part.counted?' · не включено в итог'+(part.reason?': '+esc(part.reason):""):"")+
+      (canEdit?'<button type="button" data-metal-edit="'+part.id+'">Редактировать</button>':"")+
+      '<button type="button" data-metal-history="'+part.id+'">История</button>'+
+      '<div data-metal-log="'+part.id+'" hidden></div></div>').join("")+'</details>':"")+
+    '<p class="ir-ai-storage-note">Теоретическая масса прямоугольной детали рассчитывается по габаритам и указанной плотности и не учитывает вырезы, отверстия, разделку кромок и сварные швы. Для деталей сложной формы используйте массу по спецификации/КМД. В основные ведомости данные автоматически не передаются.</p>'+
+    '</section>');
+   box.querySelectorAll("[data-metal-new],[data-metal-edit]").forEach(button=>button.onclick=()=>{
+    const row=button.dataset.metalEdit?materialEntries.find(v=>String(v.id)===button.dataset.metalEdit):null;
+    void openMaterialEditor(row||null)
+   });
+   box.querySelectorAll("[data-metal-history]").forEach(button=>button.onclick=async()=>{
+    if(!materials)return;
+    const slot=box.querySelector('[data-metal-log="'+button.dataset.metalHistory+'"]');
+    if(!slot)return;
+    if(!slot.hidden){slot.hidden=true;return}
+    slot.hidden=false;slot.textContent="Загружаем историю металла...";
+    try{
+     const entries=await materials.history(id,button.dataset.metalHistory);
+     slot.innerHTML=entries.length?entries.map(change=>
+      '<div class="ir-ai-quantity-log-entry">Редакция '+change.revision+
+       ' · '+esc(change.reviewedAt)+' · '+esc(change.reviewedBy)+
+       ' · '+esc(change.current?.steelGrade||"")+' · '+
+       esc(change.current?.partCount??"")+' дет./марка · '+
+       esc(change.current?.status||"")+'</div>').join(""):'Изменений пока нет'
+    }catch(error){slot.textContent="Ошибка журнала металла: "+String(error.message||error)}
    });
    return
   }
@@ -372,6 +439,116 @@ window.irAiRecognitionPage=async function(objectId){
    dlg.oncancel=event=>{event.preventDefault();finish(null)};
    document.body.appendChild(dlg);dlg.showModal();dlg.querySelector("input").focus()
   })
+ }
+ async function openMaterialEditor(original=null){
+  if(!canEdit||!materials||!reviewer)return;
+  const role=window.irAccess?.role?.();
+  if(!["admin","engineer"].includes(role))return;
+  const assemblies=quantityEntries.filter(row=>row.status!=="rejected");
+  const sources=documents.filter(doc=>doc.kind==="КМД"&&doc.ext===".pdf"&&doc.exists);
+  if(!assemblies.length||!sources.length){
+   notice("Сначала добавьте отправочную марку и исходный PDF КМД. Для каждой детали нужна подтверждаемая связь с документом.","error");
+   paint();return
+  }
+  const dlg=document.createElement("dialog");dlg.className="ir-ai-quantity-dialog ir-ai-review-password ir-ai-metal-dialog";
+  const formValues=(field,fallback="")=>esc(original?.[field]??fallback);
+  const srcValues=(field,fallback="")=>esc(original?.source?.[field]??fallback);
+  const typeLabels={plate:"Пластина (лист)",rib:"Ребро жёсткости",gusset:"Косынка",
+   profile:"Прокатный профиль",pipe:"Труба",rod:"Пруток",other:"Другая стальная деталь"};
+  const methods={drawing:"Масса 1 детали по спецификации КМД",
+   rectangular:"Расчёт прямоугольной детали (без отверстий)",
+   linear:"Масса профиля по кг/м и длине"};
+  const select=(options,val)=>Object.entries(options).map(([v,label])=>
+   '<option value="'+v+'" '+(String(val)===v?"selected":"")+'>'+esc(label)+'</option>').join("");
+  dlg.innerHTML='<form class="ir-ai-quantity-form"><h3>'+
+   (original?"Редактировать деталь КМД":"Добавить деталь в отправочную марку")+'</h3>'+
+   '<p>Все размеры в миллиметрах, масса в килограммах. Укажите точные данные по исходному КМД. Для металлопроката не подставляется масса из приблизительных таблиц.</p>'+
+   '<div class="ir-ai-quantity-form-grid">'+
+   '<label class="wide">Отправочная марка *<select name="assemblyId" required>'+
+    assemblies.map(a=>'<option value="'+a.id+'" '+
+     (Number(original?.assemblyId)===a.id?"selected":"")+'>'+esc(a.mark)+' · '+
+     esc([a.cipher,a.secondaryCipher].filter(Boolean).join(" / "))+ " · "+
+     (a.status==="confirmed"?a.quantity+" шт. подтверждено":"количество не подтверждено")+
+     '</option>').join("")+'</select></label>'+
+   '<label>Позиция детали КМД *<input name="position" required maxlength="100" value="'+formValues("position")+'" placeholder="Д1 / Пл2"></label>'+
+   '<label>Тип детали<select name="type">'+select(typeLabels,original?.type||"plate")+'</select></label>'+
+   '<label>Наименование детали<input name="name" maxlength="150" value="'+formValues("name")+'"></label>'+
+   '<label>Профиль / сечение<input name="profile" maxlength="100" value="'+formValues("profile")+'" placeholder="Лист 10 / двутавр 30Б1"></label>'+
+   '<label>Марка стали *<input name="steelGrade" maxlength="80" value="'+formValues("steelGrade")+'" placeholder="С245 / С345"></label>'+
+   '<label>ГОСТ / стандарт<input name="standard" maxlength="100" value="'+formValues("standard")+'"></label>'+
+   '<label>Деталей на 1 марку, шт. *<input name="partCount" required type="number" min="1" max="100000" step="1" value="'+formValues("partCount",1)+'"></label>'+
+   '<label class="wide">Источник массы<select name="massMethod">'+select(methods,original?.massMethod||"drawing")+'</select></label>'+
+   '<label>Длина, мм<input name="lengthMm" type="number" min="0.01" max="1000000" step="any" value="'+formValues("lengthMm")+'"></label>'+
+   '<label>Ширина, мм<input name="widthMm" type="number" min="0.01" max="1000000" step="any" value="'+formValues("widthMm")+'"></label>'+
+   '<label>Толщина, мм<input name="thicknessMm" type="number" min="0.01" max="10000" step="any" value="'+formValues("thicknessMm")+'"></label>'+
+   '<label>Плотность, кг/м³<input name="densityKgM3" type="number" min="5000" max="10000" step="any" value="'+formValues("densityKgM3")+'" placeholder="Указать по материалу"></label>'+
+   '<label>Масса 1 пог. м, кг/м<input name="linearKgM" type="number" min="0.00001" max="100000" step="any" value="'+formValues("linearKgM")+'"></label>'+
+   '<label>Масса 1 детали по КМД, кг<input name="drawingMassKg" type="number" min="0.00001" max="1000000" step="any" value="'+formValues("drawingMassKg")+'"></label>'+
+   '<label class="wide ir-ai-metal-checkbox"><input type="checkbox" name="isSolidRectangle" '+
+    (original?.isSolidRectangle?"checked":"")+'><span>Подтверждаю: деталь — сплошной прямоугольник без отверстий, вырезов и скосов</span></label>'+
+   '<label class="wide">Чертёж PDF КМД *<select name="documentId" required>'+
+    sources.map(doc=>'<option value="'+doc.id+'" '+
+     (Number(original?.source?.documentId)===Number(doc.id)?"selected":"")+'>'+esc(doc.name)+'</option>').join("")+'</select></label>'+
+   '<label>Лист КМД *<input name="page" required type="number" min="1" max="2000" step="1" value="'+srcValues("page",1)+'"></label>'+
+   '<label>Позиция спецификации *<input name="specPosition" required maxlength="100" value="'+srcValues("specPosition")+'"></label>'+
+   '<label>Изменение / ревизия<input name="drawingRevision" maxlength="40" value="'+srcValues("drawingRevision")+'"></label>'+
+   '<label>Статус<select name="status">'+
+    select({requires_review:"Требует проверки",confirmed:"Подтверждено",rejected:"Отклонено"},
+     original?.status||"requires_review")+'</select></label>'+
+   '<label class="wide">Комментарий инженера<textarea name="comment" maxlength="1500" rows="2">'+formValues("comment")+'</textarea></label>'+
+   '</div>'+
+   '<p class="ir-ai-quantity-dialog-hint" data-metal-calculation></p>'+
+   '<div class="ir-ai-quantity-form-actions"><button type="button" data-cancel>Отмена</button>'+
+   '<button type="submit">Сохранить деталь</button></div>'+
+   '<p data-error class="ir-ai-quantity-dialog-error" hidden></p></form>';
+  document.body.appendChild(dlg);
+  dlg.querySelector("[data-cancel]").onclick=()=>dlg.close();
+  dlg.addEventListener("close",()=>dlg.remove(),{once:true});
+  const form=dlg.querySelector("form"),calc=dlg.querySelector("[data-metal-calculation]");
+  function preview(){
+   const f=Object.fromEntries(new FormData(form).entries());
+   const isPositive=x=>x!==""&&Number.isFinite(Number(x))&&Number(x)>0;
+   let kg=null;
+   if(f.massMethod==="drawing"&&isPositive(f.drawingMassKg))kg=Number(f.drawingMassKg);
+   if(f.massMethod==="linear"&&isPositive(f.lengthMm)&&isPositive(f.linearKgM))
+    kg=Number(f.lengthMm)/1000*Number(f.linearKgM);
+   if(f.massMethod==="rectangular"&&f.isSolidRectangle&&
+    [f.lengthMm,f.widthMm,f.thicknessMm,f.densityKgM3].every(isPositive))
+    kg=Number(f.lengthMm)*Number(f.widthMm)*Number(f.thicknessMm)*Number(f.densityKgM3)/1e9;
+   const count=Number(f.partCount);
+   calc.textContent=kg===null?"Для расчёта укажите параметры выбранного метода. Сервер проверит их перед сохранением.":
+    "Предварительная масса 1 детали: "+kg.toLocaleString("ru-RU",{maximumFractionDigits:5})+
+    " кг; деталей на марку: "+(Number.isSafeInteger(count)&&count>0?count:"не указано")+
+    ". Итог по объекту считается только после подтверждения детали и количества марки.";
+  }
+  form.addEventListener("input",preview);form.addEventListener("change",preview);preview();
+  let saving=false;
+  form.onsubmit=async event=>{
+   event.preventDefault();if(saving)return;
+   const f=Object.fromEntries(new FormData(form).entries());
+   const password=await requestReviewPassword(role);
+   if(password===null)return;
+   saving=true;
+   const error=dlg.querySelector("[data-error]");error.hidden=true;
+   try{
+    if(!await reviewer.authorize(role,password))throw Error("Неверный пароль инженера/администратора");
+    await materials.save(id,original?.id||null,{
+     expectedRevision:Number(original?.revision)||0,
+     assemblyId:Number(f.assemblyId),position:f.position,type:f.type,name:f.name,
+     profile:f.profile,steelGrade:f.steelGrade,standard:f.standard,partCount:Number(f.partCount),
+     massMethod:f.massMethod,lengthMm:f.lengthMm,widthMm:f.widthMm,thicknessMm:f.thicknessMm,
+     densityKgM3:f.densityKgM3,linearKgM:f.linearKgM,drawingMassKg:f.drawingMassKg,
+     isSolidRectangle:Boolean(f.isSolidRectangle),documentId:Number(f.documentId),
+     page:Number(f.page),specPosition:f.specPosition,drawingRevision:f.drawingRevision,
+     status:f.status,comment:f.comment
+    });
+    dlg.close();notice("Деталь КМД сохранена. Тоннаж пересчитан только по проверенным данным.");
+    await reload()
+   }catch(error){const target=dlg.querySelector("[data-error]");target.hidden=false;
+    target.textContent="Не удалось сохранить деталь: "+String(error.message||error)}
+   finally{saving=false}
+  };
+  dlg.showModal()
  }
  async function openQuantityEditor(original=null){
   if(!canEdit||!quantities||!reviewer)return;

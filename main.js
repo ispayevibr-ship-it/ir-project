@@ -1,7 +1,7 @@
 "use strict";
 const {app,BrowserWindow,ipcMain,dialog,Menu,protocol,shell}=require("electron");
 const path=require("path"),crypto=require("crypto"),fs=require("fs");
-const database=require("./src/database"),aiDocumentStore=require("./src/ai-document-store"),aiLocalEngine=require("./src/ai-local-engine"),aiAnalysis=require("./src/ai-analysis"),aiReview=require("./src/ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),aiModelManager=require("./src/ai-model-manager"),aiRuntimeDiagnostics=require("./src/ai-runtime-diagnostics"),backup=require("./src/backup"),updates=require("./src/updater"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
+const database=require("./src/database"),aiDocumentStore=require("./src/ai-document-store"),aiLocalEngine=require("./src/ai-local-engine"),aiAnalysis=require("./src/ai-analysis"),aiReview=require("./src/ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiKmdMaterials=require("./src/ai-kmd-materials"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),aiModelManager=require("./src/ai-model-manager"),aiRuntimeDiagnostics=require("./src/ai-runtime-diagnostics"),backup=require("./src/backup"),updates=require("./src/updater"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
 let win;
 const aiDocuments=aiDocumentStore.createStore({getUserDataPath:()=>app.getPath("userData"),dialog,shell,database,getWindow:()=>win});
 let aiModels;
@@ -28,6 +28,7 @@ const aiRaster=aiPdfRenderer.createPdfRenderer({database,documents:aiDocuments})
 const aiResults=aiAnalysis.createAnalysis({database,documents:aiDocuments,engine:aiEngine,pdfRenderer:aiRaster});
 const aiReviews=aiReview.createAiReview({database});
 const aiQuantities=aiMarkQuantities.createMarkQuantities({database});
+const aiMaterials=aiKmdMaterials.createKmdMaterials({database,quantities:aiQuantities});
 const aiReviewSessions=new Map();
 function authorizeAiReview(e,role,password){
  if(!["admin","engineer"].includes(role))return false;
@@ -87,6 +88,11 @@ function registerAiDocuments(){
  ipcMain.handle("ai-quantities:history",(_e,{objectId,id})=>aiQuantities.history(objectId,id));
  ipcMain.handle("ai-quantities:save",(e,{objectId,id,entry})=>
   aiQuantities.save(objectId,id??null,entry,requireAiReviewer(e)));
+ ipcMain.handle("ai-materials:list",(_e,objectId)=>aiMaterials.list(objectId));
+ ipcMain.handle("ai-materials:summary",(_e,objectId)=>aiMaterials.summary(objectId));
+ ipcMain.handle("ai-materials:history",(_e,{objectId,id})=>aiMaterials.history(objectId,id));
+ ipcMain.handle("ai-materials:save",(e,{objectId,id,entry})=>
+  aiMaterials.save(objectId,id??null,entry,requireAiReviewer(e)));
  ipcMain.handle("ai-analysis:image",(_e,{objectId,id})=>aiResults.analyze(objectId,id));
  ipcMain.handle("ai-pdf:list",(_e,objectId)=>aiPdf.list(objectId));
  ipcMain.handle("ai-pdf:index",(_e,{objectId,id})=>aiPdf.index(objectId,id));
