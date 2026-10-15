@@ -37,7 +37,7 @@ function positive(value,label,{optional=false,max=1e7}={}){
  if(!Number.isFinite(n)||n<=0||n>max)throw Error("Некорректное значение «"+label+"»");
  return n
 }
-function createKmdConnections({database,quantities,clock=()=>new Date().toISOString()}={}){
+function createKmdConnections({database,quantities,revisions=null,clock=()=>new Date().toISOString()}={}){
  if(!database)throw Error("Требуется база IR Project");
  quantities=quantities||createMarkQuantities({database,clock});
  const getObject=id=>{
@@ -69,7 +69,8 @@ function createKmdConnections({database,quantities,clock=()=>new Date().toISOStr
  function sourceValid(oid,src){
   const row=database.getEntity(oid,"ai-documents",Number(src?.documentId));
   return Boolean(row&&row.record_type==="document"&&row.data?.kind==="КМД"&&
-   row.data?.extension===".pdf"&&row.data?.sha256===src?.sha256)
+   row.data?.extension===".pdf"&&row.data?.sha256===src?.sha256&&
+   (!revisions||revisions.isCurrent(oid,src)))
  }
  const assemblies=oid=>new Map(quantities.list(oid).map(a=>[a.id,a]));
  function assembly(oid,assemblyId){

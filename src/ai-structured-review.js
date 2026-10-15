@@ -8,7 +8,7 @@ const STRINGS=new Set(["mark","cipher","secondaryCipher","position","specPositio
  "drawingRevision","steelGrade","profile","partType","jointCode","fastenerKind","standard"]);
 const INTS=new Set(["quantity","partCount","perJoint"]);
 const NUMS=new Set(["unitMassKg","lengthMm","widthMm","thicknessMm","diameterMm","weldSizeMm"]);
-function createStructuredReviews({database,documents,clock=()=>new Date().toISOString()}={}){
+function createStructuredReviews({database,documents,revisions=null,clock=()=>new Date().toISOString()}={}){
  if(!database||!documents)throw Error("Требуются база и локальные документы КМД");
  const oid=id=>{const n=Number(id);if(!Number.isSafeInteger(n)||n<1||!database.getObject(n))throw Error("Объект не найден");return n};
  const positive=(v,field,integer)=>{
@@ -57,7 +57,8 @@ function createStructuredReviews({database,documents,clock=()=>new Date().toISOS
  const sourceValid=(id,a)=>{
   const src=a?.data?.source||{},doc=documents.list(id).find(x=>x.id===Number(src.documentId));
   return Boolean(doc&&doc.exists&&["КМ","КМД"].includes(doc.kind)&&doc.sha256===src.sha256&&
-   doc.ext===".pdf"&&Number.isSafeInteger(Number(src.page))&&Number(src.page)>0)
+   doc.ext===".pdf"&&Number.isSafeInteger(Number(src.page))&&Number(src.page)>0&&
+   (!revisions||revisions.isCurrent(id,src)))
  };
  function sources(id,analysisId){
   const row=analysisRows(id).find(x=>x.id===Number(analysisId));

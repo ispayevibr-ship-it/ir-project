@@ -21,7 +21,7 @@ const FIELDS=Object.freeze({
  other:{label:"Другая проверяемая характеристика",type:"text",unit:""}
 });
 const TEXT_ID=/^[\p{L}\p{N}][\p{L}\p{N} ._+\-/()№]*$/u;
-function createKmKmdCompare({database,clock=()=>new Date().toISOString()}={}){
+function createKmKmdCompare({database,revisions=null,clock=()=>new Date().toISOString()}={}){
  if(!database)throw Error("Нужна локальная база IR Project");
  const oid=id=>{
   const value=Number(id);
@@ -62,7 +62,8 @@ function createKmKmdCompare({database,clock=()=>new Date().toISOString()}={}){
  function fresh(id,src,kind){
   const doc=database.getEntity(id,"ai-documents",Number(src?.documentId));
   return Boolean(doc&&doc.record_type==="document"&&doc.data?.kind===kind&&
-   doc.data?.extension===".pdf"&&doc.data?.sha256===src.sha256);
+   doc.data?.extension===".pdf"&&doc.data?.sha256===src.sha256&&
+   (!revisions||revisions.isCurrent(id,{...src,kind})));
  }
  function parseValue(raw,field){
   const info=FIELDS[field];

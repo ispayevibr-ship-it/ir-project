@@ -6,7 +6,7 @@
  */
 const STATES=new Set(["requires_review","confirmed","rejected"]);
 const MARK=/^[\p{L}\p{N}][\p{L}\p{N} ._+\-/()№]*$/u;
-function createMarkQuantities({database,clock=()=>new Date().toISOString()}={}){
+function createMarkQuantities({database,revisions=null,clock=()=>new Date().toISOString()}={}){
  if(!database)throw Error("Необходимо подключение базы IR Project");
  function object(id){
   const n=Number(id);
@@ -48,7 +48,8 @@ function createMarkQuantities({database,clock=()=>new Date().toISOString()}={}){
   const d=row.data||{},src=d.source||{};
   const currentDoc=database.getEntity(oid,"ai-documents",Number(src.documentId));
   const sourceValid=Boolean(currentDoc&&currentDoc.record_type==="document"&&
-   currentDoc.data?.sha256===src.sha256&&currentDoc.data?.kind==="КМД");
+   currentDoc.data?.sha256===src.sha256&&currentDoc.data?.kind==="КМД"&&
+   (!revisions||revisions.isCurrent(oid,src)));
   return{id:row.id,mark:String(d.mark||""),cipher:String(d.cipher||""),
    secondaryCipher:String(d.secondaryCipher||""),quantity:Number.isSafeInteger(d.quantity)?d.quantity:null,
    status:STATES.has(d.status)?d.status:"requires_review",

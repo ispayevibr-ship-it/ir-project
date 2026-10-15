@@ -8,7 +8,7 @@ const {createKmdMaterials}=require("./ai-kmd-materials");
 const STATUSES=new Set(["requires_review","confirmed","rejected"]);
 const SHAPES=new Set(["plate","solid_rect","ibeam","rhs","chs"]);
 const EPS=0.01;
-function createAssemblyGeometry({database,quantities,materials,clock=()=>new Date().toISOString()}={}){
+function createAssemblyGeometry({database,quantities,materials,revisions=null,clock=()=>new Date().toISOString()}={}){
  if(!database)throw Error("Требуется база IR Project");
  quantities=quantities||createMarkQuantities({database,clock});
  materials=materials||createKmdMaterials({database,quantities,clock});
@@ -58,7 +58,8 @@ function createAssemblyGeometry({database,quantities,materials,clock=()=>new Dat
  function sourceFresh(id,source){
   const doc=database.getEntity(id,"ai-documents",Number(source?.documentId));
   return Boolean(doc&&doc.record_type==="document"&&doc.data?.kind==="КМД"&&
-   doc.data?.extension===".pdf"&&doc.data?.sha256===source?.sha256)
+   doc.data?.extension===".pdf"&&doc.data?.sha256===source?.sha256&&
+   (!revisions||revisions.isCurrent(id,source)))
  }
  function parseShape(value){
   if(!value||typeof value!=="object"||!SHAPES.has(value.type))

@@ -56,7 +56,7 @@ function massOf(value){
   throw Error("Неверная масса детали; проверьте размерность и источник");
  return kg
 }
-function createKmdMaterials({database,quantities,clock=()=>new Date().toISOString()}={}){
+function createKmdMaterials({database,quantities,revisions=null,clock=()=>new Date().toISOString()}={}){
  if(!database)throw Error("Нет базы данных IR Project");
  quantities=quantities||createMarkQuantities({database,clock});
  const object=id=>{
@@ -95,7 +95,8 @@ function createKmdMaterials({database,quantities,clock=()=>new Date().toISOStrin
  function validSource(oid,value){
   const doc=database.getEntity(oid,"ai-documents",Number(value?.documentId));
   return Boolean(doc&&doc.record_type==="document"&&doc.data?.kind==="КМД"&&
-   doc.data?.extension===".pdf"&&doc.data?.sha256===value?.sha256)
+   doc.data?.extension===".pdf"&&doc.data?.sha256===value?.sha256&&
+   (!revisions||revisions.isCurrent(oid,value)))
  }
  function decode(oid,row,known){
   const d=row.data||{},a=known.get(Number(d.assemblyId)),s=d.source||{};

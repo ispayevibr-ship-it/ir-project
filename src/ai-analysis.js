@@ -1,7 +1,7 @@
 "use strict";
 const structured=require("./ai-structured-extraction");
 /* IR Project AI: save only actual unverified results with exact source linkage. */
-function createAnalysis({database,documents,engine,pdfRenderer}){
+function createAnalysis({database,documents,engine,pdfRenderer,revisions=null}){
  if(!database||!documents||!engine)throw Error("Missing analysis dependencies");
  let busy=false;
  const object=id=>{const n=Number(id);if(!Number.isSafeInteger(n)||n<=0||!database.getObject(n))throw Error("Объект не найден");return n};
@@ -57,6 +57,8 @@ function createAnalysis({database,documents,engine,pdfRenderer}){
   busy=true;
   try{
    const input=await pdfRenderer.renderForAnalysis(id,documentId,page,region);
+   if(revisions&&!revisions.isCurrent(id,input.source))
+    throw Error("Этот лист не входит в действующий комплект КМ/КМД. Сначала утвердите корректную ревизию");
    const result=await engine.analyzeImage({buffer:input.buffer,mime:input.mime,
     prompt:"PDF лист "+input.source.page+(region?" — выделенный фрагмент":" — весь лист")+". "+structured.PROMPT});
    const extracted=parseClaims(result.raw);

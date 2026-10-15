@@ -8,7 +8,7 @@ const {createKmdMaterials}=require("./ai-kmd-materials");
 const TYPES=new Set(["hole","fastener","weld"]);
 const STATUSES=new Set(["requires_review","confirmed","rejected"]);
 const AXES=new Set(["x","y","z"]);
-function createAssemblyAttachments({database,assemblies,connections,clock=()=>new Date().toISOString()}={}){
+function createAssemblyAttachments({database,assemblies,connections,revisions=null,clock=()=>new Date().toISOString()}={}){
  if(!database)throw Error("Требуется база IR Project");
  if(!assemblies){
   const quantities=createMarkQuantities({database});
@@ -59,7 +59,8 @@ function createAssemblyAttachments({database,assemblies,connections,clock=()=>ne
  function fresh(oid,src){
   const row=database.getEntity(oid,"ai-documents",Number(src?.documentId));
   return Boolean(row&&row.record_type==="document"&&row.data?.kind==="КМД"&&
-   row.data?.extension===".pdf"&&row.data?.sha256===src?.sha256)
+   row.data?.extension===".pdf"&&row.data?.sha256===src?.sha256&&
+   (!revisions||revisions.isCurrent(oid,src)))
  }
  function record(oid,id){
   const row=database.getEntity(oid,"ai-assembly-attachments",idx(id,"ID точки"));

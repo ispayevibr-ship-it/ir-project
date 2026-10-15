@@ -3,7 +3,7 @@
    Confirmation is not quantity certification and never mutates real IR marks. */
 const STATUS=new Set(["requires_review","confirmed","rejected"]);
 const MARK_PATTERN=/^[\p{L}\p{N}][\p{L}\p{N} ._+\-/()№]*$/u;
-function createAiReview({database,clock=()=>new Date().toISOString()}={}){
+function createAiReview({database,revisions=null,clock=()=>new Date().toISOString()}={}){
  if(!database)throw Error("AI review requires database");
  function object(id){
   const n=Number(id);
@@ -52,7 +52,9 @@ function createAiReview({database,clock=()=>new Date().toISOString()}={}){
     region:x.data?.source?.region??null,
     sourceRectPt:x.data?.source?.sourceRectPt??null,
     sourceRegion:String(x.data?.sourceRegion||""),
-    status:statusFor(x.data),revision:Number(x.data?.review?.revision)||0,
+    status:revisions&&x.data?.source?.page&&!revisions.isCurrent(oid,x.data?.source)?"requires_review":statusFor(x.data),
+    sourceValid:!revisions||!x.data?.source?.page||revisions.isCurrent(oid,x.data?.source),
+    revision:Number(x.data?.review?.revision)||0,
     reviewedAt:x.data?.review?.reviewedAt||null,
     reviewedBy:x.data?.review?.reviewedBy||null,
     comment:String(x.data?.review?.comment||""),
@@ -71,6 +73,8 @@ function createAiReview({database,clock=()=>new Date().toISOString()}={}){
   const previous=row.data?.review||{},revision=Number(previous.revision)||0;
   if(!Number.isSafeInteger(command.expectedRevision)||command.expectedRevision!==revision)
    throw Error("Результат изменился в другом окне. Обновите страницу перед сохранением");
+  if(command.status==="confirmed"&&revisions&&row.data?.source?.page&&!revisions.isCurrent(oid,row.data?.source))
+   throw Error("Этот лист больше не входит в действующий комплект КМ/КМД");
   const updatedMarks=markList(command.marks);
   if(command.status==="confirmed"&&!updatedMarks.length)
    throw Error("Чтобы подтвердить анализ, укажите хотя бы одну проверенную марку");

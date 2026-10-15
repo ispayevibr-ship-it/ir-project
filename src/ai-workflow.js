@@ -3,7 +3,7 @@
  * Queue is local SQLite, never auto-runs at app start or downloads models.
  * AI results are only proposals: production databases stay untouched.
  */
-function createAiWorkflow({database,documents,pdfIndex,analysis,reviews,engine,onProgress=()=>{},clock=()=>new Date().toISOString()}={}){
+function createAiWorkflow({database,documents,pdfIndex,analysis,reviews,engine,revisions=null,onProgress=()=>{},clock=()=>new Date().toISOString()}={}){
  if(!database||!documents||!pdfIndex||!analysis||!reviews||!engine)
   throw Error("Для очереди IR Project AI нужны документы, PDF, локальная модель и журнал проверок");
  const running=new Map(),stopping=new Set();
@@ -12,7 +12,8 @@ function createAiWorkflow({database,documents,pdfIndex,analysis,reviews,engine,o
  const number=(val,name)=>{const n=Number(val);if(val==null||val===""||!Number.isSafeInteger(n)||n<1)throw Error("Некорректный "+name);return n};
  const rows=oid=>database.listEntity(oid,SECTION).filter(x=>x.record_type==="sheet_task");
  const docs=oid=>new Map(documents.list(oid).map(x=>[x.id,x]));
- const sourceOk=(row,doc)=>Boolean(doc&&doc.exists&&doc.ext===".pdf"&&doc.sha256===row.data?.source?.sha256);
+ const sourceOk=(row,doc)=>Boolean(doc&&doc.exists&&doc.ext===".pdf"&&doc.sha256===row.data?.source?.sha256&&
+  (!revisions||revisions.isCurrent(row.object_id,{...row.data.source,page:row.data.page})));
  function progress(oid){try{onProgress({objectId:oid,at:clock()})}catch{}}
  function publicRow(row,documentMap,reviewMap){
   const d=row.data||{},source=d.source||{},doc=documentMap.get(source.documentId);
@@ -88,6 +89,8 @@ function createAiWorkflow({database,documents,pdfIndex,analysis,reviews,engine,o
   if(wanted.size!==pages.length)throw Error("Один лист нельзя добавить дважды");
   const index=pdfIndex.list(oid).find(x=>x.documentId===docId&&x.sourceSha256===doc.sha256);
   if(!index)throw Error("Сначала выполните индексацию данного PDF, затем выберите листы");
+  if(revisions)for(const page of wanted){if(!revisions.isCurrent(oid,{documentId:docId,sha256:doc.sha256,kind:doc.kind,page}))
+   throw Error("Лист "+page+" не входит в действующую редакцию комплекта "+doc.kind)}
   const validPages=new Set(index.pages.map(p=>p.page));
   for(const page of wanted)if(!validPages.has(page))throw Error("Лист "+page+" отсутствует в индексе исходного PDF");
   const tasks=rows(oid);

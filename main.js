@@ -1,7 +1,7 @@
 "use strict";
 const {app,BrowserWindow,ipcMain,dialog,Menu,protocol,shell}=require("electron");
 const path=require("path"),crypto=require("crypto"),fs=require("fs");
-const database=require("./src/database"),aiDocumentStore=require("./src/ai-document-store"),aiLocalEngine=require("./src/ai-local-engine"),aiAnalysis=require("./src/ai-analysis"),aiReview=require("./src/ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiKmdMaterials=require("./src/ai-kmd-materials"),aiKmdConnections=require("./src/ai-kmd-connections"),aiKmKmdCompare=require("./src/ai-km-kmd-compare"),aiAssemblyGeometry=require("./src/ai-assembly-geometry"),aiAssemblyAttachments=require("./src/ai-assembly-attachments"),aiWorkflow=require("./src/ai-workflow"),aiStructuredReview=require("./src/ai-structured-review"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),aiModelManager=require("./src/ai-model-manager"),aiRuntimeDiagnostics=require("./src/ai-runtime-diagnostics"),backup=require("./src/backup"),updates=require("./src/updater"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
+const database=require("./src/database"),aiDocumentStore=require("./src/ai-document-store"),aiLocalEngine=require("./src/ai-local-engine"),aiAnalysis=require("./src/ai-analysis"),aiReview=require("./src/ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiKmdMaterials=require("./src/ai-kmd-materials"),aiKmdConnections=require("./src/ai-kmd-connections"),aiKmKmdCompare=require("./src/ai-km-kmd-compare"),aiAssemblyGeometry=require("./src/ai-assembly-geometry"),aiAssemblyAttachments=require("./src/ai-assembly-attachments"),aiWorkflow=require("./src/ai-workflow"),aiStructuredReview=require("./src/ai-structured-review"),aiDrawingRevisions=require("./src/ai-drawing-revisions"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),aiModelManager=require("./src/ai-model-manager"),aiRuntimeDiagnostics=require("./src/ai-runtime-diagnostics"),backup=require("./src/backup"),updates=require("./src/updater"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
 let win;
 const aiDocuments=aiDocumentStore.createStore({getUserDataPath:()=>app.getPath("userData"),dialog,shell,database,getWindow:()=>win});
 let aiModels;
@@ -24,16 +24,20 @@ function checkModelAdmin(event){
  const expires=modelAdminSessions.get(event.sender.id)||0;
  if(Date.now()>expires){modelAdminSessions.delete(event.sender.id);throw Error("Для установки моделей требуется подтверждённая сессия администратора")}
 }
+const aiPdf=aiPdfIndex.createPdfIndex({database,documents:aiDocuments,
+ onProgress:payload=>{if(win&&!win.isDestroyed())win.webContents.send("ai-pdf:progress",payload)}
+});
+const aiRevisions=aiDrawingRevisions.createDrawingRevisions({database,documents:aiDocuments,pdfIndex:aiPdf});
 const aiRaster=aiPdfRenderer.createPdfRenderer({database,documents:aiDocuments});
-const aiResults=aiAnalysis.createAnalysis({database,documents:aiDocuments,engine:aiEngine,pdfRenderer:aiRaster});
-const aiReviews=aiReview.createAiReview({database});
-const aiProposals=aiStructuredReview.createStructuredReviews({database,documents:aiDocuments});
-const aiQuantities=aiMarkQuantities.createMarkQuantities({database});
-const aiMaterials=aiKmdMaterials.createKmdMaterials({database,quantities:aiQuantities});
-const aiConnections=aiKmdConnections.createKmdConnections({database,quantities:aiQuantities});
-const aiComparisons=aiKmKmdCompare.createKmKmdCompare({database});
-const aiAssemblies=aiAssemblyGeometry.createAssemblyGeometry({database,quantities:aiQuantities,materials:aiMaterials});
-const aiAttachments=aiAssemblyAttachments.createAssemblyAttachments({database,assemblies:aiAssemblies,connections:aiConnections});
+const aiResults=aiAnalysis.createAnalysis({database,documents:aiDocuments,engine:aiEngine,pdfRenderer:aiRaster,revisions:aiRevisions});
+const aiReviews=aiReview.createAiReview({database,revisions:aiRevisions});
+const aiProposals=aiStructuredReview.createStructuredReviews({database,documents:aiDocuments,revisions:aiRevisions});
+const aiQuantities=aiMarkQuantities.createMarkQuantities({database,revisions:aiRevisions});
+const aiMaterials=aiKmdMaterials.createKmdMaterials({database,quantities:aiQuantities,revisions:aiRevisions});
+const aiConnections=aiKmdConnections.createKmdConnections({database,quantities:aiQuantities,revisions:aiRevisions});
+const aiComparisons=aiKmKmdCompare.createKmKmdCompare({database,revisions:aiRevisions});
+const aiAssemblies=aiAssemblyGeometry.createAssemblyGeometry({database,quantities:aiQuantities,materials:aiMaterials,revisions:aiRevisions});
+const aiAttachments=aiAssemblyAttachments.createAssemblyAttachments({database,assemblies:aiAssemblies,connections:aiConnections,revisions:aiRevisions});
 const aiReviewSessions=new Map();
 function authorizeAiReview(e,role,password){
  if(!["admin","engineer"].includes(role))return false;
@@ -54,11 +58,8 @@ function requireAiReviewer(e){
  }
  return session
 }
-const aiPdf=aiPdfIndex.createPdfIndex({database,documents:aiDocuments,
- onProgress:payload=>{if(win&&!win.isDestroyed())win.webContents.send("ai-pdf:progress",payload)}
-});
 const aiQueue=aiWorkflow.createAiWorkflow({database,documents:aiDocuments,pdfIndex:aiPdf,
- analysis:aiResults,reviews:aiReviews,engine:aiEngine,
+ analysis:aiResults,reviews:aiReviews,engine:aiEngine,revisions:aiRevisions,
  onProgress:payload=>{if(win&&!win.isDestroyed())win.webContents.send("ai-workflow:progress",payload)}
 });
 const dbPath=()=>path.join(app.getPath("userData"),"ir-project.db");
@@ -135,6 +136,18 @@ function registerAiDocuments(){
   aiQueue.retry(objectId,id,requireAiReviewer(e)));
  ipcMain.handle("ai-workflow:cancel",(e,{objectId,id})=>
   aiQueue.cancel(objectId,id,requireAiReviewer(e)));
+ ipcMain.handle("ai-revisions:list",(_e,objectId)=>aiRevisions.list(objectId));
+ ipcMain.handle("ai-revisions:impact",(_e,objectId)=>aiRevisions.impact(objectId));
+ ipcMain.handle("ai-revisions:preview",(_e,{objectId,setId})=>aiRevisions.previewActivation(objectId,setId));
+ ipcMain.handle("ai-revisions:history",(_e,{objectId,setId})=>aiRevisions.history(objectId,setId));
+ ipcMain.handle("ai-revisions:create",(e,{objectId,entry})=>
+  aiRevisions.createSet(objectId,entry,requireAiReviewer(e)));
+ ipcMain.handle("ai-revisions:add-sheets",(e,{objectId,setId,entries})=>
+  aiRevisions.addSheets(objectId,setId,entries,requireAiReviewer(e)));
+ ipcMain.handle("ai-revisions:remove-sheet",(e,{objectId,setId,sheetId})=>
+  aiRevisions.removeSheet(objectId,setId,sheetId,requireAiReviewer(e)));
+ ipcMain.handle("ai-revisions:activate",(e,{objectId,setId,expectedRevision})=>
+  aiRevisions.activate(objectId,setId,expectedRevision,requireAiReviewer(e)));
  ipcMain.handle("ai-proposals:list",(_e,objectId)=>aiProposals.list(objectId));
  ipcMain.handle("ai-proposals:summary",(_e,objectId)=>aiProposals.summary(objectId));
  ipcMain.handle("ai-proposals:history",(_e,{objectId,analysisId,index})=>
