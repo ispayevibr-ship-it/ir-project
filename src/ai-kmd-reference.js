@@ -84,7 +84,8 @@ function createKmdReference({database,revisions,quantities,materials,connections
   if(!active||Number(d.setId)!==active.set.id)return false;
   const page=lookup?lookup.get(Number(d.sheetId)):
    active.sheets.find(s=>s.id===Number(d.sheetId));
-  if(!page||!page.valid||page.documentId!==d.source?.documentId||
+  if(!page||!page.valid||page.kind!=="КМД"||d.source?.kind!=="КМД"||
+   page.documentId!==d.source?.documentId||
    page.page!==d.source?.page||page.sha256!==d.source?.sha256)return false;
   const sourceKey=page.documentId+":"+page.page+":"+page.sha256;
   if(memo?.has(sourceKey))return memo.get(sourceKey);
@@ -104,6 +105,22 @@ function createKmdReference({database,revisions,quantities,materials,connections
   position:d.position||"",jointCode:d.jointCode||"",scope:d.scope||"",
   category:d.category||"",kind:d.kind||""
  });
+ // Stored rows can predate this schema or be damaged. Never infer approval
+ // from status alone when the physical KMD identity is incomplete/invalid.
+ const identityValid=d=>{
+  if(!TYPES.has(d.type)||typeof d.mark!=="string"||!d.mark.trim()||
+   typeof d.cipher!=="string"||typeof d.secondaryCipher!=="string")return false;
+  if(d.type==="part")
+   return typeof d.position==="string"&&Boolean(d.position.trim());
+  if(d.type==="joint"||d.type==="component"){
+   if(!SCOPES.has(d.scope)||typeof d.jointCode!=="string"||
+    !d.jointCode.trim())return false;
+   if(d.type==="component")
+    return CATEGORIES.has(d.category)&&typeof d.kind==="string"&&Boolean(d.kind.trim())&&
+     typeof d.position==="string"&&Boolean(d.position.trim());
+  }
+  return true
+ };
  const audit=(o,action,referenceId,previous,current,by)=>{
   const entry=database.createEntity(o,HISTORY,{
    record_type:"reference_change",parent_id:referenceId||null,
@@ -119,7 +136,8 @@ function createKmdReference({database,revisions,quantities,materials,connections
    const d=x.data||{},sourceCurrent=eligible(o,d,active,bySheet,fresh);
    // Legacy/corrupted rows cannot become verified solely by having a
    // "confirmed" status flag. Keep them visible for engineering repair.
-   const verificationValid=Number.isSafeInteger(d.quantity)&&d.quantity>0&&
+   const verificationValid=identityValid(d)&&
+    Number.isSafeInteger(d.quantity)&&d.quantity>0&&
     Number.isSafeInteger(d.revision)&&d.revision>0&&
     ["admin","engineer"].includes(d.reviewedBy)&&
     typeof d.sourcePosition==="string"&&Boolean(d.sourcePosition.trim())&&
