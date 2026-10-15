@@ -263,11 +263,17 @@ function createAiIntegrity({database,documents,pdfIndex,revisions,review,workflo
     finding.tab,finding.count,finding.examples);
   }
   const referenceReport=reference?safe("kmd_reference",()=>reference.compare(objectId),null):null;
+  metrics.referencePositions=null;
+  metrics.referenceSheetsReviewed=null;
+  metrics.referenceSheetsTotal=null;
   if(referenceReport){
    metrics.referencePositions=referenceReport.activeReferencePositions;
    metrics.referenceSheetsReviewed=referenceReport.reviewedSheets;
    metrics.referenceSheetsTotal=referenceReport.sheetCount;
    const missingSheets=referenceReport.sheets.filter(x=>!x.checked);
+   note("warning","kmd_reference_missing_set","Нет действующего эталонного комплекта КМД",
+    "Для проверки состава КМД требуется активный комплект с исходными листами. Отсутствие листов не означает завершения сверки.",
+    "reference",referenceReport.setId==null&&docs.some(d=>d.kind==="КМД")?1:0);
    note("warning","kmd_reference_sheets_pending","Листы КМД без полной инженерной сверки",
     "Эталон ещё не охватывает весь действующий комплект КМД; подтверждение полноты запрещено.",
     "reference",missingSheets.length,sample(missingSheets,x=>x.sheetCode+" · лист "+x.page));
@@ -297,7 +303,7 @@ function createAiIntegrity({database,documents,pdfIndex,revisions,review,workflo
    {label:"Детали",tab:"metal",count:metrics.steelPositions},
    {label:"Узлы и крепёж",tab:"fasteners",count:metrics.connections+metrics.hardwareRows},
    {label:"3D-детали",tab:"assembly",count:metrics.confirmed3dDetails},
-   {label:"Эталон КМД",tab:"reference",count:metrics.referencePositions||0});
+   {label:"Эталон КМД",tab:"reference",count:metrics.referencePositions});
   return{objectId,generatedAt:clock(),metrics,stages:stageStats,issues,bySeverity,
    coverage:evidenceCoverage,reference:referenceReport,
    checksWithFindings:issues.length,releaseCertified:false,

@@ -71,7 +71,7 @@ window.irAiIntegrityPage={
     '<button type="button" data-integrity-refresh>Обновить диагностику</button></div>'+
    '<div class="ir-ai-integrity-stages">'+(x.stages||[]).map(k=>
     '<button type="button" data-integrity-nav="'+esc(k.tab)+'"><span>'+esc(k.label)+
-     '</span><b>'+Number(k.count||0).toLocaleString("ru-RU")+'</b></button>').join("")+'</div>'+
+     '</span><b>'+(k.count==null?"—":number(k.count))+'</b></button>').join("")+'</div>'+
    coverageHtml+
    '<div class="ir-ai-integrity-actions"><div><b>Выявленные вопросы</b><small>Выберите категорию</small></div>'+
     '<select data-integrity-filter aria-label="Фильтр замечаний">'+
