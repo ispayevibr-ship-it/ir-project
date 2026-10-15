@@ -2090,8 +2090,38 @@ window.irSchemePage=async function(objectId){
     selected:selectedId,
     maxZ:members.reduce((m,c)=>Math.max(m,num(c.z0),num(c.z2),num(c.mz)),0),
     colorMode:schemeColorMode,
+    canEdit:Boolean(canEdit()&&activeWorkId),isFullscreen:previewFullscreen,
     onColorModeChange:next=>{schemeColorMode=next},
     onSelect:id=>{selectedId=id;renderDetails()},
+    onAdd:()=>{if(canEdit()&&activeWorkId)openEditor()},
+    onEdit:id=>{
+     if(!canEdit())return;
+     const record=allRecords().find(r=>String(r.id)===String(id));
+     if(record)openEditor({...record,...coord(record)})
+    },
+    onCopyPosition:id=>{
+     if(!canEdit())return;
+     const record=allRecords().find(r=>String(r.id)===String(id));
+     if(record)openEditor({...record,...coord(record)},true)
+    },
+    onCopyPlacement:(id,target)=>copySchemeMember(id,target),
+    onCopied:id=>{selectedId=String(id||"");refreshAfterMemberChange()},
+    onDelete:async id=>{
+     if(!canEdit())return;
+     const record=allRecords().find(r=>String(r.id)===String(id));
+     if(!record)return;
+     const name=String(record.mark||record.title||"").trim();
+     if(!confirm("Удалить элемент "+(name?"«"+name+"» ":"")+"со схемы?")){
+      restoreKeyboardAfterConfirm();return
+     }
+     restoreKeyboardAfterConfirm();
+     try{
+      await schemeApi.remove(id);
+      rows=await schemeApi.list().catch(()=>rows.filter(r=>String(r.id)!==String(id)));
+      selectedId="";draw();restoreKeyboardAfterConfirm()
+     }catch(error){alert("Не удалось удалить элемент: "+String(error?.message||error))}
+    },
+    onFullscreen:()=>previewFullscreen?leaveSchemeFullscreen():enterSchemeFullscreen(),
     onFirstPaint:()=>loading.done()
    });return
   }

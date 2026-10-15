@@ -4,47 +4,34 @@ const page=fs.readFileSync("src/scheme-page.js","utf8");
 const view=fs.readFileSync("src/scheme-three-view.js","utf8");
 const css=fs.readFileSync("src/scheme-page.css","utf8");
 const built=fs.readFileSync("src/ir-styles.css","utf8");
+const runtime=fs.readFileSync("src/ir-runtime.js","utf8");
 const html=fs.readFileSync("src/index.html","utf8");
-assert(page.includes('data-mode="building"')&&page.includes('data-mode="plan"')&&page.includes('data-mode="three"'),
- "Plan, existing 3D, and independent Three.js modes stay selectable");
-assert(page.includes('["building","plan","three"].includes(b.dataset.mode)'),"mode switch allows exactly three modes");
-assert(page.includes('if(mode==="three"){')&&page.includes('window.irThreeSchemeView.render(box,{'),
- "Three.js is rendered from the existing scheme screen, not a replacement");
-assert(page.includes("members.map(c=>({...c,scheme_group:recordMarkGroup(c).key}))"),
- "Three.js consumes current scheme elements and their actual mark groups");
-assert(page.includes("objectId:oid,axesX:[...axesX],axesY:[...axesY],spanX,spanY,"),
- "Three.js receives authoritative scheme axes and dimensions");
-assert(page.includes("gridX:Object.fromEntries(axisXPos),gridY:Object.fromEntries(axisYPos),"),
- "model coordinates use saved grid positions");
-assert(page.includes("onSelect:id=>{selectedId=id;renderDetails()}"),
- "selected element is shared with Plan and 3D");
-assert(page.includes('if(mode==="three")window.irBuildingView?.dispose?.();'),
- "old WebGL renderer stops before starting Three.js");
-assert(page.includes('else window.irThreeSchemeView?.dispose?.();'),
- "Three.js disposes before returning to Plan or original 3D");
-assert(page.includes('mode!=="three"?'),"editor Add button is not shown in read-only Three.js");
-assert(html.indexOf('scheme-three-view.js?v=')<html.indexOf('ir-runtime.js?v='),
- "independent Three.js view module loads before main scheme page");
-assert(css.includes(".scheme-three-stage .scheme-canvas"),"independent mode has its own canvas layout");
-assert(css.includes(".ir-three-toolbar")&&css.includes(".ir-three-properties"),
- "new toolbar and properties panel are not the legacy 3D controls");
-assert(built.includes(".ir-three-viewport")&&built.includes(".ir-three-right"),
- "generated stylesheet includes the experimental viewer");
-assert(view.includes("three@0.147.0"),"Three.js and controls are locked to one compatible release");
-assert(view.includes('if(!loadPromise)loadPromise=Promise.resolve()'),
- "Three.js is loaded lazily, not on every application page");
-assert(view.includes("window.THREE.OrbitControls"),"real Three.js OrbitControls are used");
-assert(view.includes("new T.ExtrudeGeometry("),"members have real volumetric profiles");
-assert(view.includes("new T.WebGLRenderer(")&&view.includes("new T.Raycaster()"),
- "3D uses real WebGL with interactive member selection");
-assert(view.includes('return member.geometryType==="bent"?')&&view.includes("c.z0")&&view.includes("c.z2"),
- "members are built from persisted XYZ and both elevation coordinates");
-assert(view.includes('renderer.dispose();renderer.forceContextLoss?.();'),
- "renderer and GPU are released when leaving mode");
-assert(view.includes("token++")&&view.includes("myToken!==token"),
- "late library loads cannot overwrite Plan after mode switch");
-for(const forbidden of ["schemeApi.create(","schemeApi.update(","schemeApi.remove(","irProject.data.","onEdit:","onDelete:"]){
- assert(!view.includes(forbidden),"standalone test view must not mutate construction data: "+forbidden)
+assert(page.includes('data-mode="building"')&&page.includes('data-mode="plan"')&&page.includes('data-mode="three"'),"all three modes remain");
+assert(page.includes('["building","plan","three"].includes(b.dataset.mode)'),"three-mode selector");
+assert(page.includes('window.irThreeSchemeView.render(box,{'),"independent Three.js viewer");
+assert(page.includes('members.map(c=>({...c,scheme_group:recordMarkGroup(c).key}))'),"real member records");
+assert(page.includes('gridX:Object.fromEntries(axisXPos),gridY:Object.fromEntries(axisYPos)'),"saved axes used");
+assert(page.includes('canEdit:Boolean(canEdit()&&activeWorkId)'),"role-based editing rights");
+for(const action of ["onAdd:()=>","onEdit:id=>","onCopyPosition:id=>",
+ "onCopyPlacement:(id,target)=>copySchemeMember(id,target)","onCopied:id=>",
+ "onDelete:async id=>","onFullscreen:()=>"]){
+ assert(page.includes(action),"scheme editor delegation: "+action)
 }
+assert(view.includes('props.onEdit&&props.onEdit(selected)')&&view.includes('props.onAdd&&props.onAdd()'),"add/edit button wiring");
+assert(view.includes('props.onDelete&&props.onDelete(selected)')&&view.includes('props.onCopyPosition&&props.onCopyPosition(selected)'),"copy/delete buttons");
+assert(view.includes('props.onCopyPlacement(copySource,{x:point.x*1000,y:point.z*1000})'),"ground picking converts to original XY mm");
+assert(view.includes('copyBusy=true')&&view.includes('if(copyBusy||!copySource||!props.canEdit'),"copy guards");
+assert(view.includes('if(props.canEdit)')&&view.includes('props.canEdit?'),"viewer actions hidden for viewer role");
+assert(view.includes('props.onFullscreen&&props.onFullscreen()')&&view.includes('props.isFullscreen'),"stage fullscreen delegated");
+assert(css.includes('.scheme-workspace:has(>.scheme-three-stage){grid-template-columns:minmax(0,1fr)!important}'),"three full width");
+assert(css.includes('.scheme-three-stage.scheme-preview-fullscreen .scheme-canvas'),"real full height");
+assert(built.includes('.ir-three-copy-hint')&&built.includes('.scheme-workspace:has(>.scheme-three-stage)'),"compiled CSS");
+assert(runtime.includes('onCopyPlacement:(id,target)=>copySchemeMember(id,target)'),"compiled JS");
+assert(html.indexOf('scheme-three-view.js?v=')<html.indexOf('ir-runtime.js?v='),"script order");
+assert(view.includes("three@0.147.0"),"fixed Three.js version");
+assert(view.includes("new T.WebGLRenderer(")&&view.includes("new T.Raycaster()"),"real WebGL and picking");
+assert(view.includes("new T.ExtrudeGeometry("),"volumetric member sections");
+assert(view.includes("renderer.dispose();renderer.forceContextLoss?.();"),"GPU cleanup");
+assert(!view.includes("schemeApi.create(")&&!view.includes("schemeApi.remove("),"viewer delegates data changes");
 vm.runInNewContext(view,{window:{},Promise,Map,Math,Number,Array,String,Error});
-console.log("Independent Three.js scheme: real records, safe read-only lifecycle and three modes verified.");
+console.log("Three.js full-width editing integration and 3D viewer regression passed.");

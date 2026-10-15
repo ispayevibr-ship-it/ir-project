@@ -1594,6 +1594,52 @@ body.ir-delivery-form-route .delivery-form-page *{box-sizing:border-box}
  .scheme-three-stage .scheme-canvas>.ir-three-root{height:640px}
 }
 
+/* 1.7.206: independent Three.js full-width workspace and responsive fullscreen. */
+.scheme-workspace:has(>.scheme-three-stage){grid-template-columns:minmax(0,1fr)!important}
+.scheme-workspace:has(>.scheme-three-stage)>.scheme-details{display:none!important}
+.scheme-workspace>.scheme-three-stage{width:100%;max-width:100%;min-width:0;min-height:0}
+.scheme-three-stage .scheme-canvas{width:100%;height:clamp(680px,calc(100dvh - 290px),1060px);min-height:680px}
+.scheme-three-stage .scheme-canvas>.ir-three-root{width:100%;height:100%;min-height:0}
+.scheme-three-stage.scheme-preview-fullscreen .scheme-canvas{height:100%;min-height:0;max-height:none}
+.scheme-three-stage.scheme-preview-fullscreen .scheme-canvas>.ir-three-root{height:100%;min-height:0}
+.ir-three-root{background:#dbe6f1;color:#1f354b}
+.ir-three-toolbar{display:flex;flex-wrap:nowrap;justify-content:flex-end;gap:7px;
+ min-height:52px;padding:8px 10px;box-shadow:0 4px 12px #1a416127;background:#fffffff9}
+.ir-three-toolbar>strong{flex:1 1 auto;min-width:115px;font-size:12px}
+.ir-three-toolbar button,.ir-three-toolbar select{flex-shrink:0;min-height:33px;font-size:11px}
+.ir-three-toolbar .ir-three-add{color:#fff;background:#1769d0;border-color:#1769d0;font-weight:800}
+.ir-three-toolbar .ir-three-add:hover{color:#fff;background:#1154ae;border-color:#1154ae}
+.ir-three-left,.ir-three-right{top:76px;background:#fffffffa;border:1px solid #cad9e8;
+ box-shadow:0 6px 19px #1b3e6130}
+.ir-three-left{width:220px}
+.ir-three-right{width:268px}
+.ir-three-edit-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:12px}
+.ir-three-edit-actions button{min-height:34px;padding:6px 7px;border:1px solid #a9c6df;
+ border-radius:7px;background:#ebf5ff;color:#185486;font-size:10px;font-weight:750;cursor:pointer}
+.ir-three-edit-actions .ir-three-delete{color:#b33743;border-color:#ecc0c4;background:#fff3f3}
+.ir-three-edit-actions button:hover{filter:brightness(.95)}
+.ir-three-copy-hint{position:absolute;z-index:9;left:50%;top:82px;transform:translateX(-50%);
+ display:flex;align-items:center;gap:10px;max-width:calc(100% - 500px);padding:9px 13px;
+ border:1px solid #2673be;border-radius:9px;background:#fff;color:#164f7e;
+ box-shadow:0 7px 20px #173c5940;font-size:11px;font-weight:700}
+.ir-three-copy-hint button{padding:6px 10px;border:1px solid #93b9db;border-radius:6px;
+ background:#f1f7ff;color:#195a95;cursor:pointer}
+.ir-three-copy-hint[hidden]{display:none}
+.ir-three-viewport.copy-target canvas{cursor:crosshair!important}
+.ir-three-action-error{padding:8px 10px;margin-top:8px;border:1px solid #eab5b5;border-radius:7px;
+ background:#fff3f3;color:#a63232;font-size:10px;line-height:1.5}
+@media(max-width:1100px){
+ .ir-three-toolbar{flex-wrap:wrap}
+ .ir-three-toolbar>strong{flex-basis:100%}
+ .ir-three-left,.ir-three-right{top:116px}
+ .ir-three-copy-hint{top:125px;max-width:calc(100% - 30px)}
+}
+@media(max-width:760px){
+ .ir-three-left,.ir-three-right{top:auto;bottom:44px}
+ .scheme-three-stage .scheme-canvas{height:680px}
+ .scheme-three-stage.scheme-preview-fullscreen .scheme-canvas{height:100%;min-height:0}
+}
+
 
 /* #40: src/section-action-buttons.css */
 .acted-actions,.penalty-actions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:10px!important}.acted-actions button,.penalty-actions button{display:flex!important;align-items:center!important;justify-content:center!important;width:36px!important;height:36px!important;min-width:36px!important;padding:7px!important;border:1px solid #d9e2e8!important;border-radius:7px!important;background:#fff!important;color:#2598c7!important;font-size:0!important;line-height:0!important;cursor:pointer!important;box-shadow:none!important}.acted-actions button:hover,.penalty-actions button:hover{background:#f2f8fb!important;border-color:#b9d5e3!important}.acted-actions button svg,.penalty-actions button svg{display:block!important;width:18px!important;height:18px!important;fill:none!important;stroke:currentColor!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important}.acted-actions .acted-delete,.penalty-actions .penalty-delete{color:#d76969!important}.acted-actions .acted-delete:hover,.penalty-actions .penalty-delete:hover{background:#fff4f4!important;border-color:#efc7c7!important}

@@ -1,6 +1,5 @@
 "use strict";
-/* IR Project experimental Three.js viewer. Read-only: never writes to project data.
-   Rendering uses persisted scheme element coordinates, not demonstration members. */
+/* IR Project independent Three.js viewer. All edits delegate to the existing scheme editor and quota validation. */
 window.irThreeSchemeView=(function(){
  var token=0,active=null,loadPromise=null;
  var sources=[
@@ -42,10 +41,10 @@ window.irThreeSchemeView=(function(){
   return status==="mounted"?"Смонтировано":status==="partial"?"Частично смонтировано":"Не смонтировано"
  }
  var groups={
-  columns:["Колонны",0x4c81ca],fahwerk:["Фахверки",0x9564ba],girders:["Ригели",0xdb8d47],
-  beams:["Балки",0x258f82],purlins:["Прогоны",0x26a0b4],ties:["Связи",0xc58e4e],
-  spacers:["Распорки",0xc88456],posts:["Стойки",0xa39c44],trusses:["Фермы",0x9d71b7],
-  stairs:["Лестницы",0x8896b2],other:["Прочее",0x8496a8]
+  columns:["Колонны",0x2563eb],fahwerk:["Фахверки",0x8b40de],girders:["Ригели",0xf07818],
+  beams:["Балки",0x008c86],purlins:["Прогоны",0x009fce],ties:["Связи",0xdd9b13],
+  spacers:["Распорки",0xcf5b32],posts:["Стойки",0x87951e],trusses:["Фермы",0x994bdb],
+  stairs:["Лестницы",0x526dbe],other:["Прочее",0x586e84]
  };
  function kind(member){
   var key=String(member.scheme_group||member.schemeGroup||"").toLowerCase();
@@ -116,7 +115,7 @@ window.irThreeSchemeView=(function(){
   var T=window.THREE,elems=Array.isArray(props.elements)?props.elements:[],X=number(props.spanX)/1000,Y=number(props.spanY)/1000;
   var axesX=props.axesX||[],axesY=props.axesY||[],gridX=props.gridX||{},gridY=props.gridY||{};
   var selected=String(props.selected||""),colorMode=["status","type","mark"].includes(props.colorMode)?props.colorMode:"type",statusMode="all",layerEnabled={},
-   showAxes=true,showGrid=true,hover="",alive=true,raf=0,clicked=null,firstPaint=false;
+   showAxes=true,showGrid=true,hover="",alive=true,raf=0,firstPaint=false,copySource="",copyBusy=false;
   host.innerHTML='<div class="ir-three-root">'+
    '<div class="ir-three-toolbar"><strong>Three.js · тестовая схема</strong>'+
    '<div class="ir-three-views">'+
@@ -124,7 +123,10 @@ window.irThreeSchemeView=(function(){
    '<button data-three-view="front">Фасад</button><button data-three-view="side">Сбоку</button></div>'+
    '<select id="irThreeColors" aria-label="Раскраска конструкции">'+
    '<option value="type">Цвет: виды</option><option value="status">Цвет: монтаж</option><option value="mark">Цвет: марки</option></select>'+
-   '<button id="irThreeReset">Сбросить ракурс</button></div>'+
+   '<button id="irThreeReset">Сбросить ракурс</button>'+
+   (props.canEdit?'<button class="ir-three-add" id="irThreeAdd">＋ Добавить элемент</button>':"")+
+   '<button id="irThreeFullscreen">'+(props.isFullscreen?"✕ Закрыть":"⛶ На весь экран")+'</button></div>'+
+   '<div id="irThreeCopyHint" class="ir-three-copy-hint" hidden>Щёлкните новое начало конструкции на плоскости X/Y. <button id="irThreeCancelCopy" type="button">Отмена</button></div>'+
    '<div class="ir-three-viewport" id="irThreeViewport" role="img" aria-label="Интерактивная Three.js модель металлического каркаса"></div>'+
    '<div class="ir-three-axis-layer" id="irThreeAxisLayer" aria-hidden="true"></div>'+
    '<aside class="ir-three-left"><div class="ir-three-side-title">Конструкции <small id="irThreeCount"></small></div>'+
@@ -137,26 +139,26 @@ window.irThreeSchemeView=(function(){
    '<label class="ir-three-check"><input type="checkbox" id="irThreeAxes" checked> Подписи осей</label>'+
    '<p class="ir-three-hint">Левая кнопка — вращение, правая — сдвиг, колесо — масштаб. Нажмите на конструкцию для просмотра марки.</p>'+
    '</aside><aside class="ir-three-right" id="irThreeDetails"></aside>'+
-   '<div class="ir-three-footer">Просмотр по данным IR Project · геометрия профилей схематичная · редактирование выполняется в Плане или Общем 3D</div></div>';
+   '<div class="ir-three-footer">Монтажная схема IR Project · схематичные объёмные профили · единая база с Планом и Общим 3D</div></div>';
   var root=host.querySelector(".ir-three-root"),viewport=root.querySelector("#irThreeViewport"),
    details=root.querySelector("#irThreeDetails"),axisLayer=root.querySelector("#irThreeAxisLayer");
-  var scene=new T.Scene();scene.background=new T.Color(0xf0f5fa);
+  var scene=new T.Scene();scene.background=new T.Color(0xdfe8f3);
   var camera=new T.PerspectiveCamera(42,1,.08,3000);
   var renderer=new T.WebGLRenderer({antialias:true,powerPreference:"high-performance"});
   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));renderer.outputEncoding=T.sRGBEncoding;
-  renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.28;
+  renderer.toneMapping=T.NoToneMapping;renderer.toneMappingExposure=1;
   viewport.appendChild(renderer.domElement);
-  scene.add(new T.HemisphereLight(0xe8f4ff,0x839bb5,1.9));
-  var sun=new T.DirectionalLight(0xffffff,2.1);sun.position.set(-35,72,48);scene.add(sun);
-  var ambient=new T.DirectionalLight(0xc8dfff,.7);ambient.position.set(45,26,-38);scene.add(ambient);
+  scene.add(new T.HemisphereLight(0xffffff,0x7a94b3,.95));
+  var sun=new T.DirectionalLight(0xffffff,1.05);sun.position.set(-35,72,48);scene.add(sun);
+  var ambient=new T.DirectionalLight(0xc8dfff,.35);ambient.position.set(45,26,-38);scene.add(ambient);
   var steel=new T.Group();scene.add(steel);
   var ground=new T.Group();scene.add(ground);
   var floor=new T.Mesh(new T.PlaneGeometry(Math.max(X+16,24),Math.max(Y+16,24)),
-   new T.MeshStandardMaterial({color:0xe8f0f7,roughness:1}));
+   new T.MeshStandardMaterial({color:0xd0dfec,roughness:1}));
   floor.rotation.x=-Math.PI/2;floor.position.set(X/2,-.26,Y/2);ground.add(floor);
-  var grid=new T.GridHelper(Math.max(X,Y)+12,Math.min(80,Math.max(8,Math.ceil(Math.max(X,Y)/2))),0x8da9bd,0xc8d9e5);
+  var grid=new T.GridHelper(Math.max(X,Y)+12,Math.min(80,Math.max(8,Math.ceil(Math.max(X,Y)/2))),0x6487a5,0xa8bfd3);
   grid.position.set(X/2,-.23,Y/2);ground.add(grid);
-  var axisNames=[],axisMaterial=new T.LineDashedMaterial({color:0x94aec0,dashSize:.6,gapSize:.35});
+  var axisNames=[],axisMaterial=new T.LineDashedMaterial({color:0x6688a8,dashSize:.6,gapSize:.35});
   function gridLine(a,b){var geo=new T.BufferGeometry().setFromPoints([a,b]);var line=new T.Line(geo,axisMaterial);line.computeLineDistances();ground.add(line)}
   axesX.forEach(function(name){
    var x=number(gridX[name])/1000;
@@ -170,22 +172,22 @@ window.irThreeSchemeView=(function(){
   });
   axisNames.forEach(function(a){var el=document.createElement("span");el.className="ir-three-axis-label";el.textContent=a.name;axisLayer.appendChild(el);a.el=el});
   var meshGeo=new Map(),mats=new Map(),allMeshes=[],rayTargets=[],dataById=new Map(),meshesById=new Map();
-  var selectedMat=new T.MeshStandardMaterial({color:0x217cdb,emissive:0x07396d,emissiveIntensity:.26,metalness:.25,roughness:.42});
-  var hoverMat=new T.MeshStandardMaterial({color:0xe6a736,emissive:0x59410e,emissiveIntensity:.12,metalness:.22,roughness:.45});
+  var selectedMat=new T.MeshStandardMaterial({color:0x1668ea,emissive:0x07396d,emissiveIntensity:.15,metalness:.25,roughness:.42});
+  var hoverMat=new T.MeshStandardMaterial({color:0xffad1c,emissive:0x59410e,emissiveIntensity:.10,metalness:.22,roughness:.45});
   var zAxis=new T.Vector3(0,0,1);
   var failures=0;
   function hsvMark(key){
    var h=2166136261;for(var ch of String(key)){h^=ch.codePointAt(0);h=Math.imul(h,16777619)}
-   return new T.Color().setHSL(((h>>>0)*.6180339887)%1,.6,.5).getHex()
+   return new T.Color().setHSL(((h>>>0)*.6180339887)%1,.82,.40).getHex()
   }
   function baseColor(c){
-   if(colorMode==="status")return c.status==="mounted"?0x189970:c.status==="partial"?0xd4a03f:0xd85d64;
+   if(colorMode==="status")return c.status==="mounted"?0x159b65:c.status==="partial"?0xe09b00:0xd63648;
    if(colorMode==="mark")return hsvMark(c.mark||c.mark_name||c.id);
    return (groups[kind(c)]||groups.other)[1]
   }
   function baseMaterial(c){
    var color=baseColor(c);
-   if(!mats.has(color))mats.set(color,new T.MeshStandardMaterial({color:color,metalness:.29,roughness:.41,side:T.DoubleSide}));
+   if(!mats.has(color))mats.set(color,new T.MeshStandardMaterial({color:color,metalness:.13,roughness:.64,side:T.DoubleSide}));
    return mats.get(color)
   }
   function memberSegments(c){
@@ -236,7 +238,7 @@ window.irThreeSchemeView=(function(){
    if(!c){
     details.innerHTML='<div class="ir-three-detail-title">Свойства конструкции</div>'+
      '<div class="ir-three-empty">Выберите колонну, балку или связь в модели. Здесь появятся марка, координаты и отметки.</div>'+
-     '<div class="ir-three-readonly">Отдельный режим просмотра. Данные не изменяются.</div>';
+     '<div class="ir-three-readonly">'+(props.canEdit?'Выберите конструкцию для редактирования или добавьте новую.':'Доступ только для просмотра.')+'</div>';
     return
    }
    var points=memberPoints(c,T),end=points[points.length-1],length=0;
@@ -254,8 +256,20 @@ window.irThreeSchemeView=(function(){
      item("Верх / конец Z",Math.round(number(c.z2)).toLocaleString("ru-RU")+" мм")+
      item("Начало X / Y",Math.round(number(c.x))+" / "+Math.round(number(c.y))+" мм")+
      item("Конец X / Y",Math.round(end.x*1000)+" / "+Math.round(end.z*1000)+" мм")+'</div>'+
-    '<div class="ir-three-readonly">Данные из монтажной схемы IR Project. Для редактирования используйте существующий режим.</div>';
-   details.querySelector("#irThreeDeselect").onclick=function(){choose("")}
+    (props.canEdit?'<div class="ir-three-edit-actions">'+
+     '<button id="irThreeEdit">✎ Изменить</button><button id="irThreeCopyPosition">⧉ Копировать параметры</button>'+
+     '<button id="irThreeCopyPlacement">⇢ Копировать на место</button><button id="irThreeDelete" class="ir-three-delete">Удалить</button></div>':
+     '<div class="ir-three-readonly">Доступ только для просмотра.</div>');
+   details.querySelector("#irThreeDeselect").onclick=function(){choose("")};
+   if(props.canEdit){
+    details.querySelector("#irThreeEdit").onclick=function(){props.onEdit&&props.onEdit(selected)};
+    details.querySelector("#irThreeCopyPosition").onclick=function(){props.onCopyPosition&&props.onCopyPosition(selected)};
+    details.querySelector("#irThreeCopyPlacement").onclick=function(){
+     copySource=selected;var hint=root.querySelector("#irThreeCopyHint");
+     hint.hidden=false;viewport.classList.add("copy-target")
+    };
+    details.querySelector("#irThreeDelete").onclick=function(){props.onDelete&&props.onDelete(selected)}
+   }
   }
   function choose(id){
    selected=String(id||"");props.onSelect&&props.onSelect(selected);
@@ -273,6 +287,30 @@ window.irThreeSchemeView=(function(){
    var count=rayTargets.length;
    root.querySelector("#irThreeCount").textContent=count+" / "+elems.length+(failures?" · без геометрии: "+failures:"")
   }
+  function reportCopyError(message){
+   var hint=root.querySelector("#irThreeCopyHint");
+   hint.hidden=false;hint.querySelector(".ir-three-action-error")?.remove();
+   var p=document.createElement("span");p.className="ir-three-action-error";p.textContent=message;hint.appendChild(p)
+  }
+  function cancelCopy(){
+   copySource="";copyBusy=false;viewport.classList.remove("copy-target");
+   var hint=root.querySelector("#irThreeCopyHint");hint.hidden=true;
+   hint.querySelector(".ir-three-action-error")?.remove()
+  }
+  function copyToGround(e){
+   if(copyBusy||!copySource||!props.canEdit||!props.onCopyPlacement)return;
+   var rect=renderer.domElement.getBoundingClientRect();
+   pointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);
+   raycaster.setFromCamera(pointer,camera);
+   var point=new T.Vector3(),plane=new T.Plane(new T.Vector3(0,1,0),0);
+   if(!raycaster.ray.intersectPlane(plane,point)||point.x<0||point.x>X||point.z<0||point.z>Y){
+    reportCopyError("Выберите точку внутри сетки монтажной схемы.");return
+   }
+   copyBusy=true;
+   Promise.resolve().then(function(){return props.onCopyPlacement(copySource,{x:point.x*1000,y:point.z*1000})})
+    .then(function(id){cancelCopy();props.onCopied&&props.onCopied(id)})
+    .catch(function(error){copyBusy=false;reportCopyError(String(error&&error.message||error))})
+  }
   function screenPointer(e){
    var rect=renderer.domElement.getBoundingClientRect();
    pointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);
@@ -285,7 +323,7 @@ window.irThreeSchemeView=(function(){
   function up(e){
    if(!pointerDown||e.button!==0)return;
    var moved=Math.hypot(e.clientX-pointerDown[0],e.clientY-pointerDown[1]);pointerDown=null;
-   if(moved<5)choose(screenPointer(e))
+   if(moved<5){if(copySource)copyToGround(e);else choose(screenPointer(e))}
   }
   function move(e){
    if(pointerDown)return;
@@ -297,6 +335,9 @@ window.irThreeSchemeView=(function(){
   renderer.domElement.addEventListener("pointermove",move);
   root.querySelectorAll("[data-three-view]").forEach(function(button){button.onclick=function(){setView(button.dataset.threeView)}});
   root.querySelector("#irThreeReset").onclick=function(){setView("iso")};
+  root.querySelector("#irThreeAdd")?.addEventListener("click",function(){props.onAdd&&props.onAdd()});
+  root.querySelector("#irThreeFullscreen").onclick=function(){props.onFullscreen&&props.onFullscreen()};
+  root.querySelector("#irThreeCancelCopy").onclick=cancelCopy;
   root.querySelector("#irThreeColors").value=colorMode;
   root.querySelector("#irThreeColors").onchange=function(e){colorMode=e.target.value;props.onColorModeChange&&props.onColorModeChange(colorMode);refreshMaterials()};
   root.querySelector("#irThreeStatus").onchange=function(e){statusMode=e.target.value;refreshMaterials()};
@@ -327,7 +368,7 @@ window.irThreeSchemeView=(function(){
   }
   refreshMaterials();markupDetails();setView("iso");frame();
   return{dispose:function(){
-   alive=false;if(raf)cancelAnimationFrame(raf);
+   alive=false;cancelCopy();if(raf)cancelAnimationFrame(raf);
    observer&&observer.disconnect();window.removeEventListener("resize",resize);
    renderer.domElement.removeEventListener("pointerdown",down);
    renderer.domElement.removeEventListener("pointerup",up);
