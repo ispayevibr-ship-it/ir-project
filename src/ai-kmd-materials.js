@@ -107,12 +107,15 @@ function createKmdMaterials({database,quantities,revisions=null,clock=()=>new Da
   const massPerAssemblyKg=massKg!==null&&partCount!==null?massKg*partCount:null;
   const associationValid=Boolean(a&&a.mark===d.assemblyMark&&a.cipher===d.assemblyCipher&&
    a.secondaryCipher===d.assemblySecondaryCipher);
-  const assemblyReady=associationValid&&a.status==="confirmed"&&a.sourceValid&&
+  const parentRevisionValid=Boolean(a&&Number.isSafeInteger(d.assemblyRevision)&&
+   d.assemblyRevision>0&&d.assemblyRevision===a.revision);
+  const assemblyReady=associationValid&&parentRevisionValid&&a.status==="confirmed"&&a.sourceValid&&
    Number.isSafeInteger(a.quantity)&&a.quantity>0;
   const confirmed=d.status==="confirmed"&&sourceValid&&assemblyReady&&
    Number.isFinite(massPerAssemblyKg)&&massPerAssemblyKg>0;
   const reason=!sourceValid?"Источник КМД отсутствует или изменён":
    !associationValid?"Привязка к отправочной марке изменилась":
+   !parentRevisionValid?"Изменилась проверенная редакция количества марки — подтвердите деталь заново":
    !assemblyReady?"Количество отправочной марки не подтверждено":
    massPerAssemblyKg===null?"Масса или количество деталей не определены":"";
   const output={id:row.id,assemblyId:Number(d.assemblyId)||null,
@@ -132,6 +135,7 @@ function createKmdMaterials({database,quantities,revisions=null,clock=()=>new Da
    source:{documentId:s.documentId??null,name:String(s.name||""),sha256:String(s.sha256||""),
     kind:String(s.kind||""),page:s.page??null,specPosition:String(s.specPosition||""),
     drawingRevision:String(s.drawingRevision||"")},sourceValid,associationValid,
+   assemblyRevision:d.assemblyRevision??null,parentRevisionValid,
    counted:confirmed,reason:confirmed?"":reason||"Позиция не подтверждена",
    status:STATES.has(d.status)?d.status:"requires_review",
    revision:Number(d.revision)||0,reviewedBy:d.reviewedBy||null,
@@ -199,7 +203,7 @@ function createKmdMaterials({database,quantities,revisions=null,clock=()=>new Da
   const massMethod=string(command.massMethod,"Способ определения массы",25,{required:true});
   const data={
    assemblyId:a.id,assemblyMark:a.mark,assemblyCipher:a.cipher,
-   assemblySecondaryCipher:a.secondaryCipher,
+   assemblySecondaryCipher:a.secondaryCipher,assemblyRevision:a.revision,
    position,type,name,steelGrade,profile,standard,partCount,massMethod,
    lengthMm:finite(command.lengthMm,"Длина, мм",{optional:true,min:0.01,max:1000000}),
    widthMm:finite(command.widthMm,"Ширина, мм",{optional:true,min:0.01,max:1000000}),

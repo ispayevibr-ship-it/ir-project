@@ -127,9 +127,14 @@ function createAssemblyGeometry({database,quantities,materials,revisions=null,cl
   const bind=Boolean(a&&p&&p.assemblyId===a.id&&p.position===d.partPosition&&
    p.assemblyMark===a.mark&&p.cipher===a.cipher&&p.secondaryCipher===a.secondaryCipher);
   const sourceValid=sourceFresh(id,d.source);
+  const assemblyRevisionValid=Boolean(a&&Number.isSafeInteger(d.assemblyRevision)&&
+   d.assemblyRevision>0&&d.assemblyRevision===a.revision);
+  const partRevisionValid=Boolean(p&&Number.isSafeInteger(d.partRevision)&&
+   d.partRevision>0&&d.partRevision===p.revision);
   let geometryMatchesMaterial=false;
   try{if(p&&d.shape){parseShape(d.shape);materialCompatibility(p,d.shape);geometryMatchesMaterial=true}}catch{}
-  const approved=Boolean(geometryMatchesMaterial&&a?.status==="confirmed"&&a.sourceValid&&
+  const approved=Boolean(geometryMatchesMaterial&&assemblyRevisionValid&&partRevisionValid&&
+   a?.status==="confirmed"&&a.sourceValid&&
    p?.status==="confirmed"&&p.counted&&bind&&sourceValid&&
    Number.isSafeInteger(d.instanceIndex)&&d.instanceIndex>0&&d.instanceIndex<=p.partCount&&
    STATUSES.has(d.status)&&d.status==="confirmed");
@@ -139,10 +144,14 @@ function createAssemblyGeometry({database,quantities,materials,revisions=null,cl
    partId:Number(d.partId)||null,partPosition:String(d.partPosition||""),
    partType:p?.type||null,partCount:p?.partCount||null,instanceIndex:d.instanceIndex||null,
    shape:d.shape||null,position:d.position||null,rotation:d.rotation||null,
-   source:{...d.source},sourceValid,materialValid:bind&&Boolean(p?.counted)&&geometryMatchesMaterial,
+   source:{...d.source},sourceValid,
+   assemblyRevision:d.assemblyRevision??null,partRevision:d.partRevision??null,
+   assemblyRevisionValid,partRevisionValid,
+   materialValid:bind&&Boolean(p?.counted)&&geometryMatchesMaterial,
    status:STATUSES.has(d.status)?d.status:"requires_review",counted:approved,
    reason:!a?.sourceValid||!p?.sourceValid||!sourceValid?"Изменился или исчез исходный PDF КМД":
     !bind?"Деталь или связь с отправочной маркой изменена":
+    !assemblyRevisionValid||!partRevisionValid?"Изменилась редакция марки или детали КМД — перепроверьте 3D":
     !geometryMatchesMaterial?"Размеры 3D не согласуются с подтверждённой деталью КМД":
     !p?.counted||a?.status!=="confirmed"?"Отправочная марка или деталь не подтверждена":
     d.status!=="confirmed"?"Геометрия ожидает проверки инженера":"",
@@ -201,7 +210,8 @@ function createAssemblyGeometry({database,quantities,materials,revisions=null,cl
   if(command.status==="confirmed"&&!sourceFresh(obj,source))
    throw Error("Нельзя подтвердить 3D-размещение по устаревшему листу КМД");
   const next={assemblyId:a.id,assemblyMark:a.mark,cipher:a.cipher,secondaryCipher:a.secondaryCipher,
-   partId:p.id,partPosition:p.position,instanceIndex,shape,...pose,source,
+   assemblyRevision:a.revision,partId:p.id,partPosition:p.position,
+   partRevision:p.revision,instanceIndex,shape,...pose,source,
    status:command.status,comment:plain(command.comment??"","Комментарий инженера",1500),
    revision:oldRev+1,reviewedBy:role,reviewedAt:clock(),
    origin:"engineer_verified_individual_kmd_detail_placement"};

@@ -85,13 +85,16 @@ function createKmdConnections({database,quantities,revisions=null,clock=()=>new 
   const d=row.data||{},a=known.get(Number(d.assemblyId)),src=d.source||{};
   const associationValid=Boolean(a&&a.mark===d.assemblyMark&&
    a.cipher===d.assemblyCipher&&a.secondaryCipher===d.assemblySecondaryCipher);
+  const parentRevisionValid=Boolean(a&&Number.isSafeInteger(d.assemblyRevision)&&
+   d.assemblyRevision>0&&d.assemblyRevision===a.revision);
   const sourceOk=sourceValid(oid,src);
   const instances=d.scope==="fabrication"&&assemblyReady(a)&&associationValid?
    Number(d.occurrencesPerAssembly)*a.quantity:
    d.scope==="erection"&&associationValid&&assemblyReady(a)?Number(d.siteOccurrences):null;
   const safeInstances=Number.isSafeInteger(instances)&&instances>0&&instances<=1e9?instances:null;
   const status=STATES.has(d.status)?d.status:"requires_review";
-  const counted=status==="confirmed"&&sourceOk&&associationValid&&assemblyReady(a)&&safeInstances!==null;
+  const counted=status==="confirmed"&&sourceOk&&associationValid&&parentRevisionValid&&
+   assemblyReady(a)&&safeInstances!==null;
   return{id:row.id,assemblyId:Number(d.assemblyId)||null,assemblyMark:String(d.assemblyMark||""),
    assemblyCipher:String(d.assemblyCipher||""),assemblySecondaryCipher:String(d.assemblySecondaryCipher||""),
    jointCode:String(d.jointCode||""),scope:String(d.scope||""),
@@ -99,13 +102,15 @@ function createKmdConnections({database,quantities,revisions=null,clock=()=>new 
    instances:counted?safeInstances:null,status,counted,
    reason:!sourceOk?"Изменён или удалён источник КМД":
     !associationValid?"Изменилась привязка к отправочной марке":
+    !parentRevisionValid?"Изменилась редакция количества отправочной марки — проверьте узел":
     !assemblyReady(a)?"Не подтверждено количество отправочной марки":
     safeInstances===null?"Не подтверждено число физических узлов":
     status!=="confirmed"?"Узел ещё не подтверждён":"",
    source:{documentId:src.documentId??null,name:String(src.name||""),
     sha256:String(src.sha256||""),page:src.page??null,
     position:String(src.position||""),drawingRevision:String(src.drawingRevision||"")},
-   sourceValid:sourceOk,associationValid,comment:String(d.comment||""),
+   sourceValid:sourceOk,associationValid,parentRevisionValid,
+   assemblyRevision:d.assemblyRevision??null,comment:String(d.comment||""),
    reviewedBy:d.reviewedBy||null,reviewedAt:d.reviewedAt||null,revision:Number(d.revision)||0,
    createdAt:row.created_at}
  }
@@ -140,6 +145,7 @@ function createKmdConnections({database,quantities,revisions=null,clock=()=>new 
    ". Одна физическая позиция не может учитываться повторно");
   const now=clock(),payload={assemblyId:a.id,assemblyMark:a.mark,
    assemblyCipher:a.cipher,assemblySecondaryCipher:a.secondaryCipher,
+   assemblyRevision:a.revision,
    jointCode,scope,occurrencesPerAssembly,siteOccurrences,source:source(oid,cmd),
    status:cmd.status,comment:text(cmd.comment??"","Комментарий",1500),
    reviewedBy:role,reviewedAt:now,revision:(Number(old?.data?.revision)||0)+1,
@@ -167,7 +173,10 @@ function createKmdConnections({database,quantities,revisions=null,clock=()=>new 
   const status=STATES.has(d.status)?d.status:"requires_review";
   const number=Number.isSafeInteger(d.perJoint)&&d.perJoint>0?d.perJoint:null;
   const valid=Boolean(joint&&joint.jointCode===d.jointCode&&joint.assemblyId===d.assemblyId);
-  const common=valid&&joint.counted&&sourceOk&&status==="confirmed"&&number!==null;
+  const parentRevisionValid=Boolean(joint&&Number.isSafeInteger(d.jointRevision)&&
+   d.jointRevision>0&&d.jointRevision===joint.revision);
+  const common=valid&&parentRevisionValid&&joint.counted&&sourceOk&&
+   status==="confirmed"&&number!==null;
   const count=common?joint.instances*number:null;
   const safeCount=Number.isSafeInteger(count)&&count>0&&count<=1e12?count:null;
   const weld=d.category==="weld";
@@ -188,8 +197,10 @@ function createKmdConnections({database,quantities,revisions=null,clock=()=>new 
     page:src.page??null,sha256:String(src.sha256||""),
     position:String(src.position||""),drawingRevision:String(src.drawingRevision||"")},
    sourceValid:sourceOk,status,revision:Number(d.revision)||0,
+   jointRevision:d.jointRevision??null,parentRevisionValid,
    counted:common&&safeCount!==null&&(weld?totalLengthM!==null:true),
    reason:!valid?"Узел-предок изменён или удалён":
+    !parentRevisionValid?"Изменилась редакция узла — проверьте метиз или шов":
     !joint?.counted?"Исходный узел ещё не подтверждён":
     !sourceOk?"Источник КМД отсутствует или изменён":
     status!=="confirmed"?"Позиция требует проверки":
@@ -243,7 +254,7 @@ function createKmdConnections({database,quantities,revisions=null,clock=()=>new 
     throw Error("Укажите длину и катет/размер сварного шва по КМД");
   }
   const now=clock(),data={jointId:joint.id,jointCode:joint.jointCode,
-   assemblyId:joint.assemblyId,category,kind,position,perJoint,
+   jointRevision:joint.revision,assemblyId:joint.assemblyId,category,kind,position,perJoint,
    diameterMm,lengthMm,weldSizeMm,standard,strength,coating,
    status:cmd.status,source:source(oid,cmd),comment,
    reviewedAt:now,reviewedBy:role,revision:(Number(old?.data?.revision)||0)+1,
