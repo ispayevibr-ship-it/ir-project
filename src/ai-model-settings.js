@@ -61,7 +61,8 @@
     '<button type="button" data-check '+(busy?'disabled':'')+'>↻ Проверить обновления</button>'+
     '<button type="button" data-select '+(busy||!isAdmin()?'disabled':'')+'>＋ Установить из файла</button>'+
     '<button type="button" data-refresh '+(busy?'disabled':'')+'>Обновить список</button>'+ 
-    '<button type="button" data-open-folder '+(busy?'disabled':'')+'>📁 Открыть папку моделей</button>'+
+    '<button type="button" data-open-folder '+(busy?'disabled':'')+'>📁 Папка Qwen</button>'+ 
+    '<button type="button" data-register-qwen '+(busy?'disabled':'')+'>Подключить Qwen из папки</button>'+
     '<button type="button" data-preflight '+(busy?'disabled':'')+'>Проверить готовность к КМД</button>'+
     (downloading?'<button type="button" data-cancel-download>✕ Отменить загрузку</button>':'')+
     '</div><div class="ir-ai-model-progress" data-download-progress>'+esc(progress)+'</div>'+
@@ -178,6 +179,13 @@
     }catch(e){status("Скачивание или установка не завершены: "+String(e.message||e),true)}
     finally{busy=false;downloading=false;progress="";await reload()}
    });
+   target.querySelector("[data-register-qwen]").onclick=async()=>{
+    if(busy)return;
+    busy=true;status("Проверяем файлы Qwen и рассчитываем SHA-256…");render();
+    try{const result=await api.importManualQwen();status(result.message||"Qwen зарегистрирована")}
+    catch(error){status("Не удалось подключить Qwen: "+String(error.message||error),true)}
+    finally{busy=false;render()}
+   };
    target.querySelector("[data-open-folder]").onclick=async()=>{try{const error=await api.openFolder();if(error)status("Не удалось открыть папку: "+error,true)}catch(e){status(String(e.message||e),true)}render()};
    target.querySelector("[data-check]").onclick=async()=>{
     busy=true;render();
