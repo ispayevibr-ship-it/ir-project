@@ -148,6 +148,47 @@ const {createAiCoverage}=require("../src/ai-kmd-coverage");
  const mismatched=coverage.report(1);
  assert(mismatched.issues.some(x=>x.code==="kmd_quantity_conflicts"));
  proposals[0].values.quantity=6;
+ // Independently approved OCR/VLM evidence must not silently pick the first
+ // quantity or part specification when different source sheets disagree.
+ proposals.push({...proposals[0],analysisId:22,index:4,
+  values:{...proposals[0].values,quantity:5}});
+ const conflictingQuantities=coverage.report(1);
+ assert(conflictingQuantities.issues.some(x=>x.code==="kmd_conflicting_reviewed_evidence"&&
+  x.count===1&&x.examples[0].includes("quantity: 6 / 5")),
+  "contradictory reviewed quantities for one mark require explicit resolution");
+ assert(!conflictingQuantities.issues.some(x=>x.code==="kmd_quantity_conflicts"),
+  "neither side of conflicting reviewed evidence may be arbitrarily compared to ledger");
+ assert.equal(conflictingQuantities.metrics.confirmedMarkCopies,6,
+  "AI disagreement must never change engineer-entered physical quantities");
+ proposals.pop();
+ proposals.push({...proposals[0],analysisId:22,index:4,
+  values:{...proposals[0].values}});
+ const identicalCopies=coverage.report(1);
+ assert(identicalCopies.issues.some(x=>x.code==="kmd_duplicate_reviewed_evidence"&&x.count===1));
+ assert(!identicalCopies.issues.some(x=>x.code==="kmd_conflicting_reviewed_evidence"),
+  "two equal reviews are duplicates, not contradictory engineer assertions");
+ proposals.pop();
+ proposals.push({...proposals[1],analysisId:23,index:4,
+  values:{...proposals[1].values,partCount:3}});
+ const conflictingParts=coverage.report(1);
+ assert(conflictingParts.issues.some(x=>x.code==="kmd_conflicting_reviewed_evidence"&&
+  x.examples.some(y=>y.includes("partCount: 2 / 3"))),
+  "a conflicting number of KMD details per assembly must be distinguished from a simple duplicate");
+ proposals.pop();
+ proposals.push({...proposals[3],analysisId:24,index:4,
+  values:{...proposals[3].values,perJoint:4}});
+ proposals.push({...proposals[3],analysisId:25,index:5,
+  values:{...proposals[3].values,perJoint:6}});
+ const conflictingHardware=coverage.report(1);
+ assert(conflictingHardware.issues.some(x=>x.code==="kmd_conflicting_reviewed_evidence"&&
+  x.examples.some(y=>y.includes("perJoint: 4 / 6"))),
+  "two verified hardware counts per joint require engineering reconciliation");
+ proposals.pop();proposals.pop();
+ proposals.push({...proposals[0],analysisId:26,index:4,sourceValid:false,
+  values:{...proposals[0].values,quantity:5}});
+ assert(!coverage.report(1).issues.some(x=>x.code==="kmd_conflicting_reviewed_evidence"),
+  "outdated PDF review evidence must not create a conflict with current sheets");
+ proposals.pop();
  // A single joint code can exist in fabrication and erection: the source
  // proposal does not carry a verified physical scope, so never choose first.
  joints.push({...joints[0],id:52,scope:"erection",instances:5});
