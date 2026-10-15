@@ -6,12 +6,13 @@ window.irAiRecognitionPage=async function(objectId){
  const route=location.hash,esc=v=>String(v==null?"":v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
  const size=n=>Number(n)>=1048576?(Number(n)/1048576).toFixed(1).replace(".",",")+" МБ":Math.ceil(Number(n)/1024)+" КБ";
  const tabs=[
-  ["model","Общая 3D-модель"],["assembly","3D-модели марок"],
+  ["workflow","Конвейер ИИ"],["model","Общая 3D-модель"],["assembly","3D-модели марок"],
   ["marks","Ведомость марок"],["metal","Спецификация металла"],
   ["fasteners","Метизы"],["documents","Чертежи КМ/КМД"],
   ["compare","Сравнение КМ / КМД"],["checks","Проверка и ошибки"]
  ];
  const descriptions={
+  workflow:["Очередь распознавания КМ / КМД","Обработка отдельных листов локальной моделью и отправка результатов на инженерную проверку."],
   model:["Общая 3D-модель","Модель здания появится после распознавания схем расположения и инженерной проверки координат. Без исходных осей и привязок элементы не размещаются."],
   assembly:["Подробные модели отправочных марок","Сборки будут состоять из подтверждённых деталей КМД: профилей, пластин, рёбер и узлов. Условная геометрия не выдаётся за рабочую деталировку."],
   marks:["Ведомость отправочных марок","Результаты распознавания с различением уникальных марок и количества экземпляров появятся после подключения локального ИИ."],
@@ -20,11 +21,11 @@ window.irAiRecognitionPage=async function(objectId){
   compare:["Сравнение КМ и КМД","Сопоставление геометрии, металлопроката, соединений, количества и ревизий будет доступно после подготовки проверяемых данных."],
   checks:["Проверка и замечания","После запуска локального анализа здесь появятся ошибки и неопределённые значения со ссылками на исходные листы и подтверждения инженера."]
  };
- let object,documents=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,materialEntries=[],materialSummary=null,connectionNodes=[],connectionItems=[],connectionSummary=null,comparisonEntries=[],comparisonSummary=null,comparisonFields={},pdfIndexes=[],engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
+ let object,documents=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,materialEntries=[],materialSummary=null,connectionNodes=[],connectionItems=[],connectionSummary=null,comparisonEntries=[],comparisonSummary=null,comparisonFields={},pdfIndexes=[],workflowTasks=[],workflowSummary=null,engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
  try{object=await irProject.data.objects.get(id)}catch(error){app.textContent="Не удалось прочитать объект: "+String(error.message||error);return}
  if(!object){location.hash="/objects";return}
  const bridge=irProject.aiDocuments,ready=!!(bridge&&typeof bridge.list==="function"&&typeof bridge.select==="function");
- const runtime=irProject.aiEngine||null,pdf=irProject.aiPdf||null,reviewer=irProject.aiReview||null,quantities=irProject.aiMarkQuantities||null,materials=irProject.aiKmdMaterials||null,connections=irProject.aiKmdConnections||null,comparisons=irProject.aiKmKmdCompare||null;
+ const runtime=irProject.aiEngine||null,pdf=irProject.aiPdf||null,reviewer=irProject.aiReview||null,workflow=irProject.aiWorkflow||null,quantities=irProject.aiMarkQuantities||null,materials=irProject.aiKmdMaterials||null,connections=irProject.aiKmdConnections||null,comparisons=irProject.aiKmKmdCompare||null;
  const canEdit=!!window.irAccess?.canEdit?.("ai-recognition");
  async function reload(){
   const jobs=[];
@@ -51,6 +52,10 @@ window.irAiRecognitionPage=async function(objectId){
    jobs.push(comparisons.list(id).then(v=>{comparisonEntries=v}).catch(error=>{comparisonEntries=[];notice("Ошибка записей КМ/КМД: "+String(error.message||error),"error")}));
    jobs.push(comparisons.summary(id).then(v=>{comparisonSummary=v}).catch(error=>{comparisonSummary=null;notice("Ошибка сводки сравнения: "+String(error.message||error),"error")}));
    jobs.push(comparisons.fields().then(v=>{comparisonFields=v}).catch(error=>{comparisonFields={};notice("Ошибка перечня параметров КМ/КМД: "+String(error.message||error),"error")}))
+  }
+  if(workflow){
+   jobs.push(workflow.list(id).then(v=>{workflowTasks=v}).catch(error=>{workflowTasks=[];notice("Ошибка загрузки очереди: "+String(error.message||error),"error")}));
+   jobs.push(workflow.summary(id).then(v=>{workflowSummary=v}).catch(error=>{workflowSummary=null;notice("Ошибка статуса очереди: "+String(error.message||error),"error")}))
   }
   if(pdf)jobs.push(pdf.list(id).then(v=>{pdfIndexes=v}).catch(error=>{pdfIndexes=[];notice("Ошибка PDF-индекса: "+String(error.message||error),"error")}));
   await Promise.all(jobs);
@@ -127,6 +132,17 @@ window.irAiRecognitionPage=async function(objectId){
  }
  function showContent(){
   const box=app.querySelector("#irAiContent");if(!box)return;
+  if(active==="workflow"){
+   if(window.irAiWorkflowPage)window.irAiWorkflowPage.render(box,{
+    objectId:id,documents,indexes:pdfIndexes,tasks:workflowTasks,summary:workflowSummary,
+    quantities:quantitySummary,materials:materialSummary,connections:connectionSummary,
+    comparisons:comparisonSummary,canEdit,queue:workflow,reviewer,
+    askPassword:requestReviewPassword,notice,
+    onNavigate:tab=>{active=tab;paint()},onRefresh:reload
+   });
+   else box.innerHTML='<div class="ir-ai-doc-empty">Модуль очереди листов не загружен.</div>';
+   return
+  }
   if(active==="marks"){
    box.innerHTML='<div class="ir-ai-review-heading"><div><h2>Реестр подтверждённых марок</h2>'+
     '<p>Только марки, проверенные инженером по исходным чертежам. Число упоминаний не равно количеству отправочных элементов.</p></div>'+
@@ -771,6 +787,19 @@ window.irAiRecognitionPage=async function(objectId){
    document.body.appendChild(dlg);showImage(original);dlg.showModal()
   }catch(error){notice("Не удалось показать лист PDF: "+String(error.message||error),"error")}
   finally{busy=false;await reload()}
+ }
+ if(workflow?.onProgress){
+  let pending=false;
+  const stop=workflow.onProgress(data=>{
+   if(String(data?.objectId)!==id||location.hash!==route||active!=="workflow"||pending)return;
+   pending=true;
+   Promise.all([workflow.list(id),workflow.summary(id)]).then(([rows,state])=>{
+    workflowTasks=rows;workflowSummary=state;
+    if(location.hash===route&&active==="workflow")showContent()
+   }).catch(error=>notice("Очередь: "+String(error.message||error),"error"))
+    .finally(()=>{pending=false})
+  });
+  window.addEventListener("hashchange",()=>{if(location.hash!==route)stop()},{once:true})
  }
  await reload()
 };

@@ -1,0 +1,46 @@
+/* IR Project AI -- durable offline PDF queue and engineering review navigation. */
+.ir-ai-workflow{display:grid;gap:15px;min-width:0}
+.ir-ai-workflow .ir-ai-review-heading{margin-bottom:0}
+.ir-ai-flow-stages{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.ir-ai-flow-stage{border:1px solid #d6e5ef;background:#f9fcfe;border-radius:9px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;gap:12px;min-width:0}
+.ir-ai-flow-stage b{font-size:11px;color:#245b80}
+.ir-ai-flow-stage p{font-size:10px;line-height:1.55;color:#708da0;margin:8px 0}
+.ir-ai-flow-stage small{display:block;font-size:10px;color:#3d7596;font-weight:650}
+.ir-ai-flow-stage button{border:1px solid #bed9e9;background:#eef7fd;border-radius:7px;color:#266b98;font-size:10px;padding:7px;cursor:pointer}
+.ir-ai-flow-create,.ir-ai-flow-queue{border:1px solid #dce7ee;border-radius:10px;background:#fff;padding:16px;min-width:0}
+.ir-ai-flow-create h3,.ir-ai-flow-queue h3{font-size:13px;color:#255775;margin:0 0 10px}
+.ir-ai-flow-create>p{font-size:11px;color:#7893a6;line-height:1.7}
+.ir-ai-flow-create>button{background:#f0f7fd;border:1px solid #bcd7e6;padding:9px 12px;border-radius:7px;font-size:11px;cursor:pointer;color:#2b6992}
+.ir-ai-flow-doc{display:flex;align-items:end;gap:12px;flex-wrap:wrap}
+.ir-ai-flow-doc label{flex:1;min-width:210px;display:flex;flex-direction:column;gap:6px;font-size:11px;color:#587e95}
+.ir-ai-flow-doc select{height:38px;border:1px solid #c8dce7;border-radius:7px;padding:0 10px;color:#2a5974;background:#fff;max-width:100%;font-size:11px}
+.ir-ai-flow-doc span{font-size:10px;color:#7c94a3;padding-bottom:10px}
+.ir-ai-flow-sheets{margin:13px 0;padding:9px;background:#f5f9fc;border:1px solid #e0eaf1;border-radius:8px;max-height:215px;overflow:auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.ir-ai-flow-sheet{display:flex;align-items:center;gap:7px;padding:7px 8px;background:white;border:1px solid #deebf2;border-radius:6px;cursor:pointer;min-width:0}
+.ir-ai-flow-sheet input{flex:none;width:14px;height:14px}
+.ir-ai-flow-sheet strong{font-size:10px;color:#2b6081;white-space:nowrap}
+.ir-ai-flow-sheet small{font-size:9px;color:#8a9da9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ir-ai-flow-buttons{display:flex;gap:7px;flex-wrap:wrap}
+.ir-ai-flow-buttons button{padding:9px 12px;border:1px solid #c5dce9;background:#eff7fc;color:#29658b;border-radius:7px;cursor:pointer;font-size:11px}
+.ir-ai-flow-buttons button[data-flow-add],.ir-ai-flow-buttons button[data-flow-run]{background:#1775bd;border-color:#1775bd;color:white;font-weight:700}
+.ir-ai-flow-buttons button:disabled{opacity:.45;cursor:not-allowed}
+.ir-ai-flow-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:13px}
+.ir-ai-flow-toolbar p{font-size:11px;line-height:1.6;color:#7893a5;margin:0}
+.ir-ai-flow-task-list{display:grid;gap:8px}
+.ir-ai-flow-task{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:11px;background:#fafdff;border:1px solid #e1ebf2;border-radius:8px;padding:12px}
+.ir-ai-flow-task>div:first-child{flex:1;min-width:210px;overflow-wrap:anywhere}
+.ir-ai-flow-task b{display:block;font-size:11px;color:#275d81}
+.ir-ai-flow-task small{display:block;font-size:10px;color:#7f96a6;margin-top:5px;line-height:1.5}
+.ir-ai-flow-task-controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.ir-ai-flow-task-controls button{font-size:10px;border:1px solid #c2dce9;background:#eef8fd;border-radius:7px;padding:7px 9px;color:#286d98;cursor:pointer}
+.ir-ai-flow-status{background:#edf3f8;color:#5d8098;border-radius:6px;padding:6px 9px;font-size:10px;font-weight:700}
+.ir-ai-flow-status.done{background:#e8f6eb;color:#2e7b49}
+.ir-ai-flow-status.review{background:#eff4ff;color:#4e71b0}
+.ir-ai-flow-status.warning{background:#fff6e5;color:#906927}
+.ir-ai-flow-status.error{background:#ffefee;color:#a24f4d}
+.ir-ai-flow-history{flex-basis:100%;padding:9px;border:1px solid #d8e7f0;border-radius:7px;background:#f3f9fc;color:#698498;font-size:10px}
+.ir-ai-flow-history[hidden]{display:none}
+.ir-ai-flow-history>div{padding:5px;border-bottom:1px solid #e2edf4}
+@media(max-width:1100px){.ir-ai-flow-stages{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:720px){.ir-ai-flow-stages{grid-template-columns:repeat(2,minmax(0,1fr))}.ir-ai-flow-sheets{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:440px){.ir-ai-flow-stages,.ir-ai-flow-sheets{grid-template-columns:1fr}}
