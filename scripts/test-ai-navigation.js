@@ -41,6 +41,6 @@ assert(files["src/ai-recognition-page.js"].includes("bridge.select(id,kind)"),"a
 assert(files["src/ai-recognition-page.js"].includes('status:"Не распознано"')===false,"UI doesn't fake model output");
 assert(files["src/ir-runtime.js"].includes('key==="ai-recognition"&&window.irAiRecognitionPage'),"runtime bundle current");
 const m=JSON.parse(fs.readFileSync("hot/latest.json","utf8"));
-assert.equal(m.version,"1.7.216");
+assert.equal(m.version,"1.7.217");
 assert(!m.files.some(x=>["main.js","preload.js"].includes(x.target)),"hot updater can't replace native process");
 console.log("AI stage 1: routes, dedicated UI, isolation, bridge and honest model status passed.");
