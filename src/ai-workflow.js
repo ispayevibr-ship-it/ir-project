@@ -3,7 +3,7 @@
  * Queue is local SQLite, never auto-runs at app start or downloads models.
  * AI results are only proposals: production databases stay untouched.
  */
-function createAiWorkflow({database,documents,pdfIndex,analysis,reviews,engine,revisions=null,onProgress=()=>{},clock=()=>new Date().toISOString()}={}){
+function createAiWorkflow({database,documents,pdfIndex,analysis,reviews,engine,ocr=null,revisions=null,onProgress=()=>{},clock=()=>new Date().toISOString()}={}){
  if(!database||!documents||!pdfIndex||!analysis||!reviews||!engine)
   throw Error("Для очереди IR Project AI нужны документы, PDF, локальная модель и журнал проверок");
  const running=new Map(),stopping=new Set();
@@ -54,6 +54,7 @@ function createAiWorkflow({database,documents,pdfIndex,analysis,reviews,engine,r
    isRunning:running.has(oid),stopRequested:stopping.has(oid),
    next:entries.find(x=>["queued","needs_model"].includes(x.status))?.id||null,
    modelState:engine.status?.().state||"missing",
+   ocrState:ocr?ocr.status?.()||{installed:false}:null,
    complete:false,note:"Очередь распознавания листов PDF; результаты остаются предложениями ИИ до проверки инженером"}
  }
  function requireEditor(context){
@@ -160,7 +161,12 @@ function createAiWorkflow({database,documents,pdfIndex,analysis,reviews,engine,r
     const doc=docs(oid).get(entry.data?.source?.documentId);
     if(!sourceOk(entry,doc)){update(oid,entry,{status:"outdated",lastError:"Исходный PDF удалён либо SHA-256 изменён"},"invalid_source");emit(oid);continue}
     if(engine.status?.().state!=="ready"){
-     update(oid,entry,{status:"needs_model",lastError:"Установите и запустите локальную модель в настройках ИИ"},"model_required");
+     update(oid,entry,{status:"needs_model",lastError:"Установите и запустите локальную Qwen-модель в настройках ИИ"},"model_required");
+     emit(oid);break
+    }
+    if(ocr&&!ocr.status?.().installed){
+     update(oid,entry,{status:"needs_model",
+      lastError:"Для распознавания КМД нужен подписанный офлайн-пакет PaddleOCR-VL 1.6"},"ocr_model_required");
      emit(oid);break
     }
     const current=update(oid,entry,{status:"running",attempts:(Number(entry.data?.attempts)||0)+1,lastError:""},"started");

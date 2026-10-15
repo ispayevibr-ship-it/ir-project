@@ -56,7 +56,10 @@ window.irAiWorkflowPage={
        '<button type="button" data-flow-add '+(!hasRights?'disabled':'')+'>＋ Добавить выбранные</button></div>')+
    '</section>'+
    '<section class="ir-ai-flow-queue"><div class="ir-ai-flow-toolbar"><div><h3>Очередь обработки</h3>'+
-    '<p>Модель: '+esc(q.modelState||"не определено")+' · заданий '+value(q.total)+
+    '<p>Qwen: '+esc(q.modelState||"не определено")+
+     ' · PaddleOCR: '+esc(q.ocrState?
+      (q.ocrState.installed?"Подписанный пакет установлен":"Нужен подписанный пакет"):"не проверено")+
+     ' · заданий '+value(q.total)+
      ' · ожидают проверки '+value(summary?counts.awaiting_review||0:null)+
      ' · выполнено и подтверждено '+value(summary?counts.confirmed||0:null)+'</p></div>'+
     '<div class="ir-ai-flow-buttons">'+

@@ -65,7 +65,7 @@ function requireAiReviewer(e){
  return session
 }
 const aiQueue=aiWorkflow.createAiWorkflow({database,documents:aiDocuments,pdfIndex:aiPdf,
- analysis:aiResults,reviews:aiReviews,engine:aiEngine,revisions:aiRevisions,
+ analysis:aiResults,reviews:aiReviews,engine:aiEngine,ocr:aiOcr,revisions:aiRevisions,
  onProgress:payload=>{if(win&&!win.isDestroyed())win.webContents.send("ai-workflow:progress",payload)}
 });
 const aiReference=aiKmdReference.createKmdReference({
