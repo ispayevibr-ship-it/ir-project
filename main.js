@@ -91,13 +91,19 @@ function registerData(){
 }
 function registerAiDocuments(){
  ipcMain.handle("ai-documents:list",(_e,id)=>aiDocuments.list(id));
- ipcMain.handle("ai-documents:select",(_e,{objectId,kind})=>aiDocuments.select(objectId,kind));
+ ipcMain.handle("ai-documents:select",(e,{objectId,kind})=>{requireAiReviewer(e);return aiDocuments.select(objectId,kind)});
  ipcMain.handle("ai-documents:open",(_e,{objectId,id})=>aiDocuments.open(objectId,id));
- ipcMain.handle("ai-documents:remove",(_e,{objectId,id})=>aiDocuments.remove(objectId,id));
+ ipcMain.handle("ai-documents:remove",(e,{objectId,id})=>{
+  requireAiReviewer(e);
+  const linked=aiRevisions.list(objectId).find(set=>set.sheets.some(s=>Number(s.documentId)===Number(id)));
+  if(linked)throw Error("Исходный PDF входит в комплект КМ/КМД «"+linked.label+
+   "» (включая историю). Удаление нарушит проверяемость ревизий; сохраните оригинал.");
+  return aiDocuments.remove(objectId,id)
+ });
  ipcMain.handle("ai-engine:status",()=>aiEngine.status());
- ipcMain.handle("ai-engine:start",()=>aiEngine.start());
- ipcMain.handle("ai-engine:stop",()=>aiEngine.stop());
- ipcMain.handle("ai-engine:cancel",()=>aiEngine.cancel());
+ ipcMain.handle("ai-engine:start",e=>{requireAiReviewer(e);return aiEngine.start()});
+ ipcMain.handle("ai-engine:stop",e=>{requireAiReviewer(e);return aiEngine.stop()});
+ ipcMain.handle("ai-engine:cancel",e=>{requireAiReviewer(e);return aiEngine.cancel()});
  ipcMain.handle("ai-analysis:list",(_e,objectId)=>aiReviews.list(objectId));
  ipcMain.handle("ai-review:list",(_e,objectId)=>aiReviews.list(objectId));
  ipcMain.handle("ai-review:register",(_e,objectId)=>aiReviews.register(objectId));
@@ -172,14 +178,18 @@ function registerAiDocuments(){
  ipcMain.handle("ai-attachment:history",(_e,{objectId,id})=>aiAttachments.history(objectId,id));
  ipcMain.handle("ai-attachment:save",(e,{objectId,id,entry})=>
   aiAttachments.save(objectId,id??null,entry,requireAiReviewer(e)));
- ipcMain.handle("ai-analysis:image",(_e,{objectId,id})=>aiResults.analyze(objectId,id));
+ ipcMain.handle("ai-analysis:image",(e,{objectId,id})=>{requireAiReviewer(e);return aiResults.analyze(objectId,id)});
  ipcMain.handle("ai-pdf:list",(_e,objectId)=>aiPdf.list(objectId));
- ipcMain.handle("ai-pdf:index",(_e,{objectId,id})=>aiPdf.index(objectId,id));
+ ipcMain.handle("ai-pdf:index",(e,{objectId,id})=>{requireAiReviewer(e);return aiPdf.index(objectId,id)});
  ipcMain.handle("ai-pdf:page",(_e,{objectId,indexId,page})=>aiPdf.page(objectId,indexId,page));
  ipcMain.handle("ai-pdf:preview",(_e,{objectId,id,page})=>aiRaster.preview(objectId,id,page));
  ipcMain.handle("ai-pdf:region-preview",(_e,{objectId,id,page,region})=>aiRaster.regionPreview(objectId,id,page,region));
- ipcMain.handle("ai-pdf:region-analyze",(_e,{objectId,id,page,region})=>aiResults.analyzePdf(objectId,id,page,region));
- ipcMain.handle("ai-pdf:analyze",(_e,{objectId,id,page})=>aiResults.analyzePdf(objectId,id,page));
+ ipcMain.handle("ai-pdf:region-analyze",(e,{objectId,id,page,region})=>{
+  requireAiReviewer(e);return aiResults.analyzePdf(objectId,id,page,region)
+ });
+ ipcMain.handle("ai-pdf:analyze",(e,{objectId,id,page})=>{
+  requireAiReviewer(e);return aiResults.analyzePdf(objectId,id,page)
+ });
 }
 function registerAiModelIpc(){
  ipcMain.handle("ai-models:info",()=>aiModels.info());
