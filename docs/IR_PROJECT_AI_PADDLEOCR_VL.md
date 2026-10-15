@@ -47,6 +47,25 @@ npm run ai:pack:paddleocr -- --version 1.0.0 --worker C:\IR-AI-Publisher\paddleo
 
 Отложенный тест упаковки: `scripts/test-ai-paddleocr-pack-publisher.js`; он использует только синтетические файлы. Тесты не запускались.
 
+## Единый подписанный каталог обновлений двух моделей
+
+Генератор \`scripts/sign-ai-catalog.js\` принимает как прежнюю пару \`--pack/--url\`, так и один JSON-список \`--releases-file\`. Пример файла на **доверенном компьютере издателя**:
+
+\`\`\`json
+[
+  {"pack":"C:\\IR-AI-Publisher\\qwen3-vl-4b-1.0.0.ir-ai-pack",
+   "url":"https://models.example.invalid/qwen3-vl-4b-1.0.0.ir-ai-pack",
+   "notes":"Qwen3-VL 4B"},
+  {"pack":"C:\\IR-AI-Publisher\\paddleocr-vl-1.6-1.0.0.ir-ai-pack",
+   "url":"https://models.example.invalid/paddleocr-vl-1.6-1.0.0.ir-ai-pack",
+   "notes":"PaddleOCR-VL 1.6"}
+]
+\`\`\`
+
+Генерация \`node scripts/sign-ai-catalog.js --releases-file C:\IR-AI-Publisher\releases.json --key-file C:\IR-AI-Keys\private.pem --key-id ir-ai-publisher-2026 --out C:\IR-AI-Publisher\catalog.json\`. Обе модели обязаны иметь **действительную Ed25519-подпись одного издателя**, уникальные пары \`modelId@version\`, SHA-256 архивов и URL на одном доверенном HTTPS-источнике. Подписанная метаинформация включает два релиза, и менеджер моделей может видеть/проверять их одновременно. Файлы ZIP и каталог создаются только после того, как издатель отдельно получил и проверил официальные веса; этот шаг не выполнялся в текущей разработке.
+
+Отложенный сценарий: \`scripts/test-ai-multi-model-catalog.js\`; до финальной приёмки не запускался.
+
 ## Финальные приёмочные сценарии
 
 - \`scripts/test-ai-paddle-ocr.js\` — отложенный контракт локального взаимодействия, отсутствующего пакета, результата JSON, bbox, SHA-256, отмены и отсутствия сетевых URL; без загрузки и запуска настоящей нейросети.
