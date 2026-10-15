@@ -107,11 +107,39 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
    "proposals",ambiguous.map(claimTag));
   add("warning","kmd_duplicate_reviewed_evidence","Повторно проверенные предложения одной позиции",
    "proposals",duplicateEvidence.map(claimTag));
+  // Even damaged SQLite imports must never inflate the coverage totals.
+  const collisionAssemblies=new Set(),duplicatePhysical=[];
+  const physicalKeys=new Map();
+  for(const part of parts.filter(x=>x.counted)){
+   const k="detail:"+part.assemblyId+":"+norm(part.position);
+   if(physicalKeys.has(k)){
+    collisionAssemblies.add(part.assemblyId);
+    duplicatePhysical.push("Деталь "+part.assemblyMark+" / "+part.position)
+   }else physicalKeys.set(k,part)
+  }
+  for(const node of nodes.filter(x=>x.counted)){
+   const k="joint:"+node.scope+":"+
+    (node.scope==="erection"?"объект":node.assemblyId)+":"+norm(node.jointCode);
+   if(physicalKeys.has(k)){
+    collisionAssemblies.add(node.assemblyId);
+    collisionAssemblies.add(physicalKeys.get(k).assemblyId);
+    duplicatePhysical.push("Узел "+node.jointCode+" / "+node.scope)
+   }else physicalKeys.set(k,node)
+  }
+  for(const item of items.filter(x=>x.counted)){
+   const k="item:"+item.jointId+":"+item.category+":"+norm(item.position);
+   if(physicalKeys.has(k)){
+    collisionAssemblies.add(item.assemblyId);
+    duplicatePhysical.push("Соединение "+item.jointId+" / "+item.position)
+   }else physicalKeys.set(k,item)
+  }
+  add("error","kmd_duplicate_physical_positions","Повторные подтверждённые детали или соединения",
+   "integrity",duplicatePhysical);
   const noDetails=[],partial3d=[],invalid3d=[],unlinkedHardware=[];
   let declaredCopies=0,declaredPartUnitsPerCopies=0,modeledUnits=0,expectedModelUnits=0,
    confirmedFactoryJoints=0,confirmedErectionJoints=0,fastenerPieces=0,weldLengthM=0;
   for(const mark of marks.filter(x=>x.status==="confirmed"&&x.sourceValid)){
-   if(conflictingMarkKeys.has(identity(mark)))continue;
+   if(conflictingMarkKeys.has(identity(mark))||collisionAssemblies.has(mark.id))continue;
    const pieces=checkedInteger(mark.quantity);
    if(pieces===null||pieces<=0)continue;
    declaredCopies+=pieces;
@@ -197,7 +225,7 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
    confirmedFactoryJoints,confirmedErectionJoints,fastenerPieces].every(Number.isSafeInteger)||
    !Number.isFinite(weldLengthM))
    throw Error("Количество по КМД выходит за безопасные пределы");
-  const ambiguousTotals=conflictingMarkKeys.size>0;
+  const ambiguousTotals=conflictingMarkKeys.size>0||collisionAssemblies.size>0;
   return{objectId,generatedAt:clock(),fullSpecificationVerified:false,
    ambiguousTotals,scope:"Только подтверждённые и зарегистрированные позиции; не проверка полного состава исходного КМД",
    metrics:{confirmedMarkCopies:ambiguousTotals?null:declaredCopies,
