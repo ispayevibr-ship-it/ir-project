@@ -42,6 +42,8 @@ jobs:
           node --check src/ai-pdf-render-worker.js
           node --check src/ai-pdf-renderer.js
           node --check src/ai-model-manager.js
+          node --check src/ai-model-catalog.js
+          node --check src/ai-model-download.js
           node --check src/ai-model-settings.js
       - name: Test IR Project AI local document storage
         run: node scripts/test-ai-storage.js
@@ -55,6 +57,8 @@ jobs:
         run: node scripts/test-ai-pdf-render.js
       - name: Test signed offline model packs and atomic rollback
         run: node scripts/test-ai-model-manager.js
+      - name: Test signed HTTPS model catalog and verified download
+        run: node scripts/test-ai-model-catalog.js
       - name: Test structural member copying
         run: node scripts/test-scheme-copy.js
       - name: Test cached scheme records and in-place refresh

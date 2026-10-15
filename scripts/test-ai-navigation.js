@@ -20,8 +20,10 @@ assert(files["src/ai-recognition-page.js"].includes('pdf.index(id,documentId)'),
 assert(files["preload.js"].includes('ai-pdf:index'),"native PDF entry is exposed through safe IPC");
 assert(files["preload.js"].includes('ai-pdf:preview'),"real PDF preview available");
 assert(files["preload.js"].includes('ai-pdf:analyze'),"per-sheet AI analysis IPC available");
-assert(files["src/index.html"].includes('ai-model-settings.js?v=17211'),"AI model settings loaded");
+assert(files["src/index.html"].includes('ai-model-settings.js?v=17212'),"AI model settings loaded");
 assert(files["preload.js"].includes('"ai-models:install"'),"IPC model pack installation exposed");
+assert(files["preload.js"].includes('"ai-models:download"'),"explicit catalog download exposed");
+assert(files["preload.js"].includes('"ai-models:cancel"'),"download cancellation exposed");
 assert(files["src/ai-recognition-page.js"].includes("openPdfPreview(did,page)"),"PDF preview button wired");
 assert(files["src/ai-recognition-page.js"].includes("pdf.analyze(id,did,page)"),"per-sheet local inference wired");
 assert(files["src/ai-analysis.js"].includes('verification:"requires_review"'),"results always unverified");
@@ -29,6 +31,6 @@ assert(files["src/ai-recognition-page.js"].includes("bridge.select(id,kind)"),"a
 assert(files["src/ai-recognition-page.js"].includes('status:"Не распознано"')===false,"UI doesn't fake model output");
 assert(files["src/ir-runtime.js"].includes('key==="ai-recognition"&&window.irAiRecognitionPage'),"runtime bundle current");
 const m=JSON.parse(fs.readFileSync("hot/latest.json","utf8"));
-assert.equal(m.version,"1.7.211");
+assert.equal(m.version,"1.7.212");
 assert(!m.files.some(x=>["main.js","preload.js"].includes(x.target)),"hot updater can't replace native process");
 console.log("AI stage 1: routes, dedicated UI, isolation, bridge and honest model status passed.");

@@ -3,6 +3,8 @@
    No trusted publisher keys have been provisioned for production. Fail closed. */
 const fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypto");
 const yauzl=require("yauzl"),{pipeline}=require("node:stream/promises");
+const {createModelCatalog}=require("./ai-model-catalog");
+const {downloadVerifiedPack}=require("./ai-model-download");
 const CATALOG=Object.freeze([
  {id:"paddleocr-vl-1.6",title:"PaddleOCR-VL 1.6",role:"OCR и таблицы",engine:"paddleocr"},
  {id:"qwen3-vl-4b",title:"Qwen3-VL 4B",role:"Анализ чертежей",engine:"llama.cpp"}
@@ -10,11 +12,15 @@ const CATALOG=Object.freeze([
 const TRUSTED_MODEL_KEYS=Object.freeze({}); // Official Ed25519 public keys are not published yet.
 const ARCHIVE_LIMIT=16*1024**3,TOTAL_LIMIT=22*1024**3,ENTRY_LIMIT=300;
 function createModelManager({getUserDataPath,dialog,getWindow=()=>undefined,
- trustedKeys=TRUSTED_MODEL_KEYS,appVersion=()=>"1.7.211",engineActive=()=>false}={}){
+ trustedKeys=TRUSTED_MODEL_KEYS,appVersion=()=>"1.7.212",engineActive=()=>false,
+ catalogUrl=null,catalogRequest=fetch,downloadRequest=fetch,onDownloadProgress=()=>{}}={}){
  if(typeof getUserDataPath!=="function")throw Error("Model manager requires userData path");
  const root=()=>path.join(getUserDataPath(),"ir-project-ai","model-manager");
  const manifestPath=()=>path.join(root(),"state.json");
- const selections=new Map();let mutation=false;
+ const selections=new Map();let mutation=false,activeDownload=null;
+ const catalog=createModelCatalog({catalogUrl,trustedKeys,request:catalogRequest,appVersion});
+ let lastUpdate={configured:false,available:[],reason:"Каталог пока не проверен"};
+ let signedReleases=new Map();
  const ensure=()=>fs.mkdirSync(root(),{recursive:true});
  const known=id=>CATALOG.find(m=>m.id===id);
  function version(v){return typeof v==="string"&&/^\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?$/i.test(v)&&v.length<60}
@@ -222,9 +228,48 @@ function createModelManager({getUserDataPath,dialog,getWindow=()=>undefined,
     canRollback:Boolean(row.previous&&versions.includes(row.previous))}
   })
  }
- function checkUpdates(){return{configured:false,available:[],reason:"Официальный подписанный каталог моделей пока не опубликован. Автозагрузка отключена.",checkedAt:new Date().toISOString()}}
- function info(){return{models:list(),update:checkUpdates(),signedImportAvailable:Object.keys(trustedKeys).length>0,
-  packExtension:".ir-ai-pack",busy:mutation}}
- return{list,info,select,install,rollback,checkUpdates,preview,verifySlot};
+ async function checkUpdates(){
+  signedReleases.clear();
+  const result=await catalog.check();
+  const state=readState();
+  const updates=result.available.filter(item=>{
+   const local=state.models[item.modelId]?.active;
+   return !local||catalog.compare(item.version,local)>0
+  });
+  signedReleases=new Map(updates.map(x=>[x.modelId+"@"+x.version,x]));
+  lastUpdate={...result,available:updates,
+   reason:result.configured&&!updates.length?"Для установленных моделей новых совместимых версий нет.":result.reason};
+  return lastUpdate
+ }
+ async function download(modelId,versionId){
+  if(mutation)throw Error("Менеджер моделей занят");
+  const selected=signedReleases.get(String(modelId)+"@"+String(versionId));
+  if(!selected)throw Error("Версия не подтверждена подписанным каталогом. Сначала проверьте обновления");
+  if(Date.parse(selected.expiresAt)<=Date.now())throw Error("Срок действия подписанного каталога истёк");
+  if(engineActive())throw Error("Остановите ИИ перед установкой");
+  mutation=true;ensure();
+  const destination=path.join(root(),"download-"+crypto.randomUUID()+".ir-ai-pack");
+  const cancel=new AbortController();
+  activeDownload=cancel;
+  try{
+   const fetched=await downloadVerifiedPack({release:selected,destination,request:downloadRequest,
+    signal:cancel.signal,onProgress:point=>onDownloadProgress({...point,modelId,version:versionId})});
+   const reviewed=await preview(fetched.path);
+   if(reviewed.modelId!==selected.modelId||reviewed.version!==selected.version)
+    throw Error("Идентификатор скачанной модели не совпадает с подписанным каталогом");
+   const token=crypto.randomBytes(24).toString("hex");
+   selections.clear();selections.set(token,{file:fetched.path,...reviewed});
+   return{token,...reviewed}
+  }catch(error){
+   try{fs.rmSync(destination,{force:true})}catch{}
+   throw error
+  }finally{activeDownload=null;mutation=false}
+ }
+ function cancelDownload(){if(!activeDownload)return false;activeDownload.abort();return true}
+ function info(){return{models:list(),update:lastUpdate,
+  signedImportAvailable:Object.keys(trustedKeys).length>0,
+  officialCatalogAvailable:catalog.configured(),packExtension:".ir-ai-pack",busy:mutation}}
+
+ return{list,info,select,install,rollback,checkUpdates,download,cancelDownload,preview,verifySlot};
 }
 module.exports={createModelManager,CATALOG,TRUSTED_MODEL_KEYS};

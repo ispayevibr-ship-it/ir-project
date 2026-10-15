@@ -45,3 +45,15 @@
 .ir-ai-model-password button{padding:9px 13px;background:#f3f7fa;border:1px solid #c9d9e6;border-radius:7px;cursor:pointer;color:#255975}
 .ir-ai-model-password button[type=submit]{background:#1d74b7;color:#fff;border-color:#1d74b7}
 @media(max-width:690px){.ir-ai-model-grid{grid-template-columns:1fr}.ir-ai-model-titlebar{padding:17px}.ir-ai-model-body{padding:15px}.ir-ai-model-dialog footer{padding:10px 15px;flex-wrap:wrap}}
+
+/* 1.7.212 — signed remote releases and explicit download progress */
+.ir-ai-model-progress:empty{display:none}
+.ir-ai-model-progress{margin:0 0 12px;padding:10px 13px;border:1px solid #bad9ed;background:#eff8ff;border-radius:8px;font-size:11px;color:#23618d;font-weight:700}
+.ir-ai-model-toolbar [data-cancel-download]{background:#fff2f2;color:#a23c3c;border-color:#ecbfbf}
+.ir-ai-model-releases{display:grid;gap:6px;margin-top:8px}
+.ir-ai-model-release{border:1px solid #d7e6f0;background:#f7fbff;border-radius:7px;padding:9px 11px;display:flex;gap:12px;align-items:center;justify-content:space-between}
+.ir-ai-model-release b,.ir-ai-model-release small{display:block}
+.ir-ai-model-release b{font-size:11px;color:#275d82}
+.ir-ai-model-release small{margin-top:3px;font-size:10px;line-height:1.5;color:#7e97a8;overflow-wrap:anywhere}
+.ir-ai-model-release button{background:#176dc1;border:1px solid #176dc1;border-radius:7px;color:#fff;font-size:10px;font-weight:750;padding:8px 11px;cursor:pointer;flex:none}
+.ir-ai-model-release button:disabled{opacity:.45;cursor:not-allowed}

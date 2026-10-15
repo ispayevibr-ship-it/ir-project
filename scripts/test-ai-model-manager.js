@@ -31,7 +31,7 @@ const {createModelManager,CATALOG,TRUSTED_MODEL_KEYS}=require("../src/ai-model-m
   assert.equal(CATALOG.length,2);
   assert.equal(Object.keys(TRUSTED_MODEL_KEYS).length,0,"production must have NO unapproved signer keys");
   assert(manager.info().models.every(m=>m.active===null));
-  assert.equal(manager.checkUpdates().configured,false);
+  assert.equal((await manager.checkUpdates()).configured,false);
   selected=await createArchive("1.0.0");
   const first=await manager.select();
   assert(first.signed&&first.installedBytes>10&&first.token.length>=32);

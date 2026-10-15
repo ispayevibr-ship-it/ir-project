@@ -34,7 +34,14 @@ const aiModels={
  authorize:password=>ipcRenderer.invoke("ai-models:authorize",password),
  select:()=>ipcRenderer.invoke("ai-models:select"),
  install:token=>ipcRenderer.invoke("ai-models:install",token),
- rollback:id=>ipcRenderer.invoke("ai-models:rollback",id)
+ rollback:id=>ipcRenderer.invoke("ai-models:rollback",id),
+ download:(modelId,version)=>ipcRenderer.invoke("ai-models:download",{modelId,version}),
+ cancel:()=>ipcRenderer.invoke("ai-models:cancel"),
+ onProgress:callback=>{
+  const listener=(_event,data)=>{if(typeof callback==="function")callback(data)};
+  ipcRenderer.on("ai-models:progress",listener);
+  return()=>ipcRenderer.removeListener("ai-models:progress",listener)
+ }
 };
 const aiEngine={
  status:()=>ipcRenderer.invoke("ai-engine:status"),
