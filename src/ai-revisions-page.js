@@ -70,19 +70,24 @@ window.irAiRevisionPage={
   const root=host.querySelector(".ir-ai-revisions");
   let busy=false;
   async function authorized(fn){
-   if(!permitted||busy)return;
+   if(!permitted)throw Error("Редактирование комплекта недоступно");
+   if(busy)throw Error("Предыдущее действие ещё выполняется");
    busy=true;
    try{
     const role=window.irAccess?.role?.();
-    if(!["admin","engineer"].includes(role))throw Error("Для управления комплектами нужны права инженера");
+    if(!["admin","engineer"].includes(role))
+     throw Error("Для управления комплектами нужны права инженера");
     const pass=await askPassword(role);
-    if(pass===null)return;
-    if(!await reviewer.authorize(role,pass))throw Error("Пароль инженера/администратора не подтверждён");
+    if(pass===null)return false;
+    if(!await reviewer.authorize(role,pass))
+     throw Error("Пароль инженера/администратора не подтверждён");
     const value=await fn();
     notice?.(value?.message||"Действие с комплектом сохранено");
-    await onRefresh?.()
-   }catch(e){notice?.("Ревизии КМ/КМД: "+String(e.message||e),"error")}
-   finally{busy=false}
+    try{await onRefresh?.()}
+    catch(error){notice?.("Изменение сохранено, но обновить экран не удалось: "+
+     String(error.message||error),"error")}
+    return true
+   }finally{busy=false}
   }
   function dialogWindow(title,body,submit,action){
    const dlg=document.createElement("dialog");dlg.className="ir-ai-quantity-dialog ir-ai-review-password ir-ai-revision-dialog";
@@ -100,8 +105,8 @@ window.irAiRevisionPage={
     const err=dlg.querySelector("[data-error]");err.hidden=true;
     try{
      const values=Object.fromEntries(new FormData(form).entries());
-     await action(values,dlg);
-     dlg.close()
+     const applied=await action(values,dlg);
+     if(applied===true)dlg.close()
     }catch(e){err.textContent="Ошибка: "+String(e.message||e);err.hidden=false}
     finally{saving=false}
    };
@@ -154,7 +159,7 @@ window.irAiRevisionPage={
       if(!code)throw Error("Укажите код каждого листа");
       return{documentId:Number(v.documentId),page:Number(c.value),sheetCode:code}
      });
-     await authorized(()=>api.addSheets(objectId,set.id,entries))
+     return authorized(()=>api.addSheets(objectId,set.id,entries))
     });
    const docChoice=dlg.querySelector('[name="documentId"]'),listing=dlg.querySelector("[data-pick-sheets]");
    const populate=()=>{
@@ -169,6 +174,7 @@ window.irAiRevisionPage={
   root.querySelectorAll("[data-remove-sheet]").forEach(button=>button.onclick=()=>{
    const [setId,sheetId]=button.dataset.removeSheet.split(":");
    void authorized(()=>api.removeSheet(objectId,Number(setId),Number(sheetId)))
+    .catch(e=>notice?.("Не удалось удалить лист: "+String(e.message||e),"error"))
   });
   root.querySelectorAll("[data-activate]").forEach(button=>button.onclick=async()=>{
    const set=sets.find(x=>String(x.id)===button.dataset.activate);if(!set)return;
@@ -183,7 +189,7 @@ window.irAiRevisionPage={
      '<label class="ir-ai-revision-confirm"><input type="checkbox" name="understood" value="yes" required> Я проверил полный состав действующих листов КМ/КМД и последствия смены редакции</label>';
     dialogWindow("Утвердить действующий комплект",message,"Подтвердить активацию",
      async v=>{if(v.understood!=="yes")throw Error("Необходимо подтвердить полноту нового комплекта");
-      await authorized(()=>api.activate(objectId,set.id,set.revision))})
+      return authorized(()=>api.activate(objectId,set.id,set.revision))})
    }catch(e){notice?.("Проверка активации: "+String(e.message||e),"error")}
   });
   root.querySelector("[data-impact-refresh]").onclick=()=>void onRefresh?.()

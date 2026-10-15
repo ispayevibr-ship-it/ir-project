@@ -9,7 +9,7 @@ window.irAiRecognitionPage=async function(objectId){
   ["workflow","Конвейер ИИ"],["model","Общая 3D-модель"],["assembly","3D-модели марок"],
   ["marks","Ведомость марок"],["metal","Спецификация металла"],
   ["fasteners","Метизы"],["documents","Чертежи КМ/КМД"],["revisions","Ревизии КМ/КМД"],
-  ["compare","Сравнение КМ / КМД"],["proposals","Предложения ИИ"],["checks","Проверка и ошибки"]
+  ["compare","Сравнение КМ / КМД"],["proposals","Предложения ИИ"],["integrity","Контроль данных"],["checks","Проверка и ошибки"]
  ];
  const descriptions={
   workflow:["Очередь распознавания КМ / КМД","Обработка отдельных листов локальной моделью и отправка результатов на инженерную проверку."],
@@ -19,15 +19,16 @@ window.irAiRecognitionPage=async function(objectId){
   metal:["Спецификация металлопроката","Профиль, сталь, размеры, количество и масса будут связываться с листом-источником. Данные не будут предполагаться по внешнему виду."],
   fasteners:["Ведомость метизов","Болты, гайки, шайбы и места установки будут учитываться по уникальным соединениям после распознавания узлов."],
   compare:["Сравнение КМ и КМД","Сопоставление геометрии, металлопроката, соединений, количества и ревизий будет доступно после подготовки проверяемых данных."],
+  integrity:["Контроль данных IR Project AI","Сквозной просмотр связей между документами, распознаванием, ревизиями, ведомостями и 3D."],
   revisions:["Ревизии КМ и КМД","Утверждение действующих листов и контроль устаревших инженерных проверок."],
   proposals:["Структурированные предложения ИИ","Отдельные поля марок, металлопроката, размеров и соединений с проверкой инженером."],
   checks:["Проверка и замечания","После запуска локального анализа здесь появятся ошибки и неопределённые значения со ссылками на исходные листы и подтверждения инженера."]
  };
- let object,documents=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,materialEntries=[],materialSummary=null,connectionNodes=[],connectionItems=[],connectionSummary=null,comparisonEntries=[],comparisonSummary=null,comparisonFields={},pdfIndexes=[],workflowTasks=[],workflowSummary=null,proposalEntries=[],proposalSummary=null,revisionSets=[],revisionImpact=null,engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
+ let object,documents=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,materialEntries=[],materialSummary=null,connectionNodes=[],connectionItems=[],connectionSummary=null,comparisonEntries=[],comparisonSummary=null,comparisonFields={},pdfIndexes=[],workflowTasks=[],workflowSummary=null,proposalEntries=[],proposalSummary=null,revisionSets=[],revisionImpact=null,integrityReport=null,engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
  try{object=await irProject.data.objects.get(id)}catch(error){app.textContent="Не удалось прочитать объект: "+String(error.message||error);return}
  if(!object){location.hash="/objects";return}
  const bridge=irProject.aiDocuments,ready=!!(bridge&&typeof bridge.list==="function"&&typeof bridge.select==="function");
- const runtime=irProject.aiEngine||null,pdf=irProject.aiPdf||null,reviewer=irProject.aiReview||null,workflow=irProject.aiWorkflow||null,revisionsApi=irProject.aiRevisions||null,proposalsApi=irProject.aiProposals||null,quantities=irProject.aiMarkQuantities||null,materials=irProject.aiKmdMaterials||null,connections=irProject.aiKmdConnections||null,comparisons=irProject.aiKmKmdCompare||null;
+ const runtime=irProject.aiEngine||null,pdf=irProject.aiPdf||null,reviewer=irProject.aiReview||null,workflow=irProject.aiWorkflow||null,integrityApi=irProject.aiIntegrity||null,revisionsApi=irProject.aiRevisions||null,proposalsApi=irProject.aiProposals||null,quantities=irProject.aiMarkQuantities||null,materials=irProject.aiKmdMaterials||null,connections=irProject.aiKmdConnections||null,comparisons=irProject.aiKmKmdCompare||null;
  const canEdit=!!window.irAccess?.canEdit?.("ai-recognition");
  async function reload(){
   const jobs=[];
@@ -59,6 +60,9 @@ window.irAiRecognitionPage=async function(objectId){
    jobs.push(workflow.list(id).then(v=>{workflowTasks=v}).catch(error=>{workflowTasks=[];notice("Ошибка загрузки очереди: "+String(error.message||error),"error")}));
    jobs.push(workflow.summary(id).then(v=>{workflowSummary=v}).catch(error=>{workflowSummary=null;notice("Ошибка статуса очереди: "+String(error.message||error),"error")}))
   }
+  if(active==="integrity"&&integrityApi)
+   jobs.push(integrityApi.report(id).then(v=>{integrityReport=v})
+    .catch(error=>{integrityReport=null;notice("Контроль данных: "+String(error.message||error),"error")}));
   if(revisionsApi){
    jobs.push(revisionsApi.list(id).then(v=>{revisionSets=v}).catch(error=>{revisionSets=[];notice("Ошибка списка комплектов КМ/КМД: "+String(error.message||error),"error")}));
    jobs.push(revisionsApi.impact(id).then(v=>{revisionImpact=v}).catch(error=>{revisionImpact=null;notice("Ошибка контроля действующих листов: "+String(error.message||error),"error")}))
@@ -109,7 +113,7 @@ window.irAiRecognitionPage=async function(objectId){
    '<div class="ir-ai-chat-empty">История запросов пока отсутствует. Ответы не имитируются.</div>'+
    '<textarea disabled placeholder="Модель не установлена"></textarea><button disabled>Отправить</button></aside></div>'+
    '<footer class="ir-ai-footer">Этап 2 · Локальное распознавание изображений при наличии установленной модели; результаты не подтверждены. Монтажная схема не изменяется.</footer></div>';
-  app.querySelectorAll("[data-ai-tab]").forEach(button=>button.onclick=()=>{active=button.dataset.aiTab;paint()});
+  app.querySelectorAll("[data-ai-tab]").forEach(button=>button.onclick=()=>{active=button.dataset.aiTab;if(active==="integrity")void reload();else paint()});
   const upload=app.querySelector("#irAiUpload");
   upload.onclick=async()=>{
    if(!ready||!canEdit||busy)return;busy=true;
@@ -142,6 +146,14 @@ window.irAiRecognitionPage=async function(objectId){
  }
  function showContent(){
   const box=app.querySelector("#irAiContent");if(!box)return;
+  if(active==="integrity"){
+   if(window.irAiIntegrityPage)window.irAiIntegrityPage.render(box,{
+    report:integrityReport,onRefresh:reload,
+    onNavigate:tab=>{active=tab;paint()}
+   });
+   else box.innerHTML='<div class="ir-ai-doc-empty">Модуль контроля данных не загружен.</div>';
+   return
+  }
   if(active==="revisions"){
    if(window.irAiRevisionPage)window.irAiRevisionPage.render(box,{
     objectId:id,sets:revisionSets,impact:revisionImpact,documents,indexes:pdfIndexes,
