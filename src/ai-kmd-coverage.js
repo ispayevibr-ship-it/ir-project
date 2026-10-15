@@ -90,14 +90,45 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
   add("error","kmd_duplicate_mark_identity","Конфликт подтверждённых марок и шифров",
    "marks",duplicateMarkRows);
   const qtyMissing=[],qtyMismatch=[],partMissing=[],partMismatch=[],jointMissing=[],itemMissing=[],
-   ambiguous=[],ambiguousJoints=[],duplicateEvidence=[];
-  const seenEvidence=new Set();
+   ambiguous=[],ambiguousJoints=[],duplicateEvidence=[],conflictingEvidence=[];
+  // Two human-approved, still-current readings of the same physical KMD
+  // position can disagree. Never let array order choose which one to trust.
+  const evidenceGroups=new Map(),fieldsByType={
+   mark_quantity:["quantity"],
+   steel_part:["partCount","profile","partType","steelGrade","unitMassKg",
+    "lengthMm","widthMm","thicknessMm"],
+   connection:["perJoint","diameterMm","lengthMm","weldSizeMm","standard"]
+  };
   for(const p of claims){
-   if(!["mark_quantity","steel_part","connection"].includes(p.type))continue;
+   if(!fieldsByType[p.type])continue;
+   const v=p.values||{};
+   const evidenceKey=[p.type,identity(v),v.position,v.jointCode,v.fastenerKind]
+    .map(norm).join("\u0001");
+   if(!evidenceGroups.has(evidenceKey))evidenceGroups.set(evidenceKey,[]);
+   evidenceGroups.get(evidenceKey).push(p)
+  }
+  const unambiguousClaims=[];
+  for(const group of evidenceGroups.values()){
+   const p=group[0],fields=fieldsByType[p.type],conflicts=[];
+   for(const field of fields){
+    const known=group.map(row=>row.values?.[field])
+     .filter(v=>v!==null&&v!==undefined&&v!=="");
+    if(new Set(known.map(v=>typeof v==="number"?"#"+v:norm(v))).size>1)
+     conflicts.push(field+": "+known.map(v=>String(v)).join(" / "))
+   }
+   if(conflicts.length){
+    const v=p.values||{};
+    conflictingEvidence.push(String(v.mark||"Без марки")+" / "+
+     String(v.position||v.jointCode||v.specPosition||"позиция не указана")+
+     " · "+conflicts.join("; ")+" · анализы № "+
+     group.map(x=>x.analysisId).join(", "));
+   }else{
+    unambiguousClaims.push(p);
+    duplicateEvidence.push(...group.slice(1))
+   }
+  }
+  for(const p of unambiguousClaims){
    const v=p.values||{},match=compatibleClaim(p);
-   const evidenceKey=[p.type,identity(v),v.position,v.jointCode,v.fastenerKind].map(norm).join("\u0001");
-   if(seenEvidence.has(evidenceKey)){duplicateEvidence.push(p);continue}
-   seenEvidence.add(evidenceKey);
    if(!match.length){
     const similar=sameName.get(norm(v.mark))||[];
     if(similar.length>1)ambiguous.push(p);
@@ -159,6 +190,9 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
    "fasteners",ambiguousJoints.map(claimTag));
   add("warning","kmd_duplicate_reviewed_evidence","Повторно проверенные предложения одной позиции",
    "proposals",duplicateEvidence.map(claimTag));
+  add("error","kmd_conflicting_reviewed_evidence",
+   "Противоречивые подтверждённые предложения по одной позиции КМД",
+   "proposals",conflictingEvidence);
   // Even damaged SQLite imports must never inflate the coverage totals.
   const collisionAssemblies=new Set(),duplicatePhysical=[];
   const physicalKeys=new Map();
