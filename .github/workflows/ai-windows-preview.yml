@@ -24,7 +24,7 @@ jobs:
       - name: Checkout isolated feature branch
         uses: actions/checkout@v4
         with:
-          ref: feature/ir-project-ai-next
+          ref: ${{ github.sha }}
           persist-credentials: false
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -34,7 +34,7 @@ jobs:
         run: npm install --ignore-scripts=false
       - name: Build test installer without publishing
         shell: pwsh
-        run: npx electron-builder --win nsis --publish never
+        run: npx electron-builder --win nsis --publish never -c.appId=com.irproject.ai.preview -c.productName="IR Project AI Preview" -c.artifactName="IR-Project-AI-Preview-Setup-\${version}.\${ext}"
         env:
           GH_TOKEN: ""
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -42,6 +42,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: IR-Project-AI-Windows-Preview-${{ github.run_number }}
-          path: dist/IR-Project-Setup-*.exe
+          path: dist/IR-Project-AI-Preview-Setup-*.exe
           if-no-files-found: error
           retention-days: 7
