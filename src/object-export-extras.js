@@ -96,6 +96,53 @@
   }).filter(m=>[...m.start,...m.end].every(Number.isFinite));
   return {axesX:xAxis,axesY:yAxis,x:xPos,y:yPos,members}
  }
+
+ // Keep projected grid names legible in plan, facade and perspective views.
+ // The routine is pure so dense-axis collision behaviour can be regression-tested.
+ function axisLabelLayout(entries,canvasWidth,canvasHeight,dpr=1,measureText){
+  const width=Math.max(1,Number(canvasWidth)||1),height=Math.max(1,Number(canvasHeight)||1),scale=Math.max(.5,Number(dpr)||1);
+  const margin=7*scale,badgeH=25*scale,pad=12*scale,gap=4*scale,used=[];
+  const textWidth=label=>typeof measureText==="function"?measureText(label):String(label).length*7*scale;
+  const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+  const input=Array.isArray(entries)?entries.filter(e=>e&&e.anchor&&Number.isFinite(e.anchor.x)&&Number.isFinite(e.anchor.y)&&String(e.label||"").trim()):[];
+  const collapsed=[];
+  for(const family of ["x","y"]){
+   const group=input.filter(e=>e.family===family);
+   if(group.length>1){
+    const a=group[0].anchor;
+    const distance=group.reduce((n,e)=>Math.max(n,Math.hypot(e.anchor.x-a.x,e.anchor.y-a.y)),0);
+    if(distance<=2.5*scale){
+     collapsed.push({family,label:String(group[0].label)+"–"+String(group[group.length-1].label),anchor:{x:a.x,y:a.y},collapsed:true});
+     continue
+    }
+   }
+   collapsed.push(...group)
+  }
+  const ordered=[...collapsed.filter(e=>e.family==="x").sort((a,b)=>a.anchor.x-b.anchor.x),...collapsed.filter(e=>e.family==="y").sort((a,b)=>a.anchor.y-b.anchor.y)];
+  const slots=[0,-1,1,-2,2,-3,3,-4,4,-5,5,-6,6,-7,7];
+  for(const e of ordered){
+   const w=Math.max(25*scale,Math.ceil(textWidth(String(e.label)))+pad*2),h=badgeH;
+   if(w+2*margin>width||h+2*margin>height)continue;
+   const near=e.family==="x"?(e.anchor.y>height*.72?-1:1):(e.anchor.x<width*.28?1:-1);
+   const rect=(x,y)=>({left:x-w/2,top:y-h/2,right:x+w/2,bottom:y+h/2});
+   const overlaps=a=>used.some(b=>a.left<b.right+gap&&a.right>b.left-gap&&a.top<b.bottom+gap&&a.bottom>b.top-gap);
+   let best=null,score=Infinity;
+   for(const direction of [near,-near]){
+    for(let lane=0;lane<11;lane++)for(const slot of slots){
+     const distance=(16+lane*(h/scale+7))*scale;
+     const cx=e.family==="x"?e.anchor.x+slot*(w*.71+gap):e.anchor.x+direction*(w/2+distance);
+     const cy=e.family==="x"?e.anchor.y+direction*(h/2+distance):e.anchor.y+slot*(h*.88+gap);
+     if(cx-w/2<margin||cx+w/2>width-margin||cy-h/2<margin||cy+h/2>height-margin)continue;
+     const box=rect(cx,cy);if(overlaps(box))continue;
+     const cost=Math.hypot(cx-e.anchor.x,cy-e.anchor.y)+(direction===near?0:35*scale);
+     if(cost<score){best={...e,x:cx,y:cy,w,h,...box};score=cost}
+    }
+   }
+   if(best){used.push(best)}
+  }
+  return used
+ }
+
  function schemeHtml(data){
   const views=[["3d","3D"],["top","Сверху"],["front","Фасад"],["side","Сбоку"]];
   const viewBtns=views.map(([id,label])=>'<button type="button" data-view="'+id+'" class="'+(id==="3d"?"active":"")+'" aria-pressed="'+String(id==="3d")+'">'+label+'</button>').join("");
@@ -227,9 +274,6 @@
    if(state.grid){
     for(const x of xa)line([x,0,0],[x,ymax,0],"#cee0e9",1);
     for(const y of ya)line([0,y,0],[xmax,y,0],"#cee0e9",1);
-    const dprFont=Math.max(10,11*dpr);ctx.font=dprFont+"px Segoe UI";ctx.fillStyle="#62829a";
-    ax.forEach((label,i)=>{const p=screen([xa[i],0,0]);ctx.fillText(label,p.x+5,p.y-9)});
-    ay.forEach((label,i)=>{const p=screen([0,ya[i],0]);ctx.fillText(label,p.x+5,p.y-9)})
    }
    if(state.dimensions){
     for(let i=1;i<xa.length;i++)dimension([xa[i-1],0,0],[xa[i],0,0],fmt(xa[i]-xa[i-1])+" мм");
@@ -263,6 +307,33 @@
      ctx.fillStyle="#254d69";ctx.fillText(String(member.mark||""),p.x,p.y-9*dpr)
     }
     ctx.textAlign="left"
+   }
+   // Draw axis identifiers after geometry so the construction cannot cover them.
+   // X axes use the lower projected end; Y axes use the left projected end.
+   if(state.grid){
+    const closestEnd=(p,q,family)=>family==="x"?(p.y>=q.y?p:q):(p.x<=q.x?p:q);
+    const entries=[
+     ...ax.map((label,i)=>({label:String(label),family:"x",anchor:closestEnd(screen([xa[i],0,0]),screen([xa[i],ymax,0]),"x")})),
+     ...ay.map((label,i)=>({label:String(label),family:"y",anchor:closestEnd(screen([0,ya[i],0]),screen([xmax,ya[i],0]),"y")}))
+    ];
+    ctx.font="700 "+Math.max(11,11*dpr)+"px Segoe UI,Arial,sans-serif";
+    const labels=axisLabelLayout(entries,w,h,dpr,label=>ctx.measureText(label).width);
+    ctx.save();
+    ctx.textAlign="center";ctx.textBaseline="middle";
+    for(const item of labels){
+     const fill=item.family==="x"?"#e8f2fc":"#edf7f7",border=item.family==="x"?"#7aaed3":"#83b9b1",ink="#224e6c";
+     ctx.beginPath();ctx.moveTo(item.anchor.x,item.anchor.y);
+     const dx=item.x-item.anchor.x,dy=item.y-item.anchor.y,ratio=Math.max(.01,Math.max(Math.abs(dx)/(item.w/2),Math.abs(dy)/(item.h/2)));
+     const endX=item.x-dx/ratio,endY=item.y-dy/ratio;
+     ctx.lineTo(endX,endY);ctx.strokeStyle="#85a6bb";ctx.lineWidth=Math.max(1,dpr);ctx.stroke();
+     ctx.beginPath();ctx.arc(item.anchor.x,item.anchor.y,Math.max(2,2*dpr),0,Math.PI*2);ctx.fillStyle="#6d9db9";ctx.fill();
+     ctx.beginPath();
+     if(typeof ctx.roundRect==="function")ctx.roundRect(item.left,item.top,item.w,item.h,Math.max(5,6*dpr));
+     else ctx.rect(item.left,item.top,item.w,item.h);
+     ctx.fillStyle=fill;ctx.fill();ctx.lineWidth=Math.max(1,dpr);ctx.strokeStyle=border;ctx.stroke();
+     ctx.fillStyle=ink;ctx.fillText(item.label,item.x,item.y);
+    }
+    ctx.restore()
    }
    if(info)info.textContent="Показано "+shown.length+" из "+members.length+" элементов · "+(state.real?"Реалистичный 3D":"Схематичный вид")+" · "+(state.colors==="status"?"Цвет по статусу":state.colors==="type"?"Цвет по видам":"Цвет по маркам")+". Просмотр без редактирования."
   }
@@ -409,5 +480,5 @@
 @media print{.ir-export-scheme-controls,.ir-export-scheme-filters{break-inside:avoid}}
 
 `;
- window.irObjectExportExtras={deliveries,recentPhotos,schemeData,schemeHtml,schemeViewer,css};
+ window.irObjectExportExtras={deliveries,recentPhotos,schemeData,schemeHtml,schemeViewer,axisLabelLayout,css};
 })();

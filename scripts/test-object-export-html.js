@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17194'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17195'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -227,7 +227,7 @@ assert(source.includes(".ir-export-work-tabs{box-sizing:border-box!important;dis
 
 const extraSource=fs.readFileSync("src/object-export-extras.js","utf8");
 new vm.Script(extraSource,{filename:"object-export-extras.js"});
-assert(html.includes('object-export-extras.js?v=17194'),"standalone asset renderer loaded");
+assert(html.includes('object-export-extras.js?v=17195'),"standalone asset renderer loaded");
 const extraCtx={window:{},console};
 vm.runInNewContext(extraSource,extraCtx);
 const extras=extraCtx.window.irObjectExportExtras;
@@ -679,4 +679,35 @@ assert(extras.schemeViewer.toString().includes("member.status"),"current mark st
  const html=fn({additional_works:[{name:"Дополнительная сварка",qty:"5",unit:"м",volume:"8.5"}]});
  assert(html.includes("Дополнительная сварка")&&html.includes("5 м")&&html.includes("8.5 м"),"additional work name, quantity and volume are printed");
  assert.equal(fn({additional_works:[]}),"","empty additional work rows are not fabricated");
+}
+
+
+// 1.7.198: axis identifiers must not stack over one another in the archived 3D scheme.
+assert.equal(typeof extras.axisLabelLayout,"function","the standalone scheme provides a pure collision-aware axis layout");
+{
+ const entries=[];
+ for(let i=0;i<6;i++)entries.push({family:"x",label:String(i+1),anchor:{x:330+i*64,y:375+i*7}});
+ const letters=["А","Б","В","Г","Д","Е","Ж","И","К","Л","М"];
+ for(let i=0;i<letters.length;i++)entries.push({family:"y",label:letters[i],anchor:{x:260-i*8,y:250+i*17}});
+ const positions=extras.axisLabelLayout(entries,1000,610,1);
+ assert.equal(positions.length,entries.length,"perspective displays every non-overlapping axis number and letter");
+ for(let i=0;i<positions.length;i++){
+  const a=positions[i];
+  assert(a.left>=7&&a.top>=7&&a.right<=993&&a.bottom<=603,"axis badge stays inside the drawing");
+  for(let j=i+1;j<positions.length;j++){
+   const b=positions[j];
+   assert(!(a.left<b.right+4&&a.right>b.left-4&&a.top<b.bottom+4&&a.bottom>b.top-4),"axis badges do not overlap")
+  }
+ }
+ const facade=extras.axisLabelLayout([
+  ...[1,2,3,4,5,6].map(label=>({family:"x",label:String(label),anchor:{x:320,y:420}})),
+  ...letters.map((label,i)=>({family:"y",label,anchor:{x:250,y:120+i*28}}))
+ ],1000,610,1);
+ assert.equal(facade.length,letters.length+1,"projection-collapsed axes are represented by one range instead of stacking");
+ assert(facade.some(item=>item.collapsed&&item.label==="1–6"),"collapsed axes retain their first and last real designation");
+ const renderer=extras.schemeViewer.toString();
+ assert(renderer.includes("axisLabelLayout(entries,w,h,dpr"),"collision-aware placements are used in the live canvas redraw");
+ assert(renderer.includes("ctx.roundRect"),"axis identifiers are drawn as bordered badges");
+ assert(renderer.includes("ctx.lineTo(endX,endY)"),"badge leader lines link their names to the actual axes");
+ assert(!renderer.includes("ctx.fillText(label,p.x+5,p.y-9)"),"fixed-offset overlapping labels are removed");
 }
