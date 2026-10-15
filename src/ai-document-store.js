@@ -128,7 +128,8 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   "ai-kmd-connection-items","ai-kmd-connection-item-history",
   "ai-km-kmd-comparison","ai-km-kmd-comparison-history",
   "ai-assembly-placement","ai-assembly-placement-history",
-  "ai-assembly-attachments","ai-assembly-attachment-history"
+  "ai-assembly-attachments","ai-assembly-attachment-history",
+  "ai-kmd-reference-rows","ai-kmd-reference-checks","ai-kmd-reference-history"
  ];
  function referencesDocument(value,documentId){
   const stack=[value],seen=new Set();let visited=0;
