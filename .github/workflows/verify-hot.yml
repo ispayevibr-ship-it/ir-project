@@ -41,6 +41,8 @@ jobs:
           node --check src/ai-pdf-index.js
           node --check src/ai-pdf-render-worker.js
           node --check src/ai-pdf-renderer.js
+          node --check src/ai-model-manager.js
+          node --check src/ai-model-settings.js
       - name: Test IR Project AI local document storage
         run: node scripts/test-ai-storage.js
       - name: Test IR Project AI navigation and bridge
@@ -51,6 +53,8 @@ jobs:
         run: node scripts/test-ai-pdf.js
       - name: Test real PDF sheet PNG rendering and local AI source linkage
         run: node scripts/test-ai-pdf-render.js
+      - name: Test signed offline model packs and atomic rollback
+        run: node scripts/test-ai-model-manager.js
       - name: Test structural member copying
         run: node scripts/test-scheme-copy.js
       - name: Test cached scheme records and in-place refresh

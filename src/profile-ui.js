@@ -48,12 +48,14 @@
   const aboutIcon=menuIcon('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5h.01"/>');
   const refreshIcon=menuIcon('<path d="M20 11a8 8 0 0 0-14.8-4"/><path d="M4 4v5h5"/><path d="M4 13a8 8 0 0 0 14.8 4"/><path d="M20 20v-5h-5"/>');
   const backupIcon=menuIcon('<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v7c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12v7c0 1.66 4.03 3 9 3s9-1.34 9-3v-7"/>');
+  const aiModelsIcon=menuIcon('<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 9h6v6H9zM12 1v3m0 16v3M1 12h3m16 0h3"/>');
   p.innerHTML='<button type="button" id="profileBadge" class="profile-badge">'+names[irAccess.role()]+'</button>'+
    '<button type="button" id="programSettingsButton" class="program-settings-button" title="Настройки программы" aria-label="Настройки программы" aria-expanded="false">'+gear+'</button>'+
    '<div id="programSettingsMenu" class="program-settings-menu" hidden role="group" aria-label="Настройки программы">'+
    '<div class="program-settings-menu-head"><div class="program-settings-menu-title">Настройки</div><small>IR Project</small></div>'+
    '<div class="program-settings-menu-items">'+
    '<button type="button" id="companyProfileSettings" class="program-settings-item">'+companyIcon+'<span class="program-settings-item-text"><strong>Профиль компании</strong><small>Реквизиты и логотип</small></span></button>'+
+   '<button type="button" id="programAiModels" class="program-settings-item">'+aiModelsIcon+'<span class="program-settings-item-text"><strong>Локальные ИИ-модели</strong><small>Установка, версии и откат</small></span></button>'+
    '<button type="button" id="programExportDatabase" class="program-settings-item" title="Выбрать папку для сохранения файла базы данных">'+backupIcon+'<span class="program-settings-item-text"><strong>Выгрузить базу данных</strong><small>Выбрать папку и сохранить .db</small></span></button>'+
    '<button type="button" id="programAboutButton" class="program-settings-item">'+aboutIcon+'<span class="program-settings-item-text"><strong>О программе</strong><small>Авторские права и версия</small></span></button>'+
    '<div class="program-settings-divider" role="separator"></div>'+
@@ -64,7 +66,8 @@
   const badge=p.querySelector("#profileBadge"),menu=p.querySelector("#profileMenu"),
    select=p.querySelector("#roleSelect"),settings=p.querySelector("#engineerSettings"),
    settingsButton=p.querySelector("#programSettingsButton"),settingsMenu=p.querySelector("#programSettingsMenu"),
-   companyButton=p.querySelector("#companyProfileSettings"),aboutButton=p.querySelector("#programAboutButton"),
+   companyButton=p.querySelector("#companyProfileSettings"),modelButton=p.querySelector("#programAiModels"),
+   aboutButton=p.querySelector("#programAboutButton"),
    backupButton=p.querySelector("#programExportDatabase"),updateButton=p.querySelector("#programCheckUpdates");
   // A moved profile panel lives in the tab host, while its page remains in
   // an iframe. Pointer events do not cross iframe boundaries, so observe both.
@@ -127,6 +130,12 @@
   aboutButton.onclick=()=>{
    closeSettings();
    void aboutDialog(settingsMenu)
+  };
+  modelButton.onclick=()=>{
+   closeSettings();
+   const open=window.irAiModelSettings?.open;
+   if(typeof open!=="function"){alert("Менеджер локальных ИИ-моделей недоступен в этой версии IR Project.");return}
+   void open(settingsMenu)
   };
   // Use the existing native Save dialog: the user selects both destination
   // folder and .db filename. No database schema or updater code changes.
