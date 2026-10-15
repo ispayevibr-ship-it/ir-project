@@ -117,8 +117,38 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   const error=await shell.openPath(file);if(error)throw Error(error);
   return true
  }
+ // Keep source originals whenever any recognized sheet, review, quantity, joint,
+ // revision, or historical engineering decision still refers to the document.
+ const evidenceSections=[
+  "ai-drawing-sheet-links","ai-drawing-set-history","ai-pdf-index","ai-analysis",
+  "ai-review-history","ai-structured-reviews","ai-structured-review-history",
+  "ai-workflow-tasks","ai-workflow-events",
+  "ai-mark-quantities","ai-mark-quantity-history","ai-kmd-materials",
+  "ai-kmd-material-history","ai-kmd-joints","ai-kmd-joint-history",
+  "ai-kmd-connection-items","ai-kmd-connection-item-history",
+  "ai-km-kmd-comparison","ai-km-kmd-comparison-history",
+  "ai-assembly-placement","ai-assembly-placement-history",
+  "ai-assembly-attachments","ai-assembly-attachment-history"
+ ];
+ function referencesDocument(value,documentId){
+  const stack=[value],seen=new Set();let visited=0;
+  while(stack.length){
+   if(++visited>250000)throw Error("Слишком большой журнал ИИ; проверка удаления не завершена");
+   const current=stack.pop();
+   if(!current||typeof current!=="object"||seen.has(current))continue;
+   seen.add(current);
+   if(current.documentId!=null&&Number(current.documentId)===documentId)return true;
+   for(const item of Object.values(current))if(item&&typeof item==="object")stack.push(item)
+  }
+  return false
+ }
  function remove(id,documentId){
   id=objectId(id);const row=record(id,documentId);
+  for(const section of evidenceSections){
+   const linked=database.listEntity(id,section).find(item=>referencesDocument(item.data,row.id));
+   if(linked)throw Error("Нельзя удалить исходный файл: он используется в разделе "+
+    section+" (запись № "+linked.id+"). Сохраните оригинал и историю инженерных подтверждений")
+  }
   const file=safeFile(id,row.data?.stored_name);
   // Refuse to follow symlinks, including those that could be created externally.
   if(fs.existsSync(file)&&fs.lstatSync(file).isSymbolicLink())throw Error("Символьная ссылка запрещена");
