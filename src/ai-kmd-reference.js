@@ -275,11 +275,29 @@ function createKmdReference({database,revisions,quantities,materials,connections
     jointId:actualRecord?.jointId??null};
    issues.push(message);affected.push(entry.id)
   };
-  const knownMarks=ref=>marks.filter(x=>x.status==="confirmed"&&x.sourceValid&&
-   normalize(x.mark)===normalize(ref.mark)&&normalize(x.cipher)===normalize(ref.cipher)&&
-   normalize(x.secondaryCipher)===normalize(ref.secondaryCipher));
+  // Index verified engineering rows once. KMD packages may contain thousands
+  // of repeated references to the same mark, part and fastening position.
+  const indexed=(rows,toKey)=>{
+   const map=new Map();
+   for(const row of rows){
+    const k=toKey(row);
+    if(!map.has(k))map.set(k,[]);
+    map.get(k).push(row)
+   }
+   return map
+  };
+  const markIdentity=row=>[row.mark,row.cipher,row.secondaryCipher].map(normalize).join("\u0001");
+  const partIdentity=row=>row.assemblyId+"\u0001"+normalize(row.position);
+  const jointIdentity=row=>row.assemblyId+"\u0001"+row.scope+"\u0001"+normalize(row.jointCode);
+  const componentIdentity=row=>row.jointId+"\u0001"+row.category+"\u0001"+
+   normalize(row.kind)+"\u0001"+normalize(row.position);
+  const confirmedMarks=marks.filter(x=>x.status==="confirmed"&&x.sourceValid);
+  const marksByName=indexed(confirmedMarks,markIdentity),
+   detailsByMark=indexed(details.filter(x=>x.counted),partIdentity),
+   jointsByMark=indexed(nodes.filter(x=>x.counted),jointIdentity),
+   itemsByJoint=indexed(components.filter(x=>x.counted),componentIdentity);
   for(const entry of entries){
-   const markMatches=knownMarks(entry);
+   const markMatches=marksByName.get(markIdentity(entry))||[];
    if(markMatches.length!==1){register(markMatches.length?"ambiguous_mark":"missing_mark",
     markMatches.length?"Повторные подтверждённые марки":"Нет подтверждённой отправочной марки",
     entry,markMatches.length||null,entry.quantity);continue}
@@ -287,16 +305,15 @@ function createKmdReference({database,revisions,quantities,materials,connections
    let found=[];
    if(entry.type==="mark")found=[mark];
    else if(entry.type==="part")
-    found=details.filter(x=>x.counted&&x.assemblyId===mark.id&&normalize(x.position)===normalize(entry.position));
+    found=detailsByMark.get(mark.id+"\u0001"+normalize(entry.position))||[];
    else if(entry.type==="joint")
-    found=nodes.filter(x=>x.counted&&x.assemblyId===mark.id&&x.scope===entry.scope&&
-     normalize(x.jointCode)===normalize(entry.jointCode));
+    found=jointsByMark.get(mark.id+"\u0001"+entry.scope+"\u0001"+
+     normalize(entry.jointCode))||[];
    else{
-    const parents=nodes.filter(x=>x.counted&&x.assemblyId===mark.id&&x.scope===entry.scope&&
-     normalize(x.jointCode)===normalize(entry.jointCode));
-    found=components.filter(x=>x.counted&&parents.some(y=>y.id===x.jointId)&&
-     x.category===entry.category&&normalize(x.kind)===normalize(entry.kind)&&
-     normalize(x.position)===normalize(entry.position))
+    const parents=jointsByMark.get(mark.id+"\u0001"+entry.scope+"\u0001"+
+     normalize(entry.jointCode))||[];
+    found=parents.flatMap(parent=>itemsByJoint.get(parent.id+"\u0001"+entry.category+
+     "\u0001"+normalize(entry.kind)+"\u0001"+normalize(entry.position))||[])
    }
    if(found.length!==1){register(found.length?"ambiguous_position":"missing_position",
     found.length?"Повторные позиции в ведомости":"Позиция отсутствует в инженерной ведомости",
@@ -317,8 +334,7 @@ function createKmdReference({database,revisions,quantities,materials,connections
     type,mark:mark.mark,cipher:mark.cipher,secondaryCipher:mark.secondaryCipher,
     ...values
    });
-   const actualMark=new Map(marks.filter(x=>x.status==="confirmed"&&x.sourceValid)
-    .map(x=>[x.id,x]));
+   const actualMark=new Map(confirmedMarks.map(x=>[x.id,x]));
    const actualJoint=new Map(nodes.filter(x=>x.counted).map(x=>[x.id,x]));
    const pushExtra=(type,mark,values,name,actualRecord=null)=>{
     const k=keyForActual(type,mark,values);
