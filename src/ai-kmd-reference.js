@@ -243,10 +243,13 @@ function createKmdReference({database,revisions,quantities,materials,connections
   const entries=ledger.filter(x=>x.approved),marks=quantities.list(o),
    details=materials.list(o),nodes=connections.listNodes(o),components=connections.listComponents(o);
   const issues=[],affected=[];
-  const register=(code,label,entry,actual,expected)=>{
+  const register=(code,label,entry,actual,expected,actualRecord=null)=>{
    const message={code,label,referenceId:entry.id,type:entry.type,
-    mark:entry.mark,position:entry.position||entry.jointCode,
-    sheetCode:entry.sheetCode,expected,actual};
+    mark:entry.mark,cipher:entry.cipher,secondaryCipher:entry.secondaryCipher,
+    position:entry.position||entry.jointCode,
+    sheetCode:entry.sheetCode,expected,actual,
+    actualId:actualRecord?.id??null,assemblyId:actualRecord?.assemblyId??null,
+    jointId:actualRecord?.jointId??null};
    issues.push(message);affected.push(entry.id)
   };
   const knownMarks=ref=>marks.filter(x=>x.status==="confirmed"&&x.sourceValid&&
@@ -280,7 +283,7 @@ function createKmdReference({database,revisions,quantities,materials,connections
     entry.type==="joint"?(entry.scope==="erection"?value.siteOccurrences:value.occurrencesPerAssembly):
     value.perJoint;
    if(actual!==entry.quantity)register("quantity_mismatch","Количество отличается от эталона",
-    entry,actual,entry.quantity)
+    entry,actual,entry.quantity,value)
   }
   // Only flag unlisted *actual* positions after every active KMD sheet has
   // been explicitly reviewed. Before that point the reference is preliminary.
@@ -294,32 +297,36 @@ function createKmdReference({database,revisions,quantities,materials,connections
    const actualMark=new Map(marks.filter(x=>x.status==="confirmed"&&x.sourceValid)
     .map(x=>[x.id,x]));
    const actualJoint=new Map(nodes.filter(x=>x.counted).map(x=>[x.id,x]));
-   const pushExtra=(type,mark,values,name)=>{
+   const pushExtra=(type,mark,values,name,actualRecord=null)=>{
     const k=keyForActual(type,mark,values);
     if(!referenceKeys.has(k)){
      const msg={code:"unlisted_position",label:"Позиция есть в ведомости, но отсутствует в эталоне",
-      referenceId:null,type,mark:mark.mark,position:name,sheetCode:"—",expected:null,actual:"присутствует"};
+      referenceId:null,type,mark:mark.mark,cipher:mark.cipher,
+      secondaryCipher:mark.secondaryCipher,position:name,sheetCode:"—",expected:null,
+      actual:"присутствует",actualId:actualRecord?.id??null,
+      assemblyId:actualRecord?.assemblyId??mark.id,
+      jointId:actualRecord?.jointId??null};
      extras.push(msg)
     }
    };
    for(const mark of actualMark.values())
-    pushExtra("mark",mark,{},mark.mark);
+    pushExtra("mark",mark,{},mark.mark,mark);
    for(const part of details.filter(x=>x.counted)){
     const mark=actualMark.get(part.assemblyId);
-    if(mark)pushExtra("part",mark,{position:part.position},part.position)
+    if(mark)pushExtra("part",mark,{position:part.position},part.position,part)
    }
    for(const joint of actualJoint.values()){
     const mark=actualMark.get(joint.assemblyId);
     if(mark)pushExtra("joint",mark,{
      scope:joint.scope,jointCode:joint.jointCode
-    },joint.jointCode)
+    },joint.jointCode,joint)
    }
    for(const item of components.filter(x=>x.counted)){
     const joint=actualJoint.get(item.jointId),mark=actualMark.get(item.assemblyId);
     if(joint&&mark)pushExtra("component",mark,{
      scope:joint.scope,jointCode:joint.jointCode,
      category:item.category,kind:item.kind,position:item.position
-    },item.position)
+    },item.position,item)
    }
    issues.push(...extras)
   }
