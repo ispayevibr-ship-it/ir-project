@@ -155,8 +155,21 @@
   }).join("");
   return'<div class="ir-export-daily-table"><table><thead><tr><th>Вид работы</th><th>Шифр</th><th>Марка / наименование</th><th>Кол-во</th><th>Выполнено</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
  }
+
+ function reportAdditionalWorks(r){
+  const works=array(r.additional_works).filter(w=>w&&typeof w==="object"&&[w.name,w.work,w.qty,w.count,w.volume].some(v=>String(v??"").trim()));
+  if(!works.length)return"";
+  const rows=works.map(w=>{
+   const name=String(w.name||w.work||"Работа"),qty=w.qty??w.count,unit=String(w.unit||"").trim(),volume=w.volume;
+   const qtyText=qty!==null&&qty!==undefined&&String(qty).trim()!==""?String(qty)+" "+unit:"—";
+   const volumeText=volume!==null&&volume!==undefined&&String(volume).trim()!==""?String(volume)+(unit?" "+unit:""):"—";
+   return'<tr><td><b>'+esc(name)+'</b></td><td>'+esc(qtyText.trim())+'</td><td>'+esc(volumeText.trim())+'</td></tr>'
+  }).join("");
+  return'<div class="ir-export-daily-additional"><h3>Дополнительные работы</h3><div class="ir-export-daily-table"><table><thead><tr><th>Наименование</th><th>Количество</th><th>Объём</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>'
+ }
+
  function reportFull(record,r,images,markNames){
-  return '<div class="ir-export-daily-full">'+reportWorkTable(reportWorks(r),markNames)+'</div>'
+  return '<div class="ir-export-daily-full">'+reportWorkTable(reportWorks(r),markNames)+reportAdditionalWorks(r)+'</div>'
  }
 
  function exportMoreCards(htmlList,kind,totalCount=htmlList.length,totalUnits=0){
@@ -256,7 +269,7 @@
    const key=(wid||normalize(name))+"|"+normalize(code)+"|"+normalize(code2);
    if(!groups.has(key))groups.set(key,{workId:wid,name,code,code2,total:0,mounted:0,remaining:0,positions:0});
    const mark=groups.get(key),markId=String(raw.id);
-   const fromReports=mountedMap.get(markId),done=Math.min(qty,Math.max(0,fromReports==null?exportNumber(d.mounted??d.done):fromReports));
+   const fromReports=mountedMap.get(markId),saved=d.mounted??d.done,done=Math.min(qty,Math.max(0,saved==null?exportNumber(fromReports):exportNumber(saved)));
    mark.total+=qty;mark.mounted+=done;mark.positions++
   }
   // Keep work types with zero marks visible in the complete readiness summary.
@@ -324,7 +337,7 @@
    const d=raw.data||{},id=String(raw.id),work=works.get(String(d.work_type_id||""))||{};
    if(d.accounting_type==="service"||norm(d.unit)==="услуга")return null;
    const qty=Math.max(0,exportNumber(d.qty??d.count)),fromReports=mounted.get(id);
-   const done=Math.min(qty,Math.max(0,fromReports==null?exportNumber(d.mounted??d.done):fromReports));
+   const saved=d.mounted??d.done,done=Math.min(qty,Math.max(0,saved==null?exportNumber(fromReports):exportNumber(saved)));
    const left=Math.max(0,qty-done),pct=qty?Math.min(100,done/qty*100):0;
    const uv=exportNumber(d.unit_volume??d.volume_one??d.volume1),unit=String(d.unit||work.unit||"").trim();
    const rawTotal=d.total_value??d.total_volume;
@@ -1274,6 +1287,9 @@
     ".ir-export-deliveries-unified{overflow:visible;border-radius:0}",
     ".ir-export-deliveries-unified .ood-comparison .ood-head h2{display:none!important}",
 
+
+    ".ir-export-daily-additional{box-sizing:border-box;width:100%;margin:16px 0 0;padding:15px 0 0;border-top:1px solid #dce7ef}",
+    "body.ir-object-overview #app .ir-export-daily-additional h3{margin:0 0 12px!important;color:#214b66!important;font:800 14px/1.35 'Segoe UI',Arial,sans-serif!important}",
     ".ir-export-work-mark-name{display:block;margin-top:3px;font-size:10px;font-weight:400;color:#8294a3}",
     ".ir-export-delivery-register{padding-top:16px!important}",
     ".ir-export-delivery-register>h3{padding-top:12px!important}",

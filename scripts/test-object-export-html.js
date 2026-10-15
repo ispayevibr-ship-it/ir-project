@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17193'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17194'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -281,17 +281,17 @@ assert.equal(linkedModel.members[0].left,3,"remaining quantities appear in selec
 assert.equal(linkedModel.members[0].code,"041-2025 КМД","mark work code appears");
 assert.equal(linkedModel.members[0].code2,"КМ-2","second project code appears");
 assert.equal(linkedModel.members[0].qty,7,"total mark count appears");
-assert(extras.schemeHtml(model).includes('data-view="plan"'),"Plan toggle is present");
+assert(extras.schemeHtml(model).includes('data-view="top"')&&extras.schemeHtml(model).includes('data-view="front"')&&extras.schemeHtml(model).includes('data-view="side"'),"Overhead, elevation and side camera views exist");
 assert(!extras.schemeHtml(model).includes('data-view="labels"'),"inline labels control is removed");
 assert(extras.schemeHtml(model).includes('ir-export-scheme-member-card'),"selected mark info panel exists");
 assert(extras.schemeViewer.toString().includes("pointermove"),"3D rotates with pointer drag");
 assert(extras.schemeViewer.toString().includes("wheel"),"3D wheel zoom is implemented");
-assert(extras.schemeViewer.toString().includes('.93*w/Math.max(1,maxX-minX)'),"3D auto-fits the model using full viewport width");
-assert(extras.schemeViewer.toString().includes('.90*h/Math.max(1,maxY-minY)'),"3D auto-fits the model vertically");
+assert(extras.schemeViewer.toString().includes('.91*cv.width/Math.max(1,maxX-minX)'),"3D auto-fits model using full canvas width");
+assert(extras.schemeViewer.toString().includes('.86*cv.height/Math.max(1,maxY-minY)'),"3D auto-fits model using canvas height");
 assert(extras.schemeViewer.toString().includes('paint(true)'),"3D re-fits on view changes and resizing");
-assert(extras.schemeViewer.toString().includes('selectMember(found.s.m)'),"clicking a model element opens its mark card");
-assert(extras.schemeViewer.toString().includes('field(fields,"Шифр",m.code)'),"mark card includes project code");
-assert(!extras.schemeViewer.toString().includes('if(labels)'),"3D no longer draws persistent label clutter");
+assert(extras.schemeViewer.toString().includes('selectMember(winner.seg.m)'),"clicking a model element opens its mark card");
+assert(extras.schemeViewer.toString().includes('field(list,"Шифр",member.code)'),"mark card includes project code");
+assert(extras.schemeViewer.toString().includes("if(state.labels)"),"mark labels are optional");
 assert(extras.schemeViewer.toString().includes('center[0]'),"3D model is centered");
 const secondary=groupCalc(
  [{id:111,data:{work_type_id:"7",qty:2,mark:"Б1"}}],
@@ -311,10 +311,10 @@ assert(source.includes("ir-export-gantt-options"),"Gantt includes work-type choi
 assert(source.includes("#section-scheme>.ir-export-section{padding:0!important"),"scheme fills complete section width");
 assert(source.includes("body.ir-object-overview #app #section-scheme .ir-export-scheme-controls button{display:inline-flex!important"),"3D and plan switches override global read-only button hiding");
 assert(!source.includes('<span>Редактировать</span></a>'),"no edit action linked from photos");
-assert(extras.schemeViewer.toString().includes('viewPlan.classList.toggle("active",plan)'),"Plan visibly activates after switching");
-assert(extras.schemeViewer.toString().includes('view3D.classList.toggle("active",!plan)'),"3D visibly activates on return");
-assert(extras.schemeViewer.toString().includes('view3D.setAttribute("aria-pressed",String(!plan))'),"3D button accessibility state updates");
-assert(extras.schemeViewer.toString().includes("const reset=()=>setPlan(plan)"),"Reset preserves selected scheme view");
+assert(extras.schemeViewer.toString().includes('button.dataset.view==="reset"'),"view switches support resetting the camera");
+assert(extras.schemeViewer.toString().includes('el.classList.toggle("active",active)'),"active view button remains highlighted");
+assert(extras.schemeViewer.toString().includes('setAttribute("aria-pressed",String(active))'),"view selection exposes pressed state");
+assert(extras.schemeViewer.toString().includes("camera(state.view)"),"Reset preserves selected camera view");
 const scheduleStart=source.indexOf(" function schedulePreviewHtml("),scheduleEnd=source.indexOf(" function extractOverviewPreviews(",scheduleStart);
 assert(scheduleStart>=0&&scheduleEnd>scheduleStart,"Gantt filter function is available");
 const scheduleFn=vm.runInNewContext(
@@ -653,3 +653,30 @@ assert(source.includes('body.ir-object-overview #app :is(.ir-export-indicators-h
 assert(source.includes('<section class="ir-export-section ir-export-visual-section"><header class="ir-export-section-head"><h2>'),"schedule and analysis sections have consistent heading markup");
 assert(source.includes('<div class="ir-export-delivery-register"><header class="ir-export-section-head"><h2>Накладные</h2></header>'),"invoices use the common heading");
 assert(extras.schemeHtml(model).includes("Элементов:"),"mounting scene inner bar shows count without duplicating main heading");
+
+
+// 1.7.197: HTML archive must reproduce the live model and keep read-only controls.
+assert(source.includes("function reportAdditionalWorks(r)")&&source.includes("reportAdditionalWorks(r)"),"additional daily work is printed inside each report");
+assert(source.includes("saved==null?exportNumber(fromReports):exportNumber(saved)"),"archive respects the saved mounted quantity before fallback to old reports");
+assert(extras.schemeHtml(model).includes('data-tool="layers"')&&extras.schemeHtml(model).includes('data-tool="cuts"'),"viewer shows layers and cuts");
+assert(extras.schemeHtml(model).includes('data-tool="dimensions"')&&extras.schemeHtml(model).includes('data-tool="labels"'),"viewer shows dimensions and labels");
+assert(extras.schemeHtml(model).includes('data-tool="colors"')&&extras.schemeHtml(model).includes('data-tool="render"'),"viewer shows color and render mode");
+assert(extras.schemeHtml(model).includes('data-mode="real"'),"realistic shaded 3D is enabled by default");
+assert(extras.schemeViewer.toString().includes("function prism(")&&extras.schemeViewer.toString().includes("addFace(faces,"),"solid faces are rendered, not only flat lines");
+assert(extras.schemeViewer.toString().includes("Clicking away must not silently dismiss"),"selected mark card remains open during viewing");
+assert(extras.schemeViewer.toString().includes("member.status"),"current mark status is visible in its details");
+{
+ const sample=[{record_type:"scheme_column",id:22,title:"K191",data:{entity_type:"column",mark_id:"7",mark:"K191",status:"planned",axis_x:"1",axis_y:"А",z0_mm:0,z1_mm:5500}}];
+ const linked=[{id:"7",mark:"K191",qty:3,done:3,left:0,pct:100,workId:"1"}];
+ const archive=extras.schemeData(sample,linked);
+ assert.equal(archive.members[0].status,"mounted","real status from the mark register overrides outdated scheme status");
+ assert(extras.schemeHtml(archive).includes("Слои"),"all viewing tools are present in the offline scheme");
+}
+{
+ const start=source.indexOf(" function reportAdditionalWorks("),end=source.indexOf(" function reportFull(",start);
+ assert(start>0&&end>start,"standalone additional works renderer exists");
+ const fn=vm.runInNewContext('(function(){const array=x=>Array.isArray(x)?x:[];const esc=v=>String(v??"");'+source.slice(start,end)+';return reportAdditionalWorks})()', {});
+ const html=fn({additional_works:[{name:"Дополнительная сварка",qty:"5",unit:"м",volume:"8.5"}]});
+ assert(html.includes("Дополнительная сварка")&&html.includes("5 м")&&html.includes("8.5 м"),"additional work name, quantity and volume are printed");
+ assert.equal(fn({additional_works:[]}),"","empty additional work rows are not fabricated");
+}
