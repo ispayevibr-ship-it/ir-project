@@ -14,7 +14,10 @@ const aiEngine=aiLocalEngine.createEngine({
 });
 // Publisher-controlled public endpoint. No model weights are bundled with the app.
 // Keep this empty until the official signed catalog has been published.
-const aiCatalogConfig=require("./src/ai-catalog-config.json");
+let aiCatalogConfig={url:""};
+try{aiCatalogConfig=require("./src/ai-catalog-config.json")}catch(error){
+ if(error.code!=="MODULE_NOT_FOUND")throw error;
+}
 const aiCatalogUrl=typeof aiCatalogConfig.url==="string"&&aiCatalogConfig.url.trim()?
  aiCatalogConfig.url.trim():null;
 aiModels=aiModelManager.createModelManager({
