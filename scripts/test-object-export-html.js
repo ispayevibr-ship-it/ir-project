@@ -60,9 +60,9 @@ const detailRows=detailFn(
 assert.equal(detailRows.length,2);
 const det=detailRows.find(x=>x.mark==="В1");
 assert.equal(det.qty,36);
-assert.equal(det.done,13,"report facts override cached mounted value");
-assert.equal(det.left,23);
-assert.equal(det.status,"partial");
+assert.equal(det.done,36,"current saved mounted count matches the program");
+assert.equal(det.left,0);
+assert.equal(det.status,"done");
 assert(Math.abs(det.total-.828)<1e-9,"mark total mass calculated from unit value and qty");
 assert.equal(detailRows.find(x=>x.mark==="В2").status,"left");
 assert(!source.includes("'<details'+(i===0?' open'"),"first mark card is also collapsed on export");
