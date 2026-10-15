@@ -16,7 +16,7 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
   const marks=quantities.list(objectId),parts=materials.list(objectId),
    nodes=connections.listNodes(objectId),items=connections.listComponents(objectId),
    claims=proposals.list(objectId).filter(x=>x.approved&&x.sourceValid);
-  const messages=[],byMark=new Map(),loose=[];
+  const messages=[],byMark=new Map();
   const add=(severity,code,title,tab,examples)=>{
    if(examples.length)messages.push({severity,code,title,tab,count:examples.length,
     examples:sample(examples,x=>x)})
@@ -39,6 +39,15 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
     (known.get(identity(v))||[]):(sameName.get(label)||[]);
    return exact.length===1?exact:[]
   };
+  const conflictingMarkKeys=new Set(),duplicateMarkRows=[];
+  for(const [key,rows] of known){
+   if(rows.length>1&&rows.some(x=>x.status==="confirmed"&&x.sourceValid)){
+    conflictingMarkKeys.add(key);
+    duplicateMarkRows.push(...rows.map(x=>x.mark+" / "+x.cipher+" · ID "+x.id))
+   }
+  }
+  add("error","kmd_duplicate_mark_identity","Конфликт подтверждённых марок и шифров",
+   "marks",duplicateMarkRows);
   const qtyMissing=[],qtyMismatch=[],partMissing=[],partMismatch=[],jointMissing=[],itemMissing=[],
    ambiguous=[],duplicateEvidence=[];
   const seenEvidence=new Set();
@@ -102,6 +111,7 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
   let declaredCopies=0,declaredPartUnitsPerCopies=0,modeledUnits=0,expectedModelUnits=0,
    confirmedFactoryJoints=0,confirmedErectionJoints=0,fastenerPieces=0,weldLengthM=0;
   for(const mark of marks.filter(x=>x.status==="confirmed"&&x.sourceValid)){
+   if(conflictingMarkKeys.has(identity(mark)))continue;
    const pieces=checkedInteger(mark.quantity);
    if(pieces===null||pieces<=0)continue;
    declaredCopies+=pieces;
@@ -187,14 +197,17 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
    confirmedFactoryJoints,confirmedErectionJoints,fastenerPieces].every(Number.isSafeInteger)||
    !Number.isFinite(weldLengthM))
    throw Error("Количество по КМД выходит за безопасные пределы");
+  const ambiguousTotals=conflictingMarkKeys.size>0;
   return{objectId,generatedAt:clock(),fullSpecificationVerified:false,
-   scope:"Только подтверждённые и зарегистрированные позиции; не проверка полного состава исходного КМД",
-   metrics:{confirmedMarkCopies:declaredCopies,
-    registeredDetailUnitsInProject:declaredPartUnitsPerCopies,
-    expectedModelUnitsPerUniqueMarks:expectedModelUnits,
-    modeledUnitsPerUniqueMarks:modeledUnits,
-    factoryJointInstances:confirmedFactoryJoints,erectionJointInstances:confirmedErectionJoints,
-    registeredFastenerPieces:fastenerPieces,registeredWeldLengthM:Math.round(weldLengthM*1000)/1000,
+   ambiguousTotals,scope:"Только подтверждённые и зарегистрированные позиции; не проверка полного состава исходного КМД",
+   metrics:{confirmedMarkCopies:ambiguousTotals?null:declaredCopies,
+    registeredDetailUnitsInProject:ambiguousTotals?null:declaredPartUnitsPerCopies,
+    expectedModelUnitsPerUniqueMarks:ambiguousTotals?null:expectedModelUnits,
+    modeledUnitsPerUniqueMarks:ambiguousTotals?null:modeledUnits,
+    factoryJointInstances:ambiguousTotals?null:confirmedFactoryJoints,
+    erectionJointInstances:ambiguousTotals?null:confirmedErectionJoints,
+    registeredFastenerPieces:ambiguousTotals?null:fastenerPieces,
+    registeredWeldLengthM:ambiguousTotals?null:Math.round(weldLengthM*1000)/1000,
     reviewedCandidates:claims.length,markRows:byMark.size},
    marks:[...byMark.values()].sort((a,b)=>new Intl.Collator("ru",{numeric:true}).compare(a.mark,b.mark)),
    issues:messages,complete:false}
