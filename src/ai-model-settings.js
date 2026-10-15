@@ -18,7 +18,7 @@
    '<p>Модели хранятся на вашем компьютере. Обработка чертежей не требует облачных сервисов.</p></div>'+
    '<button type="button" data-ai-close aria-label="Закрыть">✕</button></div>'+
    '<div data-ai-body class="ir-ai-model-body">Проверяем локальные модели…</div>'+
-   '<footer><span>Установка и откат — только после подтверждения администратора</span><button type="button" data-ai-close>Закрыть</button></footer></div>';
+   '<footer><span>Установка официальных подписанных моделей — без пароля; откат и импорт — с подтверждением администратора</span><button type="button" data-ai-close>Закрыть</button></footer></div>';
   dlg.querySelectorAll("[data-ai-close]").forEach(b=>b.onclick=()=>{if(!busy)dlg.close()});
   const removeProgress=api?.onProgress?.(point=>{
    if(!downloading)return;
@@ -109,7 +109,7 @@
       '<div class="ir-ai-model-releases">'+(catalog.available||[]).filter(r=>r.modelId===x.id).map(r=>
        '<div class="ir-ai-model-release"><div><b>Версия '+esc(r.version)+'</b><small>'+fmt(r.bytes)+' · '+esc(r.notes||"Подписанный пакет")+'</small></div>'+
        '<button type="button" data-download-model="'+esc(x.id)+'" data-download-version="'+esc(r.version)+'" '+
-        (busy||!isAdmin()||!data.signedImportAvailable?'disabled':'')+'>Скачать и установить</button></div>').join("")+'</div>'+
+        (busy||!data.signedImportAvailable?'disabled':'')+'>Скачать и установить</button></div>').join("")+'</div>'+
       '<div class="ir-ai-model-foot"><small>'+esc(x.state)+'</small>'+
       (x.id==="qwen3-vl-4b"&&x.active?'<button type="button" data-verify-model="'+esc(x.id)+'" '+(busy||!isAdmin()?'disabled':'')+'>Проверить файлы</button>':"")+
       '<button type="button" data-rollback="'+esc(x.id)+'" '+(!x.canRollback||busy||!isAdmin()?'disabled':'')+'>↶ Откатить</button></div></article>').join("")+
@@ -127,7 +127,7 @@
    target.querySelector("[data-hardware-refresh]").onclick=()=>reload();
    target.querySelector("[data-diagnostics-start]").onclick=async()=>{
     if(busy||!await authorize())return;
-    busy=true;status("Запускаем настоящую локальную модель. Первая загрузка может занять до 2 минут.");render();
+    busy=true;status("Запускаем настоящую локальную модель. Первая загрузка на CPU может занять до 6 минут.");render();
     try{
      const result=await localAi.start();
      status(result.state==="ready"?"Модель действительно запущена на 127.0.0.1. Можно проверить распознавание К41.":
@@ -157,12 +157,11 @@
     try{await api.cancel();status("Загрузка отменена")}catch(e){status("Ошибка отмены: "+String(e.message||e),true)}
    };
    target.querySelectorAll("[data-download-model]").forEach(button=>button.onclick=async()=>{
-    if(busy||!isAdmin()||!data.signedImportAvailable)return;
+    if(busy||!data.signedImportAvailable)return;
     const modelId=button.dataset.downloadModel,version=button.dataset.downloadVersion;
     const release=(catalog.available||[]).find(x=>x.modelId===modelId&&x.version===version);
     if(!release||!doc.defaultView.confirm("Скачать и установить "+modelId+" версии "+version+
      "?\\nРазмер загрузки: "+fmt(release.bytes)+"\\nМодель будет установлена после проверки цифровой подписи."))return;
-    if(!await authorize())return;
     busy=true;downloading=true;progress="Подключаемся к серверу…";render();
     try{
      if(typeof api.downloadAndInstall!=="function")throw Error("Обновите IR Project для автоматической установки моделей");
