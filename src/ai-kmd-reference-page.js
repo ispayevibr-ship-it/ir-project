@@ -68,9 +68,16 @@ window.irAiKmdReferencePage={
     (missing.length>100?'<small>Показаны первые 100 замечаний из '+missing.length+'</small>':"")+
     '</div>':'<p class="ir-ai-storage-note">Среди действующих утверждённых эталонных позиций расхождения не обнаружены. Это не доказательство полного охвата исходных листов.</p>')+
    (archive.length?'<details class="ir-ai-reference-archive"><summary>Архивные эталонные позиции ('+
-    archive.length+')</summary><div>'+archive.map(x=>'<div>'+esc(x.mark)+
-     ' · '+esc(types[x.type]||x.type)+' · '+esc(x.sheetCode)+
-     ' · версия '+esc(x.revision)+'</div>').join("")+'</div></details>':"")+
+    archive.length+')</summary><div>'+archive.map(x=>'<div class="ir-ai-reference-archive-item">'+
+     '<b>'+esc(x.mark)+'</b> · '+esc(types[x.type]||x.type)+
+     ' · '+esc(x.sheetCode)+' · версия '+esc(x.revision)+
+     ' · '+esc(statusText[x.status]||x.status)+
+     '<div class="ir-ai-reference-archive-actions">'+
+     '<button type="button" data-ref-history="'+x.id+'">История</button>'+
+     (x.source?.documentId&&x.source?.page?
+       '<button type="button" data-ref-source="'+x.source.documentId+':'+x.source.page+
+        '">Открыть исходный PDF</button>':"")+
+     '</div><div data-ref-log="'+x.id+'" hidden></div></div>').join("")+'</div></details>':"")+
    '<p class="ir-ai-storage-note">Полная спецификация не удостоверена автоматически. '+
     'Для каждой редакции КМД необходима отдельная ручная сверка действующих листов инженером.</p>'+
    '</section>';
@@ -82,8 +89,9 @@ window.irAiKmdReferencePage={
     type:entry.type,actualId:entry.actualId,assemblyId:entry.assemblyId,
     referenceId:entry.referenceId,mark:entry.mark,position:entry.position});
   });
-  root.querySelectorAll("[data-reference-pdf]").forEach(button=>button.onclick=()=>{
-   const [doc,page]=button.dataset.referencePdf.split(":");void openPdf?.(doc,page)
+  root.querySelectorAll("[data-reference-pdf],[data-ref-source]").forEach(button=>button.onclick=()=>{
+   const value=button.dataset.referencePdf||button.dataset.refSource;
+   const [doc,page]=value.split(":");void openPdf?.(doc,page)
   });
   let writing=false;
   async function authorized(fn){
@@ -179,12 +187,12 @@ window.irAiKmdReferencePage={
    const item=current.find(x=>String(x.id)===b.dataset.refEdit);if(item)edit(item)
   });
   root.querySelectorAll("[data-ref-history]").forEach(b=>b.onclick=async()=>{
-   const item=current.find(x=>String(x.id)===b.dataset.refHistory);
+   const item=(entries||[]).find(x=>String(x.id)===b.dataset.refHistory);
    const row=root.querySelector('[data-ref-log="'+b.dataset.refHistory+'"]');
    if(!item||!row)return;
    row.hidden=!row.hidden;
    if(row.hidden)return;
-   const target=row.querySelector("td");target.textContent="Читаем историю...";
+   const target=row.querySelector("td")||row;target.textContent="Читаем историю...";
    try{
     const history=await api.history(objectId,item.id);
     target.innerHTML=history.length?history.map(h=>'<div><b>'+esc(h.action)+'</b> · '+
