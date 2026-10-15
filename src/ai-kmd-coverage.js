@@ -16,6 +16,21 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
   const marks=quantities.list(objectId),parts=materials.list(objectId),
    nodes=connections.listNodes(objectId),items=connections.listComponents(objectId),
    claims=proposals.list(objectId).filter(x=>x.approved&&x.sourceValid);
+  // Scan placement/attachment tables once, even for a large KMD package.
+  const groupByAssembly=section=>{
+   const map=new Map();
+   const rowType=section==="ai-assembly-placement"?"part_placement":"assembly_attachment";
+   for(const row of database.listEntity(objectId,section)){
+    if(row.record_type!==rowType)continue;
+    const aid=Number(row.data?.assemblyId);
+    if(!Number.isSafeInteger(aid)||aid<=0)continue;
+    if(!map.has(aid))map.set(aid,[]);
+    map.get(aid).push(row)
+   }
+   return map
+  };
+  const placementsByMark=groupByAssembly("ai-assembly-placement");
+  const attachmentsByMark=groupByAssembly("ai-assembly-attachments");
   const messages=[],byMark=new Map();
   const add=(severity,code,title,tab,examples)=>{
    if(examples.length)messages.push({severity,code,title,tab,count:examples.length,
@@ -152,8 +167,7 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
    declaredPartUnitsPerCopies+=projectPartUnits;
    if(!relevant.length)noDetails.push(mark.mark+" / "+mark.cipher);
    const partIds=new Set(validParts.map(x=>x.id));
-   const rawPlacements=database.listEntity(objectId,"ai-assembly-placement")
-    .filter(x=>x.record_type==="part_placement"&&Number(x.data?.assemblyId)===mark.id);
+   const rawPlacements=placementsByMark.get(mark.id)||[];
    const activeIndices=new Set(),collisions=[];
    let placed=[];
    if(rawPlacements.length){
@@ -186,8 +200,7 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
    weldLengthM+=relevantItems.filter(x=>x.category==="weld")
     .reduce((s,x)=>s+(x.totalLengthM||0),0);
    let annotations=0;
-   if(database.listEntity(objectId,"ai-assembly-attachments")
-    .some(x=>x.record_type==="assembly_attachment"&&Number(x.data?.assemblyId)===mark.id)){
+   if((attachmentsByMark.get(mark.id)||[]).length){
     try{annotations=attachments.list(objectId,mark.id).filter(x=>x.visible).length}
     catch(error){invalid3d.push(mark.mark+": "+String(error?.message||error))}
    }
