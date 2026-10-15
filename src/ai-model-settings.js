@@ -109,7 +109,7 @@
       '<div class="ir-ai-model-releases">'+(catalog.available||[]).filter(r=>r.modelId===x.id).map(r=>
        '<div class="ir-ai-model-release"><div><b>Версия '+esc(r.version)+'</b><small>'+fmt(r.bytes)+' · '+esc(r.notes||"Подписанный пакет")+'</small></div>'+
        '<button type="button" data-download-model="'+esc(x.id)+'" data-download-version="'+esc(r.version)+'" '+
-        (busy||!isAdmin()||!data.signedImportAvailable?'disabled':'')+'>Скачать</button></div>').join("")+'</div>'+
+        (busy||!isAdmin()||!data.signedImportAvailable?'disabled':'')+'>Скачать и установить</button></div>').join("")+'</div>'+
       '<div class="ir-ai-model-foot"><small>'+esc(x.state)+'</small>'+
       (x.id==="qwen3-vl-4b"&&x.active?'<button type="button" data-verify-model="'+esc(x.id)+'" '+(busy||!isAdmin()?'disabled':'')+'>Проверить файлы</button>':"")+
       '<button type="button" data-rollback="'+esc(x.id)+'" '+(!x.canRollback||busy||!isAdmin()?'disabled':'')+'>↶ Откатить</button></div></article>').join("")+
@@ -160,19 +160,14 @@
     if(busy||!isAdmin()||!data.signedImportAvailable)return;
     const modelId=button.dataset.downloadModel,version=button.dataset.downloadVersion;
     const release=(catalog.available||[]).find(x=>x.modelId===modelId&&x.version===version);
-    if(!release||!doc.defaultView.confirm("Скачать подписанный ИИ-пакет "+version+"?\nРазмер загрузки: "+fmt(release.bytes)+
-     "\nПосле скачивания потребуется отдельное подтверждение установки."))return;
+    if(!release||!doc.defaultView.confirm("Скачать и установить "+modelId+" версии "+version+
+     "?\\nРазмер загрузки: "+fmt(release.bytes)+"\\nМодель будет установлена после проверки цифровой подписи."))return;
     if(!await authorize())return;
     busy=true;downloading=true;progress="Подключаемся к серверу…";render();
     try{
-     const selected=await api.download(modelId,version);
-     downloading=false;progress="";
-     if(!doc.defaultView.confirm("Файл загружен и проверен. Установить модель "+selected.title+
-      " версии "+selected.version+"?\nЗаймёт на диске: "+fmt(selected.installedBytes)))return;
-     if(!await authorize())return;
-     const installed=await api.install(selected.token);
-     status("Установлена версия "+installed.version+". Перед запуском проверьте модель кнопкой «Проверить файлы».")
-    }catch(e){status("Обновление не завершено: "+String(e.message||e),true)}
+     const installed=await api.downloadAndInstall(modelId,version);
+     status("Модель "+installed.title+" "+installed.version+" установлена. Проверьте готовность к КМД перед использованием.")
+    }catch(e){status("Скачивание или установка не завершены: "+String(e.message||e),true)}
     finally{busy=false;downloading=false;progress="";await reload()}
    });
    target.querySelector("[data-check]").onclick=async()=>{
