@@ -121,8 +121,11 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
      if(generation!==lifecycle||child!==mine)return;
      issue="Локальная модель завершилась (код "+code+")";state="failed";terminate()
     });
+    // CPU-only Windows hosts can take several minutes to load the real 4B GGUF.
+    // Do not declare failure merely because the first 120 seconds elapsed.
+    const startupSeconds=pack.gpuLayers>0?180:360;
     // A canceled or superseded startup cannot mark a new process ready.
-    for(let i=0;i<120;i++){
+    for(let i=0;i<startupSeconds;i++){
      if(generation!==lifecycle||child!==mine||state==="failed")return status();
      try{
       const res=await httpFetch("http://127.0.0.1:"+serverPort+"/health",{
@@ -134,7 +137,7 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
      await wait(1000)
     }
     if(generation!==lifecycle||child!==mine)return status();
-    issue=issue||"Время загрузки локальной модели истекло (120 сек.)";
+    issue=issue||"Время загрузки локальной модели истекло ("+startupSeconds+" сек.)";
     state="failed";terminate();return status()
    }catch(error){
     if(generation!==lifecycle)return status();
