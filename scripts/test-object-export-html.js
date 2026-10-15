@@ -340,7 +340,7 @@ assert(ganttHTML.includes('.overview-gantt-row:not(.ir-export-gantt-type-1){disp
 assert(ganttRows[0].classes.includes("ir-export-gantt-type-0")&&ganttRows[2].classes.includes("ir-export-gantt-type-0"),"same work type uses a consistent selector");
 assert(ganttRows[1].classes.includes("ir-export-gantt-type-1"),"different work types have independent selectors");
 const expandedStart=source.indexOf(" function reportFull("),expandedEnd=source.indexOf(" function exportMoreCards(",expandedStart);
-const expanded=vm.runInNewContext('(function(){const reportWorks=r=>r.items||[];const reportWorkTable=w=>"<table>"+w.length+"</table>";'+source.slice(expandedStart,expandedEnd)+';return reportFull})()');
+const expanded=vm.runInNewContext('(function(){const reportWorks=r=>r.items||[];const reportWorkTable=w=>"<table>"+w.length+"</table>";const reportAdditionalWorks=()=>"";'+source.slice(expandedStart,expandedEnd)+';return reportFull})()');
 assert.equal(expanded({id:139},{items:[{name:"Монтаж"}],photos:["photo"],workers:[{count:5}],equipment:[{count:2}]},new Map()),
  '<div class="ir-export-daily-full"><table>1</table></div>',"expanded report shows only its work table");
 assert(source.includes('.ir-export-daily-full{display:block!important;padding:0!important'),"work table occupies the expanded report width");
