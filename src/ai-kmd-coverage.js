@@ -31,6 +31,21 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
   };
   const placementsByMark=groupByAssembly("ai-assembly-placement");
   const attachmentsByMark=groupByAssembly("ai-assembly-attachments");
+  // Build ledger indexes once. Large KMD sets should not rescan every
+  // part/physical joint/hardware item for each individual assembly mark.
+  const grouped=(rows,field)=>{
+   const byKey=new Map();
+   for(const row of rows){
+    const k=row[field];
+    if(!byKey.has(k))byKey.set(k,[]);
+    byKey.get(k).push(row)
+   }
+   return byKey
+  };
+  const partsByAssembly=grouped(parts,"assemblyId"),
+   nodesByAssembly=grouped(nodes,"assemblyId"),
+   itemsByAssembly=grouped(items,"assemblyId"),
+   itemsByJoint=grouped(items,"jointId");
   const messages=[],byMark=new Map();
   const add=(severity,code,title,tab,examples)=>{
    if(examples.length)messages.push({severity,code,title,tab,count:examples.length,
@@ -86,18 +101,18 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
     else if(checkedInteger(mark.quantity)!==checkedInteger(v.quantity))
      qtyMismatch.push(tag+": проверено "+v.quantity+", в ведомости "+mark.quantity);
    }else if(p.type==="steel_part"){
-    const hits=parts.filter(x=>x.assemblyId===mark.id&&norm(x.position)===norm(v.position));
+    const hits=(partsByAssembly.get(mark.id)||[]).filter(x=>norm(x.position)===norm(v.position));
     if(!hits.some(x=>x.status==="confirmed"&&x.counted))partMissing.push(p);
     else if(Number.isSafeInteger(v.partCount)&&
      hits.some(x=>x.counted&&x.partCount!==v.partCount))
      partMismatch.push(tag+" / "+v.position+": предложение "+v.partCount+
       ", подтверждено "+hits.find(x=>x.counted).partCount);
    }else{
-    const joint=nodes.find(x=>x.assemblyId===mark.id&&
+    const joint=(nodesByAssembly.get(mark.id)||[]).find(x=>
      norm(x.jointCode)===norm(v.jointCode)&&x.counted);
     if(!joint){jointMissing.push(p);continue}
     if(v.fastenerKind){
-     const matches=items.filter(x=>x.jointId===joint.id&&x.counted&&
+     const matches=(itemsByJoint.get(joint.id)||[]).filter(x=>x.counted&&
       norm(x.kind)===norm(v.fastenerKind)&&(!v.position||norm(x.position)===norm(v.position)));
      if(!matches.length)itemMissing.push(p)
     }
@@ -151,6 +166,7 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
   add("error","kmd_duplicate_physical_positions","Повторные подтверждённые детали или соединения",
    "integrity",duplicatePhysical);
   const noDetails=[],partial3d=[],invalid3d=[],unlinkedHardware=[];
+  let unreadable3d=0;
   let declaredCopies=0,declaredPartUnitsPerCopies=0,modeledUnits=0,expectedModelUnits=0,
    confirmedFactoryJoints=0,confirmedErectionJoints=0,fastenerPieces=0,weldLengthM=0;
   for(const mark of marks.filter(x=>x.status==="confirmed"&&x.sourceValid)){
@@ -158,7 +174,7 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
    const pieces=checkedInteger(mark.quantity);
    if(pieces===null||pieces<=0)continue;
    declaredCopies+=pieces;
-   const relevant=parts.filter(x=>x.assemblyId===mark.id&&x.status!=="rejected");
+   const relevant=(partsByAssembly.get(mark.id)||[]).filter(x=>x.status!=="rejected");
    const confirmed=relevant.filter(x=>x.status==="confirmed"&&x.counted);
    const validParts=confirmed.filter(x=>checkedInteger(x.partCount)!==null&&x.partCount>0);
    const declaredUnitParts=validParts.reduce((sum,x)=>sum+x.partCount,0);
@@ -169,10 +185,13 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
    const partIds=new Set(validParts.map(x=>x.id));
    const rawPlacements=placementsByMark.get(mark.id)||[];
    const activeIndices=new Set(),collisions=[];
-   let placed=[];
+   let placed=[],modelReadable=true;
    if(rawPlacements.length){
     try{placed=assemblies.list(objectId,mark.id)}
-    catch(error){invalid3d.push(mark.mark+": "+String(error?.message||error));continue}
+    catch(error){
+     invalid3d.push(mark.mark+": "+String(error?.message||error));
+     unreadable3d++;modelReadable=false
+    }
    }
    for(const p of placed.filter(x=>x.status==="confirmed")){
     const key=p.partId+":"+p.instanceIndex;
@@ -184,13 +203,13 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
    // 3D is one standard mark assembly; don't multiply modeled geometry by
    // the number of identical shipped marks.
    const modeled=activeIndices.size;
-   modeledUnits+=modeled;
+   if(modelReadable)modeledUnits+=modeled;
    expectedModelUnits+=declaredUnitParts;
-   if(rawPlacements.length&&modeled<declaredUnitParts)
+   if(rawPlacements.length&&modelReadable&&modeled<declaredUnitParts)
     partial3d.push(mark.mark+" / "+mark.cipher+": "+modeled+" из "+
      declaredUnitParts+" деталей на одну марку");
-   const relevantNodes=nodes.filter(x=>x.assemblyId===mark.id&&x.counted);
-   const relevantItems=items.filter(x=>x.assemblyId===mark.id&&x.counted);
+   const relevantNodes=(nodesByAssembly.get(mark.id)||[]).filter(x=>x.counted);
+   const relevantItems=(itemsByAssembly.get(mark.id)||[]).filter(x=>x.counted);
    confirmedFactoryJoints+=relevantNodes.filter(x=>x.scope==="fabrication")
     .reduce((s,x)=>s+(x.instances||0),0);
    confirmedErectionJoints+=relevantNodes.filter(x=>x.scope==="erection")
@@ -209,8 +228,9 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
     copies:pieces,confirmedDetailPositions:confirmed.length,
     pendingDetailPositions:relevant.filter(x=>x.status!=="confirmed"||
      !x.counted).length,detailUnitsPerMark:declaredUnitParts,
-    declaredDetailUnitsInProject:projectPartUnits,modeledUnitsPerMark:modeled,
-    pendingModelUnits:Math.max(0,declaredUnitParts-modeled),
+    declaredDetailUnitsInProject:projectPartUnits,
+    modeledUnitsPerMark:modelReadable?modeled:null,
+    pendingModelUnits:modelReadable?Math.max(0,declaredUnitParts-modeled):null,
     modelStarted:rawPlacements.length>0,confirmedJointPositions:relevantNodes.length,
     factoryJointInstances:relevantNodes.filter(x=>x.scope==="fabrication")
      .reduce((s,x)=>s+(x.instances||0),0),
@@ -229,8 +249,9 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
    "assembly",partial3d);
   add("error","kmd_invalid_3d_placement","Недействительные или повторные 3D-размещения",
    "assembly",invalid3d);
+  const countedNodeIds=new Set(nodes.filter(x=>x.counted).map(x=>x.id));
   for(const row of items.filter(x=>x.status==="confirmed"&&!x.counted))
-   if(!nodes.some(n=>n.id===row.jointId&&n.counted))
+   if(!countedNodeIds.has(row.jointId))
     unlinkedHardware.push("№ "+row.id+" / "+row.position+" → узел "+row.jointId);
   add("error","kmd_unlinked_hardware","Компоненты соединений без действующего узла",
    "fasteners",unlinkedHardware);
@@ -244,7 +265,7 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
    metrics:{confirmedMarkCopies:ambiguousTotals?null:declaredCopies,
     registeredDetailUnitsInProject:ambiguousTotals?null:declaredPartUnitsPerCopies,
     expectedModelUnitsPerUniqueMarks:ambiguousTotals?null:expectedModelUnits,
-    modeledUnitsPerUniqueMarks:ambiguousTotals?null:modeledUnits,
+    modeledUnitsPerUniqueMarks:ambiguousTotals||unreadable3d?null:modeledUnits,
     factoryJointInstances:ambiguousTotals?null:confirmedFactoryJoints,
     erectionJointInstances:ambiguousTotals?null:confirmedErectionJoints,
     registeredFastenerPieces:ambiguousTotals?null:fastenerPieces,
