@@ -81,6 +81,23 @@ function fixture(){
  assert.equal(duplicate.metrics.approvedMarkCopies,null,
   "duplicate approved rows must not expose an inflated physical-piece total");
  assert(duplicate.issues.some(issue=>issue.code==="duplicate_approved_marks"&&issue.count===1));
+ const withReference=createAiIntegrity({...shared,reference:{compare:()=>({
+  activeReferencePositions:2,reviewedSheets:0,sheetCount:1,
+  sheets:[{id:301,sheetCode:"КМД-01",page:1,checked:false}],
+  mismatches:[{code:"missing_position",mark:"К41",position:"Д3",
+   expected:2,actual:null,label:"Отсутствующая деталь"}]
+ })}}).report(1);
+ assert(withReference.issues.some(x=>x.code==="kmd_reference_sheets_pending"&&x.count===1),
+  "engineering source sheets that are not signed must appear in integrity report");
+ assert(withReference.issues.some(x=>x.code==="kmd_reference_missing_position"&&x.count===1),
+  "KMD reference discrepancies must survive integration into global diagnostics");
+ assert.equal(withReference.metrics.referencePositions,2);
+ assert.equal(withReference.releaseCertified,false);
+ const referenceFailure=createAiIntegrity({...shared,reference:{compare:()=>{
+  throw Error("tampered KMD source snapshot")
+ }}}).report(1);
+ assert(referenceFailure.issues.some(x=>x.code==="integration_kmd_reference"),
+  "failure to read KMD reference is an error, not zero discrepancies");
  assert.throws(()=>api.report(2),/Объект не найден/);
  const broken={...shared,materials:{list:()=>{throw Error("Material table failure")}}};
  const y=createAiIntegrity(broken).report(1);
