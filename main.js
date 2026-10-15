@@ -116,7 +116,7 @@ function registerAiDocuments(){
  });
  ipcMain.handle("ai-engine:status",()=>aiEngine.status());
  ipcMain.handle("ai-engine:start",e=>{requireAiReviewer(e);return aiEngine.start()});
- ipcMain.handle("ai-engine:stop",e=>{requireAiReviewer(e);return aiEngine.stop()});
+ ipcMain.handle("ai-engine:stop",e=>{requireAiReviewer(e);aiOcr.cancel();return aiEngine.stop()});
  ipcMain.handle("ai-engine:cancel",e=>{requireAiReviewer(e);aiOcr.cancel();return aiEngine.cancel()});
  ipcMain.handle("ai-ocr:status",()=>aiOcr.status());
  ipcMain.handle("ai-ocr:cancel",e=>{requireAiReviewer(e);return aiOcr.cancel()});
@@ -230,7 +230,7 @@ function registerAiModelIpc(){
  });
  ipcMain.handle("ai-diagnostics:stop",(event)=>{
   checkModelAdmin(event);
-  return aiEngine.stop()
+  aiOcr.cancel();return aiEngine.stop()
  });
  ipcMain.handle("ai-models:check-updates",()=>aiModels.checkUpdates());
  ipcMain.handle("ai-models:authorize",(e,password)=>{

@@ -447,6 +447,14 @@ window.irAiRecognitionPage=async function(objectId){
         (canEdit?'<button type="button" class="ir-ai-review-save" data-review-save="'+x.id+'" '+(!reviewer||busy?'disabled':'')+'>Сохранить проверку</button>':"")+
        '</div></div>'+
       '<div class="ir-ai-review-history" data-history-for="'+x.id+'" hidden></div>'+
+      (x.ocr?'<details><summary>Результат PaddleOCR-VL 1.6 · требует проверки</summary>'+
+       '<p>Локальная модель '+esc(x.ocr.modelId)+' · версия '+esc(x.ocr.modelVersion)+
+       ' · SHA-256 изображения '+esc(x.ocr.sourceImageSha256)+
+       ' · блоков '+esc(x.ocr.blocks?.length||0)+'</p>'+
+       '<pre>'+esc(x.ocr.text||"Текст не распознан")+'</pre>'+
+       '<div>'+((x.ocr.blocks||[]).slice(0,100).map(b=>
+        '<div>'+esc(b.type||"text")+' · координаты '+esc(JSON.stringify(b.bbox??null))+
+        ': '+esc(b.text||"")+'</div>').join(""))+'</div></details>':"")+
       '<details><summary>Ответ модели без изменений</summary><pre>'+esc(x.raw||"")+'</pre></details>'+
      '</article>').join("")+'</div>')+
     '<p class="ir-ai-storage-note">Подтверждение изменяет только реестр IR Project AI. Ни одна марка не записывается автоматически в производственную ведомость; количество и тоннаж не рассчитываются из повторяющихся упоминаний.</p>';

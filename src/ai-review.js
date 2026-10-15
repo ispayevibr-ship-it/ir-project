@@ -60,6 +60,14 @@ function createAiReview({database,revisions=null,clock=()=>new Date().toISOStrin
     comment:String(x.data?.review?.comment||""),
     marks:candidate(x.data),originalMarks:Array.isArray(x.data?.extracted?.marks)?x.data.extracted.marks:[],
     notes:x.data?.extracted||null,raw:String(x.data?.raw||""),
+    ocr:x.data?.ocr&&typeof x.data.ocr==="object"?{
+     modelId:String(x.data.ocr.modelId||""),
+     modelVersion:String(x.data.ocr.modelVersion||""),
+     text:String(x.data.ocr.text||"").slice(0,60000),
+     sourceImageSha256:String(x.data.ocr.sourceImageSha256||""),
+     blocks:Array.isArray(x.data.ocr.blocks)?x.data.ocr.blocks.slice(0,600):[],
+     complete:x.data.ocr.complete===true,unverified:true
+    }:null,
     modelId:x.data?.modelId||x.data?.model||"",
     modelVersion:x.data?.modelVersion||null,
     createdAt:x.created_at
