@@ -26,7 +26,9 @@ const mk=(doc,latest)=>{
  assert.match(await wrongToken.detectOldTabCode(),/устаревший JavaScript/);
  assert.match(current.runtimeTokenFromHtml(html),/^\d+$/);
  assert(shellHTML.includes("tabs-shell.js?v=17144"));
- assert(viewer.includes('id="irbStart" data-ir-label="add-element"'));
+ assert(viewer.includes('addButton.id="irbQuickAdd"'),"new UI uses its single floating Add control");
+ assert(!viewer.includes('id="irbStart"'),"obsolete sidebar Add control is absent");
+ assert(shell.includes('getElementById?.("irbStart")'),"obsolete cached tabs can still be recognized");
  assert(shell.includes('["Перезагрузить вкладку",true,()=>{if(reloadCurrent())closeUpdate()}]'));
  console.log("Installed version versus active iframe: stale UI and script revisions detected.");
 })().catch(e=>{console.error(e);process.exitCode=1});
