@@ -190,6 +190,17 @@ function createAiIntegrity({database,documents,pdfIndex,revisions,review,workflo
    staleNodes.length+staleItems.length,[
     ...sample(staleNodes,x=>"Узел "+x.jointCode+": "+x.reason),
     ...sample(staleItems,x=>"Позиция "+x.position+": "+x.reason)].slice(0,12));
+  const outdatedParents=[
+   ...steel.filter(x=>x.status==="confirmed"&&!x.parentRevisionValid)
+     .map(x=>x.assemblyMark+" / деталь "+x.position),
+   ...nodes.filter(x=>x.status==="confirmed"&&!x.parentRevisionValid)
+     .map(x=>"Узел "+x.jointCode+" / марка № "+x.assemblyId),
+   ...items.filter(x=>x.status==="confirmed"&&!x.parentRevisionValid)
+     .map(x=>"Крепёж или шов "+x.position+" / узел № "+x.jointId)
+  ];
+  note("error","outdated_parent_revisions","Зависимые данные подтверждены по прежней редакции",
+   "История сохранена, но после изменения марки или узла требуется повторная инженерная проверка.",
+   "integrity",outdatedParents.length,outdatedParents.slice(0,12));
   const differences=safe("comparisons",()=>comparisons.list(objectId),[]);
   metrics.comparisons=differences.length;
   const staleComparisons=differences.filter(x=>x.result==="invalid_source");
@@ -210,6 +221,7 @@ function createAiIntegrity({database,documents,pdfIndex,revisions,review,workflo
    pendingComparisons.length);
   let confirmedPlacements=0,pendingPlacements=0,verifiedAnchors=0,
    assemblyErrors=0;
+  const outdated3d=[];
   const in3d=new Set(database.listEntity(objectId,"ai-assembly-placement")
    .filter(x=>x.record_type==="part_placement").map(x=>Number(x.data?.assemblyId)));
   const inAnchors=new Set(database.listEntity(objectId,"ai-assembly-attachments")
@@ -219,6 +231,9 @@ function createAiIntegrity({database,documents,pdfIndex,revisions,review,workflo
     const parts=assemblies.list(objectId,assemblyId);
     confirmedPlacements+=parts.filter(x=>x.counted).length;
     pendingPlacements+=parts.filter(x=>!x.counted&&x.status!=="rejected").length;
+    for(const part of parts.filter(x=>x.status==="confirmed"&&
+     (!x.assemblyRevisionValid||!x.partRevisionValid)))
+     outdated3d.push(part.assemblyMark+" / "+part.partPosition+" № "+part.instanceIndex);
     if(inAnchors.has(assemblyId)){
      const anchors=attachments.list(objectId,assemblyId);
      verifiedAnchors+=anchors.filter(x=>x.visible).length;
@@ -230,6 +245,9 @@ function createAiIntegrity({database,documents,pdfIndex,revisions,review,workflo
      String(e?.message||e).slice(0,250),"assembly")
    }
   }
+  note("error","outdated_geometry_revisions","3D-сборка использует прежние редакции марки или деталей",
+   "Проверьте размещения по действующим редакциям марки и деталей КМД.",
+   "assembly",outdated3d.length,outdated3d.slice(0,12));
   metrics.confirmed3dDetails=confirmedPlacements;
   metrics.confirmed3dAnchors=verifiedAnchors;
   note("warning","unreviewed_3d","3D-размещения и соединения требуют повторной проверки",
