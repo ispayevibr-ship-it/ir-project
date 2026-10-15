@@ -288,6 +288,7 @@ function registerBackup(){
   const r=await dialog.showSaveDialog(win,{defaultPath:"ir-project-complete.ir-backup",
    filters:[{name:"Полный архив IR Project (база, чертежи, фотографии и акты)",extensions:["ir-backup"]}]});
   if(r.canceled||!r.filePath)return false;
+  requireBackupAdmin(e);
   await completeBackup.pack({userData:app.getPath("userData"),destination:r.filePath,
    closeDatabase:database.closeDatabase,openDatabase:database.openDatabase});
   return true
@@ -301,6 +302,7 @@ function registerBackup(){
    message:"Будут восстановлены база данных, оригиналы КМ/КМД, фотографии и акты.",
    detail:"Сначала архив будет проверен. Рекомендуется сохранить отдельную текущую копию перед восстановлением."});
   if(answer.response!==1)return false;
+  requireBackupAdmin(e);
   await completeBackup.restore({archive:r.filePaths[0],userData:app.getPath("userData"),
    closeDatabase:database.closeDatabase,openDatabase:database.openDatabase});
   return true

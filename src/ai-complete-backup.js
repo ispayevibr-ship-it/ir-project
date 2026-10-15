@@ -8,10 +8,14 @@ const fs=require("node:fs"),path=require("node:path"),os=require("node:os"),
  yauzl=require("yauzl"),yazl=require("yazl"),{DatabaseSync}=require("node:sqlite");
 const ROOTS=["ir-project-ai/objects","images","report-documents"];
 const DB="ir-project.db",MAX_FILES=30000,MAX_BYTES=50*1024**3;
-const regex=/^[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*$/;
-function allowed(name){return typeof name==="string"&&name.length<=320&&
- regex.test(name)&&!name.split("/").some(x=>x==="."||x==="..")&&
- (name===DB||ROOTS.some(root=>name.startsWith(root+"/")))}
+function allowed(name){
+ if(typeof name!=="string"||name.length>1024||name.length<1||
+  /[\\\x00-\x1f\x7f<>:"|?*]/u.test(name))return false;
+ const segments=name.split("/");
+ if(segments.some(x=>!x||x==="."||x===".."||x.length>190||
+  /[. ]$/u.test(x)))return false;
+ return name===DB||ROOTS.some(root=>name.startsWith(root+"/"))
+}
 async function digest(file){
  const h=crypto.createHash("sha256");
  for await(const chunk of fs.createReadStream(file))h.update(chunk);

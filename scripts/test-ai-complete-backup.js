@@ -45,6 +45,11 @@ const sha=data=>crypto.createHash("sha256").update(data).digest("hex");
   assert(archiveNames.has("ir-project-ai/objects/1/"+stored));
   assert(archiveNames.has("images/objects/object.jpg"));
   assert(archiveNames.has("report-documents/signed-act.pdf"));
+  assert.equal(complete.allowed("report-documents/1755-Акт сверки КМД 1.pdf"),true,
+   "real signed acts may contain Cyrillic letters and spaces");
+  assert.equal(complete.allowed("report-documents/../ir-project.db"),false);
+  assert.equal(complete.allowed("report-documents/Акт.pdf:extra"),false);
+  assert.equal(complete.allowed("images/objects/link\\escape.jpg"),false);
   fs.writeFileSync(path.join(docDir,stored),Buffer.from("modified document"));
   fs.unlinkSync(path.join(imageDir,"object.jpg"));
   db.exec("DELETE FROM object_records");
