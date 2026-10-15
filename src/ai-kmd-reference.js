@@ -1,4 +1,5 @@
 "use strict";
+const {createHash}=require("node:crypto");
 /* Engineer-defined KMD reference positions, not an AI-generated completeness claim.
  * Every reference belongs to a sheet of an explicitly activated KMD drawing set.
  * Historical records remain immutable through an append-only change log.
@@ -49,6 +50,17 @@ function createKmdReference({database,revisions,quantities,materials,connections
   if(matches.length>1)
    throw Error("Обнаружены несколько актов проверки одного листа КМД. Необходимо устранить конфликт сохранённых записей");
   return matches[0]||null
+ };
+ // Signed sheet review is tied to an exact snapshot of *every* reference
+ // record on that sheet, including rejected rows. A direct SQLite edit or
+ // extra insert cannot leave a previous sign-off looking current.
+ const sheetFingerprint=(o,setId,sheetId)=>{
+  const rows=stored(o,RECORDS,"kmd_reference")
+   .filter(x=>Number(x.data?.setId)===Number(setId)&&
+    Number(x.data?.sheetId)===Number(sheetId))
+   .map(x=>({id:x.id,data:x.data}))
+   .sort((a,b)=>a.id-b.id);
+  return createHash("sha256").update(JSON.stringify(rows)).digest("hex")
  };
  const activeSet=o=>{
   const set=revisions.active(o,"КМД");
@@ -133,16 +145,19 @@ function createKmdReference({database,revisions,quantities,materials,connections
   }
   const sheets=active.sheets.map(p=>{
    const check=checksBySheet.get(p.id),d=check?.data||{};
-   const current=Boolean(p.valid&&d.status==="sealed"&&d.reviewedEntireSheet===true&&
-    ["admin","engineer"].includes(d.reviewedBy)&&
-    d.documentId===p.documentId&&d.sha256===p.sha256&&d.page===p.page);
    const positions=bySheet.get(p.id)||[];
+   const unresolved=positions.filter(e=>!e.approved).length;
+   const current=Boolean(p.valid&&d.status==="sealed"&&d.reviewedEntireSheet===true&&
+    ["admin","engineer"].includes(d.reviewedBy)&&unresolved===0&&
+    typeof d.fingerprint==="string"&&d.fingerprint.length===64&&
+    d.fingerprint===sheetFingerprint(o,active.set.id,p.id)&&
+    d.documentId===p.documentId&&d.sha256===p.sha256&&d.page===p.page);
    return{...p,checked:current,status:current?"sealed":d.status||"not_started",
     revision:Number(d.revision)||0,checkedAt:d.reviewedAt||null,
     checkedBy:d.reviewedBy||null,comment:String(d.comment||""),
     totalPositions:positions.length,
     confirmedPositions:positions.filter(e=>e.approved).length,
-    unresolved:positions.filter(e=>!e.approved).length}
+    unresolved}
   });
   const reviewed=sheets.filter(x=>x.checked).length;
   return{setId:active.set.id,setIssue:String(active.set.data?.issue||""),
@@ -222,7 +237,8 @@ function createKmdReference({database,revisions,quantities,materials,connections
   const data={setId:src.setId,sheetId:src.sheetId,sheetCode:src.sheetCode,
    documentId:src.documentId,page:src.page,sha256:src.sha256,
    status:"sealed",revision:rev+1,reviewedBy:ctx.role,reviewedAt:clock(),
-   reviewedEntireSheet:true,comment};
+   reviewedEntireSheet:true,comment,
+   fingerprint:sheetFingerprint(o,src.setId,src.sheetId)};
   return tx(()=>{
    const check=old?database.updateEntity(o,CHECKS,old.id,{
     record_type:"kmd_sheet_check",title:src.sheetCode,data}):
