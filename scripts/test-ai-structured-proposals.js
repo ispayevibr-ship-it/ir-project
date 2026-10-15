@@ -77,6 +77,16 @@ function fixture(){
  assert.equal(accepted.approved,true);
  assert.equal(reviewer.list(2).length,0);
  assert.equal(db.listEntity(1,"ai-mark-quantities").length,0,"no auto-insertion into mark quantity ledger");
+ const prior=db.listEntity(1,"ai-structured-reviews").find(x=>x.data.analysisId===a.id&&x.data.index===0);
+ const conflict=create(1,"ai-structured-reviews",{record_type:"structured_review",
+  title:"Conflicting verification",parent_id:a.id,data:{...prior.data}});
+ assert.equal(reviewer.list(1).find(x=>x.index===0).approved,false,
+  "ambiguous persisted approvals must be untrusted");
+ assert.equal(reviewer.list(1).find(x=>x.index===0).conflictingReviews,true);
+ assert.equal(reviewer.summary(1).conflictingReviews,1);
+ assert.throws(()=>reviewer.save(1,a.id,0,{expectedRevision:1,status:"confirmed",
+  values:{mark:"К41",quantity:6,specPosition:"17"}},{role:"engineer"}),/несколько инженерных решений/);
+ assert.throws(()=>reviewer.history(1,a.id,0),/несколько инженерных решений/);
  exists=false;
  assert.equal(reviewer.summary(1).confirmed,0,"missing PDF invalidates source-linked acceptance");
  assert.equal(reviewer.summary(1).invalidSources,3);

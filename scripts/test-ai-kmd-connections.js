@@ -83,6 +83,18 @@ function fixture(){
  assert.equal(total.totalWeldLengthM,1.5);
  assert.equal(api.history(1,"joint",factory.id).length,1);
  assert.equal(api.history(1,"item",bolts.id).length,1);
+ const weldRow=database.getEntity(1,"ai-kmd-connection-items",weld.id);
+ database.updateEntity(1,"ai-kmd-connection-items",weld.id,{
+  record_type:"connection_item",title:weldRow.title,data:{...weldRow.data,lengthMm:"malformed"}
+ });
+ const unreadableWeld=api.listComponents(1).find(x=>x.id===weld.id);
+ assert.equal(unreadableWeld.counted,false,"malformed weld must not be counted");
+ assert.match(unreadableWeld.reason,/Длина сварного шва/);
+ assert.equal(api.summary(1).totalFastenerPieces,112,
+  "damaged weld does not suppress other legitimate hardware");
+ database.updateEntity(1,"ai-kmd-connection-items",weld.id,{
+  record_type:"connection_item",title:weldRow.title,data:weldRow.data
+ });
  assert.throws(()=>api.saveComponent(1,bolts.id,{...bolt,expectedRevision:0},{role:"admin"}),/устарела/);
  const nodeEdited=api.saveNode(1,factory.id,{...node,expectedRevision:1},{role:"engineer"});
  assert.equal(nodeEdited.counted,true);

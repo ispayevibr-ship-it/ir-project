@@ -39,6 +39,14 @@ const {createStore}=require("../src/ai-document-store");
   assert.equal(fs.readFileSync(opened,"utf8"),fs.readFileSync(source,"utf8"));
   const row=db.getEntity(1,"ai-documents",id);
   assert(!row.data.stored_name.includes("K41"),"private source filename isn't the storage key");
+  const history=db.createEntity(1,"ai-mark-quantity-history",{
+   record_type:"quantity_change",title:"Historic evidence",
+   data:{previous:{source:{documentId:id,sha256:first.imported[0].sha256}}}
+  });
+  assert.throws(()=>store.remove(1,id),/Нельзя удалить исходный файл/,
+   "original PDF remains when engineering history refers to its ID");
+  assert(fs.existsSync(opened),"source bytes must be preserved after blocked deletion");
+  db.deleteEntity(1,"ai-mark-quantity-history",history.id);
   assert.equal(store.remove(1,id),true);
   assert(!fs.existsSync(opened));assert.equal(store.list(1).length,0);
   const bad=path.join(tmp,"blocked.exe");fs.writeFileSync(bad,"file");

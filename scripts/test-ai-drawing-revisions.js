@@ -54,6 +54,8 @@ function fixture(){
   clock:()=>"2026-10-15T14:00:00Z"});
  const kmdInput=(documentId,page,sha256)=>({documentId,page,sha256,kind:"КМД"});
  assert.equal(rev.sourceState(1,kmdInput(old.id,2,shaA)).state,"uncontrolled");
+ assert.equal(rev.sourceState(1,{documentId:old.id,sha256:shaA,kind:"КМД",page:null}).state,"invalid",
+  "missing page cannot count even without an active drawing set");
  assert.throws(()=>rev.createSet(1,{kind:"КМД",issue:"Изм.0",label:"Основной КМД"},{role:"guest"}),/инженер/);
  const initial=rev.createSet(1,{kind:"КМД",issue:"Изм.0",label:"Основной КМД"},{role:"engineer"});
  assert.throws(()=>rev.addSheets(1,initial.id,[{documentId:km.id,page:1,sheetCode:"KM-1"}],{role:"engineer"}),/КМД/);
