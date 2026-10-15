@@ -291,7 +291,6 @@ window.irBuildingView=(()=>{
    '<label class="irb-switch"><input type="checkbox" id="irbRoof" '+(state.roof?'checked':'')+'><span>Контур кровли (эскиз)</span></label>'+
    '<div class="irb-info"><b>Управление каркасом</b><span>ЛКМ / один палец — вращение. ПКМ / два пальца — перемещение. Колесо / разведение пальцев — масштаб. Щелчок — выбор марки.</span></div>'+
    '<div class="irb-count"><span>'+html(props.scopeLabel||"На схеме")+'</span><strong id="irbVisibleCount">'+visibleCols().length+'</strong><small>Показано из '+cols.length+' размещённых элементов</small></div>'+
-   (props.canEdit?'<button type="button" class="irb-add" id="irbStart" data-ir-label="add-element" title="Добавить элемент" aria-label="Добавить элемент">＋ Добавить элемент</button>':'')+
    '</aside><div class="irb-viewport">'+
    '<canvas id="irbSolid" aria-hidden="true"></canvas><canvas id="irbCanvas" aria-label="Интерактивный 3D-каркас здания"></canvas>'+
    '<div class="irb-view-title"><b>3D-каркас</b><small>Живая модель монтажной схемы · WebGL</small></div>'+
@@ -1158,16 +1157,15 @@ window.irBuildingView=(()=>{
        '<div class="irb-row irb-length"><span>Длина элемента по осям</span><b>'+fmt(memberLength(c))+' мм · '+(memberLength(c)/1000).toLocaleString("ru-RU",{minimumFractionDigits:3,maximumFractionDigits:3})+' м</b></div>'+
       '<div class="irb-row"><span>Отметка низа, мм</span><b>'+fmt(c.z0)+'</b></div>'+
       '<div class="irb-row"><span>Отметка конца, мм</span><b>'+fmt(c.z2)+'</b></div>'+
-      (props.canEdit?'<div class="irb-action-row">'+
-       '<button type="button" class="irb-secondary" id="irbSelectDetails">Подробнее и редактирование →</button>'+
-       '<button type="button" class="irb-secondary irb-copy-button" id="irbCopySelected" title="Копировать размещение этой марки в другое место (по остатку)">⧉ Размещение</button>'+       '<button type="button" class="irb-secondary irb-copy-params" id="irbCopyPosition" title="Взять оси, X/Y, низ, верх, конёк и профиль в редактор новой позиции">⧉ Копировать позицию</button>'+
-       '<button type="button" class="irb-icon-delete" id="irbDeleteSelected" title="Удалить элемент со схемы" aria-label="Удалить выбранный элемент со схемы">'+
-        '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
+      (props.canEdit?'<div class="irb-mark-actions" role="group" aria-label="Действия с выбранной конструкцией">'+
+       '<button type="button" class="irb-mark-action" id="irbSelectDetails">Подробнее и редактирование →</button>'+
+       '<button type="button" class="irb-mark-action irb-copy-params" id="irbCopyPosition" title="Копировать координаты, оси, отметки низа, конца, конька, профиль и поворот в редактор новой позиции">⧉ Копировать позицию</button>'+
+       '<button type="button" class="irb-mark-action irb-copy-button" id="irbCopySelected" title="Копировать размещение в другое место с учётом остатка марки">⧉ Размещение</button>'+
+       '<button type="button" class="irb-mark-action irb-mark-delete" id="irbDeleteSelected" title="Удалить выбранный элемент со схемы" aria-label="Удалить выбранный элемент со схемы">'+
+        '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
          '<path d="M4 7h16M10 4h4M6 7l1 13h10l1-13M10 11v6m4-6v6"/>'+
-        '</svg></button></div>':''):
-      '<div class="irb-empty">Выберите конструкцию на общей модели, чтобы посмотреть её марку и положение. Все реальные элементы берутся из вашей монтажной схемы.</div>')+
-      (props.canEdit?'<button class="irb-save" id="irbStartRight">＋ Добавить элемент</button>':'');
-    const btn=el("irbStartRight");if(btn)btn.onclick=startPlacement;
+        '</svg><span>Удалить</span></button></div>':''):
+      '<div class="irb-empty">Выберите конструкцию на общей модели, чтобы посмотреть её марку и положение. Все реальные элементы берутся из вашей монтажной схемы.</div>');
     const detail=el("irbSelectDetails");if(detail)detail.onclick=()=>{
      if(props.canEdit&&typeof props.onEdit==="function")props.onEdit(String(c.id));
     };
@@ -1318,7 +1316,6 @@ window.irBuildingView=(()=>{
   refreshFindControls();
   el("irbGrid").onchange=e=>{state.grid=e.target.checked;paint()};
   el("irbRoof").onchange=e=>{state.roof=e.target.checked;paint()};
-  if(el("irbStart"))el("irbStart").onclick=startPlacement;
   if(el("irbQuickAdd"))el("irbQuickAdd").onclick=startPlacement;
   el("irbView").value=state.preset;
   el("irbView").onchange=e=>setCamera(e.target.value);
