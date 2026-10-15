@@ -1,7 +1,7 @@
 "use strict";
 const {app,BrowserWindow,ipcMain,dialog,Menu,protocol,shell}=require("electron");
 const path=require("path"),crypto=require("crypto"),fs=require("fs");
-const database=require("./src/database"),aiDocumentStore=require("./src/ai-document-store"),aiLocalEngine=require("./src/ai-local-engine"),aiAnalysis=require("./src/ai-analysis"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),aiModelManager=require("./src/ai-model-manager"),aiRuntimeDiagnostics=require("./src/ai-runtime-diagnostics"),backup=require("./src/backup"),updates=require("./src/updater"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
+const database=require("./src/database"),aiDocumentStore=require("./src/ai-document-store"),aiLocalEngine=require("./src/ai-local-engine"),aiAnalysis=require("./src/ai-analysis"),aiReview=require("./src/ai-review"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),aiModelManager=require("./src/ai-model-manager"),aiRuntimeDiagnostics=require("./src/ai-runtime-diagnostics"),backup=require("./src/backup"),updates=require("./src/updater"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
 let win;
 const aiDocuments=aiDocumentStore.createStore({getUserDataPath:()=>app.getPath("userData"),dialog,shell,database,getWindow:()=>win});
 let aiModels;
@@ -26,6 +26,27 @@ function checkModelAdmin(event){
 }
 const aiRaster=aiPdfRenderer.createPdfRenderer({database,documents:aiDocuments});
 const aiResults=aiAnalysis.createAnalysis({database,documents:aiDocuments,engine:aiEngine,pdfRenderer:aiRaster});
+const aiReviews=aiReview.createAiReview({database});
+const aiReviewSessions=new Map();
+function authorizeAiReview(e,role,password){
+ if(!["admin","engineer"].includes(role))return false;
+ const digest=crypto.createHash("sha256").update(String(password||"")).digest("hex");
+ const expected=Buffer.from(roleHashes[role]),actual=Buffer.from(digest);
+ const allowed=crypto.timingSafeEqual(expected,actual);
+ if(allowed){
+  aiReviewSessions.set(e.sender.id,{role,expiresAt:Date.now()+10*60*1000});
+  e.sender.once("destroyed",()=>aiReviewSessions.delete(e.sender.id))
+ }
+ return allowed
+}
+function requireAiReviewer(e){
+ const session=aiReviewSessions.get(e.sender.id);
+ if(!session||session.expiresAt<=Date.now()){
+  aiReviewSessions.delete(e.sender.id);
+  throw Error("Сессия проверки истекла. Повторно подтвердите пароль инженера/администратора")
+ }
+ return session
+}
 const aiPdf=aiPdfIndex.createPdfIndex({database,documents:aiDocuments,
  onProgress:payload=>{if(win&&!win.isDestroyed())win.webContents.send("ai-pdf:progress",payload)}
 });
@@ -53,7 +74,13 @@ function registerAiDocuments(){
  ipcMain.handle("ai-engine:start",()=>aiEngine.start());
  ipcMain.handle("ai-engine:stop",()=>aiEngine.stop());
  ipcMain.handle("ai-engine:cancel",()=>aiEngine.cancel());
- ipcMain.handle("ai-analysis:list",(_e,objectId)=>aiResults.list(objectId));
+ ipcMain.handle("ai-analysis:list",(_e,objectId)=>aiReviews.list(objectId));
+ ipcMain.handle("ai-review:list",(_e,objectId)=>aiReviews.list(objectId));
+ ipcMain.handle("ai-review:register",(_e,objectId)=>aiReviews.register(objectId));
+ ipcMain.handle("ai-review:history",(_e,{objectId,id})=>aiReviews.history(objectId,id));
+ ipcMain.handle("ai-review:authorize",(e,{role,password})=>authorizeAiReview(e,role,password));
+ ipcMain.handle("ai-review:save",(e,{objectId,id,review})=>
+  aiReviews.confirm(objectId,id,review,requireAiReviewer(e)));
  ipcMain.handle("ai-analysis:image",(_e,{objectId,id})=>aiResults.analyze(objectId,id));
  ipcMain.handle("ai-pdf:list",(_e,objectId)=>aiPdf.list(objectId));
  ipcMain.handle("ai-pdf:index",(_e,{objectId,id})=>aiPdf.index(objectId,id));

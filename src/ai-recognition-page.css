@@ -131,3 +131,47 @@
 .ir-ai-pdf-region-layer{position:absolute;inset:0;cursor:crosshair;touch-action:none;user-select:none}
 .ir-ai-pdf-region-selection{position:absolute;display:none;pointer-events:none;border:2px solid #f2a01f;background:#e2a23f32;box-shadow:0 0 0 1px #fff9}
 @media(max-width:750px){.ir-ai-pdf-preview-header{height:auto;min-height:82px;padding:9px}.ir-ai-pdf-preview-actions{justify-content:flex-start}.ir-ai-pdf-preview-header div:first-child{min-width:100%}.ir-ai-pdf-preview-stage{height:auto;min-height:0}}
+
+/* AI engineering review and verified mark register (1.7.218) */
+.ir-ai-review-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+.ir-ai-review-heading h2{font-size:16px;color:#214a68;margin:0 0 5px}
+.ir-ai-review-heading p{font-size:11px;color:#7894a8;line-height:1.6;margin:0}
+.ir-ai-review-heading>b{flex:none;font-size:11px;color:#2a6289;padding:8px 10px;background:#ebf5fd;border-radius:7px}
+.ir-ai-review-list{display:grid;gap:14px}
+.ir-ai-review-card{border:1px solid #dce7ef;background:#fff;border-radius:10px;padding:17px;min-width:0}
+.ir-ai-review-status{border-radius:6px;padding:5px 9px;font-size:10px;font-weight:800;white-space:nowrap;background:#fff4d9;color:#956b16}
+.ir-ai-review-status.confirmed{background:#e6f7ed;color:#287747}
+.ir-ai-review-status.rejected{background:#f5ebeb;color:#9c4242}
+.ir-ai-review-card .ir-ai-result-header{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.ir-ai-review-open{background:#edf6fe;color:#24689b;border:1px solid #bdd9eb;padding:7px 10px;margin:10px 0;border-radius:7px;font-size:11px;cursor:pointer}
+.ir-ai-review-fields{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin:14px 0}
+.ir-ai-review-fields label{display:flex;flex-direction:column;min-width:0;gap:6px;color:#668499;font-size:10px;font-weight:700}
+.ir-ai-review-fields label:last-child{grid-column:1/-1}
+.ir-ai-review-fields textarea,.ir-ai-review-fields select{width:100%;border:1px solid #cddde8;border-radius:7px;padding:9px 11px;background:#fff;color:#254e69;font:11px "Segoe UI",Arial,sans-serif;line-height:1.5;outline:none;resize:vertical}
+.ir-ai-review-fields select{height:38px}
+.ir-ai-review-fields textarea:focus,.ir-ai-review-fields select:focus{border-color:#4499d6;box-shadow:0 0 0 2px #d3ebfc}
+.ir-ai-review-fields textarea:disabled,.ir-ai-review-fields select:disabled{background:#f4f7f9;color:#8296a5}
+.ir-ai-review-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;border-top:1px solid #e6edf2}
+.ir-ai-review-actions>small{color:#91a4b1;font-size:10px}
+.ir-ai-review-actions>div{display:flex;gap:8px}
+.ir-ai-review-actions button{background:#f0f6fb;border:1px solid #c8dce9;color:#2b6387;border-radius:7px;padding:8px 11px;font-size:11px;cursor:pointer}
+.ir-ai-review-actions .ir-ai-review-save{background:#1875bd;border-color:#1875bd;color:#fff;font-weight:700}
+.ir-ai-review-actions button:disabled{opacity:.5;cursor:not-allowed}
+.ir-ai-review-history{margin:5px 0 10px;border:1px solid #d5e6f0;border-radius:8px;padding:11px;background:#f6fbfe}
+.ir-ai-review-history[hidden]{display:none}
+.ir-ai-review-history h4{margin:0 0 8px;color:#295b7c;font-size:12px}
+.ir-ai-review-history>div{padding:9px 0;border-top:1px solid #e1ebf1;color:#688498;font-size:11px}
+.ir-ai-review-history>div p{margin:5px 0}
+.ir-ai-verified-table td{vertical-align:top}
+.ir-ai-mark-source{line-height:1.65;font-size:10px;margin:4px 0;color:#638196}
+.ir-ai-mark-source button{margin-left:5px;border:1px solid #bfdbea;background:#eff8ff;color:#28689c;border-radius:6px;padding:5px 7px;font-size:10px;cursor:pointer}
+.ir-ai-mark-source button:disabled{opacity:.45;cursor:not-allowed}
+.ir-ai-review-password{border:1px solid #cfdde8;border-radius:12px;padding:22px;max-width:min(420px,94vw);width:390px;color:#244860;background:#fff}
+.ir-ai-review-password::backdrop{background:#09223699}
+.ir-ai-review-password h3{font-size:17px;margin:0 0 8px}
+.ir-ai-review-password p{font-size:11px;color:#7593a5;line-height:1.6}
+.ir-ai-review-password input{height:38px;padding:0 11px;width:100%;border-radius:7px;border:1px solid #cbdce7}
+.ir-ai-review-password form>div{display:flex;justify-content:flex-end;gap:8px;margin-top:15px}
+.ir-ai-review-password button{background:#eff6fc;color:#265f86;border:1px solid #c6ddea;border-radius:7px;padding:9px 14px;cursor:pointer}
+.ir-ai-review-password button[type=submit]{background:#1875bd;border-color:#1875bd;color:#fff}
+@media(max-width:760px){.ir-ai-review-heading{align-items:start;flex-direction:column}.ir-ai-review-fields{grid-template-columns:1fr}.ir-ai-review-fields label:last-child{grid-column:auto}.ir-ai-review-actions{flex-wrap:wrap}}

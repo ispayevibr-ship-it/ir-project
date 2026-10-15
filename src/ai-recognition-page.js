@@ -20,17 +20,20 @@ window.irAiRecognitionPage=async function(objectId){
   compare:["Сравнение КМ и КМД","Сопоставление геометрии, металлопроката, соединений, количества и ревизий будет доступно после подготовки проверяемых данных."],
   checks:["Проверка и замечания","После запуска локального анализа здесь появятся ошибки и неопределённые значения со ссылками на исходные листы и подтверждения инженера."]
  };
- let object,documents=[],analyses=[],pdfIndexes=[],engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
+ let object,documents=[],analyses=[],verifiedMarks=[],pdfIndexes=[],engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
  try{object=await irProject.data.objects.get(id)}catch(error){app.textContent="Не удалось прочитать объект: "+String(error.message||error);return}
  if(!object){location.hash="/objects";return}
  const bridge=irProject.aiDocuments,ready=!!(bridge&&typeof bridge.list==="function"&&typeof bridge.select==="function");
- const runtime=irProject.aiEngine||null,pdf=irProject.aiPdf||null;
+ const runtime=irProject.aiEngine||null,pdf=irProject.aiPdf||null,reviewer=irProject.aiReview||null;
  const canEdit=!!window.irAccess?.canEdit?.("ai-recognition");
  async function reload(){
   const jobs=[];
   if(ready)jobs.push(bridge.list(id).then(v=>{documents=v}).catch(error=>{documents=[];notice("Ошибка загрузки документов: "+String(error.message||error),"error")}));
   if(runtime)jobs.push(runtime.status().then(v=>{engine=v}).catch(error=>{engine=null;notice("Ошибка проверки локальной модели: "+String(error.message||error),"error")}));
-  if(runtime)jobs.push(runtime.results(id).then(v=>{analyses=v}).catch(error=>{analyses=[];notice("Ошибка истории анализа: "+String(error.message||error),"error")}));
+  if(reviewer){
+   jobs.push(reviewer.list(id).then(v=>{analyses=v}).catch(error=>{analyses=[];notice("Ошибка истории анализа: "+String(error.message||error),"error")}));
+   jobs.push(reviewer.register(id).then(v=>{verifiedMarks=v}).catch(error=>{verifiedMarks=[];notice("Ошибка подтверждённых марок: "+String(error.message||error),"error")}))
+  }else if(runtime)jobs.push(runtime.results(id).then(v=>{analyses=v}).catch(error=>{analyses=[];notice("Ошибка истории анализа: "+String(error.message||error),"error")}));
   if(pdf)jobs.push(pdf.list(id).then(v=>{pdfIndexes=v}).catch(error=>{pdfIndexes=[];notice("Ошибка PDF-индекса: "+String(error.message||error),"error")}));
   await Promise.all(jobs);
   if(location.hash===route)paint()
@@ -52,7 +55,7 @@ window.irAiRecognitionPage=async function(objectId){
    '<div class="ir-ai-stats"><div><small>Загружено файлов</small><b>'+documents.length+'</b><span>Локальное хранение</span></div>'+
    '<div><small>Проиндексировано листов PDF</small><b>'+indexedPages+'</b><span>Текстовые слои, без ИИ</span></div>'+
    '<div><small>3D-конструкций</small><b>—</b><span>Нет подтверждённой геометрии</span></div>'+
-   '<div><small>Непроверенных анализов</small><b>'+analyses.length+'</b><span>Не подтверждены инженером</span></div></div>'+
+   '<div><small>Требует проверки</small><b>'+analyses.filter(x=>!x.status||x.status==="requires_review").length+'</b><span>Результаты пока не подтверждены</span></div></div>'+
    '<div class="ir-ai-actions"><label>Тип загружаемого комплекта <select id="irAiKind"><option value="Не определён">Не определён</option>'+
    '<option value="КМ">КМ</option><option value="КМД">КМД</option></select></label>'+
    '<button class="ir-ai-primary" id="irAiUpload" '+(!ready||!canEdit||busy?'disabled':'')+'>＋ Добавить чертежи</button>'+
@@ -105,16 +108,105 @@ window.irAiRecognitionPage=async function(objectId){
  }
  function showContent(){
   const box=app.querySelector("#irAiContent");if(!box)return;
-  if(active==="checks"&&analyses.length){
-   box.innerHTML='<h2 class="ir-ai-results-title">Реальные результаты локального анализа · '+analyses.length+'</h2>'+
-    analyses.map(x=>'<article class="ir-ai-result"><div class="ir-ai-result-header"><b>'+esc(x.sourceName)+'</b>'+
-     '<span>Требует проверки инженера</span></div><div class="ir-ai-result-source">Документ № '+esc(x.documentId)+(x.page?" · лист "+x.page:"")+' · SHA-256 '+esc(x.sha256)+
-     ' · '+esc(x.region||"Не задан")+'</div>'+
-     (x.notes?'<div class="ir-ai-result-text">'+esc(x.notes.text||"")+'</div>'+
-      '<div class="ir-ai-result-row"><b>Найденные обозначения (не проверены):</b> '+esc((x.notes.marks||[]).join(", ")||"Не определены")+'</div>'+
-      '<div class="ir-ai-result-row"><b>Сомнения:</b> '+esc((x.notes.unknowns||[]).join("; ")||"Не указаны")+'</div>':
-      '<div class="ir-ai-result-text">Нейросеть не вернула корректный JSON. Исходный текст сохранён для проверки.</div>')+
-     '<details><summary>Ответ модели без изменений</summary><pre>'+esc(x.raw)+'</pre></details></article>').join("");
+  if(active==="marks"){
+   box.innerHTML='<div class="ir-ai-review-heading"><div><h2>Реестр подтверждённых марок</h2>'+
+    '<p>Только марки, проверенные инженером по исходным чертежам. Число упоминаний не равно количеству отправочных элементов.</p></div>'+
+    '<b>'+verifiedMarks.length+' уникальных обозначений</b></div>'+
+    (!verifiedMarks.length?'<div class="ir-ai-doc-empty"><b>Нет подтверждённых марок</b>'+
+     '<p>Загрузите чертежи, выполните анализ, затем проверьте марки во вкладке «Проверка и ошибки». Записи из ИИ нельзя автоматически принимать как ведомость.</p></div>':
+     '<div class="ir-ai-table-wrap"><table class="ir-ai-doc-table ir-ai-verified-table"><thead>'+
+      '<tr><th>Марка</th><th>Источники подтверждения</th><th>Количество конструкций</th><th>Чертежи</th></tr></thead><tbody>'+
+      verifiedMarks.map(row=>'<tr><td><strong>'+esc(row.mark)+'</strong></td><td>'+row.analysisCount+
+       ' проверенных упоминаний</td><td>Не установлено</td><td>'+
+       row.sources.map(src=>'<div class="ir-ai-mark-source">'+esc(src.sourceName)+
+        (src.page?' · лист '+src.page:"")+(src.region?" · фрагмент":"")+
+        ' <button type="button" data-ai-source="'+src.documentId+':'+(src.page||1)+'" '+
+         (src.page?'':'disabled')+'>Открыть лист</button></div>').join("")+
+       '</td></tr>').join("")+'</tbody></table></div>')+
+    '<div class="ir-ai-storage-note">Единицы марок, профили, масса и количество экземпляров требуют отдельной проверки спецификаций КМД. Подтверждение обозначения не переносит его в основные ведомости IR Project.</div>';
+   box.querySelectorAll("[data-ai-source]").forEach(button=>button.onclick=()=>{
+    const [did,page]=button.dataset.aiSource.split(":");void openPdfPreview(did,page)
+   });
+   return
+  }
+  if(active==="checks"){
+   const labels={requires_review:"Требует проверки",confirmed:"Подтверждено",rejected:"Отклонено"};
+   box.innerHTML='<div class="ir-ai-review-heading"><div><h2>Проверка результатов ИИ</h2>'+
+    '<p>Исправьте обозначения по исходному чертежу. Исходный ответ модели и история решений сохраняются.</p></div>'+
+    '<b>'+analyses.length+' анализов · '+analyses.filter(x=>x.status==="confirmed").length+' подтверждено</b></div>'+
+    (!analyses.length?'<div class="ir-ai-doc-empty"><b>Анализов пока нет</b>'+
+     '<p>После реального локального распознавания загруженных PDF или изображений результаты появятся здесь для проверки.</p></div>':
+    '<div class="ir-ai-review-list">'+analyses.map(x=>
+     '<article class="ir-ai-result ir-ai-review-card" data-review-id="'+x.id+'">'+
+      '<div class="ir-ai-result-header"><b>'+esc(x.sourceName)+'</b>'+
+       '<span class="ir-ai-review-status '+esc(x.status||"requires_review")+'">'+esc(labels[x.status]||labels.requires_review)+'</span></div>'+
+      '<div class="ir-ai-result-source">Документ № '+esc(x.documentId)+
+       (x.page?' · лист '+x.page:"")+
+       (x.region?' · выделенная область':'')+
+       ' · SHA-256 '+esc(x.sha256)+' · '+esc(x.sourceRegion||x.region||"Весь документ")+'</div>'+
+      (x.page?'<button type="button" class="ir-ai-review-open" data-ai-review-source="'+x.documentId+':'+x.page+'">Просмотр исходного листа</button>':"")+
+      '<div class="ir-ai-result-text">'+esc(x.notes?.text||"Нейросеть не вернула структурированный текст.")+'</div>'+
+      '<div class="ir-ai-result-row"><b>Первоначально распознанные марки:</b> '+esc((x.originalMarks||x.notes?.marks||[]).join(", ")||"Не найдены")+'</div>'+
+      '<div class="ir-ai-result-row"><b>Замечания модели:</b> '+esc((x.notes?.unknowns||[]).join("; ")||"Не указаны")+'</div>'+
+      '<div class="ir-ai-review-fields"><label>Проверенные обозначения (по одной марке в строке)'+
+       '<textarea data-review-marks rows="3" '+(!canEdit||!reviewer?'disabled':'')+'>'+esc((x.marks||x.notes?.marks||[]).join("\n"))+'</textarea></label>'+
+       '<label>Решение инженера<select data-review-status '+(!canEdit||!reviewer?'disabled':'')+'>'+
+        ['requires_review','confirmed','rejected'].map(v=>'<option value="'+v+'" '+
+         ((x.status||"requires_review")===v?'selected':'')+'>'+labels[v]+'</option>').join("")+'</select></label>'+
+       '<label>Комментарий инженера<textarea data-review-comment rows="2" '+
+        (!canEdit||!reviewer?'disabled':'')+'>'+esc(x.comment||"")+'</textarea></label></div>'+
+      '<div class="ir-ai-review-actions">'+
+       '<small>Редакция '+(Number(x.revision)||0)+
+        (x.reviewedAt?' · последнее решение '+esc(x.reviewedAt):" · решение ещё не принято")+
+        '</small><div>'+
+        '<button type="button" data-review-history="'+x.id+'" '+(!reviewer?'disabled':'')+'>История</button>'+
+        (canEdit?'<button type="button" class="ir-ai-review-save" data-review-save="'+x.id+'" '+(!reviewer||busy?'disabled':'')+'>Сохранить проверку</button>':"")+
+       '</div></div>'+
+      '<div class="ir-ai-review-history" data-history-for="'+x.id+'" hidden></div>'+
+      '<details><summary>Ответ модели без изменений</summary><pre>'+esc(x.raw||"")+'</pre></details>'+
+     '</article>').join("")+'</div>')+
+    '<p class="ir-ai-storage-note">Подтверждение изменяет только реестр IR Project AI. Ни одна марка не записывается автоматически в производственную ведомость; количество и тоннаж не рассчитываются из повторяющихся упоминаний.</p>';
+   box.querySelectorAll("[data-ai-review-source]").forEach(button=>button.onclick=()=>{
+    const [did,page]=button.dataset.aiReviewSource.split(":");void openPdfPreview(did,page)
+   });
+   box.querySelectorAll("[data-review-save]").forEach(button=>button.onclick=async()=>{
+    if(busy||!canEdit||!reviewer)return;
+    const item=analyses.find(x=>String(x.id)===button.dataset.reviewSave);
+    if(!item)return;
+    const card=button.closest("[data-review-id]"),marks=card.querySelector("[data-review-marks]").value.
+     split(/\r?\n/).map(v=>v.trim()).filter(Boolean);
+    const status=card.querySelector("[data-review-status]").value;
+    const comment=card.querySelector("[data-review-comment]").value;
+    if(status==="confirmed"&&!marks.length){notice("Для подтверждения нужна хотя бы одна проверенная марка","error");paint();return}
+    const role=window.irAccess?.role?.();
+    if(!["admin","engineer"].includes(role)){notice("Проверка доступна только инженеру и администратору","error");paint();return}
+    const password=await requestReviewPassword(role);
+    if(password===null)return;
+    busy=true;
+    try{
+     const allowed=await reviewer.authorize(role,password);
+     if(!allowed)throw Error("Неверный пароль инженера/администратора");
+     await reviewer.save(id,item.id,{expectedRevision:Number(item.revision)||0,marks,status,comment});
+     notice("Решение сохранено. Оригинальный ответ ИИ оставлен без изменений.");
+     await reload()
+    }catch(error){notice("Не удалось сохранить проверку: "+String(error.message||error),"error");paint()}
+    finally{busy=false}
+   });
+   box.querySelectorAll("[data-review-history]").forEach(button=>button.onclick=async()=>{
+    if(!reviewer)return;
+    const target=box.querySelector('[data-history-for="'+button.dataset.reviewHistory+'"]');
+    if(!target)return;
+    if(!target.hidden){target.hidden=true;return}
+    target.hidden=false;target.textContent="Загружаем историю...";
+    try{
+     const logs=await reviewer.history(id,button.dataset.reviewHistory);
+     target.innerHTML=logs.length?'<h4>История проверки</h4>'+logs.map(entry=>
+      '<div><b>'+esc(labels[entry.status]||entry.status)+'</b> · '+esc(entry.reviewedAt)+
+      ' · '+esc(entry.reviewedBy)+' · '+esc((entry.marks||[]).join(", ")||"Без марок")+
+      (entry.comment?'<p>'+esc(entry.comment)+'</p>':"")+'</div>').join(""):
+      '<p>Изменений пока не было.</p>'
+    }catch(error){target.textContent="Не удалось загрузить историю: "+String(error.message||error)}
+   });
    return
   }
   if(active!=="documents"){
@@ -204,6 +296,23 @@ window.irAiRecognitionPage=async function(objectId){
    if(!confirm('Удалить загруженный документ «'+row.name+'»? Файл будет удалён из хранилища IR Project AI.'))return;
    try{await bridge.remove(id,row.id);notice("Документ удалён: "+row.name);await reload()}
    catch(error){notice("Не удалось удалить файл: "+String(error.message||error),"error");paint()}
+  })
+ }
+ async function requestReviewPassword(role){
+  return new Promise(resolve=>{
+   const dlg=document.createElement("dialog");dlg.className="ir-ai-review-password";
+   dlg.innerHTML='<form method="dialog"><h3>Подтверждение проверки</h3>'+
+    '<p>Введите пароль '+(role==="admin"?"администратора":"инженера")+
+    '. Решение будет сохранено в журнале проверки объекта.</p>'+
+    '<input type="password" required autocomplete="off" aria-label="Пароль">'+
+    '<div><button type="button" data-cancel>Отмена</button>'+
+    '<button type="submit">Подтвердить</button></div></form>';
+   let settled=false;
+   const finish=v=>{if(settled)return;settled=true;dlg.close();dlg.remove();resolve(v)};
+   dlg.querySelector("form").onsubmit=event=>{event.preventDefault();finish(dlg.querySelector("input").value)};
+   dlg.querySelector("[data-cancel]").onclick=()=>finish(null);
+   dlg.oncancel=event=>{event.preventDefault();finish(null)};
+   document.body.appendChild(dlg);dlg.showModal();dlg.querySelector("input").focus()
   })
  }
  async function openPdfPreview(documentId,page){
