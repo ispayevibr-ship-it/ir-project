@@ -227,7 +227,7 @@ assert(source.includes(".ir-export-work-tabs{box-sizing:border-box!important;dis
 
 const extraSource=fs.readFileSync("src/object-export-extras.js","utf8");
 new vm.Script(extraSource,{filename:"object-export-extras.js"});
-assert(html.includes('object-export-extras.js?v=17169'),"standalone asset renderer loaded");
+assert(html.includes('object-export-extras.js?v=17194'),"standalone asset renderer loaded");
 const extraCtx={window:{},console};
 vm.runInNewContext(extraSource,extraCtx);
 const extras=extraCtx.window.irObjectExportExtras;
