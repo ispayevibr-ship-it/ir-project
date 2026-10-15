@@ -19,7 +19,7 @@ assert(css.includes('.object-party-logo-preview.company-logo-editor{width:300px;
 assert(css.includes('max-width:100%;max-height:100%;object-fit:contain'),"logos preserve aspect ratio");
 assert(runtime.includes('async function saveObjectLogo(objectId,type,file,current)'),"generated runtime includes logo saver");
 assert(styles.includes('object-party-logo-preview.company-logo-editor'),"generated style includes logo preview");
-assert(/ir-runtime\.js\?v=\d+/.test(html)&&html.includes('ir-styles.css?v=17170'),"script/style cache invalidated");
+assert(/ir-runtime\.js\?v=\d+/.test(html)&&Number(html.match(/ir-styles\.css\?v=(\d+)/)?.[1])>=17171,"script/style cache invalidated");
 assert(app.includes('<div class="form-grid object-basic-fields">'),"main object properties have a separate stable grid");
 assert(app.includes('<label>Статус<select name="status">'),"status remains an ordinary field");
 assert(app.includes('<label>Адрес<input name="address" required></label></div><div class="object-parties">'),"status and address are isolated above logos");
