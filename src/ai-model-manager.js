@@ -339,7 +339,7 @@ function createModelManager({getUserDataPath,dialog,getWindow=()=>undefined,
   if(Date.parse(selected.expiresAt)<=Date.now())throw Error("Срок действия подписанного каталога истёк");
   if(engineActive())throw Error("Остановите ИИ перед установкой");
   mutation=true;ensure();
-  const destination=path.join(root(),"download-"+crypto.randomUUID()+".ir-ai-pack");
+  const destination=path.join(root(),"download-"+selected.modelId+"-"+selected.sha256+".ir-ai-pack");
   const cancel=new AbortController();
   activeDownload=cancel;
   try{
@@ -352,7 +352,11 @@ function createModelManager({getUserDataPath,dialog,getWindow=()=>undefined,
    selections.clear();selections.set(token,{file:fetched.path,...reviewed});
    return{token,...reviewed}
   }catch(error){
-   try{fs.rmSync(destination,{force:true})}catch{}
+   // Preserve a partial download for the same signed release and resume later.
+   // A complete but invalid package must never remain cached.
+   if(!cancel.signal.aborted&&fs.existsSync(destination)&&fs.statSync(destination).size===selected.bytes){
+    try{fs.rmSync(destination,{force:true})}catch{}
+   }
    throw error
   }finally{activeDownload=null;mutation=false}
  }
