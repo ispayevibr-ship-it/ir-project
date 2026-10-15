@@ -40,7 +40,7 @@ function fixture(){
   data:{kind:"КМД",extension:".pdf",original_name:"Change2.pdf",sha256:shaB}});
  const km=create(1,"ai-documents",{record_type:"document",title:"KM",
   data:{kind:"КМ",extension:".pdf",original_name:"KM.pdf",sha256:shaC}});
- const gone=new Set(),indexed=[
+ const gone=new Set(),tampered=new Set(),indexed=[
   {id:1,documentId:old.id,sourceSha256:shaA,pages:[{page:1},{page:2}]},
   {id:2,documentId:newer.id,sourceSha256:shaB,pages:[{page:1}]},
   {id:3,documentId:km.id,sourceSha256:shaC,pages:[{page:1}]}
@@ -48,7 +48,7 @@ function fixture(){
  const docs={list:o=>o===1?[old,newer,km].map(d=>({
   id:d.id,name:d.data.original_name,kind:d.data.kind,ext:".pdf",
   exists:!gone.has(d.id),sha256:d.data.sha256
- })):[]};
+ })):[],verify:(o,documentId)=>o===1&&!gone.has(documentId)&&!tampered.has(documentId)};
  const pdf={list:o=>o===1?indexed:[]};
  const rev=createDrawingRevisions({database:db,documents:docs,pdfIndex:pdf,
   clock:()=>"2026-10-15T14:00:00Z"});
@@ -92,6 +92,10 @@ function fixture(){
  assert.equal(rev.isCurrent(1,kmdInput(newer.id,1,shaB)),true);
  assert.equal(rev.isCurrent(1,kmdInput(old.id,1,shaA)),true);
  assert.equal(qty.summary(1).confirmedPieces,0,"old quantities cannot count toward current set");
+ assert.throws(()=>qty.save(1,q.id,{expectedRevision:1,mark:"К41",cipher:"041",
+  secondaryCipher:"",quantity:4,documentId:old.id,page:2,specPosition:"Поз. К41",
+  drawingRevision:"Изм.0",status:"confirmed",comment:"Повторная проверка"},
+ {role:"engineer"}),/Подтверждение запрещено/,"superseded PDF cannot be newly confirmed");
  assert.equal(qty.list(1)[0].status,"confirmed","old decision stays in audit");
  assert.equal(qty.list(1)[0].sourceValid,false);
  assert.equal(rev.impact(1).outdated>=1,true);
@@ -100,6 +104,10 @@ function fixture(){
  assert.throws(()=>rev.history(2,initial.id),/не найден/);
  gone.add(newer.id);
  assert.equal(rev.sourceState(1,kmdInput(newer.id,1,shaB)).state,"missing");
+ assert.equal(rev.list(1).find(s=>s.id===second.id).sheets.some(s=>!s.valid),true);
+ tampered.add(old.id);
+ assert.equal(rev.sourceState(1,kmdInput(old.id,1,shaA)).state,"missing",
+  "stored SHA cannot conceal altered on-disk bytes");
  assert.equal(rev.list(1).find(s=>s.id===second.id).sheets.some(s=>!s.valid),true);
  console.log("Deferred acceptance: explicit set activation, partial replacement, source invalidation, atomic audit, no data removal");
 })();

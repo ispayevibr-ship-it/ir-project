@@ -16,6 +16,10 @@ function fixture(){
   createEntity:()=>{mutationCount++;throw Error("read-only report wrote to database")},
   updateEntity:()=>{mutationCount++;throw Error("read-only report updated database")}
  };
+ const quantitiesRows=[
+  {id:31,mark:"К41",cipher:"041",quantity:4,status:"confirmed",sourceValid:false},
+  {id:32,mark:"К42",cipher:"041",quantity:2,status:"confirmed",sourceValid:true}
+ ];
  const parts=[
   {id:88,assemblyId:21,status:"confirmed",counted:false,
    reason:"Исходный PDF КМД изменён"}
@@ -34,13 +38,10 @@ function fixture(){
      reasons:["Исключён из действующей редакции"]}]})
   },
   review:{list:()=>[{id:101,status:"requires_review",sourceName:"КМД.pdf",page:1}]},
-  workflow:{summary:()=>({total:3,byStatus:{failed:1,queued:1,awaiting_review:1}})},
+  workflow:{summary:()=>({total:3,byStatus:{failed:1,queued:1,awaiting_review:1}}),list:()=>[]},
   proposals:{list:()=>[{analysisId:101,type:"mark_quantity",status:"requires_review",
    approved:false,values:{mark:"К41"}}]},
-  quantities:{list:()=>[
-   {id:31,mark:"К41",cipher:"041",quantity:4,status:"confirmed",sourceValid:false},
-   {id:32,mark:"К42",cipher:"041",quantity:2,status:"confirmed",sourceValid:true}
-  ]},
+  quantities:{list:()=>quantitiesRows},
   materials:{list:()=>[{id:40,position:"Д1",assemblyMark:"К41",
    status:"confirmed",counted:false,reason:"Старая ревизия"}]},
   connections:{
@@ -57,10 +58,10 @@ function fixture(){
   assemblies:{list:()=>parts},
   attachments:{list:()=>anchors},clock:()=>"2026-10-15T12:00:00Z"
  };
- return{shared,database,readMutationCount:()=>mutationCount}
+ return{shared,database,quantitiesRows,readMutationCount:()=>mutationCount}
 }
 (()=>{
- const {shared,readMutationCount}=fixture(),
+ const {shared,quantitiesRows,readMutationCount}=fixture(),
   api=createAiIntegrity(shared),
   x=api.report(1);
  assert.equal(x.objectId,1);
@@ -74,6 +75,12 @@ function fixture(){
  assert(x.issues.some(y=>y.code==="engineering_discrepancies"&&y.count===1));
  assert(x.issues.some(y=>y.code==="unreviewed_3d"&&y.count===2));
  assert.equal(readMutationCount(),0);
+ quantitiesRows.push({id:33,mark:"К42",cipher:"041",secondaryCipher:"",
+  quantity:3,status:"confirmed",sourceValid:true});
+ const duplicate=api.report(1);
+ assert.equal(duplicate.metrics.approvedMarkCopies,null,
+  "duplicate approved rows must not expose an inflated physical-piece total");
+ assert(duplicate.issues.some(issue=>issue.code==="duplicate_approved_marks"&&issue.count===1));
  assert.throws(()=>api.report(2),/Объект не найден/);
  const broken={...shared,materials:{list:()=>{throw Error("Material table failure")}}};
  const y=createAiIntegrity(broken).report(1);
