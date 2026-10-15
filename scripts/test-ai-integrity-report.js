@@ -82,7 +82,7 @@ function fixture(){
   "duplicate approved rows must not expose an inflated physical-piece total");
  assert(duplicate.issues.some(issue=>issue.code==="duplicate_approved_marks"&&issue.count===1));
  const withReference=createAiIntegrity({...shared,reference:{compare:()=>({
-  activeReferencePositions:2,reviewedSheets:0,sheetCount:1,
+  setId:201,activeReferencePositions:2,reviewedSheets:0,sheetCount:1,
   sheets:[{id:301,sheetCode:"КМД-01",page:1,checked:false}],
   mismatches:[{code:"missing_position",mark:"К41",position:"Д3",
    expected:2,actual:null,label:"Отсутствующая деталь"}]
@@ -92,12 +92,26 @@ function fixture(){
  assert(withReference.issues.some(x=>x.code==="kmd_reference_missing_position"&&x.count===1),
   "KMD reference discrepancies must survive integration into global diagnostics");
  assert.equal(withReference.metrics.referencePositions,2);
+ assert(!withReference.issues.some(x=>x.code==="kmd_reference_missing_set"),
+  "an active reference set must not be reported as absent");
  assert.equal(withReference.releaseCertified,false);
+ const missingSet=createAiIntegrity({...shared,reference:{compare:()=>({
+  setId:null,activeReferencePositions:0,reviewedSheets:0,sheetCount:0,
+  sheets:[],mismatches:[]
+ })}}).report(1);
+ assert(missingSet.issues.some(x=>x.code==="kmd_reference_missing_set"),
+  "an empty active KMD baseline is not verified or complete");
+ assert.equal(missingSet.metrics.referencePositions,0);
+ assert.equal(missingSet.releaseCertified,false);
  const referenceFailure=createAiIntegrity({...shared,reference:{compare:()=>{
   throw Error("tampered KMD source snapshot")
  }}}).report(1);
  assert(referenceFailure.issues.some(x=>x.code==="integration_kmd_reference"),
   "failure to read KMD reference is an error, not zero discrepancies");
+ assert.equal(referenceFailure.metrics.referencePositions,null,
+  "failed KMD reference read must yield unknown, never a fictitious zero");
+ assert.equal(referenceFailure.stages.find(x=>x.tab==="reference").count,null,
+  "the integrity stage count must retain unavailable status");
  assert.throws(()=>api.report(2),/Объект не найден/);
  const broken={...shared,materials:{list:()=>{throw Error("Material table failure")}}};
  const y=createAiIntegrity(broken).report(1);
