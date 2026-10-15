@@ -1,7 +1,7 @@
 "use strict";
 const {app,BrowserWindow,ipcMain,dialog,Menu,protocol,shell}=require("electron");
 const path=require("path"),crypto=require("crypto"),fs=require("fs");
-const database=require("./src/database"),aiDocumentStore=require("./src/ai-document-store"),aiLocalEngine=require("./src/ai-local-engine"),aiAnalysis=require("./src/ai-analysis"),aiReview=require("./src/ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiKmdMaterials=require("./src/ai-kmd-materials"),aiKmdConnections=require("./src/ai-kmd-connections"),aiKmKmdCompare=require("./src/ai-km-kmd-compare"),aiAssemblyGeometry=require("./src/ai-assembly-geometry"),aiAssemblyAttachments=require("./src/ai-assembly-attachments"),aiWorkflow=require("./src/ai-workflow"),aiStructuredReview=require("./src/ai-structured-review"),aiDrawingRevisions=require("./src/ai-drawing-revisions"),aiIntegrityReport=require("./src/ai-integrity-report"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),aiModelManager=require("./src/ai-model-manager"),aiRuntimeDiagnostics=require("./src/ai-runtime-diagnostics"),backup=require("./src/backup"),updates=require("./src/updater"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
+const database=require("./src/database"),aiDocumentStore=require("./src/ai-document-store"),aiLocalEngine=require("./src/ai-local-engine"),aiAnalysis=require("./src/ai-analysis"),aiReview=require("./src/ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiKmdMaterials=require("./src/ai-kmd-materials"),aiKmdConnections=require("./src/ai-kmd-connections"),aiKmKmdCompare=require("./src/ai-km-kmd-compare"),aiAssemblyGeometry=require("./src/ai-assembly-geometry"),aiAssemblyAttachments=require("./src/ai-assembly-attachments"),aiWorkflow=require("./src/ai-workflow"),aiStructuredReview=require("./src/ai-structured-review"),aiDrawingRevisions=require("./src/ai-drawing-revisions"),aiIntegrityReport=require("./src/ai-integrity-report"),aiCoverageReport=require("./src/ai-kmd-coverage"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),aiModelManager=require("./src/ai-model-manager"),aiRuntimeDiagnostics=require("./src/ai-runtime-diagnostics"),backup=require("./src/backup"),updates=require("./src/updater"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
 let win;
 const aiDocuments=aiDocumentStore.createStore({getUserDataPath:()=>app.getPath("userData"),dialog,shell,database,getWindow:()=>win});
 let aiModels;
@@ -62,11 +62,15 @@ const aiQueue=aiWorkflow.createAiWorkflow({database,documents:aiDocuments,pdfInd
  analysis:aiResults,reviews:aiReviews,engine:aiEngine,revisions:aiRevisions,
  onProgress:payload=>{if(win&&!win.isDestroyed())win.webContents.send("ai-workflow:progress",payload)}
 });
+const aiCoverage=aiCoverageReport.createAiCoverage({
+ database,quantities:aiQuantities,materials:aiMaterials,connections:aiConnections,
+ assemblies:aiAssemblies,attachments:aiAttachments,proposals:aiProposals
+});
 const aiIntegrity=aiIntegrityReport.createAiIntegrity({
  database,documents:aiDocuments,pdfIndex:aiPdf,revisions:aiRevisions,
  review:aiReviews,workflow:aiQueue,proposals:aiProposals,quantities:aiQuantities,
  materials:aiMaterials,connections:aiConnections,comparisons:aiComparisons,
- assemblies:aiAssemblies,attachments:aiAttachments
+ assemblies:aiAssemblies,attachments:aiAttachments,coverage:aiCoverage
 });
 const dbPath=()=>path.join(app.getPath("userData"),"ir-project.db");
 const roleHashes={admin:crypto.createHash("sha256").update("333111").digest("hex"),engineer:crypto.createHash("sha256").update("000000").digest("hex")};

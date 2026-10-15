@@ -3,7 +3,7 @@
  * It does not run AI, mutate SQLite, open files, or mark any item as approved.
  */
 function createAiIntegrity({database,documents,pdfIndex,revisions,review,workflow,proposals,
- quantities,materials,connections,comparisons,assemblies,attachments,
+ quantities,materials,connections,comparisons,assemblies,attachments,coverage=null,
  clock=()=>new Date().toISOString()}={}){
  if(!database||!documents||!pdfIndex||!revisions||!review||!workflow||!proposals||
   !quantities||!materials||!connections||!comparisons||!assemblies||!attachments)
@@ -252,6 +252,16 @@ function createAiIntegrity({database,documents,pdfIndex,revisions,review,workflo
   metrics.confirmed3dAnchors=verifiedAnchors;
   note("warning","unreviewed_3d","3D-размещения и соединения требуют повторной проверки",
    "Неподтверждённая геометрия не должна показываться как рабочая сборка.","assembly",pendingPlacements);
+  const evidenceCoverage=coverage?safe("kmd_coverage",()=>coverage.report(objectId),null):null;
+  if(evidenceCoverage){
+   metrics.kmdReviewedEvidence=evidenceCoverage.metrics.reviewedCandidates;
+   metrics.kmdRegisteredDetailInstances=evidenceCoverage.metrics.registeredDetailUnitsInProject;
+   metrics.kmdModeledDetailInstances=evidenceCoverage.metrics.modeledUnitsPerUniqueMarks;
+   for(const finding of evidenceCoverage.issues)note(
+    finding.severity,finding.code,finding.title,
+    "Сопоставлены только подтверждённые предложения и внесённые инженерные позиции. Это не сертификат полноты КМД.",
+    finding.tab,finding.count,finding.examples);
+  }
   const bySeverity={error:issues.filter(x=>x.severity==="error").reduce((s,x)=>s+x.count,0),
    warning:issues.filter(x=>x.severity==="warning").reduce((s,x)=>s+x.count,0)};
   stageStats.push({label:"Исходники",tab:"documents",count:metrics.documents},
@@ -263,6 +273,7 @@ function createAiIntegrity({database,documents,pdfIndex,revisions,review,workflo
    {label:"Узлы и крепёж",tab:"fasteners",count:metrics.connections+metrics.hardwareRows},
    {label:"3D-детали",tab:"assembly",count:metrics.confirmed3dDetails});
   return{objectId,generatedAt:clock(),metrics,stages:stageStats,issues,bySeverity,
+   coverage:evidenceCoverage,
    checksWithFindings:issues.length,releaseCertified:false,
    explanation:"Диагностика проверяет связи, актуальность PDF, статусы и полноту данных. Она не доказывает корректность OCR, чертежей, расчётов или 3D; итоговая приёмка выполняется инженером на реальных КМД."}
  }
