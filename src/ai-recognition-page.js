@@ -20,11 +20,11 @@ window.irAiRecognitionPage=async function(objectId){
   compare:["Сравнение КМ и КМД","Сопоставление геометрии, металлопроката, соединений, количества и ревизий будет доступно после подготовки проверяемых данных."],
   checks:["Проверка и замечания","После запуска локального анализа здесь появятся ошибки и неопределённые значения со ссылками на исходные листы и подтверждения инженера."]
  };
- let object,documents=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,materialEntries=[],materialSummary=null,pdfIndexes=[],engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
+ let object,documents=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,materialEntries=[],materialSummary=null,connectionNodes=[],connectionItems=[],connectionSummary=null,pdfIndexes=[],engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
  try{object=await irProject.data.objects.get(id)}catch(error){app.textContent="Не удалось прочитать объект: "+String(error.message||error);return}
  if(!object){location.hash="/objects";return}
  const bridge=irProject.aiDocuments,ready=!!(bridge&&typeof bridge.list==="function"&&typeof bridge.select==="function");
- const runtime=irProject.aiEngine||null,pdf=irProject.aiPdf||null,reviewer=irProject.aiReview||null,quantities=irProject.aiMarkQuantities||null,materials=irProject.aiKmdMaterials||null;
+ const runtime=irProject.aiEngine||null,pdf=irProject.aiPdf||null,reviewer=irProject.aiReview||null,quantities=irProject.aiMarkQuantities||null,materials=irProject.aiKmdMaterials||null,connections=irProject.aiKmdConnections||null;
  const canEdit=!!window.irAccess?.canEdit?.("ai-recognition");
  async function reload(){
   const jobs=[];
@@ -41,6 +41,11 @@ window.irAiRecognitionPage=async function(objectId){
   if(materials){
    jobs.push(materials.list(id).then(v=>{materialEntries=v}).catch(error=>{materialEntries=[];notice("Ошибка спецификации металла: "+String(error.message||error),"error")}));
    jobs.push(materials.summary(id).then(v=>{materialSummary=v}).catch(error=>{materialSummary=null;notice("Ошибка сводки массы деталей: "+String(error.message||error),"error")}))
+  }
+  if(connections){
+   jobs.push(connections.nodes(id).then(v=>{connectionNodes=v}).catch(error=>{connectionNodes=[];notice("Ошибка узлов КМД: "+String(error.message||error),"error")}));
+   jobs.push(connections.items(id).then(v=>{connectionItems=v}).catch(error=>{connectionItems=[];notice("Ошибка метизов КМД: "+String(error.message||error),"error")}));
+   jobs.push(connections.summary(id).then(v=>{connectionSummary=v}).catch(error=>{connectionSummary=null;notice("Ошибка сводки крепежа: "+String(error.message||error),"error")}))
   }
   if(pdf)jobs.push(pdf.list(id).then(v=>{pdfIndexes=v}).catch(error=>{pdfIndexes=[];notice("Ошибка PDF-индекса: "+String(error.message||error),"error")}));
   await Promise.all(jobs);
@@ -332,6 +337,14 @@ window.irAiRecognitionPage=async function(objectId){
       '<p>Изменений пока не было.</p>'
     }catch(error){target.textContent="Не удалось загрузить историю: "+String(error.message||error)}
    });
+   return
+  }
+  if(active==="fasteners"){
+   if(window.irAiConnectionsPage){
+    window.irAiConnectionsPage.render(box,{id,nodes:connectionNodes,items:connectionItems,
+     summary:connectionSummary,assemblies:quantityEntries,documents,canEdit,api:connections,
+     reviewer,askPassword:requestReviewPassword,reload,notice,openPdf:openPdfPreview})
+   }else box.innerHTML='<div class="ir-ai-doc-empty">Модуль соединений не загружен.</div>';
    return
   }
   if(active!=="documents"){

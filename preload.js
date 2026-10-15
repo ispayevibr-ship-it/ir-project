@@ -53,6 +53,14 @@ const aiModels={
   return()=>ipcRenderer.removeListener("ai-models:progress",listener)
  }
 };
+const aiKmdConnections={
+ nodes:objectId=>ipcRenderer.invoke("ai-connections:nodes",objectId),
+ items:objectId=>ipcRenderer.invoke("ai-connections:items",objectId),
+ summary:objectId=>ipcRenderer.invoke("ai-connections:summary",objectId),
+ history:(objectId,type,id)=>ipcRenderer.invoke("ai-connections:history",{objectId,type,id}),
+ saveNode:(objectId,id,entry)=>ipcRenderer.invoke("ai-connections:save-node",{objectId,id,entry}),
+ saveItem:(objectId,id,entry)=>ipcRenderer.invoke("ai-connections:save-item",{objectId,id,entry})
+};
 const aiKmdMaterials={
  list:objectId=>ipcRenderer.invoke("ai-materials:list",objectId),
  summary:objectId=>ipcRenderer.invoke("ai-materials:summary",objectId),
@@ -80,4 +88,4 @@ const aiEngine={
  results:objectId=>ipcRenderer.invoke("ai-analysis:list",objectId),
  analyze:(objectId,id)=>ipcRenderer.invoke("ai-analysis:image",{objectId,id})
 };
-contextBridge.exposeInMainWorld("irProject",{objects,company,images:{read:file=>ipcRenderer.invoke("images:read",file),remove:file=>ipcRenderer.invoke("images:remove",file),optimize:(file,type)=>ipcRenderer.invoke("images:optimize",{file,type})},reportPhotos,reportDocuments,reportExport,marksExcel,aiDocuments,aiEngine,aiPdf,aiModels,aiDiagnostics,aiReview,aiMarkQuantities,aiKmdMaterials,sections,data:{objects,sections,forObject:objectId=>({section:key=>section(objectId,key),records:key=>section(objectId,key)})},access:{login:(role,password)=>ipcRenderer.invoke("access:login",{role,password})},backup:{create:()=>ipcRenderer.invoke("backup:create"),restore:()=>ipcRenderer.invoke("backup:restore")},updater:{check:()=>ipcRenderer.invoke("update:check"),download:()=>ipcRenderer.invoke("update:download"),install:()=>ipcRenderer.invoke("update:install"),version:()=>ipcRenderer.invoke("update:version"),onStatus:cb=>ipcRenderer.on("update:status",(_e,d)=>cb(d))}});
+contextBridge.exposeInMainWorld("irProject",{objects,company,images:{read:file=>ipcRenderer.invoke("images:read",file),remove:file=>ipcRenderer.invoke("images:remove",file),optimize:(file,type)=>ipcRenderer.invoke("images:optimize",{file,type})},reportPhotos,reportDocuments,reportExport,marksExcel,aiDocuments,aiEngine,aiPdf,aiModels,aiDiagnostics,aiReview,aiMarkQuantities,aiKmdMaterials,aiKmdConnections,sections,data:{objects,sections,forObject:objectId=>({section:key=>section(objectId,key),records:key=>section(objectId,key)})},access:{login:(role,password)=>ipcRenderer.invoke("access:login",{role,password})},backup:{create:()=>ipcRenderer.invoke("backup:create"),restore:()=>ipcRenderer.invoke("backup:restore")},updater:{check:()=>ipcRenderer.invoke("update:check"),download:()=>ipcRenderer.invoke("update:download"),install:()=>ipcRenderer.invoke("update:install"),version:()=>ipcRenderer.invoke("update:version"),onStatus:cb=>ipcRenderer.on("update:status",(_e,d)=>cb(d))}});
