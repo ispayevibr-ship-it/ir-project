@@ -28,5 +28,19 @@
 .ir-ai-integrity-examples{padding:9px 11px;border:1px solid #e1ebf2;background:#f8fbfe;border-radius:6px;font-size:10px;color:#7a90a0;line-height:1.8}
 .ir-ai-integrity-examples>div{overflow-wrap:anywhere}
 .ir-ai-integrity-issue button{justify-self:start;border:1px solid #c7dce9;border-radius:7px;padding:8px 11px;background:#f0f8fd;color:#2d6e9a;font-size:10px;cursor:pointer}
-@media(max-width:900px){.ir-ai-integrity-overview{grid-template-columns:repeat(2,minmax(0,1fr))}.ir-ai-integrity-stages{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.ir-ai-coverage{display:grid;gap:12px;min-width:0}
+.ir-ai-coverage-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.ir-ai-coverage-metrics>div{display:grid;gap:7px;min-width:0;padding:12px;border:1px solid #dce9f2;border-radius:8px;background:#fff}
+.ir-ai-coverage-metrics small{color:#7993a6;font-size:10px;line-height:1.4}
+.ir-ai-coverage-metrics strong{font-size:17px;color:#295f81;overflow-wrap:anywhere}
+.ir-ai-coverage-rows{display:grid;gap:8px}
+.ir-ai-coverage-mark{min-width:0;border:1px solid #dce9f2;border-radius:8px;background:#fff}
+.ir-ai-coverage-mark>summary{cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:12px;color:#315e7d;list-style-position:inside}
+.ir-ai-coverage-mark>summary span{font-size:12px}
+.ir-ai-coverage-mark>summary small{color:#6b879b;font-size:11px}
+.ir-ai-coverage-detail{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 12px 12px}
+.ir-ai-coverage-detail span{min-width:0;padding:9px;border-radius:6px;background:#f6fafd;color:#57778f;font-size:10px;line-height:1.5;overflow-wrap:anywhere}
+.ir-ai-coverage-detail b{color:#245c80}
+@media(max-width:900px){.ir-ai-coverage-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.ir-ai-coverage-detail{grid-template-columns:1fr}
+.ir-ai-integrity-overview{grid-template-columns:repeat(2,minmax(0,1fr))}.ir-ai-integrity-stages{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:510px){.ir-ai-integrity-stages{grid-template-columns:1fr 1fr}.ir-ai-integrity-overview{grid-template-columns:1fr 1fr}}

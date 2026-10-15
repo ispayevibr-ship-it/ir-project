@@ -13,7 +13,7 @@ window.irAiIntegrityPage={
   }
   const esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   const x=report||{issues:[],stages:[],bySeverity:{error:0,warning:0},releaseCertified:false};
-  const issues=x.issues||[],severities={error:"Требует внимания",warning:"Нужно проверить"};
+  const issues=x.issues||[],coverage=x.coverage||null;
   const issuesHtml=items=>items.map((issue,i)=>
    '<article class="ir-ai-integrity-issue '+esc(issue.severity)+'" data-issue-severity="'+esc(issue.severity)+'">'+
     '<div class="ir-ai-integrity-heading"><div><span>'+
@@ -24,6 +24,35 @@ window.irAiIntegrityPage={
      issue.examples.map(t=>'<div>'+esc(t)+'</div>').join("")+'</div>':"")+
     '<button type="button" data-integrity-nav="'+esc(issue.tab||"documents")+'">Открыть раздел →</button></article>'
    ).join("");
+  const number=value=>Number.isFinite(value)?Number(value).toLocaleString("ru-RU"):"—";
+  const summary=coverage?.metrics||{};
+  const coverageHtml=!coverage?"":'<section class="ir-ai-coverage">'+
+   '<div class="ir-ai-integrity-actions"><div><b>Сверка ведомостей и 3D по маркам</b>'+
+   '<small>Подсчитываются только действующие подтверждённые инженерные записи</small></div></div>'+
+   '<div class="ir-ai-quantity-warning">Сопоставление не устанавливает наличие всех позиций в исходной спецификации КМД. '+
+   '3D-детали считаются на один экземпляр каждой марки, физический крепёж — по зарегистрированным узлам объекта.</div>'+
+   '<div class="ir-ai-coverage-metrics">'+
+   '<div><small>Экземпляров отправочных марок</small><strong>'+number(summary.confirmedMarkCopies)+'</strong></div>'+
+   '<div><small>Деталей в объекте по внесённым позициям</small><strong>'+number(summary.registeredDetailUnitsInProject)+'</strong></div>'+
+   '<div><small>3D-деталей на уникальные марки</small><strong>'+number(summary.modeledUnitsPerUniqueMarks)+' / '+number(summary.expectedModelUnitsPerUniqueMarks)+'</strong></div>'+
+   '<div><small>Метизов по подтверждённым узлам</small><strong>'+number(summary.registeredFastenerPieces)+'</strong></div>'+
+   '</div>'+
+   '<div class="ir-ai-coverage-rows">'+(coverage.marks||[]).map(row=>
+    '<details class="ir-ai-coverage-mark"><summary>'+
+     '<span><b>'+esc(row.mark)+'</b> '+esc(row.cipher||"")+(row.secondaryCipher?' · '+esc(row.secondaryCipher):"")+'</span>'+
+     '<small>'+number(row.copies)+' шт. · деталей 3D '+number(row.modeledUnitsPerMark)+' / '+number(row.detailUnitsPerMark)+'</small>'+
+    '</summary><div class="ir-ai-coverage-detail">'+
+     '<span>Деталей по подтверждённым позициям на одну марку: <b>'+number(row.detailUnitsPerMark)+'</b></span>'+
+     '<span>Деталей по этим позициям на объект: <b>'+number(row.declaredDetailUnitsInProject)+'</b></span>'+
+     '<span>Не размещено в начатой 3D-сборке: <b>'+(row.modelStarted?number(row.pendingModelUnits):"3D ещё не начинали")+'</b></span>'+
+     '<span>Узлы: <b>'+number(row.confirmedJointPositions)+'</b> позиций, заводских '+number(row.factoryJointInstances)+
+      ', монтажных '+number(row.erectionJointInstances)+'</span>'+
+     '<span>Метизы: <b>'+number(row.fastenerPieces)+'</b> шт. · сварка: <b>'+number(row.weldLengthM)+'</b> м</span>'+
+     '<span>3D-аннотации соединений: <b>'+number(row.confirmed3dAnnotations)+'</b> (не количество метизов)</span>'+
+     '<span>Полная спецификация: <b>не удостоверена</b></span>'+
+    '</div></details>').join("")+
+   (!(coverage.marks||[]).length?'<div class="ir-ai-doc-empty">Нет подтверждённых отправочных марок для сверки.</div>':"")+
+   '</div></section>';
   host.innerHTML='<section class="ir-ai-integrity">'+
    '<div class="ir-ai-review-heading"><div><h2>Контроль данных IR Project AI</h2>'+
     '<p>Сквозная диагностика исходников, очереди, решений инженера, ведомостей КМД и 3D.</p></div>'+
@@ -40,6 +69,7 @@ window.irAiIntegrityPage={
    '<div class="ir-ai-integrity-stages">'+(x.stages||[]).map(k=>
     '<button type="button" data-integrity-nav="'+esc(k.tab)+'"><span>'+esc(k.label)+
      '</span><b>'+Number(k.count||0).toLocaleString("ru-RU")+'</b></button>').join("")+'</div>'+
+   coverageHtml+
    '<div class="ir-ai-integrity-actions"><div><b>Выявленные вопросы</b><small>Выберите категорию</small></div>'+
     '<select data-integrity-filter aria-label="Фильтр замечаний">'+
      '<option value="all">Все замечания</option><option value="error">Требуют внимания</option>'+
