@@ -136,11 +136,16 @@ function createKmdReference({database,revisions,quantities,materials,connections
  function checks(id){
   const o=obj(id),active=activeSet(o);
   if(!active)return{setId:null,setIssue:null,sheets:[],total:0,reviewed:0,allSheetsReviewed:false};
-  const entries=list(o),bySheet=new Map();
+  const entries=list(o),bySheet=new Map(),duplicatesBySheet=new Map(),seenKeys=new Map();
   for(const entry of entries){
    if(Number(entry.setId)!==active.set.id||entry.status==="rejected")continue;
    if(!bySheet.has(entry.sheetId))bySheet.set(entry.sheetId,[]);
-   bySheet.get(entry.sheetId).push(entry)
+   bySheet.get(entry.sheetId).push(entry);
+   const identity=key(entry),previous=seenKeys.get(identity);
+   if(previous){
+    duplicatesBySheet.set(entry.sheetId,(duplicatesBySheet.get(entry.sheetId)||0)+1);
+    duplicatesBySheet.set(previous.sheetId,(duplicatesBySheet.get(previous.sheetId)||0)+1)
+   }else seenKeys.set(identity,entry)
   }
   const referenceRowsBySheet=new Map();
   for(const row of stored(o,RECORDS,"kmd_reference")){
@@ -160,8 +165,9 @@ function createKmdReference({database,revisions,quantities,materials,connections
   const sheets=active.sheets.map(p=>{
    const check=checksBySheet.get(p.id),d=check?.data||{};
    const positions=bySheet.get(p.id)||[];
+   const duplicatePositions=duplicatesBySheet.get(p.id)||0;
    const unresolved=positions.filter(e=>!e.approved).length;
-   const current=Boolean(p.valid&&d.status==="sealed"&&d.reviewedEntireSheet===true&&
+   const current=Boolean(duplicatePositions===0&&p.valid&&d.status==="sealed"&&d.reviewedEntireSheet===true&&
     ["admin","engineer"].includes(d.reviewedBy)&&unresolved===0&&
     typeof d.fingerprint==="string"&&d.fingerprint.length===64&&
     d.fingerprint===sheetFingerprint(o,active.set.id,p.id,referenceRowsBySheet.get(p.id)||[])&&
@@ -171,7 +177,7 @@ function createKmdReference({database,revisions,quantities,materials,connections
     checkedBy:d.reviewedBy||null,comment:String(d.comment||""),
     totalPositions:positions.length,
     confirmedPositions:positions.filter(e=>e.approved).length,
-    unresolved}
+    unresolved,duplicatePositions}
   });
   const reviewed=sheets.filter(x=>x.checked).length;
   return{setId:active.set.id,setIssue:String(active.set.data?.issue||""),
@@ -248,6 +254,16 @@ function createKmdReference({database,revisions,quantities,materials,connections
   const pending=list(o).filter(x=>x.setId===src.setId&&x.sheetId===src.sheetId&&
    x.status!=="rejected"&&!x.approved);
   if(pending.length)throw Error("Сначала проверьте все позиции листа: "+pending.length+" ожидают решения");
+  const seen=new Map(),duplicates=new Set();
+  for(const entry of list(o).filter(x=>x.setId===src.setId&&x.status!=="rejected")){
+   const k=key(entry),previous=seen.get(k);
+   if(previous){
+    duplicates.add(entry.sheetId);
+    duplicates.add(previous.sheetId)
+   }else seen.set(k,entry)
+  }
+  if(duplicates.has(src.sheetId))
+   throw Error("Нельзя утвердить лист: повторяются физические позиции эталона КМД");
   const data={setId:src.setId,sheetId:src.sheetId,sheetCode:src.sheetCode,
    documentId:src.documentId,page:src.page,sha256:src.sha256,
    status:"sealed",revision:rev+1,reviewedBy:ctx.role,reviewedAt:clock(),
