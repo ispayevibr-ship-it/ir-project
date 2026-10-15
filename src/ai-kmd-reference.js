@@ -377,8 +377,11 @@ function createKmdReference({database,revisions,quantities,materials,connections
    allItemsByJoint=indexed(activeRows(components),componentIdentity);
   for(const entry of entries){
    const markMatches=marksByName.get(markIdentity(entry))||[];
-   if(markMatches.length!==1){
-    const candidates=allMarksByName.get(markIdentity(entry))||[];
+   const markCandidates=allMarksByName.get(markIdentity(entry))||[];
+   // A confirmed row cannot silently mask a second pending/stale row with
+   // the same physical identity. Resolve all active duplicates first.
+   if(markMatches.length!==1||markCandidates.length!==1){
+    const candidates=markCandidates;
     if(markMatches.length===0&&candidates.length===1)
      register("unverified_mark","Отправочная марка внесена, но не подтверждена",
       entry,"Не подтверждено",entry.quantity,candidates[0],
@@ -389,8 +392,8 @@ function createKmdReference({database,revisions,quantities,materials,connections
     continue
    }
    const mark=markMatches[0];
-   let found=[],candidates=[];
-   if(entry.type==="mark")found=[mark];
+   let found=[],candidates=[],parentAmbiguous=false;
+   if(entry.type==="mark"){found=[mark];candidates=markCandidates}
    else if(entry.type==="part"){
     const k=mark.id+"\u0001"+normalize(entry.position);
     found=detailsByMark.get(k)||[];
@@ -402,18 +405,21 @@ function createKmdReference({database,revisions,quantities,materials,connections
    }else{
     const k=mark.id+"\u0001"+entry.scope+"\u0001"+normalize(entry.jointCode);
     const parents=allJointsByMark.get(k)||[];
+    parentAmbiguous=parents.length>1;
     const keyForItem=parent=>parent.id+"\u0001"+entry.category+
      "\u0001"+normalize(entry.kind)+"\u0001"+normalize(entry.position);
     found=parents.filter(x=>x.counted).flatMap(parent=>itemsByJoint.get(keyForItem(parent))||[]);
     candidates=parents.flatMap(parent=>allItemsByJoint.get(keyForItem(parent))||[])
    }
-   if(found.length!==1){
-    if(found.length===0&&candidates.length===1)
+   if(found.length!==1||candidates.length!==1||parentAmbiguous){
+    if(found.length===0&&candidates.length===1&&!parentAmbiguous)
      register("unverified_position","Позиция внесена, но не подтверждена",
       entry,"Не подтверждено",entry.quantity,candidates[0],
       candidates[0].reason||"Позиция или её родительский узел требуют проверки");
-    else register(found.length||candidates.length>1?"ambiguous_position":"missing_position",
-     found.length||candidates.length>1?"Повторные позиции в ведомости":"Позиция отсутствует в инженерной ведомости",
+    else register(found.length>1||candidates.length>1||parentAmbiguous?
+     "ambiguous_position":"missing_position",
+     found.length>1||candidates.length>1||parentAmbiguous?
+      "Повторные позиции в ведомости":"Позиция отсутствует в инженерной ведомости",
      entry,found.length||candidates.length||null,entry.quantity);
     continue
    }
