@@ -180,8 +180,11 @@ function createKmdConnections({database,quantities,revisions=null,clock=()=>new 
   const count=common?joint.instances*number:null;
   const safeCount=Number.isSafeInteger(count)&&count>0&&count<=1e12?count:null;
   const weld=d.category==="weld";
-  const length=positive(d.lengthMm,"Длина шва, мм",{optional:true,max:1e7});
-  const totalLengthM=common&&weld&&safeCount!==null&&length!==null?
+  // Corrupted historical rows must not crash the complete fastener takeoff.
+  let length=null,validLength=true;
+  try{length=positive(d.lengthMm,"Длина шва, мм",{optional:true,max:1e7})}
+  catch{validLength=false}
+  const totalLengthM=common&&weld&&validLength&&safeCount!==null&&length!==null?
    safeCount*length/1000:null;
   return{id:row.id,jointId:Number(d.jointId)||null,
    jointCode:String(d.jointCode||""),assemblyId:Number(d.assemblyId)||null,
@@ -204,7 +207,8 @@ function createKmdConnections({database,quantities,revisions=null,clock=()=>new 
     !joint?.counted?"Исходный узел ещё не подтверждён":
     !sourceOk?"Источник КМД отсутствует или изменён":
     status!=="confirmed"?"Позиция требует проверки":
-    safeCount===null?"Количество вне допустимых границ":"",
+    safeCount===null?"Количество вне допустимых границ":
+    weld&&(!validLength||length===null)?"Длина сварного шва повреждена либо не подтверждена":"",
    reviewedAt:d.reviewedAt||null,reviewedBy:d.reviewedBy||null,
    comment:String(d.comment||""),createdAt:row.created_at}
  }

@@ -46,7 +46,7 @@ window.irAiProposalsPage={
        '</b><small>Анализ № '+p.analysisId+' · позиция '+(p.index+1)+
        ' · '+esc(p.source.kind)+' · лист '+esc(p.source.page)+'</small></div>'+
        '<span class="ir-ai-review-status '+(p.approved?"confirmed":p.status==="rejected"?"rejected":"requires_review")+'">'+
-       esc(p.sourceValid?statuses[p.status]:"Исходный PDF изменён")+'</span></div>'+
+       esc(p.conflictingReviews?"Конфликт решений":p.sourceValid?statuses[p.status]:"Исходный PDF изменён")+'</span></div>'+
       '<p class="ir-ai-proposal-source">'+esc(p.source.name)+
        ' · SHA-256 '+esc(p.source.sha256)+'</p>'+
       '<div class="ir-ai-proposal-quote"><b>Текст, на который ссылается модель:</b>'+
@@ -58,7 +58,7 @@ window.irAiProposalsPage={
       '<div class="ir-ai-connection-actions">'+
        (p.source.page?'<button type="button" data-proposal-pdf="'+k+'">Открыть лист КМД/КМ</button>':"")+
        '<button type="button" data-proposal-history="'+k+'">История</button>'+
-       (allowed?'<button type="button" data-proposal-edit="'+k+'">Проверить / исправить</button>':"")+
+       (allowed&&!p.conflictingReviews?'<button type="button" data-proposal-edit="'+k+'">Проверить / исправить</button>':"")+
        (allowed&&p.approved&&p.type==="mark_quantity"&&p.source.kind==="КМД"?
         '<button type="button" data-proposal-transfer="'+k+'">Подготовить в ведомость</button>':"")+
       '</div><div class="ir-ai-connection-log" data-proposal-log="'+k+'" hidden></div>'+
@@ -92,7 +92,7 @@ window.irAiProposalsPage={
    }catch(e){slot.textContent="Не удалось загрузить журнал: "+String(e.message||e)}
   });
   root.querySelectorAll("[data-proposal-edit]").forEach(b=>b.onclick=()=>{
-   const p=find(b.dataset.proposalEdit);if(!p||!allowed)return;
+   const p=find(b.dataset.proposalEdit);if(!p||!allowed||p.conflictingReviews)return;
    const dlg=document.createElement("dialog");dlg.className="ir-ai-quantity-dialog ir-ai-review-password ir-ai-proposal-dialog";
    const inputs=(fields[p.type]||[]).map(f=>{
     const val=p.values?.[f]??"";

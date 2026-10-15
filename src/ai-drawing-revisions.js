@@ -69,10 +69,13 @@ function createDrawingRevisions({database,documents,pdfIndex,clock=()=>new Date(
   if(!doc||!doc.exists||doc.ext!==".pdf"||doc.sha256!==src.sha256||doc.kind!==kind||
    (typeof documents.verify==="function"&&!documents.verify(o,doc.id)))
    return{current:false,reason:"Оригинальный PDF отсутствует или фактический SHA-256 не совпадает",state:"missing"};
+  const page=Number(src.page);
+  if(src.page==null||src.page===""||typeof src.page==="boolean"||
+   !Number.isSafeInteger(page)||page<1||page>2000)
+   return{current:false,reason:"У источника отсутствует корректный номер листа КМ/КМД",state:"invalid"};
   const set=active(o,kind);
   if(!set)return{current:true,controlled:false,state:"uncontrolled",
    reason:"Для этого типа чертежей ещё не назначен действующий комплект"};
-  const page=Number(src.page);
   const found=getSheets(o,set.id).some(x=>x.valid&&x.documentId===doc.id&&
    x.sha256===src.sha256&&x.page===page);
   return{current:found,controlled:true,state:found?"active":"superseded",
