@@ -35,11 +35,28 @@ function createDiagnostics({engine,platform=()=>process.platform,
    gpuStatus:"unknown",gpuReason:"Данные NVIDIA ещё не получены",
    model:engine.status()?.model||"",modelVersion:engine.status()?.modelVersion||null};
   try{
-   const out=await execFile("nvidia-smi",[
-    "--query-gpu=name,memory.total,memory.free,driver_version",
-    "--format=csv,noheader,nounits"],{
-    timeout:6000,maxBuffer:16384,windowsHide:true,encoding:"utf8",shell:false
-   });
+   // Windows drivers often install nvidia-smi outside PATH.
+   // Probe the standard driver location without invoking a shell.
+   const candidates=["nvidia-smi"];
+   if(platform()==="win32"){
+    const path=require("node:path");
+    const fs=require("node:fs");
+    const programFiles=process.env.ProgramFiles||"C:\\Program Files";
+    const installed=path.join(programFiles,"NVIDIA Corporation","NVSMI","nvidia-smi.exe");
+    if(fs.existsSync(installed))candidates.push(installed);
+   }
+   let out,lastError;
+   for(const candidate of candidates){
+    try{
+     out=await execFile(candidate,[
+      "--query-gpu=name,memory.total,memory.free,driver_version",
+      "--format=csv,noheader,nounits"],{
+      timeout:6000,maxBuffer:16384,windowsHide:true,encoding:"utf8",shell:false
+     });
+     break;
+    }catch(error){lastError=error}
+   }
+   if(!out)throw lastError||Error("nvidia-smi недоступен");
    result.gpu=parseGpuCsv(out.stdout??out);
    result.gpuStatus=result.gpu.length?"available":"unknown";
    result.gpuReason=result.gpu.length?"NVIDIA обнаружена; CUDA-ускорение модели ещё не подтверждено":
