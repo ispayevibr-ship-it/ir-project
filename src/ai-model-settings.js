@@ -227,7 +227,17 @@
    if(responses[2].status==="fulfilled")diagHistory=responses[2].value||null;
    render()
   }
-  await reload()
+  await reload();
+  // Check for published model releases when the settings panel opens.
+  // An unavailable network or unconfigured catalog must not block offline use.
+  if(api?.checkUpdates&&!busy){
+   try{
+    const updates=await api.checkUpdates();
+    if(dlg.isConnected){data.update=updates;render()}
+   }catch(error){
+    if(dlg.isConnected){status("Каталог моделей недоступен: "+String(error.message||error),true);render()}
+   }
+  }
  }
  window.irAiModelSettings={open};
 })();
