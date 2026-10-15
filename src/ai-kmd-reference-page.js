@@ -11,7 +11,8 @@ window.irAiKmdReferencePage={
   const statusText={requires_review:"На проверке",confirmed:"Подтверждено",rejected:"Отклонено"};
   const choices=(list,value)=>list.map(([k,s])=>'<option value="'+esc(k)+'"'+
    (String(k)===String(value)?" selected":"")+'>'+esc(s)+'</option>').join("");
-  const perms=!!(canEdit&&api?.save&&reviewer&&askPassword);
+  const incomplete=!Array.isArray(entries)||!checks||!comparison;
+  const perms=!!(canEdit&&api?.save&&reviewer&&askPassword&&!incomplete);
   const current=(entries||[]).filter(x=>x.current),archive=(entries||[]).filter(x=>!x.current);
   const sheets=checks?.sheets||[],validSheets=sheets.filter(x=>x.valid);
   const missing=comparison?.mismatches||[];
@@ -22,11 +23,14 @@ window.irAiKmdReferencePage={
    '<div class="ir-ai-quantity-warning">Для заполнения нужен утверждённый комплект КМД. Каждая эталонная позиция содержит лист-источник и ожидаемое количество. '+
    'Программа сравнивает его с подтверждёнными ведомостями, но не удостоверяет правильность исходного проекта. '+
    'Проверка листа аннулируется при редактировании его эталонных позиций.</div>'+
+   (incomplete?'<div class="ir-ai-quantity-warning"><b>Проверка данных не завершена.</b> '+
+    'Некоторые сведения эталона не удалось прочитать. Количество расхождений не определено; '+
+    'сохранение и подписание листов временно недоступны. Проверьте сообщение об ошибке и обновите раздел.</div>':"")+
    '<div class="ir-ai-reference-stats">'+
-   '<div><small>Листы действующего КМД</small><b>'+esc(checks?.total??0)+'</b></div>'+
-   '<div><small>Вручную проверено листов</small><b>'+esc(checks?.reviewed??0)+'</b></div>'+
-   '<div><small>Действующих утверждённых позиций</small><b>'+esc(comparison?.activeReferencePositions??0)+'</b></div>'+
-   '<div><small>Расхождений с ведомостями</small><b>'+esc(comparison?.discrepancyCount??0)+'</b></div></div>'+
+   '<div><small>Листы действующего КМД</small><b>'+esc(checks?.total??"—")+'</b></div>'+
+   '<div><small>Вручную проверено листов</small><b>'+esc(checks?.reviewed??"—")+'</b></div>'+
+   '<div><small>Действующих утверждённых позиций</small><b>'+esc(comparison?.activeReferencePositions??"—")+'</b></div>'+
+   '<div><small>Расхождений с ведомостями</small><b>'+esc(comparison?.discrepancyCount??"—")+'</b></div></div>'+
    '<div class="ir-ai-reference-top"><div><h3>Эталон по действующим листам</h3>'+
     '<small>'+esc(checks?.setIssue||"Комплект КМД не утверждён")+'</small></div>'+
     (perms&&validSheets.length?'<button type="button" data-reference-add>＋ Добавить позицию</button>':"")+'</div>'+
@@ -67,7 +71,9 @@ window.irAiKmdReferencePage={
      (onNavigate?'<button type="button" data-reference-go="'+index+'">Открыть ведомость →</button>':"")+
      '</div>').join("")+
     (missing.length>100?'<small>Показаны первые 100 замечаний из '+missing.length+'</small>':"")+
-    '</div>':'<p class="ir-ai-storage-note">Среди действующих утверждённых эталонных позиций расхождения не обнаружены. Это не доказательство полного охвата исходных листов.</p>')+
+    '</div>':comparison&&!incomplete?
+    '<p class="ir-ai-storage-note">Среди действующих утверждённых эталонных позиций расхождения не обнаружены. Это не доказательство полного охвата исходных листов.</p>':
+    '<p class="ir-ai-quantity-warning">Сверка не рассчитана. Отсутствие списка замечаний не означает отсутствия ошибок.</p>')+
    (archive.length?'<details class="ir-ai-reference-archive"><summary>Архивные эталонные позиции ('+
     archive.length+')</summary><div>'+archive.map(x=>'<div class="ir-ai-reference-archive-item">'+
      '<b>'+esc(x.mark)+'</b> · '+esc(types[x.type]||x.type)+

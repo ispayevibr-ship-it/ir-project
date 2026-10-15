@@ -25,7 +25,7 @@ window.irAiRecognitionPage=async function(objectId){
   proposals:["Структурированные предложения ИИ","Отдельные поля марок, металлопроката, размеров и соединений с проверкой инженером."],
   checks:["Проверка и замечания","После запуска локального анализа здесь появятся ошибки и неопределённые значения со ссылками на исходные листы и подтверждения инженера."]
  };
- let object,documents=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,materialEntries=[],materialSummary=null,connectionNodes=[],connectionItems=[],connectionSummary=null,comparisonEntries=[],comparisonSummary=null,comparisonFields={},pdfIndexes=[],workflowTasks=[],workflowSummary=null,proposalEntries=[],proposalSummary=null,revisionSets=[],revisionImpact=null,referenceRows=[],referenceChecks=null,referenceCompare=null,integrityReport=null,engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
+ let object,documents=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,materialEntries=[],materialSummary=null,connectionNodes=[],connectionItems=[],connectionSummary=null,comparisonEntries=[],comparisonSummary=null,comparisonFields={},pdfIndexes=[],workflowTasks=[],workflowSummary=null,proposalEntries=[],proposalSummary=null,revisionSets=[],revisionImpact=null,referenceRows=null,referenceChecks=null,referenceCompare=null,integrityReport=null,engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
  try{object=await irProject.data.objects.get(id)}catch(error){app.textContent="Не удалось прочитать объект: "+String(error.message||error);return}
  if(!object){location.hash="/objects";return}
  const bridge=irProject.aiDocuments,ready=!!(bridge&&typeof bridge.list==="function"&&typeof bridge.select==="function");
@@ -81,7 +81,7 @@ window.irAiRecognitionPage=async function(objectId){
     .catch(error=>{integrityReport=null;notice("Контроль данных: "+String(error.message||error),"error")}));
   if(referenceApi&&active==="reference"){
    jobs.push(referenceApi.list(id).then(v=>{referenceRows=v}).catch(e=>{
-    referenceRows=[];notice("Эталон КМД: "+String(e.message||e),"error")}));
+    referenceRows=null;notice("Эталон КМД: "+String(e.message||e),"error")}));
    jobs.push(referenceApi.checks(id).then(v=>{referenceChecks=v}).catch(e=>{
     referenceChecks=null;notice("Проверки листов: "+String(e.message||e),"error")}));
    jobs.push(referenceApi.compare(id).then(v=>{referenceCompare=v}).catch(e=>{
