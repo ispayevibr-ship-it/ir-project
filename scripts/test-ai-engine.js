@@ -53,6 +53,59 @@ const {createAnalysis}=require("../src/ai-analysis");
   assert.deepEqual(analysis.parseClaims("unparseable output"),null);
   engine.stop();assert.equal(child.killed,true);
   assert.equal(engine.status().state,"stopped");
+  // Deferred cancellation regression: a late successful /health response must
+  // never resurrect a process explicitly stopped while it was starting.
+  let completeHealth=null,delayedChild=null;
+  const startupEngine=createEngine({
+   getUserDataPath:()=>temp,memory:()=>16*1024**3,wait:async()=>{},
+   spawn:()=>{
+    delayedChild=new EventEmitter();
+    delayedChild.kill=()=>{delayedChild.killed=true};
+    return delayedChild
+   },
+   httpFetch:async url=>{
+    if(!url.endsWith("/health"))throw Error("Unexpected external request");
+    return new Promise(resolve=>{completeHealth=resolve})
+   }
+  });
+  const pendingStart=startupEngine.start();
+  for(let i=0;i<200&&!completeHealth;i++)
+   await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(typeof completeHealth,"function","test startup reached /health");
+  assert.equal(startupEngine.stop().state,"stopped");
+  completeHealth({ok:true,status:200});
+  assert.equal((await pendingStart).state,"stopped");
+  assert.equal(startupEngine.status().state,"stopped");
+  assert.equal(delayedChild.killed,true);
+  // A canceled analyze request must not be stored merely because a stubbed
+  // HTTP client delivers a successful response after ignoring the abort.
+  let completeAnalysis=null,analysisChild=null;
+  const cancellationEngine=createEngine({
+   getUserDataPath:()=>temp,memory:()=>16*1024**3,wait:async()=>{},
+   spawn:()=>{
+    analysisChild=new EventEmitter();
+    analysisChild.kill=()=>{analysisChild.killed=true};
+    return analysisChild
+   },
+   httpFetch:async url=>{
+    if(url.endsWith("/health"))return{ok:true,status:200};
+    if(url.endsWith("/v1/chat/completions"))
+     return new Promise(resolve=>{completeAnalysis=resolve});
+    throw Error("Unexpected external request")
+   }
+  });
+  assert.equal((await cancellationEngine.start()).state,"ready");
+  const pendingAnalysis=cancellationEngine.analyzeImage({
+   buffer:img,mime:"image/png",prompt:"Check mark K41"
+  });
+  assert.equal(typeof completeAnalysis,"function");
+  cancellationEngine.stop();
+  completeAnalysis({ok:true,json:async()=>({choices:[{
+   message:{content:'{"text":"false completed result"}'},finish_reason:"stop"
+  }]})});
+  await assert.rejects(pendingAnalysis,/Анализ отменён/);
+  assert.equal(cancellationEngine.status().state,"stopped");
+  assert.equal(analysisChild.killed,true);
   fs.writeFileSync(path.join(dir,names.model),"corrupted model");
   assert.equal((await engine.verify()).installed,false);
   console.log("Local AI: checksums, isolated subprocess, loopback, auth token, real API payload and unverified provenance PASS");
