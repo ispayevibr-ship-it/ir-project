@@ -257,11 +257,61 @@ function createKmdReference({database,revisions,quantities,materials,connections
    if(actual!==entry.quantity)register("quantity_mismatch","Количество отличается от эталона",
     entry,actual,entry.quantity)
   }
-  const unreviewed=review.sheets.filter(x=>!x.checked);
+  // Only flag unlisted *actual* positions after every active KMD sheet has
+  // been explicitly reviewed. Before that point the reference is preliminary.
+  const extras=[];
+  if(review.allSheetsReviewed){
+   const referenceKeys=new Set(entries.map(key));
+   const keyForActual=(type,mark,values={})=>key({
+    type,mark:mark.mark,cipher:mark.cipher,secondaryCipher:mark.secondaryCipher,
+    ...values
+   });
+   const actualMark=new Map(marks.filter(x=>x.status==="confirmed"&&x.sourceValid)
+    .map(x=>[x.id,x]));
+   const actualJoint=new Map(nodes.filter(x=>x.counted).map(x=>[x.id,x]));
+   const pushExtra=(type,mark,values,name)=>{
+    const k=keyForActual(type,mark,values);
+    if(!referenceKeys.has(k)){
+     const msg={code:"unlisted_position",label:"Позиция есть в ведомости, но отсутствует в эталоне",
+      referenceId:null,type,mark:mark.mark,position:name,sheetCode:"—",expected:null,actual:"присутствует"};
+     extras.push(msg)
+    }
+   };
+   for(const mark of actualMark.values())
+    pushExtra("mark",mark,{},mark.mark);
+   for(const part of details.filter(x=>x.counted)){
+    const mark=actualMark.get(part.assemblyId);
+    if(mark)pushExtra("part",mark,{position:part.position},part.position)
+   }
+   for(const joint of actualJoint.values()){
+    const mark=actualMark.get(joint.assemblyId);
+    if(mark)pushExtra("joint",mark,{
+     scope:joint.scope,jointCode:joint.jointCode
+    },joint.jointCode)
+   }
+   for(const item of components.filter(x=>x.counted)){
+    const joint=actualJoint.get(item.jointId),mark=actualMark.get(item.assemblyId);
+    if(joint&&mark)pushExtra("component",mark,{
+     scope:joint.scope,jointCode:joint.jointCode,
+     category:item.category,kind:item.kind,position:item.position
+    },item.position)
+   }
+   issues.push(...extras)
+  }
+  const approvedKeys=new Set(),duplicateReference=[];
+  for(const entry of entries){
+   const k=key(entry);
+   if(approvedKeys.has(k))duplicateReference.push(entry);
+   approvedKeys.add(k)
+  }
+  for(const item of duplicateReference)
+   register("duplicate_reference","В эталоне повторно утверждена одна физическая позиция",
+    item,null,item.quantity);
   return{objectId:o,setId:review.setId,sheets:review.sheets,
    sheetCount:review.total,reviewedSheets:review.reviewed,allSheetsReviewed:review.allSheetsReviewed,
    activeReferencePositions:entries.length,archivedPositions:ledger.filter(x=>!x.current).length,
    pendingPositions:ledger.filter(x=>x.current&&x.status==="requires_review").length,
+   unlistedPositions:extras.length,duplicateReferencePositions:duplicateReference.length,
    mismatches:issues,discrepancyCount:issues.length,
    referenceReady:review.allSheetsReviewed&&entries.length>0&&issues.length===0,
    fullSpecificationVerified:false,releaseCertified:false,
