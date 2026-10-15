@@ -282,7 +282,7 @@ function registerAiModelIpc(){
   fs.renameSync(tmp,path.join(root,"manual.json"));
   return{ok:true,folder:root,message:"Файлы зарегистрированы с SHA-256. Запуск модели требует отдельной проверки."};
  });
- ipcMain.handle("ai-models:open-folder",()=>{const folder=path.join(app.getPath("userData"),"ir-project-ai","model-manager");fs.mkdirSync(folder,{recursive:true});return shell.openPath(folder)});
+ ipcMain.handle("ai-models:open-folder",()=>{const folder=path.join(app.getPath("userData"),"ir-project-ai","manual-qwen");fs.mkdirSync(folder,{recursive:true});return shell.openPath(folder)});
  ipcMain.handle("ai-models:select",e=>{checkModelAdmin(e);return aiModels.select()});
  ipcMain.handle("ai-models:install",(e,token)=>{checkModelAdmin(e);return aiModels.install(token)});
  ipcMain.handle("ai-models:rollback",(e,id)=>{checkModelAdmin(e);return aiModels.rollback(id)});
