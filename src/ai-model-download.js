@@ -14,7 +14,10 @@ async function downloadVerifiedPack({release,destination,request=fetch,signal,on
  for(let attempt=0;attempt<3;attempt++){
   try{
    response=await request(uri.href,{redirect:"error",cache:"no-store",credentials:"omit",signal});
-   if(response.status>=500&&attempt<2){await response.body?.cancel?.();continue}
+   if(response.status>=500&&attempt<2){
+    await response.body?.cancel?.();
+    continue;
+   }
    break;
   }catch(error){
    if(signal?.aborted||attempt===2)throw error;
