@@ -51,7 +51,8 @@ window.irAiKmdReferencePage={
        (item.position?' / '+esc(item.position):"")+
        (item.jointCode?' · '+esc(item.jointCode):"")+'</span></td>'+
        '<td>'+esc(item.sheetCode)+'</td><td>'+esc(item.quantity??"—")+'</td>'+
-       '<td>'+esc(statusText[item.status]||item.status)+'</td>'+
+       '<td>'+esc(item.status==="confirmed"&&!item.approved?
+        "Нужна повторная проверка":statusText[item.status]||item.status)+'</td>'+
        '<td><button data-ref-history="'+item.id+'">История</button>'+
        (perms?'<button data-ref-edit="'+item.id+'">Изменить</button>':"")+
        '</td></tr><tr class="ir-ai-reference-history-row" data-ref-log="'+item.id+

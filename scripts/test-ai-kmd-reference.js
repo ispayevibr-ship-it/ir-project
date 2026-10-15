@@ -92,6 +92,19 @@ const {createKmdReference}=require("../src/ai-kmd-reference");
   comment:"По листу, по спецификации и выноскам, все позиции"},{role:"admin"});
  assert.equal(sealed.checked,true);
  assert.equal(api.checks(1).allSheetsReviewed,true);
+ const validMarkRecord=db.getEntity(1,"ai-kmd-reference-rows",markRef.id);
+ db.updateEntity(1,"ai-kmd-reference-rows",markRef.id,{
+  record_type:"kmd_reference",title:validMarkRecord.title,
+  data:{...validMarkRecord.data,reviewedBy:null}
+ });
+ assert.equal(api.list(1).find(x=>x.id===markRef.id).approved,false,
+  "confirmed without an actual engineer decision must never be counted");
+ assert.equal(api.checks(1).allSheetsReviewed,false);
+ assert.equal(api.compare(1).pendingPositions,1);
+ db.updateEntity(1,"ai-kmd-reference-rows",markRef.id,{
+  record_type:"kmd_reference",title:validMarkRecord.title,data:validMarkRecord.data
+ });
+ assert.equal(api.checks(1).allSheetsReviewed,true);
  const tamperedRow=db.createEntity(1,"ai-kmd-reference-rows",{
   record_type:"kmd_reference",title:"Unexpected reference position",
   data:{setId:201,sheetId:301,type:"part",mark:"К41",
