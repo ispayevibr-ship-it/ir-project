@@ -59,6 +59,8 @@ function registerAiDocuments(){
  ipcMain.handle("ai-pdf:index",(_e,{objectId,id})=>aiPdf.index(objectId,id));
  ipcMain.handle("ai-pdf:page",(_e,{objectId,indexId,page})=>aiPdf.page(objectId,indexId,page));
  ipcMain.handle("ai-pdf:preview",(_e,{objectId,id,page})=>aiRaster.preview(objectId,id,page));
+ ipcMain.handle("ai-pdf:region-preview",(_e,{objectId,id,page,region})=>aiRaster.regionPreview(objectId,id,page,region));
+ ipcMain.handle("ai-pdf:region-analyze",(_e,{objectId,id,page,region})=>aiResults.analyzePdf(objectId,id,page,region));
  ipcMain.handle("ai-pdf:analyze",(_e,{objectId,id,page})=>aiResults.analyzePdf(objectId,id,page));
 }
 function registerAiModelIpc(){

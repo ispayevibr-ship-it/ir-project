@@ -21,6 +21,8 @@ const aiPdf={
  index:(objectId,id)=>ipcRenderer.invoke("ai-pdf:index",{objectId,id}),
  page:(objectId,indexId,page)=>ipcRenderer.invoke("ai-pdf:page",{objectId,indexId,page}),
  preview:(objectId,id,page)=>ipcRenderer.invoke("ai-pdf:preview",{objectId,id,page}),
+ regionPreview:(objectId,id,page,region)=>ipcRenderer.invoke("ai-pdf:region-preview",{objectId,id,page,region}),
+ regionAnalyze:(objectId,id,page,region)=>ipcRenderer.invoke("ai-pdf:region-analyze",{objectId,id,page,region}),
  analyze:(objectId,id,page)=>ipcRenderer.invoke("ai-pdf:analyze",{objectId,id,page}),
  onProgress:callback=>{
   const listener=(_event,data)=>{if(typeof callback==="function")callback(data)};

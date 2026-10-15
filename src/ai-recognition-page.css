@@ -114,3 +114,20 @@
 .ir-ai-pdf-preview-stage img{display:block;margin:0 auto;max-width:none;height:auto;background:#fff;box-shadow:0 2px 15px #163b5830}
 .ir-ai-pdf-preview-stage img.fit{max-width:100%;width:auto}
 @media(max-width:700px){.ir-ai-pdf-preview-header{height:82px;flex-wrap:wrap;padding:8px 12px}.ir-ai-pdf-preview-stage{height:calc(100% - 82px)}.ir-ai-pdf-preview-header small{max-width:230px;font-size:9px}}
+
+/* 1.7.216 — high-resolution PDF regions, source-linked, offline */
+.ir-ai-pdf-preview-dialog{display:flex;flex-direction:column;height:min(96vh,1000px)}
+.ir-ai-pdf-preview-header{height:auto;min-height:64px;flex:none;flex-wrap:wrap;padding:10px 15px}
+.ir-ai-pdf-preview-header div:first-child{flex:1;min-width:200px}
+.ir-ai-pdf-preview-header small{max-width:min(900px,75vw)}
+.ir-ai-pdf-preview-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
+.ir-ai-pdf-preview-actions button[data-region-extract]{background:#e9f3ff;border-color:#a9cce7}
+.ir-ai-pdf-preview-actions button[data-region-analyze]{background:#e9f9ef;border-color:#badcc7;color:#226747}
+.ir-ai-pdf-preview-actions button:disabled{opacity:.42;cursor:not-allowed}
+.ir-ai-pdf-preview-actions [hidden]{display:none}
+.ir-ai-pdf-preview-stage{height:auto;min-height:0;flex:1;overflow:auto;padding:18px;text-align:center}
+.ir-ai-pdf-image-wrap{display:inline-block;position:relative;vertical-align:top;max-width:none;background:#fff;box-shadow:0 2px 15px #163b5830}
+.ir-ai-pdf-image-wrap img{display:block;width:100%;height:auto;max-width:none;margin:0;box-shadow:none}
+.ir-ai-pdf-region-layer{position:absolute;inset:0;cursor:crosshair;touch-action:none;user-select:none}
+.ir-ai-pdf-region-selection{position:absolute;display:none;pointer-events:none;border:2px solid #f2a01f;background:#e2a23f32;box-shadow:0 0 0 1px #fff9}
+@media(max-width:750px){.ir-ai-pdf-preview-header{height:auto;min-height:82px;padding:9px}.ir-ai-pdf-preview-actions{justify-content:flex-start}.ir-ai-pdf-preview-header div:first-child{min-width:100%}.ir-ai-pdf-preview-stage{height:auto;min-height:0}}

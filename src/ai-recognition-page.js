@@ -212,25 +212,113 @@ window.irAiRecognitionPage=async function(objectId){
   try{
    const result=await pdf.preview(id,documentId,page);
    if(location.hash!==route)return;
-   const dlg=document.createElement("dialog");
-   dlg.className="ir-ai-pdf-preview-dialog";
-   dlg.innerHTML='<div class="ir-ai-pdf-preview-header"><div><b id="irAiPdfPreviewTitle"></b>'+
-    '<small id="irAiPdfPreviewMeta"></small></div><div class="ir-ai-pdf-preview-actions">'+
-    '<button type="button" data-pdf-fit>100%</button><button type="button" data-pdf-close>Закрыть ✕</button></div></div>'+
-    '<div class="ir-ai-pdf-preview-stage"><img alt="Отрендеренный лист PDF"></div>';
-   dlg.querySelector("#irAiPdfPreviewTitle").textContent=String(result.sourceName||"Чертёж PDF")+" · лист "+result.page+"/"+result.total;
-   dlg.querySelector("#irAiPdfPreviewMeta").textContent="Оригинал: SHA-256 "+result.sha256+" · изображение "+result.width+" × "+result.height+" px";
-   const img=dlg.querySelector("img");
-   if(!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(String(result.dataUrl||"")))throw Error("Неверный формат отрендеренного листа");
-   img.src=result.dataUrl;img.classList.add("fit");
-   dlg.querySelector("[data-pdf-fit]").onclick=event=>{
-    const fitted=img.classList.toggle("fit");
-    event.currentTarget.textContent=fitted?"100%":"По ширине"
+   const original=result;
+   const validImage=value=>/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(String(value||""));
+   if(!validImage(original.dataUrl))throw Error("Неверный формат PDF-изображения");
+   const dlg=document.createElement("dialog");dlg.className="ir-ai-pdf-preview-dialog";
+   dlg.innerHTML='<div class="ir-ai-pdf-preview-header"><div><b data-region-title></b>'+
+    '<small data-region-meta></small></div><div class="ir-ai-pdf-preview-actions">'+
+    '<button type="button" data-region-extract disabled>Увеличить фрагмент</button>'+
+    (canEdit?'<button type="button" data-region-analyze disabled>Распознать фрагмент ИИ</button>':'')+
+    '<button type="button" data-region-back hidden>Вернуться к листу</button>'+
+    '<button type="button" data-pdf-fit>100%</button>'+
+    '<button type="button" data-pdf-close>Закрыть ✕</button></div></div>'+
+    '<div class="ir-ai-pdf-preview-stage"><div class="ir-ai-pdf-image-wrap">'+
+    '<img alt="Фактический лист PDF"><div class="ir-ai-pdf-region-layer" title="Выделите нужную область мышью или касанием">'+
+    '<div class="ir-ai-pdf-region-selection"></div></div></div></div>';
+   const img=dlg.querySelector("img"),wrap=dlg.querySelector(".ir-ai-pdf-image-wrap"),
+    layer=dlg.querySelector(".ir-ai-pdf-region-layer"),rectangle=dlg.querySelector(".ir-ai-pdf-region-selection"),
+    extract=dlg.querySelector("[data-region-extract]"),
+    recognize=dlg.querySelector("[data-region-analyze]"),back=dlg.querySelector("[data-region-back]"),
+    fit=dlg.querySelector("[data-pdf-fit]"),meta=dlg.querySelector("[data-region-meta]"),
+    title=dlg.querySelector("[data-region-title]");
+   let crop=null,selected=null,drag=null,loading=false,fitted=true;
+   function showImage(view){
+    if(!validImage(view.dataUrl))throw Error("Неверный формат увеличенного фрагмента PDF");
+    img.src=view.dataUrl;
+    wrap.style.width=fitted?"min(100%, "+view.width+"px)":view.width+"px";
+    title.textContent=String(original.sourceName||"PDF")+" · лист "+original.page+"/"+original.total+
+     (crop?" · увеличенный фрагмент":"");
+    meta.textContent=(crop?"Выделенный фрагмент: ":"Источник: ")+view.width+" × "+view.height+
+     " px · SHA-256 "+original.sha256+
+     (crop&&view.sourceRectPt?" · прямоугольник PDF, pt: "+JSON.stringify(view.sourceRectPt):"");
+    back.hidden=!crop;layer.style.display=crop?"none":"";
+    updateSelection()
+   }
+   function updateSelection(){
+    rectangle.style.display=!selected||crop?"none":"block";
+    if(selected&&!crop){
+     rectangle.style.left=(selected.x*100)+"%";rectangle.style.top=(selected.y*100)+"%";
+     rectangle.style.width=(selected.width*100)+"%";rectangle.style.height=(selected.height*100)+"%"
+    }
+    extract.disabled=loading||!selected||!!crop;
+    if(recognize)recognize.disabled=loading||!selected||!!crop||!modelReady;
+   }
+   function point(event){
+    const bounds=layer.getBoundingClientRect();
+    if(!bounds.width||!bounds.height)return null;
+    return{
+     x:Math.min(1,Math.max(0,(event.clientX-bounds.left)/bounds.width)),
+     y:Math.min(1,Math.max(0,(event.clientY-bounds.top)/bounds.height))
+    }
+   }
+   function rectangleFrom(a,b){
+    const r={x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),
+     width:Math.abs(a.x-b.x),height:Math.abs(a.y-b.y)};
+    return Object.fromEntries(Object.entries(r).map(([k,v])=>[k,Math.round(v*1e6)/1e6]))
+   }
+   layer.onpointerdown=event=>{
+    if(event.button!==0&&event.pointerType==="mouse"||loading||crop)return;
+    const start=point(event);if(!start)return;
+    drag={start,id:event.pointerId};
+    try{layer.setPointerCapture(event.pointerId)}catch{}
+    selected=null;updateSelection();event.preventDefault()
    };
-   dlg.querySelector("[data-pdf-close]").onclick=()=>dlg.close();
+   layer.onpointermove=event=>{
+    if(!drag||drag.id!==event.pointerId||loading)return;
+    const end=point(event);if(!end)return;
+    selected=rectangleFrom(drag.start,end);
+    updateSelection()
+   };
+   const finish=event=>{
+    if(!drag||drag.id!==event.pointerId)return;
+    const end=point(event),rect=end?rectangleFrom(drag.start,end):null;
+    drag=null;
+    selected=rect&&rect.width>=0.01&&rect.height>=0.01&&
+     rect.x+rect.width<=1.000001&&rect.y+rect.height<=1.000001?rect:null;
+    updateSelection()
+   };
+   layer.onpointerup=finish;
+   layer.onpointercancel=()=>{drag=null;selected=null;updateSelection()};
+   fit.onclick=()=>{
+    fitted=!fitted;fit.textContent=fitted?"100%":"По ширине";
+    wrap.style.width=fitted?"min(100%, "+(crop?.width||original.width)+"px)":
+     (crop?.width||original.width)+"px"
+   };
+   extract.onclick=async()=>{
+    if(!selected||crop||loading)return;
+    const rect={...selected};loading=true;updateSelection();
+    try{
+     const view=await pdf.regionPreview(id,documentId,page,rect);
+     crop=view;showImage(view)
+    }catch(error){meta.textContent="Не удалось увеличить фрагмент: "+String(error.message||error)}
+    finally{loading=false;updateSelection()}
+   };
+   if(recognize)recognize.onclick=async()=>{
+    if(!selected||crop||loading||!modelReady||!canEdit)return;
+    loading=true;updateSelection();
+    try{
+     const answer=await pdf.regionAnalyze(id,documentId,page,{...selected});
+     notice("Фрагмент PDF · лист "+page+" обработан локальным ИИ. Результат требует проверки инженера.");
+     active="checks";dlg.close();await reload()
+    }catch(error){meta.textContent="ИИ-анализ фрагмента не завершён: "+String(error.message||error)}
+    finally{loading=false;updateSelection()}
+   };
+   back.onclick=()=>{crop=null;showImage(original)};
+   dlg.querySelector("[data-pdf-close]").onclick=()=>{if(!loading)dlg.close()};
+   dlg.addEventListener("cancel",event=>{if(loading)event.preventDefault()});
    dlg.addEventListener("close",()=>dlg.remove(),{once:true});
-   dlg.addEventListener("click",event=>{if(event.target===dlg)dlg.close()});
-   document.body.appendChild(dlg);dlg.showModal();
+   document.body.appendChild(dlg);showImage(original);dlg.showModal()
   }catch(error){notice("Не удалось показать лист PDF: "+String(error.message||error),"error")}
   finally{busy=false;await reload()}
  }

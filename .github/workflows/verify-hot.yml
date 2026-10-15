@@ -54,7 +54,7 @@ jobs:
         run: node scripts/test-ai-engine.js
       - name: Test real PDF text extraction and isolated sheet indexing
         run: node scripts/test-ai-pdf.js
-      - name: Test real PDF sheet PNG rendering and local AI source linkage
+      - name: Test actual PDF sheets and high-resolution region provenance
         run: node scripts/test-ai-pdf-render.js
       - name: Test signed offline model packs and atomic rollback
         run: node scripts/test-ai-model-manager.js

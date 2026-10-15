@@ -48,6 +48,22 @@ function pdfFixture(label){
   const preview=await renderer.preview(7,31,1);
   assert(preview.dataUrl.startsWith("data:image/png;base64,"));
   assert.equal(preview.sourceName,"frame-K41.pdf");
+  const region={x:0.1,y:0.16,width:0.45,height:0.35};
+  await assert.rejects(renderer.regionPreview(7,31,1,{x:-0.01,y:0,width:0.3,height:0.2}),/область/);
+  await assert.rejects(renderer.regionPreview(7,31,1,{x:0.9,y:0.9,width:0.2,height:0.2}),/область/);
+  await assert.rejects(renderer.regionPreview(7,31,1,{x:0.2,y:0.2,width:0.001,height:0.3}),/область/);
+  const crop=await renderer.renderForAnalysis(7,31,1,region);
+  assert.equal(crop.source.sha256,digest);
+  assert.equal(crop.page,1);
+  assert.deepEqual(crop.region,region);
+  assert.deepEqual(crop.sourceRectPt,{x:59.5,y:134.72,width:267.75,height:294.7});
+  assert(crop.scale>result.scale*1.5,"selected region must be rendered at a higher PDF resolution");
+  assert(crop.buffer.length>2000);
+  assert.deepEqual([...crop.buffer.subarray(0,8)],[137,80,78,71,13,10,26,10]);
+  const cropPreview=await renderer.regionPreview(7,31,1,region);
+  assert.deepEqual(cropPreview.region,region);
+  assert(cropPreview.width>preview.width*0.45);
+  assert(cropPreview.dataUrl.startsWith("data:image/png;base64,"));
   const engine={status:()=>({state:"ready"}),analyzeImage:async({buffer,mime,prompt})=>{
    assert.equal(mime,"image/png");assert(buffer.length>2000);
    assert(prompt.includes("лист 1"));
@@ -63,6 +79,14 @@ function pdfFixture(label){
   assert(stored[0].region.includes("PDF лист 1"));
   assert.equal(database.rows[0].data.verification,"requires_review");
   assert.equal(database.rows[0].data.origin,"locally_executed_llama_cpp_pdf_raster");
-  console.log("PDF raster: real vector PDF to PNG, verified source/page, preview and unverified AI pipeline PASS");
+  const regionAnalysis=await analysis.analyzePdf(7,31,1,region);
+  assert.deepEqual(regionAnalysis.region,region);
+  assert.equal(database.rows.length,2);
+  assert.equal(database.rows[1].data.verification,"requires_review");
+  assert.equal(database.rows[1].data.origin,"locally_executed_llama_cpp_pdf_region");
+  assert.deepEqual(database.rows[1].data.source.region,region);
+  assert.deepEqual(database.rows[1].data.source.sourceRectPt,{x:59.5,y:134.72,width:267.75,height:294.7});
+  assert(analysis.list(7)[1].region.includes("координаты прямоугольника"));
+  console.log("PDF raster+high-DPI regions: actual PDF pixels, coordinates, provenance and unverified local AI analysis PASS");
  }finally{fs.rmSync(root,{recursive:true,force:true})}
 })().catch(e=>{console.error(e);process.exitCode=1});

@@ -11,8 +11,8 @@ assert(files["src/app.js"].includes('key==="ai-recognition"&&window.irAiRecognit
 assert(files["src/object-shell.js"].includes('makeButton("ИИ-распознавание","ai-recognition"'),"sidebar route");
 assert(files["src/tabs-shell.js"].includes('"ai-recognition":"ИИ-распознавание"'),"tab naming");
 assert(files["src/access.js"].includes('"ai-recognition"'),"role configuration");
-assert(files["src/index.html"].includes('ai-recognition-page.js?v=17213'),"UI script loads");
-assert(files["src/index.html"].includes('ai-recognition-page.css?v=17210'),"module css loads");
+assert(files["src/index.html"].includes('ai-recognition-page.js?v=17216'),"UI script loads");
+assert(files["src/index.html"].includes('ai-recognition-page.css?v=17216'),"module css loads");
 assert(files["src/ai-recognition-page.js"].includes("Пакет модели не установлен"),"no fabricated inference");
 assert(files["src/ai-recognition-page.js"].includes('runtime.analyze(id,button.dataset.aiAnalyze)'),"real image inference action");
 assert(files["src/ai-local-engine.js"].includes('"--host","127.0.0.1"'),"loopback inference");
@@ -20,6 +20,10 @@ assert(files["src/ai-recognition-page.js"].includes('pdf.index(id,documentId)'),
 assert(files["preload.js"].includes('ai-pdf:index'),"native PDF entry is exposed through safe IPC");
 assert(files["preload.js"].includes('ai-pdf:preview'),"real PDF preview available");
 assert(files["preload.js"].includes('ai-pdf:analyze'),"per-sheet AI analysis IPC available");
+assert(files["preload.js"].includes('ai-pdf:region-preview'),"high-resolution PDF region IPC available");
+assert(files["preload.js"].includes('ai-pdf:region-analyze'),"source-aware local AI region analysis available");
+assert(files["src/ai-recognition-page.js"].includes("data-region-extract"),"PDF selection interaction exists");
+assert(files["src/ai-recognition-page.js"].includes("pdf.regionAnalyze(id,documentId,page"),"PDF region AI callback exists");
 assert(files["src/index.html"].includes('ai-model-settings.js?v=17215'),"AI model settings loaded");
 assert(files["preload.js"].includes('"ai-models:install"'),"IPC model pack installation exposed");
 assert(files["preload.js"].includes('"ai-models:download"'),"explicit catalog download exposed");
@@ -37,6 +41,6 @@ assert(files["src/ai-recognition-page.js"].includes("bridge.select(id,kind)"),"a
 assert(files["src/ai-recognition-page.js"].includes('status:"Не распознано"')===false,"UI doesn't fake model output");
 assert(files["src/ir-runtime.js"].includes('key==="ai-recognition"&&window.irAiRecognitionPage'),"runtime bundle current");
 const m=JSON.parse(fs.readFileSync("hot/latest.json","utf8"));
-assert.equal(m.version,"1.7.215");
+assert.equal(m.version,"1.7.216");
 assert(!m.files.some(x=>["main.js","preload.js"].includes(x.target)),"hot updater can't replace native process");
 console.log("AI stage 1: routes, dedicated UI, isolation, bridge and honest model status passed.");
