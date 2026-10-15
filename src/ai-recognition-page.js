@@ -30,6 +30,20 @@ window.irAiRecognitionPage=async function(objectId){
  const bridge=irProject.aiDocuments,ready=!!(bridge&&typeof bridge.list==="function"&&typeof bridge.select==="function");
  const runtime=irProject.aiEngine||null,pdf=irProject.aiPdf||null,reviewer=irProject.aiReview||null,workflow=irProject.aiWorkflow||null,integrityApi=irProject.aiIntegrity||null,revisionsApi=irProject.aiRevisions||null,proposalsApi=irProject.aiProposals||null,quantities=irProject.aiMarkQuantities||null,materials=irProject.aiKmdMaterials||null,connections=irProject.aiKmdConnections||null,comparisons=irProject.aiKmKmdCompare||null;
  const canEdit=!!window.irAccess?.canEdit?.("ai-recognition");
+ let aiWriteAuthUntil=0;
+ async function authorizeAiMutation(){
+  if(!canEdit||!reviewer){notice("Для изменения AI-данных нужна сессия инженера","error");return false}
+  const role=window.irAccess?.role?.();
+  if(!["admin","engineer"].includes(role)){notice("Гостю доступен только просмотр","error");return false}
+  if(Date.now()<aiWriteAuthUntil)return true;
+  const password=await requestReviewPassword(role);
+  if(password===null)return false;
+  try{
+   if(!await reviewer.authorize(role,password))throw Error("Неверный пароль инженера/администратора");
+   aiWriteAuthUntil=Date.now()+8*60*1000;
+   return true
+  }catch(error){notice("Авторизация ИИ: "+String(error.message||error),"error");return false}
+ }
  async function reload(){
   const jobs=[];
   if(ready)jobs.push(bridge.list(id).then(v=>{documents=v}).catch(error=>{documents=[];notice("Ошибка загрузки документов: "+String(error.message||error),"error")}));
@@ -116,7 +130,7 @@ window.irAiRecognitionPage=async function(objectId){
   app.querySelectorAll("[data-ai-tab]").forEach(button=>button.onclick=()=>{active=button.dataset.aiTab;if(active==="integrity")void reload();else paint()});
   const upload=app.querySelector("#irAiUpload");
   upload.onclick=async()=>{
-   if(!ready||!canEdit||busy)return;busy=true;
+   if(!ready||!canEdit||busy||!await authorizeAiMutation())return;busy=true;
    upload.disabled=true;upload.textContent="Импортируем файлы…";
    try{
     const kind=app.querySelector("#irAiKind").value,answer=await bridge.select(id,kind);
@@ -129,14 +143,14 @@ window.irAiRecognitionPage=async function(objectId){
    finally{busy=false;await reload()}
   };
   app.querySelector("#irAiRecognize").onclick=async()=>{
-   if(!runtime||busy||!canEdit)return;
+   if(!runtime||busy||!canEdit||!await authorizeAiMutation())return;
    busy=true;notice("Запускаем локальную модель, ожидаем реальной готовности…");paint();
    try{const response=await runtime.start();engine=response;if(response.state==="ready")notice("Локальная модель запущена.");else notice(response.reason||"Модель не запущена","error")}
    catch(error){notice("Ошибка запуска: "+String(error.message||error),"error")}
    finally{busy=false;await reload()}
   };
   app.querySelector("#irAiStop").onclick=async()=>{
-   if(!runtime||!canEdit)return;
+   if(!runtime||!canEdit||!await authorizeAiMutation())return;
    try{engine=await runtime.stop();notice("Локальный ИИ остановлен.")}
    catch(error){notice("Ошибка остановки: "+String(error.message||error),"error")}
    await reload()
@@ -471,7 +485,7 @@ window.irAiRecognitionPage=async function(objectId){
    openPdfPreview(did,page)
   });
   box.querySelectorAll("[data-ai-pdf-vision]").forEach(button=>button.onclick=async()=>{
-   if(!pdf||!canEdit||busy||!modelReady)return;
+   if(!pdf||!canEdit||busy||!modelReady||!await authorizeAiMutation())return;
    const [did,page]=button.dataset.aiPdfVision.split(":");
    busy=true;notice("Реальный локальный ИИ анализирует лист "+page+". Результат сохранится только как непроверенное предположение.");paint();
    try{
@@ -482,7 +496,7 @@ window.irAiRecognitionPage=async function(objectId){
    finally{busy=false;await reload()}
   });
   box.querySelectorAll("[data-ai-pdf-index]").forEach(button=>button.onclick=async()=>{
-   if(!pdf||busy||!canEdit)return;
+   if(!pdf||busy||!canEdit||!await authorizeAiMutation())return;
    const documentId=button.dataset.aiPdfIndex;
    busy=true;notice("Читаем реальный текстовый слой PDF по страницам, без нейросети…");paint();
    try{
@@ -502,7 +516,7 @@ window.irAiRecognitionPage=async function(objectId){
    }catch(error){notice("Ошибка чтения листа: "+String(error.message||error),"error");paint()}
   });
   box.querySelectorAll("[data-ai-analyze]").forEach(button=>button.onclick=async()=>{
-   if(!runtime||!canEdit||busy||!modelReady)return;
+   if(!runtime||!canEdit||busy||!modelReady||!await authorizeAiMutation())return;
    busy=true;notice("Реальный локальный анализ изображения запущен. Результат сохранится для проверки.");paint();
    try{
     const result=await runtime.analyze(id,button.dataset.aiAnalyze);
@@ -518,6 +532,7 @@ window.irAiRecognitionPage=async function(objectId){
    if(!canEdit||!ready)return;
    const row=documents.find(x=>String(x.id)===button.dataset.aiRemove);if(!row)return;
    if(!confirm('Удалить загруженный документ «'+row.name+'»? Файл будет удалён из хранилища IR Project AI.'))return;
+   if(!await authorizeAiMutation())return;
    try{await bridge.remove(id,row.id);notice("Документ удалён: "+row.name);await reload()}
    catch(error){notice("Не удалось удалить файл: "+String(error.message||error),"error");paint()}
   })
@@ -827,7 +842,7 @@ window.irAiRecognitionPage=async function(objectId){
     finally{loading=false;updateSelection()}
    };
    if(recognize)recognize.onclick=async()=>{
-    if(!selected||crop||loading||!modelReady||!canEdit)return;
+    if(!selected||crop||loading||!modelReady||!canEdit||!await authorizeAiMutation())return;
     loading=true;updateSelection();
     try{
      const answer=await pdf.regionAnalyze(id,documentId,page,{...selected});
