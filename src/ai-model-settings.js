@@ -60,7 +60,8 @@
    target.innerHTML='<div class="ir-ai-model-toolbar">'+
     '<button type="button" data-check '+(busy?'disabled':'')+'>↻ Проверить обновления</button>'+
     '<button type="button" data-select '+(busy||!isAdmin()?'disabled':'')+'>＋ Установить из файла</button>'+
-    '<button type="button" data-refresh '+(busy?'disabled':'')+'>Обновить список</button>'+
+    '<button type="button" data-refresh '+(busy?'disabled':'')+'>Обновить список</button>'+ 
+    '<button type="button" data-open-folder '+(busy?'disabled':'')+'>📁 Открыть папку моделей</button>'+
     '<button type="button" data-preflight '+(busy?'disabled':'')+'>Проверить готовность к КМД</button>'+
     (downloading?'<button type="button" data-cancel-download>✕ Отменить загрузку</button>':'')+
     '</div><div class="ir-ai-model-progress" data-download-progress>'+esc(progress)+'</div>'+
@@ -177,6 +178,7 @@
     }catch(e){status("Скачивание или установка не завершены: "+String(e.message||e),true)}
     finally{busy=false;downloading=false;progress="";await reload()}
    });
+   target.querySelector("[data-open-folder]").onclick=async()=>{try{const error=await api.openFolder();if(error)status("Не удалось открыть папку: "+error,true)}catch(e){status(String(e.message||e),true)}render()};
    target.querySelector("[data-check]").onclick=async()=>{
     busy=true;render();
     try{const update=await api.checkUpdates();data.update=update;status(update.reason||"Обновлений нет")}
