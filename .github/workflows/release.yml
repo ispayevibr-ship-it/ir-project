@@ -41,6 +41,11 @@ jobs:
           node --check src/ai-document-store.js
           node --check src/ai-analysis.js
           node --check src/ai-local-engine.js
+          node --check src/ai-paddle-ocr.js
+          node --check src/ai-review.js
+          node --check src/ai-workflow.js
+          node --check src/ai-workflow-page.js
+          node --check src/ai-recognition-page.js
           node --check src/ai-pdf-worker.js
           node --check src/ai-pdf-index.js
           node --check src/ai-pdf-render-worker.js
@@ -55,10 +60,22 @@ jobs:
           node scripts/test-ai-model-catalog.js
           node scripts/test-ai-model-runtime.js
           node --check scripts/ai-pack-publisher.js
+          node --check scripts/ai-paddleocr-pack-publisher.js
           node --check scripts/build-qwen4-pack.js
+          node --check scripts/build-paddleocr-pack.js
           node --check scripts/sign-ai-catalog.js
           node --check scripts/test-ai-pack-publisher.js
+          node --check scripts/test-ai-paddleocr-pack-publisher.js
+          node --check scripts/test-ai-multi-model-catalog.js
+          node --check scripts/test-ai-paddle-ocr.js
+          node --check scripts/test-ai-paddle-ocr-integration.js
+          # Release-time acceptance: synthetic contracts run only when the
+          # release workflow is executed, never on feature-branch commits.
           node scripts/test-ai-pack-publisher.js
+          node scripts/test-ai-paddleocr-pack-publisher.js
+          node scripts/test-ai-multi-model-catalog.js
+          node scripts/test-ai-paddle-ocr.js
+          node scripts/test-ai-paddle-ocr-integration.js
           node scripts/test-ai-pdf.js
           node scripts/test-ai-pdf-render.js
           node scripts/test-ai-engine.js
