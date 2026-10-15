@@ -4,7 +4,7 @@
 window.irAiKmdReferencePage={
  render(host,{objectId,entries=[],checks=null,comparison=null,api=null,
   reviewer=null,askPassword=null,canEdit=false,onRefresh=null,
-  openPdf=null,notice=null}={}){
+  openPdf=null,notice=null,onNavigate=null}={}){
   if(!host)return;
   const esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   const types={mark:"Отправочная марка",part:"Деталь КМД",joint:"Узел",component:"Метиз / шов"};
@@ -60,9 +60,11 @@ window.irAiKmdReferencePage={
    (!current.length?'<div class="ir-ai-doc-empty">Эталонные позиции ещё не внесены. Добавляйте только подтверждённые по первоисточнику.</div>':"")+
    '</div>'+
    (missing.length?'<div class="ir-ai-reference-discrepancies"><h3>Отличия от инженерных ведомостей</h3>'+
-    missing.slice(0,100).map(m=>'<div><b>'+esc(m.label)+'</b> · '+esc(m.mark)+
+    missing.slice(0,100).map((m,index)=>'<div><b>'+esc(m.label)+'</b> · '+esc(m.mark)+
      ' · '+esc(m.position)+' · '+esc(m.sheetCode)+
-     '<small>Эталон: '+esc(m.expected??"—")+' · ведомость: '+esc(m.actual??"отсутствует")+'</small></div>').join("")+
+     '<small>Эталон: '+esc(m.expected??"—")+' · ведомость: '+esc(m.actual??"отсутствует")+'</small>'+
+     (onNavigate?'<button type="button" data-reference-go="'+index+'">Открыть ведомость →</button>':"")+
+     '</div>').join("")+
     (missing.length>100?'<small>Показаны первые 100 замечаний из '+missing.length+'</small>':"")+
     '</div>':'<p class="ir-ai-storage-note">Среди действующих утверждённых эталонных позиций расхождения не обнаружены. Это не доказательство полного охвата исходных листов.</p>')+
    (archive.length?'<details class="ir-ai-reference-archive"><summary>Архивные эталонные позиции ('+
@@ -73,6 +75,13 @@ window.irAiKmdReferencePage={
     'Для каждой редакции КМД необходима отдельная ручная сверка действующих листов инженером.</p>'+
    '</section>';
   const root=host.querySelector(".ir-ai-reference");
+  root.querySelectorAll("[data-reference-go]").forEach(b=>b.onclick=()=>{
+   const entry=missing[Number(b.dataset.referenceGo)];
+   if(!entry)return;
+   onNavigate?.({tab:entry.type==="mark"?"marks":entry.type==="part"?"metal":"fasteners",
+    type:entry.type,actualId:entry.actualId,assemblyId:entry.assemblyId,
+    referenceId:entry.referenceId,mark:entry.mark,position:entry.position});
+  });
   root.querySelectorAll("[data-reference-pdf]").forEach(button=>button.onclick=()=>{
    const [doc,page]=button.dataset.referencePdf.split(":");void openPdf?.(doc,page)
   });

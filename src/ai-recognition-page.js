@@ -182,7 +182,24 @@ window.irAiRecognitionPage=async function(objectId){
    if(window.irAiKmdReferencePage&&referenceApi)window.irAiKmdReferencePage.render(box,{
     objectId:id,entries:referenceRows,checks:referenceChecks,comparison:referenceCompare,
     api:referenceApi,reviewer,askPassword:requestReviewPassword,canEdit,
-    onRefresh:reload,openPdf:openPdfPreview,notice
+    onRefresh:reload,openPdf:openPdfPreview,notice,
+    onNavigate:target=>{
+     if(!target||!["marks","metal","fasteners"].includes(target.tab))return;
+     active=target.tab;paint();
+     if(target.actualId==null)return;
+     const key=target.type==="mark"?"quantity-edit":
+      target.type==="part"?"metal-edit":
+      target.type==="joint"?"joint-edit":"item-edit";
+     const idValue=Number(target.actualId);
+     if(!Number.isSafeInteger(idValue)||idValue<=0)return;
+     const button=app.querySelector('#irAiContent [data-'+key+'="'+idValue+'"]');
+     if(button){
+      const disclosure=button.closest("details");
+      if(disclosure)disclosure.open=true;
+      button.scrollIntoView({block:"center",behavior:"auto"});
+      button.focus({preventScroll:true})
+     }
+    }
    });
    else box.innerHTML='<div class="ir-ai-doc-empty">Эталон КМД недоступен в этой версии.</div>';
    return
@@ -221,7 +238,7 @@ window.irAiRecognitionPage=async function(objectId){
    else box.innerHTML='<div class="ir-ai-doc-empty">Модуль очереди листов не загружен.</div>';
    return
   }
-  if(active==="marks"){
+  if(active==="marks"||active==="metal"){
    box.innerHTML='<div class="ir-ai-review-heading"><div><h2>Реестр подтверждённых марок</h2>'+
     '<p>Только марки, проверенные инженером по исходным чертежам. Число упоминаний не равно количеству отправочных элементов.</p></div>'+
     '<b>'+verifiedMarks.length+' уникальных обозначений</b></div>'+
@@ -357,6 +374,10 @@ window.irAiRecognitionPage=async function(objectId){
        esc(change.current?.status||"")+'</div>').join(""):'Изменений пока нет'
     }catch(error){slot.textContent="Ошибка журнала металла: "+String(error.message||error)}
    });
+   if(active==="metal"){
+    for(const child of box.children)
+     if(!child.classList.contains("ir-ai-metal-section"))child.hidden=true;
+   }
    return
   }
   if(active==="checks"){
