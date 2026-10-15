@@ -44,6 +44,7 @@ window.irAiKmdReferencePage={
      '<span class="'+(s.checked?"verified":"pending")+'">'+
       (s.checked?"Лист проверен":!s.valid?"Источник недоступен":
        s.duplicatePositions?"Повторяющиеся позиции — утверждение запрещено":"Нужна сверка")+'</span>'+
+     (!s.checked&&s.reason?'<small class="ir-ai-reference-reason">'+esc(s.reason)+'</small>':"")+
      '<div class="ir-ai-reference-sheet-actions">'+
       '<button type="button" data-reference-pdf="'+s.documentId+':'+s.page+'">Открыть PDF</button>'+
       (perms&&s.valid?'<button type="button" data-reference-seal="'+s.id+'">'+

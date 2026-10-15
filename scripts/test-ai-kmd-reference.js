@@ -100,6 +100,10 @@ const {createKmdReference}=require("../src/ai-kmd-reference");
  });
  assert.equal(api.checks(1).allSheetsReviewed,false,
   "duplicate confirmed KMD references invalidate per-sheet attestation");
+ assert.equal(api.checks(1).sheets[0].status,"needs_review",
+  "invalidated stored signoff cannot leak sealed as current API status");
+ assert.equal(api.checks(1).sheets[0].storedStatus,"sealed",
+  "original persisted signoff state remains available for audit");
  assert(api.checks(1).sheets[0].duplicatePositions>0);
  assert.throws(()=>api.seal(1,301,1,{reviewedEntireSheet:true,
   comment:"Контрольный повторный акт из двух одинаковых строк"},{role:"engineer"}),
@@ -136,6 +140,8 @@ const {createKmdReference}=require("../src/ai-kmd-reference");
  });
  assert.equal(api.checks(1).allSheetsReviewed,false,
   "a tampered quantity must revoke a previously signed source sheet");
+ assert.match(api.checks(1).sheets[0].reason,/акт не совпадает/,
+  "diagnostics must explain invalidated signoff rather than showing zero errors");
  db.updateEntity(1,"ai-kmd-reference-rows",partRef.id,{
   record_type:"kmd_reference",title:oldPart.title,data:oldPart.data
  });
