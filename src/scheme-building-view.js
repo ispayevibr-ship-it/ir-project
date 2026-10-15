@@ -90,7 +90,7 @@ window.irBuildingView=(()=>{
   const buffer=gl.createBuffer(),position=gl.getAttribLocation(program,"aPosition"),color=gl.getAttribLocation(program,"aColor");
   // Cuboid corners are constant until a scheme record changes. Keep them
   // across camera frames instead of recalculating six faces on every drag.
-  const boxCache=new WeakMap();
+  let boxCache=new WeakMap();
   gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);
   const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
   const unit=v=>{const d=Math.hypot(...v)||1;return v.map(x=>x/d)};
@@ -145,7 +145,7 @@ window.irBuildingView=(()=>{
    gl.vertexAttribPointer(color,3,gl.FLOAT,false,24,12);
    gl.drawArrays(gl.TRIANGLES,0,data.length/6);
   }
-  return{render,dispose(){
+  return{render,invalidate(){boxCache=new WeakMap()},dispose(){
    gl.deleteBuffer(buffer);gl.deleteProgram(program);
    // A new route creates a new surface; release its old GPU context.
    gl.getExtension("WEBGL_lose_context")?.loseContext();
@@ -1427,6 +1427,9 @@ window.irBuildingView=(()=>{
    if(button)button.classList.toggle("active",enabled)
   }
   updateRecordsScene=(elements,nextGroups,nextMarks,nextSelected)=>{
+   // Z coordinates and endpoints can change without replacing the WebGL
+   // context. Cached prism corners must not survive a saved record update.
+   webgl?.invalidate();
    marks.splice(0,marks.length,...nextMarks);
    state.selected=String(nextSelected||"");state.hover="";
    if(!marks.some(m=>String(m.id)===String(state.mark)&&m.left>0))

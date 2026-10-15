@@ -21,4 +21,23 @@ assert.equal(api.markPlacement({id:"2",qty:25}).placed,20);
 const viewer=fs.readFileSync("src/scheme-building-view.js","utf8");
 assert(viewer.includes("updateRecords:(elements,groups,marks,selected)"));
 assert.equal(viewer.includes("＋ Добавить марку"),false);
-console.log("Scheme performance: cached mark quotas, saving/updating, in-place 3D refresh and button rename OK");
+
+const recordBefore=api.allRecords().find(r=>r.id==="1901");
+assert.equal(api.rememberSavedSchemeRecord({id:"1901",record_type:"scheme_column",data:{
+ mark_id:"2",mark:"К105",z0_mm:9325,z1_mm:9695,end_z_mm:9695
+}}),true);
+const elevation=api.storedSchemeElement("1901");
+assert.notEqual(elevation,recordBefore,"edited construction is replaced in the cache");
+assert.equal(elevation.z0_mm,9325,"bottom level is refreshed in memory");
+assert.equal(elevation.end_z_mm,9695,"end elevation is refreshed in memory");
+assert.equal(api.markPlacement({id:"2",qty:25}).placed,20,"updating geometry does not create extra placements");
+assert(code.includes("const latest=await schemeApi.list();"),"existing edits re-read persisted elevations immediately");
+assert(code.includes("if(id||!merged)"),"normal create path remains fast; existing edits fetch authoritative state");
+assert(code.includes("window.irBuildingView.updateRecords(visible"),"3D model is refreshed in place");
+assert(code.includes("renderDetails();\n  const s=stats(),mp=statusCounts();"),"outer properties panel refreshes the new Z values");
+assert(viewer.includes("let boxCache=new WeakMap()"),"GPU prism geometry cache is resettable");
+assert(viewer.includes("invalidate(){boxCache=new WeakMap()}"),"WebGL renderer can discard outdated elevations");
+assert(viewer.includes("webgl?.invalidate();"),"3D data refresh invalidates cached solid geometry");
+assert(viewer.includes("refreshPanel();refreshFindControls()"),"3D sidebar refreshes selected mark coordinates");
+console.log("Scheme performance: cached quotas, persisted Z changes, sidebars and in-place GPU geometry refresh OK");
+

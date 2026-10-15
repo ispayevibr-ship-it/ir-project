@@ -1834,6 +1834,9 @@ window.irSchemePage=async function(objectId){
    return{id:m.id,title:markLabel(m),mark:m.mark||m.title,total:q.total,placed:q.placed,left:q.left,geometry:guessGeometry(m)}
   });
   window.irBuildingView.updateRecords(visible,groups.map(g=>({...g,visible:!hiddenGroups.has(g.key)})),available,selectedId);
+  // The live 3D sidebar is updated by updateRecords; also refresh the
+  // separate schemeDetails panel, which otherwise retains old Z values.
+  renderDetails();
   const s=stats(),mp=statusCounts();
   const summary=document.querySelector(".scheme-summary");
   if(summary?.children[2]){
@@ -2393,7 +2396,20 @@ window.irSchemePage=async function(objectId){
    mid_anchor_member_id:kind==="bent"&&ridgeMode==="manual"?previous.mid_anchor_member_id:undefined,end_axis_x:kind==="column"?undefined:endX,end_axis_y:kind==="column"?undefined:endY,end_offset_x_mm:kind==="column"?undefined:endDx,end_offset_y_mm:kind==="column"?undefined:endDy,end_z_mm:kind==="column"?undefined:z1,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name,scheme_group:g.key,scheme_group_label:g.label,scheme_view_id:view?.id||"all"}};
    try{
     const saved=id?await schemeApi.update(id,payload):await schemeApi.create(payload);
-    if(!rememberSavedSchemeRecord(saved))rows=await schemeApi.list();
+    const merged=rememberSavedSchemeRecord(saved);
+    // Edited elevations must be read back from the authoritative saved record
+    // before refreshing the in-place 3D renderer. Otherwise an older local
+    // snapshot can remain on screen until the entire page is reloaded.
+    if(id||!merged){
+     try{
+      const latest=await schemeApi.list();
+      if(Array.isArray(latest))rows=latest;
+      else if(!merged)throw Error("Список элементов не получен после сохранения.");
+     }catch(refreshError){
+      if(!merged)throw refreshError;
+      console.warn("Монтажная схема: чтение сохранённых координат недоступно, используем подтверждённую запись.",refreshError);
+     }
+    }
     selectedId=String(saved?.id||id||"");d.close();
     if(pendingBuildingPlacement){
      if(kind!=="column")window.irBuildingView?.placementSaved?.({...pendingBuildingPlacement,savedEnd:{ax:endX,ay:endY,x:x2,y:y2,z:z1}});
@@ -4820,7 +4836,7 @@ window.irBuildingView=(()=>{
   const buffer=gl.createBuffer(),position=gl.getAttribLocation(program,"aPosition"),color=gl.getAttribLocation(program,"aColor");
   // Cuboid corners are constant until a scheme record changes. Keep them
   // across camera frames instead of recalculating six faces on every drag.
-  const boxCache=new WeakMap();
+  let boxCache=new WeakMap();
   gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);
   const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
   const unit=v=>{const d=Math.hypot(...v)||1;return v.map(x=>x/d)};
@@ -4875,7 +4891,7 @@ window.irBuildingView=(()=>{
    gl.vertexAttribPointer(color,3,gl.FLOAT,false,24,12);
    gl.drawArrays(gl.TRIANGLES,0,data.length/6);
   }
-  return{render,dispose(){
+  return{render,invalidate(){boxCache=new WeakMap()},dispose(){
    gl.deleteBuffer(buffer);gl.deleteProgram(program);
    // A new route creates a new surface; release its old GPU context.
    gl.getExtension("WEBGL_lose_context")?.loseContext();
@@ -6157,6 +6173,9 @@ window.irBuildingView=(()=>{
    if(button)button.classList.toggle("active",enabled)
   }
   updateRecordsScene=(elements,nextGroups,nextMarks,nextSelected)=>{
+   // Z coordinates and endpoints can change without replacing the WebGL
+   // context. Cached prism corners must not survive a saved record update.
+   webgl?.invalidate();
    marks.splice(0,marks.length,...nextMarks);
    state.selected=String(nextSelected||"");state.hover="";
    if(!marks.some(m=>String(m.id)===String(state.mark)&&m.left>0))
