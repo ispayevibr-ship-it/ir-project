@@ -248,6 +248,14 @@ function createKmdReference({database,revisions,quantities,materials,connections
   return tx(()=>{
    if(old&&Number(refRow(o,old.id).data.revision)!==oldRevision)
     throw Error("Позиция изменена в другом окне");
+   const currentSource=sheet(o,src.sheetId);
+   if(currentSource.setId!==src.setId||currentSource.documentId!==src.documentId||
+    currentSource.page!==src.page||currentSource.sha256!==src.sha256)
+    throw Error("Комплект или оригинал КМД изменился во время сохранения");
+   const conflicts=list(o).filter(x=>x.id!==old?.id&&x.setId===src.setId&&
+    x.status!=="rejected"&&key(x)===key(data));
+   if(conflicts.length)
+    throw Error("Эталонная позиция уже существует: № "+conflicts[0].id);
    const payload={record_type:"kmd_reference",
     title:type+" / "+mark+" / "+(position||jointCode),data};
    const row=old?database.updateEntity(o,RECORDS,old.id,payload):
