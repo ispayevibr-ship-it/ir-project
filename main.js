@@ -12,9 +12,15 @@ const aiEngine=aiLocalEngine.createEngine({
   resolve:()=>aiModels.resolveRuntime("qwen3-vl-4b")
  }
 });
+// Publisher-controlled public endpoint. No model weights are bundled with the app.
+// Keep this empty until the official signed catalog has been published.
+const aiCatalogConfig=require("./src/ai-catalog-config.json");
+const aiCatalogUrl=typeof aiCatalogConfig.url==="string"&&aiCatalogConfig.url.trim()?
+ aiCatalogConfig.url.trim():null;
 aiModels=aiModelManager.createModelManager({
  getUserDataPath:()=>app.getPath("userData"),dialog,getWindow:()=>win,
  appVersion:()=>require("./package.json").version,
+ catalogUrl:aiCatalogUrl,
  engineActive:()=>["starting","ready"].includes(aiEngine.status().state)||Boolean(aiOcr?.status().busy),
  onDownloadProgress:point=>{if(win&&!win.isDestroyed())win.webContents.send("ai-models:progress",point)}
 });
