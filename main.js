@@ -1,7 +1,7 @@
 "use strict";
 const {app,BrowserWindow,ipcMain,dialog,Menu,protocol,shell}=require("electron");
 const path=require("path"),crypto=require("crypto"),fs=require("fs");
-const database=require("./src/database"),aiDocumentStore=require("./src/ai-document-store"),aiLocalEngine=require("./src/ai-local-engine"),aiAnalysis=require("./src/ai-analysis"),aiReview=require("./src/ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiKmdMaterials=require("./src/ai-kmd-materials"),aiKmdConnections=require("./src/ai-kmd-connections"),aiKmKmdCompare=require("./src/ai-km-kmd-compare"),aiAssemblyGeometry=require("./src/ai-assembly-geometry"),aiAssemblyAttachments=require("./src/ai-assembly-attachments"),aiWorkflow=require("./src/ai-workflow"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),aiModelManager=require("./src/ai-model-manager"),aiRuntimeDiagnostics=require("./src/ai-runtime-diagnostics"),backup=require("./src/backup"),updates=require("./src/updater"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
+const database=require("./src/database"),aiDocumentStore=require("./src/ai-document-store"),aiLocalEngine=require("./src/ai-local-engine"),aiAnalysis=require("./src/ai-analysis"),aiReview=require("./src/ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiKmdMaterials=require("./src/ai-kmd-materials"),aiKmdConnections=require("./src/ai-kmd-connections"),aiKmKmdCompare=require("./src/ai-km-kmd-compare"),aiAssemblyGeometry=require("./src/ai-assembly-geometry"),aiAssemblyAttachments=require("./src/ai-assembly-attachments"),aiWorkflow=require("./src/ai-workflow"),aiStructuredReview=require("./src/ai-structured-review"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),aiModelManager=require("./src/ai-model-manager"),aiRuntimeDiagnostics=require("./src/ai-runtime-diagnostics"),backup=require("./src/backup"),updates=require("./src/updater"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
 let win;
 const aiDocuments=aiDocumentStore.createStore({getUserDataPath:()=>app.getPath("userData"),dialog,shell,database,getWindow:()=>win});
 let aiModels;
@@ -27,6 +27,7 @@ function checkModelAdmin(event){
 const aiRaster=aiPdfRenderer.createPdfRenderer({database,documents:aiDocuments});
 const aiResults=aiAnalysis.createAnalysis({database,documents:aiDocuments,engine:aiEngine,pdfRenderer:aiRaster});
 const aiReviews=aiReview.createAiReview({database});
+const aiProposals=aiStructuredReview.createStructuredReviews({database,documents:aiDocuments});
 const aiQuantities=aiMarkQuantities.createMarkQuantities({database});
 const aiMaterials=aiKmdMaterials.createKmdMaterials({database,quantities:aiQuantities});
 const aiConnections=aiKmdConnections.createKmdConnections({database,quantities:aiQuantities});
@@ -134,6 +135,12 @@ function registerAiDocuments(){
   aiQueue.retry(objectId,id,requireAiReviewer(e)));
  ipcMain.handle("ai-workflow:cancel",(e,{objectId,id})=>
   aiQueue.cancel(objectId,id,requireAiReviewer(e)));
+ ipcMain.handle("ai-proposals:list",(_e,objectId)=>aiProposals.list(objectId));
+ ipcMain.handle("ai-proposals:summary",(_e,objectId)=>aiProposals.summary(objectId));
+ ipcMain.handle("ai-proposals:history",(_e,{objectId,analysisId,index})=>
+  aiProposals.history(objectId,analysisId,index));
+ ipcMain.handle("ai-proposals:save",(e,{objectId,analysisId,index,entry})=>
+  aiProposals.save(objectId,analysisId,index,entry,requireAiReviewer(e)));
  ipcMain.handle("ai-attachment:list",(_e,{objectId,assemblyId})=>aiAttachments.list(objectId,assemblyId));
  ipcMain.handle("ai-attachment:summary",(_e,{objectId,assemblyId})=>aiAttachments.summary(objectId,assemblyId));
  ipcMain.handle("ai-attachment:history",(_e,{objectId,id})=>aiAttachments.history(objectId,id));

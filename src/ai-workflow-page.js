@@ -33,7 +33,7 @@ window.irAiWorkflowPage={
     stage("1. Исходные чертежи","Загрузка и текстовый индекс PDF","documents",documents.length+
      ' файлов · '+q.indexedPages+' индексированных листов')+
     stage("2. Очередь ИИ","Локальное распознавание только выбранных листов","workflow",q.total+' заданий')+
-    stage("3. Проверка инженером","Исходные ответы остаются неизменными","checks",
+    stage("3. Проверка позиций","ИИ-предложения проверяет инженер","proposals",
      q.reviewRequired+' ожидают · '+q.confirmedAnalyses+' проверено')+
     stage("4. Ведомости","Количество экземпляров, металл и метизы","marks",
      (quantities?.confirmedPositionCount||0)+' позиций КМД · '+(materials?.confirmedDetailPositions||0)+' деталей металла')+

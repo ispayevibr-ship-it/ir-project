@@ -9,7 +9,7 @@ window.irAiRecognitionPage=async function(objectId){
   ["workflow","Конвейер ИИ"],["model","Общая 3D-модель"],["assembly","3D-модели марок"],
   ["marks","Ведомость марок"],["metal","Спецификация металла"],
   ["fasteners","Метизы"],["documents","Чертежи КМ/КМД"],
-  ["compare","Сравнение КМ / КМД"],["checks","Проверка и ошибки"]
+  ["compare","Сравнение КМ / КМД"],["proposals","Предложения ИИ"],["checks","Проверка и ошибки"]
  ];
  const descriptions={
   workflow:["Очередь распознавания КМ / КМД","Обработка отдельных листов локальной моделью и отправка результатов на инженерную проверку."],
@@ -19,13 +19,14 @@ window.irAiRecognitionPage=async function(objectId){
   metal:["Спецификация металлопроката","Профиль, сталь, размеры, количество и масса будут связываться с листом-источником. Данные не будут предполагаться по внешнему виду."],
   fasteners:["Ведомость метизов","Болты, гайки, шайбы и места установки будут учитываться по уникальным соединениям после распознавания узлов."],
   compare:["Сравнение КМ и КМД","Сопоставление геометрии, металлопроката, соединений, количества и ревизий будет доступно после подготовки проверяемых данных."],
+  proposals:["Структурированные предложения ИИ","Отдельные поля марок, металлопроката, размеров и соединений с проверкой инженером."],
   checks:["Проверка и замечания","После запуска локального анализа здесь появятся ошибки и неопределённые значения со ссылками на исходные листы и подтверждения инженера."]
  };
- let object,documents=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,materialEntries=[],materialSummary=null,connectionNodes=[],connectionItems=[],connectionSummary=null,comparisonEntries=[],comparisonSummary=null,comparisonFields={},pdfIndexes=[],workflowTasks=[],workflowSummary=null,engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
+ let object,documents=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,materialEntries=[],materialSummary=null,connectionNodes=[],connectionItems=[],connectionSummary=null,comparisonEntries=[],comparisonSummary=null,comparisonFields={},pdfIndexes=[],workflowTasks=[],workflowSummary=null,proposalEntries=[],proposalSummary=null,engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
  try{object=await irProject.data.objects.get(id)}catch(error){app.textContent="Не удалось прочитать объект: "+String(error.message||error);return}
  if(!object){location.hash="/objects";return}
  const bridge=irProject.aiDocuments,ready=!!(bridge&&typeof bridge.list==="function"&&typeof bridge.select==="function");
- const runtime=irProject.aiEngine||null,pdf=irProject.aiPdf||null,reviewer=irProject.aiReview||null,workflow=irProject.aiWorkflow||null,quantities=irProject.aiMarkQuantities||null,materials=irProject.aiKmdMaterials||null,connections=irProject.aiKmdConnections||null,comparisons=irProject.aiKmKmdCompare||null;
+ const runtime=irProject.aiEngine||null,pdf=irProject.aiPdf||null,reviewer=irProject.aiReview||null,workflow=irProject.aiWorkflow||null,proposalsApi=irProject.aiProposals||null,quantities=irProject.aiMarkQuantities||null,materials=irProject.aiKmdMaterials||null,connections=irProject.aiKmdConnections||null,comparisons=irProject.aiKmKmdCompare||null;
  const canEdit=!!window.irAccess?.canEdit?.("ai-recognition");
  async function reload(){
   const jobs=[];
@@ -56,6 +57,10 @@ window.irAiRecognitionPage=async function(objectId){
   if(workflow){
    jobs.push(workflow.list(id).then(v=>{workflowTasks=v}).catch(error=>{workflowTasks=[];notice("Ошибка загрузки очереди: "+String(error.message||error),"error")}));
    jobs.push(workflow.summary(id).then(v=>{workflowSummary=v}).catch(error=>{workflowSummary=null;notice("Ошибка статуса очереди: "+String(error.message||error),"error")}))
+  }
+  if(proposalsApi){
+   jobs.push(proposalsApi.list(id).then(v=>{proposalEntries=v}).catch(error=>{proposalEntries=[];notice("Ошибка предложений ИИ: "+String(error.message||error),"error")}));
+   jobs.push(proposalsApi.summary(id).then(v=>{proposalSummary=v}).catch(error=>{proposalSummary=null;notice("Ошибка сводки предложений: "+String(error.message||error),"error")}))
   }
   if(pdf)jobs.push(pdf.list(id).then(v=>{pdfIndexes=v}).catch(error=>{pdfIndexes=[];notice("Ошибка PDF-индекса: "+String(error.message||error),"error")}));
   await Promise.all(jobs);
@@ -132,6 +137,19 @@ window.irAiRecognitionPage=async function(objectId){
  }
  function showContent(){
   const box=app.querySelector("#irAiContent");if(!box)return;
+  if(active==="proposals"){
+   if(window.irAiProposalsPage)window.irAiProposalsPage.render(box,{
+    objectId:id,proposals:proposalEntries,summary:proposalSummary,
+    api:proposalsApi,reviewer,askPassword:requestReviewPassword,canEdit,
+    openPdf:openPdfPreview,onRefresh:reload,notice,
+    onPrepareQuantity:p=>{
+     if(!p?.approved||!p.sourceValid||p.source.kind!=="КМД"||p.type!=="mark_quantity")return;
+     active="marks";paint();void openQuantityEditor(null,p)
+    }
+   });
+   else box.innerHTML='<div class="ir-ai-doc-empty">Проверка структурированных предложений пока недоступна.</div>';
+   return
+  }
   if(active==="workflow"){
    if(window.irAiWorkflowPage)window.irAiWorkflowPage.render(box,{
     objectId:id,documents,indexes:pdfIndexes,tasks:workflowTasks,summary:workflowSummary,
@@ -542,7 +560,7 @@ window.irAiRecognitionPage=async function(objectId){
     (original?.isSolidRectangle?"checked":"")+'><span>Подтверждаю: деталь — сплошной прямоугольник без отверстий, вырезов и скосов</span></label>'+
    '<label class="wide">Чертёж PDF КМД *<select name="documentId" required>'+
     sources.map(doc=>'<option value="'+doc.id+'" '+
-     (Number(original?.source?.documentId)===Number(doc.id)?"selected":"")+'>'+esc(doc.name)+'</option>').join("")+'</select></label>'+
+     (Number(initial?.source?.documentId)===Number(doc.id)?"selected":"")+'>'+esc(doc.name)+'</option>').join("")+'</select></label>'+
    '<label>Лист КМД *<input name="page" required type="number" min="1" max="2000" step="1" value="'+srcValues("page",1)+'"></label>'+
    '<label>Позиция спецификации *<input name="specPosition" required maxlength="100" value="'+srcValues("specPosition")+'"></label>'+
    '<label>Изменение / ревизия<input name="drawingRevision" maxlength="40" value="'+srcValues("drawingRevision")+'"></label>'+
@@ -604,7 +622,7 @@ window.irAiRecognitionPage=async function(objectId){
   };
   dlg.showModal()
  }
- async function openQuantityEditor(original=null){
+ async function openQuantityEditor(original=null,suggestion=null){
   if(!canEdit||!quantities||!reviewer)return;
   const sources=documents.filter(doc=>doc.kind==="КМД"&&doc.ext===".pdf"&&doc.exists);
   if(!sources.length){
@@ -613,11 +631,22 @@ window.irAiRecognitionPage=async function(objectId){
   }
   const role=window.irAccess?.role?.();
   if(!["admin","engineer"].includes(role))return;
+  const prefill=suggestion?{
+   mark:suggestion.values?.mark||"",cipher:suggestion.values?.cipher||"",
+   secondaryCipher:suggestion.values?.secondaryCipher||"",
+   quantity:suggestion.values?.quantity||"",status:"requires_review",
+   source:{documentId:suggestion.source?.documentId,page:suggestion.source?.page,
+    specPosition:suggestion.values?.specPosition||"",
+    drawingRevision:suggestion.values?.drawingRevision||""},
+   comment:"Предложение ИИ: анализ № "+suggestion.analysisId+" · позиция "+
+    (suggestion.index+1)+". Цитата модели: "+(suggestion.evidence?.quote||"")
+  }:null;
+  const initial=original||prefill;
   const dlg=document.createElement("dialog");dlg.className="ir-ai-quantity-dialog ir-ai-review-password";
   const options=sources.map(doc=>'<option value="'+doc.id+'" '+
    (Number(original?.source?.documentId)===Number(doc.id)?"selected":"")+'>'+esc(doc.name)+'</option>').join("");
-  const val=(name,def="")=>esc(original?.[name]??def);
-  const sourceVal=(name,def="")=>esc(original?.source?.[name]??def);
+  const val=(name,def="")=>esc(initial?.[name]??def);
+  const sourceVal=(name,def="")=>esc(initial?.source?.[name]??def);
   dlg.innerHTML='<form class="ir-ai-quantity-form">'+
    '<h3>'+(original?'Редактировать позицию отправочной марки':'Добавить позицию по спецификации КМД')+'</h3>'+
    '<p>Указывайте количество только по загруженному чертежу КМД. Каждая запись имеет отдельный источник и историю.</p>'+
@@ -632,7 +661,7 @@ window.irAiRecognitionPage=async function(objectId){
    '<label>Ревизия/изменение КМД<input name="drawingRevision" maxlength="40" value="'+sourceVal("drawingRevision")+'"></label>'+
    '<label>Статус<select name="status">'+
     ['requires_review','confirmed','rejected'].map(st=>'<option value="'+st+'" '+
-     ((original?.status||"requires_review")===st?"selected":"")+'>'+
+     ((initial?.status||"requires_review")===st?"selected":"")+'>'+
      ({requires_review:"Требует проверки",confirmed:"Подтверждено",rejected:"Отклонено"}[st])+'</option>').join("")+
    '</select></label>'+
    '<label class="wide">Примечание инженера<textarea name="comment" maxlength="1500" rows="3">'+val("comment")+'</textarea></label></div>'+
