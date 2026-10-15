@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "upstream": "ggml-org/llama.cpp",
+  "release": "b11430",
+  "platform": "win32",
+  "architecture": "x64",
+  "backend": "cpu",
+  "asset": "llama-b11430-bin-win-cpu-x64.zip",
+  "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11430/llama-b11430-bin-win-cpu-x64.zip",
+  "bytes": 19399499,
+  "sha256": "b608455b0109793f774537d63d15d4cf2098ddbc5b200ebc9a648e1d85369666",
+  "verifiedFrom": "https://api.github.com/repos/ggml-org/llama.cpp/releases/tags/b11430",
+  "notes": "Official release metadata only; archive must be downloaded, SHA-256 checked and extracted before publishing an IR AI pack."
+}
