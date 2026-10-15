@@ -10,7 +10,16 @@ async function downloadVerifiedPack({release,destination,request=fetch,signal,on
  const uri=new URL(release.url);
  if(uri.protocol!=="https:"||uri.username||uri.password||uri.hash||uri.port&&uri.port!=="443")
   throw Error("Для загрузки разрешён только HTTPS без перенаправлений");
- const response=await request(uri.href,{redirect:"error",cache:"no-store",credentials:"omit",signal});
+ let response;
+ for(let attempt=0;attempt<3;attempt++){
+  try{
+   response=await request(uri.href,{redirect:"error",cache:"no-store",credentials:"omit",signal});
+   if(response.status>=500&&attempt<2){await response.body?.cancel?.();continue}
+   break;
+  }catch(error){
+   if(signal?.aborted||attempt===2)throw error;
+  }
+ }
  if(!response.ok||!response.body)throw Error("Ошибка загрузки пакета: HTTP "+response.status);
  const declared=response.headers?.get?.("content-length");
  if(declared!==null&&declared!==undefined&&declared!==""&&Number(declared)!==release.bytes)
