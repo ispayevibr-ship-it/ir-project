@@ -73,6 +73,22 @@ const {createAiCoverage}=require("../src/ai-kmd-coverage");
  assert.equal(conflict.metrics.registeredFastenerPieces,null);
  assert.equal(conflict.ambiguousTotals,true);
  assert(conflict.issues.some(x=>x.code==="kmd_duplicate_mark_identity"));
+ quantities.list=()=>[mark];
+ details.push({...details[0],id:42});
+ const duplicatePart=coverage.report(1);
+ assert.equal(duplicatePart.metrics.registeredDetailUnitsInProject,null,
+  "duplicate approved details must hide aggregate physical totals");
+ assert(duplicatePart.issues.some(x=>x.code==="kmd_duplicate_physical_positions"));
+ details.pop();
+ joints.push({...joints[0],id:52});
+ const duplicateNode=coverage.report(1);
+ assert.equal(duplicateNode.metrics.registeredFastenerPieces,null,
+  "duplicate joint identity must not inflate hardware takeoff");
+ joints.pop();
+ items.push({...items[0],id:61});
+ const duplicateItem=coverage.report(1);
+ assert.equal(duplicateItem.ambiguousTotals,true);
+ items.pop();
  assert.throws(()=>coverage.report(2),/Объект/);
  console.log("Deferred contract: mark copies, per-mark KMD parts, site/factory joints and 3D coverage");
 })();
