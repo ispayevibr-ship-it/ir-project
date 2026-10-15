@@ -35,6 +35,11 @@ function createAiIntegrity({database,documents,pdfIndex,revisions,review,workflo
   note("error","missing_pdfs","Недоступны исходные документы",
    "Невозможно подтвердить записи, связанные с отсутствующими PDF.","documents",missing.length,
    sample(missing,x=>x.name||"Документ № "+x.id));
+  const corrupt=safe("source_hash",()=>typeof documents.verify!=="function"?[]:
+   docs.filter(x=>x.exists&&!documents.verify(objectId,x.id)),[]);
+  note("error","modified_originals","Оригинальные файлы отличаются от сохранённого SHA-256",
+   "Физический файл изменён или повреждён. Инженерские подтверждения с этим источником недействительны.","documents",
+   corrupt.length,sample(corrupt,x=>x.name||"Документ № "+x.id));
   const indexes=safe("pdf_index",()=>pdfIndex.list(objectId),[]);
   metrics.indexedSheets=indexes.reduce((sum,x)=>sum+(x.totalPages||0),0);
   const oldIndex=indexes.filter(x=>{

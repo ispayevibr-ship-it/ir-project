@@ -39,7 +39,9 @@ function createDrawingRevisions({database,documents,pdfIndex,clock=()=>new Date(
   const docs=docMap(id);
   return pages(id).filter(x=>x.data?.setId===sid).map(x=>{
    const d=x.data||{},doc=docs.get(Number(d.documentId));
-   const valid=Boolean(doc&&doc.exists&&doc.ext===".pdf"&&doc.kind===d.kind&&doc.sha256===d.sha256);
+   const valid=Boolean(doc&&doc.exists&&doc.ext===".pdf"&&doc.kind===d.kind&&
+    doc.sha256===d.sha256&&
+    (typeof documents.verify!=="function"||documents.verify(id,doc.id)));
    return{id:x.id,setId:sid,sheetCode:String(d.sheetCode||""),
     documentId:d.documentId,page:d.page,sourceName:String(d.sourceName||""),
     sha256:String(d.sha256||""),kind:String(d.kind||""),
@@ -64,8 +66,9 @@ function createDrawingRevisions({database,documents,pdfIndex,clock=()=>new Date(
   const o=oid(id),src=source||{},docs=docMap(o);
   const doc=docs.get(Number(src.documentId)),kind=src.kind||doc?.kind||null;
   if(!KINDS.has(kind))return{current:false,reason:"Неизвестный тип КМ/КМД",state:"invalid"};
-  if(!doc||!doc.exists||doc.ext!==".pdf"||doc.sha256!==src.sha256||doc.kind!==kind)
-   return{current:false,reason:"Оригинальный PDF отсутствует или SHA-256 не совпадает",state:"missing"};
+  if(!doc||!doc.exists||doc.ext!==".pdf"||doc.sha256!==src.sha256||doc.kind!==kind||
+   (typeof documents.verify==="function"&&!documents.verify(o,doc.id)))
+   return{current:false,reason:"Оригинальный PDF отсутствует или фактический SHA-256 не совпадает",state:"missing"};
   const set=active(o,kind);
   if(!set)return{current:true,controlled:false,state:"uncontrolled",
    reason:"Для этого типа чертежей ещё не назначен действующий комплект"};

@@ -6,6 +6,8 @@ const MAX_FILE_BYTES=200*1024*1024,MAX_FILES=30;
 function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefined}){
  if(typeof getUserDataPath!=="function"||!database)throw Error("AI document store needs local userData and database");
  const root=()=>path.join(getUserDataPath(),"ir-project-ai","objects");
+ // Cache a verified hash only while file metadata and stored digest are unchanged.
+ const verifiedFiles=new Map();
  function objectId(id){const value=Number(id);if(!Number.isSafeInteger(value)||value<=0||!database.getObject(value))throw Error("Объект не найден");return value}
  function directory(id){return path.join(root(),String(objectId(id)))}
  function safeFile(id,name){
@@ -35,6 +37,33 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   stream.on("data",chunk=>hash.update(chunk));stream.on("error",reject);
   stream.on("end",()=>resolve(hash.digest("hex")))
  })}
+ // Read the actual bytes; a DB-stored SHA alone does not prove the PDF still matches.
+ // Incremental hashing bounds memory use for large drawing packages.
+ function verify(id,documentId){
+  id=objectId(id);
+  const row=record(id,documentId),expected=String(row.data?.sha256||"").toLowerCase();
+  if(!/^[0-9a-f]{64}$/.test(expected))return false;
+  const key=id+":"+row.id;
+  let file,stat;
+  try{file=resolveStored(id,row);stat=fs.statSync(file)}catch{return false}
+  if(!stat.isFile()||stat.size!==Number(row.data?.size))return false;
+  const signature=[file,stat.dev,stat.ino,stat.size,stat.mtimeMs,stat.ctimeMs,expected].join("|");
+  const cached=verifiedFiles.get(key);
+  if(cached?.signature===signature)return cached.valid;
+  let fd=null,valid=false;
+  try{
+   const digest=crypto.createHash("sha256"),chunk=Buffer.allocUnsafe(1024*1024);
+   fd=fs.openSync(file,"r");
+   let count;
+   while((count=fs.readSync(fd,chunk,0,chunk.length,null))>0)digest.update(chunk.subarray(0,count));
+   const after=fs.fstatSync(fd);
+   if(after.size===stat.size&&after.mtimeMs===stat.mtimeMs&&after.ctimeMs===stat.ctimeMs)
+    valid=digest.digest("hex")===expected;
+  }catch{return false}
+  finally{if(fd!==null)try{fs.closeSync(fd)}catch{}}
+  verifiedFiles.set(key,{signature,valid});
+  return valid
+ }
  async function select(id,kind="Не определён"){
   id=objectId(id);kind=["КМ","КМД"].includes(kind)?kind:"Не определён";
   const chosen=await dialog.showOpenDialog(getWindow(),{
@@ -94,6 +123,7 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   // Refuse to follow symlinks, including those that could be created externally.
   if(fs.existsSync(file)&&fs.lstatSync(file).isSymbolicLink())throw Error("Символьная ссылка запрещена");
   if(!database.deleteEntity(id,"ai-documents",row.id))return false;
+  verifiedFiles.delete(id+":"+row.id);
   if(fs.existsSync(file))fs.unlinkSync(file);
   return true
  }
@@ -130,6 +160,6 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   return{buffer,source:{documentId:row.id,name:row.data.original_name,
     sha256,kind:row.data.kind,bytes:buffer.length,format:"PDF"}}
  }
- return{list,select,open,remove,deleteObjectFiles,readForAnalysis,readForPdfIndex};
+ return{list,select,open,remove,deleteObjectFiles,readForAnalysis,readForPdfIndex,verify};
 }
 module.exports={createStore,EXTENSIONS,MAX_FILE_BYTES};
