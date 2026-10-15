@@ -119,6 +119,12 @@ const {createAiCoverage}=require("../src/ai-kmd-coverage");
  assert(!ambiguousJoint.issues.some(x=>x.code==="kmd_confirmed_joints_not_transferred"),
   "an ambiguous existing joint must not be reported as missing");
  joints.pop();
+ joints.push({...joints[0],id:52,scope:"erection",instances:5,
+  status:"requires_review",counted:false});
+ const pendingOtherScope=coverage.report(1);
+ assert(pendingOtherScope.issues.some(x=>x.code==="kmd_ambiguous_connection_scope"),
+  "a pending site joint with the same code still makes AI evidence ambiguous");
+ joints.pop();
  items[0].category="weld";
  const wrongCategory=coverage.report(1);
  assert(wrongCategory.issues.some(x=>x.code==="kmd_confirmed_items_not_transferred"),

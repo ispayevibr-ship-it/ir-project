@@ -112,10 +112,13 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
     // The reviewed AI proposal contains a joint code, but not its physical
     // fabrication/erection scope. Never silently pick the first matching node.
     const candidateJoints=(nodesByAssembly.get(mark.id)||[]).filter(x=>
-     norm(x.jointCode)===norm(v.jointCode)&&x.counted);
+     norm(x.jointCode)===norm(v.jointCode)&&x.status!=="rejected");
     if(!candidateJoints.length){jointMissing.push(p);continue}
+    // Even a draft erection joint conflicts with the physical meaning of a
+    // confirmed fabrication joint when the proposal has no verified scope.
     if(candidateJoints.length!==1){ambiguousJoints.push(p);continue}
     const joint=candidateJoints[0];
+    if(!joint.counted){jointMissing.push(p);continue}
     if(v.fastenerKind){
      const matches=(itemsByJoint.get(joint.id)||[]).filter(x=>x.counted&&
       x.category==="fastener"&&norm(x.kind)===norm(v.fastenerKind)&&
