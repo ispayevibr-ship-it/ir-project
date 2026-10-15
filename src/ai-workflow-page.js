@@ -14,10 +14,11 @@ window.irAiWorkflowPage={
    canceled:"Отменено"};
   const statusColors={confirmed:"done",awaiting_review:"review",failed:"error",
    needs_model:"warning",outdated:"error",rejected:"warning"};
-  const q=summary||{total:0,byStatus:{},indexedPages:0,reviewRequired:0,
-   confirmedAnalyses:0,isRunning:false,modelState:"missing"};
-  const counts=q.byStatus||{};
-  const hasRights=canEdit&&queue&&reviewer&&askPassword;
+  const q=summary||{total:null,byStatus:{},indexedPages:null,reviewRequired:null,
+   confirmedAnalyses:null,isRunning:false,modelState:"не определено"};
+  const counts=q.byStatus||{},value=n=>n==null?"—":n;
+  // Never permit queue mutations when status cannot be determined.
+  const hasRights=!!(summary&&canEdit&&queue&&reviewer&&askPassword);
   const available=documents.filter(x=>x.exists&&x.ext===".pdf"&&
    ["КМ","КМД"].includes(x.kind)&&indexes.some(i=>
     i.documentId===x.id&&i.sourceSha256===x.sha256&&i.pages?.length));
@@ -26,19 +27,20 @@ window.irAiWorkflowPage={
    '<div><b>'+title+'</b><p>'+text+'</p><small>'+value+'</small></div>'+
    '<button type="button" data-flow-nav="'+tab+'">Открыть</button></article>';
   host.innerHTML='<section class="ir-ai-workflow">'+
+   (!summary?'<div class="ir-ai-quantity-warning">Состояние конвейера не удалось проверить. Прочерки не означают пустую очередь; создание и запуск заданий заблокированы до обновления данных.</div>':"")+
    '<header class="ir-ai-review-heading"><div><h2>Конвейер распознавания КМ / КМД</h2>'+
     '<p>Выберите листы проиндексированных PDF. Локальная модель обработает их по одному; каждый результат требует проверки инженером.</p></div>'+
     '<b>Только локальная обработка</b></header>'+
    '<div class="ir-ai-flow-stages">'+
     stage("1. Исходные чертежи","Загрузка и текстовый индекс PDF","documents",documents.length+
-     ' файлов · '+q.indexedPages+' индексированных листов')+
-    stage("2. Очередь ИИ","Локальное распознавание только выбранных листов","workflow",q.total+' заданий')+
+     ' файлов · '+value(q.indexedPages)+' индексированных листов')+
+    stage("2. Очередь ИИ","Локальное распознавание только выбранных листов","workflow",value(q.total)+' заданий')+
     stage("3. Проверка позиций","ИИ-предложения проверяет инженер","proposals",
-     q.reviewRequired+' ожидают · '+q.confirmedAnalyses+' проверено')+
+     value(q.reviewRequired)+' ожидают · '+value(q.confirmedAnalyses)+' проверено')+
     stage("4. Ведомости","Количество экземпляров, металл и метизы","marks",
-     (quantities?.confirmedPositionCount||0)+' позиций КМД · '+(materials?.confirmedDetailPositions||0)+' деталей металла')+
+     value(quantities?.confirmedPositionCount)+' позиций КМД · '+value(materials?.confirmedDetailPositions)+' деталей металла')+
     stage("5. Сравнение и 3D","Расхождения КМ/КМД и сборки марок","compare",
-     (comparisons?.total||0)+' сравнений · 3D только по проверенной геометрии')+
+     value(comparisons?.total)+' сравнений · 3D только по проверенной геометрии')+
    '</div>'+
    '<div class="ir-ai-quantity-warning">Очередь создаёт только предложения распознавания. Число найденных упоминаний марки не является количеством отправочных элементов. Переход к ведомостям и 3D выполняется после отдельного подтверждения точных данных инженером.</div>'+
    '<section class="ir-ai-flow-create"><h3>Добавить листы в очередь</h3>'+
@@ -54,15 +56,17 @@ window.irAiWorkflowPage={
        '<button type="button" data-flow-add '+(!hasRights?'disabled':'')+'>＋ Добавить выбранные</button></div>')+
    '</section>'+
    '<section class="ir-ai-flow-queue"><div class="ir-ai-flow-toolbar"><div><h3>Очередь обработки</h3>'+
-    '<p>Модель: '+esc(q.modelState||"missing")+' · заданий '+q.total+
-     ' · ожидают проверки '+(counts.awaiting_review||0)+
-     ' · выполнено и подтверждено '+(counts.confirmed||0)+'</p></div>'+
+    '<p>Модель: '+esc(q.modelState||"не определено")+' · заданий '+value(q.total)+
+     ' · ожидают проверки '+value(summary?counts.awaiting_review||0:null)+
+     ' · выполнено и подтверждено '+value(summary?counts.confirmed||0:null)+'</p></div>'+
     '<div class="ir-ai-flow-buttons">'+
      '<button type="button" data-flow-run '+(!hasRights||q.isRunning?'disabled':'')+'>▶ Запустить очередь</button>'+
      '<button type="button" data-flow-stop '+(!hasRights||!q.isRunning?'disabled':'')+'>■ После текущего листа</button>'+
      '<button type="button" data-flow-refresh>Обновить</button></div></div>'+
     (!tasks.length?'<div class="ir-ai-doc-empty"><b>В очереди пока нет листов</b>'+
-     '<p>Выберите PDF и листы выше. Без установленной модели список сохранится, но распознавание не начнётся.</p></div>':
+     '<p>'+(summary?
+      'Выберите PDF и листы выше. Без установленной модели список сохранится, но распознавание не начнётся.':
+      'Очередь не подтверждена: проверьте сообщение об ошибке и повторите загрузку.')+'</p></div>':
      '<div class="ir-ai-flow-task-list">'+tasks.map(item=>'<article class="ir-ai-flow-task">'+
       '<div><b>'+esc(item.kind)+' · '+esc(item.sourceName)+' · лист '+item.page+'</b>'+
        '<small>Попыток: '+item.attempts+(item.analysisId?' · анализ № '+item.analysisId:"")+
