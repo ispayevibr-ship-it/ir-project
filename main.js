@@ -259,6 +259,29 @@ function registerAiModelIpc(){
    e.sender.once("destroyed",()=>modelAdminSessions.delete(e.sender.id))}
   return authorized
  });
+ ipcMain.handle("ai-models:import-manual-qwen",async()=>{
+  if(["starting","ready"].includes(aiEngine.status().state))throw Error("Сначала остановите локальный ИИ");
+  const root=path.join(app.getPath("userData"),"ir-project-ai","manual-qwen");
+  fs.mkdirSync(root,{recursive:true});
+  const names={model:"Qwen3VL-4B-Instruct-Q4_K_M.gguf",vision:"mmproj-Qwen3VL-4B-Instruct-Q8_0.gguf",binary:"llama-server.exe"};
+  const hashes={};
+  for(const [key,name] of Object.entries(names)){
+   const file=path.join(root,name),stat=fs.lstatSync(file);
+   if(!stat.isFile()||stat.isSymbolicLink()||stat.size<(key==="model"?1000000000:key==="vision"?50000000:100000))
+    throw Error("Файл отсутствует или слишком мал: "+name);
+   const header=Buffer.alloc(4),fd=fs.openSync(file,"r");
+   try{fs.readSync(fd,header,0,4,0)}finally{fs.closeSync(fd)}
+   if(key!=="binary"&&header.toString("ascii")!=="GGUF")throw Error("Неверный GGUF: "+name);
+   if(key==="binary"&&header.subarray(0,2).toString("ascii")!=="MZ")throw Error("Неверный Windows exe");
+   const hash=crypto.createHash("sha256");
+   for await(const chunk of fs.createReadStream(file))hash.update(chunk);
+   hashes[key]=hash.digest("hex");
+  }
+  const tmp=path.join(root,"manual.json.tmp");
+  fs.writeFileSync(tmp,JSON.stringify({schema:1,modelId:"qwen3-vl-4b",engine:"llama.cpp",sha256:hashes},null,2));
+  fs.renameSync(tmp,path.join(root,"manual.json"));
+  return{ok:true,folder:root,message:"Файлы зарегистрированы с SHA-256. Запуск модели требует отдельной проверки."};
+ });
  ipcMain.handle("ai-models:open-folder",()=>{const folder=path.join(app.getPath("userData"),"ir-project-ai","model-manager");fs.mkdirSync(folder,{recursive:true});return shell.openPath(folder)});
  ipcMain.handle("ai-models:select",e=>{checkModelAdmin(e);return aiModels.select()});
  ipcMain.handle("ai-models:install",(e,token)=>{checkModelAdmin(e);return aiModels.install(token)});
