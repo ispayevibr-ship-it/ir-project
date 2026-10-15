@@ -157,6 +157,12 @@ const {createKmdReference}=require("../src/ai-kmd-reference");
   "same PDF in new drawing set cannot auto-renew engineer decisions");
  assert.equal(api.compare(1).archivedPositions,5);
  assert.equal(api.checks(1).reviewed,0);
+ assert.equal(api.history(1,markRef.id).length,2,
+  "an archived KMD position must retain the engineer's audit history");
+ const archivedMark=api.list(1).find(x=>x.id===markRef.id);
+ assert.equal(archivedMark.current,false);
+ assert.equal(archivedMark.source.documentId,11);
+ assert.equal(archivedMark.source.page,1);
  assert.throws(()=>api.save(1,markRef.id,{...base,sheetId:302,
   type:"mark",quantity:6,expectedRevision:2},{role:"engineer"}),/архивный/);
  const fresh=api.save(1,null,{...base,sheetId:302,type:"mark",quantity:6},
