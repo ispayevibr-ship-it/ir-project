@@ -185,6 +185,7 @@ async function restore({archive,userData,closeDatabase,openDatabase}){
  const staging=fs.mkdtempSync(path.join(home,".ir-restore-"));
  const rollback=fs.mkdtempSync(path.join(home,".ir-rollback-"));
  const names=[DB,...ROOTS],moved=[],installed=[];
+ let preserveRollback=false;
  try{
   const reviewed=await unpackArchive(archive,staging);
   closeDatabase();
@@ -207,21 +208,33 @@ async function restore({archive,userData,closeDatabase,openDatabase}){
    openDatabase();
   }catch(error){
    try{closeDatabase()}catch{}
-   for(const name of installed.reverse())
-    try{fs.rmSync(path.join(home,...name.split("/")),{recursive:true,force:true})}catch{}
-   for(const name of moved.reverse()){
-    const old=path.join(rollback,...name.split("/"));
-    const dest=path.join(home,...name.split("/"));
-    fs.mkdirSync(path.dirname(dest),{recursive:true});
-    fs.renameSync(old,dest)
+   const recoveryErrors=[];
+   for(const name of installed.reverse()){
+    try{fs.rmSync(path.join(home,...name.split("/")),{recursive:true,force:true})}
+    catch(err){recoveryErrors.push(String(err.message||err))}
    }
-   openDatabase();
+   for(const name of moved.reverse()){
+    try{
+     const old=path.join(rollback,...name.split("/"));
+     const dest=path.join(home,...name.split("/"));
+     fs.mkdirSync(path.dirname(dest),{recursive:true});
+     fs.renameSync(old,dest)
+    }catch(err){recoveryErrors.push(String(err.message||err))}
+   }
+   try{openDatabase()}catch(err){recoveryErrors.push(String(err.message||err))}
+   if(recoveryErrors.length){
+    // Never delete the last known-good copies after an unsuccessful rollback.
+    preserveRollback=true;
+    throw Error("Восстановление отменено; не все старые файлы удалось вернуть. "+
+     "Сохранён аварийный каталог: "+rollback+". "+
+     recoveryErrors.join("; ")+". Причина: "+String(error.message||error))
+   }
    throw error
   }
   return{restored:true,sourceDocuments:reviewed.sourceDocuments,files:reviewed.manifest.files.length}
  }finally{
   fs.rmSync(staging,{recursive:true,force:true});
-  fs.rmSync(rollback,{recursive:true,force:true})
+  if(!preserveRollback)fs.rmSync(rollback,{recursive:true,force:true})
  }
 }
 module.exports={pack,restore,inspect,validateDatabase,allowed};
