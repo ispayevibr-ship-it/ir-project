@@ -110,6 +110,25 @@ const {createAiCoverage}=require("../src/ai-kmd-coverage");
  const mismatched=coverage.report(1);
  assert(mismatched.issues.some(x=>x.code==="kmd_quantity_conflicts"));
  proposals[0].values.quantity=6;
+ // A single joint code can exist in fabrication and erection: the source
+ // proposal does not carry a verified physical scope, so never choose first.
+ joints.push({...joints[0],id:52,scope:"erection",instances:5});
+ const ambiguousJoint=coverage.report(1);
+ assert(ambiguousJoint.issues.some(x=>x.code==="kmd_ambiguous_connection_scope"&&x.count===1),
+  "the same KMD joint code under two physical scopes requires human disambiguation");
+ assert(!ambiguousJoint.issues.some(x=>x.code==="kmd_confirmed_joints_not_transferred"),
+  "an ambiguous existing joint must not be reported as missing");
+ joints.pop();
+ items[0].category="weld";
+ const wrongCategory=coverage.report(1);
+ assert(wrongCategory.issues.some(x=>x.code==="kmd_confirmed_items_not_transferred"),
+  "a weld record may not satisfy an explicitly verified fastener proposal");
+ items[0].category="fastener";
+ mark.quantity=0;
+ const invalidConfirmedQty=coverage.report(1);
+ assert(invalidConfirmedQty.issues.some(x=>x.code==="kmd_confirmed_marks_not_transferred"),
+  "a corrupted zero-count mark must never satisfy reviewed quantity evidence");
+ mark.quantity=6;
  quantities.list=()=>[mark,{...mark,id:32,quantity:6}];
  const conflict=coverage.report(1);
  assert.equal(conflict.metrics.confirmedMarkCopies,null);
