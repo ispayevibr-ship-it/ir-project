@@ -20,7 +20,7 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: Build NSIS installer without publishing
-        run: npm run build
+        run: npx electron-builder --win nsis --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - name: Upload beta installer
