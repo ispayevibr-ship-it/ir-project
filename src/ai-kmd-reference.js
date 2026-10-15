@@ -296,13 +296,26 @@ function createKmdReference({database,revisions,quantities,materials,connections
    reviewedEntireSheet:true,comment,
    fingerprint:sheetFingerprint(o,src.setId,src.sheetId)};
   return tx(()=>{
-   const check=old?database.updateEntity(o,CHECKS,old.id,{
-    record_type:"kmd_sheet_check",title:src.sheetCode,data}):
+   // Re-evaluate the source, optimistic revision and full sheet contents under
+   // the same SQLite transaction that persists the engineer's signoff.
+   const latest=sheet(o,src.sheetId);
+   if(latest.setId!==src.setId||latest.documentId!==src.documentId||
+    latest.page!==src.page||latest.sha256!==src.sha256)
+    throw Error("Комплект или оригинал КМД изменился во время утверждения");
+   const latestCheck=checkRow(o,src.sheetId,src.setId);
+   if((Number(latestCheck?.data?.revision)||0)!==rev)
+    throw Error("Акт проверки листа изменился. Обновите данные");
+   const sheetStatus=checks(o).sheets.find(x=>x.id===src.sheetId);
+   if(!sheetStatus||sheetStatus.unresolved>0||sheetStatus.duplicatePositions>0)
+    throw Error("Нельзя утвердить лист: состав эталона изменился или требует проверки");
+   const confirmedData={...data,fingerprint:sheetFingerprint(o,src.setId,src.sheetId)};
+   const check=latestCheck?database.updateEntity(o,CHECKS,latestCheck.id,{
+    record_type:"kmd_sheet_check",title:src.sheetCode,data:confirmedData}):
     database.createEntity(o,CHECKS,{record_type:"kmd_sheet_check",
-     title:src.sheetCode,data});
+     title:src.sheetCode,data:confirmedData});
    if(!check)throw Error("Не удалось сохранить акт сверки листа");
-   audit(o,"sheet_sealed",check.id,old?.data,data,ctx.role);
-   return{sheetId:src.sheetId,checked:true,revision:data.revision}
+   audit(o,"sheet_sealed",check.id,latestCheck?.data,confirmedData,ctx.role);
+   return{sheetId:src.sheetId,checked:true,revision:confirmedData.revision}
   })
  }
  function history(id,recordId){
