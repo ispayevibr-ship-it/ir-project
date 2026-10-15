@@ -203,6 +203,8 @@ function createDrawingRevisions({database,documents,pdfIndex,clock=()=>new Date(
    candidates=analysis?.record_type==="image_analysis"?[analysis.data?.source]:[];
   }else if(section==="ai-workflow-tasks")
    candidates=d.source?[{...d.source,page:d.page}]:[];
+  else if(section==="ai-kmd-reference-checks")
+   candidates=[{documentId:d.documentId,sha256:d.sha256,kind:"КМД",page:d.page}];
   else candidates=d.source?[d.source]:[];
   return candidates.filter(src=>src&&KINDS.has(src.kind||docs.get(Number(src.documentId))?.kind))
  }
@@ -218,12 +220,23 @@ function createDrawingRevisions({database,documents,pdfIndex,clock=()=>new Date(
   };
   const sections=["ai-analysis","ai-mark-quantities","ai-kmd-materials",
    "ai-kmd-joints","ai-kmd-connection-items","ai-km-kmd-comparison",
-   "ai-assembly-placement","ai-assembly-attachments","ai-structured-reviews","ai-workflow-tasks"];
+   "ai-assembly-placement","ai-assembly-attachments","ai-structured-reviews","ai-workflow-tasks",
+   "ai-kmd-reference-rows","ai-kmd-reference-checks"];
   const affected=[];
   for(const section of sections)for(const row of database.listEntity(o,section)){
    const sources=evidenceSources(o,section,row,files);
    const checks=sources.map(relevant).filter(x=>x!==null);
    if(checks.includes(false))affected.push({section,id:row.id,title:String(row.title||"")})
+  }
+  // An approved reference belongs to its set even when unchanged PDF sheets
+  // are included in the replacement. Preserve old records as historical.
+  if(target.data.kind==="КМД"){
+   const previous=active(o,"КМД");
+   if(previous)for(const section of ["ai-kmd-reference-rows","ai-kmd-reference-checks"])
+    for(const row of database.listEntity(o,section))
+     if(Number(row.data?.setId)===previous.id&&
+      !affected.some(x=>x.section===section&&x.id===row.id))
+      affected.push({section,id:row.id,title:String(row.title||"")})
   }
   return{setId:target.id,kind:target.data.kind,
    pages:replacements.length,invalidPages:replacements.filter(x=>!x.valid).length,
@@ -236,16 +249,22 @@ function createDrawingRevisions({database,documents,pdfIndex,clock=()=>new Date(
    ["ai-kmd-materials","Детали металла"],["ai-kmd-joints","Узлы"],
    ["ai-kmd-connection-items","Метизы/швы"],["ai-km-kmd-comparison","Сравнения КМ/КМД"],
    ["ai-assembly-placement","3D-размещения"],["ai-assembly-attachments","3D-привязки"],
-   ["ai-structured-reviews","Проверенные предложения ИИ"],["ai-workflow-tasks","Очередь распознавания"]];
+   ["ai-structured-reviews","Проверенные предложения ИИ"],["ai-workflow-tasks","Очередь распознавания"],
+   ["ai-kmd-reference-rows","Эталонные позиции КМД"],["ai-kmd-reference-checks","Проверки листов КМД"]];
   const files=docMap(o),output=[];
   for(const [section,title] of sections){
    for(const row of database.listEntity(o,section)){
     const srcs=evidenceSources(o,section,row,files);
     const matches=srcs.map(s=>sourceState(o,s));
     if(!matches.length)continue;
-    const outdated=matches.some(s=>!s.current);
+    const referenceSection=section==="ai-kmd-reference-rows"||section==="ai-kmd-reference-checks";
+    const currentSet=referenceSection?active(o,"КМД"):null;
+    const wrongSet=referenceSection&&(!currentSet||Number(row.data?.setId)!==currentSet.id);
+    const outdated=matches.some(s=>!s.current)||wrongSet;
+    const reasons=matches.filter(x=>!x.current).map(x=>x.reason);
+    if(wrongSet)reasons.push("Эталон относится к предыдущему комплекту КМД");
     output.push({section,title,id:row.id,recordTitle:String(row.title||""),
-     sourceCount:srcs.length,outdated,reasons:matches.filter(x=>!x.current).map(x=>x.reason),
+     sourceCount:srcs.length,outdated,reasons,
      unchecked:matches.some(x=>x.state==="uncontrolled")})
    }
   }
