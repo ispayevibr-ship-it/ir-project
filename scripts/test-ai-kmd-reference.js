@@ -56,8 +56,9 @@ const {createKmdReference}=require("../src/ai-kmd-reference");
   occurrencesPerAssembly:2,counted:true}];
  const components=[{id:61,assemblyId:31,jointId:51,category:"fastener",kind:"bolt",
   position:"Б1",perJoint:4,counted:true}];
+ const marks=[mark];
  const api=createKmdReference({database:db,revisions:rev,
-  quantities:{list:()=>[mark]},materials:{list:()=>parts},
+  quantities:{list:()=>marks},materials:{list:()=>parts},
   connections:{listNodes:()=>nodes,listComponents:()=>components},
   clock:()=>"2026-10-15T18:00:00Z"});
  const base={sheetId:301,mark:"К41",cipher:"041",secondaryCipher:"",
@@ -204,6 +205,35 @@ const {createKmdReference}=require("../src/ai-kmd-reference");
  let report=api.compare(1);
  assert.equal(report.fullSpecificationVerified,false);
  assert.equal(report.releaseCertified,false);
+ // A single confirmed record is not unique when another active draft/stale
+ // record has the exact same physical identity in the engineering ledger.
+ marks.push({...mark,id:99,status:"requires_review"});
+ let duplicateReport=api.compare(1);
+ assert(duplicateReport.mismatches.some(x=>x.code==="ambiguous_mark"&&x.type==="mark"),
+  "a draft duplicate of a confirmed mark must block KMD baseline agreement");
+ assert(!duplicateReport.referenceReady);
+ marks.pop();
+ parts.push({...parts[0],id:43,status:"requires_review",counted:false});
+ duplicateReport=api.compare(1);
+ assert(duplicateReport.mismatches.some(x=>x.code==="ambiguous_position"&&
+  x.type==="part"&&x.position==="Д1"),
+  "a pending duplicate part must not be hidden by the counted version");
+ parts.pop();
+ nodes.push({...nodes[0],id:52,status:"requires_review",counted:false});
+ duplicateReport=api.compare(1);
+ assert(duplicateReport.mismatches.some(x=>x.code==="ambiguous_position"&&
+  x.type==="joint"&&x.position==="У1"),
+  "a draft duplicate physical joint must block a reference joint match");
+ assert(duplicateReport.mismatches.some(x=>x.code==="ambiguous_position"&&
+  x.type==="component"&&x.position==="Б1"),
+  "a fastener is ambiguous when its parent joint has competing active rows");
+ nodes.pop();
+ components.push({...components[0],id:62,status:"requires_review",counted:false});
+ duplicateReport=api.compare(1);
+ assert(duplicateReport.mismatches.some(x=>x.code==="ambiguous_position"&&
+  x.type==="component"&&x.position==="Б1"),
+  "one confirmed fastener cannot conceal its unverified duplicate");
+ components.pop();
  mark.status="requires_review";
  assert(api.compare(1).mismatches.some(x=>x.code==="unverified_mark"&&
   x.type==="mark"&&x.actualId===31),
