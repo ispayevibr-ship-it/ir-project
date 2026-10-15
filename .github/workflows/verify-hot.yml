@@ -45,6 +45,7 @@ jobs:
           node --check src/ai-model-catalog.js
           node --check src/ai-model-download.js
           node --check src/ai-model-settings.js
+          node --check src/ai-runtime-diagnostics.js
       - name: Test IR Project AI local document storage
         run: node scripts/test-ai-storage.js
       - name: Test IR Project AI navigation and bridge
@@ -61,6 +62,8 @@ jobs:
         run: node scripts/test-ai-model-catalog.js
       - name: Test installed Qwen3-VL 4B runtime integration
         run: node scripts/test-ai-model-runtime.js
+      - name: Test real local GPU probe and model-inference diagnostics
+        run: node scripts/test-ai-runtime-diagnostics.js
       - name: Test real offline model publisher and signed catalog
         run: |
           node --check scripts/ai-pack-publisher.js

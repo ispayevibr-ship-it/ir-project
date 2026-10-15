@@ -20,11 +20,14 @@ assert(files["src/ai-recognition-page.js"].includes('pdf.index(id,documentId)'),
 assert(files["preload.js"].includes('ai-pdf:index'),"native PDF entry is exposed through safe IPC");
 assert(files["preload.js"].includes('ai-pdf:preview'),"real PDF preview available");
 assert(files["preload.js"].includes('ai-pdf:analyze'),"per-sheet AI analysis IPC available");
-assert(files["src/index.html"].includes('ai-model-settings.js?v=17213'),"AI model settings loaded");
+assert(files["src/index.html"].includes('ai-model-settings.js?v=17215'),"AI model settings loaded");
 assert(files["preload.js"].includes('"ai-models:install"'),"IPC model pack installation exposed");
 assert(files["preload.js"].includes('"ai-models:download"'),"explicit catalog download exposed");
 assert(files["preload.js"].includes('"ai-models:cancel"'),"download cancellation exposed");
 assert(files["preload.js"].includes('"ai-models:verify-runtime"'),"signed model runtime verification exposed");
+assert(files["preload.js"].includes('"ai-diagnostics:hardware"'),"NVIDIA and RAM hardware diagnostics available");
+assert(files["preload.js"].includes('"ai-diagnostics:smoke-test"'),"real offline inference smoke test exposed");
+assert(files["src/ai-model-settings.js"].includes("Проверить распознавание К41"),"model settings offer explicit real inference verification");
 assert(files["src/ai-recognition-page.js"].includes("engine?.modelVersion"),"display actual model version");
 assert(files["main.js"].includes('aiModels.resolveRuntime("qwen3-vl-4b")'),"native runtime resolves signed manager model");
 assert(files["src/ai-recognition-page.js"].includes("openPdfPreview(did,page)"),"PDF preview button wired");
@@ -34,6 +37,6 @@ assert(files["src/ai-recognition-page.js"].includes("bridge.select(id,kind)"),"a
 assert(files["src/ai-recognition-page.js"].includes('status:"Не распознано"')===false,"UI doesn't fake model output");
 assert(files["src/ir-runtime.js"].includes('key==="ai-recognition"&&window.irAiRecognitionPage'),"runtime bundle current");
 const m=JSON.parse(fs.readFileSync("hot/latest.json","utf8"));
-assert.equal(m.version,"1.7.214");
+assert.equal(m.version,"1.7.215");
 assert(!m.files.some(x=>["main.js","preload.js"].includes(x.target)),"hot updater can't replace native process");
 console.log("AI stage 1: routes, dedicated UI, isolation, bridge and honest model status passed.");

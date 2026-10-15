@@ -49,6 +49,8 @@ jobs:
           node --check src/ai-model-catalog.js
           node --check src/ai-model-download.js
           node --check src/ai-model-settings.js
+          node --check src/ai-runtime-diagnostics.js
+          node scripts/test-ai-runtime-diagnostics.js
           node scripts/test-ai-model-manager.js
           node scripts/test-ai-model-catalog.js
           node scripts/test-ai-model-runtime.js

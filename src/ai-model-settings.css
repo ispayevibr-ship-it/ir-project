@@ -57,3 +57,22 @@
 .ir-ai-model-release small{margin-top:3px;font-size:10px;line-height:1.5;color:#7e97a8;overflow-wrap:anywhere}
 .ir-ai-model-release button{background:#176dc1;border:1px solid #176dc1;border-radius:7px;color:#fff;font-size:10px;font-weight:750;padding:8px 11px;cursor:pointer;flex:none}
 .ir-ai-model-release button:disabled{opacity:.45;cursor:not-allowed}
+
+/* 1.7.215 — GPU readiness and true local image inference diagnostic */
+.ir-ai-model-hardware{border:1px solid #d7e5ed;border-radius:11px;padding:16px;background:#fff;margin:14px 0}
+.ir-ai-model-hardware-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.ir-ai-model-hardware-head h3{margin:0;font-size:14px;color:#244b66}
+.ir-ai-model-hardware-head button{border:1px solid #c8d9e5;background:#f6fafd;color:#296184;border-radius:7px;padding:8px 10px;font-size:10px;font-weight:700;cursor:pointer}
+.ir-ai-model-hardware-values{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.ir-ai-model-hardware-values div{display:grid;gap:5px;min-width:0}
+.ir-ai-model-hardware-values small{font-size:10px;color:#879dad}
+.ir-ai-model-hardware-values b{color:#315976;font-size:12px;overflow-wrap:anywhere}
+.ir-ai-model-hardware>p{font-size:10px;color:#7a92a5;line-height:1.6;margin:12px 0}
+.ir-ai-model-test-actions{display:flex;gap:8px;flex-wrap:wrap}
+.ir-ai-model-test-actions button{border:1px solid #c9dbe8;background:#f6fafd;color:#235e86;border-radius:7px;padding:9px 12px;font-size:11px;cursor:pointer;font-weight:700}
+.ir-ai-model-test-actions button[data-diagnostics-smoke]{background:#176dc1;border-color:#176dc1;color:#fff}
+.ir-ai-model-test-actions button:disabled,.ir-ai-model-hardware-head button:disabled{opacity:.45;cursor:not-allowed}
+.ir-ai-model-hardware p.ir-ai-model-diagnostic{padding:9px 11px;border-radius:7px;margin:12px 0 0;line-height:1.65}
+.ir-ai-model-hardware p.ir-ai-model-diagnostic.passed{background:#edf9f1;color:#247249;border:1px solid #c8e7d3}
+.ir-ai-model-hardware p.ir-ai-model-diagnostic.failed{background:#fff4f3;color:#9c4540;border:1px solid #efd0cb}
+@media(max-width:690px){.ir-ai-model-hardware-values{grid-template-columns:1fr}}

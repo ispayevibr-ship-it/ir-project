@@ -12,7 +12,7 @@
   const doc=menu?.ownerDocument||document,api=window.irProject?.aiModels;
   const found=doc.querySelector(".ir-ai-model-dialog");if(found){found.showModal?.();return}
   const dlg=doc.createElement("dialog");dlg.className="ir-ai-model-dialog";
-  let data=null,notice="",failed=false,busy=false,downloading=false,progress="";
+  let data=null,notice="",failed=false,busy=false,downloading=false,progress="",hardware=null,engineState=null,diagHistory=null;
   dlg.innerHTML='<div class="ir-ai-model-dialog-inner">'+
    '<div class="ir-ai-model-titlebar"><div><span>IR PROJECT · НАСТРОЙКИ</span><h2>Локальные ИИ-модели</h2>'+
    '<p>Модели хранятся на вашем компьютере. Обработка чертежей не требует облачных сервисов.</p></div>'+
@@ -56,7 +56,7 @@
    if(!dlg.isConnected)return;
    const target=dlg.querySelector("[data-ai-body]");
    if(!data){target.textContent=notice||"Читаем состояние менеджера моделей…";return}
-   const models=data.models||[],catalog=data.update||{};
+   const models=data.models||[],catalog=data.update||{},localAi=window.irProject?.aiDiagnostics;
    target.innerHTML='<div class="ir-ai-model-toolbar">'+
     '<button type="button" data-check '+(busy?'disabled':'')+'>↻ Проверить обновления</button>'+
     '<button type="button" data-select '+(busy||!isAdmin()?'disabled':'')+'>＋ Установить из файла</button>'+
@@ -67,7 +67,29 @@
      '<p>'+esc(catalog.reason||"Официальный каталог пока не настроен.")+'</p>'+
      '<p>Распознавание всегда локальное. Обновления можно устанавливать из заранее полученного подписанного файла .ir-ai-pack.</p>'+
      (!data.signedImportAvailable?'<p><strong>Безопасная установка пока недоступна:</strong> официальный доверенный ключ подписи моделей ещё не опубликован. Неизвестные пакеты не запускаются.</p>':'')+
+
     '</div>'+
+    '<section class="ir-ai-model-hardware"><div class="ir-ai-model-hardware-head"><h3>Оборудование и проверка ИИ</h3>'+
+     '<button type="button" data-hardware-refresh '+(busy?'disabled':'')+'>↻ Обновить показатели</button></div>'+
+     '<div class="ir-ai-model-hardware-values">'+
+      '<div><small>Оперативная память</small><b>'+esc(hardware?hardware.ramTotalGiB+" ГБ · свободно "+hardware.ramFreeGiB+" ГБ":"Определяется…")+'</b></div>'+
+      '<div><small>Видеокарта NVIDIA</small><b>'+esc(hardware?.gpu?.length?hardware.gpu.map(g=>g.name).join(", "):"Не определена")+'</b></div>'+
+      '<div><small>Видеопамять (выделенная)</small><b>'+esc(hardware?.gpu?.length?
+       hardware.gpu.map(g=>(g.vramFreeMiB/1024).toFixed(1)+" из "+(g.vramTotalMiB/1024).toFixed(1)+" ГБ свободно").join(", "):"Нет сведений")+'</b></div>'+
+      '<div><small>Работающий ИИ</small><b>'+esc(engineState?.state==="ready"?
+       (engineState.model||"Локальная модель")+(engineState.modelVersion?" · "+engineState.modelVersion:""):
+       "Не запущен"+(engineState?.state==="invalid"?" (пакет недействителен)":""))+'</b></div>'+
+     '</div><p>'+esc(hardware?.gpuReason||"Для определения GPU необходимо доступное приложение NVIDIA nvidia-smi.")+
+     ' Проверка CUDA возможна только при запуске действительного совместимого движка.</p>'+
+     '<div class="ir-ai-model-test-actions">'+
+      '<button type="button" data-diagnostics-start '+(busy||!isAdmin()||engineState?.state==="ready"?'disabled':'')+'>▶ Запустить ИИ</button>'+
+      '<button type="button" data-diagnostics-smoke '+(busy||!isAdmin()||engineState?.state!=="ready"?'disabled':'')+'>Проверить распознавание К41</button>'+
+      '<button type="button" data-diagnostics-stop '+(busy||!isAdmin()||!["ready","starting"].includes(engineState?.state)?'disabled':'')+'>■ Остановить ИИ</button>'+
+     '</div>'+
+     (diagHistory?.last?'<p class="ir-ai-model-diagnostic '+(diagHistory.last.success?'passed':'failed')+'">'+
+      esc(diagHistory.last.diagnostic)+' · '+Math.round((diagHistory.last.elapsedMs||0)/1000)+' с'+
+      (diagHistory.last.modelVersion?" · "+esc(diagHistory.last.modelVersion):"")+'</p>':'')+
+    '</section>'+
     (notice?'<div class="ir-ai-model-notice '+(failed?'error':'')+'" role="status">'+esc(notice)+'</div>':'')+
     '<div class="ir-ai-model-grid">'+models.map(x=>
      '<article class="ir-ai-model-card"><header><div><span class="ir-ai-model-type">'+esc(x.role)+'</span><h3>'+esc(x.title)+'</h3>'+
@@ -86,6 +108,33 @@
       '<button type="button" data-rollback="'+esc(x.id)+'" '+(!x.canRollback||busy||!isAdmin()?'disabled':'')+'>↶ Откатить</button></div></article>').join("")+
     '</div><p class="ir-ai-model-note">Размер скачивания и список доступных версий появятся после подключения официального подписанного каталога. Файлы моделей не включены в установщик IR Project.</p>';
    target.querySelector("[data-refresh]").onclick=()=>reload();
+   target.querySelector("[data-hardware-refresh]").onclick=()=>reload();
+   target.querySelector("[data-diagnostics-start]").onclick=async()=>{
+    if(busy||!await authorize())return;
+    busy=true;status("Запускаем настоящую локальную модель. Первая загрузка может занять до 2 минут.");render();
+    try{
+     const result=await localAi.start();
+     status(result.state==="ready"?"Модель действительно запущена на 127.0.0.1. Можно проверить распознавание К41.":
+      "Модель не запустилась: "+String(result.reason||result.state),result.state!=="ready")
+    }catch(error){status("Ошибка запуска локальной модели: "+String(error.message||error),true)}
+    finally{busy=false;await reload()}
+   };
+   target.querySelector("[data-diagnostics-smoke]").onclick=async()=>{
+    if(busy||!await authorize())return;
+    busy=true;status("Отправляем тестовый PNG К41 в настоящий локальный ИИ. Результат не будет записан в объект.");render();
+    try{
+     const result=await localAi.smokeTest();
+     status(result.diagnostic,!result.success);
+    }catch(error){status("Проверка распознавания не состоялась: "+String(error.message||error),true)}
+    finally{busy=false;await reload()}
+   };
+   target.querySelector("[data-diagnostics-stop]").onclick=async()=>{
+    if(busy||!await authorize())return;
+    busy=true;render();
+    try{await localAi.stop();status("Локальная модель остановлена.")}
+    catch(error){status("Не удалось остановить ИИ: "+String(error.message||error),true)}
+    finally{busy=false;await reload()}
+   };
    const cancelButton=target.querySelector("[data-cancel-download]");
    if(cancelButton)cancelButton.onclick=async()=>{
     cancelButton.disabled=true;
@@ -158,6 +207,13 @@
    }
    try{data=await api.info()}catch(error){status("Не удалось прочитать модели: "+String(error.message||error),true);
     data={models:[],update:{reason:"Реестр недоступен"}}}
+   const diagnostics=window.irProject?.aiDiagnostics;
+   const responses=await Promise.allSettled([
+    diagnostics?.hardware?.(),window.irProject?.aiEngine?.status?.(),diagnostics?.status?.()
+   ]);
+   if(responses[0].status==="fulfilled")hardware=responses[0].value||null;
+   if(responses[1].status==="fulfilled")engineState=responses[1].value||null;
+   if(responses[2].status==="fulfilled")diagHistory=responses[2].value||null;
    render()
   }
   await reload()

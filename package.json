@@ -1,6 +1,6 @@
 {
   "name": "ir-project",
-  "version": "1.7.214",
+  "version": "1.7.215",
   "description": "IR Project",
   "main": "main.js",
   "scripts": {"start":"electron .","build":"electron-builder --win nsis","publish":"electron-builder --win nsis --publish always","ai:pack:qwen4":"node scripts/build-qwen4-pack.js","ai:sign-catalog":"node scripts/sign-ai-catalog.js"},
