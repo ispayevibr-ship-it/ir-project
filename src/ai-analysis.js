@@ -1,7 +1,7 @@
 "use strict";
 const structured=require("./ai-structured-extraction");
 /* IR Project AI: save only actual unverified results with exact source linkage. */
-function createAnalysis({database,documents,engine,pdfRenderer,revisions=null}){
+function createAnalysis({database,documents,engine,ocr=null,pdfRenderer,revisions=null}){
  if(!database||!documents||!engine)throw Error("Missing analysis dependencies");
  let busy=false;
  const object=id=>{const n=Number(id);if(!Number.isSafeInteger(n)||n<=0||!database.getObject(n))throw Error("Объект не найден");return n};
@@ -34,16 +34,17 @@ function createAnalysis({database,documents,engine,pdfRenderer,revisions=null}){
   busy=true;
   try{
    const input=await documents.readForAnalysis(id,documentId);
+   const ocrEvidence=ocr?await ocr.recognize({buffer:input.buffer,mime:input.mime}):null;
    const result=await engine.analyzeImage({buffer:input.buffer,mime:input.mime,
-    prompt:structured.PROMPT});
+    prompt:structured.PROMPT,ocrContext:ocrEvidence?.text||""});
    if(typeof documents.verify==="function"&&!documents.verify(id,input.source.documentId))
     throw Error("Исходный файл изменился или удалён во время анализа — результат не сохранён");
    const extracted=parseClaims(result.raw);
    const saved=database.createEntity(id,"ai-analysis",{record_type:"image_analysis",
     title:"Анализ изображения: "+input.source.name,
     data:{source:input.source,model:result.engine,modelId:result.modelId||null,modelVersion:result.modelVersion||null,raw:result.raw,
-     extracted,complete:!!result.complete,verification:"requires_review",
-     sourceRegion:null,origin:"locally_executed_llama_cpp"}});
+     ocr:ocrEvidence,extracted,complete:!!result.complete,verification:"requires_review",
+     sourceRegion:null,origin:ocrEvidence?"paddleocr_vl_1_6_plus_llama_cpp":"locally_executed_llama_cpp"}});
    if(!saved)throw Error("Не удалось сохранить результат анализа");
    return{id:saved.id,source:input.source.name,
     status:"Требует проверки инженера",parsed:!!extracted,
@@ -61,8 +62,10 @@ function createAnalysis({database,documents,engine,pdfRenderer,revisions=null}){
    const input=await pdfRenderer.renderForAnalysis(id,documentId,page,region);
    if(revisions&&!revisions.isCurrent(id,input.source))
     throw Error("Этот лист не входит в действующий комплект КМ/КМД. Сначала утвердите корректную ревизию");
+   const ocrEvidence=ocr?await ocr.recognize({buffer:input.buffer,mime:input.mime}):null;
    const result=await engine.analyzeImage({buffer:input.buffer,mime:input.mime,
-    prompt:"PDF лист "+input.source.page+(region?" — выделенный фрагмент":" — весь лист")+". "+structured.PROMPT});
+    prompt:"PDF лист "+input.source.page+(region?" — выделенный фрагмент":" — весь лист")+". "+structured.PROMPT,
+    ocrContext:ocrEvidence?.text||""});
    if(typeof documents.verify==="function"&&!documents.verify(id,input.source.documentId))
     throw Error("Исходный PDF изменился во время распознавания — результат не сохранён");
    if(revisions&&!revisions.isCurrent(id,input.source))
@@ -71,12 +74,13 @@ function createAnalysis({database,documents,engine,pdfRenderer,revisions=null}){
    const saved=database.createEntity(id,"ai-analysis",{record_type:"image_analysis",
     title:"Анализ PDF · лист "+input.source.page+(region?" · фрагмент":"")+" · "+input.source.name,
     data:{source:input.source,model:result.engine,modelId:result.modelId||null,modelVersion:result.modelVersion||null,raw:result.raw,
-     extracted,complete:!!result.complete,verification:"requires_review",
+     ocr:ocrEvidence,extracted,complete:!!result.complete,verification:"requires_review",
      sourceRegion:region?"PDF лист "+input.source.page+": область "+JSON.stringify(input.source.region)+
       ", координаты прямоугольника в pt "+JSON.stringify(input.source.sourceRectPt)+
       "; координаты отдельных распознанных деталей пока не определены":
       "PDF лист "+input.source.page+" целиком; координаты распознанных элементов пока отсутствуют",
-     origin:region?"locally_executed_llama_cpp_pdf_region":"locally_executed_llama_cpp_pdf_raster"}});
+     origin:ocrEvidence?"paddleocr_vl_1_6_plus_llama_cpp_pdf":
+      region?"locally_executed_llama_cpp_pdf_region":"locally_executed_llama_cpp_pdf_raster"}});
    if(!saved)throw Error("Не удалось сохранить анализ PDF");
    return{id:saved.id,source:input.source.name,page:input.source.page,region:input.source.region||null,
     status:"Требует проверки инженера",parsed:!!extracted,

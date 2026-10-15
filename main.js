@@ -1,10 +1,10 @@
 "use strict";
 const {app,BrowserWindow,ipcMain,dialog,Menu,protocol,shell}=require("electron");
 const path=require("path"),crypto=require("crypto"),fs=require("fs");
-const database=require("./src/database"),aiDocumentStore=require("./src/ai-document-store"),aiLocalEngine=require("./src/ai-local-engine"),aiAnalysis=require("./src/ai-analysis"),aiReview=require("./src/ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiKmdMaterials=require("./src/ai-kmd-materials"),aiKmdConnections=require("./src/ai-kmd-connections"),aiKmKmdCompare=require("./src/ai-km-kmd-compare"),aiAssemblyGeometry=require("./src/ai-assembly-geometry"),aiAssemblyAttachments=require("./src/ai-assembly-attachments"),aiWorkflow=require("./src/ai-workflow"),aiStructuredReview=require("./src/ai-structured-review"),aiDrawingRevisions=require("./src/ai-drawing-revisions"),aiIntegrityReport=require("./src/ai-integrity-report"),aiCoverageReport=require("./src/ai-kmd-coverage"),aiKmdReference=require("./src/ai-kmd-reference"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),aiModelManager=require("./src/ai-model-manager"),aiRuntimeDiagnostics=require("./src/ai-runtime-diagnostics"),backup=require("./src/backup"),updates=require("./src/updater"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
+const database=require("./src/database"),aiDocumentStore=require("./src/ai-document-store"),aiLocalEngine=require("./src/ai-local-engine"),aiAnalysis=require("./src/ai-analysis"),aiReview=require("./src/ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiKmdMaterials=require("./src/ai-kmd-materials"),aiKmdConnections=require("./src/ai-kmd-connections"),aiKmKmdCompare=require("./src/ai-km-kmd-compare"),aiAssemblyGeometry=require("./src/ai-assembly-geometry"),aiAssemblyAttachments=require("./src/ai-assembly-attachments"),aiWorkflow=require("./src/ai-workflow"),aiStructuredReview=require("./src/ai-structured-review"),aiDrawingRevisions=require("./src/ai-drawing-revisions"),aiIntegrityReport=require("./src/ai-integrity-report"),aiCoverageReport=require("./src/ai-kmd-coverage"),aiKmdReference=require("./src/ai-kmd-reference"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),aiModelManager=require("./src/ai-model-manager"),aiPaddleOcr=require("./src/ai-paddle-ocr"),aiRuntimeDiagnostics=require("./src/ai-runtime-diagnostics"),backup=require("./src/backup"),updates=require("./src/updater"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
 let win;
 const aiDocuments=aiDocumentStore.createStore({getUserDataPath:()=>app.getPath("userData"),dialog,shell,database,getWindow:()=>win});
-let aiModels;
+let aiModels,aiOcr;
 const aiEngine=aiLocalEngine.createEngine({
  getUserDataPath:()=>app.getPath("userData"),
  managedModel:{
@@ -15,8 +15,11 @@ const aiEngine=aiLocalEngine.createEngine({
 aiModels=aiModelManager.createModelManager({
  getUserDataPath:()=>app.getPath("userData"),dialog,getWindow:()=>win,
  appVersion:()=>require("./package.json").version,
- engineActive:()=>["starting","ready"].includes(aiEngine.status().state),
+ engineActive:()=>["starting","ready"].includes(aiEngine.status().state)||Boolean(aiOcr?.status().busy),
  onDownloadProgress:point=>{if(win&&!win.isDestroyed())win.webContents.send("ai-models:progress",point)}
+});
+aiOcr=aiPaddleOcr.createPaddleOcr({
+ getUserDataPath:()=>app.getPath("userData"),models:aiModels
 });
 const aiDiagnostics=aiRuntimeDiagnostics.createDiagnostics({engine:aiEngine});
 const modelAdminSessions=new Map();
@@ -29,7 +32,10 @@ const aiPdf=aiPdfIndex.createPdfIndex({database,documents:aiDocuments,
 });
 const aiRevisions=aiDrawingRevisions.createDrawingRevisions({database,documents:aiDocuments,pdfIndex:aiPdf});
 const aiRaster=aiPdfRenderer.createPdfRenderer({database,documents:aiDocuments});
-const aiResults=aiAnalysis.createAnalysis({database,documents:aiDocuments,engine:aiEngine,pdfRenderer:aiRaster,revisions:aiRevisions});
+const aiResults=aiAnalysis.createAnalysis({
+ database,documents:aiDocuments,engine:aiEngine,ocr:aiOcr,
+ pdfRenderer:aiRaster,revisions:aiRevisions
+});
 const aiReviews=aiReview.createAiReview({database,revisions:aiRevisions});
 const aiProposals=aiStructuredReview.createStructuredReviews({database,documents:aiDocuments,revisions:aiRevisions});
 const aiQuantities=aiMarkQuantities.createMarkQuantities({database,revisions:aiRevisions});
@@ -111,7 +117,9 @@ function registerAiDocuments(){
  ipcMain.handle("ai-engine:status",()=>aiEngine.status());
  ipcMain.handle("ai-engine:start",e=>{requireAiReviewer(e);return aiEngine.start()});
  ipcMain.handle("ai-engine:stop",e=>{requireAiReviewer(e);return aiEngine.stop()});
- ipcMain.handle("ai-engine:cancel",e=>{requireAiReviewer(e);return aiEngine.cancel()});
+ ipcMain.handle("ai-engine:cancel",e=>{requireAiReviewer(e);aiOcr.cancel();return aiEngine.cancel()});
+ ipcMain.handle("ai-ocr:status",()=>aiOcr.status());
+ ipcMain.handle("ai-ocr:cancel",e=>{requireAiReviewer(e);return aiOcr.cancel()});
  ipcMain.handle("ai-analysis:list",(_e,objectId)=>aiReviews.list(objectId));
  ipcMain.handle("ai-review:list",(_e,objectId)=>aiReviews.list(objectId));
  ipcMain.handle("ai-review:register",(_e,objectId)=>aiReviews.register(objectId));
