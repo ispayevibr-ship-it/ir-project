@@ -166,7 +166,14 @@
     try{
      if(typeof api.downloadAndInstall!=="function")throw Error("Обновите IR Project для автоматической установки моделей");
      const installed=await api.downloadAndInstall(modelId,version);
-     status("Модель "+installed.title+" "+installed.version+" установлена. Проверьте готовность к КМД перед использованием.")
+     if(modelId==="qwen3-vl-4b"&&typeof window.irProject?.aiEngine?.start==="function"){
+      progress="Модель установлена. Запускаем Qwen3-VL 4B…";render();
+      const started=await window.irProject.aiEngine.start();
+      status(started?.state==="ready"?
+       "Qwen3-VL 4B "+installed.version+" установлена и запущена. Можно распознавать чертежи.":
+       "Qwen3-VL 4B "+installed.version+" установлена, но запуск не удался: "+String(started?.reason||started?.state||"неизвестная ошибка"),
+       started?.state!=="ready");
+     }else status("Модель "+installed.title+" "+installed.version+" установлена.")
     }catch(e){status("Скачивание или установка не завершены: "+String(e.message||e),true)}
     finally{busy=false;downloading=false;progress="";await reload()}
    });
