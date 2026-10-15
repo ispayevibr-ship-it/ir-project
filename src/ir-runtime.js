@@ -4537,7 +4537,8 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
    '<div class="program-settings-menu-items">'+
    '<button type="button" id="companyProfileSettings" class="program-settings-item">'+companyIcon+'<span class="program-settings-item-text"><strong>Профиль компании</strong><small>Реквизиты и логотип</small></span></button>'+
    '<button type="button" id="programAiModels" class="program-settings-item">'+aiModelsIcon+'<span class="program-settings-item-text"><strong>Локальные ИИ-модели</strong><small>Установка, версии и откат</small></span></button>'+
-   '<button type="button" id="programExportDatabase" class="program-settings-item" title="Выбрать папку для сохранения файла базы данных">'+backupIcon+'<span class="program-settings-item-text"><strong>Выгрузить базу данных</strong><small>Выбрать папку и сохранить .db</small></span></button>'+
+   '<button type="button" id="programExportDatabase" class="program-settings-item" title="Выбрать папку для сохранения файла базы данных">'+backupIcon+'<span class="program-settings-item-text"><strong>Полная резервная копия</strong><small>База, чертежи КМ/КМД, фото и акты · .ir-backup</small></span></button>'+
+   '<button type="button" id="programRestoreBackup" class="program-settings-item">'+backupIcon+'<span class="program-settings-item-text"><strong>Восстановить резервную копию</strong><small>Проверить архив .ir-backup и восстановить файлы</small></span></button>'+
    '<button type="button" id="programAboutButton" class="program-settings-item">'+aboutIcon+'<span class="program-settings-item-text"><strong>О программе</strong><small>Авторские права и версия</small></span></button>'+
    '<div class="program-settings-divider" role="separator"></div>'+
    '<button type="button" id="programCheckUpdates" class="program-settings-item program-settings-update">'+refreshIcon+'<span class="program-settings-item-text"><strong>Проверить обновления</strong><small>Найти новую версию</small></span></button>'+
@@ -4549,7 +4550,8 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
    settingsButton=p.querySelector("#programSettingsButton"),settingsMenu=p.querySelector("#programSettingsMenu"),
    companyButton=p.querySelector("#companyProfileSettings"),modelButton=p.querySelector("#programAiModels"),
    aboutButton=p.querySelector("#programAboutButton"),
-   backupButton=p.querySelector("#programExportDatabase"),updateButton=p.querySelector("#programCheckUpdates");
+   backupButton=p.querySelector("#programExportDatabase"),restoreButton=p.querySelector("#programRestoreBackup"),
+   updateButton=p.querySelector("#programCheckUpdates");
   // A moved profile panel lives in the tab host, while its page remains in
   // an iframe. Pointer events do not cross iframe boundaries, so observe both.
   const settingsDismissDocs=new Set();
@@ -4636,16 +4638,38 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
    try{
     const saved=await irProject.backup.create();
     if(saved===true){
-     const message="База данных успешно выгружена в выбранную папку.";
+     const message="Полная резервная копия успешно выгружена в выбранную папку.";
      if(typeof irProjectNotice==="function")irProjectNotice(message,"success");
      else alert(message)
     }
     // false means the user cancelled the Save dialog; no message needed.
    }catch(error){
-    alert("Не удалось выгрузить базу данных: "+String(error?.message||error))
+    alert("Не удалось создать полный архив: "+String(error?.message||error))
    }finally{
     exportingDatabase=false;backupButton.disabled=false
    }
+  };
+  let restoringDatabase=false;
+  restoreButton.onclick=async()=>{
+   if(restoringDatabase)return;
+   closeSettings();
+   if(irAccess.role()!=="admin"){
+    alert("Восстановление резервной копии доступно только администратору.");return
+   }
+   if(typeof irProject.backup?.restore!=="function"){
+    alert("Восстановление недоступно. Перезапустите IR Project.");return
+   }
+   restoringDatabase=true;restoreButton.disabled=true;
+   try{
+    const ok=await irProject.backup.restore();
+    if(ok===true){
+     const msg="Полный архив восстановлен. Перезапустите IR Project для обновления всех открытых вкладок.";
+     if(typeof irProjectNotice==="function")irProjectNotice(msg,"success");
+     else alert(msg)
+    }
+   }catch(error){
+    alert("Не удалось восстановить архив: "+String(error?.message||error))
+   }finally{restoringDatabase=false;restoreButton.disabled=false}
   };
   updateButton.onclick=()=>{
    closeSettings();
