@@ -92,6 +92,27 @@ const {createKmdReference}=require("../src/ai-kmd-reference");
   comment:"По листу, по спецификации и выноскам, все позиции"},{role:"admin"});
  assert.equal(sealed.checked,true);
  assert.equal(api.checks(1).allSheetsReviewed,true);
+ const tamperedRow=db.createEntity(1,"ai-kmd-reference-rows",{
+  record_type:"kmd_reference",title:"Unexpected reference position",
+  data:{setId:201,sheetId:301,type:"part",mark:"К41",
+   position:"Д999",status:"confirmed",quantity:1}
+ });
+ assert.equal(api.checks(1).allSheetsReviewed,false,
+  "an inserted reference invalidates the signed sheet even without using the editor");
+ db.deleteEntity(1,"ai-kmd-reference-rows",tamperedRow.id);
+ assert.equal(api.checks(1).allSheetsReviewed,true,
+  "the signed fingerprint must match the exact original record set");
+ const oldPart=db.getEntity(1,"ai-kmd-reference-rows",partRef.id);
+ db.updateEntity(1,"ai-kmd-reference-rows",partRef.id,{
+  record_type:"kmd_reference",title:oldPart.title,
+  data:{...oldPart.data,quantity:7}
+ });
+ assert.equal(api.checks(1).allSheetsReviewed,false,
+  "a tampered quantity must revoke a previously signed source sheet");
+ db.updateEntity(1,"ai-kmd-reference-rows",partRef.id,{
+  record_type:"kmd_reference",title:oldPart.title,data:oldPart.data
+ });
+ assert.equal(api.checks(1).allSheetsReviewed,true);
  let report=api.compare(1);
  assert.equal(report.fullSpecificationVerified,false);
  assert.equal(report.releaseCertified,false);
