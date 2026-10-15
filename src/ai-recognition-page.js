@@ -20,11 +20,11 @@ window.irAiRecognitionPage=async function(objectId){
   compare:["Сравнение КМ и КМД","Сопоставление геометрии, металлопроката, соединений, количества и ревизий будет доступно после подготовки проверяемых данных."],
   checks:["Проверка и замечания","После запуска локального анализа здесь появятся ошибки и неопределённые значения со ссылками на исходные листы и подтверждения инженера."]
  };
- let object,documents=[],analyses=[],verifiedMarks=[],pdfIndexes=[],engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
+ let object,documents=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,pdfIndexes=[],engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
  try{object=await irProject.data.objects.get(id)}catch(error){app.textContent="Не удалось прочитать объект: "+String(error.message||error);return}
  if(!object){location.hash="/objects";return}
  const bridge=irProject.aiDocuments,ready=!!(bridge&&typeof bridge.list==="function"&&typeof bridge.select==="function");
- const runtime=irProject.aiEngine||null,pdf=irProject.aiPdf||null,reviewer=irProject.aiReview||null;
+ const runtime=irProject.aiEngine||null,pdf=irProject.aiPdf||null,reviewer=irProject.aiReview||null,quantities=irProject.aiMarkQuantities||null;
  const canEdit=!!window.irAccess?.canEdit?.("ai-recognition");
  async function reload(){
   const jobs=[];
@@ -34,6 +34,10 @@ window.irAiRecognitionPage=async function(objectId){
    jobs.push(reviewer.list(id).then(v=>{analyses=v}).catch(error=>{analyses=[];notice("Ошибка истории анализа: "+String(error.message||error),"error")}));
    jobs.push(reviewer.register(id).then(v=>{verifiedMarks=v}).catch(error=>{verifiedMarks=[];notice("Ошибка подтверждённых марок: "+String(error.message||error),"error")}))
   }else if(runtime)jobs.push(runtime.results(id).then(v=>{analyses=v}).catch(error=>{analyses=[];notice("Ошибка истории анализа: "+String(error.message||error),"error")}));
+  if(quantities){
+   jobs.push(quantities.list(id).then(v=>{quantityEntries=v}).catch(error=>{quantityEntries=[];notice("Ошибка загрузки количеств: "+String(error.message||error),"error")}));
+   jobs.push(quantities.summary(id).then(v=>{quantitySummary=v}).catch(error=>{quantitySummary=null;notice("Ошибка сводки отправочных марок: "+String(error.message||error),"error")}));
+  }
   if(pdf)jobs.push(pdf.list(id).then(v=>{pdfIndexes=v}).catch(error=>{pdfIndexes=[];notice("Ошибка PDF-индекса: "+String(error.message||error),"error")}));
   await Promise.all(jobs);
   if(location.hash===route)paint()
@@ -126,6 +130,60 @@ window.irAiRecognitionPage=async function(objectId){
     '<div class="ir-ai-storage-note">Единицы марок, профили, масса и количество экземпляров требуют отдельной проверки спецификаций КМД. Подтверждение обозначения не переносит его в основные ведомости IR Project.</div>';
    box.querySelectorAll("[data-ai-source]").forEach(button=>button.onclick=()=>{
     const [did,page]=button.dataset.aiSource.split(":");void openPdfPreview(did,page)
+   });
+   const total=quantitySummary||{rows:[],confirmedPositionCount:0,confirmedPieces:0,pendingCount:0,rejectedCount:0};
+   const summaryRows=total.rows||[];
+   const labels={requires_review:"Требует проверки",confirmed:"Подтверждено",rejected:"Отклонено"};
+   box.insertAdjacentHTML("beforeend",'<section class="ir-ai-quantity-section">'+
+    '<div class="ir-ai-review-heading"><div><h2>Ведомость отправочных элементов по КМД</h2>'+
+     '<p>Количество в штуках только по конкретной позиции спецификации и после подтверждения инженером. Упоминания марки не суммируются.</p></div>'+
+     '<div class="ir-ai-quantity-totals"><b>'+total.confirmedPositionCount+' позиций</b><b>'+total.confirmedPieces+' шт. подтверждено</b></div></div>'+
+    '<div class="ir-ai-quantity-warning">Это сумма проверенных позиций, а не окончательное количество конструкций всего объекта. До проверки полного комплекта КМД общая ведомость считается неполной.</div>'+
+    '<div class="ir-ai-quantity-toolbar"><span>На проверке: '+total.pendingCount+' · отклонено: '+total.rejectedCount+'</span>'+
+     (canEdit&&quantities?'<button type="button" data-quantity-new>＋ Добавить позицию из КМД</button>':"")+'</div>'+
+    (summaryRows.length?'<div class="ir-ai-table-wrap"><table class="ir-ai-doc-table"><thead><tr>'+
+     '<th>Марка / шифры</th><th>Подтверждённое количество</th><th>Основание КМД</th><th></th></tr></thead><tbody>'+
+     summaryRows.map(row=>'<tr><td><strong>'+esc(row.mark)+'</strong>'+
+      '<small>'+esc([row.cipher,row.secondaryCipher].filter(Boolean).join(" / ")||"Без шифра")+'</small></td>'+
+      '<td><strong>'+row.quantity+' шт.</strong></td>'+
+      '<td>'+esc(row.source.name)+' · лист '+row.source.page+' · позиция '+esc(row.source.specPosition)+
+       (row.source.drawingRevision?' · изм. '+esc(row.source.drawingRevision):"")+'</td>'+
+      '<td><button type="button" data-quantity-edit="'+row.id+'" '+(!canEdit?'disabled':'')+'>Открыть</button></td></tr>').join("")+
+     '</tbody></table></div>':
+     '<div class="ir-ai-doc-empty"><b>Количество отправочных марок не подтверждено</b>'+
+      '<p>Добавьте позицию по спецификации загруженного PDF КМД и подтвердите её количество. Пока числовой итог не определён.</p></div>')+
+    (quantityEntries.length?'<details class="ir-ai-quantity-drafts"><summary>Все записи ведомости · '+quantityEntries.length+
+     ' (включая неподтверждённые)</summary>'+
+     quantityEntries.map(row=>'<div><b>'+esc(row.mark)+' · '+esc(row.cipher||"без шифра")+'</b>'+
+      ' · '+(row.quantity===null?"количество не установлено":row.quantity+" шт.")+
+      ' · '+esc(labels[row.status]||"Требует проверки")+
+      (!row.sourceValid?' · ИСТОЧНИК ИЗМЕНЁН/ОТСУТСТВУЕТ':"")+
+      '<button type="button" data-quantity-edit="'+row.id+'" '+(!canEdit?'disabled':'')+'>Редактировать</button>'+
+      '<button type="button" data-quantity-history="'+row.id+'">История</button>'+
+      '<div data-quantity-log="'+row.id+'" hidden></div></div>').join("")+'</details>':"")+
+    '<p class="ir-ai-storage-note">Проверенные количества пока учитываются только внутри IR Project AI и не переносятся в рабочие марки, объёмы, отчёты или монтажную схему.</p>'+
+    '</section>');
+   const openEntry=button=>{
+    if(!canEdit||!quantities)return;
+    const row=button.dataset.quantityEdit?
+     quantityEntries.find(item=>String(item.id)===button.dataset.quantityEdit):null;
+    void openQuantityEditor(row||null)
+   };
+   box.querySelectorAll("[data-quantity-new],[data-quantity-edit]").forEach(button=>button.onclick=()=>openEntry(button));
+   box.querySelectorAll("[data-quantity-history]").forEach(button=>button.onclick=async()=>{
+    if(!quantities)return;
+    const slot=box.querySelector('[data-quantity-log="'+button.dataset.quantityHistory+'"]');
+    if(!slot)return;
+    if(!slot.hidden){slot.hidden=true;return}
+    slot.hidden=false;slot.textContent="Загружаем историю количества...";
+    try{
+     const entries=await quantities.history(id,button.dataset.quantityHistory);
+     slot.innerHTML=entries.length?entries.map(change=>'<div class="ir-ai-quantity-log-entry">'+
+      '<b>Редакция '+change.revision+'</b> · '+esc(change.reviewedAt)+
+      ' · '+esc(change.reviewedBy)+' · '+esc(change.current?.quantity??"не указано")+' шт.'+
+      ' · '+esc(labels[change.current?.status]||"Требует проверки")+'</div>').join(""):
+      'Изменений пока нет'
+    }catch(error){slot.textContent="Ошибка журнала: "+String(error.message||error)}
    });
    return
   }
@@ -314,6 +372,74 @@ window.irAiRecognitionPage=async function(objectId){
    dlg.oncancel=event=>{event.preventDefault();finish(null)};
    document.body.appendChild(dlg);dlg.showModal();dlg.querySelector("input").focus()
   })
+ }
+ async function openQuantityEditor(original=null){
+  if(!canEdit||!quantities||!reviewer)return;
+  const sources=documents.filter(doc=>doc.kind==="КМД"&&doc.ext===".pdf"&&doc.exists);
+  if(!sources.length){
+   notice("Для учёта количества сначала загрузите PDF со спецификацией КМД в этот объект.","error");
+   paint();return
+  }
+  const role=window.irAccess?.role?.();
+  if(!["admin","engineer"].includes(role))return;
+  const dlg=document.createElement("dialog");dlg.className="ir-ai-quantity-dialog ir-ai-review-password";
+  const options=sources.map(doc=>'<option value="'+doc.id+'" '+
+   (Number(original?.source?.documentId)===Number(doc.id)?"selected":"")+'>'+esc(doc.name)+'</option>').join("");
+  const val=(name,def="")=>esc(original?.[name]??def);
+  const sourceVal=(name,def="")=>esc(original?.source?.[name]??def);
+  dlg.innerHTML='<form class="ir-ai-quantity-form">'+
+   '<h3>'+(original?'Редактировать позицию отправочной марки':'Добавить позицию по спецификации КМД')+'</h3>'+
+   '<p>Указывайте количество только по загруженному чертежу КМД. Каждая запись имеет отдельный источник и историю.</p>'+
+   '<div class="ir-ai-quantity-form-grid">'+
+   '<label>Марка *<input name="mark" maxlength="64" required value="'+val("mark")+'" placeholder="К41"></label>'+
+   '<label>Шифр<input name="cipher" maxlength="60" value="'+val("cipher")+'"></label>'+
+   '<label>Второй шифр<input name="secondaryCipher" maxlength="60" value="'+val("secondaryCipher")+'"></label>'+
+   '<label>Количество, шт. * для подтверждения<input name="quantity" type="number" min="1" max="1000000" step="1" value="'+val("quantity")+'"></label>'+
+   '<label class="wide">Документ КМД *<select name="documentId" required>'+options+'</select></label>'+
+   '<label>Номер листа PDF *<input name="page" type="number" min="1" max="2000" step="1" required value="'+sourceVal("page",1)+'"></label>'+
+   '<label>Позиция спецификации *<input name="specPosition" maxlength="90" required value="'+sourceVal("specPosition")+'" placeholder="Поз. 12 / лист 45"></label>'+
+   '<label>Ревизия/изменение КМД<input name="drawingRevision" maxlength="40" value="'+sourceVal("drawingRevision")+'"></label>'+
+   '<label>Статус<select name="status">'+
+    ['requires_review','confirmed','rejected'].map(st=>'<option value="'+st+'" '+
+     ((original?.status||"requires_review")===st?"selected":"")+'>'+
+     ({requires_review:"Требует проверки",confirmed:"Подтверждено",rejected:"Отклонено"}[st])+'</option>').join("")+
+   '</select></label>'+
+   '<label class="wide">Примечание инженера<textarea name="comment" maxlength="1500" rows="3">'+val("comment")+'</textarea></label></div>'+
+   '<p class="ir-ai-quantity-dialog-hint">При подтверждении потребуется пароль. Повторение обозначения на других листах не добавит экземпляров автоматически.</p>'+
+   '<div class="ir-ai-quantity-form-actions"><button type="button" data-cancel>Отмена</button>'+
+    '<button type="submit">Сохранить запись</button></div>'+
+   '<p data-error class="ir-ai-quantity-dialog-error" hidden></p></form>';
+  document.body.appendChild(dlg);
+  dlg.querySelector("[data-cancel]").onclick=()=>dlg.close();
+  dlg.addEventListener("close",()=>dlg.remove(),{once:true});
+  const form=dlg.querySelector("form");let saving=false;
+  form.onsubmit=async event=>{
+   event.preventDefault();if(saving)return;
+   const fields=Object.fromEntries([...new FormData(form).entries()]);
+   if(fields.status==="confirmed"&&!fields.quantity){
+    const error=dlg.querySelector("[data-error]");error.hidden=false;error.textContent="Для подтверждения укажите количество из спецификации";return
+   }
+   const password=await requestReviewPassword(role);
+   if(password===null)return;
+   saving=true;
+   const error=dlg.querySelector("[data-error]");error.hidden=true;
+   try{
+    const authorized=await reviewer.authorize(role,password);
+    if(!authorized)throw Error("Неверный пароль "+(role==="admin"?"администратора":"инженера"));
+    await quantities.save(id,original?.id||null,{
+     expectedRevision:Number(original?.revision)||0,
+     mark:fields.mark,cipher:fields.cipher,secondaryCipher:fields.secondaryCipher,
+     quantity:fields.quantity,documentId:Number(fields.documentId),
+     page:Number(fields.page),specPosition:fields.specPosition,
+     drawingRevision:fields.drawingRevision,status:fields.status,comment:fields.comment
+    });
+    dlg.close();
+    notice("Позиция отправочной марки сохранена с привязкой к КМД. Итоги учитывают только подтверждённые записи.");
+    await reload()
+   }catch(e){error.hidden=false;error.textContent="Не удалось сохранить: "+String(e.message||e)}
+   finally{saving=false}
+  };
+  dlg.showModal()
  }
  async function openPdfPreview(documentId,page){
   if(!pdf||busy)return;

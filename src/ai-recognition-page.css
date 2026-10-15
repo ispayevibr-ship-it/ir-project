@@ -175,3 +175,39 @@
 .ir-ai-review-password button{background:#eff6fc;color:#265f86;border:1px solid #c6ddea;border-radius:7px;padding:9px 14px;cursor:pointer}
 .ir-ai-review-password button[type=submit]{background:#1875bd;border-color:#1875bd;color:#fff}
 @media(max-width:760px){.ir-ai-review-heading{align-items:start;flex-direction:column}.ir-ai-review-fields{grid-template-columns:1fr}.ir-ai-review-fields label:last-child{grid-column:auto}.ir-ai-review-actions{flex-wrap:wrap}}
+
+/* IR Project AI — source-backed KMD quantities, isolated from production marks */
+.ir-ai-quantity-section{margin-top:23px;padding-top:20px;border-top:2px solid #d5e7f3}
+.ir-ai-quantity-totals{display:flex;gap:8px;flex-wrap:wrap}
+.ir-ai-quantity-totals b{font-size:11px;color:#22638c;border:1px solid #c7e2f3;border-radius:7px;padding:8px 10px;background:#edf7fd;white-space:nowrap}
+.ir-ai-quantity-warning{font-size:11px;line-height:1.6;padding:11px 13px;border-radius:8px;background:#fffaec;border:1px solid #f0db9e;color:#846124;margin-bottom:12px}
+.ir-ai-quantity-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0}
+.ir-ai-quantity-toolbar span{color:#6c8a9d;font-size:11px}
+.ir-ai-quantity-toolbar button{border:1px solid #1670b7;border-radius:7px;background:#1877c2;color:#fff;padding:9px 12px;font-size:11px;cursor:pointer;font-weight:700}
+.ir-ai-quantity-section .ir-ai-table-wrap{margin-top:10px;border:1px solid #dce7ee;border-radius:8px}
+.ir-ai-quantity-section .ir-ai-doc-table td{vertical-align:top}
+.ir-ai-quantity-section .ir-ai-doc-table td button{border:1px solid #c9ddeb;border-radius:6px;padding:7px 9px;background:#f0f8ff;color:#286d9b;cursor:pointer;font-size:10px}
+.ir-ai-quantity-section .ir-ai-doc-table td button:disabled{opacity:.5;cursor:not-allowed}
+.ir-ai-quantity-drafts{margin-top:15px;border:1px solid #e1eaf1;border-radius:8px;background:#f8fbfd;padding:12px}
+.ir-ai-quantity-drafts summary{font-size:11px;cursor:pointer;color:#32617d;font-weight:750}
+.ir-ai-quantity-drafts>div{padding:9px 1px;font-size:10px;color:#6c899a;border-bottom:1px solid #e3edf2;line-height:1.8}
+.ir-ai-quantity-drafts>div:last-child{border-bottom:0}
+.ir-ai-quantity-drafts button{padding:5px 7px;margin-left:8px;border:1px solid #cbdce7;border-radius:6px;background:#fff;color:#27658c;font-size:10px;cursor:pointer}
+.ir-ai-quantity-drafts button:disabled{opacity:.45;cursor:not-allowed}
+.ir-ai-quantity-log-entry{padding:6px 0 5px 10px;font-size:10px;border-left:2px solid #97c7e6}
+.ir-ai-quantity-dialog{width:min(690px,96vw);max-width:96vw;max-height:94vh;overflow:auto;padding:22px}
+.ir-ai-quantity-dialog h3{font-size:18px;color:#244f6e}
+.ir-ai-quantity-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.ir-ai-quantity-form-grid label{display:flex;flex-direction:column;gap:5px;font-size:11px;color:#496e87;font-weight:650}
+.ir-ai-quantity-form-grid label.wide{grid-column:1/-1}
+.ir-ai-quantity-form-grid input,.ir-ai-quantity-form-grid textarea,.ir-ai-quantity-form-grid select{box-sizing:border-box;width:100%;border:1px solid #cddde8;border-radius:7px;padding:8px 10px;background:white;color:#25465f;font:11px "Segoe UI",Arial,sans-serif}
+.ir-ai-quantity-form-grid input,.ir-ai-quantity-form-grid select{height:36px}
+.ir-ai-quantity-form-grid textarea{resize:vertical;min-height:62px}
+.ir-ai-quantity-form-grid input:focus,.ir-ai-quantity-form-grid select:focus,.ir-ai-quantity-form-grid textarea:focus{outline:2px solid #d0e6f7;border-color:#5d9ed0}
+.ir-ai-quantity-dialog .ir-ai-quantity-dialog-hint{font-size:10px;color:#718b9c;margin:15px 0 8px}
+.ir-ai-quantity-form-actions{display:flex;justify-content:flex-end;gap:9px}
+.ir-ai-quantity-form-actions button{border:1px solid #c7dce8;border-radius:7px;background:#f3f9fd;padding:9px 14px;font-size:11px;color:#2d6385;cursor:pointer}
+.ir-ai-quantity-form-actions button[type=submit]{background:#1875bd;border-color:#1875bd;color:#fff;font-weight:700}
+.ir-ai-quantity-dialog-error{font-size:11px;color:#ac3131;background:#fff1f1;padding:10px;border-radius:7px}
+.ir-ai-quantity-dialog-error[hidden]{display:none}
+@media(max-width:660px){.ir-ai-quantity-form-grid{grid-template-columns:1fr}.ir-ai-quantity-form-grid label.wide{grid-column:1}.ir-ai-quantity-dialog{padding:15px}}

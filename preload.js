@@ -53,6 +53,12 @@ const aiModels={
   return()=>ipcRenderer.removeListener("ai-models:progress",listener)
  }
 };
+const aiMarkQuantities={
+ list:objectId=>ipcRenderer.invoke("ai-quantities:list",objectId),
+ summary:objectId=>ipcRenderer.invoke("ai-quantities:summary",objectId),
+ history:(objectId,id)=>ipcRenderer.invoke("ai-quantities:history",{objectId,id}),
+ save:(objectId,id,entry)=>ipcRenderer.invoke("ai-quantities:save",{objectId,id,entry})
+};
 const aiReview={
  list:objectId=>ipcRenderer.invoke("ai-review:list",objectId),
  register:objectId=>ipcRenderer.invoke("ai-review:register",objectId),
@@ -68,4 +74,4 @@ const aiEngine={
  results:objectId=>ipcRenderer.invoke("ai-analysis:list",objectId),
  analyze:(objectId,id)=>ipcRenderer.invoke("ai-analysis:image",{objectId,id})
 };
-contextBridge.exposeInMainWorld("irProject",{objects,company,images:{read:file=>ipcRenderer.invoke("images:read",file),remove:file=>ipcRenderer.invoke("images:remove",file),optimize:(file,type)=>ipcRenderer.invoke("images:optimize",{file,type})},reportPhotos,reportDocuments,reportExport,marksExcel,aiDocuments,aiEngine,aiPdf,aiModels,aiDiagnostics,aiReview,sections,data:{objects,sections,forObject:objectId=>({section:key=>section(objectId,key),records:key=>section(objectId,key)})},access:{login:(role,password)=>ipcRenderer.invoke("access:login",{role,password})},backup:{create:()=>ipcRenderer.invoke("backup:create"),restore:()=>ipcRenderer.invoke("backup:restore")},updater:{check:()=>ipcRenderer.invoke("update:check"),download:()=>ipcRenderer.invoke("update:download"),install:()=>ipcRenderer.invoke("update:install"),version:()=>ipcRenderer.invoke("update:version"),onStatus:cb=>ipcRenderer.on("update:status",(_e,d)=>cb(d))}});
+contextBridge.exposeInMainWorld("irProject",{objects,company,images:{read:file=>ipcRenderer.invoke("images:read",file),remove:file=>ipcRenderer.invoke("images:remove",file),optimize:(file,type)=>ipcRenderer.invoke("images:optimize",{file,type})},reportPhotos,reportDocuments,reportExport,marksExcel,aiDocuments,aiEngine,aiPdf,aiModels,aiDiagnostics,aiReview,aiMarkQuantities,sections,data:{objects,sections,forObject:objectId=>({section:key=>section(objectId,key),records:key=>section(objectId,key)})},access:{login:(role,password)=>ipcRenderer.invoke("access:login",{role,password})},backup:{create:()=>ipcRenderer.invoke("backup:create"),restore:()=>ipcRenderer.invoke("backup:restore")},updater:{check:()=>ipcRenderer.invoke("update:check"),download:()=>ipcRenderer.invoke("update:download"),install:()=>ipcRenderer.invoke("update:install"),version:()=>ipcRenderer.invoke("update:version"),onStatus:cb=>ipcRenderer.on("update:status",(_e,d)=>cb(d))}});
