@@ -74,7 +74,7 @@ const aiIntegrity=aiIntegrityReport.createAiIntegrity({
  database,documents:aiDocuments,pdfIndex:aiPdf,revisions:aiRevisions,
  review:aiReviews,workflow:aiQueue,proposals:aiProposals,quantities:aiQuantities,
  materials:aiMaterials,connections:aiConnections,comparisons:aiComparisons,
- assemblies:aiAssemblies,attachments:aiAttachments,coverage:aiCoverage
+ assemblies:aiAssemblies,attachments:aiAttachments,coverage:aiCoverage,reference:aiReference
 });
 const dbPath=()=>path.join(app.getPath("userData"),"ir-project.db");
 const roleHashes={admin:crypto.createHash("sha256").update("333111").digest("hex"),engineer:crypto.createHash("sha256").update("000000").digest("hex")};

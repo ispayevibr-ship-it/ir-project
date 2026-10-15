@@ -3,7 +3,7 @@
  * It does not run AI, mutate SQLite, open files, or mark any item as approved.
  */
 function createAiIntegrity({database,documents,pdfIndex,revisions,review,workflow,proposals,
- quantities,materials,connections,comparisons,assemblies,attachments,coverage=null,
+ quantities,materials,connections,comparisons,assemblies,attachments,coverage=null,reference=null,
  clock=()=>new Date().toISOString()}={}){
  if(!database||!documents||!pdfIndex||!revisions||!review||!workflow||!proposals||
   !quantities||!materials||!connections||!comparisons||!assemblies||!attachments)
@@ -262,6 +262,31 @@ function createAiIntegrity({database,documents,pdfIndex,revisions,review,workflo
     "Сопоставлены только подтверждённые предложения и внесённые инженерные позиции. Это не сертификат полноты КМД.",
     finding.tab,finding.count,finding.examples);
   }
+  const referenceReport=reference?safe("kmd_reference",()=>reference.compare(objectId),null):null;
+  if(referenceReport){
+   metrics.referencePositions=referenceReport.activeReferencePositions;
+   metrics.referenceSheetsReviewed=referenceReport.reviewedSheets;
+   metrics.referenceSheetsTotal=referenceReport.sheetCount;
+   const missingSheets=referenceReport.sheets.filter(x=>!x.checked);
+   note("warning","kmd_reference_sheets_pending","Листы КМД без полной инженерной сверки",
+    "Эталон ещё не охватывает весь действующий комплект КМД; подтверждение полноты запрещено.",
+    "reference",missingSheets.length,sample(missingSheets,x=>x.sheetCode+" · лист "+x.page));
+   const groups=new Map();
+   for(const m of referenceReport.mismatches){
+    if(!groups.has(m.code))groups.set(m.code,[]);
+    groups.get(m.code).push(m)
+   }
+   for(const [code,group] of groups){
+    const extra=code==="unlisted_position";
+    const severity=extra?"warning":"error";
+    note(severity,"kmd_reference_"+code,
+     extra?"Позиции внесены в ведомость, но отсутствуют в эталоне":
+      "Расхождения утверждённого эталона КМД с инженерными ведомостями",
+     "Не изменяйте ведомости автоматически: сверьте каждую позицию с оригинальным листом КМД.",
+     "reference",group.length,sample(group,x=>x.mark+" / "+x.position+
+       " · "+x.label+" (эталон "+(x.expected??"—")+", запись "+(x.actual??"—")+")"))
+   }
+  }
   const bySeverity={error:issues.filter(x=>x.severity==="error").reduce((s,x)=>s+x.count,0),
    warning:issues.filter(x=>x.severity==="warning").reduce((s,x)=>s+x.count,0)};
   stageStats.push({label:"Исходники",tab:"documents",count:metrics.documents},
@@ -271,9 +296,10 @@ function createAiIntegrity({database,documents,pdfIndex,revisions,review,workflo
    {label:"Марки КМД",tab:"marks",count:metrics.marks},
    {label:"Детали",tab:"metal",count:metrics.steelPositions},
    {label:"Узлы и крепёж",tab:"fasteners",count:metrics.connections+metrics.hardwareRows},
-   {label:"3D-детали",tab:"assembly",count:metrics.confirmed3dDetails});
+   {label:"3D-детали",tab:"assembly",count:metrics.confirmed3dDetails},
+   {label:"Эталон КМД",tab:"reference",count:metrics.referencePositions||0});
   return{objectId,generatedAt:clock(),metrics,stages:stageStats,issues,bySeverity,
-   coverage:evidenceCoverage,
+   coverage:evidenceCoverage,reference:referenceReport,
    checksWithFindings:issues.length,releaseCertified:false,
    explanation:"Диагностика проверяет связи, актуальность PDF, статусы и полноту данных. Она не доказывает корректность OCR, чертежей, расчётов или 3D; итоговая приёмка выполняется инженером на реальных КМД."}
  }
