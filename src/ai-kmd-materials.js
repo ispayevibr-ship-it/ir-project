@@ -147,8 +147,12 @@ function createKmdMaterials({database,quantities,revisions=null,clock=()=>new Da
  function summary(id){
   const items=list(id),counted=items.filter(x=>x.counted);
   let massPerConfirmedAssemblies=0;
-  const byAssembly=new Map();
+  const byAssembly=new Map(),seenParts=new Set();
   for(const item of counted){
+   const key=item.assemblyId+"\u0001"+item.position.trim().toLocaleUpperCase("ru-RU");
+   if(seenParts.has(key))throw Error("Повторная подтверждённая деталь "+item.position+
+    " в отправочной марке № "+item.assemblyId+": масса не может быть просуммирована");
+   seenParts.add(key);
    const a=byAssembly.get(item.assemblyId)||{assemblyId:item.assemblyId,mark:item.assemblyMark,
     cipher:item.cipher,secondaryCipher:item.secondaryCipher,
     assemblyQuantity:item.assemblyQuantity,parts:0,unitMassKg:0,totalMassKg:0};

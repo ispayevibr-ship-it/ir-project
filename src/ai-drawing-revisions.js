@@ -186,6 +186,20 @@ function createDrawingRevisions({database,documents,pdfIndex,clock=()=>new Date(
     previousSetId:prior?.id||null,sheetCount:sheets.length}
   })
  }
+ // Follow evidence through derived reviews and queued sheets; skip unrelated photos.
+ function evidenceSources(o,section,row,docs){
+  const d=row.data||{};
+  let candidates;
+  if(section==="ai-km-kmd-comparison")
+   candidates=[d.km?.source,d.kmd?.source];
+  else if(section==="ai-structured-reviews"){
+   const analysis=database.getEntity(o,"ai-analysis",Number(d.analysisId||row.parent_id));
+   candidates=analysis?.record_type==="image_analysis"?[analysis.data?.source]:[];
+  }else if(section==="ai-workflow-tasks")
+   candidates=d.source?[{...d.source,page:d.page}]:[];
+  else candidates=d.source?[d.source]:[];
+  return candidates.filter(src=>src&&KINDS.has(src.kind||docs.get(Number(src.documentId))?.kind))
+ }
  function previewActivation(id,setId){
   const o=oid(id),target=findSet(o,setId);
   if(target.data.status!=="draft")throw Error("Прогноз доступен только для чернового комплекта");
@@ -198,11 +212,10 @@ function createDrawingRevisions({database,documents,pdfIndex,clock=()=>new Date(
   };
   const sections=["ai-analysis","ai-mark-quantities","ai-kmd-materials",
    "ai-kmd-joints","ai-kmd-connection-items","ai-km-kmd-comparison",
-   "ai-assembly-placement","ai-assembly-attachments"];
+   "ai-assembly-placement","ai-assembly-attachments","ai-structured-reviews","ai-workflow-tasks"];
   const affected=[];
   for(const section of sections)for(const row of database.listEntity(o,section)){
-   const d=row.data||{},sources=section==="ai-km-kmd-comparison"?
-    [d.km?.source,d.kmd?.source].filter(Boolean):d.source?[d.source]:[];
+   const sources=evidenceSources(o,section,row,files);
    const checks=sources.map(relevant).filter(x=>x!==null);
    if(checks.includes(false))affected.push({section,id:row.id,title:String(row.title||"")})
   }
@@ -216,14 +229,12 @@ function createDrawingRevisions({database,documents,pdfIndex,clock=()=>new Date(
    ["ai-analysis","Анализы ИИ"],["ai-mark-quantities","Количество марок"],
    ["ai-kmd-materials","Детали металла"],["ai-kmd-joints","Узлы"],
    ["ai-kmd-connection-items","Метизы/швы"],["ai-km-kmd-comparison","Сравнения КМ/КМД"],
-   ["ai-assembly-placement","3D-размещения"],["ai-assembly-attachments","3D-привязки"]];
-  const output=[];
+   ["ai-assembly-placement","3D-размещения"],["ai-assembly-attachments","3D-привязки"],
+   ["ai-structured-reviews","Проверенные предложения ИИ"],["ai-workflow-tasks","Очередь распознавания"]];
+  const files=docMap(o),output=[];
   for(const [section,title] of sections){
    for(const row of database.listEntity(o,section)){
-    const d=row.data||{};
-    const srcs=section==="ai-km-kmd-comparison"?
-     [d.km?.source,d.kmd?.source].filter(Boolean):
-     d.source?[d.source]:[];
+    const srcs=evidenceSources(o,section,row,files);
     const matches=srcs.map(s=>sourceState(o,s));
     if(!matches.length)continue;
     const outdated=matches.some(s=>!s.current);

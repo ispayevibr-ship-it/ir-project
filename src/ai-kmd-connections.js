@@ -268,8 +268,21 @@ function createKmdConnections({database,quantities,revisions=null,clock=()=>new 
  }
  function summary(id){
   const nodes=listNodes(id),items=listComponents(id),hardware=new Map();
+  const usedJoints=new Set(),usedItems=new Set();
+  for(const node of nodes.filter(x=>x.counted)){
+   const key=node.scope+"\u0001"+(node.scope==="erection"?"объект":node.assemblyId)+
+    "\u0001"+node.jointCode.trim().toLocaleUpperCase("ru-RU");
+   if(usedJoints.has(key))throw Error("Повторный подтверждённый узел "+node.jointCode+
+    ": сводка крепежа не рассчитана во избежание двойного учёта");
+   usedJoints.add(key)
+  }
   let weldedLengthM=0,confirmedWelds=0;
   for(const part of items.filter(x=>x.counted)){
+   const itemKey=part.jointId+"\u0001"+part.category+"\u0001"+
+    part.position.trim().toLocaleUpperCase("ru-RU");
+   if(usedItems.has(itemKey))throw Error("Повторная подтверждённая позиция "+part.position+
+    ": сводка крепежа не рассчитана во избежание двойного учёта");
+   usedItems.add(itemKey);
    if(part.category==="weld"){
     weldedLengthM+=part.totalLengthM;confirmedWelds++;
     continue

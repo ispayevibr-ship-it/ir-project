@@ -89,7 +89,24 @@ function createAiIntegrity({database,documents,pdfIndex,revisions,review,workflo
   const marks=safe("quantities",()=>quantities.list(objectId),[]);
   metrics.marks=marks.length;
   const approvedMarks=marks.filter(x=>x.status==="confirmed"&&x.sourceValid);
-  metrics.approvedMarkCopies=approvedMarks.reduce((sum,x)=>sum+(x.quantity||0),0);
+  // Never publish a plausible-looking total if persisted approved records collide.
+  const approvedKeys=new Map(),duplicateMarks=[],invalidCounts=[];
+  for(const mark of approvedMarks){
+   const key=[mark.mark,mark.cipher,mark.secondaryCipher]
+    .map(v=>String(v||"").trim().toLocaleUpperCase("ru-RU")).join("\u0001");
+   if(approvedKeys.has(key))duplicateMarks.push(mark);
+   else approvedKeys.set(key,mark);
+   if(!Number.isSafeInteger(mark.quantity)||mark.quantity<=0)invalidCounts.push(mark)
+  }
+  const sumMarks=approvedMarks.reduce((sum,x)=>sum+x.quantity,0);
+  metrics.approvedMarkCopies=duplicateMarks.length||invalidCounts.length||
+   !Number.isSafeInteger(sumMarks)?null:sumMarks;
+  note("error","duplicate_approved_marks","Дубли подтверждённых отправочных марок",
+   "Итог количества скрыт: одинаковые марка и шифры не должны учитываться повторно. Исправьте конфликт записей.","marks",
+   duplicateMarks.length,sample(duplicateMarks,x=>x.mark+" · "+x.cipher+" · № "+x.id));
+  note("error","invalid_approved_quantities","Некорректное подтверждённое количество",
+   "Итог количества скрыт, пока записи с пустым или ошибочным количеством не будут проверены.","marks",
+   invalidCounts.length,sample(invalidCounts,x=>x.mark+" · № "+x.id));
   const staleMarks=marks.filter(x=>x.status==="confirmed"&&!x.sourceValid);
   note("error","stale_mark_quantities","Ранее утверждённые количества утратили актуальность",
    "Исключены из текущей сводки. Проверьте количество экземпляров по действующей спецификации КМД.","marks",
@@ -104,6 +121,15 @@ function createAiIntegrity({database,documents,pdfIndex,revisions,review,workflo
   note("error","steel_unaccounted","Подтверждённые ранее детали не участвуют в текущем тоннаже",
    "Причина может быть в устаревшем листе, непроверенной родительской марке или отсутствии нужного размера/массы.","metal",
    steelStale.length,sample(steelStale,x=>x.position+" / "+x.assemblyMark+": "+x.reason));
+  const seenParts=new Map(),duplicateParts=[];
+  for(const part of steel.filter(x=>x.counted)){
+   const key=part.assemblyId+"\u0001"+String(part.position||"").trim().toLocaleUpperCase("ru-RU");
+   if(seenParts.has(key))duplicateParts.push(part);
+   else seenParts.set(key,part)
+  }
+  note("error","duplicate_confirmed_parts","Дубли подтверждённых деталей КМД",
+   "Одна позиция детали в пределах отправочной марки не должна повторно увеличивать массу.","metal",
+   duplicateParts.length,sample(duplicateParts,x=>x.assemblyMark+" / "+x.position+" · № "+x.id));
   const pendingSteel=steel.filter(x=>x.status==="requires_review");
   note("warning","steel_review_pending","Детали КМД ожидают проверки инженера",
    "Данные не используются в подтверждённой массе.","metal",
@@ -111,6 +137,22 @@ function createAiIntegrity({database,documents,pdfIndex,revisions,review,workflo
   const nodes=safe("connections",()=>connections.listNodes(objectId),[]);
   const items=safe("hardware",()=>connections.listComponents(objectId),[]);
   metrics.connections=nodes.length;metrics.hardwareRows=items.length;
+  const usedJoints=new Set(),duplicatedJoints=[],usedComponents=new Set(),duplicatedComponents=[];
+  for(const joint of nodes.filter(x=>x.counted)){
+   const key=joint.scope+"\u0001"+(joint.scope==="erection"?"объект":joint.assemblyId)+
+    "\u0001"+String(joint.jointCode||"").trim().toLocaleUpperCase("ru-RU");
+   if(usedJoints.has(key))duplicatedJoints.push(joint);else usedJoints.add(key)
+  }
+  for(const item of items.filter(x=>x.counted)){
+   const key=item.jointId+"\u0001"+item.category+"\u0001"+
+    String(item.position||"").trim().toLocaleUpperCase("ru-RU");
+   if(usedComponents.has(key))duplicatedComponents.push(item);else usedComponents.add(key)
+  }
+  note("error","duplicate_confirmed_hardware","Дубли физических узлов или компонентов",
+   "Повторные позиции могут привести к завышению учёта метизов и сварных швов.","fasteners",
+   duplicatedJoints.length+duplicatedComponents.length,[
+    ...sample(duplicatedJoints,x=>"Узел "+x.jointCode+" · № "+x.id),
+    ...sample(duplicatedComponents,x=>"Позиция "+x.position+" · № "+x.id)]);
   const staleNodes=nodes.filter(x=>x.status==="confirmed"&&!x.counted),
    staleItems=items.filter(x=>x.status==="confirmed"&&!x.counted);
   note("error","invalid_hardware","Подтверждённые метизы, швы или узлы требуют пересмотра",
