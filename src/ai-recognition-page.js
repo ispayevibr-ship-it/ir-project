@@ -60,7 +60,7 @@ window.irAiRecognitionPage=async function(objectId){
    '<button id="irAiStop" '+(!runtime||!canEdit||!(state==="ready"||state==="starting")?'disabled':'')+'>Остановить ИИ</button>'+
    '<button id="irAiRefresh" '+(!runtime||busy?'disabled':'')+'>Проверить ИИ</button>'+
    '<button id="irAiExport" disabled>Экспортировать</button>'+
-   '<span class="ir-ai-action-note">Распознавание PNG/JPG · без облака · PDF позже</span></div>'+
+   '<span class="ir-ai-action-note">Листы PDF: предпросмотр и визуальный анализ при наличии локальной модели</span></div>'+
    (!ready||!runtime?'<div class="ir-ai-warning" role="status"><b>Требуется новая установка Electron.</b> Действующий установщик не содержит мост локального ИИ; обновления интерфейса недостаточно.</div>':'')+
    (!engine?.installed?'<div class="ir-ai-warning" role="status"><b>Требуется отдельный офлайн-пакет модели.</b> Пока он не поставляется с установщиком. Без него запуск и распознавание недоступны.</div>':'')+
    (message?'<div class="ir-ai-message '+(severity==="error"?"error":"")+'" role="status">'+esc(message)+'</div>':'')+
@@ -108,7 +108,7 @@ window.irAiRecognitionPage=async function(objectId){
   if(active==="checks"&&analyses.length){
    box.innerHTML='<h2 class="ir-ai-results-title">Реальные результаты локального анализа · '+analyses.length+'</h2>'+
     analyses.map(x=>'<article class="ir-ai-result"><div class="ir-ai-result-header"><b>'+esc(x.sourceName)+'</b>'+
-     '<span>Требует проверки инженера</span></div><div class="ir-ai-result-source">Документ № '+esc(x.documentId)+' · SHA-256 '+esc(x.sha256)+
+     '<span>Требует проверки инженера</span></div><div class="ir-ai-result-source">Документ № '+esc(x.documentId)+(x.page?" · лист "+x.page:"")+' · SHA-256 '+esc(x.sha256)+
      ' · '+esc(x.region||"Не задан")+'</div>'+
      (x.notes?'<div class="ir-ai-result-text">'+esc(x.notes.text||"")+'</div>'+
       '<div class="ir-ai-result-row"><b>Найденные обозначения (не проверены):</b> '+esc((x.notes.marks||[]).join(", ")||"Не определены")+'</div>'+
@@ -131,6 +131,7 @@ window.irAiRecognitionPage=async function(objectId){
     '<td>'+esc(x.kind)+'</td><td>'+size(x.size)+'</td><td><span class="ir-ai-doc-status '+(!x.exists?"missing":"")+'">'+(x.exists?"Не распознано":"Файл отсутствует")+'</span></td>'+
     '<td><div class="ir-ai-doc-actions">'+
     (canEdit&&[".png",".jpg",".jpeg"].includes(x.ext)?'<button data-ai-analyze="'+x.id+'" '+(!modelReady||busy||!x.exists?'disabled':'')+'>Распознать</button>':"")+
+    (x.ext===".pdf"?'<button data-ai-pdf-preview="'+x.id+':1" '+(!pdf||busy||!x.exists?'disabled':'')+'>Лист 1</button>':"")+
     (canEdit&&x.ext===".pdf"?'<button data-ai-pdf-index="'+x.id+'" '+(!pdf||busy||!x.exists?'disabled':'')+'>Индексировать PDF</button>':"")+
     '<button data-ai-open="'+x.id+'" '+(!ready||!x.exists?'disabled':'')+'>Открыть</button>'+
     (canEdit?'<button class="delete" data-ai-remove="'+x.id+'" '+(!ready?'disabled':'')+'>Удалить</button>':"")+'</div></td></tr>').join("")+
@@ -143,10 +144,27 @@ window.irAiRecognitionPage=async function(objectId){
      (p.truncated?' · Текст сокращён':'')+'</summary>'+
      '<div class="ir-ai-pdf-size">Размер: '+p.widthPt+' × '+p.heightPt+' pt · Фрагментов: '+p.fragmentCount+'</div>'+
      '<pre>'+esc(p.excerpt||"Текст не найден.")+'</pre>'+
-     (p.hasTextLayer?'<button type="button" data-ai-pdf-page="'+x.id+':'+p.page+'">Полный текст и координаты</button>':'')+
+     '<div class="ir-ai-pdf-sheet-actions"><button type="button" data-ai-pdf-preview="'+x.documentId+':'+p.page+'">Просмотр листа</button>'+
+     (canEdit?'<button type="button" data-ai-pdf-vision="'+x.documentId+':'+p.page+'" '+(!modelReady||busy?'disabled title="Сначала установите и запустите локальную модель"':'')+'>Распознать лист ИИ</button>':'')+
+     (p.hasTextLayer?'<button type="button" data-ai-pdf-page="'+x.id+':'+p.page+'">Полный текст и координаты</button>':'')+'</div>'+
      '</details>').join("")+'</div></article>').join("")+'</section>':'');
   const search=box.querySelector("#irAiSearch");
   if(search)search.oninput=e=>{const pos=e.target.selectionStart;term=e.target.value;showContent();const next=box.querySelector("#irAiSearch");next?.focus();try{next?.setSelectionRange(pos,pos)}catch{}};
+  box.querySelectorAll("[data-ai-pdf-preview]").forEach(button=>button.onclick=()=>{
+   const [did,page]=button.dataset.aiPdfPreview.split(":");
+   openPdfPreview(did,page)
+  });
+  box.querySelectorAll("[data-ai-pdf-vision]").forEach(button=>button.onclick=async()=>{
+   if(!pdf||!canEdit||busy||!modelReady)return;
+   const [did,page]=button.dataset.aiPdfVision.split(":");
+   busy=true;notice("Реальный локальный ИИ анализирует лист "+page+". Результат сохранится только как непроверенное предположение.");paint();
+   try{
+    const result=await pdf.analyze(id,did,page);
+    notice("Анализ PDF завершён: "+result.source+" · лист "+result.page+". Проверьте результат перед использованием.");
+    active="checks"
+   }catch(error){notice("Распознавание листа не выполнено: "+String(error.message||error),"error")}
+   finally{busy=false;await reload()}
+  });
   box.querySelectorAll("[data-ai-pdf-index]").forEach(button=>button.onclick=async()=>{
    if(!pdf||busy||!canEdit)return;
    const documentId=button.dataset.aiPdfIndex;
@@ -187,6 +205,34 @@ window.irAiRecognitionPage=async function(objectId){
    try{await bridge.remove(id,row.id);notice("Документ удалён: "+row.name);await reload()}
    catch(error){notice("Не удалось удалить файл: "+String(error.message||error),"error");paint()}
   })
+ }
+ async function openPdfPreview(documentId,page){
+  if(!pdf||busy)return;
+  busy=true;notice("Подготавливаем реальное изображение PDF, лист "+page+"…");paint();
+  try{
+   const result=await pdf.preview(id,documentId,page);
+   if(location.hash!==route)return;
+   const dlg=document.createElement("dialog");
+   dlg.className="ir-ai-pdf-preview-dialog";
+   dlg.innerHTML='<div class="ir-ai-pdf-preview-header"><div><b id="irAiPdfPreviewTitle"></b>'+
+    '<small id="irAiPdfPreviewMeta"></small></div><div class="ir-ai-pdf-preview-actions">'+
+    '<button type="button" data-pdf-fit>100%</button><button type="button" data-pdf-close>Закрыть ✕</button></div></div>'+
+    '<div class="ir-ai-pdf-preview-stage"><img alt="Отрендеренный лист PDF"></div>';
+   dlg.querySelector("#irAiPdfPreviewTitle").textContent=String(result.sourceName||"Чертёж PDF")+" · лист "+result.page+"/"+result.total;
+   dlg.querySelector("#irAiPdfPreviewMeta").textContent="Оригинал: SHA-256 "+result.sha256+" · изображение "+result.width+" × "+result.height+" px";
+   const img=dlg.querySelector("img");
+   if(!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(String(result.dataUrl||"")))throw Error("Неверный формат отрендеренного листа");
+   img.src=result.dataUrl;img.classList.add("fit");
+   dlg.querySelector("[data-pdf-fit]").onclick=event=>{
+    const fitted=img.classList.toggle("fit");
+    event.currentTarget.textContent=fitted?"100%":"По ширине"
+   };
+   dlg.querySelector("[data-pdf-close]").onclick=()=>dlg.close();
+   dlg.addEventListener("close",()=>dlg.remove(),{once:true});
+   dlg.addEventListener("click",event=>{if(event.target===dlg)dlg.close()});
+   document.body.appendChild(dlg);dlg.showModal();
+  }catch(error){notice("Не удалось показать лист PDF: "+String(error.message||error),"error")}
+  finally{busy=false;await reload()}
  }
  await reload()
 };

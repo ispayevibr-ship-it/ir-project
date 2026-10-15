@@ -20,6 +20,8 @@ const aiPdf={
  list:objectId=>ipcRenderer.invoke("ai-pdf:list",objectId),
  index:(objectId,id)=>ipcRenderer.invoke("ai-pdf:index",{objectId,id}),
  page:(objectId,indexId,page)=>ipcRenderer.invoke("ai-pdf:page",{objectId,indexId,page}),
+ preview:(objectId,id,page)=>ipcRenderer.invoke("ai-pdf:preview",{objectId,id,page}),
+ analyze:(objectId,id,page)=>ipcRenderer.invoke("ai-pdf:analyze",{objectId,id,page}),
  onProgress:callback=>{
   const listener=(_event,data)=>{if(typeof callback==="function")callback(data)};
   ipcRenderer.on("ai-pdf:progress",listener);

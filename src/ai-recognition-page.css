@@ -96,3 +96,21 @@
 .ir-ai-pdf-sheets button{border:1px solid #afcee1;color:#196cad;padding:6px 9px;border-radius:6px;font-size:10px;cursor:pointer;background:#f4faff}
 .ir-ai-pdf-sheets button:disabled{opacity:.7;cursor:default}
 @media(max-width:760px){.ir-ai-pdf-card header{flex-wrap:wrap}.ir-ai-pdf-card header span{white-space:normal}}
+
+/* IR Project AI 1.7.210 — genuine PDF raster preview, bounded local vision */
+.ir-ai-pdf-sheet-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+.ir-ai-pdf-sheet-actions button{background:#f3f9fd}
+.ir-ai-pdf-sheet-actions button[data-ai-pdf-vision]:not(:disabled){color:#226245;background:#f0faf2;border-color:#b9d8c7}
+.ir-ai-pdf-preview-dialog{inset:0;max-width:min(98vw,1600px);width:min(98vw,1600px);height:min(96vh,1000px);max-height:96vh;margin:auto;padding:0;background:#e9eff5;border:1px solid #cad9e4;border-radius:12px;box-shadow:0 20px 80px #132b4360;overflow:hidden;color:#173e5b}
+.ir-ai-pdf-preview-dialog::backdrop{background:#091a2cbb}
+.ir-ai-pdf-preview-header{height:64px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 18px;background:#fff;border-bottom:1px solid #cfdfeb}
+.ir-ai-pdf-preview-header div:first-child{min-width:0}
+.ir-ai-pdf-preview-header b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ir-ai-pdf-preview-header small{display:block;font-size:10px;color:#7593a5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:800px;margin-top:4px}
+.ir-ai-pdf-preview-actions{display:flex;gap:7px}
+.ir-ai-pdf-preview-actions button{height:32px;padding:0 12px;border-radius:7px;border:1px solid #c1d6e3;background:#f4f9fc;color:#2c688f;cursor:pointer;white-space:nowrap;font-size:11px;font-weight:700}
+.ir-ai-pdf-preview-actions button:last-child{background:#214967;color:#fff;border-color:#214967}
+.ir-ai-pdf-preview-stage{height:calc(100% - 64px);overflow:auto;padding:16px;text-align:center}
+.ir-ai-pdf-preview-stage img{display:block;margin:0 auto;max-width:none;height:auto;background:#fff;box-shadow:0 2px 15px #163b5830}
+.ir-ai-pdf-preview-stage img.fit{max-width:100%;width:auto}
+@media(max-width:700px){.ir-ai-pdf-preview-header{height:82px;flex-wrap:wrap;padding:8px 12px}.ir-ai-pdf-preview-stage{height:calc(100% - 82px)}.ir-ai-pdf-preview-header small{max-width:230px;font-size:9px}}
