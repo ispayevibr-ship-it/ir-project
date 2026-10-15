@@ -38,6 +38,7 @@ async function run(){
   assert.equal(generated.manifest.files.length,4);
   assert.equal(generated.sha256,await checksum(output));
   assert.equal((await verifyBuiltArchive(output,publicKey)).verified,true);
+  assert.equal((await verifyBuiltArchive(output,publicKey.export({format:"pem",type:"spki"}))).verified,true, "publisher accepts PEM and public KeyObject");
   assert.equal(generated.publicKeyFingerprint.length,64);
   const wrongKey=crypto.generateKeyPairSync("ed25519").publicKey;
   await assert.rejects(verifyBuiltArchive(output,wrongKey),/Подпись/);
