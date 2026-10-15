@@ -280,8 +280,11 @@ function registerBackup(){
  let active=false;
  const locked=async task=>{
   if(active)throw Error("Резервная копия уже обрабатывается");
-  if(aiOcr.status().busy||aiEngine.status().active||aiQueue.summary&&
-    database.listObjects().some(o=>{try{return aiQueue.summary(o.id).isRunning}catch{return true}}))
+  const qwenState=aiEngine.status();
+  if(aiOcr.status().busy||["starting","ready"].includes(qwenState.state)||
+    (aiQueue.summary&&database.listObjects().some(o=>{
+     try{return aiQueue.summary(o.id).isRunning}catch{return true}
+    })))
    throw Error("Остановите очередь распознавания и текущий анализ перед работой с резервной копией");
   active=true;
   try{return await task()}finally{active=false}

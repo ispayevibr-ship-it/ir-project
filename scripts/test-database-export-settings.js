@@ -17,6 +17,8 @@ assert(main.includes('dialog.showSaveDialog(win,'));
 assert(main.includes("completeBackup.pack({userData:app.getPath("),"complete export uses staged verified archive");
 assert(main.includes("completeBackup.restore({archive:r.filePaths[0]"),"restore validates staged archive");
 assert(main.includes("requireBackupAdmin(e)"),"native authorization is required for backup IPC");
+assert(main.includes('["starting","ready"].includes(qwenState.state)'),
+ "backup must be blocked while Qwen is starting or ready, not a nonexistent status.active flag");
 assert(tabsCSS.includes("#programExportDatabase"));
 assert(standaloneCSS.includes("#programExportDatabase"));
 const start=profile.indexOf("  let exportingDatabase=false;"),end=profile.indexOf("\n  updateButton.onclick=",start);
