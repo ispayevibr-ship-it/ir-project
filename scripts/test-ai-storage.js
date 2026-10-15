@@ -47,6 +47,20 @@ const {createStore}=require("../src/ai-document-store");
    "original PDF remains when engineering history refers to its ID");
   assert(fs.existsSync(opened),"source bytes must be preserved after blocked deletion");
   db.deleteEntity(1,"ai-mark-quantity-history",history.id);
+  const baseline=db.createEntity(1,"ai-kmd-reference-rows",{
+   record_type:"kmd_reference",title:"Engineer's source position",
+   data:{source:{documentId:id,sha256:first.imported[0].sha256}}
+  });
+  assert.throws(()=>store.remove(1,id),/Нельзя удалить исходный файл/,
+   "a signed KMD reference blocks deletion of its original drawing");
+  db.deleteEntity(1,"ai-kmd-reference-rows",baseline.id);
+  const approval=db.createEntity(1,"ai-kmd-reference-checks",{
+   record_type:"kmd_sheet_check",title:"Drawing approval",
+   data:{documentId:id,sha256:first.imported[0].sha256}
+  });
+  assert.throws(()=>store.remove(1,id),/Нельзя удалить исходный файл/,
+   "per-sheet signoff prevents removal of its originating PDF");
+  db.deleteEntity(1,"ai-kmd-reference-checks",approval.id);
   assert.equal(store.remove(1,id),true);
   assert(!fs.existsSync(opened));assert.equal(store.list(1).length,0);
   const bad=path.join(tmp,"blocked.exe");fs.writeFileSync(bad,"file");

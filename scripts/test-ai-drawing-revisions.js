@@ -82,7 +82,22 @@ function fixture(){
   {documentId:old.id,page:1,sheetCode:"КМД-01"},
   {documentId:newer.id,page:1,sheetCode:"КМД-02"}
  ],{role:"engineer"});
+ const checkedRow=db.createEntity(1,"ai-kmd-reference-rows",{
+  record_type:"kmd_reference",title:"К41 эталон",
+  data:{setId:initial.id,sheetId:rev.getSheets(1,initial.id)[0].id,
+   type:"mark",mark:"К41",cipher:"041",quantity:4,
+   source:kmdInput(old.id,1,shaA),status:"confirmed"}
+ });
+ const checkedSheet=db.createEntity(1,"ai-kmd-reference-checks",{
+  record_type:"kmd_sheet_check",title:"Проверен лист",
+  data:{setId:initial.id,sheetId:rev.getSheets(1,initial.id)[0].id,
+   documentId:old.id,sha256:shaA,page:1,status:"sealed",
+   reviewedEntireSheet:true,reviewedBy:"engineer"}
+ });
  const before=rev.previewActivation(1,second.id);
+ assert(before.affected.some(x=>x.section==="ai-kmd-reference-rows"&&x.id===checkedRow.id),
+  "new drawing set archives signed reference even when original PDF is unchanged");
+ assert(before.affected.some(x=>x.section==="ai-kmd-reference-checks"&&x.id===checkedSheet.id));
  assert.equal(before.affectedCount>=1,true);
  assert.equal(before.invalidPages,0);
  assert.equal(rev.isCurrent(1,kmdInput(old.id,2,shaA)),true,"draft has no effect");
@@ -101,6 +116,11 @@ function fixture(){
  assert.equal(qty.list(1)[0].status,"confirmed","old decision stays in audit");
  assert.equal(qty.list(1)[0].sourceValid,false);
  assert.equal(rev.impact(1).outdated>=1,true);
+ const previousReference=rev.impact(1).records.filter(x=>
+  x.section==="ai-kmd-reference-rows"||x.section==="ai-kmd-reference-checks");
+ assert.equal(previousReference.length,2);
+ assert(previousReference.every(x=>x.outdated),
+  "source matching alone cannot reactivate signed references from an older set");
  assert.equal(rev.history(1,initial.id).length>=3,true);
  assert.equal(rev.list(2).length,0);
  assert.throws(()=>rev.history(2,initial.id),/не найден/);
