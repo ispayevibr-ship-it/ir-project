@@ -22,6 +22,7 @@ const {createAiCoverage}=require("../src/ai-kmd-coverage");
  const items=[{id:60,assemblyId:31,jointId:50,category:"fastener",
   kind:"bolt",position:"Б1",totalPieces:48,status:"confirmed",counted:true}];
  const placements=[{id:70,record_type:"part_placement",data:{assemblyId:31,partId:40,instanceIndex:1}}];
+ const annotationRows=[];
  const proposals=[
   {analysisId:21,index:0,approved:true,sourceValid:true,type:"mark_quantity",
    values:{mark:"К41",cipher:"041",quantity:6,specPosition:"17"}},
@@ -37,7 +38,7 @@ const {createAiCoverage}=require("../src/ai-kmd-coverage");
   getObject:id=>Number(id)===1?{id:1}:null,
   listEntity:(id,section)=>id===1?
    section==="ai-assembly-placement"?placements:
-   section==="ai-assembly-attachments"?[]:[]:[]
+   section==="ai-assembly-attachments"?annotationRows:[]:[]
  };
  let assemblyReadFails=false,annotationReadFails=false;
  const coverage=createAiCoverage({
@@ -95,14 +96,14 @@ const {createAiCoverage}=require("../src/ai-kmd-coverage");
  assert(!broken3d.issues.some(x=>x.code==="kmd_partial_3d_placement"),
   "cannot assert incomplete 3D geometry when the source could not be read");
  assemblyReadFails=false;
- placements.push({id:71,record_type:"assembly_attachment",data:{assemblyId:31}});
+ annotationRows.push({id:71,record_type:"assembly_attachment",data:{assemblyId:31}});
  annotationReadFails=true;
  const brokenAnnotations=coverage.report(1);
  assert.equal(brokenAnnotations.marks[0].confirmed3dAnnotations,null,
   "unknown 3D annotations must not be reported as none");
  assert.equal(brokenAnnotations.metrics.registeredFastenerPieces,48);
  annotationReadFails=false;
- placements.pop();
+ annotationRows.pop();
  assert(first.issues.some(x=>x.code==="kmd_confirmed_parts_not_transferred"&&x.count===1));
  assert(!first.issues.some(x=>x.code==="kmd_quantity_conflicts"));
  proposals[0].values.quantity=5;
