@@ -336,12 +336,12 @@ function createKmdReference({database,revisions,quantities,materials,connections
   const entries=ledger.filter(x=>x.approved),marks=quantities.list(o),
    details=materials.list(o),nodes=connections.listNodes(o),components=connections.listComponents(o);
   const issues=[],affected=[];
-  const register=(code,label,entry,actual,expected,actualRecord=null)=>{
+  const register=(code,label,entry,actual,expected,actualRecord=null,reason="")=>{
    const message={code,label,referenceId:entry.id,type:entry.type,
     mark:entry.mark,cipher:entry.cipher,secondaryCipher:entry.secondaryCipher,
     position:entry.position||entry.jointCode,
     sheetCode:entry.sheetCode,expected,actual,
-    actualId:actualRecord?.id??null,assemblyId:actualRecord?.assemblyId??null,
+    reason:String(reason||""),actualId:actualRecord?.id??null,assemblyId:actualRecord?.assemblyId??null,
     jointId:actualRecord?.jointId??null};
    issues.push(message);affected.push(entry.id)
   };
@@ -362,32 +362,59 @@ function createKmdReference({database,revisions,quantities,materials,connections
   const componentIdentity=row=>row.jointId+"\u0001"+row.category+"\u0001"+
    normalize(row.kind)+"\u0001"+normalize(row.position);
   const confirmedMarks=marks.filter(x=>x.status==="confirmed"&&x.sourceValid);
+  // Existing unapproved ledger rows are not missing positions. Link the
+  // engineer to the exact draft or stale row instead of suggesting a duplicate.
+  const activeRows=rows=>rows.filter(x=>x.status!=="rejected");
   const marksByName=indexed(confirmedMarks,markIdentity),
+   allMarksByName=indexed(activeRows(marks),markIdentity),
    detailsByMark=indexed(details.filter(x=>x.counted),partIdentity),
+   allDetailsByMark=indexed(activeRows(details),partIdentity),
    jointsByMark=indexed(nodes.filter(x=>x.counted),jointIdentity),
-   itemsByJoint=indexed(components.filter(x=>x.counted),componentIdentity);
+   allJointsByMark=indexed(activeRows(nodes),jointIdentity),
+   itemsByJoint=indexed(components.filter(x=>x.counted),componentIdentity),
+   allItemsByJoint=indexed(activeRows(components),componentIdentity);
   for(const entry of entries){
    const markMatches=marksByName.get(markIdentity(entry))||[];
-   if(markMatches.length!==1){register(markMatches.length?"ambiguous_mark":"missing_mark",
-    markMatches.length?"Повторные подтверждённые марки":"Нет подтверждённой отправочной марки",
-    entry,markMatches.length||null,entry.quantity);continue}
-   const mark=markMatches[0];
-   let found=[];
-   if(entry.type==="mark")found=[mark];
-   else if(entry.type==="part")
-    found=detailsByMark.get(mark.id+"\u0001"+normalize(entry.position))||[];
-   else if(entry.type==="joint")
-    found=jointsByMark.get(mark.id+"\u0001"+entry.scope+"\u0001"+
-     normalize(entry.jointCode))||[];
-   else{
-    const parents=jointsByMark.get(mark.id+"\u0001"+entry.scope+"\u0001"+
-     normalize(entry.jointCode))||[];
-    found=parents.flatMap(parent=>itemsByJoint.get(parent.id+"\u0001"+entry.category+
-     "\u0001"+normalize(entry.kind)+"\u0001"+normalize(entry.position))||[])
+   if(markMatches.length!==1){
+    const candidates=allMarksByName.get(markIdentity(entry))||[];
+    if(markMatches.length===0&&candidates.length===1)
+     register("unverified_mark","Отправочная марка внесена, но не подтверждена",
+      entry,"Не подтверждено",entry.quantity,candidates[0],
+      candidates[0].reason||"Количество марки или исходный лист требуют проверки");
+    else register(markMatches.length||candidates.length>1?"ambiguous_mark":"missing_mark",
+     markMatches.length||candidates.length>1?"Повторные отправочные марки":"Нет отправочной марки в ведомости",
+     entry,markMatches.length||candidates.length||null,entry.quantity);
+    continue
    }
-   if(found.length!==1){register(found.length?"ambiguous_position":"missing_position",
-    found.length?"Повторные позиции в ведомости":"Позиция отсутствует в инженерной ведомости",
-    entry,found.length||null,entry.quantity);continue}
+   const mark=markMatches[0];
+   let found=[],candidates=[];
+   if(entry.type==="mark")found=[mark];
+   else if(entry.type==="part"){
+    const k=mark.id+"\u0001"+normalize(entry.position);
+    found=detailsByMark.get(k)||[];
+    candidates=allDetailsByMark.get(k)||[]
+   }else if(entry.type==="joint"){
+    const k=mark.id+"\u0001"+entry.scope+"\u0001"+normalize(entry.jointCode);
+    found=jointsByMark.get(k)||[];
+    candidates=allJointsByMark.get(k)||[]
+   }else{
+    const k=mark.id+"\u0001"+entry.scope+"\u0001"+normalize(entry.jointCode);
+    const parents=allJointsByMark.get(k)||[];
+    const keyForItem=parent=>parent.id+"\u0001"+entry.category+
+     "\u0001"+normalize(entry.kind)+"\u0001"+normalize(entry.position);
+    found=parents.filter(x=>x.counted).flatMap(parent=>itemsByJoint.get(keyForItem(parent))||[]);
+    candidates=parents.flatMap(parent=>allItemsByJoint.get(keyForItem(parent))||[])
+   }
+   if(found.length!==1){
+    if(found.length===0&&candidates.length===1)
+     register("unverified_position","Позиция внесена, но не подтверждена",
+      entry,"Не подтверждено",entry.quantity,candidates[0],
+      candidates[0].reason||"Позиция или её родительский узел требуют проверки");
+    else register(found.length||candidates.length>1?"ambiguous_position":"missing_position",
+     found.length||candidates.length>1?"Повторные позиции в ведомости":"Позиция отсутствует в инженерной ведомости",
+     entry,found.length||candidates.length||null,entry.quantity);
+    continue
+   }
    const value=found[0],actual=entry.type==="mark"?value.quantity:
     entry.type==="part"?value.partCount:
     entry.type==="joint"?(entry.scope==="erection"?value.siteOccurrences:value.occurrencesPerAssembly):
