@@ -18,6 +18,16 @@ async function downloadVerifiedPack({release,destination,request=fetch,signal,on
   if(!stat.isFile()||stat.size>release.bytes)throw Error("Некорректный временный пакет");
   offset=stat.size;
  }
+ if(offset===release.bytes){
+  const digest=crypto.createHash("sha256");
+  for await(const chunk of fs.createReadStream(destination))digest.update(chunk);
+  if(digest.digest("hex")===release.sha256.toLowerCase()){
+   try{onProgress({received:offset,total:release.bytes,percent:100})}catch{}
+   return{path:destination,size:offset,sha256:release.sha256.toLowerCase()};
+  }
+  fs.rmSync(destination,{force:true});
+  offset=0;
+ }
  for(let attempt=0;attempt<3;attempt++){
   try{
    const headers=offset?{"Range":"bytes="+offset+"-","Accept-Encoding":"identity"}:{"Accept-Encoding":"identity"};
