@@ -55,6 +55,7 @@ jobs:
           node --check scripts/ai-pack-publisher.js
           node --check scripts/build-qwen4-pack.js
           node --check scripts/sign-ai-catalog.js
+          node --check scripts/test-ai-pack-publisher.js
           node scripts/test-ai-pack-publisher.js
           node scripts/test-ai-pdf.js
           node scripts/test-ai-pdf-render.js

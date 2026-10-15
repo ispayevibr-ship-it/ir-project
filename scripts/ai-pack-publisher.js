@@ -93,7 +93,7 @@ async function verifyBuiltArchive(filename,publicKey){
  });
  if(!manifestBytes||!signatureBytes)throw Error("Не хватает подписи или манифеста");
  const manifest=JSON.parse(manifestBytes.toString("utf8"));
- const key=crypto.createPublicKey(publicKey);
+ const key=publicKey?.type==="public"?publicKey:crypto.createPublicKey(publicKey);
  if(key.asymmetricKeyType!=="ed25519"||!crypto.verify(null,manifestBytes,key,Buffer.from(signatureBytes.toString().trim(),"base64")))
   throw Error("Подпись манифеста не подтверждена");
  if(manifest.schema!==1||manifest.modelId!=="qwen3-vl-4b"||manifest.engine!=="llama.cpp"||
