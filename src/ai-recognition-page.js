@@ -100,6 +100,12 @@ window.irAiRecognitionPage=async function(objectId){
   if(location.hash===route)paint()
  }
  function notice(text,type="info"){message=String(text||"");severity=type}
+ function openTab(tab){
+  if(!tabs.some(x=>x[0]===tab))return;
+  active=tab;
+  if(tab==="reference"||tab==="integrity")void reload();
+  else paint()
+ }
  function paint(){
   if(location.hash!==route)return;
   const state=engine?.state||"missing",stateNames={
@@ -137,7 +143,7 @@ window.irAiRecognitionPage=async function(objectId){
    '<div class="ir-ai-chat-empty">История запросов пока отсутствует. Ответы не имитируются.</div>'+
    '<textarea disabled placeholder="Модель не установлена"></textarea><button disabled>Отправить</button></aside></div>'+
    '<footer class="ir-ai-footer">Этап 2 · Локальное распознавание изображений при наличии установленной модели; результаты не подтверждены. Монтажная схема не изменяется.</footer></div>';
-  app.querySelectorAll("[data-ai-tab]").forEach(button=>button.onclick=()=>{active=button.dataset.aiTab;if(active==="integrity"||active==="reference")void reload();else paint()});
+  app.querySelectorAll("[data-ai-tab]").forEach(button=>button.onclick=()=>openTab(button.dataset.aiTab));
   const upload=app.querySelector("#irAiUpload");
   upload.onclick=async()=>{
    if(!ready||!canEdit||busy||!await authorizeAiMutation())return;busy=true;
@@ -173,7 +179,7 @@ window.irAiRecognitionPage=async function(objectId){
   if(active==="integrity"){
    if(window.irAiIntegrityPage)window.irAiIntegrityPage.render(box,{
     report:integrityReport,onRefresh:reload,
-    onNavigate:tab=>{active=tab;paint()}
+    onNavigate:tab=>openTab(tab)
    });
    else box.innerHTML='<div class="ir-ai-doc-empty">Модуль контроля данных не загружен.</div>';
    return
@@ -209,7 +215,7 @@ window.irAiRecognitionPage=async function(objectId){
     objectId:id,sets:revisionSets,impact:revisionImpact,documents,indexes:pdfIndexes,
     api:revisionsApi,reviewer,askPassword:requestReviewPassword,canEdit,
     openPdf:openPdfPreview,onRefresh:reload,notice,
-    onNavigate:tab=>{active=tab;paint()}
+    onNavigate:tab=>openTab(tab)
    });
    else box.innerHTML='<div class="ir-ai-doc-empty">Модуль контроля ревизий не загружен.</div>';
    return
@@ -233,7 +239,7 @@ window.irAiRecognitionPage=async function(objectId){
     quantities:quantitySummary,materials:materialSummary,connections:connectionSummary,
     comparisons:comparisonSummary,canEdit,queue:workflow,reviewer,
     askPassword:requestReviewPassword,notice,
-    onNavigate:tab=>{active=tab;paint()},onRefresh:reload
+    onNavigate:tab=>openTab(tab),onRefresh:reload
    });
    else box.innerHTML='<div class="ir-ai-doc-empty">Модуль очереди листов не загружен.</div>';
    return
