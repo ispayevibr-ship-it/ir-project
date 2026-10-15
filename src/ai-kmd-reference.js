@@ -117,11 +117,18 @@ function createKmdReference({database,revisions,quantities,materials,connections
    bySheet=new Map((active?.sheets||[]).map(x=>[x.id,x])),fresh=new Map();
   return stored(o,RECORDS,"kmd_reference").map(x=>{
    const d=x.data||{},sourceCurrent=eligible(o,d,active,bySheet,fresh);
-   return{id:x.id,...full(d),quantity:d.quantity??null,
+   // Legacy/corrupted rows cannot become verified solely by having a
+   // "confirmed" status flag. Keep them visible for engineering repair.
+   const verificationValid=Number.isSafeInteger(d.quantity)&&d.quantity>0&&
+    Number.isSafeInteger(d.revision)&&d.revision>0&&
+    ["admin","engineer"].includes(d.reviewedBy)&&
+    typeof d.sourcePosition==="string"&&Boolean(d.sourcePosition.trim())&&
+    typeof d.reviewedAt==="string"&&Boolean(d.reviewedAt.trim());
+   return{id:x.id,...full(d),quantity:d.quantity??null,verificationValid,
     setId:d.setId??null,sheetId:d.sheetId??null,sheetCode:String(d.sheetCode||""),
     source:{...d.source},sourcePosition:String(d.sourcePosition||""),
     status:STATUSES.has(d.status)?d.status:"requires_review",
-    current:sourceCurrent,approved:sourceCurrent&&d.status==="confirmed",
+    current:sourceCurrent,approved:sourceCurrent&&d.status==="confirmed"&&verificationValid,
     revision:Number(d.revision)||0,comment:String(d.comment||""),
     reviewedBy:d.reviewedBy||null,reviewedAt:d.reviewedAt||null}
   })
@@ -381,7 +388,7 @@ function createKmdReference({database,revisions,quantities,materials,connections
   return{objectId:o,setId:review.setId,sheets:review.sheets,
    sheetCount:review.total,reviewedSheets:review.reviewed,allSheetsReviewed:review.allSheetsReviewed,
    activeReferencePositions:entries.length,archivedPositions:ledger.filter(x=>!x.current).length,
-   pendingPositions:ledger.filter(x=>x.current&&x.status==="requires_review").length,
+   pendingPositions:ledger.filter(x=>x.current&&x.status!=="rejected"&&!x.approved).length,
    unlistedPositions:extras.length,duplicateReferencePositions:duplicateReference.length,
    mismatches:issues,discrepancyCount:issues.length,
    referenceReady:review.allSheetsReviewed&&entries.length>0&&issues.length===0,
