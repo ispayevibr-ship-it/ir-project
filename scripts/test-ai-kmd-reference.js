@@ -92,6 +92,20 @@ const {createKmdReference}=require("../src/ai-kmd-reference");
   comment:"По листу, по спецификации и выноскам, все позиции"},{role:"admin"});
  assert.equal(sealed.checked,true);
  assert.equal(api.checks(1).allSheetsReviewed,true);
+ const duplicate=api.list(1).find(x=>x.id===markRef.id);
+ const duplicateStored=db.getEntity(1,"ai-kmd-reference-rows",markRef.id);
+ const duplicateRow=db.createEntity(1,"ai-kmd-reference-rows",{
+  record_type:"kmd_reference",title:"Duplicate physical K41",
+  data:{...duplicateStored.data,revision:2}
+ });
+ assert.equal(api.checks(1).allSheetsReviewed,false,
+  "duplicate confirmed KMD references invalidate per-sheet attestation");
+ assert(api.checks(1).sheets[0].duplicatePositions>0);
+ assert.throws(()=>api.seal(1,301,1,{reviewedEntireSheet:true,
+  comment:"Контрольный повторный акт из двух одинаковых строк"},{role:"engineer"}),
+ /повторяются физические позиции/);
+ db.deleteEntity(1,"ai-kmd-reference-rows",duplicateRow.id);
+ assert.equal(api.checks(1).allSheetsReviewed,true);
  const validMarkRecord=db.getEntity(1,"ai-kmd-reference-rows",markRef.id);
  db.updateEntity(1,"ai-kmd-reference-rows",markRef.id,{
   record_type:"kmd_reference",title:validMarkRecord.title,

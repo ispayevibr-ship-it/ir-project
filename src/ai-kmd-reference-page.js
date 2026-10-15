@@ -39,9 +39,11 @@ window.irAiKmdReferencePage={
     '<article class="ir-ai-reference-sheet">'+
      '<div><b>'+esc(s.sheetCode)+'</b><small>PDF № '+esc(s.documentId)+
       ' · лист '+esc(s.page)+' · позиций '+s.totalPositions+
-      ' · подтверждено '+s.confirmedPositions+'</small></div>'+
+      ' · подтверждено '+s.confirmedPositions+
+      (s.duplicatePositions?' · ДУБЛИ '+esc(s.duplicatePositions):"")+'</small></div>'+
      '<span class="'+(s.checked?"verified":"pending")+'">'+
-      (s.checked?"Лист проверен":!s.valid?"Источник недоступен":"Нужна сверка")+'</span>'+
+      (s.checked?"Лист проверен":!s.valid?"Источник недоступен":
+       s.duplicatePositions?"Повторяющиеся позиции — утверждение запрещено":"Нужна сверка")+'</span>'+
      '<div class="ir-ai-reference-sheet-actions">'+
       '<button type="button" data-reference-pdf="'+s.documentId+':'+s.page+'">Открыть PDF</button>'+
       (perms&&s.valid?'<button type="button" data-reference-seal="'+s.id+'">'+
