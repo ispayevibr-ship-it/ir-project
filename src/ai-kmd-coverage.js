@@ -79,7 +79,7 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
   add("error","kmd_duplicate_mark_identity","Конфликт подтверждённых марок и шифров",
    "marks",duplicateMarkRows);
   const qtyMissing=[],qtyMismatch=[],partMissing=[],partMismatch=[],jointMissing=[],itemMissing=[],
-   ambiguous=[],duplicateEvidence=[];
+   ambiguous=[],ambiguousJoints=[],duplicateEvidence=[];
   const seenEvidence=new Set();
   for(const p of claims){
    if(!["mark_quantity","steel_part","connection"].includes(p.type))continue;
@@ -97,7 +97,8 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
    }
    const mark=match[0],tag=mark.mark+" / "+mark.cipher;
    if(p.type==="mark_quantity"){
-    if(mark.status!=="confirmed"||!mark.sourceValid)qtyMissing.push(p);
+    if(mark.status!=="confirmed"||!mark.sourceValid||
+     !Number.isSafeInteger(mark.quantity)||mark.quantity<=0)qtyMissing.push(p);
     else if(checkedInteger(mark.quantity)!==checkedInteger(v.quantity))
      qtyMismatch.push(tag+": проверено "+v.quantity+", в ведомости "+mark.quantity);
    }else if(p.type==="steel_part"){
@@ -108,12 +109,17 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
      partMismatch.push(tag+" / "+v.position+": предложение "+v.partCount+
       ", подтверждено "+hits.find(x=>x.counted).partCount);
    }else{
-    const joint=(nodesByAssembly.get(mark.id)||[]).find(x=>
+    // The reviewed AI proposal contains a joint code, but not its physical
+    // fabrication/erection scope. Never silently pick the first matching node.
+    const candidateJoints=(nodesByAssembly.get(mark.id)||[]).filter(x=>
      norm(x.jointCode)===norm(v.jointCode)&&x.counted);
-    if(!joint){jointMissing.push(p);continue}
+    if(!candidateJoints.length){jointMissing.push(p);continue}
+    if(candidateJoints.length!==1){ambiguousJoints.push(p);continue}
+    const joint=candidateJoints[0];
     if(v.fastenerKind){
      const matches=(itemsByJoint.get(joint.id)||[]).filter(x=>x.counted&&
-      norm(x.kind)===norm(v.fastenerKind)&&(!v.position||norm(x.position)===norm(v.position)));
+      x.category==="fastener"&&norm(x.kind)===norm(v.fastenerKind)&&
+      (!v.position||norm(x.position)===norm(v.position)));
      if(!matches.length)itemMissing.push(p)
     }
    }
@@ -135,6 +141,8 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
    "fasteners",itemMissing.map(claimTag));
   add("warning","kmd_ambiguous_ciphers","Невозможно однозначно сопоставить марку и шифр",
    "proposals",ambiguous.map(claimTag));
+  add("warning","kmd_ambiguous_connection_scope","Одинаковые обозначения заводских и монтажных узлов",
+   "fasteners",ambiguousJoints.map(claimTag));
   add("warning","kmd_duplicate_reviewed_evidence","Повторно проверенные предложения одной позиции",
    "proposals",duplicateEvidence.map(claimTag));
   // Even damaged SQLite imports must never inflate the coverage totals.
