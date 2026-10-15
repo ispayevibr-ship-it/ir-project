@@ -221,7 +221,10 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
    let annotations=0;
    if((attachmentsByMark.get(mark.id)||[]).length){
     try{annotations=attachments.list(objectId,mark.id).filter(x=>x.visible).length}
-    catch(error){invalid3d.push(mark.mark+": "+String(error?.message||error))}
+    catch(error){
+     annotations=null;
+     invalid3d.push(mark.mark+": "+String(error?.message||error))
+    }
    }
    byMark.set(mark.id,{
     id:mark.id,mark:mark.mark,cipher:mark.cipher,secondaryCipher:mark.secondaryCipher,

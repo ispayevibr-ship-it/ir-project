@@ -39,13 +39,20 @@ const {createAiCoverage}=require("../src/ai-kmd-coverage");
    section==="ai-assembly-placement"?placements:
    section==="ai-assembly-attachments"?[]:[]:[]
  };
+ let assemblyReadFails=false,annotationReadFails=false;
  const coverage=createAiCoverage({
   database,quantities,materials:{list:()=>details},connections:{
    listNodes:()=>joints,listComponents:()=>items
-  },assemblies:{list:()=>[{
-   id:70,assemblyId:31,partId:40,partPosition:"Д1",instanceIndex:1,
-   status:"confirmed",counted:true
-  }]},attachments:{list:()=>[]},proposals:{list:()=>proposals}
+  },assemblies:{list:()=>{
+   if(assemblyReadFails)throw Error("PDF-linked 3D placement index is unreadable");
+   return [{
+    id:70,assemblyId:31,partId:40,partPosition:"Д1",instanceIndex:1,
+    status:"confirmed",counted:true
+   }]
+  }},attachments:{list:()=>{
+   if(annotationReadFails)throw Error("3D attachment index is unreadable");
+   return []
+  }},proposals:{list:()=>proposals}
  });
  const first=coverage.report(1);
  assert.equal(first.complete,false);
@@ -70,6 +77,32 @@ const {createAiCoverage}=require("../src/ai-kmd-coverage");
   "site joints are never multiplied by assembly copies again");
  assert.equal(first.metrics.registeredFastenerPieces,48);
  assert(first.issues.some(x=>x.code==="kmd_partial_3d_placement"));
+ assemblyReadFails=true;
+ const broken3d=coverage.report(1);
+ assert.equal(broken3d.metrics.confirmedMarkCopies,6,
+  "a failed 3D view must not delete engineer-confirmed assembly quantity");
+ assert.equal(broken3d.metrics.registeredDetailUnitsInProject,18,
+  "part takeoff must survive inability to read placement geometry");
+ assert.equal(broken3d.metrics.registeredFastenerPieces,48,
+  "joint and hardware totals must survive a broken 3D placement");
+ assert.equal(broken3d.metrics.factoryJointInstances,12);
+ assert.equal(broken3d.metrics.erectionJointInstances,5);
+ assert.equal(broken3d.metrics.modeledUnitsPerUniqueMarks,null,
+  "unknown 3D count cannot be published as a false zero");
+ assert.equal(broken3d.marks[0].modeledUnitsPerMark,null);
+ assert.equal(broken3d.marks[0].confirmedJointPositions,2);
+ assert(broken3d.issues.some(x=>x.code==="kmd_invalid_3d_placement"));
+ assert(!broken3d.issues.some(x=>x.code==="kmd_partial_3d_placement"),
+  "cannot assert incomplete 3D geometry when the source could not be read");
+ assemblyReadFails=false;
+ placements.push({id:71,record_type:"assembly_attachment",data:{assemblyId:31}});
+ annotationReadFails=true;
+ const brokenAnnotations=coverage.report(1);
+ assert.equal(brokenAnnotations.marks[0].confirmed3dAnnotations,null,
+  "unknown 3D annotations must not be reported as none");
+ assert.equal(brokenAnnotations.metrics.registeredFastenerPieces,48);
+ annotationReadFails=false;
+ placements.pop();
  assert(first.issues.some(x=>x.code==="kmd_confirmed_parts_not_transferred"&&x.count===1));
  assert(!first.issues.some(x=>x.code==="kmd_quantity_conflicts"));
  proposals[0].values.quantity=5;
