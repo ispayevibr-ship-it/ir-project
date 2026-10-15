@@ -20,7 +20,8 @@ const {createAiCoverage}=require("../src/ai-kmd-coverage");
    status:"confirmed",counted:true}
  ];
  const items=[{id:60,assemblyId:31,jointId:50,category:"fastener",
-  kind:"bolt",position:"Б1",totalPieces:48,status:"confirmed",counted:true}];
+  kind:"bolt",position:"Б1",perJoint:4,totalPieces:48,
+  status:"confirmed",counted:true}];
  const placements=[{id:70,record_type:"part_placement",data:{assemblyId:31,partId:40,instanceIndex:1}}];
  const annotationRows=[];
  const proposals=[
@@ -189,6 +190,22 @@ const {createAiCoverage}=require("../src/ai-kmd-coverage");
  assert(!coverage.report(1).issues.some(x=>x.code==="kmd_conflicting_reviewed_evidence"),
   "outdated PDF review evidence must not create a conflict with current sheets");
  proposals.pop();
+ proposals[3].values.perJoint=5;
+ const differentPerJoint=coverage.report(1);
+ assert(differentPerJoint.issues.some(x=>x.code==="kmd_hardware_per_joint_conflicts"&&
+  x.examples.some(y=>y.includes("проверено 5 на узел, в ведомости 4"))),
+  "a verified bolt count per connection cannot be replaced by a project-wide total");
+ assert.equal(differentPerJoint.metrics.registeredFastenerPieces,48,
+  "an AI disagreement must not change human-confirmed physical hardware pieces");
+ proposals[3].values.perJoint=4;
+ assert(!coverage.report(1).issues.some(x=>x.code==="kmd_hardware_per_joint_conflicts"),
+  "equal hardware counts per joint should not be flagged as different");
+ items.push({...items[0],id:62,counted:false,status:"requires_review"});
+ const competingHardware=coverage.report(1);
+ assert(competingHardware.issues.some(x=>x.code==="kmd_ambiguous_component_evidence"),
+  "a confirmed bolt must not hide a pending identical hardware position");
+ items.pop();
+ delete proposals[3].values.perJoint;
  // A single joint code can exist in fabrication and erection: the source
  // proposal does not carry a verified physical scope, so never choose first.
  joints.push({...joints[0],id:52,scope:"erection",instances:5});
