@@ -101,7 +101,7 @@ window.irAiAssemblyViewer=(function(){
   }:null;
   return{faces:list,bbox,partIds:new Set(list.map(f=>f.id))}
  }
- function create(host,items,{onSelect}={}){
+ function create(host,items,{onSelect,onSelectAttachment,attachments=[]}={}){
   host.innerHTML="";
   const holder=document.createElement("div");holder.className="ir-ai-assembly-viewport";
   const canvas=document.createElement("canvas");canvas.className="ir-ai-assembly-canvas";
@@ -110,7 +110,7 @@ window.irAiAssemblyViewer=(function(){
   const ctx=canvas.getContext("2d",{alpha:false});
   const model=build(items||[]),box=model.bbox;
   let yaw=-.68,pitch=.39,zoom=1.0,selected=null,disposed=false,drag=null,
-   lastFaces=[],raf=0;
+   lastFaces=[],lastMarkers=[],annotations=attachments,showAnnotations=true,selectedAttachment=null,raf=0;
   const center=box?box.min.map((x,i)=>(x+box.max[i])/2):[0,0,0];
   const span=box?Math.max(1,...box.max.map((x,i)=>x-box.min[i])):1000;
   function project(point,w,h){
@@ -175,6 +175,35 @@ window.irAiAssemblyViewer=(function(){
     ctx.closePath();ctx.fill();ctx.globalAlpha=1;
     ctx.strokeStyle=chosen?"#b96d10":"#284b6688";ctx.stroke()
    }
+   lastMarkers=[];
+   if(showAnnotations){
+    const lookup=new Map((items||[]).filter(x=>x.counted).map(x=>[x.id,x]));
+    for(const a of annotations){
+     if(!a.visible||!lookup.has(a.placementId))continue;
+     const placement=lookup.get(a.placementId);
+     const u=project(transform([a.start.x,a.start.y,a.start.z],placement),w,h);
+     const chosen=selectedAttachment===a.id;
+     ctx.lineWidth=chosen?4:2.4;
+     ctx.strokeStyle=a.type==="hole"?"#d46c26":a.type==="fastener"?"#2359b9":"#bb3939";
+     ctx.fillStyle=a.type==="hole"?"#ffe1c3":a.type==="fastener"?"#e0ecff":"#f4c9c9";
+     if(a.type==="weld"&&a.end){
+      const v=project(transform([a.end.x,a.end.y,a.end.z],placement),w,h);
+      ctx.beginPath();ctx.moveTo(u.x,u.y);ctx.lineTo(v.x,v.y);ctx.stroke();
+      ctx.beginPath();ctx.arc(u.x,u.y,chosen?7:5,0,Math.PI*2);ctx.fill();ctx.stroke();
+      lastMarkers.push({id:a.id,x:(u.x+v.x)/2,y:(u.y+v.y)/2,segment:[u,v]})
+     }else{
+      const radius=a.type==="hole"?Math.max(5,Math.min(14,(a.diameterMm||8)*Math.min(w,h)/span*.24*zoom)):7;
+      ctx.beginPath();ctx.arc(u.x,u.y,chosen?Math.max(9,radius):radius,0,Math.PI*2);
+      ctx.fill();ctx.stroke();
+      if(a.type==="hole"){
+       ctx.beginPath();ctx.moveTo(u.x-4,u.y);ctx.lineTo(u.x+4,u.y);
+       ctx.moveTo(u.x,u.y-4);ctx.lineTo(u.x,u.y+4);ctx.stroke()
+      }
+      lastMarkers.push({id:a.id,x:u.x,y:u.y})
+     }
+    }
+   }
+   ctx.lineWidth=Math.max(1,window.devicePixelRatio||1);
    ctx.fillStyle="#637e93";ctx.font="11px Arial";ctx.textAlign="left";
    ctx.fillText("X / Y / Z — мм   •   "+model.partIds.size+" подтверждённых деталей",14,h-15)
   }
@@ -183,6 +212,19 @@ window.irAiAssemblyViewer=(function(){
    const rect=canvas.getBoundingClientRect();
    const point={x:(x-rect.left)*canvas.width/rect.width,
     y:(y-rect.top)*canvas.height/rect.height};
+   const distanceToSegment=(p,a,b)=>{
+    const dx=b.x-a.x,dy=b.y-a.y;
+    const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1)));
+    return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy)
+   };
+   const marker=[...lastMarkers].reverse().find(m=>
+    m.segment?distanceToSegment(point,m.segment[0],m.segment[1])<=12:
+    Math.hypot(m.x-point.x,m.y-point.y)<=13);
+   if(marker){
+    selectedAttachment=marker.id;selected=null;onSelectAttachment?.(marker.id);
+    onSelect?.(null);redraw();return
+   }
+   selectedAttachment=null;onSelectAttachment?.(null);
    const polygons=[...lastFaces].reverse();
    const hit=polygons.find(f=>inside(point,f.points));
    selected=hit?.id||null;onSelect?.(selected);redraw()
@@ -219,8 +261,12 @@ window.irAiAssemblyViewer=(function(){
     else{yaw=-.68;pitch=.39}
     redraw()
    },
-   reset(){zoom=1;selected=null;onSelect?.(null);redraw()},
-   select(id){selected=id;redraw()},
+   reset(){zoom=1;selected=null;selectedAttachment=null;
+    onSelect?.(null);onSelectAttachment?.(null);redraw()},
+   select(id){selected=id;selectedAttachment=null;redraw()},
+   selectAttachment(id){selectedAttachment=id;selected=null;redraw()},
+   setAttachments(value){annotations=Array.isArray(value)?value:[];redraw()},
+   setShowAttachments(value){showAnnotations=Boolean(value);redraw()},
    dispose(){disposed=true;resizer?.disconnect();window.removeEventListener("resize",redraw);
     if(raf)cancelAnimationFrame(raf);host.innerHTML=""}
   }

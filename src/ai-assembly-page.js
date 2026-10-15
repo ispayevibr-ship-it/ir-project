@@ -14,14 +14,14 @@ window.irAiAssemblyPage=(function(){
   (String(k)===String(value)?"selected":"")+'>'+esc(label)+'</option>').join("");
  function dispose(){if(active){active.dispose();active=null}}
  function render(host,{id,assemblies=[],materials=[],documents=[],canEdit=false,
-  api=null,reviewer=null,askPassword=null,notice=null,openPdf=null,reload=null}={}){
+  api=null,attachmentApi=null,connectionApi=null,reviewer=null,askPassword=null,notice=null,openPdf=null,reload=null}={}){
   dispose();
   if(!host)return;
   const permitted=canEdit&&!!api&&!!reviewer&&!!askPassword;
   const selected=selectedAssembly.get(String(id));
   const defaultAssembly=assemblies.find(x=>x.id===Number(selected))||assemblies[0]||null;
   const pdfs=documents.filter(d=>d.kind==="КМД"&&d.ext===".pdf"&&d.exists);
-  const state={alive:true,viewer:null,mark:defaultAssembly?.id||null,rows:[],summary:null};
+  const state={alive:true,viewer:null,mark:defaultAssembly?.id||null,rows:[],summary:null,attachments:[],attachmentSummary:null};
   const disposeState=()=>{state.alive=false;state.viewer?.dispose();state.viewer=null};
   active={dispose:disposeState};
   host.innerHTML='<section class="ir-ai-assembly">'+
@@ -44,11 +44,12 @@ window.irAiAssemblyPage=(function(){
    '<div class="ir-ai-quantity-toolbar"><b>Размещение деталей одной отправочной марки</b>'+
     (permitted?'<button data-assembly-new disabled>＋ Добавить размещение</button>':"")+'</div>'+
    '<div class="ir-ai-assembly-parts" data-assembly-parts><div class="ir-ai-doc-empty">Выберите подтверждённую отправочную марку КМД.</div></div>'+
+   '<div data-assembly-attachments></div>'+
    '<p class="ir-ai-storage-note">Координаты относятся к локальной системе отправочной марки: X/Y — поперечные направления, Z — продольная ось. При копировании в общий монтажный каркас нужна отдельная подтверждённая привязка этой локальной системы к осям здания.</p>'+
    '</section>';
   const field=host.querySelector("[data-assembly-choice]"),partsDiv=host.querySelector("[data-assembly-parts]"),
    count=host.querySelector("[data-assembly-count]"),covered=host.querySelector("[data-assembly-covered]"),
-   srcText=host.querySelector("[data-assembly-source]"),inspector=host.querySelector("[data-assembly-inspector]");
+   srcText=host.querySelector("[data-assembly-source]"),inspector=host.querySelector("[data-assembly-inspector]"),attachDiv=host.querySelector("[data-assembly-attachments]");
   if(defaultAssembly)field.value=String(defaultAssembly.id);
   const belonging=()=>materials.filter(p=>p.assemblyId===state.mark);
   const available=()=>belonging().filter(p=>p.status!=="rejected");
@@ -71,6 +72,7 @@ window.irAiAssemblyPage=(function(){
   }
   async function load(assemblyId){
    state.mark=Number(assemblyId)||null;selectedAssembly.set(String(id),state.mark);
+   state.attachments=[];state.attachmentSummary=null;attachDiv.innerHTML="";
    state.viewer?.dispose();state.viewer=null;
    info(null);
    if(!api||!state.mark){
@@ -80,16 +82,32 @@ window.irAiAssemblyPage=(function(){
    }
    count.textContent="Загружаем геометрию";covered.textContent="";srcText.textContent="";
    try{
-    const [rows,summary]=await Promise.all([api.list(id,state.mark),api.summary(id,state.mark)]);
+    const [rows,summary,attachments,attachmentSummary,componentItems]=await Promise.all([
+     api.list(id,state.mark),api.summary(id,state.mark),
+     attachmentApi?attachmentApi.list(id,state.mark):Promise.resolve([]),
+     attachmentApi?attachmentApi.summary(id,state.mark):Promise.resolve(null),
+     connectionApi?connectionApi.items(id):Promise.resolve([])
+    ]);
     if(!state.alive||state.mark!==Number(assemblyId)||!host.isConnected)return;
-    state.rows=rows;state.summary=summary;
+    state.rows=rows;state.summary=summary;state.attachments=attachments;state.attachmentSummary=attachmentSummary;
     count.textContent=summary.confirmedPlacements+" проверенных размещений";
     covered.textContent=summary.coverageReady?"Все зарегистрированные детали размещены":"Сборка не полная";
     srcText.textContent=summary.pendingPlacements+" позиций ещё не подтверждены";
     const root=host.querySelector(".ir-ai-assembly-canvas-host");
     if(window.irAiAssemblyViewer){
-     state.viewer=window.irAiAssemblyViewer.create(root,rows,{onSelect:selectedId=>info(
-      state.rows.find(x=>x.id===Number(selectedId))||null)});
+     state.viewer=window.irAiAssemblyViewer.create(root,rows,{
+      attachments,onSelect:selectedId=>{if(selectedId)info(state.rows.find(x=>x.id===Number(selectedId))||null)},
+      onSelectAttachment:attachmentId=>{
+       if(!attachmentId)return;
+       const a=state.attachments.find(x=>x.id===Number(attachmentId));
+       if(!a)return;
+       inspector.innerHTML='<b>'+esc(a.code)+'</b><p>3D-привязка: '+esc(a.type)+
+        ' · '+esc(a.partPosition)+' № '+esc(a.instanceIndex)+'</p>'+
+        '<div>Локальные координаты: '+esc(JSON.stringify(a.start))+'</div>'+
+        (a.end?'<div>Конец шва: '+esc(JSON.stringify(a.end))+'</div>':"")+
+        '<div>Лист КМД: '+esc(a.source.page)+'</div>'
+      }
+     });
     }else root.textContent="Не удалось загрузить офлайн-3D-просмотрщик";
     const drafts=summary.coverage||[];
     partsDiv.innerHTML=(drafts.length?
@@ -133,11 +151,18 @@ window.irAiAssemblyPage=(function(){
      }catch(e){holder.textContent="Ошибка журнала: "+String(e.message||e)}
     });
     const add=host.querySelector("[data-assembly-new]");
-    if(add)add.disabled=!permitted||!available().length||!pdfs.length
+    if(add)add.disabled=!permitted||!available().length||!pdfs.length;
+    if(window.irAiAssemblyAttachmentPage&&attachmentApi)
+     window.irAiAssemblyAttachmentPage.render(attachDiv,{
+      id,assemblyId:state.mark,placements:rows,attachments,summary:attachmentSummary,
+      documents,componentItems,api:attachmentApi,viewer:state.viewer,canEdit,
+      reviewer,askPassword,openPdf,reload,notice
+     });
    }catch(error){
     if(!state.alive)return;
     count.textContent="Ошибка загрузки сборки";
-    partsDiv.textContent="Не удалось прочитать сохранённую геометрию: "+String(error.message||error)
+    partsDiv.textContent="Не удалось прочитать сохранённую геометрию: "+String(error.message||error);
+    attachDiv.textContent="3D-привязки также недоступны до восстановления данных сборки."
    }
   }
   field.onchange=()=>{void load(field.value)};

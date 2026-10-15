@@ -356,7 +356,8 @@ window.irAiRecognitionPage=async function(objectId){
   if(active==="assembly"){
    if(window.irAiAssemblyPage)window.irAiAssemblyPage.render(box,{
     id,assemblies:quantityEntries,materials:materialEntries,documents,canEdit,
-    api:irProject.aiAssembly3d||null,reviewer,askPassword:requestReviewPassword,
+    api:irProject.aiAssembly3d||null,attachmentApi:irProject.aiAssemblyAttachments||null,
+    connectionApi:irProject.aiKmdConnections||null,reviewer,askPassword:requestReviewPassword,
     reload,notice,openPdf:openPdfPreview
    });
    else box.innerHTML='<div class="ir-ai-doc-empty">Модуль 3D-сборки не загружен.</div>';

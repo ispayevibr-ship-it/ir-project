@@ -1,0 +1,26 @@
+/* IR Project AI: annotated KMD fastening points, holes and weld seams. */
+.ir-ai-attachments{margin-top:18px;border-top:2px solid #d2e3ee;padding-top:18px;display:grid;gap:11px}
+.ir-ai-attachments .ir-ai-review-heading{margin-bottom:0}
+.ir-ai-attachment-stats{display:flex;gap:8px;flex-wrap:wrap}
+.ir-ai-attachment-stats span{background:#f0f8fd;border:1px solid #d7e7f1;border-radius:7px;color:#3b7191;padding:8px 10px;font-size:11px}
+.ir-ai-attachment-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.ir-ai-attachment-toolbar label{display:flex;align-items:center;gap:7px;color:#506f84;font-size:11px}
+.ir-ai-attachment-toolbar button{padding:9px 13px;border:1px solid #247bc0;background:#247bc0;border-radius:7px;color:#fff;font-weight:700;font-size:11px;cursor:pointer}
+.ir-ai-attachment-toolbar button:disabled{opacity:.5;cursor:not-allowed}
+.ir-ai-attachment-records{display:grid;gap:8px}
+.ir-ai-attachment-record{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:12px 14px;border-radius:8px;background:#fff;border:1px solid #dce8f1}
+.ir-ai-attachment-record.approved{border-left:3px solid #368fc1}
+.ir-ai-attachment-record.draft{border-left:3px solid #e8a951}
+.ir-ai-attachment-record>div:first-child{flex:1;min-width:230px;font-size:11px;color:#5f7f94;overflow-wrap:anywhere}
+.ir-ai-attachment-record b{color:#2a5879;font-size:12px}
+.ir-ai-attachment-record small{display:block;font-size:10px;line-height:1.7;margin-top:5px}
+.ir-ai-attachment-record .ir-ai-assembly-record-actions{display:flex;gap:6px;flex-wrap:wrap}
+.ir-ai-attachment-record .ir-ai-assembly-record-actions button:disabled{opacity:.4;cursor:not-allowed}
+.ir-ai-attachment-record .ir-ai-assembly-history{flex-basis:100%}
+.ir-ai-attachment-dialog{width:min(760px,96vw)}
+.ir-ai-attachment-dialog [hidden]{display:none!important}
+.ir-ai-attachment-dialog .ir-ai-quantity-form-grid>label{min-width:0}
+.ir-ai-attachment-dialog .ir-ai-assembly-coordinate-grid{grid-column:1/-1}
+.ir-ai-attachment-dialog .ir-ai-assembly-coordinate-grid label{min-width:0}
+.ir-ai-attachment-dialog .ir-ai-quantity-dialog-hint{padding:10px;border:1px solid #d5e8f5;border-radius:7px;background:#f4f9fd;color:#4b718b;font-size:10px;line-height:1.7}
+@media(max-width:650px){.ir-ai-attachment-record{align-items:flex-start}.ir-ai-attachment-toolbar{align-items:flex-start}.ir-ai-attachment-dialog .ir-ai-assembly-coordinate-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
