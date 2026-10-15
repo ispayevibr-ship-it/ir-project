@@ -356,11 +356,27 @@ function createModelManager({getUserDataPath,dialog,getWindow=()=>undefined,
    throw error
   }finally{activeDownload=null;mutation=false}
  }
+ // One-click path for the application UI: a verified catalog release is
+ // downloaded, independently authenticated, and installed without file dialogs.
+ // The publisher's trusted public key must already be bundled with the app.
+ async function downloadAndInstall(modelId,versionId){
+  const selected=await download(modelId,versionId);
+  const entry=selections.get(selected.token);
+  if(!entry)throw Error("Загруженный пакет не найден");
+  try{
+   const installed=await install(selected.token);
+   return installed;
+  }finally{
+   selections.delete(selected.token);
+   // Temporary download is no longer needed after installation or failure.
+   try{fs.rmSync(entry.file,{force:true})}catch{}
+  }
+ }
  function cancelDownload(){if(!activeDownload)return false;activeDownload.abort();return true}
  function info(){return{models:list(),update:lastUpdate,
   signedImportAvailable:Object.keys(trustedKeys).length>0,
   officialCatalogAvailable:catalog.configured(),packExtension:".ir-ai-pack",busy:mutation}}
 
- return{list,info,select,install,rollback,checkUpdates,download,cancelDownload,preview,verifySlot,managedRuntime,resolveRuntime};
+ return{list,info,select,install,rollback,checkUpdates,download,downloadAndInstall,cancelDownload,preview,verifySlot,managedRuntime,resolveRuntime};
 }
 module.exports={createModelManager,CATALOG,TRUSTED_MODEL_KEYS};
