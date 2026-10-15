@@ -39,6 +39,7 @@ const aiDiagnostics={
 };
 const aiModels={
  openFolder:()=>ipcRenderer.invoke("ai-models:open-folder"),
+ importManualQwen:()=>ipcRenderer.invoke("ai-models:import-manual-qwen"),
  info:()=>ipcRenderer.invoke("ai-models:info"),
  preflight:()=>ipcRenderer.invoke("ai-models:preflight"),
  checkUpdates:()=>ipcRenderer.invoke("ai-models:check-updates"),
