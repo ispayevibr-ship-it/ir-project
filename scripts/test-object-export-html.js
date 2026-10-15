@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17192'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=17193'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -621,7 +621,7 @@ console.log("Full object HTML export: snapshot, offline navigation, read-only re
 assert(source.includes("function reportMarkNames(rows)")&&source.includes("reportMarkLabel(w,markNames)"),"report name lookup is connected to the mark register");
 assert(source.includes('renderExportWorkTypes(rows,support.marks||[],support.reports||[])'),"work types have the same grouped table as the program");
 assert(source.includes("ir-export-wt-track")&&source.includes('id="ir-export-wt-other"'),"work types provide switchable groups and readiness bars");
-assert(source.includes("<h3>Накладные</h3>")&&!source.includes("<h3>Поставки (накладные)</h3>"),"invoice heading is simplified");
+assert(source.includes("<h2>Накладные</h2>")&&!source.includes("<h3>Поставки (накладные)</h3>"),"invoice heading is simplified");
 assert(source.includes("ir-export-delivery-register{padding-top:16px!important}"),"invoices have an upper spacing");
 assert(source.includes('renderExportTrend(supporting[1],supporting[0])')&&source.includes("data-export-trend-select"),"daily report dynamics have work selection in exported file");
 assert(source.includes('select.addEventListener("change",update)')&&source.includes("ir-export-trend-panel[hidden]"),"work chart selection functions without project database");
@@ -646,3 +646,10 @@ assert(source.includes('select.addEventListener("change",update)')&&source.inclu
  assert(table.includes("50%")&&table.includes("0.6"),"work-type readiness and totals match the source register");
  assert(chart.includes('data-export-trend-panel="0"')&&chart.includes('data-export-trend-select'),"offline dynamics render from daily data");
 }
+
+assert(source.includes('body.ir-object-overview #app #section-scheme.ir-export-group>.ir-export-section{box-sizing:border-box!important;display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;padding:0!important'),"scheme fills all available horizontal space");
+assert(source.includes('body.ir-object-overview #app #section-scheme .ir-export-scheme-stage canvas{display:block!important;width:100%!important;height:100%!important'),"full-width mounting scene canvas");
+assert(source.includes('body.ir-object-overview #app :is(.ir-export-indicators-heading,.ir-export-section-head,.ir-export-marks-title,.ir-export-work-head,.object-overview-block-head,.ooa-head,.ood-head){'),"archive sections share the same heading layout");
+assert(source.includes('<section class="ir-export-section ir-export-visual-section"><header class="ir-export-section-head"><h2>'),"schedule and analysis sections have consistent heading markup");
+assert(source.includes('<div class="ir-export-delivery-register"><header class="ir-export-section-head"><h2>Накладные</h2></header>'),"invoices use the common heading");
+assert(extras.schemeHtml(model).includes("Элементов:"),"mounting scene inner bar shows count without duplicating main heading");
