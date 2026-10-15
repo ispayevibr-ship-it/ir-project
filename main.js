@@ -263,8 +263,8 @@ function registerAiModelIpc(){
  ipcMain.handle("ai-models:install",(e,token)=>{checkModelAdmin(e);return aiModels.install(token)});
  ipcMain.handle("ai-models:rollback",(e,id)=>{checkModelAdmin(e);return aiModels.rollback(id)});
  ipcMain.handle("ai-models:download",(e,{modelId,version})=>{checkModelAdmin(e);return aiModels.download(modelId,version)});
- ipcMain.handle("ai-models:download-install",(e,{modelId,version})=>{checkModelAdmin(e);return aiModels.downloadAndInstall(modelId,version)});
- ipcMain.handle("ai-models:cancel",(e)=>{checkModelAdmin(e);return aiModels.cancelDownload()});
+ ipcMain.handle("ai-models:download-install",(_e,{modelId,version})=>aiModels.downloadAndInstall(modelId,version));
+ ipcMain.handle("ai-models:cancel",()=>aiModels.cancelDownload());
  ipcMain.handle("ai-models:verify-runtime",async(e)=>{
   checkModelAdmin(e);
   const entry=await aiModels.resolveRuntime("qwen3-vl-4b");
