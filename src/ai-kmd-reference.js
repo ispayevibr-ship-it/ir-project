@@ -68,12 +68,17 @@ function createKmdReference({database,revisions,quantities,materials,connections
    sheetId:page.id,sheetCode:page.sheetCode,documentId:page.documentId,
    page:page.page,sha256:page.sha256,kind:"КМД"}
  };
- const eligible=(o,d,active=activeSet(o))=>{
+ const eligible=(o,d,active=activeSet(o),lookup=null,memo=null)=>{
   if(!active||Number(d.setId)!==active.set.id)return false;
-  const page=active.sheets.find(s=>s.id===Number(d.sheetId));
-  return Boolean(page&&page.valid&&page.documentId===d.source?.documentId&&
-   page.page===d.source?.page&&page.sha256===d.source?.sha256&&
-   revisions.sourceState(o,d.source).current)
+  const page=lookup?lookup.get(Number(d.sheetId)):
+   active.sheets.find(s=>s.id===Number(d.sheetId));
+  if(!page||!page.valid||page.documentId!==d.source?.documentId||
+   page.page!==d.source?.page||page.sha256!==d.source?.sha256)return false;
+  const sourceKey=page.documentId+":"+page.page+":"+page.sha256;
+  if(memo?.has(sourceKey))return memo.get(sourceKey);
+  const current=Boolean(revisions.sourceState(o,d.source).current);
+  memo?.set(sourceKey,current);
+  return current
  };
  const key=d=>[d.type,d.mark,d.cipher,d.secondaryCipher,
   d.type==="part"?d.position:"",
@@ -96,9 +101,10 @@ function createKmdReference({database,revisions,quantities,materials,connections
   if(!entry)throw Error("Не удалось записать историю эталона")
  };
  function list(id){
-  const o=obj(id),active=activeSet(o);
+  const o=obj(id),active=activeSet(o),
+   bySheet=new Map((active?.sheets||[]).map(x=>[x.id,x])),fresh=new Map();
   return stored(o,RECORDS,"kmd_reference").map(x=>{
-   const d=x.data||{},sourceCurrent=eligible(o,d,active);
+   const d=x.data||{},sourceCurrent=eligible(o,d,active,bySheet,fresh);
    return{id:x.id,...full(d),quantity:d.quantity??null,
     setId:d.setId??null,sheetId:d.sheetId??null,sheetCode:String(d.sheetCode||""),
     source:{...d.source},sourcePosition:String(d.sourcePosition||""),
@@ -111,13 +117,26 @@ function createKmdReference({database,revisions,quantities,materials,connections
  function checks(id){
   const o=obj(id),active=activeSet(o);
   if(!active)return{setId:null,setIssue:null,sheets:[],total:0,reviewed:0,allSheetsReviewed:false};
-  const entries=list(o);
+  const entries=list(o),bySheet=new Map();
+  for(const entry of entries){
+   if(Number(entry.setId)!==active.set.id||entry.status==="rejected")continue;
+   if(!bySheet.has(entry.sheetId))bySheet.set(entry.sheetId,[]);
+   bySheet.get(entry.sheetId).push(entry)
+  }
+  const checksBySheet=new Map();
+  for(const check of stored(o,CHECKS,"kmd_sheet_check")){
+   if(Number(check.data?.setId)!==active.set.id)continue;
+   const sid=Number(check.data?.sheetId);
+   if(checksBySheet.has(sid))
+    throw Error("Обнаружены несколько актов проверки одного листа КМД. Требуется разбор конфликта");
+   checksBySheet.set(sid,check)
+  }
   const sheets=active.sheets.map(p=>{
-   const check=checkRow(o,p.id,active.set.id),d=check?.data||{};
+   const check=checksBySheet.get(p.id),d=check?.data||{};
    const current=Boolean(p.valid&&d.status==="sealed"&&d.reviewedEntireSheet===true&&
     ["admin","engineer"].includes(d.reviewedBy)&&
     d.documentId===p.documentId&&d.sha256===p.sha256&&d.page===p.page);
-   const positions=entries.filter(e=>e.setId===active.set.id&&e.sheetId===p.id&&e.status!=="rejected");
+   const positions=bySheet.get(p.id)||[];
    return{...p,checked:current,status:current?"sealed":d.status||"not_started",
     revision:Number(d.revision)||0,checkedAt:d.reviewedAt||null,
     checkedBy:d.reviewedBy||null,comment:String(d.comment||""),
