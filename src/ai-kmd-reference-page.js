@@ -73,6 +73,10 @@ window.irAiKmdReferencePage={
      '<small>Эталон: '+esc(m.expected??"—")+' · ведомость: '+esc(m.actual??"отсутствует")+
       (m.reason?' · Причина: '+esc(m.reason):"")+'</small>'+
      (onNavigate?'<button type="button" data-reference-go="'+index+'">Открыть ведомость →</button>':"")+
+     (openPdf&&Number.isSafeInteger(Number(m.sourceDocumentId))&&Number(m.sourceDocumentId)>0&&
+      Number.isSafeInteger(Number(m.sourcePage))&&Number(m.sourcePage)>0?
+      '<button type="button" data-reference-issue-pdf="'+index+'">'+
+      (m.referenceId?"Открыть лист эталона":"Открыть лист ведомости")+'</button>':"")+
      '</div>').join("")+
     (missing.length>100?'<small>Показаны первые 100 замечаний из '+missing.length+'</small>':"")+
     '</div>':comparison&&!incomplete?
@@ -101,6 +105,11 @@ window.irAiKmdReferencePage={
    onNavigate?.({tab:targetType==="mark"?"marks":targetType==="part"?"metal":"fasteners",
     type:targetType,actualId:entry.actualId,assemblyId:entry.assemblyId,
     referenceId:entry.referenceId,mark:entry.mark,position:entry.position});
+  });
+  root.querySelectorAll("[data-reference-issue-pdf]").forEach(button=>button.onclick=()=>{
+   const issue=missing[Number(button.dataset.referenceIssuePdf)];
+   if(issue?.sourceDocumentId&&issue?.sourcePage)
+    void openPdf?.(issue.sourceDocumentId,issue.sourcePage)
   });
   root.querySelectorAll("[data-reference-pdf],[data-ref-source]").forEach(button=>button.onclick=()=>{
    const value=button.dataset.referencePdf||button.dataset.refSource;

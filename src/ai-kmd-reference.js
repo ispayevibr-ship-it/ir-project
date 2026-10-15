@@ -341,6 +341,7 @@ function createKmdReference({database,revisions,quantities,materials,connections
     mark:entry.mark,cipher:entry.cipher,secondaryCipher:entry.secondaryCipher,
     position:entry.position||entry.jointCode,
     sheetCode:entry.sheetCode,expected,actual,
+    sourceDocumentId:entry.source?.documentId??null,sourcePage:entry.source?.page??null,
     reason:String(reason||""),actualId:actualRecord?.id??null,assemblyId:actualRecord?.assemblyId??null,
     jointId:actualRecord?.jointId??null};
    issues.push(message);affected.push(entry.id)
@@ -441,6 +442,8 @@ function createKmdReference({database,revisions,quantities,materials,connections
       referenceId:null,type,mark:mark.mark,cipher:mark.cipher,
       secondaryCipher:mark.secondaryCipher,position:name,sheetCode:"—",expected:null,
       actual:"присутствует",actualId:actualRecord?.id??null,
+      sourceDocumentId:actualRecord?.source?.documentId??null,
+      sourcePage:actualRecord?.source?.page??null,
       assemblyId:actualRecord?.assemblyId??mark.id,
       jointId:actualRecord?.jointId??null};
      extras.push(msg)

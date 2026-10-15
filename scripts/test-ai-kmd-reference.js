@@ -225,8 +225,9 @@ const {createKmdReference}=require("../src/ai-kmd-reference");
   "an unverified fastener must open the exact existing component");
  components[0].counted=true;
  components[0].status="confirmed";
- assert(report.mismatches.some(x=>x.code==="missing_position"&&x.position==="Д3"),
-  "expected part missing from actual engineering ledger");
+ assert(report.mismatches.some(x=>x.code==="missing_position"&&x.position==="Д3"&&
+  x.sourceDocumentId===11&&x.sourcePage===1),
+  "missing engineering entries must offer their original KMD reference sheet");
  assert(report.mismatches.some(x=>x.code==="unlisted_position"&&
   x.position==="Д2"&&x.actualId===42&&x.assemblyId===31),
   "extra actual part must link to its precise engineering-ledger row");
