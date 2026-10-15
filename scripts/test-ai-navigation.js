@@ -1,12 +1,12 @@
 "use strict";
 const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm");
 const files=Object.fromEntries(["main.js","preload.js","src/app.js","src/access.js","src/object-shell.js",
- "src/tabs-shell.js","src/ai-recognition-page.js","src/ai-recognition-page.css","src/index.html","src/ir-runtime.js","src/ai-local-engine.js","src/ai-analysis.js"].map(p=>[p,fs.readFileSync(p,"utf8")]));
+ "src/tabs-shell.js","src/ai-recognition-page.js","src/ai-recognition-page.css","src/ai-model-settings.js","src/index.html","src/ir-runtime.js","src/ai-local-engine.js","src/ai-analysis.js"].map(p=>[p,fs.readFileSync(p,"utf8")]));
 for(const path of ["main.js","preload.js","src/ai-recognition-page.js","src/app.js","src/ir-runtime.js"])new vm.Script(files[path],{filename:path});
 assert(files["main.js"].includes('require("./src/ai-document-store")'),"node store is loaded by Electron main process");
 assert(files["main.js"].includes('registerAiDocuments();'),"IPC wired");
 assert(files["main.js"].includes('aiDocuments.deleteObjectFiles(id)'),"cascade storage cleanup after object deletion");
-assert(files["preload.js"].includes('aiDocuments,aiEngine,aiPdf,aiModels,sections,data:'),"context-isolated AI+PDF bridge");
+assert(files["preload.js"].includes('aiDocuments,aiEngine,aiPdf,aiModels,aiDiagnostics,sections,data:'),"context-isolated AI+PDF bridge");
 assert(files["src/app.js"].includes('key==="ai-recognition"&&window.irAiRecognitionPage'),"route connected");
 assert(files["src/object-shell.js"].includes('makeButton("ИИ-распознавание","ai-recognition"'),"sidebar route");
 assert(files["src/tabs-shell.js"].includes('"ai-recognition":"ИИ-распознавание"'),"tab naming");
