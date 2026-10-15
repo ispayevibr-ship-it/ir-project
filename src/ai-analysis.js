@@ -36,6 +36,8 @@ function createAnalysis({database,documents,engine,pdfRenderer,revisions=null}){
    const input=await documents.readForAnalysis(id,documentId);
    const result=await engine.analyzeImage({buffer:input.buffer,mime:input.mime,
     prompt:structured.PROMPT});
+   if(typeof documents.verify==="function"&&!documents.verify(id,input.source.documentId))
+    throw Error("Исходный файл изменился или удалён во время анализа — результат не сохранён");
    const extracted=parseClaims(result.raw);
    const saved=database.createEntity(id,"ai-analysis",{record_type:"image_analysis",
     title:"Анализ изображения: "+input.source.name,
@@ -61,6 +63,10 @@ function createAnalysis({database,documents,engine,pdfRenderer,revisions=null}){
     throw Error("Этот лист не входит в действующий комплект КМ/КМД. Сначала утвердите корректную ревизию");
    const result=await engine.analyzeImage({buffer:input.buffer,mime:input.mime,
     prompt:"PDF лист "+input.source.page+(region?" — выделенный фрагмент":" — весь лист")+". "+structured.PROMPT});
+   if(typeof documents.verify==="function"&&!documents.verify(id,input.source.documentId))
+    throw Error("Исходный PDF изменился во время распознавания — результат не сохранён");
+   if(revisions&&!revisions.isCurrent(id,input.source))
+    throw Error("Во время распознавания поменялся действующий комплект КМ/КМД. Результат не сохранён");
    const extracted=parseClaims(result.raw);
    const saved=database.createEntity(id,"ai-analysis",{record_type:"image_analysis",
     title:"Анализ PDF · лист "+input.source.page+(region?" · фрагмент":"")+" · "+input.source.name,

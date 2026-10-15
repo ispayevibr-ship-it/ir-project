@@ -73,6 +73,8 @@ function createPdfIndex({database,documents,workerFactory=(file,options)=>new Wo
    const progress=point=>onProgress({objectId:id,documentId:docId,...point});
    const result=await processPdf(input.buffer,progress);
    if(!result.pages.length)throw Error("Не найдены страницы PDF");
+   if(typeof documents.verify==="function"&&!documents.verify(id,docId))
+    throw Error("Исходный PDF изменился или удалён во время индексации — индекс не сохранён");
    const saved=database.createEntity(id,"ai-pdf-index",{
     record_type:"pdf_text_index",title:"PDF: "+input.source.name,
     data:{source:input.source,total:result.total,parser:"pdfjs-dist",
