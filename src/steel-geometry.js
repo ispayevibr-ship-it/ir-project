@@ -119,7 +119,11 @@ window.irSteelRenderer=(canvas,state,{markRgb,typeRgb,typeKey,pt})=>{
   }
   gl.drawArrays(gl.TRIANGLES,0,vertices)
  };
- return{render,stats:()=>({vertices,uploads,computedParts,reusedParts}),dispose(){
+ return{render,invalidate(){
+  // The live viewer keeps this WebGL context across edits and additions.
+  // A different record with the same ID must never reuse old extrusion data.
+  meshCache.clear();last=null;vertices=0;
+ },stats:()=>({vertices,uploads,computedParts,reusedParts}),dispose(){
   meshCache.clear();
   gl.deleteBuffer(buffer);gl.deleteProgram(program);gl.getExtension("WEBGL_lose_context")?.loseContext()
  }};

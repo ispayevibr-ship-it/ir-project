@@ -227,6 +227,9 @@ window.irBuildingView=(()=>{
   const saveSections=()=>{
    try{localStorage.setItem(sectionKey,JSON.stringify(state.hiddenSections))}catch(_error){}
   };
+  // Record IDs from the currently painted 3D model. Newly placed members
+  // may fall inside a cut bay that was hidden in a previous editing session.
+  let knownRecordIds=new Set(cols.map(c=>String(c.id)));
   const markById=id=>marks.find(m=>String(m.id)===String(id));
   const selectedMark=()=>markById(state.mark);
   const leftMark=()=>marks.filter(m=>m.left>0);
@@ -1466,11 +1469,23 @@ window.irBuildingView=(()=>{
    if(button)button.classList.toggle("active",enabled)
   }
   updateRecordsScene=(elements,nextGroups,nextMarks,nextSelected)=>{
-   // Z coordinates and endpoints can change without replacing the WebGL
-   // context. Cached prism corners must not survive a saved record update.
+   // The standalone steel renderer must discard cached GPU extrusions when
+   // geometry changes or a member is newly placed in the current model.
    webgl?.invalidate();
    marks.splice(0,marks.length,...nextMarks);
    state.selected=String(nextSelected||"");state.hover="";
+   const newlyPlaced=elements.find(c=>String(c.id)===state.selected&&!knownRecordIds.has(String(c.id)));
+   knownRecordIds=new Set(elements.map(c=>String(c.id)));
+   if(newlyPlaced){
+    // Plan does not apply 3D cut filters. Reveal only the bays containing
+    // the saved member; keep all unrelated cut visibility preferences.
+    const cutsToReveal=new Set(["X","Y"].map(axis=>sectionFor(newlyPlaced,axis)?.id).filter(Boolean));
+    const restored=state.hiddenSections.filter(id=>!cutsToReveal.has(id));
+    if(restored.length!==state.hiddenSections.length){
+     state.hiddenSections=restored;saveSections();
+     host.querySelectorAll("[data-irb-cut]").forEach(input=>{input.checked=!state.hiddenSections.includes(input.dataset.irbCut)});
+    }
+   }
    if(!marks.some(m=>String(m.id)===String(state.mark)&&m.left>0))
     state.mark=marks.find(m=>m.left>0)?.id||"";
    updateVisibleScene(elements,nextGroups);

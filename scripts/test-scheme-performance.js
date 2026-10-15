@@ -58,3 +58,56 @@ assert(viewer.includes("const nearestMember=(x,y)=>")&&viewer.includes("if(best&
 assert(viewer.includes("viewport.appendChild(addButton)")&&viewer.includes('addButton.id="irbQuickAdd"'),"Add button is always in the 3D viewport");
 assert(!viewer.includes('id="irbQuickAdd" class="irb-top-add"'),"Add no longer buried in the left toolbar");
 console.log("Overhead plan: columns/posts visible, selectable; Add pinned right.");
+
+
+// 1.7.201 — regression: a new placement must rebuild the real GPU model,
+// and an edited member must not reuse a stale mesh cached under its ID.
+{
+ const steel=fs.readFileSync("src/steel-geometry.js","utf8");
+ const mock={
+  VERTEX_SHADER:1,FRAGMENT_SHADER:2,COMPILE_STATUS:3,LINK_STATUS:4,
+  DEPTH_TEST:5,LEQUAL:6,COLOR_BUFFER_BIT:7,DEPTH_BUFFER_BIT:8,
+  ARRAY_BUFFER:9,STATIC_DRAW:10,FLOAT:11,TRIANGLES:12,
+  createShader:()=>({}),shaderSource:()=>{},compileShader:()=>{},
+  getShaderParameter:()=>true,createProgram:()=>({}),attachShader:()=>{},
+  linkProgram:()=>{},deleteShader:()=>{},deleteProgram:()=>{},
+  getProgramParameter:()=>true,getAttribLocation:()=>0,getUniformLocation:()=>({}),
+  createBuffer:()=>({}),enable:()=>{},depthFunc:()=>{},viewport:()=>{},
+  clearColor:()=>{},clear:()=>{},useProgram:()=>{},bindBuffer:()=>{},
+  enableVertexAttribArray:()=>{},vertexAttribPointer:()=>{},drawArrays:()=>{},
+  deleteBuffer:()=>{},getExtension:()=>null,uniform3fv:()=>{},uniform1f:()=>{},
+  bufferData(type,data){this.latest=new Float32Array(data)},
+ };
+ const canvas={width:800,height:500,getContext:()=>mock};
+ const globals={window:{},console,Math,Number,Map,Float32Array};
+ vm.runInNewContext(steel,globals);
+ const state={renderMode:"real",colorMode:"status",selected:"",hover:""};
+ const renderer=globals.window.irSteelRenderer(canvas,state,{
+  markRgb:()=>[.2,.3,.4],typeRgb:()=>[.2,.6,.4],typeKey:()=> "beams",
+  pt:(x,y,z)=>({x,y,z})
+ });
+ assert.equal(typeof renderer.invalidate,"function","realistic steel renderer supports in-place GPU invalidation");
+ const view={
+  raw:p=>({depth:p.z/1000}),
+  project:p=>({x:p.x/100+100,y:p.y/100+150,depth:p.z/1000})
+ };
+ const c1={id:"K1-placed",geometryType:"beam",section_type:"ibeam",status:"mounted"},
+       c2={id:"K133-new",geometryType:"beam",section_type:"ibeam",status:"planned"};
+ const one=[{c:c1,part:0,start:{x:0,y:0,z:9000},end:{x:9000,y:0,z:9000}}];
+ renderer.render(one,view,800,500,1);
+ const original=mock.latest;
+ assert(original.length>0,"first member generates visible triangles");
+ const two=[...one,{c:c2,part:0,start:{x:9000,y:15000,z:8400},end:{x:18000,y:15000,z:8400}}];
+ renderer.invalidate();
+ renderer.render(two,view,800,500,1);
+ assert(renderer.stats().vertices>original.length/8,"adding K133 generates additional GPU triangles without navigation");
+ const oldMesh=mock.latest;
+ const edited=[one[0],{c:c2,part:0,start:{x:9000,y:15000,z:9300},end:{x:18000,y:15000,z:9850}}];
+ renderer.invalidate();renderer.render(edited,view,800,500,1);
+ assert.notDeepEqual([...mock.latest],[...oldMesh],"editing K133 Z changes the uploaded GPU geometry");
+ renderer.dispose();
+}
+assert(viewer.includes("const newlyPlaced=elements.find("),"3D detects new saved elements by stable ID");
+assert(viewer.includes("const cutsToReveal=new Set("),"new element's bay is revealed without clearing other cut filters");
+assert(viewer.includes('host.querySelectorAll("[data-irb-cut]").forEach(input=>{input.checked='),"visible cut toggles synchronize with the scene");
+console.log("Realistic 3D: newly added K133, changed Z geometry, and hidden-bay reveal checked.");
