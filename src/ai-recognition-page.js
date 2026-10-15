@@ -263,10 +263,11 @@ window.irAiRecognitionPage=async function(objectId){
    box.querySelectorAll("[data-ai-source]").forEach(button=>button.onclick=()=>{
     const [did,page]=button.dataset.aiSource.split(":");void openPdfPreview(did,page)
    });
-   const total=quantitySummary||{rows:[],confirmedPositionCount:0,confirmedPieces:0,pendingCount:0,rejectedCount:0};
+   const total=quantitySummary||{rows:[],confirmedPositionCount:"—",confirmedPieces:"—",pendingCount:"—",rejectedCount:"—"};
    const summaryRows=total.rows||[];
    const labels={requires_review:"Требует проверки",confirmed:"Подтверждено",rejected:"Отклонено"};
    box.insertAdjacentHTML("beforeend",'<section class="ir-ai-quantity-section">'+
+    (!quantitySummary?'<div class="ir-ai-quantity-warning">Сводка количества не рассчитана. Прочерки не означают нулевой объём: проверьте сообщения об ошибке и повторите загрузку.</div>':"")+
     '<div class="ir-ai-review-heading"><div><h2>Ведомость отправочных элементов по КМД</h2>'+
      '<p>Количество в штуках только по конкретной позиции спецификации и после подтверждения инженером. Упоминания марки не суммируются.</p></div>'+
      '<div class="ir-ai-quantity-totals"><b>'+total.confirmedPositionCount+' позиций</b><b>'+total.confirmedPieces+' шт. подтверждено</b></div></div>'+
@@ -283,7 +284,10 @@ window.irAiRecognitionPage=async function(objectId){
       '<td><button type="button" data-quantity-edit="'+row.id+'" '+(!canEdit?'disabled':'')+'>Открыть</button></td></tr>').join("")+
      '</tbody></table></div>':
      '<div class="ir-ai-doc-empty"><b>Количество отправочных марок не подтверждено</b>'+
-      '<p>Добавьте позицию по спецификации загруженного PDF КМД и подтвердите её количество. Пока числовой итог не определён.</p></div>')+
+      '<p>'+(quantitySummary?
+      'Добавьте позицию по спецификации загруженного PDF КМД и подтвердите её количество. Пока числовой итог не определён.':
+      'Не удалось проверить итоговое количество. Данные в таблице остаются доступными для исправления.')+
+     '</p></div>')+
     (quantityEntries.length?'<details class="ir-ai-quantity-drafts"><summary>Все записи ведомости · '+quantityEntries.length+
      ' (включая неподтверждённые)</summary>'+
      quantityEntries.map(row=>'<div><b>'+esc(row.mark)+' · '+esc(row.cipher||"без шифра")+'</b>'+
@@ -317,13 +321,14 @@ window.irAiRecognitionPage=async function(objectId){
       'Изменений пока нет'
     }catch(error){slot.textContent="Ошибка журнала: "+String(error.message||error)}
    });
-   const m=materialSummary||{confirmedDetailPositions:0,confirmedAssemblies:0,
-    confirmedMassKg:0,confirmedMassTonnes:0,pendingCount:0,rejectedCount:0,byAssembly:[]};
-   const formatKg=value=>Number(value||0).toLocaleString("ru-RU",{maximumFractionDigits:5});
+   const m=materialSummary||{confirmedDetailPositions:"—",confirmedAssemblies:"—",
+    confirmedMassKg:null,confirmedMassTonnes:null,pendingCount:"—",rejectedCount:"—",byAssembly:[]};
+   const formatKg=value=>value==null?"—":Number(value).toLocaleString("ru-RU",{maximumFractionDigits:5});
    const kindLabels={plate:"Листовая деталь",rib:"Ребро жёсткости",gusset:"Косынка",profile:"Прокатный профиль",pipe:"Труба",rod:"Пруток",other:"Другая деталь"};
    const massLabels={drawing:"Масса по КМД",rectangular:"Расчёт прямоугольника",linear:"Масса погонного метра"};
    const counted=materialEntries.filter(part=>part.counted);
    box.insertAdjacentHTML("beforeend",'<section class="ir-ai-metal-section">'+
+    (!materialSummary?'<div class="ir-ai-quantity-warning">Сводка массы не рассчитана. Прочерки не означают отсутствие деталей или нулевой тоннаж. Проверьте сообщения об ошибке.</div>':"")+
     '<div class="ir-ai-review-heading"><div><h2>Спецификация металла и деталей КМД</h2>'+
      '<p>Состав каждой отправочной марки: пластины, рёбра, косынки, балки, профили, трубы. Все детали привязаны к листу и позиции КМД.</p></div>'+
      '<div class="ir-ai-quantity-totals"><b>'+m.confirmedDetailPositions+' проверенных деталей</b>'+
@@ -347,7 +352,10 @@ window.irAiRecognitionPage=async function(objectId){
       '<td><button type="button" data-metal-edit="'+part.id+'" '+(!canEdit?'disabled':'')+'>Открыть</button></td></tr>').join("")+
      '</tbody></table></div>':
      '<div class="ir-ai-doc-empty"><b>Подтверждённой спецификации металла пока нет</b>'+
-      '<p>Добавьте детали из КМД и укажите исходную массу либо проверенные параметры для расчёта. Итоги появятся только после подтверждения инженером.</p></div>')+
+      '<p>'+(materialSummary?
+       'Добавьте детали из КМД и укажите исходную массу либо проверенные параметры для расчёта. Итоги появятся только после подтверждения инженером.':
+       'Не удалось рассчитать итоговую массу. Проверьте состояние записей, источников и повторите загрузку.')+
+      '</p></div>')+
     (materialEntries.length?'<details class="ir-ai-quantity-drafts"><summary>Все детали · '+materialEntries.length+
      ' (в том числе неподтверждённые)</summary>'+
      materialEntries.map(part=>'<div><b>'+esc(part.assemblyMark)+' / '+esc(part.position)+'</b> · '+

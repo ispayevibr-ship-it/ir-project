@@ -11,14 +11,15 @@ window.irAiConnectionsPage={
   const kindName={bolt:"Болт",nut:"Гайка",washer:"Шайба",anchor:"Анкер",stud:"Шпилька",
    pin:"Штифт",other:"Другой метиз",
    fillet:"Угловой шов",butt:"Стыковой шов",plug:"Пробочный шов",slot:"Прорезной шов"};
-  const count=x=>Number(x).toLocaleString("ru-RU",{maximumFractionDigits:3});
-  const stats=summary||{confirmedNodes:0,pendingNodes:0,pendingItems:0,confirmedFastenerPositions:0,
-   confirmedWeldPositions:0,totalFastenerPieces:0,totalWeldLengthM:0,fasteners:[]};
+  const count=x=>x==null?"—":Number(x).toLocaleString("ru-RU",{maximumFractionDigits:3});
+  const stats=summary||{confirmedNodes:null,pendingNodes:null,pendingItems:null,confirmedFastenerPositions:null,
+   confirmedWeldPositions:null,totalFastenerPieces:null,totalWeldLengthM:null,fasteners:[]};
   const canChange=canEdit&&!!api&&!!reviewer;
   const allowedDocs=documents.filter(d=>d.kind==="КМД"&&d.ext===".pdf"&&d.exists);
   const eligibleNodes=nodes.filter(n=>n.status!=="rejected");
   const edition=canChange&&assemblies.length&&allowedDocs.length;
   box.innerHTML='<section class="ir-ai-connections">'+
+   (!summary?'<div class="ir-ai-quantity-warning">Сводка крепежа не рассчитана. Прочерки означают ошибку проверки или недоступные данные, а не нулевое количество метизов. Проверьте сообщения программы.</div>':"")+
    '<header class="ir-ai-review-heading"><div><h2>Метизы, узлы соединений и сварные швы</h2>'+
     '<p>Подтверждённые узлы КМД без двойного учёта между листами. Источники, количества и изменения проверяются инженером.</p></div>'+
     '<b>Частичная ведомость</b></header>'+
@@ -26,7 +27,7 @@ window.irAiConnectionsPage={
     '<div><small>Подтверждённые узлы</small><strong>'+count(stats.confirmedNodes)+'</strong></div>'+
     '<div><small>Крепёж, отдельных изделий</small><strong>'+count(stats.totalFastenerPieces)+' шт.</strong></div>'+
     '<div><small>Длина проверенных швов</small><strong>'+count(stats.totalWeldLengthM)+' м</strong></div>'+
-    '<div><small>Ожидают проверки</small><strong>'+count(stats.pendingNodes+stats.pendingItems)+'</strong></div>'+
+    '<div><small>Ожидают проверки</small><strong>'+count(summary?stats.pendingNodes+stats.pendingItems:null)+'</strong></div>'+
    '</div>'+
    '<div class="ir-ai-quantity-warning">Заводской узел × число экземпляров марки. Монтажный стык × отдельное число физических соединений на объект. Один и тот же монтажный стык запрещено учитывать повторно под другой маркой. Изделия считаются поштучно, сварка — отдельно в метрах. Общие объёмы объекта пока не установлены.</div>'+
    '<div class="ir-ai-connections-toolbar"><b>Узлы соединений · '+nodes.length+'</b>'+
@@ -76,7 +77,9 @@ window.irAiConnectionsPage={
      '<td><b>'+count(x.pieces)+'</b></td>'+
      '<td>'+x.sources.map(z=>esc(z.jointCode)+' · лист '+esc(z.page)).join("; ")+'</td></tr>').join("")+
      '</tbody></table></div>':
-    '<div class="ir-ai-doc-empty"><p>Подтверждённого крепежа пока нет. Позиции со статусом «Требует проверки» в итог не включаются.</p></div>')+
+    '<div class="ir-ai-doc-empty"><p>'+(summary?
+     'Подтверждённого крепежа пока нет. Позиции со статусом «Требует проверки» в итог не включаются.':
+     'Не удалось прочитать итог крепежа. Повторите загрузку после проверки ошибок ведомости.')+'</p></div>')+
    '<p class="ir-ai-storage-note">Болты, гайки, шайбы, анкеры и прочие изделия учитываются как отдельные позиции. «Комплект болтов» не прибавляется к составляющим автоматически. Длина швов не преобразуется в массу наплавленного металла без дополнительных исходных данных. Рабочие ведомости и монтажная схема IR Project не изменяются.</p>'+
    '</section>';
   async function authorize(){
