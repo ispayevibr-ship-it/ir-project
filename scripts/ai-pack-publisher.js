@@ -96,8 +96,30 @@ async function verifyBuiltArchive(filename,publicKey){
  const key=publicKey?.type==="public"?publicKey:crypto.createPublicKey(publicKey);
  if(key.asymmetricKeyType!=="ed25519"||!crypto.verify(null,manifestBytes,key,Buffer.from(signatureBytes.toString().trim(),"base64")))
   throw Error("Подпись манифеста не подтверждена");
- if(manifest.schema!==1||manifest.modelId!=="qwen3-vl-4b"||manifest.engine!=="llama.cpp"||
-  !Array.isArray(manifest.files))throw Error("Неверный манифест Qwen3-VL 4B");
+ // The signed publisher supports precisely these two preapproved engines.
+ // A valid Ed25519 signature alone cannot authorize an arbitrary executable.
+ const allowed={"qwen3-vl-4b":"llama.cpp","paddleocr-vl-1.6":"paddleocr"};
+ if(manifest.schema!==1||allowed[manifest.modelId]!==manifest.engine||
+  !Array.isArray(manifest.files)||!manifest.files.length||manifest.files.length>MAX_ENTRIES||
+  !/^[A-Za-z0-9_.-]{1,70}$/.test(String(manifest.keyId||""))||
+  !/^\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?$/i.test(String(manifest.version||"")))
+  throw Error("Неподдерживаемый подписанный манифест модели");
+ if(manifest.modelId==="paddleocr-vl-1.6"){
+  const rt=manifest.runtime||{};
+  if(rt.protocol!=="ir-paddleocr-vl-json-1"||
+   rt.binary!=="bin/paddleocr-worker.exe"||
+   rt.layout!=="models/layout"||rt.vision!=="models/vl"||
+   !manifest.files.some(f=>f.path===rt.binary)||
+   !manifest.files.some(f=>f.path.startsWith(rt.layout+"/"))||
+   !manifest.files.some(f=>f.path.startsWith(rt.vision+"/")))
+   throw Error("OCR-манифест не содержит подписанный worker и обе модели");
+ }
+ if(manifest.modelId==="qwen3-vl-4b"){
+  const rt=manifest.runtime||{};
+  if(rt.binary!=="bin/llama-server.exe"||
+   rt.model!=="model/model.gguf"||rt.vision!=="model/mmproj.gguf")
+   throw Error("Qwen-манифест не содержит ожидаемую среду исполнения");
+ }
  if(entries.size!==manifest.files.length+2)throw Error("Неподписанные дополнительные файлы в ZIP");
  for(const f of manifest.files){
   const item=entries.get(("files/"+f.path).toLowerCase());
