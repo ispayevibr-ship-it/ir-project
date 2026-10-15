@@ -1971,6 +1971,11 @@ window.irSchemePage=async function(objectId){
     return{left:q?.left||0,total:q?.total||0,placed:q?.placed||0};
    },
    onCopyPlacement:(id,target)=>copySchemeMember(id,target),
+   onCopyPosition:id=>{
+    if(!canEdit())return;
+    const record=workRecords().find(r=>String(r.id)===String(id));
+    if(record)openEditor({...record,...coord(record)},true)
+   },
    onCopySaved:id=>{selectedId=String(id||"");refreshAfterMemberChange()},
    onDelete:async id=>{
     if(!canEdit())return;
@@ -2085,7 +2090,7 @@ window.irSchemePage=async function(objectId){
     ${progress.state==="partial"?'<small>Ведомость показывает частичное выполнение марки, но не указывает, какой именно экземпляр смонтирован.</small>':""}
    </div>`:""}
    ${between?`<div class="scheme-between"><b>Элемент между осями</b><span>${esc(a.x)} / ${esc(a.y)}</span><small>Положение вычисляется от выбранных базовых осей и сохраняется точно в миллиметрах.</small></div>`:""}
-   ${canEdit()?`<div class="scheme-detail-actions"><button type="button" data-scheme-edit>Редактировать</button><button type="button" data-scheme-copy>⧉ Копировать</button><button type="button" class="danger" data-scheme-delete>Удалить</button></div>`:""}`;
+   ${canEdit()?`<div class="scheme-detail-actions"><button type="button" data-scheme-edit>Редактировать</button><button type="button" data-scheme-copy>⧉ Копировать позицию</button><button type="button" class="danger" data-scheme-delete>Удалить</button></div>`:""}`;
   panel.querySelector("[data-scheme-edit]")?.addEventListener("click",()=>openEditor(c));
   panel.querySelector("[data-scheme-copy]")?.addEventListener("click",()=>openEditor(c,true));
   panel.querySelector("[data-scheme-delete]")?.addEventListener("click",async()=>{if(!confirm(`Удалить элемент ${c.mark?`«${c.mark}» `:""}со схемы?`)){restoreKeyboardAfterConfirm();return}restoreKeyboardAfterConfirm();await schemeApi.remove(c.id);rows=await schemeApi.list().catch(()=>rows);selectedId="";draw();restoreKeyboardAfterConfirm()});bindElementPicker(panel)
@@ -2200,12 +2205,19 @@ window.irSchemePage=async function(objectId){
  function openEditor(c=null,copy=false,placement=null){
   pendingBuildingPlacement=placement?.zigzag?placement:null;
   const d=document.getElementById("schemeEditor"),f=document.getElementById("schemeForm"),err=document.getElementById("schemeFormError");if(!d||!f)return;
-  // A copy starts with unchanged coordinates; its placement can be adjusted manually.
-  if(c&&copy)c={...c,id:"",status:"planned",position:"",title:""};
-  f.reset();err.hidden=true;document.getElementById("schemeEditorTitle").textContent=copy?"Копировать элемент — новое положение":c?"Редактировать элемент":"Добавить элемент";f.elements.id.value=copy?"":c?.id||"";
+  // Position templates retain exact XY, both Z elevations, ridge, profile
+  // and rotation, while creating a new record with its own available mark.
+  const copyingPosition=Boolean(c&&copy);
+  if(copyingPosition)c={...c,id:"",status:"planned",position:"",title:""};
+  f.reset();f.dataset.copyPosition=copyingPosition?"1":"0";err.hidden=true;
+  document.getElementById("schemeEditorTitle").textContent=copyingPosition?"Копировать позицию — параметры и отметки Z":c?"Редактировать элемент":"Добавить элемент";
+  f.elements.id.value=copyingPosition?"":c?.id||"";
   // Reopen the actual stored grid for edits and copies, including the shared grid.
   const sourceView=c?.scheme_view_id&&c.scheme_view_id!=="all"?customViews().find(x=>String(x.id)===String(c.scheme_view_id)):null;
   let gridChoice=c?.scheme_view_id==="all"?"all":sourceView?"view:"+sourceView.id:activeScheme,editorGrid=gridForEditor(gridChoice),editorMarks=marksForGrid(gridChoice);
+  const sourceGeometry=c?.geometryType||c?.geometry_type||"";
+  const compatibleMark=m=>!copyingPosition||guessGeometry(m)===(sourceGeometry==="bent"?"beam":sourceGeometry);
+  if(copyingPosition)editorMarks=editorMarks.filter(compatibleMark);
   f.elements.scheme_target.value=gridChoice;
   let chosenMark=placement?.markId||resolveSavedMarkId(c),currentMark=chosenMark;
   const editingId=String(f.elements.id.value||""),unresolvedExisting=!!editingId&&!currentMark,
@@ -2224,7 +2236,7 @@ window.irSchemePage=async function(objectId){
    const value=String(selection.value||"");
    if(value&&!editorMarks.some(m=>m.id===value&&markAvailable(m,editingId))){selection.value="";chosenMark="";renderMarkOptions();return}
    chosenMark=value;
-   if(value&&!editingId){const m=editorMarks.find(x=>x.id===value),same=allRecords().find(x=>String(x.mark_id||"")===value);f.elements.section_type.value=sectionType(same||{});f.elements.profile_name.value=same?.profile_name||"";f.elements.geometry_type.value=m?guessGeometry(m):"column";updateGeometry(true)}
+   if(value&&!editingId&&!copyingPosition){const m=editorMarks.find(x=>x.id===value),same=allRecords().find(x=>String(x.mark_id||"")===value);f.elements.section_type.value=sectionType(same||{});f.elements.profile_name.value=same?.profile_name||"";f.elements.geometry_type.value=m?guessGeometry(m):"column";updateGeometry(true)}
    refreshEditorProgress()
   };
   if(search){search.value="";search.oninput=renderMarkOptions}
@@ -2296,7 +2308,7 @@ window.irSchemePage=async function(objectId){
   assignAxes(false);
   f.elements.scheme_target.onchange=()=>{
    gridChoice=f.elements.scheme_target.value;
-   editorGrid=gridForEditor(gridChoice);editorMarks=marksForGrid(gridChoice);
+   editorGrid=gridForEditor(gridChoice);editorMarks=marksForGrid(gridChoice).filter(compatibleMark);
    chosenMark=editorMarks.some(m=>m.id===chosenMark&&markAvailable(m,editingId))?chosenMark:editorMarks.find(m=>markAvailable(m,editingId))?.id||"";
    assignAxes(true);renderMarkOptions();refreshPreview()
   };
@@ -2365,6 +2377,9 @@ window.irSchemePage=async function(objectId){
    if(!markAvailable(m,id)){const quota=markPlacement(m);err.textContent="Марка "+(m.mark||m.title)+" полностью размещена: "+quota.placed+" из "+quota.total+" шт. Добавление невозможно.";err.hidden=false;return}
    const axisX=String(fd.get("axis_x")||targetGrid.axesX[0]),axisY=String(fd.get("axis_y")||targetGrid.axesY[0]),dx=num(fd.get("offset_x_mm")),dy=num(fd.get("offset_y_mm")),x=num(targetGrid.xPos.get(axisX))+dx,y=num(targetGrid.yPos.get(axisY))+dy;
    const kind=String(fd.get("geometry_type")||"column"),z0=num(fd.get("z0_mm")),z1=num(fd.get("z1_mm"));
+   if(!id&&f.dataset.copyPosition==="1"&&guessGeometry(m)!==(kind==="bent"?"beam":kind)){
+    err.textContent="Для копируемой позиции выберите марку соответствующего типа конструкции.";err.hidden=false;return
+   }
    const endX=String(fd.get("end_axis_x")||targetGrid.axesX[0]),endY=String(fd.get("end_axis_y")||targetGrid.axesY[0]),endDx=num(fd.get("end_offset_x_mm")),endDy=num(fd.get("end_offset_y_mm")),x2=num(targetGrid.xPos.get(endX))+endDx,y2=num(targetGrid.yPos.get(endY))+endDy;
    const ridgeMode=fd.get("ridge_mode")==="manual"?"manual":"center",
     manualMidX=String(fd.get("mid_axis_x")||targetGrid.axesX[0]),
@@ -2383,6 +2398,16 @@ window.irSchemePage=async function(objectId){
    }
    if(kind==="column"&&z1<=z0){err.textContent="У колонны верх должен быть выше низа.";err.hidden=false;return}
    if(kind!=="column"&&Math.hypot(x2-x,y2-y,z1-z0)<1){err.textContent="Конечная точка должна отличаться от начальной.";err.hidden=false;return}
+   if(!id&&f.dataset.copyPosition==="1"){
+    const overlap=allRecords().some(row=>{
+     const q=coord(row);if(q.geometryType!==kind)return false;
+     const same=(a,b)=>Math.abs(a-b)<5;
+     return same(q.x,x)&&same(q.y,y)&&same(q.z0,z0)&&
+      (kind==="column"||same(q.x2,x2)&&same(q.y2,y2))&&same(q.z2,z1)&&
+      (kind!=="bent"||same(q.mx,mx)&&same(q.my,my)&&same(q.mz,mz))
+    });
+    if(overlap){err.textContent="Позиция полностью совпадает с размещённой конструкцией. Измените оси, смещение или отметки Z перед сохранением копии.";err.hidden=false;return}
+   }
    const storedRow=id?records().find(x=>String(x.id)===id):null,status=String(fd.get("status")||storedRow?.status||"planned"),section_type=String(fd.get("section_type")||"ibeam"),profile_name=String(fd.get("profile_name")||"").trim(),rot=num(fd.get("rotation_deg"));
    const existing=id?records().find(r=>r.id===id):null,used=new Set(allRecords().map(r=>String(r.position||r.title||"")));
    let internalPosition=String(existing?.position||existing?.title||"");
@@ -5058,8 +5083,14 @@ window.irBuildingView=(()=>{
    '<button type="button" id="irbLabelsToggle" title="Показать обозначения марок непосредственно на 3D-чертёже" aria-pressed="'+String(showMemberLabels)+'">⌗ Подписи</button>'+
    '<button type="button" id="irbColorToggle" title="Переключить цветовой режим" aria-label="Переключить цветовой режим">◉ Цвет: статус</button>'+
    '<button type="button" id="irbRenderToggle" title="Переключить реалистичный / обычный 3D" aria-label="Режим 3D">⬡ Реалистичный 3D</button>'+
-   (props.canEdit?'<button type="button" id="irbQuickAdd" class="irb-top-add">＋ Добавить элемент</button>':'');
+   '';
   viewport.appendChild(topControls);
+  if(props.canEdit){
+   const addButton=document.createElement("button");
+   addButton.type="button";addButton.id="irbQuickAdd";addButton.className="irb-top-add irb-floating-add";
+   addButton.textContent="＋ Добавить элемент";addButton.setAttribute("aria-label","Добавить элемент");
+   viewport.appendChild(addButton)
+  }
   const layerClose=document.createElement("button");layerClose.type="button";
   layerClose.className="irb-pane-close";layerClose.textContent="×";layerClose.title="Скрыть слои";
   layerClose.setAttribute("aria-label","Закрыть панель слоёв");
@@ -5398,6 +5429,25 @@ window.irBuildingView=(()=>{
      }
     }
    }
+   // An upright projects to a point in top view. Draw an architectural
+   // footprint for every visible column and post, even in realistic WebGL.
+   if(state.preset==="top"){
+    for(const c of visibleCols()){
+     if(!isPlanUpright(c))continue;
+     const p=m.project(pt(c.x,c.y,c.z0)),chosen=String(c.id)===String(state.selected),
+      hover=String(c.id)===String(state.hover),post=typeKey(c)==="posts";
+     const base=state.colorMode==="mark"?markCss(c):state.colorMode==="type"?typeCss(c):
+      c.status==="mounted"?"#2e9b7b":c.status==="partial"?"#c4a051":"#c16670",
+      color=chosen?"#2879df":hover?"#168fca":base,size=chosen?13:post?11:12;
+     ctx.save();ctx.fillStyle="rgba(255,255,255,.96)";ctx.strokeStyle=color;ctx.lineWidth=chosen?3:2;
+     ctx.beginPath();
+     if(post){ctx.arc(p.x,p.y,size/2,0,Math.PI*2);ctx.fill();ctx.stroke()}
+     else{ctx.fillRect(p.x-size/2,p.y-size/2,size,size);ctx.strokeRect(p.x-size/2,p.y-size/2,size,size)}
+     ctx.fillStyle=color;ctx.fillRect(p.x-2.4,p.y-2.4,4.8,4.8);
+     if(chosen){ctx.beginPath();ctx.arc(p.x,p.y,size/2+4,0,Math.PI*2);ctx.stroke()}
+     ctx.restore()
+    }
+   }
     if(state.copySource){
     const src=state.copySource,dst=state.copyHover||state.copyTarget;
     if(dst){
@@ -5462,6 +5512,8 @@ window.irBuildingView=(()=>{
     }
    };
   };
+  const isPlanUpright=c=>c.geometryType==="column"||["columns","posts"].includes(typeKey(c))||
+   (Math.hypot(num(c.x2)-num(c.x),num(c.y2)-num(c.y))<5&&Math.abs(num(c.z2)-num(c.z0))>50);
   // Batch pointer/zoom/resize requests into a single draw per display frame.
   // The loading overlay closes only after an actual, nonzero-size canvas frame.
   let firstFrameReady=false;
@@ -5487,6 +5539,15 @@ window.irBuildingView=(()=>{
   // Fast hover picking uses the projected segments from the last frame.
   const nearestMember=(x,y)=>{
    const point={x,y};let best=null,distance=14;
+   if(state.preset==="top"){
+    const project=projectFactory().project;
+    for(const c of visibleCols()){
+     if(!isPlanUpright(c))continue;
+     const p=project(pt(c.x,c.y,c.z0)),d=Math.hypot(p.x-x,p.y-y);
+     if(d<distance){distance=d;best=c}
+    }
+    if(best&&distance<=12)return best
+   }
    for(const s of projectedSegments){const d=dist(point,s.a,s.b);if(d<distance){distance=d;best=s.c}}
    return best;
   };
@@ -5867,7 +5928,7 @@ window.irBuildingView=(()=>{
       '<div class="irb-row"><span>Отметка конца, мм</span><b>'+fmt(c.z2)+'</b></div>'+
       (props.canEdit?'<div class="irb-action-row">'+
        '<button type="button" class="irb-secondary" id="irbSelectDetails">Подробнее и редактирование →</button>'+
-       '<button type="button" class="irb-secondary irb-copy-button" id="irbCopySelected" title="Копировать всю конструкцию в другое место">⧉ Копировать</button>'+
+       '<button type="button" class="irb-secondary irb-copy-button" id="irbCopySelected" title="Копировать размещение этой марки в другое место (по остатку)">⧉ Размещение</button>'+       '<button type="button" class="irb-secondary irb-copy-params" id="irbCopyPosition" title="Взять оси, X/Y, низ, верх, конёк и профиль в редактор новой позиции">⧉ Копировать позицию</button>'+
        '<button type="button" class="irb-icon-delete" id="irbDeleteSelected" title="Удалить элемент со схемы" aria-label="Удалить выбранный элемент со схемы">'+
         '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
          '<path d="M4 7h16M10 4h4M6 7l1 13h10l1-13M10 11v6m4-6v6"/>'+
@@ -5888,6 +5949,9 @@ window.irBuildingView=(()=>{
       refreshPanel();paint();
      };
     }
+    const copyParams=el("irbCopyPosition");if(copyParams)copyParams.onclick=()=>{
+     if(props.canEdit&&typeof props.onCopyPosition==="function")props.onCopyPosition(String(c.id))
+    };
     const deleteButton=el("irbDeleteSelected");if(deleteButton)deleteButton.onclick=()=>{
      if(props.canEdit&&typeof props.onDelete==="function")props.onDelete(String(c.id));
     };

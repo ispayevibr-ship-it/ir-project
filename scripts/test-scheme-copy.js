@@ -61,3 +61,24 @@ function fixture(kind="bent",qty=5){
  assert.equal(c.rows.length,2);
  console.log("Scheme copy tests: bent, beams, columns, braces, trusses, quota, bounds and fractional offsets OK");
 })().catch(e=>{console.error(e);process.exitCode=1});
+
+
+// Position copy is separate from quota-limited placement copy.
+const building=fs.readFileSync("src/scheme-building-view.js","utf8");
+const styling=fs.readFileSync("src/scheme-building-view.css","utf8");
+assert(building.includes('id="irbCopySelected"')&&building.includes('id="irbCopyPosition"'),"two distinct copy actions are available");
+assert(building.includes("props.onCopyPosition(String(c.id))"),"position copy calls the existing scheme editor");
+assert(building.includes("if(!props.canEdit||!quota?.left)return"),"placement copy still respects quotas");
+assert(!building.includes("copyParams.disabled=true"),"position template available with exhausted mark");
+assert(file.includes("onCopyPosition:id=>")&&file.includes("openEditor({...record,...coord(record)},true)"),"saved position and elevations passed to the editor");
+assert(file.includes('f.dataset.copyPosition=copyingPosition?"1":"0"'),"template copies distinguished from editing");
+assert(file.includes("if(value&&!editingId&&!copyingPosition)"),"mark change does not erase copied elevations");
+assert(file.includes("f.elements.z0_mm.value=c?.z0??c?.z0_mm??0"),"bottom Z copied");
+assert(file.includes("f.elements.z1_mm.value=c?.z2??c?.z1_mm??8400"),"end Z copied");
+assert(file.includes("f.elements.mid_z_mm.value=c.mz"),"ridge Z copied");
+assert(file.includes("f.elements.rotation_deg.value=c?.rotation_deg??0"),"rotation copied");
+assert(file.includes('f.elements.profile_name.value=shapeSource.profile_name||""'),"profile copied");
+assert(file.includes('if(!id&&f.dataset.copyPosition==="1")'),"copy duplicate position is rejected");
+assert(file.includes('guessGeometry(m)!==(kind==="bent"?"beam":kind)'),"mark and copied geometry must agree");
+assert(styling.includes(".irb-viewport>.irb-floating-add{position:absolute!important;top:13px!important;right:16px!important"),"Add remains top-right");
+console.log("Position copy: full geometry, quotas, and safe duplicate handling OK.");

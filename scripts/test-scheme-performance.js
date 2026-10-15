@@ -41,3 +41,20 @@ assert(viewer.includes("webgl?.invalidate();"),"3D data refresh invalidates cach
 assert(viewer.includes("refreshPanel();refreshFindControls()"),"3D sidebar refreshes selected mark coordinates");
 console.log("Scheme performance: cached quotas, persisted Z changes, sidebars and in-place GPU geometry refresh OK");
 
+
+
+// Top-view vertical members collapse to points. Keep their plan symbols and picking.
+const helperStart=viewer.indexOf("  const isPlanUpright=c=>"),helperEnd=viewer.indexOf("\n  // Batch pointer/",helperStart);
+assert(helperStart>0&&helperEnd>helperStart,"plan upright helper exists");
+const isPlanUpright=vm.runInNewContext(viewer.slice(helperStart,helperEnd)+"\n isPlanUpright",{
+ num:v=>Number(v)||0,typeKey:c=>c.scheme_group||"other",Math
+});
+assert.equal(isPlanUpright({geometryType:"column",x:0,y:0,z0:0,z2:9750}),true,"column appears overhead");
+assert.equal(isPlanUpright({geometryType:"beam",scheme_group:"posts",x:8000,y:9000,z0:0,z2:9000}),true,"upright post appears overhead");
+assert.equal(isPlanUpright({geometryType:"beam",x:0,y:0,x2:0,y2:0,z0:0,z2:4500}),true,"legacy vertical element is visible overhead");
+assert.equal(isPlanUpright({geometryType:"beam",x:0,y:0,x2:6000,y2:0,z0:8500,z2:8500}),false,"horizontal beam does not get a column symbol");
+assert(viewer.includes('if(state.preset==="top")')&&viewer.includes("ctx.strokeRect(p.x-size/2"),"overhead footprint drawn above WebGL");
+assert(viewer.includes("const nearestMember=(x,y)=>")&&viewer.includes("if(best&&distance<=12)return best"),"vertical plan symbols can be selected");
+assert(viewer.includes("viewport.appendChild(addButton)")&&viewer.includes('addButton.id="irbQuickAdd"'),"Add button is always in the 3D viewport");
+assert(!viewer.includes('id="irbQuickAdd" class="irb-top-add"'),"Add no longer buried in the left toolbar");
+console.log("Overhead plan: columns/posts visible, selectable; Add pinned right.");

@@ -2146,6 +2146,19 @@ body.ir-object-route:not(.ir-object-overview) .wt-row[hidden]{display:none!impor
 .irb-color-empty{padding:10px 6px 12px;color:#6c879a;font-size:10px;line-height:1.5}
 
 
+/* Fixed Add action in the right-hand corner of the editable 3D scene. */
+.irb-webgl .irb-viewport>.irb-floating-add{position:absolute!important;top:13px!important;right:16px!important;left:auto!important;z-index:20!important;display:inline-flex!important;align-items:center;justify-content:center;min-height:37px;padding:0 15px;border:1px solid #1768d3;border-radius:8px;background:#1769dc;color:white;font:800 11px/1.2 "Segoe UI",Arial,sans-serif;box-shadow:0 4px 14px rgba(29,105,213,.24);cursor:pointer}
+.irb-webgl .irb-viewport>.irb-floating-add:hover{background:#0e59bc}
+.irb-webgl .irb-view-modes{top:60px!important;right:16px!important}
+.irb-webgl:has(.irb-properties:not([hidden])) .irb-view-modes{right:320px!important}
+.irb-webgl:has(.irb-properties:not([hidden])) .irb-viewport>.irb-floating-add{right:320px!important}
+@media(max-width:820px){
+ .irb-webgl .irb-viewport>.irb-floating-add{top:8px!important;right:8px!important}
+ .irb-webgl:has(.irb-properties:not([hidden])) .irb-viewport>.irb-floating-add{right:8px!important}
+ .irb-webgl .irb-view-modes,.irb-webgl:has(.irb-properties:not([hidden])) .irb-view-modes{top:102px!important;right:8px!important;left:8px!important}
+}
+
+
 /* #45: src/object-overview-right-column.css */
 /* IR Project 1.7.73: shared overview cards in a fixed ordered right column. */
 .ir-object-overview-layout{

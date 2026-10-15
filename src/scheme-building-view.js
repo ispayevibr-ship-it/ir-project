@@ -312,8 +312,14 @@ window.irBuildingView=(()=>{
    '<button type="button" id="irbLabelsToggle" title="Показать обозначения марок непосредственно на 3D-чертёже" aria-pressed="'+String(showMemberLabels)+'">⌗ Подписи</button>'+
    '<button type="button" id="irbColorToggle" title="Переключить цветовой режим" aria-label="Переключить цветовой режим">◉ Цвет: статус</button>'+
    '<button type="button" id="irbRenderToggle" title="Переключить реалистичный / обычный 3D" aria-label="Режим 3D">⬡ Реалистичный 3D</button>'+
-   (props.canEdit?'<button type="button" id="irbQuickAdd" class="irb-top-add">＋ Добавить элемент</button>':'');
+   '';
   viewport.appendChild(topControls);
+  if(props.canEdit){
+   const addButton=document.createElement("button");
+   addButton.type="button";addButton.id="irbQuickAdd";addButton.className="irb-top-add irb-floating-add";
+   addButton.textContent="＋ Добавить элемент";addButton.setAttribute("aria-label","Добавить элемент");
+   viewport.appendChild(addButton)
+  }
   const layerClose=document.createElement("button");layerClose.type="button";
   layerClose.className="irb-pane-close";layerClose.textContent="×";layerClose.title="Скрыть слои";
   layerClose.setAttribute("aria-label","Закрыть панель слоёв");
@@ -652,6 +658,25 @@ window.irBuildingView=(()=>{
      }
     }
    }
+   // An upright projects to a point in top view. Draw an architectural
+   // footprint for every visible column and post, even in realistic WebGL.
+   if(state.preset==="top"){
+    for(const c of visibleCols()){
+     if(!isPlanUpright(c))continue;
+     const p=m.project(pt(c.x,c.y,c.z0)),chosen=String(c.id)===String(state.selected),
+      hover=String(c.id)===String(state.hover),post=typeKey(c)==="posts";
+     const base=state.colorMode==="mark"?markCss(c):state.colorMode==="type"?typeCss(c):
+      c.status==="mounted"?"#2e9b7b":c.status==="partial"?"#c4a051":"#c16670",
+      color=chosen?"#2879df":hover?"#168fca":base,size=chosen?13:post?11:12;
+     ctx.save();ctx.fillStyle="rgba(255,255,255,.96)";ctx.strokeStyle=color;ctx.lineWidth=chosen?3:2;
+     ctx.beginPath();
+     if(post){ctx.arc(p.x,p.y,size/2,0,Math.PI*2);ctx.fill();ctx.stroke()}
+     else{ctx.fillRect(p.x-size/2,p.y-size/2,size,size);ctx.strokeRect(p.x-size/2,p.y-size/2,size,size)}
+     ctx.fillStyle=color;ctx.fillRect(p.x-2.4,p.y-2.4,4.8,4.8);
+     if(chosen){ctx.beginPath();ctx.arc(p.x,p.y,size/2+4,0,Math.PI*2);ctx.stroke()}
+     ctx.restore()
+    }
+   }
     if(state.copySource){
     const src=state.copySource,dst=state.copyHover||state.copyTarget;
     if(dst){
@@ -716,6 +741,8 @@ window.irBuildingView=(()=>{
     }
    };
   };
+  const isPlanUpright=c=>c.geometryType==="column"||["columns","posts"].includes(typeKey(c))||
+   (Math.hypot(num(c.x2)-num(c.x),num(c.y2)-num(c.y))<5&&Math.abs(num(c.z2)-num(c.z0))>50);
   // Batch pointer/zoom/resize requests into a single draw per display frame.
   // The loading overlay closes only after an actual, nonzero-size canvas frame.
   let firstFrameReady=false;
@@ -741,6 +768,15 @@ window.irBuildingView=(()=>{
   // Fast hover picking uses the projected segments from the last frame.
   const nearestMember=(x,y)=>{
    const point={x,y};let best=null,distance=14;
+   if(state.preset==="top"){
+    const project=projectFactory().project;
+    for(const c of visibleCols()){
+     if(!isPlanUpright(c))continue;
+     const p=project(pt(c.x,c.y,c.z0)),d=Math.hypot(p.x-x,p.y-y);
+     if(d<distance){distance=d;best=c}
+    }
+    if(best&&distance<=12)return best
+   }
    for(const s of projectedSegments){const d=dist(point,s.a,s.b);if(d<distance){distance=d;best=s.c}}
    return best;
   };
@@ -1121,7 +1157,7 @@ window.irBuildingView=(()=>{
       '<div class="irb-row"><span>Отметка конца, мм</span><b>'+fmt(c.z2)+'</b></div>'+
       (props.canEdit?'<div class="irb-action-row">'+
        '<button type="button" class="irb-secondary" id="irbSelectDetails">Подробнее и редактирование →</button>'+
-       '<button type="button" class="irb-secondary irb-copy-button" id="irbCopySelected" title="Копировать всю конструкцию в другое место">⧉ Копировать</button>'+
+       '<button type="button" class="irb-secondary irb-copy-button" id="irbCopySelected" title="Копировать размещение этой марки в другое место (по остатку)">⧉ Размещение</button>'+       '<button type="button" class="irb-secondary irb-copy-params" id="irbCopyPosition" title="Взять оси, X/Y, низ, верх, конёк и профиль в редактор новой позиции">⧉ Копировать позицию</button>'+
        '<button type="button" class="irb-icon-delete" id="irbDeleteSelected" title="Удалить элемент со схемы" aria-label="Удалить выбранный элемент со схемы">'+
         '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
          '<path d="M4 7h16M10 4h4M6 7l1 13h10l1-13M10 11v6m4-6v6"/>'+
@@ -1142,6 +1178,9 @@ window.irBuildingView=(()=>{
       refreshPanel();paint();
      };
     }
+    const copyParams=el("irbCopyPosition");if(copyParams)copyParams.onclick=()=>{
+     if(props.canEdit&&typeof props.onCopyPosition==="function")props.onCopyPosition(String(c.id))
+    };
     const deleteButton=el("irbDeleteSelected");if(deleteButton)deleteButton.onclick=()=>{
      if(props.canEdit&&typeof props.onDelete==="function")props.onDelete(String(c.id));
     };

@@ -697,6 +697,11 @@ window.irSchemePage=async function(objectId){
     return{left:q?.left||0,total:q?.total||0,placed:q?.placed||0};
    },
    onCopyPlacement:(id,target)=>copySchemeMember(id,target),
+   onCopyPosition:id=>{
+    if(!canEdit())return;
+    const record=workRecords().find(r=>String(r.id)===String(id));
+    if(record)openEditor({...record,...coord(record)},true)
+   },
    onCopySaved:id=>{selectedId=String(id||"");refreshAfterMemberChange()},
    onDelete:async id=>{
     if(!canEdit())return;
@@ -811,7 +816,7 @@ window.irSchemePage=async function(objectId){
     ${progress.state==="partial"?'<small>Ведомость показывает частичное выполнение марки, но не указывает, какой именно экземпляр смонтирован.</small>':""}
    </div>`:""}
    ${between?`<div class="scheme-between"><b>Элемент между осями</b><span>${esc(a.x)} / ${esc(a.y)}</span><small>Положение вычисляется от выбранных базовых осей и сохраняется точно в миллиметрах.</small></div>`:""}
-   ${canEdit()?`<div class="scheme-detail-actions"><button type="button" data-scheme-edit>Редактировать</button><button type="button" data-scheme-copy>⧉ Копировать</button><button type="button" class="danger" data-scheme-delete>Удалить</button></div>`:""}`;
+   ${canEdit()?`<div class="scheme-detail-actions"><button type="button" data-scheme-edit>Редактировать</button><button type="button" data-scheme-copy>⧉ Копировать позицию</button><button type="button" class="danger" data-scheme-delete>Удалить</button></div>`:""}`;
   panel.querySelector("[data-scheme-edit]")?.addEventListener("click",()=>openEditor(c));
   panel.querySelector("[data-scheme-copy]")?.addEventListener("click",()=>openEditor(c,true));
   panel.querySelector("[data-scheme-delete]")?.addEventListener("click",async()=>{if(!confirm(`Удалить элемент ${c.mark?`«${c.mark}» `:""}со схемы?`)){restoreKeyboardAfterConfirm();return}restoreKeyboardAfterConfirm();await schemeApi.remove(c.id);rows=await schemeApi.list().catch(()=>rows);selectedId="";draw();restoreKeyboardAfterConfirm()});bindElementPicker(panel)
@@ -926,12 +931,19 @@ window.irSchemePage=async function(objectId){
  function openEditor(c=null,copy=false,placement=null){
   pendingBuildingPlacement=placement?.zigzag?placement:null;
   const d=document.getElementById("schemeEditor"),f=document.getElementById("schemeForm"),err=document.getElementById("schemeFormError");if(!d||!f)return;
-  // A copy starts with unchanged coordinates; its placement can be adjusted manually.
-  if(c&&copy)c={...c,id:"",status:"planned",position:"",title:""};
-  f.reset();err.hidden=true;document.getElementById("schemeEditorTitle").textContent=copy?"Копировать элемент — новое положение":c?"Редактировать элемент":"Добавить элемент";f.elements.id.value=copy?"":c?.id||"";
+  // Position templates retain exact XY, both Z elevations, ridge, profile
+  // and rotation, while creating a new record with its own available mark.
+  const copyingPosition=Boolean(c&&copy);
+  if(copyingPosition)c={...c,id:"",status:"planned",position:"",title:""};
+  f.reset();f.dataset.copyPosition=copyingPosition?"1":"0";err.hidden=true;
+  document.getElementById("schemeEditorTitle").textContent=copyingPosition?"Копировать позицию — параметры и отметки Z":c?"Редактировать элемент":"Добавить элемент";
+  f.elements.id.value=copyingPosition?"":c?.id||"";
   // Reopen the actual stored grid for edits and copies, including the shared grid.
   const sourceView=c?.scheme_view_id&&c.scheme_view_id!=="all"?customViews().find(x=>String(x.id)===String(c.scheme_view_id)):null;
   let gridChoice=c?.scheme_view_id==="all"?"all":sourceView?"view:"+sourceView.id:activeScheme,editorGrid=gridForEditor(gridChoice),editorMarks=marksForGrid(gridChoice);
+  const sourceGeometry=c?.geometryType||c?.geometry_type||"";
+  const compatibleMark=m=>!copyingPosition||guessGeometry(m)===(sourceGeometry==="bent"?"beam":sourceGeometry);
+  if(copyingPosition)editorMarks=editorMarks.filter(compatibleMark);
   f.elements.scheme_target.value=gridChoice;
   let chosenMark=placement?.markId||resolveSavedMarkId(c),currentMark=chosenMark;
   const editingId=String(f.elements.id.value||""),unresolvedExisting=!!editingId&&!currentMark,
@@ -950,7 +962,7 @@ window.irSchemePage=async function(objectId){
    const value=String(selection.value||"");
    if(value&&!editorMarks.some(m=>m.id===value&&markAvailable(m,editingId))){selection.value="";chosenMark="";renderMarkOptions();return}
    chosenMark=value;
-   if(value&&!editingId){const m=editorMarks.find(x=>x.id===value),same=allRecords().find(x=>String(x.mark_id||"")===value);f.elements.section_type.value=sectionType(same||{});f.elements.profile_name.value=same?.profile_name||"";f.elements.geometry_type.value=m?guessGeometry(m):"column";updateGeometry(true)}
+   if(value&&!editingId&&!copyingPosition){const m=editorMarks.find(x=>x.id===value),same=allRecords().find(x=>String(x.mark_id||"")===value);f.elements.section_type.value=sectionType(same||{});f.elements.profile_name.value=same?.profile_name||"";f.elements.geometry_type.value=m?guessGeometry(m):"column";updateGeometry(true)}
    refreshEditorProgress()
   };
   if(search){search.value="";search.oninput=renderMarkOptions}
@@ -1022,7 +1034,7 @@ window.irSchemePage=async function(objectId){
   assignAxes(false);
   f.elements.scheme_target.onchange=()=>{
    gridChoice=f.elements.scheme_target.value;
-   editorGrid=gridForEditor(gridChoice);editorMarks=marksForGrid(gridChoice);
+   editorGrid=gridForEditor(gridChoice);editorMarks=marksForGrid(gridChoice).filter(compatibleMark);
    chosenMark=editorMarks.some(m=>m.id===chosenMark&&markAvailable(m,editingId))?chosenMark:editorMarks.find(m=>markAvailable(m,editingId))?.id||"";
    assignAxes(true);renderMarkOptions();refreshPreview()
   };
@@ -1091,6 +1103,9 @@ window.irSchemePage=async function(objectId){
    if(!markAvailable(m,id)){const quota=markPlacement(m);err.textContent="Марка "+(m.mark||m.title)+" полностью размещена: "+quota.placed+" из "+quota.total+" шт. Добавление невозможно.";err.hidden=false;return}
    const axisX=String(fd.get("axis_x")||targetGrid.axesX[0]),axisY=String(fd.get("axis_y")||targetGrid.axesY[0]),dx=num(fd.get("offset_x_mm")),dy=num(fd.get("offset_y_mm")),x=num(targetGrid.xPos.get(axisX))+dx,y=num(targetGrid.yPos.get(axisY))+dy;
    const kind=String(fd.get("geometry_type")||"column"),z0=num(fd.get("z0_mm")),z1=num(fd.get("z1_mm"));
+   if(!id&&f.dataset.copyPosition==="1"&&guessGeometry(m)!==(kind==="bent"?"beam":kind)){
+    err.textContent="Для копируемой позиции выберите марку соответствующего типа конструкции.";err.hidden=false;return
+   }
    const endX=String(fd.get("end_axis_x")||targetGrid.axesX[0]),endY=String(fd.get("end_axis_y")||targetGrid.axesY[0]),endDx=num(fd.get("end_offset_x_mm")),endDy=num(fd.get("end_offset_y_mm")),x2=num(targetGrid.xPos.get(endX))+endDx,y2=num(targetGrid.yPos.get(endY))+endDy;
    const ridgeMode=fd.get("ridge_mode")==="manual"?"manual":"center",
     manualMidX=String(fd.get("mid_axis_x")||targetGrid.axesX[0]),
@@ -1109,6 +1124,16 @@ window.irSchemePage=async function(objectId){
    }
    if(kind==="column"&&z1<=z0){err.textContent="У колонны верх должен быть выше низа.";err.hidden=false;return}
    if(kind!=="column"&&Math.hypot(x2-x,y2-y,z1-z0)<1){err.textContent="Конечная точка должна отличаться от начальной.";err.hidden=false;return}
+   if(!id&&f.dataset.copyPosition==="1"){
+    const overlap=allRecords().some(row=>{
+     const q=coord(row);if(q.geometryType!==kind)return false;
+     const same=(a,b)=>Math.abs(a-b)<5;
+     return same(q.x,x)&&same(q.y,y)&&same(q.z0,z0)&&
+      (kind==="column"||same(q.x2,x2)&&same(q.y2,y2))&&same(q.z2,z1)&&
+      (kind!=="bent"||same(q.mx,mx)&&same(q.my,my)&&same(q.mz,mz))
+    });
+    if(overlap){err.textContent="Позиция полностью совпадает с размещённой конструкцией. Измените оси, смещение или отметки Z перед сохранением копии.";err.hidden=false;return}
+   }
    const storedRow=id?records().find(x=>String(x.id)===id):null,status=String(fd.get("status")||storedRow?.status||"planned"),section_type=String(fd.get("section_type")||"ibeam"),profile_name=String(fd.get("profile_name")||"").trim(),rot=num(fd.get("rotation_deg"));
    const existing=id?records().find(r=>r.id===id):null,used=new Set(allRecords().map(r=>String(r.position||r.title||"")));
    let internalPosition=String(existing?.position||existing?.title||"");
