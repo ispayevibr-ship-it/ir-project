@@ -163,6 +163,7 @@ function registerAiDocuments(){
  ipcMain.handle("ai-workflow:cancel",(e,{objectId,id})=>
   aiQueue.cancel(objectId,id,requireAiReviewer(e)));
  ipcMain.handle("ai-integrity:report",(_e,objectId)=>aiIntegrity.report(objectId));
+ ipcMain.handle("ai-kmd-reference:snapshot",(_e,objectId)=>aiReference.snapshot(objectId));
  ipcMain.handle("ai-kmd-reference:list",(_e,objectId)=>aiReference.list(objectId));
  ipcMain.handle("ai-kmd-reference:checks",(_e,objectId)=>aiReference.checks(objectId));
  ipcMain.handle("ai-kmd-reference:compare",(_e,objectId)=>aiReference.compare(objectId));

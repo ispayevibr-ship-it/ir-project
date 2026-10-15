@@ -151,10 +151,10 @@ function createKmdReference({database,revisions,quantities,materials,connections
     reviewedBy:d.reviewedBy||null,reviewedAt:d.reviewedAt||null}
   })
  }
- function checks(id){
+ function checks(id,loadedEntries=null){
   const o=obj(id),active=activeSet(o);
   if(!active)return{setId:null,setIssue:null,sheets:[],total:0,reviewed:0,allSheetsReviewed:false};
-  const entries=list(o),bySheet=new Map(),duplicatesBySheet=new Map(),seenKeys=new Map();
+  const entries=loadedEntries||list(o),bySheet=new Map(),duplicatesBySheet=new Map(),seenKeys=new Map();
   for(const entry of entries){
    if(Number(entry.setId)!==active.set.id||entry.status==="rejected")continue;
    if(!bySheet.has(entry.sheetId))bySheet.set(entry.sheetId,[]);
@@ -331,8 +331,8 @@ function createKmdReference({database,revisions,quantities,materials,connections
   return stored(o,HISTORY,"reference_change").filter(x=>x.data?.referenceId===ref.id)
    .map(x=>({id:x.id,...x.data}))
  }
- function compare(id){
-  const o=obj(id),ledger=list(o),review=checks(o);
+ function compare(id,loaded=null){
+  const o=obj(id),ledger=loaded?.entries||list(o),review=loaded?.checks||checks(o,ledger);
   const entries=ledger.filter(x=>x.approved),marks=quantities.list(o),
    details=materials.list(o),nodes=connections.listNodes(o),components=connections.listComponents(o);
   const issues=[],affected=[];
@@ -489,6 +489,10 @@ function createKmdReference({database,revisions,quantities,materials,connections
    fullSpecificationVerified:false,releaseCertified:false,
    explanation:"Данный статус означает только полноту занесённых инженером эталонных листов и сверку с ведомостями; не является заключением о правильности КМД."}
  }
- return{list,checks,save,seal,history,compare}
+ function snapshot(id){
+  const o=obj(id),entries=list(o),sheetChecks=checks(o,entries);
+  return{entries,checks:sheetChecks,comparison:compare(o,{entries,checks:sheetChecks})}
+ }
+ return{list,checks,save,seal,history,compare,snapshot}
 }
 module.exports={createKmdReference};

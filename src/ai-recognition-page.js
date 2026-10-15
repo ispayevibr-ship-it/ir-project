@@ -80,12 +80,24 @@ window.irAiRecognitionPage=async function(objectId){
    jobs.push(integrityApi.report(id).then(v=>{integrityReport=v})
     .catch(error=>{integrityReport=null;notice("Контроль данных: "+String(error.message||error),"error")}));
   if(referenceApi&&active==="reference"){
-   jobs.push(referenceApi.list(id).then(v=>{referenceRows=v}).catch(e=>{
-    referenceRows=null;notice("Эталон КМД: "+String(e.message||e),"error")}));
-   jobs.push(referenceApi.checks(id).then(v=>{referenceChecks=v}).catch(e=>{
-    referenceChecks=null;notice("Проверки листов: "+String(e.message||e),"error")}));
-   jobs.push(referenceApi.compare(id).then(v=>{referenceCompare=v}).catch(e=>{
-    referenceCompare=null;notice("Сверка эталона: "+String(e.message||e),"error")}))
+   referenceRows=null;referenceChecks=null;referenceCompare=null;
+   if(typeof referenceApi.snapshot==="function")
+    jobs.push(referenceApi.snapshot(id).then(data=>{
+     if(!data||!Array.isArray(data.entries)||!data.checks||!data.comparison)
+      throw Error("Получен неполный снимок эталона КМД");
+     referenceRows=data.entries;referenceChecks=data.checks;referenceCompare=data.comparison
+    }).catch(e=>{
+     referenceRows=null;referenceChecks=null;referenceCompare=null;
+     notice("Не удалось получить согласованную сверку эталона КМД: "+String(e.message||e),"error")
+    }));
+   else jobs.push(Promise.all([
+    referenceApi.list(id),referenceApi.checks(id),referenceApi.compare(id)
+   ]).then(([entries,sheets,comparison])=>{
+    referenceRows=entries;referenceChecks=sheets;referenceCompare=comparison
+   }).catch(e=>{
+    referenceRows=null;referenceChecks=null;referenceCompare=null;
+    notice("Не удалось прочитать эталон КМД: "+String(e.message||e),"error")
+   }))
   }
   if(revisionsApi){
    jobs.push(revisionsApi.list(id).then(v=>{revisionSets=v}).catch(error=>{revisionSets=[];notice("Ошибка списка комплектов КМ/КМД: "+String(error.message||error),"error")}));

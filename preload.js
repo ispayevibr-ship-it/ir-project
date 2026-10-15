@@ -96,6 +96,7 @@ const aiIntegrity={
  report:objectId=>ipcRenderer.invoke("ai-integrity:report",objectId)
 };
 const aiKmdReference={
+ snapshot:objectId=>ipcRenderer.invoke("ai-kmd-reference:snapshot",objectId),
  list:objectId=>ipcRenderer.invoke("ai-kmd-reference:list",objectId),
  checks:objectId=>ipcRenderer.invoke("ai-kmd-reference:checks",objectId),
  compare:objectId=>ipcRenderer.invoke("ai-kmd-reference:compare",objectId),
