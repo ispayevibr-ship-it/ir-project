@@ -70,7 +70,8 @@ window.irAiKmdReferencePage={
    (missing.length?'<div class="ir-ai-reference-discrepancies"><h3>Отличия от инженерных ведомостей</h3>'+
     missing.slice(0,100).map((m,index)=>'<div><b>'+esc(m.label)+'</b> · '+esc(m.mark)+
      ' · '+esc(m.position)+' · '+esc(m.sheetCode)+
-     '<small>Эталон: '+esc(m.expected??"—")+' · ведомость: '+esc(m.actual??"отсутствует")+'</small>'+
+     '<small>Эталон: '+esc(m.expected??"—")+' · ведомость: '+esc(m.actual??"отсутствует")+
+      (m.reason?' · Причина: '+esc(m.reason):"")+'</small>'+
      (onNavigate?'<button type="button" data-reference-go="'+index+'">Открыть ведомость →</button>':"")+
      '</div>').join("")+
     (missing.length>100?'<small>Показаны первые 100 замечаний из '+missing.length+'</small>':"")+
@@ -95,8 +96,10 @@ window.irAiKmdReferencePage={
   root.querySelectorAll("[data-reference-go]").forEach(b=>b.onclick=()=>{
    const entry=missing[Number(b.dataset.referenceGo)];
    if(!entry)return;
-   onNavigate?.({tab:entry.type==="mark"?"marks":entry.type==="part"?"metal":"fasteners",
-    type:entry.type,actualId:entry.actualId,assemblyId:entry.assemblyId,
+   const targetType=["missing_mark","ambiguous_mark","unverified_mark"].includes(entry.code)?
+    "mark":entry.type;
+   onNavigate?.({tab:targetType==="mark"?"marks":targetType==="part"?"metal":"fasteners",
+    type:targetType,actualId:entry.actualId,assemblyId:entry.assemblyId,
     referenceId:entry.referenceId,mark:entry.mark,position:entry.position});
   });
   root.querySelectorAll("[data-reference-pdf],[data-ref-source]").forEach(button=>button.onclick=()=>{

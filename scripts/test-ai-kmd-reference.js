@@ -194,6 +194,37 @@ const {createKmdReference}=require("../src/ai-kmd-reference");
  let report=api.compare(1);
  assert.equal(report.fullSpecificationVerified,false);
  assert.equal(report.releaseCertified,false);
+ mark.status="requires_review";
+ assert(api.compare(1).mismatches.some(x=>x.code==="unverified_mark"&&
+  x.type==="mark"&&x.actualId===31),
+  "an existing draft mark must link to its record, not be described as missing");
+ mark.status="confirmed";
+ mark.sourceValid=false;
+ assert(api.compare(1).mismatches.some(x=>x.code==="unverified_mark"&&
+  x.actualId===31),"a stale source cannot count as a missing physical mark");
+ mark.sourceValid=true;
+ parts[0].counted=false;
+ parts[0].status="requires_review";
+ parts[0].reason="Деталь ожидает подписи инженера";
+ assert(api.compare(1).mismatches.some(x=>x.code==="unverified_position"&&
+  x.type==="part"&&x.actualId===41&&x.reason==="Деталь ожидает подписи инженера"),
+  "an existing draft part must preserve its ledger link and rejection reason");
+ parts[0].counted=true;
+ parts[0].status="confirmed";
+ nodes[0].counted=false;
+ nodes[0].status="requires_review";
+ assert(api.compare(1).mismatches.some(x=>x.code==="unverified_position"&&
+  x.type==="joint"&&x.actualId===51),
+  "an unverified joint is not a missing connection");
+ nodes[0].counted=true;
+ nodes[0].status="confirmed";
+ components[0].counted=false;
+ components[0].status="requires_review";
+ assert(api.compare(1).mismatches.some(x=>x.code==="unverified_position"&&
+  x.type==="component"&&x.actualId===61&&x.jointId===51),
+  "an unverified fastener must open the exact existing component");
+ components[0].counted=true;
+ components[0].status="confirmed";
  assert(report.mismatches.some(x=>x.code==="missing_position"&&x.position==="Д3"),
   "expected part missing from actual engineering ledger");
  assert(report.mismatches.some(x=>x.code==="unlisted_position"&&
