@@ -202,6 +202,30 @@ const {createKmdReference}=require("../src/ai-kmd-reference");
   record_type:"kmd_reference",title:oldPart.title,data:oldPart.data
  });
  assert.equal(api.checks(1).allSheetsReviewed,true);
+ // Cross-mark duplicates of one object-wide erection joint must invalidate
+ // signoff even when the ordinary per-mark reference keys are different.
+ const jointSource=db.getEntity(1,"ai-kmd-reference-rows",markRef.id);
+ const siteA=db.createEntity(1,"ai-kmd-reference-rows",{
+  record_type:"kmd_reference",title:"Site joint on K41",
+  data:{...jointSource.data,type:"joint",scope:"erection",
+   jointCode:"МС1",mark:"К41",quantity:2}
+ });
+ const siteB=db.createEntity(1,"ai-kmd-reference-rows",{
+  record_type:"kmd_reference",title:"Same physical site joint on K42",
+  data:{...jointSource.data,type:"joint",scope:"erection",
+   jointCode:"МС1",mark:"К42",quantity:2}
+ });
+ assert(api.checks(1).sheets[0].duplicatePositions>0,
+  "a site joint on two different marks remains one physical joint");
+ assert.equal(api.checks(1).allSheetsReviewed,false);
+ assert.throws(()=>api.seal(1,301,api.checks(1).sheets[0].revision,{
+  reviewedEntireSheet:true,comment:"Repeated site joints must not pass"
+ },{role:"engineer"}),/повторяются физические позиции|состав эталона/,
+  "engineer cannot sign the same object-level erection joint twice");
+ db.deleteEntity(1,"ai-kmd-reference-rows",siteA.id);
+ db.deleteEntity(1,"ai-kmd-reference-rows",siteB.id);
+ assert.equal(api.checks(1).allSheetsReviewed,true,
+  "restoring the original signed sheet removes the duplicate finding");
  let report=api.compare(1);
  assert.equal(report.fullSpecificationVerified,false);
  assert.equal(report.releaseCertified,false);
@@ -234,6 +258,19 @@ const {createKmdReference}=require("../src/ai-kmd-reference");
   x.type==="component"&&x.position==="Б1"),
   "one confirmed fastener cannot conceal its unverified duplicate");
  components.pop();
+ marks.push({...mark,id:77,mark:"К42",quantity:1});
+ nodes.push({...nodes[0],id:53,scope:"erection",jointCode:"МС1",
+  assemblyId:31,assemblyMark:"К41",siteOccurrences:2,instances:2,counted:true});
+ nodes.push({...nodes[0],id:54,scope:"erection",jointCode:"МС1",
+  assemblyId:77,assemblyMark:"К42",siteOccurrences:2,instances:2,counted:true});
+ const siteMismatch=api.compare(1).mismatches.find(x=>
+  x.code==="duplicate_erection_joint");
+ assert(siteMismatch&&siteMismatch.actualId===54&&siteMismatch.type==="joint",
+  "global erection joint conflicts must point to the second real ledger record");
+ assert.match(siteMismatch.reason,/узле № 53/);
+ assert.equal(api.compare(1).referenceReady,false,
+  "two distinct marks must not make one physical erection joint appear twice");
+ nodes.pop();nodes.pop();marks.pop();
  mark.status="requires_review";
  assert(api.compare(1).mismatches.some(x=>x.code==="unverified_mark"&&
   x.type==="mark"&&x.actualId===31),
