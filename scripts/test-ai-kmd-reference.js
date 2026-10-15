@@ -3,7 +3,7 @@
 const assert=require("node:assert/strict");
 const {createKmdReference}=require("../src/ai-kmd-reference");
 (()=>{
- const sha="a".repeat(64),data=new Map();let seq=20,failure=false;
+ const sha="a".repeat(64),data=new Map();let seq=20,failure=false,duringTransaction=null;
  const clone=o=>o==null?null:JSON.parse(JSON.stringify(o));
  const key=(o,s,id)=>[o,s,id].join("|");
  const db={
@@ -27,8 +27,12 @@ const {createKmdReference}=require("../src/ai-kmd-reference");
   deleteEntity:(o,s,id)=>data.delete(key(o,s,id)),
   transaction:fn=>{
    const before=clone([...data]),counter=seq;
-   try{return fn()}
-   catch(e){data.clear();for(const [k,v] of before)data.set(k,v);seq=counter;throw e}
+   try{
+    if(duringTransaction){
+     const callback=duringTransaction;duringTransaction=null;callback()
+    }
+    return fn()
+   }catch(e){data.clear();for(const [k,v] of before)data.set(k,v);seq=counter;throw e}
   }
  };
  const sheet1={id:301,setId:201,sheetCode:"КМД-01",documentId:11,page:1,
@@ -92,6 +96,17 @@ const {createKmdReference}=require("../src/ai-kmd-reference");
   comment:"По листу, по спецификации и выноскам, все позиции"},{role:"admin"});
  assert.equal(sealed.checked,true);
  assert.equal(api.checks(1).allSheetsReviewed,true);
+ duringTransaction=()=>db.createEntity(1,"ai-kmd-reference-rows",{
+  record_type:"kmd_reference",title:"Added before transaction commit",
+  data:{...db.getEntity(1,"ai-kmd-reference-rows",markRef.id).data,
+   type:"part",position:"Р-ОПАЗДАЛ",status:"requires_review"}
+ });
+ assert.throws(()=>api.seal(1,301,1,{reviewedEntireSheet:true,
+  comment:"Повторная сверка исходного листа КМД"},{role:"engineer"}),
+  /состав эталона изменился/,
+  "late SQLite changes must invalidate an engineer's precomputed signoff");
+ assert.equal(api.checks(1).allSheetsReviewed,true,
+  "failed signoff and simulated concurrent modification must roll back");
  const duplicate=api.list(1).find(x=>x.id===markRef.id);
  const duplicateStored=db.getEntity(1,"ai-kmd-reference-rows",markRef.id);
  const duplicateRow=db.createEntity(1,"ai-kmd-reference-rows",{
@@ -111,6 +126,21 @@ const {createKmdReference}=require("../src/ai-kmd-reference");
  db.deleteEntity(1,"ai-kmd-reference-rows",duplicateRow.id);
  assert.equal(api.checks(1).allSheetsReviewed,true);
  const validMarkRecord=db.getEntity(1,"ai-kmd-reference-rows",markRef.id);
+ for(const field of ["type","scope","source.kind"]){
+  const damaged=clone(validMarkRecord.data);
+  if(field==="type")damaged.type="unknown_physical_piece";
+  else if(field==="scope"){
+   damaged.type="joint";damaged.jointCode="У1";damaged.scope="not_a_real_scope"
+  }else damaged.source.kind="КМ";
+  db.updateEntity(1,"ai-kmd-reference-rows",markRef.id,{
+   record_type:"kmd_reference",title:validMarkRecord.title,data:damaged
+  });
+  assert.equal(api.list(1).find(x=>x.id===markRef.id).approved,false,
+   "invalid identity field "+field+" cannot be considered an engineer approval");
+  db.updateEntity(1,"ai-kmd-reference-rows",markRef.id,{
+   record_type:"kmd_reference",title:validMarkRecord.title,data:validMarkRecord.data
+  })
+ }
  db.updateEntity(1,"ai-kmd-reference-rows",markRef.id,{
   record_type:"kmd_reference",title:validMarkRecord.title,
   data:{...validMarkRecord.data,reviewedBy:null}
