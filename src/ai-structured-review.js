@@ -67,11 +67,13 @@ function createStructuredReviews({database,documents,revisions=null,clock=()=>ne
   return{row,analysis};
  }
  function findReview(id,analysisId,index){
-  return reviews(id).find(x=>x.data?.analysisId===analysisId&&x.data?.index===index)
+  const matches=reviews(id).filter(x=>x.data?.analysisId===analysisId&&x.data?.index===index);
+  if(matches.length>1)throw Error("Для одного предложения ИИ обнаружено несколько инженерных решений. Редактирование заблокировано до устранения конфликта");
+  return matches[0]||null
  }
- function view(id,a,proposal,review){
+ function view(id,a,proposal,review,ambiguous=false){
   const src=a.data?.source||{},stored=review?.data||{};
-  const fpOk=!review||stored.fingerprint===proposal.fingerprint;
+  const fpOk=!ambiguous&&(!review||stored.fingerprint===proposal.fingerprint);
   const valid=sourceValid(id,a);
   const values=fpOk&&stored.corrected?stored.corrected:proposal.data;
   const status=fpOk&&STATUSES.has(stored.status)?stored.status:"requires_review";
@@ -86,17 +88,24 @@ function createStructuredReviews({database,documents,revisions=null,clock=()=>ne
    approved:status==="confirmed"&&valid&&fpOk,revision:Number(stored.revision)||0,
    comment:String(stored.comment||""),reviewedBy:stored.reviewedBy||null,
    reviewedAt:stored.reviewedAt||null,
-   errors:proposal.errors,warnings:proposal.warnings,
-   requiresReview:true,reviewId:review?.id||null}
+   errors:proposal.errors,
+   warnings:ambiguous?[...proposal.warnings,"Несколько инженерных решений для одного предложения — требуется разбор конфликта"]:proposal.warnings,
+   conflictingReviews:ambiguous,requiresReview:true,reviewId:ambiguous?null:review?.id||null}
  }
  function list(id){
-  const target=oid(id),allReviews=new Map(reviews(target).map(x=>
-   [x.data.analysisId+":"+x.data.index,x]));
+  const target=oid(id),allReviews=new Map();
+  for(const row of reviews(target)){
+   const key=row.data?.analysisId+":"+row.data?.index;
+   if(!allReviews.has(key))allReviews.set(key,[]);
+   allReviews.get(key).push(row)
+  }
   const result=[];
   for(const row of analysisRows(target)){
    const records=structured.extract(row.data?.raw).records;
-   for(const proposal of records)result.push(view(target,row,proposal,
-    allReviews.get(row.id+":"+proposal.index)))
+   for(const proposal of records){
+    const matching=allReviews.get(row.id+":"+proposal.index)||[];
+    result.push(view(target,row,proposal,matching[0]||null,matching.length>1))
+   }
   }
   return result
  }
@@ -106,6 +115,7 @@ function createStructuredReviews({database,documents,revisions=null,clock=()=>ne
    requiresReview:rows.filter(x=>!x.approved&&x.status!=="rejected").length,
    rejected:rows.filter(x=>x.status==="rejected").length,
    invalidSources:rows.filter(x=>!x.sourceValid).length,
+   conflictingReviews:rows.filter(x=>x.conflictingReviews).length,
    byType:Object.fromEntries([...new Set(rows.map(x=>x.type))].map(k=>[k,rows.filter(x=>x.type===k).length])),
    complete:false,meaning:"Предложения локального ИИ; не действующая ведомость отправочных марок"}
  }
