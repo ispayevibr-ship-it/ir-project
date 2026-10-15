@@ -1,7 +1,7 @@
 "use strict";
 const {app,BrowserWindow,ipcMain,dialog,Menu,protocol,shell}=require("electron");
 const path=require("path"),crypto=require("crypto"),fs=require("fs");
-const database=require("./src/database"),aiDocumentStore=require("./src/ai-document-store"),aiLocalEngine=require("./src/ai-local-engine"),aiAnalysis=require("./src/ai-analysis"),aiReview=require("./src/ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiKmdMaterials=require("./src/ai-kmd-materials"),aiKmdConnections=require("./src/ai-kmd-connections"),aiKmKmdCompare=require("./src/ai-km-kmd-compare"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),aiModelManager=require("./src/ai-model-manager"),aiRuntimeDiagnostics=require("./src/ai-runtime-diagnostics"),backup=require("./src/backup"),updates=require("./src/updater"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
+const database=require("./src/database"),aiDocumentStore=require("./src/ai-document-store"),aiLocalEngine=require("./src/ai-local-engine"),aiAnalysis=require("./src/ai-analysis"),aiReview=require("./src/ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiKmdMaterials=require("./src/ai-kmd-materials"),aiKmdConnections=require("./src/ai-kmd-connections"),aiKmKmdCompare=require("./src/ai-km-kmd-compare"),aiAssemblyGeometry=require("./src/ai-assembly-geometry"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),aiModelManager=require("./src/ai-model-manager"),aiRuntimeDiagnostics=require("./src/ai-runtime-diagnostics"),backup=require("./src/backup"),updates=require("./src/updater"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
 let win;
 const aiDocuments=aiDocumentStore.createStore({getUserDataPath:()=>app.getPath("userData"),dialog,shell,database,getWindow:()=>win});
 let aiModels;
@@ -31,6 +31,7 @@ const aiQuantities=aiMarkQuantities.createMarkQuantities({database});
 const aiMaterials=aiKmdMaterials.createKmdMaterials({database,quantities:aiQuantities});
 const aiConnections=aiKmdConnections.createKmdConnections({database,quantities:aiQuantities});
 const aiComparisons=aiKmKmdCompare.createKmKmdCompare({database});
+const aiAssemblies=aiAssemblyGeometry.createAssemblyGeometry({database,quantities:aiQuantities,materials:aiMaterials});
 const aiReviewSessions=new Map();
 function authorizeAiReview(e,role,password){
  if(!["admin","engineer"].includes(role))return false;
@@ -110,6 +111,13 @@ function registerAiDocuments(){
  ipcMain.handle("ai-compare:fields",()=>aiComparisons.fields);
  ipcMain.handle("ai-compare:save",(e,{objectId,id,entry})=>
   aiComparisons.save(objectId,id??null,entry,requireAiReviewer(e)));
+ ipcMain.handle("ai-assembly:list",(_e,{objectId,assemblyId})=>
+  aiAssemblies.list(objectId,assemblyId));
+ ipcMain.handle("ai-assembly:summary",(_e,{objectId,assemblyId})=>
+  aiAssemblies.summary(objectId,assemblyId));
+ ipcMain.handle("ai-assembly:history",(_e,{objectId,id})=>aiAssemblies.history(objectId,id));
+ ipcMain.handle("ai-assembly:save",(e,{objectId,id,entry})=>
+  aiAssemblies.save(objectId,id??null,entry,requireAiReviewer(e)));
  ipcMain.handle("ai-analysis:image",(_e,{objectId,id})=>aiResults.analyze(objectId,id));
  ipcMain.handle("ai-pdf:list",(_e,objectId)=>aiPdf.list(objectId));
  ipcMain.handle("ai-pdf:index",(_e,{objectId,id})=>aiPdf.index(objectId,id));

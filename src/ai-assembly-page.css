@@ -1,0 +1,45 @@
+/* IR Project AI: verified individual KMD part placements and native offline 3D preview. */
+.ir-ai-assembly{display:grid;gap:13px;min-width:0}
+.ir-ai-assembly .ir-ai-review-heading{margin-bottom:0}
+.ir-ai-assembly-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ir-ai-assembly-toolbar>label{display:flex;flex-direction:column;gap:5px;min-width:240px;flex:1;font-size:11px;font-weight:700;color:#4c728c}
+.ir-ai-assembly-toolbar select{height:38px;border:1px solid #cbdde9;border-radius:8px;padding:0 12px;background:white;color:#285b78;font-size:11px;max-width:100%}
+.ir-ai-assembly-view-buttons{display:flex;gap:6px;flex-wrap:wrap}
+.ir-ai-assembly-view-buttons button{border:1px solid #c7dce9;border-radius:7px;background:#f3f9fd;color:#295f84;padding:9px 11px;font-size:11px;cursor:pointer}
+.ir-ai-assembly-indicators{display:flex;flex-wrap:wrap;gap:9px}
+.ir-ai-assembly-indicators span{display:inline-block;background:#edf7fc;border:1px solid #d5e6f1;border-radius:7px;padding:7px 10px;color:#416f8e;font-size:11px}
+.ir-ai-assembly-main{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:12px;align-items:stretch}
+.ir-ai-assembly-canvas-host{height:440px;min-height:350px;border:1px solid #ccdce8;border-radius:10px;background:#f3f7fb;overflow:hidden;position:relative}
+.ir-ai-assembly-viewport{width:100%;height:100%;position:relative;overflow:hidden;touch-action:none}
+.ir-ai-assembly-canvas{width:100%;height:100%;display:block;cursor:grab;touch-action:none;outline:none}
+.ir-ai-assembly-canvas:active{cursor:grabbing}
+.ir-ai-assembly-canvas:focus-visible{outline:2px solid #2c86ca;outline-offset:-2px}
+.ir-ai-assembly-inspector{border:1px solid #d7e5ee;border-radius:10px;padding:14px;min-width:0;background:#fcfeff;color:#658397;font-size:11px;line-height:1.8;overflow-wrap:anywhere}
+.ir-ai-assembly-inspector h3{font-size:13px;color:#2d5977;margin:0 0 12px}
+.ir-ai-assembly-inspector b{font-size:12px;color:#214d6d}
+.ir-ai-assembly-inspector p{margin:8px 0}
+.ir-ai-assembly .ir-ai-quantity-toolbar{margin:0}
+.ir-ai-assembly .ir-ai-quantity-toolbar>b{font-size:12px;color:#285b79}
+.ir-ai-assembly-parts{display:grid;gap:12px}
+.ir-ai-assembly-coverage{padding:12px;border:1px solid #d7e5ef;border-radius:9px;background:#f7fbfe;display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.ir-ai-assembly-coverage h3{font-size:11px;color:#3b6c8d;margin:0;flex-basis:100%}
+.ir-ai-assembly-coverage>div{background:#fff;border:1px solid #dfebf3;border-radius:6px;padding:6px 8px;color:#637f92;font-size:10px}
+.ir-ai-assembly-records{display:grid;gap:8px}
+.ir-ai-assembly-record{border:1px solid #d9e7f1;border-radius:9px;background:#fff;padding:11px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.ir-ai-assembly-record.approved{border-left:3px solid #4daa7d}
+.ir-ai-assembly-record.draft{border-left:3px solid #e4ad54}
+.ir-ai-assembly-record>div:first-child{flex:1;min-width:200px}
+.ir-ai-assembly-record b{display:block;color:#2b6387;font-size:11px}
+.ir-ai-assembly-record small{display:block;margin-top:5px;font-size:10px;line-height:1.5;color:#8095a4}
+.ir-ai-assembly-record-actions{display:flex;flex-wrap:wrap;gap:6px}
+.ir-ai-assembly-record-actions button{font-size:10px;color:#286990;padding:7px 10px;border:1px solid #cbdfeb;background:#f0f7fc;border-radius:7px;cursor:pointer}
+.ir-ai-assembly-history{flex:1 0 100%;border:1px solid #dbeaf2;background:#f7fbfe;border-radius:7px;padding:10px;font-size:11px;color:#688599}
+.ir-ai-assembly-history[hidden]{display:none}
+.ir-ai-assembly-history>div{padding:5px 0;border-bottom:1px solid #e2eaf0}
+.ir-ai-assembly-dialog{width:min(770px,95vw)}
+.ir-ai-assembly-dimensions,.ir-ai-assembly-coordinate-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;padding:10px;border:1px solid #dce9f1;border-radius:8px;background:#f8fcfe}
+.ir-ai-assembly-dimensions label,.ir-ai-assembly-coordinate-grid label{min-width:0}
+.ir-ai-assembly-dimensions label[hidden]{display:none}
+.ir-ai-assembly-dialog .ir-ai-quantity-form-grid .wide{grid-column:1/-1}
+@media(max-width:900px){.ir-ai-assembly-main{grid-template-columns:1fr}.ir-ai-assembly-canvas-host{height:380px}.ir-ai-assembly-inspector{min-height:100px}}
+@media(max-width:630px){.ir-ai-assembly-dimensions,.ir-ai-assembly-coordinate-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ir-ai-assembly-toolbar>label{min-width:100%}.ir-ai-assembly-canvas-host{height:330px}}

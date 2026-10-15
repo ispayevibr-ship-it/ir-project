@@ -65,6 +65,7 @@ window.irAiRecognitionPage=async function(objectId){
    ready:"Модель готова",failed:"Ошибка локальной модели"};
   const modelReady=state==="ready";
   const indexedPages=pdfIndexes.reduce((sum,x)=>sum+(x.totalPages||0),0);
+  window.irAiAssemblyPage?.dispose?.();
   app.innerHTML='<div class="ir-ai-page">'+
    '<header class="ir-ai-hero"><div class="ir-ai-heading"><div class="ir-ai-kicker">IR PROJECT · ЛОКАЛЬНЫЙ ИНЖЕНЕРНЫЙ МОДУЛЬ</div>'+
    '<h1>IR Project AI <span>Инженерный анализ КМ/КМД</span></h1>'+
@@ -350,6 +351,15 @@ window.irAiRecognitionPage=async function(objectId){
      summary:connectionSummary,assemblies:quantityEntries,documents,canEdit,api:connections,
      reviewer,askPassword:requestReviewPassword,reload,notice,openPdf:openPdfPreview})
    }else box.innerHTML='<div class="ir-ai-doc-empty">Модуль соединений не загружен.</div>';
+   return
+  }
+  if(active==="assembly"){
+   if(window.irAiAssemblyPage)window.irAiAssemblyPage.render(box,{
+    id,assemblies:quantityEntries,materials:materialEntries,documents,canEdit,
+    api:irProject.aiAssembly3d||null,reviewer,askPassword:requestReviewPassword,
+    reload,notice,openPdf:openPdfPreview
+   });
+   else box.innerHTML='<div class="ir-ai-doc-empty">Модуль 3D-сборки не загружен.</div>';
    return
   }
   if(active==="compare"){
