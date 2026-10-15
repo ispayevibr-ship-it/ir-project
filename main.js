@@ -1,7 +1,7 @@
 "use strict";
 const {app,BrowserWindow,ipcMain,dialog,Menu,protocol,shell}=require("electron");
 const path=require("path"),crypto=require("crypto"),fs=require("fs");
-const database=require("./src/database"),aiDocumentStore=require("./src/ai-document-store"),aiLocalEngine=require("./src/ai-local-engine"),aiAnalysis=require("./src/ai-analysis"),aiReview=require("./src/ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiKmdMaterials=require("./src/ai-kmd-materials"),aiKmdConnections=require("./src/ai-kmd-connections"),aiKmKmdCompare=require("./src/ai-km-kmd-compare"),aiAssemblyGeometry=require("./src/ai-assembly-geometry"),aiAssemblyAttachments=require("./src/ai-assembly-attachments"),aiWorkflow=require("./src/ai-workflow"),aiStructuredReview=require("./src/ai-structured-review"),aiDrawingRevisions=require("./src/ai-drawing-revisions"),aiIntegrityReport=require("./src/ai-integrity-report"),aiCoverageReport=require("./src/ai-kmd-coverage"),aiKmdReference=require("./src/ai-kmd-reference"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),aiModelManager=require("./src/ai-model-manager"),aiPaddleOcr=require("./src/ai-paddle-ocr"),aiRuntimeDiagnostics=require("./src/ai-runtime-diagnostics"),backup=require("./src/backup"),updates=require("./src/updater"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
+const database=require("./src/database"),aiDocumentStore=require("./src/ai-document-store"),aiLocalEngine=require("./src/ai-local-engine"),aiAnalysis=require("./src/ai-analysis"),aiReview=require("./src/ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiKmdMaterials=require("./src/ai-kmd-materials"),aiKmdConnections=require("./src/ai-kmd-connections"),aiKmKmdCompare=require("./src/ai-km-kmd-compare"),aiAssemblyGeometry=require("./src/ai-assembly-geometry"),aiAssemblyAttachments=require("./src/ai-assembly-attachments"),aiWorkflow=require("./src/ai-workflow"),aiStructuredReview=require("./src/ai-structured-review"),aiDrawingRevisions=require("./src/ai-drawing-revisions"),aiIntegrityReport=require("./src/ai-integrity-report"),aiCoverageReport=require("./src/ai-kmd-coverage"),aiKmdReference=require("./src/ai-kmd-reference"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),aiModelManager=require("./src/ai-model-manager"),aiPaddleOcr=require("./src/ai-paddle-ocr"),aiRuntimeDiagnostics=require("./src/ai-runtime-diagnostics"),completeBackup=require("./src/ai-complete-backup"),backup=require("./src/backup"),updates=require("./src/updater"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
 let win;
 const aiDocuments=aiDocumentStore.createStore({getUserDataPath:()=>app.getPath("userData"),dialog,shell,database,getWindow:()=>win});
 let aiModels,aiOcr;
@@ -256,7 +256,49 @@ function registerAiModelIpc(){
 }
 function registerReportExport(){ipcMain.handle("report:export-html",async(_e,{html,defaultName}={})=>{const r=await dialog.showSaveDialog(win,{defaultPath:defaultName||"daily-report.html",filters:[{name:"HTML",extensions:["html"]}]});if(r.canceled||!r.filePath)return false;fs.writeFileSync(r.filePath,String(html||""),"utf8");return r.filePath});ipcMain.handle("report:export-pdf",async(e,{defaultName}={})=>{const r=await dialog.showSaveDialog(win,{defaultPath:defaultName||"daily-report.pdf",filters:[{name:"PDF",extensions:["pdf"]}]});if(r.canceled||!r.filePath)return false;const pdf=await e.sender.printToPDF({printBackground:true,pageSize:"A4",margins:{top:0.32,bottom:0.32,left:0,right:0}});fs.writeFileSync(r.filePath,pdf);return r.filePath});ipcMain.handle("report:print",e=>new Promise((resolve,reject)=>{e.sender.print({printBackground:true},(ok,error)=>ok?resolve(true):reject(new Error(error||"Печать не выполнена")))}))}
 function registerAccess(){ipcMain.handle("access:login",(_e,{role,password})=>{if(role==="guest")return true;if(!roleHashes[role])return false;const hash=crypto.createHash("sha256").update(String(password||"")).digest("hex");return crypto.timingSafeEqual(Buffer.from(hash),Buffer.from(roleHashes[role]))})}
-function registerBackup(){ipcMain.handle("backup:create",async()=>{const r=await dialog.showSaveDialog(win,{defaultPath:"ir-project-backup.db",filters:[{name:"IR Project backup",extensions:["db"]}]});if(r.canceled||!r.filePath)return false;backup.createBackup(dbPath(),r.filePath);return true});ipcMain.handle("backup:restore",async()=>{const r=await dialog.showOpenDialog(win,{properties:["openFile"],filters:[{name:"IR Project backup",extensions:["db"]}]});if(r.canceled||!r.filePaths[0])return false;database.closeDatabase();backup.restoreBackup(r.filePaths[0],dbPath());database.openDatabase();return true})}
+function registerBackup(){
+ let active=false;
+ const locked=async task=>{
+  if(active)throw Error("Резервная копия уже обрабатывается");
+  if(aiOcr.status().busy||aiEngine.status().active||aiQueue.summary&&
+    database.listObjects().some(o=>{try{return aiQueue.summary(o.id).isRunning}catch{return true}}))
+   throw Error("Остановите очередь распознавания и текущий анализ перед работой с резервной копией");
+  active=true;
+  try{return await task()}finally{active=false}
+ };
+ ipcMain.handle("backup:create",()=>locked(async()=>{
+  const r=await dialog.showSaveDialog(win,{defaultPath:"ir-project-complete.ir-backup",
+   filters:[{name:"Полный архив IR Project (база, чертежи, фотографии и акты)",extensions:["ir-backup"]}]});
+  if(r.canceled||!r.filePath)return false;
+  await completeBackup.pack({userData:app.getPath("userData"),destination:r.filePath,
+   closeDatabase:database.closeDatabase,openDatabase:database.openDatabase});
+  return true
+ }));
+ ipcMain.handle("backup:restore",()=>locked(async()=>{
+  const r=await dialog.showOpenDialog(win,{properties:["openFile"],
+   filters:[{name:"Полный архив IR Project",extensions:["ir-backup"]}]});
+  if(r.canceled||!r.filePaths[0])return false;
+  const answer=await dialog.showMessageBox(win,{type:"warning",buttons:["Отмена","Восстановить"],
+   defaultId:0,cancelId:0,title:"Восстановление IR Project",
+   message:"Будут восстановлены база данных, оригиналы КМ/КМД, фотографии и акты.",
+   detail:"Сначала архив будет проверен. Рекомендуется сохранить отдельную текущую копию перед восстановлением."});
+  if(answer.response!==1)return false;
+  await completeBackup.restore({archive:r.filePaths[0],userData:app.getPath("userData"),
+   closeDatabase:database.closeDatabase,openDatabase:database.openDatabase});
+  return true
+ }));
+ // Prior .db files are preserved for manual migration and archival purposes,
+ // but they are not mislabeled as complete backups that include source PDF.
+ ipcMain.handle("backup:create-legacy-db",()=>locked(async()=>{
+  const r=await dialog.showSaveDialog(win,{defaultPath:"ir-project-database-only.db",
+   filters:[{name:"Только SQLite (без КМД и вложений)",extensions:["db"]}]});
+  if(r.canceled||!r.filePath)return false;
+  database.closeDatabase();
+  try{backup.createBackup(dbPath(),r.filePath)}
+  finally{database.openDatabase()}
+  return true
+ }))
+}
 function registerUpdates(){ipcMain.handle("update:check",()=>updates.check());ipcMain.handle("update:download",()=>updates.download());ipcMain.handle("update:install",()=>updates.install());ipcMain.handle("update:version",()=>updates.installedVersion());updates.updater.on("update-available",i=>win?.webContents.send("update:status",{type:"available",...i}));updates.updater.on("update-not-available",i=>win?.webContents.send("update:status",{type:"current",...i}));updates.updater.on("download-progress",p=>win?.webContents.send("update:status",{type:"progress",percent:Math.round(p.percent),transferred:p.transferred,total:p.total}));updates.updater.on("update-downloaded",i=>win?.webContents.send("update:status",{type:"downloaded",version:i.version}));updates.updater.on("error",e=>win?.webContents.send("update:status",{type:"error",message:e.message}))}
 app.whenReady().then(()=>{runtimeLoader.register(updates);database.openDatabase();registerData();registerAiDocuments();registerAiModelIpc();registerReportExport();registerAccess();registerBackup();registerUpdates();createWindow()}).catch(error=>{console.error("IR Project startup:",error);dialog.showErrorBox("Не удалось запустить IR Project","Проверьте файл ir-project.db и обратитесь к администратору.\n\n"+String(error?.message||error));app.quit()});
 app.on("before-quit",()=>{aiEngine.stop()});

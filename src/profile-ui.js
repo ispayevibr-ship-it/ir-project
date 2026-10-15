@@ -56,7 +56,7 @@
    '<div class="program-settings-menu-items">'+
    '<button type="button" id="companyProfileSettings" class="program-settings-item">'+companyIcon+'<span class="program-settings-item-text"><strong>Профиль компании</strong><small>Реквизиты и логотип</small></span></button>'+
    '<button type="button" id="programAiModels" class="program-settings-item">'+aiModelsIcon+'<span class="program-settings-item-text"><strong>Локальные ИИ-модели</strong><small>Установка, версии и откат</small></span></button>'+
-   '<button type="button" id="programExportDatabase" class="program-settings-item" title="Выбрать папку для сохранения файла базы данных">'+backupIcon+'<span class="program-settings-item-text"><strong>Выгрузить базу данных</strong><small>Выбрать папку и сохранить .db</small></span></button>'+
+   '<button type="button" id="programExportDatabase" class="program-settings-item" title="Выбрать папку для сохранения файла базы данных">'+backupIcon+'<span class="program-settings-item-text"><strong>Полная резервная копия</strong><small>База, чертежи КМ/КМД, фото и акты · .ir-backup</small></span></button>'+
    '<button type="button" id="programAboutButton" class="program-settings-item">'+aboutIcon+'<span class="program-settings-item-text"><strong>О программе</strong><small>Авторские права и версия</small></span></button>'+
    '<div class="program-settings-divider" role="separator"></div>'+
    '<button type="button" id="programCheckUpdates" class="program-settings-item program-settings-update">'+refreshIcon+'<span class="program-settings-item-text"><strong>Проверить обновления</strong><small>Найти новую версию</small></span></button>'+
@@ -138,7 +138,7 @@
    void open(settingsMenu)
   };
   // Use the existing native Save dialog: the user selects both destination
-  // folder and .db filename. No database schema or updater code changes.
+  // folder and .ir-backup filename. Originals are included and SHA-256 verified.
   let exportingDatabase=false;
   backupButton.onclick=async()=>{
    if(exportingDatabase)return;
@@ -155,13 +155,13 @@
    try{
     const saved=await irProject.backup.create();
     if(saved===true){
-     const message="База данных успешно выгружена в выбранную папку.";
+     const message="Полная резервная копия успешно выгружена в выбранную папку.";
      if(typeof irProjectNotice==="function")irProjectNotice(message,"success");
      else alert(message)
     }
     // false means the user cancelled the Save dialog; no message needed.
    }catch(error){
-    alert("Не удалось выгрузить базу данных: "+String(error?.message||error))
+    alert("Не удалось создать полный архив: "+String(error?.message||error))
    }finally{
     exportingDatabase=false;backupButton.disabled=false
    }
