@@ -1,0 +1,141 @@
+"use strict";
+/* DEFERRED contract for final offline acceptance. DO NOT RUN during WIP. */
+const assert=require("node:assert/strict");
+const {createKmdReference}=require("../src/ai-kmd-reference");
+(()=>{
+ const sha="a".repeat(64),data=new Map();let seq=20,failure=false;
+ const clone=o=>o==null?null:JSON.parse(JSON.stringify(o));
+ const key=(o,s,id)=>[o,s,id].join("|");
+ const db={
+  getObject:id=>[1,2].includes(Number(id))?{id:Number(id)}:null,
+  getEntity:(o,s,id)=>clone(data.get(key(o,s,id))),
+  listEntity:(o,s)=>[...data.values()].filter(x=>x.object_id===o&&x.section_key===s)
+   .sort((x,y)=>y.id-x.id).map(clone),
+  createEntity:(o,s,input)=>{
+   if(failure&&s==="ai-kmd-reference-history")throw Error("simulated history failure");
+   const r={id:++seq,object_id:o,section_key:s,record_type:input.record_type,
+    parent_id:input.parent_id||null,title:input.title||"",data:clone(input.data||{}),
+    created_at:"2026-10-15",updated_at:"2026-10-15"};
+   data.set(key(o,s,r.id),r);return clone(r)
+  },
+  updateEntity:(o,s,id,input)=>{
+   const prev=data.get(key(o,s,id));if(!prev)return null;
+   const r={...prev,record_type:input.record_type,parent_id:input.parent_id||null,
+    title:input.title||"",data:clone(input.data||{})};
+   data.set(key(o,s,id),r);return clone(r)
+  },
+  deleteEntity:(o,s,id)=>data.delete(key(o,s,id)),
+  transaction:fn=>{
+   const before=clone([...data]),counter=seq;
+   try{return fn()}
+   catch(e){data.clear();for(const [k,v] of before)data.set(k,v);seq=counter;throw e}
+  }
+ };
+ const sheet1={id:301,setId:201,sheetCode:"КМД-01",documentId:11,page:1,
+  sha256:sha,valid:true,kind:"КМД"};
+ const sheet2={...sheet1,id:302,setId:202};
+ let active=null,available=true;
+ const rev={
+  active:(o,k)=>o===1&&k==="КМД"?active:null,
+  getSheets:(o,setId)=>setId===201?[sheet1]:setId===202?[sheet2]:[],
+  sourceState:(o,src)=>({
+   current:available&&o===1&&active&&src.documentId===11&&src.page===1&&src.sha256===sha
+  })
+ };
+ const mark={id:31,mark:"К41",cipher:"041",secondaryCipher:"",
+  status:"confirmed",sourceValid:true,quantity:6};
+ const parts=[{id:41,assemblyId:31,position:"Д1",partCount:2,counted:true},
+  {id:42,assemblyId:31,position:"Д2",partCount:1,counted:true}];
+ const nodes=[{id:51,assemblyId:31,scope:"fabrication",jointCode:"У1",
+  occurrencesPerAssembly:2,counted:true}];
+ const components=[{id:61,assemblyId:31,jointId:51,category:"fastener",kind:"bolt",
+  position:"Б1",perJoint:4,counted:true}];
+ const api=createKmdReference({database:db,revisions:rev,
+  quantities:{list:()=>[mark]},materials:{list:()=>parts},
+  connections:{listNodes:()=>nodes,listComponents:()=>components},
+  clock:()=>"2026-10-15T18:00:00Z"});
+ const base={sheetId:301,mark:"К41",cipher:"041",secondaryCipher:"",
+  sourcePosition:"КМД лист 01",expectedRevision:0,comment:"",
+  status:"confirmed"};
+ assert.throws(()=>api.save(1,null,{...base,type:"mark",quantity:6},
+  {role:"engineer"}),/действующий комплект/);
+ active={id:201,data:{kind:"КМД",status:"active",issue:"Изм.0"}};
+ assert.throws(()=>api.save(1,null,{...base,type:"mark",quantity:6},
+  {role:"guest"}),/инженер/);
+ let markRef=api.save(1,null,{...base,type:"mark",quantity:6},{role:"engineer"});
+ const partRef=api.save(1,null,{...base,type:"part",position:"Д1",quantity:2},
+  {role:"engineer"});
+ const missing=api.save(1,null,{...base,type:"part",position:"Д3",quantity:1,
+  status:"requires_review"},{role:"engineer"});
+ assert.equal(api.compare(1).allSheetsReviewed,false);
+ assert.equal(api.compare(1).mismatches.some(x=>x.code==="unlisted_position"),false,
+  "unlisted actual parts must not be diagnosed before all sheets checked");
+ assert.throws(()=>api.seal(1,301,0,{reviewedEntireSheet:true,
+  comment:"Полностью сверено по КМД"},{role:"engineer"}),/Сначала проверьте/);
+ assert.throws(()=>api.save(1,markRef.id,{...base,type:"mark",quantity:7},
+  {role:"engineer"}),/другом окне/,"optimistic revision must be respected");
+ api.save(1,missing.id,{...base,type:"part",position:"Д3",quantity:1,
+  expectedRevision:1,status:"confirmed"},{role:"engineer"});
+ const jointRef=api.save(1,null,{...base,type:"joint",jointCode:"У1",
+  scope:"fabrication",quantity:2},{role:"engineer"});
+ api.save(1,null,{...base,type:"component",jointCode:"У1",scope:"fabrication",
+  category:"fastener",kind:"bolt",position:"Б1",quantity:4},{role:"engineer"});
+ assert.throws(()=>api.save(1,null,{...base,type:"part",position:"Д1",quantity:2},
+  {role:"engineer"}),/уже существует/);
+ let sealed=api.seal(1,301,0,{reviewedEntireSheet:true,
+  comment:"По листу, по спецификации и выноскам, все позиции"},{role:"admin"});
+ assert.equal(sealed.checked,true);
+ assert.equal(api.checks(1).allSheetsReviewed,true);
+ let report=api.compare(1);
+ assert.equal(report.fullSpecificationVerified,false);
+ assert.equal(report.releaseCertified,false);
+ assert(report.mismatches.some(x=>x.code==="missing_position"&&x.position==="Д3"),
+  "expected part missing from actual engineering ledger");
+ assert(report.mismatches.some(x=>x.code==="unlisted_position"&&x.position==="Д2"),
+  "extra actual part only detected after full source sheet review");
+ assert.equal(report.reviewedSheets,1);
+ assert.equal(report.activeReferencePositions,5);
+ assert.equal(api.history(1,markRef.id).length,1);
+ markRef=api.list(1).find(x=>x.id===markRef.id);
+ failure=true;
+ assert.throws(()=>api.save(1,markRef.id,{...base,type:"mark",
+  quantity:5,expectedRevision:1},{role:"engineer"}),/simulated history failure/);
+ failure=false;
+ assert.equal(api.list(1).find(x=>x.id===markRef.id).quantity,6,
+  "history-write failure rolls back original row edit");
+ api.save(1,markRef.id,{...base,type:"mark",
+  quantity:5,expectedRevision:1},{role:"engineer"});
+ assert.equal(api.checks(1).allSheetsReviewed,false,
+  "editing an engineer reference must revoke complete-sheet attestation");
+ assert(!api.compare(1).mismatches.some(x=>x.code==="unlisted_position"),
+  "unlisted reports disabled again until sheet is reconfirmed");
+ assert.equal(api.checks(1).sheets[0].status,"needs_review");
+ assert.equal(api.history(1,markRef.id).length,2);
+ api.seal(1,301,2,{reviewedEntireSheet:true,
+  comment:"Повторная проверка после исправления марки"},{role:"engineer"});
+ assert.equal(api.compare(1).allSheetsReviewed,true);
+ available=false;
+ assert.equal(api.list(1).filter(x=>x.approved).length,0);
+ assert.equal(api.checks(1).allSheetsReviewed,false,"lost PDF revokes approval");
+ available=true;
+ active={id:202,data:{kind:"КМД",status:"active",issue:"Изм.1"}};
+ assert.equal(api.list(1).filter(x=>x.approved).length,0,
+  "same PDF in new drawing set cannot auto-renew engineer decisions");
+ assert.equal(api.compare(1).archivedPositions,5);
+ assert.equal(api.checks(1).reviewed,0);
+ assert.throws(()=>api.save(1,markRef.id,{...base,sheetId:302,
+  type:"mark",quantity:6,expectedRevision:2},{role:"engineer"}),/архивный/);
+ const fresh=api.save(1,null,{...base,sheetId:302,type:"mark",quantity:6},
+  {role:"engineer"});
+ assert.equal(fresh.current,true);
+ assert.equal(api.list(2).length,0);
+ // Corrupt duplicate sealed declarations never resolve by arbitrary 'first'.
+ db.createEntity(1,"ai-kmd-reference-checks",{record_type:"kmd_sheet_check",
+  data:{setId:202,sheetId:302,status:"sealed",reviewedEntireSheet:true,
+   reviewedBy:"engineer",documentId:11,page:1,sha256:sha}});
+ db.createEntity(1,"ai-kmd-reference-checks",{record_type:"kmd_sheet_check",
+  data:{setId:202,sheetId:302,status:"sealed",reviewedEntireSheet:true,
+   reviewedBy:"engineer",documentId:11,page:1,sha256:sha}});
+ assert.throws(()=>api.checks(1),/несколько актов/);
+ console.log("Deferred contract: signed sheets, active revisions, missing/extra positions and audited edit rollback");
+})();
