@@ -108,7 +108,7 @@
    '<button type="button" data-tool="colors" aria-label="Режим раскраски" aria-pressed="false">◉ Цвет: статус</button>'+
    '<button type="button" data-tool="render" class="active" aria-pressed="true">⬡ Реалистичный 3D</button>'+
    '<button type="button" data-view="reset">↺ Сбросить вид</button></div>'+
-   '<div class="ir-export-scheme-viewbuttons" role="group" aria-label="Ракурс схемы">'+viewBtns+'</div></div>'+
+   '<div class="ir-export-scheme-viewbuttons" role="group" aria-label="Ракурс схемы">'+viewBtns+'<b class="ir-export-scheme-total">Элементов: '+data.members.length+'</b></div></div>'+
    '<div class="ir-export-scheme-filters" data-scheme-filters>'+
    '<div class="ir-export-scheme-filter" data-panel="layers" hidden><div class="ir-export-scheme-filterhead"><strong>Слои модели</strong><button type="button" data-close-panel="layers" aria-label="Закрыть слои">×</button></div><div class="ir-export-scheme-layer-list"></div></div>'+
    '<div class="ir-export-scheme-filter" data-panel="cuts" hidden><div class="ir-export-scheme-filterhead"><strong>Разрезы / диапазоны, мм</strong><button type="button" data-close-panel="cuts" aria-label="Закрыть разрезы">×</button></div><div class="ir-export-scheme-cut-list"></div><button type="button" data-reset-cuts>Сбросить разрезы</button></div></div>'+
@@ -382,6 +382,7 @@
 /* Standalone 3D scene controls use the same action layout as the live scheme. */
 .ir-export-scheme-controls{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:12px 14px;background:#f6f9fc}
 .ir-export-scheme-toolbar,.ir-export-scheme-viewbuttons{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.ir-export-scheme-total{white-space:nowrap;margin-left:5px;color:#53748c;font-size:11px;font-weight:750}
 .ir-export-scheme-controls button,.ir-export-scheme-filters button{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-width:0;padding:9px 11px!important;border:1px solid #cfdde8!important;border-radius:8px!important;background:#fff!important;color:#365d78!important;font:750 11px/1.3 'Segoe UI',Arial,sans-serif!important;box-shadow:0 1px 5px #183c5b10!important;cursor:pointer!important}
 .ir-export-scheme-controls button.active,.ir-export-scheme-controls button[aria-pressed=true],.ir-export-scheme-controls button[aria-expanded=true]{background:#e1effb!important;color:#18639c!important;border-color:#9fc5e6!important}
 .ir-export-scheme-controls button:hover,.ir-export-scheme-filters button:hover{background:#edf5fc!important}
