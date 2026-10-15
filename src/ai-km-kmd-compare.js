@@ -141,6 +141,8 @@ function createKmKmdCompare({database,revisions=null,clock=()=>new Date().toISOS
   if(!FIELDS[field])throw Error("Выберите сравниваемый параметр");
   const kmSource=evidence(id,request.km?.source,"КМ"),
    kmdSource=evidence(id,request.kmd?.source,"КМД");
+  if(request.status==="confirmed"&&(!fresh(id,kmSource,"КМ")||!fresh(id,kmdSource,"КМД")))
+   throw Error("Нельзя подтвердить сравнение: один из листов КМ/КМД недействителен");
   const kmValue=parseValue(request.km?.value,field),
    kmdValue=parseValue(request.kmd?.value,field);
   const tolInput=request.tolerance===null||request.tolerance===""||request.tolerance===undefined?0:Number(request.tolerance);

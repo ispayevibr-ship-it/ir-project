@@ -112,6 +112,8 @@ function createMarkQuantities({database,revisions=null,clock=()=>new Date().toIS
   const document=getDocument(oid,command.documentId);
   const source={documentId:document.id,name:String(document.data.original_name||document.title||""),
    sha256:String(document.data.sha256),kind:"КМД",page,specPosition,drawingRevision};
+  if(command.status==="confirmed"&&revisions&&!revisions.isCurrent(oid,source))
+   throw Error("Подтверждение запрещено: лист КМД отсутствует в действующей редакции или оригинал PDF недоступен");
   const next={mark:name,cipher,secondaryCipher,quantity:q,status:command.status,
    source,comment,revision:current+1,reviewedBy:role,reviewedAt:clock(),
    origin:"engineer_entered_quantity_from_kmd_specification"};

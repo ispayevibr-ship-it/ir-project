@@ -198,6 +198,8 @@ function createAssemblyGeometry({database,quantities,materials,revisions=null,cl
    Number(r.data?.instanceIndex)===instanceIndex);
   if(duplicate)throw Error("Экземпляр детали уже размещён в 3D; измените запись № "+duplicate.id);
   const source=drawing(obj,command.documentId,command.page,command.sourcePosition,command.drawingRevision);
+  if(command.status==="confirmed"&&!sourceFresh(obj,source))
+   throw Error("Нельзя подтвердить 3D-размещение по устаревшему листу КМД");
   const next={assemblyId:a.id,assemblyMark:a.mark,cipher:a.cipher,secondaryCipher:a.secondaryCipher,
    partId:p.id,partPosition:p.position,instanceIndex,shape,...pose,source,
    status:command.status,comment:plain(command.comment??"","Комментарий инженера",1500),

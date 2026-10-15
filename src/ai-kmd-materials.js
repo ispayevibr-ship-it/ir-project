@@ -211,6 +211,7 @@ function createKmdMaterials({database,quantities,revisions=null,clock=()=>new Da
    origin:"human_entered_steel_detail_from_kmd"
   };
   if(command.status==="confirmed"){
+   if(!validSource(oid,data.source))throw Error("Нельзя подтвердить деталь: исходный лист КМД недействителен");
    if(!a.sourceValid||a.status!=="confirmed"||!Number.isSafeInteger(a.quantity)||a.quantity<=0)
     throw Error("Сначала подтвердите количество отправочной марки по спецификации КМД");
    if(!steelGrade)throw Error("Для подтверждения укажите марку стали по чертежу");

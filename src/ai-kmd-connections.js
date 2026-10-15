@@ -144,6 +144,8 @@ function createKmdConnections({database,quantities,revisions=null,clock=()=>new 
    status:cmd.status,comment:text(cmd.comment??"","Комментарий",1500),
    reviewedBy:role,reviewedAt:now,revision:(Number(old?.data?.revision)||0)+1,
    origin:"engineer_confirmed_kmd_joint"};
+  if(cmd.status==="confirmed"&&!sourceValid(oid,payload.source))
+   throw Error("Нельзя подтвердить узел по устаревшему листу КМД");
   if(typeof database.transaction!=="function")throw Error("Необходимы транзакции SQLite");
   return database.transaction(()=>{
    const input={record_type:"connection",title:jointCode,data:payload};
@@ -246,6 +248,8 @@ function createKmdConnections({database,quantities,revisions=null,clock=()=>new 
    status:cmd.status,source:source(oid,cmd),comment,
    reviewedAt:now,reviewedBy:role,revision:(Number(old?.data?.revision)||0)+1,
    origin:"engineer_verified_connection_component"};
+  if(cmd.status==="confirmed"&&!sourceValid(oid,data.source))
+   throw Error("Нельзя подтвердить крепёж или шов по устаревшему листу КМД");
   if(typeof database.transaction!=="function")throw Error("Необходима транзакция SQLite");
   return database.transaction(()=>{
    const payload={record_type:"connection_item",title:joint.jointCode+" / "+position,data};

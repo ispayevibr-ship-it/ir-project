@@ -149,6 +149,8 @@ function createAssemblyAttachments({database,assemblies,connections,revisions=nu
    if(linked&&!linked.counted)throw Error("Сначала подтвердите позицию метиза или шва в КМД");
   }
   const src=document(obj,cmd);
+  if(cmd.status==="confirmed"&&!fresh(obj,src))
+   throw Error("Нельзя подтвердить 3D-крепление по устаревшему листу КМД");
   const duplicate=list(obj,aid).find(x=>x.id!==old?.id&&x.status!=="rejected"&&
    x.placementId===placement.id&&x.type===type&&
    x.code.toLocaleUpperCase("ru-RU")===code.toLocaleUpperCase("ru-RU"));
