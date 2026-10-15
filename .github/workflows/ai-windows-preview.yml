@@ -1,0 +1,47 @@
+name: IR Project AI Windows Preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_preview:
+        description: "Type PREVIEW to build a test-only Windows installer"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ir-project-ai-preview
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    if: github.ref == 'refs/heads/feature/ir-project-ai-next' && inputs.confirm_preview == 'PREVIEW'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout isolated feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/ir-project-ai-next
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install application dependencies
+        run: npm install --ignore-scripts=false
+      - name: Build test installer without publishing
+        shell: pwsh
+        run: npx electron-builder --win nsis --publish never
+        env:
+          GH_TOKEN: ""
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - name: Upload private preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: IR-Project-AI-Windows-Preview-${{ github.run_number }}
+          path: dist/IR-Project-Setup-*.exe
+          if-no-files-found: error
+          retention-days: 7
