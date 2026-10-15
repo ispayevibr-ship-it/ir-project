@@ -16,21 +16,32 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
   const marks=quantities.list(objectId),parts=materials.list(objectId),
    nodes=connections.listNodes(objectId),items=connections.listComponents(objectId),
    claims=proposals.list(objectId).filter(x=>x.approved&&x.sourceValid);
-  // Scan placement/attachment tables once, even for a large KMD package.
+  // 3D indexes are independent of the confirmed physical KMD ledger.
+  // A damaged index must never erase valid mark, metal or hardware counts.
+  const indexingFailures=[];
   const groupByAssembly=section=>{
-   const map=new Map();
-   const rowType=section==="ai-assembly-placement"?"part_placement":"assembly_attachment";
-   for(const row of database.listEntity(objectId,section)){
-    if(row.record_type!==rowType)continue;
-    const aid=Number(row.data?.assemblyId);
-    if(!Number.isSafeInteger(aid)||aid<=0)continue;
-    if(!map.has(aid))map.set(aid,[]);
-    map.get(aid).push(row)
+   try{
+    const map=new Map();
+    const rowType=section==="ai-assembly-placement"?"part_placement":"assembly_attachment";
+    for(const row of database.listEntity(objectId,section)){
+     if(row.record_type!==rowType)continue;
+     const aid=Number(row.data?.assemblyId);
+     if(!Number.isSafeInteger(aid)||aid<=0)continue;
+     if(!map.has(aid))map.set(aid,[]);
+     map.get(aid).push(row)
+    }
+    return map
+   }catch(error){
+    indexingFailures.push("Индекс "+section+": "+String(error?.message||error));
+    return null
    }
-   return map
   };
-  const placementsByMark=groupByAssembly("ai-assembly-placement");
-  const attachmentsByMark=groupByAssembly("ai-assembly-attachments");
+  const rawPlacementsByMark=groupByAssembly("ai-assembly-placement");
+  const rawAttachmentsByMark=groupByAssembly("ai-assembly-attachments");
+  const placementsIndexed=rawPlacementsByMark!==null,
+   attachmentsIndexed=rawAttachmentsByMark!==null;
+  const placementsByMark=rawPlacementsByMark||new Map(),
+   attachmentsByMark=rawAttachmentsByMark||new Map();
   // Build ledger indexes once. Large KMD sets should not rescan every
   // part/physical joint/hardware item for each individual assembly mark.
   const grouped=(rows,field)=>{
@@ -176,8 +187,8 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
   }
   add("error","kmd_duplicate_physical_positions","Повторные подтверждённые детали или соединения",
    "integrity",duplicatePhysical);
-  const noDetails=[],partial3d=[],invalid3d=[],unlinkedHardware=[];
-  let unreadable3d=0;
+  const noDetails=[],partial3d=[],invalid3d=[...indexingFailures],unlinkedHardware=[];
+  let unreadable3d=placementsIndexed?0:1;
   let declaredCopies=0,declaredPartUnitsPerCopies=0,modeledUnits=0,expectedModelUnits=0,
    confirmedFactoryJoints=0,confirmedErectionJoints=0,fastenerPieces=0,weldLengthM=0;
   for(const mark of marks.filter(x=>x.status==="confirmed"&&x.sourceValid)){
@@ -196,8 +207,8 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
    const partIds=new Set(validParts.map(x=>x.id));
    const rawPlacements=placementsByMark.get(mark.id)||[];
    const activeIndices=new Set(),collisions=[];
-   let placed=[],modelReadable=true;
-   if(rawPlacements.length){
+   let placed=[],modelReadable=placementsIndexed;
+   if(modelReadable&&rawPlacements.length){
     try{placed=assemblies.list(objectId,mark.id)}
     catch(error){
      invalid3d.push(mark.mark+": "+String(error?.message||error));
@@ -229,8 +240,8 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
     .reduce((s,x)=>s+(x.totalPieces||0),0);
    weldLengthM+=relevantItems.filter(x=>x.category==="weld")
     .reduce((s,x)=>s+(x.totalLengthM||0),0);
-   let annotations=0;
-   if((attachmentsByMark.get(mark.id)||[]).length){
+   let annotations=attachmentsIndexed?0:null;
+   if(attachmentsIndexed&&(attachmentsByMark.get(mark.id)||[]).length){
     try{annotations=attachments.list(objectId,mark.id).filter(x=>x.visible).length}
     catch(error){
      annotations=null;
@@ -245,7 +256,8 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
     declaredDetailUnitsInProject:projectPartUnits,
     modeledUnitsPerMark:modelReadable?modeled:null,
     pendingModelUnits:modelReadable?Math.max(0,declaredUnitParts-modeled):null,
-    modelStarted:rawPlacements.length>0,confirmedJointPositions:relevantNodes.length,
+    modelStarted:placementsIndexed?rawPlacements.length>0:null,
+    confirmedJointPositions:relevantNodes.length,
     factoryJointInstances:relevantNodes.filter(x=>x.scope==="fabrication")
      .reduce((s,x)=>s+(x.instances||0),0),
     erectionJointInstances:relevantNodes.filter(x=>x.scope==="erection")
