@@ -69,6 +69,21 @@ const {createKmdReference}=require("../src/ai-kmd-reference");
  assert.throws(()=>api.save(1,null,{...base,type:"mark",quantity:6},
   {role:"guest"}),/инженер/);
  let markRef=api.save(1,null,{...base,type:"mark",quantity:6},{role:"engineer"});
+ duringTransaction=()=>db.createEntity(1,"ai-kmd-reference-rows",{
+  record_type:"kmd_reference",title:"Concurrent duplicate",
+  data:{...db.getEntity(1,"ai-kmd-reference-rows",markRef.id).data,mark:"К99"}
+ });
+ assert.throws(()=>api.save(1,null,{...base,type:"mark",mark:"К99",quantity:1},
+  {role:"engineer"}),/уже существует/,
+  "a duplicate inserted after preliminary checks is rejected inside SQLite transaction");
+ assert.equal(api.list(1).length,1,
+  "failed entry transaction rolls back the simulated simultaneous insert");
+ duringTransaction=()=>{available=false};
+ assert.throws(()=>api.save(1,null,{...base,type:"mark",mark:"К98",quantity:1},
+  {role:"engineer"}),/Оригинальный лист КМД/,
+  "a source that goes missing just before writing cannot create a new reference");
+ available=true;
+ assert.equal(api.list(1).length,1);
  const partRef=api.save(1,null,{...base,type:"part",position:"Д1",quantity:2},
   {role:"engineer"});
  const missing=api.save(1,null,{...base,type:"part",position:"Д3",quantity:1,
