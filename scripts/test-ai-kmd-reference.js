@@ -97,8 +97,12 @@ const {createKmdReference}=require("../src/ai-kmd-reference");
  assert.equal(report.releaseCertified,false);
  assert(report.mismatches.some(x=>x.code==="missing_position"&&x.position==="Д3"),
   "expected part missing from actual engineering ledger");
- assert(report.mismatches.some(x=>x.code==="unlisted_position"&&x.position==="Д2"),
-  "extra actual part only detected after full source sheet review");
+ assert(report.mismatches.some(x=>x.code==="unlisted_position"&&
+  x.position==="Д2"&&x.actualId===42&&x.assemblyId===31),
+  "extra actual part must link to its precise engineering-ledger row");
+ assert(report.mismatches.some(x=>x.code==="missing_position"&&
+  x.position==="Д3"&&x.actualId===null),
+  "missing positions never point to an invented engineering record");
  assert.equal(report.reviewedSheets,1);
  assert.equal(report.activeReferencePositions,5);
  assert.equal(api.history(1,markRef.id).length,1);
@@ -111,6 +115,9 @@ const {createKmdReference}=require("../src/ai-kmd-reference");
   "history-write failure rolls back original row edit");
  api.save(1,markRef.id,{...base,type:"mark",
   quantity:5,expectedRevision:1},{role:"engineer"});
+ assert(api.compare(1).mismatches.some(x=>x.code==="quantity_mismatch"&&
+  x.type==="mark"&&x.actualId===31),
+  "quantity mismatch must open the exact existing mark ledger record");
  assert.equal(api.checks(1).allSheetsReviewed,false,
   "editing an engineer reference must revoke complete-sheet attestation");
  assert(!api.compare(1).mismatches.some(x=>x.code==="unlisted_position"),
