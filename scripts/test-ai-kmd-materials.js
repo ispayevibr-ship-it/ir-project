@@ -31,7 +31,7 @@ function fakeDb(){
  const pdf=add(1,"ai-documents",{record_type:"document",title:"041 КМД",
   data:{kind:"КМД",extension:".pdf",sha256:"a".repeat(64),original_name:"041-КМД.pdf"}});
  const assembly=add(1,"ai-mark-quantities",{record_type:"quantity_statement",title:"К41",
-  data:{mark:"К41",cipher:"041",secondaryCipher:"",quantity:6,status:"confirmed",
+  data:{mark:"К41",cipher:"041",secondaryCipher:"",quantity:6,status:"confirmed",revision:1,
    source:{documentId:pdf.id,sha256:"a".repeat(64),kind:"КМД",page:45,specPosition:"1"}}});
  const other=add(1,"ai-mark-quantities",{record_type:"quantity_statement",title:"К42",
   data:{mark:"К42",cipher:"041",secondaryCipher:"",quantity:2,status:"requires_review",
@@ -61,8 +61,14 @@ function fakeDb(){
  assert.equal(revised.totalMassKg,192);
  assert.equal(api.history(1,created.id).length,2);
  db.updateEntity(1,"ai-mark-quantities",assembly.id,{record_type:"quantity_statement",title:"К41",
-  data:{...db.getEntity(1,"ai-mark-quantities",assembly.id).data,quantity:8}});
- assert.equal(api.summary(1).confirmedMassKg,256);
+  data:{...db.getEntity(1,"ai-mark-quantities",assembly.id).data,quantity:8,revision:2}});
+ assert.equal(api.summary(1).confirmedMassKg,0,
+  "changed parent quantity must not silently inflate verified KMD mass");
+ assert.match(api.list(1).find(x=>x.id===created.id).reason,/редакция количества/);
+ api.save(1,created.id,{...form,expectedRevision:2,massMethod:"drawing",drawingMassKg:16},
+  {role:"engineer"});
+ assert.equal(api.summary(1).confirmedMassKg,256,
+  "reviewing the detail against the new parent revision restores valid totals");
  db.updateEntity(1,"ai-mark-quantities",assembly.id,{record_type:"quantity_statement",title:"К41",
   data:{...db.getEntity(1,"ai-mark-quantities",assembly.id).data,status:"rejected"}});
  assert.equal(api.summary(1).confirmedMassKg,0);

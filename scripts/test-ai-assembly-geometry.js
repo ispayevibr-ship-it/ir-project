@@ -31,11 +31,11 @@ function fixture(){
  const doc=add(1,"ai-documents",{record_type:"document",title:"КМД",
   data:{kind:"КМД",extension:".pdf",sha256:sha,original_name:"041.pdf"}});
  const a=add(1,"ai-mark-quantities",{record_type:"quantity_statement",title:"К41",
-  data:{mark:"К41",cipher:"041",secondaryCipher:"",quantity:4,status:"confirmed",
+  data:{mark:"К41",cipher:"041",secondaryCipher:"",quantity:4,status:"confirmed",revision:1,
    source:{documentId:doc.id,sha256:sha,kind:"КМД",page:45,specPosition:"1"}}});
  const p=add(1,"ai-kmd-materials",{record_type:"kmd_part",title:"К41 / Д1",
   data:{assemblyId:a.id,assemblyMark:"К41",assemblyCipher:"041",assemblySecondaryCipher:"",
-   position:"Д1",type:"plate",name:"Пластина",profile:"Лист 10",steelGrade:"С245",
+   assemblyRevision:1,revision:1,position:"Д1",type:"plate",name:"Пластина",profile:"Лист 10",steelGrade:"С245",
    partCount:2,massMethod:"drawing",drawingMassKg:7.85,lengthMm:500,
    widthMm:200,thicknessMm:10,isSolidRectangle:true,status:"confirmed",
    source:{documentId:doc.id,sha256:sha,kind:"КМД",page:45,specPosition:"Д1"}}});
@@ -58,7 +58,7 @@ function fixture(){
  assert.equal(api.summary(1,a.id).complete,false);
  assert.throws(()=>api.save(1,first.id,{...entry,expectedRevision:0},{role:"admin"}),/другом окне/);
  db.updateEntity(1,"ai-kmd-materials",p.id,{record_type:"kmd_part",title:"Revised",
-  data:{...db.getEntity(1,"ai-kmd-materials",p.id).data,thicknessMm:12}});
+  data:{...db.getEntity(1,"ai-kmd-materials",p.id).data,thicknessMm:12,revision:2}});
  assert.equal(api.summary(1,a.id).confirmedPlacements,0);
  db.updateEntity(1,"ai-documents",doc.id,{record_type:"document",title:"New PDF",
   data:{kind:"КМД",extension:".pdf",sha256:"b".repeat(64),original_name:"New.pdf"}});

@@ -31,26 +31,26 @@ function fixture(){
  const pdf=add(1,"ai-documents",{record_type:"document",title:"KMD",
   data:{kind:"КМД",extension:".pdf",sha256:sha,original_name:"041.pdf"}});
  const assembly=add(1,"ai-mark-quantities",{record_type:"quantity_statement",title:"К41",
-  data:{mark:"К41",cipher:"041",secondaryCipher:"",quantity:2,status:"confirmed",
+  data:{mark:"К41",cipher:"041",secondaryCipher:"",quantity:2,status:"confirmed",revision:1,
    source:{documentId:pdf.id,sha256:sha,kind:"КМД",page:45,specPosition:"1"}}});
  const material=add(1,"ai-kmd-materials",{record_type:"kmd_part",title:"К41 / Д1",
   data:{assemblyId:assembly.id,assemblyMark:"К41",assemblyCipher:"041",
-   assemblySecondaryCipher:"",position:"Д1",type:"plate",partCount:1,
+   assemblySecondaryCipher:"",assemblyRevision:1,revision:1,position:"Д1",type:"plate",partCount:1,
    massMethod:"drawing",drawingMassKg:3,steelGrade:"С245",
    lengthMm:500,widthMm:200,thicknessMm:10,isSolidRectangle:true,
    status:"confirmed",source:{documentId:pdf.id,sha256:sha,kind:"КМД",page:45,specPosition:"Д1"}}});
  const placement=add(1,"ai-assembly-placement",{record_type:"part_placement",title:"Д1",
   data:{assemblyId:assembly.id,assemblyMark:"К41",cipher:"041",secondaryCipher:"",
-   partId:material.id,partPosition:"Д1",instanceIndex:1,
+   assemblyRevision:1,partId:material.id,partRevision:1,partPosition:"Д1",instanceIndex:1,
    shape:{type:"plate",lengthMm:500,widthMm:200,heightMm:10},
    position:{x:0,y:0,z:0},rotation:{x:0,y:0,z:0},status:"confirmed",revision:1,
    source:{documentId:pdf.id,sha256:sha,kind:"КМД",page:45,location:"D1"}}});
  const joint=add(1,"ai-kmd-joints",{record_type:"connection",title:"У1",data:{
   assemblyId:assembly.id,assemblyMark:"К41",assemblyCipher:"041",assemblySecondaryCipher:"",
-  jointCode:"У1",scope:"fabrication",occurrencesPerAssembly:1,status:"confirmed",
+  assemblyRevision:1,revision:1,jointCode:"У1",scope:"fabrication",occurrencesPerAssembly:1,status:"confirmed",
   source:{documentId:pdf.id,sha256:sha,kind:"КМД",page:45,position:"У1"}}});
  const bolt=add(1,"ai-kmd-connection-items",{record_type:"connection_item",title:"Б1",
-  data:{jointId:joint.id,jointCode:"У1",assemblyId:assembly.id,category:"fastener",
+  data:{jointId:joint.id,jointCode:"У1",jointRevision:1,assemblyId:assembly.id,category:"fastener",
    kind:"bolt",position:"Б1",perJoint:2,diameterMm:20,lengthMm:70,
    standard:"ГОСТ 7798",strength:"8.8",status:"confirmed",revision:1,
    source:{documentId:pdf.id,sha256:sha,kind:"КМД",page:45,position:"Б1"}}});

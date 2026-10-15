@@ -84,16 +84,22 @@ function fixture(){
  assert.equal(api.history(1,"joint",factory.id).length,1);
  assert.equal(api.history(1,"item",bolts.id).length,1);
  assert.throws(()=>api.saveComponent(1,bolts.id,{...bolt,expectedRevision:0},{role:"admin"}),/устарела/);
+ const nodeEdited=api.saveNode(1,factory.id,{...node,expectedRevision:1},{role:"engineer"});
+ assert.equal(nodeEdited.counted,true);
+ assert.equal(api.listComponents(1).filter(x=>x.jointId===factory.id&&x.counted).length,0,
+  "changed joint revision must invalidate existing approved fasteners and welds");
+ const reviewedBolt=api.saveComponent(1,bolts.id,{...bolt,expectedRevision:1},{role:"engineer"});
+ assert.equal(reviewedBolt.totalPieces,24);
  database.updateEntity(1,"ai-mark-quantities",a.id,{record_type:"quantity_statement",title:"К41",
-  data:{...database.getEntity(1,"ai-mark-quantities",a.id).data,quantity:4}});
+  data:{...database.getEntity(1,"ai-mark-quantities",a.id).data,quantity:4,revision:2}});
  total=api.summary(1);
- assert.equal(total.totalFastenerPieces,136,"32 bolts + 64 washers + 40 site bolts");
- assert.equal(total.totalWeldLengthM,2);
- assert.equal(api.listNodes(1).find(x=>x.id===site.id).instances,5);
- const factoryRejected=api.saveNode(1,factory.id,{...node,expectedRevision:1,
+ assert.equal(total.totalFastenerPieces,0,"parent revision invalidates both site and fabrication takeoff");
+ assert.equal(total.totalWeldLengthM,0);
+ assert.equal(api.listNodes(1).find(x=>x.id===site.id).counted,false);
+ const factoryRejected=api.saveNode(1,factory.id,{...node,expectedRevision:2,
   status:"rejected"},{role:"admin"});
  assert.equal(factoryRejected.counted,false);
- assert.equal(api.summary(1).totalFastenerPieces,40);
+ assert.equal(api.summary(1).totalFastenerPieces,0);
  assert.equal(api.summary(1).totalWeldLengthM,0);
  database.updateEntity(1,"ai-documents",pdf.id,{record_type:"document",title:"Changed",
   data:{kind:"КМД",extension:".pdf",original_name:"Updated.pdf",sha256:"e".repeat(64)}});
