@@ -18,6 +18,32 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
   const h=crypto.createHash("sha256"),stream=fs.createReadStream(file);
   stream.on("data",chunk=>h.update(chunk));stream.on("error",reject);stream.on("end",()=>resolve(h.digest("hex")))
  })}
+ function manualInspect(){
+  // Explicit beta import only: a separate directory, never mistaken for a signed pack.
+  const folder=path.join(getUserDataPath(),MODEL_ROOT,"manual-qwen");
+  const manifest=path.join(folder,"manual.json");
+  if(!fs.existsSync(manifest))return null;
+  try{
+   const meta=JSON.parse(fs.readFileSync(manifest,"utf8"));
+   if(meta.schema!==1||meta.modelId!=="qwen3-vl-4b"||meta.engine!=="llama.cpp")
+    throw Error("Неизвестный ручной профиль");
+   const fileNames={binary:"llama-server.exe",model:"Qwen3VL-4B-Instruct-Q4_K_M.gguf",vision:"mmproj-Qwen3VL-4B-Instruct-Q8_0.gguf"};
+   const files={},base=fs.realpathSync(folder);
+   for(const [key,name] of Object.entries(fileNames)){
+    const filename=path.join(folder,name),st=fs.lstatSync(filename),real=fs.realpathSync(filename);
+    if(!st.isFile()||st.isSymbolicLink()||!real.startsWith(base+path.sep))
+     throw Error("Недопустимый путь: "+name);
+    if(!/^[0-9a-f]{64}$/i.test(meta.sha256?.[key]||""))
+     throw Error("Нет SHA-256: "+name);
+    if(st.size<(key==="model"?1000000000:key==="vision"?50000000:100000))
+     throw Error("Файл слишком мал: "+name);
+    files[key]={path:filename,bytes:st.size,expected:meta.sha256[key].toLowerCase()};
+   }
+   return{installed:true,managed:false,manual:true,modelId:"qwen3-vl-4b",
+    version:"manual-beta",cwd:folder,files,
+    bytes:Object.values(files).reduce((sum,f)=>sum+f.bytes,0),gpuLayers:0};
+  }catch(error){return{installed:false,reason:"Ручной профиль Qwen повреждён: "+String(error.message||error)}}
+ }
  function inspect(){
   if(managedModel&&typeof managedModel.inspect==="function"){
    try{
@@ -25,8 +51,8 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
     if(entry!==null&&entry!==undefined)return entry;
     // A configured signed model manager is authoritative. Never fall back
     // to the legacy SHA-only runtime when no trusted package is installed.
-    return{installed:false,managed:true,modelId:"Qwen3-VL-4B",
-     reason:"Подписанный пакет Qwen3-VL 4B не установлен. Старый неподписанный runtime отключён"}
+    return manualInspect()||{installed:false,managed:true,modelId:"Qwen3-VL-4B",
+     reason:"Подписанный пакет Qwen3-VL 4B не установлен. Ручной профиль не подготовлен"}
    }catch(error){return{installed:false,managed:true,modelId:"Qwen3-VL-4B",
     reason:"Не удалось прочитать установленную Qwen3-VL 4B: "+String(error.message||error)}}
   }
