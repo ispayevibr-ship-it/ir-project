@@ -167,6 +167,7 @@ window.irBuildingView=(()=>{
    }catch(_error){state.colorMode="type"}
    panelsInitialized=true
   }
+  if(["status","type","mark"].includes(props.colorMode))state.colorMode=props.colorMode;
   if(observer){observer.disconnect();observer=null}
   if(animationFrame){window.cancelAnimationFrame(animationFrame);animationFrame=0}
   drawFrame=null;
@@ -198,6 +199,7 @@ window.irBuildingView=(()=>{
     if(Array.isArray(stored))state.hiddenSections=stored.filter(id=>sections.some(a=>a.id===id))
    }catch(_error){}
   }else state.hiddenSections=state.hiddenSections.filter(id=>sections.some(a=>a.id===id));
+  if(Array.isArray(props.hiddenSections))state.hiddenSections=props.hiddenSections.filter(id=>sections.some(a=>a.id===id));
   const sectionFor=(c,axis)=>{
    const choices=sections.filter(a=>a.axis===axis);
    if(!choices.length)return null;
@@ -381,7 +383,7 @@ window.irBuildingView=(()=>{
     localStorage.setItem("ir-project-3d-colors",mode);
     localStorage.setItem("ir-project-3d-colors-v2","ready");
    }catch(_error){}
-   showColorMode();paint();
+   showColorMode();props.onColorModeChange?.(mode);paint();
   };
   el("irbColorStatus").onclick=()=>setColorMode("status");
   el("irbColorTypes").onclick=()=>setColorMode("type");
@@ -1227,7 +1229,7 @@ window.irBuildingView=(()=>{
   };
   const cutsChanged=()=>{
    state.hiddenSections=[...new Set(state.hiddenSections)].filter(id=>sections.some(a=>a.id===id));
-   saveSections();updateCutControls();
+   saveSections();props.onCutsChange?.([...state.hiddenSections]);updateCutControls();
    refreshFindControls();
    // A hidden member cannot remain selected or intercept picking.
    if(state.selected&&!visibleCols().some(c=>String(c.id)===String(state.selected))){
@@ -1479,7 +1481,7 @@ window.irBuildingView=(()=>{
     const cutsToReveal=new Set(["X","Y"].map(axis=>sectionFor(newlyPlaced,axis)?.id).filter(Boolean));
     const restored=state.hiddenSections.filter(id=>!cutsToReveal.has(id));
     if(restored.length!==state.hiddenSections.length){
-     state.hiddenSections=restored;saveSections();
+     state.hiddenSections=restored;saveSections();props.onCutsChange?.([...state.hiddenSections]);
      host.querySelectorAll("[data-irb-cut]").forEach(input=>{input.checked=!state.hiddenSections.includes(input.dataset.irbCut)});
     }
    }

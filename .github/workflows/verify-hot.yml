@@ -35,6 +35,8 @@ jobs:
         run: node scripts/test-scheme-copy.js
       - name: Test cached scheme records and in-place refresh
         run: node scripts/test-scheme-performance.js
+      - name: Test Plan and 3D feature parity
+        run: node scripts/test-scheme-parity.js
       - name: Test cut widths in the 3D panel
         run: node scripts/test-scheme-cut-width.js
       - name: Test 3D dimensions and Plan background
