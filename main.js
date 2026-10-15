@@ -271,9 +271,11 @@ function registerAccess(){ipcMain.handle("access:login",(e,{role,password})=>{
  if(valid){
   accessSessions.set(e.sender.id,{role,expiresAt:Date.now()+10*60*1000});
   e.sender.once("destroyed",()=>accessSessions.delete(e.sender.id))
- }
+ }else accessSessions.delete(e.sender.id);
  return valid
-})}
+ });
+ ipcMain.handle("access:logout",e=>{accessSessions.delete(e.sender.id);return true})
+}
 function registerBackup(){
  let active=false;
  const locked=async task=>{
