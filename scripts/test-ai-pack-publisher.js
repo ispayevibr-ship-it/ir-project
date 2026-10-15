@@ -68,10 +68,16 @@ async function run(){
   const installed=await manager.install(selected.token);
   assert.equal(installed.installed,true);
   const profile=await manager.resolveRuntime();
-  assert.equal(profile.installed,true);assert.equal(profile.version,"1.0.0");
-  assert(profile.files.binary.path.endsWith("llama-server.exe"));
-  assert(profile.files.model.path.endsWith("model.gguf"));
-  assert.equal(profile.gpuLayers,12);
+  assert.equal(profile.version,"1.0.0");
+  if(process.platform==="win32"){
+   assert.equal(profile.installed,true,"Windows runtime is compatible with Windows");
+   assert(profile.files.binary.path.endsWith("llama-server.exe"));
+   assert(profile.files.model.path.endsWith("model.gguf"));
+   assert.equal(profile.gpuLayers,12);
+  }else{
+   assert.equal(profile.installed,false,"Windows executable must not be activated on Linux");
+   assert.match(profile.reason,/неверный путь binary|не готов к запуску/);
+  }
   console.log("Offline Qwen publisher PASS: pinned source hashes, GGUF/PE guard, ZIP bytes, signature, signed catalog, manager install & runtime");
  }finally{fs.rmSync(dir,{recursive:true,force:true})}
 }
