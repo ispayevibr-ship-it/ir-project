@@ -117,6 +117,19 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   return{buffer,mime:png?"image/png":"image/jpeg",
    source:{documentId:row.id,name:row.data.original_name,sha256:digest,kind:row.data.kind,bytes:buffer.length}};
  }
- return{list,select,open,remove,deleteObjectFiles,readForAnalysis};
+ async function readForPdfIndex(id,documentId){
+  id=objectId(id);const row=record(id,documentId),file=resolveStored(id,row);
+  if(row.data?.extension!==".pdf")throw Error("Индексация текстового слоя поддерживается только для PDF");
+  const stat=fs.statSync(file);
+  if(stat.size<16||stat.size>48*1024*1024)throw Error("Для индексации PDF требуется размер от 16 байт до 48 МиБ");
+  const buffer=await fs.promises.readFile(file);
+  if(!buffer.subarray(0,1024).includes(Buffer.from("%PDF-")))
+   throw Error("Файл не содержит сигнатуру PDF");
+  const sha256=crypto.createHash("sha256").update(buffer).digest("hex");
+  if(sha256!==row.data.sha256)throw Error("Контрольная сумма PDF изменилась (SHA-256)");
+  return{buffer,source:{documentId:row.id,name:row.data.original_name,
+    sha256,kind:row.data.kind,bytes:buffer.length,format:"PDF"}}
+ }
+ return{list,select,open,remove,deleteObjectFiles,readForAnalysis,readForPdfIndex};
 }
 module.exports={createStore,EXTENSIONS,MAX_FILE_BYTES};

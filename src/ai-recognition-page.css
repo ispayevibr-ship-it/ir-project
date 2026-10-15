@@ -80,3 +80,19 @@
 .ir-ai-result pre{max-width:100%;overflow:auto;padding:12px;white-space:pre-wrap;overflow-wrap:anywhere;border:1px solid #d8e5ee;border-radius:8px;background:#fff;font:10px/1.5 Consolas,monospace;color:#365c75}
 .ir-ai-actions #irAiRecognize{border-color:#b7d9b9;background:#edf8ee;color:#256442}
 .ir-ai-actions #irAiStop{border-color:#efc5c5;background:#fff1f1;color:#9d4545}
+
+/* 1.7.209 verified PDF text-layer indexing; not a vision-recognition claim. */
+.ir-ai-pdf-results{margin-top:22px;padding-top:16px;border-top:1px solid #e0eaf1}
+.ir-ai-pdf-results h3{margin:0 0 12px;font-size:14px;color:#244e6d}
+.ir-ai-pdf-card{border:1px solid #d1e1eb;border-radius:10px;margin-bottom:12px;background:#f9fcff;padding:12px}
+.ir-ai-pdf-card header{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-bottom:8px}
+.ir-ai-pdf-card strong{overflow-wrap:anywhere;font-size:12px;color:#205374}
+.ir-ai-pdf-card header span{font-size:10px;color:#839cac;white-space:nowrap}
+.ir-ai-pdf-sheets{display:grid;gap:6px}
+.ir-ai-pdf-sheets details{padding:9px 12px;border:1px solid #dbe8f0;border-radius:7px;background:#fff}
+.ir-ai-pdf-sheets summary{font-size:11px;font-weight:650;cursor:pointer;color:#416983;line-height:1.6}
+.ir-ai-pdf-sheets pre{font:11px/1.65 Consolas,monospace;max-height:240px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;color:#37536b;background:#f7f9fc;border:1px solid #e5edf4;padding:11px;border-radius:7px}
+.ir-ai-pdf-size{font-size:10px;color:#829baa;margin:7px 0}
+.ir-ai-pdf-sheets button{border:1px solid #afcee1;color:#196cad;padding:6px 9px;border-radius:6px;font-size:10px;cursor:pointer;background:#f4faff}
+.ir-ai-pdf-sheets button:disabled{opacity:.7;cursor:default}
+@media(max-width:760px){.ir-ai-pdf-card header{flex-wrap:wrap}.ir-ai-pdf-card header span{white-space:normal}}

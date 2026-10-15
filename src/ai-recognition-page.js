@@ -20,17 +20,18 @@ window.irAiRecognitionPage=async function(objectId){
   compare:["Сравнение КМ и КМД","Сопоставление геометрии, металлопроката, соединений, количества и ревизий будет доступно после подготовки проверяемых данных."],
   checks:["Проверка и замечания","После запуска локального анализа здесь появятся ошибки и неопределённые значения со ссылками на исходные листы и подтверждения инженера."]
  };
- let object,documents=[],analyses=[],engine=null,active="documents",term="",message="",severity="info",busy=false;
+ let object,documents=[],analyses=[],pdfIndexes=[],engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
  try{object=await irProject.data.objects.get(id)}catch(error){app.textContent="Не удалось прочитать объект: "+String(error.message||error);return}
  if(!object){location.hash="/objects";return}
  const bridge=irProject.aiDocuments,ready=!!(bridge&&typeof bridge.list==="function"&&typeof bridge.select==="function");
- const runtime=irProject.aiEngine||null;
+ const runtime=irProject.aiEngine||null,pdf=irProject.aiPdf||null;
  const canEdit=!!window.irAccess?.canEdit?.("ai-recognition");
  async function reload(){
   const jobs=[];
   if(ready)jobs.push(bridge.list(id).then(v=>{documents=v}).catch(error=>{documents=[];notice("Ошибка загрузки документов: "+String(error.message||error),"error")}));
   if(runtime)jobs.push(runtime.status().then(v=>{engine=v}).catch(error=>{engine=null;notice("Ошибка проверки локальной модели: "+String(error.message||error),"error")}));
   if(runtime)jobs.push(runtime.results(id).then(v=>{analyses=v}).catch(error=>{analyses=[];notice("Ошибка истории анализа: "+String(error.message||error),"error")}));
+  if(pdf)jobs.push(pdf.list(id).then(v=>{pdfIndexes=v}).catch(error=>{pdfIndexes=[];notice("Ошибка PDF-индекса: "+String(error.message||error),"error")}));
   await Promise.all(jobs);
   if(location.hash===route)paint()
  }
@@ -42,13 +43,14 @@ window.irAiRecognitionPage=async function(objectId){
    stopped:"Модель остановлена",starting:"Модель загружается",
    ready:"Модель готова",failed:"Ошибка локальной модели"};
   const modelReady=state==="ready";
+  const indexedPages=pdfIndexes.reduce((sum,x)=>sum+(x.totalPages||0),0);
   app.innerHTML='<div class="ir-ai-page">'+
    '<header class="ir-ai-hero"><div class="ir-ai-heading"><div class="ir-ai-kicker">IR PROJECT · ЛОКАЛЬНЫЙ ИНЖЕНЕРНЫЙ МОДУЛЬ</div>'+
    '<h1>IR Project AI <span>Инженерный анализ КМ/КМД</span></h1>'+
    '<p>'+esc(object.name)+' · Все данные отдельно для этого объекта</p></div>'+
    '<div class="ir-ai-state"><span class="ir-ai-state-dot"></span><div><strong>'+esc(stateNames[state]||"Не определено")+'</strong><small>'+esc(engine?.reason||"Qwen3-VL · автономный режим")+'</small></div></div></header>'+
    '<div class="ir-ai-stats"><div><small>Загружено файлов</small><b>'+documents.length+'</b><span>Локальное хранение</span></div>'+
-   '<div><small>Распознано марок</small><b>—</b><span>Анализ не запускался</span></div>'+
+   '<div><small>Проиндексировано листов PDF</small><b>'+indexedPages+'</b><span>Текстовые слои, без ИИ</span></div>'+
    '<div><small>3D-конструкций</small><b>—</b><span>Нет подтверждённой геометрии</span></div>'+
    '<div><small>Непроверенных анализов</small><b>'+analyses.length+'</b><span>Не подтверждены инженером</span></div></div>'+
    '<div class="ir-ai-actions"><label>Тип загружаемого комплекта <select id="irAiKind"><option value="Не определён">Не определён</option>'+
@@ -129,12 +131,42 @@ window.irAiRecognitionPage=async function(objectId){
     '<td>'+esc(x.kind)+'</td><td>'+size(x.size)+'</td><td><span class="ir-ai-doc-status '+(!x.exists?"missing":"")+'">'+(x.exists?"Не распознано":"Файл отсутствует")+'</span></td>'+
     '<td><div class="ir-ai-doc-actions">'+
     (canEdit&&[".png",".jpg",".jpeg"].includes(x.ext)?'<button data-ai-analyze="'+x.id+'" '+(!modelReady||busy||!x.exists?'disabled':'')+'>Распознать</button>':"")+
+    (canEdit&&x.ext===".pdf"?'<button data-ai-pdf-index="'+x.id+'" '+(!pdf||busy||!x.exists?'disabled':'')+'>Индексировать PDF</button>':"")+
     '<button data-ai-open="'+x.id+'" '+(!ready||!x.exists?'disabled':'')+'>Открыть</button>'+
     (canEdit?'<button class="delete" data-ai-remove="'+x.id+'" '+(!ready?'disabled':'')+'>Удалить</button>':"")+'</div></td></tr>').join("")+
    '</tbody></table></div>')+
-   '<div class="ir-ai-storage-note">SHA-256 рассчитывается при импорте. Оригинальные файлы не изменяются. Важно: действующий экспорт резервной копии *.db пока не включает вложения ИИ — сохраняйте исходные чертежи отдельно.</div>';
+   '<div class="ir-ai-storage-note">SHA-256 рассчитывается при импорте. Текстовый индекс PDF не является результатом нейросети: повреждённый текст и изображения требуют проверки. Оригинальные файлы сохраняются. Экспорт резервной копии *.db не включает вложения ИИ.</div>'+
+   (pdfIndexes.length?'<section class="ir-ai-pdf-results"><h3>Текстовые индексы PDF · '+pdfIndexes.length+'</h3>'+
+    pdfIndexes.filter(x=>documents.some(d=>String(d.id)===String(x.documentId))).map(x=>'<article class="ir-ai-pdf-card"><header><strong>'+esc(x.sourceName)+'</strong><span>'+x.totalPages+' лист(ов) · из текстового слоя PDF</span></header>'+
+    '<div class="ir-ai-pdf-sheets">'+x.pages.map(p=>'<details><summary>Лист '+p.page+
+     ' · '+(p.hasTextLayer?(p.uncertainEncoding?'Возможна повреждённая кодировка':'Есть текст'):'Текстовый слой отсутствует — нужен OCR')+
+     (p.truncated?' · Текст сокращён':'')+'</summary>'+
+     '<div class="ir-ai-pdf-size">Размер: '+p.widthPt+' × '+p.heightPt+' pt · Фрагментов: '+p.fragmentCount+'</div>'+
+     '<pre>'+esc(p.excerpt||"Текст не найден.")+'</pre>'+
+     (p.hasTextLayer?'<button type="button" data-ai-pdf-page="'+x.id+':'+p.page+'">Полный текст и координаты</button>':'')+
+     '</details>').join("")+'</div></article>').join("")+'</section>':'');
   const search=box.querySelector("#irAiSearch");
   if(search)search.oninput=e=>{const pos=e.target.selectionStart;term=e.target.value;showContent();const next=box.querySelector("#irAiSearch");next?.focus();try{next?.setSelectionRange(pos,pos)}catch{}};
+  box.querySelectorAll("[data-ai-pdf-index]").forEach(button=>button.onclick=async()=>{
+   if(!pdf||busy||!canEdit)return;
+   const documentId=button.dataset.aiPdfIndex;
+   busy=true;notice("Читаем реальный текстовый слой PDF по страницам, без нейросети…");paint();
+   try{
+    const result=await pdf.index(id,documentId);
+    notice(result.cached?"Индекс PDF уже сохранён.":"PDF проиндексирован: "+result.totalPages+" лист(ов). Страницы без текста требуют OCR.")
+   }catch(error){notice("Не удалось индексировать PDF: "+String(error.message||error),"error")}
+   finally{busy=false;await reload()}
+  });
+  box.querySelectorAll("[data-ai-pdf-page]").forEach(button=>button.onclick=async()=>{
+   if(!pdf)return;
+   const [indexId,pageNumber]=button.dataset.aiPdfPage.split(":");
+   try{
+    const record=await pdf.page(id,indexId,pageNumber);
+    const parent=button.closest("details"),pre=parent?.querySelector("pre");
+    if(pre)pre.textContent=record.page.text||"Текстовый слой не найден";
+    button.disabled=true;button.textContent="Полный текст загружен. Координаты сохранены в индексе."
+   }catch(error){notice("Ошибка чтения листа: "+String(error.message||error),"error");paint()}
+  });
   box.querySelectorAll("[data-ai-analyze]").forEach(button=>button.onclick=async()=>{
    if(!runtime||!canEdit||busy||!modelReady)return;
    busy=true;notice("Реальный локальный анализ изображения запущен. Результат сохранится для проверки.");paint();

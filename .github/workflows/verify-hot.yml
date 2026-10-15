@@ -22,6 +22,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install PDF parser dependencies
+        run: npm install --no-audit --no-fund
       - name: Check JavaScript syntax
         run: |
           node --check main.js
@@ -35,12 +37,16 @@ jobs:
           node --check src/ai-document-store.js
           node --check src/ai-local-engine.js
           node --check src/ai-analysis.js
+          node --check src/ai-pdf-worker.js
+          node --check src/ai-pdf-index.js
       - name: Test IR Project AI local document storage
         run: node scripts/test-ai-storage.js
       - name: Test IR Project AI navigation and bridge
         run: node scripts/test-ai-navigation.js
       - name: Test real local vision engine wiring and provenance
         run: node scripts/test-ai-engine.js
+      - name: Test real PDF text extraction and isolated sheet indexing
+        run: node scripts/test-ai-pdf.js
       - name: Test structural member copying
         run: node scripts/test-scheme-copy.js
       - name: Test cached scheme records and in-place refresh

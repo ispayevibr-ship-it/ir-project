@@ -41,6 +41,9 @@ jobs:
           node --check src/ai-document-store.js
           node --check src/ai-analysis.js
           node --check src/ai-local-engine.js
+          node --check src/ai-pdf-worker.js
+          node --check src/ai-pdf-index.js
+          node scripts/test-ai-pdf.js
           node scripts/test-ai-engine.js
           node scripts/test-ai-storage.js
           node --check src/database.js
