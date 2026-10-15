@@ -80,7 +80,8 @@
    const start=[p.x,p.y,z0],finish=kind==="column"?[p.x,p.y,z1]:[end.x,end.y,z1];
    const mid=kind==="bent"||kind==="truss"?[num(d.absolute_mid_x_mm??(p.x+end.x)/2),num(d.absolute_mid_y_mm??(p.y+end.y)/2),num(d.mid_z_mm??z1)]:null;
    const markName=String(d.mark||r.title||""),markId=String(d.mark_id??"");
-   const linked=detailById.get(markId)||uniqueByWork.get(String(d.work_type_id||"")+"|"+normalize(markName))||uniqueByMark.get(normalize(markName))||{};
+   const wid=String(d.work_type_id||""),direct=detailById.get(markId);
+   const linked=(direct&&(!wid||String(direct.workId||"")===wid)?direct:null)||(wid?uniqueByWork.get(wid+"|"+normalize(markName)):null)||{};
    const count=Number(linked.qty),done=Number(linked.done);
    const validProgress=linked.qty!=null&&Number.isFinite(count)&&count>0&&linked.done!=null&&Number.isFinite(done);
    const status=validProgress?(done>=count-1e-9?"mounted":done>0?"partial":"planned"):String(d.status||"planned");
