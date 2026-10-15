@@ -32,7 +32,7 @@ window.irAiRecognitionPage=async function(objectId){
  const referenceApi=irProject.aiKmdReference||null;
  const runtime=irProject.aiEngine||null,pdf=irProject.aiPdf||null,reviewer=irProject.aiReview||null,workflow=irProject.aiWorkflow||null,integrityApi=irProject.aiIntegrity||null,revisionsApi=irProject.aiRevisions||null,proposalsApi=irProject.aiProposals||null,quantities=irProject.aiMarkQuantities||null,materials=irProject.aiKmdMaterials||null,connections=irProject.aiKmdConnections||null,comparisons=irProject.aiKmKmdCompare||null;
  const canEdit=!!window.irAccess?.canEdit?.("ai-recognition");
- let aiWriteAuthUntil=0;
+ let aiWriteAuthUntil=0,referenceReadSequence=0,reloadSequence=0;
  async function authorizeAiMutation(){
   if(!canEdit||!reviewer){notice("Для изменения AI-данных нужна сессия инженера","error");return false}
   const role=window.irAccess?.role?.();
@@ -47,7 +47,7 @@ window.irAiRecognitionPage=async function(objectId){
   }catch(error){notice("Авторизация ИИ: "+String(error.message||error),"error");return false}
  }
  async function reload(){
-  const jobs=[];
+  const requestId=++reloadSequence,jobs=[];
   if(ready)jobs.push(bridge.list(id).then(v=>{documents=v}).catch(error=>{documents=[];notice("Ошибка загрузки документов: "+String(error.message||error),"error")}));
   if(runtime)jobs.push(runtime.status().then(v=>{engine=v}).catch(error=>{engine=null;notice("Ошибка проверки локальной модели: "+String(error.message||error),"error")}));
   if(reviewer){
@@ -80,21 +80,28 @@ window.irAiRecognitionPage=async function(objectId){
    jobs.push(integrityApi.report(id).then(v=>{integrityReport=v})
     .catch(error=>{integrityReport=null;notice("Контроль данных: "+String(error.message||error),"error")}));
   if(referenceApi&&active==="reference"){
+   const sequence=++referenceReadSequence;
    referenceRows=null;referenceChecks=null;referenceCompare=null;
    if(typeof referenceApi.snapshot==="function")
     jobs.push(referenceApi.snapshot(id).then(data=>{
      if(!data||!Array.isArray(data.entries)||!data.checks||!data.comparison)
       throw Error("Получен неполный снимок эталона КМД");
-     referenceRows=data.entries;referenceChecks=data.checks;referenceCompare=data.comparison
+     if(sequence===referenceReadSequence){
+      referenceRows=data.entries;referenceChecks=data.checks;referenceCompare=data.comparison
+     }
     }).catch(e=>{
+     if(sequence!==referenceReadSequence)return;
      referenceRows=null;referenceChecks=null;referenceCompare=null;
      notice("Не удалось получить согласованную сверку эталона КМД: "+String(e.message||e),"error")
     }));
    else jobs.push(Promise.all([
     referenceApi.list(id),referenceApi.checks(id),referenceApi.compare(id)
    ]).then(([entries,sheets,comparison])=>{
-    referenceRows=entries;referenceChecks=sheets;referenceCompare=comparison
+    if(sequence===referenceReadSequence){
+     referenceRows=entries;referenceChecks=sheets;referenceCompare=comparison
+    }
    }).catch(e=>{
+    if(sequence!==referenceReadSequence)return;
     referenceRows=null;referenceChecks=null;referenceCompare=null;
     notice("Не удалось прочитать эталон КМД: "+String(e.message||e),"error")
    }))
@@ -109,7 +116,7 @@ window.irAiRecognitionPage=async function(objectId){
   }
   if(pdf)jobs.push(pdf.list(id).then(v=>{pdfIndexes=v}).catch(error=>{pdfIndexes=[];notice("Ошибка PDF-индекса: "+String(error.message||error),"error")}));
   await Promise.all(jobs);
-  if(location.hash===route)paint()
+  if(requestId===reloadSequence&&location.hash===route)paint()
  }
  function notice(text,type="info"){message=String(text||"");severity=type}
  function openTab(tab){

@@ -17,6 +17,12 @@ window.irAiConnectionsPage={
   const canChange=canEdit&&!!api&&!!reviewer;
   const allowedDocs=documents.filter(d=>d.kind==="КМД"&&d.ext===".pdf"&&d.exists);
   const eligibleNodes=nodes.filter(n=>n.status!=="rejected");
+  // A physical joint can have many components; group once per render.
+  const itemsByJoint=new Map();
+  for(const item of items){
+   if(!itemsByJoint.has(item.jointId))itemsByJoint.set(item.jointId,[]);
+   itemsByJoint.get(item.jointId).push(item)
+  }
   const edition=canChange&&assemblies.length&&allowedDocs.length;
   box.innerHTML='<section class="ir-ai-connections">'+
    (!summary?'<div class="ir-ai-quantity-warning">Сводка крепежа не рассчитана. Прочерки означают ошибку проверки или недоступные данные, а не нулевое количество метизов. Проверьте сообщения программы.</div>':"")+
@@ -35,7 +41,7 @@ window.irAiConnectionsPage={
    (!nodes.length?'<div class="ir-ai-doc-empty"><b>Узлов пока нет</b>'+
     '<p>Добавьте отправочную марку и PDF КМД, затем укажите узел или монтажный стык. Крепёж и швы вводятся только внутри выбранного узла.</p></div>':
     '<div class="ir-ai-connection-list">'+nodes.map(j=>{
-     const children=items.filter(v=>v.jointId===j.id),status=j.status||"requires_review";
+     const children=itemsByJoint.get(j.id)||[],status=j.status||"requires_review";
      return'<article class="ir-ai-connection-card"><div class="ir-ai-connection-head">'+
       '<div><b>'+esc(j.jointCode)+'</b> · '+esc(scopeName[j.scope]||j.scope)+
        '<small>Отправочная марка: '+esc(j.assemblyMark)+' · '+esc(j.assemblyCipher||"без шифра")+
