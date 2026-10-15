@@ -46,6 +46,7 @@ const aiModels={
  install:token=>ipcRenderer.invoke("ai-models:install",token),
  rollback:id=>ipcRenderer.invoke("ai-models:rollback",id),
  download:(modelId,version)=>ipcRenderer.invoke("ai-models:download",{modelId,version}),
+ downloadAndInstall:(modelId,version)=>ipcRenderer.invoke("ai-models:download-install",{modelId,version}),
  cancel:()=>ipcRenderer.invoke("ai-models:cancel"),
  verifyRuntime:()=>ipcRenderer.invoke("ai-models:verify-runtime"),
  onProgress:callback=>{
