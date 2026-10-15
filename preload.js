@@ -37,6 +37,7 @@ const aiModels={
  rollback:id=>ipcRenderer.invoke("ai-models:rollback",id),
  download:(modelId,version)=>ipcRenderer.invoke("ai-models:download",{modelId,version}),
  cancel:()=>ipcRenderer.invoke("ai-models:cancel"),
+ verifyRuntime:()=>ipcRenderer.invoke("ai-models:verify-runtime"),
  onProgress:callback=>{
   const listener=(_event,data)=>{if(typeof callback==="function")callback(data)};
   ipcRenderer.on("ai-models:progress",listener);

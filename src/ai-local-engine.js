@@ -5,10 +5,11 @@ const os=require("node:os"),net=require("node:net"),cp=require("node:child_proce
 const MODEL_ROOT="ir-project-ai",API_MODEL="local-qwen3-vl";
 const names={binary:process.platform==="win32"?"llama-server.exe":"llama-server",model:"model.gguf",vision:"mmproj.gguf"};
 const STATUS=["missing","invalid","stopped","starting","ready","failed"];
-function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>new Promise(resolve=>setTimeout(resolve,ms)),memory=os.totalmem}={}){
+function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>new Promise(resolve=>setTimeout(resolve,ms)),
+ memory=os.totalmem,managedModel=null}={}){
  if(typeof getUserDataPath!=="function")throw Error("AI engine requires userData directory");
  const root=()=>path.join(getUserDataPath(),MODEL_ROOT,"runtime");
- let child=null,serverPort=0,secret="",state="stopped",issue="",busy=false,controller=null,startJob=null;
+ let child=null,serverPort=0,secret="",state="stopped",issue="",busy=false,controller=null,startJob=null,activeProfile=null;
  function locationFor(name){
   if(!Object.values(names).includes(name))throw Error("Invalid runtime filename");
   return path.join(root(),name)
@@ -18,6 +19,13 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
   stream.on("data",chunk=>h.update(chunk));stream.on("error",reject);stream.on("end",()=>resolve(h.digest("hex")))
  })}
  function inspect(){
+  if(managedModel&&typeof managedModel.inspect==="function"){
+   try{
+    const entry=managedModel.inspect();
+    if(entry!==null&&entry!==undefined)return entry
+   }catch(error){return{installed:false,managed:true,modelId:"Qwen3-VL-4B",
+    reason:"Не удалось прочитать установленную Qwen3-VL 4B: "+String(error.message||error)}}
+  }
   const folder=root(),manifest=path.join(folder,"manifest.json");
   if(!fs.existsSync(manifest))return{installed:false,reason:"Локальный пакет модели ещё не установлен"};
   try{
@@ -35,12 +43,21 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
     files[key]={path:file,bytes:stat.size,expected:meta.sha256[key].toLowerCase()};
     total+=stat.size
    }
-   return{installed:true,files,bytes:total,gpuLayers:Number.isInteger(meta.gpuLayers)&&meta.gpuLayers>=0&&meta.gpuLayers<=999?meta.gpuLayers:0}
+   return{installed:true,managed:false,modelId:"Qwen3-VL-8B-Instruct",version:"legacy",
+    cwd:folder,files,bytes:total,
+    gpuLayers:Number.isInteger(meta.gpuLayers)&&meta.gpuLayers>=0&&meta.gpuLayers<=999?meta.gpuLayers:0}
   }catch(error){return{installed:false,reason:"Офлайн-пакет повреждён или не соответствует формату: "+String(error.message||error)}}
  }
  async function verify(){
-  const current=inspect();
+  let current=inspect();
   if(!current.installed)return current;
+  if(current.managed){
+   try{
+    if(typeof managedModel?.resolve!=="function")throw Error("Не настроена проверка установленного пакета");
+    current=await managedModel.resolve();
+    if(!current?.installed)return{installed:false,reason:current?.reason||"Установленная модель не прошла проверку"};
+   }catch(error){return{installed:false,reason:"Проверка подписанной модели не пройдена: "+String(error.message||error)}}
+  }
   for(const [key,file] of Object.entries(current.files)){
    if(await hash(file.path)!==file.expected)return{installed:false,reason:"SHA-256 не совпадает: "+names[key]}
   }
@@ -48,11 +65,15 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
  }
  function status(){
   const check=inspect();
+  const real=Boolean(child&&activeProfile);
   return{state:check.installed?state==="missing"?"stopped":state:check.reason?.includes("не установлен")?"missing":"invalid",
    installed:check.installed,reason:check.installed?issue:check.reason,
    ramGb:Math.round(memory()/1073741824*10)/10,
    totalBytes:check.installed?check.bytes:0,
-   active:busy,model:"Qwen3-VL-8B-Instruct",transport:"127.0.0.1",offline:true}
+   active:busy,model:real?activeProfile.modelId:(check.modelId||"Qwen3-VL-8B-Instruct"),
+   modelVersion:real?activeProfile.version:(check.version||null),
+   managed:real?Boolean(activeProfile.managed):Boolean(check.managed),
+   transport:"127.0.0.1",offline:true}
  }
  function freePort(){return new Promise((resolve,reject)=>{
   const s=net.createServer();s.once("error",reject);
@@ -60,7 +81,7 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
  })}
  function terminate(){
   controller?.abort();controller=null;busy=false;
-  const old=child;child=null;serverPort=0;secret="";
+  const old=child;child=null;serverPort=0;secret="";activeProfile=null;
   if(old)try{old.kill()}catch{}
  }
  function stop(){terminate();state="stopped";issue="";return status()}
@@ -69,15 +90,16 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
   if(startJob)return startJob;
   startJob=(async()=>{
    const pack=await verify();
-   if(!pack.installed){state="invalid";issue=pack.reason;return status()}
+   if(!pack.installed){state=pack.reason?.includes("не установлен")?"missing":"invalid";issue=pack.reason;return status()}
    if(memory()<8*1073741824){state="failed";issue="Для локальной модели требуется не менее 8 ГБ оперативной памяти. Не запускаем процесс.";return status()}
-   terminate();state="starting";issue="";
+   terminate();state="starting";issue="";activeProfile=pack;
    serverPort=await freePort();secret=crypto.randomBytes(32).toString("hex");
    const args=["-m",pack.files.model.path,"--mmproj",pack.files.vision.path,
     "--host","127.0.0.1","--port",String(serverPort),"--alias",API_MODEL,"--no-webui",
     "--api-key",secret,"--ctx-size","4096","--n-gpu-layers",String(pack.gpuLayers)];
    try{
-    child=spawn(pack.files.binary.path,args,{cwd:root(),windowsHide:true,stdio:"ignore",shell:false,env:{...process.env,NO_PROXY:"127.0.0.1,localhost",no_proxy:"127.0.0.1,localhost"}});
+    child=spawn(pack.files.binary.path,args,{cwd:pack.cwd||root(),windowsHide:true,stdio:"ignore",
+     shell:false,env:{...process.env,NO_PROXY:"127.0.0.1,localhost",no_proxy:"127.0.0.1,localhost"}});
     child.once("error",e=>{issue="Ошибка запуска: "+e.message;state="failed";terminate()});
     const mine=child;
     child.once("exit",(code)=>{if(mine===child){issue="Локальная модель завершилась (код "+code+")";state="failed";terminate()}});
@@ -118,7 +140,9 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
    if(!response.ok)throw Error("Локальная модель вернула HTTP "+response.status);
    const answer=await response.json(),content=answer.choices?.[0]?.message?.content;
    if(typeof content!=="string"||!content.trim())throw Error("Модель не вернула текст");
-   return{raw:content.slice(0,30000),engine:API_MODEL,complete:answer.choices?.[0]?.finish_reason==="stop"};
+   return{raw:content.slice(0,30000),engine:API_MODEL,
+    modelId:activeProfile?.modelId||null,modelVersion:activeProfile?.version||null,
+    complete:answer.choices?.[0]?.finish_reason==="stop"};
   }finally{clearTimeout(timeout);controller=null;busy=false}
  }
  function cancel(){if(controller)controller.abort();return status()}

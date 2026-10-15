@@ -180,7 +180,15 @@ function createModelManager({getUserDataPath,dialog,getWindow=()=>undefined,
   }
  }
  async function verifySlot(modelId,v){
-  const folder=slot(modelId,v),raw=fs.readFileSync(path.join(folder,"manifest.json")),
+  const folder=slot(modelId,v);
+  const rootModels=path.join(root(),"models"),modelDir=path.join(rootModels,modelId),filesDir=path.join(folder,"files");
+  for(const dir of [rootModels,modelDir,folder,filesDir]){
+   const stat=fs.lstatSync(dir);
+   if(stat.isSymbolicLink()||!stat.isDirectory())throw Error("Каталог установленной модели повреждён");
+  }
+  if(!fs.realpathSync(folder).startsWith(fs.realpathSync(rootModels)+path.sep))
+   throw Error("Недопустимый путь установленной модели");
+  const raw=fs.readFileSync(path.join(folder,"manifest.json")),
    sig=fs.readFileSync(path.join(folder,"manifest.sig")),record=authenticate(raw,sig);
   if(record.manifest.modelId!==modelId||record.manifest.version!==v)throw Error("Подмена установленной модели");
   for(const item of record.manifest.files){
@@ -208,6 +216,54 @@ function createModelManager({getUserDataPath,dialog,getWindow=()=>undefined,
    return{modelId:id,active:previous,previous:now};
   }finally{mutation=false}
  }
+ function managedRuntime(modelId="qwen3-vl-4b"){
+  if(modelId!=="qwen3-vl-4b")throw Error("Визуальный адаптер модели пока не поддерживается");
+  const row=readState().models[modelId];
+  if(!row?.active)return null;
+  try{
+   const folder=slot(modelId,row.active),rootFiles=path.join(folder,"files");
+   for(const dir of [path.join(root(),"models"),path.dirname(folder),folder,rootFiles]){
+    const stat=fs.lstatSync(dir);
+    if(!stat.isDirectory()||stat.isSymbolicLink())throw Error("Некорректный каталог установленной модели");
+   }
+   const raw=fs.readFileSync(path.join(folder,"manifest.json")),sig=fs.readFileSync(path.join(folder,"manifest.sig"));
+   const {manifest:m}=authenticate(raw,sig);
+   if(m.modelId!==modelId||m.version!==row.active)throw Error("Подмена активного пакета");
+   if(!m.runtime||typeof m.runtime!=="object")throw Error("Подписанный пакет не содержит описания запуска llama.cpp");
+   const runtime=m.runtime;
+   const binaryName=process.platform==="win32"?"llama-server.exe":"llama-server";
+   const expected={binary:"bin/"+binaryName,model:"model/model.gguf",vision:"model/mmproj.gguf"};
+   for(const [type,name] of Object.entries(expected))
+    if(runtime[type]!==name)throw Error("В пакете неверный путь "+type+": "+name);
+   const declared=new Map(m.files.map(item=>[item.path,item]));
+   const files={};let bytes=0;
+   for(const [type,relative] of Object.entries(expected)){
+    const item=declared.get(relative);
+    if(!item)throw Error("В подписанном пакете отсутствует "+relative);
+    const full=path.join(rootFiles,...relative.split("/"));
+    const stat=fs.lstatSync(full),real=fs.realpathSync(full),rootReal=fs.realpathSync(rootFiles);
+    if(!stat.isFile()||stat.isSymbolicLink()||stat.size!==item.bytes||
+     !real.startsWith(rootReal+path.sep))throw Error("Файл повреждён: "+relative);
+    files[type]={path:full,bytes:stat.size,expected:item.sha256.toLowerCase()};
+    bytes+=stat.size
+   }
+   const gpuLayers=Number.isSafeInteger(runtime.gpuLayers)&&runtime.gpuLayers>=0&&runtime.gpuLayers<=99?
+    runtime.gpuLayers:0;
+   return{installed:true,managed:true,modelId:"Qwen3-VL-4B",version:row.active,
+    files,bytes,gpuLayers,cwd:path.dirname(files.binary.path)}
+  }catch(error){return{installed:false,managed:true,modelId:"Qwen3-VL-4B",version:row.active,
+   reason:"Подписанный пакет Qwen3-VL 4B не готов к запуску: "+String(error.message||error)}}
+ }
+ async function resolveRuntime(modelId="qwen3-vl-4b"){
+  const candidate=managedRuntime(modelId);
+  if(!candidate||!candidate.installed)return candidate;
+  await verifySlot(modelId,candidate.version);
+  // Re-read active version after expensive checks; a new selection is not silently substituted.
+  const current=managedRuntime(modelId);
+  if(!current?.installed||current.version!==candidate.version)
+   throw Error("Активная версия модели изменилась во время проверки");
+  return current
+ }
  function list(){
   const state=readState();return CATALOG.map(model=>{
    const row=state.models[model.id]||{};
@@ -224,7 +280,7 @@ function createModelManager({getUserDataPath,dialog,getWindow=()=>undefined,
     }catch{}
    }
    return{...model,active:row.active||null,previous:row.previous||null,versions,installedBytes,
-    state:row.active?"Установлена (адаптер в разработке)":"Не установлена",
+    state:row.active?(model.id==="qwen3-vl-4b"?"Установлена (проверка и запуск через локальный движок)":"Установлена (OCR-адаптер в разработке)"):"Не установлена",
     canRollback:Boolean(row.previous&&versions.includes(row.previous))}
   })
  }
@@ -270,6 +326,6 @@ function createModelManager({getUserDataPath,dialog,getWindow=()=>undefined,
   signedImportAvailable:Object.keys(trustedKeys).length>0,
   officialCatalogAvailable:catalog.configured(),packExtension:".ir-ai-pack",busy:mutation}}
 
- return{list,info,select,install,rollback,checkUpdates,download,cancelDownload,preview,verifySlot};
+ return{list,info,select,install,rollback,checkUpdates,download,cancelDownload,preview,verifySlot,managedRuntime,resolveRuntime};
 }
 module.exports={createModelManager,CATALOG,TRUSTED_MODEL_KEYS};

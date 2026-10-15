@@ -59,6 +59,8 @@ jobs:
         run: node scripts/test-ai-model-manager.js
       - name: Test signed HTTPS model catalog and verified download
         run: node scripts/test-ai-model-catalog.js
+      - name: Test installed Qwen3-VL 4B runtime integration
+        run: node scripts/test-ai-model-runtime.js
       - name: Test structural member copying
         run: node scripts/test-scheme-copy.js
       - name: Test cached scheme records and in-place refresh

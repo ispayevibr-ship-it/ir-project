@@ -37,7 +37,7 @@ function createAnalysis({database,documents,engine,pdfRenderer}){
    const extracted=parseClaims(result.raw);
    const saved=database.createEntity(id,"ai-analysis",{record_type:"image_analysis",
     title:"Анализ изображения: "+input.source.name,
-    data:{source:input.source,model:result.engine,raw:result.raw,
+    data:{source:input.source,model:result.engine,modelId:result.modelId||null,modelVersion:result.modelVersion||null,raw:result.raw,
      extracted,complete:!!result.complete,verification:"requires_review",
      sourceRegion:null,origin:"locally_executed_llama_cpp"}});
    if(!saved)throw Error("Не удалось сохранить результат анализа");
@@ -60,7 +60,7 @@ function createAnalysis({database,documents,engine,pdfRenderer}){
    const extracted=parseClaims(result.raw);
    const saved=database.createEntity(id,"ai-analysis",{record_type:"image_analysis",
     title:"Анализ PDF · лист "+input.source.page+" · "+input.source.name,
-    data:{source:input.source,model:result.engine,raw:result.raw,
+    data:{source:input.source,model:result.engine,modelId:result.modelId||null,modelVersion:result.modelVersion||null,raw:result.raw,
      extracted,complete:!!result.complete,verification:"requires_review",
      sourceRegion:"PDF лист "+input.source.page+" целиком; координаты распознанных элементов пока отсутствуют",
      origin:"locally_executed_llama_cpp_pdf_raster"}});

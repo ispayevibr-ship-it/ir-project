@@ -4,8 +4,15 @@ const path=require("path"),crypto=require("crypto"),fs=require("fs");
 const database=require("./src/database"),aiDocumentStore=require("./src/ai-document-store"),aiLocalEngine=require("./src/ai-local-engine"),aiAnalysis=require("./src/ai-analysis"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),aiModelManager=require("./src/ai-model-manager"),backup=require("./src/backup"),updates=require("./src/updater"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
 let win;
 const aiDocuments=aiDocumentStore.createStore({getUserDataPath:()=>app.getPath("userData"),dialog,shell,database,getWindow:()=>win});
-const aiEngine=aiLocalEngine.createEngine({getUserDataPath:()=>app.getPath("userData")});
-const aiModels=aiModelManager.createModelManager({
+let aiModels;
+const aiEngine=aiLocalEngine.createEngine({
+ getUserDataPath:()=>app.getPath("userData"),
+ managedModel:{
+  inspect:()=>aiModels?.managedRuntime("qwen3-vl-4b")||null,
+  resolve:()=>aiModels.resolveRuntime("qwen3-vl-4b")
+ }
+});
+aiModels=aiModelManager.createModelManager({
  getUserDataPath:()=>app.getPath("userData"),dialog,getWindow:()=>win,
  appVersion:()=>require("./package.json").version,
  engineActive:()=>["starting","ready"].includes(aiEngine.status().state),
@@ -68,6 +75,14 @@ function registerAiModelIpc(){
  ipcMain.handle("ai-models:rollback",(e,id)=>{checkModelAdmin(e);return aiModels.rollback(id)});
  ipcMain.handle("ai-models:download",(e,{modelId,version})=>{checkModelAdmin(e);return aiModels.download(modelId,version)});
  ipcMain.handle("ai-models:cancel",(e)=>{checkModelAdmin(e);return aiModels.cancelDownload()});
+ ipcMain.handle("ai-models:verify-runtime",async(e)=>{
+  checkModelAdmin(e);
+  const entry=await aiModels.resolveRuntime("qwen3-vl-4b");
+  if(!entry)return{installed:false,reason:"Qwen3-VL 4B ещё не установлена"};
+  if(!entry.installed)return{installed:false,reason:entry.reason};
+  return{installed:true,modelId:entry.modelId,version:entry.version,gpuLayers:entry.gpuLayers,
+   bytes:entry.bytes,reason:"Подпись и SHA-256 проверены. Реальная загрузка нейросети — отдельная проверка."}
+ });
 }
 function registerReportExport(){ipcMain.handle("report:export-html",async(_e,{html,defaultName}={})=>{const r=await dialog.showSaveDialog(win,{defaultPath:defaultName||"daily-report.html",filters:[{name:"HTML",extensions:["html"]}]});if(r.canceled||!r.filePath)return false;fs.writeFileSync(r.filePath,String(html||""),"utf8");return r.filePath});ipcMain.handle("report:export-pdf",async(e,{defaultName}={})=>{const r=await dialog.showSaveDialog(win,{defaultPath:defaultName||"daily-report.pdf",filters:[{name:"PDF",extensions:["pdf"]}]});if(r.canceled||!r.filePath)return false;const pdf=await e.sender.printToPDF({printBackground:true,pageSize:"A4",margins:{top:0.32,bottom:0.32,left:0,right:0}});fs.writeFileSync(r.filePath,pdf);return r.filePath});ipcMain.handle("report:print",e=>new Promise((resolve,reject)=>{e.sender.print({printBackground:true},(ok,error)=>ok?resolve(true):reject(new Error(error||"Печать не выполнена")))}))}
 function registerAccess(){ipcMain.handle("access:login",(_e,{role,password})=>{if(role==="guest")return true;if(!roleHashes[role])return false;const hash=crypto.createHash("sha256").update(String(password||"")).digest("hex");return crypto.timingSafeEqual(Buffer.from(hash),Buffer.from(roleHashes[role]))})}

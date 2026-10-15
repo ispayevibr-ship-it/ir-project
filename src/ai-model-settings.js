@@ -82,6 +82,7 @@
        '<button type="button" data-download-model="'+esc(x.id)+'" data-download-version="'+esc(r.version)+'" '+
         (busy||!isAdmin()||!data.signedImportAvailable?'disabled':'')+'>Скачать</button></div>').join("")+'</div>'+
       '<div class="ir-ai-model-foot"><small>'+esc(x.state)+'</small>'+
+      (x.id==="qwen3-vl-4b"&&x.active?'<button type="button" data-verify-model="'+esc(x.id)+'" '+(busy||!isAdmin()?'disabled':'')+'>Проверить файлы</button>':"")+
       '<button type="button" data-rollback="'+esc(x.id)+'" '+(!x.canRollback||busy||!isAdmin()?'disabled':'')+'>↶ Откатить</button></div></article>').join("")+
     '</div><p class="ir-ai-model-note">Размер скачивания и список доступных версий появятся после подключения официального подписанного каталога. Файлы моделей не включены в установщик IR Project.</p>';
    target.querySelector("[data-refresh]").onclick=()=>reload();
@@ -105,7 +106,7 @@
       " версии "+selected.version+"?\nЗаймёт на диске: "+fmt(selected.installedBytes)))return;
      if(!await authorize())return;
      const installed=await api.install(selected.token);
-     status("Установлена версия "+installed.version+". Для запуска нового адаптера требуется следующий этап.")
+     status("Установлена версия "+installed.version+". Перед запуском проверьте модель кнопкой «Проверить файлы».")
     }catch(e){status("Обновление не завершено: "+String(e.message||e),true)}
     finally{busy=false;downloading=false;progress="";await reload()}
    });
@@ -126,10 +127,21 @@
       "\nРазмер на диске: "+fmt(selected.installedBytes)+
       "\nТекущая версия будет сохранена для отката.")){status("Установка отменена");return}
      const outcome=await api.install(selected.token);
-     status("Модель "+outcome.title+" "+outcome.version+" успешно размещена. Подключение движка — отдельный этап.")
+     status("Модель "+outcome.title+" "+outcome.version+" успешно размещена. Перед запуском используйте «Проверить файлы».")
     }catch(e){status("Установка отменена или не удалась: "+String(e.message||e),true)}
     finally{busy=false;await reload()}
    };
+   target.querySelectorAll("[data-verify-model]").forEach(button=>button.onclick=async()=>{
+    if(busy||!await authorize())return;
+    busy=true;status("Проверка SHA-256 установленного пакета может занять несколько минут.");render();
+    try{
+     const result=await api.verifyRuntime();
+     status(result.installed?
+      "Qwen3-VL 4B "+result.version+": файлы и подпись проверены. Для проверки GPU запустите ИИ в разделе объекта.":
+      "Модель не готова: "+String(result.reason||"неизвестная причина"),!result.installed)
+    }catch(e){status("Не удалось проверить модель: "+String(e.message||e),true)}
+    finally{busy=false;await reload()}
+   });
    target.querySelectorAll("[data-rollback]").forEach(button=>button.onclick=async()=>{
     const id=button.dataset.rollback,m=models.find(x=>x.id===id);
     if(!m||!m.canRollback||busy||!await authorize())return;
