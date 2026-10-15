@@ -38,6 +38,11 @@ jobs:
         run: |
           node --check main.js
           node --check preload.js
+          node --check src/ai-document-store.js
+          node --check src/ai-analysis.js
+          node --check src/ai-local-engine.js
+          node scripts/test-ai-engine.js
+          node scripts/test-ai-storage.js
           node --check src/database.js
           node --check src/updater.js
           node scripts/test-database-safety.js

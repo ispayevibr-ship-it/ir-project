@@ -33,10 +33,14 @@ jobs:
           node --check src/ir-runtime.js
           node --check src/ai-recognition-page.js
           node --check src/ai-document-store.js
+          node --check src/ai-local-engine.js
+          node --check src/ai-analysis.js
       - name: Test IR Project AI local document storage
         run: node scripts/test-ai-storage.js
       - name: Test IR Project AI navigation and bridge
         run: node scripts/test-ai-navigation.js
+      - name: Test real local vision engine wiring and provenance
+        run: node scripts/test-ai-engine.js
       - name: Test structural member copying
         run: node scripts/test-scheme-copy.js
       - name: Test cached scheme records and in-place refresh

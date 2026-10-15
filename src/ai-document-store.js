@@ -102,6 +102,21 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   if(!Number.isSafeInteger(value)||value<=0)throw Error("Неверный номер объекта");
   fs.rmSync(path.join(root(),String(value)),{recursive:true,force:true});
  }
- return{list,select,open,remove,deleteObjectFiles};
+ async function readForAnalysis(id,documentId){
+  id=objectId(id);const row=record(id,documentId),file=resolveStored(id,row);
+  const ext=String(row.data?.extension||"").toLowerCase();
+  if(![".png",".jpg",".jpeg"].includes(ext))throw Error("Для первого этапа локального анализа поддерживаются только PNG и JPG. PDF и DWG пока сохраняются без распознавания.");
+  const stat=fs.statSync(file);
+  if(stat.size>16*1024*1024)throw Error("Изображение превышает 16 МиБ; требуется уменьшение или обработка по фрагментам.");
+  const buffer=await fs.promises.readFile(file);
+  const png=buffer.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
+  const jpg=buffer[0]===255&&buffer[1]===216&&buffer[buffer.length-2]===255&&buffer[buffer.length-1]===217;
+  if(!png&&!jpg)throw Error("Файл не соответствует сигнатуре PNG/JPEG");
+  const digest=crypto.createHash("sha256").update(buffer).digest("hex");
+  if(digest!==row.data.sha256)throw Error("Файл отличается от загруженного оригинала (SHA-256)");
+  return{buffer,mime:png?"image/png":"image/jpeg",
+   source:{documentId:row.id,name:row.data.original_name,sha256:digest,kind:row.data.kind,bytes:buffer.length}};
+ }
+ return{list,select,open,remove,deleteObjectFiles,readForAnalysis};
 }
 module.exports={createStore,EXTENSIONS,MAX_FILE_BYTES};

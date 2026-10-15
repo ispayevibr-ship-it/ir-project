@@ -1,7 +1,7 @@
 "use strict";
 const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm");
 const files=Object.fromEntries(["main.js","preload.js","src/app.js","src/access.js","src/object-shell.js",
- "src/tabs-shell.js","src/ai-recognition-page.js","src/ai-recognition-page.css","src/index.html","src/ir-runtime.js"].map(p=>[p,fs.readFileSync(p,"utf8")]));
+ "src/tabs-shell.js","src/ai-recognition-page.js","src/ai-recognition-page.css","src/index.html","src/ir-runtime.js","src/ai-local-engine.js","src/ai-analysis.js"].map(p=>[p,fs.readFileSync(p,"utf8")]));
 for(const path of ["main.js","preload.js","src/ai-recognition-page.js","src/app.js","src/ir-runtime.js"])new vm.Script(files[path],{filename:path});
 assert(files["main.js"].includes('require("./src/ai-document-store")'),"node store is loaded by Electron main process");
 assert(files["main.js"].includes('registerAiDocuments();'),"IPC wired");
@@ -13,11 +13,14 @@ assert(files["src/tabs-shell.js"].includes('"ai-recognition":"ИИ-распоз�
 assert(files["src/access.js"].includes('"ai-recognition"'),"role configuration");
 assert(files["src/index.html"].includes('ai-recognition-page.js?v=17207'),"UI script loads");
 assert(files["src/index.html"].includes('ai-recognition-page.css?v=17207'),"module css loads");
-assert(files["src/ai-recognition-page.js"].includes("Нейросеть не установлена"),"no simulated inference");
+assert(files["src/ai-recognition-page.js"].includes("Пакет модели не установлен"),"no fabricated inference");
+assert(files["src/ai-recognition-page.js"].includes('runtime.analyze(id,button.dataset.aiAnalyze)'),"real image inference action");
+assert(files["src/ai-local-engine.js"].includes('"--host","127.0.0.1"'),"loopback inference");
+assert(files["src/ai-analysis.js"].includes('verification:"requires_review"'),"results always unverified");
 assert(files["src/ai-recognition-page.js"].includes("bridge.select(id,kind)"),"actual document import");
 assert(files["src/ai-recognition-page.js"].includes('status:"Не распознано"')===false,"UI doesn't fake model output");
 assert(files["src/ir-runtime.js"].includes('key==="ai-recognition"&&window.irAiRecognitionPage'),"runtime bundle current");
 const m=JSON.parse(fs.readFileSync("hot/latest.json","utf8"));
-assert.equal(m.version,"1.7.207");
+assert.equal(m.version,"1.7.208");
 assert(!m.files.some(x=>["main.js","preload.js"].includes(x.target)),"hot updater can't replace native process");
 console.log("AI stage 1: routes, dedicated UI, isolation, bridge and honest model status passed.");
