@@ -31,7 +31,8 @@ window.irAiIntegrityPage={
    '<small>Подсчитываются только действующие подтверждённые инженерные записи</small></div></div>'+
    '<div class="ir-ai-quantity-warning">Сопоставление не устанавливает наличие всех позиций в исходной спецификации КМД. '+
    '3D-детали считаются на один экземпляр каждой марки, физический крепёж — по зарегистрированным узлам объекта.</div>'+
-   '<div class="ir-ai-coverage-metrics">'+
+   (coverage.ambiguousTotals?'<div class="ir-ai-quantity-warning">Итоги не показаны: обнаружены повторные подтверждённые марки, детали или физические соединения. Проверьте замечания ниже.</div>':"")+
+   '<div class="ir-ai-coverage-metrics>'+
    '<div><small>Экземпляров отправочных марок</small><strong>'+number(summary.confirmedMarkCopies)+'</strong></div>'+
    '<div><small>Деталей в объекте по внесённым позициям</small><strong>'+number(summary.registeredDetailUnitsInProject)+'</strong></div>'+
    '<div><small>3D-деталей на уникальные марки</small><strong>'+number(summary.modeledUnitsPerUniqueMarks)+' / '+number(summary.expectedModelUnitsPerUniqueMarks)+'</strong></div>'+
@@ -44,6 +45,8 @@ window.irAiIntegrityPage={
     '</summary><div class="ir-ai-coverage-detail">'+
      '<span>Деталей по подтверждённым позициям на одну марку: <b>'+number(row.detailUnitsPerMark)+'</b></span>'+
      '<span>Деталей по этим позициям на объект: <b>'+number(row.declaredDetailUnitsInProject)+'</b></span>'+
+     '<span>Позиции деталей КМД: <b>'+number(row.confirmedDetailPositions)+
+      '</b> подтверждено · <b>'+number(row.pendingDetailPositions)+'</b> требуют проверки</span>'+
      '<span>Не размещено в начатой 3D-сборке: <b>'+(row.modelStarted?number(row.pendingModelUnits):"3D ещё не начинали")+'</b></span>'+
      '<span>Узлы: <b>'+number(row.confirmedJointPositions)+'</b> позиций, заводских '+number(row.factoryJointInstances)+
       ', монтажных '+number(row.erectionJointInstances)+'</span>'+

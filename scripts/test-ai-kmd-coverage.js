@@ -57,6 +57,15 @@ const {createAiCoverage}=require("../src/ai-kmd-coverage");
   "one standard mark is modeled, not six repeated copies");
  assert.equal(first.metrics.expectedModelUnitsPerUniqueMarks,3);
  assert.equal(first.metrics.factoryJointInstances,12);
+ placements.length=0;
+ const notStarted=coverage.report(1);
+ assert.equal(notStarted.marks[0].modelStarted,false);
+ assert(!notStarted.issues.some(x=>x.code==="kmd_partial_3d_placement"),
+  "an untouched 3D assembly cannot be declared an interrupted partial model");
+ placements.push({id:70,record_type:"part_placement",data:{
+  assemblyId:31,partId:40,instanceIndex:1
+ }});
+
  assert.equal(first.metrics.erectionJointInstances,5,
   "site joints are never multiplied by assembly copies again");
  assert.equal(first.metrics.registeredFastenerPieces,48);
