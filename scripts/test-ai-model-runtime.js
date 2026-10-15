@@ -71,6 +71,28 @@ const hash=x=>crypto.createHash("sha256").update(x).digest("hex");
  try{
   assert.equal(manager.managedRuntime(),null);
   assert.equal(engine.status().state,"missing");
+  // Legacy executable/manifest in userData must never bypass a configured
+  // signed manager, even when this manager has no active model.
+  const legacyDir=path.join(dir,"ir-project-ai","runtime");
+  fs.mkdirSync(legacyDir,{recursive:true});
+  const legacy={binary:Buffer.from("MZ-legacy-binary"),
+   model:Buffer.from("legacy-gguf-model"),vision:Buffer.from("legacy-mmproj")};
+  const legacyNames={binary:process.platform==="win32"?"llama-server.exe":"llama-server",
+   model:"model.gguf",vision:"mmproj.gguf"};
+  const hashes={};
+  for(const [key,bytes] of Object.entries(legacy)){
+   fs.writeFileSync(path.join(legacyDir,legacyNames[key]),bytes);
+   hashes[key]=hash(bytes)
+  }
+  fs.writeFileSync(path.join(legacyDir,"manifest.json"),JSON.stringify({
+   format:1,engine:"llama.cpp",modelId:"Qwen3-VL-8B-Instruct",sha256:hashes
+  }));
+  const rejectedLegacy=engine.status();
+  assert.equal(rejectedLegacy.installed,false,
+   "unsigned legacy runtime must never override signed-manager absence");
+  assert.match(rejectedLegacy.reason,/неподписанный/);
+  await engine.start();
+  assert.equal(launches.length,0,"never launch a legacy unsigned executable");
   await install("1.0.0",{missingRuntime:true});
   assert.equal(manager.managedRuntime().installed,false,"missing signed runtime must not launch");
   await engine.start();

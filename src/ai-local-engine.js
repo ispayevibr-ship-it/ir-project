@@ -22,7 +22,11 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
   if(managedModel&&typeof managedModel.inspect==="function"){
    try{
     const entry=managedModel.inspect();
-    if(entry!==null&&entry!==undefined)return entry
+    if(entry!==null&&entry!==undefined)return entry;
+    // A configured signed model manager is authoritative. Never fall back
+    // to the legacy SHA-only runtime when no trusted package is installed.
+    return{installed:false,managed:true,modelId:"Qwen3-VL-4B",
+     reason:"Подписанный пакет Qwen3-VL 4B не установлен. Старый неподписанный runtime отключён"}
    }catch(error){return{installed:false,managed:true,modelId:"Qwen3-VL-4B",
     reason:"Не удалось прочитать установленную Qwen3-VL 4B: "+String(error.message||error)}}
   }
