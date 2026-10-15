@@ -217,7 +217,8 @@ function createModelManager({getUserDataPath,dialog,getWindow=()=>undefined,
   }finally{mutation=false}
  }
  function managedRuntime(modelId="qwen3-vl-4b"){
-  if(modelId!=="qwen3-vl-4b")throw Error("Визуальный адаптер модели пока не поддерживается");
+  if(!["qwen3-vl-4b","paddleocr-vl-1.6"].includes(modelId))
+   throw Error("Неизвестный локальный движок модели");
   const row=readState().models[modelId];
   if(!row?.active)return null;
   try{
@@ -229,8 +230,39 @@ function createModelManager({getUserDataPath,dialog,getWindow=()=>undefined,
    const raw=fs.readFileSync(path.join(folder,"manifest.json")),sig=fs.readFileSync(path.join(folder,"manifest.sig"));
    const {manifest:m}=authenticate(raw,sig);
    if(m.modelId!==modelId||m.version!==row.active)throw Error("Подмена активного пакета");
-   if(!m.runtime||typeof m.runtime!=="object")throw Error("Подписанный пакет не содержит описания запуска llama.cpp");
+   if(!m.runtime||typeof m.runtime!=="object")throw Error("Подписанный пакет не содержит описания локального движка");
    const runtime=m.runtime;
+   if(modelId==="paddleocr-vl-1.6"){
+    // One signed, self-contained executable built from the bundled Python
+    // worker. Both model directories must be complete parts of the signed ZIP.
+    if(runtime.protocol!=="ir-paddleocr-vl-json-1"||
+     runtime.binary!==(process.platform==="win32"?"bin/paddleocr-worker.exe":"bin/paddleocr-worker")||
+     runtime.layout!=="models/layout"||runtime.vision!=="models/vl")
+     throw Error("Подписанный OCR-пакет содержит неизвестный интерфейс выполнения");
+    const declared=new Map(m.files.map(item=>[item.path,item]));
+    const bin=declared.get(runtime.binary),
+     layout=m.files.filter(item=>item.path.startsWith("models/layout/")),
+     vision=m.files.filter(item=>item.path.startsWith("models/vl/"));
+    if(!bin||!layout.length||!vision.length)
+     throw Error("В подписанном OCR-пакете отсутствует исполняемый файл или модель");
+    const rootReal=fs.realpathSync(rootFiles);
+    const resolve=relative=>{
+     const full=path.join(rootFiles,...relative.split("/"));
+     const stat=fs.lstatSync(full),real=fs.realpathSync(full);
+     if(!stat.isFile()||stat.isSymbolicLink()||!real.startsWith(rootReal+path.sep))
+      throw Error("Недопустимый файл OCR: "+relative);
+     const expected=declared.get(relative);
+     if(stat.size!==expected.bytes)throw Error("Размер OCR-файла изменился: "+relative);
+     return{path:full,bytes:stat.size,expected:expected.sha256.toLowerCase()}
+    };
+    const binary=resolve(runtime.binary);
+    for(const item of [...layout,...vision])resolve(item.path);
+    return{installed:true,managed:true,modelId:"PaddleOCR-VL-1.6",version:row.active,
+     files:{binary},bytes:m.files.reduce((sum,f)=>sum+f.bytes,0),
+     layoutDir:path.join(rootFiles,"models","layout"),
+     visionDir:path.join(rootFiles,"models","vl"),
+     cwd:path.dirname(binary.path),protocol:runtime.protocol}
+   }
    const binaryName=process.platform==="win32"?"llama-server.exe":"llama-server";
    const expected={binary:"bin/"+binaryName,model:"model/model.gguf",vision:"model/mmproj.gguf"};
    for(const [type,name] of Object.entries(expected))
@@ -280,7 +312,9 @@ function createModelManager({getUserDataPath,dialog,getWindow=()=>undefined,
     }catch{}
    }
    return{...model,active:row.active||null,previous:row.previous||null,versions,installedBytes,
-    state:row.active?(model.id==="qwen3-vl-4b"?"Установлена (проверка и запуск через локальный движок)":"Установлена (OCR-адаптер в разработке)"):"Не установлена",
+    state:row.active?(model.id==="qwen3-vl-4b"?
+     "Установлена (проверка и запуск через локальный движок)":
+     "Установлена (необходим проверенный OCR-пакет и реальный запуск)"):"Не установлена",
     canRollback:Boolean(row.previous&&versions.includes(row.previous))}
   })
  }
