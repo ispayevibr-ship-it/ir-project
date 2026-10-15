@@ -80,5 +80,5 @@ assert(file.includes("f.elements.rotation_deg.value=c?.rotation_deg??0"),"rotati
 assert(file.includes('f.elements.profile_name.value=shapeSource.profile_name||""'),"profile copied");
 assert(file.includes('if(!id&&f.dataset.copyPosition==="1")'),"copy duplicate position is rejected");
 assert(file.includes('guessGeometry(m)!==(kind==="bent"?"beam":kind)'),"mark and copied geometry must agree");
-assert(styling.includes(".irb-viewport>.irb-floating-add{position:absolute!important;top:13px!important;right:16px!important"),"Add remains top-right");
+assert(styling.includes(".irb-immersive>.irb-viewport>#irbQuickAdd.irb-floating-add{")&&styling.includes("position:absolute!important;top:13px!important;right:16px!important"),"Add remains top-right with selector matching its real parent");
 console.log("Position copy: full geometry, quotas, and safe duplicate handling OK.");
