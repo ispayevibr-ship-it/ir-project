@@ -52,6 +52,10 @@ jobs:
           node scripts/test-ai-model-manager.js
           node scripts/test-ai-model-catalog.js
           node scripts/test-ai-model-runtime.js
+          node --check scripts/ai-pack-publisher.js
+          node --check scripts/build-qwen4-pack.js
+          node --check scripts/sign-ai-catalog.js
+          node scripts/test-ai-pack-publisher.js
           node scripts/test-ai-pdf.js
           node scripts/test-ai-pdf-render.js
           node scripts/test-ai-engine.js

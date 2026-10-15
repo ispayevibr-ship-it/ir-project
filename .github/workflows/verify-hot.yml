@@ -61,6 +61,12 @@ jobs:
         run: node scripts/test-ai-model-catalog.js
       - name: Test installed Qwen3-VL 4B runtime integration
         run: node scripts/test-ai-model-runtime.js
+      - name: Test real offline model publisher and signed catalog
+        run: |
+          node --check scripts/ai-pack-publisher.js
+          node --check scripts/build-qwen4-pack.js
+          node --check scripts/sign-ai-catalog.js
+          node scripts/test-ai-pack-publisher.js
       - name: Test structural member copying
         run: node scripts/test-scheme-copy.js
       - name: Test cached scheme records and in-place refresh
