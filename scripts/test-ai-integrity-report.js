@@ -113,6 +113,18 @@ function fixture(){
  assert.equal(referenceFailure.stages.find(x=>x.tab==="reference").count,null,
   "the integrity stage count must retain unavailable status");
  assert.throws(()=>api.report(2),/Объект не найден/);
+ const corruptGeometry=createAiIntegrity({...shared,database:{
+  ...shared.database,listEntity:(id,section)=>{
+   if(section==="ai-assembly-placement")throw Error("Damaged 3D index");
+   return shared.database.listEntity(id,section)
+  }
+ }}).report(1);
+ assert(corruptGeometry.issues.some(row=>row.code==="integration_assembly_placement_index"),
+  "corrupted 3D table must be surfaced as a diagnostic issue");
+ assert.equal(corruptGeometry.metrics.confirmed3dDetails,null,
+  "an unavailable 3D index cannot be represented as zero installed details");
+ assert(corruptGeometry.issues.some(row=>row.code==="engineering_discrepancies"),
+  "unrelated engineering findings must survive a 3D index failure");
  const broken={...shared,materials:{list:()=>{throw Error("Material table failure")}}};
  const y=createAiIntegrity(broken).report(1);
  assert(y.issues.some(row=>row.code==="integration_materials"));

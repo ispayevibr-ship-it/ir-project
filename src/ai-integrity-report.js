@@ -222,9 +222,13 @@ function createAiIntegrity({database,documents,pdfIndex,revisions,review,workflo
   let confirmedPlacements=0,pendingPlacements=0,verifiedAnchors=0,
    assemblyErrors=0;
   const outdated3d=[];
-  const in3d=new Set(database.listEntity(objectId,"ai-assembly-placement")
+  const placementRows=safe("assembly_placement_index",
+   ()=>database.listEntity(objectId,"ai-assembly-placement"),null);
+  const attachmentRows=safe("assembly_attachment_index",
+   ()=>database.listEntity(objectId,"ai-assembly-attachments"),null);
+  const in3d=new Set((placementRows||[])
    .filter(x=>x.record_type==="part_placement").map(x=>Number(x.data?.assemblyId)));
-  const inAnchors=new Set(database.listEntity(objectId,"ai-assembly-attachments")
+  const inAnchors=new Set((attachmentRows||[])
    .filter(x=>x.record_type==="assembly_attachment").map(x=>Number(x.data?.assemblyId)));
   for(const assemblyId of new Set([...in3d,...inAnchors])){
    try{
@@ -248,8 +252,10 @@ function createAiIntegrity({database,documents,pdfIndex,revisions,review,workflo
   note("error","outdated_geometry_revisions","3D-сборка использует прежние редакции марки или деталей",
    "Проверьте размещения по действующим редакциям марки и деталей КМД.",
    "assembly",outdated3d.length,outdated3d.slice(0,12));
-  metrics.confirmed3dDetails=confirmedPlacements;
-  metrics.confirmed3dAnchors=verifiedAnchors;
+  metrics.confirmed3dDetails=placementRows!==null&&assemblyErrors===0?
+   confirmedPlacements:null;
+  metrics.confirmed3dAnchors=attachmentRows!==null&&assemblyErrors===0?
+   verifiedAnchors:null;
   note("warning","unreviewed_3d","3D-размещения и соединения требуют повторной проверки",
    "Неподтверждённая геометрия не должна показываться как рабочая сборка.","assembly",pendingPlacements);
   const evidenceCoverage=coverage?safe("kmd_coverage",()=>coverage.report(objectId),null):null;
