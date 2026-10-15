@@ -9,7 +9,7 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
  memory=os.totalmem,managedModel=null}={}){
  if(typeof getUserDataPath!=="function")throw Error("AI engine requires userData directory");
  const root=()=>path.join(getUserDataPath(),MODEL_ROOT,"runtime");
- let child=null,serverPort=0,secret="",state="stopped",issue="",busy=false,controller=null,startJob=null,activeProfile=null;
+ let child=null,serverPort=0,secret="",state="stopped",issue="",busy=false,controller=null,startJob=null,activeProfile=null,lifecycle=0;
  function locationFor(name){
   if(!Object.values(names).includes(name))throw Error("Invalid runtime filename");
   return path.join(root(),name)
@@ -84,51 +84,74 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
   const old=child;child=null;serverPort=0;secret="";activeProfile=null;
   if(old)try{old.kill()}catch{}
  }
- function stop(){terminate();state="stopped";issue="";return status()}
+ function stop(){
+  // Invalidate verification, port allocation and pending HTTP health requests.
+  lifecycle++;startJob=null;
+  terminate();state="stopped";issue="";return status()
+ }
  async function start(){
   if(state==="ready"&&child)return status();
   if(startJob)return startJob;
-  startJob=(async()=>{
-   const pack=await verify();
-   if(!pack.installed){state=pack.reason?.includes("не установлен")?"missing":"invalid";issue=pack.reason;return status()}
-   if(memory()<8*1073741824){state="failed";issue="Для локальной модели требуется не менее 8 ГБ оперативной памяти. Не запускаем процесс.";return status()}
-   terminate();state="starting";issue="";activeProfile=pack;
-   serverPort=await freePort();secret=crypto.randomBytes(32).toString("hex");
-   const args=["-m",pack.files.model.path,"--mmproj",pack.files.vision.path,
-    "--host","127.0.0.1","--port",String(serverPort),"--alias",API_MODEL,"--no-webui",
-    "--api-key",secret,"--ctx-size","4096","--n-gpu-layers",String(pack.gpuLayers)];
+  const generation=++lifecycle;
+  const job=(async()=>{
    try{
-    child=spawn(pack.files.binary.path,args,{cwd:pack.cwd||root(),windowsHide:true,stdio:"ignore",
+    const pack=await verify();
+    if(generation!==lifecycle)return status();
+    if(!pack.installed){state=pack.reason?.includes("не установлен")?"missing":"invalid";issue=pack.reason;return status()}
+    if(memory()<8*1073741824){state="failed";issue="Для локальной модели требуется не менее 8 ГБ оперативной памяти. Не запускаем процесс.";return status()}
+    terminate();state="starting";issue="";activeProfile=pack;
+    const port=await freePort();
+    if(generation!==lifecycle)return status();
+    serverPort=port;secret=crypto.randomBytes(32).toString("hex");
+    const args=["-m",pack.files.model.path,"--mmproj",pack.files.vision.path,
+     "--host","127.0.0.1","--port",String(serverPort),"--alias",API_MODEL,"--no-webui",
+     "--api-key",secret,"--ctx-size","4096","--n-gpu-layers",String(pack.gpuLayers)];
+    const mine=spawn(pack.files.binary.path,args,{cwd:pack.cwd||root(),windowsHide:true,stdio:"ignore",
      shell:false,env:{...process.env,NO_PROXY:"127.0.0.1,localhost",no_proxy:"127.0.0.1,localhost"}});
-    child.once("error",e=>{issue="Ошибка запуска: "+e.message;state="failed";terminate()});
-    const mine=child;
-    child.once("exit",(code)=>{if(mine===child){issue="Локальная модель завершилась (код "+code+")";state="failed";terminate()}});
-    // Readiness only after actual server response, not after creating a process.
+    child=mine;
+    mine.once("error",e=>{
+     if(generation!==lifecycle||child!==mine)return;
+     issue="Ошибка запуска: "+e.message;state="failed";terminate()
+    });
+    mine.once("exit",code=>{
+     if(generation!==lifecycle||child!==mine)return;
+     issue="Локальная модель завершилась (код "+code+")";state="failed";terminate()
+    });
+    // A canceled or superseded startup cannot mark a new process ready.
     for(let i=0;i<120;i++){
-     if(child!==mine||state==="failed")break;
+     if(generation!==lifecycle||child!==mine||state==="failed")return status();
      try{
       const res=await httpFetch("http://127.0.0.1:"+serverPort+"/health",{
        headers:{Authorization:"Bearer "+secret},signal:AbortSignal.timeout(1250)});
+      if(generation!==lifecycle||child!==mine)return status();
       if(res.ok){state="ready";issue="";return status()}
      }catch{}
+     if(generation!==lifecycle||child!==mine)return status();
      await wait(1000)
     }
+    if(generation!==lifecycle||child!==mine)return status();
     issue=issue||"Время загрузки локальной модели истекло (120 сек.)";
     state="failed";terminate();return status()
-   }catch(error){issue=String(error.message||error);state="failed";terminate();return status()}
+   }catch(error){
+    if(generation!==lifecycle)return status();
+    issue=String(error.message||error);state="failed";terminate();return status()
+   }
   })();
-  try{return await startJob}finally{startJob=null}
+  startJob=job;
+  try{return await job}finally{if(startJob===job)startJob=null}
  }
  async function analyzeImage({buffer,mime,prompt}){
   if(state!=="ready"||!child||!secret||!serverPort)throw Error("Локальная модель не запущена");
   if(busy)throw Error("Модель уже выполняет анализ другого изображения");
   if(!Buffer.isBuffer(buffer)||buffer.length<16||buffer.length>16*1024*1024)throw Error("Изображение должно быть не больше 16 МиБ");
   if(!["image/png","image/jpeg"].includes(mime))throw Error("Пока поддерживаются PNG и JPG");
-  busy=true;controller=new AbortController();
-  const timeout=setTimeout(()=>controller?.abort(),180000);
+  busy=true;
+  const currentController=new AbortController(),generation=lifecycle,currentChild=child;
+  controller=currentController;
+  const timeout=setTimeout(()=>currentController.abort(),180000);
   try{
    const response=await httpFetch("http://127.0.0.1:"+serverPort+"/v1/chat/completions",{
-    method:"POST",signal:controller.signal,
+    method:"POST",signal:currentController.signal,
     headers:{"Content-Type":"application/json",Authorization:"Bearer "+secret},
     body:JSON.stringify({
      model:API_MODEL,stream:false,temperature:0,max_tokens:1800,
@@ -137,13 +160,21 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
        {type:"image_url",image_url:{url:"data:"+mime+";base64,"+buffer.toString("base64")}}]}]
     })
    });
+   if(currentController.signal.aborted||generation!==lifecycle||child!==currentChild)
+    throw Error("Анализ отменён или модель была перезапущена");
    if(!response.ok)throw Error("Локальная модель вернула HTTP "+response.status);
-   const answer=await response.json(),content=answer.choices?.[0]?.message?.content;
+   const answer=await response.json();
+   if(currentController.signal.aborted||generation!==lifecycle||child!==currentChild)
+    throw Error("Анализ отменён или модель была перезапущена");
+   const content=answer.choices?.[0]?.message?.content;
    if(typeof content!=="string"||!content.trim())throw Error("Модель не вернула текст");
    return{raw:content.slice(0,30000),engine:API_MODEL,
     modelId:activeProfile?.modelId||null,modelVersion:activeProfile?.version||null,
     complete:answer.choices?.[0]?.finish_reason==="stop"};
-  }finally{clearTimeout(timeout);controller=null;busy=false}
+  }finally{
+   clearTimeout(timeout);
+   if(controller===currentController){controller=null;busy=false}
+  }
  }
  function cancel(){if(controller)controller.abort();return status()}
  return{status,start,stop,verify,analyzeImage,cancel,inspect};
