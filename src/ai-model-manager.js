@@ -9,7 +9,8 @@ const CATALOG=Object.freeze([
  {id:"paddleocr-vl-1.6",title:"PaddleOCR-VL 1.6",role:"OCR и таблицы",engine:"paddleocr"},
  {id:"qwen3-vl-4b",title:"Qwen3-VL 4B",role:"Анализ чертежей",engine:"llama.cpp"}
 ]);
-const TRUSTED_MODEL_KEYS=Object.freeze({}); // Official Ed25519 public keys are not published yet.
+const {loadTrustedPublisherKeys}=require("./ai-publisher-trust");
+const TRUSTED_MODEL_KEYS=loadTrustedPublisherKeys(); // Empty until reviewed public key is provisioned.
 const ARCHIVE_LIMIT=16*1024**3,TOTAL_LIMIT=22*1024**3,ENTRY_LIMIT=300;
 function createModelManager({getUserDataPath,dialog,getWindow=()=>undefined,
  trustedKeys=TRUSTED_MODEL_KEYS,appVersion=()=>"1.7.212",engineActive=()=>false,
