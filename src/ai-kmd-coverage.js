@@ -90,7 +90,8 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
   add("error","kmd_duplicate_mark_identity","Конфликт подтверждённых марок и шифров",
    "marks",duplicateMarkRows);
   const qtyMissing=[],qtyMismatch=[],partMissing=[],partMismatch=[],jointMissing=[],itemMissing=[],
-   ambiguous=[],ambiguousJoints=[],duplicateEvidence=[],conflictingEvidence=[];
+   itemMismatch=[],ambiguousItems=[],ambiguous=[],ambiguousJoints=[],
+   duplicateEvidence=[],conflictingEvidence=[];
   // Two human-approved, still-current readings of the same physical KMD
   // position can disagree. Never let array order choose which one to trust.
   const evidenceGroups=new Map(),fieldsByType={
@@ -162,10 +163,17 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
     const joint=candidateJoints[0];
     if(!joint.counted){jointMissing.push(p);continue}
     if(v.fastenerKind){
-     const matches=(itemsByJoint.get(joint.id)||[]).filter(x=>x.counted&&
-      x.category==="fastener"&&norm(x.kind)===norm(v.fastenerKind)&&
+     const matches=(itemsByJoint.get(joint.id)||[]).filter(x=>
+      x.status!=="rejected"&&x.category==="fastener"&&
+      norm(x.kind)===norm(v.fastenerKind)&&
       (!v.position||norm(x.position)===norm(v.position)));
-     if(!matches.length)itemMissing.push(p)
+     if(!matches.length)itemMissing.push(p);
+     else if(matches.length!==1)ambiguousItems.push(p);
+     else if(!matches[0].counted)itemMissing.push(p);
+     else if(Number.isSafeInteger(v.perJoint)&&v.perJoint>0&&
+      matches[0].perJoint!==v.perJoint)
+      itemMismatch.push(tag+" / "+v.jointCode+" / "+(v.position||v.fastenerKind)+
+       ": проверено "+v.perJoint+" на узел, в ведомости "+matches[0].perJoint)
     }
    }
   }
@@ -184,6 +192,12 @@ function createAiCoverage({database,quantities,materials,connections,assemblies,
    "fasteners",jointMissing.map(claimTag));
   add("warning","kmd_confirmed_items_not_transferred","Проверенные компоненты узла не внесены в ведомость",
    "fasteners",itemMissing.map(claimTag));
+  add("error","kmd_hardware_per_joint_conflicts",
+   "Различается число метизов на один узел КМД",
+   "fasteners",itemMismatch);
+  add("warning","kmd_ambiguous_component_evidence",
+   "Повторные активные позиции метизов одного узла",
+   "fasteners",ambiguousItems.map(claimTag));
   add("warning","kmd_ambiguous_ciphers","Невозможно однозначно сопоставить марку и шифр",
    "proposals",ambiguous.map(claimTag));
   add("warning","kmd_ambiguous_connection_scope","Одинаковые обозначения заводских и монтажных узлов",
