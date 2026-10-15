@@ -38,6 +38,7 @@ const aiDiagnostics={
  smokeTest:()=>ipcRenderer.invoke("ai-diagnostics:smoke-test")
 };
 const aiModels={
+ openFolder:()=>ipcRenderer.invoke("ai-models:open-folder"),
  info:()=>ipcRenderer.invoke("ai-models:info"),
  preflight:()=>ipcRenderer.invoke("ai-models:preflight"),
  checkUpdates:()=>ipcRenderer.invoke("ai-models:check-updates"),
