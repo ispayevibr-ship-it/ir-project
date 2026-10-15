@@ -69,6 +69,11 @@ function createAiIntegrity({database,documents,pdfIndex,revisions,review,workflo
   const failed=(queueStatus.failed||0)+(queueStatus.interrupted||0);
   note("warning","queue_failed","Незавершённые задания распознавания",
    "Повторите только нужные задания после проверки исходного PDF и состояния модели.","workflow",failed);
+  const mismatchedTasks=safe("workflow_links",()=>workflow.list(objectId)
+   .filter(x=>x.status==="failed"&&x.lastError?.includes("не принадлежит исходному PDF")),[]);
+  note("error","workflow_wrong_analysis","Результат ИИ связан с другим листом или PDF",
+   "Такая очередь не считается подтверждённой. Сверьте источник и создайте новое задание для верного листа.","workflow",
+   mismatchedTasks.length,sample(mismatchedTasks,x=>"Задание № "+x.id+" · лист "+x.page));
   note("warning","model_required","Очередь ожидает локальную модель",
    "Обработка не выполняется, пока проверенный офлайн-движок не готов.","workflow",queueStatus.needs_model||0);
   note("warning","queued_sheets","Листы ожидают распознавания",
@@ -81,6 +86,26 @@ function createAiIntegrity({database,documents,pdfIndex,revisions,review,workflo
    uncheckedAnalyses.length,sample(uncheckedAnalyses,x=>x.sourceName+" · лист "+(x.page||"—")));
   const structured=safe("proposals",()=>proposals.list(objectId),[]);
   metrics.proposals=structured.length;
+  const persistedReviews=database.listEntity(objectId,"ai-structured-reviews")
+   .filter(x=>x.record_type==="structured_review");
+  const proposalKeys=new Set(structured.map(x=>x.analysisId+":"+x.index));
+  const seenReviewKeys=new Set(),orphanReviews=[],duplicatedReviews=[];
+  for(const entry of persistedReviews){
+   const key=entry.data?.analysisId+":"+entry.data?.index;
+   if(!proposalKeys.has(key))orphanReviews.push(entry);
+   if(seenReviewKeys.has(key))duplicatedReviews.push(entry);
+   else seenReviewKeys.add(key)
+  }
+  const changedReviews=structured.filter(x=>x.reviewId&&!x.reviewValid);
+  note("error","orphan_structured_reviews","Инженерские проверки не связаны с предложением ИИ",
+   "Записи истории сохранены, но соответствующего исходного предложения сейчас нет.","proposals",
+   orphanReviews.length,sample(orphanReviews,x=>"Проверка № "+x.id+" / анализ "+x.data?.analysisId));
+  note("error","duplicate_structured_reviews","Несколько решений для одного предложения",
+   "Нарушена однозначность связи анализ — номер предложения. Требуется сверка сохранённой истории.","proposals",
+   duplicatedReviews.length,sample(duplicatedReviews,x=>"Проверка № "+x.id+" / анализ "+x.data?.analysisId));
+  note("warning","changed_proposal_fingerprints","Изменилось содержание подтверждённых предложений",
+   "Сохранённое решение не относится к текущей версии предложения и не должно переноситься автоматически.","proposals",
+   changedReviews.length,sample(changedReviews,x=>"Анализ № "+x.analysisId+" / позиция "+x.index));
   const pendingClaims=structured.filter(x=>!x.approved&&x.status!=="rejected");
   note("warning","structured_unreviewed","Структурированные предложения без подтверждения",
    "Проверьте цитаты по первоисточнику. Предложения не должны напрямую заполнять производственные ведомости.","proposals",

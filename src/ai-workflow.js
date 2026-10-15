@@ -18,17 +18,25 @@ function createAiWorkflow({database,documents,pdfIndex,analysis,reviews,engine,r
  function publicRow(row,documentMap,reviewMap){
   const d=row.data||{},source=d.source||{},doc=documentMap.get(source.documentId);
   const result=reviewMap.get(Number(d.analysisId)),valid=sourceOk(row,doc);
+  // An analysis ID is not evidence unless it belongs to this exact PDF sheet.
+  const correctLink=Boolean(result&&Number(result.documentId)===Number(source.documentId)&&
+   result.sha256===source.sha256&&result.kind===source.kind&&
+   Number(result.page)===Number(d.page)&&!result.region);
+  const invalidLink=d.analysisId!=null&&!correctLink&&
+   ["awaiting_review","confirmed","rejected"].includes(d.status);
   let status=d.status||"queued";
   if(!valid)status="outdated";
+  else if(invalidLink)status="failed";
   else if(status==="running")status=running.has(row.object_id)?"running":"interrupted";
-  else if(status==="awaiting_review"&&result?.status==="confirmed")status="confirmed";
-  else if(status==="awaiting_review"&&result?.status==="rejected")status="rejected";
+  else if(status==="awaiting_review"&&correctLink&&result.status==="confirmed")status="confirmed";
+  else if(status==="awaiting_review"&&correctLink&&result.status==="rejected")status="rejected";
   return{id:row.id,documentId:source.documentId,sourceName:String(source.name||""),
    kind:String(source.kind||""),sha256:String(source.sha256||""),
    page:d.page,mode:"pdf_sheet",status,storedStatus:d.status||"queued",
    indexId:d.indexId||null,analysisId:d.analysisId||null,
-   reviewStatus:result?.status||null,reviewedAt:result?.reviewedAt||null,
-   lastError:String(d.lastError||""),attempts:Number(d.attempts)||0,
+   reviewStatus:correctLink?result.status:null,reviewedAt:correctLink?result.reviewedAt||null:null,
+   lastError:invalidLink?"Результат ИИ не принадлежит исходному PDF или листу задания":String(d.lastError||""),
+   attempts:Number(d.attempts)||0,
    createdAt:row.created_at,updatedAt:row.updated_at||null}
  }
  function list(id){
