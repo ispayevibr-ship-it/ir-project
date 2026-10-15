@@ -92,6 +92,16 @@ const {createKmdReference}=require("../src/ai-kmd-reference");
  assert.equal(api.list(1).length,3);
  assert.equal(sourceStateCalls,1,
   "large KMD reference registers should check the same sheet source once per listing");
+ sourceStateCalls=0;
+ const snapshot=api.snapshot(1);
+ assert.equal(snapshot.entries.length,3);
+ assert.equal(snapshot.checks.reviewed,0);
+ assert.equal(snapshot.comparison.pendingPositions,1);
+ assert.equal(snapshot.comparison.activeReferencePositions,2);
+ assert.equal(sourceStateCalls,1,
+  "a unified snapshot must verify each source only once, not once per subreport");
+ assert.deepEqual(snapshot.entries,api.list(1),
+  "single read-only snapshot must contain the same current reference positions");
  assert.equal(api.compare(1).allSheetsReviewed,false);
  assert.equal(api.compare(1).mismatches.some(x=>x.code==="unlisted_position"),false,
   "unlisted actual parts must not be diagnosed before all sheets checked");
