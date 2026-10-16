@@ -122,6 +122,23 @@ window.irAiRecognitionPage=async function(objectId){
   if(requestId===reloadSequence&&location.hash===route)paint()
  }
  function notice(text,type="info"){message=String(text||"");severity=type}
+ function trackSheetAnalysis(label){
+  // The model runs inside Electron's main process. This only updates the
+  // visible elapsed time, without pretending to measure neural progress.
+  const started=Date.now(),maxSeconds=Number(engine?.analysisTimeoutSeconds)||600;
+  const render=()=>{
+   if(location.hash!==route)return;
+   const node=app.querySelector(".ir-ai-message");
+   if(!node||!busy)return;
+   const elapsed=Math.floor((Date.now()-started)/1000);
+   node.textContent=label+" · прошло "+Math.floor(elapsed/60)+" мин "+
+    String(elapsed%60).padStart(2,"0")+" сек · ожидание до "+
+    Math.ceil(maxSeconds/60)+" мин. Можно остановить ИИ; чертёж сохранится."
+  };
+  render();
+  const timer=setInterval(render,3000);
+  return()=>clearInterval(timer)
+ }
  function openTab(tab){
   if(!tabs.some(x=>x[0]===tab))return;
   active=tab;
@@ -620,7 +637,8 @@ window.irAiRecognitionPage=async function(objectId){
   box.querySelectorAll("[data-ai-pdf-vision]").forEach(button=>button.onclick=async()=>{
    if(!pdf||!canEdit||busy||!modelReady||!await authorizeAiMutation())return;
    const [did,page]=button.dataset.aiPdfVision.split(":");
-   busy=true;notice("Реальный локальный ИИ анализирует лист "+page+". Результат сохранится только как непроверенное предположение.");paint();
+   busy=true;notice("Qwen обрабатывает лист "+page+". На процессоре это может занять до 10 минут.");paint();
+   const stopTimer=trackSheetAnalysis("Qwen распознаёт лист "+page);
    try{
     const result=await pdf.analyze(id,did,page);
     notice((result.marks||[]).length?
@@ -628,7 +646,7 @@ window.irAiRecognitionPage=async function(objectId){
      "Qwen обработала лист "+result.page+", но не нашла марок. Не подтверждайте пустой результат: откройте лист, выделите область штампа и распознайте фрагмент.");
     active="checks"
    }catch(error){notice("Распознавание листа не выполнено: "+String(error.message||error),"error")}
-   finally{busy=false;await reload()}
+   finally{stopTimer();busy=false;await reload()}
   });
   box.querySelectorAll("[data-ai-pdf-index]").forEach(button=>button.onclick=async()=>{
    if(!pdf||busy||!canEdit||!await authorizeAiMutation())return;
