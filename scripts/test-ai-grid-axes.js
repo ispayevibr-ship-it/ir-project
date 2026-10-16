@@ -682,7 +682,8 @@ const autoSingle=reviewIndexedPlanPage({
  sha256:"f".repeat(64),sheetType:"plan"
 });
 assert.equal(autoSingle.calibrated,1,JSON.stringify(autoSingle.reason));
-assert.equal(autoSingle.regions[0].name,"full");
+assert.equal(autoSingle.regions[0].name,"left",
+ "only the left half has sufficient calibrated axes in this fixture");
 assert.equal(autoSingle.foundLabels,1);
 assert.equal(autoSingle.regions[0].registry.labels[0].mark,"К62");
 assert.equal(autoSingle.regions[0].links.records[0].xMm,null);
