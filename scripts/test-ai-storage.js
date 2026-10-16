@@ -5,7 +5,7 @@ const {createStore}=require("../src/ai-document-store");
  const tmp=fs.mkdtempSync(path.join(os.tmpdir(),"ir-ai-doc-test-"));
  let source=path.join(tmp,"K41 KMD.pdf");
  fs.writeFileSync(source,"%PDF-1.4\nReal fixture marker only, not AI recognition");
- const rows=new Map(),objects=new Set([1,2]);let counter=1,dialogCalls=0,opened="";
+ const rows=new Map(),objects=new Set([1,2]);let counter=1,dialogCalls=0,opened="",failDeleteIndex=false;
  const db={
   getObject:id=>objects.has(Number(id))?{id:Number(id)}:null,
   listEntity:(id,key)=>[...rows.values()].filter(x=>x.object_id===id&&x.section_key===key),
@@ -14,7 +14,17 @@ const {createStore}=require("../src/ai-document-store");
    const row={id:counter++,object_id:id,section_key:key,record_type:value.record_type,title:value.title,data:value.data,
     created_at:"2026-10-15 13:00"};rows.set(row.id,row);return row
   },
-  deleteEntity:(id,key,recordId)=>{const row=db.getEntity(id,key,recordId);if(!row)return false;rows.delete(row.id);return true}
+  deleteEntity:(id,key,recordId)=>{
+   if(key==="ai-pdf-index"&&failDeleteIndex)throw Error("Simulated SQLite index failure");
+   const row=db.getEntity(id,key,recordId);if(!row)return false;rows.delete(row.id);return true
+  },
+  transaction:fn=>{
+   const snapshot=new Map([...rows].map(([key,value])=>[key,JSON.parse(JSON.stringify(value))]));
+   try{return fn()}catch(error){
+    rows.clear();for(const [key,value] of snapshot)rows.set(key,value);
+    throw error
+   }
+  }
  };
  const store=createStore({getUserDataPath:()=>tmp,database:db,getWindow:()=>null,
   dialog:{showOpenDialog:async()=>{dialogCalls++;return{canceled:false,filePaths:[source]}}},
@@ -61,7 +71,38 @@ const {createStore}=require("../src/ai-document-store");
   assert.throws(()=>store.remove(1,id),/Нельзя удалить исходный файл/,
    "per-sheet signoff prevents removal of its originating PDF");
   db.deleteEntity(1,"ai-kmd-reference-checks",approval.id);
+  // An indexed but never analyzed PDF can be removed with its disposable index.
+  const technicalIndex=db.createEntity(1,"ai-pdf-index",{
+   record_type:"pdf_text_index",title:"PDF text cache",
+   data:{source:{documentId:id,sha256:first.imported[0].sha256},
+    extraction:"text_layer",generatedByAI:false,pages:[{page:1,text:"K41"}]}
+  });
+  assert.throws(()=>store.remove(2,id),/Чертёж не найден/,"other object cannot delete source");
+  const laterEvidence=db.createEntity(1,"ai-analysis",{
+   record_type:"image_analysis",title:"Qwen candidate",
+   data:{source:{documentId:id,sha256:first.imported[0].sha256},verification:"requires_review"}
+  });
+  assert.throws(()=>store.remove(1,id),/ai-analysis/,"even unreviewed AI evidence is retained");
+  assert(db.getEntity(1,"ai-pdf-index",technicalIndex.id));
+  db.deleteEntity(1,"ai-analysis",laterEvidence.id);
+  const unknownIndex=db.createEntity(1,"ai-pdf-index",{
+   record_type:"pdf_text_index",title:"unclassified index",
+   data:{source:{documentId:id},pages:[]}
+  });
+  assert.throws(()=>store.remove(1,id),/не технический результат/,
+   "unknown index formats may not be silently deleted");
+  db.deleteEntity(1,"ai-pdf-index",unknownIndex.id);
+  failDeleteIndex=true;
+  assert.throws(()=>store.remove(1,id),/Simulated SQLite index failure/,
+   "a SQL failure must restore the stored original");
+  failDeleteIndex=false;
+  assert(fs.existsSync(opened),"original is restored after a failed deletion transaction");
+  assert(db.getEntity(1,"ai-documents",id),"original metadata restored after failed transaction");
+  assert(db.getEntity(1,"ai-pdf-index",technicalIndex.id),"index restored after failed transaction");
   assert.equal(store.remove(1,id),true);
+  assert.equal(db.getEntity(1,"ai-pdf-index",technicalIndex.id),null,
+   "deleted document must leave no dangling PDF cache");
+
   assert(!fs.existsSync(opened));assert.equal(store.list(1).length,0);
   const bad=path.join(tmp,"blocked.exe");fs.writeFileSync(bad,"file");
   const restricted=createStore({getUserDataPath:()=>tmp,database:db,
