@@ -849,6 +849,12 @@
   const axisX=(analysis.xMatches||[]).map(a=>Number(a.pagePt)),
    axisY=(analysis.yMatches||[]).map(a=>Number(a.pagePt));
   const mm=(pt,fit)=>Math.round((pt-fit.offset)/fit.scale);
+  // Spatial PDF detail evidence retains short local outlines that the
+  // legacy longest-strokes axis preview can omit.
+  const localized=Array.isArray(vector.detailSegments),
+   rawStrokes=localized?vector.detailSegments:vector.segments;
+  out.sampling=localized?"local_tiles_short_medium_long":"longest_only_legacy";
+  out.availableStrokes=rawStrokes.length;
   const sqDist=(x1,y1,x2,y2)=>(x1-x2)**2+(y1-y2)**2;
   const pointToSegment=(x,y,seg)=>{
    const dx=seg.x2-seg.x1,dy=seg.y2-seg.y1,den=dx*dx+dy*dy;
@@ -859,7 +865,7 @@
   const validSegment=seg=>{
    if(!seg||![seg.x1,seg.y1,seg.x2,seg.y2].every(Number.isFinite))return false;
    const len=Math.hypot(seg.x2-seg.x1,seg.y2-seg.y1);
-   if(len<12||len>Math.max(width,height)*1.1||
+   if(len<4||len>Math.max(width,height)*1.1||
      !within(seg.x1,seg.y1)||!within(seg.x2,seg.y2))return false;
    // Full or fragmented grid axes are not member silhouettes.
    const alignedX=Math.abs(seg.x2-seg.x1)<=2&&
@@ -868,13 +874,15 @@
     axisY.some(v=>Math.abs((seg.y1+seg.y2)/2-v)<=3);
    return !alignedX&&!alignedY
   };
-  const strokes=vector.segments.slice(0,2400).filter(validSegment).map((seg,i)=>{
+  const strokes=rawStrokes.slice(0,14400).filter(validSegment).map((seg,i)=>{
    const dx=seg.x2-seg.x1,dy=seg.y2-seg.y1,
     length=Math.hypot(dx,dy),ux=dx/length,uy=dy/length;
    return{...seg,key:i,length,ux,uy}
   });
   out.inspected=strokes.length;
-  out.limited=vector.stats?.truncated===true||vector.segments.length>2400;
+  out.limited=localized?vector.stats?.detailSampleIncomplete===true||
+   rawStrokes.length>14400:vector.stats?.truncated===true||
+   rawStrokes.length>2400;
   const ordered=(seg,dir)=>{
    const dot=seg.ux*dir.ux+seg.uy*dir.uy;
    return dot>=0?[[seg.x1,seg.y1],[seg.x2,seg.y2]]:
@@ -1363,7 +1371,10 @@
           memberOutlines.candidates.length+' пар линий, '+
           memberOutlines.singleStrokes.length+' одиночных, '+
           memberOutlines.review.length+' на проверку</summary>'+
-         '<small>Проверено графических штрихов: '+memberOutlines.inspected+
+         '<small>Проверено локальных штрихов: '+memberOutlines.inspected+
+         ' из '+memberOutlines.availableStrokes+'; режим: '+
+         (memberOutlines.sampling==="local_tiles_short_medium_long"?
+          'короткие, средние и длинные линии по областям PDF':'старый отбор длинных линий')+
          (memberOutlines.limited?' (неполная выборка)':'')+'</small>'+
          '<p>Анализируется реальная графика PDF, а не ближайшая ось или текст. '+
          'Две параллельные линии — <b>только возможный контур элемента</b>; '+
@@ -1371,8 +1382,8 @@
          'Координаты ниже — координаты линий на плане, не подтверждённая монтажная геометрия. '+
          'Высота Z и тип элемента здесь не определяются.</p>'+
          (memberOutlines.limited?'<p class="ir-ai-axis-review">'+
-          'PDF содержит больше линий, чем показано в векторном предпросмотре. '+
-          'Поиск неполный; отсутствие контура не является доказательством отсутствия конструкции.</p>':"")+
+          'Сложный PDF требует дополнительной проверки: выборка графических штрихов неполная. '+
+          'Отсутствие контура не означает отсутствия конструкции.</p>':"")+
          (memberOutlines.candidates.length?
           '<div class="ir-ai-lite-preview-scroll"><table><thead><tr>'+
           '<th>Марка</th><th>Начало линии, мм</th><th>Конец линии, мм</th>'+
