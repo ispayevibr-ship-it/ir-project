@@ -1171,6 +1171,188 @@
  // Join PDF glyph occurrences to reviewed-outline EVIDENCE by SAME mark,
  // page, and glyph centre. Nothing here authorizes an erection placement.
  // A complete source instance never disappears if geometry is unavailable.
+
+ // Read-only dimension-chain evidence. A numeric label is accepted ONLY
+ // when its painted line has the expected length in independently calibrated
+ // axes and BOTH ends have transverse witness/tick strokes.
+ // Never use these labels alone to derive a member location.
+ function inspectPdfDimensionChains({raw,vector,analysis,region}={}){
+  const out={candidates:[],ambiguous:[],inspectedNumbers:0,inspectedStrokes:0,
+   limited:false,reason:"",status:"review_only"};
+  const width=Number(vector?.widthPt),height=Number(vector?.heightPt),
+   fx=analysis?.fitX,fy=analysis?.fitY;
+  if(!analysis?.calibrated||!(width>0)||!(height>0)||
+     Number(vector?.rotation||0)!==0||
+     !(Number(fx?.scale)>0)||!(Number(fy?.scale)<0)){
+   out.reason="Нужен неповёрнутый PDF и калибровка обеих осей";return out
+  }
+  if(vector?.stats?.detailSampleIncomplete===true||
+     vector?.stats?.truncated===true&&
+      vector?.stats?.axisEvidenceComplete!==true){
+   out.reason="Неполная векторная геометрия PDF";out.limited=true;return out
+  }
+  const area=region||analysis.region||{left:0,top:0,right:1,bottom:1};
+  if(![area.left,area.top,area.right,area.bottom].every(v=>
+   typeof v==="number"&&Number.isFinite(v)&&v>=0&&v<=1)||
+    area.left>=area.right||area.top>=area.bottom){
+   out.reason="Некорректная область монтажного плана";return out
+  }
+  const inside=(x,y)=>x>=area.left*width&&x<=area.right*width&&
+   y>=area.top*height&&y<=area.bottom*height;
+  const rawLines=Array.isArray(vector.detailSegments)?
+   vector.detailSegments:vector?.segments||[];
+  const maxLines=Math.min(rawLines.length,22000);
+  out.limited=rawLines.length>maxLines||
+   (vector.stats?.truncated===true&&!Array.isArray(vector.detailSegments));
+  const segments=[];
+  for(let i=0;i<maxLines;i++){
+   const a=rawLines[i];
+   if(!a||![a.x1,a.y1,a.x2,a.y2].every(Number.isFinite))continue;
+   const dx=a.x2-a.x1,dy=a.y2-a.y1,len=Math.hypot(dx,dy);
+   if(len<3||len>Math.max(width,height)*1.1)continue;
+   const orientation=Math.abs(dy)<=.75?"x":Math.abs(dx)<=.75?"y":null;
+   if(!orientation)continue;
+   const cx=(a.x1+a.x2)/2,cy=(a.y1+a.y2)/2;
+   if(!inside(cx,cy))continue;
+   segments.push({x1:a.x1,y1:a.y1,x2:a.x2,y2:a.y2,
+    length:len,orientation,cx,cy,
+    coord:orientation==="x"?cy:cx})
+  }
+  out.inspectedStrokes=segments.length;
+  const bin=(map,v,obj,step)=>{
+   const key=Math.floor(v/step);
+   if(!map.has(key))map.set(key,[]);
+   map.get(key).push(obj)
+  };
+  const dimensions={x:new Map(),y:new Map()},witness={x:new Map(),y:new Map()};
+  for(const line of segments){
+   bin(dimensions[line.orientation],line.coord,line,20);
+   bin(witness[line.orientation],line.coord,line,8)
+  }
+  const nearby=(map,value,step,margin)=>{
+   const result=[],a=Math.floor((value-margin)/step),
+    b=Math.floor((value+margin)/step);
+   for(let k=a;k<=b;k++)if(map.has(k))result.push(...map.get(k));
+   return result
+  };
+  const fragments=Array.isArray(raw?.fragments)?raw.fragments:[],
+   limit=Math.min(fragments.length,24000);
+  const seen=new Set();
+  for(let i=0;i<limit&&out.candidates.length+out.ambiguous.length<800;i++){
+   const f=fragments[i];if(!f||typeof f.text!=="string"||
+      !["x","y","width","height"].every(k=>Number.isFinite(Number(f[k]))))
+    continue;
+   const rawValue=f.text.trim().replace(/[\s\u00a0]+/g,"");
+   if(!/^\d{3,6}$/u.test(rawValue))continue;
+   const valueMm=Number(rawValue);
+   if(valueMm<100||valueMm>120000)continue;
+   const x=Number(f.x)+Number(f.width)/2,
+    y=height-Number(f.y)-Number(f.height)/2;
+   if(!inside(x,y))continue;
+   const dedupKey=valueMm+":"+Math.round(x/2)+":"+Math.round(y/2);
+   if(seen.has(dedupKey))continue;
+   seen.add(dedupKey);out.inspectedNumbers++;
+   const possibilities=[];
+   for(const orientation of ["x","y"]){
+    const scale=Math.abs(orientation==="x"?fx.scale:fy.scale),
+     expected=valueMm*scale;
+    if(expected<10||expected>Math.max(width,height))continue;
+    for(const line of nearby(dimensions[orientation],
+      orientation==="x"?y:x,20,28)){
+     const printedLen=line.length,delta=Math.abs(printedLen-expected);
+     if(delta>Math.max(3.5,expected*.045))continue;
+     const start=orientation==="x"?
+      Math.min(line.x1,line.x2):Math.min(line.y1,line.y2),
+      end=orientation==="x"?
+      Math.max(line.x1,line.x2):Math.max(line.y1,line.y2),
+      along=orientation==="x"?x:y,
+      perpendicular=Math.abs((orientation==="x"?y:x)-line.coord);
+     if(perpendicular>25||along<start-4||along>end+4)continue;
+     if(Math.abs(along-(start+end)/2)>Math.max(10,printedLen*.28))
+      continue;
+     // A long parallel contour is NOT a dimension without end ticks.
+     const crossOrientation=orientation==="x"?"y":"x";
+     const verifyTick=endpoint=>{
+      const choices=nearby(witness[crossOrientation],endpoint,8,5.5)
+       .filter(t=>{
+        if(Math.abs(t.coord-endpoint)>5.5)return false;
+        const low=crossOrientation==="y"?
+         Math.min(t.y1,t.y2):Math.min(t.x1,t.x2),
+         high=crossOrientation==="y"?
+         Math.max(t.y1,t.y2):Math.max(t.x1,t.x2);
+        return line.coord>=low-5&&line.coord<=high+5&&
+         Math.min(Math.abs(line.coord-low),Math.abs(line.coord-high),
+          Math.abs(line.coord-(low+high)/2))<=20
+       });
+      choices.sort((a,b)=>Math.abs(a.coord-endpoint)-Math.abs(b.coord-endpoint));
+      return choices[0]||null
+     };
+     const tick0=verifyTick(start),tick1=verifyTick(end);
+     if(!tick0||!tick1)continue;
+     const nearAxis=orientation==="x"?
+      (analysis.xMatches||[]).some(v=>Math.abs(v.pagePt-start)<6)&&
+      (analysis.xMatches||[]).some(v=>Math.abs(v.pagePt-end)<6):
+      (analysis.yMatches||[]).some(v=>Math.abs(v.pagePt-start)<6)&&
+      (analysis.yMatches||[]).some(v=>Math.abs(v.pagePt-end)<6);
+     const score=delta/Math.max(expected,1)+perpendicular*.002+
+      Math.abs(along-(start+end)/2)/Math.max(expected,1)*.01;
+     possibilities.push({valueMm,orientation,
+      measuredMm:Math.round(printedLen/scale),
+      differenceMm:Math.round(delta/scale),
+      nearbyAxes:nearAxis,score,
+      numericTextRectPt:{x:Number(f.x),y:Number(f.y),
+       width:Number(f.width),height:Number(f.height)},
+      valuePoint:{x,y},
+      linePt:{x1:line.x1,y1:line.y1,x2:line.x2,y2:line.y2},
+      ticksPt:[tick0,tick1].map(t=>({
+       x1:t.x1,y1:t.y1,x2:t.x2,y2:t.y2})),
+      status:"dimension_graphic_hypothesis",verifiedPlacement:false})
+    }
+   }
+   if(!possibilities.length)continue;
+   possibilities.sort((a,b)=>a.score-b.score);
+   // Source PDF often paints the SAME segment twice. Dedup geometrically.
+   const unique=[];
+   for(const choice of possibilities){
+    const same=unique.some(a=>a.orientation===choice.orientation&&
+      Math.hypot(a.linePt.x1-choice.linePt.x1,
+       a.linePt.y1-choice.linePt.y1)+
+      Math.hypot(a.linePt.x2-choice.linePt.x2,
+       a.linePt.y2-choice.linePt.y2)<2);
+    if(!same)unique.push(choice)
+   }
+   const close=unique.filter(x=>x.score-unique[0].score<.018);
+   if(close.length>1){
+    out.ambiguous.push({valueMm,valuePoint:{x,y},
+     options:close.slice(0,4),status:"several_dimension_lines"})
+   }else out.candidates.push(unique[0])
+  }
+  out.limited=out.limited||fragments.length>limit;
+  out.reason=out.candidates.length?
+   "Найдены возможные размерные линии с текстом и двумя засечками. Нужна сверка КМД":
+   "Не обнаружены согласованные числа, размерные линии и концевые засечки";
+  return out
+ }
+
+ // Nearby printed dimensions are CONTEXT only. Do not convert these into
+ // offsets, anchors or coordinates of a steel construction.
+ function nearDimensionEvidence({instances=[],dimensions={},heightPt}={}){
+  const values=dimensions.candidates||[];
+  return instances.map(item=>{
+   const x=Number(item.pageX),y=Number(heightPt)-Number(item.pageYBottom);
+   const nearby=Number.isFinite(y)?values.map(dim=>({
+    valueMm:dim.valueMm,orientation:dim.orientation,
+    distancePt:Math.round(Math.hypot(x-dim.valuePoint.x,
+     y-dim.valuePoint.y)*10)/10,
+    dimensionLinePt:dim.linePt,numericTextRectPt:dim.numericTextRectPt,
+    relationship:"nearby_only",verifiedForMember:false
+   })).filter(v=>v.distancePt<=95)
+    .sort((a,b)=>a.distancePt-b.distancePt).slice(0,5):[];
+   return{instanceId:item.instanceId,mark:item.mark,nearby,
+    relativeOnly:true,confirmedOffsets:0}
+  })
+ }
+
  function linkInstanceOutlineEvidence({instances=[],registeredLabels=[],outlines={},
    heightPt}={}){
   const labels=Array.isArray(registeredLabels)?registeredLabels:[],
@@ -2359,7 +2541,7 @@
   };
   return page
  }
- const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes,selectPlanRegion,extractPlanInstances,linkInstanceOutlineEvidence};
+ const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes,selectPlanRegion,extractPlanInstances,linkInstanceOutlineEvidence,inspectPdfDimensionChains,nearDimensionEvidence};
  if(typeof module!=="undefined"&&module.exports)module.exports=exported;
  if(root&&typeof root==="object")root.irAiSchemeLitePage=createPage()
 })(typeof window!=="undefined"?window:null);
