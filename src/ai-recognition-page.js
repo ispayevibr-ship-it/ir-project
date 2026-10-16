@@ -246,6 +246,16 @@ window.irAiRecognitionPage=async function(objectId){
    '<button id="irAiExport" disabled>Экспортировать</button>'+
    '<span class="ir-ai-action-note">Листы PDF: просмотр и анализ Qwen. Исправления ИИ Beta: «Проверить обновления» → скачать небольшой пакет → перезапустить, без переустановки EXE.</span></div>'+
    stepsHtml+
+   (modelReady?'<div class="ir-ai-acceleration-state" role="status">'+
+    (engine?.gpuLayers>0?
+     '<b>GPU '+esc(engine.gpuLayers)+' слоёв</b> · '+(engine.gpuConfirmed?
+      'Подтверждена выгрузка слоёв Qwen на видеокарту.' :
+      'Ускорение запрошено; фактическая выгрузка ещё не подтверждена логом llama.cpp.') :
+     '<b>CPU-режим</b> · GPU-слоёв: 0. '+(engine?.gpuBackendFound?
+      'CUDA-файлы найдены, но безопасная выгрузка на GPU не включилась (возможно, мало свободной видеопамяти).' :
+      'Для видеоускорения нужна совместимая CUDA-сборка llama.cpp.'))+
+    (engine?.gpuFallback?' '+esc(engine.gpuFallback):'')+
+    '</div>':'')+
    (analysisProgress?progressMarkup(analysisProgress):"")+
    (!ready||!runtime?'<div class="ir-ai-warning" role="status"><b>Требуется новая установка Electron.</b> Действующий установщик не содержит мост локального ИИ; обновления интерфейса недостаточно.</div>':'')+
    (!engine?.installed?'<div class="ir-ai-warning" role="status"><b>Требуется отдельный офлайн-пакет модели.</b> Пока он не поставляется с установщиком. Без него запуск и распознавание недоступны.</div>':'')+
@@ -546,6 +556,8 @@ window.irAiRecognitionPage=async function(objectId){
         "Qwen вернула корректный, но пустой JSON: ни марки, ни деталей. Для мелкого текста выберите фрагмент листа и распознайте его в увеличенном виде.")) :
        "Ответ модели не удалось разобрать как JSON. Раскройте «Ответ модели без изменений» ниже и попробуйте анализ увеличенного фрагмента листа.")+'</div>'+
       (x.raster?.width&&x.raster?.height?'<div class="ir-ai-result-source">Изображение, переданное Qwen: '+esc(x.raster.width)+' × '+esc(x.raster.height)+' пикселей'+
+       (x.raster?.downscaled?' · уменьшено с '+esc(x.raster.originalWidth)+' × '+esc(x.raster.originalHeight)+' для быстрого анализа':'')+
+       (x.raster?.fastRegion?' · экспресс-режим фрагмента':'')+
        (x.pdfTextLayer?' · использован текстовый слой PDF, индекс № '+esc(x.pdfTextLayer.indexId):' · текстовый слой PDF не использован')+'</div>':"")+
       (x.finishReason&&x.finishReason!=="stop"?'<div class="ir-ai-quantity-warning">Генерация Qwen завершилась со статусом '+esc(x.finishReason)+
        '. Ответ может быть обрезан или неполон, инженерное подтверждение пока не требуется.</div>':"")+
@@ -965,7 +977,7 @@ window.irAiRecognitionPage=async function(objectId){
    dlg.innerHTML='<div class="ir-ai-pdf-preview-header"><div><b data-region-title></b>'+
     '<small data-region-meta></small><small data-region-ai-status role="status"></small></div><div class="ir-ai-pdf-preview-actions">'+
     '<button type="button" data-region-extract disabled>'+stepNumber('5.2')+' Увеличить фрагмент</button>'+
-    (canEdit?'<button type="button" data-region-analyze disabled>'+stepNumber('5.3')+' Распознать фрагмент ИИ</button>':'')+
+    (canEdit?'<button type="button" data-region-analyze disabled>'+stepNumber('5.3')+' Распознать фрагмент (быстро)</button>':'')+
     '<button type="button" data-region-back hidden>Вернуться к листу</button>'+
     '<button type="button" data-pdf-fit>100%</button>'+
     '<button type="button" data-pdf-close>Закрыть ✕</button></div></div>'+
