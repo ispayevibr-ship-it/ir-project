@@ -17,12 +17,11 @@ const files=fs.readdirSync(dir).filter(name=>/^ai-[a-z0-9-]+\.(?:js|css)$/.test(
    sha256:crypto.createHash("sha256").update(data).digest("hex")}
  });
 if(files.length<5||files.length>120)throw Error("Unexpected AI patch file count");
-for(const required of ["src/ai-local-engine.js","src/ai-analysis.js","src/ai-structured-extraction.js",
- "src/ai-recognition-page.js","src/ai-recognition-page.css","src/ai-review.js",
- "src/ai-workflow.js","src/ai-structured-review.js"])
+for(const required of ["src/ai-recognition-page.js","src/ai-recognition-page.css",
+ "src/ai-scheme-lite-page.js"])
  if(!files.some(f=>f.target===required))throw Error("Required hot module missing: "+required);
 const manifest={channel:"beta",baseVersion:base,version:base+"."+serial,
- branch:"feature/ir-project-ai-next",description:"IR Project AI Beta hot fixes: no full EXE",
+ branch:"feature/ir-project-ai-next",description:"IR Project Algorithmic KM/KMD fixes: no full EXE",
  files};
 const output=path.join(__dirname,"..","hot","beta","latest.json");
 fs.mkdirSync(path.dirname(output),{recursive:true});

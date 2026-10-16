@@ -3,16 +3,43 @@
   "version": "1.7.226",
   "description": "IR Project",
   "main": "main.js",
-  "scripts": {"start":"electron .","build":"electron-builder --win nsis","publish":"electron-builder --win nsis --publish always","ai:pack:qwen4":"node scripts/build-qwen4-pack.js","ai:pack:paddleocr":"node scripts/build-paddleocr-pack.js","ai:sign-catalog":"node scripts/sign-ai-catalog.js"},
-  "dependencies": {"xlsx":"^0.18.5","pdfjs-dist":"6.4.299","@napi-rs/canvas":"1.0.10","yauzl":"^3.2.0","yazl":"2.5.1"},
-  "devDependencies": {"electron":"38.1.2","electron-builder":"26.17.0"},
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win nsis",
+    "publish": "electron-builder --win nsis --publish always"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5",
+    "pdfjs-dist": "6.4.299",
+    "@napi-rs/canvas": "1.0.10",
+    "yauzl": "^3.2.0",
+    "yazl": "2.5.1"
+  },
+  "devDependencies": {
+    "electron": "38.1.2",
+    "electron-builder": "26.17.0"
+  },
   "build": {
-    "appId":"com.irproject.app",
-    "productName":"IR Project",
-    "asar":true,
-    "artifactName":"IR-Project-Setup-${version}.${ext}",
-    "files":["main.js","preload.js","src/**/*","assets/**/*","package.json"],
-    "win":{"target":"nsis","icon":"assets/icon.ico"},
-    "nsis":{"oneClick":true,"perMachine":false,"allowElevation":true,"deleteAppDataOnUninstall":false}
+    "appId": "com.irproject.app",
+    "productName": "IR Project",
+    "asar": true,
+    "artifactName": "IR-Project-Setup-${version}.${ext}",
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": true,
+      "deleteAppDataOnUninstall": false
+    }
   }
 }

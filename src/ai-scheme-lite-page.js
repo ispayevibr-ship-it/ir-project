@@ -375,7 +375,7 @@
   const startX=grid.x.get(String(axisX)),startY=grid.y.get(String(axisY));
   if(startX===undefined||startY===undefined)throw Error("Выберите существующие оси X и Y.");
   if(!mark?.id||norm(mark.mark||mark.title)!==norm(c.mark))
-   throw Error("Выберите точную марку из ведомости объекта. ИИ не создаёт её автоматически.");
+   throw Error("Выберите точную марку из ведомости объекта. Она не создаётся автоматически.");
   const kind=c.type;
   if(!["column","beam","brace"].includes(kind))throw Error("Уточните тип конструкции.");
   if(!Number.isFinite(z0Mm)||!Number.isFinite(z1Mm)||z1Mm<=z0Mm&&kind==="column")
@@ -1543,7 +1543,7 @@
      if(state==="error")node?.scrollIntoView?.({block:"nearest",behavior:"smooth"});
     }
     const markup=()=>'<section class="ir-ai-lite">'+
-     '<header class="ir-ai-review-heading"><div><h2>ИИ → Монтажная схема · быстрый режим</h2>'+
+     '<header class="ir-ai-review-heading"><div><h2>Чертежи КМ/КМД → Монтажная схема</h2>'+
      '<p>Одна кнопка запускает чтение PDF и проверку осей, графики, размеров и повторений марок. Точное X/Y/Z определяется только при достаточных доказательствах.</p></div>'+
      '<b>Локально · без ИИ</b></header>'+
      '<div class="ir-ai-quantity-warning">Индексирование текстового слоя PDF не определяет положение конструкции. После построения черновика автоматически запускается графическая проверка всех индексированных потенциальных монтажных планов; это не изменяет существующую схему.</div>'+
@@ -1554,7 +1554,7 @@
      (hostWindow?.irProject?.schemeReset?.clear?
       '<button type="button" data-lite-clear class="ir-ai-lite-clear">Очистить схему</button>':"")+
      '</div>'+
-     '<div data-lite-status role="status">'+escDoc(log||"Доступные проиндексированные PDF можно проверить без запуска Qwen.")+'</div>'+
+     '<div data-lite-status role="status">'+escDoc(log||"Доступные проиндексированные PDF можно проверить локально.")+'</div>'+
      '<div data-lite-results></div></section>';
     const ensureCurrent=async c=>{
      const fresh=await hostWindow.irProject.aiDocuments.list(objectId);
@@ -1743,8 +1743,7 @@
        '<div class="ir-ai-lite-toolbar">'+
        (batch.ready.length?'<button type="button" data-lite-batch '+''+
         '>2. Расставить готовые марки · '+batch.ready.length+' экз.</button>':"")+
-       (batch.difficult.length?'<button type="button" data-lite-qwen>Сложные листы → очередь Qwen ('+
-        Math.min(batch.difficult.length,12)+')</button>':"")+'</div>'+
+       '</div>'+
        '<p>Подтверждение выполняется для всего списка. Непонятные координаты не придумываются.</p>'+
        (batch.review.length?'<details><summary>Причины ручной проверки · '+
         batch.review.length+'</summary>'+
@@ -1898,8 +1897,6 @@
      slot.querySelectorAll("[data-lite-save-draft]").forEach(b=>b.onclick=()=>{void saveCorrection(Number(b.dataset.liteSaveDraft))});
      const bulk=slot.querySelector?.("[data-lite-batch]");
      if(bulk)bulk.onclick=()=>void approveBatch();
-     const uncertain=slot.querySelector?.("[data-lite-qwen]");
-     if(uncertain)uncertain.onclick=()=>void queueHardSheets();
      const undoButton=slot.querySelector?.("[data-lite-undo]");
      if(undoButton)undoButton.onclick=()=>void undoLast();
      slot.querySelectorAll("[data-lite-preview-source]").forEach(button=>{
@@ -2626,36 +2623,6 @@
        " элементов. Инженерная история сохранена.");
       draw()
      }catch(error){status("Откат запрещён: "+String(error.message||error))}
-     finally{busy=false}
-    }
-    async function queueHardSheets(){
-     if(!batch?.difficult.length||busy)return;
-     const queue=opts.queue||hostWindow.irProject?.aiWorkflow;
-     if(!queue?.enqueue){status("Модуль очереди Qwen недоступен.");return}
-     busy=true;
-     try{
-      if(!await verifyEditor())return;
-      const toQueue=batch.difficult.slice(0,12),docsNow=await hostWindow.irProject.aiDocuments.list(objectId),
-       idxNow=await pdf.list(objectId);
-      const byDoc=new Map();
-      for(const p of toQueue){
-       const doc=docsNow.find(d=>Number(d.id)===Number(p.documentId)&&
-        d.sha256===p.sha256&&d.exists);
-       const idx=idxNow.find(x=>Number(x.documentId)===Number(p.documentId)&&
-        x.sourceSha256===p.sha256&&x.pages.some(x=>Number(x.page)===Number(p.page)));
-       if(!doc||!idx)continue;
-       if(!byDoc.has(doc.id))byDoc.set(doc.id,[]);
-       byDoc.get(doc.id).push(p.page)
-      }
-      let sent=0;
-      for(const [doc,pages] of byDoc){
-       const result=await queue.enqueue(objectId,doc,[...new Set(pages)]);
-       sent+=Array.isArray(result?.created)?result.created.length:pages.length
-      }
-      status("В очередь Qwen добавлены сложные листы: "+sent+
-       ". Откройте «Распознавание» и запустите очередь. Qwen пока не определяет точные координаты автоматически.");
-      onNavigate?.("workflow")
-     }catch(error){status("Не удалось добавить листы в очередь Qwen: "+String(error.message||error))}
      finally{busy=false}
     }
     function readCardValues(index){

@@ -14,7 +14,7 @@
  const storeKey=isDetached?"ir-project-tabs-detached-"+params.get("detached"):"ir-project-tabs-v1";
  const frames=new Map(),objectsCache=new Map(),MAX_TABS=12;
  let order=[],activeId="",serial=0,restoring=false;
- const sections={"reports":"Ежедневные отчёты","marks":"Ведомость марок","work-types":"Виды работ","schedule":"График работ","deliveries":"Поставки","scheme":"Монтажная схема","ai-recognition":"ИИ-распознавание","extra-works":"Доп. работы","acted-days":"Актированные дни","penalties":"Штрафы","finance":"Финансы","photos":"Фотографии объекта"};
+ const sections={"reports":"Ежедневные отчёты","marks":"Ведомость марок","work-types":"Виды работ","schedule":"График работ","deliveries":"Поставки","scheme":"Монтажная схема","ai-recognition":"Чертежи КМ/КМД","extra-works":"Доп. работы","acted-days":"Актированные дни","penalties":"Штрафы","finance":"Финансы","photos":"Фотографии объекта"};
  const routeValid=route=>typeof route==="string"&&route.length<350&&/^\/objects(?:\/object\/\d+(?:\/[a-z0-9_-]+)*)?$/i.test(route);
  const cleanRoute=route=>routeValid(route)?route:"/objects";
  const newId=()=>String(Date.now().toString(36))+"-"+(++serial).toString(36);
@@ -481,7 +481,7 @@
   if(updateTotalBytes>0)updateTransferredBytes=updateTotalBytes;
   showUpdateSize();showTransfer();
   setUpdate("Требуется перезапуск",rollbackPending?
-   "Hot-обновление отменено. После перезапуска будет запущена версия "+(pendingRestartVersion||"из установщика")+". Данные объектов и локальная Qwen сохраняются.":
+   "Hot-обновление отменено. После перезапуска будет запущена версия "+(pendingRestartVersion||"из установщика")+". Данные объектов и чертежи сохраняются.":
    "Версия "+(pendingRestartVersion||"IR Project")+" скачана. Код открытых вкладок остаётся прежним, пока IR Project не будет перезапущен.");
   updateButtons([["Позже",false,closeUpdate],["Установить и перезапустить",true,installUpdate]])
  }

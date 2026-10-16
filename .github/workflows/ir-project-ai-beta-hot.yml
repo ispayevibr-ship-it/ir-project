@@ -32,26 +32,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Validate AI Beta hot runtime
+      - name: Validate algorithmic KM/KMD hot runtime
         run: |
           set -euo pipefail
           node --check src/ai-recognition-page.js
           node --check src/scheme-reset.js
           node --check src/ai-scheme-lite-page.js
-          node --check src/ai-local-engine.js
           node --check src/ai-image-optimizer.js
           node --check src/updater.js
           node --check main.js
-          node --check src/ai-analysis.js
-          node --check src/ai-workflow.js
           node --check scripts/build-beta-hot-manifest.js
           node scripts/test-ai-pdf-drawings-ui.js
-          node scripts/test-ai-recognition-progress.js
-          node scripts/test-ai-pdf-region-ui.js
-          node scripts/test-ai-qwen-response-parser.js
           node scripts/test-ai-pdf-text-context.js
-          node scripts/test-ai-engine.js
-          node scripts/test-ai-gpu-offload.js
           node scripts/test-ai-fast-region.js
           node scripts/test-ai-scheme-lite.js
           node scripts/test-ai-scheme-lite-ui.js
