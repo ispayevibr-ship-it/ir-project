@@ -3,7 +3,7 @@
  * Importantly no geometry is written into scheme or mark registers. */
 const path=require("node:path"),{Worker}=require("node:worker_threads");
 const MAX_PDF_BYTES=48*1024*1024,DEADLINE=65000;
-function createPdfGeometry({documents,database,
+function createPdfGeometry({documents,database,resolveWorker,pdfjsModuleUrl,
  workerFactory=(file,options)=>new Worker(file,options)}={}){
  if(!documents?.readForPdfIndex||!database?.getObject)
   throw Error("Геометрический анализ требует проверяемый PDF и базу объекта");
@@ -21,8 +21,8 @@ function createPdfGeometry({documents,database,
    if(!input?.source?.sha256||!input.buffer||input.buffer.length>MAX_PDF_BYTES)
     throw Error("Недоступен исходный PDF");
    const result=await new Promise((resolve,reject)=>{
-    const instance=workerFactory(path.join(__dirname,"ai-pdf-vector-worker.js"),
-     {workerData:{bytes:new Uint8Array(input.buffer),page:num},
+    const instance=workerFactory(resolveWorker?resolveWorker():path.join(__dirname,"ai-pdf-vector-worker.js"),
+     {workerData:{bytes:new Uint8Array(input.buffer),page:num,pdfjsModuleUrl},
       resourceLimits:{maxOldGenerationSizeMb:256,maxYoungGenerationSizeMb:32},execArgv:[]});
     let done=false;
     const timeout=setTimeout(()=>finish(Error("Превышено время анализа геометрии (65 секунд)")),DEADLINE);

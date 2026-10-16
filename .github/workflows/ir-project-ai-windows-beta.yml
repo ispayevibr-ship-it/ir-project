@@ -9,6 +9,9 @@ on:
       - "hot/**"
       - "src/ai-recognition-page.js"
       - "src/ai-scheme-lite-page.js"
+      - "src/ai-pdf-geometry.js"
+      - "src/ai-pdf-vector-worker.js"
+      - "src/ai-pdf-vector-paths.js"
       - "src/ai-document-store.js"
       - "src/ai-local-engine.js"
       - "src/ai-analysis.js"
@@ -69,6 +72,7 @@ jobs:
           node --check src/ai-pdf-vector-worker.js
           node --check src/ai-pdf-geometry.js
           node scripts/test-ai-pdf-vector-paths.js
+          node scripts/test-ai-pdf-hot-worker.js
           node scripts/test-ai-pdf-geometry.js
           node scripts/test-ai-pdf-geometry-ui.js
           node scripts/test-ai-grid-axes.js

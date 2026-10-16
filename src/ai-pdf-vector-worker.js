@@ -10,7 +10,7 @@ const MAX_PDF_BYTES=48*1024*1024,MAX_PAGES=80;
   const bytes=workerData?.bytes,pageNumber=Number(workerData?.page);
   if(!bytes||bytes.byteLength<5||bytes.byteLength>MAX_PDF_BYTES)
    throw Error("Недопустимый размер PDF");
-  const pdfjs=await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const pdfjs=await import(workerData.pdfjsModuleUrl||"pdfjs-dist/legacy/build/pdf.mjs");
   loading=pdfjs.getDocument({data:new Uint8Array(bytes),isEvalSupported:false,
    disableFontFace:true,useSystemFonts:false,stopAtErrors:false,
    verbosity:pdfjs.VerbosityLevel.ERRORS});
