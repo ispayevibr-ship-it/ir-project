@@ -569,8 +569,12 @@
         (x.markMentions>x.marks.length?' ('+x.markMentions+' упоминаний)':""):
         ' · Марки не найдены в читаемом тексте')+
        '<button type="button" class="ir-ai-lite-vector-button" data-lite-vector-page="'+pi+
-        '">Проверить линии листа</button></div>'
-      ).join("")+'</div><div data-lite-vector-result class="ir-ai-lite-vector-result" role="status"></div>':"")+
+        '">Проверить линии листа</button>'+
+        '<button type="button" class="ir-ai-lite-vector-button" data-lite-axis-page="'+pi+
+        '">Найти оси на плане</button></div>'
+      ).join("")+'</div>'+
+       '<div data-lite-axis-result class="ir-ai-lite-axis-result" role="status"></div>'+
+       '<div data-lite-vector-result class="ir-ai-lite-vector-result" role="status"></div>':"")+
       (candidateCount?'<div class="ir-ai-lite-candidates">'+candidates.map((c,i)=>
        '<article class="ir-ai-lite-candidate" data-lite-row="'+i+'">'+
        '<div class="ir-ai-lite-candidate-head"><b>'+escDoc(c.mark)+' · '+escDoc(TYPE_NAMES[c.type]||"Тип требует проверки")+'</b>'+
@@ -618,6 +622,9 @@
        escDoc(feedbackByCandidate.get(i)?.message||"")+'</div></article>').join("")+
        '</div>':
        '<div class="ir-ai-doc-empty">Пока нет предложений по маркам. Для сканирования нужны читаемые текстовые слои PDF. Листы без текста требуют отдельного визуального распознавания.</div>');
+     slot.querySelectorAll("[data-lite-axis-page]").forEach(b=>b.onclick=()=>{
+      void analyzeAxes(Number(b.dataset.liteAxisPage))
+     });
      slot.querySelectorAll("[data-lite-vector-page]").forEach(b=>b.onclick=()=>{
       void analyzeVector(Number(b.dataset.liteVectorPage))
      });
@@ -643,6 +650,68 @@
      if(apply)apply.onclick=()=>void applyPreview();
      const cancel=slot.querySelector?.("[data-lite-cancel-preview]");
      if(cancel)cancel.onclick=()=>{verifiedPreview=null;draw()};
+    }
+    async function analyzeAxes(index){
+     const sheet=latest[index],slot=host.querySelector("[data-lite-results]");
+     const output=slot?.querySelector?.("[data-lite-axis-result]");
+     if(!sheet||!output)return;
+     if(!geometry?.page||!pdf?.page||!schemeApi?.list){
+      output.textContent="Нужны PDF-индекс, сохранённая сетка и Windows Beta 1.7.224.";
+      return
+     }
+     if(output.dataset?.busy==="true")return;
+     if(output.dataset)output.dataset.busy="true";
+     output.textContent="Ищем совпадения подписей осей с векторными линиями на листе…";
+     try{
+      const doc=documents.find(d=>Number(d.id)===sheet.documentId);
+      const idx=indexes.find(x=>Number(x.documentId)===sheet.documentId&&
+       x.sourceSha256===sheet.sha256);
+      if(!doc?.exists||doc.sha256!==sheet.sha256||!idx)
+       throw Error("Исходный PDF или его индекс изменился");
+      const key=[doc.id,doc.sha256,sheet.page].join(":");
+      let result=geometryCache.get(key);
+      if(!result){
+       result=await geometry.page(objectId,doc.id,sheet.page);
+       if(!live)return;
+       if(result.sourceSha256!==sheet.sha256||
+          Number(result.documentId)!==Number(doc.id)||result.page!==sheet.page)
+        throw Error("Векторный результат относится к другому исходному PDF");
+       geometryCache.set(key,result)
+      }
+      const [pageData,rows]=await Promise.all([
+       pdf.page(objectId,idx.id,sheet.page),schemeApi.list()
+      ]);
+      if(!live)return;
+      if(pageData.source?.sha256!==sheet.sha256||
+         Number(pageData.source?.documentId)!==Number(doc.id))
+       throw Error("Текстовые фрагменты и геометрия относятся к разным PDF");
+      const grid=axisGeometry(rows),
+       analysis=detectPlanGridAxes({raw:pageData.page,vector:result,grid});
+      const label=x=>escDoc(x.name)+" · "+escDoc(x.mm)+" мм ↔ "+
+       escDoc(Math.round(x.pagePt*100)/100)+" pt";
+      const xRows=analysis.xMatches?.map(label)||[],
+       yRows=analysis.yMatches?.map(label)||[];
+      output.innerHTML='<div class="ir-ai-vector-info"><b>Калибровка осей · '+
+       escDoc(doc.name)+' · лист '+sheet.page+'</b>'+
+       '<span>Совпадений X: '+xRows.length+'/'+Number(analysis.xTotal||0)+
+       ' · Y: '+yRows.length+'/'+Number(analysis.yTotal||0)+'</span>'+
+       '<p class="'+(analysis.calibrated?'ir-ai-axis-possible':'ir-ai-axis-review')+'">'+
+       (analysis.calibrated?'Предварительно согласовано, требуется проверка инженера. ':
+        'Не подтверждено. ')+escDoc(analysis.reason)+'</p>'+
+       (analysis.calibrated?'<small>Масштаб X: '+
+        (Math.abs(analysis.fitX.scale)*1000).toFixed(2)+
+        ' pt/м; Y: '+(Math.abs(analysis.fitY.scale)*1000).toFixed(2)+
+        ' pt/м. Отклонение: '+
+        Math.round((analysis.scaleMismatch||0)*1000)/10+
+        '%. Это ещё не координаты колонн.</small>':"")+
+       '</div><div class="ir-ai-axis-grids">'+
+       '<div><strong>Оси X</strong><ol>'+xRows.map(x=>'<li>'+x+'</li>').join("")+
+       '</ol></div><div><strong>Оси Y</strong><ol>'+
+       yRows.map(x=>'<li>'+x+'</li>').join("")+'</ol></div></div>';
+      output.scrollIntoView?.({block:"nearest",behavior:"smooth"})
+     }catch(error){
+      output.textContent="Не удалось сопоставить оси: "+String(error.message||error)
+     }finally{if(output.dataset)output.dataset.busy="false"}
     }
     async function analyzeVector(index){
      const selected=latest[index];

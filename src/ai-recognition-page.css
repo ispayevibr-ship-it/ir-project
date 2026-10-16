@@ -366,3 +366,12 @@
 .ir-ai-lite-vector-result .ir-ai-vector-diagonal{stroke:#9ca3af;stroke-opacity:.35}
 .ir-ai-vector-info{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;font-size:12px}
 .ir-ai-vector-info small{color:#6b7280;font-size:11px}
+
+/* Grid-axis calibration is read-only; no coordinates are written to the montage scheme. */
+.ir-ai-lite-axis-result:empty{display:none}
+.ir-ai-lite-axis-result:not(:empty){margin:12px 0;padding:14px;border:1px solid #cddde9;background:#f8fafc;border-radius:10px;font-size:12px}
+.ir-ai-axis-grids{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.ir-ai-axis-grids ol{margin:8px 0;padding-left:22px;max-height:260px;overflow:auto}
+.ir-ai-axis-grids li{padding:3px 0}
+.ir-ai-axis-possible{color:#176b4e}
+.ir-ai-axis-review{color:#9a5620}
