@@ -24,6 +24,53 @@ function extractSegments(operatorList,OPS,viewport,{minLengthPt=12}={}){
   examinedSegments:0,storedSegments:0,truncated:false,skippedCurves:0,
   horizontal:0,vertical:0,diagonal:0,ignoredPaints:0};
  const segments=[],seen=new Set(),stack=[];
+ // Localized evidence for short KMD member outlines. Unlike the original
+ // preview heap of the 2400 LONGEST strokes, keep a stratified, bounded
+ // sample across page tiles AND stroke-length classes. Retain PDF provenance
+ // and report incomplete sampling rather than calling these all the lines.
+ const DETAIL_TILES=10,DETAIL_BUCKET_LIMIT=48,DETAIL_MAX=14400;
+ const detailBuckets=new Map();
+ let detailOverflow=false,detailTotal=0,detailExamined=0;
+ const detailSample=(entry,length,direction)=>{
+  // Preserve independently the 2-12pt, 12-80pt and longer classes; a long
+  // building grid must not starve short shapes in the same PDF drawing.
+  const [x1,y1,x2,y2]=entry;
+  const cx=(x1+x2)/2,cy=(y1+y2)/2;
+  const tx=Math.min(DETAIL_TILES-1,Math.max(0,Math.floor(
+   cx/viewport.width*DETAIL_TILES))),
+   ty=Math.min(DETAIL_TILES-1,Math.max(0,Math.floor(
+   cy/viewport.height*DETAIL_TILES)));
+  const size=length<12?0:length<80?1:2;
+  const bucketKey=String(tx)+":"+ty+":"+size;
+  let bucket=detailBuckets.get(bucketKey);
+  if(!bucket){bucket={items:[],seen:new Set(),count:0};detailBuckets.set(bucketKey,bucket)}
+  const q=entry.map(rounded);
+  const f=q.slice(0,2),t=q.slice(2),
+   signature=(f[0]<t[0]||f[0]===t[0]&&f[1]<=t[1]?
+    [...f,...t]:[...t,...f]).join(":");
+  if(bucket.seen.has(signature))return;
+  bucket.count++;detailExamined++;
+  const item={x1:q[0],y1:q[1],x2:q[2],y2:q[3],
+   lengthPt:rounded(length),direction,signature};
+  if(bucket.items.length<DETAIL_BUCKET_LIMIT){
+   bucket.items.push(item);bucket.seen.add(signature);detailTotal++;return
+  }
+  detailOverflow=true;
+  // Deterministic reservoir choice independent of PDF operator ordering.
+  // Sampling is explicitly reported as incomplete.
+  let hash=2166136261;
+  for(const v of q){
+   hash=Math.imul(hash^(Math.round(v*100)|0),16777619)>>>0
+  }
+  hash=Math.imul(hash^bucket.count,16777619)>>>0;
+  const selected=hash%bucket.count;
+  if(selected<DETAIL_BUCKET_LIMIT){
+   const old=bucket.items[selected];
+   bucket.seen.delete(old.signature);
+   bucket.items[selected]=item;bucket.seen.add(signature)
+  }
+ };
+
  // Extract dashed/fragmented axis evidence in parallel with the limited
  // longest-strokes preview, using bounded page-point histograms.
  const bandBins={horizontal:new Map(),vertical:new Map()};
@@ -81,6 +128,7 @@ function extractSegments(operatorList,OPS,viewport,{minLengthPt=12}={}){
    Math.abs(x2-x1)<=1?"vertical":"diagonal";
   if(direction==="vertical")aggregate(direction,(x1+x2)/2,Math.min(y1,y2),Math.max(y1,y2),len);
   if(direction==="horizontal")aggregate(direction,(y1+y2)/2,Math.min(x1,x2),Math.max(x1,x2),len);
+  detailSample(entry,len,direction);
   if(len<minLengthPt)return;
   const q=entry.map(rounded);
   const first=q.slice(0,2),second=q.slice(2);
@@ -237,11 +285,21 @@ function extractSegments(operatorList,OPS,viewport,{minLengthPt=12}={}){
  }
  stats.axisEvidenceComplete=!bandIncomplete;
  stats.axisBandCount=axisBands.vertical.length+axisBands.horizontal.length;
+ const detailSegments=[];
+ for(const bucket of detailBuckets.values())for(const line of bucket.items){
+  const {signature,...item}=line;detailSegments.push(item)
+ }
+ stats.detailStored=detailSegments.length;
+ stats.detailExamined=detailExamined;
+ stats.detailSampleIncomplete=detailOverflow||stats.truncated&&
+  (operatorList.fnArray.length>MAX_OPERATORS||stats.pathCommands>MAX_PATH_COMMANDS);
+ stats.detailTiles=DETAIL_TILES;
+ stats.detailMax=DETAIL_MAX;
  stats.storedSegments=segments.length;
  for(const item of segments)stats[item.direction]++;
  segments.sort((a,b)=>b.lengthPt-a.lengthPt);
  for(const item of segments)delete item.signature;
- return{segments,axisBands,stats,coordinateSystem:"viewport_points_top_left",
+ return{segments,detailSegments,axisBands,stats,coordinateSystem:"viewport_points_top_left",
   widthPt:rounded(viewport.width),heightPt:rounded(viewport.height),
   note:"Векторные штрихи PDF, не оси и не подтверждённые координаты монтажа"}
 }
