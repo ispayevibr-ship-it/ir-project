@@ -1666,6 +1666,9 @@
        }
       }else if(region==="full"){
        linkMessage="; выберите отдельную схему для сопоставления с графикой"
+      }else if(sheet.sheetType!=="plan"){
+       linkMessage="; лист не подтверждён как монтажный план: "+
+        "не объединяем подписи разрезов с монтажными экземплярами"
       }
       const prefix=[doc.id,doc.sha256,sheet.page].join(":")+":";
       if(region==="full"){
