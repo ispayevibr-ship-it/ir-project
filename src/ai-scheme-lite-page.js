@@ -1522,6 +1522,8 @@
      dimensionRows=[...dimensionResults.values()].flatMap(x=>x.candidates||[]);
      const dimensionAmbiguous=[...dimensionResults.values()].reduce((a,v)=>
       a+(v.ambiguous?.length||0),0);
+     const dimensionNotices=[...dimensionResults.values()].filter(d=>
+      !d.candidates?.length&&d.reason).map(d=>d.reason);
      const unknown=[...new Set([...instanceResults.values()]
        .flatMap(x=>x.skippedUnknownMarks||[]))];
      const evidenceCounts=new Map();
@@ -1548,7 +1550,10 @@
       'Размерных линий с совпадающей длиной и концевыми засечками: <b>'+
       dimensionRows.length+'</b>; неоднозначных размерных цепочек: <b>'+
       dimensionAmbiguous+'</b>. Это только независимые графические подсказки, '+
-      'не координаты крепления конструкций.</p><p>'+
+      'не координаты крепления конструкций.</p>'+
+      (dimensionNotices.length?'<p>Размерные цепочки не подтверждены: '+
+       escDoc(dimensionNotices[0])+'</p>':"")+
+      '<p>'+
       'Надпись может повторяться в разрезах или деталях. '+
       'Каждое место текста считается отдельно, пока его не сверили с планом.</p>'+
       (unknown.length?'<p>Не сопоставлены с ведомостью: '+unknown.length+
