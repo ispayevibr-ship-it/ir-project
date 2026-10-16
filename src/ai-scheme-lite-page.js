@@ -1906,7 +1906,9 @@
          (linked.summary.needs_more_evidence||0)+
          (outlines.limited?"; выборка линий неполная":"")+
          "; возможных размерных цепочек: "+dimensions.candidates.length+
-         (dimensions.limited?"; выборка размеров неполная":"");
+         (dimensions.limited?"; выборка размеров неполная":"")+
+         (!dimensions.candidates.length&&dimensions.reason?
+          "; "+dimensions.reason:"");
        }else{
         linkMessage="; координаты осей не откалиброваны, геометрия не привязана"
        }
