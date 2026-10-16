@@ -593,9 +593,9 @@ window.irAiRecognitionPage=async function(objectId){
     '<td>'+esc(x.kind||"Не определён")+'</td><td>'+size(x.size||0)+'</td><td><span class="ir-ai-doc-status '+(!x.exists?"missing":"")+'">'+(x.exists?"Не распознано":"Файл отсутствует")+'</span></td>'+
     '<td><div class="ir-ai-doc-actions">'+
     (canEdit&&[".png",".jpg",".jpeg"].includes(x.ext)?'<button data-ai-analyze="'+x.id+'" '+(!modelReady||busy||!x.exists?'disabled':'')+'>Распознать</button>':"")+
-    (x.ext===".pdf"?'<button data-ai-pdf-preview="'+x.id+':1" '+(!pdf||busy||!x.exists?'disabled':'')+'>Лист 1</button>':"")+
-    (canEdit&&x.ext===".pdf"&&pdfIndexes.some(p=>String(p.documentId)===String(x.id)&&Array.isArray(p.pages)&&p.pages.some(page=>Number(page.page)===1))?'<button data-ai-pdf-vision="'+x.id+':1" '+(!modelReady||busy||!x.exists?'disabled':'')+'>'+stepNumber(5,!!recognized)+' Распознать лист 1</button>':"")+
     (canEdit&&x.ext===".pdf"?'<button data-ai-pdf-index="'+x.id+'" '+(!pdf||busy||!x.exists?'disabled':'')+'>'+stepNumber(3,indexedIds.has(String(x.id)))+' Индексировать PDF</button>':"")+
+    (canEdit&&x.ext===".pdf"&&pdfIndexes.some(p=>String(p.documentId)===String(x.id)&&p.sourceSha256===x.sha256&&Array.isArray(p.pages)&&p.pages.some(page=>Number(page.page)===1))?'<button data-ai-pdf-vision="'+x.id+':1" '+(!modelReady||busy||!x.exists?'disabled':'')+'>'+stepNumber(5,!!recognized)+' Распознать лист 1</button>':"")+
+    (x.ext===".pdf"?'<button data-ai-pdf-preview="'+x.id+':1" '+(!pdf||busy||!x.exists?'disabled':'')+'>Лист 1</button>':"")+
     '<button data-ai-open="'+x.id+'" '+(!ready||!x.exists?'disabled':'')+'>Открыть</button>'+
     (canEdit?'<button class="delete" data-ai-remove="'+x.id+'" '+(!ready?'disabled':'')+'>Удалить</button>':"")+'</div></td></tr>').join("")+
    '</tbody></table></div>')+
