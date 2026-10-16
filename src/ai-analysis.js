@@ -30,6 +30,7 @@ function createAnalysis({database,documents,engine,ocr=null,pdfRenderer,pdfIndex
  // approval. Never pass an index from a different source hash or uncertain font map.
  function localPdfText(id,source){
   if(!pdfIndex?.list||!pdfIndex?.page||!source?.page)return null;
+  try{
   const found=pdfIndex.list(id).find(row=>
    Number(row.documentId)===Number(source.documentId)&&
    row.sourceSha256===source.sha256&&
@@ -45,6 +46,11 @@ function createAnalysis({database,documents,engine,ocr=null,pdfRenderer,pdfIndex
    original.slice(0,1050)+"\n[Пропущен длинный участок слоя PDF]\n"+original.slice(-1050):original;
   return{text:compact,indexId:found.id,usedChars:compact.length,
    unverified:true,sourceSha256:source.sha256}
+  }catch(error){
+   // Stale or corrupt cache must never block visualization of the original PDF.
+   console.warn("IR Project AI: PDF text index is not available for visual analysis:",String(error.message||error));
+   return null
+  }
  }
  function imageEvidence(ocrEvidence,textLayer){
   if(!textLayer)return ocrEvidence?.text||"";
