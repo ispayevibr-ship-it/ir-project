@@ -841,7 +841,8 @@ window.irAiRecognitionPage=async function(objectId){
      notice("Удаление заблокировано: "+(linked?
       linked.section+" · запись № "+linked.id+". "+linked.reason:
       "найдены защищённые инженерные данные")+"."+details+
-      " Подтверждённые инженерные сведения и историю удалять нельзя.","error");
+      " Подтверждённые инженерные сведения и историю удалять нельзя. "+
+      "Чтобы убрать PDF из активного списка, нажмите «В архив».","error");
      paint();return
     }
     const drafts=impact.unreviewedAnalysisIds||[],indexes=impact.technicalIndexIds||[];

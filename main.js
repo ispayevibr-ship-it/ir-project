@@ -150,6 +150,8 @@ function registerAiDocuments(){
   requireAiReviewer(e);
   return aiDocumentDeletion.removalImpact(objectId,id)
  });
+ // Archive updates only source-document visibility; all engineering evidence,
+ // historic decision records and original bytes remain intact.
  ipcMain.handle("ai-documents:archive",(e,{objectId,id})=>{
   requireAiReviewer(e);
   if(aiPdf.busy()||aiRaster.busy()||aiQueue.summary(objectId).isRunning||

@@ -313,6 +313,8 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   return database.transaction(()=>{
    const row=record(id,documentId);
    if(row.data?.archived===true)return{archived:true,documentId:row.id,alreadyArchived:true};
+   // Refuse to present a missing/corrupt original as safely archived evidence.
+   if(!verify(id,row.id))throw Error("Не удалось подтвердить SHA-256 оригинала; архивирование отменено");
    const updated=database.updateEntity(id,"ai-documents",row.id,{
     record_type:row.record_type,title:row.title,parent_id:row.parent_id,
     data:{...row.data,archived:true,archivedAt:new Date().toISOString()}
