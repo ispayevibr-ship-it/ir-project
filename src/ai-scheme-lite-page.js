@@ -538,6 +538,50 @@
     y:{ptAtZero:fy.offset,ptPerMm:fy.scale}}}
  }
 
+
+ // A PDF sheet may contain two independent KMD drawings OR one continuous
+ // grid across its midpoint. Repeated X axis designations separate the cases.
+ function selectPlanRegion({selected="auto",calibrate}={}){
+  const regions=["full","left","right","top-left","top-right",
+   "bottom-left","bottom-right"],chosen=regions.includes(selected)?selected:"auto";
+  if(typeof calibrate!=="function")throw Error("Нет функции проверки осей");
+  const left=calibrate("left"),right=calibrate("right"),
+   available={left:left?.calibrated===true,right:right?.calibrated===true};
+  const axes=a=>new Set((a?.xMatches||[]).map(x=>String(x.name||""))
+   .filter(Boolean));
+  const xl=axes(left),xr=axes(right),
+   common=[...xl].filter(x=>xr.has(x));
+  // The SAME numbered axis appears in each horizontally separated plan.
+  // If axis names are disjoint, the page may be one continuous drawing.
+  const multiplePlans=available.left&&available.right&&common.length>=2;
+  if(chosen!=="auto"&&chosen!=="full")
+   return{analysis:calibrate(chosen),regionName:chosen,
+    multiplePlans,available,duplicateAxes:common};
+  if(multiplePlans){
+   const reason="Обнаружены две схемы с повторяющимися осями ("+
+    common.join(", ")+"). Выберите левую или правую область. "+
+    "Анализ всего листа остановлен, чтобы не смешивать конструкции.";
+   return{analysis:{calibrated:false,reason,xMatches:[],yMatches:[],
+     region:{left:0,top:0,right:1,bottom:1}},
+    regionName:"multiple",multiplePlans,available,duplicateAxes:common}
+  }
+  const full=calibrate("full");
+  if(chosen==="full")
+   return{analysis:full,regionName:"full",multiplePlans,available};
+  if(available.left!==available.right){
+   const regionName=available.left?"left":"right";
+   return{analysis:regionName==="left"?left:right,regionName,multiplePlans,available}
+  }
+  if(full?.calibrated)return{analysis:full,regionName:"full",multiplePlans,available};
+  if(available.left||available.right){
+   const regionName=available.left?"left":"right";
+   return{analysis:available.left?left:right,regionName,multiplePlans,available}
+  }
+  const score=x=>(x?.xMatches?.length||0)+(x?.yMatches?.length||0);
+  const regionName=score(left)>=score(right)?"left":"right";
+  return{analysis:regionName==="left"?left:right,regionName,multiplePlans,available}
+ }
+
  // The centre of a PDF label can identify its GRID CELL, but never the
  // attachment point of a steel member. Do not feed these numbers to payloadFor.
  function locateMarkLabelZones({candidates=[],analysis,grid,heightPt}={}){
@@ -1270,26 +1314,8 @@
        };
        const selected=slot?.querySelector?.('[data-lite-axis-region="'+index+'"]')?.value||"auto";
        const test=key=>detectPlanGridAxes({raw:pageData.page,vector:result,grid,region:regions[key]});
-       let analysis,regionName=selected;
-       if(selected==="auto"){
-        const full=test("full");
-        if(full.calibrated){analysis=full;regionName="full"}
-        else{
-         const halves=["left","right"].map(key=>({key,analysis:test(key)}));
-         const possible=halves.filter(x=>x.analysis.calibrated);
-         if(possible.length===1){analysis=possible[0].analysis;regionName=possible[0].key}
-         else if(possible.length>1){
-          analysis={calibrated:false,reason:"На листе несколько подходящих схем. "+
-           "Выберите левую или правую область.",xMatches:[],yMatches:[],
-           xTotal:grid?.x?.size||0,yTotal:grid?.y?.size||0}
-         }else{
-          const best=halves.reduce((a,b)=>(
-           (b.analysis.xMatches?.length||0)+(b.analysis.yMatches?.length||0)>
-           (a.analysis.xMatches?.length||0)+(a.analysis.yMatches?.length||0)?b:a));
-          analysis=best.analysis;regionName=best.key
-         }
-        }
-       }else analysis=test(regions[selected]?selected:"full");
+       const regionChoice=selectPlanRegion({selected,calibrate:test});
+       const {analysis,regionName}=regionChoice;
        const zones=locateMarkLabelZones({candidates:sheet.marks,analysis,grid,
         heightPt:result.heightPt});
        const registerLabels=sheet.uncertainEncoding?
@@ -1876,7 +1902,7 @@
   };
   return page
  }
- const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes};
+ const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes,selectPlanRegion};
  if(typeof module!=="undefined"&&module.exports)module.exports=exported;
  if(root&&typeof root==="object")root.irAiSchemeLitePage=createPage()
 })(typeof window!=="undefined"?window:null);
