@@ -823,6 +823,146 @@
   return output
  }
 
+
+ // Search real painted vector outlines around registered plan labels.
+ // Two independent parallel strokes can be a possible member outline,
+ // but also a wall, dimension chain or other symbol. NEVER identify it as
+ // a confirmed steel member or infer a 3D placement from these alone.
+ function findPlanMemberStrokes({labels=[],analysis,grid,vector}={}){
+  const out={candidates:[],singleStrokes:[],review:[],inspected:0,
+   limited:false,status:"review_only"};
+  const deny=(reasonCode,reason)=>{for(const label of labels.slice(0,250))
+   out.review.push({label,reasonCode,reason});return out};
+  if(!analysis?.calibrated||!analysis.fitX||!analysis.fitY||!grid?.x||!grid?.y)
+   return deny("uncalibrated","Требуется подтверждённая калибровка осей");
+  if(!Array.isArray(vector?.segments)||!(vector.widthPt>0)||!(vector.heightPt>0)||
+    Number(vector.rotation||0)!==0||
+    vector.stats?.truncated===true&&vector.stats?.axisEvidenceComplete!==true)
+   return deny("incomplete_geometry","Векторные данные неполные или PDF повёрнут");
+  const fx=analysis.fitX,fy=analysis.fitY;
+  if(!Number.isFinite(fx.scale)||!Number.isFinite(fy.scale)||
+   fx.scale<=0||fy.scale>=0)return deny("invalid_transform","Масштаб сетки недостоверен");
+  const width=Number(vector.widthPt),height=Number(vector.heightPt),
+   region=analysis.region||{left:0,top:0,right:1,bottom:1};
+  const within=(x,y)=>x>=width*region.left&&x<=width*region.right&&
+   y>=height*region.top&&y<=height*region.bottom;
+  const axisX=(analysis.xMatches||[]).map(a=>Number(a.pagePt)),
+   axisY=(analysis.yMatches||[]).map(a=>Number(a.pagePt));
+  const mm=(pt,fit)=>Math.round((pt-fit.offset)/fit.scale);
+  const sqDist=(x1,y1,x2,y2)=>(x1-x2)**2+(y1-y2)**2;
+  const pointToSegment=(x,y,seg)=>{
+   const dx=seg.x2-seg.x1,dy=seg.y2-seg.y1,den=dx*dx+dy*dy;
+   if(!den)return Infinity;
+   const t=Math.max(0,Math.min(1,((x-seg.x1)*dx+(y-seg.y1)*dy)/den));
+   return Math.hypot(x-(seg.x1+t*dx),y-(seg.y1+t*dy))
+  };
+  const validSegment=seg=>{
+   if(!seg||![seg.x1,seg.y1,seg.x2,seg.y2].every(Number.isFinite))return false;
+   const len=Math.hypot(seg.x2-seg.x1,seg.y2-seg.y1);
+   if(len<12||len>Math.max(width,height)*1.1||
+     !within(seg.x1,seg.y1)||!within(seg.x2,seg.y2))return false;
+   // Full or fragmented grid axes are not member silhouettes.
+   const alignedX=Math.abs(seg.x2-seg.x1)<=2&&
+    axisX.some(v=>Math.abs((seg.x1+seg.x2)/2-v)<=3);
+   const alignedY=Math.abs(seg.y2-seg.y1)<=2&&
+    axisY.some(v=>Math.abs((seg.y1+seg.y2)/2-v)<=3);
+   return !alignedX&&!alignedY
+  };
+  const strokes=vector.segments.slice(0,2400).filter(validSegment).map((seg,i)=>{
+   const dx=seg.x2-seg.x1,dy=seg.y2-seg.y1,
+    length=Math.hypot(dx,dy),ux=dx/length,uy=dy/length;
+   return{...seg,key:i,length,ux,uy}
+  });
+  out.inspected=strokes.length;
+  out.limited=vector.stats?.truncated===true||vector.segments.length>2400;
+  const ordered=(seg,dir)=>{
+   const dot=seg.ux*dir.ux+seg.uy*dir.uy;
+   return dot>=0?[[seg.x1,seg.y1],[seg.x2,seg.y2]]:
+    [[seg.x2,seg.y2],[seg.x1,seg.y1]]
+  };
+  const comparePair=(a,b)=>{
+   const cos=Math.abs(a.ux*b.ux+a.uy*b.uy);
+   if(cos<.999||Math.abs(a.length-b.length)>Math.max(12,Math.max(a.length,b.length)*.20))
+    return null;
+   const [a0,a1]=ordered(a,a),[b0,b1]=ordered(b,a);
+   // Perpendicular spacing between plausible outline edges in PAGE points.
+   const perpendicular=Math.abs((b0[0]-a0[0])*a.uy-
+    (b0[1]-a0[1])*a.ux);
+   if(perpendicular<.7||perpendicular>10)return null;
+   const startShift=Math.hypot(a0[0]-b0[0],a0[1]-b0[1]);
+   const endShift=Math.hypot(a1[0]-b1[0],a1[1]-b1[1]);
+   if(startShift>Math.max(13,a.length*.23)||
+      endShift>Math.max(13,a.length*.23))return null;
+   const x1=(a0[0]+b0[0])/2,y1=(a0[1]+b0[1])/2,
+    x2=(a1[0]+b1[0])/2,y2=(a1[1]+b1[1])/2;
+   return{page:{x1,y1,x2,y2},
+    lineMm:{x1:mm(x1,fx),y1:mm(y1,fy),x2:mm(x2,fx),y2:mm(y2,fy)},
+    gapPt:Math.round(perpendicular*100)/100,
+    strokeKeys:[a.key,b.key].sort((x,y)=>x-y).join(":")}
+  };
+  for(const label of labels.slice(0,250)){
+   const x=Number(label.pageX),y=Number(label.pageY);
+   if(!Number.isFinite(x)||!Number.isFinite(y)||!within(x,y)){
+    out.review.push({label,reasonCode:"outside_plan",
+     reason:"Надпись находится вне выбранного плана"});continue
+   }
+   // Candidate search is local to each PDF label: bounded and offline.
+   const closest=strokes.map(seg=>({seg,d:pointToSegment(x,y,seg)}))
+    .filter(item=>item.d<=24).sort((a,b)=>a.d-b.d).slice(0,70);
+   const possible=[];
+   for(let i=0;i<closest.length;i++)for(let j=i+1;j<closest.length;j++){
+    const a=closest[i].seg,b=closest[j].seg,shape=comparePair(a,b);
+    if(!shape)continue;
+    const distance=pointToSegment(x,y,shape.page);
+    if(distance>24)continue;
+    possible.push({...shape,distance,score:distance+shape.gapPt*.08})
+   }
+   possible.sort((a,b)=>a.score-b.score);
+   if(!possible.length){
+    if(closest.length){
+     const first=closest[0],p=first.seg;
+     out.singleStrokes.push({label,mark:label.mark,markId:label.markId,
+      lineMm:{x1:mm(p.x1,fx),y1:mm(p.y1,fy),
+       x2:mm(p.x2,fx),y2:mm(p.y2,fy)},
+      distancePt:Math.round(first.d*10)/10,
+      status:"single_stroke_only",exactPlacement:false})
+     out.review.push({label,reasonCode:"single_stroke",
+      reason:"Поблизости есть отдельные линии, но парный контур не подтверждён"})
+    }else out.review.push({label,reasonCode:"no_strokes",
+     reason:"Рядом с надписью не найдено подходящих векторных линий"});
+    continue
+   }
+   if(possible[1]&&possible[1].strokeKeys!==possible[0].strokeKeys&&
+      possible[1].score-possible[0].score<=2){
+    out.review.push({label,reasonCode:"multiple_outlines",
+     reason:"Рядом с маркой несколько похожих графических контуров"});continue
+   }
+   const best=possible[0],line=best.lineMm;
+   out.candidates.push({label,mark:label.mark,markId:label.markId,
+    evidenceType:"parallel_strokes",strokeKeys:best.strokeKeys,
+    lineMm:line,lengthMm:Math.round(Math.hypot(
+     line.x2-line.x1,line.y2-line.y1)),
+    strokeGapPt:best.gapPt,distancePt:Math.round(best.distance*10)/10,
+    status:"geometry_only_requires_review",geometryType:"unknown",
+    partOfActualMember:false,exactPlacement:false,
+    reason:"Парные графические линии PDF; тип и монтажные координаты не доказаны"})
+  }
+  const byStrokes=new Map();
+  for(const candidate of out.candidates){
+   if(!byStrokes.has(candidate.strokeKeys))byStrokes.set(candidate.strokeKeys,[]);
+   byStrokes.get(candidate.strokeKeys).push(candidate)
+  }
+  for(const group of byStrokes.values())if(group.length>1){
+   for(const c of group)out.review.push({label:c.label,
+    reasonCode:"shared_strokes",reason:"Одни графические линии соответствуют нескольким надписям"});
+   out.candidates=out.candidates.filter(c=>!group.includes(c))
+  }
+  out.summary=Object.entries(out.review.reduce((a,v)=>{
+   a[v.reasonCode]=(a[v.reasonCode]||0)+1;return a
+  },{})).map(([reason,count])=>({reason,count}));
+  return out
+ }
+
  function createPage(){
   let latest=[],candidates=[],batch=null,verifiedPreview=null,
    lastOperation=null,inventory=null,draftRows=[],
@@ -1589,7 +1729,7 @@
   };
   return page
  }
- const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates};
+ const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes};
  if(typeof module!=="undefined"&&module.exports)module.exports=exported;
  if(root&&typeof root==="object")root.irAiSchemeLitePage=createPage()
 })(typeof window!=="undefined"?window:null);
