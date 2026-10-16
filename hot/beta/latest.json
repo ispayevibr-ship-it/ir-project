@@ -1,7 +1,7 @@
 {
   "channel": "beta",
   "baseVersion": "1.7.224",
-  "version": "1.7.224.85",
+  "version": "1.7.224.86",
   "branch": "feature/ir-project-ai-next",
   "description": "IR Project AI Beta hot fixes: no full EXE",
   "files": [
@@ -260,8 +260,8 @@
     {
       "source": "src/ai-pdf-vector-paths.js",
       "target": "src/ai-pdf-vector-paths.js",
-      "size": 7248,
-      "sha256": "99cf1ed27d74c9ac2df5b99d87d7144687b9738866c86929bac1308ec8f34c46"
+      "size": 8170,
+      "sha256": "59e84974be2425e0c98b2ba80592215c008b94fd0864d16db4eb21873e5becee"
     },
     {
       "source": "src/ai-pdf-vector-worker.js",
