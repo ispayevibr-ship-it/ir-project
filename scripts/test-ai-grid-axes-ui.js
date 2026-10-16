@@ -13,11 +13,14 @@ const make=(text,x,y)=>({text,x:x-4,y:height-y-5,width:8,height:10});
 for(let i=0;i<4;i++)labels.push(make(String(i+1),40+i*60,340));
 for(let i=0;i<4;i++)labels.push(make(["А","Б","В","Г"][i],20,310-i*60));
 labels.push({text:"Колонна К62",x:105,y:215,width:10,height:10});
+labels.push(make("К62",140,205));
 const segments=[
  ...Array.from({length:4},(_,i)=>({
   x1:40+i*60,x2:40+i*60,y1:45,y2:330,direction:"vertical"})),
  ...Array.from({length:4},(_,i)=>({
-  x1:32,x2:270,y1:310-i*60,y2:310-i*60,direction:"horizontal"}))
+  x1:32,x2:270,y1:310-i*60,y2:310-i*60,direction:"horizontal"})),
+ ...[{x1:112,y1:214,x2:168,y2:214,direction:"horizontal",lengthPt:56},
+     {x1:112,y1:219,x2:168,y2:219,direction:"horizontal",lengthPt:56}]
 ];
 const wait=async f=>{
  for(let i=0;i<100;i++){if(f())return;await new Promise(r=>setImmediate(r))}
@@ -48,7 +51,7 @@ const wait=async f=>{
    heightPt:height,rotation:0,segments}
  }};
  const sections={section:name=>({
-  marks:{list:async()=>[]},
+  marks:{list:async()=>[{id:55,title:"К62",data:{mark:"К62"}}]},
   scheme:{list:async()=>[grid],create:async()=>{schemeWrites++;}},
   "work-types":{list:async()=>[]}
  })[name]};
@@ -65,6 +68,9 @@ const wait=async f=>{
  assert(axis.innerHTML.includes("Y: 4/4"),axis.innerHTML);
  assert(axis.innerHTML.includes("Надписи марок в ячейках сетки"),axis.innerHTML);
  assert(axis.innerHTML.includes("Зона надписи; положение конструкции не определено"),axis.innerHTML);
+ assert(axis.innerHTML.includes("Векторные контуры возле марок"),axis.innerHTML);
+ assert(axis.innerHTML.includes("Возможный парный контур"),axis.innerHTML);
+ assert(axis.innerHTML.includes("К62"),axis.innerHTML);
  assert.equal(schemeWrites,0,"grid calibration is read-only");
  assert.equal(geometryCalls,1);
  ui.dispose();
