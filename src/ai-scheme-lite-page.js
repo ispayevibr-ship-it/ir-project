@@ -1357,6 +1357,73 @@
   })
  }
 
+
+ // Automatically inspect every independent diagram on a sheet. The PDF
+ // text/index is a prerequisite, not a final location result. X/Y/Z remain
+ // unfilled until a drawing explicitly proves a particular member placement.
+ function reviewIndexedPlanPage({raw,vector,grid,marks=[],documentId,sha256,page,
+   sheetType="plan"}={}){
+  const out={regions:[],reason:"",calibrated:0,foundLabels:0,
+   contourHints:0,dimensionHints:0,readyForPlacement:0,readOnly:true};
+  if(["section","detail"].includes(sheetType)){
+   out.reason="Разрез/деталь: повторные подписи не считаются монтажными экземплярами";
+   return out
+  }
+  if(!grid?.x||!grid?.y){
+   out.reason="Нет сохранённой сетки осей проекта";return out
+  }
+  if(!Array.isArray(vector?.segments)||Number(vector.rotation||0)!==0||
+     !(Number(vector.widthPt)>0)||!(Number(vector.heightPt)>0)){
+   out.reason="Нет неповёрнутой векторной графики PDF";return out
+  }
+  const zones={
+   full:{left:0,top:0,right:1,bottom:1},
+   left:{left:0,top:0,right:.5,bottom:1},
+   right:{left:.5,top:0,right:1,bottom:1}
+  };
+  const cache=new Map();
+  const calibrate=name=>{
+   if(!cache.has(name))cache.set(name,detectPlanGridAxes({
+    raw,vector,grid,region:zones[name]}));
+   return cache.get(name)
+  };
+  const selection=selectPlanRegion({selected:"auto",calibrate});
+  const selected=selection.multiplePlans?["left","right"]:
+   selection.analysis?.calibrated?[selection.regionName]:[];
+  if(!selected.length){
+   out.reason=selection.analysis?.reason||"Подписи осей не согласованы с сеткой";
+   return out
+  }
+  for(const name of selected){
+   const analysis=calibrate(name);
+   if(!analysis.calibrated)continue;
+   const region=extractPlanInstances({raw,marks,documentId,sha256,page,
+    region:name,widthPt:vector.widthPt,heightPt:vector.heightPt,sheetType});
+   const labels=region.labels.map(x=>({
+    mark:x.mark,markId:x.markId,labelText:x.labelText,
+    pageX:x.pageX,pageY:Number(vector.heightPt)-x.pageYBottom,
+    rectPt:x.rectPt,fragmentIds:x.fragmentIds
+   }));
+   const contours=findPlanMemberStrokes({labels,analysis,grid,vector});
+   const links=linkInstanceOutlineEvidence({instances:region.labels,
+    registeredLabels:labels,outlines:contours,heightPt:vector.heightPt});
+   const dimensions=inspectPdfDimensionChains({raw,vector,analysis,
+    region:zones[name]});
+   const dimensionLinks=nearDimensionEvidence({instances:region.labels,
+    dimensions,heightPt:vector.heightPt});
+   out.regions.push({name,analysis:{calibrated:true,
+    xMatches:analysis.xMatches?.length||0,yMatches:analysis.yMatches?.length||0},
+    registry:region,links,dimensions,dimensionLinks,
+    contoursLimited:!!contours.limited});
+   out.calibrated++;out.foundLabels+=region.total;
+   out.contourHints+=links.summary.contour_candidate||0;
+   out.dimensionHints+=dimensions.candidates.length
+  }
+  out.reason=out.calibrated? "Оси соотнесены с графикой. X/Y/Z конструкций требуют проверки.":
+   "Не удалось откалибровать оси независимо для каждого плана";
+  return out
+ }
+
  function linkInstanceOutlineEvidence({instances=[],registeredLabels=[],outlines={},
    heightPt}={}){
   const labels=Array.isArray(registeredLabels)?registeredLabels:[],
@@ -2616,7 +2683,7 @@
   };
   return page
  }
- const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes,selectPlanRegion,extractPlanInstances,linkInstanceOutlineEvidence,inspectPdfDimensionChains,nearDimensionEvidence};
+ const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes,selectPlanRegion,extractPlanInstances,linkInstanceOutlineEvidence,inspectPdfDimensionChains,nearDimensionEvidence,reviewIndexedPlanPage};
  if(typeof module!=="undefined"&&module.exports)module.exports=exported;
  if(root&&typeof root==="object")root.irAiSchemeLitePage=createPage()
 })(typeof window!=="undefined"?window:null);
