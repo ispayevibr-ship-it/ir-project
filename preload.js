@@ -14,7 +14,11 @@ const aiDocuments={
  list:objectId=>ipcRenderer.invoke("ai-documents:list",objectId),
  select:(objectId,kind)=>ipcRenderer.invoke("ai-documents:select",{objectId,kind}),
  open:(objectId,id)=>ipcRenderer.invoke("ai-documents:open",{objectId,id}),
- remove:(objectId,id)=>ipcRenderer.invoke("ai-documents:remove",{objectId,id})
+ impact:(objectId,id)=>ipcRenderer.invoke("ai-documents:impact",{objectId,id}),
+ remove:(objectId,id,opts={})=>ipcRenderer.invoke("ai-documents:remove",{
+  objectId,id,discardUnreviewed:opts.discardUnreviewed===true,
+  expectedAnalysisIds:Array.isArray(opts.expectedAnalysisIds)?opts.expectedAnalysisIds:[]
+ })
 };
 const aiPdf={
  list:objectId=>ipcRenderer.invoke("ai-pdf:list",objectId),
