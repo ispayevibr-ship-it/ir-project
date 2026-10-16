@@ -318,6 +318,120 @@
    Number(c.source?.page)===Number(d.source?.page)&&
    norm(c.mark)===norm(d.mark)&&String(c.type)===String(d.extractedType)
  }
+
+ // Match axis LABELS to actual long vector strokes on one original PDF sheet.
+ // Returned calibration only describes page-to-grid alignment candidates.
+ // No label/line evidence -> no millimetre transform and no placement.
+ function detectPlanGridAxes({raw,vector,grid}={}){
+  const reject=(reason,extra={})=>({calibrated:false,reason,
+   xMatches:[],yMatches:[],...extra});
+  if(!grid?.x||!grid?.y||!Array.isArray(vector?.segments))
+   return reject("Сохранённая сетка или векторная геометрия недоступна");
+  const width=Number(vector.widthPt),height=Number(vector.heightPt);
+  if(!(width>0&&height>0)||Number(vector.rotation||0)!==0)
+   return reject("Для автоматической калибровки нужен неповёрнутый векторный план");
+  const labels=Array.isArray(raw?.fragments)?raw.fragments:[];
+  if(!labels.length)return reject("На листе нет текстовых фрагментов с обозначениями осей");
+  const canon=x=>String(x||"").toLocaleUpperCase("ru-RU").trim()
+   .replace(/^[№#]\s*/,"").replace(/^(?:ОСЬ|ОСИ|AXIS)\s*[:№-]?\s*/iu,"")
+   .replace(/A/g,"А").replace(/B/g,"В").replace(/C/g,"С").replace(/K/g,"К")
+   .replace(/M/g,"М").trim();
+  const axesX=new Map([...grid.x].map(([name,mm])=>[canon(name),{name,mm}]));
+  const axesY=new Map([...grid.y].map(([name,mm])=>[canon(name),{name,mm}]));
+  const vertical=vector.segments.filter(s=>s.direction==="vertical"&&
+   Math.abs(Number(s.y2)-Number(s.y1))>=height*0.24),
+   horizontal=vector.segments.filter(s=>s.direction==="horizontal"&&
+   Math.abs(Number(s.x2)-Number(s.x1))>=width*0.24);
+  const valid=labels.filter(f=>f&&typeof f.text==="string"&&
+   ["x","y","width","height"].every(k=>Number.isFinite(Number(f[k])))&&
+   Number(f.width)>=0&&Number(f.height)>=0).slice(0,1800);
+  // A dimension value printed somewhere in the middle of a drawing is NOT
+  // an axis label. Require it near an endpoint of a long axis line.
+  const find=(map,lines,orientation)=>{
+   const found=[],conflicts=new Set();
+   const tol=orientation==="vertical"?Math.max(9,Math.min(22,width*.02)):
+    Math.max(9,Math.min(22,height*.02));
+   const endTol=orientation==="vertical"?Math.max(24,Math.min(60,height*.07)):
+    Math.max(24,Math.min(60,width*.07));
+   for(const fragment of valid){
+    const text=canon(fragment.text);
+    if(!map.has(text))continue;
+    const x=Number(fragment.x)+Number(fragment.width)/2,
+      y=height-(Number(fragment.y)+Number(fragment.height)/2);
+    const choices=[];
+    for(const line of lines){
+     const p=orientation==="vertical"?Number(line.x1):Number(line.y1);
+     const perpendicular=Math.abs((orientation==="vertical"?x:y)-p);
+     const start=orientation==="vertical"?Number(line.y1):Number(line.x1);
+     const stop=orientation==="vertical"?Number(line.y2):Number(line.x2);
+     const along=orientation==="vertical"?y:x;
+     const endpoint=Math.min(Math.abs(along-start),Math.abs(along-stop));
+     if(perpendicular<=tol&&endpoint<=endTol)
+      choices.push({pagePt:p,perpendicular,endpoint,
+       score:perpendicular+endpoint*.18});
+    }
+    choices.sort((a,b)=>a.score-b.score);
+    if(!choices.length)continue;
+    if(choices[1]&&Math.abs(choices[1].pagePt-choices[0].pagePt)>5&&
+       choices[1].score-choices[0].score<2.5){
+     conflicts.add(text);continue
+    }
+    found.push({...map.get(text),pagePt:choices[0].pagePt,
+     fragmentText:fragment.text,fragmentCenter:{x,y},score:choices[0].score})
+   }
+   const byName=new Map();
+   for(const item of found){
+    if(conflicts.has(canon(item.name)))continue;
+    const key=canon(item.name),old=byName.get(key);
+    if(old&&Math.abs(old.pagePt-item.pagePt)>3){
+     conflicts.add(key);byName.delete(key);continue
+    }
+    if(!old||item.score<old.score)byName.set(key,item)
+   }
+   for(const name of conflicts)byName.delete(name);
+   const list=[...byName.values()].sort((a,b)=>a.mm-b.mm);
+   const used=new Set();
+   for(const item of list){
+    const p=Math.round(item.pagePt);
+    if(used.has(p))return{matches:[],ambiguous:true};
+    used.add(p)
+   }
+   return{matches:list,ambiguous:conflicts.size>0}
+  };
+  const x=find(axesX,vertical,"vertical"),
+    y=find(axesY,horizontal,"horizontal");
+  const summary={xMatches:x.matches,yMatches:y.matches,
+   xTotal:grid.axesX?.length??grid.x.size,yTotal:grid.axesY?.length??grid.y.size,
+   vectorLines:{vertical:vertical.length,horizontal:horizontal.length}};
+  if(x.matches.length<3||y.matches.length<3)
+   return reject("Для калибровки нужно не менее трёх подписанных осей каждого направления",summary);
+  if(x.ambiguous||y.ambiguous)
+   return reject("Есть неоднозначные совпадения подписей с линиями осей",summary);
+  const fit=items=>{
+   const n=items.length,meanMm=items.reduce((sum,a)=>sum+a.mm,0)/n,
+    meanPt=items.reduce((sum,a)=>sum+a.pagePt,0)/n,
+    spread=items.reduce((sum,a)=>sum+(a.mm-meanMm)**2,0);
+   if(spread<=0)return null;
+   const scale=items.reduce((sum,a)=>sum+(a.mm-meanMm)*(a.pagePt-meanPt),0)/spread,
+    offset=meanPt-scale*meanMm;
+   const residuals=items.map(a=>Math.abs(a.pagePt-(offset+scale*a.mm)));
+   return{scale,offset,residualPt:Math.max(...residuals)}
+  };
+  const fx=fit(x.matches),fy=fit(y.matches);
+  if(!fx||!fy||fx.scale<=0||fy.scale>=0)
+   return reject("Ориентация осей на листе отличается от 1–6 слева направо и А–Л снизу вверх",summary);
+  const rate=Math.abs(Math.abs(fx.scale)-Math.abs(fy.scale))/
+   Math.max(Math.abs(fx.scale),Math.abs(fy.scale));
+  if(rate>.07||fx.residualPt>3||fy.residualPt>3)
+   return reject("Масштаб осей или размерные шаги PDF не совпадают с сохранённой сеткой",{
+    ...summary,fitX:fx,fitY:fy});
+  // Geometry evidence is sufficient to propose a transform for review;
+  // this is NOT authorisation to infer mark locations or auto-place objects.
+  return{calibrated:true,reviewRequired:true,reason:"Привязки осей согласуются с сеткой. Требуется проверка инженера",
+   ...summary,fitX:fx,fitY:fy,scaleMismatch:rate,
+   transform:{x:{ptAtZero:fx.offset,ptPerMm:fx.scale},
+    y:{ptAtZero:fy.offset,ptPerMm:fy.scale}}}
+ }
  function createPage(){
   let latest=[],candidates=[],batch=null,verifiedPreview=null,
    lastOperation=null,inventory=null,draftRows=[],
@@ -907,7 +1021,7 @@
   };
   return page
  }
- const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft};
+ const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes};
  if(typeof module!=="undefined"&&module.exports)module.exports=exported;
  if(root&&typeof root==="object")root.irAiSchemeLitePage=createPage()
 })(typeof window!=="undefined"?window:null);
