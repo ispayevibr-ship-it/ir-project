@@ -1314,11 +1314,15 @@
    // Source PDF often paints the SAME segment twice. Dedup geometrically.
    const unique=[];
    for(const choice of possibilities){
-    const same=unique.some(a=>a.orientation===choice.orientation&&
-      Math.hypot(a.linePt.x1-choice.linePt.x1,
-       a.linePt.y1-choice.linePt.y1)+
-      Math.hypot(a.linePt.x2-choice.linePt.x2,
-       a.linePt.y2-choice.linePt.y2)<2);
+    const same=unique.some(a=>{
+     if(a.orientation!==choice.orientation)return false;
+     const p=a.linePt,q=choice.linePt,
+      direct=Math.hypot(p.x1-q.x1,p.y1-q.y1)+
+       Math.hypot(p.x2-q.x2,p.y2-q.y2),
+      reversed=Math.hypot(p.x1-q.x2,p.y1-q.y2)+
+       Math.hypot(p.x2-q.x1,p.y2-q.y1);
+     return Math.min(direct,reversed)<2
+    });
     if(!same)unique.push(choice)
    }
    const close=unique.filter(x=>x.score-unique[0].score<.018);
