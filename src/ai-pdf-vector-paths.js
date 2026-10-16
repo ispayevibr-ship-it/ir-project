@@ -24,6 +24,24 @@ function extractSegments(operatorList,OPS,viewport,{minLengthPt=12}={}){
   examinedSegments:0,storedSegments:0,truncated:false,skippedCurves:0,
   horizontal:0,vertical:0,diagonal:0,ignoredPaints:0};
  const segments=[],seen=new Set(),stack=[];
+ // Extract dashed/fragmented axis evidence in parallel with the limited
+ // longest-strokes preview, using bounded page-point histograms.
+ const bandBins={horizontal:new Map(),vertical:new Map()};
+ let bandIncomplete=false;
+ function aggregate(direction,pos,lo,hi,length){
+  if(length<2)return;
+  const map=bandBins[direction],key=Math.round(pos);
+  let band=map.get(key);
+  if(!band){
+   if(bandBins.horizontal.size+bandBins.vertical.size>=12000){
+    bandIncomplete=true;return
+   }
+   band={pos:key,lo,hi,count:0,support:0};
+   map.set(key,band)
+  }
+  band.lo=Math.min(lo,band.lo);band.hi=Math.max(hi,band.hi);
+  band.count++;band.support+=length
+ }
  // A heavy KMD page may contain tens of thousands of decorative strokes.
  // Keep the longest 2400 using a min-heap rather than the FIRST 2400,
  // so drawing order cannot hide long structural grid lines.
@@ -56,11 +74,14 @@ function extractSegments(operatorList,OPS,viewport,{minLengthPt=12}={}){
   const [x1,y1,x2,y2]=entry;
   if(!entry.every(finite))return;
   const len=Math.hypot(x2-x1,y2-y1);
-  if(len<minLengthPt||len>Math.max(viewport.width,viewport.height)*4)return;
+  if(len<2||len>Math.max(viewport.width,viewport.height)*4)return;
   if(Math.min(x1,x2)<-10||Math.min(y1,y2)<-10||
    Math.max(x1,x2)>viewport.width+10||Math.max(y1,y2)>viewport.height+10)return;
   const direction=Math.abs(y2-y1)<=1?"horizontal":
    Math.abs(x2-x1)<=1?"vertical":"diagonal";
+  if(direction==="vertical")aggregate(direction,(x1+x2)/2,Math.min(y1,y2),Math.max(y1,y2),len);
+  if(direction==="horizontal")aggregate(direction,(y1+y2)/2,Math.min(x1,x2),Math.max(x1,x2),len);
+  if(len<minLengthPt)return;
   const q=entry.map(rounded);
   const first=q.slice(0,2),second=q.slice(2);
   const signature=[...((first[0]<second[0]||(first[0]===second[0]&&first[1]<=second[1]))?
@@ -93,7 +114,7 @@ function extractSegments(operatorList,OPS,viewport,{minLengthPt=12}={}){
   };
   for(let k=0;k<ops.length;k++){
    stats.pathCommands++;
-   if(stats.pathCommands>MAX_PATH_COMMANDS){stats.truncated=true;return}
+   if(stats.pathCommands>MAX_PATH_COMMANDS){stats.truncated=true;bandIncomplete=true;return}
    const op=ops[k];
    if(op===OPS.moveTo){const v=param(2);if(!v)break;move(...v)}
    else if(op===OPS.lineTo){const v=param(2);if(!v)break;line(...v)}
@@ -111,7 +132,7 @@ function extractSegments(operatorList,OPS,viewport,{minLengthPt=12}={}){
     const count=op===OPS.curveTo?6:4,v=param(count);
     if(!v)break;stats.skippedCurves++;
     current=toPage(v[v.length-2],v[v.length-1])
-   }else{stats.truncated=true;break}
+   }else{stats.truncated=true;bandIncomplete=true;break}
   }
  }
  /* pdfjs-dist >= 5 uses packed DrawOPS inside a single constructPath:
@@ -137,7 +158,7 @@ function extractSegments(operatorList,OPS,viewport,{minLengthPt=12}={}){
   while(i<data.length){
    stats.pathCommands++;
    if(stats.pathCommands>MAX_PATH_COMMANDS||path.length>10000){
-    stats.truncated=true;path=[];return true
+    stats.truncated=true;bandIncomplete=true;path=[];return true
    }
    const kind=data[i++];
    if(kind===0){const p=read(2);if(!p)break;move(...p)}
@@ -149,7 +170,7 @@ function extractSegments(operatorList,OPS,viewport,{minLengthPt=12}={}){
    else if(kind===4){
     if(current&&begin)path.push([...current,...begin]);
     current=begin
-   }else{stats.truncated=true;break}
+   }else{stats.truncated=true;bandIncomplete=true;break}
   }
   if(strokeOps.has(op))for(const entry of path)store(entry);
   else stats.ignoredPaints++;
@@ -175,12 +196,35 @@ function extractSegments(operatorList,OPS,viewport,{minLengthPt=12}={}){
    if(op===OPS.fill||op===OPS.eoFill||op===OPS.endPath)path=[];
   }
  }
- if(operatorList.fnArray.length>MAX_OPERATORS)stats.truncated=true;
+ if(operatorList.fnArray.length>MAX_OPERATORS){
+  stats.truncated=true;bandIncomplete=true
+ }
+ const axisBands={vertical:[],horizontal:[]};
+ for(const direction of ["vertical","horizontal"]){
+  for(const band of bandBins[direction].values()){
+   const span=band.hi-band.lo;
+   if(span<90||band.count<5||band.support<Math.max(35,span*.16))continue;
+   const p=band.pos;
+   axisBands[direction].push(direction==="vertical"?
+    {x1:p,x2:p,y1:rounded(band.lo),y2:rounded(band.hi),direction,
+     sampleCount:band.count,supportLengthPt:rounded(band.support),
+     source:"aligned_stroke_evidence"}:
+    {x1:rounded(band.lo),x2:rounded(band.hi),y1:p,y2:p,direction,
+     sampleCount:band.count,supportLengthPt:rounded(band.support),
+     source:"aligned_stroke_evidence"})
+  }
+  axisBands[direction].sort((a,b)=>b.supportLengthPt-a.supportLengthPt);
+  if(axisBands[direction].length>700){
+   axisBands[direction].length=700;bandIncomplete=true
+  }
+ }
+ stats.axisEvidenceComplete=!bandIncomplete;
+ stats.axisBandCount=axisBands.vertical.length+axisBands.horizontal.length;
  stats.storedSegments=segments.length;
  for(const item of segments)stats[item.direction]++;
  segments.sort((a,b)=>b.lengthPt-a.lengthPt);
  for(const item of segments)delete item.signature;
- return{segments,stats,coordinateSystem:"viewport_points_top_left",
+ return{segments,axisBands,stats,coordinateSystem:"viewport_points_top_left",
   widthPt:rounded(viewport.width),heightPt:rounded(viewport.height),
   note:"Векторные штрихи PDF, не оси и не подтверждённые координаты монтажа"}
 }
