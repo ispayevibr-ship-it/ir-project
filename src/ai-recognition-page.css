@@ -295,3 +295,29 @@
  font-size:11px;line-height:1.5;color:#40647c;margin:0 0 12px;padding:8px 12px;
  background:#f7fafc;border:1px solid #d9e5ed;border-radius:8px}
 .ir-ai-acceleration-state b{color:#1d587e;font-weight:800}
+
+/* Lite AI to erection scheme: existing source data and engineering review first. */
+.ir-ai-lite{display:grid;gap:14px;min-width:0}
+.ir-ai-lite-toolbar{display:flex;flex-wrap:wrap;gap:9px}
+.ir-ai-lite-toolbar button,.ir-ai-lite-actions button{background:#e9f4fd;color:#285d80;border:1px solid #b9d5e7;border-radius:8px;padding:9px 12px;font-size:12px;font-weight:750;cursor:pointer}
+.ir-ai-lite-toolbar [data-lite-scan],.ir-ai-lite-actions button{background:#1676bd;color:white;border-color:#1676bd}
+.ir-ai-lite-toolbar button:disabled,.ir-ai-lite-actions button:disabled{opacity:.48;cursor:not-allowed}
+.ir-ai-lite [data-lite-status]{padding:10px 12px;border:1px solid #c7dce9;background:#f1f8fc;color:#315e79;border-radius:8px;font-size:12px}
+.ir-ai-lite-counts{display:flex;flex-wrap:wrap;gap:9px}
+.ir-ai-lite-counts span{border:1px solid #dce7ef;border-radius:8px;padding:10px 13px;background:#fff;font-size:12px;color:#55758b}
+.ir-ai-lite-counts b{font-size:15px;color:#214e6c}
+.ir-ai-lite-docs{display:grid;gap:6px;max-height:170px;overflow:auto;border:1px solid #e0eaf0;border-radius:8px;padding:10px}
+.ir-ai-lite-docs>div{font-size:11px;color:#617c90}
+.ir-ai-lite-candidates{display:grid;gap:12px;min-width:0}
+.ir-ai-lite-candidate{border:1px solid #d4e1e8;border-radius:10px;padding:13px;background:white;display:grid;gap:10px}
+.ir-ai-lite-candidate-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;color:#254f69}
+.ir-ai-lite-candidate-head b{font-size:14px}
+.ir-ai-lite-candidate-head button{background:#f1f8fc;border:1px solid #cadfeb;border-radius:7px;padding:7px 10px;cursor:pointer;font-size:11px;color:#366986}
+.ir-ai-lite-candidate>small{font-size:11px;color:#7b8490}
+.ir-ai-lite-evidence{display:flex;gap:6px;flex-wrap:wrap}
+.ir-ai-lite-evidence span{display:inline-block;border:1px solid #e0e8ed;border-radius:6px;background:#f7fafb;padding:5px 8px;font-size:10px;color:#556e7d;max-width:100%;overflow-wrap:anywhere}
+.ir-ai-lite-edit{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.ir-ai-lite-edit label{display:grid;gap:5px;font-size:11px;color:#60798b}
+.ir-ai-lite-edit input,.ir-ai-lite-edit select{min-width:0;width:100%;box-sizing:border-box;border:1px solid #cfdde5;border-radius:7px;background:#fff;padding:8px 9px;font-size:12px;color:#254e69}
+.ir-ai-lite-actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+.ir-ai-lite-actions small{font-size:10px;color:#718da1}
