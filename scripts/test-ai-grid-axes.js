@@ -1,6 +1,6 @@
 "use strict";
 const assert=require("node:assert/strict");
-const {detectPlanGridAxes,axisGeometry,locateMarkLabelZones}=require("../src/ai-scheme-lite-page");
+const {detectPlanGridAxes,axisGeometry,locateMarkLabelZones,detectPlanRegisterLabels}=require("../src/ai-scheme-lite-page");
 const grid=axisGeometry([{record_type:"scheme_grid",data:{entity_type:"grid",
  axes_x:["1","2","3","4"],x_spans_mm:[6000,6000,6000],
  axes_y:["А","Б","В","Г"],y_spans_mm:[6000,6000,6000]}}]);
@@ -123,3 +123,40 @@ const partialSecondPlan=[...fragments,...[1,2,3].map((n,i)=>
 assert.equal(detect(partialSecondPlan).calibrated,false,
  'disjoint secondary label row is not silently absorbed into the primary plan');
 console.log('Axis label rows: section callouts excluded; disjoint second plans rejected PASS');
+
+
+// Position-finding in a plan must use ONLY registered marks, and must
+// never convert the center of a printed label into a placement payload.
+const planLabels=[
+ labelAndReturn("К62",112,220),
+ labelAndReturn("К62",112.5,220),
+ labelAndReturn("В74",175,176),
+ labelAndReturn("К999",150,190),
+ labelAndReturn("К",125,230),
+ labelAndReturn("62",133,230),
+ labelAndReturn("К62",440,220)
+];
+const allowedMarks=[{id:101,title:"К62",data:{mark:"К62"}},
+ {id:102,title:"В74",data:{mark:"В74"}}];
+const foundMarks=detectPlanRegisterLabels({raw:{fragments:planLabels},
+ analysis:onlyLeft,grid,marks:allowedMarks,widthPt,heightPt});
+assert.equal(foundMarks.labels.length,3,JSON.stringify(foundMarks));
+assert.deepEqual(foundMarks.labels.map(x=>x.mark),["К62","В74","К62"]);
+assert.equal(foundMarks.labels[0].markId,101);
+assert.equal(foundMarks.labels[0].exactPlacement,false);
+assert.equal(foundMarks.labels[0].status,"label_only_requires_review");
+assert.deepEqual(foundMarks.labels[0].axesX,{start:"2",end:"3"});
+assert.deepEqual(foundMarks.labels[0].axesY,{start:"Б",end:"В"});
+assert.equal(foundMarks.labels[0].labelXmm,7200);
+assert.equal(foundMarks.labels[0].labelYmm,9000);
+assert(!("z0Mm" in foundMarks.labels[0]),"PDF label is not a member's 3D position");
+assert.equal(detectPlanRegisterLabels({raw:{fragments:planLabels},
+ analysis:{calibrated:false},grid,marks:allowedMarks,widthPt,heightPt}).labels.length,0);
+assert.equal(detectPlanRegisterLabels({raw:{fragments:planLabels},
+ analysis:onlyLeft,grid,marks:[],widthPt,heightPt}).labels.length,0);
+const duplicatedMarkRows=[...allowedMarks,{id:103,title:"К62",data:{mark:"К62"}}];
+const ambiguousMark=detectPlanRegisterLabels({raw:{fragments:planLabels},
+ analysis:onlyLeft,grid,marks:duplicatedMarkRows,widthPt,heightPt});
+assert.deepEqual(ambiguousMark.labels.map(x=>x.mark),["В74"]);
+assert.equal(ambiguousMark.ambiguous,1);
+console.log("Registered-only KMD labels: independent/split labels, no invented placements PASS");
