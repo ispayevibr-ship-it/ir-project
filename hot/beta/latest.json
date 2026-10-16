@@ -1,7 +1,7 @@
 {
   "channel": "beta",
-  "baseVersion": "1.7.224",
-  "version": "1.7.224.94",
+  "baseVersion": "1.7.225",
+  "version": "1.7.225.99",
   "branch": "feature/ir-project-ai-next",
   "description": "IR Project AI Beta hot fixes: no full EXE",
   "files": [
@@ -26,8 +26,8 @@
     {
       "source": "src/ai-assembly-attachments-page.js",
       "target": "src/ai-assembly-attachments-page.js",
-      "size": 12638,
-      "sha256": "da017fa7495fc8a7e641ccfed443be2eed1de5846dece87d1553bbc7de6bf66c"
+      "size": 12681,
+      "sha256": "737dfff358ddcb19866369fc4d684f2c30a942f21dd6791866331b596cded242"
     },
     {
       "source": "src/ai-assembly-attachments.js",
@@ -50,8 +50,8 @@
     {
       "source": "src/ai-assembly-page.js",
       "target": "src/ai-assembly-page.js",
-      "size": 21008,
-      "sha256": "d59d69e1dfff219ba0eb96a63c04f84c03919be2156efde46b7608e7f73c432a"
+      "size": 21051,
+      "sha256": "ee482c03cefd6c56219ef41366e10ca2f9e0c1e7f810e7f838f10d99a276af6f"
     },
     {
       "source": "src/ai-assembly-viewer.js",
@@ -68,8 +68,8 @@
     {
       "source": "src/ai-compare-page.js",
       "target": "src/ai-compare-page.js",
-      "size": 16111,
-      "sha256": "465ccc1f04b7b8059b37aa9893c8d41edfd1273a4776356a8116a7010530be18"
+      "size": 16154,
+      "sha256": "c78dd1f58ad94e857065aceee2dfa74171b8ea1f080319e1e062c1af03a55ba3"
     },
     {
       "source": "src/ai-complete-backup.js",
@@ -86,8 +86,8 @@
     {
       "source": "src/ai-connections-page.js",
       "target": "src/ai-connections-page.js",
-      "size": 20556,
-      "sha256": "494fe75a9a00d027f07cfe611fdc989d82f53dfac241b130ea985a87272d449d"
+      "size": 20599,
+      "sha256": "f23cf5dbe270144db64f51321545fbc0125e0b3acfb02264e07876929c8a6047"
     },
     {
       "source": "src/ai-document-hot-loader.js",
@@ -164,8 +164,8 @@
     {
       "source": "src/ai-kmd-reference-page.js",
       "target": "src/ai-kmd-reference-page.js",
-      "size": 18311,
-      "sha256": "95ca2ae0dad898a8c355c25514553da7cc44439856c5972358759d3cc06aef65"
+      "size": 18354,
+      "sha256": "f68d30c11c165f8d3336e702af830938d85b6ff356da403aeea00513d348eb76"
     },
     {
       "source": "src/ai-kmd-reference.js",
@@ -284,8 +284,8 @@
     {
       "source": "src/ai-proposals-page.js",
       "target": "src/ai-proposals-page.js",
-      "size": 11610,
-      "sha256": "34a1dd0fa7b31f97e5198e622069b3efbf85ce2c9d33b5e73ee188e02917d8bb"
+      "size": 11653,
+      "sha256": "52decbd75d7b815e8be718963c033968612272346eba5d7d5924308dd5498f90"
     },
     {
       "source": "src/ai-publisher-trust.js",
@@ -302,8 +302,8 @@
     {
       "source": "src/ai-recognition-page.js",
       "target": "src/ai-recognition-page.js",
-      "size": 110544,
-      "sha256": "b2926b65eda6e4e8c9cc17bd9934cb942e6f3f2c5e3b24544adb3b5324ad41b2"
+      "size": 108425,
+      "sha256": "93ac28b693a03c58dda81b20d3e40c1da25c0faefa8f708c0c7ed78e077153b2"
     },
     {
       "source": "src/ai-review.js",
@@ -320,8 +320,8 @@
     {
       "source": "src/ai-revisions-page.js",
       "target": "src/ai-revisions-page.js",
-      "size": 15570,
-      "sha256": "d96bdc844ef00e9c8edce345e426e692255cde93f168365f03bc1c35874d1fc3"
+      "size": 15613,
+      "sha256": "24d2d41ab30f82d60ee5df8869e33ac2ddc7537adeed05548e95ea954eefe3fc"
     },
     {
       "source": "src/ai-runtime-diagnostics.js",
@@ -332,8 +332,8 @@
     {
       "source": "src/ai-scheme-lite-page.js",
       "target": "src/ai-scheme-lite-page.js",
-      "size": 74298,
-      "sha256": "4f03bc02948dda347db04854f1d009932b3308571df2331c1e4afea03f7d38a9"
+      "size": 72638,
+      "sha256": "96909dbaae88ed53a5f81abc03bafe144412f22eabebc49b266d30b13a77d02e"
     },
     {
       "source": "src/ai-structured-extraction.js",
@@ -356,8 +356,8 @@
     {
       "source": "src/ai-workflow-page.js",
       "target": "src/ai-workflow-page.js",
-      "size": 12755,
-      "sha256": "1c9f1e03c9a906c89d258aec4be2d54adec0913472a1f381cc16219d213e1186"
+      "size": 12798,
+      "sha256": "946571a77f9219822385303fa225d4ad966916f8e95436dfd54c608718e7a1e1"
     },
     {
       "source": "src/ai-workflow.js",
