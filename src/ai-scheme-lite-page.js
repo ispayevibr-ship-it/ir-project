@@ -1247,6 +1247,8 @@
       const page="№"+x.documentId+" · лист "+x.page;
       pages.set(page,(pages.get(page)||0)+1)
      }
+     const unknown=[...new Set([...instanceResults.values()]
+       .flatMap(x=>x.skippedUnknownMarks||[]))];
      const unscoped=instanceRows.filter(x=>x.diagramRegion==="full").length,
       suspect=instanceRows.filter(x=>x.sheetType!=="plan").length,
       limited=[...instanceResults.values()].filter(x=>x.truncated).length;
@@ -1254,9 +1256,11 @@
       '<h3>Реестр отдельных надписей марок КМД</h3>'+
       '<p>Найдено: <b>'+instanceRows.length+'</b> надписей; '+
       'разных обозначений: <b>'+counts.size+'</b>.</p>'+
-      '<p><b>Подтверждённых монтажных экземпляров: 0; готовых X/Y/Z: 0.</b> '+
+      '<p><b>В этом реестре подтверждено положений: 0; готовых X/Y/Z: 0.</b> '+
       'Надпись может повторяться в разрезах или деталях. '+
       'Каждое место текста считается отдельно, пока его не сверили с планом.</p>'+
+      (unknown.length?'<p>Не сопоставлены с ведомостью: '+unknown.length+
+       ' обозначений (не добавлены).</p>':"")+
       (unscoped?'<p>Без выбора отдельной схемы: '+unscoped+
        '. Для листов с несколькими чертежами выберите левую и правую части по очереди.</p>':"")+
       (suspect?'<p>Из разрезов/неопределённых листов: '+suspect+
@@ -1495,6 +1499,8 @@
         if(g.sourceSha256!==doc.sha256)throw Error("Устаревшая геометрия PDF");
         geometryCache.set(key,g)
        }
+       if(Number(g.rotation||0)!==0)
+        throw Error("Для повёрнутого PDF точное разделение областей пока не поддерживается");
        widthPt=g.widthPt;heightPt=g.heightPt
       }
       const result=extractPlanInstances({raw:detail.page,marks,
