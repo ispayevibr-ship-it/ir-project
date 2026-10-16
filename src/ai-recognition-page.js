@@ -582,7 +582,9 @@ window.irAiRecognitionPage=async function(objectId){
    busy=true;notice("Реальный локальный ИИ анализирует лист "+page+". Результат сохранится только как непроверенное предположение.");paint();
    try{
     const result=await pdf.analyze(id,did,page);
-    notice("Анализ PDF завершён: "+result.source+" · лист "+result.page+". Проверьте результат перед использованием.");
+    notice((result.marks||[]).length?
+     "Анализ PDF завершён: "+result.source+" · лист "+result.page+". Проверьте результат перед использованием.":
+     "Qwen обработала лист "+result.page+", но не нашла марок. Не подтверждайте пустой результат: откройте лист, выделите область штампа и распознайте фрагмент.");
     active="checks"
    }catch(error){notice("Распознавание листа не выполнено: "+String(error.message||error),"error")}
    finally{busy=false;await reload()}
