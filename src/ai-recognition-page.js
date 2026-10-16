@@ -536,7 +536,8 @@ window.irAiRecognitionPage=async function(objectId){
   const matches=documents.filter(x=>[x?.name,x?.kind,x?.ext].map(v=>String(v??"")).join(" ").toLowerCase().includes(term.toLowerCase()));
   box.innerHTML='<div class="ir-ai-doc-head"><div><h2>Чертежи КМ/КМД</h2><p>Исходные документы сохраняются локально, а их метаданные — в SQLite. Внешние сервисы не используются.</p></div>'+
    '<input id="irAiSearch" type="search" placeholder="Поиск по файлам" value="'+esc(term)+'" aria-label="Поиск документов"></div>'+
-   (!documents.length?'<div class="ir-ai-doc-empty"><b>Чертежей пока нет</b><p>Выберите тип комплекта и нажмите «Добавить чертежи». Поддерживаются PDF, DXF, DWG, PNG, JPG и TIFF. DWG пока только сохраняется, без анализа.</p></div>':
+   (!matches.length&&documents.length?'<div class="ir-ai-doc-empty"><b>По запросу ничего не найдено</b><p>Очистите поиск, чтобы увидеть все '+documents.length+' загруженных файлов.</p></div>':
+   !documents.length?'<div class="ir-ai-doc-empty"><b>Чертежей пока нет</b><p>Выберите тип комплекта и нажмите «Добавить чертежи». Поддерживаются PDF, DXF, DWG, PNG, JPG и TIFF. DWG пока только сохраняется, без анализа.</p></div>':
    '<div class="ir-ai-table-wrap"><table class="ir-ai-doc-table"><thead><tr><th>Документ</th><th>Комплект</th><th>Размер</th><th>Статус</th><th>Действия</th></tr></thead><tbody>'+
    matches.map(x=>'<tr><td><strong>'+esc(x.name)+'</strong><small>'+esc(String(x.ext||"").toUpperCase())+' · '+esc(x.addedAt||"")+'</small></td>'+
     '<td>'+esc(x.kind||"Не определён")+'</td><td>'+size(x.size||0)+'</td><td><span class="ir-ai-doc-status '+(!x.exists?"missing":"")+'">'+(x.exists?"Не распознано":"Файл отсутствует")+'</span></td>'+
