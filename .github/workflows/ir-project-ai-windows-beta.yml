@@ -1,4 +1,4 @@
-name: IR Project AI Windows Beta
+name: IR Project KM/KMD Windows Beta
 on:
   push:
     branches:
@@ -37,6 +37,8 @@ jobs:
         run: |
           set -euo pipefail
           node --check src/ir-runtime.js
+          node --check main.js
+          node --check preload.js
           node --check src/ai-recognition-page.js
           node --check src/ai-scheme-lite-page.js
           node --check src/ai-image-optimizer.js
