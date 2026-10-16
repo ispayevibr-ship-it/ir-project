@@ -27,7 +27,8 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
    kind:["КМ","КМД"].includes(data.kind)?data.kind:"Не определён",
    ext:String(data.extension||""),size:Number(data.size)||0,
    sha256:String(data.sha256||""),addedAt:row.created_at,exists,
-   status:"Не распознано"}
+   status:data.archived===true?"В архиве":"Не распознано",
+   archived:data.archived===true,archivedAt:data.archivedAt||null}
  }
  function list(id){
   id=objectId(id);
@@ -73,7 +74,8 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   });
   if(chosen.canceled)return{canceled:true,imported:[],skipped:[],errors:[]};
   const files=(chosen.filePaths||[]).slice(0,MAX_FILES),imported=[],skipped=[],errors=[];
-  const existing=new Set(list(id).map(x=>x.sha256+"|"+x.size));
+  // Archived evidence remains immutable but does not block a new active working copy.
+  const existing=new Set(list(id).filter(x=>!x.archived).map(x=>x.sha256+"|"+x.size));
   for(const source of files){
    let destination="";
    try{
@@ -302,13 +304,51 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   }
   return{deleted:true,discardedAnalyses:drafts.length,removedIndexes:impact.technicalIndexIds.length}
  }
+ // Archiving removes a file only from the active catalog. Source bytes,
+ // stable document ID, engineering reviews, revisions and histories remain.
+ function archive(id,documentId){
+  id=objectId(id);
+  if(typeof database.transaction!=="function"||typeof database.updateEntity!=="function")
+   throw Error("Для архива требуется транзакционная SQLite");
+  return database.transaction(()=>{
+   const row=record(id,documentId);
+   if(row.data?.archived===true)return{archived:true,documentId:row.id,alreadyArchived:true};
+   const updated=database.updateEntity(id,"ai-documents",row.id,{
+    record_type:row.record_type,title:row.title,parent_id:row.parent_id,
+    data:{...row.data,archived:true,archivedAt:new Date().toISOString()}
+   });
+   if(!updated||updated.data?.archived!==true)throw Error("Не удалось сохранить архив PDF");
+   return{archived:true,documentId:row.id}
+  })
+ }
+ function restore(id,documentId){
+  id=objectId(id);
+  if(typeof database.transaction!=="function"||typeof database.updateEntity!=="function")
+   throw Error("Для восстановления требуется транзакционная SQLite");
+  return database.transaction(()=>{
+   const row=record(id,documentId);
+   if(row.data?.archived!==true)return{restored:true,documentId:row.id,alreadyActive:true};
+   const collision=database.listEntity(id,"ai-documents").some(other=>
+    other.id!==row.id&&other.record_type==="document"&&other.data?.archived!==true&&
+    other.data?.sha256===row.data?.sha256&&other.data?.size===row.data?.size);
+   if(collision)throw Error("Такая же копия PDF уже активна; архив сохранён без изменений");
+   const updated=database.updateEntity(id,"ai-documents",row.id,{
+    record_type:row.record_type,title:row.title,parent_id:row.parent_id,
+    data:{...row.data,archived:false,archivedAt:null}
+   });
+   if(!updated||updated.data?.archived!==false)throw Error("Не удалось восстановить PDF из архива");
+   return{restored:true,documentId:row.id}
+  })
+ }
  function deleteObjectFiles(id){
   const value=Number(id);
   if(!Number.isSafeInteger(value)||value<=0)throw Error("Неверный номер объекта");
   fs.rmSync(path.join(root(),String(value)),{recursive:true,force:true});
  }
  async function readForAnalysis(id,documentId){
-  id=objectId(id);const row=record(id,documentId),file=resolveStored(id,row);
+  id=objectId(id);const row=record(id,documentId);
+  if(row.data?.archived===true)throw Error("Документ в архиве; восстановите его для распознавания");
+  const file=resolveStored(id,row);
   const ext=String(row.data?.extension||"").toLowerCase();
   if(![".png",".jpg",".jpeg"].includes(ext))throw Error("Для первого этапа локального анализа поддерживаются только PNG и JPG. PDF и DWG пока сохраняются без распознавания.");
   const stat=fs.statSync(file);
@@ -323,7 +363,9 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
    source:{documentId:row.id,name:row.data.original_name,sha256:digest,kind:row.data.kind,bytes:buffer.length}};
  }
  async function readForPdfIndex(id,documentId){
-  id=objectId(id);const row=record(id,documentId),file=resolveStored(id,row);
+  id=objectId(id);const row=record(id,documentId);
+  if(row.data?.archived===true)throw Error("Документ в архиве; восстановите его для индексации");
+  const file=resolveStored(id,row);
   if(row.data?.extension!==".pdf")throw Error("Индексация текстового слоя поддерживается только для PDF");
   const stat=fs.statSync(file);
   if(stat.size<16||stat.size>48*1024*1024)throw Error("Для индексации PDF требуется размер от 16 байт до 48 МиБ");
@@ -335,6 +377,6 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   return{buffer,source:{documentId:row.id,name:row.data.original_name,
     sha256,kind:row.data.kind,bytes:buffer.length,format:"PDF"}}
  }
- return{list,select,open,remove,removalImpact,deleteObjectFiles,readForAnalysis,readForPdfIndex,verify};
+ return{list,select,open,remove,archive,restore,removalImpact,deleteObjectFiles,readForAnalysis,readForPdfIndex,verify};
 }
 module.exports={createStore,EXTENSIONS,MAX_FILE_BYTES,POLICY_REVISION};
