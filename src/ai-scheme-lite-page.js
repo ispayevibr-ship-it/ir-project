@@ -1400,6 +1400,7 @@
          '<p>Анализируется реальная графика PDF, а не ближайшая ось или текст. '+
          'Две параллельные линии — <b>только возможный контур элемента</b>; '+
          'они могут также относиться к размерам и другим обозначениям. '+
+         'При нескольких контурах ниже показаны варианты вместо случайного выбора. '+
          'Координаты ниже — координаты линий на плане, не подтверждённая монтажная геометрия. '+
          'Высота Z и тип элемента здесь не определяются.</p>'+
          (memberOutlines.limited?'<p class="ir-ai-axis-review">'+
@@ -1421,6 +1422,27 @@
           '</tr>').join("")+'</tbody></table></div>'+
           (memberOutlines.candidates.length>80?'<small>Показаны первые 80 гипотез.</small>':""):
           '<p>Однозначных пар графических линий рядом с марками пока нет.</p>')+
+         (memberOutlines.alternatives.length?'<details class="ir-ai-axis-alternatives">'+
+          '<summary>Несколько похожих контуров возле марки · '+
+           memberOutlines.alternatives.length+'</summary>'+
+          '<p>Для каждой надписи показаны до трёх различных графических гипотез. '+
+          'Порядок определяется расстоянием от надписи, <b>не достоверностью монтажа</b>. '+
+          'Проверьте линии и размеры по исходному КМД. Ничего не размещено.</p>'+
+          '<div class="ir-ai-lite-preview-scroll"><table><thead><tr>'+
+           '<th>Марка</th><th>Вариант</th><th>Начало, мм</th>'+
+           '<th>Конец, мм</th><th>Длина графики, мм</th>'+
+           '<th>От надписи, pt</th><th>PDF</th></tr></thead><tbody>'+
+          memberOutlines.alternatives.slice(0,150).map(group=>
+           group.options.map(p=>'<tr>'+
+            '<td>'+escDoc(group.mark)+'</td>'+
+            '<td>'+p.rank+' из '+group.totalOptions+'</td>'+
+            '<td>'+p.lineMm.x1+' / '+p.lineMm.y1+'</td>'+
+            '<td>'+p.lineMm.x2+' / '+p.lineMm.y2+'</td>'+
+            '<td>≈'+p.lengthMm+'</td><td>≈'+p.distancePt+'</td>'+
+            '<td><button type="button" data-lite-node-source="'+
+             registerLabels.labels.indexOf(group.label)+'">PDF</button></td></tr>'
+           ).join("")).join("")+'</tbody></table></div>'+
+          '</details>':"")+
          (memberOutlines.singleStrokes.length?'<details>'+
           '<summary>Одиночные линии рядом с надписями · '+
            memberOutlines.singleStrokes.length+'</summary>'+
