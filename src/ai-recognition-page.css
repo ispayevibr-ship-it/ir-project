@@ -251,3 +251,12 @@
 .ir-ai-review-save .ir-ai-step-number{width:18px;height:18px;font-size:10px;margin-right:4px}
 @media(max-width:850px){.ir-ai-step-guide{gap:5px;padding:9px}.ir-ai-step-guide-item{font-size:10px}
  .ir-ai-step-guide-item .ir-ai-step-number{width:17px;height:17px}}
+
+/* Small ordered substeps inside the PDF region preview dialog. */
+.ir-ai-region-guide{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:5px;
+ max-width:max-content;margin:0 auto 13px;padding:8px 13px;border:1px solid #c5dce9;
+ border-radius:8px;background:#fff;color:#365d77;font-size:11px;font-weight:700;line-height:1.6;
+ text-align:center}
+.ir-ai-region-guide .ir-ai-step-number{margin-right:3px}
+.ir-ai-pdf-preview-actions button .ir-ai-step-number{width:18px;height:18px;
+ margin-right:4px;font-size:9px}
