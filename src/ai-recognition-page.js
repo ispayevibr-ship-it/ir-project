@@ -249,6 +249,8 @@ window.irAiRecognitionPage=async function(objectId){
    (analysisProgress?progressMarkup(analysisProgress):"")+
    (!ready||!runtime?'<div class="ir-ai-warning" role="status"><b>Требуется новая установка Electron.</b> Действующий установщик не содержит мост локального ИИ; обновления интерфейса недостаточно.</div>':'')+
    (!engine?.installed?'<div class="ir-ai-warning" role="status"><b>Требуется отдельный офлайн-пакет модели.</b> Пока он не поставляется с установщиком. Без него запуск и распознавание недоступны.</div>':'')+
+   (modelReady&&engine?.gpuLayers===0&&Number.isFinite(engine?.ramFreeGb)&&engine.ramFreeGb<2?
+    '<div class="ir-ai-warning" role="status"><b>Мало свободной оперативной памяти: '+esc(engine.ramFreeGb)+' ГБ.</b> Qwen запущена без GPU-слоёв. При анализе целого листа КМД сервер может завершиться. Для первой проверки рекомендуем распознать увеличенный штамп К60. Это предупреждение, а не установленная причина предыдущего сбоя.</div>':'')+
    (message?'<div class="ir-ai-message '+(severity==="error"?"error":"")+'" role="status">'+esc(message)+'</div>':'')+
    '<div class="ir-ai-layout"><div class="ir-ai-main"><nav class="ir-ai-tabs" aria-label="Вкладки инженерного анализа">'+tabs.map(t=>
     '<button type="button" data-ai-tab="'+t[0]+'" class="'+(active===t[0]?'active':'')+'">'+esc(t[1])+'</button>').join("")+'</nav>'+
