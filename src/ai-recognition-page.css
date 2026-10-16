@@ -359,6 +359,14 @@
 .ir-ai-pdf-source-strokes line{stroke:#e34035;stroke-width:3;vector-effect:non-scaling-stroke;stroke-linecap:round;filter:drop-shadow(0 0 1px #fff)}
 .ir-ai-pdf-source-strokes line[data-edge="2"]{stroke:#11a6dd}
 .ir-ai-pdf-source-strokes[hidden]{display:none}
+/* Re-rendered PDF focus: coordinates are projected from the original sheet,
+   and lines remain view-only evidence rather than an erection placement. */
+.ir-ai-pdf-focus-strokes{position:absolute;inset:0;width:100%;height:100%;z-index:5;pointer-events:none;overflow:hidden}
+.ir-ai-pdf-focus-strokes line{stroke:#e34035;stroke-width:3;vector-effect:non-scaling-stroke;stroke-linecap:round;filter:drop-shadow(0 0 1px #fff)}
+.ir-ai-pdf-focus-strokes line[data-edge="2"]{stroke:#11a6dd}
+.ir-ai-pdf-focus-strokes .ir-ai-pdf-focus-mark{stroke:#e9a82b;stroke-width:2;fill:rgba(255,202,40,.22);vector-effect:non-scaling-stroke}
+.ir-ai-pdf-focus-strokes[hidden]{display:none}
+
 
 
 /* Optional page-local vector drawing inspection; not engineering dimensions. */
