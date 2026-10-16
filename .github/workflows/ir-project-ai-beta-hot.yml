@@ -35,6 +35,7 @@ jobs:
         run: |
           set -euo pipefail
           node --check src/ai-recognition-page.js
+          node --check src/ai-scheme-lite-page.js
           node --check src/ai-local-engine.js
           node --check src/ai-image-optimizer.js
           node --check src/updater.js
@@ -50,6 +51,7 @@ jobs:
           node scripts/test-ai-engine.js
           node scripts/test-ai-gpu-offload.js
           node scripts/test-ai-fast-region.js
+          node scripts/test-ai-scheme-lite.js
           node scripts/test-updater-rollback.js
           node scripts/test-ai-beta-hot.js
       - name: Generate SHA-256 manifest from latest tested Beta revision
