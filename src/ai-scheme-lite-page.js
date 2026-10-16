@@ -716,19 +716,25 @@
    const mmX=(pageX-fx.offset)/fx.scale,mmY=(pageY-fy.offset)/fy.scale;
    if(!Number.isFinite(mmX)||!Number.isFinite(mmY))continue;
    const axesX=interval(grid.x,mmX),axesY=interval(grid.y,mmY);
-   if(!axesX||!axesY)continue;
+   // Text may be outside the outermost axes while still describing a
+   // member inside the selected KMD drawing. Preserve the observed label,
+   // but NEVER infer its grid cell or physical placement.
+   const gridCellKnown=Boolean(axesX&&axesY);
    // A duplicated text glyph is not a second construction instance.
    // Separate printed labels are retained without inferring quantity.
    if(labels.some(old=>old.markId===mark.id&&
       Math.hypot(old.pageX-pageX,old.pageY-pageY)<4))continue;
    labels.push({mark:mark.mark,markId:mark.id,labelText:label,
-    axesX,axesY,labelXmm:Math.round(mmX),labelYmm:Math.round(mmY),
+    axesX:axesX||{start:"?",end:"?"},axesY:axesY||{start:"?",end:"?"},
+    gridCellKnown,labelXmm:Math.round(mmX),labelYmm:Math.round(mmY),
     pageX,pageY,fragmentIds:ids,
     rectPt:{x:x1,y:y1,width:x2-x1,height:y2-y1},
-    status:"label_only_requires_review",exactPlacement:false});
+    status:gridCellKnown?"label_only_requires_review":"label_outside_grid_requires_review",
+    exactPlacement:false});
    if(labels.length>=1000)break
   }
   return{labels,ambiguous:ambiguous.size,inspected:Math.min(fragments.length,20000),
+   outsideGrid:labels.filter(x=>!x.gridCellKnown).length,
    reason:labels.length?"Надписи найдены. Точки крепления и отметки Z не определены.":
     "В выбранной области не найдены отдельные надписи марок из ведомости."}
  }
@@ -1364,7 +1370,9 @@
        '</b>; возможных пар контуров: <b>'+lineLabels.size+
        '</b>; с альтернативами: <b>'+alternativeLabels.size+
        '</b>; только одиночные линии: <b>'+singleLabels.size+
-       '</b>; без подходящих линий: <b>'+withoutGeometry+'</b>.</p>'+
+       '</b>; без подходящих линий: <b>'+withoutGeometry+
+       '</b>; надписи вне границ сетки: <b>'+(registerLabels.outsideGrid||0)+
+       '</b> (не размещены).</p>'+
        '<p><b>Готовых к автоматической расстановке: 0</b>. '+
        'Контуры ещё не подтверждены размерами, типом, привязками и отметками Z. '+
        'Требуют проверки геометрии: <b>'+memberOutlines.review.length+
