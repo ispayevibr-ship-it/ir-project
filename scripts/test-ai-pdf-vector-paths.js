@@ -75,4 +75,18 @@ const malicious={fnArray:Array(180002).fill(0),argsArray:Array(180002).fill(null
 const bounded=extractSegments(malicious,OPS,page);
 assert.equal(bounded.stats.truncated,true);
 assert.equal(bounded.stats.operatorCount,180002);
+const dense=[];
+for(let i=0;i<2700;i++){
+ dense.push([OPS.constructPath,[OPS.stroke,[
+  new Float32Array([0,1,i/10,1,35,i/10])],new Float32Array([1,i/10,35,i/10])]])
+}
+dense.push([OPS.constructPath,[OPS.stroke,[
+ new Float32Array([0,10,280,1,280,280])],new Float32Array([10,280,280,280])]]);
+const selected=extractSegments(op(...dense),OPS,{width:300,height:300,
+ transform:[1,0,0,-1,0,300]});
+assert.equal(selected.segments.length,2400);
+assert.equal(selected.stats.truncated,true);
+assert(selected.segments.some(x=>x.lengthPt===270),
+ "very long line appearing LAST in PDF must not disappear behind 2400 early short strokes");
+assert(selected.segments[0].lengthPt>=selected.segments.at(-1).lengthPt);
 console.log("PDF geometry: viewport, transform stack, painted paths, curves, dedupe, limits PASS");
