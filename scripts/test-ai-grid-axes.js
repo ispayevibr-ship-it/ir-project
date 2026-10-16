@@ -237,6 +237,9 @@ const members=findPlanMemberStrokes({labels:[geometryLabel],analysis:onlyLeft,
  grid,vector:planVectors});
 assert.equal(members.candidates.length,1,JSON.stringify(members));
 assert.equal(members.candidates[0].mark,"Б22");
+assert.deepEqual(members.candidates[0].strokesPt,planPair.map(
+ p=>({x1:p.x1,y1:p.y1,x2:p.x2,y2:p.y2})),
+ "each possible contour keeps both actual viewport-PDF line segments");
 // The local detail array is authoritative for outline hypotheses even if
 // the 2400-line preview contains no suitable short strokes.
 const localOnly=findPlanMemberStrokes({labels:[geometryLabel],analysis:onlyLeft,
@@ -302,7 +305,10 @@ assert(crowded.alternatives[0].options.length>=2);
 assert(crowded.alternatives[0].options.length<=3);
 assert(crowded.alternatives[0].options.every(x=>x.exactPlacement===false&&
  x.evidenceType==="parallel_strokes"&&Number.isFinite(x.lengthMm) &&
- Number.isFinite(x.distancePt)&&x.lineMm));
+ Number.isFinite(x.distancePt)&&x.lineMm&&Array.isArray(x.strokesPt)&&
+ x.strokesPt.length===2&&x.strokesPt.every(l=>["x1","y1","x2","y2"]
+ .every(k=>Number.isFinite(l[k])))),
+ "all ambiguous candidates retain original PDF lines for viewer overlay");
 assert(crowded.alternatives[0].totalOptions>=2);
 assert(!("z0Mm" in crowded.alternatives[0].options[0]));
 // Duplicated near-identical PDF draw calls may represent one geometric
