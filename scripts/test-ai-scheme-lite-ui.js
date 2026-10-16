@@ -35,11 +35,13 @@ function makeHost(){
   querySelectorAll:()=>Object.entries(fields).map(([name,value])=>({name,value}))
  };
  const source={dataset:{liteSource:"0"},onclick:null};
+ const instanceSource={dataset:{liteInstanceSource:"0"},onclick:null};
  const approve={dataset:{liteApprove:"0"},onclick:null};
  const slot={
   innerHTML:"",
   querySelectorAll:selector=>{
    if(selector==="[data-lite-source]")return slot.innerHTML.includes('data-lite-source="0"')?[source]:[];
+   if(selector==="[data-lite-instance-source]")return slot.innerHTML.includes('data-lite-instance-source="0"')?[instanceSource]:[];
    if(selector==="[data-lite-approve]")return slot.innerHTML.includes('data-lite-approve="0"')?[approve]:[];
    return []
   }
@@ -53,18 +55,22 @@ function makeHost(){
    "[data-lite-scan]":scan,"[data-lite-scheme]":scheme,
    '[data-lite-row="0"]':row
   })[selector]||null,
-  inspect:{slot,scan,scheme,status,source,approve,fields,feedback}
+  inspect:{slot,scan,scheme,status,source,instanceSource,approve,fields,feedback}
  }
 }
 (async()=>{
  let documents=[drawing],grids=[grid],saved=[],approvalCalls=0;
- let opened=null,navigation=null,readCalls=0,passwordCalls=0,confirmed=0;
+ let opened=null,openedEvidence=null,navigation=null,readCalls=0,passwordCalls=0,confirmed=0;
  let role="admin",schemeAllowed=true;
  const pdf={
   page:async(_oid,indexId,page)=>{
    readCalls++;assert.equal(indexId,5);assert.equal(page,1);
    return{source:{documentId:2,sha256:sha},
-    page:{text:documentText}}
+    page:{text:documentText,fragments:[
+      {text:"К60",x:125,y:280,width:18,height:12},
+      {text:"К60",x:250,y:280,width:18,height:12},
+      {text:"К60",x:125.2,y:280,width:18,height:12}
+    ]}}
   },
   list:async()=>[idx]
  };
@@ -94,7 +100,7 @@ function makeHost(){
  const page=createPage(),host=makeHost();
  await page.render(host,{objectId:7,documents,indexes:[idx],canEdit:true,
   pdf,root,window,reviewer,askPassword,
-  onOpenPdf:(id,p)=>opened=[id,p],
+  onOpenPdf:(id,p,evidence)=>{opened=[id,p];openedEvidence=evidence},
   onNavigate:tab=>navigation=tab
  });
  assert.match(host.innerHTML,/Монтажная схема · быстрый режим/);
@@ -104,6 +110,16 @@ function makeHost(){
  await flush(()=>host.inspect.slot.innerHTML.includes("К60")&&
   host.inspect.status.textContent.includes("Быстрое извлечение завершено"));
  assert.match(host.inspect.slot.innerHTML,/9705/);
+ assert.match(host.inspect.slot.innerHTML,/Реестр отдельных надписей/);
+ assert.match(host.inspect.slot.innerHTML,/Найдено: <b>2<\/b> надписей/);
+ assert.match(host.inspect.slot.innerHTML,/data-lite-instances-page="0"/);
+ assert.equal(typeof host.inspect.instanceSource.onclick,"function");
+ host.inspect.instanceSource.onclick();
+ assert.deepEqual(opened,[2,1]);
+ assert.equal(openedEvidence.length,1);
+ assert.equal(openedEvidence[0].quote,"К60");
+ assert.equal(openedEvidence[0].rectPt.x,125);
+ assert.equal(saved.length,0,"no DB writes while browsing individual PDF marks");
  assert.match(host.inspect.slot.innerHTML,/-400/);
  assert.match(host.inspect.slot.innerHTML,/10105/);
  assert(!host.inspect.slot.innerHTML.includes('placeholder="-400"'),
