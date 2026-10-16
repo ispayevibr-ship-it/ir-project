@@ -27,6 +27,7 @@ jobs:
           node --check src/ai-analysis.js
           node --check src/ai-workflow.js
           node --check src/ai-model-settings.js
+          node scripts/test-ai-engine.js
           node scripts/test-ai-pdf-drawings-ui.js
           node scripts/test-ai-pdf-region-ui.js
           node scripts/test-ai-qwen-only-pdf.js
