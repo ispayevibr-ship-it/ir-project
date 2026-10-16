@@ -39,18 +39,18 @@ function createAnalysis({database,documents,engine,ocr=null,pdfRenderer,pdfIndex
   const detail=pdfIndex.page(id,found.id,source.page);
   if(detail?.source?.sha256!==source.sha256||
      Number(detail?.source?.documentId)!==Number(source.documentId))return null;
-  const original=String(detail.page?.text||"").replace(/\\0/g," ").trim();
+  const original=String(detail.page?.text||"").replace(/\0/g," ").trim();
   if(original.length<5)return null;
   const compact=original.length>2100?
-   original.slice(0,1050)+"\\n[Пропущен длинный участок слоя PDF]\\n"+original.slice(-1050):original;
+   original.slice(0,1050)+"\n[Пропущен длинный участок слоя PDF]\n"+original.slice(-1050):original;
   return{text:compact,indexId:found.id,usedChars:compact.length,
    unverified:true,sourceSha256:source.sha256}
  }
  function imageEvidence(ocrEvidence,textLayer){
   if(!textLayer)return ocrEvidence?.text||"";
-  const caption="НЕПРОВЕРЕННЫЙ ТЕКСТОВЫЙ СЛОЙ ИСХОДНОГО PDF (сверить с изображением):\\n";
+  const caption="НЕПРОВЕРЕННЫЙ ТЕКСТОВЫЙ СЛОЙ ИСХОДНОГО PDF (сверить с изображением):\n";
   if(!ocrEvidence?.text)return caption+textLayer.text;
-  return String(ocrEvidence.text).slice(0,850)+"\\n"+caption+textLayer.text.slice(0,1450)
+  return String(ocrEvidence.text).slice(0,850)+"\n"+caption+textLayer.text.slice(0,1450)
  }
  function list(id){
   return database.listEntity(object(id),"ai-analysis").filter(r=>r.record_type==="image_analysis")
