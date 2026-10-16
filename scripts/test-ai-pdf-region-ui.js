@@ -4,6 +4,49 @@
 const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm");
 const source=fs.readFileSync("src/ai-recognition-page.js","utf8");
 new vm.Script(source,{filename:"src/ai-recognition-page.js"});
+
+const focusStart=source.indexOf(" function focusedPdfRegion("),
+ focusEnd=source.indexOf(" async function openPdfPreview(",focusStart);
+assert(focusStart>0&&focusEnd>focusStart,"review focus helper is loaded");
+const focusPdfRegion=vm.runInNewContext(
+ source.slice(focusStart,focusEnd)+"\nfocusedPdfRegion",
+ {Math,Number,Array,String});
+const pageInfo={widthPt:900,heightPt:640,rotation:0};
+const sourceEvidence={
+ rectPt:{x:402,y:310,width:18,height:9}, // PDF text: bottom-left origin
+ strokeLinesPt:[
+  {x1:399,y1:317,x2:435,y2:317},
+  {x1:399,y1:324,x2:435,y2:324}
+ ]
+};
+const focus=focusPdfRegion([sourceEvidence],pageInfo);
+assert(focus&&focus.width>=.12&&focus.height>=.12,
+ "unclear mark is locally focused, not upscaled from bitmap");
+assert(focus.width*focus.height<=.35,"focus obeys renderer area budget");
+assert(focus.x>=0&&focus.y>=0&&focus.x+focus.width<=1.000001&&
+ focus.y+focus.height<=1.000001,"focus stays inside PDF page");
+for(const x of [399,435,402,420])
+ assert(x>=focus.x*900&&x<=(focus.x+focus.width)*900,
+  "both candidate outline edges and label must fit in source crop");
+for(const y of [317,324,640-310-9,640-310])
+ assert(y>=focus.y*640&&y<=(focus.y+focus.height)*640,
+  "both PDF strokes and text baseline fit in the source crop");
+assert.equal(focusPdfRegion([sourceEvidence],{...pageInfo,rotation:90}),null,
+ "a rotated page must not use unverified PDF text/line transforms");
+assert.equal(focusPdfRegion([{...sourceEvidence,strokeLinesPt:[]}],pageInfo),null);
+assert.equal(focusPdfRegion([{...sourceEvidence,strokeLinesPt:[
+ {x1:-1,y1:0,x2:435,y2:317},sourceEvidence.strokeLinesPt[1]]}],pageInfo),null,
+ "out-of-page geometry cannot trigger automatic zoom");
+assert.equal(focusPdfRegion([{...sourceEvidence,strokeLinesPt:[
+ {x1:40,y1:20,x2:850,y2:20},
+ {x1:40,y1:50,x2:850,y2:50}]}],pageInfo),null,
+ "wide unrelated strokes must not produce large or misleading auto-focus");
+assert(source.includes("const zoomed=await pdf.regionPreview(id,documentId,page,autoFocus);"),
+ "selected contour triggers ORIGINAL PDF re-rendering in a worker");
+assert(source.includes("showCropEvidence(view);"),
+ "the re-rendered crop includes local highlight projection");
+console.log("PDF auto-focus: source bounds, rotation, worker rerender and safe fallback PASS");
+
 const spin=async until=>{
  for(let i=0;i<120;i++){
   if(until())return;
