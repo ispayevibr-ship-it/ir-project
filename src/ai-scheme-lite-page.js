@@ -1862,7 +1862,12 @@
        documentId:doc.id,sha256:doc.sha256,page:sheet.page,
        region,widthPt,heightPt,sheetType:sheet.sheetType});
       let linked=null,dimensions=null,dimensionHints=[],linkMessage="";
-      if(region!=="full"&&result.labels.length&&sheet.sheetType==="plan"){
+      // Some genuine vector mounting sheets have an unreadable title.
+      // Permit those ONLY after explicit region selection and a successful
+      // independent calibration of at least 3 axes in each direction.
+      // Known detail and section sheets remain excluded.
+      if(region!=="full"&&result.labels.length&&
+         !["detail","section"].includes(sheet.sheetType)){
        const grid=axisGeometry(await schemeApi?.list?.()||[]);
        const areas={
         left:{left:0,top:0,right:.5,bottom:1},
@@ -1902,9 +1907,8 @@
        }
       }else if(region==="full"){
        linkMessage="; выберите отдельную схему для сопоставления с графикой"
-      }else if(sheet.sheetType!=="plan"){
-       linkMessage="; лист не подтверждён как монтажный план: "+
-        "не объединяем подписи разрезов с монтажными экземплярами"
+      }else if(["section","detail"].includes(sheet.sheetType)){
+       linkMessage="; это разрез/деталь: не считаем подписи новыми монтажными экземплярами"
       }
       const prefix=[doc.id,doc.sha256,sheet.page].join(":")+":";
       if(region==="full"){
