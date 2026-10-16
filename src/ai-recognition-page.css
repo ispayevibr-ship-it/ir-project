@@ -229,3 +229,25 @@
 .ir-ai-metal-section .ir-ai-quantity-totals{align-items:center}
 .ir-ai-metal-dialog .ir-ai-quantity-dialog-hint{background:#f3f9fd;border:1px solid #e0edf5;padding:11px;border-radius:7px;color:#456e89;line-height:1.65}
 @media(max-width:700px){.ir-ai-metal-section .ir-ai-review-heading{align-items:flex-start}.ir-ai-metal-section .ir-ai-quantity-totals{flex-wrap:wrap}}
+
+/* KM/KMD first-run guide: numbers sit directly beside the required controls. */
+.ir-ai-step-number{display:inline-flex;vertical-align:middle;align-items:center;justify-content:center;
+ flex:none;width:21px;height:21px;border-radius:50%;background:#d9e9f8;color:#235e8d;
+ font-size:11px;font-weight:800;line-height:1;margin-right:5px}
+.ir-ai-step-number.done{background:#e2f6e9;color:#26744a}
+.ir-ai-actions .ir-ai-kind-label{display:flex;align-items:center;gap:3px;color:#3f627c;white-space:nowrap}
+.ir-ai-step-guide{display:flex;flex-wrap:wrap;gap:7px;align-items:center;padding:10px 13px;
+ margin:-2px 0 12px;background:#f7fafc;border:1px solid #dbe8f0;border-radius:9px;
+ font-size:11px;line-height:1.55;color:#466b83}
+.ir-ai-step-guide>b{margin-right:4px;color:#284d67;font-weight:800}
+.ir-ai-step-guide-item{display:inline-flex;align-items:center;gap:3px;padding:4px 8px;
+ border-radius:7px;border:1px solid #dfebf3;background:#fff;white-space:nowrap}
+.ir-ai-step-guide-item.complete{color:#3b8460;background:#f2fbf5;border-color:#cae7d6}
+.ir-ai-step-guide-item.current{color:#1669a2;background:#eaf4ff;border-color:#9ecbec;font-weight:800}
+.ir-ai-step-guide .ir-ai-step-number{width:19px;height:19px;margin-right:1px}
+.ir-ai-step-guide>small{flex-basis:100%;margin-top:2px;color:#3e6985;font-size:10px;font-weight:750}
+.ir-ai-doc-actions button .ir-ai-step-number,
+.ir-ai-pdf-sheets button .ir-ai-step-number,
+.ir-ai-review-save .ir-ai-step-number{width:18px;height:18px;font-size:10px;margin-right:4px}
+@media(max-width:850px){.ir-ai-step-guide{gap:5px;padding:9px}.ir-ai-step-guide-item{font-size:10px}
+ .ir-ai-step-guide-item .ir-ai-step-number{width:17px;height:17px}}
