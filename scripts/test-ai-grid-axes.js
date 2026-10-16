@@ -46,7 +46,8 @@ wrongSpacing[1]={...wrongSpacing[1],x1:105,x2:105};
 assert.equal(detect(fragments,wrongSpacing).calibrated,false,
  "grid spacing inconsistent with known 6000 mm intervals must be rejected");
 const inner=fragments.map(x=>({...x}));
-inner[0]={...inner[0],x:200,y:heightPt-180};
+inner[0]={...inner[0],x:400,y:heightPt-180};
+inner[1]={...inner[1],x:400,y:heightPt-180};
 assert.equal(detect(inner).calibrated,false,
  "labels far from the grid-line endpoint must not be considered evidence");
 const alone=fragments.slice(0,2).concat(fragments.slice(4,6));
