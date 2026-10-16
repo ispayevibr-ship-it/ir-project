@@ -1,0 +1,321 @@
+{
+  "channel": "beta",
+  "baseVersion": "1.7.217",
+  "version": "1.7.217.2",
+  "branch": "feature/ir-project-ai-next",
+  "description": "IR Project AI Beta hot fixes: no full EXE",
+  "files": [
+    {
+      "source": "src/ai-acceptance-preflight.js",
+      "target": "src/ai-acceptance-preflight.js",
+      "size": 3177,
+      "sha256": "d7677fbad2d9a3fe2d6e78c90e3d5e42a911e70444d24d81725c0d4071fd0b70"
+    },
+    {
+      "source": "src/ai-analysis.js",
+      "target": "src/ai-analysis.js",
+      "size": 9309,
+      "sha256": "9b8dbe7ef1aa518f60b86a025dd2ab7fabbb098138968feaf7893ea131402b92"
+    },
+    {
+      "source": "src/ai-assembly-attachments-page.css",
+      "target": "src/ai-assembly-attachments-page.css",
+      "size": 2513,
+      "sha256": "cd5c2783e9d561ec38408fab815b5909f6a02d1d81b7e690834301595d9fa623"
+    },
+    {
+      "source": "src/ai-assembly-attachments-page.js",
+      "target": "src/ai-assembly-attachments-page.js",
+      "size": 12638,
+      "sha256": "da017fa7495fc8a7e641ccfed443be2eed1de5846dece87d1553bbc7de6bf66c"
+    },
+    {
+      "source": "src/ai-assembly-attachments.js",
+      "target": "src/ai-assembly-attachments.js",
+      "size": 11976,
+      "sha256": "c1a8daaa894a1bd6891e46a9873b6eb336656e243958cf2cd365ec4b34b44a74"
+    },
+    {
+      "source": "src/ai-assembly-geometry.js",
+      "target": "src/ai-assembly-geometry.js",
+      "size": 16304,
+      "sha256": "92b6841e2381eea2e2f02ad35a40004b4ad3c4e52b96a60004caf7d8a2205260"
+    },
+    {
+      "source": "src/ai-assembly-page.css",
+      "target": "src/ai-assembly-page.css",
+      "size": 4480,
+      "sha256": "6ca369efcd13db90f77407c4498fd75856d3cac66c28195425e4aeec8de4527c"
+    },
+    {
+      "source": "src/ai-assembly-page.js",
+      "target": "src/ai-assembly-page.js",
+      "size": 21008,
+      "sha256": "d59d69e1dfff219ba0eb96a63c04f84c03919be2156efde46b7608e7f73c432a"
+    },
+    {
+      "source": "src/ai-assembly-viewer.js",
+      "target": "src/ai-assembly-viewer.js",
+      "size": 12347,
+      "sha256": "3dc0053d388c7976f33165369972ed4b216e620c1f97595aed2c86afa78d2bf1"
+    },
+    {
+      "source": "src/ai-compare-page.css",
+      "target": "src/ai-compare-page.css",
+      "size": 4308,
+      "sha256": "648163b4435ca0bdffc30ef68dc64f6abba72ad83cc1b203d55cc37961e15dff"
+    },
+    {
+      "source": "src/ai-compare-page.js",
+      "target": "src/ai-compare-page.js",
+      "size": 16111,
+      "sha256": "465ccc1f04b7b8059b37aa9893c8d41edfd1273a4776356a8116a7010530be18"
+    },
+    {
+      "source": "src/ai-complete-backup.js",
+      "target": "src/ai-complete-backup.js",
+      "size": 12511,
+      "sha256": "abac39841614ea6b3f740c8e71d4486da3facaae37ee7135e379f3544aa42866"
+    },
+    {
+      "source": "src/ai-connections-page.css",
+      "target": "src/ai-connections-page.css",
+      "size": 3841,
+      "sha256": "f95b19415d079fe7f70f9d03085ac73ba1cb5b75be5184e6659ef6bf1a32f7c5"
+    },
+    {
+      "source": "src/ai-connections-page.js",
+      "target": "src/ai-connections-page.js",
+      "size": 20556,
+      "sha256": "494fe75a9a00d027f07cfe611fdc989d82f53dfac241b130ea985a87272d449d"
+    },
+    {
+      "source": "src/ai-document-store.js",
+      "target": "src/ai-document-store.js",
+      "size": 13853,
+      "sha256": "82b2216a937d408748deb214379a6bb30793ebccd22ad47bd14e69b88ed501ff"
+    },
+    {
+      "source": "src/ai-drawing-revisions.js",
+      "target": "src/ai-drawing-revisions.js",
+      "size": 16801,
+      "sha256": "9e46d6dd7a639729e723c82292c7b8b4dbc1b530f6fb3ffc1b670900ac807bc0"
+    },
+    {
+      "source": "src/ai-integrity-page.css",
+      "target": "src/ai-integrity-page.css",
+      "size": 4410,
+      "sha256": "352d7a0cc71184a78e2164b617370f1e1713b859d10be8cf33a54d5b69e62abc"
+    },
+    {
+      "source": "src/ai-integrity-page.js",
+      "target": "src/ai-integrity-page.js",
+      "size": 9308,
+      "sha256": "2e64f5436fdec521d7ac6438e5a68ad937ccffe29142f281f4e802f5aeb66106"
+    },
+    {
+      "source": "src/ai-integrity-report.js",
+      "target": "src/ai-integrity-report.js",
+      "size": 25772,
+      "sha256": "e6b2549f26906d0e35b427c9ca4585b0292dfee39b47195e9fa81d1849cf5a64"
+    },
+    {
+      "source": "src/ai-km-kmd-compare.js",
+      "target": "src/ai-km-kmd-compare.js",
+      "size": 13242,
+      "sha256": "0d5cb3815e94463861d038343f7db6acae405d4a96ecddded28a9ef87d81130a"
+    },
+    {
+      "source": "src/ai-kmd-connections.js",
+      "target": "src/ai-kmd-connections.js",
+      "size": 22422,
+      "sha256": "0b4a6a485343a45eb0661191bd8163113e4f40df72103ae6ab6c2a0e9ae46765"
+    },
+    {
+      "source": "src/ai-kmd-coverage.js",
+      "target": "src/ai-kmd-coverage.js",
+      "size": 19576,
+      "sha256": "79022d819d8d36a98ef23c4bbed93671279c3106349d548828bc610266b60d40"
+    },
+    {
+      "source": "src/ai-kmd-materials.js",
+      "target": "src/ai-kmd-materials.js",
+      "size": 16236,
+      "sha256": "2f7cfb226338ee55c46d61b7186b5e08a704b9552a0dcfa9e187866e7093c81b"
+    },
+    {
+      "source": "src/ai-kmd-reference-page.css",
+      "target": "src/ai-kmd-reference-page.css",
+      "size": 2929,
+      "sha256": "942c282fcfd8837f906d114aea99b353e6ab7b4d45b0774bb7056ca1ad99467c"
+    },
+    {
+      "source": "src/ai-kmd-reference-page.js",
+      "target": "src/ai-kmd-reference-page.js",
+      "size": 18311,
+      "sha256": "95ca2ae0dad898a8c355c25514553da7cc44439856c5972358759d3cc06aef65"
+    },
+    {
+      "source": "src/ai-kmd-reference.js",
+      "target": "src/ai-kmd-reference.js",
+      "size": 31223,
+      "sha256": "91ad641cafecdac7cb6e15c2a4ae6d31c52979a0e88fec1dd500164eb2ebba1e"
+    },
+    {
+      "source": "src/ai-local-engine.js",
+      "target": "src/ai-local-engine.js",
+      "size": 15219,
+      "sha256": "04bb6fc6517d098f100e122616a75e0d52ed49b9e44f3daefd197bb21d72ed90"
+    },
+    {
+      "source": "src/ai-mark-quantities.js",
+      "target": "src/ai-mark-quantities.js",
+      "size": 9332,
+      "sha256": "bdee73006736b9207d4cfc9a70a007352b3123d50d691ffeb56a077d59f395f0"
+    },
+    {
+      "source": "src/ai-model-catalog.js",
+      "target": "src/ai-model-catalog.js",
+      "size": 5758,
+      "sha256": "cb845fe9d3516a4413de64572a3f9f2960528c8892ea4ee1a6b7b7403688843a"
+    },
+    {
+      "source": "src/ai-model-download.js",
+      "target": "src/ai-model-download.js",
+      "size": 4084,
+      "sha256": "025c6492a53fec7b1a77ddc087b8c52d1a9667e1919f987187b384ef48ec0df3"
+    },
+    {
+      "source": "src/ai-model-manager.js",
+      "target": "src/ai-model-manager.js",
+      "size": 24902,
+      "sha256": "3d63adfcf4e8ddbf4d1472fb6502036a8b6bbb743dd6aba1b329865944de2fc9"
+    },
+    {
+      "source": "src/ai-model-settings.css",
+      "target": "src/ai-model-settings.css",
+      "size": 7811,
+      "sha256": "e7868df2eefdf429cfc7cda87816d323bd9f597bc7388159bf94eaa3a7f3bcc3"
+    },
+    {
+      "source": "src/ai-model-settings.js",
+      "target": "src/ai-model-settings.js",
+      "size": 21906,
+      "sha256": "a412d33c187456e792caa76a8b620f9f4f8dff1586b92952bfed6e1eb2c0e861"
+    },
+    {
+      "source": "src/ai-paddle-ocr.js",
+      "target": "src/ai-paddle-ocr.js",
+      "size": 5968,
+      "sha256": "4e6c83acb005d5ecb76b65f041cb32b3461108ecad7e6879c8e9cf6edf200743"
+    },
+    {
+      "source": "src/ai-pdf-index.js",
+      "target": "src/ai-pdf-index.js",
+      "size": 4791,
+      "sha256": "8f4ca38681bb4bd2da96221e1effad6d5bc9e72973e7b900f325b5649a5a6797"
+    },
+    {
+      "source": "src/ai-pdf-render-worker.js",
+      "target": "src/ai-pdf-render-worker.js",
+      "size": 4354,
+      "sha256": "f7ab47da9713138fdceb11a6f3318cf5390012b2d44a71345416aaeb436461ae"
+    },
+    {
+      "source": "src/ai-pdf-renderer.js",
+      "target": "src/ai-pdf-renderer.js",
+      "size": 5032,
+      "sha256": "5b5c1f7d9a520b67d1c07dc0717b7a82969febcb4d8d4ee4d2a7ea3b2b4f20bb"
+    },
+    {
+      "source": "src/ai-pdf-worker.js",
+      "target": "src/ai-pdf-worker.js",
+      "size": 2639,
+      "sha256": "90aa827d574fe37b296a4f7747a0f327b88f19ec6bc314115b9bf2adc434b5bd"
+    },
+    {
+      "source": "src/ai-proposals-page.css",
+      "target": "src/ai-proposals-page.css",
+      "size": 2073,
+      "sha256": "55d30bfa9144571d77b734d5f353198bcc15177ea20c33a32ca11b136ee4348a"
+    },
+    {
+      "source": "src/ai-proposals-page.js",
+      "target": "src/ai-proposals-page.js",
+      "size": 11610,
+      "sha256": "34a1dd0fa7b31f97e5198e622069b3efbf85ce2c9d33b5e73ee188e02917d8bb"
+    },
+    {
+      "source": "src/ai-publisher-trust.js",
+      "target": "src/ai-publisher-trust.js",
+      "size": 1267,
+      "sha256": "154ba3126caa44ef2367bd06ae17597554844280277571f9f4146f37999962a7"
+    },
+    {
+      "source": "src/ai-recognition-page.css",
+      "target": "src/ai-recognition-page.css",
+      "size": 25347,
+      "sha256": "d2298aa41beb28cfaf73b0947d6aff0b8b28452901472ad153c42815a8a979fe"
+    },
+    {
+      "source": "src/ai-recognition-page.js",
+      "target": "src/ai-recognition-page.js",
+      "size": 90613,
+      "sha256": "4a9710c19fe6e69c1d847a46e3aa604ca36ca1b6ee2f41a97ebd19cc2bd3652f"
+    },
+    {
+      "source": "src/ai-review.js",
+      "target": "src/ai-review.js",
+      "size": 7638,
+      "sha256": "db7956e26e0492d13a341cd1dc473800da9193afb8abf79e51d5628e11480178"
+    },
+    {
+      "source": "src/ai-revisions-page.css",
+      "target": "src/ai-revisions-page.css",
+      "size": 5326,
+      "sha256": "67d6dd00f34c543f8aa4bc3f0d97532ff75dddbeae4d14f2210db2d9e97a6d1d"
+    },
+    {
+      "source": "src/ai-revisions-page.js",
+      "target": "src/ai-revisions-page.js",
+      "size": 15570,
+      "sha256": "d96bdc844ef00e9c8edce345e426e692255cde93f168365f03bc1c35874d1fc3"
+    },
+    {
+      "source": "src/ai-runtime-diagnostics.js",
+      "target": "src/ai-runtime-diagnostics.js",
+      "size": 6531,
+      "sha256": "bf58b5b2a067936720c71f90d6ad52a9628deaace435c01eefb1e92977cdc39d"
+    },
+    {
+      "source": "src/ai-structured-extraction.js",
+      "target": "src/ai-structured-extraction.js",
+      "size": 7946,
+      "sha256": "0458ed2675a7107f0df9619939cc4058fcb742ec9be4fb62ba5d8d9539b31022"
+    },
+    {
+      "source": "src/ai-structured-review.js",
+      "target": "src/ai-structured-review.js",
+      "size": 11053,
+      "sha256": "4ec8293330b8b9992bdb7bc364a5de1b9378a393dfaa3fbe571740849cebfdd9"
+    },
+    {
+      "source": "src/ai-workflow-page.css",
+      "target": "src/ai-workflow-page.css",
+      "size": 4548,
+      "sha256": "eaaf40b789df54b8c918754a312b65fba0e0fb49284123eb5c8276fda8b820f6"
+    },
+    {
+      "source": "src/ai-workflow-page.js",
+      "target": "src/ai-workflow-page.js",
+      "size": 12755,
+      "sha256": "1c9f1e03c9a906c89d258aec4be2d54adec0913472a1f381cc16219d213e1186"
+    },
+    {
+      "source": "src/ai-workflow.js",
+      "target": "src/ai-workflow.js",
+      "size": 13370,
+      "sha256": "1622c5c76f8de123ce3fbcd63d15e318f090ea8e2c3ead8b287d35ea5a2010d4"
+    }
+  ]
+}
