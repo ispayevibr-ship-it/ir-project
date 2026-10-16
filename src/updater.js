@@ -78,6 +78,30 @@ const b=cached&&hash(cached)===f.sha256?cached:
  await request(`https://raw.githubusercontent.com/${OWNER}/${REPO}/${branchUrl()}/${source}?t=${Date.now()}`);if(!b.length)throw new Error(`Пустой файл: ${target}`);if(Number.isFinite(Number(f.size))&&Number(f.size)>0&&b.length!==Number(f.size))throw new Error(`Размер файла обновления не совпадает: ${target}`);if(f.sha256&&hash(b)!==f.sha256)throw new Error(`Контрольная сумма файла обновления не совпадает: ${target}`);const dest=path.join(dir,target);fs.mkdirSync(path.dirname(dest),{recursive:true});fs.writeFileSync(dest,b);verified.push({source:f.source,target:f.target,size:b.length,sha256:hash(b)});done+=b.length;events.emit("download-progress",{percent:Math.round((verified.length/available.files.length)*100),transferred:done,total:done,bytesPerSecond:0})}fs.writeFileSync(manifestFile(dir),JSON.stringify({version:available.version,
  channel:isBeta()?"beta":"stable",baseVersion:app.getVersion(),
  installedAt:new Date().toISOString(),files:verified},null,2));if(!verifyRuntime(dir))throw new Error("Hot-update повреждён");promoteRuntime();events.emit("update-downloaded",{version:available.version});return[current()]}
+// User-triggered recovery: first revert to the last verified Beta, then to
+// the installer files. Updates are replaced atomically; user data is untouched.
+function rollback(){
+ if(!isBeta())throw Error("Откат Beta hot-пакета доступен только в тестовой сборке");
+ if(!fs.existsSync(current()))throw Error("Hot-обновление не установлено");
+ const saved=verifyRuntime(previous());
+ const usePrevious=!!saved&&saved.channel==="beta"&&
+  saved.baseVersion===app.getVersion()&&compare(saved.version,app.getVersion())>0;
+ const quarantine=path.join(root(),"rollback-"+crypto.randomBytes(8).toString("hex"));
+ fs.renameSync(current(),quarantine);
+ try{
+  if(usePrevious)fs.renameSync(previous(),current())
+ }catch(error){
+  try{fs.renameSync(quarantine,current())}catch(restoreError){
+   throw Error("Не удалось завершить откат: "+error.message+
+    ". Исходная версия сохранена в "+quarantine+
+    ", ошибка восстановления: "+restoreError.message)
+  }
+  throw error
+ }
+ try{fs.rmSync(quarantine,{recursive:true,force:true})}
+ catch(error){console.warn("IR Project AI: leftover rolled-back hot files:",quarantine,error)}
+ return{version:installedVersion(),requiresRestart:true,rolledBackFrom:saved?.version||null}
+}
 function install(){app.relaunch();app.exit(0)}
 cleanupStaleRuntime();
-module.exports={check,download:downloadUpdate,install,updater:events,currentDir:current,installedVersion,verifyRuntime,resolveFile,cleanupStaleRuntime};
+module.exports={check,download:downloadUpdate,rollback,install,updater:events,currentDir:current,installedVersion,verifyRuntime,resolveFile,cleanupStaleRuntime};
