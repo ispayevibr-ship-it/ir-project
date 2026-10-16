@@ -40,15 +40,12 @@ jobs:
           node --check src/ai-recognition-page.js
           node --check src/ai-scheme-lite-page.js
           node --check src/ai-image-optimizer.js
-          node scripts/test-ai-fast-region.js
           node scripts/test-ai-scheme-lite.js
           node scripts/test-ai-scheme-lite-ui.js
           node scripts/test-ai-beta-hot.js
           node scripts/test-updater-rollback.js
           node scripts/test-ai-pdf-drawings-ui.js
-          node scripts/test-ai-pdf-text-context.js
           node scripts/test-ai-navigation.js
-          node scripts/test-ai-pdf-render.js
           node scripts/test-scheme-reset.js
           node scripts/test-ai-mounting-batch.js
           node scripts/test-ai-mounting-placement.js

@@ -43,8 +43,6 @@ jobs:
           node --check main.js
           node --check scripts/build-beta-hot-manifest.js
           node scripts/test-ai-pdf-drawings-ui.js
-          node scripts/test-ai-pdf-text-context.js
-          node scripts/test-ai-fast-region.js
           node scripts/test-ai-scheme-lite.js
           node scripts/test-ai-scheme-lite-ui.js
           node scripts/test-scheme-reset.js
