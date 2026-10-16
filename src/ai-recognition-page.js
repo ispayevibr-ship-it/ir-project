@@ -173,6 +173,7 @@ window.irAiRecognitionPage=async function(objectId){
   const job={label,startedAt:Date.now(),timeoutSeconds:Number(engine?.analysisTimeoutSeconds)||600,
    percentage:6,status:"running",inlineNode};
   analysisProgress=job;
+  if(inlineNode){inlineNode.hidden=false;inlineNode.innerHTML=progressMarkup(job,true)}
   // The request is unstreamed; do not turn elapsed seconds into false neural completion.
   const timer=setInterval(()=>updateProgressNodes(job),1000);
   updateProgressNodes(job);
@@ -962,6 +963,7 @@ window.irAiRecognitionPage=async function(objectId){
     '<button type="button" data-region-back hidden>Вернуться к листу</button>'+
     '<button type="button" data-pdf-fit>100%</button>'+
     '<button type="button" data-pdf-close>Закрыть ✕</button></div></div>'+
+    '<div data-ai-region-progress hidden class="ir-ai-region-progress-area"></div>'+
     '<div class="ir-ai-pdf-preview-stage"><div class="ir-ai-region-guide">'+stepNumber('5.1')+' Выделите мышью участок чертежа, затем используйте кнопки 5.2 и 5.3 над листом.</div><div class="ir-ai-pdf-image-wrap">'+
     '<img alt="Фактический лист PDF"><div class="ir-ai-pdf-region-layer" title="Выделите нужную область мышью или касанием">'+
     '<div class="ir-ai-pdf-region-selection"></div></div></div></div>';
@@ -1081,12 +1083,20 @@ window.irAiRecognitionPage=async function(objectId){
     }
     if(!await authorizeAiMutation())return;
     loading=true;updateSelection();
+    const stopTimer=trackSheetAnalysis("КМД · лист "+page+" · фрагмент",
+     dlg.querySelector("[data-ai-region-progress]"));
+    paint();
     try{
-     const answer=await pdf.regionAnalyze(id,documentId,page,{...selected});
+     await pdf.regionAnalyze(id,documentId,page,{...selected});
      notice("Фрагмент PDF · лист "+page+" обработан локальным ИИ. Результат требует проверки инженера.");
+     stopTimer("completed");
      active="checks";dlg.close();await reload()
-    }catch(error){meta.textContent="ИИ-анализ фрагмента не завершён: "+String(error.message||error)}
-    finally{loading=false;updateSelection()}
+    }catch(error){
+     stopTimer("failed");
+     meta.textContent="ИИ-анализ фрагмента не завершён: "+String(error.message||error);
+     notice("Распознавание фрагмента не выполнено: "+String(error.message||error),"error");
+     paint()
+    }finally{loading=false;updateSelection()}
    };
    back.onclick=()=>{crop=null;showImage(original)};
    dlg.querySelector("[data-pdf-close]").onclick=()=>{if(!loading)dlg.close()};
