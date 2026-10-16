@@ -1,6 +1,6 @@
 "use strict";
 const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),os=require("node:os"),crypto=require("node:crypto"),{EventEmitter}=require("node:events");
-const {createEngine,names,VISION_CONTEXT_TOKENS}=require("../src/ai-local-engine");
+const {createEngine,names,VISION_CONTEXT_TOKENS,CPU_VISION_TIMEOUT_MS,GPU_VISION_TIMEOUT_MS}=require("../src/ai-local-engine");
 const {createAnalysis}=require("../src/ai-analysis");
 (async()=>{
  const temp=fs.mkdtempSync(path.join(os.tmpdir(),"ir-ai-engine-"));
@@ -22,6 +22,8 @@ const {createAnalysis}=require("../src/ai-analysis");
    assert(command.startsWith(dir));assert(args.includes("--mmproj"));
    assert.deepEqual(args.slice(args.indexOf("--host"),args.indexOf("--host")+2),["--host","127.0.0.1"]);
    assert.equal(VISION_CONTEXT_TOKENS,8192,"KM/KMD sheet with 4472 visual tokens needs more than 4096 context");
+   assert.equal(CPU_VISION_TIMEOUT_MS,600000);
+   assert.equal(GPU_VISION_TIMEOUT_MS,360000);
    assert.deepEqual(args.slice(args.indexOf("--ctx-size"),args.indexOf("--ctx-size")+2),["--ctx-size","8192"]);
    assert.deepEqual(args.slice(args.indexOf("--parallel"),args.indexOf("--parallel")+2),["--parallel","1"],
     "one inference slot keeps memory bounded on 16 GB laptops");
@@ -117,6 +119,41 @@ const {createAnalysis}=require("../src/ai-analysis");
   await assert.rejects(pendingAnalysis,/Анализ отменён/);
   assert.equal(cancellationEngine.status().state,"stopped");
   assert.equal(analysisChild.killed,true);
+  // llama.cpp can need more than three minutes to handle a large A1 KMD on CPU.
+  // A real AbortError must become a useful timeout reason and must clear busy.
+  function abortAwareEngine(timeoutMs){
+   const runtime=createEngine({
+    getUserDataPath:()=>temp,memory:()=>16*1024**3,wait:async()=>{},
+    requestTimeoutMs:timeoutMs,
+    spawn:()=>{const proc=new EventEmitter();proc.kill=()=>{};return proc},
+    httpFetch:async(url,options)=>{
+     if(url.endsWith("/health"))return{ok:true,status:200};
+     if(!url.endsWith("/v1/chat/completions"))throw Error("Unexpected URL");
+     return new Promise((_resolve,reject)=>{
+      const abort=()=>reject(Object.assign(new Error("This operation was aborted"),
+       {name:"AbortError"}));
+      options.signal.addEventListener("abort",abort,{once:true});
+      if(options.signal.aborted)abort()
+     })
+    }
+   });
+   return runtime
+  }
+  const timeoutEngine=abortAwareEngine(35);
+  assert.equal((await timeoutEngine.start()).state,"ready");
+  await assert.rejects(timeoutEngine.analyzeImage({buffer:img,mime:"image/png",
+   prompt:"PDF K60"}),/Превышено время ожидания ответа Qwen/);
+  assert.equal(timeoutEngine.status().state,"ready");
+  assert.equal(timeoutEngine.status().active,false,"timeout must free active slot");
+  assert.match(timeoutEngine.status().reason,/Превышено время ожидания/);
+  timeoutEngine.stop();
+  const userCancelEngine=abortAwareEngine(5000);
+  assert.equal((await userCancelEngine.start()).state,"ready");
+  const canceled=userCancelEngine.analyzeImage({buffer:img,mime:"image/png",prompt:"PDF K60"});
+  userCancelEngine.cancel();
+  await assert.rejects(canceled,/отменено пользователем/);
+  assert.equal(userCancelEngine.status().active,false);
+  userCancelEngine.stop();
   fs.writeFileSync(path.join(dir,names.model),"corrupted model");
   assert.equal((await engine.verify()).installed,false);
   console.log("Local AI: checksums, isolated subprocess, loopback, auth token, real API payload and unverified provenance PASS");
