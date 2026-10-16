@@ -865,6 +865,11 @@ window.irAiRecognitionPage=async function(objectId){
   })
  }
  async function requestReviewPassword(role){
+  // Electron validates the current authenticated role, so no second prompt is
+  // needed for subsequent drawing actions in the same working session.
+  if(typeof reviewer?.session==="function"){
+   try{if(await reviewer.session(role))return ""}catch(_error){}
+  }
   return new Promise(resolve=>{
    const dlg=document.createElement("dialog");dlg.className="ir-ai-review-password";
    dlg.innerHTML='<form method="dialog"><h3>Подтверждение проверки</h3>'+
