@@ -20,7 +20,7 @@ function hotAiModule(name){
 }
 const mountingPlacement=hotAiModule("ai-mounting-placement");
 const mountingDrafts=hotAiModule("ai-mounting-drafts");
-const database=require("./src/database"),aiDocumentStore=hotAiModule("ai-document-store"),aiLocalEngine=hotAiModule("ai-local-engine"),aiAnalysis=hotAiModule("ai-analysis"),aiReview=hotAiModule("ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiKmdMaterials=require("./src/ai-kmd-materials"),aiKmdConnections=require("./src/ai-kmd-connections"),aiKmKmdCompare=require("./src/ai-km-kmd-compare"),aiAssemblyGeometry=require("./src/ai-assembly-geometry"),aiAssemblyAttachments=require("./src/ai-assembly-attachments"),aiWorkflow=hotAiModule("ai-workflow"),aiStructuredReview=hotAiModule("ai-structured-review"),aiDrawingRevisions=require("./src/ai-drawing-revisions"),aiIntegrityReport=require("./src/ai-integrity-report"),aiCoverageReport=require("./src/ai-kmd-coverage"),aiKmdReference=require("./src/ai-kmd-reference"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),aiModelManager=require("./src/ai-model-manager"),aiPaddleOcr=require("./src/ai-paddle-ocr"),aiPreflightCheck=require("./src/ai-acceptance-preflight"),aiRuntimeDiagnostics=require("./src/ai-runtime-diagnostics"),completeBackup=require("./src/ai-complete-backup"),backup=require("./src/backup"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
+const database=require("./src/database"),aiDocumentStore=hotAiModule("ai-document-store"),aiReview=hotAiModule("ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiKmdMaterials=require("./src/ai-kmd-materials"),aiKmdConnections=require("./src/ai-kmd-connections"),aiKmKmdCompare=require("./src/ai-km-kmd-compare"),aiAssemblyGeometry=require("./src/ai-assembly-geometry"),aiAssemblyAttachments=require("./src/ai-assembly-attachments"),aiStructuredReview=hotAiModule("ai-structured-review"),aiDrawingRevisions=require("./src/ai-drawing-revisions"),aiIntegrityReport=require("./src/ai-integrity-report"),aiCoverageReport=require("./src/ai-kmd-coverage"),aiKmdReference=require("./src/ai-kmd-reference"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),completeBackup=require("./src/ai-complete-backup"),backup=require("./src/backup"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
 let win;
 const schemeResetService=schemeReset.createReset({database});
 const aiDocuments=aiDocumentStore.createStore({getUserDataPath:()=>app.getPath("userData"),dialog,shell,database,getWindow:()=>win});
@@ -42,48 +42,11 @@ const aiDocumentDeletion=require("./src/ai-document-hot-loader").createGuard({
  updates,appRoot:__dirname,getUserDataPath:()=>app.getPath("userData"),
  database,dialog,shell,getWindow:()=>win
 });
-let aiModels,aiOcr;
-const aiEngine=aiLocalEngine.createEngine({
- getUserDataPath:()=>app.getPath("userData"),
- managedModel:{
-  inspect:()=>aiModels?.managedRuntime("qwen3-vl-4b")||null,
-  resolve:()=>aiModels.resolveRuntime("qwen3-vl-4b")
- }
-});
-// Publisher-controlled public endpoint. No model weights are bundled with the app.
-// Keep this empty until the official signed catalog has been published.
-let aiCatalogConfig={url:""};
-try{aiCatalogConfig=require("./src/ai-catalog-config.json")}catch(error){
- if(error.code!=="MODULE_NOT_FOUND")throw error;
-}
-const aiCatalogUrl=typeof aiCatalogConfig.url==="string"&&aiCatalogConfig.url.trim()?
- aiCatalogConfig.url.trim():null;
-aiModels=aiModelManager.createModelManager({
- getUserDataPath:()=>app.getPath("userData"),dialog,getWindow:()=>win,
- appVersion:()=>require("./package.json").version,
- catalogUrl:aiCatalogUrl,
- engineActive:()=>["starting","ready"].includes(aiEngine.status().state)||Boolean(aiOcr?.status().busy),
- onDownloadProgress:point=>{if(win&&!win.isDestroyed())win.webContents.send("ai-models:progress",point)}
-});
-aiOcr=aiPaddleOcr.createPaddleOcr({
- getUserDataPath:()=>app.getPath("userData"),models:aiModels
-});
-const aiDiagnostics=aiRuntimeDiagnostics.createDiagnostics({engine:aiEngine});
-const aiPreflight=aiPreflightCheck.createPreflight({models:aiModels,engine:aiEngine,ocr:aiOcr});
-const modelAdminSessions=new Map();
-function checkModelAdmin(event){
- const expires=modelAdminSessions.get(event.sender.id)||0;
- if(Date.now()>expires){modelAdminSessions.delete(event.sender.id);throw Error("Для установки моделей требуется подтверждённая сессия администратора")}
-}
 const aiPdf=aiPdfIndex.createPdfIndex({database,documents:aiDocuments,
  onProgress:payload=>{if(win&&!win.isDestroyed())win.webContents.send("ai-pdf:progress",payload)}
 });
 const aiRevisions=aiDrawingRevisions.createDrawingRevisions({database,documents:aiDocuments,pdfIndex:aiPdf});
 const aiRaster=aiPdfRenderer.createPdfRenderer({database,documents:aiDocuments});
-const aiResults=aiAnalysis.createAnalysis({
- database,documents:aiDocuments,engine:aiEngine,ocr:aiOcr,
- pdfRenderer:aiRaster,pdfIndex:aiPdf,revisions:aiRevisions
-});
 const aiReviews=aiReview.createAiReview({database,revisions:aiRevisions});
 const aiProposals=aiStructuredReview.createStructuredReviews({database,documents:aiDocuments,revisions:aiRevisions});
 const aiQuantities=aiMarkQuantities.createMarkQuantities({database,revisions:aiRevisions});
@@ -102,10 +65,6 @@ const LOCAL_AI_CONTEXT=Object.freeze({role:"engineer",authMethod:"local_app_user
 function currentAiRole(){return true}
 function authorizeAiReview(){return true}
 function requireAiReviewer(){return LOCAL_AI_CONTEXT}
-const aiQueue=aiWorkflow.createAiWorkflow({database,documents:aiDocuments,pdfIndex:aiPdf,
- analysis:aiResults,reviews:aiReviews,engine:aiEngine,ocr:aiOcr,revisions:aiRevisions,
- onProgress:payload=>{if(win&&!win.isDestroyed())win.webContents.send("ai-workflow:progress",payload)}
-});
 const aiReference=aiKmdReference.createKmdReference({
  database,revisions:aiRevisions,quantities:aiQuantities,materials:aiMaterials,
  connections:aiConnections
@@ -116,7 +75,7 @@ const aiCoverage=aiCoverageReport.createAiCoverage({
 });
 const aiIntegrity=aiIntegrityReport.createAiIntegrity({
  database,documents:aiDocuments,pdfIndex:aiPdf,revisions:aiRevisions,
- review:aiReviews,workflow:aiQueue,proposals:aiProposals,quantities:aiQuantities,
+ review:aiReviews,workflow:{list:()=>[],summary:()=>({total:0,byStatus:{},isRunning:false})},proposals:aiProposals,quantities:aiQuantities,
  materials:aiMaterials,connections:aiConnections,comparisons:aiComparisons,
  assemblies:aiAssemblies,attachments:aiAttachments,coverage:aiCoverage,reference:aiReference
 });
@@ -200,36 +159,26 @@ function registerAiDocuments(){
  // historic decision records and original bytes remain intact.
  ipcMain.handle("ai-documents:archive",(e,{objectId,id})=>{
   requireAiReviewer(e);
-  if(aiPdf.busy()||aiRaster.busy()||aiQueue.summary(objectId).isRunning||
-     aiEngine.status().active||aiOcr.status().busy)
+  if(aiPdf.busy()||aiRaster.busy())
    throw Error("Дождитесь завершения обработки чертежей перед архивированием PDF");
   return aiDocumentDeletion.archive(objectId,id)
  });
  ipcMain.handle("ai-documents:restore",(e,{objectId,id})=>{
   requireAiReviewer(e);
-  if(aiPdf.busy()||aiRaster.busy()||aiQueue.summary(objectId).isRunning||
-     aiEngine.status().active||aiOcr.status().busy)
+  if(aiPdf.busy()||aiRaster.busy())
    throw Error("Дождитесь завершения обработки чертежей перед восстановлением PDF");
   return aiDocumentDeletion.restore(objectId,id)
  });
  ipcMain.handle("ai-documents:remove",(e,{objectId,id,discardUnreviewed=false,expectedAnalysisIds=[]})=>{
   requireAiReviewer(e);
   // A source cannot be removed during any ongoing indexing, rendering or inference.
-  if(aiPdf.busy()||aiRaster.busy()||aiQueue.summary(objectId).isRunning||
-     aiEngine.status().active||aiOcr.status().busy)
+  if(aiPdf.busy()||aiRaster.busy())
    throw Error("Сейчас выполняется обработка чертежей. Дождитесь её окончания перед удалением PDF.");
   const linked=aiRevisions.list(objectId).find(set=>set.sheets.some(s=>Number(s.documentId)===Number(id)));
   if(linked)throw Error("Исходный PDF входит в комплект КМ/КМД «"+linked.label+
    "» (включая историю). Удаление нарушит проверяемость ревизий; сохраните оригинал.");
   return aiDocumentDeletion.remove(objectId,id,{discardUnreviewed,expectedAnalysisIds})
  });
- ipcMain.handle("ai-engine:status",()=>aiEngine.status());
- ipcMain.handle("ai-engine:start",e=>{requireAiReviewer(e);return aiEngine.start()});
- ipcMain.handle("ai-engine:stop",e=>{requireAiReviewer(e);aiOcr.cancel();return aiEngine.stop()});
- ipcMain.handle("ai-engine:cancel",e=>{requireAiReviewer(e);aiOcr.cancel();return aiEngine.cancel()});
- ipcMain.handle("ai-ocr:status",()=>aiOcr.status());
- ipcMain.handle("ai-ocr:cancel",e=>{requireAiReviewer(e);return aiOcr.cancel()});
- ipcMain.handle("ai-analysis:list",(_e,objectId)=>aiReviews.list(objectId));
  ipcMain.handle("ai-review:list",(_e,objectId)=>aiReviews.list(objectId));
  ipcMain.handle("ai-review:register",(_e,objectId)=>aiReviews.register(objectId));
  ipcMain.handle("ai-review:history",(_e,{objectId,id})=>aiReviews.history(objectId,id));
@@ -269,17 +218,6 @@ function registerAiDocuments(){
  ipcMain.handle("ai-assembly:history",(_e,{objectId,id})=>aiAssemblies.history(objectId,id));
  ipcMain.handle("ai-assembly:save",(e,{objectId,id,entry})=>
   aiAssemblies.save(objectId,id??null,entry,requireAiReviewer(e)));
- ipcMain.handle("ai-workflow:list",(_e,objectId)=>aiQueue.list(objectId));
- ipcMain.handle("ai-workflow:summary",(_e,objectId)=>aiQueue.summary(objectId));
- ipcMain.handle("ai-workflow:history",(_e,{objectId,id})=>aiQueue.history(objectId,id));
- ipcMain.handle("ai-workflow:enqueue",(e,{objectId,documentId,pages})=>
-  aiQueue.enqueue(objectId,documentId,pages,requireAiReviewer(e)));
- ipcMain.handle("ai-workflow:start",(e,objectId)=>aiQueue.start(objectId,requireAiReviewer(e)));
- ipcMain.handle("ai-workflow:pause",(e,objectId)=>aiQueue.pause(objectId,requireAiReviewer(e)));
- ipcMain.handle("ai-workflow:retry",(e,{objectId,id})=>
-  aiQueue.retry(objectId,id,requireAiReviewer(e)));
- ipcMain.handle("ai-workflow:cancel",(e,{objectId,id})=>
-  aiQueue.cancel(objectId,id,requireAiReviewer(e)));
  ipcMain.handle("ai-integrity:report",(_e,objectId)=>aiIntegrity.report(objectId));
  ipcMain.handle("ai-kmd-reference:snapshot",(_e,objectId)=>aiReference.snapshot(objectId));
  ipcMain.handle("ai-kmd-reference:list",(_e,objectId)=>aiReference.list(objectId));
@@ -313,82 +251,13 @@ function registerAiDocuments(){
  ipcMain.handle("ai-attachment:history",(_e,{objectId,id})=>aiAttachments.history(objectId,id));
  ipcMain.handle("ai-attachment:save",(e,{objectId,id,entry})=>
   aiAttachments.save(objectId,id??null,entry,requireAiReviewer(e)));
- ipcMain.handle("ai-analysis:image",(e,{objectId,id})=>{requireAiReviewer(e);return aiResults.analyze(objectId,id)});
+
  ipcMain.handle("ai-pdf:list",(_e,objectId)=>aiPdf.list(objectId));
  ipcMain.handle("ai-pdf:index",(e,{objectId,id})=>{requireAiReviewer(e);return aiPdf.index(objectId,id)});
  ipcMain.handle("ai-pdf:page",(_e,{objectId,indexId,page})=>aiPdf.page(objectId,indexId,page));
  ipcMain.handle("ai-pdf:preview",(_e,{objectId,id,page})=>aiRaster.preview(objectId,id,page));
  ipcMain.handle("ai-pdf:region-preview",(_e,{objectId,id,page,region})=>aiRaster.regionPreview(objectId,id,page,region));
- ipcMain.handle("ai-pdf:region-analyze",(e,{objectId,id,page,region})=>{
-  requireAiReviewer(e);return aiResults.analyzePdf(objectId,id,page,region)
- });
- ipcMain.handle("ai-pdf:analyze",(e,{objectId,id,page})=>{
-  requireAiReviewer(e);return aiResults.analyzePdf(objectId,id,page)
- });
-}
-function registerAiModelIpc(){
- ipcMain.handle("ai-models:info",()=>aiModels.info());
- ipcMain.handle("ai-models:preflight",()=>aiPreflight.check());
- ipcMain.handle("ai-diagnostics:hardware",()=>aiDiagnostics.hardware());
- ipcMain.handle("ai-diagnostics:status",()=>aiDiagnostics.status());
- ipcMain.handle("ai-diagnostics:smoke-test",(event)=>{
-  checkModelAdmin(event);
-  return aiDiagnostics.smokeTest()
- });
- ipcMain.handle("ai-diagnostics:start",(event)=>{
-  checkModelAdmin(event);
-  return aiEngine.start()
- });
- ipcMain.handle("ai-diagnostics:stop",(event)=>{
-  checkModelAdmin(event);
-  aiOcr.cancel();return aiEngine.stop()
- });
- ipcMain.handle("ai-models:check-updates",()=>aiModels.checkUpdates());
- ipcMain.handle("ai-models:authorize",(e,password)=>{
-  const hash=crypto.createHash("sha256").update(String(password||"")).digest("hex");
-  const authorized=crypto.timingSafeEqual(Buffer.from(hash),Buffer.from(roleHashes.admin));
-  if(authorized){modelAdminSessions.set(e.sender.id,Date.now()+10*60*1000);
-   e.sender.once("destroyed",()=>modelAdminSessions.delete(e.sender.id))}
-  return authorized
- });
- ipcMain.handle("ai-models:import-manual-qwen",async()=>{
-  if(["starting","ready"].includes(aiEngine.status().state))throw Error("Сначала остановите локальный ИИ");
-  const root=path.join(app.getPath("userData"),"ir-project-ai","manual-qwen");
-  fs.mkdirSync(root,{recursive:true});
-  const names={model:"Qwen3VL-4B-Instruct-Q4_K_M.gguf",vision:"mmproj-Qwen3VL-4B-Instruct-Q8_0.gguf",binary:"llama-server.exe"};
-  const hashes={};
-  for(const [key,name] of Object.entries(names)){
-   const file=path.join(root,name),stat=fs.lstatSync(file);
-   if(!stat.isFile()||stat.isSymbolicLink()||stat.size<(key==="model"?1000000000:key==="vision"?50000000:4096))
-    throw Error("Файл отсутствует или слишком мал: "+name);
-   const header=Buffer.alloc(4),fd=fs.openSync(file,"r");
-   try{fs.readSync(fd,header,0,4,0)}finally{fs.closeSync(fd)}
-   if(key!=="binary"&&header.toString("ascii")!=="GGUF")throw Error("Неверный GGUF: "+name);
-   if(key==="binary"&&header.subarray(0,2).toString("ascii")!=="MZ")throw Error("Неверный Windows exe");
-   const hash=crypto.createHash("sha256");
-   for await(const chunk of fs.createReadStream(file))hash.update(chunk);
-   hashes[key]=hash.digest("hex");
-  }
-  const tmp=path.join(root,"manual.json.tmp");
-  fs.writeFileSync(tmp,JSON.stringify({schema:1,modelId:"qwen3-vl-4b",engine:"llama.cpp",sha256:hashes},null,2));
-  fs.renameSync(tmp,path.join(root,"manual.json"));
-  return{ok:true,folder:root,message:"Файлы зарегистрированы с SHA-256. Запуск модели требует отдельной проверки."};
- });
- ipcMain.handle("ai-models:open-folder",()=>{const folder=path.join(app.getPath("userData"),"ir-project-ai","manual-qwen");fs.mkdirSync(folder,{recursive:true});return shell.openPath(folder)});
- ipcMain.handle("ai-models:select",e=>{checkModelAdmin(e);return aiModels.select()});
- ipcMain.handle("ai-models:install",(e,token)=>{checkModelAdmin(e);return aiModels.install(token)});
- ipcMain.handle("ai-models:rollback",(e,id)=>{checkModelAdmin(e);return aiModels.rollback(id)});
- ipcMain.handle("ai-models:download",(e,{modelId,version})=>{checkModelAdmin(e);return aiModels.download(modelId,version)});
- ipcMain.handle("ai-models:download-install",(_e,{modelId,version})=>aiModels.downloadAndInstall(modelId,version));
- ipcMain.handle("ai-models:cancel",()=>aiModels.cancelDownload());
- ipcMain.handle("ai-models:verify-runtime",async(e)=>{
-  checkModelAdmin(e);
-  const entry=await aiModels.resolveRuntime("qwen3-vl-4b");
-  if(!entry)return{installed:false,reason:"Qwen3-VL 4B ещё не установлена"};
-  if(!entry.installed)return{installed:false,reason:entry.reason};
-  return{installed:true,modelId:entry.modelId,version:entry.version,gpuLayers:entry.gpuLayers,
-   bytes:entry.bytes,reason:"Подпись и SHA-256 проверены. Реальная загрузка нейросети — отдельная проверка."}
- });
+ 
 }
 function registerReportExport(){ipcMain.handle("report:export-html",async(_e,{html,defaultName}={})=>{const r=await dialog.showSaveDialog(win,{defaultPath:defaultName||"daily-report.html",filters:[{name:"HTML",extensions:["html"]}]});if(r.canceled||!r.filePath)return false;fs.writeFileSync(r.filePath,String(html||""),"utf8");return r.filePath});ipcMain.handle("report:export-pdf",async(e,{defaultName}={})=>{const r=await dialog.showSaveDialog(win,{defaultPath:defaultName||"daily-report.pdf",filters:[{name:"PDF",extensions:["pdf"]}]});if(r.canceled||!r.filePath)return false;const pdf=await e.sender.printToPDF({printBackground:true,pageSize:"A4",margins:{top:0.32,bottom:0.32,left:0,right:0}});fs.writeFileSync(r.filePath,pdf);return r.filePath});ipcMain.handle("report:print",e=>new Promise((resolve,reject)=>{e.sender.print({printBackground:true},(ok,error)=>ok?resolve(true):reject(new Error(error||"Печать не выполнена")))}))}
 function registerAccess(){ipcMain.handle("access:login",(e,{role,password})=>{
@@ -408,12 +277,6 @@ function registerBackup(){
  let active=false;
  const locked=async task=>{
   if(active)throw Error("Резервная копия уже обрабатывается");
-  const qwenState=aiEngine.status();
-  if(aiOcr.status().busy||["starting","ready"].includes(qwenState.state)||
-    (aiQueue.summary&&database.listObjects().some(o=>{
-     try{return aiQueue.summary(o.id).isRunning}catch{return true}
-    })))
-   throw Error("Остановите очередь распознавания и текущий анализ перед работой с резервной копией");
   active=true;
   try{return await task()}finally{active=false}
  };
@@ -453,6 +316,5 @@ function registerBackup(){
  })})
 }
 function registerUpdates(){ipcMain.handle("update:check",()=>updates.check());ipcMain.handle("update:download",()=>updates.download());ipcMain.handle("update:rollback",()=>updates.rollback());ipcMain.handle("update:install",()=>updates.install());ipcMain.handle("update:version",()=>updates.installedVersion());updates.updater.on("update-available",i=>win?.webContents.send("update:status",{type:"available",...i}));updates.updater.on("update-not-available",i=>win?.webContents.send("update:status",{type:"current",...i}));updates.updater.on("download-progress",p=>win?.webContents.send("update:status",{type:"progress",percent:Math.round(p.percent),transferred:p.transferred,total:p.total}));updates.updater.on("update-downloaded",i=>win?.webContents.send("update:status",{type:"downloaded",version:i.version}));updates.updater.on("error",e=>win?.webContents.send("update:status",{type:"error",message:e.message}))}
-app.whenReady().then(()=>{runtimeLoader.register(updates);database.openDatabase();registerData();registerAiDocuments();registerAiModelIpc();registerReportExport();registerAccess();registerBackup();registerUpdates();createWindow()}).catch(error=>{console.error("IR Project startup:",error);dialog.showErrorBox("Не удалось запустить IR Project","Проверьте файл ir-project.db и обратитесь к администратору.\n\n"+String(error?.message||error));app.quit()});
-app.on("before-quit",()=>{aiEngine.stop()});
+app.whenReady().then(()=>{runtimeLoader.register(updates);database.openDatabase();registerData();registerAiDocuments();registerReportExport();registerAccess();registerBackup();registerUpdates();createWindow()}).catch(error=>{console.error("IR Project startup:",error);dialog.showErrorBox("Не удалось запустить IR Project","Проверьте файл ir-project.db и обратитесь к администратору.\n\n"+String(error?.message||error));app.quit()});
 app.on("window-all-closed",()=>{if(process.platform!=="darwin")app.quit()});

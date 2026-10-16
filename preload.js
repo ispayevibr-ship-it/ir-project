@@ -28,39 +28,10 @@ const aiPdf={
  page:(objectId,indexId,page)=>ipcRenderer.invoke("ai-pdf:page",{objectId,indexId,page}),
  preview:(objectId,id,page)=>ipcRenderer.invoke("ai-pdf:preview",{objectId,id,page}),
  regionPreview:(objectId,id,page,region)=>ipcRenderer.invoke("ai-pdf:region-preview",{objectId,id,page,region}),
- regionAnalyze:(objectId,id,page,region)=>ipcRenderer.invoke("ai-pdf:region-analyze",{objectId,id,page,region}),
- analyze:(objectId,id,page)=>ipcRenderer.invoke("ai-pdf:analyze",{objectId,id,page}),
  onProgress:callback=>{
   const listener=(_event,data)=>{if(typeof callback==="function")callback(data)};
   ipcRenderer.on("ai-pdf:progress",listener);
   return()=>ipcRenderer.removeListener("ai-pdf:progress",listener)
- }
-};
-const aiDiagnostics={
- hardware:()=>ipcRenderer.invoke("ai-diagnostics:hardware"),
- status:()=>ipcRenderer.invoke("ai-diagnostics:status"),
- start:()=>ipcRenderer.invoke("ai-diagnostics:start"),
- stop:()=>ipcRenderer.invoke("ai-diagnostics:stop"),
- smokeTest:()=>ipcRenderer.invoke("ai-diagnostics:smoke-test")
-};
-const aiModels={
- openFolder:()=>ipcRenderer.invoke("ai-models:open-folder"),
- importManualQwen:()=>ipcRenderer.invoke("ai-models:import-manual-qwen"),
- info:()=>ipcRenderer.invoke("ai-models:info"),
- preflight:()=>ipcRenderer.invoke("ai-models:preflight"),
- checkUpdates:()=>ipcRenderer.invoke("ai-models:check-updates"),
- authorize:password=>ipcRenderer.invoke("ai-models:authorize",password),
- select:()=>ipcRenderer.invoke("ai-models:select"),
- install:token=>ipcRenderer.invoke("ai-models:install",token),
- rollback:id=>ipcRenderer.invoke("ai-models:rollback",id),
- download:(modelId,version)=>ipcRenderer.invoke("ai-models:download",{modelId,version}),
- downloadAndInstall:(modelId,version)=>ipcRenderer.invoke("ai-models:download-install",{modelId,version}),
- cancel:()=>ipcRenderer.invoke("ai-models:cancel"),
- verifyRuntime:()=>ipcRenderer.invoke("ai-models:verify-runtime"),
- onProgress:callback=>{
-  const listener=(_event,data)=>{if(typeof callback==="function")callback(data)};
-  ipcRenderer.on("ai-models:progress",listener);
-  return()=>ipcRenderer.removeListener("ai-models:progress",listener)
  }
 };
 const aiAssemblyAttachments={
@@ -131,21 +102,6 @@ const aiProposals={
  history:(objectId,analysisId,index)=>ipcRenderer.invoke("ai-proposals:history",{objectId,analysisId,index}),
  save:(objectId,analysisId,index,entry)=>ipcRenderer.invoke("ai-proposals:save",{objectId,analysisId,index,entry})
 };
-const aiWorkflow={
- list:objectId=>ipcRenderer.invoke("ai-workflow:list",objectId),
- summary:objectId=>ipcRenderer.invoke("ai-workflow:summary",objectId),
- history:(objectId,id)=>ipcRenderer.invoke("ai-workflow:history",{objectId,id}),
- enqueue:(objectId,documentId,pages)=>ipcRenderer.invoke("ai-workflow:enqueue",{objectId,documentId,pages}),
- start:objectId=>ipcRenderer.invoke("ai-workflow:start",objectId),
- pause:objectId=>ipcRenderer.invoke("ai-workflow:pause",objectId),
- retry:(objectId,id)=>ipcRenderer.invoke("ai-workflow:retry",{objectId,id}),
- cancel:(objectId,id)=>ipcRenderer.invoke("ai-workflow:cancel",{objectId,id}),
- onProgress:callback=>{
-  const fn=(_event,data)=>{if(typeof callback==="function")callback(data)};
-  ipcRenderer.on("ai-workflow:progress",fn);
-  return()=>ipcRenderer.removeListener("ai-workflow:progress",fn)
- }
-};
 const aiPdfGeometry={page:(objectId,documentId,page)=>
  ipcRenderer.invoke("ai-pdf:geometry",{objectId,documentId,page})};
 const aiMounting={
@@ -168,13 +124,5 @@ const aiReview={
  authorize:(role,password)=>ipcRenderer.invoke("ai-review:authorize",{role,password}),
  save:(objectId,id,review)=>ipcRenderer.invoke("ai-review:save",{objectId,id,review})
 };
-const aiEngine={
- status:()=>ipcRenderer.invoke("ai-engine:status"),
- start:()=>ipcRenderer.invoke("ai-engine:start"),
- stop:()=>ipcRenderer.invoke("ai-engine:stop"),
- cancel:()=>ipcRenderer.invoke("ai-engine:cancel"),
- results:objectId=>ipcRenderer.invoke("ai-analysis:list",objectId),
- analyze:(objectId,id)=>ipcRenderer.invoke("ai-analysis:image",{objectId,id})
-};
-contextBridge.exposeInMainWorld("irProject",{objects,company,images:{read:file=>ipcRenderer.invoke("images:read",file),remove:file=>ipcRenderer.invoke("images:remove",file),optimize:(file,type)=>ipcRenderer.invoke("images:optimize",{file,type})},reportPhotos,reportDocuments,reportExport,marksExcel,schemeReset,aiMounting,aiPdfGeometry,aiDocuments,aiEngine,aiPdf,aiModels,aiDiagnostics,aiReview,aiWorkflow,aiProposals,aiRevisions,aiIntegrity,aiKmdReference,aiMarkQuantities,aiKmdMaterials,aiKmdConnections,aiKmKmdCompare,aiAssembly3d,aiAssemblyAttachments,sections,data:{objects,sections,forObject:objectId=>({section:key=>section(objectId,key),records:key=>section(objectId,key)})},access:{login:(role,password)=>ipcRenderer.invoke("access:login",{role,password}),
+contextBridge.exposeInMainWorld("irProject",{objects,company,images:{read:file=>ipcRenderer.invoke("images:read",file),remove:file=>ipcRenderer.invoke("images:remove",file),optimize:(file,type)=>ipcRenderer.invoke("images:optimize",{file,type})},reportPhotos,reportDocuments,reportExport,marksExcel,schemeReset,aiMounting,aiPdfGeometry,aiDocuments,aiPdf,aiReview,aiProposals,aiRevisions,aiIntegrity,aiKmdReference,aiMarkQuantities,aiKmdMaterials,aiKmdConnections,aiKmKmdCompare,aiAssembly3d,aiAssemblyAttachments,sections,data:{objects,sections,forObject:objectId=>({section:key=>section(objectId,key),records:key=>section(objectId,key)})},access:{login:(role,password)=>ipcRenderer.invoke("access:login",{role,password}),
  logout:()=>ipcRenderer.invoke("access:logout")},backup:{create:()=>ipcRenderer.invoke("backup:create"),restore:()=>ipcRenderer.invoke("backup:restore")},updater:{check:()=>ipcRenderer.invoke("update:check"),download:()=>ipcRenderer.invoke("update:download"),rollback:()=>ipcRenderer.invoke("update:rollback"),install:()=>ipcRenderer.invoke("update:install"),version:()=>ipcRenderer.invoke("update:version"),onStatus:cb=>ipcRenderer.on("update:status",(_e,d)=>cb(d))}});
