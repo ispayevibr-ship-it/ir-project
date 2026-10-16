@@ -672,8 +672,11 @@
  // Read-only, bounded candidate intersections from CONFIRMED PDF axis strokes.
  // A nearest intersection is only a review hint, never a steel attachment point
  // and never an authorisation for automatic scheme placement.
+ // Match registered PDF labels to observable leader strokes and axis crossings.
+ // Pure read-only evidence: a PDF line still does not prove a steel member.
  function findAxisNodeCandidates({labels=[],analysis,grid,vector}={}){
-  const output={suggested:[],review:[],total:Math.min(labels.length,1000),status:"review_only"};
+  const output={suggested:[],nearby:[],review:[],
+   total:Math.min(labels.length,1000),status:"review_only"};
   const refuse=(code,reason)=>{for(const label of labels.slice(0,1000))
    output.review.push({label,reasonCode:code,reason});return output};
   if(!analysis?.calibrated||!grid?.x||!grid?.y||
@@ -685,15 +688,16 @@
    return refuse("incomplete_vector","Геометрия PDF неполная или лист повёрнут");
   const xx=analysis.xMatches,yy=analysis.yMatches;
   if(xx.length<3||yy.length<3||xx.length>100||yy.length>100)
-   return refuse("axis_count","Недостаточно осей или слишком крупный план для автоматического анализа");
+   return refuse("axis_count","Недостаточно осей или слишком крупный план");
   const region=analysis.region||{left:0,top:0,right:1,bottom:1},
    W=Number(vector.widthPt),H=Number(vector.heightPt);
   const inArea=(x,y)=>x>=W*region.left&&x<=W*region.right&&
    y>=H*region.top&&y<=H*region.bottom;
-  const vertical=(vector.axisBands?.vertical?.length?vector.axisBands.vertical:
-   (vector.segments||[]).filter(x=>x.direction==="vertical")),
+  const segments=Array.isArray(vector.segments)?vector.segments:[],
+   vertical=(vector.axisBands?.vertical?.length?vector.axisBands.vertical:
+    segments.filter(x=>x.direction==="vertical")),
    horizontal=(vector.axisBands?.horizontal?.length?vector.axisBands.horizontal:
-   (vector.segments||[]).filter(x=>x.direction==="horizontal"));
+    segments.filter(x=>x.direction==="horizontal"));
   const support=(lines,direction,x,y)=>lines.some(line=>{
    const point=direction==="vertical"?Number(line.x1):Number(line.y1),
     expected=direction==="vertical"?x:y,
@@ -709,10 +713,8 @@
    .filter(n=>Number.isFinite(n)&&n>3);
   const steps=[...axisSteps(xx),...axisSteps(yy)];
   if(!steps.length)return refuse("axis_spacing","Не удалось оценить шаг осей");
-  // Half a bay at most: prevents assigning labels from neighbouring nodes.
-  // This is a UI search radius, NOT a construction dimensional tolerance.
-  const radiusPt=Math.max(9,Math.min(75,Math.min(...steps)*.60));
-  const nodes=[];
+  // Search radius is a bounded screen-space proximity, never a mm tolerance.
+  const radiusPt=Math.max(9,Math.min(75,Math.min(...steps)*.60)),nodes=[];
   for(const x of xx)for(const y of yy){
    if(nodes.length>5000)return refuse("too_many_nodes","Слишком много пересечений");
    const xp=Number(x.pagePt),yp=Number(y.pagePt),
@@ -723,7 +725,47 @@
    nodes.push({axisX:String(x.name),axisY:String(y.name),
     nodeXmm:xm,nodeYmm:ym,pageX:xp,pageY:yp})
   }
-  if(!nodes.length)return refuse("no_vector_crossing","Нет подтверждённых пересечений двух векторных линий");
+  if(!nodes.length)return refuse("no_vector_crossing",
+   "Нет подтверждённых пересечений двух векторных линий");
+  // A marked point can be linked by a short painted leader terminating at
+  // the actual text rectangle AND at the vector axis crossing. A bare nearby
+  // glyph, two grid strokes, or an axis stroke itself are not leaders.
+  const labelDistance=(label,p)=>{
+   const b=label.rectPt;
+   if(!b||![b.x,b.y,b.width,b.height].every(Number.isFinite))
+    return Math.hypot(p.x-Number(label.pageX),p.y-Number(label.pageY));
+   const left=Number(b.x),right=left+Number(b.width),
+    top=H-Number(b.y)-Number(b.height),bottom=H-Number(b.y);
+   return Math.hypot(Math.max(left-p.x,0,p.x-right),
+    Math.max(top-p.y,0,p.y-bottom))
+  };
+  const isAxisStroke=seg=>{
+   const ax=xx.some(a=>Math.abs(seg.x1-Number(a.pagePt))<2.5&&
+    Math.abs(seg.x2-Number(a.pagePt))<2.5),
+    ay=yy.some(a=>Math.abs(seg.y1-Number(a.pagePt))<2.5&&
+    Math.abs(seg.y2-Number(a.pagePt))<2.5);
+   return ax||ay
+  };
+  const leaders=segments.filter(seg=>seg&&[seg.x1,seg.y1,seg.x2,seg.y2]
+   .every(Number.isFinite)&&
+   Math.hypot(seg.x2-seg.x1,seg.y2-seg.y1)>=8&&
+   Math.hypot(seg.x2-seg.x1,seg.y2-seg.y1)<=radiusPt*1.6&&
+   !isAxisStroke(seg)&&
+   inArea(seg.x1,seg.y1)&&inArea(seg.x2,seg.y2));
+  const directLeader=(label,node)=>{
+   const matched=[];
+   for(const seg of leaders){
+    const a={x:Number(seg.x1),y:Number(seg.y1)},
+     b={x:Number(seg.x2),y:Number(seg.y2)},
+     atNode=p=>Math.hypot(p.x-node.pageX,p.y-node.pageY)<=2.5;
+    if(labelDistance(label,a)<=2&&atNode(b)||
+       labelDistance(label,b)<=2&&atNode(a)){
+     matched.push({x1:seg.x1,y1:seg.y1,x2:seg.x2,y2:seg.y2})
+     if(matched.length>=3)break
+    }
+   }
+   return matched
+  };
   for(const label of labels.slice(0,1000)){
    const x=Number(label.pageX),y=Number(label.pageY);
    if(!Number.isFinite(x)||!Number.isFinite(y)||!inArea(x,y)){
@@ -742,29 +784,42 @@
      reason:"Несколько узлов осей примерно одинаково близки к надписи"});continue
    }
    const n=nearest[0].node;
-   output.suggested.push({label,mark:label.mark,markId:label.markId,
+   const item={label,mark:label.mark,markId:label.markId,
     axisX:n.axisX,axisY:n.axisY,nodeXmm:n.nodeXmm,nodeYmm:n.nodeYmm,
     offsetFromLabelMm:Math.round(Math.hypot(
      n.nodeXmm-label.labelXmm,n.nodeYmm-label.labelYmm)),
     distancePt:Math.round(nearest[0].distancePt*100)/100,
-    status:"unverified_grid_node",exactPlacement:false,
-    reason:"Подтверждены линии осей, но не принадлежность марки узлу"})
+    status:"proximity_only",exactPlacement:false};
+   const joined=directLeader(label,n);
+   if(!joined.length){
+    output.nearby.push(item);
+    output.review.push({label,reasonCode:"no_leader",
+     reason:"Узел близко, но нет графической линии от надписи к узлу"});continue
+   }
+   output.suggested.push({...item,status:"leader_linked_unverified",
+    evidence:{type:"line_from_label_to_axis_crossing",segments:joined},
+    reason:"Найдена графическая линия к узлу; принадлежность конструкции требует проверки"})
   }
-  // Multiple labels at the same crossing are NOT proof of coincident members.
   const byNode=new Map();
   for(const item of output.suggested){
    const key=item.axisX+"|"+item.axisY;
    if(!byNode.has(key))byNode.set(key,[]);
    byNode.get(key).push(item)
   }
+  // Many distinct designations at one crossing cannot be treated as
+  // repeated instances of one column or as one accurate position.
   for(const [nodeKey,items] of byNode)if(items.length>1){
    for(const item of items){
     output.review.push({label:item.label,reasonCode:"node_collision",
-     reason:"К одному узлу "+nodeKey+" относятся несколько надписей; требуется проверка"})
+     reason:"Несколько марок имеют графическую связь с узлом "+nodeKey});
+    output.nearby.push({...item,status:"multiple_leaders_same_node"})
    }
    output.suggested=output.suggested.filter(item=>!items.includes(item))
   }
   output.candidatesWithObservedCrossing=nodes.length;
+  output.reviewSummary=Object.entries(output.review.reduce((acc,x)=>{
+   acc[x.reasonCode]=(acc[x.reasonCode]||0)+1;return acc
+  },{})).sort((a,b)=>b[1]-a[1]).map(([code,count])=>({code,count}));
   return output
  }
 
