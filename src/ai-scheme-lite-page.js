@@ -225,7 +225,10 @@
      '<b>Локально · без ИИ</b></header>'+
      '<div class="ir-ai-quantity-warning">Найденная марка не означает известное положение в здании. Высоты привязываются лишь к листам с одной явно обозначенной маркой. Импорт требует инженерной проверки, официальной ведомости и сохранённой сетки осей.</div>'+
      '<div class="ir-ai-lite-toolbar"><button type="button" data-lite-scan '+(busy?'disabled':'')+'>1. Быстро найти марки и высоты</button>'+
-     '<button type="button" data-lite-scheme>Открыть монтажную схему</button></div>'+
+     '<button type="button" data-lite-scheme>Открыть монтажную схему</button>'+ 
+     (canEdit&&hostWindow.irAccess?.canEdit?.("scheme")&&hostWindow.irProject?.schemeReset?.clear?
+      '<button type="button" data-lite-clear class="ir-ai-lite-clear">Очистить схему</button>':"")+
+     '</div>'+
      '<div data-lite-status role="status">'+escDoc(log||"Доступные проиндексированные PDF можно проверить без запуска Qwen.")+'</div>'+
      '<div data-lite-results></div></section>';
     const ensureCurrent=async c=>{
@@ -362,6 +365,29 @@
     host.innerHTML=markup();
     host.querySelector("[data-lite-scan]").onclick=()=>void scan();
     host.querySelector("[data-lite-scheme]").onclick=()=>onNavigate?.("scheme");
+    const clear=host.querySelector("[data-lite-clear]");
+    if(clear)clear.onclick=async()=>{
+     if(busy||!canEdit||!hostWindow.irAccess?.canEdit?.("scheme"))return;
+     const api=hostWindow.irProject?.schemeReset;
+     if(!api?.preview||!api?.clear){status("В этой установке недоступна безопасная очистка схемы.");return}
+     busy=true;clear.disabled=true;
+     try{
+      const preview=await api.preview(objectId);
+      if(!preview.count){status("Схема уже пустая. Ведомость и сетка осей сохранены.");return}
+      const code=hostWindow.prompt("Будет очищена монтажная схема ВСЕГО объекта: "+
+       preview.count+" размещённых конструкций (все виды работ). "+
+       "PDF, оси, ведомость и инженерная история остаются. "+
+       "Введите ОЧИСТИТЬ для подтверждения:");
+      if(code!=="ОЧИСТИТЬ")return;
+      const result=await api.clear(objectId,{
+       expectedCount:preview.count,expectedFingerprint:preview.fingerprint,
+       confirmation:code
+      });
+      status("Монтажная схема очищена: "+result.cleared+
+       " элементов. PDF, оси, ведомость и история сохранены.");
+     }catch(error){status("Очистка не выполнена: "+String(error.message||error))}
+     finally{busy=false;clear.disabled=false}
+    };
     draw();
     
    }
