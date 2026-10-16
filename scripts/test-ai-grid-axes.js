@@ -386,8 +386,8 @@ assert.equal(isolated.review[0].reasonCode,"outside_plan");
 assert.equal(isolated.review[0].label.pageX,foreignLabel.pageX);
 const isolatedRegister=detectPlanRegisterLabels({
  raw:{fragments:[
- {text:"Б22",x:140,y:heightPt-95,width:10,height:8},
- {text:"Б22",x:widthPt*.75,y:heightPt-95,width:10,height:8}]},
+ {text:"Б22",x:140,y:heightPt-205,width:10,height:8},
+ {text:"Б22",x:widthPt*.75,y:heightPt-205,width:10,height:8}]},
  analysis:leftView,grid,marks:[{id:201,title:"Б22",data:{mark:"Б22"}}],
  widthPt,heightPt});
 assert.equal(isolatedRegister.labels.length,1,
