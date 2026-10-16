@@ -87,42 +87,16 @@ const aiConnections=aiKmdConnections.createKmdConnections({database,quantities:a
 const aiComparisons=aiKmKmdCompare.createKmKmdCompare({database,revisions:aiRevisions});
 const aiAssemblies=aiAssemblyGeometry.createAssemblyGeometry({database,quantities:aiQuantities,materials:aiMaterials,revisions:aiRevisions});
 const aiAttachments=aiAssemblyAttachments.createAssemblyAttachments({database,assemblies:aiAssemblies,connections:aiConnections,revisions:aiRevisions});
-const aiReviewSessions=new Map();
-const EDITOR_SESSION_MS=8*60*60*1000; // One login per working session, not per PDF.
-function currentAiRole(e,role){
- if(!["admin","engineer"].includes(role))return false;
- const now=Date.now(),access=accessSessions.get(e.sender.id),
-  ai=aiReviewSessions.get(e.sender.id);
- if(access&&access.expiresAt>now&&access.role===role)return true;
- if(ai&&ai.expiresAt>now&&ai.role===role)return true;
- return false
-}
-function authorizeAiReview(e,role,password){
- if(!["admin","engineer"].includes(role))return false;
- // Never trust an empty password on its own: an existing Electron session
- // must have been authenticated by the real login or an earlier AI password.
- const active=currentAiRole(e,role);
- const digest=crypto.createHash("sha256").update(String(password||"")).digest("hex");
- const expected=Buffer.from(roleHashes[role]),actual=Buffer.from(digest);
- const allowed=active||crypto.timingSafeEqual(expected,actual);
- if(allowed){
-  aiReviewSessions.set(e.sender.id,{role,expiresAt:Date.now()+EDITOR_SESSION_MS});
-  e.sender.once("destroyed",()=>aiReviewSessions.delete(e.sender.id))
- }
- return allowed
-}
-function requireAiReviewer(e){
- const now=Date.now(),access=accessSessions.get(e.sender.id),
-  saved=aiReviewSessions.get(e.sender.id);
- const active=access&&access.expiresAt>now&&["admin","engineer"].includes(access.role)?
-  access:saved&&saved.expiresAt>now&&["admin","engineer"].includes(saved.role)?saved:null;
- if(!active){
-  aiReviewSessions.delete(e.sender.id);
-  throw Error("Сессия инженера истекла. Войдите в программу повторно");
- }
- aiReviewSessions.set(e.sender.id,{role:active.role,expiresAt:now+EDITOR_SESSION_MS});
- return active
-}
+// Local/offline AI mode: the application owner requested NO password prompts
+// or expiring engineer sessions anywhere in the AI workflow. Keep the
+// role-shaped context only for legacy persistence/audit contracts; it is not
+// evidence that a licensed engineer reviewed the drawing. Actual placement
+// still requires explicit on-screen confirmation and source/grid validation.
+// Backup/restore administrator authorization remains a separate safeguard.
+const LOCAL_AI_CONTEXT=Object.freeze({role:"engineer",authMethod:"local_app_user"});
+function currentAiRole(){return true}
+function authorizeAiReview(){return true}
+function requireAiReviewer(){return LOCAL_AI_CONTEXT}
 const aiQueue=aiWorkflow.createAiWorkflow({database,documents:aiDocuments,pdfIndex:aiPdf,
  analysis:aiResults,reviews:aiReviews,engine:aiEngine,ocr:aiOcr,revisions:aiRevisions,
  onProgress:payload=>{if(win&&!win.isDestroyed())win.webContents.send("ai-workflow:progress",payload)}
