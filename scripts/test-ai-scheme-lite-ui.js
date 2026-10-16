@@ -118,13 +118,9 @@ function makeHost(){
  assert.deepEqual(opened,[2,1]);
  host.inspect.scheme.onclick();
  assert.equal(navigation,"scheme");
- // Access revoked after scanning: no placement, despite an enabled button.
+ // The original PDF and the register remain required even when the
+ // old role flag is disabled.
  schemeAllowed=false;
- host.inspect.approve.onclick();
- await flush(()=>host.inspect.feedback.textContent.includes("Нужны права инженера"));
- assert.equal(saved.length,0);
- assert.equal(passwordCalls,0,"unauthorized users never request reviewer password");
- schemeAllowed=true;
  documents=[{...drawing,sha256:"b".repeat(64)}];
  host.inspect.approve.onclick();
  await flush(()=>host.inspect.status.textContent.includes("Исходный PDF изменён"));
@@ -139,8 +135,8 @@ function makeHost(){
  host.inspect.fields.z0="-400";
  host.inspect.approve.onclick();
  await flush(()=>saved.length===1);
- assert.equal(approvalCalls,2);
- assert.equal(passwordCalls,2);
+ assert.equal(approvalCalls,0);
+ assert.equal(passwordCalls,0);
  assert.equal(confirmed,1);
  assert.equal(saved[0].data.mark,"К60");
  assert.equal(saved[0].data.geometry_type,"column");
@@ -167,5 +163,5 @@ function makeHost(){
  await flush(()=>guestHost.inspect.status.textContent.includes("Быстрое извлечение завершено"));
  assert.equal(saved.length,1);
  guestPage.dispose();
- console.log("KMD lite workflow: fast PDF extraction, axes/Z, read-only guest, stale PDF, approval, no duplicates PASS")
+ console.log("KMD lite workflow: fast PDF extraction, axes/Z, original PDF, explicit consent, no duplicates PASS")
 })().catch(error=>{console.error(error);process.exitCode=1});
