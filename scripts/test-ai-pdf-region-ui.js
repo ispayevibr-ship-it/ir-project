@@ -52,7 +52,7 @@ const spin=async until=>{
    id:3,name:"041-2025 КМД К60.pdf",kind:"КМД",ext:".pdf",
    sha256:"a".repeat(64),size:342000,exists:true
   }],select:async()=>({canceled:true})},
-  aiEngine:{status:async()=>{statusCalls++;return{
+  aiEngine:{results:async()=>[],status:async()=>{statusCalls++;return{
    installed:true,model:"qwen3-vl-4b",state:ready?"ready":"stopped"
   }}},
   aiPdf:{list:async()=>[],preview:async()=>({dataUrl:sheetData,
@@ -72,7 +72,7 @@ const spin=async until=>{
  vm.runInNewContext(source,context,{filename:"src/ai-recognition-page.js"});
  await window.irAiRecognitionPage(7);
  previewButton.onclick();
- await spin(()=>dialog?.open===true&&statusCalls>=2);
+ await spin(()=>dialog?.open===true&&/Qwen не готова/.test(aiText.textContent));
  assert.match(aiText.textContent,/Qwen не готова/);
  assert.equal(recognize.disabled,true);
  const down={pointerId:4,button:0,pointerType:"mouse",clientX:15,clientY:10,
