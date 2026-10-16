@@ -519,7 +519,7 @@
      '<div class="ir-ai-quantity-warning">Найденная марка не означает известное положение в здании. Высоты привязываются лишь к листам с одной явно обозначенной маркой. Импорт требует инженерной проверки, официальной ведомости и сохранённой сетки осей.</div>'+
      '<div class="ir-ai-lite-toolbar"><button type="button" data-lite-scan '+(busy?'disabled':'')+'>1. Построить черновик по чертежам</button>'+
      '<button type="button" data-lite-scheme>Открыть монтажную схему</button>'+ 
-     (hostWindow.irProject?.schemeReset?.clear?
+     (hostWindow?.irProject?.schemeReset?.clear?
       '<button type="button" data-lite-clear class="ir-ai-lite-clear">Очистить схему</button>':"")+
      '</div>'+
      '<div data-lite-status role="status">'+escDoc(log||"Доступные проиндексированные PDF можно проверить без запуска Qwen.")+'</div>'+
