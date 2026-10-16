@@ -263,7 +263,8 @@
    total:candidates.length,hasGrid:!!grid,markCount:marks.length}
  }
  function createPage(){
-  let latest=[],candidates=[],batch=null,lastOperation=null,busy=false,log="",saved=0,disposeLast=null;
+  let latest=[],candidates=[],batch=null,lastOperation=null,inventory=null,
+   busy=false,log="",saved=0,disposeLast=null;
   const feedbackByCandidate=new Map();
   const page={
    dispose(){if(disposeLast)disposeLast();disposeLast=null},
@@ -272,7 +273,8 @@
     const {objectId,documents=[],indexes=[],canEdit=false,askPassword,
      reviewer,onOpenPdf,onNavigate}=opts;
     page.dispose();
-    latest=[];candidates=[];batch=null;lastOperation=null;busy=false;saved=0;log="";feedbackByCandidate.clear();
+    latest=[];candidates=[];batch=null;lastOperation=null;inventory=null;
+    busy=false;saved=0;log="";feedbackByCandidate.clear();
     const escDoc=esc;let live=true;
     const hostWindow=opts.window||root;
     const dataRoot=opts.root||hostWindow?.irProject?.data?.forObject(objectId);
@@ -315,7 +317,12 @@
     function draw(){
      const slot=host.querySelector("[data-lite-results]");if(!slot)return;
      const indexesLoaded=latest.length,candidateCount=candidates.length;
-     slot.innerHTML='<div class="ir-ai-lite-counts">'+
+     slot.innerHTML=(inventory?'<div class="ir-ai-lite-counts">'+
+      '<span>Позиций ведомости: <b>'+inventory.positions+'</b></span>'+
+      '<span>Экземпляров всего: <b>'+inventory.totalInstances+'</b></span>'+
+      '<span>На схеме: <b>'+inventory.placed+'</b></span>'+
+      '<span>Осталось: <b>'+inventory.unplaced+'</b></span></div>':"")+
+      '<div class="ir-ai-lite-counts">'+
       '<span>Проверено листов: <b>'+indexesLoaded+'</b></span>'+
       '<span>Найдено кандидатов: <b>'+candidateCount+'</b></span>'+
       '<span>Добавлено на схему: <b>'+saved+'</b></span></div>'+
@@ -489,6 +496,7 @@
       }
       const result=await mounting.apply(objectId,proposals,preview.token);
       saved+=result.created;
+      inventory=await mounting.inventory?.(objectId)||inventory;
       lastOperation={operationId:result.operationId,created:result.created,
        createdAt:new Date().toISOString()};
       status("Добавлено "+result.created+" экземпляров одной транзакцией; "+
@@ -511,6 +519,7 @@
       const result=await mounting.undo(objectId,lastOperation.operationId);
       saved=Math.max(0,saved-result.undone);
       lastOperation=await mounting.latest?.(objectId)||null;
+      inventory=await mounting.inventory?.(objectId)||inventory;
       batch=null;
       status("Автоматическая расстановка отменена: "+result.undone+
        " элементов. Инженерная история сохранена.");
@@ -644,6 +653,11 @@
      }catch(error){status("Очистка не выполнена: "+String(error.message||error))}
      finally{busy=false;clear.disabled=false}
     };
+    if(mounting?.inventory){
+     try{inventory=await mounting.inventory(objectId)}catch(error){
+      status("Не удалось прочитать экземпляры марок: "+String(error.message||error))
+     }
+    }
     if(mounting?.latest){
      try{lastOperation=await mounting.latest(objectId)}catch(error){
       status("Не удалось прочитать журнал расстановки: "+String(error.message||error))

@@ -234,12 +234,14 @@ function createService({database,verifyDocument}={}){
   })
  }
  function inventory(objectId){
-  const st=state(objectId),placed=new Map();
-  for(const r of st.rows.scheme.filter(placement)){
+  const id=posId(objectId,"объекта");
+  if(!database.getObject(id))throw Error("Объект не найден");
+  const placed=new Map(),scheme=database.listEntity(id,"scheme");
+  for(const r of scheme.filter(placement)){
    const k=String(r.data?.mark_id||"");
    if(k)placed.set(k,(placed.get(k)||0)+1)
   }
-  const marks=st.rows.marks.map(r=>{
+  const marks=database.listEntity(id,"marks").map(r=>{
    const x=r.data||{},qty=Number(x.qty??x.count),count=placed.get(String(r.id))||0;
    return{markId:r.id,mark:String(x.mark||r.title),workTypeId:String(x.work_type_id||""),
     projectCode:String(x.project_code||""),quantity:qty,
