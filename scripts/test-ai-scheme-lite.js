@@ -1,5 +1,5 @@
 "use strict";
-/* Fast erection-scheme regressions: extraction without Qwen and safe proposed
+/* Fast erection-scheme regressions: deterministic extraction and safe proposed
  * placement in the already saved scheme, never unverified auto-geometry. */
 const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm");
 const {readElevation,extractPage,classSheet,axisGeometry,payloadFor,axisPair,axisSpan}=require("../src/ai-scheme-lite-page");
@@ -121,7 +121,7 @@ assert.equal(extractPage({documentId:4,name:"План расположения �
 const renderer=fs.readFileSync("src/ai-recognition-page.js","utf8");
 new vm.Script(renderer);
 assert(renderer.includes('data-kmd-tab="scheme-lite"'));
-assert(renderer.includes('script.src="irapp://app/src/ai-scheme-lite-page.js"'));
+assert(renderer.includes('el.src="irapp://app/src/ai-scheme-lite-page.js"'));
 assert(renderer.includes('objectId:id,documents:docs,indexes'));
 assert(renderer.includes('"/objects/object/"+id+"/scheme"'));
 const lite=fs.readFileSync("src/ai-scheme-lite-page.js","utf8");
@@ -130,4 +130,4 @@ assert(lite.includes('hostWindow.confirm('));
 assert(lite.includes("await ensureCurrent(c)"));
 assert(lite.includes("await schemeApi.create(finalPayload)"));
 assert(lite.includes('MAX_')===false,"no invented automatic geometry limits");
-console.log("AI quick montage: К60 -0.400/+9.705, axes, provenance, no guessed placement, engineer confirmation, hot loader PASS");
+console.log("KMD quick montage: К60 -0.400/+9.705, axes, provenance, no guessed placement, manual confirmation, hot loader PASS");
