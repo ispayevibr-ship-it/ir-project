@@ -194,6 +194,7 @@ window.irAiRecognitionPage=async function(objectId){
   showContent()
  }
  function showContent(){
+  const modelReady=engine?.state==="ready";
   const box=app.querySelector("#irAiContent");if(!box)return;
   if(active==="integrity"){
    if(window.irAiIntegrityPage)window.irAiIntegrityPage.render(box,{
@@ -827,6 +828,7 @@ window.irAiRecognitionPage=async function(objectId){
   dlg.showModal()
  }
  async function openPdfPreview(documentId,page){
+  const modelReady=engine?.state==="ready";
   if(!pdf||busy)return;
   busy=true;notice("Подготавливаем реальное изображение PDF, лист "+page+"…");paint();
   try{
