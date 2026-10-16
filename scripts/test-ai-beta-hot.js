@@ -71,9 +71,19 @@ if(process.argv.includes("--manifest")){
   const a=Buffer.from("module.exports={mode:'hot10'};"),
    b=Buffer.from("module.exports={mode:'analysis10'};"),
    c=Buffer.from("module.exports={mode:'analysis11'};");
-  responseFiles={"src/ai-local-engine.js":a,"src/ai-analysis.js":b};
-  remoteManifest={version:"1.7.217.10",channel:"beta",baseVersion,
-   files:[makeFile("src/ai-local-engine.js",a),makeFile("src/ai-analysis.js",b)]};
+  const support={
+   "src/ai-structured-extraction.js":Buffer.from("module.exports={extract:()=>({})};"),
+   "src/ai-review.js":Buffer.from("module.exports={createAiReview(){}};"),
+   "src/ai-workflow.js":Buffer.from("module.exports={createAiWorkflow(){}};"),
+   "src/ai-structured-review.js":Buffer.from("module.exports={createStructuredReviews(){}};")
+  };
+  const filesFor=analysisBytes=>[
+   makeFile("src/ai-local-engine.js",a),
+   makeFile("src/ai-analysis.js",analysisBytes),
+   ...Object.entries(support).map(([name,bytes])=>makeFile(name,bytes))
+  ];
+  responseFiles={"src/ai-local-engine.js":a,"src/ai-analysis.js":b,...support};
+  remoteManifest={version:"1.7.217.10",channel:"beta",baseVersion,files:filesFor(b)};
   assert.equal(updater.installedVersion(),baseVersion);
   assert.equal((await updater.check()).updateInfo.version,"1.7.217.10");
   await updater.download();
@@ -82,29 +92,27 @@ if(process.argv.includes("--manifest")){
   assert(updater.resolveFile("src/ai-local-engine.js").includes("app-updates"));
   downloaded.length=0;
   responseFiles["src/ai-analysis.js"]=c;
-  remoteManifest={...remoteManifest,version:"1.7.217.11",
-   files:[makeFile("src/ai-local-engine.js",a),makeFile("src/ai-analysis.js",c)]};
+  remoteManifest={...remoteManifest,version:"1.7.217.11",files:filesFor(c)};
   await updater.check();await updater.download();
   assert.equal(updater.installedVersion(),"1.7.217.11");
   assert(!downloaded.some(url=>url.includes("/src/ai-local-engine.js?")),
    "Unchanged verified files should be reused, not downloaded again");
   assert(downloaded.some(url=>url.includes("/src/ai-analysis.js?")));
-  assert.equal(updater.verifyRuntime().files.length,2);
+  assert.equal(updater.verifyRuntime().files.length,6);
   // Hash rejection must preserve the previous installed runtime.
   remoteManifest={...remoteManifest,version:"1.7.217.12",
-   files:[makeFile("src/ai-local-engine.js",a),{
-    ...makeFile("src/ai-analysis.js",c),sha256:"a".repeat(64)
-   }]};
+   files:filesFor(c).map(f=>f.target==="src/ai-analysis.js"?
+    {...f,sha256:"a".repeat(64)}:f)};
   await updater.check();
   await assert.rejects(updater.download(),/Контрольная сумма/);
   assert.equal(updater.installedVersion(),"1.7.217.11");
   // A forged source path outside src/ai-* is never accepted.
   remoteManifest={version:"1.7.217.13",channel:"beta",baseVersion,
-   files:[makeFile("main.js",a)]};
+   files:[...filesFor(c),makeFile("main.js",a)]};
   await assert.rejects(updater.check(),/несовместим/);
   // Old-base patches are rejected (native bridge changes require a new EXE).
   remoteManifest={version:"1.7.218.2",channel:"beta",baseVersion:"1.7.218",
-   files:[makeFile("src/ai-local-engine.js",a)]};
+   files:filesFor(c)};
   await assert.rejects(updater.check(),/несовместим/);
   const hotFile=updater.resolveFile("src/ai-local-engine.js");
   fs.writeFileSync(hotFile,"tampered");
