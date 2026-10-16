@@ -35,7 +35,7 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
      throw Error("Недопустимый путь: "+name);
     if(!/^[0-9a-f]{64}$/i.test(meta.sha256?.[key]||""))
      throw Error("Нет SHA-256: "+name);
-    if(st.size<(key==="model"?1000000000:key==="vision"?50000000:100000))
+    if(st.size<(key==="model"?1000000000:key==="vision"?50000000:4096))
      throw Error("Файл слишком мал: "+name);
     files[key]={path:filename,bytes:st.size,expected:meta.sha256[key].toLowerCase()};
    }
