@@ -116,7 +116,7 @@ const {createAnalysis}=require("../src/ai-analysis");
   completeAnalysis({ok:true,json:async()=>({choices:[{
    message:{content:'{"text":"false completed result"}'},finish_reason:"stop"
   }]})});
-  await assert.rejects(pendingAnalysis,/Анализ отменён/);
+  await assert.rejects(pendingAnalysis,/Распознавание прервано: локальная модель была остановлена/);
   assert.equal(cancellationEngine.status().state,"stopped");
   assert.equal(analysisChild.killed,true);
   // llama.cpp can need more than three minutes to handle a large A1 KMD on CPU.
