@@ -1,7 +1,7 @@
 {
   "channel": "beta",
   "baseVersion": "1.7.222",
-  "version": "1.7.222.65",
+  "version": "1.7.222.66",
   "branch": "feature/ir-project-ai-next",
   "description": "IR Project AI Beta hot fixes: no full EXE",
   "files": [
@@ -218,8 +218,8 @@
     {
       "source": "src/ai-mounting-placement.js",
       "target": "src/ai-mounting-placement.js",
-      "size": 17227,
-      "sha256": "7ac62735915e5d5ec89594813537f09413bcc83395b3cf4037fbc7803e080ef7"
+      "size": 17379,
+      "sha256": "1e64462c7d0dde27c4556d7e7213f79cd997b76a9275acbf73d554d98f894ddb"
     },
     {
       "source": "src/ai-paddle-ocr.js",
@@ -308,8 +308,8 @@
     {
       "source": "src/ai-scheme-lite-page.js",
       "target": "src/ai-scheme-lite-page.js",
-      "size": 45563,
-      "sha256": "b26b08e51c43839ce95b0691b7a5bd3b500a389c74e7bef87b788640721db432"
+      "size": 46340,
+      "sha256": "b69798759f00db84b68a89b7d58d0163352de3d9c15b1883c51942b40f8f8fd7"
     },
     {
       "source": "src/ai-structured-extraction.js",
