@@ -814,12 +814,25 @@ window.irAiRecognitionPage=async function(objectId){
   }
   const matches=documents.filter(x=>[x?.name,x?.kind,x?.ext].map(v=>String(v??"")).join(" ").toLowerCase().includes(term.toLowerCase()));
   box.innerHTML='<div class="ir-ai-doc-head"><div><h2>Чертежи КМ/КМД</h2><p>Исходные документы сохраняются локально, а их метаданные — в SQLite. Внешние сервисы не используются.</p></div>'+
-   '<input id="irAiSearch" type="search" placeholder="Поиск по файлам" value="'+esc(term)+'" aria-label="Поиск документов"></div>'+
+   '<div class="ir-ai-doc-index-tools"><button type="button" class="ir-ai-index-all" data-ai-index-all '+
+    (!pdf?.index||busy||!documents.some(d=>d.ext===".pdf"&&d.exists&&!matchingPdfIndex(d))?
+     'disabled':'')+'>Проиндексировать все чертежи</button>'+
+   '<input id="irAiSearch" type="search" placeholder="Поиск по файлам" value="'+esc(term)+'" aria-label="Поиск документов"></div></div>'+
+   (batchIndex?'<div class="ir-ai-bulk-summary" data-ai-bulk-summary role="status" aria-live="polite" data-state="'+
+    (batchIndex.running?'running':batchTotals()?.failed?'error':'done')+'">'+
+    esc(batchSummary())+'</div>':
+    '<p class="ir-ai-index-batch-note">Все загруженные PDF, включая скрытые поиском. Уже проиндексированные файлы пропускаются; обработка идёт по одному файлу.</p>')+
    (!matches.length&&documents.length?'<div class="ir-ai-doc-empty"><b>По запросу ничего не найдено</b><p>Очистите поиск, чтобы увидеть все '+documents.length+' загруженных файлов.</p></div>':
    !documents.length?'<div class="ir-ai-doc-empty"><b>Чертежей пока нет</b><p>Выберите тип комплекта и нажмите «Добавить чертежи». Поддерживаются PDF, DXF, DWG, PNG, JPG и TIFF. DWG пока только сохраняется, без анализа.</p></div>':
    '<div class="ir-ai-table-wrap"><table class="ir-ai-doc-table"><thead><tr><th>Документ</th><th>Комплект</th><th>Размер</th><th>Статус</th><th>Действия</th></tr></thead><tbody>'+
    matches.map(x=>'<tr><td><strong>'+esc(x.name)+'</strong><small>'+esc(String(x.ext||"").toUpperCase())+' · '+esc(x.addedAt||"")+'</small></td>'+
-    '<td>'+esc(x.kind||"Не определён")+'</td><td>'+size(x.size||0)+'</td><td><span class="ir-ai-doc-status '+(!x.exists?"missing":"")+'">'+(x.exists?"Не распознано":"Файл отсутствует")+'</span></td>'+
+    '<td>'+esc(x.kind||"Не определён")+'</td><td>'+size(x.size||0)+'</td><td>'+
+    (x.ext===".pdf"?'<span data-ai-index-status="'+x.id+'" class="ir-ai-doc-status '+
+      fileIndexStatus(x).css+'" title="'+esc(fileIndexStatus(x).title||"")+'">'+
+      esc(fileIndexStatus(x).label)+'</span>':
+     '<span class="ir-ai-doc-status '+(!x.exists?"missing":"")+'">'+
+      (x.exists?"Не распознано":"Файл отсутствует")+'</span>')+
+     '</td>'+
     '<td><div class="ir-ai-doc-actions">'+
     (canEdit&&[".png",".jpg",".jpeg"].includes(x.ext)?'<button data-ai-analyze="'+x.id+'" '+(!modelReady||busy||!x.exists?'disabled':'')+'>Распознать</button>':"")+
     (canEdit&&x.ext===".pdf"?'<button data-ai-pdf-index="'+x.id+'" '+(!pdf||busy||!x.exists?'disabled':'')+'>'+stepNumber(3,indexedIds.has(String(x.id)))+' Индексировать PDF</button>':"")+
@@ -870,6 +883,8 @@ window.irAiRecognitionPage=async function(objectId){
    }catch(error){notice("Распознавание листа не выполнено: "+String(error.message||error),"error");stopTimer("failed")}
    finally{if(analysisProgress?.status==="running")stopTimer("completed");busy=false;await reload()}
   });
+  const indexAll=box.querySelector("[data-ai-index-all]");
+  if(indexAll)indexAll.onclick=()=>{void indexAllPdfs()};
   box.querySelectorAll("[data-ai-pdf-index]").forEach(button=>button.onclick=async()=>{
    if(!pdf||busy||!canEdit||!await authorizeAiMutation())return;
    const documentId=button.dataset.aiPdfIndex;
