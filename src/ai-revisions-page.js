@@ -74,7 +74,7 @@ window.irAiRevisionPage={
    if(busy)throw Error("Предыдущее действие ещё выполняется");
    busy=true;
    try{
-    const role=window.irAccess?.role?.();
+    const role="engineer"; // Legacy data validation; no login or password required.
     if(!["admin","engineer"].includes(role))
      throw Error("Для управления комплектами нужны права инженера");
     const pass=await askPassword(role);

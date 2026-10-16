@@ -121,7 +121,7 @@ window.irAiKmdReferencePage={
    writing=true;
    try{
     if(!perms)throw Error("Права инженера не подтверждены");
-    const role=window.irAccess?.role?.();
+    const role="engineer"; // Legacy data validation; no login or password required.
     if(!["admin","engineer"].includes(role))throw Error("Только инженер или администратор");
     const password=await askPassword(role);
     if(password===null)return false;

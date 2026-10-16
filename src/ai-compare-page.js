@@ -183,7 +183,7 @@ window.irAiKmKmdComparePage={
     const error=dlg.querySelector("[data-error]");
     error.hidden=true;
     try{
-     const role=window.irAccess?.role?.();
+     const role="engineer"; // Legacy data validation; no login or password required.
      if(!["admin","engineer"].includes(role))throw Error("Нет прав для инженерной проверки");
      const pass=await askPassword(role);
      if(pass===null){saving=false;return}

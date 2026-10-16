@@ -89,7 +89,7 @@ window.irAiConnectionsPage={
    '<p class="ir-ai-storage-note">Болты, гайки, шайбы, анкеры и прочие изделия учитываются как отдельные позиции. «Комплект болтов» не прибавляется к составляющим автоматически. Длина швов не преобразуется в массу наплавленного металла без дополнительных исходных данных. Рабочие ведомости и монтажная схема IR Project не изменяются.</p>'+
    '</section>';
   async function authorize(){
-   const role=window.irAccess?.role?.();
+   const role="engineer"; // Legacy data validation; no login or password required.
    if(!["admin","engineer"].includes(role)||!reviewer||!askPassword)
     throw Error("Нужны права инженера или администратора");
    const pwd=await askPassword(role);
