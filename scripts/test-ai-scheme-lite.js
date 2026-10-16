@@ -58,7 +58,7 @@ assert.equal(placement.data.ai_placement_method,"engineer_approved_text_candidat
 assert.throws(()=>payloadFor(proposal,{mark,axisX:"3",axisY:"Г",z0Mm:-400,z1Mm:9705,schemeRows:[]}),/не сохранена/);
 assert.throws(()=>payloadFor(proposal,{mark,axisX:"9",axisY:"Г",z0Mm:-400,z1Mm:9705,schemeRows:grid}),/существующие оси/);
 assert.throws(()=>payloadFor({...proposal,type:"unknown"},{mark,axisX:"3",axisY:"Г",z0Mm:-400,z1Mm:9705,schemeRows:grid}),/Уточните тип/);
-assert.throws(()=>payloadFor(proposal,{mark,axisX:"3",axisY:"Г",z0Mm:9705,z1Mm:-400,schemeRows:grid}),/Верх/);
+assert.throws(()=>payloadFor(proposal,{mark,axisX:"3",axisY:"Г",z0Mm:9705,z1Mm:-400,schemeRows:grid}),/проверенные отметки начала и конца/);
 assert.throws(()=>payloadFor(proposal,{mark:{...mark,mark:"К61"},axisX:"3",axisY:"Г",z0Mm:-400,z1Mm:9705,schemeRows:grid}),/точную марку/);
 assert.throws(()=>payloadFor(proposal,{mark,axisX:"3",axisY:"Г",z0Mm:-400,z1Mm:9705,schemeRows:[...grid,{...placement,id:9}]}),/уже существует/);
 assert.throws(()=>payloadFor(proposal,{mark:{...mark,qty:1},axisX:"3",axisY:"Д",z0Mm:-400,z1Mm:9705,schemeRows:[...grid,{...placement,id:9}]}),/Все экземпляры/);
