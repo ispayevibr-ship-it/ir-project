@@ -134,7 +134,8 @@ const wait=async f=>{
  assert.equal(geometryCalls,1);
  assert.equal(typeof instanceButton.onclick,"function");
  instanceButton.onclick();
- await wait(()=>slot.innerHTML.includes("Гипотез парного контура:"));
+ await wait(()=>status.textContent.includes("Монтажные координаты не подтверждены")&&
+  slot.innerHTML.includes("Гипотез парного контура:"));
  assert(slot.innerHTML.includes("Реестр отдельных надписей марок"));
  assert(slot.innerHTML.includes("Координаты конструкции")||
   slot.innerHTML.includes("X/Y/Z не подтверждены"));
@@ -152,8 +153,7 @@ const wait=async f=>{
  }
  assert(slot.innerHTML.includes("Размерных линий с совпадающей длиной"));
  assert(slot.innerHTML.includes("Размерные цепочки PDF · 1"),
-  "real calibrated strokes with both end ticks become one graphic dimension; "+
-  "status="+status.textContent+"; html="+slot.innerHTML.slice(0,4200));
+  "calibrated dimension with two end ticks should appear in the registry");
  assert.equal(typeof dimensionButton.onclick,"function");
  dimensionButton.onclick();
  assert.equal(sourceViews.at(-1).evidence[0].quote,"4500");
