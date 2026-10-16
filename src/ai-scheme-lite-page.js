@@ -1168,6 +1168,7 @@
 
  function createPage(){
   let latest=[],candidates=[],batch=null,verifiedPreview=null,
+    instanceResults=new Map(),instanceRows=[],
    lastOperation=null,inventory=null,draftRows=[],
    busy=false,log="",saved=0,disposeLast=null;
   const feedbackByCandidate=new Map();
@@ -1179,6 +1180,7 @@
      reviewer,onOpenPdf,onNavigate}=opts;
     page.dispose();
     latest=[];candidates=[];batch=null;verifiedPreview=null;lastOperation=null;inventory=null;draftRows=[];
+     instanceResults.clear();instanceRows=[];
     busy=false;saved=0;log="";feedbackByCandidate.clear();
     const escDoc=esc;const canEdit=true;let live=true;
     const hostWindow=opts.window||root;
@@ -1227,10 +1229,67 @@
      return saved?.values&&Object.prototype.hasOwnProperty.call(saved.values,name)?
       saved.values[name]:fallback
     };
+
+    function instanceMarkup(){
+     const unique=new Map();
+     for(const part of instanceResults.values())for(const x of part.labels){
+      const old=unique.get(x.instanceId);
+      if(!old||old.diagramRegion==="full"&&x.diagramRegion!=="full")
+       unique.set(x.instanceId,x)
+     }
+     instanceRows=[...unique.values()].sort((a,b)=>
+      a.documentId-b.documentId||a.page-b.page||
+      a.mark.localeCompare(b.mark,"ru")||a.pageX-b.pageX||a.pageYBottom-b.pageYBottom);
+     if(!instanceResults.size)return"";
+     const counts=new Map(),pages=new Map();
+     for(const x of instanceRows){
+      counts.set(x.mark,(counts.get(x.mark)||0)+1);
+      const page="№"+x.documentId+" · лист "+x.page;
+      pages.set(page,(pages.get(page)||0)+1)
+     }
+     const unscoped=instanceRows.filter(x=>x.diagramRegion==="full").length,
+      suspect=instanceRows.filter(x=>x.sheetType!=="plan").length,
+      limited=[...instanceResults.values()].filter(x=>x.truncated).length;
+     return'<section class="ir-ai-lite-batch ir-ai-lite-instance-register">'+
+      '<h3>Реестр отдельных надписей марок КМД</h3>'+
+      '<p>Найдено: <b>'+instanceRows.length+'</b> надписей; '+
+      'разных обозначений: <b>'+counts.size+'</b>.</p>'+
+      '<p><b>Подтверждённых монтажных экземпляров: 0; готовых X/Y/Z: 0.</b> '+
+      'Надпись может повторяться в разрезах или деталях. '+
+      'Каждое место текста считается отдельно, пока его не сверили с планом.</p>'+
+      (unscoped?'<p>Без выбора отдельной схемы: '+unscoped+
+       '. Для листов с несколькими чертежами выберите левую и правую части по очереди.</p>':"")+
+      (suspect?'<p>Из разрезов/неопределённых листов: '+suspect+
+       ' — не считать дополнительными конструкциями без проверки.</p>':"")+
+      (limited?'<p>Неполная выборка на '+limited+' областях.</p>':"")+
+      '<details><summary>Количество по каждой марке · '+counts.size+'</summary>'+
+      '<div class="ir-ai-lite-preview-scroll"><table><thead><tr>'+
+      '<th>Марка</th><th>Отдельных надписей</th></tr></thead><tbody>'+
+      [...counts].sort((a,b)=>a[0].localeCompare(b[0],"ru"))
+       .map(([mark,n])=>'<tr><td>'+escDoc(mark)+'</td><td>'+n+'</td></tr>')
+       .join("")+'</tbody></table></div></details>'+
+      '<details><summary>Количество по листам · '+pages.size+'</summary>'+
+      [...pages].map(([p,n])=>'<div>'+escDoc(p)+': '+n+'</div>').join("")+
+      '</details>'+
+      '<details><summary>Каждая надпись, отдельная позиция на PDF · '+
+       instanceRows.length+'</summary>'+
+      '<div class="ir-ai-lite-preview-scroll"><table><thead><tr>'+
+      '<th>Марка</th><th>Лист</th><th>Область</th>'+
+      '<th>Центр надписи PDF (pt)</th><th>Статус</th><th>Источник</th>'+
+      '</tr></thead><tbody>'+
+      instanceRows.slice(0,350).map((x,i)=>'<tr><td>'+escDoc(x.mark)+'</td>'+
+       '<td>'+x.page+'</td><td>'+escDoc(x.diagramRegion)+'</td>'+
+       '<td>'+x.pageX.toFixed(1)+' / '+x.pageYBottom.toFixed(1)+'</td>'+
+       '<td>Координаты конструкции неизвестны</td>'+
+       '<td><button type="button" data-lite-instance-source="'+i+
+       '">PDF</button></td></tr>').join("")+'</tbody></table></div>'+
+      (instanceRows.length>350?'<small>Показаны первые 350 надписей</small>':"")+
+      '</details></section>'
+    }
     function draw(){
      const slot=host.querySelector("[data-lite-results]");if(!slot)return;
      const indexesLoaded=latest.length,candidateCount=candidates.length;
-     slot.innerHTML=(inventory?'<div class="ir-ai-lite-counts">'+
+     slot.innerHTML=instanceMarkup()+(inventory?'<div class="ir-ai-lite-counts">'+
       '<span>Позиций ведомости: <b>'+inventory.positions+'</b></span>'+
       '<span>Экземпляров всего: <b>'+inventory.totalInstances+'</b></span>'+
       '<span>На схеме: <b>'+inventory.placed+'</b></span>'+
@@ -1757,6 +1816,7 @@
     async function scan(){
      if(busy)return;busy=true;status("Быстро читаем текстовые слои PDF…");
      latest=[];candidates=[];batch=null;verifiedPreview=null;feedbackByCandidate.clear();
+      instanceResults.clear();instanceRows=[];
      host.querySelector("[data-lite-scan]").disabled=true;
      try{
       const pool=indexes.filter(idx=>documents.some(d=>Number(d.id)===Number(idx.documentId)&&
@@ -1781,7 +1841,11 @@
         const row=extractPage({documentId:doc.id,name:doc.name,kind:doc.kind,
          sha256:doc.sha256,page:p.page,raw:detail.page,
          uncertainEncoding:p.uncertainEncoding===true,registeredMarks:markRows});
-        latest.push(row);candidates.push(...row.marks)
+        latest.push(row);candidates.push(...row.marks);
+         // Read-only PDF text evidence, never a placement.
+         instanceResults.set([doc.id,doc.sha256,p.page,"full"].join(":"),
+          extractPlanInstances({raw:detail.page,marks:markRows,documentId:doc.id,
+           sha256:doc.sha256,page:p.page,sheetType:row.sheetType}))
        }catch(error){status("Ошибка чтения листа "+p.page+": "+String(error.message||error).slice(0,180))}
       }
       if(live){
