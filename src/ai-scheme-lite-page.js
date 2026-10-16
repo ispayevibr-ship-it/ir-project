@@ -906,6 +906,8 @@
    return{page:{x1,y1,x2,y2},
     lineMm:{x1:mm(x1,fx),y1:mm(y1,fy),x2:mm(x2,fx),y2:mm(y2,fy)},
     gapPt:Math.round(perpendicular*100)/100,
+    strokesPt:[a,b].map(stroke=>({
+     x1:stroke.x1,y1:stroke.y1,x2:stroke.x2,y2:stroke.y2})),
     strokeKeys:[a.key,b.key].sort((x,y)=>x-y).join(":")}
   };
   for(const label of labels.slice(0,250)){
@@ -961,6 +963,7 @@
       return{rank:index+1,lineMm:l,lengthMm:Math.round(Math.hypot(
        l.x2-l.x1,l.y2-l.y1)),distancePt:Math.round(shape.distance*10)/10,
        gapPt:shape.gapPt,evidenceType:"parallel_strokes",
+       strokesPt:shape.strokesPt,
        status:"alternative_only",exactPlacement:false}
      })});
     out.review.push({label,reasonCode:"multiple_outlines",
@@ -969,6 +972,7 @@
    const best=distinct[0],line=best.lineMm;
    out.candidates.push({label,mark:label.mark,markId:label.markId,
     evidenceType:"parallel_strokes",strokeKeys:best.strokeKeys,
+    strokesPt:best.strokesPt,
     lineMm:line,lengthMm:Math.round(Math.hypot(
      line.x2-line.x1,line.y2-line.y1)),
     strokeGapPt:best.gapPt,distancePt:Math.round(best.distance*10)/10,
