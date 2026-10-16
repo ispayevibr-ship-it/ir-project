@@ -164,11 +164,8 @@ function createAiWorkflow({database,documents,pdfIndex,analysis,reviews,engine,o
      update(oid,entry,{status:"needs_model",lastError:"Установите и запустите локальную Qwen-модель в настройках ИИ"},"model_required");
      emit(oid);break
     }
-    if(ocr&&!ocr.status?.().installed){
-     update(oid,entry,{status:"needs_model",
-      lastError:"Для распознавания КМД нужен подписанный офлайн-пакет PaddleOCR-VL 1.6"},"ocr_model_required");
-     emit(oid);break
-    }
+    // The queue can run with Qwen alone. PaddleOCR augments text and tables when installed,
+    // but its absence must not block first-sheet offline PDF recognition.
     const current=update(oid,entry,{status:"running",attempts:(Number(entry.data?.attempts)||0)+1,lastError:""},"started");
     emit(oid);
     try{
