@@ -3,6 +3,16 @@ const {app}=require("electron");
 const fs=require("fs"),path=require("path"),https=require("https"),crypto=require("crypto");
 const {EventEmitter}=require("events");
 const OWNER="ispayevibr-ship-it",REPO="ir-project";
+const BETA_BRANCH="feature/ir-project-ai-next";
+const BETA_MANIFEST="hot/beta/latest.json";
+const BETA_MARKER="src/ai-beta-channel.json";
+// Beta mode is installed with the app and cannot be switched via a remote manifest.
+const isBeta=()=>fs.existsSync(path.join(app.getAppPath(),BETA_MARKER));
+const branch=()=>isBeta()?BETA_BRANCH:"main";
+const sourcePath=()=>isBeta()?BETA_MANIFEST:"hot/latest.json";
+const branchUrl=()=>branch().split("/").map(encodeURIComponent).join("/");
+const betaTarget=name=>/^src\/ai-[a-z0-9-]+\.(?:js|css)$/.test(name);
+
 const events=new EventEmitter();let available=null;
 const root=()=>path.join(app.getPath("userData"),"app-updates");
 const current=()=>path.join(root(),"current");
@@ -15,14 +25,31 @@ function hash(data){return crypto.createHash("sha256").update(data).digest("hex"
 function request(url,json=false){return new Promise((resolve,reject)=>{const go=u=>https.get(u,{headers:{"User-Agent":"IR-Project-Updater","Cache-Control":"no-cache","Accept":json?"application/vnd.github+json":"*/*"}},res=>{if(res.statusCode>=300&&res.statusCode<400&&res.headers.location){res.resume();return go(res.headers.location)}if(res.statusCode!==200){res.resume();return reject(new Error(`HTTP ${res.statusCode}`))}const chunks=[];res.on("data",c=>chunks.push(c));res.on("end",()=>{const b=Buffer.concat(chunks);if(!json)return resolve(b);try{resolve(JSON.parse(b.toString("utf8")))}catch(e){reject(e)}})}).on("error",reject);go(url)})}
 function readManifest(dir=current()){try{return JSON.parse(fs.readFileSync(manifestFile(dir),"utf8"))}catch{return null}}
 function verifyRuntime(dir=current()){try{const m=readManifest(dir);if(!m?.version||!Array.isArray(m.files))return null;for(const f of m.files){const p=path.join(dir,safeRelative(f.target));if(!fs.existsSync(p))return null;const b=fs.readFileSync(p);if(!b.length)return null;if(f.sha256&&hash(b)!==f.sha256)return null}return m}catch{return null}}
-function activeRuntime(){const m=verifyRuntime();return m&&compare(m.version,app.getVersion())>0?m:null}
+function activeRuntime(){
+ const m=verifyRuntime();
+ return m&&compare(m.version,app.getVersion())>0&&
+  (!isBeta()||m.channel==="beta"&&m.baseVersion===app.getVersion())?m:null
+}
 function recoverInterruptedUpdate(){if(verifyRuntime(current()))return;const m=verifyRuntime(previous());if(!m||compare(m.version,app.getVersion())<=0)return;fs.rmSync(current(),{recursive:true,force:true});fs.renameSync(previous(),current())}
 function promoteRuntime(){if(!verifyRuntime(stage()))throw new Error("Hot-update повреждён");const hadCurrent=fs.existsSync(current());if(hadCurrent){fs.rmSync(previous(),{recursive:true,force:true});fs.renameSync(current(),previous())}try{fs.renameSync(stage(),current());if(!verifyRuntime(current()))throw new Error("Hot-update повреждён при переключении")}catch(error){fs.rmSync(current(),{recursive:true,force:true});if(hadCurrent)fs.renameSync(previous(),current());throw error}}
 function cleanupStaleRuntime(){recoverInterruptedUpdate();const m=readManifest();if(m&&compare(m.version,app.getVersion())<=0){try{fs.rmSync(current(),{recursive:true,force:true})}catch{}}try{fs.rmSync(stage(),{recursive:true,force:true})}catch{}}
 function installedVersion(){const m=activeRuntime();return m?m.version:app.getVersion()}
 function resolveFile(rel){const safe=safeRelative(rel),m=activeRuntime();if(m){const p=path.join(current(),safe);if(fs.existsSync(p))return p}return path.join(app.getAppPath(),safe)}
-async function check(){available=null;const api=`https://api.github.com/repos/${OWNER}/${REPO}/contents/hot/latest.json?ref=main&t=${Date.now()}`;const meta=await request(api,true);if(!meta?.content)throw new Error("Manifest обновления не получен");const m=JSON.parse(Buffer.from(meta.content.replace(/\s/g,""),"base64").toString("utf8"));if(!m?.version||!Array.isArray(m.files))throw new Error("Manifest обновления имеет неверный формат");const local=installedVersion(),info={baseVersion:app.getVersion(),installedVersion:local,remoteVersion:m.version};if(compare(m.version,local)>0){available=m;events.emit("update-available",{...info,version:m.version,size:m.files.reduce((s,f)=>s+(Number(f.size)||0),0)});return{updateInfo:{version:m.version},diagnostics:info}}events.emit("update-not-available",{...info,version:local});return{updateInfo:{version:local},diagnostics:info}}
-async function downloadUpdate(){if(!available){await check();if(!available)throw new Error("Обновление не найдено")}const dir=stage();fs.rmSync(dir,{recursive:true,force:true});fs.mkdirSync(dir,{recursive:true});const verified=[];let done=0;const previous=activeRuntime();if(previous){for(const f of previous.files){const target=safeRelative(f.target),src=path.join(current(),target),dest=path.join(dir,target);if(fs.existsSync(src)){fs.mkdirSync(path.dirname(dest),{recursive:true});fs.copyFileSync(src,dest)}}}for(const f of available.files){const source=safeRelative(f.source),target=safeRelative(f.target);const b=await request(`https://raw.githubusercontent.com/${OWNER}/${REPO}/main/${source}?t=${Date.now()}`);if(!b.length)throw new Error(`Пустой файл: ${target}`);if(Number.isFinite(Number(f.size))&&Number(f.size)>0&&b.length!==Number(f.size))throw new Error(`Размер файла обновления не совпадает: ${target}`);if(f.sha256&&hash(b)!==f.sha256)throw new Error(`Контрольная сумма файла обновления не совпадает: ${target}`);const dest=path.join(dir,target);fs.mkdirSync(path.dirname(dest),{recursive:true});fs.writeFileSync(dest,b);verified.push({source:f.source,target:f.target,size:b.length,sha256:hash(b)});done+=b.length;events.emit("download-progress",{percent:Math.round((verified.length/available.files.length)*100),transferred:done,total:done,bytesPerSecond:0})}fs.writeFileSync(manifestFile(dir),JSON.stringify({version:available.version,installedAt:new Date().toISOString(),files:verified},null,2));if(!verifyRuntime(dir))throw new Error("Hot-update повреждён");promoteRuntime();events.emit("update-downloaded",{version:available.version});return[current()]}
+async function check(){available=null;const api=`https://api.github.com/repos/${OWNER}/${REPO}/contents/${sourcePath()}?ref=${encodeURIComponent(branch())}&t=${Date.now()}`;const meta=await request(api,true);if(!meta?.content)throw new Error("Manifest обновления не получен");const m=JSON.parse(Buffer.from(meta.content.replace(/\s/g,""),"base64").toString("utf8"));if(!m?.version||!Array.isArray(m.files))throw new Error("Manifest обновления имеет неверный формат");
+ if(isBeta()){
+  if(m.channel!=="beta"||m.baseVersion!==app.getVersion()||m.files.length<1||
+     m.files.length>120||!m.files.every(f=>
+      typeof f.target==="string"&&betaTarget(f.target)&&f.source===f.target&&
+      /^[a-f0-9]{64}$/.test(f.sha256||"")&&
+      Number.isSafeInteger(f.size)&&f.size>0&&f.size<4*1024*1024))
+   throw new Error("Beta hot-пакет несовместим или имеет неподтверждённые файлы");
+ }const local=installedVersion(),info={baseVersion:app.getVersion(),installedVersion:local,remoteVersion:m.version};if(compare(m.version,local)>0){available=m;events.emit("update-available",{...info,version:m.version,size:m.files.reduce((s,f)=>s+(Number(f.size)||0),0)});return{updateInfo:{version:m.version},diagnostics:info}}events.emit("update-not-available",{...info,version:local});return{updateInfo:{version:local},diagnostics:info}}
+async function downloadUpdate(){if(!available){await check();if(!available)throw new Error("Обновление не найдено")}const dir=stage();fs.rmSync(dir,{recursive:true,force:true});fs.mkdirSync(dir,{recursive:true});const verified=[];let done=0;const previous=activeRuntime();if(previous&&!isBeta()){for(const f of previous.files){const target=safeRelative(f.target),src=path.join(current(),target),dest=path.join(dir,target);if(fs.existsSync(src)){fs.mkdirSync(path.dirname(dest),{recursive:true});fs.copyFileSync(src,dest)}}}for(const f of available.files){const source=safeRelative(f.source),target=safeRelative(f.target);const old=previous?.files?.find(p=>p.target===target&&p.sha256===f.sha256);
+const cached=old&&fs.existsSync(path.join(current(),target))?fs.readFileSync(path.join(current(),target)):null;
+const b=cached&&hash(cached)===f.sha256?cached:
+ await request(`https://raw.githubusercontent.com/${OWNER}/${REPO}/${branchUrl()}/${source}?t=${Date.now()}`);if(!b.length)throw new Error(`Пустой файл: ${target}`);if(Number.isFinite(Number(f.size))&&Number(f.size)>0&&b.length!==Number(f.size))throw new Error(`Размер файла обновления не совпадает: ${target}`);if(f.sha256&&hash(b)!==f.sha256)throw new Error(`Контрольная сумма файла обновления не совпадает: ${target}`);const dest=path.join(dir,target);fs.mkdirSync(path.dirname(dest),{recursive:true});fs.writeFileSync(dest,b);verified.push({source:f.source,target:f.target,size:b.length,sha256:hash(b)});done+=b.length;events.emit("download-progress",{percent:Math.round((verified.length/available.files.length)*100),transferred:done,total:done,bytesPerSecond:0})}fs.writeFileSync(manifestFile(dir),JSON.stringify({version:available.version,
+ channel:isBeta()?"beta":"stable",baseVersion:app.getVersion(),
+ installedAt:new Date().toISOString(),files:verified},null,2));if(!verifyRuntime(dir))throw new Error("Hot-update повреждён");promoteRuntime();events.emit("update-downloaded",{version:available.version});return[current()]}
 function install(){app.relaunch();app.exit(0)}
 cleanupStaleRuntime();
 module.exports={check,download:downloadUpdate,install,updater:events,currentDir:current,installedVersion,verifyRuntime,resolveFile,cleanupStaleRuntime};
