@@ -68,6 +68,9 @@ const fakePng=(width,height)=>{
  }};
  const analysis=createAnalysis({database:db,documents:{verify:()=>true},engine,pdfRenderer:renderer});
  const region={x:0.62,y:0.72,width:0.3,height:0.2};
+ await assert.rejects(analysis.analyzePdf(7,3,1,
+  {x:0.0013,y:0.0013,width:0.998,height:0.998}),/более 35% листа/,
+  "saved nearly-full K60 crop must not be misclassified as a fast fragment");
  const partial=await analysis.analyzePdf(7,3,1,region);
  assert.deepEqual(partial.marks,["К60"]);
  assert.equal(calls[0].maxOutputTokens,576);
