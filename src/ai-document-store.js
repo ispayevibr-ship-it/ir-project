@@ -121,6 +121,8 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
  // PDF text-layer index is only a rebuildable cache, not engineering evidence.
  const evidenceSections=[
   "ai-drawing-sheet-links","ai-drawing-sets","ai-drawing-set-history","ai-analysis",
+  // Engineer-approved placement and mark rows retain links to source drawings.
+  "scheme","marks",
   "ai-review-history","ai-structured-reviews","ai-structured-review-history",
   "ai-workflow-tasks","ai-workflow-events",
   "ai-mark-quantities","ai-mark-quantity-history","ai-kmd-materials",

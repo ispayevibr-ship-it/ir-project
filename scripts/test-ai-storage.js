@@ -109,6 +109,35 @@ const {createStore}=require("../src/ai-document-store");
   assert.throws(()=>store.remove(1,id,{discardUnreviewed:true,expectedAnalysisIds:[laterEvidence.id]}),
    /ai-review-history/);
   db.deleteEntity(1,"ai-review-history",dependent.id);
+  // Verified placements and registered marks cannot become orphaned evidence.
+  const placement=db.createEntity(1,"scheme",{
+   record_type:"scheme_column",title:"COL-0001",
+   data:{entity_type:"column",mark:"К41",
+    ai_source:{documentId:id,sha256:first.imported[0].sha256,
+     verifiedManually:true}}
+  });
+  assert.equal(store.removalImpact(1,id).canDelete,false,
+   "approved scheme placement blocks removal of source PDF");
+  assert.throws(()=>store.remove(1,id,{discardUnreviewed:true,
+   expectedAnalysisIds:[laterEvidence.id]}),/scheme/);
+  assert(fs.existsSync(opened),"PDF survives blocked scheme deletion");
+  db.deleteEntity(1,"scheme",placement.id);
+  const markRow=db.createEntity(1,"marks",{
+   record_type:"mark",title:"К41",
+   data:{mark:"К41",source:{documentId:id,sha256:first.imported[0].sha256}}
+  });
+  assert.equal(store.removalImpact(1,id).canDelete,false,
+   "mark register source reference protects original PDF");
+  assert.throws(()=>store.remove(1,id,{discardUnreviewed:true,
+   expectedAnalysisIds:[laterEvidence.id]}),/marks/);
+  db.deleteEntity(1,"marks",markRow.id);
+  const unrelated=db.createEntity(1,"scheme",{
+   record_type:"scheme_column",title:"COL-9999",
+   data:{ai_source:{documentId:id+999,sha256:"other"}}
+  });
+  assert.equal(store.removalImpact(1,id).canDelete,true,
+   "unrelated scheme placements should not block removal");
+  db.deleteEntity(1,"scheme",unrelated.id);
   const unknownIndex=db.createEntity(1,"ai-pdf-index",{
    record_type:"pdf_text_index",title:"unclassified index",
    data:{source:{documentId:id},pages:[]}
