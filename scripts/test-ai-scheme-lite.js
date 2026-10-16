@@ -103,7 +103,7 @@ assert(renderer.includes('objectId:id,documents,indexes:pdfIndexes,canEdit'));
 assert(renderer.includes('"/objects/object/"+id+"/scheme"'));
 const lite=fs.readFileSync("src/ai-scheme-lite-page.js","utf8");
 new vm.Script(lite);
-assert(lite.includes('await reviewer.authorize(role,password)'));
+assert(lite.includes('hostWindow.confirm('));
 assert(lite.includes("await ensureCurrent(c)"));
 assert(lite.includes("await schemeApi.create(finalPayload)"));
 assert(lite.includes('MAX_')===false,"no invented automatic geometry limits");
