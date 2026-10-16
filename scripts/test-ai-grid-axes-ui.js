@@ -91,7 +91,7 @@ const wait=async f=>{
  })[name]};
  const ui=createPage();
  await ui.render(host,{objectId:3,documents:[doc],indexes:[index],
-  canEdit:false,pdf,geometry:geom,root:sections,
+  canEdit:false,pdf,geometry:geom,root:sections,autoGeometrySweep:false,
   onOpenPdf:(documentId,page,evidence)=>sourceViews.push({documentId,page,evidence})});
  scan.onclick();
  await wait(()=>slot.innerHTML.includes("data-lite-axis-page"));
