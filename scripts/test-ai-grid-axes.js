@@ -203,6 +203,16 @@ const compositePage=extractPage({
 assert(compositePage.marks.some(x=>x.mark==="Ф8-1"));
 assert(compositePage.marks.some(x=>x.mark==="Ф12-2"));
 assert(!compositePage.marks.some(x=>x.mark==="Ф300-9"));
+const outsideAxes=detectPlanRegisterLabels({raw:{fragments:[
+ labelAndReturn("Ф8-1",249,220)]},
+ analysis:onlyLeft,grid,marks:suffixRegister,widthPt,heightPt});
+assert.equal(outsideAxes.labels.length,1,
+ "registered labels in selected drawing must not disappear beyond grid extents");
+assert.equal(outsideAxes.labels[0].mark,"Ф8-1");
+assert.equal(outsideAxes.labels[0].gridCellKnown,false);
+assert.equal(outsideAxes.labels[0].status,"label_outside_grid_requires_review");
+assert.equal(outsideAxes.labels[0].exactPlacement,false);
+
 console.log("KMD real-mark grammar: digit suffix, exact register, split glyphs and no wrong prefix matches PASS");
 
 console.log("Registered-only KMD labels: independent/split labels, no invented placements PASS");
