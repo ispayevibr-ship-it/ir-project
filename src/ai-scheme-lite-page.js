@@ -264,6 +264,7 @@
  }
  function createPage(){
   let latest=[],candidates=[],batch=null,busy=false,log="",saved=0,disposeLast=null;
+  const feedbackByCandidate=new Map();
   const page={
    dispose(){if(disposeLast)disposeLast();disposeLast=null},
    async render(host,opts={}){
@@ -271,7 +272,7 @@
     const {objectId,documents=[],indexes=[],canEdit=false,askPassword,
      reviewer,onOpenPdf,onNavigate}=opts;
     page.dispose();
-    latest=[];candidates=[];batch=null;busy=false;saved=0;log="";
+    latest=[];candidates=[];batch=null;busy=false;saved=0;log="";feedbackByCandidate.clear();
     const escDoc=esc;let live=true;
     const hostWindow=opts.window||root;
     const dataRoot=opts.root||hostWindow?.irProject?.data?.forObject(objectId);
@@ -280,6 +281,16 @@
     const pdf=opts.pdf||hostWindow?.irProject?.aiPdf;
     disposeLast=()=>{live=false};
     const status=x=>{log=x;const el=host.querySelector("[data-lite-status]");if(el)el.textContent=x};
+    // Errors were previously written ONLY above a long list of drawing cards.
+    // On a six-page import the click appeared to do nothing. Show feedback on
+    // the exact card being edited, including the missing field if applicable.
+    function candidateFeedback(index,message,state="error"){
+     const item={message:String(message||""),state};feedbackByCandidate.set(index,item);
+     const slot=host.querySelector('[data-lite-row="'+index+'"]');
+     const node=slot?.querySelector?.("[data-lite-feedback]");
+     if(node){node.textContent=item.message;node.dataset.state=item.state}
+     if(state==="error")node?.scrollIntoView?.({block:"nearest",behavior:"smooth"});
+    }
     const markup=()=>'<section class="ir-ai-lite">'+
      '<header class="ir-ai-review-heading"><div><h2>ИИ → Монтажная схема · быстрый режим</h2>'+
      '<p>Ведомость марок + индексированные КМ/КМД → предварительные координаты и высоты. Обычные листы без Qwen; сложные — отдельно.</p></div>'+
@@ -347,7 +358,10 @@
        '<label>Верх / конец, мм<input type="number" name="z1" step="1" placeholder="9705" value="'+escDoc(c.z1Mm??"")+'"></label></div>'+
        '<div class="ir-ai-lite-actions"><button type="button" data-lite-approve="'+i+'" '+(!canEdit||!hostWindow.irAccess?.canEdit?.("scheme")?'disabled':'')+
        '>2. Проверить и добавить на монтажную схему</button>'+
-       '<small>Координаты берутся только из сохранённой сетки IR Project.</small></div></article>').join("")+
+       '<small>Координаты берутся только из сохранённой сетки IR Project.</small></div>'+
+       '<div class="ir-ai-lite-inline-feedback" data-lite-feedback role="status" aria-live="polite" data-state="'+
+       escDoc(feedbackByCandidate.get(i)?.state||"info")+'">'+
+       escDoc(feedbackByCandidate.get(i)?.message||"")+'</div></article>').join("")+
        '</div>':
        '<div class="ir-ai-doc-empty">Пока нет предложений по маркам. Для сканирования нужны читаемые текстовые слои PDF. Листы без текста требуют отдельного визуального распознавания.</div>');
      slot.querySelectorAll("[data-lite-source]").forEach(b=>b.onclick=()=>{
@@ -361,7 +375,8 @@
     }
     async function scan(){
      if(busy)return;busy=true;status("Быстро читаем текстовые слои PDF…");
-     latest=[];candidates=[];batch=null;host.querySelector("[data-lite-scan]").disabled=true;
+     latest=[];candidates=[];batch=null;feedbackByCandidate.clear();
+     host.querySelector("[data-lite-scan]").disabled=true;
      try{
       const pool=indexes.filter(idx=>documents.some(d=>Number(d.id)===Number(idx.documentId)&&
        d.sha256===idx.sourceSha256&&d.exists&&["КМ","КМД"].includes(d.kind)));
@@ -494,51 +509,73 @@
     }
     async function approve(index){
      const c=candidates[index],card=host.querySelector('[data-lite-row="'+index+'"]');
-     if(!c||!card||!canEdit||busy)return;
-     const fields=new Map([...card.querySelectorAll("[name]")].map(x=>[x.name,x.value.trim()]));
-     const value=n=>fields.get(n)||"",requiredNum=n=>{
-      const v=value(n);if(!v||!Number.isFinite(Number(v)))throw Error("Укажите числовую отметку «"+n+"» в миллиметрах");
-      return Number(v)
+     if(!c||!card){status("Карточка больше неактуальна. Повторите поиск марок и высот.");return}
+     if(!canEdit||!hostWindow.irAccess?.canEdit?.("scheme")){
+      candidateFeedback(index,"Нужны права инженера или администратора.");return
+     }
+     if(busy){
+      candidateFeedback(index,"Дождитесь завершения предыдущей операции и нажмите ещё раз.","info");return
+     }
+     // Read the INPUT VALUES in the clicked card, not the candidate extracted
+     // from a PDF. The text next to a field can be a placeholder and must not
+     // be mistaken for the field's current value.
+     const field=n=>card.querySelector?.('[name="'+n+'"]')||
+      [...(card.querySelectorAll?.("[name]")||[])].find(x=>x.name===n);
+     const value=n=>String(field(n)?.value??"").trim();
+     const requiredNum=n=>{
+      const v=value(n),normalized=v.replace(/\\u2212/g,"-").replace(",",".");
+      const number=Number(normalized);
+      if(!v||!Number.isFinite(number)){
+       const input=field(n);input?.focus?.();
+       throw Error("Поле «"+(n==="z0"?"Низ / начало":n==="z1"?"Верх / конец":n)+
+        "» пустое или не является числом. Введите отметку в миллиметрах, например −400 или 9705.")
+      }
+      return number
      };
-     busy=true;
+     busy=true;candidateFeedback(index,"Проверяем марку, оси, высоты и ведомость…","info");
      try{
-      if(!hostWindow.irAccess?.canEdit?.("scheme"))
-       throw Error("У текущей роли нет разрешения на изменение монтажной схемы.");
       const newKind=value("type");
+      // Check the exact card's fields before async IPC so errors refer to the
+      // values the engineer sees, not to values of some other mark.
+      const axes={axisX:value("axisX"),axisY:value("axisY"),
+       endX:value("endX"),endY:value("endY"),
+       z0Mm:requiredNum("z0"),z1Mm:requiredNum("z1")};
       const [markRows,schemeRows,workRows]=await Promise.all([
        marksApi.list(),schemeApi.list(),workApi.list()
       ]);
       const names=markRows.map(r=>({id:r.id,...r.data,title:r.title})),
        matching=names.filter(m=>norm(m.mark||m.title)===norm(c.mark));
-      if(matching.length!==1)throw Error("В ведомости объекта должно быть ровно одно точное соответствие марке "+c.mark+".");
+      if(matching.length!==1)throw Error("Марка "+c.mark+
+       " должна иметь ровно одну позицию в ведомости; найдено: "+matching.length+".");
       const relevantWork=workRows.find(w=>String(w.id)===String(matching[0].work_type_id));
       if(!relevantWork||relevantWork.data?.scheme_enabled!==true)
-       throw Error("Для этой марки в разделе «Виды работ» должна быть включена монтажная схема.");
+       throw Error("Для марки "+c.mark+" включите монтажную схему в соответствующем виде работ.");
       const fresh={...c,type:newKind};
-      const entry=payloadFor(fresh,{mark:matching[0],schemeRows,
-       axisX:value("axisX"),axisY:value("axisY"),
-       endX:value("endX"),endY:value("endY"),
-       z0Mm:requiredNum("z0"),z1Mm:requiredNum("z1")});
+      payloadFor(fresh,{mark:matching[0],schemeRows,...axes});
       if(!reviewer||!askPassword)throw Error("Инженерное подтверждение недоступно");
       const role=hostWindow.irAccess?.role?.();
       if(!["admin","engineer"].includes(role))throw Error("Гость не может размещать элементы");
       const password=await askPassword(role);
-      if(password===null)return;
-      if(!await reviewer.authorize(role,password))throw Error("Неверный пароль инженера");
+      if(password===null){candidateFeedback(index,"Операция отменена.","info");return}
+      if(!await reviewer.authorize(role,password))throw Error("Не подтверждена сессия инженера");
       await ensureCurrent(c);
-      // Re-read authoritative grid and the scheme immediately before mutation.
       const currentRows=await schemeApi.list();
-      const finalPayload=payloadFor(fresh,{mark:matching[0],schemeRows:currentRows,
-       axisX:value("axisX"),axisY:value("axisY"),
-       endX:value("endX"),endY:value("endY"),
-       z0Mm:requiredNum("z0"),z1Mm:requiredNum("z1")});
+      const finalPayload=payloadFor(fresh,{mark:matching[0],schemeRows:currentRows,...axes});
       if(!hostWindow.confirm("Добавить проверенный элемент "+c.mark+
-       " на монтажную схему? Оси и высоты будут сохранены как запланированная конструкция."))return;
-      await schemeApi.create(finalPayload);
-      saved++;status("Марка "+c.mark+" размещена на монтажной схеме после проверки инженером.");
-      draw()
-     }catch(error){status("Размещение не выполнено: "+String(error.message||error))}
-     finally{busy=false}
+       " на монтажную схему? Проверьте привязки "+axes.axisX+" / "+axes.axisY+
+       " и отметки "+axes.z0Mm+"…"+axes.z1Mm+" мм по исходному плану.")){
+       candidateFeedback(index,"Добавление отменено.","info");return
+      }
+      const created=await schemeApi.create(finalPayload);
+      if(!created?.id)throw Error("Программа не подтвердила сохранение элемента. Проверьте монтажную схему.");
+      saved++;
+      status("Марка "+c.mark+" добавлена на монтажную схему.");
+      draw();candidateFeedback(index,"Добавлено: "+c.mark+" · оси "+axes.axisX+"/"+axes.axisY+
+       " · "+axes.z0Mm+"…"+axes.z1Mm+" мм.","success");
+     }catch(error){
+      const message="Размещение не выполнено: "+String(error.message||error);
+      status(message);candidateFeedback(index,message,"error")
+     }finally{busy=false}
     }
     host.innerHTML=markup();
     host.querySelector("[data-lite-scan]").onclick=()=>void scan();

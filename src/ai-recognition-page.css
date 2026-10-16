@@ -329,3 +329,10 @@
 .ir-ai-document-archive .ir-ai-table-wrap{margin-top:10px}
 .ir-ai-document-archive .ir-ai-doc-actions{justify-content:flex-start}
 .ir-ai-doc-actions{flex-wrap:wrap}
+
+/* Immediate placement feedback stays next to the edited mark, not above hundreds of cards. */
+.ir-ai-lite-inline-feedback{margin-top:8px;font-size:12px;line-height:1.5;min-height:0}
+.ir-ai-lite-inline-feedback:empty{display:none}
+.ir-ai-lite-inline-feedback[data-state="error"]{color:#a32929;background:#fff1f1;border:1px solid #f0cbcb;border-radius:7px;padding:9px 12px}
+.ir-ai-lite-inline-feedback[data-state="success"]{color:#176c47;background:#eefaf2;border:1px solid #c8e8d3;border-radius:7px;padding:9px 12px}
+.ir-ai-lite-inline-feedback[data-state="info"]{color:#315b76;background:#f1f7fb;border:1px solid #d2e3f0;border-radius:7px;padding:9px 12px}
