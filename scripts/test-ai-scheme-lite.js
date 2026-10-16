@@ -2,7 +2,7 @@
 /* Fast erection-scheme regressions: extraction without Qwen and safe proposed
  * placement in the already saved scheme, never unverified auto-geometry. */
 const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm");
-const {readElevation,extractPage,classSheet,axisGeometry,payloadFor,axisPair}=require("../src/ai-scheme-lite-page");
+const {readElevation,extractPage,classSheet,axisGeometry,payloadFor,axisPair,axisSpan}=require("../src/ai-scheme-lite-page");
 const text=[
  "Колонна К60",
  "отм. низа -0,400",
@@ -15,6 +15,20 @@ assert.equal(readElevation(text,"top")?.mm,9705,"upper Z mark converted into mil
 assert.equal(readElevation("Длина 400,00", "bottom"),null,"unlabelled numbers cannot be guessed elevations");
 assert.equal(axisPair(text)?.x,"3");
 assert.equal(axisPair(text)?.y,"Г");
+assert.equal(axisPair("по осям Г–3")?.x,"3","reversed named intersection is supported");
+assert.equal(axisPair("по осям 3–Г; по осям 4–Д"),null,
+ "multiple incompatible locations must not be selected arbitrarily");
+assert.equal(axisPair("Балка Б22, ось 3"),null,
+ "a single axis is not a two-dimensional mounting position");
+assert.deepEqual(
+ (({x,y,endX,endY})=>({x,y,endX,endY}))(axisSpan("Балка Б22 между осями 5–6 по оси Г")),
+ {x:"5",y:"Г",endX:"6",endY:"Г"});
+assert.deepEqual(
+ (({x,y,endX,endY})=>({x,y,endX,endY}))(axisSpan("связь С1 по оси 3 между осями Г–Д")),
+ {x:"3",y:"Г",endX:"3",endY:"Д"});
+assert.equal(axisSpan("между осями 5–6"),null,"span without transverse axis is incomplete");
+assert.equal(axisSpan("между осями 5–6 по оси Г; между осями 4–5 по оси Д"),null,
+ "conflicting spans must not be guessed");
 assert.equal(classSheet("План расположения элементов",text),"plan");
 const sha="a".repeat(64);
 const sheet={documentId:2,name:"041-2025 КМД К60.pdf",kind:"КМД",page:1,sha256:sha,
@@ -26,6 +40,17 @@ assert.equal(proposal.mark,"К60");assert.equal(proposal.type,"column");
 assert.equal(proposal.z0Mm,-400);assert.equal(proposal.z1Mm,9705);
 assert.equal(proposal.lengthMm,10105);
 assert.equal(proposal.locationConfirmed,false);
+const beam=extractPage({...sheet,name:"КМД Б22.pdf",
+ raw:{text:"Балка Б22\nмежду осями 5–6 по оси Г\nотм. низа +3,000\nотм. верха +3,500"}});
+assert.equal(beam.marks[0].axisX,"5");
+assert.equal(beam.marks[0].axisY,"Г");
+assert.equal(beam.marks[0].endAxisX,"6");
+assert.equal(beam.marks[0].endAxisY,"Г");
+assert.equal(beam.marks[0].locationConfirmed,false,"the engineer must approve even explicit axes");
+const ambiguousBeam=extractPage({...sheet,raw:{text:
+ "Балка Б22\nмежду осями 5–6 по оси Г\nпо осям 4–Д"}});
+assert.equal(ambiguousBeam.marks[0].axisX,"","conflicting span and point remains unplaced");
+assert.equal(ambiguousBeam.marks[0].endAxisX,"");
 assert.deepEqual(proposal.source,{documentId:2,sha256:sha,name:sheet.name,kind:"КМД",page:1});
 const multi=extractPage({...sheet,raw:{text:text+"\nБалка Б22"}});
 assert(multi.marks.length>1);

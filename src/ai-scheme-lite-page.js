@@ -43,10 +43,42 @@
   return found&&Number(found[1])<=120000?{mm:Number(found[1]),quote:found[0].slice(0,90)}:null
  }
  function axisPair(text){
-  // A literal pair in a named axis-reference phrase is evidence, but standalone
-  // 1–6 or Cyrillic letters in part tables are NOT evidence of a placement.
-  const found=String(text||"").match(/(?:пересечении\s+осей|по\s+осям|ось|оси)\s*[:№ ]*\s*([1-9]\d?)\s*[/–—-]\s*([АБВГДЕЖЗИЙКЛМНОП])/iu);
-  return found?{x:found[1],y:found[2].toLocaleUpperCase("ru-RU"),quote:found[0].slice(0,90)}:null
+  // Only explicitly labelled intersections qualify. More than one different
+  // intersection on the sheet is ambiguous, so never choose the first at random.
+  const pattern=/(?:пересечении\s+осей|по\s+осям|ось|оси)\s*[:№ ]*\s*(?:([1-9]\d?)\s*[/–—-]\s*([АБВГДЕЖЗИЙКЛМНОП])|([АБВГДЕЖЗИЙКЛМНОП])\s*[/–—-]\s*([1-9]\d?))/giu;
+  const found=new Map();let match;
+  while((match=pattern.exec(String(text||"")))){
+   const x=match[1]||match[4],y=(match[2]||match[3]).toLocaleUpperCase("ru-RU");
+   found.set(x+":"+y,{x,y,quote:match[0].slice(0,90)})
+   if(found.size>1)return null
+  }
+  return found.size===1?[...found.values()][0]:null
+ }
+ function axisSpan(text){
+  // Full start/end hints require two parallel axes AND a perpendicular axis.
+  // A bare "between 5 and 6" cannot determine a 3D mounting position.
+  const letters="[АБВГДЕЖЗИЙКЛМНОП]",number="[1-9]\\d?",between="\\s*(?:[-–—]|и)\\s*";
+  const patterns=[
+   {type:"x",order:"range-first",rx:new RegExp("между\\s+осями\\s+("+number+")"+between+"("+number+")\\s+(?:по|на)\\s+оси\\s+("+letters+")","giu")},
+   {type:"x",order:"axis-first",rx:new RegExp("(?:по|на)\\s+оси\\s+("+letters+")\\s+между\\s+осями\\s+("+number+")"+between+"("+number+")","giu")},
+   {type:"y",order:"range-first",rx:new RegExp("между\\s+осями\\s+("+letters+")"+between+"("+letters+")\\s+(?:по|на)\\s+оси\\s+("+number+")","giu")},
+   {type:"y",order:"axis-first",rx:new RegExp("(?:по|на)\\s+оси\\s+("+number+")\\s+между\\s+осями\\s+("+letters+")"+between+"("+letters+")","giu")}
+  ];
+  const found=new Map();
+  for(const entry of patterns){
+   let m;
+   while((m=entry.rx.exec(String(text||"")))){
+    const [start,end,station]=entry.order==="range-first"?[m[1],m[2],m[3]]:[m[2],m[3],m[1]];
+    const result=entry.type==="x"?
+     {x:start,y:station.toLocaleUpperCase("ru-RU"),endX:end,endY:station.toLocaleUpperCase("ru-RU")}:
+     {x:station,y:start.toLocaleUpperCase("ru-RU"),endX:station,endY:end.toLocaleUpperCase("ru-RU")};
+    if(result.x===result.endX&&result.y===result.endY)continue;
+    const key=[result.x,result.y,result.endX,result.endY].join(":");
+    found.set(key,{...result,quote:m[0].slice(0,120)});
+    if(found.size>1)return null;
+   }
+  }
+  return found.size===1?[...found.values()][0]:null
  }
  function markMatches(text){
   const result=[],source=String(text||"");
@@ -72,21 +104,28 @@
   const bottom=uncertainEncoding?null:readElevation(text,"bottom"),
    top=uncertainEncoding?null:readElevation(text,"top"),
    len=uncertainEncoding?null:lengthHint(text),
-   axes=uncertainEncoding?null:axisPair(text);
+   axes=uncertainEncoding?null:axisPair(text),
+   span=uncertainEncoding?null:axisSpan(text);
   const candidates=matches.slice(0,12).map(match=>{
    // Even a labelled level can refer to a DIFFERENT mark on multi-mark sheets;
    // only auto-associate levels if the sheet has exactly one clear mark.
    const single=matches.length===1&&!uncertainEncoding;
    const z0Mm=single?bottom?.mm??null:null,z1Mm=single?top?.mm??null:null;
    const lengthMm=single?len?.mm??null:null;
+   const line=single&&match.type!=="column"?span:null;
+   const point=single?axes:null;
+   const conflicting=!!(line&&point&&(line.x!==point.x||line.y!==point.y));
+   const location=conflicting?null:line||point;
    const source={documentId:Number(documentId),sha256:String(sha256||""),name:String(name||""),
     kind:String(kind||""),page:Number(page)};
-   return{mark:match.mark,type:match.type,source,sheetType,axisX:single?axes?.x||"": "",
-    axisY:single?axes?.y||"":"",
+   return{mark:match.mark,type:match.type,source,sheetType,
+    axisX:location?.x||"",axisY:location?.y||"",
+    endAxisX:!conflicting?line?.endX||"":"",endAxisY:!conflicting?line?.endY||"":"",
     z0Mm,z1Mm,lengthMm,origin:match.basis,locationConfirmed:false,
     evidence:[match.quote,single&&bottom?.quote,single&&top?.quote,
-     single&&len?.quote,single&&axes?.quote].filter(Boolean),
-    warning:match.basis==="filename_only"?
+     single&&len?.quote,single&&axes?.quote,single&&line?.quote].filter(Boolean),
+    warning:conflicting?"Несовместимые привязки в тексте листа — оси оставлены пустыми до инженерной проверки.":
+     match.basis==="filename_only"?
      "Марка найдена только по имени файла; сверить со штампом PDF.":
      matches.length>1?"На листе несколько марок. Высоты и оси нельзя привязать автоматически.":
      "Координаты по монтажному плану требуют проверки инженера."}
@@ -222,8 +261,8 @@
          (c.type===key?' selected':'')+'>'+escDoc(n)+'</option>').join("")+'</select></label>'+
        '<label>Ось X<input name="axisX" maxlength="3" placeholder="3" value="'+escDoc(c.axisX)+'"></label>'+
        '<label>Ось Y<input name="axisY" maxlength="3" placeholder="Г" value="'+escDoc(c.axisY)+'"></label>'+
-       '<label>Конечная ось X<input name="endX" maxlength="3" placeholder="для балки"></label>'+
-       '<label>Конечная ось Y<input name="endY" maxlength="3" placeholder="для балки"></label>'+
+       '<label>Конечная ось X<input name="endX" maxlength="3" placeholder="для балки" value="'+escDoc(c.endAxisX||"")+'"></label>'+
+       '<label>Конечная ось Y<input name="endY" maxlength="3" placeholder="для балки" value="'+escDoc(c.endAxisY||"")+'"></label>'+
        '<label>Низ / начало, мм<input type="number" name="z0" step="1" placeholder="-400" value="'+escDoc(c.z0Mm??"")+'"></label>'+
        '<label>Верх / конец, мм<input type="number" name="z1" step="1" placeholder="9705" value="'+escDoc(c.z1Mm??"")+'"></label></div>'+
        '<div class="ir-ai-lite-actions"><button type="button" data-lite-approve="'+i+'" '+(!canEdit||!hostWindow.irAccess?.canEdit?.("scheme")?'disabled':'')+
@@ -329,7 +368,7 @@
   };
   return page
  }
- const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisGeometry,payloadFor};
+ const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor};
  if(typeof module!=="undefined"&&module.exports)module.exports=exported;
  if(root&&typeof root==="object")root.irAiSchemeLitePage=createPage()
 })(typeof window!=="undefined"?window:null);
