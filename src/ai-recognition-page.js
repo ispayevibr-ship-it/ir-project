@@ -893,12 +893,12 @@ window.irAiRecognitionPage=async function(objectId){
    const dlg=document.createElement("dialog");dlg.className="ir-ai-pdf-preview-dialog";
    dlg.innerHTML='<div class="ir-ai-pdf-preview-header"><div><b data-region-title></b>'+
     '<small data-region-meta></small><small data-region-ai-status role="status"></small></div><div class="ir-ai-pdf-preview-actions">'+
-    '<button type="button" data-region-extract disabled>Увеличить фрагмент</button>'+
-    (canEdit?'<button type="button" data-region-analyze disabled>Распознать фрагмент ИИ</button>':'')+
+    '<button type="button" data-region-extract disabled>'+stepNumber('5.2')+' Увеличить фрагмент</button>'+
+    (canEdit?'<button type="button" data-region-analyze disabled>'+stepNumber('5.3')+' Распознать фрагмент ИИ</button>':'')+
     '<button type="button" data-region-back hidden>Вернуться к листу</button>'+
     '<button type="button" data-pdf-fit>100%</button>'+
     '<button type="button" data-pdf-close>Закрыть ✕</button></div></div>'+
-    '<div class="ir-ai-pdf-preview-stage"><div class="ir-ai-pdf-image-wrap">'+
+    '<div class="ir-ai-pdf-preview-stage"><div class="ir-ai-region-guide">'+stepNumber('5.1')+' Выделите мышью участок чертежа, затем используйте кнопки 5.2 и 5.3 над листом.</div><div class="ir-ai-pdf-image-wrap">'+
     '<img alt="Фактический лист PDF"><div class="ir-ai-pdf-region-layer" title="Выделите нужную область мышью или касанием">'+
     '<div class="ir-ai-pdf-region-selection"></div></div></div></div>';
    const img=dlg.querySelector("img"),wrap=dlg.querySelector(".ir-ai-pdf-image-wrap"),
