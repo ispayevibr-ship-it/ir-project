@@ -24,7 +24,38 @@ function compare(a,b){const A=String(a||"0").split(".").map(Number),B=String(b||
 function hash(data){return crypto.createHash("sha256").update(data).digest("hex")}
 function request(url,json=false){return new Promise((resolve,reject)=>{const go=u=>https.get(u,{headers:{"User-Agent":"IR-Project-Updater","Cache-Control":"no-cache","Accept":json?"application/vnd.github+json":"*/*"}},res=>{if(res.statusCode>=300&&res.statusCode<400&&res.headers.location){res.resume();return go(res.headers.location)}if(res.statusCode!==200){res.resume();return reject(new Error(`HTTP ${res.statusCode}`))}const chunks=[];res.on("data",c=>chunks.push(c));res.on("end",()=>{const b=Buffer.concat(chunks);if(!json)return resolve(b);try{resolve(JSON.parse(b.toString("utf8")))}catch(e){reject(e)}})}).on("error",reject);go(url)})}
 function readManifest(dir=current()){try{return JSON.parse(fs.readFileSync(manifestFile(dir),"utf8"))}catch{return null}}
-function verifyRuntime(dir=current()){try{const m=readManifest(dir);if(!m?.version||!Array.isArray(m.files))return null;for(const f of m.files){const p=path.join(dir,safeRelative(f.target));if(!fs.existsSync(p))return null;const b=fs.readFileSync(p);if(!b.length)return null;if(f.sha256&&hash(b)!==f.sha256)return null}return m}catch{return null}}
+function validBetaManifest(m){
+ if(!m||m.channel!=="beta"||m.baseVersion!==app.getVersion()||
+    !Array.isArray(m.files)||m.files.length<6||m.files.length>120)return false;
+ const pattern=new RegExp("^"+app.getVersion().replace(/\\./g,"\\\\.")+"\\\\.[1-9][0-9]*$");
+ if(!pattern.test(m.version))return false;
+ const names=new Set(),required=[
+  "src/ai-local-engine.js","src/ai-analysis.js","src/ai-structured-extraction.js",
+  "src/ai-review.js","src/ai-workflow.js","src/ai-structured-review.js"
+ ];
+ for(const f of m.files){
+  if(!f||typeof f.target!=="string"||!betaTarget(f.target)||
+     f.source!==f.target||names.has(f.target)||
+     !/^[a-f0-9]{64}$/.test(f.sha256||"")||
+     !Number.isSafeInteger(f.size)||f.size<=0||f.size>=4*1024*1024)return false;
+  names.add(f.target)
+ }
+ return required.every(name=>names.has(name))
+}
+function verifyRuntime(dir=current()){
+ try{
+  const m=readManifest(dir);if(!m?.version||!Array.isArray(m.files))return null;
+  if(isBeta()&&!validBetaManifest(m))return null;
+  for(const f of m.files){
+   const p=path.join(dir,safeRelative(f.target));
+   if(!fs.existsSync(p))return null;
+   const b=fs.readFileSync(p);
+   if(!b.length||isBeta()&&b.length!==f.size)return null;
+   if(f.sha256&&hash(b)!==f.sha256)return null
+  }
+  return m
+ }catch{return null}
+}
 function activeRuntime(){
  const m=verifyRuntime();
  return m&&compare(m.version,app.getVersion())>0&&
@@ -34,14 +65,10 @@ function recoverInterruptedUpdate(){if(verifyRuntime(current()))return;const m=v
 function promoteRuntime(){if(!verifyRuntime(stage()))throw new Error("Hot-update повреждён");const hadCurrent=fs.existsSync(current());if(hadCurrent){fs.rmSync(previous(),{recursive:true,force:true});fs.renameSync(current(),previous())}try{fs.renameSync(stage(),current());if(!verifyRuntime(current()))throw new Error("Hot-update повреждён при переключении")}catch(error){fs.rmSync(current(),{recursive:true,force:true});if(hadCurrent)fs.renameSync(previous(),current());throw error}}
 function cleanupStaleRuntime(){recoverInterruptedUpdate();const m=readManifest();if(m&&compare(m.version,app.getVersion())<=0){try{fs.rmSync(current(),{recursive:true,force:true})}catch{}}try{fs.rmSync(stage(),{recursive:true,force:true})}catch{}}
 function installedVersion(){const m=activeRuntime();return m?m.version:app.getVersion()}
-function resolveFile(rel){const safe=safeRelative(rel),m=activeRuntime();if(m){const p=path.join(current(),safe);if(fs.existsSync(p))return p}return path.join(app.getAppPath(),safe)}
+function resolveFile(rel){const safe=safeRelative(rel),m=activeRuntime();if(m&&m.files.some(f=>f.target===safe)){const p=path.join(current(),safe);if(fs.existsSync(p))return p}return path.join(app.getAppPath(),safe)}
 async function check(){available=null;const api=`https://api.github.com/repos/${OWNER}/${REPO}/contents/${sourcePath()}?ref=${encodeURIComponent(branch())}&t=${Date.now()}`;const meta=await request(api,true);if(!meta?.content)throw new Error("Manifest обновления не получен");const m=JSON.parse(Buffer.from(meta.content.replace(/\s/g,""),"base64").toString("utf8"));if(!m?.version||!Array.isArray(m.files))throw new Error("Manifest обновления имеет неверный формат");
  if(isBeta()){
-  if(m.channel!=="beta"||m.baseVersion!==app.getVersion()||m.files.length<1||
-     m.files.length>120||!m.files.every(f=>
-      typeof f.target==="string"&&betaTarget(f.target)&&f.source===f.target&&
-      /^[a-f0-9]{64}$/.test(f.sha256||"")&&
-      Number.isSafeInteger(f.size)&&f.size>0&&f.size<4*1024*1024))
+  if(!validBetaManifest(m))
    throw new Error("Beta hot-пакет несовместим или имеет неподтверждённые файлы");
  }const local=installedVersion(),info={baseVersion:app.getVersion(),installedVersion:local,remoteVersion:m.version};if(compare(m.version,local)>0){available=m;events.emit("update-available",{...info,version:m.version,size:m.files.reduce((s,f)=>s+(Number(f.size)||0),0)});return{updateInfo:{version:m.version},diagnostics:info}}events.emit("update-not-available",{...info,version:local});return{updateInfo:{version:local},diagnostics:info}}
 async function downloadUpdate(){if(!available){await check();if(!available)throw new Error("Обновление не найдено")}const dir=stage();fs.rmSync(dir,{recursive:true,force:true});fs.mkdirSync(dir,{recursive:true});const verified=[];let done=0;const previous=activeRuntime();if(previous&&!isBeta()){for(const f of previous.files){const target=safeRelative(f.target),src=path.join(current(),target),dest=path.join(dir,target);if(fs.existsSync(src)){fs.mkdirSync(path.dirname(dest),{recursive:true});fs.copyFileSync(src,dest)}}}for(const f of available.files){const source=safeRelative(f.source),target=safeRelative(f.target);const old=previous?.files?.find(p=>p.target===target&&p.sha256===f.sha256);
