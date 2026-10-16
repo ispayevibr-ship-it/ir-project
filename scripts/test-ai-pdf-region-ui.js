@@ -73,6 +73,9 @@ const spin=async until=>{
  await window.irAiRecognitionPage(7);
  previewButton.onclick();
  await spin(()=>dialog?.open===true&&/Qwen не готова/.test(aiText.textContent)).catch(error=>{throw Error(error.message+"; diag: "+JSON.stringify({dialog:!!dialog,open:dialog?.open,statusCalls,aiText:aiText.textContent,message:app.innerHTML.slice(0,500),callback:typeof previewButton.onclick}))});
+ assert.match(dialog.innerHTML,/Шаг 5.1/,"stamp selection explicitly numbered");
+ assert.match(dialog.innerHTML,/Шаг 5.2/,"PDF zoom action explicitly numbered");
+ assert.match(dialog.innerHTML,/Шаг 5.3/,"region recognition explicitly numbered");
  assert.match(aiText.textContent,/Qwen не готова/);
  assert.equal(recognize.disabled,true);
  const down={pointerId:4,button:0,pointerType:"mouse",clientX:15,clientY:10,
