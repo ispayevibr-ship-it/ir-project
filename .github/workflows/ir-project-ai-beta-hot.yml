@@ -52,6 +52,7 @@ jobs:
           node scripts/test-ai-gpu-offload.js
           node scripts/test-ai-fast-region.js
           node scripts/test-ai-scheme-lite.js
+          node scripts/test-ai-scheme-lite-ui.js
           node scripts/test-updater-rollback.js
           node scripts/test-ai-beta-hot.js
       - name: Generate SHA-256 manifest from latest tested Beta revision
