@@ -371,3 +371,25 @@ const noGrid=selectPlanRegion({selected:"auto",calibrate:k=>({
 assert.equal(noGrid.analysis.calibrated,false);
 assert.equal(noGrid.regionName,"left");
 console.log("Multi-scheme region: auto/full refuse mixed plans; explicit isolated region PASS");
+
+
+// A registration mark printed on the OTHER drawing in the same PDF page
+// must never contaminate the vector associations of a selected subplan.
+const leftView={...onlyLeft,region:{left:0,top:0,right:.5,bottom:1}};
+const foreignLabel={...geometryLabel,pageX:widthPt*.75,
+ rectPt:{x:widthPt*.75-4,y:heightPt-95,width:8,height:8}};
+const isolated=findPlanMemberStrokes({labels:[geometryLabel,foreignLabel],
+ analysis:leftView,grid,vector:planVectors});
+assert.equal(isolated.candidates.length,1);
+assert.equal(isolated.review.length,1);
+assert.equal(isolated.review[0].reasonCode,"outside_plan");
+assert.equal(isolated.review[0].label.pageX,foreignLabel.pageX);
+const isolatedRegister=detectPlanRegisterLabels({
+ raw:{fragments:[
+ {text:"Б22",x:140,y:heightPt-95,width:10,height:8},
+ {text:"Б22",x:widthPt*.75,y:heightPt-95,width:10,height:8}]},
+ analysis:leftView,grid,marks:[{id:201,title:"Б22",data:{mark:"Б22"}}],
+ widthPt,heightPt});
+assert.equal(isolatedRegister.labels.length,1,
+ "register matching must respect only selected PDF half");
+console.log("PDF page multiple plans: cross-region marks and strokes do not mix PASS");
