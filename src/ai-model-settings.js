@@ -57,6 +57,7 @@
    const target=dlg.querySelector("[data-ai-body]");
    if(!data){target.textContent=notice||"Читаем состояние менеджера моделей…";return}
    const models=data.models||[],catalog=data.update||{},localAi=window.irProject?.aiDiagnostics;
+   const isManual=x=>x.id==="qwen3-vl-4b"&&engineState?.installed===true&&engineState?.modelVersion==="manual-beta";
    target.innerHTML='<div class="ir-ai-model-toolbar">'+
     '<button type="button" data-check '+(busy?'disabled':'')+'>↻ Проверить обновления</button>'+
     '<button type="button" data-select '+(busy||!isAdmin()?'disabled':'')+'>＋ Установить из файла</button>'+
@@ -102,17 +103,17 @@
     (notice?'<div class="ir-ai-model-notice '+(failed?'error':'')+'" role="status">'+esc(notice)+'</div>':'')+
     '<div class="ir-ai-model-grid">'+models.map(x=>
      '<article class="ir-ai-model-card"><header><div><span class="ir-ai-model-type">'+esc(x.role)+'</span><h3>'+esc(x.title)+'</h3>'+
-      '<p>Движок: '+esc(x.engine)+'</p></div><span class="ir-ai-model-state '+(x.active?'installed':'')+'">'+esc(x.active?'Установлена':'Не установлена')+'</span></header>'+
-      '<div class="ir-ai-model-metadata"><div><small>Активная версия</small><b>'+esc(x.active||"—")+'</b></div>'+
+      '<p>Движок: '+esc(x.engine)+'</p></div><span class="ir-ai-model-state '+(x.active||isManual(x)?'installed':'')+'">'+esc(x.active?'Установлена':isManual(x)?'Ручная Beta':'Не установлена')+'</span></header>'+
+      '<div class="ir-ai-model-metadata"><div><small>Активная версия</small><b>'+esc(x.active||(isManual(x)?"manual-beta":"—"))+'</b></div>'+
        '<div><small>Предыдущая версия</small><b>'+esc(x.previous||"—")+'</b></div>'+
-       '<div><small>Размер на диске</small><b>'+esc(x.installedBytes?fmt(x.installedBytes):"—")+'</b></div>'+
+       '<div><small>Размер на диске</small><b>'+esc(x.installedBytes?fmt(x.installedBytes):isManual(x)?fmt(engineState.totalBytes):"—")+'</b></div>'+
        '<div><small>Версий в хранилище</small><b>'+esc((x.versions||[]).length)+'</b></div>'+
        '<div><small>Доступное обновление</small><b>'+esc((catalog.available||[]).some(r=>r.modelId===x.id)?"Есть версии":"—")+'</b></div></div>'+
       '<div class="ir-ai-model-releases">'+(catalog.available||[]).filter(r=>r.modelId===x.id).map(r=>
        '<div class="ir-ai-model-release"><div><b>Версия '+esc(r.version)+'</b><small>'+fmt(r.bytes)+' · '+esc(r.notes||"Подписанный пакет")+'</small></div>'+
        '<button type="button" data-download-model="'+esc(x.id)+'" data-download-version="'+esc(r.version)+'" '+
         (busy||!data.signedImportAvailable?'disabled':'')+'>Скачать и установить</button></div>').join("")+'</div>'+
-      '<div class="ir-ai-model-foot"><small>'+esc(x.state)+'</small>'+
+      '<div class="ir-ai-model-foot"><small>'+esc(isManual(x)?"Ручной профиль Qwen · локальный, без цифровой подписи издателя":x.state)+'</small>'+
       (x.id==="qwen3-vl-4b"&&x.active?'<button type="button" data-verify-model="'+esc(x.id)+'" '+(busy||!isAdmin()?'disabled':'')+'>Проверить файлы</button>':"")+
       '<button type="button" data-rollback="'+esc(x.id)+'" '+(!x.canRollback||busy||!isAdmin()?'disabled':'')+'>↶ Откатить</button></div></article>').join("")+
     '</div><p class="ir-ai-model-note">Размер скачивания и список доступных версий появятся после подключения официального подписанного каталога. Файлы моделей не включены в установщик IR Project.</p>';
