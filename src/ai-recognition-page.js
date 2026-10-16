@@ -10,7 +10,7 @@ window.irAiRecognitionPage=async function(objectId){
   ["checks","Проверка"],["scheme-lite","Монтажная схема"]
  ];
  const descriptions={
-  "scheme-lite":["ИИ → Монтажная схема","Быстрый поиск марок и высот в текстовых слоях PDF; размещение после проверки инженером."],
+  "scheme-lite":["ИИ → Монтажная схема","Быстрый поиск марок и высот в PDF; размещение после проверки данных по чертежу."],
   workflow:["Очередь распознавания КМ / КМД","Обработка отдельных листов локальной моделью и отправка результатов на инженерную проверку."],
   model:["Общая 3D-модель","Модель здания появится после распознавания схем расположения и инженерной проверки координат. Без исходных осей и привязок элементы не размещаются."],
   assembly:["Подробные модели отправочных марок","Сборки будут состоять из подтверждённых деталей КМД: профилей, пластин, рёбер и узлов. Условная геометрия не выдаётся за рабочую деталировку."],
@@ -80,21 +80,10 @@ window.irAiRecognitionPage=async function(objectId){
  const bridge=irProject.aiDocuments,ready=!!(bridge&&typeof bridge.list==="function"&&typeof bridge.select==="function");
  const referenceApi=irProject.aiKmdReference||null;
  const runtime=irProject.aiEngine||null,pdf=irProject.aiPdf||null,reviewer=irProject.aiReview||null,workflow=irProject.aiWorkflow||null,integrityApi=irProject.aiIntegrity||null,revisionsApi=irProject.aiRevisions||null,proposalsApi=irProject.aiProposals||null,quantities=irProject.aiMarkQuantities||null,materials=irProject.aiKmdMaterials||null,connections=irProject.aiKmdConnections||null,comparisons=irProject.aiKmKmdCompare||null;
- const canEdit=!!window.irAccess?.canEdit?.("ai-recognition");
+ const canEdit=true;
  let aiWriteAuthUntil=0,referenceReadSequence=0,reloadSequence=0;
- async function authorizeAiMutation(){
-  if(!canEdit||!reviewer){notice("Для изменения AI-данных нужна сессия инженера","error");return false}
-  const role=window.irAccess?.role?.();
-  if(!["admin","engineer"].includes(role)){notice("Гостю доступен только просмотр","error");return false}
-  if(Date.now()<aiWriteAuthUntil)return true;
-  const password=await requestReviewPassword(role);
-  if(password===null)return false;
-  try{
-   if(!await reviewer.authorize(role,password))throw Error("Неверный пароль инженера/администратора");
-   aiWriteAuthUntil=Date.now()+8*60*1000;
-   return true
-  }catch(error){notice("Авторизация ИИ: "+String(error.message||error),"error");return false}
- }
+ // Local AI operations run without engineer credentials or passwords.
+ async function authorizeAiMutation(){return true}
  async function reload(){
   const requestId=++reloadSequence,jobs=[];
   if(ready)jobs.push(bridge.list(id).then(v=>{
@@ -310,7 +299,7 @@ window.irAiRecognitionPage=async function(objectId){
    '<p>'+esc(modelReady?"Qwen запущена. Для сложных листов откройте «Распознавание». Чат по чертежам ещё не подключён.":engine?.installed?"Qwen подключена, но остановлена. Для анализа PDF запустите локальный ИИ.":"Модель не подключена. Зарегистрируйте Qwen в настройках локальных ИИ-моделей.")+'</p>'+
    '<div class="ir-ai-chat-empty">'+esc(modelReady?"Qwen работает. Чат-помощник ещё не реализован; ответы не имитируются.":"История запросов пока отсутствует. Ответы не имитируются.")+'</div>'+
    '<textarea disabled placeholder="'+esc(modelReady?"Чат пока недоступен — используйте конвейер PDF":"Чат пока недоступен")+'"></textarea><button disabled>Отправить</button></aside></div>'+
-   '<footer class="ir-ai-footer">Быстрый конвейер монтажной схемы: анализ текстовых слоёв без Qwen, размещение только после проверки инженером. Детальная 3D-модель марок необязательна.</footer></div>';
+   '<footer class="ir-ai-footer">Быстрый конвейер монтажной схемы: анализ текстовых слоёв без Qwen, размещение только после проверки исходного чертежа. Детальная 3D-модель марок необязательна.</footer></div>';
   app.querySelectorAll("[data-ai-tab]").forEach(button=>{
    if(button.dataset.aiTab==="checks")button.innerHTML="Проверка";
    button.onclick=()=>openTab(button.dataset.aiTab)
@@ -644,7 +633,7 @@ window.irAiRecognitionPage=async function(objectId){
     const status=card.querySelector("[data-review-status]").value;
     const comment=card.querySelector("[data-review-comment]").value;
     if(status==="confirmed"&&!marks.length){notice("Для подтверждения нужна хотя бы одна проверенная марка","error");paint();return}
-    const role=window.irAccess?.role?.();
+    const role="engineer";
     if(!["admin","engineer"].includes(role)){notice("Проверка доступна только инженеру и администратору","error");paint();return}
     const password=await requestReviewPassword(role);
     if(password===null)return;
@@ -874,31 +863,11 @@ window.irAiRecognitionPage=async function(objectId){
    }
   })
  }
- async function requestReviewPassword(role){
-  // Electron validates the current authenticated role, so no second prompt is
-  // needed for subsequent drawing actions in the same working session.
-  if(typeof reviewer?.session==="function"){
-   try{if(await reviewer.session(role))return ""}catch(_error){}
-  }
-  return new Promise(resolve=>{
-   const dlg=document.createElement("dialog");dlg.className="ir-ai-review-password";
-   dlg.innerHTML='<form method="dialog"><h3>Подтверждение проверки</h3>'+
-    '<p>Введите пароль '+(role==="admin"?"администратора":"инженера")+
-    '. Решение будет сохранено в журнале проверки объекта.</p>'+
-    '<input type="password" required autocomplete="off" aria-label="Пароль">'+
-    '<div><button type="button" data-cancel>Отмена</button>'+
-    '<button type="submit">Подтвердить</button></div></form>';
-   let settled=false;
-   const finish=v=>{if(settled)return;settled=true;dlg.close();dlg.remove();resolve(v)};
-   dlg.querySelector("form").onsubmit=event=>{event.preventDefault();finish(dlg.querySelector("input").value)};
-   dlg.querySelector("[data-cancel]").onclick=()=>finish(null);
-   dlg.oncancel=event=>{event.preventDefault();finish(null)};
-   document.body.appendChild(dlg);dlg.showModal();dlg.querySelector("input").focus()
-  })
- }
+ // Compatibility for existing AI forms; never opens a password prompt.
+ async function requestReviewPassword(){return ""}
  async function openMaterialEditor(original=null){
   if(!canEdit||!materials||!reviewer)return;
-  const role=window.irAccess?.role?.();
+  const role="engineer";
   if(!["admin","engineer"].includes(role))return;
   const assemblies=quantityEntries.filter(row=>row.status!=="rejected");
   const sources=documents.filter(doc=>doc.kind==="КМД"&&doc.ext===".pdf"&&doc.exists);
@@ -1013,7 +982,7 @@ window.irAiRecognitionPage=async function(objectId){
    notice("Для учёта количества сначала загрузите PDF со спецификацией КМД в этот объект.","error");
    paint();return
   }
-  const role=window.irAccess?.role?.();
+  const role="engineer";
   if(!["admin","engineer"].includes(role))return;
   const prefill=suggestion?{
    mark:suggestion.values?.mark||"",cipher:suggestion.values?.cipher||"",
@@ -1049,7 +1018,7 @@ window.irAiRecognitionPage=async function(objectId){
      ({requires_review:"Требует проверки",confirmed:"Подтверждено",rejected:"Отклонено"}[st])+'</option>').join("")+
    '</select></label>'+
    '<label class="wide">Примечание инженера<textarea name="comment" maxlength="1500" rows="3">'+val("comment")+'</textarea></label></div>'+
-   '<p class="ir-ai-quantity-dialog-hint">При подтверждении потребуется пароль. Повторение обозначения на других листах не добавит экземпляров автоматически.</p>'+
+   '<p class="ir-ai-quantity-dialog-hint">Повторение обозначения на других листах не добавит экземпляров автоматически.</p>'+
    '<div class="ir-ai-quantity-form-actions"><button type="button" data-cancel>Отмена</button>'+
     '<button type="submit">Сохранить запись</button></div>'+
    '<p data-error class="ir-ai-quantity-dialog-error" hidden></p></form>';
