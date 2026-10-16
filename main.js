@@ -140,7 +140,11 @@ function registerAiDocuments(){
  ipcMain.handle("ai-documents:list",(_e,id)=>aiDocuments.list(id));
  ipcMain.handle("ai-documents:select",(e,{objectId,kind})=>{requireAiReviewer(e);return aiDocuments.select(objectId,kind)});
  ipcMain.handle("ai-documents:open",(_e,{objectId,id})=>aiDocuments.open(objectId,id));
- ipcMain.handle("ai-documents:remove",(e,{objectId,id})=>{
+ ipcMain.handle("ai-documents:impact",(e,{objectId,id})=>{
+  requireAiReviewer(e);
+  return aiDocuments.removalImpact(objectId,id)
+ });
+ ipcMain.handle("ai-documents:remove",(e,{objectId,id,discardUnreviewed=false,expectedAnalysisIds=[]})=>{
   requireAiReviewer(e);
   // A source cannot be removed during any ongoing indexing, rendering or inference.
   if(aiPdf.busy()||aiRaster.busy()||aiQueue.summary(objectId).isRunning||
@@ -149,7 +153,7 @@ function registerAiDocuments(){
   const linked=aiRevisions.list(objectId).find(set=>set.sheets.some(s=>Number(s.documentId)===Number(id)));
   if(linked)throw Error("Исходный PDF входит в комплект КМ/КМД «"+linked.label+
    "» (включая историю). Удаление нарушит проверяемость ревизий; сохраните оригинал.");
-  return aiDocuments.remove(objectId,id)
+  return aiDocuments.remove(objectId,id,{discardUnreviewed,expectedAnalysisIds})
  });
  ipcMain.handle("ai-engine:status",()=>aiEngine.status());
  ipcMain.handle("ai-engine:start",e=>{requireAiReviewer(e);return aiEngine.start()});
