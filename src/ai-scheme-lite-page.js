@@ -1049,6 +1049,7 @@
     length=Math.hypot(dx,dy),ux=dx/length,uy=dy/length;
    return{...seg,key:i,length,ux,uy}
   });
+  out.processedLabels=Math.min(labels.length,250);
   out.inspected=strokes.length;
   out.limited=localized?vector.stats?.detailSampleIncomplete===true||
    rawStrokes.length>14400:vector.stats?.truncated===true||
@@ -1164,6 +1165,87 @@
    a[v.reasonCode]=(a[v.reasonCode]||0)+1;return a
   },{})).map(([reason,count])=>({reason,count}));
   return out
+ }
+
+
+ // Join PDF glyph occurrences to reviewed-outline EVIDENCE by SAME mark,
+ // page, and glyph centre. Nothing here authorizes an erection placement.
+ // A complete source instance never disappears if geometry is unavailable.
+ function linkInstanceOutlineEvidence({instances=[],registeredLabels=[],outlines={},
+   heightPt}={}){
+  const labels=Array.isArray(registeredLabels)?registeredLabels:[],
+   processed=Math.max(0,Math.min(labels.length,250,
+    Number(outlines.processedLabels??Math.min(labels.length,250)))),
+   arrays={candidate:outlines.candidates||[],multiple:outlines.alternatives||[],
+    single:outlines.singleStrokes||[],review:outlines.review||[]},
+   statuses=["contour_candidate","multiple_contours","single_stroke",
+    "no_graphic_evidence","needs_more_evidence","not_checked","ambiguous_match"],
+   summary=Object.fromEntries(statuses.map(s=>[s,0])),
+   records=[];
+  for(const source of instances.slice(0,6000)){
+   const rec={instanceId:source.instanceId,mark:source.mark,
+    markId:source.markId,documentId:source.documentId,page:source.page,
+    diagramRegion:source.diagramRegion,
+    status:"not_checked",confirmedPlacement:false,exactPlacement:false,
+    xMm:null,yMm:null,z0Mm:null,z1Mm:null,
+    strokeLinesPt:null,lineMm:null,alternatives:0,reason:""};
+   const y=Number(heightPt)-Number(source.pageYBottom);
+   if(!Number.isFinite(y)||!(Number(heightPt)>0)){
+    rec.reason="Размер PDF неизвестен";summary[rec.status]++;records.push(rec);continue
+   }
+   const matches=labels.filter(label=>
+    String(label.markId)===String(source.markId)&&
+    norm(label.mark)===norm(source.mark)&&
+    Math.hypot(Number(label.pageX)-Number(source.pageX),
+     Number(label.pageY)-y)<=2.5);
+   if(matches.length!==1){
+    rec.status=matches.length?"ambiguous_match":"not_checked";
+    rec.reason=matches.length?"Несколько надписей совпали по координатам":
+     "Надпись не допущена к анализу калиброванной области";
+   }else{
+    const match=matches[0],labelIndex=labels.indexOf(match);
+    if(labelIndex>=processed){
+     rec.status="not_checked";
+     rec.reason="Надпись за пределами проверенной выборки";
+    }else{
+     const chosen=arrays.candidate.filter(x=>x.label===match),
+      choices=arrays.multiple.filter(x=>x.label===match),
+      singles=arrays.single.filter(x=>x.label===match),
+      reviews=arrays.review.filter(x=>x.label===match);
+     if(chosen.length>1||choices.length>1||chosen.length&&choices.length){
+      rec.status="ambiguous_match";
+      rec.reason="Несколько несовместимых геометрических результатов";
+     }else if(choices.length){
+      rec.status="multiple_contours";
+      rec.alternatives=choices[0].totalOptions||choices[0].options?.length||0;
+      rec.strokeLinesPt=choices[0].options?.[0]?.strokesPt||null;
+      rec.lineMm=choices[0].options?.[0]?.lineMm||null;
+      rec.reason="Несколько графических контуров; нет подтверждённого выбора";
+     }else if(chosen.length){
+      rec.status="contour_candidate";
+      rec.strokeLinesPt=chosen[0].strokesPt||null;
+      rec.lineMm=chosen[0].lineMm||null;
+      rec.reason="Парные линии PDF; принадлежность марке не доказана";
+     }else if(singles.length){
+      rec.status="single_stroke";
+      rec.lineMm=singles[0].lineMm||null;
+      rec.reason="Только одиночная линия PDF";
+     }else if(outlines.limited||reviews.some(x=>
+       ["incomplete_geometry","uncalibrated","invalid_transform",
+        "axis_spacing"].includes(x.reasonCode))){
+      rec.status="needs_more_evidence";
+      rec.reason="Геометрия PDF неполная или калибровка не подтверждена";
+     }else{
+      rec.status="no_graphic_evidence";
+      rec.reason=reviews[0]?.reason||"Подходящая графика рядом не найдена";
+     }
+    }
+   }
+   summary[rec.status]++;records.push(rec)
+  }
+  return{records,summary,total:records.length,checked:records.length-
+   summary.not_checked-summary.ambiguous_match,
+   confirmedPlacements:0,readyForPlacement:0,sourceReadOnly:true}
  }
 
  function createPage(){
@@ -2196,7 +2278,7 @@
   };
   return page
  }
- const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes,selectPlanRegion,extractPlanInstances};
+ const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes,selectPlanRegion,extractPlanInstances,linkInstanceOutlineEvidence};
  if(typeof module!=="undefined"&&module.exports)module.exports=exported;
  if(root&&typeof root==="object")root.irAiSchemeLitePage=createPage()
 })(typeof window!=="undefined"?window:null);
