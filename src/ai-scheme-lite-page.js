@@ -1168,7 +1168,7 @@
 
  function createPage(){
   let latest=[],candidates=[],batch=null,verifiedPreview=null,
-    instanceResults=new Map(),instanceRows=[],
+    instanceResults=new Map(),instanceRows=[],showAllInstances=false,
    lastOperation=null,inventory=null,draftRows=[],
    busy=false,log="",saved=0,disposeLast=null;
   const feedbackByCandidate=new Map();
@@ -1180,7 +1180,7 @@
      reviewer,onOpenPdf,onNavigate}=opts;
     page.dispose();
     latest=[];candidates=[];batch=null;verifiedPreview=null;lastOperation=null;inventory=null;draftRows=[];
-     instanceResults.clear();instanceRows=[];
+     instanceResults.clear();instanceRows=[];showAllInstances=false;
     busy=false;saved=0;log="";feedbackByCandidate.clear();
     const escDoc=esc;const canEdit=true;let live=true;
     const hostWindow=opts.window||root;
@@ -1281,13 +1281,17 @@
       '<th>Марка</th><th>Лист</th><th>Область</th>'+
       '<th>Центр надписи PDF (pt)</th><th>Статус</th><th>Источник</th>'+
       '</tr></thead><tbody>'+
-      instanceRows.slice(0,350).map((x,i)=>'<tr><td>'+escDoc(x.mark)+'</td>'+
+      instanceRows.slice(0,showAllInstances?5000:350).map((x,i)=>'<tr><td>'+escDoc(x.mark)+'</td>'+
        '<td>'+x.page+'</td><td>'+escDoc(x.diagramRegion)+'</td>'+
        '<td>'+x.pageX.toFixed(1)+' / '+x.pageYBottom.toFixed(1)+'</td>'+
        '<td>Координаты конструкции неизвестны</td>'+
        '<td><button type="button" data-lite-instance-source="'+i+
        '">PDF</button></td></tr>').join("")+'</tbody></table></div>'+
-      (instanceRows.length>350?'<small>Показаны первые 350 надписей</small>':"")+
+      (instanceRows.length>350?'<button type="button" data-lite-instance-expand>'+
+       (showAllInstances?'Свернуть список':'Показать все найденные надписи')+
+       '</button>':"")+
+      (instanceRows.length>5000&&showAllInstances?
+       '<small>В одном просмотре максимум 5000 надписей.</small>':"")+
       '</details></section>'
     }
     function draw(){
@@ -1433,6 +1437,8 @@
      slot.querySelectorAll("[data-lite-instances-page]").forEach(b=>b.onclick=()=>{
       void analyzeInstances(Number(b.dataset.liteInstancesPage))
      });
+     const expand=slot.querySelector?.("[data-lite-instance-expand]");
+     if(expand)expand.onclick=()=>{showAllInstances=!showAllInstances;draw()};
      slot.querySelectorAll("[data-lite-instance-source]").forEach(b=>b.onclick=()=>{
       const x=instanceRows[Number(b.dataset.liteInstanceSource)];
       if(x)onOpenPdf?.(x.documentId,x.page,[{quote:x.labelText,
