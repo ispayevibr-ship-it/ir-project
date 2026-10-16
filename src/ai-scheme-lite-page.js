@@ -1365,6 +1365,8 @@
         '">Проверить линии листа</button>'+
         '<button type="button" class="ir-ai-lite-vector-button" data-lite-axis-page="'+pi+
         '">Найти оси на плане</button>'+
+        '<button type="button" class="ir-ai-lite-vector-button" data-lite-instances-page="'+pi+
+         '">Учесть марки этой области</button>'+
         '<select data-lite-axis-region="'+pi+'" title="Если на одном PDF несколько чертежей, выбирайте только область нужной монтажной схемы">'+
          '<option value="auto">Определить область</option>'+
          '<option value="full">Весь лист</option>'+
@@ -1424,6 +1426,14 @@
        escDoc(feedbackByCandidate.get(i)?.message||"")+'</div></article>').join("")+
        '</div>':
        '<div class="ir-ai-doc-empty">Пока нет предложений по маркам. Для сканирования нужны читаемые текстовые слои PDF. Листы без текста требуют отдельного визуального распознавания.</div>');
+     slot.querySelectorAll("[data-lite-instances-page]").forEach(b=>b.onclick=()=>{
+      void analyzeInstances(Number(b.dataset.liteInstancesPage))
+     });
+     slot.querySelectorAll("[data-lite-instance-source]").forEach(b=>b.onclick=()=>{
+      const x=instanceRows[Number(b.dataset.liteInstanceSource)];
+      if(x)onOpenPdf?.(x.documentId,x.page,[{quote:x.labelText,
+       fragmentIds:x.fragmentIds,rectPt:x.rectPt}])
+     });
      slot.querySelectorAll("[data-lite-axis-page]").forEach(b=>b.onclick=()=>{
       void analyzeAxes(Number(b.dataset.liteAxisPage))
      });
@@ -1452,6 +1462,55 @@
      if(apply)apply.onclick=()=>void applyPreview();
      const cancel=slot.querySelector?.("[data-lite-cancel-preview]");
      if(cancel)cancel.onclick=()=>{verifiedPreview=null;draw()};
+    }
+
+    async function analyzeInstances(index){
+     const sheet=latest[index];if(!sheet||busy)return;
+     const selected=host.querySelector("[data-lite-results]")?.querySelector?.(
+      '[data-lite-axis-region="'+index+'"]')?.value||"auto",
+      region=selected==="auto"?"full":selected;
+     const doc=documents.find(d=>Number(d.id)===sheet.documentId),
+      idx=indexes.find(x=>Number(x.documentId)===sheet.documentId&&
+       x.sourceSha256===sheet.sha256);
+     if(!doc?.exists||doc.sha256!==sheet.sha256||!idx){
+      status("PDF изменился: повторите индексацию.");return
+     }
+     if(!pdf?.page||!marksApi?.list)return;
+     busy=true;status("Считаем надписи на листе "+sheet.page+"…");
+     try{
+      const [detail,marks]=await Promise.all([
+       pdf.page(objectId,idx.id,sheet.page),marksApi.list()]);
+      if(!live)return;
+      if(detail.source?.sha256!==doc.sha256||
+         Number(detail.source?.documentId)!==Number(doc.id))
+       throw Error("PDF изменился после индексации");
+      let widthPt,heightPt;
+      if(region!=="full"){
+       if(!geometry?.page)throw Error("Для выбранной части нужен векторный модуль PDF");
+       const key=[doc.id,doc.sha256,sheet.page].join(":");
+       let g=geometryCache.get(key);
+       if(!g){
+        g=await geometry.page(objectId,doc.id,sheet.page);
+        if(!live)return;
+        if(g.sourceSha256!==doc.sha256)throw Error("Устаревшая геометрия PDF");
+        geometryCache.set(key,g)
+       }
+       widthPt=g.widthPt;heightPt=g.heightPt
+      }
+      const result=extractPlanInstances({raw:detail.page,marks,
+       documentId:doc.id,sha256:doc.sha256,page:sheet.page,
+       region,widthPt,heightPt,sheetType:sheet.sheetType});
+      const prefix=[doc.id,doc.sha256,sheet.page].join(":")+":";
+      if(region==="full"){
+       for(const k of instanceResults.keys())
+        if(k.startsWith(prefix))instanceResults.delete(k)
+      }else instanceResults.delete(prefix+"full");
+      instanceResults.set(prefix+region,result);
+      status("Лист "+sheet.page+", "+region+": "+result.total+
+       " отдельных надписей. Это ещё не подтверждённые конструкции.");
+      draw()
+     }catch(error){status("Реестр марок: "+String(error.message||error))}
+     finally{busy=false}
     }
     async function analyzeAxes(index){
      const sheet=latest[index],slot=host.querySelector("[data-lite-results]");
