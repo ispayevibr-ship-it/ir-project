@@ -604,7 +604,7 @@
       (lastOperation?'<section class="ir-ai-lite-batch ir-ai-lite-last-operation">'+
        '<p>Последняя автоматическая расстановка: <b>'+
        lastOperation.created+'</b> элементов · '+escDoc(lastOperation.createdAt||"")+'</p>'+
-       ('<button type="button" data-lite-undo>Отменить последнюю расстановку</button>':"")+
+       '<button type="button" data-lite-undo>Отменить последнюю расстановку</button>'+
        '</section>':"")+
       (latest.length?'<div class="ir-ai-lite-docs">'+latest.map((x,pi)=>
        '<div><b>'+escDoc(x.name)+' · лист '+x.page+'</b> · '+escDoc(
