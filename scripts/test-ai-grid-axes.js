@@ -1,6 +1,6 @@
 "use strict";
 const assert=require("node:assert/strict");
-const {extractPage,detectPlanGridAxes,axisGeometry,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes,selectPlanRegion}=require("../src/ai-scheme-lite-page");
+const {extractPage,detectPlanGridAxes,axisGeometry,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes,selectPlanRegion,extractPlanInstances}=require("../src/ai-scheme-lite-page");
 const grid=axisGeometry([{record_type:"scheme_grid",data:{entity_type:"grid",
  axes_x:["1","2","3","4"],x_spans_mm:[6000,6000,6000],
  axes_y:["А","Б","В","Г"],y_spans_mm:[6000,6000,6000]}}]);
@@ -449,3 +449,78 @@ const isolatedRegister=detectPlanRegisterLabels({
 assert.equal(isolatedRegister.labels.length,1,
  "register matching must respect only selected PDF half");
 console.log("PDF page multiple plans: cross-region marks and strokes do not mix PASS");
+
+
+// Instance register: printed occurrences are NOT unique mark names or 3D
+// erections. Unlike the former extractPage, no same-mark aggregation.
+const registerMarks=[
+ {id:12,title:"Ф10",project_code:"MK-01",data:{mark:"Ф10"}},
+ {id:13,title:"Ф1",data:{mark:"Ф1"}},
+ {id:14,title:"Ф1-1",data:{mark:"Ф1-1"}},
+ {id:15,title:"К60",data:{mark:"К60"}},
+ {id:16,title:"В115",data:{mark:"В115"}}
+];
+const repeatedPdf=[
+ labelAndReturn("Ф10",35,105),
+ labelAndReturn("Ф10",65,105),
+ labelAndReturn("Ф10",92,105),
+ labelAndReturn("Ф10",145,105),
+ labelAndReturn("Ф10",181,105),
+ labelAndReturn("Ф10",224,105),
+ labelAndReturn("Ф10",35.5,105), // repeated PDF text glyph
+ labelAndReturn("Ф1",50,140),
+ labelAndReturn("Ф1-1",90,140),
+ labelAndReturn("К60",145,180),
+ labelAndReturn("В115",215,180),
+ labelAndReturn("К999",245,180)
+];
+const rawInstances=extractPlanInstances({raw:{fragments:repeatedPdf},
+ marks:registerMarks,documentId:21,sha256:"c".repeat(64),
+ page:1,widthPt:300,heightPt:400});
+assert.equal(rawInstances.total,10,JSON.stringify(rawInstances));
+assert.equal(rawInstances.labels.filter(x=>x.mark==="Ф10").length,6);
+assert.equal(rawInstances.byMark.find(x=>x.mark==="Ф10").count,6);
+assert.equal(rawInstances.labels.filter(x=>x.mark==="Ф1-1").length,1);
+assert.equal(rawInstances.labels.filter(x=>x.mark==="Ф1").length,1);
+assert.deepEqual(rawInstances.skippedUnknownMarks,["К999"]);
+assert.equal(new Set(rawInstances.labels.map(x=>x.instanceId)).size,10);
+assert(rawInstances.labels.every(x=>x.exactPlacement===false&&
+ x.isPhysicalInstanceConfirmed===false&&x.xMm===null&&x.z0Mm===null));
+assert(rawInstances.labels.every(x=>x.status==="needs_diagram_scope"));
+const leftInstances=extractPlanInstances({raw:{fragments:repeatedPdf},
+ marks:registerMarks,documentId:21,sha256:"c".repeat(64),
+ page:1,widthPt:300,heightPt:400,region:"left"});
+const rightInstances=extractPlanInstances({raw:{fragments:repeatedPdf},
+ marks:registerMarks,documentId:21,sha256:"c".repeat(64),
+ page:1,widthPt:300,heightPt:400,region:"right"});
+assert.equal(leftInstances.total+rightInstances.total,rawInstances.total,
+ "a pair of non-overlapping drawing halves should account for all labels");
+assert(leftInstances.labels.every(x=>x.status==="label_requires_geometry"));
+assert(rightInstances.labels.every(x=>x.status==="label_requires_geometry"));
+assert.deepEqual([...leftInstances.labels,...rightInstances.labels]
+ .map(x=>x.instanceId).sort(),
+ rawInstances.labels.map(x=>x.instanceId).sort(),
+ "scoping changes the origin label but never the stable instance identity");
+const onDifferentSheet=extractPlanInstances({raw:{fragments:repeatedPdf},
+ marks:registerMarks,documentId:21,sha256:"c".repeat(64),
+ page:2,widthPt:300,heightPt:400});
+assert.notEqual(onDifferentSheet.labels[0].instanceId,rawInstances.labels[0].instanceId,
+ "repetitions on separate sheets must not be collapsed without evidence");
+assert.throws(()=>extractPlanInstances({raw:{fragments:repeatedPdf},
+ marks:registerMarks,region:"right"}),/размер PDF/);
+const compositeRuns=extractPlanInstances({raw:{fragments:[
+ labelAndReturn("Ф1",42,130),labelAndReturn("-1",50,130),
+ labelAndReturn("К",65,160),labelAndReturn("60",73,160),
+ labelAndReturn("Ф1-1",80,180)
+]},marks:registerMarks,documentId:5,page:2});
+assert.equal(compositeRuns.labels.filter(x=>x.mark==="Ф1-1").length,2,
+ "two printed instances of the composite mark count separately");
+assert.equal(compositeRuns.labels.filter(x=>x.mark==="К60").length,1);
+assert.equal(compositeRuns.labels.filter(x=>x.mark==="Ф1").length,0,
+ "printed Ф1-1 must never become unsuffixed Ф1");
+const uncertainRegister=extractPlanInstances({raw:{fragments:[labelAndReturn("Ф10",35,105)]},
+ marks:[registerMarks[0],{...registerMarks[0],id:99}],page:1});
+assert.equal(uncertainRegister.total,0,
+ "duplicate register rows need disambiguation, not a random mark ID");
+assert.deepEqual(uncertainRegister.ambiguousRegisterMarks,["Ф10"]);
+console.log("PDF mark instances: repeats, exact suffix, region split, stable IDs and no invented XYZ PASS");
