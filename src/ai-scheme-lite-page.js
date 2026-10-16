@@ -1422,8 +1422,8 @@
            '<td>'+p.lineMm.x2+' / '+p.lineMm.y2+'</td>'+
            '<td>≈'+p.lengthMm+'</td>'+
            '<td>Возможный парный контур; требуется проверка</td>'+
-           '<td><button type="button" data-lite-node-source="'+
-            registerLabels.labels.indexOf(p.label)+'">PDF</button></td>'+
+           '<td><button type="button" data-lite-outline-source="'+
+            memberOutlines.candidates.indexOf(p)+'">Показать линии</button></td>'+
           '</tr>').join("")+'</tbody></table></div>'+
           (memberOutlines.candidates.length>80?'<small>Показаны первые 80 гипотез.</small>':""):
           '<p>Однозначных пар графических линий рядом с марками пока нет.</p>')+
@@ -1444,8 +1444,9 @@
             '<td>'+p.lineMm.x1+' / '+p.lineMm.y1+'</td>'+
             '<td>'+p.lineMm.x2+' / '+p.lineMm.y2+'</td>'+
             '<td>≈'+p.lengthMm+'</td><td>≈'+p.distancePt+'</td>'+
-            '<td><button type="button" data-lite-node-source="'+
-             registerLabels.labels.indexOf(group.label)+'">PDF</button></td></tr>'
+            '<td><button type="button" data-lite-alt-source="'+
+             memberOutlines.alternatives.indexOf(group)+':'+group.options.indexOf(p)+
+             '">Показать линии</button></td></tr>'
            ).join("")).join("")+'</tbody></table></div>'+
           '</details>':"")+
          (memberOutlines.singleStrokes.length?'<details>'+
@@ -1479,6 +1480,28 @@
           '</details>':"")+
          '</details>'
        }
+       // Read-only visual evidence; never a DB/scheme mutation.
+       const openGeometry=(label,lines)=>{
+        if(!label||!Array.isArray(lines)||lines.length!==2)return;
+        onOpenPdf?.(doc.id,sheet.page,[{quote:label.labelText,
+         rectPt:label.rectPt,fragmentIds:label.fragmentIds,
+         strokeLinesPt:lines}])
+       };
+       output.querySelectorAll?.("[data-lite-outline-source]")?.forEach(button=>{
+        button.onclick=()=>{
+         const item=memberOutlines.candidates[Number(button.dataset.liteOutlineSource)];
+         if(item)openGeometry(item.label,item.strokesPt)
+        }
+       });
+       output.querySelectorAll?.("[data-lite-alt-source]")?.forEach(button=>{
+        button.onclick=()=>{
+         const value=String(button.dataset.liteAltSource||"").split(":");
+         if(value.length!==2)return;
+         const group=memberOutlines.alternatives[Number(value[0])];
+         const choice=group?.options?.[Number(value[1])];
+         if(group&&choice)openGeometry(group.label,choice.strokesPt)
+        }
+       });
        output.querySelectorAll?.("[data-lite-node-source]")?.forEach(button=>{
         button.onclick=()=>{
          const label=registerLabels.labels[Number(button.dataset.liteNodeSource)];
