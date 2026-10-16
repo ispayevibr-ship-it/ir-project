@@ -94,6 +94,29 @@ assert.throws(()=>payloadFor(proposal,{mark,axisX:"3",axisY:"Г",z0Mm:9705,z1Mm:
 assert.throws(()=>payloadFor(proposal,{mark:{...mark,mark:"К61"},axisX:"3",axisY:"Г",z0Mm:-400,z1Mm:9705,schemeRows:grid}),/точную марку/);
 assert.throws(()=>payloadFor(proposal,{mark,axisX:"3",axisY:"Г",z0Mm:-400,z1Mm:9705,schemeRows:[...grid,{...placement,id:9}]}),/уже существует/);
 assert.throws(()=>payloadFor(proposal,{mark:{...mark,qty:1},axisX:"3",axisY:"Д",z0Mm:-400,z1Mm:9705,schemeRows:[...grid,{...placement,id:9}]}),/Все экземпляры/);
+// Plan-only bare labels are matched against the real register before
+// becoming manual-review candidates (never inferred member placements).
+const rawLabel=(name,x)=>({text:name,x,y:90,width:12,height:8});
+const loosePlan=extractPage({documentId:4,name:"План расположения конструкций",
+ kind:"КМД",sha256:sha,page:2,raw:{
+ text:"План расположения конструкций",
+ fragments:[rawLabel("К62",10),rawLabel("К62",10.5),
+  rawLabel("В74",44),rawLabel("К999",100)]},
+ registeredMarks:[{id:11,title:"К62",data:{mark:"К62"}},
+  {id:12,title:"В74",data:{mark:"В74"}}]});
+assert.deepEqual(loosePlan.marks.map(x=>x.mark),["К62","В74"]);
+assert(loosePlan.marks.every(x=>x.type==="unknown"&&
+ x.origin==="plan_label_only"&&x.z0Mm===null&&x.z1Mm===null));
+assert.equal(loosePlan.marks[0].labelMentions,1,"same PDF glyph must not double-count");
+assert.equal(loosePlan.marks[0].evidenceLocations.length,1);
+assert.equal(extractPage({documentId:4,name:"Сечения деталей",kind:"КМД",
+ sha256:sha,page:2,raw:{text:"Сечение",fragments:[rawLabel("К62",10)]},
+ registeredMarks:[{id:11,title:"К62",data:{mark:"К62"}}]}).marks.length,0,
+ "fabrication details do not become plan placements");
+assert.equal(extractPage({documentId:4,name:"План расположения конструкций",
+ kind:"КМД",sha256:sha,page:2,raw:{text:"План",fragments:[rawLabel("К62",10)]},
+ registeredMarks:[]}).marks.length,0,"never accept marks outside the register");
+
 // Confirm routing and lazy hot loading without repacking Electron/index.html.
 const renderer=fs.readFileSync("src/ai-recognition-page.js","utf8");
 new vm.Script(renderer);
