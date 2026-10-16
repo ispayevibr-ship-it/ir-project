@@ -61,6 +61,7 @@ jobs:
           node scripts/test-ai-paddle-ocr-integration.js
           node scripts/test-ai-pdf-render.js
           node scripts/test-ai-storage.js
+          node scripts/test-ai-document-archive.js
           node scripts/test-ai-document-hot-loader.js
       - name: Build NSIS installer without publishing
         run: npx electron-builder --win nsis --publish never

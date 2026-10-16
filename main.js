@@ -150,6 +150,20 @@ function registerAiDocuments(){
   requireAiReviewer(e);
   return aiDocumentDeletion.removalImpact(objectId,id)
  });
+ ipcMain.handle("ai-documents:archive",(e,{objectId,id})=>{
+  requireAiReviewer(e);
+  if(aiPdf.busy()||aiRaster.busy()||aiQueue.summary(objectId).isRunning||
+     aiEngine.status().active||aiOcr.status().busy)
+   throw Error("Дождитесь завершения обработки чертежей перед архивированием PDF");
+  return aiDocumentDeletion.archive(objectId,id)
+ });
+ ipcMain.handle("ai-documents:restore",(e,{objectId,id})=>{
+  requireAiReviewer(e);
+  if(aiPdf.busy()||aiRaster.busy()||aiQueue.summary(objectId).isRunning||
+     aiEngine.status().active||aiOcr.status().busy)
+   throw Error("Дождитесь завершения обработки чертежей перед восстановлением PDF");
+  return aiDocumentDeletion.restore(objectId,id)
+ });
  ipcMain.handle("ai-documents:remove",(e,{objectId,id,discardUnreviewed=false,expectedAnalysisIds=[]})=>{
   requireAiReviewer(e);
   // A source cannot be removed during any ongoing indexing, rendering or inference.

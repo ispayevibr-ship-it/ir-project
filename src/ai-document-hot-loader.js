@@ -41,6 +41,18 @@ function createGuard({updates,appRoot,getUserDataPath,database,dialog,shell,getW
     throw Error("Версия политики удаления изменилась. Операция заблокирована.");
    return{...impact,moduleSource:loaded.source,installedVersion:loaded.version}
   },
+  archive(objectId,documentId){
+   const ready=store();
+   if(typeof ready.instance.archive!=="function")
+    throw Error("Модуль архива недоступен; установите актуальную Windows Beta");
+   return ready.instance.archive(objectId,documentId)
+  },
+  restore(objectId,documentId){
+   const ready=store();
+   if(typeof ready.instance.restore!=="function")
+    throw Error("Модуль восстановления архива недоступен");
+   return ready.instance.restore(objectId,documentId)
+  },
   remove(objectId,documentId,options){
    // Preview again under current module, then defer dependency rechecking and
    // rollback to the document store's SQLite transaction.

@@ -54,6 +54,7 @@ jobs:
           node scripts/test-ai-scheme-lite.js
           node scripts/test-ai-scheme-lite-ui.js
           node scripts/test-ai-storage.js
+          node scripts/test-ai-document-archive.js
           node scripts/test-ai-document-hot-loader.js
           node scripts/test-ai-navigation.js
           node scripts/test-updater-rollback.js
