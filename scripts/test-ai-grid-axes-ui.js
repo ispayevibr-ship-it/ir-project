@@ -83,6 +83,14 @@ const wait=async f=>{
  assert(axis.innerHTML.includes("Надписи марок в ячейках сетки"),axis.innerHTML);
  assert(axis.innerHTML.includes("Зона надписи; положение конструкции не определено"),axis.innerHTML);
  assert(axis.innerHTML.includes("Векторные контуры возле марок"),axis.innerHTML);
+ assert(axis.innerHTML.includes("Сводка распознавания геометрии"),
+  "the user sees a consolidated geometry summary, not only 89 independent leader failures");
+ assert(axis.innerHTML.includes("Готовых к автоматической расстановке: 0"),
+  "unverified paired PDF strokes do not become confirmed construction placements");
+ assert(axis.innerHTML.includes("Диагностика выносок"),
+  "the old 89-review algorithm is clearly labeled a separate optional diagnostic");
+ assert(axis.innerHTML.includes("Требуют проверки геометрии"),
+  "the count is explicitly scoped to geometric evidence");
  assert(axis.innerHTML.includes("Возможный парный контур"),axis.innerHTML);
  assert(axis.innerHTML.includes("К62"),axis.innerHTML);
  assert(axis.innerHTML.includes("Несколько похожих контуров возле марки"),axis.innerHTML);
