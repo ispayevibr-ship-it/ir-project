@@ -281,4 +281,44 @@ const outlineCollisions=findPlanMemberStrokes({labels:[geometryLabel,anotherLabe
  analysis:onlyLeft,grid,vector:planVectors});
 assert.equal(outlineCollisions.candidates.length,0);
 assert.equal(outlineCollisions.review.filter(x=>x.reasonCode==="shared_strokes").length,2);
+
+// Multiple genuine neighbouring outlines remain review-only, with their
+// distinct candidate coordinates visible for comparison rather than a
+// generic error or an arbitrary automatic choice.
+const crowdedSegments=[
+ {x1:111,y1:100,x2:169,y2:100,direction:"horizontal"},
+ {x1:111,y1:103,x2:169,y2:103,direction:"horizontal"},
+ {x1:111,y1:106,x2:169,y2:106,direction:"horizontal"}
+];
+const crowded=findPlanMemberStrokes({
+ labels:[geometryLabel],analysis:onlyLeft,grid,
+ vector:{widthPt,heightPt,rotation:0,segments:[...segments,...crowdedSegments]}
+});
+assert.equal(crowded.candidates.length,0,"ambiguous outlines never auto-select");
+assert.equal(crowded.review[0].reasonCode,"multiple_outlines");
+assert.equal(crowded.alternatives.length,1);
+assert.equal(crowded.alternatives[0].mark,"Б22");
+assert(crowded.alternatives[0].options.length>=2);
+assert(crowded.alternatives[0].options.length<=3);
+assert(crowded.alternatives[0].options.every(x=>x.exactPlacement===false&&
+ x.evidenceType==="parallel_strokes"&&Number.isFinite(x.lengthMm) &&
+ Number.isFinite(x.distancePt)&&x.lineMm));
+assert(crowded.alternatives[0].totalOptions>=2);
+assert(!("z0Mm" in crowded.alternatives[0].options[0]));
+// Duplicated near-identical PDF draw calls may represent one geometric
+// contour. They must not produce false ambiguous alternatives.
+const duplicatedNear=[
+ ...planPair,
+ {x1:111.15,y1:100.1,x2:169.15,y2:100.1,direction:"horizontal"},
+ {x1:111.15,y1:105.1,x2:169.15,y2:105.1,direction:"horizontal"}
+];
+const deduplicated=findPlanMemberStrokes({
+ labels:[geometryLabel],analysis:onlyLeft,grid,
+ vector:{widthPt,heightPt,rotation:0,segments:[...segments,...duplicatedNear]}
+});
+assert.equal(deduplicated.candidates.length,1,JSON.stringify(deduplicated));
+assert.equal(deduplicated.alternatives.length,0);
+assert.equal(deduplicated.candidates[0].exactPlacement,false);
+console.log("Multiple PDF outlines: alternative choices shown, geometric duplicates merged, no automatic placement PASS");
+
 console.log("KMD member outline hypotheses: double strokes, single line, grid axes, ambiguity and provenance PASS");
