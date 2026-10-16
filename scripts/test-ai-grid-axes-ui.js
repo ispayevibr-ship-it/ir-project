@@ -136,7 +136,8 @@ const wait=async f=>{
  sourceInstances.onclick();
  assert.equal(sourceViews.at(-1).documentId,14);
  assert.equal(sourceViews.at(-1).page,1);
- assert.equal(sourceViews.at(-1).evidence[0].quote,"К62");
+ assert.equal(sourceViews.at(-1).evidence[0].quote,"В74",
+  "PDF source follows the first alphabetically sorted registered instance");
  if(slot.innerHTML.includes('data-lite-instance-outline="0"')){
   assert.equal(typeof instanceOutline.onclick,"function");
   instanceOutline.onclick();
