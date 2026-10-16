@@ -637,7 +637,7 @@ window.irAiRecognitionPage=async function(objectId){
   box.querySelectorAll("[data-ai-pdf-vision]").forEach(button=>button.onclick=async()=>{
    if(!pdf||!canEdit||busy||!modelReady||!await authorizeAiMutation())return;
    const [did,page]=button.dataset.aiPdfVision.split(":");
-   busy=true;notice("Qwen обрабатывает лист "+page+". На процессоре это может занять до 10 минут.");paint();
+   busy=true;notice("Qwen обрабатывает лист "+page+". Время ожидания — до "+Math.ceil((Number(engine?.analysisTimeoutSeconds)||600)/60)+" мин. Ход обработки отображается ниже.");paint();
    const stopTimer=trackSheetAnalysis("Qwen распознаёт лист "+page);
    try{
     const result=await pdf.analyze(id,did,page);
