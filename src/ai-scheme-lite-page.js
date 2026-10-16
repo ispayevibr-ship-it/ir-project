@@ -729,7 +729,9 @@
          Number(pageData.source?.documentId)!==Number(doc.id))
        throw Error("Текстовые фрагменты и геометрия относятся к разным PDF");
       const grid=axisGeometry(rows),
-       analysis=detectPlanGridAxes({raw:pageData.page,vector:result,grid});
+       analysis=detectPlanGridAxes({raw:pageData.page,vector:result,grid}),
+       zones=locateMarkLabelZones({candidates:sheet.marks,analysis,grid,
+        heightPt:result.heightPt});
       const label=x=>escDoc(x.name)+" · "+escDoc(x.mm)+" мм ↔ "+
        escDoc(Math.round(x.pagePt*100)/100)+" pt";
       const xRows=analysis.xMatches?.map(label)||[],
@@ -750,7 +752,16 @@
        '</div><div class="ir-ai-axis-grids">'+
        '<div><strong>Оси X</strong><ol>'+xRows.map(x=>'<li>'+x+'</li>').join("")+
        '</ol></div><div><strong>Оси Y</strong><ol>'+
-       yRows.map(x=>'<li>'+x+'</li>').join("")+'</ol></div></div>';
+       yRows.map(x=>'<li>'+x+'</li>').join("")+'</ol></div></div>'+
+       (zones.length?'<details class="ir-ai-axis-mark-zones"><summary>'+
+        'Надписи марок в ячейках сетки · '+zones.length+
+        '</summary><table><thead><tr><th>Марка</th><th>Между осями X</th>'+
+        '<th>Между осями Y</th><th>Тип данных</th></tr></thead><tbody>'+
+        zones.map(z=>'<tr><td>'+escDoc(z.mark)+'</td><td>'+
+         escDoc(z.axesX.start)+'–'+escDoc(z.axesX.end)+'</td><td>'+
+         escDoc(z.axesY.start)+'–'+escDoc(z.axesY.end)+'</td>'+
+         '<td>Зона надписи; положение конструкции не определено</td></tr>').join("")+
+        '</tbody></table></details>':"");
       output.scrollIntoView?.({block:"nearest",behavior:"smooth"})
      }catch(error){
       output.textContent="Не удалось сопоставить оси: "+String(error.message||error)
