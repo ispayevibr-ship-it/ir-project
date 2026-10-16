@@ -260,3 +260,32 @@
 .ir-ai-region-guide .ir-ai-step-number{margin-right:3px}
 .ir-ai-pdf-preview-actions button .ir-ai-step-number{width:18px;height:18px;
  margin-right:4px;font-size:9px}
+
+/* Transparent KMD AI progress: elapsed-time estimate, not model-reported recognition. */
+.ir-ai-recognition-progress{display:grid;gap:9px;margin:9px 0 12px;padding:13px 16px;
+ border:1px solid #b8d9f0;border-radius:10px;background:#f0f8ff;color:#285879;
+ font-size:11px;line-height:1.4}
+.ir-ai-recognition-progress-head{display:flex;justify-content:space-between;
+ align-items:center;gap:12px}
+.ir-ai-recognition-progress-head strong{font-size:12px;font-weight:800}
+.ir-ai-recognition-progress-head b{font-size:18px;color:#1466a7;font-variant-numeric:tabular-nums}
+.ir-ai-recognition-progress progress{appearance:none;display:block;width:100%;height:13px;
+ border:0;border-radius:8px;overflow:hidden;background:#d9e8f4}
+.ir-ai-recognition-progress progress::-webkit-progress-bar{background:#d9e8f4;border-radius:8px}
+.ir-ai-recognition-progress progress::-webkit-progress-value{background:#2288d2;border-radius:8px;
+ transition:width .35s ease}
+.ir-ai-recognition-progress progress::-moz-progress-bar{background:#2288d2;border-radius:8px}
+.ir-ai-recognition-progress-meta{display:flex;flex-wrap:wrap;gap:8px 18px;font-weight:650}
+.ir-ai-recognition-progress-meta [data-ai-progress-remaining]{font-variant-numeric:tabular-nums}
+.ir-ai-recognition-progress>small{color:#7895a9;font-size:10px;line-height:1.55}
+.ir-ai-recognition-progress.completed{border-color:#bfdfcc;background:#f3faf5}
+.ir-ai-recognition-progress.completed .ir-ai-recognition-progress-head b{color:#2b8554}
+.ir-ai-recognition-progress.completed progress::-webkit-progress-value{background:#41a66a}
+.ir-ai-recognition-progress.failed{border-color:#e8c1c1;background:#fff5f5}
+.ir-ai-recognition-progress.failed .ir-ai-recognition-progress-head b{color:#a04444}
+.ir-ai-recognition-progress.failed progress::-webkit-progress-value{background:#cd7474}
+.ir-ai-region-progress-area{flex:none;padding:0 12px 2px;background:#fff}
+.ir-ai-region-progress-area[hidden]{display:none}
+.ir-ai-region-progress-area .ir-ai-recognition-progress{margin:6px 0 10px;padding:10px 13px}
+@media(max-width:700px){.ir-ai-recognition-progress{padding:10px 12px}
+ .ir-ai-recognition-progress-meta{gap:5px 11px}}
