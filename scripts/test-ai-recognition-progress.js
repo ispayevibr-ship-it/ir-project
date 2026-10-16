@@ -15,6 +15,7 @@ const spin=async test=>{
 };
 (async()=>{
  let now=1000000,resolveAnalysis=null,rejectAnalysis=null,interval=null,cleared=false;
+ const savedAnalyses=[];
  const progressFields=new Map();
  for(const key of ["value","bar","elapsed","remaining","state"])
   progressFields.set('[data-ai-progress-'+key+']',{textContent:"",value:0});
@@ -49,7 +50,7 @@ const spin=async test=>{
   data:{objects:{get:async()=>({id:7,name:"Варваринское"})}},
   aiDocuments:{list:async()=>[drawing],select:async()=>({canceled:true})},
   aiEngine:{status:async()=>({installed:true,state:"ready",
-   analysisTimeoutSeconds:600,model:"qwen3-vl-4b"}),results:async()=>[]},
+   analysisTimeoutSeconds:600,model:"qwen3-vl-4b"}),results:async()=>savedAnalyses},
   aiReview:{list:async()=>[],register:async()=>[],authorize:async()=>true},
   aiPdf:{list:async()=>[{id:8,documentId:3,sourceName:drawing.name,
    sourceSha256:hash,totalPages:1,pages:[{page:1,hasTextLayer:true}]}],
@@ -83,13 +84,15 @@ const spin=async test=>{
  assert.equal(progressFields.get("[data-ai-progress-bar]").value,94,
   "estimated progress cannot hit 100% without a finished response");
  assert.match(progressFields.get("[data-ai-progress-remaining]").textContent,/0:00/);
+ savedAnalyses.push({id:12,documentId:3,sha256:hash,originalMarks:["К60"],
+  notes:{text:"Колонна К60"},status:"requires_review"});
  resolveAnalysis({id:12,source:drawing.name,page:1,marks:["К60"]});
  await task;
  assert.equal(cleared,true);
  assert.match(app.innerHTML,/completed/);
  assert.match(app.innerHTML,/100%/);
  assert.match(app.innerHTML,/Обработка завершена/);
- assert.match(app.innerHTML,/Проверка и ошибки/);
+ assert.match(app.innerHTML,/Следующий шаг: 6/);
  // Check failure path starts a fresh job and never displays 100% after error.
  cleared=false;resolveAnalysis=null;rejectAnalysis=null;
  const retry=visionButton.onclick();
@@ -101,5 +104,7 @@ const spin=async test=>{
  assert.match(app.innerHTML,/Прервано/);
  assert.match(app.innerHTML,/simulated timeout/);
  assert.doesNotMatch(app.innerHTML,/100%/);
+ assert.match(app.innerHTML,/Распознавание прервано. Повторите шаг 5/,
+  "a failed latest attempt cannot advance to step 6 despite previous successful analysis");
  console.log("KMD recognition: visible estimate, elapsed/remaining clock, 94% cap, 100% only on success, error PASS");
 })().catch(e=>{console.error(e);process.exitCode=1});
