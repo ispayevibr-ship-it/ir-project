@@ -43,6 +43,18 @@ async function run(state){
  assert.match(content.innerHTML,/Распознать лист 1/);
  assert.match(content.innerHTML,/Колонна К60/);
  assert.match(content.innerHTML,/Индексировать PDF/);
+ assert.match(app.innerHTML,/ir-ai-step-guide/,"six-step instructions beside controls");
+ assert.match(app.innerHTML,/Выбрать КМ\/КМД/);
+ assert.match(app.innerHTML,/Добавить PDF/);
+ assert.match(app.innerHTML,/Индексировать PDF/);
+ assert.match(app.innerHTML,/Запустить Qwen/);
+ assert.match(app.innerHTML,/Распознать лист/);
+ assert.match(app.innerHTML,/Проверить результат/);
+ assert.match(content.innerHTML,/Шаг 3 выполнен/,"index action marked done");
+ assert.match(content.innerHTML,/Шаг 5/,"recognition button numbered");
+ if(state==="ready")assert.match(app.innerHTML,/Следующий шаг: 5/);
+ else assert.match(app.innerHTML,/Следующий шаг: 4/);
+
  assert(!content.innerHTML.includes("undefined"),"PDF list must not show undefined");
  if(state==="ready"){
   assert.match(app.innerHTML,/Qwen запущена/);
