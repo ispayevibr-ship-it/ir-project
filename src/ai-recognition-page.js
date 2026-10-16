@@ -206,7 +206,9 @@ window.irAiRecognitionPage=async function(objectId){
    String(d.id)===String(x.documentId)&&d.sha256===x.sourceSha256&&d.ext===".pdf"&&
    Array.isArray(x.pages)&&x.pages.length>0)).map(x=>String(x.documentId)));
   const hasIndex=indexedIds.size>0;
-  const recognized=analyses.some(x=>availableDocs.some(d=>
+  // Earlier successful analyses are not evidence that the most recent
+  // attempt completed. Keep step 5 active after a local connection failure.
+  const recognized=analysisProgress?.status!=="failed"&&analyses.some(x=>availableDocs.some(d=>
    String(d.id)===String(x.documentId)&&d.sha256===x.sha256)&&
    (x.originalMarks?.length||x.notes?.marks?.length||x.notes?.text?.trim()||
     x.notes?.structured?.records?.length));
@@ -222,7 +224,9 @@ window.irAiRecognitionPage=async function(objectId){
    '<b>Порядок действий:</b>'+stepLabels.map((label,i)=>
     '<span class="ir-ai-step-guide-item'+(stepDone[i]?' complete':i+1===activeStep?' current':'')+'">'+
     stepNumber(i+1,stepDone[i])+esc(label)+'</span>').join('')+
-   '<small>Следующий шаг: '+activeStep+'. '+esc(stepLabels[activeStep-1])+'</small></div>';
+   '<small>'+(analysisProgress?.status==="failed"?
+    "Распознавание прервано. Повторите шаг 5 после проверки состояния ИИ.":
+    'Следующий шаг: '+activeStep+'. '+esc(stepLabels[activeStep-1]))+'</small></div>';
   window.irAiAssemblyPage?.dispose?.();
   app.innerHTML='<div class="ir-ai-page">'+
    '<header class="ir-ai-hero"><div class="ir-ai-heading"><div class="ir-ai-kicker">IR PROJECT · ЛОКАЛЬНЫЙ ИНЖЕНЕРНЫЙ МОДУЛЬ</div>'+
