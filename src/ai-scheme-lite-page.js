@@ -94,6 +94,46 @@
   }
   return result
  }
+ /* Extract location markers for *text evidence*, not coordinate inference.
+  * Rectangles use original PDF points (origin at lower left) and only direct
+  * pdf.js text fragments. No invented boxes for unmatched quotes. */
+ function fragmentEvidence(raw,quotes=[]){
+  const rawFragments=Array.isArray(raw?.fragments)?raw.fragments:[];
+  if(!rawFragments.length||!Array.isArray(quotes))return[];
+  const normText=x=>String(x??"").toLocaleUpperCase("ru-RU")
+   .replace(/\s+/g,"").replace(/[−–—]/g,"-");
+  const good=(f)=>f&&typeof f.text==="string"&&
+   ["x","y","width","height"].every(k=>Number.isFinite(Number(f[k])))&&
+   Number(f.width)>=0&&Number(f.height)>=0;
+  const result=[];
+  for(const evidence of quotes.slice(0,12)){
+   const q=normText(evidence);
+   if(q.length<4)continue;
+   let found=null;
+   for(let i=0;i<rawFragments.length&&!found;i++){
+    const first=rawFragments[i];if(!good(first))continue;
+    let joined="",xmin=Infinity,xmax=-Infinity,ymin=Infinity,ymax=-Infinity,ids=[];
+    for(let j=i;j<Math.min(rawFragments.length,i+6);j++){
+     const f=rawFragments[j];if(!good(f))break;
+     if(Math.abs(Number(f.y)-Number(first.y))>Math.max(12,Number(first.height)*1.8))
+      break;
+     joined+=normText(f.text);ids.push(j);
+     xmin=Math.min(xmin,Number(f.x));xmax=Math.max(xmax,Number(f.x)+Number(f.width));
+     ymin=Math.min(ymin,Number(f.y));ymax=Math.max(ymax,Number(f.y)+Number(f.height));
+     if(joined.includes(q)){
+      found={quote:String(evidence).slice(0,130),fragmentIds:ids.slice(),
+       rectPt:{x:Math.round(xmin*100)/100,y:Math.round(ymin*100)/100,
+        width:Math.round((xmax-xmin)*100)/100,height:Math.round((ymax-ymin)*100)/100}};
+      break
+     }
+     // Adjacent quote fragments only; never span arbitrary sections.
+     if(joined.length>q.length+65)break
+    }
+   }
+   if(found)result.push(found)
+  }
+  return result
+ }
  function extractPage({documentId,name,kind,sha256,page,raw,uncertainEncoding=false}={}){
   const text=String(raw?.text||"").slice(0,24000);
   const sheetType=classSheet(name,text),
@@ -128,6 +168,9 @@
     z0Mm,z1Mm,lengthMm,origin:match.basis,locationConfirmed:false,
     evidence:[match.quote,single&&bottom?.quote,single&&top?.quote,
      single&&len?.quote,single&&axes?.quote,single&&line?.quote].filter(Boolean),
+    evidenceLocations:fragmentEvidence(raw,[match.quote,
+     single&&bottom?.quote,single&&top?.quote,
+     single&&axes?.quote,single&&line?.quote].filter(Boolean)),
     warning:conflicting?"Несовместимые привязки в тексте листа — оси оставлены пустыми до инженерной проверки.":
      match.basis==="filename_only"?
      "Марка найдена только по имени файла; сверить со штампом PDF.":
@@ -723,7 +766,7 @@
   };
   return page
  }
- const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan};
+ const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence};
  if(typeof module!=="undefined"&&module.exports)module.exports=exported;
  if(root&&typeof root==="object")root.irAiSchemeLitePage=createPage()
 })(typeof window!=="undefined"?window:null);
