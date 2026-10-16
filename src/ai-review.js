@@ -60,6 +60,7 @@ function createAiReview({database,revisions=null,clock=()=>new Date().toISOStrin
     comment:String(x.data?.review?.comment||""),
     marks:candidate(x.data),originalMarks:Array.isArray(x.data?.extracted?.marks)?x.data.extracted.marks:[],
     notes:x.data?.extracted||null,raw:String(x.data?.raw||""),
+    complete:x.data?.complete===true,finishReason:String(x.data?.finishReason||""),
     ocr:x.data?.ocr&&typeof x.data.ocr==="object"?{
      modelId:String(x.data.ocr.modelId||""),
      modelVersion:String(x.data.ocr.modelVersion||""),
