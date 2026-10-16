@@ -262,8 +262,8 @@ assert.equal(findPlanMemberStrokes({labels:[geometryLabel],analysis:onlyLeft,
  grid,vector:{...planVectors,stats:{truncated:true,axisEvidenceComplete:false}}})
  .candidates.length,0,"incomplete evidence must never create matched outlines");
 const anotherLabel={...geometryLabel,mark:"Б23",markId:202,pageX:143,pageY:92};
-const collisions=findPlanMemberStrokes({labels:[geometryLabel,anotherLabel],
+const outlineCollisions=findPlanMemberStrokes({labels:[geometryLabel,anotherLabel],
  analysis:onlyLeft,grid,vector:planVectors});
-assert.equal(collisions.candidates.length,0);
-assert.equal(collisions.review.filter(x=>x.reasonCode==="shared_strokes").length,2);
+assert.equal(outlineCollisions.candidates.length,0);
+assert.equal(outlineCollisions.review.filter(x=>x.reasonCode==="shared_strokes").length,2);
 console.log("KMD member outline hypotheses: double strokes, single line, grid axes, ambiguity and provenance PASS");
