@@ -1,0 +1,62 @@
+"use strict";
+const assert=require("node:assert/strict");
+const {detectPlanGridAxes,axisGeometry}=require("../src/ai-scheme-lite-page");
+const grid=axisGeometry([{record_type:"scheme_grid",data:{entity_type:"grid",
+ axes_x:["1","2","3","4"],x_spans_mm:[6000,6000,6000],
+ axes_y:["А","Б","В","Г"],y_spans_mm:[6000,6000,6000]}}]);
+const widthPt=520,heightPt=420;
+const xpos=[40,100,160,220],ypos=[310,250,190,130];
+const fragments=[];
+function label(text,x,y){fragments.push({
+ text,x:x-4,y:heightPt-y-5,width:8,height:10
+})}
+for(let i=0;i<4;i++)label(String(i+1),xpos[i],340);
+for(let i=0;i<4;i++)label(["А","Б","В","Г"][i],20,ypos[i]);
+const segments=[
+ ...xpos.map(x=>({x1:x,x2:x,y1:45,y2:330,direction:"vertical"})),
+ ...ypos.map(y=>({x1:32,x2:270,y1:y,y2:y,direction:"horizontal"})),
+ // Short decorative and dimension lines are not grid evidence.
+ ...Array.from({length:30},(_,i)=>({x1:10+i,x2:10+i,y1:190,y2:200,
+  direction:"vertical"}))
+];
+function detect(fs=fragments,ss=segments,gg=grid,rotation=0){
+ return detectPlanGridAxes({raw:{fragments:fs},vector:{
+  widthPt,heightPt,rotation,segments:ss},grid:gg})
+}
+let r=detect();
+assert.equal(r.calibrated,true,JSON.stringify(r));
+assert.equal(r.xMatches.length,4);
+assert.equal(r.yMatches.length,4);
+assert(Math.abs(r.fitX.scale-.01)<1e-9);
+assert(Math.abs(r.fitY.scale+.01)<1e-9);
+assert.equal(r.fitX.offset,40);
+assert.equal(r.fitY.offset,310);
+assert.equal(r.reviewRequired,true);
+assert(!("markLocations" in r),"grid fitting does not invent structural placements");
+assert.equal(detect([],segments).calibrated,false);
+assert.equal(detect(fragments,segments,null).calibrated,false);
+assert.equal(detect(fragments,segments,grid,90).calibrated,false);
+const ambiguous=fragments.concat(labelAndReturn("1",220,340));
+function labelAndReturn(text,x,y){return{
+ text,x:x-4,y:heightPt-y-5,width:8,height:10
+}}
+assert.equal(detect(ambiguous).calibrated,false,"same named axis at different lines must be rejected");
+const wrongSpacing=[...segments];
+wrongSpacing[1]={...wrongSpacing[1],x1:105,x2:105};
+assert.equal(detect(fragments,wrongSpacing).calibrated,false,
+ "grid spacing inconsistent with known 6000 mm intervals must be rejected");
+const inner=fragments.map(x=>({...x}));
+inner[0]={...inner[0],x:200,y:heightPt-180};
+assert.equal(detect(inner).calibrated,false,
+ "labels far from the grid-line endpoint must not be considered evidence");
+const alone=fragments.slice(0,2).concat(fragments.slice(4,6));
+assert.equal(detect(alone).calibrated,false,"2 axes per direction cannot prove grid");
+const flipped=xpos.map(x=>({x1:x,x2:x,y1:45,y2:330,direction:"vertical"}));
+for(const y of [120,180,240,300])flipped.push({x1:32,x2:270,y1:y,y2:y,direction:"horizontal"});
+const flipLabels=[
+ ...fragments.slice(0,4),
+ ...["А","Б","В","Г"].map((name,i)=>labelAndReturn(name,20,120+i*60))
+];
+assert.equal(detect(flipLabels,flipped).calibrated,false,
+ "upside-down sheet must not silently invert the project's Y orientation");
+console.log("PDF plan grid axes: label endpoints, true vector strokes, uniform scale and ambiguity PASS");
