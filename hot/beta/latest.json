@@ -1,7 +1,7 @@
 {
   "channel": "beta",
   "baseVersion": "1.7.226",
-  "version": "1.7.226.126",
+  "version": "1.7.226.127",
   "branch": "feature/ir-project-ai-next",
   "description": "IR Project AI Beta hot fixes: no full EXE",
   "files": [
@@ -302,8 +302,8 @@
     {
       "source": "src/ai-recognition-page.js",
       "target": "src/ai-recognition-page.js",
-      "size": 109668,
-      "sha256": "092c8227a09bb16e3b5ed3f63d958d05c1d64a35dd3802e5391ca964ba9ed09b"
+      "size": 109920,
+      "sha256": "dce79ac2df8abfb963e46f94a876e0a8baa7c844b7000b0368a70c03f68a8860"
     },
     {
       "source": "src/ai-review.js",
