@@ -1917,10 +1917,22 @@
      if(!geometry?.page||!pdf?.page||!schemeApi?.list||!marksApi?.list){
       status("Автоматической проверке нужны векторный PDF, ведомость и сетка осей.");return
      }
-     const work=latest.filter(x=>!["section","detail"].includes(x.sheetType)&&
-      (x.sheetType==="plan"||x.sheetType==="other"&&
-       instanceResults.get([x.documentId,x.sha256,x.page,"full"].join(":"))?.total>0));
-     if(!work.length){status("Не найдены читаемые монтажные планы; проверьте листы без текста.");return}
+     // Sweep ALL pages in the current exact-SHA PDF indexes, not just
+     // the first 250 excerpts loaded into the legacy manual-card preview.
+     const work=indexes.filter(idx=>documents.some(doc=>
+       Number(doc.id)===Number(idx.documentId)&&
+       doc.sha256===idx.sourceSha256&&doc.exists&&
+       ["КМ","КМД"].includes(doc.kind))).flatMap(idx=>
+       (idx.pages||[]).filter(p=>p&&Number.isSafeInteger(Number(p.page))&&
+        Number(p.page)>=1).map(p=>({
+        documentId:Number(idx.documentId),sha256:idx.sourceSha256,
+        page:Number(p.page),indexId:idx.id,
+        sheetType:classSheet(
+         documents.find(doc=>Number(doc.id)===Number(idx.documentId))?.name||"",
+         p.excerpt||"")
+       }))).filter(x=>!["section","detail"].includes(x.sheetType));
+     if(!work.length){status("В индексированных PDF нет монтажных планов или неопределённых листов. "+
+      "Проверьте загруженные PDF и их текстовый слой.");return}
      sweep={running:true,cancel:false,done:0,total:work.length,calibrated:0,
       contours:0,labels:0,errors:0,lastReason:""};
      const job=sweep,button=host.querySelector?.("[data-lite-analyze-all]"),
@@ -1936,7 +1948,8 @@
        if(!live||job.cancel)break;
        const doc=documents.find(d=>Number(d.id)===Number(item.documentId)&&
         d.sha256===item.sha256&&d.exists),
-        idx=indexes.find(d=>Number(d.documentId)===Number(item.documentId)&&
+        idx=indexes.find(d=>Number(d.id)===Number(item.indexId)&&
+        Number(d.documentId)===Number(item.documentId)&&
         d.sourceSha256===item.sha256);
        status("Автоматически проверяем лист "+(job.done+1)+
         "/"+job.total+" · "+(doc?.name||"PDF"));
