@@ -171,7 +171,7 @@ window.irAiRecognitionPage=async function(objectId){
    '<div><small>Проиндексировано листов PDF</small><b>'+indexedPages+'</b><span>Текстовые слои, без ИИ</span></div>'+
    '<div><small>3D-конструкций</small><b>—</b><span>Нет подтверждённой геометрии</span></div>'+
    '<div><small>Требует проверки</small><b>'+analyses.filter(x=>!x.status||x.status==="requires_review").length+'</b><span>Результаты пока не подтверждены</span></div></div>'+
-   '<div class="ir-ai-actions"><label>'+stepNumber(1,hasCorrectKind)+' Тип загружаемого комплекта <select id="irAiKind"><option value="Не определён">Не определён</option>'+
+   '<div class="ir-ai-actions"><label><span class="ir-ai-kind-label">'+stepNumber(1,hasCorrectKind)+' Тип загружаемого комплекта</span><select id="irAiKind"><option value="Не определён">Не определён</option>'+
    '<option value="КМ">КМ</option><option value="КМД">КМД</option></select></label>'+
    '<button class="ir-ai-primary" id="irAiUpload" '+(!ready||!canEdit||busy?'disabled':'')+'>'+stepNumber(2,availableDocs.length>0)+' Добавить чертежи</button>'+
    '<button id="irAiRecognize" '+(!runtime||!engine?.installed||modelReady||busy||!canEdit?'disabled':'')+'>'+stepNumber(4,modelReady)+' Запустить локальный ИИ</button>'+
@@ -229,6 +229,13 @@ window.irAiRecognitionPage=async function(objectId){
  }
  function showContent(){
   const modelReady=engine?.state==="ready";
+  const indexedIds=new Set(pdfIndexes.filter(x=>documents.some(d=>
+   String(d.id)===String(x.documentId)&&d.sha256===x.sourceSha256&&
+   Array.isArray(x.pages)&&x.pages.length>0)).map(x=>String(x.documentId)));
+  const recognized=analyses.some(x=>documents.some(d=>
+   String(d.id)===String(x.documentId)&&d.sha256===x.sha256)&&
+   (x.originalMarks?.length||x.notes?.marks?.length||x.notes?.text?.trim()||
+    x.notes?.structured?.records?.length));
   const box=app.querySelector("#irAiContent");if(!box)return;
   if(active==="integrity"){
    if(window.irAiIntegrityPage)window.irAiIntegrityPage.render(box,{
