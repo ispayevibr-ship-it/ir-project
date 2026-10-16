@@ -25,7 +25,7 @@ window.irAiRecognitionPage=async function(objectId){
   checks:["Проверка и замечания","После запуска локального анализа здесь появятся ошибки и неопределённые значения со ссылками на исходные листы и подтверждения инженера."]
  };
  let object,documents=[],archivedDocuments=[],planMarks=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,materialEntries=[],materialSummary=null,connectionNodes=[],connectionItems=[],connectionSummary=null,comparisonEntries=[],comparisonSummary=null,comparisonFields={},pdfIndexes=[],workflowTasks=[],workflowSummary=null,proposalEntries=[],proposalSummary=null,revisionSets=[],revisionImpact=null,referenceRows=null,referenceChecks=null,referenceCompare=null,integrityReport=null,engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
- let selectedKind="Не определён",analysisProgress=null,liteLoader=null;
+ let selectedKind="Не определён",analysisProgress=null,liteLoader=null,batchIndex=null;
  // Qwen/llama.cpp does not expose a meaningful "% of drawing recognized".
  // These numbers show estimated elapsed-time progress, never inferred markup coverage.
  function progressValues(job,now=Date.now()){
@@ -70,6 +70,122 @@ window.irAiRecognitionPage=async function(objectId){
    const state=find("state");
    if(state)state.textContent=job.status==="completed"?"Завершено":
     job.status==="failed"?"Прервано":"Выполняется"
+  }
+ }
+
+
+ function matchingPdfIndex(d){
+  return pdfIndexes.find(x=>String(x.documentId)===String(d.id)&&
+   x.sourceSha256===d.sha256&&Array.isArray(x.pages)&&x.pages.length>0)
+ }
+ function fileIndexStatus(d){
+  if(!d.exists)return{label:"Файл отсутствует",css:"missing"};
+  const job=batchIndex?.files?.get(String(d.id));
+  const row=matchingPdfIndex(d);
+  if(job?.status==="error")return{label:"✕ Ошибка индексации",css:"index-error",
+   title:job.error};
+  if(job?.status==="running")return{
+   label:"Индексируется"+(job.page?" · лист "+job.page+
+    (job.total?" из "+job.total:""):"…"),css:"indexing"};
+  if(job?.status==="done"||row)return{
+   label:"✓ Индексирован · "+(job?.pages||row?.totalPages||row?.pages?.length||0)+
+    " лист(ов)",css:"indexed",title:"Текстовый индекс PDF, не распознавание конструкций"};
+  return{label:"Ожидает индексации",css:"waiting"}
+ }
+ function batchTotals(){
+  if(!batchIndex)return null;
+  const totals={all:batchIndex.files.size,done:0,failed:0,running:0};
+  for(const x of batchIndex.files.values()){
+   if(x.status==="done")totals.done++;
+   if(x.status==="error")totals.failed++;
+   if(x.status==="running")totals.running++
+  }
+  return totals
+ }
+ function batchSummary(){
+  const n=batchTotals();if(!n)return"";
+  return (batchIndex.running?"Индексируем по очереди":
+   batchIndex.interrupted?"Индексация остановлена":
+   n.failed?"Завершено с ошибками":"Индексация завершена")+
+   " · обработано "+(n.done+n.failed)+" из "+n.all+
+   " · ✓ "+n.done+(n.failed?" · ✕ "+n.failed:"")+
+   (n.running?" · "+batchIndex.currentName:"")
+ }
+ function updateIndexUi(){
+  if(active!=="documents"||location.hash!==route)return;
+  const box=app.querySelector("#irAiContent");if(!box)return;
+  const summary=box.querySelector?.("[data-ai-bulk-summary]");
+  if(summary){
+   summary.textContent=batchSummary();
+   summary.dataset.state=batchIndex?.running?"running":
+    batchTotals()?.failed?"error":"done"
+  }
+  for(const d of documents){
+   if(d.ext!==".pdf")continue;
+   const node=box.querySelector?.('[data-ai-index-status="'+d.id+'"]');
+   if(!node)continue;
+   const x=fileIndexStatus(d);
+   node.className="ir-ai-doc-status "+x.css;
+   node.textContent=x.label;node.title=x.title||""
+  }
+ }
+ async function indexAllPdfs(){
+  if(!pdf?.index||busy||!canEdit||!await authorizeAiMutation())return;
+  const eligible=documents.filter(d=>d.ext===".pdf"&&d.exists&&!d.archived);
+  if(!eligible.length){notice("Нет доступных PDF для индексации.");paint();return}
+  const job={running:true,interrupted:false,files:new Map(),currentName:""};
+  for(const d of eligible){
+   const saved=matchingPdfIndex(d);
+   job.files.set(String(d.id),saved?{status:"done",
+    pages:saved.totalPages||saved.pages.length}:{status:"waiting"})
+  }
+  batchIndex=job;busy=true;
+  notice("Индексируем все PDF последовательно, без нейросети. Галочка появляется после сохранения каждого файла.");
+  paint();
+  let off=null;
+  try{
+   if(typeof pdf.onProgress==="function")off=pdf.onProgress(event=>{
+    if(!job.running||String(event?.objectId)!==id)return;
+    const state=job.files.get(String(event.documentId));
+    if(state?.status!=="running")return;
+    if(Number.isSafeInteger(Number(event.page))&&Number(event.page)>=0)
+     state.page=Number(event.page);
+    if(Number.isSafeInteger(Number(event.total))&&Number(event.total)>0)
+     state.total=Number(event.total);
+    updateIndexUi()
+   });
+  }catch{}
+  try{
+   for(const d of eligible){
+    if(location.hash!==route){job.interrupted=true;break}
+    const state=job.files.get(String(d.id));
+    if(state.status==="done")continue;
+    state.status="running";job.currentName=d.name;updateIndexUi();
+    try{
+     const result=await pdf.index(id,d.id);
+     if(String(result?.documentId)!==String(d.id)||
+      result.sourceSha256!==d.sha256||
+      !Array.isArray(result.pages)||!result.pages.length)
+      throw Error("Индекс PDF не совпадает с исходным документом");
+     // UI cache only; the actual index was saved by the existing backend.
+     pdfIndexes=pdfIndexes.filter(x=>String(x.documentId)!==String(d.id));
+     pdfIndexes.push(result);
+     state.status="done";state.pages=result.totalPages||result.pages.length
+    }catch(error){
+     state.status="error";state.error=String(error?.message||error).slice(0,240)
+    }
+    updateIndexUi()
+   }
+  }finally{
+   if(typeof off==="function")off();
+   job.running=false;job.currentName="";busy=false;
+   const n=batchTotals();
+   notice((job.interrupted?"Индексация остановлена при уходе со страницы. ":
+    "Индексация завершена. ")+"Готово: "+n.done+" из "+n.all+
+    (n.failed?". Ошибки: "+n.failed+". Повторите запуск после исправления файлов.":""),
+    n.failed?"error":"info");
+   updateIndexUi();
+   if(location.hash===route)await reload()
   }
  }
 
