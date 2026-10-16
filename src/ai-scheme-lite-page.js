@@ -1180,7 +1180,7 @@
         '">Проверить линии листа</button>'+
         '<button type="button" class="ir-ai-lite-vector-button" data-lite-axis-page="'+pi+
         '">Найти оси на плане</button>'+
-        '<select data-lite-axis-region="'+pi+'" title="Область монтажной схемы">'+
+        '<select data-lite-axis-region="'+pi+'" title="Если на одном PDF несколько чертежей, выбирайте только область нужной монтажной схемы">'+
          '<option value="auto">Определить область</option>'+
          '<option value="full">Весь лист</option>'+
          '<option value="left">Левая часть</option>'+
