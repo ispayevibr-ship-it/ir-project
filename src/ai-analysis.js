@@ -1,7 +1,7 @@
 "use strict";
 const structured=require("./ai-structured-extraction");
 /* IR Project AI: save only actual unverified results with exact source linkage. */
-function createAnalysis({database,documents,engine,ocr=null,pdfRenderer,revisions=null}){
+function createAnalysis({database,documents,engine,ocr=null,pdfRenderer,pdfIndex=null,revisions=null}){
  if(!database||!documents||!engine)throw Error("Missing analysis dependencies");
  let busy=false;
  const object=id=>{const n=Number(id);if(!Number.isSafeInteger(n)||n<=0||!database.getObject(n))throw Error("Объект не найден");return n};
@@ -25,6 +25,32 @@ function createAnalysis({database,documents,engine,ocr=null,pdfRenderer,revision
   if(!ocr||typeof ocr.recognize!=="function")return null;
   if(typeof ocr.status==="function"&&ocr.status()?.installed!==true)return null;
   return ocr.recognize({buffer:input.buffer,mime:input.mime})
+ }
+ // The original PDF text layer is independent local evidence, not an OCR/VLM
+ // approval. Never pass an index from a different source hash or uncertain font map.
+ function localPdfText(id,source){
+  if(!pdfIndex?.list||!pdfIndex?.page||!source?.page)return null;
+  const found=pdfIndex.list(id).find(row=>
+   Number(row.documentId)===Number(source.documentId)&&
+   row.sourceSha256===source.sha256&&
+   Array.isArray(row.pages)&&row.pages.some(p=>
+    Number(p.page)===Number(source.page)&&p.hasTextLayer===true&&p.uncertainEncoding!==true));
+  if(!found)return null;
+  const detail=pdfIndex.page(id,found.id,source.page);
+  if(detail?.source?.sha256!==source.sha256||
+     Number(detail?.source?.documentId)!==Number(source.documentId))return null;
+  const original=String(detail.page?.text||"").replace(/\\0/g," ").trim();
+  if(original.length<5)return null;
+  const compact=original.length>2100?
+   original.slice(0,1050)+"\\n[Пропущен длинный участок слоя PDF]\\n"+original.slice(-1050):original;
+  return{text:compact,indexId:found.id,usedChars:compact.length,
+   unverified:true,sourceSha256:source.sha256}
+ }
+ function imageEvidence(ocrEvidence,textLayer){
+  if(!textLayer)return ocrEvidence?.text||"";
+  const caption="НЕПРОВЕРЕННЫЙ ТЕКСТОВЫЙ СЛОЙ ИСХОДНОГО PDF (сверить с изображением):\\n";
+  if(!ocrEvidence?.text)return caption+textLayer.text;
+  return String(ocrEvidence.text).slice(0,850)+"\\n"+caption+textLayer.text.slice(0,1450)
  }
  function list(id){
   return database.listEntity(object(id),"ai-analysis").filter(r=>r.record_type==="image_analysis")
@@ -70,9 +96,10 @@ function createAnalysis({database,documents,engine,ocr=null,pdfRenderer,revision
    if(revisions&&!revisions.isCurrent(id,input.source))
     throw Error("Этот лист не входит в действующий комплект КМ/КМД. Сначала утвердите корректную ревизию");
    const ocrEvidence=await recognizeOptionalOcr(input);
+   const textLayer=localPdfText(id,input.source);
    const result=await engine.analyzeImage({buffer:input.buffer,mime:input.mime,
     prompt:"PDF лист "+input.source.page+(region?" — выделенный фрагмент":" — весь лист")+". "+structured.PROMPT,
-    ocrContext:ocrEvidence?.text||""});
+    ocrContext:imageEvidence(ocrEvidence,textLayer)});
    if(typeof documents.verify==="function"&&!documents.verify(id,input.source.documentId))
     throw Error("Исходный PDF изменился во время распознавания — результат не сохранён");
    if(revisions&&!revisions.isCurrent(id,input.source))
@@ -81,7 +108,10 @@ function createAnalysis({database,documents,engine,ocr=null,pdfRenderer,revision
    const saved=database.createEntity(id,"ai-analysis",{record_type:"image_analysis",
     title:"Анализ PDF · лист "+input.source.page+(region?" · фрагмент":"")+" · "+input.source.name,
     data:{source:input.source,model:result.engine,modelId:result.modelId||null,modelVersion:result.modelVersion||null,raw:result.raw,
-     ocr:ocrEvidence,extracted,complete:!!result.complete,finishReason:result.finishReason||null,verification:"requires_review",
+     ocr:ocrEvidence,pdfTextLayer:textLayer?{indexId:textLayer.indexId,usedChars:textLayer.usedChars,
+      unverified:true,sourceSha256:textLayer.sourceSha256}:null,
+     raster:{width:input.width||null,height:input.height||null,scale:input.scale||null},
+     extracted,complete:!!result.complete,finishReason:result.finishReason||null,verification:"requires_review",
      sourceRegion:region?"PDF лист "+input.source.page+": область "+JSON.stringify(input.source.region)+
       ", координаты прямоугольника в pt "+JSON.stringify(input.source.sourceRectPt)+
       "; координаты отдельных распознанных деталей пока не определены":
