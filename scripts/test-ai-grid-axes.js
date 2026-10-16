@@ -1,6 +1,6 @@
 "use strict";
 const assert=require("node:assert/strict");
-const {detectPlanGridAxes,axisGeometry,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes}=require("../src/ai-scheme-lite-page");
+const {detectPlanGridAxes,axisGeometry,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes,selectPlanRegion}=require("../src/ai-scheme-lite-page");
 const grid=axisGeometry([{record_type:"scheme_grid",data:{entity_type:"grid",
  axes_x:["1","2","3","4"],x_spans_mm:[6000,6000,6000],
  axes_y:["А","Б","В","Г"],y_spans_mm:[6000,6000,6000]}}]);
@@ -328,3 +328,36 @@ assert.equal(deduplicated.candidates[0].exactPlacement,false);
 console.log("Multiple PDF outlines: alternative choices shown, geometric duplicates merged, no automatic placement PASS");
 
 console.log("KMD member outline hypotheses: double strokes, single line, grid axes, ambiguity and provenance PASS");
+
+
+// Multi-scheme sheets must not silently accept full-page calibration.
+// Deliberately provide two independently valid sub-plan regions even if the
+// whole sheet looks geometrically plausible.
+const regionFake={full:{calibrated:true,region:{left:0,right:1,top:0,bottom:1}},
+ left:{calibrated:true,region:{left:0,right:.5,top:0,bottom:1}},
+ right:{calibrated:true,region:{left:.5,right:1,top:0,bottom:1}}};
+const choose=k=>regionFake[k];
+const multiAuto=selectPlanRegion({selected:"auto",calibrate:choose});
+assert.equal(multiAuto.analysis.calibrated,false);
+assert.equal(multiAuto.multiplePlans,true);
+assert.equal(multiAuto.regionName,"multiple");
+assert.equal(multiAuto.available.left,true);
+assert.equal(multiAuto.available.right,true);
+assert.equal(selectPlanRegion({selected:"full",calibrate:choose}).analysis.calibrated,false,
+ "full-page must be refused when two valid independent plan regions exist");
+const chosenLeft=selectPlanRegion({selected:"left",calibrate:choose});
+assert.equal(chosenLeft.analysis.calibrated,true);
+assert.equal(chosenLeft.regionName,"left");
+const oneRegion=selectPlanRegion({selected:"auto",calibrate:k=>
+ k==="right"?{calibrated:false,reason:"none"}:choose(k)});
+assert.equal(oneRegion.regionName,"left");
+assert.equal(oneRegion.analysis.calibrated,true);
+const noHalf=selectPlanRegion({selected:"auto",calibrate:k=>
+ k==="full"?choose("full"):{calibrated:false,reason:"no half"}});
+assert.equal(noHalf.regionName,"full");
+const noGrid=selectPlanRegion({selected:"auto",calibrate:k=>({
+ calibrated:false,reason:k==="left"?"no axis on left":"axes missing",
+ xMatches:k==="left"?[1]:[],yMatches:[]})});
+assert.equal(noGrid.analysis.calibrated,false);
+assert.equal(noGrid.regionName,"left");
+console.log("Multi-scheme region: auto/full refuse mixed plans; explicit isolated region PASS");
