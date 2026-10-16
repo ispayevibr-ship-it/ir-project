@@ -6,6 +6,8 @@ let failId=null;
 const db={
  getObject:id=>objects.has(Number(id))?{id:Number(id)}:null,
  listEntity:(id,section)=>[...rows.values()].filter(x=>x.object_id===id&&x.section_key===section),
+ listRecordChildren:id=>[...rows.values()].filter(x=>x.object_id===id&&x.parent_id!=null)
+  .map(x=>({id:x.id,section_key:x.section_key,parent_id:x.parent_id})),
  deleteEntity:(id,section,rowId)=>{
   if(rowId===failId)throw Error("SQLite failure");
   const x=rows.get(rowId);if(!x||x.object_id!==id||x.section_key!==section)return false;
@@ -28,11 +30,17 @@ add(18,2);
 const reset=createReset({database:db}),a=reset.snapshot(1);
 assert.equal(a.count,2);
 assert.throws(()=>reset.clear(1,{...a,confirmation:"wrong"}),/ОЧИСТИТЬ/);
-assert.throws(()=>reset.clear(2,{...a,confirmation:"ОЧИСТИТЬ"}),/изменились/);
-assert.throws(()=>reset.clear(3,{...a,confirmation:"ОЧИСТИТЬ"}),/не найден/);
+assert.throws(()=>reset.clear(2,{expectedCount:a.count,expectedFingerprint:a.fingerprint,confirmation:"ОЧИСТИТЬ"}),/изменились/);
+assert.throws(()=>reset.clear(3,{expectedCount:a.count,expectedFingerprint:a.fingerprint,confirmation:"ОЧИСТИТЬ"}),/не найден/);
 add(19,1);
 assert.throws(()=>reset.clear(1,{expectedCount:a.count,expectedFingerprint:a.fingerprint,confirmation:"ОЧИСТИТЬ"}),/изменились/);
 const fresh=reset.snapshot(1);
+rows.set(40,{id:40,object_id:1,section_key:"ai-review-history",
+ record_type:"review_change",parent_id:11,data:{revision:2}});
+assert.throws(()=>reset.clear(1,{
+ expectedCount:fresh.count,expectedFingerprint:fresh.fingerprint,confirmation:"ОЧИСТИТЬ"
+}),/связанную запись/);
+rows.delete(40);
 failId=12;
 assert.throws(()=>reset.clear(1,{expectedCount:fresh.count,expectedFingerprint:fresh.fingerprint,confirmation:"ОЧИСТИТЬ"}),/SQLite failure/);
 assert.equal(reset.snapshot(1).count,3,"partial reset rolled back");

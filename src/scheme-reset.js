@@ -29,6 +29,13 @@ function createReset({database}={}){
     throw Error("Размещения изменились. Обновите окно очистки и подтвердите заново");
    const ids=database.listEntity(before.objectId,"scheme")
     .filter(isPlacement).map(r=>Number(r.id)).sort((a,b)=>a-b);
+   if(typeof database.listRecordChildren!=="function")
+    throw Error("Проверка связанных записей SQLite недоступна");
+   const selected=new Set(ids);
+   const linked=database.listRecordChildren(before.objectId).find(r=>
+    selected.has(Number(r.parent_id))&&!selected.has(Number(r.id)));
+   if(linked)throw Error("Схема содержит связанную запись № "+linked.id+
+    " ("+linked.section_key+"). Автоматическая очистка отменена для защиты истории");
    for(const id of ids)
     if(!database.deleteEntity(before.objectId,"scheme",id))
      throw Error("Не удалось удалить элемент монтажной схемы № "+id);

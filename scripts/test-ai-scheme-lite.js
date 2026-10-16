@@ -90,7 +90,7 @@ assert.throws(()=>payloadFor(proposal,{mark:{...mark,qty:1},axisX:"3",axisY:"Д"
 // Confirm routing and lazy hot loading without repacking Electron/index.html.
 const renderer=fs.readFileSync("src/ai-recognition-page.js","utf8");
 new vm.Script(renderer);
-assert(renderer.includes('["scheme-lite","Монтажная схема · быстро"]'));
+assert(renderer.includes('["scheme-lite","Монтажная схема"]'));
 assert(renderer.includes('script.src="irapp://app/src/ai-scheme-lite-page.js"'));
 assert(renderer.includes('objectId:id,documents,indexes:pdfIndexes,canEdit'));
 assert(renderer.includes('"/objects/object/"+id+"/scheme"'));
