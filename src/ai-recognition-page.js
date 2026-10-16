@@ -158,9 +158,9 @@ window.irAiRecognitionPage=async function(objectId){
     '<button type="button" data-ai-tab="'+t[0]+'" class="'+(active===t[0]?'active':'')+'">'+esc(t[1])+'</button>').join("")+'</nav>'+
    '<section id="irAiContent" class="ir-ai-content"></section></div>'+
    '<aside class="ir-ai-assistant"><div class="ir-ai-assistant-head"><b>ИИ-помощник</b><span>Офлайн</span></div>'+
-   '<p>После установки локальной модели помощник будет отвечать по чертежам и ссылаться на конкретные листы, марки и узлы.</p>'+
-   '<div class="ir-ai-chat-empty">История запросов пока отсутствует. Ответы не имитируются.</div>'+
-   '<textarea disabled placeholder="Модель не установлена"></textarea><button disabled>Отправить</button></aside></div>'+
+   '<p>'+esc(modelReady?"Qwen запущена. Для анализа чертежей откройте «Конвейер ИИ». Чат с ответами по листам пока не подключён.":engine?.installed?"Qwen подключена, но остановлена. Для анализа PDF запустите локальный ИИ.":"Модель не подключена. Зарегистрируйте Qwen в настройках локальных ИИ-моделей.")+'</p>'+
+   '<div class="ir-ai-chat-empty">'+esc(modelReady?"Qwen работает. Чат-помощник ещё не реализован; ответы не имитируются.":"История запросов пока отсутствует. Ответы не имитируются.")+'</div>'+
+   '<textarea disabled placeholder="'+esc(modelReady?"Чат пока недоступен — используйте конвейер PDF":"Чат пока недоступен")+'"></textarea><button disabled>Отправить</button></aside></div>'+
    '<footer class="ir-ai-footer">Этап 2 · Локальное распознавание изображений при наличии установленной модели; результаты не подтверждены. Монтажная схема не изменяется.</footer></div>';
   app.querySelectorAll("[data-ai-tab]").forEach(button=>button.onclick=()=>openTab(button.dataset.aiTab));
   const upload=app.querySelector("#irAiUpload");
