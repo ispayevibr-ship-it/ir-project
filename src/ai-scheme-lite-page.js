@@ -30,7 +30,7 @@
   const hay=String(text||"");let found;
   while((found=label.exec(hay))){
    const suffix=hay.slice(found.index+found[0].length,found.index+found[0].length+30);
-   const match=suffix.match(/^[\s:=№\-–]{0,9}([+\-−]?\s*\d{1,3}[.,]\d{3})(?!\d)/u);
+   const match=suffix.match(/^[\s:=№]{0,9}([+\-−]?\s*\d{1,3}[.,]\d{3})(?!\d)/u);
    if(!match)continue;
    const value=Number(match[1].replace(/\s/g,"").replace("−","-").replace(",","."));
    if(!Number.isFinite(value)||Math.abs(value)>300)continue;
@@ -162,16 +162,20 @@
   }}
  }
  function createPage(){
-  let latest=[],candidates=[],loaded=false,busy=false,log="",saved=0;
-  const state={dispose(){}};
+  let latest=[],candidates=[],busy=false,log="",saved=0,disposeLast=null;
   const page={
+   dispose(){if(disposeLast)disposeLast();disposeLast=null},
    async render(host,opts={}){
     if(!host)return;
     const {objectId,documents=[],indexes=[],canEdit=false,askPassword,
      reviewer,onOpenPdf,onNavigate}=opts;
+    page.dispose();
     const escDoc=esc;let live=true;
-    const root=opts.root||root.irProject?.data?.forObject(objectId);
-    const marksApi=root?.section?.("marks"),schemeApi=root?.section?.("scheme");
+    const hostWindow=opts.window||root;
+    const dataRoot=opts.root||hostWindow?.irProject?.data?.forObject(objectId);
+    const marksApi=dataRoot?.section?.("marks"),schemeApi=dataRoot?.section?.("scheme");
+    const pdf=opts.pdf||hostWindow?.irProject?.aiPdf;
+    disposeLast=()=>{live=false};
     const status=x=>{log=x;const el=host.querySelector("[data-lite-status]");if(el)el.textContent=x};
     const markup=()=>'<section class="ir-ai-lite">'+
      '<header class="ir-ai-review-heading"><div><h2>ИИ → Монтажная схема · быстрый режим</h2>'+
@@ -182,12 +186,11 @@
      '<button type="button" data-lite-scheme>Открыть монтажную схему</button></div>'+
      '<div data-lite-status role="status">'+escDoc(log||"Доступные проиндексированные PDF можно проверить без запуска Qwen.")+'</div>'+
      '<div data-lite-results></div></section>';
-    const pdf=opts.pdf||root.irProject?.aiPdf;
     const ensureCurrent=async c=>{
-     const fresh=await root.irProject.aiDocuments.list(objectId);
-     if(!fresh.some(d=>d.id===c.source.documentId&&d.sha256===c.source.sha256&&d.exists))
+     const fresh=await hostWindow.irProject.aiDocuments.list(objectId);
+     if(!fresh.some(d=>Number(d.id)===Number(c.source.documentId)&&d.sha256===c.source.sha256&&d.exists))
       throw Error("Исходный PDF изменён или удалён; пересканируйте документы.");
-     const idx=(await pdf.list(objectId)).find(i=>i.documentId===c.source.documentId&&
+     const idx=(await pdf.list(objectId)).find(i=>Number(i.documentId)===Number(c.source.documentId)&&
       i.sourceSha256===c.source.sha256&&i.pages.some(p=>p.page===c.source.page));
      if(!idx)throw Error("Текстовый индекс изменён. Сначала переиндексируйте PDF.")
     };
@@ -234,9 +237,10 @@
      if(busy)return;busy=true;status("Быстро читаем текстовые слои PDF…");
      latest=[];candidates=[];host.querySelector("[data-lite-scan]").disabled=true;
      try{
-      const pool=indexes.filter(idx=>documents.some(d=>d.id===idx.documentId&&
+      const pool=indexes.filter(idx=>documents.some(d=>Number(d.id)===Number(idx.documentId)&&
        d.sha256===idx.sourceSha256&&d.exists&&["КМ","КМД"].includes(d.kind)));
-      const entries=pool.flatMap(idx=>idx.pages.slice(0,80).map(p=>({idx,p}))).slice(0,250);
+      const allEntries=pool.flatMap(idx=>idx.pages.slice(0,80).map(p=>({idx,p})));
+      const entries=allEntries.slice(0,250);
       for(const {idx,p} of entries){
        if(!live)break;
        const doc=documents.find(d=>d.id===idx.documentId);
@@ -252,8 +256,10 @@
         latest.push(row);candidates.push(...row.marks)
        }catch(error){status("Ошибка чтения листа "+p.page+": "+String(error.message||error).slice(0,180))}
       }
-      status("Быстрое извлечение завершено: "+latest.length+" листов, "+candidates.length+
-       " возможных марок. Неразборчивые PDF не интерпретировались.");
+      status("Быстрое извлечение завершено: "+latest.length+" из "+allEntries.length+
+       " листов, "+candidates.length+" возможных марок. "+
+       (allEntries.length>250?"За один запуск проверяются первые 250 листов; оставшиеся пока не обработаны. ":"")+
+       "Неразборчивые PDF не интерпретировались.");
       draw()
      }catch(error){status("Не удалось проверить PDF: "+String(error.message||error))}
      finally{busy=false;const scanBtn=host.querySelector("[data-lite-scan]");if(scanBtn)scanBtn.disabled=!canEdit}
@@ -278,7 +284,7 @@
        endX:value("endX"),endY:value("endY"),
        z0Mm:requiredNum("z0"),z1Mm:requiredNum("z1")});
       if(!reviewer||!askPassword)throw Error("Инженерное подтверждение недоступно");
-      const role=root.irAccess?.role?.();
+      const role=hostWindow.irAccess?.role?.();
       if(!["admin","engineer"].includes(role))throw Error("Гость не может размещать элементы");
       const password=await askPassword(role);
       if(password===null)return;
@@ -290,7 +296,7 @@
        axisX:value("axisX"),axisY:value("axisY"),
        endX:value("endX"),endY:value("endY"),
        z0Mm:requiredNum("z0"),z1Mm:requiredNum("z1")});
-      if(!root.confirm("Добавить проверенный элемент "+c.mark+
+      if(!hostWindow.confirm("Добавить проверенный элемент "+c.mark+
        " на монтажную схему? Оси и высоты будут сохранены как запланированная конструкция."))return;
       await schemeApi.create(finalPayload);
       saved++;status("Марка "+c.mark+" размещена на монтажной схеме после проверки инженером.");
@@ -302,7 +308,7 @@
     host.querySelector("[data-lite-scan]").onclick=()=>void scan();
     host.querySelector("[data-lite-scheme]").onclick=()=>onNavigate?.("scheme");
     draw();
-    state.dispose=()=>{live=false}
+    
    }
   };
   return page
