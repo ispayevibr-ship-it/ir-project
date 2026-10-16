@@ -26,13 +26,14 @@ const spin=async until=>{
    return controls.get(sel)
   }};
  const rect={style:{}},extract={disabled:true},recognize={disabled:true,title:""},back={hidden:true};
+ const stamp={disabled:false,onclick:null},regionSize={textContent:""};
  const aiText={textContent:""},meta={textContent:""},title={textContent:""};
  const layer={style:{},getBoundingClientRect:()=>({left:0,top:0,width:100,height:100}),
   setPointerCapture:()=>{},onpointerdown:null,onpointermove:null,onpointerup:null};
  const tags=new Map([
   ["img",{src:""}],[".ir-ai-pdf-image-wrap",{style:{}}],
   [".ir-ai-pdf-region-layer",layer],[".ir-ai-pdf-region-selection",rect],
-  ["[data-region-extract]",extract],["[data-region-analyze]",recognize],
+  ["[data-region-extract]",extract],["[data-region-stamp]",stamp],["[data-region-size]",regionSize],["[data-region-analyze]",recognize],
   ["[data-region-back]",back],["[data-pdf-fit]",{textContent:"100%"}],
   ["[data-region-meta]",meta],["[data-region-ai-status]",aiText],
   ["[data-region-title]",title],["[data-pdf-close]",{onclick:null}]
@@ -74,25 +75,33 @@ const spin=async until=>{
  previewButton.onclick();
  await spin(()=>dialog?.open===true&&/Qwen не готова/.test(aiText.textContent)).catch(error=>{throw Error(error.message+"; diag: "+JSON.stringify({dialog:!!dialog,open:dialog?.open,statusCalls,aiText:aiText.textContent,message:app.innerHTML.slice(0,500),callback:typeof previewButton.onclick}))});
  assert.match(dialog.innerHTML,/Шаг 5.1/,"stamp selection explicitly numbered");
+ assert.match(dialog.innerHTML,/Выбрать штамп справа внизу/,
+  "a dedicated K60 stamp preset must be visible");
  assert.match(dialog.innerHTML,/Шаг 5.2/,"PDF zoom action explicitly numbered");
  assert.match(dialog.innerHTML,/Шаг 5.3/,"region recognition explicitly numbered");
  assert.match(aiText.textContent,/Qwen не готова/);
  assert.equal(recognize.disabled,true);
- const down={pointerId:4,button:0,pointerType:"mouse",clientX:15,clientY:10,
+ const down={pointerId:4,button:0,pointerType:"mouse",clientX:1,clientY:1,
   preventDefault(){}};
- layer.onpointerdown(down);
- const move={pointerId:4,clientX:85,clientY:80};
- layer.onpointermove(move);
- await layer.onpointerup(move);
+ const almostEntire={pointerId:4,clientX:99,clientY:99};
+ layer.onpointerdown(down);layer.onpointermove(almostEntire);
+ await layer.onpointerup(almostEntire);
+ assert.match(regionSize.textContent,/96/,"near-full page is identified as a bad crop");
+ assert.equal(extract.disabled,true,"large crop cannot be magnified as a fast region");
+ assert.equal(recognize.disabled,true,"large crop cannot be recognized as a fast region");
+ // User selects only the stamp in the lower-right corner using the preset.
+ stamp.onclick();
+ assert.match(regionSize.textContent,/4\.6%/);
  assert.equal(extract.disabled,false,"valid K60 stamp region");
  assert.equal(recognize.disabled,true,"recognition blocked while Qwen is stopped");
  // Wait until the previous status check settles before simulating Qwen starting.
  await new Promise(resolve=>setImmediate(resolve));
  ready=true;
- layer.onpointerdown(down);layer.onpointermove(move);layer.onpointerup(move);
+ stamp.onclick();
  await spin(()=>recognize.disabled===false);
  assert.match(aiText.textContent,/Qwen готова/);
  assert.equal(recognize.disabled,false,"live readiness unlocks recognition without reopening PDF");
+ assert.match(regionSize.textContent,/4\.6%/);
  await extract.onclick();
  assert.equal(recognize.disabled,false,
   "after zoom the original selected PDF coordinates must remain actionable");
