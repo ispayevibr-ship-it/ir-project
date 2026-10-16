@@ -83,6 +83,8 @@ const spin=async until=>{
  await layer.onpointerup(move);
  assert.equal(extract.disabled,false,"valid K60 stamp region");
  assert.equal(recognize.disabled,true,"recognition blocked while Qwen is stopped");
+ // Wait until the previous status check settles before simulating Qwen starting.
+ await new Promise(resolve=>setImmediate(resolve));
  ready=true;
  layer.onpointerdown(down);layer.onpointermove(move);layer.onpointerup(move);
  await spin(()=>recognize.disabled===false);
