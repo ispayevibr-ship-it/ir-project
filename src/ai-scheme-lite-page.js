@@ -668,6 +668,106 @@
     "В выбранной области не найдены отдельные надписи марок из ведомости."}
  }
 
+
+ // Read-only, bounded candidate intersections from CONFIRMED PDF axis strokes.
+ // A nearest intersection is only a review hint, never a steel attachment point
+ // and never an authorisation for automatic scheme placement.
+ function findAxisNodeCandidates({labels=[],analysis,grid,vector}={}){
+  const output={suggested:[],review:[],total:Math.min(labels.length,1000),status:"review_only"};
+  const refuse=(code,reason)=>{for(const label of labels.slice(0,1000))
+   output.review.push({label,reasonCode:code,reason});return output};
+  if(!analysis?.calibrated||!grid?.x||!grid?.y||
+     !Array.isArray(analysis.xMatches)||!Array.isArray(analysis.yMatches))
+   return refuse("uncalibrated","Сетка и векторные оси не откалиброваны");
+  if(!vector||!(Number(vector.widthPt)>0)||!(Number(vector.heightPt)>0)||
+      Number(vector.rotation||0)!==0||
+      vector.stats?.truncated===true&&vector.stats?.axisEvidenceComplete!==true)
+   return refuse("incomplete_vector","Геометрия PDF неполная или лист повёрнут");
+  const xx=analysis.xMatches,yy=analysis.yMatches;
+  if(xx.length<3||yy.length<3||xx.length>100||yy.length>100)
+   return refuse("axis_count","Недостаточно осей или слишком крупный план для автоматического анализа");
+  const region=analysis.region||{left:0,top:0,right:1,bottom:1},
+   W=Number(vector.widthPt),H=Number(vector.heightPt);
+  const inArea=(x,y)=>x>=W*region.left&&x<=W*region.right&&
+   y>=H*region.top&&y<=H*region.bottom;
+  const vertical=(vector.axisBands?.vertical?.length?vector.axisBands.vertical:
+   (vector.segments||[]).filter(x=>x.direction==="vertical")),
+   horizontal=(vector.axisBands?.horizontal?.length?vector.axisBands.horizontal:
+   (vector.segments||[]).filter(x=>x.direction==="horizontal"));
+  const support=(lines,direction,x,y)=>lines.some(line=>{
+   const point=direction==="vertical"?Number(line.x1):Number(line.y1),
+    expected=direction==="vertical"?x:y,
+    along=direction==="vertical"?y:x,
+    from=direction==="vertical"?Number(line.y1):Number(line.x1),
+    to=direction==="vertical"?Number(line.y2):Number(line.x2);
+   return [point,from,to].every(Number.isFinite)&&
+    Math.abs(point-expected)<=2.5&&
+    along>=Math.min(from,to)-2.5&&along<=Math.max(from,to)+2.5
+  });
+  const axisSteps=arr=>arr.slice(1).map((a,i)=>
+    Math.abs(Number(a.pagePt)-Number(arr[i].pagePt)))
+   .filter(n=>Number.isFinite(n)&&n>3);
+  const steps=[...axisSteps(xx),...axisSteps(yy)];
+  if(!steps.length)return refuse("axis_spacing","Не удалось оценить шаг осей");
+  // Half a bay at most: prevents assigning labels from neighbouring nodes.
+  // This is a UI search radius, NOT a construction dimensional tolerance.
+  const radiusPt=Math.max(9,Math.min(75,Math.min(...steps)*.60));
+  const nodes=[];
+  for(const x of xx)for(const y of yy){
+   if(nodes.length>5000)return refuse("too_many_nodes","Слишком много пересечений");
+   const xp=Number(x.pagePt),yp=Number(y.pagePt),
+    xm=grid.x.get(String(x.name)),ym=grid.y.get(String(y.name));
+   if(![xp,yp,xm,ym].every(Number.isFinite)||!inArea(xp,yp))continue;
+   if(!support(vertical,"vertical",xp,yp)||
+      !support(horizontal,"horizontal",xp,yp))continue;
+   nodes.push({axisX:String(x.name),axisY:String(y.name),
+    nodeXmm:xm,nodeYmm:ym,pageX:xp,pageY:yp})
+  }
+  if(!nodes.length)return refuse("no_vector_crossing","Нет подтверждённых пересечений двух векторных линий");
+  for(const label of labels.slice(0,1000)){
+   const x=Number(label.pageX),y=Number(label.pageY);
+   if(!Number.isFinite(x)||!Number.isFinite(y)||!inArea(x,y)){
+    output.review.push({label,reasonCode:"outside_region",
+     reason:"Надпись вне выбранного плана"});continue
+   }
+   const nearest=nodes.map(node=>({node,distancePt:Math.hypot(
+     node.pageX-x,node.pageY-y)})).sort((a,b)=>a.distancePt-b.distancePt).slice(0,2);
+   if(!nearest[0]||nearest[0].distancePt>radiusPt){
+    output.review.push({label,reasonCode:"far_from_node",
+     reason:"Рядом с надписью нет подтверждённого узла осей"});continue
+   }
+   if(nearest[1]&&nearest[1].distancePt<=radiusPt&&
+     nearest[1].distancePt-nearest[0].distancePt<Math.max(5,radiusPt*.22)){
+    output.review.push({label,reasonCode:"ambiguous_neighbor",
+     reason:"Несколько узлов осей примерно одинаково близки к надписи"});continue
+   }
+   const n=nearest[0].node;
+   output.suggested.push({label,mark:label.mark,markId:label.markId,
+    axisX:n.axisX,axisY:n.axisY,nodeXmm:n.nodeXmm,nodeYmm:n.nodeYmm,
+    offsetFromLabelMm:Math.round(Math.hypot(
+     n.nodeXmm-label.labelXmm,n.nodeYmm-label.labelYmm)),
+    distancePt:Math.round(nearest[0].distancePt*100)/100,
+    status:"unverified_grid_node",exactPlacement:false,
+    reason:"Подтверждены линии осей, но не принадлежность марки узлу"})
+  }
+  // Multiple labels at the same crossing are NOT proof of coincident members.
+  const byNode=new Map();
+  for(const item of output.suggested){
+   const key=item.axisX+"|"+item.axisY;
+   if(!byNode.has(key))byNode.set(key,[]);
+   byNode.get(key).push(item)
+  }
+  for(const [nodeKey,items] of byNode)if(items.length>1){
+   for(const item of items){
+    output.review.push({label:item.label,reasonCode:"node_collision",
+     reason:"К одному узлу "+nodeKey+" относятся несколько надписей; требуется проверка"})
+   }
+   output.suggested=output.suggested.filter(item=>!items.includes(item))
+  }
+  output.candidatesWithObservedCrossing=nodes.length;
+  return output
+ }
+
  function createPage(){
   let latest=[],candidates=[],batch=null,verifiedPreview=null,
    lastOperation=null,inventory=null,draftRows=[],
@@ -968,6 +1068,8 @@
         {labels:[],reason:"Текстовый слой PDF имеет неопределённую кодировку"}:
         detectPlanRegisterLabels({raw:pageData.page,analysis,grid,marks:markRows,
          widthPt:result.widthPt,heightPt:result.heightPt});
+       const candidateNodes=findAxisNodeCandidates({labels:registerLabels.labels,
+        analysis,grid,vector:result});
        const label=x=>escDoc(x.name)+" · "+escDoc(x.mm)+" мм ↔ "+
        escDoc(Math.round(x.pagePt*100)/100)+" pt";
       const xRows=analysis.xMatches?.map(label)||[],
@@ -1014,7 +1116,27 @@
         (registerLabels.labels.length>200?'<small>Показаны первые 200 надписей.</small>':"")+
         '</details>':'<p class="ir-ai-axis-review">'+escDoc(registerLabels.reason)+'</p>')+
        (registerLabels.ambiguous?'<p class="ir-ai-axis-review">'+
-        'Неоднозначных марок в ведомости: '+registerLabels.ambiguous+'. Нужна проверка.</p>':"");
+        'Неоднозначных марок в ведомости: '+registerLabels.ambiguous+'. Нужна проверка.</p>':"")+
+       (registerLabels.labels.length?'<details class="ir-ai-axis-mark-zones">'+
+        '<summary>Ближайшие узлы осей · '+candidateNodes.suggested.length+
+        ' предложений; '+candidateNodes.review.length+' на проверку</summary>'+
+        '<p>Пересечения определены по двум настоящим линиям осей PDF и сохранённой сетке. '+
+        '<b>Это не доказанные координаты конструкций.</b> Не применять без проверки '+
+        'типа, креплений, размеров и отметок Z.</p>'+
+        (candidateNodes.suggested.length?'<table><thead><tr><th>Марка</th>'+
+         '<th>Узел X/Y</th><th>Координаты узла, мм</th>'+
+         '<th>Отступ от надписи, мм</th><th>Статус</th></tr></thead><tbody>'+
+         candidateNodes.suggested.slice(0,200).map(n=>'<tr><td>'+escDoc(n.mark)+'</td>'+
+          '<td>'+escDoc(n.axisX)+' / '+escDoc(n.axisY)+'</td>'+
+          '<td>X='+n.nodeXmm+', Y='+n.nodeYmm+'</td>'+
+          '<td>≈'+n.offsetFromLabelMm+'</td>'+
+          '<td>Предположение; не размещено</td></tr>').join("")+
+         '</tbody></table>':'<p>Нет однозначно ближайших пересечений.</p>')+
+        (candidateNodes.review.length?'<details><summary>Требуют разбора · '+
+         candidateNodes.review.length+'</summary>'+
+         candidateNodes.review.slice(0,200).map(n=>'<div>'+escDoc(n.label.mark)+
+          ': '+escDoc(n.reason)+'</div>').join("")+'</details>':"")+
+        '</details>':"");
       output.scrollIntoView?.({block:"nearest",behavior:"smooth"})
      }catch(error){
       output.textContent="Не удалось сопоставить оси: "+String(error.message||error)
@@ -1382,7 +1504,7 @@
   };
   return page
  }
- const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes,locateMarkLabelZones,detectPlanRegisterLabels};
+ const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates};
  if(typeof module!=="undefined"&&module.exports)module.exports=exported;
  if(root&&typeof root==="object")root.irAiSchemeLitePage=createPage()
 })(typeof window!=="undefined"?window:null);
