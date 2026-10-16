@@ -162,26 +162,42 @@ assert.equal(ambiguousMark.ambiguous,1);
 console.log("Registered-only KMD labels: independent/split labels, no invented placements PASS");
 
 
-// Candidate GRID NODES are read-only geometry hints, never installation
-// coordinates. They require BOTH observed vector axis strokes at a crossing.
+// Nearest intersections are not member anchors without explicit graphical
+// association between the PDF mark label and the crossing.
 const near={...foundMarks.labels[0],pageX:104,pageY:257,
  labelXmm:6400,labelYmm:5300};
-const nodes=findAxisNodeCandidates({
+const proximity=findAxisNodeCandidates({
  labels:[near],analysis:onlyLeft,grid,
  vector:{widthPt,heightPt,rotation:0,segments}});
-assert.equal(nodes.suggested.length,1,JSON.stringify(nodes));
-assert.equal(nodes.review.length,0);
-assert.equal(nodes.suggested[0].axisX,"2");
-assert.equal(nodes.suggested[0].axisY,"Б");
-assert.equal(nodes.suggested[0].nodeXmm,6000);
-assert.equal(nodes.suggested[0].nodeYmm,6000);
-assert.equal(nodes.suggested[0].status,"unverified_grid_node");
-assert.equal(nodes.suggested[0].exactPlacement,false);
-assert(!("z0Mm" in nodes.suggested[0]));
-assert(!("memberXmm" in nodes.suggested[0]));
+assert.equal(proximity.suggested.length,0);
+assert.equal(proximity.nearby.length,1);
+assert.equal(proximity.review[0].reasonCode,"no_leader");
+assert.equal(proximity.nearby[0].nodeXmm,6000);
+assert.equal(proximity.nearby[0].nodeYmm,6000);
+assert.equal(proximity.nearby[0].exactPlacement,false);
+assert(!("z0Mm" in proximity.nearby[0]));
 assert.equal(findAxisNodeCandidates({labels:[foundMarks.labels[0]],
  analysis:onlyLeft,grid,vector:{widthPt,heightPt,segments}}).review[0].reasonCode,
- "ambiguous_neighbor","symmetric closest intersections cannot imply a member position");
+ "ambiguous_neighbor");
+const linked={...near,pageX:113,pageY:263,labelXmm:7300,labelYmm:4700,
+ rectPt:{x:109,y:heightPt-267,width:8,height:8}};
+const leader={x1:112,y1:264,x2:100,y2:250,direction:"diagonal",lengthPt:18.44};
+const verified=findAxisNodeCandidates({labels:[linked],analysis:onlyLeft,
+ grid,vector:{widthPt,heightPt,segments:[...segments,leader]}});
+assert.equal(verified.suggested.length,1,JSON.stringify(verified));
+assert.equal(verified.suggested[0].axisX,"2");
+assert.equal(verified.suggested[0].axisY,"Б");
+assert.equal(verified.suggested[0].nodeXmm,6000);
+assert.equal(verified.suggested[0].nodeYmm,6000);
+assert.equal(verified.suggested[0].status,"leader_linked_unverified");
+assert.equal(verified.suggested[0].exactPlacement,false);
+assert.equal(verified.suggested[0].evidence.type,"line_from_label_to_axis_crossing");
+assert(!("memberXmm" in verified.suggested[0]));
+const untrustedAxisLeader={x1:100,y1:260,x2:100,y2:250,
+ direction:"vertical",lengthPt:10};
+const axesOnly=findAxisNodeCandidates({labels:[linked],analysis:onlyLeft,
+ grid,vector:{widthPt,heightPt,segments:[...segments,untrustedAxisLeader]}});
+assert.equal(axesOnly.suggested.length,0,"axis stroke cannot prove a leader");
 const noCross=segments.filter(s=>s.direction==="vertical");
 const rejected=findAxisNodeCandidates({labels:[near],analysis:onlyLeft,
  grid,vector:{widthPt,heightPt,segments:noCross}});
@@ -195,8 +211,13 @@ assert.equal(findAxisNodeCandidates({labels:[outside],analysis:onlyLeft,
 assert.equal(findAxisNodeCandidates({labels:[near],analysis:onlyLeft,grid,
  vector:{widthPt,heightPt,segments,stats:{truncated:true,axisEvidenceComplete:false}}})
  .suggested.length,0);
-assert.equal(findAxisNodeCandidates({labels:[near,{...near,mark:"В74",markId:102,
- pageX:102,pageY:251}],analysis:onlyLeft,grid,
- vector:{widthPt,heightPt,segments}}).review.length,2,
- "different labels near the same axis intersection need separate human review");
-console.log("Read-only grid intersection proposals: vector cross, proximity, ambiguity and collisions PASS");
+const other={...linked,mark:"В74",markId:102,
+ pageX:116,pageY:256,rectPt:{x:112,y:heightPt-260,width:8,height:8}};
+const anotherLeader={x1:115,y1:256,x2:100,y2:250,
+ direction:"diagonal",lengthPt:16.16};
+const collisions=findAxisNodeCandidates({labels:[linked,other],analysis:onlyLeft,grid,
+ vector:{widthPt,heightPt,segments:[...segments,leader,anotherLeader]}});
+assert.equal(collisions.suggested.length,0);
+assert.equal(collisions.review.filter(x=>x.reasonCode==="node_collision").length,2);
+assert.equal(collisions.nearby.length,2);
+console.log("Leader/axis intersections: missing evidence, unverified leaders and collisions PASS");
