@@ -1,5 +1,13 @@
 "use strict";
 const structured=require("./ai-structured-extraction");
+const imageOptimizer=require("./ai-image-optimizer");
+const QUICK_REGION_PROMPT=[
+ "Распознай только выделенный фрагмент инженерного чертежа. Это экспресс-проверка надписей, а не полный анализ КМД.",
+ 'Верни ровно JSON: {"schema":"ir-kmd-v1","text":"","marks":[],"notes":[],"unknowns":[],"records":[]}.',
+ "Найди точные буквенно-цифровые марки и название конструкции, если они разборчиво написаны в выделенной области.",
+ "Можно добавить лишь явно читаемый размер с цитатой. Не угадывай марки, число деталей, массу и метизы.",
+ "Если текст не читается, оставь marks и records пустыми, причину внеси в unknowns. Без Markdown и рассуждений."
+].join("\n");
 /* IR Project AI: save only actual unverified results with exact source linkage. */
 function createAnalysis({database,documents,engine,ocr=null,pdfRenderer,pdfIndex=null,revisions=null}){
  if(!database||!documents||!engine)throw Error("Missing analysis dependencies");
@@ -102,10 +110,16 @@ function createAnalysis({database,documents,engine,ocr=null,pdfRenderer,pdfIndex
    if(revisions&&!revisions.isCurrent(id,input.source))
     throw Error("Этот лист не входит в действующий комплект КМ/КМД. Сначала утвердите корректную ревизию");
    const ocrEvidence=await recognizeOptionalOcr(input);
-   const textLayer=localPdfText(id,input.source);
-   const result=await engine.analyzeImage({buffer:input.buffer,mime:input.mime,
-    prompt:"PDF лист "+input.source.page+(region?" — выделенный фрагмент":" — весь лист")+". "+structured.PROMPT,
-    ocrContext:imageEvidence(ocrEvidence,textLayer)});
+   // The original PDF text layer describes the entire page. Do not let marks
+   // outside a crop contaminate recognition of the selected region.
+   const textLayer=region?null:localPdfText(id,input.source);
+   const optimized=region?await imageOptimizer.optimizeRegion(input.buffer):
+    {buffer:input.buffer,width:input.width,height:input.height,resized:false};
+   const result=await engine.analyzeImage({buffer:optimized.buffer,mime:input.mime,
+    prompt:"PDF лист "+input.source.page+(region?" — выделенный фрагмент":" — весь лист")+". "+
+     (region?QUICK_REGION_PROMPT:structured.PROMPT),
+    ocrContext:imageEvidence(ocrEvidence,textLayer),
+    ...(region?{maxOutputTokens:576}:{})});
    if(typeof documents.verify==="function"&&!documents.verify(id,input.source.documentId))
     throw Error("Исходный PDF изменился во время распознавания — результат не сохранён");
    if(revisions&&!revisions.isCurrent(id,input.source))
@@ -116,7 +130,10 @@ function createAnalysis({database,documents,engine,ocr=null,pdfRenderer,pdfIndex
     data:{source:input.source,model:result.engine,modelId:result.modelId||null,modelVersion:result.modelVersion||null,raw:result.raw,
      ocr:ocrEvidence,pdfTextLayer:textLayer?{indexId:textLayer.indexId,usedChars:textLayer.usedChars,
       unverified:true,sourceSha256:textLayer.sourceSha256}:null,
-     raster:{width:input.width||null,height:input.height||null,scale:input.scale||null},
+     raster:{width:optimized.width||input.width||null,height:optimized.height||input.height||null,
+      originalWidth:input.width||null,originalHeight:input.height||null,
+      scale:input.scale||null,fastRegion:!!region,downscaled:!!optimized.resized,
+      optimization:optimized.reason||null},
      extracted,complete:!!result.complete,finishReason:result.finishReason||null,verification:"requires_review",
      sourceRegion:region?"PDF лист "+input.source.page+": область "+JSON.stringify(input.source.region)+
       ", координаты прямоугольника в pt "+JSON.stringify(input.source.sourceRectPt)+
