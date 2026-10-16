@@ -1085,7 +1085,7 @@ window.irAiRecognitionPage=async function(objectId){
   };
   dlg.showModal()
  }
- async function openPdfPreview(documentId,page){
+ async function openPdfPreview(documentId,page,evidenceLocations=[]){
   if(!pdf||busy)return;
   busy=true;notice("Подготавливаем реальное изображение PDF, лист "+page+"…");paint();
   try{
@@ -1101,6 +1101,8 @@ window.irAiRecognitionPage=async function(objectId){
     '<button type="button" data-region-extract disabled>'+stepNumber('5.2')+' Увеличить фрагмент</button>'+
     (canEdit?'<button type="button" data-region-analyze disabled>'+stepNumber('5.3')+' Распознать фрагмент (быстро)</button>':'')+
     '<button type="button" data-region-back hidden>Вернуться к листу</button>'+
+    (Array.isArray(evidenceLocations)&&evidenceLocations.length?
+     '<button type="button" data-pdf-evidence aria-pressed="true">Найденные надписи</button>':"")+
     '<button type="button" data-pdf-fit>100%</button>'+
     '<button type="button" data-pdf-close>Закрыть ✕</button></div></div>'+
     '<div data-ai-region-progress hidden class="ir-ai-region-progress-area"></div>'+
@@ -1113,11 +1115,53 @@ window.irAiRecognitionPage=async function(objectId){
     stamp=dlg.querySelector("[data-region-stamp]"),
     regionSize=dlg.querySelector("[data-region-size]"),
     recognize=dlg.querySelector("[data-region-analyze]"),back=dlg.querySelector("[data-region-back]"),
-    fit=dlg.querySelector("[data-pdf-fit]"),meta=dlg.querySelector("[data-region-meta]"),
+    fit=dlg.querySelector("[data-pdf-fit]"),
+    highlightToggle=dlg.querySelector("[data-pdf-evidence]"),
+    meta=dlg.querySelector("[data-region-meta]"),
     aiState=dlg.querySelector("[data-region-ai-status]"),title=dlg.querySelector("[data-region-title]");
    let crop=null,selected=null,drag=null,loading=false,fitted=true,modelReady=false,aiStatusJob=null;
    const MAX_FAST_REGION_AREA=0.35;
    const stampPreset={x:0.70,y:0.83,width:0.29,height:0.16};
+   let highlightVisible=true;
+   const indexed=pdfIndexes.find(x=>Number(x.documentId)===Number(documentId)&&
+    x.sourceSha256===original.sha256);
+   const pageInfo=indexed?.pages?.find(p=>Number(p.page)===Number(page));
+   const evidenceBoxes=[];
+   // Fragment coordinates are original PDF points. Prevent misleading
+   // highlights for rotated pages until exact viewport mapping is supported.
+   if(Number(pageInfo?.rotation||0)===0&&
+      Number(pageInfo?.widthPt)>0&&Number(pageInfo?.heightPt)>0&&
+      Array.isArray(evidenceLocations)){
+    const widthPt=Number(pageInfo.widthPt),heightPt=Number(pageInfo.heightPt);
+    for(const item of evidenceLocations.slice(0,15)){
+     const box=item?.rectPt;
+     if(!box||!["x","y","width","height"].every(k=>Number.isFinite(Number(box[k]))))
+      continue;
+     const x=Number(box.x),y=Number(box.y),w=Number(box.width),h=Number(box.height);
+     const left=x/widthPt,top=(heightPt-y-h)/heightPt;
+     if(x<0||y<0||w<=0||h<=0||left<0||top<0||
+        left+w/widthPt>1.001||top+h/heightPt>1.001)continue;
+     const marker=document.createElement("div");
+     marker.className="ir-ai-pdf-source-evidence";
+     marker.style.left=(left*100)+"%";marker.style.top=(top*100)+"%";
+     marker.style.width=(w/widthPt*100)+"%";
+     marker.style.height=(h/heightPt*100)+"%";
+     marker.title="Найденная текстовая надпись PDF, не подтверждение монтажных координат";
+     marker.setAttribute("aria-hidden","true");
+     layer.appendChild(marker);evidenceBoxes.push(marker)
+    }
+   }
+   if(highlightToggle){
+    highlightToggle.disabled=evidenceBoxes.length===0;
+    highlightToggle.title=evidenceBoxes.length?
+     "Подсветка найденных текстовых надписей. Расположение конструкции требует проверки.":
+     "Для этого листа нет надёжных координат текстовых фрагментов";
+    highlightToggle.onclick=()=>{
+     highlightVisible=!highlightVisible;
+     highlightToggle.setAttribute("aria-pressed",String(highlightVisible));
+     evidenceBoxes.forEach(marker=>marker.hidden=!highlightVisible)
+    }
+   }
    const selectedArea=()=>selected?selected.width*selected.height:0;
    const validFastSelection=()=>!!selected&&selected.width>=0.01&&selected.height>=0.01&&
     selectedArea()<=MAX_FAST_REGION_AREA;

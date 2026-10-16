@@ -482,7 +482,7 @@
        '</div>':
        '<div class="ir-ai-doc-empty">Пока нет предложений по маркам. Для сканирования нужны читаемые текстовые слои PDF. Листы без текста требуют отдельного визуального распознавания.</div>');
      slot.querySelectorAll("[data-lite-source]").forEach(b=>b.onclick=()=>{
-      const c=candidates[Number(b.dataset.liteSource)];if(c)onOpenPdf?.(c.source.documentId,c.source.page)
+      const c=candidates[Number(b.dataset.liteSource)];if(c)onOpenPdf?.(c.source.documentId,c.source.page,c.evidenceLocations||[])
      });
      slot.querySelectorAll("[data-lite-approve]").forEach(b=>b.onclick=()=>{void approve(Number(b.dataset.liteApprove))});
      const bulk=slot.querySelector?.("[data-lite-batch]");

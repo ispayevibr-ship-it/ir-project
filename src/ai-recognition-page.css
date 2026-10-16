@@ -350,3 +350,7 @@
 .ir-ai-lite-grade.ready{background:#e5f5ed;color:#16754d}
 .ir-ai-lite-grade.review{background:#fff0d7;color:#83540d}
 .ir-ai-lite-grade.unprocessed{background:#ebeff3;color:#5d6b7c}
+
+/* PDF fragment highlights are text evidence, never inferred 3D locations. */
+.ir-ai-pdf-source-evidence{position:absolute;z-index:3;background:rgba(255,202,40,.23);border:2px solid #e9a82b;pointer-events:none;box-sizing:border-box;border-radius:2px}
+.ir-ai-pdf-source-evidence[hidden]{display:none}
