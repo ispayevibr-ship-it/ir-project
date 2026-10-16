@@ -712,7 +712,7 @@ window.irAiRecognitionPage=async function(objectId){
     '<button data-ai-open="'+x.id+'" '+(!ready||!x.exists?'disabled':'')+'>Открыть</button>'+
     (canEdit?'<button class="delete" data-ai-remove="'+x.id+'" '+(!ready?'disabled':'')+'>Удалить</button>':"")+'</div></td></tr>').join("")+
    '</tbody></table></div>')+
-   '<div class="ir-ai-storage-note">SHA-256 рассчитывается при импорте. Текстовый индекс PDF не является результатом нейросети: повреждённый текст и изображения требуют проверки. Оригинальные файлы сохраняются. Экспорт резервной копии *.db не включает вложения ИИ.</div>'+
+   '<div class="ir-ai-storage-note">SHA-256 рассчитывается при импорте. Удаление PDF требует подтверждения и удаляет только его непроверенные черновики распознавания; связанные с инженерной проверкой оригиналы защищены. Перед удалением сохраните полную резервную копию с вложениями: отдельный экспорт *.db не содержит PDF.</div>'+
    (pdfIndexes.length?'<section class="ir-ai-pdf-results"><h3>Текстовые индексы PDF · '+pdfIndexes.length+'</h3>'+
     pdfIndexes.filter(x=>documents.some(d=>String(d.id)===String(x.documentId))).map(x=>'<article class="ir-ai-pdf-card"><header><strong>'+esc(x.sourceName)+'</strong><span>'+x.totalPages+' лист(ов) · из текстового слоя PDF</span></header>'+
     '<div class="ir-ai-pdf-sheets">'+(Array.isArray(x.pages)?x.pages:[]).map(p=>'<details><summary>Лист '+p.page+
@@ -781,11 +781,38 @@ window.irAiRecognitionPage=async function(objectId){
   box.querySelectorAll("[data-ai-remove]").forEach(button=>button.onclick=async()=>{
    if(!canEdit||!ready)return;
    const row=documents.find(x=>String(x.id)===button.dataset.aiRemove);if(!row)return;
-   if(!confirm('Удалить документ «'+row.name+'» из IR Project AI? Его технический PDF-индекс тоже будет удалён. Если есть результаты анализа, ревизии или инженерная история — удаление будет запрещено.'))return;
+   if(!bridge.impact){
+    notice("Для удаления PDF вместе с непроверенными анализами требуется новая Windows Beta со встроенным обработчиком удаления. Обычное hot-обновление не заменяет Electron.", "error");
+    paint();return
+   }
    if(!await authorizeAiMutation())return;
-   try{await bridge.remove(id,row.id);notice("Документ удалён: "+row.name);await reload()}
-   catch(error){
-    const reason=String(error.message||error).replace(/^Error invoking remote method ['"]ai-documents:remove['"]: (?:Error: )?/,"");
+   try{
+    const impact=await bridge.impact(id,row.id);
+    if(!impact.canDelete){
+     const linked=impact.protectedRecords?.[0];
+     notice("Удаление заблокировано: "+(linked?
+      linked.section+" · запись № "+linked.id+". "+linked.reason:
+      "найдены защищённые инженерные данные")+
+      ". Сохраните чертёж с подтверждениями и ревизиями.","error");
+     paint();return
+    }
+    const drafts=impact.unreviewedAnalysisIds||[],indexes=impact.technicalIndexIds||[];
+    const info="Удалить документ «"+row.name+"» из IR Project AI?\n\n"+
+     "Будет безвозвратно удалено:\n"+
+     "• Исходный PDF: 1 файл\n"+
+     "• Непроверенные результаты распознавания: "+drafts.length+"\n"+
+     "• Технические PDF-индексы: "+indexes.length+"\n\n"+
+     "Подтверждённые результаты и инженерная история не удаляются. "+
+     "Рекомендуется сначала сохранить полную резервную копию.";
+    if(!confirm(info))return;
+    const result=await bridge.remove(id,row.id,{
+     discardUnreviewed:drafts.length>0,expectedAnalysisIds:drafts
+    });
+    notice("Документ удалён: "+row.name+". Удалено непроверенных анализов: "+
+     Number(result?.discardedAnalyses||0)+".");
+    await reload()
+   }catch(error){
+    const reason=String(error.message||error).replace(/^Error invoking remote method ['"][^'"]+['"]: (?:Error: )?/,"");
     notice("Не удалось удалить файл: "+reason,"error");paint()
    }
   })
