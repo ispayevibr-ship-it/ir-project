@@ -97,6 +97,9 @@ const spin=async until=>{
  // Wait until the previous status check settles before simulating Qwen starting.
  await new Promise(resolve=>setImmediate(resolve));
  ready=true;
+ const validStart={pointerId:4,button:0,pointerType:"mouse",clientX:70,clientY:83,preventDefault(){}};
+ const validEnd={pointerId:4,clientX:99,clientY:99};
+ layer.onpointerdown(validStart);layer.onpointermove(validEnd);layer.onpointerup(validEnd);
  stamp.onclick();
  await spin(()=>recognize.disabled===false);
  assert.match(aiText.textContent,/Qwen готова/);
