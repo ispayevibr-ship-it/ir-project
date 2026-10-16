@@ -3,6 +3,7 @@
 const fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypto");
 const EXTENSIONS=new Set([".pdf",".dxf",".dwg",".png",".jpg",".jpeg",".tif",".tiff"]);
 const MAX_FILE_BYTES=200*1024*1024,MAX_FILES=30;
+const POLICY_REVISION="pdf-draft-guard-diagnostics-v1";
 function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefined}){
  if(typeof getUserDataPath!=="function"||!database)throw Error("AI document store needs local userData and database");
  const root=()=>path.join(getUserDataPath(),"ir-project-ai","objects");
@@ -229,7 +230,7 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   }
   return{
    // Renderer detects stale Electron document stores after a hot update.
-   policyRevision:"pdf-draft-guard-diagnostics-v1",
+   policyRevision:POLICY_REVISION,
    documentId:row.id,name,
    technicalIndexIds:indexes.map(x=>x.id),
    unreviewedAnalysisIds:drafts.map(x=>x.id).sort((a,b)=>a-b),
@@ -336,4 +337,4 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
  }
  return{list,select,open,remove,removalImpact,deleteObjectFiles,readForAnalysis,readForPdfIndex,verify};
 }
-module.exports={createStore,EXTENSIONS,MAX_FILE_BYTES};
+module.exports={createStore,EXTENSIONS,MAX_FILE_BYTES,POLICY_REVISION};

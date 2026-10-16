@@ -13,7 +13,7 @@ function checkManifest(){
  const m=JSON.parse(fs.readFileSync(file,"utf8"));
  assert.equal(m.channel,"beta");
  assert.equal(m.baseVersion,require("../package.json").version);
- assert.match(m.version,/^1\.7\.217\.[1-9]\d*$/);
+ assert.match(m.version,new RegExp("^"+m.baseVersion.replace(/\\./g,"\\\\.")+"\\\\.[1-9]\\\\d*$"));
  assert(m.files.length>5&&m.files.length<120);
  for(const f of m.files){
   assert.match(f.target,/^src\/ai-[a-z0-9-]+\.(?:js|css)$/);
