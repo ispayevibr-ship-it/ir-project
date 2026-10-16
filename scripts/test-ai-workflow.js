@@ -43,7 +43,7 @@ function fixture(){
  const reviews={list:oid=>oid===1?reviewEntries:[]};
  const analysis={analyzePdf:async(oid,doc,page)=>{
   analysisCount++;
-  const result={id:100+analysisCount,documentId:doc,page,sha256:sha,sourceName:"041 КМД.pdf",
+  const result={id:100+analysisCount,documentId:doc,page,sha256:sha,kind:"КМД",sourceName:"041 КМД.pdf",
    region:null,status:"requires_review"};
   reviewEntries.push(result);
   return{id:result.id}
