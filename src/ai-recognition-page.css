@@ -321,3 +321,11 @@
 .ir-ai-lite-edit input,.ir-ai-lite-edit select{min-width:0;width:100%;box-sizing:border-box;border:1px solid #cfdde5;border-radius:7px;background:#fff;padding:8px 9px;font-size:12px;color:#254e69}
 .ir-ai-lite-actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
 .ir-ai-lite-actions small{font-size:10px;color:#718da1}
+
+/* Archived source drawings stay accessible without polluting the active PDF workflow. */
+.ir-ai-document-archive{margin-top:17px;padding:12px 14px;border:1px solid #dae6ef;border-radius:9px;background:#f9fcff}
+.ir-ai-document-archive summary{cursor:pointer;color:#2b5977;font-size:11px;font-weight:750}
+.ir-ai-document-archive p{margin:10px 0;color:#6e8595;font-size:10px;line-height:1.6}
+.ir-ai-document-archive .ir-ai-table-wrap{margin-top:10px}
+.ir-ai-document-archive .ir-ai-doc-actions{justify-content:flex-start}
+.ir-ai-doc-actions{flex-wrap:wrap}

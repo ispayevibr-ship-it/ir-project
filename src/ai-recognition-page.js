@@ -26,7 +26,7 @@ window.irAiRecognitionPage=async function(objectId){
   proposals:["Структурированные предложения ИИ","Отдельные поля марок, металлопроката, размеров и соединений с проверкой инженером."],
   checks:["Проверка и замечания","После запуска локального анализа здесь появятся ошибки и неопределённые значения со ссылками на исходные листы и подтверждения инженера."]
  };
- let object,documents=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,materialEntries=[],materialSummary=null,connectionNodes=[],connectionItems=[],connectionSummary=null,comparisonEntries=[],comparisonSummary=null,comparisonFields={},pdfIndexes=[],workflowTasks=[],workflowSummary=null,proposalEntries=[],proposalSummary=null,revisionSets=[],revisionImpact=null,referenceRows=null,referenceChecks=null,referenceCompare=null,integrityReport=null,engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
+ let object,documents=[],archivedDocuments=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,materialEntries=[],materialSummary=null,connectionNodes=[],connectionItems=[],connectionSummary=null,comparisonEntries=[],comparisonSummary=null,comparisonFields={},pdfIndexes=[],workflowTasks=[],workflowSummary=null,proposalEntries=[],proposalSummary=null,revisionSets=[],revisionImpact=null,referenceRows=null,referenceChecks=null,referenceCompare=null,integrityReport=null,engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
  let selectedKind="Не определён",analysisProgress=null,liteLoader=null;
  // Qwen/llama.cpp does not expose a meaningful "% of drawing recognized".
  // These numbers show estimated elapsed-time progress, never inferred markup coverage.
@@ -99,7 +99,10 @@ window.irAiRecognitionPage=async function(objectId){
  }
  async function reload(){
   const requestId=++reloadSequence,jobs=[];
-  if(ready)jobs.push(bridge.list(id).then(v=>{documents=v}).catch(error=>{documents=[];notice("Ошибка загрузки документов: "+String(error.message||error),"error")}));
+  if(ready)jobs.push(bridge.list(id).then(v=>{
+   documents=v.filter(x=>!x.archived);
+   archivedDocuments=v.filter(x=>x.archived)
+  }).catch(error=>{documents=[];archivedDocuments=[];notice("Ошибка загрузки документов: "+String(error.message||error),"error")}));
   if(runtime)jobs.push(runtime.status().then(v=>{engine=v}).catch(error=>{engine=null;notice("Ошибка проверки локальной модели: "+String(error.message||error),"error")}));
   if(reviewer){
    jobs.push(reviewer.list(id).then(v=>{analyses=v}).catch(error=>{analyses=[];notice("Ошибка истории анализа: "+String(error.message||error),"error")}));
@@ -710,9 +713,18 @@ window.irAiRecognitionPage=async function(objectId){
     (canEdit&&x.ext===".pdf"&&pdfIndexes.some(p=>String(p.documentId)===String(x.id)&&p.sourceSha256===x.sha256&&Array.isArray(p.pages)&&p.pages.some(page=>Number(page.page)===1))?'<button data-ai-pdf-vision="'+x.id+':1" '+(!modelReady||busy||!x.exists?'disabled':'')+'>'+stepNumber(5,!!recognized)+' Распознать лист 1</button>':"")+
     (x.ext===".pdf"?'<button data-ai-pdf-preview="'+x.id+':1" '+(!pdf||busy||!x.exists?'disabled':'')+'>Лист 1</button>':"")+
     '<button data-ai-open="'+x.id+'" '+(!ready||!x.exists?'disabled':'')+'>Открыть</button>'+
+    (canEdit?'<button data-ai-archive="'+x.id+'" '+(!bridge?.archive?'disabled title="Нужна новая Windows Beta"':'')+'>В архив</button>':'')+
     (canEdit?'<button class="delete" data-ai-remove="'+x.id+'" '+(!ready?'disabled':'')+'>Удалить</button>':"")+'</div></td></tr>').join("")+
    '</tbody></table></div>')+
-   '<div class="ir-ai-storage-note">SHA-256 рассчитывается при импорте. Удаление PDF требует подтверждения и удаляет только его непроверенные черновики распознавания; связанные с инженерной проверкой оригиналы защищены. Перед удалением сохраните полную резервную копию с вложениями: отдельный экспорт *.db не содержит PDF.</div>'+
+   '<div class="ir-ai-storage-note">Для документов с инженерной историей используйте «В архив»: PDF будет скрыт из активных чертежей, но исходник, подтверждения, отклонения и ревизии останутся доступны в архиве. Физическое удаление защищённых документов по-прежнему запрещено. Рекомендуется полная резервная копия с вложениями: экспорт *.db не содержит PDF.</div>'+
+   (archivedDocuments.length?'<details class="ir-ai-document-archive"><summary>Архив чертежей · '+archivedDocuments.length+'</summary>'+
+    '<p>Архивированные PDF не участвуют в новых операциях распознавания. Исходные файлы и история инженерных решений сохраняются без изменений.</p>'+
+    '<div class="ir-ai-table-wrap"><table class="ir-ai-doc-table"><thead><tr><th>Документ</th><th>Комплект</th><th>Архивирован</th><th>Действия</th></tr></thead><tbody>'+
+    archivedDocuments.map(x=>'<tr><td><strong>'+esc(x.name)+'</strong><small>Оригинал сохранён · '+esc(x.ext||"")+'</small></td>'+
+     '<td>'+esc(x.kind||"Не определён")+'</td><td>'+esc(x.archivedAt||"—")+'</td>'+
+     '<td><div class="ir-ai-doc-actions"><button data-ai-open="'+x.id+'" '+(!x.exists?'disabled':'')+'>Открыть</button>'+
+     (canEdit?'<button data-ai-restore="'+x.id+'" '+(!bridge?.restore?'disabled title="Нужна новая Windows Beta"':'')+'>Восстановить</button>':'')+
+     '</div></td></tr>').join("")+'</tbody></table></div></details>':'')+
    (pdfIndexes.length?'<section class="ir-ai-pdf-results"><h3>Текстовые индексы PDF · '+pdfIndexes.length+'</h3>'+
     pdfIndexes.filter(x=>documents.some(d=>String(d.id)===String(x.documentId))).map(x=>'<article class="ir-ai-pdf-card"><header><strong>'+esc(x.sourceName)+'</strong><span>'+x.totalPages+' лист(ов) · из текстового слоя PDF</span></header>'+
     '<div class="ir-ai-pdf-sheets">'+(Array.isArray(x.pages)?x.pages:[]).map(p=>'<details><summary>Лист '+p.page+
@@ -777,6 +789,27 @@ window.irAiRecognitionPage=async function(objectId){
   });
   box.querySelectorAll("[data-ai-open]").forEach(button=>button.onclick=async()=>{
    try{await bridge.open(id,button.dataset.aiOpen)}catch(error){notice("Не удалось открыть: "+String(error.message||error),"error");paint()}
+  });
+  box.querySelectorAll("[data-ai-archive]").forEach(button=>button.onclick=async()=>{
+   if(!canEdit||!ready||busy||!bridge?.archive||!await authorizeAiMutation())return;
+   const row=documents.find(x=>String(x.id)===button.dataset.aiArchive);if(!row)return;
+   if(!confirm("Архивировать «"+row.name+"»?\n\nФайл исчезнет из активного списка. Исходный PDF, SHA-256 и вся история инженерных решений останутся в базе и в архиве. Повторная загрузка этого PDF создаст новую активную копию."))return;
+   busy=true;
+   try{
+    await bridge.archive(id,row.id);
+    notice("PDF «"+row.name+"» помещён в архив. Инженерная история сохранена.");
+   }catch(error){notice("Архивирование не выполнено: "+String(error.message||error),"error")}
+   finally{busy=false;await reload()}
+  });
+  box.querySelectorAll("[data-ai-restore]").forEach(button=>button.onclick=async()=>{
+   if(!canEdit||!ready||busy||!bridge?.restore||!await authorizeAiMutation())return;
+   const row=archivedDocuments.find(x=>String(x.id)===button.dataset.aiRestore);if(!row)return;
+   busy=true;
+   try{
+    await bridge.restore(id,row.id);
+    notice("PDF «"+row.name+"» восстановлен из архива.");
+   }catch(error){notice("Восстановление не выполнено: "+String(error.message||error),"error")}
+   finally{busy=false;await reload()}
   });
   box.querySelectorAll("[data-ai-remove]").forEach(button=>button.onclick=async()=>{
    if(!canEdit||!ready)return;
