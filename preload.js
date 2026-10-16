@@ -146,6 +146,8 @@ const aiWorkflow={
   return()=>ipcRenderer.removeListener("ai-workflow:progress",fn)
  }
 };
+const aiPdfGeometry={page:(objectId,documentId,page)=>
+ ipcRenderer.invoke("ai-pdf:geometry",{objectId,documentId,page})};
 const aiMounting={
  drafts:objectId=>ipcRenderer.invoke("ai-mounting:drafts",objectId),
  saveDraft:(objectId,candidate,values,expectedRevision)=>
@@ -174,5 +176,5 @@ const aiEngine={
  results:objectId=>ipcRenderer.invoke("ai-analysis:list",objectId),
  analyze:(objectId,id)=>ipcRenderer.invoke("ai-analysis:image",{objectId,id})
 };
-contextBridge.exposeInMainWorld("irProject",{objects,company,images:{read:file=>ipcRenderer.invoke("images:read",file),remove:file=>ipcRenderer.invoke("images:remove",file),optimize:(file,type)=>ipcRenderer.invoke("images:optimize",{file,type})},reportPhotos,reportDocuments,reportExport,marksExcel,schemeReset,aiMounting,aiDocuments,aiEngine,aiPdf,aiModels,aiDiagnostics,aiReview,aiWorkflow,aiProposals,aiRevisions,aiIntegrity,aiKmdReference,aiMarkQuantities,aiKmdMaterials,aiKmdConnections,aiKmKmdCompare,aiAssembly3d,aiAssemblyAttachments,sections,data:{objects,sections,forObject:objectId=>({section:key=>section(objectId,key),records:key=>section(objectId,key)})},access:{login:(role,password)=>ipcRenderer.invoke("access:login",{role,password}),
+contextBridge.exposeInMainWorld("irProject",{objects,company,images:{read:file=>ipcRenderer.invoke("images:read",file),remove:file=>ipcRenderer.invoke("images:remove",file),optimize:(file,type)=>ipcRenderer.invoke("images:optimize",{file,type})},reportPhotos,reportDocuments,reportExport,marksExcel,schemeReset,aiMounting,aiPdfGeometry,aiDocuments,aiEngine,aiPdf,aiModels,aiDiagnostics,aiReview,aiWorkflow,aiProposals,aiRevisions,aiIntegrity,aiKmdReference,aiMarkQuantities,aiKmdMaterials,aiKmdConnections,aiKmKmdCompare,aiAssembly3d,aiAssemblyAttachments,sections,data:{objects,sections,forObject:objectId=>({section:key=>section(objectId,key),records:key=>section(objectId,key)})},access:{login:(role,password)=>ipcRenderer.invoke("access:login",{role,password}),
  logout:()=>ipcRenderer.invoke("access:logout")},backup:{create:()=>ipcRenderer.invoke("backup:create"),restore:()=>ipcRenderer.invoke("backup:restore")},updater:{check:()=>ipcRenderer.invoke("update:check"),download:()=>ipcRenderer.invoke("update:download"),rollback:()=>ipcRenderer.invoke("update:rollback"),install:()=>ipcRenderer.invoke("update:install"),version:()=>ipcRenderer.invoke("update:version"),onStatus:cb=>ipcRenderer.on("update:status",(_e,d)=>cb(d))}});

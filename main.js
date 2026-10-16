@@ -3,6 +3,7 @@ const {app,BrowserWindow,ipcMain,dialog,Menu,protocol,shell}=require("electron")
 const path=require("path"),crypto=require("crypto"),fs=require("fs");
 const updates=require("./src/updater");
 const schemeReset=require("./src/scheme-reset");
+const aiPdfGeometryModule=require("./src/ai-pdf-geometry");
 // The first Beta installer provides the trusted loader. Later AI JavaScript
 // fixes can be applied from the verified hot package without replacing the exe.
 // Keep native Electron bridges, database and updater inside the installer.
@@ -29,6 +30,7 @@ const mountingPlacementService=mountingPlacement.createService({
 const mountingDraftService=mountingDrafts.createDraftService({
  database,verifyDocument:(objectId,documentId)=>aiDocuments.verify(objectId,documentId)
 });
+const aiPdfGeometry=aiPdfGeometryModule.createPdfGeometry({database,documents:aiDocuments});
 // Destructive PDF operations resolve the active, checksum-verified module at call
 // time rather than using a store captured before a hot update was installed.
 const aiDocumentDeletion=require("./src/ai-document-hot-loader").createGuard({
@@ -176,6 +178,10 @@ function registerAiDocuments(){
  ipcMain.handle("scheme:reset",(e,{objectId,expectedCount,expectedFingerprint,confirmation})=>{
   requireAiReviewer(e);
   return schemeResetService.clear(objectId,{expectedCount,expectedFingerprint,confirmation})
+ });
+ ipcMain.handle("ai-pdf:geometry",(e,{objectId,documentId,page})=>{
+  requireAiReviewer(e);
+  return aiPdfGeometry.page(objectId,documentId,page)
  });
  ipcMain.handle("ai-mounting:drafts",(e,objectId)=>{
   requireAiReviewer(e);return mountingDraftService.list(objectId)
