@@ -354,6 +354,12 @@
 /* PDF fragment highlights are text evidence, never inferred 3D locations. */
 .ir-ai-pdf-source-evidence{position:absolute;z-index:3;background:rgba(255,202,40,.23);border:2px solid #e9a82b;pointer-events:none;box-sizing:border-box;border-radius:2px}
 .ir-ai-pdf-source-evidence[hidden]{display:none}
+/* KMD geometric hypotheses over the ORIGINAL PDF, not the erection scheme. */
+.ir-ai-pdf-source-strokes{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4;overflow:visible}
+.ir-ai-pdf-source-strokes line{stroke:#e34035;stroke-width:3;vector-effect:non-scaling-stroke;stroke-linecap:round;filter:drop-shadow(0 0 1px #fff)}
+.ir-ai-pdf-source-strokes line[data-edge="2"]{stroke:#11a6dd}
+.ir-ai-pdf-source-strokes[hidden]{display:none}
+
 
 /* Optional page-local vector drawing inspection; not engineering dimensions. */
 .ir-ai-lite-vector-button{margin-left:10px;font-size:11px;white-space:nowrap;padding:5px 9px;border:1px solid #cbdbe8;border-radius:7px;background:#f4f8fc;color:#27618c;cursor:pointer}
