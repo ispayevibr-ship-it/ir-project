@@ -615,10 +615,13 @@ window.irAiRecognitionPage=async function(objectId){
   box.querySelectorAll("[data-ai-remove]").forEach(button=>button.onclick=async()=>{
    if(!canEdit||!ready)return;
    const row=documents.find(x=>String(x.id)===button.dataset.aiRemove);if(!row)return;
-   if(!confirm('Удалить загруженный документ «'+row.name+'»? Файл будет удалён из хранилища IR Project AI.'))return;
+   if(!confirm('Удалить документ «'+row.name+'» из IR Project AI? Его технический PDF-индекс тоже будет удалён. Если есть результаты анализа, ревизии или инженерная история — удаление будет запрещено.'))return;
    if(!await authorizeAiMutation())return;
    try{await bridge.remove(id,row.id);notice("Документ удалён: "+row.name);await reload()}
-   catch(error){notice("Не удалось удалить файл: "+String(error.message||error),"error");paint()}
+   catch(error){
+    const reason=String(error.message||error).replace(/^Error invoking remote method ['"]ai-documents:remove['"]: (?:Error: )?/,"");
+    notice("Не удалось удалить файл: "+reason,"error");paint()
+   }
   })
  }
  async function requestReviewPassword(role){
