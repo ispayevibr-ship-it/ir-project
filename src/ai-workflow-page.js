@@ -58,7 +58,7 @@ window.irAiWorkflowPage={
    '<section class="ir-ai-flow-queue"><div class="ir-ai-flow-toolbar"><div><h3>Очередь обработки</h3>'+
     '<p>Qwen: '+esc(q.modelState||"не определено")+
      ' · PaddleOCR: '+esc(q.ocrState?
-      (q.ocrState.installed?"Подписанный пакет установлен":"Нужен подписанный пакет"):"не проверено")+
+      (q.ocrState.installed?"Подписанный пакет установлен":"Не установлена — работает Qwen без OCR"):"не проверено")+
      ' · заданий '+value(q.total)+
      ' · ожидают проверки '+value(summary?counts.awaiting_review||0:null)+
      ' · выполнено и подтверждено '+value(summary?counts.confirmed||0:null)+'</p></div>'+
