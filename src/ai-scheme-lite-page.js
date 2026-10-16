@@ -263,7 +263,7 @@
    total:candidates.length,hasGrid:!!grid,markCount:marks.length}
  }
  function createPage(){
-  let latest=[],candidates=[],busy=false,log="",saved=0,disposeLast=null;
+  let latest=[],candidates=[],batch=null,busy=false,log="",saved=0,disposeLast=null;
   const page={
    dispose(){if(disposeLast)disposeLast();disposeLast=null},
    async render(host,opts={}){
@@ -271,7 +271,7 @@
     const {objectId,documents=[],indexes=[],canEdit=false,askPassword,
      reviewer,onOpenPdf,onNavigate}=opts;
     page.dispose();
-    latest=[];candidates=[];busy=false;saved=0;log="";
+    latest=[];candidates=[];batch=null;busy=false;saved=0;log="";
     const escDoc=esc;let live=true;
     const hostWindow=opts.window||root;
     const dataRoot=opts.root||hostWindow?.irProject?.data?.forObject(objectId);
@@ -282,10 +282,10 @@
     const status=x=>{log=x;const el=host.querySelector("[data-lite-status]");if(el)el.textContent=x};
     const markup=()=>'<section class="ir-ai-lite">'+
      '<header class="ir-ai-review-heading"><div><h2>ИИ → Монтажная схема · быстрый режим</h2>'+
-     '<p>Шаг 1: найти марки, привязки к осям и отметки из текстовых слоёв PDF. Qwen и подробные 3D-модели не запускаются.</p></div>'+
+     '<p>Ведомость марок + индексированные КМ/КМД → предварительные координаты и высоты. Обычные листы без Qwen; сложные — отдельно.</p></div>'+
      '<b>Локально · без ИИ</b></header>'+
      '<div class="ir-ai-quantity-warning">Найденная марка не означает известное положение в здании. Высоты привязываются лишь к листам с одной явно обозначенной маркой. Импорт требует инженерной проверки, официальной ведомости и сохранённой сетки осей.</div>'+
-     '<div class="ir-ai-lite-toolbar"><button type="button" data-lite-scan '+(busy?'disabled':'')+'>1. Быстро найти марки и высоты</button>'+
+     '<div class="ir-ai-lite-toolbar"><button type="button" data-lite-scan '+(busy?'disabled':'')+'>1. Построить черновик по чертежам</button>'+
      '<button type="button" data-lite-scheme>Открыть монтажную схему</button>'+ 
      (canEdit&&hostWindow.irAccess?.canEdit?.("scheme")&&hostWindow.irProject?.schemeReset?.clear?
       '<button type="button" data-lite-clear class="ir-ai-lite-clear">Очистить схему</button>':"")+
@@ -307,6 +307,22 @@
       '<span>Проверено листов: <b>'+indexesLoaded+'</b></span>'+
       '<span>Найдено кандидатов: <b>'+candidateCount+'</b></span>'+
       '<span>Добавлено на схему: <b>'+saved+'</b></span></div>'+
+      (batch?'<section class="ir-ai-lite-batch"><h3>Черновик расстановки</h3>'+
+       '<p>Ведомость: '+batch.markCount+' позиций. Можно предложить: <b>'+
+       batch.ready.length+'</b>. На проверку: <b>'+batch.review.length+
+       '</b>. Сложных листов: <b>'+batch.difficult.length+
+       '</b>. '+(batch.hasGrid?'Сетка осей проверена.':'Сначала сохраните сетку осей в монтажной схеме.')+'</p>'+
+       '<div class="ir-ai-lite-toolbar">'+
+       (batch.ready.length?'<button type="button" data-lite-batch '+(!canEdit||!hostWindow.irAccess?.canEdit?.("scheme")?'disabled':'')+
+        '>2. Подтвердить и разместить '+batch.ready.length+' элементов</button>':"")+
+       (batch.difficult.length?'<button type="button" data-lite-qwen>Сложные листы → очередь Qwen ('+
+        Math.min(batch.difficult.length,12)+')</button>':"")+'</div>'+
+       '<p>Подтверждение выполняется для всего списка. Непонятные координаты не придумываются.</p>'+
+       (batch.review.length?'<details><summary>Причины ручной проверки · '+
+        batch.review.length+'</summary>'+
+        batch.review.slice(0,60).map(x=>'<div>'+escDoc(x.candidate.mark)+
+         ' · '+escDoc(x.reason)+'</div>').join("")+'</details>':"")+
+       '</section>':"")+
       (latest.length?'<div class="ir-ai-lite-docs">'+latest.map(x=>
        '<div><b>'+escDoc(x.name)+' · лист '+x.page+'</b> · '+escDoc(
         {plan:"План расположения",section:"Разрез / фасад",detail:"Чертёж марки",other:"Тип не определён"}[x.sheetType])+
@@ -338,10 +354,14 @@
       const c=candidates[Number(b.dataset.liteSource)];if(c)onOpenPdf?.(c.source.documentId,c.source.page)
      });
      slot.querySelectorAll("[data-lite-approve]").forEach(b=>b.onclick=()=>{void approve(Number(b.dataset.liteApprove))});
+     const bulk=slot.querySelector("[data-lite-batch]");
+     if(bulk)bulk.onclick=()=>void approveBatch();
+     const uncertain=slot.querySelector("[data-lite-qwen]");
+     if(uncertain)uncertain.onclick=()=>void queueHardSheets();
     }
     async function scan(){
      if(busy)return;busy=true;status("Быстро читаем текстовые слои PDF…");
-     latest=[];candidates=[];host.querySelector("[data-lite-scan]").disabled=true;
+     latest=[];candidates=[];batch=null;host.querySelector("[data-lite-scan]").disabled=true;
      try{
       const pool=indexes.filter(idx=>documents.some(d=>Number(d.id)===Number(idx.documentId)&&
        d.sha256===idx.sourceSha256&&d.exists&&["КМ","КМД"].includes(d.kind)));
@@ -367,6 +387,13 @@
         latest.push(row);candidates.push(...row.marks)
        }catch(error){status("Ошибка чтения листа "+p.page+": "+String(error.message||error).slice(0,180))}
       }
+      if(live){
+       const [markRows,schemeRows,workRows]=await Promise.all([
+        marksApi.list(),schemeApi.list(),workApi.list()
+       ]);
+       batch=buildBatchPlan({candidates,pages:latest,marks:markRows,
+        schemeRows,workRows});
+      }
       status("Быстрое извлечение завершено: "+latest.length+" из "+allEntries.length+
        " листов, "+candidates.length+" возможных марок. "+
        (allEntries.length>250?"За один запуск проверяются первые 250 листов; оставшиеся пока не обработаны. ":"")+
@@ -374,6 +401,96 @@
       draw()
      }catch(error){status("Не удалось проверить PDF: "+String(error.message||error))}
      finally{busy=false;const scanBtn=host.querySelector("[data-lite-scan]");if(scanBtn)scanBtn.disabled=false}
+    }
+    async function verifyEditor(){
+     if(!canEdit||!hostWindow.irAccess?.canEdit?.("scheme"))
+      throw Error("У текущей роли нет разрешения на изменение монтажной схемы.");
+     if(!reviewer||!askPassword)throw Error("Инженерное подтверждение недоступно");
+     const role=hostWindow.irAccess?.role?.();
+     if(!["admin","engineer"].includes(role))throw Error("Необходима роль инженера");
+     const password=await askPassword(role);
+     if(password===null)return false;
+     if(!await reviewer.authorize(role,password))throw Error("Неверный пароль");
+     return true
+    }
+    async function approveBatch(){
+     if(!batch?.ready.length||busy)return;
+     busy=true;
+     let count=0;
+     try{
+      if(!await verifyEditor())return;
+      const rows=await schemeApi.list(),marks=await marksApi.list(),works=await workApi.list(),
+       documentsNow=await hostWindow.irProject.aiDocuments.list(objectId),
+       indices=await pdf.list(objectId),freshRows=[...rows];
+      const current=buildBatchPlan({
+       candidates:batch.ready.map(x=>x.candidate),pages:latest,
+       marks,schemeRows:rows,workRows:works
+      });
+      if(current.ready.length!==batch.ready.length)
+       throw Error("Ведомость, схема или исходные данные изменились: пересчитайте предложения.");
+      const approved=hostWindow.confirm("Добавить на монтажную схему "+
+       current.ready.length+" предложений? Оси и высоты будут отмечены как проверенные инженером. "+
+       "Листы без однозначных привязок останутся на ручной проверке.");
+      if(!approved)return;
+      const seen=new Set();
+      for(const {candidate} of current.ready){
+       const doc=documentsNow.find(d=>Number(d.id)===Number(candidate.source.documentId));
+       const indexed=indices.find(x=>Number(x.documentId)===Number(candidate.source.documentId)&&
+        x.sourceSha256===candidate.source.sha256&&
+        x.pages.some(p=>Number(p.page)===Number(candidate.source.page)));
+       if(!doc||!doc.exists||doc.sha256!==candidate.source.sha256||!indexed)
+        throw Error("Исходный PDF или его индекс изменился. Часть расстановки не сохранена.");
+       const k=[candidate.mark,candidate.axisX,candidate.axisY,candidate.endAxisX,
+        candidate.endAxisY,candidate.z0Mm,candidate.z1Mm].join("|");
+       if(seen.has(k))continue;
+       seen.add(k);
+       const mark=marks.map(x=>({id:x.id,...x.data,title:x.title})).find(x=>
+        norm(x.mark||x.title)===norm(candidate.mark));
+       const entry=payloadFor(candidate,{mark,axisX:candidate.axisX,axisY:candidate.axisY,
+        endX:candidate.endAxisX,endY:candidate.endAxisY,z0Mm:candidate.z0Mm,
+        z1Mm:candidate.z1Mm,schemeRows:freshRows});
+       const result=await schemeApi.create(entry);
+       freshRows.push({...entry,id:result?.id||-count-1});
+       count++
+      }
+      saved+=count;
+      status("Подтверждено размещений: "+count+". Неполные привязки остаются на проверке.");
+      batch=null;
+      draw()
+     }catch(error){
+      status("Сохранено "+count+" элементов. Продолжение остановлено: "+String(error.message||error)+
+       ". Повторите сканирование для актуального состояния.")
+     }finally{busy=false}
+    }
+    async function queueHardSheets(){
+     if(!batch?.difficult.length||busy)return;
+     const queue=opts.queue||hostWindow.irProject?.aiWorkflow;
+     if(!queue?.enqueue){status("Модуль очереди Qwen недоступен.");return}
+     busy=true;
+     try{
+      if(!await verifyEditor())return;
+      const toQueue=batch.difficult.slice(0,12),docsNow=await hostWindow.irProject.aiDocuments.list(objectId),
+       idxNow=await pdf.list(objectId);
+      const byDoc=new Map();
+      for(const p of toQueue){
+       const doc=docsNow.find(d=>Number(d.id)===Number(p.documentId)&&
+        d.sha256===p.sha256&&d.exists);
+       const idx=idxNow.find(x=>Number(x.documentId)===Number(p.documentId)&&
+        x.sourceSha256===p.sha256&&x.pages.some(x=>Number(x.page)===Number(p.page)));
+       if(!doc||!idx)continue;
+       if(!byDoc.has(doc.id))byDoc.set(doc.id,[]);
+       byDoc.get(doc.id).push(p.page)
+      }
+      let sent=0;
+      for(const [doc,pages] of byDoc){
+       const result=await queue.enqueue(objectId,doc,[...new Set(pages)]);
+       sent+=Array.isArray(result?.created)?result.created.length:pages.length
+      }
+      status("В очередь Qwen добавлены сложные листы: "+sent+
+       ". Откройте «Распознавание» и запустите очередь. Qwen пока не определяет точные координаты автоматически.");
+      onNavigate?.("workflow")
+     }catch(error){status("Не удалось добавить листы в очередь Qwen: "+String(error.message||error))}
+     finally{busy=false}
     }
     async function approve(index){
      const c=candidates[index],card=host.querySelector('[data-lite-row="'+index+'"]');
