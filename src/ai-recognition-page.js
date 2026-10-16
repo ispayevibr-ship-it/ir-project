@@ -1,1583 +1,284 @@
 "use strict";
-/* IR Project AI / stage 1. Real local documents, honest unimplemented sections. */
+/* IR Project: deterministic KM/KMD drawings only.
+ * Keeps all original files, document indexes, source-evidence PDF viewer,
+ * mark registers, geometry inspection and assembly/3D. No model runtime.
+ */
 window.irAiRecognitionPage=async function(objectId){
  const app=document.getElementById("app"),id=String(objectId||"");
- if(!app||!/^[0-9]+$/.test(id))return;
- const route=location.hash,esc=v=>String(v==null?"":v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
- const size=n=>Number(n)>=1048576?(Number(n)/1048576).toFixed(1).replace(".",",")+" МБ":Math.ceil(Number(n)/1024)+" КБ";
- const tabs=[
-  ["documents","Чертежи КМ/КМД"],["workflow","Распознавание"],
-  ["checks","Проверка"],["scheme-lite","Монтажная схема"]
- ];
- const descriptions={
-  "scheme-lite":["ИИ → Монтажная схема","Быстрый поиск марок и высот в PDF; размещение после проверки данных по чертежу."],
-  workflow:["Очередь распознавания КМ / КМД","Обработка отдельных листов локальной моделью и отправка результатов на инженерную проверку."],
-  model:["Общая 3D-модель","Модель здания появится после распознавания схем расположения и инженерной проверки координат. Без исходных осей и привязок элементы не размещаются."],
-  assembly:["Подробные модели отправочных марок","Сборки будут состоять из подтверждённых деталей КМД: профилей, пластин, рёбер и узлов. Условная геометрия не выдаётся за рабочую деталировку."],
-  marks:["Ведомость отправочных марок","Результаты распознавания с различением уникальных марок и количества экземпляров появятся после подключения локального ИИ."],
-  metal:["Спецификация металлопроката","Профиль, сталь, размеры, количество и масса будут связываться с листом-источником. Данные не будут предполагаться по внешнему виду."],
-  fasteners:["Ведомость метизов","Болты, гайки, шайбы и места установки будут учитываться по уникальным соединениям после распознавания узлов."],
-  compare:["Сравнение КМ и КМД","Сопоставление геометрии, металлопроката, соединений, количества и ревизий будет доступно после подготовки проверяемых данных."],
-  integrity:["Контроль данных IR Project AI","Сквозной просмотр связей между документами, распознаванием, ревизиями, ведомостями и 3D."],
-  revisions:["Ревизии КМ и КМД","Утверждение действующих листов и контроль устаревших инженерных проверок."],
-  reference:["Эталон КМД","Подтверждённые инженером позиции по действующим листам и сверка с ведомостями."],
-  proposals:["Структурированные предложения ИИ","Отдельные поля марок, металлопроката, размеров и соединений с проверкой инженером."],
-  checks:["Проверка и замечания","После запуска локального анализа здесь появятся ошибки и неопределённые значения со ссылками на исходные листы и подтверждения инженера."]
+ if(!app||!/^\d+$/.test(id))return;
+ const route=location.hash;
+ const api=window.irProject||{},docsApi=api.aiDocuments,pdf=api.aiPdf;
+ const esc=value=>String(value??"").replace(/[&<>"']/g,
+  c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+ const fmt=value=>Number(value)>=1048576?
+  (Number(value)/1048576).toFixed(1).replace(".",",")+" МБ":
+  Math.ceil((Number(value)||0)/1024)+" КБ";
+ let object=null,docs=[],archived=[],indexes=[],active="documents",search="",kind="КМД",
+  busy=false,notice="",error=false,bulk=null,loader=null,disposed=false;
+ const isCurrent=()=>!disposed&&location.hash===route;
+ const matchingIndex=doc=>indexes.find(r=>String(r.documentId)===String(doc.id)&&
+  r.sourceSha256===doc.sha256&&Array.isArray(r.pages)&&r.pages.length>0);
+ const statusOf=doc=>{
+  if(!doc.exists)return{value:"Файл отсутствует",css:"missing"};
+  const state=bulk?.rows.get(String(doc.id));
+  if(state?.state==="running")return{value:"Индексируется · лист "+
+   (state.page||"…")+(state.total?" из "+state.total:""),css:"indexing"};
+  if(state?.state==="error")return{value:"✕ Ошибка: "+state.message,css:"index-error"};
+  const ready=matchingIndex(doc);
+  if(state?.state==="done"||ready)return{value:"✓ Индексирован · "+
+   (state?.pages||ready?.totalPages||ready?.pages?.length||0)+" лист(ов)",css:"indexed"};
+  return{value:"Ожидает индексации",css:"waiting"}
  };
- let object,documents=[],archivedDocuments=[],planMarks=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,materialEntries=[],materialSummary=null,connectionNodes=[],connectionItems=[],connectionSummary=null,comparisonEntries=[],comparisonSummary=null,comparisonFields={},pdfIndexes=[],workflowTasks=[],workflowSummary=null,proposalEntries=[],proposalSummary=null,revisionSets=[],revisionImpact=null,referenceRows=null,referenceChecks=null,referenceCompare=null,integrityReport=null,engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
- let selectedKind="Не определён",analysisProgress=null,liteLoader=null,batchIndex=null;
- // Qwen/llama.cpp does not expose a meaningful "% of drawing recognized".
- // These numbers show estimated elapsed-time progress, never inferred markup coverage.
- function progressValues(job,now=Date.now()){
-  const elapsed=Math.max(0,Math.floor((now-job.startedAt)/1000));
-  const timeout=Math.max(30,Math.ceil(job.timeoutSeconds||600));
-  const remaining=Math.max(0,timeout-elapsed);
-  const estimated=Math.min(94,Math.max(6,Math.round(6+88*Math.min(1,elapsed/timeout))));
-  return{elapsed,remaining,percentage:job.status==="completed"?100:
-   job.status==="running"?Math.max(job.percentage||0,estimated):job.percentage||estimated}
- }
- const clockText=s=>Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
- function progressMarkup(job,inline=false){
-  const p=progressValues(job);
-  const status=job.status==="completed"?"Завершено":job.status==="failed"?"Прервано":"Выполняется";
-  return '<div class="ir-ai-recognition-progress'+(job.status==="failed"?' failed':job.status==="completed"?' completed':'')+
-   (inline?' inline':'')+'" data-ai-analysis-progress>'+
-   '<div class="ir-ai-recognition-progress-head"><strong>'+esc(job.label)+'</strong>'+
-   '<b data-ai-progress-value>'+ (job.status==="running"?'≈ ':'')+p.percentage+'%</b></div>'+
-   '<progress max="100" value="'+p.percentage+'" data-ai-progress-bar aria-label="Оценка прогресса обработки PDF"></progress>'+
-   '<div class="ir-ai-recognition-progress-meta"><span data-ai-progress-state>'+status+
-   '</span><span data-ai-progress-elapsed>Прошло: '+clockText(p.elapsed)+'</span>'+
-   '<span data-ai-progress-remaining>'+(job.status==="running"?
-    'До лимита ожидания: '+clockText(p.remaining):
-    job.status==="completed"?'Обработка завершена':'Анализ остановлен до получения результата')+
-   '</span></div>'+
-   '<small>Процент оценочный, по времени ожидания; Qwen не сообщает фактический процент распознанного чертежа. Ответ может прийти раньше.</small></div>'
- }
- function updateProgressNodes(job){
-  if(!job||location.hash!==route)return;
-  const p=progressValues(job);
-  job.percentage=p.percentage;
-  const elements=[app.querySelector("[data-ai-analysis-progress]"),job.inlineNode].filter(Boolean);
-  for(const parent of elements){
-   const find=attr=>parent.querySelector?.('[data-ai-progress-'+attr+']');
-   const value=find("value"),bar=find("bar"),elapsed=find("elapsed"),remain=find("remaining");
-   if(value)value.textContent=(job.status==="running"?"≈ ":"")+p.percentage+"%";
-   if(bar)bar.value=p.percentage;
-   if(elapsed)elapsed.textContent="Прошло: "+clockText(p.elapsed);
-   if(remain)remain.textContent=job.status==="running"?
-    "До лимита ожидания: "+clockText(p.remaining):
-    job.status==="completed"?"Обработка завершена":"Анализ остановлен до получения результата";
-   const state=find("state");
-   if(state)state.textContent=job.status==="completed"?"Завершено":
-    job.status==="failed"?"Прервано":"Выполняется"
-  }
- }
-
-
- function matchingPdfIndex(d){
-  return pdfIndexes.find(x=>String(x.documentId)===String(d.id)&&
-   x.sourceSha256===d.sha256&&Array.isArray(x.pages)&&x.pages.length>0)
- }
- function fileIndexStatus(d){
-  if(!d.exists)return{label:"Файл отсутствует",css:"missing"};
-  const job=batchIndex?.files?.get(String(d.id));
-  const row=matchingPdfIndex(d);
-  if(job?.status==="error")return{label:"✕ Ошибка индексации",css:"index-error",
-   title:job.error};
-  if(job?.status==="running")return{
-   label:"Индексируется"+(job.page?" · лист "+job.page+
-    (job.total?" из "+job.total:""):"…"),css:"indexing"};
-  if(job?.status==="done"||row)return{
-   label:"✓ Индексирован · "+(job?.pages||row?.totalPages||row?.pages?.length||0)+
-    " лист(ов)",css:"indexed",title:"Текстовый индекс PDF, не распознавание конструкций"};
-  return{label:"Ожидает индексации",css:"waiting"}
- }
- function batchTotals(){
-  if(!batchIndex)return null;
-  const totals={all:batchIndex.files.size,done:0,failed:0,running:0};
-  for(const x of batchIndex.files.values()){
-   if(x.status==="done")totals.done++;
-   if(x.status==="error")totals.failed++;
-   if(x.status==="running")totals.running++
-  }
-  return totals
- }
- function batchSummary(){
-  const n=batchTotals();if(!n)return"";
-  return (batchIndex.running?"Индексируем по очереди":
-   batchIndex.interrupted?"Индексация остановлена":
-   n.failed?"Завершено с ошибками":"Индексация завершена")+
-   " · обработано "+(n.done+n.failed)+" из "+n.all+
-   " · ✓ "+n.done+(n.failed?" · ✕ "+n.failed:"")+
-   (n.running?" · "+batchIndex.currentName:"")
- }
- function updateIndexUi(){
-  if(active!=="documents"||location.hash!==route)return;
-  const box=app.querySelector("#irAiContent");if(!box)return;
-  const summary=box.querySelector?.("[data-ai-bulk-summary]");
-  if(summary){
-   summary.textContent=batchSummary();
-   summary.dataset.state=batchIndex?.running?"running":
-    batchTotals()?.failed?"error":"done"
-  }
-  for(const d of documents){
-   if(d.ext!==".pdf")continue;
-   const node=box.querySelector?.('[data-ai-index-status="'+d.id+'"]');
-   if(!node)continue;
-   const x=fileIndexStatus(d);
-   node.className="ir-ai-doc-status "+x.css;
-   node.textContent=x.label;node.title=x.title||""
-  }
- }
- async function indexAllPdfs(){
-  if(!pdf?.index||busy||!canEdit||!await authorizeAiMutation())return;
-  const eligible=documents.filter(d=>d.ext===".pdf"&&d.exists&&!d.archived);
-  if(!eligible.length){notice("Нет доступных PDF для индексации.");paint();return}
-  const job={running:true,interrupted:false,files:new Map(),currentName:""};
-  for(const d of eligible){
-   const saved=matchingPdfIndex(d);
-   job.files.set(String(d.id),saved?{status:"done",
-    pages:saved.totalPages||saved.pages.length}:{status:"waiting"})
-  }
-  batchIndex=job;busy=true;
-  notice("Индексируем все PDF последовательно, без нейросети. Галочка появляется после сохранения каждого файла.");
-  paint();
-  let off=null;
-  try{
-   if(typeof pdf.onProgress==="function")off=pdf.onProgress(event=>{
-    if(!job.running||String(event?.objectId)!==id)return;
-    const state=job.files.get(String(event.documentId));
-    if(state?.status!=="running")return;
-    if(Number.isSafeInteger(Number(event.page))&&Number(event.page)>=0)
-     state.page=Number(event.page);
-    if(Number.isSafeInteger(Number(event.total))&&Number(event.total)>0)
-     state.total=Number(event.total);
-    updateIndexUi()
-   });
-  }catch{}
-  try{
-   for(const d of eligible){
-    if(location.hash!==route){job.interrupted=true;break}
-    const state=job.files.get(String(d.id));
-    if(state.status==="done")continue;
-    state.status="running";job.currentName=d.name;updateIndexUi();
-    try{
-     const result=await pdf.index(id,d.id);
-     if(String(result?.documentId)!==String(d.id)||
-      result.sourceSha256!==d.sha256||
-      !Array.isArray(result.pages)||!result.pages.length)
-      throw Error("Индекс PDF не совпадает с исходным документом");
-     // UI cache only; the actual index was saved by the existing backend.
-     pdfIndexes=pdfIndexes.filter(x=>String(x.documentId)!==String(d.id));
-     pdfIndexes.push(result);
-     state.status="done";state.pages=result.totalPages||result.pages.length
-    }catch(error){
-     state.status="error";state.error=String(error?.message||error).slice(0,240)
-    }
-    updateIndexUi()
-   }
-  }finally{
-   if(typeof off==="function")off();
-   job.running=false;job.currentName="";busy=false;
-   const n=batchTotals();
-   notice((job.interrupted?"Индексация остановлена при уходе со страницы. ":
-    "Индексация завершена. ")+"Готово: "+n.done+" из "+n.all+
-    (n.failed?". Ошибки: "+n.failed+". Повторите запуск после исправления файлов.":""),
-    n.failed?"error":"info");
-   updateIndexUi();
-   if(location.hash===route)await reload()
-  }
- }
-
- const stepNumber=(n,done=false)=>'<span class="ir-ai-step-number'+(done?' done':'')+
-  '" aria-label="Шаг '+n+(done?' выполнен':'')+'">'+(done?'✓':n)+'</span>';
- try{object=await irProject.data.objects.get(id)}catch(error){app.textContent="Не удалось прочитать объект: "+String(error.message||error);return}
- if(!object){location.hash="/objects";return}
- const bridge=irProject.aiDocuments,ready=!!(bridge&&typeof bridge.list==="function"&&typeof bridge.select==="function");
- const referenceApi=irProject.aiKmdReference||null;
- const runtime=irProject.aiEngine||null,pdf=irProject.aiPdf||null,reviewer=irProject.aiReview||null,workflow=irProject.aiWorkflow||null,integrityApi=irProject.aiIntegrity||null,revisionsApi=irProject.aiRevisions||null,proposalsApi=irProject.aiProposals||null,quantities=irProject.aiMarkQuantities||null,materials=irProject.aiKmdMaterials||null,connections=irProject.aiKmdConnections||null,comparisons=irProject.aiKmKmdCompare||null;
- const canEdit=true;
- let aiWriteAuthUntil=0,referenceReadSequence=0,reloadSequence=0;
- // Local AI operations run without engineer credentials or passwords.
- async function authorizeAiMutation(){return true}
  async function reload(){
-  const requestId=++reloadSequence,jobs=[];
-  if(ready)jobs.push(bridge.list(id).then(v=>{
-   documents=v.filter(x=>!x.archived);
-   archivedDocuments=v.filter(x=>x.archived)
-  }).catch(error=>{documents=[];archivedDocuments=[];notice("Ошибка загрузки документов: "+String(error.message||error),"error")}));
-  const markSource=irProject.data?.forObject?.(id)?.section?.("marks");
-  if(markSource?.list)jobs.push(markSource.list().then(v=>{
-   planMarks=v
-  }).catch(error=>{planMarks=[];notice("Не удалось прочитать ведомость марок: "+
-   String(error.message||error),"error")}));
-  if(runtime)jobs.push(runtime.status().then(v=>{engine=v}).catch(error=>{engine=null;notice("Ошибка проверки локальной модели: "+String(error.message||error),"error")}));
-  if(reviewer){
-   jobs.push(reviewer.list(id).then(v=>{analyses=v}).catch(error=>{analyses=[];notice("Ошибка истории анализа: "+String(error.message||error),"error")}));
-   jobs.push(reviewer.register(id).then(v=>{verifiedMarks=v}).catch(error=>{verifiedMarks=[];notice("Ошибка подтверждённых марок: "+String(error.message||error),"error")}))
-  }else if(runtime)jobs.push(runtime.results(id).then(v=>{analyses=v}).catch(error=>{analyses=[];notice("Ошибка истории анализа: "+String(error.message||error),"error")}));
-  if(quantities&&["marks","metal","reference","integrity"].includes(active)){
-   jobs.push(quantities.list(id).then(v=>{quantityEntries=v}).catch(error=>{quantityEntries=[];notice("Ошибка загрузки количеств: "+String(error.message||error),"error")}));
-   jobs.push(quantities.summary(id).then(v=>{quantitySummary=v}).catch(error=>{quantitySummary=null;notice("Ошибка сводки отправочных марок: "+String(error.message||error),"error")}));
-  }
-  if(materials&&["metal","reference","integrity"].includes(active)){
-   jobs.push(materials.list(id).then(v=>{materialEntries=v}).catch(error=>{materialEntries=[];notice("Ошибка спецификации металла: "+String(error.message||error),"error")}));
-   jobs.push(materials.summary(id).then(v=>{materialSummary=v}).catch(error=>{materialSummary=null;notice("Ошибка сводки массы деталей: "+String(error.message||error),"error")}))
-  }
-  if(connections&&["fasteners","reference","integrity"].includes(active)){
-   jobs.push(connections.nodes(id).then(v=>{connectionNodes=v}).catch(error=>{connectionNodes=[];notice("Ошибка узлов КМД: "+String(error.message||error),"error")}));
-   jobs.push(connections.items(id).then(v=>{connectionItems=v}).catch(error=>{connectionItems=[];notice("Ошибка метизов КМД: "+String(error.message||error),"error")}));
-   jobs.push(connections.summary(id).then(v=>{connectionSummary=v}).catch(error=>{connectionSummary=null;notice("Ошибка сводки крепежа: "+String(error.message||error),"error")}))
-  }
-  if(comparisons&&["compare","integrity"].includes(active)){
-   jobs.push(comparisons.list(id).then(v=>{comparisonEntries=v}).catch(error=>{comparisonEntries=[];notice("Ошибка записей КМ/КМД: "+String(error.message||error),"error")}));
-   jobs.push(comparisons.summary(id).then(v=>{comparisonSummary=v}).catch(error=>{comparisonSummary=null;notice("Ошибка сводки сравнения: "+String(error.message||error),"error")}));
-   jobs.push(comparisons.fields().then(v=>{comparisonFields=v}).catch(error=>{comparisonFields={};notice("Ошибка перечня параметров КМ/КМД: "+String(error.message||error),"error")}))
-  }
-  if(workflow){
-   jobs.push(workflow.list(id).then(v=>{workflowTasks=v}).catch(error=>{workflowTasks=[];notice("Ошибка загрузки очереди: "+String(error.message||error),"error")}));
-   jobs.push(workflow.summary(id).then(v=>{workflowSummary=v}).catch(error=>{workflowSummary=null;notice("Ошибка статуса очереди: "+String(error.message||error),"error")}))
-  }
-  if(active==="integrity"&&integrityApi)
-   jobs.push(integrityApi.report(id).then(v=>{integrityReport=v})
-    .catch(error=>{integrityReport=null;notice("Контроль данных: "+String(error.message||error),"error")}));
-  if(referenceApi&&active==="reference"){
-   const sequence=++referenceReadSequence;
-   referenceRows=null;referenceChecks=null;referenceCompare=null;
-   if(typeof referenceApi.snapshot==="function")
-    jobs.push(referenceApi.snapshot(id).then(data=>{
-     if(!data||!Array.isArray(data.entries)||!data.checks||!data.comparison)
-      throw Error("Получен неполный снимок эталона КМД");
-     if(sequence===referenceReadSequence){
-      referenceRows=data.entries;referenceChecks=data.checks;referenceCompare=data.comparison
-     }
-    }).catch(e=>{
-     if(sequence!==referenceReadSequence)return;
-     referenceRows=null;referenceChecks=null;referenceCompare=null;
-     notice("Не удалось получить согласованную сверку эталона КМД: "+String(e.message||e),"error")
-    }));
-   else jobs.push(Promise.all([
-    referenceApi.list(id),referenceApi.checks(id),referenceApi.compare(id)
-   ]).then(([entries,sheets,comparison])=>{
-    if(sequence===referenceReadSequence){
-     referenceRows=entries;referenceChecks=sheets;referenceCompare=comparison
-    }
-   }).catch(e=>{
-    if(sequence!==referenceReadSequence)return;
-    referenceRows=null;referenceChecks=null;referenceCompare=null;
-    notice("Не удалось прочитать эталон КМД: "+String(e.message||e),"error")
-   }))
-  }
-  if(revisionsApi&&["revisions","integrity"].includes(active)){
-   jobs.push(revisionsApi.list(id).then(v=>{revisionSets=v}).catch(error=>{revisionSets=[];notice("Ошибка списка комплектов КМ/КМД: "+String(error.message||error),"error")}));
-   jobs.push(revisionsApi.impact(id).then(v=>{revisionImpact=v}).catch(error=>{revisionImpact=null;notice("Ошибка контроля действующих листов: "+String(error.message||error),"error")}))
-  }
-  if(proposalsApi&&["proposals","integrity"].includes(active)){
-   jobs.push(proposalsApi.list(id).then(v=>{proposalEntries=v}).catch(error=>{proposalEntries=[];notice("Ошибка предложений ИИ: "+String(error.message||error),"error")}));
-   jobs.push(proposalsApi.summary(id).then(v=>{proposalSummary=v}).catch(error=>{proposalSummary=null;notice("Ошибка сводки предложений: "+String(error.message||error),"error")}))
-  }
-  if(pdf)jobs.push(pdf.list(id).then(v=>{pdfIndexes=v}).catch(error=>{pdfIndexes=[];notice("Ошибка PDF-индекса: "+String(error.message||error),"error")}));
-  await Promise.all(jobs);
-  if(requestId===reloadSequence&&location.hash===route)paint()
- }
- function notice(text,type="info"){message=String(text||"");severity=type}
- function trackSheetAnalysis(label,inlineNode=null){
-  const job={label,startedAt:Date.now(),timeoutSeconds:Number(engine?.analysisTimeoutSeconds)||600,
-   percentage:6,status:"running",inlineNode};
-  analysisProgress=job;
-  if(inlineNode){inlineNode.hidden=false;inlineNode.innerHTML=progressMarkup(job,true)}
-  // The request is unstreamed; do not turn elapsed seconds into false neural completion.
-  const timer=setInterval(()=>updateProgressNodes(job),1000);
-  updateProgressNodes(job);
-  return result=>{
-   clearInterval(timer);
-   if(analysisProgress!==job)return;
-   job.status=result==="completed"?"completed":"failed";
-   updateProgressNodes(job)
-  }
- }
- function openTab(tab){
-  if(!tabs.some(x=>x[0]===tab))return;
-  if(active==="scheme-lite"&&tab!=="scheme-lite")window.irAiSchemeLitePage?.dispose?.();
-  active=tab;
-  if(tab==="reference"||tab==="integrity")void reload();
-  else paint()
- }
- async function showSchemeLite(box){
-  const loading=box;
-  box.innerHTML='<div class="ir-ai-doc-empty">Загружаем быстрый анализ монтажных чертежей…</div>';
+  if(!isCurrent())return;
   try{
-   if(!window.irAiSchemeLitePage){
-    if(!liteLoader)liteLoader=new Promise((resolve,reject)=>{
-     const script=document.createElement("script");
-     // Hot-updated AI modules are served by the existing irapp file resolver.
-     script.src="irapp://app/src/ai-scheme-lite-page.js";
-     script.onload=()=>window.irAiSchemeLitePage?resolve():reject(Error("Модуль не инициализировался"));
-     script.onerror=()=>reject(Error("Не удалось загрузить модуль"));
-     document.head.appendChild(script)
-    });
-    await liteLoader
-   }
-   if(location.hash!==route||active!=="scheme-lite"||app.querySelector("#irAiContent")!==loading)return;
-   await window.irAiSchemeLitePage.render(box,{
-    objectId:id,documents,indexes:pdfIndexes,canEdit,
-    root:irProject.data.forObject(id),window,pdf,reviewer,
-    askPassword:requestReviewPassword,
-    onOpenPdf:openPdfPreview,
-    onNavigate:tab=>tab==="scheme"?
-     (location.hash="/objects/object/"+id+"/scheme"):openTab(tab)
-   })
-  }catch(error){
-   if(active==="scheme-lite"&&app.querySelector("#irAiContent")===loading)
-    box.textContent="Быстрый анализ недоступен: "+String(error.message||error)
-  }
+   const [records,pages]=await Promise.all([docsApi.list(id),pdf.list(id)]);
+   if(!isCurrent())return;
+   docs=records.filter(x=>!x.archived);archived=records.filter(x=>x.archived);
+   indexes=Array.isArray(pages)?pages:[];
+  }catch(ex){error=true;notice="Ошибка чтения документов: "+String(ex.message||ex)}
+  paint()
+ }
+ function progress(){
+  if(!bulk)return"";
+  const rows=[...bulk.rows.values()],done=rows.filter(r=>r.state==="done").length,
+   errors=rows.filter(r=>r.state==="error").length;
+  return (bulk.running?"Индексируем PDF по одному файлу":"Индексация завершена")+
+   " · готово "+done+" из "+rows.length+(errors?" · ошибок "+errors:"")+
+   (bulk.current?" · сейчас: "+bulk.current:"")
  }
  function paint(){
-  if(location.hash!==route)return;
-  const state=engine?.state||"missing",stateNames={
-   missing:"Пакет модели не установлен",invalid:"Пакет повреждён",
-   stopped:"Модель остановлена",starting:"Модель загружается",
-   ready:"Модель готова",failed:"Ошибка локальной модели"};
-  const modelReady=state==="ready";
-  const indexedPages=pdfIndexes.reduce((sum,x)=>sum+(x.totalPages||0),0);
-  const availableDocs=documents.filter(x=>x.exists);
-  const knownKinds=[...new Set(availableDocs.map(x=>x.kind).filter(x=>["КМ","КМД"].includes(x)))];
-  if(selectedKind==="Не определён"&&knownKinds.length===1)selectedKind=knownKinds[0];
-  const hasCorrectKind=["КМ","КМД"].includes(selectedKind)&&(!availableDocs.length||availableDocs.every(x=>["КМ","КМД"].includes(x.kind)));
-  const indexedIds=new Set(pdfIndexes.filter(x=>availableDocs.some(d=>
-   String(d.id)===String(x.documentId)&&d.sha256===x.sourceSha256&&d.ext===".pdf"&&
-   Array.isArray(x.pages)&&x.pages.length>0)).map(x=>String(x.documentId)));
-  const hasIndex=indexedIds.size>0;
-  // Earlier successful analyses are not evidence that the most recent
-  // attempt completed. Keep step 5 active after a local connection failure.
-  const recognized=analysisProgress?.status!=="failed"&&analyses.some(x=>availableDocs.some(d=>
-   String(d.id)===String(x.documentId)&&d.sha256===x.sha256)&&
-   (x.originalMarks?.length||x.notes?.marks?.length||x.notes?.text?.trim()||
-    x.notes?.structured?.records?.length));
-  const reviewed=analyses.some(x=>availableDocs.some(d=>
-   String(d.id)===String(x.documentId)&&d.sha256===x.sha256)&&
-   ["confirmed","rejected"].includes(x.status));
-  // For montage layout Qwen is optional. Do not force it on every KMD sheet.
-  const stepDone=[planMarks.length>0,availableDocs.length>0,hasIndex,false];
-  const stepLabels=["Загрузить ведомость марок","Добавить КМ/КМД",
-   "Индексировать PDF","Подготовить расстановку"];
-  const missingStep=stepDone.findIndex(done=>!done);
-  const activeStep=missingStep<0?4:missingStep+1;
-  const stepsHtml='<div class="ir-ai-step-guide" role="status" aria-label="Порядок распознавания чертежей">'+
-   '<b>Порядок действий:</b>'+stepLabels.map((label,i)=>
-    '<span class="ir-ai-step-guide-item'+(stepDone[i]?' complete':i+1===activeStep?' current':'')+'">'+
-    stepNumber(i+1,stepDone[i])+esc(label)+'</span>').join('')+
-   '<small>'+(analysisProgress?.status==="failed"?
-    "Обработка сложного листа через Qwen прервана. Текстовые PDF можно продолжать использовать; при необходимости повторите анализ листа.":
-    'Следующий шаг: '+activeStep+'. '+esc(stepLabels[activeStep-1])+
-    '. Qwen требуется только для сложных листов.')+'</small></div>';
-  window.irAiAssemblyPage?.dispose?.();
+  if(!isCurrent())return;
   app.innerHTML='<div class="ir-ai-page">'+
-   '<header class="ir-ai-hero"><div class="ir-ai-heading"><div class="ir-ai-kicker">IR PROJECT · ЛОКАЛЬНЫЙ ИНЖЕНЕРНЫЙ МОДУЛЬ</div>'+
-   '<h1>IR Project AI <span>Расстановка конструкций по КМ/КМД</span></h1>'+
-   '<p>'+esc(object.name)+' · Все данные отдельно для этого объекта</p></div>'+
-   '<div class="ir-ai-state"><span class="ir-ai-state-dot"></span><div><strong>'+esc(stateNames[state]||"Не определено")+'</strong><small>'+esc(engine?.reason||((engine?.model||"Qwen3-VL")+(engine?.modelVersion?" · v"+engine.modelVersion:"")+(engine?.installed&&engine?.contextTokens?" · контекст "+engine.contextTokens+" токенов":"")+" · автономный режим"))+'</small></div></div></header>'+
-   '<div class="ir-ai-stats"><div><small>Загружено файлов</small><b>'+documents.length+'</b><span>Локальное хранение</span></div>'+
-   '<div><small>Проиндексировано листов PDF</small><b>'+indexedPages+'</b><span>Текстовые слои, без ИИ</span></div>'+
-   '<div><small>Марок в ведомости</small><b>'+planMarks.length+
-   '</b><span>Загруженные исходные марки</span></div>'+
-   '<div><small>Требует проверки</small><b>'+analyses.filter(x=>!x.status||x.status==="requires_review").length+'</b><span>Результаты пока не подтверждены</span></div></div>'+
-   '<div class="ir-ai-actions"><label><span class="ir-ai-kind-label">Тип загружаемого комплекта</span><select id="irAiKind"><option value="Не определён">Не определён</option>'+
-   '<option value="КМ">КМ</option><option value="КМД">КМД</option></select></label>'+
-   '<button class="ir-ai-primary" id="irAiUpload" '+(!ready||!canEdit||busy?'disabled':'')+'>'+stepNumber(2,availableDocs.length>0)+' Добавить чертежи</button>'+
-   '<button class="ir-ai-primary" id="irAiPlan" '+(!hasIndex?'disabled title="Сначала проиндексируйте PDF"':'')+'>4. Построить черновик схемы</button>'+ 
-   '<button id="irAiRecognize" '+(!runtime||!engine?.installed||modelReady||busy||!canEdit?'disabled':'')+'>Запустить Qwen для сложных листов</button>'+
-   '<button id="irAiStop" '+(!runtime||!canEdit||!(state==="ready"||state==="starting")?'disabled':'')+'>Остановить ИИ</button>'+
-   '<button id="irAiRefresh" '+(!runtime||busy?'disabled':'')+'>Проверить ИИ</button>'+
-   ''+
-   '<span class="ir-ai-action-note">Листы PDF: просмотр и анализ Qwen. Исправления ИИ Beta: «Проверить обновления» → скачать небольшой пакет → перезапустить, без переустановки EXE.</span></div>'+
-   stepsHtml+
-   (modelReady?'<div class="ir-ai-acceleration-state" role="status">'+
-    (engine?.gpuLayers>0?
-     '<b>GPU '+esc(engine.gpuLayers)+' слоёв</b> · '+(engine.gpuConfirmed?
-      'Подтверждена выгрузка слоёв Qwen на видеокарту.' :
-      'Ускорение запрошено; фактическая выгрузка ещё не подтверждена логом llama.cpp.') :
-     '<b>CPU-режим</b> · GPU-слоёв: 0. '+(engine?.gpuBackendFound?
-      'CUDA-файлы найдены, но безопасная выгрузка на GPU не включилась (возможно, мало свободной видеопамяти).' :
-      'Для видеоускорения нужна совместимая CUDA-сборка llama.cpp.'))+
-    (engine?.gpuFallback?' '+esc(engine.gpuFallback):'')+
-    '</div>':'')+
-   (analysisProgress?progressMarkup(analysisProgress):"")+
-   (!ready||!runtime?'<div class="ir-ai-warning" role="status"><b>Требуется новая установка Electron.</b> Действующий установщик не содержит мост локального ИИ; обновления интерфейса недостаточно.</div>':'')+
-   (!engine?.installed?'<div class="ir-ai-warning" role="status"><b>Qwen не установлен.</b> Для PDF с текстовым слоем он не нужен. Для сложных листов установите модель отдельно.</div>':'')+
-   (modelReady&&engine?.gpuLayers===0&&Number.isFinite(engine?.ramFreeGb)&&engine.ramFreeGb<2?
-    '<div class="ir-ai-warning" role="status"><b>Мало свободной оперативной памяти: '+esc(engine.ramFreeGb)+' ГБ.</b> Qwen запущена без GPU-слоёв. При анализе целого листа КМД сервер может завершиться. Для первой проверки рекомендуем распознать увеличенный штамп К60. Это предупреждение, а не установленная причина предыдущего сбоя.</div>':'')+
-   (message?'<div class="ir-ai-message '+(severity==="error"?"error":"")+'" role="status">'+esc(message)+'</div>':'')+
-   '<div class="ir-ai-layout"><div class="ir-ai-main"><nav class="ir-ai-tabs" aria-label="Вкладки инженерного анализа">'+tabs.map(t=>
-    '<button type="button" data-ai-tab="'+t[0]+'" class="'+(active===t[0]?'active':'')+'">'+esc(t[1])+'</button>').join("")+'</nav>'+
-   '<section id="irAiContent" class="ir-ai-content"></section></div>'+
-   '<aside class="ir-ai-assistant"><div class="ir-ai-assistant-head"><b>ИИ-помощник</b><span>Офлайн</span></div>'+
-   '<p>'+esc(modelReady?"Qwen запущена. Для сложных листов откройте «Распознавание». Чат по чертежам ещё не подключён.":engine?.installed?"Qwen подключена, но остановлена. Для анализа PDF запустите локальный ИИ.":"Модель не подключена. Зарегистрируйте Qwen в настройках локальных ИИ-моделей.")+'</p>'+
-   '<div class="ir-ai-chat-empty">'+esc(modelReady?"Qwen работает. Чат-помощник ещё не реализован; ответы не имитируются.":"История запросов пока отсутствует. Ответы не имитируются.")+'</div>'+
-   '<textarea disabled placeholder="'+esc(modelReady?"Чат пока недоступен — используйте конвейер PDF":"Чат пока недоступен")+'"></textarea><button disabled>Отправить</button></aside></div>'+
-   '<footer class="ir-ai-footer">Быстрый конвейер монтажной схемы: анализ текстовых слоёв без Qwen, размещение только после проверки исходного чертежа. Детальная 3D-модель марок необязательна.</footer></div>';
-  app.querySelectorAll("[data-ai-tab]").forEach(button=>{
-   if(button.dataset.aiTab==="checks")button.innerHTML="Проверка";
-   button.onclick=()=>openTab(button.dataset.aiTab)
-  });
-  const kindSelect=app.querySelector("#irAiKind");
-  if(kindSelect){kindSelect.value=selectedKind;kindSelect.onchange=()=>{selectedKind=kindSelect.value;paint()}}
-  const upload=app.querySelector("#irAiUpload");
-  upload.onclick=async()=>{
-   if(!ready||!canEdit||busy||!await authorizeAiMutation())return;busy=true;
-   upload.disabled=true;upload.textContent="Импортируем файлы…";
+   '<div class="ir-ai-header"><div><h1>Чертежи КМ/КМД</h1>'+
+   '<p>Локальная обработка PDF: текст, оси, геометрия, размерные цепочки и размещение марок. Без нейросетей.</p></div>'+
+   '<button type="button" data-kmd-scheme>Открыть монтажную схему 2D/3D</button></div>'+
+   '<div class="ir-ai-doc-toolbar"><label>Комплект <select data-kmd-kind>'+
+   '<option value="КМ"'+(kind==="КМ"?" selected":"")+'>КМ</option>'+
+   '<option value="КМД"'+(kind==="КМД"?" selected":"")+'>КМД</option></select></label>'+
+   '<button type="button" data-kmd-upload '+(busy?'disabled':'')+'>Добавить чертежи</button>'+
+   '<button type="button" data-kmd-register>Ведомость марок</button></div>'+
+   '<nav class="ir-ai-tabs"><button type="button" data-kmd-tab="documents" class="'+
+   (active==="documents"?"active":"")+'">Чертежи и индексация</button>'+
+   '<button type="button" data-kmd-tab="scheme-lite" class="'+
+   (active==="scheme-lite"?"active":"")+'">Геометрический анализ</button></nav>'+
+   (notice?'<p role="status" class="ir-ai-message'+(error?' error':'')+'">'+esc(notice)+'</p>':"")+
+   '<div id="irAiContent" class="ir-ai-content"></div></div>';
+  for(const btn of app.querySelectorAll("[data-kmd-tab]"))
+   btn.onclick=()=>switchTab(btn.dataset.kmdTab);
+  app.querySelector("[data-kmd-scheme]").onclick=()=>location.hash=
+   "/objects/object/"+id+"/scheme";
+  app.querySelector("[data-kmd-register]").onclick=()=>location.hash=
+   "/objects/object/"+id+"/marks";
+  const select=app.querySelector("[data-kmd-kind]");
+  if(select)select.onchange=()=>{kind=select.value};
+  const upload=app.querySelector("[data-kmd-upload]");
+  if(upload)upload.onclick=async()=>{
+   if(busy||!docsApi?.select)return;
+   busy=true;notice="Добавляем чертежи…";error=false;paint();
    try{
-    const kind=app.querySelector("#irAiKind").value,answer=await bridge.select(id,kind);
-    if(answer.canceled)return;
-    const count=answer.imported?.length||0,skipped=answer.skipped?.length||0,errors=answer.errors||[];
-    notice("Загружено: "+count+". Дубликатов: "+skipped+". Ошибок: "+errors.length+
-      (errors.length?" · "+errors.slice(0,2).map(x=>x.name+": "+x.error).join("; "):""),errors.length?"error":"info");
-    active="documents";
-   }catch(error){notice("Не удалось импортировать файлы: "+String(error.message||error),"error")}
+    const result=await docsApi.select(id,kind);
+    if(!result.canceled)notice="Загружено: "+(result.imported?.length||0)+
+     " · дубликатов: "+(result.skipped?.length||0)+
+     " · ошибок: "+(result.errors?.length||0);
+   }catch(ex){notice="Не удалось добавить PDF: "+String(ex.message||ex);error=true}
    finally{busy=false;await reload()}
   };
-  const planButton=app.querySelector("#irAiPlan");if(planButton)planButton.onclick=()=>openTab("scheme-lite");
-  app.querySelector("#irAiRecognize").onclick=async()=>{
-   if(!runtime||busy||!canEdit||!await authorizeAiMutation())return;
-   busy=true;notice("Запускаем локальную модель, ожидаем реальной готовности…");paint();
-   try{const response=await runtime.start();engine=response;if(response.state==="ready")notice("Локальная модель запущена.");else notice(response.reason||"Модель не запущена","error")}
-   catch(error){notice("Ошибка запуска: "+String(error.message||error),"error")}
-   finally{busy=false;await reload()}
-  };
-  app.querySelector("#irAiStop").onclick=async()=>{
-   if(!runtime||!canEdit||!await authorizeAiMutation())return;
-   try{engine=await runtime.stop();notice("Локальный ИИ остановлен.")}
-   catch(error){notice("Ошибка остановки: "+String(error.message||error),"error")}
-   await reload()
-  };
-  app.querySelector("#irAiRefresh").onclick=()=>reload();
-  showContent()
+  if(active==="scheme-lite")void showScheme();
+  else showDocuments()
  }
- function showContent(){
-  const modelReady=engine?.state==="ready";
-  const indexedIds=new Set(pdfIndexes.filter(x=>documents.some(d=>
-   String(d.id)===String(x.documentId)&&d.sha256===x.sourceSha256&&
-   Array.isArray(x.pages)&&x.pages.length>0)).map(x=>String(x.documentId)));
-  const recognized=analyses.some(x=>documents.some(d=>
-   String(d.id)===String(x.documentId)&&d.sha256===x.sha256)&&
-   (x.originalMarks?.length||x.notes?.marks?.length||x.notes?.text?.trim()||
-    x.notes?.structured?.records?.length));
+ function switchTab(tab){
+  if(tab!==active&&active==="scheme-lite")window.irAiSchemeLitePage?.dispose?.();
+  if(tab!=="documents"&&tab!=="scheme-lite")return;
+  active=tab;paint()
+ }
+ function showDocuments(){
   const box=app.querySelector("#irAiContent");if(!box)return;
-  if(active==="scheme-lite"){void showSchemeLite(box);return}
-  if(active==="integrity"){
-   if(window.irAiIntegrityPage)window.irAiIntegrityPage.render(box,{
-    report:integrityReport,onRefresh:reload,
-    onNavigate:tab=>openTab(tab)
-   });
-   else box.innerHTML='<div class="ir-ai-doc-empty">Модуль контроля данных не загружен.</div>';
-   return
-  }
-  if(active==="reference"){
-   if(window.irAiKmdReferencePage&&referenceApi)window.irAiKmdReferencePage.render(box,{
-    objectId:id,entries:referenceRows,checks:referenceChecks,comparison:referenceCompare,
-    api:referenceApi,reviewer,askPassword:requestReviewPassword,canEdit,
-    onRefresh:reload,openPdf:openPdfPreview,notice,
-    onNavigate:target=>{
-     if(!target||!["marks","metal","fasteners"].includes(target.tab))return;
-     active=target.tab;paint();
-     if(target.actualId==null)return;
-     const key=target.type==="mark"?"quantity-edit":
-      target.type==="part"?"metal-edit":
-      target.type==="joint"?"joint-edit":"item-edit";
-     const idValue=Number(target.actualId);
-     if(!Number.isSafeInteger(idValue)||idValue<=0)return;
-     const button=app.querySelector('#irAiContent [data-'+key+'="'+idValue+'"]');
-     if(button){
-      const disclosure=button.closest("details");
-      if(disclosure)disclosure.open=true;
-      button.scrollIntoView({block:"center",behavior:"auto"});
-      button.focus({preventScroll:true})
-     }
-    }
-   });
-   else box.innerHTML='<div class="ir-ai-doc-empty">Эталон КМД недоступен в этой версии.</div>';
-   return
-  }
-  if(active==="revisions"){
-   if(window.irAiRevisionPage)window.irAiRevisionPage.render(box,{
-    objectId:id,sets:revisionSets,impact:revisionImpact,documents,indexes:pdfIndexes,
-    api:revisionsApi,reviewer,askPassword:requestReviewPassword,canEdit,
-    openPdf:openPdfPreview,onRefresh:reload,notice,
-    onNavigate:tab=>openTab(tab)
-   });
-   else box.innerHTML='<div class="ir-ai-doc-empty">Модуль контроля ревизий не загружен.</div>';
-   return
-  }
-  if(active==="proposals"){
-   if(window.irAiProposalsPage)window.irAiProposalsPage.render(box,{
-    objectId:id,proposals:proposalEntries,summary:proposalSummary,
-    api:proposalsApi,reviewer,askPassword:requestReviewPassword,canEdit,
-    openPdf:openPdfPreview,onRefresh:reload,notice,
-    onPrepareQuantity:p=>{
-     if(!p?.approved||!p.sourceValid||p.source.kind!=="КМД"||p.type!=="mark_quantity")return;
-     active="marks";paint();void openQuantityEditor(null,p)
-    }
-   });
-   else box.innerHTML='<div class="ir-ai-doc-empty">Проверка структурированных предложений пока недоступна.</div>';
-   return
-  }
-  if(active==="workflow"){
-   if(window.irAiWorkflowPage)window.irAiWorkflowPage.render(box,{
-    objectId:id,documents,indexes:pdfIndexes,tasks:workflowTasks,summary:workflowSummary,
-    quantities:quantitySummary,materials:materialSummary,connections:connectionSummary,
-    comparisons:comparisonSummary,canEdit,queue:workflow,reviewer,
-    askPassword:requestReviewPassword,notice,
-    onNavigate:tab=>openTab(tab),onRefresh:reload
-   });
-   else box.innerHTML='<div class="ir-ai-doc-empty">Модуль очереди листов не загружен.</div>';
-   return
-  }
-  if(active==="marks"||active==="metal"){
-   box.innerHTML='<div class="ir-ai-review-heading"><div><h2>Реестр подтверждённых марок</h2>'+
-    '<p>Только марки, проверенные инженером по исходным чертежам. Число упоминаний не равно количеству отправочных элементов.</p></div>'+
-    '<b>'+verifiedMarks.length+' уникальных обозначений</b></div>'+
-    (!verifiedMarks.length?'<div class="ir-ai-doc-empty"><b>Нет подтверждённых марок</b>'+
-     '<p>Загрузите чертежи, выполните анализ, затем проверьте марки во вкладке «Проверка и ошибки». Записи из ИИ нельзя автоматически принимать как ведомость.</p></div>':
-     '<div class="ir-ai-table-wrap"><table class="ir-ai-doc-table ir-ai-verified-table"><thead>'+
-      '<tr><th>Марка</th><th>Источники подтверждения</th><th>Количество конструкций</th><th>Чертежи</th></tr></thead><tbody>'+
-      verifiedMarks.map(row=>'<tr><td><strong>'+esc(row.mark)+'</strong></td><td>'+row.analysisCount+
-       ' проверенных упоминаний</td><td>Не установлено</td><td>'+
-       row.sources.map(src=>'<div class="ir-ai-mark-source">'+esc(src.sourceName)+
-        (src.page?' · лист '+src.page:"")+(src.region?" · фрагмент":"")+
-        ' <button type="button" data-ai-source="'+src.documentId+':'+(src.page||1)+'" '+
-         (src.page?'':'disabled')+'>Открыть лист</button></div>').join("")+
-       '</td></tr>').join("")+'</tbody></table></div>')+
-    '<div class="ir-ai-storage-note">Единицы марок, профили, масса и количество экземпляров требуют отдельной проверки спецификаций КМД. Подтверждение обозначения не переносит его в основные ведомости IR Project.</div>';
-   box.querySelectorAll("[data-ai-source]").forEach(button=>button.onclick=()=>{
-    const [did,page]=button.dataset.aiSource.split(":");void openPdfPreview(did,page)
-   });
-   const total=quantitySummary||{rows:[],confirmedPositionCount:"—",confirmedPieces:"—",pendingCount:"—",rejectedCount:"—"};
-   const summaryRows=total.rows||[];
-   const labels={requires_review:"Требует проверки",confirmed:"Подтверждено",rejected:"Отклонено"};
-   box.insertAdjacentHTML("beforeend",'<section class="ir-ai-quantity-section">'+
-    (!quantitySummary?'<div class="ir-ai-quantity-warning">Сводка количества не рассчитана. Прочерки не означают нулевой объём: проверьте сообщения об ошибке и повторите загрузку.</div>':"")+
-    '<div class="ir-ai-review-heading"><div><h2>Ведомость отправочных элементов по КМД</h2>'+
-     '<p>Количество в штуках только по конкретной позиции спецификации и после подтверждения инженером. Упоминания марки не суммируются.</p></div>'+
-     '<div class="ir-ai-quantity-totals"><b>'+total.confirmedPositionCount+' позиций</b><b>'+total.confirmedPieces+' шт. подтверждено</b></div></div>'+
-    '<div class="ir-ai-quantity-warning">Это сумма проверенных позиций, а не окончательное количество конструкций всего объекта. До проверки полного комплекта КМД общая ведомость считается неполной.</div>'+
-    '<div class="ir-ai-quantity-toolbar"><span>На проверке: '+total.pendingCount+' · отклонено: '+total.rejectedCount+'</span>'+
-     (canEdit&&quantities?'<button type="button" data-quantity-new>＋ Добавить позицию из КМД</button>':"")+'</div>'+
-    (summaryRows.length?'<div class="ir-ai-table-wrap"><table class="ir-ai-doc-table"><thead><tr>'+
-     '<th>Марка / шифры</th><th>Подтверждённое количество</th><th>Основание КМД</th><th></th></tr></thead><tbody>'+
-     summaryRows.map(row=>'<tr><td><strong>'+esc(row.mark)+'</strong>'+
-      '<small>'+esc([row.cipher,row.secondaryCipher].filter(Boolean).join(" / ")||"Без шифра")+'</small></td>'+
-      '<td><strong>'+row.quantity+' шт.</strong></td>'+
-      '<td>'+esc(row.source.name)+' · лист '+row.source.page+' · позиция '+esc(row.source.specPosition)+
-       (row.source.drawingRevision?' · изм. '+esc(row.source.drawingRevision):"")+'</td>'+
-      '<td><button type="button" data-quantity-edit="'+row.id+'" '+(!canEdit?'disabled':'')+'>Открыть</button></td></tr>').join("")+
-     '</tbody></table></div>':
-     '<div class="ir-ai-doc-empty"><b>Количество отправочных марок не подтверждено</b>'+
-      '<p>'+(quantitySummary?
-      'Добавьте позицию по спецификации загруженного PDF КМД и подтвердите её количество. Пока числовой итог не определён.':
-      'Не удалось проверить итоговое количество. Данные в таблице остаются доступными для исправления.')+
-     '</p></div>')+
-    (quantityEntries.length?'<details class="ir-ai-quantity-drafts"><summary>Все записи ведомости · '+quantityEntries.length+
-     ' (включая неподтверждённые)</summary>'+
-     quantityEntries.map(row=>'<div><b>'+esc(row.mark)+' · '+esc(row.cipher||"без шифра")+'</b>'+
-      ' · '+(row.quantity===null?"количество не установлено":row.quantity+" шт.")+
-      ' · '+esc(labels[row.status]||"Требует проверки")+
-      (!row.sourceValid?' · ИСТОЧНИК ИЗМЕНЁН/ОТСУТСТВУЕТ':"")+
-      '<button type="button" data-quantity-edit="'+row.id+'" '+(!canEdit?'disabled':'')+'>Редактировать</button>'+
-      '<button type="button" data-quantity-history="'+row.id+'">История</button>'+
-      '<div data-quantity-log="'+row.id+'" hidden></div></div>').join("")+'</details>':"")+
-    '<p class="ir-ai-storage-note">Проверенные количества пока учитываются только внутри IR Project AI и не переносятся в рабочие марки, объёмы, отчёты или монтажную схему.</p>'+
-    '</section>');
-   const openEntry=button=>{
-    if(!canEdit||!quantities)return;
-    const row=button.dataset.quantityEdit?
-     quantityEntries.find(item=>String(item.id)===button.dataset.quantityEdit):null;
-    void openQuantityEditor(row||null)
-   };
-   box.querySelectorAll("[data-quantity-new],[data-quantity-edit]").forEach(button=>button.onclick=()=>openEntry(button));
-   box.querySelectorAll("[data-quantity-history]").forEach(button=>button.onclick=async()=>{
-    if(!quantities)return;
-    const slot=box.querySelector('[data-quantity-log="'+button.dataset.quantityHistory+'"]');
-    if(!slot)return;
-    if(!slot.hidden){slot.hidden=true;return}
-    slot.hidden=false;slot.textContent="Загружаем историю количества...";
-    try{
-     const entries=await quantities.history(id,button.dataset.quantityHistory);
-     slot.innerHTML=entries.length?entries.map(change=>'<div class="ir-ai-quantity-log-entry">'+
-      '<b>Редакция '+change.revision+'</b> · '+esc(change.reviewedAt)+
-      ' · '+esc(change.reviewedBy)+' · '+esc(change.current?.quantity??"не указано")+' шт.'+
-      ' · '+esc(labels[change.current?.status]||"Требует проверки")+'</div>').join(""):
-      'Изменений пока нет'
-    }catch(error){slot.textContent="Ошибка журнала: "+String(error.message||error)}
-   });
-   const m=materialSummary||{confirmedDetailPositions:"—",confirmedAssemblies:"—",
-    confirmedMassKg:null,confirmedMassTonnes:null,pendingCount:"—",rejectedCount:"—",byAssembly:[]};
-   const formatKg=value=>value==null?"—":Number(value).toLocaleString("ru-RU",{maximumFractionDigits:5});
-   const kindLabels={plate:"Листовая деталь",rib:"Ребро жёсткости",gusset:"Косынка",profile:"Прокатный профиль",pipe:"Труба",rod:"Пруток",other:"Другая деталь"};
-   const massLabels={drawing:"Масса по КМД",rectangular:"Расчёт прямоугольника",linear:"Масса погонного метра"};
-   const counted=materialEntries.filter(part=>part.counted);
-   box.insertAdjacentHTML("beforeend",'<section class="ir-ai-metal-section">'+
-    (!materialSummary?'<div class="ir-ai-quantity-warning">Сводка массы не рассчитана. Прочерки не означают отсутствие деталей или нулевой тоннаж. Проверьте сообщения об ошибке.</div>':"")+
-    '<div class="ir-ai-review-heading"><div><h2>Спецификация металла и деталей КМД</h2>'+
-     '<p>Состав каждой отправочной марки: пластины, рёбра, косынки, балки, профили, трубы. Все детали привязаны к листу и позиции КМД.</p></div>'+
-     '<div class="ir-ai-quantity-totals"><b>'+m.confirmedDetailPositions+' проверенных деталей</b>'+
-      '<b>'+formatKg(m.confirmedMassKg)+' кг · '+formatKg(m.confirmedMassTonnes)+' тн</b></div></div>'+
-    '<div class="ir-ai-quantity-warning">Указана только частичная масса по подтверждённым позициям. Это не проектный тоннаж объекта и не готовность монтажной схемы. Масса метизов будет учитываться в отдельном разделе.</div>'+
-    '<div class="ir-ai-quantity-toolbar"><span>Отправочных марок с проверенными деталями: '+m.confirmedAssemblies+
-     ' · требуют проверки: '+m.pendingCount+' · отклонены: '+m.rejectedCount+'</span>'+
-     (canEdit&&materials?'<button type="button" data-metal-new>＋ Добавить деталь КМД</button>':"")+'</div>'+
-    (counted.length?'<div class="ir-ai-table-wrap"><table class="ir-ai-doc-table"><thead>'+
-     '<tr><th>Марка / позиция</th><th>Материал и профиль</th><th>Количество</th>'+
-     '<th>Масса на марку</th><th>Масса всего</th><th>Основание</th><th></th></tr></thead><tbody>'+
-     counted.map(part=>'<tr><td><strong>'+esc(part.assemblyMark)+' / '+esc(part.position)+'</strong>'+
-      '<small>'+esc(kindLabels[part.type]||part.type)+'</small></td>'+
-      '<td>'+esc(part.steelGrade)+' · '+esc(part.profile||part.name||"—")+
-       '<small>'+esc(massLabels[part.massMethod]||part.massMethod)+'</small></td>'+
-      '<td>'+part.partCount+' шт. на марку × '+part.assemblyQuantity+' марок</td>'+
-      '<td>'+formatKg(part.massPerAssemblyKg)+' кг</td>'+
-      '<td><b>'+formatKg(part.totalMassKg)+' кг</b></td>'+
-      '<td>'+esc(part.source.name)+' · лист '+part.source.page+
-       ' · '+esc(part.source.specPosition)+'</td>'+
-      '<td><button type="button" data-metal-edit="'+part.id+'" '+(!canEdit?'disabled':'')+'>Открыть</button></td></tr>').join("")+
-     '</tbody></table></div>':
-     '<div class="ir-ai-doc-empty"><b>Подтверждённой спецификации металла пока нет</b>'+
-      '<p>'+(materialSummary?
-       'Добавьте детали из КМД и укажите исходную массу либо проверенные параметры для расчёта. Итоги появятся только после подтверждения инженером.':
-       'Не удалось рассчитать итоговую массу. Проверьте состояние записей, источников и повторите загрузку.')+
-      '</p></div>')+
-    (materialEntries.length?'<details class="ir-ai-quantity-drafts"><summary>Все детали · '+materialEntries.length+
-     ' (в том числе неподтверждённые)</summary>'+
-     materialEntries.map(part=>'<div><b>'+esc(part.assemblyMark)+' / '+esc(part.position)+'</b> · '+
-      esc(kindLabels[part.type]||"")+' · '+esc(part.steelGrade||"сталь не указана")+
-      ' · '+(part.calculatedUnitMassKg==null?"масса неизвестна":formatKg(part.calculatedUnitMassKg)+" кг/деталь")+
-      ' · '+esc(labels[part.status]||"")+
-      (!part.counted?' · не включено в итог'+(part.reason?': '+esc(part.reason):""):"")+
-      (canEdit?'<button type="button" data-metal-edit="'+part.id+'">Редактировать</button>':"")+
-      '<button type="button" data-metal-history="'+part.id+'">История</button>'+
-      '<div data-metal-log="'+part.id+'" hidden></div></div>').join("")+'</details>':"")+
-    '<p class="ir-ai-storage-note">Теоретическая масса прямоугольной детали рассчитывается по габаритам и указанной плотности и не учитывает вырезы, отверстия, разделку кромок и сварные швы. Для деталей сложной формы используйте массу по спецификации/КМД. В основные ведомости данные автоматически не передаются.</p>'+
-    '</section>');
-   box.querySelectorAll("[data-metal-new],[data-metal-edit]").forEach(button=>button.onclick=()=>{
-    const row=button.dataset.metalEdit?materialEntries.find(v=>String(v.id)===button.dataset.metalEdit):null;
-    void openMaterialEditor(row||null)
-   });
-   box.querySelectorAll("[data-metal-history]").forEach(button=>button.onclick=async()=>{
-    if(!materials)return;
-    const slot=box.querySelector('[data-metal-log="'+button.dataset.metalHistory+'"]');
-    if(!slot)return;
-    if(!slot.hidden){slot.hidden=true;return}
-    slot.hidden=false;slot.textContent="Загружаем историю металла...";
-    try{
-     const entries=await materials.history(id,button.dataset.metalHistory);
-     slot.innerHTML=entries.length?entries.map(change=>
-      '<div class="ir-ai-quantity-log-entry">Редакция '+change.revision+
-       ' · '+esc(change.reviewedAt)+' · '+esc(change.reviewedBy)+
-       ' · '+esc(change.current?.steelGrade||"")+' · '+
-       esc(change.current?.partCount??"")+' дет./марка · '+
-       esc(change.current?.status||"")+'</div>').join(""):'Изменений пока нет'
-    }catch(error){slot.textContent="Ошибка журнала металла: "+String(error.message||error)}
-   });
-   if(active==="metal"){
-    for(const child of box.children)
-     if(!child.classList.contains("ir-ai-metal-section"))child.hidden=true;
-   }
-   return
-  }
-  if(active==="checks"){
-   const labels={requires_review:"Требует проверки",confirmed:"Подтверждено",rejected:"Отклонено"};
-   box.innerHTML='<div class="ir-ai-review-heading"><div><h2>Проверка результатов ИИ</h2>'+
-    '<p>Исправьте обозначения по исходному чертежу. Исходный ответ модели и история решений сохраняются.</p></div>'+
-    '<b>'+analyses.length+' анализов · '+analyses.filter(x=>x.status==="confirmed").length+' подтверждено</b></div>'+
-    (!analyses.length?'<div class="ir-ai-doc-empty"><b>Анализов пока нет</b>'+
-     '<p>После реального локального распознавания загруженных PDF или изображений результаты появятся здесь для проверки.</p></div>':
-    '<div class="ir-ai-review-list">'+analyses.map(x=>
-     '<article class="ir-ai-result ir-ai-review-card" data-review-id="'+x.id+'">'+
-      '<div class="ir-ai-result-header"><b>'+esc(x.sourceName)+'</b>'+
-       '<span class="ir-ai-review-status '+esc(x.status||"requires_review")+'">'+esc(labels[x.status]||labels.requires_review)+'</span></div>'+
-      '<div class="ir-ai-result-source">Документ № '+esc(x.documentId)+
-       (x.page?' · лист '+x.page:"")+
-       (x.region?' · выделенная область':'')+
-       ' · SHA-256 '+esc(x.sha256)+' · '+esc(x.sourceRegion||x.region||"Весь документ")+'</div>'+
-      (x.page?'<button type="button" class="ir-ai-review-open" data-ai-review-source="'+x.documentId+':'+x.page+'">Просмотр исходного листа</button>':"")+
-      '<div class="ir-ai-result-text">'+esc(x.notes?
-       (x.notes.text||((x.notes.marks||[]).length||(x.notes.structured?.records||[]).length?
-        "Qwen вернула структурированные поля без текстового описания. Проверьте марки и записи ниже.":
-        "Qwen вернула корректный, но пустой JSON: ни марки, ни деталей. Для мелкого текста выберите фрагмент листа и распознайте его в увеличенном виде.")) :
-       "Ответ модели не удалось разобрать как JSON. Раскройте «Ответ модели без изменений» ниже и попробуйте анализ увеличенного фрагмента листа.")+'</div>'+
-      (x.raster?.width&&x.raster?.height?'<div class="ir-ai-result-source">Изображение, переданное Qwen: '+esc(x.raster.width)+' × '+esc(x.raster.height)+' пикселей'+
-       (x.raster?.downscaled?' · уменьшено с '+esc(x.raster.originalWidth)+' × '+esc(x.raster.originalHeight)+' для быстрого анализа':'')+
-       (x.raster?.fastRegion?' · экспресс-режим фрагмента':'')+
-       (x.pdfTextLayer?' · использован текстовый слой PDF, индекс № '+esc(x.pdfTextLayer.indexId):' · текстовый слой PDF не использован')+'</div>':"")+
-      (x.finishReason&&x.finishReason!=="stop"?'<div class="ir-ai-quantity-warning">Генерация Qwen завершилась со статусом '+esc(x.finishReason)+
-       '. Ответ может быть обрезан или неполон, инженерное подтверждение пока не требуется.</div>':"")+
-      '<div class="ir-ai-result-row"><b>Первоначально распознанные марки:</b> '+esc((x.originalMarks||x.notes?.marks||[]).join(", ")||"Не найдены")+'</div>'+
-      '<div class="ir-ai-result-row"><b>Замечания модели:</b> '+esc((x.notes?.unknowns||[]).join("; ")||"Не указаны")+'</div>'+
-      '<div class="ir-ai-review-fields"><label>Проверенные обозначения (по одной марке в строке)'+
-       '<textarea data-review-marks rows="3" '+(!canEdit||!reviewer?'disabled':'')+'>'+esc((x.marks||x.notes?.marks||[]).join("\n"))+'</textarea></label>'+
-       '<label>Решение инженера<select data-review-status '+(!canEdit||!reviewer?'disabled':'')+'>'+
-        ['requires_review','confirmed','rejected'].map(v=>'<option value="'+v+'" '+
-         ((x.status||"requires_review")===v?'selected':'')+'>'+labels[v]+'</option>').join("")+'</select></label>'+
-       '<label>Комментарий инженера<textarea data-review-comment rows="2" '+
-        (!canEdit||!reviewer?'disabled':'')+'>'+esc(x.comment||"")+'</textarea></label></div>'+
-      '<div class="ir-ai-review-actions">'+
-       '<small>Редакция '+(Number(x.revision)||0)+
-        (x.reviewedAt?' · последнее решение '+esc(x.reviewedAt):" · решение ещё не принято")+
-        '</small><div>'+
-        '<button type="button" data-review-history="'+x.id+'" '+(!reviewer?'disabled':'')+'>История</button>'+
-        (canEdit?'<button type="button" class="ir-ai-review-save" data-review-save="'+x.id+'" '+(!reviewer||busy?'disabled':'')+'>'+stepNumber(6,x.status==="confirmed"||x.status==="rejected")+' Сохранить проверку</button>':"")+
-       '</div></div>'+
-      '<div class="ir-ai-review-history" data-history-for="'+x.id+'" hidden></div>'+
-      (x.ocr?'<details><summary>Результат PaddleOCR-VL 1.6 · требует проверки</summary>'+
-       '<p>Локальная модель '+esc(x.ocr.modelId)+' · версия '+esc(x.ocr.modelVersion)+
-       ' · SHA-256 изображения '+esc(x.ocr.sourceImageSha256)+
-       ' · блоков '+esc(x.ocr.blocks?.length||0)+'</p>'+
-       '<pre>'+esc(x.ocr.text||"Текст не распознан")+'</pre>'+
-       '<div>'+((x.ocr.blocks||[]).slice(0,100).map(b=>
-        '<div>'+esc(b.type||"text")+' · координаты '+esc(JSON.stringify(b.bbox??null))+
-        ': '+esc(b.text||"")+'</div>').join(""))+'</div></details>':"")+
-      '<details><summary>Ответ модели без изменений</summary><pre>'+esc(x.raw||"")+'</pre></details>'+
-     '</article>').join("")+'</div>')+
-    '<p class="ir-ai-storage-note">Подтверждение изменяет только реестр IR Project AI. Ни одна марка не записывается автоматически в производственную ведомость; количество и тоннаж не рассчитываются из повторяющихся упоминаний.</p>';
-   box.querySelectorAll("[data-ai-review-source]").forEach(button=>button.onclick=()=>{
-    const [did,page]=button.dataset.aiReviewSource.split(":");void openPdfPreview(did,page)
-   });
-   box.querySelectorAll("[data-review-save]").forEach(button=>button.onclick=async()=>{
-    if(busy||!canEdit||!reviewer)return;
-    const item=analyses.find(x=>String(x.id)===button.dataset.reviewSave);
-    if(!item)return;
-    const card=button.closest("[data-review-id]"),marks=card.querySelector("[data-review-marks]").value.
-     split(/\r?\n/).map(v=>v.trim()).filter(Boolean);
-    const status=card.querySelector("[data-review-status]").value;
-    const comment=card.querySelector("[data-review-comment]").value;
-    if(status==="confirmed"&&!marks.length){notice("Для подтверждения нужна хотя бы одна проверенная марка","error");paint();return}
-    const role="engineer";
-    if(!["admin","engineer"].includes(role)){notice("Проверка доступна только инженеру и администратору","error");paint();return}
-    const password=await requestReviewPassword(role);
-    if(password===null)return;
-    busy=true;
-    try{
-     const allowed=await reviewer.authorize(role,password);
-     if(!allowed)throw Error("Неверный пароль инженера/администратора");
-     await reviewer.save(id,item.id,{expectedRevision:Number(item.revision)||0,marks,status,comment});
-     notice("Решение сохранено. Оригинальный ответ ИИ оставлен без изменений.");
-     await reload()
-    }catch(error){notice("Не удалось сохранить проверку: "+String(error.message||error),"error");paint()}
-    finally{busy=false}
-   });
-   box.querySelectorAll("[data-review-history]").forEach(button=>button.onclick=async()=>{
-    if(!reviewer)return;
-    const target=box.querySelector('[data-history-for="'+button.dataset.reviewHistory+'"]');
-    if(!target)return;
-    if(!target.hidden){target.hidden=true;return}
-    target.hidden=false;target.textContent="Загружаем историю...";
-    try{
-     const logs=await reviewer.history(id,button.dataset.reviewHistory);
-     target.innerHTML=logs.length?'<h4>История проверки</h4>'+logs.map(entry=>
-      '<div><b>'+esc(labels[entry.status]||entry.status)+'</b> · '+esc(entry.reviewedAt)+
-      ' · '+esc(entry.reviewedBy)+' · '+esc((entry.marks||[]).join(", ")||"Без марок")+
-      (entry.comment?'<p>'+esc(entry.comment)+'</p>':"")+'</div>').join(""):
-      '<p>Изменений пока не было.</p>'
-    }catch(error){target.textContent="Не удалось загрузить историю: "+String(error.message||error)}
-   });
-   return
-  }
-  if(active==="fasteners"){
-   if(window.irAiConnectionsPage){
-    window.irAiConnectionsPage.render(box,{id,nodes:connectionNodes,items:connectionItems,
-     summary:connectionSummary,assemblies:quantityEntries,documents,canEdit,api:connections,
-     reviewer,askPassword:requestReviewPassword,reload,notice,openPdf:openPdfPreview})
-   }else box.innerHTML='<div class="ir-ai-doc-empty">Модуль соединений не загружен.</div>';
-   return
-  }
-  if(active==="assembly"){
-   if(window.irAiAssemblyPage)window.irAiAssemblyPage.render(box,{
-    id,assemblies:quantityEntries,materials:materialEntries,documents,canEdit,
-    api:irProject.aiAssembly3d||null,attachmentApi:irProject.aiAssemblyAttachments||null,
-    connectionApi:irProject.aiKmdConnections||null,reviewer,askPassword:requestReviewPassword,
-    reload,notice,openPdf:openPdfPreview
-   });
-   else box.innerHTML='<div class="ir-ai-doc-empty">Модуль 3D-сборки не загружен.</div>';
-   return
-  }
-  if(active==="compare"){
-   if(window.irAiKmKmdComparePage)window.irAiKmKmdComparePage.render(box,{
-    id,entries:comparisonEntries,summary:comparisonSummary,fields:comparisonFields,
-    documents,canEdit,api:comparisons,reviewer,askPassword:requestReviewPassword,
-    reload,notice,openPdf:openPdfPreview
-   });
-   else box.innerHTML='<div class="ir-ai-doc-empty">Модуль сравнения КМ/КМД не загружен.</div>';
-   return
-  }
-  if(active!=="documents"){
-   const info=descriptions[active]||descriptions.checks;
-   box.innerHTML='<div class="ir-ai-placeholder"><div class="ir-ai-placeholder-icon">◎</div><h2>'+esc(info[0])+'</h2>'+
-    '<p>'+esc(info[1])+'</p><span>Функция запланирована, не имитируется</span></div>';return
-  }
-  const matches=documents.filter(x=>[x?.name,x?.kind,x?.ext].map(v=>String(v??"")).join(" ").toLowerCase().includes(term.toLowerCase()));
-  box.innerHTML='<div class="ir-ai-doc-head"><div><h2>Чертежи КМ/КМД</h2><p>Исходные документы сохраняются локально, а их метаданные — в SQLite. Внешние сервисы не используются.</p></div>'+
-   '<div class="ir-ai-doc-index-tools"><button type="button" class="ir-ai-index-all" data-ai-index-all '+
-    (!pdf?.index||busy||!documents.some(d=>d.ext===".pdf"&&d.exists&&!matchingPdfIndex(d))?
-     'disabled':'')+'>Проиндексировать все чертежи</button>'+
-   '<input id="irAiSearch" type="search" placeholder="Поиск по файлам" value="'+esc(term)+'" aria-label="Поиск документов"></div></div>'+
-   (batchIndex?'<div class="ir-ai-bulk-summary" data-ai-bulk-summary role="status" aria-live="polite" data-state="'+
-    (batchIndex.running?'running':batchTotals()?.failed?'error':'done')+'">'+
-    esc(batchSummary())+'</div>':
-    '<p class="ir-ai-index-batch-note">Все загруженные PDF, включая скрытые поиском. Уже проиндексированные файлы пропускаются; обработка идёт по одному файлу.</p>')+
-   (!matches.length&&documents.length?'<div class="ir-ai-doc-empty"><b>По запросу ничего не найдено</b><p>Очистите поиск, чтобы увидеть все '+documents.length+' загруженных файлов.</p></div>':
-   !documents.length?'<div class="ir-ai-doc-empty"><b>Чертежей пока нет</b><p>Выберите тип комплекта и нажмите «Добавить чертежи». Поддерживаются PDF, DXF, DWG, PNG, JPG и TIFF. DWG пока только сохраняется, без анализа.</p></div>':
-   '<div class="ir-ai-table-wrap"><table class="ir-ai-doc-table"><thead><tr><th>Документ</th><th>Комплект</th><th>Размер</th><th>Статус</th><th>Действия</th></tr></thead><tbody>'+
-   matches.map(x=>'<tr><td><strong>'+esc(x.name)+'</strong><small>'+esc(String(x.ext||"").toUpperCase())+' · '+esc(x.addedAt||"")+'</small></td>'+
-    '<td>'+esc(x.kind||"Не определён")+'</td><td>'+size(x.size||0)+'</td><td>'+
-    (x.ext===".pdf"?'<span data-ai-index-status="'+x.id+'" class="ir-ai-doc-status '+
-      fileIndexStatus(x).css+'" title="'+esc(fileIndexStatus(x).title||"")+'">'+
-      esc(fileIndexStatus(x).label)+'</span>':
-     '<span class="ir-ai-doc-status '+(!x.exists?"missing":"")+'">'+
-      (x.exists?"Не распознано":"Файл отсутствует")+'</span>')+
-     '</td>'+
-    '<td><div class="ir-ai-doc-actions">'+
-    (canEdit&&[".png",".jpg",".jpeg"].includes(x.ext)?'<button data-ai-analyze="'+x.id+'" '+(!modelReady||busy||!x.exists?'disabled':'')+'>Распознать</button>':"")+
-    (canEdit&&x.ext===".pdf"?'<button data-ai-pdf-index="'+x.id+'" '+(!pdf||busy||!x.exists?'disabled':'')+'>'+stepNumber(3,indexedIds.has(String(x.id)))+' Индексировать PDF</button>':"")+
-    (canEdit&&x.ext===".pdf"&&pdfIndexes.some(p=>String(p.documentId)===String(x.id)&&p.sourceSha256===x.sha256&&Array.isArray(p.pages)&&p.pages.some(page=>Number(page.page)===1))?'<button data-ai-pdf-vision="'+x.id+':1" '+(!modelReady||busy||!x.exists?'disabled':'')+'>'+stepNumber(5,!!recognized)+' Распознать лист 1</button>':"")+
-    (x.ext===".pdf"?'<button data-ai-pdf-preview="'+x.id+':1" '+(!pdf||busy||!x.exists?'disabled':'')+'>Лист 1</button>':"")+
-    '<button data-ai-open="'+x.id+'" '+(!ready||!x.exists?'disabled':'')+'>Открыть</button>'+
-    (canEdit?'<button data-ai-archive="'+x.id+'" '+(!bridge?.archive?'disabled title="Нужна новая Windows Beta"':'')+'>В архив</button>':'')+
-    (canEdit?'<button class="delete" data-ai-remove="'+x.id+'" '+(!ready?'disabled':'')+'>Удалить</button>':"")+'</div></td></tr>').join("")+
-   '</tbody></table></div>')+
-   '<div class="ir-ai-storage-note">Для документов с инженерной историей используйте «В архив»: PDF будет скрыт из активных чертежей, но исходник, подтверждения, отклонения и ревизии останутся доступны в архиве. Физическое удаление защищённых документов по-прежнему запрещено. Рекомендуется полная резервная копия с вложениями: экспорт *.db не содержит PDF.</div>'+
-   (archivedDocuments.length?'<details class="ir-ai-document-archive"><summary>Архив чертежей · '+archivedDocuments.length+'</summary>'+
-    '<p>Архивированные PDF не участвуют в новых операциях распознавания. Исходные файлы и история инженерных решений сохраняются без изменений.</p>'+
-    '<div class="ir-ai-table-wrap"><table class="ir-ai-doc-table"><thead><tr><th>Документ</th><th>Комплект</th><th>Архивирован</th><th>Действия</th></tr></thead><tbody>'+
-    archivedDocuments.map(x=>'<tr><td><strong>'+esc(x.name)+'</strong><small>Оригинал сохранён · '+esc(x.ext||"")+'</small></td>'+
-     '<td>'+esc(x.kind||"Не определён")+'</td><td>'+esc(x.archivedAt||"—")+'</td>'+
-     '<td><div class="ir-ai-doc-actions"><button data-ai-open="'+x.id+'" '+(!x.exists?'disabled':'')+'>Открыть</button>'+
-     (canEdit?'<button data-ai-restore="'+x.id+'" '+(!bridge?.restore?'disabled title="Нужна новая Windows Beta"':'')+'>Восстановить</button>':'')+
-     '</div></td></tr>').join("")+'</tbody></table></div></details>':'')+
-   (pdfIndexes.length?'<section class="ir-ai-pdf-results"><h3>Текстовые индексы PDF · '+pdfIndexes.length+'</h3>'+
-    pdfIndexes.filter(x=>documents.some(d=>String(d.id)===String(x.documentId))).map(x=>'<article class="ir-ai-pdf-card"><header><strong>'+esc(x.sourceName)+'</strong><span>'+x.totalPages+' лист(ов) · из текстового слоя PDF</span></header>'+
-    '<div class="ir-ai-pdf-sheets">'+(Array.isArray(x.pages)?x.pages:[]).map(p=>'<details><summary>Лист '+p.page+
-     ' · '+(p.hasTextLayer?(p.uncertainEncoding?'Возможна повреждённая кодировка':'Есть текст'):'Текстовый слой отсутствует — нужен OCR')+
-     (p.truncated?' · Текст сокращён':'')+'</summary>'+
-     '<div class="ir-ai-pdf-size">Размер: '+p.widthPt+' × '+p.heightPt+' pt · Фрагментов: '+p.fragmentCount+'</div>'+
-     '<pre>'+esc(p.excerpt||"Текст не найден.")+'</pre>'+
-     '<div class="ir-ai-pdf-sheet-actions"><button type="button" data-ai-pdf-preview="'+x.documentId+':'+p.page+'">Просмотр листа</button>'+
-     (canEdit?'<button type="button" data-ai-pdf-vision="'+x.documentId+':'+p.page+'" '+(!modelReady||busy?'disabled title="Сначала установите и запустите локальную модель"':'')+'>'+stepNumber(5,!!recognized)+' Распознать лист ИИ</button>':'')+
-     (p.hasTextLayer?'<button type="button" data-ai-pdf-page="'+x.id+':'+p.page+'">Полный текст и координаты</button>':'')+'</div>'+
-     '</details>').join("")+'</div></article>').join("")+'</section>':'');
-  const search=box.querySelector("#irAiSearch");
-  if(search)search.oninput=e=>{const pos=e.target.selectionStart;term=e.target.value;showContent();const next=box.querySelector("#irAiSearch");next?.focus();try{next?.setSelectionRange(pos,pos)}catch{}};
-  box.querySelectorAll("[data-ai-pdf-preview]").forEach(button=>button.onclick=()=>{
-   const [did,page]=button.dataset.aiPdfPreview.split(":");
-   openPdfPreview(did,page)
+  const matches=docs.filter(doc=>(doc.name+" "+doc.kind).toLowerCase().includes(search.toLowerCase()));
+  const all=docs.filter(x=>x.ext===".pdf"&&x.exists),pending=all.some(x=>!matchingIndex(x));
+  box.innerHTML='<div class="ir-ai-doc-head"><div><h2>Исходные чертежи</h2>'+
+   '<p>Индексируем каждый PDF один раз. Галочка подтверждает сохранённый текстовый индекс, а не монтажную координату.</p></div>'+
+   '<div class="ir-ai-doc-index-tools"><button type="button" data-kmd-all '+
+   (busy||!pending?'disabled':'')+'>Проиндексировать все чертежи</button>'+
+   '<input data-kmd-search type="search" placeholder="Поиск чертежа" value="'+esc(search)+'"></div></div>'+
+   '<div data-kmd-progress class="ir-ai-bulk-summary" role="status" aria-live="polite">'+
+   esc(bulk?progress():all.length+
+    " PDF · проиндексировано "+all.filter(matchingIndex).length)+'</div>'+
+   (!matches.length?'<div class="ir-ai-doc-empty">Чертежи не найдены. Добавьте PDF или очистите поиск.</div>':
+   '<div class="ir-ai-table-wrap"><table class="ir-ai-doc-table"><thead>'+
+   '<tr><th>Чертёж</th><th>Комплект</th><th>Размер</th><th>Индекс</th><th>Действия</th></tr>'+
+   '</thead><tbody>'+matches.map(d=>{
+    const st=statusOf(d);
+    return'<tr><td><strong>'+esc(d.name)+'</strong></td><td>'+esc(d.kind||"—")+
+     '</td><td>'+fmt(d.size)+'</td><td><span data-kmd-state="'+esc(d.id)+
+     '" class="ir-ai-doc-status '+st.css+'">'+esc(st.value)+'</span></td>'+
+     '<td><div class="ir-ai-doc-actions">'+
+     (d.ext===".pdf"?'<button type="button" data-kmd-index="'+esc(d.id)+'" '+
+       (busy||!d.exists?'disabled':'')+'>Индексировать</button>'+
+      '<button type="button" data-kmd-preview="'+esc(d.id)+':1" '+
+       (!d.exists?'disabled':'')+'>Просмотр PDF</button>':"")+
+     '<button type="button" data-kmd-open="'+esc(d.id)+'" '+(!d.exists?'disabled':'')+'>Открыть</button>'+
+     (docsApi.archive?'<button type="button" data-kmd-archive="'+esc(d.id)+
+      '">В архив</button>':"")+'</div></td></tr>'
+   }).join("")+'</tbody></table></div>')+
+   (archived.length?'<details><summary>Архив чертежей · '+archived.length+'</summary>'+
+    archived.map(d=>'<p>'+esc(d.name)+' <button type="button" data-kmd-restore="'+esc(d.id)+
+     '">Восстановить</button></p>').join("")+'</details>':"")+
+   (indexes.length?'<details class="ir-ai-pdf-results"><summary>Текстовые индексы · '+
+    indexes.length+'</summary>'+indexes.filter(x=>docs.some(d=>String(d.id)===String(x.documentId)))
+    .map(x=>'<article class="ir-ai-pdf-card"><header><strong>'+esc(x.sourceName||"PDF")+
+     '</strong><span>'+Number(x.totalPages||x.pages.length)+' листов</span></header>'+
+     '<div class="ir-ai-pdf-sheets">'+(x.pages||[]).map(p=>
+       '<details><summary>Лист '+p.page+' · '+(p.hasTextLayer?'Текст найден':
+        'Нет текстового слоя')+'</summary><pre>'+esc(p.excerpt||"Текст отсутствует")+
+        '</pre><button type="button" data-kmd-preview="'+x.documentId+':'+p.page+
+        '">Просмотр листа</button></details>').join("")+'</div></article>').join("")+
+    '</details>':"");
+  const searchField=box.querySelector("[data-kmd-search]");
+  if(searchField)searchField.oninput=()=>{
+   const pos=searchField.selectionStart;search=searchField.value;showDocuments();
+   const next=box.querySelector("[data-kmd-search]");
+   next?.focus();try{next?.setSelectionRange(pos,pos)}catch{}
+  };
+  const btn=box.querySelector("[data-kmd-all]");
+  if(btn)btn.onclick=()=>void indexAll();
+  box.querySelectorAll("[data-kmd-index]").forEach(el=>el.onclick=()=>void indexOne(el.dataset.kmdIndex));
+  box.querySelectorAll("[data-kmd-preview]").forEach(el=>el.onclick=()=>{
+   const [doc,page]=el.dataset.kmdPreview.split(":");void openPdf(doc,page)
   });
-  box.querySelectorAll("[data-ai-pdf-vision]").forEach(button=>button.onclick=async()=>{
-   if(!pdf||!canEdit||busy||!modelReady||!await authorizeAiMutation())return;
-   const [did,page]=button.dataset.aiPdfVision.split(":");
-   busy=true;notice("Qwen обрабатывает лист "+page+". Оценочный процент и время ожидания показаны под шагами."); 
-   const stopTimer=trackSheetAnalysis("КМД · лист "+page);
-   paint();
-   try{
-    const result=await pdf.analyze(id,did,page);
-    notice((result.marks||[]).length?
-     "Анализ PDF завершён: "+result.source+" · лист "+result.page+". Проверьте результат перед использованием.":
-     "Qwen обработала лист "+result.page+", но не нашла марок. Не подтверждайте пустой результат: откройте лист, выделите область штампа и распознайте фрагмент.");
-    active="checks"
-   }catch(error){notice("Распознавание листа не выполнено: "+String(error.message||error),"error");stopTimer("failed")}
-   finally{if(analysisProgress?.status==="running")stopTimer("completed");busy=false;await reload()}
+  box.querySelectorAll("[data-kmd-open]").forEach(el=>el.onclick=()=>docsApi.open(id,el.dataset.kmdOpen));
+  box.querySelectorAll("[data-kmd-archive]").forEach(el=>el.onclick=async()=>{
+   if(busy)return;
+   if(!window.confirm("Переместить чертёж в архив? Оригинал и индексы сохраняются."))return;
+   try{await docsApi.archive(id,el.dataset.kmdArchive);await reload()}
+   catch(ex){error=true;notice=String(ex.message||ex);paint()}
   });
-  const indexAll=box.querySelector("[data-ai-index-all]");
-  if(indexAll)indexAll.onclick=()=>{void indexAllPdfs()};
-  box.querySelectorAll("[data-ai-pdf-index]").forEach(button=>button.onclick=async()=>{
-   if(!pdf||busy||!canEdit||!await authorizeAiMutation())return;
-   const documentId=button.dataset.aiPdfIndex;
-   busy=true;notice("Читаем реальный текстовый слой PDF по страницам, без нейросети…");paint();
-   try{
-    const result=await pdf.index(id,documentId);
-    if(batchIndex?.files?.has(String(documentId))&&
-       String(result?.documentId)===String(documentId)){
-     batchIndex.files.set(String(documentId),{status:"done",
-      pages:result.totalPages||result.pages?.length||0});
-    }
-    notice(result.cached?"Индекс PDF уже сохранён.":"PDF проиндексирован: "+result.totalPages+" лист(ов). Страницы без текста требуют OCR.")
-   }catch(error){
-    if(batchIndex?.files?.has(String(documentId)))
-     batchIndex.files.set(String(documentId),{status:"error",
-      error:String(error.message||error).slice(0,240)});
-    notice("Не удалось индексировать PDF: "+String(error.message||error),"error")
-   }
-   finally{busy=false;await reload()}
-  });
-  box.querySelectorAll("[data-ai-pdf-page]").forEach(button=>button.onclick=async()=>{
-   if(!pdf)return;
-   const [indexId,pageNumber]=button.dataset.aiPdfPage.split(":");
-   try{
-    const record=await pdf.page(id,indexId,pageNumber);
-    const parent=button.closest("details"),pre=parent?.querySelector("pre");
-    if(pre)pre.textContent=record.page.text||"Текстовый слой не найден";
-    button.disabled=true;button.textContent="Полный текст загружен. Координаты сохранены в индексе."
-   }catch(error){notice("Ошибка чтения листа: "+String(error.message||error),"error");paint()}
-  });
-  box.querySelectorAll("[data-ai-analyze]").forEach(button=>button.onclick=async()=>{
-   if(!runtime||!canEdit||busy||!modelReady||!await authorizeAiMutation())return;
-   busy=true;notice("Реальный локальный анализ изображения запущен. Результат сохранится для проверки.");paint();
-   try{
-    const result=await runtime.analyze(id,button.dataset.aiAnalyze);
-    notice("Анализ завершён: "+result.source+". Статус: требует проверки инженера.");
-    active="checks"
-   }catch(error){notice("Анализ не завершён: "+String(error.message||error),"error")}
-   finally{busy=false;await reload()}
-  });
-  box.querySelectorAll("[data-ai-open]").forEach(button=>button.onclick=async()=>{
-   try{await bridge.open(id,button.dataset.aiOpen)}catch(error){notice("Не удалось открыть: "+String(error.message||error),"error");paint()}
-  });
-  box.querySelectorAll("[data-ai-archive]").forEach(button=>button.onclick=async()=>{
-   if(!canEdit||!ready||busy||!bridge?.archive||!await authorizeAiMutation())return;
-   const row=documents.find(x=>String(x.id)===button.dataset.aiArchive);if(!row)return;
-   if(!confirm("Архивировать «"+row.name+"»?\n\nФайл исчезнет из активного списка. Исходный PDF, SHA-256 и вся история инженерных решений останутся в базе и в архиве. Повторная загрузка этого PDF создаст новую активную копию."))return;
-   busy=true;
-   try{
-    await bridge.archive(id,row.id);
-    notice("PDF «"+row.name+"» помещён в архив. Инженерная история сохранена.");
-   }catch(error){notice("Архивирование не выполнено: "+String(error.message||error),"error")}
-   finally{busy=false;await reload()}
-  });
-  box.querySelectorAll("[data-ai-restore]").forEach(button=>button.onclick=async()=>{
-   if(!canEdit||!ready||busy||!bridge?.restore||!await authorizeAiMutation())return;
-   const row=archivedDocuments.find(x=>String(x.id)===button.dataset.aiRestore);if(!row)return;
-   busy=true;
-   try{
-    await bridge.restore(id,row.id);
-    notice("PDF «"+row.name+"» восстановлен из архива.");
-   }catch(error){notice("Восстановление не выполнено: "+String(error.message||error),"error")}
-   finally{busy=false;await reload()}
-  });
-  box.querySelectorAll("[data-ai-remove]").forEach(button=>button.onclick=async()=>{
-   if(!canEdit||!ready)return;
-   const row=documents.find(x=>String(x.id)===button.dataset.aiRemove);if(!row)return;
-   if(!bridge.impact){
-    notice("Для удаления PDF вместе с непроверенными анализами требуется новая Windows Beta со встроенным обработчиком удаления. Обычное hot-обновление не заменяет Electron.", "error");
-    paint();return
-   }
-   if(!await authorizeAiMutation())return;
-   try{
-    const impact=await bridge.impact(id,row.id);
-    if(impact?.policyRevision!=="pdf-draft-guard-diagnostics-v1"){
-     let version="не определена";
-     try{version=String(await irProject.updater?.version?.()||"не определена")}catch{}
-     notice("Используется старая версия модуля удаления PDF. Версия приложения: "+
-      version+". Установите Windows Beta №146, затем последнее Beta hot-обновление "+
-      "и ПОЛНОСТЬЮ закройте и вновь откройте программу. "+
-      "До обновления удаление отключено для защиты данных.","error");
-     paint();return
-    }
-    if(!impact.canDelete){
-     const linked=impact.protectedRecords?.[0],diag=linked?.diagnostics;
-     const details=diag?" Проверка №"+linked.id+
-      ": тип "+diag.type+", verification="+diag.verification+
-      ", review.status="+diag.reviewStatus+", review.revision="+diag.reviewRevision+
-      ", документ совпадает: "+(diag.sourceDocumentMatches?"да":"нет")+
-      ", SHA-256 совпадает: "+(diag.sourceShaMatches?"да":"нет")+
-      ", поля review: "+(diag.reviewFields?.join(", ")||"нет")+".":"";
-     notice("Удаление заблокировано: "+(linked?
-      linked.section+" · запись № "+linked.id+". "+linked.reason:
-      "найдены защищённые инженерные данные")+"."+details+
-      " Подтверждённые инженерные сведения и историю удалять нельзя. "+
-      "Чтобы убрать PDF из активного списка, нажмите «В архив».","error");
-     paint();return
-    }
-    const drafts=impact.unreviewedAnalysisIds||[],indexes=impact.technicalIndexIds||[];
-    const info="Удалить документ «"+row.name+"» из IR Project AI?\n\n"+
-     "Будет безвозвратно удалено:\n"+
-     "• Исходный PDF: 1 файл\n"+
-     "• Непроверенные результаты распознавания: "+drafts.length+"\n"+
-     "• Технические PDF-индексы: "+indexes.length+"\n\n"+
-     "Подтверждённые результаты и инженерная история не удаляются. "+
-     "Рекомендуется сначала сохранить полную резервную копию.";
-    if(!confirm(info))return;
-    const result=await bridge.remove(id,row.id,{
-     discardUnreviewed:drafts.length>0,expectedAnalysisIds:drafts
-    });
-    notice("Документ удалён: "+row.name+". Удалено непроверенных анализов: "+
-     Number(result?.discardedAnalyses||0)+".");
-    await reload()
-   }catch(error){
-    const reason=String(error.message||error).replace(/^Error invoking remote method ['"][^'"]+['"]: (?:Error: )?/,"");
-    notice("Не удалось удалить файл: "+reason,"error");paint()
-   }
+  box.querySelectorAll("[data-kmd-restore]").forEach(el=>el.onclick=async()=>{
+   try{await docsApi.restore(id,el.dataset.kmdRestore);await reload()}
+   catch(ex){error=true;notice=String(ex.message||ex);paint()}
   })
  }
- // Compatibility for existing AI forms; never opens a password prompt.
- async function requestReviewPassword(){return ""}
- async function openMaterialEditor(original=null){
-  if(!canEdit||!materials||!reviewer)return;
-  const role="engineer";
-  if(!["admin","engineer"].includes(role))return;
-  const assemblies=quantityEntries.filter(row=>row.status!=="rejected");
-  const sources=documents.filter(doc=>doc.kind==="КМД"&&doc.ext===".pdf"&&doc.exists);
-  if(!assemblies.length||!sources.length){
-   notice("Сначала добавьте отправочную марку и исходный PDF КМД. Для каждой детали нужна подтверждаемая связь с документом.","error");
-   paint();return
+ function updateProgress(){
+  const summary=app.querySelector("[data-kmd-progress]");
+  if(summary)summary.textContent=progress();
+  for(const d of docs){
+   const el=app.querySelector('[data-kmd-state="'+d.id+'"]');
+   if(!el)continue;
+   const state=statusOf(d);
+   el.textContent=state.value;el.className="ir-ai-doc-status "+state.css
   }
-  const dlg=document.createElement("dialog");dlg.className="ir-ai-quantity-dialog ir-ai-review-password ir-ai-metal-dialog";
-  const formValues=(field,fallback="")=>esc(original?.[field]??fallback);
-  const srcValues=(field,fallback="")=>esc(original?.source?.[field]??fallback);
-  const typeLabels={plate:"Пластина (лист)",rib:"Ребро жёсткости",gusset:"Косынка",
-   profile:"Прокатный профиль",pipe:"Труба",rod:"Пруток",other:"Другая стальная деталь"};
-  const methods={drawing:"Масса 1 детали по спецификации КМД",
-   rectangular:"Расчёт прямоугольной детали (без отверстий)",
-   linear:"Масса профиля по кг/м и длине"};
-  const select=(options,val)=>Object.entries(options).map(([v,label])=>
-   '<option value="'+v+'" '+(String(val)===v?"selected":"")+'>'+esc(label)+'</option>').join("");
-  dlg.innerHTML='<form class="ir-ai-quantity-form"><h3>'+
-   (original?"Редактировать деталь КМД":"Добавить деталь в отправочную марку")+'</h3>'+
-   '<p>Все размеры в миллиметрах, масса в килограммах. Укажите точные данные по исходному КМД. Для металлопроката не подставляется масса из приблизительных таблиц.</p>'+
-   '<div class="ir-ai-quantity-form-grid">'+
-   '<label class="wide">Отправочная марка *<select name="assemblyId" required>'+
-    assemblies.map(a=>'<option value="'+a.id+'" '+
-     (Number(original?.assemblyId)===a.id?"selected":"")+'>'+esc(a.mark)+' · '+
-     esc([a.cipher,a.secondaryCipher].filter(Boolean).join(" / "))+ " · "+
-     (a.status==="confirmed"?a.quantity+" шт. подтверждено":"количество не подтверждено")+
-     '</option>').join("")+'</select></label>'+
-   '<label>Позиция детали КМД *<input name="position" required maxlength="100" value="'+formValues("position")+'" placeholder="Д1 / Пл2"></label>'+
-   '<label>Тип детали<select name="type">'+select(typeLabels,original?.type||"plate")+'</select></label>'+
-   '<label>Наименование детали<input name="name" maxlength="150" value="'+formValues("name")+'"></label>'+
-   '<label>Профиль / сечение<input name="profile" maxlength="100" value="'+formValues("profile")+'" placeholder="Лист 10 / двутавр 30Б1"></label>'+
-   '<label>Марка стали *<input name="steelGrade" maxlength="80" value="'+formValues("steelGrade")+'" placeholder="С245 / С345"></label>'+
-   '<label>ГОСТ / стандарт<input name="standard" maxlength="100" value="'+formValues("standard")+'"></label>'+
-   '<label>Деталей на 1 марку, шт. *<input name="partCount" required type="number" min="1" max="100000" step="1" value="'+formValues("partCount",1)+'"></label>'+
-   '<label class="wide">Источник массы<select name="massMethod">'+select(methods,original?.massMethod||"drawing")+'</select></label>'+
-   '<label>Длина, мм<input name="lengthMm" type="number" min="0.01" max="1000000" step="any" value="'+formValues("lengthMm")+'"></label>'+
-   '<label>Ширина, мм<input name="widthMm" type="number" min="0.01" max="1000000" step="any" value="'+formValues("widthMm")+'"></label>'+
-   '<label>Толщина, мм<input name="thicknessMm" type="number" min="0.01" max="10000" step="any" value="'+formValues("thicknessMm")+'"></label>'+
-   '<label>Плотность, кг/м³<input name="densityKgM3" type="number" min="5000" max="10000" step="any" value="'+formValues("densityKgM3")+'" placeholder="Указать по материалу"></label>'+
-   '<label>Масса 1 пог. м, кг/м<input name="linearKgM" type="number" min="0.00001" max="100000" step="any" value="'+formValues("linearKgM")+'"></label>'+
-   '<label>Масса 1 детали по КМД, кг<input name="drawingMassKg" type="number" min="0.00001" max="1000000" step="any" value="'+formValues("drawingMassKg")+'"></label>'+
-   '<label class="wide ir-ai-metal-checkbox"><input type="checkbox" name="isSolidRectangle" '+
-    (original?.isSolidRectangle?"checked":"")+'><span>Подтверждаю: деталь — сплошной прямоугольник без отверстий, вырезов и скосов</span></label>'+
-   '<label class="wide">Чертёж PDF КМД *<select name="documentId" required>'+
-    sources.map(doc=>'<option value="'+doc.id+'" '+
-     (Number(initial?.source?.documentId)===Number(doc.id)?"selected":"")+'>'+esc(doc.name)+'</option>').join("")+'</select></label>'+
-   '<label>Лист КМД *<input name="page" required type="number" min="1" max="2000" step="1" value="'+srcValues("page",1)+'"></label>'+
-   '<label>Позиция спецификации *<input name="specPosition" required maxlength="100" value="'+srcValues("specPosition")+'"></label>'+
-   '<label>Изменение / ревизия<input name="drawingRevision" maxlength="40" value="'+srcValues("drawingRevision")+'"></label>'+
-   '<label>Статус<select name="status">'+
-    select({requires_review:"Требует проверки",confirmed:"Подтверждено",rejected:"Отклонено"},
-     original?.status||"requires_review")+'</select></label>'+
-   '<label class="wide">Комментарий инженера<textarea name="comment" maxlength="1500" rows="2">'+formValues("comment")+'</textarea></label>'+
-   '</div>'+
-   '<p class="ir-ai-quantity-dialog-hint" data-metal-calculation></p>'+
-   '<div class="ir-ai-quantity-form-actions"><button type="button" data-cancel>Отмена</button>'+
-   '<button type="submit">Сохранить деталь</button></div>'+
-   '<p data-error class="ir-ai-quantity-dialog-error" hidden></p></form>';
-  document.body.appendChild(dlg);
-  dlg.querySelector("[data-cancel]").onclick=()=>dlg.close();
-  dlg.addEventListener("close",()=>dlg.remove(),{once:true});
-  const form=dlg.querySelector("form"),calc=dlg.querySelector("[data-metal-calculation]");
-  function preview(){
-   const f=Object.fromEntries(new FormData(form).entries());
-   const isPositive=x=>x!==""&&Number.isFinite(Number(x))&&Number(x)>0;
-   let kg=null;
-   if(f.massMethod==="drawing"&&isPositive(f.drawingMassKg))kg=Number(f.drawingMassKg);
-   if(f.massMethod==="linear"&&isPositive(f.lengthMm)&&isPositive(f.linearKgM))
-    kg=Number(f.lengthMm)/1000*Number(f.linearKgM);
-   if(f.massMethod==="rectangular"&&f.isSolidRectangle&&
-    [f.lengthMm,f.widthMm,f.thicknessMm,f.densityKgM3].every(isPositive))
-    kg=Number(f.lengthMm)*Number(f.widthMm)*Number(f.thicknessMm)*Number(f.densityKgM3)/1e9;
-   const count=Number(f.partCount);
-   calc.textContent=kg===null?"Для расчёта укажите параметры выбранного метода. Сервер проверит их перед сохранением.":
-    "Предварительная масса 1 детали: "+kg.toLocaleString("ru-RU",{maximumFractionDigits:5})+
-    " кг; деталей на марку: "+(Number.isSafeInteger(count)&&count>0?count:"не указано")+
-    ". Итог по объекту считается только после подтверждения детали и количества марки.";
-  }
-  form.addEventListener("input",preview);form.addEventListener("change",preview);preview();
-  let saving=false;
-  form.onsubmit=async event=>{
-   event.preventDefault();if(saving)return;
-   const f=Object.fromEntries(new FormData(form).entries());
-   const password=await requestReviewPassword(role);
-   if(password===null)return;
-   saving=true;
-   const error=dlg.querySelector("[data-error]");error.hidden=true;
-   try{
-    if(!await reviewer.authorize(role,password))throw Error("Неверный пароль инженера/администратора");
-    await materials.save(id,original?.id||null,{
-     expectedRevision:Number(original?.revision)||0,
-     assemblyId:Number(f.assemblyId),position:f.position,type:f.type,name:f.name,
-     profile:f.profile,steelGrade:f.steelGrade,standard:f.standard,partCount:Number(f.partCount),
-     massMethod:f.massMethod,lengthMm:f.lengthMm,widthMm:f.widthMm,thicknessMm:f.thicknessMm,
-     densityKgM3:f.densityKgM3,linearKgM:f.linearKgM,drawingMassKg:f.drawingMassKg,
-     isSolidRectangle:Boolean(f.isSolidRectangle),documentId:Number(f.documentId),
-     page:Number(f.page),specPosition:f.specPosition,drawingRevision:f.drawingRevision,
-     status:f.status,comment:f.comment
-    });
-    dlg.close();notice("Деталь КМД сохранена. Тоннаж пересчитан только по проверенным данным.");
-    await reload()
-   }catch(error){const target=dlg.querySelector("[data-error]");target.hidden=false;
-    target.textContent="Не удалось сохранить деталь: "+String(error.message||error)}
-   finally{saving=false}
-  };
-  dlg.showModal()
  }
- async function openQuantityEditor(original=null,suggestion=null){
-  if(!canEdit||!quantities||!reviewer)return;
-  const sources=documents.filter(doc=>doc.kind==="КМД"&&doc.ext===".pdf"&&doc.exists);
-  if(!sources.length){
-   notice("Для учёта количества сначала загрузите PDF со спецификацией КМД в этот объект.","error");
-   paint();return
-  }
-  const role="engineer";
-  if(!["admin","engineer"].includes(role))return;
-  const prefill=suggestion?{
-   mark:suggestion.values?.mark||"",cipher:suggestion.values?.cipher||"",
-   secondaryCipher:suggestion.values?.secondaryCipher||"",
-   quantity:suggestion.values?.quantity||"",status:"requires_review",
-   source:{documentId:suggestion.source?.documentId,page:suggestion.source?.page,
-    specPosition:suggestion.values?.specPosition||"",
-    drawingRevision:suggestion.values?.drawingRevision||""},
-   comment:"Предложение ИИ: анализ № "+suggestion.analysisId+" · позиция "+
-    (suggestion.index+1)+". Цитата модели: "+(suggestion.evidence?.quote||"")
-  }:null;
-  const initial=original||prefill;
-  const dlg=document.createElement("dialog");dlg.className="ir-ai-quantity-dialog ir-ai-review-password";
-  const options=sources.map(doc=>'<option value="'+doc.id+'" '+
-   (Number(original?.source?.documentId)===Number(doc.id)?"selected":"")+'>'+esc(doc.name)+'</option>').join("");
-  const val=(name,def="")=>esc(initial?.[name]??def);
-  const sourceVal=(name,def="")=>esc(initial?.source?.[name]??def);
-  dlg.innerHTML='<form class="ir-ai-quantity-form">'+
-   '<h3>'+(original?'Редактировать позицию отправочной марки':'Добавить позицию по спецификации КМД')+'</h3>'+
-   '<p>Указывайте количество только по загруженному чертежу КМД. Каждая запись имеет отдельный источник и историю.</p>'+
-   '<div class="ir-ai-quantity-form-grid">'+
-   '<label>Марка *<input name="mark" maxlength="64" required value="'+val("mark")+'" placeholder="К41"></label>'+
-   '<label>Шифр<input name="cipher" maxlength="60" value="'+val("cipher")+'"></label>'+
-   '<label>Второй шифр<input name="secondaryCipher" maxlength="60" value="'+val("secondaryCipher")+'"></label>'+
-   '<label>Количество, шт. * для подтверждения<input name="quantity" type="number" min="1" max="1000000" step="1" value="'+val("quantity")+'"></label>'+
-   '<label class="wide">Документ КМД *<select name="documentId" required>'+options+'</select></label>'+
-   '<label>Номер листа PDF *<input name="page" type="number" min="1" max="2000" step="1" required value="'+sourceVal("page",1)+'"></label>'+
-   '<label>Позиция спецификации *<input name="specPosition" maxlength="90" required value="'+sourceVal("specPosition")+'" placeholder="Поз. 12 / лист 45"></label>'+
-   '<label>Ревизия/изменение КМД<input name="drawingRevision" maxlength="40" value="'+sourceVal("drawingRevision")+'"></label>'+
-   '<label>Статус<select name="status">'+
-    ['requires_review','confirmed','rejected'].map(st=>'<option value="'+st+'" '+
-     ((initial?.status||"requires_review")===st?"selected":"")+'>'+
-     ({requires_review:"Требует проверки",confirmed:"Подтверждено",rejected:"Отклонено"}[st])+'</option>').join("")+
-   '</select></label>'+
-   '<label class="wide">Примечание инженера<textarea name="comment" maxlength="1500" rows="3">'+val("comment")+'</textarea></label></div>'+
-   '<p class="ir-ai-quantity-dialog-hint">Повторение обозначения на других листах не добавит экземпляров автоматически.</p>'+
-   '<div class="ir-ai-quantity-form-actions"><button type="button" data-cancel>Отмена</button>'+
-    '<button type="submit">Сохранить запись</button></div>'+
-   '<p data-error class="ir-ai-quantity-dialog-error" hidden></p></form>';
-  document.body.appendChild(dlg);
-  dlg.querySelector("[data-cancel]").onclick=()=>dlg.close();
-  dlg.addEventListener("close",()=>dlg.remove(),{once:true});
-  const form=dlg.querySelector("form");let saving=false;
-  form.onsubmit=async event=>{
-   event.preventDefault();if(saving)return;
-   const fields=Object.fromEntries([...new FormData(form).entries()]);
-   if(fields.status==="confirmed"&&!fields.quantity){
-    const error=dlg.querySelector("[data-error]");error.hidden=false;error.textContent="Для подтверждения укажите количество из спецификации";return
-   }
-   const password=await requestReviewPassword(role);
-   if(password===null)return;
-   saving=true;
-   const error=dlg.querySelector("[data-error]");error.hidden=true;
-   try{
-    const authorized=await reviewer.authorize(role,password);
-    if(!authorized)throw Error("Неверный пароль "+(role==="admin"?"администратора":"инженера"));
-    await quantities.save(id,original?.id||null,{
-     expectedRevision:Number(original?.revision)||0,
-     mark:fields.mark,cipher:fields.cipher,secondaryCipher:fields.secondaryCipher,
-     quantity:fields.quantity,documentId:Number(fields.documentId),
-     page:Number(fields.page),specPosition:fields.specPosition,
-     drawingRevision:fields.drawingRevision,status:fields.status,comment:fields.comment
-    });
-    dlg.close();
-    notice("Позиция отправочной марки сохранена с привязкой к КМД. Итоги учитывают только подтверждённые записи.");
-    await reload()
-   }catch(e){error.hidden=false;error.textContent="Не удалось сохранить: "+String(e.message||e)}
-   finally{saving=false}
-  };
-  dlg.showModal()
- }
-
- // Focus on two UNVERIFIED source strokes and their registered text label,
- // then ask the existing PDF renderer for a fresh high-resolution crop.
- // This is not image scaling, OCR, AI inference or a placement coordinate.
- function focusedPdfRegion(evidenceLocations,pageInfo){
-  const first=Array.isArray(evidenceLocations)?evidenceLocations[0]:null,
-   box=first?.rectPt,lines=first?.strokeLinesPt;
-  if(Number(pageInfo?.rotation||0)!==0||
-     !(Number(pageInfo?.widthPt)>0)||!(Number(pageInfo?.heightPt)>0)||
-     !box||!Array.isArray(lines)||lines.length!==2)return null;
-  const W=Number(pageInfo.widthPt),H=Number(pageInfo.heightPt),
-   valid=n=>typeof n==="number"&&Number.isFinite(n);
-  if(!["x","y","width","height"].every(k=>valid(box[k]))||
-     box.width<=0||box.height<=0||box.x<0||box.y<0||
-     box.x+box.width>W||box.y+box.height>H||
-     !lines.every(l=>l&&["x1","y1","x2","y2"].every(k=>valid(l[k]))&&
-       [l.x1,l.x2].every(x=>x>=0&&x<=W)&&
-       [l.y1,l.y2].every(y=>y>=0&&y<=H)))return null;
-  const xPoints=[box.x,box.x+box.width],
-   yPoints=[H-box.y-box.height,H-box.y];
-  for(const l of lines){
-   xPoints.push(l.x1,l.x2);yPoints.push(l.y1,l.y2)
-  }
-  const xMin=Math.min(...xPoints),xMax=Math.max(...xPoints),
-   yMin=Math.min(...yPoints),yMax=Math.max(...yPoints);
-  const spanX=(xMax-xMin)/W,spanY=(yMax-yMin)/H;
-  // Large contours should stay on the full sheet for review.
-  if(spanX>.43||spanY>.43)return null;
-  const width=Math.max(.12,spanX*1.5+.06),
-   height=Math.max(.12,spanY*1.5+.06);
-  if(width>.56||height>.56||width*height>.35)return null;
-  const clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
-  const x=clamp((xMin+xMax)/(2*W)-width/2,0,1-width),
-   y=clamp((yMin+yMax)/(2*H)-height/2,0,1-height);
-  const normalized=v=>Math.round(v*1e6)/1e6;
-  return{x:normalized(x),y:normalized(y),
-   width:normalized(width),height:normalized(height)}
- }
-
- async function openPdfPreview(documentId,page,evidenceLocations=[]){
-  if(!pdf||busy)return;
-  busy=true;notice("Подготавливаем реальное изображение PDF, лист "+page+"…");paint();
+ async function indexOne(documentId){
+  if(busy||!pdf?.index)return;busy=true;notice="Индексируем PDF…";error=false;paint();
   try{
-   const result=await pdf.preview(id,documentId,page);
-   if(location.hash!==route)return;
-   const original=result;
-   const validImage=value=>/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(String(value||""));
-   if(!validImage(original.dataUrl))throw Error("Неверный формат PDF-изображения");
-   const dlg=document.createElement("dialog");dlg.className="ir-ai-pdf-preview-dialog";
-   dlg.innerHTML='<div class="ir-ai-pdf-preview-header"><div><b data-region-title></b>'+
-    '<small data-region-meta></small><small data-region-ai-status role="status"></small></div><div class="ir-ai-pdf-preview-actions">'+
-    '<button type="button" data-region-stamp>'+stepNumber('5.1')+' Выбрать штамп справа внизу</button>'+
-    '<button type="button" data-region-extract disabled>'+stepNumber('5.2')+' Увеличить фрагмент</button>'+
-    (canEdit?'<button type="button" data-region-analyze disabled>'+stepNumber('5.3')+' Распознать фрагмент (быстро)</button>':'')+
-    '<button type="button" data-region-back hidden>Вернуться к листу</button>'+
-    (Array.isArray(evidenceLocations)&&evidenceLocations.length?
-     '<button type="button" data-pdf-evidence aria-pressed="true">Подсветка надписей и линий</button>':"")+
-    '<button type="button" data-pdf-fit>100%</button>'+
-    '<button type="button" data-pdf-close>Закрыть ✕</button></div></div>'+
-    '<div data-ai-region-progress hidden class="ir-ai-region-progress-area"></div>'+
-    '<div class="ir-ai-pdf-preview-stage"><div class="ir-ai-region-guide">'+stepNumber('5.1')+' Обведите мышью только штамп или нажмите «Выбрать штамп справа внизу». <span data-region-size role="status">Область ещё не выбрана.</span></div><div class="ir-ai-pdf-image-wrap">'+
-    '<img alt="Фактический лист PDF"><div class="ir-ai-pdf-region-layer" title="Выделите нужную область мышью или касанием">'+
-    '<div class="ir-ai-pdf-region-selection"></div></div></div></div>';
-   const img=dlg.querySelector("img"),wrap=dlg.querySelector(".ir-ai-pdf-image-wrap"),
-    layer=dlg.querySelector(".ir-ai-pdf-region-layer"),rectangle=dlg.querySelector(".ir-ai-pdf-region-selection"),
-    extract=dlg.querySelector("[data-region-extract]"),
-    stamp=dlg.querySelector("[data-region-stamp]"),
-    regionSize=dlg.querySelector("[data-region-size]"),
-    recognize=dlg.querySelector("[data-region-analyze]"),back=dlg.querySelector("[data-region-back]"),
-    fit=dlg.querySelector("[data-pdf-fit]"),
-    highlightToggle=dlg.querySelector("[data-pdf-evidence]"),
-    meta=dlg.querySelector("[data-region-meta]"),
-    aiState=dlg.querySelector("[data-region-ai-status]"),title=dlg.querySelector("[data-region-title]");
-   let crop=null,selected=null,drag=null,loading=false,fitted=true,modelReady=false,aiStatusJob=null;
-   const MAX_FAST_REGION_AREA=0.35;
-   const stampPreset={x:0.70,y:0.83,width:0.29,height:0.16};
-   let highlightVisible=true;
-   let cropEvidenceLayer=null;
-   const indexed=pdfIndexes.find(x=>Number(x.documentId)===Number(documentId)&&
-    x.sourceSha256===original.sha256);
-   const pageInfo=indexed?.pages?.find(p=>Number(p.page)===Number(page));
-   const evidenceBoxes=[];
-   // Fragment coordinates are original PDF points. Prevent misleading
-   // highlights for rotated pages until exact viewport mapping is supported.
-   if(Number(pageInfo?.rotation||0)===0&&
-      Number(pageInfo?.widthPt)>0&&Number(pageInfo?.heightPt)>0&&
-      Array.isArray(evidenceLocations)){
-    const widthPt=Number(pageInfo.widthPt),heightPt=Number(pageInfo.heightPt);
-    for(const item of evidenceLocations.slice(0,15)){
-     const box=item?.rectPt;
-     if(!box||!["x","y","width","height"].every(k=>Number.isFinite(Number(box[k]))))
-      continue;
-     const x=Number(box.x),y=Number(box.y),w=Number(box.width),h=Number(box.height);
-     const left=x/widthPt,top=(heightPt-y-h)/heightPt;
-     if(x<0||y<0||w<=0||h<=0||left<0||top<0||
-        left+w/widthPt>1.001||top+h/heightPt>1.001)continue;
-     const marker=document.createElement("div");
-     marker.className="ir-ai-pdf-source-evidence";
-     marker.style.left=(left*100)+"%";marker.style.top=(top*100)+"%";
-     marker.style.width=(w/widthPt*100)+"%";
-     marker.style.height=(h/heightPt*100)+"%";
-     marker.title="Найденная текстовая надпись PDF, не подтверждение монтажных координат";
-     marker.setAttribute("aria-hidden","true");
-     layer.appendChild(marker);evidenceBoxes.push(marker);
-     // The two stroke lines belong to the exact chosen contour hypothesis,
-     // in PDF.js viewport points with TOP-LEFT origin. Overlay is only visual
-     // evidence. It must not add or alter any construction in the scheme.
-     const lines=Array.isArray(item.strokeLinesPt)?item.strokeLinesPt:[];
-     if(lines.length===2&&lines.every(line=>line&&
-       ["x1","y1","x2","y2"].every(k=>Number.isFinite(line[k]))&&
-       [line.x1,line.x2].every(p=>p>=0&&p<=widthPt)&&
-       [line.y1,line.y2].every(p=>p>=0&&p<=heightPt))){
-      const ns="http://www.w3.org/2000/svg",
-       overlay=document.createElementNS(ns,"svg");
-      overlay.setAttribute("class","ir-ai-pdf-source-strokes");
-      overlay.setAttribute("viewBox","0 0 "+widthPt+" "+heightPt);
-      overlay.setAttribute("preserveAspectRatio","none");
-      overlay.setAttribute("aria-hidden","true");
-      lines.forEach((line,n)=>{
-       const edge=document.createElementNS(ns,"line");
-       for(const k of ["x1","y1","x2","y2"])edge.setAttribute(k,String(line[k]));
-       edge.setAttribute("data-edge",String(n+1));
-       overlay.appendChild(edge)
-      });
-      layer.appendChild(overlay);evidenceBoxes.push(overlay)
-     }
-    }
-   }
-   if(highlightToggle){
-    highlightToggle.disabled=evidenceBoxes.length===0;
-    highlightToggle.title=evidenceBoxes.length?
-     "Жёлтая рамка — надпись; цветные линии — выбранная графическая гипотеза. Это не монтажная геометрия.":
-     "Для этого листа нет надёжных координат текстовых фрагментов";
-    highlightToggle.onclick=()=>{
-     highlightVisible=!highlightVisible;
-     highlightToggle.setAttribute("aria-pressed",String(highlightVisible));
-     evidenceBoxes.forEach(marker=>marker.hidden=!highlightVisible)
-     if(cropEvidenceLayer)cropEvidenceLayer.hidden=!highlightVisible
-    }
-   }
-   const selectedArea=()=>selected?selected.width*selected.height:0;
-   const validFastSelection=()=>!!selected&&selected.width>=0.01&&selected.height>=0.01&&
-    selectedArea()<=MAX_FAST_REGION_AREA;
-   aiState.textContent="Проверяем готовность локальной Qwen…";
-   async function refreshAiStatus(){
-    if(!runtime?.status||!dlg.isConnected)return;
-    if(aiStatusJob)return aiStatusJob;
-    aiStatusJob=(async()=>{
-     try{
-      const current=await runtime.status();
-      if(!dlg.isConnected)return;
-      engine=current;
-      modelReady=current?.state==="ready";
-      aiState.textContent=modelReady?
-       "Qwen готова. Выделите область листа для распознавания.":
-       "Qwen не готова ("+String(current?.state||"неизвестно")+
-       "). Закройте просмотр, запустите локальный ИИ и откройте лист снова.";
-     }catch(error){
-      if(!dlg.isConnected)return;
-      modelReady=false;
-      aiState.textContent="Не удалось проверить Qwen: "+String(error.message||error).slice(0,180)
-     }finally{if(dlg.isConnected)updateSelection()}
-    })();
-    try{return await aiStatusJob}finally{aiStatusJob=null}
-   }
-   // View-only overlay follows the NEW PDF crop coordinate system. A zoomed
-   // fragment is re-rendered from the source, not scaled from the preview.
-   function showCropEvidence(view){
-    if(cropEvidenceLayer){
-     cropEvidenceLayer.remove();cropEvidenceLayer=null
-    }
-    const rect=view?.sourceRectPt,first=evidenceLocations?.[0],
-     strokes=first?.strokeLinesPt,box=first?.rectPt;
-    if(!crop||!rect||Number(pageInfo?.rotation||0)!==0||
-      !Array.isArray(strokes)||strokes.length!==2||
-      !["x","y","width","height"].every(k=>Number.isFinite(rect[k]))||
-      rect.width<=0||rect.height<=0||
-      !strokes.every(l=>l&&["x1","y1","x2","y2"].every(k=>Number.isFinite(l[k]))))
-     return;
-    const W=Number(pageInfo.widthPt),H=Number(pageInfo.heightPt);
-    if(!(W>0&&H>0))return;
-    const ns="http://www.w3.org/2000/svg",
-     overlay=document.createElementNS(ns,"svg");
-    overlay.setAttribute("class","ir-ai-pdf-focus-strokes");
-    overlay.setAttribute("viewBox","0 0 1000 1000");
-    overlay.setAttribute("preserveAspectRatio","none");
-    overlay.setAttribute("aria-hidden","true");
-    const x=v=>1000*(v-rect.x)/rect.width,
-     y=v=>1000*(v-rect.y)/rect.height;
-    strokes.forEach((stroke,i)=>{
-     const line=document.createElementNS(ns,"line");
-     for(const k of ["x1","x2"])line.setAttribute(k,String(x(stroke[k])));
-     for(const k of ["y1","y2"])line.setAttribute(k,String(y(stroke[k])));
-     line.setAttribute("data-edge",String(i+1));
-     overlay.appendChild(line)
-    });
-    if(box&&["x","y","width","height"].every(k=>Number.isFinite(box[k]))){
-     const label=document.createElementNS(ns,"rect");
-     const top=H-box.y-box.height;
-     label.setAttribute("x",String(x(box.x)));
-     label.setAttribute("y",String(y(top)));
-     label.setAttribute("width",String(1000*box.width/rect.width));
-     label.setAttribute("height",String(1000*box.height/rect.height));
-     label.setAttribute("class","ir-ai-pdf-focus-mark");
-     overlay.appendChild(label)
-    }
-    overlay.hidden=!highlightVisible;
-    wrap.appendChild(overlay);cropEvidenceLayer=overlay
-   }
-   function showImage(view){
-    if(!validImage(view.dataUrl))throw Error("Неверный формат увеличенного фрагмента PDF");
-    img.src=view.dataUrl;
-    wrap.style.width=fitted?"min(100%, "+view.width+"px)":view.width+"px";
-    title.textContent=String(original.sourceName||"PDF")+" · лист "+original.page+"/"+original.total+
-     (crop?" · увеличенный фрагмент":"");
-    meta.textContent=(crop?"Выделенный фрагмент: ":"Источник: ")+view.width+" × "+view.height+
-     " px · SHA-256 "+original.sha256+
-     (crop&&view.sourceRectPt?" · прямоугольник PDF, pt: "+JSON.stringify(view.sourceRectPt):"")+
-     (!crop&&evidenceBoxes.some(element=>element.namespaceURI==="http://www.w3.org/2000/svg")?
-      " · Цветные линии: непроверенные графические гипотезы, не монтажные координаты":"");
-    back.hidden=!crop;layer.style.display=crop?"none":"";
-    showCropEvidence(view);
-    updateSelection()
-   }
-   function updateSelection(){
-    rectangle.style.display=!selected||crop?"none":"block";
-    if(selected&&!crop){
-     rectangle.style.left=(selected.x*100)+"%";rectangle.style.top=(selected.y*100)+"%";
-     rectangle.style.width=(selected.width*100)+"%";rectangle.style.height=(selected.height*100)+"%"
-    }
-    const percent=selected?Math.round(selectedArea()*1000)/10:null;
-    if(regionSize){
-     regionSize.textContent=crop&&cropEvidenceLayer?
-      "Автоматически увеличен спорный участок оригинального PDF. "+
-      "Красная и голубая линии — лишь варианты графического контура. "+
-      "Нажмите «Вернуться к листу» для общей схемы.":
-      !selected?"Область ещё не выбрана.":
-      "Выбрано "+percent+"% листа. "+
-      (validFastSelection()?"Можно распознать фрагмент.":
-       "Это почти целый лист: для быстрого распознавания выделите меньшую область (до 35%).");
-    }
-    if(stamp)stamp.disabled=loading||!!crop;
-    extract.disabled=loading||!validFastSelection()||!!crop;
-    if(recognize){
-     recognize.disabled=loading||!validFastSelection()||!modelReady||!canEdit;
-     recognize.title=!canEdit?"Только инженер или администратор может распознавать лист":
-      !modelReady?"Qwen не готова — проверьте статус модели над изображением":
-      !selected?"Выделите область чертежа мышью или нажмите «Выбрать штамп справа внизу»":
-      !validFastSelection()?"Слишком большая область: для экспресс-режима выберите не более 35% листа":
-      crop?"Распознать увеличенный участок по исходным координатам PDF":
-      "Запустить Qwen для выбранного участка PDF";
-    }
-   }
-   function point(event){
-    const bounds=layer.getBoundingClientRect();
-    if(!bounds.width||!bounds.height)return null;
-    return{
-     x:Math.min(1,Math.max(0,(event.clientX-bounds.left)/bounds.width)),
-     y:Math.min(1,Math.max(0,(event.clientY-bounds.top)/bounds.height))
-    }
-   }
-   function rectangleFrom(a,b){
-    const r={x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),
-     width:Math.abs(a.x-b.x),height:Math.abs(a.y-b.y)};
-    return Object.fromEntries(Object.entries(r).map(([k,v])=>[k,Math.round(v*1e6)/1e6]))
-   }
-   layer.onpointerdown=event=>{
-    if(event.button!==0&&event.pointerType==="mouse"||loading||crop)return;
-    const start=point(event);if(!start)return;
-    drag={start,id:event.pointerId};
-    try{layer.setPointerCapture(event.pointerId)}catch{}
-    selected=null;updateSelection();event.preventDefault()
-   };
-   layer.onpointermove=event=>{
-    if(!drag||drag.id!==event.pointerId||loading)return;
-    const end=point(event);if(!end)return;
-    selected=rectangleFrom(drag.start,end);
-    updateSelection()
-   };
-   const finish=event=>{
-    if(!drag||drag.id!==event.pointerId)return;
-    const end=point(event),rect=end?rectangleFrom(drag.start,end):null;
-    drag=null;
-    selected=rect&&rect.width>=0.01&&rect.height>=0.01&&
-     rect.x+rect.width<=1.000001&&rect.y+rect.height<=1.000001?rect:null;
-    updateSelection()
-   };
-   layer.onpointerup=event=>{finish(event);void refreshAiStatus()};
-   layer.onpointercancel=()=>{drag=null;selected=null;updateSelection()};
-   stamp.onclick=()=>{
-    if(loading||crop)return;
-    selected={...stampPreset};
-    updateSelection()
-   };
-   fit.onclick=()=>{
-    fitted=!fitted;fit.textContent=fitted?"100%":"По ширине";
-    wrap.style.width=fitted?"min(100%, "+(crop?.width||original.width)+"px)":
-     (crop?.width||original.width)+"px"
-   };
-   extract.onclick=async()=>{
-    if(!validFastSelection()||crop||loading)return;
-    const rect={...selected};loading=true;updateSelection();
+   await pdf.index(id,documentId);notice="PDF проиндексирован."
+  }catch(ex){notice="Ошибка индексации: "+String(ex.message||ex);error=true}
+  finally{busy=false;await reload()}
+ }
+ async function indexAll(){
+  if(busy||!pdf?.index)return;
+  const selected=docs.filter(d=>d.ext===".pdf"&&d.exists);
+  if(!selected.length)return;
+  busy=true;error=false;notice="Индексируем последовательно, без нейросетей.";
+  bulk={running:true,current:"",rows:new Map(selected.map(d=>[String(d.id),
+   matchingIndex(d)?{state:"done",pages:matchingIndex(d).totalPages||matchingIndex(d).pages.length}:
+    {state:"waiting"}]))};
+  paint();let unsubscribe=null;
+  if(typeof pdf.onProgress==="function"){
+   try{unsubscribe=pdf.onProgress(event=>{
+    if(String(event?.objectId)!==id)return;
+    const row=bulk?.rows.get(String(event.documentId));
+    if(!row||row.state!=="running")return;
+    if(Number.isInteger(Number(event.page)))row.page=Number(event.page);
+    if(Number.isInteger(Number(event.total)))row.total=Number(event.total);
+    updateProgress()
+   })}catch{}
+  }
+  try{
+   for(const d of selected){
+    if(!isCurrent())break;
+    const row=bulk.rows.get(String(d.id));
+    if(row.state==="done")continue;
+    row.state="running";bulk.current=d.name;updateProgress();
     try{
-     const view=await pdf.regionPreview(id,documentId,page,rect);
-     crop=view;showImage(view)
-    }catch(error){meta.textContent="Не удалось увеличить фрагмент: "+String(error.message||error)}
-    finally{loading=false;updateSelection()}
-   };
-   if(recognize)recognize.onclick=async()=>{
-    if(!validFastSelection()||loading||!canEdit){
-     if(selected&&!validFastSelection()&&regionSize)
-      regionSize.textContent="Выбрано "+(selectedArea()*100).toFixed(1)+
-       "% листа — выделите только штамп К60 или воспользуйтесь кнопкой 5.1.";
-     return
-    }
-    await refreshAiStatus();
-    if(!modelReady){
-     aiState.textContent="Qwen остановлена. Закройте просмотр и нажмите «Запустить локальный ИИ».";
-     updateSelection();return
-    }
-    if(!await authorizeAiMutation())return;
-    loading=true;updateSelection();
-    const stopTimer=trackSheetAnalysis("КМД · лист "+page+" · фрагмент",
-     dlg.querySelector("[data-ai-region-progress]"));
-    paint();
-    try{
-     await pdf.regionAnalyze(id,documentId,page,{...selected});
-     notice("Фрагмент PDF · лист "+page+" обработан локальным ИИ. Результат требует проверки инженера.");
-     stopTimer("completed");
-     active="checks";dlg.close();await reload()
-    }catch(error){
-     stopTimer("failed");
-     meta.textContent="ИИ-анализ фрагмента не завершён: "+String(error.message||error);
-     notice("Распознавание фрагмента не выполнено: "+String(error.message||error),"error");
-     paint()
-    }finally{loading=false;updateSelection()}
-   };
-   back.onclick=()=>{crop=null;showImage(original)};
-   dlg.querySelector("[data-pdf-close]").onclick=()=>{if(!loading)dlg.close()};
-   dlg.addEventListener("cancel",event=>{if(loading)event.preventDefault()});
-   dlg.addEventListener("close",()=>dlg.remove(),{once:true});
-   document.body.appendChild(dlg);showImage(original);dlg.showModal();
-   const autoFocus=focusedPdfRegion(evidenceLocations,pageInfo);
-   if(autoFocus&&typeof pdf.regionPreview==="function"){
-    // User explicitly clicked a disputed contour. Zoom only that one,
-    // preserve "Вернуться к листу" and allow manual crop adjustment.
-    loading=true;updateSelection();
-    void (async()=>{
-     try{
-      const zoomed=await pdf.regionPreview(id,documentId,page,autoFocus);
-      if(!dlg.isConnected)return;
-      crop=zoomed;selected=autoFocus;
-      showImage(zoomed)
-     }catch(error){
-      if(dlg.isConnected){
-       meta.textContent="Не удалось автоматически увеличить спорную марку: "+
-        String(error.message||error)+". Полный лист доступен."
-      }
-     }finally{
-      loading=false;if(dlg.isConnected)updateSelection()
-     }
-    })()
+     const result=await pdf.index(id,d.id);
+     if(String(result.documentId)!==String(d.id)||
+      result.sourceSha256!==d.sha256||!result.pages?.length)
+      throw Error("Индекс не соответствует исходному PDF");
+     indexes=indexes.filter(x=>String(x.documentId)!==String(d.id));
+     indexes.push(result);row.state="done";row.pages=result.totalPages||result.pages.length
+    }catch(ex){row.state="error";row.message=String(ex.message||ex).slice(0,130)}
+    updateProgress()
    }
-   void refreshAiStatus()
-  }catch(error){notice("Не удалось показать лист PDF: "+String(error.message||error),"error")}
-  finally{
-   busy=false;
-   if(message.startsWith("Подготавливаем реальное изображение PDF, лист "))notice("");
+  }finally{
+   unsubscribe?.();bulk.running=false;bulk.current="";busy=false;
    await reload()
   }
  }
- if(workflow?.onProgress){
-  let pending=false;
-  const stop=workflow.onProgress(data=>{
-   if(String(data?.objectId)!==id||location.hash!==route||active!=="workflow"||pending)return;
-   pending=true;
-   Promise.all([workflow.list(id),workflow.summary(id)]).then(([rows,state])=>{
-    workflowTasks=rows;workflowSummary=state;
-    if(location.hash===route&&active==="workflow")showContent()
-   }).catch(error=>notice("Очередь: "+String(error.message||error),"error"))
-    .finally(()=>{pending=false})
-  });
-  window.addEventListener("hashchange",()=>{if(location.hash!==route)stop()},{once:true})
+ async function showScheme(){
+  const box=app.querySelector("#irAiContent");if(!box)return;
+  box.innerHTML='<p class="ir-ai-doc-empty">Загружаем анализ осей и контуров PDF…</p>';
+  try{
+   if(!window.irAiSchemeLitePage){
+    if(!loader)loader=new Promise((resolve,reject)=>{
+     const el=document.createElement("script");
+     el.src="irapp://app/src/ai-scheme-lite-page.js";
+     el.onload=()=>window.irAiSchemeLitePage?resolve():reject(Error("Модуль анализа не загрузился"));
+     el.onerror=()=>reject(Error("Не удалось загрузить анализатор"));
+     document.head.appendChild(el)
+    });
+    await loader
+   }
+   if(!isCurrent()||active!=="scheme-lite"||box!==app.querySelector("#irAiContent"))return;
+   await window.irAiSchemeLitePage.render(box,{objectId:id,documents:docs,indexes,
+    root:api.data.forObject(id),window,pdf,
+    onOpenPdf:(doc,page,evidence)=>openPdf(doc,page,evidence),
+    onNavigate:tab=>tab==="scheme"?location.hash="/objects/object/"+id+"/scheme":
+     switchTab("documents")})
+  }catch(ex){if(isCurrent())box.textContent="Ошибка геометрического анализа: "+String(ex.message||ex)}
+ }
+ async function openPdf(documentId,page,evidence=[]){
+  if(!pdf?.preview)return;
+  try{
+   const result=await pdf.preview(id,documentId,Number(page));
+   if(!isCurrent())return;
+   if(!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(result?.dataUrl||""))
+    throw Error("Неверное изображение листа PDF");
+   const dlg=document.createElement("dialog");dlg.className="ir-ai-pdf-preview-dialog";
+   dlg.innerHTML='<div class="ir-ai-pdf-preview-header"><b>Чертёж · лист '+Number(page)+
+    '</b><button type="button" data-close>Закрыть ✕</button></div>'+
+    '<div class="ir-ai-pdf-preview-stage"><div class="ir-ai-pdf-image-wrap" style="position:relative">'+
+    '<img alt="Исходный лист КМД" style="display:block;width:100%;height:auto">'+
+    '<div class="ir-ai-pdf-region-layer" style="position:absolute;inset:0;pointer-events:none"></div>'+
+    '</div></div>';
+   const img=dlg.querySelector("img");img.src=result.dataUrl;
+   const layer=dlg.querySelector(".ir-ai-pdf-region-layer"),
+    original=indexes.find(x=>String(x.documentId)===String(documentId)),
+    pageInfo=original?.pages?.find(x=>Number(x.page)===Number(page));
+   const W=Number(pageInfo?.widthPt),H=Number(pageInfo?.heightPt);
+   if(Number(pageInfo?.rotation||0)===0&&W>0&&H>0){
+    for(const item of (Array.isArray(evidence)?evidence:[]).slice(0,30)){
+     const rect=item?.rectPt;
+     if(!rect||!["x","y","width","height"].every(k=>Number.isFinite(Number(rect[k]))))continue;
+     const x=Number(rect.x),y=Number(rect.y),w=Number(rect.width),h=Number(rect.height);
+     if(x<0||y<0||w<=0||h<=0||x+w>W+1||y+h>H+1)continue;
+     const node=document.createElement("div");node.className="ir-ai-pdf-source-evidence";
+     node.style.left=x/W*100+"%";node.style.top=(H-y-h)/H*100+"%";
+     node.style.width=w/W*100+"%";node.style.height=h/H*100+"%";
+     node.title="Надпись PDF: "+String(item.quote||"");
+     layer.appendChild(node)
+    }
+   }
+   document.body.appendChild(dlg);
+   dlg.querySelector("[data-close]").onclick=()=>dlg.close();
+   dlg.addEventListener("close",()=>dlg.remove(),{once:true});
+   dlg.showModal()
+  }catch(ex){error=true;notice="Не удалось открыть лист: "+String(ex.message||ex);paint()}
+ }
+ try{object=await api.data.objects.get(id)}catch(ex){app.textContent="Ошибка объекта: "+String(ex.message||ex);return}
+ if(!object){location.hash="/objects";return}
+ if(!docsApi?.list||!pdf?.list){
+  app.textContent="Для просмотра КМ/КМД нужна актуальная базовая сборка Windows.";return
  }
  await reload()
 };
