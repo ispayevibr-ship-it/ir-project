@@ -154,7 +154,8 @@
    end_offset_y_mm:kind==="column"?undefined:0,
    z0_mm:z0Mm,z1_mm:z1Mm,end_z_mm:kind==="column"?undefined:z1Mm,
    rotation_deg:0,status:"planned",
-   scheme_group:"all",scheme_group_label:"ИИ · требует проверки",
+   scheme_group:kind==="column"?"columns":kind==="brace"?"ties":"beams",
+   scheme_group_label:kind==="column"?"Колонны":kind==="brace"?"Связи":"Балки",
    scheme_view_id:"all",
    ai_source:{documentId:c.source.documentId,sha256:c.source.sha256,
     page:c.source.page,evidence:c.evidence.slice(0,5),verifiedManually:true},
@@ -174,7 +175,8 @@
     const escDoc=esc;let live=true;
     const hostWindow=opts.window||root;
     const dataRoot=opts.root||hostWindow?.irProject?.data?.forObject(objectId);
-    const marksApi=dataRoot?.section?.("marks"),schemeApi=dataRoot?.section?.("scheme");
+    const marksApi=dataRoot?.section?.("marks"),schemeApi=dataRoot?.section?.("scheme"),
+     workApi=dataRoot?.section?.("work-types");
     const pdf=opts.pdf||hostWindow?.irProject?.aiPdf;
     disposeLast=()=>{live=false};
     const status=x=>{log=x;const el=host.querySelector("[data-lite-status]");if(el)el.textContent=x};
@@ -224,7 +226,7 @@
        '<label>Конечная ось Y<input name="endY" maxlength="3" placeholder="для балки"></label>'+
        '<label>Низ / начало, мм<input type="number" name="z0" step="1" placeholder="-400" value="'+escDoc(c.z0Mm??"")+'"></label>'+
        '<label>Верх / конец, мм<input type="number" name="z1" step="1" placeholder="9705" value="'+escDoc(c.z1Mm??"")+'"></label></div>'+
-       '<div class="ir-ai-lite-actions"><button type="button" data-lite-approve="'+i+'" '+(!canEdit?'disabled':'')+
+       '<div class="ir-ai-lite-actions"><button type="button" data-lite-approve="'+i+'" '+(!canEdit||!hostWindow.irAccess?.canEdit?.("scheme")?'disabled':'')+
        '>2. Проверить и добавить на монтажную схему</button>'+
        '<small>Координаты берутся только из сохранённой сетки IR Project.</small></div></article>').join("")+
        '</div>':
@@ -249,7 +251,7 @@
       const entries=allEntries.slice(0,250);
       for(const {idx,p} of entries){
        if(!live)break;
-       const doc=documents.find(d=>d.id===idx.documentId);
+       const doc=documents.find(d=>Number(d.id)===Number(idx.documentId));
        if(!doc)continue;
        try{
         const detail=await pdf.page(objectId,idx.id,p.page);
@@ -280,10 +282,18 @@
      };
      busy=true;
      try{
-      const newKind=value("type"),markRows=await marksApi.list(),schemeRows=await schemeApi.list();
+      if(!hostWindow.irAccess?.canEdit?.("scheme"))
+       throw Error("У текущей роли нет разрешения на изменение монтажной схемы.");
+      const newKind=value("type");
+      const [markRows,schemeRows,workRows]=await Promise.all([
+       marksApi.list(),schemeApi.list(),workApi.list()
+      ]);
       const names=markRows.map(r=>({id:r.id,...r.data,title:r.title})),
        matching=names.filter(m=>norm(m.mark||m.title)===norm(c.mark));
       if(matching.length!==1)throw Error("В ведомости объекта должно быть ровно одно точное соответствие марке "+c.mark+".");
+      const relevantWork=workRows.find(w=>String(w.id)===String(matching[0].work_type_id));
+      if(!relevantWork||relevantWork.data?.scheme_enabled!==true)
+       throw Error("Для этой марки в разделе «Виды работ» должна быть включена монтажная схема.");
       const fresh={...c,type:newKind};
       const entry=payloadFor(fresh,{mark:matching[0],schemeRows,
        axisX:value("axisX"),axisY:value("axisY"),
