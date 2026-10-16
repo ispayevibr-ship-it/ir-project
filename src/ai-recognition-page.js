@@ -431,8 +431,12 @@ window.irAiRecognitionPage=async function(objectId){
        ' · SHA-256 '+esc(x.sha256)+' · '+esc(x.sourceRegion||x.region||"Весь документ")+'</div>'+
       (x.page?'<button type="button" class="ir-ai-review-open" data-ai-review-source="'+x.documentId+':'+x.page+'">Просмотр исходного листа</button>':"")+
       '<div class="ir-ai-result-text">'+esc(x.notes?
-       (x.notes.text||"Qwen вернула JSON без текстового описания. Ниже показаны найденные марки и исходный ответ.") :
-       "Qwen вернула ответ, но его не удалось разобрать как JSON. Раскройте «Ответ модели без изменений» ниже. Если штамп мелкий, попробуйте распознать выделенный фрагмент листа.")+'</div>'+
+       (x.notes.text||((x.notes.marks||[]).length||(x.notes.structured?.records||[]).length?
+        "Qwen вернула структурированные поля без текстового описания. Проверьте марки и записи ниже.":
+        "Qwen вернула корректный, но пустой JSON: ни марки, ни деталей. Для мелкого текста выберите фрагмент листа и распознайте его в увеличенном виде.")) :
+       "Ответ модели не удалось разобрать как JSON. Раскройте «Ответ модели без изменений» ниже и попробуйте анализ увеличенного фрагмента листа.")+'</div>'+
+      (x.raster?.width&&x.raster?.height?'<div class="ir-ai-result-source">Изображение, переданное Qwen: '+esc(x.raster.width)+' × '+esc(x.raster.height)+' пикселей'+
+       (x.pdfTextLayer?' · использован текстовый слой PDF, индекс № '+esc(x.pdfTextLayer.indexId):' · текстовый слой PDF не использован')+'</div>':"")+
       (x.finishReason&&x.finishReason!=="stop"?'<div class="ir-ai-quantity-warning">Генерация Qwen завершилась со статусом '+esc(x.finishReason)+
        '. Ответ может быть обрезан или неполон, инженерное подтверждение пока не требуется.</div>':"")+
       '<div class="ir-ai-result-row"><b>Первоначально распознанные марки:</b> '+esc((x.originalMarks||x.notes?.marks||[]).join(", ")||"Не найдены")+'</div>'+
