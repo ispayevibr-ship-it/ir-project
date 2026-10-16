@@ -147,6 +147,9 @@ const aiWorkflow={
  }
 };
 const aiMounting={
+ drafts:objectId=>ipcRenderer.invoke("ai-mounting:drafts",objectId),
+ saveDraft:(objectId,candidate,values,expectedRevision)=>
+  ipcRenderer.invoke("ai-mounting:save-draft",{objectId,candidate,values,expectedRevision}),
  preview:(objectId,entries)=>ipcRenderer.invoke("ai-mounting:preview",{objectId,entries}),
  apply:(objectId,entries,token)=>ipcRenderer.invoke("ai-mounting:apply",{objectId,entries,token}),
  latest:objectId=>ipcRenderer.invoke("ai-mounting:last",objectId),
