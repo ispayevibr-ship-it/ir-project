@@ -35,6 +35,7 @@ jobs:
         run: |
           set -euo pipefail
           node --check src/ai-recognition-page.js
+          node --check src/scheme-reset.js
           node --check src/ai-scheme-lite-page.js
           node --check src/ai-local-engine.js
           node --check src/ai-image-optimizer.js
