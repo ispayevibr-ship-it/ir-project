@@ -120,9 +120,9 @@ assert.equal(extractPage({documentId:4,name:"План расположения �
 // Confirm routing and lazy hot loading without repacking Electron/index.html.
 const renderer=fs.readFileSync("src/ai-recognition-page.js","utf8");
 new vm.Script(renderer);
-assert(renderer.includes('["scheme-lite","Монтажная схема"]'));
+assert(renderer.includes('data-kmd-tab="scheme-lite"'));
 assert(renderer.includes('script.src="irapp://app/src/ai-scheme-lite-page.js"'));
-assert(renderer.includes('objectId:id,documents,indexes:pdfIndexes,canEdit'));
+assert(renderer.includes('objectId:id,documents:docs,indexes'));
 assert(renderer.includes('"/objects/object/"+id+"/scheme"'));
 const lite=fs.readFileSync("src/ai-scheme-lite-page.js","utf8");
 new vm.Script(lite);
