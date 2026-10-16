@@ -6,10 +6,13 @@ const MODEL_ROOT="ir-project-ai",API_MODEL="local-qwen3-vl";
 // A single 1800px KM/KMD sheet can exceed 4096 vision/text tokens.
 // Reserve enough context for image patches, trusted prompt, and generated JSON.
 const VISION_CONTEXT_TOKENS=8192;
+// 3 minutes is insufficient for Qwen3-VL on a CPU-only laptop rendering A1 KMD sheets.
+const CPU_VISION_TIMEOUT_MS=10*60*1000;
+const GPU_VISION_TIMEOUT_MS=6*60*1000;
 const names={binary:process.platform==="win32"?"llama-server.exe":"llama-server",model:"model.gguf",vision:"mmproj.gguf"};
 const STATUS=["missing","invalid","stopped","starting","ready","failed"];
 function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>new Promise(resolve=>setTimeout(resolve,ms)),
- memory=os.totalmem,managedModel=null}={}){
+ memory=os.totalmem,managedModel=null,requestTimeoutMs=null}={}){
  if(typeof getUserDataPath!=="function")throw Error("AI engine requires userData directory");
  const root=()=>path.join(getUserDataPath(),MODEL_ROOT,"runtime");
  let child=null,serverPort=0,secret="",state="stopped",issue="",busy=false,controller=null,startJob=null,activeProfile=null,lifecycle=0;
@@ -96,10 +99,16 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
   }
   return current
  }
+ function visionTimeoutMs(){
+  // Injectable for deterministic tests, otherwise respect the selected profile.
+  if(Number.isInteger(requestTimeoutMs)&&requestTimeoutMs>=10&&requestTimeoutMs<=900000)
+   return requestTimeoutMs;
+  return (activeProfile?.gpuLayers||0)>0?GPU_VISION_TIMEOUT_MS:CPU_VISION_TIMEOUT_MS
+ }
  function status(){
   const check=inspect();
   const real=Boolean(child&&activeProfile);
-  return{contextTokens:VISION_CONTEXT_TOKENS,
+  return{contextTokens:VISION_CONTEXT_TOKENS,analysisTimeoutSeconds:Math.ceil(visionTimeoutMs()/1000),
    state:check.installed?state==="missing"?"stopped":state:check.reason?.includes("не установлен")?"missing":"invalid",
    installed:check.installed,reason:check.installed?issue:check.reason,
    ramGb:Math.round(memory()/1073741824*10)/10,
@@ -114,7 +123,7 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
   s.listen(0,"127.0.0.1",()=>{const p=s.address().port;s.close(error=>error?reject(error):resolve(p))})
  })}
  function terminate(){
-  controller?.abort();controller=null;busy=false;
+  controller?.abort("model_stopped");controller=null;busy=false;
   const old=child;child=null;serverPort=0;secret="";activeProfile=null;
   if(old)try{old.kill()}catch{}
  }
@@ -186,7 +195,8 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
   busy=true;
   const currentController=new AbortController(),generation=lifecycle,currentChild=child;
   controller=currentController;
-  const timeout=setTimeout(()=>currentController.abort(),180000);
+  const deadlineMs=visionTimeoutMs();
+  const timeout=setTimeout(()=>currentController.abort("timeout"),deadlineMs);
   try{
    const response=await httpFetch("http://127.0.0.1:"+serverPort+"/v1/chat/completions",{
     method:"POST",signal:currentController.signal,
@@ -227,16 +237,36 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
     throw Error("Анализ отменён или модель была перезапущена");
    const content=answer.choices?.[0]?.message?.content;
    if(typeof content!=="string"||!content.trim())throw Error("Модель не вернула текст");
+   issue="";
    return{raw:content.slice(0,30000),engine:API_MODEL,
     modelId:activeProfile?.modelId||null,modelVersion:activeProfile?.version||null,
     complete:answer.choices?.[0]?.finish_reason==="stop",
      finishReason:String(answer.choices?.[0]?.finish_reason||"unknown")};
+  }catch(error){
+   const interrupted=currentController.signal.aborted||
+    error?.name==="AbortError"||error?.name==="TimeoutError";
+   if(interrupted){
+    const reason=currentController.signal.reason;
+    const message=generation!==lifecycle||child!==currentChild||reason==="model_stopped"?
+     "Распознавание прервано: локальная модель была остановлена или перезапущена.":
+     reason==="user_cancel"?
+     "Распознавание отменено пользователем. Исходный PDF сохранён.":
+     reason==="timeout"?
+     "Превышено время ожидания ответа Qwen ("+Math.ceil(deadlineMs/60000)+
+     " мин.). На процессоре полный лист КМД обрабатывается долго. "+
+     "Попробуйте выделить штамп К60 и распознать увеличенный фрагмент. PDF не изменён.":
+     "Соединение с llama.cpp прервано до получения ответа. "+
+     "Проверьте состояние модели и свободную оперативную память.";
+    if(reason==="timeout")issue=message;
+    throw Error(message)
+   }
+   throw error
   }finally{
    clearTimeout(timeout);
    if(controller===currentController){controller=null;busy=false}
   }
  }
- function cancel(){if(controller)controller.abort();return status()}
+ function cancel(){if(controller)controller.abort("user_cancel");return status()}
  return{status,start,stop,verify,analyzeImage,cancel,inspect};
 }
-module.exports={createEngine,names,STATUS,VISION_CONTEXT_TOKENS};
+module.exports={createEngine,names,STATUS,VISION_CONTEXT_TOKENS,CPU_VISION_TIMEOUT_MS,GPU_VISION_TIMEOUT_MS};
