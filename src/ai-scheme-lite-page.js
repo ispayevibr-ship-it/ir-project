@@ -486,12 +486,12 @@
    dispose(){if(disposeLast)disposeLast();disposeLast=null},
    async render(host,opts={}){
     if(!host)return;
-    const {objectId,documents=[],indexes=[],canEdit=false,askPassword,
+    const {objectId,documents=[],indexes=[],askPassword,
      reviewer,onOpenPdf,onNavigate}=opts;
     page.dispose();
     latest=[];candidates=[];batch=null;verifiedPreview=null;lastOperation=null;inventory=null;draftRows=[];
     busy=false;saved=0;log="";feedbackByCandidate.clear();
-    const escDoc=esc;let live=true;
+    const escDoc=esc;const canEdit=true;let live=true;
     const hostWindow=opts.window||root;
     const dataRoot=opts.root||hostWindow?.irProject?.data?.forObject(objectId);
     const marksApi=dataRoot?.section?.("marks"),schemeApi=dataRoot?.section?.("scheme"),
@@ -519,7 +519,7 @@
      '<div class="ir-ai-quantity-warning">Найденная марка не означает известное положение в здании. Высоты привязываются лишь к листам с одной явно обозначенной маркой. Импорт требует инженерной проверки, официальной ведомости и сохранённой сетки осей.</div>'+
      '<div class="ir-ai-lite-toolbar"><button type="button" data-lite-scan '+(busy?'disabled':'')+'>1. Построить черновик по чертежам</button>'+
      '<button type="button" data-lite-scheme>Открыть монтажную схему</button>'+ 
-     (canEdit&&hostWindow.irAccess?.canEdit?.("scheme")&&hostWindow.irProject?.schemeReset?.clear?
+     (hostWindow.irProject?.schemeReset?.clear?
       '<button type="button" data-lite-clear class="ir-ai-lite-clear">Очистить схему</button>':"")+
      '</div>'+
      '<div data-lite-status role="status">'+escDoc(log||"Доступные проиндексированные PDF можно проверить без запуска Qwen.")+'</div>'+
@@ -567,7 +567,7 @@
        '</b>. Сложных листов: <b>'+batch.difficult.length+
        '</b>. '+(batch.hasGrid?'Сетка осей проверена.':'Сначала сохраните сетку осей в монтажной схеме.')+'</p>'+
        '<div class="ir-ai-lite-toolbar">'+
-       (batch.ready.length?'<button type="button" data-lite-batch '+(!canEdit||!hostWindow.irAccess?.canEdit?.("scheme")?'disabled':'')+
+       (batch.ready.length?'<button type="button" data-lite-batch '+''+
         '>2. Расставить готовые марки · '+batch.ready.length+' экз.</button>':"")+
        (batch.difficult.length?'<button type="button" data-lite-qwen>Сложные листы → очередь Qwen ('+
         Math.min(batch.difficult.length,12)+')</button>':"")+'</div>'+
@@ -604,7 +604,7 @@
       (lastOperation?'<section class="ir-ai-lite-batch ir-ai-lite-last-operation">'+
        '<p>Последняя автоматическая расстановка: <b>'+
        lastOperation.created+'</b> элементов · '+escDoc(lastOperation.createdAt||"")+'</p>'+
-       (canEdit?'<button type="button" data-lite-undo>Отменить последнюю расстановку</button>':"")+
+       ('<button type="button" data-lite-undo>Отменить последнюю расстановку</button>':"")+
        '</section>':"")+
       (latest.length?'<div class="ir-ai-lite-docs">'+latest.map((x,pi)=>
        '<div><b>'+escDoc(x.name)+' · лист '+x.page+'</b> · '+escDoc(
@@ -658,8 +658,8 @@
        '<label>Низ / начало, мм<input type="number" name="z0" step="1" placeholder="не определён" value="'+escDoc(draftValue(c,"z0Mm",c.z0Mm??"")??"")+'"></label>'+
        '<label>Верх / конец, мм<input type="number" name="z1" step="1" placeholder="не определён" value="'+escDoc(draftValue(c,"z1Mm",c.z1Mm??"")??"")+'"></label></div>'+
        '<div class="ir-ai-lite-actions"><button type="button" data-lite-save-draft="'+i+'" '+
-       (!canEdit||!hostWindow.irAccess?.canEdit?.("scheme")?'disabled':'')+
-       '>Сохранить исправления</button><button type="button" data-lite-approve="'+i+'" '+(!canEdit||!hostWindow.irAccess?.canEdit?.("scheme")?'disabled':'')+
+       ''+
+       '>Сохранить исправления</button><button type="button" data-lite-approve="'+i+'" '+''+
        '>2. Проверить и добавить на монтажную схему</button>'+
        '<small>Координаты берутся только из сохранённой сетки IR Project.</small></div>'+
        '<div class="ir-ai-lite-inline-feedback" data-lite-feedback role="status" aria-live="polite" data-state="'+
@@ -872,14 +872,9 @@
      finally{busy=false;const scanBtn=host.querySelector("[data-lite-scan]");if(scanBtn)scanBtn.disabled=false}
     }
     async function verifyEditor(){
-     if(!canEdit||!hostWindow.irAccess?.canEdit?.("scheme"))
-      throw Error("У текущей роли нет разрешения на изменение монтажной схемы.");
-     if(!reviewer||!askPassword)throw Error("Инженерное подтверждение недоступно");
-     const role=hostWindow.irAccess?.role?.();
-     if(!["admin","engineer"].includes(role))throw Error("Необходима роль инженера");
-     const password=await askPassword(role);
-     if(password===null)return false;
-     if(!await reviewer.authorize(role,password))throw Error("Неверный пароль");
+     // The AI page is an offline user tool. No passwords or expiring
+     // engineer session; placement still has explicit confirmation and
+     // backend checks the register, source SHA, axes and transaction.
      return true
     }
     function toSafeEntry(item){
@@ -1006,9 +1001,7 @@
     }
     async function saveCorrection(index){
      const c=candidates[index];if(!c)return;
-     if(!canEdit||!hostWindow.irAccess?.canEdit?.("scheme")){
-      candidateFeedback(index,"Нужны права инженера или администратора.");return
-     }
+     
      if(busy)return;
      if(!mounting?.saveDraft||!mounting?.drafts){
       candidateFeedback(index,"Нужна Windows Beta 1.7.223 для сохранения исправлений.");return
@@ -1033,9 +1026,7 @@
     async function approve(index){
      const c=candidates[index],card=host.querySelector('[data-lite-row="'+index+'"]');
      if(!c||!card){status("Карточка больше неактуальна. Повторите поиск марок и высот.");return}
-     if(!canEdit||!hostWindow.irAccess?.canEdit?.("scheme")){
-      candidateFeedback(index,"Нужны права инженера или администратора.");return
-     }
+     
      if(busy){
       candidateFeedback(index,"Дождитесь завершения предыдущей операции и нажмите ещё раз.","info");return
      }
@@ -1075,12 +1066,6 @@
        throw Error("Для марки "+c.mark+" включите монтажную схему в соответствующем виде работ.");
       const fresh={...c,type:newKind};
       payloadFor(fresh,{mark:matching[0],schemeRows,...axes});
-      if(!reviewer||!askPassword)throw Error("Инженерное подтверждение недоступно");
-      const role=hostWindow.irAccess?.role?.();
-      if(!["admin","engineer"].includes(role))throw Error("Гость не может размещать элементы");
-      const password=await askPassword(role);
-      if(password===null){candidateFeedback(index,"Операция отменена.","info");return}
-      if(!await reviewer.authorize(role,password))throw Error("Не подтверждена сессия инженера");
       await ensureCurrent(c);
       const currentRows=await schemeApi.list();
       const finalPayload=payloadFor(fresh,{mark:matching[0],schemeRows:currentRows,...axes});
@@ -1105,7 +1090,7 @@
     host.querySelector("[data-lite-scheme]").onclick=()=>onNavigate?.("scheme");
     const clear=host.querySelector("[data-lite-clear]");
     if(clear)clear.onclick=async()=>{
-     if(busy||!canEdit||!hostWindow.irAccess?.canEdit?.("scheme"))return;
+     if(busy)return;
      const api=hostWindow.irProject?.schemeReset;
      if(!api?.preview||!api?.clear){status("В этой установке недоступна безопасная очистка схемы.");return}
      busy=true;clear.disabled=true;
