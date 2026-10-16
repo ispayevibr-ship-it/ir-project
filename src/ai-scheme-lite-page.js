@@ -311,9 +311,16 @@
   return{ready,review,difficult,
    total:candidates.length,hasGrid:!!grid,markCount:marks.length}
  }
+ function matchesDraft(c,d){
+  return !!c&&!!d&&!d.stale&&
+   String(c.source?.documentId)===String(d.source?.documentId)&&
+   String(c.source?.sha256)===String(d.source?.sha256)&&
+   Number(c.source?.page)===Number(d.source?.page)&&
+   norm(c.mark)===norm(d.mark)&&String(c.type)===String(d.extractedType)
+ }
  function createPage(){
   let latest=[],candidates=[],batch=null,verifiedPreview=null,
-   lastOperation=null,inventory=null,
+   lastOperation=null,inventory=null,draftRows=[],
    busy=false,log="",saved=0,disposeLast=null;
   const feedbackByCandidate=new Map();
   const page={
@@ -323,7 +330,7 @@
     const {objectId,documents=[],indexes=[],canEdit=false,askPassword,
      reviewer,onOpenPdf,onNavigate}=opts;
     page.dispose();
-    latest=[];candidates=[];batch=null;verifiedPreview=null;lastOperation=null;inventory=null;
+    latest=[];candidates=[];batch=null;verifiedPreview=null;lastOperation=null;inventory=null;draftRows=[];
     busy=false;saved=0;log="";feedbackByCandidate.clear();
     const escDoc=esc;let live=true;
     const hostWindow=opts.window||root;
@@ -363,6 +370,12 @@
      const idx=(await pdf.list(objectId)).find(i=>Number(i.documentId)===Number(c.source.documentId)&&
       i.sourceSha256===c.source.sha256&&i.pages.some(p=>p.page===c.source.page));
      if(!idx)throw Error("Текстовый индекс изменён. Сначала переиндексируйте PDF.")
+    };
+    const draftFor=c=>draftRows.find(d=>matchesDraft(c,d))||null;
+    const draftValue=(c,name,fallback)=>{
+     const saved=draftFor(c);
+     return saved?.values&&Object.prototype.hasOwnProperty.call(saved.values,name)?
+      saved.values[name]:fallback
     };
     function draw(){
      const slot=host.querySelector("[data-lite-results]");if(!slot)return;
@@ -450,6 +463,8 @@
         '<span class="ir-ai-lite-grade unprocessed">Не обработано</span>'):"")+
        '<button type="button" data-lite-source="'+i+'">Открыть PDF · лист '+c.source.page+'</button></div>'+
        '<small>'+escDoc(c.source.name)+' · '+escDoc(c.warning)+'</small>'+
+       (draftFor(c)?'<div class="ir-ai-lite-draft-info">Ручные исправления сохранены (ревизия №'+
+        draftFor(c).revision+'). Черновик ещё не подтверждён и не размещён.</div>':"")+
        '<div class="ir-ai-lite-evidence">'+c.evidence.map(e=>'<span>'+escDoc(e)+'</span>').join("")+'</div>'+
        (c.evidenceLocations?.length?'<small>Найдены координаты '+
         c.evidenceLocations.length+' текстовых фрагментов PDF (не координаты монтажа).</small>':"")+
@@ -468,14 +483,16 @@
        '<div class="ir-ai-lite-edit">'+
        '<label>Тип<select name="type"><option value="">Выберите</option>'+
         Object.entries(TYPE_NAMES).map(([key,n])=>'<option value="'+key+'"'+
-         (c.type===key?' selected':'')+'>'+escDoc(n)+'</option>').join("")+'</select></label>'+
-       '<label>Ось X<input name="axisX" maxlength="3" placeholder="не определена" value="'+escDoc(c.axisX)+'"></label>'+
-       '<label>Ось Y<input name="axisY" maxlength="3" placeholder="не определена" value="'+escDoc(c.axisY)+'"></label>'+
-       '<label>Конечная ось X<input name="endX" maxlength="3" placeholder="нужна для балки" value="'+escDoc(c.endAxisX||"")+'"></label>'+
-       '<label>Конечная ось Y<input name="endY" maxlength="3" placeholder="нужна для балки" value="'+escDoc(c.endAxisY||"")+'"></label>'+
-       '<label>Низ / начало, мм<input type="number" name="z0" step="1" placeholder="не определён" value="'+escDoc(c.z0Mm??"")+'"></label>'+
-       '<label>Верх / конец, мм<input type="number" name="z1" step="1" placeholder="не определён" value="'+escDoc(c.z1Mm??"")+'"></label></div>'+
-       '<div class="ir-ai-lite-actions"><button type="button" data-lite-approve="'+i+'" '+(!canEdit||!hostWindow.irAccess?.canEdit?.("scheme")?'disabled':'')+
+         (draftValue(c,"type",c.type)===key?' selected':'')+'>'+escDoc(n)+'</option>').join("")+'</select></label>'+
+       '<label>Ось X<input name="axisX" maxlength="3" placeholder="не определена" value="'+escDoc(draftValue(c,"axisX",c.axisX))+'"></label>'+
+       '<label>Ось Y<input name="axisY" maxlength="3" placeholder="не определена" value="'+escDoc(draftValue(c,"axisY",c.axisY))+'"></label>'+
+       '<label>Конечная ось X<input name="endX" maxlength="3" placeholder="нужна для балки" value="'+escDoc(draftValue(c,"endAxisX",c.endAxisX||""))+'"></label>'+
+       '<label>Конечная ось Y<input name="endY" maxlength="3" placeholder="нужна для балки" value="'+escDoc(draftValue(c,"endAxisY",c.endAxisY||""))+'"></label>'+
+       '<label>Низ / начало, мм<input type="number" name="z0" step="1" placeholder="не определён" value="'+escDoc(draftValue(c,"z0Mm",c.z0Mm??"")??"")+'"></label>'+
+       '<label>Верх / конец, мм<input type="number" name="z1" step="1" placeholder="не определён" value="'+escDoc(draftValue(c,"z1Mm",c.z1Mm??"")??"")+'"></label></div>'+
+       '<div class="ir-ai-lite-actions"><button type="button" data-lite-save-draft="'+i+'" '+
+       (!canEdit||!hostWindow.irAccess?.canEdit?.("scheme")?'disabled':'')+
+       '>Сохранить исправления</button><button type="button" data-lite-approve="'+i+'" '+(!canEdit||!hostWindow.irAccess?.canEdit?.("scheme")?'disabled':'')+
        '>2. Проверить и добавить на монтажную схему</button>'+
        '<small>Координаты берутся только из сохранённой сетки IR Project.</small></div>'+
        '<div class="ir-ai-lite-inline-feedback" data-lite-feedback role="status" aria-live="polite" data-state="'+
@@ -487,6 +504,7 @@
       const c=candidates[Number(b.dataset.liteSource)];if(c)onOpenPdf?.(c.source.documentId,c.source.page,c.evidenceLocations||[])
      });
      slot.querySelectorAll("[data-lite-approve]").forEach(b=>b.onclick=()=>{void approve(Number(b.dataset.liteApprove))});
+     slot.querySelectorAll("[data-lite-save-draft]").forEach(b=>b.onclick=()=>{void saveCorrection(Number(b.dataset.liteSaveDraft))});
      const bulk=slot.querySelector?.("[data-lite-batch]");
      if(bulk)bulk.onclick=()=>void approveBatch();
      const uncertain=slot.querySelector?.("[data-lite-qwen]");
@@ -535,6 +553,10 @@
        }catch(error){status("Ошибка чтения листа "+p.page+": "+String(error.message||error).slice(0,180))}
       }
       if(live){
+       if(mounting?.drafts){
+        try{draftRows=await mounting.drafts(objectId)||[]}
+        catch(error){status("Черновики пока недоступны: "+String(error.message||error))}
+       }
        const [markRows,schemeRows,workRows]=await Promise.all([
         marksApi.list(),schemeApi.list(),workApi.list()
        ]);
@@ -665,6 +687,49 @@
      }catch(error){status("Не удалось добавить листы в очередь Qwen: "+String(error.message||error))}
      finally{busy=false}
     }
+    function readCardValues(index){
+     const card=host.querySelector('[data-lite-row="'+index+'"]');
+     if(!card)throw Error("Карточка обновлена. Повторите распознавание.");
+     const input=n=>card.querySelector?.('[name="'+n+'"]')||
+      [...(card.querySelectorAll?.("[name]")||[])].find(x=>x.name===n);
+     const value=n=>String(input(n)?.value??"").trim();
+     const number=n=>{
+      const v=value(n);
+      if(!v)return null;
+      const num=Number(v.replace(/−/g,"-").replace(",","."));
+      if(!Number.isSafeInteger(num))throw Error("Отметка должна быть целым числом в мм");
+      return num
+     };
+     return{type:value("type"),axisX:value("axisX"),axisY:value("axisY"),
+      endAxisX:value("endX"),endAxisY:value("endY"),
+      z0Mm:number("z0"),z1Mm:number("z1")}
+    }
+    async function saveCorrection(index){
+     const c=candidates[index];if(!c)return;
+     if(!canEdit||!hostWindow.irAccess?.canEdit?.("scheme")){
+      candidateFeedback(index,"Нужны права инженера или администратора.");return
+     }
+     if(busy)return;
+     if(!mounting?.saveDraft||!mounting?.drafts){
+      candidateFeedback(index,"Нужна Windows Beta 1.7.223 для сохранения исправлений.");return
+     }
+     busy=true;
+     try{
+      const values=readCardValues(index);
+      if(!await verifyEditor())return;
+      await ensureCurrent(c);
+      const prior=draftFor(c);
+      const savedDraft=await mounting.saveDraft(objectId,c,values,prior?.revision||0);
+      draftRows=draftRows.filter(d=>!matchesDraft(c,d));
+      draftRows.push(savedDraft);
+      draw();
+      candidateFeedback(index,"Исправления сохранены, ревизия №"+savedDraft.revision+
+       ". На схему ничего не добавлено.","success");
+     }catch(error){
+      const message="Не удалось сохранить исправления: "+String(error.message||error);
+      status(message);candidateFeedback(index,message,"error")
+     }finally{busy=false}
+    }
     async function approve(index){
      const c=candidates[index],card=host.querySelector('[data-lite-row="'+index+'"]');
      if(!c||!card){status("Карточка больше неактуальна. Повторите поиск марок и высот.");return}
@@ -761,6 +826,10 @@
      }catch(error){status("Очистка не выполнена: "+String(error.message||error))}
      finally{busy=false;clear.disabled=false}
     };
+    if(mounting?.drafts){
+     try{draftRows=await mounting.drafts(objectId)||[]}
+     catch(error){status("Нельзя прочитать сохранённые исправления: "+String(error.message||error))}
+    }
     if(mounting?.inventory){
      try{inventory=await mounting.inventory(objectId)}catch(error){
       status("Не удалось прочитать экземпляры марок: "+String(error.message||error))
@@ -777,7 +846,7 @@
   };
   return page
  }
- const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence};
+ const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft};
  if(typeof module!=="undefined"&&module.exports)module.exports=exported;
  if(root&&typeof root==="object")root.irAiSchemeLitePage=createPage()
 })(typeof window!=="undefined"?window:null);
