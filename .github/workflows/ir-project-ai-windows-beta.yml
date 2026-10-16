@@ -31,6 +31,7 @@ jobs:
           node scripts/test-ai-beta-hot.js
           node scripts/test-updater-rollback.js
           node scripts/test-ai-pdf-drawings-ui.js
+          node scripts/test-ai-recognition-progress.js
           node scripts/test-ai-pdf-region-ui.js
           node scripts/test-ai-qwen-only-pdf.js
           node scripts/test-ai-qwen-response-parser.js
