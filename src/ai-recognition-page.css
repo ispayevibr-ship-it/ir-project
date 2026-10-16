@@ -375,3 +375,6 @@
 .ir-ai-axis-grids li{padding:3px 0}
 .ir-ai-axis-possible{color:#176b4e}
 .ir-ai-axis-review{color:#9a5620}
+
+/* Multi-diagram A1 KM/KMD sheets: explicit local plan choice. */
+.ir-ai-lite-docs select[data-lite-axis-region]{max-width:160px;width:auto;min-width:116px;font-size:11px;line-height:1.4;vertical-align:middle;margin:4px 0 4px 8px;border:1px solid #cad9e6;border-radius:7px;padding:6px 9px;background:#fff;color:#36546c;cursor:pointer}
