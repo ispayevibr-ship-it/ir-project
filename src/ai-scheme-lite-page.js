@@ -263,7 +263,7 @@
    total:candidates.length,hasGrid:!!grid,markCount:marks.length}
  }
  function createPage(){
-  let latest=[],candidates=[],batch=null,busy=false,log="",saved=0,disposeLast=null;
+  let latest=[],candidates=[],batch=null,lastOperation=null,busy=false,log="",saved=0,disposeLast=null;
   const feedbackByCandidate=new Map();
   const page={
    dispose(){if(disposeLast)disposeLast();disposeLast=null},
@@ -272,13 +272,14 @@
     const {objectId,documents=[],indexes=[],canEdit=false,askPassword,
      reviewer,onOpenPdf,onNavigate}=opts;
     page.dispose();
-    latest=[];candidates=[];batch=null;busy=false;saved=0;log="";feedbackByCandidate.clear();
+    latest=[];candidates=[];batch=null;lastOperation=null;busy=false;saved=0;log="";feedbackByCandidate.clear();
     const escDoc=esc;let live=true;
     const hostWindow=opts.window||root;
     const dataRoot=opts.root||hostWindow?.irProject?.data?.forObject(objectId);
     const marksApi=dataRoot?.section?.("marks"),schemeApi=dataRoot?.section?.("scheme"),
      workApi=dataRoot?.section?.("work-types");
-    const pdf=opts.pdf||hostWindow?.irProject?.aiPdf;
+    const pdf=opts.pdf||hostWindow?.irProject?.aiPdf,
+     mounting=opts.mounting||hostWindow?.irProject?.aiMounting;
     disposeLast=()=>{live=false};
     const status=x=>{log=x;const el=host.querySelector("[data-lite-status]");if(el)el.textContent=x};
     // Errors were previously written ONLY above a long list of drawing cards.
@@ -325,7 +326,7 @@
        '</b>. '+(batch.hasGrid?'Сетка осей проверена.':'Сначала сохраните сетку осей в монтажной схеме.')+'</p>'+
        '<div class="ir-ai-lite-toolbar">'+
        (batch.ready.length?'<button type="button" data-lite-batch '+(!canEdit||!hostWindow.irAccess?.canEdit?.("scheme")?'disabled':'')+
-        '>2. Подтвердить и разместить '+batch.ready.length+' элементов</button>':"")+
+        '>2. Расставить готовые марки · '+batch.ready.length+' экз.</button>':"")+
        (batch.difficult.length?'<button type="button" data-lite-qwen>Сложные листы → очередь Qwen ('+
         Math.min(batch.difficult.length,12)+')</button>':"")+'</div>'+
        '<p>Подтверждение выполняется для всего списка. Непонятные координаты не придумываются.</p>'+
@@ -333,6 +334,11 @@
         batch.review.length+'</summary>'+
         batch.review.slice(0,60).map(x=>'<div>'+escDoc(x.candidate.mark)+
          ' · '+escDoc(x.reason)+'</div>').join("")+'</details>':"")+
+       '</section>':"")+
+      (lastOperation?'<section class="ir-ai-lite-batch ir-ai-lite-last-operation">'+
+       '<p>Последняя автоматическая расстановка: <b>'+
+       lastOperation.created+'</b> элементов · '+escDoc(lastOperation.createdAt||"")+'</p>'+
+       (canEdit?'<button type="button" data-lite-undo>Отменить последнюю расстановку</button>':"")+
        '</section>':"")+
       (latest.length?'<div class="ir-ai-lite-docs">'+latest.map(x=>
        '<div><b>'+escDoc(x.name)+' · лист '+x.page+'</b> · '+escDoc(
@@ -384,6 +390,8 @@
      if(bulk)bulk.onclick=()=>void approveBatch();
      const uncertain=slot.querySelector?.("[data-lite-qwen]");
      if(uncertain)uncertain.onclick=()=>void queueHardSheets();
+     const undoButton=slot.querySelector?.("[data-lite-undo]");
+     if(undoButton)undoButton.onclick=()=>void undoLast();
     }
     async function scan(){
      if(busy)return;busy=true;status("Быстро читаем текстовые слои PDF…");
@@ -440,54 +448,75 @@
      if(!await reviewer.authorize(role,password))throw Error("Неверный пароль");
      return true
     }
+    function toSafeEntry(item){
+     const c=item.candidate,m=item.mark;
+     return{
+      markId:m.id,mark:c.mark,projectCode:m.project_code||"",
+      type:c.type,origin:c.origin,sheetType:c.sheetType,
+      axisX:c.axisX,axisY:c.axisY,endAxisX:c.endAxisX,endAxisY:c.endAxisY,
+      z0Mm:c.z0Mm,z1Mm:c.z1Mm,offsetXmm:0,offsetYmm:0,
+      evidence:c.evidence,source:{...c.source}
+     }
+    }
     async function approveBatch(){
      if(!batch?.ready.length||busy)return;
      busy=true;
-     let count=0;
+     try{
+      if(!mounting?.preview||!mounting?.apply)
+       throw Error("Требуется Windows Beta 1.7.222 с транзакционной расстановкой. "+
+        "Последовательное добавление отключено для защиты схемы.");
+      if(!await verifyEditor())return;
+      const proposals=batch.ready.map(toSafeEntry);
+      if(proposals.length>400)throw Error("За одну операцию допускается до 400 экземпляров. "+
+       "Разделите проект на последовательные этапы и повторите распознавание.");
+      status("Перепроверяем экземпляры, шифры, оригиналы PDF, сетку и координаты…");
+      const preview=await mounting.preview(objectId,proposals);
+      if(!preview.ready.length)throw Error("Не найдено готовых экземпляров. "+
+       preview.skipped.slice(0,4).map(x=>x.reason).join("; "));
+      const skipped=preview.skipped.length;
+      const explanation="Предпросмотр автоматической расстановки:\n"+
+       "Готово к размещению: "+preview.ready.length+" шт.\n"+
+       "Не пройдут проверку: "+skipped+" шт.\n"+
+       "Уже на схеме: "+preview.existing+" шт.\n\n"+
+       "Будут добавлены только проверенные экземпляры. "+
+       "Прежняя схема и ручные исправления сохраняются. "+
+       "Операцию можно отменить до ручного изменения её элементов.\n\n"+
+       (skipped?"Первые причины пропуска:\n"+
+        preview.skipped.slice(0,5).map(x=>"• "+x.reason).join("\n")+"\n\n":"")+
+       "Подтверждаете расстановку?";
+      if(!hostWindow.confirm(explanation)){
+       status("Расстановка отменена. Данные схемы не изменились.");return
+      }
+      const result=await mounting.apply(objectId,proposals,preview.token);
+      saved+=result.created;
+      lastOperation={operationId:result.operationId,created:result.created,
+       createdAt:new Date().toISOString()};
+      status("Добавлено "+result.created+" экземпляров одной транзакцией; "+
+       "пропущено "+result.skipped.length+". "+
+       "Сохранена контрольная точка для отката.");
+      batch=null;draw()
+     }catch(error){
+      status("Автоматическая расстановка не выполнена: "+String(error.message||error)+
+       ". Частичные изменения в транзакции откатились.");
+     }finally{busy=false}
+    }
+    async function undoLast(){
+     if(!lastOperation||busy||!mounting?.undo)return;
+     busy=true;
      try{
       if(!await verifyEditor())return;
-      const rows=await schemeApi.list(),marks=await marksApi.list(),works=await workApi.list(),
-       documentsNow=await hostWindow.irProject.aiDocuments.list(objectId),
-       indices=await pdf.list(objectId),freshRows=[...rows];
-      const current=buildBatchPlan({
-       candidates:batch.ready.map(x=>x.candidate),pages:latest,
-       marks,schemeRows:rows,workRows:works
-      });
-      if(current.ready.length!==batch.ready.length)
-       throw Error("Ведомость, схема или исходные данные изменились: пересчитайте предложения.");
-      const approved=hostWindow.confirm("Добавить на монтажную схему "+
-       current.ready.length+" предложений? Оси и высоты будут отмечены как проверенные инженером. "+
-       "Листы без однозначных привязок останутся на ручной проверке.");
-      if(!approved)return;
-      const seen=new Set();
-      for(const {candidate} of current.ready){
-       const doc=documentsNow.find(d=>Number(d.id)===Number(candidate.source.documentId));
-       const indexed=indices.find(x=>Number(x.documentId)===Number(candidate.source.documentId)&&
-        x.sourceSha256===candidate.source.sha256&&
-        x.pages.some(p=>Number(p.page)===Number(candidate.source.page)));
-       if(!doc||!doc.exists||doc.sha256!==candidate.source.sha256||!indexed)
-        throw Error("Исходный PDF или его индекс изменился. Часть расстановки не сохранена.");
-       const k=[candidate.mark,candidate.axisX,candidate.axisY,candidate.endAxisX,
-        candidate.endAxisY,candidate.z0Mm,candidate.z1Mm].join("|");
-       if(seen.has(k))continue;
-       seen.add(k);
-       const mark=marks.map(x=>({id:x.id,...x.data,title:x.title})).find(x=>
-        norm(x.mark||x.title)===norm(candidate.mark));
-       const entry=payloadFor(candidate,{mark,axisX:candidate.axisX,axisY:candidate.axisY,
-        endX:candidate.endAxisX,endY:candidate.endAxisY,z0Mm:candidate.z0Mm,
-        z1Mm:candidate.z1Mm,schemeRows:freshRows});
-       const result=await schemeApi.create(entry);
-       freshRows.push({...entry,id:result?.id||-count-1});
-       count++
-      }
-      saved+=count;
-      status("Подтверждено размещений: "+count+". Неполные привязки остаются на проверке.");
+      if(!hostWindow.confirm("Отменить последнюю автоматическую расстановку на "+
+       lastOperation.created+" элементов? "+
+       "Ведомость, PDF, ручные конструкции и предыдущие операции останутся."))return;
+      const result=await mounting.undo(objectId,lastOperation.operationId);
+      saved=Math.max(0,saved-result.undone);
+      lastOperation=await mounting.latest?.(objectId)||null;
       batch=null;
+      status("Автоматическая расстановка отменена: "+result.undone+
+       " элементов. Инженерная история сохранена.");
       draw()
-     }catch(error){
-      status("Сохранено "+count+" элементов. Продолжение остановлено: "+String(error.message||error)+
-       ". Повторите сканирование для актуального состояния.")
-     }finally{busy=false}
+     }catch(error){status("Откат запрещён: "+String(error.message||error))}
+     finally{busy=false}
     }
     async function queueHardSheets(){
      if(!batch?.difficult.length||busy)return;
@@ -615,6 +644,11 @@
      }catch(error){status("Очистка не выполнена: "+String(error.message||error))}
      finally{busy=false;clear.disabled=false}
     };
+    if(mounting?.latest){
+     try{lastOperation=await mounting.latest(objectId)}catch(error){
+      status("Не удалось прочитать журнал расстановки: "+String(error.message||error))
+     }
+    }
     draw();
     
    }
