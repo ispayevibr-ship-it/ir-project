@@ -1,6 +1,6 @@
 "use strict";
 const assert=require("node:assert/strict");
-const {extractPage,detectPlanGridAxes,axisGeometry,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes,selectPlanRegion,extractPlanInstances}=require("../src/ai-scheme-lite-page");
+const {extractPage,detectPlanGridAxes,axisGeometry,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes,selectPlanRegion,extractPlanInstances,linkInstanceOutlineEvidence}=require("../src/ai-scheme-lite-page");
 const grid=axisGeometry([{record_type:"scheme_grid",data:{entity_type:"grid",
  axes_x:["1","2","3","4"],x_spans_mm:[6000,6000,6000],
  axes_y:["А","Б","В","Г"],y_spans_mm:[6000,6000,6000]}}]);
@@ -524,3 +524,70 @@ assert.equal(uncertainRegister.total,0,
  "duplicate register rows need disambiguation, not a random mark ID");
 assert.deepEqual(uncertainRegister.ambiguousRegisterMarks,["Ф10"]);
 console.log("PDF mark instances: repeats, exact suffix, region split, stable IDs and no invented XYZ PASS");
+
+
+// One register mark can have multiple independent installation candidates.
+// Each source occurrence must link only to its OWN page-space geometry.
+const bridgeInstances=[
+ {instanceId:"pdf:10:Ф10:1",mark:"Ф10",markId:77,documentId:10,page:1,
+  diagramRegion:"left",pageX:140,pageYBottom:heightPt-91},
+ {instanceId:"pdf:10:Ф10:2",mark:"Ф10",markId:77,documentId:10,page:1,
+  diagramRegion:"left",pageX:210,pageYBottom:heightPt-91},
+ {instanceId:"pdf:10:Ф10:3",mark:"Ф10",markId:77,documentId:10,page:1,
+  diagramRegion:"left",pageX:45,pageYBottom:heightPt-91}
+];
+const bridgeLabels=bridgeInstances.map(x=>({mark:x.mark,markId:x.markId,
+ pageX:x.pageX,pageY:heightPt-x.pageYBottom}));
+const bridgeShape={label:bridgeLabels[0],mark:"Ф10",
+ lineMm:{x1:7100,y1:20750,x2:12900,y2:20750},
+ strokesPt:[{x1:111,y1:100,x2:169,y2:100},
+ {x1:111,y1:105,x2:169,y2:105}]};
+const bridge=linkInstanceOutlineEvidence({
+ instances:bridgeInstances,registeredLabels:bridgeLabels,heightPt,
+ outlines:{candidates:[bridgeShape],alternatives:[],singleStrokes:[],
+ review:[{label:bridgeLabels[1],reason:"Нет контуров",
+ reasonCode:"no_strokes"}],processedLabels:3}
+});
+assert.equal(bridge.total,3);
+assert.deepEqual(bridge.records.map(x=>x.status),
+ ["contour_candidate","no_graphic_evidence","no_graphic_evidence"]);
+assert.equal(bridge.records[0].instanceId,bridgeInstances[0].instanceId);
+assert.equal(bridge.records[0].lineMm.x1,7100);
+assert.equal(bridge.records[0].xMm,null);
+assert.equal(bridge.records[0].z0Mm,null);
+assert.equal(bridge.records[0].confirmedPlacement,false);
+assert.equal(bridge.records[0].strokeLinesPt.length,2);
+assert.equal(bridge.readyForPlacement,0);
+assert.equal(bridge.summary.contour_candidate,1);
+const altLink=linkInstanceOutlineEvidence({
+ instances:bridgeInstances,registeredLabels:bridgeLabels,heightPt,
+ outlines:{candidates:[],singleStrokes:[],review:[],processedLabels:1,
+ alternatives:[{label:bridgeLabels[0],totalOptions:5,
+ options:[{strokesPt:bridgeShape.strokesPt,lineMm:bridgeShape.lineMm}]}]}
+});
+assert.equal(altLink.records[0].status,"multiple_contours");
+assert.equal(altLink.records[0].alternatives,5);
+assert.equal(altLink.records[1].status,"not_checked",
+ "unprocessed tail must not be counted as failed");
+assert.equal(altLink.records[2].status,"not_checked");
+const noMatch=linkInstanceOutlineEvidence({
+ instances:bridgeInstances,registeredLabels:bridgeLabels.slice(0,1),
+ outlines:{candidates:[bridgeShape],processedLabels:1},heightPt
+});
+assert.equal(noMatch.records[1].status,"not_checked");
+assert.equal(noMatch.records[2].status,"not_checked");
+const duplicateLink=linkInstanceOutlineEvidence({
+ instances:bridgeInstances,registeredLabels:[bridgeLabels[0],{...bridgeLabels[0]},
+  bridgeLabels[1],bridgeLabels[2]],
+ outlines:{candidates:[bridgeShape],processedLabels:4},heightPt
+});
+assert.equal(duplicateLink.records[0].status,"ambiguous_match",
+ "two identical glyph matches must not silently become verified geometry");
+const incompleteLink=linkInstanceOutlineEvidence({
+ instances:bridgeInstances,registeredLabels:bridgeLabels,
+ outlines:{candidates:[],alternatives:[],singleStrokes:[],
+ processedLabels:3,limited:true},heightPt
+});
+assert(incompleteLink.records.every(x=>x.status==="needs_more_evidence"));
+assert(incompleteLink.records.every(x=>x.readyForPlacement===undefined));
+console.log("Per-instance geometry linkage: repeated Ф10, incomplete evidence, alternatives and no invented XYZ PASS");
