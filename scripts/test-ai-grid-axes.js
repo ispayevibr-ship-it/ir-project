@@ -1,6 +1,6 @@
 "use strict";
 const assert=require("node:assert/strict");
-const {extractPage,detectPlanGridAxes,axisGeometry,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes,selectPlanRegion,extractPlanInstances,linkInstanceOutlineEvidence,inspectPdfDimensionChains,nearDimensionEvidence}=require("../src/ai-scheme-lite-page");
+const {extractPage,detectPlanGridAxes,axisGeometry,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes,selectPlanRegion,extractPlanInstances,linkInstanceOutlineEvidence,inspectPdfDimensionChains,nearDimensionEvidence,reviewIndexedPlanPage}=require("../src/ai-scheme-lite-page");
 const grid=axisGeometry([{record_type:"scheme_grid",data:{entity_type:"grid",
  axes_x:["1","2","3","4"],x_spans_mm:[6000,6000,6000],
  axes_y:["А","Б","В","Г"],y_spans_mm:[6000,6000,6000]}}]);
@@ -669,3 +669,47 @@ assert.equal(dimContext[0].nearby[0].relationship,"nearby_only");
 assert.equal(dimContext[1].nearby.length,0);
 assert.equal(dimContext[0].confirmedOffsets,0);
 console.log("KMD PDF graphic dimensions: real 9000 stroke, witness ticks, scale, isolation and no inferred offsets PASS");
+
+
+// After a successful text index, the one-shot drawing inspection must
+// attempt grid calibration and keep repeated occurrences SEPARATE, without
+// promoting inked lines to certified placement or requiring user-entered XYZ.
+const autoMarks=[{id:71,title:"К62",data:{mark:"К62"}}];
+const autoSingle=reviewIndexedPlanPage({
+ raw:{fragments:[...fragments,labelAndReturn("К62",140,205)]},
+ vector:{widthPt,heightPt,rotation:0,segments:[...segments,...planPair]},
+ grid,marks:autoMarks,documentId:31,page:1,
+ sha256:"f".repeat(64),sheetType:"plan"
+});
+assert.equal(autoSingle.calibrated,1,JSON.stringify(autoSingle.reason));
+assert.equal(autoSingle.regions[0].name,"full");
+assert.equal(autoSingle.foundLabels,1);
+assert.equal(autoSingle.regions[0].registry.labels[0].mark,"К62");
+assert.equal(autoSingle.regions[0].links.records[0].xMm,null);
+assert.equal(autoSingle.regions[0].links.records[0].z0Mm,null);
+assert.equal(autoSingle.readyForPlacement,0);
+const autoDouble=reviewIndexedPlanPage({
+ raw:{fragments:[...duplicateRight,
+ labelAndReturn("К62",140,205),labelAndReturn("К62",400,205)]},
+ vector:{widthPt,heightPt,rotation:0,segments:duplicatedSegments},
+ grid,marks:autoMarks,documentId:31,page:1,
+ sha256:"f".repeat(64),sheetType:"plan"
+});
+assert.deepEqual(autoDouble.regions.map(x=>x.name),["left","right"]);
+assert.equal(autoDouble.foundLabels,2);
+assert.equal(autoDouble.regions[0].registry.total,1);
+assert.equal(autoDouble.regions[1].registry.total,1);
+assert.notEqual(autoDouble.regions[0].registry.labels[0].instanceId,
+ autoDouble.regions[1].registry.labels[0].instanceId);
+assert.equal(autoDouble.readyForPlacement,0);
+const withoutGrid=reviewIndexedPlanPage({
+ raw:{fragments},vector:{widthPt,heightPt,segments},
+ marks:autoMarks,documentId:31,page:1});
+assert.equal(withoutGrid.calibrated,0);
+assert.match(withoutGrid.reason,/сетки осей/);
+const detailSkipped=reviewIndexedPlanPage({
+ raw:{fragments},vector:{widthPt,heightPt,segments},
+ grid,marks:autoMarks,documentId:31,page:1,sheetType:"detail"});
+assert.equal(detailSkipped.calibrated,0);
+assert.match(detailSkipped.reason,/Разрез\/деталь/);
+console.log("Automatic KMD plan inspection: source-to-grid, two independent schemes, no invented XYZ PASS");
