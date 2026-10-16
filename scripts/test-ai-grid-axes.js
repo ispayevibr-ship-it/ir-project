@@ -159,6 +159,52 @@ const ambiguousMark=detectPlanRegisterLabels({raw:{fragments:planLabels},
  analysis:onlyLeft,grid,marks:duplicatedMarkRows,widthPt,heightPt});
 assert.deepEqual(ambiguousMark.labels.map(x=>x.mark),["В74"]);
 assert.equal(ambiguousMark.ambiguous,1);
+
+// Real KMD page M1.10 contains names such as Ф8-1, Ф1-1, Ф12-2.
+// Exact register membership is mandatory. Never interpret Ф8-1 as Ф8
+// even if only Ф8 is in the register, and never create fictional marks.
+const suffixRegister=[
+ {id:310,title:"Ф8",data:{mark:"Ф8"}},
+ {id:311,title:"Ф8-1",data:{mark:"Ф8-1"}},
+ {id:312,title:"Ф12-2",data:{mark:"Ф12-2"}},
+ {id:313,title:"Ф1-1",data:{mark:"Ф1-1"}},
+ {id:314,title:"К62",data:{mark:"К62"}}
+];
+const compositeText=[
+ labelAndReturn("Ф8-1",117,210),
+ labelAndReturn("Ф12-2",160,225),
+ labelAndReturn("Ф1",190,240),
+ labelAndReturn("-1",198,240),
+ labelAndReturn("Ф",160,280),
+ labelAndReturn("8-1",168,280),
+ labelAndReturn("К",175,260),
+ labelAndReturn("62",183,260),
+ labelAndReturn("Ф8",118,185),
+ labelAndReturn("Ф8-1",120,185),
+ labelAndReturn("Ф300-9",200,200)
+];
+const composite=detectPlanRegisterLabels({raw:{fragments:compositeText},
+ analysis:onlyLeft,grid,marks:suffixRegister,widthPt,heightPt});
+assert.deepEqual(composite.labels.map(z=>z.mark),
+ ["Ф8-1","Ф12-2","Ф1-1","Ф8-1","К62","Ф8","Ф8-1"],
+ "complete hyphenated marks and split PDF glyphs are read exactly");
+assert(composite.labels.every(x=>x.exactPlacement===false));
+const withoutVariant=detectPlanRegisterLabels({raw:{fragments:[
+ labelAndReturn("Ф8",117,210),labelAndReturn("-1",125,210)]},
+ analysis:onlyLeft,grid,marks:[suffixRegister[0]],widthPt,heightPt});
+assert.equal(withoutVariant.labels.length,0,
+ "a registered Ф8 cannot impersonate an unregistered Ф8-1");
+const compositePage=extractPage({
+ documentId:14,page:1,kind:"КМД",name:"План расположения колонн",
+ sha256:"a".repeat(64),raw:{
+ text:"Схема расположения колонн",
+ fragments:[labelAndReturn("Ф8-1",117,210),labelAndReturn("Ф12-2",160,225)]},
+ registeredMarks:suffixRegister});
+assert(compositePage.marks.some(x=>x.mark==="Ф8-1"));
+assert(compositePage.marks.some(x=>x.mark==="Ф12-2"));
+assert(!compositePage.marks.some(x=>x.mark==="Ф300-9"));
+console.log("KMD real-mark grammar: digit suffix, exact register, split glyphs and no wrong prefix matches PASS");
+
 console.log("Registered-only KMD labels: independent/split labels, no invented placements PASS");
 
 
