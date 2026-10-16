@@ -20,8 +20,9 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: Validate PDF recognition and Qwen Beta integration
-        shell: pwsh
+        shell: bash
         run: |
+          set -euo pipefail
           node --check src/ai-recognition-page.js
           node --check src/ai-analysis.js
           node --check src/ai-workflow.js
