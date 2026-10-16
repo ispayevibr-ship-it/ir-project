@@ -29,6 +29,7 @@ jobs:
           node --check src/ai-model-settings.js
           node scripts/test-ai-pdf-drawings-ui.js
           node scripts/test-ai-qwen-only-pdf.js
+          node scripts/test-ai-qwen-response-parser.js
           node scripts/test-ai-navigation.js
           node scripts/test-ai-workflow.js
           node scripts/test-ai-paddle-ocr-integration.js
