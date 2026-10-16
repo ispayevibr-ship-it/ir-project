@@ -30,6 +30,16 @@ assert(ui.includes("data-lite-preview-source"),"ready rows can open their exact 
 assert(ui.includes("item.source.textRegions"),"source-linked rectangle goes to the viewer");
 assert(viewer.includes("data-pdf-evidence"),"PDF preview offers on/off source-text highlights");
 assert(viewer.includes("pageInfo?.rotation||0"),"rotated pages avoid invented boxes");
+assert(ui.includes("data-lite-outline-source"),"paired contour rows open exact source strokes");
+assert(ui.includes("data-lite-alt-source"),"each ambiguous alternative has own PDF lines");
+assert(ui.includes("strokeLinesPt:lines"),"selected stroke evidence is passed read-only");
+assert(viewer.includes("document.createElementNS(ns,\"svg\")"),
+ "actual two-line PDF overlay rendered over the original preview");
+assert(viewer.includes("lines.length===2&&lines.every"),"invalid or partial line geometry rejected");
+assert(viewer.includes("data-edge"),"each PDF outline stroke remains independent");
+assert(viewer.includes("layer.appendChild(overlay);evidenceBoxes.push(overlay)"),
+ "contour overlay participates in hide/show evidence toggle");
+
 const c=extractPage({documentId:30,sha256:sha,name:"План расположения колонн.pdf",
  kind:"КМ",page:1,raw:{text:"Колонна К62\nотм. низа -0,400\nпо осям 3–Г",fragments:f}});
 assert.equal(c.marks.length,1);
