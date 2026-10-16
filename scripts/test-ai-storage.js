@@ -82,9 +82,33 @@ const {createStore}=require("../src/ai-document-store");
    record_type:"image_analysis",title:"Qwen candidate",
    data:{source:{documentId:id,sha256:first.imported[0].sha256},verification:"requires_review"}
   });
-  assert.throws(()=>store.remove(1,id),/ai-analysis/,"even unreviewed AI evidence is retained");
+  assert.throws(()=>store.remove(1,id),/ai-analysis/,"unreviewed AI drafts are never silently discarded");
   assert(db.getEntity(1,"ai-pdf-index",technicalIndex.id));
-  db.deleteEntity(1,"ai-analysis",laterEvidence.id);
+  const preview=store.removalImpact(1,id);
+  assert.equal(preview.canDelete,true);
+  assert.deepEqual(preview.unreviewedAnalysisIds,[laterEvidence.id]);
+  assert.deepEqual(preview.technicalIndexIds,[technicalIndex.id]);
+  assert.throws(()=>store.remove(1,id,{discardUnreviewed:true}),/Список связанных анализов изменился/);
+  assert.throws(()=>store.remove(1,id,{discardUnreviewed:true,expectedAnalysisIds:[999]}),
+   /Список связанных анализов изменился/,"stale confirmation cannot wipe new analysis records");
+  // A reviewed analysis or anything referring to that analysis's ID must block deletion.
+  const confirmed=db.createEntity(1,"ai-analysis",{
+   record_type:"image_analysis",title:"Reviewed K41",
+   data:{source:{documentId:id,sha256:first.imported[0].sha256},
+    review:{status:"confirmed",revision:1},verification:"requires_review"}
+  });
+  assert.equal(store.removalImpact(1,id).canDelete,false);
+  assert.throws(()=>store.remove(1,id,{discardUnreviewed:true,expectedAnalysisIds:[laterEvidence.id]}),
+   /ai-analysis/);
+  db.deleteEntity(1,"ai-analysis",confirmed.id);
+  const dependent=db.createEntity(1,"ai-review-history",{
+   record_type:"review_change",parent_id:laterEvidence.id,title:"Decision",
+   data:{analysisId:laterEvidence.id,revision:1}
+  });
+  assert.equal(store.removalImpact(1,id).canDelete,false);
+  assert.throws(()=>store.remove(1,id,{discardUnreviewed:true,expectedAnalysisIds:[laterEvidence.id]}),
+   /ai-review-history/);
+  db.deleteEntity(1,"ai-review-history",dependent.id);
   const unknownIndex=db.createEntity(1,"ai-pdf-index",{
    record_type:"pdf_text_index",title:"unclassified index",
    data:{source:{documentId:id},pages:[]}
@@ -93,13 +117,21 @@ const {createStore}=require("../src/ai-document-store");
    "unknown index formats may not be silently deleted");
   db.deleteEntity(1,"ai-pdf-index",unknownIndex.id);
   failDeleteIndex=true;
-  assert.throws(()=>store.remove(1,id),/Simulated SQLite index failure/,
-   "a SQL failure must restore the stored original");
+  assert.throws(()=>store.remove(1,id,{
+    discardUnreviewed:true,expectedAnalysisIds:[laterEvidence.id]}),/Simulated SQLite index failure/,
+   "a SQL failure must restore the stored original and all analyses");
   failDeleteIndex=false;
   assert(fs.existsSync(opened),"original is restored after a failed deletion transaction");
   assert(db.getEntity(1,"ai-documents",id),"original metadata restored after failed transaction");
   assert(db.getEntity(1,"ai-pdf-index",technicalIndex.id),"index restored after failed transaction");
-  assert.equal(store.remove(1,id),true);
+  assert(db.getEntity(1,"ai-analysis",laterEvidence.id),"draft restored after failed transaction");
+  const deleted=store.remove(1,id,{
+   discardUnreviewed:true,expectedAnalysisIds:[laterEvidence.id]});
+  assert.equal(deleted.deleted,true);
+  assert.equal(deleted.discardedAnalyses,1);
+  assert.equal(deleted.removedIndexes,1);
+  assert.equal(db.getEntity(1,"ai-analysis",laterEvidence.id),null,
+   "discarded draft cannot leave orphaned analysis referencing a removed PDF");
   assert.equal(db.getEntity(1,"ai-pdf-index",technicalIndex.id),null,
    "deleted document must leave no dangling PDF cache");
 
