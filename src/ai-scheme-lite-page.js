@@ -137,6 +137,105 @@
   }
   return result
  }
+
+ // One entry = one DISTINCT printed PDF symbol, not one register designation.
+ // PDF coordinates are evidence of LABEL LOCATION, never erection X/Y/Z.
+ // Do not deduplicate across pages, revision sets or independent drawings.
+ function extractPlanInstances({raw,marks=[],documentId,sha256,page,
+   region="full",widthPt,heightPt,sheetType="plan"}={}){
+  const regions={
+   full:{left:0,top:0,right:1,bottom:1},
+   left:{left:0,top:0,right:.5,bottom:1},
+   right:{left:.5,top:0,right:1,bottom:1},
+   "top-left":{left:0,top:0,right:.5,bottom:.5},
+   "top-right":{left:.5,top:0,right:1,bottom:.5},
+   "bottom-left":{left:0,top:.5,right:.5,bottom:1},
+   "bottom-right":{left:.5,top:.5,right:1,bottom:1}
+  };
+  const area=regions[region];
+  if(!area)throw Error("Неизвестная область чертежа");
+  const pageWidth=Number(widthPt),pageHeight=Number(heightPt);
+  if(region!=="full"&&(!(pageWidth>0)||!(pageHeight>0)))
+   throw Error("Для выбора части листа нужен исходный размер PDF");
+  const known=new Map(),ambiguities=new Set();
+  for(const row of marks){
+   const mark=norm(row?.data?.mark||row?.title||"");
+   if(!row?.id||!MARK.test(mark))continue;
+   if(known.has(mark)){known.set(mark,null);ambiguities.add(mark)}
+   else known.set(mark,{mark,id:row.id,projectCode:String(row.project_code||"")})
+  }
+  const fragments=Array.isArray(raw?.fragments)?raw.fragments:[],
+   max=Math.min(fragments.length,30000),labels=[],unregistered=new Set();
+  const good=f=>f&&typeof f.text==="string"&&
+   ["x","y","width","height"].every(k=>Number.isFinite(Number(f[k])))&&
+   Number(f.width)>=0&&Number(f.height)>=0;
+  const compact=v=>String(v||"").trim().replace(/[\s\u00a0]+/g,"")
+    .replace(/[−–—]/g,"-");
+  const full=/^[КKБВBРPСCФFМM]-?\d{1,4}(?:-\d{1,3})?[А-ЯA-Z]?$/iu;
+  const prefix=/^[КKБВBРPСCФFМM]-?$/iu;
+  const suffix=/^\d{1,4}(?:-\d{1,3})?[А-ЯA-Z]?$/iu;
+  for(let i=0;i<max&&labels.length<6000;i++){
+   const first=fragments[i];if(!good(first))continue;
+   let word=compact(first.text),last=first,ids=[i];
+   if(prefix.test(word)&&good(fragments[i+1])){
+    const next=fragments[i+1],part=compact(next.text),
+     gap=Number(next.x)-Number(first.x)-Number(first.width);
+    if(suffix.test(part)&&gap>=-2&&gap<=10&&
+     Math.abs(Number(next.y)-Number(first.y))<=Math.max(3,Number(first.height)*.4)){
+     word+=part;last=next;ids.push(i+1)
+    }
+   }
+   // A rendered Ф8 + -1 is not an occurrence of Ф8. Keep full identity.
+   if(full.test(word)&&!word.includes("-")&&good(fragments[i+ids.length])){
+    const next=fragments[i+ids.length],part=compact(next.text),
+     gap=Number(next.x)-Number(last.x)-Number(last.width);
+    if(/^-\d{1,3}$/u.test(part)&&gap>=-2&&gap<=10&&
+       Math.abs(Number(next.y)-Number(first.y))<=Math.max(3,Number(first.height)*.4)){
+     word+=part;last=next;ids.push(i+ids.length)
+    }
+   }
+   if(!full.test(word))continue;
+   const mark=norm(word),found=known.get(mark);
+   if(!found){unregistered.add(mark);continue}
+   const x=Math.min(Number(first.x),Number(last.x)),
+    y=Math.min(Number(first.y),Number(last.y)),
+    x2=Math.max(Number(first.x)+Number(first.width),
+                Number(last.x)+Number(last.width)),
+    y2=Math.max(Number(first.y)+Number(first.height),
+                Number(last.y)+Number(last.height)),
+    midX=(x+x2)/2,midY=(y+y2)/2,
+    fromTop=pageHeight>0?pageHeight-midY:null;
+   if(region!=="full"&&(midX<area.left*pageWidth||
+      midX>area.right*pageWidth||fromTop<area.top*pageHeight||
+      fromTop>area.bottom*pageHeight))continue;
+   // Exact repeat glyphs in a PDF text layer do not create 2 instances.
+   if(labels.some(l=>l.mark===mark&&
+    Math.hypot(l.pageX-midX,l.pageYBottom-midY)<2.5))continue;
+   const q=n=>Math.round(n*10)/10;
+   const instanceId="pdf:"+String(documentId)+":"+String(sha256||"").slice(0,12)+
+    ":p"+String(page)+":"+mark+":"+q(midX)+":"+q(midY);
+   labels.push({instanceId,mark,markId:found.id,projectCode:found.projectCode,
+    documentId:Number(documentId),sha256:String(sha256||""),page:Number(page),
+    diagramRegion:region,sheetType,fragmentIds:ids,labelText:word,
+    rectPt:{x,y,width:x2-x,height:y2-y},
+    pageX:midX,pageYBottom:midY,pageYTop:fromTop,
+    status:region==="full"?"needs_diagram_scope":"label_requires_geometry",
+    isPhysicalInstanceConfirmed:false,exactPlacement:false,
+    xMm:null,yMm:null,z0Mm:null,z1Mm:null})
+  }
+  const byMark=new Map();
+  for(const x of labels)byMark.set(x.mark,(byMark.get(x.mark)||0)+1);
+  return{labels,total:labels.length,
+   byMark:[...byMark].sort((a,b)=>a[0].localeCompare(b[0],"ru")).map(
+    ([mark,count])=>({mark,count})),
+   ambiguousRegisterMarks:[...ambiguities],
+   skippedUnknownMarks:[...unregistered].sort(),
+   region,inspectedFragments:max,truncated:fragments.length>max||labels.length>=6000,
+   warning:region==="full"?
+    "Это надписи всего листа, включая возможные соседние планы и разрезы. Выберите отдельную схему.":
+    "Отобраны надписи в области PDF. Это ещё не подтверждённые конструкции."}
+ }
+
  function extractPage({documentId,name,kind,sha256,page,raw,uncertainEncoding=false,registeredMarks=[]}={}){
   const text=String(raw?.text||"").slice(0,24000);
   const sheetType=classSheet(name,text),
@@ -1962,7 +2061,7 @@
   };
   return page
  }
- const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes,selectPlanRegion};
+ const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes,selectPlanRegion,extractPlanInstances};
  if(typeof module!=="undefined"&&module.exports)module.exports=exported;
  if(root&&typeof root==="object")root.irAiSchemeLitePage=createPage()
 })(typeof window!=="undefined"?window:null);
