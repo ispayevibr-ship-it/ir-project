@@ -354,3 +354,15 @@
 /* PDF fragment highlights are text evidence, never inferred 3D locations. */
 .ir-ai-pdf-source-evidence{position:absolute;z-index:3;background:rgba(255,202,40,.23);border:2px solid #e9a82b;pointer-events:none;box-sizing:border-box;border-radius:2px}
 .ir-ai-pdf-source-evidence[hidden]{display:none}
+
+/* Optional page-local vector drawing inspection; not engineering dimensions. */
+.ir-ai-lite-vector-button{margin-left:10px;font-size:11px;white-space:nowrap;padding:5px 9px;border:1px solid #cbdbe8;border-radius:7px;background:#f4f8fc;color:#27618c;cursor:pointer}
+.ir-ai-lite-vector-result:empty{display:none}
+.ir-ai-lite-vector-result:not(:empty){margin:12px 0;padding:14px;border:1px solid #ccdae5;border-radius:10px;background:#f6fafd}
+.ir-ai-lite-vector-result svg{display:block;box-sizing:border-box;width:100%;height:330px;background:#fff;border:1px solid #d5e1e9;border-radius:8px}
+.ir-ai-lite-vector-result svg line{stroke-width:1.2;vector-effect:non-scaling-stroke;stroke-opacity:.8}
+.ir-ai-lite-vector-result .ir-ai-vector-horizontal{stroke:#2563eb}
+.ir-ai-lite-vector-result .ir-ai-vector-vertical{stroke:#15946b}
+.ir-ai-lite-vector-result .ir-ai-vector-diagonal{stroke:#9ca3af;stroke-opacity:.35}
+.ir-ai-vector-info{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;font-size:12px}
+.ir-ai-vector-info small{color:#6b7280;font-size:11px}

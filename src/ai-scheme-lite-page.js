@@ -338,7 +338,9 @@
     const marksApi=dataRoot?.section?.("marks"),schemeApi=dataRoot?.section?.("scheme"),
      workApi=dataRoot?.section?.("work-types");
     const pdf=opts.pdf||hostWindow?.irProject?.aiPdf,
-     mounting=opts.mounting||hostWindow?.irProject?.aiMounting;
+     mounting=opts.mounting||hostWindow?.irProject?.aiMounting,
+     geometry=opts.geometry||hostWindow?.irProject?.aiPdfGeometry,
+     geometryCache=new Map();
     disposeLast=()=>{live=false};
     const status=x=>{log=x;const el=host.querySelector("[data-lite-status]");if(el)el.textContent=x};
     // Errors were previously written ONLY above a long list of drawing cards.
@@ -445,14 +447,16 @@
        lastOperation.created+'</b> элементов · '+escDoc(lastOperation.createdAt||"")+'</p>'+
        (canEdit?'<button type="button" data-lite-undo>Отменить последнюю расстановку</button>':"")+
        '</section>':"")+
-      (latest.length?'<div class="ir-ai-lite-docs">'+latest.map(x=>
+      (latest.length?'<div class="ir-ai-lite-docs">'+latest.map((x,pi)=>
        '<div><b>'+escDoc(x.name)+' · лист '+x.page+'</b> · '+escDoc(
         {plan:"План расположения",section:"Разрез / фасад",detail:"Чертёж марки",other:"Тип не определён"}[x.sheetType])+
        (x.uncertainEncoding?' · Неоднозначная кодировка: потребуется визуальная проверка':"")+
        (x.marks.length?' · '+x.marks.length+' обозначений'+
         (x.markMentions>x.marks.length?' ('+x.markMentions+' упоминаний)':""):
-        ' · Марки не найдены в читаемом тексте')+'</div>'
-      ).join("")+'</div>':"")+
+        ' · Марки не найдены в читаемом тексте')+
+       '<button type="button" class="ir-ai-lite-vector-button" data-lite-vector-page="'+pi+
+        '">Проверить линии листа</button></div>'
+      ).join("")+'</div><div data-lite-vector-result class="ir-ai-lite-vector-result" role="status"></div>':"")+
       (candidateCount?'<div class="ir-ai-lite-candidates">'+candidates.map((c,i)=>
        '<article class="ir-ai-lite-candidate" data-lite-row="'+i+'">'+
        '<div class="ir-ai-lite-candidate-head"><b>'+escDoc(c.mark)+' · '+escDoc(TYPE_NAMES[c.type]||"Тип требует проверки")+'</b>'+
@@ -500,6 +504,9 @@
        escDoc(feedbackByCandidate.get(i)?.message||"")+'</div></article>').join("")+
        '</div>':
        '<div class="ir-ai-doc-empty">Пока нет предложений по маркам. Для сканирования нужны читаемые текстовые слои PDF. Листы без текста требуют отдельного визуального распознавания.</div>');
+     slot.querySelectorAll("[data-lite-vector-page]").forEach(b=>b.onclick=()=>{
+      void analyzeVector(Number(b.dataset.liteVectorPage))
+     });
      slot.querySelectorAll("[data-lite-source]").forEach(b=>b.onclick=()=>{
       const c=candidates[Number(b.dataset.liteSource)];if(c)onOpenPdf?.(c.source.documentId,c.source.page,c.evidenceLocations||[])
      });
@@ -522,6 +529,60 @@
      if(apply)apply.onclick=()=>void applyPreview();
      const cancel=slot.querySelector?.("[data-lite-cancel-preview]");
      if(cancel)cancel.onclick=()=>{verifiedPreview=null;draw()};
+    }
+    async function analyzeVector(index){
+     const selected=latest[index];
+     if(!selected)return;
+     const root=host.querySelector("[data-lite-results]");
+     const area=root?.querySelector?.("[data-lite-vector-result]");
+     if(!area)return;
+     if(!geometry?.page){
+      area.textContent="Для анализа графических линий требуется Windows Beta 1.7.224.";
+      return
+     }
+     if(area.dataset?.busy==="true")return;
+     if(area.dataset)area.dataset.busy="true";
+     area.textContent="Читаем векторные линии листа "+selected.page+
+      ". Это графика PDF, а не подтверждённые оси сооружения…";
+     try{
+      const doc=documents.find(d=>Number(d.id)===Number(selected.documentId));
+      if(!doc||doc.sha256!==selected.sha256||!doc.exists)
+       throw Error("Исходный PDF изменён или не найден");
+      const key=[doc.id,doc.sha256,selected.page].join(":");
+      let result=geometryCache.get(key);
+      if(!result){
+       result=await geometry.page(objectId,doc.id,selected.page);
+       if(!live)return;
+       if(result.sourceSha256!==doc.sha256||result.documentId!==doc.id||
+          result.page!==selected.page||!Array.isArray(result.segments))
+        throw Error("Ответ геометрического анализатора не соответствует исходному PDF");
+       geometryCache.set(key,result)
+      }
+      const width=Number(result.widthPt),height=Number(result.heightPt);
+      if(!Number.isFinite(width)||!Number.isFinite(height)||width<=0||height<=0)
+       throw Error("Некорректный размер страницы");
+      const list=result.segments.filter(v=>[v.x1,v.y1,v.x2,v.y2].every(Number.isFinite))
+       .slice(0,400);
+      const lines=list.map(v=>'<line x1="'+v.x1+'" y1="'+v.y1+
+       '" x2="'+v.x2+'" y2="'+v.y2+'" class="ir-ai-vector-'+
+       (["horizontal","vertical"].includes(v.direction)?v.direction:"diagonal")+
+       '"/>').join("");
+      area.innerHTML='<div class="ir-ai-vector-info"><b>Графика PDF · '+escDoc(doc.name)+
+       ' · лист '+selected.page+'</b>'+
+       '<span>Отрезков сохранено: '+Number(result.stats?.storedSegments||0)+
+       (result.stats?.truncated?' (лимит анализа достигнут)':'')+
+       ' · горизонтальных: '+Number(result.stats?.horizontal||0)+
+       ' · вертикальных: '+Number(result.stats?.vertical||0)+
+       ' · диагональных: '+Number(result.stats?.diagonal||0)+'</span>'+
+       '<small>Линии извлечены из векторного PDF. Их совпадение с осями и строительными размерами ещё не проверено. Координаты в пунктах листа, НЕ в миллиметрах здания.</small></div>'+
+       (list.length?'<svg viewBox="0 0 '+width+' '+height+
+         '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Векторные линии PDF">'+
+         lines+'</svg>':
+         '<p>Векторных штрихов не найдено: для сканированных листов потребуется OCR и визуальный анализ.</p>');
+      area.scrollIntoView?.({block:"nearest",behavior:"smooth"})
+     }catch(error){
+      area.textContent="Не удалось прочитать линии листа: "+String(error.message||error)
+     }finally{if(area.dataset)area.dataset.busy="false"}
     }
     async function scan(){
      if(busy)return;busy=true;status("Быстро читаем текстовые слои PDF…");
