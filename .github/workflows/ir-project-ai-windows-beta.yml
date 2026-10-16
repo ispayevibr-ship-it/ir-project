@@ -36,6 +36,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          node --check src/ir-runtime.js
           node --check src/ai-recognition-page.js
           node --check src/ai-scheme-lite-page.js
           node --check src/ai-analysis.js
