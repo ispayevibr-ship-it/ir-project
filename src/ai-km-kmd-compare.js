@@ -21,6 +21,19 @@ const FIELDS=Object.freeze({
  other:{label:"Другая проверяемая характеристика",type:"text",unit:""}
 });
 const TEXT_ID=/^[\p{L}\p{N}][\p{L}\p{N} ._+\-/()№]*$/u;
+function verdict(field,kmValue,kmdValue,tolerance=0){
+ const def=FIELDS[field];
+ if(!def)throw Error("Неизвестное поле");
+ if(kmValue===null||kmdValue===null||kmValue===undefined||kmdValue===undefined)
+  return{result:"incomplete",delta:null};
+ if(def.type==="text"){
+  const normalized=v=>String(v).trim().replace(/\s+/g," ").toLocaleUpperCase("ru-RU");
+  return{result:normalized(kmValue)===normalized(kmdValue)?"match":"difference",delta:null}
+ }
+ const difference=kmdValue-kmValue;
+ return{result:Math.abs(difference)<=tolerance+1e-8?"match":"difference",delta:difference}
+}
+
 function createKmKmdCompare({database,revisions=null,clock=()=>new Date().toISOString()}={}){
  if(!database)throw Error("Нужна локальная база IR Project");
  const oid=id=>{
@@ -77,18 +90,6 @@ function createKmKmdCompare({database,revisions=null,clock=()=>new Date().toISOS
   if(info.type==="integer"&&(!Number.isSafeInteger(value)||value<0))
    throw Error("Количество должно быть целым неотрицательным числом");
   return value
- }
- function verdict(field,kmValue,kmdValue,tolerance=0){
-  const def=FIELDS[field];
-  if(!def)throw Error("Неизвестное поле");
-  if(kmValue===null||kmdValue===null||kmValue===undefined||kmdValue===undefined)
-   return{result:"incomplete",delta:null};
-  if(def.type==="text"){
-   const normalized=v=>String(v).trim().replace(/\s+/g," ").toLocaleUpperCase("ru-RU");
-   return{result:normalized(kmValue)===normalized(kmdValue)?"match":"difference",delta:null}
-  }
-  const difference=kmdValue-kmValue;
-  return{result:Math.abs(difference)<=tolerance+1e-8?"match":"difference",delta:difference}
  }
  function rowById(id,entryId){
   const n=Number(entryId),row=database.getEntity(id,"ai-km-kmd-comparison",n);
