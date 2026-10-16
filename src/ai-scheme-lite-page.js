@@ -631,7 +631,16 @@
        '<button type="button" class="ir-ai-lite-vector-button" data-lite-vector-page="'+pi+
         '">Проверить линии листа</button>'+
         '<button type="button" class="ir-ai-lite-vector-button" data-lite-axis-page="'+pi+
-        '">Найти оси на плане</button></div>'
+        '">Найти оси на плане</button>'+
+        '<select data-lite-axis-region="'+pi+'" title="Область монтажной схемы">'+
+         '<option value="auto">Определить область</option>'+
+         '<option value="full">Весь лист</option>'+
+         '<option value="left">Левая часть</option>'+
+         '<option value="right">Правая часть</option>'+
+         '<option value="top-left">Сверху слева</option>'+
+         '<option value="top-right">Сверху справа</option>'+
+         '<option value="bottom-left">Снизу слева</option>'+
+         '<option value="bottom-right">Снизу справа</option></select></div>'
       ).join("")+'</div>'+
        '<div data-lite-axis-result class="ir-ai-lite-axis-result" role="status"></div>'+
        '<div data-lite-vector-result class="ir-ai-lite-vector-result" role="status"></div>':"")+
@@ -745,20 +754,51 @@
       if(pageData.source?.sha256!==sheet.sha256||
          Number(pageData.source?.documentId)!==Number(doc.id))
        throw Error("Текстовые фрагменты и геометрия относятся к разным PDF");
-      const grid=axisGeometry(rows),
-       analysis=detectPlanGridAxes({raw:pageData.page,vector:result,grid}),
-       zones=locateMarkLabelZones({candidates:sheet.marks,analysis,grid,
+      const grid=axisGeometry(rows);
+       const regions={
+        full:{left:0,top:0,right:1,bottom:1},
+        left:{left:0,top:0,right:.5,bottom:1},
+        right:{left:.5,top:0,right:1,bottom:1},
+        "top-left":{left:0,top:0,right:.5,bottom:.5},
+        "top-right":{left:.5,top:0,right:1,bottom:.5},
+        "bottom-left":{left:0,top:.5,right:.5,bottom:1},
+        "bottom-right":{left:.5,top:.5,right:1,bottom:1}
+       };
+       const selected=slot?.querySelector?.('[data-lite-axis-region="'+index+'"]')?.value||"auto";
+       const test=key=>detectPlanGridAxes({raw:pageData.page,vector:result,grid,region:regions[key]});
+       let analysis,regionName=selected;
+       if(selected==="auto"){
+        const full=test("full");
+        if(full.calibrated){analysis=full;regionName="full"}
+        else{
+         const halves=["left","right"].map(key=>({key,analysis:test(key)}));
+         const possible=halves.filter(x=>x.analysis.calibrated);
+         if(possible.length===1){analysis=possible[0].analysis;regionName=possible[0].key}
+         else if(possible.length>1){
+          analysis={calibrated:false,reason:"На листе несколько подходящих схем. "+
+           "Выберите левую или правую область.",xMatches:[],yMatches:[],
+           xTotal:grid?.x?.size||0,yTotal:grid?.y?.size||0}
+         }else{
+          const best=halves.reduce((a,b)=>(
+           (b.analysis.xMatches?.length||0)+(b.analysis.yMatches?.length||0)>
+           (a.analysis.xMatches?.length||0)+(a.analysis.yMatches?.length||0)?b:a));
+          analysis=best.analysis;regionName=best.key
+         }
+        }
+       }else analysis=test(regions[selected]?selected:"full");
+       const zones=locateMarkLabelZones({candidates:sheet.marks,analysis,grid,
         heightPt:result.heightPt});
-      const label=x=>escDoc(x.name)+" · "+escDoc(x.mm)+" мм ↔ "+
+       const label=x=>escDoc(x.name)+" · "+escDoc(x.mm)+" мм ↔ "+
        escDoc(Math.round(x.pagePt*100)/100)+" pt";
       const xRows=analysis.xMatches?.map(label)||[],
        yRows=analysis.yMatches?.map(label)||[];
       output.innerHTML='<div class="ir-ai-vector-info"><b>Калибровка осей · '+
        escDoc(doc.name)+' · лист '+sheet.page+'</b>'+
-       '<span>Совпадений X: '+xRows.length+'/'+Number(analysis.xTotal||0)+
+       '<span>Область: '+escDoc(regionName)+' · Совпадений X: '+
+        xRows.length+'/'+Number(analysis.xTotal||0)+
        ' · Y: '+yRows.length+'/'+Number(analysis.yTotal||0)+'</span>'+
        '<p class="'+(analysis.calibrated?'ir-ai-axis-possible':'ir-ai-axis-review')+'">'+
-       (analysis.calibrated?'Предварительно согласовано, требуется проверка инженера. ':
+       (analysis.calibrated?'Предварительно согласовано, проверьте чертёж. ':
         'Не подтверждено. ')+escDoc(analysis.reason)+'</p>'+
        (analysis.calibrated?'<small>Масштаб X: '+
         (Math.abs(analysis.fitX.scale)*1000).toFixed(2)+
@@ -824,7 +864,8 @@
       area.innerHTML='<div class="ir-ai-vector-info"><b>Графика PDF · '+escDoc(doc.name)+
        ' · лист '+selected.page+'</b>'+
        '<span>Отрезков сохранено: '+Number(result.stats?.storedSegments||0)+
-       (result.stats?.truncated?' (лимит анализа достигнут)':'')+
+       (result.stats?.truncated?' (ограничен только предпросмотр)':'')+
+        ' · Соосных групп: '+Number(result.stats?.axisBandCount||0)+
        ' · горизонтальных: '+Number(result.stats?.horizontal||0)+
        ' · вертикальных: '+Number(result.stats?.vertical||0)+
        ' · диагональных: '+Number(result.stats?.diagonal||0)+'</span>'+
