@@ -289,3 +289,9 @@
 .ir-ai-region-progress-area .ir-ai-recognition-progress{margin:6px 0 10px;padding:10px 13px}
 @media(max-width:700px){.ir-ai-recognition-progress{padding:10px 12px}
  .ir-ai-recognition-progress-meta{gap:5px 11px}}
+
+/* Honest local CPU / CUDA status directly beside the KMD action steps. */
+.ir-ai-acceleration-state{display:flex;flex-wrap:wrap;align-items:center;gap:5px;
+ font-size:11px;line-height:1.5;color:#40647c;margin:0 0 12px;padding:8px 12px;
+ background:#f7fafc;border:1px solid #d9e5ed;border-radius:8px}
+.ir-ai-acceleration-state b{color:#1d587e;font-weight:800}
