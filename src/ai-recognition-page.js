@@ -166,7 +166,7 @@ window.irAiRecognitionPage=async function(objectId){
    '<header class="ir-ai-hero"><div class="ir-ai-heading"><div class="ir-ai-kicker">IR PROJECT · ЛОКАЛЬНЫЙ ИНЖЕНЕРНЫЙ МОДУЛЬ</div>'+
    '<h1>IR Project AI <span>Инженерный анализ КМ/КМД</span></h1>'+
    '<p>'+esc(object.name)+' · Все данные отдельно для этого объекта</p></div>'+
-   '<div class="ir-ai-state"><span class="ir-ai-state-dot"></span><div><strong>'+esc(stateNames[state]||"Не определено")+'</strong><small>'+esc(engine?.reason||((engine?.model||"Qwen3-VL")+(engine?.modelVersion?" · v"+engine.modelVersion:"")+" · автономный режим"))+'</small></div></div></header>'+
+   '<div class="ir-ai-state"><span class="ir-ai-state-dot"></span><div><strong>'+esc(stateNames[state]||"Не определено")+'</strong><small>'+esc(engine?.reason||((engine?.model||"Qwen3-VL")+(engine?.modelVersion?" · v"+engine.modelVersion:"")+(engine?.installed&&engine?.contextTokens?" · контекст "+engine.contextTokens+" токенов":"")+" · автономный режим"))+'</small></div></div></header>'+
    '<div class="ir-ai-stats"><div><small>Загружено файлов</small><b>'+documents.length+'</b><span>Локальное хранение</span></div>'+
    '<div><small>Проиндексировано листов PDF</small><b>'+indexedPages+'</b><span>Текстовые слои, без ИИ</span></div>'+
    '<div><small>3D-конструкций</small><b>—</b><span>Нет подтверждённой геометрии</span></div>'+
