@@ -1544,10 +1544,10 @@
     }
     const markup=()=>'<section class="ir-ai-lite">'+
      '<header class="ir-ai-review-heading"><div><h2>ИИ → Монтажная схема · быстрый режим</h2>'+
-     '<p>Ведомость марок + индексированные КМ/КМД → предварительные координаты и высоты. Обычные листы без Qwen; сложные — отдельно.</p></div>'+
+     '<p>Одна кнопка запускает чтение PDF и проверку осей, графики, размеров и повторений марок. Точное X/Y/Z определяется только при достаточных доказательствах.</p></div>'+
      '<b>Локально · без ИИ</b></header>'+
-     '<div class="ir-ai-quantity-warning">Найденная марка не означает известное положение в здании. Высоты привязываются лишь к листам с одной явно обозначенной маркой. Импорт требует инженерной проверки, официальной ведомости и сохранённой сетки осей.</div>'+
-     '<div class="ir-ai-lite-toolbar"><button type="button" data-lite-scan '+(busy?'disabled':'')+'>1. Построить черновик по чертежам</button>'+
+     '<div class="ir-ai-quantity-warning">Индексирование текстового слоя PDF не определяет положение конструкции. После построения черновика автоматически запускается графическая проверка всех индексированных потенциальных монтажных планов; это не изменяет существующую схему.</div>'+
+     '<div class="ir-ai-lite-toolbar"><button type="button" data-lite-scan '+(busy?'disabled':'')+'>1. Проанализировать все чертежи</button>'+
      '<button type="button" data-lite-analyze-all disabled>Автоматически проверить оси и контуры всех планов</button>'+
      '<button type="button" data-lite-cancel-analyze disabled>Остановить анализ</button>'+
      '<button type="button" data-lite-scheme>Открыть монтажную схему</button>'+ 
@@ -2471,7 +2471,8 @@
      }finally{if(area.dataset)area.dataset.busy="false"}
     }
     async function scan(){
-     if(busy)return;busy=true;status("Быстро читаем текстовые слои PDF…");
+     if(busy)return;busy=true;let completed=false;
+     status("Читаем PDF и подготавливаем автоматическую проверку геометрии…");
      latest=[];candidates=[];batch=null;verifiedPreview=null;feedbackByCandidate.clear();
      sweep=null;instanceLinks.clear();instanceDimensionHints.clear();dimensionResults.clear();
       instanceResults.clear();instanceRows=[];
@@ -2519,9 +2520,19 @@
        " листов, "+candidates.length+" возможных марок. "+
        (allEntries.length>250?"За один запуск проверяются первые 250 листов; оставшиеся пока не обработаны. ":"")+
        "Неразборчивые PDF не интерпретировались.");
-      draw();if(allButton)allButton.disabled=false
+      draw();if(allButton)allButton.disabled=false;
+      completed=true
      }catch(error){status("Не удалось проверить PDF: "+String(error.message||error))}
-     finally{busy=false;const scanBtn=host.querySelector("[data-lite-scan]");if(scanBtn)scanBtn.disabled=false}
+     finally{
+      busy=false;
+      const scanBtn=host.querySelector("[data-lite-scan]");
+      if(scanBtn)scanBtn.disabled=false;
+      // One user action: read text, then inspect the graphical plans.
+      // Allow tests that exercise ONLY manual controls to disable this
+      // second phase; the normal app enables it by default.
+      if(completed&&live&&opts.autoGeometrySweep!==false&&geometry?.page)
+       void reviewAllIndexedPlans()
+     }
     }
     async function verifyEditor(){
      // The AI page is an offline user tool. No passwords or expiring
