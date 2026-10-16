@@ -346,16 +346,28 @@
        '<button type="button" data-lite-source="'+i+'">Открыть PDF · лист '+c.source.page+'</button></div>'+
        '<small>'+escDoc(c.source.name)+' · '+escDoc(c.warning)+'</small>'+
        '<div class="ir-ai-lite-evidence">'+c.evidence.map(e=>'<span>'+escDoc(e)+'</span>').join("")+'</div>'+
+       '<div class="ir-ai-lite-missing">'+(
+         [!c.axisX?"ось X":"",!c.axisY?"ось Y":"",
+          c.z0Mm==null?"низ Z0":"",c.z1Mm==null?"верх Z1":"",
+          c.type!=="column"&&!c.endAxisX?"конечная ось X":"",
+          c.type!=="column"&&!c.endAxisY?"конечная ось Y":""].filter(Boolean).length?
+          'Не определено по PDF: '+escDoc([!c.axisX?"ось X":"",!c.axisY?"ось Y":"",
+           c.z0Mm==null?"низ Z0":"",c.z1Mm==null?"верх Z1":"",
+           c.type!=="column"&&!c.endAxisX?"конечная ось X":"",
+           c.type!=="column"&&!c.endAxisY?"конечная ось Y":""].filter(Boolean).join(", "))+
+           '. Введите только после сверки с чертежом.':
+          'Оси и отметки найдены в тексте, но их привязку к марке необходимо проверить.'
+        )+'</div>'+
        '<div class="ir-ai-lite-edit">'+
        '<label>Тип<select name="type"><option value="">Выберите</option>'+
         Object.entries(TYPE_NAMES).map(([key,n])=>'<option value="'+key+'"'+
          (c.type===key?' selected':'')+'>'+escDoc(n)+'</option>').join("")+'</select></label>'+
-       '<label>Ось X<input name="axisX" maxlength="3" placeholder="3" value="'+escDoc(c.axisX)+'"></label>'+
-       '<label>Ось Y<input name="axisY" maxlength="3" placeholder="Г" value="'+escDoc(c.axisY)+'"></label>'+
-       '<label>Конечная ось X<input name="endX" maxlength="3" placeholder="для балки" value="'+escDoc(c.endAxisX||"")+'"></label>'+
-       '<label>Конечная ось Y<input name="endY" maxlength="3" placeholder="для балки" value="'+escDoc(c.endAxisY||"")+'"></label>'+
-       '<label>Низ / начало, мм<input type="number" name="z0" step="1" placeholder="-400" value="'+escDoc(c.z0Mm??"")+'"></label>'+
-       '<label>Верх / конец, мм<input type="number" name="z1" step="1" placeholder="9705" value="'+escDoc(c.z1Mm??"")+'"></label></div>'+
+       '<label>Ось X<input name="axisX" maxlength="3" placeholder="не определена" value="'+escDoc(c.axisX)+'"></label>'+
+       '<label>Ось Y<input name="axisY" maxlength="3" placeholder="не определена" value="'+escDoc(c.axisY)+'"></label>'+
+       '<label>Конечная ось X<input name="endX" maxlength="3" placeholder="нужна для балки" value="'+escDoc(c.endAxisX||"")+'"></label>'+
+       '<label>Конечная ось Y<input name="endY" maxlength="3" placeholder="нужна для балки" value="'+escDoc(c.endAxisY||"")+'"></label>'+
+       '<label>Низ / начало, мм<input type="number" name="z0" step="1" placeholder="не определён" value="'+escDoc(c.z0Mm??"")+'"></label>'+
+       '<label>Верх / конец, мм<input type="number" name="z1" step="1" placeholder="не определён" value="'+escDoc(c.z1Mm??"")+'"></label></div>'+
        '<div class="ir-ai-lite-actions"><button type="button" data-lite-approve="'+i+'" '+(!canEdit||!hostWindow.irAccess?.canEdit?.("scheme")?'disabled':'')+
        '>2. Проверить и добавить на монтажную схему</button>'+
        '<small>Координаты берутся только из сохранённой сетки IR Project.</small></div>'+

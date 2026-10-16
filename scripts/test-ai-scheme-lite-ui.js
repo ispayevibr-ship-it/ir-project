@@ -106,6 +106,12 @@ function makeHost(){
  assert.match(host.inspect.slot.innerHTML,/9705/);
  assert.match(host.inspect.slot.innerHTML,/-400/);
  assert.match(host.inspect.slot.innerHTML,/10105/);
+ assert(!host.inspect.slot.innerHTML.includes('placeholder="-400"'),
+  "K62 example level must never masquerade as a filled value");
+ assert(!host.inspect.slot.innerHTML.includes('placeholder="9705"'),
+  "no hardcoded height in an unrecognized mark card");
+ assert(!host.inspect.slot.innerHTML.includes('placeholder="3"'),
+  "unknown X-axis must not be prefilled visually");
  assert.equal(saved.length,0,"no scheme writes from auto-extraction");
  assert.equal(readCalls,1,"only one indexed page fetched, no Qwen");
  host.inspect.source.onclick();

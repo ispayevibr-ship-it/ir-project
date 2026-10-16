@@ -336,3 +336,6 @@
 .ir-ai-lite-inline-feedback[data-state="error"]{color:#a32929;background:#fff1f1;border:1px solid #f0cbcb;border-radius:7px;padding:9px 12px}
 .ir-ai-lite-inline-feedback[data-state="success"]{color:#176c47;background:#eefaf2;border:1px solid #c8e8d3;border-radius:7px;padding:9px 12px}
 .ir-ai-lite-inline-feedback[data-state="info"]{color:#315b76;background:#f1f7fb;border:1px solid #d2e3f0;border-radius:7px;padding:9px 12px}
+
+.ir-ai-lite-missing{font-size:12px;line-height:1.5;margin:8px 0 12px;color:#7f5a24;background:#fff9ed;padding:9px 12px;border:1px solid #eadabd;border-radius:7px}
+.ir-ai-lite-edit input:placeholder-shown{background:#fffaf6;border-color:#d9c0a0}
