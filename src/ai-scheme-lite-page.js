@@ -1265,6 +1265,8 @@
          widthPt:result.widthPt,heightPt:result.heightPt});
        const candidateNodes=findAxisNodeCandidates({labels:registerLabels.labels,
         analysis,grid,vector:result});
+       const memberOutlines=findPlanMemberStrokes({labels:registerLabels.labels,
+        analysis,grid,vector:result});
        const label=x=>escDoc(x.name)+" · "+escDoc(x.mm)+" мм ↔ "+
        escDoc(Math.round(x.pagePt*100)/100)+" pt";
       const xRows=analysis.xMatches?.map(label)||[],
@@ -1355,6 +1357,67 @@
          (candidateNodes.review.length>80?'<small>Показаны первые 80 причин.</small>':"")+
          '</details>':"")+
         '</details>':"");
+       if(registerLabels.labels.length){
+        output.innerHTML+='<details class="ir-ai-axis-mark-zones" open>'+
+         '<summary>Векторные контуры возле марок · '+
+          memberOutlines.candidates.length+' пар линий, '+
+          memberOutlines.singleStrokes.length+' одиночных, '+
+          memberOutlines.review.length+' на проверку</summary>'+
+         '<p>Анализируется реальная графика PDF, а не ближайшая ось или текст. '+
+         'Две параллельные линии — <b>только возможный контур элемента</b>; '+
+         'они могут также относиться к размерам и другим обозначениям. '+
+         'Координаты ниже — координаты линий на плане, не подтверждённая монтажная геометрия. '+
+         'Высота Z и тип элемента здесь не определяются.</p>'+
+         (memberOutlines.limited?'<p class="ir-ai-axis-review">'+
+          'PDF содержит больше линий, чем показано в векторном предпросмотре. '+
+          'Поиск неполный; отсутствие контура не является доказательством отсутствия конструкции.</p>':"")+
+         (memberOutlines.candidates.length?
+          '<div class="ir-ai-lite-preview-scroll"><table><thead><tr>'+
+          '<th>Марка</th><th>Начало линии, мм</th><th>Конец линии, мм</th>'+
+          '<th>Длина, мм</th><th>Статус</th><th>Чертёж</th>'+
+          '</tr></thead><tbody>'+
+          memberOutlines.candidates.slice(0,80).map(p=>'<tr>'+
+           '<td>'+escDoc(p.mark)+'</td>'+
+           '<td>'+p.lineMm.x1+' / '+p.lineMm.y1+'</td>'+
+           '<td>'+p.lineMm.x2+' / '+p.lineMm.y2+'</td>'+
+           '<td>≈'+p.lengthMm+'</td>'+
+           '<td>Возможный парный контур; требуется проверка</td>'+
+           '<td><button type="button" data-lite-node-source="'+
+            registerLabels.labels.indexOf(p.label)+'">PDF</button></td>'+
+          '</tr>').join("")+'</tbody></table></div>'+
+          (memberOutlines.candidates.length>80?'<small>Показаны первые 80 гипотез.</small>':""):
+          '<p>Однозначных пар графических линий рядом с марками пока нет.</p>')+
+         (memberOutlines.singleStrokes.length?'<details>'+
+          '<summary>Одиночные линии рядом с надписями · '+
+           memberOutlines.singleStrokes.length+'</summary>'+
+          '<p>Одна линия не доказывает существование контура.</p>'+
+          '<table><thead><tr><th>Марка</th><th>Начало, мм</th>'+
+          '<th>Конец, мм</th><th>PDF</th></tr></thead><tbody>'+
+          memberOutlines.singleStrokes.slice(0,60).map(p=>'<tr>'+
+           '<td>'+escDoc(p.mark)+'</td>'+
+           '<td>'+p.lineMm.x1+' / '+p.lineMm.y1+'</td>'+
+           '<td>'+p.lineMm.x2+' / '+p.lineMm.y2+'</td>'+
+           '<td><button type="button" data-lite-node-source="'+
+            registerLabels.labels.indexOf(p.label)+'">PDF</button></td></tr>').join("")+
+          '</tbody></table></details>':"")+
+         (memberOutlines.review.length?'<details><summary>'+
+          'Почему не определена геометрия · '+memberOutlines.review.length+'</summary>'+
+          (memberOutlines.summary?.length?'<p>'+
+           memberOutlines.summary.map(x=>escDoc({
+            single_stroke:"найдена только одиночная линия",
+            no_strokes:"нет подходящих векторных штрихов",
+            multiple_outlines:"несколько похожих контуров",
+            shared_strokes:"контур связан с несколькими марками",
+            outside_plan:"надпись вне области",
+            incomplete_geometry:"векторная геометрия неполная",
+            uncalibrated:"нет калибровки"
+           }[x.reason]||x.reason)+': '+x.count).join(' · ')+'</p>':"")+
+          memberOutlines.review.slice(0,35).map(x=>'<div>'+escDoc(x.label.mark)+
+           ': '+escDoc(x.reason)+'</div>').join("")+
+          (memberOutlines.review.length>35?'<small>Показаны первые 35 замечаний.</small>':"")+
+          '</details>':"")+
+         '</details>'
+       }
        output.querySelectorAll?.("[data-lite-node-source]")?.forEach(button=>{
         button.onclick=()=>{
          const label=registerLabels.labels[Number(button.dataset.liteNodeSource)];
