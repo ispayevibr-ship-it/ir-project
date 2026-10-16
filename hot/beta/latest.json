@@ -1,7 +1,7 @@
 {
   "channel": "beta",
-  "baseVersion": "1.7.218",
-  "version": "1.7.218.42",
+  "baseVersion": "1.7.219",
+  "version": "1.7.219.45",
   "branch": "feature/ir-project-ai-next",
   "description": "IR Project AI Beta hot fixes: no full EXE",
   "files": [
@@ -92,14 +92,14 @@
     {
       "source": "src/ai-document-hot-loader.js",
       "target": "src/ai-document-hot-loader.js",
-      "size": 3045,
-      "sha256": "ef38b6930ac74a3a34d2557885b3a0244105dbe5a8c59284e7850f9a78f844f6"
+      "size": 3594,
+      "sha256": "960e0545e4a513995bf874e485b56d73ed95b0a728062b0354ae848a9e78b950"
     },
     {
       "source": "src/ai-document-store.js",
       "target": "src/ai-document-store.js",
-      "size": 23058,
-      "sha256": "030788c6b7bbf5c9ed11c279accfa6e3af07b902ac447e9086c505157006df7a"
+      "size": 23294,
+      "sha256": "4eeb90d028a8589b0595c2ff4dbb842d9e71c2a433acafff76948badd008683c"
     },
     {
       "source": "src/ai-drawing-revisions.js",
@@ -266,14 +266,14 @@
     {
       "source": "src/ai-recognition-page.css",
       "target": "src/ai-recognition-page.css",
-      "size": 30341,
-      "sha256": "36d2836306cac4da926edcea2d03a8c35cad27a0811949407b480ae59e3319dd"
+      "size": 30897,
+      "sha256": "8237de0c2c0be3267b439206376ef8febbdb622cc004cdc868db1d6dd6756096"
     },
     {
       "source": "src/ai-recognition-page.js",
       "target": "src/ai-recognition-page.js",
-      "size": 104154,
-      "sha256": "771ad79410b833e10e379a828b479250d6d5b1a5d81af709226b0852f1bfb169"
+      "size": 107402,
+      "sha256": "fae0d8a5ff0e34186b00579098fc283148d34dac301a2e54c8c51c1b4c72ed36"
     },
     {
       "source": "src/ai-review.js",
