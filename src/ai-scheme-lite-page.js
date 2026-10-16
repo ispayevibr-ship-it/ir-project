@@ -449,6 +449,8 @@
        '<button type="button" data-lite-source="'+i+'">Открыть PDF · лист '+c.source.page+'</button></div>'+
        '<small>'+escDoc(c.source.name)+' · '+escDoc(c.warning)+'</small>'+
        '<div class="ir-ai-lite-evidence">'+c.evidence.map(e=>'<span>'+escDoc(e)+'</span>').join("")+'</div>'+
+       (c.evidenceLocations?.length?'<small>Найдены координаты '+
+        c.evidenceLocations.length+' текстовых фрагментов PDF (не координаты монтажа).</small>':"")+
        '<div class="ir-ai-lite-missing">'+(
          [!c.axisX?"ось X":"",!c.axisY?"ось Y":"",
           c.z0Mm==null?"низ Z0":"",c.z1Mm==null?"верх Z1":"",
@@ -556,7 +558,7 @@
       type:c.type,origin:c.origin,sheetType:c.sheetType,
       axisX:c.axisX,axisY:c.axisY,endAxisX:c.endAxisX,endAxisY:c.endAxisY,
       z0Mm:c.z0Mm,z1Mm:c.z1Mm,offsetXmm:0,offsetYmm:0,
-      evidence:c.evidence,source:{...c.source}
+      evidence:c.evidence,source:{...c.source,regions:c.evidenceLocations||[]}
      }
     }
     async function approveBatch(){

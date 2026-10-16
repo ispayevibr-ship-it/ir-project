@@ -137,11 +137,31 @@ function createService({database,verifyDocument}={}){
    if(!doc||doc.data?.archived===true||doc.data?.sha256!==src.sha256||
       !/^[a-f0-9]{64}$/i.test(String(src.sha256||"")))
     throw Error("Оригинал PDF отсутствует, архивирован или изменил SHA-256");
-   const indexed=st.rows["ai-pdf-index"].some(r=>r.record_type==="pdf_text_index"&&
+   const indexedPage=st.rows["ai-pdf-index"].filter(r=>r.record_type==="pdf_text_index"&&
      Number(r.data?.source?.documentId)===Number(doc.id)&&
-     r.data?.source?.sha256===src.sha256&&
-     r.data?.pages?.some(p=>Number(p.page)===Number(src.page)));
-   if(!indexed)throw Error("Нет актуального индекса исходного листа PDF");
+     r.data?.source?.sha256===src.sha256)
+    .flatMap(r=>r.data?.pages||[])
+    .find(p=>Number(p.page)===Number(src.page));
+   if(!indexedPage)throw Error("Нет актуального индекса исходного листа PDF");
+   // Trust the index, not bounding boxes provided by the renderer. These
+   // rectangles locate PDF text, never independently prove mounting geometry.
+   const regions=[];
+   for(const region of (Array.isArray(src.regions)?src.regions:[]).slice(0,12)){
+    const ids=region?.fragmentIds;
+    if(!Array.isArray(ids)||!ids.length||ids.length>6||
+       ids.some(i=>!Number.isSafeInteger(i)||i<0||i>=(indexedPage.fragments||[]).length))
+     continue;
+    const fragments=ids.map(i=>indexedPage.fragments[i]);
+    const coords=fragments.flatMap(f=>[Number(f.x),Number(f.y),Number(f.width),Number(f.height)]);
+    if(coords.some(v=>!Number.isFinite(v)))continue;
+    const minX=Math.min(...fragments.map(f=>Number(f.x))),
+      minY=Math.min(...fragments.map(f=>Number(f.y))),
+      maxX=Math.max(...fragments.map(f=>Number(f.x)+Number(f.width))),
+      maxY=Math.max(...fragments.map(f=>Number(f.y)+Number(f.height)));
+    regions.push({fragmentIds:ids,sourceText:fragments.map(f=>String(f.text||"")).join(" ").slice(0,180),
+     rectPt:{x:Math.round(minX*100)/100,y:Math.round(minY*100)/100,
+      width:Math.round((maxX-minX)*100)/100,height:Math.round((maxY-minY)*100)/100}})
+   }
    if(typeof verifyDocument==="function"&&!verifiedDocs.has(doc.id)){
     if(!verifyDocument(st.id,doc.id))
      throw Error("Файл PDF отсутствует либо фактический SHA-256 не совпадает");
@@ -185,7 +205,8 @@ function createService({database,verifyDocument}={}){
     scheme_group:type==="column"?"columns":type==="brace"?"ties":"beams",
     scheme_group_label:type==="column"?"Колонны":type==="brace"?"Связи":"Балки",
     ai_source:{documentId:Number(doc.id),sha256:src.sha256,page:Number(src.page),
-     evidence:c.evidence.map(x=>String(x).slice(0,180)).slice(0,10),verifiedManually:true},
+     evidence:c.evidence.map(x=>String(x).slice(0,180)).slice(0,10),
+     textRegions:regions,verifiedManually:true},
     ai_placement_method:"engineer_approved_plan",ai_operation_id:null
    };
    return{record_type:"scheme_column",title:position,data}
