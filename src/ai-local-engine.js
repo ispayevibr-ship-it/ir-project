@@ -3,6 +3,9 @@
 const fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypto");
 const os=require("node:os"),net=require("node:net"),cp=require("node:child_process");
 const MODEL_ROOT="ir-project-ai",API_MODEL="local-qwen3-vl";
+// A single 1800px KM/KMD sheet can exceed 4096 vision/text tokens.
+// Reserve enough context for image patches, trusted prompt, and generated JSON.
+const VISION_CONTEXT_TOKENS=8192;
 const names={binary:process.platform==="win32"?"llama-server.exe":"llama-server",model:"model.gguf",vision:"mmproj.gguf"};
 const STATUS=["missing","invalid","stopped","starting","ready","failed"];
 function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>new Promise(resolve=>setTimeout(resolve,ms)),
@@ -96,7 +99,8 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
  function status(){
   const check=inspect();
   const real=Boolean(child&&activeProfile);
-  return{state:check.installed?state==="missing"?"stopped":state:check.reason?.includes("не установлен")?"missing":"invalid",
+  return{contextTokens:VISION_CONTEXT_TOKENS,
+   state:check.installed?state==="missing"?"stopped":state:check.reason?.includes("не установлен")?"missing":"invalid",
    installed:check.installed,reason:check.installed?issue:check.reason,
    ramGb:Math.round(memory()/1073741824*10)/10,
    totalBytes:check.installed?check.bytes:0,
@@ -135,7 +139,8 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
     serverPort=port;secret=crypto.randomBytes(32).toString("hex");
     const args=["-m",pack.files.model.path,"--mmproj",pack.files.vision.path,
      "--host","127.0.0.1","--port",String(serverPort),"--alias",API_MODEL,"--no-webui",
-     "--api-key",secret,"--ctx-size","4096","--n-gpu-layers",String(pack.gpuLayers)];
+     "--api-key",secret,"--ctx-size",String(VISION_CONTEXT_TOKENS),"--parallel","1",
+     "--n-gpu-layers",String(pack.gpuLayers)];
     const mine=spawn(pack.files.binary.path,args,{cwd:pack.cwd||root(),windowsHide:true,stdio:"ignore",
      shell:false,env:{...process.env,NO_PROXY:"127.0.0.1,localhost",no_proxy:"127.0.0.1,localhost"}});
     child=mine;
@@ -210,7 +215,11 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
      }catch{details=body}
      details=details.replace(/[\r\n\t]+/g," ").replace(/\s+/g," ").trim().slice(0,360)
     }catch{}
-    throw Error("Локальная модель вернула HTTP "+response.status+
+    const tooSmall=response.status===400&&/exceeds the available context size|context size|n_ctx|context window/i.test(details);
+    throw Error(tooSmall?"Контекст Qwen переполнен (текущий лимит "+VISION_CONTEXT_TOKENS+
+     " токенов). Повторите распознавание увеличенного фрагмента или сократите текст PDF. "+
+     (details?"llama.cpp: "+details:""):
+     "Локальная модель вернула HTTP "+response.status+
      (details?": "+details:" — причина не указана движком llama.cpp"))
    }
    const answer=await response.json();
@@ -230,4 +239,4 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
  function cancel(){if(controller)controller.abort();return status()}
  return{status,start,stop,verify,analyzeImage,cancel,inspect};
 }
-module.exports={createEngine,names,STATUS};
+module.exports={createEngine,names,STATUS,VISION_CONTEXT_TOKENS};
