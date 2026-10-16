@@ -225,7 +225,7 @@ window.irAiRecognitionPage=async function(objectId){
     '<span class="ir-ai-step-guide-item'+(stepDone[i]?' complete':i+1===activeStep?' current':'')+'">'+
     stepNumber(i+1,stepDone[i])+esc(label)+'</span>').join('')+
    '<small>'+(analysisProgress?.status==="failed"?
-    "Распознавание прервано. Повторите шаг 5 после проверки состояния ИИ.":
+    "Распознавание прервано. Повторите шаг 5 после проверки состояния ИИ: нажмите «Проверить ИИ», при остановке запустите Qwen снова. Данные К60 сохранены.":
     'Следующий шаг: '+activeStep+'. '+esc(stepLabels[activeStep-1]))+'</small></div>';
   window.irAiAssemblyPage?.dispose?.();
   app.innerHTML='<div class="ir-ai-page">'+
