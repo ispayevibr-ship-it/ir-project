@@ -1186,7 +1186,9 @@ window.irAiRecognitionPage=async function(objectId){
      (crop?" · увеличенный фрагмент":"");
     meta.textContent=(crop?"Выделенный фрагмент: ":"Источник: ")+view.width+" × "+view.height+
      " px · SHA-256 "+original.sha256+
-     (crop&&view.sourceRectPt?" · прямоугольник PDF, pt: "+JSON.stringify(view.sourceRectPt):"");
+     (crop&&view.sourceRectPt?" · прямоугольник PDF, pt: "+JSON.stringify(view.sourceRectPt):"")+
+     (!crop&&evidenceBoxes.some(element=>element.namespaceURI==="http://www.w3.org/2000/svg")?
+      " · Цветные линии: непроверенные графические гипотезы, не монтажные координаты":"");
     back.hidden=!crop;layer.style.display=crop?"none":"";
     updateSelection()
    }
