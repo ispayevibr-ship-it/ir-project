@@ -1390,6 +1390,7 @@
         output.innerHTML+='<details class="ir-ai-axis-mark-zones" open>'+
          '<summary>Векторные контуры возле марок · '+
           memberOutlines.candidates.length+' пар линий, '+
+          memberOutlines.alternatives.length+' с альтернативами, '+
           memberOutlines.singleStrokes.length+' одиночных, '+
           memberOutlines.review.length+' на проверку</summary>'+
          '<small>Проверено локальных штрихов: '+memberOutlines.inspected+
