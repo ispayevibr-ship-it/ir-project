@@ -330,6 +330,8 @@
   const width=Number(vector.widthPt),height=Number(vector.heightPt);
   if(!(width>0&&height>0)||Number(vector.rotation||0)!==0)
    return reject("Для автоматической калибровки нужен неповёрнутый векторный план");
+  if(vector.stats?.truncated===true)
+   return reject("Векторная геометрия листа обрезана по лимиту; калибровка осей небезопасна");
   const labels=Array.isArray(raw?.fragments)?raw.fragments:[];
   if(!labels.length)return reject("На листе нет текстовых фрагментов с обозначениями осей");
   const canon=x=>String(x||"").toLocaleUpperCase("ru-RU").trim()
