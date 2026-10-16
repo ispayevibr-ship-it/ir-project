@@ -127,6 +127,10 @@ function registerAiDocuments(){
  ipcMain.handle("ai-documents:open",(_e,{objectId,id})=>aiDocuments.open(objectId,id));
  ipcMain.handle("ai-documents:remove",(e,{objectId,id})=>{
   requireAiReviewer(e);
+  // A source cannot be removed during any ongoing indexing, rendering or inference.
+  if(aiPdf.busy()||aiRaster.busy()||aiQueue.summary(objectId).isRunning||
+     aiEngine.status().active||aiOcr.status().busy)
+   throw Error("Сейчас выполняется обработка чертежей. Дождитесь её окончания перед удалением PDF.");
   const linked=aiRevisions.list(objectId).find(set=>set.sheets.some(s=>Number(s.documentId)===Number(id)));
   if(linked)throw Error("Исходный PDF входит в комплект КМ/КМД «"+linked.label+
    "» (включая историю). Удаление нарушит проверяемость ревизий; сохраните оригинал.");
