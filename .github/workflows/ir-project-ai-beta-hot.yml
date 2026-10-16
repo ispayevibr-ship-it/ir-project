@@ -36,6 +36,8 @@ jobs:
           set -euo pipefail
           node --check src/ai-recognition-page.js
           node --check src/ai-local-engine.js
+          node --check src/updater.js
+          node --check main.js
           node --check src/ai-analysis.js
           node --check src/ai-workflow.js
           node --check scripts/build-beta-hot-manifest.js
@@ -46,7 +48,7 @@ jobs:
           node scripts/test-ai-engine.js
           node scripts/test-updater-rollback.js
           node scripts/test-ai-beta-hot.js
-      - name: Generate signed-hash manifest from latest tested Beta revision
+      - name: Generate SHA-256 manifest from latest tested Beta revision
         shell: bash
         run: |
           set -euo pipefail
