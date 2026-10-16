@@ -6,18 +6,18 @@ function createAnalysis({database,documents,engine,ocr=null,pdfRenderer,revision
  let busy=false;
  const object=id=>{const n=Number(id);if(!Number.isSafeInteger(n)||n<=0||!database.getObject(n))throw Error("Объект не найден");return n};
  function parseClaims(raw){
-  let text=String(raw||"").trim(),parsed=null;
-  if(text.startsWith(String.fromCharCode(96,96,96)))text=text.replace(/^\x60{3}[a-z]*\s*/i,"").replace(/\s*\x60{3}$/,"");
-  try{
-   const obj=JSON.parse(text);
-   if(obj&&typeof obj==="object"&&!Array.isArray(obj)){
-    const strings=x=>Array.isArray(x)?x.filter(y=>typeof y==="string").slice(0,70).map(y=>y.slice(0,300)):[];
-    parsed={text:typeof obj.text==="string"?obj.text.slice(0,12000):"",
-     marks:strings(obj.marks),notes:strings(obj.notes),unknowns:strings(obj.unknowns),
-     structured:structured.extract(raw)};
-   }
-  }catch{}
-  return parsed
+  const obj=structured.readJson(raw);
+  if(!obj)return null;
+  const strings=x=>Array.isArray(x)?x.filter(y=>typeof y==="string").slice(0,70).map(y=>y.slice(0,300)):[];
+  const records=structured.extract(raw);
+  const declaredMarks=strings(obj.marks);
+  // For structured records, include exact mark labels only when provided by the model.
+  // Duplicates from detail rows do not imply any construction quantity.
+  const recordMarks=records.records.map(x=>x.data.mark).filter(Boolean);
+  const marks=[...new Map([...declaredMarks,...recordMarks].map(mark=>[mark.toLocaleUpperCase("ru-RU"),mark])).values()].slice(0,70);
+  return{text:typeof obj.text==="string"?obj.text.slice(0,12000):"",
+   marks,notes:strings(obj.notes),unknowns:strings(obj.unknowns),
+   structured:records}
  }
  // Qwen-only beta is allowed when the optional PaddleOCR pack is absent.
  // If OCR is installed but fails, preserve the error instead of silently bypassing it.
@@ -50,7 +50,7 @@ function createAnalysis({database,documents,engine,ocr=null,pdfRenderer,revision
    const saved=database.createEntity(id,"ai-analysis",{record_type:"image_analysis",
     title:"Анализ изображения: "+input.source.name,
     data:{source:input.source,model:result.engine,modelId:result.modelId||null,modelVersion:result.modelVersion||null,raw:result.raw,
-     ocr:ocrEvidence,extracted,complete:!!result.complete,verification:"requires_review",
+     ocr:ocrEvidence,extracted,complete:!!result.complete,finishReason:result.finishReason||null,verification:"requires_review",
      sourceRegion:null,origin:ocrEvidence?"paddleocr_vl_1_6_plus_llama_cpp":"locally_executed_llama_cpp"}});
    if(!saved)throw Error("Не удалось сохранить результат анализа");
    return{id:saved.id,source:input.source.name,
@@ -81,7 +81,7 @@ function createAnalysis({database,documents,engine,ocr=null,pdfRenderer,revision
    const saved=database.createEntity(id,"ai-analysis",{record_type:"image_analysis",
     title:"Анализ PDF · лист "+input.source.page+(region?" · фрагмент":"")+" · "+input.source.name,
     data:{source:input.source,model:result.engine,modelId:result.modelId||null,modelVersion:result.modelVersion||null,raw:result.raw,
-     ocr:ocrEvidence,extracted,complete:!!result.complete,verification:"requires_review",
+     ocr:ocrEvidence,extracted,complete:!!result.complete,finishReason:result.finishReason||null,verification:"requires_review",
      sourceRegion:region?"PDF лист "+input.source.page+": область "+JSON.stringify(input.source.region)+
       ", координаты прямоугольника в pt "+JSON.stringify(input.source.sourceRectPt)+
       "; координаты отдельных распознанных деталей пока не определены":
