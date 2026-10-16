@@ -152,7 +152,8 @@ const wait=async f=>{
  }
  assert(slot.innerHTML.includes("Размерных линий с совпадающей длиной"));
  assert(slot.innerHTML.includes("Размерные цепочки PDF · 1"),
-  "real calibrated strokes with both end ticks become one graphic dimension");
+  "real calibrated strokes with both end ticks become one graphic dimension; "+
+  "status="+status.textContent+"; html="+slot.innerHTML.slice(0,4200));
  assert.equal(typeof dimensionButton.onclick,"function");
  dimensionButton.onclick();
  assert.equal(sourceViews.at(-1).evidence[0].quote,"4500");
