@@ -44,6 +44,10 @@ const candidate=(axis,overrides={})=>({
  evidence:["К62 на монтажном плане","Разрез по оси Б"],...overrides
 });
 const service=createService({database:db});
+const original=service.inventory(1);
+assert.equal(original.positions,1);
+assert.equal(original.totalInstances,2);
+assert.equal(original.unplaced,2);
 const first=service.preview(1,[candidate("1"),candidate("2")]);
 assert.equal(first.ready.length,2);
 assert.equal(first.skipped.length,0);
@@ -65,6 +69,10 @@ const detail=service.preview(1,[candidate("1",{sheetType:"detail"})]);
 assert.equal(detail.ready.length,0);
 const apply=service.apply(1,[candidate("1"),candidate("2")],first.token);
 assert.equal(apply.created,2);
+assert.equal(service.inventory(1).placed,2);
+const instanceIds=db.listEntity(1,"scheme").filter(x=>x.record_type==="scheme_column")
+ .map(x=>x.data.ai_instance_id);
+assert.equal(new Set(instanceIds).size,2,"physical instances have unique stable IDs");
 assert.equal(db.listEntity(1,"scheme").filter(x=>x.record_type==="scheme_column").length,2);
 assert.equal(db.listEntity(1,"ai-placement-operations").length,1);
 assert.throws(()=>service.apply(1,[candidate("1")],first.token),/изменились/);

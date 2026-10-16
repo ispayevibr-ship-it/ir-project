@@ -21,8 +21,10 @@ function hotAiModule(name){
 const database=require("./src/database"),aiDocumentStore=hotAiModule("ai-document-store"),aiLocalEngine=hotAiModule("ai-local-engine"),aiAnalysis=hotAiModule("ai-analysis"),aiReview=hotAiModule("ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiKmdMaterials=require("./src/ai-kmd-materials"),aiKmdConnections=require("./src/ai-kmd-connections"),aiKmKmdCompare=require("./src/ai-km-kmd-compare"),aiAssemblyGeometry=require("./src/ai-assembly-geometry"),aiAssemblyAttachments=require("./src/ai-assembly-attachments"),aiWorkflow=hotAiModule("ai-workflow"),aiStructuredReview=hotAiModule("ai-structured-review"),aiDrawingRevisions=require("./src/ai-drawing-revisions"),aiIntegrityReport=require("./src/ai-integrity-report"),aiCoverageReport=require("./src/ai-kmd-coverage"),aiKmdReference=require("./src/ai-kmd-reference"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),aiModelManager=require("./src/ai-model-manager"),aiPaddleOcr=require("./src/ai-paddle-ocr"),aiPreflightCheck=require("./src/ai-acceptance-preflight"),aiRuntimeDiagnostics=require("./src/ai-runtime-diagnostics"),completeBackup=require("./src/ai-complete-backup"),backup=require("./src/backup"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
 let win;
 const schemeResetService=schemeReset.createReset({database});
-const mountingPlacementService=mountingPlacement.createService({database});
 const aiDocuments=aiDocumentStore.createStore({getUserDataPath:()=>app.getPath("userData"),dialog,shell,database,getWindow:()=>win});
+const mountingPlacementService=mountingPlacement.createService({
+ database,verifyDocument:(objectId,documentId)=>aiDocuments.verify(objectId,documentId)
+});
 // Destructive PDF operations resolve the active, checksum-verified module at call
 // time rather than using a store captured before a hot update was installed.
 const aiDocumentDeletion=require("./src/ai-document-hot-loader").createGuard({
@@ -179,6 +181,9 @@ function registerAiDocuments(){
   const auth=requireAiReviewer(e);
   if(!["admin","engineer"].includes(auth.role))throw Error("Недостаточно прав для расстановки");
   return mountingPlacementService.apply(objectId,entries,token)
+ });
+ ipcMain.handle("ai-mounting:inventory",(e,objectId)=>{
+  requireAiReviewer(e);return mountingPlacementService.inventory(objectId)
  });
  ipcMain.handle("ai-mounting:last",(e,objectId)=>{
   requireAiReviewer(e);

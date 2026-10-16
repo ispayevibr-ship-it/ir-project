@@ -150,6 +150,7 @@ const aiMounting={
  preview:(objectId,entries)=>ipcRenderer.invoke("ai-mounting:preview",{objectId,entries}),
  apply:(objectId,entries,token)=>ipcRenderer.invoke("ai-mounting:apply",{objectId,entries,token}),
  latest:objectId=>ipcRenderer.invoke("ai-mounting:last",objectId),
+ inventory:objectId=>ipcRenderer.invoke("ai-mounting:inventory",objectId),
  undo:(objectId,operationId)=>ipcRenderer.invoke("ai-mounting:undo",{objectId,operationId})
 };
 const schemeReset={preview:objectId=>ipcRenderer.invoke("scheme:reset-preview",objectId),

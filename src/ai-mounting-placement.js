@@ -22,7 +22,7 @@ const posId=(id,name)=>{
  if(!Number.isSafeInteger(v)||v<1)throw Error("Неверный идентификатор "+name);
  return v
 };
-function createService({database}={}){
+function createService({database,verifyDocument}={}){
  if(!database?.transaction||!database?.getObject||!database?.listEntity||
     !database?.createEntity||!database?.getEntity||!database?.deleteEntity||
     !database?.updateEntity||!database?.listRecordChildren)
@@ -59,11 +59,13 @@ function createService({database}={}){
  function planState(st,entries){
   if(!Array.isArray(entries)||entries.length>400)
    throw Error("За одну операцию допускается не более 400 предложений");
-  const accepted=[],skipped=[],occupied=new Set(),byMark=new Map(),titles=new Set(),
+  const accepted=[],skipped=[],occupied=new Set(),occupiedGeometry=new Set(),
+   pendingGeometry=new Set(),verifiedDocs=new Set(),ordinals=new Map(),
+   byMark=new Map(),titles=new Set(),
    markMap=new Map(st.rows.marks.map(r=>[String(r.id),r])),
    workMap=new Map(st.rows["work-types"].map(r=>[String(r.id),r])),
    docs=new Map(st.rows["ai-documents"].filter(r=>r.record_type==="document").map(r=>[String(r.id),r]));
-  const grids=st.rows.scheme.filter(placement);
+  const grids=st.rows.scheme.filter(placement).sort((a,b)=>a.id-b.id);
   function signature(mId,type,x,y,ex,ey,z0,z1){
    return [mId,type,x,y,ex,ey,z0,z1].join("|")
   }
@@ -71,7 +73,12 @@ function createService({database}={}){
   for(const row of grids){
    titles.add(String(row.title||row.data?.position||""));
    const d=row.data||{},m=String(d.mark_id??"");
-   if(m)byMark.set(m,(byMark.get(m)||0)+1);
+   if(m){
+    byMark.set(m,(byMark.get(m)||0)+1);
+    if(!ordinals.has(m))ordinals.set(m,new Set());
+    const num=Number(d.ai_instance_ordinal);
+    if(Number.isSafeInteger(num)&&num>0)ordinals.get(m).add(num)
+   }
    if(kindSet.has(d.geometry_type)&&Number.isFinite(Number(d.absolute_x_mm))&&
       Number.isFinite(Number(d.absolute_y_mm))){
     const t=d.geometry_type,x=Number(d.absolute_x_mm),y=Number(d.absolute_y_mm);
@@ -79,6 +86,7 @@ function createService({database}={}){
     const ey=t==="column"?y:Number(d.absolute_y2_mm);
     const z0=Number(d.z0_mm),z1=Number(d.z1_mm);
     occupied.add(signature(m,t,x,y,ex,ey,z0,z1));
+    occupiedGeometry.add(geo(t,x,y,ex,ey,z0,z1));
    }
   }
   const pending=new Set();
@@ -133,18 +141,37 @@ function createService({database}={}){
      r.data?.source?.sha256===src.sha256&&
      r.data?.pages?.some(p=>Number(p.page)===Number(src.page)));
    if(!indexed)throw Error("Нет актуального индекса исходного листа PDF");
+   if(typeof verifyDocument==="function"&&!verifiedDocs.has(doc.id)){
+    if(!verifyDocument(st.id,doc.id))
+     throw Error("Файл PDF отсутствует либо фактический SHA-256 не совпадает");
+    verifiedDocs.add(doc.id)
+   }
    if(c.origin!=="text_layer"||!["plan","section"].includes(c.sheetType))
     throw Error("Нужно подтверждение расположения по монтажному плану или разрезу");
    if(!Array.isArray(c.evidence)||!c.evidence.length)
     throw Error("Нет проверяемого источника привязки");
    const sig=signature(mId,type,sx,sy,ex,ey,z0,z1);
    if(occupied.has(sig)||pending.has(sig))
-    return{skip:"Такое размещение уже существует или повторяется в предложениях"};
+    return{skip:"Такой экземпляр уже размещён или продублирован в предложениях"};
+   const geom=geo(type,sx,sy,ex,ey,z0,z1);
+   if(occupiedGeometry.has(geom)||pendingGeometry.has(geom))
+    return{skip:"Конфликт геометрии с уже размещённой конструкцией"};
+
    if((byMark.get(mId)||0)>=qty)
     throw Error("Превышено количество экземпляров из ведомости");
-   pending.add(sig);byMark.set(mId,(byMark.get(mId)||0)+1);
+   pending.add(sig);pendingGeometry.add(geom);
+   byMark.set(mId,(byMark.get(mId)||0)+1);
+   if(!ordinals.has(mId))ordinals.set(mId,new Set());
+   const used=ordinals.get(mId);
+   const count=byMark.get(mId);
+   let ordinal=1;while(used.has(ordinal)&&ordinal<=qty)ordinal++;
+   if(ordinal<count)ordinal=count;
+   if(ordinal>qty)throw Error("Превышено количество физических экземпляров");
+   used.add(ordinal);
    const position=title(),data={
-    entity_type:"column",position,mark_id:mId,mark:String(md.mark||mark.title),
+    entity_type:"column",position,mark_id:mId,
+    ai_instance_id:mId+":"+ordinal,ai_instance_ordinal:ordinal,
+    mark:String(md.mark||mark.title),
     mark_name:String(md.name||""),work_type_id:wid,project_code:expectedCode,
     axis_x:String(c.axisX),axis_y:String(c.axisY),offset_x_mm:dx,offset_y_mm:dy,
     absolute_x_mm:sx,absolute_y_mm:sy,geometry_type:type,
@@ -206,6 +233,22 @@ function createService({database}={}){
     skipped:plan.skipped,existing:st.rows.scheme.filter(placement).length}
   })
  }
+ function inventory(objectId){
+  const st=state(objectId),placed=new Map();
+  for(const r of st.rows.scheme.filter(placement)){
+   const k=String(r.data?.mark_id||"");
+   if(k)placed.set(k,(placed.get(k)||0)+1)
+  }
+  const marks=st.rows.marks.map(r=>{
+   const x=r.data||{},qty=Number(x.qty??x.count),count=placed.get(String(r.id))||0;
+   return{markId:r.id,mark:String(x.mark||r.title),workTypeId:String(x.work_type_id||""),
+    projectCode:String(x.project_code||""),quantity:qty,
+    placed:count,remaining:Math.max(0,qty-count),valid:Number.isSafeInteger(qty)&&qty>0}
+  });
+  return{positions:marks.length,totalInstances:marks.reduce((n,m)=>n+(m.valid?m.quantity:0),0),
+   placed:marks.reduce((n,m)=>n+m.placed,0),
+   unplaced:marks.reduce((n,m)=>n+(m.valid?m.remaining:0),0),marks}
+ }
  function latest(objectId){
   const id=posId(objectId,"объекта");
   if(!database.getObject(id))throw Error("Объект не найден");
@@ -246,6 +289,6 @@ function createService({database}={}){
    return{undone:event.data.created.length,operationId}
   })
  }
- return{preview,apply,undo,latest}
+ return{preview,apply,undo,latest,inventory}
 }
 module.exports={createService};
