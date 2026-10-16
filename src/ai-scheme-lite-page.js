@@ -170,6 +170,7 @@
     const {objectId,documents=[],indexes=[],canEdit=false,askPassword,
      reviewer,onOpenPdf,onNavigate}=opts;
     page.dispose();
+    latest=[];candidates=[];busy=false;saved=0;log="";
     const escDoc=esc;let live=true;
     const hostWindow=opts.window||root;
     const dataRoot=opts.root||hostWindow?.irProject?.data?.forObject(objectId);
@@ -182,7 +183,7 @@
      '<p>Шаг 1: найти марки, привязки к осям и отметки из текстовых слоёв PDF. Qwen и подробные 3D-модели не запускаются.</p></div>'+
      '<b>Локально · без ИИ</b></header>'+
      '<div class="ir-ai-quantity-warning">Найденная марка не означает известное положение в здании. Высоты привязываются лишь к листам с одной явно обозначенной маркой. Импорт требует инженерной проверки, официальной ведомости и сохранённой сетки осей.</div>'+
-     '<div class="ir-ai-lite-toolbar"><button type="button" data-lite-scan '+(!canEdit||busy?'disabled':'')+'>1. Быстро найти марки и высоты</button>'+
+     '<div class="ir-ai-lite-toolbar"><button type="button" data-lite-scan '+(busy?'disabled':'')+'>1. Быстро найти марки и высоты</button>'+
      '<button type="button" data-lite-scheme>Открыть монтажную схему</button></div>'+
      '<div data-lite-status role="status">'+escDoc(log||"Доступные проиндексированные PDF можно проверить без запуска Qwen.")+'</div>'+
      '<div data-lite-results></div></section>';
@@ -240,6 +241,11 @@
       const pool=indexes.filter(idx=>documents.some(d=>Number(d.id)===Number(idx.documentId)&&
        d.sha256===idx.sourceSha256&&d.exists&&["КМ","КМД"].includes(d.kind)));
       const allEntries=pool.flatMap(idx=>idx.pages.slice(0,80).map(p=>({idx,p})));
+      // Prefer placement plans and elevations over fabrication details.
+      const priority={plan:0,section:1,detail:2,other:3};
+      const fileName=idx=>documents.find(d=>Number(d.id)===Number(idx.documentId))?.name||idx.sourceName||"";
+      allEntries.sort((a,b)=>priority[classSheet(fileName(a.idx),a.p.excerpt||"")]-
+       priority[classSheet(fileName(b.idx),b.p.excerpt||"")]);
       const entries=allEntries.slice(0,250);
       for(const {idx,p} of entries){
        if(!live)break;
@@ -262,7 +268,7 @@
        "Неразборчивые PDF не интерпретировались.");
       draw()
      }catch(error){status("Не удалось проверить PDF: "+String(error.message||error))}
-     finally{busy=false;const scanBtn=host.querySelector("[data-lite-scan]");if(scanBtn)scanBtn.disabled=!canEdit}
+     finally{busy=false;const scanBtn=host.querySelector("[data-lite-scan]");if(scanBtn)scanBtn.disabled=false}
     }
     async function approve(index){
      const c=candidates[index],card=host.querySelector('[data-lite-row="'+index+'"]');
