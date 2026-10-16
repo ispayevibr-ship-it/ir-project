@@ -322,7 +322,7 @@
  // Match axis LABELS to actual long vector strokes on one original PDF sheet.
  // Returned calibration only describes page-to-grid alignment candidates.
  // No label/line evidence -> no millimetre transform and no placement.
- function detectPlanGridAxes({raw,vector,grid}={}){
+ function detectPlanGridAxes({raw,vector,grid,region}={}){
   const reject=(reason,extra={})=>({calibrated:false,reason,
    xMatches:[],yMatches:[],...extra});
   if(!grid?.x||!grid?.y||!Array.isArray(vector?.segments))
@@ -330,8 +330,15 @@
   const width=Number(vector.widthPt),height=Number(vector.heightPt);
   if(!(width>0&&height>0)||Number(vector.rotation||0)!==0)
    return reject("Для автоматической калибровки нужен неповёрнутый векторный план");
-  if(vector.stats?.truncated===true)
-   return reject("Векторная геометрия листа обрезана по лимиту; калибровка осей небезопасна");
+  if(vector.stats?.truncated===true&&vector.stats?.axisEvidenceComplete!==true)
+   return reject("Векторные данные листа неполные; требуется выбрать область схемы или уточнить PDF");
+  const area=region||{left:0,top:0,right:1,bottom:1};
+  if(![area.left,area.top,area.right,area.bottom].every(v=>
+   typeof v==="number"&&Number.isFinite(v)&&v>=0&&v<=1)||
+   area.right-area.left<.15||area.bottom-area.top<.2)
+   return reject("Выбрана некорректная область монтажного плана");
+  const inside=(x,y)=>x>=width*area.left&&x<=width*area.right&&
+   y>=height*area.top&&y<=height*area.bottom;
   const labels=Array.isArray(raw?.fragments)?raw.fragments:[];
   if(!labels.length)return reject("На листе нет текстовых фрагментов с обозначениями осей");
   const canon=x=>String(x||"").toLocaleUpperCase("ru-RU").trim()
@@ -340,13 +347,21 @@
    .replace(/M/g,"М").trim();
   const axesX=new Map([...grid.x].map(([name,mm])=>[canon(name),{name,mm}]));
   const axesY=new Map([...grid.y].map(([name,mm])=>[canon(name),{name,mm}]));
-  const vertical=vector.segments.filter(s=>s.direction==="vertical"&&
-   Math.abs(Number(s.y2)-Number(s.y1))>=height*0.24),
-   horizontal=vector.segments.filter(s=>s.direction==="horizontal"&&
-   Math.abs(Number(s.x2)-Number(s.x1))>=width*0.24);
+  const srcVertical=(vector.axisBands?.vertical?.length?
+   vector.axisBands.vertical:vector.segments.filter(s=>s.direction==="vertical")),
+   srcHorizontal=(vector.axisBands?.horizontal?.length?
+   vector.axisBands.horizontal:vector.segments.filter(s=>s.direction==="horizontal"));
+  const vertical=srcVertical.filter(line=>Number.isFinite(Number(line.x1))&&
+   Number(line.x1)>=width*area.left&&Number(line.x1)<=width*area.right&&
+   Math.abs(Number(line.y2)-Number(line.y1))>=height*(area.bottom-area.top)*.20),
+   horizontal=srcHorizontal.filter(line=>Number.isFinite(Number(line.y1))&&
+   Number(line.y1)>=height*area.top&&Number(line.y1)<=height*area.bottom&&
+   Math.abs(Number(line.x2)-Number(line.x1))>=width*(area.right-area.left)*.20);
   const valid=labels.filter(f=>f&&typeof f.text==="string"&&
    ["x","y","width","height"].every(k=>Number.isFinite(Number(f[k])))&&
-   Number(f.width)>=0&&Number(f.height)>=0).slice(0,1800);
+   Number(f.width)>=0&&Number(f.height)>=0&&
+   inside(Number(f.x)+Number(f.width)/2,
+    height-Number(f.y)-Number(f.height)/2)).slice(0,1800);
   // A dimension value printed somewhere in the middle of a drawing is NOT
   // an axis label. Require it near an endpoint of a long axis line.
   const find=(map,lines,orientation)=>{
@@ -402,7 +417,7 @@
   };
   const x=find(axesX,vertical,"vertical"),
     y=find(axesY,horizontal,"horizontal");
-  const summary={xMatches:x.matches,yMatches:y.matches,
+  const summary={xMatches:x.matches,yMatches:y.matches,region:area,
    xTotal:grid.axesX?.length??grid.x.size,yTotal:grid.axesY?.length??grid.y.size,
    vectorLines:{vertical:vertical.length,horizontal:horizontal.length}};
   if(x.matches.length<3||y.matches.length<3)
@@ -429,7 +444,7 @@
     ...summary,fitX:fx,fitY:fy});
   // Geometry evidence is sufficient to propose a transform for review;
   // this is NOT authorisation to infer mark locations or auto-place objects.
-  return{calibrated:true,reviewRequired:true,reason:"Привязки осей согласуются с сеткой. Требуется проверка инженера",
+  return{calibrated:true,reviewRequired:true,reason:"Привязки осей предварительно согласуются с сеткой. Нужна проверка чертежа",
    ...summary,fitX:fx,fitY:fy,scaleMismatch:rate,
    transform:{x:{ptAtZero:fx.offset,ptPerMm:fx.scale},
     y:{ptAtZero:fy.offset,ptPerMm:fy.scale}}}
