@@ -1,6 +1,6 @@
 "use strict";
 const assert=require("node:assert/strict");
-const {extractPage,detectPlanGridAxes,axisGeometry,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes,selectPlanRegion,extractPlanInstances,linkInstanceOutlineEvidence}=require("../src/ai-scheme-lite-page");
+const {extractPage,detectPlanGridAxes,axisGeometry,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes,selectPlanRegion,extractPlanInstances,linkInstanceOutlineEvidence,inspectPdfDimensionChains,nearDimensionEvidence}=require("../src/ai-scheme-lite-page");
 const grid=axisGeometry([{record_type:"scheme_grid",data:{entity_type:"grid",
  axes_x:["1","2","3","4"],x_spans_mm:[6000,6000,6000],
  axes_y:["А","Б","В","Г"],y_spans_mm:[6000,6000,6000]}}]);
@@ -591,3 +591,81 @@ const incompleteLink=linkInstanceOutlineEvidence({
 assert(incompleteLink.records.every(x=>x.status==="needs_more_evidence"));
 assert(incompleteLink.records.every(x=>x.readyForPlacement===undefined));
 console.log("Per-instance geometry linkage: repeated Ф10, incomplete evidence, alternatives and no invented XYZ PASS");
+
+
+// Real drawing M1.1 dimension 9000: inked PDF vector stroke approximately
+// (213.6,1444.3)-(401.3,1444.3), text box (309.7,1428)-(338.5,1442)
+// on 2384.16x1684.08 pt page. Only verify graphic evidence, not steel offsets.
+const realH=1684.08;
+const realDimFragment={text:"9000",x:309.6648,y:realH-1442.4387,
+ width:338.4922-309.6648,height:1442.4387-1428.0316};
+const realDimLines=[
+ {x1:213.6,y1:1444.3,x2:401.3,y2:1444.3},
+ {x1:401.3,y1:1444.3,x2:213.6,y2:1444.3}, // duplicated vector paint
+ {x1:217,y1:1441.4,x2:217,y2:1445.3},
+ {x1:401.3,y1:1441.4,x2:401.3,y2:1445.3}
+];
+const realScale=187.7/9000;
+const realDimension=inspectPdfDimensionChains({
+ raw:{fragments:[realDimFragment]},analysis:{calibrated:true,
+ fitX:{scale:realScale,offset:25},fitY:{scale:-realScale,offset:1650}},
+ vector:{widthPt:2384.16,heightPt:realH,rotation:0,segments:realDimLines}
+});
+assert.equal(realDimension.candidates.length,1,JSON.stringify(realDimension));
+assert.equal(realDimension.ambiguous.length,0,
+ "duplicate forward/reverse painted dimension lines are one source");
+assert.equal(realDimension.candidates[0].valueMm,9000);
+assert.equal(realDimension.candidates[0].orientation,"x");
+assert.equal(realDimension.candidates[0].measuredMm,9000);
+assert.equal(realDimension.candidates[0].verifiedPlacement,false);
+assert.equal(realDimension.candidates[0].ticksPt.length,2);
+const realNoTicks=inspectPdfDimensionChains({
+ raw:{fragments:[realDimFragment]},analysis:{calibrated:true,
+ fitX:{scale:realScale,offset:25},fitY:{scale:-realScale,offset:1650}},
+ vector:{widthPt:2384.16,heightPt:realH,segments:realDimLines.slice(0,2)}
+});
+assert.equal(realNoTicks.candidates.length,0,
+ "a parallel member outline may match 9000mm but is NOT a dimension");
+const fakeLabels=[labelAndReturn("4500",140,206),
+ labelAndReturn("6000",247,170),labelAndReturn("5000",350,285),
+ labelAndReturn("9000",480,410)];
+const syntheticDimensions=[
+ {x1:120,y1:215,x2:165,y2:215},
+ {x1:120,y1:210,x2:120,y2:220},
+ {x1:165,y1:210,x2:165,y2:220},
+ {x1:260,y1:140,x2:260,y2:200},
+ {x1:256,y1:140,x2:264,y2:140},
+ {x1:256,y1:200,x2:264,y2:200},
+ {x1:323,y1:270,x2:373,y2:270}, // length matches, NO ticks
+ {x1:400,y1:392,x2:490,y2:392},
+ {x1:400,y1:390,x2:400,y2:394},
+ {x1:490,y1:390,x2:490,y2:394}
+];
+const dimFound=inspectPdfDimensionChains({
+ raw:{fragments:fakeLabels},analysis:r,vector:{
+ widthPt,heightPt,rotation:0,segments:syntheticDimensions}});
+assert.equal(dimFound.candidates.length,2,JSON.stringify(dimFound));
+assert.deepEqual(dimFound.candidates.map(x=>x.valueMm),[4500,6000]);
+assert.deepEqual(dimFound.candidates.map(x=>x.orientation),["x","y"]);
+assert.equal(dimFound.candidates[0].measuredMm,4500);
+assert.equal(dimFound.candidates[1].measuredMm,6000);
+assert(dimFound.candidates.every(x=>x.status==="dimension_graphic_hypothesis"));
+const noRotation=inspectPdfDimensionChains({raw:{fragments:fakeLabels},
+ analysis:r,vector:{widthPt,heightPt,rotation:90,segments:syntheticDimensions}});
+assert.equal(noRotation.candidates.length,0);
+const truncatedDim=inspectPdfDimensionChains({raw:{fragments:fakeLabels},
+ analysis:r,vector:{widthPt,heightPt,segments:syntheticDimensions,
+ stats:{truncated:true,axisEvidenceComplete:false}}});
+assert.equal(truncatedDim.candidates.length,0);
+assert.equal(truncatedDim.limited,true);
+const dimInstances=[
+ {instanceId:"pdf:dim:1",mark:"Ф10",pageX:135,pageYBottom:heightPt-208},
+ {instanceId:"pdf:dim:2",mark:"Ф10",pageX:500,pageYBottom:heightPt-208}
+];
+const dimContext=nearDimensionEvidence({instances:dimInstances,
+ dimensions:dimFound,heightPt});
+assert.equal(dimContext[0].nearby[0].valueMm,4500);
+assert.equal(dimContext[0].nearby[0].relationship,"nearby_only");
+assert.equal(dimContext[1].nearby.length,0);
+assert.equal(dimContext[0].confirmedOffsets,0);
+console.log("KMD PDF graphic dimensions: real 9000 stroke, witness ticks, scale, isolation and no inferred offsets PASS");
