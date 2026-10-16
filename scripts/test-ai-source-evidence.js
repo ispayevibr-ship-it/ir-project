@@ -23,6 +23,13 @@ distant[1]={...distant[1],y:45};
 assert.equal(fragmentEvidence({fragments:distant},["Колонна К62"]).length,0,
  "separate text bands must not be united into fabricated evidence");
 const sha="a".repeat(64);
+const fs=require("node:fs");
+const ui=fs.readFileSync("src/ai-scheme-lite-page.js","utf8"),
+ viewer=fs.readFileSync("src/ai-recognition-page.js","utf8");
+assert(ui.includes("data-lite-preview-source"),"ready rows can open their exact PDF page");
+assert(ui.includes("item.source.textRegions"),"source-linked rectangle goes to the viewer");
+assert(viewer.includes("data-pdf-evidence"),"PDF preview offers on/off source-text highlights");
+assert(viewer.includes("pageInfo?.rotation||0"),"rotated pages avoid invented boxes");
 const c=extractPage({documentId:30,sha256:sha,name:"План расположения колонн.pdf",
  kind:"КМ",page:1,raw:{text:"Колонна К62\nотм. низа -0,400\nпо осям 3–Г",fragments:f}});
 assert.equal(c.marks.length,1);

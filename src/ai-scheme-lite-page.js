@@ -415,7 +415,9 @@
         '<td>'+escDoc(v.instanceId)+'</td><td>'+escDoc(v.axes)+'</td>'+
         '<td>'+escDoc(v.xMm)+' / '+escDoc(v.yMm)+'</td>'+
         '<td>'+escDoc(v.z0Mm)+' мм</td><td>'+escDoc(v.z1Mm)+' мм</td>'+
-        '<td>PDF №'+escDoc(v.source?.documentId)+', лист '+escDoc(v.source?.page)+'</td></tr>'
+        '<td><button type="button" data-lite-preview-source="'+i+'">'+
+         'PDF №'+escDoc(v.source?.documentId)+', лист '+escDoc(v.source?.page)+
+         '</button></td></tr>'
        ).join("")+'</tbody></table></div>'+
        (verifiedPreview.preview.skipped.length?'<details><summary>Пропущены ('+
         verifiedPreview.preview.skipped.length+')</summary>'+
@@ -491,6 +493,13 @@
      if(uncertain)uncertain.onclick=()=>void queueHardSheets();
      const undoButton=slot.querySelector?.("[data-lite-undo]");
      if(undoButton)undoButton.onclick=()=>void undoLast();
+     slot.querySelectorAll("[data-lite-preview-source]").forEach(button=>{
+      button.onclick=()=>{
+       const item=verifiedPreview?.preview.ready[Number(button.dataset.litePreviewSource)];
+       if(item?.source)onOpenPdf?.(item.source.documentId,item.source.page,
+        item.source.textRegions||[])
+      }
+     });
      const apply=slot.querySelector?.("[data-lite-apply]");
      if(apply)apply.onclick=()=>void applyPreview();
      const cancel=slot.querySelector?.("[data-lite-cancel-preview]");
