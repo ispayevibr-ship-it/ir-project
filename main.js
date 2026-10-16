@@ -6,8 +6,15 @@ const updates=require("./src/updater");
 // fixes can be applied from the verified hot package without replacing the exe.
 // Keep native Electron bridges, database and updater inside the installer.
 function hotAiModule(name){
- const rel="src/"+name+".js";
- return require(updates.resolveFile(rel))
+ const rel="src/"+name+".js",original=path.join(__dirname,rel);
+ const resolved=updates.resolveFile(rel);
+ if(resolved===original)return require(original);
+ try{return require(resolved)}
+ catch(error){
+  // Malformed or incompatible Beta JavaScript must not prevent app startup.
+  console.error("IR Project AI: hot module failed, using bundled "+name+":",error);
+  return require(original)
+ }
 }
 const database=require("./src/database"),aiDocumentStore=require("./src/ai-document-store"),aiLocalEngine=hotAiModule("ai-local-engine"),aiAnalysis=hotAiModule("ai-analysis"),aiReview=hotAiModule("ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiKmdMaterials=require("./src/ai-kmd-materials"),aiKmdConnections=require("./src/ai-kmd-connections"),aiKmKmdCompare=require("./src/ai-km-kmd-compare"),aiAssemblyGeometry=require("./src/ai-assembly-geometry"),aiAssemblyAttachments=require("./src/ai-assembly-attachments"),aiWorkflow=hotAiModule("ai-workflow"),aiStructuredReview=hotAiModule("ai-structured-review"),aiDrawingRevisions=require("./src/ai-drawing-revisions"),aiIntegrityReport=require("./src/ai-integrity-report"),aiCoverageReport=require("./src/ai-kmd-coverage"),aiKmdReference=require("./src/ai-kmd-reference"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),aiModelManager=require("./src/ai-model-manager"),aiPaddleOcr=require("./src/ai-paddle-ocr"),aiPreflightCheck=require("./src/ai-acceptance-preflight"),aiRuntimeDiagnostics=require("./src/ai-runtime-diagnostics"),completeBackup=require("./src/ai-complete-backup"),backup=require("./src/backup"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
 let win;
