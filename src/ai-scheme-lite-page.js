@@ -1436,7 +1436,9 @@
 
  function createPage(){
   let latest=[],candidates=[],batch=null,verifiedPreview=null,
-    instanceResults=new Map(),instanceRows=[],instanceLinks=new Map(),showAllInstances=false,
+    instanceResults=new Map(),instanceRows=[],instanceLinks=new Map(),
+    instanceDimensionHints=new Map(),dimensionResults=new Map(),dimensionRows=[],
+    showAllInstances=false,
    lastOperation=null,inventory=null,draftRows=[],
    busy=false,log="",saved=0,disposeLast=null;
   const feedbackByCandidate=new Map();
@@ -1448,7 +1450,9 @@
      reviewer,onOpenPdf,onNavigate}=opts;
     page.dispose();
     latest=[];candidates=[];batch=null;verifiedPreview=null;lastOperation=null;inventory=null;draftRows=[];
-     instanceResults.clear();instanceRows=[];instanceLinks.clear();showAllInstances=false;
+     instanceResults.clear();instanceRows=[];instanceLinks.clear();
+     instanceDimensionHints.clear();dimensionResults.clear();dimensionRows=[];
+     showAllInstances=false;
     busy=false;saved=0;log="";feedbackByCandidate.clear();
     const escDoc=esc;const canEdit=true;let live=true;
     const hostWindow=opts.window||root;
@@ -1515,6 +1519,9 @@
       const page="№"+x.documentId+" · лист "+x.page;
       pages.set(page,(pages.get(page)||0)+1)
      }
+     dimensionRows=[...dimensionResults.values()].flatMap(x=>x.candidates||[]);
+     const dimensionAmbiguous=[...dimensionResults.values()].reduce((a,v)=>
+      a+(v.ambiguous?.length||0),0);
      const unknown=[...new Set([...instanceResults.values()]
        .flatMap(x=>x.skippedUnknownMarks||[]))];
      const evidenceCounts=new Map();
@@ -1538,6 +1545,10 @@
         instanceRows.length-[...evidenceCounts.values()].reduce((n,k)=>n+k,0)+
         (evidenceCounts.get("not_checked")||0)+(evidenceCounts.get("ambiguous_match")||0))+
       '</b>.</p><p>' +
+      'Размерных линий с совпадающей длиной и концевыми засечками: <b>'+
+      dimensionRows.length+'</b>; неоднозначных размерных цепочек: <b>'+
+      dimensionAmbiguous+'</b>. Это только независимые графические подсказки, '+
+      'не координаты крепления конструкций.</p><p>'+
       'Надпись может повторяться в разрезах или деталях. '+
       'Каждое место текста считается отдельно, пока его не сверили с планом.</p>'+
       (unknown.length?'<p>Не сопоставлены с ведомостью: '+unknown.length+
@@ -1547,6 +1558,20 @@
       (suspect?'<p>Из разрезов/неопределённых листов: '+suspect+
        ' — не считать дополнительными конструкциями без проверки.</p>':"")+
       (limited?'<p>Неполная выборка на '+limited+' областях.</p>':"")+
+      (dimensionRows.length?'<details>'+
+       '<summary>Размерные цепочки PDF · '+dimensionRows.length+
+       ' (текст + линия + 2 засечки)</summary>'+
+       '<div class="ir-ai-lite-preview-scroll"><table><thead><tr>'+
+       '<th>Размер, мм</th><th>Ориентация</th><th>Длина графики, мм</th>'+
+       '<th>Расхождение, мм</th><th>Источник</th></tr></thead><tbody>'+
+       dimensionRows.slice(0,150).map((dim,i)=>'<tr><td>'+dim.valueMm+
+        '</td><td>'+escDoc(dim.orientation==="x"?"Вдоль X":"Вдоль Y")+
+        '</td><td>'+dim.measuredMm+'</td><td>≈'+dim.differenceMm+
+        '</td><td><button type="button" data-lite-dimension-source="'+i+
+        '">PDF</button></td></tr>').join("")+
+       '</tbody></table></div>'+
+       '<p>Размерная линия ещё не привязана к конкретной марке. '+
+       'Это не монтажная координата.</p></details>':"")+
       '<details><summary>Количество по каждой марке · '+counts.size+'</summary>'+
       '<div class="ir-ai-lite-preview-scroll"><table><thead><tr>'+
       '<th>Марка</th><th>Отдельных надписей</th></tr></thead><tbody>'+
@@ -1564,7 +1589,13 @@
       '</tr></thead><tbody>'+
       instanceRows.slice(0,showAllInstances?5000:350).map((x,i)=>'<tr><td>'+escDoc(x.mark)+'</td>'+
        '<td>'+x.page+'</td><td>'+escDoc(x.diagramRegion)+'</td>'+
-       '<td>'+x.pageX.toFixed(1)+' / '+x.pageYBottom.toFixed(1)+'</td>'+
+       '<td>'+x.pageX.toFixed(1)+' / '+x.pageYBottom.toFixed(1)+
+        (instanceDimensionHints.get(x.instanceId)?.nearby?.length?
+         '<small> · рядом размеры: '+
+         instanceDimensionHints.get(x.instanceId).nearby.map(d=>
+          d.valueMm+' ('+(d.orientation==="x"?"X":"Y")+')').join(", ")+
+         ' (не привязаны к марке)</small>':"")+
+        '</td>'+
        '<td>'+escDoc(({
         contour_candidate:"Возможный парный контур",
         multiple_contours:"Несколько контуров · требуется выбор",
@@ -1738,6 +1769,17 @@
      });
      const expand=slot.querySelector?.("[data-lite-instance-expand]");
      if(expand)expand.onclick=()=>{showAllInstances=!showAllInstances;draw()};
+     slot.querySelectorAll("[data-lite-dimension-source]").forEach(b=>b.onclick=()=>{
+      const dim=dimensionRows[Number(b.dataset.liteDimensionSource)];
+      if(dim){
+       const selected=[...dimensionResults.entries()].find(([key,val])=>
+        val.candidates.includes(dim));
+       const [documentId,sha,page]=selected?.[0]?.split(":")||[];
+       if(documentId&&page)
+        onOpenPdf?.(Number(documentId),Number(page),[{
+         quote:String(dim.valueMm),rectPt:dim.numericTextRectPt}])
+      }
+     });
      slot.querySelectorAll("[data-lite-instance-outline]").forEach(b=>b.onclick=()=>{
       const x=instanceRows[Number(b.dataset.liteInstanceOutline)],
        link=x&&instanceLinks.get(x.instanceId);
