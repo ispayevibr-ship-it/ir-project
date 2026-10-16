@@ -91,6 +91,7 @@ const spin=async test=>{
  assert.match(app.innerHTML,/Обработка завершена/);
  assert.match(app.innerHTML,/Проверка и ошибки/);
  // Check failure path starts a fresh job and never displays 100% after error.
+ cleared=false;resolveAnalysis=null;rejectAnalysis=null;
  const retry=visionButton.onclick();
  await spin(()=>typeof rejectAnalysis==="function"&&!cleared);
  now+=60000;interval();
