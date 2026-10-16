@@ -829,7 +829,7 @@
  // but also a wall, dimension chain or other symbol. NEVER identify it as
  // a confirmed steel member or infer a 3D placement from these alone.
  function findPlanMemberStrokes({labels=[],analysis,grid,vector}={}){
-  const out={candidates:[],singleStrokes:[],review:[],inspected:0,
+  const out={candidates:[],alternatives:[],singleStrokes:[],review:[],inspected:0,
    limited:false,status:"review_only"};
   const deny=(reasonCode,reason)=>{for(const label of labels.slice(0,250))
    out.review.push({label,reasonCode,reason});return out};
@@ -925,7 +925,20 @@
     if(distance>24)continue;
     possible.push({...shape,distance,score:distance+shape.gapPt*.08})
    }
+   // Duplicated PDF paint calls can form identical outlines. Compare
+   // geometry before deciding that several outlines compete for one label.
    possible.sort((a,b)=>a.score-b.score);
+   const distinct=[];
+   const geomEqual=(a,b)=>{
+    const p=a.page,q=b.page;
+    const direct=Math.hypot(p.x1-q.x1,p.y1-q.y1)+
+     Math.hypot(p.x2-q.x2,p.y2-q.y2);
+    const reverse=Math.hypot(p.x1-q.x2,p.y1-q.y2)+
+     Math.hypot(p.x2-q.x1,p.y2-q.y1);
+    return Math.min(direct,reverse)<=.8&&Math.abs(a.gapPt-b.gapPt)<=.35
+   };
+   for(const item of possible)if(!distinct.some(old=>geomEqual(old,item)))
+    distinct.push(item);
    if(!possible.length){
     if(closest.length){
      const first=closest[0],p=first.seg;
@@ -940,12 +953,20 @@
      reason:"Рядом с надписью не найдено подходящих векторных линий"});
     continue
    }
-   if(possible[1]&&possible[1].strokeKeys!==possible[0].strokeKeys&&
-      possible[1].score-possible[0].score<=2){
+   if(distinct[1]&&distinct[1].score-distinct[0].score<=2){
+    out.alternatives.push({label,mark:label.mark,markId:label.markId,
+     reasonCode:"multiple_outlines",totalOptions:distinct.length,
+     options:distinct.slice(0,3).map((shape,index)=>{
+      const l=shape.lineMm;
+      return{rank:index+1,lineMm:l,lengthMm:Math.round(Math.hypot(
+       l.x2-l.x1,l.y2-l.y1)),distancePt:Math.round(shape.distance*10)/10,
+       gapPt:shape.gapPt,evidenceType:"parallel_strokes",
+       status:"alternative_only",exactPlacement:false}
+     })});
     out.review.push({label,reasonCode:"multiple_outlines",
-     reason:"Рядом с маркой несколько похожих графических контуров"});continue
+     reason:"Несколько разных контуров у одной марки; показаны альтернативы"});continue
    }
-   const best=possible[0],line=best.lineMm;
+   const best=distinct[0],line=best.lineMm;
    out.candidates.push({label,mark:label.mark,markId:label.markId,
     evidenceType:"parallel_strokes",strokeKeys:best.strokeKeys,
     lineMm:line,lengthMm:Math.round(Math.hypot(
