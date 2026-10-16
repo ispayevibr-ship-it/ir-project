@@ -1335,6 +1335,14 @@
        '<span>Область: '+escDoc(regionName)+' · Совпадений X: '+
         xRows.length+'/'+Number(analysis.xTotal||0)+
        ' · Y: '+yRows.length+'/'+Number(analysis.yTotal||0)+'</span>'+
+       (regionChoice.multiplePlans?'<p class="ir-ai-axis-review">'+
+        'На листе обнаружены разные схемы с повторяющимися осями. '+
+        'Выберите одну часть листа возле кнопки «Найти оси на плане». '+
+        'Общий анализ блокируется для предотвращения ложной расстановки.</p>':
+        selected==="auto"&&(regionName==="left"||regionName==="right")?
+        '<small>Отдельная область выбрана автоматически: '+
+         (regionName==="left"?'левая':'правая')+
+         '. Соседняя схема исключена из геометрического поиска.</small>':"")+
        '<p class="'+(analysis.calibrated?'ir-ai-axis-possible':'ir-ai-axis-review')+'">'+
        (analysis.calibrated?'Предварительно согласовано, проверьте чертёж. ':
         'Не подтверждено. ')+escDoc(analysis.reason)+'</p>'+
