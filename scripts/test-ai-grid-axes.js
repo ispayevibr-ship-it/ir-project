@@ -1,6 +1,6 @@
 "use strict";
 const assert=require("node:assert/strict");
-const {detectPlanGridAxes,axisGeometry,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates}=require("../src/ai-scheme-lite-page");
+const {detectPlanGridAxes,axisGeometry,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes}=require("../src/ai-scheme-lite-page");
 const grid=axisGeometry([{record_type:"scheme_grid",data:{entity_type:"grid",
  axes_x:["1","2","3","4"],x_spans_mm:[6000,6000,6000],
  axes_y:["А","Б","В","Г"],y_spans_mm:[6000,6000,6000]}}]);
@@ -221,3 +221,49 @@ assert.equal(collisions.suggested.length,0);
 assert.equal(collisions.review.filter(x=>x.reasonCode==="node_collision").length,2);
 assert.equal(collisions.nearby.length,2);
 console.log("Leader/axis intersections: missing evidence, unverified leaders and collisions PASS");
+
+
+// Real PDF plan geometry can use paired outline strokes, WITHOUT a leader.
+// This never authorises actual member installation, Z, or member type.
+const planPair=[
+ {x1:111,y1:100,x2:169,y2:100,direction:"horizontal",lengthPt:58},
+ {x1:111,y1:105,x2:169,y2:105,direction:"horizontal",lengthPt:58}
+];
+const geometryLabel={mark:"Б22",markId:201,pageX:140,pageY:91,
+ labelXmm:10000,labelYmm:22000,
+ rectPt:{x:136,y:heightPt-95,width:8,height:8}};
+const planVectors={widthPt,heightPt,rotation:0,segments:[...segments,...planPair]};
+const members=findPlanMemberStrokes({labels:[geometryLabel],analysis:onlyLeft,
+ grid,vector:planVectors});
+assert.equal(members.candidates.length,1,JSON.stringify(members));
+assert.equal(members.candidates[0].mark,"Б22");
+assert.equal(members.candidates[0].evidenceType,"parallel_strokes");
+assert.equal(members.candidates[0].status,"geometry_only_requires_review");
+assert.equal(members.candidates[0].exactPlacement,false);
+assert.equal(members.candidates[0].geometryType,"unknown");
+assert.equal(members.candidates[0].lengthMm,5800);
+assert.deepEqual(members.candidates[0].lineMm,
+ {x1:7100,y1:20750,x2:12900,y2:20750});
+assert(!("z0Mm" in members.candidates[0]));
+assert.equal(members.candidates[0].partOfActualMember,false);
+assert.equal(findPlanMemberStrokes({labels:[geometryLabel],analysis:onlyLeft,
+ grid,vector:{...planVectors,segments:[...segments,planPair[0]]}}).candidates.length,0,
+ "single line is not the paired outline");
+const single=findPlanMemberStrokes({labels:[geometryLabel],analysis:onlyLeft,
+ grid,vector:{...planVectors,segments:[...segments,planPair[0]]}});
+assert.equal(single.singleStrokes.length,1);
+assert.equal(single.review[0].reasonCode,"single_stroke");
+assert.equal(findPlanMemberStrokes({labels:[geometryLabel],analysis:onlyLeft,
+ grid,vector:{...planVectors,segments}}).candidates.length,0,
+ "grid axes must never be mistaken for structural outlines");
+assert.equal(findPlanMemberStrokes({labels:[geometryLabel],analysis:{calibrated:false},
+ grid,vector:planVectors}).candidates.length,0);
+assert.equal(findPlanMemberStrokes({labels:[geometryLabel],analysis:onlyLeft,
+ grid,vector:{...planVectors,stats:{truncated:true,axisEvidenceComplete:false}}})
+ .candidates.length,0,"incomplete evidence must never create matched outlines");
+const anotherLabel={...geometryLabel,mark:"Б23",markId:202,pageX:143,pageY:92};
+const collisions=findPlanMemberStrokes({labels:[geometryLabel,anotherLabel],
+ analysis:onlyLeft,grid,vector:planVectors});
+assert.equal(collisions.candidates.length,0);
+assert.equal(collisions.review.filter(x=>x.reasonCode==="shared_strokes").length,2);
+console.log("KMD member outline hypotheses: double strokes, single line, grid axes, ambiguity and provenance PASS");
