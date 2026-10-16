@@ -65,6 +65,7 @@ jobs:
           node scripts/test-ai-mounting-batch.js
           node scripts/test-ai-mounting-placement.js
           node scripts/test-ai-mounting-drafts.js
+          node scripts/test-ai-mounting-drafts-ui.js
           node scripts/test-ai-source-evidence.js
           node scripts/test-ai-mounting-ui-flow.js
           node scripts/test-scheme-bundle-updated.js
