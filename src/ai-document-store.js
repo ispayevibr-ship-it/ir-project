@@ -120,7 +120,7 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
  // Preserve all engineering evidence and historical decisions. An unreviewed
  // PDF text-layer index is only a rebuildable cache, not engineering evidence.
  const evidenceSections=[
-  "ai-drawing-sheet-links","ai-drawing-set-history","ai-analysis",
+  "ai-drawing-sheet-links","ai-drawing-sets","ai-drawing-set-history","ai-analysis",
   "ai-review-history","ai-structured-reviews","ai-structured-review-history",
   "ai-workflow-tasks","ai-workflow-events",
   "ai-mark-quantities","ai-mark-quantity-history","ai-kmd-materials",
