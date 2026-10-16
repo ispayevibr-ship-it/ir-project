@@ -154,7 +154,7 @@ async function runBulkIndex(){
  assert.deepEqual(indexedIds,[2],"already indexed PDF skipped; images and missing files ignored");
  assert.equal(maxActive,1,"never run two PDF workers simultaneously");
  assert.match(content.innerHTML,/Проиндексировать все чертежи/);
- assert.equal(progress instanceof Function,true);
+ assert.equal(typeof progress,"function","PDF page progress callback is subscribed");
  progress({objectId:7,documentId:2,page:1,total:2});
  assert.match(statuses.get("2").textContent,/лист 1 из 2/);
  assert.match(header.textContent,/обработано 1 из 4/);
