@@ -6,12 +6,13 @@ window.irAiRecognitionPage=async function(objectId){
  const route=location.hash,esc=v=>String(v==null?"":v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
  const size=n=>Number(n)>=1048576?(Number(n)/1048576).toFixed(1).replace(".",",")+" МБ":Math.ceil(Number(n)/1024)+" КБ";
  const tabs=[
-  ["workflow","Конвейер ИИ"],["model","Общая 3D-модель"],["assembly","3D-модели марок"],
+  ["scheme-lite","Монтажная схема · быстро"],["workflow","Конвейер ИИ"],["model","Общая 3D-модель"],["assembly","3D-модели марок"],
   ["marks","Ведомость марок"],["metal","Спецификация металла"],
   ["fasteners","Метизы"],["documents","Чертежи КМ/КМД"],["revisions","Ревизии КМ/КМД"],["reference","Эталон КМД"],
   ["compare","Сравнение КМ / КМД"],["proposals","Предложения ИИ"],["integrity","Контроль данных"],["checks","Проверка и ошибки"]
  ];
  const descriptions={
+  "scheme-lite":["ИИ → Монтажная схема","Быстрый поиск марок и высот в текстовых слоях PDF; размещение после проверки инженером."],
   workflow:["Очередь распознавания КМ / КМД","Обработка отдельных листов локальной моделью и отправка результатов на инженерную проверку."],
   model:["Общая 3D-модель","Модель здания появится после распознавания схем расположения и инженерной проверки координат. Без исходных осей и привязок элементы не размещаются."],
   assembly:["Подробные модели отправочных марок","Сборки будут состоять из подтверждённых деталей КМД: профилей, пластин, рёбер и узлов. Условная геометрия не выдаётся за рабочую деталировку."],
@@ -26,7 +27,7 @@ window.irAiRecognitionPage=async function(objectId){
   checks:["Проверка и замечания","После запуска локального анализа здесь появятся ошибки и неопределённые значения со ссылками на исходные листы и подтверждения инженера."]
  };
  let object,documents=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,materialEntries=[],materialSummary=null,connectionNodes=[],connectionItems=[],connectionSummary=null,comparisonEntries=[],comparisonSummary=null,comparisonFields={},pdfIndexes=[],workflowTasks=[],workflowSummary=null,proposalEntries=[],proposalSummary=null,revisionSets=[],revisionImpact=null,referenceRows=null,referenceChecks=null,referenceCompare=null,integrityReport=null,engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
- let selectedKind="Не определён",analysisProgress=null;
+ let selectedKind="Не определён",analysisProgress=null,liteLoader=null;
  // Qwen/llama.cpp does not expose a meaningful "% of drawing recognized".
  // These numbers show estimated elapsed-time progress, never inferred markup coverage.
  function progressValues(job,now=Date.now()){
@@ -186,9 +187,39 @@ window.irAiRecognitionPage=async function(objectId){
  }
  function openTab(tab){
   if(!tabs.some(x=>x[0]===tab))return;
+  if(active==="scheme-lite"&&tab!=="scheme-lite")window.irAiSchemeLitePage?.dispose?.();
   active=tab;
   if(tab==="reference"||tab==="integrity")void reload();
   else paint()
+ }
+ async function showSchemeLite(box){
+  const loading=box;
+  box.innerHTML='<div class="ir-ai-doc-empty">Загружаем быстрый анализ монтажных чертежей…</div>';
+  try{
+   if(!window.irAiSchemeLitePage){
+    if(!liteLoader)liteLoader=new Promise((resolve,reject)=>{
+     const script=document.createElement("script");
+     // Hot-updated AI modules are served by the existing irapp file resolver.
+     script.src="irapp://app/src/ai-scheme-lite-page.js";
+     script.onload=()=>window.irAiSchemeLitePage?resolve():reject(Error("Модуль не инициализировался"));
+     script.onerror=()=>reject(Error("Не удалось загрузить модуль"));
+     document.head.appendChild(script)
+    });
+    await liteLoader
+   }
+   if(location.hash!==route||active!=="scheme-lite"||app.querySelector("#irAiContent")!==loading)return;
+   await window.irAiSchemeLitePage.render(box,{
+    objectId:id,documents,indexes:pdfIndexes,canEdit,
+    root:irProject.data.forObject(id),window,pdf,reviewer,
+    askPassword:requestReviewPassword,
+    onOpenPdf:openPdfPreview,
+    onNavigate:tab=>tab==="scheme"?
+     (location.hash="/objects/object/"+id+"/scheme"):openTab(tab)
+   })
+  }catch(error){
+   if(active==="scheme-lite"&&app.querySelector("#irAiContent")===loading)
+    box.textContent="Быстрый анализ недоступен: "+String(error.message||error)
+  }
  }
  function paint(){
   if(location.hash!==route)return;
@@ -269,7 +300,7 @@ window.irAiRecognitionPage=async function(objectId){
    '<p>'+esc(modelReady?"Qwen запущена. Для анализа чертежей откройте «Конвейер ИИ». Чат с ответами по листам пока не подключён.":engine?.installed?"Qwen подключена, но остановлена. Для анализа PDF запустите локальный ИИ.":"Модель не подключена. Зарегистрируйте Qwen в настройках локальных ИИ-моделей.")+'</p>'+
    '<div class="ir-ai-chat-empty">'+esc(modelReady?"Qwen работает. Чат-помощник ещё не реализован; ответы не имитируются.":"История запросов пока отсутствует. Ответы не имитируются.")+'</div>'+
    '<textarea disabled placeholder="'+esc(modelReady?"Чат пока недоступен — используйте конвейер PDF":"Чат пока недоступен")+'"></textarea><button disabled>Отправить</button></aside></div>'+
-   '<footer class="ir-ai-footer">Этап 2 · Локальное распознавание изображений при наличии установленной модели; результаты не подтверждены. Монтажная схема не изменяется.</footer></div>';
+   '<footer class="ir-ai-footer">Быстрый конвейер монтажной схемы: анализ текстовых слоёв без Qwen, размещение только после проверки инженером. Детальная 3D-модель марок необязательна.</footer></div>';
   app.querySelectorAll("[data-ai-tab]").forEach(button=>{
    if(button.dataset.aiTab==="checks")button.innerHTML=stepNumber(6,reviewed)+" Проверка и ошибки";
    button.onclick=()=>openTab(button.dataset.aiTab)
@@ -316,6 +347,7 @@ window.irAiRecognitionPage=async function(objectId){
    (x.originalMarks?.length||x.notes?.marks?.length||x.notes?.text?.trim()||
     x.notes?.structured?.records?.length));
   const box=app.querySelector("#irAiContent");if(!box)return;
+  if(active==="scheme-lite"){void showSchemeLite(box);return}
   if(active==="integrity"){
    if(window.irAiIntegrityPage)window.irAiIntegrityPage.render(box,{
     report:integrityReport,onRefresh:reload,
