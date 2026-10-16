@@ -1400,7 +1400,7 @@
         '</details>':'<p class="ir-ai-axis-review">'+escDoc(registerLabels.reason)+'</p>')+
        (registerLabels.ambiguous?'<p class="ir-ai-axis-review">'+
         'Неоднозначных марок в ведомости: '+registerLabels.ambiguous+'. Нужна проверка.</p>':"")+
-       (registerLabels.labels.length?'<details class="ir-ai-axis-mark-zones" open>'+
+       (registerLabels.labels.length?'<details class="ir-ai-axis-mark-zones">'+
         '<summary>Диагностика выносок (не итог распознавания) · '+
         candidateNodes.suggested.length+' линий к узлу; '+
         candidateNodes.nearby.length+' только рядом; '+
