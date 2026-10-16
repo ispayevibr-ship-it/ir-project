@@ -1,6 +1,6 @@
 "use strict";
 const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),os=require("node:os"),crypto=require("node:crypto"),{EventEmitter}=require("node:events");
-const {createEngine,names}=require("../src/ai-local-engine");
+const {createEngine,names,VISION_CONTEXT_TOKENS}=require("../src/ai-local-engine");
 const {createAnalysis}=require("../src/ai-analysis");
 (async()=>{
  const temp=fs.mkdtempSync(path.join(os.tmpdir(),"ir-ai-engine-"));
@@ -21,6 +21,10 @@ const {createAnalysis}=require("../src/ai-analysis");
   spawn:(command,args,options)=>{
    assert(command.startsWith(dir));assert(args.includes("--mmproj"));
    assert.deepEqual(args.slice(args.indexOf("--host"),args.indexOf("--host")+2),["--host","127.0.0.1"]);
+   assert.equal(VISION_CONTEXT_TOKENS,8192,"KM/KMD sheet with 4472 visual tokens needs more than 4096 context");
+   assert.deepEqual(args.slice(args.indexOf("--ctx-size"),args.indexOf("--ctx-size")+2),["--ctx-size","8192"]);
+   assert.deepEqual(args.slice(args.indexOf("--parallel"),args.indexOf("--parallel")+2),["--parallel","1"],
+    "one inference slot keeps memory bounded on 16 GB laptops");
    assert.equal(options.shell,false);
    child=new EventEmitter();child.kill=()=>{child.killed=true};return child
   },
@@ -36,6 +40,7 @@ const {createAnalysis}=require("../src/ai-analysis");
   fs.writeFileSync(path.join(dir,"manifest.json"),JSON.stringify({format:1,engine:"llama.cpp",modelId:"Qwen3-VL-8B-Instruct",sha256,gpuLayers:0}));
   assert.equal((await engine.verify()).installed,true);
   assert.equal((await engine.start()).state,"ready");
+  assert.equal(engine.status().contextTokens,8192);
   assert.equal(calls.length,1);
   const img=Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),Buffer.alloc(32,17)]);
   const result=await engine.analyzeImage({buffer:img,mime:"image/png",prompt:"Find K41"});
@@ -55,7 +60,7 @@ const {createAnalysis}=require("../src/ai-analysis");
   assert.deepEqual(analysis.parseClaims("unparseable output"),null);
   returnHttp400=true;
   await assert.rejects(engine.analyzeImage({buffer:img,mime:"image/png",prompt:"K60"}),
-   /HTTP 400: context size exhausted/,"local llama.cpp errors must include the actual reason");
+   /Контекст Qwen переполнен.*8192.*context size exhausted/,"oversized requests must explain the context limit");
   returnHttp400=false;
   engine.stop();assert.equal(child.killed,true);
   assert.equal(engine.status().state,"stopped");
