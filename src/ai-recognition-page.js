@@ -1054,6 +1054,45 @@ window.irAiRecognitionPage=async function(objectId){
   };
   dlg.showModal()
  }
+
+ // Focus on two UNVERIFIED source strokes and their registered text label,
+ // then ask the existing PDF renderer for a fresh high-resolution crop.
+ // This is not image scaling, OCR, AI inference or a placement coordinate.
+ function focusedPdfRegion(evidenceLocations,pageInfo){
+  const first=Array.isArray(evidenceLocations)?evidenceLocations[0]:null,
+   box=first?.rectPt,lines=first?.strokeLinesPt;
+  if(Number(pageInfo?.rotation||0)!==0||
+     !(Number(pageInfo?.widthPt)>0)||!(Number(pageInfo?.heightPt)>0)||
+     !box||!Array.isArray(lines)||lines.length!==2)return null;
+  const W=Number(pageInfo.widthPt),H=Number(pageInfo.heightPt),
+   valid=n=>typeof n==="number"&&Number.isFinite(n);
+  if(!["x","y","width","height"].every(k=>valid(box[k]))||
+     box.width<=0||box.height<=0||box.x<0||box.y<0||
+     box.x+box.width>W||box.y+box.height>H||
+     !lines.every(l=>l&&["x1","y1","x2","y2"].every(k=>valid(l[k]))&&
+       [l.x1,l.x2].every(x=>x>=0&&x<=W)&&
+       [l.y1,l.y2].every(y=>y>=0&&y<=H)))return null;
+  const xPoints=[box.x,box.x+box.width],
+   yPoints=[H-box.y-box.height,H-box.y];
+  for(const l of lines){
+   xPoints.push(l.x1,l.x2);yPoints.push(l.y1,l.y2)
+  }
+  const xMin=Math.min(...xPoints),xMax=Math.max(...xPoints),
+   yMin=Math.min(...yPoints),yMax=Math.max(...yPoints);
+  const spanX=(xMax-xMin)/W,spanY=(yMax-yMin)/H;
+  // Large contours should stay on the full sheet for review.
+  if(spanX>.43||spanY>.43)return null;
+  const width=Math.max(.12,spanX*1.5+.06),
+   height=Math.max(.12,spanY*1.5+.06);
+  if(width>.56||height>.56||width*height>.35)return null;
+  const clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
+  const x=clamp((xMin+xMax)/(2*W)-width/2,0,1-width),
+   y=clamp((yMin+yMax)/(2*H)-height/2,0,1-height);
+  const normalized=v=>Math.round(v*1e6)/1e6;
+  return{x:normalized(x),y:normalized(y),
+   width:normalized(width),height:normalized(height)}
+ }
+
  async function openPdfPreview(documentId,page,evidenceLocations=[]){
   if(!pdf||busy)return;
   busy=true;notice("Подготавливаем реальное изображение PDF, лист "+page+"…");paint();
