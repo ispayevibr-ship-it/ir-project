@@ -1348,6 +1348,9 @@
       '</b>; несколько вариантов: <b>'+(evidenceCounts.get("multiple_contours")||0)+
       '</b>; одиночная линия: <b>'+(evidenceCounts.get("single_stroke")||0)+
       '</b>; недостаточно графики: <b>'+(evidenceCounts.get("needs_more_evidence")||0)+
+      '</b>; ещё не проанализировано: <b>'+(
+        instanceRows.length-[...evidenceCounts.values()].reduce((n,k)=>n+k,0)+
+        (evidenceCounts.get("not_checked")||0)+(evidenceCounts.get("ambiguous_match")||0))+
       '</b>.</p><p>' +
       'Надпись может повторяться в разрезах или деталях. '+
       'Каждое место текста считается отдельно, пока его не сверили с планом.</p>'+
@@ -1385,7 +1388,13 @@
         not_checked:"Геометрия не проверена",
         ambiguous_match:"Неоднозначная связь надписи"
        })[instanceLinks.get(x.instanceId)?.status]||
-        "Геометрия не проверена")+'; X/Y/Z не подтверждены</td>'+
+        "Геометрия не проверена")+
+        (instanceLinks.get(x.instanceId)?.alternatives?
+         ' ('+instanceLinks.get(x.instanceId).alternatives+' варианта)':'')+
+        '; X/Y/Z не подтверждены'+
+        (instanceLinks.get(x.instanceId)?.reason?
+         '<small> — '+escDoc(instanceLinks.get(x.instanceId).reason)+'</small>':"")+
+        '</td>'+
        '<td><button type="button" data-lite-instance-source="'+i+
        '">PDF</button>'+
        (instanceLinks.get(x.instanceId)?.strokeLinesPt?.length===2?
