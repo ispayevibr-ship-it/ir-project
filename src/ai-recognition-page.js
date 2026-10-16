@@ -1071,7 +1071,7 @@ window.irAiRecognitionPage=async function(objectId){
     (canEdit?'<button type="button" data-region-analyze disabled>'+stepNumber('5.3')+' Распознать фрагмент (быстро)</button>':'')+
     '<button type="button" data-region-back hidden>Вернуться к листу</button>'+
     (Array.isArray(evidenceLocations)&&evidenceLocations.length?
-     '<button type="button" data-pdf-evidence aria-pressed="true">Найденные надписи</button>':"")+
+     '<button type="button" data-pdf-evidence aria-pressed="true">Подсветка надписей и линий</button>':"")+
     '<button type="button" data-pdf-fit>100%</button>'+
     '<button type="button" data-pdf-close>Закрыть ✕</button></div></div>'+
     '<div data-ai-region-progress hidden class="ir-ai-region-progress-area"></div>'+
@@ -1117,13 +1117,35 @@ window.irAiRecognitionPage=async function(objectId){
      marker.style.height=(h/heightPt*100)+"%";
      marker.title="Найденная текстовая надпись PDF, не подтверждение монтажных координат";
      marker.setAttribute("aria-hidden","true");
-     layer.appendChild(marker);evidenceBoxes.push(marker)
+     layer.appendChild(marker);evidenceBoxes.push(marker);
+     // The two stroke lines belong to the exact chosen contour hypothesis,
+     // in PDF.js viewport points with TOP-LEFT origin. Overlay is only visual
+     // evidence. It must not add or alter any construction in the scheme.
+     const lines=Array.isArray(item.strokeLinesPt)?item.strokeLinesPt:[];
+     if(lines.length===2&&lines.every(line=>line&&
+       ["x1","y1","x2","y2"].every(k=>Number.isFinite(line[k]))&&
+       [line.x1,line.x2].every(p=>p>=0&&p<=widthPt)&&
+       [line.y1,line.y2].every(p=>p>=0&&p<=heightPt))){
+      const ns="http://www.w3.org/2000/svg",
+       overlay=document.createElementNS(ns,"svg");
+      overlay.setAttribute("class","ir-ai-pdf-source-strokes");
+      overlay.setAttribute("viewBox","0 0 "+widthPt+" "+heightPt);
+      overlay.setAttribute("preserveAspectRatio","none");
+      overlay.setAttribute("aria-hidden","true");
+      lines.forEach((line,n)=>{
+       const edge=document.createElementNS(ns,"line");
+       for(const k of ["x1","y1","x2","y2"])edge.setAttribute(k,String(line[k]));
+       edge.setAttribute("data-edge",String(n+1));
+       overlay.appendChild(edge)
+      });
+      layer.appendChild(overlay);evidenceBoxes.push(overlay)
+     }
     }
    }
    if(highlightToggle){
     highlightToggle.disabled=evidenceBoxes.length===0;
     highlightToggle.title=evidenceBoxes.length?
-     "Подсветка найденных текстовых надписей. Расположение конструкции требует проверки.":
+     "Жёлтая рамка — надпись; цветные линии — выбранная графическая гипотеза. Это не монтажная геометрия.":
      "Для этого листа нет надёжных координат текстовых фрагментов";
     highlightToggle.onclick=()=>{
      highlightVisible=!highlightVisible;
