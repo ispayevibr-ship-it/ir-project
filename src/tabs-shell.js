@@ -375,7 +375,7 @@
   updatePercent=document.getElementById("tabsUpdateProgressLabel"),
   updateActions=document.getElementById("tabsUpdateActions"),
   updateClose=document.getElementById("tabsUpdateClose");
- let updateBusy=false,updateTotalBytes=0,updateTransferredBytes=0,updateLatestVersion="",pendingRestartVersion="";
+ let updateBusy=false,updateTotalBytes=0,updateTransferredBytes=0,updateLatestVersion="",pendingRestartVersion="",rollbackPending=false;
  const bytesText=raw=>{
   const count=Number(raw);
   if(!Number.isFinite(count)||count<0)return "—";
@@ -440,7 +440,7 @@
    return latest&&loaded!==latest?"загрузила устаревший JavaScript (сборка "+loaded+" вместо "+latest+")":""
   }catch(_error){return ""}
  }
- function updateCurrent(version,oldUi=""){
+ function updateCurrent(version,oldUi="",baseVersion=""){
   if(pendingRestartVersion){updateDownloaded(pendingRestartVersion);return}
   updateProgress.hidden=true;updateTransfer.hidden=true;updateSize.hidden=true;
   if(oldUi){
@@ -451,13 +451,19 @@
    return
   }
   setUpdate("Обновление не требуется","Установлена последняя версия IR Project "+version+". Активная вкладка использует актуальные файлы, если она уже была загружена.");
-  updateButtons([["Закрыть",true,closeUpdate]])
+  const actions=[["Закрыть",true,closeUpdate]];
+  if(baseVersion&&String(version)!==String(baseVersion)&&api.updater?.rollback)
+   actions.push(["Откатить hot-обновление",false,rollbackHot]);
+  updateButtons(actions)
  }
- function updateAvailable(version,current){
+ function updateAvailable(version,current,baseVersion=""){
   updateLatestVersion=version||updateLatestVersion;
   updateProgress.hidden=true;updateTransfer.hidden=true;showUpdateSize();
   setUpdate("Доступно обновление","Доступна версия "+version+(current?" (сейчас "+current+")":"")+". Установить обновление IR Project?");
-  updateButtons([["Не сейчас",false,closeUpdate],["Да, обновить",true,downloadUpdate]])
+  const actions=[["Не сейчас",false,closeUpdate],["Да, обновить",true,downloadUpdate]];
+  if(baseVersion&&String(current)!==String(baseVersion)&&api.updater?.rollback)
+   actions.push(["Откатить hot-обновление",false,rollbackHot]);
+  updateButtons(actions)
  }
  async function downloadUpdate(){
   if(updateBusy)return;
@@ -474,7 +480,9 @@
   updateBusy=false;updateProgress.hidden=true;
   if(updateTotalBytes>0)updateTransferredBytes=updateTotalBytes;
   showUpdateSize();showTransfer();
-  setUpdate("Требуется перезапуск","Версия "+(pendingRestartVersion||"IR Project")+" скачана. Код открытых вкладок остаётся прежним, пока IR Project не будет перезапущен.");
+  setUpdate("Требуется перезапуск",rollbackPending?
+   "Hot-обновление отменено. После перезапуска будет запущена версия "+(pendingRestartVersion||"из установщика")+". Данные объектов и локальная Qwen сохраняются.":
+   "Версия "+(pendingRestartVersion||"IR Project")+" скачана. Код открытых вкладок остаётся прежним, пока IR Project не будет перезапущен.");
   updateButtons([["Позже",false,closeUpdate],["Установить и перезапустить",true,installUpdate]])
  }
  async function installUpdate(){
@@ -486,14 +494,31 @@
   updateBusy=true;setUpdate("Установка обновления","Перезапускаем IR Project…");updateButtons([]);
   try{await api.updater.install()}catch(e){updateError(e)}
  }
+ async function rollbackHot(){
+  if(updateBusy||!api.updater?.rollback)return;
+  if([...frames.values()].some(tab=>tab.dirty)){
+   updateText.textContent="Перед откатом сохраните изменения во всех открытых вкладках.";
+   return
+  }
+  updateBusy=true;
+  setUpdate("Откат hot-обновления","Восстанавливаем предыдущую проверенную версию…");
+  updateButtons([]);
+  try{
+   const result=await api.updater.rollback();
+   rollbackPending=true;
+   pendingRestartVersion=result?.version||"";
+   updateDownloaded(pendingRestartVersion)
+  }catch(error){updateError(error)}
+  finally{updateBusy=false}
+ }
  function onUpdaterStatus(info){
   if(!info)return;
   if(info.type==="available"){
    // Updater emits manifest sizes while check() is in progress.
    updateTotalBytes=Math.max(0,Number(info.size)||0);
    updateLatestVersion=info.version||"";
-   if(updateDialog.open&&!updateBusy)updateAvailable(info.version,info.installedVersion);
-  }else if(info.type==="current"&&updateDialog.open&&!updateBusy)updateCurrent(info.version);
+   if(updateDialog.open&&!updateBusy)updateAvailable(info.version,info.installedVersion,info.baseVersion);
+  }else if(info.type==="current"&&updateDialog.open&&!updateBusy)updateCurrent(info.version,"",info.baseVersion);
   else if(info.type==="progress"&&updateDialog.open){
    updateTransferredBytes=Math.max(0,Number(info.transferred)||0);
    // Native updater's "total" equals bytes downloaded so far; it is NOT the actual package size.
@@ -525,10 +550,10 @@
    if(!remote||String(remote)===String(current)){
     const stale=await detectOldTabCode();
     updateBusy=false;
-    updateCurrent(current,stale)
+    updateCurrent(current,stale,result?.diagnostics?.baseVersion)
    }else{
     updateBusy=false;
-    updateAvailable(remote,current)
+    updateAvailable(remote,current,result?.diagnostics?.baseVersion)
    }
   }catch(e){updateError(e)}
   finally{updateBusy=false;if(button)button.disabled=false}
