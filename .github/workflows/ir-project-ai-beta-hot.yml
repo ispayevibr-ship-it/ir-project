@@ -63,6 +63,7 @@ jobs:
           node --check src/ai-pdf-geometry.js
           node scripts/test-ai-pdf-vector-paths.js
           node scripts/test-ai-pdf-geometry.js
+          node scripts/test-ai-pdf-geometry-ui.js
           node scripts/test-ai-source-evidence.js
           node scripts/test-ai-mounting-ui-flow.js
           node scripts/test-ai-storage.js
