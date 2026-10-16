@@ -1131,6 +1131,7 @@ window.irAiRecognitionPage=async function(objectId){
    const MAX_FAST_REGION_AREA=0.35;
    const stampPreset={x:0.70,y:0.83,width:0.29,height:0.16};
    let highlightVisible=true;
+   let cropEvidenceLayer=null;
    const indexed=pdfIndexes.find(x=>Number(x.documentId)===Number(documentId)&&
     x.sourceSha256===original.sha256);
    const pageInfo=indexed?.pages?.find(p=>Number(p.page)===Number(page));
@@ -1190,6 +1191,7 @@ window.irAiRecognitionPage=async function(objectId){
      highlightVisible=!highlightVisible;
      highlightToggle.setAttribute("aria-pressed",String(highlightVisible));
      evidenceBoxes.forEach(marker=>marker.hidden=!highlightVisible)
+     if(cropEvidenceLayer)cropEvidenceLayer.hidden=!highlightVisible
     }
    }
    const selectedArea=()=>selected?selected.width*selected.height:0;
@@ -1217,6 +1219,50 @@ window.irAiRecognitionPage=async function(objectId){
     })();
     try{return await aiStatusJob}finally{aiStatusJob=null}
    }
+   // View-only overlay follows the NEW PDF crop coordinate system. A zoomed
+   // fragment is re-rendered from the source, not scaled from the preview.
+   function showCropEvidence(view){
+    if(cropEvidenceLayer){
+     cropEvidenceLayer.remove();cropEvidenceLayer=null
+    }
+    const rect=view?.sourceRectPt,first=evidenceLocations?.[0],
+     strokes=first?.strokeLinesPt,box=first?.rectPt;
+    if(!crop||!rect||Number(pageInfo?.rotation||0)!==0||
+      !Array.isArray(strokes)||strokes.length!==2||
+      !["x","y","width","height"].every(k=>Number.isFinite(rect[k]))||
+      rect.width<=0||rect.height<=0||
+      !strokes.every(l=>l&&["x1","y1","x2","y2"].every(k=>Number.isFinite(l[k]))))
+     return;
+    const W=Number(pageInfo.widthPt),H=Number(pageInfo.heightPt);
+    if(!(W>0&&H>0))return;
+    const ns="http://www.w3.org/2000/svg",
+     overlay=document.createElementNS(ns,"svg");
+    overlay.setAttribute("class","ir-ai-pdf-focus-strokes");
+    overlay.setAttribute("viewBox","0 0 1000 1000");
+    overlay.setAttribute("preserveAspectRatio","none");
+    overlay.setAttribute("aria-hidden","true");
+    const x=v=>1000*(v-rect.x)/rect.width,
+     y=v=>1000*(v-rect.y)/rect.height;
+    strokes.forEach((stroke,i)=>{
+     const line=document.createElementNS(ns,"line");
+     for(const k of ["x1","x2"])line.setAttribute(k,String(x(stroke[k])));
+     for(const k of ["y1","y2"])line.setAttribute(k,String(y(stroke[k])));
+     line.setAttribute("data-edge",String(i+1));
+     overlay.appendChild(line)
+    });
+    if(box&&["x","y","width","height"].every(k=>Number.isFinite(box[k]))){
+     const label=document.createElementNS(ns,"rect");
+     const top=H-box.y-box.height;
+     label.setAttribute("x",String(x(box.x)));
+     label.setAttribute("y",String(y(top)));
+     label.setAttribute("width",String(1000*box.width/rect.width));
+     label.setAttribute("height",String(1000*box.height/rect.height));
+     label.setAttribute("class","ir-ai-pdf-focus-mark");
+     overlay.appendChild(label)
+    }
+    overlay.hidden=!highlightVisible;
+    wrap.appendChild(overlay);cropEvidenceLayer=overlay
+   }
    function showImage(view){
     if(!validImage(view.dataUrl))throw Error("Неверный формат увеличенного фрагмента PDF");
     img.src=view.dataUrl;
@@ -1229,6 +1275,7 @@ window.irAiRecognitionPage=async function(objectId){
      (!crop&&evidenceBoxes.some(element=>element.namespaceURI==="http://www.w3.org/2000/svg")?
       " · Цветные линии: непроверенные графические гипотезы, не монтажные координаты":"");
     back.hidden=!crop;layer.style.display=crop?"none":"";
+    showCropEvidence(view);
     updateSelection()
    }
    function updateSelection(){
@@ -1345,6 +1392,27 @@ window.irAiRecognitionPage=async function(objectId){
    dlg.addEventListener("cancel",event=>{if(loading)event.preventDefault()});
    dlg.addEventListener("close",()=>dlg.remove(),{once:true});
    document.body.appendChild(dlg);showImage(original);dlg.showModal();
+   const autoFocus=focusedPdfRegion(evidenceLocations,pageInfo);
+   if(autoFocus&&typeof pdf.regionPreview==="function"){
+    // User explicitly clicked a disputed contour. Zoom only that one,
+    // preserve "Вернуться к листу" and allow manual crop adjustment.
+    loading=true;updateSelection();
+    void (async()=>{
+     try{
+      const zoomed=await pdf.regionPreview(id,documentId,page,autoFocus);
+      if(!dlg.isConnected)return;
+      crop=zoomed;selected=autoFocus;
+      showImage(zoomed)
+     }catch(error){
+      if(dlg.isConnected){
+       meta.textContent="Не удалось автоматически увеличить спорную марку: "+
+        String(error.message||error)+". Полный лист доступен."
+      }
+     }finally{
+      loading=false;if(dlg.isConnected)updateSelection()
+     }
+    })()
+   }
    void refreshAiStatus()
   }catch(error){notice("Не удалось показать лист PDF: "+String(error.message||error),"error")}
   finally{
