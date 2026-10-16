@@ -113,7 +113,7 @@ const {createStore}=require("../src/ai-document-store");
    record_type:"pdf_text_index",title:"unclassified index",
    data:{source:{documentId:id},pages:[]}
   });
-  assert.throws(()=>store.remove(1,id),/не технический результат/,
+  assert.throws(()=>store.remove(1,id),/Индекс неизвестного типа/,
    "unknown index formats may not be silently deleted");
   db.deleteEntity(1,"ai-pdf-index",unknownIndex.id);
   failDeleteIndex=true;
