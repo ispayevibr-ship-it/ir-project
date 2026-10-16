@@ -134,7 +134,7 @@
   }
   return result
  }
- function extractPage({documentId,name,kind,sha256,page,raw,uncertainEncoding=false}={}){
+ function extractPage({documentId,name,kind,sha256,page,raw,uncertainEncoding=false,registeredMarks=[]}={}){
   const text=String(raw?.text||"").slice(0,24000);
   const sheetType=classSheet(name,text),
    occurrences=uncertainEncoding?[]:markMatches(text,{includeRepeated:true}),
@@ -178,6 +178,65 @@
       "Высоты и оси нельзя автоматически приписывать одному физическому экземпляру.":
      "Координаты по монтажному плану требуют проверки инженера."}
   });
+
+  // Bare plan symbols have no structural noun. Keep ONLY known register
+  // marks, and treat text positions as unconfirmed manual-review evidence.
+  if(sheetType==="plan"&&!uncertainEncoding&&registeredMarks.length){
+   const known=new Map();
+   for(const row of registeredMarks){
+    const name=String(row?.data?.mark||row?.title||"").trim(),k=norm(name);
+    if(row?.id&&name&&MARK.test(name)){
+     if(known.has(k))known.set(k,null);else known.set(k,name)
+    }
+   }
+   const fragments=Array.isArray(raw?.fragments)?raw.fragments:[],
+    found=new Map(),full=/^[КKБВBРPСCФFМM]-?\d{1,4}[А-ЯA-Z]?$/iu,
+    prefix=/^[КKБВBРPСCФFМM]-?$/iu,suffix=/^\d{1,4}[А-ЯA-Z]?$/iu;
+   const compact=t=>String(t||"").trim().replace(/[\s\u00a0]+/g,"").replace(/[−–—]/g,"-");
+   const good=f=>f&&typeof f.text==="string"&&
+    ["x","y","width","height"].every(k=>Number.isFinite(Number(f[k])))&&
+    Number(f.width)>=0&&Number(f.height)>=0;
+   for(let i=0;i<Math.min(fragments.length,20000);i++){
+    const first=fragments[i];if(!good(first))continue;
+    let value=compact(first.text),last=first,ids=[i];
+    if(prefix.test(value)&&good(fragments[i+1])){
+     const next=fragments[i+1],n=compact(next.text),
+      gap=Number(next.x)-Number(first.x)-Number(first.width);
+     if(suffix.test(n)&&gap>=-2&&gap<=10&&
+        Math.abs(Number(next.y)-Number(first.y))<=Math.max(3,Number(first.height)*.4)){
+      value+=n;last=next;ids.push(i+1)
+     }
+    }
+    if(!full.test(value))continue;
+    const key=norm(value),mark=known.get(key);
+    if(!mark||candidates.some(c=>norm(c.mark)===key))continue;
+    let g=found.get(key);
+    if(!g){
+     if(found.size>=120)continue;
+     g={mark,count:0,locations:[],points:[]};found.set(key,g)
+    }
+    const x=Number(first.x),y=Math.min(Number(first.y),Number(last.y)),
+     x2=Math.max(x+Number(first.width),Number(last.x)+Number(last.width)),
+     y2=Math.max(Number(first.y)+Number(first.height),Number(last.y)+Number(last.height));
+    const cx=(x+x2)/2,cy=(y+y2)/2;
+    if(g.points.some(p=>Math.hypot(p.x-cx,p.y-cy)<4))continue;
+    g.points.push({x:cx,y:cy});g.count++;
+    if(g.locations.length<12)g.locations.push({quote:value,fragmentIds:ids,
+     rectPt:{x,y,width:x2-x,height:y2-y}})
+   }
+   for(const g of found.values())candidates.push({
+    mark:norm(g.mark),type:"unknown",source:{
+     documentId:Number(documentId),sha256:String(sha256||""),
+     name:String(name||""),kind:String(kind||""),page:Number(page)},
+    sheetType,axisX:"",axisY:"",endAxisX:"",endAxisY:"",
+    z0Mm:null,z1Mm:null,lengthMm:null,locationConfirmed:false,
+    origin:"plan_label_only",labelMentions:g.count,
+    evidence:["Марка "+g.mark+" · надписей на плане: "+g.count],
+    evidenceLocations:g.locations,
+    warning:"Надпись найдена в PDF и подтверждена ведомостью. "+
+     "Тип, место крепления и отметки Z требуют проверки."})
+  }
+
   return{documentId:Number(documentId),page:Number(page),kind:String(kind||""),
    name:String(name||""),sha256:String(sha256||""),sheetType,
    textAvailable:!!text.trim(),uncertainEncoding:Boolean(uncertainEncoding),
@@ -1030,6 +1089,7 @@
       allEntries.sort((a,b)=>priority[classSheet(fileName(a.idx),a.p.excerpt||"")]-
        priority[classSheet(fileName(b.idx),b.p.excerpt||"")]);
       const entries=allEntries.slice(0,250);
+      const markRows=await marksApi.list();
       for(const {idx,p} of entries){
        if(!live)break;
        const doc=documents.find(d=>Number(d.id)===Number(idx.documentId));
@@ -1041,7 +1101,7 @@
          continue;
         const row=extractPage({documentId:doc.id,name:doc.name,kind:doc.kind,
          sha256:doc.sha256,page:p.page,raw:detail.page,
-         uncertainEncoding:p.uncertainEncoding===true});
+         uncertainEncoding:p.uncertainEncoding===true,registeredMarks:markRows});
         latest.push(row);candidates.push(...row.marks)
        }catch(error){status("Ошибка чтения листа "+p.page+": "+String(error.message||error).slice(0,180))}
       }
@@ -1050,9 +1110,7 @@
         try{draftRows=await mounting.drafts(objectId)||[]}
         catch(error){status("Черновики пока недоступны: "+String(error.message||error))}
        }
-       const [markRows,schemeRows,workRows]=await Promise.all([
-        marksApi.list(),schemeApi.list(),workApi.list()
-       ]);
+       const [schemeRows,workRows]=await Promise.all([schemeApi.list(),workApi.list()]);
        batch=buildBatchPlan({candidates,pages:latest,marks:markRows,
         schemeRows,workRows});
       }
