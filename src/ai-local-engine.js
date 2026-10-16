@@ -204,47 +204,81 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
     if(generation!==lifecycle)return status();
     if(!pack.installed){state=pack.reason?.includes("не установлен")?"missing":"invalid";issue=pack.reason;return status()}
     if(memory()<8*1073741824){state="failed";issue="Для локальной модели требуется не менее 8 ГБ оперативной памяти. Не запускаем процесс.";return status()}
-    terminate();state="starting";issue="";activeProfile=pack;
-    activeContextTokens=selectVisionContext(pack,memory());lastExit=null;stderrFailures=[];
-    const port=await freePort();
-    if(generation!==lifecycle)return status();
-    serverPort=port;secret=crypto.randomBytes(32).toString("hex");
-    const args=["-m",pack.files.model.path,"--mmproj",pack.files.vision.path,
-     "--host","127.0.0.1","--port",String(serverPort),"--alias",API_MODEL,"--no-webui",
-     "--api-key",secret,"--ctx-size",String(activeContextTokens),"--parallel","1",
-     "--n-gpu-layers",String(pack.gpuLayers)];
-    const mine=spawn(pack.files.binary.path,args,{cwd:pack.cwd||root(),windowsHide:true,
-     stdio:["ignore","ignore","pipe"],
-     shell:false,env:{...process.env,NO_PROXY:"127.0.0.1,localhost",no_proxy:"127.0.0.1,localhost"}});
-    child=mine;
-    mine.stderr?.on?.("data",data=>{if(child===mine)recordServerError(data.toString("utf8").slice(0,8192))});
-    mine.once("error",e=>{
-     if(generation!==lifecycle||child!==mine)return;
-     issue="Ошибка запуска llama-server: "+e.message;state="failed";terminate("server_crashed")
-    });
-    mine.once("exit",(code,signal)=>{
-     if(generation!==lifecycle||child!==mine)return;
-     lastExit={code:code??null,signal:signal??null,at:new Date().toISOString()};
-     issue=serverFailureText(code,signal);state="failed";terminate("server_crashed")
-    });
-    // CPU-only Windows hosts can take several minutes to load the real 4B GGUF.
-    // Do not declare failure merely because the first 120 seconds elapsed.
-    const startupSeconds=pack.gpuLayers>0?180:360;
-    // A canceled or superseded startup cannot mark a new process ready.
-    for(let i=0;i<startupSeconds;i++){
-     if(generation!==lifecycle||child!==mine||state==="failed")return status();
+    gpuFallback="";gpuConfirmed=false;
+    let selectedLayers=Number(pack.gpuLayers)||0;
+    if(pack.manual&&selectedLayers===0&&pack.cwd){
+     const cudaDll=path.join(pack.cwd,"ggml-cuda.dll");
+     let hasCuda=false;
      try{
-      const res=await httpFetch("http://127.0.0.1:"+serverPort+"/health",{
-       headers:{Authorization:"Bearer "+secret},signal:AbortSignal.timeout(1250)});
-      if(generation!==lifecycle||child!==mine)return status();
-      if(res.ok){state="ready";issue="";return status()}
+      const file=fs.lstatSync(cudaDll);
+      hasCuda=file.isFile()&&!file.isSymbolicLink()&&file.size>1024*1024
      }catch{}
-     if(generation!==lifecycle||child!==mine)return status();
-     await wait(1000)
+     if(hasCuda){
+      let freeMiB=null;
+      try{
+       const sample=typeof gpuProbe==="function"?gpuProbe({cwd:pack.cwd}):probeNvidiaFreeMiB();
+       freeMiB=typeof sample==="number"?sample:sample?.freeVramMiB
+      }catch{}
+      selectedLayers=chooseManualGpuLayers({manual:true,cudaBackend:true,freeVramMiB:freeMiB})
+     }
     }
-    if(generation!==lifecycle||child!==mine)return status();
-    issue=issue||"Время загрузки локальной модели истекло ("+startupSeconds+" сек.)";
-    state="failed";terminate();return status()
+    async function attempt(layers){
+     terminate();
+     state="starting";issue="";
+     activeProfile={...pack,gpuLayers:layers};
+     activeContextTokens=selectVisionContext(pack,memory());
+     lastExit=null;stderrFailures=[];gpuConfirmed=false;
+     const port=await freePort();
+     if(generation!==lifecycle)return false;
+     serverPort=port;secret=crypto.randomBytes(32).toString("hex");
+     const args=["-m",pack.files.model.path,"--mmproj",pack.files.vision.path,
+      "--host","127.0.0.1","--port",String(serverPort),"--alias",API_MODEL,"--no-webui",
+      "--api-key",secret,"--ctx-size",String(activeContextTokens),"--parallel","1",
+      "--n-gpu-layers",String(layers)];
+     const mine=spawn(pack.files.binary.path,args,{cwd:pack.cwd||root(),windowsHide:true,
+      stdio:["ignore","ignore","pipe"],
+      shell:false,env:{...process.env,NO_PROXY:"127.0.0.1,localhost",no_proxy:"127.0.0.1,localhost"}});
+     child=mine;
+     mine.stderr?.on?.("data",chunk=>{
+      if(child!==mine)return;
+      const line=String(chunk).slice(0,8192);
+      recordServerError(line);
+      if(layers>0&&/offloaded\s+[1-9][0-9]*\s*\/\s*[0-9]+\s+layers\s+to\s+GPU/i.test(line))
+       gpuConfirmed=true
+     });
+     mine.once("error",e=>{
+      if(generation!==lifecycle||child!==mine)return;
+      issue="Ошибка запуска llama-server: "+e.message;state="failed";terminate("server_crashed")
+     });
+     mine.once("exit",(code,signal)=>{
+      if(generation!==lifecycle||child!==mine)return;
+      lastExit={code:code??null,signal:signal??null,at:new Date().toISOString()};
+      issue=serverFailureText(code,signal);state="failed";terminate("server_crashed")
+     });
+     const startupSeconds=layers>0?180:360;
+     for(let i=0;i<startupSeconds;i++){
+      if(generation!==lifecycle||state==="failed"||child!==mine)return false;
+      try{
+       const health=await httpFetch("http://127.0.0.1:"+serverPort+"/health",{
+        headers:{Authorization:"Bearer "+secret},signal:AbortSignal.timeout(1250)});
+       if(generation!==lifecycle||state==="failed"||child!==mine)return false;
+       if(health.ok){state="ready";issue="";return true}
+      }catch{}
+      if(generation!==lifecycle||state==="failed"||child!==mine)return false;
+      await wait(1000)
+     }
+     if(generation!==lifecycle||state==="failed"||child!==mine)return false;
+     issue="Время загрузки Qwen истекло ("+startupSeconds+" сек.)";
+     state="failed";terminate("server_crashed");return false
+    }
+    let started=await attempt(selectedLayers);
+    if(!started&&selectedLayers>0&&pack.manual&&generation===lifecycle){
+     const failedReason=String(issue||"CUDA запуск не завершился").slice(0,200);
+     gpuFallback="CUDA-ускорение не запустилось ("+failedReason+"). Автоматически использован CPU.";
+     started=await attempt(0)
+    }
+    if(started||generation!==lifecycle)return status();
+    state="failed";return status()
    }catch(error){
     if(generation!==lifecycle)return status();
     issue=String(error.message||error);state="failed";terminate();return status()
