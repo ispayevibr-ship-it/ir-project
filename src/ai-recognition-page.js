@@ -26,6 +26,9 @@ window.irAiRecognitionPage=async function(objectId){
   checks:["Проверка и замечания","После запуска локального анализа здесь появятся ошибки и неопределённые значения со ссылками на исходные листы и подтверждения инженера."]
  };
  let object,documents=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,materialEntries=[],materialSummary=null,connectionNodes=[],connectionItems=[],connectionSummary=null,comparisonEntries=[],comparisonSummary=null,comparisonFields={},pdfIndexes=[],workflowTasks=[],workflowSummary=null,proposalEntries=[],proposalSummary=null,revisionSets=[],revisionImpact=null,referenceRows=null,referenceChecks=null,referenceCompare=null,integrityReport=null,engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
+ let selectedKind="Не определён";
+ const stepNumber=(n,done=false)=>'<span class="ir-ai-step-number'+(done?' done':'')+
+  '" aria-label="Шаг '+n+(done?' выполнен':'')+'">'+(done?'✓':n)+'</span>';
  try{object=await irProject.data.objects.get(id)}catch(error){app.textContent="Не удалось прочитать объект: "+String(error.message||error);return}
  if(!object){location.hash="/objects";return}
  const bridge=irProject.aiDocuments,ready=!!(bridge&&typeof bridge.list==="function"&&typeof bridge.select==="function");
@@ -133,6 +136,31 @@ window.irAiRecognitionPage=async function(objectId){
    ready:"Модель готова",failed:"Ошибка локальной модели"};
   const modelReady=state==="ready";
   const indexedPages=pdfIndexes.reduce((sum,x)=>sum+(x.totalPages||0),0);
+  const availableDocs=documents.filter(x=>x.exists);
+  const knownKinds=[...new Set(availableDocs.map(x=>x.kind).filter(x=>["КМ","КМД"].includes(x)))];
+  if(selectedKind==="Не определён"&&knownKinds.length===1)selectedKind=knownKinds[0];
+  const hasCorrectKind=availableDocs.some(x=>["КМ","КМД"].includes(x.kind));
+  const indexedIds=new Set(pdfIndexes.filter(x=>availableDocs.some(d=>
+   String(d.id)===String(x.documentId)&&d.sha256===x.sourceSha256&&d.ext===".pdf"&&
+   Array.isArray(x.pages)&&x.pages.length>0)).map(x=>String(x.documentId)));
+  const hasIndex=indexedIds.size>0;
+  const recognized=analyses.some(x=>availableDocs.some(d=>
+   String(d.id)===String(x.documentId)&&d.sha256===x.sha256)&&
+   (x.originalMarks?.length||x.notes?.marks?.length||x.notes?.text?.trim()||
+    x.notes?.structured?.records?.length));
+  const reviewed=analyses.some(x=>availableDocs.some(d=>
+   String(d.id)===String(x.documentId)&&d.sha256===x.sha256)&&
+   ["confirmed","rejected"].includes(x.status));
+  const stepDone=[hasCorrectKind,availableDocs.length>0,hasIndex,modelReady,!!recognized,reviewed];
+  const stepLabels=["Выбрать КМ/КМД","Добавить PDF","Индексировать PDF",
+   "Запустить Qwen","Распознать лист","Проверить результат"];
+  const missingStep=stepDone.findIndex(done=>!done);
+  const activeStep=missingStep<0?6:missingStep+1;
+  const stepsHtml='<div class="ir-ai-step-guide" role="status" aria-label="Порядок распознавания чертежей">'+
+   '<b>Порядок действий:</b>'+stepLabels.map((label,i)=>
+    '<span class="ir-ai-step-guide-item'+(stepDone[i]?' complete':i+1===activeStep?' current':'')+'">'+
+    stepNumber(i+1,stepDone[i])+esc(label)+'</span>').join('')+
+   '<small>Следующий шаг: '+activeStep+'. '+esc(stepLabels[activeStep-1])+'</small></div>';
   window.irAiAssemblyPage?.dispose?.();
   app.innerHTML='<div class="ir-ai-page">'+
    '<header class="ir-ai-hero"><div class="ir-ai-heading"><div class="ir-ai-kicker">IR PROJECT · ЛОКАЛЬНЫЙ ИНЖЕНЕРНЫЙ МОДУЛЬ</div>'+
@@ -143,14 +171,15 @@ window.irAiRecognitionPage=async function(objectId){
    '<div><small>Проиндексировано листов PDF</small><b>'+indexedPages+'</b><span>Текстовые слои, без ИИ</span></div>'+
    '<div><small>3D-конструкций</small><b>—</b><span>Нет подтверждённой геометрии</span></div>'+
    '<div><small>Требует проверки</small><b>'+analyses.filter(x=>!x.status||x.status==="requires_review").length+'</b><span>Результаты пока не подтверждены</span></div></div>'+
-   '<div class="ir-ai-actions"><label>Тип загружаемого комплекта <select id="irAiKind"><option value="Не определён">Не определён</option>'+
+   '<div class="ir-ai-actions"><label>'+stepNumber(1,hasCorrectKind)+' Тип загружаемого комплекта <select id="irAiKind"><option value="Не определён">Не определён</option>'+
    '<option value="КМ">КМ</option><option value="КМД">КМД</option></select></label>'+
-   '<button class="ir-ai-primary" id="irAiUpload" '+(!ready||!canEdit||busy?'disabled':'')+'>＋ Добавить чертежи</button>'+
-   '<button id="irAiRecognize" '+(!runtime||!engine?.installed||modelReady||busy||!canEdit?'disabled':'')+'>Запустить локальный ИИ</button>'+
+   '<button class="ir-ai-primary" id="irAiUpload" '+(!ready||!canEdit||busy?'disabled':'')+'>'+stepNumber(2,availableDocs.length>0)+' Добавить чертежи</button>'+
+   '<button id="irAiRecognize" '+(!runtime||!engine?.installed||modelReady||busy||!canEdit?'disabled':'')+'>'+stepNumber(4,modelReady)+' Запустить локальный ИИ</button>'+
    '<button id="irAiStop" '+(!runtime||!canEdit||!(state==="ready"||state==="starting")?'disabled':'')+'>Остановить ИИ</button>'+
    '<button id="irAiRefresh" '+(!runtime||busy?'disabled':'')+'>Проверить ИИ</button>'+
    '<button id="irAiExport" disabled>Экспортировать</button>'+
    '<span class="ir-ai-action-note">Листы PDF: предпросмотр и визуальный анализ при наличии локальной модели</span></div>'+
+   stepsHtml+
    (!ready||!runtime?'<div class="ir-ai-warning" role="status"><b>Требуется новая установка Electron.</b> Действующий установщик не содержит мост локального ИИ; обновления интерфейса недостаточно.</div>':'')+
    (!engine?.installed?'<div class="ir-ai-warning" role="status"><b>Требуется отдельный офлайн-пакет модели.</b> Пока он не поставляется с установщиком. Без него запуск и распознавание недоступны.</div>':'')+
    (message?'<div class="ir-ai-message '+(severity==="error"?"error":"")+'" role="status">'+esc(message)+'</div>':'')+
@@ -162,7 +191,12 @@ window.irAiRecognitionPage=async function(objectId){
    '<div class="ir-ai-chat-empty">'+esc(modelReady?"Qwen работает. Чат-помощник ещё не реализован; ответы не имитируются.":"История запросов пока отсутствует. Ответы не имитируются.")+'</div>'+
    '<textarea disabled placeholder="'+esc(modelReady?"Чат пока недоступен — используйте конвейер PDF":"Чат пока недоступен")+'"></textarea><button disabled>Отправить</button></aside></div>'+
    '<footer class="ir-ai-footer">Этап 2 · Локальное распознавание изображений при наличии установленной модели; результаты не подтверждены. Монтажная схема не изменяется.</footer></div>';
-  app.querySelectorAll("[data-ai-tab]").forEach(button=>button.onclick=()=>openTab(button.dataset.aiTab));
+  app.querySelectorAll("[data-ai-tab]").forEach(button=>{
+   if(button.dataset.aiTab==="checks")button.innerHTML=stepNumber(6,reviewed)+" Проверка и ошибки";
+   button.onclick=()=>openTab(button.dataset.aiTab)
+  });
+  const kindSelect=app.querySelector("#irAiKind");
+  if(kindSelect){kindSelect.value=selectedKind;kindSelect.onchange=()=>{selectedKind=kindSelect.value}}
   const upload=app.querySelector("#irAiUpload");
   upload.onclick=async()=>{
    if(!ready||!canEdit||busy||!await authorizeAiMutation())return;busy=true;
@@ -453,7 +487,7 @@ window.irAiRecognitionPage=async function(objectId){
         (x.reviewedAt?' · последнее решение '+esc(x.reviewedAt):" · решение ещё не принято")+
         '</small><div>'+
         '<button type="button" data-review-history="'+x.id+'" '+(!reviewer?'disabled':'')+'>История</button>'+
-        (canEdit?'<button type="button" class="ir-ai-review-save" data-review-save="'+x.id+'" '+(!reviewer||busy?'disabled':'')+'>Сохранить проверку</button>':"")+
+        (canEdit?'<button type="button" class="ir-ai-review-save" data-review-save="'+x.id+'" '+(!reviewer||busy?'disabled':'')+'>'+stepNumber(6,x.status==="confirmed"||x.status==="rejected")+' Сохранить проверку</button>':"")+
        '</div></div>'+
       '<div class="ir-ai-review-history" data-history-for="'+x.id+'" hidden></div>'+
       (x.ocr?'<details><summary>Результат PaddleOCR-VL 1.6 · требует проверки</summary>'+
@@ -553,8 +587,8 @@ window.irAiRecognitionPage=async function(objectId){
     '<td><div class="ir-ai-doc-actions">'+
     (canEdit&&[".png",".jpg",".jpeg"].includes(x.ext)?'<button data-ai-analyze="'+x.id+'" '+(!modelReady||busy||!x.exists?'disabled':'')+'>Распознать</button>':"")+
     (x.ext===".pdf"?'<button data-ai-pdf-preview="'+x.id+':1" '+(!pdf||busy||!x.exists?'disabled':'')+'>Лист 1</button>':"")+
-    (canEdit&&x.ext===".pdf"&&pdfIndexes.some(p=>String(p.documentId)===String(x.id)&&Array.isArray(p.pages)&&p.pages.some(page=>Number(page.page)===1))?'<button data-ai-pdf-vision="'+x.id+':1" '+(!modelReady||busy||!x.exists?'disabled':'')+'>Распознать лист 1</button>':"")+
-    (canEdit&&x.ext===".pdf"?'<button data-ai-pdf-index="'+x.id+'" '+(!pdf||busy||!x.exists?'disabled':'')+'>Индексировать PDF</button>':"")+
+    (canEdit&&x.ext===".pdf"&&pdfIndexes.some(p=>String(p.documentId)===String(x.id)&&Array.isArray(p.pages)&&p.pages.some(page=>Number(page.page)===1))?'<button data-ai-pdf-vision="'+x.id+':1" '+(!modelReady||busy||!x.exists?'disabled':'')+'>'+stepNumber(5,!!recognized)+' Распознать лист 1</button>':"")+
+    (canEdit&&x.ext===".pdf"?'<button data-ai-pdf-index="'+x.id+'" '+(!pdf||busy||!x.exists?'disabled':'')+'>'+stepNumber(3,indexedIds.has(String(x.id)))+' Индексировать PDF</button>':"")+
     '<button data-ai-open="'+x.id+'" '+(!ready||!x.exists?'disabled':'')+'>Открыть</button>'+
     (canEdit?'<button class="delete" data-ai-remove="'+x.id+'" '+(!ready?'disabled':'')+'>Удалить</button>':"")+'</div></td></tr>').join("")+
    '</tbody></table></div>')+
@@ -567,7 +601,7 @@ window.irAiRecognitionPage=async function(objectId){
      '<div class="ir-ai-pdf-size">Размер: '+p.widthPt+' × '+p.heightPt+' pt · Фрагментов: '+p.fragmentCount+'</div>'+
      '<pre>'+esc(p.excerpt||"Текст не найден.")+'</pre>'+
      '<div class="ir-ai-pdf-sheet-actions"><button type="button" data-ai-pdf-preview="'+x.documentId+':'+p.page+'">Просмотр листа</button>'+
-     (canEdit?'<button type="button" data-ai-pdf-vision="'+x.documentId+':'+p.page+'" '+(!modelReady||busy?'disabled title="Сначала установите и запустите локальную модель"':'')+'>Распознать лист ИИ</button>':'')+
+     (canEdit?'<button type="button" data-ai-pdf-vision="'+x.documentId+':'+p.page+'" '+(!modelReady||busy?'disabled title="Сначала установите и запустите локальную модель"':'')+'>'+stepNumber(5,!!recognized)+' Распознать лист ИИ</button>':'')+
      (p.hasTextLayer?'<button type="button" data-ai-pdf-page="'+x.id+':'+p.page+'">Полный текст и координаты</button>':'')+'</div>'+
      '</details>').join("")+'</div></article>').join("")+'</section>':'');
   const search=box.querySelector("#irAiSearch");
