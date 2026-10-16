@@ -841,7 +841,6 @@ window.irAiRecognitionPage=async function(objectId){
   dlg.showModal()
  }
  async function openPdfPreview(documentId,page){
-  const modelReady=engine?.state==="ready";
   if(!pdf||busy)return;
   busy=true;notice("Подготавливаем реальное изображение PDF, лист "+page+"…");paint();
   try{
@@ -852,7 +851,7 @@ window.irAiRecognitionPage=async function(objectId){
    if(!validImage(original.dataUrl))throw Error("Неверный формат PDF-изображения");
    const dlg=document.createElement("dialog");dlg.className="ir-ai-pdf-preview-dialog";
    dlg.innerHTML='<div class="ir-ai-pdf-preview-header"><div><b data-region-title></b>'+
-    '<small data-region-meta></small></div><div class="ir-ai-pdf-preview-actions">'+
+    '<small data-region-meta></small><small data-region-ai-status role="status"></small></div><div class="ir-ai-pdf-preview-actions">'+
     '<button type="button" data-region-extract disabled>Увеличить фрагмент</button>'+
     (canEdit?'<button type="button" data-region-analyze disabled>Распознать фрагмент ИИ</button>':'')+
     '<button type="button" data-region-back hidden>Вернуться к листу</button>'+
@@ -866,8 +865,27 @@ window.irAiRecognitionPage=async function(objectId){
     extract=dlg.querySelector("[data-region-extract]"),
     recognize=dlg.querySelector("[data-region-analyze]"),back=dlg.querySelector("[data-region-back]"),
     fit=dlg.querySelector("[data-pdf-fit]"),meta=dlg.querySelector("[data-region-meta]"),
-    title=dlg.querySelector("[data-region-title]");
-   let crop=null,selected=null,drag=null,loading=false,fitted=true;
+    aiState=dlg.querySelector("[data-region-ai-status]"),title=dlg.querySelector("[data-region-title]");
+   let crop=null,selected=null,drag=null,loading=false,fitted=true,modelReady=false,checkingAi=false;
+   aiState.textContent="Проверяем готовность локальной Qwen…";
+   async function refreshAiStatus(){
+    if(!runtime?.status||!dlg.isConnected||checkingAi)return;
+    checkingAi=true;
+    try{
+     const current=await runtime.status();
+     if(!dlg.isConnected)return;
+     engine=current;
+     modelReady=current?.state==="ready";
+     aiState.textContent=modelReady?
+      "Qwen готова. Выделите область листа для распознавания.":
+      "Qwen не готова ("+String(current?.state||"неизвестно")+
+      "). Закройте просмотр, запустите локальный ИИ и откройте лист снова.";
+    }catch(error){
+     if(!dlg.isConnected)return;
+     modelReady=false;
+     aiState.textContent="Не удалось проверить Qwen: "+String(error.message||error).slice(0,180)
+    }finally{checkingAi=false;if(dlg.isConnected)updateSelection()}
+   }
    function showImage(view){
     if(!validImage(view.dataUrl))throw Error("Неверный формат увеличенного фрагмента PDF");
     img.src=view.dataUrl;
@@ -887,7 +905,14 @@ window.irAiRecognitionPage=async function(objectId){
      rectangle.style.width=(selected.width*100)+"%";rectangle.style.height=(selected.height*100)+"%"
     }
     extract.disabled=loading||!selected||!!crop;
-    if(recognize)recognize.disabled=loading||!selected||!!crop||!modelReady;
+    if(recognize){
+     recognize.disabled=loading||!selected||!!crop||!modelReady||!canEdit;
+     recognize.title=!canEdit?"Только инженер или администратор может распознавать лист":
+      !modelReady?"Qwen не готова — проверьте статус модели над изображением":
+      !selected?"Выделите область чертежа мышью или касанием":
+      crop?"Вернитесь к целому листу, чтобы распознать выбранную область":
+      "Запустить Qwen для выбранного участка PDF";
+    }
    }
    function point(event){
     const bounds=layer.getBoundingClientRect();
@@ -923,7 +948,7 @@ window.irAiRecognitionPage=async function(objectId){
      rect.x+rect.width<=1.000001&&rect.y+rect.height<=1.000001?rect:null;
     updateSelection()
    };
-   layer.onpointerup=finish;
+   layer.onpointerup=event=>{finish(event);void refreshAiStatus()};
    layer.onpointercancel=()=>{drag=null;selected=null;updateSelection()};
    fit.onclick=()=>{
     fitted=!fitted;fit.textContent=fitted?"100%":"По ширине";
@@ -940,7 +965,13 @@ window.irAiRecognitionPage=async function(objectId){
     finally{loading=false;updateSelection()}
    };
    if(recognize)recognize.onclick=async()=>{
-    if(!selected||crop||loading||!modelReady||!canEdit||!await authorizeAiMutation())return;
+    if(!selected||crop||loading||!canEdit)return;
+    await refreshAiStatus();
+    if(!modelReady){
+     aiState.textContent="Qwen остановлена. Закройте просмотр и нажмите «Запустить локальный ИИ».";
+     updateSelection();return
+    }
+    if(!await authorizeAiMutation())return;
     loading=true;updateSelection();
     try{
      const answer=await pdf.regionAnalyze(id,documentId,page,{...selected});
@@ -953,7 +984,8 @@ window.irAiRecognitionPage=async function(objectId){
    dlg.querySelector("[data-pdf-close]").onclick=()=>{if(!loading)dlg.close()};
    dlg.addEventListener("cancel",event=>{if(loading)event.preventDefault()});
    dlg.addEventListener("close",()=>dlg.remove(),{once:true});
-   document.body.appendChild(dlg);showImage(original);dlg.showModal()
+   document.body.appendChild(dlg);showImage(original);dlg.showModal();
+   void refreshAiStatus()
   }catch(error){notice("Не удалось показать лист PDF: "+String(error.message||error),"error")}
   finally{busy=false;await reload()}
  }
