@@ -1326,11 +1326,30 @@
         analysis,grid,vector:result});
        const memberOutlines=findPlanMemberStrokes({labels:registerLabels.labels,
         analysis,grid,vector:result});
+       // A label can appear in several diagnostic categories. Show the
+       // vector recognition status independently of the obsolete leader test.
+       const lineLabels=new Set(memberOutlines.candidates.map(x=>x.label)),
+        alternativeLabels=new Set(memberOutlines.alternatives.map(x=>x.label)),
+        singleLabels=new Set(memberOutlines.singleStrokes.map(x=>x.label)),
+        geometricLabels=new Set([...lineLabels,...alternativeLabels,...singleLabels]),
+        withoutGeometry=Math.max(0,registerLabels.labels.length-geometricLabels.size);
        const label=x=>escDoc(x.name)+" · "+escDoc(x.mm)+" мм ↔ "+
        escDoc(Math.round(x.pagePt*100)/100)+" pt";
       const xRows=analysis.xMatches?.map(label)||[],
        yRows=analysis.yMatches?.map(label)||[];
-      output.innerHTML='<div class="ir-ai-vector-info"><b>Калибровка осей · '+
+      output.innerHTML='<section class="ir-ai-lite-geometry-summary">'+
+       '<h4>Сводка распознавания геометрии</h4>'+
+       '<p>Надписей из ведомости: <b>'+registerLabels.labels.length+
+       '</b>; возможных пар контуров: <b>'+lineLabels.size+
+       '</b>; с альтернативами: <b>'+alternativeLabels.size+
+       '</b>; только одиночные линии: <b>'+singleLabels.size+
+       '</b>; без подходящих линий: <b>'+withoutGeometry+'</b>.</p>'+
+       '<p><b>Готовых к автоматической расстановке: 0</b>. '+
+       'Контуры ещё не подтверждены размерами, типом, привязками и отметками Z. '+
+       'Требуют проверки геометрии: <b>'+memberOutlines.review.length+
+       '</b>. Диагностика линий-выносок ниже — отдельная проверка, '+
+       'а не общая статистика распознавания.</p>'+
+       '</section><div class="ir-ai-vector-info"><b>Калибровка осей · '+
        escDoc(doc.name)+' · лист '+sheet.page+'</b>'+
        '<span>Область: '+escDoc(regionName)+' · Совпадений X: '+
         xRows.length+'/'+Number(analysis.xTotal||0)+
@@ -1382,10 +1401,14 @@
        (registerLabels.ambiguous?'<p class="ir-ai-axis-review">'+
         'Неоднозначных марок в ведомости: '+registerLabels.ambiguous+'. Нужна проверка.</p>':"")+
        (registerLabels.labels.length?'<details class="ir-ai-axis-mark-zones" open>'+
-        '<summary>Графическая привязка марок · '+candidateNodes.suggested.length+
-        ' линий к узлу; '+candidateNodes.nearby.length+
-        ' только рядом; '+candidateNodes.review.length+' на проверку</summary>'+
-        '<p><b>Три разных результата:</b> линия от подписи к узлу PDF — графическая гипотеза; '+
+        '<summary>Диагностика выносок (не итог распознавания) · '+
+        candidateNodes.suggested.length+' линий к узлу; '+
+        candidateNodes.nearby.length+' только рядом; '+
+        candidateNodes.review.length+' без подтверждённой выноски</summary>'+
+        '<p>Проверяются только линии-выноски от надписей к узлам. '+
+        'На монтажных планах они часто отсутствуют. '+
+        '<b>Отсутствие выноски не означает, что контур не найден.</b> '+
+        '<b>Три разных результата:</b> линия от подписи к узлу PDF — графическая гипотеза; '+
         'ближайший узел без линии — только близость; всё остальное — ручная проверка. '+
         'Ни один вариант не является готовой монтажной координатой без размеров, типа и отметок Z.</p>'+
         (candidateNodes.suggested.length?'<table><thead><tr><th>Марка</th>'+
@@ -1430,7 +1453,7 @@
           memberOutlines.candidates.length+' пар линий, '+
           memberOutlines.alternatives.length+' с альтернативами, '+
           memberOutlines.singleStrokes.length+' одиночных, '+
-          memberOutlines.review.length+' на проверку</summary>'+
+          memberOutlines.review.length+' требуют проверки геометрии</summary>'+
          '<small>Проверено локальных штрихов: '+memberOutlines.inspected+
          ' из '+memberOutlines.availableStrokes+'; режим: '+
          (memberOutlines.sampling==="local_tiles_short_medium_long"?
