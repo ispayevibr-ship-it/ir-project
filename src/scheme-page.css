@@ -698,3 +698,7 @@
  .scheme-three-stage .scheme-canvas{height:680px}
  .scheme-three-stage.scheme-preview-fullscreen .scheme-canvas{height:100%;min-height:0}
 }
+
+.scheme-head-actions .scheme-reset-all{border:1px solid #e7b4b4;background:#fff2f2;color:#a42a2a;font-weight:700}
+.scheme-head-actions .scheme-reset-all:hover{background:#ffe8e8}
+.scheme-head-actions .scheme-reset-all:disabled{opacity:.55;cursor:wait}

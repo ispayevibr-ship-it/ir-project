@@ -43,3 +43,13 @@ assert.equal(reset.snapshot(1).count,0);
 for(const id of [13,14,15,16,17,18])assert(rows.has(id),"unrelated records preserved: "+id);
 assert.equal(reset.clear(1,{expectedCount:0,expectedFingerprint:reset.snapshot(1).fingerprint,confirmation:"ОЧИСТИТЬ"}).cleared,0);
 console.log("Scheme reset: all placements, stale confirmation, rollback, mark/report/grid/history preservation PASS");
+
+const fs=require("node:fs");
+const schemePage=fs.readFileSync("src/scheme-page.js","utf8");
+const main=fs.readFileSync("main.js","utf8");
+const preload=fs.readFileSync("preload.js","utf8");
+assert(schemePage.includes('id="schemeResetAll"'));
+assert(schemePage.includes("expectedFingerprint:preview.fingerprint"));
+assert(schemePage.includes('entered!=="ОЧИСТИТЬ"'));
+assert(main.includes('ipcMain.handle("scheme:reset"'));
+assert(preload.includes('ipcRenderer.invoke("scheme:reset"'));
