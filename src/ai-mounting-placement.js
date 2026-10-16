@@ -243,17 +243,47 @@ function createService({database,verifyDocument}={}){
   const placed=new Map(),scheme=database.listEntity(id,"scheme");
   for(const r of scheme.filter(placement)){
    const k=String(r.data?.mark_id||"");
-   if(k)placed.set(k,(placed.get(k)||0)+1)
+   if(!k)continue;
+   if(!placed.has(k))placed.set(k,[]);
+   placed.get(k).push(r)
   }
+  const instances=[],maxInstances=10000;
   const marks=database.listEntity(id,"marks").map(r=>{
-   const x=r.data||{},qty=Number(x.qty??x.count),count=placed.get(String(r.id))||0;
+   const x=r.data||{},qty=Number(x.qty??x.count),
+    list=(placed.get(String(r.id))||[]).sort((a,b)=>a.id-b.id),count=list.length;
+   const valid=Number.isSafeInteger(qty)&&qty>0;
+   if(valid&&instances.length+qty<=maxInstances){
+    const slots=new Map(),without=[];
+    for(const item of list){
+     const ordinal=Number(item.data?.ai_instance_ordinal);
+     if(Number.isSafeInteger(ordinal)&&ordinal>=1&&ordinal<=qty&&!slots.has(ordinal))
+      slots.set(ordinal,item);
+     else without.push(item)
+    }
+    for(const row of without){
+     let j=1;while(slots.has(j)&&j<=qty)j++;
+     if(j<=qty)slots.set(j,row)
+    }
+    for(let i=1;i<=qty;i++){
+     const item=slots.get(i),auto=Boolean(item?.data?.ai_operation_id);
+     instances.push({instanceId:r.id+":"+i,markId:r.id,
+      mark:String(x.mark||r.title),projectCode:String(x.project_code||""),
+      workTypeId:String(x.work_type_id||""),ordinal:i,
+      placementStatus:item?"placed":"unplaced",
+      recognitionStatus:item?"confirmed":"unprocessed",
+      schemeRecordId:item?.id||null,
+      placementMethod:item?auto?"automatic":"manual":null})
+    }
+   }
    return{markId:r.id,mark:String(x.mark||r.title),workTypeId:String(x.work_type_id||""),
     projectCode:String(x.project_code||""),quantity:qty,
-    placed:count,remaining:Math.max(0,qty-count),valid:Number.isSafeInteger(qty)&&qty>0}
+    placed:count,remaining:Math.max(0,qty-count),valid}
   });
   return{positions:marks.length,totalInstances:marks.reduce((n,m)=>n+(m.valid?m.quantity:0),0),
    placed:marks.reduce((n,m)=>n+m.placed,0),
-   unplaced:marks.reduce((n,m)=>n+(m.valid?m.remaining:0),0),marks}
+   unplaced:marks.reduce((n,m)=>n+(m.valid?m.remaining:0),0),
+   instances,instancesTruncated:instances.length<marks.reduce((n,m)=>n+(m.valid?m.quantity:0),0),
+   marks}
  }
  function latest(objectId){
   const id=posId(objectId,"объекта");

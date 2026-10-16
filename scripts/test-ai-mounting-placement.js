@@ -51,6 +51,8 @@ const original=service.inventory(1);
 assert.equal(original.positions,1);
 assert.equal(original.totalInstances,2);
 assert.equal(original.unplaced,2);
+assert.deepEqual(original.instances.map(x=>x.instanceId),["22:1","22:2"]);
+assert(original.instances.every(x=>x.recognitionStatus==="unprocessed"));
 const first=service.preview(1,[candidate("1"),candidate("2")]);
 assert.equal(first.ready.length,2);
 assert.notEqual(first.ready[0].instanceId,first.ready[1].instanceId);
@@ -76,6 +78,7 @@ assert.equal(detail.ready.length,0);
 const apply=service.apply(1,[candidate("1"),candidate("2")],first.token);
 assert.equal(apply.created,2);
 assert.equal(service.inventory(1).placed,2);
+assert.deepEqual(service.inventory(1).instances.map(x=>x.placementStatus),["placed","placed"]);
 const instanceIds=db.listEntity(1,"scheme").filter(x=>x.record_type==="scheme_column")
  .map(x=>x.data.ai_instance_id);
 assert.equal(new Set(instanceIds).size,2,"physical instances have unique stable IDs");

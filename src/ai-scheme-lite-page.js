@@ -323,6 +323,17 @@
       '<span>Экземпляров всего: <b>'+inventory.totalInstances+'</b></span>'+
       '<span>На схеме: <b>'+inventory.placed+'</b></span>'+
       '<span>Осталось: <b>'+inventory.unplaced+'</b></span></div>':"")+
+      (inventory?.instances?.length?'<details class="ir-ai-lite-instances"><summary>'+
+       'Экземпляры ведомости: '+inventory.instances.length+
+       (inventory.instancesTruncated?' (список ограничен)':'')+'</summary>'+
+       '<div class="ir-ai-lite-preview-scroll"><table><thead><tr><th>Экземпляр</th>'+
+       '<th>Марка</th><th>Шифр</th><th>Статус</th></tr></thead><tbody>'+
+       inventory.instances.slice(0,250).map(x=>'<tr><td>'+escDoc(x.instanceId)+'</td>'+
+        '<td>'+escDoc(x.mark)+'</td><td>'+escDoc(x.projectCode)+'</td>'+
+        '<td>'+escDoc(x.placementStatus==="placed"?"Размещён":"Не размещён")+
+        '</td></tr>').join("")+'</tbody></table></div>'+
+       '<p>Показаны первые '+Math.min(250,inventory.instances.length)+
+       ' экземпляров. Необработанные позиции не считаются ошибками.</p></details>':"")+
       '<div class="ir-ai-lite-counts">'+
       '<span>Проверено листов: <b>'+indexesLoaded+'</b></span>'+
       '<span>Найдено кандидатов: <b>'+candidateCount+'</b></span>'+
