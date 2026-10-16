@@ -72,7 +72,7 @@ const spin=async until=>{
  vm.runInNewContext(source,context,{filename:"src/ai-recognition-page.js"});
  await window.irAiRecognitionPage(7);
  previewButton.onclick();
- await spin(()=>dialog?.open===true&&/Qwen не готова/.test(aiText.textContent));
+ await spin(()=>dialog?.open===true&&/Qwen не готова/.test(aiText.textContent)).catch(error=>{throw Error(error.message+"; diag: "+JSON.stringify({dialog:!!dialog,open:dialog?.open,statusCalls,aiText:aiText.textContent,message:app.innerHTML.slice(0,500),callback:typeof previewButton.onclick}))});
  assert.match(aiText.textContent,/Qwen не готова/);
  assert.equal(recognize.disabled,true);
  const down={pointerId:4,button:0,pointerType:"mouse",clientX:15,clientY:10,
