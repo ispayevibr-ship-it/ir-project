@@ -27,8 +27,9 @@ function readManifest(dir=current()){try{return JSON.parse(fs.readFileSync(manif
 function validBetaManifest(m){
  if(!m||m.channel!=="beta"||m.baseVersion!==app.getVersion()||
     !Array.isArray(m.files)||m.files.length<6||m.files.length>120)return false;
- const pattern=new RegExp("^"+app.getVersion().replace(/\\./g,"\\\\.")+"\\\\.[1-9][0-9]*$");
- if(!pattern.test(m.version))return false;
+ const parts=String(m.version||"").split(".");
+ if(parts.length!==4||parts.slice(0,3).join(".")!==app.getVersion()||
+    !/^[1-9][0-9]*$/.test(parts[3]))return false;
  const names=new Set(),required=[
   "src/ai-local-engine.js","src/ai-analysis.js","src/ai-structured-extraction.js",
   "src/ai-review.js","src/ai-workflow.js","src/ai-structured-review.js"
