@@ -5,7 +5,7 @@
  * Existing confirmed scheme grid + project mark register remain authoritative.
  */
 (function(root){
- const MARK=/[КKБВBРPСCФFМM][\- ]?\d{1,4}[А-ЯA-Z]?/iu;
+ const MARK=/^[КKБВBРPСCФFМM][\- ]?\d{1,4}(?:-\d{1,3})?[А-ЯA-Z]?$/iu;
  const TYPES=[
   ["column",/колонн[аы]|стойк[аи]|фахверк/iu],
   ["beam",/балк[аи]|ригел[ья]|прогон[аы]|распорк[аи]/iu],
@@ -13,7 +13,10 @@
  ];
  const TYPE_NAMES={column:"Колонна / стойка",beam:"Балка / ригель / прогон",brace:"Связь / раскос"};
  const esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
- const norm=x=>String(x||"").trim().toLocaleUpperCase("ru-RU").replace(/K/g,"К").replace(/B/g,"В").replace(/P/g,"Р").replace(/C/g,"С").replace(/\s+/g,"");
+ const norm=x=>String(x||"").trim().toLocaleUpperCase("ru-RU")
+  .replace(/[−–—]/g,"-").replace(/K/g,"К").replace(/B/g,"В")
+  .replace(/P/g,"Р").replace(/C/g,"С").replace(/F/g,"Ф")
+  .replace(/M/g,"М").replace(/\s+/g,"");
  function classSheet(name,text){
   const s=(String(name||"")+" "+String(text||"").slice(0,2400)).toLocaleLowerCase("ru");
   if(/план\s+(?:расположения|монтажа|колонн|балок|связей)|схема\s+(?:расположения|монтажа)|монтажн.{0,12}схем/iu.test(s))return"plan";
@@ -84,7 +87,7 @@
   const result=[],source=String(text||"");
   // A mark needs a nearby explicit structural noun; a bare part label is not a
   // basis to place the structural element.
-  const regex=/(колонн[аы]|балк[аи]|ригел[ья]|прогон[аы]|распорк[аи]|стойк[аи]|фахверк|связ[ьи]|раскос[аы])\s*(?:марка|марки|№|поз\.?)?\s*[:\-]?\s*([КKБВBРPСCФFМM]\s*[-]?\s*\d{1,4}[А-ЯA-Z]?)/giu;
+  const regex=/(колонн[аы]|балк[аи]|ригел[ья]|прогон[аы]|распорк[аи]|стойк[аи]|фахверк|связ[ьи]|раскос[аы])\s*(?:марка|марки|№|поз\.?)?\s*[:\-]?\s*([КKБВBРPСCФFМM]\s*[-]?\s*\d{1,4}(?:\s*[-–—]\s*\d{1,3})?[А-ЯA-Z]?)(?![-–—\d])/giu;
   let m;
   while((m=regex.exec(source))&&result.length<30){
    const mark=norm(m[2]),type=TYPES.find(([,rx])=>rx.test(m[1]))?.[0]||"unknown";
@@ -190,8 +193,8 @@
     }
    }
    const fragments=Array.isArray(raw?.fragments)?raw.fragments:[],
-    found=new Map(),full=/^[КKБВBРPСCФFМM]-?\d{1,4}[А-ЯA-Z]?$/iu,
-    prefix=/^[КKБВBРPСCФFМM]-?$/iu,suffix=/^\d{1,4}[А-ЯA-Z]?$/iu;
+    found=new Map(),full=/^[КKБВBРPСCФFМM]-?\d{1,4}(?:-\d{1,3})?[А-ЯA-Z]?$/iu,
+    prefix=/^[КKБВBРPСCФFМM]-?$/iu,suffix=/^\d{1,4}(?:-\d{1,3})?[А-ЯA-Z]?$/iu;
    const compact=t=>String(t||"").trim().replace(/[\s\u00a0]+/g,"").replace(/[−–—]/g,"-");
    const good=f=>f&&typeof f.text==="string"&&
     ["x","y","width","height"].every(k=>Number.isFinite(Number(f[k])))&&
@@ -207,12 +210,21 @@
       value+=n;last=next;ids.push(i+1)
      }
     }
+    // Treat a split Ф8 + -1 as Ф8-1, never as its base Ф8.
+    if(full.test(value)&&!value.includes("-")&&good(fragments[i+ids.length])){
+     const next=fragments[i+ids.length],part=compact(next.text),
+      gap=Number(next.x)-Number(last.x)-Number(last.width);
+     if(/^-[0-9]{1,3}$/u.test(part)&&gap>=-2&&gap<=10&&
+        Math.abs(Number(next.y)-Number(first.y))<=Math.max(3,Number(first.height)*.4)){
+      value+=part;last=next;ids.push(i+ids.length)
+     }
+    }
     if(!full.test(value))continue;
     const key=norm(value),mark=known.get(key);
     if(!mark||candidates.some(c=>norm(c.mark)===key))continue;
     let g=found.get(key);
     if(!g){
-     if(found.size>=120)continue;
+     if(found.size>=600)continue;
      g={mark,count:0,locations:[],points:[]};found.set(key,g)
     }
     const x=Number(first.x),y=Math.min(Number(first.y),Number(last.y)),
@@ -657,9 +669,9 @@
    ["x","y","width","height"].every(k=>Number.isFinite(Number(f[k])))&&
    Number(f.width)>=0&&Number(f.height)>=0;
   const compact=v=>String(v||"").trim().replace(/[\s\u00a0]+/g,"").replace(/[−–—]/g,"-");
-  const labelRx=/^[КKБВBРPСCФFМM]-?\d{1,4}[А-ЯA-Z]?$/iu;
+  const labelRx=/^[КKБВBРPСCФFМM]-?\d{1,4}(?:-\d{1,3})?[А-ЯA-Z]?$/iu;
   const prefixRx=/^[КKБВBРPСCФFМM]-?$/iu;
-  const suffixRx=/^\d{1,4}[А-ЯA-Z]?$/iu;
+  const suffixRx=/^\d{1,4}(?:-\d{1,3})?[А-ЯA-Z]?$/iu;
   const interval=(map,mm)=>{
    const a=[...map].map(([name,value])=>({name,mm:Number(value)}))
     .sort((x,y)=>x.mm-y.mm);
@@ -679,6 +691,15 @@
     if(suffixRx.test(ntext)&&gap>=-2&&gap<=10&&
        Math.abs(Number(next.y)-Number(first.y))<=Math.max(3,Number(first.height)*.4)){
      label+=ntext;last=next;ids.push(i+1)
+    }
+   }
+   // A suffix not in the register cannot be reduced to the base mark.
+   if(labelRx.test(label)&&!label.includes("-")&&valid(fragments[i+ids.length])){
+    const next=fragments[i+ids.length],part=compact(next.text),
+     gap=Number(next.x)-Number(last.x)-Number(last.width);
+    if(/^-[0-9]{1,3}$/u.test(part)&&gap>=-2&&gap<=10&&
+       Math.abs(Number(next.y)-Number(first.y))<=Math.max(3,Number(first.height)*.4)){
+     label+=part;last=next;ids.push(i+ids.length)
     }
    }
    if(!labelRx.test(label))continue;
