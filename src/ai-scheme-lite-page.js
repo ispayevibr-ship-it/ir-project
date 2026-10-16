@@ -1172,27 +1172,57 @@
         '</details>':'<p class="ir-ai-axis-review">'+escDoc(registerLabels.reason)+'</p>')+
        (registerLabels.ambiguous?'<p class="ir-ai-axis-review">'+
         'Неоднозначных марок в ведомости: '+registerLabels.ambiguous+'. Нужна проверка.</p>':"")+
-       (registerLabels.labels.length?'<details class="ir-ai-axis-mark-zones">'+
-        '<summary>Ближайшие узлы осей · '+candidateNodes.suggested.length+
-        ' предложений; '+candidateNodes.review.length+' на проверку</summary>'+
-        '<p>Пересечения определены по двум настоящим линиям осей PDF и сохранённой сетке. '+
-        '<b>Это не доказанные координаты конструкций.</b> Не применять без проверки '+
-        'типа, креплений, размеров и отметок Z.</p>'+
+       (registerLabels.labels.length?'<details class="ir-ai-axis-mark-zones" open>'+
+        '<summary>Графическая привязка марок · '+candidateNodes.suggested.length+
+        ' линий к узлу; '+candidateNodes.nearby.length+
+        ' только рядом; '+candidateNodes.review.length+' на проверку</summary>'+
+        '<p><b>Три разных результата:</b> линия от подписи к узлу PDF — графическая гипотеза; '+
+        'ближайший узел без линии — только близость; всё остальное — ручная проверка. '+
+        'Ни один вариант не является готовой монтажной координатой без размеров, типа и отметок Z.</p>'+
         (candidateNodes.suggested.length?'<table><thead><tr><th>Марка</th>'+
-         '<th>Узел X/Y</th><th>Координаты узла, мм</th>'+
-         '<th>Отступ от надписи, мм</th><th>Статус</th></tr></thead><tbody>'+
+         '<th>Узел осей</th><th>Координаты узла, мм</th>'+
+         '<th>Расстояние подписи, мм</th><th>Графика PDF</th></tr></thead><tbody>'+
          candidateNodes.suggested.slice(0,200).map(n=>'<tr><td>'+escDoc(n.mark)+'</td>'+
           '<td>'+escDoc(n.axisX)+' / '+escDoc(n.axisY)+'</td>'+
           '<td>X='+n.nodeXmm+', Y='+n.nodeYmm+'</td>'+
           '<td>≈'+n.offsetFromLabelMm+'</td>'+
-          '<td>Предположение; не размещено</td></tr>').join("")+
-         '</tbody></table>':'<p>Нет однозначно ближайших пересечений.</p>')+
+          '<td>Линия к узлу; требует проверки '+
+          '<button type="button" data-lite-node-source="'+registerLabels.labels.indexOf(n.label)+
+          '">PDF</button></td></tr>').join("")+'</tbody></table>':
+         '<p>Нет однозначной графической линии от надписи к узлу осей.</p>')+
+        (candidateNodes.nearby.length?'<details>'+
+         '<summary>Только близость к узлу, без подтверждающей линии · '+
+         candidateNodes.nearby.length+'</summary>'+
+         '<p>Расстояния ниже относятся к надписям на PDF, не к конструкциям.</p>'+
+         '<table><thead><tr><th>Марка</th><th>Ближайшие оси</th>'+
+         '<th>Координаты узла</th><th>От надписи</th><th>Источник</th></tr></thead><tbody>'+
+         candidateNodes.nearby.slice(0,200).map(n=>'<tr><td>'+escDoc(n.mark)+'</td>'+
+          '<td>'+escDoc(n.axisX)+' / '+escDoc(n.axisY)+'</td>'+
+          '<td>X='+n.nodeXmm+', Y='+n.nodeYmm+'</td>'+
+          '<td>≈'+n.offsetFromLabelMm+' мм</td>'+
+          '<td><button type="button" data-lite-node-source="'+registerLabels.labels.indexOf(n.label)+
+          '">PDF</button></td></tr>').join("")+'</tbody></table></details>':"")+
         (candidateNodes.review.length?'<details><summary>Требуют разбора · '+
          candidateNodes.review.length+'</summary>'+
-         candidateNodes.review.slice(0,200).map(n=>'<div>'+escDoc(n.label.mark)+
-          ': '+escDoc(n.reason)+'</div>').join("")+'</details>':"")+
+         (candidateNodes.reviewSummary?.length?'<p><b>По причинам:</b> '+
+          candidateNodes.reviewSummary.map(n=>escDoc({
+           no_leader:"нет линии от надписи",node_collision:"несколько подписей у узла",
+           ambiguous_neighbor:"несколько близких узлов",far_from_node:"нет близкого узла",
+           no_vector_crossing:"нет пересечения линий",outside_region:"вне области"
+          }[n.code]||n.code)+': '+n.count).join(' · ')+'</p>':"")+
+         candidateNodes.review.slice(0,80).map(n=>'<div>'+escDoc(n.label.mark)+
+          ': '+escDoc(n.reason)+'</div>').join("")+
+         (candidateNodes.review.length>80?'<small>Показаны первые 80 причин.</small>':"")+
+         '</details>':"")+
         '</details>':"");
-      output.scrollIntoView?.({block:"nearest",behavior:"smooth"})
+       output.querySelectorAll?.("[data-lite-node-source]")?.forEach(button=>{
+        button.onclick=()=>{
+         const label=registerLabels.labels[Number(button.dataset.liteNodeSource)];
+         if(label)onOpenPdf?.(doc.id,sheet.page,[{quote:label.labelText,
+          rectPt:label.rectPt,fragmentIds:label.fragmentIds}])
+        }
+       });
+       output.scrollIntoView?.({block:"nearest",behavior:"smooth"})
      }catch(error){
       output.textContent="Не удалось сопоставить оси: "+String(error.message||error)
      }finally{if(output.dataset)output.dataset.busy="false"}
