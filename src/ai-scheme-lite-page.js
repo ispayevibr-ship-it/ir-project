@@ -263,7 +263,8 @@
    total:candidates.length,hasGrid:!!grid,markCount:marks.length}
  }
  function createPage(){
-  let latest=[],candidates=[],batch=null,lastOperation=null,inventory=null,
+  let latest=[],candidates=[],batch=null,verifiedPreview=null,
+   lastOperation=null,inventory=null,
    busy=false,log="",saved=0,disposeLast=null;
   const feedbackByCandidate=new Map();
   const page={
@@ -273,7 +274,7 @@
     const {objectId,documents=[],indexes=[],canEdit=false,askPassword,
      reviewer,onOpenPdf,onNavigate}=opts;
     page.dispose();
-    latest=[];candidates=[];batch=null;lastOperation=null;inventory=null;
+    latest=[];candidates=[];batch=null;verifiedPreview=null;lastOperation=null;inventory=null;
     busy=false;saved=0;log="";feedbackByCandidate.clear();
     const escDoc=esc;let live=true;
     const hostWindow=opts.window||root;
@@ -342,6 +343,27 @@
         batch.review.slice(0,60).map(x=>'<div>'+escDoc(x.candidate.mark)+
          ' · '+escDoc(x.reason)+'</div>').join("")+'</details>':"")+
        '</section>':"")+
+      (verifiedPreview?'<section class="ir-ai-lite-batch ir-ai-lite-server-preview">'+
+       '<h3>Предпросмотр перед расстановкой</h3>'+
+       '<p>Проверено на стороне SQLite. Готово: <b>'+verifiedPreview.preview.ready.length+
+       '</b>; пропущено: <b>'+verifiedPreview.preview.skipped.length+'</b>; '+
+       'уже размещено: <b>'+verifiedPreview.preview.existing+'</b>.</p>'+
+       '<div class="ir-ai-lite-preview-scroll"><table><thead><tr><th>Марка</th>'+
+       '<th>Экземпляр / ведомость</th><th>Оси</th><th>Низ Z</th><th>Верх Z</th>'+
+       '<th>Источник</th></tr></thead><tbody>'+
+       verifiedPreview.preview.ready.map((v,i)=>'<tr><td>'+escDoc(v.mark)+'</td>'+
+        '<td>'+escDoc(v.markId)+'</td><td>'+escDoc(v.axes)+'</td>'+
+        '<td>'+escDoc(v.z0Mm)+' мм</td><td>'+escDoc(v.z1Mm)+' мм</td>'+
+        '<td>PDF №'+escDoc(v.source?.documentId)+', лист '+escDoc(v.source?.page)+'</td></tr>'
+       ).join("")+'</tbody></table></div>'+
+       (verifiedPreview.preview.skipped.length?'<details><summary>Пропущены ('+
+        verifiedPreview.preview.skipped.length+')</summary>'+
+        verifiedPreview.preview.skipped.slice(0,80).map(x=>'<div>№'+
+         (x.index+1)+': '+escDoc(x.reason)+'</div>').join("")+'</details>':"")+
+       '<div class="ir-ai-lite-toolbar"><button type="button" data-lite-apply>3. Применить '+
+        verifiedPreview.preview.ready.length+' готовых экземпляров</button>'+
+        '<button type="button" data-lite-cancel-preview>Отмена</button></div>'+
+       '</section>':"")+
       (lastOperation?'<section class="ir-ai-lite-batch ir-ai-lite-last-operation">'+
        '<p>Последняя автоматическая расстановка: <b>'+
        lastOperation.created+'</b> элементов · '+escDoc(lastOperation.createdAt||"")+'</p>'+
@@ -356,6 +378,11 @@
       (candidateCount?'<div class="ir-ai-lite-candidates">'+candidates.map((c,i)=>
        '<article class="ir-ai-lite-candidate" data-lite-row="'+i+'">'+
        '<div class="ir-ai-lite-candidate-head"><b>'+escDoc(c.mark)+' · '+escDoc(TYPE_NAMES[c.type]||"Тип требует проверки")+'</b>'+
+       (batch?(batch.ready.some(x=>x.candidate===c)?
+        '<span class="ir-ai-lite-grade ready">Готово к проверке</span>':
+        batch.review.some(x=>x.candidate===c)?
+        '<span class="ir-ai-lite-grade review">Нужна проверка</span>':
+        '<span class="ir-ai-lite-grade unprocessed">Не обработано</span>'):"")+
        '<button type="button" data-lite-source="'+i+'">Открыть PDF · лист '+c.source.page+'</button></div>'+
        '<small>'+escDoc(c.source.name)+' · '+escDoc(c.warning)+'</small>'+
        '<div class="ir-ai-lite-evidence">'+c.evidence.map(e=>'<span>'+escDoc(e)+'</span>').join("")+'</div>'+
@@ -399,10 +426,14 @@
      if(uncertain)uncertain.onclick=()=>void queueHardSheets();
      const undoButton=slot.querySelector?.("[data-lite-undo]");
      if(undoButton)undoButton.onclick=()=>void undoLast();
+     const apply=slot.querySelector?.("[data-lite-apply]");
+     if(apply)apply.onclick=()=>void applyPreview();
+     const cancel=slot.querySelector?.("[data-lite-cancel-preview]");
+     if(cancel)cancel.onclick=()=>{verifiedPreview=null;draw()};
     }
     async function scan(){
      if(busy)return;busy=true;status("Быстро читаем текстовые слои PDF…");
-     latest=[];candidates=[];batch=null;feedbackByCandidate.clear();
+     latest=[];candidates=[];batch=null;verifiedPreview=null;feedbackByCandidate.clear();
      host.querySelector("[data-lite-scan]").disabled=true;
      try{
       const pool=indexes.filter(idx=>documents.some(d=>Number(d.id)===Number(idx.documentId)&&
@@ -470,42 +501,45 @@
      busy=true;
      try{
       if(!mounting?.preview||!mounting?.apply)
-       throw Error("Требуется Windows Beta 1.7.222 с транзакционной расстановкой. "+
-        "Последовательное добавление отключено для защиты схемы.");
+       throw Error("Установите Windows Beta 1.7.222 для транзакционной расстановки");
       if(!await verifyEditor())return;
       const proposals=batch.ready.map(toSafeEntry);
-      if(proposals.length>400)throw Error("За одну операцию допускается до 400 экземпляров. "+
-       "Разделите проект на последовательные этапы и повторите распознавание.");
-      status("Перепроверяем экземпляры, шифры, оригиналы PDF, сетку и координаты…");
+      if(proposals.length>400)throw Error("В одной операции не более 400 экземпляров");
+      status("Проверяем реальные экземпляры, шифры, PDF и оси…");
       const preview=await mounting.preview(objectId,proposals);
-      if(!preview.ready.length)throw Error("Не найдено готовых экземпляров. "+
-       preview.skipped.slice(0,4).map(x=>x.reason).join("; "));
-      const skipped=preview.skipped.length;
-      const explanation="Предпросмотр автоматической расстановки:\n"+
-       "Готово к размещению: "+preview.ready.length+" шт.\n"+
-       "Не пройдут проверку: "+skipped+" шт.\n"+
-       "Уже на схеме: "+preview.existing+" шт.\n\n"+
-       "Будут добавлены только проверенные экземпляры. "+
-       "Прежняя схема и ручные исправления сохраняются. "+
-       "Операцию можно отменить до ручного изменения её элементов.\n\n"+
-       (skipped?"Первые причины пропуска:\n"+
-        preview.skipped.slice(0,5).map(x=>"• "+x.reason).join("\n")+"\n\n":"")+
-       "Подтверждаете расстановку?";
-      if(!hostWindow.confirm(explanation)){
-       status("Расстановка отменена. Данные схемы не изменились.");return
-      }
-      const result=await mounting.apply(objectId,proposals,preview.token);
+      if(!preview.ready.length)throw Error("Нет готовых экземпляров: "+
+       preview.skipped.slice(0,5).map(x=>x.reason).join("; "));
+      verifiedPreview={proposals,preview};
+      status("Предпросмотр подготовлен: "+preview.ready.length+
+       " готовых экземпляров, "+preview.skipped.length+" пропущено. "+
+       "Просмотрите таблицу и подтвердите применение.");
+      draw()
+     }catch(error){status("Не удалось подготовить предпросмотр: "+String(error.message||error))}
+     finally{busy=false}
+    }
+    async function applyPreview(){
+     if(!verifiedPreview?.preview.ready.length||busy)return;
+     busy=true;
+     try{
+      if(!await verifyEditor())return;
+      const p=verifiedPreview;
+      if(!hostWindow.confirm("Разместить "+p.preview.ready.length+
+       " проверенных экземпляров одной транзакцией SQLite? "+
+       "Будет создана контрольная точка для отката. "+
+       "Неопределённые марки и вручную размещённые конструкции не затрагиваются."))return;
+      const result=await mounting.apply(objectId,p.proposals,p.preview.token);
       saved+=result.created;
       inventory=await mounting.inventory?.(objectId)||inventory;
       lastOperation={operationId:result.operationId,created:result.created,
        createdAt:new Date().toISOString()};
-      status("Добавлено "+result.created+" экземпляров одной транзакцией; "+
-       "пропущено "+result.skipped.length+". "+
-       "Сохранена контрольная точка для отката.");
-      batch=null;draw()
+      verifiedPreview=null;batch=null;
+      status("Размещено: "+result.created+" экземпляров. Пропущено: "+
+       result.skipped.length+". Откат доступен до ручного изменения.");
+      draw()
      }catch(error){
-      status("Автоматическая расстановка не выполнена: "+String(error.message||error)+
-       ". Частичные изменения в транзакции откатились.");
+      verifiedPreview=null;
+      status("Расстановка не выполнена: "+String(error.message||error)+
+       ". SQLite отменила частичные изменения. Подготовьте новый предпросмотр.");draw()
      }finally{busy=false}
     }
     async function undoLast(){
@@ -520,7 +554,7 @@
       saved=Math.max(0,saved-result.undone);
       lastOperation=await mounting.latest?.(objectId)||null;
       inventory=await mounting.inventory?.(objectId)||inventory;
-      batch=null;
+      batch=null;verifiedPreview=null;
       status("Автоматическая расстановка отменена: "+result.undone+
        " элементов. Инженерная история сохранена.");
       draw()
