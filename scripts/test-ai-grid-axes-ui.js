@@ -162,5 +162,21 @@ const wait=async f=>{
   "dimension is only a nearby drawing clue, never an actual member offset");
  assert.equal(schemeWrites,0,"linking register instances cannot mutate the scheme");
  ui.dispose();
- console.log("Axis grid UI: full label-to-line preview, readonly, no scheme placements PASS");
+ // Normal user workflow: the SAME scan click launches a read-only sweep
+ // automatically, without asking to hand-enter X/Y/Z in every mark card.
+ const automatic=createPage();
+ await automatic.render(host,{objectId:3,documents:[doc],indexes:[index],
+  canEdit:false,pdf,geometry:geom,root:sections,
+  onOpenPdf:(documentId,page,evidence)=>sourceViews.push({documentId,page,evidence})});
+ assert.equal(typeof scan.onclick,"function");
+ scan.onclick();
+ await wait(()=>status.textContent.includes("Координаты X/Y/Z конструкций ещё не подтверждены."));
+ assert(slot.innerHTML.includes("Автоматическая проверка монтажных планов"),
+  "automatic geometry sweep renders a summary after text-layer indexing");
+ assert(slot.innerHTML.includes("Проверено листов: <b>1/1</b>"));
+ assert(slot.innerHTML.includes("Калибровано схем")||
+  slot.innerHTML.includes("калибровано схем"));
+ assert.equal(schemeWrites,0,"automatic PDF inspection never places constructions");
+ automatic.dispose();
+ console.log("Axis grid UI: manual preview and auto all-plan review, readonly, no scheme placements PASS");
 })().catch(e=>{console.error(e);process.exitCode=1});
