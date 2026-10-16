@@ -2708,13 +2708,41 @@ window.irSchemePage=async function(objectId){
    }).catch(()=>{})
   }
  }
+ async function resetWholeScheme(){
+  if(!canEdit()||!irProject.schemeReset?.preview||!irProject.schemeReset?.clear)return;
+  try{
+   const preview=await irProject.schemeReset.preview(oid);
+   if(!preview.count){
+    alert("Схема уже пустая. Сетки и параметры осей сохранены.");return
+   }
+   const entered=prompt("Очистка схемы ВСЕГО объекта. Размещённых конструкций: "+
+    preview.count+". Действие затрагивает все виды работ и режимы 2D/3D. "+
+    "Сетки, ведомости, отчёты и инженерная история останутся. "+
+    "Введите ОЧИСТИТЬ для подтверждения:");
+   if(entered!=="ОЧИСТИТЬ"){restoreKeyboardAfterConfirm();return}
+   const button=document.getElementById("schemeResetAll");
+   if(button){button.disabled=true;button.textContent="Очищаем…"}
+   const result=await irProject.schemeReset.clear(oid,{
+    expectedCount:preview.count,expectedFingerprint:preview.fingerprint,
+    confirmation:entered
+   });
+   rows=await schemeApi.list();
+   selectedId="";planCopySource="";planCopyBusy=false;activeScheme="all";
+   elementSearch="";pickerScrollTop=0;hiddenGroups.clear();
+   statusFilter="all";levelMin="";levelMax="";
+   refreshGridModel();draw();
+   alert("Очищено элементов: "+result.cleared+
+    ". Оси, марки, отчёты и инженерная история сохранены.")
+  }catch(error){alert("Не удалось очистить монтажную схему: "+String(error.message||error))}
+  finally{restoreKeyboardAfterConfirm()}
+ }
  function draw(){
   if(mode==="three")window.irBuildingView?.dispose?.();
   else window.irThreeSchemeView?.dispose?.();
   if(mode==="plan")window.irBuildingView?.dispose?.();
   if(activeScheme!=="all"&&!frameMode&&!activeView()){activeScheme="all";refreshGridModel()}
   if(selectedId&&!columns().some(c=>c.id===selectedId))selectedId="";
-  const s=stats(),mp=statusCounts(),works=enabledWorks(),currentWork=works.find(w=>w.id===activeWorkId)||null,workOptions='<option value="__frame__" '+(frameMode?'selected':'')+'>Каркас — все виды работ</option>'+works.map(w=>'<option value="'+esc(w.id)+'" '+(!frameMode&&w.id===activeWorkId?'selected':'')+'>'+esc(w.name)+(w.code?' · '+esc(w.code):'')+'</option>').join(""),groupOptions=schemeGroups().map(g=>`<option value="${esc(g.key)}" ${g.key===activeScheme?"selected":""}>${esc(g.label)} · ${g.marks} марок · ${g.placed} элементов</option>`).join(""),editActions=canEdit()?`<button type="button" class="scheme-grid-button" id="schemeGridConfig">⚙ Параметры сетки</button>${!frameMode&&activeWorkId?`<button type="button" class="scheme-grid-button" id="schemeNewView">＋ Добавить сетку</button>${activeView()?`<button type="button" class="scheme-grid-button" id="schemeEditView">Изменить</button><button type="button" class="scheme-grid-button danger" id="schemeDeleteView">Удалить сетку</button>`:""}`:""}`:"",emptyOverlay=activeWorkId?(s.total?"":`<div class="scheme-empty-overlay"><b>Схема пока пустая</b><span>Нажмите «Добавить элемент» и выберите марку для этой монтажной схемы.</span></div>`):`<div class="scheme-empty-overlay"><b>Монтажная схема не включена</b><span>Откройте «Виды работ» и включите галочку «Нужна монтажная схема» у нужного вида работ.</span></div>`;
+  const s=stats(),mp=statusCounts(),works=enabledWorks(),currentWork=works.find(w=>w.id===activeWorkId)||null,workOptions='<option value="__frame__" '+(frameMode?'selected':'')+'>Каркас — все виды работ</option>'+works.map(w=>'<option value="'+esc(w.id)+'" '+(!frameMode&&w.id===activeWorkId?'selected':'')+'>'+esc(w.name)+(w.code?' · '+esc(w.code):'')+'</option>').join(""),groupOptions=schemeGroups().map(g=>`<option value="${esc(g.key)}" ${g.key===activeScheme?"selected":""}>${esc(g.label)} · ${g.marks} марок · ${g.placed} элементов</option>`).join(""),editActions=canEdit()?`<button type="button" class="scheme-grid-button" id="schemeGridConfig">⚙ Параметры сетки</button><button type="button" class="scheme-grid-button danger scheme-reset-all" id="schemeResetAll">Очистить схему</button>${!frameMode&&activeWorkId?`<button type="button" class="scheme-grid-button" id="schemeNewView">＋ Добавить сетку</button>${activeView()?`<button type="button" class="scheme-grid-button" id="schemeEditView">Изменить</button><button type="button" class="scheme-grid-button danger" id="schemeDeleteView">Удалить сетку</button>`:""}`:""}`:"",emptyOverlay=activeWorkId?(s.total?"":`<div class="scheme-empty-overlay"><b>Схема пока пустая</b><span>Нажмите «Добавить элемент» и выберите марку для этой монтажной схемы.</span></div>`):`<div class="scheme-empty-overlay"><b>Монтажная схема не включена</b><span>Откройте «Виды работ» и включите галочку «Нужна монтажная схема» у нужного вида работ.</span></div>`;
   app.innerHTML=`<div class="scheme-page ${canEdit()&&activeWorkId?"has-add-dock":""} ${mode==="building"?"scheme-page-building":""}">
    <div class="scheme-head"><button class="back" id="schemeBack">← Назад</button><div><h1>Монтажная схема</h1><p>${esc(object.name||"")}${frameMode?"":currentWork?` · ${esc(currentWork.name)}`:""} · ${esc(activeGroup().label)}</p></div><div class="scheme-head-actions"><label class="scheme-type-select-wrap work"><span>Режим / вид работ</span><select id="schemeWorkSelect" data-native-select="1">${workOptions}</select></label><label class="scheme-type-select-wrap"><span>Схема</span><select id="schemeTypeSelect" data-native-select="1" ${frameMode||activeWorkId?"":"disabled"}>${groupOptions}</select></label><div class="scheme-view-switch"><button data-mode="building" class="${mode==="building"?"on":""}">Общий 3D</button><button data-mode="plan" class="${mode==="plan"?"on":""}">План</button><button type="button" data-mode="three" class="${mode==="three"?"on":""}" title="Новый тестовый Three.js просмотрщик, без изменения данных">Three.js 3D · тест</button></div>${editActions}</div></div>
    <div class="scheme-summary">
@@ -2768,6 +2796,7 @@ window.irSchemePage=async function(objectId){
   document.getElementById("schemeLayersShowAll")?.addEventListener("click",()=>{layersPanelOpen=true;hiddenGroups.clear();updateLayerVisibility()});
   document.getElementById("schemeLayersHideAll")?.addEventListener("click",()=>{layersPanelOpen=true;allVisibleTypes().forEach(g=>hiddenGroups.add(g.key));updateLayerVisibility()});
   document.getElementById("schemeRefreshMarkProgress")?.addEventListener("click",refreshSchemeMarkProgress);
+  document.getElementById("schemeResetAll")?.addEventListener("click",()=>void resetWholeScheme());
   document.getElementById("schemeStatusFilter")?.addEventListener("change",e=>{statusFilter=e.target.value;updateLayerVisibility()});
   document.getElementById("schemeLevelMin")?.addEventListener("change",e=>{levelMin=e.target.value;updateLayerVisibility()});
   document.getElementById("schemeLevelMax")?.addEventListener("change",e=>{levelMax=e.target.value;updateLayerVisibility()});
