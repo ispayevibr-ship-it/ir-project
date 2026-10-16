@@ -1,5 +1,5 @@
 "use strict";
-/* Exercise the actual quick-scheme tab controller without Electron or Qwen.
+/* Exercise the actual quick-scheme tab controller without Electron or any model runtime.
  * Stand-in DOM elements capture real button callbacks and form values.
  * A verified schematic must never be silently inserted before approval. */
 const assert=require("node:assert/strict");
@@ -103,7 +103,7 @@ function makeHost(){
   onOpenPdf:(id,p,evidence)=>{opened=[id,p];openedEvidence=evidence},
   onNavigate:tab=>navigation=tab
  });
- assert.match(host.innerHTML,/Монтажная схема · быстрый режим/);
+ assert.match(host.innerHTML,/Чертежи КМ\/КМД → Монтажная схема/);
  assert.equal(typeof host.inspect.scan.onclick,"function");
  assert.equal(host.inspect.scan.disabled,false);
  host.inspect.scan.onclick();

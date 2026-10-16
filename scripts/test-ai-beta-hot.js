@@ -28,7 +28,7 @@ if(process.argv.includes("--manifest")){
  process.exit(0)
 }
 (async()=>{
- const tmp=fs.mkdtempSync(path.join(os.tmpdir(),"ir-ai-beta-hot-"));
+ const tmp=fs.mkdtempSync(path.join(os.tmpdir(),"ir-kmd-beta-hot-"));
  const appDir=path.join(tmp,"app"),data=path.join(tmp,"user");
  fs.mkdirSync(path.join(appDir,"src"),{recursive:true});
  fs.writeFileSync(path.join(appDir,"src","ai-beta-channel.json"),'{"channel":"beta"}');
@@ -72,36 +72,36 @@ if(process.argv.includes("--manifest")){
    b=Buffer.from("module.exports={mode:'analysis10'};"),
    c=Buffer.from("module.exports={mode:'analysis11'};");
   const support={
-   "src/ai-structured-extraction.js":Buffer.from("module.exports={extract:()=>({})};"),
-   "src/ai-review.js":Buffer.from("module.exports={createAiReview(){}};"),
-   "src/ai-workflow.js":Buffer.from("module.exports={createAiWorkflow(){}};"),
-   "src/ai-structured-review.js":Buffer.from("module.exports={createStructuredReviews(){}};")
+   "src/ai-pdf-geometry.js":Buffer.from("module.exports={extract:()=>({})};"),
+   "src/ai-mounting-placement.js":Buffer.from("module.exports={createAiReview(){}};"),
+   "src/ai-document-store.js":Buffer.from("module.exports={createAiWorkflow(){}};"),
+   "src/ai-mounting-drafts.js":Buffer.from("module.exports={createStructuredReviews(){}};")
   };
   const filesFor=analysisBytes=>[
-   makeFile("src/ai-local-engine.js",a),
-   makeFile("src/ai-analysis.js",analysisBytes),
+   makeFile("src/ai-scheme-lite-page.js",a),
+   makeFile("src/ai-recognition-page.js",analysisBytes),
    ...Object.entries(support).map(([name,bytes])=>makeFile(name,bytes))
   ];
-  responseFiles={"src/ai-local-engine.js":a,"src/ai-analysis.js":b,...support};
+  responseFiles={"src/ai-scheme-lite-page.js":a,"src/ai-recognition-page.js":b,...support};
   remoteManifest={version:"1.7.217.10",channel:"beta",baseVersion,files:filesFor(b)};
   assert.equal(updater.installedVersion(),baseVersion);
   assert.equal((await updater.check()).updateInfo.version,"1.7.217.10");
   await updater.download();
   assert.equal(updater.installedVersion(),"1.7.217.10");
-  assert.equal(require(updater.resolveFile("src/ai-local-engine.js")).mode,"hot10");
-  assert(updater.resolveFile("src/ai-local-engine.js").includes("app-updates"));
+  assert.equal(require(updater.resolveFile("src/ai-scheme-lite-page.js")).mode,"hot10");
+  assert(updater.resolveFile("src/ai-scheme-lite-page.js").includes("app-updates"));
   downloaded.length=0;
-  responseFiles["src/ai-analysis.js"]=c;
+  responseFiles["src/ai-recognition-page.js"]=c;
   remoteManifest={...remoteManifest,version:"1.7.217.11",files:filesFor(c)};
   await updater.check();await updater.download();
   assert.equal(updater.installedVersion(),"1.7.217.11");
-  assert(!downloaded.some(url=>url.includes("/src/ai-local-engine.js?")),
+  assert(!downloaded.some(url=>url.includes("/src/ai-scheme-lite-page.js?")),
    "Unchanged verified files should be reused, not downloaded again");
-  assert(downloaded.some(url=>url.includes("/src/ai-analysis.js?")));
+  assert(downloaded.some(url=>url.includes("/src/ai-recognition-page.js?")));
   assert.equal(updater.verifyRuntime().files.length,6);
   // Hash rejection must preserve the previous installed runtime.
   remoteManifest={...remoteManifest,version:"1.7.217.12",
-   files:filesFor(c).map(f=>f.target==="src/ai-analysis.js"?
+   files:filesFor(c).map(f=>f.target==="src/ai-recognition-page.js"?
     {...f,sha256:"a".repeat(64)}:f)};
   await updater.check();
   await assert.rejects(updater.download(),/Контрольная сумма/);
@@ -114,20 +114,20 @@ if(process.argv.includes("--manifest")){
   remoteManifest={version:"1.7.218.2",channel:"beta",baseVersion:"1.7.218",
    files:filesFor(c)};
   await assert.rejects(updater.check(),/несовместим/);
-  const hotFile=updater.resolveFile("src/ai-local-engine.js");
+  const hotFile=updater.resolveFile("src/ai-scheme-lite-page.js");
   fs.writeFileSync(hotFile,"tampered");
-  assert.equal(updater.resolveFile("src/ai-local-engine.js"),
+  assert.equal(updater.resolveFile("src/ai-scheme-lite-page.js"),
    path.join(appDir,"src","ai-local-engine.js"),
    "Tampered hot runtime must fall back to bundled originals");
   // Manual rollback must remain possible even if the active hot patch is corrupt.
   const reverted=updater.rollback();
   assert.equal(reverted.version,"1.7.217.10","restores previous verified hot version");
   assert.equal(updater.installedVersion(),"1.7.217.10");
-  assert.equal(require(updater.resolveFile("src/ai-local-engine.js")).mode,"hot10");
+  assert.equal(require(updater.resolveFile("src/ai-scheme-lite-page.js")).mode,"hot10");
   const bundled=updater.rollback();
   assert.equal(bundled.version,baseVersion,"second rollback restores the bundled EXE");
   assert.equal(updater.installedVersion(),baseVersion);
-  assert.equal(updater.resolveFile("src/ai-local-engine.js"),
+  assert.equal(updater.resolveFile("src/ai-scheme-lite-page.js"),
    path.join(appDir,"src","ai-local-engine.js"));
   assert.throws(()=>updater.rollback(),/Hot-обновление не установлено/);
   const bridge=fs.readFileSync(path.join(__dirname,"..","preload.js"),"utf8");

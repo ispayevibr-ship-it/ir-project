@@ -31,8 +31,8 @@ function validBetaManifest(m){
  if(parts.length!==4||parts.slice(0,3).join(".")!==app.getVersion()||
     !/^[1-9][0-9]*$/.test(parts[3]))return false;
  const names=new Set(),required=[
-  "src/ai-local-engine.js","src/ai-analysis.js","src/ai-structured-extraction.js",
-  "src/ai-review.js","src/ai-workflow.js","src/ai-structured-review.js"
+  "src/ai-scheme-lite-page.js","src/ai-recognition-page.js","src/ai-pdf-geometry.js",
+  "src/ai-mounting-placement.js","src/ai-document-store.js","src/ai-mounting-drafts.js"
  ];
  for(const f of m.files){
   if(!f||typeof f.target!=="string"||!betaTarget(f.target)||
