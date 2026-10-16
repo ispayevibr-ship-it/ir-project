@@ -333,9 +333,14 @@ console.log("KMD member outline hypotheses: double strokes, single line, grid ax
 // Multi-scheme sheets must not silently accept full-page calibration.
 // Deliberately provide two independently valid sub-plan regions even if the
 // whole sheet looks geometrically plausible.
-const regionFake={full:{calibrated:true,region:{left:0,right:1,top:0,bottom:1}},
- left:{calibrated:true,region:{left:0,right:.5,top:0,bottom:1}},
- right:{calibrated:true,region:{left:.5,right:1,top:0,bottom:1}}};
+const regionFake={
+ full:{calibrated:true,region:{left:0,right:1,top:0,bottom:1},
+  xMatches:[{name:"1"},{name:"2"},{name:"3"},{name:"4"},{name:"5"},{name:"6"}]},
+ left:{calibrated:true,region:{left:0,right:.5,top:0,bottom:1},
+  xMatches:[{name:"1"},{name:"2"},{name:"3"}]},
+ right:{calibrated:true,region:{left:.5,right:1,top:0,bottom:1},
+  xMatches:[{name:"1"},{name:"2"},{name:"3"}]}
+};
 const choose=k=>regionFake[k];
 const multiAuto=selectPlanRegion({selected:"auto",calibrate:choose});
 assert.equal(multiAuto.analysis.calibrated,false);
@@ -345,6 +350,11 @@ assert.equal(multiAuto.available.left,true);
 assert.equal(multiAuto.available.right,true);
 assert.equal(selectPlanRegion({selected:"full",calibrate:choose}).analysis.calibrated,false,
  "full-page must be refused when two valid independent plan regions exist");
+const splitSingle=selectPlanRegion({selected:"auto",calibrate:k=>
+ k==="right"?{...regionFake.right,xMatches:[{name:"4"},{name:"5"},{name:"6"}]}:choose(k)});
+assert.equal(splitSingle.multiplePlans,false,
+ "a single grid split between halves must not be misclassified as two plans");
+assert.equal(splitSingle.regionName,"full");
 const chosenLeft=selectPlanRegion({selected:"left",calibrate:choose});
 assert.equal(chosenLeft.analysis.calibrated,true);
 assert.equal(chosenLeft.regionName,"left");
