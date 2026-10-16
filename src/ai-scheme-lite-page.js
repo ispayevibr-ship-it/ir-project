@@ -1250,7 +1250,7 @@
 
  function createPage(){
   let latest=[],candidates=[],batch=null,verifiedPreview=null,
-    instanceResults=new Map(),instanceRows=[],showAllInstances=false,
+    instanceResults=new Map(),instanceRows=[],instanceLinks=new Map(),showAllInstances=false,
    lastOperation=null,inventory=null,draftRows=[],
    busy=false,log="",saved=0,disposeLast=null;
   const feedbackByCandidate=new Map();
@@ -1262,7 +1262,7 @@
      reviewer,onOpenPdf,onNavigate}=opts;
     page.dispose();
     latest=[];candidates=[];batch=null;verifiedPreview=null;lastOperation=null;inventory=null;draftRows=[];
-     instanceResults.clear();instanceRows=[];showAllInstances=false;
+     instanceResults.clear();instanceRows=[];instanceLinks.clear();showAllInstances=false;
     busy=false;saved=0;log="";feedbackByCandidate.clear();
     const escDoc=esc;const canEdit=true;let live=true;
     const hostWindow=opts.window||root;
@@ -1331,6 +1331,11 @@
      }
      const unknown=[...new Set([...instanceResults.values()]
        .flatMap(x=>x.skippedUnknownMarks||[]))];
+     const evidenceCounts=new Map();
+     for(const item of instanceRows){
+      const link=instanceLinks.get(item.instanceId);
+      if(link)evidenceCounts.set(link.status,(evidenceCounts.get(link.status)||0)+1)
+     }
      const unscoped=instanceRows.filter(x=>x.diagramRegion==="full").length,
       suspect=instanceRows.filter(x=>x.sheetType!=="plan").length,
       limited=[...instanceResults.values()].filter(x=>x.truncated).length;
@@ -1339,6 +1344,11 @@
       '<p>Найдено: <b>'+instanceRows.length+'</b> надписей; '+
       'разных обозначений: <b>'+counts.size+'</b>.</p>'+
       '<p><b>В этом реестре подтверждено положений: 0; готовых X/Y/Z: 0.</b> '+
+      'Гипотез парного контура: <b>'+(evidenceCounts.get("contour_candidate")||0)+
+      '</b>; несколько вариантов: <b>'+(evidenceCounts.get("multiple_contours")||0)+
+      '</b>; одиночная линия: <b>'+(evidenceCounts.get("single_stroke")||0)+
+      '</b>; недостаточно графики: <b>'+(evidenceCounts.get("needs_more_evidence")||0)+
+      '</b>.</p><p>' +
       'Надпись может повторяться в разрезах или деталях. '+
       'Каждое место текста считается отдельно, пока его не сверили с планом.</p>'+
       (unknown.length?'<p>Не сопоставлены с ведомостью: '+unknown.length+
@@ -1366,9 +1376,21 @@
       instanceRows.slice(0,showAllInstances?5000:350).map((x,i)=>'<tr><td>'+escDoc(x.mark)+'</td>'+
        '<td>'+x.page+'</td><td>'+escDoc(x.diagramRegion)+'</td>'+
        '<td>'+x.pageX.toFixed(1)+' / '+x.pageYBottom.toFixed(1)+'</td>'+
-       '<td>Координаты конструкции неизвестны</td>'+
+       '<td>'+escDoc(({
+        contour_candidate:"Возможный парный контур",
+        multiple_contours:"Несколько контуров · требуется выбор",
+        single_stroke:"Одна линия · недостаточно",
+        no_graphic_evidence:"Контур пока не найден",
+        needs_more_evidence:"Неполная геометрия PDF",
+        not_checked:"Геометрия не проверена",
+        ambiguous_match:"Неоднозначная связь надписи"
+       })[instanceLinks.get(x.instanceId)?.status]||
+        "Геометрия не проверена")+'; X/Y/Z не подтверждены</td>'+
        '<td><button type="button" data-lite-instance-source="'+i+
-       '">PDF</button></td></tr>').join("")+'</tbody></table></div>'+
+       '">PDF</button>'+
+       (instanceLinks.get(x.instanceId)?.strokeLinesPt?.length===2?
+        '<button type="button" data-lite-instance-outline="'+i+
+        '">Линии PDF</button>':"")+'</td></tr>').join("")+'</tbody></table></div>'+
       (instanceRows.length>350?'<button type="button" data-lite-instance-expand>'+
        (showAllInstances?'Свернуть список':'Показать все найденные надписи')+
        '</button>':"")+
@@ -1521,6 +1543,14 @@
      });
      const expand=slot.querySelector?.("[data-lite-instance-expand]");
      if(expand)expand.onclick=()=>{showAllInstances=!showAllInstances;draw()};
+     slot.querySelectorAll("[data-lite-instance-outline]").forEach(b=>b.onclick=()=>{
+      const x=instanceRows[Number(b.dataset.liteInstanceOutline)],
+       link=x&&instanceLinks.get(x.instanceId);
+      if(x&&link?.strokeLinesPt?.length===2)
+       onOpenPdf?.(x.documentId,x.page,[{quote:x.labelText,
+        fragmentIds:x.fragmentIds,rectPt:x.rectPt,
+        strokeLinesPt:link.strokeLinesPt}])
+     });
      slot.querySelectorAll("[data-lite-instance-source]").forEach(b=>b.onclick=()=>{
       const x=instanceRows[Number(b.dataset.liteInstanceSource)];
       if(x)onOpenPdf?.(x.documentId,x.page,[{quote:x.labelText,
