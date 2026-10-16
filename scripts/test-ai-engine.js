@@ -1,6 +1,6 @@
 "use strict";
 const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),os=require("node:os"),crypto=require("node:crypto"),{EventEmitter}=require("node:events");
-const {createEngine,names,VISION_CONTEXT_TOKENS,CPU_VISION_TIMEOUT_MS,GPU_VISION_TIMEOUT_MS}=require("../src/ai-local-engine");
+const {createEngine,names,VISION_CONTEXT_TOKENS,COMPACT_VISION_CONTEXT_TOKENS,selectVisionContext,CPU_VISION_TIMEOUT_MS,GPU_VISION_TIMEOUT_MS}=require("../src/ai-local-engine");
 const {createAnalysis}=require("../src/ai-analysis");
 (async()=>{
  const temp=fs.mkdtempSync(path.join(os.tmpdir(),"ir-ai-engine-"));
@@ -33,6 +33,11 @@ const {createAnalysis}=require("../src/ai-analysis");
   wait:async()=>{}
  });
  try{
+  assert.equal(COMPACT_VISION_CONTEXT_TOKENS,6144);
+  assert.equal(selectVisionContext({manual:true},16*1024**3),6144,
+   "manual Qwen4B on 16 GiB uses safer context than 8192 tokens");
+  assert.equal(selectVisionContext({manual:true},24*1024**3),8192);
+  assert.equal(selectVisionContext({manual:false},16*1024**3),8192);
   assert.equal(engine.status().state,"missing");
   assert.equal((await engine.start()).installed,false);
   const sha256={},content={binary:Buffer.from("fake-executable-for-test"),model:Buffer.from("model.gguf-test-bytes"),vision:Buffer.from("vision-encoder-bytes")};
@@ -154,6 +159,54 @@ const {createAnalysis}=require("../src/ai-analysis");
   await assert.rejects(canceled,/отменено пользователем/);
   assert.equal(userCancelEngine.status().active,false);
   userCancelEngine.stop();
+  // Process exits during a real Qwen image request: capture only bounded
+  // allocation-related stderr and never collapse this into generic fetch failed.
+  let crashChild;
+  const crashEngine=createEngine({
+   getUserDataPath:()=>temp,memory:()=>16*1024**3,
+   freeMemory:()=>Math.round(1.4*1024**3),wait:async()=>{},
+   spawn:()=>{
+    crashChild=new EventEmitter();
+    crashChild.stderr=new EventEmitter();
+    crashChild.kill=()=>{crashChild.killed=true};
+    return crashChild
+   },
+   httpFetch:async(url,args)=>{
+    if(url.endsWith("/health"))return{ok:true,status:200};
+    return new Promise((_resolve,reject)=>{
+     args.signal.addEventListener("abort",()=>reject(Object.assign(
+      new Error("This operation was aborted"),{name:"AbortError"})),{once:true})
+    })
+   }
+  });
+  assert.equal((await crashEngine.start()).state,"ready");
+  const crashed=crashEngine.analyzeImage({buffer:img,mime:"image/png",prompt:"K60"});
+  crashChild.stderr.emit("data",Buffer.from("ggml_backend_buffer_alloc: failed to allocate 1 GiB (out of memory)\n"));
+  crashChild.emit("exit",3221225477,null);
+  await assert.rejects(crashed,/llama-server завершился.*ошибка выделения памяти/);
+  assert.equal(crashEngine.status().state,"failed");
+  assert.equal(crashEngine.status().lastServerExit.code,3221225477);
+  assert.equal(crashEngine.status().active,false);
+  crashEngine.stop();
+  // A dropped localhost socket with a living process must be explained, with
+  // the actual local cause code and available RAM; source drawings are untouched.
+  const socketEngine=createEngine({
+   getUserDataPath:()=>temp,memory:()=>16*1024**3,
+   freeMemory:()=>Math.round(1.3*1024**3),wait:async()=>{},
+   spawn:()=>{const proc=new EventEmitter();proc.kill=()=>{};return proc},
+   httpFetch:async url=>{
+    if(url.endsWith("/health"))return{ok:true,status:200};
+    const failure=new TypeError("fetch failed");
+    failure.cause=Object.assign(new Error("socket hang up"),{code:"ECONNRESET"});
+    throw failure
+   }
+  });
+  assert.equal((await socketEngine.start()).state,"ready");
+  await assert.rejects(socketEngine.analyzeImage({buffer:img,mime:"image/png",
+   prompt:"K60"}),/Связь с Qwen прервана \(ECONNRESET\).*Свободная RAM: 1.3 ГБ/);
+  assert.equal(socketEngine.status().active,false);
+  assert.equal(socketEngine.status().state,"ready");
+  socketEngine.stop();
   fs.writeFileSync(path.join(dir,names.model),"corrupted model");
   assert.equal((await engine.verify()).installed,false);
   console.log("Local AI: checksums, isolated subprocess, loopback, auth token, real API payload and unverified provenance PASS");
