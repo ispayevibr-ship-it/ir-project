@@ -5,7 +5,7 @@
  * Existing confirmed scheme grid + project mark register remain authoritative.
  */
 (function(root){
- const MARK=/[КKБBРPСCФFМM][\- ]?\d{1,4}[А-ЯA-Z]?/iu;
+ const MARK=/[КKБВBРPСCФFМM][\- ]?\d{1,4}[А-ЯA-Z]?/iu;
  const TYPES=[
   ["column",/колонн[аы]|стойк[аи]|фахверк/iu],
   ["beam",/балк[аи]|ригел[ья]|прогон[аы]|распорк[аи]/iu],
@@ -18,7 +18,7 @@
   const s=(String(name||"")+" "+String(text||"").slice(0,2400)).toLocaleLowerCase("ru");
   if(/план\s+(?:расположения|монтажа|колонн|балок|связей)|схема\s+(?:расположения|монтажа)|монтажн.{0,12}схем/iu.test(s))return"plan";
   if(/разрез|фасад|сечение\s+по\s+оси/iu.test(s))return"section";
-  if(/(?:колонна|балка|ригель|связь|прогон|стойка|фахверк)\s*[КKБBРPСCФFМM]\s*\d/iu.test(s))return"detail";
+  if(/(?:колонна|балка|ригель|связь|прогон|стойка|фахверк)\s*[КKБВBРPСCФFМM]\s*\d/iu.test(s))return"detail";
   return"other"
  }
  // Only specifically labelled elevations are allowed. Every other number
@@ -84,7 +84,7 @@
   const result=[],source=String(text||"");
   // A mark needs a nearby explicit structural noun; a bare part label is not a
   // basis to place the structural element.
-  const regex=/(колонн[аы]|балк[аи]|ригел[ья]|прогон[аы]|распорк[аи]|стойк[аи]|фахверк|связ[ьи]|раскос[аы])\s*(?:марка|марки|№|поз\.?)?\s*[:\-]?\s*([КKБBРPСCФFМM]\s*[-]?\s*\d{1,4}[А-ЯA-Z]?)/giu;
+  const regex=/(колонн[аы]|балк[аи]|ригел[ья]|прогон[аы]|распорк[аи]|стойк[аи]|фахверк|связ[ьи]|раскос[аы])\s*(?:марка|марки|№|поз\.?)?\s*[:\-]?\s*([КKБВBРPСCФFМM]\s*[-]?\s*\d{1,4}[А-ЯA-Z]?)/giu;
   let m;
   while((m=regex.exec(source))&&result.length<30){
    const mark=norm(m[2]),type=TYPES.find(([,rx])=>rx.test(m[1]))?.[0]||"unknown";
@@ -139,7 +139,7 @@
   const sheetType=classSheet(name,text),
    occurrences=uncertainEncoding?[]:markMatches(text,{includeRepeated:true}),
    matches=uncertainEncoding?[]:markMatches(text);
-  const fromName=(String(name||"").match(/(?:колонн[аы]|балк[аи]|ригел[ья]|прогон[аы]|связ[ьи]|КМД)[^\d]{0,14}([КKБBРPСCФFМM]\d{1,4})/iu)||[])[1];
+  const fromName=(String(name||"").match(/(?:колонн[аы]|балк[аи]|ригел[ья]|прогон[аы]|связ[ьи]|КМД)[^\d]{0,14}([КKБВBРPСCФFМM]\d{1,4})/iu)||[])[1];
   if(!matches.length&&fromName&&MARK.test(fromName))matches.push({
    mark:norm(fromName),type:"unknown",quote:"Имя файла: "+String(name||"").slice(0,130),basis:"filename_only"
   });
@@ -554,8 +554,8 @@
    ["x","y","width","height"].every(k=>Number.isFinite(Number(f[k])))&&
    Number(f.width)>=0&&Number(f.height)>=0;
   const compact=v=>String(v||"").trim().replace(/[\s\u00a0]+/g,"").replace(/[−–—]/g,"-");
-  const labelRx=/^[КKБBРPСCФFМM]-?\d{1,4}[А-ЯA-Z]?$/iu;
-  const prefixRx=/^[КKБBРPСCФFМM]-?$/iu;
+  const labelRx=/^[КKБВBРPСCФFМM]-?\d{1,4}[А-ЯA-Z]?$/iu;
+  const prefixRx=/^[КKБВBРPСCФFМM]-?$/iu;
   const suffixRx=/^\d{1,4}[А-ЯA-Z]?$/iu;
   const interval=(map,mm)=>{
    const a=[...map].map(([name,value])=>({name,mm:Number(value)}))
