@@ -23,6 +23,10 @@ const MAX_PDF_BYTES=48*1024*1024,MAX_PAGES=80;
   const viewport=page.getViewport({scale:1});
   const operatorList=await page.getOperatorList();
   const result=extractSegments(operatorList,pdfjs.OPS,viewport);
+  if(!Array.isArray(result.detailSegments)||result.detailSegments.length>14400)
+   throw Error("Локальная геометрия PDF превышает безопасный предел");
+  // Both bounded geometry selections are read-only and unverified.
+  result.stats.detailWorkerValidated=true;
   parentPort.postMessage({type:"result",page:pageNumber,total:doc.numPages,
    rotation:viewport.rotation,source:"pdfjs_vector_strokes",...result});
   page.cleanup();await loading.destroy()
