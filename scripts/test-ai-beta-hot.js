@@ -119,7 +119,24 @@ if(process.argv.includes("--manifest")){
   assert.equal(updater.resolveFile("src/ai-local-engine.js"),
    path.join(appDir,"src","ai-local-engine.js"),
    "Tampered hot runtime must fall back to bundled originals");
-  console.log("AI Beta hot: channel isolation, versioning, SHA-256, cached download, rollback PASS");
+  // Manual rollback must remain possible even if the active hot patch is corrupt.
+  const reverted=updater.rollback();
+  assert.equal(reverted.version,"1.7.217.10","restores previous verified hot version");
+  assert.equal(updater.installedVersion(),"1.7.217.10");
+  assert.equal(require(updater.resolveFile("src/ai-local-engine.js")).mode,"hot10");
+  const bundled=updater.rollback();
+  assert.equal(bundled.version,baseVersion,"second rollback restores the bundled EXE");
+  assert.equal(updater.installedVersion(),baseVersion);
+  assert.equal(updater.resolveFile("src/ai-local-engine.js"),
+   path.join(appDir,"src","ai-local-engine.js"));
+  assert.throws(()=>updater.rollback(),/Hot-обновление не установлено/);
+  const bridge=fs.readFileSync(path.join(__dirname,"..","preload.js"),"utf8");
+  const main=fs.readFileSync(path.join(__dirname,"..","main.js"),"utf8");
+  const shell=fs.readFileSync(path.join(__dirname,"..","src","tabs-shell.js"),"utf8");
+  assert(bridge.includes('ipcRenderer.invoke("update:rollback")'));
+  assert(main.includes('ipcMain.handle("update:rollback"'));
+  assert(shell.includes("Откатить hot-обновление"));
+  console.log("AI Beta hot: channel isolation, SHA-256, reuse, rollback, UI bridge PASS");
  }finally{
   https.get=originalGet;Module._load=originalLoad;
   fs.rmSync(tmp,{recursive:true,force:true})
