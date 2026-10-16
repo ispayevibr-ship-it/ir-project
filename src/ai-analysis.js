@@ -19,6 +19,13 @@ function createAnalysis({database,documents,engine,ocr=null,pdfRenderer,revision
   }catch{}
   return structured
  }
+ // Qwen-only beta is allowed when the optional PaddleOCR pack is absent.
+ // If OCR is installed but fails, preserve the error instead of silently bypassing it.
+ async function recognizeOptionalOcr(input){
+  if(!ocr||typeof ocr.recognize!=="function")return null;
+  if(typeof ocr.status==="function"&&ocr.status()?.installed!==true)return null;
+  return ocr.recognize({buffer:input.buffer,mime:input.mime})
+ }
  function list(id){
   return database.listEntity(object(id),"ai-analysis").filter(r=>r.record_type==="image_analysis")
    .map(r=>({id:r.id,documentId:r.data?.source?.documentId,
@@ -34,7 +41,7 @@ function createAnalysis({database,documents,engine,ocr=null,pdfRenderer,revision
   busy=true;
   try{
    const input=await documents.readForAnalysis(id,documentId);
-   const ocrEvidence=ocr?await ocr.recognize({buffer:input.buffer,mime:input.mime}):null;
+   const ocrEvidence=await recognizeOptionalOcr(input);
    const result=await engine.analyzeImage({buffer:input.buffer,mime:input.mime,
     prompt:structured.PROMPT,ocrContext:ocrEvidence?.text||""});
    if(typeof documents.verify==="function"&&!documents.verify(id,input.source.documentId))
@@ -62,7 +69,7 @@ function createAnalysis({database,documents,engine,ocr=null,pdfRenderer,revision
    const input=await pdfRenderer.renderForAnalysis(id,documentId,page,region);
    if(revisions&&!revisions.isCurrent(id,input.source))
     throw Error("Этот лист не входит в действующий комплект КМ/КМД. Сначала утвердите корректную ревизию");
-   const ocrEvidence=ocr?await ocr.recognize({buffer:input.buffer,mime:input.mime}):null;
+   const ocrEvidence=await recognizeOptionalOcr(input);
    const result=await engine.analyzeImage({buffer:input.buffer,mime:input.mime,
     prompt:"PDF лист "+input.source.page+(region?" — выделенный фрагмент":" — весь лист")+". "+structured.PROMPT,
     ocrContext:ocrEvidence?.text||""});
