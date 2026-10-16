@@ -3,7 +3,9 @@ const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("nod
 const files=Object.fromEntries(["main.js","preload.js","src/app.js","src/access.js","src/object-shell.js",
  "src/tabs-shell.js","src/ai-recognition-page.js","src/ai-recognition-page.css","src/ai-model-settings.js","src/index.html","src/ir-runtime.js","src/ai-local-engine.js","src/ai-analysis.js"].map(p=>[p,fs.readFileSync(p,"utf8")]));
 for(const path of ["main.js","preload.js","src/ai-recognition-page.js","src/app.js","src/ir-runtime.js"])new vm.Script(files[path],{filename:path});
-assert(files["main.js"].includes('require("./src/ai-document-store")'),"node store is loaded by Electron main process");
+assert(files["main.js"].includes('hotAiModule("ai-document-store")')||
+ files["main.js"].includes('require("./src/ai-document-store")'),
+ "node store is loaded by Electron main process, with compatible hot loader");
 assert(files["main.js"].includes('registerAiDocuments();'),"IPC wired");
 assert(files["main.js"].includes('aiDocuments.deleteObjectFiles(id)'),"cascade storage cleanup after object deletion");
 assert(files["preload.js"].includes('aiDocuments,aiEngine,aiPdf,aiModels,aiDiagnostics')&&

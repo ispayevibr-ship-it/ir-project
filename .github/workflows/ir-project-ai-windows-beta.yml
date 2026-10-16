@@ -3,6 +3,19 @@ on:
   push:
     branches:
       - feature/ir-project-ai-next
+    # Renderer JS and explicitly hot-loaded modules must not rebuild the installer.
+    # Native/bootstrap changes continue through the Windows Beta workflow.
+    paths-ignore:
+      - "hot/**"
+      - "src/ai-recognition-page.js"
+      - "src/ai-scheme-lite-page.js"
+      - "src/ai-document-store.js"
+      - "src/ai-local-engine.js"
+      - "src/ai-analysis.js"
+      - "src/ai-workflow.js"
+      - "src/ai-structured-review.js"
+      - "src/ai-*.css"
+      - "scripts/test-ai-*.js"
   workflow_dispatch:
 permissions:
   contents: read
