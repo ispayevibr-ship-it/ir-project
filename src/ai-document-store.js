@@ -143,29 +143,92 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   }
   return false
  }
- function remove(id,documentId){
-  id=objectId(id);const row=record(id,documentId);
-  // Only cache entries with an explicit non-AI text extraction flag may be removed.
-  // Any unexpected record type or generated content must remain protected.
+ function referencesAnalysis(value,analysisIds){
+  const stack=[value],seen=new Set();let visited=0;
+  while(stack.length){
+   if(++visited>250000)throw Error("Слишком большой журнал ИИ; проверка зависимостей не завершена");
+   const current=stack.pop();
+   if(!current||typeof current!=="object"||seen.has(current))continue;
+   seen.add(current);
+   if(current.analysisId!=null&&analysisIds.has(Number(current.analysisId)))return true;
+   for(const child of Object.values(current))if(child&&typeof child==="object")stack.push(child)
+  }
+  return false
+ }
+ // Preview dependencies before showing a destructive confirmation. Only raw,
+ // never-reviewed inference is disposable; engineering evidence is protected.
+ function removalImpact(id,documentId){
+  id=objectId(id);const row=record(id,documentId),name=publicRow(id,row).name;
   const indexes=database.listEntity(id,"ai-pdf-index").filter(x=>
    referencesDocument(x.data,row.id));
-  for(const entry of indexes){
-   if(entry.record_type!=="pdf_text_index"||
-      entry.data?.generatedByAI!==false||
-      entry.data?.extraction!=="text_layer")
-    throw Error("Нельзя удалить исходный файл: индекс № "+entry.id+
-     " содержит неизвестный или не технический результат. Сохраните исходный PDF.");
+  const drafts=[],protectedRecords=[];
+  const protect=(section,item,reason)=>protectedRecords.push({
+   section,id:item.id,reason
+  });
+  for(const item of indexes){
+   if(item.record_type!=="pdf_text_index"||
+      item.data?.generatedByAI!==false||
+      item.data?.extraction!=="text_layer"||
+      Number(item.data?.source?.documentId)!==row.id||
+      item.data?.source?.sha256!==row.data?.sha256)
+    protect("ai-pdf-index",item,"Индекс неизвестного типа или с другой SHA-256")
   }
-  for(const section of evidenceSections){
-   const linked=database.listEntity(id,section).find(item=>referencesDocument(item.data,row.id));
-   if(linked)throw Error("Нельзя удалить исходный файл: он используется в разделе "+
-    section+" (запись № "+linked.id+"). Сохраните оригинал и историю инженерных подтверждений")
+  const analyses=database.listEntity(id,"ai-analysis").filter(x=>
+   referencesDocument(x.data,row.id));
+  for(const item of analyses){
+   const data=item.data||{},review=data.review;
+   const reviewRecorded=review&&typeof review==="object"&&Object.keys(review).length>0;
+   const safe=item.record_type==="image_analysis"&&
+    Number(data.source?.documentId)===row.id&&
+    data.source?.sha256===row.data?.sha256&&
+    !reviewRecorded&&
+    (data.verification==null||data.verification==="requires_review");
+   if(safe)drafts.push(item);
+   else protect("ai-analysis",item,"Проверенный результат или неподтверждённый формат анализа")
+  }
+  const ids=new Set(drafts.map(x=>Number(x.id)));
+  for(const section of evidenceSections.filter(name=>name!=="ai-analysis")){
+   for(const item of database.listEntity(id,section)){
+    if(referencesDocument(item.data,row.id)||
+       ids.size>0&&(referencesAnalysis(item.data,ids)||ids.has(Number(item.parent_id))))
+     protect(section,item,"Связанная инженерная история или зависимая запись")
+   }
+  }
+  return{
+   documentId:row.id,name,
+   technicalIndexIds:indexes.map(x=>x.id),
+   unreviewedAnalysisIds:drafts.map(x=>x.id).sort((a,b)=>a-b),
+   protectedRecords,
+   canDelete:protectedRecords.length===0
+  }
+ }
+ function remove(id,documentId,options={}){
+  id=objectId(id);const row=record(id,documentId);
+  const impact=removalImpact(id,documentId);
+  if(impact.protectedRecords.length){
+   const ref=impact.protectedRecords[0];
+   throw Error("Нельзя удалить исходный файл: он используется в разделе "+ref.section+
+    " (запись № "+ref.id+"). "+ref.reason+
+    ". Сохраните оригинал и историю инженерных подтверждений")
+  }
+  const drafts=impact.unreviewedAnalysisIds;
+  if(drafts.length){
+   if(options?.discardUnreviewed!==true)
+    throw Error("Нельзя удалить исходный файл: он используется в разделе ai-analysis "+
+     "(непроверенных результатов: "+drafts.length+"). "+
+     "Подтвердите удаление черновиков анализа вместе с PDF.");
+   // Fail closed if another analysis was created after the preview or the
+   // caller did not explicitly approve the precise list of record IDs.
+   const submitted=options?.expectedAnalysisIds;
+   if(!Array.isArray(submitted)||submitted.length!==drafts.length||
+      new Set(submitted.map(Number)).size!==drafts.length||
+      submitted.some(x=>!Number.isSafeInteger(Number(x))||!drafts.includes(Number(x))))
+    throw Error("Список связанных анализов изменился. Откройте удаление заново.")
   }
   if(typeof database.transaction!=="function")
    throw Error("Без транзакций SQLite безопасное удаление исходного PDF недоступно");
   const file=safeFile(id,row.data?.stored_name);
-  // Stage the bytes first. A failure to rename (e.g. locked PDF on Windows)
-  // leaves the database and all indexes intact.
+  // Stage the bytes first. Failure to rename leaves the SQLite evidence intact.
   let staged=null;
   if(fs.existsSync(file)){
    const stat=fs.lstatSync(file);
@@ -175,10 +238,17 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   }
   try{
    database.transaction(()=>{
-    // A document and all of its rebuildable text indexes disappear atomically.
-    for(const index of indexes)
-     if(!database.deleteEntity(id,"ai-pdf-index",index.id))
-      throw Error("Не удалось удалить технический индекс PDF № "+index.id);
+    // Re-evaluate under the SQLite write lock to reject unexpected references.
+    const again=removalImpact(id,documentId);
+    if(!again.canDelete||again.unreviewedAnalysisIds.join(",")!==drafts.join(",")||
+       again.technicalIndexIds.join(",")!==impact.technicalIndexIds.join(","))
+     throw Error("Связанные данные изменились; безопасное удаление отменено");
+    for(const analysisId of drafts)
+     if(!database.deleteEntity(id,"ai-analysis",analysisId))
+      throw Error("Не удалось удалить черновик анализа № "+analysisId);
+    for(const indexId of impact.technicalIndexIds)
+     if(!database.deleteEntity(id,"ai-pdf-index",indexId))
+      throw Error("Не удалось удалить технический индекс PDF № "+indexId);
     if(!database.deleteEntity(id,"ai-documents",row.id))
      throw Error("Не удалось удалить запись исходного PDF")
    })
@@ -192,10 +262,9 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   }
   verifiedFiles.delete(id+":"+row.id);
   if(staged)try{fs.unlinkSync(staged)}catch(error){
-   // DB deletion has committed; do not falsely tell users their document was kept.
    console.warn("IR Project AI: residual staged PDF requires local cleanup:",staged,error)
   }
-  return true
+  return{deleted:true,discardedAnalyses:drafts.length,removedIndexes:impact.technicalIndexIds.length}
  }
  function deleteObjectFiles(id){
   const value=Number(id);
@@ -230,6 +299,6 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   return{buffer,source:{documentId:row.id,name:row.data.original_name,
     sha256,kind:row.data.kind,bytes:buffer.length,format:"PDF"}}
  }
- return{list,select,open,remove,deleteObjectFiles,readForAnalysis,readForPdfIndex,verify};
+ return{list,select,open,remove,removalImpact,deleteObjectFiles,readForAnalysis,readForPdfIndex,verify};
 }
 module.exports={createStore,EXTENSIONS,MAX_FILE_BYTES};
