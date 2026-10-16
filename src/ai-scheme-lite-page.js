@@ -1816,18 +1816,22 @@
        '<div class="ir-ai-lite-evidence">'+c.evidence.map(e=>'<span>'+escDoc(e)+'</span>').join("")+'</div>'+
        (c.evidenceLocations?.length?'<small>Найдены координаты '+
         c.evidenceLocations.length+' текстовых фрагментов PDF (не координаты монтажа).</small>':"")+
-       '<div class="ir-ai-lite-missing">'+(
-         [!c.axisX?"ось X":"",!c.axisY?"ось Y":"",
-          c.z0Mm==null?"низ Z0":"",c.z1Mm==null?"верх Z1":"",
-          c.type!=="column"&&!c.endAxisX?"конечная ось X":"",
-          c.type!=="column"&&!c.endAxisY?"конечная ось Y":""].filter(Boolean).length?
-          'Не определено по PDF: '+escDoc([!c.axisX?"ось X":"",!c.axisY?"ось Y":"",
-           c.z0Mm==null?"низ Z0":"",c.z1Mm==null?"верх Z1":"",
-           c.type!=="column"&&!c.endAxisX?"конечная ось X":"",
-           c.type!=="column"&&!c.endAxisY?"конечная ось Y":""].filter(Boolean).join(", "))+
-           '. Введите только после сверки с чертежом.':
-          'Оси и отметки найдены в тексте, но их привязку к марке необходимо проверить.'
-        )+'</div>'+
+       '<div class="ir-ai-lite-missing">'+
+       (c.origin==="plan_label_only"?
+        'Найдена надпись марки, но это ещё не подтверждённый экземпляр конструкции. '+
+        'Для автоматической проверки положения используйте реестр и кнопку '+
+        '«Автоматически проверить оси и контуры всех планов». '+
+        'Точные X/Y/Z пока не определены.':
+        'В текстовом индексе не подтверждены: '+escDoc([
+         !c.axisX?"ось X":"",!c.axisY?"ось Y":"",
+         c.z0Mm==null?"низ / начало Z0":"",
+         c.z1Mm==null?"верх / конец Z1":"",
+         ["beam","brace"].includes(c.type)&&!c.endAxisX?"конечная ось X":"",
+         ["beam","brace"].includes(c.type)&&!c.endAxisY?"конечная ось Y":""
+        ].filter(Boolean).join(", ")||"привязки к конструкции")+
+        '. Геометрию нужно проверить по монтажному плану.')+
+       '</div>'+
+       '<details class="ir-ai-lite-manual"><summary>Ручная корректировка — только при необходимости</summary>'+
        '<div class="ir-ai-lite-edit">'+
        '<label>Тип<select name="type"><option value="">Выберите</option>'+
         Object.entries(TYPE_NAMES).map(([key,n])=>'<option value="'+key+'"'+
@@ -1843,7 +1847,7 @@
        '>Сохранить исправления</button><button type="button" data-lite-approve="'+i+'" '+''+
        '>2. Проверить и добавить на монтажную схему</button>'+
        '<small>Координаты берутся только из сохранённой сетки IR Project.</small></div>'+
-       '<div class="ir-ai-lite-inline-feedback" data-lite-feedback role="status" aria-live="polite" data-state="'+
+       '</details>'+'<div class="ir-ai-lite-inline-feedback" data-lite-feedback role="status" aria-live="polite" data-state="'+
        escDoc(feedbackByCandidate.get(i)?.state||"info")+'">'+
        escDoc(feedbackByCandidate.get(i)?.message||"")+'</div></article>').join("")+
        '</div>':
