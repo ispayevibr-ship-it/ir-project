@@ -79,7 +79,10 @@ jobs:
         run: |
           set -euo pipefail
           git fetch origin feature/ir-project-ai-next
-          git reset --hard origin/feature/ir-project-ai-next
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/feature/ir-project-ai-next)" ]; then
+            echo "Beta branch changed during validation; refusing to publish untested code"
+            exit 1
+          fi
           node scripts/test-ai-beta-hot.js
           node scripts/build-beta-hot-manifest.js --version "${{ github.run_number }}"
           node scripts/test-ai-beta-hot.js --manifest

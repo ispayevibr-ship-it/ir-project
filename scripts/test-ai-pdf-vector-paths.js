@@ -111,3 +111,24 @@ assert.equal(dashes.axisBands.vertical.length>=4,true,
 assert.equal(dashes.axisBands.horizontal.length>=4,true,
  "many short strokes have to become one horizontal axis candidate");
 console.log("PDF geometry: viewport, transform stack, painted paths, curves, dedupe, limits PASS");
+
+// Two drawings sharing a page ordinate must remain separate evidence islands.
+// Reversed duplicate strokes must not inflate coverage or sample count.
+const islands=[];
+for(const base of [20,350])for(let i=0;i<6;i++){
+ const x=base+i*20;
+ islands.push([OPS.constructPath,[OPS.stroke,[new Float32Array([
+  0,x,80,1,x+12,80,1,x,80])],new Float32Array([x,80,x+12,80])]]);
+}
+const separated=extractSegments(op(...islands),OPS,{width:600,height:300,
+ transform:[1,0,0,-1,0,300]});
+assert.equal(separated.axisBands.horizontal.length,2);
+assert(separated.axisBands.horizontal.every(b=>b.sampleCount===6&&b.supportLengthPt===72));
+assert(separated.axisBands.horizontal.every(b=>b.x2-b.x1===112));
+const disconnected=extractSegments(op(...Array.from({length:12},(_,i)=>[
+ OPS.constructPath,[OPS.stroke,[new Float32Array([0,i*45,80,1,i*45+3,80])],
+ new Float32Array([i*45,80,i*45+3,80])]])),OPS,{width:600,height:300,
+ transform:[1,0,0,-1,0,300]});
+assert.equal(disconnected.axisBands.horizontal.length,0,
+ 'widely spaced text strokes must not fabricate a long axis');
+console.log('Axis evidence: disconnected plans and duplicate coverage PASS');

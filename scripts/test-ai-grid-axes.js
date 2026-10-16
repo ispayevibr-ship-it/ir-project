@@ -110,3 +110,16 @@ const onlyRight=detectPlanGridAxes({raw:{fragments:duplicateRight},
  vector:{widthPt,heightPt,segments:duplicatedSegments},grid,region:regionRight});
 assert.equal(onlyRight.calibrated,true,JSON.stringify(onlyRight));
 console.log("PDF plan grid axes: label endpoints, true vector strokes, uniform scale and ambiguity PASS");
+
+// A partial row of section-callout numbers must not override the complete
+// grid-label row. Same-row ambiguity and separate complete plans remain errors.
+const sectionNumbers=[...fragments,...[1,2,3].map((n,i)=>
+ labelAndReturn(String(n),xpos[i]+8,40))];
+const sectionResult=detect(sectionNumbers);
+assert.equal(sectionResult.calibrated,true,JSON.stringify(sectionResult));
+assert.equal(sectionResult.xMatches.length,4);
+const partialSecondPlan=[...fragments,...[1,2,3].map((n,i)=>
+ labelAndReturn(String(n),300+i*60,300))];
+assert.equal(detect(partialSecondPlan).calibrated,false,
+ 'disjoint secondary label row is not silently absorbed into the primary plan');
+console.log('Axis label rows: section callouts excluded; disjoint second plans rejected PASS');

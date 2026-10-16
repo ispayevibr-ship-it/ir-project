@@ -370,7 +370,36 @@
     Math.max(9,Math.min(22,height*.02));
    const endTol=orientation==="vertical"?Math.max(24,Math.min(60,height*.07)):
     Math.max(24,Math.min(60,width*.07));
-   for(const fragment of valid){
+   // Axis bubbles form a label row/column. Section numbers elsewhere on
+   // the same sheet must not compete with a more complete aligned row.
+   const named=valid.filter(f=>map.has(canon(f.text)));
+   const ordinate=f=>orientation==="vertical"?
+    height-Number(f.y)-Number(f.height)/2:Number(f.x)+Number(f.width)/2;
+   const rows=[];
+   for(const f of [...named].sort((a,b)=>ordinate(a)-ordinate(b))){
+    let row=rows.at(-1);
+    if(!row||ordinate(f)-row.start>Math.max(12,Number(f.height))){
+     row={start:ordinate(f),labels:[],names:new Set()};rows.push(row)
+    }
+    row.labels.push(f);row.names.add(canon(f.text))
+   }
+   rows.sort((a,b)=>b.names.size-a.names.size);
+   // A second complete label row in a disjoint drawing area is another
+   // plan, even when it has fewer axes. Require explicit region selection.
+   if(orientation==="vertical"&&rows[0]?.names.size>=3){
+    const range=row=>row.labels.map(f=>Number(f.x)+Number(f.width)/2);
+    const primary=range(rows[0]);
+    for(const row of rows.slice(1).filter(r=>r.names.size>=3)){
+     const other=range(row);
+     if(Math.max(...other)<Math.min(...primary)-tol||
+        Math.min(...other)>Math.max(...primary)+tol)
+      return{matches:[],ambiguous:true}
+    }
+   }
+   // Equal coverage retains all evidence and therefore rejects conflicts.
+   const selected=rows[0]?.names.size>=3&&
+    (!rows[1]||rows[0].names.size>rows[1].names.size)?rows[0].labels:named;
+   for(const fragment of selected){
     const text=canon(fragment.text);
     if(!map.has(text))continue;
     const x=Number(fragment.x)+Number(fragment.width)/2,

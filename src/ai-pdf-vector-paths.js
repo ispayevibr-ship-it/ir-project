@@ -27,7 +27,7 @@ function extractSegments(operatorList,OPS,viewport,{minLengthPt=12}={}){
  // Extract dashed/fragmented axis evidence in parallel with the limited
  // longest-strokes preview, using bounded page-point histograms.
  const bandBins={horizontal:new Map(),vertical:new Map()};
- let bandIncomplete=false;
+ let bandIncomplete=false,bandIntervalCount=0;
  function aggregate(direction,pos,lo,hi,length){
   if(length<2)return;
   const map=bandBins[direction],key=Math.round(pos);
@@ -36,11 +36,11 @@ function extractSegments(operatorList,OPS,viewport,{minLengthPt=12}={}){
    if(bandBins.horizontal.size+bandBins.vertical.size>=12000){
     bandIncomplete=true;return
    }
-   band={pos:key,lo,hi,count:0,support:0};
+   band={pos:key,intervals:[]};
    map.set(key,band)
   }
-  band.lo=Math.min(lo,band.lo);band.hi=Math.max(hi,band.hi);
-  band.count++;band.support+=length
+  if(++bandIntervalCount>150000){bandIncomplete=true;return}
+  band.intervals.push({lo,hi,pos})
  }
  // A heavy KMD page may contain tens of thousands of decorative strokes.
  // Keep the longest 2400 using a min-heap rather than the FIRST 2400,
@@ -202,16 +202,31 @@ function extractSegments(operatorList,OPS,viewport,{minLengthPt=12}={}){
  const axisBands={vertical:[],horizontal:[]};
  for(const direction of ["vertical","horizontal"]){
   for(const band of bandBins[direction].values()){
-   const span=band.hi-band.lo;
-   if(span<90||band.count<5||band.support<Math.max(35,span*.16))continue;
-   const p=band.pos;
-   axisBands[direction].push(direction==="vertical"?
-    {x1:p,x2:p,y1:rounded(band.lo),y2:rounded(band.hi),direction,
-     sampleCount:band.count,supportLengthPt:rounded(band.support),
-     source:"aligned_stroke_evidence"}:
-    {x1:rounded(band.lo),x2:rounded(band.hi),y1:p,y2:p,direction,
-     sampleCount:band.count,supportLengthPt:rounded(band.support),
-     source:"aligned_stroke_evidence"})
+   // Separate disconnected drawings and text hatching on the same ordinate.
+   // Count union coverage, not duplicate forward/backward PDF strokes.
+   const islands=[];
+   for(const interval of band.intervals.sort((a,b)=>a.lo-b.lo||a.hi-b.hi)){
+    let island=islands.at(-1);
+    if(!island||interval.lo-island.hi>32){
+     island={lo:interval.lo,hi:interval.lo,count:0,support:0,weighted:0};
+     islands.push(island)
+    }
+    const added=Math.max(0,interval.hi-Math.max(island.hi,interval.lo));
+    if(added>0){island.count++;island.support+=added;island.weighted+=added*interval.pos}
+    island.hi=Math.max(island.hi,interval.hi)
+   }
+   for(const island of islands){
+    const span=island.hi-island.lo;
+    if(span<90||island.count<5||island.support<Math.max(35,span*.16))continue;
+    const p=rounded(island.weighted/island.support);
+    axisBands[direction].push(direction==="vertical"?
+     {x1:p,x2:p,y1:rounded(island.lo),y2:rounded(island.hi),direction,
+      sampleCount:island.count,supportLengthPt:rounded(island.support),
+      source:"aligned_stroke_evidence"}:
+     {x1:rounded(island.lo),x2:rounded(island.hi),y1:p,y2:p,direction,
+      sampleCount:island.count,supportLengthPt:rounded(island.support),
+      source:"aligned_stroke_evidence"})
+   }
   }
   axisBands[direction].sort((a,b)=>b.supportLengthPt-a.supportLengthPt);
   // An A1 KMD plan commonly has 1200+ horizontal stroke bands.
