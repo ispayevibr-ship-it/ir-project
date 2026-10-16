@@ -201,6 +201,67 @@
    ai_placement_method:"engineer_approved_text_candidate"
   }}
  }
+ // Cross-check all candidate locations against the live mark register. These
+ // are proposals, NEVER authenticated CAD coordinates or automatic placements.
+ function buildBatchPlan({candidates=[],pages=[],marks=[],schemeRows=[],workRows=[]}={}){
+  const checked=[],review=[],ready=[],seen=new Set(),byMark=new Map();
+  const grid=axisGeometry(schemeRows);
+  const placed=schemeRows.filter(x=>x.record_type==="scheme_column"||x.data?.entity_type==="column");
+  const workIds=new Set(workRows.filter(x=>x.data?.scheme_enabled===true).map(x=>String(x.id)));
+  const register=new Map();
+  for(const item of marks){
+   const m={id:item.id,...item.data,title:item.title},key=norm(m.mark||m.title);
+   if(!register.has(key))register.set(key,[]);
+   register.get(key).push(m)
+  }
+  for(const c of candidates){
+   const key=[c.source?.documentId,c.source?.page,c.mark,c.type,c.axisX,c.axisY,
+    c.endAxisX,c.endAxisY,c.z0Mm,c.z1Mm].join("|");
+   if(seen.has(key))continue;
+   seen.add(key);
+   const mark=(register.get(norm(c.mark))||[]);
+   let reason="",entry=null;
+   if(!grid)reason="Не сохранена проверенная сетка осей";
+   else if(c.origin!=="text_layer")reason="Марка найдена только по имени файла";
+   else if(!["plan","section"].includes(c.sheetType))reason="Нужен монтажный план или разрез";
+   else if(mark.length!==1)reason=mark.length?"Неоднозначная марка в ведомости":"Марка отсутствует в ведомости";
+   else if(!workIds.has(String(mark[0].work_type_id)))reason="Для вида работ не включена монтажная схема";
+   else if(!c.axisX||!c.axisY||!Number.isFinite(c.z0Mm)||!Number.isFinite(c.z1Mm))
+    reason="Нет проверяемых осей или отметок Z";
+   else if(c.type!=="column"&&(!c.endAxisX||!c.endAxisY))
+    reason="Для балки или связи нет конечных осей";
+   else try{
+    entry=payloadFor(c,{mark:mark[0],axisX:c.axisX,axisY:c.axisY,
+     endX:c.endAxisX,endY:c.endAxisY,z0Mm:c.z0Mm,z1Mm:c.z1Mm,schemeRows});
+   }catch(error){reason=String(error.message||error)}
+   if(reason){review.push({candidate:c,reason});continue}
+   const location=[c.mark,entry.data.absolute_x_mm,entry.data.absolute_y_mm,
+    entry.data.absolute_x2_mm||"",entry.data.absolute_y2_mm||"",
+    entry.data.z0_mm,entry.data.z1_mm].join(":");
+   if(checked.some(x=>x.location===location)){
+    review.push({candidate:c,reason:"Одинаковое размещение встречается на нескольких листах; объединено в одно предложение"});
+    continue
+   }
+   const item={candidate:c,mark:mark[0],entry,location};
+   checked.push(item);
+   const k=norm(c.mark);if(!byMark.has(k))byMark.set(k,[]);
+   byMark.get(k).push(item)
+  }
+  // If proposals exceed confirmed quantity, none of that mark is selected:
+  // do not silently truncate to an arbitrary number of instances.
+  for(const [key,list] of byMark){
+   const total=Number(list[0].mark.qty??list[0].mark.count);
+   const existing=placed.filter(x=>String(x.data?.mark_id)===String(list[0].mark.id)).length;
+   if(!Number.isInteger(total)||total<1||existing+list.length>total){
+    for(const item of list)review.push({candidate:item.candidate,
+     reason:"Несоответствие количества экземпляров ведомости. Требуется проверка"});
+   }else ready.push(...list)
+  }
+  const difficult=pages.filter(p=>p.uncertainEncoding||!p.textAvailable||
+   (["plan","section"].includes(p.sheetType)&&p.marks.length===0));
+  return{ready,review,difficult,
+   total:candidates.length,hasGrid:!!grid,markCount:marks.length}
+ }
  function createPage(){
   let latest=[],candidates=[],busy=false,log="",saved=0,disposeLast=null;
   const page={
@@ -394,7 +455,7 @@
   };
   return page
  }
- const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor};
+ const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan};
  if(typeof module!=="undefined"&&module.exports)module.exports=exported;
  if(root&&typeof root==="object")root.irAiSchemeLitePage=createPage()
 })(typeof window!=="undefined"?window:null);
