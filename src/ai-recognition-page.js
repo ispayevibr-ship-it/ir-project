@@ -178,7 +178,7 @@ window.irAiRecognitionPage=async function(objectId){
    '<button id="irAiStop" '+(!runtime||!canEdit||!(state==="ready"||state==="starting")?'disabled':'')+'>Остановить ИИ</button>'+
    '<button id="irAiRefresh" '+(!runtime||busy?'disabled':'')+'>Проверить ИИ</button>'+
    '<button id="irAiExport" disabled>Экспортировать</button>'+
-   '<span class="ir-ai-action-note">Листы PDF: предпросмотр и визуальный анализ при наличии локальной модели</span></div>'+
+   '<span class="ir-ai-action-note">Листы PDF: просмотр и анализ Qwen. Исправления ИИ Beta: «Проверить обновления» → скачать небольшой пакет → перезапустить, без переустановки EXE.</span></div>'+
    stepsHtml+
    (!ready||!runtime?'<div class="ir-ai-warning" role="status"><b>Требуется новая установка Electron.</b> Действующий установщик не содержит мост локального ИИ; обновления интерфейса недостаточно.</div>':'')+
    (!engine?.installed?'<div class="ir-ai-warning" role="status"><b>Требуется отдельный офлайн-пакет модели.</b> Пока он не поставляется с установщиком. Без него запуск и распознавание недоступны.</div>':'')+
