@@ -90,6 +90,31 @@ assert(selected.segments.some(x=>x.lengthPt===270),
  "very long line appearing LAST in PDF must not disappear behind 2400 early short strokes");
 assert(selected.segments[0].lengthPt>=selected.segments.at(-1).lengthPt);
 
+// A saturated global longest-stroke preview must no longer hide a short
+// parallel pair elsewhere on the drawing. New local-detail evidence is
+// bounded, stratified by page tile and segment length, never auto-placement.
+const shortA=[OPS.constructPath,[OPS.stroke,[
+ new Float32Array([0,212,180,1,220,180])],
+ new Float32Array([212,180,220,180])]];
+const shortB=[OPS.constructPath,[OPS.stroke,[
+ new Float32Array([0,212,184,1,220,184])],
+ new Float32Array([212,184,220,184])]];
+const spatial=extractSegments(op(...dense,shortA,shortB),OPS,{
+ width:300,height:300,transform:[1,0,0,-1,0,300]});
+assert.equal(spatial.segments.some(x=>x.lengthPt===8),false,
+ "legacy 12pt minimum excludes small member strokes");
+assert(spatial.detailSegments.some(s=>s.x1===212&&s.y1===120&&s.x2===220&&s.y2===120),
+ "short stroke A survives spatial evidence sampling");
+assert(spatial.detailSegments.some(s=>s.x1===212&&s.y1===116&&s.x2===220&&s.y2===116),
+ "paired short stroke B also survives");
+assert(spatial.detailSegments.length<=14400,"worker local-stroke response stays bounded");
+assert.equal(spatial.stats.detailTiles,10);
+assert.equal(spatial.stats.detailMax,14400);
+assert.equal(spatial.stats.detailSampleIncomplete,true,
+ "dense tiles are explicitly marked sampled, never silently 'complete'");
+console.log("Spatial KMD strokes: short outlines survive saturated longest-line preview PASS");
+
+
 const shortDashOps=[];
 for(const x of [40,100,160,220]){
  for(const y of [45,95,145,195,245,295]){
