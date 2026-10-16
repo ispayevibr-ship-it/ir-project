@@ -101,7 +101,8 @@ window.irAiRecognitionPage=async function(objectId){
    documents=v.filter(x=>!x.archived);
    archivedDocuments=v.filter(x=>x.archived)
   }).catch(error=>{documents=[];archivedDocuments=[];notice("Ошибка загрузки документов: "+String(error.message||error),"error")}));
-  jobs.push(irProject.data.forObject(id).section("marks").list().then(v=>{
+  const markSource=irProject.data?.forObject?.(id)?.section?.("marks");
+  if(markSource?.list)jobs.push(markSource.list().then(v=>{
    planMarks=v
   }).catch(error=>{planMarks=[];notice("Не удалось прочитать ведомость марок: "+
    String(error.message||error),"error")}));
