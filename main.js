@@ -267,7 +267,7 @@ function registerAiModelIpc(){
   const hashes={};
   for(const [key,name] of Object.entries(names)){
    const file=path.join(root,name),stat=fs.lstatSync(file);
-   if(!stat.isFile()||stat.isSymbolicLink()||stat.size<(key==="model"?1000000000:key==="vision"?50000000:100000))
+   if(!stat.isFile()||stat.isSymbolicLink()||stat.size<(key==="model"?1000000000:key==="vision"?50000000:4096))
     throw Error("Файл отсутствует или слишком мал: "+name);
    const header=Buffer.alloc(4),fd=fs.openSync(file,"r");
    try{fs.readSync(fd,header,0,4,0)}finally{fs.closeSync(fd)}
