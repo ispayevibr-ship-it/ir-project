@@ -1606,11 +1606,11 @@
       if(detail.source?.sha256!==doc.sha256||
          Number(detail.source?.documentId)!==Number(doc.id))
        throw Error("PDF изменился после индексации");
-      let widthPt,heightPt;
+      let widthPt,heightPt,g=null;
       if(region!=="full"){
        if(!geometry?.page)throw Error("Для выбранной части нужен векторный модуль PDF");
        const key=[doc.id,doc.sha256,sheet.page].join(":");
-       let g=geometryCache.get(key);
+       g=geometryCache.get(key);
        if(!g){
         g=await geometry.page(objectId,doc.id,sheet.page);
         if(!live)return;
@@ -1624,14 +1624,53 @@
       const result=extractPlanInstances({raw:detail.page,marks,
        documentId:doc.id,sha256:doc.sha256,page:sheet.page,
        region,widthPt,heightPt,sheetType:sheet.sheetType});
+      let linked=null,linkMessage="";
+      if(region!=="full"&&result.labels.length&&sheet.sheetType==="plan"){
+       const grid=axisGeometry(await schemeApi?.list?.()||[]);
+       const areas={
+        left:{left:0,top:0,right:.5,bottom:1},
+        right:{left:.5,top:0,right:1,bottom:1},
+        "top-left":{left:0,top:0,right:.5,bottom:.5},
+        "top-right":{left:.5,top:0,right:1,bottom:.5},
+        "bottom-left":{left:0,top:.5,right:.5,bottom:1},
+        "bottom-right":{left:.5,top:.5,right:1,bottom:1}
+       };
+       const analysis=detectPlanGridAxes({raw:detail.page,vector:g,
+        grid,region:areas[region]});
+       if(analysis.calibrated){
+        const labels=result.labels.map(x=>({
+         mark:x.mark,markId:x.markId,labelText:x.labelText,
+         pageX:x.pageX,pageY:heightPt-x.pageYBottom,
+         rectPt:x.rectPt,fragmentIds:x.fragmentIds
+        }));
+        const outlines=findPlanMemberStrokes({labels,analysis,grid,vector:g});
+        linked=linkInstanceOutlineEvidence({instances:result.labels,
+         registeredLabels:labels,outlines,heightPt});
+        linkMessage="; гипотез контуров: "+
+         (linked.summary.contour_candidate||0)+
+         "; несколько вариантов: "+(linked.summary.multiple_contours||0)+
+         "; требуется дополнительный анализ: "+
+         (linked.summary.needs_more_evidence||0)+
+         (outlines.limited?"; выборка линий неполная":"");
+       }else{
+        linkMessage="; координаты осей не откалиброваны, геометрия не привязана"
+       }
+      }else if(region==="full"){
+       linkMessage="; выберите отдельную схему для сопоставления с графикой"
+      }
       const prefix=[doc.id,doc.sha256,sheet.page].join(":")+":";
       if(region==="full"){
        for(const k of instanceResults.keys())
         if(k.startsWith(prefix))instanceResults.delete(k)
       }else instanceResults.delete(prefix+"full");
       instanceResults.set(prefix+region,result);
+      // Replace review statuses for this source scope only. A new scan and
+      // a new revision invalidate the in-memory geometry linkage.
+      for(const item of result.labels)instanceLinks.delete(item.instanceId);
+      if(linked)for(const item of linked.records)
+       instanceLinks.set(item.instanceId,item);
       status("Лист "+sheet.page+", "+region+": "+result.total+
-       " отдельных надписей. Это ещё не подтверждённые конструкции.");
+       " отдельных надписей"+linkMessage+". Монтажные координаты не подтверждены.");
       draw()
      }catch(error){status("Реестр марок: "+String(error.message||error))}
      finally{busy=false}
