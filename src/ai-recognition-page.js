@@ -891,8 +891,18 @@ window.irAiRecognitionPage=async function(objectId){
    busy=true;notice("Читаем реальный текстовый слой PDF по страницам, без нейросети…");paint();
    try{
     const result=await pdf.index(id,documentId);
+    if(batchIndex?.files?.has(String(documentId))&&
+       String(result?.documentId)===String(documentId)){
+     batchIndex.files.set(String(documentId),{status:"done",
+      pages:result.totalPages||result.pages?.length||0});
+    }
     notice(result.cached?"Индекс PDF уже сохранён.":"PDF проиндексирован: "+result.totalPages+" лист(ов). Страницы без текста требуют OCR.")
-   }catch(error){notice("Не удалось индексировать PDF: "+String(error.message||error),"error")}
+   }catch(error){
+    if(batchIndex?.files?.has(String(documentId)))
+     batchIndex.files.set(String(documentId),{status:"error",
+      error:String(error.message||error).slice(0,240)});
+    notice("Не удалось индексировать PDF: "+String(error.message||error),"error")
+   }
    finally{busy=false;await reload()}
   });
   box.querySelectorAll("[data-ai-pdf-page]").forEach(button=>button.onclick=async()=>{
