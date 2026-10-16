@@ -28,7 +28,8 @@ async function run(state){
   size:341269,sha256:hash,exists:true,addedAt:"2026-10-16"
  };
  const irProject={
-  data:{objects:{get:async()=>({id:7,name:"Варваринское"})}},
+  data:{objects:{get:async()=>({id:7,name:"Варваринское"})},
+   forObject:()=>({section:()=>({list:async()=>[{id:1,title:"К60"}]})})},
   aiDocuments:{list:async()=>[drawing],select:async()=>({canceled:true})},
   aiEngine:{status:async()=>({installed:true,state,model:"qwen3-vl-4b",
    modelVersion:"manual-beta"}),results:async()=>[]},
@@ -47,17 +48,15 @@ async function run(state){
  assert.match(content.innerHTML,/Распознать лист 1/);
  assert.match(content.innerHTML,/Колонна К60/);
  assert.match(content.innerHTML,/Индексировать PDF/);
- assert.match(app.innerHTML,/ir-ai-step-guide/,"six-step instructions beside controls");
- assert.match(app.innerHTML,/Выбрать КМ\/КМД/);
- assert.match(app.innerHTML,/Добавить PDF/);
+ assert.match(app.innerHTML,/ir-ai-step-guide/,"four-step workflow");
+ assert.match(app.innerHTML,/Загрузить ведомость марок/);
+ assert.match(app.innerHTML,/Добавить КМ\/КМД/);
  assert.match(app.innerHTML,/Индексировать PDF/);
- assert.match(app.innerHTML,/Запустить Qwen/);
- assert.match(app.innerHTML,/Распознать лист/);
- assert.match(app.innerHTML,/Проверить результат/);
+ assert.match(app.innerHTML,/Подготовить расстановку/);
+ assert.match(app.innerHTML,/Qwen требуется только для сложных листов/);
  assert.match(content.innerHTML,/Шаг 3 выполнен/,"index action marked done");
- assert.match(content.innerHTML,/Шаг 5/,"recognition button numbered");
- if(state==="ready")assert.match(app.innerHTML,/Следующий шаг: 5/);
- else assert.match(app.innerHTML,/Следующий шаг: 4/);
+ assert.match(content.innerHTML,/Шаг 5/,"Qwen sheet button stays available");
+ assert.match(app.innerHTML,/Следующий шаг: 4/);
 
  assert(!content.innerHTML.includes("undefined"),"PDF list must not show undefined");
  if(state==="ready"){

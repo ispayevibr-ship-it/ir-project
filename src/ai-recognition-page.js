@@ -263,7 +263,7 @@ window.irAiRecognitionPage=async function(objectId){
     '<span class="ir-ai-step-guide-item'+(stepDone[i]?' complete':i+1===activeStep?' current':'')+'">'+
     stepNumber(i+1,stepDone[i])+esc(label)+'</span>').join('')+
    '<small>'+(analysisProgress?.status==="failed"?
-    "Распознавание прервано. Повторите шаг 5 после проверки состояния ИИ: нажмите «Проверить ИИ», при остановке запустите Qwen снова. Данные К60 сохранены.":
+    "Обработка сложного листа через Qwen прервана. Текстовые PDF можно продолжать использовать; при необходимости повторите анализ листа.":
     'Следующий шаг: '+activeStep+'. '+esc(stepLabels[activeStep-1])+
     '. Qwen требуется только для сложных листов.')+'</small></div>';
   window.irAiAssemblyPage?.dispose?.();
@@ -277,7 +277,7 @@ window.irAiRecognitionPage=async function(objectId){
    '<div><small>Марок в ведомости</small><b>'+planMarks.length+
    '</b><span>Загруженные исходные марки</span></div>'+
    '<div><small>Требует проверки</small><b>'+analyses.filter(x=>!x.status||x.status==="requires_review").length+'</b><span>Результаты пока не подтверждены</span></div></div>'+
-   '<div class="ir-ai-actions"><label><span class="ir-ai-kind-label">'+stepNumber(1,hasCorrectKind)+' Тип загружаемого комплекта</span><select id="irAiKind"><option value="Не определён">Не определён</option>'+
+   '<div class="ir-ai-actions"><label><span class="ir-ai-kind-label">Тип загружаемого комплекта</span><select id="irAiKind"><option value="Не определён">Не определён</option>'+
    '<option value="КМ">КМ</option><option value="КМД">КМД</option></select></label>'+
    '<button class="ir-ai-primary" id="irAiUpload" '+(!ready||!canEdit||busy?'disabled':'')+'>'+stepNumber(2,availableDocs.length>0)+' Добавить чертежи</button>'+
    '<button class="ir-ai-primary" id="irAiPlan" '+(!hasIndex?'disabled title="Сначала проиндексируйте PDF"':'')+'>4. Построить черновик схемы</button>'+ 
@@ -299,7 +299,7 @@ window.irAiRecognitionPage=async function(objectId){
     '</div>':'')+
    (analysisProgress?progressMarkup(analysisProgress):"")+
    (!ready||!runtime?'<div class="ir-ai-warning" role="status"><b>Требуется новая установка Electron.</b> Действующий установщик не содержит мост локального ИИ; обновления интерфейса недостаточно.</div>':'')+
-   (!engine?.installed?'<div class="ir-ai-warning" role="status"><b>Требуется отдельный офлайн-пакет модели.</b> Пока он не поставляется с установщиком. Без него запуск и распознавание недоступны.</div>':'')+
+   (!engine?.installed?'<div class="ir-ai-warning" role="status"><b>Qwen не установлен.</b> Для PDF с текстовым слоем он не нужен. Для сложных листов установите модель отдельно.</div>':'')+
    (modelReady&&engine?.gpuLayers===0&&Number.isFinite(engine?.ramFreeGb)&&engine.ramFreeGb<2?
     '<div class="ir-ai-warning" role="status"><b>Мало свободной оперативной памяти: '+esc(engine.ramFreeGb)+' ГБ.</b> Qwen запущена без GPU-слоёв. При анализе целого листа КМД сервер может завершиться. Для первой проверки рекомендуем распознать увеличенный штамп К60. Это предупреждение, а не установленная причина предыдущего сбоя.</div>':'')+
    (message?'<div class="ir-ai-message '+(severity==="error"?"error":"")+'" role="status">'+esc(message)+'</div>':'')+
@@ -307,7 +307,7 @@ window.irAiRecognitionPage=async function(objectId){
     '<button type="button" data-ai-tab="'+t[0]+'" class="'+(active===t[0]?'active':'')+'">'+esc(t[1])+'</button>').join("")+'</nav>'+
    '<section id="irAiContent" class="ir-ai-content"></section></div>'+
    '<aside class="ir-ai-assistant"><div class="ir-ai-assistant-head"><b>ИИ-помощник</b><span>Офлайн</span></div>'+
-   '<p>'+esc(modelReady?"Qwen запущена. Для анализа чертежей откройте «Конвейер ИИ». Чат с ответами по листам пока не подключён.":engine?.installed?"Qwen подключена, но остановлена. Для анализа PDF запустите локальный ИИ.":"Модель не подключена. Зарегистрируйте Qwen в настройках локальных ИИ-моделей.")+'</p>'+
+   '<p>'+esc(modelReady?"Qwen запущена. Для сложных листов откройте «Распознавание». Чат по чертежам ещё не подключён.":engine?.installed?"Qwen подключена, но остановлена. Для анализа PDF запустите локальный ИИ.":"Модель не подключена. Зарегистрируйте Qwen в настройках локальных ИИ-моделей.")+'</p>'+
    '<div class="ir-ai-chat-empty">'+esc(modelReady?"Qwen работает. Чат-помощник ещё не реализован; ответы не имитируются.":"История запросов пока отсутствует. Ответы не имитируются.")+'</div>'+
    '<textarea disabled placeholder="'+esc(modelReady?"Чат пока недоступен — используйте конвейер PDF":"Чат пока недоступен")+'"></textarea><button disabled>Отправить</button></aside></div>'+
    '<footer class="ir-ai-footer">Быстрый конвейер монтажной схемы: анализ текстовых слоёв без Qwen, размещение только после проверки инженером. Детальная 3D-модель марок необязательна.</footer></div>';

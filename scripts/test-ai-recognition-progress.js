@@ -47,7 +47,8 @@ const spin=async test=>{
   body:{appendChild(){}}
  };
  const irProject={
-  data:{objects:{get:async()=>({id:7,name:"Варваринское"})}},
+  data:{objects:{get:async()=>({id:7,name:"Варваринское"})},
+   forObject:()=>({section:()=>({list:async()=>[{id:1,title:"К60"}]})})},
   aiDocuments:{list:async()=>[drawing],select:async()=>({canceled:true})},
   aiEngine:{status:async()=>({installed:true,state:"ready",
    analysisTimeoutSeconds:600,model:"qwen3-vl-4b"}),results:async()=>savedAnalyses},
@@ -92,7 +93,7 @@ const spin=async test=>{
  assert.match(app.innerHTML,/completed/);
  assert.match(app.innerHTML,/100%/);
  assert.match(app.innerHTML,/Обработка завершена/);
- assert.match(app.innerHTML,/Следующий шаг: 6/);
+ assert.match(app.innerHTML,/Следующий шаг: 4/);
  // Check failure path starts a fresh job and never displays 100% after error.
  cleared=false;resolveAnalysis=null;rejectAnalysis=null;
  const retry=visionButton.onclick();
@@ -104,7 +105,7 @@ const spin=async test=>{
  assert.match(app.innerHTML,/Прервано/);
  assert.match(app.innerHTML,/simulated timeout/);
  assert.doesNotMatch(app.innerHTML,/100%/);
- assert.match(app.innerHTML,/Распознавание прервано. Повторите шаг 5/,
+ assert.match(app.innerHTML,/Обработка сложного листа через Qwen прервана/,
   "a failed latest attempt cannot advance to step 6 despite previous successful analysis");
  console.log("KMD recognition: visible estimate, elapsed/remaining clock, 94% cap, 100% only on success, error PASS");
 })().catch(e=>{console.error(e);process.exitCode=1});
