@@ -6,18 +6,18 @@ function createAnalysis({database,documents,engine,ocr=null,pdfRenderer,revision
  let busy=false;
  const object=id=>{const n=Number(id);if(!Number.isSafeInteger(n)||n<=0||!database.getObject(n))throw Error("Объект не найден");return n};
  function parseClaims(raw){
-  let text=String(raw||"").trim(),structured=null;
+  let text=String(raw||"").trim(),parsed=null;
   if(text.startsWith(String.fromCharCode(96,96,96)))text=text.replace(/^\x60{3}[a-z]*\s*/i,"").replace(/\s*\x60{3}$/,"");
   try{
    const obj=JSON.parse(text);
    if(obj&&typeof obj==="object"&&!Array.isArray(obj)){
     const strings=x=>Array.isArray(x)?x.filter(y=>typeof y==="string").slice(0,70).map(y=>y.slice(0,300)):[];
-    structured={text:typeof obj.text==="string"?obj.text.slice(0,12000):"",
+    parsed={text:typeof obj.text==="string"?obj.text.slice(0,12000):"",
      marks:strings(obj.marks),notes:strings(obj.notes),unknowns:strings(obj.unknowns),
      structured:structured.extract(raw)};
    }
   }catch{}
-  return structured
+  return parsed
  }
  // Qwen-only beta is allowed when the optional PaddleOCR pack is absent.
  // If OCR is installed but fails, preserve the error instead of silently bypassing it.
