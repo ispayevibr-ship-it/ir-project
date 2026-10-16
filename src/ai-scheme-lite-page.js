@@ -1507,10 +1507,10 @@
     instanceDimensionHints=new Map(),dimensionResults=new Map(),dimensionRows=[],
     showAllInstances=false,
    lastOperation=null,inventory=null,draftRows=[],
-   busy=false,log="",saved=0,disposeLast=null;
+   busy=false,log="",saved=0,disposeLast=null,sweep=null;
   const feedbackByCandidate=new Map();
   const page={
-   dispose(){if(disposeLast)disposeLast();disposeLast=null},
+   dispose(){if(sweep)sweep.cancel=true;if(disposeLast)disposeLast();disposeLast=null},
    async render(host,opts={}){
     if(!host)return;
     const {objectId,documents=[],indexes=[],askPassword,
@@ -1520,7 +1520,7 @@
      instanceResults.clear();instanceRows=[];instanceLinks.clear();
      instanceDimensionHints.clear();dimensionResults.clear();dimensionRows=[];
      showAllInstances=false;
-    busy=false;saved=0;log="";feedbackByCandidate.clear();
+    busy=false;saved=0;log="";sweep=null;feedbackByCandidate.clear();
     const escDoc=esc;const canEdit=true;let live=true;
     const hostWindow=opts.window||root;
     const dataRoot=opts.root||hostWindow?.irProject?.data?.forObject(objectId);
@@ -1548,6 +1548,8 @@
      '<b>Локально · без ИИ</b></header>'+
      '<div class="ir-ai-quantity-warning">Найденная марка не означает известное положение в здании. Высоты привязываются лишь к листам с одной явно обозначенной маркой. Импорт требует инженерной проверки, официальной ведомости и сохранённой сетки осей.</div>'+
      '<div class="ir-ai-lite-toolbar"><button type="button" data-lite-scan '+(busy?'disabled':'')+'>1. Построить черновик по чертежам</button>'+
+     '<button type="button" data-lite-analyze-all disabled>Автоматически проверить оси и контуры всех планов</button>'+
+     '<button type="button" data-lite-cancel-analyze disabled>Остановить анализ</button>'+
      '<button type="button" data-lite-scheme>Открыть монтажную схему</button>'+ 
      (hostWindow?.irProject?.schemeReset?.clear?
       '<button type="button" data-lite-clear class="ir-ai-lite-clear">Очистить схему</button>':"")+
@@ -1699,7 +1701,17 @@
     function draw(){
      const slot=host.querySelector("[data-lite-results]");if(!slot)return;
      const indexesLoaded=latest.length,candidateCount=candidates.length;
-     slot.innerHTML=instanceMarkup()+(inventory?'<div class="ir-ai-lite-counts">'+
+     slot.innerHTML=(sweep?'<section class="ir-ai-lite-geometry-summary">'+
+      '<h3>Автоматическая проверка монтажных планов</h3>'+
+      '<p>Проверено листов: <b>'+sweep.done+'/'+sweep.total+
+      '</b> · калибровано схем: <b>'+sweep.calibrated+
+      '</b> · найдено надписей в планах: <b>'+sweep.labels+
+      '</b> · возможных пар контуров: <b>'+sweep.contours+
+      '</b> · ошибок: <b>'+sweep.errors+'</b>.</p>'+
+      '<p>Подтверждённых монтажных координат X/Y/Z: <b>0</b>. '+
+      'Результаты анализа — графические гипотезы, не готовая расстановка.</p>'+
+      (sweep.lastReason?'<p>'+escDoc(sweep.lastReason)+'</p>':"")+
+      '</section>':"")+instanceMarkup()+(inventory?'<div class="ir-ai-lite-counts">'+
       '<span>Позиций ведомости: <b>'+inventory.positions+'</b></span>'+
       '<span>Экземпляров всего: <b>'+inventory.totalInstances+'</b></span>'+
       '<span>На схеме: <b>'+inventory.placed+'</b></span>'+
