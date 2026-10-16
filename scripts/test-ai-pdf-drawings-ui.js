@@ -16,16 +16,15 @@ const docs=[{id:1,name:"КМД 01.pdf",kind:"КМД",ext:".pdf",sha256:sha(1),
  ext:".pdf",sha256:sha(3),exists:true,size:5000}];
 const indexes=[{id:101,documentId:1,sourceSha256:sha(1),totalPages:2,
  pages:[{page:1,hasTextLayer:true},{page:2,hasTextLayer:true}]}];
-const dom=new Map(),root={
- innerHTML:"",
- querySelector(selector){
-  if(!dom.has(selector))dom.set(selector,{onclick:null,disabled:false,
-   textContent:"",value:"КМД",className:"",style:{},focus(){},
-   setSelectionRange(){},addEventListener(){},dataset:{}});
-  return dom.get(selector)
- },
- querySelectorAll(){return[]}
-};
+const dom=new Map();
+function get(selector){
+ if(!dom.has(selector))dom.set(selector,{innerHTML:"",
+  onclick:null,disabled:false,textContent:"",value:"КМД",className:"",
+  style:{},focus(){},setSelectionRange(){},addEventListener(){},dataset:{},
+  querySelector:get,querySelectorAll:()=>[]});
+ return dom.get(selector)
+}
+const root={innerHTML:"",querySelector:get,querySelectorAll:()=>[]};
 const app=document=>document==="app"?root:null;
 let runs=[],inflight=0,peak=0,finishSecond;
 const pending=new Promise(resolve=>{finishSecond=resolve});
