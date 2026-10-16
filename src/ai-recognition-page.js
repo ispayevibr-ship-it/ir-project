@@ -866,25 +866,28 @@ window.irAiRecognitionPage=async function(objectId){
     recognize=dlg.querySelector("[data-region-analyze]"),back=dlg.querySelector("[data-region-back]"),
     fit=dlg.querySelector("[data-pdf-fit]"),meta=dlg.querySelector("[data-region-meta]"),
     aiState=dlg.querySelector("[data-region-ai-status]"),title=dlg.querySelector("[data-region-title]");
-   let crop=null,selected=null,drag=null,loading=false,fitted=true,modelReady=false,checkingAi=false;
+   let crop=null,selected=null,drag=null,loading=false,fitted=true,modelReady=false,aiStatusJob=null;
    aiState.textContent="Проверяем готовность локальной Qwen…";
    async function refreshAiStatus(){
-    if(!runtime?.status||!dlg.isConnected||checkingAi)return;
-    checkingAi=true;
-    try{
-     const current=await runtime.status();
-     if(!dlg.isConnected)return;
-     engine=current;
-     modelReady=current?.state==="ready";
-     aiState.textContent=modelReady?
-      "Qwen готова. Выделите область листа для распознавания.":
-      "Qwen не готова ("+String(current?.state||"неизвестно")+
-      "). Закройте просмотр, запустите локальный ИИ и откройте лист снова.";
-    }catch(error){
-     if(!dlg.isConnected)return;
-     modelReady=false;
-     aiState.textContent="Не удалось проверить Qwen: "+String(error.message||error).slice(0,180)
-    }finally{checkingAi=false;if(dlg.isConnected)updateSelection()}
+    if(!runtime?.status||!dlg.isConnected)return;
+    if(aiStatusJob)return aiStatusJob;
+    aiStatusJob=(async()=>{
+     try{
+      const current=await runtime.status();
+      if(!dlg.isConnected)return;
+      engine=current;
+      modelReady=current?.state==="ready";
+      aiState.textContent=modelReady?
+       "Qwen готова. Выделите область листа для распознавания.":
+       "Qwen не готова ("+String(current?.state||"неизвестно")+
+       "). Закройте просмотр, запустите локальный ИИ и откройте лист снова.";
+     }catch(error){
+      if(!dlg.isConnected)return;
+      modelReady=false;
+      aiState.textContent="Не удалось проверить Qwen: "+String(error.message||error).slice(0,180)
+     }finally{if(dlg.isConnected)updateSelection()}
+    })();
+    try{return await aiStatusJob}finally{aiStatusJob=null}
    }
    function showImage(view){
     if(!validImage(view.dataUrl))throw Error("Неверный формат увеличенного фрагмента PDF");
@@ -906,11 +909,11 @@ window.irAiRecognitionPage=async function(objectId){
     }
     extract.disabled=loading||!selected||!!crop;
     if(recognize){
-     recognize.disabled=loading||!selected||!!crop||!modelReady||!canEdit;
+     recognize.disabled=loading||!selected||!modelReady||!canEdit;
      recognize.title=!canEdit?"Только инженер или администратор может распознавать лист":
       !modelReady?"Qwen не готова — проверьте статус модели над изображением":
       !selected?"Выделите область чертежа мышью или касанием":
-      crop?"Вернитесь к целому листу, чтобы распознать выбранную область":
+      crop?"Распознать увеличенный участок по исходным координатам PDF":
       "Запустить Qwen для выбранного участка PDF";
     }
    }
@@ -965,7 +968,7 @@ window.irAiRecognitionPage=async function(objectId){
     finally{loading=false;updateSelection()}
    };
    if(recognize)recognize.onclick=async()=>{
-    if(!selected||crop||loading||!canEdit)return;
+    if(!selected||loading||!canEdit)return;
     await refreshAiStatus();
     if(!modelReady){
      aiState.textContent="Qwen остановлена. Закройте просмотр и нажмите «Запустить локальный ИИ».";
