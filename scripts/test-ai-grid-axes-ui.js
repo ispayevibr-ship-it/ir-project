@@ -30,8 +30,17 @@ const wait=async f=>{
  throw Error("axis preview not available")
 };
 (async()=>{
- let geometryCalls=0,schemeWrites=0;
- const axis={innerHTML:"",textContent:"",dataset:{},scrollIntoView(){}},
+ let geometryCalls=0,schemeWrites=0,sourceViews=[];
+ const lineButton={dataset:{liteOutlineSource:"0"},onclick:null},
+  altButton={dataset:{liteAltSource:"0:0"},onclick:null},
+  axis={innerHTML:"",textContent:"",dataset:{},scrollIntoView(){},
+   querySelectorAll:q=>{
+    if(q==="[data-lite-outline-source]"&&
+       axis.innerHTML.includes('data-lite-outline-source="0"'))return[lineButton];
+    if(q==="[data-lite-alt-source]"&&
+       axis.innerHTML.includes('data-lite-alt-source="0:0"'))return[altButton];
+    return[]
+   }},
   vector={innerHTML:"",textContent:"",dataset:{}},
   button={dataset:{liteAxisPage:"0"},onclick:null},
   scan={disabled:false,onclick:null},
@@ -61,7 +70,8 @@ const wait=async f=>{
  })[name]};
  const ui=createPage();
  await ui.render(host,{objectId:3,documents:[doc],indexes:[index],
-  canEdit:false,pdf,geometry:geom,root:sections});
+  canEdit:false,pdf,geometry:geom,root:sections,
+  onOpenPdf:(documentId,page,evidence)=>sourceViews.push({documentId,page,evidence})});
  scan.onclick();
  await wait(()=>slot.innerHTML.includes("data-lite-axis-page"));
  assert.equal(typeof button.onclick,"function");
@@ -78,6 +88,19 @@ const wait=async f=>{
  assert(axis.innerHTML.includes("Несколько похожих контуров возле марки"),axis.innerHTML);
  assert(axis.innerHTML.includes("1 из"),axis.innerHTML);
  assert(axis.innerHTML.includes("В74"),axis.innerHTML);
+ assert.equal(typeof lineButton.onclick,"function","candidate opens source lines");
+ lineButton.onclick();
+ assert.equal(sourceViews.length,1);
+ assert.equal(sourceViews[0].documentId,14);
+ assert.equal(sourceViews[0].page,1);
+ assert.equal(sourceViews[0].evidence.length,1);
+ assert.equal(sourceViews[0].evidence[0].strokeLinesPt.length,2);
+ assert.deepEqual(sourceViews[0].evidence[0].strokeLinesPt.map(s=>s.x1),[112,112]);
+ assert.equal(typeof altButton.onclick,"function","alternative opens exact option lines");
+ altButton.onclick();
+ assert.equal(sourceViews.length,2);
+ assert.equal(sourceViews[1].evidence[0].strokeLinesPt.length,2);
+ assert.equal(schemeWrites,0,"source PDF viewer stays read-only");
  assert.equal(schemeWrites,0,"grid calibration is read-only");
  assert.equal(geometryCalls,1);
  ui.dispose();
