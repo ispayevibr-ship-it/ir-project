@@ -2,6 +2,7 @@
 const {app,BrowserWindow,ipcMain,dialog,Menu,protocol,shell}=require("electron");
 const path=require("path"),crypto=require("crypto"),fs=require("fs");
 const updates=require("./src/updater");
+const schemeReset=require("./src/scheme-reset");
 // The first Beta installer provides the trusted loader. Later AI JavaScript
 // fixes can be applied from the verified hot package without replacing the exe.
 // Keep native Electron bridges, database and updater inside the installer.
@@ -18,6 +19,7 @@ function hotAiModule(name){
 }
 const database=require("./src/database"),aiDocumentStore=hotAiModule("ai-document-store"),aiLocalEngine=hotAiModule("ai-local-engine"),aiAnalysis=hotAiModule("ai-analysis"),aiReview=hotAiModule("ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiKmdMaterials=require("./src/ai-kmd-materials"),aiKmdConnections=require("./src/ai-kmd-connections"),aiKmKmdCompare=require("./src/ai-km-kmd-compare"),aiAssemblyGeometry=require("./src/ai-assembly-geometry"),aiAssemblyAttachments=require("./src/ai-assembly-attachments"),aiWorkflow=hotAiModule("ai-workflow"),aiStructuredReview=hotAiModule("ai-structured-review"),aiDrawingRevisions=require("./src/ai-drawing-revisions"),aiIntegrityReport=require("./src/ai-integrity-report"),aiCoverageReport=require("./src/ai-kmd-coverage"),aiKmdReference=require("./src/ai-kmd-reference"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),aiModelManager=require("./src/ai-model-manager"),aiPaddleOcr=require("./src/ai-paddle-ocr"),aiPreflightCheck=require("./src/ai-acceptance-preflight"),aiRuntimeDiagnostics=require("./src/ai-runtime-diagnostics"),completeBackup=require("./src/ai-complete-backup"),backup=require("./src/backup"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
 let win;
+const schemeResetService=schemeReset.createReset({database});
 const aiDocuments=aiDocumentStore.createStore({getUserDataPath:()=>app.getPath("userData"),dialog,shell,database,getWindow:()=>win});
 // Destructive PDF operations resolve the active, checksum-verified module at call
 // time rather than using a store captured before a hot update was installed.
@@ -76,24 +78,40 @@ const aiComparisons=aiKmKmdCompare.createKmKmdCompare({database,revisions:aiRevi
 const aiAssemblies=aiAssemblyGeometry.createAssemblyGeometry({database,quantities:aiQuantities,materials:aiMaterials,revisions:aiRevisions});
 const aiAttachments=aiAssemblyAttachments.createAssemblyAttachments({database,assemblies:aiAssemblies,connections:aiConnections,revisions:aiRevisions});
 const aiReviewSessions=new Map();
+const EDITOR_SESSION_MS=8*60*60*1000; // One login per working session, not per PDF.
+function currentAiRole(e,role){
+ if(!["admin","engineer"].includes(role))return false;
+ const now=Date.now(),access=accessSessions.get(e.sender.id),
+  ai=aiReviewSessions.get(e.sender.id);
+ if(access&&access.expiresAt>now&&access.role===role)return true;
+ if(ai&&ai.expiresAt>now&&ai.role===role)return true;
+ return false
+}
 function authorizeAiReview(e,role,password){
  if(!["admin","engineer"].includes(role))return false;
+ // Never trust an empty password on its own: an existing Electron session
+ // must have been authenticated by the real login or an earlier AI password.
+ const active=currentAiRole(e,role);
  const digest=crypto.createHash("sha256").update(String(password||"")).digest("hex");
  const expected=Buffer.from(roleHashes[role]),actual=Buffer.from(digest);
- const allowed=crypto.timingSafeEqual(expected,actual);
+ const allowed=active||crypto.timingSafeEqual(expected,actual);
  if(allowed){
-  aiReviewSessions.set(e.sender.id,{role,expiresAt:Date.now()+10*60*1000});
+  aiReviewSessions.set(e.sender.id,{role,expiresAt:Date.now()+EDITOR_SESSION_MS});
   e.sender.once("destroyed",()=>aiReviewSessions.delete(e.sender.id))
  }
  return allowed
 }
 function requireAiReviewer(e){
- const session=aiReviewSessions.get(e.sender.id);
- if(!session||session.expiresAt<=Date.now()){
+ const now=Date.now(),access=accessSessions.get(e.sender.id),
+  saved=aiReviewSessions.get(e.sender.id);
+ const active=access&&access.expiresAt>now&&["admin","engineer"].includes(access.role)?
+  access:saved&&saved.expiresAt>now&&["admin","engineer"].includes(saved.role)?saved:null;
+ if(!active){
   aiReviewSessions.delete(e.sender.id);
-  throw Error("Сессия проверки истекла. Повторно подтвердите пароль инженера/администратора")
+  throw Error("Сессия инженера истекла. Войдите в программу повторно");
  }
- return session
+ aiReviewSessions.set(e.sender.id,{role:active.role,expiresAt:now+EDITOR_SESSION_MS});
+ return active
 }
 const aiQueue=aiWorkflow.createAiWorkflow({database,documents:aiDocuments,pdfIndex:aiPdf,
  analysis:aiResults,reviews:aiReviews,engine:aiEngine,ocr:aiOcr,revisions:aiRevisions,
@@ -143,6 +161,14 @@ function registerData(){
  ipcMain.handle("company:get",()=>companyStore.get());ipcMain.handle("company:save",(_e,d)=>companyStore.save(d));ipcMain.handle("company:select-logo",()=>selectCompanyLogo());ipcMain.handle("sections:get",(_e,id)=>database.getSections(id));ipcMain.handle("sections:set",(_e,x)=>database.setSection(x.objectId,x.key,x.enabled));registerSectionIpc(ipcMain,database);ipcMain.handle("entity:list",(_e,x)=>database.listEntity(x.objectId,x.entity));ipcMain.handle("entity:get",(_e,x)=>database.getEntity(x.objectId,x.entity,x.id));ipcMain.handle("entity:create",(_e,x)=>{protectAiRecords(x?.entity);return database.createEntity(x.objectId,x.entity,x.data)});ipcMain.handle("entity:update",(_e,x)=>{protectAiRecords(x?.entity);return database.updateEntity(x.objectId,x.entity,x.id,x.data)});ipcMain.handle("entity:delete",(_e,x)=>{protectAiRecords(x?.entity);return database.deleteEntity(x.objectId,x.entity,x.id)});
 }
 function registerAiDocuments(){
+ ipcMain.handle("scheme:reset-preview",(e,objectId)=>{
+  requireAiReviewer(e);
+  return schemeResetService.snapshot(objectId)
+ });
+ ipcMain.handle("scheme:reset",(e,{objectId,expectedCount,expectedFingerprint,confirmation})=>{
+  requireAiReviewer(e);
+  return schemeResetService.clear(objectId,{expectedCount,expectedFingerprint,confirmation})
+ });
  ipcMain.handle("ai-documents:list",(_e,id)=>aiDocuments.list(id));
  ipcMain.handle("ai-documents:select",(e,{objectId,kind})=>{requireAiReviewer(e);return aiDocuments.select(objectId,kind)});
  ipcMain.handle("ai-documents:open",(_e,{objectId,id})=>aiDocuments.open(objectId,id));
@@ -187,6 +213,7 @@ function registerAiDocuments(){
  ipcMain.handle("ai-review:list",(_e,objectId)=>aiReviews.list(objectId));
  ipcMain.handle("ai-review:register",(_e,objectId)=>aiReviews.register(objectId));
  ipcMain.handle("ai-review:history",(_e,{objectId,id})=>aiReviews.history(objectId,id));
+ ipcMain.handle("ai-review:session",(e,role)=>currentAiRole(e,role));
  ipcMain.handle("ai-review:authorize",(e,{role,password})=>authorizeAiReview(e,role,password));
  ipcMain.handle("ai-review:save",(e,{objectId,id,review})=>
   aiReviews.confirm(objectId,id,review,requireAiReviewer(e)));
@@ -350,12 +377,12 @@ function registerAccess(){ipcMain.handle("access:login",(e,{role,password})=>{
  const hash=crypto.createHash("sha256").update(String(password||"")).digest("hex");
  const valid=crypto.timingSafeEqual(Buffer.from(hash),Buffer.from(roleHashes[role]));
  if(valid){
-  accessSessions.set(e.sender.id,{role,expiresAt:Date.now()+10*60*1000});
+  accessSessions.set(e.sender.id,{role,expiresAt:Date.now()+EDITOR_SESSION_MS});
   e.sender.once("destroyed",()=>accessSessions.delete(e.sender.id))
  }else accessSessions.delete(e.sender.id);
  return valid
  });
- ipcMain.handle("access:logout",e=>{accessSessions.delete(e.sender.id);return true})
+ ipcMain.handle("access:logout",e=>{accessSessions.delete(e.sender.id);aiReviewSessions.delete(e.sender.id);return true})
 }
 function registerBackup(){
  let active=false;
