@@ -26,7 +26,54 @@ window.irAiRecognitionPage=async function(objectId){
   checks:["Проверка и замечания","После запуска локального анализа здесь появятся ошибки и неопределённые значения со ссылками на исходные листы и подтверждения инженера."]
  };
  let object,documents=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,materialEntries=[],materialSummary=null,connectionNodes=[],connectionItems=[],connectionSummary=null,comparisonEntries=[],comparisonSummary=null,comparisonFields={},pdfIndexes=[],workflowTasks=[],workflowSummary=null,proposalEntries=[],proposalSummary=null,revisionSets=[],revisionImpact=null,referenceRows=null,referenceChecks=null,referenceCompare=null,integrityReport=null,engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
- let selectedKind="Не определён";
+ let selectedKind="Не определён",analysisProgress=null;
+ // Qwen/llama.cpp does not expose a meaningful "% of drawing recognized".
+ // These numbers show estimated elapsed-time progress, never inferred markup coverage.
+ function progressValues(job,now=Date.now()){
+  const elapsed=Math.max(0,Math.floor((now-job.startedAt)/1000));
+  const timeout=Math.max(30,Math.ceil(job.timeoutSeconds||600));
+  const remaining=Math.max(0,timeout-elapsed);
+  const estimated=Math.min(94,Math.max(6,Math.round(6+88*Math.min(1,elapsed/timeout))));
+  return{elapsed,remaining,percentage:job.status==="completed"?100:
+   job.status==="running"?Math.max(job.percentage||0,estimated):job.percentage||estimated}
+ }
+ const clockText=s=>Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+ function progressMarkup(job,inline=false){
+  const p=progressValues(job);
+  const status=job.status==="completed"?"Завершено":job.status==="failed"?"Прервано":"Выполняется";
+  return '<div class="ir-ai-recognition-progress'+(job.status==="failed"?' failed':job.status==="completed"?' completed':'')+
+   (inline?' inline':'')+'" data-ai-analysis-progress>'+
+   '<div class="ir-ai-recognition-progress-head"><strong>'+esc(job.label)+'</strong>'+
+   '<b data-ai-progress-value>'+ (job.status==="running"?'≈ ':'')+p.percentage+'%</b></div>'+
+   '<progress max="100" value="'+p.percentage+'" data-ai-progress-bar aria-label="Оценка прогресса обработки PDF"></progress>'+
+   '<div class="ir-ai-recognition-progress-meta"><span data-ai-progress-state>'+status+
+   '</span><span data-ai-progress-elapsed>Прошло: '+clockText(p.elapsed)+'</span>'+
+   '<span data-ai-progress-remaining>'+(job.status==="running"?
+    'До лимита ожидания: '+clockText(p.remaining):
+    job.status==="completed"?'Обработка завершена':'Анализ остановлен до получения результата')+
+   '</span></div>'+
+   '<small>Процент оценочный, по времени ожидания; Qwen не сообщает фактический процент распознанного чертежа. Ответ может прийти раньше.</small></div>'
+ }
+ function updateProgressNodes(job){
+  if(!job||location.hash!==route)return;
+  const p=progressValues(job);
+  job.percentage=p.percentage;
+  const elements=[app.querySelector("[data-ai-analysis-progress]"),job.inlineNode].filter(Boolean);
+  for(const parent of elements){
+   const find=attr=>parent.querySelector?.('[data-ai-progress-'+attr+']');
+   const value=find("value"),bar=find("bar"),elapsed=find("elapsed"),remain=find("remaining");
+   if(value)value.textContent=(job.status==="running"?"≈ ":"")+p.percentage+"%";
+   if(bar)bar.value=p.percentage;
+   if(elapsed)elapsed.textContent="Прошло: "+clockText(p.elapsed);
+   if(remain)remain.textContent=job.status==="running"?
+    "До лимита ожидания: "+clockText(p.remaining):
+    job.status==="completed"?"Обработка завершена":"Анализ остановлен до получения результата";
+   const state=find("state");
+   if(state)state.textContent=job.status==="completed"?"Завершено":
+    job.status==="failed"?"Прервано":"Выполняется"
+  }
+ }
+
  const stepNumber=(n,done=false)=>'<span class="ir-ai-step-number'+(done?' done':'')+
   '" aria-label="Шаг '+n+(done?' выполнен':'')+'">'+(done?'✓':n)+'</span>';
  try{object=await irProject.data.objects.get(id)}catch(error){app.textContent="Не удалось прочитать объект: "+String(error.message||error);return}
@@ -122,22 +169,19 @@ window.irAiRecognitionPage=async function(objectId){
   if(requestId===reloadSequence&&location.hash===route)paint()
  }
  function notice(text,type="info"){message=String(text||"");severity=type}
- function trackSheetAnalysis(label){
-  // The model runs inside Electron's main process. This only updates the
-  // visible elapsed time, without pretending to measure neural progress.
-  const started=Date.now(),maxSeconds=Number(engine?.analysisTimeoutSeconds)||600;
-  const render=()=>{
-   if(location.hash!==route)return;
-   const node=app.querySelector(".ir-ai-message");
-   if(!node||!busy)return;
-   const elapsed=Math.floor((Date.now()-started)/1000);
-   node.textContent=label+" · прошло "+Math.floor(elapsed/60)+" мин "+
-    String(elapsed%60).padStart(2,"0")+" сек · ожидание до "+
-    Math.ceil(maxSeconds/60)+" мин. Можно остановить ИИ; чертёж сохранится."
-  };
-  render();
-  const timer=setInterval(render,3000);
-  return()=>clearInterval(timer)
+ function trackSheetAnalysis(label,inlineNode=null){
+  const job={label,startedAt:Date.now(),timeoutSeconds:Number(engine?.analysisTimeoutSeconds)||600,
+   percentage:6,status:"running",inlineNode};
+  analysisProgress=job;
+  // The request is unstreamed; do not turn elapsed seconds into false neural completion.
+  const timer=setInterval(()=>updateProgressNodes(job),1000);
+  updateProgressNodes(job);
+  return result=>{
+   clearInterval(timer);
+   if(analysisProgress!==job)return;
+   job.status=result==="completed"?"completed":"failed";
+   updateProgressNodes(job)
+  }
  }
  function openTab(tab){
   if(!tabs.some(x=>x[0]===tab))return;
@@ -197,6 +241,7 @@ window.irAiRecognitionPage=async function(objectId){
    '<button id="irAiExport" disabled>Экспортировать</button>'+
    '<span class="ir-ai-action-note">Листы PDF: просмотр и анализ Qwen. Исправления ИИ Beta: «Проверить обновления» → скачать небольшой пакет → перезапустить, без переустановки EXE.</span></div>'+
    stepsHtml+
+   (analysisProgress?progressMarkup(analysisProgress):"")+
    (!ready||!runtime?'<div class="ir-ai-warning" role="status"><b>Требуется новая установка Electron.</b> Действующий установщик не содержит мост локального ИИ; обновления интерфейса недостаточно.</div>':'')+
    (!engine?.installed?'<div class="ir-ai-warning" role="status"><b>Требуется отдельный офлайн-пакет модели.</b> Пока он не поставляется с установщиком. Без него запуск и распознавание недоступны.</div>':'')+
    (message?'<div class="ir-ai-message '+(severity==="error"?"error":"")+'" role="status">'+esc(message)+'</div>':'')+
@@ -637,16 +682,17 @@ window.irAiRecognitionPage=async function(objectId){
   box.querySelectorAll("[data-ai-pdf-vision]").forEach(button=>button.onclick=async()=>{
    if(!pdf||!canEdit||busy||!modelReady||!await authorizeAiMutation())return;
    const [did,page]=button.dataset.aiPdfVision.split(":");
-   busy=true;notice("Qwen обрабатывает лист "+page+". Время ожидания — до "+Math.ceil((Number(engine?.analysisTimeoutSeconds)||600)/60)+" мин. Ход обработки отображается ниже.");paint();
-   const stopTimer=trackSheetAnalysis("Qwen распознаёт лист "+page);
+   busy=true;notice("Qwen обрабатывает лист "+page+". Оценочный процент и время ожидания показаны под шагами."); 
+   const stopTimer=trackSheetAnalysis("КМД · лист "+page);
+   paint();
    try{
     const result=await pdf.analyze(id,did,page);
     notice((result.marks||[]).length?
      "Анализ PDF завершён: "+result.source+" · лист "+result.page+". Проверьте результат перед использованием.":
      "Qwen обработала лист "+result.page+", но не нашла марок. Не подтверждайте пустой результат: откройте лист, выделите область штампа и распознайте фрагмент.");
     active="checks"
-   }catch(error){notice("Распознавание листа не выполнено: "+String(error.message||error),"error")}
-   finally{stopTimer();busy=false;await reload()}
+   }catch(error){notice("Распознавание листа не выполнено: "+String(error.message||error),"error");stopTimer("failed")}
+   finally{if(analysisProgress?.status==="running")stopTimer("completed");busy=false;await reload()}
   });
   box.querySelectorAll("[data-ai-pdf-index]").forEach(button=>button.onclick=async()=>{
    if(!pdf||busy||!canEdit||!await authorizeAiMutation())return;
