@@ -214,8 +214,10 @@ function extractSegments(operatorList,OPS,viewport,{minLengthPt=12}={}){
      source:"aligned_stroke_evidence"})
   }
   axisBands[direction].sort((a,b)=>b.supportLengthPt-a.supportLengthPt);
-  if(axisBands[direction].length>700){
-   axisBands[direction].length=700;bandIncomplete=true
+  // An A1 KMD plan commonly has 1200+ horizontal stroke bands.
+  // Bounded 2500 bands per direction retain real grid evidence.
+  if(axisBands[direction].length>2500){
+   axisBands[direction].length=2500;bandIncomplete=true
   }
  }
  stats.axisEvidenceComplete=!bandIncomplete;
