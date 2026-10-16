@@ -44,7 +44,7 @@ const aiRevisions=aiDrawingRevisions.createDrawingRevisions({database,documents:
 const aiRaster=aiPdfRenderer.createPdfRenderer({database,documents:aiDocuments});
 const aiResults=aiAnalysis.createAnalysis({
  database,documents:aiDocuments,engine:aiEngine,ocr:aiOcr,
- pdfRenderer:aiRaster,revisions:aiRevisions
+ pdfRenderer:aiRaster,pdfIndex:aiPdf,revisions:aiRevisions
 });
 const aiReviews=aiReview.createAiReview({database,revisions:aiRevisions});
 const aiProposals=aiStructuredReview.createStructuredReviews({database,documents:aiDocuments,revisions:aiRevisions});
