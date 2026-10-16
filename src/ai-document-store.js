@@ -117,10 +117,10 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   const error=await shell.openPath(file);if(error)throw Error(error);
   return true
  }
- // Keep source originals whenever any recognized sheet, review, quantity, joint,
- // revision, or historical engineering decision still refers to the document.
+ // Preserve all engineering evidence and historical decisions. An unreviewed
+ // PDF text-layer index is only a rebuildable cache, not engineering evidence.
  const evidenceSections=[
-  "ai-drawing-sheet-links","ai-drawing-set-history","ai-pdf-index","ai-analysis",
+  "ai-drawing-sheet-links","ai-drawing-set-history","ai-analysis",
   "ai-review-history","ai-structured-reviews","ai-structured-review-history",
   "ai-workflow-tasks","ai-workflow-events",
   "ai-mark-quantities","ai-mark-quantity-history","ai-kmd-materials",
@@ -145,17 +145,56 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
  }
  function remove(id,documentId){
   id=objectId(id);const row=record(id,documentId);
+  // Only cache entries with an explicit non-AI text extraction flag may be removed.
+  // Any unexpected record type or generated content must remain protected.
+  const indexes=database.listEntity(id,"ai-pdf-index").filter(x=>
+   referencesDocument(x.data,row.id));
+  for(const entry of indexes){
+   if(entry.record_type!=="pdf_text_index"||
+      entry.data?.generatedByAI!==false||
+      entry.data?.extraction!=="text_layer")
+    throw Error("Нельзя удалить исходный файл: индекс № "+entry.id+
+     " содержит неизвестный или не технический результат. Сохраните исходный PDF.");
+  }
   for(const section of evidenceSections){
    const linked=database.listEntity(id,section).find(item=>referencesDocument(item.data,row.id));
    if(linked)throw Error("Нельзя удалить исходный файл: он используется в разделе "+
     section+" (запись № "+linked.id+"). Сохраните оригинал и историю инженерных подтверждений")
   }
+  if(typeof database.transaction!=="function")
+   throw Error("Без транзакций SQLite безопасное удаление исходного PDF недоступно");
   const file=safeFile(id,row.data?.stored_name);
-  // Refuse to follow symlinks, including those that could be created externally.
-  if(fs.existsSync(file)&&fs.lstatSync(file).isSymbolicLink())throw Error("Символьная ссылка запрещена");
-  if(!database.deleteEntity(id,"ai-documents",row.id))return false;
+  // Stage the bytes first. A failure to rename (e.g. locked PDF on Windows)
+  // leaves the database and all indexes intact.
+  let staged=null;
+  if(fs.existsSync(file)){
+   const stat=fs.lstatSync(file);
+   if(!stat.isFile()||stat.isSymbolicLink())throw Error("Небезопасный тип исходного файла");
+   staged=file+".pending-delete-"+crypto.randomBytes(8).toString("hex");
+   fs.renameSync(file,staged)
+  }
+  try{
+   database.transaction(()=>{
+    // A document and all of its rebuildable text indexes disappear atomically.
+    for(const index of indexes)
+     if(!database.deleteEntity(id,"ai-pdf-index",index.id))
+      throw Error("Не удалось удалить технический индекс PDF № "+index.id);
+    if(!database.deleteEntity(id,"ai-documents",row.id))
+     throw Error("Не удалось удалить запись исходного PDF")
+   })
+  }catch(error){
+   if(staged){
+    try{fs.renameSync(staged,file)}
+    catch(restoreError){throw Error("Удаление отменено, но не удалось восстановить исходный PDF из "+
+     staged+": "+String(restoreError.message||restoreError)+"; причина: "+String(error.message||error))}
+   }
+   throw error
+  }
   verifiedFiles.delete(id+":"+row.id);
-  if(fs.existsSync(file))fs.unlinkSync(file);
+  if(staged)try{fs.unlinkSync(staged)}catch(error){
+   // DB deletion has committed; do not falsely tell users their document was kept.
+   console.warn("IR Project AI: residual staged PDF requires local cleanup:",staged,error)
+  }
   return true
  }
  function deleteObjectFiles(id){
