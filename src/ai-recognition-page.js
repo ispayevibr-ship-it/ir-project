@@ -24,7 +24,7 @@ window.irAiRecognitionPage=async function(objectId){
   proposals:["Структурированные предложения ИИ","Отдельные поля марок, металлопроката, размеров и соединений с проверкой инженером."],
   checks:["Проверка и замечания","После запуска локального анализа здесь появятся ошибки и неопределённые значения со ссылками на исходные листы и подтверждения инженера."]
  };
- let object,documents=[],archivedDocuments=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,materialEntries=[],materialSummary=null,connectionNodes=[],connectionItems=[],connectionSummary=null,comparisonEntries=[],comparisonSummary=null,comparisonFields={},pdfIndexes=[],workflowTasks=[],workflowSummary=null,proposalEntries=[],proposalSummary=null,revisionSets=[],revisionImpact=null,referenceRows=null,referenceChecks=null,referenceCompare=null,integrityReport=null,engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
+ let object,documents=[],archivedDocuments=[],planMarks=[],analyses=[],verifiedMarks=[],quantityEntries=[],quantitySummary=null,materialEntries=[],materialSummary=null,connectionNodes=[],connectionItems=[],connectionSummary=null,comparisonEntries=[],comparisonSummary=null,comparisonFields={},pdfIndexes=[],workflowTasks=[],workflowSummary=null,proposalEntries=[],proposalSummary=null,revisionSets=[],revisionImpact=null,referenceRows=null,referenceChecks=null,referenceCompare=null,integrityReport=null,engine=null,active="documents",term="",message="",severity="info",busy=false,pdfProgress="";
  let selectedKind="Не определён",analysisProgress=null,liteLoader=null;
  // Qwen/llama.cpp does not expose a meaningful "% of drawing recognized".
  // These numbers show estimated elapsed-time progress, never inferred markup coverage.
@@ -101,25 +101,29 @@ window.irAiRecognitionPage=async function(objectId){
    documents=v.filter(x=>!x.archived);
    archivedDocuments=v.filter(x=>x.archived)
   }).catch(error=>{documents=[];archivedDocuments=[];notice("Ошибка загрузки документов: "+String(error.message||error),"error")}));
+  jobs.push(irProject.data.forObject(id).section("marks").list().then(v=>{
+   planMarks=v
+  }).catch(error=>{planMarks=[];notice("Не удалось прочитать ведомость марок: "+
+   String(error.message||error),"error")}));
   if(runtime)jobs.push(runtime.status().then(v=>{engine=v}).catch(error=>{engine=null;notice("Ошибка проверки локальной модели: "+String(error.message||error),"error")}));
   if(reviewer){
    jobs.push(reviewer.list(id).then(v=>{analyses=v}).catch(error=>{analyses=[];notice("Ошибка истории анализа: "+String(error.message||error),"error")}));
    jobs.push(reviewer.register(id).then(v=>{verifiedMarks=v}).catch(error=>{verifiedMarks=[];notice("Ошибка подтверждённых марок: "+String(error.message||error),"error")}))
   }else if(runtime)jobs.push(runtime.results(id).then(v=>{analyses=v}).catch(error=>{analyses=[];notice("Ошибка истории анализа: "+String(error.message||error),"error")}));
-  if(quantities){
+  if(quantities&&["marks","metal","reference","integrity"].includes(active)){
    jobs.push(quantities.list(id).then(v=>{quantityEntries=v}).catch(error=>{quantityEntries=[];notice("Ошибка загрузки количеств: "+String(error.message||error),"error")}));
    jobs.push(quantities.summary(id).then(v=>{quantitySummary=v}).catch(error=>{quantitySummary=null;notice("Ошибка сводки отправочных марок: "+String(error.message||error),"error")}));
   }
-  if(materials){
+  if(materials&&["metal","reference","integrity"].includes(active)){
    jobs.push(materials.list(id).then(v=>{materialEntries=v}).catch(error=>{materialEntries=[];notice("Ошибка спецификации металла: "+String(error.message||error),"error")}));
    jobs.push(materials.summary(id).then(v=>{materialSummary=v}).catch(error=>{materialSummary=null;notice("Ошибка сводки массы деталей: "+String(error.message||error),"error")}))
   }
-  if(connections){
+  if(connections&&["fasteners","reference","integrity"].includes(active)){
    jobs.push(connections.nodes(id).then(v=>{connectionNodes=v}).catch(error=>{connectionNodes=[];notice("Ошибка узлов КМД: "+String(error.message||error),"error")}));
    jobs.push(connections.items(id).then(v=>{connectionItems=v}).catch(error=>{connectionItems=[];notice("Ошибка метизов КМД: "+String(error.message||error),"error")}));
    jobs.push(connections.summary(id).then(v=>{connectionSummary=v}).catch(error=>{connectionSummary=null;notice("Ошибка сводки крепежа: "+String(error.message||error),"error")}))
   }
-  if(comparisons){
+  if(comparisons&&["compare","integrity"].includes(active)){
    jobs.push(comparisons.list(id).then(v=>{comparisonEntries=v}).catch(error=>{comparisonEntries=[];notice("Ошибка записей КМ/КМД: "+String(error.message||error),"error")}));
    jobs.push(comparisons.summary(id).then(v=>{comparisonSummary=v}).catch(error=>{comparisonSummary=null;notice("Ошибка сводки сравнения: "+String(error.message||error),"error")}));
    jobs.push(comparisons.fields().then(v=>{comparisonFields=v}).catch(error=>{comparisonFields={};notice("Ошибка перечня параметров КМ/КМД: "+String(error.message||error),"error")}))
@@ -158,11 +162,11 @@ window.irAiRecognitionPage=async function(objectId){
     notice("Не удалось прочитать эталон КМД: "+String(e.message||e),"error")
    }))
   }
-  if(revisionsApi){
+  if(revisionsApi&&["revisions","integrity"].includes(active)){
    jobs.push(revisionsApi.list(id).then(v=>{revisionSets=v}).catch(error=>{revisionSets=[];notice("Ошибка списка комплектов КМ/КМД: "+String(error.message||error),"error")}));
    jobs.push(revisionsApi.impact(id).then(v=>{revisionImpact=v}).catch(error=>{revisionImpact=null;notice("Ошибка контроля действующих листов: "+String(error.message||error),"error")}))
   }
-  if(proposalsApi){
+  if(proposalsApi&&["proposals","integrity"].includes(active)){
    jobs.push(proposalsApi.list(id).then(v=>{proposalEntries=v}).catch(error=>{proposalEntries=[];notice("Ошибка предложений ИИ: "+String(error.message||error),"error")}));
    jobs.push(proposalsApi.summary(id).then(v=>{proposalSummary=v}).catch(error=>{proposalSummary=null;notice("Ошибка сводки предложений: "+String(error.message||error),"error")}))
   }
@@ -247,35 +251,39 @@ window.irAiRecognitionPage=async function(objectId){
   const reviewed=analyses.some(x=>availableDocs.some(d=>
    String(d.id)===String(x.documentId)&&d.sha256===x.sha256)&&
    ["confirmed","rejected"].includes(x.status));
-  const stepDone=[hasCorrectKind,availableDocs.length>0,hasIndex,modelReady,!!recognized,reviewed];
-  const stepLabels=["Выбрать КМ/КМД","Добавить PDF","Индексировать PDF",
-   "Запустить Qwen","Распознать лист","Проверить результат"];
+  // For montage layout Qwen is optional. Do not force it on every KMD sheet.
+  const stepDone=[planMarks.length>0,availableDocs.length>0,hasIndex,false];
+  const stepLabels=["Загрузить ведомость марок","Добавить КМ/КМД",
+   "Индексировать PDF","Подготовить расстановку"];
   const missingStep=stepDone.findIndex(done=>!done);
-  const activeStep=missingStep<0?6:missingStep+1;
+  const activeStep=missingStep<0?4:missingStep+1;
   const stepsHtml='<div class="ir-ai-step-guide" role="status" aria-label="Порядок распознавания чертежей">'+
    '<b>Порядок действий:</b>'+stepLabels.map((label,i)=>
     '<span class="ir-ai-step-guide-item'+(stepDone[i]?' complete':i+1===activeStep?' current':'')+'">'+
     stepNumber(i+1,stepDone[i])+esc(label)+'</span>').join('')+
    '<small>'+(analysisProgress?.status==="failed"?
     "Распознавание прервано. Повторите шаг 5 после проверки состояния ИИ: нажмите «Проверить ИИ», при остановке запустите Qwen снова. Данные К60 сохранены.":
-    'Следующий шаг: '+activeStep+'. '+esc(stepLabels[activeStep-1]))+'</small></div>';
+    'Следующий шаг: '+activeStep+'. '+esc(stepLabels[activeStep-1])+
+    '. Qwen требуется только для сложных листов.')+'</small></div>';
   window.irAiAssemblyPage?.dispose?.();
   app.innerHTML='<div class="ir-ai-page">'+
    '<header class="ir-ai-hero"><div class="ir-ai-heading"><div class="ir-ai-kicker">IR PROJECT · ЛОКАЛЬНЫЙ ИНЖЕНЕРНЫЙ МОДУЛЬ</div>'+
-   '<h1>IR Project AI <span>Инженерный анализ КМ/КМД</span></h1>'+
+   '<h1>IR Project AI <span>Расстановка конструкций по КМ/КМД</span></h1>'+
    '<p>'+esc(object.name)+' · Все данные отдельно для этого объекта</p></div>'+
    '<div class="ir-ai-state"><span class="ir-ai-state-dot"></span><div><strong>'+esc(stateNames[state]||"Не определено")+'</strong><small>'+esc(engine?.reason||((engine?.model||"Qwen3-VL")+(engine?.modelVersion?" · v"+engine.modelVersion:"")+(engine?.installed&&engine?.contextTokens?" · контекст "+engine.contextTokens+" токенов":"")+" · автономный режим"))+'</small></div></div></header>'+
    '<div class="ir-ai-stats"><div><small>Загружено файлов</small><b>'+documents.length+'</b><span>Локальное хранение</span></div>'+
    '<div><small>Проиндексировано листов PDF</small><b>'+indexedPages+'</b><span>Текстовые слои, без ИИ</span></div>'+
-   '<div><small>3D-конструкций</small><b>—</b><span>Нет подтверждённой геометрии</span></div>'+
+   '<div><small>Марок в ведомости</small><b>'+planMarks.length+
+   '</b><span>Загруженные исходные марки</span></div>'+
    '<div><small>Требует проверки</small><b>'+analyses.filter(x=>!x.status||x.status==="requires_review").length+'</b><span>Результаты пока не подтверждены</span></div></div>'+
    '<div class="ir-ai-actions"><label><span class="ir-ai-kind-label">'+stepNumber(1,hasCorrectKind)+' Тип загружаемого комплекта</span><select id="irAiKind"><option value="Не определён">Не определён</option>'+
    '<option value="КМ">КМ</option><option value="КМД">КМД</option></select></label>'+
    '<button class="ir-ai-primary" id="irAiUpload" '+(!ready||!canEdit||busy?'disabled':'')+'>'+stepNumber(2,availableDocs.length>0)+' Добавить чертежи</button>'+
-   '<button id="irAiRecognize" '+(!runtime||!engine?.installed||modelReady||busy||!canEdit?'disabled':'')+'>'+stepNumber(4,modelReady)+' Запустить локальный ИИ</button>'+
+   '<button class="ir-ai-primary" id="irAiPlan" '+(!hasIndex?'disabled title="Сначала проиндексируйте PDF"':'')+'>4. Построить черновик схемы</button>'+ 
+   '<button id="irAiRecognize" '+(!runtime||!engine?.installed||modelReady||busy||!canEdit?'disabled':'')+'>Запустить Qwen для сложных листов</button>'+
    '<button id="irAiStop" '+(!runtime||!canEdit||!(state==="ready"||state==="starting")?'disabled':'')+'>Остановить ИИ</button>'+
    '<button id="irAiRefresh" '+(!runtime||busy?'disabled':'')+'>Проверить ИИ</button>'+
-   '<button id="irAiExport" disabled>Экспортировать</button>'+
+   ''+
    '<span class="ir-ai-action-note">Листы PDF: просмотр и анализ Qwen. Исправления ИИ Beta: «Проверить обновления» → скачать небольшой пакет → перезапустить, без переустановки EXE.</span></div>'+
    stepsHtml+
    (modelReady?'<div class="ir-ai-acceleration-state" role="status">'+
@@ -303,7 +311,7 @@ window.irAiRecognitionPage=async function(objectId){
    '<textarea disabled placeholder="'+esc(modelReady?"Чат пока недоступен — используйте конвейер PDF":"Чат пока недоступен")+'"></textarea><button disabled>Отправить</button></aside></div>'+
    '<footer class="ir-ai-footer">Быстрый конвейер монтажной схемы: анализ текстовых слоёв без Qwen, размещение только после проверки инженером. Детальная 3D-модель марок необязательна.</footer></div>';
   app.querySelectorAll("[data-ai-tab]").forEach(button=>{
-   if(button.dataset.aiTab==="checks")button.innerHTML=stepNumber(6,reviewed)+" Проверка и ошибки";
+   if(button.dataset.aiTab==="checks")button.innerHTML="Проверка";
    button.onclick=()=>openTab(button.dataset.aiTab)
   });
   const kindSelect=app.querySelector("#irAiKind");
@@ -322,6 +330,7 @@ window.irAiRecognitionPage=async function(objectId){
    }catch(error){notice("Не удалось импортировать файлы: "+String(error.message||error),"error")}
    finally{busy=false;await reload()}
   };
+  app.querySelector("#irAiPlan")?.addEventListener("click",()=>openTab("scheme-lite"));
   app.querySelector("#irAiRecognize").onclick=async()=>{
    if(!runtime||busy||!canEdit||!await authorizeAiMutation())return;
    busy=true;notice("Запускаем локальную модель, ожидаем реальной готовности…");paint();
