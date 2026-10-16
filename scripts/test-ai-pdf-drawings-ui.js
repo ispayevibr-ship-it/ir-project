@@ -93,7 +93,17 @@ async function runBulkIndex(){
   },
   querySelectorAll:()=>[]
  };
- const app={innerHTML:"",querySelector:q=>q==="#irAiContent"?content:null};
+ const appControls=new Map();
+ const app={innerHTML:"",
+  querySelector:q=>{
+   if(q==="#irAiContent")return content;
+   if(!appControls.has(q))appControls.set(q,{
+    onclick:null,disabled:false,textContent:"",value:"КМД"
+   });
+   return appControls.get(q)
+  },
+  querySelectorAll:()=>[]
+ };
  let progress=null,indexedIds=[],active=0,maxActive=0;
  let finishTwo,finishFour;
  const second=new Promise(resolve=>{finishTwo=resolve});
