@@ -1,7 +1,7 @@
 {
   "channel": "beta",
   "baseVersion": "1.7.217",
-  "version": "1.7.217.22",
+  "version": "1.7.217.25",
   "branch": "feature/ir-project-ai-next",
   "description": "IR Project AI Beta hot fixes: no full EXE",
   "files": [
@@ -14,8 +14,8 @@
     {
       "source": "src/ai-analysis.js",
       "target": "src/ai-analysis.js",
-      "size": 10912,
-      "sha256": "e6b7619d0c25612891b03d9fbf71eca08c0a160d51c0684df25e20f5ae8a19f5"
+      "size": 11382,
+      "sha256": "296f87d0f59cf50369cfcead4b6ea528528f73f6acc47be4ac1f2187e9b900a9"
     },
     {
       "source": "src/ai-assembly-attachments-page.css",
@@ -266,8 +266,8 @@
     {
       "source": "src/ai-recognition-page.js",
       "target": "src/ai-recognition-page.js",
-      "size": 97574,
-      "sha256": "c2d85aa906703f5316a63812b0628a3ec8b793faefe8298a15b7f376f6e7d849"
+      "size": 99482,
+      "sha256": "ecc2b45facf681e0dc19ece147ca3d59f23997e2b4bac3f9ec2eb703e6fae01f"
     },
     {
       "source": "src/ai-review.js",
@@ -292,6 +292,12 @@
       "target": "src/ai-runtime-diagnostics.js",
       "size": 6531,
       "sha256": "bf58b5b2a067936720c71f90d6ad52a9628deaace435c01eefb1e92977cdc39d"
+    },
+    {
+      "source": "src/ai-scheme-lite-page.js",
+      "target": "src/ai-scheme-lite-page.js",
+      "size": 22568,
+      "sha256": "35b38ec39a35cd6860eb9156838ca4899cd7a3a4e1f498e996b8d60f3dc28e86"
     },
     {
       "source": "src/ai-structured-extraction.js",
