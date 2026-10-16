@@ -43,12 +43,26 @@ const wait=async f=>{
    }},
   vector={innerHTML:"",textContent:"",dataset:{}},
   button={dataset:{liteAxisPage:"0"},onclick:null},
+  instanceButton={dataset:{liteInstancesPage:"0"},onclick:null},
+  instanceOutline={dataset:{liteInstanceOutline:"0"},onclick:null},
+  sourceInstances={dataset:{liteInstanceSource:"0"},onclick:null},
+  regionSelect={value:"left"},
   scan={disabled:false,onclick:null},
   slot={innerHTML:"",
-   querySelectorAll:q=>q==="[data-lite-axis-page]"&&
-    slot.innerHTML.includes('data-lite-axis-page="0"')?[button]:[],
+   querySelectorAll:q=>{
+    if(q==="[data-lite-axis-page]"&&
+     slot.innerHTML.includes('data-lite-axis-page="0"'))return[button];
+    if(q==="[data-lite-instances-page]"&&
+     slot.innerHTML.includes('data-lite-instances-page="0"'))return[instanceButton];
+    if(q==="[data-lite-instance-source]"&&
+     slot.innerHTML.includes('data-lite-instance-source="0"'))return[sourceInstances];
+    if(q==="[data-lite-instance-outline]"&&
+     slot.innerHTML.includes('data-lite-instance-outline="0"'))return[instanceOutline];
+    return[]
+   },
    querySelector:q=>({
-    "[data-lite-axis-result]":axis,"[data-lite-vector-result]":vector
+    "[data-lite-axis-result]":axis,"[data-lite-vector-result]":vector,
+    '[data-lite-axis-region="0"]':regionSelect
    })[q]||null
   },status={textContent:""},
   host={innerHTML:"",querySelector:q=>({
@@ -111,6 +125,24 @@ const wait=async f=>{
  assert.equal(schemeWrites,0,"source PDF viewer stays read-only");
  assert.equal(schemeWrites,0,"grid calibration is read-only");
  assert.equal(geometryCalls,1);
+ assert.equal(typeof instanceButton.onclick,"function");
+ instanceButton.onclick();
+ await wait(()=>slot.innerHTML.includes("Гипотез парного контура:"));
+ assert(slot.innerHTML.includes("Реестр отдельных надписей марок"));
+ assert(slot.innerHTML.includes("Координаты конструкции")||
+  slot.innerHTML.includes("X/Y/Z не подтверждены"));
+ assert(slot.innerHTML.includes("В этом реестре подтверждено положений: 0"));
+ assert.equal(typeof sourceInstances.onclick,"function");
+ sourceInstances.onclick();
+ assert.equal(sourceViews.at(-1).documentId,14);
+ assert.equal(sourceViews.at(-1).page,1);
+ assert.equal(sourceViews.at(-1).evidence[0].quote,"К62");
+ if(slot.innerHTML.includes('data-lite-instance-outline="0"')){
+  assert.equal(typeof instanceOutline.onclick,"function");
+  instanceOutline.onclick();
+  assert.equal(sourceViews.at(-1).evidence[0].strokeLinesPt.length,2);
+ }
+ assert.equal(schemeWrites,0,"linking register instances cannot mutate the scheme");
  ui.dispose();
  console.log("Axis grid UI: full label-to-line preview, readonly, no scheme placements PASS");
 })().catch(e=>{console.error(e);process.exitCode=1});
