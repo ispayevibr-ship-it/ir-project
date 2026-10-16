@@ -2,6 +2,9 @@
 /* Unit tests for native SQLite transaction layer, without Electron dependency. */
 const assert=require("node:assert/strict");
 const {createService}=require("../src/ai-mounting-placement");
+const fs=require("node:fs"),main=fs.readFileSync("main.js","utf8");
+assert(main.includes('mountingPlacement=hotAiModule("ai-mounting-placement")'),
+ "mounting placement fixes must be hot-updatable after an app restart");
 const SHA="a".repeat(64);
 const records=new Map();let nextId=100,failAt=0,writes=0;
 const clone=x=>JSON.parse(JSON.stringify(x));
