@@ -164,8 +164,8 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   const indexes=database.listEntity(id,"ai-pdf-index").filter(x=>
    referencesDocument(x.data,row.id));
   const drafts=[],protectedRecords=[];
-  const protect=(section,item,reason)=>protectedRecords.push({
-   section,id:item.id,reason
+  const protect=(section,item,reason,diagnostics=null)=>protectedRecords.push({
+   section,id:item.id,reason,...(diagnostics?{diagnostics}:{})
   });
   for(const item of indexes){
    if(item.record_type!=="pdf_text_index"||
@@ -209,7 +209,15 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
    else if(review?.status==="rejected")reason="Результат отклонён инженером — решение сохраняется в истории";
    else if(review&&Number(review.revision)>0)reason="У результата уже есть ревизия инженерной проверки";
    else reason="Заполнены сведения инженерной проверки или неизвестный формат review";
-   protect("ai-analysis",item,reason)
+   protect("ai-analysis",item,reason,{
+    type:String(item.record_type||"").slice(0,60),
+    verification:String(data.verification??"отсутствует").slice(0,60),
+    reviewStatus:String(review?.status??"отсутствует").slice(0,60),
+    reviewRevision:Number.isSafeInteger(Number(review?.revision))?Number(review.revision):null,
+    sourceDocumentMatches:directSource,sourceShaMatches:sameHash,
+    reviewFields:review&&typeof review==="object"&&!Array.isArray(review)?
+     Object.keys(review).filter(key=>/^[a-zA-Z][a-zA-Z0-9_]*$/.test(key)).slice(0,15):[]
+   })
   }
   const ids=new Set(drafts.map(x=>Number(x.id)));
   for(const section of evidenceSections.filter(name=>name!=="ai-analysis")){
@@ -220,6 +228,8 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
    }
   }
   return{
+   // Renderer detects stale Electron document stores after a hot update.
+   policyRevision:"pdf-draft-guard-diagnostics-v1",
    documentId:row.id,name,
    technicalIndexIds:indexes.map(x=>x.id),
    unreviewedAnalysisIds:drafts.map(x=>x.id).sort((a,b)=>a-b),

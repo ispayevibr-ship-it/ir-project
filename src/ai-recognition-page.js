@@ -788,12 +788,27 @@ window.irAiRecognitionPage=async function(objectId){
    if(!await authorizeAiMutation())return;
    try{
     const impact=await bridge.impact(id,row.id);
+    if(impact?.policyRevision!=="pdf-draft-guard-diagnostics-v1"){
+     let version="не определена";
+     try{version=String(await irProject.updater?.version?.()||"не определена")}catch{}
+     notice("Используется старая версия модуля удаления PDF. Версия приложения: "+
+      version+". Установите Windows Beta №146, затем последнее Beta hot-обновление "+
+      "и ПОЛНОСТЬЮ закройте и вновь откройте программу. "+
+      "До обновления удаление отключено для защиты данных.","error");
+     paint();return
+    }
     if(!impact.canDelete){
-     const linked=impact.protectedRecords?.[0];
+     const linked=impact.protectedRecords?.[0],diag=linked?.diagnostics;
+     const details=diag?" Проверка №"+linked.id+
+      ": тип "+diag.type+", verification="+diag.verification+
+      ", review.status="+diag.reviewStatus+", review.revision="+diag.reviewRevision+
+      ", документ совпадает: "+(diag.sourceDocumentMatches?"да":"нет")+
+      ", SHA-256 совпадает: "+(diag.sourceShaMatches?"да":"нет")+
+      ", поля review: "+(diag.reviewFields?.join(", ")||"нет")+".":"";
      notice("Удаление заблокировано: "+(linked?
       linked.section+" · запись № "+linked.id+". "+linked.reason:
-      "найдены защищённые инженерные данные")+
-      ". Сохраните чертёж с подтверждениями и ревизиями.","error");
+      "найдены защищённые инженерные данные")+"."+details+
+      " Подтверждённые инженерные сведения и историю удалять нельзя.","error");
      paint();return
     }
     const drafts=impact.unreviewedAnalysisIds||[],indexes=impact.technicalIndexIds||[];

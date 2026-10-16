@@ -86,6 +86,7 @@ const {createStore}=require("../src/ai-document-store");
   assert(db.getEntity(1,"ai-pdf-index",technicalIndex.id));
   const preview=store.removalImpact(1,id);
   assert.equal(preview.canDelete,true);
+  assert.equal(preview.policyRevision,"pdf-draft-guard-diagnostics-v1");
   assert.deepEqual(preview.unreviewedAnalysisIds,[laterEvidence.id]);
   assert.deepEqual(preview.technicalIndexIds,[technicalIndex.id]);
   assert.throws(()=>store.remove(1,id,{discardUnreviewed:true}),/Список связанных анализов изменился/);
@@ -98,6 +99,11 @@ const {createStore}=require("../src/ai-document-store");
     review:{status:"confirmed",revision:1},verification:"requires_review"}
   });
   assert.equal(store.removalImpact(1,id).canDelete,false);
+  const blocker=store.removalImpact(1,id).protectedRecords[0];
+  assert.equal(blocker.section,"ai-analysis");
+  assert.equal(blocker.diagnostics.reviewStatus,"confirmed");
+  assert.equal(blocker.diagnostics.reviewRevision,1);
+  assert.equal(blocker.diagnostics.sourceShaMatches,true);
   assert.throws(()=>store.remove(1,id,{discardUnreviewed:true,expectedAnalysisIds:[laterEvidence.id]}),
    /ai-analysis/);
   db.deleteEntity(1,"ai-analysis",confirmed.id);
@@ -137,6 +143,7 @@ const {createStore}=require("../src/ai-document-store");
   });
   assert.equal(store.removalImpact(1,id).canDelete,false);
   assert.match(store.removalImpact(1,id).protectedRecords[0].reason,/SHA-256/);
+  assert.equal(store.removalImpact(1,id).protectedRecords[0].diagnostics.sourceShaMatches,false);
   db.deleteEntity(1,"ai-analysis",mismatched.id);
   const dependent=db.createEntity(1,"ai-review-history",{
    record_type:"review_change",parent_id:laterEvidence.id,title:"Decision",

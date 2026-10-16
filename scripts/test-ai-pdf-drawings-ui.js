@@ -4,6 +4,10 @@
 const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm");
 const source=fs.readFileSync("src/ai-recognition-page.js","utf8");
 new vm.Script(source,{filename:"src/ai-recognition-page.js"});
+assert(source.includes('impact?.policyRevision!=="pdf-draft-guard-diagnostics-v1"'),
+ "outdated Electron document store is detected before deletion");
+assert(source.includes("diag.sourceShaMatches"),
+ "blocked PDF analysis shows safe diagnostic checks");
 async function run(state){
  const controls=new Map(),content={
   innerHTML:"",
