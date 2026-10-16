@@ -1,6 +1,6 @@
 "use strict";
 const assert=require("node:assert/strict");
-const {detectPlanGridAxes,axisGeometry}=require("../src/ai-scheme-lite-page");
+const {detectPlanGridAxes,axisGeometry,locateMarkLabelZones}=require("../src/ai-scheme-lite-page");
 const grid=axisGeometry([{record_type:"scheme_grid",data:{entity_type:"grid",
  axes_x:["1","2","3","4"],x_spans_mm:[6000,6000,6000],
  axes_y:["А","Б","В","Г"],y_spans_mm:[6000,6000,6000]}}]);
@@ -33,6 +33,21 @@ assert.equal(r.fitX.offset,40);
 assert.equal(r.fitY.offset,310);
 assert.equal(r.reviewRequired,true);
 assert(!("markLocations" in r),"grid fitting does not invent structural placements");
+const candidate={mark:"К62",source:{documentId:3,page:1,sha256:"a".repeat(64)},
+ evidenceLocations:[{quote:"Колонна К62",rectPt:{x:105,y:215,width:10,height:10}}]};
+const zone=locateMarkLabelZones({candidates:[candidate],analysis:r,grid,heightPt});
+assert.equal(zone.length,1);
+assert.deepEqual(zone[0].axesX,{start:"2",end:"3"});
+assert.deepEqual(zone[0].axesY,{start:"Б",end:"В"});
+assert.equal(zone[0].exactPlacement,false);
+assert.equal(zone[0].status,"label_zone_only");
+assert.equal(locateMarkLabelZones({candidates:[{...candidate,evidenceLocations:[
+ candidate.evidenceLocations[0],candidate.evidenceLocations[0]]}],
+ analysis:r,grid,heightPt}).length,0,"ambiguous duplicate label locations rejected");
+assert.equal(locateMarkLabelZones({candidates:[candidate],
+ analysis:{calibrated:false},grid,heightPt}).length,0);
+assert.equal(locateMarkLabelZones({candidates:[{...candidate,evidenceLocations:[]}],
+ analysis:r,grid,heightPt}).length,0);
 assert.equal(detect([],segments).calibrated,false);
 assert.equal(detect(fragments,segments,null).calibrated,false);
 assert.equal(detect(fragments,segments,grid,90).calibrated,false);

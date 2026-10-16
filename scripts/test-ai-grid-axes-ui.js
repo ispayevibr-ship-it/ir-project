@@ -12,6 +12,7 @@ const labels=[],width=520,height=420;
 const make=(text,x,y)=>({text,x:x-4,y:height-y-5,width:8,height:10});
 for(let i=0;i<4;i++)labels.push(make(String(i+1),40+i*60,340));
 for(let i=0;i<4;i++)labels.push(make(["А","Б","В","Г"][i],20,310-i*60));
+labels.push({text:"Колонна К62",x:105,y:215,width:10,height:10});
 const segments=[
  ...Array.from({length:4},(_,i)=>({
   x1:40+i*60,x2:40+i*60,y1:45,y2:330,direction:"vertical"})),
@@ -40,7 +41,7 @@ const wait=async f=>{
    "[data-lite-scan]":scan,"[data-lite-scheme]":{}
   })[q]||null};
  const pdf={page:async()=>({source:{documentId:14,sha256:SHA},
-  page:{text:"План расположения колонн",fragments:labels}})};
+  page:{text:"План расположения колонн Колонна К62",fragments:labels}})};
  const geom={page:async()=>{
   geometryCalls++;
   return{documentId:14,page:1,sourceSha256:SHA,widthPt:width,
@@ -62,6 +63,8 @@ const wait=async f=>{
  assert(axis.innerHTML.includes("Предварительно согласовано"),axis.innerHTML);
  assert(axis.innerHTML.includes("Совпадений X: 4/4"),axis.innerHTML);
  assert(axis.innerHTML.includes("Y: 4/4"),axis.innerHTML);
+ assert(axis.innerHTML.includes("Надписи марок в ячейках сетки"),axis.innerHTML);
+ assert(axis.innerHTML.includes("Зона надписи; положение конструкции не определено"),axis.innerHTML);
  assert.equal(schemeWrites,0,"grid calibration is read-only");
  assert.equal(geometryCalls,1);
  ui.dispose();
