@@ -1861,7 +1861,7 @@
       const result=extractPlanInstances({raw:detail.page,marks,
        documentId:doc.id,sha256:doc.sha256,page:sheet.page,
        region,widthPt,heightPt,sheetType:sheet.sheetType});
-      let linked=null,linkMessage="";
+      let linked=null,dimensions=null,dimensionHints=[],linkMessage="";
       if(region!=="full"&&result.labels.length&&sheet.sheetType==="plan"){
        const grid=axisGeometry(await schemeApi?.list?.()||[]);
        const areas={
@@ -1883,12 +1883,20 @@
         const outlines=findPlanMemberStrokes({labels,analysis,grid,vector:g});
         linked=linkInstanceOutlineEvidence({instances:result.labels,
          registeredLabels:labels,outlines,heightPt});
+        // Dimensions are source-backed, read-only clues; the closest
+        // numerical label is NOT an offset of this member.
+        dimensions=inspectPdfDimensionChains({
+         raw:detail.page,analysis,vector:g,region:areas[region]});
+        dimensionHints=nearDimensionEvidence({
+         instances:result.labels,dimensions,heightPt});
         linkMessage="; гипотез контуров: "+
          (linked.summary.contour_candidate||0)+
          "; несколько вариантов: "+(linked.summary.multiple_contours||0)+
          "; требуется дополнительный анализ: "+
          (linked.summary.needs_more_evidence||0)+
-         (outlines.limited?"; выборка линий неполная":"");
+         (outlines.limited?"; выборка линий неполная":"")+
+         "; возможных размерных цепочек: "+dimensions.candidates.length+
+         (dimensions.limited?"; выборка размеров неполная":"");
        }else{
         linkMessage="; координаты осей не откалиброваны, геометрия не привязана"
        }
@@ -1904,6 +1912,16 @@
         if(k.startsWith(prefix))instanceResults.delete(k)
       }else instanceResults.delete(prefix+"full");
       instanceResults.set(prefix+region,result);
+      if(region==="full"){
+       for(const k of dimensionResults.keys())
+        if(k.startsWith(prefix))dimensionResults.delete(k)
+      }else dimensionResults.delete(prefix+"full");
+      dimensionResults.delete(prefix+region);
+      if(dimensions)dimensionResults.set(prefix+region,dimensions);
+      for(const item of result.labels)
+       instanceDimensionHints.delete(item.instanceId);
+      for(const item of dimensionHints)
+       instanceDimensionHints.set(item.instanceId,item);
       // Replace review statuses for this source scope only. A new scan and
       // a new revision invalidate the in-memory geometry linkage.
       for(const item of result.labels)instanceLinks.delete(item.instanceId);
