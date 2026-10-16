@@ -976,22 +976,30 @@ window.irAiRecognitionPage=async function(objectId){
    const dlg=document.createElement("dialog");dlg.className="ir-ai-pdf-preview-dialog";
    dlg.innerHTML='<div class="ir-ai-pdf-preview-header"><div><b data-region-title></b>'+
     '<small data-region-meta></small><small data-region-ai-status role="status"></small></div><div class="ir-ai-pdf-preview-actions">'+
+    '<button type="button" data-region-stamp>'+stepNumber('5.1')+' Выбрать штамп справа внизу</button>'+
     '<button type="button" data-region-extract disabled>'+stepNumber('5.2')+' Увеличить фрагмент</button>'+
     (canEdit?'<button type="button" data-region-analyze disabled>'+stepNumber('5.3')+' Распознать фрагмент (быстро)</button>':'')+
     '<button type="button" data-region-back hidden>Вернуться к листу</button>'+
     '<button type="button" data-pdf-fit>100%</button>'+
     '<button type="button" data-pdf-close>Закрыть ✕</button></div></div>'+
     '<div data-ai-region-progress hidden class="ir-ai-region-progress-area"></div>'+
-    '<div class="ir-ai-pdf-preview-stage"><div class="ir-ai-region-guide">'+stepNumber('5.1')+' Выделите мышью участок чертежа, затем используйте кнопки 5.2 и 5.3 над листом.</div><div class="ir-ai-pdf-image-wrap">'+
+    '<div class="ir-ai-pdf-preview-stage"><div class="ir-ai-region-guide">'+stepNumber('5.1')+' Обведите мышью только штамп или нажмите «Выбрать штамп справа внизу». <span data-region-size role="status">Область ещё не выбрана.</span></div><div class="ir-ai-pdf-image-wrap">'+
     '<img alt="Фактический лист PDF"><div class="ir-ai-pdf-region-layer" title="Выделите нужную область мышью или касанием">'+
     '<div class="ir-ai-pdf-region-selection"></div></div></div></div>';
    const img=dlg.querySelector("img"),wrap=dlg.querySelector(".ir-ai-pdf-image-wrap"),
     layer=dlg.querySelector(".ir-ai-pdf-region-layer"),rectangle=dlg.querySelector(".ir-ai-pdf-region-selection"),
     extract=dlg.querySelector("[data-region-extract]"),
+    stamp=dlg.querySelector("[data-region-stamp]"),
+    regionSize=dlg.querySelector("[data-region-size]"),
     recognize=dlg.querySelector("[data-region-analyze]"),back=dlg.querySelector("[data-region-back]"),
     fit=dlg.querySelector("[data-pdf-fit]"),meta=dlg.querySelector("[data-region-meta]"),
     aiState=dlg.querySelector("[data-region-ai-status]"),title=dlg.querySelector("[data-region-title]");
    let crop=null,selected=null,drag=null,loading=false,fitted=true,modelReady=false,aiStatusJob=null;
+   const MAX_FAST_REGION_AREA=0.35;
+   const stampPreset={x:0.70,y:0.83,width:0.29,height:0.16};
+   const selectedArea=()=>selected?selected.width*selected.height:0;
+   const validFastSelection=()=>!!selected&&selected.width>=0.01&&selected.height>=0.01&&
+    selectedArea()<=MAX_FAST_REGION_AREA;
    aiState.textContent="Проверяем готовность локальной Qwen…";
    async function refreshAiStatus(){
     if(!runtime?.status||!dlg.isConnected)return;
@@ -1032,12 +1040,21 @@ window.irAiRecognitionPage=async function(objectId){
      rectangle.style.left=(selected.x*100)+"%";rectangle.style.top=(selected.y*100)+"%";
      rectangle.style.width=(selected.width*100)+"%";rectangle.style.height=(selected.height*100)+"%"
     }
-    extract.disabled=loading||!selected||!!crop;
+    const percent=selected?Math.round(selectedArea()*1000)/10:null;
+    if(regionSize){
+     regionSize.textContent=!selected?"Область ещё не выбрана.":
+      "Выбрано "+percent+"% листа. "+
+      (validFastSelection()?"Можно распознать фрагмент.":
+       "Это почти целый лист: для быстрого распознавания выделите меньшую область (до 35%).");
+    }
+    if(stamp)stamp.disabled=loading||!!crop;
+    extract.disabled=loading||!validFastSelection()||!!crop;
     if(recognize){
-     recognize.disabled=loading||!selected||!modelReady||!canEdit;
+     recognize.disabled=loading||!validFastSelection()||!modelReady||!canEdit;
      recognize.title=!canEdit?"Только инженер или администратор может распознавать лист":
       !modelReady?"Qwen не готова — проверьте статус модели над изображением":
-      !selected?"Выделите область чертежа мышью или касанием":
+      !selected?"Выделите область чертежа мышью или нажмите «Выбрать штамп справа внизу»":
+      !validFastSelection()?"Слишком большая область: для экспресс-режима выберите не более 35% листа":
       crop?"Распознать увеличенный участок по исходным координатам PDF":
       "Запустить Qwen для выбранного участка PDF";
     }
@@ -1078,13 +1095,18 @@ window.irAiRecognitionPage=async function(objectId){
    };
    layer.onpointerup=event=>{finish(event);void refreshAiStatus()};
    layer.onpointercancel=()=>{drag=null;selected=null;updateSelection()};
+   stamp.onclick=()=>{
+    if(loading||crop)return;
+    selected={...stampPreset};
+    updateSelection()
+   };
    fit.onclick=()=>{
     fitted=!fitted;fit.textContent=fitted?"100%":"По ширине";
     wrap.style.width=fitted?"min(100%, "+(crop?.width||original.width)+"px)":
      (crop?.width||original.width)+"px"
    };
    extract.onclick=async()=>{
-    if(!selected||crop||loading)return;
+    if(!validFastSelection()||crop||loading)return;
     const rect={...selected};loading=true;updateSelection();
     try{
      const view=await pdf.regionPreview(id,documentId,page,rect);
@@ -1093,7 +1115,12 @@ window.irAiRecognitionPage=async function(objectId){
     finally{loading=false;updateSelection()}
    };
    if(recognize)recognize.onclick=async()=>{
-    if(!selected||loading||!canEdit)return;
+    if(!validFastSelection()||loading||!canEdit){
+     if(selected&&!validFastSelection()&&regionSize)
+      regionSize.textContent="Выбрано "+(selectedArea()*100).toFixed(1)+
+       "% листа — выделите только штамп К60 или воспользуйтесь кнопкой 5.1.";
+     return
+    }
     await refreshAiStatus();
     if(!modelReady){
      aiState.textContent="Qwen остановлена. Закройте просмотр и нажмите «Запустить локальный ИИ».";
@@ -1123,7 +1150,11 @@ window.irAiRecognitionPage=async function(objectId){
    document.body.appendChild(dlg);showImage(original);dlg.showModal();
    void refreshAiStatus()
   }catch(error){notice("Не удалось показать лист PDF: "+String(error.message||error),"error")}
-  finally{busy=false;await reload()}
+  finally{
+   busy=false;
+   if(message.startsWith("Подготавливаем реальное изображение PDF, лист "))notice("");
+   await reload()
+  }
  }
  if(workflow?.onProgress){
   let pending=false;
