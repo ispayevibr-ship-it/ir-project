@@ -104,6 +104,10 @@ function createAnalysis({database,documents,engine,ocr=null,pdfRenderer,pdfIndex
    throw Error("Рендеринг листов PDF недоступен в этой версии");
   if(busy)throw Error("Другой анализ уже выполняется");
   if(engine.status?.().state!=="ready")throw Error("Перед визуальным анализом листа запустите локальную модель");
+  // A nearly full sheet submitted as a crop defeats the KMD fast path and
+  // misleadingly records "fragment" despite forwarding the whole drawing.
+  if(region&&Number(region.width)*Number(region.height)>0.35)
+   throw Error("Выделенная область занимает более 35% листа. Для быстрого распознавания выберите только штамп КМД внизу справа или небольшой узел.");
   busy=true;
   try{
    const input=await pdfRenderer.renderForAnalysis(id,documentId,page,region);
