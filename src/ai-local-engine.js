@@ -16,14 +16,40 @@ function selectVisionContext(profile,ramBytes){
  return profile?.manual===true&&ramBytes<=18*1024**3?
   COMPACT_VISION_CONTEXT_TOKENS:VISION_CONTEXT_TOKENS
 }
+// Conservative partial CUDA offload: the 6 GB laptop GPU must retain space
+// for its vision projector, KV cache and desktop display. No speculative GPU
+// launch if either the matching llama.cpp CUDA DLL or free VRAM is unknown.
+function chooseManualGpuLayers({manual=false,cudaBackend=false,freeVramMiB=0}={}){
+ if(!manual||!cudaBackend||!Number.isFinite(freeVramMiB))return 0;
+ if(freeVramMiB>=4900)return 12;
+ if(freeVramMiB>=3900)return 6;
+ return 0
+}
+function probeNvidiaFreeMiB(run=cp.spawnSync){
+ const candidates=["nvidia-smi"];
+ if(process.platform==="win32"){
+  const base=process.env.ProgramFiles||"C:\\Program Files";
+  candidates.push(path.join(base,"NVIDIA Corporation","NVSMI","nvidia-smi.exe"))
+ }
+ for(const program of candidates){
+  try{
+   const out=run(program,["--query-gpu=memory.free","--format=csv,noheader,nounits"],
+    {timeout:2500,maxBuffer:8192,encoding:"utf8",windowsHide:true,shell:false});
+   if(out?.error||out?.status!==0)continue;
+   const free=Number(String(out.stdout||"").trim().split(/\r?\n/)[0]?.trim());
+   if(Number.isFinite(free)&&free>=0&&free<=1048576)return Math.round(free)
+  }catch{}
+ }
+ return null
+}
 const names={binary:process.platform==="win32"?"llama-server.exe":"llama-server",model:"model.gguf",vision:"mmproj.gguf"};
 const STATUS=["missing","invalid","stopped","starting","ready","failed"];
 function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>new Promise(resolve=>setTimeout(resolve,ms)),
- memory=os.totalmem,freeMemory=os.freemem,managedModel=null,requestTimeoutMs=null}={}){
+ memory=os.totalmem,freeMemory=os.freemem,managedModel=null,requestTimeoutMs=null,gpuProbe=null}={}){
  if(typeof getUserDataPath!=="function")throw Error("AI engine requires userData directory");
  const root=()=>path.join(getUserDataPath(),MODEL_ROOT,"runtime");
  let child=null,serverPort=0,secret="",state="stopped",issue="",busy=false,controller=null,startJob=null,activeProfile=null,lifecycle=0;
- let activeContextTokens=VISION_CONTEXT_TOKENS,lastExit=null,stderrFailures=[];
+ let activeContextTokens=VISION_CONTEXT_TOKENS,lastExit=null,stderrFailures=[],gpuFallback="",gpuConfirmed=false;
  function recordServerError(value){
   // llama-server can print local file paths and prompt-adjacent details.
   // Keep only bounded diagnostic error/warning lines, not arbitrary model output.
@@ -143,6 +169,8 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
    ramFreeGb:Math.round(freeMemory()/1073741824*10)/10,
    gpuLayers:activeProfile?.gpuLayers??(check.installed?check.gpuLayers??0:null),
    lastServerExit:lastExit,
+   gpuConfirmed,gpuFallback,
+   gpuBackendFound:Boolean(check.manual&&check.cwd&&fs.existsSync(path.join(check.cwd,"ggml-cuda.dll"))),
    state:check.installed?state==="missing"?"stopped":state:check.reason?.includes("не установлен")?"missing":"invalid",
    installed:check.installed,reason:check.installed?issue:check.reason,
    ramGb:Math.round(memory()/1073741824*10)/10,
@@ -328,4 +356,4 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
  function cancel(){if(controller)controller.abort("user_cancel");return status()}
  return{status,start,stop,verify,analyzeImage,cancel,inspect};
 }
-module.exports={createEngine,names,STATUS,VISION_CONTEXT_TOKENS,COMPACT_VISION_CONTEXT_TOKENS,selectVisionContext,CPU_VISION_TIMEOUT_MS,GPU_VISION_TIMEOUT_MS};
+module.exports={createEngine,names,STATUS,VISION_CONTEXT_TOKENS,COMPACT_VISION_CONTEXT_TOKENS,selectVisionContext,chooseManualGpuLayers,probeNvidiaFreeMiB,CPU_VISION_TIMEOUT_MS,GPU_VISION_TIMEOUT_MS};
