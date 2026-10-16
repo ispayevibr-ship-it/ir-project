@@ -24,6 +24,24 @@ function extractSegments(operatorList,OPS,viewport,{minLengthPt=12}={}){
   examinedSegments:0,storedSegments:0,truncated:false,skippedCurves:0,
   horizontal:0,vertical:0,diagonal:0,ignoredPaints:0};
  const segments=[],seen=new Set(),stack=[];
+ // A heavy KMD page may contain tens of thousands of decorative strokes.
+ // Keep the longest 2400 using a min-heap rather than the FIRST 2400,
+ // so drawing order cannot hide long structural grid lines.
+ const swap=(a,b)=>{const t=segments[a];segments[a]=segments[b];segments[b]=t};
+ function heapUp(i){
+  while(i>0){const p=(i-1)>>1;if(segments[p].lengthPt<=segments[i].lengthPt)break;
+   swap(p,i);i=p}
+ }
+ function heapDown(i){
+  for(;;){
+   const l=i*2+1,r=l+1;
+   if(l>=segments.length)break;
+   let m=l;
+   if(r<segments.length&&segments[r].lengthPt<segments[l].lengthPt)m=r;
+   if(segments[i].lengthPt<=segments[m].lengthPt)break;
+   swap(i,m);i=m
+  }
+ }
  let matrix=[1,0,0,1,0,0],path=[];
  const strokeOps=new Set([OPS.stroke,OPS.closeStroke,OPS.fillStroke,
   OPS.eoFillStroke,OPS.closeFillStroke,OPS.closeEOFillStroke].filter(Number.isInteger));
@@ -48,11 +66,14 @@ function extractSegments(operatorList,OPS,viewport,{minLengthPt=12}={}){
   const signature=[...((first[0]<second[0]||(first[0]===second[0]&&first[1]<=second[1]))?
    [...first,...second]:[...second,...first])].join(":");
   if(seen.has(signature))return;
-  if(segments.length>=MAX_SEGMENTS){stats.truncated=true;return}
-  seen.add(signature);
-  stats[direction]++;
-  segments.push({x1:q[0],y1:q[1],x2:q[2],y2:q[3],
-   lengthPt:rounded(len),direction})
+  const item={x1:q[0],y1:q[1],x2:q[2],y2:q[3],
+   lengthPt:rounded(len),direction,signature};
+  if(segments.length>=MAX_SEGMENTS){
+   stats.truncated=true;
+   if(item.lengthPt<=segments[0].lengthPt)return;
+   seen.delete(segments[0].signature);segments[0]=item;heapDown(0)
+  }else{segments.push(item);heapUp(segments.length-1)}
+  seen.add(signature)
  };
  function pathOps(args){
   if(!Array.isArray(args)||args.length<2)return;
@@ -156,7 +177,9 @@ function extractSegments(operatorList,OPS,viewport,{minLengthPt=12}={}){
  }
  if(operatorList.fnArray.length>MAX_OPERATORS)stats.truncated=true;
  stats.storedSegments=segments.length;
+ for(const item of segments)stats[item.direction]++;
  segments.sort((a,b)=>b.lengthPt-a.lengthPt);
+ for(const item of segments)delete item.signature;
  return{segments,stats,coordinateSystem:"viewport_points_top_left",
   widthPt:rounded(viewport.width),heightPt:rounded(viewport.height),
   note:"Векторные штрихи PDF, не оси и не подтверждённые координаты монтажа"}
