@@ -521,6 +521,94 @@
   }
   return result
  }
+
+ // A PDF text label identifies its own location, NOT a physical
+ // construction attachment point. Only marks in the saved register pass.
+ function detectPlanRegisterLabels({raw,analysis,grid,marks=[],widthPt,heightPt}={}){
+  const empty=reason=>({labels:[],ambiguous:0,inspected:0,reason});
+  if(!analysis?.calibrated||!analysis.fitX||!analysis.fitY||
+     !grid?.x||!grid?.y||!(widthPt>0)||!(heightPt>0))
+   return empty("Необходимы сохранённая сетка и калибровка осей");
+  const fx=analysis.fitX,fy=analysis.fitY;
+  if(!Number.isFinite(fx.scale)||!Number.isFinite(fy.scale)||
+     fx.scale<=0||fy.scale>=0||
+     !Number.isFinite(fx.offset)||!Number.isFinite(fy.offset))
+   return empty("Недостоверное преобразование координат");
+  const region=analysis.region||{left:0,top:0,right:1,bottom:1};
+  if(![region.left,region.top,region.right,region.bottom].every(
+      n=>Number.isFinite(n)&&n>=0&&n<=1)||
+     region.right<=region.left||region.bottom<=region.top)
+   return empty("Некорректная область чертежа");
+  const register=new Map();
+  for(const row of marks){
+   const mark=String(row?.data?.mark||row?.title||"").trim(),
+    id=row?.id,key=norm(mark);
+   if(!mark||!id||!MARK.test(mark))continue;
+   // If the register has two rows for the same designation, neither
+   // is safe to select automatically.
+   if(register.has(key))register.set(key,null);
+   else register.set(key,{id,mark})
+  }
+  const fragments=Array.isArray(raw?.fragments)?raw.fragments:[];
+  const valid=f=>f&&typeof f.text==="string"&&
+   ["x","y","width","height"].every(k=>Number.isFinite(Number(f[k])))&&
+   Number(f.width)>=0&&Number(f.height)>=0;
+  const compact=v=>String(v||"").trim().replace(/[\s\u00a0]+/g,"").replace(/[−–—]/g,"-");
+  const labelRx=/^[КKБBРPСCФFМM]-?\d{1,4}[А-ЯA-Z]?$/iu;
+  const prefixRx=/^[КKБBРPСCФFМM]-?$/iu;
+  const suffixRx=/^\d{1,4}[А-ЯA-Z]?$/iu;
+  const interval=(map,mm)=>{
+   const a=[...map].map(([name,value])=>({name,mm:Number(value)}))
+    .sort((x,y)=>x.mm-y.mm);
+   if(a.length<2||mm<a[0].mm||mm>a.at(-1).mm)return null;
+   for(let i=0;i<a.length-1;i++)if(mm<=a[i+1].mm)
+    return{start:a[i].name,end:a[i+1].name};
+   return null
+  };
+  const labels=[],ambiguous=new Set();
+  for(let i=0;i<Math.min(fragments.length,20000);i++){
+   const first=fragments[i];if(!valid(first))continue;
+   let label=compact(first.text),last=first,ids=[i];
+   // Some PDFs split "К62" into neighbouring "К" + "62" glyph runs.
+   if(prefixRx.test(label)&&valid(fragments[i+1])){
+    const next=fragments[i+1],ntext=compact(next.text),
+     gap=Number(next.x)-Number(first.x)-Number(first.width);
+    if(suffixRx.test(ntext)&&gap>=-2&&gap<=10&&
+       Math.abs(Number(next.y)-Number(first.y))<=Math.max(3,Number(first.height)*.4)){
+     label+=ntext;last=next;ids.push(i+1)
+    }
+   }
+   if(!labelRx.test(label))continue;
+   const normalized=norm(label);
+   if(!register.has(normalized))continue;
+   const mark=register.get(normalized);
+   if(!mark){ambiguous.add(normalized);continue}
+   const x1=Number(first.x),y1=Math.min(Number(first.y),Number(last.y)),
+    x2=Math.max(Number(first.x)+Number(first.width),Number(last.x)+Number(last.width)),
+    y2=Math.max(Number(first.y)+Number(first.height),Number(last.y)+Number(last.height));
+   const pageX=(x1+x2)/2,pageY=Number(heightPt)-(y1+y2)/2;
+   if(pageX<widthPt*region.left||pageX>widthPt*region.right||
+      pageY<heightPt*region.top||pageY>heightPt*region.bottom)continue;
+   const mmX=(pageX-fx.offset)/fx.scale,mmY=(pageY-fy.offset)/fy.scale;
+   if(!Number.isFinite(mmX)||!Number.isFinite(mmY))continue;
+   const axesX=interval(grid.x,mmX),axesY=interval(grid.y,mmY);
+   if(!axesX||!axesY)continue;
+   // A duplicated text glyph is not a second construction instance.
+   // Separate printed labels are retained without inferring quantity.
+   if(labels.some(old=>old.markId===mark.id&&
+      Math.hypot(old.pageX-pageX,old.pageY-pageY)<4))continue;
+   labels.push({mark:mark.mark,markId:mark.id,labelText:label,
+    axesX,axesY,labelXmm:Math.round(mmX),labelYmm:Math.round(mmY),
+    pageX,pageY,fragmentIds:ids,
+    rectPt:{x:x1,y:y1,width:x2-x1,height:y2-y1},
+    status:"label_only_requires_review",exactPlacement:false});
+   if(labels.length>=1000)break
+  }
+  return{labels,ambiguous:ambiguous.size,inspected:Math.min(fragments.length,20000),
+   reason:labels.length?"Надписи найдены. Точки крепления и отметки Z не определены.":
+    "В выбранной области не найдены отдельные надписи марок из ведомости."}
+ }
+
  function createPage(){
   let latest=[],candidates=[],batch=null,verifiedPreview=null,
    lastOperation=null,inventory=null,draftRows=[],
@@ -776,8 +864,8 @@
         throw Error("Векторный результат относится к другому исходному PDF");
        geometryCache.set(key,result)
       }
-      const [pageData,rows]=await Promise.all([
-       pdf.page(objectId,idx.id,sheet.page),schemeApi.list()
+      const [pageData,rows,markRows]=await Promise.all([
+       pdf.page(objectId,idx.id,sheet.page),schemeApi.list(),marksApi.list()
       ]);
       if(!live)return;
       if(pageData.source?.sha256!==sheet.sha256||
@@ -817,6 +905,10 @@
        }else analysis=test(regions[selected]?selected:"full");
        const zones=locateMarkLabelZones({candidates:sheet.marks,analysis,grid,
         heightPt:result.heightPt});
+       const registerLabels=sheet.uncertainEncoding?
+        {labels:[],reason:"Текстовый слой PDF имеет неопределённую кодировку"}:
+        detectPlanRegisterLabels({raw:pageData.page,analysis,grid,marks:markRows,
+         widthPt:result.widthPt,heightPt:result.heightPt});
        const label=x=>escDoc(x.name)+" · "+escDoc(x.mm)+" мм ↔ "+
        escDoc(Math.round(x.pagePt*100)/100)+" pt";
       const xRows=analysis.xMatches?.map(label)||[],
@@ -847,7 +939,23 @@
          escDoc(z.axesX.start)+'–'+escDoc(z.axesX.end)+'</td><td>'+
          escDoc(z.axesY.start)+'–'+escDoc(z.axesY.end)+'</td>'+
          '<td>Зона надписи; положение конструкции не определено</td></tr>').join("")+
-        '</tbody></table></details>':"");
+        '</tbody></table></details>':"")+
+       (registerLabels.labels.length?'<details class="ir-ai-axis-mark-zones">'+
+        '<summary>Надписи марок из ведомости · '+
+        registerLabels.labels.length+'</summary>'+
+        '<p>Это координаты надписей на PDF, а не точки установки. '+
+        'Без проверенных креплений и отметок Z автоматическая расстановка запрещена.</p>'+
+        '<table><thead><tr><th>Марка</th><th>Оси X</th><th>Оси Y</th>'+
+        '<th>Центр надписи, мм</th></tr></thead><tbody>'+
+        registerLabels.labels.slice(0,200).map(z=>'<tr><td>'+escDoc(z.mark)+'</td>'+
+         '<td>'+escDoc(z.axesX.start)+'–'+escDoc(z.axesX.end)+'</td>'+
+         '<td>'+escDoc(z.axesY.start)+'–'+escDoc(z.axesY.end)+'</td>'+
+         '<td>X≈'+z.labelXmm+', Y≈'+z.labelYmm+'</td></tr>').join("")+
+        '</tbody></table>'+
+        (registerLabels.labels.length>200?'<small>Показаны первые 200 надписей.</small>':"")+
+        '</details>':'<p class="ir-ai-axis-review">'+escDoc(registerLabels.reason)+'</p>')+
+       (registerLabels.ambiguous?'<p class="ir-ai-axis-review">'+
+        'Неоднозначных марок в ведомости: '+registerLabels.ambiguous+'. Нужна проверка.</p>':"");
       output.scrollIntoView?.({block:"nearest",behavior:"smooth"})
      }catch(error){
       output.textContent="Не удалось сопоставить оси: "+String(error.message||error)
@@ -1216,7 +1324,7 @@
   };
   return page
  }
- const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes,locateMarkLabelZones};
+ const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes,locateMarkLabelZones,detectPlanRegisterLabels};
  if(typeof module!=="undefined"&&module.exports)module.exports=exported;
  if(root&&typeof root==="object")root.irAiSchemeLitePage=createPage()
 })(typeof window!=="undefined"?window:null);
