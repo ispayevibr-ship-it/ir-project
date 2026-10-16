@@ -103,7 +103,8 @@ function createService({database,verifyDocument}={}){
    if(key(md.mark||mark.title)!==key(c.mark))throw Error("Обозначение марки не совпадает с ведомостью");
    const matching=st.rows.marks.filter(r=>key(r.data?.mark||r.title)===key(c.mark));
    const code=String(c.projectCode||"").trim();
-   if(matching.length>1&&!code)throw Error("Одинаковое обозначение встречается в нескольких шифрах — укажите шифр");
+   if(matching.length>1)throw Error("Марка встречается в нескольких шифрах. "+
+    "Автоматическая расстановка запрещена до подтверждения принадлежности PDF к шифру");
    const wid=String(md.work_type_id??""),work=workMap.get(wid);
    if(!work||work.data?.scheme_enabled!==true)throw Error("Вид работ не разрешён для схемы");
    const expectedCode=String(md.project_code||work.data?.project_code||"").trim();
@@ -202,7 +203,10 @@ function createService({database,verifyDocument}={}){
   const st=state(objectId),result=planState(st,entries);
   return{objectId:st.id,token:st.version,
    ready:result.ready.map(x=>({index:x.index,mark:x.item.data.mark,
-    markId:x.item.data.mark_id,axes:x.item.data.axis_x+"/"+x.item.data.axis_y,
+    markId:x.item.data.mark_id,instanceId:x.item.data.ai_instance_id,
+    axes:x.item.data.axis_x+"/"+x.item.data.axis_y,
+    xMm:x.item.data.absolute_x_mm,yMm:x.item.data.absolute_y_mm,
+    endXMm:x.item.data.absolute_x2_mm??null,endYMm:x.item.data.absolute_y2_mm??null,
     z0Mm:x.item.data.z0_mm,z1Mm:x.item.data.z1_mm,
     source:x.item.data.ai_source})),
    skipped:result.skipped,total:entries?.length||0,existing:st.rows.scheme.filter(placement).length}

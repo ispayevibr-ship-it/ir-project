@@ -349,10 +349,11 @@
        '</b>; пропущено: <b>'+verifiedPreview.preview.skipped.length+'</b>; '+
        'уже размещено: <b>'+verifiedPreview.preview.existing+'</b>.</p>'+
        '<div class="ir-ai-lite-preview-scroll"><table><thead><tr><th>Марка</th>'+
-       '<th>Экземпляр / ведомость</th><th>Оси</th><th>Низ Z</th><th>Верх Z</th>'+
+       '<th>Экземпляр</th><th>Оси</th><th>X/Y, мм</th><th>Низ Z</th><th>Верх Z</th>'+
        '<th>Источник</th></tr></thead><tbody>'+
        verifiedPreview.preview.ready.map((v,i)=>'<tr><td>'+escDoc(v.mark)+'</td>'+
-        '<td>'+escDoc(v.markId)+'</td><td>'+escDoc(v.axes)+'</td>'+
+        '<td>'+escDoc(v.instanceId)+'</td><td>'+escDoc(v.axes)+'</td>'+
+        '<td>'+escDoc(v.xMm)+' / '+escDoc(v.yMm)+'</td>'+
         '<td>'+escDoc(v.z0Mm)+' мм</td><td>'+escDoc(v.z1Mm)+' мм</td>'+
         '<td>PDF №'+escDoc(v.source?.documentId)+', лист '+escDoc(v.source?.page)+'</td></tr>'
        ).join("")+'</tbody></table></div>'+
