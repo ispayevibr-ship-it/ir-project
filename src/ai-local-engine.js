@@ -197,7 +197,22 @@ function createEngine({getUserDataPath,spawn=cp.spawn,httpFetch=fetch,wait=ms=>n
    });
    if(currentController.signal.aborted||generation!==lifecycle||child!==currentChild)
     throw Error("Анализ отменён или модель была перезапущена");
-   if(!response.ok)throw Error("Локальная модель вернула HTTP "+response.status);
+   if(!response.ok){
+    // llama.cpp often includes the actual refusal reason (context length,
+    // unsupported image or malformed request) in a JSON error body.
+    let details="";
+    try{
+     const body=String(await response.text()).slice(0,4096);
+     try{
+      const failure=JSON.parse(body),fault=failure?.error;
+      details=String(typeof fault==="string"?fault:
+       fault?.message||failure?.message||failure?.detail||"")
+     }catch{details=body}
+     details=details.replace(/[\r\n\t]+/g," ").replace(/\s+/g," ").trim().slice(0,360)
+    }catch{}
+    throw Error("Локальная модель вернула HTTP "+response.status+
+     (details?": "+details:" — причина не указана движком llama.cpp"))
+   }
    const answer=await response.json();
    if(currentController.signal.aborted||generation!==lifecycle||child!==currentChild)
     throw Error("Анализ отменён или модель была перезапущена");
