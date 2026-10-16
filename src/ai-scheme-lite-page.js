@@ -80,7 +80,7 @@
   }
   return found.size===1?[...found.values()][0]:null
  }
- function markMatches(text){
+ function markMatches(text,{includeRepeated=false}={}){
   const result=[],source=String(text||"");
   // A mark needs a nearby explicit structural noun; a bare part label is not a
   // basis to place the structural element.
@@ -89,14 +89,16 @@
   while((m=regex.exec(source))&&result.length<30){
    const mark=norm(m[2]),type=TYPES.find(([,rx])=>rx.test(m[1]))?.[0]||"unknown";
    if(!MARK.test(mark))continue;
-   if(!result.some(x=>x.mark===mark&&x.type===type))
+   if(includeRepeated||!result.some(x=>x.mark===mark&&x.type===type))
     result.push({mark,type,quote:m[0].slice(0,130),basis:"text_layer"})
   }
   return result
  }
  function extractPage({documentId,name,kind,sha256,page,raw,uncertainEncoding=false}={}){
   const text=String(raw?.text||"").slice(0,24000);
-  const sheetType=classSheet(name,text),matches=uncertainEncoding?[]:markMatches(text);
+  const sheetType=classSheet(name,text),
+   occurrences=uncertainEncoding?[]:markMatches(text,{includeRepeated:true}),
+   matches=uncertainEncoding?[]:markMatches(text);
   const fromName=(String(name||"").match(/(?:колонн[аы]|балк[аи]|ригел[ья]|прогон[аы]|связ[ьи]|КМД)[^\d]{0,14}([КKБBРPСCФFМM]\d{1,4})/iu)||[])[1];
   if(!matches.length&&fromName&&MARK.test(fromName))matches.push({
    mark:norm(fromName),type:"unknown",quote:"Имя файла: "+String(name||"").slice(0,130),basis:"filename_only"
@@ -109,7 +111,9 @@
   const candidates=matches.slice(0,12).map(match=>{
    // Even a labelled level can refer to a DIFFERENT mark on multi-mark sheets;
    // only auto-associate levels if the sheet has exactly one clear mark.
-   const single=matches.length===1&&!uncertainEncoding;
+   // Repeated mentions of the SAME designation are not proof of only one
+   // physical instance. Never attribute sheet-wide axes/heights to the first.
+   const single=occurrences.length===1&&matches.length===1&&!uncertainEncoding;
    const z0Mm=single?bottom?.mm??null:null,z1Mm=single?top?.mm??null:null;
    const lengthMm=single?len?.mm??null:null;
    const line=single&&match.type!=="column"?span:null;
@@ -127,13 +131,15 @@
     warning:conflicting?"Несовместимые привязки в тексте листа — оси оставлены пустыми до инженерной проверки.":
      match.basis==="filename_only"?
      "Марка найдена только по имени файла; сверить со штампом PDF.":
-     matches.length>1?"На листе несколько марок. Высоты и оси нельзя привязать автоматически.":
+     occurrences.length>1?"На листе несколько упоминаний марок (включая повторения одинаковых обозначений). "+
+      "Высоты и оси нельзя автоматически приписывать одному физическому экземпляру.":
      "Координаты по монтажному плану требуют проверки инженера."}
   });
   return{documentId:Number(documentId),page:Number(page),kind:String(kind||""),
    name:String(name||""),sha256:String(sha256||""),sheetType,
    textAvailable:!!text.trim(),uncertainEncoding:Boolean(uncertainEncoding),
-   marks:candidates,hasHeights:!!bottom||!!top,hasAxes:!!axes,scannedChars:text.length}
+   marks:candidates,markMentions:occurrences.length,
+   hasHeights:!!bottom||!!top,hasAxes:!!axes,scannedChars:text.length}
  }
  function axisGeometry(rows){
   const grid=rows.find(x=>x.record_type==="scheme_grid"||x.data?.entity_type==="grid")?.data;
@@ -385,7 +391,9 @@
        '<div><b>'+escDoc(x.name)+' · лист '+x.page+'</b> · '+escDoc(
         {plan:"План расположения",section:"Разрез / фасад",detail:"Чертёж марки",other:"Тип не определён"}[x.sheetType])+
        (x.uncertainEncoding?' · Неоднозначная кодировка: потребуется визуальная проверка':"")+
-       (x.marks.length?' · '+x.marks.length+' марок':' · Марки не найдены в читаемом тексте')+'</div>'
+       (x.marks.length?' · '+x.marks.length+' обозначений'+
+        (x.markMentions>x.marks.length?' ('+x.markMentions+' упоминаний)':""):
+        ' · Марки не найдены в читаемом тексте')+'</div>'
       ).join("")+'</div>':"")+
       (candidateCount?'<div class="ir-ai-lite-candidates">'+candidates.map((c,i)=>
        '<article class="ir-ai-lite-candidate" data-lite-row="'+i+'">'+

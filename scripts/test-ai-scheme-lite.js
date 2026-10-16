@@ -52,6 +52,13 @@ const ambiguousBeam=extractPage({...sheet,raw:{text:
 assert.equal(ambiguousBeam.marks[0].axisX,"","conflicting span and point remains unplaced");
 assert.equal(ambiguousBeam.marks[0].endAxisX,"");
 assert.deepEqual(proposal.source,{documentId:2,sha256:sha,name:sheet.name,kind:"КМД",page:1});
+const repeated=extractPage({...sheet,name:"Схема расположения колонн.pdf",
+ raw:{text:text+"\nКолонна К60 на другом участке плана"}});
+assert.equal(repeated.marks.length,1,"one register designation may appear more than once");
+assert.equal(repeated.markMentions,2,"each printed label occurrence must be accounted for");
+assert.equal(repeated.marks[0].axisX,"","repeated label on one sheet is not one confirmed instance");
+assert.equal(repeated.marks[0].z0Mm,null,"global elevation cannot attach to arbitrary repeated label");
+assert.match(repeated.marks[0].warning,/несколько упоминаний/);
 const multi=extractPage({...sheet,raw:{text:text+"\nБалка Б22"}});
 assert(multi.marks.length>1);
 assert.equal(multi.marks[0].z0Mm,null,"do not attribute sheet Z to ambiguous multi-mark pages");
