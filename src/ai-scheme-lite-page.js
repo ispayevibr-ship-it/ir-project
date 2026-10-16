@@ -1363,6 +1363,8 @@
           memberOutlines.candidates.length+' пар линий, '+
           memberOutlines.singleStrokes.length+' одиночных, '+
           memberOutlines.review.length+' на проверку</summary>'+
+         '<small>Проверено графических штрихов: '+memberOutlines.inspected+
+         (memberOutlines.limited?' (неполная выборка)':'')+'</small>'+
          '<p>Анализируется реальная графика PDF, а не ближайшая ось или текст. '+
          'Две параллельные линии — <b>только возможный контур элемента</b>; '+
          'они могут также относиться к размерам и другим обозначениям. '+
