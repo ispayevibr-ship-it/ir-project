@@ -206,6 +206,16 @@ function createService({database}={}){
     skipped:plan.skipped,existing:st.rows.scheme.filter(placement).length}
   })
  }
+ function latest(objectId){
+  const id=posId(objectId,"объекта");
+  if(!database.getObject(id))throw Error("Объект не найден");
+  const active=database.listEntity(id,"ai-placement-operations").filter(r=>
+   r.record_type==="placement_operation"&&r.data?.status==="applied");
+  if(!active.length)return null;
+  const item=active.reduce((a,b)=>a.id>b.id?a:b);
+  return{operationId:item.data.operationId,created:item.data.count,
+   createdAt:item.data.createdAt}
+ }
  function undo(objectId,operationId){
   if(!/^[0-9a-f-]{36}$/i.test(String(operationId||"")))
    throw Error("Некорректная операция расстановки");
@@ -236,6 +246,6 @@ function createService({database}={}){
    return{undone:event.data.created.length,operationId}
   })
  }
- return{preview,apply,undo}
+ return{preview,apply,undo,latest}
 }
 module.exports={createService};

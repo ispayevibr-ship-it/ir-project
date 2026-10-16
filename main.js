@@ -3,6 +3,7 @@ const {app,BrowserWindow,ipcMain,dialog,Menu,protocol,shell}=require("electron")
 const path=require("path"),crypto=require("crypto"),fs=require("fs");
 const updates=require("./src/updater");
 const schemeReset=require("./src/scheme-reset");
+const mountingPlacement=require("./src/ai-mounting-placement");
 // The first Beta installer provides the trusted loader. Later AI JavaScript
 // fixes can be applied from the verified hot package without replacing the exe.
 // Keep native Electron bridges, database and updater inside the installer.
@@ -20,6 +21,7 @@ function hotAiModule(name){
 const database=require("./src/database"),aiDocumentStore=hotAiModule("ai-document-store"),aiLocalEngine=hotAiModule("ai-local-engine"),aiAnalysis=hotAiModule("ai-analysis"),aiReview=hotAiModule("ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiKmdMaterials=require("./src/ai-kmd-materials"),aiKmdConnections=require("./src/ai-kmd-connections"),aiKmKmdCompare=require("./src/ai-km-kmd-compare"),aiAssemblyGeometry=require("./src/ai-assembly-geometry"),aiAssemblyAttachments=require("./src/ai-assembly-attachments"),aiWorkflow=hotAiModule("ai-workflow"),aiStructuredReview=hotAiModule("ai-structured-review"),aiDrawingRevisions=require("./src/ai-drawing-revisions"),aiIntegrityReport=require("./src/ai-integrity-report"),aiCoverageReport=require("./src/ai-kmd-coverage"),aiKmdReference=require("./src/ai-kmd-reference"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),aiModelManager=require("./src/ai-model-manager"),aiPaddleOcr=require("./src/ai-paddle-ocr"),aiPreflightCheck=require("./src/ai-acceptance-preflight"),aiRuntimeDiagnostics=require("./src/ai-runtime-diagnostics"),completeBackup=require("./src/ai-complete-backup"),backup=require("./src/backup"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
 let win;
 const schemeResetService=schemeReset.createReset({database});
+const mountingPlacementService=mountingPlacement.createService({database});
 const aiDocuments=aiDocumentStore.createStore({getUserDataPath:()=>app.getPath("userData"),dialog,shell,database,getWindow:()=>win});
 // Destructive PDF operations resolve the active, checksum-verified module at call
 // time rather than using a store captured before a hot update was installed.
@@ -168,6 +170,23 @@ function registerAiDocuments(){
  ipcMain.handle("scheme:reset",(e,{objectId,expectedCount,expectedFingerprint,confirmation})=>{
   requireAiReviewer(e);
   return schemeResetService.clear(objectId,{expectedCount,expectedFingerprint,confirmation})
+ });
+ ipcMain.handle("ai-mounting:preview",(e,{objectId,entries})=>{
+  requireAiReviewer(e);
+  return mountingPlacementService.preview(objectId,entries)
+ });
+ ipcMain.handle("ai-mounting:apply",(e,{objectId,entries,token})=>{
+  const auth=requireAiReviewer(e);
+  if(!["admin","engineer"].includes(auth.role))throw Error("Недостаточно прав для расстановки");
+  return mountingPlacementService.apply(objectId,entries,token)
+ });
+ ipcMain.handle("ai-mounting:last",(e,objectId)=>{
+  requireAiReviewer(e);
+  return mountingPlacementService.latest(objectId)
+ });
+ ipcMain.handle("ai-mounting:undo",(e,{objectId,operationId})=>{
+  requireAiReviewer(e);
+  return mountingPlacementService.undo(objectId,operationId)
  });
  ipcMain.handle("ai-documents:list",(_e,id)=>aiDocuments.list(id));
  ipcMain.handle("ai-documents:select",(e,{objectId,kind})=>{requireAiReviewer(e);return aiDocuments.select(objectId,kind)});
