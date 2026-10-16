@@ -25,9 +25,13 @@ jobs:
           set -euo pipefail
           node --check src/ai-recognition-page.js
           node --check src/ai-analysis.js
+          node --check src/ai-local-engine.js
+          node --check src/ai-image-optimizer.js
           node --check src/ai-workflow.js
           node --check src/ai-model-settings.js
           node scripts/test-ai-engine.js
+          node scripts/test-ai-gpu-offload.js
+          node scripts/test-ai-fast-region.js
           node scripts/test-ai-beta-hot.js
           node scripts/test-updater-rollback.js
           node scripts/test-ai-pdf-drawings-ui.js
