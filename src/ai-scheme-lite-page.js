@@ -432,6 +432,49 @@
    transform:{x:{ptAtZero:fx.offset,ptPerMm:fx.scale},
     y:{ptAtZero:fy.offset,ptPerMm:fy.scale}}}
  }
+
+ // The centre of a PDF label can identify its GRID CELL, but never the
+ // attachment point of a steel member. Do not feed these numbers to payloadFor.
+ function locateMarkLabelZones({candidates=[],analysis,grid,heightPt}={}){
+  if(!analysis?.calibrated||!grid?.x||!grid?.y||!(Number(heightPt)>0))
+   return[];
+  const locate=(map,mm)=>{
+   const axes=[...map].map(([name,value])=>({name,mm:value}))
+    .sort((a,b)=>a.mm-b.mm);
+   if(!Number.isFinite(mm)||mm<axes[0].mm||mm>axes.at(-1).mm)return null;
+   for(let i=0;i<axes.length-1;i++){
+    if(mm>=axes[i].mm&&mm<=axes[i+1].mm)
+     return{start:axes[i].name,end:axes[i+1].name}
+   }
+   return null
+  };
+  const fX=analysis.fitX,fY=analysis.fitY;
+  if(!fX||!fY||!Number.isFinite(fX.scale)||!Number.isFinite(fY.scale)||
+    fX.scale===0||fY.scale===0)return[];
+  const result=[];
+  for(const c of candidates.slice(0,80)){
+   const textBoxes=(c.evidenceLocations||[]).filter(v=>
+    v?.rectPt&&Number.isFinite(Number(v.rectPt.x))&&
+    Number.isFinite(Number(v.rectPt.y))&&
+    Number.isFinite(Number(v.rectPt.width))&&
+    Number.isFinite(Number(v.rectPt.height))&&
+    String(v.quote||"").includes(c.mark));
+   if(textBoxes.length!==1)continue;
+   const box=textBoxes[0].rectPt;
+   // Fragment coordinates are bottom-left PDF points. Axis line viewport
+   // coordinates are top-left. Same transform is only supported at rotation 0.
+   const pageX=Number(box.x)+Number(box.width)/2,
+     pageY=Number(heightPt)-Number(box.y)-Number(box.height)/2;
+   const mmX=(pageX-fX.offset)/fX.scale,
+     mmY=(pageY-fY.offset)/fY.scale;
+   const alongX=locate(grid.x,mmX),alongY=locate(grid.y,mmY);
+   if(!alongX||!alongY)continue;
+   result.push({mark:c.mark,source:c.source,axesX:alongX,axesY:alongY,
+    sourceText:textBoxes[0].quote,
+    status:"label_zone_only",exactPlacement:false})
+  }
+  return result
+ }
  function createPage(){
   let latest=[],candidates=[],batch=null,verifiedPreview=null,
    lastOperation=null,inventory=null,draftRows=[],
@@ -1090,7 +1133,7 @@
   };
   return page
  }
- const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes};
+ const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes,locateMarkLabelZones};
  if(typeof module!=="undefined"&&module.exports)module.exports=exported;
  if(root&&typeof root==="object")root.irAiSchemeLitePage=createPage()
 })(typeof window!=="undefined"?window:null);
