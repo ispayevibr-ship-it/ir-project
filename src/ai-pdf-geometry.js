@@ -35,7 +35,12 @@ function createPdfGeometry({documents,database,resolveWorker,pdfjsModuleUrl,
      if(message?.type==="error")finish(Error(message.message||"Ошибка PDF"));
      else if(message?.type==="result"){
       if(message.page!==num||!Array.isArray(message.segments)||
-       message.segments.length>2400||message.coordinateSystem!=="viewport_points_top_left")
+       message.segments.length>2400||
+       message.detailSegments!==undefined&&
+        (!Array.isArray(message.detailSegments)||message.detailSegments.length>14400||
+         message.detailSegments.some(seg=>!seg||
+          !["x1","y1","x2","y2"].every(k=>Number.isFinite(seg[k]))))||
+       message.coordinateSystem!=="viewport_points_top_left")
        finish(Error("Недопустимые данные векторного анализатора"));
       else finish(null,message)
      }
