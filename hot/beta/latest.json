@@ -1,7 +1,7 @@
 {
   "channel": "beta",
   "baseVersion": "1.7.226",
-  "version": "1.7.226.134",
+  "version": "1.7.226.135",
   "branch": "feature/ir-project-ai-next",
   "description": "IR Project AI Beta hot fixes: no full EXE",
   "files": [
@@ -332,8 +332,8 @@
     {
       "source": "src/ai-scheme-lite-page.js",
       "target": "src/ai-scheme-lite-page.js",
-      "size": 119289,
-      "sha256": "be07a40f84501063a16f8bfa093427d9586c009fad8570c1a531d29dc6d90631"
+      "size": 121349,
+      "sha256": "8124f36016bdde55037be405f7317c9a6d500d7420dec1ce743d1131e54e0757"
     },
     {
       "source": "src/ai-structured-extraction.js",
