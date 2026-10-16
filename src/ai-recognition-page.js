@@ -6,10 +6,8 @@ window.irAiRecognitionPage=async function(objectId){
  const route=location.hash,esc=v=>String(v==null?"":v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
  const size=n=>Number(n)>=1048576?(Number(n)/1048576).toFixed(1).replace(".",",")+" МБ":Math.ceil(Number(n)/1024)+" КБ";
  const tabs=[
-  ["scheme-lite","Монтажная схема · быстро"],["workflow","Конвейер ИИ"],["model","Общая 3D-модель"],["assembly","3D-модели марок"],
-  ["marks","Ведомость марок"],["metal","Спецификация металла"],
-  ["fasteners","Метизы"],["documents","Чертежи КМ/КМД"],["revisions","Ревизии КМ/КМД"],["reference","Эталон КМД"],
-  ["compare","Сравнение КМ / КМД"],["proposals","Предложения ИИ"],["integrity","Контроль данных"],["checks","Проверка и ошибки"]
+  ["documents","Чертежи КМ/КМД"],["workflow","Распознавание"],
+  ["checks","Проверка"],["scheme-lite","Монтажная схема"]
  ];
  const descriptions={
   "scheme-lite":["ИИ → Монтажная схема","Быстрый поиск марок и высот в текстовых слоях PDF; размещение после проверки инженером."],
