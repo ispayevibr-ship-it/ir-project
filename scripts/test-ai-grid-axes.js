@@ -237,6 +237,21 @@ const members=findPlanMemberStrokes({labels:[geometryLabel],analysis:onlyLeft,
  grid,vector:planVectors});
 assert.equal(members.candidates.length,1,JSON.stringify(members));
 assert.equal(members.candidates[0].mark,"Б22");
+// The local detail array is authoritative for outline hypotheses even if
+// the 2400-line preview contains no suitable short strokes.
+const localOnly=findPlanMemberStrokes({labels:[geometryLabel],analysis:onlyLeft,
+ grid,vector:{...planVectors,segments,
+ detailSegments:planPair,
+ stats:{truncated:true,axisEvidenceComplete:true,detailSampleIncomplete:false}}});
+assert.equal(localOnly.candidates.length,1,JSON.stringify(localOnly));
+assert.equal(localOnly.availableStrokes,2);
+assert.equal(localOnly.sampling,"local_tiles_short_medium_long");
+assert.equal(localOnly.limited,false);
+const emptyLocal=findPlanMemberStrokes({labels:[geometryLabel],analysis:onlyLeft,
+ grid,vector:{...planVectors,detailSegments:[]}});
+assert.equal(emptyLocal.candidates.length,0,
+ "an empty new evidence set must not fall back to the old biased preview");
+
 assert.equal(members.candidates[0].evidenceType,"parallel_strokes");
 assert.equal(members.candidates[0].status,"geometry_only_requires_review");
 assert.equal(members.candidates[0].exactPlacement,false);
