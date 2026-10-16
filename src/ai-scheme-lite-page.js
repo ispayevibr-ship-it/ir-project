@@ -523,7 +523,7 @@
       [...(card.querySelectorAll?.("[name]")||[])].find(x=>x.name===n);
      const value=n=>String(field(n)?.value??"").trim();
      const requiredNum=n=>{
-      const v=value(n),normalized=v.replace(/\\u2212/g,"-").replace(",",".");
+      const v=value(n),normalized=v.replace(/−/g,"-").replace(",",".");
       const number=Number(normalized);
       if(!v||!Number.isFinite(number)){
        const input=field(n);input?.focus?.();

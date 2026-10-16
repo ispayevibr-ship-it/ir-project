@@ -29,9 +29,11 @@ function makeHost(){
   type:"column",axisX:"3",axisY:"Г",endX:"",endY:"",
   z0:"-400",z1:"9705"
  };
- const row={querySelectorAll:()=>Object.entries(fields).map(([name,value])=>({
-  name,value
- }))};
+ const feedback={textContent:"",dataset:{},scrollIntoView(){}};
+ const row={
+  querySelector:selector=>selector==="[data-lite-feedback]"?feedback:null,
+  querySelectorAll:()=>Object.entries(fields).map(([name,value])=>({name,value}))
+ };
  const source={dataset:{liteSource:"0"},onclick:null};
  const approve={dataset:{liteApprove:"0"},onclick:null};
  const slot={
@@ -51,7 +53,7 @@ function makeHost(){
    "[data-lite-scan]":scan,"[data-lite-scheme]":scheme,
    '[data-lite-row="0"]':row
   })[selector]||null,
-  inspect:{slot,scan,scheme,status,source,approve,fields}
+  inspect:{slot,scan,scheme,status,source,approve,fields,feedback}
  }
 }
 (async()=>{
@@ -113,7 +115,7 @@ function makeHost(){
  // Access revoked after scanning: no placement, despite an enabled button.
  schemeAllowed=false;
  host.inspect.approve.onclick();
- await flush(()=>host.inspect.status.textContent.includes("нет разрешения"));
+ await flush(()=>host.inspect.feedback.textContent.includes("Нужны права инженера"));
  assert.equal(saved.length,0);
  assert.equal(passwordCalls,0,"unauthorized users never request reviewer password");
  schemeAllowed=true;
@@ -122,6 +124,13 @@ function makeHost(){
  await flush(()=>host.inspect.status.textContent.includes("Исходный PDF изменён"));
  assert.equal(saved.length,0,"stale source blocks before confirm/write");
  documents=[drawing];
+ // K62 card has visible X/Y and Z values. An empty value must generate an
+ // inline, card-specific error instead of silently returning while scrolled.
+ host.inspect.fields.z0="";
+ host.inspect.approve.onclick();
+ await flush(()=>host.inspect.feedback.textContent.includes("Низ / начало"));
+ assert.equal(saved.length,0,"invalid Z0 must not be inserted");
+ host.inspect.fields.z0="-400";
  host.inspect.approve.onclick();
  await flush(()=>saved.length===1);
  assert.equal(approvalCalls,2);
@@ -133,6 +142,7 @@ function makeHost(){
  assert.equal(saved[0].data.absolute_y_mm,18000);
  assert.equal(saved[0].data.z0_mm,-400);
  assert.equal(saved[0].data.z1_mm,9705);
+ assert.match(host.inspect.feedback.textContent,/Добавлено: К60/);
  assert.equal(saved[0].data.status,"planned");
  assert.equal(saved[0].data.ai_source.sha256,sha);
  // Repeating the same proposal cannot add a second construction.
