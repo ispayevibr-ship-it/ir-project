@@ -1,0 +1,70 @@
+name: IR Project AI Beta Hot Updates
+on:
+  push:
+    branches:
+      - feature/ir-project-ai-next
+    paths:
+      - "src/ai-*.js"
+      - "src/ai-*.css"
+      - "scripts/build-beta-hot-manifest.js"
+      - ".github/workflows/ir-project-ai-beta-hot.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ir-project-ai-beta-hot-publisher
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout Beta branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/ir-project-ai-next
+          fetch-depth: 0
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate AI Beta hot runtime
+        run: |
+          set -euo pipefail
+          node --check src/ai-recognition-page.js
+          node --check src/ai-local-engine.js
+          node --check src/ai-analysis.js
+          node --check src/ai-workflow.js
+          node --check scripts/build-beta-hot-manifest.js
+          node scripts/test-ai-pdf-drawings-ui.js
+          node scripts/test-ai-pdf-region-ui.js
+          node scripts/test-ai-qwen-response-parser.js
+          node scripts/test-ai-pdf-text-context.js
+          node scripts/test-ai-engine.js
+          node scripts/test-updater-rollback.js
+          node scripts/test-ai-beta-hot.js
+      - name: Generate signed-hash manifest from latest tested Beta revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin feature/ir-project-ai-next
+          git reset --hard origin/feature/ir-project-ai-next
+          node scripts/test-ai-beta-hot.js
+          node scripts/build-beta-hot-manifest.js --version "${{ github.run_number }}"
+          node scripts/test-ai-beta-hot.js --manifest
+      - name: Publish lightweight Beta manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hot/beta/latest.json
+          if git diff --cached --quiet; then
+            echo "Hot manifest is unchanged"
+          else
+            git commit -m "ci(ai): publish beta hot update ${{ github.run_number }}"
+            git push origin HEAD:feature/ir-project-ai-next
+          fi
