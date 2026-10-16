@@ -101,6 +101,43 @@ const {createStore}=require("../src/ai-document-store");
   assert.throws(()=>store.remove(1,id,{discardUnreviewed:true,expectedAnalysisIds:[laterEvidence.id]}),
    /ai-analysis/);
   db.deleteEntity(1,"ai-analysis",confirmed.id);
+  // An initialized review object without a decision is still an unreviewed draft.
+  const initialized=db.createEntity(1,"ai-analysis",{
+   record_type:"image_analysis",title:"Old draft with initialized review",
+   data:{source:{documentId:id,sha256:first.imported[0].sha256},
+    verification:"requires_review",
+    review:{status:"requires_review",revision:0,reviewedAt:null,reviewedBy:null,marks:[]}}
+  });
+  assert.equal(store.removalImpact(1,id).canDelete,true);
+  assert(store.removalImpact(1,id).unreviewedAnalysisIds.includes(initialized.id),
+   "initialized, never-reviewed candidate is included in explicit deletion preview");
+  db.deleteEntity(1,"ai-analysis",initialized.id);
+  const decided=db.createEntity(1,"ai-analysis",{
+   record_type:"image_analysis",title:"Already reviewed but currently awaiting review",
+   data:{source:{documentId:id,sha256:first.imported[0].sha256},
+    verification:"requires_review",
+    review:{status:"requires_review",revision:1}}
+  });
+  assert.equal(store.removalImpact(1,id).canDelete,false,
+   "previous engineering decision prevents deletion even if current status requires review");
+  assert.match(store.removalImpact(1,id).protectedRecords[0].reason,/ревизия/);
+  db.deleteEntity(1,"ai-analysis",decided.id);
+  const rejected=db.createEntity(1,"ai-analysis",{
+   record_type:"image_analysis",title:"Rejected engineering claim",
+   data:{source:{documentId:id,sha256:first.imported[0].sha256},
+    verification:"requires_review",review:{status:"rejected",revision:1}}
+  });
+  assert.equal(store.removalImpact(1,id).canDelete,false);
+  assert.match(store.removalImpact(1,id).protectedRecords[0].reason,/отклонён/);
+  db.deleteEntity(1,"ai-analysis",rejected.id);
+  const mismatched=db.createEntity(1,"ai-analysis",{
+   record_type:"image_analysis",title:"Unverified data from old source",
+   data:{source:{documentId:id,sha256:"0".repeat(64)},
+    verification:"requires_review"}
+  });
+  assert.equal(store.removalImpact(1,id).canDelete,false);
+  assert.match(store.removalImpact(1,id).protectedRecords[0].reason,/SHA-256/);
+  db.deleteEntity(1,"ai-analysis",mismatched.id);
   const dependent=db.createEntity(1,"ai-review-history",{
    record_type:"review_change",parent_id:laterEvidence.id,title:"Decision",
    data:{analysisId:laterEvidence.id,revision:1}

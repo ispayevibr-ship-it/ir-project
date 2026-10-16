@@ -175,18 +175,41 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
       item.data?.source?.sha256!==row.data?.sha256)
     protect("ai-pdf-index",item,"Индекс неизвестного типа или с другой SHA-256")
   }
+  // Older unreviewed results sometimes have an initialized review object:
+  // {status:"requires_review",revision:0}. This is NOT an engineering decision.
+  // Preserve every confirmed/rejected/previously reviewed result, even if its
+  // current status says requires_review; histories are checked separately too.
+  function draftReview(review){
+   if(review==null)return true;
+   if(typeof review!=="object"||Array.isArray(review))return false;
+   const allowed=new Set(["status","revision","reviewedAt","reviewedBy","comment","marks"]);
+   if(Object.keys(review).some(key=>!allowed.has(key)))return false;
+   if(review.status!=null&&review.status!=="requires_review")return false;
+   if(review.revision!=null&&Number(review.revision)!==0)return false;
+   if(review.reviewedAt||review.reviewedBy||review.comment)return false;
+   if(review.marks!=null&&(!Array.isArray(review.marks)||review.marks.length>0))return false;
+   return true
+  }
   const analyses=database.listEntity(id,"ai-analysis").filter(x=>
    referencesDocument(x.data,row.id));
   for(const item of analyses){
    const data=item.data||{},review=data.review;
-   const reviewRecorded=review&&typeof review==="object"&&Object.keys(review).length>0;
-   const safe=item.record_type==="image_analysis"&&
-    Number(data.source?.documentId)===row.id&&
-    data.source?.sha256===row.data?.sha256&&
-    !reviewRecorded&&
-    (data.verification==null||data.verification==="requires_review");
-   if(safe)drafts.push(item);
-   else protect("ai-analysis",item,"Проверенный результат или неподтверждённый формат анализа")
+   const knownType=item.record_type==="image_analysis";
+   const directSource=Number(data.source?.documentId)===row.id;
+   const sameHash=data.source?.sha256===row.data?.sha256;
+   const unverified=data.verification==null||data.verification==="requires_review";
+   const safe=knownType&&directSource&&sameHash&&unverified&&draftReview(review);
+   if(safe){drafts.push(item);continue}
+   let reason;
+   if(!knownType)reason="Неизвестный тип анализа — автоматическое удаление запрещено";
+   else if(!directSource)reason="Неоднозначная ссылка на исходный PDF в данных анализа";
+   else if(!sameHash)reason="SHA-256 анализа не совпадает с исходным PDF";
+   else if(!unverified)reason="Статус распознавания не является непроверенным черновиком";
+   else if(review?.status==="confirmed")reason="Результат подтверждён инженером";
+   else if(review?.status==="rejected")reason="Результат отклонён инженером — решение сохраняется в истории";
+   else if(review&&Number(review.revision)>0)reason="У результата уже есть ревизия инженерной проверки";
+   else reason="Заполнены сведения инженерной проверки или неизвестный формат review";
+   protect("ai-analysis",item,reason)
   }
   const ids=new Set(drafts.map(x=>Number(x.id)));
   for(const section of evidenceSections.filter(name=>name!=="ai-analysis")){
