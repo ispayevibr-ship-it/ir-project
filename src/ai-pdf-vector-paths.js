@@ -93,6 +93,48 @@ function extractSegments(operatorList,OPS,viewport,{minLengthPt=12}={}){
    }else{stats.truncated=true;break}
   }
  }
+ /* pdfjs-dist >= 5 uses packed DrawOPS inside a single constructPath:
+  * [paintOperator, [Float32Array(0,x,y,1,x,y,...,4)], bbox].
+  * Unlike v4, the paint op is embedded in constructPath. */
+ function packedPath(args){
+  const op=args?.[0],holder=args?.[1],data=holder?.[0];
+  if(!Number.isInteger(op)||!data||typeof data.length!=="number")return false;
+  // Packed drawing opcodes from pdf.js/shared/util.js v6.4.299:
+  // moveTo=0, lineTo=1, curveTo=2, quadraticCurveTo=3, closePath=4.
+  let i=0,current=null,begin=null;
+  const read=n=>{
+   if(i+n>data.length)return null;
+   const values=Array.from(data.slice(i,i+n));i+=n;
+   return values.every(finite)?values:null
+  };
+  const move=(x,y)=>{current=toPage(x,y);begin=current};
+  const line=(x,y)=>{
+   const next=toPage(x,y);
+   if(next&&current)path.push([...current,...next]);
+   current=next
+  };
+  while(i<data.length){
+   stats.pathCommands++;
+   if(stats.pathCommands>MAX_PATH_COMMANDS||path.length>10000){
+    stats.truncated=true;path=[];return true
+   }
+   const kind=data[i++];
+   if(kind===0){const p=read(2);if(!p)break;move(...p)}
+   else if(kind===1){const p=read(2);if(!p)break;line(...p)}
+   else if(kind===2){const p=read(6);if(!p)break;
+    stats.skippedCurves++;current=toPage(p[4],p[5])}
+   else if(kind===3){const p=read(4);if(!p)break;
+    stats.skippedCurves++;current=toPage(p[2],p[3])}
+   else if(kind===4){
+    if(current&&begin)path.push([...current,...begin]);
+    current=begin
+   }else{stats.truncated=true;break}
+  }
+  if(strokeOps.has(op))for(const entry of path)store(entry);
+  else stats.ignoredPaints++;
+  path=[];
+  return true
+ }
  const max=Math.min(operatorList.fnArray.length,MAX_OPERATORS);
  for(let i=0;i<max;i++){
   const op=operatorList.fnArray[i],args=operatorList.argsArray[i];
@@ -101,7 +143,9 @@ function extractSegments(operatorList,OPS,viewport,{minLengthPt=12}={}){
   else if(op===OPS.transform){
    if(Array.isArray(args)&&args.length===6&&args.every(finite))
     matrix=multiply(matrix,args)
-  }else if(op===OPS.constructPath){pathOps(args)}
+  }else if(op===OPS.constructPath){
+   if(!packedPath(args))pathOps(args)
+  }
   else if(strokeOps.has(op)){
    for(const seg of path)store(seg);
    path=[]
