@@ -139,7 +139,7 @@ window.irAiRecognitionPage=async function(objectId){
   const availableDocs=documents.filter(x=>x.exists);
   const knownKinds=[...new Set(availableDocs.map(x=>x.kind).filter(x=>["КМ","КМД"].includes(x)))];
   if(selectedKind==="Не определён"&&knownKinds.length===1)selectedKind=knownKinds[0];
-  const hasCorrectKind=availableDocs.some(x=>["КМ","КМД"].includes(x.kind));
+  const hasCorrectKind=["КМ","КМД"].includes(selectedKind)&&(!availableDocs.length||availableDocs.every(x=>["КМ","КМД"].includes(x.kind)));
   const indexedIds=new Set(pdfIndexes.filter(x=>availableDocs.some(d=>
    String(d.id)===String(x.documentId)&&d.sha256===x.sourceSha256&&d.ext===".pdf"&&
    Array.isArray(x.pages)&&x.pages.length>0)).map(x=>String(x.documentId)));
@@ -196,7 +196,7 @@ window.irAiRecognitionPage=async function(objectId){
    button.onclick=()=>openTab(button.dataset.aiTab)
   });
   const kindSelect=app.querySelector("#irAiKind");
-  if(kindSelect){kindSelect.value=selectedKind;kindSelect.onchange=()=>{selectedKind=kindSelect.value}}
+  if(kindSelect){kindSelect.value=selectedKind;kindSelect.onchange=()=>{selectedKind=kindSelect.value;paint()}}
   const upload=app.querySelector("#irAiUpload");
   upload.onclick=async()=>{
    if(!ready||!canEdit||busy||!await authorizeAiMutation())return;busy=true;
