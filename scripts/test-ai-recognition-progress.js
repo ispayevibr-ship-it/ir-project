@@ -51,7 +51,7 @@ const spin=async test=>{
   aiDocuments:{list:async()=>[drawing],select:async()=>({canceled:true})},
   aiEngine:{status:async()=>({installed:true,state:"ready",
    analysisTimeoutSeconds:600,model:"qwen3-vl-4b"}),results:async()=>savedAnalyses},
-  aiReview:{list:async()=>[],register:async()=>[],authorize:async()=>true},
+  aiReview:{list:async()=>savedAnalyses,register:async()=>[],authorize:async()=>true},
   aiPdf:{list:async()=>[{id:8,documentId:3,sourceName:drawing.name,
    sourceSha256:hash,totalPages:1,pages:[{page:1,hasTextLayer:true}]}],
    analyze:async()=>new Promise((resolve,reject)=>{
