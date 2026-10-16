@@ -5,11 +5,13 @@ const {createAnalysis}=require("../src/ai-analysis");
 (async()=>{
  const temp=fs.mkdtempSync(path.join(os.tmpdir(),"ir-ai-engine-"));
  const dir=path.join(temp,"ir-project-ai","runtime");fs.mkdirSync(dir,{recursive:true});
- let calls=[],child=null;
+ let calls=[],child=null,returnHttp400=false;
  const client=async (url,args)=>{
   calls.push({url,args});
   if(url.endsWith("/health"))return{ok:true,status:200};
-  if(url.endsWith("/v1/chat/completions"))return{ok:true,status:200,json:async()=>({
+  if(url.endsWith("/v1/chat/completions"))return returnHttp400?
+   {ok:false,status:400,text:async()=>JSON.stringify({error:{message:"context size exhausted"}})}:
+   {ok:true,status:200,json:async()=>({
    choices:[{message:{content:JSON.stringify({text:"Виден лист КМД",marks:["К41"],notes:["Требует сверки"],unknowns:["Масса"]})},finish_reason:"stop"}]
   })};
   throw Error("External URL must never be called")
@@ -51,6 +53,10 @@ const {createAnalysis}=require("../src/ai-analysis");
   assert.equal(analysis.list(1).length,1);assert.equal(analysis.list(1)[0].sourceName,"K41.png");
   assert.equal(analysis.list(1)[0].region.includes("координаты"),true);
   assert.deepEqual(analysis.parseClaims("unparseable output"),null);
+  returnHttp400=true;
+  await assert.rejects(engine.analyzeImage({buffer:img,mime:"image/png",prompt:"K60"}),
+   /HTTP 400: context size exhausted/,"local llama.cpp errors must include the actual reason");
+  returnHttp400=false;
   engine.stop();assert.equal(child.killed,true);
   assert.equal(engine.status().state,"stopped");
   // Deferred cancellation regression: a late successful /health response must
