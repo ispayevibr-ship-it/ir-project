@@ -89,4 +89,25 @@ assert.equal(selected.stats.truncated,true);
 assert(selected.segments.some(x=>x.lengthPt===270),
  "very long line appearing LAST in PDF must not disappear behind 2400 early short strokes");
 assert(selected.segments[0].lengthPt>=selected.segments.at(-1).lengthPt);
+
+const shortDashOps=[];
+for(const x of [40,100,160,220]){
+ for(const y of [45,95,145,195,245,295]){
+  shortDashOps.push([OPS.constructPath,[OPS.stroke,[new Float32Array([
+   0,x,y,1,x,y+24])],new Float32Array([x,y,x,y+24])]])
+ }
+}
+for(const y of [40,90,140,190]){
+ for(const x of [32,72,112,152,192,232]){
+  shortDashOps.push([OPS.constructPath,[OPS.stroke,[new Float32Array([
+   0,x,y,1,x+26,y])],new Float32Array([x,y,x+26,y])]])
+ }
+}
+const dashes=extractSegments(op(...shortDashOps),OPS,{width:520,height:420,
+ transform:[1,0,0,-1,0,420]});
+assert.equal(dashes.stats.axisEvidenceComplete,true);
+assert.equal(dashes.axisBands.vertical.length>=4,true,
+ "many short dashed strokes have to become one vertical axis candidate");
+assert.equal(dashes.axisBands.horizontal.length>=4,true,
+ "many short strokes have to become one horizontal axis candidate");
 console.log("PDF geometry: viewport, transform stack, painted paths, curves, dedupe, limits PASS");

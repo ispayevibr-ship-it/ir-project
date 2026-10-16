@@ -75,4 +75,38 @@ const flipLabels=[
 ];
 assert.equal(detect(flipLabels,flipped).calibrated,false,
  "upside-down sheet must not silently invert the project's Y orientation");
+
+const banded=detectPlanGridAxes({raw:{fragments},vector:{
+ widthPt,heightPt,rotation:0,stats:{truncated:true,axisEvidenceComplete:true},
+ segments:[],axisBands:{
+  vertical:xpos.map(x=>({x1:x,x2:x,y1:45,y2:330,direction:"vertical",
+   sampleCount:60,supportLengthPt:400})),
+  horizontal:ypos.map(y=>({x1:32,x2:270,y1:y,y2:y,
+   direction:"horizontal",sampleCount:40,supportLengthPt:400}))
+ }},grid});
+assert.equal(banded.calibrated,true,
+ "2400 preview strokes may be trimmed as long as COMPLETE dash evidence is available");
+const bandsIncomplete=detectPlanGridAxes({raw:{fragments},vector:{
+ widthPt,heightPt,stats:{truncated:true,axisEvidenceComplete:false},segments:[]},grid});
+assert.equal(bandsIncomplete.calibrated,false,"incomplete full vector scan cannot prove axes");
+const duplicateRight=fragments.concat([
+ ...xpos.map((x,i)=>labelAndReturn(String(i+1),x+260,340)),
+ ...ypos.map((y,i)=>labelAndReturn(["А","Б","В","Г"][i],280,y))
+]);
+const duplicatedSegments=[
+ ...segments,
+ ...xpos.map(x=>({x1:x+260,x2:x+260,y1:45,y2:330,direction:"vertical"})),
+ ...ypos.map(y=>({x1:280,x2:510,y1:y,y2:y,direction:"horizontal"}))
+];
+const regionLeft={left:0,top:0,right:.5,bottom:1},
+ regionRight={left:.5,top:0,right:1,bottom:1};
+const fullMulti=detectPlanGridAxes({raw:{fragments:duplicateRight},
+ vector:{widthPt,heightPt,segments:duplicatedSegments},grid});
+assert.equal(fullMulti.calibrated,false,"two separate mounting plans must not be merged");
+const onlyLeft=detectPlanGridAxes({raw:{fragments:duplicateRight},
+ vector:{widthPt,heightPt,segments:duplicatedSegments},grid,region:regionLeft});
+assert.equal(onlyLeft.calibrated,true,JSON.stringify(onlyLeft));
+const onlyRight=detectPlanGridAxes({raw:{fragments:duplicateRight},
+ vector:{widthPt,heightPt,segments:duplicatedSegments},grid,region:regionRight});
+assert.equal(onlyRight.calibrated,true,JSON.stringify(onlyRight));
 console.log("PDF plan grid axes: label endpoints, true vector strokes, uniform scale and ambiguity PASS");
