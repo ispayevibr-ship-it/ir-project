@@ -1907,6 +1907,76 @@
      if(cancel)cancel.onclick=()=>{verifiedPreview=null;draw()};
     }
 
+
+    async function reviewAllIndexedPlans(){
+     if(busy||!latest.length)return;
+     if(!geometry?.page||!pdf?.page||!schemeApi?.list||!marksApi?.list){
+      status("Автоматической проверке нужны векторный PDF, ведомость и сетка осей.");return
+     }
+     const work=latest.filter(x=>!["section","detail"].includes(x.sheetType)&&
+      (x.sheetType==="plan"||x.sheetType==="other"&&
+       instanceResults.get([x.documentId,x.sha256,x.page,"full"].join(":"))?.total>0));
+     if(!work.length){status("Не найдены читаемые монтажные планы; проверьте листы без текста.");return}
+     sweep={running:true,cancel:false,done:0,total:work.length,calibrated:0,
+      contours:0,labels:0,errors:0,lastReason:""};
+     const job=sweep,button=host.querySelector?.("[data-lite-analyze-all]"),
+      stop=host.querySelector?.("[data-lite-cancel-analyze]"),
+      scan=host.querySelector?.("[data-lite-scan]");
+     busy=true;if(button)button.disabled=true;if(stop)stop.disabled=false;
+     if(scan)scan.disabled=true;draw();
+     try{
+      const [rows,marks]=await Promise.all([schemeApi.list(),marksApi.list()]);
+      const grid=axisGeometry(rows);
+      if(!grid){job.lastReason="Сетка осей не сохранена; сохраните её в монтажной схеме.";return}
+      for(const item of work){
+       if(!live||job.cancel)break;
+       const doc=documents.find(d=>Number(d.id)===Number(item.documentId)&&
+        d.sha256===item.sha256&&d.exists),
+        idx=indexes.find(d=>Number(d.documentId)===Number(item.documentId)&&
+        d.sourceSha256===item.sha256);
+       status("Автоматически проверяем лист "+(job.done+1)+
+        "/"+job.total+" · "+(doc?.name||"PDF"));
+       try{
+        if(!doc||!idx)throw Error("Исходный PDF изменён");
+        const [textPage,vector]=await Promise.all([
+         pdf.page(objectId,idx.id,item.page),
+         geometry.page(objectId,doc.id,item.page)
+        ]);
+        if(!live||job.cancel)break;
+        if(textPage.source?.sha256!==doc.sha256||
+           Number(textPage.source?.documentId)!==Number(doc.id)||
+           vector?.sourceSha256!==doc.sha256||
+           Number(vector.documentId)!==Number(doc.id)||
+           Number(vector.page)!==Number(item.page))
+         throw Error("Индекс и геометрия PDF относятся к разным ревизиям");
+        const result=reviewIndexedPlanPage({raw:textPage.page,vector,grid,
+         marks,documentId:doc.id,sha256:doc.sha256,
+         page:item.page,sheetType:item.sheetType});
+        job.calibrated+=result.calibrated;job.labels+=result.foundLabels;
+        job.contours+=result.contourHints;job.lastReason=result.reason;
+        for(const r of result.regions){
+         const key=[doc.id,doc.sha256,item.page,r.name].join(":");
+         instanceResults.set(key,r.registry);dimensionResults.set(key,r.dimensions);
+         for(const x of r.links.records)instanceLinks.set(x.instanceId,x);
+         for(const x of r.dimensionLinks)instanceDimensionHints.set(x.instanceId,x)
+        }
+       }catch(error){job.errors++;job.lastReason=String(error.message||error).slice(0,150)}
+       job.done++;
+       status("Проверено "+job.done+"/"+job.total+
+        " листов; калибровано схем: "+job.calibrated+
+        "; ошибок: "+job.errors+". "+job.lastReason)
+      }
+     }catch(error){job.errors++;job.lastReason=String(error.message||error)}
+     finally{
+      job.running=false;busy=false;
+      if(button)button.disabled=false;if(stop)stop.disabled=true;
+      if(scan)scan.disabled=false;
+      if(live){draw();status("Проверено "+job.done+"/"+job.total+
+       " листов; калибровано "+job.calibrated+" схем; возможных контуров "+
+       job.contours+"; ошибок "+job.errors+
+       ". Координаты X/Y/Z конструкций ещё не подтверждены.")}
+     }
+    }
     async function analyzeInstances(index){
      const sheet=latest[index];if(!sheet||busy)return;
      const selected=host.querySelector("[data-lite-results]")?.querySelector?.(
@@ -2386,6 +2456,7 @@
     async function scan(){
      if(busy)return;busy=true;status("Быстро читаем текстовые слои PDF…");
      latest=[];candidates=[];batch=null;verifiedPreview=null;feedbackByCandidate.clear();
+     sweep=null;instanceLinks.clear();instanceDimensionHints.clear();dimensionResults.clear();
       instanceResults.clear();instanceRows=[];
      host.querySelector("[data-lite-scan]").disabled=true;
      try{
@@ -2431,7 +2502,7 @@
        " листов, "+candidates.length+" возможных марок. "+
        (allEntries.length>250?"За один запуск проверяются первые 250 листов; оставшиеся пока не обработаны. ":"")+
        "Неразборчивые PDF не интерпретировались.");
-      draw()
+      draw();if(allButton)allButton.disabled=false
      }catch(error){status("Не удалось проверить PDF: "+String(error.message||error))}
      finally{busy=false;const scanBtn=host.querySelector("[data-lite-scan]");if(scanBtn)scanBtn.disabled=false}
     }
@@ -2651,6 +2722,13 @@
     }
     host.innerHTML=markup();
     host.querySelector("[data-lite-scan]").onclick=()=>void scan();
+    const allButton=host.querySelector?.("[data-lite-analyze-all]");
+    if(allButton)allButton.onclick=()=>void reviewAllIndexedPlans();
+    const cancelButton=host.querySelector?.("[data-lite-cancel-analyze]");
+    if(cancelButton)cancelButton.onclick=()=>{
+     if(sweep?.running)sweep.cancel=true;
+     status("Остановка после текущего листа…")
+    };
     host.querySelector("[data-lite-scheme]").onclick=()=>onNavigate?.("scheme");
     const clear=host.querySelector("[data-lite-clear]");
     if(clear)clear.onclick=async()=>{
