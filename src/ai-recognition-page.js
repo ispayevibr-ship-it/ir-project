@@ -430,7 +430,11 @@ window.irAiRecognitionPage=async function(objectId){
        (x.region?' · выделенная область':'')+
        ' · SHA-256 '+esc(x.sha256)+' · '+esc(x.sourceRegion||x.region||"Весь документ")+'</div>'+
       (x.page?'<button type="button" class="ir-ai-review-open" data-ai-review-source="'+x.documentId+':'+x.page+'">Просмотр исходного листа</button>':"")+
-      '<div class="ir-ai-result-text">'+esc(x.notes?.text||"Нейросеть не вернула структурированный текст.")+'</div>'+
+      '<div class="ir-ai-result-text">'+esc(x.notes?
+       (x.notes.text||"Qwen вернула JSON без текстового описания. Ниже показаны найденные марки и исходный ответ.") :
+       "Qwen вернула ответ, но его не удалось разобрать как JSON. Раскройте «Ответ модели без изменений» ниже. Если штамп мелкий, попробуйте распознать выделенный фрагмент листа.")+'</div>'+
+      (x.finishReason&&x.finishReason!=="stop"?'<div class="ir-ai-quantity-warning">Генерация Qwen завершилась со статусом '+esc(x.finishReason)+
+       '. Ответ может быть обрезан или неполон, инженерное подтверждение пока не требуется.</div>':"")+
       '<div class="ir-ai-result-row"><b>Первоначально распознанные марки:</b> '+esc((x.originalMarks||x.notes?.marks||[]).join(", ")||"Не найдены")+'</div>'+
       '<div class="ir-ai-result-row"><b>Замечания модели:</b> '+esc((x.notes?.unknowns||[]).join("; ")||"Не указаны")+'</div>'+
       '<div class="ir-ai-review-fields"><label>Проверенные обозначения (по одной марке в строке)'+
