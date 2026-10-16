@@ -331,7 +331,7 @@ window.irAiRecognitionPage=async function(objectId){
    }catch(error){notice("Не удалось импортировать файлы: "+String(error.message||error),"error")}
    finally{busy=false;await reload()}
   };
-  app.querySelector("#irAiPlan")?.addEventListener("click",()=>openTab("scheme-lite"));
+  const planButton=app.querySelector("#irAiPlan");if(planButton)planButton.onclick=()=>openTab("scheme-lite");
   app.querySelector("#irAiRecognize").onclick=async()=>{
    if(!runtime||busy||!canEdit||!await authorizeAiMutation())return;
    busy=true;notice("Запускаем локальную модель, ожидаем реальной готовности…");paint();
