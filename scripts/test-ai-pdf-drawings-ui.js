@@ -64,7 +64,120 @@ async function run(state){
   assert.match(content.innerHTML,/data-ai-pdf-vision="3:1"/);
  }else assert.match(app.innerHTML,/Qwen подключена, но остановлена/);
 }
+
+async function runBulkIndex(){
+ const sha=n=>String(n).repeat(64),doc=(id,exists=true,ext=".pdf")=>({
+  id,name:"Чертёж "+id+ext,kind:"КМД",ext,exists,sha256:sha(id),
+  size:200000,addedAt:"2026-10-17"
+ });
+ const docs=[doc(1),doc(2),doc(3),doc(4),doc(5,false),doc(6,true,".png")];
+ const indexed=new Map([[1,{id:101,documentId:1,sourceName:docs[0].name,
+  sourceSha256:sha(1),pages:[{page:1,hasTextLayer:true}],
+  totalPages:1}]]);
+ const buttons=new Map(),statuses=new Map(),header={textContent:"",dataset:{}};
+ const content={
+  innerHTML:"",
+  querySelector(q){
+   if(q==="[data-ai-index-all]"){
+    if(!this.innerHTML.includes("data-ai-index-all"))return null;
+    if(!buttons.has(q))buttons.set(q,{onclick:null,disabled:false});
+    return buttons.get(q)
+   }
+   if(q==="[data-ai-bulk-summary]")return header;
+   if(q.startsWith('[data-ai-index-status="')){
+    const k=q.slice(23,-2);
+    if(!statuses.has(k))statuses.set(k,{textContent:"",className:"",title:""});
+    return statuses.get(k)
+   }
+   return null
+  },
+  querySelectorAll:()=>[]
+ };
+ const app={innerHTML:"",querySelector:q=>q==="#irAiContent"?content:null};
+ let progress=null,indexedIds=[],active=0,maxActive=0;
+ let finishTwo,finishFour;
+ const second=new Promise(resolve=>{finishTwo=resolve});
+ const fourth=new Promise(resolve=>{finishFour=resolve});
+ const irProject={
+  data:{objects:{get:async()=>({id:7,name:"Варваринское"})},
+   forObject:()=>({section:()=>({list:async()=>[{id:1,title:"К60"}]})})},
+  aiDocuments:{list:async()=>docs,select:async()=>({canceled:true})},
+  aiEngine:{status:async()=>({installed:false,state:"missing"}),results:async()=>[]},
+  aiPdf:{
+   list:async()=>[...indexed.values()],
+   onProgress:fn=>{progress=fn;return()=>{progress=null}},
+   index:async(_oid,id)=>{
+    indexedIds.push(Number(id));active++;maxActive=Math.max(maxActive,active);
+    try{
+     if(Number(id)===2)await second;
+     if(Number(id)===3)throw Error("повреждённый PDF");
+     if(Number(id)===4)await fourth;
+     const d=docs.find(d=>d.id===Number(id));
+     const result={id:100+Number(id),documentId:Number(id),
+      sourceName:d.name,sourceSha256:d.sha256,totalPages:2,
+      pages:[{page:1,hasTextLayer:true},{page:2,hasTextLayer:false}]};
+     indexed.set(Number(id),result);return result
+    }finally{active--}
+   }
+  }
+ };
+ const win={irProject,irAccess:{role:()=>"admin",canEdit:()=>true}};
+ const context={window:win,irProject,location:{hash:"#/objects/7/ai-recognition"},
+  document:{getElementById:q=>q==="app"?app:null},console};
+ vm.runInNewContext(source,context,{filename:"src/ai-recognition-page.js"});
+ await win.irAiRecognitionPage(7);
+ assert.match(content.innerHTML,/Проиндексировать все чертежи/);
+ assert.match(content.innerHTML,/✓ Индексирован · 1 лист/);
+ assert.match(content.innerHTML,/Ожидает индексации/);
+ assert.match(content.innerHTML,/Файл отсутствует/);
+ const all=buttons.get("[data-ai-index-all]");
+ assert.equal(typeof all.onclick,"function");
+ all.onclick();
+ const tick=async fn=>{
+  for(let i=0;i<500;i++){
+   if(fn())return;
+   await new Promise(resolve=>setImmediate(resolve))
+  }
+  throw Error("Timed out waiting for PDF index-all status: "+header.textContent)
+ };
+ await tick(()=>indexedIds.includes(2));
+ assert.deepEqual(indexedIds,[2],"already indexed PDF skipped; images and missing files ignored");
+ assert.equal(maxActive,1,"never run two PDF workers simultaneously");
+ assert.match(content.innerHTML,/Проиндексировать все чертежи/);
+ assert.equal(progress instanceof Function,true);
+ progress({objectId:7,documentId:2,page:1,total:2});
+ assert.match(statuses.get("2").textContent,/лист 1 из 2/);
+ assert.match(header.textContent,/обработано 1 из 4/);
+ all.onclick();
+ assert.deepEqual(indexedIds,[2],"repeat click cannot start another job");
+ finishTwo();
+ await tick(()=>indexedIds.includes(4));
+ assert.deepEqual(indexedIds,[2,3,4],
+  "batch continues after corrupted PDF and does not retry existing PDF");
+ assert.match(statuses.get("2").textContent,/✓ Индексирован · 2 лист/);
+ assert.match(statuses.get("3").textContent,/✕ Ошибка индексации/);
+ assert.match(header.textContent,/обработано 3 из 4/);
+ finishFour();
+ await tick(()=>header.textContent.includes("обработано 4 из 4")&&
+  !header.textContent.includes("Индексируем по очереди"));
+ assert.match(header.textContent,/✓ 3/);
+ assert.match(header.textContent,/✕ 1/);
+ assert.equal(progress,null,"onProgress subscription cleaned after batch");
+ assert.match(content.innerHTML,/✓ Индексирован · 2 лист/);
+ assert.match(content.innerHTML,/Ошибка индексации/);
+ assert.equal(maxActive,1);
+ assert(!indexedIds.includes(1)&&!indexedIds.includes(5)&&!indexedIds.includes(6));
+ // Retrying must target ONLY prior failures.
+ const retry=buttons.get("[data-ai-index-all]");
+ assert.equal(retry.disabled,false);
+ retry.onclick();
+ await tick(()=>indexedIds.length===4);
+ assert.deepEqual(indexedIds,[2,3,4,3]);
+ assert.match(header.textContent,/✕ 1/);
+ console.log("PDF index-all UI: 1-click, immediate ✓, page progress, SHA cache, serial jobs, failures and retry PASS");
+}
+
 (async()=>{
- await run("ready");await run("stopped");
+ await run("ready");await run("stopped");await runBulkIndex();
  console.log("PDF drawings UI: K60 row, indexed sheet and manual Qwen status PASS");
 })().catch(e=>{console.error(e);process.exitCode=1});
