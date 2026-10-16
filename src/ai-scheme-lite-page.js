@@ -1703,7 +1703,7 @@
      const indexesLoaded=latest.length,candidateCount=candidates.length;
      slot.innerHTML=(sweep?'<section class="ir-ai-lite-geometry-summary">'+
       '<h3>Автоматическая проверка монтажных планов</h3>'+
-      '<p>Проверено листов: <b>'+sweep.done+'/'+sweep.total+
+      '<p data-lite-sweep-counts aria-live="polite">Проверено листов: <b>'+sweep.done+'/'+sweep.total+
       '</b> · калибровано схем: <b>'+sweep.calibrated+
       '</b> · найдено надписей в планах: <b>'+sweep.labels+
       '</b> · возможных пар контуров: <b>'+sweep.contours+
@@ -1711,6 +1711,10 @@
       '<p>Подтверждённых монтажных координат X/Y/Z: <b>0</b>. '+
       'Результаты анализа — графические гипотезы, не готовая расстановка.</p>'+
       (sweep.lastReason?'<p>'+escDoc(sweep.lastReason)+'</p>':"")+
+      (sweep.failures?.length?'<details><summary>Проблемные листы · '+
+       sweep.failures.length+'</summary>'+
+       sweep.failures.slice(0,30).map(x=>'<p>'+escDoc(x)+'</p>').join("")+
+       '</details>':"")+
       '</section>':"")+instanceMarkup()+(inventory?'<div class="ir-ai-lite-counts">'+
       '<span>Позиций ведомости: <b>'+inventory.positions+'</b></span>'+
       '<span>Экземпляров всего: <b>'+inventory.totalInstances+'</b></span>'+
@@ -1934,7 +1938,7 @@
      if(!work.length){status("В индексированных PDF нет монтажных планов или неопределённых листов. "+
       "Проверьте загруженные PDF и их текстовый слой.");return}
      sweep={running:true,cancel:false,done:0,total:work.length,calibrated:0,
-      contours:0,labels:0,errors:0,lastReason:""};
+      contours:0,labels:0,errors:0,lastReason:"",failures:[]};
      const job=sweep,button=host.querySelector?.("[data-lite-analyze-all]"),
       stop=host.querySelector?.("[data-lite-cancel-analyze]"),
       scan=host.querySelector?.("[data-lite-scan]");
@@ -1977,11 +1981,20 @@
          for(const x of r.links.records)instanceLinks.set(x.instanceId,x);
          for(const x of r.dimensionLinks)instanceDimensionHints.set(x.instanceId,x)
         }
-       }catch(error){job.errors++;job.lastReason=String(error.message||error).slice(0,150)}
+       }catch(error){
+        job.errors++;job.lastReason=String(error.message||error).slice(0,150);
+        job.failures.push((doc?.name||"PDF")+" · лист "+item.page+
+         ": "+job.lastReason)
+       }
        job.done++;
        status("Проверено "+job.done+"/"+job.total+
         " листов; калибровано схем: "+job.calibrated+
-        "; ошибок: "+job.errors+". "+job.lastReason)
+        "; ошибок: "+job.errors+". "+job.lastReason);
+       const progress=host.querySelector?.("[data-lite-sweep-counts]");
+       if(progress)progress.textContent="Проверено "+job.done+"/"+job.total+
+        " листов · калибровано "+job.calibrated+
+        " схем · надписей "+job.labels+" · гипотез контуров "+
+        job.contours+" · ошибок "+job.errors
       }
      }catch(error){job.errors++;job.lastReason=String(error.message||error)}
      finally{
