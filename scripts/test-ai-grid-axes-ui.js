@@ -15,6 +15,7 @@ for(let i=0;i<4;i++)labels.push(make(["А","Б","В","Г"][i],20,310-i*60));
 labels.push({text:"Колонна К62",x:105,y:215,width:10,height:10});
 labels.push(make("К62",140,205));
 labels.push(make("В74",140,150));
+labels.push(make("4500",139,258));
 const segments=[
  ...Array.from({length:4},(_,i)=>({
   x1:40+i*60,x2:40+i*60,y1:45,y2:330,direction:"vertical"})),
@@ -23,7 +24,10 @@ const segments=[
  ...[{x1:112,y1:214,x2:168,y2:214,direction:"horizontal",lengthPt:56},
      {x1:112,y1:219,x2:168,y2:219,direction:"horizontal",lengthPt:56},
      ...[163,166,169].map(y=>({x1:112,y1:y,x2:168,y2:y,
-       direction:"horizontal",lengthPt:56}))]
+       direction:"horizontal",lengthPt:56})),
+     {x1:120,y1:270,x2:165,y2:270,direction:"horizontal",lengthPt:45},
+     {x1:120,y1:265,x2:120,y2:275,direction:"vertical",lengthPt:10},
+     {x1:165,y1:265,x2:165,y2:275,direction:"vertical",lengthPt:10}]
 ];
 const wait=async f=>{
  for(let i=0;i<100;i++){if(f())return;await new Promise(r=>setImmediate(r))}
@@ -46,6 +50,7 @@ const wait=async f=>{
   instanceButton={dataset:{liteInstancesPage:"0"},onclick:null},
   instanceOutline={dataset:{liteInstanceOutline:"0"},onclick:null},
   sourceInstances={dataset:{liteInstanceSource:"0"},onclick:null},
+  dimensionButton={dataset:{liteDimensionSource:"0"},onclick:null},
   regionSelect={value:"left"},
   scan={disabled:false,onclick:null},
   slot={innerHTML:"",
@@ -56,6 +61,8 @@ const wait=async f=>{
      slot.innerHTML.includes('data-lite-instances-page="0"'))return[instanceButton];
     if(q==="[data-lite-instance-source]"&&
      slot.innerHTML.includes('data-lite-instance-source="0"'))return[sourceInstances];
+    if(q==="[data-lite-dimension-source]"&&
+     slot.innerHTML.includes('data-lite-dimension-source="0"'))return[dimensionButton];
     if(q==="[data-lite-instance-outline]"&&
      slot.innerHTML.includes('data-lite-instance-outline="0"'))return[instanceOutline];
     return[]
@@ -143,6 +150,15 @@ const wait=async f=>{
   instanceOutline.onclick();
   assert.equal(sourceViews.at(-1).evidence[0].strokeLinesPt.length,2);
  }
+ assert(slot.innerHTML.includes("Размерных линий с совпадающей длиной"));
+ assert(slot.innerHTML.includes("Размерные цепочки PDF · 1"),
+  "real calibrated strokes with both end ticks become one graphic dimension");
+ assert.equal(typeof dimensionButton.onclick,"function");
+ dimensionButton.onclick();
+ assert.equal(sourceViews.at(-1).evidence[0].quote,"4500");
+ assert.equal(sourceViews.at(-1).evidence[0].rectPt.width,8);
+ assert(slot.innerHTML.includes("рядом размеры: 4500 (X)"),
+  "dimension is only a nearby drawing clue, never an actual member offset");
  assert.equal(schemeWrites,0,"linking register instances cannot mutate the scheme");
  ui.dispose();
  console.log("Axis grid UI: full label-to-line preview, readonly, no scheme placements PASS");
