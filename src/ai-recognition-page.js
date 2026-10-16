@@ -533,13 +533,13 @@ window.irAiRecognitionPage=async function(objectId){
    box.innerHTML='<div class="ir-ai-placeholder"><div class="ir-ai-placeholder-icon">◎</div><h2>'+esc(info[0])+'</h2>'+
     '<p>'+esc(info[1])+'</p><span>Функция запланирована, не имитируется</span></div>';return
   }
-  const matches=documents.filter(x=>(x.name+" "+x.kind+" "+x.ext).toLowerCase().includes(term.toLowerCase()));
+  const matches=documents.filter(x=>[x?.name,x?.kind,x?.ext].map(v=>String(v??"")).join(" ").toLowerCase().includes(term.toLowerCase()));
   box.innerHTML='<div class="ir-ai-doc-head"><div><h2>Чертежи КМ/КМД</h2><p>Исходные документы сохраняются локально, а их метаданные — в SQLite. Внешние сервисы не используются.</p></div>'+
    '<input id="irAiSearch" type="search" placeholder="Поиск по файлам" value="'+esc(term)+'" aria-label="Поиск документов"></div>'+
    (!documents.length?'<div class="ir-ai-doc-empty"><b>Чертежей пока нет</b><p>Выберите тип комплекта и нажмите «Добавить чертежи». Поддерживаются PDF, DXF, DWG, PNG, JPG и TIFF. DWG пока только сохраняется, без анализа.</p></div>':
    '<div class="ir-ai-table-wrap"><table class="ir-ai-doc-table"><thead><tr><th>Документ</th><th>Комплект</th><th>Размер</th><th>Статус</th><th>Действия</th></tr></thead><tbody>'+
-   matches.map(x=>'<tr><td><strong>'+esc(x.name)+'</strong><small>'+esc(x.ext.toUpperCase())+' · '+esc(x.addedAt||"")+'</small></td>'+
-    '<td>'+esc(x.kind)+'</td><td>'+size(x.size)+'</td><td><span class="ir-ai-doc-status '+(!x.exists?"missing":"")+'">'+(x.exists?"Не распознано":"Файл отсутствует")+'</span></td>'+
+   matches.map(x=>'<tr><td><strong>'+esc(x.name)+'</strong><small>'+esc(String(x.ext||"").toUpperCase())+' · '+esc(x.addedAt||"")+'</small></td>'+
+    '<td>'+esc(x.kind||"Не определён")+'</td><td>'+size(x.size||0)+'</td><td><span class="ir-ai-doc-status '+(!x.exists?"missing":"")+'">'+(x.exists?"Не распознано":"Файл отсутствует")+'</span></td>'+
     '<td><div class="ir-ai-doc-actions">'+
     (canEdit&&[".png",".jpg",".jpeg"].includes(x.ext)?'<button data-ai-analyze="'+x.id+'" '+(!modelReady||busy||!x.exists?'disabled':'')+'>Распознать</button>':"")+
     (x.ext===".pdf"?'<button data-ai-pdf-preview="'+x.id+':1" '+(!pdf||busy||!x.exists?'disabled':'')+'>Лист 1</button>':"")+
@@ -550,7 +550,7 @@ window.irAiRecognitionPage=async function(objectId){
    '<div class="ir-ai-storage-note">SHA-256 рассчитывается при импорте. Текстовый индекс PDF не является результатом нейросети: повреждённый текст и изображения требуют проверки. Оригинальные файлы сохраняются. Экспорт резервной копии *.db не включает вложения ИИ.</div>'+
    (pdfIndexes.length?'<section class="ir-ai-pdf-results"><h3>Текстовые индексы PDF · '+pdfIndexes.length+'</h3>'+
     pdfIndexes.filter(x=>documents.some(d=>String(d.id)===String(x.documentId))).map(x=>'<article class="ir-ai-pdf-card"><header><strong>'+esc(x.sourceName)+'</strong><span>'+x.totalPages+' лист(ов) · из текстового слоя PDF</span></header>'+
-    '<div class="ir-ai-pdf-sheets">'+x.pages.map(p=>'<details><summary>Лист '+p.page+
+    '<div class="ir-ai-pdf-sheets">'+(Array.isArray(x.pages)?x.pages:[]).map(p=>'<details><summary>Лист '+p.page+
      ' · '+(p.hasTextLayer?(p.uncertainEncoding?'Возможна повреждённая кодировка':'Есть текст'):'Текстовый слой отсутствует — нужен OCR')+
      (p.truncated?' · Текст сокращён':'')+'</summary>'+
      '<div class="ir-ai-pdf-size">Размер: '+p.widthPt+' × '+p.heightPt+' pt · Фрагментов: '+p.fragmentCount+'</div>'+
