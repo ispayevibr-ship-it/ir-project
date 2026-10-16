@@ -48,6 +48,24 @@ const curves=extractSegments(op(
 ),OPS,page);
 assert.equal(curves.stats.skippedCurves,1);
 assert.equal(curves.segments.length,1,"Bezier curve is NEVER treated as a straight segment");
+// PDF.js 6.4.299 constructPath bundles paint and packed DrawOPS
+// [paint, [Float32Array of (opcode, coords...)], bbox].
+const packed=extractSegments(op(
+ [OPS.constructPath,[OPS.stroke,[new Float32Array([0,20,20,1,150,20,0,45,20,1,45,120])],
+  new Float32Array([20,20,150,120])]],
+ [OPS.constructPath,[OPS.fill,[new Float32Array([0,30,30,1,150,30])],
+  new Float32Array([30,30,150,30])]]
+),OPS,page);
+assert.equal(packed.segments.length,2,"PDF.js v6 packed stroke must decode; fill excluded");
+assert.equal(packed.stats.horizontal,1);
+assert.equal(packed.stats.vertical,1);
+assert(packed.segments.some(v=>v.x1===20&&v.y1===180&&v.x2===150&&v.y2===180));
+const packedRect=extractSegments(op(
+ [OPS.constructPath,[OPS.closeStroke,[new Float32Array([
+  0,50,50,1,120,50,1,120,100,1,50,100,4
+ ])],new Float32Array([50,50,120,100])]]
+),OPS,page);
+assert.equal(packedRect.segments.length,4,"PDF.js v6 packed closed path");
 assert.deepEqual(multiply([1,0,0,1,10,20],[2,0,0,2,0,0]),[2,0,0,2,10,20]);
 const invalid=extractSegments(op(
  [OPS.constructPath,[[OPS.moveTo,OPS.lineTo],[1,2,NaN,5]]],[OPS.stroke,[]]
