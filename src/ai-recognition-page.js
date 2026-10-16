@@ -1286,7 +1286,11 @@ window.irAiRecognitionPage=async function(objectId){
     }
     const percent=selected?Math.round(selectedArea()*1000)/10:null;
     if(regionSize){
-     regionSize.textContent=!selected?"Область ещё не выбрана.":
+     regionSize.textContent=crop&&cropEvidenceLayer?
+      "Автоматически увеличен спорный участок оригинального PDF. "+
+      "Красная и голубая линии — лишь варианты графического контура. "+
+      "Нажмите «Вернуться к листу» для общей схемы.":
+      !selected?"Область ещё не выбрана.":
       "Выбрано "+percent+"% листа. "+
       (validFastSelection()?"Можно распознать фрагмент.":
        "Это почти целый лист: для быстрого распознавания выделите меньшую область (до 35%).");
