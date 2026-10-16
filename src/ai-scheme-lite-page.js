@@ -354,9 +354,9 @@
       const c=candidates[Number(b.dataset.liteSource)];if(c)onOpenPdf?.(c.source.documentId,c.source.page)
      });
      slot.querySelectorAll("[data-lite-approve]").forEach(b=>b.onclick=()=>{void approve(Number(b.dataset.liteApprove))});
-     const bulk=slot.querySelector("[data-lite-batch]");
+     const bulk=slot.querySelector?.("[data-lite-batch]");
      if(bulk)bulk.onclick=()=>void approveBatch();
-     const uncertain=slot.querySelector("[data-lite-qwen]");
+     const uncertain=slot.querySelector?.("[data-lite-qwen]");
      if(uncertain)uncertain.onclick=()=>void queueHardSheets();
     }
     async function scan(){
