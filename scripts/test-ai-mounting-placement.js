@@ -39,11 +39,15 @@ add("work-types",21,"item",{scheme_enabled:true,project_code:"PK-01"});
 add("marks",22,"item",{mark:"К62",name:"Колонна",qty:2,work_type_id:21,project_code:"PK-01"},"К62");
 add("ai-documents",23,"document",{sha256:SHA,archived:false},"Монтажная схема");
 add("ai-pdf-index",24,"pdf_text_index",{source:{documentId:23,sha256:SHA},
- pages:[{page:1,hasTextLayer:true}]},"Лист 1");
+ pages:[{page:1,hasTextLayer:true,fragments:[
+  {text:"Колонна ",x:100,y:300,width:60,height:12},
+  {text:"К62",x:161,y:300,width:25,height:12}
+ ]}]},"Лист 1");
 const candidate=(axis,overrides={})=>({
  mark:"К62",markId:22,projectCode:"PK-01",type:"column",
  origin:"text_layer",sheetType:"plan",axisX:axis,axisY:"Б",
- z0Mm:-400,z1Mm:9705,source:{documentId:23,sha256:SHA,page:1},
+ z0Mm:-400,z1Mm:9705,source:{documentId:23,sha256:SHA,page:1,
+  regions:[{fragmentIds:[0,1],rectPt:{x:99999,y:99999,width:999,height:999}}]},
  evidence:["К62 на монтажном плане","Разрез по оси Б"],...overrides
 });
 const service=createService({database:db});
@@ -77,6 +81,10 @@ const detail=service.preview(1,[candidate("1",{sheetType:"detail"})]);
 assert.equal(detail.ready.length,0);
 const apply=service.apply(1,[candidate("1"),candidate("2")],first.token);
 assert.equal(apply.created,2);
+const firstPlacement=db.listEntity(1,"scheme").find(x=>x.record_type==="scheme_column");
+assert.equal(firstPlacement.data.ai_source.textRegions[0].rectPt.x,100,
+ "server must derive rectangle from indexed PDF, not trust forged client box");
+assert.equal(firstPlacement.data.ai_source.textRegions[0].rectPt.width,86);
 assert.equal(service.inventory(1).placed,2);
 assert.deepEqual(service.inventory(1).instances.map(x=>x.placementStatus),["placed","placed"]);
 const instanceIds=db.listEntity(1,"scheme").filter(x=>x.record_type==="scheme_column")
