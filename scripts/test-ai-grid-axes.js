@@ -1,6 +1,6 @@
 "use strict";
 const assert=require("node:assert/strict");
-const {detectPlanGridAxes,axisGeometry,locateMarkLabelZones,detectPlanRegisterLabels}=require("../src/ai-scheme-lite-page");
+const {detectPlanGridAxes,axisGeometry,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates}=require("../src/ai-scheme-lite-page");
 const grid=axisGeometry([{record_type:"scheme_grid",data:{entity_type:"grid",
  axes_x:["1","2","3","4"],x_spans_mm:[6000,6000,6000],
  axes_y:["А","Б","В","Г"],y_spans_mm:[6000,6000,6000]}}]);
@@ -160,3 +160,43 @@ const ambiguousMark=detectPlanRegisterLabels({raw:{fragments:planLabels},
 assert.deepEqual(ambiguousMark.labels.map(x=>x.mark),["В74"]);
 assert.equal(ambiguousMark.ambiguous,1);
 console.log("Registered-only KMD labels: independent/split labels, no invented placements PASS");
+
+
+// Candidate GRID NODES are read-only geometry hints, never installation
+// coordinates. They require BOTH observed vector axis strokes at a crossing.
+const near={...foundMarks.labels[0],pageX:104,pageY:257,
+ labelXmm:6400,labelYmm:5300};
+const nodes=findAxisNodeCandidates({
+ labels:[near],analysis:onlyLeft,grid,
+ vector:{widthPt,heightPt,rotation:0,segments}});
+assert.equal(nodes.suggested.length,1,JSON.stringify(nodes));
+assert.equal(nodes.review.length,0);
+assert.equal(nodes.suggested[0].axisX,"2");
+assert.equal(nodes.suggested[0].axisY,"Б");
+assert.equal(nodes.suggested[0].nodeXmm,6000);
+assert.equal(nodes.suggested[0].nodeYmm,6000);
+assert.equal(nodes.suggested[0].status,"unverified_grid_node");
+assert.equal(nodes.suggested[0].exactPlacement,false);
+assert(!("z0Mm" in nodes.suggested[0]));
+assert(!("memberXmm" in nodes.suggested[0]));
+assert.equal(findAxisNodeCandidates({labels:[foundMarks.labels[0]],
+ analysis:onlyLeft,grid,vector:{widthPt,heightPt,segments}}).review[0].reasonCode,
+ "ambiguous_neighbor","symmetric closest intersections cannot imply a member position");
+const noCross=segments.filter(s=>s.direction==="vertical");
+const rejected=findAxisNodeCandidates({labels:[near],analysis:onlyLeft,
+ grid,vector:{widthPt,heightPt,segments:noCross}});
+assert.equal(rejected.suggested.length,0);
+assert.equal(rejected.review[0].reasonCode,"no_vector_crossing");
+assert.equal(findAxisNodeCandidates({labels:[near],analysis:{calibrated:false},
+ grid,vector:{widthPt,heightPt,segments}}).suggested.length,0);
+const outside={...near,pageX:500,pageY:50};
+assert.equal(findAxisNodeCandidates({labels:[outside],analysis:onlyLeft,
+ grid,vector:{widthPt,heightPt,segments}}).review[0].reasonCode,"outside_region");
+assert.equal(findAxisNodeCandidates({labels:[near],analysis:onlyLeft,grid,
+ vector:{widthPt,heightPt,segments,stats:{truncated:true,axisEvidenceComplete:false}}})
+ .suggested.length,0);
+assert.equal(findAxisNodeCandidates({labels:[near,{...near,mark:"В74",markId:102,
+ pageX:102,pageY:251}],analysis:onlyLeft,grid,
+ vector:{widthPt,heightPt,segments}}).review.length,2,
+ "different labels near the same axis intersection need separate human review");
+console.log("Read-only grid intersection proposals: vector cross, proximity, ambiguity and collisions PASS");
