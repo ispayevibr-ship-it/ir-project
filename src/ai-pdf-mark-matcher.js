@@ -23,7 +23,7 @@ function markOccurrences(page,allowedMarks){
   // Do not guess a title block from a fixed percentage of the page.
   const block=page?.titleBlockBounds;
   const px=Number(item?.x),py=Number(item?.y);
-  if(block&&Number.isFinite(px)&&Number.isFinite(py)&&
+  if(block&&item?.x!=null&&item?.y!=null&&Number.isFinite(px)&&Number.isFinite(py)&&
    [block.x0,block.y0,block.x1,block.y1].every(v=>v!=null&&Number.isFinite(Number(v)))&&
    px>=Number(block.x0)&&px<=Number(block.x1)&&py>=Number(block.y0)&&py<=Number(block.y1))continue;
   // Mask drawing-title ranges, but retain independent marks in the same fragment.
