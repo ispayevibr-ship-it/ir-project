@@ -40,4 +40,9 @@ const levelReview=elevationEvidence({spatialAssociations:[{mark:"K62",pdfPoint:{
 assert.equal(levelReview[0].levelReview.status,"explicit_pair_unverified");
 assert.equal(levelReview[0].z0Mm,null);
 assert.equal(levelReview[0].z1Mm,null);
+const {elevationEvidence}=require("../src/ai-pdf-elevation-evidence");
+const sharedLevels=elevationEvidence({spatialAssociations:[{mark:"K62",pdfPoint:{x:10,y:10}},{mark:"K63",pdfPoint:{x:20,y:10}}],observations:[{kind:"elevation",text:"низ +0.000",valueMm:0,fragmentIndex:1,point:{x:15,y:10}},{kind:"elevation",text:"верх +6.000",valueMm:6000,fragmentIndex:2,point:{x:15,y:12}}]});
+assert.equal(sharedLevels[0].levelReview.sharedElevationEvidence,true);
+assert.notEqual(sharedLevels[0].levelReview.status,"explicit_pair_unverified");
+assert.equal(sharedLevels[0].z0Mm,null);
 console.log("PDF axis grid, vector evidence and sheet summary validation passed");
