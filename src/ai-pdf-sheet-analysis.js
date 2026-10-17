@@ -67,11 +67,12 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
   levelReview:elevations[index]?.levelReview||null,
   elevationStatus:"review_required",z0Mm:null,z1Mm:null
  }));
- const anchorSummary={total:candidatesWithIntersections.length,proposed:0,ambiguous:0,missing:0,unverified:0};
+ const anchorSummary={total:candidatesWithIntersections.length,proposed:0,ambiguous:0,missing:0,unavailable:0,unverified:0};
  for(const item of candidatesWithElevations){
   if(item.proposedAnchorPt)anchorSummary.proposed++;
   if(item.proposedAnchorStatus==='ambiguous_intersections')anchorSummary.ambiguous++;
-  if(item.proposedAnchorStatus==='no_intersection')anchorSummary.missing++;
+  if(item.geometryEvidenceStatus==='geometry_unavailable'||item.geometryEvidenceStatus==='label_position_unavailable')anchorSummary.unavailable++;
+  else if(item.proposedAnchorStatus==='no_intersection')anchorSummary.missing++;
   if(item.verification==='required')anchorSummary.unverified++;
  }
  return{...base,geometryAligned:geometryValid,segmentCount:segments.length,candidates:candidatesWithElevations,anchorSummary,
@@ -79,7 +80,7 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
   verifiedInstances:0,safeForAutoPlacement:false};
 }
 function summarizeSheets(sheets){
- const totals={sheets:0,total:0,proposed:0,ambiguous:0,missing:0,unverified:0};
+ const totals={sheets:0,total:0,proposed:0,ambiguous:0,missing:0,unavailable:0,unverified:0};
  for(const sheet of Array.isArray(sheets)?sheets:[]){
   const summary=sheet?.anchorSummary;
   if(!summary)continue;
@@ -88,6 +89,7 @@ function summarizeSheets(sheets){
   totals.proposed+=summary.proposed||0;
   totals.ambiguous+=summary.ambiguous||0;
   totals.missing+=summary.missing||0;
+  totals.unavailable+=summary.unavailable||0;
   totals.unverified+=summary.unverified||0;
  }
  return totals;
