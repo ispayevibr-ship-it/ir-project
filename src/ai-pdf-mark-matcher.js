@@ -23,11 +23,13 @@ function markOccurrences(page,allowedMarks){
   const compactSpans=raw.trim().split(/\s+/u).map(normalize);
   if(!text)continue;
   // A fragment may contain several separate marks; keep word boundaries.
-  if(compactSpans.length>1){
+  if(compactSpans.length>1 && compactSpans.every(token=>allowed.has(token))){
    for(const token of compactSpans){
     if(allowed.has(token))found.push({mark:allowed.get(token),page:Number(page.page)||null,
-     fragmentIndex:i,offset:null,x:item?.x??null,y:item?.y??null,
-     width:item?.width??null,height:item?.height??null,
+     fragmentIndex:i,offset:null,x:item?.x!=null&&Number.isFinite(Number(item.x))?Number(item.x):null,
+     y:item?.y!=null&&Number.isFinite(Number(item.y))?Number(item.y):null,
+     width:item?.width!=null&&Number.isFinite(Number(item.width))?Number(item.width):null,
+     height:item?.height!=null&&Number.isFinite(Number(item.height))?Number(item.height):null,
      source:"pdf_text_fragment",confidence:"text_exact",safeForAutoPlacement:false});
    }
    continue;
