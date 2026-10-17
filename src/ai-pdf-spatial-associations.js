@@ -7,7 +7,7 @@ function associateLabels(candidates, {radiusPt=90,maxNeighbors=6}={}) {
  const chains=Array.isArray(candidates?.dimensionChains)?candidates.dimensionChains:[];
  const nearby=(point,items)=>items.map(item=>{
   const p=item.point||{x:item.xPt,y:item.yPt};
-  if(!p||!Number.isFinite(Number(p.x))||!Number.isFinite(Number(p.y)))return null;
+  if(!p||p.x==null||p.y==null||!Number.isFinite(Number(p.x))||!Number.isFinite(Number(p.y)))return null;
   const dx=Number(p.x)-Number(point.x),dy=Number(p.y)-Number(point.y);
   const distancePt=Math.hypot(dx,dy);
   return distancePt<=radiusPt?{...item,distancePt:Math.round(distancePt*100)/100}:null;
