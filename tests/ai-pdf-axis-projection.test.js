@@ -94,4 +94,6 @@ assert.equal(quantities.marks[1].status,"matched");
 assert.equal(quantities.marks[2].missing,2);
 assert.equal(quantities.marks[3].status,"quantity_unknown");
 assert.equal(quantities.safeForAutoPlacement,false);
+const duplicates=reconcileMarkCounts([repeated],[{mark:"К62",quantity:2},{mark:"К62",quantity:2}]);
+assert.equal(duplicates.marks[1].status,"duplicate_register_mark");
 console.log("PDF axis grid, vector evidence and sheet summary validation passed");
