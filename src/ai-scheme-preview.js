@@ -12,13 +12,17 @@ function prepareSchemePreview(placements,approvals=[],existingIds=[]){
   const approval=approvals.find(a=>a.placementId===item.placementId);
   const endpoint=approval?.endPoint;
   const validEndpoint=endpoint&&[endpoint.xMm,endpoint.yMm,endpoint.zMm].every(v=>v!=null&&Number.isFinite(Number(v)));
+  const end=validEndpoint?{x:Number(endpoint.xMm),y:Number(endpoint.yMm),z:Number(endpoint.zMm)}:{x:item.xMm,y:item.yMm,z:item.z1Mm};
+  const start={x:item.xMm,y:item.yMm,z:item.z0Mm};
+  if(Math.hypot(end.x-start.x,end.y-start.y,end.z-start.z)<1){
+   skipped.push({placementId:item.placementId,reason:"zero_length_element"});continue;
+  }
   if(!["колонна","фахверк"].includes(item.type)&&!validEndpoint){
    skipped.push({placementId:item.placementId,reason:"requires_two_verified_endpoints"});continue;
   }
   occupied.add(item.placementId);
   elements.push({id:item.placementId,mark:item.mark,type:item.type,
-   start:{x:item.xMm,y:item.yMm,z:item.z0Mm},
-   end:validEndpoint?{x:Number(endpoint.xMm),y:Number(endpoint.yMm),z:Number(endpoint.zMm)}:{x:item.xMm,y:item.yMm,z:item.z1Mm},
+   start,end,
    units:"mm",previewOnly:true});
  }
  return {elements,skipped,requiresExplicitSave:true,mutatesDatabase:false};
