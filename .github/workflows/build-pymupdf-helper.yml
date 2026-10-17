@@ -33,7 +33,7 @@ jobs:
         run: |
           python -c "import fitz; d=fitz.open(); p=d.new_page(); p.insert_text((70,70), 'K62 +9.705'); d.save('test-pymupdf.pdf')"
           & ./build/pymupdf/ir-pymupdf-extract.exe test-pymupdf.pdf | Out-File -FilePath result.json -Encoding utf8
-          python -c "import json; d=json.load(open('result.json',encoding='utf-8-sig')); assert d['parser']=='pymupdf'; assert len(d['pages'])==1; assert any('K62' in f['text'] for f in d['pages'][0]['fragments'])"
+          python -c "import json; d=json.load(open('result.json',encoding='utf-8-sig')); assert d['parser']=='pymupdf'; assert len(d['pages'])==1; assert any('K62' in f['text'] for f in d['pages'][0]['fragments']); assert any(x['millimeters']==9705 for x in d['pages'][0]['levelCandidates'])"
       - name: Test Electron-side PyMuPDF runner
         shell: pwsh
         run: |
