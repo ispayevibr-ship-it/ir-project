@@ -24,7 +24,24 @@ function createPdfIndex({database,documents,workerFactory=(file,options)=>new Wo
     excerpt:String(p.text||"").slice(0,1400)
    }))}
  }
- function list(id){return rows(id).map(summarize)}
+ function list(id){
+  const allowed=registerMarks(id);
+  return rows(id).map(row=>{
+   const result=summarize(row);
+   const hits=(row.data?.pages||[]).flatMap(page=>markOccurrences(page,allowed));
+   result.markStats={
+    registerMarks:allowed.length,
+    matchedMarks:new Set(hits.map(hit=>hit.mark)).size,
+    occurrences:hits.length,
+    perPage:(row.data?.pages||[]).map(page=>({
+     page:page.page,
+     occurrences:hits.filter(hit=>hit.page===page.page).length
+    })),
+    safeForAutoPlacement:false
+   };
+   return result;
+  });
+ }
  function registerMarks(id){
   const entries=database.listEntity(object(id),"marks")||[];
   return [...new Set(entries.map(r=>String(r?.data?.mark??r?.title??"").trim()).filter(Boolean))];
