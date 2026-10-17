@@ -1,7 +1,7 @@
 {
   "channel": "beta",
   "baseVersion": "1.7.226",
-  "version": "1.7.226.403",
+  "version": "1.7.226.407",
   "branch": "feature/ir-project-ai-next",
   "description": "IR Project Algorithmic KM/KMD fixes: no full EXE",
   "files": [
@@ -194,8 +194,8 @@
     {
       "source": "src/ai-pdf-axis-projection.js",
       "target": "src/ai-pdf-axis-projection.js",
-      "size": 3237,
-      "sha256": "ca0559e84e8177b18f9f5d1bff7af3a22e8df3f25c6e205524b80447513465d3"
+      "size": 3243,
+      "sha256": "18f322c3f3bc5bdad6534d80386b68a94dac41d771a245625dbc209c1cf38fa0"
     },
     {
       "source": "src/ai-pdf-candidates.js",
@@ -254,8 +254,8 @@
     {
       "source": "src/ai-pdf-mark-matcher.js",
       "target": "src/ai-pdf-mark-matcher.js",
-      "size": 3660,
-      "sha256": "87ea17904f319bdd32e33fa37c988cb94bcce42c59c25e6367166d07b7daaf1a"
+      "size": 3718,
+      "sha256": "4e30ef628bbfa35b3e3b0af718b96f4a5e796017ef75a3e3c07fa7f512b9ca86"
     },
     {
       "source": "src/ai-pdf-mark-projection.js",
@@ -374,8 +374,8 @@
     {
       "source": "src/ai-placement-pipeline.js",
       "target": "src/ai-placement-pipeline.js",
-      "size": 6511,
-      "sha256": "7e038b127271306346de1e3079df688c912b8c10454bd74ffdb83efc1fc68929"
+      "size": 6995,
+      "sha256": "119f3261708b6572de791ead66bffb31b284bc75966f9ec623216b00ddb628ef"
     },
     {
       "source": "src/ai-pymupdf-runner.js",
