@@ -4,6 +4,7 @@
 const { markOccurrences } = require('./ai-pdf-mark-matcher');
 const { dimensionChains } = require('./ai-pdf-dimension-chains');
 const { associateLabels } = require('./ai-pdf-spatial-associations');
+const { projectAxisCandidates } = require('./ai-pdf-axis-projection');
 const num = s => Number(String(s).replace(',', '.'));
 const normal = s => String(s ?? '').normalize('NFKC').trim().replace(/\s+/g, ' ');
 const axisToken = /^[A-ZА-ЯЁ]{1,3}(?:\d{1,2})?$|^\d{1,3}(?:\/\d{1,2})?$/u;
@@ -37,6 +38,8 @@ function extractPageCandidates(page, allowedMarks, grid = {}) {
     extraction: 'pdf_text_layer',
     warning: 'Candidates require geometric association with drawing and validation'
   };
-  return { ...candidates, spatialAssociations: associateLabels(candidates) };
+  const spatialAssociations = associateLabels(candidates);
+  return { ...candidates, spatialAssociations,
+    axisProjection: projectAxisCandidates({ ...candidates, spatialAssociations }, grid) };
 }
 module.exports = { extractPageCandidates };
