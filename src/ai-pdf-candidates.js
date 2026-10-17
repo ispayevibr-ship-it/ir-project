@@ -19,6 +19,13 @@ function extractPageCandidates(page, allowedMarks, grid = {}) {
   fragments.forEach((fragment, index) => {
     const text = normal(fragment?.text ?? fragment?.str);
     if (!text) return;
+    const block = page?.titleBlockBounds;
+    const fx = Number(fragment?.x), fy = Number(fragment?.y);
+    if (block && fragment?.x != null && fragment?.y != null &&
+        [block.x0,block.y0,block.x1,block.y1].every(v => v != null && Number.isFinite(Number(v))) &&
+        Number.isFinite(fx) && Number.isFinite(fy) &&
+        fx >= Number(block.x0) && fx <= Number(block.x1) &&
+        fy >= Number(block.y0) && fy <= Number(block.y1)) return;
     const x = Number(fragment?.x), y = Number(fragment?.y);
     const point = Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
     const base = { page: page?.page ?? null, fragmentIndex: index, text, point };
