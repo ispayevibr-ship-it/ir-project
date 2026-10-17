@@ -19,4 +19,8 @@ assert.deepEqual(result.elements[1].end,{x:45000,y:0,z:6000});
 assert.ok(result.skipped.some(s=>s.placementId==="brace"&&s.reason==="requires_two_verified_endpoints"));
 assert.equal(prepareSchemePreview(placements,approvals,["col"]).elements.length,1);
 assert.equal(result.mutatesDatabase,false);
+const levelBeam=prepareSchemePreview({candidates:[{placementId:"level",mark:"Б2",type:"балка"}]},[{placementId:"level",approved:true,xMm:0,yMm:0,z0Mm:6000,z1Mm:6000,endPoint:{xMm:45000,yMm:0,zMm:6000}}]);
+assert.equal(levelBeam.elements.length,1);
+assert.equal(levelBeam.elements[0].end.z,6000);
+assert.equal(prepareSchemePreview({candidates:[{placementId:"bad",mark:"Б3",type:"балка"}]},[{placementId:"bad",approved:true,xMm:0,yMm:0,z0Mm:6000,z1Mm:6000,endPoint:{xMm:"",yMm:0,zMm:6000}}]).elements.length,0);
 console.log("Scheme preview adapter tests passed");
