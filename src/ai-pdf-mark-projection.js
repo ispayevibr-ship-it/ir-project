@@ -23,7 +23,7 @@ function projectMarks(page,allowedMarks,anchors){
    const rotation=Number(page?.rotation||0);
    const supported=rotation===0&&Number.isFinite(Number(page?.heightPt))&&
     Number(page.heightPt)>0;
-   const pdfX=supported?hit.x:null;
+   const pdfX=supported&&hit.x!==null?hit.x:null;
    const pdfY=supported&&hit.y!==null?Number(page.heightPt)-hit.y:null;
    const xy=mapping.transform(pdfX,pdfY);
    return {...hit,xMm:xy?.xMm??null,yMm:xy?.yMm??null,
