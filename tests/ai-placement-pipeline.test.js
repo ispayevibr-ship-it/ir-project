@@ -49,4 +49,11 @@ assert.equal(repeated.candidates[0].sheetRole,"unknown");
 const indexedDetail=candidatePlacements([{page:3,sheetRole:"detail_or_schedule",fragments:[{text:"К62",x:20,y:20}]}],[{mark:"К62",name:"Колонна"}]);
 assert.equal(indexedDetail.detailReferenceOccurrences,1);
 assert.equal(indexedDetail.placementPlanOccurrences,0);
+const acrossSheets=candidatePlacements([
+ {documentId:"doc1",page:1,sheetRole:"placement_plan",fragments:[{text:"К62",x:20,y:20}]},
+ {documentId:"doc1",page:2,sheetRole:"detail_or_schedule",fragments:[{text:"К62",x:20,y:20}]}
+],[{mark:"К62",name:"Колонна"}]);
+assert.equal(acrossSheets.placementInstances.length,1);
+assert.equal(acrossSheets.crossSheetReferenceCount,1);
+assert.equal(acrossSheets.occurrences,2);
 console.log("Reviewed Three.js payload and repeated PDF marks tests passed");
