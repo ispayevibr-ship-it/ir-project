@@ -108,4 +108,7 @@ assert.equal(commaQuantity.marks[0].status,"matched");
 const extra=reconcileMarkCounts([repeated],[{mark:"К62",quantity:1},{mark:"К63",quantity:1}]);
 assert.equal(extra.marks[0].status,"excess");
 assert.equal(extra.marks[0].excess,1);
+const unlisted=reconcileMarkCounts([repeated],[{mark:"К62",quantity:2}]);
+assert.equal(unlisted.unregistered[0].mark,"К63");
+assert.equal(unlisted.summary.unregisteredInstances,1);
 console.log("PDF axis grid, vector evidence and sheet summary validation passed");
