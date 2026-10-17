@@ -357,8 +357,8 @@ window.irAiRecognitionPage=async function(objectId){
       const raw=window.prompt("X, Y, низ Z, верх Z (мм; через запятую)",values.join(", "));
       if(raw===null)return;
       const parts=raw.split(",").map(v=>v.trim());
-      if(parts.length!==4||parts.some(v=>v===""||!Number.isFinite(Number(v)))||Number(parts[3])<=Number(parts[2])){
-       window.alert("Введите четыре числа в мм. Верх Z должен быть выше низа.");return
+      if(parts.length!==4||parts.some(v=>v===""||!Number.isFinite(Number(v)))||(["колонна","фахверк"].includes(item.type)&&Number(parts[3])<=Number(parts[2]))){
+       window.alert("Введите четыре числа в мм. Для колонн верх Z должен быть выше низа.");return
       }
       approvedCoordinates.set(item.placementId,{placementId:item.placementId,approved:true,xMm:Number(parts[0]),yMm:Number(parts[1]),z0Mm:Number(parts[2]),z1Mm:Number(parts[3])});
       if(!["колонна","фахверк"].includes(item.type)){
