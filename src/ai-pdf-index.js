@@ -4,6 +4,13 @@ const path=require("node:path"),{Worker}=require("node:worker_threads");
 const {markOccurrences}=require("./ai-pdf-mark-matcher");
 const {projectMarks}=require("./ai-pdf-mark-projection");
 const MAX_PDF_BYTES=48*1024*1024,DEADLINE=120000;
+function completePages(pages,total){
+ const count=Number(total);
+ return Number.isSafeInteger(count)&&count>=1&&count<=80&&
+  Array.isArray(pages)&&pages.length===count&&
+  pages.every(p=>p&&Number.isSafeInteger(p.page)&&p.page>=1&&p.page<=count)&&
+  new Set(pages.map(p=>p.page)).size===count;
+}
 function createPdfIndex({database,documents,workerFactory=(file,options)=>new Worker(file,options),onProgress=()=>{}}){
  if(!database||!documents)throw Error("PDF index needs document store and database");
  const jobs=new Map();
@@ -122,7 +129,7 @@ function createPdfIndex({database,documents,workerFactory=(file,options)=>new Wo
     }
     if(event?.type==="error")finish(new Error(event.message||"PDF worker error"));
     else if(event?.type==="result"){
-     if(!Array.isArray(event.pages)||event.pages.length!==event.total||event.total<1||event.total>80)
+     if(!completePages(event.pages,event.total))
       return finish(new Error("Некорректные результаты разбора PDF"));
      finish(null,event)
     }
@@ -139,8 +146,9 @@ function createPdfIndex({database,documents,workerFactory=(file,options)=>new Wo
   const task=(async()=>{
    const input=await documents.readForPdfIndex(id,docId);
    if(input.buffer.length>MAX_PDF_BYTES)throw Error("PDF превышает лимит 48 МиБ");
-   const existing=rows(id).find(r=>r.data?.source?.documentId===docId&&
-    r.data.source.sha256===input.source.sha256);
+   const existing=rows(id).find(r=>String(r.data?.source?.documentId)===String(docId)&&
+    r.data.source.sha256===input.source.sha256&&
+    completePages(r.data.pages,r.data.total));
    if(existing)return{cached:true,...summarize(existing)};
    const progress=point=>onProgress({objectId:id,documentId:docId,...point});
    const result=await processPdf(input.buffer,progress);
@@ -161,4 +169,4 @@ function createPdfIndex({database,documents,workerFactory=(file,options)=>new Wo
  }
  return{list,index,page,markSummary,busy:()=>jobs.size>0};
 }
-module.exports={createPdfIndex};
+module.exports={createPdfIndex,completePages};
