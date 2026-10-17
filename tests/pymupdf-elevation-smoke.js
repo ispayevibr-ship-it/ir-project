@@ -1,0 +1,20 @@
+"use strict";
+const assert=require("node:assert/strict");
+const fs=require("node:fs");
+const {extractWithPyMuPDF}=require("../src/ai-pymupdf-runner");
+const {inspectSingleMarkSheetLevels}=require("../src/ai-pdf-mark-elevations");
+(async()=>{
+ const filename=process.argv[2];
+ if(!filename)throw Error("Usage: node tests/pymupdf-elevation-smoke.js <pdf>");
+ const result=await extractWithPyMuPDF(fs.readFileSync(filename));
+ assert.equal(result.parser,"pymupdf");
+ assert.equal(result.pages.length,1);
+ const p=result.pages[0];
+ assert.ok(p.fragments.some(f=>f.text.includes("K62")),"Mark text not extracted");
+ const parsed=inspectSingleMarkSheetLevels(p,{assumedBaseMm:0});
+ assert.equal(parsed.z0Mm,0);
+ assert.equal(parsed.z1Mm,9705);
+ assert.equal(parsed.heightMm,9705);
+ assert.equal(parsed.safeForAutoPlacement,false);
+ console.log("PyMuPDF K62 elevation smoke test passed",parsed.heightMm);
+})().catch(error=>{console.error(error);process.exitCode=1});
