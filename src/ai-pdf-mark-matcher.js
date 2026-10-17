@@ -23,8 +23,8 @@ function markOccurrences(page,allowedMarks){
   const compactSpans=raw.trim().split(/\s+/u).map(normalize);
   const spacedSingle=compactSpans.length===2 && allowed.has(compactSpans.join(""));
   if(!text)continue;
-  // A fragment may contain several separate marks; keep word boundaries.
-  if(compactSpans.length>1 && !spacedSingle && compactSpans.every(token=>allowed.has(token))){
+  // Match separate tokens independently, even when adjacent tokens are unknown.
+  if(compactSpans.length>1 && !spacedSingle && true){
    for(const token of compactSpans){
     if(allowed.has(token))found.push({mark:allowed.get(token),page:Number(page.page)||null,
      fragmentIndex:i,offset:null,x:item?.x!=null&&Number.isFinite(Number(item.x))?Number(item.x):null,
