@@ -74,7 +74,8 @@ const wait=async check=>{
  assert.deepEqual(runs,[1,2,3],"text cache reused through API, failure isolated");
  assert.deepEqual(geometryRuns,[[1,1],[1,2],[2,1],[2,2]]);
  assert.equal(peak,1);
- assert.match(content.innerHTML,/✓ Текст и геометрия/);
+ assert.doesNotMatch(content.innerHTML,/✓ Текст и геометрия/,
+  "completion requires persisted geometry page records");
  assert.match(content.innerHTML,/Ошибка/);
  assert.equal(page.aiEngine,undefined);
  docs[0].geometryPages=[1,2];docs[1].geometryPages=[1];
