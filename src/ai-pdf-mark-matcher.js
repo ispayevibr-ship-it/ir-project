@@ -20,8 +20,8 @@ function markOccurrences(page,allowedMarks){
   const item=fragments[i],raw=typeof item==="string"?item:
    String(item?.str??item?.text??"");
   const text=normalize(raw);
-  const compactSpans=raw.trim().split(/\s+/u).map(normalize);
-  const spacedSingle=compactSpans.length===2 && allowed.has(compactSpans.join(""));
+  const compactSpans=raw.trim().split(/[\s,;:()\[\]{}]+/u).map(normalize).filter(Boolean);
+  const spacedSingle=raw.trim().split(/\s+/u).length===2 && compactSpans.length===2 && allowed.has(compactSpans.join(""));
   if(!text)continue;
   // Match separate tokens independently, even when adjacent tokens are unknown.
   if(compactSpans.length>1 && !spacedSingle){
