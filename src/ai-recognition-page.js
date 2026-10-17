@@ -18,6 +18,16 @@ window.irAiRecognitionPage=async function(objectId){
  const isCurrent=()=>!disposed&&location.hash===route;
  const matchingIndex=doc=>indexes.find(r=>String(r.documentId)===String(doc.id)&&
   r.sourceSha256===doc.sha256&&Array.isArray(r.pages)&&r.pages.length>0);
+ const completeIndex=index=>index&&Number.isSafeInteger(Number(index.totalPages))&&
+  Number(index.totalPages)>0&&index.pages.length===Number(index.totalPages)&&
+  new Set(index.pages.map(p=>Number(p.page))).size===Number(index.totalPages)&&
+  index.pages.every(p=>Number.isSafeInteger(Number(p.page))&&
+   Number(p.page)>=1&&Number(p.page)<=Number(index.totalPages));
+ const completeGeometry=doc=>{
+  const index=matchingIndex(doc);
+  const saved=new Set((doc.geometryPages||[]).map(Number));
+  return completeIndex(index)&&index.pages.every(p=>saved.has(Number(p.page)))
+ };
  const statusOf=doc=>{
   if(!doc.exists)return{value:"Файл отсутствует",css:"missing"};
   const state=bulk?.rows.get(String(doc.id));
@@ -25,9 +35,7 @@ window.irAiRecognitionPage=async function(objectId){
    (state.page||"…")+(state.total?" из "+state.total+" · "+Math.floor((state.page||0)/state.total*100)+"%":""),css:"indexing"};
   if(state?.state==="error")return{value:"✕ Ошибка: "+state.message,css:"index-error"};
   const ready=matchingIndex(doc);
-  const geometryPages=new Set(doc.geometryPages||[]);
-  const geometryComplete=ready&&ready.pages.length===Number(ready.totalPages)&&
-   ready.pages.every(p=>geometryPages.has(Number(p.page)));
+  const geometryComplete=completeGeometry(doc);
   if(geometryComplete)return{value:"✓ Текст и геометрия · "+
    (ready?.totalPages||ready.pages.length)+" лист(ов)",css:"indexed"};
   if(ready)return{value:"✓ Индексирован текст · "+
@@ -200,8 +208,7 @@ window.irAiRecognitionPage=async function(objectId){
  async function indexAll(){
   if(busy||!pdf?.index)return;
   const selected=docs.filter(d=>d.ext===".pdf"&&d.exists&&
-   (!matchingIndex(d)||matchingIndex(d).pages.some(p=>
-    !(d.geometryPages||[]).includes(Number(p.page)))));
+   !completeGeometry(d));
   if(!selected.length){notice="Все доступные PDF уже имеют сохранённый текст и геометрию.";error=false;paint();return}
   busy=true;error=false;notice="Обрабатываем только PDF с недостающим индексом или геометрией.";
   bulk={running:true,current:"",rows:new Map(selected.map(d=>[String(d.id),
