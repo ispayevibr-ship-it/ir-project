@@ -125,7 +125,7 @@ function reconcileMarkCounts(sheets,registerMarks){
   if(seen.has(key)){result.push({mark,expected:null,detected:result.find(row=>row.mark.normalize("NFKC").toUpperCase().replace(/\s+/g,"")===key)?.detected||0,missing:null,excess:null,status:"duplicate_register_mark"});continue;}
   seen.add(key);
   const count=entry&&typeof entry==="object"?entry.quantity??entry.qty??entry.count??entry.kolichestvo:null;
-  const expected=count==null||count===""?null:Number(count);
+  const expected=count==null||count===""?null:Number(String(count).trim().replace(",", "."));
   const detected=found.get(key)||0;
   const valid=expected!=null&&Number.isSafeInteger(expected)&&expected>=0;
   result.push({mark,expected:valid?expected:null,detected,
