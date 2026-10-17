@@ -62,7 +62,14 @@ const readZip=filename=>new Promise((resolve,reject)=>{
     const sheetMarkMentions=sheetMark?
      markOccurrences({page:i,fragments},[sheetMark]).length:null;
     const elevationEvidence=doc.name===COLUMN_FILE?[...new Set(text.match(/(?<!\\d)[+\\-]\\d[.,]\\d{3}(?!\\d)/gu)||[])].sort():[];
+    // A label in the title block is documentary evidence, not a placed instance.
+    const labelEvidence=hits.map(h=>({mark:h.mark,x:h.x,y:h.y,
+     source:h.source,physicalInstanceConfirmed:false,
+     safeForAutoPlacement:false}));
+    const repeatedLabels=[...new Set(labelEvidence.map(x=>x.mark))]
+     .filter(mark=>labelEvidence.filter(x=>x.mark===mark).length>1);
     rows.push({page:i,sheetMark,sheetMarkMentions,sheetTitleMatched:title?title.test(text):null,
+     labelEvidence,repeatedLabels,physicalInstancesConfirmed:0,
      elevationEvidence,placementConfirmed:false,fragments:fragments.length,textChars:text.length,
      matchedMentions:hits.length,matchedUnique:[...new Set(hits.map(x=>x.mark))].length,
      hasText:text.trim().length>0});
@@ -78,6 +85,8 @@ const readZip=filename=>new Promise((resolve,reject)=>{
   textPages:pages.filter(x=>x.hasText).length,
   textCoveragePct:pages.length?Number((100*pages.filter(x=>x.hasText).length/pages.length).toFixed(2)):0,
   matchedMentions:pages.reduce((n,x)=>n+x.matchedMentions,0),
+  repeatedLabelPages:pages.filter(x=>x.repeatedLabels.length>0).length,
+  physicalInstancesConfirmed:0,
   registerProvided:!!allowed.length,registerMarks:allowed.length,
   placementVerified:0,placementAccuracyPct:null,
   geometryAccuracyPct:null,recognition99Verified:false};
