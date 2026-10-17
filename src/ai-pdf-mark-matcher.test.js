@@ -34,3 +34,9 @@ test("distinguishes prefix marks and repeated occurrences",()=>{
  assert.deepEqual(hits.map(h=>h.mark),["К62","К620","К62"]);
  assert.equal(hits.filter(h=>h.mark==="К62").length,2);
 });
+
+test("recognizes spaced mark within one PDF fragment",()=>{
+ const hits=markOccurrences({page:5,fragments:[{text:"Ф 8–1"}]},["Ф8-1"]);
+ assert.equal(hits.length,1);
+ assert.equal(hits[0].mark,"Ф8-1");
+});
