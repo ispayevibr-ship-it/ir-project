@@ -44,6 +44,7 @@ def extract(filename):
                 "page": number,
                 "widthPt": round(page.rect.width, 2),
                 "heightPt": round(page.rect.height, 2),
+                "rotation": page.rotation,
                 "fragments": fragments,
                 "hasTextLayer": bool(fragments),
                 "truncated": len(fragments) >= 1000,
