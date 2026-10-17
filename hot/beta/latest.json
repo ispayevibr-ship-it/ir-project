@@ -1,7 +1,7 @@
 {
   "channel": "beta",
   "baseVersion": "1.7.226",
-  "version": "1.7.226.390",
+  "version": "1.7.226.395",
   "branch": "feature/ir-project-ai-next",
   "description": "IR Project Algorithmic KM/KMD fixes: no full EXE",
   "files": [
@@ -200,8 +200,8 @@
     {
       "source": "src/ai-pdf-candidates.js",
       "target": "src/ai-pdf-candidates.js",
-      "size": 3028,
-      "sha256": "6e047d8b0c5f653844eae3feb179921b237b62fd27a01c33bd5c879145ff6bbd"
+      "size": 3476,
+      "sha256": "bb95d4c0015501b92df523fb8d92c7834263f5d5362bad78536cd8028890df57"
     },
     {
       "source": "src/ai-pdf-contours.js",
@@ -254,8 +254,8 @@
     {
       "source": "src/ai-pdf-mark-matcher.js",
       "target": "src/ai-pdf-mark-matcher.js",
-      "size": 3071,
-      "sha256": "9dfde56ace808e45ab54750ecc14449f1803180b0dcced6ca9fc2a9ff2268a2f"
+      "size": 3660,
+      "sha256": "87ea17904f319bdd32e33fa37c988cb94bcce42c59c25e6367166d07b7daaf1a"
     },
     {
       "source": "src/ai-pdf-mark-projection.js",
@@ -346,6 +346,12 @@
       "target": "src/ai-pdf-stroke-classifier.js",
       "size": 2012,
       "sha256": "c18f6a415a32aa30a5ef7e5b42be4ab8bd49b805f8dbc8db459187070b3330b6"
+    },
+    {
+      "source": "src/ai-pdf-title-block.js",
+      "target": "src/ai-pdf-title-block.js",
+      "size": 1286,
+      "sha256": "944adccfe15d0f9657d8e0fe5e5ae62250d2dc036c4a969d211b9948f793f4b1"
     },
     {
       "source": "src/ai-pdf-vector-paths.js",
