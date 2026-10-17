@@ -77,6 +77,7 @@ function automaticEntries(rows){
   if(!old||Number(row.id)>Number(old.id))geometryByPage.set(key,row);
  }
  const graphicReview=[],projectGrid=axisGeometry(rows.scheme);
+ const graphicSeen=new Set();
  const candidates=[],seenMarks=new Set(),reasons=new Map();let pages=0;
  for(const index of latest.values())for(const p of index.data?.pages||[]){
   pages++;
@@ -90,12 +91,17 @@ function automaticEntries(rows){
     Math.abs(vector.widthPt-p.widthPt)<1&&Math.abs(vector.heightPt-p.heightPt)<1){
    const graphical=reviewIndexedPlanPage({raw:p,vector,grid:projectGrid,marks,
     documentId:src.documentId,sha256:src.sha256,page:p.page,sheetType,nodesOnly:true});
-   for(const region of graphical.regions)for(const item of region.nodeLinks?.suggested||[])
+   for(const region of graphical.regions)for(const item of region.nodeLinks?.suggested||[]){
+    const identity=JSON.stringify([src.documentId,src.sha256,p.page,item.markId,
+      item.label?.fragmentIds,region.name]);
+    if(graphicSeen.has(identity))continue;
+    graphicSeen.add(identity);
     graphicReview.push({mark:item.mark,markId:item.markId,axisX:item.axisX,axisY:item.axisY,
      nodeXmm:item.nodeXmm,nodeYmm:item.nodeYmm,region:region.name,
      source:{documentId:src.documentId,sha256:src.sha256,page:p.page},
      fragmentIds:item.label.fragmentIds,rectPt:item.label.rectPt,
      leaderSegments:item.evidence.segments,status:"requires_review",safeForAutoPlacement:false});
+   }
   }
   for(const line of localLines(p)){
    // Most fragments are dimensions or labels. Avoid rebuilding the register
