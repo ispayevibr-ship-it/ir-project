@@ -36,7 +36,10 @@ function extractPageCandidates(page, allowedMarks, grid = {}) {
       observations.push({ ...base, kind: 'axis', dimension: xAxes.has(text) && yAxes.has(text) ? 'ambiguous' : xAxes.has(text) ? 'x' : 'y', value: text });
     // Signed elevations: +12.000, -0.150, ±0.000, or explicit "отм. 12,000".
     const elev = text.match(/(?:^|\bотм\.?\s*)([+\-±]\s*\d{1,3}[.,]\d{3})(?:\s|$)/iu);
-    if (elev) observations.push({ ...base, kind: 'elevation', valueMm: Math.round(num(elev[1].replace(/\s/g,'').replace('±','+')) * 1000) });
+    const labeled = text.match(/^(?:низ|верх|z0|z1)\s*[:=]?\s*([+\-±]\s*\d{1,3}[.,]\d{3})$/iu);
+    const level = labeled || elev;
+    if (level) observations.push({ ...base, kind: 'elevation',
+      valueMm: Math.round(num(level[1].replace(/\s/g,'').replace('±','+')) * 1000) });
     // Explicitly dimensioned lengths only; do not treat bare numeric axes as lengths.
     const dim = text.match(/^(?:L\s*=\s*|длина\s*[:=]\s*)(\d{1,7})(?:\s*мм)?$/iu);
     if (dim) observations.push({ ...base, kind: 'dimension', valueMm: Number(dim[1]) });
