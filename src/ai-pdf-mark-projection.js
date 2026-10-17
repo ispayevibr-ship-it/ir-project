@@ -18,10 +18,18 @@ function projectMarks(page,allowedMarks,anchors){
  return {calibrated:true,scaleMmPerPdfUnit:mapping.scaleMmPerPdfUnit,
   rotationRadians:mapping.rotationRadians,anchorsVerified:mapping.anchorsVerified,
   candidates:hits.map(hit=>{
-   const xy=mapping.transform(hit.x,hit.y);
+   // Existing text indexes store PDF.js transform coordinates (origin bottom-left).
+   // Geometry extractor uses viewport coordinates (origin top-left). Never mix them.
+   const rotation=Number(page?.rotation||0);
+   const supported=rotation===0&&Number.isFinite(Number(page?.heightPt))&&
+    Number(page.heightPt)>0;
+   const pdfX=supported?hit.x:null;
+   const pdfY=supported&&hit.y!==null?Number(page.heightPt)-hit.y:null;
+   const xy=mapping.transform(pdfX,pdfY);
    return {...hit,xMm:xy?.xMm??null,yMm:xy?.yMm??null,
     z0Mm:null,z1Mm:null,
-    coordinateStatus:xy?"label_coordinate_only":"missing_pdf_position",
+    coordinateStatus:xy?"label_coordinate_only":
+     !supported?"unsupported_page_coordinates":"missing_pdf_position",
     safeForAutoPlacement:false};
   })};
 }
