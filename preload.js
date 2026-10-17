@@ -24,6 +24,7 @@ const aiDocuments={
 };
 const aiPdf={
  list:objectId=>ipcRenderer.invoke("ai-pdf:list",objectId),
+ markSummary:objectId=>ipcRenderer.invoke("ai-pdf:mark-summary",objectId),
  index:(objectId,id)=>ipcRenderer.invoke("ai-pdf:index",{objectId,id}),
  page:(objectId,indexId,page,allowedMarks)=>ipcRenderer.invoke("ai-pdf:page",{objectId,indexId,page,allowedMarks}),
  preview:(objectId,id,page)=>ipcRenderer.invoke("ai-pdf:preview",{objectId,id,page}),
