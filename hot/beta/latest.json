@@ -1,22 +1,10 @@
 {
   "channel": "beta",
   "baseVersion": "1.7.226",
-  "version": "1.7.226.168",
+  "version": "1.7.226.179",
   "branch": "feature/ir-project-ai-next",
-  "description": "IR Project AI Beta hot fixes: no full EXE",
+  "description": "IR Project Algorithmic KM/KMD fixes: no full EXE",
   "files": [
-    {
-      "source": "src/ai-acceptance-preflight.js",
-      "target": "src/ai-acceptance-preflight.js",
-      "size": 3177,
-      "sha256": "d7677fbad2d9a3fe2d6e78c90e3d5e42a911e70444d24d81725c0d4071fd0b70"
-    },
-    {
-      "source": "src/ai-analysis.js",
-      "target": "src/ai-analysis.js",
-      "size": 11382,
-      "sha256": "296f87d0f59cf50369cfcead4b6ea528528f73f6acc47be4ac1f2187e9b900a9"
-    },
     {
       "source": "src/ai-assembly-attachments-page.css",
       "target": "src/ai-assembly-attachments-page.css",
@@ -174,46 +162,10 @@
       "sha256": "91ad641cafecdac7cb6e15c2a4ae6d31c52979a0e88fec1dd500164eb2ebba1e"
     },
     {
-      "source": "src/ai-local-engine.js",
-      "target": "src/ai-local-engine.js",
-      "size": 23887,
-      "sha256": "08cdaa9c7f1624597be785ecf77ba207d757a5bf212404ed20e36b1b193bd910"
-    },
-    {
       "source": "src/ai-mark-quantities.js",
       "target": "src/ai-mark-quantities.js",
       "size": 9332,
       "sha256": "bdee73006736b9207d4cfc9a70a007352b3123d50d691ffeb56a077d59f395f0"
-    },
-    {
-      "source": "src/ai-model-catalog.js",
-      "target": "src/ai-model-catalog.js",
-      "size": 5758,
-      "sha256": "cb845fe9d3516a4413de64572a3f9f2960528c8892ea4ee1a6b7b7403688843a"
-    },
-    {
-      "source": "src/ai-model-download.js",
-      "target": "src/ai-model-download.js",
-      "size": 4084,
-      "sha256": "025c6492a53fec7b1a77ddc087b8c52d1a9667e1919f987187b384ef48ec0df3"
-    },
-    {
-      "source": "src/ai-model-manager.js",
-      "target": "src/ai-model-manager.js",
-      "size": 24902,
-      "sha256": "3d63adfcf4e8ddbf4d1472fb6502036a8b6bbb743dd6aba1b329865944de2fc9"
-    },
-    {
-      "source": "src/ai-model-settings.css",
-      "target": "src/ai-model-settings.css",
-      "size": 7811,
-      "sha256": "e7868df2eefdf429cfc7cda87816d323bd9f597bc7388159bf94eaa3a7f3bcc3"
-    },
-    {
-      "source": "src/ai-model-settings.js",
-      "target": "src/ai-model-settings.js",
-      "size": 21906,
-      "sha256": "a412d33c187456e792caa76a8b620f9f4f8dff1586b92952bfed6e1eb2c0e861"
     },
     {
       "source": "src/ai-mounting-drafts.js",
@@ -226,12 +178,6 @@
       "target": "src/ai-mounting-placement.js",
       "size": 20088,
       "sha256": "b6b5812e101e9d4c1be5c14f8235619faf019be2ce401183ed8f4ca5978b696b"
-    },
-    {
-      "source": "src/ai-paddle-ocr.js",
-      "target": "src/ai-paddle-ocr.js",
-      "size": 5968,
-      "sha256": "4e6c83acb005d5ecb76b65f041cb32b3461108ecad7e6879c8e9cf6edf200743"
     },
     {
       "source": "src/ai-pdf-geometry.js",
@@ -276,24 +222,6 @@
       "sha256": "90aa827d574fe37b296a4f7747a0f327b88f19ec6bc314115b9bf2adc434b5bd"
     },
     {
-      "source": "src/ai-proposals-page.css",
-      "target": "src/ai-proposals-page.css",
-      "size": 2073,
-      "sha256": "55d30bfa9144571d77b734d5f353198bcc15177ea20c33a32ca11b136ee4348a"
-    },
-    {
-      "source": "src/ai-proposals-page.js",
-      "target": "src/ai-proposals-page.js",
-      "size": 11653,
-      "sha256": "52decbd75d7b815e8be718963c033968612272346eba5d7d5924308dd5498f90"
-    },
-    {
-      "source": "src/ai-publisher-trust.js",
-      "target": "src/ai-publisher-trust.js",
-      "size": 1267,
-      "sha256": "154ba3126caa44ef2367bd06ae17597554844280277571f9f4146f37999962a7"
-    },
-    {
       "source": "src/ai-recognition-page.css",
       "target": "src/ai-recognition-page.css",
       "size": 37470,
@@ -302,8 +230,8 @@
     {
       "source": "src/ai-recognition-page.js",
       "target": "src/ai-recognition-page.js",
-      "size": 122106,
-      "sha256": "361d41e1e2f7eddbd5306dd81c4f3e16cbddd4665b1e73c601218dc921f68c28"
+      "size": 18640,
+      "sha256": "f684a1d65b7269d0c323ae8fa40c8cdf613883d8ae0f1c35b583a4929129f074"
     },
     {
       "source": "src/ai-review.js",
@@ -324,46 +252,16 @@
       "sha256": "24d2d41ab30f82d60ee5df8869e33ac2ddc7537adeed05548e95ea954eefe3fc"
     },
     {
-      "source": "src/ai-runtime-diagnostics.js",
-      "target": "src/ai-runtime-diagnostics.js",
-      "size": 6531,
-      "sha256": "bf58b5b2a067936720c71f90d6ad52a9628deaace435c01eefb1e92977cdc39d"
-    },
-    {
       "source": "src/ai-scheme-lite-page.js",
       "target": "src/ai-scheme-lite-page.js",
-      "size": 170313,
-      "sha256": "f1d9e5719a0828a669b3afe665f6d9551d3fd2391deee09ec336268a064c7adc"
+      "size": 168363,
+      "sha256": "ea2d1e9937f453c6fd015412b086b9a9906954353665d60881d828b3d87d93ed"
     },
     {
       "source": "src/ai-structured-extraction.js",
       "target": "src/ai-structured-extraction.js",
       "size": 7946,
       "sha256": "0458ed2675a7107f0df9619939cc4058fcb742ec9be4fb62ba5d8d9539b31022"
-    },
-    {
-      "source": "src/ai-structured-review.js",
-      "target": "src/ai-structured-review.js",
-      "size": 11053,
-      "sha256": "4ec8293330b8b9992bdb7bc364a5de1b9378a393dfaa3fbe571740849cebfdd9"
-    },
-    {
-      "source": "src/ai-workflow-page.css",
-      "target": "src/ai-workflow-page.css",
-      "size": 4548,
-      "sha256": "eaaf40b789df54b8c918754a312b65fba0e0fb49284123eb5c8276fda8b820f6"
-    },
-    {
-      "source": "src/ai-workflow-page.js",
-      "target": "src/ai-workflow-page.js",
-      "size": 12798,
-      "sha256": "946571a77f9219822385303fa225d4ad966916f8e95436dfd54c608718e7a1e1"
-    },
-    {
-      "source": "src/ai-workflow.js",
-      "target": "src/ai-workflow.js",
-      "size": 13370,
-      "sha256": "1622c5c76f8de123ce3fbcd63d15e318f090ea8e2c3ead8b287d35ea5a2010d4"
     }
   ]
 }
