@@ -371,7 +371,7 @@ window.irAiRecognitionPage=async function(objectId){
      // evidence uses the TOP-left PDF.js viewport: keep the two systems
      // separate to avoid placing a mark at a text-label position.
      const lines=Array.isArray(item.strokeLinesPt)?item.strokeLinesPt:[];
-     if(lines.length===2&&lines.every(l=>l&&
+     if(lines.length>=1&&lines.length<=2&&lines.every(l=>l&&
        ["x1","y1","x2","y2"].every(k=>Number.isFinite(l[k]))&&
        [l.x1,l.x2].every(v=>v>=0&&v<=W)&&
        [l.y1,l.y2].every(v=>v>=0&&v<=H))){

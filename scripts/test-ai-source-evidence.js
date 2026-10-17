@@ -35,7 +35,7 @@ assert(ui.includes("data-lite-alt-source"),"each ambiguous alternative has own P
 assert(ui.includes("strokeLinesPt:lines"),"selected stroke evidence is passed read-only");
 assert(viewer.includes("document.createElementNS(ns,\"svg\")"),
  "actual two-line PDF overlay rendered over the original preview");
-assert(viewer.includes("lines.length===2&&lines.every"),"invalid or partial line geometry rejected");
+assert(viewer.includes("lines.length>=1&&lines.length<=2&&lines.every"),"bounded one/two-segment evidence is validated");
 assert(viewer.includes("data-edge"),"each PDF outline stroke remains independent");
 assert(viewer.includes("layer.appendChild(overlay);evidenceBoxes.push(overlay)"),
  "contour overlay participates in hide/show evidence toggle");

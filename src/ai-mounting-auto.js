@@ -2,7 +2,7 @@
 /* Automatic proposals from explicit, instance-local PDF annotations.
  * No label coordinate, nearby stroke, bare number, or register quantity is
  * interpreted as a physical placement. The transactional service rechecks all. */
-const {classSheet,buildBatchPlan}=require("./ai-scheme-lite-page");
+const {classSheet,buildBatchPlan,axisGeometry,reviewIndexedPlanPage}=require("./ai-scheme-lite-page");
 const {markOccurrences}=require("./ai-pdf-mark-matcher");
 const normalize=s=>String(s??"").normalize("NFKC").toUpperCase().replace(/[−–—]/g,"-").replace(/\s+/g,"");
 const escape=s=>String(s).replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
@@ -69,6 +69,14 @@ function automaticEntries(rows){
   if(row.record_type!=="pdf_text_index"||!doc||doc.data?.sha256!==src.sha256)continue;
   if(!latest.has(String(doc.id))||Number(row.id)>Number(latest.get(String(doc.id)).id))latest.set(String(doc.id),row);
  }
+ const geometryByPage=new Map();
+ for(const row of rows["ai-pdf-geometry"]||[]){
+  const d=row.data;if(row.record_type!=="pdf_page_geometry"||d?.version!==2)continue;
+  const key=[d.documentId,d.sourceSha256,d.result?.page].join(":");
+  const old=geometryByPage.get(key);
+  if(!old||Number(row.id)>Number(old.id))geometryByPage.set(key,row);
+ }
+ const graphicReview=[],projectGrid=axisGeometry(rows.scheme);
  const candidates=[],seenMarks=new Set(),reasons=new Map();let pages=0;
  for(const index of latest.values())for(const p of index.data?.pages||[]){
   pages++;
@@ -76,6 +84,19 @@ function automaticEntries(rows){
    sheetType=classSheet(src.name||doc.title,p.text||"");
   for(const hit of markOccurrences(p,allowed))seenMarks.add(normalize(hit.mark));
   if(p.uncertainEncoding||p.truncated||!["plan","section"].includes(sheetType))continue;
+  const vector=geometryByPage.get([src.documentId,src.sha256,p.page].join(":"))?.data?.result;
+  if(sheetType==="plan"&&vector?.coordinateSystem==="viewport_points_top_left"&&Number(p.rotation||0)===0&&
+    Number.isFinite(p.widthPt)&&Number.isFinite(p.heightPt)&&
+    Math.abs(vector.widthPt-p.widthPt)<1&&Math.abs(vector.heightPt-p.heightPt)<1){
+   const graphical=reviewIndexedPlanPage({raw:p,vector,grid:projectGrid,marks,
+    documentId:src.documentId,sha256:src.sha256,page:p.page,sheetType,nodesOnly:true});
+   for(const region of graphical.regions)for(const item of region.nodeLinks?.suggested||[])
+    graphicReview.push({mark:item.mark,markId:item.markId,axisX:item.axisX,axisY:item.axisY,
+     nodeXmm:item.nodeXmm,nodeYmm:item.nodeYmm,region:region.name,
+     source:{documentId:src.documentId,sha256:src.sha256,page:p.page},
+     fragmentIds:item.label.fragmentIds,rectPt:item.label.rectPt,
+     leaderSegments:item.evidence.segments,status:"requires_review",safeForAutoPlacement:false});
+  }
   for(const line of localLines(p)){
    // Most fragments are dimensions or labels. Avoid rebuilding the register
    // matcher for rows that cannot contain an explicit placement record.
@@ -136,7 +157,7 @@ function automaticEntries(rows){
   if(!represented.has(normalize(name)))review.push({mark:name,reason:reasons.get(String(mark.id))||
    (seenMarks.has(normalize(name))?"Марка найдена, но её монтажные оси и высоты не определены":"Марка не найдена в актуальном текстовом индексе")});
  }
- return{entries:entries.slice(0,400),review,stats:{pages,documents:latest.size,
-  candidates:candidates.length,ready:entries.length,deferred:Math.max(0,entries.length-400)}};
+ return{entries:entries.slice(0,400),review,graphicReview,stats:{pages,documents:latest.size,
+  candidates:candidates.length,graphicLinks:graphicReview.length,ready:entries.length,deferred:Math.max(0,entries.length-400)}};
 }
 module.exports={automaticEntries,localLines,level,intersections};

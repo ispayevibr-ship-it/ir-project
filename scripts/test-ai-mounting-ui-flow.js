@@ -14,10 +14,10 @@ const wait=async fn=>{for(let i=0;i<120;i++){
  await new Promise(resolve=>setImmediate(resolve))
 }throw Error("No UI callback/result for AI placement")};
 function makeHost(){
- const btn={auto:{disabled:false},scan:{disabled:false},scheme:{},batch:{},apply:{},undo:{},cancel:{}},
+ const btn={graphicSource:{dataset:{liteGraphicSource:"0"}},auto:{disabled:false},scan:{disabled:false},scheme:{},batch:{},apply:{},undo:{},cancel:{}},
   status={textContent:""},slot={
    innerHTML:"",
-   querySelectorAll:()=>[],
+   querySelectorAll:q=>q==="[data-lite-graphic-source]"&&slot.innerHTML.includes("data-lite-graphic-source")?[btn.graphicSource]:[],
    querySelector:q=>{
     const key={"[data-lite-batch]":"batch","[data-lite-apply]":"apply",
      "[data-lite-undo]":"undo","[data-lite-cancel-preview]":"cancel"}[q];
@@ -34,7 +34,7 @@ function makeHost(){
  return{root,btn,status,slot}
 }
 (async()=>{
- let writes=0,previews=0,undos=0,confirmations=0,last=null;
+ let writes=0,previews=0,undos=0,confirmations=0,last=null,openedGraphic=null;
  const mount={
   latest:async()=>last,
   inventory:async()=>({positions:1,totalInstances:1,placed:writes-undos,unplaced:1-writes+undos,instances:[]}),
@@ -74,7 +74,7 @@ function makeHost(){
  list:async()=>[index]};
  const host=makeHost(),page=createPage();
  await page.render(host.root,{objectId:8,documents:[drawing],indexes:[index],
-  canEdit:true,pdf,root:data,window,mounting:mount,
+  canEdit:true,pdf,root:data,window,mounting:mount,onOpenPdf:(...args)=>{openedGraphic=args},
   reviewer:{authorize:async()=>true},askPassword:async()=>""});
  assert.equal(typeof host.btn.scan.onclick,"function");
  host.btn.scan.onclick();
@@ -98,7 +98,9 @@ function makeHost(){
  let autoApplied=0;
  mount.preview=async(id,request)=>{
   assert.deepEqual(request,{mode:"automatic"});
-  return{automatic:{pages:252,ready:1,deferred:0},ready:[{mark:"К62",axes:"1/Б",xMm:0,yMm:6000,z0Mm:-400,z1Mm:9595}],
+  return{graphicReview:[{mark:"К63",axisX:"2",axisY:"Б",nodeXmm:9000,nodeYmm:6000,
+   source:{documentId:30,page:1},fragmentIds:[2],rectPt:{x:10,y:20,width:5,height:5},
+   leaderSegments:[{x1:10,y1:20,x2:30,y2:40}]}],automatic:{pages:252,ready:1,deferred:0},ready:[{mark:"К62",axes:"1/Б",xMm:0,yMm:6000,z0Mm:-400,z1Mm:9595}],
    review:[{mark:"К63",reason:"Нет отметки верха"}],skipped:[],existing:0,token:"d".repeat(64)};
  };
  mount.apply=async(id,request,token)=>{
@@ -109,6 +111,10 @@ function makeHost(){
  await wait(()=>host.slot.innerHTML.includes("252"));
  assert.equal(autoApplied,0);
  assert.match(host.slot.innerHTML,/Нет отметки верха/);
+ assert.match(host.slot.innerHTML,/Графические привязки/);
+ host.btn.graphicSource.onclick();
+ assert.equal(openedGraphic[0],30);assert.equal(openedGraphic[1],1);
+ assert.equal(openedGraphic[2][0].strokeLinesPt.length,1);
  host.btn.apply.onclick();await wait(()=>autoApplied===1);
  page.dispose();
  console.log("Mounting UI: scan -> readonly preview -> atomic apply -> guarded undo PASS");

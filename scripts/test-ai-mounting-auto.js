@@ -60,3 +60,29 @@ rows.marks.push({id:99,title:"К63",data:{mark:"К63",name:"Колонна",qty:
 assert.equal(automaticEntries(rows).entries.length,0,"two marks at one location remain unresolved");
 rows=fixture([a.toLowerCase()]);assert.equal(automaticEntries(rows).entries[0].axisY,"Р");
 console.log("Automatic placement: per-instance annotations, arbitrary grid, heights, source, counts and ambiguity PASS");
+
+// Graphic hints are shown in the same automatic preview, never silently placed.
+rows=fixture([]);
+rows.scheme[0].data={axes_x:["1","2","3","4"],axes_y:["А","Б","В","Г"],x_spans_mm:[6000,6000,6000],y_spans_mm:[6000,6000,6000]};
+const widthPt=520,heightPt=420,xs=[40,100,160,220],ys=[310,250,190,130];
+const fragments=[...xs.map((x,i)=>({text:String(i+1),x:x-4,y:75,width:8,height:10})),
+ ...ys.map((y,i)=>({text:["А","Б","В","Г"][i],x:16,y:heightPt-y-5,width:8,height:10})),
+ {text:"К62",x:109,y:heightPt-267,width:8,height:8}];
+const segments=[...xs.map(x=>({x1:x,x2:x,y1:45,y2:330,direction:"vertical"})),
+ ...ys.map(y=>({x1:32,x2:270,y1:y,y2:y,direction:"horizontal"})),
+ {x1:112,y1:264,x2:128,y2:274},{x1:128,y1:274,x2:160,y2:250}];
+rows["ai-pdf-index"][0].data.pages=[{page:1,text:"План колонн",widthPt,heightPt,rotation:0,fragments}];
+rows["ai-pdf-geometry"]=[{id:50,record_type:"pdf_page_geometry",data:{version:2,documentId:4,sourceSha256:sha,
+ result:{page:1,widthPt,heightPt,rotation:0,coordinateSystem:"viewport_points_top_left",segments}}}];
+r=automaticEntries(rows);
+assert.equal(r.entries.length,0,"leader alone cannot supply member type and heights");
+assert.equal(r.graphicReview.length,1,JSON.stringify(r.graphicReview));
+assert.equal(r.graphicReview[0].axisX,"3");assert.equal(r.graphicReview[0].nodeXmm,12000);
+assert.equal(r.graphicReview[0].leaderSegments.length,2);
+assert.equal(r.graphicReview[0].safeForAutoPlacement,false);
+rows["ai-pdf-geometry"][0].data.sourceSha256="old";
+assert.equal(automaticEntries(rows).graphicReview.length,0,"stale geometry not joined to current text");
+rows["ai-pdf-geometry"][0].data.sourceSha256=sha;
+rows["ai-pdf-index"][0].data.pages[0].rotation=90;
+assert.equal(automaticEntries(rows).graphicReview.length,0,"rotated text must not be mixed with unrotated vectors");
+console.log("Automatic preview: source-bound graphic links, no invented heights or automatic graphic placement PASS");

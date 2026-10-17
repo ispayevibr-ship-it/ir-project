@@ -714,3 +714,32 @@ const detailSkipped=reviewIndexedPlanPage({
 assert.equal(detailSkipped.calibrated,0);
 assert.match(detailSkipped.reason,/Разрез\/деталь/);
 console.log("Automatic KMD plan inspection: source-to-grid, two independent schemes, no invented XYZ PASS");
+
+// Leaders are paths, not nearest-neighbour guesses.
+const elbow=[{x1:112,y1:264,x2:128,y2:274},{x1:128,y1:274,x2:160,y2:250}];
+const elbowResult=findAxisNodeCandidates({labels:[linked],analysis:onlyLeft,grid,
+ vector:{widthPt,heightPt,segments:[...segments,...elbow]}});
+assert.equal(elbowResult.suggested.length,1,JSON.stringify(elbowResult));
+assert.equal(elbowResult.suggested[0].axisX,"3","follow path to farther node, not nearest node 2");
+assert.equal(elbowResult.suggested[0].evidence.type,"elbow_from_label_to_axis_crossing");
+assert.equal(elbowResult.suggested[0].evidence.segments.length,2);
+assert.equal(elbowResult.suggested[0].exactPlacement,false);
+const competing=findAxisNodeCandidates({labels:[linked],analysis:onlyLeft,grid,
+ vector:{widthPt,heightPt,segments:[...segments,leader,...elbow]}});
+assert.equal(competing.suggested.length,0);
+assert.equal(competing.review[0].reasonCode,"ambiguous_leader");
+const branch=findAxisNodeCandidates({labels:[linked],analysis:onlyLeft,grid,
+ vector:{widthPt,heightPt,segments:[...segments,...elbow,{x1:128,y1:274,x2:130,y2:288}]}});
+assert.equal(branch.suggested.length,0,"branch at elbow cannot be silently selected");
+const gap=findAxisNodeCandidates({labels:[linked],analysis:onlyLeft,grid,
+ vector:{widthPt,heightPt,segments:[...segments,elbow[0],{...elbow[1],x1:140}]}});
+assert.equal(gap.suggested.length,0,"disconnected path is not a leader");
+const duplicate=findAxisNodeCandidates({labels:[linked],analysis:onlyLeft,grid,
+ vector:{widthPt,heightPt,segments:[...segments,leader,{x1:leader.x2,y1:leader.y2,x2:leader.x1,y2:leader.y1}]}});
+assert.equal(duplicate.suggested.length,1,"same stroke painted twice is one path");
+const detailed=findAxisNodeCandidates({labels:[linked],analysis:onlyLeft,grid,
+ vector:{widthPt,heightPt,segments,detailSegments:elbow}});
+assert.equal(detailed.suggested.length,1,"read short-stroke evidence outside display sample");
+assert.equal(findAxisNodeCandidates({labels:[linked],analysis:onlyLeft,grid,
+ vector:{widthPt,heightPt,segments:[...segments,leader],detailSegments:[]}}).suggested.length,0);
+console.log("Leader paths: elbow, farther destination, branch/gap rejection, duplicate strokes and detail sample PASS");

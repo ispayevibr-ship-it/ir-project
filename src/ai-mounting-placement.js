@@ -222,7 +222,8 @@ function createService({database,verifyDocument}={}){
  }
  function resolveEntries(st,input){
   if(input&&!Array.isArray(input)&&input.mode==="automatic")
-   return require("./ai-mounting-auto").automaticEntries(st.rows);
+   return require("./ai-mounting-auto").automaticEntries({...st.rows,
+    "ai-pdf-geometry":database.listEntity(st.id,"ai-pdf-geometry")});
   return{entries:input,review:[],stats:null};
  }
  function preview(objectId,input){
@@ -236,7 +237,7 @@ function createService({database,verifyDocument}={}){
     endXMm:x.item.data.absolute_x2_mm??null,endYMm:x.item.data.absolute_y2_mm??null,
     z0Mm:x.item.data.z0_mm,z1Mm:x.item.data.z1_mm,
     source:x.item.data.ai_source})),
-   review:automatic.review,automatic:automatic.stats,
+   review:automatic.review,automatic:automatic.stats,graphicReview:automatic.graphicReview||[],
    skipped:result.skipped,total:entries?.length||0,existing:st.rows.scheme.filter(placement).length}
  }
  function apply(objectId,entries,expectedToken){

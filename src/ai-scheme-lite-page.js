@@ -921,25 +921,53 @@
     Math.abs(seg.y2-Number(a.pagePt))<2.5);
    return ax||ay
   };
-  const leaders=segments.filter(seg=>seg&&[seg.x1,seg.y1,seg.x2,seg.y2]
-   .every(Number.isFinite)&&
-   Math.hypot(seg.x2-seg.x1,seg.y2-seg.y1)>=8&&
-   Math.hypot(seg.x2-seg.x1,seg.y2-seg.y1)<=radiusPt*1.6&&
-   !isAxisStroke(seg)&&
-   inArea(seg.x1,seg.y1)&&inArea(seg.x2,seg.y2));
-  const directLeader=(label,node)=>{
-   const matched=[];
-   for(const seg of leaders){
-    const a={x:Number(seg.x1),y:Number(seg.y1)},
-     b={x:Number(seg.x2),y:Number(seg.y2)},
-     atNode=p=>Math.hypot(p.x-node.pageX,p.y-node.pageY)<=2.5;
-    if(labelDistance(label,a)<=2&&atNode(b)||
-       labelDistance(label,b)<=2&&atNode(a)){
-     matched.push({x1:seg.x1,y1:seg.y1,x2:seg.x2,y2:seg.y2})
-     if(matched.length>=3)break
+  // Short/medium strokes are sampled separately from the display preview.
+  // An explicitly empty detail set must not fall back to unrelated long lines.
+  const source=Array.isArray(vector.detailSegments)?vector.detailSegments:segments;
+  const unique=new Map();
+  for(const seg of source){
+   if(!seg||![seg.x1,seg.y1,seg.x2,seg.y2].every(Number.isFinite))continue;
+   const length=Math.hypot(seg.x2-seg.x1,seg.y2-seg.y1);
+   if(length<4||length>radiusPt*1.6||isAxisStroke(seg)||
+    !inArea(seg.x1,seg.y1)||!inArea(seg.x2,seg.y2))continue;
+   const key=[[seg.x1,seg.y1],[seg.x2,seg.y2]].map(p=>p.join(",")).sort().join("|");
+   if(!unique.has(key))unique.set(key,{x1:seg.x1,y1:seg.y1,x2:seg.x2,y2:seg.y2});
+  }
+  const leaders=[...unique.values()],ends=leaders.flatMap((segment,index)=>[
+   {x:segment.x1,y:segment.y1,index,other:{x:segment.x2,y:segment.y2}},
+   {x:segment.x2,y:segment.y2,index,other:{x:segment.x1,y:segment.y1}}]);
+  const buckets=new Map(),cell=p=>[Math.floor(p.x/3),Math.floor(p.y/3)];
+  for(const end of ends){const k=cell(end).join(":");if(!buckets.has(k))buckets.set(k,[]);buckets.get(k).push(end)}
+  const connected=p=>{
+   const [x,y]=cell(p),out=[];
+   for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)
+    for(const end of buckets.get([x+dx,y+dy].join(":"))||[])
+     if(Math.hypot(end.x-p.x,end.y-p.y)<=2.5)out.push(end);
+   return out;
+  };
+  const leaderPaths=label=>{
+   const paths=[],seen=new Set();
+   const record=(p,indices)=>{
+    for(const node of nodes){
+     if(Math.hypot(node.pageX-p.x,node.pageY-p.y)>2.5)continue;
+     const key=[node.axisX,node.axisY,...[...indices].sort((a,b)=>a-b)].join("|");
+     if(seen.has(key))continue;seen.add(key);
+     paths.push({node,segments:indices.map(i=>leaders[i])});
     }
+   };
+   for(const start of ends){
+    if(labelDistance(label,start)>2)continue;
+    record(start.other,[start.index]);
+    // Follow endpoint joins only. Crossings through the middle of an
+    // unrelated line are not bends in a leader.
+    const next=connected(start.other).filter(e=>e.index!==start.index);
+    if(next.length!==1)continue;
+    const end=next[0],length=[leaders[start.index],leaders[end.index]].reduce(
+     (n,l)=>n+Math.hypot(l.x2-l.x1,l.y2-l.y1),0);
+    if(length>radiusPt*2||labelDistance(label,end.other)<=2)continue;
+    record(end.other,[start.index,end.index]);
    }
-   return matched
+   return paths;
   };
   for(const label of labels.slice(0,1000)){
    const x=Number(label.pageX),y=Number(label.pageY);
@@ -953,27 +981,33 @@
     output.review.push({label,reasonCode:"far_from_node",
      reason:"Рядом с надписью нет подтверждённого узла осей"});continue
    }
-   if(nearest[1]&&nearest[1].distancePt<=radiusPt&&
+   const paths=leaderPaths(label);
+   if(paths.length>1){
+    output.review.push({label,reasonCode:"ambiguous_leader",
+     reason:"Несколько графических путей или узлов для одной надписи"});continue;
+   }
+   if(!paths.length&&nearest[1]&&nearest[1].distancePt<=radiusPt&&
      nearest[1].distancePt-nearest[0].distancePt<Math.max(5,radiusPt*.22)){
     output.review.push({label,reasonCode:"ambiguous_neighbor",
-     reason:"Несколько узлов осей примерно одинаково близки к надписи"});continue
+     reason:"Несколько узлов осей примерно одинаково близки к надписи"});continue;
    }
-   const n=nearest[0].node;
+   // The actual leader endpoint wins over a nearer, unconnected crossing.
+   const n=paths[0]?.node||nearest[0].node;
    const item={label,mark:label.mark,markId:label.markId,
     axisX:n.axisX,axisY:n.axisY,nodeXmm:n.nodeXmm,nodeYmm:n.nodeYmm,
     offsetFromLabelMm:Math.round(Math.hypot(
      n.nodeXmm-label.labelXmm,n.nodeYmm-label.labelYmm)),
-    distancePt:Math.round(nearest[0].distancePt*100)/100,
+    distancePt:Math.round(Math.hypot(n.pageX-x,n.pageY-y)*100)/100,
     status:"proximity_only",exactPlacement:false};
-   const joined=directLeader(label,n);
-   if(!joined.length){
+   if(!paths.length){
     output.nearby.push(item);
     output.review.push({label,reasonCode:"no_leader",
-     reason:"Узел близко, но нет графической линии от надписи к узлу"});continue
+     reason:"Узел близко, но нет графической линии от надписи к узлу"});continue;
    }
    output.suggested.push({...item,status:"leader_linked_unverified",
-    evidence:{type:"line_from_label_to_axis_crossing",segments:joined},
-    reason:"Найдена графическая линия к узлу; принадлежность конструкции требует проверки"})
+    evidence:{type:paths[0].segments.length===1?"line_from_label_to_axis_crossing":
+     "elbow_from_label_to_axis_crossing",segments:paths[0].segments},
+    reason:"Найдена графическая выноска к узлу; тип конструкции и высоты требуют проверки"});
   }
   const byNode=new Map();
   for(const item of output.suggested){
@@ -1462,7 +1496,7 @@
  // text/index is a prerequisite, not a final location result. X/Y/Z remain
  // unfilled until a drawing explicitly proves a particular member placement.
  function reviewIndexedPlanPage({raw,vector,grid,marks=[],documentId,sha256,page,
-   sheetType="plan"}={}){
+   sheetType="plan",nodesOnly=false}={}){
   const out={regions:[],reason:"",calibrated:0,foundLabels:0,
    contourHints:0,dimensionHints:0,readyForPlacement:0,readOnly:true};
   if(["section","detail"].includes(sheetType)){
@@ -1508,16 +1542,17 @@
     pageX:x.pageX,pageY:Number(vector.heightPt)-x.pageYBottom,
     rectPt:x.rectPt,fragmentIds:x.fragmentIds
    }));
-   const contours=findPlanMemberStrokes({labels,analysis,grid,vector});
-   const links=linkInstanceOutlineEvidence({instances:region.labels,
+   const nodeLinks=findAxisNodeCandidates({labels,analysis,grid,vector});
+   const contours=nodesOnly?{candidates:[]}:findPlanMemberStrokes({labels,analysis,grid,vector});
+   const links=nodesOnly?{records:[],summary:{}}:linkInstanceOutlineEvidence({instances:region.labels,
     registeredLabels:labels,outlines:contours,heightPt:vector.heightPt});
-   const dimensions=inspectPdfDimensionChains({raw,vector,analysis,
+   const dimensions=nodesOnly?{candidates:[]}:inspectPdfDimensionChains({raw,vector,analysis,
     region:zones[name]});
-   const dimensionLinks=nearDimensionEvidence({instances:region.labels,
+   const dimensionLinks=nodesOnly?[]:nearDimensionEvidence({instances:region.labels,
     dimensions,heightPt:vector.heightPt});
    out.regions.push({name,regionBounds:zones[name],frameEvidence:framed.find(r=>r.name===name)?.operatorIndex,analysis:{calibrated:true,
     xMatches:analysis.xMatches?.length||0,yMatches:analysis.yMatches?.length||0},
-    registry:region,links,dimensions,dimensionLinks,
+    registry:region,links,nodeLinks,dimensions,dimensionLinks,
     contoursLimited:!!contours.limited});
    out.calibrated++;out.foundLabels+=region.total;
    out.contourHints+=links.summary.contour_candidate||0;
@@ -1860,6 +1895,12 @@
        (verifiedPreview.preview.automatic?'<p>Автоматически проверено листов: '+verifiedPreview.preview.automatic.pages+
         '. Готовых позиций: '+verifiedPreview.preview.automatic.ready+
         (verifiedPreview.preview.automatic.deferred?' · в следующей операции: '+verifiedPreview.preview.automatic.deferred:'')+'.</p>':'')+
+       (verifiedPreview.preview.graphicReview?.length?'<details open><summary>Графические привязки: '+verifiedPreview.preview.graphicReview.length+' · требуется проверка</summary>'+
+        '<p>Это узлы, к которым подходят выноски. Тип конструкции и Z0/Z1 ещё не подтверждены.</p>'+
+        '<table><thead><tr><th>Марка</th><th>Оси</th><th>Узел X/Y, мм</th><th>Источник</th></tr></thead><tbody>'+
+        verifiedPreview.preview.graphicReview.slice(0,200).map((g,i)=>'<tr><td>'+escDoc(g.mark)+'</td><td>'+escDoc(g.axisX)+' / '+escDoc(g.axisY)+
+         '</td><td>'+escDoc(g.nodeXmm)+' / '+escDoc(g.nodeYmm)+'</td><td><button type="button" data-lite-graphic-source="'+i+'">Показать выноску в PDF</button></td></tr>').join('')+
+        '</tbody></table></details>':'')+
        (verifiedPreview.preview.review?.length?'<details open class="ir-ai-auto-review"><summary>Требуют ручной проверки · '+verifiedPreview.preview.review.length+
         '</summary>'+verifiedPreview.preview.review.slice(0,200).map(x=>'<p style="color:#b42318">'+escDoc(x.mark)+' — '+escDoc(x.reason)+'</p>').join('')+'</details>':'')+
        '<p>Проверено на стороне SQLite. Готово: <b>'+verifiedPreview.preview.ready.length+
@@ -2015,6 +2056,14 @@
        if(item?.source)onOpenPdf?.(item.source.documentId,item.source.page,
         item.source.textRegions||[])
       }
+     });
+     slot.querySelectorAll("[data-lite-graphic-source]").forEach(button=>{
+      button.onclick=()=>{
+       const g=verifiedPreview?.preview.graphicReview?.[Number(button.dataset.liteGraphicSource)];
+       if(g)onOpenPdf?.(g.source.documentId,g.source.page,[{
+        quote:g.mark,fragmentIds:g.fragmentIds,rectPt:g.rectPt,strokeLinesPt:g.leaderSegments
+       }]);
+      };
      });
      const apply=slot.querySelector?.("[data-lite-apply]");
      if(apply)apply.onclick=()=>void applyPreview();
@@ -2402,7 +2451,7 @@
          candidateNodes.review.length+'</summary>'+
          (candidateNodes.reviewSummary?.length?'<p><b>По причинам:</b> '+
           candidateNodes.reviewSummary.map(n=>escDoc({
-           no_leader:"нет линии от надписи",node_collision:"несколько подписей у узла",
+           ambiguous_leader:"несколько путей выноски",no_leader:"нет линии от надписи",node_collision:"несколько подписей у узла",
            ambiguous_neighbor:"несколько близких узлов",far_from_node:"нет близкого узла",
            no_vector_crossing:"нет пересечения линий",outside_region:"вне области"
           }[n.code]||n.code)+': '+n.count).join(' · ')+'</p>':"")+
