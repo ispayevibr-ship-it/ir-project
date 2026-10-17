@@ -23,7 +23,7 @@ function inspectSingleMarkSheetLevels(page){
  const levels=[];
  for(let i=0;i<fragments.length;i++){
   const f=fragments[i],raw=String(f?.text||"").trim().replace("−","-");
-  if(!/^[+-]\\d{1,2}[,.]\\d{3}$/.test(raw))continue;
+  if(!/^[+-]?[0-9]{1,2}[,.][0-9]{3}$/.test(raw))continue;
   const y=Number(f.y);
   if(!Number.isFinite(y))continue;
   const mm=Math.round(Number(raw.replace(",","."))*1000);
