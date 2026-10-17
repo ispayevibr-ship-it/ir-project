@@ -25,25 +25,28 @@ function candidatePlacements(pages,register,grid={}){
  const typeByMark=new Map((register||[]).map(entry=>[normalize(typeof entry==="string"?entry:entry.mark),classifyMark(entry)]));
  const unique=new Map();
  const seen=new Set();
+
  for(const page of pages||[]){
   const hits=markOccurrences(page,allowed);
   const axisProjection=extractPageCandidates(page,allowed,grid).axisProjection;
   const projected=axisProjection.placements||[];
+  const markHits=hits.filter(h=>h.x!=null&&h.y!=null&&Number.isFinite(Number(h.x))&&Number.isFinite(Number(h.y)));
   for(const hit of hits){
    const key=normalize(hit.mark);
    const identity=[page.documentId??page.sourceDocumentId??"",page.page,hit.fragmentIndex,key].join(":");
    if(seen.has(identity))continue;
    seen.add(identity);
    if(!unique.has(key))unique.set(key,[]);
-   const nearby=(page.levelCandidates||[]).filter(v=>v.x!=null&&v.y!=null&&hit.x!=null&&hit.y!=null)
+   const nearby=(page.levelCandidates||[]).filter(v=>v.x!=null&&v.y!=null&&hit.x!=null&&hit.y!=null&&Number.isFinite(Number(v.x))&&Number.isFinite(Number(v.y)))
     .map(v=>({...v,distancePt:Math.hypot(v.x-hit.x,v.y-hit.y)}))
     .filter(v=>v.distancePt<=100).sort((a,b)=>a.distancePt-b.distancePt);
+   const uniquelyNearest=nearby.filter(v=>markHits.every(other=>other===hit||Math.hypot(v.x-other.x,v.y-other.y)>v.distancePt));
    const mapped=projected.find(p=>p.fragmentIndex===hit.fragmentIndex&&normalize(p.mark)===key);
    unique.get(key).push({mark:hit.mark,type:typeByMark.get(key)||"не определено",page:page.page,point:{x:hit.x,y:hit.y},
     xMm:mapped?.xMm??null,yMm:mapped?.yMm??null,z0Mm:null,z1Mm:null,
     coordinateStatus:mapped?.xMm!=null&&mapped?.yMm!=null?"label_coordinate_only":"unresolved",
     nearestXAxis:nearest(mapped?.xMm,axesX),nearestYAxis:nearest(mapped?.yMm,axesY),
-    levelCandidates:nearby.slice(0,10),status:"requires_review",safeForAutoPlacement:false,
+    levelCandidates:uniquelyNearest.slice(0,10),ambiguousLevelCandidates:nearby.filter(v=>!uniquelyNearest.includes(v)).slice(0,10),status:"requires_review",safeForAutoPlacement:false,
     placementId:identity});
   }
  }
