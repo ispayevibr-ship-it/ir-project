@@ -22,4 +22,6 @@ const similar=markOccurrences({page:5,fragments:[
 ]},["К41","К410","К41А","К42"]);
 assert.deepEqual(similar.map(h=>h.mark),["К41","К410","К41А","К41"]);
 assert.equal(similar.length,4);
+const spacedRange=markOccurrences({page:6,fragments:[{text:"К 41 - К 42, К41А",x:1,y:1}]},["К41","К42","К41А"]);
+assert.deepEqual(spacedRange.map(h=>h.mark),["К41А"]);
 console.log("PDF registered mark matching passed");
