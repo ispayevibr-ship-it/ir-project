@@ -1,6 +1,6 @@
 "use strict";
 const assert=require("node:assert/strict");
-const {inspectNearbyLevelCandidates}=require("../src/ai-pdf-mark-elevations");
+const {inspectNearbyLevelCandidates,inspectSingleMarkSheetLevels}=require("../src/ai-pdf-mark-elevations");
 const page={page:1,widthPt:600,heightPt:800,fragments:[
  {text:"К62",x:100,y:300,width:20,height:8},
  {text:"К63",x:400,y:300,width:20,height:8},
@@ -22,3 +22,10 @@ assert.throws(()=>inspectNearbyLevelCandidates(page,"К64",["К62","К63"]),/в�
 const b=inspectNearbyLevelCandidates(page,"К63",["К62","К63"],{radiusPt:60});
 assert.deepEqual(b.matches[0].nearby.map(x=>x.millimeters),[8500]);
 console.log("PDF elevation proximity tests passed");
+
+const mixedSpan={heightPt:800,fragments:[{text:"K62 +9.705",x:70,y:730}],
+ levelCandidates:[{label:"+9.705",millimeters:9705,x:70,y:730}]};
+const parsed=inspectSingleMarkSheetLevels(mixedSpan,{assumedBaseMm:0});
+assert.equal(parsed.z1Mm,9705);
+assert.equal(parsed.heightMm,9705);
+assert.equal(parsed.safeForAutoPlacement,false);
