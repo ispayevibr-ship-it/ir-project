@@ -21,9 +21,14 @@ const repeated=candidatePlacements([{documentId:"doc1",page:1,fragments:[
  {text:"К62",x:200,y:200,width:30,height:12}
 ]}],[{mark:"К62",name:"Колонна"}],{});
 assert.equal(repeated.occurrences,3);
+assert.equal(repeated.matchedMarks,1);
+assert.equal(repeated.missingMarks.length,0);
 assert.equal(new Set(repeated.candidates.map(x=>x.placementId)).size,3);
 assert.ok(repeated.candidates.every(x=>x.documentId==="doc1"));
 assert.equal(repeated.readyForPlacement.length,0);
 const revised=candidatePlacements([{documentId:"doc1",sourceSha256:"new-revision",page:1,fragments:[{text:"К62",x:100,y:100}]}],[{mark:"К62",name:"Колонна"}],{});
 assert.notEqual(repeated.candidates[0].placementId,revised.candidates[0].placementId);
+const unknown=candidatePlacements([{documentId:"doc2",page:1,fragments:[{text:"К999",x:10,y:20}]}],[{mark:"К62",name:"Колонна"}],{});
+assert.equal(unknown.occurrences,0);
+assert.deepEqual(unknown.missingMarks,["К62"]);
 console.log("Reviewed Three.js payload and repeated PDF marks tests passed");
