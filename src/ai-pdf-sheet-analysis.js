@@ -4,6 +4,7 @@
 const {buildCoordinateCandidates}=require("./ai-pdf-coordinate-candidates");
 const {nearestSegments}=require("./ai-pdf-segment-evidence");
 const {intersectionEvidence}=require("./ai-pdf-intersection-evidence");
+const {classifySegments}=require("./ai-pdf-stroke-classifier");
 function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha256,maxDistancePt=12}={}){
  const base=buildCoordinateCandidates({page,registerMarks,anchors,documentId,sourceSha256});
  const geometryValid=geometry?.coordinateSystem==="viewport_points_top_left"&&
@@ -29,7 +30,7 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
  });
  const vectorIntersections=intersectionEvidence({page,geometry,candidates});
  return{...base,geometryAligned:geometryValid,segmentCount:segments.length,candidates,
-  vectorIntersections,
+  vectorIntersections,strokeCandidates:classifySegments(segments),
   verifiedInstances:0,safeForAutoPlacement:false};
 }
 module.exports={analyzeSheet};
