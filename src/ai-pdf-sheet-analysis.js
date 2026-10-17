@@ -65,6 +65,7 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
  const elevationByFragment=new Map(elevations.map(item=>[item.fragmentIndex,item]));
  const candidatesWithElevations=candidatesWithIntersections.map(item=>({
   ...item,elevationEvidence:elevationByFragment.get(item.fragmentIndex)?.evidence||[],
+  levelReview:elevationByFragment.get(item.fragmentIndex)?.levelReview||null,
   elevationStatus:"review_required",z0Mm:null,z1Mm:null
  }));
  const anchorSummary={total:candidatesWithIntersections.length,proposed:0,ambiguous:0,missing:0,unverified:0};
