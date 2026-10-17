@@ -31,7 +31,7 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
   if(!entry||typeof entry!=="object")continue;
   const key=String(entry.mark??entry.mark_name??entry.code??"").normalize("NFKC").toUpperCase().replace(/\s+/g,"");
   if(!key)continue;
-  const name=entry.name??entry.title??entry.description??entry.naimenovanie??"";
+  const name=entry.name??entry.title??entry.description??entry.naimenovanie??entry.work_name??entry.mark_description??"";
   if(!registerByMark.has(key))registerByMark.set(key,name);
   else if(registerByMark.get(key)!==name)registerByMark.set(key,null);
  }
