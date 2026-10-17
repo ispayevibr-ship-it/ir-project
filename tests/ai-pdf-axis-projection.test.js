@@ -53,5 +53,6 @@ const pair=elevationEvidence({spatialAssociations:[{mark:"K62",pdfPoint:{x:10,y:
 assert.equal(pair[0].levelReview.candidateZ0Mm,0);
 assert.equal(pair[0].levelReview.candidateZ1Mm,6000);
 assert.equal(pair[0].levelReview.candidateHeightMm,6000);
+assert.equal(pair[0].levelReview.status,'explicit_pair_unverified');
 assert.equal(pair[0].z0Mm,null);
 console.log("PDF axis grid, vector evidence and sheet summary validation passed");
