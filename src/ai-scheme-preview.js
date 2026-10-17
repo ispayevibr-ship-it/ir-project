@@ -2,10 +2,12 @@
 const {reviewToThreeJs}=require("./ai-placement-pipeline");
 /* Pure preview adapter: does not mutate persisted scheme or database. */
 function prepareSchemePreview(placements,approvals=[],existingIds=[]){
- const payload=reviewToThreeJs(placements,approvals);
+ const eligible=(placements?.candidates||[]).filter(p=>p.sheetRole!=="detail_or_schedule");
+ const blocked=(placements?.candidates||[]).filter(p=>p.sheetRole==="detail_or_schedule");
+ const payload=reviewToThreeJs({candidates:eligible},approvals);
  const occupied=new Set(existingIds);
  const approvalById=new Map((approvals||[]).filter(a=>a?.approved===true).map(a=>[a.placementId,a]));
- const elements=[],skipped=[...payload.rejected];
+ const elements=[],skipped=[...payload.rejected,...blocked.filter(p=>(approvals||[]).some(a=>a?.placementId===p.placementId&&a.approved===true)).map(p=>({placementId:p.placementId,reason:"detail_sheet_not_for_placement"}))];
  for(const item of payload.items){
   if(occupied.has(item.placementId)){
    skipped.push({placementId:item.placementId,reason:"already_in_scheme"});continue;
