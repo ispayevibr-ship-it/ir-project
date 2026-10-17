@@ -4,8 +4,7 @@
 // Optional reference: IR_KMD_REGISTER_JSON=/path/marks.json
 const fs=require("node:fs"),crypto=require("node:crypto"),path=require("node:path");
 const yauzl=require("yauzl"),pdfjs=require("pdfjs-dist/legacy/build/pdf.mjs");
-const {matchMarks}=require("../src/ai-pdf-mark-matcher");
-const {normalizeMark}=require("../src/ai-pdf-mark-matcher");
+const {markOccurrences}=require("../src/ai-pdf-mark-matcher");
 const archive=process.argv[2]||process.env.IR_KMD_TEST_ARCHIVE;
 if(!archive||!fs.existsSync(archive)){
  console.error("Provide 041-2025 KMD ZIP path as first argument or IR_KMD_TEST_ARCHIVE");
@@ -44,7 +43,7 @@ const readZip=filename=>new Promise((resolve,reject)=>{
      width:Number(x.width||0),height:Number(x.height||0)}));
     const text=fragments.map(x=>x.text).join(" ");
     let hits=[];
-    if(allowed.length)hits=matchMarks({fragments},allowed);
+    if(allowed.length)hits=markOccurrences({page:i,fragments},allowed);
     rows.push({page:i,fragments:fragments.length,textChars:text.length,
      matchedMentions:hits.length,matchedUnique:[...new Set(hits.map(x=>x.mark))].length,
      hasText:text.trim().length>0});
