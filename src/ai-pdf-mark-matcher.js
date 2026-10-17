@@ -20,7 +20,18 @@ function markOccurrences(page,allowedMarks){
   const item=fragments[i],raw=typeof item==="string"?item:
    String(item?.str??item?.text??"");
   const text=normalize(raw);
+  const compactSpans=raw.trim().split(/\s+/u).map(normalize);
   if(!text)continue;
+  // A fragment may contain several separate marks; keep word boundaries.
+  if(compactSpans.length>1){
+   for(const token of compactSpans){
+    if(allowed.has(token))found.push({mark:allowed.get(token),page:Number(page.page)||null,
+     fragmentIndex:i,offset:null,x:item?.x??null,y:item?.y??null,
+     width:item?.width??null,height:item?.height??null,
+     source:"pdf_text_fragment",confidence:"text_exact",safeForAutoPlacement:false});
+   }
+   continue;
+  }
   for(const key of ordered){
    let pos=0;
    while((pos=text.indexOf(key,pos))!==-1){
