@@ -1,7 +1,7 @@
 {
   "channel": "beta",
   "baseVersion": "1.7.226",
-  "version": "1.7.226.331",
+  "version": "1.7.226.332",
   "branch": "feature/ir-project-ai-next",
   "description": "IR Project Algorithmic KM/KMD fixes: no full EXE",
   "files": [
@@ -368,8 +368,8 @@
     {
       "source": "src/ai-pymupdf-runner.js",
       "target": "src/ai-pymupdf-runner.js",
-      "size": 1816,
-      "sha256": "61b900015417eb61ff3441568f858d2c3713ac68dbaaa14f8f25d8437aac830d"
+      "size": 2120,
+      "sha256": "5bf20299e398eca2cd90748a057582f4d7c31769555f41bcde953a512e90d018"
     },
     {
       "source": "src/ai-recognition-page.css",
