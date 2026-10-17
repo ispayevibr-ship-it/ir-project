@@ -113,4 +113,5 @@ assert.equal(extra.marks[0].excess,1);
 const unlisted=reconcileMarkCounts([repeated],[{mark:"К62",quantity:2}]);
 assert.equal(unlisted.unregistered[0].mark,"К63");
 assert.equal(unlisted.summary.unregisteredInstances,1);
+assert.deepEqual(unlisted.unregistered[0].pages,[{page:3,count:1}]);
 console.log("PDF axis grid, vector evidence and sheet summary validation passed");
