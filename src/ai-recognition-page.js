@@ -38,8 +38,9 @@ window.irAiRecognitionPage=async function(objectId){
   const geometryComplete=completeGeometry(doc);
   if(geometryComplete)return{value:"✓ Текст и геометрия · "+
    (ready?.totalPages||ready.pages.length)+" лист(ов)",css:"indexed"};
-  if(ready)return{value:"✓ Индексирован текст · "+
+  if(ready&&completeIndex(ready))return{value:"✓ Индексирован текст · "+
    (state?.pages||ready?.totalPages||ready?.pages?.length||0)+" лист(ов)",css:"indexed"};
+  if(ready)return{value:"⚠ Неполный текстовый индекс · требуется повторная обработка",css:"index-error"};
   return{value:"Ожидает индексации",css:"waiting"}
  };
  async function reload(){
