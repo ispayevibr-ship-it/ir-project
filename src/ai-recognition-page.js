@@ -361,6 +361,15 @@ window.irAiRecognitionPage=async function(objectId){
        window.alert("Введите четыре числа в мм. Верх Z должен быть выше низа.");return
       }
       approvedCoordinates.set(item.placementId,{placementId:item.placementId,approved:true,xMm:Number(parts[0]),yMm:Number(parts[1]),z0Mm:Number(parts[2]),z1Mm:Number(parts[3])});
+      if(!["колонна","фахверк"].includes(item.type)){
+       const endRaw=window.prompt("Конечная точка X, Y, Z (мм; через запятую)","");
+       if(endRaw===null){approvedCoordinates.delete(item.placementId);return}
+       const end=endRaw.split(",").map(v=>v.trim());
+       if(end.length!==3||end.some(v=>v===""||!Number.isFinite(Number(v)))){
+        approvedCoordinates.delete(item.placementId);window.alert("Введите три координаты конечной точки");return
+       }
+       approvedCoordinates.get(item.placementId).endPoint={xMm:Number(end[0]),yMm:Number(end[1]),zMm:Number(end[2])}
+      }
       verify.textContent="✓ Координаты проверены"
      };
      const tdVerify=document.createElement("td");tdVerify.appendChild(verify);tr.appendChild(tdVerify);
