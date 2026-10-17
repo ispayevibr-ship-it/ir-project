@@ -1028,6 +1028,13 @@
   // legacy longest-strokes axis preview can omit.
   const localized=Array.isArray(vector.detailSegments),
    rawStrokes=localized?vector.detailSegments:vector.segments;
+  // An incomplete sample cannot establish that the nearest contour is unique.
+  // Retain the label for review rather than returning a misleading best match.
+  if(localized&&(vector.stats?.detailSampleIncomplete===true||
+    rawStrokes.length>14400)||!localized&&
+    (vector.stats?.truncated===true||rawStrokes.length>2400))
+   return deny("incomplete_geometry",
+    "Неполная выборка линий PDF: контуры требуют повторного анализа");
   out.sampling=localized?"local_tiles_short_medium_long":"longest_only_legacy";
   out.availableStrokes=rawStrokes.length;
   const sqDist=(x1,y1,x2,y2)=>(x1-x2)**2+(y1-y2)**2;
