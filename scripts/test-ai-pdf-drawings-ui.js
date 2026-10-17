@@ -26,6 +26,7 @@ function get(selector){
 }
 const root={innerHTML:"",querySelector:get,querySelectorAll:()=>[]};
 const app=document=>document==="app"?root:null;
+const geometryRuns=[];
 let runs=[],inflight=0,peak=0,finishSecond;
 const pending=new Promise(resolve=>{finishSecond=resolve});
 const fakePdf={
@@ -44,6 +45,7 @@ const fakePdf={
 const page={
  data:{objects:{get:async()=>({id:7,name:"Стройка"})}},
  aiDocuments:{list:async()=>docs,select:async()=>({canceled:true})},
+ aiPdfGeometry:{page:async(_id,doc,page)=>{geometryRuns.push([doc,page]);return{sourceSha256:sha(doc)}}},
  aiPdf:fakePdf
 };
 const context={window:{irProject:page},document:{getElementById:app},
@@ -62,16 +64,17 @@ const wait=async check=>{
  assert.match(content.innerHTML,/✓ Индексирован/);
  assert.match(content.innerHTML,/КМД 03/);
  dom.get("[data-kmd-all]").onclick();
- await wait(()=>runs.length===1);
- assert.deepEqual(runs,[2]);
+ await wait(()=>runs.length===2);
+ assert.deepEqual(runs,[1,2]);
  assert.equal(peak,1,"index workers must be serial");
  finishSecond();
- await wait(()=>runs.length===2);
+ await wait(()=>runs.length===3);
  await wait(()=>!inflight);
  await wait(()=>content.innerHTML.includes("Ошибка"));
- assert.deepEqual(runs,[2,3],"existing SHA-matched PDF skipped, failure isolated");
+ assert.deepEqual(runs,[1,2,3],"text cache reused through API, failure isolated");
+ assert.deepEqual(geometryRuns,[[1,1],[1,2],[2,1],[2,2]]);
  assert.equal(peak,1);
- assert.match(content.innerHTML,/✓ Индексирован/);
+ assert.match(content.innerHTML,/✓ Текст и геометрия/);
  assert.match(content.innerHTML,/Ошибка/);
  assert.equal(page.aiEngine,undefined);
  console.log("Algorithmic PDF UI: batch index serial, SHA cache, ✓ saved, errors, no AI runtime PASS");

@@ -22,10 +22,11 @@ window.irAiRecognitionPage=async function(objectId){
   if(!doc.exists)return{value:"Файл отсутствует",css:"missing"};
   const state=bulk?.rows.get(String(doc.id));
   if(state?.state==="running")return{value:"Индексируется · лист "+
-   (state.page||"…")+(state.total?" из "+state.total:""),css:"indexing"};
+   (state.page||"…")+(state.total?" из "+state.total+" · "+Math.floor((state.page||0)/state.total*100)+"%":""),css:"indexing"};
   if(state?.state==="error")return{value:"✕ Ошибка: "+state.message,css:"index-error"};
   const ready=matchingIndex(doc);
-  if(state?.state==="done"||ready)return{value:"✓ Индексирован · "+
+  if(state?.state==="done")return{value:"✓ Текст и геометрия · "+state.pages+" лист(ов)",css:"indexed"};
+  if(ready)return{value:"✓ Индексирован текст · "+
    (state?.pages||ready?.totalPages||ready?.pages?.length||0)+" лист(ов)",css:"indexed"};
   return{value:"Ожидает индексации",css:"waiting"}
  };
@@ -43,7 +44,7 @@ window.irAiRecognitionPage=async function(objectId){
   if(!bulk)return"";
   const rows=[...bulk.rows.values()],done=rows.filter(r=>r.state==="done").length,
    errors=rows.filter(r=>r.state==="error").length;
-  return (bulk.running?"Индексируем PDF по одному файлу":"Индексация завершена")+
+  return (bulk.running?"Индексируем PDF по одному файлу":bulk.cancelled?"Индексация остановлена":"Индексация завершена")+
    " · готово "+done+" из "+rows.length+(errors?" · ошибок "+errors:"")+
    (bulk.current?" · сейчас: "+bulk.current:"")
  }
@@ -95,11 +96,12 @@ window.irAiRecognitionPage=async function(objectId){
  function showDocuments(){
   const box=app.querySelector("#irAiContent");if(!box)return;
   const matches=docs.filter(doc=>(doc.name+" "+doc.kind).toLowerCase().includes(search.toLowerCase()));
-  const all=docs.filter(x=>x.ext===".pdf"&&x.exists),pending=all.some(x=>!matchingIndex(x));
+  const all=docs.filter(x=>x.ext===".pdf"&&x.exists);
   box.innerHTML='<div class="ir-ai-doc-head"><div><h2>Исходные чертежи</h2>'+
-   '<p>Индексируем каждый PDF один раз. Галочка подтверждает сохранённый текстовый индекс, а не монтажную координату.</p></div>'+
+   '<p>Сохраняем текст и векторную геометрию листов. Повторный запуск использует кэш. Галочка текстового индекса не подтверждает координаты монтажа.</p></div>'+
    '<div class="ir-ai-doc-index-tools"><button type="button" data-kmd-all '+
-   (busy||!pending?'disabled':'')+'>Проиндексировать все чертежи</button>'+
+   (busy||!all.length?'disabled':'')+'>Проиндексировать все чертежи</button>'+
+   (bulk?.running?'<button type="button" data-kmd-stop>Остановить после текущего листа</button>':'')+
    '<input data-kmd-search type="search" placeholder="Поиск чертежа" value="'+esc(search)+'"></div></div>'+
    '<div data-kmd-progress class="ir-ai-bulk-summary" role="status" aria-live="polite">'+
    esc(bulk?progress():all.length+
@@ -142,6 +144,8 @@ window.irAiRecognitionPage=async function(objectId){
   };
   const btn=box.querySelector("[data-kmd-all]");
   if(btn)btn.onclick=()=>void indexAll();
+  const stop=box.querySelector("[data-kmd-stop]");
+  if(stop)stop.onclick=()=>{if(bulk)bulk.cancelled=true;stop.disabled=true};
   box.querySelectorAll("[data-kmd-index]").forEach(el=>el.onclick=()=>void indexOne(el.dataset.kmdIndex));
   box.querySelectorAll("[data-kmd-preview]").forEach(el=>el.onclick=()=>{
    const [doc,page]=el.dataset.kmdPreview.split(":");void openPdf(doc,page)
@@ -181,8 +185,7 @@ window.irAiRecognitionPage=async function(objectId){
   if(!selected.length)return;
   busy=true;error=false;notice="Индексируем последовательно, без нейросетей.";
   bulk={running:true,current:"",rows:new Map(selected.map(d=>[String(d.id),
-   matchingIndex(d)?{state:"done",pages:matchingIndex(d).totalPages||matchingIndex(d).pages.length}:
-    {state:"waiting"}]))};
+   {state:"waiting"}]))};
   paint();let unsubscribe=null;
   if(typeof pdf.onProgress==="function"){
    try{unsubscribe=pdf.onProgress(event=>{
@@ -196,7 +199,7 @@ window.irAiRecognitionPage=async function(objectId){
   }
   try{
    for(const d of selected){
-    if(!isCurrent())break;
+    if(!isCurrent()||bulk.cancelled)break;
     const row=bulk.rows.get(String(d.id));
     if(row.state==="done")continue;
     row.state="running";bulk.current=d.name;updateProgress();
@@ -205,6 +208,16 @@ window.irAiRecognitionPage=async function(objectId){
      if(String(result.documentId)!==String(d.id)||
       result.sourceSha256!==d.sha256||!result.pages?.length)
       throw Error("Индекс не соответствует исходному PDF");
+     if(!api.aiPdfGeometry?.page)throw Error("Модуль геометрии PDF недоступен");
+     row.total=result.pages.length;row.page=0;updateProgress();
+     for(const sheet of result.pages){
+      if(!isCurrent()||bulk.cancelled)break;
+      const geometry=await api.aiPdfGeometry.page(id,d.id,sheet.page);
+      if(geometry.sourceSha256!==d.sha256)
+       throw Error("Геометрия не соответствует исходному PDF");
+      row.page++;updateProgress()
+     }
+     if(!isCurrent()||bulk.cancelled)break;
      indexes=indexes.filter(x=>String(x.documentId)!==String(d.id));
      indexes.push(result);row.state="done";row.pages=result.totalPages||result.pages.length
     }catch(ex){row.state="error";row.message=String(ex.message||ex).slice(0,130)}
@@ -212,6 +225,7 @@ window.irAiRecognitionPage=async function(objectId){
    }
   }finally{
    unsubscribe?.();bulk.running=false;bulk.current="";busy=false;
+   for(const row of bulk.rows.values())if(row.state==="running")row.state="waiting";
    await reload()
   }
  }

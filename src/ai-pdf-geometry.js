@@ -3,6 +3,16 @@
  * Importantly no geometry is written into scheme or mark registers. */
 const path=require("node:path"),{Worker}=require("node:worker_threads");
 const MAX_PDF_BYTES=48*1024*1024,DEADLINE=65000;
+const CACHE_VERSION=1,CACHE_ENTITY="ai-pdf-geometry";
+function validResult(value,num){
+ return value?.page===num&&value.coordinateSystem==="viewport_points_top_left"&&
+  Number.isFinite(value.widthPt)&&value.widthPt>0&&
+  Number.isFinite(value.heightPt)&&value.heightPt>0&&
+  Array.isArray(value.segments)&&value.segments.length<=2400&&
+  [value.segments,value.detailSegments||[]].every(list=>Array.isArray(list)&&
+   list.length<=14400&&list.every(seg=>seg&&
+    ["x1","y1","x2","y2"].every(k=>Number.isFinite(seg[k]))));
+}
 function createPdfGeometry({documents,database,resolveWorker,pdfjsModuleUrl,
  workerFactory=(file,options)=>new Worker(file,options)}={}){
  if(!documents?.readForPdfIndex||!database?.getObject)
@@ -20,6 +30,19 @@ function createPdfGeometry({documents,database,resolveWorker,pdfjsModuleUrl,
    const input=await documents.readForPdfIndex(id,doc);
    if(!input?.source?.sha256||!input.buffer||input.buffer.length>MAX_PDF_BYTES)
     throw Error("Недоступен исходный PDF");
+   const cacheAvailable=typeof database.listEntity==="function"&&
+    typeof database.createEntity==="function";
+   const cached=cacheAvailable?database.listEntity(id,CACHE_ENTITY).find(row=>
+    row.record_type==="pdf_page_geometry"&&row.data?.version===CACHE_VERSION&&
+    row.data.documentId===doc&&row.data.sourceSha256===input.source.sha256&&
+    validResult(row.data.result,num)):null;
+   if(cached){
+    if(typeof documents.verify==="function"&&!documents.verify(id,doc))
+     throw Error("Исходный PDF изменился во время анализа");
+    return{...cached.data.result,objectId:id,documentId:doc,
+     sourceSha256:input.source.sha256,cached:true,
+     verified:typeof documents.verify==="function",safeForAutoPlacement:false}
+   }
    const result=await new Promise((resolve,reject)=>{
     const instance=workerFactory(resolveWorker?resolveWorker():path.join(__dirname,"ai-pdf-vector-worker.js"),
      {workerData:{bytes:new Uint8Array(input.buffer),page:num,pdfjsModuleUrl},
@@ -34,13 +57,7 @@ function createPdfGeometry({documents,database,resolveWorker,pdfjsModuleUrl,
     instance.on("message",message=>{
      if(message?.type==="error")finish(Error(message.message||"Ошибка PDF"));
      else if(message?.type==="result"){
-      if(message.page!==num||!Array.isArray(message.segments)||
-       message.segments.length>2400||
-       message.detailSegments!==undefined&&
-        (!Array.isArray(message.detailSegments)||message.detailSegments.length>14400||
-         message.detailSegments.some(seg=>!seg||
-          !["x1","y1","x2","y2"].every(k=>Number.isFinite(seg[k]))))||
-       message.coordinateSystem!=="viewport_points_top_left")
+      if(!validResult(message,num))
        finish(Error("Недопустимые данные векторного анализатора"));
       else finish(null,message)
      }
@@ -50,7 +67,15 @@ function createPdfGeometry({documents,database,resolveWorker,pdfjsModuleUrl,
    });
    if(typeof documents.verify==="function"&&!documents.verify(id,doc))
     throw Error("Исходный PDF изменился во время анализа");
-   return{...result,objectId:id,documentId:doc,sourceSha256:input.source.sha256,
+   if(cacheAvailable){
+    const saved=database.createEntity(id,CACHE_ENTITY,{
+     record_type:"pdf_page_geometry",title:"PDF: "+doc+" · лист "+num,
+     data:{version:CACHE_VERSION,documentId:doc,sourceSha256:input.source.sha256,
+      result,generatedByAI:false,safeForAutoPlacement:false}
+    });
+    if(!saved)throw Error("Не удалось сохранить геометрию листа PDF");
+   }
+   return{...result,cached:false,objectId:id,documentId:doc,sourceSha256:input.source.sha256,
     verified:typeof documents.verify==="function",
     safeForAutoPlacement:false}
   })();
