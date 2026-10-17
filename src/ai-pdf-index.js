@@ -98,7 +98,8 @@ function createPdfIndex({database,documents,workerFactory=(file,options)=>new Wo
     calibrated:projection.calibrated,reason:projection.reason||null,
     scaleMmPerPdfUnit:projection.scaleMmPerPdfUnit??null,
     rotationRadians:projection.rotationRadians??null,
-    anchorsVerified:projection.anchorsVerified??0,
+    anchorsSupplied:projection.anchorsSupplied??0,
+    requiresUserVerification:true,
     safeForAutoPlacement:false
    }}
  }
