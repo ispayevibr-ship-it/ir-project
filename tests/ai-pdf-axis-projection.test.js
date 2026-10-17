@@ -9,4 +9,8 @@ assert.deepEqual(axisMap({axes_x:["1","2"],x_spans_mm:[0]},"x"),{});
 const x=calibrateDimension([{dimension:"x",value:"1",point:{x:10,y:0}},{dimension:"x",value:"2",point:{x:110,y:0}}],{"1":0,"2":45000},"x");
 assert.equal(x.calibrated,true);
 assert.equal(x.scaleMmPerPt,450);
+assert.deepEqual(axisMap({axes_x:["1","2","2"],x_spans_mm:[45000,45000]},"x"),{});
+assert.deepEqual(axisMap({axes_x:["1","2"],x_spans_mm:[""]},"x"),{});
+assert.deepEqual(axisMap({axes_x:["1","2"],x_spans_mm:[null]},"x"),{});
+assert.deepEqual(axisMap({axes_y:["А","Б","В","Г"],y_spans_mm:[6000,9000,7500]},"y"),{"А":0,"Б":6000,"В":15000,"Г":22500});
 console.log("PDF axis grid validation passed");
