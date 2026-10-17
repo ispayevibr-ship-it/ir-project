@@ -38,3 +38,20 @@ test("existing PDF list returns register match statistics without new IPC",()=>{
  assert.deepEqual(report.perPage.map(p=>p.occurrences),[2,1]);
  assert.equal(report.safeForAutoPlacement,false);
 });
+
+test("does not double-count old indexes of the same drawing",()=>{
+ const database={
+  getObject:()=>({id:1}),
+  listEntity:(_id,key)=>key==="marks"?[{data:{mark:"К62"}}]:
+   key==="ai-pdf-index"?[{
+    id:4,record_type:"pdf_text_index",data:{source:{documentId:9,name:"old.pdf"},
+     pages:[{page:1,fragments:[{text:"К62 К62"}]}]}
+   },{
+    id:5,record_type:"pdf_text_index",data:{source:{documentId:9,name:"new.pdf"},
+     pages:[{page:1,fragments:[{text:"К62"}]}]}
+   }]:[]
+ };
+ const index=createPdfIndex({database,documents:{}});
+ assert.equal(index.list(1).length,1);
+ assert.equal(index.markSummary(1).totalOccurrences,1);
+});
