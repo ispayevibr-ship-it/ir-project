@@ -106,8 +106,15 @@ function createPdfIndex({database,documents,workerFactory=(file,options)=>new Wo
   const candidates=extractPageCandidates(p,marks,allowedMarks?.grid||{});
   const requestedMark=String(allowedMarks?.inspectMark||"").trim();
   const elevationInspection=requestedMark?inspectMarkElevations({pages:[p],mark:requestedMark,allowedMarks:marks}):null;
-  const singleMarkElevationHeuristic=requestedMark&&allowedMarks?.singleMarkSheet===true?
+  // Single-mark mode is explicitly opted into: never infer ownership of
+  // sheet-wide dimensions on a sheet containing several marks.
+  const singleMarkRequested=requestedMark&&allowedMarks?.singleMarkSheet===true;
+  if(singleMarkRequested&&!marks.some(mark=>mark.trim().toUpperCase()===requestedMark.toUpperCase()))
+   throw Error("Марка отсутствует в ведомости");
+  const singleMarkElevationHeuristic=singleMarkRequested?
    inspectSingleMarkSheetLevels(p):null;
+  if(singleMarkElevationHeuristic&&elevationInspection)
+   elevationInspection.singleMarkSheet=singleMarkElevationHeuristic;
   return{indexId:item.id,source:item.data.source,page:p,pdfCandidates:candidates,elevationInspection,singleMarkElevationHeuristic,
    markMatches:projection.candidates,projection:{
     calibrated:projection.calibrated,reason:projection.reason||null,
