@@ -96,12 +96,6 @@ const aiRevisions={
  removeSheet:(objectId,setId,sheetId)=>ipcRenderer.invoke("ai-revisions:remove-sheet",{objectId,setId,sheetId}),
  activate:(objectId,setId,expectedRevision)=>ipcRenderer.invoke("ai-revisions:activate",{objectId,setId,expectedRevision})
 };
-const aiProposals={
- list:objectId=>ipcRenderer.invoke("ai-proposals:list",objectId),
- summary:objectId=>ipcRenderer.invoke("ai-proposals:summary",objectId),
- history:(objectId,analysisId,index)=>ipcRenderer.invoke("ai-proposals:history",{objectId,analysisId,index}),
- save:(objectId,analysisId,index,entry)=>ipcRenderer.invoke("ai-proposals:save",{objectId,analysisId,index,entry})
-};
 const aiPdfGeometry={page:(objectId,documentId,page)=>
  ipcRenderer.invoke("ai-pdf:geometry",{objectId,documentId,page})};
 const aiMounting={
@@ -124,5 +118,5 @@ const aiReview={
  authorize:(role,password)=>ipcRenderer.invoke("ai-review:authorize",{role,password}),
  save:(objectId,id,review)=>ipcRenderer.invoke("ai-review:save",{objectId,id,review})
 };
-contextBridge.exposeInMainWorld("irProject",{objects,company,images:{read:file=>ipcRenderer.invoke("images:read",file),remove:file=>ipcRenderer.invoke("images:remove",file),optimize:(file,type)=>ipcRenderer.invoke("images:optimize",{file,type})},reportPhotos,reportDocuments,reportExport,marksExcel,schemeReset,aiMounting,aiPdfGeometry,aiDocuments,aiPdf,aiReview,aiProposals,aiRevisions,aiIntegrity,aiKmdReference,aiMarkQuantities,aiKmdMaterials,aiKmdConnections,aiKmKmdCompare,aiAssembly3d,aiAssemblyAttachments,sections,data:{objects,sections,forObject:objectId=>({section:key=>section(objectId,key),records:key=>section(objectId,key)})},access:{login:(role,password)=>ipcRenderer.invoke("access:login",{role,password}),
+contextBridge.exposeInMainWorld("irProject",{objects,company,images:{read:file=>ipcRenderer.invoke("images:read",file),remove:file=>ipcRenderer.invoke("images:remove",file),optimize:(file,type)=>ipcRenderer.invoke("images:optimize",{file,type})},reportPhotos,reportDocuments,reportExport,marksExcel,schemeReset,aiMounting,aiPdfGeometry,aiDocuments,aiPdf,aiReview,aiRevisions,aiIntegrity,aiKmdReference,aiMarkQuantities,aiKmdMaterials,aiKmdConnections,aiKmKmdCompare,aiAssembly3d,aiAssemblyAttachments,sections,data:{objects,sections,forObject:objectId=>({section:key=>section(objectId,key),records:key=>section(objectId,key)})},access:{login:(role,password)=>ipcRenderer.invoke("access:login",{role,password}),
  logout:()=>ipcRenderer.invoke("access:logout")},backup:{create:()=>ipcRenderer.invoke("backup:create"),restore:()=>ipcRenderer.invoke("backup:restore")},updater:{check:()=>ipcRenderer.invoke("update:check"),download:()=>ipcRenderer.invoke("update:download"),rollback:()=>ipcRenderer.invoke("update:rollback"),install:()=>ipcRenderer.invoke("update:install"),version:()=>ipcRenderer.invoke("update:version"),onStatus:cb=>ipcRenderer.on("update:status",(_e,d)=>cb(d))}});

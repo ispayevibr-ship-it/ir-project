@@ -20,7 +20,7 @@ function hotAiModule(name){
 }
 const mountingPlacement=hotAiModule("ai-mounting-placement");
 const mountingDrafts=hotAiModule("ai-mounting-drafts");
-const database=require("./src/database"),aiDocumentStore=hotAiModule("ai-document-store"),aiReview=hotAiModule("ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiKmdMaterials=require("./src/ai-kmd-materials"),aiKmdConnections=require("./src/ai-kmd-connections"),aiKmKmdCompare=require("./src/ai-km-kmd-compare"),aiAssemblyGeometry=require("./src/ai-assembly-geometry"),aiAssemblyAttachments=require("./src/ai-assembly-attachments"),aiStructuredReview=hotAiModule("ai-structured-review"),aiDrawingRevisions=require("./src/ai-drawing-revisions"),aiIntegrityReport=require("./src/ai-integrity-report"),aiCoverageReport=require("./src/ai-kmd-coverage"),aiKmdReference=require("./src/ai-kmd-reference"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),completeBackup=require("./src/ai-complete-backup"),backup=require("./src/backup"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
+const database=require("./src/database"),aiDocumentStore=hotAiModule("ai-document-store"),aiReview=hotAiModule("ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiKmdMaterials=require("./src/ai-kmd-materials"),aiKmdConnections=require("./src/ai-kmd-connections"),aiKmKmdCompare=require("./src/ai-km-kmd-compare"),aiAssemblyGeometry=require("./src/ai-assembly-geometry"),aiAssemblyAttachments=require("./src/ai-assembly-attachments"),aiDrawingRevisions=require("./src/ai-drawing-revisions"),aiIntegrityReport=require("./src/ai-integrity-report"),aiCoverageReport=require("./src/ai-kmd-coverage"),aiKmdReference=require("./src/ai-kmd-reference"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),completeBackup=require("./src/ai-complete-backup"),backup=require("./src/backup"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
 let win;
 const schemeResetService=schemeReset.createReset({database});
 const aiDocuments=aiDocumentStore.createStore({getUserDataPath:()=>app.getPath("userData"),dialog,shell,database,getWindow:()=>win});
@@ -48,7 +48,9 @@ const aiPdf=aiPdfIndex.createPdfIndex({database,documents:aiDocuments,
 const aiRevisions=aiDrawingRevisions.createDrawingRevisions({database,documents:aiDocuments,pdfIndex:aiPdf});
 const aiRaster=aiPdfRenderer.createPdfRenderer({database,documents:aiDocuments});
 const aiReviews=aiReview.createAiReview({database,revisions:aiRevisions});
-const aiProposals=aiStructuredReview.createStructuredReviews({database,documents:aiDocuments,revisions:aiRevisions});
+// Historical neural proposals remain unmodified in SQLite and backups, but
+// are not loaded, generated, edited, or exposed by the model-free application.
+const archivedProposalView=Object.freeze({list:()=>[]});
 const aiQuantities=aiMarkQuantities.createMarkQuantities({database,revisions:aiRevisions});
 const aiMaterials=aiKmdMaterials.createKmdMaterials({database,quantities:aiQuantities,revisions:aiRevisions});
 const aiConnections=aiKmdConnections.createKmdConnections({database,quantities:aiQuantities,revisions:aiRevisions});
@@ -71,11 +73,11 @@ const aiReference=aiKmdReference.createKmdReference({
 });
 const aiCoverage=aiCoverageReport.createAiCoverage({
  database,quantities:aiQuantities,materials:aiMaterials,connections:aiConnections,
- assemblies:aiAssemblies,attachments:aiAttachments,proposals:aiProposals
+ assemblies:aiAssemblies,attachments:aiAttachments,proposals:archivedProposalView
 });
 const aiIntegrity=aiIntegrityReport.createAiIntegrity({
  database,documents:aiDocuments,pdfIndex:aiPdf,revisions:aiRevisions,
- review:aiReviews,workflow:{list:()=>[],summary:()=>({total:0,byStatus:{},isRunning:false})},proposals:aiProposals,quantities:aiQuantities,
+ review:aiReviews,workflow:{list:()=>[],summary:()=>({total:0,byStatus:{},isRunning:false})},proposals:archivedProposalView,quantities:aiQuantities,
  materials:aiMaterials,connections:aiConnections,comparisons:aiComparisons,
  assemblies:aiAssemblies,attachments:aiAttachments,coverage:aiCoverage,reference:aiReference
 });
@@ -240,12 +242,6 @@ function registerAiDocuments(){
   aiRevisions.removeSheet(objectId,setId,sheetId,requireAiReviewer(e)));
  ipcMain.handle("ai-revisions:activate",(e,{objectId,setId,expectedRevision})=>
   aiRevisions.activate(objectId,setId,expectedRevision,requireAiReviewer(e)));
- ipcMain.handle("ai-proposals:list",(_e,objectId)=>aiProposals.list(objectId));
- ipcMain.handle("ai-proposals:summary",(_e,objectId)=>aiProposals.summary(objectId));
- ipcMain.handle("ai-proposals:history",(_e,{objectId,analysisId,index})=>
-  aiProposals.history(objectId,analysisId,index));
- ipcMain.handle("ai-proposals:save",(e,{objectId,analysisId,index,entry})=>
-  aiProposals.save(objectId,analysisId,index,entry,requireAiReviewer(e)));
  ipcMain.handle("ai-attachment:list",(_e,{objectId,assemblyId})=>aiAttachments.list(objectId,assemblyId));
  ipcMain.handle("ai-attachment:summary",(_e,{objectId,assemblyId})=>aiAttachments.summary(objectId,assemblyId));
  ipcMain.handle("ai-attachment:history",(_e,{objectId,id})=>aiAttachments.history(objectId,id));
