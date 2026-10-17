@@ -45,3 +45,8 @@ test("recognizes Ф10 but not Ф100 or unknown marks",()=>{
  const hits=markOccurrences({page:6,fragments:[{text:"Ф10"},{text:"Ф 10"},{text:"Ф100"},{text:"Ф11"}]},["Ф10"]);
  assert.deepEqual(hits.map(x=>x.mark),["Ф10","Ф10"]);
 });
+
+test("never matches a mark embedded in a longer designation",()=>{
+ const hits=markOccurrences({page:7,fragments:[{text:"Ф100"},{text:"Ф10А"},{text:"Ф10"}]},["Ф10"]);
+ assert.deepEqual(hits.map(x=>x.mark),["Ф10"]);
+});
