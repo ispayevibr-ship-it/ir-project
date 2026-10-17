@@ -29,7 +29,11 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
    verification:"required",safeForAutoPlacement:false};
  });
  const vectorIntersections=intersectionEvidence({page,geometry,candidates});
- return{...base,geometryAligned:geometryValid,segmentCount:segments.length,candidates,
+ const intersectionsByFragment=new Map(vectorIntersections.marks.map(item=>[item.fragmentIndex,item.nearbyIntersections]));
+ const candidatesWithIntersections=candidates.map(item=>({...item,
+  nearbyIntersections:intersectionsByFragment.get(item.fragmentIndex)||[],
+  intersectionEvidenceStatus:(intersectionsByFragment.get(item.fragmentIndex)||[]).length?'nearby_unverified_intersections':'no_nearby_intersections'}));
+ return{...base,geometryAligned:geometryValid,segmentCount:segments.length,candidates:candidatesWithIntersections,
   vectorIntersections,strokeCandidates:classifySegments(segments),
   verifiedInstances:0,safeForAutoPlacement:false};
 }
