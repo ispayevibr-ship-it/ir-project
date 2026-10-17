@@ -13,4 +13,7 @@ const filtered=markOccurrences(titleBlockPage,["К62"]);
 assert.equal(filtered.length,1);
 assert.equal(filtered[0].x,617);
 assert.equal(markOccurrences({...titleBlockPage,titleBlockBounds:null},["К62"]).length,2);
+const missingCoords=markOccurrences({page:4,titleBlockBounds:{x0:0,y0:0,x1:100,y1:100},fragments:[{text:"К62"},{text:"К63",x:10,y:10}]},["К62","К63"]);
+assert.deepEqual(missingCoords.map(h=>h.mark),["К62"]);
+assert.equal(missingCoords[0].x,null);
 console.log("PDF registered mark matching passed");
