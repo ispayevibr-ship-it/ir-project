@@ -31,6 +31,7 @@ function createPdfGeometry({documents,database,resolveWorker,pdfjsModuleUrl,
   if(!Number.isSafeInteger(doc)||doc<1||!Number.isSafeInteger(num)||num<1||num>80)
    throw Error("Неверный PDF или номер листа");
   const key=id+":"+doc+":"+num;
+  // Share a single worker/cache lookup for concurrent requests to the same sheet.
   if(jobs.has(key))return jobs.get(key);
   const task=(async()=>{
    const input=await documents.readForPdfIndex(id,doc);
