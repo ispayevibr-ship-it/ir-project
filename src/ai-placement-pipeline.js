@@ -63,7 +63,7 @@ function candidatePlacements(pages,register,grid={}){
     .filter(v=>v.distancePt<=100).sort((a,b)=>a.distancePt-b.distancePt);
    const uniquelyNearest=nearby.filter(v=>markHits.every(other=>other===hit||Math.hypot(v.x-other.x,v.y-other.y)>v.distancePt));
    const mapped=projected.find(p=>p.fragmentIndex===hit.fragmentIndex&&normalize(p.mark)===key);
-   unique.get(key).push({mark:hit.mark,type:typeByMark.get(key)||"не определено",page:page.page,point:{x:hit.x,y:hit.y},
+   unique.get(key).push({mark:hit.mark,type:typeByMark.get(key)||"не определено",page:page.page,documentId:page.documentId??page.sourceDocumentId??null,point:{x:hit.x,y:hit.y},
     xMm:mapped?.xMm??null,yMm:mapped?.yMm??null,z0Mm:null,z1Mm:null,
     coordinateStatus:mapped?.xMm!=null&&mapped?.yMm!=null?"label_coordinate_only":"unresolved",
     nearestXAxis:nearest(mapped?.xMm,axesX),nearestYAxis:nearest(mapped?.yMm,axesY),
