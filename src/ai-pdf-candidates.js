@@ -16,8 +16,8 @@ function extractPageCandidates(page, allowedMarks, grid = {}) {
   const workingPage = detectedTitleBlock ? { ...page, titleBlockBounds: detectedTitleBlock } : page;
   const marks = markOccurrences(workingPage, allowedMarks);
   const axisNames = value => Array.isArray(value) ? value : value && typeof value === 'object' ? Object.keys(value) : [];
-  const xAxes = new Set(axisNames(grid.axes_x ?? grid.x).map(String));
-  const yAxes = new Set(axisNames(grid.axes_y ?? grid.y).map(String));
+  const xAxes = new Set(axisNames(grid?.axes_x ?? grid?.x).map(String));
+  const yAxes = new Set(axisNames(grid?.axes_y ?? grid?.y).map(String));
   const observations = [];
   fragments.forEach((fragment, index) => {
     const text = normal(fragment?.text ?? fragment?.str);
@@ -30,7 +30,7 @@ function extractPageCandidates(page, allowedMarks, grid = {}) {
         fx >= Number(block.x0) && fx <= Number(block.x1) &&
         fy >= Number(block.y0) && fy <= Number(block.y1)) return;
     const x = Number(fragment?.x), y = Number(fragment?.y);
-    const point = Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+    const point = fragment?.x != null && fragment?.y != null && Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
     const base = { page: page?.page ?? null, fragmentIndex: index, text, point };
     if (axisToken.test(text) && (xAxes.has(text) || yAxes.has(text)))
       observations.push({ ...base, kind: 'axis', dimension: xAxes.has(text) && yAxes.has(text) ? 'ambiguous' : xAxes.has(text) ? 'x' : 'y', value: text });
