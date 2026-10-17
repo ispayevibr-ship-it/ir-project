@@ -34,14 +34,17 @@ function inspectSingleMarkSheetLevels(page,{assumedBaseMm=null}={}){
  const candidates=[...levels].sort((a,b)=>a.mm-b.mm);
  // The project datum is Z=0. A nearby +0.050 annotation is not proof
  // that the structural column begins at +0.050.
- const topValues=tops.map(x=>x.mm);
+ // PDF page height is not structural height: a title block or detail view
+ // may sit above the column drawing. Expose candidates but do not promote
+ // page position to a verified top-of-column elevation.
+ const topValues=levels.filter(x=>x.mm>0).map(x=>x.mm);
  const z1Mm=topValues.length?Math.max(...topValues):null;
  const z0Mm=Number.isFinite(assumedBaseMm)?assumedBaseMm:null;
  const chosen={z0Mm,z1Mm,heightMm:z1Mm===null||z0Mm===null||z1Mm<z0Mm?null:z1Mm-z0Mm,
-  method:"explicit_assumed_base_max_upper",requiresReview:true};
+  method:"explicit_assumed_base_max_positive_candidate",requiresReview:true};
  return {...chosen,levels,candidates,bottomEvidence:[],datumBasis:z0Mm===null?"not_established":"user_assumed_base",
-  topEvidence:tops.filter(x=>x.mm===chosen.z1Mm),
-  status:chosen.heightMm===null?"needs_manual_review":"heuristic_requires_verification",
+  topEvidence:levels.filter(x=>x.mm===chosen.z1Mm),
+  status:chosen.heightMm===null?"needs_manual_review":"candidate_only_requires_drawing_verification",
   safeForAutoPlacement:false};
 }
 function inspectMarkElevations({pages=[],mark="К62",allowedMarks=[mark]}={}){
