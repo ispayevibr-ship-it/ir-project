@@ -14,7 +14,7 @@ function associateLabels(candidates, {radiusPt=90,maxNeighbors=6}={}) {
  }).filter(Boolean).sort((a,b)=>a.distancePt-b.distancePt).slice(0,maxNeighbors);
  return marks.map(mark=>{
   const point={x:Number(mark.x),y:Number(mark.y)};
-  const valid=Number.isFinite(point.x)&&Number.isFinite(point.y)&&mark.x!=null&&mark.y!=null;
+  const valid=Number.isFinite(point.x)&&Number.isFinite(point.y)&&mark.x!=null&&mark.y!=null&&String(mark.x).trim()!==''&&String(mark.y).trim()!=='';
   const axisCandidates=valid?nearby(point,observations.filter(o=>o.kind==='axis')):[];
   const elevationCandidates=valid?nearby(point,observations.filter(o=>o.kind==='elevation')):[];
   const dimensionCandidates=valid?nearby(point,[...observations.filter(o=>o.kind==='dimension'),...chains]):[];
