@@ -3,7 +3,7 @@
 function scanPages(index){
  if(!index||!Array.isArray(index.pages))return [];
  return index.pages.filter(p=>Number.isSafeInteger(Number(p.page))&&
-  (!p.hasTextLayer||p.uncertainEncoding||p.ocr?.needed===true))
+  (p.ocr?.needed===true||!p.hasTextLayer||p.uncertainEncoding))
   .map(p=>({page:Number(p.page),reason:p.uncertainEncoding?"uncertain_encoding":"missing_text_layer"}));
 }
 function scanSummary(index){
