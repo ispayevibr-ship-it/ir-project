@@ -21,6 +21,7 @@ function hotAiModule(name){
 const mountingPlacement=hotAiModule("ai-mounting-placement");
 const mountingDrafts=hotAiModule("ai-mounting-drafts");
 const mountingAuto=hotAiModule("ai-mounting-auto");
+const mountingPreview=hotAiModule("ai-scheme-preview");
 const database=require("./src/database"),aiDocumentStore=hotAiModule("ai-document-store"),aiReview=hotAiModule("ai-review"),aiMarkQuantities=require("./src/ai-mark-quantities"),aiKmdMaterials=require("./src/ai-kmd-materials"),aiKmdConnections=require("./src/ai-kmd-connections"),aiKmKmdCompare=require("./src/ai-km-kmd-compare"),aiAssemblyGeometry=require("./src/ai-assembly-geometry"),aiAssemblyAttachments=require("./src/ai-assembly-attachments"),aiDrawingRevisions=require("./src/ai-drawing-revisions"),aiIntegrityReport=require("./src/ai-integrity-report"),aiCoverageReport=require("./src/ai-kmd-coverage"),aiKmdReference=require("./src/ai-kmd-reference"),aiPdfIndex=require("./src/ai-pdf-index"),aiPdfRenderer=require("./src/ai-pdf-renderer"),completeBackup=require("./src/ai-complete-backup"),backup=require("./src/backup"),runtimeLoader=require("./src/runtime-loader"),imageStore=require("./src/image-store"),companyStore=require("./src/company-store"),reportDocumentStore=require("./src/report-document-store"),marksExcel=require("./src/marks-excel"),registerSectionIpc=require("./src/register-section-ipc");
 let win;
 const schemeResetService=schemeReset.createReset({database});
