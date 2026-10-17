@@ -26,7 +26,7 @@ function createPdfIndex({database,documents,workerFactory=(file,options)=>new Wo
  }
  function list(id){return rows(id).map(summarize)}
  function registerMarks(id){
-  const entries=database.listEntity(object(id),"marks");
+  const entries=database.listEntity(object(id),"marks")||[];
   return [...new Set(entries.map(r=>String(r?.data?.mark??r?.title??"").trim()).filter(Boolean))];
  }
  function markSummary(id){
