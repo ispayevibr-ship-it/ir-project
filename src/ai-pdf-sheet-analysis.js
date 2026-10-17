@@ -23,7 +23,8 @@ function classifyMarkType(name){
   {type:null,status:s?"unknown_type":"missing_name"};
 }
 function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha256,maxDistancePt=12}={}){
- const base=buildCoordinateCandidates({page,registerMarks,anchors,documentId,sourceSha256});
+ const markNames=Array.isArray(registerMarks)?registerMarks.map(entry=>entry&&typeof entry==='object'?entry.mark??entry.mark_name??entry.code:entry).filter(Boolean):[];
+ const base=buildCoordinateCandidates({page,registerMarks:markNames,anchors,documentId,sourceSha256});
  const registerEntries=Array.isArray(registerMarks)?registerMarks:[];
  const registerByMark=new Map();
  for(const entry of registerEntries){
@@ -80,7 +81,7 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
    verified:false})),
   intersectionEvidenceStatus:nearby.length?'nearby_unverified_intersections':'no_nearby_intersections'};
  });
- const elevationObservations=extractPageCandidates(page,registerMarks).observations.filter(item=>item.kind==="elevation");
+ const elevationObservations=extractPageCandidates(page,markNames).observations.filter(item=>item.kind==="elevation");
  const elevations=elevationEvidence({spatialAssociations:candidatesWithIntersections.map(item=>({
   mark:item.mark,page:item.page,fragmentIndex:item.fragmentIndex,
   pdfPoint:Number.isFinite(item.pdfX)&&Number.isFinite(item.pdfY)&&Number.isFinite(page?.heightPt)?
