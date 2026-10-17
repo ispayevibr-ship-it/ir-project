@@ -27,6 +27,7 @@ function elevationEvidence(candidates,{radiusPt=120}={}){
   const levelReview={bottomCandidates:bottom.length,topCandidates:top.length,
     candidateZ0Mm:explicitPair?bottom[0].valueMm:null,
     candidateZ1Mm:explicitPair?top[0].valueMm:null,
+    candidateHeightMm:explicitPair?top[0].valueMm-bottom[0].valueMm:null,
     sharedElevationEvidence:evidence.some(o=>o.sharedWithNearbyMarks),
     status:explicitPair&&!evidence.some(o=>o.sharedWithNearbyMarks)?
      'explicit_pair_unverified':bottom.length>1||top.length>1?'ambiguous_levels':'insufficient_levels'};
