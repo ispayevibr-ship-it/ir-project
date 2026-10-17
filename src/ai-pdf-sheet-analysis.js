@@ -11,7 +11,7 @@ function classifyMarkType(name){
  const s=String(name??"").normalize("NFKC").toLowerCase().trim();
  const types=[
   ["column",/^(?:колонн|стойк)/u],
-  ["column",/^(?:к\s*[-–—]?\s*\d+)\s+колонн/u],
+
   ["rigel",/^ригел/u],
   ["brace",/^(?:связ|раскос)/u],
   ["fachwerk",/^фахверк/u],
