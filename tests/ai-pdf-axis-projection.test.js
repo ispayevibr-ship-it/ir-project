@@ -76,4 +76,13 @@ assert.equal(manyResult.candidates.filter(x=>x.structuralType.type==="column").l
 assert.equal(manyResult.candidates.every(x=>x.verification==="required"),true);
 assert.equal(summarizeSheets([manyResult]).classified,10);
 assert.equal(summarizeSheets([manyResult]).unclassified,0);
+const repeatedPage={page:3,heightPt:200,rotation:0,fragments:[
+ {str:"К62",x:20,y:50},{str:"К62",x:40,y:50},{str:"К63",x:60,y:50},
+ {str:"НЕИЗВЕСТНАЯ",x:80,y:50}]};
+const repeated=analyzeSheet({page:repeatedPage,registerMarks:[
+ {mark:"К62",name:"Колонна К62"},{mark:"К63",name:"Колонна К63"}]});
+assert.equal(repeated.candidates.length,3);
+assert.equal(repeated.candidates.filter(x=>x.mark==="К62").length,2);
+assert.equal(repeated.candidates.every(x=>x.structuralType.type==="column"),true);
+assert.equal(repeated.candidates.every(x=>x.safeForAutoPlacement===false),true);
 console.log("PDF axis grid, vector evidence and sheet summary validation passed");
