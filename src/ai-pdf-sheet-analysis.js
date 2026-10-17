@@ -134,7 +134,21 @@ function reconcileMarkCounts(sheets,registerMarks){
    status:!valid?"quantity_unknown":detected===expected?"matched":detected<expected?"missing":"excess"});
   found.delete(key);
  }
- return {marks:result,unregistered:[...found].map(([mark,detected])=>({mark,detected})),
+ const summary={matched:0,missing:0,excess:0,quantityUnknown:0,duplicateRegisterMarks:0,expectedInstances:0,detectedInstances:0,missingInstances:0,excessInstances:0};
+ for(const row of result){
+  if(row.status==="matched")summary.matched++;
+  if(row.status==="missing")summary.missing++;
+  if(row.status==="excess")summary.excess++;
+  if(row.status==="quantity_unknown")summary.quantityUnknown++;
+  if(row.status==="duplicate_register_mark")summary.duplicateRegisterMarks++;
+  if(row.status!=="duplicate_register_mark"){
+   summary.detectedInstances+=row.detected;
+   if(row.expected!==null)summary.expectedInstances+=row.expected;
+   summary.missingInstances+=row.missing||0;
+   summary.excessInstances+=row.excess||0;
+  }
+ }
+ return {marks:result,summary,unregistered:[...found].map(([mark,detected])=>({mark,detected})),
   safeForAutoPlacement:false};
 }
 function summarizeSheets(sheets){
