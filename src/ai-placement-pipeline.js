@@ -1,7 +1,15 @@
 "use strict";
 const {markOccurrences,normalize}=require("./ai-pdf-mark-matcher");
 const {extractPageCandidates}=require("./ai-pdf-candidates");
+const {axisMap}=require("./ai-pdf-axis-projection");
 function candidatePlacements(pages,register,grid={}){
+ const axesX=axisMap(grid,"x"),axesY=axisMap(grid,"y");
+ const nearest=(value,axes)=>{
+  if(value==null||!Number.isFinite(value))return null;
+  const entries=Object.entries(axes).sort((a,b)=>Math.abs(a[1]-value)-Math.abs(b[1]-value));
+  if(!entries.length)return null;
+  return {axis:entries[0][0],offsetMm:Math.round(value-entries[0][1])};
+ };
  const allowed=Array.isArray(register)?register.map(x=>typeof x==="string"?x:x.mark).filter(Boolean):[];
  const unique=new Map();
  for(const page of pages||[]){
@@ -18,6 +26,7 @@ function candidatePlacements(pages,register,grid={}){
    unique.get(key).push({mark:hit.mark,page:page.page,point:{x:hit.x,y:hit.y},
     xMm:mapped?.xMm??null,yMm:mapped?.yMm??null,z0Mm:null,z1Mm:null,
     coordinateStatus:mapped?.xMm!=null&&mapped?.yMm!=null?"label_coordinate_only":"unresolved",
+    nearestXAxis:nearest(mapped?.xMm,axesX),nearestYAxis:nearest(mapped?.yMm,axesY),
     levelCandidates:nearby.slice(0,10),status:"requires_review",safeForAutoPlacement:false});
   }
  }
