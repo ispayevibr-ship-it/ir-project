@@ -4,7 +4,7 @@ const path=require("node:path"),{Worker}=require("node:worker_threads");
 const {markOccurrences}=require("./ai-pdf-mark-matcher");
 const {projectMarks}=require("./ai-pdf-mark-projection");
 const {extractPageCandidates}=require("./ai-pdf-candidates");
-const {inspectMarkElevations,inspectSingleMarkSheetLevels}=require("./ai-pdf-mark-elevations");
+const {inspectMarkElevations,inspectSingleMarkSheetLevels,inspectNearbyLevelCandidates}=require("./ai-pdf-mark-elevations");
 const {extractWithPyMuPDF}=require("./ai-pymupdf-runner");
 const MAX_PDF_BYTES=48*1024*1024,DEADLINE=120000;
 function completePages(pages,total){
@@ -116,7 +116,9 @@ function createPdfIndex({database,documents,workerFactory=(file,options)=>new Wo
    inspectSingleMarkSheetLevels(p,{assumedBaseMm:allowedMarks?.assumedBaseMm===0?0:null}):null;
   if(singleMarkElevationHeuristic&&elevationInspection)
    elevationInspection.singleMarkSheet=singleMarkElevationHeuristic;
-  return{indexId:item.id,source:item.data.source,page:p,pdfCandidates:candidates,elevationInspection,singleMarkElevationHeuristic,
+  const nearbyLevelCandidates=requestedMark&&Array.isArray(p.levelCandidates)?
+   inspectNearbyLevelCandidates(p,requestedMark,marks):null;
+  return{indexId:item.id,source:item.data.source,page:p,pdfCandidates:candidates,elevationInspection,singleMarkElevationHeuristic,nearbyLevelCandidates,
    markMatches:projection.candidates,projection:{
     calibrated:projection.calibrated,reason:projection.reason||null,
     scaleMmPerPdfUnit:projection.scaleMmPerPdfUnit??null,
