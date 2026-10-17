@@ -59,8 +59,10 @@ const readZip=filename=>new Promise((resolve,reject)=>{
     if(allowed.length)hits=markOccurrences({page:i,fragments},allowed);
     const sheetMark=doc.name===COLUMN_FILE?"К"+(61+i):null;
     const title=sheetMark&&new RegExp("Колонна\\s+"+sheetMark+"(?![0-9])","u");
+    const sheetMarkMentions=sheetMark?
+     markOccurrences({page:i,fragments},[sheetMark]).length:null;
     const elevationEvidence=doc.name===COLUMN_FILE?[...new Set(text.match(/(?<!\\d)[+\\-]\\d[.,]\\d{3}(?!\\d)/gu)||[])].sort():[];
-    rows.push({page:i,sheetMark,sheetTitleMatched:title?title.test(text):null,
+    rows.push({page:i,sheetMark,sheetMarkMentions,sheetTitleMatched:title?title.test(text):null,
      elevationEvidence,placementConfirmed:false,fragments:fragments.length,textChars:text.length,
      matchedMentions:hits.length,matchedUnique:[...new Set(hits.map(x=>x.mark))].length,
      hasText:text.trim().length>0});
