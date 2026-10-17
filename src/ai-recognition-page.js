@@ -390,6 +390,7 @@ window.irAiRecognitionPage=async function(objectId){
      try{
       const preview=await api.aiMounting.reviewPreview(review,[...approvedCoordinates.values()]);
       const elements=preview.elements.map(e=>({id:e.id,mark:e.mark,scheme_group:({"колонна":"columns","фахверк":"fahwerk","балка":"beams","ригель":"girders","прогон":"purlins","связь":"ties","распорка":"spacers"})[e.type]||"other",geometryType:["колонна","фахверк"].includes(e.type)?"column":"beam",x:e.start.x,y:e.start.y,z0:e.start.z,x2:e.end.x,y2:e.end.y,z2:e.end.z}));
+      if(!elements.length){window.alert("Нет подтверждённых конструкций для 3D-просмотра. Пропущено: "+preview.skipped.length);return}
       const dlg=document.createElement("dialog");
       dlg.style.cssText="width:94vw;max-width:1400px;height:88vh;padding:12px";
       const close=document.createElement("button");close.textContent="Закрыть предпросмотр";close.onclick=()=>dlg.close();
