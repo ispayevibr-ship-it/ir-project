@@ -7,7 +7,7 @@ function elevationEvidence(candidates,{radiusPt=120}={}){
    Number.isFinite(o.valueMm)&&o.point&&Number.isFinite(o.point.x)&&Number.isFinite(o.point.y));
  return associations.map(item=>{
   const p=item.pdfPoint;
-  if(!p)return {mark:item.mark,page:item.page,z0Mm:null,z1Mm:null,evidence:[],status:'review'};
+  if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.y))return {mark:item.mark,page:item.page,z0Mm:null,z1Mm:null,evidence:[],status:'review'};
   const near=elevations.map(o=>({...o,distancePt:Math.hypot(o.point.x-p.x,o.point.y-p.y)}))
    .filter(o=>o.distancePt<=radiusPt).sort((a,b)=>a.distancePt-b.distancePt);
   const evidence=near.slice(0,12).map(o=>({fragmentIndex:o.fragmentIndex,valueMm:o.valueMm,
