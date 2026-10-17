@@ -46,3 +46,38 @@ test("rotated geometry is not compared using unrotated label coordinates",()=>{
   assert.equal(r.candidates[0].nearbySegments.length,0);
  }
 });
+
+test("geometry API combines the matching index and refreshes marks on cache hits",async()=>{
+ const {EventEmitter}=require("node:events");
+ const {createPdfGeometry}=require("./ai-pdf-geometry");
+ let marks=[{data:{mark:"К62"}}],workers=0;
+ const entries={"ai-pdf-geometry":[],"ai-pdf-index":[{
+  id:1,record_type:"pdf_text_index",data:{source:{documentId:9,sha256:"current"},pages:[page]}
+ }]};
+ const database={getObject:()=>({id:1}),
+  listEntity:(_id,entity)=>entity==="marks"?marks:entries[entity]||[],
+  createEntity:(_id,entity,row)=>{entries[entity].push(row);return row}};
+ const documents={readForPdfIndex:async()=>({buffer:Buffer.from("PDF"),source:{sha256:"current"}}),verify:()=>true};
+ const workerFactory=()=>{
+  workers++;const worker=new EventEmitter();worker.terminate=()=>{};
+  setImmediate(()=>worker.emit("message",{type:"result",...geometry,widthPt:100}));return worker;
+ };
+ const service=createPdfGeometry({database,documents,workerFactory});
+ const first=await service.page(1,9,1);
+ assert.equal(first.sheetAnalysisStatus,"ready");
+ assert.equal(first.sheetAnalysis.candidates[0].mark,"К62");
+ assert.equal(first.sheetAnalysis.candidates[0].nearbySegments.length,1);
+ assert.equal(first.sheetAnalysis.sourceSha256,"current");
+ assert.equal(first.sheetAnalysis.safeForAutoPlacement,false);
+ marks=[{data:{mark:"Б1"}}];
+ const second=await service.page(1,9,1);
+ assert.equal(second.cached,true);
+ assert.equal(second.sheetAnalysis.candidates.length,0);
+ assert.equal(workers,1);
+ entries["ai-pdf-index"][0].data.source.sha256="old";
+ const stale=await service.page(1,9,1);
+ assert.equal(stale.sheetAnalysis,null);
+ assert.equal(stale.sheetAnalysisStatus,"matching_text_index_required");
+ assert.equal(entries["ai-pdf-geometry"][0].data.result.sheetAnalysis,undefined,
+  "register-dependent evidence must not be persisted into geometry cache");
+});

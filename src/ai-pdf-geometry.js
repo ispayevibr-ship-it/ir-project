@@ -2,6 +2,7 @@
 /* Read-only on-demand vector geometry of one SHA-verified PDF page.
  * Importantly no geometry is written into scheme or mark registers. */
 const path=require("node:path"),{Worker}=require("node:worker_threads");
+const {analyzeSheet}=require("./ai-pdf-sheet-analysis");
 const MAX_PDF_BYTES=48*1024*1024,DEADLINE=65000;
 const CACHE_VERSION=2,CACHE_ENTITY="ai-pdf-geometry";
 function validResult(value,num){
@@ -24,6 +25,25 @@ function createPdfGeometry({documents,database,resolveWorker,pdfjsModuleUrl,
  if(!documents?.readForPdfIndex||!database?.getObject)
   throw Error("Геометрический анализ требует проверяемый PDF и базу объекта");
  const jobs=new Map();
+ function withSheetAnalysis(result){
+  if(typeof database.listEntity!=="function")return result;
+  // Read current marks on every call, including geometry cache hits. Geometry
+  // is source-specific; the register can change without changing PDF bytes.
+  const indexes=database.listEntity(result.objectId,"ai-pdf-index")||[];
+  const index=indexes.filter(row=>row.record_type==="pdf_text_index"&&
+   String(row.data?.source?.documentId)===String(result.documentId)&&
+   row.data?.source?.sha256===result.sourceSha256)
+   .sort((a,b)=>Number(b.id)-Number(a.id))[0];
+  const sheet=index?.data?.pages?.find(p=>Number(p.page)===result.page);
+  if(!sheet)return{...result,sheetAnalysis:null,
+   sheetAnalysisStatus:"matching_text_index_required"};
+  const marks=(database.listEntity(result.objectId,"marks")||[]).map(row=>
+   String(row?.data?.mark??row?.data?.code??row?.title??"").trim()).filter(Boolean);
+  return{...result,sheetAnalysisStatus:"ready",sheetAnalysis:analyzeSheet({
+   page:sheet,geometry:result,registerMarks:marks,
+   documentId:result.documentId,sourceSha256:result.sourceSha256
+  })};
+ }
  async function page(objectId,documentId,pageNumber){
   const id=Number(objectId),doc=Number(documentId),num=Number(pageNumber);
   if(!Number.isSafeInteger(id)||id<1||!database.getObject(id))
@@ -46,9 +66,9 @@ function createPdfGeometry({documents,database,resolveWorker,pdfjsModuleUrl,
    if(cached){
     if(typeof documents.verify==="function"&&!documents.verify(id,doc))
      throw Error("Исходный PDF изменился во время анализа");
-    return{...cached.data.result,objectId:id,documentId:doc,
+    return withSheetAnalysis({...cached.data.result,objectId:id,documentId:doc,
      sourceSha256:input.source.sha256,cached:true,
-     verified:typeof documents.verify==="function",safeForAutoPlacement:false}
+     verified:typeof documents.verify==="function",safeForAutoPlacement:false})
    }
    const result=await new Promise((resolve,reject)=>{
     const instance=workerFactory(resolveWorker?resolveWorker():path.join(__dirname,"ai-pdf-vector-worker.js"),
@@ -82,9 +102,9 @@ function createPdfGeometry({documents,database,resolveWorker,pdfjsModuleUrl,
     });
     if(!saved)throw Error("Не удалось сохранить геометрию листа PDF");
    }
-   return{...result,cached:false,objectId:id,documentId:doc,sourceSha256:input.source.sha256,
+   return withSheetAnalysis({...result,cached:false,objectId:id,documentId:doc,sourceSha256:input.source.sha256,
     verified:typeof documents.verify==="function",
-    safeForAutoPlacement:false}
+    safeForAutoPlacement:false})
   })();
   jobs.set(key,task);
   try{return await task}finally{jobs.delete(key)}

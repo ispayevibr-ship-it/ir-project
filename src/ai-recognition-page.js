@@ -343,7 +343,9 @@ window.irAiRecognitionPage=async function(objectId){
    dlg.innerHTML='<div class="ir-ai-pdf-preview-header"><b>Чертёж · лист '+Number(page)+
     '</b>'+(Array.isArray(evidence)&&evidence.length?
     '<button type="button" data-pdf-evidence aria-pressed="true">Скрыть подсветку</button>':"")+
+    (api.aiPdfGeometry?.page?'<button type="button" data-sheet-analysis>Марки и линии</button>':"")+
     '<button type="button" data-close>Закрыть ✕</button></div>'+
+    '<div data-sheet-results style="max-height:190px;overflow:auto;padding:0 12px" hidden></div>'+
     '<div class="ir-ai-pdf-preview-stage"><div class="ir-ai-pdf-image-wrap" style="position:relative">'+
     '<img alt="Исходный лист КМД" style="display:block;width:100%;height:auto">'+
     '<div class="ir-ai-pdf-region-layer" style="position:absolute;inset:0;pointer-events:none"></div>'+
@@ -402,6 +404,56 @@ window.irAiRecognitionPage=async function(objectId){
     toggle.setAttribute("aria-pressed",String(!shown));
     toggle.textContent=shown?"Показать подсветку":"Скрыть подсветку";
     for(const node of evidenceBoxes)node.hidden=shown
+   };
+   const analyzeButton=dlg.querySelector("[data-sheet-analysis]");
+   let analysisOverlay=null;
+   if(analyzeButton)analyzeButton.onclick=async()=>{
+    const panel=dlg.querySelector("[data-sheet-results]");
+    analyzeButton.disabled=true;panel.hidden=false;
+    analysisOverlay?.remove();analysisOverlay=null;
+    panel.textContent="Сопоставляем марки с линиями листа…";
+    try{
+     const geometry=await api.aiPdfGeometry.page(id,documentId,Number(page));
+     if(!dlg.isConnected||!isCurrent())return;
+     if(!result.sha256||geometry.sourceSha256!==result.sha256)
+      throw Error("PDF изменился. Закройте просмотр и откройте лист заново.");
+     const analysis=geometry.sheetAnalysis;
+     if(!analysis){
+      panel.textContent="Для анализа требуется актуальный текстовый индекс. Проиндексируйте этот PDF.";
+      return;
+     }
+     const candidates=analysis.candidates||[];
+     panel.innerHTML='<p>Упоминаний из ведомости: '+candidates.length+
+      '. Зелёная точка — надпись, оранжевые линии — ближайшие штрихи. Выберите обозначение для подсветки. Линии пока не классифицированы; место монтажа и X/Y/Z не подтверждены.</p>'+
+      (!analysis.geometryAligned?'<p>Подсветка недоступна: системы координат листа и геометрии не согласованы.</p>':'')+
+      (candidates.length?'<div style="display:flex;flex-wrap:wrap;gap:6px">'+
+       candidates.map((c,n)=>'<button type="button" data-sheet-hit="'+n+'" '+
+        (!analysis.geometryAligned||!Number.isFinite(c.pdfX)||!Number.isFinite(c.pdfY)?'disabled':'')+
+        '>'+esc(c.mark)+' · линий: '+c.nearbySegments.length+'</button>').join("")+'</div>':
+       '<p>На этом листе обозначения из ведомости не найдены.</p>');
+     panel.querySelectorAll("[data-sheet-hit]").forEach(button=>button.onclick=()=>{
+      const candidate=candidates[Number(button.dataset.sheetHit)];
+      analysisOverlay?.remove();
+      const ns="http://www.w3.org/2000/svg",overlay=document.createElementNS(ns,"svg");
+      overlay.setAttribute("viewBox","0 0 "+geometry.widthPt+" "+geometry.heightPt);
+      overlay.setAttribute("preserveAspectRatio","none");
+      overlay.style.cssText="position:absolute;inset:0;width:100%;height:100%;pointer-events:none";
+      for(const line of candidate.nearbySegments){
+       const node=document.createElementNS(ns,"line");
+       for(const key of ["x1","y1","x2","y2"])node.setAttribute(key,String(line[key]));
+       node.setAttribute("stroke","#f97316");node.setAttribute("stroke-width","3");
+       node.setAttribute("vector-effect","non-scaling-stroke");overlay.appendChild(node);
+      }
+      const dot=document.createElementNS(ns,"circle");
+      dot.setAttribute("cx",String(candidate.pdfX));
+      dot.setAttribute("cy",String(geometry.heightPt-candidate.pdfY));
+      dot.setAttribute("r","6");dot.setAttribute("fill","#22c55e");
+      dot.setAttribute("stroke","#fff");dot.setAttribute("stroke-width","1");
+      overlay.appendChild(dot);layer.appendChild(overlay);analysisOverlay=overlay;
+      panel.querySelectorAll("[data-sheet-hit]").forEach(b=>b.setAttribute("aria-pressed",String(b===button)));
+     });
+    }catch(ex){if(dlg.isConnected)panel.textContent=String(ex.message||ex)}
+    finally{analyzeButton.disabled=false}
    };
    dlg.querySelector("[data-close]").onclick=()=>dlg.close();
    dlg.addEventListener("close",()=>dlg.remove(),{once:true});

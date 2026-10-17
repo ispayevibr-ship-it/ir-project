@@ -20,8 +20,9 @@ const dom=new Map();
 function get(selector){
  if(!dom.has(selector))dom.set(selector,{innerHTML:"",
   onclick:null,disabled:false,textContent:"",value:"КМД",className:"",
+  children:[],appendChild(node){this.children.push(node)},setAttribute(){},
   style:{},focus(){},setSelectionRange(){},addEventListener(){},dataset:{},
-  querySelector:get,querySelectorAll:()=>[]});
+  querySelector:get,querySelectorAll:selector=>selector==="[data-kmd-preview]"?[get("preview-button")]:selector==="[data-sheet-hit]"?[get("hit-button")]:[]});
  return dom.get(selector)
 }
 const root={innerHTML:"",querySelector:get,querySelectorAll:()=>[]};
@@ -48,7 +49,15 @@ const page={
  aiPdfGeometry:{page:async(_id,doc,page)=>{geometryRuns.push([doc,page]);return{sourceSha256:sha(doc)}}},
  aiPdf:fakePdf
 };
-const context={window:{irProject:page},document:{getElementById:app},
+get("preview-button").dataset.kmdPreview="1:1";
+get("hit-button").dataset.sheetHit="0";
+let dialog;
+const element=()=>({style:{},children:[],isConnected:true,innerHTML:"",
+ querySelector:get,querySelectorAll:()=>[],appendChild(node){this.children.push(node)},
+ attributes:{},setAttribute(key,value){this.attributes[key]=value},addEventListener(){},remove(){this.isConnected=false},
+ close(){this.isConnected=false},showModal(){}});
+const context={window:{irProject:page},document:{getElementById:app,createElement:()=>{dialog=element();return dialog},
+ createElementNS:element,body:{appendChild(){}}},
  location:{hash:"#/objects/object/7/ai-recognition"},console};
 vm.runInNewContext(source,context,{filename:"src/ai-recognition-page.js"});
 const wait=async check=>{
@@ -84,5 +93,26 @@ const wait=async check=>{
  assert.match(content.innerHTML,/✓ Текст и геометрия · 2/);
  assert.match(content.innerHTML,/✓ Индексирован текст/);
  assert.equal(runs.length,before,"reload reads saved status without indexing");
+ // Exercise the actual viewer handler and its source checks with a minimal DOM.
+ page.aiPdf.preview=async()=>({sha256:sha(1),dataUrl:"data:image/png;base64,iVBORw0KGgo="});
+ page.aiPdfGeometry.page=async()=>({sourceSha256:sha(1),widthPt:100,heightPt:100,sheetAnalysis:{
+  geometryAligned:true,candidates:[{mark:"<К62>",pdfX:20,pdfY:30,nearbySegments:[{x1:10,y1:70,x2:30,y2:70}]}]
+ }});
+ get("preview-button").onclick();
+ await wait(()=>dialog&&get("[data-sheet-analysis]").onclick);
+ await get("[data-sheet-analysis]").onclick();
+ assert.match(get("[data-sheet-results]").innerHTML,/&lt;К62&gt;/,"escape PDF labels");
+ assert.match(get("[data-sheet-results]").innerHTML,/X\/Y\/Z не подтверждены/);
+ get("hit-button").onclick();
+ const overlay=get(".ir-ai-pdf-region-layer").children.at(-1);
+ assert.equal(overlay.attributes.viewBox,"0 0 100 100");
+ assert.equal(overlay.children[0].attributes.y1,"70");
+ assert.equal(overlay.children[1].attributes.cy,"70","text origin is flipped exactly once");
+ page.aiPdfGeometry.page=async()=>({sourceSha256:sha(2)});
+ await get("[data-sheet-analysis]").onclick();
+ assert.match(get("[data-sheet-results]").textContent,/PDF изменился/);
+ page.aiPdfGeometry.page=async()=>({sourceSha256:sha(1),sheetAnalysis:null});
+ await get("[data-sheet-analysis]").onclick();
+ assert.match(get("[data-sheet-results]").textContent,/актуальный текстовый индекс/);
  console.log("Algorithmic PDF UI: batch index serial, SHA cache, ✓ saved, errors, no AI runtime PASS");
 })().catch(e=>{console.error(e);process.exitCode=1});
