@@ -2,6 +2,7 @@
 /* IR Project AI: real PDF text-layer index. No OCR/LLM inference is claimed. */
 const path=require("node:path"),{Worker}=require("node:worker_threads");
 const {markOccurrences}=require("./ai-pdf-mark-matcher");
+const {projectMarks}=require("./ai-pdf-mark-projection");
 const MAX_PDF_BYTES=48*1024*1024,DEADLINE=120000;
 function createPdfIndex({database,documents,workerFactory=(file,options)=>new Worker(file,options),onProgress=()=>{}}){
  if(!database||!documents)throw Error("PDF index needs document store and database");
@@ -85,8 +86,16 @@ function createPdfIndex({database,documents,workerFactory=(file,options)=>new Wo
   if(!item)throw Error("Индекс PDF не найден");
   const p=item.data?.pages?.find(p=>p.page===Number(pageNumber));
   if(!p)throw Error("Лист PDF не найден");
+  const marks=registerMarks(id);
+  const projection=projectMarks(p,marks,Array.isArray(allowedMarks?.anchors)?allowedMarks.anchors:[]);
   return{indexId:item.id,source:item.data.source,page:p,
-   markMatches:markOccurrences(p,registerMarks(id))}
+   markMatches:projection.candidates,projection:{
+    calibrated:projection.calibrated,reason:projection.reason||null,
+    scaleMmPerPdfUnit:projection.scaleMmPerPdfUnit??null,
+    rotationRadians:projection.rotationRadians??null,
+    anchorsVerified:projection.anchorsVerified??0,
+    safeForAutoPlacement:false
+   }}
  }
  function processPdf(bytes,progress){
   return new Promise((resolve,reject)=>{
