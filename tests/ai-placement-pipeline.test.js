@@ -21,6 +21,7 @@ const repeated=candidatePlacements([{documentId:"doc1",page:1,fragments:[
  {text:"К62",x:200,y:200,width:30,height:12}
 ]}],[{mark:"К62",name:"Колонна"}],{});
 assert.equal(repeated.occurrences,3);
+assert.equal(repeated.indexedPages,1);
 assert.equal(repeated.matchedMarks,1);
 assert.equal(repeated.missingMarks.length,0);
 assert.equal(new Set(repeated.candidates.map(x=>x.placementId)).size,3);
