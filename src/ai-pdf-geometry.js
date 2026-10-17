@@ -40,7 +40,7 @@ function createPdfGeometry({documents,database,resolveWorker,pdfjsModuleUrl,
     typeof database.createEntity==="function";
    const cached=cacheAvailable?database.listEntity(id,CACHE_ENTITY).find(row=>
     row.record_type==="pdf_page_geometry"&&row.data?.version===CACHE_VERSION&&
-    row.data.documentId===doc&&row.data.sourceSha256===input.source.sha256&&
+    String(row.data.documentId)===String(doc)&&row.data.sourceSha256===input.source.sha256&&
     validResult(row.data.result,num)):null;
    if(cached){
     if(typeof documents.verify==="function"&&!documents.verify(id,doc))
