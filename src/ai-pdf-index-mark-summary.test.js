@@ -55,3 +55,26 @@ test("does not double-count old indexes of the same drawing",()=>{
  assert.equal(index.list(1).length,1);
  assert.equal(index.markSummary(1).totalOccurrences,1);
 });
+
+test("existing PDF page API exposes calibrated mark candidates without placing structures",()=>{
+ const database={
+  getObject:()=>({id:1}),
+  listEntity:(_id,key)=>key==="marks"?[{data:{mark:"К62"}}]:
+   key==="ai-pdf-index"?[{id:7,record_type:"pdf_text_index",data:{
+    source:{documentId:2,name:"sheet.pdf"},
+    pages:[{page:1,fragments:[{text:"К62",x:60,y:20}]}]
+   }}]:[]
+ };
+ const index=createPdfIndex({database,documents:{}});
+ const unknown=index.page(1,7,1);
+ assert.equal(unknown.projection.calibrated,false);
+ assert.equal(unknown.markMatches[0].xMm,null);
+ const calibrated=index.page(1,7,1,{anchors:[
+  {pdfX:10,pdfY:20,mmX:0,mmY:0},
+  {pdfX:110,pdfY:20,mmX:45000,mmY:0}
+ ]});
+ assert.equal(calibrated.projection.calibrated,true);
+ assert.equal(calibrated.markMatches[0].xMm,22500);
+ assert.equal(calibrated.markMatches[0].z0Mm,null);
+ assert.equal(calibrated.markMatches[0].safeForAutoPlacement,false);
+});
