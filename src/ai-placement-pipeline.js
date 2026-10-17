@@ -52,7 +52,8 @@ function candidatePlacements(pages,register,grid={}){
   const sheetText=fragments.map(f=>String(typeof f==="string"?f:(f?.text??f?.str??""))).join(" ").toLowerCase();
   const isPlacementPlan=/монтажная схема|монтажный план|схема расположения|план расположения|план колонн|план балок/u.test(sheetText);
   const isDetailSheet=/деталировка|чертеж колонны|чертеж балки|спецификация деталей/u.test(sheetText);
-  const sheetRole=isPlacementPlan?"placement_plan":isDetailSheet?"detail_or_schedule":"unknown";
+  const sheetRole=page.sheetRole==="placement_plan"||page.sheetRole==="detail_or_schedule"?page.sheetRole:
+   isPlacementPlan?"placement_plan":isDetailSheet?"detail_or_schedule":"unknown";
   const hits=markOccurrences(page,allowed);
   const axisProjection=extractPageCandidates(page,allowed,grid).axisProjection;
   const projected=axisProjection.placements||[];
