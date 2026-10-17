@@ -1408,6 +1408,47 @@
     source:"painted_frame_and_registered_axes"}));
  }
 
+ // Find a horizontal separation from gaps between registered axis labels.
+ // Both sides must independently calibrate, with different PDF-to-grid
+ // transforms. Two crops of the same physical plan are never two diagrams.
+ function detectStackedPlanRegions({raw,vector,grid}={}){
+  const H=vector?.heightPt;
+  if(!(H>0)||vector.rotation||!grid?.x||!grid?.y)return[];
+  const names=new Set([...grid.x.keys(),...grid.y.keys()].map(norm));
+  const ys=(raw?.fragments||[]).filter(f=>f&&names.has(norm(f.text))&&
+   [f.y,f.height].every(Number.isFinite)&&f.height>=0)
+   .map(f=>H-f.y-f.height/2).filter(y=>y>=0&&y<=H).sort((a,b)=>a-b);
+  if(ys.length>1800)return[];
+  const cuts=[];
+  for(let i=1;i<ys.length;i++){
+   const gap=ys[i]-ys[i-1],cut=(ys[i]+ys[i-1])/2/H;
+   if(gap>=H*.06&&cut>=.2&&cut<=.8)cuts.push({cut,gap})
+  }
+  cuts.sort((a,b)=>b.gap-a.gap);
+  for(const {cut} of cuts.slice(0,12)){
+   const areas=[{left:0,top:0,right:1,bottom:cut},
+    {left:0,top:cut,right:1,bottom:1}];
+   const results=areas.map(area=>({area,analysis:detectPlanGridAxes({raw,vector,grid,region:area})}));
+   if(results.some(r=>!r.analysis.calibrated))continue;
+   const [a,b]=results.map(r=>r.analysis);
+   // Compare their projection at common grid coordinates; scale alone may
+   // be identical on two views. Offset must still establish separate views.
+   const sameTransform=["fitX","fitY"].every(key=>{
+    const aa=a[key],bb=b[key];
+    return Math.abs(aa.offset-bb.offset)<3&&
+     Math.abs(aa.scale-bb.scale)*Math.max(1,...[...grid[key==="fitX"?"x":"y"].values()].map(Math.abs))<3
+   });
+   if(sameTransform)continue;
+   // Require shared named axes: disjoint halves of one long plan do not
+   // establish repeated independent views merely by fitting different data.
+   if(!["xMatches","yMatches"].every(key=>
+    a[key].filter(v=>b[key].some(w=>w.name===v.name)).length>=3))continue;
+   return results.map((r,i)=>({...r,name:i===0?"Верхняя схема":"Нижняя схема",
+    source:"independent_axis_grids",reviewRequired:true}))
+  }
+  return[]
+ }
+
  // Automatically inspect every independent diagram on a sheet. The PDF
  // text/index is a prerequisite, not a final location result. X/Y/Z remain
  // unfilled until a drawing explicitly proves a particular member placement.
@@ -1439,8 +1480,10 @@
   };
   const framed=detectFramedPlanRegions({raw,vector,grid});
   for(const frame of framed){zones[frame.name]=frame.area;cache.set(frame.name,frame.analysis)}
+  const stacked=framed.length>=2?[]:detectStackedPlanRegions({raw,vector,grid});
+  for(const r of stacked){zones[r.name]=r.area;cache.set(r.name,r.analysis)}
   const selection=selectPlanRegion({selected:"auto",calibrate});
-  const selected=framed.length>=2?framed.map(r=>r.name):selection.multiplePlans?["left","right"]:
+  const selected=framed.length>=2?framed.map(r=>r.name):stacked.length===2?stacked.map(r=>r.name):selection.multiplePlans?["left","right"]:
    selection.analysis?.calibrated?[selection.regionName]:[];
   if(!selected.length){
    out.reason=selection.analysis?.reason||"Подписи осей не согласованы с сеткой";
@@ -2833,7 +2876,7 @@
   };
   return page
  }
- const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes,selectPlanRegion,extractPlanInstances,linkInstanceOutlineEvidence,inspectPdfDimensionChains,nearDimensionEvidence,reviewIndexedPlanPage,detectFramedPlanRegions};
+ const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes,selectPlanRegion,extractPlanInstances,linkInstanceOutlineEvidence,inspectPdfDimensionChains,nearDimensionEvidence,reviewIndexedPlanPage,detectFramedPlanRegions,detectStackedPlanRegions};
  if(typeof module!=="undefined"&&module.exports)module.exports=exported;
  if(root&&typeof root==="object")root.irAiSchemeLitePage=createPage()
 })(typeof window!=="undefined"?window:null);

@@ -60,3 +60,14 @@ placements are assigned merely from a text-label position.
 
 Regression covers two off-centre frames, separate calibration, same mark in both
 views, clipping, overlaps, missing axis evidence and invalid region bounds.
+
+## 2026-10-17: vertically separated unframed plans
+
+Automatic analysis also searches up to 12 substantial gaps between registered
+axis-label rows, instead of assuming a fixed half-page boundary. Both regions
+must independently calibrate and share at least three named axes per direction;
+their page-to-grid transforms must differ. This prevents two crops of one plan
+from being counted as independent views. Geometry and text are both required.
+This supports two vertically stacked views; arbitrary unframed layouts and
+multiple-view instance reconciliation are still pending. No 3D placement or
+physical instance count is inferred from repeated labels.

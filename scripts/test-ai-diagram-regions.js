@@ -36,3 +36,20 @@ assert.equal(detectFramedPlanRegions({raw:{fragments:[]},vector,grid}).length,0,
 assert.equal(detectFramedPlanRegions({raw,vector:{...vector,contours:[...contours,frame(40,40,330,410)]},grid}).length,1,'nested frames rejected');
 assert.throws(()=>extractPlanInstances({raw,marks,region:'custom',regionBounds:{left:0,top:0,right:2,bottom:1}}),/область/);
 console.log('Independent PDF diagrams: arbitrary frames, own calibration, no cross-label mixing, overlap and clip rejection PASS');
+
+const {detectStackedPlanRegions}=require('../src/ai-scheme-lite-page');
+const unframed={...vector,contours:[]};
+const stacked=detectStackedPlanRegions({raw,vector:unframed,grid});
+assert.equal(stacked.length,2,'unframed vertically separated views');
+assert(stacked[0].area.bottom>0.35&&stacked[0].area.bottom<0.65);
+const stackedReview=reviewIndexedPlanPage({raw,vector:unframed,grid,marks,
+ documentId:4,sha256:'a'.repeat(64),page:1});
+assert.equal(stackedReview.regions.length,2);
+assert.deepEqual(stackedReview.regions.map(r=>r.registry.total),[1,1]);
+assert.equal(stackedReview.readyForPlacement,0);
+assert.equal(detectStackedPlanRegions({raw:{fragments:fragments.slice(0,9)},vector:unframed,grid}).length,0,
+ 'one plan must not be split into two');
+assert.equal(detectStackedPlanRegions({raw,vector:{...unframed,rotation:90},grid}).length,0);
+assert.equal(detectStackedPlanRegions({raw,vector:{...unframed,segments:[]},grid}).length,0,
+ 'text alone is insufficient');
+console.log('Unframed stacked views: independent grids, separate labels, single-plan and missing-evidence rejection PASS');
