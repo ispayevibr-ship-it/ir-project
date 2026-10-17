@@ -51,7 +51,7 @@ function candidatePlacements(pages,register,grid={}){
   const markHits=hits.filter(h=>h.x!=null&&h.y!=null&&Number.isFinite(Number(h.x))&&Number.isFinite(Number(h.y)));
   for(const hit of hits){
    const key=normalize(hit.mark);
-   const base=[page.documentId??page.sourceDocumentId??"",page.page,hit.fragmentIndex,hit.offset??"token",key].join(":");
+   const base=[page.documentId??page.sourceDocumentId??"",page.sourceSha256??page.sha256??"",page.page,hit.fragmentIndex,hit.offset??"token",key].join(":");
    const count=occurrenceCounters.get(base)||0;
    occurrenceCounters.set(base,count+1);
    const identity=base+":"+count;
