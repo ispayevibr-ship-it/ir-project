@@ -3,6 +3,14 @@
  * A sheet-wide level is never assigned to K62 merely because K62 is printed. */
 const {markOccurrences,normalize}=require("./ai-pdf-mark-matcher");
 const {localLines,level}=require("./ai-mounting-auto");
+function selectMaxElevationPair({bottoms=[],tops=[]}={}){
+ const valid=a=>a.filter(Number.isFinite);
+ const b=valid(bottoms),t=valid(tops);
+ if(!b.length||!t.length)return{z0Mm:null,z1Mm:null,heightMm:null,method:"max_bottom_max_top",requiresReview:true};
+ const z0Mm=Math.max(...b),z1Mm=Math.max(...t);
+ return{z0Mm,z1Mm,heightMm:z1Mm>=z0Mm?z1Mm-z0Mm:null,
+  method:"max_bottom_max_top",requiresReview:true};
+}
 function inspectMarkElevations({pages=[],mark="К62",allowedMarks=[mark]}={}){
  const wanted=normalize(mark),result=[];
  if(!allowedMarks.some(x=>normalize(x)===wanted))throw Error("Марка отсутствует в ведомости");
@@ -24,4 +32,4 @@ function inspectMarkElevations({pages=[],mark="К62",allowedMarks=[mark]}={}){
  }
  return {mark,pages:result,safeForAutoPlacement:false};
 }
-module.exports={inspectMarkElevations};
+module.exports={inspectMarkElevations,selectMaxElevationPair};
