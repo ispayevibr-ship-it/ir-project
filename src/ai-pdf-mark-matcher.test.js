@@ -28,3 +28,9 @@ test("missing coordinates are unknown, not zero",()=>{
  assert.equal(hit.width,null);
  assert.equal(hit.height,null);
 });
+
+test("distinguishes prefix marks and repeated occurrences",()=>{
+ const hits=markOccurrences({page:4,fragments:[{text:"К62 К620 К62"}]},["К62","К620"]);
+ assert.deepEqual(hits.map(h=>h.mark),["К620","К62","К62"]);
+ assert.equal(hits.filter(h=>h.mark==="К62").length,2);
+});
