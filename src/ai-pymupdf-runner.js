@@ -6,14 +6,19 @@ const {spawn}=require("node:child_process");
 const fs=require("node:fs/promises");
 const os=require("node:os");
 const path=require("node:path");
+const nativeFs=require("node:fs");
 async function extractWithPyMuPDF(bytes,{python=process.env.IR_PYMUPDF_PYTHON||"python",timeoutMs=120000}={}){
+ const bundled=process.platform==="win32"&&process.resourcesPath?
+  path.join(process.resourcesPath,"pymupdf","ir-pymupdf-extract.exe"):null;
+ const useBundled=Boolean(bundled&&nativeFs.existsSync(bundled));
+ const command=useBundled?bundled:python;
+ const prefix=useBundled?[]:[path.join(__dirname,"ai-pymupdf-extract.py")];
  const directory=await fs.mkdtemp(path.join(os.tmpdir(),"ir-pdf-"));
  const file=path.join(directory,"input.pdf");
  try{
   await fs.writeFile(file,bytes,{flag:"wx",mode:0o600});
-  const script=path.join(__dirname,"ai-pymupdf-extract.py");
   const result=await new Promise((resolve,reject)=>{
-   const child=spawn(python,[script,file],{windowsHide:true,stdio:["ignore","pipe","pipe"],shell:false});
+   const child=spawn(command,[...prefix,file],{windowsHide:true,stdio:["ignore","pipe","pipe"],shell:false});
    let stdout="",stderr="",settled=false;
    const done=(error,value)=>{
     if(settled)return;settled=true;clearTimeout(timer);
