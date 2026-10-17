@@ -20,3 +20,11 @@ test("preserves PDF fragment coordinates without claiming placement",()=>{
  assert.equal(hit.height,9);
  assert.equal(hit.safeForAutoPlacement,false);
 });
+
+test("missing coordinates are unknown, not zero",()=>{
+ const [hit]=markOccurrences({page:1,fragments:[{text:"К62"}]},["К62"]);
+ assert.equal(hit.x,null);
+ assert.equal(hit.y,null);
+ assert.equal(hit.width,null);
+ assert.equal(hit.height,null);
+});
