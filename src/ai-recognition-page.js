@@ -229,8 +229,10 @@ window.irAiRecognitionPage=async function(objectId){
       result.sourceSha256!==d.sha256||!result.pages?.length)
       throw Error("Индекс не соответствует исходному PDF");
      if(!api.aiPdfGeometry?.page)throw Error("Модуль геометрии PDF недоступен");
-     row.total=result.pages.length;row.page=0;updateProgress();
-     for(const sheet of result.pages){
+     const savedPages=new Set((d.geometryPages||[]).map(Number));
+     const pendingPages=result.pages.filter(sheet=>!savedPages.has(Number(sheet.page)));
+     row.total=pendingPages.length;row.page=0;updateProgress();
+     for(const sheet of pendingPages){
       if(!isCurrent()||bulk.cancelled)break;
       const geometry=await api.aiPdfGeometry.page(id,d.id,sheet.page);
       if(geometry.sourceSha256!==d.sha256)
