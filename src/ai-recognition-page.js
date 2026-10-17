@@ -233,8 +233,8 @@ window.irAiRecognitionPage=async function(objectId){
     try{
      const result=await pdf.index(id,d.id);
      if(String(result.documentId)!==String(d.id)||
-      result.sourceSha256!==d.sha256||!result.pages?.length)
-      throw Error("Индекс не соответствует исходному PDF");
+      result.sourceSha256!==d.sha256||!completeIndex(result))
+      throw Error("PDF-индекс неполный: отсутствуют листы или повторяются номера");
      if(!api.aiPdfGeometry?.page)throw Error("Модуль геометрии PDF недоступен");
      const savedPages=new Set((d.geometryPages||[]).map(Number));
      const pendingPages=result.pages.filter(sheet=>!savedPages.has(Number(sheet.page)));
