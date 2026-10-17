@@ -21,7 +21,7 @@ test("K62 without explicit elevations is NOT automatically placed",()=>{
  assert.equal(result.entries.length,0);
  assert.ok(result.review.some(x=>x.mark==="К62"));
 });
-test("K62 Z0 and Z1 parser returns millimetres from explicit labels",()=>{
+test("K62 explicit Z0 and Z1 parser returns millimetres (synthetic fixture)",()=>{
  const text="К62 низ +0,000 м верх +10,020 м";
  assert.equal(level(text,0),0);
  assert.equal(level(text,1),10020);
@@ -29,4 +29,14 @@ test("K62 Z0 and Z1 parser returns millimetres from explicit labels",()=>{
 test("K62 old model Z=10.02 is not enough to infer bottom or height",()=>{
  assert.equal(level("К62 z=10.02",0),null);
  assert.equal(level("К62 z=10.02",1),null);
+});
+
+test("K62 rejects a lone upper level without an explicit bottom",()=>{
+ const text="К62 верх +10,020 м";
+ assert.equal(level(text,0),null);
+ assert.equal(level(text,1),10020);
+});
+test("K62 rejects conflicting bottom elevations",()=>{
+ const text="К62 низ +0,000 м; низ +0,150 м; верх +10,020 м";
+ assert.equal(level(text,0),null);
 });
