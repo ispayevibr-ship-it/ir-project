@@ -1,5 +1,6 @@
 "use strict";
 const {markOccurrences,normalize}=require("./ai-pdf-mark-matcher");
+const {detectTitleBlock}=require("./ai-pdf-title-block");
 const {extractPageCandidates}=require("./ai-pdf-candidates");
 const {axisMap}=require("./ai-pdf-axis-projection");
 function classifyMark(entry){
@@ -44,7 +45,9 @@ function candidatePlacements(pages,register,grid={}){
  const seen=new Set();
  const occurrenceCounters=new Map();
 
- for(const page of pages||[]){
+ for(const originalPage of pages||[]){
+  const detected=originalPage?.titleBlockBounds?null:detectTitleBlock(originalPage);
+  const page=detected?{...originalPage,titleBlockBounds:detected}:originalPage;
   const hits=markOccurrences(page,allowed);
   const axisProjection=extractPageCandidates(page,allowed,grid).axisProjection;
   const projected=axisProjection.placements||[];
