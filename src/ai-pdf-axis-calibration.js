@@ -31,7 +31,7 @@ function calibrate(input){
    throw Error("Опорные точки противоречат единому масштабу/повороту");
  }
  return {scaleMmPerPdfUnit:scale,rotationRadians:Math.atan2(sin,cos),
-  anchorsVerified:points.length,transform,
-  verifiedByUser:true,safeForAutoPlacement:false};
+  anchorsSupplied:points.length,transform,
+  requiresUserVerification:true,safeForAutoPlacement:false};
 }
 module.exports={calibrate};
