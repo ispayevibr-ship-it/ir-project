@@ -23,13 +23,13 @@ function classifyMarkType(name){
   {type:null,status:s?"unknown_type":"missing_name"};
 }
 function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha256,maxDistancePt=12}={}){
- const markNames=Array.isArray(registerMarks)?registerMarks.map(entry=>entry&&typeof entry==='object'?entry.mark??entry.mark_name??entry.code:entry).filter(Boolean):[];
+ const markNames=Array.isArray(registerMarks)?registerMarks.map(entry=>entry&&typeof entry==='object'?entry.mark??entry.mark_name??entry.code??entry.marking:entry).filter(Boolean):[];
  const base=buildCoordinateCandidates({page,registerMarks:markNames,anchors,documentId,sourceSha256});
  const registerEntries=Array.isArray(registerMarks)?registerMarks:[];
  const registerByMark=new Map();
  for(const entry of registerEntries){
   if(!entry||typeof entry!=="object")continue;
-  const key=String(entry.mark??entry.mark_name??entry.code??"").normalize("NFKC").toUpperCase().replace(/\s+/g,"");
+  const key=String(entry.mark??entry.mark_name??entry.code??entry.marking??"").normalize("NFKC").toUpperCase().replace(/\s+/g,"");
   if(!key)continue;
   const name=entry.name??entry.title??entry.description??entry.naimenovanie??entry.work_name??entry.mark_description??"";
   if(!registerByMark.has(key))registerByMark.set(key,name);
