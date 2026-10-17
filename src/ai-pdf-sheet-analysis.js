@@ -31,11 +31,11 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
    verification:"required",safeForAutoPlacement:false};
  });
  const vectorIntersections=intersectionEvidence({page,geometry,candidates,maxDistancePt});
- const intersectionsByFragment=new Map(vectorIntersections.marks.map(item=>[item.fragmentIndex,item.nearbyIntersections]));
+
  const strokeCandidates=classifySegments(segments);
  const strokeByIndex=new Map(strokeCandidates.map(item=>[item.index,item]));
- const candidatesWithIntersections=candidates.map(item=>{
-  const nearby=intersectionsByFragment.get(item.fragmentIndex)||[];
+ const candidatesWithIntersections=candidates.map((item,index)=>{
+  const nearby=vectorIntersections.marks[index]?.nearbyIntersections||[];
   const ranked=nearby.map(point=>({
    ...point,
    strokeClasses:point.segmentIds.map(id=>strokeByIndex.get(id)?.classification||'unclassified'),
@@ -62,10 +62,9 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
   pdfPoint:Number.isFinite(item.pdfX)&&Number.isFinite(item.pdfY)&&Number.isFinite(page?.heightPt)?
    {x:item.pdfX,y:page.heightPt-item.pdfY}:null
  })),observations:elevationObservations.map(item=>({...item,point:item.point?{x:item.point.x,y:page.heightPt-item.point.y}:null}))});
- const elevationByFragment=new Map(elevations.map(item=>[item.fragmentIndex,item]));
- const candidatesWithElevations=candidatesWithIntersections.map(item=>({
-  ...item,elevationEvidence:elevationByFragment.get(item.fragmentIndex)?.evidence||[],
-  levelReview:elevationByFragment.get(item.fragmentIndex)?.levelReview||null,
+ const candidatesWithElevations=candidatesWithIntersections.map((item,index)=>({
+  ...item,elevationEvidence:elevations[index]?.evidence||[],
+  levelReview:elevations[index]?.levelReview||null,
   elevationStatus:"review_required",z0Mm:null,z1Mm:null
  }));
  const anchorSummary={total:candidatesWithIntersections.length,proposed:0,ambiguous:0,missing:0,unverified:0};
