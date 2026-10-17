@@ -12,7 +12,7 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
   Number(page?.rotation||0)===0&&Number(geometry.rotation||0)===0&&
   Number.isFinite(geometry.heightPt)&&Number.isFinite(page?.heightPt)&&
   Math.abs(geometry.heightPt-page.heightPt)<1;
- const segments=geometryValid?geometry.segments||[]:[];
+ const segments=geometryValid&&Array.isArray(geometry.segments)?geometry.segments:[];
  const candidates=base.candidates.map(candidate=>{
   // Match by extraction provenance: normalized or grouped labels need not
   // equal the complete source fragment, and equal coordinates are not identity.
