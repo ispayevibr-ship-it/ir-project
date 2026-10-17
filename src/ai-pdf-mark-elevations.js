@@ -23,7 +23,7 @@ function inspectSingleMarkSheetLevels(page,{assumedBaseMm=null}={}){
  const levels=[];
  for(let i=0;i<fragments.length;i++){
   const f=fragments[i],raw=String(f?.text||"").trim().replace("−","-");
-  if(!/^[+-]?[0-9]{1,2}[,.][0-9]{3}$/.test(raw))continue;
+  if(!/^(?:[+-][0-9]{1,2}|0)[,.][0-9]{3}$/.test(raw))continue;
   const y=Number(f.y);
   if(!Number.isFinite(y))continue;
   const mm=Math.round(Number(raw.replace(",","."))*1000);
@@ -31,6 +31,7 @@ function inspectSingleMarkSheetLevels(page,{assumedBaseMm=null}={}){
   levels.push({mm,raw,fragmentId:i,yPt:y,band});
  }
  const bottoms=levels.filter(x=>x.band==="lower"),tops=levels.filter(x=>x.band==="upper");
+ const candidates=[...levels].sort((a,b)=>a.mm-b.mm);
  // The project datum is Z=0. A nearby +0.050 annotation is not proof
  // that the structural column begins at +0.050.
  const topValues=tops.map(x=>x.mm);
@@ -38,7 +39,7 @@ function inspectSingleMarkSheetLevels(page,{assumedBaseMm=null}={}){
  const z0Mm=Number.isFinite(assumedBaseMm)?assumedBaseMm:null;
  const chosen={z0Mm,z1Mm,heightMm:z1Mm===null||z0Mm===null||z1Mm<z0Mm?null:z1Mm-z0Mm,
   method:"explicit_assumed_base_max_upper",requiresReview:true};
- return {...chosen,levels,bottomEvidence:[],datumBasis:z0Mm===null?"not_established":"user_assumed_base",
+ return {...chosen,levels,candidates,bottomEvidence:[],datumBasis:z0Mm===null?"not_established":"user_assumed_base",
   topEvidence:tops.filter(x=>x.mm===chosen.z1Mm),
   status:chosen.heightMm===null?"needs_manual_review":"heuristic_requires_verification",
   safeForAutoPlacement:false};
