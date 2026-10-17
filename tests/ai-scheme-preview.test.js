@@ -24,4 +24,7 @@ assert.equal(levelBeam.elements.length,1);
 assert.equal(levelBeam.elements[0].end.z,6000);
 assert.equal(prepareSchemePreview({candidates:[{placementId:"bad",mark:"Б3",type:"балка"}]},[{placementId:"bad",approved:true,xMm:0,yMm:0,z0Mm:6000,z1Mm:6000,endPoint:{xMm:"",yMm:0,zMm:6000}}]).elements.length,0);
 assert.equal(prepareSchemePreview({candidates:[{placementId:"spaces",mark:"Б4",type:"балка"}]},[{placementId:"spaces",approved:true,xMm:0,yMm:0,z0Mm:6000,z1Mm:6000,endPoint:{xMm:"   ",yMm:45000,zMm:6000}}]).elements.length,0);
+const detailBlocked=prepareSchemePreview({candidates:[{placementId:"detail",mark:"К62",type:"колонна",sheetRole:"detail_or_schedule"}]},[{placementId:"detail",approved:true,xMm:0,yMm:0,z0Mm:0,z1Mm:9705}]);
+assert.equal(detailBlocked.elements.length,0);
+assert.equal(detailBlocked.skipped[0].reason,"detail_sheet_not_for_placement");
 console.log("Scheme preview adapter tests passed");
