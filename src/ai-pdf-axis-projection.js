@@ -17,8 +17,8 @@ function axisMap(grid, dimension){
  return result;
 }
 function calibrateDimension(axes, positions, dimension){
- const labels=axes.filter(a=>a.dimension===dimension&&a.point&&
-   finite(a.point.x)&&finite(a.point.y)&&Object.hasOwn(positions,a.value));
+ const labels=(axes||[]).filter(a=>a?.dimension===dimension&&a.point&&
+   finite(a.point.x)&&finite(a.point.y)&&Object.hasOwn(positions||{},a.value));
  const direction=dimension==='x'?'x':'y';
  // Repeated labels are ambiguous; do not select a convenient occurrence.
  const counts=new Map();
