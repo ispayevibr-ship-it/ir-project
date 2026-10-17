@@ -2,6 +2,7 @@
 /* Deterministic extraction of axis/dimension/elevation candidates from PDF.js
  * text fragments. This is evidence gathering, NOT automatic geometry approval. */
 const { markOccurrences } = require('./ai-pdf-mark-matcher');
+const { dimensionChains } = require('./ai-pdf-dimension-chains');
 const num = s => Number(String(s).replace(',', '.'));
 const normal = s => String(s ?? '').normalize('NFKC').trim().replace(/\s+/g, ' ');
 const axisToken = /^[A-ZА-ЯЁ]{1,3}(?:\d{1,2})?$|^\d{1,3}(?:\/\d{1,2})?$/u;
@@ -31,6 +32,7 @@ function extractPageCandidates(page, allowedMarks, grid = {}) {
     page: page?.page ?? null,
     marks: marks.map(hit => ({ ...hit, verified: false })),
     observations,
+    dimensionChains: dimensionChains(page, grid),
     safeForAutoPlacement: false,
     extraction: 'pdf_text_layer',
     warning: 'Candidates require geometric association with drawing and validation'
