@@ -10,6 +10,13 @@ if(!archive||!fs.existsSync(archive)){
  console.error("Provide 041-2025 KMD ZIP path as first argument or IR_KMD_TEST_ARCHIVE");
  process.exit(2);
 }
+const EXPECTED_SHA256="1603d8ba5bb865069a88db62cdd8db732b597a771106de5ea160887bb1f68bba";
+const actualSha256=crypto.createHash("sha256").update(fs.readFileSync(archive)).digest("hex");
+if(actualSha256!==EXPECTED_SHA256){
+ console.error("Wrong fixture revision: expected 041-2025 archive SHA256 "+EXPECTED_SHA256+
+  ", received "+actualSha256);
+ process.exit(2);
+}
 const referencePath=process.env.IR_KMD_REGISTER_JSON;
 const register=referencePath?JSON.parse(fs.readFileSync(referencePath,"utf8")):null;
 const allowed=Array.isArray(register)?register.map(x=>typeof x==="string"?x:x.mark||x.code||x.title).filter(Boolean):[];
@@ -62,7 +69,7 @@ const readZip=filename=>new Promise((resolve,reject)=>{
   registerProvided:!!allowed.length,registerMarks:allowed.length,
   placementVerified:0,placementAccuracyPct:null,
   geometryAccuracyPct:null,recognition99Verified:false};
- const report={fixture:"041-2025 KMD",engine:"pdfjs-dist",metrics,errors,documents:results};
+ const report={fixture:"041-2025 KMD",archiveSha256:actualSha256,engine:"pdfjs-dist",metrics,errors,documents:results};
  const output=path.resolve(process.env.IR_KMD_TEST_REPORT||"041-2025-kmd-regression.json");
  fs.writeFileSync(output,JSON.stringify(report,null,2));
  console.log(JSON.stringify({report:output,...metrics},null,2));
