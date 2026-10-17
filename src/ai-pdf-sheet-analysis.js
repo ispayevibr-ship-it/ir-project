@@ -29,7 +29,7 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
  const registerByMark=new Map();
  for(const entry of registerEntries){
   if(!entry||typeof entry!=="object")continue;
-  const key=String(entry.mark??entry.mark_name??entry.code??"").normalize("NFKC").toUpperCase().replace(/\\s+/g,"");
+  const key=String(entry.mark??entry.mark_name??entry.code??"").normalize("NFKC").toUpperCase().replace(/\s+/g,"");
   if(!key)continue;
   const name=entry.name??entry.title??entry.description??entry.naimenovanie??"";
   if(!registerByMark.has(key))registerByMark.set(key,name);
@@ -50,7 +50,7 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
   const positionValid=textHit&&x!=null&&y!=null&&String(x).trim()!==''&&String(y).trim()!==''&&Number.isFinite(x)&&Number.isFinite(y);
   const adjacent=geometryValid&&positionValid?
    nearestSegments({x,y:Number(page.heightPt)-y},segments,{maxDistancePt}):[];
-  return{...candidate,structuralType:classifyMarkType(registerByMark.get(String(candidate.mark).normalize('NFKC').toUpperCase().replace(/\\s+/g,''))||''),nearbySegments:adjacent,
+  return{...candidate,structuralType:classifyMarkType(registerByMark.get(String(candidate.mark).normalize('NFKC').toUpperCase().replace(/\s+/g,''))||''),nearbySegments:adjacent,
    geometryEvidenceStatus:!geometryValid?"geometry_unavailable":
     !positionValid?"label_position_unavailable":
     adjacent.length?"nearby_unclassified_segments":"no_nearby_segments",
