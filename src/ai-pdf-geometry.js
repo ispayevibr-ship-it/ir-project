@@ -3,11 +3,17 @@
  * Importantly no geometry is written into scheme or mark registers. */
 const path=require("node:path"),{Worker}=require("node:worker_threads");
 const MAX_PDF_BYTES=48*1024*1024,DEADLINE=65000;
-const CACHE_VERSION=1,CACHE_ENTITY="ai-pdf-geometry";
+const CACHE_VERSION=2,CACHE_ENTITY="ai-pdf-geometry";
 function validResult(value,num){
  return value?.page===num&&value.coordinateSystem==="viewport_points_top_left"&&
   Number.isFinite(value.widthPt)&&value.widthPt>0&&
   Number.isFinite(value.heightPt)&&value.heightPt>0&&
+  (value.contours===undefined||Array.isArray(value.contours)&&value.contours.length<=6000&&
+   value.contours.reduce((sum,c)=>sum+(Array.isArray(c?.commands)?c.commands.length:30001),0)<=30000&&
+   value.contours.every(c=>Array.isArray(c.commands)&&c.commands.every(command=>
+    command&&Object.hasOwn({M:1,L:1,C:3,Q:2,Z:0},command.kind)&&
+    Array.isArray(command.points)&&command.points.length===({M:1,L:1,C:3,Q:2,Z:0})[command.kind]&&
+    command.points.every(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)))))&&
   Array.isArray(value.segments)&&value.segments.length<=2400&&
   [value.segments,value.detailSegments||[]].every(list=>Array.isArray(list)&&
    list.length<=14400&&list.every(seg=>seg&&

@@ -3,6 +3,7 @@
  * no whole-document geometry pass, no automatic mark placements. */
 const {parentPort,workerData}=require("node:worker_threads");
 const {extractSegments}=require("./ai-pdf-vector-paths");
+const {extractContours}=require("./ai-pdf-contours");
 const MAX_PDF_BYTES=48*1024*1024,MAX_PAGES=80;
 (async()=>{
  let loading,doc,page;
@@ -23,6 +24,7 @@ const MAX_PDF_BYTES=48*1024*1024,MAX_PAGES=80;
   const viewport=page.getViewport({scale:1});
   const operatorList=await page.getOperatorList();
   const result=extractSegments(operatorList,pdfjs.OPS,viewport);
+  Object.assign(result,extractContours(operatorList,pdfjs.OPS,viewport));
   if(!Array.isArray(result.detailSegments)||result.detailSegments.length>14400)
    throw Error("Локальная геометрия PDF превышает безопасный предел");
   // Both bounded geometry selections are read-only and unverified.

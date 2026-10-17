@@ -1,0 +1,38 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {extractContours}=require('../src/ai-pdf-contours');
+const OPS={save:1,restore:2,transform:12,moveTo:13,lineTo:14,curveTo:15,
+ curveTo2:16,curveTo3:17,closePath:18,rectangle:19,stroke:20,closeStroke:21,
+ fill:22,eoFill:23,fillStroke:24,eoFillStroke:25,endPath:26,clip:29,eoClip:30,constructPath:91};
+const viewport={width:300,height:200,transform:[1,0,0,-1,0,200]};
+const run=(entries,v=viewport)=>extractContours({fnArray:entries.map(e=>e[0]),argsArray:entries.map(e=>e[1])},OPS,v);
+const packed=(paint,data)=>[91,[paint,[new Float32Array(data)]]];
+let result=run([[1,[]],[12,[2,0,0,2,10,20]],packed(24,[0,1,2,2,3,4,5,6,7,8,4]),[2,[]],packed(22,[0,0,0,1,10,0,1,5,10,4])]);
+assert.equal(result.contours.length,2);
+assert.deepEqual(result.contours[0].commands[1],{kind:'C',points:[[16,172],[20,168],[24,164]]});
+assert.equal(result.contours[0].stroke,true);assert.equal(result.contours[0].fill,true);
+assert.equal(result.contours[1].stroke,false);assert.equal(result.contours[1].fill,true);
+assert.deepEqual(result.contours[1].commands[0].points,[[0,200]],'restore transform');
+assert.equal(result.contours[0].operatorIndex,2);
+result=run([[91,[[13,16,17],[1,2,3,4,5,6,7,8,9,10]]],[20,[]]]);
+assert.deepEqual(result.contours[0].commands[1].points,[[1,198],[3,196],[5,194]]);
+assert.deepEqual(result.contours[0].commands[2].points,[[7,192],[9,190],[9,190]]);
+result=run([packed(23,[0,1,2,3,3,4,5,6,4])]);
+assert.equal(result.contours[0].fillRule,'evenodd');
+assert.equal(result.contours[0].commands[1].kind,'Q');
+result=run([[91,[[19],[10,20,30,40]]],[21,[]]]);
+assert.equal(result.contours[0].commands[4].kind,'Z');
+result=run([[1,[]],[29,[]],packed(20,[0,0,0,1,20,20]),[2,[]],packed(20,[0,0,0,1,20,20])]);
+assert.equal(result.contours[0].clipUnresolved,true);assert.equal(result.contours[1].clipUnresolved,false);
+result=run([packed(20,[0,0,0,2,NaN,3,4,5,6,7])]);
+assert.equal(result.contours.length,0);assert.equal(result.contourStats.incomplete,true);
+result=run([packed(20,[0,1,2,1,10,20])],{transform:[0,1,1,0,0,0]});
+assert.deepEqual(result.contours[0].commands[0].points,[[2,1]],'rotated viewport');
+result=run([[91,[[13,14],[0,0,10,10]]],[26,[]]]);
+assert.equal(result.contours.length,0,'unpainted path never included');
+result=run(Array.from({length:6001},()=>packed(20,[0,0,0,1,1,1])));
+assert.equal(result.contours.length,6000);assert.equal(result.contourStats.incomplete,true);
+result=run([packed(20,[0,0,0,...Array.from({length:30001},()=>[1,1,1]).flat()])]);
+assert.equal(result.contours.length,0,'never return partial contour as complete');
+assert.equal(result.contourStats.commands,30000);assert.equal(result.contourStats.incomplete,true);
+console.log('PDF contours: cubic/quadratic, legacy/packed, transforms, fill, clip, malformed input, limits PASS');

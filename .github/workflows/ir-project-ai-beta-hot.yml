@@ -56,6 +56,7 @@ jobs:
           node --check src/ai-pdf-vector-worker.js
           node --check src/ai-pdf-geometry.js
           node scripts/test-ai-pdf-vector-paths.js
+          node scripts/test-ai-pdf-contours.js
           node scripts/test-ai-pdf-hot-worker.js
           node scripts/test-ai-pdf-geometry.js
           node scripts/test-ai-pdf-geometry-cache.js

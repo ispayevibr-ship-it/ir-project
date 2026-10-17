@@ -13,7 +13,7 @@ const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'ir-pdf-hot-'));
 (async()=>{try{
  const hot=path.join(tmp,'user data','current','src'),app=path.join(tmp,'app');
  fs.mkdirSync(hot,{recursive:true});fs.mkdirSync(app);
- for(const file of ['ai-pdf-vector-worker.js','ai-pdf-vector-paths.js'])
+ for(const file of ['ai-pdf-vector-worker.js','ai-pdf-vector-paths.js','ai-pdf-contours.js'])
   fs.copyFileSync(path.join(__dirname,'..','src',file),path.join(hot,file));
  const parser=path.join(app,'parser.mjs');
  fs.writeFileSync(parser,`export const OPS={constructPath:91,stroke:20};

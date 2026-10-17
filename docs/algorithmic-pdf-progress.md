@@ -20,11 +20,26 @@ Validation: existing hot-update validation suite plus persisted-cache regression
 
 ## Remaining scope of stage 1
 
-- Existing geometry is a bounded sample of strokes and axis bands, not a complete
-  vector index. Curve retention, all paint primitives and raster regions remain.
+- Existing stroke geometry is a bounded sample. Painted contours now retain cubic
+  and quadratic Bezier control points, fill rules and source operator indices.
+  Clipping is flagged as unresolved; raster regions and complete coverage remain.
 - Existing PDF limits remain: 80 pages per file, 48 MiB, worker time limits.
 - OCR and local language assets are not implemented by this change.
 - No 99% accuracy claim: the 041-2025 reference set has not been evaluated here.
 - Page-specific forced reindex UI and durable queue/error/progress history remain.
 - Coordinate solving, full instance accounting and detailed Three.js generation
   remain subsequent stages of the supplied specification.
+
+## 2026-10-17: painted contours and curves
+
+The page worker additionally preserves bounded painted paths, including short
+lines, cubic/quadratic Bezier curves, closed and filled paths. Both legacy and
+packed PDF.js operators are supported. Geometry stays in viewport coordinates.
+Clipped paths are explicitly flagged; no exact visible clipping is claimed.
+Truncation is explicit and partial contours are discarded. Cache schema 2 forces
+old pages to be recalculated on the next batch run. No circle/axis/profile
+classification or placement is inferred from these raw paths.
+
+Validation includes translated/scaled/rotated coordinates, transform restoration,
+legacy shorthand Beziers, packed paths, malformed input, unpainted paths,
+clipping flags and bounded storage. Hot-worker dependency loading is tested.
