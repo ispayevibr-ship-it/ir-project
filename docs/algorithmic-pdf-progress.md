@@ -43,3 +43,20 @@ classification or placement is inferred from these raw paths.
 Validation includes translated/scaled/rotated coordinates, transform restoration,
 legacy shorthand Beziers, packed paths, malformed input, unpainted paths,
 clipping flags and bounded storage. Hot-worker dependency loading is tested.
+
+## 2026-10-17: independent framed plans
+
+The automatic geometry sweep now detects rectangular painted frames at arbitrary
+page positions. Each frame must independently fit the existing user axis grid.
+When two or more disjoint frames qualify, each gets its own region bounds,
+calibration and mark-label/outline/dimension analysis. The source frame operator
+index is retained. Clipped, overlapping, nested and uncalibrated frames are
+rejected; the prior half-page/manual workflow remains the fallback.
+
+This is not general diagram segmentation: unframed views, title-based
+classification and rotated pages remain unresolved. Repeated labels are still
+source observations, not confirmed physical instances. No coordinates or
+placements are assigned merely from a text-label position.
+
+Regression covers two off-centre frames, separate calibration, same mark in both
+views, clipping, overlaps, missing axis evidence and invalid region bounds.

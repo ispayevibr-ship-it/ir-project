@@ -142,7 +142,7 @@
  // PDF coordinates are evidence of LABEL LOCATION, never erection X/Y/Z.
  // Do not deduplicate across pages, revision sets or independent drawings.
  function extractPlanInstances({raw,marks=[],documentId,sha256,page,
-   region="full",widthPt,heightPt,sheetType="plan"}={}){
+   region="full",widthPt,heightPt,sheetType="plan",regionBounds}={}){
   const regions={
    full:{left:0,top:0,right:1,bottom:1},
    left:{left:0,top:0,right:.5,bottom:1},
@@ -152,8 +152,11 @@
    "bottom-left":{left:0,top:.5,right:.5,bottom:1},
    "bottom-right":{left:.5,top:.5,right:1,bottom:1}
   };
-  const area=regions[region];
-  if(!area)throw Error("Неизвестная область чертежа");
+  const area=regionBounds||regions[region];
+  if(!area||![area.left,area.top,area.right,area.bottom].every(Number.isFinite)||
+   area.left<0||area.top<0||area.right>1||area.bottom>1||
+   area.left>=area.right||area.top>=area.bottom)
+   throw Error("Неизвестная область чертежа");
   const pageWidth=Number(widthPt),pageHeight=Number(heightPt);
   if(region!=="full"&&(!(pageWidth>0)||!(pageHeight>0)))
    throw Error("Для выбора части листа нужен исходный размер PDF");
@@ -1358,6 +1361,53 @@
  }
 
 
+ // Recognise independently framed plans at arbitrary page locations. A frame
+ // alone is not a plan: every accepted region must fit the user's axis grid.
+ function detectFramedPlanRegions({raw,vector,grid}={}){
+  if(!grid||!Array.isArray(vector?.contours)||vector.rotation||
+   !(vector.widthPt>0)||!(vector.heightPt>0))return[];
+  const W=vector.widthPt,H=vector.heightPt,candidates=[];
+  for(const contour of vector.contours.slice(0,6000)){
+   if(!contour.stroke||contour.clipUnresolved)continue;
+   const c=contour.commands;
+   if(!Array.isArray(c)||c.length<5||c.length>6||c[0]?.kind!=="M")continue;
+   if(c.slice(1).some(v=>!["L","Z"].includes(v.kind)))continue;
+   const points=c.filter(v=>v.kind!=="Z").map(v=>v.points?.[0]);
+   if(points.length<4||points.length>5||points.some(p=>!Array.isArray(p)||
+    p.length!==2||!p.every(Number.isFinite)))continue;
+   const [first,last]=[points[0],points.at(-1)];
+   if(c.at(-1).kind!=="Z"&&Math.hypot(first[0]-last[0],first[1]-last[1])>.1)continue;
+   if(points.length===5){
+    if(Math.hypot(first[0]-last[0],first[1]-last[1])>.1)continue;
+    points.pop()
+   }
+   if(points.length!==4)continue;
+   const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]),
+    left=Math.min(...xs),right=Math.max(...xs),top=Math.min(...ys),bottom=Math.max(...ys);
+   if(left<0||top<0||right>W||bottom>H||right-left<W*.12||bottom-top<H*.12||
+    (right-left)*(bottom-top)>W*H*.85)continue;
+   if(new Set(points.map(p=>p.join(":"))).size!==4||
+    points.some((p,i)=>{
+     const next=points[(i+1)%4];
+     return Math.abs(p[0]-next[0])>.1&&Math.abs(p[1]-next[1])>.1
+    }))continue;
+   const area={left:left/W,top:top/H,right:right/W,bottom:bottom/H};
+   if(candidates.some(r=>["left","top","right","bottom"].every(k=>Math.abs(r.area[k]-area[k])<.002)))continue;
+   candidates.push({area,operatorIndex:contour.operatorIndex});
+  }
+  // Intersecting/nested frames are ambiguous (tables and title blocks can
+  // look rectangular). Never assign labels using overlapping local frames.
+  const separated=candidates.filter((a,i)=>!candidates.some((b,j)=>i!==j&&
+   Math.min(a.area.right,b.area.right)-Math.max(a.area.left,b.area.left)>.002&&
+   Math.min(a.area.bottom,b.area.bottom)-Math.max(a.area.top,b.area.top)>.002));
+  if(separated.length>24)return[];
+  return separated.sort((a,b)=>a.area.top-b.area.top||a.area.left-b.area.left)
+   .map(r=>({...r,analysis:detectPlanGridAxes({raw,vector,grid,region:r.area})}))
+   .filter(r=>r.analysis.calibrated).map(r=>({...r,
+    name:"frame:"+[r.area.left,r.area.top,r.area.right,r.area.bottom].map(v=>v.toFixed(5)).join(":"),
+    source:"painted_frame_and_registered_axes"}));
+ }
+
  // Automatically inspect every independent diagram on a sheet. The PDF
  // text/index is a prerequisite, not a final location result. X/Y/Z remain
  // unfilled until a drawing explicitly proves a particular member placement.
@@ -1387,8 +1437,10 @@
     raw,vector,grid,region:zones[name]}));
    return cache.get(name)
   };
+  const framed=detectFramedPlanRegions({raw,vector,grid});
+  for(const frame of framed){zones[frame.name]=frame.area;cache.set(frame.name,frame.analysis)}
   const selection=selectPlanRegion({selected:"auto",calibrate});
-  const selected=selection.multiplePlans?["left","right"]:
+  const selected=framed.length>=2?framed.map(r=>r.name):selection.multiplePlans?["left","right"]:
    selection.analysis?.calibrated?[selection.regionName]:[];
   if(!selected.length){
    out.reason=selection.analysis?.reason||"Подписи осей не согласованы с сеткой";
@@ -1398,7 +1450,7 @@
    const analysis=calibrate(name);
    if(!analysis.calibrated)continue;
    const region=extractPlanInstances({raw,marks,documentId,sha256,page,
-    region:name,widthPt:vector.widthPt,heightPt:vector.heightPt,sheetType});
+    region:name,regionBounds:zones[name],widthPt:vector.widthPt,heightPt:vector.heightPt,sheetType});
    const labels=region.labels.map(x=>({
     mark:x.mark,markId:x.markId,labelText:x.labelText,
     pageX:x.pageX,pageY:Number(vector.heightPt)-x.pageYBottom,
@@ -1411,7 +1463,7 @@
     region:zones[name]});
    const dimensionLinks=nearDimensionEvidence({instances:region.labels,
     dimensions,heightPt:vector.heightPt});
-   out.regions.push({name,analysis:{calibrated:true,
+   out.regions.push({name,regionBounds:zones[name],frameEvidence:framed.find(r=>r.name===name)?.operatorIndex,analysis:{calibrated:true,
     xMatches:analysis.xMatches?.length||0,yMatches:analysis.yMatches?.length||0},
     registry:region,links,dimensions,dimensionLinks,
     contoursLimited:!!contours.limited});
@@ -2781,7 +2833,7 @@
   };
   return page
  }
- const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes,selectPlanRegion,extractPlanInstances,linkInstanceOutlineEvidence,inspectPdfDimensionChains,nearDimensionEvidence,reviewIndexedPlanPage};
+ const exported={createPage,extractPage,classSheet,readElevation,lengthHint,axisPair,axisSpan,axisGeometry,payloadFor,buildBatchPlan,fragmentEvidence,matchesDraft,detectPlanGridAxes,locateMarkLabelZones,detectPlanRegisterLabels,findAxisNodeCandidates,findPlanMemberStrokes,selectPlanRegion,extractPlanInstances,linkInstanceOutlineEvidence,inspectPdfDimensionChains,nearDimensionEvidence,reviewIndexedPlanPage,detectFramedPlanRegions};
  if(typeof module!=="undefined"&&module.exports)module.exports=exported;
  if(root&&typeof root==="object")root.irAiSchemeLitePage=createPage()
 })(typeof window!=="undefined"?window:null);
