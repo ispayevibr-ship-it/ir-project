@@ -4,7 +4,7 @@ const path=require("node:path"),{Worker}=require("node:worker_threads");
 const {markOccurrences}=require("./ai-pdf-mark-matcher");
 const {projectMarks}=require("./ai-pdf-mark-projection");
 const {extractPageCandidates}=require("./ai-pdf-candidates");
-const {inspectMarkElevations}=require("./ai-pdf-mark-elevations");
+const {inspectMarkElevations,inspectSingleMarkSheetLevels}=require("./ai-pdf-mark-elevations");
 const MAX_PDF_BYTES=48*1024*1024,DEADLINE=120000;
 function completePages(pages,total){
  const count=Number(total);
@@ -106,7 +106,9 @@ function createPdfIndex({database,documents,workerFactory=(file,options)=>new Wo
   const candidates=extractPageCandidates(p,marks,allowedMarks?.grid||{});
   const requestedMark=String(allowedMarks?.inspectMark||"").trim();
   const elevationInspection=requestedMark?inspectMarkElevations({pages:[p],mark:requestedMark,allowedMarks:marks}):null;
-  return{indexId:item.id,source:item.data.source,page:p,pdfCandidates:candidates,elevationInspection,
+  const singleMarkElevationHeuristic=requestedMark&&allowedMarks?.singleMarkSheet===true?
+   inspectSingleMarkSheetLevels(p):null;
+  return{indexId:item.id,source:item.data.source,page:p,pdfCandidates:candidates,elevationInspection,singleMarkElevationHeuristic,
    markMatches:projection.candidates,projection:{
     calibrated:projection.calibrated,reason:projection.reason||null,
     scaleMmPerPdfUnit:projection.scaleMmPerPdfUnit??null,
