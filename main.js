@@ -125,7 +125,7 @@ function registerAiDocuments(){
   requireAiReviewer(e);
   return aiPdfGeometry.page(objectId,documentId,page)
  });
- ipcMain.handle("ai-mounting:candidates",(e,objectId)=>mountingAuto.automaticEntries({scheme:[],marks:[], "ai-documents":[], "ai-pdf-index":[], "ai-pdf-geometry":[]}));
+ ipcMain.handle("ai-mounting:candidates",(e,objectId)=>mountingAuto.automaticEntries({scheme:database.listEntity(objectId,"scheme"),marks:database.listEntity(objectId,"marks"),"ai-documents":database.listEntity(objectId,"ai-documents"),"ai-pdf-index":database.listEntity(objectId,"ai-pdf-index"),"ai-pdf-geometry":database.listEntity(objectId,"ai-pdf-geometry")}));
  ipcMain.handle("ai-mounting:drafts",(e,objectId)=>{
   requireAiReviewer(e);return mountingDraftService.list(objectId)
  });
