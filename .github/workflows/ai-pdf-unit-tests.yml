@@ -8,6 +8,7 @@ on:
       - 'src/ai-scheme-lite-page.js'
       - 'scripts/test-ai-*.js'
       - 'scripts/test-041-2025-archive.js'
+      - 'scripts/test-041-2025-columns.js'
       - '.github/workflows/ai-pdf-unit-tests.yml'
   workflow_dispatch:
 jobs:
@@ -20,7 +21,9 @@ jobs:
         with:
           node-version: '22'
       - name: Validate real archive test harness syntax
-        run: node --check scripts/test-041-2025-archive.js
+        run: |
+          node --check scripts/test-041-2025-archive.js
+          node --check scripts/test-041-2025-columns.js
       - name: Test drawing recognition and scheme geometry
         run: |
           node scripts/test-ai-scheme-lite.js
