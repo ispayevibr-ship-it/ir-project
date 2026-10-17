@@ -1,7 +1,7 @@
 {
   "channel": "beta",
   "baseVersion": "1.7.226",
-  "version": "1.7.226.333",
+  "version": "1.7.226.334",
   "branch": "feature/ir-project-ai-next",
   "description": "IR Project Algorithmic KM/KMD fixes: no full EXE",
   "files": [
