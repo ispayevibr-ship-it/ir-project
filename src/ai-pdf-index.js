@@ -41,15 +41,18 @@ function createPdfIndex({database,documents,workerFactory=(file,options)=>new Wo
   const allowed=registerMarks(id);
   return rows(id).map(row=>{
    const result=summarize(row);
-   const hits=(row.data?.pages||[]).flatMap(page=>markOccurrences(page,allowed));
+   const matched=new Set();
+   let occurrences=0;
+   const perPage=(row.data?.pages||[]).map(page=>{
+    const hits=markOccurrences(page,allowed);
+    occurrences+=hits.length;
+    for(const hit of hits)matched.add(hit.mark);
+    return {page:page.page,occurrences:hits.length};
+   });
    result.markStats={
     registerMarks:allowed.length,
-    matchedMarks:new Set(hits.map(hit=>hit.mark)).size,
-    occurrences:hits.length,
-    perPage:(row.data?.pages||[]).map(page=>({
-     page:page.page,
-     occurrences:hits.filter(hit=>hit.page===page.page).length
-    })),
+    matchedMarks:matched.size,
+    occurrences,perPage,
     safeForAutoPlacement:false
    };
    return result;
