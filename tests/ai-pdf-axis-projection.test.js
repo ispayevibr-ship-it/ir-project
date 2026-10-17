@@ -33,4 +33,6 @@ assert.equal(summary.anchorSummary.total,summary.candidates.length);
 assert.equal(summary.anchorSummary.unverified,summary.candidates.length);
 assert.equal(summary.anchorSummary.proposed+summary.anchorSummary.ambiguous+summary.anchorSummary.missing<=summary.anchorSummary.total,true);
 assert.equal(summary.safeForAutoPlacement,false);
+const {summarizeSheets}=require("../src/ai-pdf-sheet-analysis");
+assert.deepEqual(summarizeSheets([{anchorSummary:{total:2,proposed:1,ambiguous:1,missing:0,unverified:2}},{anchorSummary:{total:3,proposed:2,ambiguous:0,missing:1,unverified:3}}]),{sheets:2,total:5,proposed:3,ambiguous:1,missing:1,unverified:5});
 console.log("PDF axis grid, vector evidence and sheet summary validation passed");
