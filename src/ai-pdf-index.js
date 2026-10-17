@@ -1,6 +1,7 @@
 "use strict";
 /* IR Project AI: real PDF text-layer index. No OCR/LLM inference is claimed. */
 const path=require("node:path"),{Worker}=require("node:worker_threads");
+const {markOccurrences}=require("./ai-pdf-mark-matcher");
 const MAX_PDF_BYTES=48*1024*1024,DEADLINE=120000;
 function createPdfIndex({database,documents,workerFactory=(file,options)=>new Worker(file,options),onProgress=()=>{}}){
  if(!database||!documents)throw Error("PDF index needs document store and database");
@@ -24,12 +25,13 @@ function createPdfIndex({database,documents,workerFactory=(file,options)=>new Wo
    }))}
  }
  function list(id){return rows(id).map(summarize)}
- function page(id,indexId,pageNumber){
+ function page(id,indexId,pageNumber,allowedMarks){
   const item=rows(id).find(r=>String(r.id)===String(indexId));
   if(!item)throw Error("Индекс PDF не найден");
   const p=item.data?.pages?.find(p=>p.page===Number(pageNumber));
   if(!p)throw Error("Лист PDF не найден");
-  return{indexId:item.id,source:item.data.source,page:p}
+  return{indexId:item.id,source:item.data.source,page:p,
+   ...(Array.isArray(allowedMarks)?{markMatches:markOccurrences(p,allowedMarks.slice(0,10000))}:{})}
  }
  function processPdf(bytes,progress){
   return new Promise((resolve,reject)=>{
