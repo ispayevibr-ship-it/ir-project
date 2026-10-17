@@ -13,7 +13,7 @@ window.irAiRecognitionPage=async function(objectId){
  const fmt=value=>Number(value)>=1048576?
   (Number(value)/1048576).toFixed(1).replace(".",",")+" МБ":
   Math.ceil((Number(value)||0)/1024)+" КБ";
- let object=null,docs=[],archived=[],indexes=[],ocrStates=[],ocrSaved=[],active="documents",search="",kind="КМД",
+ let object=null,docs=[],archived=[],indexes=[],ocrStates=[],ocrSaved=[],markAudit=null,active="documents",search="",kind="КМД",
   busy=false,notice="",error=false,bulk=null,loader=null,disposed=false;
  const isCurrent=()=>!disposed&&location.hash===route;
  const matchingIndex=doc=>indexes.find(r=>String(r.documentId)===String(doc.id)&&
@@ -46,14 +46,16 @@ window.irAiRecognitionPage=async function(objectId){
  async function reload(){
   if(!isCurrent())return;
   try{
-   const [records,pages,ocr,saved]=await Promise.all([docsApi.list(id),pdf.list(id),
+   const [records,pages,ocr,saved,audit]=await Promise.all([docsApi.list(id),pdf.list(id),
     typeof pdf.ocrStatus==="function"?pdf.ocrStatus(id).catch(()=>[]):Promise.resolve([]),
-    typeof pdf.ocrList==="function"?pdf.ocrList(id).catch(()=>[]):Promise.resolve([])]);
+    typeof pdf.ocrList==="function"?pdf.ocrList(id).catch(()=>[]):Promise.resolve([]),
+    typeof pdf.markSummary==="function"?pdf.markSummary(id).catch(()=>null):Promise.resolve(null)]);
    if(!isCurrent())return;
    docs=records.filter(x=>!x.archived);archived=records.filter(x=>x.archived);
    indexes=Array.isArray(pages)?pages:[];
    ocrStates=Array.isArray(ocr)?ocr:[];
    ocrSaved=Array.isArray(saved)?saved:[];
+   markAudit=audit;
   }catch(ex){error=true;notice="Ошибка чтения документов: "+String(ex.message||ex)}
   paint()
  }
@@ -131,6 +133,7 @@ window.irAiRecognitionPage=async function(objectId){
    esc(bulk?progress():all.length+
     " PDF · проиндексировано "+indexed.length+
     " · геометрия сохранена: "+savedGeometrySheets+" из "+totalIndexedSheets+" листов")+'</div>'+
+   (markAudit?'<div class="ir-ai-bulk-summary"><strong>Сверка с ведомостью марок:</strong> '+Number(markAudit.totalRegisterMarks||0)+' обозначений в ведомости · '+Number(markAudit.matchedMarks||0)+' найдено · '+Number(markAudit.unmatchedMarks?.length||0)+' не найдено · '+Number(markAudit.totalOccurrences||0)+' упоминаний в PDF. <strong>Размещений с проверенными X/Y/Z: 0 по данным текстового индекса.</strong> Упоминания не равны количеству конструкций.</div>':"")+
    (ocrStates.some(r=>r.ocrCandidatePages>0)?'<p class="ir-ai-bulk-summary">OCR: требуется на '+ocrStates.reduce((n,r)=>n+Number(r.ocrCandidatePages||0),0)+' листах · '+(ocrStates.every(r=>!r.ocrCandidatePages||r.runtime?.ready)?'локальный движок готов':'для запуска нужны Tesseract.js и локальные языковые файлы rus/eng')+'. Автоматическое распознавание пока не запущено.</p>':"")+
    (!matches.length?'<div class="ir-ai-doc-empty">Чертежи не найдены. Добавьте PDF или очистите поиск.</div>':
    '<div class="ir-ai-table-wrap"><table class="ir-ai-doc-table"><thead>'+
