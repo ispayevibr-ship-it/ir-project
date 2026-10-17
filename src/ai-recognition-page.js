@@ -395,6 +395,7 @@ window.irAiRecognitionPage=async function(objectId){
       if(!elements.length){window.alert("Нет подтверждённых конструкций для 3D-просмотра. Пропущено: "+preview.skipped.length);return}
       if(elements.length>5000){window.alert("Предпросмотр ограничен 5000 конструкций за раз.");return}
       if(!isCurrent()||active!=="scheme-lite")return;
+      if(!window.irThreeSchemeView?.render){window.alert("Просмотрщик Three.js не подключён");return}
       const dlg=document.createElement("dialog");
       dlg.style.cssText="width:94vw;max-width:1400px;height:88vh;padding:12px";
       const close=document.createElement("button");close.textContent="Закрыть предпросмотр";close.onclick=()=>dlg.close();
