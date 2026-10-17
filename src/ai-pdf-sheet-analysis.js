@@ -109,7 +109,7 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
   verifiedInstances:0,safeForAutoPlacement:false};
 }
 function summarizeSheets(sheets){
- const totals={sheets:0,total:0,proposed:0,ambiguous:0,missing:0,unavailable:0,unverified:0};
+ const totals={sheets:0,total:0,proposed:0,ambiguous:0,missing:0,unavailable:0,unverified:0,classified:0,unclassified:0};
  for(const sheet of Array.isArray(sheets)?sheets:[]){
   const summary=sheet?.anchorSummary;
   if(!summary)continue;
@@ -120,6 +120,9 @@ function summarizeSheets(sheets){
   totals.missing+=summary.missing||0;
   totals.unavailable+=summary.unavailable||0;
   totals.unverified+=summary.unverified||0;
+  const entries=Array.isArray(sheet?.candidates)?sheet.candidates:[];
+  totals.classified+=entries.filter(item=>item.structuralType?.type).length;
+  totals.unclassified+=entries.filter(item=>!item.structuralType?.type).length;
  }
  return totals;
 }
