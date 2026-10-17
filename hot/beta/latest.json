@@ -1,7 +1,7 @@
 {
   "channel": "beta",
   "baseVersion": "1.7.226",
-  "version": "1.7.226.356",
+  "version": "1.7.226.357",
   "branch": "feature/ir-project-ai-next",
   "description": "IR Project Algorithmic KM/KMD fixes: no full EXE",
   "files": [
@@ -368,8 +368,8 @@
     {
       "source": "src/ai-placement-pipeline.js",
       "target": "src/ai-placement-pipeline.js",
-      "size": 4550,
-      "sha256": "0af3fbcf05bd768ac9f4c2c905925ec569bfd9b8386aa0fb503dbf5a00c98271"
+      "size": 4570,
+      "sha256": "4621b9e37e255c0ebeda6bcfe4a74dda7757b04102346ad0e3f1b087c5eadb5e"
     },
     {
       "source": "src/ai-pymupdf-runner.js",
