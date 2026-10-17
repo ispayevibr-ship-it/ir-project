@@ -5,4 +5,6 @@ const page={page:1,fragments:[{text:"К62-К67",x:10,y:10},{text:"К62",x:20,y:2
 const hits=markOccurrences(page,["К62","К63","К67"]);
 assert.deepEqual(hits.map(h=>h.mark),["К62","К63","К67"]);
 assert.ok(hits.every(h=>h.fragmentIndex!==0&&h.fragmentIndex!==3));
+const mixed=markOccurrences({page:2,fragments:[{text:"К62-К67, К68",x:5,y:7}]},["К62","К67","К68"]);
+assert.deepEqual(mixed.map(x=>x.mark),["К68"]);
 console.log("PDF registered mark matching passed");
