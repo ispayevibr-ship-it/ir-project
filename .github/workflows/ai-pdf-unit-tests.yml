@@ -20,6 +20,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install dependencies for real PDF fixture
+        if: ${{ env.IR_KMD_TEST_ARCHIVE != '' }}
+        run: npm ci --ignore-scripts
+      - name: Run real 041-2025 archive regression when fixture is mounted
+        if: ${{ env.IR_KMD_TEST_ARCHIVE != '' }}
+        run: |
+          node scripts/test-041-2025-archive.js "$IR_KMD_TEST_ARCHIVE"
+          node scripts/test-041-2025-columns.js
       - name: Validate real archive test harness syntax
         run: |
           node --check scripts/test-041-2025-archive.js
