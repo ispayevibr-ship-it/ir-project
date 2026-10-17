@@ -1,7 +1,7 @@
 {
   "channel": "beta",
   "baseVersion": "1.7.226",
-  "version": "1.7.226.388",
+  "version": "1.7.226.389",
   "branch": "feature/ir-project-ai-next",
   "description": "IR Project Algorithmic KM/KMD fixes: no full EXE",
   "files": [
@@ -254,8 +254,8 @@
     {
       "source": "src/ai-pdf-mark-matcher.js",
       "target": "src/ai-pdf-mark-matcher.js",
-      "size": 2869,
-      "sha256": "7eac2440235ebc1c2787c2f56c52f92a3a4d19f316c156892352ebbb7236f97d"
+      "size": 2990,
+      "sha256": "df2a8380b0c6257485c0606ce823906ef85ac918f2b574099e76dc03c62e07a1"
     },
     {
       "source": "src/ai-pdf-mark-projection.js",
