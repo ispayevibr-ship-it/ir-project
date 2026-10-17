@@ -4,12 +4,13 @@ const {reviewToThreeJs}=require("./ai-placement-pipeline");
 function prepareSchemePreview(placements,approvals=[],existingIds=[]){
  const payload=reviewToThreeJs(placements,approvals);
  const occupied=new Set(existingIds);
+ const approvalById=new Map((approvals||[]).filter(a=>a?.approved===true).map(a=>[a.placementId,a]));
  const elements=[],skipped=[...payload.rejected];
  for(const item of payload.items){
   if(occupied.has(item.placementId)){
    skipped.push({placementId:item.placementId,reason:"already_in_scheme"});continue;
   }
-  const approval=approvals.find(a=>a.placementId===item.placementId);
+  const approval=approvalById.get(item.placementId);
   const endpoint=approval?.endPoint;
   const validEndpoint=endpoint&&[endpoint.xMm,endpoint.yMm,endpoint.zMm].every(v=>v!=null&&Number.isFinite(Number(v)));
   const end=validEndpoint?{x:Number(endpoint.xMm),y:Number(endpoint.yMm),z:Number(endpoint.zMm)}:{x:item.xMm,y:item.yMm,z:item.z1Mm};
