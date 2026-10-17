@@ -8,8 +8,10 @@ function axisMap(grid, dimension){
   return Object.fromEntries(Object.entries(raw).filter(([,v])=>finite(Number(v))).map(([k,v])=>[String(k),Number(v)]));
  const names=Array.isArray(raw)?raw:[];
  const spans=dimension==='x'?(grid.x_spans_mm??[]):(grid.y_spans_mm??[]);
+ if(names.length<2||!Array.isArray(spans)||spans.length!==names.length-1||
+   spans.some(v=>!Number.isFinite(Number(v))||Number(v)<=0))return {};
  const result={};let at=0;
- names.forEach((name,i)=>{result[String(name)]=at;if(i<names.length-1)at+=Number(spans[i])||0});
+ names.forEach((name,i)=>{result[String(name)]=at;if(i<names.length-1)at+=Number(spans[i])});
  return result;
 }
 function calibrateDimension(axes, positions, dimension){
