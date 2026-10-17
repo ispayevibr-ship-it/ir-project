@@ -65,4 +65,18 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
   vectorIntersections,strokeCandidates,
   verifiedInstances:0,safeForAutoPlacement:false};
 }
-module.exports={analyzeSheet};
+function summarizeSheets(sheets){
+ const totals={sheets:0,total:0,proposed:0,ambiguous:0,missing:0,unverified:0};
+ for(const sheet of Array.isArray(sheets)?sheets:[]){
+  const summary=sheet?.anchorSummary;
+  if(!summary)continue;
+  totals.sheets++;
+  totals.total+=summary.total||0;
+  totals.proposed+=summary.proposed||0;
+  totals.ambiguous+=summary.ambiguous||0;
+  totals.missing+=summary.missing||0;
+  totals.unverified+=summary.unverified||0;
+ }
+ return totals;
+}
+module.exports={analyzeSheet,summarizeSheets};
