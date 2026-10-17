@@ -329,7 +329,15 @@ window.irAiRecognitionPage=async function(objectId){
     root:api.data.forObject(id),window,pdf,
     onOpenPdf:(doc,page,evidence)=>openPdf(doc,page,evidence),
     onNavigate:tab=>tab==="scheme"?location.hash="/objects/object/"+id+"/scheme":
-     switchTab("documents")})
+     switchTab("documents")});
+   if(isCurrent()&&active==="scheme-lite"&&api.aiMounting?.candidates){
+    const result=await api.aiMounting.candidates(id);
+    const review=result?.pdfPlacementReview;
+    const panel=document.createElement("section");
+    panel.className="ir-ai-doc-head";
+    panel.textContent="Распознано экземпляров: "+(review?.occurrences||0)+" · марок: "+(review?.matchedMarks||0)+" · требуется проверка: "+(review?.requiresReview?.length||0);
+    box.prepend(panel)
+   }
   }catch(ex){if(isCurrent())box.textContent="Ошибка геометрического анализа: "+String(ex.message||ex)}
  }
  async function openPdf(documentId,page,evidence=[]){
