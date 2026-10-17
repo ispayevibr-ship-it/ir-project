@@ -19,7 +19,8 @@ function classifyMarkType(name){
   ["beam",/^балк/u],
   ["strut",/^распорк/u]
  ];
- const matches=types.filter(([,pattern])=>pattern.test(s));
+ const cleaned=s.replace(/^[а-яa-z]{1,3}\s*[-–—]?\s*\d+[а-яa-z0-9-]*\s*[:—–-]?\s+/iu,"");
+ const matches=types.filter(([,pattern])=>pattern.test(s)||pattern.test(cleaned));
  return matches.length===1?{type:matches[0][0],status:"name_classified_unverified"}:
   {type:null,status:s?"unknown_type":"missing_name"};
 }
