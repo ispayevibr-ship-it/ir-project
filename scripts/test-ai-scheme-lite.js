@@ -130,6 +130,20 @@ assert(duplicateRegister.ambiguousRegisterMarks.includes("К62"));
 assert(!duplicateRegister.skippedUnknownMarks.includes("К62"),
  "ambiguous registered marks are not unknown labels");
 
+const {findPlanMemberStrokes}=require("../src/ai-scheme-lite-page");
+const incompleteContour=findPlanMemberStrokes({
+ labels:[{mark:"К62",pageX:100,pageY:100}],
+ analysis:{calibrated:true,fitX:{scale:1,offset:0},
+  fitY:{scale:-1,offset:500},xMatches:[],yMatches:[]},
+ grid:{x:[1,2],y:["А","Б"]},
+ vector:{widthPt:500,heightPt:500,rotation:0,segments:[],
+  detailSegments:[{x1:90,y1:90,x2:110,y2:90}],
+  stats:{detailSampleIncomplete:true}}
+});
+assert.equal(incompleteContour.candidates.length,0);
+assert.equal(incompleteContour.review[0].reasonCode,"incomplete_geometry",
+ "partial PDF strokes must not be interpreted as a unique structural outline");
+
 // Confirm routing and lazy hot loading without repacking Electron/index.html.
 const renderer=fs.readFileSync("src/ai-recognition-page.js","utf8");
 new vm.Script(renderer);
