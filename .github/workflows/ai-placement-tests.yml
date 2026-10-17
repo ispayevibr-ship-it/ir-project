@@ -9,6 +9,8 @@ on:
       - 'src/ai-pdf-mark-matcher.js'
       - 'src/ai-pdf-axis-projection.js'
       - 'src/ai-pdf-spatial-associations.js'
+      - 'src/ai-pdf-dimension-chains.js'
+      - 'tests/ai-pdf-dimension-chains.test.js'
       - 'tests/ai-pdf-spatial-associations.test.js'
       - 'tests/ai-pdf-axis-projection.test.js'
       - 'tests/ai-pdf-mark-matcher.test.js'
@@ -36,6 +38,8 @@ jobs:
         run: node tests/ai-pdf-title-block.test.js
       - name: Validate PDF axis grid and calibration
         run: node tests/ai-pdf-axis-projection.test.js
+      - name: Validate PDF dimension chains
+        run: node tests/ai-pdf-dimension-chains.test.js
       - name: Validate PDF spatial associations
         run: node tests/ai-pdf-spatial-associations.test.js
       - name: Validate placement pipeline
