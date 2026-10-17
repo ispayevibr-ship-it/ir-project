@@ -40,9 +40,10 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
    classificationVerified:false
   }));
   const ambiguous=ranked.length>1&&ranked[1].distancePt-ranked[0].distancePt<=3;
+  const anchorIsCandidate=ranked.length>0&&ranked[0].distancePt<=maxDistancePt;
   return {...item,
   nearbyIntersections:ranked,
-  proposedAnchorPt:ranked.length&&!ambiguous?{x:ranked[0].x,y:ranked[0].y}:null,
+  proposedAnchorPt:anchorIsCandidate&&!ambiguous?{x:ranked[0].x,y:ranked[0].y}:null,
   proposedAnchorStatus:!ranked.length?'no_intersection':ambiguous?'ambiguous_intersections':'unverified_intersection',
   nearbyStrokeEvidence:item.nearbySegments.map(segment=>({
    segmentIndex:segment.segmentIndex,distancePt:segment.distancePt,
