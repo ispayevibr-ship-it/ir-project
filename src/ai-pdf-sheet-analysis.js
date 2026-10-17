@@ -33,6 +33,7 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
   if(!key)continue;
   const name=entry.name??entry.title??entry.description??entry.naimenovanie??"";
   if(!registerByMark.has(key))registerByMark.set(key,name);
+  else if(registerByMark.get(key)!==name)registerByMark.set(key,null);
  }
  const geometryValid=geometry?.coordinateSystem==="viewport_points_top_left"&&
   Number(geometry.page)===Number(page?.page)&&
