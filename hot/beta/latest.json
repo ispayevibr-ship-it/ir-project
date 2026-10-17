@@ -1,7 +1,7 @@
 {
   "channel": "beta",
   "baseVersion": "1.7.226",
-  "version": "1.7.226.270",
+  "version": "1.7.226.271",
   "branch": "feature/ir-project-ai-next",
   "description": "IR Project Algorithmic KM/KMD fixes: no full EXE",
   "files": [
@@ -296,8 +296,8 @@
     {
       "source": "src/ai-recognition-page.js",
       "target": "src/ai-recognition-page.js",
-      "size": 23178,
-      "sha256": "10f36e28684d704049985bb1d3486cf1ab7190f424152c4059fe2b8b7417118d"
+      "size": 24819,
+      "sha256": "68962c7ab159e9315525da8e23c8c2e626e7cc1c27ab47e9e43e774bd0c56228"
     },
     {
       "source": "src/ai-review.js",
