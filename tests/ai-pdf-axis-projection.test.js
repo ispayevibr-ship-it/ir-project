@@ -52,5 +52,6 @@ const {elevationEvidence}=require("../src/ai-pdf-elevation-evidence");
 const pair=elevationEvidence({spatialAssociations:[{mark:"K62",pdfPoint:{x:10,y:10}}],observations:[{kind:"elevation",text:"низ +0.000",valueMm:0,point:{x:10,y:10}},{kind:"elevation",text:"верх +6.000",valueMm:6000,point:{x:11,y:10}}]});
 assert.equal(pair[0].levelReview.candidateZ0Mm,0);
 assert.equal(pair[0].levelReview.candidateZ1Mm,6000);
+assert.equal(pair[0].levelReview.candidateHeightMm,6000);
 assert.equal(pair[0].z0Mm,null);
 console.log("PDF axis grid, vector evidence and sheet summary validation passed");
