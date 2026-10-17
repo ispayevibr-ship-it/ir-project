@@ -11,7 +11,19 @@ function createPdfIndex({database,documents,workerFactory=(file,options)=>new Wo
   if(!Number.isSafeInteger(n)||n<1||!database.getObject(n))throw Error("Объект не найден");
   return n
  };
- const rows=id=>database.listEntity(object(id),"ai-pdf-index").filter(r=>r.record_type==="pdf_text_index");
+ const rows=id=>{
+  const all=(database.listEntity(object(id),"ai-pdf-index")||[])
+   .filter(r=>r.record_type==="pdf_text_index");
+  // Re-indexed revisions must not double-count old pages for the same document.
+  const latest=new Map();
+  for(const row of all){
+   const documentId=row.data?.source?.documentId;
+   const key=documentId!=null?"doc:"+documentId:"index:"+row.id;
+   const prior=latest.get(key);
+   if(!prior||Number(row.id)>Number(prior.id))latest.set(key,row);
+  }
+  return [...latest.values()];
+ };
  function summarize(row){
   const data=row.data||{};
   return{id:row.id,documentId:data.source?.documentId||null,sourceName:data.source?.name||"",
