@@ -78,6 +78,7 @@ function automaticEntries(rows){
   if(!old||Number(row.id)>Number(old.id))geometryByPage.set(key,row);
  }
  const graphicReview=[],projectGrid=axisGeometry(rows.scheme);
+ const placementPages=[];
  const graphicByMark=new Map();
  const graphicSeen=new Set();
  const candidates=[],seenMarks=new Set(),reasons=new Map();let pages=0;
