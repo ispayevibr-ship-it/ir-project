@@ -177,3 +177,4 @@ function automaticEntries(rows){
   candidates:candidates.length,graphicLinks:graphicReview.length,ready:entries.length,deferred:Math.max(0,entries.length-400)}};
 }
 module.exports={automaticEntries,localLines,level,intersections};
+
