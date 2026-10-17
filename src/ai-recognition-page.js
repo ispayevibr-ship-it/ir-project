@@ -336,6 +336,7 @@ window.irAiRecognitionPage=async function(objectId){
     const panel=document.createElement("section");
     panel.className="ir-ai-doc-head";
     panel.textContent="Распознано экземпляров: "+(review?.occurrences||0)+" · марок: "+(review?.matchedMarks||0)+" · требуется проверка: "+(review?.requiresReview?.length||0);
+    if(!isCurrent()||active!=="scheme-lite")return;
     box.prepend(panel);
     const table=document.createElement("table");
     table.className="ir-ai-review-table";
