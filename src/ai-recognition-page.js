@@ -400,6 +400,7 @@ window.irAiRecognitionPage=async function(objectId){
       dlg.showModal();
       const spanX=Math.max(1000,...elements.flatMap(e=>[e.x,e.x2]))-Math.min(0,...elements.flatMap(e=>[e.x,e.x2]));
       const spanY=Math.max(1000,...elements.flatMap(e=>[e.y,e.y2]))-Math.min(0,...elements.flatMap(e=>[e.y,e.y2]));
+      if(!window.irThreeSchemeView?.render)throw Error("Просмотрщик Three.js недоступен");
       window.irThreeSchemeView.render(host,{elements,spanX,spanY,colorMode:"type"});
      }catch(ex){window.alert("Ошибка предпросмотра: "+String(ex.message||ex))}
     };
