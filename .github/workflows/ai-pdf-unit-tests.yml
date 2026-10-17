@@ -38,6 +38,6 @@ jobs:
           node scripts/test-ai-pdf-geometry-cache.js
           node scripts/test-ai-pdf-drawings-ui.js
       - name: Test offline OCR policy
-        run: node --test src/ai-pdf-ocr-policy.test.js src/ai-pdf-ocr.test.js src/ai-pdf-scan-analysis.test.js src/ai-pdf-ocr-status.test.js src/ai-pdf-scan-queue.test.js src/ai-pdf-ocr-readiness.test.js src/ai-pdf-scan-service.test.js src/ai-pdf-register-audit.test.js src/ai-pdf-coordinate-candidates.test.js src/ai-pdf-segment-evidence.test.js
+        run: node --test src/ai-pdf-ocr-policy.test.js src/ai-pdf-ocr.test.js src/ai-pdf-scan-analysis.test.js src/ai-pdf-ocr-status.test.js src/ai-pdf-scan-queue.test.js src/ai-pdf-ocr-readiness.test.js src/ai-pdf-scan-service.test.js src/ai-pdf-register-audit.test.js src/ai-pdf-coordinate-candidates.test.js src/ai-pdf-segment-evidence.test.js src/ai-pdf-sheet-analysis.test.js
       - name: Run deterministic PDF unit tests
         run: node --test src/ai-pdf-mark-matcher.test.js src/ai-pdf-axis-calibration.test.js src/ai-pdf-mark-projection.test.js src/ai-pdf-mark-projection-viewport.test.js src/ai-pdf-index-mark-summary.test.js src/ai-pdf-index-completeness.test.js
