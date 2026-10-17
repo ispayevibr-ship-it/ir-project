@@ -13,10 +13,15 @@ function elevationEvidence(candidates,{radiusPt=120}={}){
   const evidence=near.slice(0,12).map(o=>({fragmentIndex:o.fragmentIndex,valueMm:o.valueMm,
     distancePt:Math.round(o.distancePt*100)/100,text:o.text,
     levelHint:/^(?:низ|z0)\b/iu.test(o.text)?'bottom':/^(?:верх|z1)\b/iu.test(o.text)?'top':null}));
+  const bottom=evidence.filter(o=>o.levelHint==='bottom');
+  const top=evidence.filter(o=>o.levelHint==='top');
+  const levelReview={bottomCandidates:bottom.length,topCandidates:top.length,
+    status:bottom.length===1&&top.length===1&&bottom[0].valueMm<top[0].valueMm?
+     'explicit_pair_unverified':bottom.length>1||top.length>1?'ambiguous_levels':'insufficient_levels'};
   // Never assign Z0/Z1 from nearby elevation numbers: drawings may contain
   // roof, foundation, section and reference elevations on the same sheet.
   return {mark:item.mark,page:item.page,fragmentIndex:item.fragmentIndex,
-    z0Mm:null,z1Mm:null,evidence,status:'review',verified:false};
+    z0Mm:null,z1Mm:null,evidence,levelReview,status:'review',verified:false};
  });
 }
 module.exports={elevationEvidence};
