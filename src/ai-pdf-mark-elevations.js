@@ -11,6 +11,32 @@ function selectMaxElevationPair({bottoms=[],tops=[]}={}){
  return{z0Mm,z1Mm,heightMm:z1Mm>=z0Mm?z1Mm-z0Mm:null,
   method:"max_bottom_max_top",requiresReview:true};
 }
+
+/* Coordinate-based diagnostics for a SINGLE-MARK fabrication sheet.
+ * Coordinates are pdf.js bottom-origin points. Never run on a multi-mark
+ * sheet: marks must be explicitly scoped by the caller.
+ * Elevation is a signed decimal in metres, NOT an arbitrary dimension in mm.
+ */
+function inspectSingleMarkSheetLevels(page){
+ const height=Number(page?.heightPt),fragments=page?.fragments||[];
+ if(!(height>0))return{status:"missing_page_geometry",safeForAutoPlacement:false};
+ const levels=[];
+ for(let i=0;i<fragments.length;i++){
+  const f=fragments[i],raw=String(f?.text||"").trim().replace("−","-");
+  if(!/^[+-]\\d{1,2}[,.]\\d{3}$/.test(raw))continue;
+  const y=Number(f.y);
+  if(!Number.isFinite(y))continue;
+  const mm=Math.round(Number(raw.replace(",","."))*1000);
+  const band=y>=height*.65?"upper":y<=height*.35?"lower":"middle";
+  levels.push({mm,raw,fragmentId:i,yPt:y,band});
+ }
+ const bottoms=levels.filter(x=>x.band==="lower"),tops=levels.filter(x=>x.band==="upper");
+ const chosen=selectMaxElevationPair({bottoms:bottoms.map(x=>x.mm),tops:tops.map(x=>x.mm)});
+ return {...chosen,levels,bottomEvidence:bottoms.filter(x=>x.mm===chosen.z0Mm),
+  topEvidence:tops.filter(x=>x.mm===chosen.z1Mm),
+  status:chosen.heightMm===null?"needs_manual_review":"heuristic_requires_verification",
+  safeForAutoPlacement:false};
+}
 function inspectMarkElevations({pages=[],mark="К62",allowedMarks=[mark]}={}){
  const wanted=normalize(mark),result=[];
  if(!allowedMarks.some(x=>normalize(x)===wanted))throw Error("Марка отсутствует в ведомости");
@@ -32,4 +58,4 @@ function inspectMarkElevations({pages=[],mark="К62",allowedMarks=[mark]}={}){
  }
  return {mark,pages:result,safeForAutoPlacement:false};
 }
-module.exports={inspectMarkElevations,selectMaxElevationPair};
+module.exports={inspectMarkElevations,selectMaxElevationPair,inspectSingleMarkSheetLevels};
