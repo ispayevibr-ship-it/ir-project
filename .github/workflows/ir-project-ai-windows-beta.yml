@@ -38,6 +38,7 @@ jobs:
           set -euo pipefail
           node --check src/ir-runtime.js
           node --check main.js
+          node scripts/test-kmd-native-dependencies.js
           node --check preload.js
           node --check src/ai-recognition-page.js
           node --check src/ai-scheme-lite-page.js

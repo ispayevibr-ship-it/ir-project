@@ -41,6 +41,7 @@ jobs:
           node --check src/ai-image-optimizer.js
           node --check src/updater.js
           node --check main.js
+          node scripts/test-kmd-native-dependencies.js
           node --check preload.js
           node scripts/test-ai-navigation.js
           node --check scripts/build-beta-hot-manifest.js
