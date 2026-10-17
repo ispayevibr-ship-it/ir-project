@@ -43,7 +43,7 @@ def extract(filename):
                     break
             # Only signed/elevation-shaped annotations are candidates.
             # These are observations, NOT verified element elevations.
-            level_pattern = re.compile(r"(?<![\\d])(?:[+\\-−]\\s*\\d{1,2}|0)[,.]\\d{3}(?!\\d)")
+            level_pattern = re.compile(r"(?<!\d)(?:[+\-−]\s*\d{1,2}|0)[,.]\d{3}(?!\d)")
             levels = []
             for fragment in fragments:
                 for match in level_pattern.finditer(fragment["text"]):
