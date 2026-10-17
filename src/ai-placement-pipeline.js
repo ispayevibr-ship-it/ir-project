@@ -24,12 +24,16 @@ function candidatePlacements(pages,register,grid={}){
  const allowed=Array.isArray(register)?register.map(x=>typeof x==="string"?x:x.mark).filter(Boolean):[];
  const typeByMark=new Map((register||[]).map(entry=>[normalize(typeof entry==="string"?entry:entry.mark),classifyMark(entry)]));
  const unique=new Map();
+ const seen=new Set();
  for(const page of pages||[]){
   const hits=markOccurrences(page,allowed);
   const axisProjection=extractPageCandidates(page,allowed,grid).axisProjection;
   const projected=axisProjection.placements||[];
   for(const hit of hits){
    const key=normalize(hit.mark);
+   const identity=[page.documentId??page.sourceDocumentId??"",page.page,hit.fragmentIndex,key].join(":");
+   if(seen.has(identity))continue;
+   seen.add(identity);
    if(!unique.has(key))unique.set(key,[]);
    const nearby=(page.levelCandidates||[]).filter(v=>v.x!=null&&v.y!=null&&hit.x!=null&&hit.y!=null)
     .map(v=>({...v,distancePt:Math.hypot(v.x-hit.x,v.y-hit.y)}))
@@ -39,7 +43,8 @@ function candidatePlacements(pages,register,grid={}){
     xMm:mapped?.xMm??null,yMm:mapped?.yMm??null,z0Mm:null,z1Mm:null,
     coordinateStatus:mapped?.xMm!=null&&mapped?.yMm!=null?"label_coordinate_only":"unresolved",
     nearestXAxis:nearest(mapped?.xMm,axesX),nearestYAxis:nearest(mapped?.yMm,axesY),
-    levelCandidates:nearby.slice(0,10),status:"requires_review",safeForAutoPlacement:false});
+    levelCandidates:nearby.slice(0,10),status:"requires_review",safeForAutoPlacement:false,
+    placementId:identity});
   }
  }
  const positions=[...unique.values()].flat();
