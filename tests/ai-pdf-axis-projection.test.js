@@ -45,4 +45,7 @@ const sharedLevels=elevationEvidence({spatialAssociations:[{mark:"K62",pdfPoint:
 assert.equal(sharedLevels[0].levelReview.sharedElevationEvidence,true);
 assert.notEqual(sharedLevels[0].levelReview.status,"explicit_pair_unverified");
 assert.equal(sharedLevels[0].z0Mm,null);
+const unavailable=analyzeSheet({page:{page:1,heightPt:100,rotation:0,fragments:[{str:"К62",x:20,y:20}]},geometry:null,registerMarks:["К62"]});
+assert.equal(unavailable.anchorSummary.unavailable,unavailable.candidates.length);
+assert.equal(unavailable.anchorSummary.missing,0);
 console.log("PDF axis grid, vector evidence and sheet summary validation passed");
