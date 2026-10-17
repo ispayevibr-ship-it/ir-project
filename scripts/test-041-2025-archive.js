@@ -5,6 +5,7 @@
 const fs=require("node:fs"),crypto=require("node:crypto"),path=require("node:path");
 const yauzl=require("yauzl"),pdfjs=require("pdfjs-dist/legacy/build/pdf.mjs");
 const {markOccurrences}=require("../src/ai-pdf-mark-matcher");
+const COLUMN_FILE="041-2025 КМД л. 45-50 (К62-К67) Изм.1.pdf";
 const archive=process.argv[2]||process.env.IR_KMD_TEST_ARCHIVE;
 if(!archive||!fs.existsSync(archive)){
  console.error("Provide 041-2025 KMD ZIP path as first argument or IR_KMD_TEST_ARCHIVE");
@@ -56,7 +57,11 @@ const readZip=filename=>new Promise((resolve,reject)=>{
     const text=fragments.map(x=>x.text).join(" ");
     let hits=[];
     if(allowed.length)hits=markOccurrences({page:i,fragments},allowed);
-    rows.push({page:i,fragments:fragments.length,textChars:text.length,
+    const sheetMark=doc.name===COLUMN_FILE?"К"+(61+i):null;
+    const title=sheetMark&&new RegExp("Колонна\\\\s+"+sheetMark+"(?![0-9])","u");
+    const elevationEvidence=doc.name===COLUMN_FILE?[...new Set(text.match(/(?<!\\d)[+\\-]\\d[.,]\\d{3}(?!\\d)/gu)||[])].sort():[];
+    rows.push({page:i,sheetMark,sheetTitleMatched:title?title.test(text):null,
+     elevationEvidence,placementConfirmed:false,fragments:fragments.length,textChars:text.length,
      matchedMentions:hits.length,matchedUnique:[...new Set(hits.map(x=>x.mark))].length,
      hasText:text.trim().length>0});
     page.cleanup()
