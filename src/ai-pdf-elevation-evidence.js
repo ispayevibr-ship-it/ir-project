@@ -29,7 +29,7 @@ function elevationEvidence(candidates,{radiusPt=120}={}){
     candidateZ1Mm:explicitPair?top[0].valueMm:null,
     candidateHeightMm:explicitPair?top[0].valueMm-bottom[0].valueMm:null,
     sharedElevationEvidence:evidence.some(o=>o.sharedWithNearbyMarks),
-    status:explicitPair&&!evidence.some(o=>o.sharedWithNearbyMarks)?
+    status:explicitPair?
      'explicit_pair_unverified':bottom.length>1||top.length>1?'ambiguous_levels':'insufficient_levels'};
   // Never assign Z0/Z1 from nearby elevation numbers: drawings may contain
   // roof, foundation, section and reference elevations on the same sheet.
