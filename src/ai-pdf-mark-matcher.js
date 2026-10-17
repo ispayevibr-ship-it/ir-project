@@ -19,9 +19,9 @@ function markOccurrences(page,allowedMarks){
  for(let i=0;i<fragments.length;i++){
   const item=fragments[i],raw=typeof item==="string"?item:
    String(item?.str??item?.text??"");
-  const text=normalize(filteredRaw);
   // Mask drawing-title ranges, but retain independent marks in the same fragment.
   const filteredRaw=raw.replace(/[А-ЯA-Z]+\d+\s*[-–—]\s*[А-ЯA-Z]+\d+/giu," ");
+  const text=normalize(filteredRaw);
   const compactSpans=filteredRaw.trim().split(/[\s,;:()\[\]{}]+/u).map(normalize).filter(Boolean);
   const spacedSingle=filteredRaw.trim().split(/\s+/u).length===2 && compactSpans.length===2 && allowed.has(compactSpans.join(""));
   if(!text)continue;
