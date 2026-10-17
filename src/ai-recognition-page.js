@@ -398,8 +398,18 @@ window.irAiRecognitionPage=async function(objectId){
       dlg.append(close,host);document.body.appendChild(dlg);
       dlg.addEventListener("close",()=>{window.irThreeSchemeView?.dispose();dlg.remove()},{once:true});
       dlg.showModal();
-      const spanX=Math.max(1000,...elements.flatMap(e=>[e.x,e.x2]))-Math.min(0,...elements.flatMap(e=>[e.x,e.x2]));
-      const spanY=Math.max(1000,...elements.flatMap(e=>[e.y,e.y2]))-Math.min(0,...elements.flatMap(e=>[e.y,e.y2]));
+      const minX=Math.min(0,...elements.flatMap(e=>[e.x,e.x2]));
+      const minY=Math.min(0,...elements.flatMap(e=>[e.y,e.y2]));
+      const maxX=Math.max(1000,...elements.flatMap(e=>[e.x,e.x2]));
+      const maxY=Math.max(1000,...elements.flatMap(e=>[e.y,e.y2]));
+      const spanX=maxX-minX,spanY=maxY-minY;
+      if(minX||minY){
+       elements.forEach(e=>{e.x-=minX;e.x2-=minX;e.y-=minY;e.y2-=minY});
+       const offset=document.createElement("p");
+       offset.textContent="Смещение начала визуализации: X "+minX+" мм, Y "+minY+" мм. Исходные координаты не изменены.";
+       dlg.insertBefore(offset,host);
+       host.style.height="calc(100% - 75px)";
+      }
       if(!window.irThreeSchemeView?.render)throw Error("Просмотрщик Three.js недоступен");
       window.irThreeSchemeView.render(host,{elements,spanX,spanY,colorMode:"type"});
      }catch(ex){window.alert("Ошибка предпросмотра: "+String(ex.message||ex))}
