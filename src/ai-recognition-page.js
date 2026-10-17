@@ -336,7 +336,21 @@ window.irAiRecognitionPage=async function(objectId){
     const panel=document.createElement("section");
     panel.className="ir-ai-doc-head";
     panel.textContent="Распознано экземпляров: "+(review?.occurrences||0)+" · марок: "+(review?.matchedMarks||0)+" · требуется проверка: "+(review?.requiresReview?.length||0);
-    box.prepend(panel)
+    box.prepend(panel);
+    const table=document.createElement("table");
+    table.className="ir-ai-review-table";
+    const head=document.createElement("thead");
+    head.innerHTML="<tr><th>Марка</th><th>Лист</th><th>Тип</th><th>X, мм</th><th>Y, мм</th><th>Статус</th></tr>";
+    table.appendChild(head);
+    const body=document.createElement("tbody");
+    for(const item of (review?.candidates||[]).slice(0,200)){
+     const tr=document.createElement("tr");
+     for(const value of [item.mark,item.page,item.type,item.xMm,item.yMm,"Требует проверки"]){
+      const td=document.createElement("td");td.textContent=value==null?"—":String(value);tr.appendChild(td)
+     }
+     body.appendChild(tr)
+    }
+    table.appendChild(body);panel.appendChild(table)
    }
   }catch(ex){if(isCurrent())box.textContent="Ошибка геометрического анализа: "+String(ex.message||ex)}
  }
