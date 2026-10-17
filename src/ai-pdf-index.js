@@ -61,7 +61,7 @@ function createPdfIndex({database,documents,workerFactory=(file,options)=>new Wo
  function registerMarks(id){
   const entries=database.listEntity(object(id),"marks")||[];
   return [...new Set(entries.map(r=>String(
-   r?.data?.mark??r?.data?.code??r?.data?.name??r?.title??""
+   r?.data?.mark??r?.data?.code??r?.title??""
   ).trim()).filter(Boolean))];
  }
  function markSummary(id){
