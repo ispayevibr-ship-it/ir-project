@@ -112,7 +112,7 @@ function createPdfIndex({database,documents,workerFactory=(file,options)=>new Wo
   if(singleMarkRequested&&!marks.some(mark=>mark.trim().toUpperCase()===requestedMark.toUpperCase()))
    throw Error("Марка отсутствует в ведомости");
   const singleMarkElevationHeuristic=singleMarkRequested?
-   inspectSingleMarkSheetLevels(p):null;
+   inspectSingleMarkSheetLevels(p,{assumedBaseMm:allowedMarks?.assumedBaseMm===0?0:null}):null;
   if(singleMarkElevationHeuristic&&elevationInspection)
    elevationInspection.singleMarkSheet=singleMarkElevationHeuristic;
   return{indexId:item.id,source:item.data.source,page:p,pdfCandidates:candidates,elevationInspection,singleMarkElevationHeuristic,
