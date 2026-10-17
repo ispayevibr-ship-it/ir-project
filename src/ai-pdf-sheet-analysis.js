@@ -108,6 +108,32 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
   vectorIntersections,strokeCandidates,elevations,
   verifiedInstances:0,safeForAutoPlacement:false};
 }
+function reconcileMarkCounts(sheets,registerMarks){
+ const found=new Map();
+ for(const sheet of Array.isArray(sheets)?sheets:[])
+  for(const item of Array.isArray(sheet?.candidates)?sheet.candidates:[]){
+   const key=String(item.mark??"").normalize("NFKC").toUpperCase().replace(/\s+/g,"");
+   if(key)found.set(key,(found.get(key)||0)+1);
+  }
+ const result=[];
+ for(const entry of Array.isArray(registerMarks)?registerMarks:[]){
+  const raw=entry&&typeof entry==="object"?entry.mark??entry.mark_name??entry.code??entry.marking:entry;
+  const mark=String(raw??"").trim();
+  if(!mark)continue;
+  const key=mark.normalize("NFKC").toUpperCase().replace(/\s+/g,"");
+  const count=entry&&typeof entry==="object"?entry.quantity??entry.qty??entry.count??entry.kolichestvo:null;
+  const expected=count==null||count===""?null:Number(count);
+  const detected=found.get(key)||0;
+  const valid=expected!=null&&Number.isSafeInteger(expected)&&expected>=0;
+  result.push({mark,expected:valid?expected:null,detected,
+   missing:valid?Math.max(0,expected-detected):null,
+   excess:valid?Math.max(0,detected-expected):null,
+   status:!valid?"quantity_unknown":detected===expected?"matched":detected<expected?"missing":"excess"});
+  found.delete(key);
+ }
+ return {marks:result,unregistered:[...found].map(([mark,detected])=>({mark,detected})),
+  safeForAutoPlacement:false};
+}
 function summarizeSheets(sheets){
  const totals={sheets:0,total:0,proposed:0,ambiguous:0,missing:0,unavailable:0,unverified:0,classified:0,unclassified:0,uniqueMarks:0};
  const uniqueMarks=new Set();
@@ -129,4 +155,4 @@ function summarizeSheets(sheets){
  totals.uniqueMarks=uniqueMarks.size;
  return totals;
 }
-module.exports={analyzeSheet,summarizeSheets,classifyMarkType};
+module.exports={analyzeSheet,summarizeSheets,classifyMarkType,reconcileMarkCounts};
