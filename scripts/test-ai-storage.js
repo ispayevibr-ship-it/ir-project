@@ -49,7 +49,7 @@ const {createStore}=require("../src/ai-document-store");
    [2,first.imported[0].sha256,1],[1,first.imported[0].sha256,2],[2,"old-sha",3]]){
    geometryRows.push(db.createEntity(1,"ai-pdf-geometry",{record_type:"pdf_page_geometry",
     data:{version,documentId:id,sourceSha256:digest,result:{page,
-     coordinateSystem:"viewport_points_top_left",segments:[]}}}).id)
+     coordinateSystem:"viewport_points_top_left",widthPt:841.89,heightPt:595.28,segments:[]}}}).id)
   }
   assert.deepEqual(store.list(1)[0].geometryPages,[1],"persisted status uses current schema/SHA, deduplicates pages");
   assert(!JSON.stringify(store.list(1)).includes("segments"),"large geometry never sent to document list");
