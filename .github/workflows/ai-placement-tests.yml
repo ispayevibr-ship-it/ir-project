@@ -1,0 +1,24 @@
+name: IR AI placement tests
+on:
+  push:
+    branches:
+      - feature/ir-project-ai-next
+    paths:
+      - 'src/ai-placement-pipeline.js'
+      - 'src/ai-scheme-preview.js'
+      - 'tests/ai-placement-pipeline.test.js'
+      - 'tests/ai-scheme-preview.test.js'
+      - '.github/workflows/ai-placement-tests.yml'
+  workflow_dispatch:
+jobs:
+  placement:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate placement pipeline
+        run: node tests/ai-placement-pipeline.test.js
+      - name: Validate Three.js preview adapter
+        run: node tests/ai-scheme-preview.test.js
