@@ -32,7 +32,21 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
  }
  function list(id){
   id=objectId(id);
-  return database.listEntity(id,"ai-documents").filter(x=>x.record_type==="document").map(x=>publicRow(id,x))
+  // Return only persisted page numbers, never the large geometry payload.
+  const geometry=new Map();
+  for(const row of database.listEntity(id,"ai-pdf-geometry")){
+   const d=row.data,r=d?.result;
+   if(row.record_type!=="pdf_page_geometry"||d?.version!==2||
+    !Number.isSafeInteger(r?.page)||r.page<1||
+    r.coordinateSystem!=="viewport_points_top_left"||!Array.isArray(r.segments))continue;
+   const key=String(d.documentId)+":"+d.sourceSha256;
+   if(!geometry.has(key))geometry.set(key,new Set());
+   geometry.get(key).add(r.page)
+  }
+  return database.listEntity(id,"ai-documents").filter(x=>x.record_type==="document").map(x=>{
+   const doc=publicRow(id,x);
+   return{...doc,geometryPages:[...(geometry.get(String(doc.id)+":"+doc.sha256)||[])].sort((a,b)=>a-b)}
+  })
  }
  function fingerprint(file){return new Promise((resolve,reject)=>{
   const hash=crypto.createHash("sha256"),stream=fs.createReadStream(file);

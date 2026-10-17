@@ -44,6 +44,16 @@ const {createStore}=require("../src/ai-document-store");
   assert.equal(duplicate.imported.length,0);assert.equal(duplicate.skipped.length,1);
   assert.equal(store.list(1).length,1);
   const id=first.imported[0].id;
+  const geometryRows=[];
+  for(const [version,digest,page] of [[2,first.imported[0].sha256,1],
+   [2,first.imported[0].sha256,1],[1,first.imported[0].sha256,2],[2,"old-sha",3]]){
+   geometryRows.push(db.createEntity(1,"ai-pdf-geometry",{record_type:"pdf_page_geometry",
+    data:{version,documentId:id,sourceSha256:digest,result:{page,
+     coordinateSystem:"viewport_points_top_left",segments:[]}}}).id)
+  }
+  assert.deepEqual(store.list(1)[0].geometryPages,[1],"persisted status uses current schema/SHA, deduplicates pages");
+  assert(!JSON.stringify(store.list(1)).includes("segments"),"large geometry never sent to document list");
+  for(const rowId of geometryRows)db.deleteEntity(1,"ai-pdf-geometry",rowId);
   assert.rejects(()=>store.open(2,id),/не найден/);
   await store.open(1,id);assert(opened.startsWith(path.join(tmp,"ir-project-ai","objects","1")+path.sep));
   assert.equal(fs.readFileSync(opened,"utf8"),fs.readFileSync(source,"utf8"));

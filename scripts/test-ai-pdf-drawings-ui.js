@@ -77,5 +77,11 @@ const wait=async check=>{
  assert.match(content.innerHTML,/✓ Текст и геометрия/);
  assert.match(content.innerHTML,/Ошибка/);
  assert.equal(page.aiEngine,undefined);
+ docs[0].geometryPages=[1,2];docs[1].geometryPages=[1];
+ const before=runs.length;
+ await context.window.irAiRecognitionPage(7);
+ assert.match(content.innerHTML,/✓ Текст и геометрия · 2/);
+ assert.match(content.innerHTML,/✓ Индексирован текст/);
+ assert.equal(runs.length,before,"reload reads saved status without indexing");
  console.log("Algorithmic PDF UI: batch index serial, SHA cache, ✓ saved, errors, no AI runtime PASS");
 })().catch(e=>{console.error(e);process.exitCode=1});

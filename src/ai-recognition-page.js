@@ -25,7 +25,11 @@ window.irAiRecognitionPage=async function(objectId){
    (state.page||"…")+(state.total?" из "+state.total+" · "+Math.floor((state.page||0)/state.total*100)+"%":""),css:"indexing"};
   if(state?.state==="error")return{value:"✕ Ошибка: "+state.message,css:"index-error"};
   const ready=matchingIndex(doc);
-  if(state?.state==="done")return{value:"✓ Текст и геометрия · "+state.pages+" лист(ов)",css:"indexed"};
+  const geometryPages=new Set(doc.geometryPages||[]);
+  const geometryComplete=ready&&ready.pages.length===Number(ready.totalPages)&&
+   ready.pages.every(p=>geometryPages.has(Number(p.page)));
+  if(geometryComplete||state?.state==="done")return{value:"✓ Текст и геометрия · "+
+   (ready?.totalPages||state.pages)+" лист(ов)",css:"indexed"};
   if(ready)return{value:"✓ Индексирован текст · "+
    (state?.pages||ready?.totalPages||ready?.pages?.length||0)+" лист(ов)",css:"indexed"};
   return{value:"Ожидает индексации",css:"waiting"}
