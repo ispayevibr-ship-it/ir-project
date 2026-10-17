@@ -19,6 +19,13 @@ function markOccurrences(page,allowedMarks){
  for(let i=0;i<fragments.length;i++){
   const item=fragments[i],raw=typeof item==="string"?item:
    String(item?.str??item?.text??"");
+  // Ignore text inside a page title block only when its bounds are supplied.
+  // Do not guess a title block from a fixed percentage of the page.
+  const block=page?.titleBlockBounds;
+  const px=Number(item?.x),py=Number(item?.y);
+  if(block&&Number.isFinite(px)&&Number.isFinite(py)&&
+   [block.x0,block.y0,block.x1,block.y1].every(v=>v!=null&&Number.isFinite(Number(v)))&&
+   px>=Number(block.x0)&&px<=Number(block.x1)&&py>=Number(block.y0)&&py<=Number(block.y1))continue;
   // Mask drawing-title ranges, but retain independent marks in the same fragment.
   const filteredRaw=raw.replace(/[А-ЯA-Z]+\d+\s*[-–—]\s*[А-ЯA-Z]+\d+/giu," ");
   const text=normalize(filteredRaw);
