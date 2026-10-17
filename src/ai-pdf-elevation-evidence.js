@@ -19,7 +19,7 @@ function elevationEvidence(candidates,{radiusPt=120}={}){
   const evidence=near.slice(0,12).map(o=>({fragmentIndex:o.fragmentIndex,valueMm:o.valueMm,
     distancePt:Math.round(o.distancePt*100)/100,text:o.text,
     sharedWithNearbyMarks:shared.has(o.observationIndex),
-    levelHint:String(o.text||'').trim().toLowerCase().startsWith('низ ')?'bottom':String(o.text||'').trim().toLowerCase().startsWith('верх ')?'top':null}));
+    levelHint:['низ ','низ:','низ=','z0 ','z0:','z0='].some(prefix=>String(o.text||'').trim().toLowerCase().startsWith(prefix))?'bottom':['верх ','верх:','верх=','z1 ','z1:','z1='].some(prefix=>String(o.text||'').trim().toLowerCase().startsWith(prefix))?'top':null}));
   const bottom=evidence.filter(o=>o.levelHint==='bottom');
   const top=evidence.filter(o=>o.levelHint==='top');
   const explicitPair=bottom.length===1&&top.length===1&&bottom[0].valueMm<top[0].valueMm&&
