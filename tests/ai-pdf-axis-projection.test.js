@@ -1,6 +1,6 @@
 "use strict";
 const assert=require("node:assert/strict");
-const {axisMap,calibrateDimension}=require("../src/ai-pdf-axis-projection");
+const {axisMap,calibrateDimension,projectAxisCandidates}=require("../src/ai-pdf-axis-projection");
 assert.deepEqual(axisMap(null,"x"),{});
 assert.deepEqual(axisMap({x:{"1":0,"2":45000,"3":null,"4":""}},"x"),{"1":0,"2":45000});
 assert.deepEqual(axisMap({axes_x:["1","2","3","4"],x_spans_mm:[45000,30000,60000]},"x"),{"1":0,"2":45000,"3":75000,"4":135000});
@@ -13,4 +13,9 @@ assert.deepEqual(axisMap({axes_x:["1","2","2"],x_spans_mm:[45000,45000]},"x"),{}
 assert.deepEqual(axisMap({axes_x:["1","2"],x_spans_mm:[""]},"x"),{});
 assert.deepEqual(axisMap({axes_x:["1","2"],x_spans_mm:[null]},"x"),{});
 assert.deepEqual(axisMap({axes_y:["А","Б","В","Г"],y_spans_mm:[6000,9000,7500]},"y"),{"А":0,"Б":6000,"В":15000,"Г":22500});
+const uncalibrated=projectAxisCandidates({observations:[],spatialAssociations:[{mark:"К62",pdfPoint:{x:10,y:20}}]},null);
+assert.equal(uncalibrated.fullyCalibrated,false);
+assert.equal(uncalibrated.placements[0].xMm,null);
+assert.equal(uncalibrated.placements[0].yMm,null);
+assert.equal(uncalibrated.safeForAutoPlacement,false);
 console.log("PDF axis grid validation passed");
