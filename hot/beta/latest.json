@@ -1,7 +1,7 @@
 {
   "channel": "beta",
   "baseVersion": "1.7.226",
-  "version": "1.7.226.264",
+  "version": "1.7.226.267",
   "branch": "feature/ir-project-ai-next",
   "description": "IR Project Algorithmic KM/KMD fixes: no full EXE",
   "files": [
@@ -200,8 +200,8 @@
     {
       "source": "src/ai-pdf-index.js",
       "target": "src/ai-pdf-index.js",
-      "size": 7932,
-      "sha256": "0766b485c21ce3580c57c545f2a31b14aa97a4ebd9734e90e2e5ae95f0454dbe"
+      "size": 7953,
+      "sha256": "2b913c4d91e53803e810c293095ee1e24b155f734242467591253de8fee73259"
     },
     {
       "source": "src/ai-pdf-mark-matcher.js",
@@ -261,7 +261,7 @@
       "source": "src/ai-pdf-scan-queue.js",
       "target": "src/ai-pdf-scan-queue.js",
       "size": 725,
-      "sha256": "14dac8cd7d03751383692dc405ffcd8a36d4466db8bf814d20e04d0cecf0fc20"
+      "sha256": "5be0926ae5ac18323343f6930d40aa317d307d9410ba4c2740b5c6347014ab7a"
     },
     {
       "source": "src/ai-pdf-vector-paths.js",
@@ -290,8 +290,8 @@
     {
       "source": "src/ai-recognition-page.js",
       "target": "src/ai-recognition-page.js",
-      "size": 22512,
-      "sha256": "3963b85858bac39bab4841a7b972e1cfea68d7db6457efe4821b515faee51c6b"
+      "size": 22530,
+      "sha256": "8228f0f622a004a53957312b6582f4d112e7c8294403c8440038c470a6ff2eed"
     },
     {
       "source": "src/ai-review.js",
