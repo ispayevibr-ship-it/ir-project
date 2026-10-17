@@ -78,3 +78,18 @@ test("existing PDF page API exposes calibrated mark candidates without placing s
  assert.equal(calibrated.markMatches[0].z0Mm,null);
  assert.equal(calibrated.markMatches[0].safeForAutoPlacement,false);
 });
+
+test("counts each indexed page independently even when PDF page numbers repeat",()=>{
+ const database={
+  getObject:()=>({id:1}),
+  listEntity:(_id,key)=>key==="marks"?[{data:{mark:"К62"}}]:
+   key==="ai-pdf-index"?[{id:12,record_type:"pdf_text_index",data:{
+    source:{documentId:12,name:"drawing.pdf"},total:2,
+    pages:[{page:1,fragments:[{text:"К62"}]},
+     {page:1,fragments:[{text:"К62 К62"}]}]
+   }}]:[]
+ };
+ const stats=createPdfIndex({database,documents:{}}).list(1)[0].markStats;
+ assert.equal(stats.occurrences,3);
+ assert.deepEqual(stats.perPage.map(p=>p.occurrences),[1,2]);
+});
