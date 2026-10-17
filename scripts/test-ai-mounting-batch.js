@@ -39,9 +39,9 @@ p=buildBatchPlan({...ctx,candidates:[candidate],
  absolute_x_mm:12000,absolute_y_mm:18000,z0_mm:-400,z1_mm:9705}}]});
 assert.equal(p.ready.length,0,"duplicate placement on scheme forbidden");
 p=buildBatchPlan({...ctx,candidates:[],pages:[{page:1,textAvailable:false,uncertainEncoding:false,sheetType:"plan",marks:[]}]});
-assert.equal(p.difficult.length,1,"only difficult pages need visual recognition");
+assert.equal(p.difficult.length,1,"ambiguous or textless sheets remain flagged for manual verification");
 const ui=require("node:fs").readFileSync("src/ai-scheme-lite-page.js","utf8");
 assert(ui.includes("data-lite-batch"),"engineer approves batch explicitly");
-assert(ui.includes("data-lite-qwen"),"ambiguous pages can be queued selectively");
+assert(!ui.includes("data-lite-qwen"),"ambiguous plans must stay local; no Qwen queue");
 assert(ui.includes("expectedCount")||ui.includes("preview.count"),"existing scheme reset protected");
-console.log("Mounting batch planner: evidence, axes/Z, dedupe, quantity, selective Qwen PASS");
+console.log("Mounting batch planner: evidence, axes/Z, dedupe, quantity and local-only review PASS");
