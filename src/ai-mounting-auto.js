@@ -77,6 +77,7 @@ function automaticEntries(rows){
   if(!old||Number(row.id)>Number(old.id))geometryByPage.set(key,row);
  }
  const graphicReview=[],projectGrid=axisGeometry(rows.scheme);
+ const graphicByMark=new Map();
  const graphicSeen=new Set();
  const candidates=[],seenMarks=new Set(),reasons=new Map();let pages=0;
  for(const index of latest.values())for(const p of index.data?.pages||[]){
@@ -96,11 +97,15 @@ function automaticEntries(rows){
       item.label?.fragmentIds,region.name]);
     if(graphicSeen.has(identity))continue;
     graphicSeen.add(identity);
-    graphicReview.push({mark:item.mark,markId:item.markId,axisX:item.axisX,axisY:item.axisY,
+    const suggestion={mark:item.mark,markId:item.markId,axisX:item.axisX,axisY:item.axisY,
      nodeXmm:item.nodeXmm,nodeYmm:item.nodeYmm,region:region.name,
      source:{documentId:src.documentId,sha256:src.sha256,page:p.page},
      fragmentIds:item.label.fragmentIds,rectPt:item.label.rectPt,
-     leaderSegments:item.evidence.segments,status:"requires_review",safeForAutoPlacement:false});
+     leaderSegments:item.evidence.segments,status:"requires_review",safeForAutoPlacement:false};
+    graphicReview.push(suggestion);
+    const markKey=normalize(item.mark);
+    if(!graphicByMark.has(markKey))graphicByMark.set(markKey,[]);
+    graphicByMark.get(markKey).push(suggestion);
    }
   }
   for(const line of localLines(p)){
@@ -160,8 +165,13 @@ function automaticEntries(rows){
  const represented=new Set(candidates.map(c=>normalize(c.mark)));
  for(const mark of marks){
   const name=mark.data?.mark||mark.title;
-  if(!represented.has(normalize(name)))review.push({mark:name,reason:reasons.get(String(mark.id))||
-   (seenMarks.has(normalize(name))?"Марка найдена, но её монтажные оси и высоты не определены":"Марка не найдена в актуальном текстовом индексе")});
+  if(!represented.has(normalize(name))){
+   const suggestions=graphicByMark.get(normalize(name))||[];
+   review.push({mark:name,reason:reasons.get(String(mark.id))||
+    (suggestions.length?"Найдена графическая привязка, но требуются проверенные высоты и положение конструкции":
+     seenMarks.has(normalize(name))?"Марка найдена, но её монтажные оси и высоты не определены":"Марка не найдена в актуальном текстовом индексе"),
+    graphicCandidates:suggestions.length});
+  }
  }
  return{entries:entries.slice(0,400),review,graphicReview,stats:{pages,documents:latest.size,
   candidates:candidates.length,graphicLinks:graphicReview.length,ready:entries.length,deferred:Math.max(0,entries.length-400)}};
