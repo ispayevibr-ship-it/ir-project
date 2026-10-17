@@ -1,7 +1,7 @@
 {
   "channel": "beta",
   "baseVersion": "1.7.226",
-  "version": "1.7.226.286",
+  "version": "1.7.226.287",
   "branch": "feature/ir-project-ai-next",
   "description": "IR Project Algorithmic KM/KMD fixes: no full EXE",
   "files": [
@@ -170,8 +170,8 @@
     {
       "source": "src/ai-mounting-auto.js",
       "target": "src/ai-mounting-auto.js",
-      "size": 9458,
-      "sha256": "43ad8e6431ab70807cf96c6bf31b7ec14690c3b86148a5b9390ee6f6f8aad20e"
+      "size": 10955,
+      "sha256": "73ec589f47452b352db9cb36e7780ace9d313b710bc9c4d751f10e49cbdec3cd"
     },
     {
       "source": "src/ai-mounting-drafts.js",
@@ -182,8 +182,8 @@
     {
       "source": "src/ai-mounting-placement.js",
       "target": "src/ai-mounting-placement.js",
-      "size": 20465,
-      "sha256": "fbd4beda3d48ea7521a31810c6a9075646f700d6753aceba73b6cf4d46fe9ed4"
+      "size": 20580,
+      "sha256": "5390199645c4b91a4223a6c7b7122d7c4890921fc9306e6239372f26399d02b7"
     },
     {
       "source": "src/ai-pdf-axis-calibration.js",
@@ -326,8 +326,8 @@
     {
       "source": "src/ai-recognition-page.js",
       "target": "src/ai-recognition-page.js",
-      "size": 30087,
-      "sha256": "1eed246c79ed8d8211f178eba6c5cc9a79b3046f51007f13e4a9ad53536605f5"
+      "size": 30103,
+      "sha256": "3c8b43ed9de7d4853890ec9d3c9983cf99259f3247acb103cd4a2f683e2c3952"
     },
     {
       "source": "src/ai-review.js",
@@ -350,8 +350,8 @@
     {
       "source": "src/ai-scheme-lite-page.js",
       "target": "src/ai-scheme-lite-page.js",
-      "size": 176574,
-      "sha256": "7c0f3811e4e6232610774730412a90e5ea162239e45979152c7ae2f6472ac96f"
+      "size": 180173,
+      "sha256": "06021618b280ed899878c1e76f61238c73fc0c235b764d9a0db6ef7f78c70f2e"
     }
   ]
 }
