@@ -199,9 +199,11 @@ window.irAiRecognitionPage=async function(objectId){
  }
  async function indexAll(){
   if(busy||!pdf?.index)return;
-  const selected=docs.filter(d=>d.ext===".pdf"&&d.exists);
-  if(!selected.length)return;
-  busy=true;error=false;notice="Индексируем последовательно, без нейросетей.";
+  const selected=docs.filter(d=>d.ext===".pdf"&&d.exists&&
+   (!matchingIndex(d)||matchingIndex(d).pages.some(p=>
+    !(d.geometryPages||[]).includes(Number(p.page)))));
+  if(!selected.length){notice="Все доступные PDF уже имеют сохранённый текст и геометрию.";error=false;paint();return}
+  busy=true;error=false;notice="Обрабатываем только PDF с недостающим индексом или геометрией.";
   bulk={running:true,current:"",rows:new Map(selected.map(d=>[String(d.id),
    {state:"waiting"}]))};
   paint();let unsubscribe=null;
