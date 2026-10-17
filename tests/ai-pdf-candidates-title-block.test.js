@@ -12,4 +12,11 @@ const result=extractPageCandidates(page,["К62"],{});
 assert.equal(result.marks.length,1);
 assert.equal(result.marks[0].x,100);
 assert.ok(result.observations.every(o=>o.fragmentIndex<2));
+const withoutCoordinates=extractPageCandidates({page:2,fragments:[
+ {text:"К62"},{text:"+9.705"},{text:"1"}
+]},["К62"],{axes_x:["1","2"],x_spans_mm:[45000]});
+assert.equal(withoutCoordinates.marks.length,1);
+assert.equal(withoutCoordinates.observations.find(o=>o.kind==="axis").point,null);
+assert.equal(withoutCoordinates.spatialAssociations[0].pdfPoint,null);
+assert.equal(withoutCoordinates.axisProjection.placements[0].xMm,null);
 console.log("PDF title block exclusion passed");
