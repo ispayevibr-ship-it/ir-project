@@ -134,9 +134,16 @@ window.irAiRecognitionPage=async function(objectId){
     indexes.length+'</summary>'+indexes.filter(x=>docs.some(d=>String(d.id)===String(x.documentId)))
     .map(x=>'<article class="ir-ai-pdf-card"><header><strong>'+esc(x.sourceName||"PDF")+
      '</strong><span>'+Number(x.totalPages||x.pages.length)+' листов</span></header>'+
+     (x.markStats?'<p>Марки из ведомости: '+Number(x.markStats.matchedMarks||0)+
+      ' из '+Number(x.markStats.registerMarks||0)+
+      ' · упоминаний: '+Number(x.markStats.occurrences||0)+
+      ' · размещение не подтверждено</p>':'')+
      '<div class="ir-ai-pdf-sheets">'+(x.pages||[]).map(p=>
        '<details><summary>Лист '+p.page+' · '+(p.hasTextLayer?'Текст найден':
-        'Нет текстового слоя')+'</summary><pre>'+esc(p.excerpt||"Текст отсутствует")+
+        'Нет текстового слоя')+
+        (x.markStats?.perPage?' · совпадений: '+Number(
+         x.markStats.perPage.find(v=>Number(v.page)===Number(p.page))?.occurrences||0):'')+
+        '</summary><pre>'+esc(p.excerpt||"Текст отсутствует")+
         '</pre><button type="button" data-kmd-preview="'+x.documentId+':'+p.page+
         '">Просмотр листа</button></details>').join("")+'</div></article>').join("")+
     '</details>':"");
