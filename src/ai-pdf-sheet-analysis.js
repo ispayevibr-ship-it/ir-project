@@ -24,6 +24,15 @@ function classifyMarkType(name){
 }
 function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha256,maxDistancePt=12}={}){
  const base=buildCoordinateCandidates({page,registerMarks,anchors,documentId,sourceSha256});
+ const registerEntries=Array.isArray(registerMarks)?registerMarks:[];
+ const registerByMark=new Map();
+ for(const entry of registerEntries){
+  if(!entry||typeof entry!=="object")continue;
+  const key=String(entry.mark??entry.mark_name??entry.code??"").normalize("NFKC").toUpperCase().replace(/\\s+/g,"");
+  if(!key)continue;
+  const name=entry.name??entry.title??entry.description??entry.naimenovanie??"";
+  if(!registerByMark.has(key))registerByMark.set(key,name);
+ }
  const geometryValid=geometry?.coordinateSystem==="viewport_points_top_left"&&
   Number(geometry.page)===Number(page?.page)&&
   Number(page?.rotation||0)===0&&Number(geometry.rotation||0)===0&&
@@ -39,7 +48,7 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
   const positionValid=textHit&&x!=null&&y!=null&&String(x).trim()!==''&&String(y).trim()!==''&&Number.isFinite(x)&&Number.isFinite(y);
   const adjacent=geometryValid&&positionValid?
    nearestSegments({x,y:Number(page.heightPt)-y},segments,{maxDistancePt}):[];
-  return{...candidate,structuralType:classifyMarkType(candidate.name||candidate.title||candidate.description||''),nearbySegments:adjacent,
+  return{...candidate,structuralType:classifyMarkType(registerByMark.get(String(candidate.mark).normalize('NFKC').toUpperCase().replace(/\\s+/g,''))||''),nearbySegments:adjacent,
    geometryEvidenceStatus:!geometryValid?"geometry_unavailable":
     !positionValid?"label_position_unavailable":
     adjacent.length?"nearby_unclassified_segments":"no_nearby_segments",
