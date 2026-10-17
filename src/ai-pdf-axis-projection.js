@@ -47,7 +47,8 @@ function projectAxisCandidates(candidates,grid={}){
  const axes=(candidates?.observations??[]).filter(o=>o.kind==='axis');
  const x=calibrateDimension(axes,axisMap(grid,'x'),'x');
  const y=calibrateDimension(axes,axisMap(grid,'y'),'y');
- return {x,y,placements:(candidates?.spatialAssociations??[]).map(item=>{
+ const fullyCalibrated=x.calibrated===true&&y.calibrated===true;
+ return {x,y,fullyCalibrated,placements:(candidates?.spatialAssociations??[]).map(item=>{
   const p=item.pdfPoint;
   return {mark:item.mark,page:item.page,fragmentIndex:item.fragmentIndex,
    xMm:p&&x.calibrated?Math.round(x.originMm+p.x*x.scaleMmPerPt):null,
