@@ -74,4 +74,6 @@ const manyResult=analyzeSheet({page:manyPage,registerMarks:manyRegister});
 assert.equal(manyResult.candidates.length,manyMarks.length);
 assert.equal(manyResult.candidates.filter(x=>x.structuralType.type==="column").length,6);
 assert.equal(manyResult.candidates.every(x=>x.verification==="required"),true);
+assert.equal(summarizeSheets([manyResult]).classified,10);
+assert.equal(summarizeSheets([manyResult]).unclassified,0);
 console.log("PDF axis grid, vector evidence and sheet summary validation passed");
