@@ -98,6 +98,8 @@ const duplicates=reconcileMarkCounts([repeated],[{mark:"К62",quantity:2},{mark:
 assert.equal(duplicates.marks[1].status,"duplicate_register_mark");
 assert.equal(duplicates.marks[0].detected,2);
 assert.equal(duplicates.marks[1].detected,2);
+const commaQuantity=reconcileMarkCounts([repeated],[{mark:"К62",quantity:"2,0"}]);
+assert.equal(commaQuantity.marks[0].status,"matched");
 const extra=reconcileMarkCounts([repeated],[{mark:"К62",quantity:1},{mark:"К63",quantity:1}]);
 assert.equal(extra.marks[0].status,"excess");
 assert.equal(extra.marks[0].excess,1);
