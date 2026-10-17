@@ -2,6 +2,7 @@
 /* Deterministic extraction of axis/dimension/elevation candidates from PDF.js
  * text fragments. This is evidence gathering, NOT automatic geometry approval. */
 const { markOccurrences } = require('./ai-pdf-mark-matcher');
+const { detectTitleBlock } = require('./ai-pdf-title-block');
 const { dimensionChains } = require('./ai-pdf-dimension-chains');
 const { associateLabels } = require('./ai-pdf-spatial-associations');
 const { projectAxisCandidates } = require('./ai-pdf-axis-projection');
@@ -11,7 +12,9 @@ const normal = s => String(s ?? '').normalize('NFKC').trim().replace(/\s+/g, ' '
 const axisToken = /^[A-ZА-ЯЁ]{1,3}(?:\d{1,2})?$|^\d{1,3}(?:\/\d{1,2})?$/u;
 function extractPageCandidates(page, allowedMarks, grid = {}) {
   const fragments = Array.isArray(page?.fragments) ? page.fragments : [];
-  const marks = markOccurrences(page, allowedMarks);
+  const detectedTitleBlock = page?.titleBlockBounds ? null : detectTitleBlock(page);
+  const workingPage = detectedTitleBlock ? { ...page, titleBlockBounds: detectedTitleBlock } : page;
+  const marks = markOccurrences(workingPage, allowedMarks);
   const axisNames = value => Array.isArray(value) ? value : value && typeof value === 'object' ? Object.keys(value) : [];
   const xAxes = new Set(axisNames(grid.axes_x ?? grid.x).map(String));
   const yAxes = new Set(axisNames(grid.axes_y ?? grid.y).map(String));
@@ -19,7 +22,7 @@ function extractPageCandidates(page, allowedMarks, grid = {}) {
   fragments.forEach((fragment, index) => {
     const text = normal(fragment?.text ?? fragment?.str);
     if (!text) return;
-    const block = page?.titleBlockBounds;
+    const block = workingPage?.titleBlockBounds;
     const fx = Number(fragment?.x), fy = Number(fragment?.y);
     if (block && fragment?.x != null && fragment?.y != null &&
         [block.x0,block.y0,block.x1,block.y1].every(v => v != null && Number.isFinite(Number(v))) &&
