@@ -341,7 +341,7 @@ window.irAiRecognitionPage=async function(objectId){
     const table=document.createElement("table");
     table.className="ir-ai-review-table";
     const head=document.createElement("thead");
-    head.innerHTML="<tr><th>Марка</th><th>Лист</th><th>Тип</th><th>X, мм</th><th>Y, мм</th><th>Статус</th><th>Чертёж</th></tr>";
+    head.innerHTML="<tr><th>Марка</th><th>Лист</th><th>Тип</th><th>X, мм</th><th>Y, мм</th><th>Статус</th><th>Проверка</th><th>Чертёж</th></tr>";
     table.appendChild(head);
     const body=document.createElement("tbody");
     const approvedCoordinates=new Map();
@@ -350,6 +350,20 @@ window.irAiRecognitionPage=async function(objectId){
      for(const value of [item.mark,item.page,item.type,item.xMm,item.yMm,"Требует проверки"]){
       const td=document.createElement("td");td.textContent=value==null?"—":String(value);tr.appendChild(td)
      }
+     const verify=document.createElement("button");
+     verify.type="button";verify.textContent="Проверить координаты";
+     verify.onclick=()=>{
+      const values=[item.xMm,item.yMm,item.z0Mm,item.z1Mm].map(v=>v==null?"":String(v));
+      const raw=window.prompt("X, Y, низ Z, верх Z (мм; через запятую)",values.join(", "));
+      if(raw===null)return;
+      const parts=raw.split(",").map(v=>v.trim());
+      if(parts.length!==4||parts.some(v=>v===""||!Number.isFinite(Number(v)))||Number(parts[3])<=Number(parts[2])){
+       window.alert("Введите четыре числа в мм. Верх Z должен быть выше низа.");return
+      }
+      approvedCoordinates.set(item.placementId,{placementId:item.placementId,approved:true,xMm:Number(parts[0]),yMm:Number(parts[1]),z0Mm:Number(parts[2]),z1Mm:Number(parts[3])});
+      verify.textContent="✓ Координаты проверены"
+     };
+     const tdVerify=document.createElement("td");tdVerify.appendChild(verify);tr.appendChild(tdVerify);
      const tdPdf=document.createElement("td");
      if(item.documentId&&Number(item.page)>0){
       const open=document.createElement("button");
