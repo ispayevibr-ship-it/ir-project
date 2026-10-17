@@ -1,6 +1,15 @@
 name: Build PyMuPDF Windows helper
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/ir-project-ai-next
+    paths:
+      - 'src/ai-pymupdf-*.py'
+      - 'src/ai-pymupdf-*.js'
+      - 'src/ai-pdf-index.js'
+      - 'package.json'
+      - '.github/workflows/build-pymupdf-helper.yml'
 jobs:
   build-helper:
     runs-on: windows-latest
@@ -29,6 +38,10 @@ jobs:
         run: |
           $env:IR_PYMUPDF_PYTHON = "python"
           node -e "const fs=require('node:fs');const {extractWithPyMuPDF}=require('./src/ai-pymupdf-runner');extractWithPyMuPDF(fs.readFileSync('test-pymupdf.pdf')).then(r=>{if(r.pages.length!==1||!r.pages[0].fragments.some(f=>f.text.includes('K62')))process.exitCode=1}).catch(e=>{console.error(e);process.exitCode=1})"
+      - name: Verify helper is present in package resources
+        shell: pwsh
+        run: |
+          if (!(Test-Path 'build/pymupdf/ir-pymupdf-extract.exe')) { throw 'PyMuPDF executable missing' }
       - name: Upload helper artifact
         uses: actions/upload-artifact@v4
         with:
