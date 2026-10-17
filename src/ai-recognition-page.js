@@ -28,8 +28,8 @@ window.irAiRecognitionPage=async function(objectId){
   const geometryPages=new Set(doc.geometryPages||[]);
   const geometryComplete=ready&&ready.pages.length===Number(ready.totalPages)&&
    ready.pages.every(p=>geometryPages.has(Number(p.page)));
-  if(geometryComplete||state?.state==="done")return{value:"✓ Текст и геометрия · "+
-   (ready?.totalPages||state.pages)+" лист(ов)",css:"indexed"};
+  if(geometryComplete)return{value:"✓ Текст и геометрия · "+
+   (ready?.totalPages||ready.pages.length)+" лист(ов)",css:"indexed"};
   if(ready)return{value:"✓ Индексирован текст · "+
    (state?.pages||ready?.totalPages||ready?.pages?.length||0)+" лист(ов)",css:"indexed"};
   return{value:"Ожидает индексации",css:"waiting"}
@@ -230,7 +230,13 @@ window.irAiRecognitionPage=async function(objectId){
      }
      if(!isCurrent()||bulk.cancelled)break;
      indexes=indexes.filter(x=>String(x.documentId)!==String(d.id));
-     indexes.push(result);row.state="done";row.pages=result.totalPages||result.pages.length
+     indexes.push(result);row.state="done";row.pages=result.totalPages||result.pages.length;
+     // Refresh persisted geometryPages from the database, not a temporary progress flag.
+     const refreshed=await docsApi.list(id);
+     if(isCurrent()){
+      docs=refreshed.filter(x=>!x.archived);
+      archived=refreshed.filter(x=>x.archived);
+     }
     }catch(ex){row.state="error";row.message=String(ex.message||ex).slice(0,130)}
     updateProgress()
    }
