@@ -30,6 +30,18 @@ function inspectSingleMarkSheetLevels(page,{assumedBaseMm=null}={}){
   const band=y>=height*.65?"upper":y<=height*.35?"lower":"middle";
   levels.push({mm,raw,fragmentId:i,yPt:y,band});
  }
+ // PyMuPDF can return a mark and an elevation in the SAME text span.
+ // Prefer its explicit levelCandidates instead of requiring an entire span
+ // to contain only the elevation. Deduplicate equivalent observations.
+ if(Array.isArray(page.levelCandidates)){
+  for(const item of page.levelCandidates){
+   const mm=Number(item.millimeters),y=Number(item.y);
+   if(!Number.isFinite(mm)||!Number.isFinite(y)||item.y==null)continue;
+   if(levels.some(existing=>existing.mm===mm&&Math.abs(existing.yPt-y)<2))continue;
+   levels.push({mm,raw:String(item.label||""),fragmentId:null,yPt:y,
+    band:y>=height*.65?"upper":y<=height*.35?"lower":"middle"});
+  }
+ }
  const bottoms=levels.filter(x=>x.band==="lower"),tops=levels.filter(x=>x.band==="upper");
  const candidates=[...levels].sort((a,b)=>a.mm-b.mm);
  // The project datum is Z=0. A nearby +0.050 annotation is not proof
