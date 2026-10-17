@@ -62,7 +62,7 @@ test("existing PDF page API exposes calibrated mark candidates without placing s
   listEntity:(_id,key)=>key==="marks"?[{data:{mark:"К62"}}]:
    key==="ai-pdf-index"?[{id:7,record_type:"pdf_text_index",data:{
     source:{documentId:2,name:"sheet.pdf"},
-    pages:[{page:1,fragments:[{text:"К62",x:60,y:20}]}]
+    pages:[{page:1,heightPt:100,rotation:0,fragments:[{text:"К62",x:60,y:80}]}]
    }}]:[]
  };
  const index=createPdfIndex({database,documents:{}});
