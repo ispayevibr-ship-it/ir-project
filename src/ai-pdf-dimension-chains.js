@@ -3,12 +3,12 @@
  * not construction millimetres. Never convert a label to a verified placement. */
 function dimensionChains(page, grid = {}) {
   const fragments = Array.isArray(page?.fragments) ? page.fragments : [];
-  const axes = new Set([...(Array.isArray(grid.axes_x)?grid.axes_x:Object.keys(grid.axes_x||{})),
-    ...(Array.isArray(grid.axes_y)?grid.axes_y:Object.keys(grid.axes_y||{}))].map(String));
+  const axes = new Set([...(Array.isArray(grid?.axes_x)?grid.axes_x:Object.keys(grid?.axes_x||{})),
+    ...(Array.isArray(grid?.axes_y)?grid.axes_y:Object.keys(grid?.axes_y||{}))].map(String));
   const tokens = fragments.map((f,i) => ({
     index:i, text:String(f?.text??f?.str??'').trim(),
     x:Number(f?.x), y:Number(f?.y)
-  })).filter(t=>t.text&&Number.isFinite(t.x)&&Number.isFinite(t.y));
+  })).filter(t=>t.text&&fragments[t.index]?.x!=null&&fragments[t.index]?.y!=null&&String(fragments[t.index].x).trim()!==''&&String(fragments[t.index].y).trim()!==''&&Number.isFinite(t.x)&&Number.isFinite(t.y));
   const dimension = t => /^(?:\d{2,7})(?:\s*мм)?$/iu.test(t.text) && !axes.has(t.text)
     ? Number(t.text.replace(/\s*мм$/iu,'')) : null;
   const candidates=[];
