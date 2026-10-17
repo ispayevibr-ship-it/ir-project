@@ -115,6 +115,18 @@ function reconcileMarkCounts(sheets,registerMarks){
    const key=String(item.mark??"").normalize("NFKC").toUpperCase().replace(/\s+/g,"");
    if(key)found.set(key,(found.get(key)||0)+1);
   }
+ const sheetsByMark=new Map();
+ for(const sheet of Array.isArray(sheets)?sheets:[]){
+  const pageCounts=new Map();
+  for(const item of Array.isArray(sheet?.candidates)?sheet.candidates:[]){
+   const key=String(item.mark??"").normalize("NFKC").toUpperCase().replace(/\s+/g,"");
+   if(key)pageCounts.set(key,(pageCounts.get(key)||0)+1);
+  }
+  for(const [key,count] of pageCounts){
+   if(!sheetsByMark.has(key))sheetsByMark.set(key,[]);
+   sheetsByMark.get(key).push({page:sheet.page??null,count});
+  }
+ }
  const result=[];
  const seen=new Set();
  for(const entry of Array.isArray(registerMarks)?registerMarks:[]){
@@ -128,7 +140,7 @@ function reconcileMarkCounts(sheets,registerMarks){
   const expected=count==null||count===""?null:Number(String(count).trim().replace(",", "."));
   const detected=found.get(key)||0;
   const valid=expected!=null&&Number.isSafeInteger(expected)&&expected>=0;
-  result.push({mark,expected:valid?expected:null,detected,
+  result.push({mark,expected:valid?expected:null,detected,pages:sheetsByMark.get(key)||[],
    missing:valid?Math.max(0,expected-detected):null,
    excess:valid?Math.max(0,detected-expected):null,
    status:!valid?"quantity_unknown":detected===expected?"matched":detected<expected?"missing":"excess"});
