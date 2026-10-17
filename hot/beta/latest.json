@@ -1,7 +1,7 @@
 {
   "channel": "beta",
   "baseVersion": "1.7.226",
-  "version": "1.7.226.407",
+  "version": "1.7.226.409",
   "branch": "feature/ir-project-ai-next",
   "description": "IR Project Algorithmic KM/KMD fixes: no full EXE",
   "files": [
@@ -194,8 +194,8 @@
     {
       "source": "src/ai-pdf-axis-projection.js",
       "target": "src/ai-pdf-axis-projection.js",
-      "size": 3243,
-      "sha256": "18f322c3f3bc5bdad6534d80386b68a94dac41d771a245625dbc209c1cf38fa0"
+      "size": 3461,
+      "sha256": "818ab25a0f7d38e6ddfcb0b6584a4eb56279f38051ba0ba0cfcb628612ac9a43"
     },
     {
       "source": "src/ai-pdf-candidates.js",
