@@ -75,7 +75,7 @@ jobs:
       - name: Upload beta installer
         uses: actions/upload-artifact@v4
         with:
-          name: IR-Project-AI-Windows-Beta
+          name: IR-Project-KMD-Windows-Beta
           path: dist/IR-Project-Setup-*.exe
           if-no-files-found: error
           retention-days: 14

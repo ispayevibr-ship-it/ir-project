@@ -1,4 +1,4 @@
-name: IR Project AI Windows Preview
+name: IR Project KM/KMD Windows Preview
 
 on:
   workflow_dispatch:
@@ -34,14 +34,14 @@ jobs:
         run: npm install --ignore-scripts=false
       - name: Build test installer without publishing
         shell: pwsh
-        run: npx electron-builder --win nsis --publish never -c.appId=com.irproject.ai.preview -c.productName="IR Project AI Preview" -c.artifactName="IR-Project-AI-Preview-Setup-\${version}.\${ext}"
+        run: npx electron-builder --win nsis --publish never -c.appId=com.irproject.kmd.preview -c.productName="IR Project KMD Preview" -c.artifactName="IR-Project-KMD-Preview-Setup-\${version}.\${ext}"
         env:
           GH_TOKEN: ""
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
       - name: Upload private preview artifact
         uses: actions/upload-artifact@v4
         with:
-          name: IR-Project-AI-Windows-Preview-${{ github.run_number }}
-          path: dist/IR-Project-AI-Preview-Setup-*.exe
+          name: IR-Project-KMD-Windows-Preview-${{ github.run_number }}
+          path: dist/IR-Project-KMD-Preview-Setup-*.exe
           if-no-files-found: error
           retention-days: 7
