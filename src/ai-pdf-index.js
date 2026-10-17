@@ -3,6 +3,7 @@
 const path=require("node:path"),{Worker}=require("node:worker_threads");
 const {markOccurrences}=require("./ai-pdf-mark-matcher");
 const {projectMarks}=require("./ai-pdf-mark-projection");
+const {extractPageCandidates}=require("./ai-pdf-candidates");
 const MAX_PDF_BYTES=48*1024*1024,DEADLINE=120000;
 function completePages(pages,total){
  const count=Number(total);
@@ -101,7 +102,8 @@ function createPdfIndex({database,documents,workerFactory=(file,options)=>new Wo
   if(!p)throw Error("Лист PDF не найден");
   const marks=registerMarks(id);
   const projection=projectMarks(p,marks,Array.isArray(allowedMarks?.anchors)?allowedMarks.anchors:[]);
-  return{indexId:item.id,source:item.data.source,page:p,
+  const candidates=extractPageCandidates(p,marks,allowedMarks?.grid||{});
+  return{indexId:item.id,source:item.data.source,page:p,pdfCandidates:candidates,
    markMatches:projection.candidates,projection:{
     calibrated:projection.calibrated,reason:projection.reason||null,
     scaleMmPerPdfUnit:projection.scaleMmPerPdfUnit??null,
