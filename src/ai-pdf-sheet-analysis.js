@@ -28,7 +28,7 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
     adjacent.length?"nearby_unclassified_segments":"no_nearby_segments",
    verification:"required",safeForAutoPlacement:false};
  });
- const vectorIntersections=intersectionEvidence({page,geometry,candidates});
+ const vectorIntersections=intersectionEvidence({page,geometry,candidates,maxDistancePt});
  const intersectionsByFragment=new Map(vectorIntersections.marks.map(item=>[item.fragmentIndex,item.nearbyIntersections]));
  const strokeCandidates=classifySegments(segments);
  const strokeByIndex=new Map(strokeCandidates.map(item=>[item.index,item]));
@@ -44,7 +44,7 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
   return {...item,
   nearbyIntersections:ranked,
   proposedAnchorPt:anchorIsCandidate&&!ambiguous?{x:ranked[0].x,y:ranked[0].y}:null,
-  proposedAnchorStatus:!ranked.length?'no_intersection':ambiguous?'ambiguous_intersections':'unverified_intersection',
+  proposedAnchorStatus:!ranked.length?'no_intersection':ambiguous?'ambiguous_intersections':anchorIsCandidate?'unverified_intersection':'intersection_outside_search_radius',
   nearbyStrokeEvidence:item.nearbySegments.map(segment=>({
    segmentIndex:segment.segmentIndex,distancePt:segment.distancePt,
    classification:strokeByIndex.get(segment.segmentIndex)?.classification||'unclassified',
