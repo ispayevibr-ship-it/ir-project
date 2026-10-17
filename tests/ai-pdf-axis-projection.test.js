@@ -27,4 +27,10 @@ const vector=intersectionEvidence({page,geometry,candidates:[{mark:"К62",pdfX:5
 assert.equal(vector.marks[0].nearbyIntersections.length,1);
 assert.equal(vector.marks[1].nearbyIntersections.length,0);
 assert.equal(intersectionEvidence({page,geometry:{...geometry,heightPt:null}}).geometryAligned,false);
-console.log("PDF axis grid and vector evidence validation passed");
+const {analyzeSheet}=require("../src/ai-pdf-sheet-analysis");
+const summary=analyzeSheet({page:{page:1,heightPt:100,rotation:0,fragments:[]},geometry,registerMarks:["К62"]});
+assert.equal(summary.anchorSummary.total,summary.candidates.length);
+assert.equal(summary.anchorSummary.unverified,summary.candidates.length);
+assert.equal(summary.anchorSummary.proposed+summary.anchorSummary.ambiguous+summary.anchorSummary.missing<=summary.anchorSummary.total,true);
+assert.equal(summary.safeForAutoPlacement,false);
+console.log("PDF axis grid, vector evidence and sheet summary validation passed");
