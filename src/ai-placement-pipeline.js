@@ -42,6 +42,7 @@ function candidatePlacements(pages,register,grid={}){
  const typeByMark=new Map((register||[]).map(entry=>[normalize(typeof entry==="string"?entry:entry.mark),classifyMark(entry)]));
  const unique=new Map();
  const seen=new Set();
+ const occurrenceCounters=new Map();
 
  for(const page of pages||[]){
   const hits=markOccurrences(page,allowed);
@@ -50,7 +51,10 @@ function candidatePlacements(pages,register,grid={}){
   const markHits=hits.filter(h=>h.x!=null&&h.y!=null&&Number.isFinite(Number(h.x))&&Number.isFinite(Number(h.y)));
   for(const hit of hits){
    const key=normalize(hit.mark);
-   const identity=[page.documentId??page.sourceDocumentId??"",page.page,hit.fragmentIndex,hit.offset??"token",key].join(":");
+   const base=[page.documentId??page.sourceDocumentId??"",page.page,hit.fragmentIndex,hit.offset??"token",key].join(":");
+   const count=occurrenceCounters.get(base)||0;
+   occurrenceCounters.set(base,count+1);
+   const identity=base+":"+count;
    if(seen.has(identity))continue;
    seen.add(identity);
    if(!unique.has(key))unique.set(key,[]);
