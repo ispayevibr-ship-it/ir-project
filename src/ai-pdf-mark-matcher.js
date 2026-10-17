@@ -26,6 +26,8 @@ function markOccurrences(page,allowedMarks){
   // Match separate tokens independently, even when adjacent tokens are unknown.
   if(compactSpans.length>1 && !spacedSingle){
    for(const token of compactSpans){
+    // Avoid treating a drawing title such as "К62-К67" as two placed marks.
+    if(/[-–—]/u.test(token))continue;
     if(allowed.has(token))found.push({mark:allowed.get(token),page:Number(page.page)||null,
      fragmentIndex:i,offset:null,x:item?.x!=null&&Number.isFinite(Number(item.x))?Number(item.x):null,
      y:item?.y!=null&&Number.isFinite(Number(item.y))?Number(item.y):null,
