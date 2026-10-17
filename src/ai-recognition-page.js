@@ -387,6 +387,8 @@ window.irAiRecognitionPage=async function(objectId){
     const previewButton=document.createElement("button");
     previewButton.type="button";previewButton.textContent="Предпросмотр подтверждённых марок";
     previewButton.onclick=async()=>{
+     if(previewButton.disabled)return;
+     previewButton.disabled=true;
      try{
       const preview=await api.aiMounting.reviewPreview(review,[...approvedCoordinates.values()]);
       const elements=preview.elements.map(e=>({id:e.id,mark:e.mark,scheme_group:({"колонна":"columns","фахверк":"fahwerk","балка":"beams","ригель":"girders","прогон":"purlins","связь":"ties","распорка":"spacers"})[e.type]||"other",geometryType:["колонна","фахверк"].includes(e.type)?"column":"beam",x:e.start.x,y:e.start.y,z0:e.start.z,x2:e.end.x,y2:e.end.y,z2:e.end.z}));
@@ -419,6 +421,7 @@ window.irAiRecognitionPage=async function(objectId){
       if(!window.irThreeSchemeView?.render)throw Error("Просмотрщик Three.js недоступен");
       window.irThreeSchemeView.render(host,{elements,spanX,spanY,colorMode:"type"});
      }catch(ex){window.alert("Ошибка предпросмотра: "+String(ex.message||ex))}
+     finally{previewButton.disabled=false}
     };
     panel.appendChild(previewButton);
     const reviewed=document.createElement("p");
