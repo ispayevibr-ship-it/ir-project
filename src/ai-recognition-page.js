@@ -156,7 +156,7 @@ window.irAiRecognitionPage=async function(objectId){
       ' · размещение не подтверждено</p>':'')+
      '<div class="ir-ai-pdf-sheets">'+(x.pages||[]).map(p=>
        '<details><summary>Лист '+p.page+' · '+(p.hasTextLayer?'Текст найден':
-        'Нет текстового слоя')+
+        'Нет текстового слоя · нужен OCR')+
         (x.markStats?.perPage?' · совпадений: '+Number(
          x.markStats.perPage.find(v=>Number(v.page)===Number(p.page))?.occurrences||0):'')+
         '</summary><pre>'+esc(p.excerpt||"Текст отсутствует")+
