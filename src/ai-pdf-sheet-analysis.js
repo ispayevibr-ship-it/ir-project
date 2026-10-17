@@ -32,8 +32,18 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
  const intersectionsByFragment=new Map(vectorIntersections.marks.map(item=>[item.fragmentIndex,item.nearbyIntersections]));
  const strokeCandidates=classifySegments(segments);
  const strokeByIndex=new Map(strokeCandidates.map(item=>[item.index,item]));
- const candidatesWithIntersections=candidates.map(item=>({...item,
-  nearbyIntersections:intersectionsByFragment.get(item.fragmentIndex)||[],
+ const candidatesWithIntersections=candidates.map(item=>{
+  const nearby=intersectionsByFragment.get(item.fragmentIndex)||[];
+  const ranked=nearby.map(point=>({
+   ...point,
+   strokeClasses:point.segmentIds.map(id=>strokeByIndex.get(id)?.classification||'unclassified'),
+   classificationVerified:false
+  }));
+  const ambiguous=ranked.length>1&&ranked[1].distancePt-ranked[0].distancePt<=3;
+  return {...item,
+  nearbyIntersections:ranked,
+  proposedAnchorPt:ranked.length&&!ambiguous?{x:ranked[0].x,y:ranked[0].y}:null,
+  proposedAnchorStatus:!ranked.length?'no_intersection':ambiguous?'ambiguous_intersections':'unverified_intersection',
   nearbyStrokeEvidence:item.nearbySegments.map(segment=>({
    segmentIndex:segment.segmentIndex,distancePt:segment.distancePt,
    classification:strokeByIndex.get(segment.segmentIndex)?.classification||'unclassified',
@@ -41,7 +51,8 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
    couldBeDimension:strokeByIndex.get(segment.segmentIndex)?.couldBeDimension===true,
    couldBeStructure:strokeByIndex.get(segment.segmentIndex)?.couldBeStructure===true,
    verified:false})),
-  intersectionEvidenceStatus:(intersectionsByFragment.get(item.fragmentIndex)||[]).length?'nearby_unverified_intersections':'no_nearby_intersections'}));
+  intersectionEvidenceStatus:nearby.length?'nearby_unverified_intersections':'no_nearby_intersections'};
+ });
  return{...base,geometryAligned:geometryValid,segmentCount:segments.length,candidates:candidatesWithIntersections,
   vectorIntersections,strokeCandidates,
   verifiedInstances:0,safeForAutoPlacement:false};
