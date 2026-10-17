@@ -90,6 +90,7 @@ assert.equal(repeated.candidates.every(x=>x.safeForAutoPlacement===false),true);
 const {reconcileMarkCounts}=require("../src/ai-pdf-sheet-analysis");
 const quantities=reconcileMarkCounts([repeated],[{mark:"К62",quantity:3},{mark:"К63",quantity:1},{mark:"К64",quantity:2},{mark:"К65"}]);
 assert.equal(quantities.marks[0].missing,1);
+assert.deepEqual(quantities.marks[0].pages,[{page:3,count:2}]);
 assert.equal(quantities.marks[1].status,"matched");
 assert.equal(quantities.marks[2].missing,2);
 assert.equal(quantities.marks[3].status,"quantity_unknown");
@@ -103,6 +104,7 @@ const duplicates=reconcileMarkCounts([repeated],[{mark:"К62",quantity:2},{mark:
 assert.equal(duplicates.marks[1].status,"duplicate_register_mark");
 assert.equal(duplicates.marks[0].detected,2);
 assert.equal(duplicates.marks[1].detected,2);
+assert.deepEqual(duplicates.marks[1].pages,[{page:3,count:2}]);
 const commaQuantity=reconcileMarkCounts([repeated],[{mark:"К62",quantity:"2,0"}]);
 assert.equal(commaQuantity.marks[0].status,"matched");
 const extra=reconcileMarkCounts([repeated],[{mark:"К62",quantity:1},{mark:"К63",quantity:1}]);
