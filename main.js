@@ -125,6 +125,7 @@ function registerAiDocuments(){
   requireAiReviewer(e);
   return aiPdfGeometry.page(objectId,documentId,page)
  });
+ ipcMain.handle("ai-mounting:candidates",(e,objectId)=>mountingAuto.automaticEntries({scheme:[],marks:[], "ai-documents":[], "ai-pdf-index":[], "ai-pdf-geometry":[]}));
  ipcMain.handle("ai-mounting:drafts",(e,objectId)=>{
   requireAiReviewer(e);return mountingDraftService.list(objectId)
  });
