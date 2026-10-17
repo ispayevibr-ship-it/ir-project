@@ -8,8 +8,9 @@ const axisToken = /^[A-ZА-ЯЁ]{1,3}(?:\d{1,2})?$|^\d{1,3}(?:\/\d{1,2})?$/u;
 function extractPageCandidates(page, allowedMarks, grid = {}) {
   const fragments = Array.isArray(page?.fragments) ? page.fragments : [];
   const marks = markOccurrences(page, allowedMarks);
-  const xAxes = new Set((grid.axes_x ?? grid.x ?? []).map(String));
-  const yAxes = new Set((grid.axes_y ?? grid.y ?? []).map(String));
+  const axisNames = value => Array.isArray(value) ? value : value && typeof value === 'object' ? Object.keys(value) : [];
+  const xAxes = new Set(axisNames(grid.axes_x ?? grid.x).map(String));
+  const yAxes = new Set(axisNames(grid.axes_y ?? grid.y).map(String));
   const observations = [];
   fragments.forEach((fragment, index) => {
     const text = normal(fragment?.text ?? fragment?.str);
