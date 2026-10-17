@@ -7,6 +7,21 @@ const {intersectionEvidence}=require("./ai-pdf-intersection-evidence");
 const {classifySegments}=require("./ai-pdf-stroke-classifier");
 const {elevationEvidence}=require("./ai-pdf-elevation-evidence");
 const {extractPageCandidates}=require("./ai-pdf-candidates");
+function classifyMarkType(name){
+ const s=String(name??"").normalize("NFKC").toLowerCase().trim();
+ const types=[
+  ["column",/^(?:колонн|стойк)/u],
+  ["rigel",/^ригел/u],
+  ["brace",/^(?:связ|раскос)/u],
+  ["fachwerk",/^фахверк/u],
+  ["purlin",/^прогон/u],
+  ["beam",/^балк/u],
+  ["strut",/^распорк/u]
+ ];
+ const matches=types.filter(([,pattern])=>pattern.test(s));
+ return matches.length===1?{type:matches[0][0],status:"name_classified_unverified"}:
+  {type:null,status:s?"unknown_type":"missing_name"};
+}
 function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha256,maxDistancePt=12}={}){
  const base=buildCoordinateCandidates({page,registerMarks,anchors,documentId,sourceSha256});
  const geometryValid=geometry?.coordinateSystem==="viewport_points_top_left"&&
@@ -24,7 +39,7 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
   const positionValid=textHit&&x!=null&&y!=null&&String(x).trim()!==''&&String(y).trim()!==''&&Number.isFinite(x)&&Number.isFinite(y);
   const adjacent=geometryValid&&positionValid?
    nearestSegments({x,y:Number(page.heightPt)-y},segments,{maxDistancePt}):[];
-  return{...candidate,nearbySegments:adjacent,
+  return{...candidate,structuralType:classifyMarkType(candidate.name||candidate.title||candidate.description||''),nearbySegments:adjacent,
    geometryEvidenceStatus:!geometryValid?"geometry_unavailable":
     !positionValid?"label_position_unavailable":
     adjacent.length?"nearby_unclassified_segments":"no_nearby_segments",
@@ -94,4 +109,4 @@ function summarizeSheets(sheets){
  }
  return totals;
 }
-module.exports={analyzeSheet,summarizeSheets};
+module.exports={analyzeSheet,summarizeSheets,classifyMarkType};
