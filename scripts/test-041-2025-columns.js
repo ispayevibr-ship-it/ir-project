@@ -25,6 +25,7 @@ for(let i=0;i<6;i++){
  assert.equal(p.page,i+1);
  assert.equal(p.sheetMark,mark,"Each page must identify its own column");
  assert.equal(p.sheetTitleMatched,true,"The column must be named in the title block");
+ assert.equal(p.sheetMarkMentions,2,"A title and a drawing label are not two physical columns");
  assert(p.elevationEvidence.includes("-0,400"));
  assert(p.elevationEvidence.includes("+9,595"));
  assert.equal(p.placementConfirmed,false);
