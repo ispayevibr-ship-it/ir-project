@@ -3,6 +3,7 @@
  * text fragments. This is evidence gathering, NOT automatic geometry approval. */
 const { markOccurrences } = require('./ai-pdf-mark-matcher');
 const { dimensionChains } = require('./ai-pdf-dimension-chains');
+const { associateLabels } = require('./ai-pdf-spatial-associations');
 const num = s => Number(String(s).replace(',', '.'));
 const normal = s => String(s ?? '').normalize('NFKC').trim().replace(/\s+/g, ' ');
 const axisToken = /^[A-ZА-ЯЁ]{1,3}(?:\d{1,2})?$|^\d{1,3}(?:\/\d{1,2})?$/u;
@@ -28,8 +29,7 @@ function extractPageCandidates(page, allowedMarks, grid = {}) {
     const dim = text.match(/^(?:L\s*=\s*|длина\s*[:=]\s*)(\d{1,7})(?:\s*мм)?$/iu);
     if (dim) observations.push({ ...base, kind: 'dimension', valueMm: Number(dim[1]) });
   });
-  return {
-    page: page?.page ?? null,
+  const candidates = { page: page?.page ?? null,
     marks: marks.map(hit => ({ ...hit, verified: false })),
     observations,
     dimensionChains: dimensionChains(page, grid),
@@ -37,5 +37,6 @@ function extractPageCandidates(page, allowedMarks, grid = {}) {
     extraction: 'pdf_text_layer',
     warning: 'Candidates require geometric association with drawing and validation'
   };
+  return { ...candidates, spatialAssociations: associateLabels(candidates) };
 }
 module.exports = { extractPageCandidates };
