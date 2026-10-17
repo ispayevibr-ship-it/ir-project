@@ -246,7 +246,9 @@ window.irAiRecognitionPage=async function(objectId){
     throw Error("Неверное изображение листа PDF");
    const dlg=document.createElement("dialog");dlg.className="ir-ai-pdf-preview-dialog";
    dlg.innerHTML='<div class="ir-ai-pdf-preview-header"><b>Чертёж · лист '+Number(page)+
-    '</b><button type="button" data-close>Закрыть ✕</button></div>'+
+    '</b>'+(Array.isArray(evidence)&&evidence.length?
+    '<button type="button" data-pdf-evidence aria-pressed="true">Скрыть подсветку</button>':"")+
+    '<button type="button" data-close>Закрыть ✕</button></div>'+
     '<div class="ir-ai-pdf-preview-stage"><div class="ir-ai-pdf-image-wrap" style="position:relative">'+
     '<img alt="Исходный лист КМД" style="display:block;width:100%;height:auto">'+
     '<div class="ir-ai-pdf-region-layer" style="position:absolute;inset:0;pointer-events:none"></div>'+
@@ -256,6 +258,7 @@ window.irAiRecognitionPage=async function(objectId){
     original=indexes.find(x=>String(x.documentId)===String(documentId)),
     pageInfo=original?.pages?.find(x=>Number(x.page)===Number(page));
    const W=Number(pageInfo?.widthPt),H=Number(pageInfo?.heightPt);
+   const evidenceBoxes=[];
    if(Number(pageInfo?.rotation||0)===0&&W>0&&H>0){
     for(const item of (Array.isArray(evidence)?evidence:[]).slice(0,30)){
      const rect=item?.rectPt;
@@ -266,7 +269,7 @@ window.irAiRecognitionPage=async function(objectId){
      node.style.left=x/W*100+"%";node.style.top=(H-y-h)/H*100+"%";
      node.style.width=w/W*100+"%";node.style.height=h/H*100+"%";
      node.title="Надпись PDF: "+String(item.quote||"");
-     layer.appendChild(node);
+     layer.appendChild(node);evidenceBoxes.push(node);
      // Source glyphs use bottom-left PDF coordinates. Geometric stroke
      // evidence uses the TOP-left PDF.js viewport: keep the two systems
      // separate to avoid placing a mark at a text-label position.
@@ -276,27 +279,35 @@ window.irAiRecognitionPage=async function(objectId){
        [l.x1,l.x2].every(v=>v>=0&&v<=W)&&
        [l.y1,l.y2].every(v=>v>=0&&v<=H))){
       const ns="http://www.w3.org/2000/svg";
-      const svg=document.createElementNS(ns,"svg");
-      svg.setAttribute("viewBox","0 0 "+W+" "+H);
-      svg.setAttribute("preserveAspectRatio","none");
-      svg.setAttribute("class","ir-ai-pdf-source-strokes");
-      svg.style.position="absolute";svg.style.inset="0";
-      svg.style.width="100%";svg.style.height="100%";
-      svg.setAttribute("aria-hidden","true");
+      const overlay=document.createElementNS(ns,"svg");
+      overlay.setAttribute("viewBox","0 0 "+W+" "+H);
+      overlay.setAttribute("preserveAspectRatio","none");
+      overlay.setAttribute("class","ir-ai-pdf-source-strokes");
+      overlay.style.position="absolute";overlay.style.inset="0";
+      overlay.style.width="100%";overlay.style.height="100%";
+      overlay.setAttribute("aria-hidden","true");
       lines.forEach((l,n)=>{
        const stroke=document.createElementNS(ns,"line");
+       stroke.setAttribute("data-edge",String(n));
        for(const k of ["x1","y1","x2","y2"])
         stroke.setAttribute(k,String(l[k]));
        stroke.setAttribute("stroke",n===0?"#f4514d":"#35b8f5");
        stroke.setAttribute("stroke-width","2");
        stroke.setAttribute("vector-effect","non-scaling-stroke");
-       svg.appendChild(stroke)
+       overlay.appendChild(stroke)
       });
-      layer.appendChild(svg)
+      layer.appendChild(overlay);evidenceBoxes.push(overlay)
      }
     }
    }
    document.body.appendChild(dlg);
+   const toggle=dlg.querySelector("[data-pdf-evidence]");
+   if(toggle)toggle.onclick=()=>{
+    const shown=toggle.getAttribute("aria-pressed")==="true";
+    toggle.setAttribute("aria-pressed",String(!shown));
+    toggle.textContent=shown?"Показать подсветку":"Скрыть подсветку";
+    for(const node of evidenceBoxes)node.hidden=shown
+   };
    dlg.querySelector("[data-close]").onclick=()=>dlg.close();
    dlg.addEventListener("close",()=>dlg.remove(),{once:true});
    dlg.showModal()
