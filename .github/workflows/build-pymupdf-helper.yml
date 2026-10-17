@@ -8,6 +8,7 @@ on:
       - 'src/ai-pymupdf-*.py'
       - 'src/ai-pymupdf-*.js'
       - 'src/ai-pdf-index.js'
+      - 'tests/pymupdf-elevation-smoke.js'
       - 'package.json'
       - '.github/workflows/build-pymupdf-helper.yml'
 jobs:
@@ -42,6 +43,8 @@ jobs:
         shell: pwsh
         run: |
           if (!(Test-Path 'build/pymupdf/ir-pymupdf-extract.exe')) { throw 'PyMuPDF executable missing' }
+      - name: Test extracted elevation through IR Project inspection
+        run: node tests/pymupdf-elevation-smoke.js test-pymupdf.pdf
       - name: Upload helper artifact
         uses: actions/upload-artifact@v4
         with:
