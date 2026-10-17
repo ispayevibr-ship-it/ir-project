@@ -21,9 +21,10 @@ function markOccurrences(page,allowedMarks){
    String(item?.str??item?.text??"");
   const text=normalize(raw);
   const compactSpans=raw.trim().split(/\s+/u).map(normalize);
+  const spacedSingle=compactSpans.length===2 && allowed.has(compactSpans.join(""));
   if(!text)continue;
   // A fragment may contain several separate marks; keep word boundaries.
-  if(compactSpans.length>1 && compactSpans.every(token=>allowed.has(token))){
+  if(compactSpans.length>1 && !spacedSingle && compactSpans.every(token=>allowed.has(token))){
    for(const token of compactSpans){
     if(allowed.has(token))found.push({mark:allowed.get(token),page:Number(page.page)||null,
      fragmentIndex:i,offset:null,x:item?.x!=null&&Number.isFinite(Number(item.x))?Number(item.x):null,
