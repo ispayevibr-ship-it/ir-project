@@ -32,7 +32,7 @@ if(process.argv.includes("--manifest")){
  const appDir=path.join(tmp,"app"),data=path.join(tmp,"user");
  fs.mkdirSync(path.join(appDir,"src"),{recursive:true});
  fs.writeFileSync(path.join(appDir,"src","ai-beta-channel.json"),'{"channel":"beta"}');
- fs.writeFileSync(path.join(appDir,"src","ai-local-engine.js"),"module.exports={mode:'base'};");
+ fs.writeFileSync(path.join(appDir,"src","ai-scheme-lite-page.js"),"module.exports={mode:'base'};");
  const baseVersion="1.7.217",originalLoad=Module._load,originalGet=https.get;
  Module._load=function(name,...args){
   if(name==="electron")return{app:{
@@ -117,7 +117,7 @@ if(process.argv.includes("--manifest")){
   const hotFile=updater.resolveFile("src/ai-scheme-lite-page.js");
   fs.writeFileSync(hotFile,"tampered");
   assert.equal(updater.resolveFile("src/ai-scheme-lite-page.js"),
-   path.join(appDir,"src","ai-local-engine.js"),
+   path.join(appDir,"src","ai-scheme-lite-page.js"),
    "Tampered hot runtime must fall back to bundled originals");
   // Manual rollback must remain possible even if the active hot patch is corrupt.
   const reverted=updater.rollback();
@@ -128,7 +128,7 @@ if(process.argv.includes("--manifest")){
   assert.equal(bundled.version,baseVersion,"second rollback restores the bundled EXE");
   assert.equal(updater.installedVersion(),baseVersion);
   assert.equal(updater.resolveFile("src/ai-scheme-lite-page.js"),
-   path.join(appDir,"src","ai-local-engine.js"));
+   path.join(appDir,"src","ai-scheme-lite-page.js"));
   assert.throws(()=>updater.rollback(),/Hot-обновление не установлено/);
   const bridge=fs.readFileSync(path.join(__dirname,"..","preload.js"),"utf8");
   const main=fs.readFileSync(path.join(__dirname,"..","main.js"),"utf8");
@@ -136,7 +136,7 @@ if(process.argv.includes("--manifest")){
   assert(bridge.includes('ipcRenderer.invoke("update:rollback")'));
   assert(main.includes('ipcMain.handle("update:rollback"'));
   assert(shell.includes("Откатить hot-обновление"));
-  console.log("AI Beta hot: channel isolation, SHA-256, reuse, rollback, UI bridge PASS");
+  console.log("KMD Beta hot: channel isolation, SHA-256, reuse, rollback, UI bridge PASS");
  }finally{
   https.get=originalGet;Module._load=originalLoad;
   fs.rmSync(tmp,{recursive:true,force:true})
