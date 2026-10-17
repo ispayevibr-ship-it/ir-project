@@ -16,4 +16,10 @@ assert.equal(markOccurrences({...titleBlockPage,titleBlockBounds:null},["К62"])
 const missingCoords=markOccurrences({page:4,titleBlockBounds:{x0:0,y0:0,x1:100,y1:100},fragments:[{text:"К62"},{text:"К63",x:10,y:10}]},["К62","К63"]);
 assert.deepEqual(missingCoords.map(h=>h.mark),["К62"]);
 assert.equal(missingCoords[0].x,null);
+const similar=markOccurrences({page:5,fragments:[
+ {text:"К41",x:1,y:1},{text:"К410",x:2,y:2},{text:"К41А",x:3,y:3},
+ {text:"К 41",x:4,y:4},{text:"К41-К42",x:5,y:5}
+]},["К41","К410","К41А","К42"]);
+assert.deepEqual(similar.map(h=>h.mark),["К41","К410","К41А","К41"]);
+assert.equal(similar.length,4);
 console.log("PDF registered mark matching passed");
