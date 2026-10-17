@@ -10,7 +10,7 @@ function buildCoordinateCandidates({page,registerMarks,anchors,documentId,source
   candidates:projected.candidates.map(hit=>({
    mark:hit.mark,page:hit.page,documentId:documentId??null,
    sourceSha256:sourceSha256??null,
-   pdfX:hit.x,pdfY:hit.y,
+   pdfX:hit.x,pdfY:hit.y,fragmentIndex:hit.fragmentIndex,
    xMm:hit.xMm,yMm:hit.yMm,z0Mm:null,z1Mm:null,
    coordinateStatus:hit.coordinateStatus,
    verification:"required",safeForAutoPlacement:false

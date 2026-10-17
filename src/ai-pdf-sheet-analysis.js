@@ -7,15 +7,16 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
  const base=buildCoordinateCandidates({page,registerMarks,anchors,documentId,sourceSha256});
  const geometryValid=geometry?.coordinateSystem==="viewport_points_top_left"&&
   Number(geometry.page)===Number(page?.page)&&
+  Number(page?.rotation||0)===0&&Number(geometry.rotation||0)===0&&
   Number.isFinite(geometry.heightPt)&&Number.isFinite(page?.heightPt)&&
   Math.abs(geometry.heightPt-page.heightPt)<1;
  const segments=geometryValid?geometry.segments||[]:[];
  const candidates=base.candidates.map(candidate=>{
-  const textHit=page?.fragments?.find(f=>
-   String(f?.str??f?.text??"").trim().toUpperCase()===String(candidate.mark).trim().toUpperCase()&&
-   Number(f?.x)===candidate.pdfX&&Number(f?.y)===candidate.pdfY);
+  // Match by extraction provenance: normalized or grouped labels need not
+  // equal the complete source fragment, and equal coordinates are not identity.
+  const textHit=page?.fragments?.[candidate.fragmentIndex];
   // PDF text positions are bottom-left; geometry is top-left.
-  const x=Number(textHit?.x),y=Number(textHit?.y);
+  const x=candidate.pdfX,y=candidate.pdfY;
   const positionValid=textHit&&Number.isFinite(x)&&Number.isFinite(y);
   const adjacent=geometryValid&&positionValid?
    nearestSegments({x,y:Number(page.heightPt)-y},segments,{maxDistancePt}):[];

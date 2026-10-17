@@ -20,3 +20,29 @@ test("rejects geometry from a different page",()=>{
  assert.equal(r.geometryAligned,false);
  assert.equal(r.candidates[0].nearbySegments.length,0);
 });
+
+test("normalized and grouped register labels retain source geometry evidence",()=>{
+ for(const str of ["К 62", "К62, К63"]){
+  const r=analyzeSheet({page:{...page,fragments:[{str,x:50,y:80}]},geometry,
+   registerMarks:["К62","К63"],anchors});
+  assert.ok(r.candidates.length);
+  for(const candidate of r.candidates){
+   assert.equal(candidate.fragmentIndex,0);
+   assert.equal(candidate.nearbySegments.length,1);
+   assert.equal(candidate.safeForAutoPlacement,false);
+  }
+ }
+});
+test("missing source coordinates never attach geometry at origin",()=>{
+ const r=analyzeSheet({page:{...page,fragments:[{str:"К62",y:80}]},geometry,
+  registerMarks:["К62"],anchors});
+ assert.equal(r.candidates[0].geometryEvidenceStatus,"label_position_unavailable");
+ assert.equal(r.candidates[0].nearbySegments.length,0);
+});
+test("rotated geometry is not compared using unrotated label coordinates",()=>{
+ for(const change of [{page:{...page,rotation:90}},{geometry:{...geometry,rotation:90}}]){
+  const r=analyzeSheet({page,geometry,registerMarks:["К62"],anchors,...change});
+  assert.equal(r.geometryAligned,false);
+  assert.equal(r.candidates[0].nearbySegments.length,0);
+ }
+});
