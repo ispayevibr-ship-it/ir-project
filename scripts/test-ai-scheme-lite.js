@@ -117,6 +117,19 @@ assert.equal(extractPage({documentId:4,name:"План расположения �
  kind:"КМД",sha256:sha,page:2,raw:{text:"План",fragments:[rawLabel("К62",10)]},
  registeredMarks:[]}).marks.length,0,"never accept marks outside the register");
 
+const {extractPlanInstances}=require("../src/ai-scheme-lite-page");
+const duplicateRegister=extractPlanInstances({
+ documentId:4,sha256:sha,page:1,widthPt:500,heightPt:500,
+ raw:{fragments:[rawLabel("К62",10)]},
+ marks:[{id:11,title:"К62",data:{mark:"К62"}},
+  {id:12,title:"К62",data:{mark:"К62"}}]
+});
+assert.equal(duplicateRegister.labels.length,0,
+ "ambiguous register IDs cannot be linked to physical instances");
+assert(duplicateRegister.ambiguousRegisterMarks.includes("К62"));
+assert(!duplicateRegister.skippedUnknownMarks.includes("К62"),
+ "ambiguous registered marks are not unknown labels");
+
 // Confirm routing and lazy hot loading without repacking Electron/index.html.
 const renderer=fs.readFileSync("src/ai-recognition-page.js","utf8");
 new vm.Script(renderer);
