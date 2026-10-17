@@ -383,7 +383,11 @@ window.irAiRecognitionPage=async function(objectId){
      tr.appendChild(tdPdf);
      body.appendChild(tr)
     }
-    table.appendChild(body);panel.appendChild(table)
+    table.appendChild(body);panel.appendChild(table);
+    const reviewed=document.createElement("p");
+    reviewed.textContent="Подтверждено: 0 из "+(review?.candidates?.length||0)+" · размещение не выполняется";
+    panel.appendChild(reviewed);
+    panel.addEventListener("click",()=>{reviewed.textContent="Подтверждено: "+approvedCoordinates.size+" из "+(review?.candidates?.length||0)+" · размещение не выполняется"})
    }
   }catch(ex){if(isCurrent()){
    const warning=document.createElement("p");
