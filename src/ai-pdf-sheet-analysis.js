@@ -19,7 +19,7 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
   const textHit=page?.fragments?.[candidate.fragmentIndex];
   // PDF text positions are bottom-left; geometry is top-left.
   const x=candidate.pdfX,y=candidate.pdfY;
-  const positionValid=textHit&&Number.isFinite(x)&&Number.isFinite(y);
+  const positionValid=textHit&&x!=null&&y!=null&&String(x).trim()!==''&&String(y).trim()!==''&&Number.isFinite(x)&&Number.isFinite(y);
   const adjacent=geometryValid&&positionValid?
    nearestSegments({x,y:Number(page.heightPt)-y},segments,{maxDistancePt}):[];
   return{...candidate,nearbySegments:adjacent,
