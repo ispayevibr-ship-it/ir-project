@@ -199,7 +199,9 @@
    }
    if(!full.test(word))continue;
    const mark=norm(word),found=known.get(mark);
-   if(!found){unregistered.add(mark);continue}
+   if(!known.has(mark)){unregistered.add(mark);continue}
+   // Duplicate register designations cannot be assigned to a unique mark ID.
+   if(!found){ambiguities.add(mark);continue}
    const x=Math.min(Number(first.x),Number(last.x)),
     y=Math.min(Number(first.y),Number(last.y)),
     x2=Math.max(Number(first.x)+Number(first.width),
