@@ -33,8 +33,9 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
   const key=String(entry.mark??entry.mark_name??entry.code??entry.marking??"").normalize("NFKC").toUpperCase().replace(/\s+/g,"");
   if(!key)continue;
   const name=entry.name??entry.title??entry.description??entry.naimenovanie??entry.work_name??entry.mark_description??"";
-  if(!registerByMark.has(key))registerByMark.set(key,name);
-  else if(registerByMark.get(key)!==name)registerByMark.set(key,null);
+  const normalizedName=String(name??"").normalize("NFKC").trim().replace(/\s+/g," ").toLowerCase();
+  if(!registerByMark.has(key))registerByMark.set(key,normalizedName);
+  else if(registerByMark.get(key)!==normalizedName)registerByMark.set(key,null);
  }
  const geometryValid=geometry?.coordinateSystem==="viewport_points_top_left"&&
   Number(geometry.page)===Number(page?.page)&&
