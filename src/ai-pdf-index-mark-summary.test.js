@@ -21,3 +21,20 @@ test("summarizes only marks in object register across indexed PDF pages",()=>{
  assert.equal(report.documents[0].pages[0].occurrences,2);
  assert.equal(report.safeForAutoPlacement,false);
 });
+
+test("existing PDF list returns register match statistics without new IPC",()=>{
+ const database={
+  getObject:id=>id===1?{id}:null,
+  listEntity:(_id,key)=>key==="marks"?[{data:{mark:"К62"}},{data:{mark:"Б1"}}]:
+   key==="ai-pdf-index"?[{id:10,record_type:"pdf_text_index",data:{
+    source:{documentId:7,name:"sheet.pdf"},total:2,
+    pages:[{page:1,fragments:[{text:"К62 Б1"}]},{page:2,fragments:[{text:"К62"}]}]
+   }}]:[]
+ };
+ const report=createPdfIndex({database,documents:{}}).list(1)[0].markStats;
+ assert.equal(report.registerMarks,2);
+ assert.equal(report.matchedMarks,2);
+ assert.equal(report.occurrences,3);
+ assert.deepEqual(report.perPage.map(p=>p.occurrences),[2,1]);
+ assert.equal(report.safeForAutoPlacement,false);
+});
