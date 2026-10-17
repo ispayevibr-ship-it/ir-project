@@ -104,6 +104,7 @@ const aiPdfGeometry={page:(objectId,documentId,page)=>
  ipcRenderer.invoke("ai-pdf:geometry",{objectId,documentId,page})};
 const aiMounting={
  candidates:objectId=>ipcRenderer.invoke("ai-mounting:candidates",objectId),
+ reviewPreview:(placements,approvals,existingIds=[])=>ipcRenderer.invoke("ai-mounting:review-preview",{placements,approvals,existingIds}),
  drafts:objectId=>ipcRenderer.invoke("ai-mounting:drafts",objectId),
  saveDraft:(objectId,candidate,values,expectedRevision)=>
   ipcRenderer.invoke("ai-mounting:save-draft",{objectId,candidate,values,expectedRevision}),
