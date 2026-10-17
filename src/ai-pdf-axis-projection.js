@@ -5,7 +5,7 @@ const finite=v=>typeof v==='number'&&Number.isFinite(v);
 function axisMap(grid, dimension){
  const raw=dimension==='x'?(grid?.axes_x??grid?.x):(grid?.axes_y??grid?.y);
  if(raw&&typeof raw==='object'&&!Array.isArray(raw))
-  return Object.fromEntries(Object.entries(raw).filter(([,v])=>finite(Number(v))).map(([k,v])=>[String(k),Number(v)]));
+  return Object.fromEntries(Object.entries(raw).filter(([k,v])=>String(k).trim()!==''&&v!=null&&String(v).trim()!==''&&finite(Number(v))).map(([k,v])=>[String(k),Number(v)]));
  const names=Array.isArray(raw)?raw:[];
  const spans=dimension==='x'?(grid?.x_spans_mm??[]):(grid?.y_spans_mm??[]);
  if(names.length<2||!Array.isArray(spans)||spans.length!==names.length-1||
