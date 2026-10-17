@@ -1,6 +1,7 @@
 "use strict";
 /* IR Project AI: bounded PDF text extraction in an isolated Node worker. */
 const {parentPort,workerData}=require("node:worker_threads");
+const {ocrDecision}=require("./ai-pdf-ocr-policy");
 const MAX_PAGES=80,MAX_TEXT_PER_PAGE=24000,MAX_FRAGMENTS=1000;
 (async()=>{
  let loading;
@@ -38,7 +39,8 @@ const MAX_PAGES=80,MAX_TEXT_PER_PAGE=24000,MAX_FRAGMENTS=1000;
     text:plain.slice(0,MAX_TEXT_PER_PAGE),fragments,
     hasTextLayer:plain.trim().length>=12,
     uncertainEncoding:plain.length>0&&uncertain/Math.max(1,plain.length)>0.05,
-    truncated:fragments.length>=MAX_FRAGMENTS||textSize>=MAX_TEXT_PER_PAGE});
+    truncated:fragments.length>=MAX_FRAGMENTS||textSize>=MAX_TEXT_PER_PAGE,
+    ocr:ocrDecision({text:plain})});
    parentPort.postMessage({type:"progress",page:n,total})
    page.cleanup();
   }
