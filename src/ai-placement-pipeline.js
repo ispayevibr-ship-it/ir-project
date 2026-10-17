@@ -13,6 +13,23 @@ function classifyMark(entry){
  if(/связ/.test(name))return "связь";
  return "не определено";
 }
+function reviewToThreeJs(placements,approvals=[]){
+ const accepted=new Map((approvals||[]).filter(x=>x?.placementId&&x?.approved===true).map(x=>[x.placementId,x]));
+ const items=[],rejected=[];
+ for(const candidate of placements?.candidates||[]){
+  const approved=accepted.get(candidate.placementId);
+  if(!approved)continue;
+  const x=Number(approved.xMm),y=Number(approved.yMm),z0=Number(approved.z0Mm),z1=Number(approved.z1Mm);
+  if([approved.xMm,approved.yMm,approved.z0Mm,approved.z1Mm].some(v=>v==null)||
+   ![x,y,z0,z1].every(Number.isFinite)||z1<=z0||candidate.type==="не определено"){
+   rejected.push({placementId:candidate.placementId,reason:"invalid_approved_geometry"});continue;
+  }
+  items.push({placementId:candidate.placementId,mark:candidate.mark,type:candidate.type,
+   xMm:x,yMm:y,z0Mm:z0,z1Mm:z1,heightMm:z1-z0,
+   source:"reviewed_pdf_candidate",approved:true});
+ }
+ return {items,rejected,units:"mm",safeForAutoPlacement:false};
+}
 function candidatePlacements(pages,register,grid={}){
  const axesX=axisMap(grid,"x"),axesY=axisMap(grid,"y");
  const nearest=(value,axes)=>{
@@ -56,4 +73,4 @@ function candidatePlacements(pages,register,grid={}){
   missingMarks:allowed.filter(m=>!unique.has(normalize(m))),
   gridProvided:!!grid&&Object.keys(grid).length>0,safeForAutoPlacement:false};
 }
-module.exports={candidatePlacements,classifyMark};
+module.exports={candidatePlacements,classifyMark,reviewToThreeJs};
