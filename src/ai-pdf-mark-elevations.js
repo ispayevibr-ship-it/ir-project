@@ -31,8 +31,13 @@ function inspectSingleMarkSheetLevels(page){
   levels.push({mm,raw,fragmentId:i,yPt:y,band});
  }
  const bottoms=levels.filter(x=>x.band==="lower"),tops=levels.filter(x=>x.band==="upper");
- const chosen=selectMaxElevationPair({bottoms:bottoms.map(x=>x.mm),tops:tops.map(x=>x.mm)});
- return {...chosen,levels,bottomEvidence:bottoms.filter(x=>x.mm===chosen.z0Mm),
+ // The project datum is Z=0. A nearby +0.050 annotation is not proof
+ // that the structural column begins at +0.050.
+ const topValues=tops.map(x=>x.mm);
+ const z1Mm=topValues.length?Math.max(...topValues):null;
+ const chosen={z0Mm:0,z1Mm,heightMm:z1Mm===null||z1Mm<0?null:z1Mm,
+  method:"project_zero_datum_max_upper",requiresReview:true};
+ return {...chosen,levels,bottomEvidence:[],datumBasis:"project_zero_datum_assumption",
   topEvidence:tops.filter(x=>x.mm===chosen.z1Mm),
   status:chosen.heightMm===null?"needs_manual_review":"heuristic_requires_verification",
   safeForAutoPlacement:false};
