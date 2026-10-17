@@ -25,6 +25,11 @@ jobs:
           python -c "import fitz; d=fitz.open(); p=d.new_page(); p.insert_text((70,70), 'K62 +9.705'); d.save('test-pymupdf.pdf')"
           & ./build/pymupdf/ir-pymupdf-extract.exe test-pymupdf.pdf | Out-File -FilePath result.json -Encoding utf8
           python -c "import json; d=json.load(open('result.json',encoding='utf-8-sig')); assert d['parser']=='pymupdf'; assert len(d['pages'])==1; assert any('K62' in f['text'] for f in d['pages'][0]['fragments'])"
+      - name: Test Electron-side PyMuPDF runner
+        shell: pwsh
+        run: |
+          $env:IR_PYMUPDF_PYTHON = "python"
+          node -e "const fs=require('node:fs');const {extractWithPyMuPDF}=require('./src/ai-pymupdf-runner');extractWithPyMuPDF(fs.readFileSync('test-pymupdf.pdf')).then(r=>{if(r.pages.length!==1||!r.pages[0].fragments.some(f=>f.text.includes('K62')))process.exitCode=1}).catch(e=>{console.error(e);process.exitCode=1})"
       - name: Upload helper artifact
         uses: actions/upload-artifact@v4
         with:
