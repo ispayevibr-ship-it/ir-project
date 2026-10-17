@@ -24,4 +24,6 @@ assert.equal(repeated.occurrences,3);
 assert.equal(new Set(repeated.candidates.map(x=>x.placementId)).size,3);
 assert.ok(repeated.candidates.every(x=>x.documentId==="doc1"));
 assert.equal(repeated.readyForPlacement.length,0);
+const revised=candidatePlacements([{documentId:"doc1",sourceSha256:"new-revision",page:1,fragments:[{text:"К62",x:100,y:100}]}],[{mark:"К62",name:"Колонна"}],{});
+assert.notEqual(repeated.candidates[0].placementId,revised.candidates[0].placementId);
 console.log("Reviewed Three.js payload and repeated PDF marks tests passed");
