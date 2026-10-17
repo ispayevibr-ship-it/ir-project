@@ -12,9 +12,9 @@ const result=reviewToThreeJs(candidates,[
  {placementId:"b",approved:true,xMm:0,yMm:0,z0Mm:5000,z1Mm:5000},
  {placementId:"c",approved:true,xMm:0,yMm:0,z0Mm:0,z1Mm:1000}
 ]);
-assert.equal(result.items.length,1);
+assert.equal(result.items.length,2);
 assert.equal(result.items[0].heightMm,10105);
-assert.equal(result.rejected.length,2);
+assert.equal(result.rejected.length,1);
 assert.equal(result.items[0].mark,"К62");
 const repeated=candidatePlacements([{documentId:"doc1",page:1,fragments:[
  {text:"К62 К62",x:100,y:100,width:90,height:12},
@@ -31,4 +31,7 @@ assert.notEqual(repeated.candidates[0].placementId,revised.candidates[0].placeme
 const unknown=candidatePlacements([{documentId:"doc2",page:1,fragments:[{text:"К999",x:10,y:20}]}],[{mark:"К62",name:"Колонна"}],{});
 assert.equal(unknown.occurrences,0);
 assert.deepEqual(unknown.missingMarks,["К62"]);
+const blank=reviewToThreeJs({candidates:[{placementId:"blank",mark:"К1",type:"колонна"}]},[{placementId:"blank",approved:true,xMm:"  ",yMm:0,z0Mm:0,z1Mm:9000}]);
+assert.equal(blank.items.length,0);
+assert.equal(blank.rejected[0].reason,"invalid_approved_geometry");
 console.log("Reviewed Three.js payload and repeated PDF marks tests passed");
