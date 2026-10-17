@@ -48,6 +48,11 @@ function candidatePlacements(pages,register,grid={}){
  for(const originalPage of pages||[]){
   const detected=originalPage?.titleBlockBounds?null:detectTitleBlock(originalPage);
   const page=detected?{...originalPage,titleBlockBounds:detected}:originalPage;
+  const fragments=Array.isArray(page?.fragments)?page.fragments:[];
+  const sheetText=fragments.map(f=>String(typeof f==="string"?f:(f?.text??f?.str??""))).join(" ").toLowerCase();
+  const isPlacementPlan=/монтажная схема|монтажный план|схема расположения|план расположения|план колонн|план балок/u.test(sheetText);
+  const isDetailSheet=/деталировка|чертеж колонны|чертеж балки|спецификация деталей/u.test(sheetText);
+  const sheetRole=isPlacementPlan?"placement_plan":isDetailSheet?"detail_or_schedule":"unknown";
   const hits=markOccurrences(page,allowed);
   const axisProjection=extractPageCandidates(page,allowed,grid).axisProjection;
   const projected=axisProjection.placements||[];
@@ -71,7 +76,7 @@ function candidatePlacements(pages,register,grid={}){
     coordinateStatus:mapped?.xMm!=null&&mapped?.yMm!=null?"label_coordinate_only":"unresolved",
     nearestXAxis:nearest(mapped?.xMm,axesX),nearestYAxis:nearest(mapped?.yMm,axesY),
     levelCandidates:uniquelyNearest.slice(0,10),ambiguousLevelCandidates:nearby.filter(v=>!uniquelyNearest.includes(v)).slice(0,10),status:"requires_review",safeForAutoPlacement:false,
-    placementId:identity});
+    sheetRole,placementId:identity});
   }
  }
  const positions=[...unique.values()].flat();
