@@ -11,3 +11,12 @@ test("matches only listed marks",()=>{
 test("does not invent text across unrelated fragments",()=>{
  assert.deepEqual(markOccurrences({page:1,fragments:[{str:"К"},{str:"62"}]},["К62"]),[]);
 });
+
+test("preserves PDF fragment coordinates without claiming placement",()=>{
+ const [hit]=markOccurrences({page:2,fragments:[{text:"К62",x:120.5,y:80,width:24,height:9}]},["К62"]);
+ assert.equal(hit.x,120.5);
+ assert.equal(hit.y,80);
+ assert.equal(hit.width,24);
+ assert.equal(hit.height,9);
+ assert.equal(hit.safeForAutoPlacement,false);
+});
