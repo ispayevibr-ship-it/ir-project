@@ -1,6 +1,6 @@
 "use strict";
 const assert=require("node:assert/strict");
-const {reviewToThreeJs}=require("../src/ai-placement-pipeline");
+const {reviewToThreeJs,candidatePlacements}=require("../src/ai-placement-pipeline");
 const candidates={candidates:[
  {placementId:"a",mark:"К62",type:"колонна"},
  {placementId:"b",mark:"Б1",type:"балка"},
@@ -16,4 +16,12 @@ assert.equal(result.items.length,1);
 assert.equal(result.items[0].heightMm,10105);
 assert.equal(result.rejected.length,2);
 assert.equal(result.items[0].mark,"К62");
-console.log("Reviewed Three.js payload tests passed");
+const repeated=candidatePlacements([{documentId:"doc1",page:1,fragments:[
+ {text:"К62 К62",x:100,y:100,width:90,height:12},
+ {text:"К62",x:200,y:200,width:30,height:12}
+]}],[{mark:"К62",name:"Колонна"}],{});
+assert.equal(repeated.occurrences,3);
+assert.equal(new Set(repeated.candidates.map(x=>x.placementId)).size,3);
+assert.ok(repeated.candidates.every(x=>x.documentId==="doc1"));
+assert.equal(repeated.readyForPlacement.length,0);
+console.log("Reviewed Three.js payload and repeated PDF marks tests passed");
