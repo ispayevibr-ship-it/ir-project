@@ -1,0 +1,13 @@
+"use strict";
+const assert=require("node:assert/strict");
+const {detectTitleBlock}=require("../src/ai-pdf-title-block");
+const {candidatePlacements}=require("../src/ai-placement-pipeline");
+const fields=["Лист","Листов","Стадия","Разраб.","Дата"];
+const fragments=[{text:"К62",x:100,y:100},...fields.map((text,i)=>({text,x:2150+i*20,y:1550+i*15})),{text:"К62",x:2210,y:1610}];
+const page={page:1,width:2400,height:1700,fragments};
+const bounds=detectTitleBlock(page);
+assert.ok(bounds);
+assert.equal(bounds.verified,false);
+assert.equal(candidatePlacements([page],[{mark:"К62",name:"Колонна"}]).occurrences,1);
+assert.equal(detectTitleBlock({...page,fragments:[{text:"К62",x:100,y:100}]}),null);
+console.log("Automatic title block placement filtering passed");
