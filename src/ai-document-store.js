@@ -39,6 +39,8 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
    if(row.record_type!=="pdf_page_geometry"||d?.version!==2||
     !Number.isSafeInteger(r?.page)||r.page<1||
     r.coordinateSystem!=="viewport_points_top_left"||!Array.isArray(r.segments)||
+    r.segments.length>2400||!r.segments.every(seg=>seg&&
+     ["x1","y1","x2","y2"].every(k=>Number.isFinite(seg[k])))||
     !Number.isFinite(r.widthPt)||r.widthPt<=0||
     !Number.isFinite(r.heightPt)||r.heightPt<=0)continue;
    const key=String(d.documentId)+":"+d.sourceSha256;
