@@ -22,3 +22,12 @@ test('rejects duplicate axis labels as calibration anchors',()=>{
  ]},{axes_x:['1','2'],x_spans_mm:[45000]});
  assert.equal(r.x.calibrated,false);
 });
+
+test('does not fabricate axis spacing when grid steps are missing',()=>{
+ const r=projectAxisCandidates({observations:[
+  {kind:'axis',dimension:'x',value:'1',point:{x:10,y:0}},
+  {kind:'axis',dimension:'x',value:'2',point:{x:110,y:0}}
+ ]},{axes_x:['1','2']});
+ assert.equal(r.x.calibrated,false);
+ assert.equal(r.safeForAutoPlacement,false);
+});
