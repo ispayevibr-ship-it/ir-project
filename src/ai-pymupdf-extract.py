@@ -7,6 +7,7 @@ Requires: pip install pymupdf
 """
 import json
 import sys
+import re
 
 def extract(filename):
     import fitz
@@ -40,12 +41,27 @@ def extract(filename):
                         break
                 if len(fragments) >= 1000:
                     break
+            # Only signed/elevation-shaped annotations are candidates.
+            # These are observations, NOT verified element elevations.
+            level_pattern = re.compile(r"(?<![\\d])(?:[+\\-−]\\s*\\d{1,2}|0)[,.]\\d{3}(?!\\d)")
+            levels = []
+            for fragment in fragments:
+                for match in level_pattern.finditer(fragment["text"]):
+                    label = match.group(0)
+                    normalized = label.replace("−", "-").replace(" ", "").replace(",", ".")
+                    try:
+                        millimeters = round(float(normalized) * 1000)
+                    except ValueError:
+                        continue
+                    levels.append({"label": label, "millimeters": millimeters,
+                                   "x": fragment["x"], "y": fragment["y"]})
             result["pages"].append({
                 "page": number,
                 "widthPt": round(page.rect.width, 2),
                 "heightPt": round(page.rect.height, 2),
                 "rotation": page.rotation,
                 "fragments": fragments,
+                "levelCandidates": levels,
                 "hasTextLayer": bool(fragments),
                 "truncated": len(fragments) >= 1000,
             })
