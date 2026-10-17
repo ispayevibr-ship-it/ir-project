@@ -1,0 +1,12 @@
+"use strict";
+const assert=require("node:assert/strict");
+const {axisMap,calibrateDimension}=require("../src/ai-pdf-axis-projection");
+assert.deepEqual(axisMap(null,"x"),{});
+assert.deepEqual(axisMap({x:{"1":0,"2":45000,"3":null,"4":""}},"x"),{"1":0,"2":45000});
+assert.deepEqual(axisMap({axes_x:["1","2","3","4"],x_spans_mm:[45000,30000,60000]},"x"),{"1":0,"2":45000,"3":75000,"4":135000});
+assert.deepEqual(axisMap({axes_y:["А","Б","В"],y_spans_mm:[6000,9000]},"y"),{"А":0,"Б":6000,"В":15000});
+assert.deepEqual(axisMap({axes_x:["1","2"],x_spans_mm:[0]},"x"),{});
+const x=calibrateDimension([{dimension:"x",value:"1",point:{x:10,y:0}},{dimension:"x",value:"2",point:{x:110,y:0}}],{"1":0,"2":45000},"x");
+assert.equal(x.calibrated,true);
+assert.equal(x.scaleMmPerPt,450);
+console.log("PDF axis grid validation passed");
