@@ -3,6 +3,7 @@
  * No claim that a stroke is a physical structural element. */
 const {buildCoordinateCandidates}=require("./ai-pdf-coordinate-candidates");
 const {nearestSegments}=require("./ai-pdf-segment-evidence");
+const {intersectionEvidence}=require("./ai-pdf-intersection-evidence");
 function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha256,maxDistancePt=12}={}){
  const base=buildCoordinateCandidates({page,registerMarks,anchors,documentId,sourceSha256});
  const geometryValid=geometry?.coordinateSystem==="viewport_points_top_left"&&
@@ -26,7 +27,9 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
     adjacent.length?"nearby_unclassified_segments":"no_nearby_segments",
    verification:"required",safeForAutoPlacement:false};
  });
+ const vectorIntersections=intersectionEvidence({page,geometry,candidates});
  return{...base,geometryAligned:geometryValid,segmentCount:segments.length,candidates,
+  vectorIntersections,
   verifiedInstances:0,safeForAutoPlacement:false};
 }
 module.exports={analyzeSheet};
