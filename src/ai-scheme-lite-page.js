@@ -1652,6 +1652,7 @@
      '<b>Локально · без ИИ</b></header>'+
      '<div class="ir-ai-quantity-warning">Индексирование текстового слоя PDF не определяет положение конструкции. После построения черновика автоматически запускается графическая проверка всех индексированных потенциальных монтажных планов; это не изменяет существующую схему.</div>'+
      '<div class="ir-ai-lite-toolbar"><button type="button" data-lite-scan '+(busy?'disabled':'')+'>1. Проанализировать все чертежи</button>'+
+     '<button type="button" data-lite-auto>Авторасстановка по PDF</button>'+
      '<button type="button" data-lite-analyze-all disabled>Автоматически проверить оси и контуры всех планов</button>'+
      '<button type="button" data-lite-cancel-analyze disabled>Остановить анализ</button>'+
      '<button type="button" data-lite-scheme>Открыть монтажную схему</button>'+ 
@@ -1856,6 +1857,11 @@
        '</section>':"")+
       (verifiedPreview?'<section class="ir-ai-lite-batch ir-ai-lite-server-preview">'+
        '<h3>Предпросмотр перед расстановкой</h3>'+
+       (verifiedPreview.preview.automatic?'<p>Автоматически проверено листов: '+verifiedPreview.preview.automatic.pages+
+        '. Готовых позиций: '+verifiedPreview.preview.automatic.ready+
+        (verifiedPreview.preview.automatic.deferred?' · в следующей операции: '+verifiedPreview.preview.automatic.deferred:'')+'.</p>':'')+
+       (verifiedPreview.preview.review?.length?'<details open class="ir-ai-auto-review"><summary>Требуют ручной проверки · '+verifiedPreview.preview.review.length+
+        '</summary>'+verifiedPreview.preview.review.slice(0,200).map(x=>'<p style="color:#b42318">'+escDoc(x.mark)+' — '+escDoc(x.reason)+'</p>').join('')+'</details>':'')+
        '<p>Проверено на стороне SQLite. Готово: <b>'+verifiedPreview.preview.ready.length+
        '</b>; пропущено: <b>'+verifiedPreview.preview.skipped.length+'</b>; '+
        'уже размещено: <b>'+verifiedPreview.preview.existing+'</b>.</p>'+
@@ -1874,7 +1880,7 @@
         verifiedPreview.preview.skipped.length+')</summary>'+
         verifiedPreview.preview.skipped.slice(0,80).map(x=>'<div>№'+
          (x.index+1)+': '+escDoc(x.reason)+'</div>').join("")+'</details>':"")+
-       '<div class="ir-ai-lite-toolbar"><button type="button" data-lite-apply>3. Применить '+
+       '<div class="ir-ai-lite-toolbar"><button type="button" data-lite-apply '+(!verifiedPreview.preview.ready.length?'disabled':'')+'>3. Применить '+
         verifiedPreview.preview.ready.length+' готовых экземпляров</button>'+
         '<button type="button" data-lite-cancel-preview>Отмена</button></div>'+
        '</section>':"")+
@@ -2664,6 +2670,20 @@
       evidence:c.evidence,source:{...c.source,regions:c.evidenceLocations||[]}
      }
     }
+    async function automaticPreview(){
+     if(busy)return;busy=true;
+     const button=host.querySelector("[data-lite-auto]");if(button)button.disabled=true;
+     status("Готовим авторасстановку по всем актуальным индексам PDF…");
+     try{
+      if(!mounting?.preview||!mounting?.apply)throw Error("Модуль расстановки недоступен");
+      const request={mode:"automatic"},preview=await mounting.preview(objectId,request);
+      if(!live)return;
+      verifiedPreview={proposals:request,preview};draw();
+      status(preview.ready.length?"Авторасстановка подготовлена. Проверьте таблицу и нажмите «Применить».":
+       "Готовых размещений пока нет. Причины показаны красным; уточните привязки в карточках марок.");
+     }catch(error){status("Авторасстановка: "+String(error.message||error))}
+     finally{busy=false;if(button)button.disabled=false}
+    }
     async function approveBatch(){
      if(!batch?.ready.length||busy)return;
      busy=true;
@@ -2834,6 +2854,8 @@
     }
     host.innerHTML=markup();
     host.querySelector("[data-lite-scan]").onclick=()=>void scan();
+    const autoButton=host.querySelector("[data-lite-auto]");
+    if(autoButton)autoButton.onclick=()=>void automaticPreview();
     const allButton=host.querySelector?.("[data-lite-analyze-all]");
     if(allButton)allButton.onclick=()=>void reviewAllIndexedPlans();
     const cancelButton=host.querySelector?.("[data-lite-cancel-analyze]");

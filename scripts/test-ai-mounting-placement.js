@@ -118,4 +118,19 @@ assert.throws(()=>service.apply(1,[candidate("1"),candidate("2")],planned.token)
 failAt=0;
 assert.equal(db.listEntity(1,"scheme").filter(x=>x.record_type==="scheme_column").length,0);
 assert.equal(db.listEntity(1,"ai-placement-operations").length,before);
+// Automatic mode must derive proposals in the main process, again on apply.
+const autoText="Колонна К62 оси 1/Б низ -0.400 верх +9.595";
+add("ai-pdf-index",24,"pdf_text_index",{source:{documentId:23,sha256:SHA,name:"План колонн"},
+ pages:[{page:1,text:"План колонн",fragments:[{text:autoText,x:10,y:50,width:300,height:12}]}]});
+const autoRequest={mode:"automatic"},auto=service.preview(1,autoRequest);
+assert.equal(auto.ready.length,1);assert.equal(auto.automatic.pages,1);
+assert.equal(auto.ready[0].z1Mm,9595);
+const autoResult=service.apply(1,autoRequest,auto.token);
+assert.equal(autoResult.created,1);
+assert.equal(service.preview(1,autoRequest).ready.length,0,"automatic repeat is idempotent");
+assert.equal(service.undo(1,autoResult.operationId).undone,1);
+const staleAuto=service.preview(1,autoRequest);
+records.get(24).data.pages[0].fragments[0].text=autoText.replace("9.595","8.000");
+assert.throws(()=>service.apply(1,autoRequest,staleAuto.token),/изменились/);
+assert.equal(db.listEntity(1,"scheme").filter(x=>x.record_type==="scheme_column").length,0);
 console.log("AI placement: closed register, mark quantity, axes, source SHA, atomicity, undo PASS");

@@ -14,7 +14,7 @@ const wait=async fn=>{for(let i=0;i<120;i++){
  await new Promise(resolve=>setImmediate(resolve))
 }throw Error("No UI callback/result for AI placement")};
 function makeHost(){
- const btn={scan:{disabled:false},scheme:{},batch:{},apply:{},undo:{},cancel:{}},
+ const btn={auto:{disabled:false},scan:{disabled:false},scheme:{},batch:{},apply:{},undo:{},cancel:{}},
   status={textContent:""},slot={
    innerHTML:"",
    querySelectorAll:()=>[],
@@ -28,7 +28,7 @@ function makeHost(){
   innerHTML:"",
   querySelector:q=>({
    "[data-lite-results]":slot,"[data-lite-status]":status,
-   "[data-lite-scan]":btn.scan,"[data-lite-scheme]":btn.scheme
+   "[data-lite-scan]":btn.scan,"[data-lite-auto]":btn.auto,"[data-lite-scheme]":btn.scheme
   })[q]||null
  };
  return{root,btn,status,slot}
@@ -94,6 +94,22 @@ function makeHost(){
  assert.equal(typeof host.btn.undo.onclick,"function");
  host.btn.undo.onclick();
  await wait(()=>undos===1&&host.status.textContent.includes("отменена"));
+ // The new button works directly, without the legacy limited scan.
+ let autoApplied=0;
+ mount.preview=async(id,request)=>{
+  assert.deepEqual(request,{mode:"automatic"});
+  return{automatic:{pages:252,ready:1,deferred:0},ready:[{mark:"К62",axes:"1/Б",xMm:0,yMm:6000,z0Mm:-400,z1Mm:9595}],
+   review:[{mark:"К63",reason:"Нет отметки верха"}],skipped:[],existing:0,token:"d".repeat(64)};
+ };
+ mount.apply=async(id,request,token)=>{
+  assert.deepEqual(request,{mode:"automatic"});assert.equal(token,"d".repeat(64));autoApplied++;
+  return{created:1,operationId:"22345678-1234-1234-1234-123456789012",skipped:[]};
+ };
+ host.btn.auto.onclick();
+ await wait(()=>host.slot.innerHTML.includes("252"));
+ assert.equal(autoApplied,0);
+ assert.match(host.slot.innerHTML,/Нет отметки верха/);
+ host.btn.apply.onclick();await wait(()=>autoApplied===1);
  page.dispose();
  console.log("Mounting UI: scan -> readonly preview -> atomic apply -> guarded undo PASS");
 })().catch(error=>{console.error(error);process.exitCode=1});

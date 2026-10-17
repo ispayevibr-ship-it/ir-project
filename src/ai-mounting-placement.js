@@ -220,8 +220,14 @@ function createService({database,verifyDocument}={}){
   });
   return{ready:accepted,skipped}
  }
- function preview(objectId,entries){
-  const st=state(objectId),result=planState(st,entries);
+ function resolveEntries(st,input){
+  if(input&&!Array.isArray(input)&&input.mode==="automatic")
+   return require("./ai-mounting-auto").automaticEntries(st.rows);
+  return{entries:input,review:[],stats:null};
+ }
+ function preview(objectId,input){
+  const st=state(objectId),automatic=resolveEntries(st,input),entries=automatic.entries,
+   result=planState(st,entries);
   return{objectId:st.id,token:st.version,
    ready:result.ready.map(x=>({index:x.index,mark:x.item.data.mark,
     markId:x.item.data.mark_id,instanceId:x.item.data.ai_instance_id,
@@ -230,6 +236,7 @@ function createService({database,verifyDocument}={}){
     endXMm:x.item.data.absolute_x2_mm??null,endYMm:x.item.data.absolute_y2_mm??null,
     z0Mm:x.item.data.z0_mm,z1Mm:x.item.data.z1_mm,
     source:x.item.data.ai_source})),
+   review:automatic.review,automatic:automatic.stats,
    skipped:result.skipped,total:entries?.length||0,existing:st.rows.scheme.filter(placement).length}
  }
  function apply(objectId,entries,expectedToken){
@@ -238,7 +245,7 @@ function createService({database,verifyDocument}={}){
   return database.transaction(()=>{
    const st=state(objectId);
    if(st.version!==expectedToken)throw Error("Ведомость, сетка или чертежи изменились — откройте предпросмотр заново");
-   const plan=planState(st,entries);
+   const automatic=resolveEntries(st,entries),plan=planState(st,automatic.entries);
    if(!plan.ready.length)throw Error("Нет достоверно размещаемых экземпляров");
    const operationId=crypto.randomUUID(),created=[];
    for(const {item} of plan.ready){
