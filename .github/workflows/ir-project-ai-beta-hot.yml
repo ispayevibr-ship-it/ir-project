@@ -7,6 +7,7 @@ on:
       - "src/ai-*.js"
       - "src/ai-*.css"
       - "scripts/test-ai-pdf-drawings-ui.js"
+      - "scripts/test-ai-storage.js"
       - "scripts/build-beta-hot-manifest.js"
       - ".github/workflows/ir-project-ai-beta-hot.yml"
   workflow_dispatch:
