@@ -41,6 +41,7 @@ function createPdfIndex({database,documents,workerFactory=(file,options)=>new Wo
     page:p.page,widthPt:p.widthPt,heightPt:p.heightPt,rotation:p.rotation,
     hasTextLayer:p.hasTextLayer,uncertainEncoding:p.uncertainEncoding,
     truncated:p.truncated,fragmentCount:p.fragments?.length||0,
+    ocr:p.ocr||null,
     excerpt:String(p.text||"").slice(0,1400)
    }))}
  }
