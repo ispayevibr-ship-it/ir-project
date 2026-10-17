@@ -51,6 +51,15 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Build Windows beta with PyMuPDF
         run: npm run build
+      - name: Verify bundled helper in packaged application
+        shell: pwsh
+        run: |
+          $appDir = Get-ChildItem -Path dist -Directory -Filter 'win-unpacked' | Select-Object -First 1
+          if (!$appDir) { throw 'Windows unpacked app not found' }
+          $helper = Join-Path $appDir.FullName 'resources/pymupdf/ir-pymupdf-extract.exe'
+          if (!(Test-Path $helper)) { throw "Bundled PyMuPDF missing: $helper" }
+          & $helper test-pymupdf.pdf | Out-File -FilePath packaged-result.json -Encoding utf8
+          python -c "import json; d=json.load(open('packaged-result.json',encoding='utf-8-sig')); assert len(d['pages'])==1; assert any('K62' in f['text'] for f in d['pages'][0]['fragments'])"
       - name: Upload Windows beta
         uses: actions/upload-artifact@v4
         with:
