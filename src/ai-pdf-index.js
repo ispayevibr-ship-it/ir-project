@@ -5,6 +5,7 @@ const {markOccurrences}=require("./ai-pdf-mark-matcher");
 const {projectMarks}=require("./ai-pdf-mark-projection");
 const {extractPageCandidates}=require("./ai-pdf-candidates");
 const {inspectMarkElevations,inspectSingleMarkSheetLevels}=require("./ai-pdf-mark-elevations");
+const {extractWithPyMuPDF}=require("./ai-pymupdf-runner");
 const MAX_PDF_BYTES=48*1024*1024,DEADLINE=120000;
 function completePages(pages,total){
  const count=Number(total);
@@ -161,18 +162,27 @@ function createPdfIndex({database,documents,workerFactory=(file,options)=>new Wo
   const task=(async()=>{
    const input=await documents.readForPdfIndex(id,docId);
    if(input.buffer.length>MAX_PDF_BYTES)throw Error("PDF превышает лимит 48 МиБ");
-   const existing=rows(id).find(r=>String(r.data?.source?.documentId)===String(docId)&&
+   const selectedParser=process.env.IR_PDF_PARSER==="pymupdf"?"pymupdf":"pdfjs-dist";
+   const existing=rows(id).find(r=>r.data?.parser===selectedParser&&String(r.data?.source?.documentId)===String(docId)&&
     r.data.source.sha256===input.source.sha256&&
     completePages(r.data.pages,r.data.total));
    if(existing)return{cached:true,...summarize(existing)};
    const progress=point=>onProgress({objectId:id,documentId:docId,...point});
-   const result=await processPdf(input.buffer,progress);
+   let result,parser="pdfjs-dist";
+   if(process.env.IR_PDF_PARSER==="pymupdf"){
+    const extracted=await extractWithPyMuPDF(input.buffer);
+    const pages=extracted.pages.map(p=>({...p,
+     text:(p.fragments||[]).map(f=>f.text).join(" ").slice(0,24000),
+     uncertainEncoding:false,ocr:null}));
+    result={pages,total:pages.length};parser="pymupdf";
+    if(!completePages(result.pages,result.total))throw Error("Некорректный индекс PyMuPDF");
+   }else result=await processPdf(input.buffer,progress);
    if(!result.pages.length)throw Error("Не найдены страницы PDF");
    if(typeof documents.verify==="function"&&!documents.verify(id,docId))
     throw Error("Исходный PDF изменился или удалён во время индексации — индекс не сохранён");
    const saved=database.createEntity(id,"ai-pdf-index",{
     record_type:"pdf_text_index",title:"PDF: "+input.source.name,
-    data:{source:input.source,total:result.total,parser:"pdfjs-dist",
+    data:{source:input.source,total:result.total,parser,
      extraction:"text_layer",pages:result.pages,review:"requires_review",
      generatedByAI:false}
    });
