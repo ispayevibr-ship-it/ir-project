@@ -56,3 +56,9 @@ test("finds known marks among unknown tokens in the same PDF fragment",()=>{
  assert.deepEqual(hits.map(hit=>hit.mark),["К62","Б1","К62"]);
  assert(hits.every(hit=>hit.safeForAutoPlacement===false));
 });
+
+test("matches register marks separated by punctuation on drawings",()=>{
+ const hits=markOccurrences({page:9,fragments:[{text:"К62, Б1; (Р3)"}]},["К62","Б1","Р3"]);
+ assert.deepEqual(hits.map(hit=>hit.mark),["К62","Б1","Р3"]);
+ assert(hits.every(hit=>hit.safeForAutoPlacement===false));
+});
