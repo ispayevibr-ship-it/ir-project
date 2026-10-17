@@ -4,6 +4,7 @@
  * interpreted as a physical placement. The transactional service rechecks all. */
 const {classSheet,buildBatchPlan,axisGeometry,reviewIndexedPlanPage}=require("./ai-scheme-lite-page");
 const {markOccurrences}=require("./ai-pdf-mark-matcher");
+const {candidatePlacements}=require("./ai-placement-pipeline");
 const normalize=s=>String(s??"").normalize("NFKC").toUpperCase().replace(/[−–—]/g,"-").replace(/\s+/g,"");
 const escape=s=>String(s).replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
 function typeOf(text){
