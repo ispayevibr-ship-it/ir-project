@@ -16,7 +16,7 @@ function projectMarks(page,allowedMarks,anchors){
   coordinateStatus:"invalid_calibration",safeForAutoPlacement:false
  }))}}
  return {calibrated:true,scaleMmPerPdfUnit:mapping.scaleMmPerPdfUnit,
-  rotationRadians:mapping.rotationRadians,anchorsVerified:mapping.anchorsVerified,
+  rotationRadians:mapping.rotationRadians,anchorsSupplied:mapping.anchorsSupplied,
   candidates:hits.map(hit=>{
    // Existing text indexes store PDF.js transform coordinates (origin bottom-left).
    // Geometry extractor uses viewport coordinates (origin top-left). Never mix them.
