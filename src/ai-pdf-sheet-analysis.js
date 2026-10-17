@@ -62,14 +62,19 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
   pdfPoint:Number.isFinite(item.pdfX)&&Number.isFinite(item.pdfY)&&Number.isFinite(page?.heightPt)?
    {x:item.pdfX,y:page.heightPt-item.pdfY}:null
  })),observations:elevationObservations.map(item=>({...item,point:item.point?{x:item.point.x,y:page.heightPt-item.point.y}:null}))});
+ const elevationByFragment=new Map(elevations.map(item=>[item.fragmentIndex,item]));
+ const candidatesWithElevations=candidatesWithIntersections.map(item=>({
+  ...item,elevationEvidence:elevationByFragment.get(item.fragmentIndex)?.evidence||[],
+  elevationStatus:"review_required",z0Mm:null,z1Mm:null
+ }));
  const anchorSummary={total:candidatesWithIntersections.length,proposed:0,ambiguous:0,missing:0,unverified:0};
- for(const item of candidatesWithIntersections){
+ for(const item of candidatesWithElevations){
   if(item.proposedAnchorPt)anchorSummary.proposed++;
   if(item.proposedAnchorStatus==='ambiguous_intersections')anchorSummary.ambiguous++;
   if(item.proposedAnchorStatus==='no_intersection')anchorSummary.missing++;
   if(item.verification==='required')anchorSummary.unverified++;
  }
- return{...base,geometryAligned:geometryValid,segmentCount:segments.length,candidates:candidatesWithIntersections,anchorSummary,
+ return{...base,geometryAligned:geometryValid,segmentCount:segments.length,candidates:candidatesWithElevations,anchorSummary,
   vectorIntersections,strokeCandidates,elevations,
   verifiedInstances:0,safeForAutoPlacement:false};
 }
