@@ -61,6 +61,7 @@ assert.equal(classifyMarkType("Фахверк Ф1").type,"fachwerk");
 assert.equal(classifyMarkType("Прогон П1").type,"purlin");
 assert.equal(classifyMarkType("Ригель Р1").type,"rigel");
 assert.equal(classifyMarkType("К62").type,null);
+assert.equal(classifyMarkType("К62 Колонна").type,"column");
 const registered=analyzeSheet({page:{page:1,heightPt:100,rotation:0,fragments:[{str:"К62",x:20,y:20}]},registerMarks:[{mark:"К62",name:"Колонна К62"}]});
 assert.equal(registered.candidates[0].structuralType.type,"column");
 const alternate=analyzeSheet({page:{page:1,heightPt:100,fragments:[{str:"К62",x:20,y:20}]},registerMarks:[{marking:"К62",mark_description:"Колонна К62"}]});
