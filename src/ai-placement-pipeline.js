@@ -81,12 +81,16 @@ function candidatePlacements(pages,register,grid={}){
   }
  }
  const positions=[...unique.values()].flat();
+ // Preserve all references for review; only plan references are possible physical instances.
+ const planKeys=new Set(positions.filter(p=>p.sheetRole==="placement_plan").map(p=>normalize(p.mark)));
+ const crossSheetReferences=positions.filter(p=>p.sheetRole!=="placement_plan"&&planKeys.has(normalize(p.mark)));
+ const placementInstances=positions.filter(p=>p.sheetRole==="placement_plan");
  const indexedPages=new Set((pages||[]).map(p=>[p.documentId??p.sourceDocumentId??'',p.sourceSha256??p.sha256??'',p.page].join(':'))).size;
  const placementPlanCandidates=positions.filter(p=>p.sheetRole==="placement_plan");
  const detailReferences=positions.filter(p=>p.sheetRole==="detail_or_schedule");
  const unknownSheetCandidates=positions.filter(p=>p.sheetRole==="unknown");
  return {registerCount:allowed.length,matchedMarks:unique.size,occurrences:positions.length,indexedPages,
-  placementPlanOccurrences:placementPlanCandidates.length,detailReferenceOccurrences:detailReferences.length,
+  placementPlanOccurrences:placementPlanCandidates.length,placementInstances,crossSheetReferences,crossSheetReferenceCount:crossSheetReferences.length,detailReferenceOccurrences:detailReferences.length,
   unknownSheetOccurrences:unknownSheetCandidates.length,placementPlanCandidates,detailReferences,unknownSheetCandidates,
   candidates:positions,readyForPlacement:[],requiresReview:positions,
   missingMarks:allowed.filter(m=>!unique.has(normalize(m))),
