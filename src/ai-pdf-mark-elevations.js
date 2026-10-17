@@ -81,8 +81,8 @@ function inspectNearbyLevelCandidates(page,mark,allowedMarks,{radiusPt=100}={}){
  const results=[];
  for(const hit of hits){
   const source=fragments[hit.fragmentIndex];
-  if(!source||!Number.isFinite(Number(source.x))||!Number.isFinite(Number(source.y)))continue;
-  const nearby=levels.map(level=>{
+  if(!source||source.x==null||source.y==null||!Number.isFinite(Number(source.x))||!Number.isFinite(Number(source.y)))continue;
+  const nearby=levels.filter(level=>level.x!=null&&level.y!=null&&Number.isFinite(Number(level.x))&&Number.isFinite(Number(level.y))).map(level=>{
    const distancePt=Math.hypot(Number(level.x)-Number(source.x),Number(level.y)-Number(source.y));
    return {...level,distancePt:Math.round(distancePt*100)/100};
   }).filter(level=>Number.isFinite(level.distancePt)&&level.distancePt<=radiusPt)
