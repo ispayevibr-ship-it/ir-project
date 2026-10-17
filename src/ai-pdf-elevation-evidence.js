@@ -11,7 +11,8 @@ function elevationEvidence(candidates,{radiusPt=120}={}){
   const near=elevations.map(o=>({...o,distancePt:Math.hypot(o.point.x-p.x,o.point.y-p.y)}))
    .filter(o=>o.distancePt<=radiusPt).sort((a,b)=>a.distancePt-b.distancePt);
   const evidence=near.slice(0,12).map(o=>({fragmentIndex:o.fragmentIndex,valueMm:o.valueMm,
-    distancePt:Math.round(o.distancePt*100)/100,text:o.text}));
+    distancePt:Math.round(o.distancePt*100)/100,text:o.text,
+    levelHint:/^(?:низ|z0)\b/iu.test(o.text)?'bottom':/^(?:верх|z1)\b/iu.test(o.text)?'top':null}));
   // Never assign Z0/Z1 from nearby elevation numbers: drawings may contain
   // roof, foundation, section and reference elevations on the same sheet.
   return {mark:item.mark,page:item.page,fragmentIndex:item.fragmentIndex,
