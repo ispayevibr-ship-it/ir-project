@@ -389,7 +389,17 @@ window.irAiRecognitionPage=async function(objectId){
     previewButton.onclick=async()=>{
      try{
       const preview=await api.aiMounting.reviewPreview(review,[...approvedCoordinates.values()]);
-      window.alert("Готово к просмотру: "+preview.elements.length+" · пропущено: "+preview.skipped.length+" · без сохранения в базу")
+      const elements=preview.elements.map(e=>({id:e.id,mark:e.mark,scheme_group:({"колонна":"columns","фахверк":"fahwerk","балка":"beams","ригель":"girders","прогон":"purlins","связь":"ties","распорка":"spacers"})[e.type]||"other",geometryType:["колонна","фахверк"].includes(e.type)?"column":"beam",x:e.start.x,y:e.start.y,z0:e.start.z,x2:e.end.x,y2:e.end.y,z2:e.end.z}));
+      const dlg=document.createElement("dialog");
+      dlg.style.cssText="width:94vw;max-width:1400px;height:88vh;padding:12px";
+      const close=document.createElement("button");close.textContent="Закрыть предпросмотр";close.onclick=()=>dlg.close();
+      const host=document.createElement("div");host.style.cssText="height:calc(100% - 45px);min-height:350px";
+      dlg.append(close,host);document.body.appendChild(dlg);
+      dlg.addEventListener("close",()=>{window.irThreeSchemeView?.dispose();dlg.remove()},{once:true});
+      dlg.showModal();
+      const spanX=Math.max(1000,...elements.flatMap(e=>[e.x,e.x2]))-Math.min(0,...elements.flatMap(e=>[e.x,e.x2]));
+      const spanY=Math.max(1000,...elements.flatMap(e=>[e.y,e.y2]))-Math.min(0,...elements.flatMap(e=>[e.y,e.y2]));
+      window.irThreeSchemeView.render(host,{elements,spanX,spanY,colorMode:"type"});
      }catch(ex){window.alert("Ошибка предпросмотра: "+String(ex.message||ex))}
     };
     panel.appendChild(previewButton);
