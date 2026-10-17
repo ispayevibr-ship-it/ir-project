@@ -137,6 +137,7 @@ function reconcileMarkCounts(sheets,registerMarks){
     fragmentIndex:item.fragmentIndex??null,
     pdfX:Number.isFinite(item.pdfX)?item.pdfX:null,
     pdfY:Number.isFinite(item.pdfY)?item.pdfY:null,
+    positionAvailable:Number.isFinite(item.pdfX)&&Number.isFinite(item.pdfY),
     verified:false});
   }
  const result=[];
