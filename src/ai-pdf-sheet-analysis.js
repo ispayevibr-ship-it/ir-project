@@ -30,11 +30,20 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
  });
  const vectorIntersections=intersectionEvidence({page,geometry,candidates});
  const intersectionsByFragment=new Map(vectorIntersections.marks.map(item=>[item.fragmentIndex,item.nearbyIntersections]));
+ const strokeCandidates=classifySegments(segments);
+ const strokeByIndex=new Map(strokeCandidates.map(item=>[item.index,item]));
  const candidatesWithIntersections=candidates.map(item=>({...item,
   nearbyIntersections:intersectionsByFragment.get(item.fragmentIndex)||[],
+  nearbyStrokeEvidence:item.nearbySegments.map(segment=>({
+   segmentIndex:segment.segmentIndex,distancePt:segment.distancePt,
+   classification:strokeByIndex.get(segment.segmentIndex)?.classification||'unclassified',
+   couldBeAxis:strokeByIndex.get(segment.segmentIndex)?.couldBeAxis===true,
+   couldBeDimension:strokeByIndex.get(segment.segmentIndex)?.couldBeDimension===true,
+   couldBeStructure:strokeByIndex.get(segment.segmentIndex)?.couldBeStructure===true,
+   verified:false})),
   intersectionEvidenceStatus:(intersectionsByFragment.get(item.fragmentIndex)||[]).length?'nearby_unverified_intersections':'no_nearby_intersections'}));
  return{...base,geometryAligned:geometryValid,segmentCount:segments.length,candidates:candidatesWithIntersections,
-  vectorIntersections,strokeCandidates:classifySegments(segments),
+  vectorIntersections,strokeCandidates,
   verifiedInstances:0,safeForAutoPlacement:false};
 }
 module.exports={analyzeSheet};
