@@ -399,10 +399,11 @@ window.irAiRecognitionPage=async function(objectId){
       dlg.append(close,host);document.body.appendChild(dlg);
       dlg.addEventListener("close",()=>{window.irThreeSchemeView?.dispose();dlg.remove()},{once:true});
       dlg.showModal();
-      const minX=Math.min(0,...elements.flatMap(e=>[e.x,e.x2]));
-      const minY=Math.min(0,...elements.flatMap(e=>[e.y,e.y2]));
-      const maxX=Math.max(1000,...elements.flatMap(e=>[e.x,e.x2]));
-      const maxY=Math.max(1000,...elements.flatMap(e=>[e.y,e.y2]));
+      let minX=0,minY=0,maxX=1000,maxY=1000;
+      for(const e of elements){
+       minX=Math.min(minX,e.x,e.x2);minY=Math.min(minY,e.y,e.y2);
+       maxX=Math.max(maxX,e.x,e.x2);maxY=Math.max(maxY,e.y,e.y2);
+      }
       const spanX=maxX-minX,spanY=maxY-minY;
       if(minX||minY){
        elements.forEach(e=>{e.x-=minX;e.x2-=minX;e.y-=minY;e.y2-=minY});
