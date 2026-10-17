@@ -22,13 +22,14 @@ function intersectionEvidence({page,geometry,candidates,maxDistancePt=20}={}){
  const aligned=geometry?.coordinateSystem==='viewport_points_top_left'&&
   Number(geometry.page)===Number(page?.page)&&
   Number(page?.rotation||0)===0&&Number(geometry.rotation||0)===0&&
-  Number.isFinite(page?.heightPt)&&Math.abs(Number(geometry.heightPt)-Number(page.heightPt))<1;
+  Number.isFinite(page?.heightPt)&&Number.isFinite(geometry?.heightPt)&&Math.abs(Number(geometry.heightPt)-Number(page.heightPt))<1;
  const points=aligned?intersections(geometry.segments):[];
  return {geometryAligned:aligned,intersectionCount:points.length,
   marks:(candidates||[]).map(mark=>{
    const x=Number(mark.pdfX??mark.x),rawY=Number(mark.pdfY??mark.y);
    const valid=aligned&&Number.isFinite(x)&&Number.isFinite(rawY)&&
-    (mark.pdfY!=null||mark.y!=null)&&(mark.pdfX!=null||mark.x!=null);
+    (mark.pdfY!=null||mark.y!=null)&&(mark.pdfX!=null||mark.x!=null)&&
+    String(mark.pdfX??mark.x).trim()!==''&&String(mark.pdfY??mark.y).trim()!=='';
    const y=Number(page?.heightPt)-rawY;
    const nearby=valid?points.map(p=>({...p,distancePt:Math.hypot(p.x-x,p.y-y)}))
     .filter(p=>p.distancePt<=maxDistancePt).sort((a,b)=>a.distancePt-b.distancePt).slice(0,8):[];
