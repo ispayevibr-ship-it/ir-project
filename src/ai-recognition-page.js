@@ -344,6 +344,7 @@ window.irAiRecognitionPage=async function(objectId){
     head.innerHTML="<tr><th>Марка</th><th>Лист</th><th>Тип</th><th>X, мм</th><th>Y, мм</th><th>Статус</th><th>Чертёж</th></tr>";
     table.appendChild(head);
     const body=document.createElement("tbody");
+    const approvedCoordinates=new Map();
     for(const item of (review?.candidates||[]).slice(0,200)){
      const tr=document.createElement("tr");
      for(const value of [item.mark,item.page,item.type,item.xMm,item.yMm,"Требует проверки"]){
