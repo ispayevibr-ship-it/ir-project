@@ -22,7 +22,8 @@ function elevationEvidence(candidates,{radiusPt=120}={}){
     levelHint:/^(?:низ|z0)\b/iu.test(o.text)?'bottom':/^(?:верх|z1)\b/iu.test(o.text)?'top':null}));
   const bottom=evidence.filter(o=>o.levelHint==='bottom');
   const top=evidence.filter(o=>o.levelHint==='top');
-  const explicitPair=bottom.length===1&&top.length===1&&bottom[0].valueMm<top[0].valueMm;
+  const explicitPair=bottom.length===1&&top.length===1&&bottom[0].valueMm<top[0].valueMm&&
+    !bottom[0].sharedWithNearbyMarks&&!top[0].sharedWithNearbyMarks;
   const levelReview={bottomCandidates:bottom.length,topCandidates:top.length,
     candidateZ0Mm:explicitPair?bottom[0].valueMm:null,
     candidateZ1Mm:explicitPair?top[0].valueMm:null,
