@@ -1,7 +1,7 @@
 {
   "channel": "beta",
   "baseVersion": "1.7.226",
-  "version": "1.7.226.395",
+  "version": "1.7.226.400",
   "branch": "feature/ir-project-ai-next",
   "description": "IR Project Algorithmic KM/KMD fixes: no full EXE",
   "files": [
@@ -200,8 +200,8 @@
     {
       "source": "src/ai-pdf-candidates.js",
       "target": "src/ai-pdf-candidates.js",
-      "size": 3476,
-      "sha256": "bb95d4c0015501b92df523fb8d92c7834263f5d5362bad78536cd8028890df57"
+      "size": 3738,
+      "sha256": "c27a13fd3e942cc9702d329c1919f7ecaeebe688cdfa5a1a3c2488bbedfd8fb1"
     },
     {
       "source": "src/ai-pdf-contours.js",
@@ -374,8 +374,8 @@
     {
       "source": "src/ai-placement-pipeline.js",
       "target": "src/ai-placement-pipeline.js",
-      "size": 4904,
-      "sha256": "3e2efede1947f5d6bcc2d814a6dd4ba3ecb2e13f4a7f089d420f99007ab8bbf5"
+      "size": 6266,
+      "sha256": "db4ea299e415ea6cb9f38d856800190082f9bc2b7f4cda1f8d51e0096f02522a"
     },
     {
       "source": "src/ai-pymupdf-runner.js",
@@ -422,8 +422,8 @@
     {
       "source": "src/ai-scheme-preview.js",
       "target": "src/ai-scheme-preview.js",
-      "size": 1650,
-      "sha256": "16ca7992fca10c7dc467df69ed6a658d0ac4883bebc9b5528a029feed3a03a27"
+      "size": 2019,
+      "sha256": "005060729d856f8c2b177f016d437ba46258d0364fa67bf748560e36380df808"
     }
   ]
 }
