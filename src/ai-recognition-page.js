@@ -361,7 +361,12 @@ window.irAiRecognitionPage=async function(objectId){
     }
     table.appendChild(body);panel.appendChild(table)
    }
-  }catch(ex){if(isCurrent())box.textContent="Ошибка геометрического анализа: "+String(ex.message||ex)}
+  }catch(ex){if(isCurrent()){
+   const warning=document.createElement("p");
+   warning.className="ir-ai-message error";
+   warning.textContent="Ошибка анализа PDF: "+String(ex.message||ex);
+   box.prepend(warning)
+  }}
  }
  async function openPdf(documentId,page,evidence=[]){
   if(!pdf?.preview)return;
