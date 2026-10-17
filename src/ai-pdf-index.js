@@ -29,6 +29,28 @@ function createPdfIndex({database,documents,workerFactory=(file,options)=>new Wo
   const entries=database.listEntity(object(id),"marks");
   return [...new Set(entries.map(r=>String(r?.data?.mark??r?.title??"").trim()).filter(Boolean))];
  }
+ function markSummary(id){
+  const marks=registerMarks(id);
+  const counts=new Map(marks.map(mark=>[mark,0]));
+  const documents=[];
+  for(const row of rows(id)){
+   const sheets=[];
+   for(const p of row.data?.pages||[]){
+    const hits=markOccurrences(p,marks);
+    for(const hit of hits)counts.set(hit.mark,(counts.get(hit.mark)||0)+1);
+    sheets.push({page:p.page,occurrences:hits.length,
+     marks:[...new Set(hits.map(hit=>hit.mark))],
+     hasTextLayer:!!p.hasTextLayer,truncated:!!p.truncated});
+   }
+   documents.push({indexId:row.id,documentId:row.data?.source?.documentId||null,
+    sourceName:row.data?.source?.name||"",pages:sheets});
+  }
+  const matched=[...counts].filter(([,count])=>count>0).map(([mark,count])=>({mark,count}));
+  return{totalRegisterMarks:marks.length,matchedMarks:matched.length,
+   unmatchedMarks:[...counts].filter(([,count])=>count===0).map(([mark])=>mark),
+   totalOccurrences:matched.reduce((sum,row)=>sum+row.count,0),
+   matched,documents,source:"pdf_text_layer",safeForAutoPlacement:false};
+ }
  function page(id,indexId,pageNumber,allowedMarks){
   const item=rows(id).find(r=>String(r.id)===String(indexId));
   if(!item)throw Error("Индекс PDF не найден");
@@ -93,6 +115,6 @@ function createPdfIndex({database,documents,workerFactory=(file,options)=>new Wo
   jobs.set(key,task);
   try{return await task}finally{jobs.delete(key)}
  }
- return{list,index,page,busy:()=>jobs.size>0};
+ return{list,index,page,markSummary,busy:()=>jobs.size>0};
 }
 module.exports={createPdfIndex};
