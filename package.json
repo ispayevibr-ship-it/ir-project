@@ -40,7 +40,16 @@
       "perMachine": false,
       "allowElevation": true,
       "deleteAppDataOnUninstall": false
-    }
+    },
+    "extraResources": [
+      {
+        "from": "build/pymupdf/ir-pymupdf-extract.exe",
+        "to": "pymupdf/ir-pymupdf-extract.exe",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ]
   },
   "optionalDependencies": {
     "tesseract.js": "^6.0.1"
