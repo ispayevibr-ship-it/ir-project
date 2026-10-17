@@ -1,7 +1,7 @@
 'use strict';
 /* Vector intersection evidence in viewport coordinates, read-only. */
 function intersections(segments,{limit=800,tolerance=0.75}={}){
- const lines=(segments||[]).filter(s=>['x1','y1','x2','y2'].every(k=>Number.isFinite(s?.[k])))
+ const lines=(segments||[]).map((s,index)=>({...s,originalIndex:index})).filter(s=>['x1','y1','x2','y2'].every(k=>Number.isFinite(s?.[k])))
   .slice(0,Math.max(0,Math.min(limit,800)));
  const results=[];
  for(let i=0;i<lines.length;i++)for(let j=i+1;j<lines.length;j++){
@@ -13,7 +13,7 @@ function intersections(segments,{limit=800,tolerance=0.75}={}){
   if(t<0||t>1||u<0||u>1)continue;
   const x=a.x1+t*rx,y=a.y1+t*ry;
   if(results.some(p=>Math.hypot(p.x-x,p.y-y)<=tolerance))continue;
-  results.push({x:Math.round(x*100)/100,y:Math.round(y*100)/100,segmentIds:[i,j]});
+  results.push({x:Math.round(x*100)/100,y:Math.round(y*100)/100,segmentIds:[a.originalIndex,b.originalIndex]});
   if(results.length>=5000)return results;
  }
  return results;
