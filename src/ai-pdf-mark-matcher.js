@@ -29,10 +29,10 @@ function markOccurrences(page,allowedMarks){
     if(!/[A-ZА-Я0-9]/u.test(before)&&!/[A-ZА-Я0-9]/u.test(after)){
      found.push({mark:allowed.get(key),page:Number(page.page)||null,
       fragmentIndex:i,offset:pos,
-      x:Number.isFinite(Number(item?.x))?Number(item.x):null,
-      y:Number.isFinite(Number(item?.y))?Number(item.y):null,
-      width:Number.isFinite(Number(item?.width))?Number(item.width):null,
-      height:Number.isFinite(Number(item?.height))?Number(item.height):null,
+      x:item?.x!=null&&Number.isFinite(Number(item.x))?Number(item.x):null,
+      y:item?.y!=null&&Number.isFinite(Number(item.y))?Number(item.y):null,
+      width:item?.width!=null&&Number.isFinite(Number(item.width))?Number(item.width):null,
+      height:item?.height!=null&&Number.isFinite(Number(item.height))?Number(item.height):null,
       source:"pdf_text_fragment",
       confidence:"text_exact",safeForAutoPlacement:false});
     }
