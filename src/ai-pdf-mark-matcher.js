@@ -27,7 +27,7 @@ function markOccurrences(page,allowedMarks){
    [block.x0,block.y0,block.x1,block.y1].every(v=>v!=null&&Number.isFinite(Number(v)))&&
    px>=Number(block.x0)&&px<=Number(block.x1)&&py>=Number(block.y0)&&py<=Number(block.y1))continue;
   // Mask drawing-title ranges, but retain independent marks in the same fragment.
-  const filteredRaw=raw.replace(/[А-ЯA-Z]+\d+\s*[-–—]\s*[А-ЯA-Z]+\d+/giu," ");
+  const filteredRaw=raw.replace(/[А-ЯA-Z]+\s*\d+[А-ЯA-Z]*\s*[-–—]\s*[А-ЯA-Z]+\s*\d+[А-ЯA-Z]*/giu," ");
   const text=normalize(filteredRaw);
   const compactSpans=filteredRaw.trim().split(/[\s,;:()\[\]{}]+/u).map(normalize).filter(Boolean);
   const spacedSingle=filteredRaw.trim().split(/\s+/u).length===2 && compactSpans.length===2 && allowed.has(compactSpans.join(""));
