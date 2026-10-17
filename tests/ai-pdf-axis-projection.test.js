@@ -34,7 +34,7 @@ assert.equal(summary.anchorSummary.unverified,summary.candidates.length);
 assert.equal(summary.anchorSummary.proposed+summary.anchorSummary.ambiguous+summary.anchorSummary.missing<=summary.anchorSummary.total,true);
 assert.equal(summary.safeForAutoPlacement,false);
 const {summarizeSheets}=require("../src/ai-pdf-sheet-analysis");
-assert.deepEqual(summarizeSheets([{anchorSummary:{total:2,proposed:1,ambiguous:1,missing:0,unverified:2}},{anchorSummary:{total:3,proposed:2,ambiguous:0,missing:1,unverified:3}}]),{sheets:2,total:5,proposed:3,ambiguous:1,missing:1,unverified:5,unavailable:0,classified:0,unclassified:0});
+assert.deepEqual(summarizeSheets([{anchorSummary:{total:2,proposed:1,ambiguous:1,missing:0,unverified:2}},{anchorSummary:{total:3,proposed:2,ambiguous:0,missing:1,unverified:3}}]),{sheets:2,total:5,proposed:3,ambiguous:1,missing:1,unverified:5,unavailable:0,classified:0,unclassified:0,uniqueMarks:0});
 const {elevationEvidence}=require("../src/ai-pdf-elevation-evidence");
 const levelReview=elevationEvidence({spatialAssociations:[{mark:"K62",pdfPoint:{x:10,y:10}}],observations:[{kind:"elevation",text:"низ +0.000",valueMm:0,point:{x:10,y:10}},{kind:"elevation",text:"верх +6.000",valueMm:6000,point:{x:12,y:10}}]});
 assert.equal(levelReview[0].levelReview.status,"explicit_pair_unverified");
@@ -76,12 +76,14 @@ assert.equal(manyResult.candidates.filter(x=>x.structuralType.type==="column").l
 assert.equal(manyResult.candidates.every(x=>x.verification==="required"),true);
 assert.equal(summarizeSheets([manyResult]).classified,10);
 assert.equal(summarizeSheets([manyResult]).unclassified,0);
+assert.equal(summarizeSheets([manyResult]).uniqueMarks,10);
 const repeatedPage={page:3,heightPt:200,rotation:0,fragments:[
  {str:"К62",x:20,y:50},{str:"К62",x:40,y:50},{str:"К63",x:60,y:50},
  {str:"НЕИЗВЕСТНАЯ",x:80,y:50}]};
 const repeated=analyzeSheet({page:repeatedPage,registerMarks:[
  {mark:"К62",name:"Колонна К62"},{mark:"К63",name:"Колонна К63"}]});
 assert.equal(repeated.candidates.length,3);
+assert.equal(summarizeSheets([repeated]).uniqueMarks,2);
 assert.equal(repeated.candidates.filter(x=>x.mark==="К62").length,2);
 assert.equal(repeated.candidates.every(x=>x.structuralType.type==="column"),true);
 assert.equal(repeated.candidates.every(x=>x.safeForAutoPlacement===false),true);
