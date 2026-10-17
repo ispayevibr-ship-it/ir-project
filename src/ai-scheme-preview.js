@@ -12,7 +12,7 @@ function prepareSchemePreview(placements,approvals=[],existingIds=[]){
   }
   const approval=approvalById.get(item.placementId);
   const endpoint=approval?.endPoint;
-  const validEndpoint=endpoint&&[endpoint.xMm,endpoint.yMm,endpoint.zMm].every(v=>v!=null&&v!==""&&Number.isFinite(Number(v)));
+  const validEndpoint=endpoint&&[endpoint.xMm,endpoint.yMm,endpoint.zMm].every(v=>v!=null&&String(v).trim()!==""&&Number.isFinite(Number(v)));
   const end=validEndpoint?{x:Number(endpoint.xMm),y:Number(endpoint.yMm),z:Number(endpoint.zMm)}:{x:item.xMm,y:item.yMm,z:item.z1Mm};
   const start={x:item.xMm,y:item.yMm,z:item.z0Mm};
   if(Math.hypot(end.x-start.x,end.y-start.y,end.z-start.z)<1){
