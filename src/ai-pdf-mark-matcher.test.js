@@ -40,3 +40,8 @@ test("recognizes spaced mark within one PDF fragment",()=>{
  assert.equal(hits.length,1);
  assert.equal(hits[0].mark,"Ф8-1");
 });
+
+test("recognizes Ф10 but not Ф100 or unknown marks",()=>{
+ const hits=markOccurrences({page:6,fragments:[{text:"Ф10"},{text:"Ф 10"},{text:"Ф100"},{text:"Ф11"}]},["Ф10"]);
+ assert.deepEqual(hits.map(x=>x.mark),["Ф10","Ф10"]);
+});
