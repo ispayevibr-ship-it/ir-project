@@ -412,6 +412,10 @@ window.irAiRecognitionPage=async function(objectId){
        dlg.insertBefore(offset,host);
        host.style.height="calc(100% - 75px)";
       }
+      const count=document.createElement("span");
+      count.textContent="3D: "+elements.length+" конструкций · пропущено: "+preview.skipped.length+" · только просмотр";
+      dlg.insertBefore(count,host);
+      host.style.height=minX||minY?"calc(100% - 105px)":"calc(100% - 75px)";
       if(!window.irThreeSchemeView?.render)throw Error("Просмотрщик Three.js недоступен");
       window.irThreeSchemeView.render(host,{elements,spanX,spanY,colorMode:"type"});
      }catch(ex){window.alert("Ошибка предпросмотра: "+String(ex.message||ex))}
