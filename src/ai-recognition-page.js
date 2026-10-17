@@ -340,7 +340,7 @@ window.irAiRecognitionPage=async function(objectId){
     const table=document.createElement("table");
     table.className="ir-ai-review-table";
     const head=document.createElement("thead");
-    head.innerHTML="<tr><th>Марка</th><th>Лист</th><th>Тип</th><th>X, мм</th><th>Y, мм</th><th>Статус</th></tr>";
+    head.innerHTML="<tr><th>Марка</th><th>Лист</th><th>Тип</th><th>X, мм</th><th>Y, мм</th><th>Статус</th><th>Чертёж</th></tr>";
     table.appendChild(head);
     const body=document.createElement("tbody");
     for(const item of (review?.candidates||[]).slice(0,200)){
