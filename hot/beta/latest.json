@@ -1,7 +1,7 @@
 {
   "channel": "beta",
   "baseVersion": "1.7.226",
-  "version": "1.7.226.435",
+  "version": "1.7.226.436",
   "branch": "feature/ir-project-ai-next",
   "description": "IR Project Algorithmic KM/KMD fixes: no full EXE",
   "files": [
@@ -224,8 +224,8 @@
     {
       "source": "src/ai-pdf-elevation-evidence.js",
       "target": "src/ai-pdf-elevation-evidence.js",
-      "size": 1786,
-      "sha256": "68aca4cb8d80bd6aabd25dd6ccb38bc434d26d8e58f52289c2a8c1f6369fabb2"
+      "size": 1832,
+      "sha256": "2b42478d343283228b771438410813d65b490b8458af6e2d926599c1a971e753"
     },
     {
       "source": "src/ai-pdf-geometry.js",
