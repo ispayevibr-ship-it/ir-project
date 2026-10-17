@@ -266,7 +266,34 @@ window.irAiRecognitionPage=async function(objectId){
      node.style.left=x/W*100+"%";node.style.top=(H-y-h)/H*100+"%";
      node.style.width=w/W*100+"%";node.style.height=h/H*100+"%";
      node.title="Надпись PDF: "+String(item.quote||"");
-     layer.appendChild(node)
+     layer.appendChild(node);
+     // Source glyphs use bottom-left PDF coordinates. Geometric stroke
+     // evidence uses the TOP-left PDF.js viewport: keep the two systems
+     // separate to avoid placing a mark at a text-label position.
+     const lines=Array.isArray(item.strokeLinesPt)?item.strokeLinesPt:[];
+     if(lines.length===2&&lines.every(l=>l&&
+       ["x1","y1","x2","y2"].every(k=>Number.isFinite(l[k]))&&
+       [l.x1,l.x2].every(v=>v>=0&&v<=W)&&
+       [l.y1,l.y2].every(v=>v>=0&&v<=H))){
+      const ns="http://www.w3.org/2000/svg";
+      const svg=document.createElementNS(ns,"svg");
+      svg.setAttribute("viewBox","0 0 "+W+" "+H);
+      svg.setAttribute("preserveAspectRatio","none");
+      svg.setAttribute("class","ir-ai-pdf-source-strokes");
+      svg.style.position="absolute";svg.style.inset="0";
+      svg.style.width="100%";svg.style.height="100%";
+      svg.setAttribute("aria-hidden","true");
+      lines.forEach((l,n)=>{
+       const stroke=document.createElementNS(ns,"line");
+       for(const k of ["x1","y1","x2","y2"])
+        stroke.setAttribute(k,String(l[k]));
+       stroke.setAttribute("stroke",n===0?"#f4514d":"#35b8f5");
+       stroke.setAttribute("stroke-width","2");
+       stroke.setAttribute("vector-effect","non-scaling-stroke");
+       svg.appendChild(stroke)
+      });
+      layer.appendChild(svg)
+     }
     }
    }
    document.body.appendChild(dlg);
