@@ -86,6 +86,7 @@ function automaticEntries(rows){
   pages++;
   const src=index.data.source,doc=docs.get(String(src.documentId)),
    sheetType=classSheet(src.name||doc.title,p.text||"");
+  placementPages.push({...p,documentId:src.documentId});
   for(const hit of markOccurrences(p,allowed))seenMarks.add(normalize(hit.mark));
   if(p.uncertainEncoding||p.truncated||!["plan","section"].includes(sheetType))continue;
   const vector=geometryByPage.get([src.documentId,src.sha256,p.page].join(":"))?.data?.result;
