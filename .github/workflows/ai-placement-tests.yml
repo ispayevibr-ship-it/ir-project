@@ -8,6 +8,8 @@ on:
       - 'src/ai-scheme-preview.js'
       - 'src/ai-pdf-mark-matcher.js'
       - 'src/ai-pdf-axis-projection.js'
+      - 'src/ai-pdf-intersection-evidence.js'
+      - 'src/ai-pdf-sheet-analysis.js'
       - 'src/ai-pdf-spatial-associations.js'
       - 'src/ai-pdf-dimension-chains.js'
       - 'tests/ai-pdf-dimension-chains.test.js'
