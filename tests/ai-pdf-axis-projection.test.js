@@ -67,4 +67,11 @@ const registered=analyzeSheet({page:{page:1,heightPt:100,rotation:0,fragments:[{
 assert.equal(registered.candidates[0].structuralType.type,"column");
 const alternate=analyzeSheet({page:{page:1,heightPt:100,fragments:[{str:"К62",x:20,y:20}]},registerMarks:[{marking:"К62",mark_description:"Колонна К62"}]});
 assert.equal(alternate.candidates[0].structuralType.type,"column");
+const manyMarks=["К62","К63","К64","К65","К66","К67","Б1","С1","П1","Ф1"];
+const manyRegister=manyMarks.map((mark,i)=>({mark,name:(i<6?"Колонна ":i===6?"Балка ":i===7?"Связь ":i===8?"Прогон ":"Фахверк ")+mark}));
+const manyPage={page:2,heightPt:200,rotation:0,fragments:manyMarks.map((mark,i)=>({str:mark,x:20+i*15,y:50}))};
+const manyResult=analyzeSheet({page:manyPage,registerMarks:manyRegister});
+assert.equal(manyResult.candidates.length,manyMarks.length);
+assert.equal(manyResult.candidates.filter(x=>x.structuralType.type==="column").length,6);
+assert.equal(manyResult.candidates.every(x=>x.verification==="required"),true);
 console.log("PDF axis grid, vector evidence and sheet summary validation passed");
