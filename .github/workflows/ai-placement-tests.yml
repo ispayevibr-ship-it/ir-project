@@ -7,6 +7,8 @@ on:
       - 'src/ai-placement-pipeline.js'
       - 'src/ai-scheme-preview.js'
       - 'src/ai-pdf-mark-matcher.js'
+      - 'src/ai-pdf-axis-projection.js'
+      - 'tests/ai-pdf-axis-projection.test.js'
       - 'tests/ai-pdf-mark-matcher.test.js'
       - 'src/ai-pdf-candidates.js'
       - 'src/ai-pdf-title-block.js'
@@ -30,6 +32,8 @@ jobs:
         run: node tests/ai-pdf-candidates-title-block.test.js
       - name: Validate automatic PDF title-block detection
         run: node tests/ai-pdf-title-block.test.js
+      - name: Validate PDF axis grid and calibration
+        run: node tests/ai-pdf-axis-projection.test.js
       - name: Validate placement pipeline
         run: node tests/ai-placement-pipeline.test.js
       - name: Validate Three.js preview adapter
