@@ -47,6 +47,7 @@ const aiPdf=aiPdfIndex.createPdfIndex({database,documents:aiDocuments,
 });
 const aiRevisions=aiDrawingRevisions.createDrawingRevisions({database,documents:aiDocuments,pdfIndex:aiPdf});
 const aiRaster=aiPdfRenderer.createPdfRenderer({database,documents:aiDocuments});
+const aiScanService=require("./src/ai-pdf-scan-service").createScanService({database,documents:aiDocuments,pdfIndex:aiPdf,renderer:aiRaster,languageDir:path.join(app.getPath("userData"),"ocr-languages")});
 const aiReviews=aiReview.createAiReview({database,revisions:aiRevisions});
 // Historical neural proposals remain unmodified in SQLite and backups, but
 // are not loaded, generated, edited, or exposed by the model-free application.
