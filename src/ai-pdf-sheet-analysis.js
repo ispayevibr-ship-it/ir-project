@@ -122,7 +122,7 @@ function reconcileMarkCounts(sheets,registerMarks){
   const mark=String(raw??"").trim();
   if(!mark)continue;
   const key=mark.normalize("NFKC").toUpperCase().replace(/\s+/g,"");
-  if(seen.has(key)){result.push({mark,expected:null,detected:found.get(key)||0,missing:null,excess:null,status:"duplicate_register_mark"});continue;}
+  if(seen.has(key)){result.push({mark,expected:null,detected:result.find(row=>row.mark.normalize("NFKC").toUpperCase().replace(/\s+/g,"")===key)?.detected||0,missing:null,excess:null,status:"duplicate_register_mark"});continue;}
   seen.add(key);
   const count=entry&&typeof entry==="object"?entry.quantity??entry.qty??entry.count??entry.kolichestvo:null;
   const expected=count==null||count===""?null:Number(count);
