@@ -248,6 +248,7 @@ function registerAiDocuments(){
  ipcMain.handle("ai-attachment:save",(e,{objectId,id,entry})=>
   aiAttachments.save(objectId,id??null,entry,requireAiReviewer(e)));
 
+ ipcMain.handle("ai-pdf:ocr-status",(_e,objectId)=>{const indexes=aiPdf.list(objectId);const {pdfOcrReadiness}=require("./src/ai-pdf-ocr-readiness");const languageDir=path.join(app.getPath("userData"),"ocr-languages");return indexes.map(index=>({documentId:index.documentId,sourceSha256:index.sourceSha256,...pdfOcrReadiness(index,{languageDir})}));});
  ipcMain.handle("ai-pdf:list",(_e,objectId)=>aiPdf.list(objectId));
  ipcMain.handle("ai-pdf:index",(e,{objectId,id})=>{requireAiReviewer(e);return aiPdf.index(objectId,id)});
  ipcMain.handle("ai-pdf:page",(_e,{objectId,indexId,page,allowedMarks})=>aiPdf.page(objectId,indexId,page,allowedMarks));
