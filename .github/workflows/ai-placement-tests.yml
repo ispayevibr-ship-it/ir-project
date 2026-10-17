@@ -9,6 +9,8 @@ on:
       - 'src/ai-pdf-mark-matcher.js'
       - 'tests/ai-pdf-mark-matcher.test.js'
       - 'src/ai-pdf-candidates.js'
+      - 'src/ai-pdf-title-block.js'
+      - 'tests/ai-pdf-title-block.test.js'
       - 'tests/ai-pdf-candidates-title-block.test.js'
       - 'tests/ai-placement-pipeline.test.js'
       - 'tests/ai-scheme-preview.test.js'
@@ -26,6 +28,8 @@ jobs:
         run: node tests/ai-pdf-mark-matcher.test.js
       - name: Validate PDF title-block evidence
         run: node tests/ai-pdf-candidates-title-block.test.js
+      - name: Validate automatic PDF title-block detection
+        run: node tests/ai-pdf-title-block.test.js
       - name: Validate placement pipeline
         run: node tests/ai-placement-pipeline.test.js
       - name: Validate Three.js preview adapter
