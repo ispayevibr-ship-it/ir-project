@@ -348,6 +348,14 @@ window.irAiRecognitionPage=async function(objectId){
      for(const value of [item.mark,item.page,item.type,item.xMm,item.yMm,"Требует проверки"]){
       const td=document.createElement("td");td.textContent=value==null?"—":String(value);tr.appendChild(td)
      }
+     const tdPdf=document.createElement("td");
+     if(item.documentId&&Number(item.page)>0){
+      const open=document.createElement("button");
+      open.type="button";open.textContent="Открыть PDF";
+      open.onclick=()=>void openPdf(item.documentId,item.page);
+      tdPdf.appendChild(open)
+     }
+     tr.appendChild(tdPdf);
      body.appendChild(tr)
     }
     table.appendChild(body);panel.appendChild(table)
