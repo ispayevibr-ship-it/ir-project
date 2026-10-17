@@ -50,3 +50,9 @@ test("never matches a mark embedded in a longer designation",()=>{
  const hits=markOccurrences({page:7,fragments:[{text:"Ф100"},{text:"Ф10А"},{text:"Ф10"}]},["Ф10"]);
  assert.deepEqual(hits.map(x=>x.mark),["Ф10"]);
 });
+
+test("finds known marks among unknown tokens in the same PDF fragment",()=>{
+ const hits=markOccurrences({page:8,fragments:[{text:"К62 НЕИЗВЕСТНО Б1 К62"}]},["К62","Б1"]);
+ assert.deepEqual(hits.map(hit=>hit.mark),["К62","Б1","К62"]);
+ assert(hits.every(hit=>hit.safeForAutoPlacement===false));
+});
