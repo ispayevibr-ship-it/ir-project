@@ -134,7 +134,7 @@ function reconcileMarkCounts(sheets,registerMarks){
   const mark=String(raw??"").trim();
   if(!mark)continue;
   const key=mark.normalize("NFKC").toUpperCase().replace(/\s+/g,"");
-  if(seen.has(key)){result.push({mark,expected:null,detected:result.find(row=>row.mark.normalize("NFKC").toUpperCase().replace(/\s+/g,"")===key)?.detected||0,missing:null,excess:null,status:"duplicate_register_mark"});continue;}
+  if(seen.has(key)){result.push({mark,expected:null,detected:result.find(row=>row.mark.normalize("NFKC").toUpperCase().replace(/\s+/g,"")===key)?.detected||0,pages:sheetsByMark.get(key)||[],missing:null,excess:null,status:"duplicate_register_mark"});continue;}
   seen.add(key);
   const count=entry&&typeof entry==="object"?entry.quantity??entry.qty??entry.count??entry.kolichestvo:null;
   const expected=count==null||count===""?null:Number(String(count).trim().replace(",", "."));
@@ -161,7 +161,7 @@ function reconcileMarkCounts(sheets,registerMarks){
   }
  }
  summary.unregisteredInstances=[...found.values()].reduce((sum,count)=>sum+count,0);
- return {marks:result,summary,unregistered:[...found].map(([mark,detected])=>({mark,detected})),
+ return {marks:result,summary,unregistered:[...found].map(([mark,detected])=>({mark,detected,pages:sheetsByMark.get(mark)||[]})),
   safeForAutoPlacement:false};
 }
 function summarizeSheets(sheets){
