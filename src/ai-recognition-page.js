@@ -101,6 +101,12 @@ window.irAiRecognitionPage=async function(objectId){
   const box=app.querySelector("#irAiContent");if(!box)return;
   const matches=docs.filter(doc=>(doc.name+" "+doc.kind).toLowerCase().includes(search.toLowerCase()));
   const all=docs.filter(x=>x.ext===".pdf"&&x.exists);
+  const indexed=all.map(doc=>({doc,index:matchingIndex(doc)})).filter(x=>x.index);
+  const totalIndexedSheets=indexed.reduce((n,x)=>n+x.index.pages.length,0);
+  const savedGeometrySheets=indexed.reduce((n,x)=>{
+   const saved=new Set((x.doc.geometryPages||[]).map(Number));
+   return n+x.index.pages.filter(p=>saved.has(Number(p.page))).length
+  },0);
   box.innerHTML='<div class="ir-ai-doc-head"><div><h2>Исходные чертежи</h2>'+
    '<p>Сохраняем текст и векторную геометрию листов. Повторный запуск использует кэш. Галочка текстового индекса не подтверждает координаты монтажа.</p></div>'+
    '<div class="ir-ai-doc-index-tools"><button type="button" data-kmd-all '+
@@ -109,7 +115,8 @@ window.irAiRecognitionPage=async function(objectId){
    '<input data-kmd-search type="search" placeholder="Поиск чертежа" value="'+esc(search)+'"></div></div>'+
    '<div data-kmd-progress class="ir-ai-bulk-summary" role="status" aria-live="polite">'+
    esc(bulk?progress():all.length+
-    " PDF · проиндексировано "+all.filter(matchingIndex).length)+'</div>'+
+    " PDF · проиндексировано "+indexed.length+
+    " · геометрия сохранена: "+savedGeometrySheets+" из "+totalIndexedSheets+" листов")+'</div>'+
    (!matches.length?'<div class="ir-ai-doc-empty">Чертежи не найдены. Добавьте PDF или очистите поиск.</div>':
    '<div class="ir-ai-table-wrap"><table class="ir-ai-doc-table"><thead>'+
    '<tr><th>Чертёж</th><th>Комплект</th><th>Размер</th><th>Индекс</th><th>Действия</th></tr>'+
