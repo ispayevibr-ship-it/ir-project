@@ -1,7 +1,7 @@
 {
   "channel": "beta",
   "baseVersion": "1.7.226",
-  "version": "1.7.226.353",
+  "version": "1.7.226.354",
   "branch": "feature/ir-project-ai-next",
   "description": "IR Project Algorithmic KM/KMD fixes: no full EXE",
   "files": [
@@ -170,8 +170,8 @@
     {
       "source": "src/ai-mounting-auto.js",
       "target": "src/ai-mounting-auto.js",
-      "size": 12021,
-      "sha256": "1cf6f7992c7ff9839e8e60ff4dbb1ebe79553446f0a516df2fe5307c3aa92f9f"
+      "size": 12098,
+      "sha256": "55180295654359931f1338758d8debcd9bca1baffd03e1a9cf3167201d8669fd"
     },
     {
       "source": "src/ai-mounting-drafts.js",
