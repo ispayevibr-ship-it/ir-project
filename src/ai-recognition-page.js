@@ -384,6 +384,15 @@ window.irAiRecognitionPage=async function(objectId){
      body.appendChild(tr)
     }
     table.appendChild(body);panel.appendChild(table);
+    const previewButton=document.createElement("button");
+    previewButton.type="button";previewButton.textContent="Предпросмотр подтверждённых марок";
+    previewButton.onclick=async()=>{
+     try{
+      const preview=await api.aiMounting.reviewPreview(review,[...approvedCoordinates.values()]);
+      window.alert("Готово к просмотру: "+preview.elements.length+" · пропущено: "+preview.skipped.length+" · без сохранения в базу")
+     }catch(ex){window.alert("Ошибка предпросмотра: "+String(ex.message||ex))}
+    };
+    panel.appendChild(previewButton);
     const reviewed=document.createElement("p");
     reviewed.textContent="Подтверждено: 0 из "+(review?.candidates?.length||0)+" · размещение не выполняется";
     panel.appendChild(reviewed);
