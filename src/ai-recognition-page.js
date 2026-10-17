@@ -247,10 +247,16 @@ window.irAiRecognitionPage=async function(objectId){
       row.page++;updateProgress()
      }
      if(!isCurrent()||bulk.cancelled)break;
-     indexes=indexes.filter(x=>String(x.documentId)!==String(d.id));
-     indexes.push(result);row.state="done";row.pages=result.totalPages||result.pages.length;
      // Refresh persisted geometryPages from the database, not a temporary progress flag.
      const refreshed=await docsApi.list(id);
+     const persisted=refreshed.find(x=>String(x.id)===String(d.id));
+     const savedAfter=new Set((persisted?.geometryPages||[]).map(Number));
+     if(!persisted||persisted.sha256!==d.sha256||
+      !result.pages.every(p=>savedAfter.has(Number(p.page))))
+      throw Error("Не все листы геометрии подтверждены в базе данных");
+     if(!isCurrent()||bulk.cancelled)break;
+     indexes=indexes.filter(x=>String(x.documentId)!==String(d.id));
+     indexes.push(result);row.state="done";row.pages=result.totalPages||result.pages.length;
      if(isCurrent()){
       docs=refreshed.filter(x=>!x.archived);
       archived=refreshed.filter(x=>x.archived);
