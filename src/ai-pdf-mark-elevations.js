@@ -68,4 +68,29 @@ function inspectMarkElevations({pages=[],mark="К62",allowedMarks=[mark]}={}){
  }
  return {mark,pages:result,safeForAutoPlacement:false};
 }
-module.exports={inspectMarkElevations,selectMaxElevationPair,inspectSingleMarkSheetLevels};
+
+// Diagnostic proximity only. Never use nearest elevation as a verified
+// structural bottom/top: annotation may belong to a different detail.
+function inspectNearbyLevelCandidates(page,mark,allowedMarks,{radiusPt=100}={}){
+ const wanted=normalize(mark);
+ if(!allowedMarks.some(m=>normalize(m)===wanted))
+  throw Error("Марка отсутствует в ведомости");
+ const hits=markOccurrences(page,allowedMarks).filter(h=>normalize(h.mark)===wanted);
+ const fragments=page?.fragments||[];
+ const levels=Array.isArray(page?.levelCandidates)?page.levelCandidates:[];
+ const results=[];
+ for(const hit of hits){
+  const source=fragments[hit.fragmentId??hit.fragmentIndex??-1];
+  if(!source||!Number.isFinite(Number(source.x))||!Number.isFinite(Number(source.y)))continue;
+  const nearby=levels.map(level=>{
+   const distancePt=Math.hypot(Number(level.x)-Number(source.x),Number(level.y)-Number(source.y));
+   return {...level,distancePt:Math.round(distancePt*100)/100};
+  }).filter(level=>Number.isFinite(level.distancePt)&&level.distancePt<=radiusPt)
+   .sort((a,b)=>a.distancePt-b.distancePt);
+  results.push({mark,sourceFragment:hit.fragmentId??hit.fragmentIndex??null,
+   markX:source.x,markY:source.y,nearby,requiresReview:true});
+ }
+ return {mark,occurrences:hits.length,matches:results,
+  method:"page_annotation_proximity_only",safeForAutoPlacement:false};
+}
+module.exports={inspectMarkElevations,selectMaxElevationPair,inspectSingleMarkSheetLevels,inspectNearbyLevelCandidates};
