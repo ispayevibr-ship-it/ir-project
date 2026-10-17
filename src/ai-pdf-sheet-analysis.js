@@ -54,7 +54,14 @@ function analyzeSheet({page,geometry,registerMarks,anchors,documentId,sourceSha2
    verified:false})),
   intersectionEvidenceStatus:nearby.length?'nearby_unverified_intersections':'no_nearby_intersections'};
  });
- return{...base,geometryAligned:geometryValid,segmentCount:segments.length,candidates:candidatesWithIntersections,
+ const anchorSummary={total:candidatesWithIntersections.length,proposed:0,ambiguous:0,missing:0,unverified:0};
+ for(const item of candidatesWithIntersections){
+  if(item.proposedAnchorPt)anchorSummary.proposed++;
+  if(item.proposedAnchorStatus==='ambiguous_intersections')anchorSummary.ambiguous++;
+  if(item.proposedAnchorStatus==='no_intersection')anchorSummary.missing++;
+  if(item.verification==='required')anchorSummary.unverified++;
+ }
+ return{...base,geometryAligned:geometryValid,segmentCount:segments.length,candidates:candidatesWithIntersections,anchorSummary,
   vectorIntersections,strokeCandidates,
   verifiedInstances:0,safeForAutoPlacement:false};
 }
