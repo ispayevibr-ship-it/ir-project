@@ -80,7 +80,12 @@ function candidatePlacements(pages,register,grid={}){
   }
  }
  const positions=[...unique.values()].flat();
+ const placementPlanCandidates=positions.filter(p=>p.sheetRole==="placement_plan");
+ const detailReferences=positions.filter(p=>p.sheetRole==="detail_or_schedule");
+ const unknownSheetCandidates=positions.filter(p=>p.sheetRole==="unknown");
  return {registerCount:allowed.length,matchedMarks:unique.size,occurrences:positions.length,
+  placementPlanOccurrences:placementPlanCandidates.length,detailReferenceOccurrences:detailReferences.length,
+  unknownSheetOccurrences:unknownSheetCandidates.length,placementPlanCandidates,detailReferences,unknownSheetCandidates,
   candidates:positions,readyForPlacement:[],requiresReview:positions,
   missingMarks:allowed.filter(m=>!unique.has(normalize(m))),
   gridProvided:!!grid&&Object.keys(grid).length>0,safeForAutoPlacement:false};
