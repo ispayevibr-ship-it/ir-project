@@ -6,6 +6,8 @@ on:
     paths:
       - 'src/ai-placement-pipeline.js'
       - 'src/ai-scheme-preview.js'
+      - 'src/ai-pdf-mark-matcher.js'
+      - 'tests/ai-pdf-mark-matcher.test.js'
       - 'tests/ai-placement-pipeline.test.js'
       - 'tests/ai-scheme-preview.test.js'
       - '.github/workflows/ai-placement-tests.yml'
@@ -18,6 +20,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Validate PDF mark matching
+        run: node tests/ai-pdf-mark-matcher.test.js
       - name: Validate placement pipeline
         run: node tests/ai-placement-pipeline.test.js
       - name: Validate Three.js preview adapter
