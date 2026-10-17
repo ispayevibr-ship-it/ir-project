@@ -8,6 +8,8 @@ on:
       - 'src/ai-pymupdf-*.py'
       - 'src/ai-pymupdf-*.js'
       - 'src/ai-pdf-index.js'
+      - 'src/ai-pdf-mark-elevations.js'
+      - 'tests/ai-pdf-elevation-proximity.test.js'
       - 'tests/pymupdf-elevation-smoke.js'
       - 'package.json'
       - '.github/workflows/build-pymupdf-helper.yml'
@@ -52,6 +54,8 @@ jobs:
           path: build/pymupdf/ir-pymupdf-extract.exe
       - name: Install app dependencies
         run: npm install --no-audit --no-fund
+      - name: Test mark-to-elevation proximity
+        run: node tests/ai-pdf-elevation-proximity.test.js
       - name: Build Windows beta with PyMuPDF
         run: npm run build
       - name: Verify bundled helper in packaged application
