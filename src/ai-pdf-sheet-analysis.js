@@ -127,6 +127,18 @@ function reconcileMarkCounts(sheets,registerMarks){
    sheetsByMark.get(key).push({page:sheet.page??null,count});
   }
  }
+ const positionsByMark=new Map();
+ for(const sheet of Array.isArray(sheets)?sheets:[])
+  for(const item of Array.isArray(sheet?.candidates)?sheet.candidates:[]){
+   const key=String(item.mark??"").normalize("NFKC").toUpperCase().replace(/\s+/g,"");
+   if(!key)continue;
+   if(!positionsByMark.has(key))positionsByMark.set(key,[]);
+   positionsByMark.get(key).push({page:item.page??sheet.page??null,
+    fragmentIndex:item.fragmentIndex??null,
+    pdfX:Number.isFinite(item.pdfX)?item.pdfX:null,
+    pdfY:Number.isFinite(item.pdfY)?item.pdfY:null,
+    verified:false});
+  }
  const result=[];
  const seen=new Set();
  for(const entry of Array.isArray(registerMarks)?registerMarks:[]){
@@ -134,13 +146,13 @@ function reconcileMarkCounts(sheets,registerMarks){
   const mark=String(raw??"").trim();
   if(!mark)continue;
   const key=mark.normalize("NFKC").toUpperCase().replace(/\s+/g,"");
-  if(seen.has(key)){result.push({mark,expected:null,detected:result.find(row=>row.mark.normalize("NFKC").toUpperCase().replace(/\s+/g,"")===key)?.detected||0,pages:sheetsByMark.get(key)||[],missing:null,excess:null,status:"duplicate_register_mark"});continue;}
+  if(seen.has(key)){result.push({mark,expected:null,detected:result.find(row=>row.mark.normalize("NFKC").toUpperCase().replace(/\s+/g,"")===key)?.detected||0,pages:sheetsByMark.get(key)||[],positions:positionsByMark.get(key)||[],missing:null,excess:null,status:"duplicate_register_mark"});continue;}
   seen.add(key);
   const count=entry&&typeof entry==="object"?entry.quantity??entry.qty??entry.count??entry.kolichestvo:null;
   const expected=count==null||count===""?null:Number(String(count).trim().replace(",", "."));
   const detected=found.get(key)||0;
   const valid=expected!=null&&Number.isSafeInteger(expected)&&expected>=0;
-  result.push({mark,expected:valid?expected:null,detected,pages:sheetsByMark.get(key)||[],
+  result.push({mark,expected:valid?expected:null,detected,pages:sheetsByMark.get(key)||[],positions:positionsByMark.get(key)||[],
    missing:valid?Math.max(0,expected-detected):null,
    excess:valid?Math.max(0,detected-expected):null,
    status:!valid?"quantity_unknown":detected===expected?"matched":detected<expected?"missing":"excess"});
@@ -161,7 +173,7 @@ function reconcileMarkCounts(sheets,registerMarks){
   }
  }
  summary.unregisteredInstances=[...found.values()].reduce((sum,count)=>sum+count,0);
- return {marks:result,summary,unregistered:[...found].map(([mark,detected])=>({mark,detected,pages:sheetsByMark.get(mark)||[]})),
+ return {marks:result,summary,unregistered:[...found].map(([mark,detected])=>({mark,detected,pages:sheetsByMark.get(mark)||[],positions:positionsByMark.get(mark)||[]})),
   safeForAutoPlacement:false};
 }
 function summarizeSheets(sheets){
