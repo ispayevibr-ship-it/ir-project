@@ -21,7 +21,7 @@ function reviewToThreeJs(placements,approvals=[]){
   if(!approved)continue;
   const x=Number(approved.xMm),y=Number(approved.yMm),z0=Number(approved.z0Mm),z1=Number(approved.z1Mm);
   if([approved.xMm,approved.yMm,approved.z0Mm,approved.z1Mm].some(v=>v==null)||
-   ![x,y,z0,z1].every(Number.isFinite)||z1<=z0||candidate.type==="не определено"){
+   ![x,y,z0,z1].every(Number.isFinite)||(["колонна","фахверк"].includes(candidate.type)&&z1<=z0)||candidate.type==="не определено"){
    rejected.push({placementId:candidate.placementId,reason:"invalid_approved_geometry"});continue;
   }
   items.push({placementId:candidate.placementId,mark:candidate.mark,type:candidate.type,
