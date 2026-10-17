@@ -134,7 +134,7 @@ function reconcileMarkCounts(sheets,registerMarks){
    status:!valid?"quantity_unknown":detected===expected?"matched":detected<expected?"missing":"excess"});
   found.delete(key);
  }
- const summary={matched:0,missing:0,excess:0,quantityUnknown:0,duplicateRegisterMarks:0,expectedInstances:0,detectedInstances:0,missingInstances:0,excessInstances:0};
+ const summary={matched:0,missing:0,excess:0,quantityUnknown:0,duplicateRegisterMarks:0,expectedInstances:0,detectedInstances:0,missingInstances:0,excessInstances:0,unregisteredInstances:0};
  for(const row of result){
   if(row.status==="matched")summary.matched++;
   if(row.status==="missing")summary.missing++;
@@ -148,6 +148,7 @@ function reconcileMarkCounts(sheets,registerMarks){
    summary.excessInstances+=row.excess||0;
   }
  }
+ summary.unregisteredInstances=[...found.values()].reduce((sum,count)=>sum+count,0);
  return {marks:result,summary,unregistered:[...found].map(([mark,detected])=>({mark,detected})),
   safeForAutoPlacement:false};
 }
