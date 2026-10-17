@@ -11,12 +11,31 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
       - name: Install PyMuPDF and PyInstaller
-        run: python -m pip install --upgrade pymupdf pyinstaller
+        run: python -m pip install pymupdf pyinstaller
       - name: Build helper
         run: python -m PyInstaller --onefile --name ir-pymupdf-extract --distpath build/pymupdf src/ai-pymupdf-extract.py
+      - name: Smoke test extracted text and page geometry
+        shell: pwsh
+        run: |
+          python -c "import fitz; d=fitz.open(); p=d.new_page(); p.insert_text((70,70), 'K62 +9.705'); d.save('test-pymupdf.pdf')"
+          & ./build/pymupdf/ir-pymupdf-extract.exe test-pymupdf.pdf | Out-File -FilePath result.json -Encoding utf8
+          python -c "import json; d=json.load(open('result.json',encoding='utf-8-sig')); assert d['parser']=='pymupdf'; assert len(d['pages'])==1; assert any('K62' in f['text'] for f in d['pages'][0]['fragments'])"
       - name: Upload helper artifact
         uses: actions/upload-artifact@v4
         with:
           name: ir-pymupdf-windows
           path: build/pymupdf/ir-pymupdf-extract.exe
+      - name: Install app dependencies
+        run: npm ci
+      - name: Build Windows beta with PyMuPDF
+        run: npm run build
+      - name: Upload Windows beta
+        uses: actions/upload-artifact@v4
+        with:
+          name: ir-project-pymupdf-beta
+          path: dist/*.exe
