@@ -13,7 +13,7 @@ window.irAiRecognitionPage=async function(objectId){
  const fmt=value=>Number(value)>=1048576?
   (Number(value)/1048576).toFixed(1).replace(".",",")+" МБ":
   Math.ceil((Number(value)||0)/1024)+" КБ";
- let object=null,docs=[],archived=[],indexes=[],ocrStates=[],active="documents",search="",kind="КМД",
+ let object=null,docs=[],archived=[],indexes=[],ocrStates=[],ocrSaved=[],active="documents",search="",kind="КМД",
   busy=false,notice="",error=false,bulk=null,loader=null,disposed=false;
  const isCurrent=()=>!disposed&&location.hash===route;
  const matchingIndex=doc=>indexes.find(r=>String(r.documentId)===String(doc.id)&&
@@ -46,12 +46,14 @@ window.irAiRecognitionPage=async function(objectId){
  async function reload(){
   if(!isCurrent())return;
   try{
-   const [records,pages,ocr]=await Promise.all([docsApi.list(id),pdf.list(id),
-    typeof pdf.ocrStatus==="function"?pdf.ocrStatus(id).catch(()=>[]):Promise.resolve([])]);
+   const [records,pages,ocr,saved]=await Promise.all([docsApi.list(id),pdf.list(id),
+    typeof pdf.ocrStatus==="function"?pdf.ocrStatus(id).catch(()=>[]):Promise.resolve([]),
+    typeof pdf.ocrList==="function"?pdf.ocrList(id).catch(()=>[]):Promise.resolve([])]);
    if(!isCurrent())return;
    docs=records.filter(x=>!x.archived);archived=records.filter(x=>x.archived);
    indexes=Array.isArray(pages)?pages:[];
    ocrStates=Array.isArray(ocr)?ocr:[];
+   ocrSaved=Array.isArray(saved)?saved:[];
   }catch(ex){error=true;notice="Ошибка чтения документов: "+String(ex.message||ex)}
   paint()
  }
@@ -122,6 +124,7 @@ window.irAiRecognitionPage=async function(objectId){
    '<p>Сохраняем текст и векторную геометрию листов. Повторный запуск использует кэш. Галочка текстового индекса не подтверждает координаты монтажа.</p></div>'+
    '<div class="ir-ai-doc-index-tools"><button type="button" data-kmd-all '+
    (busy||!all.length?'disabled':'')+'>Проиндексировать все чертежи</button>'+
+   '<button type="button" data-kmd-ocr '+(busy||!ocrStates.length?'disabled':'')+'>Распознать сканированные листы (OCR)</button>'+
    (bulk?.running?'<button type="button" data-kmd-stop>Остановить после текущего листа</button>':'')+
    '<input data-kmd-search type="search" placeholder="Поиск чертежа" value="'+esc(search)+'"></div></div>'+
    '<div data-kmd-progress class="ir-ai-bulk-summary" role="status" aria-live="polite">'+
@@ -174,6 +177,8 @@ window.irAiRecognitionPage=async function(objectId){
   };
   const btn=box.querySelector("[data-kmd-all]");
   if(btn)btn.onclick=()=>void indexAll();
+  const ocrButton=box.querySelector("[data-kmd-ocr]");
+  if(ocrButton)ocrButton.onclick=()=>void runOcr();
   const stop=box.querySelector("[data-kmd-stop]");
   if(stop)stop.onclick=()=>{if(bulk)bulk.cancelled=true;stop.disabled=true};
   box.querySelectorAll("[data-kmd-index]").forEach(el=>el.onclick=()=>void indexOne(el.dataset.kmdIndex));
@@ -201,6 +206,33 @@ window.irAiRecognitionPage=async function(objectId){
    const state=statusOf(d);
    el.textContent=state.value;el.className="ir-ai-doc-status "+state.css
   }
+ }
+ async function runOcr(){
+  if(busy||typeof pdf.ocrRun!=="function")return;
+  const targets=[];
+  for(const doc of docs){
+   const index=matchingIndex(doc);
+   if(!index)continue;
+   for(const p of index.pages||[]){
+    if(p.hasTextLayer&&!p.uncertainEncoding&&!p.ocr?.needed)continue;
+    if(ocrSaved.some(r=>String(r.documentId)===String(doc.id)&&Number(r.page)===Number(p.page)&&r.sourceSha256===doc.sha256))continue;
+    targets.push({documentId:doc.id,page:p.page});
+   }
+  }
+  if(!targets.length){notice="Нет новых сканированных листов для OCR.";error=false;paint();return}
+  busy=true;error=false;let done=0,failed=0;
+  for(const target of targets){
+   if(!isCurrent())break;
+   notice="OCR: лист "+target.page+" · "+(done+failed+1)+" из "+targets.length;
+   paint();
+   try{await pdf.ocrRun(id,target.documentId,target.page);done++}
+   catch(ex){failed++;notice="OCR: "+String(ex.message||ex);error=true;
+    if(/language|Tesseract|языков|not found/i.test(notice))break}
+  }
+  busy=false;
+  await reload();
+  notice="OCR: обработано "+done+" листов"+(failed?", ошибок "+failed:"")+". Результаты требуют проверки.";
+  paint();
  }
  async function indexOne(documentId){
   if(busy||!pdf?.index)return;busy=true;notice="Индексируем PDF…";error=false;paint();
