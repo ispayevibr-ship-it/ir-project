@@ -38,5 +38,11 @@ const planRole=candidatePlacements([{page:1,fragments:[{text:"Монтажный
 assert.equal(planRole.candidates[0].sheetRole,"placement_plan");
 const detailRole=candidatePlacements([{page:2,fragments:[{text:"Чертеж колонны",x:10,y:10},{text:"К62",x:20,y:20}]}],[{mark:"К62",name:"Колонна"}]);
 assert.equal(detailRole.candidates[0].sheetRole,"detail_or_schedule");
+assert.equal(detailRole.placementPlanOccurrences,0);
+assert.equal(detailRole.detailReferenceOccurrences,1);
+assert.equal(detailRole.unknownSheetOccurrences,0);
+assert.equal(planRole.placementPlanOccurrences,1);
+assert.equal(planRole.detailReferenceOccurrences,0);
+assert.equal(repeated.unknownSheetOccurrences,3);
 assert.equal(repeated.candidates[0].sheetRole,"unknown");
 console.log("Reviewed Three.js payload and repeated PDF marks tests passed");
