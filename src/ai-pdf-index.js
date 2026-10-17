@@ -25,13 +25,17 @@ function createPdfIndex({database,documents,workerFactory=(file,options)=>new Wo
    }))}
  }
  function list(id){return rows(id).map(summarize)}
+ function registerMarks(id){
+  const entries=database.listEntity(object(id),"marks");
+  return [...new Set(entries.map(r=>String(r?.data?.mark??r?.title??"").trim()).filter(Boolean))];
+ }
  function page(id,indexId,pageNumber,allowedMarks){
   const item=rows(id).find(r=>String(r.id)===String(indexId));
   if(!item)throw Error("Индекс PDF не найден");
   const p=item.data?.pages?.find(p=>p.page===Number(pageNumber));
   if(!p)throw Error("Лист PDF не найден");
   return{indexId:item.id,source:item.data.source,page:p,
-   ...(Array.isArray(allowedMarks)?{markMatches:markOccurrences(p,allowedMarks.slice(0,10000))}:{})}
+   markMatches:markOccurrences(p,registerMarks(id))}
  }
  function processPdf(bytes,progress){
   return new Promise((resolve,reject)=>{
