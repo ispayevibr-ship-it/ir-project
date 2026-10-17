@@ -3,7 +3,8 @@ const {recognizePng,ocrDecision}=require("./ai-pdf-ocr");
 async function analyzeScan(input){
  const {renderer,objectId,documentId,page,indexedPage,languageDir,enabled=false}=input||{};
  if(!renderer||typeof renderer.renderForAnalysis!=="function")throw Error("PDF renderer required");
- const decision=ocrDecision(indexedPage,{enabled,localLanguagesAvailable:!!languageDir});
+ const scanRequired=indexedPage?.ocr?.needed===true||indexedPage?.hasTextLayer===false||indexedPage?.uncertainEncoding===true;
+ const decision=scanRequired?{needed:true}:ocrDecision(indexedPage,{enabled,localLanguagesAvailable:!!languageDir});
  if(!decision.needed)return{status:"text_layer",ocrNeeded:false};
  if(!enabled)return{status:"ocr_disabled",ocrNeeded:true};
  if(!languageDir)return{status:"languages_missing",ocrNeeded:true};
