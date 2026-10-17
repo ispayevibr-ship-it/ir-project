@@ -176,7 +176,8 @@ function automaticEntries(rows){
     graphicCandidates:suggestions.length});
   }
  }
- return{entries:entries.slice(0,400),review,graphicReview,stats:{pages,documents:latest.size,
+ const pdfPlacementReview=candidatePlacements(placementPages,marks.map(m=>({mark:m.data?.mark||m.title,name:m.data?.name||""})),projectGrid);
+ return{entries:entries.slice(0,400),review,graphicReview,pdfPlacementReview,stats:{pages,documents:latest.size,
   candidates:candidates.length,graphicLinks:graphicReview.length,ready:entries.length,deferred:Math.max(0,entries.length-400)}};
 }
 module.exports={automaticEntries,localLines,level,intersections};
