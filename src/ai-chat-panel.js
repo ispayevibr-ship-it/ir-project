@@ -1,6 +1,7 @@
 /*
  * IR Project: the engineer's chat with Claude in the program window (src/ai-chat.js in the main process). A round
- * button at the bottom right opens the panel: the conversation, the element selected on the montage scheme that goes
+ * button with the sign of a chat (bottom right; the engineer drags it, and the panel by its title, anywhere in the
+ * window, the places are remembered) opens the panel: the conversation, the element selected on the montage scheme that goes
  * with the message, a screenshot of the window (taken with the panel hidden), photos from the computer (button «Фото»,
  * pasted or dropped) and the text. The message goes to Claude through GitHub of the program (or the task «Чат IR
  * Project» on claude.ai by its key). Claude's answers are read every 8 seconds while the panel is open and every 30
@@ -18,11 +19,12 @@
   .split(/\n{2,}/).map(p=>/^\s*[-*•] /m.test(p)?"<ul>"+p.split(/\n/).map(l=>"<li>"+l.replace(/^\s*[-*•] /,"")+"</li>").join("")+"</ul>":"<p>"+p.replace(/\n/g,"<br>")+"</p>").join("");
  const time=t=>{const d=new Date(t);return isNaN(d)?"":d.toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})};
  const css=`
- .irc-fab{position:fixed;right:18px;bottom:18px;z-index:9990;width:54px;height:54px;border-radius:50%;border:0;background:#1d4ed8;color:#fff;font:600 13px/1 system-ui,sans-serif;box-shadow:0 6px 18px rgba(15,35,80,.28);cursor:pointer}
+ .irc-fab{position:fixed;right:18px;bottom:18px;z-index:9990;width:54px;height:54px;border-radius:50%;border:0;background:#1d4ed8;color:#fff;font:600 13px/1 system-ui,sans-serif;box-shadow:0 6px 18px rgba(15,35,80,.28);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;touch-action:none}
+ .irc-fab svg{width:27px;height:27px;pointer-events:none}.irc-fab.irc-moving{cursor:grabbing;box-shadow:0 10px 26px rgba(15,35,80,.38)}
  .irc-fab:hover{background:#1e40af}.irc-fab b{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;border-radius:10px;background:#e8590c;color:#fff;font-size:11px;line-height:20px;padding:0 5px}
  .irc-panel{position:fixed;right:18px;bottom:84px;z-index:9991;width:min(420px,calc(100vw - 36px));height:min(640px,calc(100vh - 110px));display:flex;flex-direction:column;background:#fff;color:#1f2933;border:1px solid #d5dde6;border-radius:12px;box-shadow:0 14px 40px rgba(15,35,80,.25);font:14px/1.45 system-ui,"Segoe UI",sans-serif}
  .irc-panel[hidden]{display:none}
- .irc-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid #e3e8ee}.irc-head h3{margin:0;font-size:15px;flex:1}.irc-head small{display:block;color:#6b7785;font-weight:400;font-size:12px}
+ .irc-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid #e3e8ee;cursor:grab;user-select:none;touch-action:none}.irc-panel.irc-moving .irc-head{cursor:grabbing}.irc-head h3{margin:0;font-size:15px;flex:1}.irc-head small{display:block;color:#6b7785;font-weight:400;font-size:12px}
  .irc-head button{border:0;background:none;font-size:20px;cursor:pointer;color:#6b7785}
  .irc-note{margin:8px 12px 0;padding:8px 10px;border-radius:8px;background:#fff4e5;color:#7a4b00;font-size:12.5px}.irc-note:empty{display:none}
  .irc-list{flex:1;overflow:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px;background:#f6f8fb}
@@ -42,7 +44,7 @@
  /* The page styles every input as a field: the box of «Приложить снимок экрана» is a plain checkbox again. */
  .irc-row label input[type=checkbox]{appearance:auto!important;-webkit-appearance:checkbox!important;width:16px!important;height:16px!important;min-width:16px!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;box-shadow:none!important;flex:0 0 16px;accent-color:#1d4ed8;cursor:pointer}
  .irc-row button{border:0;border-radius:8px;background:#1d4ed8;color:#fff;padding:7px 14px;font-weight:600;cursor:pointer}.irc-row button:disabled{opacity:.55;cursor:default}
- .irc-row .irc-attach{background:#fff;color:#1d4ed8;border:1px solid #9db7ef;padding:6px 10px;font-weight:600}.irc-row .irc-attach:hover{background:#eef4ff}
+ .irc-row .irc-attach{background:#fff;color:#1d4ed8;border:1px solid #9db7ef;padding:6px 10px;font-weight:600;display:inline-flex;align-items:center;gap:6px}.irc-attach svg{width:17px;height:17px;flex:0 0 17px}.irc-row .irc-attach:hover{background:#eef4ff}
  .irc-photos{display:flex;gap:6px;flex-wrap:wrap}.irc-photos[hidden]{display:none}
  .irc-photos span{position:relative;width:56px;height:56px;border-radius:6px;overflow:hidden;border:1px solid #cfd8e3;background:#f6f8fb}
  .irc-photos img{width:100%;height:100%;object-fit:cover;display:block}
@@ -60,9 +62,10 @@
  .irc-fab[hidden]{display:none}.irc-hide .irc-fab,.irc-hide .irc-panel,.irc-hide .irc-toast{display:none!important}
  @media print{.irc-fab,.irc-panel,.irc-toast{display:none!important}}`;
  const style=document.createElement("style");style.textContent=css;document.head.appendChild(style);
- const fab=document.createElement("button");fab.type="button";fab.className="irc-fab";fab.title="Чат с Claude: замечания по монтажной схеме";fab.innerHTML="Чат<b hidden></b>";
+ const fab=document.createElement("button");fab.type="button";fab.className="irc-fab";fab.title="Чат с Claude: замечания по монтажной схеме. Значок можно перетащить в любое место";fab.setAttribute("aria-label","Чат с Claude");
+ fab.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 3.5V17A2.5 2.5 0 0 1 4 14.5z"/><path d="M8.5 9h7M8.5 12.5h4.5"/></svg><b hidden></b>';
  const panel=document.createElement("aside");panel.className="irc-panel";panel.hidden=true;
- panel.innerHTML=`<div class="irc-head"><h3>Чат с Claude<small>Сообщение сразу уходит Claude — ответ и отчёт придут сюда <button type="button" class="irc-relink" data-relink hidden>ключ claude.ai</button></small></h3><button type="button" data-close title="Закрыть">×</button></div>
+ panel.innerHTML=`<div class="irc-head" title="Окно чата можно перетащить за заголовок; двойной щелчок — вернуть к значку"><h3>Чат с Claude<small>Сообщение сразу уходит Claude — ответ и отчёт придут сюда <button type="button" class="irc-relink" data-relink hidden>ключ claude.ai</button></small></h3><button type="button" data-close title="Закрыть">×</button></div>
  <div class="irc-link" hidden><b>Чат пока не может отправлять</b><span>Сообщения уходят Claude через GitHub программы. Администратор один раз вставляет ключ GitHub в настройках ИИ, раздел «Отправка обучения в репозиторий». После этого всё, что ждёт, уйдёт само.</span>
  <details><summary>Ключ задачи claude.ai (необязательно)</summary><small>Если у вас есть ключ задачи «Чат IR Project» (начинается с sk-ant-) и её адрес Fire URL — вставьте их, сообщения пойдут туда.</small>
  <input type="password" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" data-key>
@@ -71,7 +74,7 @@
  <form class="irc-form"><div class="irc-ctx" hidden><span></span><button type="button" title="Не прикладывать элемент">×</button></div>
  <textarea placeholder="Что не так или что сделать? Например: «у колонны К7 нет базы». Фото можно вставить сюда (Ctrl+V) или перетащить."></textarea>
  <div class="irc-photos" hidden></div>
- <div class="irc-row"><label><input type="checkbox" checked> Приложить снимок экрана</label><button type="button" class="irc-attach" title="Приложить фото или картинку с компьютера (до 6)">📎 Фото</button><input type="file" accept="image/*" multiple hidden><button type="submit">Отправить</button></div></form>`;
+ <div class="irc-row"><label><input type="checkbox" checked> Приложить снимок экрана</label><button type="button" class="irc-attach" title="Приложить фото или картинку с компьютера (до 6)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><circle cx="8.8" cy="10" r="1.7"/><path d="M21 15.5l-4.8-4.8L7.5 19.5"/></svg>Фото</button><input type="file" accept="image/*" multiple hidden><button type="submit">Отправить</button></div></form>`;
  const toast=document.createElement("div");toast.className="irc-toast";toast.hidden=true;toast.setAttribute("role","status");
  toast.innerHTML='<b>Claude ответил в чате</b><span></span><div><button type="button" class="alt" data-later>Позже</button><button type="button" data-open>Открыть чат</button></div>';
  document.body.append(fab,panel,toast);
@@ -82,6 +85,52 @@
  let state={messages:[],unread:0,link:null},dropElement=false,busy=false,timer=null,relink=false;
  const linkBox=panel.querySelector(".irc-link"),keyInput=linkBox.querySelector("[data-key]"),urlInput=linkBox.querySelector("[data-url]");
  const shots=new Map();
+ // ---- The button and the panel go where the engineer drags them (the button by itself, the panel by its title), the
+ // places kept in the window's storage (shared by the tabs). A panel never dragged, and the note of an answer, open by
+ // the button; a double click on the title brings the panel back to it.
+ const PLACE="irc-place";
+ const spot=(()=>{try{const v=JSON.parse(localStorage.getItem(PLACE)||"{}");return v&&typeof v==="object"?v:{}}catch(_e){return{}}})();
+ const keep=()=>{try{localStorage.setItem(PLACE,JSON.stringify(spot))}catch(_e){}};
+ const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+ function put(box,x,y){
+  if(!innerWidth||!innerHeight||!Number.isFinite(x)||!Number.isFinite(y))return;
+  box.style.left=clamp(x,4,innerWidth-box.offsetWidth-4)+"px";box.style.top=clamp(y,4,innerHeight-box.offsetHeight-4)+"px";box.style.right=box.style.bottom="auto"
+ }
+ // Above the button, or below it, on the side of the window the button is on; beside it when neither has room.
+ function byButton(box){
+  if(fab.hidden){box.style.left=box.style.top=box.style.right=box.style.bottom="";return}
+  const f=fab.getBoundingClientRect(),w=box.offsetWidth,h=box.offsetHeight,left=f.left+f.width/2<innerWidth/2;
+  if(f.top-12-h>=4)put(box,left?f.left:f.right-w,f.top-12-h);
+  else if(f.bottom+12+h<=innerHeight-4)put(box,left?f.left:f.right-w,f.bottom+12);
+  else put(box,left?f.right+12:f.left-12-w,f.top+f.height/2-h/2)
+ }
+ function follow(){if(!panel.hidden&&!spot.panel)byButton(panel);if(!toast.hidden)byButton(toast)}
+ function arrange(){
+  if(spot.fab&&!fab.hidden)put(fab,spot.fab.x,spot.fab.y);
+  if(spot.panel&&!panel.hidden)put(panel,spot.panel.x,spot.panel.y);
+  follow()
+ }
+ let draggedAt=0;
+ function drag(handle,box,name){
+  handle.addEventListener("pointerdown",ev=>{
+   if(ev.button!==0||handle!==box&&ev.target.closest("button,input,a"))return;
+   const r=box.getBoundingClientRect(),dx=ev.clientX-r.left,dy=ev.clientY-r.top,x0=ev.clientX,y0=ev.clientY;let moved=false;
+   const move=e=>{
+    if(!moved&&Math.hypot(e.clientX-x0,e.clientY-y0)<6)return;
+    moved=true;box.classList.add("irc-moving");put(box,e.clientX-dx,e.clientY-dy);if(box===fab)follow()
+   };
+   const up=()=>{
+    handle.removeEventListener("pointermove",move);handle.removeEventListener("pointerup",up);handle.removeEventListener("pointercancel",up);
+    box.classList.remove("irc-moving");if(!moved)return;
+    draggedAt=Date.now();spot[name]={x:parseFloat(box.style.left),y:parseFloat(box.style.top)};keep()
+   };
+   try{handle.setPointerCapture(ev.pointerId)}catch(_e){}
+   handle.addEventListener("pointermove",move);handle.addEventListener("pointerup",up);handle.addEventListener("pointercancel",up)
+  })
+ }
+ drag(fab,fab,"fab");drag(panel.querySelector(".irc-head"),panel,"panel");
+ panel.querySelector(".irc-head").addEventListener("dblclick",ev=>{if(ev.target.closest("button"))return;delete spot.panel;keep();follow()});
+ window.addEventListener("resize",arrange);
  // What goes with the message: the page's own context (the montage scheme gives its selected element) and the window.
  function context(){
   let c=null;try{c=typeof window.irChatContext==="function"?window.irChatContext():null}catch(_e){c=null}
@@ -141,7 +190,7 @@
   toldRoute=/^#\/objects\/object\/\d+\/scheme/.test(route)?route:"";
   const body=plain(last.text).slice(0,220);
   toast.querySelector("b").textContent=news.length>1?"Claude ответил в чате ("+news.length+")":"Claude ответил в чате";
-  toast.querySelector("span").textContent=body;toast.hidden=false;
+  toast.querySelector("span").textContent=body;toast.hidden=false;arrange();
   clearTimeout(toastTimer);toastTimer=setTimeout(()=>{toast.hidden=true},60000);
   if(!inFront())invoke("ai-montage:chat-notify",{title:toast.querySelector("b").textContent+" · IR Project",body,route:toldRoute}).catch(()=>{});
  }
@@ -160,7 +209,7 @@
  }
  function schedule(){clearInterval(timer);timer=setInterval(sync,panel.hidden?30000:8000)}
  function open(show){
-  panel.hidden=!show;schedule();paintContext();paint();
+  panel.hidden=!show;schedule();paintContext();paint();arrange();
   if(show){toast.hidden=true;area.focus();sync()}
  }
  // ---- Photos from the computer: any picture the window can read becomes a JPEG of at most 2000 px.
@@ -192,10 +241,10 @@
  panel.addEventListener("dragover",ev=>{if([...(ev.dataTransfer?.types||[])].includes("Files")){ev.preventDefault();panel.classList.add("irc-drop")}});
  panel.addEventListener("dragleave",ev=>{if(!panel.contains(ev.relatedTarget))panel.classList.remove("irc-drop")});
  panel.addEventListener("drop",ev=>{panel.classList.remove("irc-drop");if(ev.dataTransfer?.files?.length){ev.preventDefault();addPhotos(ev.dataTransfer.files)}});
- fab.onclick=()=>open(panel.hidden);
+ fab.onclick=()=>{if(Date.now()-draggedAt>400)open(panel.hidden)};
  // The chat is for the montage scheme only (the engineer's wish): its button is there and nowhere else.
  const onScheme=()=>/^#\/objects\/object\/\d+\/scheme(?:$|[/?])/.test(location.hash);
- function place(){const on=onScheme();fab.hidden=!on;if(!on&&!panel.hidden)open(false)}
+ function place(){const on=onScheme();fab.hidden=!on;if(!on&&!panel.hidden)open(false);arrange()}
  window.addEventListener("hashchange",place);place();
  panel.querySelector("[data-close]").onclick=()=>open(false);
  ctxBox.querySelector("button").onclick=()=>{dropElement=true;paintContext()};

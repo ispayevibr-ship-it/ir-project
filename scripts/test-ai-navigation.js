@@ -12,7 +12,7 @@ assert(files["src/app.js"].includes('key==="ai-recognition"&&window.irAiRecognit
 assert(files["src/object-shell.js"].includes('makeButton("ИИ-распознавание","ai-recognition"'),"sidebar route");
 assert(files["src/tabs-shell.js"].includes('"ai-recognition":"ИИ-распознавание"'),"tab naming");
 assert(files["src/access.js"].includes('"ai-recognition"'),"role configuration");
-assert(files["src/index.html"].includes('ai-recognition-page.js?v=192000'),"UI script loads");
+assert(files["src/index.html"].includes('ai-recognition-page.js?v=197200'),"UI script loads");
 assert(files["src/index.html"].includes('ai-recognition-page.css?v=192000'),"module css loads");
 assert(files["src/index.html"].includes('ai-model-settings.js?v=191690'),"Claude settings loaded");
 // Sub-pages: drawings, analysis, Claude, placement, journal.
@@ -57,7 +57,7 @@ console.log("AI: drawings → analysis → Claude → montage scheme sub-pages, 
 // The chat with Claude: loaded in the window, its channels pass the old preload and are served by the main process.
 {const panel=fs.readFileSync("src/ai-chat-panel.js","utf8"),OLD=/^ai-(documents|engine|settings|montage):[a-z-]{1,40}$/;
  new vm.Script(panel,{filename:"src/ai-chat-panel.js"});
- assert(files["src/index.html"].includes('ai-chat-panel.js?v=197100'),"chat panel loads");
+ assert(files["src/index.html"].includes('ai-chat-panel.js?v=197200'),"chat panel loads");
  const chs=[...new Set(panel.match(/"ai-[a-z-]+:[a-z-]+"/g).map(x=>x.slice(1,-1)))];
  assert(chs.length>=6,"chat channels");
  for(const ch of chs){assert(OLD.test(ch),"old preload passes "+ch);assert(files["src/ai-ipc.js"].includes('handle("'+ch+'"'),"main serves "+ch)}

@@ -286,7 +286,7 @@ window.irAiRecognitionPage=async function(objectId){
   const rows=(fixes.entries||[]).map(e=>'<tr><td>'+esc(e.at?new Date(e.at).toLocaleString("ru-RU"):"")+'</td><td>'+esc(e.version||"")+'</td><td>'+esc(e.question||"")+
    (e.element?'<small>'+esc(e.element)+'</small>':'')+'</td><td>'+esc(e.text||"")+'</td><td>'+esc((e.rules||[]).join("; "))+'</td></tr>');
   return'<div class="ir-ms-card"><p><b>Исправления Claude по сообщениям из чата</b> · записей: <b>'+rows.length+'</b></p>'+
-   '<p class="muted">Напишите в чат (кнопка «Чат» внизу справа), что не так, — Claude исправит программу, а запись появится здесь с обновлением.</p>'+
+   '<p class="muted">Напишите в чат (значок чата на монтажной схеме), что не так, — Claude исправит программу, а запись появится здесь с обновлением.</p>'+
    (rows.length?table(["Когда","Обновление","Сообщение","Что сделано","Правило"],rows):'')+'</div>'
  }
  function placePage(){
