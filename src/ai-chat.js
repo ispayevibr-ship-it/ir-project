@@ -90,6 +90,7 @@ function createChat({getUserDataPath,safeStorage,fetch:doFetch=globalThis.fetch,
    "",m.text,"",
    ...lineOf(m.context),
    ...(m.shot?["Снимок экрана: %APPDATA%\\ir-project\\ai-learned\\chat\\"+m.shot+".jpg (на этом компьютере)"]:[]),
+   ...(m.photos||[]).map((p,i)=>"Фото с компьютера "+(i+1)+": %APPDATA%\\ir-project\\ai-learned\\chat\\"+p+".jpg"),
    "Ответ — в файл %APPDATA%\\ir-project\\ai-learned\\chat\\claude.json (reply_to: "+m.id+")"].join("\n").slice(0,60000)
  }
  async function deliver(m){
@@ -98,7 +99,8 @@ function createChat({getUserDataPath,safeStorage,fetch:doFetch=globalThis.fetch,
    // Without a key of the task: one commit on the chat branch, with the screenshot.
    if(viaGithub()){
     let shot="";if(m.shot)try{shot=fs.readFileSync(shotFile(m.shot)).toString("base64")}catch{}
-    try{await github.chatPost({id:m.id,text:text(m),shot,repo:t.github_repo,branch:t.github_branch});return{via:"github"}}
+    const photos=[];for(const p of m.photos||[])try{photos.push(fs.readFileSync(shotFile(p)).toString("base64"))}catch{}
+    try{await github.chatPost({id:m.id,text:text(m),shot,photos,repo:t.github_repo,branch:t.github_branch});return{via:"github"}}
     catch(e){throw Error("Нет связи с GitHub — "+String(e.message||e))}
    }
    const x=Error("Чат не подключён: администратор указывает ключ GitHub в настройках ИИ (раздел GitHub)");x.code="no-key";throw x
@@ -112,10 +114,13 @@ function createChat({getUserDataPath,safeStorage,fetch:doFetch=globalThis.fetch,
   if(r.status===429)throw Error("Слишком много сообщений за час (до 30) — отправьте позже кнопкой «Повторить»");
   throw Error("claude.ai ответил "+r.status+(detail?": "+detail:""))
  }
- async function send({text:body,context,shotId}={}){
+ // Photos the engineer adds from the computer (an example, a photo from the site): kept like the screenshot, up to 6.
+ async function send({text:body,context,shotId,photoIds}={}){
   body=String(body||"").trim().slice(0,8000);if(!body)throw Error("Пустое сообщение");
   const d=read(),m={id:"m"+Date.now().toString(36)+crypto.randomBytes(2).toString("hex"),from:"user",at:new Date().toISOString(),text:body,
    context:context&&typeof context==="object"?JSON.parse(JSON.stringify(context)):null,shot:shotId&&fs.existsSync(shotFile(shotId))?shotId:"",version:version(),state:"sending"};
+  const photos=(Array.isArray(photoIds)?photoIds:[]).map(String).filter(p=>/^s[a-z0-9]+$/i.test(p)&&fs.existsSync(shotFile(p))).slice(0,6);
+  if(photos.length)m.photos=photos;
   d.messages.push(m);d.seen=m.id;write(d);
   return finish(m.id)
  }

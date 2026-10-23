@@ -154,9 +154,11 @@ function createGithubSync({getUserDataPath,safeStorage,fetch:doFetch=globalThis.
   const t=await dataRepo();return{repo:t.repo,branch:branch||t.chatBranch}
  }
  const chatReady=()=>Boolean(read().token)&&encryption();
- async function chatPost({id,text,shot,repo,branch}){
+ async function chatPost({id,text,shot,photos=[],repo,branch}){
   const files=[{path:chatPath(id+".json"),text:JSON.stringify({id,computer:computerName(),at:now().toISOString(),text},null,1)}];
   if(shot)files.push({path:chatPath(id+".jpg"),base64:shot});
+  // Photos from the computer: <id>-p1.jpg, <id>-p2.jpg…
+  (Array.isArray(photos)?photos:[]).slice(0,6).forEach((b,i)=>{if(b)files.push({path:chatPath(id+"-p"+(i+1)+".jpg"),base64:b})});
   return commitFiles(await chatAt({repo,branch}),files,"Чат IR Project с компьютера "+computerName()+": сообщение "+id)
  }
  async function chatAnswers({repo,branch}={}){

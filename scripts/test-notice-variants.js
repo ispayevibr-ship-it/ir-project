@@ -3,8 +3,8 @@ const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("nod
 const js=fs.readFileSync("src/ir-dialog-guard.js","utf8");
 const html=fs.readFileSync("src/index.html","utf8");
 const tabs=fs.readFileSync("src/tabs-shell.html","utf8");
-assert(html.includes("ir-dialog-guard.js?v=17150"));
-assert(tabs.includes("ir-dialog-guard.js?v=17150"));
+assert(html.includes("ir-dialog-guard.js?v=19710"));
+assert(tabs.includes("ir-dialog-guard.js?v=19710"));
 assert(js.includes(".ir-notice--success{background:#effbf3"));
 assert(js.includes("width:min(360px,calc(100vw - 24px))"));
 function node(){const e={children:[],className:"",textContent:"",isConnected:true,attrs:{},

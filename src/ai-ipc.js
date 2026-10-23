@@ -15,7 +15,19 @@ function register(deps){
   throw error
  }
 }
-function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog,shell,database,getWindow,checkAdmin}){
+function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:nativeDialog,shell,database,getWindow,checkAdmin}){
+ // Windows: after a native window (a question, a file dialog) the page takes no keys until the program is minimized and
+ // opened again — Chromium leaves the keyboard elsewhere (an Electron bug). The window gets it back the same way: blur,
+ // then focus. After every file dialog of these modules, and on request of the page (ai-settings:refocus, see
+ // src/ir-dialog-guard.js: after each confirm() and on a click into a field while the page has no focus).
+ const refocus=(win,contents,force)=>{
+  if(!win||win.isDestroyed()||win.isMinimized())return false;
+  const page=contents||win.webContents;
+  if(!force&&win.isFocused()&&page.isFocused())return false;
+  win.blur();win.focus();page.focus();return true
+ };
+ const afterDialog=fn=>async(...args)=>{try{return await fn(...args)}finally{refocus(getWindow(),null,true)}};
+ const dialog=Object.assign(Object.create(nativeDialog),{showOpenDialog:afterDialog((...a)=>nativeDialog.showOpenDialog(...a)),showSaveDialog:afterDialog((...a)=>nativeDialog.showSaveDialog(...a))});
  const {createStore}=require("./ai-document-store");
  const {createEngine}=require("./ai-claude-engine");
  const {createPdfRenderer}=require("./ai-pdf-renderer");
@@ -65,6 +77,7 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog,shell,
  handle("ai-documents:set-excluded",(_e,{objectId,id,pages})=>documents.setExcluded(objectId,id,pages));
  handle("ai-documents:sheets",(_e,{objectId,id})=>montage.documentSheets(objectId,id));
  handle("ai-documents:preview",(_e,{objectId,id,page})=>raster.preview(objectId,id,page));
+ handle("ai-settings:refocus",(e,{force}={})=>refocus(require("electron").BrowserWindow.fromWebContents(e.sender),e.sender,force===true));
  handle("ai-engine:status",()=>engine.status());
  handle("ai-engine:start",()=>engine.start());
  handle("ai-settings:info",()=>engine.settings());
@@ -120,6 +133,26 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog,shell,
   return{shotId:chat.keepShot((k<1?img.resize({width:Math.round(size.width*k),quality:"good"}):img).toJPEG(72))}
  });
  handle("ai-montage:chat-shot",(_e,{id}={})=>chat.shot(String(id||"")));
+ // A photo the engineer adds from the computer (the panel makes it JPEG): kept like the screenshot.
+ handle("ai-montage:chat-photo",(_e,{data}={})=>{
+  if(!(data instanceof Uint8Array)||!data.length||data.length>12e6)throw new Error("Фото не прочитано или больше 12 МБ");
+  const img=require("electron").nativeImage.createFromBuffer(Buffer.from(data.buffer,data.byteOffset,data.byteLength));
+  if(img.isEmpty())throw new Error("Это не изображение");
+  const w=img.getSize().width;
+  return{photoId:chat.keepShot((w>2000?img.resize({width:2000,quality:"good"}):img).toJPEG(82))}
+ });
+ // When Claude answers, the panel asks once for a notification of Windows: a click brings the window and opens the chat.
+ const notices=new Set();
+ handle("ai-montage:chat-notify",(e,{title,body,route}={})=>{
+  const {Notification,BrowserWindow,app}=require("electron");
+  if(!Notification.isSupported())return false;
+  // The id of the installed program (electron-builder appId): without it Windows does not show the notification.
+  if(process.platform==="win32")try{app.setAppUserModelId("com.irproject.app")}catch(_e){}
+  const win=BrowserWindow.fromWebContents(e.sender),n=new Notification({title:String(title||"IR Project").slice(0,120),body:String(body||"").slice(0,300)});
+  notices.add(n);const done=()=>notices.delete(n);
+  n.on("click",()=>{done();if(!win||win.isDestroyed())return;if(win.isMinimized())win.restore();refocus(win,null,true);win.webContents.send("ai-montage:chat-open",{route:String(route||"")})});
+  n.on("close",done);n.show();return true
+ });
  handle("ai-montage:chat-send",(_e,v={})=>chat.send(v));
  handle("ai-montage:chat-retry",(_e,v={})=>chat.retry(v));
  handle("ai-montage:chat-sync",()=>chat.sync());

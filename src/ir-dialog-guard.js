@@ -1,5 +1,6 @@
 "use strict";
-/* IR Project 1.7.101: non-blocking alerts in the tab shell and every iframe.
+/* IR Project 1.7.101: non-blocking alerts in the tab shell and every iframe; 1.9.71: the keyboard back after a native
+ * window.
  * Native window.alert() freezes the Electron window and can leave text inputs
  * without focus after closing the native message.  Existing synchronous
  * confirmations are deliberately left unchanged.
@@ -60,4 +61,27 @@
  }
  window.alert=message=>showMessage(message,"error");
  window.irProjectNotice=showMessage
+ // Windows: after a native window (a question of confirm(), a file dialog, an error) the program took no keys until it
+ // was minimized and opened again. The main process gives the window its keyboard back (ai-settings:refocus in
+ // src/ai-ipc.js): after every confirm(), and on a click while the page has no focus; then the field gets it again.
+ const program=()=>{try{return window.irProject||window.parent?.irProject||window.opener?.irProject||null}catch{return null}};
+ const topFocused=()=>{try{return window.top.document.hasFocus()}catch{return document.hasFocus()}};
+ let asked=0;
+ function refocus(field,force){
+  const now=Date.now();if(!force&&now-asked<500)return;asked=now;
+  const invoke=program()?.ai?.invoke;if(typeof invoke!=="function")return;
+  Promise.resolve(invoke("ai-settings:refocus",{force:force===true})).then(()=>{
+   if(field?.isConnected&&typeof field.focus==="function")try{field.focus({preventScroll:true})}catch{}
+  },()=>{})
+ }
+ const nativeConfirm=window.confirm;
+ if(typeof nativeConfirm==="function")window.confirm=function(message){
+  const field=document.activeElement,answer=nativeConfirm.call(window,message);
+  refocus(field,true);
+  return answer
+ };
+ document.addEventListener?.("pointerdown",event=>{
+  if(topFocused())return;
+  refocus(event.target?.closest?.("input,textarea,select,[contenteditable]")||null,false)
+ },true);
 })();
