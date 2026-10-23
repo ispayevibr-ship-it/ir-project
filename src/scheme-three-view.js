@@ -528,7 +528,7 @@ window.irThreeSchemeView=(function(){
   function legT(c){var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);return sec&&sec.t?sec.t/1000:.008}
   // Railings, treads and thin bars (Ø up to 60, strips) are welded: no nodes, end plates or bolts on them — a base
   // plate and a marker on every railing post hid the landings.
-  function slight(c){var t=String(c.title||c.mark_name||""),sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);
+  function slight(c){var t=String(c.mark_name||c.title||""),sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);
    return kind(c)==="guards"||/огражд|поручен|перекладин|ступен/i.test(t)||Boolean(sec&&(sec.shape==="round"&&sec.h<=60||sec.shape==="plate"))}
   function trimSegment(c,id,a,b,host,parts){
    var v=b.clone().sub(a),L=v.length();if(L<.3)return[a,b];v.divideScalar(L);
@@ -867,15 +867,19 @@ window.irThreeSchemeView=(function(){
   // pair of rails (or crane girders without rails) — end carriages, two girders of the bridge and a trolley with its hook;
   // a suspended crane under a pair of runway beams («Путь подвесного крана») — carriages on the bottom flanges, a single
   // girder with cantilevers and a hoist; a monorail — a hoist under it. The pair: parallel at one level, 3–40 m apart,
-  // overlapping by half; the crane stands at a third of the common length. Shown with the details.
-  var craneMat=new T.MeshStandardMaterial({color:0xe2a400,metalness:.2,roughness:.55}),hoistMat=new T.MeshStandardMaterial({color:0x3a4048,metalness:.3,roughness:.5}),
+  // overlapping by half; the crane stands at a third of the common length. Shown with the details, in orange (amber
+  // was the colour of the braces: among them the engineer did not find the cranes); the legend counts them and a click
+  // on it shows them one by one.
+  var craneMat=new T.MeshStandardMaterial({color:0xff6a00,metalness:.2,roughness:.55}),hoistMat=new T.MeshStandardMaterial({color:0x3a4048,metalness:.3,roughness:.5}),
    wheelMat=new T.MeshStandardMaterial({color:0x1f2328,metalness:.6,roughness:.35});
   // Only the member's own name makes it a runway: a type «Кран-балка, монорельс» given to a beam by its letters (a beam of
   // a crane service platform, an opening) put cranes and hoists all over the frame. A pair of «путь подвесного крана»
   // carries a suspended crane, a «монорельс» a hoist, a «рельс» (or a rail profile Р43) and a «подкрановая балка» an
-  // overhead crane.
+  // overhead crane. The name is mark_name: the title of a record in the program is its position («PDF-…»), so read
+  // first it left only the rails of profile Р43 (the suspended crane КХБ-526 of ИР-71535 was not drawn).
+  var cranes=[],craneTurn=0;
   function runwayKind(c){
-   var n=String(c.title||c.mark_name||""),pr=String(c.profile_name||c.profileName||"");
+   var n=String(c.mark_name||c.title||""),pr=String(c.profile_name||c.profileName||"");
    if(/площадк|лестниц|ограждени|обрамлени|проём|проем|упор/i.test(n))return"";
    if(/(^|[^о])рельс/i.test(n)||/^(?:Р|КР)\d{2,3}$/.test(pr))return"rail";
    if(/монорельс/i.test(n))return"mono";
@@ -890,6 +894,7 @@ window.irThreeSchemeView=(function(){
   }
   function buildCranes(){
    equipment.children.slice().forEach(function(m){equipment.remove(m);m.geometry.dispose()});
+   cranes=[];craneTurn=0;
    var ways=[];
    elems.forEach(function(c){
     if(c.geometryType!=="beam"||c.ft)return;var k=runwayKind(c);if(!k)return;
@@ -964,7 +969,7 @@ window.irThreeSchemeView=(function(){
        cyl(.02,fb+.06,wheelMat,c0.clone().add(AL.clone().multiplyScalar(i*.32)).add(new T.Vector3(0,.08,0)),S,8)});
       box(.26,.3,1.5,craneMat,c0.clone().add(new T.Vector3(0,-.38,0)),S,AL)
      });
-     var gTop=bottom-.53,gLen=span+1.6;ibeam(gLen,.45,.2,.012,.018,craneMat,mid.clone().setY(gTop),S,AL);
+     var gTop=bottom-.53,gLen=span+1.6;ibeam(gLen,.45,.2,.012,.018,craneMat,mid.clone().setY(gTop),S,AL);cranes.push({at:mid.clone().setY(gTop),size:span,along:AL.clone()});
      hoist(pa.clone().lerp(pb,.35).setY(gTop-.45),S,Math.max(1.2,Math.min(3.5,gTop-1.5-1)))
     }else{
      // An overhead crane on rails: end trucks with two wheels on each rail, the bridge of two box girders, the trolley
@@ -975,7 +980,7 @@ window.irThreeSchemeView=(function(){
       [-1,1].forEach(function(j){cyl(.25,.12,wheelMat,c0.clone().add(AL.clone().multiplyScalar(j*1.5)).add(new T.Vector3(0,.25,0)),S,20)});
       box(.42,.55,4,craneMat,c0.clone().add(new T.Vector3(0,.62,0)),S,AL)
      });
-     var gB=top+.9;[-1,1].forEach(function(k){box(span+.5,1.2,.5,craneMat,mid.clone().add(AL.clone().multiplyScalar(k*1.1)).setY(gB+.6),S,AL)});
+     var gB=top+.9;[-1,1].forEach(function(k){box(span+.5,1.2,.5,craneMat,mid.clone().add(AL.clone().multiplyScalar(k*1.1)).setY(gB+.6),S,AL)});cranes.push({at:mid.clone().setY(gB),size:span,along:AL.clone()});
      var tr=pa.clone().lerp(pb,.4).setY(gB+1.2);
      box(2.0,.3,2.8,hoistMat,tr.clone().add(new T.Vector3(0,.15,0)),S,AL);
      [-1,1].forEach(function(i){[-1,1].forEach(function(j){cyl(.16,.08,wheelMat,tr.clone().add(S.clone().multiplyScalar(i*.8)).add(AL.clone().multiplyScalar(j*1.1)).add(new T.Vector3(0,.0,0)),S,16)})});
@@ -989,7 +994,7 @@ window.irThreeSchemeView=(function(){
    });
    list("mono").concat(hung.filter(function(w){return!used.has(w)})).forEach(function(w){
     var s=w.L/3,at=toWorld(w.a.x+w.u.x*s,w.a.y+w.u.y*s,w.z-(w.h||300)/2),dir=toWorld(w.a.x+w.u.x*(s+1000),w.a.y+w.u.y*(s+1000),0).sub(toWorld(w.a.x+w.u.x*s,w.a.y+w.u.y*s,0));
-    hoist(at,dir,1.6)
+    hoist(at,dir,1.6);cranes.push({at:at.clone(),size:4})
    });
    equipment.visible=showDetails
   }
@@ -1400,8 +1405,9 @@ window.irThreeSchemeView=(function(){
    var rows=legendRows(),shown=rows.slice(0,colorMode==="mark"?12:20);
    legend.innerHTML=shown.map(function(r){
     return '<span><i style="background:#'+r.color.toString(16).padStart(6,"0")+'"></i>'+escapeHtml(r.name)+' <small>'+r.n+'</small></span>'
-   }).join("")+(rows.length>shown.length?'<span class="more">ещё '+(rows.length-shown.length)+'</span>':"");
-   legend.hidden=!rows.length
+   }).join("")+(rows.length>shown.length?'<span class="more">ещё '+(rows.length-shown.length)+'</span>':"")+
+    (cranes.length&&showDetails?'<span data-crane style="cursor:pointer;font-weight:700" title="Краны и тали нарисованы условно (в КМ их нет): по рельсам и подкрановым путям. Щелчок — показать следующий"><i style="background:#ff6a00"></i>Краны (условно) <small>'+cranes.length+'</small></span>':"");
+   legend.hidden=!rows.length&&!(cranes.length&&showDetails)
   }
   function applyBackground(){
    var choice=P.background||"standard",color=choice==="custom"&&P.backgroundColor?new T.Color(P.backgroundColor).getHex():backgrounds[choice]||backgrounds.standard;
@@ -1707,7 +1713,15 @@ window.irThreeSchemeView=(function(){
   root.querySelector("#irThreeGrid").onchange=function(e){showGrid=e.target.checked;ground.visible=showGrid};
   root.querySelector("#irThreeAxes").onchange=function(e){showAxes=e.target.checked};
   root.querySelector("#irThreeNodes").onchange=function(e){nodeMode=e.target.value;if(nodeMode==="off"){selectedNode=null;paintNode()}};
-  root.querySelector("#irThreeDetails").onchange=function(e){showDetails=e.target.checked;equipment.visible=showDetails;
+  // «Краны» in the legend: the camera goes to the next crane. A crane on a runway is looked at along its span from below
+  // the bridge (from above the roof hid it); the crane stands at a third of the runway, the camera on the longer side.
+  legend.onclick=function(e){
+   if(!e.target.closest("[data-crane]")||!cranes.length)return;
+   var k=cranes[craneTurn++%cranes.length],d=Math.max(12,k.size*.9);
+   var to=k.along?k.at.clone().add(k.along.clone().multiplyScalar(d)).add(new T.Vector3(0,-2.5,0)):k.at.clone().add(camera.position.clone().sub(controls.target).normalize().multiplyScalar(d));
+   flight={from:controls.target.clone(),to:k.at.clone(),camFrom:camera.position.clone(),camTo:to,t:0,ms:850,st:performance.now()};invalidate()
+  };
+  root.querySelector("#irThreeDetails").onchange=function(e){showDetails=e.target.checked;equipment.visible=showDetails;paintLegend();
    pedestals.forEach(function(m){m.visible=showDetails});rebatch()};
   function resize(){
    var w=Math.max(250,viewport.clientWidth),h=Math.max(300,viewport.clientHeight);

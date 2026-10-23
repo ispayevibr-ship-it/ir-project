@@ -26,6 +26,10 @@ assert(page.includes('irProject.ai.invoke("ai-montage:clear-scheme"')&&page.incl
 assert(view.includes("function paintLabels(")&&view.includes("shown>=160"),"member labels without overlap");
 assert(view.includes("function dimensionChain(")&&view.includes('"dims"'),"grid bay dimensions");
 assert(view.includes("function paintLegend(")&&view.includes("function applyBackground("),"colour legend and page background");
+// Cranes: a runway is known by the member's own name (mark_name; the title of a record is its position «PDF-…»), they
+// have their own colour, the legend counts them and a click there shows them one by one.
+assert(/function runwayKind\(c\)\{\s*var n=String\(c\.mark_name\|\|c\.title\|\|""\)/.test(view)&&view.includes('function slight(c){var t=String(c.mark_name||c.title||"")'),"cranes and railings by the member's name");
+assert(view.includes("color:0xff6a00")&&view.includes("Краны (условно)")&&view.includes("legend.onclick=function(e){")&&view.includes("cranes.push({at:mid.clone().setY(gTop)"),"cranes in the legend, a click flies to them");
 assert(view.includes('dirX==="rtl"?spanX-number(x)')&&view.includes('dirY==="btt"?spanY-number(y)'),"grid direction honoured");
 assert(view.includes("function startPlacement(")&&view.includes("function snapMember(")&&view.includes("function snapGround("),"placement by clicks with snapping");
 assert(view.includes('"верх "+(c.mark||"колонны")'),"beams rest on column tops");
