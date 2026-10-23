@@ -384,7 +384,7 @@ function claudeScheme(ai,candidates){
   const stair=type?.key==="stair_flight"?{fitting_type:"flight",diameter_mm:e.width_mm>=400?Math.round(e.width_mm):800}:type?.key==="ladder"?{fitting_type:"ladder",diameter_mm:e.width_mm>=400?Math.round(e.width_mm):600}:{};
   placements.push({...stair,mark:String(e.mark).trim(),name:e.name||type?.name||"",type_key:type?.key||"",...(type&&!["shell","plate","fitting"].includes(type.geometry)?{scheme_group:type.group}:{}),geometry_type:e.geometry_type,x_mm:Math.round(x+(Number(e.dx_mm)||0)),y_mm:Math.round(y+(Number(e.dy_mm)||0)),
    ...(column?{}:{x2_mm:Math.round(x2+(Number(e.dx2_mm)||0)),y2_mm:Math.round(y2+(Number(e.dy2_mm)||0))}),
-   z0_mm:column?Math.min(z0,z1):z0,z1_mm:column?Math.max(z0,z1):z1,levels_from:"Claude",confidence:"low",axis_x:String(e.axis_x),axis_y:String(e.axis_y),
+   z0_mm:column?Math.min(z0,z1):z0,z1_mm:column?Math.max(z0,z1):z1,levels_from:"Claude",confidence:"low",axis_x:String(e.axis_x),axis_y:String(e.axis_y),...(e.sheet?{sheet:String(e.sheet)}:{}),
    notes:["Определено Claude"+(e.sheet?" · "+e.sheet:"")+(e.note?" · "+e.note:"")]})
  }
  if(!placements.length)return null;
@@ -588,7 +588,7 @@ function buildPlan(draft,ai=null,heights={},opts={}){
     z0_mm:geometry==="beam"&&!drawn&&!flightLevel?z1:z0,z1_mm:z1,group,group_label:GROUPS[group],
     // A verified scheme carries its own profiles and truss lattices.
     profile:pl.profile||cat?.profile||"",profile_standard:pl.profile?"":cat?.profile_standard||"",...(pl.truss?{truss:pl.truss}:{}),...(pl.nodes?{nodes:pl.nodes}:{}),...(pl.joint||joints(c.info)?{joint:pl.joint||joints(c.info)}:{}),doc:scopeOf(c.info.docType,catalog.multi?c.info.volume:""),length_mm:cat?.length_mm??null,levels:own?"Claude":local?local.from:"схема",
-    page:c.info.page,file:c.info.file,sheet:c.info.sheet,scheme:c.info.title,confidence:pl.confidence,note:[...(pl.notes||[]),change?.note,...guess].filter(Boolean).join("; ")})
+    page:c.info.page,file:c.info.file,sheet:c.info.sheet,...(!c.info.page&&pl.sheet?{source_sheet:String(pl.sheet)}:{}),scheme:c.info.title,confidence:pl.confidence,note:[...(pl.notes||[]),change?.note,...guess].filter(Boolean).join("; ")})
   });
   // Bracing and secondary members meet the beams of the same plan: their ends take those beams' levels.
   const beams=elements.slice(first).filter(e=>e.geometry_type!=="column");

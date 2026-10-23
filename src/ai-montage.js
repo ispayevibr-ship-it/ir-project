@@ -481,6 +481,23 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   const marks=database.listEntity(oid,"marks").map(r=>({id:String(r.id),title:r.title||"",...(r.data||{})}));
   const byName=new Map();
   for(const m of marks){const k=normMark(m.mark||m.title);if(!k)continue;if(!byName.has(k))byName.set(k,[]);byName.get(k).push(m)}
+  // The work type of each drawing (the engineer's choice in «Чертежи»): its elements link to the marks of that work
+  // type and the marks it lacks are added under it; a drawing without one — the register as a whole, new marks under
+  // «Монтаж металлоконструкций (из PDF)». An element is traced to its drawing by its sheet, else by its КМ volume or
+  // file name; elements of the knowledge base with none — the work type all the drawings share.
+  const works=new Map(database.listEntity(oid,"work-types").map(w=>[String(w.id),w]));
+  const docWork=new Map(documents.list(oid).map(d=>[String(d.id),works.has(String(d.workTypeId||""))?String(d.workTypeId):""]));
+  const sourceDocs=(data.source?.documents||[]).map(x=>({name:String(x.name||""),work:docWork.get(String(x.documentId))||""}));
+  const common=sourceDocs.length&&sourceDocs.every(x=>x.work&&x.work===sourceDocs[0].work)?sourceDocs[0].work:"";
+  const pageDoc=new Map((data.pages||[]).map(p=>[Number(p.page),String(p.documentId||"")]));
+  const volumeOfName=n=>{const m=/КМ\s*(\d{1,2})(?![\dД])/u.exec(String(n||""));return m?"КМ"+m[1]:""};
+  const workOf=e=>{
+   const doc=e.page>0?pageDoc.get(Number(e.page)):"";if(doc)return docWork.get(doc)||"";
+   const vol=/^КМ\d/u.test(e.doc||"")?e.doc:volumeOfName(e.source_sheet);
+   const byVol=vol?sourceDocs.filter(x=>volumeOfName(x.name)===vol):[];if(byVol.length===1)return byVol[0].work;
+   const byFile=sourceDocs.filter(x=>x.name&&x.name===e.file);if(byFile.length===1)return byFile[0].work;
+   return common
+  };
   const near=(r,e)=>{const d=r.data||{};return normMark(d.mark)===normMark(e.mark)&&Math.abs(Number(d.absolute_x_mm)-e.x)<250&&Math.abs(Number(d.absolute_y_mm)-e.y)<250&&Math.abs(Number(d.z0_mm)-e.z0_mm)<250};
   const skipped=[...plan.skipped],payloads=[];let linked=0;
   plan.elements.forEach(e0=>{
@@ -490,7 +507,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    if(e.levels!=="проверено инженером"&&(out(x)||outY(y)||x2!==undefined&&(out(x2)||outY(y2)))&&!/За крайними осями/u.test(e.note||""))e={...e,note:[e.note,"За крайними осями — проверьте"].filter(Boolean).join("; ")};
    if(manual.some(r=>near(r,{...e,x,y}))){skipped.push({mark:e.mark,page:e.page,reason:"Уже есть в монтажной схеме (добавлен вручную)"});return}
    // A mark of one КМ volume of several (К1 of КМ1, К1 of КМ2) links only to the register row of its volume.
-   const vol=/^КМ\d/u.test(e.doc||"")?e.doc:"",named=byName.get(normMark(e.mark))||[];
+   const work=workOf(e0),vol=/^КМ\d/u.test(e.doc||"")?e.doc:"",all=byName.get(normMark(e.mark))||[],named=work?all.filter(m=>String(m.work_type_id||"")===work):all;
    // One mark in one volume may be two things on two sheets (Кс1 — косоур марша Лм1 and подкос площадки +9,500 in КМ3):
    // of several rows the one of the same name.
    const inVolume=vol&&named.some(m=>m.volume)?named.filter(m=>m.volume===vol):named,sameName=inVolume.filter(m=>e.name&&m.name===e.name);
@@ -503,8 +520,8 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    const midX=bent?closest(mx,frame.posX):null,midY=bent?closest(my,frame.posY):null;
    const mid={absolute_mid_x_mm:mx,absolute_mid_y_mm:my,mid_z_mm:bent?e.mid_z_mm:undefined,mid_axis_x:midX?.[0],mid_axis_y:midY?.[0],
     mid_offset_x_mm:bent?mx-midX[1]:undefined,mid_offset_y_mm:bent?my-midY[1]:undefined};
-   payloads.push({x,y,mark:e.mark,volume:vol,geometry:e.geometry_type,data:{entity_type:"column",
-    mark_id:mark?mark.id:"",mark:mark?(mark.mark||mark.title):e.mark,mark_name:e.name||mark?.name||"",work_type_id:mark?String(mark.work_type_id||""):"",
+   payloads.push({x,y,mark:e.mark,volume:vol,geometry:e.geometry_type,work,data:{entity_type:"column",
+    mark_id:mark?mark.id:"",mark:mark?(mark.mark||mark.title):e.mark,mark_name:e.name||mark?.name||"",work_type_id:mark?String(mark.work_type_id||""):work,
     axis_x:ax,axis_y:ay,offset_x_mm:x-axPos,offset_y_mm:y-ayPos,absolute_x_mm:x,absolute_y_mm:y,geometry_type:e.geometry_type,
     absolute_x2_mm:column?undefined:x2,absolute_y2_mm:column?undefined:y2,
     end_axis_x:column?undefined:endX[0],end_axis_y:column?undefined:endY[0],
@@ -518,26 +535,32 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   // makes one from the drawings. They go under a work type of their own ("из PDF"), so that a register the engineer
   // loaded is never mixed with them; quantity is the larger of "Требуется" and the number placed, mass from the sheets.
   // Everything below is written in one transaction (src/ai-db-batch.js): all of it or nothing.
-  const createdMarks=[];let createdWork=null,previousGrid=null,created=0;const updated=[],removed=[],kept=[];
+  const createdMarks=[],enabled=[];let createdWork=null,previousGrid=null,created=0;const updated=[],removed=[],kept=[];
   writes(database=>{
   const missing=payloads.filter(p=>!p.data.mark_id);
   if(missing.length){
-   let work=database.listEntity(oid,"work-types").find(w=>w.data?.ai_created===true);
-   if(!work){
-    const code=String(plan.elements.find(e=>e.file)?.file||data.source?.name||"").replace(/\.pdf$/i,"").split(/[,;]\s*/)[0].trim().slice(0,60);
-    work=database.createEntity(oid,"work-types",{record_type:"item",title:AUTO_WORK,data:{work_category:"installation",has_marks:true,work_type:AUTO_WORK,
-     accounting_type:"volume",project_code:code,project_code_2:"",unit:"тн",planned_volume:0,scheme_enabled:true,ai_created:true,import_batch:batch}});
-    createdWork=work.id
-   }
-   const wd=work.data||{},byMark=new Map();
-   for(const p of missing){const k=p.volume+"|"+normMark(p.mark)+"|"+(p.data.mark_name||"");if(!byMark.has(k))byMark.set(k,[]);byMark.get(k).push(p)}
-   const split=new Map();for(const k of byMark.keys()){const m=k.split("|").slice(0,2).join("|");split.set(m,(split.get(m)||0)+1)}
-   for(const [key,list] of byMark){
-    const vol=list[0].volume,same=x=>normMark(x.mark)===normMark(list[0].mark)&&(!vol||x.doc===vol);
+   let auto=null;
+   const workFor=p=>{
+    if(p.work)return works.get(p.work);
+    if(!auto)auto=database.listEntity(oid,"work-types").find(w=>w.data?.ai_created===true);
+    if(!auto){
+     const code=String(plan.elements.find(e=>e.file)?.file||data.source?.name||"").replace(/\.pdf$/i,"").split(/[,;]\s*/)[0].trim().slice(0,60);
+     auto=database.createEntity(oid,"work-types",{record_type:"item",title:AUTO_WORK,data:{work_category:"installation",has_marks:true,work_type:AUTO_WORK,
+      accounting_type:"volume",project_code:code,project_code_2:"",unit:"тн",planned_volume:0,scheme_enabled:true,ai_created:true,import_batch:batch}});
+     createdWork=auto.id
+    }
+    return auto
+   };
+   // Grouped by work type, volume, mark and name: one register row each.
+   const byMark=new Map();
+   for(const p of missing){const w=workFor(p),k=w.id+"|"+p.volume+"|"+normMark(p.mark)+"|"+(p.data.mark_name||"");if(!byMark.has(k))byMark.set(k,{work:w,list:[]});byMark.get(k).list.push(p)}
+   const split=new Map();for(const k of byMark.keys()){const m=k.split("|").slice(0,3).join("|");split.set(m,(split.get(m)||0)+1)}
+   for(const [key,{work,list}] of byMark){
+    const wd=work.data||{},vol=list[0].volume,same=x=>normMark(x.mark)===normMark(list[0].mark)&&(!vol||x.doc===vol);
     const e=plan.elements.find(x=>same(x)&&x.name&&x.name===list[0].data.mark_name)||plan.elements.find(same)||{};
     // The list of the volume knows the mark once: with the mark split by sheets its count and mass go only to the
     // row of the same profile.
-    const cat0=plan.catalog?.get?.(markKey(e.doc||"КМД",list[0].mark)),cat=split.get(key.split("|").slice(0,2).join("|"))>1&&cat0?.profile&&cat0.profile!==e.profile?null:cat0;
+    const cat0=plan.catalog?.get?.(markKey(e.doc||"КМД",list[0].mark)),cat=split.get(key.split("|").slice(0,3).join("|"))>1&&cat0?.profile&&cat0.profile!==e.profile?null:cat0;
     const qty=Math.max(list.length,Number(cat?.count)||0),unitT=cat?.mass_kg>0?Math.round(cat.mass_kg)/1000:0;
     const row=database.createEntity(oid,"marks",{record_type:"item",title:list[0].mark,data:{work_type_id:String(work.id),work_type:wd.work_type||AUTO_WORK,
      project_code:wd.project_code||"",unit:"тн",mark:list[0].mark,name:list[0].data.mark_name||e.name||e.type_name||KIND_NAME[list[0].data.scheme_group]||KIND_NAME[list[0].geometry]||"",qty,unit_volume:unitT,total_value:Math.round(qty*unitT*1000)/1000,
@@ -546,6 +569,12 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
     createdMarks.push(row.id);
     for(const p of list){p.data.mark_id=String(row.id);p.data.work_type_id=String(work.id);p.data.mark_name=row.data.name}
    }
+  }
+  // A work type chosen for a drawing gets its own montage scheme (the tick «Нужна монтажная схема»), so the scheme can
+  // show it apart; undo takes the tick back.
+  for(const wid of new Set(payloads.map(p=>p.work).filter(Boolean))){
+   const w=works.get(wid);if(!w||w.data?.scheme_enabled===true)continue;
+   if(database.updateEntity(oid,"work-types",w.id,{record_type:w.record_type||"item",parent_id:w.parent_id,title:w.title,data:{...w.data,scheme_enabled:true}}))enabled.push(String(w.id))
   }
   // The same mark and kind, nearest first: that is the same element drawn again.
   // Looked up by mark and kind: 4000 new against 4000 placed before, each with each, held the program for 16 s.
@@ -581,14 +610,20 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    if(database.deleteEntity(oid,"scheme",r.id))removed.push({record_type:r.record_type,title:r.title,data:r.data})
   });
   });
-  const result={batch,created,updated:updated.length,removed:removed.length,keptMounted:kept.length,linked,marksCreated:createdMarks.length,workCreated:Boolean(createdWork),skippedCount:skipped.length,skipped:skipped.slice(0,300),gridMode,at:new Date().toISOString()};
+  // Elements by work type: what each work type's scheme now shows.
+  const perWork=new Map();for(const p of payloads){const k=String(p.data.work_type_id||"");perWork.set(k,(perWork.get(k)||0)+1)}
+  const workName=wid=>{const w=works.get(wid)||(String(createdWork)===wid?{title:AUTO_WORK}:null);return String(w?.data?.work_type||w?.title||"без вида работ")};
+  const byWork=[...perWork].map(([wid,count])=>({id:wid,name:wid?workName(wid):"без вида работ",count})).sort((a,b)=>b.count-a.count);
+  const result={batch,created,updated:updated.length,removed:removed.length,keptMounted:kept.length,linked,marksCreated:createdMarks.length,workCreated:Boolean(createdWork),byWork,skippedCount:skipped.length,skipped:skipped.slice(0,300),gridMode,at:new Date().toISOString()};
   // What was placed, element by element: the engineer's later changes become corrections (src/ai-training.js).
   try{training?.recordPlacement?.(oid,{batch,draftId,source:data.source})}catch(error){console.error("IR Project: training",error)}
   const after=draftRow(oid,draftId);
-  saveDraft(oid,after,{placed:{...result,previousGrid,undo:{updated,removed,marks:createdMarks,work:createdWork}},log:logged(after.data||{},{step:"place",text:"Расстановка: новых "+created+", обновлено "+updated.length+
+  saveDraft(oid,after,{placed:{...result,previousGrid,undo:{updated,removed,marks:createdMarks,work:createdWork,enabled}},log:logged(after.data||{},{step:"place",text:"Расстановка: новых "+created+", обновлено "+updated.length+
    " (координаты и отметки), удалено прежних "+removed.length+(kept.length?", смонтированные сохранены "+kept.length:"")+" · "+
    Object.entries(payloads.reduce((a,x)=>(a[x.data.scheme_group_label]=(a[x.data.scheme_group_label]||0)+1,a),{})).map(([k,v])=>k+" "+v).join(", ")+
-   ", связано с ведомостью "+linked+(createdMarks.length?", в ведомость добавлено марок "+createdMarks.length+(createdWork?" (вид работ «"+AUTO_WORK+"» создан)":""):"")+", пропущено "+skipped.length+", сетка: "+({created:"создана",replaced:"заменена",kept:"сохранена"}[gridMode])})});
+   ", связано с ведомостью "+linked+(createdMarks.length?", в ведомость добавлено марок "+createdMarks.length+(createdWork?" (вид работ «"+AUTO_WORK+"» создан)":""):"")+
+   (byWork.length>1||byWork[0]?.id&&String(byWork[0].id)!==String(createdWork)?" · по видам работ: "+byWork.map(w=>"«"+w.name+"» "+w.count).join(", "):"")+
+   (enabled.length?" (монтажная схема включена у "+enabled.length+")":"")+", пропущено "+skipped.length+", сетка: "+({created:"создана",replaced:"заменена",kept:"сохранена"}[gridMode])})});
   return view(oid,draftRow(oid,draftId))
  }
  function undo(id,draftId){
@@ -618,6 +653,8 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   const marksNow=database.listEntity(oid,"marks");
   for(const id of placed.undo?.marks||[]){const m=marksNow.find(r=>String(r.id)===String(id));if(m&&!inUse(id)&&!(Number(m.data?.mounted)>0)&&database.deleteEntity(oid,"marks",id))marksRemoved++}
   if(placed.undo?.work&&!database.listEntity(oid,"marks").some(m=>String(m.data?.work_type_id)===String(placed.undo.work)))database.deleteEntity(oid,"work-types",placed.undo.work);
+  // The tick «Нужна монтажная схема» this placement set goes back.
+  for(const wid of placed.undo?.enabled||[]){const w=database.listEntity(oid,"work-types").find(r=>String(r.id)===String(wid));if(w)database.updateEntity(oid,"work-types",w.id,{record_type:w.record_type||"item",parent_id:w.parent_id,title:w.title,data:{...w.data,scheme_enabled:false}})}
   });
   saveDraft(oid,row,{placed:null,log:logged(row.data||{},{step:"undo",text:"Расстановка отменена: удалено новых "+removed+", возвращено прежних "+((placed.undo?.updated||[]).length+(placed.undo?.removed||[]).length)+(marksRemoved?", из ведомости убрано марок "+marksRemoved:"")})});
   return{removed,view:view(oid,draftRow(oid,draftId))}

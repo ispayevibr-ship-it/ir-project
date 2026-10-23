@@ -61,6 +61,7 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog,shell,
  handle("ai-documents:open",(_e,{objectId,id})=>documents.open(objectId,id));
  handle("ai-documents:remove",(_e,{objectId,id})=>documents.remove(objectId,id));
  handle("ai-documents:set-kinds",(_e,{objectId,items})=>documents.setKinds(objectId,items));
+ handle("ai-documents:set-work-types",(_e,{objectId,items})=>documents.setWorkTypes(objectId,items));
  handle("ai-documents:set-excluded",(_e,{objectId,id,pages})=>documents.setExcluded(objectId,id,pages));
  handle("ai-documents:sheets",(_e,{objectId,id})=>montage.documentSheets(objectId,id));
  handle("ai-documents:preview",(_e,{objectId,id,page})=>raster.preview(objectId,id,page));

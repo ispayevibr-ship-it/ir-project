@@ -99,6 +99,10 @@
 .ir-ms-filelist tr{cursor:pointer}
 .ir-ms-filelist tr.sel td{background:#e8f2fb}
 .ir-ms-filelist select,.ir-ms-pane-head select{height:28px;font-size:11px;padding:0 6px}
+.ir-ms-filelist [data-ms-work]{min-width:130px;max-width:220px}
+/* Names of one set differ at the end (…КМ1.pdf, …КМ2.pdf): the end is kept, the full name is in the tooltip. */
+.ir-ms-filelist td[title]{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
+.ir-ms-pane-head [data-ms-work]{max-width:220px}
 .ir-ms-log tr.off td{color:#a3b1bc;background:#fafbfc}
 .ir-ms-sheet-tools{margin-bottom:6px}
 .ir-ms-sheet-tools input{flex:1;min-width:200px;height:30px;border:1px solid #ccdae7;border-radius:7px;padding:0 9px;font-size:12px}

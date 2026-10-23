@@ -40,7 +40,7 @@ window.irAiRecognitionPage=async function(objectId){
   const jobs=[bridge.list(id).then(setPdfs).catch(()=>{pdfs=[]}),
    montage.latest(id).then(v=>{view=v}).catch(e=>{error=String(e.message||e)})];
   if(runtime)jobs.push(runtime.status().then(v=>{engine=v}).catch(()=>{engine=null}));
-  jobs.push(loadKnowledge());
+  jobs.push(loadKnowledge(),loadWorks());
   await Promise.all(jobs);
   syncHeights();
   if(alive()){render();loadSheets(selected)}
@@ -68,6 +68,21 @@ window.irAiRecognitionPage=async function(objectId){
   const valid=items.filter(x=>KINDS.includes(x.kind));
   if(!valid.length||!bridge.setKinds)return;
   try{setPdfs((await bridge.setKinds(id,valid)).documents)}catch(e){error=String(e.message||e)}
+  render()
+ }
+ // The work types of the object (section «Виды работ»): each drawing goes under one; the montage scheme shows them
+ // together or each apart.
+ let works=[];
+ async function loadWorks(){
+  try{works=(await irProject.data.forObject(id).section("work-types").list()).map(r=>({id:String(r.id),name:String(r.data?.work_type||r.title||"Без названия"),code:String(r.data?.project_code||"")}))}
+  catch{works=[]}
+ }
+ const workOf=d=>works.some(w=>w.id===d.workTypeId)?d.workTypeId:"";
+ const workSelect=(attr,value,placeholder)=>'<select '+attr+' '+(busy||!canEdit||!works.length?'disabled':'')+' title="'+(works.length?'Вид работ объекта, под которым элементы этого чертежа встанут в монтажную схему':'У объекта нет видов работ — добавьте в разделе «Виды работ»')+'">'+
+  '<option value="">'+esc(placeholder)+'</option>'+works.map(w=>'<option value="'+esc(w.id)+'" '+(w.id===value?'selected':'')+'>'+esc(w.name)+(w.code?' · '+esc(w.code):'')+'</option>').join("")+'</select>';
+ async function setWorkTypes(items){
+  if(!items.length)return;
+  try{setPdfs((await invoke("ai-documents:set-work-types",{objectId:id,items})).documents)}catch(e){error=String(e.message||e)}
   render()
  }
  async function loadSheets(docId,force=false){
@@ -121,18 +136,20 @@ window.irAiRecognitionPage=async function(objectId){
   const files='<div class="ir-ms-pane ir-ms-files"><div class="ir-ms-pane-head"><b>Файлы · '+pdfs.length+'</b>'+
    '<button class="primary" data-ms-upload '+(busy||!canEdit?'disabled':'')+'>Загрузить PDF…</button></div>'+
    (pdfs.length?'<div class="ir-ms-row ir-ms-bulk">Всем без типа: '+kindSelect("data-ms-bulk","","— тип —")+'<button data-ms-bulk-apply '+(busy||!canEdit||!missing?'disabled':'')+'>Применить</button></div>':'')+
+   (pdfs.length&&works.length?'<div class="ir-ms-row ir-ms-bulk">Вид работ всем без него: '+workSelect("data-ms-work-bulk","","— вид работ —")+'<button data-ms-work-bulk-apply '+(busy||!canEdit||!pdfs.some(d=>!workOf(d))?'disabled':'')+'>Применить</button></div>':'')+
    (pdfs.length&&canEdit?'<div class="ir-ms-row ir-ms-bulk"><button data-ms-remove-picked '+(busy||!chosen.length?'disabled':'')+'>Удалить выбранные'+(chosen.length?' ('+chosen.length+')':'')+'</button><button data-ms-remove-all '+(busy?'disabled':'')+'>Удалить все</button></div>':'')+
-   '<div class="ir-ms-scroll"><table class="ir-ms-table ir-ms-log ir-ms-filelist"><thead><tr>'+(canEdit?'<th><input type="checkbox" data-ms-pick-all aria-label="Выбрать все файлы" '+(pdfs.length&&chosen.length===pdfs.length?'checked':'')+'></th>':'')+'<th>Файл</th><th>Тип чертежа</th><th>Листы</th><th></th></tr></thead><tbody>'+
+   '<div class="ir-ms-scroll"><table class="ir-ms-table ir-ms-log ir-ms-filelist"><thead><tr>'+(canEdit?'<th><input type="checkbox" data-ms-pick-all aria-label="Выбрать все файлы" '+(pdfs.length&&chosen.length===pdfs.length?'checked':'')+'></th>':'')+'<th>Файл</th><th>Тип чертежа</th><th>Вид работ</th><th>Листы</th><th></th></tr></thead><tbody>'+
    (pdfs.length?pdfs.map(d=>'<tr class="'+(String(d.id)===String(selected)?'sel ':'')+(typed(d)?'':'warn')+'" data-ms-select="'+d.id+'">'+(canEdit?'<td><input type="checkbox" data-ms-pick="'+d.id+'" '+(picked.has(String(d.id))?'checked':'')+'></td>':'')+'<td title="'+esc(d.name)+'">'+esc(d.name)+'</td>'+
-    '<td>'+kindSelect('data-ms-kind="'+d.id+'"',typed(d)?d.kind:"","не выбран")+'</td><td>'+sheetCount(d)+'</td>'+
+    '<td>'+kindSelect('data-ms-kind="'+d.id+'"',typed(d)?d.kind:"","не выбран")+'</td><td>'+workSelect('data-ms-work="'+d.id+'"',workOf(d),"не выбран")+'</td><td>'+sheetCount(d)+'</td>'+
     '<td>'+(canEdit?'<button class="link" data-ms-remove="'+d.id+'" title="Удалить из IR Project AI">✕</button>':'')+'</td></tr>').join(""):
-    '<tr><td colspan="5" class="muted">Загрузите PDF чертежей: КМ, КМД сборочные, КМД монтажные, АР, ТХ.</td></tr>')+'</tbody></table></div>'+
-   '<p class="ir-ms-note">'+(missing?'<b class="bad">Без типа: '+missing+'</b> · ':'')+Object.entries(counts).map(([k,v])=>esc(k)+' — '+v).join(" · ")+'</p></div>';
+    '<tr><td colspan="6" class="muted">Загрузите PDF чертежей: КМ, КМД сборочные, КМД монтажные, АР, ТХ.</td></tr>')+'</tbody></table></div>'+
+   '<p class="ir-ms-note">'+(missing?'<b class="bad">Без типа: '+missing+'</b> · ':'')+Object.entries(counts).map(([k,v])=>esc(k)+' — '+v).join(" · ")+'</p>'+
+   (pdfs.length?'<p class="ir-ms-note">'+(works.length?'Вид работ — под каким видом работ объекта элементы чертежа встанут в монтажную схему (там можно смотреть все виды вместе или каждый отдельно). Не выбран — «Монтаж металлоконструкций (из PDF)».':'У объекта нет видов работ: элементы встанут под «Монтаж металлоконструкций (из PDF)». Свои виды работ добавляются в разделе «Виды работ».')+'</p>':'')+'</div>';
   let sheets='<div class="ir-ms-pane ir-ms-sheets"><p class="muted">Выберите файл слева.</p></div>';
   if(doc){
    const list=entry?.sheets||[],excluded=entry?.excluded||new Set();
    const shown=list.filter(s=>!sheetFilter||(s.page+" "+s.name+" "+s.code).toLowerCase().includes(sheetFilter.toLowerCase()));
-   sheets='<div class="ir-ms-pane ir-ms-sheets"><div class="ir-ms-pane-head"><b title="'+esc(doc.name)+'">'+esc(doc.name)+'</b>'+kindSelect('data-ms-kind="'+doc.id+'"',typed(doc)?doc.kind:"","тип не выбран")+'</div>'+
+   sheets='<div class="ir-ms-pane ir-ms-sheets"><div class="ir-ms-pane-head"><b title="'+esc(doc.name)+'">'+esc(doc.name)+'</b>'+kindSelect('data-ms-kind="'+doc.id+'"',typed(doc)?doc.kind:"","тип не выбран")+(works.length?workSelect('data-ms-work="'+doc.id+'"',workOf(doc),"вид работ не выбран"):'')+'</div>'+
     (doc.kind==="Не анализировать"?'<p class="muted">Файл не участвует в анализе.</p>':
     entry?.loading?'<p class="ir-ms-wait"><i></i>Читаем листы и штампы…</p>':entry?.error?'<p class="ir-ms-error">'+esc(entry.error)+'</p>':
     '<div class="ir-ms-row ir-ms-sheet-tools"><input type="search" data-ms-sheet-filter placeholder="Найти лист по номеру, названию, марке" value="'+esc(sheetFilter)+'">'+
@@ -280,7 +297,7 @@ window.irAiRecognitionPage=async function(objectId){
   else if(placed){
    const gridText={created:"сетка осей создана",replaced:"сетка осей заменена",kept:"сетка осей сохранена, элементы привязаны по названиям осей"}[placed.gridMode]||"";
    body='<div class="ir-ms-card ok"><p>Новых элементов: <b>'+placed.created+'</b>'+(placed.updated?' · обновлено (координаты и отметки): <b>'+placed.updated+'</b>':'')+(placed.removed?' · удалено прежних: '+placed.removed:'')+
-    (placed.keptMounted?' · смонтированные оставлены: '+placed.keptMounted:'')+(placed.linked?' · с ведомостью связано '+placed.linked:'')+(placed.marksCreated?' · в ведомость добавлено марок: '+placed.marksCreated+(placed.workCreated?' (вид работ «Монтаж металлоконструкций (из PDF)»)':''):'')+' · '+esc(gridText)+(placed.skippedCount?' · пропущено '+placed.skippedCount:'')+'</p></div>'+
+    (placed.keptMounted?' · смонтированные оставлены: '+placed.keptMounted:'')+(placed.linked?' · с ведомостью связано '+placed.linked:'')+(placed.marksCreated?' · в ведомость добавлено марок: '+placed.marksCreated+(placed.workCreated?' (вид работ «Монтаж металлоконструкций (из PDF)»)':''):'')+(placed.byWork?.length>1||placed.byWork?.[0]&&!placed.workCreated?' · по видам работ: '+placed.byWork.map(w=>'«'+esc(w.name)+'» '+w.count).join(', '):'')+' · '+esc(gridText)+(placed.skippedCount?' · пропущено '+placed.skippedCount:'')+'</p></div>'+
     '<div class="ir-ms-row"><button class="primary" data-ms-open>Открыть монтажную схему</button><button data-ms-placeit '+(busy||!plan?.ready||!canEdit?'disabled':'')+'>Расставить заново</button><button data-ms-undo '+(busy||!canEdit?'disabled':'')+'>Отменить расстановку</button>'+clearButton()+'</div>'+
     skippedHtml(placed.skipped,placed.skippedCount)+editsCard()
   }else{
@@ -412,6 +429,8 @@ window.irAiRecognitionPage=async function(objectId){
   on("[data-ms-go]",e=>go(e.currentTarget.dataset.msGo));
   on("[data-ms-select]",e=>{if(e.target.closest("select,button,input"))return;selected=e.currentTarget.dataset.msSelect;sheetFilter="";render();loadSheets(selected)},"click");
   on("[data-ms-kind]",e=>setKinds([{id:Number(e.target.dataset.msKind),kind:e.target.value}]));
+  on("[data-ms-work]",e=>setWorkTypes([{id:Number(e.target.dataset.msWork),workTypeId:e.target.value}]));
+  on("[data-ms-work-bulk-apply]",()=>{const w=app.querySelector("[data-ms-work-bulk]")?.value;if(w)setWorkTypes(pdfs.filter(d=>!workOf(d)).map(d=>({id:d.id,workTypeId:w})))});
   on("[data-ms-bulk-apply]",()=>{const kind=app.querySelector("[data-ms-bulk]")?.value;if(kind)setKinds(pdfs.filter(d=>!typed(d)).map(d=>({id:d.id,kind})))});
   on("[data-ms-remove]",e=>{const d=pdfs.find(x=>String(x.id)===e.currentTarget.dataset.msRemove);if(d)removeDocs([d])});
   on("[data-ms-pick]",e=>{const k=e.target.dataset.msPick;if(e.target.checked)picked.add(k);else picked.delete(k);render()});

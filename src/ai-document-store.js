@@ -27,7 +27,7 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
    ext:String(data.extension||""),size:Number(data.size)||0,
    sha256:String(data.sha256||""),addedAt:row.created_at,exists,
    pages:Number(data.page_count)||null,excluded:Array.isArray(data.excluded_pages)?data.excluded_pages:[],
-   status:"Не распознано"}
+   workTypeId:String(data.work_type_id||""),status:"Не распознано"}
  }
  function setKinds(id,items){
   id=objectId(id);
@@ -38,6 +38,23 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
    const row=record(id,item.id);
    if(row.data?.kind===item.kind)continue;
    database.updateEntity(id,"ai-documents",row.id,{record_type:row.record_type,title:row.title,data:{...row.data,kind:item.kind}});changed++
+  }
+  return{changed,documents:list(id)}
+ }
+ // The work type of the object each drawing belongs to (section «Виды работ»): its elements are placed under it, the
+ // montage scheme shows each work type apart. Empty — the program's own «Монтаж металлоконструкций (из PDF)».
+ function setWorkTypes(id,items){
+  id=objectId(id);
+  if(!Array.isArray(items)||items.length>2000)throw Error("Некорректный список документов");
+  const works=new Set(database.listEntity(id,"work-types").map(w=>String(w.id)));
+  let changed=0;
+  for(const item of items){
+   const work=String(item?.workTypeId??"");
+   if(work&&!works.has(work))throw Error("Вид работ не найден у этого объекта");
+   const row=record(id,item?.id);
+   if(String(row.data?.work_type_id||"")===work)continue;
+   const data={...row.data};if(work)data.work_type_id=work;else delete data.work_type_id;
+   database.updateEntity(id,"ai-documents",row.id,{record_type:row.record_type,title:row.title,data});changed++
   }
   return{changed,documents:list(id)}
  }
@@ -164,6 +181,6 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   return{buffer,source:{documentId:row.id,name:row.data.original_name,
     sha256,kind:row.data.kind,bytes:buffer.length,format:"PDF"}}
  }
- return{list,select,setKinds,setExcluded,sheets,saveSheets,open,remove,deleteObjectFiles,readForAnalysis,readForPdfIndex};
+ return{list,select,setKinds,setWorkTypes,setExcluded,sheets,saveSheets,open,remove,deleteObjectFiles,readForAnalysis,readForPdfIndex};
 }
 module.exports={createStore,EXTENSIONS,MAX_FILE_BYTES,KINDS};

@@ -92,10 +92,10 @@
   var $=function(id){return document.getElementById(id)};
   var esc=function(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})};
   var fmt=function(v){var n=Number(v);return Number.isFinite(n)?Number(n.toFixed(1)).toLocaleString("ru-RU",{maximumFractionDigits:1}):"—"};
-  var S={hidden:new Set(),status:"all",min:"",max:"",q:"",sel:"",color:"type",labels:false,dims:false,bg:D.background||"standard"};
+  var S={hidden:new Set(),status:"all",work:"all",min:"",max:"",q:"",sel:"",color:"type",labels:false,dims:false,bg:D.background||"standard"};
   var statusText={mounted:"Смонтирована",partial:"Частично смонтирована",planned:"Не смонтирована"};
   var levelOk=function(c){var lo=Math.min(c.z0,c.z2),hi=Math.max(c.z0,c.z2);if(S.min!==""&&hi<Number(S.min))return false;if(S.max!==""&&lo>Number(S.max))return false;return true};
-  var shown=function(){return D.elements.filter(function(c){return!S.hidden.has(c.scheme_group)&&(S.status==="all"||c.status===S.status)&&levelOk(c)})};
+  var shown=function(){return D.elements.filter(function(c){return!S.hidden.has(c.scheme_group)&&(S.work==="all"||String(c.work||"")===S.work)&&(S.status==="all"||c.status===S.status)&&levelOk(c)})};
   var match=function(c){var q=S.q.trim().toLowerCase();return!q||[c.mark,c.mark_name,c.type_name,c.axisX,c.axisY].join(" ").toLowerCase().indexOf(q)>=0};
   function draw3d(){
    var els=shown();
@@ -131,6 +131,8 @@
    $("uncard").onclick=function(){S.sel="";details();list();draw3d()}
   }
   $("status").onchange=function(e){S.status=e.target.value;draw3d();list()};
+  // All the work types together, or one of them, as in the program.
+  if($("work"))$("work").onchange=function(e){S.work=e.target.value;S.sel="";details();draw3d();list()};
   $("lmin").oninput=function(e){S.min=e.target.value;draw3d();list()};
   $("lmax").oninput=function(e){S.max=e.target.value;draw3d();list()};
   $("q").oninput=function(e){S.q=e.target.value;list()};
@@ -180,7 +182,7 @@
    '<button type="button" id="full">⛶ На весь экран</button><button type="button" id="panel" aria-expanded="false" aria-controls="side">☰ Сведения и фильтры</button></div><div id="stage3d">'+still(d)+'</div></section>'+
    '<div class="box card" id="details" hidden></div>'+
    '<aside class="side" id="side"><div class="box"><button type="button" class="side-close" id="close" aria-label="Свернуть панель">✕</button><h3>Сводка</h3>'+sum+'</div><div class="box"><h3>Виды конструкций</h3><div class="groups" id="groups"></div><div class="groups-actions"><button type="button" id="all">Показать все</button><button type="button" id="none">Скрыть все</button></div></div>'+
-   '<div class="box"><h3>Фильтр</h3><label class="f">Статус<select id="status"><option value="all">Все</option><option value="mounted">Смонтированы</option><option value="partial">Частично</option><option value="planned">Не смонтированы</option></select></label>'+
+   '<div class="box"><h3>Фильтр</h3>'+((d.works||[]).length>1?'<label class="f">Вид работ<select id="work"><option value="all">Все виды работ вместе</option>'+d.works.map(function(w){return'<option value="'+esc(w.id)+'">'+esc(w.label)+' · '+w.count+'</option>'}).join("")+'</select></label>':'')+'<label class="f">Статус<select id="status"><option value="all">Все</option><option value="mounted">Смонтированы</option><option value="partial">Частично</option><option value="planned">Не смонтированы</option></select></label>'+
    '<div class="row2"><label class="f">Отметка от, мм<input id="lmin" type="number" inputmode="numeric"></label><label class="f">до, мм<input id="lmax" type="number" inputmode="numeric"></label></div><div class="empty">На экране: <b id="cnt"></b></div></div>'+
    '<div class="box"><h3>Элементы</h3><input id="q" type="search" placeholder="Марка, наименование, ось" autocomplete="off"><div class="empty" id="found"></div><div class="list" id="list"></div></div>'+
    '<div class="empty foot">Выгружено из IR Project — только просмотр. Вращение — левая кнопка мыши, сдвиг — правая, масштаб — колесо; щелчок по элементу — его карточка.</div></aside></div></main>';
