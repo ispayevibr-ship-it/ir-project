@@ -1,0 +1,2310 @@
+{
+ "catalog": "fasteners",
+ "version": 1,
+ "note": "Метизы: как их пишут на чертежах (kind designation), классы прочности, размеры болтов, гаек, шайб по ГОСТ с проверкой массы. Масса комплекта считается по этим таблицам, не придумывается.",
+ "records": [
+  {
+   "id": "std-7798",
+   "kind": "designation",
+   "item": "bolt",
+   "standard": "ГОСТ 7798-70",
+   "title": "Болт с шестигранной головкой, класс точности В (нормальной точности)",
+   "examples": [
+    "Болт М12-6gх60.58 (S18) ГОСТ 7798-70",
+    "Болт 2М12х1,25-6gх60.109.40Х.016 ГОСТ 7798-70"
+   ],
+   "parts": [
+    "исполнение (1 не пишется, 2…)",
+    "М + диаметр резьбы",
+    "мелкий шаг (крупный не пишется)",
+    "поле допуска 6g",
+    "х длина",
+    "класс прочности без точки: 58 = 5.8, 88 = 8.8, 109 = 10.9",
+    "марка стали (для классов 10.9 и выше)",
+    "код покрытия (016 — цинк 6 мкм хроматированный)",
+    "(S..) — размер под ключ, если не по таблице"
+   ],
+   "sources": [
+    "meganorm-7798-70"
+   ],
+   "precision": "B",
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "std-22353",
+   "kind": "designation",
+   "item": "bolt",
+   "standard": "ГОСТ 22353-77",
+   "title": "Болт высокопрочный, класс точности В (фрикционные и растянутые соединения)",
+   "examples": [
+    "Болт М 20-6 g×100.110 ГОСТ 22353-77"
+   ],
+   "parts": [
+    "М + диаметр",
+    "поле допуска",
+    "х длина",
+    "временное сопротивление в МПа/10: 110 = 1100 МПа, 135 = 1350 МПа",
+    "ХЛ1 — климатическое исполнение ХЛ"
+   ],
+   "sources": [
+    "meganorm-22353-77",
+    "meganorm-22356-77"
+   ],
+   "precision": "B",
+   "high_strength": true,
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "std-5915",
+   "kind": "designation",
+   "item": "nut",
+   "standard": "ГОСТ 5915-70",
+   "title": "Гайка шестигранная, класс точности В",
+   "examples": [
+    "Гайка М12-6Н.5 (S18) ГОСТ 5915-70"
+   ],
+   "parts": [
+    "М + диаметр",
+    "поле допуска 6Н",
+    "класс прочности гайки: 5, 8, 10, 12",
+    "(S..) — размер под ключ"
+   ],
+   "sources": [
+    "meganorm-5915-70"
+   ],
+   "precision": "B",
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "std-22354",
+   "kind": "designation",
+   "item": "nut",
+   "standard": "ГОСТ 22354-77",
+   "title": "Гайка высокопрочная, класс точности В",
+   "examples": [
+    "Гайка М20-6Н.110 ГОСТ 22354-77",
+    "Гайка М20-6Н.110.ХЛ1 ГОСТ 22354-77"
+   ],
+   "parts": [
+    "М + диаметр",
+    "поле допуска",
+    "110 — прочность как у болта",
+    "ХЛ1 — климатическое исполнение"
+   ],
+   "sources": [
+    "meganorm-22354-77"
+   ],
+   "precision": "B",
+   "high_strength": true,
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "std-11371",
+   "kind": "designation",
+   "item": "washer",
+   "standard": "ГОСТ 11371-78",
+   "title": "Шайба плоская (исполнение 1 — классы А и С, исполнение 2 — фаска)",
+   "examples": [
+    "Шайба А.12.01.08кп.016 ГОСТ 11371-78",
+    "Шайба 2.12.01.08кп.016 ГОСТ 11371-78"
+   ],
+   "parts": [
+    "класс точности А или С, либо исполнение 2",
+    "диаметр резьбы крепежа (не отверстия)",
+    "код толщины (01 — по стандарту)",
+    "марка стали",
+    "код покрытия"
+   ],
+   "sources": [
+    "meganorm-11371-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "std-22355",
+   "kind": "designation",
+   "item": "washer",
+   "standard": "ГОСТ 22355-77",
+   "title": "Шайба к высокопрочным болтам, класс точности С",
+   "examples": [],
+   "parts": [
+    "диаметр резьбы болта"
+   ],
+   "sources": [
+    "meganorm-22356-77"
+   ],
+   "high_strength": true,
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "std-10906",
+   "kind": "designation",
+   "item": "washer",
+   "standard": "ГОСТ 10906-78",
+   "title": "Шайба косая: уклон 12% — под полки двутавров, 10% — швеллеров; резьба 6–27 мм",
+   "examples": [
+    "Шайба 12.02.Ст3.016 ГОСТ 10906-78"
+   ],
+   "parts": [
+    "диаметр резьбы",
+    "код",
+    "марка стали",
+    "код покрытия"
+   ],
+   "sources": [
+    "dnaop-10906-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "std-6402",
+   "kind": "designation",
+   "item": "washer",
+   "standard": "ГОСТ 6402-70",
+   "title": "Шайба пружинная (гровер): Л — лёгкая, Н — нормальная, Т — тяжёлая, ОТ — особо тяжёлая; сталь 65Г; резьба 2–48 мм",
+   "examples": [
+    "Шайба 8Л 65Г 029 ГОСТ 6402-70"
+   ],
+   "parts": [
+    "диаметр резьбы + тип (Н не пишется)",
+    "материал",
+    "код покрытия"
+   ],
+   "sources": [
+    "meganorm-6402-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "std-24379.1",
+   "kind": "designation",
+   "item": "anchor",
+   "standard": "ГОСТ 24379.1-2012",
+   "title": "Болт фундаментный: тип 1 — изогнутый (12–48), тип 2 — с анкерной плитой (16–140), тип 3 — составной (24–140), тип 4 — съёмный (24–125), тип 5 — прямой (12–48), тип 6 — с коническим концом (12–48)",
+   "examples": [
+    "Болт 1.1.М20х800.ВСт3пс2 ГОСТ 24379.1-2012",
+    "Болт 4.2.М100х6х1900 09Г2С-6 ГОСТ 24379.1-2012"
+   ],
+   "parts": [
+    "тип.исполнение",
+    "М + диаметр",
+    "мелкий шаг (если есть)",
+    "х длина L",
+    "марка стали с категорией"
+   ],
+   "sources": [
+    "meganorm-24379.1-2012"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "std-32484",
+   "kind": "designation",
+   "item": "bolt",
+   "standard": "ГОСТ 32484.3-2013",
+   "title": "Болтокомплект высокопрочный для предварительного натяжения, система HR (М12–М36, классы 8.8/8 и 10.9/10), шайбы по ГОСТ 32484.5/32484.6",
+   "examples": [],
+   "parts": [
+    "класс болта/гайки"
+   ],
+   "sources": [
+    "normacs-32484.3-2013"
+   ],
+   "high_strength": true,
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "std-7805",
+   "kind": "designation",
+   "item": "bolt",
+   "standard": "ГОСТ 7805-70",
+   "title": "Болт с шестигранной головкой, класс точности А (повышенной точности, в отверстия без зазора)",
+   "examples": [],
+   "parts": [],
+   "sources": [
+    "ascon-fasteners-list"
+   ],
+   "status": "needs_check",
+   "note": "Есть в перечне стандартов крепежа; текст не проверен",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "std-15589",
+   "kind": "designation",
+   "item": "bolt",
+   "standard": "ГОСТ 15589-70",
+   "title": "Болт с шестигранной головкой, класс точности С (грубой точности)",
+   "examples": [],
+   "parts": [],
+   "sources": [
+    "ascon-fasteners-list"
+   ],
+   "status": "needs_check",
+   "note": "Есть в перечне стандартов крепежа; текст не проверен",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "std-r-52644",
+   "kind": "designation",
+   "item": "bolt",
+   "standard": "ГОСТ Р 52644-2006",
+   "title": "Болт высокопрочный с увеличенным размером под ключ (комплект с ГОСТ Р 52645 гайкой и ГОСТ Р 52646 шайбой)",
+   "examples": [],
+   "parts": [],
+   "sources": [
+    "ascon-fasteners-list"
+   ],
+   "status": "needs_check",
+   "note": "Есть в перечне стандартов крепежа; текст не проверен",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "std-22042",
+   "kind": "designation",
+   "item": "stud",
+   "standard": "ГОСТ 22042-76",
+   "title": "Шпилька с резьбой по всей длине? — проверить назначение",
+   "examples": [],
+   "parts": [],
+   "sources": [
+    "ascon-fasteners-list"
+   ],
+   "status": "needs_check",
+   "note": "Есть в перечне стандартов крепежа; текст не проверен",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "std-din-933",
+   "kind": "designation",
+   "item": "bolt",
+   "standard": "DIN 933 / ISO 4017",
+   "title": "Болт с резьбой до головки",
+   "examples": [],
+   "parts": [],
+   "sources": [
+    "ascon-fasteners-list"
+   ],
+   "status": "needs_check",
+   "note": "Есть в перечне стандартов крепежа; текст не проверен",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "std-din-931",
+   "kind": "designation",
+   "item": "bolt",
+   "standard": "DIN 931 / ISO 4014",
+   "title": "Болт с неполной резьбой",
+   "examples": [],
+   "parts": [],
+   "sources": [
+    "ascon-fasteners-list"
+   ],
+   "status": "needs_check",
+   "note": "Есть в перечне стандартов крепежа; текст не проверен",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "std-din-7504",
+   "kind": "designation",
+   "item": "screw",
+   "standard": "DIN 7504",
+   "title": "Саморез самосверлящий (кровля, профлист)",
+   "examples": [],
+   "parts": [],
+   "sources": [
+    "ascon-fasteners-list"
+   ],
+   "status": "needs_check",
+   "note": "Есть в перечне стандартов крепежа; текст не проверен",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "std-din-975",
+   "kind": "designation",
+   "item": "stud",
+   "standard": "DIN 975",
+   "title": "Шпилька резьбовая",
+   "examples": [],
+   "parts": [],
+   "sources": [
+    "ascon-fasteners-list"
+   ],
+   "status": "needs_check",
+   "note": "Есть в перечне стандартов крепежа; текст не проверен",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "class-4.6",
+   "kind": "strength_class",
+   "Rm_MPa": 400,
+   "yield_MPa": 240,
+   "sources": [
+    "trfastenings-iso-898-1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "class": "4.6"
+  },
+  {
+   "id": "class-4.8",
+   "kind": "strength_class",
+   "Rm_MPa": 400,
+   "yield_MPa": 320,
+   "sources": [
+    "trfastenings-iso-898-1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "class": "4.8"
+  },
+  {
+   "id": "class-5.6",
+   "kind": "strength_class",
+   "Rm_MPa": 500,
+   "yield_MPa": 300,
+   "sources": [
+    "trfastenings-iso-898-1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "class": "5.6"
+  },
+  {
+   "id": "class-5.8",
+   "kind": "strength_class",
+   "Rm_MPa": 500,
+   "yield_MPa": 400,
+   "sources": [
+    "trfastenings-iso-898-1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "class": "5.8"
+  },
+  {
+   "id": "class-6.8",
+   "kind": "strength_class",
+   "Rm_MPa": 600,
+   "yield_MPa": 480,
+   "sources": [
+    "trfastenings-iso-898-1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "class": "6.8"
+  },
+  {
+   "id": "class-8.8",
+   "kind": "strength_class",
+   "Rm_MPa": 800,
+   "yield_MPa": 640,
+   "sources": [
+    "trfastenings-iso-898-1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "class": "8.8"
+  },
+  {
+   "id": "class-10.9",
+   "kind": "strength_class",
+   "Rm_MPa": 1000,
+   "yield_MPa": 900,
+   "sources": [
+    "trfastenings-iso-898-1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "class": "10.9"
+  },
+  {
+   "id": "class-12.9",
+   "kind": "strength_class",
+   "Rm_MPa": 1200,
+   "yield_MPa": 1080,
+   "sources": [
+    "trfastenings-iso-898-1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "class": "12.9"
+  },
+  {
+   "id": "bolt-7798-M6",
+   "kind": "bolt",
+   "standard": "ГОСТ 7798-70",
+   "d_mm": 6,
+   "S_mm": 10,
+   "k_mm": 4.0,
+   "e_min_mm": 10.9,
+   "dw_min_mm": 8.7,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-7798-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-7798-M8",
+   "kind": "bolt",
+   "standard": "ГОСТ 7798-70",
+   "d_mm": 8,
+   "S_mm": 13,
+   "k_mm": 5.3,
+   "e_min_mm": 14.2,
+   "dw_min_mm": 11.5,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-7798-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-7798-M10",
+   "kind": "bolt",
+   "standard": "ГОСТ 7798-70",
+   "d_mm": 10,
+   "S_mm": 16,
+   "k_mm": 6.4,
+   "e_min_mm": 17.6,
+   "dw_min_mm": 14.5,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-7798-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-7798-M12",
+   "kind": "bolt",
+   "standard": "ГОСТ 7798-70",
+   "d_mm": 12,
+   "S_mm": 18,
+   "k_mm": 7.5,
+   "e_min_mm": 19.9,
+   "dw_min_mm": 16.5,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-7798-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-7798-M14",
+   "kind": "bolt",
+   "standard": "ГОСТ 7798-70",
+   "d_mm": 14,
+   "S_mm": 21,
+   "k_mm": 8.8,
+   "e_min_mm": 22.8,
+   "dw_min_mm": 19.2,
+   "not_recommended": true,
+   "sources": [
+    "meganorm-7798-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-7798-M16",
+   "kind": "bolt",
+   "standard": "ГОСТ 7798-70",
+   "d_mm": 16,
+   "S_mm": 24,
+   "k_mm": 10.0,
+   "e_min_mm": 26.2,
+   "dw_min_mm": 22.0,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-7798-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-7798-M18",
+   "kind": "bolt",
+   "standard": "ГОСТ 7798-70",
+   "d_mm": 18,
+   "S_mm": 27,
+   "k_mm": 12.0,
+   "e_min_mm": 29.6,
+   "dw_min_mm": 24.8,
+   "not_recommended": true,
+   "sources": [
+    "meganorm-7798-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-7798-M20",
+   "kind": "bolt",
+   "standard": "ГОСТ 7798-70",
+   "d_mm": 20,
+   "S_mm": 30,
+   "k_mm": 12.5,
+   "e_min_mm": 33.0,
+   "dw_min_mm": 27.7,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-7798-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-7798-M22",
+   "kind": "bolt",
+   "standard": "ГОСТ 7798-70",
+   "d_mm": 22,
+   "S_mm": 34,
+   "k_mm": 14.0,
+   "e_min_mm": 37.3,
+   "dw_min_mm": 31.4,
+   "not_recommended": true,
+   "sources": [
+    "meganorm-7798-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-7798-M24",
+   "kind": "bolt",
+   "standard": "ГОСТ 7798-70",
+   "d_mm": 24,
+   "S_mm": 36,
+   "k_mm": 15.0,
+   "e_min_mm": 39.6,
+   "dw_min_mm": 33.2,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-7798-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-7798-M27",
+   "kind": "bolt",
+   "standard": "ГОСТ 7798-70",
+   "d_mm": 27,
+   "S_mm": 41,
+   "k_mm": 17.0,
+   "e_min_mm": 45.2,
+   "dw_min_mm": 38.0,
+   "not_recommended": true,
+   "sources": [
+    "meganorm-7798-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-7798-M30",
+   "kind": "bolt",
+   "standard": "ГОСТ 7798-70",
+   "d_mm": 30,
+   "S_mm": 46,
+   "k_mm": 18.7,
+   "e_min_mm": 50.9,
+   "dw_min_mm": 42.7,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-7798-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-7798-M36",
+   "kind": "bolt",
+   "standard": "ГОСТ 7798-70",
+   "d_mm": 36,
+   "S_mm": 55,
+   "k_mm": 22.5,
+   "e_min_mm": 60.8,
+   "dw_min_mm": 51.1,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-7798-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-7798-M42",
+   "kind": "bolt",
+   "standard": "ГОСТ 7798-70",
+   "d_mm": 42,
+   "S_mm": 65,
+   "k_mm": 26.0,
+   "e_min_mm": 71.3,
+   "dw_min_mm": 59.9,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-7798-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-7798-M48",
+   "kind": "bolt",
+   "standard": "ГОСТ 7798-70",
+   "d_mm": 48,
+   "S_mm": 75,
+   "k_mm": 30.0,
+   "e_min_mm": 82.6,
+   "dw_min_mm": 69.4,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-7798-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-22353-M16",
+   "kind": "bolt",
+   "standard": "ГОСТ 22353-77",
+   "high_strength": true,
+   "d_mm": 16,
+   "pitch_mm": 2,
+   "b_mm": 38,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-22353-77"
+   ],
+   "S_mm": 27,
+   "k_mm": 12.0,
+   "e_min_mm": 29.9,
+   "mass_kg_1000_by_length": {
+    "40": 111,
+    "45": 118,
+    "50": 126,
+    "55": 134,
+    "60": 141,
+    "65": 149,
+    "70": 157,
+    "75": 164,
+    "80": 172,
+    "85": 180,
+    "90": 188,
+    "95": 195,
+    "100": 203,
+    "105": 210,
+    "110": 218,
+    "115": 226,
+    "120": 233,
+    "125": 241,
+    "130": 249,
+    "140": 264,
+    "150": 279,
+    "160": 293,
+    "170": 309,
+    "180": 324,
+    "190": 340,
+    "200": 355,
+    "220": 386,
+    "240": 416,
+    "260": 447,
+    "280": 478,
+    "300": 509
+   },
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-22353-M18",
+   "kind": "bolt",
+   "standard": "ГОСТ 22353-77",
+   "high_strength": true,
+   "d_mm": 18,
+   "pitch_mm": 2.5,
+   "b_mm": 42,
+   "not_recommended": true,
+   "sources": [
+    "meganorm-22353-77"
+   ],
+   "S_mm": 30,
+   "k_mm": 13.0,
+   "e_min_mm": 33.3,
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-22353-M20",
+   "kind": "bolt",
+   "standard": "ГОСТ 22353-77",
+   "high_strength": true,
+   "d_mm": 20,
+   "pitch_mm": 2.5,
+   "b_mm": 46,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-22353-77"
+   ],
+   "S_mm": 32,
+   "k_mm": 14.0,
+   "e_min_mm": 35.0,
+   "mass_kg_1000_by_length": {
+    "50": 198,
+    "55": 211,
+    "60": 223,
+    "65": 235,
+    "70": 247,
+    "75": 259,
+    "80": 271,
+    "85": 283,
+    "90": 295,
+    "95": 307,
+    "100": 319,
+    "105": 331,
+    "110": 343,
+    "115": 355,
+    "120": 367,
+    "125": 379,
+    "130": 391,
+    "140": 415,
+    "150": 439,
+    "160": 461,
+    "170": 485,
+    "180": 509,
+    "190": 533,
+    "200": 557,
+    "220": 605,
+    "240": 654,
+    "260": 702,
+    "280": 750,
+    "300": 798
+   },
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-22353-M22",
+   "kind": "bolt",
+   "standard": "ГОСТ 22353-77",
+   "high_strength": true,
+   "d_mm": 22,
+   "pitch_mm": 2.5,
+   "b_mm": 50,
+   "not_recommended": true,
+   "sources": [
+    "meganorm-22353-77"
+   ],
+   "S_mm": 36,
+   "k_mm": 15.0,
+   "e_min_mm": 39.6,
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-22353-M24",
+   "kind": "bolt",
+   "standard": "ГОСТ 22353-77",
+   "high_strength": true,
+   "d_mm": 24,
+   "pitch_mm": 3,
+   "b_mm": 54,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-22353-77"
+   ],
+   "S_mm": 41,
+   "k_mm": 17.0,
+   "e_min_mm": 45.2,
+   "mass_kg_1000_by_length": {
+    "60": 367,
+    "65": 386,
+    "70": 404,
+    "75": 421,
+    "80": 438,
+    "85": 456,
+    "90": 473,
+    "95": 491,
+    "100": 508,
+    "105": 525,
+    "110": 543,
+    "115": 560,
+    "120": 578,
+    "125": 595,
+    "130": 612,
+    "140": 646,
+    "150": 682,
+    "160": 714,
+    "170": 748,
+    "180": 783,
+    "190": 818,
+    "200": 853,
+    "220": 922,
+    "240": 992,
+    "260": 1061,
+    "280": 1131,
+    "300": 1200
+   },
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-22353-M27",
+   "kind": "bolt",
+   "standard": "ГОСТ 22353-77",
+   "high_strength": true,
+   "d_mm": 27,
+   "pitch_mm": 3,
+   "b_mm": 60,
+   "not_recommended": true,
+   "sources": [
+    "meganorm-22353-77"
+   ],
+   "S_mm": 46,
+   "k_mm": 19.0,
+   "e_min_mm": 50.9,
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-22353-M30",
+   "kind": "bolt",
+   "standard": "ГОСТ 22353-77",
+   "high_strength": true,
+   "d_mm": 30,
+   "pitch_mm": 3.5,
+   "b_mm": 66,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-22353-77"
+   ],
+   "status": "needs_check",
+   "note": "S, k, e для М30 в тексте источника пусты",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-22353-M36",
+   "kind": "bolt",
+   "standard": "ГОСТ 22353-77",
+   "high_strength": true,
+   "d_mm": 36,
+   "pitch_mm": 4,
+   "b_mm": 78,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-22353-77"
+   ],
+   "S_mm": 55,
+   "k_mm": 23.0,
+   "e_min_mm": 60.8,
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-22353-M42",
+   "kind": "bolt",
+   "standard": "ГОСТ 22353-77",
+   "high_strength": true,
+   "d_mm": 42,
+   "pitch_mm": 4.5,
+   "b_mm": 90,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-22353-77"
+   ],
+   "S_mm": 65,
+   "k_mm": 26.0,
+   "e_min_mm": 72.1,
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-22353-M48",
+   "kind": "bolt",
+   "standard": "ГОСТ 22353-77",
+   "high_strength": true,
+   "d_mm": 48,
+   "pitch_mm": 5,
+   "b_mm": 102,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-22353-77"
+   ],
+   "S_mm": 75,
+   "k_mm": 30.0,
+   "e_min_mm": 83.4,
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-5915-M6",
+   "kind": "nut",
+   "standard": "ГОСТ 5915-70",
+   "d_mm": 6,
+   "S_mm": 10,
+   "m_mm": 5.2,
+   "e_min_mm": 10.9,
+   "mass_kg_1000": 2.573,
+   "sources": [
+    "meganorm-5915-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-5915-M8",
+   "kind": "nut",
+   "standard": "ГОСТ 5915-70",
+   "d_mm": 8,
+   "S_mm": 13,
+   "m_mm": 6.8,
+   "e_min_mm": 14.2,
+   "mass_kg_1000": 5.548,
+   "sources": [
+    "meganorm-5915-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-5915-M10",
+   "kind": "nut",
+   "standard": "ГОСТ 5915-70",
+   "d_mm": 10,
+   "S_mm": 16,
+   "m_mm": 8.4,
+   "e_min_mm": 17.6,
+   "mass_kg_1000": 10.22,
+   "sources": [
+    "meganorm-5915-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-5915-M12",
+   "kind": "nut",
+   "standard": "ГОСТ 5915-70",
+   "d_mm": 12,
+   "S_mm": 18,
+   "m_mm": 10.8,
+   "e_min_mm": 19.9,
+   "mass_kg_1000": 15.67,
+   "sources": [
+    "meganorm-5915-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-5915-M14",
+   "kind": "nut",
+   "standard": "ГОСТ 5915-70",
+   "d_mm": 14,
+   "S_mm": 21,
+   "m_mm": 12.8,
+   "e_min_mm": 22.8,
+   "mass_kg_1000": 25.33,
+   "sources": [
+    "meganorm-5915-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-5915-M16",
+   "kind": "nut",
+   "standard": "ГОСТ 5915-70",
+   "d_mm": 16,
+   "S_mm": 24,
+   "m_mm": 14.8,
+   "e_min_mm": 26.2,
+   "mass_kg_1000": 37.61,
+   "sources": [
+    "meganorm-5915-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-5915-M18",
+   "kind": "nut",
+   "standard": "ГОСТ 5915-70",
+   "d_mm": 18,
+   "S_mm": 27,
+   "m_mm": 16.4,
+   "e_min_mm": 29.6,
+   "mass_kg_1000": 53.27,
+   "sources": [
+    "meganorm-5915-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-5915-M20",
+   "kind": "nut",
+   "standard": "ГОСТ 5915-70",
+   "d_mm": 20,
+   "S_mm": 30,
+   "m_mm": 18,
+   "e_min_mm": 33.0,
+   "mass_kg_1000": 71.44,
+   "sources": [
+    "meganorm-5915-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-5915-M22",
+   "kind": "nut",
+   "standard": "ГОСТ 5915-70",
+   "d_mm": 22,
+   "S_mm": 34,
+   "m_mm": 19.8,
+   "e_min_mm": 37.3,
+   "mass_kg_1000": 103.15,
+   "sources": [
+    "meganorm-5915-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-5915-M24",
+   "kind": "nut",
+   "standard": "ГОСТ 5915-70",
+   "d_mm": 24,
+   "S_mm": 36,
+   "m_mm": 21.5,
+   "e_min_mm": 39.6,
+   "mass_kg_1000": 122.87,
+   "sources": [
+    "meganorm-5915-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-5915-M27",
+   "kind": "nut",
+   "standard": "ГОСТ 5915-70",
+   "d_mm": 27,
+   "S_mm": 41,
+   "m_mm": 23.6,
+   "e_min_mm": 45.2,
+   "mass_kg_1000": 175.28,
+   "sources": [
+    "meganorm-5915-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-5915-M30",
+   "kind": "nut",
+   "standard": "ГОСТ 5915-70",
+   "d_mm": 30,
+   "S_mm": 46,
+   "m_mm": 25.6,
+   "e_min_mm": 50.9,
+   "mass_kg_1000": 242.54,
+   "sources": [
+    "meganorm-5915-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-5915-M36",
+   "kind": "nut",
+   "standard": "ГОСТ 5915-70",
+   "d_mm": 36,
+   "S_mm": 55,
+   "m_mm": 31,
+   "e_min_mm": 60.8,
+   "mass_kg_1000": 416.78,
+   "sources": [
+    "meganorm-5915-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-5915-M42",
+   "kind": "nut",
+   "standard": "ГОСТ 5915-70",
+   "d_mm": 42,
+   "S_mm": 65,
+   "m_mm": 34,
+   "e_min_mm": 71.3,
+   "mass_kg_1000": 623.88,
+   "sources": [
+    "meganorm-5915-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-5915-M48",
+   "kind": "nut",
+   "standard": "ГОСТ 5915-70",
+   "d_mm": 48,
+   "S_mm": 75,
+   "m_mm": 38,
+   "e_min_mm": 82.6,
+   "mass_kg_1000": 956.2,
+   "sources": [
+    "meganorm-5915-70"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-22354-M16",
+   "kind": "nut",
+   "standard": "ГОСТ 22354-77",
+   "high_strength": true,
+   "d_mm": 16,
+   "mass_kg_1000": 50,
+   "sources": [
+    "meganorm-22354-77"
+   ],
+   "note": "Размеры S и m в тексте источника не сопоставляются с диаметрами — не внесены",
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-22354-M18",
+   "kind": "nut",
+   "standard": "ГОСТ 22354-77",
+   "high_strength": true,
+   "d_mm": 18,
+   "mass_kg_1000": 66,
+   "sources": [
+    "meganorm-22354-77"
+   ],
+   "note": "Размеры S и m в тексте источника не сопоставляются с диаметрами — не внесены",
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-22354-M20",
+   "kind": "nut",
+   "standard": "ГОСТ 22354-77",
+   "high_strength": true,
+   "d_mm": 20,
+   "mass_kg_1000": 80,
+   "sources": [
+    "meganorm-22354-77"
+   ],
+   "note": "Размеры S и m в тексте источника не сопоставляются с диаметрами — не внесены",
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-22354-M22",
+   "kind": "nut",
+   "standard": "ГОСТ 22354-77",
+   "high_strength": true,
+   "d_mm": 22,
+   "mass_kg_1000": 108,
+   "sources": [
+    "meganorm-22354-77"
+   ],
+   "note": "Размеры S и m в тексте источника не сопоставляются с диаметрами — не внесены",
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-22354-M24",
+   "kind": "nut",
+   "standard": "ГОСТ 22354-77",
+   "high_strength": true,
+   "d_mm": 24,
+   "mass_kg_1000": 171,
+   "sources": [
+    "meganorm-22354-77"
+   ],
+   "note": "Размеры S и m в тексте источника не сопоставляются с диаметрами — не внесены; масса выбивается из ряда (24 и 27 > 30), проверить по оригиналу",
+   "status": "needs_check",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-22354-M27",
+   "kind": "nut",
+   "standard": "ГОСТ 22354-77",
+   "high_strength": true,
+   "d_mm": 27,
+   "mass_kg_1000": 224,
+   "sources": [
+    "meganorm-22354-77"
+   ],
+   "note": "Размеры S и m в тексте источника не сопоставляются с диаметрами — не внесены",
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-22354-M30",
+   "kind": "nut",
+   "standard": "ГОСТ 22354-77",
+   "high_strength": true,
+   "d_mm": 30,
+   "mass_kg_1000": 213,
+   "sources": [
+    "meganorm-22354-77"
+   ],
+   "note": "Размеры S и m в тексте источника не сопоставляются с диаметрами — не внесены; масса выбивается из ряда (24 и 27 > 30), проверить по оригиналу",
+   "status": "needs_check",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-22354-M36",
+   "kind": "nut",
+   "standard": "ГОСТ 22354-77",
+   "high_strength": true,
+   "d_mm": 36,
+   "mass_kg_1000": 368,
+   "sources": [
+    "meganorm-22354-77"
+   ],
+   "note": "Размеры S и m в тексте источника не сопоставляются с диаметрами — не внесены",
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-22354-M42",
+   "kind": "nut",
+   "standard": "ГОСТ 22354-77",
+   "high_strength": true,
+   "d_mm": 42,
+   "mass_kg_1000": 611,
+   "sources": [
+    "meganorm-22354-77"
+   ],
+   "note": "Размеры S и m в тексте источника не сопоставляются с диаметрами — не внесены",
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "nut-22354-M48",
+   "kind": "nut",
+   "standard": "ГОСТ 22354-77",
+   "high_strength": true,
+   "d_mm": 48,
+   "mass_kg_1000": 921,
+   "sources": [
+    "meganorm-22354-77"
+   ],
+   "note": "Размеры S и m в тексте источника не сопоставляются с диаметрами — не внесены",
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "washer-11371-6",
+   "kind": "washer",
+   "standard": "ГОСТ 11371-78",
+   "d_mm": 6,
+   "d1_C_mm": 6.6,
+   "d1_A_mm": 6.4,
+   "d2_mm": 12,
+   "s_mm": 1.6,
+   "mass_kg_1000_C": 0.99,
+   "mass_kg_1000_A": 1.016,
+   "mass_kg_1000_exec2": 0.925,
+   "sources": [
+    "meganorm-11371-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "washer-11371-8",
+   "kind": "washer",
+   "standard": "ГОСТ 11371-78",
+   "d_mm": 8,
+   "d1_C_mm": 9.0,
+   "d1_A_mm": 8.4,
+   "d2_mm": 16,
+   "s_mm": 1.6,
+   "mass_kg_1000_C": 1.725,
+   "mass_kg_1000_A": 1.828,
+   "mass_kg_1000_exec2": 1.706,
+   "sources": [
+    "meganorm-11371-78"
+   ],
+   "note": "толщина из объединённой ячейки, подтверждена массой",
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "washer-11371-10",
+   "kind": "washer",
+   "standard": "ГОСТ 11371-78",
+   "d_mm": 10,
+   "d1_C_mm": 11.0,
+   "d1_A_mm": 10.5,
+   "d2_mm": 20,
+   "s_mm": 2.0,
+   "mass_kg_1000_C": 3.438,
+   "mass_kg_1000_A": 3.571,
+   "mass_kg_1000_exec2": 3.333,
+   "sources": [
+    "meganorm-11371-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "washer-11371-12",
+   "kind": "washer",
+   "standard": "ГОСТ 11371-78",
+   "d_mm": 12,
+   "d1_C_mm": 13.5,
+   "d1_A_mm": 13.0,
+   "d2_mm": 24,
+   "s_mm": 2.5,
+   "mass_kg_1000_C": 6.066,
+   "mass_kg_1000_A": 6.27,
+   "mass_kg_1000_exec2": 5.824,
+   "sources": [
+    "meganorm-11371-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "washer-11371-14",
+   "kind": "washer",
+   "standard": "ГОСТ 11371-78",
+   "d_mm": 14,
+   "d1_C_mm": 15.5,
+   "d1_A_mm": 15.0,
+   "d2_mm": 28,
+   "s_mm": 2.5,
+   "mass_kg_1000_C": 8.377,
+   "mass_kg_1000_A": 8.612,
+   "mass_kg_1000_exec2": 8.089,
+   "sources": [
+    "meganorm-11371-78"
+   ],
+   "note": "толщина из объединённой ячейки, подтверждена массой",
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "washer-11371-16",
+   "kind": "washer",
+   "standard": "ГОСТ 11371-78",
+   "d_mm": 16,
+   "d1_C_mm": 17.5,
+   "d1_A_mm": 17.0,
+   "d2_mm": 30,
+   "s_mm": 3.0,
+   "mass_kg_1000_C": 10.976,
+   "mass_kg_1000_A": 11.295,
+   "mass_kg_1000_exec2": 10.491,
+   "sources": [
+    "meganorm-11371-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "washer-11371-18",
+   "kind": "washer",
+   "standard": "ГОСТ 11371-78",
+   "d_mm": 18,
+   "d1_C_mm": 20.0,
+   "d1_A_mm": 19.0,
+   "d2_mm": 34,
+   "s_mm": 3.0,
+   "mass_kg_1000_C": 13.976,
+   "mass_kg_1000_A": 14.697,
+   "mass_kg_1000_exec2": 13.782,
+   "sources": [
+    "meganorm-11371-78"
+   ],
+   "note": "толщина из объединённой ячейки, подтверждена массой",
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "washer-11371-20",
+   "kind": "washer",
+   "standard": "ГОСТ 11371-78",
+   "d_mm": 20,
+   "d1_C_mm": 22.0,
+   "d1_A_mm": 21.0,
+   "d2_mm": 37,
+   "s_mm": 3.0,
+   "mass_kg_1000_C": 16.361,
+   "mass_kg_1000_A": 17.156,
+   "mass_kg_1000_exec2": 16.157,
+   "sources": [
+    "meganorm-11371-78"
+   ],
+   "note": "толщина из объединённой ячейки, подтверждена массой",
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "washer-11371-22",
+   "kind": "washer",
+   "standard": "ГОСТ 11371-78",
+   "d_mm": 22,
+   "d1_C_mm": 24.0,
+   "d1_A_mm": 23.0,
+   "d2_mm": 39,
+   "s_mm": 3.0,
+   "mass_kg_1000_C": 17.47,
+   "mass_kg_1000_A": 18.339,
+   "mass_kg_1000_exec2": 17.285,
+   "sources": [
+    "meganorm-11371-78"
+   ],
+   "note": "толщина из объединённой ячейки, подтверждена массой",
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "washer-11371-24",
+   "kind": "washer",
+   "standard": "ГОСТ 11371-78",
+   "d_mm": 24,
+   "d1_C_mm": 26.0,
+   "d1_A_mm": 25.0,
+   "d2_mm": 44,
+   "s_mm": 4.0,
+   "mass_kg_1000_C": 31.058,
+   "mass_kg_1000_A": 32.315,
+   "mass_kg_1000_exec2": 30.211,
+   "sources": [
+    "meganorm-11371-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "washer-11371-27",
+   "kind": "washer",
+   "standard": "ГОСТ 11371-78",
+   "d_mm": 27,
+   "d1_C_mm": 30.0,
+   "d1_A_mm": 28.0,
+   "d2_mm": 50,
+   "s_mm": 4.0,
+   "mass_kg_1000_C": 39.438,
+   "mass_kg_1000_A": 42.298,
+   "mass_kg_1000_exec2": 39.898,
+   "sources": [
+    "meganorm-11371-78"
+   ],
+   "note": "толщина из объединённой ячейки, подтверждена массой",
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "washer-11371-30",
+   "kind": "washer",
+   "standard": "ГОСТ 11371-78",
+   "d_mm": 30,
+   "d1_C_mm": 33.0,
+   "d1_A_mm": 31.0,
+   "d2_mm": 56,
+   "s_mm": 4.0,
+   "mass_kg_1000_C": 50.456,
+   "mass_kg_1000_A": 53.612,
+   "mass_kg_1000_exec2": 50.917,
+   "sources": [
+    "meganorm-11371-78"
+   ],
+   "note": "толщина из объединённой ячейки, подтверждена массой",
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "washer-11371-33",
+   "kind": "washer",
+   "standard": "ГОСТ 11371-78",
+   "d_mm": 33,
+   "d1_C_mm": null,
+   "d1_A_mm": 34.0,
+   "d2_mm": 60,
+   "s_mm": 5.0,
+   "mass_kg_1000_C": null,
+   "mass_kg_1000_A": 75.303,
+   "mass_kg_1000_exec2": 70.809,
+   "sources": [
+    "meganorm-11371-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "washer-11371-36",
+   "kind": "washer",
+   "standard": "ГОСТ 11371-78",
+   "d_mm": 36,
+   "d1_C_mm": 39.0,
+   "d1_A_mm": 37.0,
+   "d2_mm": 66,
+   "s_mm": 5.0,
+   "mass_kg_1000_C": 87.35,
+   "mass_kg_1000_A": 92.033,
+   "mass_kg_1000_exec2": 87.078,
+   "sources": [
+    "meganorm-11371-78"
+   ],
+   "note": "толщина из объединённой ячейки, подтверждена массой",
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "washer-11371-39",
+   "kind": "washer",
+   "standard": "ГОСТ 11371-78",
+   "d_mm": 39,
+   "d1_C_mm": null,
+   "d1_A_mm": 40.0,
+   "d2_mm": 72,
+   "s_mm": 6.0,
+   "mass_kg_1000_C": null,
+   "mass_kg_1000_A": 132.513,
+   "mass_kg_1000_exec2": 124.748,
+   "sources": [
+    "meganorm-11371-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "washer-11371-42",
+   "kind": "washer",
+   "standard": "ГОСТ 11371-78",
+   "d_mm": 42,
+   "d1_C_mm": 45.0,
+   "d1_A_mm": 43.0,
+   "d2_mm": 78,
+   "s_mm": 7.0,
+   "mass_kg_1000_C": 175.088,
+   "mass_kg_1000_A": 182.68,
+   "mass_kg_1000_exec2": 171.256,
+   "sources": [
+    "meganorm-11371-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "washer-11371-48",
+   "kind": "washer",
+   "standard": "ГОСТ 11371-78",
+   "d_mm": 48,
+   "d1_C_mm": 52.0,
+   "d1_A_mm": 50.0,
+   "d2_mm": 92,
+   "s_mm": 8.0,
+   "mass_kg_1000_C": 283.956,
+   "mass_kg_1000_A": 294.013,
+   "mass_kg_1000_exec2": 276.397,
+   "sources": [
+    "meganorm-11371-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22"
+  },
+  {
+   "id": "bolt-52644-M16",
+   "kind": "bolt",
+   "standard": "ГОСТ Р 52644-2006",
+   "high_strength": true,
+   "d_mm": 16,
+   "pitch_mm": 2,
+   "S_mm": 27,
+   "S_min_mm": 26.16,
+   "k_mm": 12,
+   "e_min_mm": 29.6,
+   "b_mm": 38,
+   "b_long_mm": 44,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-52644-2006",
+    "meganorm-52644-2006-izm1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "S и e — по изменению № 1 (2011); b_mm при l ≤ 150, b_long_mm при l > 150; M18, M22, M27 — дополнительные размеры",
+   "dw_min_mm": 24.9
+  },
+  {
+   "id": "nut-52645-M16",
+   "kind": "nut",
+   "standard": "ГОСТ Р 52645-2006",
+   "high_strength": true,
+   "d_mm": 16,
+   "S_mm": 27,
+   "S_min_mm": 26.16,
+   "e_min_mm": 29.6,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-52645-2006-izm1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "S и e по изменению № 1 (2011); высота m и масса не выписаны"
+  },
+  {
+   "id": "bolt-52644-M18",
+   "kind": "bolt",
+   "standard": "ГОСТ Р 52644-2006",
+   "high_strength": true,
+   "d_mm": 18,
+   "pitch_mm": 2.5,
+   "S_mm": 30,
+   "S_min_mm": 29.16,
+   "k_mm": 13,
+   "e_min_mm": 33,
+   "b_mm": 42,
+   "b_long_mm": 48,
+   "not_recommended": true,
+   "sources": [
+    "meganorm-52644-2006",
+    "meganorm-52644-2006-izm1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "S и e — по изменению № 1 (2011); b_mm при l ≤ 150, b_long_mm при l > 150; M18, M22, M27 — дополнительные размеры"
+  },
+  {
+   "id": "nut-52645-M18",
+   "kind": "nut",
+   "standard": "ГОСТ Р 52645-2006",
+   "high_strength": true,
+   "d_mm": 18,
+   "S_mm": 30,
+   "S_min_mm": 29.16,
+   "e_min_mm": 33,
+   "not_recommended": true,
+   "sources": [
+    "meganorm-52645-2006-izm1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "S и e по изменению № 1 (2011); высота m и масса не выписаны"
+  },
+  {
+   "id": "bolt-52644-M20",
+   "kind": "bolt",
+   "standard": "ГОСТ Р 52644-2006",
+   "high_strength": true,
+   "d_mm": 20,
+   "pitch_mm": 2.5,
+   "S_mm": 34,
+   "S_min_mm": 33,
+   "k_mm": 14,
+   "e_min_mm": 37.3,
+   "b_mm": 46,
+   "b_long_mm": 52,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-52644-2006",
+    "meganorm-52644-2006-izm1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "S и e — по изменению № 1 (2011); b_mm при l ≤ 150, b_long_mm при l > 150; M18, M22, M27 — дополнительные размеры",
+   "dw_min_mm": 31.4
+  },
+  {
+   "id": "nut-52645-M20",
+   "kind": "nut",
+   "standard": "ГОСТ Р 52645-2006",
+   "high_strength": true,
+   "d_mm": 20,
+   "S_mm": 34,
+   "S_min_mm": 33,
+   "e_min_mm": 37.3,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-52645-2006-izm1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "S и e по изменению № 1 (2011); высота m и масса не выписаны"
+  },
+  {
+   "id": "bolt-52644-M22",
+   "kind": "bolt",
+   "standard": "ГОСТ Р 52644-2006",
+   "high_strength": true,
+   "d_mm": 22,
+   "pitch_mm": 2.5,
+   "S_mm": 36,
+   "S_min_mm": 35,
+   "k_mm": 15,
+   "e_min_mm": 39.6,
+   "b_mm": 50,
+   "b_long_mm": 56,
+   "not_recommended": true,
+   "sources": [
+    "meganorm-52644-2006",
+    "meganorm-52644-2006-izm1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "S и e — по изменению № 1 (2011); b_mm при l ≤ 150, b_long_mm при l > 150; M18, M22, M27 — дополнительные размеры",
+   "dw_min_mm": 33.3
+  },
+  {
+   "id": "nut-52645-M22",
+   "kind": "nut",
+   "standard": "ГОСТ Р 52645-2006",
+   "high_strength": true,
+   "d_mm": 22,
+   "S_mm": 36,
+   "S_min_mm": 35,
+   "e_min_mm": 39.6,
+   "not_recommended": true,
+   "sources": [
+    "meganorm-52645-2006-izm1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "S и e по изменению № 1 (2011); высота m и масса не выписаны"
+  },
+  {
+   "id": "bolt-52644-M24",
+   "kind": "bolt",
+   "standard": "ГОСТ Р 52644-2006",
+   "high_strength": true,
+   "d_mm": 24,
+   "pitch_mm": 3,
+   "S_mm": 41,
+   "S_min_mm": 40,
+   "k_mm": 17,
+   "e_min_mm": 45.2,
+   "b_mm": 54,
+   "b_long_mm": 60,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-52644-2006",
+    "meganorm-52644-2006-izm1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "S и e — по изменению № 1 (2011); b_mm при l ≤ 150, b_long_mm при l > 150; M18, M22, M27 — дополнительные размеры",
+   "dw_min_mm": 38
+  },
+  {
+   "id": "nut-52645-M24",
+   "kind": "nut",
+   "standard": "ГОСТ Р 52645-2006",
+   "high_strength": true,
+   "d_mm": 24,
+   "S_mm": 41,
+   "S_min_mm": 40,
+   "e_min_mm": 45.2,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-52645-2006-izm1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "S и e по изменению № 1 (2011); высота m и масса не выписаны"
+  },
+  {
+   "id": "bolt-52644-M27",
+   "kind": "bolt",
+   "standard": "ГОСТ Р 52644-2006",
+   "high_strength": true,
+   "d_mm": 27,
+   "pitch_mm": 3,
+   "S_mm": 46,
+   "S_min_mm": 45,
+   "k_mm": 19,
+   "e_min_mm": 50.9,
+   "b_mm": 60,
+   "b_long_mm": 66,
+   "not_recommended": true,
+   "sources": [
+    "meganorm-52644-2006",
+    "meganorm-52644-2006-izm1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "S и e — по изменению № 1 (2011); b_mm при l ≤ 150, b_long_mm при l > 150; M18, M22, M27 — дополнительные размеры",
+   "dw_min_mm": 42.8
+  },
+  {
+   "id": "nut-52645-M27",
+   "kind": "nut",
+   "standard": "ГОСТ Р 52645-2006",
+   "high_strength": true,
+   "d_mm": 27,
+   "S_mm": 46,
+   "S_min_mm": 45,
+   "e_min_mm": 50.9,
+   "not_recommended": true,
+   "sources": [
+    "meganorm-52645-2006-izm1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "S и e по изменению № 1 (2011); высота m и масса не выписаны"
+  },
+  {
+   "id": "bolt-52644-M30",
+   "kind": "bolt",
+   "standard": "ГОСТ Р 52644-2006",
+   "high_strength": true,
+   "d_mm": 30,
+   "pitch_mm": 3.5,
+   "S_mm": 50,
+   "S_min_mm": 49,
+   "k_mm": 19,
+   "e_min_mm": 55.4,
+   "b_mm": 66,
+   "b_long_mm": 72,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-52644-2006",
+    "meganorm-52644-2006-izm1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "S и e — по изменению № 1 (2011); b_mm при l ≤ 150, b_long_mm при l > 150; M18, M22, M27 — дополнительные размеры",
+   "dw_min_mm": 46.5
+  },
+  {
+   "id": "nut-52645-M30",
+   "kind": "nut",
+   "standard": "ГОСТ Р 52645-2006",
+   "high_strength": true,
+   "d_mm": 30,
+   "S_mm": 50,
+   "S_min_mm": 49,
+   "e_min_mm": 55.4,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-52645-2006-izm1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "S и e по изменению № 1 (2011); высота m и масса не выписаны"
+  },
+  {
+   "id": "bolt-52644-M36",
+   "kind": "bolt",
+   "standard": "ГОСТ Р 52644-2006",
+   "high_strength": true,
+   "d_mm": 36,
+   "pitch_mm": 4,
+   "S_mm": 60,
+   "S_min_mm": 58.8,
+   "k_mm": 23,
+   "e_min_mm": 66.4,
+   "b_mm": 78,
+   "b_long_mm": 84,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-52644-2006",
+    "meganorm-52644-2006-izm1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "S и e — по изменению № 1 (2011); b_mm при l ≤ 150, b_long_mm при l > 150; M18, M22, M27 — дополнительные размеры",
+   "dw_min_mm": 55.9
+  },
+  {
+   "id": "nut-52645-M36",
+   "kind": "nut",
+   "standard": "ГОСТ Р 52645-2006",
+   "high_strength": true,
+   "d_mm": 36,
+   "S_mm": 60,
+   "S_min_mm": 58.8,
+   "e_min_mm": 66.4,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-52645-2006-izm1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "S и e по изменению № 1 (2011); высота m и масса не выписаны"
+  },
+  {
+   "id": "bolt-52644-M42",
+   "kind": "bolt",
+   "standard": "ГОСТ Р 52644-2006",
+   "high_strength": true,
+   "d_mm": 42,
+   "pitch_mm": 4.5,
+   "S_mm": 65,
+   "S_min_mm": 63.1,
+   "k_mm": 26,
+   "e_min_mm": 71.3,
+   "b_mm": 90,
+   "b_long_mm": 96,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-52644-2006",
+    "meganorm-52644-2006-izm1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "S и e — по изменению № 1 (2011); b_mm при l ≤ 150, b_long_mm при l > 150; M18, M22, M27 — дополнительные размеры"
+  },
+  {
+   "id": "nut-52645-M42",
+   "kind": "nut",
+   "standard": "ГОСТ Р 52645-2006",
+   "high_strength": true,
+   "d_mm": 42,
+   "S_mm": 65,
+   "S_min_mm": 63.1,
+   "e_min_mm": 71.3,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-52645-2006-izm1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "S и e по изменению № 1 (2011); высота m и масса не выписаны"
+  },
+  {
+   "id": "bolt-52644-M48",
+   "kind": "bolt",
+   "standard": "ГОСТ Р 52644-2006",
+   "high_strength": true,
+   "d_mm": 48,
+   "pitch_mm": 5,
+   "S_mm": 75,
+   "S_min_mm": 73.1,
+   "k_mm": 30,
+   "e_min_mm": 82.6,
+   "b_mm": 102,
+   "b_long_mm": 102,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-52644-2006",
+    "meganorm-52644-2006-izm1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "S и e — по изменению № 1 (2011); b_mm при l ≤ 150, b_long_mm при l > 150; M18, M22, M27 — дополнительные размеры"
+  },
+  {
+   "id": "nut-52645-M48",
+   "kind": "nut",
+   "standard": "ГОСТ Р 52645-2006",
+   "high_strength": true,
+   "d_mm": 48,
+   "S_mm": 75,
+   "S_min_mm": 73.1,
+   "e_min_mm": 82.6,
+   "not_recommended": false,
+   "sources": [
+    "meganorm-52645-2006-izm1"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "S и e по изменению № 1 (2011); высота m и масса не выписаны"
+  },
+  {
+   "id": "bolt-52644-mass",
+   "kind": "bolt_mass_table",
+   "standard": "ГОСТ Р 52644-2006",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-52644-2006"
+   ],
+   "note": "Таблица Б.1 (масса 1000 шт.) прочитана с перепутанными столбцами: прирост массы на длину соответствует М16, М18, М20, а не М16, М20, М24. Не использовать до сверки с бумажным текстом."
+  },
+  {
+   "id": "washer-6958-6",
+   "kind": "washer",
+   "standard": "ГОСТ 6958-78",
+   "d_mm": 6,
+   "d1_C_mm": 6.6,
+   "d1_A_mm": 6.4,
+   "d2_mm": 18,
+   "s_mm": 1.6,
+   "mass_kg_1000_C": 2.77,
+   "mass_kg_1000_A": 2.796,
+   "sources": [
+    "meganorm-6958-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "шайба увеличенная; масса сверена с размерами кольца (ρ = 7850)"
+  },
+  {
+   "id": "washer-6958-8",
+   "kind": "washer",
+   "standard": "ГОСТ 6958-78",
+   "d_mm": 8,
+   "d1_C_mm": 9,
+   "d1_A_mm": 8.4,
+   "d2_mm": 24,
+   "s_mm": 2,
+   "mass_kg_1000_C": 6,
+   "mass_kg_1000_A": 6.13,
+   "sources": [
+    "meganorm-6958-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "шайба увеличенная; масса сверена с размерами кольца (ρ = 7850)"
+  },
+  {
+   "id": "washer-6958-10",
+   "kind": "washer",
+   "standard": "ГОСТ 6958-78",
+   "d_mm": 10,
+   "d1_C_mm": 11,
+   "d1_A_mm": 10.5,
+   "d2_mm": 30,
+   "s_mm": 2.5,
+   "mass_kg_1000_C": 12,
+   "mass_kg_1000_A": 12.17,
+   "sources": [
+    "meganorm-6958-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "шайба увеличенная; масса сверена с размерами кольца (ρ = 7850)"
+  },
+  {
+   "id": "washer-6958-12",
+   "kind": "washer",
+   "standard": "ГОСТ 6958-78",
+   "d_mm": 12,
+   "d1_C_mm": 13.5,
+   "d1_A_mm": 13,
+   "d2_mm": 37,
+   "s_mm": 3,
+   "mass_kg_1000_C": 21.63,
+   "mass_kg_1000_A": 22,
+   "sources": [
+    "meganorm-6958-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "шайба увеличенная; масса сверена с размерами кольца (ρ = 7850)"
+  },
+  {
+   "id": "washer-6958-14",
+   "kind": "washer",
+   "standard": "ГОСТ 6958-78",
+   "d_mm": 14,
+   "d1_C_mm": 15.5,
+   "d1_A_mm": 15,
+   "d2_mm": 44,
+   "s_mm": 3,
+   "mass_kg_1000_C": 31.56,
+   "mass_kg_1000_A": 32,
+   "sources": [
+    "meganorm-6958-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "шайба увеличенная; масса сверена с размерами кольца (ρ = 7850)"
+  },
+  {
+   "id": "washer-6958-16",
+   "kind": "washer",
+   "standard": "ГОСТ 6958-78",
+   "d_mm": 16,
+   "d1_C_mm": 17.5,
+   "d1_A_mm": 17,
+   "d2_mm": 50,
+   "s_mm": 3,
+   "mass_kg_1000_C": 40.34,
+   "mass_kg_1000_A": 41,
+   "sources": [
+    "meganorm-6958-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "шайба увеличенная; масса сверена с размерами кольца (ρ = 7850)"
+  },
+  {
+   "id": "washer-6958-18",
+   "kind": "washer",
+   "standard": "ГОСТ 6958-78",
+   "d_mm": 18,
+   "d1_C_mm": 20,
+   "d1_A_mm": 19,
+   "d2_mm": 56,
+   "s_mm": 4,
+   "mass_kg_1000_C": 67.14,
+   "mass_kg_1000_A": 68,
+   "sources": [
+    "meganorm-6958-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "шайба увеличенная; масса сверена с размерами кольца (ρ = 7850)"
+  },
+  {
+   "id": "washer-6958-20",
+   "kind": "washer",
+   "standard": "ГОСТ 6958-78",
+   "d_mm": 20,
+   "d1_C_mm": 22,
+   "d1_A_mm": 21,
+   "d2_mm": 60,
+   "s_mm": 4,
+   "mass_kg_1000_C": 77,
+   "mass_kg_1000_A": 78,
+   "sources": [
+    "meganorm-6958-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "шайба увеличенная; масса сверена с размерами кольца (ρ = 7850)"
+  },
+  {
+   "id": "washer-6958-22",
+   "kind": "washer",
+   "standard": "ГОСТ 6958-78",
+   "d_mm": 22,
+   "d1_C_mm": 24,
+   "d1_A_mm": 23,
+   "d2_mm": 66,
+   "s_mm": 5,
+   "mass_kg_1000_C": 116,
+   "mass_kg_1000_A": 118,
+   "sources": [
+    "meganorm-6958-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "шайба увеличенная; масса сверена с размерами кольца (ρ = 7850)"
+  },
+  {
+   "id": "washer-6958-24",
+   "kind": "washer",
+   "standard": "ГОСТ 6958-78",
+   "d_mm": 24,
+   "d1_C_mm": 26,
+   "d1_A_mm": 25,
+   "d2_mm": 72,
+   "s_mm": 5,
+   "mass_kg_1000_C": 139,
+   "mass_kg_1000_A": 131,
+   "sources": [
+    "meganorm-6958-78"
+   ],
+   "status": "needs_check",
+   "checked": "2026-10-22",
+   "note": "шайба увеличенная; масса сверена с размерами кольца (ρ = 7850); масса класса А 131 в тексте меньше класса С 139 — опечатка (по кольцу 140,5)"
+  },
+  {
+   "id": "washer-6958-27",
+   "kind": "washer",
+   "standard": "ГОСТ 6958-78",
+   "d_mm": 27,
+   "d1_C_mm": 30,
+   "d1_A_mm": 28,
+   "d2_mm": 85,
+   "s_mm": 6,
+   "mass_kg_1000_C": 234,
+   "mass_kg_1000_A": 238,
+   "sources": [
+    "meganorm-6958-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "шайба увеличенная; масса сверена с размерами кольца (ρ = 7850)"
+  },
+  {
+   "id": "washer-6958-30",
+   "kind": "washer",
+   "standard": "ГОСТ 6958-78",
+   "d_mm": 30,
+   "d1_C_mm": 33,
+   "d1_A_mm": 31,
+   "d2_mm": 92,
+   "s_mm": 6,
+   "mass_kg_1000_C": 273,
+   "mass_kg_1000_A": 277,
+   "sources": [
+    "meganorm-6958-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "шайба увеличенная; масса сверена с размерами кольца (ρ = 7850)"
+  },
+  {
+   "id": "washer-6958-36",
+   "kind": "washer",
+   "standard": "ГОСТ 6958-78",
+   "d_mm": 36,
+   "d1_C_mm": 39,
+   "d1_A_mm": 37,
+   "d2_mm": 110,
+   "s_mm": 8,
+   "mass_kg_1000_C": 522,
+   "mass_kg_1000_A": 529,
+   "sources": [
+    "meganorm-6958-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "шайба увеличенная; масса сверена с размерами кольца (ρ = 7850)"
+  },
+  {
+   "id": "washer-6958-42",
+   "kind": "washer",
+   "standard": "ГОСТ 6958-78",
+   "d_mm": 42,
+   "d1_C_mm": 45,
+   "d1_A_mm": null,
+   "d2_mm": 125,
+   "s_mm": 10,
+   "mass_kg_1000_C": 838.4,
+   "mass_kg_1000_A": null,
+   "sources": [
+    "meganorm-6958-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "шайба увеличенная; масса сверена с размерами кольца (ρ = 7850)"
+  },
+  {
+   "id": "washer-6958-48",
+   "kind": "washer",
+   "standard": "ГОСТ 6958-78",
+   "d_mm": 48,
+   "d1_C_mm": 52,
+   "d1_A_mm": null,
+   "d2_mm": 145,
+   "s_mm": 10,
+   "mass_kg_1000_C": 1129.606,
+   "mass_kg_1000_A": null,
+   "sources": [
+    "meganorm-6958-78"
+   ],
+   "status": "confirmed",
+   "checked": "2026-10-22",
+   "note": "шайба увеличенная; масса сверена с размерами кольца (ρ = 7850)"
+  }
+ ]
+}

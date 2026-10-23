@@ -1,0 +1,119 @@
+.wt-page{padding:24px 32px 60px}.wt-head{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:18px;margin-bottom:18px}.wt-head h1{margin:0 0 3px;font-size:22px}.wt-head p{margin:0;color:#87919f;font-size:10px}.wt-head>.primary{font-size:11px}.wt-list{overflow:hidden;background:#fff;border:1px solid #dce5eb;border-radius:10px}.wt-table-head,.wt-row{display:grid;grid-template-columns:minmax(210px,1.35fr) minmax(150px,.9fr) 76px minmax(115px,.7fr) minmax(140px,.8fr) 132px 170px;gap:12px;align-items:center;padding:0 16px}.wt-table-head{height:38px;background:#f3f6f8;color:#718392;font-size:9.5px}.wt-row{min-height:58px;border-top:1px solid #e7edf1}.wt-row:hover{background:#f9fbfc}.wt-row>div:not(.wt-actions){display:grid;gap:3px}.wt-row>div>span{display:none;color:#87919f;font-size:9px}.wt-row b{color:#263b4a;font-size:11px}.wt-volume small{display:block;margin-top:3px;color:#8a99a3;font-size:8px;font-weight:400}.wt-ready-value{display:grid;grid-template-columns:auto minmax(70px,1fr);align-items:center;gap:8px}.wt-ready-value>b{font-size:11px;color:#263b4a}.wt-ready-value i{position:relative;display:block;height:6px;overflow:hidden;border-radius:999px;background:#e7edf1}.wt-ready-value i em{display:block;height:100%;border-radius:999px;background:#35a66f}.wt-ready>span,.wt-volume>span{display:none;color:#87919f;font-size:9px}.wt-actions{display:flex;justify-content:flex-end;gap:7px}.wt-actions button{padding:7px 10px;border:1px solid #d8e0e7;border-radius:7px;background:#fff;color:#526170;font-size:9px}.wt-actions button:hover{background:#f3f6f8}.wt-actions .danger{color:#b42318!important}.wt-empty{padding:50px;text-align:center;color:#82909c;font-size:11px}.wt-dialog{width:520px}.wt-dialog form{display:grid;gap:17px}@media(max-width:1200px){.wt-table-head,.wt-row{grid-template-columns:minmax(180px,1.25fr) minmax(135px,.85fr) 68px 105px 125px 120px 150px}.wt-actions button{padding:7px 8px}}@media(max-width:900px){.wt-table-head{display:none}.wt-row{grid-template-columns:1fr 1fr}.wt-row>div>span,.wt-ready>span,.wt-volume>span{display:block}.wt-actions{grid-column:1/-1;justify-content:flex-start;padding-bottom:10px}.wt-ready-value{max-width:240px}}
+.wt-service-hint{padding:10px 12px;border:1px solid #d8e5ee;border-radius:8px;background:#f5f9fc;color:#617787;font-size:9px;line-height:1.45}.wt-service-row{background:#fbfcfd}.wt-service-status{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.wt-service-status b{display:inline-flex;align-items:center;min-height:24px;padding:0 8px;border-radius:999px;font-size:9px}.wt-service-status.done b{background:#e8f7ee;color:#267b50}.wt-service-status.pending b{background:#f1f3f5;color:#6e7d87}.wt-service-status small{color:#84939f;font-size:8px}
+.wt-dialog [hidden]{display:none!important}
+
+.wt-switch{display:inline-flex;align-items:center;gap:4px;margin:0 0 12px;padding:4px;border:1px solid #dce5eb;border-radius:9px;background:#eef3f6}.wt-switch button{display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;border:0;border-radius:6px;background:transparent;color:#607482;font-size:9px;font-weight:700;cursor:pointer}.wt-switch button:hover{background:#f8fafb;color:#345063}.wt-switch button.on{background:#fff;color:#1769e0;box-shadow:0 1px 3px rgba(23,54,77,.10)}.wt-switch button span{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:18px;padding:0 5px;border-radius:999px;background:#dfe7ec;color:#6d7e89;font-size:8px}.wt-switch button.on span{background:#e8f1ff;color:#1769e0}@media(max-width:700px){.wt-switch{display:grid;grid-template-columns:1fr 1fr;width:100%}.wt-switch button{justify-content:center;padding:0 8px}}
+
+
+.ir-pretty-native{display:none!important}
+.ir-pretty-select{position:relative;width:100%}
+.ir-pretty-trigger{display:flex;align-items:center;justify-content:space-between;width:100%;height:42px;padding:0 12px;border:1px solid #cfd9e1;border-radius:8px;background:#fff;color:#2e4352;font-size:10px;font-weight:600;text-align:left;box-shadow:0 1px 2px rgba(24,54,75,.04)}
+.ir-pretty-trigger:hover{border-color:#b9c8d3;background:#fbfcfd}
+.ir-pretty-select.open .ir-pretty-trigger{border-color:#75a9e8;box-shadow:0 0 0 3px rgba(23,105,224,.09)}
+.ir-pretty-trigger i{width:8px;height:8px;border-right:1.7px solid #5b6f7e;border-bottom:1.7px solid #5b6f7e;transform:rotate(45deg) translateY(-2px);transition:transform .15s}
+.ir-pretty-select.open .ir-pretty-trigger i{transform:rotate(225deg) translate(-1px,-1px)}
+.ir-pretty-menu{position:absolute;z-index:1000;left:0;right:0;top:calc(100% + 6px);max-height:280px;overflow:auto;padding:5px;border:1px solid #cfd9e1;border-radius:9px;background:#fff;box-shadow:0 14px 34px rgba(24,54,75,.18)}
+.ir-pretty-menu[hidden]{display:none!important}
+.ir-pretty-select.open-up .ir-pretty-menu{top:auto;bottom:calc(100% + 6px)}
+.ir-pretty-menu button{display:block;width:100%;min-height:34px;padding:8px 10px;border:0;border-radius:6px;background:#fff;color:#304757;font-size:10px;font-weight:500;text-align:left}
+.ir-pretty-menu button:hover{background:#f2f7fb}
+.ir-pretty-menu button.selected{background:#eaf3ff;color:#1769e0;font-weight:700}
+.ir-pretty-menu button:disabled{opacity:.42;cursor:not-allowed;background:#f7f8f9}
+
+.wt-scheme-cell,.wt-scheme-na{display:grid;gap:3px}.wt-scheme-cell>span,.wt-scheme-na>span{display:none;color:#87919f;font-size:9px}
+.wt-scheme-na b{color:#9aa7af;font-size:10px}
+.wt-scheme-toggle{display:inline-flex;align-items:center;gap:7px;cursor:pointer;user-select:none}.wt-scheme-toggle input{position:absolute;opacity:0;pointer-events:none}.wt-scheme-toggle i{position:relative;width:17px;height:17px;border:1px solid #cbd6dd;border-radius:4px;background:#fff;transition:.14s}.wt-scheme-toggle i:after{content:"";position:absolute;left:4px;top:1px;width:5px;height:9px;border-right:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(45deg) scale(0);transform-origin:center;transition:.12s}.wt-scheme-toggle input:checked+i{border-color:#1769e0;background:#1769e0}.wt-scheme-toggle input:checked+i:after{transform:rotate(45deg) scale(1)}.wt-scheme-toggle b{color:#738592;font-size:8px;font-weight:700}.wt-scheme-toggle input:checked~b{color:#1769e0}.wt-scheme-toggle input:disabled+i{opacity:.6}.wt-scheme-toggle input:disabled~b{opacity:.7}
+.wt-scheme-option{display:flex!important;align-items:flex-start;gap:10px;padding:11px 12px;border:1px solid #d8e5ee;border-radius:9px;background:#f8fbfd;cursor:pointer}.wt-scheme-option input{width:16px;height:16px;margin:1px 0 0;accent-color:#1769e0}.wt-scheme-option>span{display:grid;gap:3px}.wt-scheme-option b{color:#294356;font-size:9px}.wt-scheme-option small{color:#7f909c;font-size:8px;font-weight:400;line-height:1.35}
+@media(max-width:900px){.wt-scheme-cell>span,.wt-scheme-na>span{display:block}.wt-scheme-cell,.wt-scheme-na{align-self:start}}
+
+
+/* Keep the work types grid contained inside the object page / tab viewport. */
+.wt-page{box-sizing:border-box;width:100%;max-width:100%;min-width:0;overflow-x:clip}
+.wt-head{min-width:0}
+.wt-head>div{min-width:0}
+.wt-head p{overflow-wrap:anywhere}
+.wt-list{width:100%;max-width:100%;min-width:0;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain}
+.wt-table-head,.wt-row{min-width:1090px}
+@media(max-width:1200px){.wt-table-head,.wt-row{min-width:990px}}
+@media(max-width:900px){.wt-table-head{display:none}.wt-row{min-width:0;grid-template-columns:repeat(2,minmax(0,1fr))}}
+body.ir-object-route:has(.wt-page){max-width:100vw;overflow-x:clip}
+
+/* 1.7.94: concise icon-only action buttons for all work type categories */
+.wt-table-head,.wt-row{grid-template-columns:minmax(210px,1.35fr) minmax(150px,.9fr) 76px minmax(115px,.7fr) minmax(140px,.8fr) 132px 90px}
+.wt-actions{gap:6px;justify-content:flex-end;align-items:center}
+.wt-actions button{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;min-height:34px;padding:0!important;border-radius:7px}
+.wt-actions button svg{display:block;width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.wt-actions button:focus-visible{outline:2px solid #2d8ada;outline-offset:2px}
+@media(max-width:1200px){.wt-table-head,.wt-row{grid-template-columns:minmax(180px,1.25fr) minmax(135px,.85fr) 68px 105px 125px 120px 90px}}
+@media(max-width:900px){.wt-row{grid-template-columns:repeat(2,minmax(0,1fr))}.wt-actions{grid-column:1/-1;justify-content:flex-end}}
+
+/* IR Project 1.7.95: table no longer contains a mounting scheme status column. */
+.wt-table-head,.wt-row{
+ grid-template-columns:minmax(200px,1.45fr) minmax(145px,.95fr) 76px minmax(120px,.8fr) minmax(155px,1fr) 90px;
+ min-width:890px;
+}
+@media(max-width:1200px){
+ .wt-table-head,.wt-row{grid-template-columns:minmax(170px,1.3fr) minmax(135px,.9fr) 68px minmax(105px,.75fr) minmax(135px,.9fr) 90px;min-width:800px}
+}
+@media(max-width:900px){
+ .wt-table-head{display:none}
+ .wt-row{min-width:0;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .wt-actions{grid-column:1/-1;justify-content:flex-end}
+}
+
+/* IR Project 1.7.127 — responsive work-type progress columns.
+   Rows must fit the available panel width, instead of relying on 800–890px
+   minimum widths that keep the progress bars artificially wide. */
+.wt-page{container:wt-work-types / inline-size}
+.wt-page .wt-list{min-width:0;max-width:100%}
+.wt-page .wt-table-head,
+.wt-page .wt-row{
+ width:100%;
+ min-width:0;
+ box-sizing:border-box;
+ grid-template-columns:minmax(165px,1.35fr) minmax(120px,.95fr) minmax(50px,.4fr) minmax(105px,.85fr) minmax(90px,.95fr) 80px;
+ gap:8px;
+ padding-left:12px;
+ padding-right:12px;
+}
+.wt-page .wt-row>div{min-width:0}
+.wt-page .wt-ready,
+.wt-page .wt-ready-value{min-width:0;width:100%;max-width:none}
+.wt-page .wt-ready-value{
+ grid-template-columns:max-content minmax(0,1fr);
+ gap:7px;
+}
+.wt-page .wt-ready-value i{
+ width:100%;
+ min-width:0;
+ max-width:100%;
+}
+.wt-page .wt-actions{grid-column:auto;padding-bottom:0;justify-content:flex-end}
+@media(max-width:900px){
+ .wt-page .wt-table-head{display:none}
+ .wt-page .wt-row{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  row-gap:12px;
+  padding:12px;
+ }
+ .wt-page .wt-actions{grid-column:1 / -1}
+ .wt-page .wt-ready-value{max-width:240px}
+}
+/* A narrow content area can occur inside an object sidebar even when the
+   Electron window is wider than a phone/tablet viewport. */
+@container wt-work-types (max-width:740px){
+ .wt-page .wt-table-head{display:none}
+ .wt-page .wt-row{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  row-gap:12px;
+  padding:12px;
+ }
+ .wt-page .wt-row>div>span,
+ .wt-page .wt-ready>span,
+ .wt-page .wt-volume>span{display:block}
+ .wt-page .wt-actions{
+  grid-column:1 / -1;
+  justify-content:flex-end;
+ }
+ .wt-page .wt-ready-value{max-width:240px}
+}

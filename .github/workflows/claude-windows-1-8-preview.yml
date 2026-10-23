@@ -1,0 +1,100 @@
+name: IR Project Claude 1.8 Windows EXE
+on:
+  push:
+    branches: [claude/pdf-scheme-claude]
+    paths: ['.github/workflows/claude-windows-1-8-preview.yml','src/**','main.js','preload.js','package.json','scripts/**','hot/**']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: ir-project-claude-preview
+  cancel-in-progress: false
+jobs:
+  windows-installer:
+    # Builds run only in the open repository of the program; the closed one of the data (ir-project-data) builds nothing.
+    if: github.repository == 'ispayevibr-ship-it/ir-project'
+    runs-on: windows-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/pdf-scheme-claude
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      # The installer carries the hot-update version, so a fresh install never runs older hot files,
+      # and takes later hot updates from this branch.
+      - name: Set version and hot-update branch
+        shell: pwsh
+        run: |
+          $v = (Get-Content hot/latest.json -Raw | ConvertFrom-Json).version
+          npm pkg set "version=$v" "irHotBranch=claude/pdf-scheme-claude"
+          "APP_VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Verify syntax and AI + montage tests
+        shell: pwsh
+        run: |
+          node --check main.js
+          node --check preload.js
+          node --check src/ai-claude-engine.js
+          node --check src/ai-scheme-extract.js
+          node scripts/test-ai-claude-engine.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/test-ai-scheme-extract.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/test-ai-montage.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/test-ai-sheet-extract.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/test-ai-storage.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/test-ai-section-extract.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/test-ai-kmd-rules.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/test-ai-ocr.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/test-ai-claude-code.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/test-ai-drawing-members.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/test-ai-hot-modules.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/test-database-safety.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build bundled runtime
+        run: node scripts/build-runtime.js
+      - name: Build Claude EXE
+        shell: pwsh
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          npx electron-builder --win nsis --publish never
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path "dist/IR-Project-Setup-$env:APP_VERSION.exe")) { throw 'EXE missing' }
+      - name: Write build details
+        shell: pwsh
+        run: |
+          $sha = (Get-FileHash "dist/IR-Project-Setup-$env:APP_VERSION.exe" -Algorithm SHA256).Hash.ToLowerInvariant()
+          $commit = git rev-parse HEAD
+          "IR PROJECT Claude $env:APP_VERSION, source: $commit" | Out-File dist/BUILD-DETAILS.txt
+          "SHA256 $sha IR-Project-Setup-$env:APP_VERSION.exe" | Out-File dist/SHA256SUMS.txt
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: IR-Project-Claude-${{ env.APP_VERSION }}
+          path: |
+            dist/IR-Project-Setup-${{ env.APP_VERSION }}.exe
+            dist/BUILD-DETAILS.txt
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish separate prerelease EXE
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "ir-project-claude-$env:APP_VERSION-${{ github.run_number }}"
+          gh release create $tag "dist/IR-Project-Setup-$env:APP_VERSION.exe" 'dist/BUILD-DETAILS.txt' 'dist/SHA256SUMS.txt' --title "IR Project Claude $env:APP_VERSION Preview" --target (git rev-parse HEAD) --notes 'Build from claude/pdf-scheme-claude branch. No main changes. Preview: back up existing data before installing. Not the ChatGPT Plus branch.' --prerelease

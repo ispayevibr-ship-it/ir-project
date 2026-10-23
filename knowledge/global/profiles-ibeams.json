@@ -1,0 +1,329 @@
+{
+ "catalog": "profiles-ibeams",
+ "version": 1,
+ "records": [
+  {
+   "id": "ibeam-8239-10",
+   "designation": "Двутавр 10",
+   "standard": "ГОСТ 8239-89",
+   "h_mm": 100.0,
+   "b_mm": 55.0,
+   "s_mm": 4.5,
+   "t_mm": 7.2,
+   "R_mm": 7.0,
+   "r_mm": 2.5,
+   "flange_slope": true,
+   "A_cm2": 12.0,
+   "mass_kg_m": 9.46,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "spbstu-8239-89"
+   ]
+  },
+  {
+   "id": "ibeam-8239-12",
+   "designation": "Двутавр 12",
+   "standard": "ГОСТ 8239-89",
+   "h_mm": 120.0,
+   "b_mm": 64.0,
+   "s_mm": 4.8,
+   "t_mm": 7.3,
+   "R_mm": 7.5,
+   "r_mm": 3.0,
+   "flange_slope": true,
+   "A_cm2": 14.7,
+   "mass_kg_m": 11.5,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "spbstu-8239-89"
+   ]
+  },
+  {
+   "id": "ibeam-8239-14",
+   "designation": "Двутавр 14",
+   "standard": "ГОСТ 8239-89",
+   "h_mm": 140.0,
+   "b_mm": 73.0,
+   "s_mm": 4.9,
+   "t_mm": 7.5,
+   "R_mm": 8.0,
+   "r_mm": 3.0,
+   "flange_slope": true,
+   "A_cm2": 17.4,
+   "mass_kg_m": 13.7,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "spbstu-8239-89"
+   ]
+  },
+  {
+   "id": "ibeam-8239-16",
+   "designation": "Двутавр 16",
+   "standard": "ГОСТ 8239-89",
+   "h_mm": 160.0,
+   "b_mm": 81.0,
+   "s_mm": 5.0,
+   "t_mm": 7.8,
+   "R_mm": 8.5,
+   "r_mm": 3.5,
+   "flange_slope": true,
+   "A_cm2": 20.2,
+   "mass_kg_m": 15.9,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "spbstu-8239-89"
+   ]
+  },
+  {
+   "id": "ibeam-8239-18",
+   "designation": "Двутавр 18",
+   "standard": "ГОСТ 8239-89",
+   "h_mm": 180.0,
+   "b_mm": 90.0,
+   "s_mm": 5.1,
+   "t_mm": 8.1,
+   "R_mm": 9.0,
+   "r_mm": 3.5,
+   "flange_slope": true,
+   "A_cm2": 23.4,
+   "mass_kg_m": 18.4,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "spbstu-8239-89"
+   ]
+  },
+  {
+   "id": "ibeam-8239-20",
+   "designation": "Двутавр 20",
+   "standard": "ГОСТ 8239-89",
+   "h_mm": 200.0,
+   "b_mm": 100.0,
+   "s_mm": 5.2,
+   "t_mm": 8.4,
+   "R_mm": 9.5,
+   "r_mm": 4.0,
+   "flange_slope": true,
+   "A_cm2": 26.8,
+   "mass_kg_m": 21.0,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "spbstu-8239-89"
+   ]
+  },
+  {
+   "id": "ibeam-8239-22",
+   "designation": "Двутавр 22",
+   "standard": "ГОСТ 8239-89",
+   "h_mm": 220.0,
+   "b_mm": 110.0,
+   "s_mm": 5.4,
+   "t_mm": 8.7,
+   "R_mm": 10.0,
+   "r_mm": 4.0,
+   "flange_slope": true,
+   "A_cm2": 30.6,
+   "mass_kg_m": 24.0,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "spbstu-8239-89"
+   ]
+  },
+  {
+   "id": "ibeam-8239-24",
+   "designation": "Двутавр 24",
+   "standard": "ГОСТ 8239-89",
+   "h_mm": 240.0,
+   "b_mm": 115.0,
+   "s_mm": 5.6,
+   "t_mm": 9.5,
+   "R_mm": 10.5,
+   "r_mm": 4.0,
+   "flange_slope": true,
+   "A_cm2": 34.8,
+   "mass_kg_m": 27.3,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "spbstu-8239-89"
+   ]
+  },
+  {
+   "id": "ibeam-8239-27",
+   "designation": "Двутавр 27",
+   "standard": "ГОСТ 8239-89",
+   "h_mm": 270.0,
+   "b_mm": 125.0,
+   "s_mm": 6.0,
+   "t_mm": 9.8,
+   "R_mm": 11.0,
+   "r_mm": 4.5,
+   "flange_slope": true,
+   "A_cm2": 40.2,
+   "mass_kg_m": 31.5,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "spbstu-8239-89"
+   ]
+  },
+  {
+   "id": "ibeam-8239-30",
+   "designation": "Двутавр 30",
+   "standard": "ГОСТ 8239-89",
+   "h_mm": 300.0,
+   "b_mm": 135.0,
+   "s_mm": 6.5,
+   "t_mm": 10.2,
+   "R_mm": 12.0,
+   "r_mm": 5.0,
+   "flange_slope": true,
+   "A_cm2": 46.5,
+   "mass_kg_m": 36.5,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "spbstu-8239-89"
+   ]
+  },
+  {
+   "id": "ibeam-8239-33",
+   "designation": "Двутавр 33",
+   "standard": "ГОСТ 8239-89",
+   "h_mm": 330.0,
+   "b_mm": 140.0,
+   "s_mm": 7.0,
+   "t_mm": 11.2,
+   "R_mm": 13.0,
+   "r_mm": 5.0,
+   "flange_slope": true,
+   "A_cm2": 53.8,
+   "mass_kg_m": 42.2,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "spbstu-8239-89"
+   ]
+  },
+  {
+   "id": "ibeam-8239-36",
+   "designation": "Двутавр 36",
+   "standard": "ГОСТ 8239-89",
+   "h_mm": 360.0,
+   "b_mm": 145.0,
+   "s_mm": 7.5,
+   "t_mm": 12.3,
+   "R_mm": 14.0,
+   "r_mm": 6.0,
+   "flange_slope": true,
+   "A_cm2": 61.9,
+   "mass_kg_m": 48.6,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "spbstu-8239-89"
+   ]
+  },
+  {
+   "id": "ibeam-8239-40",
+   "designation": "Двутавр 40",
+   "standard": "ГОСТ 8239-89",
+   "h_mm": 400.0,
+   "b_mm": 155.0,
+   "s_mm": 8.3,
+   "t_mm": 13.0,
+   "R_mm": 15.0,
+   "r_mm": 6.0,
+   "flange_slope": true,
+   "A_cm2": 72.6,
+   "mass_kg_m": 57.0,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "spbstu-8239-89"
+   ]
+  },
+  {
+   "id": "ibeam-8239-45",
+   "designation": "Двутавр 45",
+   "standard": "ГОСТ 8239-89",
+   "h_mm": 450.0,
+   "b_mm": 160.0,
+   "s_mm": 9.0,
+   "t_mm": 14.2,
+   "R_mm": 16.0,
+   "r_mm": 7.0,
+   "flange_slope": true,
+   "A_cm2": 84.7,
+   "mass_kg_m": 66.5,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "spbstu-8239-89"
+   ]
+  },
+  {
+   "id": "ibeam-8239-50",
+   "designation": "Двутавр 50",
+   "standard": "ГОСТ 8239-89",
+   "h_mm": 500.0,
+   "b_mm": 170.0,
+   "s_mm": 10.0,
+   "t_mm": 15.2,
+   "R_mm": 17.0,
+   "r_mm": 7.0,
+   "flange_slope": true,
+   "A_cm2": 100.0,
+   "mass_kg_m": 78.5,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "spbstu-8239-89"
+   ]
+  },
+  {
+   "id": "ibeam-8239-55",
+   "designation": "Двутавр 55",
+   "standard": "ГОСТ 8239-89",
+   "h_mm": 550.0,
+   "b_mm": 180.0,
+   "s_mm": 11.0,
+   "t_mm": 16.5,
+   "R_mm": 18.0,
+   "r_mm": 7.0,
+   "flange_slope": true,
+   "A_cm2": 118.0,
+   "mass_kg_m": 92.6,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "spbstu-8239-89"
+   ]
+  },
+  {
+   "id": "ibeam-8239-60",
+   "designation": "Двутавр 60",
+   "standard": "ГОСТ 8239-89",
+   "h_mm": 600.0,
+   "b_mm": 190.0,
+   "s_mm": 12.0,
+   "t_mm": 17.8,
+   "R_mm": 20.0,
+   "r_mm": 8.0,
+   "flange_slope": true,
+   "A_cm2": 138.0,
+   "mass_kg_m": 108.0,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "spbstu-8239-89"
+   ]
+  }
+ ]
+}

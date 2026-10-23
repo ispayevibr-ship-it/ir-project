@@ -1,0 +1,36 @@
+"use strict";
+(()=>{
+const icon=body=>`<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+const icons={check:icon('<path d="m5 12 4 4L19 6"/>'),calendar:icon('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/>'),pin:icon('<path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>'),plus:icon('<path d="M12 5v14M5 12h14"/>'),edit:icon('<path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/>'),dots:icon('<circle cx="12" cy="5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1" fill="currentColor" stroke="none"/>')};
+const DAY=86400000;
+const isoDate=v=>String(v||"").slice(0,10);
+const dateMs=v=>{const s=isoDate(v),t=s?Date.parse(`${s}T00:00:00Z`):NaN;return Number.isFinite(t)?t:null};
+const formatDate=v=>{if(!v)return"";const s=isoDate(v),p=s.split("-");return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:s};
+const formatMs=t=>formatDate(new Date(t).toISOString().slice(0,10));
+function scheduleDates(rows){const starts=[],ends=[];for(const row of Array.isArray(rows)?rows:[]){const d=row?.data||row||{};if(d.start_date)starts.push(isoDate(d.start_date));if(d.end_date)ends.push(isoDate(d.end_date))}starts.sort();ends.sort();return{start:starts[0]?formatDate(starts[0]):"",end:ends.length?formatDate(ends[ends.length-1]):""}}
+function scheduleDashboard(rows){
+ const all=Array.isArray(rows)?rows:[];
+ const valid=all.map(row=>{const d=row?.data||row||{},start=dateMs(d.start_date),end=dateMs(d.end_date);return{row,d,start,end}}).filter(x=>x.start!==null&&x.end!==null&&x.end>=x.start).sort((a,b)=>a.start-b.start||a.end-b.end||Number(a.row?.id||0)-Number(b.row?.id||0));
+ const header=`<div class="object-overview-block-head"><div><h2>График работ</h2><p>${valid.length?`Плановые сроки · ${valid.length} ${valid.length===1?"вид работ":"видов работ"}`:"Плановые сроки выполнения работ"}</p></div><button type="button" data-overview-schedule>Открыть график</button></div>`;
+ if(!valid.length)return `<div class="object-overview-dashboard"><section class="object-overview-schedule">${header}<div class="object-overview-empty">Раздел График работ пуст</div></section></div>`;
+ const min=Math.min(...valid.map(x=>x.start)),max=Math.max(...valid.map(x=>x.end)),span=Math.max(DAY,max-min+DAY),mid=min+(max-min)/2;
+ const rowsHtml=valid.map(({d,start,end})=>{const left=Math.max(0,Math.min(100,((start-min)/span)*100)),width=Math.max(.8,Math.min(100-left,((end-start+DAY)/span)*100)),compact=width<18?" compact":"";return `<div class="overview-gantt-row"><div class="overview-gantt-name"><b>${esc(d.work_type||"Без названия")}</b><span>${esc(d.project_code||"Шифр не указан")}</span></div><div class="overview-gantt-track"><div class="overview-gantt-bar${compact}" style="left:${left.toFixed(3)}%;width:${width.toFixed(3)}%"><span>${esc(`${formatMs(start)} — ${formatMs(end)}`)}</span></div></div></div>`}).join("");
+ return `<div class="object-overview-dashboard"><section class="object-overview-schedule">${header}<div class="overview-gantt"><div class="overview-gantt-head"><span>Вид работы / шифр</span><div class="overview-gantt-scale"><span class="start">${esc(formatMs(min))}</span><span class="middle">${esc(formatMs(mid))}</span><span class="end">${esc(formatMs(max))}</span></div></div><div class="overview-gantt-body">${rowsHtml}</div></div></section></div>`;
+}
+async function directObjectPageV2(id){
+ const o=await data().objects.get(id);if(!o)return go("/objects");
+ document.body.classList.add("ir-object-overview");
+ const [photos,schedule]=await Promise.all([objectPhotoMap(id),objectSection(id,"schedule").list().catch(()=>[])]);
+ let bannerUrl="";const bannerFile=photos.banner?.data?.file_path||"";if(bannerFile)try{bannerUrl=await irProject.images.read(bannerFile)}catch{}
+ const dates=scheduleDates(schedule),period=dates.start&&dates.end?`${dates.start} — ${dates.end}`:dates.start?`с ${dates.start}`:dates.end?`до ${dates.end}`:"Срок не задан";
+ const status=o.status||"В работе",active=status!=="Завершен";
+ app.innerHTML=`<section class="object-overview-hero" data-object-id="${id}">${bannerUrl?`<div class="object-overview-hero-bg" style="background-image:linear-gradient(180deg,rgba(10,17,27,.03),rgba(10,17,27,.20)),url(&quot;${bannerUrl}&quot;)"></div>`:""}<div class="object-hero-shade"></div><div class="object-hero-content"><div class="object-hero-top"><div class="object-hero-copy"><div class="object-hero-breadcrumbs"><button type="button" data-hero-objects>Объекты</button><span>›</span><span>${esc(o.name)}</span></div><h1>${esc(o.name)}</h1><div class="object-hero-contract"><span><b>Заказчик:</b> ${esc(o.customer||"—")}</span><span><b>Генподрядчик:</b> ${esc(o.general_contractor||"—")}</span></div></div><div class="object-hero-actions"><button type="button" class="object-hero-action primary" data-hero-report>${icons.plus}<span>Добавить отчёт</span></button><button type="button" class="object-hero-action" data-hero-edit>${icons.edit}<span>Редактировать</span></button><button type="button" class="object-hero-action icon-only" data-hero-more aria-label="Дополнительные действия">${icons.dots}</button><div class="object-hero-menu" data-hero-menu hidden><button type="button" data-hero-menu-edit>Редактировать объект</button><button type="button" data-hero-menu-objects>Все объекты</button></div></div></div><div class="object-hero-info"><div class="object-hero-status ${active?"active":"done"}">${icons.check}<span>${esc(status)}</span></div><div class="object-hero-info-item">${icons.calendar}<div><b>${esc(period)}</b><span>Срок строительства</span></div></div><div class="object-hero-info-item location">${icons.pin}<div><b>${esc(o.address||"Адрес не указан")}</b><span>Расположение объекта</span></div></div></div></div></section>${scheduleDashboard(schedule)}${formHtml()}${versionHtml()}`;
+ refreshVersion();setupObjectForm();
+ const hero=app.querySelector(".object-overview-hero"),goObjects=()=>go("/objects"),edit=()=>openObjectForm(id);
+ hero.querySelector("[data-hero-objects]").onclick=goObjects;hero.querySelector("[data-hero-report]").onclick=()=>go(`/objects/object/${id}/reports/new`);hero.querySelector("[data-hero-edit]").onclick=edit;hero.querySelector("[data-hero-menu-edit]").onclick=edit;hero.querySelector("[data-hero-menu-objects]").onclick=goObjects;
+ app.querySelector("[data-overview-schedule]")?.addEventListener("click",()=>go(`/objects/object/${id}/schedule`));
+ const more=hero.querySelector("[data-hero-more]"),menu=hero.querySelector("[data-hero-menu]");more.onclick=e=>{e.stopPropagation();menu.hidden=!menu.hidden};setTimeout(()=>document.addEventListener("click",e=>{if(!hero.contains(e.target))menu.hidden=true},{once:true}),0);
+}
+try{objectPage=directObjectPageV2}catch{}window.objectPage=directObjectPageV2;
+const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()=>directObjectPageV2(m[1]),0);
+})();

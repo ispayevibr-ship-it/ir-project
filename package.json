@@ -1,0 +1,19 @@
+{
+  "name": "ir-project",
+  "version": "1.8.1",
+  "description": "IR Project",
+  "main": "main.js",
+  "scripts": {"start":"electron .","build":"electron-builder --win nsis","publish":"electron-builder --win nsis --publish always"},
+  "dependencies": {"@anthropic-ai/sdk":"0.137.0","xlsx":"^0.18.5","pdfjs-dist":"6.4.299","@napi-rs/canvas":"1.0.10","yauzl":"^3.2.0","tesseract.js":"7.0.0","@tesseract.js-data/rus":"1.0.0"},
+  "devDependencies": {"electron":"38.1.2","electron-builder":"26.17.0","yazl":"2.5.1"},
+  "build": {
+    "appId":"com.irproject.app",
+    "productName":"IR Project",
+    "asar":true,
+    "artifactName":"IR-Project-Setup-${version}.${ext}",
+    "files":["main.js","preload.js","src/**/*","assets/**/*","knowledge/**/*.json","package.json","!node_modules/@tesseract.js-data/rus/4.0.0/**"],
+    "asarUnpack":["node_modules/tesseract.js/**","node_modules/tesseract.js-core/**","node_modules/@tesseract.js-data/rus/4.0.0_best_int/**","node_modules/pdfjs-dist/wasm/**"],
+    "win":{"target":"nsis","icon":"assets/icon.ico"},
+    "nsis":{"oneClick":true,"perMachine":false,"allowElevation":true,"deleteAppDataOnUninstall":false}
+  }
+}

@@ -1,0 +1,53 @@
+name: IR Project AI Preview (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type PREVIEW to build the isolated AI test installer"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ir-ai-preview-manual
+  cancel-in-progress: false
+
+jobs:
+  windows-preview:
+    # Builds run only in the open repository of the program; the closed one of the data (ir-project-data) builds nothing.
+    if: github.repository == 'ispayevibr-ship-it/ir-project' && github.ref == 'refs/heads/main' && inputs.confirm == 'PREVIEW'
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout AI development branch (never main for build)
+        uses: actions/checkout@v4
+        with:
+          ref: feature/ir-project-ai-next
+          persist-credentials: false
+      - name: Show exact revision
+        shell: pwsh
+        run: git rev-parse HEAD
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install
+      - name: Rebuild bundled UI runtime
+        run: node scripts/build-runtime.js
+      - name: Build isolated Windows preview (no release)
+        shell: pwsh
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          npx electron-builder --win nsis --publish never '--config.appId=com.irproject.ai.preview' '--config.productName=IR Project AI Preview' '--config.artifactName=IR-Project-AI-Preview-Setup-${version}.${ext}'
+      - name: Upload preview EXE only
+        uses: actions/upload-artifact@v4
+        with:
+          name: IR-Project-AI-Preview-${{ github.run_number }}
+          path: dist/IR-Project-AI-Preview-Setup-*.exe
+          if-no-files-found: error
+          retention-days: 14

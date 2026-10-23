@@ -1,0 +1,206 @@
+/* IR Project 1.7.73: shared overview cards in a fixed ordered right column. */
+.ir-object-overview-layout{
+ display:grid;grid-template-columns:minmax(215px,260px) minmax(0,1fr);
+ align-items:start;gap:15px;margin:15px 15px 26px;min-width:0
+}
+.ir-object-overview-left,.ir-object-overview-right{min-width:0}
+.ir-object-overview-left{display:grid;gap:10px;align-content:start}
+.ir-object-overview-sidehead{
+ min-height:54px;padding:12px 14px;display:grid;align-content:center;gap:3px;
+ background:#fff;border:1px solid #dce5eb;border-radius:10px
+}
+.ir-object-overview-sidehead h2{margin:0;font-size:14px;font-weight:800;line-height:1.2;color:#18364b}
+.ir-object-overview-sidehead p{margin:0;font-size:9px;color:#81909c}
+.ir-object-overview-left>.object-overview-top-stats{
+ display:grid!important;grid-template-columns:minmax(0,1fr)!important;
+ gap:10px!important;min-width:0!important;width:100%!important;margin:0!important
+}
+.ir-object-overview-left .oos-card{min-width:0;min-height:90px;padding:12px}
+.ir-object-overview-left .oos-card.oos-progress{grid-column:auto!important}
+.ir-object-overview-left .oos-copy{min-width:0}
+.ir-object-overview-left .oos-copy>b.oos-value{font-size:19px}
+.ir-object-overview-right{
+ display:flex;flex-direction:column;gap:14px;align-items:stretch;
+ min-width:0;width:100%
+}
+/* Keep the original wrapper nodes in place for their event handlers; their
+   children participate directly in the right column's flex layout. */
+.ir-object-overview-right>.object-overview-dashboard,
+.ir-object-overview-right>.object-overview-reports,
+.ir-object-overview-right>.object-overview-deliveries-wrap,
+.ir-object-overview-right>.object-overview-marks-wrap,
+.ir-object-overview-right>.object-overview-admin-analysis{
+ display:contents!important
+}
+.ir-object-overview-right .object-overview-reports>.oor2-card:not(.oor2-photo-card):not(.oor-marks-card){order:1}
+.ir-object-overview-right .object-overview-reports>.oor2-photo-card{order:2}
+.ir-object-overview-right .object-overview-deliveries-wrap>.ood-deliveries{order:3}
+.ir-object-overview-right .object-overview-dashboard>.object-overview-schedule{order:4}
+.ir-object-overview-right .object-overview-deliveries-wrap>.ood-comparison{order:5}
+.ir-object-overview-right .object-overview-marks-wrap>.object-overview-marks-card{order:6}
+.ir-object-overview-right .object-overview-reports>.oor-marks-card{order:6}
+.ir-object-overview-right .object-overview-admin-analysis>.ooa-acted{order:7}
+.ir-object-overview-right .object-overview-admin-analysis>.ooa-penalties{order:8}
+.ir-object-overview-has-marks .object-overview-reports>.oor-marks-card{display:none!important}
+.ir-object-overview-right>.ir-object-overview-placeholder{order:9}
+.ir-object-overview-right>.ir-object-overview-placeholder[data-panel="reports"]{order:1}
+.ir-object-overview-right>.ir-object-overview-placeholder[data-panel="photos"]{order:2}
+.ir-object-overview-right>.ir-object-overview-placeholder[data-panel="deliveries"]{order:3}
+.ir-object-overview-right>.ir-object-overview-placeholder[data-panel="schedule"]{order:4}
+.ir-object-overview-right>.ir-object-overview-placeholder[data-panel="supply"]{order:5}
+.ir-object-overview-right>.ir-object-overview-placeholder[data-panel="marks"]{order:6}
+.ir-object-overview-right>.ir-object-overview-placeholder[data-panel="acted"]{order:7}
+.ir-object-overview-right>.ir-object-overview-placeholder[data-panel="penalties"]{order:8}
+.ir-object-overview-placeholder{
+ display:flex;align-items:center;justify-content:space-between;gap:15px;
+ min-height:72px;padding:14px 16px;
+ border:1px dashed #d5e0e9;border-radius:10px;background:#fbfcfe;color:#8c9da9
+}
+.ir-object-overview-placeholder[hidden]{display:none!important}
+.ir-object-overview-placeholder h2{font-size:13px;color:#294356;margin:0 0 4px}
+.ir-object-overview-placeholder p,.ir-object-overview-placeholder span{font-size:9px;margin:0}
+.ir-object-overview-right>.object-overview-dashboard,
+.ir-object-overview-right>.object-overview-reports,
+.ir-object-overview-right>.object-overview-deliveries-wrap,
+.ir-object-overview-right>.object-overview-marks-wrap,
+.ir-object-overview-right>.object-overview-admin-analysis{margin:0!important}
+.ir-object-overview-right :is(.oor2-card,.ood-card,.object-overview-schedule,.object-overview-marks-card,.ooa-card){
+ min-width:0;width:100%;margin:0!important
+}
+.ir-object-overview-right .schedule-control-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+.ir-object-overview-right .schedule-control-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}
+.ir-object-overview-right .ood-head select{min-width:0!important;max-width:50%!important}
+.ir-object-overview-right .oor2-brief{
+ grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,.75fr) minmax(0,.75fr);
+ gap:8px
+}
+.ir-object-overview-right .oor2-volume{grid-column:1/4}
+.ir-object-overview-right .oor2-toggle{grid-column:4}
+.ir-object-overview-right .ooa-body{grid-template-columns:minmax(145px,190px) minmax(0,1fr)}
+.ir-object-overview-right :is(.oor2-list,.ood-delivery-list,.oom-list,.schedule-control-list){max-width:100%}
+@media(max-width:1280px){
+ .ir-object-overview-layout{grid-template-columns:minmax(185px,215px) minmax(0,1fr);gap:11px;margin:12px}
+ .ir-object-overview-right .oor2-brief{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .ir-object-overview-right .oor2-volume{grid-column:1/-1}
+ .ir-object-overview-right .oor2-toggle{grid-column:2;justify-self:end}
+ .ir-object-overview-right .ood-head{flex-wrap:wrap}
+ .ir-object-overview-right .ood-head select{max-width:100%!important;width:100%}
+ .ir-object-overview-right .ooa-body{grid-template-columns:1fr}
+}
+@media(max-width:980px){
+ .ir-object-overview-layout{grid-template-columns:minmax(0,1fr);gap:12px}
+ .ir-object-overview-left>.object-overview-top-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .ir-object-overview-right .ooa-body{grid-template-columns:minmax(145px,190px) minmax(0,1fr)}
+}
+@media(max-width:650px){
+ .ir-object-overview-left>.object-overview-top-stats{grid-template-columns:1fr!important}
+ .ir-object-overview-right .schedule-control-metrics,
+ .ir-object-overview-right .schedule-control-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .ir-object-overview-right .ooa-body{grid-template-columns:1fr}
+ .ir-object-overview-placeholder{flex-wrap:wrap}
+}
+
+
+/* 1.7.74: Summary above eight ordered overview cards. */
+.ir-object-overview-layout{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:13px!important;width:auto!important}
+.ir-object-overview-left{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:10px!important;width:100%!important;min-width:0!important}
+.ir-object-overview-sidehead{min-height:44px;padding:10px 14px}
+.ir-object-overview-left>.object-overview-top-stats{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:10px!important;width:100%!important;margin:0!important}
+.ir-object-overview-left .oos-card{min-width:0;min-height:102px;padding:13px}
+.ir-object-overview-right{display:flex!important;width:100%!important;min-width:0!important;align-items:stretch!important}
+@media(max-width:1250px){.ir-object-overview-left>.object-overview-top-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:650px){.ir-object-overview-left>.object-overview-top-stats{grid-template-columns:minmax(0,1fr)!important}}
+
+
+/* 1.7.75: keep the report collapse/expand button at the right edge of
+   its summary row at all widths; do not let it wrap into a third row. */
+.ir-object-overview-right .oor2-brief{
+ display:grid;
+ grid-template-areas:"date weather people equipment volume toggle";
+ grid-template-columns:minmax(0,1fr) minmax(0,1.15fr) minmax(0,.75fr) minmax(0,.75fr) minmax(0,1.6fr) 48px;
+ gap:9px;align-items:stretch
+}
+.ir-object-overview-right .oor2-brief>.oor2-date{grid-area:date;min-width:0}
+.ir-object-overview-right .oor2-brief>.oor2-weather{grid-area:weather;min-width:0}
+.ir-object-overview-right .oor2-brief>.oor2-cell:nth-child(3){grid-area:people;min-width:0}
+.ir-object-overview-right .oor2-brief>.oor2-cell:nth-child(4){grid-area:equipment;min-width:0}
+.ir-object-overview-right .oor2-brief>.oor2-volume{
+ grid-area:volume;grid-column:auto;min-width:0
+}
+.ir-object-overview-right .oor2-brief>.oor2-toggle{
+ grid-area:toggle;grid-column:auto;justify-self:end;align-self:center;
+ width:48px;min-width:48px;height:44px;margin:0;max-width:100%
+}
+@media(max-width:1180px){
+ .ir-object-overview-right .oor2-brief{
+  grid-template-areas:"date weather people equipment" "volume volume volume toggle";
+  grid-template-columns:repeat(4,minmax(0,1fr))
+ }
+ .ir-object-overview-right .oor2-brief>.oor2-toggle{
+  justify-self:end;width:48px;min-width:48px
+ }
+}
+@media(max-width:750px){
+ .ir-object-overview-right .oor2-brief{
+  grid-template-areas:"date weather" "people equipment" "volume toggle";
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px
+ }
+ .ir-object-overview-right .oor2-brief>.oor2-date{grid-column:1;grid-row:1}
+ .ir-object-overview-right .oor2-brief>.oor2-weather{grid-column:2;grid-row:1}
+ .ir-object-overview-right .oor2-brief>.oor2-cell:nth-child(3){grid-column:1;grid-row:2}
+ .ir-object-overview-right .oor2-brief>.oor2-cell:nth-child(4){grid-column:2;grid-row:2}
+ .ir-object-overview-right .oor2-brief>.oor2-volume{grid-column:1;grid-row:3}
+ .ir-object-overview-right .oor2-brief>.oor2-toggle{grid-column:2;grid-row:3}
+}
+
+/* IR Project 1.7.122: report summary cards wrap by available content width.
+   Keep the expand/collapse chevron in its own right-hand column on the first row. */
+.oor2-brief.oor2-brief-wrap{
+ display:grid;
+ grid-template-columns:minmax(0,1fr) 48px!important;
+ grid-template-areas:none!important;
+ align-items:start;
+ gap:8px;
+}
+.oor2-brief.oor2-brief-wrap>.oor2-brief-metrics{
+ display:flex;
+ flex-wrap:wrap;
+ align-items:stretch;
+ gap:8px;
+ min-width:0;
+ grid-area:1 / 1 / 2 / 2!important;
+}
+.oor2-brief.oor2-brief-wrap>.oor2-brief-metrics>.oor2-cell{
+ min-width:0;
+ display:flex!important;
+ flex:1 1 135px;
+}
+.oor2-brief.oor2-brief-wrap>.oor2-brief-metrics>.oor2-date{
+ flex-basis:155px;
+}
+.oor2-brief.oor2-brief-wrap>.oor2-brief-metrics>.oor2-weather{
+ flex-basis:185px;
+ display:flex!important;
+}
+.oor2-brief.oor2-brief-wrap>.oor2-brief-metrics>.oor2-volume{
+ flex-basis:220px;
+ grid-column:auto!important;
+}
+.oor2-brief.oor2-brief-wrap>.oor2-toggle,
+.ir-object-overview-right .oor2-brief.oor2-brief-wrap>.oor2-toggle{
+ grid-area:1 / 2 / 2 / 3!important;
+ grid-column:2!important;
+ grid-row:1!important;
+ align-self:start!important;
+ justify-self:end!important;
+ width:48px;
+ min-width:48px;
+ height:44px;
+ margin:5px 0 0;
+}
+@container ir-overview-reports (max-width:570px){
+ .oor2-brief.oor2-brief-wrap>.oor2-brief-metrics{gap:6px}
+ .oor2-brief.oor2-brief-wrap>.oor2-brief-metrics>.oor2-cell{padding:7px}
+ .oor2-brief.oor2-brief-wrap{gap:6px}
+}

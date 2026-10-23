@@ -1,0 +1,1227 @@
+{
+ "catalog": "profiles-channels",
+ "version": 1,
+ "records": [
+  {
+   "id": "channel-5У",
+   "designation": "Швеллер 5У",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 50.0,
+   "b_mm": 32.0,
+   "s_mm": 4.4,
+   "t_mm": 7.0,
+   "R_mm": 6.0,
+   "r_mm": 2.5,
+   "series": "У",
+   "flange_slope": true,
+   "A_cm2": 6.16,
+   "mass_kg_m": 4.84,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-6.5У",
+   "designation": "Швеллер 6,5У",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 65.0,
+   "b_mm": 36.0,
+   "s_mm": 4.4,
+   "t_mm": 7.2,
+   "R_mm": 6.0,
+   "r_mm": 2.5,
+   "series": "У",
+   "flange_slope": true,
+   "A_cm2": 7.51,
+   "mass_kg_m": 5.9,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-8У",
+   "designation": "Швеллер 8У",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 80.0,
+   "b_mm": 40.0,
+   "s_mm": 4.5,
+   "t_mm": 7.4,
+   "R_mm": 6.5,
+   "r_mm": 2.5,
+   "series": "У",
+   "flange_slope": true,
+   "A_cm2": 8.98,
+   "mass_kg_m": 7.05,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-10У",
+   "designation": "Швеллер 10У",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 100.0,
+   "b_mm": 46.0,
+   "s_mm": 4.5,
+   "t_mm": 7.6,
+   "R_mm": 7.0,
+   "r_mm": 3.0,
+   "series": "У",
+   "flange_slope": true,
+   "A_cm2": 10.9,
+   "mass_kg_m": 8.59,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-12У",
+   "designation": "Швеллер 12У",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 120.0,
+   "b_mm": 52.0,
+   "s_mm": 4.8,
+   "t_mm": 7.8,
+   "R_mm": 7.5,
+   "r_mm": 3.0,
+   "series": "У",
+   "flange_slope": true,
+   "A_cm2": 13.3,
+   "mass_kg_m": 10.4,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-14У",
+   "designation": "Швеллер 14У",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 140.0,
+   "b_mm": 58.0,
+   "s_mm": 4.9,
+   "t_mm": 8.1,
+   "R_mm": 8.0,
+   "r_mm": 3.0,
+   "series": "У",
+   "flange_slope": true,
+   "A_cm2": 15.6,
+   "mass_kg_m": 12.3,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-16У",
+   "designation": "Швеллер 16У",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 160.0,
+   "b_mm": 64.0,
+   "s_mm": 5.0,
+   "t_mm": 8.4,
+   "R_mm": 8.5,
+   "r_mm": 3.5,
+   "series": "У",
+   "flange_slope": true,
+   "A_cm2": 18.1,
+   "mass_kg_m": 14.2,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-16аУ",
+   "designation": "Швеллер 16аУ",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 160.0,
+   "b_mm": 68.0,
+   "s_mm": 5.0,
+   "t_mm": 9.0,
+   "R_mm": 8.5,
+   "r_mm": 3.5,
+   "series": "У",
+   "flange_slope": true,
+   "A_cm2": 19.5,
+   "mass_kg_m": 15.3,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-18У",
+   "designation": "Швеллер 18У",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 180.0,
+   "b_mm": 70.0,
+   "s_mm": 5.1,
+   "t_mm": 8.7,
+   "R_mm": 9.0,
+   "r_mm": 3.5,
+   "series": "У",
+   "flange_slope": true,
+   "A_cm2": 20.7,
+   "mass_kg_m": 16.3,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-18аУ",
+   "designation": "Швеллер 18аУ",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 180.0,
+   "b_mm": 74.0,
+   "s_mm": 5.1,
+   "t_mm": 9.3,
+   "R_mm": 9.0,
+   "r_mm": 3.5,
+   "series": "У",
+   "flange_slope": true,
+   "A_cm2": 22.2,
+   "mass_kg_m": 17.4,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-20У",
+   "designation": "Швеллер 20У",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 200.0,
+   "b_mm": 76.0,
+   "s_mm": 5.2,
+   "t_mm": 9.0,
+   "R_mm": 9.5,
+   "r_mm": 4.0,
+   "series": "У",
+   "flange_slope": true,
+   "A_cm2": 23.4,
+   "mass_kg_m": 18.4,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-22У",
+   "designation": "Швеллер 22У",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 220.0,
+   "b_mm": 82.0,
+   "s_mm": 5.4,
+   "t_mm": 9.5,
+   "R_mm": 10.0,
+   "r_mm": 4.0,
+   "series": "У",
+   "flange_slope": true,
+   "A_cm2": 26.7,
+   "mass_kg_m": 21.0,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-24У",
+   "designation": "Швеллер 24У",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 240.0,
+   "b_mm": 90.0,
+   "s_mm": 5.6,
+   "t_mm": 10.0,
+   "R_mm": 10.5,
+   "r_mm": 4.0,
+   "series": "У",
+   "flange_slope": true,
+   "A_cm2": 30.6,
+   "mass_kg_m": 24.0,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-27У",
+   "designation": "Швеллер 27У",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 270.0,
+   "b_mm": 95.0,
+   "s_mm": 6.0,
+   "t_mm": 10.5,
+   "R_mm": 11.0,
+   "r_mm": 4.5,
+   "series": "У",
+   "flange_slope": true,
+   "A_cm2": 35.2,
+   "mass_kg_m": 27.7,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-30У",
+   "designation": "Швеллер 30У",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 300.0,
+   "b_mm": 100.0,
+   "s_mm": 6.5,
+   "t_mm": 11.0,
+   "R_mm": 12.0,
+   "r_mm": 5.0,
+   "series": "У",
+   "flange_slope": true,
+   "A_cm2": 40.5,
+   "mass_kg_m": 31.8,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-33У",
+   "designation": "Швеллер 33У",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 330.0,
+   "b_mm": 105.0,
+   "s_mm": 7.0,
+   "t_mm": 11.7,
+   "R_mm": 13.0,
+   "r_mm": 5.0,
+   "series": "У",
+   "flange_slope": true,
+   "A_cm2": 46.5,
+   "mass_kg_m": 36.5,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-36У",
+   "designation": "Швеллер 36У",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 360.0,
+   "b_mm": 110.0,
+   "s_mm": 7.5,
+   "t_mm": 12.6,
+   "R_mm": 14.0,
+   "r_mm": 6.0,
+   "series": "У",
+   "flange_slope": true,
+   "A_cm2": 53.4,
+   "mass_kg_m": 41.9,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-40У",
+   "designation": "Швеллер 40У",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 400.0,
+   "b_mm": 115.0,
+   "s_mm": 8.0,
+   "t_mm": 13.5,
+   "R_mm": 15.0,
+   "r_mm": 6.0,
+   "series": "У",
+   "flange_slope": true,
+   "A_cm2": 61.5,
+   "mass_kg_m": 48.3,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-5П",
+   "designation": "Швеллер 5П",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 50.0,
+   "b_mm": 32.0,
+   "s_mm": 4.4,
+   "t_mm": 7.0,
+   "R_mm": 6.0,
+   "r_mm": 3.5,
+   "series": "П",
+   "flange_slope": false,
+   "A_cm2": 6.16,
+   "mass_kg_m": 4.84,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-6.5П",
+   "designation": "Швеллер 6,5П",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 65.0,
+   "b_mm": 36.0,
+   "s_mm": 4.4,
+   "t_mm": 7.2,
+   "R_mm": 6.0,
+   "r_mm": 3.5,
+   "series": "П",
+   "flange_slope": false,
+   "A_cm2": 7.51,
+   "mass_kg_m": 5.9,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-8П",
+   "designation": "Швеллер 8П",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 80.0,
+   "b_mm": 40.0,
+   "s_mm": 4.5,
+   "t_mm": 7.4,
+   "R_mm": 6.5,
+   "r_mm": 3.5,
+   "series": "П",
+   "flange_slope": false,
+   "A_cm2": 8.98,
+   "mass_kg_m": 7.05,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-10П",
+   "designation": "Швеллер 10П",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 100.0,
+   "b_mm": 46.0,
+   "s_mm": 4.5,
+   "t_mm": 7.6,
+   "R_mm": 7.0,
+   "r_mm": 4.0,
+   "series": "П",
+   "flange_slope": false,
+   "A_cm2": 10.9,
+   "mass_kg_m": 8.59,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-12П",
+   "designation": "Швеллер 12П",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 120.0,
+   "b_mm": 52.0,
+   "s_mm": 4.8,
+   "t_mm": 7.8,
+   "R_mm": 7.5,
+   "r_mm": 4.5,
+   "series": "П",
+   "flange_slope": false,
+   "A_cm2": 13.3,
+   "mass_kg_m": 10.4,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-14П",
+   "designation": "Швеллер 14П",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 140.0,
+   "b_mm": 58.0,
+   "s_mm": 4.9,
+   "t_mm": 8.1,
+   "R_mm": 8.0,
+   "r_mm": 4.5,
+   "series": "П",
+   "flange_slope": false,
+   "A_cm2": 15.6,
+   "mass_kg_m": 12.3,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-16П",
+   "designation": "Швеллер 16П",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 160.0,
+   "b_mm": 64.0,
+   "s_mm": 5.0,
+   "t_mm": 8.4,
+   "R_mm": 8.5,
+   "r_mm": 5.0,
+   "series": "П",
+   "flange_slope": false,
+   "A_cm2": 18.1,
+   "mass_kg_m": 14.2,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-16аП",
+   "designation": "Швеллер 16аП",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 160.0,
+   "b_mm": 68.0,
+   "s_mm": 5.0,
+   "t_mm": 9.0,
+   "R_mm": 8.5,
+   "r_mm": 5.0,
+   "series": "П",
+   "flange_slope": false,
+   "A_cm2": 19.5,
+   "mass_kg_m": 15.3,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-18П",
+   "designation": "Швеллер 18П",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 180.0,
+   "b_mm": 70.0,
+   "s_mm": 5.1,
+   "t_mm": 8.7,
+   "R_mm": 9.0,
+   "r_mm": 5.0,
+   "series": "П",
+   "flange_slope": false,
+   "A_cm2": 20.7,
+   "mass_kg_m": 16.3,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-18аП",
+   "designation": "Швеллер 18аП",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 180.0,
+   "b_mm": 74.0,
+   "s_mm": 5.1,
+   "t_mm": 9.3,
+   "R_mm": 9.0,
+   "r_mm": 5.0,
+   "series": "П",
+   "flange_slope": false,
+   "A_cm2": 22.2,
+   "mass_kg_m": 17.4,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-20П",
+   "designation": "Швеллер 20П",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 200.0,
+   "b_mm": 76.0,
+   "s_mm": 5.2,
+   "t_mm": 9.0,
+   "R_mm": 9.5,
+   "r_mm": 5.5,
+   "series": "П",
+   "flange_slope": false,
+   "A_cm2": 23.4,
+   "mass_kg_m": 18.4,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-22П",
+   "designation": "Швеллер 22П",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 220.0,
+   "b_mm": 82.0,
+   "s_mm": 5.4,
+   "t_mm": 9.5,
+   "R_mm": 10.0,
+   "r_mm": 6.0,
+   "series": "П",
+   "flange_slope": false,
+   "A_cm2": 26.7,
+   "mass_kg_m": 21.0,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-24П",
+   "designation": "Швеллер 24П",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 240.0,
+   "b_mm": 90.0,
+   "s_mm": 5.6,
+   "t_mm": 10.0,
+   "R_mm": 10.5,
+   "r_mm": 6.0,
+   "series": "П",
+   "flange_slope": false,
+   "A_cm2": 30.6,
+   "mass_kg_m": 24.0,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-27П",
+   "designation": "Швеллер 27П",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 270.0,
+   "b_mm": 95.0,
+   "s_mm": 6.0,
+   "t_mm": 10.5,
+   "R_mm": 11.0,
+   "r_mm": 6.5,
+   "series": "П",
+   "flange_slope": false,
+   "A_cm2": 35.2,
+   "mass_kg_m": 27.7,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-30П",
+   "designation": "Швеллер 30П",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 300.0,
+   "b_mm": 100.0,
+   "s_mm": 6.5,
+   "t_mm": 11.0,
+   "R_mm": 12.0,
+   "r_mm": 7.0,
+   "series": "П",
+   "flange_slope": false,
+   "A_cm2": 40.5,
+   "mass_kg_m": 31.8,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-33П",
+   "designation": "Швеллер 33П",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 330.0,
+   "b_mm": 105.0,
+   "s_mm": 7.0,
+   "t_mm": 11.7,
+   "R_mm": 13.0,
+   "r_mm": 7.5,
+   "series": "П",
+   "flange_slope": false,
+   "A_cm2": 46.5,
+   "mass_kg_m": 36.5,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-36П",
+   "designation": "Швеллер 36П",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 360.0,
+   "b_mm": 110.0,
+   "s_mm": 7.5,
+   "t_mm": 12.6,
+   "R_mm": 14.0,
+   "r_mm": 8.5,
+   "series": "П",
+   "flange_slope": false,
+   "A_cm2": 53.4,
+   "mass_kg_m": 41.9,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-40П",
+   "designation": "Швеллер 40П",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 400.0,
+   "b_mm": 115.0,
+   "s_mm": 8.0,
+   "t_mm": 13.5,
+   "R_mm": 15.0,
+   "r_mm": 9.0,
+   "series": "П",
+   "flange_slope": false,
+   "A_cm2": 61.5,
+   "mass_kg_m": 48.3,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-5Э",
+   "designation": "Швеллер 5Э",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 50.0,
+   "b_mm": 32.0,
+   "s_mm": 4.2,
+   "t_mm": 7.0,
+   "R_mm": 6.5,
+   "r_mm": 2.5,
+   "series": "Э",
+   "flange_slope": false,
+   "A_cm2": 6.1,
+   "mass_kg_m": 4.79,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-6.5Э",
+   "designation": "Швеллер 6,5Э",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 65.0,
+   "b_mm": 36.0,
+   "s_mm": 4.2,
+   "t_mm": 7.2,
+   "R_mm": 6.5,
+   "r_mm": 2.5,
+   "series": "Э",
+   "flange_slope": false,
+   "A_cm2": 7.41,
+   "mass_kg_m": 5.82,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-8Э",
+   "designation": "Швеллер 8Э",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 80.0,
+   "b_mm": 40.0,
+   "s_mm": 4.2,
+   "t_mm": 7.4,
+   "R_mm": 7.5,
+   "r_mm": 2.5,
+   "series": "Э",
+   "flange_slope": false,
+   "A_cm2": 8.82,
+   "mass_kg_m": 6.92,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-10Э",
+   "designation": "Швеллер 10Э",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 100.0,
+   "b_mm": 46.0,
+   "s_mm": 4.2,
+   "t_mm": 7.6,
+   "R_mm": 9.0,
+   "r_mm": 3.0,
+   "series": "Э",
+   "flange_slope": false,
+   "A_cm2": 10.79,
+   "mass_kg_m": 8.47,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-12Э",
+   "designation": "Швеллер 12Э",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 120.0,
+   "b_mm": 52.0,
+   "s_mm": 4.5,
+   "t_mm": 7.8,
+   "R_mm": 9.5,
+   "r_mm": 3.0,
+   "series": "Э",
+   "flange_slope": false,
+   "A_cm2": 13.09,
+   "mass_kg_m": 10.24,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-14Э",
+   "designation": "Швеллер 14Э",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 140.0,
+   "b_mm": 58.0,
+   "s_mm": 4.6,
+   "t_mm": 8.1,
+   "R_mm": 10.0,
+   "r_mm": 3.0,
+   "series": "Э",
+   "flange_slope": false,
+   "A_cm2": 15.41,
+   "mass_kg_m": 12.15,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-16Э",
+   "designation": "Швеллер 16Э",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 160.0,
+   "b_mm": 64.0,
+   "s_mm": 4.7,
+   "t_mm": 8.4,
+   "R_mm": 11.0,
+   "r_mm": 3.5,
+   "series": "Э",
+   "flange_slope": false,
+   "A_cm2": 17.85,
+   "mass_kg_m": 14.01,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-18Э",
+   "designation": "Швеллер 18Э",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 180.0,
+   "b_mm": 70.0,
+   "s_mm": 4.8,
+   "t_mm": 8.7,
+   "R_mm": 11.5,
+   "r_mm": 3.5,
+   "series": "Э",
+   "flange_slope": false,
+   "A_cm2": 20.4,
+   "mass_kg_m": 16.01,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-20Э",
+   "designation": "Швеллер 20Э",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 200.0,
+   "b_mm": 76.0,
+   "s_mm": 4.9,
+   "t_mm": 9.0,
+   "R_mm": 12.0,
+   "r_mm": 4.0,
+   "series": "Э",
+   "flange_slope": false,
+   "A_cm2": 23.02,
+   "mass_kg_m": 18.07,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-22Э",
+   "designation": "Швеллер 22Э",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 220.0,
+   "b_mm": 82.0,
+   "s_mm": 5.1,
+   "t_mm": 9.5,
+   "R_mm": 13.0,
+   "r_mm": 4.0,
+   "series": "Э",
+   "flange_slope": false,
+   "A_cm2": 26.36,
+   "mass_kg_m": 20.69,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-24Э",
+   "designation": "Швеллер 24Э",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 240.0,
+   "b_mm": 90.0,
+   "s_mm": 5.3,
+   "t_mm": 10.0,
+   "R_mm": 13.0,
+   "r_mm": 4.0,
+   "series": "Э",
+   "flange_slope": false,
+   "A_cm2": 30.19,
+   "mass_kg_m": 23.69,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-27Э",
+   "designation": "Швеллер 27Э",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 270.0,
+   "b_mm": 95.0,
+   "s_mm": 5.8,
+   "t_mm": 10.5,
+   "R_mm": 13.0,
+   "r_mm": 4.5,
+   "series": "Э",
+   "flange_slope": false,
+   "A_cm2": 34.87,
+   "mass_kg_m": 27.37,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-30Э",
+   "designation": "Швеллер 30Э",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 300.0,
+   "b_mm": 100.0,
+   "s_mm": 6.3,
+   "t_mm": 11.0,
+   "R_mm": 13.0,
+   "r_mm": 5.0,
+   "series": "Э",
+   "flange_slope": false,
+   "A_cm2": 39.94,
+   "mass_kg_m": 31.35,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-33Э",
+   "designation": "Швеллер 33Э",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 330.0,
+   "b_mm": 105.0,
+   "s_mm": 6.9,
+   "t_mm": 11.7,
+   "R_mm": 13.0,
+   "r_mm": 5.0,
+   "series": "Э",
+   "flange_slope": false,
+   "A_cm2": 46.15,
+   "mass_kg_m": 36.14,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-36Э",
+   "designation": "Швеллер 36Э",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 360.0,
+   "b_mm": 110.0,
+   "s_mm": 7.4,
+   "t_mm": 12.6,
+   "R_mm": 14.0,
+   "r_mm": 6.0,
+   "series": "Э",
+   "flange_slope": false,
+   "A_cm2": 52.9,
+   "mass_kg_m": 41.53,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-40Э",
+   "designation": "Швеллер 40Э",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 400.0,
+   "b_mm": 115.0,
+   "s_mm": 7.9,
+   "t_mm": 13.5,
+   "R_mm": 15.5,
+   "r_mm": 6.0,
+   "series": "Э",
+   "flange_slope": false,
+   "A_cm2": 61.11,
+   "mass_kg_m": 47.97,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-12Л",
+   "designation": "Швеллер 12Л",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 120.0,
+   "b_mm": 30.0,
+   "s_mm": 3.0,
+   "t_mm": 4.8,
+   "R_mm": 7.0,
+   "r_mm": null,
+   "series": "Л",
+   "flange_slope": false,
+   "A_cm2": 6.39,
+   "mass_kg_m": 5.02,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-14Л",
+   "designation": "Швеллер 14Л",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 140.0,
+   "b_mm": 32.0,
+   "s_mm": 3.2,
+   "t_mm": 5.6,
+   "R_mm": 7.0,
+   "r_mm": null,
+   "series": "Л",
+   "flange_slope": false,
+   "A_cm2": 7.57,
+   "mass_kg_m": 5.94,
+   "shape3d": "channel",
+   "status": "needs_check",
+   "sources": [
+    "dnaop-8240-97"
+   ],
+   "note": "площадь по размерам или масса не сходятся — проверить"
+  },
+  {
+   "id": "channel-16Л",
+   "designation": "Швеллер 16Л",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 160.0,
+   "b_mm": 35.0,
+   "s_mm": 3.4,
+   "t_mm": 5.3,
+   "R_mm": 8.0,
+   "r_mm": null,
+   "series": "Л",
+   "flange_slope": false,
+   "A_cm2": 9.04,
+   "mass_kg_m": 7.1,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-18Л",
+   "designation": "Швеллер 18Л",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 180.0,
+   "b_mm": 40.0,
+   "s_mm": 3.6,
+   "t_mm": 5.6,
+   "R_mm": 8.0,
+   "r_mm": null,
+   "series": "Л",
+   "flange_slope": false,
+   "A_cm2": 10.81,
+   "mass_kg_m": 8.49,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-20Л",
+   "designation": "Швеллер 20Л",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 200.0,
+   "b_mm": 45.0,
+   "s_mm": 3.8,
+   "t_mm": 6.0,
+   "R_mm": 9.0,
+   "r_mm": null,
+   "series": "Л",
+   "flange_slope": false,
+   "A_cm2": 12.89,
+   "mass_kg_m": 10.12,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-22Л",
+   "designation": "Швеллер 22Л",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 220.0,
+   "b_mm": 50.0,
+   "s_mm": 4.0,
+   "t_mm": 6.4,
+   "R_mm": 10.0,
+   "r_mm": null,
+   "series": "Л",
+   "flange_slope": false,
+   "A_cm2": 15.11,
+   "mass_kg_m": 11.86,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-24Л",
+   "designation": "Швеллер 24Л",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 240.0,
+   "b_mm": 55.0,
+   "s_mm": 4.2,
+   "t_mm": 6.8,
+   "R_mm": 10.0,
+   "r_mm": null,
+   "series": "Л",
+   "flange_slope": false,
+   "A_cm2": 17.41,
+   "mass_kg_m": 13.66,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-27Л",
+   "designation": "Швеллер 27Л",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 270.0,
+   "b_mm": 60.0,
+   "s_mm": 4.5,
+   "t_mm": 7.3,
+   "R_mm": 11.0,
+   "r_mm": null,
+   "series": "Л",
+   "flange_slope": false,
+   "A_cm2": 20.77,
+   "mass_kg_m": 16.3,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  },
+  {
+   "id": "channel-30Л",
+   "designation": "Швеллер 30Л",
+   "standard": "ГОСТ 8240-97",
+   "h_mm": 300.0,
+   "b_mm": 65.0,
+   "s_mm": 4.8,
+   "t_mm": 7.8,
+   "R_mm": 11.0,
+   "r_mm": null,
+   "series": "Л",
+   "flange_slope": false,
+   "A_cm2": 24.3,
+   "mass_kg_m": 19.07,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8240-97"
+   ]
+  }
+ ]
+}

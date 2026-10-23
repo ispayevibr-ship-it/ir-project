@@ -1,0 +1,219 @@
+"use strict";
+const app=document.getElementById("app");
+const esc=v=>String(v??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const sectionNames={reports:"Ежедневные отчеты","work-types":"Виды работ",marks:"Ведомость марок",deliveries:"Поставки",schedule:"График работ",photos:"Фотографии объекта",scheme:"Монтажная схема","ai-recognition":"ИИ-распознавание","acted-days":"Актированные дни",penalties:"Штрафы",finance:"Финансы"};
+let displayedVersion="...";const el=id=>document.getElementById(id);const data=()=>irProject.data||irProject;const objectSection=(id,key)=>data().forObject(id).section(key);
+async function refreshVersion(){try{displayedVersion=await irProject.updater.version()}catch{}const v=document.querySelector(".app-version");if(v)v.textContent=`IR Project v${displayedVersion}`;const homeVersion=el("homeInstalledVersion");if(homeVersion)homeVersion.textContent=`IR Project · версия ${displayedVersion}`}
+function go(path){location.hash=path}function mb(v){return(Number(v||0)/1048576).toFixed(1).replace(".",",")}function versionHtml(){return `<div class="app-version">IR Project v${esc(displayedVersion)}</div>`}
+function updateDialogHtml(){return `<dialog id="updateDialog" class="update-dialog"><h2 id="updateTitle">Проверка обновления</h2><p id="updateText">Проверяем наличие новой версии...</p><div id="updateProgress" class="update-progress" hidden><div id="updateBar"></div></div><div id="updateActions" class="actions"></div></dialog>`}
+function updateRefs(){return{d:el("updateDialog"),title:el("updateTitle"),text:el("updateText"),progress:el("updateProgress"),bar:el("updateBar"),actions:el("updateActions")}}
+function showUpdate(){if(window!==window.top){try{if(window.parent?.irTabUpdates?.open)return window.parent.irTabUpdates.open()}catch(e){}}const u=updateRefs();if(!u.d)return;u.d.showModal();u.title.textContent="Проверка обновления";u.text.textContent="Проверяем наличие новой версии...";u.progress.hidden=true;u.actions.innerHTML="";irProject.updater.check().catch(e=>showUpdateError(e.message))}
+function showUpdateError(message){const u=updateRefs();if(!u.d)return;if(!u.d.open)u.d.showModal();u.title.textContent="Ошибка обновления";u.text.textContent=message||"Не удалось проверить обновление.";u.progress.hidden=true;u.actions.innerHTML='<button id="updateClose">Закрыть</button>';el("updateClose").onclick=()=>u.d.close()}
+if(window===window.top)irProject.updater.onStatus(status=>{const u=updateRefs();if(!u.d)return;if(!u.d.open)u.d.showModal();if(status.type==="available"){u.title.textContent="Доступно обновление";u.text.textContent=`Доступна версия ${status.version}. Обновить IR Project?`;u.progress.hidden=true;u.actions.innerHTML='<button id="updateNo">Нет</button><button id="updateYes" class="primary">Да, обновить</button>';el("updateNo").onclick=()=>u.d.close();el("updateYes").onclick=()=>{u.title.textContent="Скачивание обновления";u.text.textContent="Подготовка к загрузке...";u.progress.hidden=false;u.bar.style.width="0%";u.actions.innerHTML="";irProject.updater.download().catch(e=>showUpdateError(e.message))}}else if(status.type==="current"){displayedVersion=status.version||displayedVersion;refreshVersion();u.title.textContent="Обновление не требуется";u.text.textContent=`У вас установлена последняя версия IR Project ${displayedVersion}.`;u.progress.hidden=true;u.actions.innerHTML='<button id="updateClose">Закрыть</button>';el("updateClose").onclick=()=>u.d.close()}else if(status.type==="progress"){u.title.textContent="Скачивание обновления";u.text.textContent=`Загружено ${status.total?`${mb(status.transferred)} МБ из ${mb(status.total)} МБ`:mb(status.transferred)+" МБ"} — ${status.percent}%`;u.progress.hidden=false;u.bar.style.width=`${status.percent}%`}else if(status.type==="downloaded"){u.title.textContent="Обновление готово";u.text.textContent=`Версия ${status.version} скачана.`;u.progress.hidden=true;u.actions.innerHTML='<button id="installUpdate" class="primary">Установить и перезапустить</button>';el("installUpdate").onclick=()=>irProject.updater.install()}else if(status.type==="error")showUpdateError(status.message)});
+function objectCard(o){const active=o.status!=="Завершен";return `<article class="object-card" data-object="${o.id}"><div class="object-cover"><div class="object-cover-top"><span class="status ${active?"active":"done"}"><i></i>${esc(o.status||"В работе")}</span><span class="open-arrow">↗</span></div><div class="object-cover-title"><h2>${esc(o.name)}</h2><p>${esc(o.address||"Адрес не указан")}</p></div></div><div class="object-info"><div><span>Заказчик</span><strong>${esc(o.customer||"—")}</strong></div><div><span>Генподрядчик</span><strong>${esc(o.general_contractor||"—")}</strong></div></div></article>`}
+function sectionChecks(values={}){return Object.entries(sectionNames).map(([key,name])=>`<label class="section-check"><input type="checkbox" data-form-section="${key}" ${values[key]!==false?"checked":""}><span><strong>${esc(name)}</strong><small>${values[key]!==false?"Раздел включён":"Раздел отключён"}</small></span></label>`).join("")}
+function formHtml(){return `<dialog id="formDialog" class="object-dialog"><form id="objectForm"><input type="hidden" name="id"><div class="form-heading"><div><h2 id="formTitle">Новый объект</h2><p class="form-subtitle">Основная информация и доступные разделы объекта</p></div><button type="button" class="dialog-x" id="dialogX">×</button></div><div class="form-grid object-basic-fields"><label>Название объекта<input name="name" required></label><label>Краткое название объекта *<input name="short_name" required maxlength="80" placeholder="Например, Варваринское"></label><label>Статус<select name="status"><option>В работе</option><option>Завершен</option></select></label><label>Адрес<input name="address" required></label></div><div class="object-parties"><div class="object-party-field"><label>Заказчик<input name="customer" required></label><div class="company-logo-editor object-party-logo-preview" id="customerLogoPreview"><span>Логотип не выбран</span></div><div class="object-party-logo-actions"><button type="button" id="customerLogoButton">Выбрать логотип</button><span id="customerLogoName">Не выбрано</span></div><small class="file-hint">Рекомендуемый размер: 360×120 px</small></div><div class="object-party-field"><label>Генподрядчик<input name="general_contractor" placeholder="Наименование генподрядчика"></label><div class="company-logo-editor object-party-logo-preview" id="contractorLogoPreview"><span>Логотип не выбран</span></div><div class="object-party-logo-actions"><button type="button" id="contractorLogoButton">Выбрать логотип</button><span id="contractorLogoName">Не выбрано</span></div><small class="file-hint">Рекомендуемый размер: 360×120 px</small></div></div><div class="file-row object-media-fields"><label>Фото объекта<small class="file-hint">Размер в программе: 900×155 px. Сохраняется только подготовленная версия.</small><div class="asset-preview asset-preview-cover" id="photoPreview"><span>Предпросмотр фото</span></div><div><button type="button" id="photoButton">Выбрать фото</button><span id="photoName">Не выбрано</span></div></label><label>Баннер объекта<small class="file-hint">Размер в программе: 1920×180 px. Сохраняется только подготовленная версия.</small><div class="asset-preview asset-preview-banner" id="bannerPreview"><span>Предпросмотр баннера</span></div><div><button type="button" id="bannerButton">Выбрать баннер</button><span id="bannerName">Не выбрано</span></div></label></div><div class="form-section-title"><div><strong>Разделы объекта</strong><span>Выберите, какие разделы будут доступны в этом объекте</span></div><button type="button" id="toggleAllSections">Включить все</button></div><div class="form-sections" id="formSections">${sectionChecks()}</div><div class="actions split"><button type="button" id="deleteObject" class="danger" hidden>Удалить объект</button><div><button type="button" id="cancel">Отмена</button><button type="submit" class="primary" id="saveObject">Создать объект</button></div></div></form></dialog>`}
+function readSectionChecks(){const out={};document.querySelectorAll("[data-form-section]").forEach(x=>out[x.dataset.formSection]=x.checked);return out}function syncSectionLabels(){document.querySelectorAll("[data-form-section]").forEach(x=>{const small=x.closest(".section-check")?.querySelector("small");if(small)small.textContent=x.checked?"Раздел включён":"Раздел отключён"})}
+async function objectPhotoMap(objectId){const rows=await objectSection(objectId,"photos").list();return Object.fromEntries(rows.filter(x=>["cover","banner"].includes(x.record_type)||["cover","banner"].includes(x.data?.photo_type)).map(x=>[x.record_type!=="item"?x.record_type:x.data.photo_type,x]))}
+async function saveObjectPhoto(objectId,type,file,current){const old=current?.data?.file_path||current?.data?.file||"",payload={record_type:type,title:type,data:{photo_type:type,file_path:file}},saved=current?await objectSection(objectId,"photos").update(current.id,payload):await objectSection(objectId,"photos").create(payload);if(old&&old!==file)try{await irProject.images.remove(old)}catch{}return saved}
+
+async function objectLogoMap(objectId){
+ const rows=await objectSection(objectId,"object-meta").list();
+ return Object.fromEntries(rows.filter(r=>["customer_logo","general_contractor_logo"].includes(r.record_type)).map(r=>[r.record_type,r]))
+}
+async function saveObjectLogo(objectId,type,file,current){
+ const api=objectSection(objectId,"object-meta");
+ const payload={record_type:type,title:type==="customer_logo"?"Логотип заказчика":"Логотип генподрядчика",data:{file_path:file}};
+ const saved=current?await api.update(current.id,payload):await api.create(payload);
+ const old=current?.data?.file_path||"";
+ if(old&&old!==file)try{await irProject.images.remove(old)}catch{}
+ return saved
+}
+async function objectActivity(id){let lastId=0,lastTime=0;await Promise.all(Object.keys(sectionNames).map(async key=>{try{const rows=await objectSection(id,key).list();for(const r of rows){const rid=Number(r.id)||0,t=Date.parse(String(r.updated_at||r.created_at||"").replace(" ","T")+"Z")||0;if(rid>lastId)lastId=rid;if(t>lastTime)lastTime=t}}catch{}}));return{lastId,lastTime}}
+async function sortedObjects(){const objects=await data().objects.list(),enriched=await Promise.all(objects.map(async o=>({...o,_activity:await objectActivity(o.id)})));return enriched.sort((a,b)=>{const aDone=a.status==="Завершен",bDone=b.status==="Завершен";if(aDone!==bDone)return aDone?1:-1;if(b._activity.lastId!==a._activity.lastId)return b._activity.lastId-a._activity.lastId;if(b._activity.lastTime!==a._activity.lastTime)return b._activity.lastTime-a._activity.lastTime;return Number(b.id)-Number(a.id)})}
+
+async function renderHomePortfolio(objects){
+ const host=document.getElementById("homePortfolio");if(!host)return;
+ const arr=x=>Array.isArray(x)?x:[];
+ const val=x=>{const n=Number(String(x??"").trim().replace(/\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};
+ const norm=x=>String(x??"").trim().toLowerCase();
+ const rec=r=>({id:String(r.id),...(r.data||{})});
+ const time=r=>{const s=String(r.date||r.report_date||"").trim(),v=/^\d{4}-\d{2}-\d{2}/.test(s)?s.slice(0,10):/^\d{2}\.\d{2}\.\d{4}/.test(s)?s.slice(6,10)+"-"+s.slice(3,5)+"-"+s.slice(0,2):"";return v?Date.parse(v+"T00:00:00Z")||0:0};
+ const day=r=>{const s=String(r.date||r.report_date||"");return /^\d{4}-\d{2}-\d{2}/.test(s)?s.slice(8,10)+"."+s.slice(5,7)+"."+s.slice(0,4):s||"—"};
+ const fmt=x=>Number(x.toFixed(1)).toLocaleString("ru-RU",{maximumFractionDigits:1});
+ const personnel=r=>{const w=arr(r.workers).length?arr(r.workers):arr(r.people),c=arr(r.responsible).length?arr(r.responsible):arr(r.responsibles);return w.reduce((s,x)=>s+val(x.count??x.qty),0)+c.reduce((s,x)=>s+(val(x.count??x.qty)>0?val(x.count??x.qty):(String(x.name||x.role||"").trim()?1:0)),0)};
+ const equipment=r=>arr(r.equipment).reduce((s,x)=>s+val(x.count??x.qty),0);
+ const volume=w=>{const n=w.volume??w.total_volume,q=val(w.qty??w.count??w.quantity),marked=!!String(w.mark_id||w.mark||"").trim(),uv=val(w.unit_volume??w.volume_one);return n!==undefined&&n!==null&&String(n).trim()!==""?(val(n)||(!marked?q:0)):(uv?q*uv:(!marked?q:0))};
+ const markVolume=m=>{const d=m.data||m,n=d.total_value??d.total_volume;return n!==undefined&&n!==null&&String(n).trim()!==""?val(n):val(d.qty??d.count)*val(d.unit_volume??d.volume_one)};
+  const reportVolumes=r=>{
+   const grouped=new Map();
+   for(const w of arr(r.items||r.works)){
+    const service=w.accounting_type==="service"||w.is_service===true||norm(w.unit)==="услуга";
+    const name=String(w.work_type||w.type||"Работа").trim()||"Работа";
+    const unit=String(w.unit||w.measure_unit||"").trim()||(service?"":"ед.");
+    const quantity=service?0:volume(w);
+    if(!service&&quantity<=0)continue;
+    const key=name.toLowerCase()+"|"+(service?"service":unit.toLowerCase());
+    if(!grouped.has(key))grouped.set(key,{name,unit,total:0,service,done:false});
+    const item=grouped.get(key);
+    if(service)item.done=item.done||w.completed===true||w.service_completed===true||["done","выполнено"].includes(norm(w.status));
+    else item.total+=quantity;
+   }
+   return [...grouped.values()];
+  };
+
+ // Identifies overdue scheduled works and works more than 10 percentage points behind plan.
+ function lateWorkRows(schedule,work,marks,reports){
+  const DAY=86400000,todayLocal=new Date(),today=Date.UTC(todayLocal.getFullYear(),todayLocal.getMonth(),todayLocal.getDate());
+  const parse=x=>{const s=String(x||"").slice(0,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return null;const ms=Date.parse(s+"T00:00:00Z");return Number.isFinite(ms)&&new Date(ms).toISOString().slice(0,10)===s?ms:null};
+  const types=new Map(arr(work).map(row=>{const d=row.data||row,id=String(row.id),service=d.accounting_type==="service"||norm(d.unit)==="услуга";const hasMarks=!service&&(d.has_marks===true||["installation","fabrication"].includes(d.work_category)||(!d.work_category&&d.has_marks!==false&&(norm(d.work_type||row.title).includes("монтаж")||norm(d.work_type||row.title).includes("изготов")||arr(marks).some(m=>String(m.data?.work_type_id||"")===id))));return[id,{name:d.work_type||row.title||"Без названия",service,hasMarks,plan:val(d.planned_volume??d.plan_volume)}]}));
+  const plans=new Map(),facts=new Map(),done=new Set();
+  for(const [id,t] of types)if(!t.service&&!t.hasMarks&&t.plan>0)plans.set(id,t.plan);
+  for(const m of arr(marks)){const d=m.data||m,id=String(d.work_type_id||""),t=types.get(id),amount=markVolume(m);if(t&&!t.service&&amount>0)plans.set(id,(plans.get(id)||0)+amount)}
+  for(const r of reports)for(const w of arr(r.items||r.works)){
+   const id=String(w.work_type_id||""),type=types.get(id),finished=w.completed===true||w.service_completed===true||["done","выполнено"].includes(norm(w.status));
+   if(type?.service){if(finished)done.add(id)}
+   else if(type){if(w.accounting_type==="service"||w.is_service===true||norm(w.unit)==="услуга")continue;const amount=volume(w);if(amount>0)facts.set(id,(facts.get(id)||0)+amount)}
+   else if(finished&&!id){for(const [key,t] of types)if(t.service&&norm(t.name)===norm(w.work_type||w.type))done.add(key)}
+  }
+  const results=[];
+  for(const row of arr(schedule)){
+   const d=row.data||row||{},id=String(d.work_type_id||""),type=types.get(id),start=parse(d.start_date),end=parse(d.end_date);
+   if(!type||start===null||end===null||end<start||today<start)continue;
+   const expired=today>end,days=expired?Math.floor((today-end)/DAY):0,name=type.name;
+   if(type.service){if(expired&&!done.has(id))results.push({name,start:String(d.start_date).slice(0,10),end:String(d.end_date).slice(0,10),days,lag:null,progress:0,kind:"overdue"});continue}
+   const plan=plans.get(id)||0;if(plan<=0)continue;
+   const percentage=Math.max(0,Math.min(100,(facts.get(id)||0)/plan*100));
+   if(percentage>=99.999)continue;
+   const duration=Math.max(1,Math.floor((end-start)/DAY)+1),elapsed=expired?duration:Math.floor((today-start)/DAY)+1,expected=Math.max(0,Math.min(100,elapsed/duration*100)),lag=expected-percentage;
+   if(expired||lag>10)results.push({name,start:String(d.start_date).slice(0,10),end:String(d.end_date).slice(0,10),days,lag:Number(lag.toFixed(1)),progress:Number(percentage.toFixed(1)),kind:expired?"overdue":"behind"});
+  }
+  return results.sort((a,b)=>b.days-a.days||(b.lag??0)-(a.lag??0)||a.end.localeCompare(b.end));
+ }
+
+ function completion(work,marks,reports){
+  const t=new Map(arr(work).map(r=>{const d=r.data||{},id=String(r.id),service=d.accounting_type==="service"||norm(d.unit)==="услуга",marked=d.has_marks===true||["installation","fabrication"].includes(d.work_category)||(!d.work_category&&d.has_marks!==false&&(norm(d.work_type||r.title).includes("монтаж")||norm(d.work_type||r.title).includes("изготов")||arr(marks).some(m=>String(m.data?.work_type_id||"")===id)));return[id,{service,marked,plan:val(d.planned_volume??d.plan_volume)}]}));
+  const plan=new Map(),fact=new Map(),done=new Set();
+  for(const [id,x] of t)if(!x.service&&!x.marked&&x.plan>0)plan.set(id,x.plan);
+  for(const m of arr(marks)){const id=String(m.data?.work_type_id||"");if(t.has(id)&&!t.get(id).service)plan.set(id,(plan.get(id)||0)+markVolume(m))}
+  for(const r of reports)for(const w of arr(r.items||r.works)){const id=String(w.work_type_id||""),x=t.get(id);if(!x)continue;if(x.service||w.accounting_type==="service"||w.is_service===true||norm(w.unit)==="услуга"){if(w.completed===true||w.service_completed===true||["done","выполнено"].includes(norm(w.status)))done.add(id)}else{const n=volume(w);if(n>0)fact.set(id,(fact.get(id)||0)+n)}}
+  let sum=0,count=0;
+  for(const [id,x] of t){if(x.service){sum+=done.has(id)?100:0;count++}else if((plan.get(id)||0)>0){sum+=Math.min(100,Math.max(0,(fact.get(id)||0)/plan.get(id)*100));count++}}
+  return{sum,count};
+ }
+ try{
+  let incomplete=false;
+  const bundles=await Promise.all(objects.map(async o=>{
+   const load=async section=>{try{return arr(await objectSection(o.id,section).list())}catch(e){console.warn("Home portfolio:",o.id,section,e);incomplete=true;return[]}};
+   const [w,m,raw,schedule,objectMeta]=await Promise.all([load("work-types"),load("marks"),load("reports"),o.status==="В работе"?load("schedule"):Promise.resolve([]),load("object-meta")]);
+   const reports=raw.map(rec).filter(r=>time(r)>0).sort((a,b)=>time(b)-time(a)||val(b.id)-val(a.id));
+   const numbers=new Map([...reports].sort((a,b)=>val(a.id)-val(b.id)).map((x,i)=>[x.id,i+1]));
+   return{object:o,shortName:String(objectMeta.find(x=>x.record_type==="object_short_name"||x.data?.entity_type==="object_short_name")?.data?.value||o.name),active:o.status==="В работе",reports,numbers,progress:completion(w,m,reports),late:o.status==="В работе"?lateWorkRows(schedule,w,m,reports):[]};
+  }));
+  if(!host.isConnected||location.hash.slice(1)!=="/objects")return;
+  const active=bundles.filter(b=>b.active),last=active.map(b=>b.reports[0]).filter(Boolean),staff=last.reduce((s,r)=>s+personnel(r),0),totalEquipment=last.reduce((s,r)=>s+equipment(r),0);
+  const sum=bundles.reduce((s,b)=>s+b.progress.sum,0),count=bundles.reduce((s,b)=>s+b.progress.count,0),pct=count?Math.round(sum/count):0;
+  const recent=active.flatMap(b=>b.reports.map(r=>({r,obj:b.object,shortName:b.shortName,num:b.numbers.get(r.id)||1}))).sort((a,b)=>time(b.r)-time(a.r)||val(b.r.id)-val(a.r.id)).slice(0,4);
+  const homeSvg=b=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+b+'</svg>';
+  const chartIcon=homeSvg('<path d="M3 20h18M6 17v-6m6 6V5m6 12V9"/><path d="m5 8 4-4 4 4 6-5"/>');
+  const peopleIcon=homeSvg('<circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 5v1"/>');
+  const craneIcon=homeSvg('<path d="M3 17h14M5 17v-5h6v5M11 12V8l6-5 2 2-6 6v6M17 5h4v8"/><circle cx="6" cy="20" r="1.5"/><circle cx="15" cy="20" r="1.5"/><circle cx="21" cy="17" r="1.5"/>');
+  const tile=x=>{
+   const r=x.r,all=reportVolumes(r),shown=all.slice(0,3);
+   const weather=String(typeof r.weather==="string"?r.weather:r.weather?.text||r.weather?.condition||r.weather_text||"Не указана");
+   const rawTemperature=r.temperature??r.temp??r.weather?.temperature??r.weather?.temp;
+   const temperature=rawTemperature===null||rawTemperature===undefined||String(rawTemperature).trim()===""?"":String(rawTemperature).trim();
+   const w=norm(weather),weatherKey=w.includes("ясно")?"sun":w.includes("дожд")?"rain":w.includes("снег")?"snow":w.includes("гроз")?"storm":w.includes("туман")?"fog":"cloud";
+   const weatherShapes={sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2"/>',cloud:'<path d="M6 18h11a4 4 0 0 0 .4-8A6 6 0 0 0 6.2 9.1 4.5 4.5 0 0 0 6 18z"/>',rain:'<path d="M6 14h11a4 4 0 0 0 .4-8A6 6 0 0 0 6.2 5.1 4.5 4.5 0 0 0 6 14zM8 18l-1 3M13 18l-1 3M18 18l-1 3"/>',snow:'<path d="M6 14h11a4 4 0 0 0 .4-8A6 6 0 0 0 6.2 5.1 4.5 4.5 0 0 0 6 14zM8 18h.01M13 19h.01M18 18h.01"/>',storm:'<path d="M6 14h11a4 4 0 0 0 .4-8A6 6 0 0 0 6.2 5.1 4.5 4.5 0 0 0 6 14zM13 15l-3 5h3l-1 3 4-6h-3z"/>',fog:'<path d="M4 8h16M2 12h20M5 16h14"/>'};
+   const weatherIcon=homeSvg(weatherShapes[weatherKey]);
+   const pretty=v=>Number(v.toFixed(4)).toLocaleString("ru-RU",{maximumFractionDigits:4});
+   const hasMeasuredVolume=all.some(w=>!w.service&&w.total>0);
+   const activity=window.irReportActivityPreview?.(r),dailySummaries=activity?.kind!=="empty"?activity?.lines||[]:[];
+   const volumeHtml=!hasMeasuredVolume&&dailySummaries.length
+    ?dailySummaries.slice(0,2).map(t=>'<span class="hpr-summary-line">'+esc(t)+'</span>').join("")+(dailySummaries.length>2?'<small class="hpr-volume-more">+ ещё '+(dailySummaries.length-2)+' пункт.</small>':"")
+    :shown.length
+    ?shown.map(w=>'<span class="hpr-volume-row"><span class="hpr-volume-name" title="'+esc(w.name)+'">'+esc(w.name)+'</span><strong class="hpr-volume-value">'+(w.service?(w.done?"✓ Выполнено":"Не выполнено"):pretty(w.total)+" "+esc(w.unit))+'</strong></span>').join("")+(all.length>3?'<small class="hpr-volume-more">+ ещё '+(all.length-3)+' видов работ</small>':"")
+    :'<small class="hpr-volume-empty">Работы не проводились</small>';
+   return '<button class="home-portfolio-report" type="button" data-home-object="'+esc(x.obj.id)+'" data-home-report="'+esc(r.id)+'" title="'+esc(x.obj.name)+'">'+
+    '<span class="hpr-head"><span class="hpr-date">'+esc(day(r))+'</span><span class="hpr-number">Отчёт №'+x.num+'</span></span>'+
+    '<strong class="hpr-object">'+esc(x.shortName||x.obj.name)+'</strong>'+
+    '<span class="hpr-section-title">'+(!hasMeasuredVolume&&dailySummaries.length?activity.label:hasMeasuredVolume?"Выполненные объёмы":"Работы за день")+'</span>'+
+    '<span class="hpr-volumes">'+volumeHtml+'</span>'+
+    '<span class="hpr-footer"><span class="hpr-footer-stat">'+peopleIcon+' '+fmt(personnel(r))+' чел.</span><span class="hpr-footer-stat">'+craneIcon+' '+fmt(equipment(r))+' ед.</span><span class="hpr-arrow" aria-hidden="true">↗</span></span>'+
+    '<span class="hpr-weather">'+weatherIcon+'<span>'+esc(weather)+(temperature?" · "+esc(temperature)+(temperature.includes("°")?"":"°C"):"")+'</span></span>'+
+   '</button>';
+  };
+  const lateObjects=active.filter(b=>b.late.length).sort((a,b)=>(b.late[0]?.days||0)-(a.late[0]?.days||0)||(b.late[0]?.lag||0)-(a.late[0]?.lag||0)||String(a.object.name).localeCompare(String(b.object.name),"ru"));
+  const lateDate=s=>{const p=String(s||"").split("-");return p.length===3?p[2]+"."+p[1]+"."+p[0]:"—"};
+  const ganttMarkup=rows=>{
+   const DAY=86400000,parse=s=>Date.parse(String(s||"")+"T00:00:00Z");
+   const dates=rows.flatMap(r=>[parse(r.start),parse(r.end)]).filter(Number.isFinite);
+   if(!dates.length)return'<div class="home-gantt-missing">Не заполнены плановые даты графика.</div>';
+   const clock=new Date(),today=Date.UTC(clock.getFullYear(),clock.getMonth(),clock.getDate());
+   const min=Math.min(...dates),max=Math.max(...dates,today),span=Math.max(DAY,max-min+DAY);
+   const position=ms=>Math.max(0,Math.min(100,(ms-min)/span*100));
+   const ticks=[0,25,50,75,100].map(i=>'<i style="left:'+i+'%">'+lateDate(new Date(min+(max-min)*i/100).toISOString().slice(0,10))+'</i>').join("");
+   const bars=rows.map(r=>{
+    const start=parse(r.start),stop=parse(r.end);if(!Number.isFinite(start)||!Number.isFinite(stop))return"";
+    const left=position(start),width=Math.max(.8,Math.min(100-left,(stop-start+DAY)/span*100)),done=Math.max(0,Math.min(100,Number(r.progress)||0));
+    const percent=done.toLocaleString("ru-RU",{maximumFractionDigits:1})+"%";
+    return '<div class="home-gantt-row" title="'+esc(r.name)+' · План: '+lateDate(r.start)+' — '+lateDate(r.end)+' · Факт: '+percent+'">'+
+     '<span class="home-gantt-name">'+esc(r.name)+'</span><div class="home-gantt-track">'+
+     '<i class="home-gantt-plan" style="left:'+left.toFixed(3)+'%;width:'+width.toFixed(3)+'%"></i>'+
+     '<i class="home-gantt-fact" style="left:'+left.toFixed(3)+'%;width:'+(width*done/100).toFixed(3)+'%"></i>'+
+     '<i class="home-gantt-today" style="left:'+position(today).toFixed(3)+'%"></i></div>'+
+     '<b class="home-gantt-percent">'+percent+'</b></div>'
+   }).join("");
+   return '<div class="home-gantt" role="group" aria-label="График Ганта: план и фактическое выполнение">'+
+    '<div class="home-gantt-title">План и факт по срокам</div>'+
+    '<div class="home-gantt-header"><span>Виды работ</span><div class="home-gantt-ticks">'+ticks+'</div><span>Факт</span></div>'+
+    '<div class="home-gantt-rows">'+bars+'</div>'+
+    '<div class="home-gantt-legend"><span><i class="plan"></i>План</span><span><i class="fact"></i>Выполнено</span><span><i class="today"></i>Сегодня</span></div></div>'
+  };
+  const lateTile=b=>{
+   const overdue=b.late.filter(x=>x.kind==="overdue"),main=overdue[0]||b.late[0],visible=b.late.slice(0,4);
+   return '<button type="button" class="home-late-object" data-late-object="'+esc(b.object.id)+'" title="Перейти в график работ объекта">'+
+    '<span class="home-late-top"><strong>'+esc(b.shortName||b.object.name)+'</strong><span class="home-late-badge '+(overdue.length?"is-expired":"is-behind")+'">'+(overdue.length?"Срок истёк":"Отставание")+'</span></span>'+
+    '<span class="home-late-summary">'+b.late.length+' '+(b.late.length===1?"отстающий вид работ":b.late.length<5?"отстающих вида работ":"отстающих видов работ")+'</span>'+
+    ganttMarkup(visible)+(b.late.length>4?'<small class="home-gantt-more">Ещё '+(b.late.length-4)+' видов работ</small>':"")+
+    '<span class="home-late-open">Перейти в график работ объекта <span aria-hidden="true">→</span></span></button>'
+  };
+  host.innerHTML=
+   '<div class="home-portfolio-shell">'+
+    '<div class="home-portfolio-heading"><div><h2>Общая статистика</h2></div></div>'+
+    '<div class="home-portfolio-kpis">'+
+      '<article class="home-portfolio-kpi hpk-active"><div class="home-kpi-top"><span class="home-kpi-icon">'+homeSvg('<path d="M3 21V6l9-4 9 4v15M3 21h18M8 21v-7h8v7M7 8h2M15 8h2M7 11h2M15 11h2"/>')+'</span><span class="home-kpi-scope">Объекты компании</span></div><h3>Объектов в работе</h3><div class="home-kpi-value">'+active.length+' <em>объектов</em></div><div class="home-kpi-foot"></div></article>'+
+     '<article class="home-portfolio-kpi hpk-progress"><div class="home-kpi-top"><span class="home-kpi-icon">'+chartIcon+'</span><span class="home-kpi-scope">Все объекты</span></div><h3>Среднее выполнение работ</h3><div class="home-kpi-value">'+(count?pct+"%":"—")+'</div><div class="home-kpi-foot"><div class="hpk-track"><i style="width:'+pct+'%"></i></div></div></article>'+
+     '<article class="home-portfolio-kpi hpk-workers"><div class="home-kpi-top"><span class="home-kpi-icon">'+peopleIcon+'</span><span class="home-kpi-scope">Объекты в работе</span></div><h3>Всего людей на объектах</h3><div class="home-kpi-value">'+fmt(staff)+' <em>чел.</em></div><div class="home-kpi-foot"></div></article>'+
+     '<article class="home-portfolio-kpi hpk-equipment"><div class="home-kpi-top"><span class="home-kpi-icon">'+craneIcon+'</span><span class="home-kpi-scope">Объекты в работе</span></div><h3>Всего техники на объектах</h3><div class="home-kpi-value">'+fmt(totalEquipment)+' <em>ед.</em></div><div class="home-kpi-foot"></div></article>'+
+    '</div>'+
+    '<section class="home-portfolio-reports"><div class="home-portfolio-reports-title"><div><h2>Последние отчёты с объектов</h2></div></div>'+
+     '<div class="home-portfolio-report-scroll"><div class="home-portfolio-report-grid">'+(recent.length?recent.map(tile).join(""):'<div class="home-portfolio-empty">По действующим объектам пока нет отчётов</div>')+'</div></div></section>'+
+    '<section class="home-late-section">'+
+     '<div class="home-late-heading"><div><h2>Объекты, требующие внимания</h2></div>'+
+      '<span class="home-late-count">'+lateObjects.length+' '+(lateObjects.length===1?"объект":lateObjects.length<5?"объекта":"объектов")+'</span></div>'+
+     '<div class="home-late-grid">'+(lateObjects.length?lateObjects.map(lateTile).join(""):'<div class="home-late-empty">По заполненным графикам работ отстающих объектов нет.</div>')+'</div>'+
+    '</section>'+
+    (incomplete?'<p class="home-portfolio-warning">Часть данных не загружена — статистика может быть неполной.</p>':"")+
+   '</div>';
+  host.querySelectorAll("[data-home-report]").forEach(b=>b.onclick=()=>go("/objects/object/"+b.dataset.homeObject+"/reports/"+b.dataset.homeReport));
+  host.querySelectorAll("[data-late-object]").forEach(b=>b.onclick=()=>go("/objects/object/"+b.dataset.lateObject+"/schedule"));
+ }catch(e){console.error("Home portfolio",e);if(host.isConnected)host.innerHTML='<div class="home-portfolio-error">Не удалось загрузить общую статистику</div>'}
+}
+
+async function objectsPage(){try{const objects=await sortedObjects();const active=objects.filter(o=>o.status!=="Завершен").length,done=objects.length-active;app.innerHTML=`<div class="home-shell"><header class="home-header"><div class="brand" data-company-ready="0" aria-label="Логотип компании загружается"></div></header><section class="home-hero"><div><h1>Объекты</h1><p>Контроль текущих строительных проектов, отчётности и выполнения работ.</p></div><div class="summary"><div><span>Всего объектов</span><strong>${objects.length}</strong></div><div><span>В работе</span><strong>${active}</strong></div><div><span>Завершено</span><strong>${done}</strong></div></div></section><section class="home-portfolio" id="homePortfolio" aria-label="Общая статистика"><div class="home-portfolio-loading">Загрузка общей статистики…</div></section><section class="objects-section"><div class="section-head"><div><h3>Все объекты</h3><p>Показано объектов: ${objects.length}</p></div><button id="add" class="primary">＋ Добавить объект</button></div><div class="objects">${objects.map(objectCard).join("")}</div></section><footer class="home-update-footer"><button id="homeCheckUpdate" type="button" class="home-update-button"><span aria-hidden="true">↻</span> Проверить обновления</button><span id="homeInstalledVersion" class="home-update-version"></span></footer></div>${formHtml()}${updateDialogHtml()}${versionHtml()}`;refreshVersion();renderHomePortfolio(objects);document.querySelectorAll("[data-object]").forEach(x=>x.onclick=()=>go(`/objects/object/${x.dataset.object}`));setupObjectForm();el("add").onclick=()=>openObjectForm();const homeCheckUpdate=el("homeCheckUpdate");if(homeCheckUpdate)homeCheckUpdate.onclick=()=>{try{if(window!==window.top&&window.parent?.irTabUpdates?.open)return window.parent.irTabUpdates.open()}catch(e){}return showUpdate()}}catch(e){console.error(e);app.innerHTML=`<div class="empty-state" style="margin:50px"><h2>Не удалось открыть список объектов</h2><p>${esc(e.message||e)}</p></div>`}}
+async function objectShortNameRecord(id){const list=await objectSection(id,"object-meta").list();return list.find(x=>x.record_type==="object_short_name"||x.data?.entity_type==="object_short_name")||null}
+ function setupObjectForm(){const d=el("formDialog"),form=el("objectForm");let photo="",banner="",customerLogo="",contractorLogo="",savedPhotos={},savedLogos={};const showPreview=async(id,file,text)=>{const box=el(id);if(!box)return;if(!file){box.innerHTML=`<span>${esc(text)}</span>`;return}try{const url=await irProject.images.read(file);box.innerHTML=url?`<img src="${url}" alt="${esc(text)}">`:`<span>${esc(text)}</span>`}catch{box.innerHTML=`<span>${esc(text)}</span>`}};const resetFiles=()=>{photo="";banner="";customerLogo="";contractorLogo="";savedPhotos={};savedLogos={};el("photoName").textContent="Не выбрано";el("bannerName").textContent="Не выбрано";el("customerLogoName").textContent="Не выбрано";el("contractorLogoName").textContent="Не выбрано";showPreview("photoPreview","","Предпросмотр фото");showPreview("bannerPreview","","Предпросмотр баннера");showPreview("customerLogoPreview","","Логотип не выбран");showPreview("contractorLogoPreview","","Логотип не выбран")};const discardPending=async()=>{for(const file of [photo,banner,customerLogo,contractorLogo])if(file)try{await irProject.images.remove(file)}catch{}photo="";banner="";customerLogo="";contractorLogo=""};window.openObjectForm=async id=>{form.reset();resetFiles();el("formSections").innerHTML=sectionChecks();el("deleteObject").hidden=!id;el("formTitle").textContent=id?"Редактирование объекта":"Новый объект";el("saveObject").textContent=id?"Сохранить изменения":"Создать объект";if(id){const o=await data().objects.get(id),sections=await data().sections.get(id);if(!o)return;form.elements.id.value=o.id;form.elements.name.value=o.name;const shortRecord=await objectShortNameRecord(id);form.elements.short_name.value=String(shortRecord?.data?.value||o.name||"");form.elements.customer.value=o.customer;form.elements.general_contractor.value=o.general_contractor||"";form.elements.address.value=o.address;form.elements.status.value=o.status;savedPhotos=await objectPhotoMap(id);savedLogos=await objectLogoMap(id);const coverFile=savedPhotos.cover?.data?.file_path||"",bannerFile=savedPhotos.banner?.data?.file_path||"";el("photoName").textContent=coverFile.split(/[\\/]/).pop()||"Не выбрано";el("bannerName").textContent=bannerFile.split(/[\\/]/).pop()||"Не выбрано";const customerLogoFile=savedLogos.customer_logo?.data?.file_path||"",contractorLogoFile=savedLogos.general_contractor_logo?.data?.file_path||"";el("customerLogoName").textContent=customerLogoFile.split(/[\\/]/).pop()||"Не выбрано";el("contractorLogoName").textContent=contractorLogoFile.split(/[\\/]/).pop()||"Не выбрано";await Promise.all([showPreview("photoPreview",coverFile,"Предпросмотр фото"),showPreview("bannerPreview",bannerFile,"Предпросмотр баннера"),showPreview("customerLogoPreview",customerLogoFile,"Логотип заказчика"),showPreview("contractorLogoPreview",contractorLogoFile,"Логотип генподрядчика")]);const vals={};sections.forEach(s=>vals[s.section_key]=s.enabled);el("formSections").innerHTML=sectionChecks(vals)}syncSectionLabels();d.showModal()};const closeWithoutSave=async()=>{await discardPending();d.close()};el("cancel").onclick=closeWithoutSave;el("dialogX").onclick=closeWithoutSave;el("photoButton").onclick=async()=>{const x=await irProject.objects.selectImage("cover");if(x){if(photo)try{await irProject.images.remove(photo)}catch{}photo=x;el("photoName").textContent=x.split(/[\\/]/).pop();await showPreview("photoPreview",x,"Предпросмотр фото")}};el("bannerButton").onclick=async()=>{const x=await irProject.objects.selectImage("banner");if(x){if(banner)try{await irProject.images.remove(banner)}catch{}banner=x;el("bannerName").textContent=x.split(/[\\/]/).pop();await showPreview("bannerPreview",x,"Предпросмотр баннера")}};el("customerLogoButton").onclick=async()=>{const x=await irProject.company.selectLogo();if(x){if(customerLogo)try{await irProject.images.remove(customerLogo)}catch{}customerLogo=x;el("customerLogoName").textContent=x.split(/[\\/]/).pop();await showPreview("customerLogoPreview",x,"Логотип заказчика")}};el("contractorLogoButton").onclick=async()=>{const x=await irProject.company.selectLogo();if(x){if(contractorLogo)try{await irProject.images.remove(contractorLogo)}catch{}contractorLogo=x;el("contractorLogoName").textContent=x.split(/[\\/]/).pop();await showPreview("contractorLogoPreview",x,"Логотип генподрядчика")}};el("formSections").addEventListener("change",syncSectionLabels);form.elements.short_name.addEventListener("input",()=>form.elements.short_name.setCustomValidity(""));el("toggleAllSections").onclick=()=>{document.querySelectorAll("[data-form-section]").forEach(x=>x.checked=true);syncSectionLabels()};form.onsubmit=async e=>{e.preventDefault();const f=new FormData(form),id=f.get("id"),shortName=String(f.get("short_name")||"").trim(),payload={name:f.get("name"),customer:f.get("customer"),general_contractor:f.get("general_contractor"),address:f.get("address"),status:f.get("status"),sections:readSectionChecks()};if(!shortName){form.elements.short_name.focus();form.elements.short_name.setCustomValidity("Укажите краткое название объекта.");form.elements.short_name.reportValidity();return}
+ let objectId=id;if(id)await data().objects.update(id,payload);else objectId=(await data().objects.create(payload)).id;
+ const previousShort=await objectShortNameRecord(objectId),shortPayload={record_type:"object_short_name",title:"Краткое название объекта",data:{entity_type:"object_short_name",value:shortName}};
+ if(previousShort)await objectSection(objectId,"object-meta").update(previousShort.id,shortPayload);
+ else await objectSection(objectId,"object-meta").create(shortPayload);
+ try{window.parent?.irTabRefreshObjectName?.(String(objectId))}catch(e){}
+ if(photo){savedPhotos.cover=await saveObjectPhoto(objectId,"cover",photo,savedPhotos.cover);photo=""}if(banner){savedPhotos.banner=await saveObjectPhoto(objectId,"banner",banner,savedPhotos.banner);banner=""}if(customerLogo){savedLogos.customer_logo=await saveObjectLogo(objectId,"customer_logo",customerLogo,savedLogos.customer_logo);customerLogo=""}if(contractorLogo){savedLogos.general_contractor_logo=await saveObjectLogo(objectId,"general_contractor_logo",contractorLogo,savedLogos.general_contractor_logo);contractorLogo=""}d.close();if(id)go(`/objects/object/${id}`);else objectsPage()};el("deleteObject").onclick=async()=>{const id=form.elements.id.value,name=form.elements.name.value;if(!id)return;if(!confirm(`Удалить объект «${name}»?\n\nВсе данные этого объекта будут удалены.`))return;await discardPending();await data().objects.remove(id);d.close();go("/objects");objectsPage()}}
+async function objectPage(id){const o=await data().objects.get(id);if(!o)return go("/objects");const [sections,photos]=await Promise.all([data().sections.get(id),objectPhotoMap(id)]);let bannerUrl="";const bannerFile=photos.banner?.data?.file_path||"";if(bannerFile)try{bannerUrl=await irProject.images.read(bannerFile)}catch{}app.innerHTML=`${bannerUrl?'<div class="object-page-banner" id="objectPageBanner"></div>':""}<div class="object-page-head"><button class="back" id="back">← Объекты</button><div><h1>${esc(o.name)}</h1><p>Заказчик: ${esc(o.customer||"—")} · Генподрядчик: ${esc(o.general_contractor||"—")} · ${esc(o.address)}</p></div><button class="ghost-btn" id="editObject">✎ Редактировать объект</button></div><div class="sections">${sections.map(s=>`<div class="section-row"><button class="section-link" data-section="${esc(s.section_key)}" ${s.enabled?"":"disabled"}>${esc(s.title||sectionNames[s.section_key]||s.section_key)}</button><span class="section-state ${s.enabled?"on":"off"}">${s.enabled?"Включён":"Отключён"}</span></div>`).join("")}<div class="section-row"><button class="section-link" data-section="ai-recognition">ИИ-распознавание</button><span class="section-state on">Отдельный модуль</span></div></div>${formHtml()}${versionHtml()}`;if(bannerUrl){const b=el("objectPageBanner");b.style.backgroundImage=`linear-gradient(180deg,rgba(10,17,27,.03),rgba(10,17,27,.20)),url("${bannerUrl}")`}refreshVersion();el("back").onclick=()=>go("/objects");document.querySelectorAll("[data-section]").forEach(x=>x.onclick=()=>go(`/objects/object/${id}/${x.dataset.section}`));setupObjectForm();el("editObject").onclick=()=>openObjectForm(id)}
+async function sectionPage(id,key){const o=await data().objects.get(id);if(!o)return go("/objects");const sections=await data().sections.get(id),section=sections.find(x=>x.section_key===key);if(!section?.enabled)return go(`/objects/object/${id}`);app.innerHTML=`<button class="back" id="back">← ${esc(o.name)}</button><h1>${esc(section.title||sectionNames[key]||key)}</h1>${versionHtml()}`;refreshVersion();el("back").onclick=()=>go(`/objects/object/${id}`)}
+async function render(){const route=location.hash.slice(1)||"/objects";if(route==="/objects")return objectsPage();let m=route.match(/^\/objects\/object\/(\d+)$/);if(m)return objectPage(m[1]);m=route.match(/^\/objects\/object\/(\d+)\/reports(?:\/(new|\d+)(?:\/(edit))?)?$/);if(m&&window.irReportsPage){const oid=m[1],part=m[2]||"",edit=m[3]==="edit";if(part==="new")return window.irReportsPage(oid,{mode:"new"});if(/^\d+$/.test(part))return window.irReportsPage(oid,{mode:edit?"edit":"view",reportId:part});return window.irReportsPage(oid)}m=route.match(/^\/objects\/object\/(\d+)\/extra-works(?:\/([A-Za-z0-9_-]+))?$/);if(m&&window.irAdditionalWorksPage)return window.irAdditionalWorksPage(m[1],{workId:m[2]||""});m=route.match(/^\/objects\/object\/(\d+)\/([^/]+)$/);if(m){const key=decodeURIComponent(m[2]);if(key==="reports"&&window.irReportsPage)return window.irReportsPage(m[1]);if(key==="marks"&&window.irMarksPage)return window.irMarksPage(m[1]);if(key==="work-types"&&window.irWorkTypesPage)return window.irWorkTypesPage(m[1]);if(key==="acted-days"&&window.irActedDaysPageV3)return window.irActedDaysPageV3(m[1]);if(key==="acted-days"&&window.irActedDaysPageV2)return window.irActedDaysPageV2(m[1]);if(key==="acted-days"&&window.irActedDaysPage)return window.irActedDaysPage(m[1]);if(key==="penalties"&&window.irPenaltiesPageV2)return window.irPenaltiesPageV2(m[1]);if(key==="penalties"&&window.irPenaltiesPage)return window.irPenaltiesPage(m[1]);if(key==="finance"&&window.irFinancePage)return window.irFinancePage(m[1]);if(key==="scheme"&&window.irSchemePage)return window.irSchemePage(m[1]);if(key==="ai-recognition"&&window.irAiRecognitionPage)return window.irAiRecognitionPage(m[1]);return sectionPage(m[1],key)}go("/objects")}
+try{if("scrollRestoration"in history)history.scrollRestoration="manual"}catch{}
+function scrollPageTop(){window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0}
+async function routeChanged(){scrollPageTop();await render();requestAnimationFrame(()=>scrollPageTop())}
+window.addEventListener("hashchange",routeChanged);routeChanged();

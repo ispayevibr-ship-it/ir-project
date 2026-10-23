@@ -1,0 +1,101 @@
+name: Verify IR Project hot update
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'hot/latest.json'
+      - 'scripts/build-runtime.js'
+      - 'scripts/test-*.js'
+      - '.github/workflows/verify-hot.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    # Builds run only in the open repository of the program; the closed one of the data (ir-project-data) builds nothing.
+    if: github.repository == 'ispayevibr-ship-it/ir-project'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install PDF parser dependencies
+        run: npm install --no-audit --no-fund
+      - name: Check JavaScript syntax
+        run: |
+          node --check main.js
+          node --check src/database.js
+          node --check src/updater.js
+          node --check src/app.js
+          node --check src/scheme-page.js
+          node --check src/scheme-three-view.js
+          node --check src/ir-runtime.js
+          node --check src/ai-recognition-page.js
+          node --check src/ai-document-store.js
+          node --check src/ai-pdf-render-worker.js
+          node --check src/ai-pdf-renderer.js
+          node --check src/ai-model-settings.js
+          node --check src/ai-claude-engine.js
+          node --check src/ai-scheme-extract.js
+          node --check src/ai-scheme-geometry.js
+          node --check src/ai-scheme-worker.js
+          node --check src/ai-scheme-draft.js
+          node --check src/ai-montage-plan.js
+          node --check src/ai-montage.js
+          node --check src/ai-sheet-extract.js
+      - name: Test IR Project AI local document storage
+        run: node scripts/test-ai-storage.js
+      - name: Test IR Project AI navigation and bridge
+        run: node scripts/test-ai-navigation.js
+      - name: Test Claude engine key storage and API request
+        run: node scripts/test-ai-claude-engine.js
+      - name: Test montage scheme drafts from vector PDF geometry
+        run: node scripts/test-ai-scheme-extract.js
+      - name: Test PDF to Claude to montage scheme placement
+        run: node scripts/test-ai-montage.js
+      - name: Test assembly, quantity and element tables from KM and KMD sheets
+        run: node scripts/test-ai-sheet-extract.js
+      - name: Test actual PDF sheets and high-resolution region provenance
+        run: node scripts/test-ai-pdf-render.js
+      - name: Test structural member copying
+        run: node scripts/test-scheme-copy.js
+      - name: Test cached scheme records and in-place refresh
+        run: node scripts/test-scheme-performance.js
+      - name: Test the 3D montage scheme (only view)
+        run: node scripts/test-scheme-three-view.js
+      - name: Test runtime revision check for old Electron tabs
+        run: node scripts/test-scheme-runtime-version.js
+      - name: Test indexed scheme loading with large member lists
+        run: node scripts/test-scheme-load-indexes.js
+      - name: Test scheme loading overlay until first 3D frame
+        run: node scripts/test-scheme-load-overlay.js
+      - name: Test About dialog and installed version
+        run: node scripts/test-program-about.js
+      - name: Test redesigned settings menu in standalone and tabbed windows
+        run: node scripts/test-settings-menu.js
+      - name: Test contextual Russian names
+        run: node scripts/test-work-nomenclature.js
+      - name: Test real-data supply and montage chart
+        run: node scripts/test-supply-chart.js
+      - name: Test full object HTML export
+        run: node scripts/test-object-export-html.js
+      - name: Test customer and contractor logos in object editor
+        run: node scripts/test-object-party-logos.js
+      - name: Test database export from settings
+        run: node scripts/test-database-export-settings.js
+      - name: Test styled success and error notices
+        run: node scripts/test-notice-variants.js
+      - name: Test database safety on incompatible schemas
+        run: node scripts/test-database-safety.js
+      - name: Test atomic hot-update rollback
+        run: node scripts/test-updater-rollback.js
+      - name: Check generated JavaScript and CSS bundles
+        run: node scripts/build-runtime.js --check
+      - name: Check hot-update manifest sizes
+        run: |
+          node -e 'const fs=require("fs"),m=require("./hot/latest.json");for(const f of m.files){const actual=fs.statSync(f.source).size;if(actual!==f.size)throw Error(f.source+": manifest size "+f.size+" != "+actual)}'

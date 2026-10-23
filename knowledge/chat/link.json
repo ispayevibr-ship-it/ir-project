@@ -1,0 +1,6 @@
+{
+ "about": "Куда уходят сообщения чата программы: задача «Чат IR Project» на claude.ai (API-вызов), привязанная к ветке разработки. Ключ вставляет инженер в чате программы, в обновление он не входит.",
+ "task": "Чат IR Project",
+ "fire_url": "https://api.anthropic.com/v1/claude_code/routines/trig_01JjJhEsNkqJCRA8BeBB9xg8/fire",
+ "page": "https://claude.ai/code/routines"
+}

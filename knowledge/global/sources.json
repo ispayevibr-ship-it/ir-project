@@ -1,0 +1,536 @@
+{
+ "catalog": "sources",
+ "version": 1,
+ "records": [
+  {
+   "id": "meganorm-23118-2019",
+   "title": "ГОСТ 23118-2019 — справка о документе",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/mega_doc/norm/gost_gosudarstvennyj-standart/0/gost_23118-2019_mezhgosudarstvennyy_standart_konstruktsii.html",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "prgkz-23118-2019",
+   "title": "ГОСТ 23118-2019 в базе «Параграф» (РК)",
+   "kind": "справочная база нормативов",
+   "url": "https://prg.kz/document/?doc_id=39209899",
+   "publisher": "prg.kz",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-27772-2021",
+   "title": "ГОСТ 27772-2021 — справка о документе",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/mega_doc/norm/gost_gosudarstvennyj-standart/0/gost_27772-2021_mezhgosudarstvennyy_standart_prokat_dlya.html",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-31385-2023",
+   "title": "ГОСТ 31385-2023 — справка о документе",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/mega_doc/norm/akt_forma/0/gost_31385-2023_mezhgosudarstvennyy_standart_rezervuary.html",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-30245-2012",
+   "title": "ГОСТ 30245-2012 — справка о документе",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/mega_doc/norm/gost_gosudarstvennyj-standart/9/gost_30245-2012_mezhgosudarstvennyy_standart_profili_stalnye.html",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "normacs-23120-2016",
+   "title": "NormaCS: ГОСТ 23120-2016 вводится с 01.03.2017",
+   "kind": "справочная база нормативов",
+   "url": "https://www.normacs.info/ntds/4297",
+   "publisher": "www.normacs.info",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-21502-2016",
+   "title": "ГОСТ 21.502-2016 — справка о документе",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/mega_doc/norm/vedomost_forma/0/gost_21_502-2016_mezhgosudarstvennyy_standart_sistema.html",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "prgkz-sprk-en-1993-1-1",
+   "title": "СП РК EN 1993-1-1:2005/2011 в базе «Параграф» (РК)",
+   "kind": "справочная база нормативов",
+   "url": "https://prg.kz/Document/?doc_id=37771702",
+   "publisher": "prg.kz",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "prgkz-snrk-3.05-24-2004",
+   "title": "СН РК 3.05-24-2004 в базе «Параграф» (РК)",
+   "kind": "справочная база нормативов",
+   "url": "https://prg.kz/m/amp/document/30056879",
+   "publisher": "prg.kz",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "dnaop-8240-97",
+   "title": "ГОСТ 8240-97 Швеллеры стальные горячекатаные. Сортамент — текст стандарта (табл. 1, 2)",
+   "kind": "текст стандарта",
+   "url": "https://dnaop.com/html/42672/doc-%D0%93%D0%9E%D0%A1%D0%A2_8240-97_%28%D0%92_%D0%A3%D0%BA%D1%80%D0%B0%D0%B8%D0%BD%D0%B5-%D0%94%D0%A1%D0%A2%D0%A3_3436-96%29",
+   "publisher": "dnaop.com",
+   "license": "размеры сортамента — фактические данные; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "spbstu-8239-89",
+   "title": "ГОСТ 8239-89 Двутавры стальные горячекатаные. Сортамент — текст стандарта (ЭБ СПбПУ)",
+   "kind": "текст стандарта",
+   "url": "https://elib.spbstu.ru/dl/1000/6/25.pdf",
+   "publisher": "elib.spbstu.ru",
+   "license": "размеры сортамента — фактические данные; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "dnaop-8509-93",
+   "title": "ГОСТ 8509-93 Уголки стальные горячекатаные равнополочные. Сортамент — текст стандарта (табл. 1, стр. 1–2)",
+   "kind": "текст стандарта",
+   "url": "https://dnaop.com/html/42597/doc-%D0%93%D0%9E%D0%A1%D0%A2+8509-93+%28%D0%92+%D0%A3%D0%BA%D1%80%D0%B0%D0%B8%D0%BD%D0%B5-%D0%94%D0%A1%D0%A2%D0%A3+2251-93%29",
+   "publisher": "dnaop.com",
+   "license": "размеры сортамента — фактические данные; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-57837-2017",
+   "title": "ГОСТ Р 57837-2017 Двутавры стальные горячекатаные с параллельными гранями полок. ТУ — текст стандарта (таблицы типов Б, Ш, К)",
+   "kind": "текст стандарта",
+   "url": "https://meganorm.ru/Data2/1/4293742/4293742360.htm",
+   "publisher": "meganorm.ru",
+   "license": "размеры сортамента — фактические данные; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "sci-simple-connections",
+   "title": "Simple connections (шарнирные узлы: торцевая пластина, рёбра-фланцы)",
+   "kind": "учебно-справочный портал SCI/BCSA",
+   "url": "https://www.steelconstruction.info/Simple_connections",
+   "publisher": "steelconstruction.info",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "sci-moment-connections",
+   "title": "Moment-resisting connections (жёсткие узлы, стыки балок и колонн, базы)",
+   "kind": "учебно-справочный портал SCI/BCSA",
+   "url": "https://www.steelconstruction.info/Moment_resisting_connections",
+   "publisher": "steelconstruction.info",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "scia-en1993-1-8-classification",
+   "title": "Классификация узлов по жёсткости, EN 1993-1-8 §5.2.2 (справка SCIA)",
+   "kind": "справка программы расчёта",
+   "url": "https://help.scia.net/",
+   "publisher": "SCIA",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "tstu-umnova-beams",
+   "title": "Умнова О.В. Балочные клетки и колонны (учебное пособие ТГТУ)",
+   "kind": "учебное пособие",
+   "url": "https://www.tstu.ru/book/elib/pdf/2015/umnova.pdf",
+   "publisher": "tstu.ru",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "studfile-column-bases",
+   "title": "Базы и оголовки колонн, опирание балок (учебный конспект)",
+   "kind": "учебный конспект",
+   "url": "https://studfile.net/preview/11759068/",
+   "publisher": "studfile.net",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "dnaop-snip-ii-23-81",
+   "title": "СНиП II-23-81* Стальные конструкции, раздел 13 (конструирование)",
+   "kind": "справочная база нормативов",
+   "url": "https://dnaop.com/html/29658_11.html",
+   "publisher": "dnaop.com",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "dnaop-snrk-5.04-23-2002",
+   "title": "СНиП РК 5.04-23-2002 Стальные конструкции (высокопрочные болты, расстояния)",
+   "kind": "справочная база нормативов",
+   "url": "https://dnaop.com/html/32584_12.html",
+   "publisher": "dnaop.com",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "kgasu-kuznetsov-2019",
+   "title": "Кузнецов И.Л. и др. Узлы ферм из гнутых профилей на болтах (Известия КГАСУ, 2019)",
+   "kind": "научная статья",
+   "url": "https://izvestija.kgasu.ru/",
+   "publisher": "izvestija.kgasu.ru",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "sp16-13330-2011",
+   "title": "СП 16.13330.2011 Стальные конструкции (разделы 14, 15, приложение Л)",
+   "kind": "свод правил (копия на сайте производителя)",
+   "url": "https://himstalcon.ru/files/SP16.pdf",
+   "publisher": "himstalcon.ru",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "prgkz-gost-2.312",
+   "title": "ГОСТ 2.312-72 ЕСКД. Условные изображения и обозначения швов сварных соединений",
+   "kind": "справочная база нормативов",
+   "url": "https://prg.kz/m/amp/document/30115200",
+   "publisher": "prg.kz",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-7798-70",
+   "title": "ГОСТ 7798-70 Болты с шестигранной головкой класса точности В (текст)",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/Data2/1/4294850/4294850685.htm",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-5915-70",
+   "title": "ГОСТ 5915-70 Гайки шестигранные класса точности В (текст)",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/Data2/1/4294850/4294850686.htm",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-11371-78",
+   "title": "ГОСТ 11371-78 Шайбы (текст)",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/Data2/1/4294850/4294850444.htm",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-22353-77",
+   "title": "ГОСТ 22353-77 Болты высокопрочные класса точности В (текст)",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/Data2/1/4294850/4294850704.htm",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-22354-77",
+   "title": "ГОСТ 22354-77 Гайки высокопрочные класса точности В (текст)",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/Data2/1/4294850/4294850702.htm",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-22356-77",
+   "title": "ГОСТ 22356-77 Болты и гайки высокопрочные и шайбы. Общие технические условия (текст)",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/Data2/1/4294850/4294850698.htm",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-24379.1-2012",
+   "title": "ГОСТ 24379.1-2012 Болты фундаментные — справка о документе",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/mega_doc/norm/gost_gosudarstvennyj-standart/3/gost_24379_1-2012_mezhgosudarstvennyy_standart_bolty.html",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "dnaop-10906-78",
+   "title": "ГОСТ 10906-78 Шайбы косые (текст)",
+   "kind": "справочная база нормативов",
+   "url": "https://dnaop.com/html/66599/doc-%D0%93%D0%9E%D0%A1%D0%A2_10906-78",
+   "publisher": "dnaop.com",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-6402-70",
+   "title": "ГОСТ 6402-70 Шайбы пружинные (текст)",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/Data2/1/4294846/4294846397.htm",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "normacs-32484.3-2013",
+   "title": "ГОСТ 32484.3-2013 Болтокомплекты высокопрочные, система HR — справка",
+   "kind": "справочная база нормативов",
+   "url": "https://www.normacs.info/documents/6662",
+   "publisher": "www.normacs.info",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "trfastenings-iso-898-1",
+   "title": "ISO 898-1: механические свойства болтов по классам прочности",
+   "kind": "справочная база нормативов",
+   "url": "https://www.trfastenings.com/knowledge-base/metric-screws/screws-and-bolts-mechanical-properties",
+   "publisher": "www.trfastenings.com",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "ascon-fasteners-list",
+   "title": "Список стандартов крепёжных изделий ПОЛИНОМ:MDM (АСКОН, 2024)",
+   "kind": "справочная база нормативов",
+   "url": "https://ascon.ru/source/info_materials/2024/ПОЛИНОМ-MDM/Список-стандартов-объектов-НСИ.-ПОЛИНОМMDM.Стандартные_изделия.Крепежные_изделия.pdf",
+   "publisher": "ascon.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "stroyinf-rolled",
+   "title": "Каталог ГОСТ «Сортовой и фасонный прокат» (files.stroyinf.ru, 119 документов, с действием в РФ)",
+   "kind": "каталог нормативов",
+   "url": "https://files.stroyinf.ru/cat0/1575-0.htm",
+   "publisher": "files.stroyinf.ru",
+   "license": "ссылка; перечень обозначений и названий",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "stroyinf-sheets",
+   "title": "Каталог ГОСТ «Листы и полосы», «Сталь углеродистая обыкновенного качества» (files.stroyinf.ru)",
+   "kind": "каталог нормативов",
+   "url": "https://files.stroyinf.ru/cat0/1572-0.htm",
+   "publisher": "files.stroyinf.ru",
+   "license": "ссылка; перечень обозначений и названий",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "stroyinf-pipes",
+   "title": "Каталог ГОСТ «Трубы стальные и соединительные части к ним» (files.stroyinf.ru, 132 документа)",
+   "kind": "каталог нормативов",
+   "url": "https://files.stroyinf.ru/cat0/1604-0.htm",
+   "publisher": "files.stroyinf.ru",
+   "license": "ссылка; перечень обозначений и названий",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "stroyinf-structures",
+   "title": "Каталог ГОСТ «Металлические конструкции и детали» (files.stroyinf.ru, 98 документов)",
+   "kind": "каталог нормативов",
+   "url": "https://files.stroyinf.ru/cat0/1926-0.htm",
+   "publisher": "files.stroyinf.ru",
+   "license": "ссылка; перечень обозначений и названий",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "stroyinf-spds",
+   "title": "Каталог ГОСТ «Общие положения. Документация» — СПДС ГОСТ 21.xxx (files.stroyinf.ru)",
+   "kind": "каталог нормативов",
+   "url": "https://files.stroyinf.ru/cat0/102-50.htm",
+   "publisher": "files.stroyinf.ru",
+   "license": "ссылка; перечень обозначений и названий",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "stroyinf-welding",
+   "title": "Каталог ГОСТ «Сварочные швы и сварка» (files.stroyinf.ru, 89 документов, актуализация 01.06.2026)",
+   "kind": "каталог нормативов",
+   "url": "https://files.stroyinf.ru/cat0/524-2.htm",
+   "publisher": "files.stroyinf.ru",
+   "license": "ссылка; перечень обозначений и названий",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-26020-83",
+   "title": "ГОСТ 26020-83 Двутавры стальные горячекатаные с параллельными гранями полок. Сортамент (текст)",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/Data2/1/4294852/4294852643.htm",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-8510-86",
+   "title": "ГОСТ 8510-86 Уголки стальные горячекатаные неравнополочные. Сортамент (текст)",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/Data1/3/3970/index.htm",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-30245-2003",
+   "title": "ГОСТ 30245-2003 Профили стальные гнутые замкнутые сварные квадратные и прямоугольные для строительных конструкций. Технические условия (текст)",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/Data2/1/4294814/4294814553.htm",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-10704-91",
+   "title": "ГОСТ 10704-91 Трубы стальные электросварные прямошовные. Сортамент (текст)",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/Data2/1/4294852/4294852689.htm",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-8732-78",
+   "title": "ГОСТ 8732-78 Трубы стальные бесшовные горячедеформированные. Сортамент (текст)",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/Data2/1/4294848/4294848699.htm",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-19903-2015",
+   "title": "ГОСТ 19903-2015 Прокат листовой горячекатаный. Сортамент (текст)",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/Data2/1/4293755/4293755668.htm",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-52644-2006",
+   "title": "ГОСТ Р 52644-2006 Болты высокопрочные с шестигранной головкой с увеличенным размером под ключ для металлических конструкций (текст)",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/Data2/1/4293839/4293839373.htm",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-52644-2006-izm1",
+   "title": "Изменение № 1 ГОСТ Р 52644-2006 (2011)",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/Data2/0/4294820/4294820460.htm",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-52645-2006-izm1",
+   "title": "Изменение № 1 ГОСТ Р 52645-2006 Гайки высокопрочные шестигранные с увеличенным размером под ключ (2011)",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/Data2/0/4294820/4294820455.htm",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "meganorm-6958-78",
+   "title": "ГОСТ 6958-78 Шайбы увеличенные. Классы точности А и С (текст)",
+   "kind": "справочная база нормативов",
+   "url": "https://meganorm.ru/Data2/1/4294822/4294822799.htm",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "ksm-catalog-kz",
+   "title": "Каталог стандартов Единого государственного фонда нормативных технических документов РК (Казстандарт): статус документа в Республике Казахстан",
+   "kind": "официальный каталог",
+   "url": "https://new-shop.ksm.kz/catalog/",
+   "publisher": "РГП «Казахстанский институт стандартизации и метрологии» (ksm.kz)",
+   "license": "ссылка; сведения о статусе",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "ksm-egfntd-kds",
+   "title": "ЕГФНТД: нормативно-технические документы Комитета по делам строительства (НТП РК, РДС РК, МСН, МСП, АГСК-1)",
+   "kind": "официальный перечень",
+   "url": "https://new-shop.ksm.kz/egfntd/ntdgo/kds/",
+   "publisher": "ksm.kz",
+   "license": "ссылка",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "zakon-sp-rk-en-1993-1-1",
+   "title": "СП РК EN 1993-1-1:2005/2011 (с изменениями по состоянию на 30.12.2021) — online.zakon.kz",
+   "kind": "нормативная база РК",
+   "url": "https://online.zakon.kz/Document/?doc_id=37771702",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "prg-sp-rk-2.03-30-2017",
+   "title": "СП РК 2.03-30-2017 «Строительство в сейсмических зонах» (с изменениями на 12.08.2025) — ИС «Параграф»",
+   "kind": "нормативная база РК",
+   "url": "https://prg.kz/document/?doc_id=36128461",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "prg-snip-rk-5.04-23-2002",
+   "title": "СНиП РК 5.04-23-2002 «Стальные конструкции. Нормы проектирования» (утратили силу) — ИС «Параграф»",
+   "kind": "нормативная база РК",
+   "url": "https://prg.kz/document/?doc_id=30002436",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "ecoportal-km-2019-ust-kamenogorsk",
+   "title": "Рабочие чертежи КМ «Конструкции металлические. Лестница», Усть-Каменогорск, 2019 (общие данные, ссылочные документы)",
+   "kind": "проектная документация РК (пример)",
+   "url": "https://ecoportal.kz/Disscusion/DisHearings/LoadFile/2594",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "ecoportal-km-2019-angar",
+   "title": "Рабочие чертежи 16/12-2019-11-КМ «Ж/д ангар», ТОО «KazSipProject», 2019 (общие указания)",
+   "kind": "проектная документация РК (пример)",
+   "url": "https://ecoportal.kz/Disscusion/DisHearings/LoadFile/5362",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "rsm-mash-31385-2016",
+   "title": "ГОСТ 31385-2016 — изложение разделов 6.1 (стенка, днище, крыши, кольца, патрубки)",
+   "kind": "справочное изложение стандарта изготовителем резервуаров",
+   "url": "https://rsm-mash.ru/gost-31385-2016.html",
+   "publisher": "ООО «РезервуарСтройМаш»",
+   "license": "ссылка; числа выписаны с номерами пунктов",
+   "accessed": "2026-10-22"
+  },
+  {
+   "id": "zakonbase-pb-03-381-00",
+   "title": "ПБ 03-381-00, раздел 3.12 «Лестницы, площадки, переходы» (документ отменён)",
+   "kind": "правила безопасности (утратили силу)",
+   "url": "https://zakonbase.ru/content/part/362714",
+   "publisher": "zakonbase.ru",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-22"
+  }
+ ]
+}

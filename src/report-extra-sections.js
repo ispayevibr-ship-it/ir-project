@@ -1,0 +1,86 @@
+"use strict";
+(()=>{
+ const q=(s,r=document)=>r.querySelector(s),qa=(s,r=document)=>[...r.querySelectorAll(s)],arr=v=>Array.isArray(v)?v:[],esc=v=>String(v??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+ const route=()=>{const h=location.hash;let m=h.match(/^#?\/objects\/object\/(\d+)\/reports\/new$/);if(m)return{oid:m[1],mode:"new",rid:""};m=h.match(/^#?\/objects\/object\/(\d+)\/reports\/(\d+)\/edit$/);if(m)return{oid:m[1],mode:"edit",rid:m[2]};m=h.match(/^#?\/objects\/object\/(\d+)\/reports\/(\d+)$/);if(m)return{oid:m[1],mode:"view",rid:m[2]};return null};
+ const tabScope=()=>window.name?.startsWith("ir-tab-")?window.name+"-":"";
+ const pendingKey=oid=>`ir-report-extra-pending-${tabScope()}${oid}`,api=oid=>irProject.data.forObject(oid).section("reports");
+ const summaryText=x=>{if(typeof x==="string")return x;if(x?.text)return String(x.text);const parts=[];if(x?.name||x?.point)parts.push(String(x.name||x.point));if(x?.work||x?.stage)parts.push(String(x.work||x.stage));if(x?.percent!==""&&x?.percent!=null)parts.push(`${x.percent}% завершено`);else if(x?.progress!==""&&x?.progress!=null)parts.push(`${x.progress}% завершено`);return parts.join(" — ")};
+ window.irReportActivityPreview=r=>{
+   const summaries=arr(r?.daily_summary).map(summaryText).map(s=>String(s||"").trim()).filter(Boolean);
+   if(summaries.length)return{kind:"summary",label:"Сводка за день",lines:summaries};
+   const notes=[r?.note,r?.extra].map(s=>String(s||"").trim()).filter(Boolean);
+   const additional=arr(r?.additional_works).map(x=>{
+    const name=String(x?.name||x?.work||"").trim(),qty=String(x?.qty??x?.count??"").trim(),unit=String(x?.unit||"").trim();
+    return[name,qty?[qty,unit].filter(Boolean).join(" "):""].filter(Boolean).join(" · ")
+   }).filter(Boolean);
+   if(notes.length||additional.length)return{kind:"additional",label:"Дополнительная информация / работы",lines:[...notes,...additional]};
+   return{kind:"empty",label:"Работы",lines:["Работы не проводились"]}
+  };
+  const summaryRow=x=>`<div class="dynamic-row daily-summary-row"><label>Сводка<textarea name="summary_text" rows="2" placeholder="Например: Конвейер 1 — укрупнительная сборка завершена на 75%">${esc(summaryText(x))}</textarea></label><button type="button" class="row-remove" title="Удалить">×</button></div>`;
+ const newExtraId=()=>["EW",Date.now().toString(36),Math.random().toString(36).slice(2,10)].join("-");
+ const extraId=(entry,rid,index)=>String(entry?.id||entry?.work_id||((rid&&index>=0)?"EW-"+rid+"-"+(index+1):newExtraId()));
+ const extraAct=x=>x?.signed_act?.path?x.signed_act:null;
+ const extraRow=(x={},reportId="",index=-1)=>`<div class="dynamic-row additional-work-row" data-extra-id="${esc(extraId(x,reportId,index))}" data-extra-act="${esc(JSON.stringify(extraAct(x)))}"><label>Наименование<input name="additional_name" value="${esc(x?.name||"")}" placeholder="Наименование работы"></label><label>Количество<input name="additional_qty" inputmode="decimal" value="${esc(x?.qty??x?.count??"")}" placeholder="0"></label><label>Ед. измерения<input name="additional_unit" list="irAdditionalUnits" value="${esc(x?.unit||"")}" placeholder="тн, м2, м3, шт..."></label><label>Объём<input name="additional_volume" inputmode="decimal" value="${esc(x?.volume??"")}" placeholder="0"></label><button type="button" class="row-remove" title="Удалить">×</button></div>`;
+ function copyData(oid){try{const x=JSON.parse(sessionStorage.getItem(`ir-report-copy-${tabScope()}${oid}`)||"null");return x?.data||x||{}}catch{return{}}}
+ async function initial(r){if(r.mode==="edit"){const rec=await api(r.oid).get(r.rid).catch(()=>null);return rec?.data||{}}return r.mode==="new"?copyData(r.oid):{}}
+ function renumber(form){qa('.report-form-section .rfs-head>span',form).forEach((n,i)=>n.textContent=String(i+1).padStart(2,'0'))}
+ function collect(form){return{daily_summary:qa('.daily-summary-row',form).map(row=>({text:q('[name="summary_text"]',row)?.value.trim()||""})).filter(x=>x.text),additional_works:qa('.additional-work-row',form).map(row=>({id:row.dataset.extraId||newExtraId(),signed_act:(()=>{try{return JSON.parse(row.dataset.extraAct||"null")}catch{return null}})(),name:q('[name="additional_name"]',row)?.value.trim()||"",qty:q('[name="additional_qty"]',row)?.value.trim()||"",unit:q('[name="additional_unit"]',row)?.value.trim()||"",volume:q('[name="additional_volume"]',row)?.value.trim()||""})).filter(x=>x.name||x.qty||x.unit||x.volume)}}
+ function wireRows(section,type){if(section.dataset.rowsWired==="1")return;section.dataset.rowsWired="1";section.addEventListener('click',e=>{const add=e.target.closest('[data-extra-add]');if(add&&section.contains(add)){e.preventDefault();e.stopPropagation();const list=q('.dynamic-list',section);if(list)list.insertAdjacentHTML('beforeend',type==='summary'?summaryRow({}):extraRow({id:newExtraId()}));return}const remove=e.target.closest('.row-remove');if(remove&&section.contains(remove)){e.preventDefault();e.stopPropagation();remove.closest('.dynamic-row')?.remove()}})}
+
+ // Visibility only: collapse does not clear inputs or modify saved records.
+ function setupCollapsibleSections(form,mode){
+  if(form.dataset.reportFoldWired==="1")return;
+  const names=new Set(["Дополнительные работы","Сводка за день","Работники по должностям","Ответственные лица","Техника","Дополнительная информация"]);
+  const sections=qa(".report-form-section",form).filter(s=>names.has(q(".rfs-head h2",s)?.textContent?.trim()||""));
+  if(sections.length!==6)return;
+  form.dataset.reportFoldWired="1";
+  for(const section of sections){
+   const head=q(".rfs-head",section),caption=q("h2",head)?.textContent||"раздел";
+   const content=[...section.children].filter(node=>node!==head);
+   const button=document.createElement("button");
+   button.type="button";button.className="report-fold-toggle";
+   button.setAttribute("aria-label","Свернуть или развернуть: "+caption);
+   button.innerHTML='<span class="report-fold-chevron" aria-hidden="true">⌄</span>';
+   const collapse=closed=>{
+    section.classList.toggle("report-section-collapsed",closed);
+    section.dataset.collapsed=closed?"1":"0";
+    content.forEach(node=>node.hidden=closed);
+    button.setAttribute("aria-expanded",String(!closed));
+    button.title=(closed?"Развернуть: ":"Свернуть: ")+caption;
+   };
+   head.appendChild(button);
+   button.addEventListener("click",()=>collapse(section.dataset.collapsed!=="1"));
+   head.addEventListener("click",event=>{
+    if(event.target.closest("button,a,input,select,textarea"))return;
+    collapse(section.dataset.collapsed!=="1");
+   });
+   head.querySelectorAll("[data-add],[data-extra-add]").forEach(add=>
+    add.addEventListener("click",()=>collapse(false),true));
+   collapse(mode==="new");
+  }
+ }
+
+ function paintAct(section,act){const name=q('.report-act-name',section),open=q('.report-act-open',section),remove=q('.report-act-remove',section);section.dataset.actPath=act?.path||"";section.dataset.actName=act?.name||"";if(name)name.textContent=act?.name||"Документ не прикреплён";const select=q(".report-act-select",section);if(select)select.textContent=act?.path?"Заменить":"Загрузить документ";if(open)open.hidden=!act?.path;if(remove)remove.hidden=!act?.path}
+ function wireAct(section,initialAct){section.dataset.originalActPath=initialAct?.path||"";paintAct(section,initialAct);q('.report-act-select',section).onclick=async()=>{const file=await irProject.reportDocuments?.selectAct?.();if(!file)return;const current=section.dataset.actPath;if(current&&current!==section.dataset.originalActPath)await irProject.reportDocuments.remove(current).catch(()=>{});paintAct(section,file)};q('.report-act-open',section).onclick=()=>irProject.reportDocuments?.open?.(section.dataset.actPath);q('.report-act-remove',section).onclick=()=>paintAct(section,null)}
+ async function enhanceForm(reportData){const r=route(),form=q('#dailyReportForm');if(!r||!["new","edit"].includes(r.mode)||!form||form.dataset.extraSections==='1'||(form.dataset.extraInlineSave==='1'&&!reportData))return;const sections=qa('.report-form-section',form),info=sections.find(s=>/Дополнительная информация/i.test(q('h2',s)?.textContent||""));if(!info)return;form.dataset.extraSections='1';if(!q('#irAdditionalUnits'))document.body.insertAdjacentHTML('beforeend','<datalist id="irAdditionalUnits"><option value="тн"><option value="кг"><option value="м2"><option value="м3"><option value="м"><option value="шт"><option value="ед."></datalist>');const data=reportData&&typeof reportData==='object'?reportData:await initial(r);if(!form.isConnected||route()?.oid!==r.oid||route()?.mode!==r.mode)return;
+  const extra=document.createElement('section');extra.className='report-form-section report-additional-works-section';extra.innerHTML=`<div class="rfs-head"><span></span><div><h2>Дополнительные работы</h2><p>Работы вне основной ведомости марок</p></div><button type="button" class="rfs-add" data-extra-add>＋ Добавить работу</button></div><div class="rfs-body dynamic-list">${(arr(data.additional_works).length?arr(data.additional_works):[{}]).map((w,i)=>extraRow(r.mode==='new'?{...w,id:newExtraId(),signed_act:null}:w,r.rid,i)).join('')}</div><div class="report-act-box"><div><strong>Подтверждающий документ к ежедневному отчёту</strong><span class="report-act-name">Документ не прикреплён</span></div><div class="report-act-actions"><button type="button" class="report-act-select">Загрузить документ</button><button type="button" class="report-act-open" hidden>Открыть</button><button type="button" class="report-act-remove" hidden>Удалить</button></div></div>`;
+  const summary=document.createElement('section');summary.className='report-form-section report-daily-summary-section';summary.innerHTML=`<div class="rfs-head"><span></span><div><h2>Сводка за день</h2><p>Краткие текстовые пункты за рабочий день</p></div><button type="button" class="rfs-add" data-extra-add>＋ Добавить пункт</button></div><div class="rfs-body dynamic-list">${(arr(data.daily_summary).length?arr(data.daily_summary):[{}]).map(summaryRow).join('')}</div>`;
+  info.parentNode.insertBefore(extra,info);info.parentNode.insertBefore(summary,info);wireRows(extra,'extra');wireRows(summary,'summary');wireAct(extra,r.mode==='new'?null:data.signed_act||null);renumber(form);setupCollapsibleSections(form,r.mode);
+  if(form.dataset.extraInlineSave!=='1')form.addEventListener('submit',()=>{if(!form.checkValidity())return;const c=collect(form),act=extra.dataset.actPath?{path:extra.dataset.actPath,name:extra.dataset.actName}:null,old=extra.dataset.originalActPath||"";sessionStorage.setItem(pendingKey(r.oid),JSON.stringify({...c,signed_act:act,delete_act:old&&old!==(act?.path||"")?old:"",targetId:r.rid||"",date:q('[name="date"]',form)?.value||""}))},true)
+ }
+ async function applyPending(){const r=route();if(!r||r.mode!=="view")return;const raw=sessionStorage.getItem(pendingKey(r.oid));if(!raw)return;let p;try{p=JSON.parse(raw)}catch{return sessionStorage.removeItem(pendingKey(r.oid))}const rec=await api(r.oid).get(r.rid).catch(()=>null);if(!rec)return;const d=rec.data||{};if(p.targetId&&String(p.targetId)!==String(r.rid))return;if(!p.targetId&&p.date&&String(d.date||d.report_date||"")!==String(p.date))return;await api(r.oid).update(r.rid,{record_type:rec.record_type||"item",title:rec.title||"",data:{...d,daily_summary:arr(p.daily_summary),additional_works:arr(p.additional_works),signed_act:p.signed_act||null}});if(p.delete_act)await irProject.reportDocuments?.remove?.(p.delete_act).catch(()=>{});sessionStorage.removeItem(pendingKey(r.oid))}
+ function summaryHtml(items){const texts=arr(items).map(summaryText).map(x=>x.trim()).filter(Boolean);if(!texts.length)return"";return `<section class="rv-section rv-daily-summary-section"><div class="rv-section-title"><h2>Сводка за день</h2><span>${texts.length} пункт.</span></div><div class="rv-summary-text-list">${texts.map((text,i)=>`<div class="rv-summary-text-item"><span>${i+1}</span><p>${esc(text)}</p></div>`).join('')}</div></section>`}
+ function extraHtml(items,act,oid,reportId){if(!items.length&&!act?.path)return"";return`<section class="rv-section rv-additional-works-section"><div class="rv-section-title"><h2>Дополнительные работы</h2><span>${items.length} поз.</span></div>${items.length?`<div class="rv-table-wrap"><table class="rv-work-table"><thead><tr><th>Наименование</th><th>Кол-во</th><th>Ед. измерения</th><th>Объём</th><th>Карточка</th></tr></thead><tbody>${items.map((x,i)=>`<tr><td><b>${esc(x.name||"—")}</b></td><td>${esc(x.qty||"—")}</td><td>${esc(x.unit||"—")}</td><td><b>${esc(x.volume||"—")}${x.unit?` ${esc(x.unit)}`:""}</b></td><td><a class="rv-extra-open" href="#/objects/object/${encodeURIComponent(oid)}/extra-works/${encodeURIComponent(extraId(x,reportId,i))}">Открыть →</a></td></tr>`).join('')}</tbody></table></div>`:""}${act?.path?`<div class="rv-act"><div><small>Приложение к отчёту</small><b>${esc(act.name||"Акт")}</b></div><button type="button" data-report-act-open="${esc(act.path)}">Открыть приложение</button></div>`:""}</section>`}
+ async function enhanceView(){const r=route(),card=q('#rvCard');if(!r||r.mode!=="view"||!card||card.dataset.extraSections==='1')return;await applyPending();const rec=await api(r.oid).get(r.rid).catch(()=>null),d=rec?.data||{};card.dataset.extraSections='1';const works=q('.rv-works-section',card),note=q('.rv-note-section',card),photo=q('.rv-photo-section',card);const eh=extraHtml(arr(d.additional_works),d.signed_act,r.oid,r.rid),sh=summaryHtml(arr(d.daily_summary));if(eh&&works)works.insertAdjacentHTML('afterend',eh);if(sh)(note||photo)?.insertAdjacentHTML('beforebegin',sh);qa('[data-report-act-open]',card).forEach(b=>b.onclick=()=>irProject.reportDocuments?.open?.(b.dataset.reportActOpen))}
+ function capture(form){
+  const section=q('.report-additional-works-section',form);
+  const rows=collect(form);
+  const act=section?.dataset.actPath?{path:section.dataset.actPath,name:section.dataset.actName}:null;
+  const old=section?.dataset.originalActPath||'';
+  return{...rows,signed_act:act,delete_act:old&&old!==(act?.path||'')?old:''}
+ }
+ // Called directly from daily report rendering and saving; observer is only a fallback.
+ window.irReportExtraSections={enhanceForm,capture,enhanceView};
+ let busy=false;async function run(){if(busy)return;busy=true;try{await enhanceForm();await enhanceView()}finally{busy=false}}
+ let timer=0;new MutationObserver(()=>{if(!route())return;clearTimeout(timer);timer=setTimeout(run,75)}).observe(q('#app')||document.body,{subtree:true,childList:true});window.addEventListener('hashchange',()=>{clearTimeout(timer);if(route())timer=setTimeout(run,40)});run();
+})();

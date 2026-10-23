@@ -1,0 +1,291 @@
+/* Light native-style tab strip matching IR Project */
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{display:flex;flex-direction:column;min-width:760px;overflow:hidden;font-family:Inter,"Segoe UI",Arial,sans-serif;background:#f4f6f9;color:#263c50}
+button{font-family:inherit}
+.tabs-bar{height:43px;min-height:43px;background:#f3f6fa;display:flex;align-items:center;gap:8px;padding:0 141px 0 9px;border-bottom:1px solid #dce5ee;-webkit-app-region:drag;user-select:none}
+.tabs-list{display:flex;flex:1 1 auto;align-items:center;gap:6px;min-width:0;height:100%;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:#bfd0e0 transparent;-webkit-app-region:no-drag}
+.tabs-item{flex:0 1 225px;min-width:122px;max-width:245px;height:34px;display:flex;align-items:center;gap:8px;padding:0 5px 0 8px;border:1px solid #d9e4ee;border-radius:8px;background:#e8eef5;color:#5e778d;cursor:pointer;text-align:left;font-size:11px;transition:background .14s,border-color .14s;-webkit-app-region:no-drag}
+.tabs-item:hover{background:#e0ecf9;color:#24445e;border-color:#bcd5ea}
+.tabs-item.active{position:relative;background:#fff;border-color:#b8d3ed;color:#153b56;box-shadow:0 1px 5px rgba(40,85,127,.08);font-weight:750}
+.tabs-item.active:before{content:"";position:absolute;left:10px;right:10px;top:-1px;height:2px;border-radius:0 0 3px 3px;background:#a0caf0}
+.tabs-item .tabs-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tabs-icon{flex:0 0 23px;width:23px;height:23px;display:grid;place-items:center;border-radius:6px;color:#6486a4;background:#f6f9fc}
+.tabs-icon svg{display:block;flex:none;width:15px;height:15px;stroke:currentColor}
+.tabs-item.active .tabs-icon{color:#1769e0;background:#e9f3ff}
+.tabs-item:hover:not(.active) .tabs-icon{color:#367eb9;background:#f2f8ff}
+.tabs-item .tabs-close{flex:none;width:23px;height:23px;padding:0;border:0;background:transparent;color:#8da4b7;font-size:16px;line-height:22px;border-radius:5px;cursor:pointer;-webkit-app-region:no-drag}
+.tabs-item .tabs-close:hover{background:#fee9e9;color:#bb4545}
+.tabs-item.active .tabs-close{color:#6e859a}
+.tabs-item.unsaved .tabs-title:after{content:" •";color:#df912a}
+.tabs-add{flex:0 0 29px;display:grid;place-items:center;width:29px;height:29px;margin-right:7px;padding:0;border:1px solid #d4e2ef;border-radius:7px;background:#fff;color:#347bb6;font-size:19px;font-weight:600;cursor:pointer;-webkit-app-region:no-drag}
+.tabs-add:hover{border-color:#95bee5;background:#eaf4ff;color:#1769e0}
+.tabs-tools{flex:0 0 auto;display:flex;align-items:center;gap:6px;-webkit-app-region:no-drag}
+.tabs-tools button{height:31px;padding:0 11px;background:#fff;border:1px solid #d5e2ed;border-radius:7px;color:#476b89;font-size:10px;font-weight:700;white-space:nowrap;cursor:pointer}
+.tabs-tools button:hover{background:#edf6ff;border-color:#a6cbe9;color:#1769e0}
+.tabs-tools button:disabled{opacity:.5;cursor:wait}
+.tabs-item:focus-visible,.tabs-add:focus-visible,.tabs-tools button:focus-visible{outline:2px solid #277bd5;outline-offset:2px}
+.tabs-content{flex:1;min-height:0;position:relative;background:#f4f6f9}
+.tabs-pane{position:absolute;inset:0;width:100%;height:100%;border:0;background:#f4f6f9;visibility:hidden;pointer-events:none}
+.tabs-pane.active{visibility:visible;pointer-events:auto}
+@media(max-width:1150px){
+ .tabs-tools button{font-size:0;padding:0 10px}
+ .tabs-tools #tabsReload:after{content:none!important}
+ .tabs-tools #tabsDuplicate:after{content:"⧉";font-size:17px;line-height:24px}
+ .tabs-tools #tabsDetach:after{content:"↗";font-size:17px;line-height:24px}
+}
+@media(max-width:800px){.tabs-bar{padding-left:5px;padding-right:139px;gap:4px}.tabs-item{min-width:108px;padding-left:6px;gap:5px}.tabs-tools{gap:3px}}
+@media(prefers-reduced-motion:reduce){.tabs-item,.tabs-tools button{transition:none}}
+
+/* One update dialog for the whole multi-tab Electron window */
+.tabs-update-dialog{position:fixed;inset:0;width:min(560px,calc(100vw - 40px));max-width:560px;max-height:min(85vh,660px);margin:auto;overflow:auto;border:1px solid #dce7f0;border-radius:15px;padding:24px;background:#fff;color:#263e52;box-shadow:0 22px 65px rgba(19,45,72,.23)}
+.tabs-update-dialog::backdrop{background:rgba(17,34,52,.43);backdrop-filter:blur(2px)}
+.tabs-update-header{display:flex;align-items:center;gap:11px}
+.tabs-update-icon{display:grid;place-items:center;width:37px;height:37px;border-radius:10px;color:#1769e0;background:#eaf3ff;font-size:22px}
+.tabs-update-header h2{flex:1;margin:0;font-size:19px;line-height:1.35;color:#193c55}
+.tabs-update-close{height:30px;width:30px;border:0;background:#f0f4f7;border-radius:7px;font-size:22px;color:#718698;cursor:pointer}
+.tabs-update-close:hover{background:#e7eef4;color:#1b405a}
+.tabs-update-message{font-size:13px;line-height:1.6;color:#637b8e;margin:20px 0 21px;overflow-wrap:anywhere}
+.tabs-update-size{display:flex;align-items:center;padding:11px 13px;margin:-7px 0 18px;background:#f2f7fc;border:1px solid #e1ebf5;border-radius:8px;color:#345f81;font-size:12px;font-weight:750}
+.tabs-update-size[hidden],.tabs-update-transfer[hidden]{display:none!important}
+.tabs-update-transfer{font-size:11px;color:#638099;line-height:1.5;margin:-13px 0 20px}
+.tabs-update-progress{display:flex;align-items:center;gap:12px;margin:-4px 0 22px}
+.tabs-update-progress[hidden]{display:none!important}
+.tabs-update-progress-track{height:9px;border-radius:99px;background:#e5edf5;flex:1;overflow:hidden}
+#tabsUpdateProgressBar{height:100%;width:0;background:linear-gradient(90deg,#4aa1f6,#1769e0);border-radius:99px;transition:width .15s}
+#tabsUpdateProgressLabel{min-width:38px;text-align:right;font-size:11px;font-weight:800;color:#347aac}
+.tabs-update-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:9px}
+.tabs-update-actions button{min-height:36px;border:1px solid #cfdae5;border-radius:8px;background:#fff;color:#42617a;font-weight:750;font-size:12px;padding:0 15px;cursor:pointer}
+.tabs-update-actions button:hover{background:#f3f8fd}
+.tabs-update-actions button.primary{background:#1769e0;border-color:#1769e0;color:white}
+.tabs-update-actions button.primary:hover{background:#0f5dd0}
+.tabs-update-actions button:disabled{opacity:.56;cursor:wait}
+
+
+/* Lightweight visible progress during a cold tab startup */
+.tabs-loading{position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:#f4f6f9;color:#7490a5;font-size:12px;pointer-events:none}
+.tabs-loading[hidden]{display:none!important}
+.tabs-loading-spinner{width:30px;height:30px;border:3px solid #d7e5f1;border-top-color:#2479d0;border-radius:50%;animation:tabs-loading-spin .8s linear infinite}
+@keyframes tabs-loading-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.tabs-loading-spinner{animation:none;border-top-color:#2479d0}}
+
+
+/* 1.7.74: active profile in the tab bar beside the separate-window control. */
+.tabs-profile-slot{display:flex;align-items:center;flex:0 0 auto;-webkit-app-region:no-drag}
+.tabs-profile-slot .tabs-profile-bridge.profile-panel{position:relative;right:auto;bottom:auto;z-index:25}
+.tabs-profile-slot .tabs-profile-bridge[hidden]{display:none!important}
+.tabs-profile-slot .profile-badge{display:flex;align-items:center;gap:7px;min-height:31px;padding:0 11px;border:1px solid #d2e0ee;background:#fff;border-radius:7px;color:#315f80;white-space:nowrap;font-size:10px;font-weight:750;cursor:pointer}
+.tabs-profile-slot .profile-badge:before{content:"";display:block;width:16px;height:16px;border-radius:50%;background:#e6f2ff;border:1px solid #c5def4;box-shadow:inset 0 0 0 5px #458ad5}
+.tabs-profile-slot .profile-badge:hover{border-color:#95bfe5;background:#f2f8ff}
+.tabs-profile-slot .profile-menu{position:absolute;z-index:55;top:calc(100% + 8px);bottom:auto;right:0;width:238px;padding:13px;background:#fff;border:1px solid #dbe5ee;border-radius:9px;box-shadow:0 14px 35px #152f502b}
+.tabs-profile-slot .profile-menu[hidden]{display:none!important}
+.tabs-profile-slot .profile-menu label{display:grid;gap:7px;font-size:10px;color:#516f84}
+.tabs-profile-slot .profile-menu select{height:34px;width:100%;padding:0 9px;border:1px solid #ccdce9;border-radius:6px;background:white;color:#294a65;font-size:11px}
+.tabs-profile-slot .profile-menu button{width:100%;margin-top:10px;min-height:32px;border:1px solid #d6e3ed;border-radius:7px;background:#f5f9fd;color:#2b6896;font-size:10px;cursor:pointer}
+.tabs-loading-spinner[hidden]{display:none!important}
+.tabs-loading-help{display:flex;gap:10px;align-items:center;justify-content:center}
+.tabs-loading-help[hidden],.tabs-loading-help button[hidden]{display:none!important}
+.tabs-loading-help button{pointer-events:auto;padding:9px 13px;border:1px solid #c8dced;background:#fff;color:#23689e;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer}
+.tabs-loading-help button:hover{background:#ebf4ff}
+@media(max-width:980px){.tabs-tools{gap:4px}.tabs-profile-slot .profile-badge{font-size:9px;padding:0 8px}.tabs-bar{padding-right:130px}}
+
+
+/* 1.7.77 — Settings gear next to active user's role in the tab bar. */
+.tabs-profile-slot .tabs-profile-bridge{display:flex;align-items:center;gap:6px}
+.tabs-profile-slot .tabs-profile-bridge .program-settings-button{
+ display:grid;place-items:center;width:31px;min-width:31px;height:31px;
+ padding:0;border:1px solid #d2e0ee;border-radius:7px;
+ background:#fff;color:#426f91;cursor:pointer;font-size:initial
+}
+.tabs-profile-slot .program-settings-button svg{
+ width:17px;height:17px;fill:none;stroke:currentColor;
+ stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round
+}
+.tabs-profile-slot .program-settings-button:hover{
+ background:#edf6ff;border-color:#9bc3e6;color:#1769e0
+}
+.tabs-profile-slot .program-settings-menu{
+ position:absolute;top:calc(100% + 8px);right:0;bottom:auto;z-index:60;
+ width:238px;padding:13px;border:1px solid #d8e5f1;border-radius:9px;
+ background:#fff;color:#31536d;box-shadow:0 14px 35px #173a542b
+}
+.tabs-profile-slot .program-settings-menu[hidden]{display:none!important}
+.tabs-profile-slot .program-settings-menu-title{
+ margin:1px 3px 10px;font-size:11px;font-weight:800
+}
+.tabs-profile-slot .program-settings-menu button{
+ display:flex;align-items:center;width:100%;min-height:36px;
+ padding:7px 10px;font-size:10px;font-weight:700;text-align:left;
+ background:#f5f9fd;border:1px solid #dce7f1;color:#315d7c
+}
+.tabs-profile-slot .program-settings-menu button:hover{
+ background:#ecf5ff;border-color:#b6d4ed
+}
+
+/* 1.7.91: compact, scrollable tabs without changing the native Windows titlebar area. */
+body{min-width:0}
+.tabs-bar{min-width:0;max-width:100%;overflow:hidden;flex-wrap:nowrap}
+.tabs-list{overflow-x:auto;overflow-y:hidden;min-width:40px;flex:1 1 0;overscroll-behavior-x:contain}
+.tabs-list .tabs-item{flex:0 0 175px;min-width:115px;max-width:175px}
+.tabs-list.tabs-many .tabs-item{flex-basis:132px;min-width:110px;max-width:132px}
+.tabs-list.tabs-packed .tabs-item{flex-basis:102px;min-width:94px;max-width:102px;gap:3px;padding-left:5px}
+.tabs-list.tabs-packed .tabs-icon{display:none}
+.tabs-list.tabs-packed .tabs-close{width:19px;height:23px}
+.tabs-list .tabs-add{flex-shrink:0}
+.tabs-tools{flex:none;min-width:0;white-space:nowrap}
+.tabs-tools #tabsDuplicate,.tabs-tools #tabsDetach{display:grid;place-items:center;flex:0 0 33px;width:33px;height:31px;padding:0;font-size:0}
+.tabs-tools #tabsDuplicate svg,.tabs-tools #tabsDetach svg{display:block;width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tabs-tools #tabsDuplicate::after,.tabs-tools #tabsDetach::after{content:none!important}
+.tabs-tools .tabs-profile-slot{flex-shrink:0}
+@media(max-width:900px){.tabs-bar{gap:4px;padding-left:5px;padding-right:139px}.tabs-list .tabs-item{flex-basis:118px;max-width:118px;min-width:92px}.tabs-list.tabs-packed .tabs-item{flex-basis:96px;max-width:96px;min-width:85px}.tabs-tools{gap:3px}}
+
+/* 1.7.96: tabs that do not fit are accessible from an (N) overflow menu. */
+.tabs-list{overflow-x:hidden!important;overflow-y:hidden!important;scrollbar-width:none!important;gap:6px;min-width:0}
+.tabs-list .tabs-item,.tabs-list.tabs-many .tabs-item,.tabs-list.tabs-packed .tabs-item{
+ flex:0 0 175px!important;min-width:175px!important;max-width:175px!important;
+ padding:0 5px 0 8px!important;gap:8px!important;
+}
+.tabs-list .tabs-item .tabs-icon{display:grid!important}
+.tabs-list .tabs-add{flex:0 0 29px;width:29px;margin-right:0}
+.tabs-overflow{display:flex;align-items:center;justify-content:center;flex:0 0 48px;width:48px;height:30px;padding:0;border:1px solid #d1e2f0;border-radius:8px;background:#fff;color:#376c98;font-size:11px;font-weight:800;cursor:pointer;-webkit-app-region:no-drag}
+.tabs-overflow:hover,.tabs-overflow[aria-expanded="true"]{background:#eaf4ff;border-color:#9ec5e7;color:#1769e0}
+.tabs-overflow:focus-visible{outline:2px solid #2679d1;outline-offset:2px}
+.tabs-overflow-menu{position:fixed;z-index:1500;box-sizing:border-box;width:287px;max-width:calc(100vw - 14px);max-height:min(70vh,475px);overflow-y:auto;overflow-x:hidden;padding:5px;border:1px solid #d6e2ec;border-radius:10px;background:#fff;box-shadow:0 14px 42px rgba(27,60,87,.22);-webkit-app-region:no-drag}
+.tabs-overflow-menu[hidden]{display:none!important}
+.tabs-overflow-item{display:flex;align-items:center;gap:3px;min-height:36px;border-radius:7px}
+.tabs-overflow-item:hover{background:#f0f6fd}
+.tabs-overflow-open{display:flex;flex:1 1 auto;align-items:center;gap:9px;min-width:0;height:36px;padding:0 8px;border:0;background:transparent;text-align:left;color:#31516b;cursor:pointer;font-size:11px}
+.tabs-overflow-open>span:last-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tabs-overflow-icon{display:grid;place-items:center;flex:0 0 21px;width:21px;height:21px;color:#5385ac}
+.tabs-overflow-icon svg{width:16px;height:16px}
+.tabs-overflow-close{flex:0 0 26px;width:26px;height:26px;margin-right:4px;border:0;border-radius:5px;background:transparent;color:#839aac;font-size:17px;cursor:pointer}
+.tabs-overflow-close:hover{background:#ffe9e8;color:#bd4545}
+.tabs-overflow-open:focus-visible,.tabs-overflow-close:focus-visible{outline:2px solid #2d83cc;outline-offset:1px}
+@media(max-width:1000px){
+ .tabs-list .tabs-item,.tabs-list.tabs-many .tabs-item,.tabs-list.tabs-packed .tabs-item{
+  flex-basis:145px!important;min-width:145px!important;max-width:145px!important
+ }
+}
+
+/* 1.7.97: prevent the legacy tab scrollbar at any viewport width. */
+#tabsList.tabs-list{overflow-x:hidden!important;overflow-y:hidden!important;scrollbar-width:none!important;flex-shrink:1;min-width:0}
+#tabsList.tabs-list::-webkit-scrollbar{display:none!important;height:0!important;width:0!important}
+.tabs-bar{overflow:visible!important}
+#tabsList>.tabs-item{overflow:hidden}
+#tabsList>.tabs-overflow,#tabsList>.tabs-add{flex-shrink:0!important}
+.tabs-overflow-menu{z-index:2000}
+
+/* 1.7.125: SVG refresh-cw replaces the old character at all widths. */
+.tabs-tools #tabsReload{
+ display:grid;
+ place-items:center;
+ flex:0 0 33px;
+ width:33px;
+ height:31px;
+ padding:0;
+ font-size:0;
+}
+.tabs-tools #tabsReload svg{
+ display:block;
+ width:18px;
+ height:18px;
+ fill:none;
+ stroke:currentColor;
+ stroke-width:1.8;
+ stroke-linecap:round;
+ stroke-linejoin:round;
+}
+.tabs-tools #tabsReload::after{content:none!important}
+
+/* IR Project 1.7.147: About program modal, including the tab-shell bridge. */
+.ir-about-dialog{box-sizing:border-box;width:min(455px,calc(100vw - 32px));max-width:calc(100vw - 32px);max-height:calc(100vh - 32px);padding:0;overflow:auto;border:1px solid #d5e4f0;border-radius:15px;background:#fff;color:#25455f;font-family:"Segoe UI",Arial,sans-serif;box-shadow:0 24px 75px rgba(25,58,89,.28)}
+.ir-about-dialog::backdrop{background:rgba(21,42,64,.38);backdrop-filter:blur(3px)}
+.ir-about-head{display:flex;align-items:center;gap:13px;padding:24px 24px 18px;border-bottom:1px solid #e4edf5}
+.ir-about-icon{display:grid;place-items:center;flex:none;width:42px;height:42px;border-radius:11px;background:#eaf3ff;color:#176cc2;font-size:22px;font-weight:800;font-style:normal}
+.ir-about-head>div{flex:1;min-width:0}
+.ir-about-head h2{margin:0;color:#20445f;font-size:19px;font-weight:800}
+.ir-about-head p{margin:5px 0 0;color:#8298ab;font-size:12px}
+.ir-about-close{display:grid;place-items:center;flex:none;width:31px;height:31px;padding:0;border:0;border-radius:8px;background:#f0f5f9;color:#607b92;font-size:22px;cursor:pointer}
+.ir-about-info{padding:21px 24px 15px;display:grid;gap:18px}
+.ir-about-line{display:grid;gap:7px}
+.ir-about-line>span{font-size:11px;color:#7992a6;font-weight:700}
+.ir-about-line>strong{font-size:13px;line-height:1.55;color:#274962;font-weight:750;overflow-wrap:anywhere}
+.ir-about-footer{display:flex;justify-content:flex-end;padding:14px 24px 22px}
+.ir-about-done{min-height:37px;padding:9px 22px;border:0;border-radius:8px;background:#176fcb;color:#fff;font-size:12px;font-weight:750;cursor:pointer}
+.ir-about-done:hover{background:#105dab}
+.ir-about-dialog button:focus-visible{outline:2px solid #3186d8;outline-offset:2px}
+
+/* IR Project 1.7.148 — unified, readable settings menu. */
+.profile-panel .program-settings-button[aria-expanded="true"]{background:#e5f2ff;border-color:#83b7e8;color:#176dc5;box-shadow:0 0 0 2px rgba(52,134,220,.1)}
+.profile-panel .program-settings-menu{
+ box-sizing:border-box;width:286px;max-width:calc(100vw - 16px);
+ padding:0;overflow:hidden;border:1px solid #dce6f0;border-radius:13px;
+ background:#fff;color:#243f55;box-shadow:0 18px 52px rgba(24,58,91,.18);
+ font-family:"Segoe UI",Arial,sans-serif
+}
+.profile-panel .program-settings-menu-head{
+ display:flex;align-items:center;justify-content:space-between;gap:12px;
+ padding:15px 17px 13px;background:linear-gradient(180deg,#f6faff,#fff);
+ border-bottom:1px solid #e9eff5
+}
+.profile-panel .program-settings-menu-head .program-settings-menu-title{
+ margin:0;color:#1d3c55;font-size:13px;line-height:1.4;font-weight:800
+}
+.profile-panel .program-settings-menu-head>small{
+ padding:4px 7px;border:1px solid #dcebf9;border-radius:5px;
+ background:#ecf5ff;color:#3879b5;font-size:10px;white-space:nowrap;font-weight:750
+}
+.profile-panel .program-settings-menu-items{padding:7px;display:grid;gap:3px}
+.profile-panel .program-settings-menu .program-settings-item{
+ box-sizing:border-box;display:flex;align-items:center;gap:11px;min-width:0;
+ width:100%;min-height:57px;padding:9px 10px;border:1px solid transparent;
+ border-radius:9px;background:transparent;color:#27455d;text-align:left;
+ font-size:12px;font-weight:600;line-height:1.3;cursor:pointer;
+ transition:background-color .14s,border-color .14s;
+}
+.profile-panel .program-settings-menu .program-settings-item:hover{
+ background:#f0f7fe;border-color:#d8eafb;color:#1767ae
+}
+.profile-panel .program-settings-menu .program-settings-item:focus-visible{
+ outline:2px solid #438bd1;outline-offset:-2px;background:#f0f7fe
+}
+.profile-panel .program-settings-menu .program-settings-item-icon{
+ box-sizing:border-box;display:grid;place-items:center;flex:0 0 36px;
+ width:36px;height:36px;border-radius:9px;background:#edf4fa;color:#417cae
+}
+.profile-panel .program-settings-menu .program-settings-update .program-settings-item-icon{
+ background:#e8f4ff;color:#186fbb
+}
+.profile-panel .program-settings-menu .program-settings-item-icon svg{
+ display:block;width:19px;height:19px;fill:none;stroke:currentColor;
+ stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round
+}
+.profile-panel .program-settings-menu .program-settings-item-text{
+ display:grid;gap:4px;flex:1 1 auto;min-width:0;
+}
+.profile-panel .program-settings-menu .program-settings-item-text strong{
+ display:block;font-size:12px;font-weight:750;color:#27465d
+}
+.profile-panel .program-settings-menu .program-settings-item-text small{
+ display:block;font-size:10px;font-weight:450;line-height:1.25;color:#8298aa
+}
+.profile-panel .program-settings-menu .program-settings-divider{
+ height:1px;margin:5px 7px;background:#e6edf5
+}
+
+/* In the tabbed shell the parent bar has overflow:hidden. A viewport-fixed
+   popup avoids clipping; JS aligns it to the settings gear. */
+.tabs-profile-slot .program-settings-menu{
+ position:fixed!important;z-index:3000;
+ top:43px;bottom:auto;right:auto;left:auto;
+ width:286px;max-width:calc(100vw - 16px)
+}
+.tabs-profile-slot .tabs-profile-bridge.profile-panel{z-index:80}
+
+/* 1.7.149: DB export in settings uses the existing native Save dialog. */
+.profile-panel .program-settings-menu #programExportDatabase .program-settings-item-icon{
+ background:#eaf4f1;color:#258675
+}
+.profile-panel .program-settings-menu .program-settings-item:disabled{
+ opacity:.6;cursor:wait;pointer-events:none
+}

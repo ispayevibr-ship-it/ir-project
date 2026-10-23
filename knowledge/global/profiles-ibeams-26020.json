@@ -1,0 +1,1737 @@
+{
+ "catalog": "profiles-ibeams-26020",
+ "version": 1,
+ "note": "ГОСТ 26020-83: двутавры с параллельными гранями полок (Б, Ш, К, ДБ, ДШ). В РФ не действует (каталог stroyinf), в КМ встречается часто; размеры отличаются от ГОСТ Р 57837 с теми же номерами — брать по стандарту, указанному на листе.",
+ "records": [
+  {
+   "id": "ibeam-26020-10Б1",
+   "designation": "Двутавр 10Б1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 100.0,
+   "b_mm": 55.0,
+   "s_mm": 4.1,
+   "t_mm": 5.7,
+   "r_mm": 7.0,
+   "flange_slope": false,
+   "A_cm2": 10.32,
+   "mass_kg_m": 8.1,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-12Б1",
+   "designation": "Двутавр 12Б1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 117.6,
+   "b_mm": 64.0,
+   "s_mm": 3.8,
+   "t_mm": 5.1,
+   "r_mm": 7.0,
+   "flange_slope": false,
+   "A_cm2": 11.03,
+   "mass_kg_m": 8.7,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-12Б2",
+   "designation": "Двутавр 12Б2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 120.0,
+   "b_mm": 64.0,
+   "s_mm": 4.4,
+   "t_mm": 6.3,
+   "r_mm": 7.0,
+   "flange_slope": false,
+   "A_cm2": 13.21,
+   "mass_kg_m": 10.4,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-14Б1",
+   "designation": "Двутавр 14Б1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 137.4,
+   "b_mm": 73.0,
+   "s_mm": 3.8,
+   "t_mm": 5.6,
+   "r_mm": 7.0,
+   "flange_slope": false,
+   "A_cm2": 13.39,
+   "mass_kg_m": 10.5,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-14Б2",
+   "designation": "Двутавр 14Б2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 140.0,
+   "b_mm": 73.0,
+   "s_mm": 4.7,
+   "t_mm": 6.9,
+   "r_mm": 7.0,
+   "flange_slope": false,
+   "A_cm2": 16.43,
+   "mass_kg_m": 12.9,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-16Б1",
+   "designation": "Двутавр 16Б1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 157.0,
+   "b_mm": 82.0,
+   "s_mm": 4.0,
+   "t_mm": 5.9,
+   "r_mm": 9.0,
+   "flange_slope": false,
+   "A_cm2": 16.18,
+   "mass_kg_m": 12.7,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-16Б2",
+   "designation": "Двутавр 16Б2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 160.0,
+   "b_mm": 82.0,
+   "s_mm": 5.0,
+   "t_mm": 7.4,
+   "r_mm": 9.0,
+   "flange_slope": false,
+   "A_cm2": 20.09,
+   "mass_kg_m": 15.8,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-18Б1",
+   "designation": "Двутавр 18Б1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 177.0,
+   "b_mm": 91.0,
+   "s_mm": 4.3,
+   "t_mm": 6.5,
+   "r_mm": 9.0,
+   "flange_slope": false,
+   "A_cm2": 19.58,
+   "mass_kg_m": 15.4,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-18Б2",
+   "designation": "Двутавр 18Б2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 180.0,
+   "b_mm": 91.0,
+   "s_mm": 5.3,
+   "t_mm": 8.0,
+   "r_mm": 9.0,
+   "flange_slope": false,
+   "A_cm2": 23.95,
+   "mass_kg_m": 18.8,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-20Б1",
+   "designation": "Двутавр 20Б1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 200.0,
+   "b_mm": 100.0,
+   "s_mm": 5.6,
+   "t_mm": 8.5,
+   "r_mm": 12.0,
+   "flange_slope": false,
+   "A_cm2": 28.49,
+   "mass_kg_m": 22.4,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-23Б1",
+   "designation": "Двутавр 23Б1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 230.0,
+   "b_mm": 110.0,
+   "s_mm": 5.6,
+   "t_mm": 9.0,
+   "r_mm": 12.0,
+   "flange_slope": false,
+   "A_cm2": 32.91,
+   "mass_kg_m": 25.8,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-26Б1",
+   "designation": "Двутавр 26Б1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 258.0,
+   "b_mm": 120.0,
+   "s_mm": 5.8,
+   "t_mm": 8.5,
+   "r_mm": 12.0,
+   "flange_slope": false,
+   "A_cm2": 35.62,
+   "mass_kg_m": 28.0,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-26Б2",
+   "designation": "Двутавр 26Б2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 261.0,
+   "b_mm": 120.0,
+   "s_mm": 6.0,
+   "t_mm": 10.0,
+   "r_mm": 12.0,
+   "flange_slope": false,
+   "A_cm2": 39.7,
+   "mass_kg_m": 31.2,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-30Б1",
+   "designation": "Двутавр 30Б1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 296.0,
+   "b_mm": 140.0,
+   "s_mm": 5.8,
+   "t_mm": 8.5,
+   "r_mm": 15.0,
+   "flange_slope": false,
+   "A_cm2": 41.92,
+   "mass_kg_m": 32.9,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-30Б2",
+   "designation": "Двутавр 30Б2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 299.0,
+   "b_mm": 140.0,
+   "s_mm": 6.0,
+   "t_mm": 10.0,
+   "r_mm": 15.0,
+   "flange_slope": false,
+   "A_cm2": 46.67,
+   "mass_kg_m": 36.6,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-35Б1",
+   "designation": "Двутавр 35Б1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 346.0,
+   "b_mm": 155.0,
+   "s_mm": 6.2,
+   "t_mm": 8.5,
+   "r_mm": 18.0,
+   "flange_slope": false,
+   "A_cm2": 49.53,
+   "mass_kg_m": 38.9,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-35Б2",
+   "designation": "Двутавр 35Б2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 349.0,
+   "b_mm": 155.0,
+   "s_mm": 6.5,
+   "t_mm": 10.0,
+   "r_mm": 18.0,
+   "flange_slope": false,
+   "A_cm2": 55.17,
+   "mass_kg_m": 43.3,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-40Б1",
+   "designation": "Двутавр 40Б1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 392.0,
+   "b_mm": 165.0,
+   "s_mm": 7.0,
+   "t_mm": 9.5,
+   "r_mm": 21.0,
+   "flange_slope": false,
+   "A_cm2": 61.25,
+   "mass_kg_m": 48.1,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-40Б2",
+   "designation": "Двутавр 40Б2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 396.0,
+   "b_mm": 165.0,
+   "s_mm": 7.5,
+   "t_mm": 11.5,
+   "r_mm": 21.0,
+   "flange_slope": false,
+   "A_cm2": 69.72,
+   "mass_kg_m": 54.7,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-45Б1",
+   "designation": "Двутавр 45Б1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 443.0,
+   "b_mm": 180.0,
+   "s_mm": 7.8,
+   "t_mm": 11.0,
+   "r_mm": 21.0,
+   "flange_slope": false,
+   "A_cm2": 76.23,
+   "mass_kg_m": 59.8,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-45Б2",
+   "designation": "Двутавр 45Б2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 447.0,
+   "b_mm": 180.0,
+   "s_mm": 8.4,
+   "t_mm": 13.0,
+   "r_mm": 21.0,
+   "flange_slope": false,
+   "A_cm2": 85.96,
+   "mass_kg_m": 67.5,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-50Б1",
+   "designation": "Двутавр 50Б1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 492.0,
+   "b_mm": 200.0,
+   "s_mm": 8.8,
+   "t_mm": 12.0,
+   "r_mm": 21.0,
+   "flange_slope": false,
+   "A_cm2": 92.98,
+   "mass_kg_m": 73.0,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-50Б2",
+   "designation": "Двутавр 50Б2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 496.0,
+   "b_mm": 200.0,
+   "s_mm": 9.2,
+   "t_mm": 14.0,
+   "r_mm": 21.0,
+   "flange_slope": false,
+   "A_cm2": 102.8,
+   "mass_kg_m": 80.7,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-55Б1",
+   "designation": "Двутавр 55Б1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 543.0,
+   "b_mm": 220.0,
+   "s_mm": 9.5,
+   "t_mm": 13.5,
+   "r_mm": 24.0,
+   "flange_slope": false,
+   "A_cm2": 113.37,
+   "mass_kg_m": 89.0,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-55Б2",
+   "designation": "Двутавр 55Б2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 547.0,
+   "b_mm": 220.0,
+   "s_mm": 10.0,
+   "t_mm": 15.5,
+   "r_mm": 24.0,
+   "flange_slope": false,
+   "A_cm2": 124.75,
+   "mass_kg_m": 97.9,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-60Б1",
+   "designation": "Двутавр 60Б1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 593.0,
+   "b_mm": 230.0,
+   "s_mm": 10.5,
+   "t_mm": 15.5,
+   "r_mm": 24.0,
+   "flange_slope": false,
+   "A_cm2": 135.26,
+   "mass_kg_m": 106.2,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-60Б2",
+   "designation": "Двутавр 60Б2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 597.0,
+   "b_mm": 230.0,
+   "s_mm": 11.0,
+   "t_mm": 17.5,
+   "r_mm": 24.0,
+   "flange_slope": false,
+   "A_cm2": 147.3,
+   "mass_kg_m": 115.6,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-70Б1",
+   "designation": "Двутавр 70Б1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 691.0,
+   "b_mm": 260.0,
+   "s_mm": 12.0,
+   "t_mm": 15.5,
+   "r_mm": 24.0,
+   "flange_slope": false,
+   "A_cm2": 164.7,
+   "mass_kg_m": 129.3,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-70Б2",
+   "designation": "Двутавр 70Б2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 697.0,
+   "b_mm": 260.0,
+   "s_mm": 12.5,
+   "t_mm": 18.5,
+   "r_mm": 24.0,
+   "flange_slope": false,
+   "A_cm2": 183.6,
+   "mass_kg_m": 144.2,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-80Б1",
+   "designation": "Двутавр 80Б1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 791.0,
+   "b_mm": 280.0,
+   "s_mm": 13.5,
+   "t_mm": 17.0,
+   "r_mm": 26.0,
+   "flange_slope": false,
+   "A_cm2": 203.2,
+   "mass_kg_m": 159.5,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-80Б2",
+   "designation": "Двутавр 80Б2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 798.0,
+   "b_mm": 280.0,
+   "s_mm": 14.0,
+   "t_mm": 20.5,
+   "r_mm": 26.0,
+   "flange_slope": false,
+   "A_cm2": 226.6,
+   "mass_kg_m": 177.9,
+   "shape3d": "ibeam",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-26020-83"
+   ],
+   "note": "В тексте источника b = 230 — опечатка: площадь 226,6 см² сходится только при b = 280 (как у 80Б1)"
+  },
+  {
+   "id": "ibeam-26020-90Б1",
+   "designation": "Двутавр 90Б1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 898.0,
+   "b_mm": 300.0,
+   "s_mm": 15.0,
+   "t_mm": 18.5,
+   "r_mm": 30.0,
+   "flange_slope": false,
+   "A_cm2": 247.1,
+   "mass_kg_m": 194.0,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-90Б2",
+   "designation": "Двутавр 90Б2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 900.0,
+   "b_mm": 300.0,
+   "s_mm": 15.5,
+   "t_mm": 22.0,
+   "r_mm": 30.0,
+   "flange_slope": false,
+   "A_cm2": 272.4,
+   "mass_kg_m": 213.8,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-100Б1",
+   "designation": "Двутавр 100Б1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 990.0,
+   "b_mm": 320.0,
+   "s_mm": 16.0,
+   "t_mm": 21.0,
+   "r_mm": 30.0,
+   "flange_slope": false,
+   "A_cm2": 293.82,
+   "mass_kg_m": 230.6,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-100Б2",
+   "designation": "Двутавр 100Б2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 998.0,
+   "b_mm": 320.0,
+   "s_mm": 17.0,
+   "t_mm": 25.0,
+   "r_mm": 30.0,
+   "flange_slope": false,
+   "A_cm2": 328.9,
+   "mass_kg_m": 258.2,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-100Б3",
+   "designation": "Двутавр 100Б3",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 1006.0,
+   "b_mm": 320.0,
+   "s_mm": 18.0,
+   "t_mm": 29.0,
+   "r_mm": 30.0,
+   "flange_slope": false,
+   "A_cm2": 364.0,
+   "mass_kg_m": 285.7,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-100Б4",
+   "designation": "Двутавр 100Б4",
+   "standard": "ГОСТ 26020-83",
+   "type": "Б",
+   "h_mm": 1013.0,
+   "b_mm": 320.0,
+   "s_mm": 19.5,
+   "t_mm": 32.5,
+   "r_mm": 30.0,
+   "flange_slope": false,
+   "A_cm2": 400.6,
+   "mass_kg_m": 314.5,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-20Ш1",
+   "designation": "Двутавр 20Ш1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 193.0,
+   "b_mm": 150.0,
+   "s_mm": 6.0,
+   "t_mm": 9.0,
+   "r_mm": 13.0,
+   "flange_slope": false,
+   "A_cm2": 38.95,
+   "mass_kg_m": 30.6,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-23Ш1",
+   "designation": "Двутавр 23Ш1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 226.0,
+   "b_mm": 155.0,
+   "s_mm": 6.5,
+   "t_mm": 10.0,
+   "r_mm": 14.0,
+   "flange_slope": false,
+   "A_cm2": 46.08,
+   "mass_kg_m": 36.2,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-26Ш1",
+   "designation": "Двутавр 26Ш1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 251.0,
+   "b_mm": 180.0,
+   "s_mm": 7.0,
+   "t_mm": 10.0,
+   "r_mm": 16.0,
+   "flange_slope": false,
+   "A_cm2": 54.37,
+   "mass_kg_m": 42.7,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-26Ш2",
+   "designation": "Двутавр 26Ш2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 255.0,
+   "b_mm": 180.0,
+   "s_mm": 7.5,
+   "t_mm": 12.0,
+   "r_mm": 16.0,
+   "flange_slope": false,
+   "A_cm2": 62.73,
+   "mass_kg_m": 49.2,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-30Ш1",
+   "designation": "Двутавр 30Ш1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 291.0,
+   "b_mm": 200.0,
+   "s_mm": 8.0,
+   "t_mm": 11.0,
+   "r_mm": 18.0,
+   "flange_slope": false,
+   "A_cm2": 68.31,
+   "mass_kg_m": 53.6,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-30Ш2",
+   "designation": "Двутавр 30Ш2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 295.0,
+   "b_mm": 200.0,
+   "s_mm": 8.5,
+   "t_mm": 13.0,
+   "r_mm": 18.0,
+   "flange_slope": false,
+   "A_cm2": 77.65,
+   "mass_kg_m": 61.0,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-30Ш3",
+   "designation": "Двутавр 30Ш3",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 299.0,
+   "b_mm": 200.0,
+   "s_mm": 9.0,
+   "t_mm": 15.0,
+   "r_mm": 18.0,
+   "flange_slope": false,
+   "A_cm2": 87.0,
+   "mass_kg_m": 68.3,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-35Ш1",
+   "designation": "Двутавр 35Ш1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 338.0,
+   "b_mm": 250.0,
+   "s_mm": 9.5,
+   "t_mm": 12.5,
+   "r_mm": 20.0,
+   "flange_slope": false,
+   "A_cm2": 96.67,
+   "mass_kg_m": 75.1,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-35Ш2",
+   "designation": "Двутавр 35Ш2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 341.0,
+   "b_mm": 250.0,
+   "s_mm": 10.0,
+   "t_mm": 14.0,
+   "r_mm": 20.0,
+   "flange_slope": false,
+   "A_cm2": 104.74,
+   "mass_kg_m": 82.2,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-35Ш3",
+   "designation": "Двутавр 35Ш3",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 345.0,
+   "b_mm": 250.0,
+   "s_mm": 10.5,
+   "t_mm": 16.0,
+   "r_mm": 20.0,
+   "flange_slope": false,
+   "A_cm2": 116.3,
+   "mass_kg_m": 91.3,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-40Ш1",
+   "designation": "Двутавр 40Ш1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 388.0,
+   "b_mm": 300.0,
+   "s_mm": 9.5,
+   "t_mm": 14.0,
+   "r_mm": 22.0,
+   "flange_slope": false,
+   "A_cm2": 122.4,
+   "mass_kg_m": 96.1,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-40Ш2",
+   "designation": "Двутавр 40Ш2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 392.0,
+   "b_mm": 300.0,
+   "s_mm": 11.5,
+   "t_mm": 16.0,
+   "r_mm": 22.0,
+   "flange_slope": false,
+   "A_cm2": 141.6,
+   "mass_kg_m": 111.1,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-40Ш3",
+   "designation": "Двутавр 40Ш3",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 396.0,
+   "b_mm": 300.0,
+   "s_mm": 12.5,
+   "t_mm": 18.0,
+   "r_mm": 22.0,
+   "flange_slope": false,
+   "A_cm2": 157.2,
+   "mass_kg_m": 123.4,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-50Ш1",
+   "designation": "Двутавр 50Ш1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 484.0,
+   "b_mm": 300.0,
+   "s_mm": 11.0,
+   "t_mm": 15.0,
+   "r_mm": 26.0,
+   "flange_slope": false,
+   "A_cm2": 145.7,
+   "mass_kg_m": 114.4,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-50Ш2",
+   "designation": "Двутавр 50Ш2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 489.0,
+   "b_mm": 300.0,
+   "s_mm": 14.5,
+   "t_mm": 17.5,
+   "r_mm": 26.0,
+   "flange_slope": false,
+   "A_cm2": 176.6,
+   "mass_kg_m": 138.7,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-50Ш3",
+   "designation": "Двутавр 50Ш3",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 495.0,
+   "b_mm": 300.0,
+   "s_mm": 15.5,
+   "t_mm": 20.5,
+   "r_mm": 26.0,
+   "flange_slope": false,
+   "A_cm2": 199.2,
+   "mass_kg_m": 156.4,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-50Ш4",
+   "designation": "Двутавр 50Ш4",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 501.0,
+   "b_mm": 300.0,
+   "s_mm": 16.5,
+   "t_mm": 23.5,
+   "r_mm": 26.0,
+   "flange_slope": false,
+   "A_cm2": 221.7,
+   "mass_kg_m": 174.1,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-60Ш1",
+   "designation": "Двутавр 60Ш1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 580.0,
+   "b_mm": 320.0,
+   "s_mm": 12.0,
+   "t_mm": 17.0,
+   "r_mm": 28.0,
+   "flange_slope": false,
+   "A_cm2": 181.1,
+   "mass_kg_m": 142.1,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-60Ш2",
+   "designation": "Двутавр 60Ш2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 587.0,
+   "b_mm": 320.0,
+   "s_mm": 16.0,
+   "t_mm": 20.5,
+   "r_mm": 28.0,
+   "flange_slope": false,
+   "A_cm2": 225.3,
+   "mass_kg_m": 176.9,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-60Ш3",
+   "designation": "Двутавр 60Ш3",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 596.0,
+   "b_mm": 320.0,
+   "s_mm": 18.0,
+   "t_mm": 24.5,
+   "r_mm": 28.0,
+   "flange_slope": false,
+   "A_cm2": 261.8,
+   "mass_kg_m": 205.5,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-60Ш4",
+   "designation": "Двутавр 60Ш4",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 603.0,
+   "b_mm": 320.0,
+   "s_mm": 20.0,
+   "t_mm": 28.5,
+   "r_mm": 28.0,
+   "flange_slope": false,
+   "A_cm2": 298.34,
+   "mass_kg_m": 234.2,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-70Ш1",
+   "designation": "Двутавр 70Ш1",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 683.0,
+   "b_mm": 320.0,
+   "s_mm": 13.5,
+   "t_mm": 19.0,
+   "r_mm": 30.0,
+   "flange_slope": false,
+   "A_cm2": 216.4,
+   "mass_kg_m": 169.9,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-70Ш2",
+   "designation": "Двутавр 70Ш2",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 691.0,
+   "b_mm": 320.0,
+   "s_mm": 15.0,
+   "t_mm": 23.0,
+   "r_mm": 30.0,
+   "flange_slope": false,
+   "A_cm2": 251.7,
+   "mass_kg_m": 197.6,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-70Ш3",
+   "designation": "Двутавр 70Ш3",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 700.0,
+   "b_mm": 320.0,
+   "s_mm": 18.0,
+   "t_mm": 27.5,
+   "r_mm": 30.0,
+   "flange_slope": false,
+   "A_cm2": 299.8,
+   "mass_kg_m": 235.4,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-70Ш4",
+   "designation": "Двутавр 70Ш4",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 708.0,
+   "b_mm": 320.0,
+   "s_mm": 20.5,
+   "t_mm": 31.5,
+   "r_mm": 30.0,
+   "flange_slope": false,
+   "A_cm2": 341.6,
+   "mass_kg_m": 268.1,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-70Ш5",
+   "designation": "Двутавр 70Ш5",
+   "standard": "ГОСТ 26020-83",
+   "type": "Ш",
+   "h_mm": 718.0,
+   "b_mm": 320.0,
+   "s_mm": 23.0,
+   "t_mm": 36.5,
+   "r_mm": 30.0,
+   "flange_slope": false,
+   "A_cm2": 389.7,
+   "mass_kg_m": 305.9,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-20К1",
+   "designation": "Двутавр 20К1",
+   "standard": "ГОСТ 26020-83",
+   "type": "К",
+   "h_mm": 195.0,
+   "b_mm": 200.0,
+   "s_mm": 6.5,
+   "t_mm": 10.0,
+   "r_mm": 13.0,
+   "flange_slope": false,
+   "A_cm2": 52.82,
+   "mass_kg_m": 41.5,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-20К2",
+   "designation": "Двутавр 20К2",
+   "standard": "ГОСТ 26020-83",
+   "type": "К",
+   "h_mm": 198.0,
+   "b_mm": 200.0,
+   "s_mm": 7.0,
+   "t_mm": 11.5,
+   "r_mm": 13.0,
+   "flange_slope": false,
+   "A_cm2": 59.7,
+   "mass_kg_m": 46.9,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-23К1",
+   "designation": "Двутавр 23К1",
+   "standard": "ГОСТ 26020-83",
+   "type": "К",
+   "h_mm": 227.0,
+   "b_mm": 240.0,
+   "s_mm": 7.0,
+   "t_mm": 10.5,
+   "r_mm": 14.0,
+   "flange_slope": false,
+   "A_cm2": 66.51,
+   "mass_kg_m": 52.2,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-23К2",
+   "designation": "Двутавр 23К2",
+   "standard": "ГОСТ 26020-83",
+   "type": "К",
+   "h_mm": 230.0,
+   "b_mm": 240.0,
+   "s_mm": 8.0,
+   "t_mm": 12.0,
+   "r_mm": 14.0,
+   "flange_slope": false,
+   "A_cm2": 75.77,
+   "mass_kg_m": 59.5,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-26К1",
+   "designation": "Двутавр 26К1",
+   "standard": "ГОСТ 26020-83",
+   "type": "К",
+   "h_mm": 255.0,
+   "b_mm": 260.0,
+   "s_mm": 8.0,
+   "t_mm": 12.0,
+   "r_mm": 16.0,
+   "flange_slope": false,
+   "A_cm2": 83.08,
+   "mass_kg_m": 65.2,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-26К2",
+   "designation": "Двутавр 26К2",
+   "standard": "ГОСТ 26020-83",
+   "type": "К",
+   "h_mm": 258.0,
+   "b_mm": 260.0,
+   "s_mm": 9.0,
+   "t_mm": 13.5,
+   "r_mm": 16.0,
+   "flange_slope": false,
+   "A_cm2": 93.19,
+   "mass_kg_m": 73.2,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-26К3",
+   "designation": "Двутавр 26К3",
+   "standard": "ГОСТ 26020-83",
+   "type": "К",
+   "h_mm": 262.0,
+   "b_mm": 260.0,
+   "s_mm": 10.0,
+   "t_mm": 15.5,
+   "r_mm": 16.0,
+   "flange_slope": false,
+   "A_cm2": 105.9,
+   "mass_kg_m": 83.1,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-30К1",
+   "designation": "Двутавр 30К1",
+   "standard": "ГОСТ 26020-83",
+   "type": "К",
+   "h_mm": 296.0,
+   "b_mm": 300.0,
+   "s_mm": 9.0,
+   "t_mm": 13.5,
+   "r_mm": 18.0,
+   "flange_slope": false,
+   "A_cm2": 108.0,
+   "mass_kg_m": 84.8,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-30К2",
+   "designation": "Двутавр 30К2",
+   "standard": "ГОСТ 26020-83",
+   "type": "К",
+   "h_mm": 300.0,
+   "b_mm": 300.0,
+   "s_mm": 10.0,
+   "t_mm": 15.5,
+   "r_mm": 18.0,
+   "flange_slope": false,
+   "A_cm2": 122.7,
+   "mass_kg_m": 96.3,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-30К3",
+   "designation": "Двутавр 30К3",
+   "standard": "ГОСТ 26020-83",
+   "type": "К",
+   "h_mm": 304.0,
+   "b_mm": 300.0,
+   "s_mm": 11.5,
+   "t_mm": 17.5,
+   "r_mm": 18.0,
+   "flange_slope": false,
+   "A_cm2": 138.72,
+   "mass_kg_m": 108.9,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-35К1",
+   "designation": "Двутавр 35К1",
+   "standard": "ГОСТ 26020-83",
+   "type": "К",
+   "h_mm": 343.0,
+   "b_mm": 350.0,
+   "s_mm": 10.0,
+   "t_mm": 15.0,
+   "r_mm": 20.0,
+   "flange_slope": false,
+   "A_cm2": 139.7,
+   "mass_kg_m": 109.7,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-35К2",
+   "designation": "Двутавр 35К2",
+   "standard": "ГОСТ 26020-83",
+   "type": "К",
+   "h_mm": 348.0,
+   "b_mm": 350.0,
+   "s_mm": 11.0,
+   "t_mm": 17.5,
+   "r_mm": 20.0,
+   "flange_slope": false,
+   "A_cm2": 160.4,
+   "mass_kg_m": 125.9,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-35К3",
+   "designation": "Двутавр 35К3",
+   "standard": "ГОСТ 26020-83",
+   "type": "К",
+   "h_mm": 353.0,
+   "b_mm": 350.0,
+   "s_mm": 13.0,
+   "t_mm": 20.0,
+   "r_mm": 20.0,
+   "flange_slope": false,
+   "A_cm2": 184.1,
+   "mass_kg_m": 144.5,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-40К1",
+   "designation": "Двутавр 40К1",
+   "standard": "ГОСТ 26020-83",
+   "type": "К",
+   "h_mm": 393.0,
+   "b_mm": 400.0,
+   "s_mm": 11.0,
+   "t_mm": 16.5,
+   "r_mm": 22.0,
+   "flange_slope": false,
+   "A_cm2": 175.8,
+   "mass_kg_m": 138.0,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-40К2",
+   "designation": "Двутавр 40К2",
+   "standard": "ГОСТ 26020-83",
+   "type": "К",
+   "h_mm": 400.0,
+   "b_mm": 400.0,
+   "s_mm": 13.0,
+   "t_mm": 20.0,
+   "r_mm": 22.0,
+   "flange_slope": false,
+   "A_cm2": 210.96,
+   "mass_kg_m": 165.6,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-40К3",
+   "designation": "Двутавр 40К3",
+   "standard": "ГОСТ 26020-83",
+   "type": "К",
+   "h_mm": 409.0,
+   "b_mm": 400.0,
+   "s_mm": 16.0,
+   "t_mm": 24.5,
+   "r_mm": 22.0,
+   "flange_slope": false,
+   "A_cm2": 257.8,
+   "mass_kg_m": 202.3,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-40К4",
+   "designation": "Двутавр 40К4",
+   "standard": "ГОСТ 26020-83",
+   "type": "К",
+   "h_mm": 419.0,
+   "b_mm": 400.0,
+   "s_mm": 19.0,
+   "t_mm": 29.5,
+   "r_mm": 22.0,
+   "flange_slope": false,
+   "A_cm2": 308.6,
+   "mass_kg_m": 242.2,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-40К5",
+   "designation": "Двутавр 40К5",
+   "standard": "ГОСТ 26020-83",
+   "type": "К",
+   "h_mm": 431.0,
+   "b_mm": 400.0,
+   "s_mm": 23.0,
+   "t_mm": 35.5,
+   "r_mm": 22.0,
+   "flange_slope": false,
+   "A_cm2": 371.0,
+   "mass_kg_m": 291.2,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-24ДБ1",
+   "designation": "Двутавр 24ДБ1",
+   "standard": "ГОСТ 26020-83",
+   "type": "ДБ",
+   "h_mm": 239.0,
+   "b_mm": 115.0,
+   "s_mm": 5.5,
+   "t_mm": 9.3,
+   "r_mm": 15.0,
+   "flange_slope": false,
+   "A_cm2": 35.45,
+   "mass_kg_m": 27.8,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-27ДБ1",
+   "designation": "Двутавр 27ДБ1",
+   "standard": "ГОСТ 26020-83",
+   "type": "ДБ",
+   "h_mm": 269.0,
+   "b_mm": 125.0,
+   "s_mm": 6.0,
+   "t_mm": 9.5,
+   "r_mm": 15.0,
+   "flange_slope": false,
+   "A_cm2": 40.68,
+   "mass_kg_m": 31.9,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-36ДБ1",
+   "designation": "Двутавр 36ДБ1",
+   "standard": "ГОСТ 26020-83",
+   "type": "ДБ",
+   "h_mm": 360.0,
+   "b_mm": 145.0,
+   "s_mm": 7.2,
+   "t_mm": 12.3,
+   "r_mm": 18.0,
+   "flange_slope": false,
+   "A_cm2": 62.6,
+   "mass_kg_m": 49.1,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-35ДБ1",
+   "designation": "Двутавр 35ДБ1",
+   "standard": "ГОСТ 26020-83",
+   "type": "ДБ",
+   "h_mm": 349.0,
+   "b_mm": 127.0,
+   "s_mm": 5.8,
+   "t_mm": 8.5,
+   "r_mm": 15.0,
+   "flange_slope": false,
+   "A_cm2": 42.78,
+   "mass_kg_m": 33.6,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-40ДБ1",
+   "designation": "Двутавр 40ДБ1",
+   "standard": "ГОСТ 26020-83",
+   "type": "ДБ",
+   "h_mm": 399.0,
+   "b_mm": 139.0,
+   "s_mm": 6.2,
+   "t_mm": 9.0,
+   "r_mm": 15.0,
+   "flange_slope": false,
+   "A_cm2": 50.58,
+   "mass_kg_m": 39.7,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-45ДБ1",
+   "designation": "Двутавр 45ДБ1",
+   "standard": "ГОСТ 26020-83",
+   "type": "ДБ",
+   "h_mm": 450.0,
+   "b_mm": 152.0,
+   "s_mm": 7.4,
+   "t_mm": 11.0,
+   "r_mm": 15.0,
+   "flange_slope": false,
+   "A_cm2": 67.05,
+   "mass_kg_m": 52.6,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-45ДБ2",
+   "designation": "Двутавр 45ДБ2",
+   "standard": "ГОСТ 26020-83",
+   "type": "ДБ",
+   "h_mm": 450.0,
+   "b_mm": 180.0,
+   "s_mm": 7.6,
+   "t_mm": 13.3,
+   "r_mm": 18.0,
+   "flange_slope": false,
+   "A_cm2": 82.8,
+   "mass_kg_m": 65.0,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-30ДШ1",
+   "designation": "Двутавр 30ДШ1",
+   "standard": "ГОСТ 26020-83",
+   "type": "ДШ",
+   "h_mm": 300.6,
+   "b_mm": 201.9,
+   "s_mm": 9.4,
+   "t_mm": 16.0,
+   "r_mm": 18.0,
+   "flange_slope": false,
+   "A_cm2": 92.6,
+   "mass_kg_m": 72.7,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-40ДШ1",
+   "designation": "Двутавр 40ДШ1",
+   "standard": "ГОСТ 26020-83",
+   "type": "ДШ",
+   "h_mm": 397.6,
+   "b_mm": 302.0,
+   "s_mm": 11.5,
+   "t_mm": 18.7,
+   "r_mm": 22.0,
+   "flange_slope": false,
+   "A_cm2": 159.0,
+   "mass_kg_m": 124.0,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  },
+  {
+   "id": "ibeam-26020-50ДШ1",
+   "designation": "Двутавр 50ДШ1",
+   "standard": "ГОСТ 26020-83",
+   "type": "ДШ",
+   "h_mm": 496.2,
+   "b_mm": 303.8,
+   "s_mm": 14.2,
+   "t_mm": 21.0,
+   "r_mm": 26.0,
+   "flange_slope": false,
+   "A_cm2": 198.0,
+   "mass_kg_m": 155.0,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-26020-83"
+   ]
+  }
+ ]
+}
