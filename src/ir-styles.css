@@ -1703,6 +1703,8 @@ body.ir-delivery-form-route .delivery-form-page *{box-sizing:border-box}
 .ir-three-node-base small{opacity:.7}
 .ir-three-node-base em{color:#a3460a;font-style:normal}
 .ir-three-node-ok{margin:8px 0 4px;color:#14735f}
+.ir-three-node-type .kb-st{font-style:normal;font-weight:600;color:#14735f}
+.ir-three-node-type .kb-st.needs_check{color:#a3460a}.ir-three-node-type .kb-st.unknown{color:#b42318}
 .ir-three-root.dark .ir-three-node-list button{background:#1f2a36;border-color:#2b3744;color:#d5dfe8}
 .ir-three-root.dark .ir-three-node-list b{color:#e6ebf1}
 /* Card of a member's mark: data of the drawings and pieces of the PDF sheets. */

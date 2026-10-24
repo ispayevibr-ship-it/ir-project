@@ -675,6 +675,141 @@
    "publisher": "IDEA StatiCa",
    "license": "ссылка; текст не копируется",
    "accessed": "2026-10-24"
+  },
+  {
+   "id": "studfile-sp16-2011-p26",
+   "title": "СП 16.13330.2011 Стальные конструкции: п. 14.4, 15.1 (температурные блоки, табл. 44) — копия по страницам",
+   "kind": "свод правил (копия на studfile.net)",
+   "url": "https://studfile.net/preview/7697075/page:26/",
+   "publisher": "studfile.net",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-24"
+  },
+  {
+   "id": "studfile-sp16-2011-p27",
+   "title": "СП 16.13330.2011: п. 15.2.1–15.2.6 (фермы и структурные конструкции)",
+   "kind": "свод правил (копия на studfile.net)",
+   "url": "https://studfile.net/preview/7697075/page:27/",
+   "publisher": "studfile.net",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-24"
+  },
+  {
+   "id": "studfile-sp16-2011-p28",
+   "title": "СП 16.13330.2011: п. 15.3 (колонны), 15.4 (связи)",
+   "kind": "свод правил (копия на studfile.net)",
+   "url": "https://studfile.net/preview/7697075/page:28/",
+   "publisher": "studfile.net",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-24"
+  },
+  {
+   "id": "studfile-sp16-2011-p29",
+   "title": "СП 16.13330.2011: п. 15.5 (балки), 15.6 (балки крановых путей)",
+   "kind": "свод правил (копия на studfile.net)",
+   "url": "https://studfile.net/preview/7697075/page:29/",
+   "publisher": "studfile.net",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-24"
+  },
+  {
+   "id": "studfile-sp16-2011-p30",
+   "title": "СП 16.13330.2011: п. 15.7 (листовые), 15.8 (висячие покрытия), 15.9 (фланцевые соединения)",
+   "kind": "свод правил (копия на studfile.net)",
+   "url": "https://studfile.net/preview/7697075/page:30/",
+   "publisher": "studfile.net",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-24"
+  },
+  {
+   "id": "studfile-sp16-2011-p31",
+   "title": "СП 16.13330.2011: п. 15.10 (фрезерованные торцы), 15.11 (монтажные крепления), 15.12 (опорные части)",
+   "kind": "свод правил (копия на studfile.net)",
+   "url": "https://studfile.net/preview/7697075/page:31/",
+   "publisher": "studfile.net",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-24"
+  },
+  {
+   "id": "meganorm-sp70-2012",
+   "title": "СП 70.13330.2012 Несущие и ограждающие конструкции: п. 4.2–4.6 (монтаж стальных конструкций, болты, высокопрочные болты)",
+   "kind": "свод правил (текст)",
+   "url": "https://meganorm.ru/Data2/1/4293782/4293782487.htm",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-24"
+  },
+  {
+   "id": "meganorm-sp70-2012-pdf",
+   "title": "СП 70.13330.2012: п. 4.7 (специальные монтажные соединения: дюбели, самонарезающие винты, заклёпки)",
+   "kind": "свод правил (текст, PDF)",
+   "url": "https://meganorm.ru/Data2/1/4293782/4293782487.pdf",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-24"
+  },
+  {
+   "id": "spbstu-25772-83",
+   "title": "ГОСТ 25772-83 Ограждения лестниц, балконов и крыш стальные. Общие технические условия (ЭБ СПбПУ)",
+   "kind": "стандарт (текст, PDF)",
+   "url": "https://elib.spbstu.ru/dl/1000/6/5.pdf",
+   "publisher": "elib.spbstu.ru",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-24"
+  },
+  {
+   "id": "standartgost-23120-2016",
+   "title": "ГОСТ 23120-2016 Лестницы маршевые, площадки и ограждения стальные. Технические условия (текст)",
+   "kind": "стандарт (текст)",
+   "url": "https://standartgost.ru/g/%D0%93%D0%9E%D0%A1%D0%A2_23120-2016",
+   "publisher": "standartgost.ru",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-24"
+  },
+  {
+   "id": "meganorm-24379.1-2012-text",
+   "title": "ГОСТ 24379.1-2012 Болты фундаментные. Конструкция и размеры (текст, табл. 1–16, прил. Г)",
+   "kind": "стандарт (текст, PDF)",
+   "url": "https://meganorm.ru/Data/527/52716.pdf",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-24"
+  },
+  {
+   "id": "dnaop-24741-81",
+   "title": "ГОСТ 24741-81 Узел крепления крановых рельсов к стальным подкрановым балкам. Технические условия (текст)",
+   "kind": "стандарт (текст)",
+   "url": "https://dnaop.com/html/65073/doc-%D0%93%D0%9E%D0%A1%D0%A2_24741-81",
+   "publisher": "dnaop.com",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-24"
+  },
+  {
+   "id": "normacs-sp260-2016",
+   "title": "NormaCS: СП 260.1325800.2016 Конструкции стальные тонкостенные из холодногнутых оцинкованных профилей и гофрированных листов — карточка документа",
+   "kind": "справочная база нормативов",
+   "url": "https://www.normacs.info/ntds/4916",
+   "publisher": "www.normacs.info",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-24"
+  },
+  {
+   "id": "dnaop-dstu-en-1993-1-8-p11",
+   "title": "ДСТУ-Н Б EN 1993-1-8:2011 (EN 1993-1-8, Еврокод 3, узлы), с. 11: п. 3.13 шарнирные соединения на пальцах",
+   "kind": "норма (перевод EN, текст)",
+   "url": "https://dnaop.com/html/59813_11.html",
+   "publisher": "dnaop.com",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-24"
+  },
+  {
+   "id": "ideastatica-steel-pins",
+   "title": "IDEA StatiCa: проверки пальцев по EN 1993-1-8 п. 3.13 (табл. 3.9, 3.10)",
+   "kind": "справка разработчика ПО со ссылками на EN",
+   "url": "https://www.ideastatica.com/support-center/support-center-knowledge-base/steel-pins",
+   "publisher": "ideastatica.com",
+   "license": "ссылка; текст не копируется",
+   "accessed": "2026-10-24"
   }
  ]
 }

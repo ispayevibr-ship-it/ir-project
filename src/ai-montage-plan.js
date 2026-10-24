@@ -418,15 +418,24 @@ function verifiedScheme(ai){
 }
 // The nodes of the drawings checked for this set (verified.nodes / node_rules), each element its own.
 function withNodes(v,list){require("./ai-node-specs").attachNodes(list,v.nodes,v.node_rules);return list}
+// The nodes a sheet names («Узел 2. Крепление связей к колонне») with the joints of the catalog their words fit
+// (src/ai-joint-catalog.js, ТЗ «1000 монтажных узлов») — a hint the 3D card shows, never a confirmation.
+let jointCatalog=null;
+function sheetNodes(text){
+ if(!jointCatalog){try{jointCatalog=require("./ai-joint-catalog").load()}catch{jointCatalog={sheetNodes:()=>[]}}}
+ return jointCatalog.sheetNodes(text).filter(n=>n.joints.length).slice(0,12).map(n=>({label:n.label,title:n.title,group:n.group,joints:n.joints.slice(0,2)}))
+}
 function buildPlan(draft,ai=null,heights={},opts={}){
  const catalog=buildCatalog(draft,ai);
  // КМ and КМД number their marks differently: with КМД mounting schemes in the set, КМ plans are reference only.
  const kmdMounting=(draft.pages||[]).some(p=>p.docType==="КМД монтажные"&&(p.schemes||[]).some(s=>!s.error));
  // Joints of a scheme: its own sheet's notes, else the notes of the volume («все неоговоренные болты М20»).
  const sheetJoint=new Map(),fileJoint=new Map();
- for(const p of draft.pages||[]){const j=jointNote(p.context?.text);if(!j)continue;sheetJoint.set(p.page,{...j,sheet:(p.sourceName||"")+" стр. "+(p.pdfPage||p.page)});
-  if(/неоговоренные/.test(j.text)&&!fileJoint.has(p.sourceName))fileJoint.set(p.sourceName,sheetJoint.get(p.page))}
- const joints=info=>info&&(sheetJoint.get(info.page)||fileJoint.get(info.file))||null;
+ for(const p of draft.pages||[]){const j=jointNote(p.context?.text),named=sheetNodes(p.context?.text);if(!j&&!named.length)continue;
+  sheetJoint.set(p.page,{...(j||{bolt:null,cls:null,weld:false,text:""}),...(named.length?{named}:{}),sheet:(p.sourceName||"")+" стр. "+(p.pdfPage||p.page)});
+  if(j&&/неоговоренные/.test(j.text)&&!fileJoint.has(p.sourceName))fileJoint.set(p.sourceName,{...j,sheet:sheetJoint.get(p.page).sheet})}
+ // A sheet that names its nodes but not its bolts takes the bolts of the volume's notes.
+ const joints=info=>{if(!info)return null;const s=sheetJoint.get(info.page),f=fileJoint.get(info.file);return s&&!s.text&&f?{...f,named:s.named}:s||f||null};
  const decisions=new Map((ai?.schemes||[]).map(s=>[s.page+":"+s.index,s]));
  const candidates=[],skipped=[],schemeInfo=[];
  const docTypes=new Set((draft.pages||[]).map(p=>p.docType).filter(Boolean));
@@ -1051,4 +1060,4 @@ function seatTrusses(elements,catalog){
   e.note=[e.note,"Ферма по геометрической схеме"+(moved?", отметка низа — как у соседних ферм":"")+" — проверьте"].filter(Boolean).join("; ")
  }
 }
-module.exports={jointNote,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces};
+module.exports={sheetNodes,jointNote,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces};

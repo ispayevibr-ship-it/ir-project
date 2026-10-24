@@ -216,7 +216,7 @@
   return'<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script>'+inline(HEAD)+'</script>'+
    '<title>'+esc((d.object.name||"Объект")+" — монтажная схема")+'</title><style>'+libs.css+'\n'+PAGE_CSS+'</style></head><body>'+body+
    '<script type="application/json" id="ir-scheme-data">'+json(Object.assign({},d,{shots:undefined}))+'</script>'+
-   '<script>window.irSchemeSections='+inline(JSON.stringify(libs.sections||[]))+';window.irSchemeFasteners='+inline(JSON.stringify(libs.fasteners||[]))+';</script><script>'+inline(libs.three)+'</script><script>'+inline(libs.orbit)+'</script><script>'+inline(libs.types)+'</script><script>'+inline(libs.view)+'</script>'+
+   '<script>window.irSchemeSections='+inline(JSON.stringify(libs.sections||[]))+';window.irSchemeFasteners='+inline(JSON.stringify(libs.fasteners||[]))+';window.irSchemeJointKb='+inline(JSON.stringify(libs.jointKb||{families:[],groups:[]}))+';</script><script>'+inline(libs.three)+'</script><script>'+inline(libs.orbit)+'</script><script>'+inline(libs.types)+'</script>'+(libs.joints?'<script>'+inline(libs.joints)+'</script>':'')+'<script>'+inline(libs.view)+'</script>'+
    '<script>try{('+inline(viewer.toString())+')()}catch(e){window.__irFail(e&&e.message||e)}</script></body></html>'
  }
 
@@ -226,10 +226,12 @@
   d.date=new Date().toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
   var libs={css:threeCss()};
   try{d.shots=window.irThreeSchemeView&&window.irThreeSchemeView.snapshots?window.irThreeSchemeView.snapshots():[]}catch(_e){d.shots=[]}
-  var r=await Promise.all([text(scriptUrl("vendor/three/three.min.js")),text(scriptUrl("vendor/three/OrbitControls.js")),text(scriptUrl("ai-structure-types.js")),text(scriptUrl("scheme-three-view.js"))]);
-  libs.three=r[0];libs.orbit=r[1];libs.types=r[2];libs.view=r[3];
+  var r=await Promise.all([text(scriptUrl("vendor/three/three.min.js")),text(scriptUrl("vendor/three/OrbitControls.js")),text(scriptUrl("ai-structure-types.js")),text(scriptUrl("scheme-three-view.js")),text(scriptUrl("ai-joint-catalog.js")).catch(function(){return""})]);
+  libs.three=r[0];libs.orbit=r[1];libs.types=r[2];libs.view=r[3];libs.joints=r[4];
   libs.sections=window.irThreeSchemeView&&window.irThreeSchemeView.sectionRows?await window.irThreeSchemeView.sectionRows().catch(function(){return[]}):[];
   libs.fasteners=window.irThreeSchemeView&&window.irThreeSchemeView.fastenerRows?await window.irThreeSchemeView.fastenerRows().catch(function(){return[]}):[];
+  // The catalog of joints: the node card of the exported scheme names the type of the node as the program does.
+  libs.jointKb=window.irThreeSchemeView&&window.irThreeSchemeView.jointKbRows?await window.irThreeSchemeView.jointKbRows().catch(function(){return null}):null;
   var html=page(d,libs);
   return window.irProject.reportExport.html(html,safeFile((d.object.name||"Объект")+" — монтажная схема — "+d.title)+".html")
  }

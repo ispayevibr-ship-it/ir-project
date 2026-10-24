@@ -77,8 +77,21 @@ window.irThreeSchemeView=(function(){
   })).then(function(list){
    list.forEach(function(d){(d.records||[]).forEach(function(r){if(r.status==="confirmed")sections.set(r.id,r)})})
   });
-  return Promise.all([sectionsPromise,loadFasteners()])
+  return Promise.all([sectionsPromise,loadFasteners(),loadJointKb()])
  }
+ // The catalog of mounting joints (knowledge/global/joints.json, connections.json; src/ai-joint-catalog.js): the type of a
+ // node of the scheme, its parts and rules by the norms, the state of the family and its sources. An exported scheme
+ // carries the families (window.irSchemeJointKb).
+ var jointKb=null,jointKbData=null,jointKbPromise=null;
+ function loadJointKb(){
+  if(jointKbPromise)return jointKbPromise;
+  var lib=window.irJointCatalog;if(!lib)return jointKbPromise=Promise.resolve();
+  var use=function(d){jointKbData=d;jointKb=d&&d.families&&d.families.length?lib.create(d):null};
+  if(window.irSchemeJointKb&&window.irSchemeJointKb.families){use(window.irSchemeJointKb);return jointKbPromise=Promise.resolve()}
+  var get=function(name){return fetch("../knowledge/global/"+name+".json").then(function(r){return r.ok?r.json():null}).catch(function(){return null})};
+  return jointKbPromise=Promise.all([get("connections"),get("joints")]).then(function(r){use(lib.slim(r[0]||{records:[]},r[1]||{}))})
+ }
+ function jointKbRows(){return loadJointKb().then(function(){return jointKbData||{families:[],groups:[]}})}
  // Bolts, nuts and washers of the joints by their standards (knowledge/global/fasteners.json, confirmed rows only):
  // bolt ГОСТ 7798 (S, k), nut ГОСТ 5915 (S, m), washer ГОСТ 11371 (d2, s), thread pitch from the bolt rows that give it.
  var fasteners=new Map(),fastenersPromise=null;
@@ -1186,7 +1199,7 @@ window.irThreeSchemeView=(function(){
      var ms=m.c.status==="mounted"?"mounted":m.c.status==="partial"?"partial":"planned";
      return '<button type="button" data-node-member="'+escapeHtml(m.c.id)+'"><i class="'+ms+'"></i><b>'+escapeHtml(m.c.mark||m.c.title||"—")+'</b><span>'+escapeHtml((m.c.type_name||kindNames[m.c.geometryType]||"")+" · "+m.role)+'</span><small>'+escapeHtml(m.c.profile_name||"")+'</small></button>'
     }).join("")+'</div>'+
-    jointHtml(n)+
+    jointHtml(n)+typeHtml(n)+
     (missing.length?'<p class="ir-three-node-wait">Ждёт монтажа: <b>'+escapeHtml([...new Set(missing.map(function(m){return m.c.mark||"—"}))].join(", "))+'</b></p>':'<p class="ir-three-node-ok">Все элементы узла смонтированы.</p>')+
     baseHtml(n)+
     (n.kind==="base"||n.kind==="top"?'<p class="ir-three-place-note">'+(n.kind==="top"?(n.members.some(function(m){return m.c.geometryType==="column"&&seatTop.has(String(m.c.id))})?
@@ -1205,6 +1218,33 @@ window.irThreeSchemeView=(function(){
     return'<span>'+escapeHtml([...new Set(x.marks)].join(", ")+": "+x.j.text)+'</span>'+(x.j.sheet?'<small>'+escapeHtml("по указаниям "+x.j.sheet)+'</small>':"")+boltHtml(x.j)}).join("")+
     '<em>Число и места болтов на модели условные — по узлам КМД; комплект болта — по ГОСТ. Болты связей на фасонках стоят по наименьшим расстояниям СП 16.13330 (табл. 40): от торца 2,5d, шаг 3d.'+
     (n.members.some(function(m){return m.c.joint&&m.c.joint.gusset_mm})?"":" Фасонки показаны толщиной 12 мм условно — на листах толщина фасонок не указана.")+'</em></div>'
+  }
+  // The type of the node by the catalog of 1000 joints: chosen by what meets there (a column base, a beam end at a
+  // column or on a beam, a joint of members), the nodes the sheets name first. Only a hint: the scheme is not changed.
+  function nodeQuery(n){
+   var named=[],seen=new Set(),bolted=false,hsb=false;
+   n.members.forEach(function(m){var j=m.c.joint;if(!j)return;if(j.bolt)bolted=true;if(/высокопрочн|фрикц/i.test(j.text||""))hsb=true;
+    (j.named||[]).forEach(function(x){var k=x.label+"|"+x.title;if(!seen.has(k)){seen.add(k);named.push(x)}})});
+   var b=n.kind==="base"?baseOf(n):null;
+   return{kind:n.kind,anchors:b&&b.anchors&&number(b.anchors.count)||0,named:named,bolted:bolted,hsb:hsb,
+    members:n.members.map(function(m){return{geometry:m.c.geometryType,group:m.c.scheme_group||m.c.schemeGroup||"",name:m.c.mark_name||m.c.type_name||"",mark:m.c.mark||"",role:m.role}})}
+  }
+  function typeHtml(n){
+   if(!jointKb)return"";
+   var q=nodeQuery(n),k=jointKb.card(q);if(!k)return"";
+   var cut=function(t,len){t=String(t||"");return t.length>len?t.slice(0,len-1)+"…":t};
+   var list=function(title,items,max){items=(items||[]).filter(Boolean).slice(0,max);return items.length?'<small>'+escapeHtml(title+": "+items.map(function(x){return cut(x,200)}).join("; "))+'</small>':""};
+   var named=q.named.filter(function(x){return x.group===k.group||(x.joints||[]).some(function(j){return j.group===k.group})});
+   return'<div class="ir-three-node-base ir-three-node-type"><b>Тип узла по справочнику</b>'+
+    '<span>'+escapeHtml(k.group+" · "+k.group_name)+': <b>'+escapeHtml(k.name)+'</b></span>'+
+    (k.rows.length?'<small>'+escapeHtml("Ближайшие по перечню: "+k.rows.map(function(r){return r.code+" «"+cut(r.name,90)+"»"}).join("; "))+'</small>':"")+
+    '<small>'+escapeHtml("Способ: "+k.method+"; работа узла: "+k.behaviour)+' · <i class="kb-st '+escapeHtml(k.status)+'">'+escapeHtml(k.status_text)+'</i></small>'+
+    list("Состав",k.parts,4)+(k.drawing?'<small>'+escapeHtml("На чертеже: "+cut(k.drawing,220))+'</small>':"")+
+    (k.placement?'<small>'+escapeHtml("Расстановка: "+cut(k.placement,220))+'</small>':"")+list("Правила",k.rules,3)+list("Нормы",k.norms,3)+
+    (k.note?'<small>'+escapeHtml("Замечание: "+cut(k.note,220))+'</small>':"")+
+    (named.length?'<small>'+escapeHtml("На листе: "+named.slice(0,3).map(function(x){var j=(x.joints||[])[0];return x.label+(x.title?" «"+x.title+"»":"")+(j?" — похоже на "+j.code+" «"+cut(j.name,80)+"»":"")}).join("; "))+'</small>':"")+
+    (k.others.length?'<small>'+escapeHtml("Может быть и: "+k.others.slice(0,3).map(function(o){return o.name+" ("+o.status_text+")"}).join("; "))+'</small>':"")+
+    '<em>Тип выбран по тому, какие элементы сходятся в узле; проверьте по узлу КМД. Справочник ничего не меняет в схеме.</em></div>'
   }
   // The bolt set drawn, with the sizes from the standards.
   function boltHtml(j){
@@ -1990,7 +2030,7 @@ window.irThreeSchemeView=(function(){
   return loadSections().then(function(){var out=[];sections.forEach(function(r){var o={};
    ["id","status","standard","h_mm","b_mm","B_mm","b1_mm","s_mm","t_mm","R_mm","r_mm","diameters_mm","thicknesses_mm"].forEach(function(k){if(r[k]!=null)o[k]=r[k]});out.push(o)});return out})
  }
- return{render:render,dispose:dispose,sectionOf:sectionOf,loadSections:loadSections,sectionRows:sectionRows,fastenerRows:fastenerRows,
+ return{render:render,dispose:dispose,sectionOf:sectionOf,loadSections:loadSections,sectionRows:sectionRows,fastenerRows:fastenerRows,jointKbRows:jointKbRows,
   focus:function(id){return call("focus",id)},
   startCopy:function(id){return call("startCopy",id)},
   startPlacement:function(){return call("startPlacement")},
