@@ -85,8 +85,9 @@
     },
     {
      "country": "KZ",
-     "status": "unknown",
-     "note": "Статус в РК не найден в проверенных источниках"
+     "status": "in_force",
+     "source": "ksm-catalog-kz",
+     "note": "каталог Казстандарта (реестр standards-registry.json, проверено 22.10.2026)"
     }
    ],
    "status": "confirmed",

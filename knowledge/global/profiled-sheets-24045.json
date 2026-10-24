@@ -1,0 +1,441 @@
+{
+ "catalog": "profiled-sheets-24045",
+ "version": 1,
+ "note": "ГОСТ 24045-2016: профили стальные листовые гнутые с трапециевидными гофрами (профнастил). Обозначение «Н75-750-0,8»: тип (Н — несущий для покрытий, НС — несущий и стеновой, С — стеновой), высота гофра h, полезная ширина, толщина. Приложение Б (справочные значения). Сверка каждой строки: площадь = ширина заготовки × t, масса 1 м = масса 1 м² × полезная ширина (до 1 %). Масса 1 м по таблице больше массы стали заготовки (A × 0,785) на 0,25–0,45 кг на 1 м² заготовки — в таблице учтено покрытие (по тексту не проверено). Моменты инерции на 1 м ширины не перенесены (заголовки столбцов на странице утрачены). Профили С8, С10, С21, С44 и Н-профили, которых нет на странице, не внесены.",
+ "records": [
+  {
+   "id": "deck-24045-Н57-750-0.6",
+   "designation": "Н57-750-0,6",
+   "standard": "ГОСТ 24045-2016",
+   "type": "Н",
+   "h_mm": 57,
+   "width_mm": 750,
+   "t_mm": 0.6,
+   "blank_width_mm": 1100,
+   "A_cm2": 6.6,
+   "mass_kg_m": 5.6,
+   "mass_kg_m2": 7.5,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "garant-24045-2016"
+   ]
+  },
+  {
+   "id": "deck-24045-Н57-750-0.7",
+   "designation": "Н57-750-0,7",
+   "standard": "ГОСТ 24045-2016",
+   "type": "Н",
+   "h_mm": 57,
+   "width_mm": 750,
+   "t_mm": 0.7,
+   "blank_width_mm": 1100,
+   "A_cm2": 7.7,
+   "mass_kg_m": 6.5,
+   "mass_kg_m2": 8.7,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "garant-24045-2016"
+   ]
+  },
+  {
+   "id": "deck-24045-Н57-750-0.8",
+   "designation": "Н57-750-0,8",
+   "standard": "ГОСТ 24045-2016",
+   "type": "Н",
+   "h_mm": 57,
+   "width_mm": 750,
+   "t_mm": 0.8,
+   "blank_width_mm": 1100,
+   "A_cm2": 8.8,
+   "mass_kg_m": 7.4,
+   "mass_kg_m2": 9.8,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "garant-24045-2016"
+   ]
+  },
+  {
+   "id": "deck-24045-Н60-845-0.7",
+   "designation": "Н60-845-0,7",
+   "standard": "ГОСТ 24045-2016",
+   "type": "Н",
+   "h_mm": 60,
+   "width_mm": 845,
+   "t_mm": 0.7,
+   "blank_width_mm": 1250,
+   "A_cm2": 8.8,
+   "mass_kg_m": 7.4,
+   "mass_kg_m2": 8.8,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "garant-24045-2016"
+   ]
+  },
+  {
+   "id": "deck-24045-Н60-845-0.8",
+   "designation": "Н60-845-0,8",
+   "standard": "ГОСТ 24045-2016",
+   "type": "Н",
+   "h_mm": 60,
+   "width_mm": 845,
+   "t_mm": 0.8,
+   "blank_width_mm": 1250,
+   "A_cm2": 10.0,
+   "mass_kg_m": 8.4,
+   "mass_kg_m2": 9.9,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "garant-24045-2016"
+   ]
+  },
+  {
+   "id": "deck-24045-Н60-845-0.9",
+   "designation": "Н60-845-0,9",
+   "standard": "ГОСТ 24045-2016",
+   "type": "Н",
+   "h_mm": 60,
+   "width_mm": 845,
+   "t_mm": 0.9,
+   "blank_width_mm": 1250,
+   "A_cm2": 11.3,
+   "mass_kg_m": 9.3,
+   "mass_kg_m2": 11.1,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "garant-24045-2016"
+   ]
+  },
+  {
+   "id": "deck-24045-Н75-750-0.7",
+   "designation": "Н75-750-0,7",
+   "standard": "ГОСТ 24045-2016",
+   "type": "Н",
+   "h_mm": 75,
+   "width_mm": 750,
+   "t_mm": 0.7,
+   "blank_width_mm": 1250,
+   "A_cm2": 8.8,
+   "mass_kg_m": 7.4,
+   "mass_kg_m2": 9.8,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "garant-24045-2016"
+   ]
+  },
+  {
+   "id": "deck-24045-Н75-750-0.8",
+   "designation": "Н75-750-0,8",
+   "standard": "ГОСТ 24045-2016",
+   "type": "Н",
+   "h_mm": 75,
+   "width_mm": 750,
+   "t_mm": 0.8,
+   "blank_width_mm": 1250,
+   "A_cm2": 10.0,
+   "mass_kg_m": 8.4,
+   "mass_kg_m2": 11.2,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "garant-24045-2016"
+   ]
+  },
+  {
+   "id": "deck-24045-Н75-750-0.9",
+   "designation": "Н75-750-0,9",
+   "standard": "ГОСТ 24045-2016",
+   "type": "Н",
+   "h_mm": 75,
+   "width_mm": 750,
+   "t_mm": 0.9,
+   "blank_width_mm": 1250,
+   "A_cm2": 11.3,
+   "mass_kg_m": 9.3,
+   "mass_kg_m2": 12.5,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "garant-24045-2016"
+   ]
+  },
+  {
+   "id": "deck-24045-Н114-600-0.8",
+   "designation": "Н114-600-0,8",
+   "standard": "ГОСТ 24045-2016",
+   "type": "Н",
+   "h_mm": 114,
+   "width_mm": 600,
+   "t_mm": 0.8,
+   "blank_width_mm": 1250,
+   "A_cm2": 10.0,
+   "mass_kg_m": 8.4,
+   "mass_kg_m2": 14.0,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "garant-24045-2016"
+   ]
+  },
+  {
+   "id": "deck-24045-Н114-600-0.9",
+   "designation": "Н114-600-0,9",
+   "standard": "ГОСТ 24045-2016",
+   "type": "Н",
+   "h_mm": 114,
+   "width_mm": 600,
+   "t_mm": 0.9,
+   "blank_width_mm": 1250,
+   "A_cm2": 11.3,
+   "mass_kg_m": 9.3,
+   "mass_kg_m2": 15.6,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "garant-24045-2016"
+   ]
+  },
+  {
+   "id": "deck-24045-Н114-600-1.0",
+   "designation": "Н114-600-1,0",
+   "standard": "ГОСТ 24045-2016",
+   "type": "Н",
+   "h_mm": 114,
+   "width_mm": 600,
+   "t_mm": 1.0,
+   "blank_width_mm": 1250,
+   "A_cm2": 12.5,
+   "mass_kg_m": 10.3,
+   "mass_kg_m2": 17.2,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "garant-24045-2016"
+   ]
+  },
+  {
+   "id": "deck-24045-Н114-750-0.8",
+   "designation": "Н114-750-0,8",
+   "standard": "ГОСТ 24045-2016",
+   "type": "Н",
+   "h_mm": 114,
+   "width_mm": 750,
+   "t_mm": 0.8,
+   "blank_width_mm": 1400,
+   "A_cm2": 11.2,
+   "mass_kg_m": 9.4,
+   "mass_kg_m2": 12.5,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "garant-24045-2016"
+   ]
+  },
+  {
+   "id": "deck-24045-Н114-750-0.9",
+   "designation": "Н114-750-0,9",
+   "standard": "ГОСТ 24045-2016",
+   "type": "Н",
+   "h_mm": 114,
+   "width_mm": 750,
+   "t_mm": 0.9,
+   "blank_width_mm": 1400,
+   "A_cm2": 12.6,
+   "mass_kg_m": 10.5,
+   "mass_kg_m2": 14.0,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "garant-24045-2016"
+   ]
+  },
+  {
+   "id": "deck-24045-Н114-750-1.0",
+   "designation": "Н114-750-1,0",
+   "standard": "ГОСТ 24045-2016",
+   "type": "Н",
+   "h_mm": 114,
+   "width_mm": 750,
+   "t_mm": 1.0,
+   "blank_width_mm": 1400,
+   "A_cm2": 14.0,
+   "mass_kg_m": 11.7,
+   "mass_kg_m2": 15.4,
+   "shape3d": "deck",
+   "status": "needs_check",
+   "sources": [
+    "garant-24045-2016"
+   ],
+   "note": "масса 1 м в тексте 11,7, по массе 1 м² и ширине 11,55"
+  },
+  {
+   "id": "deck-24045-Н153-850-0.8",
+   "designation": "Н153-850-0,8",
+   "standard": "ГОСТ 24045-2016",
+   "type": "Н",
+   "h_mm": 153,
+   "width_mm": 850,
+   "t_mm": 0.8,
+   "blank_width_mm": 1500,
+   "A_cm2": 12.0,
+   "mass_kg_m": 9.8,
+   "mass_kg_m2": 11.5,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "garant-24045-2016"
+   ]
+  },
+  {
+   "id": "deck-24045-Н153-850-1.0",
+   "designation": "Н153-850-1,0",
+   "standard": "ГОСТ 24045-2016",
+   "type": "Н",
+   "h_mm": 153,
+   "width_mm": 850,
+   "t_mm": 1.0,
+   "blank_width_mm": 1500,
+   "A_cm2": 15.5,
+   "mass_kg_m": 12.2,
+   "mass_kg_m2": 14.4,
+   "shape3d": "deck",
+   "status": "needs_check",
+   "sources": [
+    "garant-24045-2016"
+   ],
+   "note": "площадь в тексте 15,5, по ширине заготовки и толщине 15"
+  },
+  {
+   "id": "deck-24045-Н153-850-1.2",
+   "designation": "Н153-850-1,2",
+   "standard": "ГОСТ 24045-2016",
+   "type": "Н",
+   "h_mm": 153,
+   "width_mm": 850,
+   "t_mm": 1.2,
+   "blank_width_mm": 1500,
+   "A_cm2": 18.0,
+   "mass_kg_m": 14.5,
+   "mass_kg_m2": 17.1,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "garant-24045-2016"
+   ]
+  },
+  {
+   "id": "deck-24045-Н153-850-1.5",
+   "designation": "Н153-850-1,5",
+   "standard": "ГОСТ 24045-2016",
+   "type": "Н",
+   "h_mm": 153,
+   "width_mm": 850,
+   "t_mm": 1.5,
+   "blank_width_mm": 1500,
+   "A_cm2": 22.5,
+   "mass_kg_m": 18.1,
+   "mass_kg_m2": 21.3,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "garant-24045-2016"
+   ]
+  },
+  {
+   "id": "deck-24045-НС35-1000-0.6",
+   "designation": "НС35-1000-0,6",
+   "standard": "ГОСТ 24045-2016",
+   "type": "НС",
+   "h_mm": 35,
+   "width_mm": 1000,
+   "t_mm": 0.6,
+   "blank_width_mm": 1250,
+   "A_cm2": 7.5,
+   "mass_kg_m": 6.4,
+   "mass_kg_m2": 6.4,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "garant-24045-2016"
+   ]
+  },
+  {
+   "id": "deck-24045-НС35-1000-0.7",
+   "designation": "НС35-1000-0,7",
+   "standard": "ГОСТ 24045-2016",
+   "type": "НС",
+   "h_mm": 35,
+   "width_mm": 1000,
+   "t_mm": 0.7,
+   "blank_width_mm": 1250,
+   "A_cm2": 8.75,
+   "mass_kg_m": 7.4,
+   "mass_kg_m2": 7.4,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "garant-24045-2016"
+   ]
+  },
+  {
+   "id": "deck-24045-НС35-1000-0.8",
+   "designation": "НС35-1000-0,8",
+   "standard": "ГОСТ 24045-2016",
+   "type": "НС",
+   "h_mm": 35,
+   "width_mm": 1000,
+   "t_mm": 0.8,
+   "blank_width_mm": 1250,
+   "A_cm2": 10.0,
+   "mass_kg_m": 8.4,
+   "mass_kg_m2": 8.4,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "garant-24045-2016"
+   ]
+  },
+  {
+   "id": "deck-24045-НС44-1000-0.7",
+   "designation": "НС44-1000-0,7",
+   "standard": "ГОСТ 24045-2016",
+   "type": "НС",
+   "h_mm": 44,
+   "width_mm": 1000,
+   "t_mm": 0.7,
+   "blank_width_mm": 1400,
+   "A_cm2": 9.8,
+   "mass_kg_m": 8.3,
+   "mass_kg_m2": 8.3,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "garant-24045-2016"
+   ]
+  },
+  {
+   "id": "deck-24045-НС44-1000-0.8",
+   "designation": "НС44-1000-0,8",
+   "standard": "ГОСТ 24045-2016",
+   "type": "НС",
+   "h_mm": 44,
+   "width_mm": 1000,
+   "t_mm": 0.8,
+   "blank_width_mm": 1400,
+   "A_cm2": 11.2,
+   "mass_kg_m": 9.4,
+   "mass_kg_m2": 9.4,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "garant-24045-2016"
+   ]
+  }
+ ]
+}

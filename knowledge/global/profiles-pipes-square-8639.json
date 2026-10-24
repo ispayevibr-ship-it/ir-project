@@ -1,0 +1,1744 @@
+{
+ "catalog": "profiles-pipes-square-8639",
+ "version": 1,
+ "note": "ГОСТ 8639-82: трубы стальные квадратные (бесшовные и электросварные, формованные из круглых). Строки таблицы сверены с размерами: площадь и масса (ρ = 7850) сходятся до 1 %, момент инерции и момент сопротивления — до 1,2 % при наружном радиусе скругления 1,5s и внутреннем 0,5s (стандарт допускает наружный радиус не более 2s, по согласованию не более 1,5s; R_mm — радиус, при котором сходятся табличные значения). Ix = Iy, Wx = Wy. «special» — размеры по согласованию (вне основной таблицы). Значение, не сошедшееся с размерами, вынесено в unchecked и не применяется.",
+ "records": [
+  {
+   "id": "pipe-sq-8639-10x1",
+   "designation": "Труба квадратная 10×1",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 10.0,
+   "b_mm": 10.0,
+   "t_mm": 1.0,
+   "R_mm": 1.5,
+   "A_cm2": 0.343,
+   "mass_kg_m": 0.269,
+   "Ix_cm4": 0.0452,
+   "Wx_cm3": 0.0904,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-15x1",
+   "designation": "Труба квадратная 15×1",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 15.0,
+   "b_mm": 15.0,
+   "t_mm": 1.0,
+   "R_mm": 1.5,
+   "A_cm2": 0.543,
+   "mass_kg_m": 0.426,
+   "Ix_cm4": 0.176,
+   "Wx_cm3": 0.233,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-15x1.5",
+   "designation": "Труба квадратная 15×1.5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 15.0,
+   "b_mm": 15.0,
+   "t_mm": 1.5,
+   "R_mm": 2.25,
+   "A_cm2": 0.771,
+   "mass_kg_m": 0.605,
+   "Ix_cm4": 0.229,
+   "Wx_cm3": 0.305,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-20x1",
+   "designation": "Труба квадратная 20×1",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 20.0,
+   "b_mm": 20.0,
+   "t_mm": 1.0,
+   "R_mm": 1.5,
+   "A_cm2": 0.743,
+   "mass_kg_m": 0.583,
+   "Ix_cm4": 0.442,
+   "Wx_cm3": 0.442,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-20x1.5",
+   "designation": "Труба квадратная 20×1.5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 20.0,
+   "b_mm": 20.0,
+   "t_mm": 1.5,
+   "R_mm": 2.25,
+   "A_cm2": 1.071,
+   "mass_kg_m": 0.841,
+   "Ix_cm4": 0.6,
+   "Wx_cm3": 0.6,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-20x2",
+   "designation": "Труба квадратная 20×2",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 20.0,
+   "b_mm": 20.0,
+   "t_mm": 2.0,
+   "R_mm": 3.0,
+   "A_cm2": 1.37,
+   "mass_kg_m": 1.075,
+   "Ix_cm4": 0.723,
+   "Wx_cm3": 0.723,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-25x1",
+   "designation": "Труба квадратная 25×1",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 25.0,
+   "b_mm": 25.0,
+   "t_mm": 1.0,
+   "R_mm": 1.5,
+   "A_cm2": 0.943,
+   "mass_kg_m": 0.74,
+   "Ix_cm4": 0.897,
+   "Wx_cm3": 0.718,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-25x1.5",
+   "designation": "Труба квадратная 25×1.5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 25.0,
+   "b_mm": 25.0,
+   "t_mm": 1.5,
+   "R_mm": 2.25,
+   "A_cm2": 1.37,
+   "mass_kg_m": 1.07,
+   "Ix_cm4": 1.24,
+   "Wx_cm3": 0.996,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-25x2",
+   "designation": "Труба квадратная 25×2",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 25.0,
+   "b_mm": 25.0,
+   "t_mm": 2.0,
+   "R_mm": 3.0,
+   "A_cm2": 1.77,
+   "mass_kg_m": 1.39,
+   "Ix_cm4": 1.53,
+   "Wx_cm3": 1.22,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-25x2.5",
+   "designation": "Труба квадратная 25×2.5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 25.0,
+   "b_mm": 25.0,
+   "t_mm": 2.5,
+   "R_mm": 3.75,
+   "A_cm2": 2.14,
+   "mass_kg_m": 1.68,
+   "Ix_cm4": 1.77,
+   "Wx_cm3": 1.41,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-25x3",
+   "designation": "Труба квадратная 25×3",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 25.0,
+   "b_mm": 25.0,
+   "t_mm": 3.0,
+   "R_mm": 4.5,
+   "A_cm2": 2.48,
+   "mass_kg_m": 1.95,
+   "Ix_cm4": 1.95,
+   "Wx_cm3": 1.56,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-30x2",
+   "designation": "Труба квадратная 30×2",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 30.0,
+   "b_mm": 30.0,
+   "t_mm": 2.0,
+   "R_mm": 3.0,
+   "A_cm2": 2.17,
+   "mass_kg_m": 1.7,
+   "Ix_cm4": 2.79,
+   "Wx_cm3": 1.86,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-30x2.5",
+   "designation": "Труба квадратная 30×2.5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 30.0,
+   "b_mm": 30.0,
+   "t_mm": 2.5,
+   "R_mm": 3.75,
+   "A_cm2": 2.64,
+   "mass_kg_m": 2.07,
+   "Ix_cm4": 3.27,
+   "Wx_cm3": 2.18,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-30x3",
+   "designation": "Труба квадратная 30×3",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 30.0,
+   "b_mm": 30.0,
+   "t_mm": 3.0,
+   "R_mm": 4.5,
+   "A_cm2": 3.08,
+   "mass_kg_m": 2.42,
+   "Ix_cm4": 3.66,
+   "Wx_cm3": 2.44,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-30x3.5",
+   "designation": "Труба квадратная 30×3.5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 30.0,
+   "b_mm": 30.0,
+   "t_mm": 3.5,
+   "R_mm": 5.25,
+   "A_cm2": 3.5,
+   "mass_kg_m": 2.75,
+   "Ix_cm4": 3.98,
+   "Wx_cm3": 2.65,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-30x4",
+   "designation": "Труба квадратная 30×4",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 30.0,
+   "b_mm": 30.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 3.88,
+   "mass_kg_m": 3.04,
+   "Ix_cm4": 4.23,
+   "Wx_cm3": 2.82,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-35x2",
+   "designation": "Труба квадратная 35×2",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 35.0,
+   "b_mm": 35.0,
+   "t_mm": 2.0,
+   "R_mm": 3.0,
+   "A_cm2": 2.57,
+   "mass_kg_m": 2.02,
+   "Ix_cm4": 4.61,
+   "Wx_cm3": 2.63,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-35x2.5",
+   "designation": "Труба квадратная 35×2.5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 35.0,
+   "b_mm": 35.0,
+   "t_mm": 2.5,
+   "R_mm": 3.75,
+   "A_cm2": 3.14,
+   "mass_kg_m": 2.46,
+   "Ix_cm4": 5.44,
+   "Wx_cm3": 3.11,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-35x3",
+   "designation": "Труба квадратная 35×3",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 35.0,
+   "b_mm": 35.0,
+   "t_mm": 3.0,
+   "R_mm": 4.5,
+   "A_cm2": 3.68,
+   "mass_kg_m": 2.89,
+   "Ix_cm4": 6.17,
+   "Wx_cm3": 3.52,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-35x3.5",
+   "designation": "Труба квадратная 35×3.5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 35.0,
+   "b_mm": 35.0,
+   "t_mm": 3.5,
+   "R_mm": 5.25,
+   "A_cm2": 4.2,
+   "mass_kg_m": 3.3,
+   "Ix_cm4": 6.78,
+   "Wx_cm3": 3.88,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-35x4",
+   "designation": "Труба квадратная 35×4",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 35.0,
+   "b_mm": 35.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 4.68,
+   "mass_kg_m": 3.67,
+   "Ix_cm4": 7.3,
+   "Wx_cm3": 4.17,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-35x5",
+   "designation": "Труба квадратная 35×5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 35.0,
+   "b_mm": 35.0,
+   "t_mm": 5.0,
+   "R_mm": 7.5,
+   "A_cm2": 5.57,
+   "mass_kg_m": 4.37,
+   "Ix_cm4": 8.05,
+   "Wx_cm3": 4.6,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-40x2",
+   "designation": "Труба квадратная 40×2",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 40.0,
+   "b_mm": 40.0,
+   "t_mm": 2.0,
+   "R_mm": 3.0,
+   "A_cm2": 2.97,
+   "mass_kg_m": 2.33,
+   "Ix_cm4": 7.07,
+   "Wx_cm3": 3.53,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-40x2.5",
+   "designation": "Труба квадратная 40×2.5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 40.0,
+   "b_mm": 40.0,
+   "t_mm": 2.5,
+   "R_mm": 3.75,
+   "A_cm2": 3.64,
+   "mass_kg_m": 2.85,
+   "Ix_cm4": 8.42,
+   "Wx_cm3": 4.21,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-40x3",
+   "designation": "Труба квадратная 40×3",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 40.0,
+   "b_mm": 40.0,
+   "t_mm": 3.0,
+   "R_mm": 4.5,
+   "A_cm2": 4.28,
+   "mass_kg_m": 3.36,
+   "Ix_cm4": 9.61,
+   "Wx_cm3": 4.81,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-40x3.5",
+   "designation": "Труба квадратная 40×3.5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 40.0,
+   "b_mm": 40.0,
+   "t_mm": 3.5,
+   "R_mm": 5.25,
+   "A_cm2": 4.9,
+   "mass_kg_m": 3.85,
+   "Ix_cm4": 10.66,
+   "Wx_cm3": 5.33,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-40x4",
+   "designation": "Труба квадратная 40×4",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 40.0,
+   "b_mm": 40.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 5.48,
+   "mass_kg_m": 4.3,
+   "Ix_cm4": 11.57,
+   "Wx_cm3": 5.79,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-40x5",
+   "designation": "Труба квадратная 40×5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 40.0,
+   "b_mm": 40.0,
+   "t_mm": 5.0,
+   "R_mm": 7.5,
+   "A_cm2": 6.57,
+   "mass_kg_m": 5.16,
+   "Ix_cm4": 13.01,
+   "Wx_cm3": 6.5,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-40x6",
+   "designation": "Труба квадратная 40×6",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 40.0,
+   "b_mm": 40.0,
+   "t_mm": 6.0,
+   "R_mm": 9.0,
+   "A_cm2": 7.54,
+   "mass_kg_m": 5.92,
+   "Ix_cm4": 13.96,
+   "Wx_cm3": 6.98,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-42x3",
+   "designation": "Труба квадратная 42×3",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 42.0,
+   "b_mm": 42.0,
+   "t_mm": 3.0,
+   "R_mm": 4.5,
+   "A_cm2": 4.52,
+   "mass_kg_m": 3.55,
+   "Ix_cm4": 11.3,
+   "Wx_cm3": 5.38,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-42x3.5",
+   "designation": "Труба квадратная 42×3.5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 42.0,
+   "b_mm": 42.0,
+   "t_mm": 3.5,
+   "R_mm": 5.25,
+   "A_cm2": 5.18,
+   "mass_kg_m": 4.07,
+   "Ix_cm4": 12.56,
+   "Wx_cm3": 5.98,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-42x4",
+   "designation": "Труба квадратная 42×4",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 42.0,
+   "b_mm": 42.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 5.8,
+   "mass_kg_m": 4.56,
+   "Ix_cm4": 13.67,
+   "Wx_cm3": 6.51,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-42x5",
+   "designation": "Труба квадратная 42×5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 42.0,
+   "b_mm": 42.0,
+   "t_mm": 5.0,
+   "R_mm": 7.5,
+   "A_cm2": 6.97,
+   "mass_kg_m": 5.47,
+   "Ix_cm4": 15.45,
+   "Wx_cm3": 7.36,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-42x6",
+   "designation": "Труба квадратная 42×6",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 42.0,
+   "b_mm": 42.0,
+   "t_mm": 6.0,
+   "R_mm": 9.0,
+   "A_cm2": 8.02,
+   "mass_kg_m": 6.3,
+   "Ix_cm4": 16.69,
+   "Wx_cm3": 7.95,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-45x3",
+   "designation": "Труба квадратная 45×3",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 45.0,
+   "b_mm": 45.0,
+   "t_mm": 3.0,
+   "R_mm": 4.5,
+   "A_cm2": 4.88,
+   "mass_kg_m": 3.83,
+   "Ix_cm4": 14.15,
+   "Wx_cm3": 6.29,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-45x3.5",
+   "designation": "Труба квадратная 45×3.5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 45.0,
+   "b_mm": 45.0,
+   "t_mm": 3.5,
+   "R_mm": 5.25,
+   "A_cm2": 5.6,
+   "mass_kg_m": 4.4,
+   "Ix_cm4": 15.79,
+   "Wx_cm3": 7.02,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-45x4",
+   "designation": "Труба квадратная 45×4",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 45.0,
+   "b_mm": 45.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 6.28,
+   "mass_kg_m": 4.93,
+   "Ix_cm4": 17.25,
+   "Wx_cm3": 7.67,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-45x5",
+   "designation": "Труба квадратная 45×5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 45.0,
+   "b_mm": 45.0,
+   "t_mm": 5.0,
+   "R_mm": 7.5,
+   "A_cm2": 7.57,
+   "mass_kg_m": 5.94,
+   "Ix_cm4": 19.66,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ],
+   "unchecked": {
+    "Wx_cm3": 8.38
+   },
+   "note": "в тексте Wx 8,38; по размерам I 19,72, W 8,763 — значение не сверено, не применяется"
+  },
+  {
+   "id": "pipe-sq-8639-45x6",
+   "designation": "Труба квадратная 45×6",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 45.0,
+   "b_mm": 45.0,
+   "t_mm": 6.0,
+   "R_mm": 9.0,
+   "A_cm2": 8.74,
+   "mass_kg_m": 6.86,
+   "Ix_cm4": 21.42,
+   "Wx_cm3": 9.52,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-45x7",
+   "designation": "Труба квадратная 45×7",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 45.0,
+   "b_mm": 45.0,
+   "t_mm": 7.0,
+   "R_mm": 10.5,
+   "A_cm2": 9.8,
+   "mass_kg_m": 7.69,
+   "Ix_cm4": 22.6,
+   "Wx_cm3": 10.04,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-45x8",
+   "designation": "Труба квадратная 45×8",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 45.0,
+   "b_mm": 45.0,
+   "t_mm": 8.0,
+   "R_mm": 12.0,
+   "A_cm2": 10.74,
+   "mass_kg_m": 8.43,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ],
+   "unchecked": {
+    "Ix_cm4": 23.23,
+    "Wx_cm3": 10.33
+   },
+   "note": "в тексте Ix 23,23, Wx 10,33; по размерам I 23,61, W 10,5 — значение не сверено, не применяется"
+  },
+  {
+   "id": "pipe-sq-8639-50x3",
+   "designation": "Труба квадратная 50×3",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 50.0,
+   "b_mm": 50.0,
+   "t_mm": 3.0,
+   "R_mm": 4.5,
+   "A_cm2": 5.48,
+   "mass_kg_m": 4.31,
+   "Ix_cm4": 19.93,
+   "Wx_cm3": 7.97,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-50x3.5",
+   "designation": "Труба квадратная 50×3.5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 50.0,
+   "b_mm": 50.0,
+   "t_mm": 3.5,
+   "R_mm": 5.25,
+   "A_cm2": 6.3,
+   "mass_kg_m": 4.94,
+   "Ix_cm4": 22.35,
+   "Wx_cm3": 8.94,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-50x4",
+   "designation": "Труба квадратная 50×4",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 50.0,
+   "b_mm": 50.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 7.08,
+   "mass_kg_m": 5.56,
+   "Ix_cm4": 24.54,
+   "Wx_cm3": 9.82,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-50x5",
+   "designation": "Труба квадратная 50×5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 50.0,
+   "b_mm": 50.0,
+   "t_mm": 5.0,
+   "R_mm": 7.5,
+   "A_cm2": 8.57,
+   "mass_kg_m": 6.73,
+   "Ix_cm4": 28.26,
+   "Wx_cm3": 11.3,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-50x6",
+   "designation": "Труба квадратная 50×6",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 50.0,
+   "b_mm": 50.0,
+   "t_mm": 6.0,
+   "R_mm": 9.0,
+   "A_cm2": 9.94,
+   "mass_kg_m": 7.8,
+   "Ix_cm4": 31.15,
+   "Wx_cm3": 12.46,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-50x7",
+   "designation": "Труба квадратная 50×7",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 50.0,
+   "b_mm": 50.0,
+   "t_mm": 7.0,
+   "R_mm": 10.5,
+   "A_cm2": 11.2,
+   "mass_kg_m": 8.79,
+   "Ix_cm4": 33.28,
+   "Wx_cm3": 13.31,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-50x8",
+   "designation": "Труба квадратная 50×8",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 50.0,
+   "b_mm": 50.0,
+   "t_mm": 8.0,
+   "R_mm": 12.0,
+   "A_cm2": 12.34,
+   "mass_kg_m": 9.69,
+   "Ix_cm4": 34.7,
+   "Wx_cm3": 13.88,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-60x3.5",
+   "designation": "Труба квадратная 60×3.5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 60.0,
+   "b_mm": 60.0,
+   "t_mm": 3.5,
+   "R_mm": 5.25,
+   "A_cm2": 7.7,
+   "mass_kg_m": 6.04,
+   "Ix_cm4": 40.44,
+   "Wx_cm3": 13.48,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-60x4",
+   "designation": "Труба квадратная 60×4",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 60.0,
+   "b_mm": 60.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 8.68,
+   "mass_kg_m": 6.82,
+   "Ix_cm4": 44.73,
+   "Wx_cm3": 14.91,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-60x5",
+   "designation": "Труба квадратная 60×5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 60.0,
+   "b_mm": 60.0,
+   "t_mm": 5.0,
+   "R_mm": 7.5,
+   "A_cm2": 10.57,
+   "mass_kg_m": 8.3,
+   "Ix_cm4": 52.3,
+   "Wx_cm3": 17.43,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-60x6",
+   "designation": "Труба квадратная 60×6",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 60.0,
+   "b_mm": 60.0,
+   "t_mm": 6.0,
+   "R_mm": 9.0,
+   "A_cm2": 12.34,
+   "mass_kg_m": 9.69,
+   "Ix_cm4": 58.6,
+   "Wx_cm3": 19.53,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-60x7",
+   "designation": "Труба квадратная 60×7",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 60.0,
+   "b_mm": 60.0,
+   "t_mm": 7.0,
+   "R_mm": 10.5,
+   "A_cm2": 14.0,
+   "mass_kg_m": 11.0,
+   "Ix_cm4": 63.71,
+   "Wx_cm3": 21.24,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-60x8",
+   "designation": "Труба квадратная 60×8",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 60.0,
+   "b_mm": 60.0,
+   "t_mm": 8.0,
+   "R_mm": 12.0,
+   "A_cm2": 15.54,
+   "mass_kg_m": 12.2,
+   "Ix_cm4": 67.71,
+   "Wx_cm3": 22.57,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-70x4",
+   "designation": "Труба квадратная 70×4",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 70.0,
+   "b_mm": 70.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 10.28,
+   "mass_kg_m": 8.07,
+   "Ix_cm4": 73.74,
+   "Wx_cm3": 21.07,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-70x5",
+   "designation": "Труба квадратная 70×5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 70.0,
+   "b_mm": 70.0,
+   "t_mm": 5.0,
+   "R_mm": 7.5,
+   "A_cm2": 12.57,
+   "mass_kg_m": 9.87,
+   "Ix_cm4": 87.12,
+   "Wx_cm3": 24.89,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-70x6",
+   "designation": "Труба квадратная 70×6",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 70.0,
+   "b_mm": 70.0,
+   "t_mm": 6.0,
+   "R_mm": 9.0,
+   "A_cm2": 14.74,
+   "mass_kg_m": 11.57,
+   "Ix_cm4": 98.69,
+   "Wx_cm3": 28.2,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-70x7",
+   "designation": "Труба квадратная 70×7",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 70.0,
+   "b_mm": 70.0,
+   "t_mm": 7.0,
+   "R_mm": 10.5,
+   "A_cm2": 16.8,
+   "mass_kg_m": 13.19,
+   "Ix_cm4": 108.56,
+   "Wx_cm3": 31.02,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-70x8",
+   "designation": "Труба квадратная 70×8",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 70.0,
+   "b_mm": 70.0,
+   "t_mm": 8.0,
+   "R_mm": 12.0,
+   "A_cm2": 18.74,
+   "mass_kg_m": 14.71,
+   "Ix_cm4": 116.81,
+   "Wx_cm3": 33.37,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-80x4",
+   "designation": "Труба квадратная 80×4",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 80.0,
+   "b_mm": 80.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 11.88,
+   "mass_kg_m": 9.33,
+   "Ix_cm4": 113.17,
+   "Wx_cm3": 28.29,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-80x5",
+   "designation": "Труба квадратная 80×5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 80.0,
+   "b_mm": 80.0,
+   "t_mm": 5.0,
+   "R_mm": 7.5,
+   "A_cm2": 14.57,
+   "mass_kg_m": 11.44,
+   "Ix_cm4": 134.73,
+   "Wx_cm3": 33.68,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-80x6",
+   "designation": "Труба квадратная 80×6",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 80.0,
+   "b_mm": 80.0,
+   "t_mm": 6.0,
+   "R_mm": 9.0,
+   "A_cm2": 17.14,
+   "mass_kg_m": 13.46,
+   "Ix_cm4": 153.84,
+   "Wx_cm3": 38.46,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-80x7",
+   "designation": "Труба квадратная 80×7",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 80.0,
+   "b_mm": 80.0,
+   "t_mm": 7.0,
+   "R_mm": 10.5,
+   "A_cm2": 19.6,
+   "mass_kg_m": 15.38,
+   "Ix_cm4": 170.63,
+   "Wx_cm3": 42.66,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-80x8",
+   "designation": "Труба квадратная 80×8",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 80.0,
+   "b_mm": 80.0,
+   "t_mm": 8.0,
+   "R_mm": 12.0,
+   "A_cm2": 21.94,
+   "mass_kg_m": 17.22,
+   "Ix_cm4": 185.2,
+   "Wx_cm3": 46.3,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-90x5",
+   "designation": "Труба квадратная 90×5",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 90.0,
+   "b_mm": 90.0,
+   "t_mm": 5.0,
+   "R_mm": 7.5,
+   "A_cm2": 16.57,
+   "mass_kg_m": 13.0,
+   "Ix_cm4": 197.12,
+   "Wx_cm3": 43.8,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-90x6",
+   "designation": "Труба квадратная 90×6",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 90.0,
+   "b_mm": 90.0,
+   "t_mm": 6.0,
+   "R_mm": 9.0,
+   "A_cm2": 19.54,
+   "mass_kg_m": 15.34,
+   "Ix_cm4": 226.44,
+   "Wx_cm3": 50.32,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-90x7",
+   "designation": "Труба квадратная 90×7",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 90.0,
+   "b_mm": 90.0,
+   "t_mm": 7.0,
+   "R_mm": 10.5,
+   "A_cm2": 22.4,
+   "mass_kg_m": 17.58,
+   "Ix_cm4": 252.71,
+   "Wx_cm3": 56.16,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-90x8",
+   "designation": "Труба квадратная 90×8",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 90.0,
+   "b_mm": 90.0,
+   "t_mm": 8.0,
+   "R_mm": 12.0,
+   "A_cm2": 25.14,
+   "mass_kg_m": 19.73,
+   "Ix_cm4": 276.08,
+   "Wx_cm3": 61.35,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-100x6",
+   "designation": "Труба квадратная 100×6",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 100.0,
+   "b_mm": 100.0,
+   "t_mm": 6.0,
+   "R_mm": 9.0,
+   "A_cm2": 21.94,
+   "mass_kg_m": 17.22,
+   "Ix_cm4": 318.89,
+   "Wx_cm3": 63.78,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-100x7",
+   "designation": "Труба квадратная 100×7",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 100.0,
+   "b_mm": 100.0,
+   "t_mm": 7.0,
+   "R_mm": 10.5,
+   "A_cm2": 25.2,
+   "mass_kg_m": 19.78,
+   "Ix_cm4": 357.62,
+   "Wx_cm3": 71.52,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-100x8",
+   "designation": "Труба квадратная 100×8",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 100.0,
+   "b_mm": 100.0,
+   "t_mm": 8.0,
+   "R_mm": 12.0,
+   "A_cm2": 28.34,
+   "mass_kg_m": 22.25,
+   "Ix_cm4": 392.65,
+   "Wx_cm3": 78.53,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-100x9",
+   "designation": "Труба квадратная 100×9",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 100.0,
+   "b_mm": 100.0,
+   "t_mm": 9.0,
+   "R_mm": 13.5,
+   "A_cm2": 31.37,
+   "mass_kg_m": 24.62,
+   "Ix_cm4": 424.11,
+   "Wx_cm3": 84.82,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-110x6",
+   "designation": "Труба квадратная 110×6",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 110.0,
+   "b_mm": 110.0,
+   "t_mm": 6.0,
+   "R_mm": 9.0,
+   "A_cm2": 24.34,
+   "mass_kg_m": 19.11,
+   "Ix_cm4": 433.59,
+   "Wx_cm3": 78.83,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-110x7",
+   "designation": "Труба квадратная 110×7",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 110.0,
+   "b_mm": 110.0,
+   "t_mm": 7.0,
+   "R_mm": 10.5,
+   "A_cm2": 28.0,
+   "mass_kg_m": 21.98,
+   "Ix_cm4": 488.14,
+   "Wx_cm3": 88.75,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-110x8",
+   "designation": "Труба квадратная 110×8",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 110.0,
+   "b_mm": 110.0,
+   "t_mm": 8.0,
+   "R_mm": 12.0,
+   "A_cm2": 31.54,
+   "mass_kg_m": 24.76,
+   "Ix_cm4": 538.11,
+   "Wx_cm3": 97.84,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-110x9",
+   "designation": "Труба квадратная 110×9",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 110.0,
+   "b_mm": 110.0,
+   "t_mm": 9.0,
+   "R_mm": 13.5,
+   "A_cm2": 34.97,
+   "mass_kg_m": 27.45,
+   "Ix_cm4": 583.63,
+   "Wx_cm3": 106.11,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-120x6",
+   "designation": "Труба квадратная 120×6",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 120.0,
+   "b_mm": 120.0,
+   "t_mm": 6.0,
+   "R_mm": 9.0,
+   "A_cm2": 26.74,
+   "mass_kg_m": 20.99,
+   "Ix_cm4": 572.94,
+   "Wx_cm3": 95.49,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-120x7",
+   "designation": "Труба квадратная 120×7",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 120.0,
+   "b_mm": 120.0,
+   "t_mm": 7.0,
+   "R_mm": 10.5,
+   "A_cm2": 30.8,
+   "mass_kg_m": 24.18,
+   "Ix_cm4": 647.09,
+   "Wx_cm3": 107.85,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-120x8",
+   "designation": "Труба квадратная 120×8",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 120.0,
+   "b_mm": 120.0,
+   "t_mm": 8.0,
+   "R_mm": 12.0,
+   "A_cm2": 34.74,
+   "mass_kg_m": 27.27,
+   "Ix_cm4": 715.66,
+   "Wx_cm3": 119.28,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-120x9",
+   "designation": "Труба квадратная 120×9",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 120.0,
+   "b_mm": 120.0,
+   "t_mm": 9.0,
+   "R_mm": 13.5,
+   "A_cm2": 38.57,
+   "mass_kg_m": 30.28,
+   "Ix_cm4": 778.82,
+   "Wx_cm3": 129.8,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-140x6",
+   "designation": "Труба квадратная 140×6",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 140.0,
+   "b_mm": 140.0,
+   "t_mm": 6.0,
+   "R_mm": 9.0,
+   "A_cm2": 31.54,
+   "mass_kg_m": 24.76,
+   "Ix_cm4": 935.19,
+   "Wx_cm3": 133.6,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-140x7",
+   "designation": "Труба квадратная 140×7",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 140.0,
+   "b_mm": 140.0,
+   "t_mm": 7.0,
+   "R_mm": 10.5,
+   "A_cm2": 36.4,
+   "mass_kg_m": 28.57,
+   "Ix_cm4": 1061.44,
+   "Wx_cm3": 151.63,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-140x8",
+   "designation": "Труба квадратная 140×8",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 140.0,
+   "b_mm": 140.0,
+   "t_mm": 8.0,
+   "R_mm": 12.0,
+   "A_cm2": 41.14,
+   "mass_kg_m": 32.29,
+   "Ix_cm4": 1179.83,
+   "Wx_cm3": 168.55,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-140x9",
+   "designation": "Труба квадратная 140×9",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 140.0,
+   "b_mm": 140.0,
+   "t_mm": 9.0,
+   "R_mm": 13.5,
+   "A_cm2": 45.77,
+   "mass_kg_m": 35.93,
+   "Ix_cm4": 1290.58,
+   "Wx_cm3": 184.37,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-150x7",
+   "designation": "Труба квадратная 150×7",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 150.0,
+   "b_mm": 150.0,
+   "t_mm": 7.0,
+   "R_mm": 10.5,
+   "A_cm2": 39.2,
+   "mass_kg_m": 30.77,
+   "Ix_cm4": 1322.44,
+   "Wx_cm3": 176.32,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-150x8",
+   "designation": "Труба квадратная 150×8",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 150.0,
+   "b_mm": 150.0,
+   "t_mm": 8.0,
+   "R_mm": 12.0,
+   "A_cm2": 44.34,
+   "mass_kg_m": 34.81,
+   "Ix_cm4": 1472.85,
+   "Wx_cm3": 196.38,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-150x9",
+   "designation": "Труба квадратная 150×9",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 150.0,
+   "b_mm": 150.0,
+   "t_mm": 9.0,
+   "R_mm": 13.5,
+   "A_cm2": 49.37,
+   "mass_kg_m": 38.75,
+   "Ix_cm4": 1614.37,
+   "Wx_cm3": 215.25,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-150x10",
+   "designation": "Труба квадратная 150×10",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 150.0,
+   "b_mm": 150.0,
+   "t_mm": 10.0,
+   "R_mm": 15.0,
+   "A_cm2": 54.28,
+   "mass_kg_m": 42.61,
+   "Ix_cm4": 1747.21,
+   "Wx_cm3": 232.96,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-180x8",
+   "designation": "Труба квадратная 180×8",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 180.0,
+   "b_mm": 180.0,
+   "t_mm": 8.0,
+   "R_mm": 12.0,
+   "A_cm2": 53.94,
+   "mass_kg_m": 42.34,
+   "Ix_cm4": 2634.06,
+   "Wx_cm3": 292.67,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-180x9",
+   "designation": "Труба квадратная 180×9",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 180.0,
+   "b_mm": 180.0,
+   "t_mm": 9.0,
+   "R_mm": 13.5,
+   "A_cm2": 60.17,
+   "mass_kg_m": 47.23,
+   "Ix_cm4": 2900.49,
+   "Wx_cm3": 322.28,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-180x10",
+   "designation": "Труба квадратная 180×10",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 180.0,
+   "b_mm": 180.0,
+   "t_mm": 10.0,
+   "R_mm": 15.0,
+   "A_cm2": 66.28,
+   "mass_kg_m": 52.03,
+   "Ix_cm4": 3153.95,
+   "Wx_cm3": 350.44,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-180x12",
+   "designation": "Труба квадратная 180×12",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 180.0,
+   "b_mm": 180.0,
+   "t_mm": 12.0,
+   "R_mm": 18.0,
+   "A_cm2": 78.17,
+   "mass_kg_m": 61.36,
+   "Ix_cm4": 3623.01,
+   "Wx_cm3": 402.56,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-180x14",
+   "designation": "Труба квадратная 180×14",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 180.0,
+   "b_mm": 180.0,
+   "t_mm": 14.0,
+   "R_mm": 21.0,
+   "A_cm2": 89.59,
+   "mass_kg_m": 70.33,
+   "Ix_cm4": 4043.41,
+   "Wx_cm3": 449.27,
+   "shape3d": "box",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-32x4",
+   "designation": "Труба квадратная 32×4",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 32.0,
+   "b_mm": 32.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 4.2,
+   "mass_kg_m": 3.3,
+   "Ix_cm4": 5.33,
+   "Wx_cm3": 3.33,
+   "shape3d": "box",
+   "special": true,
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-36x4",
+   "designation": "Труба квадратная 36×4",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 36.0,
+   "b_mm": 36.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 4.84,
+   "mass_kg_m": 3.8,
+   "Ix_cm4": 8.05,
+   "Wx_cm3": 4.47,
+   "shape3d": "box",
+   "special": true,
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  },
+  {
+   "id": "pipe-sq-8639-65x6",
+   "designation": "Труба квадратная 65×6",
+   "standard": "ГОСТ 8639-82",
+   "h_mm": 65.0,
+   "b_mm": 65.0,
+   "t_mm": 6.0,
+   "R_mm": 9.0,
+   "A_cm2": 13.54,
+   "mass_kg_m": 10.63,
+   "Ix_cm4": 76.91,
+   "Wx_cm3": 23.66,
+   "shape3d": "box",
+   "special": true,
+   "status": "confirmed",
+   "sources": [
+    "dnaop-8639-82"
+   ]
+  }
+ ]
+}

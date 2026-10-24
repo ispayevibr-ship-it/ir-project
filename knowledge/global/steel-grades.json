@@ -1,0 +1,1344 @@
+{
+ "catalog": "steel-grades",
+ "version": 1,
+ "note": "Марки (классы прочности) стали для строительных конструкций по ГОСТ 27772-2021: нормативный предел текучести σт (Ryn) и временное сопротивление σв (Run), Н/мм², не менее, по толщине проката. Табл. 4 — листовой и широкополосный прокат (и заготовки гнутых профилей), табл. 5 — сортовой и фасонный. Расчётное сопротивление Ry = Ryn/γm — по СП 16.13330 (здесь не хранится). Подтверждены строки, одинаковые в двух источниках; относительное удлинение не перенесено (в одном источнике столбец искажён). В РК действует (каталог Казстандарта).",
+ "records": [
+  {
+   "id": "steel-27772-С235-sheet-2-2.9",
+   "grade": "С235",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 2,
+   "t_from": "включительно",
+   "t_to_mm": 2.9,
+   "sigma_y_min_mpa": 235,
+   "sigma_u_min_mpa": 360,
+   "status": "needs_check",
+   "sources": [
+    "garant-27772-2021"
+   ],
+   "note": "один источник — проверить"
+  },
+  {
+   "id": "steel-27772-С235-sheet-3-4",
+   "grade": "С235",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 3,
+   "t_from": "включительно",
+   "t_to_mm": 4,
+   "sigma_y_min_mpa": 235,
+   "sigma_u_min_mpa": 360,
+   "status": "needs_check",
+   "sources": [
+    "garant-27772-2021"
+   ],
+   "note": "один источник — проверить"
+  },
+  {
+   "id": "steel-27772-С245-sheet-2-2.9",
+   "grade": "С245",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 2,
+   "t_from": "включительно",
+   "t_to_mm": 2.9,
+   "sigma_y_min_mpa": 245,
+   "sigma_u_min_mpa": 370,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С245-sheet-3-4",
+   "grade": "С245",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 3,
+   "t_from": "включительно",
+   "t_to_mm": 4,
+   "sigma_y_min_mpa": 245,
+   "sigma_u_min_mpa": 370,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С245-sheet-4-10",
+   "grade": "С245",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 4,
+   "t_from": "свыше",
+   "t_to_mm": 10,
+   "sigma_y_min_mpa": 235,
+   "sigma_u_min_mpa": 370,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С245-sheet-10-40",
+   "grade": "С245",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 10,
+   "t_from": "свыше",
+   "t_to_mm": 40,
+   "sigma_y_min_mpa": 235,
+   "sigma_u_min_mpa": 370,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С255-sheet-2-3.9",
+   "grade": "С255",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 2,
+   "t_from": "включительно",
+   "t_to_mm": 3.9,
+   "sigma_y_min_mpa": 255,
+   "sigma_u_min_mpa": 380,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С255-sheet-4-10",
+   "grade": "С255",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 4,
+   "t_from": "включительно",
+   "t_to_mm": 10,
+   "sigma_y_min_mpa": 245,
+   "sigma_u_min_mpa": 380,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С255-sheet-10-20",
+   "grade": "С255",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 10,
+   "t_from": "свыше",
+   "t_to_mm": 20,
+   "sigma_y_min_mpa": 245,
+   "sigma_u_min_mpa": 370,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С255-sheet-20-40",
+   "grade": "С255",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 20,
+   "t_from": "свыше",
+   "t_to_mm": 40,
+   "sigma_y_min_mpa": 235,
+   "sigma_u_min_mpa": 370,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С345-sheet-2-3.9",
+   "grade": "С345",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 2,
+   "t_from": "включительно",
+   "t_to_mm": 3.9,
+   "sigma_y_min_mpa": 345,
+   "sigma_u_min_mpa": 490,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С345-sheet-4-10",
+   "grade": "С345",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 4,
+   "t_from": "включительно",
+   "t_to_mm": 10,
+   "sigma_y_min_mpa": 345,
+   "sigma_u_min_mpa": 490,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С345-sheet-10-20",
+   "grade": "С345",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 10,
+   "t_from": "свыше",
+   "t_to_mm": 20,
+   "sigma_y_min_mpa": 325,
+   "sigma_u_min_mpa": 470,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С345-sheet-20-40",
+   "grade": "С345",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 20,
+   "t_from": "свыше",
+   "t_to_mm": 40,
+   "sigma_y_min_mpa": 305,
+   "sigma_u_min_mpa": 460,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С345-sheet-40-60",
+   "grade": "С345",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 40,
+   "t_from": "свыше",
+   "t_to_mm": 60,
+   "sigma_y_min_mpa": 285,
+   "sigma_u_min_mpa": 450,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С345-sheet-60-80",
+   "grade": "С345",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 60,
+   "t_from": "свыше",
+   "t_to_mm": 80,
+   "sigma_y_min_mpa": 275,
+   "sigma_u_min_mpa": 440,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С345-sheet-80-160",
+   "grade": "С345",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 80,
+   "t_from": "свыше",
+   "t_to_mm": 160,
+   "sigma_y_min_mpa": 265,
+   "sigma_u_min_mpa": 430,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С345К-sheet-4-10",
+   "grade": "С345К",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 4,
+   "t_from": "включительно",
+   "t_to_mm": 10,
+   "sigma_y_min_mpa": 345,
+   "sigma_u_min_mpa": 470,
+   "status": "needs_check",
+   "sources": [
+    "garant-27772-2021"
+   ],
+   "note": "один источник — проверить"
+  },
+  {
+   "id": "steel-27772-С355-sheet-4-16",
+   "grade": "С355",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 4,
+   "t_from": "включительно",
+   "t_to_mm": 16,
+   "sigma_y_min_mpa": 355,
+   "sigma_u_min_mpa": 470,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С355-sheet-16-40",
+   "grade": "С355",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 16,
+   "t_from": "свыше",
+   "t_to_mm": 40,
+   "sigma_y_min_mpa": 345,
+   "sigma_u_min_mpa": 470,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С355-sheet-40-60",
+   "grade": "С355",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 40,
+   "t_from": "свыше",
+   "t_to_mm": 60,
+   "sigma_y_min_mpa": 335,
+   "sigma_u_min_mpa": 470,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С355-sheet-60-80",
+   "grade": "С355",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 60,
+   "t_from": "свыше",
+   "t_to_mm": 80,
+   "sigma_y_min_mpa": 325,
+   "sigma_u_min_mpa": 460,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С355-sheet-80-100",
+   "grade": "С355",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 80,
+   "t_from": "свыше",
+   "t_to_mm": 100,
+   "sigma_y_min_mpa": 315,
+   "sigma_u_min_mpa": 460,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С355-sheet-100-160",
+   "grade": "С355",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 100,
+   "t_from": "свыше",
+   "t_to_mm": 160,
+   "sigma_y_min_mpa": 295,
+   "sigma_u_min_mpa": 460,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С355-1-sheet-8-16",
+   "grade": "С355-1",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 8,
+   "t_from": "включительно",
+   "t_to_mm": 16,
+   "sigma_y_min_mpa": 355,
+   "sigma_u_min_mpa": 470,
+   "status": "needs_check",
+   "sources": [
+    "garant-27772-2021"
+   ],
+   "note": "один источник — проверить"
+  },
+  {
+   "id": "steel-27772-С355-1-sheet-16-40",
+   "grade": "С355-1",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 16,
+   "t_from": "свыше",
+   "t_to_mm": 40,
+   "sigma_y_min_mpa": 345,
+   "sigma_u_min_mpa": 470,
+   "status": "needs_check",
+   "sources": [
+    "garant-27772-2021"
+   ],
+   "note": "один источник — проверить"
+  },
+  {
+   "id": "steel-27772-С355-1-sheet-40-50",
+   "grade": "С355-1",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 40,
+   "t_from": "свыше",
+   "t_to_mm": 50,
+   "sigma_y_min_mpa": 335,
+   "sigma_u_min_mpa": 470,
+   "status": "needs_check",
+   "sources": [
+    "garant-27772-2021"
+   ],
+   "note": "один источник — проверить"
+  },
+  {
+   "id": "steel-27772-С355К-sheet-8-16",
+   "grade": "С355К",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 8,
+   "t_from": "включительно",
+   "t_to_mm": 16,
+   "sigma_y_min_mpa": 355,
+   "sigma_u_min_mpa": 470,
+   "status": "needs_check",
+   "sources": [
+    "garant-27772-2021"
+   ],
+   "note": "один источник — проверить"
+  },
+  {
+   "id": "steel-27772-С355К-sheet-16-40",
+   "grade": "С355К",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 16,
+   "t_from": "свыше",
+   "t_to_mm": 40,
+   "sigma_y_min_mpa": 345,
+   "sigma_u_min_mpa": 470,
+   "status": "needs_check",
+   "sources": [
+    "garant-27772-2021"
+   ],
+   "note": "один источник — проверить"
+  },
+  {
+   "id": "steel-27772-С355К-sheet-40-50",
+   "grade": "С355К",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 40,
+   "t_from": "свыше",
+   "t_to_mm": 50,
+   "sigma_y_min_mpa": 335,
+   "sigma_u_min_mpa": 470,
+   "status": "needs_check",
+   "sources": [
+    "garant-27772-2021"
+   ],
+   "note": "один источник — проверить"
+  },
+  {
+   "id": "steel-27772-С355П-sheet-8-16",
+   "grade": "С355П",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 8,
+   "t_from": "включительно",
+   "t_to_mm": 16,
+   "sigma_y_min_mpa": 355,
+   "sigma_u_min_mpa": 470,
+   "status": "needs_check",
+   "sources": [
+    "garant-27772-2021"
+   ],
+   "note": "один источник — проверить"
+  },
+  {
+   "id": "steel-27772-С355П-sheet-16-40",
+   "grade": "С355П",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 16,
+   "t_from": "свыше",
+   "t_to_mm": 40,
+   "sigma_y_min_mpa": 345,
+   "sigma_u_min_mpa": 470,
+   "status": "needs_check",
+   "sources": [
+    "garant-27772-2021"
+   ],
+   "note": "один источник — проверить"
+  },
+  {
+   "id": "steel-27772-С390-1-sheet-8-50",
+   "grade": "С390-1",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 8,
+   "t_from": "включительно",
+   "t_to_mm": 50,
+   "sigma_y_min_mpa": 390,
+   "sigma_u_mpa": [
+    520,
+    680
+   ],
+   "status": "needs_check",
+   "sources": [
+    "garant-27772-2021"
+   ],
+   "note": "один источник — проверить"
+  },
+  {
+   "id": "steel-27772-С390-sheet-8-40",
+   "grade": "С390",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 8,
+   "t_from": "включительно",
+   "t_to_mm": 40,
+   "sigma_y_min_mpa": 390,
+   "sigma_u_mpa": [
+    520,
+    680
+   ],
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С390-sheet-40-60",
+   "grade": "С390",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 40,
+   "t_from": "свыше",
+   "t_to_mm": 60,
+   "sigma_y_min_mpa": 385,
+   "sigma_u_mpa": [
+    520,
+    680
+   ],
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С390-sheet-60-80",
+   "grade": "С390",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 60,
+   "t_from": "свыше",
+   "t_to_mm": 80,
+   "sigma_y_min_mpa": 375,
+   "sigma_u_mpa": [
+    510,
+    670
+   ],
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С390-sheet-80-100",
+   "grade": "С390",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 80,
+   "t_from": "свыше",
+   "t_to_mm": 100,
+   "sigma_y_min_mpa": 365,
+   "sigma_u_mpa": [
+    510,
+    670
+   ],
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С390-sheet-100-160",
+   "grade": "С390",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 100,
+   "t_from": "свыше",
+   "t_to_mm": 160,
+   "sigma_y_min_mpa": 360,
+   "sigma_u_mpa": [
+    510,
+    670
+   ],
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С440-sheet-8-40",
+   "grade": "С440",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 8,
+   "t_from": "включительно",
+   "t_to_mm": 40,
+   "sigma_y_min_mpa": 440,
+   "sigma_u_mpa": [
+    540,
+    700
+   ],
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С440-sheet-40-60",
+   "grade": "С440",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 40,
+   "t_from": "свыше",
+   "t_to_mm": 60,
+   "sigma_y_min_mpa": 430,
+   "sigma_u_mpa": [
+    540,
+    700
+   ],
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С440-sheet-60-80",
+   "grade": "С440",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 60,
+   "t_from": "свыше",
+   "t_to_mm": 80,
+   "sigma_y_min_mpa": 420,
+   "sigma_u_mpa": [
+    540,
+    700
+   ],
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С440-sheet-80-100",
+   "grade": "С440",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 80,
+   "t_from": "свыше",
+   "t_to_mm": 100,
+   "sigma_y_min_mpa": 410,
+   "sigma_u_mpa": [
+    530,
+    690
+   ],
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С440-sheet-100-120",
+   "grade": "С440",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 100,
+   "t_from": "свыше",
+   "t_to_mm": 120,
+   "sigma_y_min_mpa": 400,
+   "sigma_u_mpa": [
+    530,
+    690
+   ],
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С550-sheet-8-50",
+   "grade": "С550",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 8,
+   "t_from": "включительно",
+   "t_to_mm": 50,
+   "sigma_y_min_mpa": 540,
+   "sigma_u_mpa": [
+    640,
+    800
+   ],
+   "status": "needs_check",
+   "sources": [
+    "garant-27772-2021"
+   ],
+   "note": "один источник — проверить"
+  },
+  {
+   "id": "steel-27772-С590-sheet-8-50",
+   "grade": "С590",
+   "standard": "ГОСТ 27772-2021",
+   "table": 4,
+   "product": "sheet",
+   "product_name": "листовой и широкополосный прокат, заготовки гнутых профилей",
+   "t_from_mm": 8,
+   "t_from": "включительно",
+   "t_to_mm": 50,
+   "sigma_y_min_mpa": 590,
+   "sigma_u_mpa": [
+    685,
+    845
+   ],
+   "status": "needs_check",
+   "sources": [
+    "garant-27772-2021"
+   ],
+   "note": "один источник — проверить"
+  },
+  {
+   "id": "steel-27772-С245-section-4-10",
+   "grade": "С245",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 4,
+   "t_from": "включительно",
+   "t_to_mm": 10,
+   "sigma_y_min_mpa": 245,
+   "sigma_u_min_mpa": 370,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С245-section-10-20",
+   "grade": "С245",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 10,
+   "t_from": "свыше",
+   "t_to_mm": 20,
+   "sigma_y_min_mpa": 245,
+   "sigma_u_min_mpa": 370,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С245-section-20-40",
+   "grade": "С245",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 20,
+   "t_from": "свыше",
+   "t_to_mm": 40,
+   "sigma_y_min_mpa": 235,
+   "sigma_u_min_mpa": 370,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С255-section-4-10",
+   "grade": "С255",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 4,
+   "t_from": "включительно",
+   "t_to_mm": 10,
+   "sigma_y_min_mpa": 255,
+   "sigma_u_min_mpa": 380,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С255-section-10-20",
+   "grade": "С255",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 10,
+   "t_from": "свыше",
+   "t_to_mm": 20,
+   "sigma_y_min_mpa": 245,
+   "sigma_u_min_mpa": 370,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С255-section-20-40",
+   "grade": "С255",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 20,
+   "t_from": "свыше",
+   "t_to_mm": 40,
+   "sigma_y_min_mpa": 235,
+   "sigma_u_min_mpa": 370,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С255-section-40-60",
+   "grade": "С255",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 40,
+   "t_from": "свыше",
+   "t_to_mm": 60,
+   "sigma_y_min_mpa": 225,
+   "sigma_u_min_mpa": 370,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С345-section-4-10",
+   "grade": "С345",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 4,
+   "t_from": "включительно",
+   "t_to_mm": 10,
+   "sigma_y_min_mpa": 345,
+   "sigma_u_min_mpa": 480,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С345-section-10-20",
+   "grade": "С345",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 10,
+   "t_from": "свыше",
+   "t_to_mm": 20,
+   "sigma_y_min_mpa": 325,
+   "sigma_u_min_mpa": 470,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С345-section-20-40",
+   "grade": "С345",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 20,
+   "t_from": "свыше",
+   "t_to_mm": 40,
+   "sigma_y_min_mpa": 305,
+   "sigma_u_min_mpa": 460,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С345-section-40-60",
+   "grade": "С345",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 40,
+   "t_from": "свыше",
+   "t_to_mm": 60,
+   "sigma_y_min_mpa": 285,
+   "sigma_u_min_mpa": 450,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С345К-section-4-10",
+   "grade": "С345К",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 4,
+   "t_from": "включительно",
+   "t_to_mm": 10,
+   "sigma_y_min_mpa": 345,
+   "sigma_u_min_mpa": 470,
+   "status": "needs_check",
+   "sources": [
+    "garant-27772-2021"
+   ],
+   "note": "один источник — проверить"
+  },
+  {
+   "id": "steel-27772-С355-section-4-10",
+   "grade": "С355",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 4,
+   "t_from": "включительно",
+   "t_to_mm": 10,
+   "sigma_y_min_mpa": 355,
+   "sigma_u_min_mpa": 470,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С355-section-10-20",
+   "grade": "С355",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 10,
+   "t_from": "свыше",
+   "t_to_mm": 20,
+   "sigma_y_min_mpa": 355,
+   "sigma_u_min_mpa": 470,
+   "status": "needs_check",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ],
+   "note": "в тексте стандарта (оба источника) диапазоны «св. 10 до 20» и «св. 16 до 40» перекрываются — проверить по изданию"
+  },
+  {
+   "id": "steel-27772-С355-section-16-40",
+   "grade": "С355",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 16,
+   "t_from": "свыше",
+   "t_to_mm": 40,
+   "sigma_y_min_mpa": 345,
+   "sigma_u_min_mpa": 470,
+   "status": "needs_check",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ],
+   "note": "в тексте стандарта (оба источника) диапазоны «св. 10 до 20» и «св. 16 до 40» перекрываются — проверить по изданию"
+  },
+  {
+   "id": "steel-27772-С355-section-40-60",
+   "grade": "С355",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 40,
+   "t_from": "свыше",
+   "t_to_mm": 60,
+   "sigma_y_min_mpa": 335,
+   "sigma_u_min_mpa": 470,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С355-1-section-8-20",
+   "grade": "С355-1",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 8,
+   "t_from": "включительно",
+   "t_to_mm": 20,
+   "sigma_y_min_mpa": 355,
+   "sigma_u_min_mpa": 480,
+   "status": "needs_check",
+   "sources": [
+    "garant-27772-2021"
+   ],
+   "note": "один источник — проверить"
+  },
+  {
+   "id": "steel-27772-С355-1-section-20-40",
+   "grade": "С355-1",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 20,
+   "t_from": "свыше",
+   "t_to_mm": 40,
+   "sigma_y_min_mpa": 345,
+   "sigma_u_min_mpa": 480,
+   "status": "needs_check",
+   "sources": [
+    "garant-27772-2021"
+   ],
+   "note": "один источник — проверить"
+  },
+  {
+   "id": "steel-27772-С390-section-4-8",
+   "grade": "С390",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 4,
+   "t_from": "включительно",
+   "t_to_mm": 8,
+   "sigma_y_min_mpa": 390,
+   "sigma_u_min_mpa": 520,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С390-section-8-10",
+   "grade": "С390",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 8,
+   "t_from": "свыше",
+   "t_to_mm": 10,
+   "sigma_y_min_mpa": 390,
+   "sigma_u_min_mpa": 520,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С390-section-10-20",
+   "grade": "С390",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 10,
+   "t_from": "свыше",
+   "t_to_mm": 20,
+   "sigma_y_min_mpa": 380,
+   "sigma_u_min_mpa": 500,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С390-section-20-40",
+   "grade": "С390",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 20,
+   "t_from": "свыше",
+   "t_to_mm": 40,
+   "sigma_y_min_mpa": 370,
+   "sigma_u_min_mpa": 490,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С390-section-40-60",
+   "grade": "С390",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 40,
+   "t_from": "свыше",
+   "t_to_mm": 60,
+   "sigma_y_min_mpa": 360,
+   "sigma_u_min_mpa": 510,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С440-section-4-10",
+   "grade": "С440",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 4,
+   "t_from": "включительно",
+   "t_to_mm": 10,
+   "sigma_y_min_mpa": 440,
+   "sigma_u_min_mpa": 590,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С440-section-10-20",
+   "grade": "С440",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 10,
+   "t_from": "свыше",
+   "t_to_mm": 20,
+   "sigma_y_min_mpa": 435,
+   "sigma_u_min_mpa": 580,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С440-section-20-40",
+   "grade": "С440",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 20,
+   "t_from": "свыше",
+   "t_to_mm": 40,
+   "sigma_y_min_mpa": 430,
+   "sigma_u_min_mpa": 570,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  },
+  {
+   "id": "steel-27772-С440-section-40-60",
+   "grade": "С440",
+   "standard": "ГОСТ 27772-2021",
+   "table": 5,
+   "product": "section",
+   "product_name": "сортовой и фасонный прокат",
+   "t_from_mm": 40,
+   "t_from": "свыше",
+   "t_to_mm": 60,
+   "sigma_y_min_mpa": 420,
+   "sigma_u_min_mpa": 560,
+   "status": "confirmed",
+   "sources": [
+    "garant-27772-2021",
+    "kontur-27772-2021"
+   ]
+  }
+ ]
+}

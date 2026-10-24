@@ -68,7 +68,8 @@ window.irThreeSchemeView=(function(){
  // found is drawn by its real section; the rest keep a conventional one and are counted as such.
  var sections=new Map(),sectionsPromise=null;
  var CATALOGS=["profiles-ibeams","profiles-ibeams-parallel","profiles-ibeams-26020","profiles-ibeams-19425","profiles-channels","profiles-channels-19425",
-  "profiles-channels-bent-8278","profiles-channels-bent-8281","profiles-angles","profiles-angles-unequal","profiles-angles-bent-19771","profiles-angles-bent-19772","profiles-box-30245","pipes"];
+  "profiles-channels-bent-8278","profiles-channels-bent-8281","profiles-angles","profiles-angles-unequal","profiles-angles-bent-19771","profiles-angles-bent-19772","profiles-box-30245","pipes",
+  "profiles-pipes-square-8639","profiles-pipes-rect-8645","profiles-lipped-8282","profiles-hat-8283","profiles-z-13229","bars"];
  function loadSections(){
   // An exported scheme carries the rows it needs (a file opened from the disk cannot fetch the tables).
   if(!sectionsPromise&&Array.isArray(window.irSchemeSections)){window.irSchemeSections.forEach(function(r){if(r&&r.id)sections.set(r.id,r)});sectionsPromise=Promise.resolve()}
@@ -163,22 +164,53 @@ window.irThreeSchemeView=(function(){
   if((m=/^(?:L|∟|Уголок|Уг\.?)(\d+)x(\d+)(?:x(\d+(?:\.\d)?))?$/i.exec(t))&&(!m[3]||m[1]===m[2])&&(r=sections.get("angle-"+m[1]+"x"+Number(m[3]||m[2]))))return{shape:"angle",h:r.b_mm,b:r.b_mm,s:r.t_mm,t:r.t_mm,r:root(r),std:r.standard};
   // Unequal legs «L63x40x5»: h — the long leg, b — the short one.
   if((m=/^(?:L|∟|Уголок|Уг\.?)(\d+)x(\d+)x(\d+(?:\.\d)?)$/i.exec(t))&&(r=sections.get("angle-"+Number(m[1])+"x"+Number(m[2])+"x"+Number(m[3]))))return{shape:"angle",h:r.B_mm,b:r.b_mm,s:r.t_mm,t:r.t_mm,r:root(r),std:r.standard};
+  // A C-shaped bent section with lips «С-образный 160×60×32×4» (ГОСТ 8282-83), a hat «Профиль корытный 80×60×32×3» (ГОСТ
+  // 8283-93: the web h, the walls b, the flanges a turned out), a Z «Профиль Z 200×60×5» (ГОСТ 13229-78) — by their tables.
+  if((m=/^(?:Профиль)?(?:гнутый)?(С-?образный|корытный|C|С)?(?:профиль)?(\d{2,3})x(\d{2,3})x(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)$/i.exec(t))&&(m[1]||/8282|8283/.test(standard||""))){
+   var k4b=+m[2]+"x"+(+m[3])+"x"+Number(m[4])+"x"+Number(m[5]),hat=/корыт/i.test(m[1]||"")||!m[1]&&/8283/.test(standard||"");
+   r=hat?sections.get("hat-8283-"+k4b)||sections.get("hat-8283-"+k4b+"-t2"):sections.get("lipped-8282-"+k4b);
+   return r?{shape:hat?"hat":"lipped",bent:true,h:r.h_mm,b:r.b_mm,a:r.a_mm,s:r.s_mm,t:r.s_mm,r:number(r.R_mm),std:r.standard}:null
+  }
+  if((m=/^(?:Профиль)?(?:гнутый)?(Z-?образный|зетовый|Z|Зет)?(?:профиль)?(\d{2,3})x(\d{2,3})x(\d+(?:\.\d+)?)$/i.exec(t))&&(m[1]||/13229/.test(standard||""))){
+   var kz="z-13229-"+(+m[2])+"x"+(+m[3])+"x"+Number(m[4]);r=sections.get(kz)||sections.get(kz+"-t2");
+   return r?{shape:"zed",bent:true,h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.s_mm,r:number(r.R_mm),std:r.standard}:null
+  }
+  // A hexagon bar «Шестигранник 22», «S22» (ГОСТ 2879-2006, across flats), a reinforcing bar «Ø12А500С», «12А400» (ГОСТ 34028).
+  if((m=/^(?:Шестигранник|Шестигр\.?|S|⬡)(\d+(?:\.\d+)?)$/i.exec(t))){r=sections.get("bar-std-2879");
+   return{shape:"hex",h:+m[1],b:+m[1],s:+m[1],t:+m[1],solid:true,std:r&&r.sizes_mm.indexOf(+m[1])>=0?r.standard:"шестигранник по обозначению"}}
+  if((m=/^(?:Арматура|Арм\.?)?(?:Ø|ø|∅)?(\d+(?:\.\d+)?)([АA]п?\d{3,4})([СCНHЕEКKУР]*)$/.exec(t))){r=sections.get("bar-std-34028");
+   return{shape:"round",h:+m[1],b:+m[1],s:+m[1]/2,t:+m[1]/2,solid:true,std:r&&r.rows.some(function(x){return x.d_mm===+m[1]})?r.standard:"арматура по обозначению"}}
   // A round bar (tie rod, rung): «∅16», «Ø20» without a wall thickness.
   if((m=/^(?:∅|Ø|ø|Круг)(\d{1,3})$/i.exec(t)))return{shape:"round",h:+m[1],b:+m[1],s:+m[1]/2,t:+m[1]/2,solid:true,std:"круг по обозначению"};
   // A solid square bar «□20», «Квадрат 20» (no wall thickness: a box always has one).
   if((m=/^(?:□|Квадрат|Кв\.)(\d{1,3})$/i.exec(t)))return{shape:"plate",h:+m[1],b:+m[1],s:+m[1],t:+m[1],std:"квадрат по обозначению"};
   // A tube is its own designation: «Тр.140х4», «Труба 159x6», «Ø273х8» (round), «Гн.□100х4», «□120х80х5» (box).
-  if((m=/^(?:Тр\.?|Труба|Ø|ø)(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)$/i.exec(t))){
-   // The sortament whose lists hold both sizes (the one the sheet cites first): ГОСТ 10704-91, ГОСТ 8732-78.
-   var pipeStd=["pipe-std-8732","pipe-std-10704"].map(function(id){return sections.get(id)}).filter(function(x){
-    return x&&x.diameters_mm.indexOf(+m[1])>=0&&x.thicknesses_mm.indexOf(+m[2])>=0}).sort(function(a,b){
+  if((m=/^(?:Тр\.?|Труба|Ø|ø)(ВГП)?((?:[ЦРМНДП]-)*)(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)$/i.exec(t))){
+   // A water-gas pipe (ГОСТ 3262-75) is written by its conditional pass: «Труба 20×2,8» of the sheet citing 3262, «Труба
+   // ВГП Ц-20х2,8» — Ду 20, D = 26,8.
+   if(m[1]||m[2]||/3262/.test(standard||"")){
+    var vgp=null;["pipe-std-3262","pipe-std-3262-t2"].forEach(function(id){var x=sections.get(id);(x&&x.rows||[]).forEach(function(row){
+     if(!vgp&&(row.DN===+m[3]||row.D_mm===+m[3])&&["light","light_alt","ordinary","reinforced"].some(function(k){return row[k]&&row[k][0]===+m[4]}))vgp=row})});
+    if(vgp)return{shape:"round",h:vgp.D_mm,b:vgp.D_mm,s:+m[4],t:+m[4],std:"ГОСТ 3262-75"}
+   }
+   // The sortament whose lists hold both sizes (the one the sheet cites first): ГОСТ 10704-91, ГОСТ 8732-78, ГОСТ 8734-75.
+   var pipeStd=["pipe-std-8732","pipe-std-10704","pipe-std-8734"].map(function(id){return sections.get(id)}).filter(function(x){
+    return x&&x.diameters_mm.indexOf(+m[3])>=0&&x.thicknesses_mm.indexOf(+m[4])>=0}).sort(function(a,b){
     return (String(standard||"").indexOf(a.standard.slice(5,9))>=0?0:1)-(String(standard||"").indexOf(b.standard.slice(5,9))>=0?0:1)})[0];
-   return{shape:"round",h:+m[1],b:+m[1],s:+m[2],t:+m[2],std:pipeStd?pipeStd.standard:"по обозначению"}
+   return{shape:"round",h:+m[3],b:+m[3],s:+m[4],t:+m[4],std:pipeStd?pipeStd.standard:"по обозначению"}
   }
-  // A box of ГОСТ 30245-2003 when the size is in its table (the standard is then named), otherwise by designation.
-  if((m=/^(?:Гн\.?|Труба)?□?(\d+)(?:x(\d+))?x(\d+(?:\.\d+)?)$/i.exec(t))&&/□|Гн/i.test(t)){
-   r=sections.get("box-30245-"+Number(m[1])+"x"+Number(m[2]||m[1])+"x"+Number(m[3]))||sections.get("box-30245-"+Number(m[2]||m[1])+"x"+Number(m[1])+"x"+Number(m[3]));
-   return{shape:"box",h:+m[1],b:+(m[2]||m[1]),s:+m[3],t:+m[3],r:r?number(r.R_mm):0,std:r?r.standard:"по обозначению"}
+  // A box: a bent closed one of ГОСТ 30245-2003 «Гн.□100х4», «□120х80х5», «Профиль 120х80х5», a square or rectangular tube of
+  // ГОСТ 8639-82, 8645-68 «Труба 100х100х6», «Тр.кв.100х6», «Труба прямоугольная 120х80х5». The table of the cited standard
+  // (a «Труба» — the tubes first, the rest — the boxes first) gives the corner; ГОСТ 32931-2015 — by its rule (2s, 2,5s, 3s);
+  // a size in no table — by designation, square corners.
+  if((m=/^(Гн\.?|Профиль(?:гнутый)?(?:замкнутый)?|Труба(?:профильная)?(?:квадратная|прямоугольная)?|Тр\.?(?:проф\.?)?(?:кв\.?|пр\.?)?)?(□)?(\d+)(?:x(\d+))?x(\d+(?:\.\d+)?)$/i.exec(t))&&
+   (m[2]||/Гн|Профиль/i.test(m[1]||"")||/^Тр/i.test(t)&&(m[4]||/кв|квадрат|прям|проф/i.test(m[1])))){
+   var bh=+m[3],bb=+(m[4]||m[3]),bs=Number(m[5]),hbs=Math.max(bh,bb)+"x"+Math.min(bh,bb)+"x"+bs,std=String(standard||"");
+   var tube=function(){return bh===bb?sections.get("pipe-sq-8639-"+bh+"x"+bs):sections.get("pipe-rect-8645-"+hbs)},box=function(){return sections.get("box-30245-"+hbs)};
+   if(/32931/.test(std))return{shape:"box",h:bh,b:bb,s:bs,t:bs,r:bs<=6?2*bs:bs<=10?2.5*bs:3*bs,std:"ГОСТ 32931-2015 по обозначению"};
+   var order=/30245/.test(std)?[box]:/8639|8645/.test(std)?[tube]:/^Тр/i.test(t)?[tube,box]:[box,tube];
+   r=null;for(var bi=0;bi<order.length&&!r;bi++)r=order[bi]();
+   return{shape:"box",h:bh,b:bb,s:bs,t:bs,r:r?number(r.R_mm):0,std:r?r.standard:"по обозначению"}
   }
   return null
  }
@@ -196,7 +228,7 @@ window.irThreeSchemeView=(function(){
  // The section as drawn by the sortament: root fillets between the web and the flanges (rounded box corners), so
  // that a member reads as rolled steel close up.
  function realGeometry(T,cache,sec){
-  var key="real:"+sec.shape+(sec.solid?"s":"")+(sec.bent?"g"+(sec.b1||""):"")+":"+sec.h+":"+sec.b+":"+sec.s+":"+sec.t+":"+(sec.r||0);
+  var key="real:"+sec.shape+(sec.solid?"s":"")+(sec.bent?"g"+(sec.b1||""):"")+":"+sec.h+":"+sec.b+":"+sec.s+":"+sec.t+":"+(sec.r||0)+(sec.a?":"+sec.a:"");
   if(cache.has(key))return cache.get(key);
   var h=sec.h/2000,b=sec.b/2000,w=sec.s/2000,fl=sec.t/1000,geo,shape=new T.Shape(),rf=Math.max(0,number(sec.r)/1000),cw=true;
   if(sec.shape==="plate"){
@@ -223,6 +255,15 @@ window.irThreeSchemeView=(function(){
    if(ri>0)shape.absarc(x0+ro,-H+ro,ri,Math.PI*1.5,Math.PI,true);else shape.lineTo(x0+st,-H+st);
    shape.lineTo(x0+st,H-ro);if(ri>0)shape.absarc(x0+ro,H-ro,ri,Math.PI,Math.PI/2,true);else shape.lineTo(x0+st,H-st);
    shape.lineTo(x0+bt,H-st);shape.closePath()
+  }else if(sec.shape==="lipped"||sec.shape==="hat"||sec.shape==="zed"){
+   // Along the middle line: runs between the bends k = R + s from the outer faces, bends of radius R + s/2.
+   var Sm=sec.s/1000,k=number(sec.r)/1000+Sm,rm=k-Sm/2,Hh=sec.h/1000,Bb=sec.b/1000,Aa=number(sec.a)/1000;
+   if(sec.shape==="lipped")stripShape(shape,[Bb/2-Sm/2,Hh/2-Aa,Math.PI/2],[["L",Aa-k],["A",rm,1],["L",Bb-2*k],["A",rm,1],["L",Hh-2*k],["A",rm,1],["L",Bb-2*k],["A",rm,1],["L",Aa-k]],Sm);
+   else if(sec.shape==="hat")stripShape(shape,[Bb/2-Sm/2,Hh/2+Aa-Sm,-Math.PI/2],[["L",Aa-k],["A",rm,-1],["L",Bb-2*k],["A",rm,1],["L",Hh-2*k],["A",rm,1],["L",Bb-2*k],["A",rm,-1],["L",Aa-k]],Sm);
+   else stripShape(shape,[Bb-Sm/2,Hh/2-Sm/2,Math.PI],[["L",Bb-k],["A",rm,1],["L",Hh-2*k],["A",rm,-1],["L",Bb-k]],Sm)
+  }else if(sec.shape==="hex"){
+   // Across flats d: the flats up and down.
+   var hr=sec.h/1000/Math.sqrt(3);for(var hi=0;hi<6;hi++){var ha=hi*Math.PI/3;hi?shape.lineTo(hr*Math.cos(ha),hr*Math.sin(ha)):shape.moveTo(hr,0)}shape.closePath()
   }else if(sec.shape==="angle"&&sec.bent){
    // A bent angle: the heel rounded outside by R + t and inside by R.
    var lg=sec.h/1000,lg2=sec.b/1000,tb=sec.t/1000,rib=Math.max(0,number(sec.r)/1000),rob=rib+tb;
@@ -250,6 +291,19 @@ window.irThreeSchemeView=(function(){
   }
   geo=new T.ExtrudeGeometry(shape,{depth:1,steps:1,bevelEnabled:false,curveSegments:sec.shape==="round"?16:rf>0?5:1});
   geo.computeVertexNormals();cache.set(key,geo);return geo
+ }
+ // A bent open section by its middle line: from the start [x, y, heading] straight runs ["L", length] and 90° bends
+ // ["A", radius of the middle, +1 left / −1 right]; the wall s on both sides of the line.
+ function stripShape(shape,start,segs,s){
+  var x=start[0],y=start[1],a=start[2],pts=[[x,y,a]];
+  segs.forEach(function(g){
+   if(g[0]==="L"){x+=Math.cos(a)*Math.max(0,g[1]);y+=Math.sin(a)*Math.max(0,g[1]);pts.push([x,y,a]);return}
+   var r=g[1],turn=g[2],cx=x+Math.cos(a+turn*Math.PI/2)*r,cy=y+Math.sin(a+turn*Math.PI/2)*r,a0=Math.atan2(y-cy,x-cx);
+   for(var i=1;i<=6;i++){var q=a0+turn*Math.PI/2*i/6;pts.push([cx+r*Math.cos(q),cy+r*Math.sin(q),a+turn*Math.PI/2*i/6])}
+   a+=turn*Math.PI/2;x=pts[pts.length-1][0];y=pts[pts.length-1][1]
+  });
+  var out=pts.map(function(p){return[p[0]-Math.sin(p[2])*s/2,p[1]+Math.cos(p[2])*s/2]}).concat(pts.map(function(p){return[p[0]+Math.sin(p[2])*s/2,p[1]-Math.cos(p[2])*s/2]}).reverse());
+  shape.moveTo(out[0][0],out[0][1]);for(var j=1;j<out.length;j++)shape.lineTo(out[j][0],out[j][1]);shape.closePath()
  }
  function addGeometry(T,cache,member){
   var sec=sectionOf(member.profile_name||member.profileName,member.profile_standard);
@@ -2028,7 +2082,7 @@ window.irThreeSchemeView=(function(){
  // The sortament rows for an exported scheme: only what drawing a section takes.
  function sectionRows(){
   return loadSections().then(function(){var out=[];sections.forEach(function(r){var o={};
-   ["id","status","standard","h_mm","b_mm","B_mm","b1_mm","s_mm","t_mm","R_mm","r_mm","diameters_mm","thicknesses_mm"].forEach(function(k){if(r[k]!=null)o[k]=r[k]});out.push(o)});return out})
+   ["id","status","standard","h_mm","b_mm","B_mm","b1_mm","a_mm","s_mm","t_mm","R_mm","r_mm","diameters_mm","thicknesses_mm","sizes_mm","rows"].forEach(function(k){if(r[k]!=null)o[k]=r[k]});out.push(o)});return out})
  }
  return{render:render,dispose:dispose,sectionOf:sectionOf,loadSections:loadSections,sectionRows:sectionRows,fastenerRows:fastenerRows,jointKbRows:jointKbRows,
   focus:function(id){return call("focus",id)},

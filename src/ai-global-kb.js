@@ -126,11 +126,60 @@ function createGlobalKnowledge({dir=GLOBAL_DIR}={}){
    if(d&&b!==c)return confirmed("profiles-angles-unequal").find(r=>r.id==="angle-"+Number(b)+"x"+Number(c)+"x"+Number(d))||null;
    return confirmed("profiles-angles").find(r=>r.id==="angle-"+b+"x"+Number(d||c))||null
   }
-  // A bent closed box (ГОСТ 30245-2003): «Гн.□100х4», «□120х80х5», «Профиль 120x80x5»; the table lists the larger side first.
-  if((m=/^(?:Гн\.?|Профиль(?:гнутый)?(?:замкнутый)?)?(□)?(\d+)(?:x(\d+))?x(\d+(?:\.\d+)?)$/iu.exec(t))&&(m[1]||/^(?:Гн|Профиль)/iu.test(t))){
-   const h=Number(m[2]),b=Number(m[3]||m[2]),s=Number(m[4]),rows=confirmed("profiles-box-30245");
-   return rows.find(r=>r.id==="box-30245-"+Math.max(h,b)+"x"+Math.min(h,b)+"x"+s)||null
+  const cites=n=>new RegExp(n).test(standard+" "+text);
+  // Bent open sections by their tables: a C-shaped one with lips «С-образный 160×60×32×4» (ГОСТ 8282-83: h, b, the lip a,
+  // s), a hat «Профиль корытный 80×60×32×3» (ГОСТ 8283-93: the web h, the walls b, the outer flanges a, s; table 1, else
+  // table 2), a Z «Профиль Z 200×60×5» (ГОСТ 13229-78, equal flanges: h, b, s). Four numbers are a bent unequal channel
+  // (ГОСТ 8281) unless the sheet or the name says which.
+  if((m=/^(?:Профиль)?(?:гнутый)?(С-?образный|корытный|C|С)?(?:профиль)?(\d{2,3})x(\d{2,3})x(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)$/iu.exec(t))&&(m[1]||cites("8282|8283"))){
+   const key=Number(m[2])+"x"+Number(m[3])+"x"+Number(m[4])+"x"+Number(m[5]);
+   if(/корыт/iu.test(m[1]||"")||!m[1]&&cites("8283")){const rows=confirmed("profiles-hat-8283");return rows.find(r=>r.id==="hat-8283-"+key)||rows.find(r=>r.id==="hat-8283-"+key+"-t2")||null}
+   return confirmed("profiles-lipped-8282").find(r=>r.id==="lipped-8282-"+key)||null
   }
+  if((m=/^(?:Профиль)?(?:гнутый)?(Z-?образный|зетовый|Z|Зет)?(?:профиль)?(\d{2,3})x(\d{2,3})x(\d+(?:\.\d+)?)$/iu.exec(t))&&(m[1]||cites("13229"))){
+   const rows=confirmed("profiles-z-13229"),key="z-13229-"+Number(m[2])+"x"+Number(m[3])+"x"+Number(m[4]);
+   return rows.find(r=>r.id===key)||rows.find(r=>r.id===key+"-t2")||null
+  }
+  // A square or rectangular tube: «Труба 100х100х4», «Тр.кв.100х4», «Труба прямоугольная 120х80х5 ГОСТ 8645-68» (ГОСТ 8639-82,
+  // 8645-68), a bent closed box «Гн.□100х4», «□120х80х5», «Профиль 120x80x5» (ГОСТ 30245-2003); the tables list the larger
+  // side first. The standard of the sheet decides; without it a «Труба» is looked up among the tubes first, a «□», «Гн»,
+  // «Профиль» among the boxes. ГОСТ 32931-2015 has no table in the base: by the sizes, the corner by its rule, to be checked.
+  if((m=/^(Гн\.?|Профиль(?:гнутый)?(?:замкнутый)?|Труба(?:профильная)?(?:квадратная|прямоугольная)?|Тр\.?(?:проф\.?)?(?:кв\.?|пр\.?)?)?(□)?(\d+)(?:x(\d+))?x(\d+(?:\.\d+)?)$/iu.exec(t))&&
+   (m[2]||/^(?:Гн|Профиль)/iu.test(t)||/^Тр/iu.test(t)&&(m[4]||/кв|квадрат|прям|проф/iu.test(m[1])))){
+   const h=Math.max(+m[3],+(m[4]||m[3])),b=Math.min(+m[3],+(m[4]||m[3])),s=Number(m[5]),hbs=h+"x"+b+"x"+s;
+   const tube=()=>h===b?confirmed("profiles-pipes-square-8639").find(r=>r.id==="pipe-sq-8639-"+h+"x"+s):confirmed("profiles-pipes-rect-8645").find(r=>r.id==="pipe-rect-8645-"+hbs);
+   const box=()=>confirmed("profiles-box-30245").find(r=>r.id==="box-30245-"+hbs);
+   if(cites("32931")){
+    const R=s<=6?2*s:s<=10?2.5*s:3*s,q=R-s,A=(2*s*(h+b)-4*s*s-(4-Math.PI)*(R*R-q*q))/100;
+    return{id:"pipe-32931-"+hbs,designation:"Труба "+(h===b?"квадратная ":"прямоугольная ")+h+"×"+b+"×"+s,standard:"ГОСТ 32931-2015",h_mm:h,b_mm:b,t_mm:s,R_mm:R,
+     shape3d:"box",A_cm2:Math.round(A*100)/100,mass_kg_m:Math.round(A*78.5)/100,listed:false,sources:confirmed("pipes").find(r=>r.id==="pipe-rule-32931")?.sources||[],status:"needs_check"}
+   }
+   const order=cites("30245")?[box]:cites("8639|8645")?[tube]:/^Тр/iu.test(t)?[tube,box]:[box,tube];
+   for(const f of order){const r=f();if(r)return r}
+   return null
+  }
+  // A hexagon bar «Шестигранник 22», «S22» (ГОСТ 2879-2006, d — across flats): A = (√3/2)·d², mass at 7850 kg/m³.
+  if((m=/^(?:Шестигранник|Шестигр\.?|S|⬡)(\d+(?:\.\d+)?)$/iu.exec(t))){
+   const d=Number(m[1]),std=confirmed("bars").find(r=>r.id==="bar-std-2879"),A=Math.sqrt(3)/2*d*d,listed=Boolean(std?.sizes_mm.includes(d));
+   return{id:"bar-hex-"+d,designation:"Шестигранник "+d,standard:"ГОСТ 2879-2006",d_mm:d,solid:true,shape3d:"hex",A_cm2:Math.round(A)/100,mass_kg_m:Math.round(A*0.785)/100,
+    listed,sources:listed?std.sources:[],status:listed?"confirmed":"needs_check"}
+  }
+  // Reinforcing bar «Ø12А500С», «12А400», «Арматура 16 А500С» (ГОСТ 34028-2016): the row of the nominal diameter, the class.
+  if((m=/^(?:Арматура|Арм\.?)?(?:Ø|ø|∅)?(\d+(?:\.\d+)?)([АA]п?\d{3,4})([СCНHЕEКKУР]*)$/u.exec(t))){
+   const std=confirmed("bars").find(r=>r.id==="bar-std-34028"),row=std?.rows.find(r=>r.d_mm===Number(m[1])),cls=m[2].replace(/A/g,"А")+m[3].replace(/C/g,"С").replace(/H/g,"Н").replace(/E/g,"Е").replace(/K/g,"К");
+   const known=Boolean(row&&std.classes.includes(cls.replace(/[СНЕКУР]+$/u,"")));
+   return{id:"rebar-"+Number(m[1])+"-"+cls,designation:"Арматура "+Number(m[1])+" "+cls,standard:"ГОСТ 34028-2016",d_mm:Number(m[1]),class:cls,solid:true,shape3d:"round",
+    A_cm2:row?row.F_mm2/100:Math.round(Math.PI*Number(m[1])**2/4)/100,mass_kg_m:row?row.mass_kg_m:Math.round(Math.PI*Number(m[1])**2/4*0.00785*1000)/1000,
+    listed:known,sources:known?std.sources:[],status:known?"confirmed":"needs_check"}
+  }
+  // Profiled sheeting «Н75-750-0,8», «Профнастил НС35-1000-0,7» (ГОСТ 24045-2016): mass per metre and per m² of the table.
+  if((m=/^(?:Профнастил|Профлист|Профиль)?(НС|Н|С|HC|H|C)(\d{1,3})-(\d{3,4})-(\d(?:\.\d+)?)$/u.exec(t))){
+   const k={HC:"НС",H:"Н",C:"С"}[m[1]]||m[1];
+   return confirmed("profiled-sheets-24045").find(r=>r.id==="deck-24045-"+k+m[2]+"-"+m[3]+"-"+Number(m[4]).toFixed(1))||null
+  }
+  // Rails of ГОСТ 19240-73 for runways of hoists: «Рельс Р5», «Рельс двухголовый», «Рельс тавровый».
+  // («х» of «двухголовый» is read as a «x» of sizes above.)
+  if((m=/^Рельс(дву[xх]головый|тавровый)$|^(?:Рельс)?(?:Р|P)5$/iu.exec(t)))return confirmed("rails-19240").find(r=>r.id==="rail-19240-"+(m[1]?m[1].toLowerCase().replace("x","х"):"Р5"))||null;
   // A solid bar — a tie rod, a rung, a railing post: round «Ø18», «Круг 20» (ГОСТ 2590-2006), square «□20», «Квадрат 20»
   // (ГОСТ 2591-2006). Mass by the geometry at 7850 kg/m³ (as the sortaments give it); the size lists are not in the base.
   if((m=/^(?:Ø|ø|∅|Круг)(\d+(?:\.\d+)?)$/iu.exec(t))||(m=/^(?:□|Квадрат|Кв\.)(\d+(?:\.\d+)?)$/iu.exec(t))){
@@ -139,20 +188,35 @@ function createGlobalKnowledge({dir=GLOBAL_DIR}={}){
    return{id:(round?"bar-round-":"bar-square-")+d,designation:(round?"Круг ":"Квадрат ")+d,standard:round?"ГОСТ 2590-2006":"ГОСТ 2591-2006",
     D_mm:d,solid:true,shape3d:round?"round":"plate",A_cm2:Math.round(A)/100,mass_kg_m:Math.round(A*0.785)/100,listed:false,sources:[],status:"needs_check"}
   }
-  if(/^(?:Тр\.?|Труба|Ø|ø)\d/iu.test(t))return pipeOf(text,{standard});
+  if(/^(?:Тр\.?|Труба|Ø|ø)(?:ВГП)?(?:[ЦРМНДП]-)*\d/iu.test(t))return pipeOf(text,{standard});
   return null
  }
- // A plate «Лист 10», «Лист t=10», «-10х200», «PL10x200», «Лист 10х1500х6000 ГОСТ 19903-2015»: the thickness checked against
- // the sortament (ГОСТ 19903-2015), mass 1 m² = 7,85·t; with a width — mass 1 m of the strip. `listed` false — the
- // thickness is not in the list, shown for a check.
- function plateOf(text){
+ // A plate «Лист 10», «Лист t=10», «-10х200», «PL10x200», «Лист 10х1500х6000 ГОСТ 19903-2015», a strip «Полоса 10х200 ГОСТ 82-70»:
+ // the thickness checked against the sortament the sheet cites (hot-rolled ГОСТ 19903-2015, cold-rolled ГОСТ 19904-90, strip
+ // ГОСТ 103-2006 and wide universal ГОСТ 82-70 with their widths), else the first that has it; mass 1 m² = 7,85·t; with a
+ // width — mass 1 m of the strip. `listed` false — the thickness is not in the list, shown for a check.
+ function plateOf(text,{standard=""}={}){
   const t=String(text||"").replace(/\s+/g,"").replace(/[хХ×*]/g,"x").replace(/,/g,".");
-  const m=/^(?:Лист|Л\.?|PL|—|–|-)(?:t=|δ=?|s=)?(\d+(?:\.\d+)?)(?:x(\d+(?:\.\d+)?))?(?:x(\d+))?/iu.exec(t);if(!m)return null;
+  const m=/^(?:Лист|Л\.?|PL|Полоса|Пол\.?|—|–|-)(?:t=|δ=?|s=)?(\d+(?:\.\d+)?)(?:x(\d+(?:\.\d+)?))?(?:x(\d+))?/iu.exec(t);if(!m)return null;
   const th=Number(m[1]),w=m[2]?Number(m[2]):null;if(!(th>0&&th<=400))return null;
-  const std=confirmed("sheets").find(r=>r.kind==="sheet_standard"&&r.thicknesses_mm.includes(th))||null;
+  const pool=confirmed("sheets").filter(r=>r.kind==="sheet_standard").concat(confirmed("bars").filter(r=>r.kind==="strip_standard"));
+  const cited=pool.filter(r=>new RegExp("ГОСТ\\s*"+r.standard.replace(/^ГОСТ\s*/,"").split("-")[0]+"-").test(standard+" "+text));
+  const fits=r=>r.thicknesses_mm.includes(th)&&(r.kind!=="strip_standard"||!w||r.widths_mm.includes(w));
+  const std=(cited.length?cited:pool.filter(r=>r.kind==="sheet_standard")).find(fits)||null;
   return{id:"plate-"+th+(w?"x"+w:""),t_mm:th,width_mm:w,length_mm:m[3]?Number(m[3]):null,shape3d:"plate",
-   standard:std?.standard||null,listed:Boolean(std),mass_kg_m2:Math.round(7.85*th*100)/100,
+   standard:std?.standard||cited[0]?.standard||null,listed:Boolean(std),mass_kg_m2:Math.round(7.85*th*100)/100,
    mass_kg_m:w?Math.round(7.85*th*w/1000*100)/100:null,sources:std?.sources||[],status:std?"confirmed":"needs_check"}
+ }
+ // The steel of a member by ГОСТ 27772-2021 (steel-grades.json): the strength class «С345», «С255», «С355-1», «С390», the
+ // thickness of the rolled product and its kind (sheet — table 4, section — table 5): the yield strength σт and the
+ // ultimate σв, Н/мм², not less (Ryn, Run). Only confirmed rows; a thickness out of the ranges gives null.
+ function steelOf(grade,{thickness_mm,product="section"}={}){
+  const g=String(grade||"").replace(/\s+/g,"").toUpperCase().replace(/C/g,"С").replace(/K/g,"К").replace(/P/g,"П").replace(/^С?(\d{3})/,"С$1");
+  const rows=confirmed("steel-grades").filter(r=>r.grade===g&&r.product===product);
+  if(!rows.length)return null;
+  if(!(thickness_mm>0))return{grade:g,product,rows,standard:rows[0].standard};
+  const t=Number(thickness_mm),r=rows.find(x=>(x.t_from==="свыше"?t>x.t_from_mm:t>=x.t_from_mm)&&t<=x.t_to_mm);
+  return r?{grade:g,product,row:r,sigma_y_min_mpa:r.sigma_y_min_mpa,sigma_u_min_mpa:r.sigma_u_min_mpa??r.sigma_u_mpa?.[0]??null,standard:r.standard,sources:r.sources}:null
  }
  // A round pipe «Труба 159x6 ГОСТ 8732-78», «Тр.140х4», «Ø273х8»: the standard (from the text or the sheet) whose lists
  // hold both D and t, mass 1 m by the formula of the standard M = 0,02466·t·(D − t) (checked against its tables).
@@ -160,8 +224,22 @@ function createGlobalKnowledge({dir=GLOBAL_DIR}={}){
  // for a check. A thickness out of the known range of a diameter (ГОСТ 8732) is also `listed` false.
  function pipeOf(text,{standard=""}={}){
   const t=String(text||"").replace(/\s+/g,"").replace(/[хХ×*]/g,"x").replace(/,/g,".");
-  const m=/^(?:Тр\.?|Труба|Ø|ø)?(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)/iu.exec(t);if(!m)return null;
-  const D=Number(m[1]),th=Number(m[2]);if(!(th>0&&th<D/2))return null;
+  const m=/^(?:Тр\.?|Труба|Ø|ø)?(ВГП)?((?:[ЦРМНДП]-)*)(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)/iu.exec(t);if(!m)return null;
+  const D=Number(m[3]),th=Number(m[4]);if(!(th>0&&th<D/2))return null;
+  // A water-gas pipe (ГОСТ 3262-75) is written by its conditional pass: «Труба 20×2,8 ГОСТ 3262-75», «Труба ВГП Ц-25х3,2» —
+  // Ду 20 is D = 26,8. The row of the table gives D, the series and the mass; galvanized («Ц») is 3 % heavier.
+  if(m[1]||m[2]||/3262/.test(standard+" "+text)){
+   const rows=confirmed("pipes").filter(r=>r.kind==="pipe_rows"&&r.standard==="ГОСТ 3262-75").flatMap(r=>r.rows.map(x=>({...x,src:r})));
+   const SERIES={light:"лёгкая",light_alt:"лёгкая",ordinary:"обыкновенная",reinforced:"усиленная"};
+   for(const row of rows.filter(x=>x.DN===D).concat(rows.filter(x=>x.D_mm===D)))for(const k of Object.keys(SERIES))if(row[k]&&row[k][0]===th){
+    const zinc=/Ц-/.test(m[2]||"");
+    return{id:"pipe-3262-"+row.DN+"x"+th+(zinc?"-zn":""),designation:"Труба "+(zinc?"Ц-":"")+row.DN+"×"+th+" ГОСТ 3262-75",DN:row.DN,D_mm:row.D_mm,t_mm:th,series:SERIES[k],
+     galvanized:zinc,shape3d:"round",standard:"ГОСТ 3262-75",standards:["ГОСТ 3262-75"],listed:true,A_cm2:Math.round(Math.PI*th*(row.D_mm-th))/100,
+     mass_kg_m:zinc?Math.round(row[k][1]*103)/100:row[k][1],sources:row.src.sources,status:"confirmed"}
+   }
+   return{id:"pipe-3262-"+D+"x"+th,designation:"Труба "+D+"×"+th+" ГОСТ 3262-75",DN:D,D_mm:null,t_mm:th,shape3d:"round",standard:"ГОСТ 3262-75",standards:[],listed:false,
+    A_cm2:null,mass_kg_m:null,sources:[],status:"needs_check",note:"нет такого сочетания условного прохода и стенки в табл. 1, 2"}
+  }
   const stds=confirmed("pipes").filter(r=>r.kind==="pipe_standard"),cited=stds.filter(r=>new RegExp(r.standard.replace(/^ГОСТ\s*/,"").split("-")[0]).test(standard+" "+text));
   const fits=r=>r.diameters_mm.includes(D)&&r.thicknesses_mm.includes(th)&&
    !confirmed("pipes").some(x=>x.kind==="pipe_range"&&x.standard===r.standard&&x.D_mm===D&&(th<x.t_min_mm||th>x.t_max_mm));
@@ -217,6 +295,6 @@ function createGlobalKnowledge({dir=GLOBAL_DIR}={}){
   return{designation:m[1],known:true,record:r,family,current,kz_current:kzCurrent,group:(r||family[0]).group,item:(r||family[0]).item||null,note}
  }
  const summary=()=>{const {catalogs,problems}=load();return{catalogs:[...catalogs].map(([name,r])=>({name,records:r.length,confirmed:r.filter(x=>x.status==="confirmed").length})),problems}};
- return{list,get,confirmed,search,findProfile,pipeOf,plateOf,connectionsFor,standardOf,summary,problems:()=>load().problems,reload:()=>{cache=null}}
+ return{list,get,confirmed,search,findProfile,pipeOf,plateOf,steelOf,connectionsFor,standardOf,summary,problems:()=>load().problems,reload:()=>{cache=null}}
 }
 module.exports={STD_SOURCE,normStd,createGlobalKnowledge,recordProblems,STATUSES,PROJECT_FIELDS,GLOBAL_DIR};

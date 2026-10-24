@@ -1,0 +1,425 @@
+{
+ "catalog": "profiles-z-13229",
+ "version": 1,
+ "note": "ГОСТ 13229-78: профили стальные гнутые зетовые, равнополочные (табл. 1 — углеродистая кипящая и полуспокойная сталь и сталь с σв до 461 Н/мм², табл. 2 — спокойная, σв более 461 Н/мм² и низколегированная; радиусы больше). h — высота, b — ширина полки, s — толщина, R — радиус гиба (не более). Строки страницы распознаны с ошибками; размеры каждой строки восстановлены по отношениям n = (h − 2(R+s))/s и n1 = (b − (R+s))/s и сверены: площадь A = s·[(h − 2(R+s)) + 2(b − (R+s)) + π(R + s/2)] до 1 %, масса = площадь × 0,785. Неравнополочные (табл. 3, 4) не перенесены — на странице слиты ячейки.",
+ "records": [
+  {
+   "id": "z-13229-40x32x2",
+   "designation": "Профиль Z 40×32×2",
+   "standard": "ГОСТ 13229-78",
+   "table": 1,
+   "h_mm": 40,
+   "b_mm": 32,
+   "s_mm": 2,
+   "t_mm": 2,
+   "R_mm": 3,
+   "A_cm2": 1.93,
+   "mass_kg_m": 1.52,
+   "bent": true,
+   "shape3d": "zed",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-13229-78"
+   ]
+  },
+  {
+   "id": "z-13229-40x55x4",
+   "designation": "Профиль Z 40×55×4",
+   "standard": "ГОСТ 13229-78",
+   "table": 1,
+   "h_mm": 40,
+   "b_mm": 55,
+   "s_mm": 4,
+   "t_mm": 4,
+   "R_mm": 6,
+   "A_cm2": 5.41,
+   "mass_kg_m": 4.24,
+   "bent": true,
+   "shape3d": "zed",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-13229-78"
+   ]
+  },
+  {
+   "id": "z-13229-76x60x4",
+   "designation": "Профиль Z 76×60×4",
+   "standard": "ГОСТ 13229-78",
+   "table": 1,
+   "h_mm": 76,
+   "b_mm": 60,
+   "s_mm": 4,
+   "t_mm": 4,
+   "R_mm": 6,
+   "A_cm2": 7.25,
+   "mass_kg_m": 5.68,
+   "bent": true,
+   "shape3d": "zed",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-13229-78"
+   ]
+  },
+  {
+   "id": "z-13229-80x40x3",
+   "designation": "Профиль Z 80×40×3",
+   "standard": "ГОСТ 13229-78",
+   "table": 1,
+   "h_mm": 80,
+   "b_mm": 40,
+   "s_mm": 3,
+   "t_mm": 3,
+   "R_mm": 4,
+   "A_cm2": 4.48,
+   "mass_kg_m": 3.52,
+   "bent": true,
+   "shape3d": "zed",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-13229-78"
+   ]
+  },
+  {
+   "id": "z-13229-80x40x2",
+   "designation": "Профиль Z 80×40×2",
+   "standard": "ГОСТ 13229-78",
+   "table": 1,
+   "h_mm": 80,
+   "b_mm": 40,
+   "s_mm": 2,
+   "t_mm": 2,
+   "R_mm": 3,
+   "A_cm2": 3.05,
+   "mass_kg_m": 2.4,
+   "bent": true,
+   "shape3d": "zed",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-13229-78"
+   ]
+  },
+  {
+   "id": "z-13229-80x50x3",
+   "designation": "Профиль Z 80×50×3",
+   "standard": "ГОСТ 13229-78",
+   "table": 1,
+   "h_mm": 80,
+   "b_mm": 50,
+   "s_mm": 3,
+   "t_mm": 3,
+   "R_mm": 4,
+   "A_cm2": 5.08,
+   "mass_kg_m": 3.99,
+   "bent": true,
+   "shape3d": "zed",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-13229-78"
+   ]
+  },
+  {
+   "id": "z-13229-135x75x6",
+   "designation": "Профиль Z 135×75×6",
+   "standard": "ГОСТ 13229-78",
+   "table": 1,
+   "h_mm": 135,
+   "b_mm": 75,
+   "s_mm": 6,
+   "t_mm": 6,
+   "R_mm": 9,
+   "A_cm2": 15.76,
+   "mass_kg_m": 12.36,
+   "bent": true,
+   "shape3d": "zed",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-13229-78"
+   ]
+  },
+  {
+   "id": "z-13229-200x60x5",
+   "designation": "Профиль Z 200×60×5",
+   "standard": "ГОСТ 13229-78",
+   "table": 1,
+   "h_mm": 200,
+   "b_mm": 60,
+   "s_mm": 5,
+   "t_mm": 5,
+   "R_mm": 7,
+   "A_cm2": 15.09,
+   "mass_kg_m": 11.81,
+   "bent": true,
+   "shape3d": "zed",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-13229-78"
+   ]
+  },
+  {
+   "id": "z-13229-200x87x6",
+   "designation": "Профиль Z 200×87×6",
+   "standard": "ГОСТ 13229-78",
+   "table": 1,
+   "h_mm": 200,
+   "b_mm": 87,
+   "s_mm": 6,
+   "t_mm": 6,
+   "R_mm": 9,
+   "A_cm2": 21.1,
+   "mass_kg_m": 16.55,
+   "bent": true,
+   "shape3d": "zed",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-13229-78"
+   ]
+  },
+  {
+   "id": "z-13229-250x80x5",
+   "designation": "Профиль Z 250×80×5",
+   "standard": "ГОСТ 13229-78",
+   "table": 1,
+   "h_mm": 250,
+   "b_mm": 80,
+   "s_mm": 5,
+   "t_mm": 5,
+   "R_mm": 7,
+   "A_cm2": 19.59,
+   "mass_kg_m": 15.38,
+   "bent": true,
+   "shape3d": "zed",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-13229-78"
+   ]
+  },
+  {
+   "id": "z-13229-340x50x3",
+   "designation": "Профиль Z 340×50×3",
+   "standard": "ГОСТ 13229-78",
+   "table": 1,
+   "h_mm": 340,
+   "b_mm": 50,
+   "s_mm": 3,
+   "t_mm": 3,
+   "R_mm": 4,
+   "A_cm2": 12.87,
+   "mass_kg_m": 10.11,
+   "bent": true,
+   "shape3d": "zed",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-13229-78"
+   ]
+  },
+  {
+   "id": "z-13229-40x32x2-t2",
+   "designation": "Профиль Z 40×32×2",
+   "standard": "ГОСТ 13229-78",
+   "table": 2,
+   "h_mm": 40,
+   "b_mm": 32,
+   "s_mm": 2,
+   "t_mm": 2,
+   "R_mm": 5,
+   "A_cm2": 1.9,
+   "mass_kg_m": 1.49,
+   "bent": true,
+   "shape3d": "zed",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-13229-78"
+   ]
+  },
+  {
+   "id": "z-13229-40x55x4-t2",
+   "designation": "Профиль Z 40×55×4",
+   "standard": "ГОСТ 13229-78",
+   "table": 2,
+   "h_mm": 40,
+   "b_mm": 55,
+   "s_mm": 4,
+   "t_mm": 4,
+   "R_mm": 10,
+   "A_cm2": 5.27,
+   "mass_kg_m": 4.14,
+   "bent": true,
+   "shape3d": "zed",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-13229-78"
+   ]
+  },
+  {
+   "id": "z-13229-76x60x4-t2",
+   "designation": "Профиль Z 76×60×4",
+   "standard": "ГОСТ 13229-78",
+   "table": 2,
+   "h_mm": 76,
+   "b_mm": 60,
+   "s_mm": 4,
+   "t_mm": 4,
+   "R_mm": 10,
+   "A_cm2": 7.11,
+   "mass_kg_m": 5.58,
+   "bent": true,
+   "shape3d": "zed",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-13229-78"
+   ]
+  },
+  {
+   "id": "z-13229-80x40x3-t2",
+   "designation": "Профиль Z 80×40×3",
+   "standard": "ГОСТ 13229-78",
+   "table": 2,
+   "h_mm": 80,
+   "b_mm": 40,
+   "s_mm": 3,
+   "t_mm": 3,
+   "R_mm": 7,
+   "A_cm2": 4.4,
+   "mass_kg_m": 3.46,
+   "bent": true,
+   "shape3d": "zed",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-13229-78"
+   ]
+  },
+  {
+   "id": "z-13229-80x40x2-t2",
+   "designation": "Профиль Z 80×40×2",
+   "standard": "ГОСТ 13229-78",
+   "table": 2,
+   "h_mm": 80,
+   "b_mm": 40,
+   "s_mm": 2,
+   "t_mm": 2,
+   "R_mm": 5,
+   "A_cm2": 3.02,
+   "mass_kg_m": 2.37,
+   "bent": true,
+   "shape3d": "zed",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-13229-78"
+   ]
+  },
+  {
+   "id": "z-13229-80x50x3-t2",
+   "designation": "Профиль Z 80×50×3",
+   "standard": "ГОСТ 13229-78",
+   "table": 2,
+   "h_mm": 80,
+   "b_mm": 50,
+   "s_mm": 3,
+   "t_mm": 3,
+   "R_mm": 7,
+   "A_cm2": 5.0,
+   "mass_kg_m": 3.93,
+   "bent": true,
+   "shape3d": "zed",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-13229-78"
+   ]
+  },
+  {
+   "id": "z-13229-135x75x6-t2",
+   "designation": "Профиль Z 135×75×6",
+   "standard": "ГОСТ 13229-78",
+   "table": 2,
+   "h_mm": 135,
+   "b_mm": 75,
+   "s_mm": 6,
+   "t_mm": 6,
+   "R_mm": 14,
+   "A_cm2": 15.5,
+   "mass_kg_m": 12.16,
+   "bent": true,
+   "shape3d": "zed",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-13229-78"
+   ]
+  },
+  {
+   "id": "z-13229-200x60x5-t2",
+   "designation": "Профиль Z 200×60×5",
+   "standard": "ГОСТ 13229-78",
+   "table": 2,
+   "h_mm": 200,
+   "b_mm": 60,
+   "s_mm": 5,
+   "t_mm": 5,
+   "R_mm": 12,
+   "A_cm2": 14.88,
+   "mass_kg_m": 11.68,
+   "bent": true,
+   "shape3d": "zed",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-13229-78"
+   ]
+  },
+  {
+   "id": "z-13229-200x87x6-t2",
+   "designation": "Профиль Z 200×87×6",
+   "standard": "ГОСТ 13229-78",
+   "table": 2,
+   "h_mm": 200,
+   "b_mm": 87,
+   "s_mm": 6,
+   "t_mm": 6,
+   "R_mm": 14,
+   "A_cm2": 20.84,
+   "mass_kg_m": 16.38,
+   "bent": true,
+   "shape3d": "zed",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-13229-78"
+   ]
+  },
+  {
+   "id": "z-13229-250x80x5-t2",
+   "designation": "Профиль Z 250×80×5",
+   "standard": "ГОСТ 13229-78",
+   "table": 2,
+   "h_mm": 250,
+   "b_mm": 80,
+   "s_mm": 5,
+   "t_mm": 5,
+   "R_mm": 12,
+   "A_cm2": 19.37,
+   "mass_kg_m": 15.21,
+   "bent": true,
+   "shape3d": "zed",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-13229-78"
+   ]
+  },
+  {
+   "id": "z-13229-340x50x3-t2",
+   "designation": "Профиль Z 340×50×3",
+   "standard": "ГОСТ 13229-78",
+   "table": 2,
+   "h_mm": 340,
+   "b_mm": 50,
+   "s_mm": 3,
+   "t_mm": 3,
+   "R_mm": 7,
+   "A_cm2": 12.8,
+   "mass_kg_m": 10.04,
+   "bent": true,
+   "shape3d": "zed",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-13229-78"
+   ]
+  }
+ ]
+}
