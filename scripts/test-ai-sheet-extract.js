@@ -90,6 +90,16 @@ assert.deepEqual(spec,[{mark:"К1",profile:"Тр.140х4",mass_kg:120.5,length_mm
  assert.deepEqual([v.length_mm,v.length_how,v.length_candidates],[6000,"по крайним выносным линиям, цепочка сходится",undefined]);
  const bare=extractSheet({widthPt:1200,heightPt:800,texts}).views.find(x=>x.marks.includes("К1"));
  assert.deepEqual([bare.length_mm,bare.length_how,bare.length_candidates],[8400,"наибольшее число вида — общий размер не найден",[8400,6000,4000]],"no lines — the largest number, ambiguous");
+ // A railing drawn with a break: «12000» over a shortened drawing (off the scale, drawn shorter) is its length, not the
+ // height «1200» of its posts that the scale agrees with (the recheck of 1.9.81: Ог1 of a KM set came out 1200 long).
+ const rail=extractSheet({widthPt:1200,heightPt:800,texts:[T("Ог1",150,200,12,18),T("12000",160,300),T("1200",120,320),T("1000",115,340),T("200",148.25,340),T("Прочее",600,500),T("Прочее",620,520),T("Прочее",640,540)],
+  segments:[H(302,100,250),H(322,100,160),H(342,100,160),V(100,290,345),V(250,290,305),V(160,315,345),V(150,335,345)]}).views.find(x=>x.marks.includes("Ог1"));
+ assert.deepEqual([rail.length_mm,rail.length_how],[12000,"по крайним выносным линиям, вид с разрывом"]);
+ // A mark written inside a scheme of another thing («Ог1» beside a roof plan): one dimension alone confirms nothing —
+ // the other numbers stay as candidates (the element is «неоднозначно» where the size is used).
+ const lone=extractSheet({widthPt:1200,heightPt:800,texts:[T("Ог1",150,200,12,18),T("1200",120,320),T("12000",300,360),T("Прочее",600,500),T("Прочее",620,520),T("Прочее",640,540)],
+  segments:[H(322,100,160),V(100,315,325),V(160,315,325)]}).views.find(x=>x.marks.includes("Ог1"));
+ assert.deepEqual([lone.length_mm,lone.length_how,lone.length_candidates],[1200,"единственный размер вида — общий размер не подтверждён",[1200,12000]]);
  const {cardsFromPages,gradeOf}=require("../src/ai-project-kb");
  const size=c=>c.fields.size_mm;
  const [card]=cardsFromPages([{page:1,docType:"КМД",sourceName:"a.pdf",sheet:{views:[bare]}}]);

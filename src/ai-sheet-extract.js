@@ -129,7 +129,17 @@ function overallOf(inside,segments,box){
   const chain=list.filter(d=>d!==over&&Math.abs(d.line-over.line)>1&&d.lo>=lo-tol&&d.hi<=hi+tol);
   const lines=new Map();for(const d of chain){const k=Math.round(d.line);lines.set(k,[...(lines.get(k)||[]),d])}
   const closes=[...lines.values()].some(g=>g.length>=2&&Math.abs(g.reduce((a,d)=>a+d.v,0)-over.v)<=Math.max(2,over.v*0.002));
-  if(!best||over.v>best.v)best={v:over.v,how:closes?"по крайним выносным линиям, цепочка сходится":"по крайним выносным линиям"}
+  // One dimension alone in its direction is not confirmed by anything: kept, with the other numbers as candidates.
+  if(!best||over.v>best.v)best={v:over.v,how:closes?"по крайним выносным линиям, цепочка сходится":list.length<2?"единственный размер вида — общий размер не подтверждён":"по крайним выносным линиям",...(list.length<2&&!closes?{weak:true}:{})}
+ }
+ // A long member drawn with a break (a railing, a beam «с разрывом»): its length is written at its true value over a
+ // shortened drawing — off the scale of the view, drawn shorter than it. Spanning the extreme extension lines of its
+ // direction and larger than the overall found, it is the length (a detail of a larger scale is drawn longer, not shorter).
+ for(const flat of [true,false]){
+  const all=dims.filter(d=>d.flat===flat);if(all.length<2)continue;
+  const lo=Math.min(...all.map(d=>d.lo)),hi=Math.max(...all.map(d=>d.hi)),tol=Math.max(1.5,(hi-lo)*0.01);
+  const broken=all.filter(d=>!same.includes(d)&&ratio(d)>n&&d.lo<=lo+tol&&d.hi>=hi-tol&&d.v>=1000).sort((a,b)=>b.v-a.v)[0];
+  if(broken&&(!best||broken.v>best.v))best={v:broken.v,how:"по крайним выносным линиям, вид с разрывом"}
  }
  return best
 }
@@ -162,7 +172,7 @@ function assemblyViews(texts,w,h,med,segments=[]){
    if(match!==undefined){z0=match;z1=top}
   }
   // Its area on the sheet (points): the mark card shows this piece of the drawing.
-  views.push({marks:v.marks,title:v.t.str,levels,z0_mm:z0,z1_mm:z1,length_mm:length,...(how?{length_how:how}:{}),...(!over&&others.length?{length_candidates:[length,...others.slice(0,2)]}:{}),box})
+  views.push({marks:v.marks,title:v.t.str,levels,z0_mm:z0,z1_mm:z1,length_mm:length,...(how?{length_how:how}:{}),...((!over||over.weak)&&others.length?{length_candidates:[length,...others.slice(0,2)]}:{}),box})
  }
  return views
 }
