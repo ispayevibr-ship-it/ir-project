@@ -40,7 +40,7 @@ const TYPES=[
  T("beam","Балка","beams","beam","ibeam",["Б","БН","Бл","Бн"],/балк/iu),
  T("crane_girder","Балка подкрановая","crane","beam","ibeam",["БК","Бкр"],/подкранов|крановая\s+балк/iu),
  // A crane rail (Р43, КР70) lies on its crane girder: «Р» of its mark is not a girder (ригель).
- T("crane_rail","Рельс крановый","crane","beam","ibeam",[],/(?<!моно)рельс/iu),
+ T("crane_rail","Рельс крановый","crane","beam","ibeam",[],/(?:^|[^о]|(?:^|[^н])о|(?:^|[^о])но|(?:^|[^м])оно)рельс/iu),
  T("crane_runway","Кран-балка, монорельс","crane","beam","ibeam",["БМ","Мр"],/кран[\s-]*балк|монорельс|подвесн\S*\s+(?:кран|пут)|пут[ьи]\s+подвесн/iu),
  T("brake_beam","Балка тормозная","crane","beam","ibeam",["БТ","Тб"],/тормозн/iu),
  T("platform_beam","Балка рабочей площадки","beams","beam","ibeam",["БР"],/балк\S*\s+(?:рабоч|площадк)/iu),
@@ -56,7 +56,7 @@ const TYPES=[
  T("brace_horizontal","Связь горизонтальная","ties","brace","angle",["СГ","ГС","Сг","Сгф","Сгк"],/связ\S*\s+горизонт|горизонтальн\S*\s+связ/iu),
  T("brace","Связь","ties","brace","angle",["СФ"],/связ/iu),
  // «Тяж» as a word, not inside «вытяжной» (a platform of a supply-and-exhaust unit is not a tie rod).
- T("tie_rod","Тяж","ties","brace","round",["Т"],/(?<![а-яё])тяж/iu),
+ T("tie_rod","Тяж","ties","brace","round",["Т"],/(?:^|[^а-яё])тяж/iu),
  T("strut","Подкос","ties","brace","angle",[],/подкос/iu),
  // Trusses
  T("truss","Ферма стропильная","trusses","beam","truss",["Ф","ФС","Фс","ВП","НП"],/ферм/iu),

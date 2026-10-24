@@ -66,8 +66,15 @@
   ".stage-bar{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;padding:8px 10px;border-bottom:1px solid var(--line);background:#f8fafc}",
   ".stage-bar button,.stage-bar select,.stage-bar label{font:inherit;font-size:12.5px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:5px 9px;color:var(--ink);display:inline-flex;align-items:center;gap:5px;cursor:pointer}",
   "#stage3d{position:relative;flex:1 1 auto;min-height:0}#stage3d .ir-three-root{position:absolute;inset:0;height:100%}",
-  // Seen only where the page's scripts do not run (the iPhone preview): the 3D replaces it as soon as it starts.
-  ".nojs{max-width:520px;width:calc(100% - 32px);margin:24px auto;padding:16px 18px;background:#fff8e6;border:1px solid #f0d48a;border-radius:12px;display:flex;flex-direction:column;gap:8px}.nojs b{font-size:16px}",
+  // The pictures and the list of elements stand apart from the 3D: seen where the page's scripts do not run, and where
+  // the 3D failed — then with the reason (red), not an empty field.
+  "html.js #still{display:none}html:not(.js) #stage3d{display:none}",
+  ".fail{margin:0 0 12px;padding:10px 12px;background:#fdecea;border:1px solid #f1a9a0;border-radius:10px;font-size:13px;color:#7a1f16}.fail[hidden]{display:none}.fail b{display:block;margin-bottom:4px}.fail span{display:block;white-space:pre-wrap;overflow-wrap:anywhere}",
+  ".errnote{position:fixed;left:8px;right:8px;bottom:8px;z-index:40;padding:8px 36px 8px 10px;background:#fdecea;border:1px solid #f1a9a0;border-radius:10px;font-size:12.5px;color:#7a1f16;white-space:pre-wrap;overflow-wrap:anywhere}.errnote button{position:absolute;top:4px;right:6px;border:0;background:none;font-size:18px;color:#7a1f16;cursor:pointer}",
+  // A phone: the page scrolls as a document and the scheme has its own height (78% of the screen, at least 420 px) —
+  // the window-filling layout gave the 3D field no height in the iPhone viewer, and the scheme stayed empty.
+  "@media(max-width:760px){html.js,html.js body{height:auto;overflow:auto}.js .wrap{position:static;display:block}.js .area>.stage{position:relative;inset:auto}",
+  " #stage3d{flex:none;height:78vh;min-height:420px}.ir-three-footer{display:none!important}.side{position:fixed}.wrap>.hx{padding:8px 12px}.wrap>.hx .hx-obj h1{font-size:15px}}",
   ".side{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}",
   ".box h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}",
   ".groups label{display:flex;align-items:center;gap:7px;padding:3px 0;cursor:pointer}.groups small{margin-left:auto;color:var(--muted)}",
@@ -102,9 +109,21 @@
    window.irThreeSchemeView.render($("stage3d"),{objectId:"export:"+D.objectId,axesX:D.axesX,axesY:D.axesY,spanX:D.spanX,spanY:D.spanY,gridDirX:D.gridDirX,gridDirY:D.gridDirY,
     gridX:D.gridX,gridY:D.gridY,elements:els,selected:S.sel,maxZ:els.reduce(function(m,c){return Math.max(m,c.z0,c.z2,c.mz||0)},0),
     colorMode:S.color,showLabels:S.labels,showDimensions:S.dims,background:S.bg,canEdit:false,marks:[],
-    onColorModeChange:function(m){S.color=m;draw3d()},onSelect:function(id){S.sel=String(id||"");details();list()}});
+    onColorModeChange:function(m){S.color=m;draw3d()},onSelect:function(id){S.sel=String(id||"");details();list()},onFirstPaint:firstPaint});
    $("cnt").textContent=els.length+" из "+D.elements.length
   }
+  // The 3D drew (or showed its own error): an error, a field without height or the graphics taken away by the phone go
+  // to the pictures with the reason (window.__irFail in the page head).
+  function firstPaint(){
+   var host=$("stage3d"),err=host.querySelector(".ir-three-error");
+   if(err){window.__irFail([].slice.call(err.querySelectorAll("strong,span")).map(function(x){return x.textContent}).join(": "));return}
+   window.__irOk=true;
+   var h=host.getBoundingClientRect().height;if(h<40){window.__irOk=false;window.__irFail("Поле 3D-схемы получилось высотой "+Math.round(h)+" пкс (экран "+innerWidth+"×"+innerHeight+")");return}
+   var cv=host.querySelector("canvas"),lost=0;
+   if(cv){cv.addEventListener("webglcontextlost",function(){clearTimeout(lost);lost=setTimeout(function(){window.__irOk=false;window.__irFail("Телефон отключил 3D-графику (WebGL): не хватило памяти")},3000)});
+    cv.addEventListener("webglcontextrestored",function(){clearTimeout(lost)})}
+  }
+  setTimeout(function(){if(!window.__irOk&&document.documentElement.classList.contains("js"))window.__irFail("3D-схема не построилась за 60 с")},60000);
   function groups(){
    var box=$("groups");
    box.innerHTML=D.groups.map(function(g){return'<label><input type="checkbox" data-g="'+esc(g.key)+'"'+(S.hidden.has(g.key)?"":" checked")+'> '+esc(g.label)+'<small>'+g.count+'</small></label>'}).join("");
@@ -165,9 +184,17 @@
   var groups=[].concat.apply([],[...byGroup.keys()].sort(function(a,b){return byGroup.get(b).length-byGroup.get(a).length}).map(function(k){
    var list=byGroup.get(k),m=list.filter(function(c){return c.status==="mounted"}).length;
    return['<details><summary><b>'+esc(label(k))+'</b> <span>'+list.length+' шт. · смонтировано '+m+'</span></summary><div class="still-table"><table><thead><tr><th>Марка</th><th>Наименование</th><th>Оси</th><th>Низ, мм</th><th>Верх, мм</th><th>Статус</th></tr></thead><tbody>'+rows(list)+'</tbody></table></div></details>']}));
-  return'<div class="still"><p class="still-note">На телефоне схема показана картинками: файл открыт в режиме просмотра, без программ внутри. Вращать и выбирать элементы можно, открыв файл на компьютере (Chrome, Edge), или в файле кнопки «⇩ iPhone» (.usdz).</p>'+
+  return'<div class="still" id="still"><div class="fail" id="fail" hidden><b>3D-схема не запустилась</b><span id="failText"></span></div><p class="still-note">Схема показана картинками: в этом окне 3D не работает. Ниже — виды схемы и все элементы по видам.</p>'+
    shots+'<h2>Элементы по видам</h2>'+groups.join("")+'</div>'
  }
+ // The page head: scripts run (the class "js" — the 3D layout), and every error of the page is kept and shown. Before the 3D
+ // drew, an error turns the page to the pictures with the reason; after it, the reason is a note at the bottom.
+ var HEAD='document.documentElement.className+=" js";(function(){var E=window.__irErrors=[],W=window;'+
+  'W.__irFail=function(why){if(why)E.push(String(why));if(W.__irOk){var n=document.getElementById("errnote");if(!n&&document.body){n=document.createElement("div");n.id="errnote";n.className="errnote";'+
+  'n.innerHTML=\'<button type="button" aria-label="Закрыть">×</button><span></span>\';n.firstChild.onclick=function(){n.remove()};document.body.appendChild(n)}if(n)n.lastChild.textContent="Ошибка на странице: "+E.join("\\n");return}'+
+  'document.documentElement.classList.remove("js");var f=document.getElementById("fail"),t=document.getElementById("failText");if(f&&t){f.hidden=false;t.textContent=E.join("\\n")}};'+
+  'W.addEventListener("error",function(e){var m=String(e.message||"ошибка");if(/ResizeObserver loop/i.test(m))return;W.__irFail(m+(e.lineno?" (строка "+e.lineno+")":""))});'+
+  'W.addEventListener("unhandledrejection",function(e){var r=e.reason;W.__irFail(String(r&&r.message||r||"ошибка"))})})()';
  function page(d,libs){
   var s=d.summary;
   var head='<header class="hx"><div class="hx-co">'+(d.company.logo?'<img src="'+esc(d.company.logo)+'" alt="Логотип">':"")+(d.company.name?'<b>'+esc(d.company.name)+'</b>':"")+'</div>'+
@@ -179,18 +206,18 @@
   var body='<main class="wrap" id="wrap">'+head+'<div class="area"><section class="stage" id="stage"><div class="stage-bar">'+
    '<label><input type="checkbox" id="labels"> Марки</label><label><input type="checkbox" id="dims"> Размеры</label>'+
    '<select id="bg" title="Фон"><option value="standard">Фон: стандартный</option><option value="white">Белый</option><option value="gray">Серый</option><option value="blue">Голубой</option><option value="sand">Песочный</option><option value="dark">Тёмный</option></select>'+
-   '<button type="button" id="full">⛶ На весь экран</button><button type="button" id="panel" aria-expanded="false" aria-controls="side">☰ Сведения и фильтры</button></div><div id="stage3d">'+still(d)+'</div></section>'+
+   '<button type="button" id="full">⛶ На весь экран</button><button type="button" id="panel" aria-expanded="false" aria-controls="side">☰ Сведения и фильтры</button></div><div id="stage3d"></div>'+still(d)+'</section>'+
    '<div class="box card" id="details" hidden></div>'+
    '<aside class="side" id="side"><div class="box"><button type="button" class="side-close" id="close" aria-label="Свернуть панель">✕</button><h3>Сводка</h3>'+sum+'</div><div class="box"><h3>Виды конструкций</h3><div class="groups" id="groups"></div><div class="groups-actions"><button type="button" id="all">Показать все</button><button type="button" id="none">Скрыть все</button></div></div>'+
    '<div class="box"><h3>Фильтр</h3>'+((d.works||[]).length>1?'<label class="f">Вид работ<select id="work"><option value="all">Все виды работ вместе</option>'+d.works.map(function(w){return'<option value="'+esc(w.id)+'">'+esc(w.label)+' · '+w.count+'</option>'}).join("")+'</select></label>':'')+'<label class="f">Статус<select id="status"><option value="all">Все</option><option value="mounted">Смонтированы</option><option value="partial">Частично</option><option value="planned">Не смонтированы</option></select></label>'+
    '<div class="row2"><label class="f">Отметка от, мм<input id="lmin" type="number" inputmode="numeric"></label><label class="f">до, мм<input id="lmax" type="number" inputmode="numeric"></label></div><div class="empty">На экране: <b id="cnt"></b></div></div>'+
    '<div class="box"><h3>Элементы</h3><input id="q" type="search" placeholder="Марка, наименование, ось" autocomplete="off"><div class="empty" id="found"></div><div class="list" id="list"></div></div>'+
    '<div class="empty foot">Выгружено из IR Project — только просмотр. Вращение — левая кнопка мыши, сдвиг — правая, масштаб — колесо; щелчок по элементу — его карточка.</div></aside></div></main>';
-  return'<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script>document.documentElement.className+=" js"</script>'+
+  return'<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script>'+inline(HEAD)+'</script>'+
    '<title>'+esc((d.object.name||"Объект")+" — монтажная схема")+'</title><style>'+libs.css+'\n'+PAGE_CSS+'</style></head><body>'+body+
    '<script type="application/json" id="ir-scheme-data">'+json(Object.assign({},d,{shots:undefined}))+'</script>'+
    '<script>window.irSchemeSections='+inline(JSON.stringify(libs.sections||[]))+';window.irSchemeFasteners='+inline(JSON.stringify(libs.fasteners||[]))+';</script><script>'+inline(libs.three)+'</script><script>'+inline(libs.orbit)+'</script><script>'+inline(libs.types)+'</script><script>'+inline(libs.view)+'</script>'+
-   '<script>('+inline(viewer.toString())+')();</script></body></html>'
+   '<script>try{('+inline(viewer.toString())+')()}catch(e){window.__irFail(e&&e.message||e)}</script></body></html>'
  }
 
  async function save(d){
