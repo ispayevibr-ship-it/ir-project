@@ -815,7 +815,8 @@ function sectionHeight(profile){
 const DECKED=/площадк|крыльц|фальшпол|мостик|настил/i;
 function deckFrames(elements){
  const own=e=>e.geometry_type==="beam"&&!e.fitting_type&&Math.abs(e.z0_mm-e.z1_mm)<=20&&!/каркас/i.test(e.name||"")&&(e.group==="platforms"||DECKED.test(e.name||"")&&e.group!=="guards"||e.type_key==="stair_landing"||e.type_key==="platform_beam");
- const beams=elements.filter(own),decks=elements.filter(e=>e.fitting_type==="deck"),flights=elements.filter(e=>e.fitting_type==="flight"||e.group==="stairs"&&e.geometry_type==="beam"&&Math.abs(e.z1_mm-e.z0_mm)>300);
+ // A flight: a flight element, a sloped stair beam, or a stringer (косоур, тетива) of a platform's stair.
+ const beams=elements.filter(own),decks=elements.filter(e=>e.fitting_type==="deck"),flights=elements.filter(e=>e.x2_mm!=null&&Math.abs(e.z1_mm-e.z0_mm)>300&&(e.fitting_type==="flight"||e.group==="stairs"&&e.geometry_type==="beam"||/косоур|тетив/i.test(e.name||"")));
  const levels=new Map();
  for(const b of beams){
   const dx=Math.abs(b.x2_mm-b.x_mm),dy=Math.abs(b.y2_mm-b.y_mm);if(Math.max(dx,dy)<300||Math.min(dx,dy)>30)continue;
@@ -835,25 +836,55 @@ function deckFrames(elements){
   // A side is closed when the beams on its line cover it end to end (a beam may run past it, several may meet on it).
   const closed=(lines,at,lo,hi)=>{const segs=lines.filter(l=>l.at===at&&l.hi>=lo-60&&l.lo<=hi+60).sort((p,q)=>p.lo-q.lo);let reach=lo;
    for(const s of segs){if(s.lo>reach+60)return null;reach=Math.max(reach,s.hi);if(reach>=hi-60)return segs}return null};
+  // Cells between neighbouring lines, joined across every side no beam closes: a deck is a region closed by beams all
+  // round. A line of the level that stops short (the middle beam of a stair bay next to a platform) splits nothing
+  // beyond its own reach. A region open to the outside or with a cell over 12 m is not a deck.
+  const nx=xs.length-1,ny=ys.length-1,par=[],find=a=>{while(par[a]!==a)a=par[a]=par[par[a]];return a},leak=new Set(),sideOf=[];
+  const most=(segs,lo,hi)=>segs&&segs.reduce((a,q)=>Math.min(hi,q.hi)-Math.max(lo,q.lo)>Math.min(hi,a.hi)-Math.max(lo,a.lo)?q:a).b;
+  for(let k=0;k<nx*ny;k++)par[k]=k;
+  for(let i=0;i<nx;i++)for(let j=0;j<ny;j++){
+   const k=i*ny+j,x0=xs[i],x1=xs[i+1],y0=ys[j],y1=ys[j+1];
+   const sides=[closed(vert,x0,y0,y1),closed(vert,x1,y0,y1),closed(hor,y0,x0,x1),closed(hor,y1,x0,x1)];
+   sideOf[k]=[most(sides[0],y0,y1),most(sides[1],y0,y1),most(sides[2],x0,x1),most(sides[3],x0,x1)];
+   if(x1-x0>12000||y1-y0>12000||!sides[0]&&i===0||!sides[1]&&i===nx-1||!sides[2]&&j===0||!sides[3]&&j===ny-1)leak.add(k);
+   if(!sides[1]&&i<nx-1)par[find(k)]=find(k+ny);
+   if(!sides[3]&&j<ny-1)par[find(k)]=find(k+1);
+  }
+  // A strip under 300 is decked only as a part of a wider region (not the gap between two beams side by side).
+  const open=new Set([...leak].map(find)),beamOf=new Map(),wide=new Set(),thin=(i,j)=>xs[i+1]-xs[i]<300||ys[j+1]-ys[j]<300;
+  // The region is named after the structure most of its sides belong to (a landing framed against a platform beam).
+  const byName=new Map(),pre=b=>String(b.name||"").replace(/\s+—.*$/,"");
+  for(let k=0;k<nx*ny;k++){const r=find(k);if(!thin(Math.floor(k/ny),k%ny))wide.add(r);
+   for(const b of sideOf[k])if(b){if(!byName.has(r))byName.set(r,new Map());const m=byName.get(r),n=pre(b);m.set(n,[(m.get(n)?.[0]||0)+1,m.get(n)?.[1]||b])}}
+  for(const [r,m] of byName)beamOf.set(r,[...m.values()].sort((a,b)=>b[0]-a[0])[0][1]);
   const cell=new Map();
-  for(let i=0;i+1<xs.length;i++)for(let j=0;j+1<ys.length;j++){
-   const x0=xs[i],x1=xs[i+1],y0=ys[j],y1=ys[j+1];
-   if(x1-x0<300||y1-y0<300||x1-x0>12000||y1-y0>12000)continue;
-   const sides=[closed(vert,x0,y0,y1),closed(vert,x1,y0,y1),closed(hor,y0,x0,x1),closed(hor,y1,x0,x1)];if(sides.some(s=>!s))continue;
+  for(let i=0;i<nx;i++)for(let j=0;j<ny;j++){
+   const x0=xs[i],x1=xs[i+1],y0=ys[j],y1=ys[j+1],k=i*ny+j,r=find(k);
+   if(open.has(r)||!beamOf.has(r)||!wide.has(r))continue;
    const cx=(x0+x1)/2,cy=(y0+y1)/2;
    if(decks.some(d=>{const h=(Number(d.diameter_mm)||0)/2,ax=d.x_mm===d.x2_mm;return Math.abs(d.z0_mm-L.top)<=300&&cx>=Math.min(d.x_mm,d.x2_mm)-(ax?h:0)&&cx<=Math.max(d.x_mm,d.x2_mm)+(ax?h:0)&&cy>=Math.min(d.y_mm,d.y2_mm)-(ax?0:h)&&cy<=Math.max(d.y_mm,d.y2_mm)+(ax?0:h)}))continue;
-   // The stair opening: a flight crossing the cell at this level, not ending at it.
-   const through=flights.some(f=>{const lo=Math.min(f.z0_mm,f.z1_mm),hi=Math.max(f.z0_mm,f.z1_mm);if(!(lo<L.top-300&&hi>L.top+300))return false;
-    const t=(L.top-f.z0_mm)/((f.z1_mm-f.z0_mm)||1),x=f.x_mm+(f.x2_mm-f.x_mm)*t,y=f.y_mm+(f.y2_mm-f.y_mm)*t;return x>x0+100&&x<x1-100&&y>y0+100&&y<y1-100});
+   // The stair opening: a flight crossing the cell at this level, not ending at it; a flight arriving at this level from
+   // below through the cell (under a deck there it would have no headroom); a flight going up from this level over the
+   // cell from its edge (the deck stops where the flight starts: a stair tower of a crane platform — настил
+   // площадок лестничной клетки только в пролётах 1000, под маршами связи без настила). A flight starting inside the cell
+   // keeps the deck (a stair going up from the floor of a platform).
+   const inside=(f,z)=>{const t=(z-f.z0_mm)/((f.z1_mm-f.z0_mm)||1),x=f.x_mm+(f.x2_mm-f.x_mm)*t,y=f.y_mm+(f.y2_mm-f.y_mm)*t;return x>x0+100&&x<x1-100&&y>y0+100&&y<y1-100};
+   const over=(f,a,b)=>{for(let k=0;k<=8;k++)if(inside(f,a+(b-a)*k/8))return true;return false};
+   const through=flights.some(f=>{const lo=Math.min(f.z0_mm,f.z1_mm),hi=Math.max(f.z0_mm,f.z1_mm);
+    if(lo<L.top-300&&hi>L.top+300)return inside(f,L.top);
+    if(Math.abs(hi-L.top)<=300&&lo<L.top-300)return over(f,Math.max(lo,L.top-2100),L.top-300);
+    if(Math.abs(lo-L.top)<=300&&hi>L.top+300)return !inside(f,lo)&&over(f,L.top+300,Math.min(hi,L.top+2100));
+    return false});
    if(through)continue;
-   cell.set(i+":"+j,{i,j,x0,x1,y0,y1,b:sides[0][0].b})
+   const b=beamOf.get(r);cell.set(i+":"+j,{i,j,x0,x1,y0,y1,b,r:pre(b)})
   }
-  // Cells of a row joined while they follow one another, then rows of the same span joined.
+  // Cells of a row joined while they follow one another on one structure (over its inner beams, not from a stair landing
+  // onto the platform beside it), then rows of the same span joined.
   const rows=[];
   for(let j=0;j+1<ys.length;j++)for(let i=0;i+1<xs.length;i++){const c=cell.get(i+":"+j);if(!c)continue;
-   const last=rows[rows.length-1];if(last&&last.j===j&&last.i1===i-1){last.x1=c.x1;last.i1=i}else rows.push({j,i0:i,i1:i,x0:c.x0,x1:c.x1,y0:c.y0,y1:c.y1,b:c.b})}
+   const last=rows[rows.length-1];if(last&&last.j===j&&last.i1===i-1&&last.r===c.r){last.x1=c.x1;last.i1=i}else rows.push({j,i0:i,i1:i,x0:c.x0,x1:c.x1,y0:c.y0,y1:c.y1,r:c.r,b:c.b})}
   const rects=[];
-  for(const r of rows){const up=rects.find(q=>q.x0===r.x0&&q.x1===r.x1&&q.j1===r.j-1);if(up){up.y1=r.y1;up.j1=r.j}else rects.push({...r,j1:r.j})}
+  for(const r of rows){const up=rects.find(q=>q.x0===r.x0&&q.x1===r.x1&&q.j1===r.j-1&&q.r===r.r);if(up){up.y1=r.y1;up.j1=r.j}else rects.push({...r,j1:r.j})}
   for(const r of rects){
    const w=r.x1-r.x0,h=r.y1-r.y0,alongX=w>=h,src=r.b,group=src.group==="stairs"?"stairs":"platforms";
    const name=String(src.name||"Площадка").replace(/\s+—.*$/,"").replace(/,\s*площадка$/,"")+(group==="stairs"?", площадка — настил":" — настил");
