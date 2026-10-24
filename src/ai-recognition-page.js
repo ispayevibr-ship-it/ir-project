@@ -295,9 +295,15 @@ window.irAiRecognitionPage=async function(objectId){
   else if(!aiDone())body='<p class="muted">Сначала обработайте листы через Claude или выберите «Продолжить без ИИ» на странице «Обработка Claude».</p>';
   else if(busy==="place")body=wait("Расставляем элементы…");
   else if(placed){
-   const gridText={created:"сетка осей создана",replaced:"сетка осей заменена",kept:"сетка осей сохранена, элементы привязаны по названиям осей"}[placed.gridMode]||"";
+   const gridText={created:"сетка осей создана",replaced:"сетка осей заменена",kept:"ваша сетка осей сохранена (она главная), элементы привязаны по названиям осей"}[placed.gridMode]||"";
    body='<div class="ir-ms-card ok"><p>Новых элементов: <b>'+placed.created+'</b>'+(placed.updated?' · обновлено (координаты и отметки): <b>'+placed.updated+'</b>':'')+(placed.removed?' · удалено прежних: '+placed.removed:'')+
-    (placed.keptMounted?' · смонтированные оставлены: '+placed.keptMounted:'')+(placed.linked?' · с ведомостью связано '+placed.linked:'')+(placed.marksCreated?' · в ведомость добавлено марок: '+placed.marksCreated+(placed.workCreated?' (вид работ «Монтаж металлоконструкций (из PDF)»)':''):'')+(placed.byWork?.length>1||placed.byWork?.[0]&&!placed.workCreated?' · по видам работ: '+placed.byWork.map(w=>'«'+esc(w.name)+'» '+w.count).join(', '):'')+' · '+esc(gridText)+(placed.skippedCount?' · пропущено '+placed.skippedCount:'')+'</p></div>'+
+    (placed.keptMounted?' · смонтированные оставлены: '+placed.keptMounted:'')+(placed.linked?' · с ведомостью связано '+placed.linked:'')+(placed.marksCreated?' · в ведомость добавлено марок: '+placed.marksCreated+(placed.workCreated?' (вид работ «Монтаж металлоконструкций (из PDF)»)':''):'')+(placed.byWork?.length>1||placed.byWork?.[0]&&!placed.workCreated?' · по видам работ: '+placed.byWork.map(w=>'«'+esc(w.name)+'» '+w.count).join(', '):'')+' · '+esc(gridText)+(placed.skippedCount?' · пропущено '+placed.skippedCount:'')+'</p>'+
+    // Rules of 24.10.2026: nothing is deleted or overwritten — the engineer's changes stay, what the new reading lacks is
+    // marked; everything read is placed, the not fully determined pale («предварительно»).
+    (placed.keptEdited?'<p>Ваши правки оставлены: <b>'+placed.keptEdited+'</b> (новое чтение чертежей — в карточке элемента)</p>':'')+
+    (placed.missing?'<p>Нет в новом анализе: <b>'+placed.missing+'</b> — оставлены на схеме и помечены; удалите вручную, если конструкции нет</p>':'')+
+    (placed.preliminary?'<p>Предварительно (определены не полностью, на схеме бледные): <b>'+placed.preliminary+'</b>'+(placed.statuses?' · '+Object.entries(placed.statuses).map(([k,v])=>esc(({confirmed:"подтверждено",computed:"вычислено",partial:"частично",ambiguous:"неоднозначно",conflict:"конфликт",not_found:"нет в анализе"})[k]||k)+' '+v).join(', '):'')+'</p>':'')+
+    (placed.gridDiffs?.length?'<p class="ir-ms-error">Ваша сетка осей отличается от PDF: '+esc(placed.gridDiffs.slice(0,8).join('; '))+(placed.gridDiffs.length>8?'…':'')+'</p>':'')+'</div>'+
     '<div class="ir-ms-row"><button class="primary" data-ms-open>Открыть монтажную схему</button><button data-ms-placeit '+(busy||!plan?.ready||!canEdit?'disabled':'')+'>Расставить заново</button><button data-ms-undo '+(busy||!canEdit?'disabled':'')+'>Отменить расстановку</button>'+clearButton()+'</div>'+
     skippedHtml(placed.skipped,placed.skippedCount)+editsCard()
   }else{
@@ -361,9 +367,13 @@ window.irAiRecognitionPage=async function(objectId){
   const marks=j.catalog.filter(c=>matches(c.mark,c.doc,c.profile,(c.sources||[]).join(" ")));
   const elements=j.elements.filter(e=>matches(e.mark,e.group,e.profile,e.file));
   const files=j.files.map(f=>'<tr><td>'+esc(f.name)+'</td><td><b>'+esc(f.type)+'</b></td><td>'+f.pages+'</td><td>'+f.schemes+'</td><td>'+f.marks+'</td></tr>');
-  const sheets=j.sheets.map(p=>'<tr><td>'+p.page+'</td><td>'+esc(p.file)+', стр. '+p.sheet+'</td><td>'+esc(p.docType)+'</td><td>'+esc(p.kind)+'</td><td>'+esc(p.name)+
+  const sheets=j.sheets.map(p=>'<tr><td>'+p.page+'</td><td>'+esc(p.file)+', стр. '+p.sheet+(p.stamp?'<small>'+esc(p.stamp)+'</small>':'')+'</td><td>'+esc(p.docType)+'</td><td>'+esc(p.kind)+'</td><td>'+esc(p.name)+
    (p.schemes.length?'<small>'+esc(p.schemes.join("; "))+'</small>':'')+(p.sections?'<small>разрезы: '+p.sections+' марок с отметками</small>':'')+
-   (p.noText?(p.ocr?'<small>Текст в кривых — прочитан OCR: '+p.ocr+' надп.; проверьте, лист также уйдёт Claude</small>':'<small class="ir-ms-error">Текст в кривых — локально не читается, лист прочитает только Claude</small>'):'')+'</td><td>'+(p.views||"")+'</td></tr>');
+   (p.noText?(p.ocr?'<small>Текст в кривых — прочитан OCR: '+p.ocr+' надп.; проверьте, лист также уйдёт Claude</small>':'<small class="ir-ms-error">Текст в кривых — локально не читается, лист прочитает только Claude</small>'):'')+'</td><td>'+(p.views||"")+'</td>'+
+   // The journal of the sheet: time, axes, marks, elements found and placed, errors, calibration of its plans.
+   '<td>'+(p.ms?(p.ms/1000).toFixed(1)+' с':'')+'</td><td>'+(p.axes||'')+'</td><td>'+(p.marks||'')+'</td><td>'+(p.found||p.placed?(p.found||0)+' / '+(p.placed||0):'')+'</td>'+
+   '<td>'+(p.errors?'<span class="ir-ms-error">'+p.errors+'</span>':'')+(p.warnings?'<small>замечаний '+p.warnings+'</small>':'')+'</td>'+
+   '<td>'+(p.calibration?'<span class="'+(p.calibration.max_pct>2?'ir-ms-error':'')+'" title="Наибольшее расхождение пролёта между осями по чертежу (по масштабу) с написанным размером; пролётов: '+p.calibration.spans+'">'+p.calibration.max_mm+' мм ('+p.calibration.max_pct+'%)</span>':'')+'</td></tr>');
   const markRows=marks.slice(0,1500).map(c=>{
    const short=c.count&&c.planned&&c.planned<c.count,over=c.count&&c.planned>c.count;
    return'<tr class="'+(over?'bad':short?'warn':'')+'"><td><b>'+esc(c.mark)+'</b></td><td>'+cell(c.doc)+'</td><td>'+cell(c.profile)+(c.steel?' <small>'+esc(c.steel)+'</small>':'')+'</td><td>'+cell(c.length_mm)+'</td>'+
@@ -373,7 +383,7 @@ window.irAiRecognitionPage=async function(objectId){
    '<td>'+cell(e.y)+(e.y2!==undefined&&e.y2!==null&&e.y2!==e.y?' → '+mm(e.y2):'')+'</td><td>'+cell(e.z0)+'</td><td>'+cell(e.z1)+'</td><td>'+cell(e.levels)+'</td><td>'+cell(e.profile)+'</td><td>'+esc(e.file)+', стр. '+e.sheet+'</td></tr>');
   const log=j.log.map(l=>'<li class="'+(l.error?'bad':'')+'"><time>'+esc(new Date(l.at).toLocaleString("ru-RU"))+'</time>'+esc(l.text)+'</li>');
   // The object's project base: one card per mark, every value with the sheet it was read from.
-  const fv=(c,k)=>{const v=c.fields[k];return v?'<span title="'+esc(v.source+(v.status==="confirmed"?" · подтверждено":" · требует проверки"))+'">'+(typeof v.value==="number"?mm(v.value):esc(v.value))+'</span>':'<span class="muted">—</span>'};
+  const fv=(c,k)=>{const v=c.fields[k];return v?'<span title="'+esc(v.source+" · "+(v.grade||(v.status==="confirmed"?"подтверждено":"требует проверки")))+'">'+(typeof v.value==="number"?mm(v.value):esc(v.value))+'</span>':'<span class="muted">—</span>'};
   const cards=(j.projectCards||[]).filter(c=>matches(c.mark,c.scope,c.fields.profile?.value,c.fields.steel?.value));
   const cardRows=cards.slice(0,1500).map(c=>'<tr class="'+(c.conflicts.length?'warn':'')+'"><td><b>'+esc(c.mark)+'</b></td><td>'+esc(c.scope)+'</td><td>'+fv(c,"profile")+(c.fields.steel?' <small>'+fv(c,"steel")+'</small>':'')+'</td>'+
    '<td>'+fv(c,"length_mm")+'</td><td>'+fv(c,"size_mm")+'</td><td>'+fv(c,"z0_mm")+'</td><td>'+fv(c,"z1_mm")+'</td><td>'+fv(c,"count")+'</td><td>'+fv(c,"mass_kg")+'</td>'+
@@ -389,10 +399,10 @@ window.irAiRecognitionPage=async function(objectId){
   return'<div class="ir-ms-page ir-ms-journal">'+fixesCard()+editsCard()+
    '<input type="search" class="ir-ms-filter" data-ms-filter placeholder="Поиск по марке, профилю, файлу" value="'+esc(filter)+'">'+
    block("files","Файлы",j.files.length,table(["Файл","Тип","Листов","Схем","Марок на сборочных"],files))+
-   block("sheets","Листы",j.sheets.length,table(["№","Файл","Документ","Тип листа","Название","Видов марок"],sheets))+
+   block("sheets","Листы",j.sheets.length,table(["№","Файл","Документ","Тип листа","Название","Видов марок","Время","Осей","Марок","Найдено / расставлено","Ошибки","Калибровка"],sheets))+
    block("marks","Марки",marks.length,'<p class="muted">Жёлтым — на схеме меньше, чем требуется; красным — больше. Отметки «PDF» прочитаны с вида марки, «Claude» — с картинки.</p>'+
     table(["Марка","Документ","Профиль","Длина","Низ","Верх","Отметки","Требуется","На схеме","Масса, кг","Источник"],markRows))+
-   block("cards","Карточки марок объекта",cards.length,'<p class="muted">Проектная база объекта: значения только этого объекта, у каждого — лист и способ (наведите на значение). Всё прочитанное программой требует проверки; жёлтым — листы дают разные значения.</p>'+
+   block("cards","Карточки марок объекта",cards.length,'<p class="muted">Проектная база объекта: значения только этого объекта, у каждого — лист, изменение листа и способ (наведите на значение). Оценка значения: подтверждено (инженером или одинаково на двух листах), вычислено, неоднозначно (листы расходятся или прочитано один раз), не найдено. Жёлтым — листы дают разные значения.</p>'+
     (j.projectError?'<p class="ir-ms-error">'+esc(j.projectError)+'</p>':'')+
     table(["Марка","Документ","Профиль","Длина","Размер вида","Низ","Верх","Требуется","Масса, кг","Откуда"],cardRows))+
    block("fasteners","Метизы",fasteners.length,'<p class="muted">Болты, гайки, шайбы, анкеры из таблиц листов. Метизы не марки: на схему не ставятся. Количество — только из графы «Кол.».</p>'+
@@ -401,6 +411,9 @@ window.irAiRecognitionPage=async function(objectId){
    block("elements","Элементы к расстановке",elements.length,table(["Марка","Вид конструкции","X, мм","Y, мм","Низ","Верх","Отметки из","Профиль","Лист"],elementRows))+
    (ai?block("ai","Claude",null,'<p>'+(ai.status==="done"?esc(ai.summary||"")+'<br><small>'+esc(ai.model)+' · запросов '+ai.batches+' · марок прочитано '+ai.marks+' · токенов: вход '+mm(ai.usage.input)+', из кэша '+mm(ai.usage.cacheRead)+', запись в кэш '+mm(ai.usage.cacheWrite)+', ответ '+mm(ai.usage.output)+'</small>':
     ai.status==="failed"?'Ошибка: '+esc(ai.error):'Не использовался')+'</p>'):'')+
+   (j.quality?block("quality","Качество способов чтения",j.quality.weak.length,'<p class="muted">По перепроверке проверенных комплектов'+(j.quality.at?' от '+esc(new Date(j.quality.at).toLocaleDateString("ru-RU")):'')+(j.quality.version?' (версия '+esc(j.quality.version)+')':'')+': способов '+j.quality.methods+'; ниже — где верно меньше 90%. Чем ниже, тем внимательнее проверяйте такие элементы.</p>'+
+    table(["Способ (вид элементов: поле)","Верно, %","Верно","Неверно","Не найдено","Лишнее","Комплектов"],j.quality.weak.map(r=>'<tr><td>'+esc(r.name)+'</td><td><b>'+r.pct+'</b></td><td>'+r.ok+'</td><td>'+r.bad+'</td><td>'+r.missing+'</td><td>'+r.extra+'</td><td>'+r.sets+'</td></tr>'))+
+    (j.quality.errors.length?'<details><summary>Исправленные ошибки распознавания ('+j.quality.errors.length+')</summary><ul class="ir-ms-events">'+j.quality.errors.map(r=>'<li><b>'+esc(r.release)+'</b> '+esc(r.where)+': было — '+esc(r.was)+'; стало — '+esc(r.now)+'</li>').join("")+'</ul></details>':'')):'')+
    block("teach","Обучение программы",knowledge.rules.length+knowledge.notes.length+(knowledge.types||[]).length,teachBlock())+
    block("log","События",j.log.length,'<ul class="ir-ms-events">'+log.join("")+'</ul>')+
   '</div>'

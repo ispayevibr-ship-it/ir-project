@@ -79,4 +79,20 @@ assert.deepEqual(spec,[{mark:"К1",profile:"Тр.140х4",mass_kg:120.5,length_mm
  assert.deepEqual([b1.geometry_type,b1.z0_mm,b1.mid_x_mm,b1.mid_z_mm],["bent",9400,3000,10000]);
  assert.deepEqual([b2.geometry_type,b2.z1_mm,b2.mid_z_mm],["beam",9400,undefined]);
 }
+// The overall size of a view is the dimension between its extreme extension lines (the chain under it adds up to it),
+// not the largest number of the view: «8400» written beside it is not a dimension of the part.
+{
+ const T=(str,x,y,size=7,width=str.length*4.5)=>({str,x,y,size,width,angle:0});
+ const H=(y,x0,x1)=>({a:{x:x0,y},b:{x:x1,y}}),V=(x,y0,y1)=>({a:{x,y:y0},b:{x,y:y1}});
+ const texts=[T("К1",240,200,12,18),T("6000",232,300),T("2000",141,320),T("4000",291,320),T("8400",420,360),T("Прочее",600,500),T("Прочее",620,520),T("Прочее",640,540)];
+ const segments=[H(302,100,400),H(322,100,400),V(100,290,325),V(400,290,325),V(200,315,325)];
+ const v=extractSheet({widthPt:1200,heightPt:800,texts,segments}).views.find(x=>x.marks.includes("К1"));
+ assert.deepEqual([v.length_mm,v.length_how,v.length_candidates],[6000,"по крайним выносным линиям, цепочка сходится",undefined]);
+ const bare=extractSheet({widthPt:1200,heightPt:800,texts}).views.find(x=>x.marks.includes("К1"));
+ assert.deepEqual([bare.length_mm,bare.length_how,bare.length_candidates],[8400,"наибольшее число вида — общий размер не найден",[8400,6000,4000]],"no lines — the largest number, ambiguous");
+ const {cardsFromPages,gradeOf}=require("../src/ai-project-kb");
+ const size=c=>c.fields.size_mm;
+ const [card]=cardsFromPages([{page:1,docType:"КМД",sourceName:"a.pdf",sheet:{views:[bare]}}]);
+ assert.deepEqual([size(card).value,size(card).how,gradeOf(size(card))],[8400,"наибольшее число вида — общий размер не найден","неоднозначно"]);
+}
 console.log("Sheets: assembly levels, quantities, КМ profiles, separate КМ/КМД catalogs and per-mark heights PASS");

@@ -422,6 +422,7 @@ function extractTank({segments=[],texts=[],widthPt=0,heightPt=0}){
   const lsheet=ladderSheetOf(texts,all);
   // A bottom sheet whose stamp lost the word "резервуар": "Схема сборки днища", "Раскрой листов на днище".
   const bottom=/(?:схем\S*|раскро\S*)\s+(?:\S+\s+){0,3}днищ/iu.test(all)?{diameters:diameters(texts).filter(v=>v>=2000&&v<=80000)}:null;
+  const bk=bottom?bottomKindOf(texts):null;if(bottom&&bk)bottom.kind=bk;
   if(bottom&&!(table||platforms||lsheet||roof))return{diameters:[],title:"",byAngle:[],bottom};
   return table||platforms||lsheet||roof?{diameters:[],title:"",byAngle:[],...(table?{nozzleTable:table}:{}),...(platforms?{platforms}:{}),...(lsheet?{ladderSheet:lsheet}:{}),...(roof?{roof}:{})}:null
  }
@@ -555,7 +556,8 @@ function extractTank({segments=[],texts=[],widthPt=0,heightPt=0}){
  // The bottom sheets "—8х1500х6000": the thickest one is the thickness of the bottom (its top is at 0,000).
  if(/дни[щш]/iu.test(title)||texts.some(t=>/^(?:схема\s+(?:сборки\s+|раскроя\s+)?дни[щш]|дни[щш]\S*\s+резервуар|раскрой\s+(?:\S+\s+){1,3}дни[щш])/iu.test(t.str.trim()))){
   const t=texts.map(x=>/^[—–-]\s*(\d{1,2})\s*[хx×]\s*\d{3,4}\s*[хx×]\s*\d{3,5}/u.exec(x.str.trim())).filter(Boolean).map(m=>Number(m[1])).filter(v=>v>=4&&v<=40);
-  out.bottom={diameters:D,...(t.length?{thickness:Math.max(...t)}:{})}
+  const bk=bottomKindOf(texts);
+  out.bottom={diameters:D,...(t.length?{thickness:Math.max(...t)}:{}),...(bk?{kind:bk}:{})}
  }
  return out.plan||out.facade||byAngle.length||out.parts||out.platforms||out.ladder||out.bottom||out.nozzleTable||out.ladderSheet||out.roof||out.courses||out.passport||out.ship||out.sheets||out.layout||out.bridge||out.bottomBeams||out.rolled?out:null
 }
@@ -590,6 +592,27 @@ const AXIS_MIN={50:150,80:150,100:150,150:200,200:240,250:290,300:340,350:390,40
 const axisDefault=(name,du,wallTop)=>/люк\s*-?\s*лаз|лаз(?![а-яё])/iu.test(name)?750:Math.min(wallTop,AXIS_MIN[du]||Math.max(300,Math.round((du||200)*1.2/10)*10));
 // How far a fitting sticks out of the wall (or up from the roof) when the drawing gives no length.
 const OUTREACH={nozzle:250,manhole:350,hatch:330,valve:500,foam:600,sensor:250,rod:2500};
+// The kind of the bottom, as its sheet writes it (ГОСТ 31385; knowledge/global/tanks.json «днище: виды», «способы сборки»,
+// «окрайки»): with an annular ring («окрайки») or of one thickness; its central part rolled («рулонная сборка», полотнища)
+// or sheet by sheet («полистовая»); flat or conical («уклон 1:100» — from the centre to the wall unless the sheet says «к
+// центру»); the joints («внахлёст», «встык»). Only what is written: no width, slope or joint is put in its place.
+function bottomKindOf(texts){
+ const all=texts.map(t=>t.str).join(" ").replace(/\s+/g," ");
+ if(!/дни[щш]/iu.test(all))return null;
+ const out={};
+ if(/окра[ейи]к/iu.test(all))out.kind="annular";
+ if(/рулон\S*\s+(?:\S+\s+){0,3}дни[щш]|дни[щш]\S*\s+(?:\S+\s+){0,3}рулон|полотнищ\S*\s+(?:\S+\s+){0,2}дни[щш]|рулонн\S*\s+(?:сборк|способ|метод)\S*\s+(?:\S+\s+){0,3}дни[щш]/iu.test(all))out.assembly="rolled";
+ else if(/полистов\S*\s+(?:\S+\s+){0,3}(?:сборк|способ|метод|дни[щш])|раскро\S*\s+(?:\S+\s+){0,3}дни[щш]/iu.test(all))out.assembly="sheet";
+ const slope=/уклон\S*\s*(?:\S+\s+){0,3}?(?:i\s*=\s*)?1\s*:\s*(\d{2,3})(?!\d)/iu.exec(all);
+ if(slope&&Number(slope[1])>=20&&Number(slope[1])<=500){out.slope=Number(slope[1]);out.toCentre=/уклон\S*\s+(?:\S+\s+){0,4}к\s+центру|к\s+центру\s+(?:\S+\s+){0,2}дни[щш]/iu.test(all)}
+ if(/внахл[её]ст/iu.test(all))out.joint="lap";else if(/встык|стыков\S*\s+(?:\S+\s+){0,2}(?:шв|соединени)/iu.test(all))out.joint="butt";
+ // The width of the ring: «окрайка шириной 700», or the sheet of the ring «Окрайка —10х700х4800» (thickness, width, length).
+ const w=/окра[ейи]к\S*\s+(?:\S+\s+){0,3}?шир\S*\s*(\d{3,4})/iu.exec(all);
+ const sheet=/окра[ейи]к\S*\s+(?:\S+\s+){0,3}?[—–-]\s*(\d{1,2})\s*[хx×]\s*(\d{3,4})\s*[хx×]\s*(\d{3,5})/iu.exec(all);
+ if(w&&Number(w[1])>=200&&Number(w[1])<=2000)out.annular_width_mm=Number(w[1]);
+ else if(sheet&&Number(sheet[2])>=200&&Number(sheet[2])<=2000){out.annular_width_mm=Number(sheet[2]);out.annular_thickness_mm=Number(sheet[1])}
+ return Object.keys(out).length?out:null
+}
 // "Ведомость отправочных элементов" (any table headed Марка | Наименование | Кол.): what is shipped and how many.
 // The text layer of КМД sheets loses cells now and then: a row is anchored by its name, a lost mark is the one between
 // its neighbours ("РС3", ?, "РС5" → "РС4"), a bare prefix in the first row is number 1.
@@ -786,9 +809,30 @@ function buildTank(pages){
  const bt=Math.max(0,...tanks.map(p=>p.tank.bottom?.thickness||0))||null;
  const bs=bottomSheet||{width:1500,length:6000},bLayout={kind:"bottom",sheet_w_mm:bs.width,sheet_len_mm:bs.length,shift_mm:Math.round(bs.length/2),from:bottomSheet?"схема днища":"лист 1500×6000 принят"};
  const bottomMark=groupMark(/^днищ/iu)||"Днище";
+ // The kind of the bottom from its sheets (bottomKindOf): with annular plates or of one thickness, rolled or sheet by
+ // sheet, flat or conical, its joints.
+ const bk=Object.assign({},...tanks.map(p=>p.tank.bottom?.kind).filter(Boolean).reverse());
+ const KIND_TEXT={rolled:"рулонная сборка (полотнища)",sheet:"полистовая сборка"},JOINT_TEXT={lap:"внахлёст",butt:"встык"};
  if(hasBottom||ship.some(r=>/^днищ/iu.test(r.name))){
-  placements.push({mark:bottomMark,name:partName("bottom","Днище"),type_key:"tank_bottom",geometry_type:"plate",x_mm:C,y_mm:C,radius_mm:R+50,z0_mm:-(bt||bottomSheet?.thickness||10),z1_mm:0,
-   levels_from:"верх днища 0,000",confidence:"medium",scheme_group:"bottom",layout:bLayout,notes:["Днище Ø"+(D+100)+" (стенка Ø"+D+" + окрайка), верх на отметке 0,000"+(bt?", лист "+bt+" мм":", толщина не найдена — принята 10")+"; листы "+bs.width+"×"+bs.length+" рядами, стыки смещены ("+bLayout.from+")"]});
+  const top=-(bt||bottomSheet?.thickness||10),annular=bk.kind==="annular"||ship.some(r=>/окра[ейи]к/iu.test(r.name));
+  // A conical bottom rises (or falls, «к центру») from the wall to the centre by R/n of its slope 1:n.
+  const rise=bk.slope?Math.round(R/bk.slope)*(bk.toCentre?-1:1):0;
+  const how=[KIND_TEXT[bk.assembly],bk.slope?"коническое, уклон 1:"+bk.slope+(bk.toCentre?" к центру":" от центра"):"плоское",bk.joint?"соединения "+JOINT_TEXT[bk.joint]:""].filter(Boolean).join(", ");
+  // An annular ring under the wall: its width from the sheets (from the inside of the wall), its plates as the
+  // dispatch list counts them; the central part inside it.
+  const aw=bk.annular_width_mm||null,ringIn=R-(aw||600),aRow=ship.find(r=>/окра[ейи]к/iu.test(r.name)),segs=aRow?.qty>=3&&aRow.qty<=200?aRow.qty:0;
+  if(annular){
+   const an=aRow?.mark&&/^[А-ЯЁA-Z]/u.test(aRow.mark)?aRow.mark:"Окрайка",common={name:"Окрайка днища",type_key:"tank_annular",geometry_type:"plate",x_mm:C,y_mm:C,radius_mm:R+50,inner_radius_mm:ringIn,
+    z0_mm:-(bk.annular_thickness_mm||bt||10),z1_mm:0,levels_from:"верх днища 0,000",confidence:aw?"medium":"low",scheme_group:"bottom"};
+   const note="Окрайка днища: кольцо от Ø"+2*ringIn+" до Ø"+(D+100)+(aw?" (ширина от стенки "+aw+")":" — ширина окрайки не найдена на листах, показана условно 600, проверьте")+(bk.annular_thickness_mm?", лист "+bk.annular_thickness_mm+" мм":"");
+   if(segs)for(let k=0;k<segs;k++)placements.push({...common,mark:an+(segs>1?"-"+(k+1):""),name:"Окрайка днища — лист "+(k+1)+" из "+segs,sector_start_deg:Math.round(k*36000/segs)/100,sector_deg:Math.round(36000/segs)/100,
+    notes:[note+"; листов "+segs+" по ведомости отправочных марок, стыки окраек — радиальные"]});
+   else placements.push({...common,mark:an,notes:[note+"; число листов окрайки не прочитано — одним кольцом"]})
+  }
+  placements.push({mark:bottomMark,name:annular?"Центральная часть днища":partName("bottom","Днище"),type_key:"tank_bottom",geometry_type:"plate",x_mm:C,y_mm:C,radius_mm:annular?ringIn:R+50,z0_mm:top,z1_mm:0,
+   ...(rise?{cone_rise_mm:rise}:{}),levels_from:"верх днища 0,000",confidence:"medium",scheme_group:"bottom",layout:{...bLayout,...(bk.assembly==="rolled"?{rolled:true}:{})},
+   notes:[(annular?"Центральная часть днища Ø"+2*ringIn+" внутри окрайки":"Днище Ø"+(D+100)+" (стенка Ø"+D+" + выступ 50 принят)")+", верх на отметке 0,000"+(bt?", лист "+bt+" мм":", толщина не найдена — принята 10")+
+    "; "+how+"; листы "+bs.width+"×"+bs.length+" рядами, стыки смещены ("+bLayout.from+")"]});
   // Welds of the bottom (the joints of its sheets) and the corner weld of the wall to the bottom (уторный шов, both sides).
   placements.push({mark:"Ш-Д",name:"Сварные швы днища",type_key:"weld_butt",geometry_type:"plate",x_mm:C,y_mm:C,radius_mm:R+50,z0_mm:0,z1_mm:5,
    levels_from:"верх днища 0,000",confidence:"low",scheme_group:"welds",fitting_type:"weld",diameter_mm:10,layout:{...bLayout,kind:"bottom_welds"},notes:["Швы между листами днища "+bs.width+"×"+bs.length+"; ГОСТ 31385: контроль вакуумированием всех швов днища"]});
@@ -1242,4 +1286,4 @@ function buildTanks(pages){
  const t0=built[0];
  return{...t0,scheme:{...t0.scheme,title:built.map((t,k)=>pages.find(p=>p.tankGroup===groups[k]&&p.tank?.label)?.tank.label||t.scheme.title).join(" + "),spansX:[x-6000],spansY:[H],placements,warnings}}
 }
-module.exports={extractTank,buildTank,buildTanks,circleOf,diameters,fittingOf};
+module.exports={extractTank,buildTank,buildTanks,circleOf,diameters,fittingOf,bottomKindOf};

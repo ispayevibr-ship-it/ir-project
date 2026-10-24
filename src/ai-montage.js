@@ -8,7 +8,7 @@
 const {sheetTitleKind}=require("./ai-kmd-rules");
 const ST=require("./ai-structure-types");
 const {buildPlan,buildCatalog,markKey,normMark,cumulative,volumeOf}=require("./ai-montage-plan");
-const {createProjectKnowledge}=require("./ai-project-kb");
+const {createProjectKnowledge,cardsFromPages,gradeOf}=require("./ai-project-kb");
 const AUTO_WORK="Монтаж металлоконструкций (из PDF)";
 // A name for a mark the drawings do not name: what the element is (the scheme page groups marks by their names).
 const KIND_NAME={columns:"Колонна",fahwerk:"Стойка фахверка",posts:"Стойка",ties:"Связь",beams:"Балка",girders:"Ригель",purlins:"Прогон",spacers:"Распорка",
@@ -16,7 +16,7 @@ const KIND_NAME={columns:"Колонна",fahwerk:"Стойка фахверка
  column:"Колонна",beam:"Балка",bent:"Балка",brace:"Связь",truss:"Ферма",shell:"Стенка резервуара",plate:"Площадка"};
 // Version of the reading rules: an analysis made by older rules is flagged, so that the engineer runs it again
 // after an update (the result of step 1 is stored and is not recomputed by itself).
-const ANALYZER="2026-10-24.4";
+const ANALYZER="2026-10-24.5";
 // АР (architecture) and ТХ (technology) sheets are read for context: Claude places what of them is mounted.
 const LOG_LIMIT=200,TYPES=["КМ","КМД сборочные","КМД монтажные","АР","ТХ"];
 // Sheets per Claude request; larger sets are sent in several requests.
@@ -28,17 +28,19 @@ const SYSTEM=`Ты инженер-конструктор КМ/КМД. Прогр
   Положение — от осей: axis_x/axis_y — оси, к пересечению которых привязан элемент (колонна) или его начало, dx_mm/dy_mm — смещение от этого пересечения по размерам чертежа (0, если на оси); конец балки или связи — axis_x2/axis_y2 и dx2_mm/dy2_mm; у колонны конец = начало. Если элемент стоит не на пересечении осей, возьми ближайшие оси и смещение по размерам.
   Отметки z0_mm/z1_mm — низ и верх (для балки обе — отметка верха; для связи — отметки её концов).
   Если программа не нашла схему вовсе (схем в запросе нет, а на листе план) — перечисли все элементы этого плана.
-- grid: сетка осей комплекта — названия осей по X (цифровые, слева направо) и по Y (буквенные, снизу вверх) и пролёты между ними в мм по размерам чертежа. Если осей нет (резервуар, чан) — пустые списки.
-- tank: если комплект — вертикальный резервуар (РВС, РВСП и т. п.), is_tank=true и параметры: внутренний диаметр стенки, высота стенки, подъём крыши, есть ли днище; в items — всё оборудование на стенке и крыше, каждое отдельной строкой с полным наименованием: люки-лазы (1–3 поясов, придонный очистной), световые, замерные, монтажные и смотровые люки, патрубки (приёмо-раздаточные, зачистные, монтажные, вентиляционные, подслойного тушения), кран сифонный, клапаны дыхательные, предохранительные и аварийные, огнепреградители, хлопушки, уровнемеры, сигнализаторы уровня, датчики, пробоотборники, пеногенераторы и камеры низкократной пены, кольца орошения, жёсткости и ветровые, молниеприёмники: номер позиции (0, если нет), наименование, Ду (для люка 600х900 — 900), угол α по плану (0° — верх плана, по часовой; у колец 0), на крыше ли, для стенки — высота оси над днищем (у кольца — его отметка), для крыши — расстояние от оси резервуара; лестница резервуара: ladder_kind — shaft (шахтная, отдельный каркас с площадками через 1,2 м и кольцами ограждения), ring (кольцевая/винтовая вдоль стенки, опирается на стенку), single (одномаршевая прямая, при стенке до 7,5 м), none; угол по плану (у кольцевой — низ лестницы), отметки низа и верхней площадки, глубина каркаса от стенки, ширина вдоль стенки, зазор до стенки; угол −1, если лестницы нет), площадка на крыше (отметка, ширина; 0, если нет), ограждение (высота поручня, шаг стоек). Не резервуар — is_tank=false и нули.
+- grid: сетка осей комплекта — названия осей по X (оси, линии которых на главном плане идут поперёк листа вертикально, слева направо) и по Y (линии вдоль листа горизонтально, снизу вверх) и пролёты между ними в мм по размерам чертежа. Направление решает чертёж, а не вид обозначения: буквенные оси не всегда Y, цифровые не всегда X. Если осей нет (резервуар, чан) — пустые списки.
+- tank: если комплект — вертикальный резервуар (РВС, РВСП и т. п.), is_tank=true и параметры: внутренний диаметр стенки, высота стенки, подъём крыши, есть ли днище и его вид, только если написан на листах: bottom_kind — annular (с окрайками) или plain (одной толщины, без окраек), bottom_assembly — rolled (рулонная сборка, полотнища) или sheet (полистовая), bottom_slope — n уклона 1:n (0 — плоское или не написано), bottom_to_centre — уклон к центру, annular_width_mm — ширина окрайки (0, если не написана); в items — всё оборудование на стенке и крыше, каждое отдельной строкой с полным наименованием: люки-лазы (1–3 поясов, придонный очистной), световые, замерные, монтажные и смотровые люки, патрубки (приёмо-раздаточные, зачистные, монтажные, вентиляционные, подслойного тушения), кран сифонный, клапаны дыхательные, предохранительные и аварийные, огнепреградители, хлопушки, уровнемеры, сигнализаторы уровня, датчики, пробоотборники, пеногенераторы и камеры низкократной пены, кольца орошения, жёсткости и ветровые, молниеприёмники: номер позиции (0, если нет), наименование, Ду (для люка 600х900 — 900), угол α по плану (0° — верх плана, по часовой; у колец 0), на крыше ли, для стенки — высота оси над днищем (у кольца — его отметка), для крыши — расстояние от оси резервуара; лестница резервуара: ladder_kind — shaft (шахтная, отдельный каркас с площадками через 1,2 м и кольцами ограждения), ring (кольцевая/винтовая вдоль стенки, опирается на стенку), single (одномаршевая прямая, при стенке до 7,5 м), none; угол по плану (у кольцевой — низ лестницы), отметки низа и верхней площадки, глубина каркаса от стенки, ширина вдоль стенки, зазор до стенки; угол −1, если лестницы нет), площадка на крыше (отметка, ширина; 0, если нет), ограждение (высота поручня, шаг стоек). Не резервуар — is_tank=false и нули.
 - vessel: если комплект — чан, сгуститель, бункер, ёмкость на опорах (стенка из сегментов/обечаек, коническое днище, опорные стойки), is_vessel=true: наименование, диаметр стенки, отметки низа и верха стенки, днище (cone — конус, flat — плоское), отметка низа конуса (выпуска) и диаметр выпуска; в parts — КАЖДАЯ отправочная марка комплекта с ролью: wall_segment — сегмент (обечайка) стенки, cone_part — часть конуса, support_post — вертикальная опорная стойка, support_brace — наклонный подкос/раскос опоры (на общем виде видно, вертикальна стойка или наклонна), weir — зубчатое ограждение (перелив), ring — кольцо, roof_part — крыша, detail — детали стыков (стяжки, петли, направляющие), other; количество, свои отметки z0/z1 и радиус, если они есть на листах (иначе 0). Не резервуар и не чан — is_vessel=false, parts пустой.
 - Монтажной схемы и осей в комплекте может не быть (только сборочные листы КМД и общий вид): это не повод вернуть пустой ответ. Тогда собери схему из общего вида и сборочных листов — для чана/ёмкости через vessel, для каркаса — элементы на условной сетке (оси 1, 2… и А, Б… по габаритам общего вида) с note «условная сетка — проверьте». Пустые elements, tank и vessel одновременно допустимы, только если на листах вообще нет монтажных элементов.
 - Ничего не придумывай: только то, что видно на листах или следует из их таблиц и размеров. Неизвестное число — 0; не уверен в элементе — всё равно перечисли с note «проверьте».
 - Отметки: «+4,500» = 4500 мм, «−0,250» = −250.
 - В marks перечисли отправочные марки из таблиц («Спецификация», «Требуется изготовить», «Ведомость отправочных марок», «Конструктивные элементы»): профиль основного элемента, длину, количество, массу марки, отметки (has_levels). Не повторяй то, что программа уже нашла и что совпадает с чертежом.
 - КМ (проектная стадия) и КМД нумеруют марки по-разному: не смешивай их.
+- Каждый параметр бери из раздела, где он главный: положение — монтажные схемы; габарит, состав, профиль отправочной марки — сборочные листы КМД; уровни каркаса — КМ; панели и проёмы — АР; оборудование и трубы — ТХ. Разделы расходятся — возьми значение по назначению листа и напиши оба в note. Отметка — не размер: «+6,000» — уровень, «11100» — высота марки; низ колонны, которого нет на листах, не придумывай (0 только если он написан).
 - У каждого элемента в elements укажи type — вид конструкции из справочника программы (ключ из списка ниже). Если вида нет в справочнике — ближайший по смыслу и полное наименование в name, а сам вид предложи в new_types: наименование, группа схемы (ключ группы), геометрия (column — стойка, beam — горизонтальный элемент, brace — наклонный, plate — плоский), буквы марок, слова наименования, почему нужен. Только реально встреченные в комплекте виды, которых нет в справочнике; иначе new_types пустой.
 - Буквы марок по ГОСТ 26047: К колонна, КФ/ТФ стойка фахверка, Б балка (БК подкрановая, БП подстропильная, БР площадки, БТ тормозная), Р/РР ригель, РФ ригель фахверка, П/ПР прогон, РС распорка, СВ/ВС связь вертикальная, СГ/ГС горизонтальная, СФ связь фонаря, Ф/ФС/ФП ферма (в КМД Ф часто фахверк), Т тяж. В проекте буквы могут значить иное — решает чертёж.
 - Лестницы (ГОСТ 23120-2016, серия 1.450.3-7.94, у резервуаров ГОСТ 31385): каждый марш — отдельный элемент stair_flight от нижней площадки к верхней (уклон 45° или 60°, у резервуаров не круче 50°), width_mm — ширина марша (600/700/800/1000); площадка лестницы — stair_landing; стремянка (вертикальная лестница) — ladder, width_mm — её ширина (≥600); ограждения маршей и площадок — railing. Марки серии: ЛГ…/ЛХ… марши (Ф/В/Р — фасонные, высокие, рядовые), ПГ…/ПХ…, П1Х… площадки, СГ/СХ стремянки, ОП…/ОЛ…/ОС… ограждения площадок, лестниц и стремянок. У остальных элементов width_mm=0.
+- Сэндвич-панели и доборные элементы — только по листам АР (doc="АР"; без АР их не ставь): поле стеновых панелей между осями — sandwich_wall, geometry_type=beam от начала до конца нижней кромки по фасаду, z0_mm — низ, z1_mm — верх поля; поле кровельных — sandwich_roof, beam от карниза (z0_mm) до конька (z1_mm), width_mm — ширина поля поперёк ската; марка, толщина, утеплитель, RAL — в name и note, как на листе. Нащельники и доборные элементы — по их линии установки: угловые — trim_corner (вертикальный угол — column от низа до верха), стыков — trim_joint, цокольные — trim_plinth, стартовые и завершающие — trim_start, коньковые — trim_ridge, карнизные — trim_eaves, торцевые и ветровые — trim_gable, отливы и оконные — trim_sill, обрамления дверей и ворот — trim_opening, парапетные крышки — trim_parapet, примыкания кровли к стене — trim_abutment, водосток — trim_drain, прочие фасонные — trim; длина детали, полки, развёртка, толщина, RAL — в note, как написаны. Размер, которого нет на листе, не придумывай (0).
 - lessons — чему программа должна научиться, чтобы следующие комплекты (любые, не только этот) читать сама, без тебя. Обо всём, что встретилось: монтажные схемы, виды конструкций, металлопрокат, метизы, оборудование, сварные швы. Только общее для любых чертежей — никаких размеров, отметок, координат и количеств этого объекта:
   mark_letters — буквы марок и вид (letters «Щ», type roof_shield: «марки Щ1, Щ2 — щиты покрытия»);
   name_words — слова наименований и вид, в том числе оборудования, швов, метизов (words ["шахтная лестница"], type stair_shaft; words ["люк световой"], type roof_hatch; words ["шов стыковой"], type weld_butt);
@@ -74,13 +76,14 @@ const SCHEMA={type:"object",additionalProperties:false,required:["summary","sche
   axes_x:{type:"array",items:str0},spans_x_mm:{type:"array",items:num0},axes_y:{type:"array",items:str0},spans_y_mm:{type:"array",items:num0}}},
  elements:{type:"array",items:{type:"object",additionalProperties:false,
   required:["mark","doc","name","type","geometry_type","axis_x","axis_y","dx_mm","dy_mm","axis_x2","axis_y2","dx2_mm","dy2_mm","z0_mm","z1_mm","width_mm","sheet","note"],properties:{
-  mark:str0,doc:{type:"string",enum:["КМ","КМД"]},name:str0,type:{type:"string",enum:ST.keys},geometry_type:{type:"string",enum:["column","beam","brace"]},
+  mark:str0,doc:{type:"string",enum:["КМ","КМД","АР","ТХ"]},name:str0,type:{type:"string",enum:ST.keys},geometry_type:{type:"string",enum:["column","beam","brace"]},
   axis_x:str0,axis_y:str0,dx_mm:num0,dy_mm:num0,axis_x2:str0,axis_y2:str0,dx2_mm:num0,dy2_mm:num0,z0_mm:num0,z1_mm:num0,width_mm:num0,sheet:str0,note:str0}}},
  new_types:{type:"array",items:{type:"object",additionalProperties:false,required:["name","group","geometry","marks","words","reason"],properties:{
   name:str0,group:{type:"string",enum:ST.GROUPS.map(g=>g.key)},geometry:{type:"string",enum:["column","beam","brace","plate"]},marks:{type:"array",items:str0},words:{type:"array",items:str0},reason:str0}}},
  tank:{type:"object",additionalProperties:false,
-  required:["is_tank","diameter_mm","wall_height_mm","roof_rise_mm","bottom","items","ladder_kind","ladder_bearing_deg","ladder_foot_mm","ladder_top_mm","ladder_depth_mm","ladder_width_mm","ladder_gap_mm","platform_level_mm","platform_width_mm","railing_height_mm","railing_post_step_mm"],properties:{
+  required:["is_tank","diameter_mm","wall_height_mm","roof_rise_mm","bottom","bottom_kind","bottom_assembly","bottom_slope","bottom_to_centre","annular_width_mm","items","ladder_kind","ladder_bearing_deg","ladder_foot_mm","ladder_top_mm","ladder_depth_mm","ladder_width_mm","ladder_gap_mm","platform_level_mm","platform_width_mm","railing_height_mm","railing_post_step_mm"],properties:{
   is_tank:{type:"boolean"},diameter_mm:num0,wall_height_mm:num0,roof_rise_mm:num0,bottom:{type:"boolean"},
+  bottom_kind:{type:"string",enum:["","annular","plain"]},bottom_assembly:{type:"string",enum:["","rolled","sheet"]},bottom_slope:num0,bottom_to_centre:{type:"boolean"},annular_width_mm:num0,
   items:{type:"array",items:{type:"object",additionalProperties:false,required:["pos","name","du","bearing_deg","on_roof","height_mm","radius_mm"],properties:{
    pos:{type:"integer"},name:str0,du:num0,bearing_deg:num0,on_roof:{type:"boolean"},height_mm:num0,radius_mm:num0}}},
   ladder_kind:{type:"string",enum:["shaft","ring","single","none"]},ladder_bearing_deg:num0,ladder_foot_mm:num0,ladder_top_mm:num0,ladder_depth_mm:num0,ladder_width_mm:num0,ladder_gap_mm:num0,platform_level_mm:num0,platform_width_mm:num0,railing_height_mm:num0,railing_post_step_mm:num0}}}};
@@ -120,6 +123,10 @@ function mergeParts(parts){
   if(!(tank.ladder_bearing_deg>=0))tank.ladder_bearing_deg=tanks.map(t=>t.ladder_bearing_deg).find(v=>v>=0)??-1;
   if(!tank.ladder_kind||tank.ladder_kind==="none")tank.ladder_kind=tanks.map(t=>t.ladder_kind).find(k=>k&&k!=="none")||tank.ladder_kind||"none";
   tank.bottom=tanks.some(t=>t.bottom);
+  // The kind of the bottom: the first batch that read it.
+  for(const k of ["bottom_kind","bottom_assembly"])if(!tank[k])tank[k]=tanks.map(t=>t[k]).find(Boolean)||"";
+  for(const k of ["bottom_slope","annular_width_mm"])if(!(tank[k]>0))tank[k]=tanks.map(t=>t[k]).find(v=>v>0)||0;
+  if(tank.bottom_slope>0&&!tanks.some(t=>t.bottom_slope>0&&t.bottom_to_centre===tank.bottom_to_centre))tank.bottom_to_centre=tanks.find(t=>t.bottom_slope>0)?.bottom_to_centre===true;
   const items=new Map();for(const t of tanks)for(const i of t.items||[]){const k=i.pos>0?"p"+i.pos:"a"+i.bearing_deg+"/"+i.name;if(!items.has(k))items.set(k,i)}
   tank.items=[...items.values()]
  }
@@ -157,6 +164,9 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
  const logged=(data,event)=>[...(data.log||[]),{at:new Date().toISOString(),...event}].slice(-LOG_LIMIT);
  const PAGE_KINDS={montage:"Монтажная схема",assembly:"Сборочный чертёж",list:"Ведомость / спецификация",section:"Разрезы, узлы",other:"Прочее"};
  const placing=data=>(data.pages||[]).filter(p=>p.docType!=="КМД сборочные");
+ // The stamp of a sheet in one line (rule 1 of the engineer's rules): code, stage, sheet of sheets, change, date.
+ const stampLine=st=>{const b=st?.block||{};return[st?.code||"",b.stage?"стадия "+b.stage:"",b.sheet?"лист "+b.sheet+(b.sheets?" из "+b.sheets:""):"",
+  b.revision?"изм. "+b.revision.change+(b.revision.doc?" № "+b.revision.doc:"")+(b.revision.date?" от "+b.revision.date:""):"",b.date?"дата "+b.date:""].filter(Boolean).join(" · ")};
  function pageKind(p){
   const sheet=p.sheet||{};
   // Schemes are placed only from mounting drawings and КМ plans; assembly sheets give mark data.
@@ -206,21 +216,44 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    journal:{
     files:(data.source?.documents||[]).map(d=>({name:d.name,type:d.type||"",pages:d.pages,schemes:d.schemes||0,marks:d.marks||0})),
     sheets:(data.pages||[]).map(p=>({page:p.page,file:p.sourceName||"",sheet:p.pdfPage||p.page,docType:p.docType||"",kind:PAGE_KINDS[pageKind(p)],
-     name:p.sheet?.stamp?.name||(p.context?.titles||[])[0]||"",schemes:(p.schemes||[]).filter(s=>!s.error).map(s=>s.title),
+     name:p.sheet?.stamp?.name||(p.context?.titles||[])[0]||"",stamp:stampLine(p.sheet?.stamp),schemes:(p.schemes||[]).filter(s=>!s.error).map(s=>s.title),
      views:(p.sheet?.views||[]).length,levels:p.sheet?.levelCount||0,noText:Boolean(p.noText),ocr:Number(p.ocr)||0,
-     sections:(p.sections||[]).length,elevations:(p.schemes||[]).filter(s=>s.kind==="elevation").length})),
+     sections:(p.sections||[]).length,elevations:(p.schemes||[]).filter(s=>s.kind==="elevation").length,
+     // The journal of the sheet (rules of 24.10.2026): time, what was found on it, what of it was placed, errors and the
+     // worst error of the calibration of its plans (a span between axes as drawn by the scale against the span written).
+     ...sheetCounts(p,plan)})),
     catalog,elements:plan.elements.slice(0,3000).map(e=>({mark:e.mark,type:e.geometry_type,kind:e.type_name||"",group:e.group_label,x:e.x_mm,y:e.y_mm,x2:e.x2_mm,y2:e.y2_mm,
      z0:e.z0_mm,z1:e.z1_mm,profile:e.profile,levels:e.levels,file:e.file,sheet:e.sheet,confidence:e.confidence})),
-    log:[...(data.log||[])].reverse(),...projectBase(oid)},
+    log:[...(data.log||[])].reverse(),...projectBase(oid),quality:quality()},
    placed:data.placed?(({undo,previousGrid,...rest})=>rest)(data.placed):null}
+ }
+ // Levels Б and Г of the knowledge (knowledge/quality of the closed repository, pulled to this computer): how each way
+ // of reading did on the checked sets and the errors fixed in the rules. For the journal; nothing of an object.
+ function quality(){
+  const read=f=>{try{return JSON.parse(require("node:fs").readFileSync(require("./ai-knowledge-dirs").file("quality/"+f),"utf8"))}catch{return null}};
+  const m=read("methods.json"),e=read("errors.json");
+  if(!m&&!e)return null;
+  const rows=(m?.records||[]).filter(r=>r.share_ok_pct!==null&&r.share_ok_pct!==undefined);
+  return{at:m?.at||"",version:m?.version||"",methods:rows.length,weak:rows.filter(r=>r.share_ok_pct<90).sort((a,b)=>a.share_ok_pct-b.share_ok_pct).slice(0,20)
+   .map(r=>({name:r.id,pct:r.share_ok_pct,ok:r.ok,bad:r.bad,missing:r.missing,extra:r.extra,sets:r.sets})),
+   errors:(e?.records||[]).slice(-20).reverse().map(r=>({release:r.release,where:r.where,was:r.was,now:r.now}))}
+ }
+ function sheetCounts(p,plan){
+  const ok=(p.schemes||[]).filter(s=>!s.error),cal=ok.map(s=>s.calibration).filter(Boolean);
+  const worst=cal.length?cal.reduce((a,b)=>b.max_pct>a.max_pct?b:a):null;
+  return{ms:Number(p.ms)||0,axes:new Set(ok.flatMap(s=>[...(s.axesX||[]),...(s.axesY||[])])).size,
+   marks:new Set(ok.flatMap(s=>(s.placements||[]).map(x=>normMark(x.mark)).filter(Boolean))).size,found:ok.reduce((n,s)=>n+(s.placements||[]).length,0),
+   placed:plan.elements.filter(e=>Number(e.page)===Number(p.page)).length,errors:(p.schemes||[]).filter(s=>s.error).length+(p.error?1:0),
+   warnings:ok.reduce((n,s)=>n+(s.warnings||[]).length,0),...(worst?{calibration:{max_mm:worst.max_mm,max_pct:worst.max_pct,spans:cal.reduce((n,c)=>n+c.spans,0)}}:{})}
  }
  // The object's project base for the journal: mark cards (each value with its sheet) and the processing log.
  function projectBase(oid){
   try{
-   const src=v=>v?.source?[v.source.sheet||"",v.source.page?"стр. "+v.source.page:"",v.source.method].filter(Boolean).join(", "):"";
+   const src=v=>v?.source?[v.source.sheet||"",v.source.page?"стр. "+v.source.page:"",v.source.revision?"изм. "+v.source.revision:"",v.source.method].filter(Boolean).join(", "):"";
    const cards=project.cards(oid).sort((a,b)=>String(a.scope).localeCompare(String(b.scope))||String(a.mark).localeCompare(String(b.mark),"ru",{numeric:true})).slice(0,3000)
     .map(c=>({mark:c.mark,scope:c.scope,conflicts:(c.conflicts||[]).map(x=>x.field+": "+JSON.stringify(x.kept?.value)+" / "+JSON.stringify(x.read?.value)+" ("+src(x.read)+")").slice(-5),
-     fields:Object.fromEntries(Object.entries(c.fields||{}).map(([k,v])=>[k,{value:v.value,status:v.status,source:src(v)}]))}));
+     fields:Object.fromEntries(Object.entries(c.fields||{}).map(([k,v])=>[k,{value:v.value,status:v.status,source:src(v)+((v.agree||[]).length?"; то же на: "+v.agree.join("; "):""),
+      grade:gradeOf(v,(c.conflicts||[]).filter(x=>x.field===k))}]))}));
    return{projectCards:cards,projectLog:project.logEntries(oid).slice(0,200)}
   }catch(error){return{projectCards:[],projectLog:[],projectError:String(error.message||error)}}
  }
@@ -301,7 +334,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   const lines=[];
  const scope=p=>p.docType==="КМ"?"КМ ":"КМД ";
   for(const p of data.pages||[])for(const v of p.sheet?.views||[])
-   lines.push(scope(p)+v.marks.join(",")+": "+(v.z0_mm!==null?"отметки "+v.z0_mm+"…"+v.z1_mm:"отметок нет")+(v.length_mm?", размер "+v.length_mm:"")+" — "+sheetName(p));
+   lines.push(scope(p)+v.marks.join(",")+": "+(v.z0_mm!==null?"отметки "+v.z0_mm+"…"+v.z1_mm:"отметок нет")+(v.length_mm?", размер "+v.length_mm+(v.length_candidates?" (общий размер не найден, другие: "+v.length_candidates.slice(1).join(", ")+")":""):"")+" — "+sheetName(p));
   for(const p of data.pages||[])for(const r of p.sheet?.required||[])lines.push(scope(p)+r.mark+": "+(r.count===null?"марка из штампа, количество не прочитано":"требуется "+r.count+(r.mass_kg?" шт, "+r.mass_kg+" кг":" шт"))+(r.warning?" ("+r.warning+")":"")+" — "+sheetName(p));
   for(const p of data.pages||[])for(const r of p.sheet?.elements||[])lines.push(scope(p)+r.mark+": "+[r.profile,r.steel].filter(Boolean).join(" ")+" — "+sheetName(p));
   return lines.slice(0,600).join("\n")
@@ -447,17 +480,53 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   const px=cumulative(spans(gridData?.x_spans_mm,axesX.length-1,gridData?.span_x_mm)),py=cumulative(spans(gridData?.y_spans_mm,axesY.length-1,gridData?.span_y_mm));
   return{posX:new Map(axesX.map((n,i)=>[n,px[i]])),posY:new Map(axesY.map((n,i)=>[n,py[i]])),spanX:Number(gridData?.span_x_mm)||px[px.length-1]||0,spanY:Number(gridData?.span_y_mm)||py[py.length-1]||0}
  }
- const shared=(own,other)=>{
-  const deltas=[...own].filter(([n])=>other.has(n)).map(([n,v])=>other.get(n)-v);
-  if(!deltas.length||Math.max(...deltas)-Math.min(...deltas)>50)return null;
-  return deltas[0]
+ // A coordinate of the PDF grid in the scheme's own grid: from the nearest axis both have, at the same offset (one
+ // shift for all when the spans agree; a span of the scheme that differs moves only what is tied to its axes).
+ const axisMap=(own,other)=>{
+  const pairs=[...own].filter(([n])=>other.has(n)).map(([n,v])=>[Number(v),Number(other.get(n))]);
+  if(!pairs.length)return null;
+  return v=>{
+   if(v===undefined||v===null||!Number.isFinite(Number(v)))return v;
+   let best=pairs[0];for(const q of pairs)if(Math.abs(q[0]-v)<Math.abs(best[0]-v))best=q;
+   return best[1]+(Number(v)-best[0])
+  }
  };
+ // Where the PDF grid and the scheme's grid part: spans between shared axes that differ, axes the scheme lacks.
+ const gridDiff=(own,other)=>{
+  const names=[...own].filter(([n])=>other.has(n)).sort((a,b)=>a[1]-b[1]).map(([n])=>n),out=[];
+  for(let i=1;i<names.length;i++){
+   const a=names[i-1],b=names[i],p=Math.round(own.get(b)-own.get(a)),q=Math.round(other.get(b)-other.get(a));
+   if(Math.abs(p-q)>5)out.push(a+"–"+b+": по PDF "+p+" мм, в схеме "+q+" мм")
+  }
+  const lacking=[...own.keys()].filter(n=>!other.has(n));
+  if(lacking.length)out.push("в схеме нет осей PDF: "+lacking.slice(0,12).join(", ")+(lacking.length>12?"…":""));
+  return out
+ };
+ // The status of a placed element (ТЗ монтажных схем п. 24) and whether it goes to the layer «предварительно»: only
+ // what the engineer checked or what the drawings give is placed for good; the rest is shown pale, with its reasons.
+ const SURE=new Set(["confirmed","computed"]);
+ // A mark whose sheets of this very analysis give different sizes or levels (its card keeps both values).
+ const CONFLICT_FIELDS={z0_mm:"низ",z1_mm:"верх",size_mm:"габарит",length_mm:"длина"};
+ function conflictsOf(pages){
+  const out=new Map();
+  try{
+   for(const c of cardsFromPages(pages))if(c.scope==="КМД")for(const x of c.conflicts||[])if(CONFLICT_FIELDS[x.field]){
+    const k=normMark(c.mark);if(!out.has(k))out.set(k,[]);
+    out.get(k).push(CONFLICT_FIELDS[x.field]+" "+x.kept?.value+" ("+(x.kept?.source?.sheet||"")+") и "+x.read?.value+" ("+(x.read?.source?.sheet||"")+")")
+   }
+  }catch(error){console.error("IR Project: conflicts",error)}
+  return out
+ }
  // Section style for the 3D view: hollow sections are boxes, pipes are round.
  const sectionType=profile=>!String(profile||"").trim()?"":/Гн|□|▢/u.test(profile)?"box":/^Тр|Ø|ø|∅/u.test(profile)?"round":"ibeam";
  const closest=(value,pos)=>[...pos].reduce((best,cur)=>!best||Math.abs(cur[1]-value)<Math.abs(best[1]-value)?cur:best,null)||["",0];
- // A new placement replaces the previous PDF placement: the same mark gets the new coordinates and heights
- // (its record, status and links are kept), marks that are gone are removed unless already mounted.
- // Elements added by hand stay; with them in the scheme its grid is kept and the PDF is aligned by axis names.
+ // A new placement updates the previous PDF placement: the same mark gets the new coordinates and heights (its record,
+ // status and links are kept); an element the engineer changed keeps his values, the new reading is kept beside them;
+ // an element the new reading lacks is kept and marked «нет в новом анализе», never removed (ТЗ: placed elements and
+ // confirmed coordinates are not deleted or overwritten by an update). Elements added by hand stay.
+ // The grid the engineer made or edited is the main one: the PDF is placed in it by the names of the axes and their
+ // differences are listed. A grid the program itself made from a PDF gives way to the new one (unless elements added
+ // by hand stand on it).
  const isElement=r=>r.record_type==="scheme_column"||r.data?.entity_type==="column";
  const isGrid=r=>r.record_type==="scheme_grid"||r.data?.entity_type==="grid";
  const fromPdf=r=>Boolean(r.data?.import_batch);
@@ -470,14 +539,20 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   const gridRow=scheme.find(isGrid);
   const elementsBefore=scheme.filter(isElement),imported=elementsBefore.filter(fromPdf),manual=elementsBefore.filter(r=>!fromPdf(r));
   const batch="pdf-"+Date.now().toString(36);
-  let dx=0,dy=0,frame={posX:plan.posX,posY:plan.posY,spanX:plan.grid.span_x_mm,spanY:plan.grid.span_y_mm};
-  const gridMode=!gridRow?"created":!manual.length?"replaced":"kept";
+  let mapX=v=>v,mapY=v=>v,gridDiffs=[],frame={posX:plan.posX,posY:plan.posY,spanX:plan.grid.span_x_mm,spanY:plan.grid.span_y_mm};
+  const ownGrid=Boolean(gridRow&&!gridRow.data?.import_batch);
+  const gridMode=!gridRow?"created":ownGrid||manual.length?"kept":"replaced";
   if(gridMode==="kept"){
-   const existing=existingFrame(gridRow.data);
-   dx=shared(plan.posX,existing.posX);dy=shared(plan.posY,existing.posY);
-   if(dx===null||dy===null)throw Error("В монтажной схеме уже есть элементы с другой сеткой осей. Названия осей PDF не совпадают со схемой.");
+   const existing=existingFrame(gridRow.data),mx=axisMap(plan.posX,existing.posX),my=axisMap(plan.posY,existing.posY);
+   if(!mx||!my)throw Error("В монтажной схеме уже есть своя сетка осей ("+[...existing.posX.keys()].join(", ")+" / "+[...existing.posY.keys()].join(", ")+
+    "), а у PDF другие названия осей ("+[...plan.posX.keys()].join(", ")+" / "+[...plan.posY.keys()].join(", ")+"). Переименуйте оси в схеме или удалите её сетку.");
+   mapX=mx;mapY=my;gridDiffs=[...gridDiff(plan.posX,existing.posX),...gridDiff(plan.posY,existing.posY)];
    frame=existing
   }
+  const conflicts=conflictsOf(data.pages);
+  // Changes of the engineer after an earlier placement (src/ai-training.js): by element.
+  const edited=new Map();
+  try{for(const c of training?.corrections?.(oid)||[])if(c.id&&c.after&&c.kind.some(k=>k!=="added"))edited.set(String(c.id),c)}catch(error){console.error("IR Project: training",error)}
   const marks=database.listEntity(oid,"marks").map(r=>({id:String(r.id),title:r.title||"",...(r.data||{})}));
   const byName=new Map();
   for(const m of marks){const k=normMark(m.mark||m.title);if(!k)continue;if(!byName.has(k))byName.set(k,[]);byName.get(k).push(m)}
@@ -490,6 +565,9 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   const sourceDocs=(data.source?.documents||[]).map(x=>({name:String(x.name||""),work:docWork.get(String(x.documentId))||""}));
   const common=sourceDocs.length&&sourceDocs.every(x=>x.work&&x.work===sourceDocs[0].work)?sourceDocs[0].work:"";
   const pageDoc=new Map((data.pages||[]).map(p=>[Number(p.page),String(p.documentId||"")]));
+  // The section of the drawings an element comes from, for the layers of the 3D (КМ, КМД, АР, ТХ).
+  const pageType=new Map((data.pages||[]).map(p=>[Number(p.page),String(p.docType||"")]));
+  const sectionOf=e=>{const t=e.page>0?pageType.get(Number(e.page)):"";return/^(АР|ТХ)$/u.test(t)?t:e.section||(t==="КМ"||!t&&/^КМ(?!Д)/u.test(e.doc||"")?"КМ":"КМД")};
   const volumeOfName=n=>{const m=/КМ\s*(\d{1,2})(?![\dД])/u.exec(String(n||""));return m?"КМ"+m[1]:""};
   const workOf=e=>{
    const doc=e.page>0?pageDoc.get(Number(e.page)):"";if(doc)return docWork.get(doc)||"";
@@ -501,7 +579,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   const near=(r,e)=>{const d=r.data||{};return normMark(d.mark)===normMark(e.mark)&&Math.abs(Number(d.absolute_x_mm)-e.x)<250&&Math.abs(Number(d.absolute_y_mm)-e.y)<250&&Math.abs(Number(d.z0_mm)-e.z0_mm)<250};
   const skipped=[...plan.skipped],payloads=[];let linked=0;
   plan.elements.forEach(e0=>{
-   let e=e0;const x=e.x_mm+dx,y=e.y_mm+dy,x2=e.x2_mm===undefined?undefined:e.x2_mm+dx,y2=e.y2_mm===undefined?undefined:e.y2_mm+dy;
+   let e=e0;const x=mapX(e.x_mm),y=mapY(e.y_mm),x2=e.x2_mm===undefined?undefined:mapX(e.x2_mm),y2=e.y2_mm===undefined?undefined:mapY(e.y2_mm);
    const out=v=>v<-1||v>frame.spanX+1,outY=v=>v<-1||v>frame.spanY+1;
    // Everything read is placed, beyond the outer axes too (canopies, stairs, platforms): such an element is marked.
    if(e.levels!=="проверено инженером"&&(out(x)||outY(y)||x2!==undefined&&(out(x2)||outY(y2)))&&!/За крайними осями/u.test(e.note||""))e={...e,note:[e.note,"За крайними осями — проверьте"].filter(Boolean).join("; ")};
@@ -516,8 +594,17 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    const [ax,axPos]=closest(x,frame.posX),[ay,ayPos]=closest(y,frame.posY),column=e.geometry_type==="column"||e.geometry_type==="shell"||e.geometry_type==="plate",round=e.geometry_type==="shell"||e.geometry_type==="plate";
    const endX=column?null:closest(x2,frame.posX),endY=column?null:closest(y2,frame.posY);
    // A beam broken at the ridge keeps its ridge point; any other element clears one left from earlier.
-   const bent=e.geometry_type==="bent",mx=bent?e.mid_x_mm+dx:undefined,my=bent?e.mid_y_mm+dy:undefined;
+   const bent=e.geometry_type==="bent",mx=bent?mapX(e.mid_x_mm):undefined,my=bent?mapY(e.mid_y_mm):undefined;
    const midX=bent?closest(mx,frame.posX):null,midY=bent?closest(my,frame.posY):null;
+   // Its status: from the plan (how its position and levels were found), «конфликт» when the sheets disagree on its mark.
+   const clash=conflicts.get(normMark(e.mark));
+   const status=clash&&e.instance_status!=="confirmed"?"conflict":e.instance_status||"computed";
+   const reasons=[...(clash&&status==="conflict"?["на листах разные значения: "+clash.slice(0,2).join("; ")]:[]),...(e.instance_reasons||[])].slice(0,5);
+   // Where each parameter comes from, by section and sheet: shown in the element's card.
+   const cat=plan.catalog?.get?.(markKey(e.doc||"КМД",e.mark));
+   const sources={position:sectionOf(e)+(e.page>0?" · "+(e.file||data.source?.name||"PDF")+", лист "+(e.sheet||e.page):"")+(e.scheme?" · «"+String(e.scheme).slice(0,60)+"»":""),levels:String(e.levels||""),
+    ...(e.profile?{profile:cat?.profile===e.profile&&cat.profileFrom?cat.profileFrom:"схема листа"}:{}),...(cat?.lengthFrom?{size:cat.lengthFrom}:{}),
+    ...(cat?.profile_other&&cat.profile===e.profile?{profile_other:cat.profile_other.value+" — "+cat.profile_other.from}:{})};
    const mid={absolute_mid_x_mm:mx,absolute_mid_y_mm:my,mid_z_mm:bent?e.mid_z_mm:undefined,mid_axis_x:midX?.[0],mid_axis_y:midY?.[0],
     mid_offset_x_mm:bent?mx-midX[1]:undefined,mid_offset_y_mm:bent?my-midY[1]:undefined};
    payloads.push({x,y,mark:e.mark,volume:vol,geometry:e.geometry_type,work,data:{entity_type:"column",
@@ -526,8 +613,9 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
     absolute_x2_mm:column?undefined:x2,absolute_y2_mm:column?undefined:y2,
     end_axis_x:column?undefined:endX[0],end_axis_y:column?undefined:endY[0],
     end_offset_x_mm:column?undefined:x2-endX[1],end_offset_y_mm:column?undefined:y2-endY[1],
-    end_z_mm:column?undefined:e.z1_mm,...mid,radius_mm:round?e.radius_mm:undefined,inner_radius_mm:round&&e.inner_radius_mm>0?e.inner_radius_mm:undefined,shell_open:round&&e.shell_open?true:undefined,sector_start_deg:round&&e.sector_deg>0?e.sector_start_deg:undefined,sector_deg:round&&e.sector_deg>0?e.sector_deg:undefined,fitting_type:e.fitting_type||undefined,layout:e.layout||undefined,truss:e.truss?{span_mm:e.truss.span_mm,flip:e.truss.flip,base_mm:e.truss.base_mm,members:e.truss.members}:undefined,base:e.base||undefined,joint:e.joint||undefined,nodes:e.nodes||undefined,cross:e.cross||undefined,column:e.column||undefined,type_key:e.type_key||undefined,type_name:e.type_name||undefined,diameter_mm:e.fitting_type&&e.diameter_mm>0?e.diameter_mm:undefined,z0_mm:e.z0_mm,z1_mm:e.z1_mm,section_type:sectionType(e.profile),profile_name:e.profile||"",profile_standard:e.profile_standard||undefined,
-    scheme_group:e.group,scheme_group_label:e.group_label,source_import_key:e.key,
+    end_z_mm:column?undefined:e.z1_mm,...mid,radius_mm:round?e.radius_mm:undefined,inner_radius_mm:round&&e.inner_radius_mm>0?e.inner_radius_mm:undefined,shell_open:round&&e.shell_open?true:undefined,sector_start_deg:round&&e.sector_deg>0?e.sector_start_deg:undefined,sector_deg:round&&e.sector_deg>0?e.sector_deg:undefined,cone_rise_mm:round&&e.cone_rise_mm?e.cone_rise_mm:undefined,fitting_type:e.fitting_type||undefined,layout:e.layout||undefined,truss:e.truss?{span_mm:e.truss.span_mm,flip:e.truss.flip,base_mm:e.truss.base_mm,members:e.truss.members}:undefined,base:e.base||undefined,joint:e.joint||undefined,nodes:e.nodes||undefined,cross:e.cross||undefined,column:e.column||undefined,type_key:e.type_key||undefined,type_name:e.type_name||undefined,diameter_mm:e.fitting_type&&e.diameter_mm>0?e.diameter_mm:undefined,z0_mm:e.z0_mm,z1_mm:e.z1_mm,section_type:sectionType(e.profile),profile_name:e.profile||"",profile_standard:e.profile_standard||undefined,
+    scheme_group:e.group,scheme_group_label:e.group_label,source_import_key:e.key,source_section:sectionOf(e),param_sources:sources,
+    instance_status:status,instance_reasons:reasons.length?reasons:undefined,preliminary:!SURE.has(status),missing_in_analysis:undefined,
     source_import_doc:e.page>0?(e.file||data.source?.name||"PDF")+" · лист "+(e.sheet||e.page):/база знаний/.test(e.levels||"")||data.ai?.source==="knowledge"?"база знаний":"по данным Claude",import_requires_verification:false,check_note:String(e.note||"").split("; ").filter(x=>/проверьте/iu.test(x)).join("; ")||undefined,import_batch:batch}})
   });
   if(!payloads.length)throw Error("Нечего расставлять: все элементы вне сетки схемы или уже добавлены вручную.");
@@ -535,7 +623,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   // makes one from the drawings. They go under a work type of their own ("из PDF"), so that a register the engineer
   // loaded is never mixed with them; quantity is the larger of "Требуется" and the number placed, mass from the sheets.
   // Everything below is written in one transaction (src/ai-db-batch.js): all of it or nothing.
-  const createdMarks=[],enabled=[];let createdWork=null,previousGrid=null,created=0;const updated=[],removed=[],kept=[];
+  const createdMarks=[],enabled=[];let createdWork=null,previousGrid=null,created=0;const updated=[],removed=[],kept=[],keptEdited=[],missingNow=[],stillMissing=[],carried=[];
   writes(database=>{
   const missing=payloads.filter(p=>!p.data.mark_id);
   if(missing.length){
@@ -579,9 +667,13 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   // The same mark and kind, nearest first: that is the same element drawn again.
   // Looked up by mark and kind: 4000 new against 4000 placed before, each with each, held the program for 16 s.
   const pairs=[],kind=g=>g==="bent"?"beam":g,sameKey=new Map();
-  imported.forEach((r,j)=>{const k=normMark(r.data?.mark)+"|"+kind(String(r.data?.geometry_type||"column"));if(!sameKey.has(k))sameKey.set(k,[]);sameKey.get(k).push(j)});
+  // An element whose mark the engineer changed is found by the mark it was placed with, at either of its positions.
+  const keyed=(k,j)=>{if(!sameKey.has(k))sameKey.set(k,[]);if(!sameKey.get(k).includes(j))sameKey.get(k).push(j)};
+  imported.forEach((r,j)=>{const g=kind(String(r.data?.geometry_type||"column")),was=edited.get(String(r.id))?.before;keyed(normMark(r.data?.mark)+"|"+g,j);if(was?.mark)keyed(normMark(was.mark)+"|"+g,j)});
   payloads.forEach((p,i)=>(sameKey.get(normMark(p.mark)+"|"+kind(p.geometry))||[]).forEach(j=>{
-   const r=imported[j];pairs.push({i,j,d:Math.hypot(Number(r.data.absolute_x_mm)-p.x,Number(r.data.absolute_y_mm)-p.y)})
+   const r=imported[j],was=edited.get(String(r.id))?.before;
+   const d=Math.min(Math.hypot(Number(r.data.absolute_x_mm)-p.x,Number(r.data.absolute_y_mm)-p.y),was?Math.hypot(Number(was.x)-p.x,Number(was.y)-p.y):Infinity);
+   pairs.push({i,j,d})
   }));
   pairs.sort((a,b)=>a.d-b.d);
   const matchOf=new Map(),taken=new Set();
@@ -593,10 +685,20 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   }
   payloads.forEach((p,i)=>{
    if(matchOf.has(i)){
-    const old=imported[matchOf.get(i)],before=old.data||{};
+    const old=imported[matchOf.get(i)],before=old.data||{},change=edited.get(String(old.id));
+    // Changed by the engineer: his element stays as it is, the new reading beside it (shown in its card).
+    if(change){
+     const next={...before,pdf_new:{batch,x:p.x,y:p.y,x2:p.data.absolute_x2_mm,y2:p.data.absolute_y2_mm,z0:p.data.z0_mm,z1:p.data.z1_mm,end_z:p.data.end_z_mm,
+      mark:p.data.mark,type_name:p.data.type_name,source:p.data.source_import_doc},instance_status:"confirmed",preliminary:false,instance_reasons:undefined,missing_in_analysis:undefined,engineer_edited:true};
+     for(const k of Object.keys(next))if(next[k]===undefined)delete next[k];
+     if(database.updateEntity(oid,"scheme",old.id,{record_type:old.record_type||"scheme_column",title:old.title,data:next})){
+      updated.push({id:old.id,record_type:old.record_type,title:old.title,data:before});keptEdited.push(before.mark||old.title);carried.push({id:String(old.id),origin:change.before})
+     }
+     return
+    }
     // Status, mounting data and the position name stay with the element.
     const next={...before,...p.data,status:before.status||"planned",position:before.position||old.title,
-     mark_id:p.data.mark_id||before.mark_id||"",work_type_id:p.data.work_type_id||before.work_type_id||""};
+     mark_id:p.data.mark_id||before.mark_id||"",work_type_id:p.data.work_type_id||before.work_type_id||"",pdf_new:undefined};
     for(const k of Object.keys(next))if(next[k]===undefined)delete next[k];
     if(database.updateEntity(oid,"scheme",old.id,{record_type:old.record_type||"scheme_column",title:old.title,data:next}))updated.push({id:old.id,record_type:old.record_type,title:old.title,data:before});
     return
@@ -604,26 +706,36 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    const position="PDF-"+batch.slice(4)+"-"+String(created+1).padStart(4,"0");
    if(database.createEntity(oid,"scheme",{record_type:"scheme_column",title:position,data:{...p.data,position,status:"planned"}}))created++
   });
+  // Not in the new reading: kept and marked (mounted or not), to be removed by hand if it is really gone.
   imported.forEach((r,j)=>{
    if(taken.has(j))return;
-   if(mounted(r)){kept.push(r.data?.mark||r.title);return}
-   if(database.deleteEntity(oid,"scheme",r.id))removed.push({record_type:r.record_type,title:r.title,data:r.data})
+   if(mounted(r))kept.push(r.data?.mark||r.title);
+   const before=r.data||{},change=edited.get(String(r.id));
+   // Changed by the engineer: his element, left as it is.
+   if(change){carried.push({id:String(r.id),origin:change.before});return}
+   if(before.missing_in_analysis){stillMissing.push(before.mark||r.title);return}
+   const next={...before,missing_in_analysis:batch,instance_status:"not_found",instance_reasons:["нет в новом анализе чертежей — проверьте, удалите вручную, если конструкции нет"],preliminary:true};
+   if(database.updateEntity(oid,"scheme",r.id,{record_type:r.record_type||"scheme_column",title:r.title,data:next})){updated.push({id:r.id,record_type:r.record_type,title:r.title,data:before});missingNow.push(before.mark||r.title)}
   });
   });
   // Elements by work type: what each work type's scheme now shows.
   const perWork=new Map();for(const p of payloads){const k=String(p.data.work_type_id||"");perWork.set(k,(perWork.get(k)||0)+1)}
   const workName=wid=>{const w=works.get(wid)||(String(createdWork)===wid?{title:AUTO_WORK}:null);return String(w?.data?.work_type||w?.title||"без вида работ")};
   const byWork=[...perWork].map(([wid,count])=>({id:wid,name:wid?workName(wid):"без вида работ",count})).sort((a,b)=>b.count-a.count);
-  const result={batch,created,updated:updated.length,removed:removed.length,keptMounted:kept.length,linked,marksCreated:createdMarks.length,workCreated:Boolean(createdWork),byWork,skippedCount:skipped.length,skipped:skipped.slice(0,300),gridMode,at:new Date().toISOString()};
+  const preliminary=payloads.filter(p=>p.data.preliminary).length,statuses={};for(const p of payloads)statuses[p.data.instance_status]=(statuses[p.data.instance_status]||0)+1;
+  const result={batch,created,updated:updated.length-keptEdited.length-missingNow.length,removed:removed.length,keptMounted:kept.length,keptEdited:keptEdited.length,missing:missingNow.length+stillMissing.length,
+   preliminary,statuses,gridDiffs:gridDiffs.slice(0,40),linked,marksCreated:createdMarks.length,workCreated:Boolean(createdWork),byWork,skippedCount:skipped.length,skipped:skipped.slice(0,300),gridMode,at:new Date().toISOString()};
   // What was placed, element by element: the engineer's later changes become corrections (src/ai-training.js).
-  try{training?.recordPlacement?.(oid,{batch,draftId,source:data.source})}catch(error){console.error("IR Project: training",error)}
+  try{training?.recordPlacement?.(oid,{batch,draftId,source:data.source,carried})}catch(error){console.error("IR Project: training",error)}
   const after=draftRow(oid,draftId);
-  saveDraft(oid,after,{placed:{...result,previousGrid,undo:{updated,removed,marks:createdMarks,work:createdWork,enabled}},log:logged(after.data||{},{step:"place",text:"Расстановка: новых "+created+", обновлено "+updated.length+
-   " (координаты и отметки), удалено прежних "+removed.length+(kept.length?", смонтированные сохранены "+kept.length:"")+" · "+
+  saveDraft(oid,after,{placed:{...result,previousGrid,undo:{updated,removed,marks:createdMarks,work:createdWork,enabled}},log:logged(after.data||{},{step:"place",text:"Расстановка: новых "+created+", обновлено "+result.updated+" (координаты и отметки)"+
+   (keptEdited.length?", оставлены ваши правки "+keptEdited.length:"")+(missingNow.length+stillMissing.length?", нет в новом анализе "+(missingNow.length+stillMissing.length)+" (оставлены, помечены)":"")+
+   (preliminary?", предварительно "+preliminary:"")+" · "+
    Object.entries(payloads.reduce((a,x)=>(a[x.data.scheme_group_label]=(a[x.data.scheme_group_label]||0)+1,a),{})).map(([k,v])=>k+" "+v).join(", ")+
    ", связано с ведомостью "+linked+(createdMarks.length?", в ведомость добавлено марок "+createdMarks.length+(createdWork?" (вид работ «"+AUTO_WORK+"» создан)":""):"")+
    (byWork.length>1||byWork[0]?.id&&String(byWork[0].id)!==String(createdWork)?" · по видам работ: "+byWork.map(w=>"«"+w.name+"» "+w.count).join(", "):"")+
-   (enabled.length?" (монтажная схема включена у "+enabled.length+")":"")+", пропущено "+skipped.length+", сетка: "+({created:"создана",replaced:"заменена",kept:"сохранена"}[gridMode])})});
+   (enabled.length?" (монтажная схема включена у "+enabled.length+")":"")+", пропущено "+skipped.length+", сетка: "+({created:"создана",replaced:"заменена",kept:ownGrid?"ваша сохранена":"сохранена"}[gridMode])+
+   (gridDiffs.length?" (расхождения с PDF: "+gridDiffs.slice(0,6).join("; ")+(gridDiffs.length>6?"…":"")+")":"")})});
   return view(oid,draftRow(oid,draftId))
  }
  function undo(id,draftId){

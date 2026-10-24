@@ -30,7 +30,10 @@ function fakeDatabase(){
  const engine={requestJSON:async req=>{request=req;calls.push(req.images.map(i=>i.label));if(script)return script(req);if(failure)throw failure;return{data:answer,model:"claude-opus-5-5",usage:{}}}};
  const drafts=createSchemeDrafts({database,documents});
  const events=[];
- const montage=createMontage({database,documents,drafts,renderer:createPdfRenderer({database,documents}),engine,onProgress:e=>events.push(e)});
+ // The engineer's changes after a placement (src/ai-training.js), as the test sets them.
+ let edits=[],recorded=null;
+ const training={corrections:()=>edits,recordPlacement:(oid,o)=>{recorded=o}};
+ const montage=createMontage({database,documents,drafts,renderer:createPdfRenderer({database,documents}),engine,training,onProgress:e=>events.push(e)});
  assert.equal(montage.latest(7),null);
  // Step 1: local geometry.
  await assert.rejects(montage.analyze(7),/Укажите тип чертежа для: plan-K copy\.pdf/);
@@ -110,11 +113,15 @@ function fakeDatabase(){
  database.updateEntity(7,"scheme",k1row.id,{record_type:"scheme_column",title:k1row.title,data:{...k1row.data,absolute_x_mm:3000,z1_mm:5000,status:"mounted"}});
  database.updateEntity(7,"scheme",k7row.id,{record_type:"scheme_column",title:k7row.title,data:{...k7row.data,mark:"K99"}});
  view=montage.place(7,view.draftId);
- assert.deepEqual([view.placed.created,view.placed.updated,view.placed.removed,view.placed.gridMode],[1,2,1,"replaced"]);
+ assert.deepEqual([view.placed.created,view.placed.updated,view.placed.removed,view.placed.missing,view.placed.gridMode],[1,2,0,1,"replaced"]);
  assert.deepEqual([view.placed.marksCreated,database.rows.filter(r=>r.section_key==="marks"&&r.data.ai_created).length],[0,2],"a repeated placement links to the marks it added before, no duplicates");
  const k1again=cols().find(r=>r.id===k1row.id);
  assert.deepEqual([k1again.data.absolute_x_mm,k1again.data.z1_mm,k1again.data.status,k1again.title],[0,8400,"mounted",k1row.title],"coordinates and heights renewed, status kept");
- assert.equal(cols().length,3);assert(!cols().some(r=>r.data.mark==="K99"),"a mark no longer in the drawings is removed");
+ // A mark no longer in the drawings is not deleted: kept, marked «нет в новом анализе», removed by hand if really gone.
+ const k99=cols().find(r=>r.data.mark==="K99");
+ assert.equal(cols().length,4);
+ assert.deepEqual([k99.data.instance_status,k99.data.preliminary,Boolean(k99.data.missing_in_analysis)],["not_found",true,true]);
+ assert(cols().filter(r=>r.data.mark!=="K99").every(r=>r.data.instance_status&&r.data.source_section==="КМД"),"each element has its status and section");
  // Undo brings the previous state back.
  montage.undo(7,view.draftId);
  assert.deepEqual([cols().find(r=>r.id===k1row.id).data.absolute_x_mm,cols().length,cols().some(r=>r.data.mark==="K99")],[3000,3,true]);
@@ -126,12 +133,33 @@ function fakeDatabase(){
  assert.equal(montage.restoreScheme(7).restored,3);assert.equal(cols().length,3);
  montage.clearScheme(7);
  view=montage.place(7,view.draftId);assert.equal(view.placed.created,3);
+ // An element changed by the engineer after the placement keeps his values; the new reading of the drawings goes beside
+ // it, and the placement records what was placed before, so that the change stays a correction.
+ const k1now=cols().find(r=>r.data.mark==="К1");
+ database.updateEntity(7,"scheme",k1now.id,{record_type:"scheme_column",title:k1now.title,data:{...k1now.data,absolute_x_mm:500,mark:"К1а"}});
+ edits=[{id:String(k1now.id),kind:["position","mark"],before:{mark:"К1",x:0,y:0,z0:0,z1:8400},after:{mark:"К1а",x:500,y:0}}];
+ view=montage.place(7,view.draftId);
+ const k1kept=cols().find(r=>r.id===k1now.id);
+ assert.deepEqual([k1kept.data.absolute_x_mm,k1kept.data.mark,k1kept.data.pdf_new.x,k1kept.data.instance_status,k1kept.data.engineer_edited],[500,"К1а",0,"confirmed",true]);
+ assert.deepEqual([view.placed.keptEdited,view.placed.created,view.placed.missing,cols().length],[1,0,0,3],"found by the mark it was placed with: no second К1");
+ assert.deepEqual(recorded.carried,[{id:String(k1now.id),origin:edits[0].before}]);
+ edits=[];
+ for(const r of database.rows.filter(r=>r.section_key==="scheme"&&r.record_type==="scheme_column"))database.deleteEntity(7,"scheme",r.id);
+ // The engineer's own grid (saved in the grid editor, without import_batch) is the main one: it is not replaced, the
+ // elements land on its axes by name, the differences with the PDF are listed.
+ const g0=database.rows.find(r=>r.record_type==="scheme_grid");
+ database.updateEntity(7,"scheme",g0.id,{record_type:"scheme_grid",title:"Сетка",data:{entity_type:"grid",axes_x:["1","2","3"],axes_y:["A","B","C"],x_spans_mm:[6000,6300],y_spans_mm:[6000,4500],span_x_mm:12300,span_y_mm:10500}});
+ view=montage.place(7,view.draftId);
+ assert.equal(view.placed.gridMode,"kept");
+ assert.deepEqual(database.rows.find(r=>r.record_type==="scheme_grid").data.x_spans_mm,[6000,6300],"the engineer's grid stays");
+ assert.deepEqual([cols().find(r=>r.data.mark==="K7").data.absolute_x_mm,cols().find(r=>r.data.mark==="K7").data.axis_x],[12300,"3"],"K7 at axis 3 of the engineer's grid");
+ assert(view.placed.gridDiffs.includes("2–3: по PDF 6000 мм, в схеме 6300 мм"),view.placed.gridDiffs.join("; "));
  for(const r of database.rows.filter(r=>r.section_key==="scheme"&&r.record_type==="scheme_column"))database.deleteEntity(7,"scheme",r.id);
  // A scheme that already has members on a different grid is not touched.
  const other=database.rows.find(r=>r.record_type==="scheme_grid");
  database.updateEntity(7,"scheme",other.id,{record_type:"scheme_grid",title:"Сетка",data:{entity_type:"grid",axes_x:["10","11"],axes_y:["X","Y"],x_spans_mm:[6000],y_spans_mm:[6000],span_x_mm:6000,span_y_mm:6000}});
  database.createEntity(7,"scheme",{record_type:"scheme_column",title:"COL-1",data:{entity_type:"column",mark:"Z1",absolute_x_mm:0,absolute_y_mm:0,z0_mm:0,z1_mm:3000}});
- assert.throws(()=>montage.place(7,view.draftId),/другой сеткой осей/);
+ assert.throws(()=>montage.place(7,view.draftId),/своя сетка осей/);
  // Claude unavailable: the failure is stored and the engineer can continue with typed heights.
  failure=new Error("Нет связи с api.anthropic.com");
  await assert.rejects(montage.process(7,view.draftId),/Нет связи/);

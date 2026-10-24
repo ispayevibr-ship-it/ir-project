@@ -7,7 +7,9 @@
  *
  * Every value is kept with its origin: {value, unit, source:{document, page, sheet, box, method}, tolerance_mm,
  * status}. status: confirmed | needs_check | unknown. A value from the global knowledge base (method "global")
- * explains, it never becomes a confirmed fact of the object.
+ * explains, it never becomes a confirmed fact of the object. The source names the change of the sheet (its stamp).
+ * gradeOf gives the four grades of the engineer's rules: подтверждено (the engineer, or two sheets agree), вычислено
+ * (by a formula), неоднозначно (sheets disagree, or read once and not checked yet), не найдено.
  */
 // Each kind in its own section: listing the cards never reads the long log.
 const SECTION="ai-project-kb",LOG_SECTION="ai-project-log",CHECK_SECTION="ai-project-check",LOG_LIMIT=2000;
@@ -23,7 +25,8 @@ function sourced(value,{unit="",source={},tolerance_mm=null,status="needs_check"
  if(method==="computed"&&!formula)throw Error("Вычисленное значение без формулы");
  if(method==="global"&&status==="confirmed")throw Error("Значение из общей базы не может быть подтверждённым фактом объекта");
  if(!["engineer","computed","global"].includes(method)&&!(source.document||source.sheet))throw Error("Не указан документ или лист значения");
- const out={value,unit,source:{document:source.document??null,page:source.page??null,sheet:source.sheet||"",box:source.box||null,method},status};
+ const out={value,unit,source:{document:source.document??null,page:source.page??null,sheet:source.sheet||"",box:source.box||null,method,
+  ...(source.revision?{revision:String(source.revision)}:{})},status};
  if(tolerance_mm!=null)out.tolerance_mm=Number(tolerance_mm);
  if(formula)out.formula=String(formula);
  return out
@@ -36,21 +39,27 @@ function cardsFromPages(pages){
  for(const p of pages||[]){
   const sh=p.sheet;if(!sh)continue;
   const scope=p.docType==="КМ"?"КМ":"КМД",ocr=Number(p.ocr)>0;
-  const at=method=>({document:p.documentId??null,page:p.pdfPage||p.page||null,sheet:sh.stamp?.code||sh.stamp?.name||p.sourceName||"",method:ocr?"ocr":method});
-  const put=(mark,field,value,method,unit="")=>{
+  const block=sh.stamp?.block||{};
+  const at=method=>({document:p.documentId??null,page:p.pdfPage||p.page||null,
+   sheet:[sh.stamp?.code||sh.stamp?.name||p.sourceName||"",block.sheet?"л. "+block.sheet:""].filter(Boolean).join(" "),
+   revision:block.revision?.change||"",method:ocr?"ocr":method});
+  const put=(mark,field,value,method,unit="",extra=null)=>{
    if(value===null||value===undefined||value==="")return;
    const key=scope+"|"+markKey(mark);if(!markKey(mark))return;
    const c=cards.get(key)||{mark:String(mark).trim(),scope,fields:{},conflicts:[],files:[]};cards.set(key,c);
    const doc=String(p.documentId??"");if(doc&&!c.files.includes(doc))c.files.push(doc);
-   const v=sourced(value,{unit,source:at(method)});
+   const v={...sourced(value,{unit,source:at(method)}),...(extra||{})};
    const old=c.fields[field];
    if(!old)c.fields[field]=v;
-   else if(JSON.stringify(old.value)!==JSON.stringify(value))c.conflicts.push({field,kept:old,read:v,at:new Date().toISOString()})
+   else if(JSON.stringify(old.value)!==JSON.stringify(value))c.conflicts.push({field,kept:old,read:v,at:new Date().toISOString()});
+   // The same value on another sheet checks the first reading.
+   else if(v.source.sheet!==old.source.sheet||v.source.page!==old.source.page){old.agree=[...new Set([...(old.agree||[]),[v.source.sheet,v.source.page&&"стр. "+v.source.page].filter(Boolean).join(", ")])].slice(0,8)}
   };
   for(const v of sh.views||[])for(const m of v.marks||[]){
    if(v.z0_mm!==null&&v.z0_mm!==undefined)put(m,"z0_mm",v.z0_mm,"text","мм");
    if(v.z1_mm!==null&&v.z1_mm!==undefined)put(m,"z1_mm",v.z1_mm,"text","мм");
-   if(v.length_mm)put(m,"size_mm",v.length_mm,"dimension","мм")
+   // How the size was found: between the extreme extension lines, or the largest number of the view (ambiguous).
+   if(v.length_mm)put(m,"size_mm",v.length_mm,"dimension","мм",{...(v.length_how?{how:v.length_how}:{}),...(v.length_candidates?{candidates:v.length_candidates}:{})})
   }
   for(const r of sh.required||[]){put(r.mark,"count",r.count,"table","шт");put(r.mark,"mass_kg",r.mass_kg,"table","кг")}
   for(const r of sh.elements||[]){put(r.mark,"profile",r.profile,"table");put(r.mark,"steel",r.steel,"table")}
@@ -131,13 +140,35 @@ function createProjectKnowledge({database}){
     placements:own.reduce((k,p)=>k+(p.schemes||[]).reduce((m,x)=>m+(x.placements||[]).length,0),0),
     uncertain:own.filter(p=>p.noText&&!p.ocr).map(p=>"лист "+(p.pdfPage||p.page)+": текст кривыми, не прочитан"),
     checks:[...read.filter(c=>c.conflicts.length&&c.files.includes(String(s.documentId))).map(c=>c.mark+": разные значения на листах"),
+     ...sectionChecks(own,s.type),
      // Replaced or cancelled standards the file cites.
      ...new Set(own.flatMap(p=>(p.sheet?.standards||[]).filter(x=>x.note).map(x=>x.note)))],
-    standards:[...new Set(own.flatMap(p=>(p.sheet?.standards||[]).map(x=>x.designation)))]})
+    standards:[...new Set(own.flatMap(p=>(p.sheet?.standards||[]).map(x=>x.designation)))],
+    // What each sheet is (rule 1): the code, section, stage, sheet number, change and date of its stamp.
+    documents:own.map(p=>{const st=p.sheet?.stamp||{},b=st.block||{};
+     return{page:p.pdfPage||p.page,code:st.code||"",name:st.name||"",section:b.section||"",stage:b.stage||"",sheet:b.sheet||"",sheets:b.sheets||null,
+      revision:b.revision||null,date:b.date||""}})})
   }
   for(const f of failed)log(n,{file:f.name,status:"error",duration_ms:duration,errors:[f.error]});
   return out
  }
  return{cards,card,saveCard,log,logEntries,saveValidation,validations,recordAnalysis,SECTION}
 }
-module.exports={createProjectKnowledge,cardsFromPages,sourced,markKey,STATUSES,METHODS,SECTION,LOG_SECTION,CHECK_SECTION};
+// A sheet whose stamp names another section than the file was given (a PDF holding КМ and АР sheets): said, not
+// changed — the engineer sets the kind of the file.
+function sectionChecks(pages,type){
+ const kind=String(type||"").split(" ")[0];
+ return pages.map(p=>({page:p.pdfPage||p.page,section:p.sheet?.stamp?.block?.section||""}))
+  .filter(x=>x.section&&kind&&x.section!==kind&&!(kind==="КМД"&&x.section==="КМ"))
+  .map(x=>"лист "+x.page+": по штампу раздел "+x.section+", файл указан как "+type)
+}
+// The grade of one value of a card (п. 9 of the engineer's rules); conflicts are the card's for that field.
+const GRADES=["подтверждено","вычислено","неоднозначно","не найдено"];
+function gradeOf(v,conflicts=[]){
+ if(!v||v.value===null||v.value===undefined||v.value===""||v.status==="unknown")return"не найдено";
+ if(conflicts.length||(v.candidates||[]).length>1&&v.source?.method!=="engineer")return"неоднозначно";
+ if(v.status==="confirmed"||v.source?.method==="engineer"||(v.agree||[]).length)return"подтверждено";
+ if(v.source?.method==="computed")return"вычислено";
+ return"неоднозначно"
+}
+module.exports={createProjectKnowledge,cardsFromPages,sourced,gradeOf,GRADES,markKey,STATUSES,METHODS,SECTION,LOG_SECTION,CHECK_SECTION};

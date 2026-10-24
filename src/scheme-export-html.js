@@ -87,6 +87,8 @@
   ".det-title b{font-size:18px;display:block}.det-title small{color:var(--muted)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin-top:8px}",
   ".grid div span{display:block;font-size:11.5px;color:var(--muted)}.grid div b{font-weight:600;word-break:break-word}.ok{color:var(--ok)}.partial{color:var(--part)}.wait{color:var(--wait)}",
   ".warn{background:#fff6e0;border:1px solid #f0d58a;border-radius:8px;padding:6px 8px;font-size:12px;margin-bottom:8px}",
+  ".from{font-size:12px;margin-bottom:8px}.from summary{cursor:pointer;font-weight:700}",
+  ".inst{background:#eef8f2;border:1px solid #bfdcc9;border-radius:8px;padding:6px 8px;font-size:12px;margin-bottom:8px;color:#2c5e45}",
   ".prog{margin-top:10px;font-size:12.5px}.prog .bar{height:6px;background:#e4e9f1;border-radius:3px;margin-top:5px;overflow:hidden}.prog .bar i{display:block;height:100%;background:var(--ok)}",
   ".empty{color:var(--muted)}.foot{padding:0 20px 16px;color:var(--muted);font-size:12px}",
   "@media(max-width:900px){.stage-bar{justify-content:flex-start}.side{width:100vw;max-width:100vw}}",
@@ -99,10 +101,13 @@
   var $=function(id){return document.getElementById(id)};
   var esc=function(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})};
   var fmt=function(v){var n=Number(v);return Number.isFinite(n)?Number(n.toFixed(1)).toLocaleString("ru-RU",{maximumFractionDigits:1}):"—"};
-  var S={hidden:new Set(),status:"all",work:"all",min:"",max:"",q:"",sel:"",color:"type",labels:false,dims:false,bg:D.background||"standard"};
+  var S={hidden:new Set(),sec:new Set(),conf:"all",status:"all",work:"all",min:"",max:"",q:"",sel:"",color:"type",labels:false,dims:false,bg:D.background||"standard"};
   var statusText={mounted:"Смонтирована",partial:"Частично смонтирована",planned:"Не смонтирована"};
   var levelOk=function(c){var lo=Math.min(c.z0,c.z2),hi=Math.max(c.z0,c.z2);if(S.min!==""&&hi<Number(S.min))return false;if(S.max!==""&&lo>Number(S.max))return false;return true};
-  var shown=function(){return D.elements.filter(function(c){return!S.hidden.has(c.scheme_group)&&(S.work==="all"||String(c.work||"")===S.work)&&(S.status==="all"||c.status===S.status)&&levelOk(c)})};
+  // How fully the drawings determined an element and its section, as in the program: the preliminary ones are pale.
+  var instText={confirmed:"подтверждено",computed:"вычислено",partial:"определено частично",ambiguous:"неоднозначно",conflict:"конфликт данных",not_found:"нет в новом анализе"};
+  var confOk=function(c){return S.conf==="all"||(S.conf==="prelim")===Boolean(c.preliminary)};
+  var shown=function(){return D.elements.filter(function(c){return!S.hidden.has(c.scheme_group)&&!S.sec.has(c.source_section||"")&&confOk(c)&&(S.work==="all"||String(c.work||"")===S.work)&&(S.status==="all"||c.status===S.status)&&levelOk(c)})};
   var match=function(c){var q=S.q.trim().toLowerCase();return!q||[c.mark,c.mark_name,c.type_name,c.axisX,c.axisY].join(" ").toLowerCase().indexOf(q)>=0};
   function draw3d(){
    var els=shown();
@@ -129,6 +134,12 @@
    box.innerHTML=D.groups.map(function(g){return'<label><input type="checkbox" data-g="'+esc(g.key)+'"'+(S.hidden.has(g.key)?"":" checked")+'> '+esc(g.label)+'<small>'+g.count+'</small></label>'}).join("");
    box.querySelectorAll("[data-g]").forEach(function(i){i.onchange=function(){if(i.checked)S.hidden.delete(i.dataset.g);else S.hidden.add(i.dataset.g);draw3d();list()}})
   }
+  function sections(){
+   var box=$("sections");if(!box)return;var m=new Map();
+   D.elements.forEach(function(c){var k=c.source_section||"";m.set(k,(m.get(k)||0)+1)});
+   box.innerHTML=[...m].map(function(e){return'<label><input type="checkbox" data-sec="'+esc(e[0])+'"'+(S.sec.has(e[0])?"":" checked")+'> '+esc(e[0]||"Без раздела")+'<small>'+e[1]+'</small></label>'}).join("");
+   box.querySelectorAll("[data-sec]").forEach(function(i){i.onchange=function(){if(i.checked)S.sec.delete(i.dataset.sec);else S.sec.add(i.dataset.sec);draw3d();list()}})
+  }
   function list(){
    var found=shown().filter(match).sort(function(a,b){return String(a.mark).localeCompare(String(b.mark),"ru",{numeric:true})});
    $("found").textContent="Найдено: "+found.length;
@@ -141,7 +152,10 @@
    box.hidden=!c;if(!c){box.innerHTML="";return}
    var p=c.progress,a=c.axisText,cls=c.status==="mounted"?"ok":c.status==="partial"?"partial":"wait";
    box.innerHTML='<button type="button" class="side-close" id="uncard" aria-label="Закрыть карточку">✕</button><h3>Выбранный элемент</h3>'+(c.draft?'<div class="warn">Черновое размещение из чертежей — координаты и отметки требуют проверки'+(c.draft_doc?" · "+esc(c.draft_doc):"")+'</div>':"")+
-    '<div class="det-title"><b>'+esc(c.mark||"—")+'</b>'+(c.mark_name?'<small>'+esc(c.mark_name)+'</small>':"")+'</div><div class="grid">'+
+    '<div class="det-title"><b>'+esc(c.mark||"—")+'</b>'+(c.mark_name?'<small>'+esc(c.mark_name)+'</small>':"")+'</div>'+
+    (instText[c.instance_status]?'<div class="'+(c.preliminary?"warn":"inst")+'">По чертежам: '+esc(instText[c.instance_status])+(c.preliminary?" · предварительно":"")+(c.source_section?" · раздел "+esc(c.source_section):"")+
+     (c.instance_reasons||[]).map(function(r){return'<br>• '+esc(r)}).join("")+'</div>':"")+
+    (c.param_sources?'<details class="from"><summary>Откуда данные</summary>'+[["Положение","position"],["Отметки","levels"],["Профиль","profile"],["Габарит","size"],["Другой профиль","profile_other"]].filter(function(r){return c.param_sources[r[1]]}).map(function(r){return'<div>'+esc(r[0])+': '+esc(c.param_sources[r[1]])+'</div>'}).join("")+'</details>':"")+'<div class="grid">'+
     [["Тип элемента",c.type_name],["Сечение",c.section],["Профиль",c.profile],[p&&p.total>0?"Статус по ведомости":"Статус",'<span class="'+cls+'">'+esc(statusText[c.status]||c.status)+'</span>',1],
      ["Ось "+D.axesX[0]+"–"+D.axesX[D.axesX.length-1],a.x],["Ось "+D.axesY[0]+"–"+D.axesY[D.axesY.length-1],a.y],["Коорд. X",fmt(c.x)+" мм"],["Коорд. Y",fmt(c.y)+" мм"],
      ["Низ",fmt(c.z0)+" мм"],["Верх / конец Z",fmt(c.z2)+" мм"]].concat(c.geometryType!=="column"&&c.geometryType!=="shell"&&c.geometryType!=="plate"?[["Конец X",fmt(c.x2)+" мм"],["Конец Y",fmt(c.y2)+" мм"]]:[])
@@ -150,6 +164,7 @@
    $("uncard").onclick=function(){S.sel="";details();list();draw3d()}
   }
   $("status").onchange=function(e){S.status=e.target.value;draw3d();list()};
+  if($("conf"))$("conf").onchange=function(e){S.conf=e.target.value;draw3d();list()};
   // All the work types together, or one of them, as in the program.
   if($("work"))$("work").onchange=function(e){S.work=e.target.value;S.sel="";details();draw3d();list()};
   $("lmin").oninput=function(e){S.min=e.target.value;draw3d();list()};
@@ -166,7 +181,7 @@
   // Escape closes the card first, then the panel.
   document.addEventListener("keydown",function(e){if(e.key!=="Escape")return;if(S.sel){S.sel="";details();list();draw3d()}else if($("wrap").classList.contains("open"))panel(false)});
   $("full").onclick=function(){var st=$("stage");if(document.fullscreenElement)document.exitFullscreen();else if(st.requestFullscreen)st.requestFullscreen()};
-  groups();list();details();draw3d()
+  groups();sections();list();details();draw3d()
  }
 
  // What the page shows where its scripts do not run (files, mail and messengers on the iPhone and iPad open an HTML file
@@ -179,7 +194,7 @@
   var label=function(k){var g=(d.groups||[]).find(function(x){return x.key===k});return g?g.label:k||"Без вида"};
   var rows=function(list){return list.slice().sort(function(a,b){return String(a.mark).localeCompare(String(b.mark),"ru",{numeric:true})||a.z0-b.z0}).map(function(c){
    var a=c.axisText||{},s=c.status==="mounted"?"mounted":c.status==="partial"?"partial":"planned";
-   return'<tr><td><b>'+esc(c.mark||"—")+'</b></td><td>'+esc(c.title||c.type_name||"")+'<small>'+esc(c.profile||"")+'</small></td><td>'+esc([a.x,a.y].filter(Boolean).join(" / "))+'</td><td>'+num(c.z0)+'</td><td>'+num(c.z2)+'</td><td><i class="st '+s+'"></i>'+st[s]+'</td></tr>'}).join("")};
+   return'<tr><td><b>'+esc(c.mark||"—")+'</b></td><td>'+esc(c.title||c.type_name||"")+'<small>'+esc(c.profile||"")+'</small></td><td>'+esc([a.x,a.y].filter(Boolean).join(" / "))+'</td><td>'+num(c.z0)+'</td><td>'+num(c.z2)+'</td><td><i class="st '+s+'"></i>'+st[s]+(c.preliminary?'<small>предварительно</small>':"")+'</td></tr>'}).join("")};
   var shots=(d.shots||[]).map(function(p){return'<figure><img src="'+esc(p.src)+'" alt="'+esc(p.title)+'"><figcaption>'+esc(p.title)+'</figcaption></figure>'}).join("");
   var groups=[].concat.apply([],[...byGroup.keys()].sort(function(a,b){return byGroup.get(b).length-byGroup.get(a).length}).map(function(k){
    var list=byGroup.get(k),m=list.filter(function(c){return c.status==="mounted"}).length;
@@ -209,7 +224,8 @@
    '<button type="button" id="full">⛶ На весь экран</button><button type="button" id="panel" aria-expanded="false" aria-controls="side">☰ Сведения и фильтры</button></div><div id="stage3d"></div>'+still(d)+'</section>'+
    '<div class="box card" id="details" hidden></div>'+
    '<aside class="side" id="side"><div class="box"><button type="button" class="side-close" id="close" aria-label="Свернуть панель">✕</button><h3>Сводка</h3>'+sum+'</div><div class="box"><h3>Виды конструкций</h3><div class="groups" id="groups"></div><div class="groups-actions"><button type="button" id="all">Показать все</button><button type="button" id="none">Скрыть все</button></div></div>'+
-   '<div class="box"><h3>Фильтр</h3>'+((d.works||[]).length>1?'<label class="f">Вид работ<select id="work"><option value="all">Все виды работ вместе</option>'+d.works.map(function(w){return'<option value="'+esc(w.id)+'">'+esc(w.label)+' · '+w.count+'</option>'}).join("")+'</select></label>':'')+'<label class="f">Статус<select id="status"><option value="all">Все</option><option value="mounted">Смонтированы</option><option value="partial">Частично</option><option value="planned">Не смонтированы</option></select></label>'+
+   '<div class="box"><h3>Фильтр</h3>'+((d.works||[]).length>1?'<label class="f">Вид работ<select id="work"><option value="all">Все виды работ вместе</option>'+d.works.map(function(w){return'<option value="'+esc(w.id)+'">'+esc(w.label)+' · '+w.count+'</option>'}).join("")+'</select></label>':'')+((d.elements||[]).some(function(c){return c.preliminary})?'<label class="f" title="Предварительно — экземпляры, определённые по чертежам не полностью; показаны бледно">Достоверность<select id="conf"><option value="all">Все</option><option value="sure">Определены полностью</option><option value="prelim">Только предварительные</option></select></label>':'')+
+   (new Set((d.elements||[]).map(function(c){return c.source_section||""})).size>1?'<div class="f">Разделы чертежей<div class="groups" id="sections"></div></div>':'')+'<label class="f">Статус<select id="status"><option value="all">Все</option><option value="mounted">Смонтированы</option><option value="partial">Частично</option><option value="planned">Не смонтированы</option></select></label>'+
    '<div class="row2"><label class="f">Отметка от, мм<input id="lmin" type="number" inputmode="numeric"></label><label class="f">до, мм<input id="lmax" type="number" inputmode="numeric"></label></div><div class="empty">На экране: <b id="cnt"></b></div></div>'+
    '<div class="box"><h3>Элементы</h3><input id="q" type="search" placeholder="Марка, наименование, ось" autocomplete="off"><div class="empty" id="found"></div><div class="list" id="list"></div></div>'+
    '<div class="empty foot">Выгружено из IR Project — только просмотр. Вращение — левая кнопка мыши, сдвиг — правая, масштаб — колесо; щелчок по элементу — его карточка.</div></aside></div></main>';

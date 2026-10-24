@@ -51,6 +51,12 @@ window.irThreeSchemeView=(function(){
  // Every group of the catalog of structure types has its colour and name in the legend.
  (window.irStructureTypes?.GROUPS||[]).forEach(function(g){if(!groups[g.key])groups[g.key]=[g.label,g.color]});
  var statusColors={mounted:[0x159b65,"Смонтировано"],partial:[0xe09b00,"Частично"],planned:[0xc47a7a,"Не смонтировано"]};
+ // How fully the reading of the drawings determined an element (src/ai-montage.js). The preliminary ones (not confirmed
+ // or computed) are drawn pale in every colouring: placed all the same, to be edited by the engineer.
+ var instanceColors={confirmed:[0x159b65,"Подтверждено"],computed:[0x2f6fd6,"Вычислено"],partial:[0xe09b00,"Частично"],ambiguous:[0x8b40de,"Неоднозначно"],
+  conflict:[0xd03a2f,"Конфликт данных"],not_found:[0x7a8796,"Нет в новом анализе"],none:[0x586e84,"Без оценки"]};
+ function instanceKey(c){return instanceColors[c.instance_status]&&c.instance_status!=="none"?c.instance_status:"none"}
+ var COLOR_MODES=["status","type","mark","confidence"];
  var backgrounds={standard:0xdfe8f3,white:0xffffff,gray:0xd9dde2,blue:0xd6e6f6,sand:0xefe6d6,dark:0x1d2733};
  var kindNames={column:"колонна",beam:"балка",bent:"ломаная балка",brace:"связь",truss:"ферма",shell:"стенка резервуара",plate:"днище / площадка"};
  function kind(member){
@@ -384,7 +390,7 @@ window.irThreeSchemeView=(function(){
   var spanX=number(P.spanX),spanY=number(P.spanY),X=spanX/1000,Y=spanY/1000;
   var axesX=P.axesX||[],axesY=P.axesY||[],gridX=P.gridX||{},gridY=P.gridY||{};
   var dirX=P.gridDirX==="rtl"?"rtl":"ltr",dirY=P.gridDirY==="ttb"?"ttb":"btt";
-  var elems=[],selected=String(P.selected||""),colorMode=["status","type","mark"].includes(P.colorMode)?P.colorMode:"type";
+  var elems=[],selected=String(P.selected||""),colorMode=COLOR_MODES.indexOf(P.colorMode)>=0?P.colorMode:"type";
   var showGrid=true,showAxes=true,hover="",alive=true,raf=0,firstPaint=false,copySource="",copyBusy=false,placing=null;
   var memoryKey=String(P.objectId||"")+"|"+key;
   // Drawing millimetres (X right, Y up the grid) ↔ world metres (x, height, z towards the viewer).
@@ -407,7 +413,7 @@ window.irThreeSchemeView=(function(){
    '<button data-three-view="front">Фасад</button><button data-three-view="side">Сбоку</button></div>'+
    '<button id="irThreeReset" title="Вернуть исходный ракурс">⟲ Ракурс</button>'+
    '<select id="irThreeColors" data-native-select="1" aria-label="Раскраска конструкции">'+
-   '<option value="type">Цвет: виды</option><option value="status">Цвет: монтаж</option><option value="mark">Цвет: марки</option></select>'+
+   '<option value="type">Цвет: виды</option><option value="status">Цвет: монтаж</option><option value="mark">Цвет: марки</option><option value="confidence">Цвет: достоверность</option></select>'+
    '<label class="ir-three-check"><input type="checkbox" id="irThreeGrid" checked> Сетка</label>'+
    '<label class="ir-three-check"><input type="checkbox" id="irThreeAxes" checked> Оси</label>'+
    '<select id="irThreeNodes" data-native-select="1" aria-label="Узлы" title="Маркеры узлов: опоры колонн, оголовки, концы балок"><option value="sel">Узлы: у выбранного</option><option value="all">Узлы: все</option><option value="open">Узлы: не готовые</option><option value="off">Узлы: скрыть</option></select>'+
@@ -505,26 +511,29 @@ window.irThreeSchemeView=(function(){
   var zAxis=new T.Vector3(0,0,1),failures=0,conventional=new Set();
   function baseColor(c){
    if(colorMode==="status")return(statusColors[c.status]||statusColors.planned)[0];
+   if(colorMode==="confidence")return instanceColors[instanceKey(c)][0];
    if(colorMode==="mark")return hsvMark(T,c.mark||c.mark_name||c.id);
    return(groups[kind(c)]||groups.other)[1]
   }
+  function pale(c){return Boolean(c&&c.preliminary===true)}
   function baseMaterial(c){
-   var color=baseColor(c);
-   if(!mats.has(color))mats.set(color,new T.MeshStandardMaterial({color:color,metalness:.13,roughness:.64,side:T.DoubleSide}));
-   return mats.get(color)
+   var color=baseColor(c),key=pale(c)?"p"+color:color;
+   if(!mats.has(key))mats.set(key,pale(c)?new T.MeshStandardMaterial({color:color,metalness:.05,roughness:.8,side:T.DoubleSide,transparent:true,opacity:.36,depthWrite:false}):
+    new T.MeshStandardMaterial({color:color,metalness:.13,roughness:.64,side:T.DoubleSide}));
+   return mats.get(key)
   }
   var shellMats=new Map();
   function shellMaterial(c){
-   var color=baseColor(c);
-   if(!shellMats.has(color))shellMats.set(color,new T.MeshStandardMaterial({color:color,metalness:.1,roughness:.7,side:T.DoubleSide,transparent:true,opacity:.42,depthWrite:false}));
-   return shellMats.get(color)
+   var color=baseColor(c),key=pale(c)?"p"+color:color;
+   if(!shellMats.has(key))shellMats.set(key,new T.MeshStandardMaterial({color:color,metalness:.1,roughness:.7,side:T.DoubleSide,transparent:true,opacity:pale(c)?.2:.42,depthWrite:false}));
+   return shellMats.get(key)
   }
   // A roof shield is nearly solid: a see-through roof over a see-through wall was not seen at all.
   var roofMats=new Map();
   function roofMaterial(c){
-   var color=baseColor(c);
-   if(!roofMats.has(color))roofMats.set(color,new T.MeshStandardMaterial({color:color,metalness:.12,roughness:.6,side:T.DoubleSide,transparent:true,opacity:.82}));
-   return roofMats.get(color)
+   var color=baseColor(c),key=pale(c)?"p"+color:color;
+   if(!roofMats.has(key))roofMats.set(key,new T.MeshStandardMaterial({color:color,metalness:.12,roughness:.6,side:T.DoubleSide,transparent:true,opacity:pale(c)?.36:.82,depthWrite:!pale(c)}));
+   return roofMats.get(key)
   }
   // Joints of the sheets drawn on a wall course or a bottom (c.lay from the reading: sheet length, height, the shift
   // of the vertical joints of a course; sheet width and length of the bottom rows) and, in the layer of welds, the welds
@@ -845,15 +854,26 @@ window.irThreeSchemeView=(function(){
      labelLayer.appendChild(we);labels.push({el:we,pos:wl,id:id});
      return
     }
-    // A round plate: a tank bottom (a disc) or a ring platform (an annulus) lying flat at its level.
+    // A round plate: a tank bottom (a disc) or a ring platform (an annulus) lying flat at its level. A plate of an
+    // annular ring (sector_deg) is its sector, with its two radial joints; a conical bottom rises to its centre by
+    // cone_rise_mm (falls when negative: «уклон к центру»).
     if(c.geometryType==="plate"&&number(c.r)>0){
      if(c.lay)drawJoints(c,id,false);
-     var ro=number(c.r)/1000,ri=Math.max(0,Math.min(number(c.ri)/1000,ro-.05));
-     var plate=new T.Mesh(ri>0?new T.RingGeometry(ri,ro,96,1):new T.CircleGeometry(ro,96),shellMaterial(c));
+     var ro=number(c.r)/1000,ri=Math.max(0,Math.min(number(c.ri)/1000,ro-.05)),rise=number(c.cr)/1000;
+     var ps=number(c.sw)>0&&number(c.sw)<360,p0=0,pw=2*Math.PI;
+     if(ps){var pa=planTheta(number(c.sa)),pb=planTheta(number(c.sa)+number(c.sw));pw=((pb-pa)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);p0=pa;
+      if(pw>Math.PI&&number(c.sw)<180){p0=pb;pw=2*Math.PI-pw}}
+     // The ring lies in the plane of its geometry: its angle φ there is the plan angle θ less a quarter turn.
+     var pg=ri>0||ps?new T.RingGeometry(ri,ro,ps?Math.max(4,Math.ceil(96*pw/(2*Math.PI))):96,rise?8:1,p0-Math.PI/2,pw):new T.CircleGeometry(ro,96);
+     if(rise){var pp=pg.attributes.position;for(var q=0;q<pp.count;q++){var d=Math.hypot(pp.getX(q),pp.getY(q));pp.setZ(q,rise*(1-d/ro))}pp.needsUpdate=true;pg.computeVertexNormals()}
+     var plate=new T.Mesh(pg,shellMaterial(c));
      plate.rotation.x=-Math.PI/2;plate.position.copy(p[0]);plate.position.y+=.005;
      plate.userData.memberId=id;plate.userData.shell=true;steel.add(plate);allMeshes.push(plate);
      if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(plate);
-     var pl=p[0].clone();pl.x+=ri>0?(ri+ro)/2:0;pl.y+=.35;
+     if(ps)[p0,p0+pw].forEach(function(t){var a=p[0].clone().add(new T.Vector3(Math.sin(t)*Math.max(ri,.01),.006,Math.cos(t)*Math.max(ri,.01))),b=p[0].clone().add(new T.Vector3(Math.sin(t)*ro,.006,Math.cos(t)*ro));
+      var v=b.clone().sub(a),m=new T.Mesh(barGeo(.02),jointMat);m.position.copy(a);m.scale.z=v.length();m.quaternion.setFromUnitVectors(zAxis,v.normalize());
+      m.userData.memberId=id;steel.add(m);allMeshes.push(m);meshesById.get(id).push(m)});
+     var pl=p[0].clone(),pm=p0+pw/2;if(ps){pl.x+=Math.sin(pm)*(ri+ro)/2;pl.z+=Math.cos(pm)*(ri+ro)/2}else pl.x+=ri>0?(ri+ro)/2:0;pl.y+=.35+(ri>0||ps?0:Math.max(0,rise));
      var pe=document.createElement("span");pe.className="ir-three-member-label";pe.textContent=c.mark||c.title||"";
      labelLayer.appendChild(pe);labels.push({el:pe,pos:pl,id:id});
      return
@@ -1393,6 +1413,22 @@ window.irThreeSchemeView=(function(){
     labelLayer.appendChild(de);labels.push({el:de,pos:dl,id:id});
     return
    }
+   // A field of sandwich panels (АР): a wall one stands on its lower edge to its height, a roof one lies on the slope at
+   // its width; a trim (нащельник, планка) — a thin bent strip of two shelves along its line.
+   if(c.ft==="panel"||c.ft==="trim"){
+    var up=new T.Vector3(0,1,0),xv=new T.Vector3().crossVectors(up,dir);if(xv.lengthSq()<1e-6)xv.set(1,0,0);xv.normalize();
+    var yv=new T.Vector3().crossVectors(dir,xv).normalize(),q=new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(xv,yv,dir));
+    var pm=[],put=function(geo,off){var m=new T.Mesh(geo,baseMaterial(c));m.quaternion.copy(q);m.position.copy(start).add(end).multiplyScalar(.5).add(off.applyQuaternion(q));pm.push(m)};
+    var pt=Math.max(.04,(number(c.lay&&c.lay.thickness_mm)||120)/1000),pw=Math.max(.3,(number(c.fd)||1000)/1000);
+    if(c.ft==="panel"&&c.lay&&c.lay.panel==="wall")put(new T.BoxGeometry(pt,pw,len),new T.Vector3(0,pw/2,0).applyQuaternion(q.clone().invert()));
+    else if(c.ft==="panel")put(new T.BoxGeometry(pw,pt,len),new T.Vector3(0,pt/2,0));
+    else{var leg=Math.max(.04,Math.min(.4,(number(c.fd)||100)/1000));put(new T.BoxGeometry(leg,.008,len),new T.Vector3(leg/2,0,0));put(new T.BoxGeometry(.008,leg,len),new T.Vector3(0,leg/2,0))}
+    pm.forEach(function(mesh){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh)});
+    var pl=start.clone().add(end).multiplyScalar(.5);pl.y+=c.ft==="panel"&&c.lay&&c.lay.panel==="wall"?pw+.3:.3;
+    var pe=document.createElement("span");pe.className="ir-three-member-label";pe.textContent=c.mark||c.title||"";
+    labelLayer.appendChild(pe);labels.push({el:pe,pos:pl,id:id});
+    return
+   }
    var r=Math.max(.02,(number(c.fd)||159)/2000),type=c.ft,parts=[];
    var along=function(geo,at,lenZ){
     // geo is built along +Z from 0 to 1 (or centred when lenZ is 0): turned onto the fitting's axis at `at`.
@@ -1541,22 +1577,24 @@ window.irThreeSchemeView=(function(){
   function legendRows(){
    var counts=new Map(),rows=[];
    elems.forEach(function(c){
-    var k=colorMode==="status"?(statusColors[c.status]?c.status:"planned"):colorMode==="mark"?String(c.mark||"Без марки"):kind(c);
+    var k=colorMode==="status"?(statusColors[c.status]?c.status:"planned"):colorMode==="confidence"?instanceKey(c):colorMode==="mark"?String(c.mark||"Без марки"):kind(c);
     counts.set(k,(counts.get(k)||0)+1)
    });
    counts.forEach(function(n,k){
-    var color=colorMode==="status"?statusColors[k][0]:colorMode==="mark"?hsvMark(T,k):(groups[k]||groups.other)[1];
-    var name=colorMode==="status"?statusColors[k][1]:colorMode==="mark"?k:(groups[k]||groups.other)[0];
+    var color=colorMode==="status"?statusColors[k][0]:colorMode==="confidence"?instanceColors[k][0]:colorMode==="mark"?hsvMark(T,k):(groups[k]||groups.other)[1];
+    var name=colorMode==="status"?statusColors[k][1]:colorMode==="confidence"?instanceColors[k][1]:colorMode==="mark"?k:(groups[k]||groups.other)[0];
     rows.push({name:name,n:n,color:color})
    });
    rows.sort(function(a,b){return b.n-a.n||a.name.localeCompare(b.name,"ru",{numeric:true})});
    return rows
   }
+  function prelimCount(){var n=0;elems.forEach(function(c){if(pale(c))n++});return n}
   function paintLegend(){
    var rows=legendRows(),shown=rows.slice(0,colorMode==="mark"?12:20);
    legend.innerHTML=shown.map(function(r){
     return '<span><i style="background:#'+r.color.toString(16).padStart(6,"0")+'"></i>'+escapeHtml(r.name)+' <small>'+r.n+'</small></span>'
    }).join("")+(rows.length>shown.length?'<span class="more">ещё '+(rows.length-shown.length)+'</span>':"")+
+    (prelimCount()?'<span title="Экземпляры, определённые по чертежам не полностью: расставлены и показаны бледно. Причина — в карточке элемента."><i style="background:#c9d3dd;opacity:.6;outline:1px dashed #6f7f8f"></i>Предварительно <small>'+prelimCount()+'</small></span>':"")+
     (cranes.length&&showDetails?'<span data-crane style="cursor:pointer;font-weight:700" title="Краны и тали нарисованы условно (в КМ их нет): по рельсам и подкрановым путям. Щелчок — показать следующий"><i style="background:#ff6a00"></i>Краны (условно) <small>'+cranes.length+'</small></span>':"");
    legend.hidden=!rows.length&&!(cranes.length&&showDetails)
   }
@@ -2000,7 +2038,7 @@ window.irThreeSchemeView=(function(){
    // The page opened again over the built model waits for its own first picture (its loading screen stayed forever:
    // the model was drawn behind it, but only the first opening was told so).
    firstPaint=false;
-   if(["status","type","mark"].includes(P.colorMode)&&P.colorMode!==colorMode){colorMode=P.colorMode;root.querySelector("#irThreeColors").value=colorMode}
+   if(COLOR_MODES.indexOf(P.colorMode)>=0&&P.colorMode!==colorMode){colorMode=P.colorMode;root.querySelector("#irThreeColors").value=colorMode}
    selected=String(P.selected||"");
    var sig=signature(P.elements);
    if(sig!==built){built=sig;buildMembers(P.elements);buildCranes();buildNodes();lowerGround();refreshMaterials()}

@@ -74,6 +74,9 @@ if(require.main===module)(async()=>{
   assert.deepEqual(scheme.spansX,[6000,6000],"spans come from dimension texts");
   assert.deepEqual(scheme.spansY,[6000,4500]);
   assert.equal(scheme.sizeX,12000);assert.equal(scheme.sizeY,10500);
+  // The journal of the sheet: spans as drawn by the scale against the spans written.
+  assert.equal(scheme.calibration.spans,4);assert(scheme.calibration.max_pct<1,JSON.stringify(scheme.calibration));
+  assert(draft.pages[0].ms>=0,"time of the sheet");
   const by=mark=>scheme.placements.find(p=>p.mark===mark);
   assert.deepEqual([by("K1").x_mm,by("K1").y_mm,by("K1").geometry_type,by("K1").confidence],[0,0,"column","high"]);
   assert.deepEqual([by("K7").x_mm,by("K7").y_mm,by("K7").axis_x,by("K7").axis_y],[12000,6000,"3","B"]);

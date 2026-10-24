@@ -1044,6 +1044,87 @@
    "publisher": "МеталлоСклад-Т",
    "license": "только виды и размеры; цены не переносятся",
    "accessed": "2026-10-24"
+  },
+  {
+   "id": "sarrz-prikaz-780",
+   "title": "Руководство по безопасности вертикальных цилиндрических стальных резервуаров (приказ Ростехнадзора № 780) — изложение раздела 3 на сайте САРРЗ",
+   "kind": "справочное изложение нормы изготовителем резервуаров",
+   "url": "https://sarrz.ru/proektirovschiku/spravochnaya_informatsiya__gost_snipyi_pb/prikaz_780/raschet_rezervuarov.html",
+   "publisher": "ООО «САРРЗ»",
+   "license": "ссылка; текст нормы не копируется",
+   "accessed": "2026-10-24"
+  },
+  {
+   "id": "sarrz-sto-0048-2005",
+   "title": "СТО 0048-2005 (ЦНИИПСК) «Резервуары вертикальные цилиндрические стальные…», раздел 5.3 «Днище» — изложение на сайте САРРЗ",
+   "kind": "справочное изложение стандарта организации",
+   "url": "https://sarrz.ru/proektirovschiku/spravochnaya_informatsiya__gost_snipyi_pb/pravila_proektirovanija_rvs/konstruktivnye_reshenija_elementov_rvs.html",
+   "publisher": "ООО «САРРЗ»",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-24"
+  },
+  {
+   "id": "sarrz-sto-sa-03-002-2009",
+   "title": "СТО-СА-03-002-2009 «Правила проектирования, изготовления и монтажа вертикальных цилиндрических стальных резервуаров…», раздел 8 — изложение на сайте САРРЗ",
+   "kind": "справочное изложение стандарта организации",
+   "url": "https://sarrz.ru/proektirovschiku/spravochnaya_informatsiya__gost_snipyi_pb/proektirovanie_vertikalnyh_rezervuarov/konstrukcii_rvs.html",
+   "publisher": "ООО «САРРЗ»",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-24"
+  },
+  {
+   "id": "dnaop-vsn-311-89",
+   "title": "ВСН 311-89 «Монтаж стальных вертикальных цилиндрических резервуаров для хранения нефти и нефтепродуктов объёмом от 100 до 50 000 м³» (текст, стр. 1–5)",
+   "kind": "текст ведомственных норм",
+   "url": "https://dnaop.com/html/41658_2.html",
+   "publisher": "dnaop.com",
+   "license": "ссылка; текст норм не копируется",
+   "accessed": "2026-10-24"
+  },
+  {
+   "id": "mashteh-bottom-93",
+   "title": "Днище типовых резервуаров — справочная страница",
+   "kind": "справочная статья",
+   "url": "https://mashteh.ru/tehpage_93.html",
+   "publisher": "mashteh.ru",
+   "license": "ссылка",
+   "accessed": "2026-10-24"
+  },
+  {
+   "id": "sespel-rvs",
+   "title": "Резервуары вертикальные стальные РВС, РВСП, РВСПК — страница изготовителя (ссылка инженера 24.10.2026)",
+   "kind": "страница изготовителя",
+   "url": "https://www.sespel.su/production/capacities/petroleum/steel_container",
+   "publisher": "«Сеспель»",
+   "license": "ссылка",
+   "accessed": "2026-10-24"
+  },
+  {
+   "id": "vgasu-2026-rolling",
+   "title": "Абрамян С. Г., Бурлаченко О. В., Уваров К. Р. Технология рулонирования вертикальных стальных резервуаров: обзор — Вестник ВолгГАСУ, 2026, вып. 1(102), с. 152–162",
+   "kind": "научная статья",
+   "url": "https://vgasu.ru/upload/052026/14_102_26.pdf",
+   "publisher": "ВолгГТУ",
+   "license": "ссылка",
+   "accessed": "2026-10-24"
+  },
+  {
+   "id": "paton-2009-rolled",
+   "title": "История и развитие рулонирования резервуарных конструкций — «Автоматическая сварка», 2009, № 2",
+   "kind": "научная статья",
+   "url": "https://patonpublishinghouse.com/as/pdf/2009/pdfarticles/02/8.pdf",
+   "publisher": "ИЭС им. Е. О. Патона",
+   "license": "ссылка",
+   "accessed": "2026-10-24"
+  },
+  {
+   "id": "sarrz-heads",
+   "title": "Изготовление днищ горизонтальных ёмкостей — блог директора САРРЗ",
+   "kind": "справочная статья изготовителя",
+   "url": "https://sarrz.ru/blog_direktora/dnischa_gorizontalnyh_emkostej.html",
+   "publisher": "ООО «САРРЗ»",
+   "license": "ссылка",
+   "accessed": "2026-10-24"
   }
  ]
 }

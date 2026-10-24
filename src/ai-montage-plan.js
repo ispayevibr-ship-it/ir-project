@@ -8,7 +8,7 @@ const {markCode}=require("./ai-kmd-rules");
 const ST=require("./ai-structure-types");
 // Groups of the montage scheme: the catalog of structure types (src/ai-structure-types.js).
 const GROUPS=Object.fromEntries(ST.GROUPS.map(g=>[g.key,g.label]));
-const FITTING_TYPE={deck:"platform",weld:"weld",bolt:"bolt",manhole:"manhole",hatch:"roof_hatch",valve:"valve",foam:"foam",sensor:"instrument",rod:"lightning",nozzle:"nozzle",ring:"tank_ring",railing:"railing",flight:"stair_flight",ladder:"ladder"};
+const FITTING_TYPE={deck:"platform",weld:"weld",bolt:"bolt",manhole:"manhole",hatch:"roof_hatch",valve:"valve",foam:"foam",sensor:"instrument",rod:"lightning",nozzle:"nozzle",ring:"tank_ring",railing:"railing",flight:"stair_flight",ladder:"ladder",panel:"sandwich",trim:"trim"};
 // What an element is: the engineer's word on this exact mark of this set; the kind the reading gave (a fitting, a
 // tank part); the words of its name from the set's own schedule and sheets; only then what was learned of marks
 // elsewhere and the letters of the mark (ГОСТ 26047) — a mark means different things in different sets. A type whose
@@ -243,7 +243,10 @@ function buildCatalog(draft,ai=null){
    // A single level on a member's view is the level of that member.
    if(v.levels?.length===1&&e.view_level_mm===undefined)e.view_level_mm=v.levels[0];
    // A column's length is the distance between its levels; otherwise the largest dimension of the view.
-   if(e.length_mm===null)e.length_mm=v.z1_mm!==null&&v.z0_mm!==null&&v.z1_mm>v.z0_mm?v.z1_mm-v.z0_mm:v.length_mm;
+   if(e.length_mm===null){e.length_mm=v.z1_mm!==null&&v.z0_mm!==null&&v.z1_mm>v.z0_mm?v.z1_mm-v.z0_mm:v.length_mm;
+    if(e.length_mm!==null&&e.length_mm!==undefined)e.lengthFrom=where(p)+" · вид «"+v.title+"»"+(v.z1_mm>v.z0_mm?" (между отметками)":v.length_how?" ("+v.length_how+")":"");
+    // No overall dimension drawn: the largest number of the view, the others kept — the size is ambiguous.
+    if(!(v.z1_mm>v.z0_mm)&&v.length_candidates?.length>1)e.length_ambiguous=v.length_candidates.slice(0,4)}
    e.sources.push(where(p)+" · вид «"+v.title+"»")
   }
   // Geometric scheme of a truss: its lattice, for drawing it as a truss and seating it on its supports.
@@ -256,9 +259,13 @@ function buildCatalog(draft,ai=null){
   // A two-branch column: branches, lattice and upper part, as its sheet draws them.
   for(const c of p.columnDetails||[]){const e=entry(c.mark);if(!e.column_detail){e.column_detail={...c,source:where(p)};e.sources.push(where(p)+" · двухветвевая колонна")}}
   for(const r of sheet.required||[]){const e=entry(r.mark);if(e.count===null)e.count=r.count;if(e.mass_kg===null&&r.mass_kg)e.mass_kg=r.mass_kg;e.sources.push(where(p)+" · «Требуется»")}
-  for(const r of sheet.elements||[]){const e=entry(r.mark);if(!e.profile&&r.profile){e.profile=r.profile;if(r.profile_standard)e.profile_standard=r.profile_standard}if(!e.steel&&r.steel)e.steel=r.steel;e.sources.push(where(p)+" · ведомость элементов")}
+  for(const r of sheet.elements||[]){const e=entry(r.mark);if(!e.profile&&r.profile){e.profile=r.profile;e.profileFrom=where(p)+" · ведомость элементов";if(r.profile_standard)e.profile_standard=r.profile_standard}if(!e.steel&&r.steel)e.steel=r.steel;e.sources.push(where(p)+" · ведомость элементов")}
   // Specification of an assembly drawing: the main profile and the mass of the mark.
-  for(const r of sheet.spec||[]){const e=entry(r.mark);if(!e.profile&&r.profile){e.profile=r.profile;if(r.profile_standard)e.profile_standard=r.profile_standard}if(e.mass_kg===null&&r.mass_kg)e.mass_kg=r.mass_kg;e.sources.push(where(p)+" · спецификация")}
+  // The profile of a shipping mark is the assembly sheet's (rules of 24.10.2026: each parameter from the section where it
+  // is the main one): its specification takes the place of a list read before, the other reading is kept beside.
+  for(const r of sheet.spec||[]){const e=entry(r.mark);
+   if(r.profile&&e.profile&&e.profile!==r.profile&&/ведомость элементов/.test(e.profileFrom||"")&&p.docType==="КМД сборочные"){e.profile_other={value:e.profile,from:e.profileFrom};e.profile="";delete e.profile_standard}
+   if(!e.profile&&r.profile){e.profile=r.profile;e.profileFrom=where(p)+" · спецификация";if(r.profile_standard)e.profile_standard=r.profile_standard}if(e.mass_kg===null&&r.mass_kg)e.mass_kg=r.mass_kg;e.sources.push(where(p)+" · спецификация")}
  }
  // Sections of the mounting drawings: the most frequent reading of each mark wins.
  const votes=new Map();
@@ -291,8 +298,8 @@ function buildCatalog(draft,ai=null){
  for(const m of ai?.marks||[]){
   if(!m?.mark)continue;
   scope=m.doc==="КМ"?"КМ":"КМД";const e=entry(m.mark);
-  if(!e.profile&&m.profile)e.profile=m.profile;
-  if(e.length_mm===null&&m.length_mm>0)e.length_mm=m.length_mm;
+  if(!e.profile&&m.profile){e.profile=m.profile;e.profileFrom="Claude"+(m.sheet?" · "+m.sheet:"")}
+  if(e.length_mm===null&&m.length_mm>0){e.length_mm=m.length_mm;e.lengthFrom="Claude"+(m.sheet?" · "+m.sheet:"")}
   if(e.count===null&&m.count>0)e.count=m.count;
   if(e.mass_kg===null&&m.mass_kg>0)e.mass_kg=m.mass_kg;
   if(e.z0_mm===null&&m.has_levels&&m.z1_mm>m.z0_mm){e.z0_mm=m.z0_mm;e.z1_mm=m.z1_mm;e.levelsFrom="Claude"}
@@ -352,7 +359,10 @@ function claudeTankPageOf(ai,t){
   ...(t.roof_sectors>0||t.central_ring_outer_mm>0?{roof:{sectors:t.roof_sectors>0?Number(t.roof_sectors):null,kinds:Array.isArray(t.roof_shield_kinds)?t.roof_shield_kinds:[],
    ring:t.central_ring_outer_mm>0?{outer:Number(t.central_ring_outer_mm),inner:t.central_ring_inner_mm>0?Number(t.central_ring_inner_mm):null}:null,...(t.central_ring_mark==="ЦК1"?{ck:true}:{})}}:{}),
   ...(Array.isArray(t.anchors_deg)&&t.anchors_deg.length?{anchors:{bearings:t.anchors_deg.map(Number),ratio:t.anchors_ratio>0?Number(t.anchors_ratio):1.01}}:{}),
-  ...(t.bottom_thickness_mm>0?{bottom:{diameters:[],thickness:Number(t.bottom_thickness_mm)}}:{}),
+  // The bottom: its thickness and its kind (annular plates or one thickness, rolled or sheet by sheet, the slope).
+  ...((()=>{const kind={...(t.bottom_kind==="annular"?{kind:"annular"}:{}),...(t.bottom_assembly==="rolled"||t.bottom_assembly==="sheet"?{assembly:t.bottom_assembly}:{}),
+   ...(t.bottom_slope>=20?{slope:Number(t.bottom_slope),toCentre:Boolean(t.bottom_to_centre)}:{}),...(t.annular_width_mm>0?{annular_width_mm:Number(t.annular_width_mm)}:{})};
+   return t.bottom_thickness_mm>0||Object.keys(kind).length?{bottom:{diameters:[],...(t.bottom_thickness_mm>0?{thickness:Number(t.bottom_thickness_mm)}:{}),...(Object.keys(kind).length?{kind}:{})}}:{}})()),
   // The dispatch list, the sheets, several tanks of the set (centres in mm, the bearing of each one's stair) and the
   // transition platform between them.
   ...(Array.isArray(t.ship_list)&&t.ship_list.length?{ship:t.ship_list.filter(r=>r&&r.name).map(r=>({mark:r.mark||null,name:String(r.name),qty:r.qty>0?Number(r.qty):null,...(r.du>0?{du:Number(r.du)}:{})}))}:{}),
@@ -364,6 +374,13 @@ function claudeTankPageOf(ai,t){
   ...(t.bottom_beams?{bottomBeams:{...(t.bottom_beams_step_mm>0?{step:Number(t.bottom_beams_step_mm)}:{}),...(t.bottom_beams_height_mm>0?{height:Number(t.bottom_beams_height_mm)}:{}),...(t.bottom_beams_count>0?{count:Number(t.bottom_beams_count)}:{})}}:{}),
   ...(t.rolled_wall?{rolled:true}:{}),
   ...(t.outer_platform_level_mm>0||t.outer_platform_diameter_mm>0?{outerPlatform:{...(t.outer_platform_level_mm>0?{level:Number(t.outer_platform_level_mm)}:{}),...(t.outer_platform_diameter_mm>0?{diameter:Number(t.outer_platform_diameter_mm)}:{}),...(t.outer_platform_railing_mm>0?{rail:Number(t.outer_platform_railing_mm)}:{})}}:{})}}]
+}
+// A field of sandwich panels: the wall one stands on its lower edge (both ends at its bottom, its height up), the roof
+// one lies on the slope (its width across). {fit, z0, z1, note}.
+function panelOf(key,z0,z1,width){
+ if(key==="sandwich_wall"){const lo=Math.min(z0,z1),h=Math.abs(z1-z0);
+  return{fit:{fitting_type:"panel",diameter_mm:h>=300?Math.round(h):1000,layout:{panel:"wall"}},z0:lo,z1:lo,note:h>=300?"":"высота поля панелей не найдена, показана условно 1000 — проверьте"}}
+ return{fit:{fitting_type:"panel",diameter_mm:width>=300?Math.round(width):1000,layout:{panel:"roof"}},z0,z1,note:width>=300?"":"ширина поля панелей не найдена, показана условно 1000 — проверьте"}
 }
 // Elements Claude listed by axes and offsets: placed on Claude's grid. A mark the geometry already placed is left to it.
 function claudeScheme(ai,candidates){
@@ -388,10 +405,15 @@ function claudeScheme(ai,candidates){
   const own=ST.typeByName(e.name),type=own?.user?own:ST.byKey.get(e.type);
   // A flight or a ladder is drawn as one (stringers, treads, handrails; strings, rungs, hoops) at its width.
   const stair=type?.key==="stair_flight"?{fitting_type:"flight",diameter_mm:e.width_mm>=400?Math.round(e.width_mm):800}:type?.key==="ladder"?{fitting_type:"ladder",diameter_mm:e.width_mm>=400?Math.round(e.width_mm):600}:{};
-  placements.push({...stair,mark:String(e.mark).trim(),name:e.name||type?.name||"",type_key:type?.key||"",...(type&&!["shell","plate","fitting"].includes(type.geometry)?{scheme_group:type.group}:{}),geometry_type:e.geometry_type,x_mm:Math.round(x+(Number(e.dx_mm)||0)),y_mm:Math.round(y+(Number(e.dy_mm)||0)),
+  // A field of sandwich panels of АР: a wall one along its lower edge (z0 its bottom, z1 its top — the height of the
+  // field), a roof one from the eave (z0) to the ridge (z1), its width across; a trim along its line. What the sheets
+  // do not give is shown conventionally and marked.
+  const panel=type?.fitting==="panel"&&!column?panelOf(type.key,z0,z1,e.width_mm):null,trim=type?.fitting==="trim"?{fitting_type:"trim",diameter_mm:e.width_mm>0?Math.round(e.width_mm):0}:null;
+  placements.push({...stair,...(panel?.fit||trim||{}),mark:String(e.mark).trim(),name:e.name||type?.name||"",type_key:type?.key||"",...(type&&!["shell","plate","fitting"].includes(type.geometry)?{scheme_group:type.group}:{}),geometry_type:e.geometry_type,x_mm:Math.round(x+(Number(e.dx_mm)||0)),y_mm:Math.round(y+(Number(e.dy_mm)||0)),
    ...(column?{}:{x2_mm:Math.round(x2+(Number(e.dx2_mm)||0)),y2_mm:Math.round(y2+(Number(e.dy2_mm)||0))}),
-   z0_mm:column?Math.min(z0,z1):z0,z1_mm:column?Math.max(z0,z1):z1,levels_from:"Claude",confidence:"low",axis_x:String(e.axis_x),axis_y:String(e.axis_y),...(e.sheet?{sheet:String(e.sheet)}:{}),
-   notes:["Определено Claude"+(e.sheet?" · "+e.sheet:"")+(e.note?" · "+e.note:"")]})
+   z0_mm:panel?panel.z0:column?Math.min(z0,z1):z0,z1_mm:panel?panel.z1:column?Math.max(z0,z1):z1,levels_from:"Claude",confidence:"low",axis_x:String(e.axis_x),axis_y:String(e.axis_y),...(e.sheet?{sheet:String(e.sheet)}:{}),
+   ...(/^(?:АР|ТХ)$/u.test(e.doc||"")?{section:e.doc}:{}),
+   notes:["Определено Claude"+(e.sheet?" · "+e.sheet:"")+(e.note?" · "+e.note:""),...(panel?.note?[panel.note]:[])]})
  }
  if(!placements.length)return null;
  const doc=Object.entries(docs).sort((a,b)=>b[1]-a[1])[0]?.[0]||"КМД";
@@ -551,7 +573,7 @@ function buildPlan(draft,ai=null,heights={},opts={}){
    // Bracing drawn on a plan lies in the plane of the beams: its height is a beam level.
    const levelKind=geometry==="brace"&&c.scheme.kind!=="elevation"?"beam":geometry;
    // A structure on its own sheets: the level of its sheets, not that of the same mark elsewhere in the volume.
-   const sheetLevel=!own&&!drawn&&Number.isFinite(c.structureLevel)?(geometry==="column"?{z0:0,z1:c.structureLevel,from:"отметки листов конструкции"}:{z0:c.structureLevel,z1:c.structureLevel,from:"отметки листов конструкции"}):null;
+   const sheetLevel=!own&&!drawn&&Number.isFinite(c.structureLevel)?(geometry==="column"?{z0:0,z1:c.structureLevel,from:"отметки листов конструкции",zeroBase:true}:{z0:c.structureLevel,z1:c.structureLevel,from:"отметки листов конструкции"}):null;
    // A stair flight climbs from its tier to the next level of the structure (or, on the top plan, arrives there from
    // the level below); flights without a tier follow one another up the levels of the structure's sheets.
    let flightLevel=null;
@@ -591,19 +613,21 @@ function buildPlan(draft,ai=null,heights={},opts={}){
    const inside=v=>v>=-1&&v<=merged.grid.span_x_mm+1,insideY=v=>v>=-1&&v<=merged.grid.span_y_mm+1;
    // A verified scheme also holds what stands beyond the outer axes (canopies, stairs, platforms).
    if(c.scheme.kind!=="verified"&&c.scheme.kind!=="tank"&&(!inside(x)||!insideY(y)||!point&&(!inside(x2)||!insideY(y2))))guess.push("За крайними осями — проверьте");
-   if(!point&&Math.hypot(x2-x,y2-y)<1){x2=x+(cat?.length_mm>300?cat.length_mm:1000);guess.push("Концы совпали — поставлен условно, проверьте")}
-   if(point&&z1<=z0){z1=z0+(cat?.length_mm>300?cat.length_mm:3000);guess.push("Верх не выше низа — высота условная, проверьте")}
+   // A size taken from the view where several numbers could be it: the element is «неоднозначно».
+   const vague=cat?.length_mm>300&&cat.length_ambiguous?" (размер вида неоднозначен: "+cat.length_ambiguous.join(" или ")+")":"";
+   if(!point&&Math.hypot(x2-x,y2-y)<1){x2=x+(cat?.length_mm>300?cat.length_mm:1000);guess.push("Концы совпали — поставлен условно"+vague+", проверьте")}
+   if(point&&z1<=z0){z1=z0+(cat?.length_mm>300?cat.length_mm:3000);guess.push("Верх не выше низа — высота условная"+vague+", проверьте")}
    const type=typeFor(pl,geometry,opts.typeOfMark);
    const group=pl.scheme_group&&GROUPS[pl.scheme_group]?pl.scheme_group:type?type.group:geometry==="shell"?"tanks":groupFor(pl.mark,geometry);
    // The ridge applies when the member in the section is as long as on the plan (not a beam cut across).
    const plan=Math.hypot(x2-x,y2-y),rg=geometry==="beam"&&local?.ridge&&Math.abs(local.ridge.len-plan)<=plan*0.25?local.ridge:null;
    const ridge=rg?{mid_x_mm:Math.round(x+(x2-x)*rg.t),mid_y_mm:Math.round(y+(y2-y)*rg.t),mid_z_mm:rg.z}:{};
    elements.push({key:"p"+c.info.page+"s"+c.info.index+"e"+i,mark:pl.mark,name:pl.name||type?.name||markCode(pl.mark)?.name||"",type_key:type?.key||"",type_name:type?.name||"",geometry_type:rg?"bent":geometry,...ridge,
-    x_mm:x,y_mm:y,x2_mm:point?undefined:x2,y2_mm:point?undefined:y2,...(geometry==="shell"||geometry==="plate"?{radius_mm:pl.radius_mm,inner_radius_mm:pl.inner_radius_mm,shell_open:pl.shell_open,...(pl.sector_deg>0?{sector_start_deg:pl.sector_start_deg,sector_deg:pl.sector_deg}:{})}:{}),...(pl.fitting_type?{fitting_type:pl.fitting_type,diameter_mm:pl.diameter_mm}:{}),...(pl.layout&&typeof pl.layout==="object"?{layout:pl.layout}:{}),
+    x_mm:x,y_mm:y,x2_mm:point?undefined:x2,y2_mm:point?undefined:y2,...(geometry==="shell"||geometry==="plate"?{radius_mm:pl.radius_mm,inner_radius_mm:pl.inner_radius_mm,shell_open:pl.shell_open,...(pl.cone_rise_mm?{cone_rise_mm:pl.cone_rise_mm}:{}),...(pl.sector_deg>0?{sector_start_deg:pl.sector_start_deg,sector_deg:pl.sector_deg}:{})}:{}),...(pl.fitting_type?{fitting_type:pl.fitting_type,diameter_mm:pl.diameter_mm}:{}),...(pl.layout&&typeof pl.layout==="object"?{layout:pl.layout}:{}),
     z0_mm:geometry==="beam"&&!drawn&&!flightLevel?z1:z0,z1_mm:z1,group,group_label:GROUPS[group],
     // A verified scheme carries its own profiles and truss lattices.
-    profile:pl.profile||cat?.profile||"",profile_standard:pl.profile?"":cat?.profile_standard||"",...(pl.truss?{truss:pl.truss}:{}),...(pl.nodes?{nodes:pl.nodes}:{}),...(pl.joint||joints(c.info)?{joint:pl.joint||joints(c.info)}:{}),doc:scopeOf(c.info.docType,catalog.multi?c.info.volume:""),length_mm:cat?.length_mm??null,levels:own?"Claude":local?local.from:"схема",
-    page:c.info.page,file:c.info.file,sheet:c.info.sheet,...(!c.info.page&&pl.sheet?{source_sheet:String(pl.sheet)}:{}),scheme:c.info.title,confidence:pl.confidence,note:[...(pl.notes||[]),change?.note,...guess].filter(Boolean).join("; ")})
+    profile:pl.profile||cat?.profile||"",profile_standard:pl.profile?"":cat?.profile_standard||"",...(pl.truss?{truss:pl.truss}:{}),...(pl.nodes?{nodes:pl.nodes}:{}),...(pl.joint||joints(c.info)?{joint:pl.joint||joints(c.info)}:{}),doc:scopeOf(c.info.docType,catalog.multi?c.info.volume:""),length_mm:cat?.length_mm??null,levels:own?"Claude":local?local.from:"схема",...(!own&&local?.zeroBase?{z0_assumed:true}:{}),
+    page:c.info.page,file:c.info.file,sheet:c.info.sheet,...(!c.info.page&&pl.sheet?{source_sheet:String(pl.sheet)}:{}),...(pl.section?{section:pl.section}:{}),scheme:c.info.title,confidence:pl.confidence,note:[...(pl.notes||[]),change?.note,...guess].filter(Boolean).join("; ")})
   });
   // Bracing and secondary members meet the beams of the same plan: their ends take those beams' levels.
   const beams=elements.slice(first).filter(e=>e.geometry_type!=="column");
@@ -733,11 +757,30 @@ function buildPlan(draft,ai=null,heights={},opts={}){
   const worse=oa>ob?a:b;drop.add(worse);skipped.push({mark:worse.mark,page:worse.page,reason:"Повтор на другом листе (смещён от осей)"})
  }
  if(drop.size)unique.splice(0,unique.length,...unique.filter(e=>!drop.has(e)));
+ // Sandwich panels and the trims are placed by АР only (the engineer: «сэндвич-панели не показывай без ар»): without АР
+ // in the set they are listed as not placed, with the reason.
+ if(!docTypes.has("АР")){const off=new Set(unique.filter(e=>ST.byKey.get(e.type_key)?.needs==="АР"));
+  for(const e of off)skipped.push({mark:e.mark,page:e.page,reason:"Нужен раздел АР — сэндвич-панели и доборные элементы ставятся по АР"});
+  if(off.size)unique.splice(0,unique.length,...unique.filter(e=>!off.has(e)))}
  seatBases(unique,draft,merged,catalog);
  seatColumnLattices(unique,merged,catalog);
  seatWallRails(unique,merged,catalog);
  deckFrames(unique);
+ for(const e of unique){const st=instanceStatus(e);e.instance_status=st.status;if(st.reasons.length)e.instance_reasons=st.reasons}
  return{grid:merged.grid,posX:merged.posX,posY:merged.posY,elements:unique,skipped,schemes:schemeInfo,problems,ready:unique.length>0,catalog}
+}
+// The status of a placed element (ТЗ монтажных схем п. 24). «Подтверждено» — the engineer checked it; «вычислено» —
+// its place and levels come from the drawings (scheme, section, the mark's sheet, notes, Claude reading the sheet);
+// «частично» — something of it is assumed: levels of its neighbours or typical ones, a bottom at ±0,000 nobody wrote,
+// ends cut or guessed (the notes «… проверьте»). An element beyond the outer axes is not assumed for that alone.
+const WEAK_LEVELS=/^(по соседним|по балкам листа|по схеме того же листа|нет отметок|по конструкциям под ним)/u;
+function instanceStatus(e){
+ if(e.levels==="проверено инженером")return{status:"confirmed",reasons:[]};
+ const reasons=[];
+ if(WEAK_LEVELS.test(String(e.levels||"")))reasons.push("отметки "+e.levels);
+ if(e.z0_assumed)reasons.push("низ не найден на чертежах — показан на ±0,000 условно");
+ for(const n of String(e.note||"").split("; "))if(/проверьте/iu.test(n)&&!/^За крайними осями/u.test(n))reasons.push(n);
+ return{status:reasons.some(r=>/размер вида неоднозначен/u.test(r))?"ambiguous":reasons.length?"partial":"computed",reasons:[...new Set(reasons)].slice(0,4)}
 }
 // Column bases: a base drawn on a base scheme («Бк 4» with its leader) belongs to the column standing at that place (within
 // 1.5 m: a base of two branches is drawn at one branch) of the same volume. Its anchors come from the base sheet.
@@ -1060,4 +1103,4 @@ function seatTrusses(elements,catalog){
   e.note=[e.note,"Ферма по геометрической схеме"+(moved?", отметка низа — как у соседних ферм":"")+" — проверьте"].filter(Boolean).join("; ")
  }
 }
-module.exports={sheetNodes,jointNote,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces};
+module.exports={instanceStatus,sheetNodes,jointNote,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces};

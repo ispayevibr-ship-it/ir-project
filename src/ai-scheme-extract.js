@@ -693,6 +693,11 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
   if(sx.notes.length||sy.notes.length)warnings.push("Часть пролётов определена по геометрии, без размерной надписи — проверьте сетку");
   const cum=a=>a.reduce((acc,v)=>{acc.push(acc[acc.length-1]+v);return acc},[0]);
   const xMm=cum(sx.spans),yMm=cum(sy.spans);
+  // The error of the calibration (journal of the sheet): each span between axes as drawn, by the scale, against the span
+  // as written.
+  const calib=[];
+  for(const [axes,spans] of [[vAxes,sx.spans],[hAxes,sy.spans]])for(let i=1;i<axes.length;i++){const w=spans[i-1];if(w>0)calib.push({d:Math.abs(Math.abs(axes[i].pos-axes[i-1].pos)*scale-w),w})}
+  const calibration=calib.length?{spans:calib.length,max_mm:Math.round(Math.max(...calib.map(c=>c.d))),max_pct:Math.round(Math.max(...calib.map(c=>c.d/c.w))*1000)/10}:null;
   // Millimetre position of any sheet point, measured from the nearest
   // labelled axis so that rounding never accumulates across the grid.
   const toX=pt=>{let i=0;for(let k=0;k<vAxes.length;k++)if(Math.abs(vAxes[k].pos-pt)<Math.abs(vAxes[i].pos-pt))i=k;return xMm[i]+Math.round((pt-vAxes[i].pos)*scale/10)*10};
@@ -918,7 +923,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
   // A structure found by its outline is placed by it: the mark read as a member line beside it is dropped.
   if(footprints.length){const drawn=new Set(footprints.map(f=>f.mark).filter(Boolean));for(let i=placements.length-1;i>=0;i--)if(drawn.has(placements[i].mark))placements.splice(i,1);
    placements.push(...footprintPlacements(footprints,page))}
-  schemes.push({title,bbox,scaleMmPerPt:Math.round(scale*1000)/1000,
+  schemes.push({title,bbox,scaleMmPerPt:Math.round(scale*1000)/1000,...(calibration?{calibration}:{}),
    axesX:vAxes.map(a=>a.name),axesY:hAxes.map(a=>a.name),spansX:sx.spans,spansY:sy.spans,
    sizeX:xMm[xMm.length-1],sizeY:yMm[yMm.length-1],
    secondaryX:linesX.filter(l=>!l.name).map(l=>l.mm),secondaryY:linesY.filter(l=>!l.name).map(l=>l.mm),

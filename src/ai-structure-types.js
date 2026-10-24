@@ -18,7 +18,7 @@ const GROUPS=[
  ["purlins","Прогоны",0x009fce],["spacers","Распорки",0xcf5b32],["ties","Связи",0xdd9b13],["trusses","Фермы",0x994bdb],
  ["stairs","Лестницы",0x526dbe],["platforms","Площадки",0x8c99b8],["guards","Ограждения",0x7590a8],
  ["brackets","Кронштейны, опорные столики",0x6d8f3a],["embeds","Закладные, анкеры, базы",0x7a6a58],
- ["cladding","Ограждающие конструкции",0x9aa5b1],["openings","Ворота, двери, окна",0x5e7f99],
+ ["cladding","Ограждающие конструкции",0x9aa5b1],["trims","Нащельники, доборные элементы",0x8d7b68],["openings","Ворота, двери, окна",0x5e7f99],
  // Tanks (РВС, РВСП, РГС)
  ["tanks","Резервуар, чан (стенка)",0x7f9bb8],["bottom","Днище",0x6b7f95],["roof","Крыша резервуара",0x008c86],
  ["nozzles","Патрубки, люки, оборудование",0xc0392b],["rings","Кольца жёсткости",0x4f6d7a],
@@ -87,7 +87,25 @@ const TYPES=[
  T("bolt","Болты, гайки, шайбы (метизы)","fasteners","column","bolt",[],/(?:^|\s)(?:болт|гайк|шайб|шпильк|метиз|винт)/iu),
  // Cladding and openings (АР, КМ)
  T("sheeting","Профнастил, листы покрытия","cladding","plate","plate",["ПН"],/профнастил|профлист|настил|лист\S*\s+покрыти/iu,{placeByDefault:false}),
- T("sandwich","Сэндвич-панель","cladding","plate","plate",["СП"],/сэндвич|трёхслойн|трехслойн/iu,{placeByDefault:false}),
+ T("sandwich","Сэндвич-панель","cladding","plate","plate",["СП"],/сэндвич|трёхслойн|трехслойн/iu,{placeByDefault:false,needs:"АР"}),
+ // Sandwich panels and the trims of АР (ТЗ 2.3.1 of 24.10.2026): placed only when АР is in the set (the engineer: «сэндвич-
+ // панели не показывай без ар»). A wall panel (a field of panels) lies along its lower edge, its height up; a roof panel
+ // from the eave to the ridge, its width across. Trims lie along their line of installation.
+ T("sandwich_wall","Стеновая сэндвич-панель","cladding","beam","panel",[],/стенов\S*\s+(?:сэндвич|тр[её]хслойн|панел)|(?:сэндвич|тр[её]хслойн)\S*\s*-?\s*панел\S*\s+(?:\S+\s+)?стен|панел\S*\s+стенов/iu,{needs:"АР",fitting:"panel"}),
+ T("sandwich_roof","Кровельная сэндвич-панель","cladding","beam","panel",[],/кровельн\S*\s+(?:сэндвич|тр[её]хслойн|панел)|(?:сэндвич|тр[её]хслойн)\S*\s*-?\s*панел\S*\s+(?:\S+\s+)?(?:кровл|кровел|покрыти)|панел\S*\s+(?:кровл|покрыти)/iu,{needs:"АР",fitting:"panel"}),
+ T("trim_corner","Нащельник угловой (наружный, внутренний)","trims","beam","trim",[],/углов\S*\s+нащельник|нащельник\S*\s+(?:\S+\s+)?углов|(?:наружн|внешн|внутренн)\S*\s+(?:угл\S*\s+)?(?:нащельник|доборн)/iu,{needs:"АР",fitting:"trim"}),
+ T("trim_joint","Нащельник стыка (вертикальный, горизонтальный)","trims","beam","trim",[],/нащельник\S*\s+(?:\S+\s+)?стык|стыков\S*\s+нащельник|(?:вертикальн|горизонтальн)\S*\s+нащельник/iu,{needs:"АР",fitting:"trim"}),
+ T("trim_plinth","Цокольная планка","trims","beam","trim",[],/цокол\S*\s+(?:планк|отлив|нащельник|элемент|доборн|профил)|(?:планк|отлив|нащельник)\S*\s+(?:\S+\s+)?цокол/iu,{needs:"АР",fitting:"trim"}),
+ T("trim_start","Стартовый, завершающий профиль","trims","beam","trim",[],/(?:стартов|завершающ|финишн)\S*\s+(?:профил|планк|элемент|нащельник)/iu,{needs:"АР",fitting:"trim"}),
+ T("trim_ridge","Коньковый элемент","trims","beam","trim",[],/коньков\S*\s+(?:элемент|планк|нащельник|доборн|накладк)|(?:планк|элемент|нащельник|накладк)\S*\s+коньк|^\s*кон[её]к(?![а-яё])/iu,{needs:"АР",fitting:"trim"}),
+ T("trim_eaves","Карнизная планка","trims","beam","trim",[],/карнизн\S*\s+(?:планк|элемент|нащельник|свес|доборн)|(?:планк|нащельник)\S*\s+(?:\S+\s+)?карниз|капельник/iu,{needs:"АР",fitting:"trim"}),
+ T("trim_gable","Торцевая, ветровая планка","trims","beam","trim",[],/(?:ветров|торцев|фронтон)\S*\s+(?:планк|нащельник|доборн)|(?:планк|нащельник)\S*\s+(?:\S+\s+)?(?:торц|фронтон)/iu,{needs:"АР",fitting:"trim"}),
+ T("trim_sill","Отлив, оконный элемент","trims","beam","trim",[],/отлив|оконн\S*\s+(?:нащельник|планк|откос|доборн|элемент)|откос\S*\s+(?:окон|окн)/iu,{needs:"АР",fitting:"trim"}),
+ T("trim_opening","Обрамление дверного, воротного проёма","trims","beam","trim",[],/нащельник\S*\s+(?:\S+\s+){0,2}(?:двер|ворот|про[её]м)|(?:дверн|воротн)\S*\s+(?:нащельник|откос|доборн|обрамлени)|обрамлени\S*\s+(?:дверн|воротн|двер|ворот)/iu,{needs:"АР",fitting:"trim"}),
+ T("trim_parapet","Парапетная крышка","trims","beam","trim",[],/парапетн\S*\s+(?:крышк|планк|нащельник|отлив|элемент|фартук)|(?:крышк|нащельник|планк|отлив|фартук)\S*\s+(?:\S+\s+)?парапет/iu,{needs:"АР",fitting:"trim"}),
+ T("trim_abutment","Примыкание кровли к стене","trims","beam","trim",[],/(?:планк|нащельник|элемент|фартук)\S*\s+(?:\S+\s+)?примыкани|примыкани\S*\s+(?:кровл|покрыти)|(?:^|\s)фартук/iu,{needs:"АР",fitting:"trim"}),
+ T("trim_drain","Водосток (жёлоб, труба)","trims","beam","trim",[],/водосточ|водосток|водоотводящ\S*\s+(?:ж[её]лоб|элемент|планк)/iu,{needs:"АР",fitting:"trim"}),
+ T("trim","Фасонный, доборный элемент","trims","beam","trim",[],/нащельник|доборн\S*\s+(?:элемент|издели|планк)|фасонн\S*\s+(?:элемент|издели|планк)|^\s*планк\S*\s+(?:\S+\s+)?(?:фасад|стен|кровл)/iu,{needs:"АР",fitting:"trim"}),
  T("gate","Ворота","openings","column","frame",["ВР"],/ворот/iu),
  T("door","Дверь","openings","column","frame",["Д","ДН"],/двер/iu),
  T("window","Окно, витраж","openings","column","frame",["ОК"],/окн[оа]|витраж/iu),
@@ -155,7 +173,7 @@ const byKey=new Map(TYPES.map(t=>[t.key,t]));
 const groupByKey=new Map(GROUPS.map(g=>[g.key,g]));
 // Specific names first: "колонна фахверка" before "колонна", "балка подкрановая" before "балка",
 // "люк-лаз" before "патрубок", "связь вертикальная" before "связь".
-const NAME_ORDER=["crane_column","column_fahwerk","girder_fahwerk","crane_rail","crane_girder","crane_runway","brake_beam","platform_beam","sub_beam","opening_beam",
+const NAME_ORDER=["trim_corner","trim_joint","trim_plinth","trim_start","trim_ridge","trim_eaves","trim_gable","trim_parapet","trim_abutment","trim_sill","trim_opening","trim_drain","trim","sandwich_wall","sandwich_roof","crane_column","column_fahwerk","girder_fahwerk","crane_rail","crane_girder","crane_runway","brake_beam","platform_beam","sub_beam","opening_beam",
  "sub_truss","brace_vertical","brace_horizontal","vessel_detail","tie_rod","fahwerk","weld_fillet","weld_lap","weld_butt","weld","rung_ladder","reinforcing_plate","montage_ring",
  "vessel_weir","vessel_detail","vessel_strut","strut","vessel_support","vessel_cone","vessel_shell","roll_frame","shipping","tank_bottom_beam","crane_stop","tank_stop","tank_annular","tank_wall","tank_bottom","roof_central_ring","roof_support_ring","roof_shield","roof_rafter","roof_deck","tank_ring","pontoon","tank_roof","manhole","roof_hatch","valve","foam",
  "instrument","lightning","heater","mixer","flange","nozzle","grounding","bolt","vessel","pump","pipe_support","gallery","support","bunker","mast","conveyor","pipe","sheeting","sandwich","gate","door","window","bracket","base","embed",

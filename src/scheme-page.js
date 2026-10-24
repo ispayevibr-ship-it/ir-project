@@ -58,13 +58,13 @@ window.irSchemePage=async function(objectId){
  const fmt=v=>Number(num(v).toFixed(1)).toLocaleString("ru-RU",{maximumFractionDigits:1});
  const defaultAxesX=["1","2","3","4","5","6"],defaultAxesY=["А","Б","В","Г","Д","Е","Ж","И","К","Л"],defaultSpanX=45000,defaultSpanY=60000;
  let axesX=[...defaultAxesX],axesY=[...defaultAxesY],targetSpanX=defaultSpanX,targetSpanY=defaultSpanY,gridDirX="ltr",gridDirY="btt";
- let frameMode=true,selectedId="",activeWorkId="",activeScheme="all",rows=[],markRows=[],workRows=[],gridXSpans=[],gridYSpans=[],spanX=targetSpanX,spanY=targetSpanY,axisXPos=new Map(),axisYPos=new Map(),labelsVisible=false,dimensionsVisible=false,hiddenGroups=new Set(),statusFilter="all",levelMin="",levelMax="",layersPanelOpen=false,elementSearch="",pickerScrollTop=0,previewFullscreen=false,previewNativeFullscreen=false,previewOriginalOverflow="";
+ let frameMode=true,selectedId="",activeWorkId="",activeScheme="all",rows=[],markRows=[],workRows=[],gridXSpans=[],gridYSpans=[],spanX=targetSpanX,spanY=targetSpanY,axisXPos=new Map(),axisYPos=new Map(),labelsVisible=false,dimensionsVisible=false,hiddenGroups=new Set(),hiddenSections=new Set(),confFilter="all",statusFilter="all",levelMin="",levelMax="",layersPanelOpen=false,elementSearch="",pickerScrollTop=0,previewFullscreen=false,previewNativeFullscreen=false,previewOriginalOverflow="";
 
  // Shared view state: neither the 2D plan nor 3D owns a separate data model.
  let schemeColorMode="type",cutHidden=[];
  try{
   const mode=localStorage.getItem("ir-project-3d-colors");
-  if(["status","type","mark"].includes(mode))schemeColorMode=mode;
+  if(["status","type","mark","confidence"].includes(mode))schemeColorMode=mode;
   const saved=JSON.parse(localStorage.getItem("ir-project-3d-sections."+oid)||"[]");
   if(Array.isArray(saved))cutHidden=saved.filter(x=>typeof x==="string")
  }catch(_error){}
@@ -83,7 +83,7 @@ window.irSchemePage=async function(objectId){
  };
  const planCutVisible=c=>!["X","Y"].some(axis=>{const band=cutFor(c,axis);return band&&cutHidden.includes(band.id)});
  const changeColorMode=next=>{
-  if(!["status","type","mark"].includes(next))return;
+  if(!["status","type","mark","confidence"].includes(next))return;
   schemeColorMode=next;
   try{localStorage.setItem("ir-project-3d-colors",next);localStorage.setItem("ir-project-3d-colors-v2","ready")}catch(_error){}
   renderScene()
@@ -302,9 +302,9 @@ window.irSchemePage=async function(objectId){
  refreshGridModel();
  const guessGeometry=m=>{const key=markGroup(m).key;if(["columns","fahwerk","posts"].includes(key))return"column";if(key==="ties")return"brace";if(key==="trusses")return"truss";return"beam"};
  const geometry=c=>["column","beam","bent","brace","truss","shell","plate"].includes(c.geometry_type)?c.geometry_type:c.absolute_x2_mm!==undefined&&c.absolute_y2_mm!==undefined?guessGeometry(c):"column";
- const FITTING_LABEL={nozzle:"Патрубок",manhole:"Люк-лаз",hatch:"Люк на крыше",valve:"Клапан",foam:"Пеногенератор",ring:"Кольцо на стенке",rod:"Молниеприёмник",sensor:"Патрубок прибора",railing:"Ограждение",flight:"Лестничный марш",ladder:"Стремянка",deck:"Настил площадки"};
+ const FITTING_LABEL={nozzle:"Патрубок",manhole:"Люк-лаз",hatch:"Люк на крыше",valve:"Клапан",foam:"Пеногенератор",ring:"Кольцо на стенке",rod:"Молниеприёмник",sensor:"Патрубок прибора",railing:"Ограждение",flight:"Лестничный марш",ladder:"Стремянка",deck:"Настил площадки",panel:"Сэндвич-панели",trim:"Нащельник, доборный элемент"};
  const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?"Ширина "+Math.round(c.fd):""):c.ft&&c.ft!=="ring"&&c.ft!=="railing"?"Труба"+(c.fd>0?" Ø"+Math.round(c.fd):""):"";
- const SHAPE_SECTION={ibeam:"Двутавр",channel:"Швеллер",angle:"Уголок",round:"Труба",plate:"Лист",shell:"Лист (обечайка)",ring:"Лист (кольцо)",rail:"Уголок (ограждение)",stair:"Швеллер (косоур марша)",truss:"Ферма",frame:"Рама",box:"Короб",manhole:"Труба с крышкой (люк)",hatch:"Труба с крышкой (люк)",valve:"Труба с клапаном",foam:"Пеногенератор",sensor:"Труба",nozzle:"Труба",rod:"Стержень"};
+ const SHAPE_SECTION={ibeam:"Двутавр",channel:"Швеллер",angle:"Уголок",round:"Труба",plate:"Лист",shell:"Лист (обечайка)",ring:"Лист (кольцо)",rail:"Уголок (ограждение)",stair:"Швеллер (косоур марша)",truss:"Ферма",frame:"Рама",box:"Короб",manhole:"Труба с крышкой (люк)",hatch:"Труба с крышкой (люк)",valve:"Труба с клапаном",foam:"Пеногенератор",sensor:"Труба",nozzle:"Труба",rod:"Стержень",panel:"Сэндвич-панель",trim:"Гнутый элемент (нащельник, планка)"};
  // The section of an element without a profile read from the drawings: what the catalog says it is made of
  // (a tank wall is a sheet, a railing — angles, a nozzle — a pipe), not an I-beam by default.
  const catalogSection=c=>{if(c.ft==="railing")return"Уголок (стойки, поручень)";const t=window.irStructureTypes?.byKey?.get?.(String(c.type_key||""));
@@ -319,9 +319,15 @@ window.irSchemePage=async function(objectId){
  const sectionShown=c=>fittingSection(c)||(hasProfile(c)?profileSection(c.profile_name)||sectionTypeLabel(sectionType(c)):catalogSection(c)||sectionTypeLabel(sectionType(c)));
  const profileShown=c=>String(c?.profile_name||"").trim()||fittingSection(c)||catalogSection(c)||"—";
  const closestAxis=(value,axes,pos)=>axes.reduce((best,a)=>Math.abs(num(pos.get(a))-value)<Math.abs(num(pos.get(best))-value)?a:best,axes[0]||"");
- const coord=c=>{const p=worldPosition(c),v=activeView(),own=v&&String(c.scheme_view_id||"")===String(v.id),axisX=own&&axesX.includes(String(c.axis_x))?String(c.axis_x):closestAxis(p.x,axesX,axisXPos),axisY=own&&axesY.includes(String(c.axis_y))?String(c.axis_y):closestAxis(p.y,axesY,axisYPos),dx=p.x-num(axisXPos.get(axisX)),dy=p.y-num(axisYPos.get(axisY)),x2=c.absolute_x2_mm!==undefined?num(c.absolute_x2_mm):p.x,y2=c.absolute_y2_mm!==undefined?num(c.absolute_y2_mm):p.y,z0=num(c.z0_mm),z1=num(c.z1_mm??8400),kind=geometry(c);return{x:p.x,y:p.y,x2,y2,z0,z1,z2:kind==="column"||kind==="shell"||kind==="plate"?z1:num(c.end_z_mm??c.z1_mm??8400),r:num(c.radius_mm),ri:num(c.inner_radius_mm),open:c.shell_open===true,sa:num(c.sector_start_deg),sw:num(c.sector_deg),lay:c.layout&&typeof c.layout==="object"?c.layout:null,ft:String(c.fitting_type||""),fd:num(c.diameter_mm),mx:num(c.absolute_mid_x_mm??p.x),my:num(c.absolute_mid_y_mm??p.y),mz:num(c.mid_z_mm??z1),axisX,axisY,dx,dy,geometryType:kind}};
+ const coord=c=>{const p=worldPosition(c),v=activeView(),own=v&&String(c.scheme_view_id||"")===String(v.id),axisX=own&&axesX.includes(String(c.axis_x))?String(c.axis_x):closestAxis(p.x,axesX,axisXPos),axisY=own&&axesY.includes(String(c.axis_y))?String(c.axis_y):closestAxis(p.y,axesY,axisYPos),dx=p.x-num(axisXPos.get(axisX)),dy=p.y-num(axisYPos.get(axisY)),x2=c.absolute_x2_mm!==undefined?num(c.absolute_x2_mm):p.x,y2=c.absolute_y2_mm!==undefined?num(c.absolute_y2_mm):p.y,z0=num(c.z0_mm),z1=num(c.z1_mm??8400),kind=geometry(c);return{x:p.x,y:p.y,x2,y2,z0,z1,z2:kind==="column"||kind==="shell"||kind==="plate"?z1:num(c.end_z_mm??c.z1_mm??8400),r:num(c.radius_mm),ri:num(c.inner_radius_mm),open:c.shell_open===true,sa:num(c.sector_start_deg),sw:num(c.sector_deg),cr:num(c.cone_rise_mm),lay:c.layout&&typeof c.layout==="object"?c.layout:null,ft:String(c.fitting_type||""),fd:num(c.diameter_mm),mx:num(c.absolute_mid_x_mm??p.x),my:num(c.absolute_mid_y_mm??p.y),mz:num(c.mid_z_mm??z1),axisX,axisY,dx,dy,geometryType:kind}};
  const allVisibleTypes=()=>availableGroups().filter(g=>activeScheme==="all"||(frameMode?g.key===activeScheme:groupKeys(activeView()).includes(g.key))).sort((a,b)=>frameMode?frameCategories.indexOf(a.key)-frameCategories.indexOf(b.key):a.label.localeCompare(b.label,"ru"));
- const isShown=c=>{if(hiddenGroups.has(recordMarkGroup(c).key))return false;if(statusFilter!=="all"&&effectiveStatus(c)!==statusFilter)return false;const start=num(c.z0_mm),end=num(c.end_z_mm??c.z1_mm??8400),mid=geometry(c)==="bent"?num(c.mid_z_mm):start,lo=Math.min(start,end,mid),hi=Math.max(start,end,mid),min=String(levelMin).trim()===""?null:Number(levelMin),max=String(levelMax).trim()===""?null:Number(levelMax);if(min!==null&&Number.isFinite(min)&&hi<min)return false;if(max!==null&&Number.isFinite(max)&&lo>max)return false;return true};
+ // How fully the reading of the drawings determined an element (src/ai-montage.js) and the section it came from: an
+ // element not fully determined is placed all the same, pale, as «предварительно» — the engineer edits it afterwards.
+ const INSTANCE_STATUS={confirmed:"подтверждено",computed:"вычислено",partial:"определено частично",ambiguous:"неоднозначно",conflict:"конфликт данных",not_found:"нет в новом анализе"};
+ const isPreliminary=c=>c?.preliminary===true;
+ const sectionOfRecord=c=>String(c?.source_section||(c?.import_batch?"КМД":"Вручную"));
+ const sectionsPresent=()=>{const m=new Map();for(const c of records()){const k=sectionOfRecord(c);m.set(k,(m.get(k)||0)+1)}return[...m].sort((a,b)=>["КМ","КМД","АР","ТХ","Вручную"].indexOf(a[0])-["КМ","КМД","АР","ТХ","Вручную"].indexOf(b[0]))};
+ const isShown=c=>{if(hiddenGroups.has(recordMarkGroup(c).key))return false;if(hiddenSections.size&&hiddenSections.has(sectionOfRecord(c)))return false;if(confFilter==="sure"&&isPreliminary(c)||confFilter==="prelim"&&!isPreliminary(c))return false;if(statusFilter!=="all"&&effectiveStatus(c)!==statusFilter)return false;const start=num(c.z0_mm),end=num(c.end_z_mm??c.z1_mm??8400),mid=geometry(c)==="bent"?num(c.mid_z_mm):start,lo=Math.min(start,end,mid),hi=Math.max(start,end,mid),min=String(levelMin).trim()===""?null:Number(levelMin),max=String(levelMax).trim()===""?null:Number(levelMax);if(min!==null&&Number.isFinite(min)&&hi<min)return false;if(max!==null&&Number.isFinite(max)&&lo>max)return false;return true};
  const columns=()=>records().filter(isShown).map(c=>({...c,...coord(c),status:effectiveStatus(c)}));
  const selected=()=>columns().find(x=>x.id===selectedId)||null;
  // What the chat with Claude sends with a message from this page: the object and the element selected on the scheme.
@@ -488,6 +494,10 @@ window.irSchemePage=async function(objectId){
    const visible=!hiddenGroups.has(btn.dataset.schemeLayer);
    btn.classList.toggle("on",visible);btn.classList.toggle("off",!visible);
    btn.setAttribute("aria-pressed",String(visible));
+  });
+  document.querySelectorAll("[data-scheme-section]").forEach(btn=>{
+   const visible=!hiddenSections.has(btn.dataset.schemeSection);
+   btn.classList.toggle("on",visible);btn.classList.toggle("off",!visible);btn.setAttribute("aria-pressed",String(visible));
   });
   const heading=document.querySelector(".scheme-layers>summary small");
   if(heading)heading.textContent=groups.filter(g=>!hiddenGroups.has(g.key)).length+" из "+groups.length;
@@ -664,12 +674,16 @@ window.irSchemePage=async function(objectId){
   const list=records().map(c=>{const p={...c,...coord(c)},g=recordMarkGroup(c),pr=markProgress(linkedMark(c));
    return{id:String(c.id),mark:String(c.mark||""),mark_name:String(c.mark_name||""),title:String(c.mark_name||c.title||""),type_name:String(c.type_name||FITTING_LABEL[p.ft]||geometryLabel(p.geometryType)),
     section:sectionShown(p),profile:profileShown(p),status:effectiveStatus(c),scheme_group:g.key,axisX:p.axisX,axisY:p.axisY,axisText:axisText(p),
-    x:p.x,y:p.y,x2:p.x2,y2:p.y2,z0:p.z0,z1:p.z1,z2:p.z2,mx:p.mx,my:p.my,mz:p.mz,r:p.r,ri:p.ri,open:p.open,sa:p.sa,sw:p.sw,lay:p.lay,ft:p.ft,fd:p.fd,geometryType:p.geometryType,
+    x:p.x,y:p.y,x2:p.x2,y2:p.y2,z0:p.z0,z1:p.z1,z2:p.z2,mx:p.mx,my:p.my,mz:p.mz,r:p.r,ri:p.ri,open:p.open,sa:p.sa,sw:p.sw,cr:p.cr,lay:p.lay,ft:p.ft,fd:p.fd,geometryType:p.geometryType,
     progress:pr&&pr.total>0?pr:null,draft:false,draft_doc:String(c.source_import_doc||""),work:recordWorkId(c),
     // What the 3D draws a member by: its rolled section, a truss or a lattice column, the base, the joint and the nodes of
     // the drawings — without them the exported scheme showed conventional sections, trusses as beams and no bolts.
     profile_name:String(c.profile_name||""),profile_standard:String(c.profile_standard||""),section_type:String(c.section_type||""),type_key:String(c.type_key||""),
-    truss:c.truss||undefined,column:c.column||undefined,base:c.base||undefined,joint:c.joint||undefined,cross:c.cross||undefined,nodes:c.nodes||undefined}});
+    truss:c.truss||undefined,column:c.column||undefined,base:c.base||undefined,joint:c.joint||undefined,cross:c.cross||undefined,nodes:c.nodes||undefined,
+    // How fully the drawings determined it and its section: the exported page shows the same pale «предварительно».
+    preliminary:isPreliminary(c)||undefined,instance_status:INSTANCE_STATUS[c.instance_status]?String(c.instance_status):undefined,
+    instance_reasons:Array.isArray(c.instance_reasons)&&c.instance_reasons.length?c.instance_reasons.map(String).slice(0,5):undefined,source_section:sectionOfRecord(c),
+    param_sources:c.param_sources&&typeof c.param_sources==="object"?c.param_sources:undefined}});
   if(!list.length){alert("На схеме нет элементов для выгрузки.");return}
   const counts=new Map();for(const c of list){const g=counts.get(c.scheme_group)||{key:c.scheme_group,label:recordMarkGroup(records().find(r=>String(r.id)===c.id)).label,count:0};g.count++;counts.set(c.scheme_group,g)}
   // All the work types together: the exported page can show each apart, as the scheme does.
@@ -736,7 +750,7 @@ window.irSchemePage=async function(objectId){
  function selectFromPicker(id){
   const entry=records().find(c=>String(c.id)===String(id));selectedId=entry?String(entry.id):"";
   if(entry&&(!isShown(entry)||!planCutVisible({...entry,...coord(entry)}))){
-   hiddenGroups.delete(recordMarkGroup(entry).key);statusFilter="all";levelMin="";levelMax="";cutHidden=[];
+   hiddenGroups.delete(recordMarkGroup(entry).key);hiddenSections.clear();confFilter="all";statusFilter="all";levelMin="";levelMax="";cutHidden=[];
    try{localStorage.setItem("ir-project-3d-sections."+oid,"[]")}catch(_error){}
    draw()
   }else{renderScene();renderDetails()}
@@ -791,11 +805,24 @@ window.irSchemePage=async function(objectId){
   try{const card=await irProject.ai.invoke("ai-montage:element-card",{objectId:oid,key:c.source_import_key,mark:c.mark,volume});markCards.set(key,card);if(box.isConnected)show(card)}
   catch(error){if(box.isConnected)box.innerHTML=`<div class="scheme-mark-card"><small class="scheme-mark-card-error">Чертёж марки не прочитан: ${esc(String(error?.message||error).replace(/^Error invoking remote method[^:]*: (Error: )?/,""))}</small></div>`}
  }
+ // In the card: how the drawings determined the element and why it is preliminary; for an element the engineer changed,
+ // what the latest reading of the drawings gives instead (his values stay).
+ function instanceHtml(c){
+  const st=String(c.instance_status||""),n=c.pdf_new&&typeof c.pdf_new==="object"?c.pdf_new:null;
+  const ps=c.param_sources&&typeof c.param_sources==="object"?c.param_sources:null;
+  const from=ps?[["Положение",ps.position],["Отметки",ps.levels],["Профиль",ps.profile],["Габарит",ps.size],["Другой профиль",ps.profile_other]].filter(r=>r[1]):[];
+  if(!INSTANCE_STATUS[st]&&!n&&!from.length)return"";
+  const reasons=Array.isArray(c.instance_reasons)?c.instance_reasons.map(String):[];
+  const top=c.geometryType==="column"||c.geometryType==="shell"||c.geometryType==="plate"?n?.z1:n?.end_z??n?.z1;
+  const diffs=n?[["X",c.x,n.x],["Y",c.y,n.y],["низ",c.z0,n.z0],["верх",c.z2,top]].filter(r=>r[2]!==undefined&&r[2]!==null&&Number.isFinite(Number(r[2]))&&Math.abs(num(r[1])-num(r[2]))>5).map(r=>r[0]+" "+fmt(r[2])+" мм"):[];
+  if(n?.mark&&String(n.mark).trim().toLowerCase()!==String(c.mark||"").trim().toLowerCase())diffs.unshift("марка "+String(n.mark));
+  return`<div class="scheme-instance ${isPreliminary(c)?"preliminary":""}"><b>По чертежам: ${esc(INSTANCE_STATUS[st]||"—")}${isPreliminary(c)?" · предварительно":""}</b>${c.source_section?`<small>Раздел: ${esc(c.source_section)}${c.source_import_doc?" · "+esc(c.source_import_doc):""}</small>`:""}${reasons.map(r=>`<small>• ${esc(r)}</small>`).join("")}${n?`<small>Ваша правка сохранена. Новый анализ чертежей: ${diffs.length?esc(diffs.join(", ")):"то же, что у вас"}.</small>`:""}${from.length?`<details><summary>Откуда данные</summary>${from.map(r=>`<small>${esc(r[0])}: ${esc(String(r[1]))}</small>`).join("")}</details>`:""}</div>`
+ }
  function renderDetails(){
   const panel=document.getElementById("schemeDetails");if(!panel)return;const c=selected();
   if(!c){panel.innerHTML=pickerHtml()+`<div class="scheme-detail-empty"><b>Элемент не выбран</b><span>Нажмите на элемент на схеме или добавьте новый.</span>${canEdit()?'<button type="button" data-scheme-add>＋ Добавить элемент</button>':""}</div>`;panel.querySelector("[data-scheme-add]")?.addEventListener("click",()=>window.irThreeSchemeView?.startPlacement?.()??openEditor());bindElementPicker(panel);return}
   const a=axisText(c),between=c.dx||c.dy,progress=markProgress(linkedMark(c));
-  panel.innerHTML=pickerHtml()+`${c.check_note?`<div class="scheme-check-note"><small>Проверьте: ${esc(String(c.check_note).replace(/\s*—?\s*проверьте\.?/giu,""))}</small></div>`:""}<div class="scheme-detail-title"><span>Выбранный элемент</span><b>${esc(c.mark||"—")}</b>${c.mark_name?`<small>${esc(c.mark_name)}</small>`:""}</div>
+  panel.innerHTML=pickerHtml()+`${c.check_note?`<div class="scheme-check-note"><small>Проверьте: ${esc(String(c.check_note).replace(/\s*—?\s*проверьте\.?/giu,""))}</small></div>`:""}<div class="scheme-detail-title"><span>Выбранный элемент</span><b>${esc(c.mark||"—")}</b>${c.mark_name?`<small>${esc(c.mark_name)}</small>`:""}</div>${instanceHtml(c)}
    <div class="scheme-detail-grid">
     <div><span>Наименование</span><b>${esc(c.mark_name||"—")}</b></div>
     <div><span>Тип элемента</span><b>${esc(c.type_name||FITTING_LABEL[c.ft]||geometryLabel(c.geometryType))}</b></div><div><span>Сечение</span><b>${esc(sectionShown(c))}</b></div>
@@ -1239,7 +1266,7 @@ window.irSchemePage=async function(objectId){
    }
    fileInput.disabled=false;
    try{rows=await schemeApi.list()}catch(e){reportError("Элементы добавлены, но перечитать базу не удалось: "+String(e?.message||e));return}
-   activeScheme="all";selectedId="";hiddenGroups.clear();statusFilter="all";levelMin="";levelMax="";
+   activeScheme="all";selectedId="";hiddenGroups.clear();hiddenSections.clear();confFilter="all";statusFilter="all";levelMin="";levelMax="";
    dialog.close();draw();
    alert(`Импорт чернового размещения завершён. Добавлено: ${created}. Ошибок: ${failed}. Проверьте координаты и высоты по КМД.`)
   };
@@ -1360,6 +1387,8 @@ window.irSchemePage=async function(objectId){
      </details>
      <details class="scheme-plan-cuts"><summary>▤ Разрезы <small>${cutHidden.length?"Скрыто: "+cutHidden.length:"Все видны"}</small></summary><div class="scheme-plan-cut-list">${["X","Y"].map(axis=>`<b>${axis==="X"?"Цифровые оси":"Буквенные оси"}</b>`+cutBands().filter(b=>b.axis===axis).map(b=>`<label><input type="checkbox" data-plan-cut="${esc(b.id)}" ${cutHidden.includes(b.id)?"":"checked"}><span>${esc(b.label)}</span></label>`).join("")).join("")}<button type="button" id="schemePlanCutsReset">Все разрезы</button></div></details>
      <label>Статус<select id="schemeStatusFilter" data-native-select="1"><option value="all" ${statusFilter==="all"?"selected":""}>Все</option><option value="planned" ${statusFilter==="planned"?"selected":""}>Не смонтированы</option><option value="mounted" ${statusFilter==="mounted"?"selected":""}>Смонтированы</option><option value="partial" ${statusFilter==="partial"?"selected":""}>Частично</option></select></label>
+     ${records().some(isPreliminary)?`<label title="Предварительно — экземпляры, определённые по чертежам не полностью (низ не найден, отметки по соседним, листы расходятся, нет в новом анализе). Они расставлены и показаны бледно; правьте их как обычно.">Достоверность<select id="schemeConfFilter" data-native-select="1"><option value="all" ${confFilter==="all"?"selected":""}>Все</option><option value="sure" ${confFilter==="sure"?"selected":""}>Определены полностью</option><option value="prelim" ${confFilter==="prelim"?"selected":""}>Только предварительные (${records().filter(isPreliminary).length})</option></select></label>`:""}
+     ${sectionsPresent().length>1?`<div class="scheme-section-layers" role="group" aria-label="Разделы чертежей" title="Слои по разделам чертежей: откуда взят элемент">${sectionsPresent().map(([k,n])=>`<button type="button" data-scheme-section="${esc(k)}" class="${hiddenSections.has(k)?"off":"on"}" aria-pressed="${!hiddenSections.has(k)}">${esc(k)} <small>${n}</small></button>`).join("")}</div>`:""}
      <label>Отметка от, мм<input id="schemeLevelMin" type="number" step="100" placeholder="Любая" value="${esc(levelMin)}"></label>
      <label>До, мм<input id="schemeLevelMax" type="number" step="100" placeholder="Любая" value="${esc(levelMax)}"></label>
      <button id="schemeVisibilityReset" type="button">Сбросить фильтры</button>
@@ -1379,16 +1408,18 @@ window.irSchemePage=async function(objectId){
    <div class="scheme-hint"><b>Сетка:</b><span><strong>${esc(axesX[0])} → ${esc(axesX.at(-1))}</strong> — ${gridDirX==="ltr"?"слева направо":"справа налево"}, <strong>${esc(axesY[0])} → ${esc(axesY.at(-1))}</strong> — ${gridDirY==="btt"?"снизу вверх":"сверху вниз"}. Направление можно изменить в «Параметрах сетки».</span></div>
    ${canEdit()?gridEditorHtml()+editorHtml()+viewDialogHtml():""}
   </div>`;
-  document.getElementById("schemeBack").onclick=()=>location.hash=`/objects/object/${oid}`;document.getElementById("schemeWorkSelect")?.addEventListener("change",e=>{frameMode=e.target.value==="__frame__";if(!frameMode)activeWorkId=e.target.value;activeScheme="all";selectedId="";syncNotice=null;elementSearch="";pickerScrollTop=0;hiddenGroups.clear();statusFilter="all";levelMin="";levelMax="";refreshGridModel();draw()});document.getElementById("schemeTypeSelect")?.addEventListener("change",e=>{activeScheme=e.target.value;selectedId="";syncNotice=null;elementSearch="";pickerScrollTop=0;refreshGridModel();draw()});
+  document.getElementById("schemeBack").onclick=()=>location.hash=`/objects/object/${oid}`;document.getElementById("schemeWorkSelect")?.addEventListener("change",e=>{frameMode=e.target.value==="__frame__";if(!frameMode)activeWorkId=e.target.value;activeScheme="all";selectedId="";syncNotice=null;elementSearch="";pickerScrollTop=0;hiddenGroups.clear();hiddenSections.clear();confFilter="all";statusFilter="all";levelMin="";levelMax="";refreshGridModel();draw()});document.getElementById("schemeTypeSelect")?.addEventListener("change",e=>{activeScheme=e.target.value;selectedId="";syncNotice=null;elementSearch="";pickerScrollTop=0;refreshGridModel();draw()});
   document.querySelector(".scheme-layers")?.addEventListener("toggle",e=>{layersPanelOpen=e.target.open});
   document.querySelectorAll("[data-scheme-layer]").forEach(btn=>btn.addEventListener("click",()=>{layersPanelOpen=true;const key=btn.dataset.schemeLayer;if(hiddenGroups.has(key))hiddenGroups.delete(key);else hiddenGroups.add(key);updateLayerVisibility()}));
   document.getElementById("schemeLayersShowAll")?.addEventListener("click",()=>{layersPanelOpen=true;hiddenGroups.clear();updateLayerVisibility()});
   document.getElementById("schemeLayersHideAll")?.addEventListener("click",()=>{layersPanelOpen=true;allVisibleTypes().forEach(g=>hiddenGroups.add(g.key));updateLayerVisibility()});
   document.getElementById("schemeRefreshMarkProgress")?.addEventListener("click",refreshSchemeMarkProgress);
   document.getElementById("schemeStatusFilter")?.addEventListener("change",e=>{statusFilter=e.target.value;updateLayerVisibility()});
+  document.getElementById("schemeConfFilter")?.addEventListener("change",e=>{confFilter=e.target.value;updateLayerVisibility()});
+  document.querySelectorAll("[data-scheme-section]").forEach(btn=>btn.addEventListener("click",()=>{const key=btn.dataset.schemeSection;if(hiddenSections.has(key))hiddenSections.delete(key);else hiddenSections.add(key);updateLayerVisibility()}));
   document.getElementById("schemeLevelMin")?.addEventListener("change",e=>{levelMin=e.target.value;updateLayerVisibility()});
   document.getElementById("schemeLevelMax")?.addEventListener("change",e=>{levelMax=e.target.value;updateLayerVisibility()});
-  document.getElementById("schemeVisibilityReset")?.addEventListener("click",()=>{hiddenGroups.clear();statusFilter="all";levelMin="";levelMax="";cutHidden=[];try{localStorage.setItem("ir-project-3d-sections."+oid,"[]")}catch(_error){}updateLayerVisibility()});
+  document.getElementById("schemeVisibilityReset")?.addEventListener("click",()=>{hiddenGroups.clear();hiddenSections.clear();confFilter="all";statusFilter="all";levelMin="";levelMax="";cutHidden=[];try{localStorage.setItem("ir-project-3d-sections."+oid,"[]")}catch(_error){}updateLayerVisibility()});
 
   document.querySelectorAll("[data-plan-cut]").forEach(input=>input.addEventListener("change",()=>{
    const id=input.dataset.planCut;

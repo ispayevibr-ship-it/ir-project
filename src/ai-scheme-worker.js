@@ -47,6 +47,7 @@ function pageContext(texts){
     parentPort.postMessage({type:"progress",page:n,total:pages.length});
     page.cleanup();continue
    }
+   const started=Date.now();
    let geometry=await readPageGeometry(pdfjs,page);
    // A drawing whose lettering was exported as curves, or a scanned sheet, has no text layer: the lettering
    // is recognised from the image.
@@ -91,7 +92,7 @@ function pageContext(texts){
    for(const s of result.schemes){const notes=schemeNotes(geometry.texts,s.bbox,s.title);if(notes.notes.length||notes.z0_mm!==null||notes.z1_mm!==null)s.levelNotes=notes}
    // Read by OCR or not at all, such a sheet also goes to Claude as an image.
    results.push({page:n,widthPt:geometry.widthPt,heightPt:geometry.heightPt,schemes:result.schemes,context:pageContext(geometry.texts),noText,ocr,...(geometry.turn?{turn:geometry.turn}:{}),
-    sheet:extractSheet(geometry),sections:extractSections(geometry),tank:extractTank(geometry),trusses:extractTrusses(geometry),baseDetails:extractBaseDetails(geometry),columnDetails:extractColumnDetails(geometry),railOffsets:extractRailOffsets(geometry),levelMarks:levelMarksOf(geometry)});
+    sheet:extractSheet(geometry),sections:extractSections(geometry),tank:extractTank(geometry),trusses:extractTrusses(geometry),baseDetails:extractBaseDetails(geometry),columnDetails:extractColumnDetails(geometry),railOffsets:extractRailOffsets(geometry),levelMarks:levelMarksOf(geometry),ms:Date.now()-started});
    parentPort.postMessage({type:"progress",page:n,total:pages.length});
    page.cleanup()
   }

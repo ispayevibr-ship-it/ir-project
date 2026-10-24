@@ -1,0 +1,469 @@
+{
+ "catalog": "templates",
+ "version": 1,
+ "note": "Уровень Б базы знаний (правила анализа 24.10.2026): шаблоны изображения на чертежах КМ, КМД, АР, ТХ — что изображено, признаки, каким правилом кода читается и каким тестом проверено. Без размеров и мест конкретного объекта; примеры (комплект, лист, область) — в закрытом knowledge/quality/methods.json. Статус needs_check: описание соглашений СПДС, а не значение для подстановки.",
+ "records": [
+  {
+   "id": "tpl-axis-grid",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds"
+   ],
+   "name": "Сетка координационных осей",
+   "depicts": "положение осей здания: от них отсчитываются все координаты в плане",
+   "signs": [
+    "штрихпунктирные линии через весь план",
+    "кружок с названием оси на конце линии (цифры по одной стороне, буквы по другой)",
+    "цепочка размеров между осями и общий размер"
+   ],
+   "method": "src/ai-scheme-extract.js: группы осей, detectScale, spansFor",
+   "applies_to": [
+    "КМ",
+    "КМД монтажные"
+   ],
+   "test": "scripts/test-ai-scheme-extract.js",
+   "note": "Направление X и Y решает положение линий на главном плане, а не цифры или буквы у оси."
+  },
+  {
+   "id": "tpl-dimension-chain",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds"
+   ],
+   "name": "Размер и цепочка размеров",
+   "depicts": "расстояние между двумя выносными линиями",
+   "signs": [
+    "размерная линия под горизонтальным числом (у вертикального — сбоку)",
+    "выносные линии на концах",
+    "засечки или стрелки",
+    "цепочка частей и общий размер под ними"
+   ],
+   "method": "src/ai-scheme-extract.js: dimensionsOf, dimensionScale",
+   "applies_to": [
+    "КМ",
+    "КМД монтажные",
+    "КМД сборочные"
+   ],
+   "test": "scripts/test-ai-scheme-extract.js"
+  },
+  {
+   "id": "tpl-overall-size",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds"
+   ],
+   "name": "Габарит вида марки",
+   "depicts": "полный размер детали на сборочном виде",
+   "signs": [
+    "размер между крайними выносными линиями вида",
+    "под ним цепочка, которая в сумме даёт его"
+   ],
+   "method": "src/ai-sheet-extract.js: overallOf",
+   "applies_to": [
+    "КМД сборочные"
+   ],
+   "test": "scripts/test-ai-sheet-extract.js",
+   "note": "Наибольшее число вида — не габарит: рядом бывают справочные размеры и числа других видов."
+  },
+  {
+   "id": "tpl-level-mark",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds"
+   ],
+   "name": "Высотная отметка",
+   "depicts": "уровень над ±0,000 (верх, низ, ось элемента)",
+   "signs": [
+    "треугольник-указатель на выносной полке",
+    "число со знаком и тремя знаками после запятой: +6,000, −0,150",
+    "может стоять на разрезе, фасаде, плане (в названии схемы — «на отм. +5,500»)"
+   ],
+   "method": "src/ai-sheet-extract.js: levelMm; src/ai-scheme-extract.js: levelMarksNear, titleLevels",
+   "applies_to": [
+    "КМ",
+    "КМД монтажные",
+    "КМД сборочные"
+   ],
+   "test": "scripts/test-ai-section-extract.js",
+   "note": "Отметка не размер: «+6,000» — уровень, «6000» — расстояние."
+  },
+  {
+   "id": "tpl-column-symbol",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds"
+   ],
+   "name": "Колонна на плане",
+   "depicts": "место колонны и поворот её сечения",
+   "signs": [
+    "значок сечения (двутавр, коробка, труба) на пересечении осей или со смещением от них",
+    "марка у значка или на выноске",
+    "привязка размерами к осям"
+   ],
+   "method": "src/ai-scheme-extract.js: columnSymbol",
+   "applies_to": [
+    "КМ",
+    "КМД монтажные"
+   ],
+   "test": "scripts/test-ai-scheme-extract.js",
+   "note": "Колонна не ставится на пересечение осей по умолчанию: смещение берётся с листа."
+  },
+  {
+   "id": "tpl-member-line",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds"
+   ],
+   "name": "Балка, ригель, прогон, связь на схеме",
+   "depicts": "элемент между двумя узлами",
+   "signs": [
+    "линия (одна или две параллельные) между осями или узлами",
+    "марка вдоль линии или на выноске",
+    "у связей — крест или диагональ в пролёте"
+   ],
+   "method": "src/ai-scheme-extract.js: memberLine",
+   "applies_to": [
+    "КМ",
+    "КМД монтажные"
+   ],
+   "test": "scripts/test-ai-scheme-extract.js"
+  },
+  {
+   "id": "tpl-leader",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds"
+   ],
+   "name": "Марка на выноске",
+   "depicts": "связь марки с изображением",
+   "signs": [
+    "наклонная линия от изображения с полкой",
+    "марка над полкой",
+    "групповая выноска с числом штук «Рс1 (6 шт.)»"
+   ],
+   "method": "src/ai-scheme-extract.js: leaderTarget",
+   "applies_to": [
+    "КМ",
+    "КМД монтажные"
+   ],
+   "test": "scripts/test-ai-scheme-extract.js",
+   "note": "Марка привязывается по концу выноски, не к ближайшей линии."
+  },
+  {
+   "id": "tpl-section-cut",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds"
+   ],
+   "name": "Разрез и его обозначение",
+   "depicts": "вертикальное положение элементов по линии разреза",
+   "signs": [
+    "линия сечения со стрелками и цифрами или буквами «1-1» на плане",
+    "вид с тем же названием на листе",
+    "отметки и привязки по вертикали"
+   ],
+   "method": "src/ai-section-extract.js: extractSections, extractElevations",
+   "applies_to": [
+    "КМ",
+    "КМД монтажные"
+   ],
+   "test": "scripts/test-ai-section-extract.js"
+  },
+  {
+   "id": "tpl-node-callout",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds"
+   ],
+   "name": "Ссылка на узел",
+   "depicts": "номер узла и лист, где он нарисован",
+   "signs": [
+    "кружок (или кружок с полкой) с номером узла",
+    "номер листа под чертой",
+    "на самом узле — его название и крупный масштаб"
+   ],
+   "method": "src/ai-scheme-extract.js: nodeBoxes",
+   "applies_to": [
+    "КМ",
+    "КМД монтажные"
+   ],
+   "test": "scripts/test-ai-joints.js",
+   "note": "Номер узла маркой не считается."
+  },
+  {
+   "id": "tpl-assembly-view",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds"
+   ],
+   "name": "Вид отправочной марки",
+   "depicts": "форма, габарит, состав марки",
+   "signs": [
+    "название вида крупным шрифтом с маркой («Ф3», «Ф4, Ф5 (обр. Ф4)»)",
+    "местный ноль сборки (не ±0,000 здания)",
+    "размеры и отметки монтажных баз под названием"
+   ],
+   "method": "src/ai-sheet-extract.js: assemblyViews",
+   "applies_to": [
+    "КМД сборочные"
+   ],
+   "test": "scripts/test-ai-sheet-extract.js"
+  },
+  {
+   "id": "tpl-required-table",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds"
+   ],
+   "name": "Таблица «Требуется» и спецификация марки",
+   "depicts": "число и масса марки, её детали",
+   "signs": [
+    "таблица у вида: «Требуется», «изготовить», «Т.» и «Н.»",
+    "спецификация: позиция, сечение, длина, число, масса"
+   ],
+   "method": "src/ai-sheet-extract.js: requiredTable, specTable",
+   "applies_to": [
+    "КМД сборочные"
+   ],
+   "test": "scripts/test-ai-sheet-extract.js"
+  },
+  {
+   "id": "tpl-element-list",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds"
+   ],
+   "name": "Ведомость элементов КМ",
+   "depicts": "профиль, сталь и усилия марки по КМ",
+   "signs": [
+    "таблица «Ведомость элементов»: марка, сечение (эскиз, состав), сталь, усилия",
+    "марка — в первой колонке"
+   ],
+   "method": "src/ai-sheet-extract.js: elementTable",
+   "applies_to": [
+    "КМ"
+   ],
+   "test": "scripts/test-ai-km-tables.js"
+  },
+  {
+   "id": "tpl-stamp",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds"
+   ],
+   "name": "Основная надпись (штамп)",
+   "depicts": "шифр, лист, листов, стадия, изменение и дата листа",
+   "signs": [
+    "рамка в правом нижнем углу листа",
+    "графы: шифр, наименование, стадия, лист, листов",
+    "таблица изменений: «Изм.», «Кол.уч», «Лист», «№док», подпись, дата"
+   ],
+   "method": "src/ai-sheet-extract.js: stampOf, stampBlock",
+   "applies_to": [
+    "КМ",
+    "КМД монтажные",
+    "КМД сборочные",
+    "АР",
+    "ТХ"
+   ],
+   "test": "scripts/test-ai-sheet-extract.js"
+  },
+  {
+   "id": "tpl-fastener-row",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds"
+   ],
+   "name": "Строка метизов",
+   "depicts": "болты, гайки, шайбы, анкеры",
+   "signs": [
+    "обозначение «Болт М20×60.58 ГОСТ …», класс прочности, покрытие",
+    "число штук в строке спецификации или ведомости метизов"
+   ],
+   "method": "src/ai-sheet-extract.js: fastenerTable; src/ai-fasteners.js",
+   "applies_to": [
+    "КМ",
+    "КМД сборочные"
+   ],
+   "test": "scripts/test-ai-fasteners.js"
+  },
+  {
+   "id": "tpl-truss-scheme",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds"
+   ],
+   "name": "Геометрическая схема фермы",
+   "depicts": "решётка фермы: пояса, стойки, раскосы",
+   "signs": [
+    "линии решётки с размерами панелей",
+    "пролёт и высоты на опорах",
+    "усилия или сечения на стержнях"
+   ],
+   "method": "src/ai-truss-extract.js: extractTrusses",
+   "applies_to": [
+    "КМ",
+    "КМД сборочные"
+   ],
+   "test": "scripts/test-ai-trusses.js"
+  },
+  {
+   "id": "tpl-stair-flight",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds"
+   ],
+   "name": "Марш лестницы на плане",
+   "depicts": "марш и направление подъёма",
+   "signs": [
+    "ряд параллельных линий ступеней",
+    "стрелка подъёма",
+    "отметки площадок у концов"
+   ],
+   "method": "src/ai-scheme-extract.js: flightsOf",
+   "applies_to": [
+    "КМ",
+    "КМД монтажные"
+   ],
+   "test": "scripts/test-ai-flights.js"
+  },
+  {
+   "id": "tpl-footprint",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds"
+   ],
+   "name": "Контур площадки на плане расположения",
+   "depicts": "площадка или крыльцо, стоящие отдельно",
+   "signs": [
+    "штрихованный контур",
+    "марка и отметка внутри или на выноске",
+    "размеры привязки к осям"
+   ],
+   "method": "src/ai-footprint-extract.js: extractFootprints",
+   "applies_to": [
+    "КМ"
+   ],
+   "test": "scripts/test-ai-footprints.js"
+  },
+  {
+   "id": "tpl-tank-shell",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds"
+   ],
+   "name": "Развёртка стенки резервуара",
+   "depicts": "пояса стенки: высота, толщина, листы, швы",
+   "signs": [
+    "прямоугольник развёртки с поясами снизу вверх",
+    "толщины и сталь поясов в таблице",
+    "люки и патрубки на развёртке с углами"
+   ],
+   "method": "src/ai-tank-extract.js: extractTank",
+   "applies_to": [
+    "КМ"
+   ],
+   "test": "scripts/test-ai-tank.js"
+  },
+  {
+   "id": "tpl-tank-bottom",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds"
+   ],
+   "name": "Схема днища резервуара",
+   "depicts": "окрайки под стенкой и центральная часть, рулонная или полистовая сборка, уклон, соединения",
+   "signs": [
+    "кольцо окраек по контуру и раскрой центральной части",
+    "«Окрайка —t×b×L», уклон «1:n» к центру или от центра",
+    "«внахлёст» / «встык», полотнища рулонной сборки"
+   ],
+   "method": "src/ai-tank-extract.js: bottomKindOf, buildTank",
+   "applies_to": [
+    "КМ",
+    "КМД монтажные"
+   ],
+   "test": "scripts/test-ai-tank-bottom.js"
+  },
+  {
+   "id": "tpl-panel-layout",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds"
+   ],
+   "name": "Раскладка сэндвич-панелей по фасаду и кровле",
+   "depicts": "поля стеновых и кровельных панелей между осями, их отметки, марки, толщина, RAL",
+   "signs": [
+    "фасад или план кровли с полосами панелей и марками",
+    "отметки низа и верха поля, направление монтажа",
+    "спецификация панелей: длина, ширина, толщина, утеплитель, RAL"
+   ],
+   "method": "src/ai-montage-plan.js: panelOf, claudeScheme",
+   "applies_to": [
+    "АР"
+   ],
+   "test": "scripts/test-ai-panels-trims.js"
+  },
+  {
+   "id": "tpl-trims",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds"
+   ],
+   "name": "Нащельники и доборные элементы",
+   "depicts": "угловые, стыковые, цокольные, коньковые, карнизные, торцевые планки, отливы, обрамления, парапетные крышки, примыкания, водосток",
+   "signs": [
+    "узлы фасада и кровли с гнутыми планками",
+    "эскиз сечения планки с полками и развёрткой",
+    "ведомость доборных элементов: марка, длина, количество, RAL"
+   ],
+   "method": "src/ai-structure-types.js: typeByName",
+   "applies_to": [
+    "АР"
+   ],
+   "test": "scripts/test-ai-panels-trims.js"
+  }
+ ]
+}

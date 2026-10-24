@@ -48,10 +48,92 @@ function stampOf(texts,w,h,med){
  const code=(codes.find(t=>/КМД/u.test(t.str))||codes[0])?.str||"";
  const name=box.filter(t=>t.size>=med*1.2&&!/КМД?\s*\(|ТОО|ООО|АО\s|Формат|^А\d$|изм\.?$|ГПЭС|^\d/u.test(t.str)&&t.str!==code&&t.str.length<70)
   .sort((a,b)=>a.y-b.y).map(t=>t.str);
- return{code,name:name.join(" · ")}
+ const block=stampBlock(texts,w,h,code);
+ return{code,name:name.join(" · "),...(Object.keys(block).length?{block}:{})}
+}
+// The cells of the stamp (ГОСТ 21.101, forms 3–6), each value under its own label: «Стадия», «Лист», «Листов»; the
+// change rows above the line «Изм. Кол.уч. Лист №док. Подп. Дата» (number or «Нов.», «Зам.», document, date); the
+// dates of the signatures below it. A cell left empty stays empty: the sheet number is never counted from the pages.
+const SECTION=/(?:^|[^А-ЯЁа-яё])(КМД|КМ|КЖИ|КЖ|АР|АС|ТХ|ТМ|ГП|ОВ|ВК|ЭС|ЭМ|ЭО|АТХ|АК|КР|ГР)(?:\d{0,2})(?![А-ЯЁа-яё])/u;
+const plainOf=t=>String(t.str).replace(/\s+/g,"");
+const centreOf=t=>t.x+(t.width||String(t.str).length*(t.size||8)*0.55)/2;
+const DATE=/^(?:\d{1,2}\.)?\d{2}\.(?:\d{2}|\d{4})$/;
+function dateValue(s){
+ const p=s.split(".").map(Number);
+ const [d,m,y]=p.length===3?p:[1,...p];
+ const year=y<100?2000+y:y;
+ return m>=1&&m<=12&&d>=1&&d<=31&&year>=1950&&year<=2100?year*10000+m*100+d:null
+}
+function stampBlock(texts,w,h,code){
+ const box=texts.filter(t=>t.x>w-760&&t.y>h-320&&horizontal(t));
+ const out={};
+ const section=(String(code).replace(/\([^)]*\)/g," ").match(SECTION)||[])[1];
+ if(section)out.section=section;
+ const under=(label,re)=>box.filter(t=>t!==label&&t.y>label.y+5&&t.y<label.y+42&&Math.abs(centreOf(t)-centreOf(label))<Math.max(18,(label.width||20)*0.75)&&re.test(String(t.str).trim()))
+  .sort((a,b)=>a.y-b.y)[0];
+ const stage=box.find(t=>plainOf(t)==="Стадия");
+ if(stage){
+  const v=under(stage,/^[А-ЯЁA-Z]{1,4}$/u);if(v)out.stage=v.str.trim();
+  const row=box.filter(t=>Math.abs(t.y-stage.y)<6&&t.x>stage.x);
+  const sheetLabel=row.find(t=>plainOf(t)==="Лист"),totalLabel=row.find(t=>plainOf(t)==="Листов");
+  const sheet=sheetLabel&&under(sheetLabel,/^\d{1,3}(?:[.,]\d{1,2})?[а-я]?$/u),total=totalLabel&&under(totalLabel,/^\d{1,3}$/);
+  if(sheet)out.sheet=sheet.str.trim();
+  if(total)out.sheets=Number(total.str.trim())
+ }
+ // The line of the change table: «Изм.», «Изм.К» (glued with «Кол.уч.»), «Изм .».
+ const head=box.filter(t=>/^Изм\.?(?:К|Кол|$)/u.test(plainOf(t))).sort((a,b)=>b.y-a.y)[0];
+ // Where a column of that line is, also inside a glued label («Лист №док . Подпись Дата»).
+ const column=re=>{
+  const t=head&&box.find(o=>Math.abs(o.y-head.y)<6&&re.test(String(o.str)));
+  if(!t)return null;
+  const s=String(t.str),i=s.search(re),len=(s.match(re)||[""])[0].length,width=t.width||s.length*(t.size||8)*0.55;
+  return t.x+width*(i+len/2)/Math.max(1,s.length)
+ };
+ const docX=head&&column(/№\s*док|N\s*док/u),dateX=head&&column(/Дата/u);
+ if(head){
+  const rows=box.filter(t=>t.y<head.y-4&&t.y>head.y-48&&centreOf(t)>head.x-4&&centreOf(t)<head.x+28&&/^(?:\d{1,2}|Нов\.?|Зам\.?|Изм\.?|Анн\.?)$/u.test(String(t.str).trim()))
+   .map(t=>{
+    const line=box.filter(o=>o!==t&&Math.abs(o.y-t.y)<5);
+    const doc=docX!==null&&line.find(o=>Math.abs(centreOf(o)-docX)<30&&/\d/.test(o.str)&&!DATE.test(String(o.str).trim()));
+    const date=line.find(o=>DATE.test(String(o.str).trim())&&dateValue(String(o.str).trim())&&(dateX===null||Math.abs(centreOf(o)-dateX)<40));
+    return{change:t.str.trim(),...(doc?{doc:doc.str.trim()}:{}),...(date?{date:date.str.trim()}:{})}
+   });
+  // The latest change: the highest number, the row farthest from the line when there are no numbers.
+  if(rows.length)out.revision=rows.reduce((a,b)=>Number(b.change)>Number(a.change)||(!Number(a.change)&&!Number(b.change))?b:a)
+ }
+ // The date of the sheet: the latest date of the signatures, in the column «Дата» below the change line.
+ const dates=box.filter(t=>head&&t.y>head.y+4&&t.y<head.y+90&&DATE.test(String(t.str).trim())&&(dateX===null||Math.abs(centreOf(t)-dateX)<40))
+  .map(t=>({s:t.str.trim(),v:dateValue(t.str.trim())})).filter(d=>d.v);
+ if(dates.length)out.date=dates.reduce((a,b)=>b.v>a.v?b:a).s;
+ return out
 }
 
-function assemblyViews(texts,w,h,med){
+// The overall size of a view (rules of 24.10.2026): the dimension between the extreme extension lines of its direction —
+// the outline of the part — not the largest number of the view (a reference size, a size of another view or a number of
+// the table can be larger). Its dimensions keep one scale; the overall one spans all the others and the chain under it
+// adds up to it. None spans them — no overall dimension is drawn: the largest number stays, as ambiguous.
+function overallOf(inside,segments,box){
+ if(!segments?.length)return null;
+ const {dimensionsOf}=require("./ai-scheme-extract");
+ const near=segments.filter(q=>Math.max(q.a.x,q.b.x)>=box.x0&&Math.min(q.a.x,q.b.x)<=box.x1&&Math.max(q.a.y,q.b.y)>=box.y0&&Math.min(q.a.y,q.b.y)<=box.y1);
+ const dims=dimensionsOf(inside,near).filter(d=>d.v>=100&&d.v<=30000);
+ if(!dims.length)return null;
+ const ratio=d=>d.v/(d.hi-d.lo),n=median(dims.map(ratio)),same=dims.filter(d=>Math.abs(ratio(d)-n)/n<=0.06);
+ let best=null;
+ for(const flat of [true,false]){
+  const list=same.filter(d=>d.flat===flat);if(!list.length)continue;
+  const lo=Math.min(...list.map(d=>d.lo)),hi=Math.max(...list.map(d=>d.hi)),tol=Math.max(1.5,(hi-lo)*0.01);
+  const over=list.filter(d=>d.lo<=lo+tol&&d.hi>=hi-tol).sort((a,b)=>b.v-a.v)[0];
+  if(!over||list.length<2&&over.v<1000)continue;
+  // The chain on another line between the same ends: its parts add up to the overall dimension.
+  const chain=list.filter(d=>d!==over&&Math.abs(d.line-over.line)>1&&d.lo>=lo-tol&&d.hi<=hi+tol);
+  const lines=new Map();for(const d of chain){const k=Math.round(d.line);lines.set(k,[...(lines.get(k)||[]),d])}
+  const closes=[...lines.values()].some(g=>g.length>=2&&Math.abs(g.reduce((a,d)=>a+d.v,0)-over.v)<=Math.max(2,over.v*0.002));
+  if(!best||over.v>best.v)best={v:over.v,how:closes?"по крайним выносным линиям, цепочка сходится":"по крайним выносным линиям"}
+ }
+ return best
+}
+function assemblyViews(texts,w,h,med,segments=[]){
  const titles=texts.filter(t=>horizontal(t)&&t.size>=med*1.3&&!(t.x>w-700&&t.y>h-190))
   .map(t=>({t,marks:titleMarks(t.str)})).filter(x=>x.marks);
  const views=[];
@@ -66,7 +148,11 @@ function assemblyViews(texts,w,h,med){
   const inside=texts.filter(t=>t.x>=left&&t.x<=right&&t.y>v.t.y&&t.y<bottom);
   const levels=[...new Set(inside.map(t=>levelMm(t.str)).filter(v=>v!==null))].sort((a,b)=>a-b);
   const dims=inside.map(t=>number(t.str)).filter(v=>v&&v>=300&&v<=30000);
-  const length=dims.length?Math.max(...dims):null;
+  const box={x0:Math.round(left),y0:Math.round(Math.max(0,v.t.y-30)),x1:Math.round(right),y1:Math.round(bottom)};
+  const over=dims.length?overallOf(inside,segments,box):null;
+  const length=over?over.v:dims.length?Math.max(...dims):null;
+  const others=[...new Set(dims)].filter(x=>x!==length).sort((a,b)=>b-a);
+  const how=over?over.how:length?"наибольшее число вида — общий размер не найден":"";
   let z0=levels.length>=2?levels[0]:null,z1=levels.length>=2?levels[levels.length-1]:null;
   // Only the top levels sit in the view (the bottom one is drawn by another view): the bottom is the level
   // written elsewhere on the sheet that matches the top minus the overall length.
@@ -76,7 +162,7 @@ function assemblyViews(texts,w,h,med){
    if(match!==undefined){z0=match;z1=top}
   }
   // Its area on the sheet (points): the mark card shows this piece of the drawing.
-  views.push({marks:v.marks,title:v.t.str,levels,z0_mm:z0,z1_mm:z1,length_mm:length,box:{x0:Math.round(left),y0:Math.round(Math.max(0,v.t.y-30)),x1:Math.round(right),y1:Math.round(bottom)}})
+  views.push({marks:v.marks,title:v.t.str,levels,z0_mm:z0,z1_mm:z1,length_mm:length,...(how?{length_how:how}:{}),...(!over&&others.length?{length_candidates:[length,...others.slice(0,2)]}:{}),box})
  }
  return views
 }
@@ -284,11 +370,11 @@ function sheetStamp({texts=[],widthPt=0,heightPt=0}={}){
 const assemblyTextOf=texts=>texts.some(t=>/^Спецификация\s+на\s+отправочн|^Тре[бдв]уется|^изготовить$|^Отправочная/u.test(t.str));
 // Shipping marks named by the stamp of an assembly sheet («Сегмент 9 · А003855-а»).
 const stampMarks=stamp=>[...new Set(String(stamp?.name||"").split(" · ").flatMap(part=>titleMarks(part.trim())||[]))];
-function extractSheet({texts=[],widthPt=0,heightPt=0}={}){
+function extractSheet({texts=[],widthPt=0,heightPt=0,segments=[]}={}){
  const med=median(texts.map(t=>t.size))||10;
  const stamp=stampOf(texts,widthPt,heightPt,med),own=stampMarks(stamp).filter(m=>/\d{5}/.test(m));
  // A sheet of one shipping mark in plant numbering: other numbers in view titles are its parts.
- const views=assemblyViews(texts,widthPt,heightPt,med).filter(v=>v.levels.length>=2||v.length_mm)
+ const views=assemblyViews(texts,widthPt,heightPt,med,segments).filter(v=>v.levels.length>=2||v.length_mm)
   .filter(v=>!own.length||v.marks.some(m=>own.includes(m)));
  const table=requiredTable(texts),required=[...table],elements=elementTable(texts),spec=specTable(texts);
  const levels=texts.map(t=>levelMm(t.str)).filter(v=>v!==null);

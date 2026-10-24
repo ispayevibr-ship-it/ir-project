@@ -43,11 +43,15 @@ const setIdOf=files=>{const s=(files||[]).map(f=>f.sha256).filter(Boolean).sort(
 function createTraining({database,getUserDataPath,base=null}){
  const dir=sub=>path.join(getUserDataPath(),"ai-learned",sub);
  // After a placement: what was placed, element by element, with the set of drawings it came from.
- function recordPlacement(oid,{batch,draftId,source}={}){
+ // Elements the engineer had changed and the placement left as they were (`carried`) keep what was placed before, so
+ // that their correction is not lost with the new placement.
+ function recordPlacement(oid,{batch,draftId,source,carried=[]}={}){
   const rows=database.listEntity(oid,"scheme").filter(r=>!isGrid(r)&&r.data?.import_batch===batch);
   const files=(source?.documents||[]).map(f=>({name:f.name,sha256:f.sha256,type:f.type||f.kind||""}));
+  const own=rows.map(r=>({id:String(r.id),origin:originOf(r.data||{})})),ids=new Set(own.map(e=>e.id));
+  const kept=(carried||[]).filter(e=>e?.id&&e.origin&&!ids.has(String(e.id))).map(e=>({id:String(e.id),origin:e.origin}));
   return database.createEntity(oid,SECTION,{record_type:"placement",title:batch,data:{batch,draftId:draftId??null,at:new Date().toISOString(),
-   set:{id:setIdOf(files),name:String(source?.name||""),files},elements:rows.map(r=>({id:String(r.id),origin:originOf(r.data||{})}))}})
+   set:{id:setIdOf(files),name:String(source?.name||""),files},elements:[...own,...kept]}})
  }
  const placements=oid=>database.listEntity(oid,SECTION).filter(r=>r.record_type==="placement").sort((a,b)=>String(a.data?.at).localeCompare(String(b.data?.at)));
  // Corrections of the latest placement of each set: compared with the scheme as it is now.
@@ -61,7 +65,7 @@ function createTraining({database,getUserDataPath,base=null}){
     const r=byId.get(e.id);
     if(!r){out.push({kind:["deleted"],set:d.set,batch:d.batch,before:e.origin,after:null});continue}
     const now=originOf(r.data||{}),k=diff(e.origin,now);
-    if(k.length)out.push({kind:k,set:d.set,batch:d.batch,before:e.origin,after:now,mounted:r.data?.status==="mounted"})
+    if(k.length)out.push({kind:k,id:e.id,set:d.set,batch:d.batch,before:e.origin,after:now,mounted:r.data?.status==="mounted"})
    }
    // Elements the engineer added after this placement: what the recognition missed.
    for(const r of rows)if(!r.data?.import_batch&&!placedIds.has(String(r.id))&&String(r.created_at||"").replace("T"," ").slice(0,19)>=String(d.at||"").replace("T"," ").slice(0,19))
