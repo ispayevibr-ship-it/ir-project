@@ -1,0 +1,244 @@
+{
+ "catalog": "profiles-angles-bent-19772",
+ "version": 1,
+ "note": "ГОСТ 19772-93: уголки стальные гнутые неравнополочные; B — большая полка, b — меньшая, t (S) — толщина, R — внутренний радиус гиба (не более). Только табл. 1 (сталь с σв до 460 Н/мм²). Сверка: площадь по размерам A = t·[(B − (R+t)) + (b − (R+t)) + π/2·(R + t/2)] и масса = площадь × 0,785.",
+ "records": [
+  {
+   "id": "angle-19772-32x25x2",
+   "designation": "Уголок гнутый 32×25×2",
+   "standard": "ГОСТ 19772-93",
+   "table": 1,
+   "B_mm": 32.0,
+   "b_mm": 25.0,
+   "t_mm": 2.0,
+   "R_mm": 3.0,
+   "A_cm2": 1.06,
+   "mass_kg_m": 0.84,
+   "bent": true,
+   "shape3d": "angle",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-19772-93"
+   ]
+  },
+  {
+   "id": "angle-19772-32x25x2.5",
+   "designation": "Уголок гнутый 32×25×2.5",
+   "standard": "ГОСТ 19772-93",
+   "table": 1,
+   "B_mm": 32.0,
+   "b_mm": 25.0,
+   "t_mm": 2.5,
+   "R_mm": 3.0,
+   "A_cm2": 1.32,
+   "mass_kg_m": 1.03,
+   "bent": true,
+   "shape3d": "angle",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-19772-93"
+   ]
+  },
+  {
+   "id": "angle-19772-50x35x3.2",
+   "designation": "Уголок гнутый 50×35×3.2",
+   "standard": "ГОСТ 19772-93",
+   "table": 1,
+   "B_mm": 50.0,
+   "b_mm": 35.0,
+   "t_mm": 3.2,
+   "R_mm": 5.0,
+   "A_cm2": 2.53,
+   "mass_kg_m": 1.98,
+   "bent": true,
+   "shape3d": "angle",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-19772-93"
+   ]
+  },
+  {
+   "id": "angle-19772-60x40x3",
+   "designation": "Уголок гнутый 60×40×3",
+   "standard": "ГОСТ 19772-93",
+   "table": 1,
+   "B_mm": 60.0,
+   "b_mm": 40.0,
+   "t_mm": 3.0,
+   "R_mm": 4.0,
+   "A_cm2": 2.84,
+   "mass_kg_m": 2.23,
+   "bent": true,
+   "shape3d": "angle",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-19772-93"
+   ]
+  },
+  {
+   "id": "angle-19772-70x50x4",
+   "designation": "Уголок гнутый 70×50×4",
+   "standard": "ГОСТ 19772-93",
+   "table": 1,
+   "B_mm": 70.0,
+   "b_mm": 50.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 4.5,
+   "mass_kg_m": 3.53,
+   "bent": true,
+   "shape3d": "angle",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-19772-93"
+   ]
+  },
+  {
+   "id": "angle-19772-80x63x4",
+   "designation": "Уголок гнутый 80×63×4",
+   "standard": "ГОСТ 19772-93",
+   "table": 1,
+   "B_mm": 80.0,
+   "b_mm": 63.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 5.42,
+   "mass_kg_m": 4.26,
+   "bent": true,
+   "shape3d": "angle",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-19772-93"
+   ]
+  },
+  {
+   "id": "angle-19772-85x35x4",
+   "designation": "Уголок гнутый 85×35×4",
+   "standard": "ГОСТ 19772-93",
+   "table": 1,
+   "B_mm": 85.0,
+   "b_mm": 35.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 4.5,
+   "mass_kg_m": 3.53,
+   "bent": true,
+   "shape3d": "angle",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-19772-93"
+   ]
+  },
+  {
+   "id": "angle-19772-90x70x4",
+   "designation": "Уголок гнутый 90×70×4",
+   "standard": "ГОСТ 19772-93",
+   "table": 1,
+   "B_mm": 90.0,
+   "b_mm": 70.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 6.1,
+   "mass_kg_m": 4.79,
+   "bent": true,
+   "shape3d": "angle",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-19772-93"
+   ]
+  },
+  {
+   "id": "angle-19772-100x65x4",
+   "designation": "Уголок гнутый 100×65×4",
+   "standard": "ГОСТ 19772-93",
+   "table": 1,
+   "B_mm": 100.0,
+   "b_mm": 65.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 6.3,
+   "mass_kg_m": 4.95,
+   "bent": true,
+   "shape3d": "angle",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-19772-93"
+   ]
+  },
+  {
+   "id": "angle-19772-105x100x3",
+   "designation": "Уголок гнутый 105×100×3",
+   "standard": "ГОСТ 19772-93",
+   "table": 1,
+   "B_mm": 105.0,
+   "b_mm": 100.0,
+   "t_mm": 3.0,
+   "R_mm": 4.0,
+   "A_cm2": 5.98,
+   "mass_kg_m": null,
+   "bent": true,
+   "shape3d": "angle",
+   "status": "needs_check",
+   "sources": [
+    "dnaop-19772-93"
+   ],
+   "note": "значение в источнике не читается"
+  },
+  {
+   "id": "angle-19772-115x65x5",
+   "designation": "Уголок гнутый 115×65×5",
+   "standard": "ГОСТ 19772-93",
+   "table": 1,
+   "B_mm": 115.0,
+   "b_mm": 65.0,
+   "t_mm": 5.0,
+   "R_mm": 7.0,
+   "A_cm2": 845.0,
+   "mass_kg_m": 6.71,
+   "bent": true,
+   "shape3d": "angle",
+   "status": "needs_check",
+   "sources": [
+    "dnaop-19772-93"
+   ],
+   "note": "масса 6.71 не сходится с площадью 845 (по площади 663.33); площадь 845 не сходится с размерами (по размерам 8.55) — опечатка источника или чтения, проверить"
+  },
+  {
+   "id": "angle-19772-120x100x8",
+   "designation": "Уголок гнутый 120×100×8",
+   "standard": "ГОСТ 19772-93",
+   "table": 1,
+   "B_mm": 120.0,
+   "b_mm": 100.0,
+   "t_mm": 8.0,
+   "R_mm": 12.0,
+   "A_cm2": 16.41,
+   "mass_kg_m": 7.89,
+   "bent": true,
+   "shape3d": "angle",
+   "status": "needs_check",
+   "sources": [
+    "dnaop-19772-93"
+   ],
+   "note": "масса 7.89 не сходится с площадью 16.41 (по площади 12.88) — опечатка источника или чтения, проверить"
+  },
+  {
+   "id": "angle-19772-180x140x6",
+   "designation": "Уголок гнутый 180×140×6",
+   "standard": "ГОСТ 19772-93",
+   "table": 1,
+   "B_mm": 180.0,
+   "b_mm": 140.0,
+   "t_mm": 6.0,
+   "R_mm": 9.0,
+   "A_cm2": 18.53,
+   "mass_kg_m": 14.55,
+   "bent": true,
+   "shape3d": "angle",
+   "status": "confirmed",
+   "sources": [
+    "dnaop-19772-93"
+   ]
+  }
+ ]
+}

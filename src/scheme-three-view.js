@@ -67,7 +67,8 @@ window.irThreeSchemeView=(function(){
  // Rolled sections from the global knowledge base (knowledge/global, confirmed rows only): a member whose profile is
  // found is drawn by its real section; the rest keep a conventional one and are counted as such.
  var sections=new Map(),sectionsPromise=null;
- var CATALOGS=["profiles-ibeams","profiles-ibeams-parallel","profiles-ibeams-26020","profiles-ibeams-19425","profiles-channels","profiles-angles","profiles-angles-unequal","profiles-box-30245","pipes"];
+ var CATALOGS=["profiles-ibeams","profiles-ibeams-parallel","profiles-ibeams-26020","profiles-ibeams-19425","profiles-channels","profiles-channels-19425",
+  "profiles-channels-bent-8278","profiles-channels-bent-8281","profiles-angles","profiles-angles-unequal","profiles-angles-bent-19771","profiles-angles-bent-19772","profiles-box-30245","pipes"];
  function loadSections(){
   // An exported scheme carries the rows it needs (a file opened from the disk cannot fetch the tables).
   if(!sectionsPromise&&Array.isArray(window.irSchemeSections)){window.irSchemeSections.forEach(function(r){if(r&&r.id)sections.set(r.id,r)});sectionsPromise=Promise.resolve()}
@@ -126,8 +127,25 @@ window.irThreeSchemeView=(function(){
   }
   // An I-beam М of ГОСТ 19425-74 (monorail, hoist track): «24М», «I30М».
   if((m=/^(?:I|І|Двутавр|Дв\.?)?(\d{2})[МM]$/.exec(t))&&(r=sections.get("ibeam-19425-"+m[1]+"М")))return{shape:"ibeam",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard};
-  // A bent channel «[160×60×4» (ГОСТ 8278-83): the wall all round, no root fillet.
-  if((m=/^(?:\[|Швеллер(?:гнутый)?|Шв\.?(?:гн\.?)?)(\d{2,3})x(\d{2,3})x(\d+(?:\.\d+)?)$/i.exec(t))&&+m[3]<+m[2]/2)return{shape:"channel",h:+m[1],b:+m[2],s:+m[3],t:+m[3],r:0,std:"ГОСТ 8278-83 по обозначению"};
+  // A special channel С of ГОСТ 19425-74: «18С», «[20С».
+  if((m=/^(?:\[|Швеллер|Шв\.?)?(\d{2})[СC]([аa]?)$/.exec(t))&&(r=sections.get("channel-19425-"+m[1]+"С"+(m[2]?"а":""))))return{shape:"channel",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard};
+  // Bent sections drawn by their bend: the wall all round, the outer corner rounded by R + s, the inner by R (the radius of
+  // the table). A bent channel «[160×60×4» (ГОСТ 8278-83, table 1, else table 2; a size in neither — by designation,
+  // square corners), an unequal one «[160×80×50×5» (ГОСТ 8281-80), a bent angle «Уголок гнутый 80×4» (ГОСТ 19771/19772-93).
+  if((m=/^(?:\[|Швеллер(?:гнутый)?(?:неравнополочный)?|Шв\.?(?:гн\.?)?)(\d{2,3})x(\d{2,3})x(\d{2,3})x(\d+(?:\.\d+)?)$/i.exec(t))){
+   var k4=+m[1]+"x"+Math.max(+m[2],+m[3])+"x"+Math.min(+m[2],+m[3])+"x"+Number(m[4]);r=sections.get("channel-8281-"+k4)||sections.get("channel-8281-"+k4+"-t2");
+   if(r)return{shape:"channel",bent:true,h:r.h_mm,b:r.b_mm,b1:r.b1_mm,s:r.s_mm,t:r.s_mm,r:number(r.R_mm),std:r.standard}
+  }
+  if((m=/^(?:\[|Швеллер(?:гнутый)?|Шв\.?(?:гн\.?)?)(\d{2,3})x(\d{2,3})x(\d+(?:\.\d+)?)$/i.exec(t))&&+m[3]<+m[2]/2){
+   var k3="channel-8278-"+(+m[1])+"x"+(+m[2])+"x"+Number(m[3]);r=sections.get(k3)||sections.get(k3+"-t2");
+   if(r)return{shape:"channel",bent:true,h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.s_mm,r:number(r.R_mm),std:r.standard};
+   return{shape:"channel",h:+m[1],b:+m[2],s:+m[3],t:+m[3],r:0,std:"ГОСТ 8278-83 по обозначению"}
+  }
+  if(/гн|гнут/i.test(t)&&(m=/^(?:L|∟|Уголок|Уг\.?)(?:гнутый|гн\.?)?(\d+)x(\d+)(?:x(\d+(?:\.\d+)?))?(?:гн\.?)?$/i.exec(t))){
+   r=m[3]&&m[1]!==m[2]?sections.get("angle-19772-"+Math.max(+m[1],+m[2])+"x"+Math.min(+m[1],+m[2])+"x"+Number(m[3])):sections.get("angle-19771-"+Number(m[1])+"x"+Number(m[3]||m[2]));
+   if(r)return{shape:"angle",bent:true,h:r.B_mm||r.b_mm,b:r.b_mm,s:r.t_mm,t:r.t_mm,r:number(r.R_mm),std:r.standard};
+   return null
+  }
   if((m=/^(?:\[|Швеллер|Шв\.?)(\d+(?:\.5)?а?)([УПЭЛ])$/i.exec(t))&&(r=sections.get("channel-"+m[1].toLowerCase()+m[2].toUpperCase())))return{shape:"channel",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard};
   if((m=/^(?:L|∟|Уголок|Уг\.?)(\d+)x(\d+)(?:x(\d+(?:\.\d)?))?$/i.exec(t))&&(!m[3]||m[1]===m[2])&&(r=sections.get("angle-"+m[1]+"x"+Number(m[3]||m[2]))))return{shape:"angle",h:r.b_mm,b:r.b_mm,s:r.t_mm,t:r.t_mm,r:root(r),std:r.standard};
   // Unequal legs «L63x40x5»: h — the long leg, b — the short one.
@@ -165,7 +183,7 @@ window.irThreeSchemeView=(function(){
  // The section as drawn by the sortament: root fillets between the web and the flanges (rounded box corners), so
  // that a member reads as rolled steel close up.
  function realGeometry(T,cache,sec){
-  var key="real:"+sec.shape+(sec.solid?"s":"")+":"+sec.h+":"+sec.b+":"+sec.s+":"+sec.t+":"+(sec.r||0);
+  var key="real:"+sec.shape+(sec.solid?"s":"")+(sec.bent?"g"+(sec.b1||""):"")+":"+sec.h+":"+sec.b+":"+sec.s+":"+sec.t+":"+(sec.r||0);
   if(cache.has(key))return cache.get(key);
   var h=sec.h/2000,b=sec.b/2000,w=sec.s/2000,fl=sec.t/1000,geo,shape=new T.Shape(),rf=Math.max(0,number(sec.r)/1000),cw=true;
   if(sec.shape==="plate"){
@@ -184,6 +202,20 @@ window.irThreeSchemeView=(function(){
     pts.forEach(function(q){var cx=q[0]+(q[0]===x0?r:-r),cy=q[1]+(q[1]===y0?r:-r);if(r>0)path.absarc(cx,cy,r,q[2],q[3],!ccw);else path.lineTo(q[0],q[1])})
    };
    rounded(shape,-b,-h,b,h,ro,true);rounded(hole2,-b+ws,-h+ws,b-ws,h-ws,ri,false);shape.holes.push(hole2)
+  }else if(sec.shape==="channel"&&sec.bent){
+   // A bent channel: web on the left, the top flange b, the bottom one b1 (= b for an equal one); bends round.
+   var H=sec.h/2000,bt=sec.b/1000,bb=(sec.b1||sec.b)/1000,st=sec.s/1000,x0=-Math.max(bt,bb)/2,ri=Math.max(0,number(sec.r)/1000),ro=ri+st;
+   shape.moveTo(x0+bt,H);shape.lineTo(x0+ro,H);shape.absarc(x0+ro,H-ro,ro,Math.PI/2,Math.PI,false);shape.lineTo(x0,-H+ro);
+   shape.absarc(x0+ro,-H+ro,ro,Math.PI,Math.PI*1.5,false);shape.lineTo(x0+bb,-H);shape.lineTo(x0+bb,-H+st);shape.lineTo(x0+ro,-H+st);
+   if(ri>0)shape.absarc(x0+ro,-H+ro,ri,Math.PI*1.5,Math.PI,true);else shape.lineTo(x0+st,-H+st);
+   shape.lineTo(x0+st,H-ro);if(ri>0)shape.absarc(x0+ro,H-ro,ri,Math.PI,Math.PI/2,true);else shape.lineTo(x0+st,H-st);
+   shape.lineTo(x0+bt,H-st);shape.closePath()
+  }else if(sec.shape==="angle"&&sec.bent){
+   // A bent angle: the heel rounded outside by R + t and inside by R.
+   var lg=sec.h/1000,lg2=sec.b/1000,tb=sec.t/1000,rib=Math.max(0,number(sec.r)/1000),rob=rib+tb;
+   shape.moveTo(rob,0);shape.lineTo(lg2,0);shape.lineTo(lg2,tb);shape.lineTo(rob,tb);
+   if(rib>0)shape.absarc(rob,rob,rib,Math.PI*1.5,Math.PI,true);else shape.lineTo(tb,tb);
+   shape.lineTo(tb,lg);shape.lineTo(0,lg);shape.lineTo(0,rob);shape.absarc(rob,rob,rob,Math.PI,Math.PI*1.5,false);shape.closePath()
   }else if(sec.shape==="channel"){
    // Web on the left, flanges to the right.
    var wx=-b+2*w,rc=Math.min(rf,b-2*w,h-fl);
@@ -532,6 +564,11 @@ window.irThreeSchemeView=(function(){
    return out
   }
   function legT(c){var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);return sec&&sec.t?sec.t/1000:.008}
+  // The gusset as thick as the notes of the sheet say («Толщину фасонок принять 10 мм»), else 12 mm (conventional).
+  function gussetT(c){var g=number(c.joint&&c.joint.gusset_mm);return g>=6&&g<=40?g/1000:.012}
+  // Bolts of a brace end on its gusset by the least distances of СП 16.13330 (табл. 40): the first 2,5d from the end of
+  // the brace (not less than 2d along the force), the next 3d further (not less than 2,5d) — until the КМД gives its own.
+  function boltRow(dia){return[2.5*dia,5.5*dia]}
   // Railings, treads and thin bars (Ø up to 60, strips) are welded: no nodes, end plates or bolts on them — a base
   // plate and a marker on every railing post hid the landings.
   function slight(c){var t=String(c.mark_name||c.title||""),sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);
@@ -550,9 +587,10 @@ window.irThreeSchemeView=(function(){
      if(!n||node.list.every(function(m){return Math.abs(m.d.y)<.25}))n=new T.Vector3(0,1,0);
      var ax=a.clone().sub(n.clone().multiplyScalar(a.dot(n))).normalize(),by=n.clone().cross(ax);
      var plate=new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(c));
-     plate.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(ax,by,n));plate.scale.set(.5,.5,.012);plate.position.copy(e[0]);
+     var gt=gussetT(c),c0=Math.min(.12,L*.3);
+     plate.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(ax,by,n));plate.scale.set(.5,.5,gt);plate.position.copy(e[0]);
      plate.userData.gusset=true;parts.push(plate);
-     var dn=boltDia(c);if(dn)[.18,.28].forEach(function(s){addBolt(c,e[0].clone().add(e[1].clone().multiplyScalar(s)),n,dn,.012+legT(c))});
+     var dn=boltDia(c);if(dn)boltRow(dn).forEach(function(s){addBolt(c,e[0].clone().add(e[1].clone().multiplyScalar(c0+s)),n,dn,gt+legT(c))});
      return
     }
     var face=Math.min(hit.t,L*.4),cut=Math.min(face+(brace?.1:.01),L*.45);
@@ -575,18 +613,19 @@ window.irThreeSchemeView=(function(){
     if(hl<.2)return;
     var hd=new T.Vector3(d.x/hl,0,d.z/hl),flat=Math.abs(d.y)<.25,side=hd.clone().cross(up);
     g.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(hd,up,side));g.userData.gusset=true;parts.push(g);
+    var gt=gussetT(c);
     if(flat){
-     g.scale.set(.4,.012,.4);g.position.copy(e[0]).add(d.clone().multiplyScalar(face+.2/hl));
-     if(dia)[.22,.32].forEach(function(s){addBolt(c,e[0].clone().add(d.clone().multiplyScalar(face+s/hl)),up,dia,.012+legT(c))});
+     g.scale.set(.4,gt,.4);g.position.copy(e[0]).add(d.clone().multiplyScalar(face+.2/hl));
+     if(dia)boltRow(dia).forEach(function(s){addBolt(c,e[0].clone().add(d.clone().multiplyScalar(cut+s)),up,dia,gt+legT(c))});
      return
     }
     // A steep brace (a portal leg, a brace of a tall bay) ends 60 mm off the face, inside its gusset: the plate runs from
     // the face past 400 mm of the brace — a gusset placed by its middle left the end of a steep leg hanging below it.
     var end=Math.min(face+.06/hl,L*.45),run=.4,h0=face*hl,h1=Math.max(h0+.3,(end+run)*hl+.05),dy=Math.abs(d.y);
     out[k]=e[0].clone().add(d.clone().multiplyScalar(end));
-    g.scale.set(h1-h0,Math.max(.3,run*dy+.15),.012);
+    g.scale.set(h1-h0,Math.max(.3,run*dy+.15),gt);
     g.position.copy(e[0]).add(hd.clone().multiplyScalar((h0+h1)/2));g.position.y=e[0].y+d.y*(end+run/2);
-    if(dia)[.12,.27].forEach(function(s){addBolt(c,e[0].clone().add(d.clone().multiplyScalar(end+s)),side,dia,.012+legT(c))})
+    if(dia)boltRow(dia).forEach(function(s){addBolt(c,e[0].clone().add(d.clone().multiplyScalar(end+s)),side,dia,gt+legT(c))})
    });
    return out
   }
@@ -1164,7 +1203,8 @@ window.irThreeSchemeView=(function(){
    if(!seen.size)return'<p class="ir-three-place-note">Соединение: на листах элементов болты не указаны — смотрите узлы КМД.</p>';
    return'<div class="ir-three-node-base"><b>Соединение</b>'+[...seen.values()].map(function(x){
     return'<span>'+escapeHtml([...new Set(x.marks)].join(", ")+": "+x.j.text)+'</span>'+(x.j.sheet?'<small>'+escapeHtml("по указаниям "+x.j.sheet)+'</small>':"")+boltHtml(x.j)}).join("")+
-    '<em>Число и места болтов на модели условные — по узлам КМД; комплект болта — по ГОСТ.</em></div>'
+    '<em>Число и места болтов на модели условные — по узлам КМД; комплект болта — по ГОСТ. Болты связей на фасонках стоят по наименьшим расстояниям СП 16.13330 (табл. 40): от торца 2,5d, шаг 3d.'+
+    (n.members.some(function(m){return m.c.joint&&m.c.joint.gusset_mm})?"":" Фасонки показаны толщиной 12 мм условно — на листах толщина фасонок не указана.")+'</em></div>'
   }
   // The bolt set drawn, with the sizes from the standards.
   function boltHtml(j){
@@ -1948,7 +1988,7 @@ window.irThreeSchemeView=(function(){
  // The sortament rows for an exported scheme: only what drawing a section takes.
  function sectionRows(){
   return loadSections().then(function(){var out=[];sections.forEach(function(r){var o={};
-   ["id","status","standard","h_mm","b_mm","B_mm","s_mm","t_mm","R_mm","r_mm","diameters_mm","thicknesses_mm"].forEach(function(k){if(r[k]!=null)o[k]=r[k]});out.push(o)});return out})
+   ["id","status","standard","h_mm","b_mm","B_mm","b1_mm","s_mm","t_mm","R_mm","r_mm","diameters_mm","thicknesses_mm"].forEach(function(k){if(r[k]!=null)o[k]=r[k]});out.push(o)});return out})
  }
  return{render:render,dispose:dispose,sectionOf:sectionOf,loadSections:loadSections,sectionRows:sectionRows,fastenerRows:fastenerRows,
   focus:function(id){return call("focus",id)},

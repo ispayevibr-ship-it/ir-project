@@ -1,0 +1,987 @@
+{
+ "catalog": "profiles-channels-bent-8281",
+ "version": 1,
+ "note": "ГОСТ 8281-80: швеллеры стальные гнутые неравнополочные. h — высота, b — большая полка, b1 — меньшая, s — толщина, R — внутренний радиус гиба. Табл. 1 (σв до 460 Н/мм²) прочитана целиком, кроме строк h = 32, 50, 120 (в источнике слиты ячейки); из табл. 2 — только строки с одним вариантом. Сверка: площадь по размерам и масса = площадь × 0,785.",
+ "records": [
+  {
+   "id": "channel-8281-35x35x26x2.5",
+   "designation": "Швеллер гнутый неравнополочный 35×35×26×2.5",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 35.0,
+   "b_mm": 35.0,
+   "b1_mm": 26.0,
+   "s_mm": 2.5,
+   "t_mm": 2.5,
+   "R_mm": 4.0,
+   "A_cm2": 2.16,
+   "mass_kg_m": 1.7,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-37x60x32x3",
+   "designation": "Швеллер гнутый неравнополочный 37×60×32×3",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 37.0,
+   "b_mm": 60.0,
+   "b1_mm": 32.0,
+   "s_mm": 3.0,
+   "t_mm": 3.0,
+   "R_mm": 5.0,
+   "A_cm2": 3.52,
+   "mass_kg_m": 2.77,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-40x32x20x2",
+   "designation": "Швеллер гнутый неравнополочный 40×32×20×2",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 40.0,
+   "b_mm": 32.0,
+   "b1_mm": 20.0,
+   "s_mm": 2.0,
+   "t_mm": 2.0,
+   "R_mm": 3.0,
+   "A_cm2": 1.69,
+   "mass_kg_m": 1.33,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-40x40x20x2",
+   "designation": "Швеллер гнутый неравнополочный 40×40×20×2",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 40.0,
+   "b_mm": 40.0,
+   "b1_mm": 20.0,
+   "s_mm": 2.0,
+   "t_mm": 2.0,
+   "R_mm": 3.0,
+   "A_cm2": 1.85,
+   "mass_kg_m": 1.45,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-40x50x32x3",
+   "designation": "Швеллер гнутый неравнополочный 40×50×32×3",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 40.0,
+   "b_mm": 50.0,
+   "b1_mm": 32.0,
+   "s_mm": 3.0,
+   "t_mm": 3.0,
+   "R_mm": 5.0,
+   "A_cm2": 3.31,
+   "mass_kg_m": 2.6,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-43x106x32x3",
+   "designation": "Швеллер гнутый неравнополочный 43×106×32×3",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 43.0,
+   "b_mm": 106.0,
+   "b1_mm": 32.0,
+   "s_mm": 3.0,
+   "t_mm": 3.0,
+   "R_mm": 5.0,
+   "A_cm2": 5.08,
+   "mass_kg_m": 3.99,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-45x25x15x3",
+   "designation": "Швеллер гнутый неравнополочный 45×25×15×3",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 45.0,
+   "b_mm": 25.0,
+   "b1_mm": 15.0,
+   "s_mm": 3.0,
+   "t_mm": 3.0,
+   "R_mm": 5.0,
+   "A_cm2": 2.2,
+   "mass_kg_m": 1.73,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-60x40x20x2",
+   "designation": "Швеллер гнутый неравнополочный 60×40×20×2",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 60.0,
+   "b_mm": 40.0,
+   "b1_mm": 20.0,
+   "s_mm": 2.0,
+   "t_mm": 2.0,
+   "R_mm": 3.0,
+   "A_cm2": 2.25,
+   "mass_kg_m": 1.77,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-60x50x25x3",
+   "designation": "Швеллер гнутый неравнополочный 60×50×25×3",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 60.0,
+   "b_mm": 50.0,
+   "b1_mm": 25.0,
+   "s_mm": 3.0,
+   "t_mm": 3.0,
+   "R_mm": 5.0,
+   "A_cm2": 3.7,
+   "mass_kg_m": 2.91,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-60x60x32x3",
+   "designation": "Швеллер гнутый неравнополочный 60×60×32×3",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 60.0,
+   "b_mm": 60.0,
+   "b1_mm": 32.0,
+   "s_mm": 3.0,
+   "t_mm": 3.0,
+   "R_mm": 5.0,
+   "A_cm2": 4.21,
+   "mass_kg_m": 3.31,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-65x55x20x2.5",
+   "designation": "Швеллер гнутый неравнополочный 65×55×20×2.5",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 65.0,
+   "b_mm": 55.0,
+   "b1_mm": 20.0,
+   "s_mm": 2.5,
+   "t_mm": 2.5,
+   "R_mm": 4.0,
+   "A_cm2": 3.26,
+   "mass_kg_m": 2.56,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-65x65x40x4",
+   "designation": "Швеллер гнутый неравнополочный 65×65×40×4",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 65.0,
+   "b_mm": 65.0,
+   "b1_mm": 40.0,
+   "s_mm": 4.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 6.21,
+   "mass_kg_m": 4.87,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-67x65x35x3",
+   "designation": "Швеллер гнутый неравнополочный 67×65×35×3",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 67.0,
+   "b_mm": 65.0,
+   "b1_mm": 35.0,
+   "s_mm": 3.0,
+   "t_mm": 3.0,
+   "R_mm": 5.0,
+   "A_cm2": 4.66,
+   "mass_kg_m": 3.66,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-70x80x50x4",
+   "designation": "Швеллер гнутый неравнополочный 70×80×50×4",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 70.0,
+   "b_mm": 80.0,
+   "b1_mm": 50.0,
+   "s_mm": 4.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 7.41,
+   "mass_kg_m": 5.81,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-80x50x25x3",
+   "designation": "Швеллер гнутый неравнополочный 80×50×25×3",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 80.0,
+   "b_mm": 50.0,
+   "b1_mm": 25.0,
+   "s_mm": 3.0,
+   "t_mm": 3.0,
+   "R_mm": 5.0,
+   "A_cm2": 4.3,
+   "mass_kg_m": 3.38,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-80x60x32x3",
+   "designation": "Швеллер гнутый неравнополочный 80×60×32×3",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 80.0,
+   "b_mm": 60.0,
+   "b1_mm": 32.0,
+   "s_mm": 3.0,
+   "t_mm": 3.0,
+   "R_mm": 5.0,
+   "A_cm2": 4.81,
+   "mass_kg_m": 3.78,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-80x60x40x3",
+   "designation": "Швеллер гнутый неравнополочный 80×60×40×3",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 80.0,
+   "b_mm": 60.0,
+   "b1_mm": 40.0,
+   "s_mm": 3.0,
+   "t_mm": 3.0,
+   "R_mm": 5.0,
+   "A_cm2": 5.05,
+   "mass_kg_m": 3.97,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-80x80x40x3",
+   "designation": "Швеллер гнутый неравнополочный 80×80×40×3",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 80.0,
+   "b_mm": 80.0,
+   "b1_mm": 40.0,
+   "s_mm": 3.0,
+   "t_mm": 3.0,
+   "R_mm": 5.0,
+   "A_cm2": 5.65,
+   "mass_kg_m": 4.44,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-80x80x40x5",
+   "designation": "Швеллер гнутый неравнополочный 80×80×40×5",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 80.0,
+   "b_mm": 80.0,
+   "b1_mm": 40.0,
+   "s_mm": 5.0,
+   "t_mm": 5.0,
+   "R_mm": 7.0,
+   "A_cm2": 9.09,
+   "mass_kg_m": 7.14,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-80x80x50x4",
+   "designation": "Швеллер гнутый неравнополочный 80×80×50×4",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 80.0,
+   "b_mm": 80.0,
+   "b1_mm": 50.0,
+   "s_mm": 4.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 7.81,
+   "mass_kg_m": 6.13,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-90x80x50x4",
+   "designation": "Швеллер гнутый неравнополочный 90×80×50×4",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 90.0,
+   "b_mm": 80.0,
+   "b1_mm": 50.0,
+   "s_mm": 4.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 8.21,
+   "mass_kg_m": 6.44,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-100x50x25x3",
+   "designation": "Швеллер гнутый неравнополочный 100×50×25×3",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 100.0,
+   "b_mm": 50.0,
+   "b1_mm": 25.0,
+   "s_mm": 3.0,
+   "t_mm": 3.0,
+   "R_mm": 5.0,
+   "A_cm2": 4.9,
+   "mass_kg_m": 3.85,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-100x60x32x3",
+   "designation": "Швеллер гнутый неравнополочный 100×60×32×3",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 100.0,
+   "b_mm": 60.0,
+   "b1_mm": 32.0,
+   "s_mm": 3.0,
+   "t_mm": 3.0,
+   "R_mm": 5.0,
+   "A_cm2": 5.41,
+   "mass_kg_m": 4.25,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-100x80x40x3",
+   "designation": "Швеллер гнутый неравнополочный 100×80×40×3",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 100.0,
+   "b_mm": 80.0,
+   "b1_mm": 40.0,
+   "s_mm": 3.0,
+   "t_mm": 3.0,
+   "R_mm": 5.0,
+   "A_cm2": 6.25,
+   "mass_kg_m": 4.91,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-100x80x50x4",
+   "designation": "Швеллер гнутый неравнополочный 100×80×50×4",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 100.0,
+   "b_mm": 80.0,
+   "b1_mm": 50.0,
+   "s_mm": 4.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 8.61,
+   "mass_kg_m": 6.76,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-100x80x50x5",
+   "designation": "Швеллер гнутый неравнополочный 100×80×50×5",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 100.0,
+   "b_mm": 80.0,
+   "b1_mm": 50.0,
+   "s_mm": 5.0,
+   "t_mm": 5.0,
+   "R_mm": 7.0,
+   "A_cm2": 10.59,
+   "mass_kg_m": 8.31,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-100x100x60x4",
+   "designation": "Швеллер гнутый неравнополочный 100×100×60×4",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 100.0,
+   "b_mm": 100.0,
+   "b1_mm": 60.0,
+   "s_mm": 4.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 9.8,
+   "mass_kg_m": 7.7,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-100x100x60x6",
+   "designation": "Швеллер гнутый неравнополочный 100×100×60×6",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 100.0,
+   "b_mm": 100.0,
+   "b1_mm": 60.0,
+   "s_mm": 6.0,
+   "t_mm": 6.0,
+   "R_mm": 9.0,
+   "A_cm2": 14.26,
+   "mass_kg_m": 11.2,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-100x180x35x8",
+   "designation": "Швеллер гнутый неравнополочный 100×180×35×8",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 100.0,
+   "b_mm": 180.0,
+   "b1_mm": 35.0,
+   "s_mm": 8.0,
+   "t_mm": 8.0,
+   "R_mm": 12.0,
+   "A_cm2": 22.82,
+   "mass_kg_m": 17.91,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-130x108x50x4",
+   "designation": "Швеллер гнутый неравнополочный 130×108×50×4",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 130.0,
+   "b_mm": 108.0,
+   "b1_mm": 50.0,
+   "s_mm": 4.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 10.93,
+   "mass_kg_m": 8.58,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-135x50x36x4",
+   "designation": "Швеллер гнутый неравнополочный 135×50×36×4",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 135.0,
+   "b_mm": 50.0,
+   "b1_mm": 36.0,
+   "s_mm": 4.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 8.25,
+   "mass_kg_m": 6.47,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-140x70x30x4",
+   "designation": "Швеллер гнутый неравнополочный 140×70×30×4",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 140.0,
+   "b_mm": 70.0,
+   "b1_mm": 30.0,
+   "s_mm": 4.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 9.01,
+   "mass_kg_m": 7.07,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-144x160x90x6",
+   "designation": "Швеллер гнутый неравнополочный 144×160×90×6",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 144.0,
+   "b_mm": 160.0,
+   "b1_mm": 90.0,
+   "s_mm": 6.0,
+   "t_mm": 6.0,
+   "R_mm": 9.0,
+   "A_cm2": 22.3,
+   "mass_kg_m": 17.51,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-160x50x30x3",
+   "designation": "Швеллер гнутый неравнополочный 160×50×30×3",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 160.0,
+   "b_mm": 50.0,
+   "b1_mm": 30.0,
+   "s_mm": 3.0,
+   "t_mm": 3.0,
+   "R_mm": 5.0,
+   "A_cm2": 6.85,
+   "mass_kg_m": 5.38,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-160x50x30x4",
+   "designation": "Швеллер гнутый неравнополочный 160×50×30×4",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 160.0,
+   "b_mm": 50.0,
+   "b1_mm": 30.0,
+   "s_mm": 4.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 9.01,
+   "mass_kg_m": 7.07,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-160x80x50x5",
+   "designation": "Швеллер гнутый неравнополочный 160×80×50×5",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 160.0,
+   "b_mm": 80.0,
+   "b1_mm": 50.0,
+   "s_mm": 5.0,
+   "t_mm": 5.0,
+   "R_mm": 7.0,
+   "A_cm2": 13.59,
+   "mass_kg_m": 10.67,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-200x50x30x4",
+   "designation": "Швеллер гнутый неравнополочный 200×50×30×4",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 200.0,
+   "b_mm": 50.0,
+   "b1_mm": 30.0,
+   "s_mm": 4.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 10.61,
+   "mass_kg_m": 8.33,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-270x90x72x8",
+   "designation": "Швеллер гнутый неравнополочный 270×90×72×8",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 270.0,
+   "b_mm": 90.0,
+   "b1_mm": 72.0,
+   "s_mm": 8.0,
+   "t_mm": 8.0,
+   "R_mm": 12.0,
+   "A_cm2": 32.18,
+   "mass_kg_m": 25.26,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-270x90x80x6",
+   "designation": "Швеллер гнутый неравнополочный 270×90×80×6",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 270.0,
+   "b_mm": 90.0,
+   "b1_mm": 80.0,
+   "s_mm": 6.0,
+   "t_mm": 6.0,
+   "R_mm": 9.0,
+   "A_cm2": 25.06,
+   "mass_kg_m": 19.67,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-300x80x40x4",
+   "designation": "Швеллер гнутый неравнополочный 300×80×40×4",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 300.0,
+   "b_mm": 80.0,
+   "b1_mm": 40.0,
+   "s_mm": 4.0,
+   "t_mm": 4.0,
+   "R_mm": 6.0,
+   "A_cm2": 16.21,
+   "mass_kg_m": 12.72,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-300x80x40x5",
+   "designation": "Швеллер гнутый неравнополочный 300×80×40×5",
+   "standard": "ГОСТ 8281-80",
+   "table": 1,
+   "h_mm": 300.0,
+   "b_mm": 80.0,
+   "b1_mm": 40.0,
+   "s_mm": 5.0,
+   "t_mm": 5.0,
+   "R_mm": 7.0,
+   "A_cm2": 20.09,
+   "mass_kg_m": 15.77,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-35x35x26x2.5-t2",
+   "designation": "Швеллер гнутый неравнополочный 35×35×26×2.5",
+   "standard": "ГОСТ 8281-80",
+   "table": 2,
+   "h_mm": 35.0,
+   "b_mm": 35.0,
+   "b1_mm": 26.0,
+   "s_mm": 2.5,
+   "t_mm": 2.5,
+   "R_mm": 6.0,
+   "A_cm2": 2.12,
+   "mass_kg_m": 1.66,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-37x60x32x3-t2",
+   "designation": "Швеллер гнутый неравнополочный 37×60×32×3",
+   "standard": "ГОСТ 8281-80",
+   "table": 2,
+   "h_mm": 37.0,
+   "b_mm": 60.0,
+   "b1_mm": 32.0,
+   "s_mm": 3.0,
+   "t_mm": 3.0,
+   "R_mm": 7.0,
+   "A_cm2": 3.47,
+   "mass_kg_m": 2.72,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-43x106x32x3-t2",
+   "designation": "Швеллер гнутый неравнополочный 43×106×32×3",
+   "standard": "ГОСТ 8281-80",
+   "table": 2,
+   "h_mm": 43.0,
+   "b_mm": 106.0,
+   "b1_mm": 32.0,
+   "s_mm": 3.0,
+   "t_mm": 3.0,
+   "R_mm": 7.0,
+   "A_cm2": 5.03,
+   "mass_kg_m": 3.95,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-45x25x15x3-t2",
+   "designation": "Швеллер гнутый неравнополочный 45×25×15×3",
+   "standard": "ГОСТ 8281-80",
+   "table": 2,
+   "h_mm": 45.0,
+   "b_mm": 25.0,
+   "b1_mm": 15.0,
+   "s_mm": 3.0,
+   "t_mm": 3.0,
+   "R_mm": 7.0,
+   "A_cm2": 2.15,
+   "mass_kg_m": 1.69,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-67x65x35x3-t2",
+   "designation": "Швеллер гнутый неравнополочный 67×65×35×3",
+   "standard": "ГОСТ 8281-80",
+   "table": 2,
+   "h_mm": 67.0,
+   "b_mm": 65.0,
+   "b1_mm": 35.0,
+   "s_mm": 3.0,
+   "t_mm": 3.0,
+   "R_mm": 7.0,
+   "A_cm2": 4.61,
+   "mass_kg_m": 3.62,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-70x80x50x4-t2",
+   "designation": "Швеллер гнутый неравнополочный 70×80×50×4",
+   "standard": "ГОСТ 8281-80",
+   "table": 2,
+   "h_mm": 70.0,
+   "b_mm": 80.0,
+   "b1_mm": 50.0,
+   "s_mm": 4.0,
+   "t_mm": 4.0,
+   "R_mm": 10.0,
+   "A_cm2": 7.27,
+   "mass_kg_m": 5.71,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-90x80x50x4-t2",
+   "designation": "Швеллер гнутый неравнополочный 90×80×50×4",
+   "standard": "ГОСТ 8281-80",
+   "table": 2,
+   "h_mm": 90.0,
+   "b_mm": 80.0,
+   "b1_mm": 50.0,
+   "s_mm": 4.0,
+   "t_mm": 4.0,
+   "R_mm": 10.0,
+   "A_cm2": 8.07,
+   "mass_kg_m": 6.33,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  },
+  {
+   "id": "channel-8281-200x50x30x4-t2",
+   "designation": "Швеллер гнутый неравнополочный 200×50×30×4",
+   "standard": "ГОСТ 8281-80",
+   "table": 2,
+   "h_mm": 200.0,
+   "b_mm": 50.0,
+   "b1_mm": 30.0,
+   "s_mm": 4.0,
+   "t_mm": 4.0,
+   "R_mm": 10.0,
+   "A_cm2": 10.47,
+   "mass_kg_m": 8.22,
+   "bent": true,
+   "shape3d": "channel",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8281-80"
+   ]
+  }
+ ]
+}

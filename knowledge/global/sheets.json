@@ -177,6 +177,260 @@
    "sources": [
     "meganorm-19903-2015"
    ]
+  },
+  {
+   "id": "sheet-pv-406",
+   "kind": "expanded_sheet",
+   "designation": "Лист ПВ 406",
+   "standard": "ГОСТ 8706-78",
+   "blank_t_mm": 4,
+   "feed_mm": 6,
+   "cell_step_mm": 90,
+   "S_mm": 12.7,
+   "mass_kg_m2": 15.7,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "aksvil-8706-78",
+    "mbn-pvl-8706"
+   ],
+   "note": "марка = толщина заготовки + подача (ПВ 508: s = 5, подача 8); S — габаритная толщина листа после вытяжки (для справок); шаг ячейки — по обоим источникам"
+  },
+  {
+   "id": "sheet-pv-506",
+   "kind": "expanded_sheet",
+   "designation": "Лист ПВ 506",
+   "standard": "ГОСТ 8706-78",
+   "blank_t_mm": 5,
+   "feed_mm": 6,
+   "cell_step_mm": 110,
+   "S_mm": 13.0,
+   "mass_kg_m2": 16.4,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "aksvil-8706-78",
+    "mbn-pvl-8706"
+   ],
+   "note": "марка = толщина заготовки + подача (ПВ 508: s = 5, подача 8); S — габаритная толщина листа после вытяжки (для справок); шаг ячейки — по обоим источникам"
+  },
+  {
+   "id": "sheet-pv-508",
+   "kind": "expanded_sheet",
+   "designation": "Лист ПВ 508",
+   "standard": "ГОСТ 8706-78",
+   "blank_t_mm": 5,
+   "feed_mm": 8,
+   "cell_step_mm": 110,
+   "S_mm": 16.8,
+   "mass_kg_m2": 20.9,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "aksvil-8706-78",
+    "mbn-pvl-8706"
+   ],
+   "note": "марка = толщина заготовки + подача (ПВ 508: s = 5, подача 8); S — габаритная толщина листа после вытяжки (для справок); шаг ячейки — по обоим источникам"
+  },
+  {
+   "id": "sheet-pv-510",
+   "kind": "expanded_sheet",
+   "designation": "Лист ПВ 510",
+   "standard": "ГОСТ 8706-78",
+   "blank_t_mm": 5,
+   "feed_mm": 10,
+   "cell_step_mm": 110,
+   "S_mm": 20.5,
+   "mass_kg_m2": 24.7,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "aksvil-8706-78",
+    "mbn-pvl-8706"
+   ],
+   "note": "марка = толщина заготовки + подача (ПВ 508: s = 5, подача 8); S — габаритная толщина листа после вытяжки (для справок); шаг ячейки — по обоим источникам"
+  },
+  {
+   "id": "sheet-pv-606",
+   "kind": "expanded_sheet",
+   "designation": "Лист ПВ 606",
+   "standard": "ГОСТ 8706-78",
+   "blank_t_mm": 6,
+   "feed_mm": 6,
+   "cell_step_mm": 125,
+   "S_mm": 13.4,
+   "mass_kg_m2": 17.3,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "aksvil-8706-78",
+    "mbn-pvl-8706"
+   ],
+   "note": "марка = толщина заготовки + подача (ПВ 508: s = 5, подача 8); S — габаритная толщина листа после вытяжки (для справок); шаг ячейки — по обоим источникам"
+  },
+  {
+   "id": "sheet-pv-608",
+   "kind": "expanded_sheet",
+   "designation": "Лист ПВ 608",
+   "standard": "ГОСТ 8706-78",
+   "blank_t_mm": 6,
+   "feed_mm": 8,
+   "cell_step_mm": 125,
+   "S_mm": 17.1,
+   "mass_kg_m2": 21.9,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "aksvil-8706-78",
+    "mbn-pvl-8706"
+   ],
+   "note": "марка = толщина заготовки + подача (ПВ 508: s = 5, подача 8); S — габаритная толщина листа после вытяжки (для справок); шаг ячейки — по обоим источникам"
+  },
+  {
+   "id": "sheet-pv-610",
+   "kind": "expanded_sheet",
+   "designation": "Лист ПВ 610",
+   "standard": "ГОСТ 8706-78",
+   "blank_t_mm": 6,
+   "feed_mm": 10,
+   "cell_step_mm": 125,
+   "S_mm": 20.8,
+   "mass_kg_m2": 26.0,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "aksvil-8706-78",
+    "mbn-pvl-8706"
+   ],
+   "note": "марка = толщина заготовки + подача (ПВ 508: s = 5, подача 8); S — габаритная толщина листа после вытяжки (для справок); шаг ячейки — по обоим источникам"
+  },
+  {
+   "id": "sheet-chequer-2.5",
+   "kind": "chequered_sheet",
+   "designation": "Лист рифлёный 2.5",
+   "standard": "ГОСТ 8568-77",
+   "t_mm": 2.5,
+   "rib_h_mm": 0.5,
+   "mass_rhombic_kg_m2": 21.0,
+   "mass_lentil_kg_m2": 20.1,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8568-77"
+   ],
+   "note": "t — толщина основания; рифление ромбическое (диагонали 25–30 × 60–70 мм) или чечевичное (шаг 20, 25, 30 мм); ширина 600–2200, длина 1400–8000 мм"
+  },
+  {
+   "id": "sheet-chequer-3",
+   "kind": "chequered_sheet",
+   "designation": "Лист рифлёный 3",
+   "standard": "ГОСТ 8568-77",
+   "t_mm": 3.0,
+   "rib_h_mm": 0.6,
+   "mass_rhombic_kg_m2": 25.1,
+   "mass_lentil_kg_m2": 24.2,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8568-77"
+   ],
+   "note": "t — толщина основания; рифление ромбическое (диагонали 25–30 × 60–70 мм) или чечевичное (шаг 20, 25, 30 мм); ширина 600–2200, длина 1400–8000 мм"
+  },
+  {
+   "id": "sheet-chequer-4",
+   "kind": "chequered_sheet",
+   "designation": "Лист рифлёный 4",
+   "standard": "ГОСТ 8568-77",
+   "t_mm": 4.0,
+   "rib_h_mm": 0.8,
+   "mass_rhombic_kg_m2": 33.5,
+   "mass_lentil_kg_m2": 32.2,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8568-77"
+   ],
+   "note": "t — толщина основания; рифление ромбическое (диагонали 25–30 × 60–70 мм) или чечевичное (шаг 20, 25, 30 мм); ширина 600–2200, длина 1400–8000 мм"
+  },
+  {
+   "id": "sheet-chequer-5",
+   "kind": "chequered_sheet",
+   "designation": "Лист рифлёный 5",
+   "standard": "ГОСТ 8568-77",
+   "t_mm": 5.0,
+   "rib_h_mm": 1.0,
+   "mass_rhombic_kg_m2": 41.8,
+   "mass_lentil_kg_m2": 40.5,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8568-77"
+   ],
+   "note": "t — толщина основания; рифление ромбическое (диагонали 25–30 × 60–70 мм) или чечевичное (шаг 20, 25, 30 мм); ширина 600–2200, длина 1400–8000 мм"
+  },
+  {
+   "id": "sheet-chequer-6",
+   "kind": "chequered_sheet",
+   "designation": "Лист рифлёный 6",
+   "standard": "ГОСТ 8568-77",
+   "t_mm": 6.0,
+   "rib_h_mm": 1.2,
+   "mass_rhombic_kg_m2": 50.1,
+   "mass_lentil_kg_m2": 48.5,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8568-77"
+   ],
+   "note": "t — толщина основания; рифление ромбическое (диагонали 25–30 × 60–70 мм) или чечевичное (шаг 20, 25, 30 мм); ширина 600–2200, длина 1400–8000 мм"
+  },
+  {
+   "id": "sheet-chequer-8",
+   "kind": "chequered_sheet",
+   "designation": "Лист рифлёный 8",
+   "standard": "ГОСТ 8568-77",
+   "t_mm": 8.0,
+   "rib_h_mm": 1.6,
+   "mass_rhombic_kg_m2": 66.6,
+   "mass_lentil_kg_m2": 64.9,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8568-77"
+   ],
+   "note": "t — толщина основания; рифление ромбическое (диагонали 25–30 × 60–70 мм) или чечевичное (шаг 20, 25, 30 мм); ширина 600–2200, длина 1400–8000 мм"
+  },
+  {
+   "id": "sheet-chequer-10",
+   "kind": "chequered_sheet",
+   "designation": "Лист рифлёный 10",
+   "standard": "ГОСТ 8568-77",
+   "t_mm": 10.0,
+   "rib_h_mm": 2.0,
+   "mass_rhombic_kg_m2": 83.0,
+   "mass_lentil_kg_m2": 80.9,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8568-77"
+   ],
+   "note": "t — толщина основания; рифление ромбическое (диагонали 25–30 × 60–70 мм) или чечевичное (шаг 20, 25, 30 мм); ширина 600–2200, длина 1400–8000 мм"
+  },
+  {
+   "id": "sheet-chequer-12",
+   "kind": "chequered_sheet",
+   "designation": "Лист рифлёный 12",
+   "standard": "ГОСТ 8568-77",
+   "t_mm": 12.0,
+   "rib_h_mm": 2.4,
+   "mass_rhombic_kg_m2": 99.3,
+   "mass_lentil_kg_m2": 96.8,
+   "shape3d": "deck",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-8568-77"
+   ],
+   "note": "t — толщина основания; рифление ромбическое (диагонали 25–30 × 60–70 мм) или чечевичное (шаг 20, 25, 30 мм); ширина 600–2200, длина 1400–8000 мм"
   }
  ]
 }

@@ -96,10 +96,25 @@ function createGlobalKnowledge({dir=GLOBAL_DIR}={}){
   if((m=/^(?:I|І|Двутавр|Дв\.?)?(\d{2})[МM]$/u.exec(t)))return confirmed("profiles-ibeams-19425").find(r=>r.id==="ibeam-19425-"+m[1]+"М")||null;
   // Crane rails of ГОСТ 4121-96: «КР70», «Рельс КР 100», «КР-80» (the number is the width of the head).
   if((m=/^(?:Рельс)?(?:КР|KP)-?(\d{2,3})$/u.exec(t)))return confirmed("rails-crane-4121").find(r=>r.id==="rail-4121-КР"+m[1])||null;
-  // A bent channel «[160×60×4», «Швеллер гнутый 160х60х4» (ГОСТ 8278-83, equal flanges): its table is not in the base, so
-  // the mass is the geometry of the bent strip without the bend radii, A = t·(h + 2b − 2t), and the row is to be checked.
+  // Special channels С of ГОСТ 19425-74: «18С», «[20С», «Швеллер 18Са».
+  if((m=/^(?:\[|Швеллер|Шв\.?)?(\d{2})[СC]([аa]?)$/u.exec(t)))return confirmed("profiles-channels-19425").find(r=>r.id==="channel-19425-"+m[1]+"С"+(m[2]?"а":""))||null;
+  // A bent unequal channel «[160×80×50×5» (ГОСТ 8281-80): h, the larger flange, the smaller one, the thickness.
+  if((m=/^(?:\[|Швеллер(?:гнутый)?(?:неравнополочный)?|Шв\.?(?:гн\.?)?)(\d{2,3})x(\d{2,3})x(\d{2,3})x(\d+(?:\.\d+)?)$/iu.exec(t))){
+   const key=Number(m[1])+"x"+Math.max(+m[2],+m[3])+"x"+Math.min(+m[2],+m[3])+"x"+Number(m[4]),rows=confirmed("profiles-channels-bent-8281");
+   return rows.find(r=>r.id==="channel-8281-"+key)||rows.find(r=>r.id==="channel-8281-"+key+"-t2")||null
+  }
+  // A bent angle, written so: «Уголок гнутый 80×4», «∟гн.100×65×4» (ГОСТ 19771-93, 19772-93; table 1).
+  if(/гн|гнут/iu.test(t)&&(m=/^(?:L|∟|Уголок|Уг\.?)(?:гнутый|гн\.?)?(\d+)x(\d+)(?:x(\d+(?:\.\d+)?))?(?:гн\.?)?$/iu.exec(t))){
+   if(m[3]&&m[1]!==m[2])return confirmed("profiles-angles-bent-19772").find(r=>r.id==="angle-19772-"+Math.max(+m[1],+m[2])+"x"+Math.min(+m[1],+m[2])+"x"+Number(m[3]))||null;
+   return confirmed("profiles-angles-bent-19771").find(r=>r.id==="angle-19771-"+Number(m[1])+"x"+Number(m[3]||m[2]))||null
+  }
+  // A bent channel «[160×60×4», «Швеллер гнутый 160х60х4» (ГОСТ 8278-83, equal flanges): the row of table 1 (carbon
+  // steel), else of table 2; a size in neither is taken by the geometry of the bent strip without the bend radii,
+  // A = t·(h + 2b − 2t), to be checked.
   if((m=/^(?:\[|Швеллер(?:гнутый)?|Шв\.?(?:гн\.?)?)(\d{2,3})x(\d{2,3})x(\d+(?:\.\d+)?)$/iu.exec(t))){
    const h=Number(m[1]),b=Number(m[2]),th=Number(m[3]);if(!(th>0&&th<b/2&&b<h*1.5))return null;
+   const rows=confirmed("profiles-channels-bent-8278"),key="channel-8278-"+h+"x"+b+"x"+th,row=rows.find(r=>r.id===key)||rows.find(r=>r.id===key+"-t2");
+   if(row)return row;
    const A=th*(h+2*b-2*th);
    return{id:"channel-bent-"+h+"x"+b+"x"+th,designation:"Швеллер гнутый "+h+"×"+b+"×"+th,standard:"ГОСТ 8278-83",h_mm:h,b_mm:b,s_mm:th,t_mm:th,
     bent:true,shape3d:"channel",A_cm2:Math.round(A)/100,mass_kg_m:Math.round(A*0.785)/100,listed:false,sources:[],status:"needs_check"}

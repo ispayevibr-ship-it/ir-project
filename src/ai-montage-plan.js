@@ -27,14 +27,20 @@ function typeFor(pl,geometry,learned){
 // {bolt:"М24", cls:"8.8", weld, text} of the first bolts named; null where the sheet names none.
 function jointNote(text){
  const t=String(text||"").replace(/\s+/g," ");const found=[];let m;
- const re=/болт\S*\s*((?:М\s*\d{2}(?:\s*,\s*)?)+)[^.]{0,160}?класс\S*\s+прочности\s*(\d+\.\d)/gu;
+ const re=/болт\S*\s*((?:М\s*\d{2}(?:\s*,\s*)?)+)[^.]{0,160}?класс\S*\s+прочности\s*(\d+\.\d)/giu;
  while((m=re.exec(t)))found.push({bolts:m[1].match(/\d{2}/g).map(d=>"М"+d),cls:m[2]});
  const rest=/прочности\s*(\d+\.\d)[^М]{0,160}?неоговоренные\s+болты\s*М\s*(\d{2})/u.exec(t);
  if(rest)found.push({bolts:["М"+rest[2]],cls:rest[1],rest:true});
- if(!found.length)return null;
+ // The thickness of the gussets, as the general notes give it: «Толщину фасонок принять 10 мм», «фасонки t = 8 мм»,
+ // «Фасонки толщиной 12 мм», «толщина всех фасонок — 10 мм» (6–40 mm; a number further than two words is not taken).
+ const g=/толщин\S*\s+(?:всех\s+)?фасон\S*(?:\s+[а-яё]+){0,2}?\s*[—–-]?\s*(\d{1,2})\s*мм/iu.exec(t)||
+  /фасон\S*(?:\s+[а-яё]+){0,2}?\s*(?:толщин\S*|t\s*=|δ\s*=?)\s*(\d{1,2})(?:[,.]\d)?\s*мм/iu.exec(t);
+ const gusset=g&&+g[1]>=6&&+g[1]<=40?+g[1]:null;
+ if(!found.length&&!gusset)return null;
  const weld=/монтажн\S*\s+сварк|на\s+болтах\s+и\s+сварке/iu.test(t);
  const words=[...new Set(found.map(f=>(f.rest?"неоговоренные ":"")+"болты "+f.bolts.join(", ")+" кл. "+f.cls))];
- return{bolt:found[0].bolts[0],cls:found[0].cls,weld,text:(weld?"монтажная сварка; ":"")+words.join("; ")}
+ if(gusset)words.push("фасонки t = "+gusset+" мм");
+ return{bolt:found[0]?.bolts[0]||null,cls:found[0]?.cls||null,weld,...(gusset?{gusset_mm:gusset}:{}),text:(weld?"монтажная сварка; ":"")+words.join("; ")}
 }
 const LOOKALIKE={a:"а",b:"в",c:"с",e:"е",h:"н",k:"к",m:"м",o:"о",p:"р",t:"т",x:"х",y:"у"};
 const normMark=v=>[...String(v||"").trim().toLowerCase().replace(/ё/g,"е").replace(/\s+/g,"")].map(c=>LOOKALIKE[c]||c).join("");
