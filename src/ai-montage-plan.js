@@ -777,7 +777,7 @@ const WEAK_LEVELS=/^(по соседним|по балкам листа|по с�
 function instanceStatus(e){
  if(e.levels==="проверено инженером")return{status:"confirmed",reasons:[]};
  const reasons=[];
- if(WEAK_LEVELS.test(String(e.levels||"")))reasons.push("отметки "+e.levels);
+ if(WEAK_LEVELS.test(String(e.levels||"")))reasons.push(e.levels==="нет отметок"?"отметок нет на листах — поставлены условно":"отметки "+e.levels);
  if(e.z0_assumed)reasons.push("низ не найден на чертежах — показан на ±0,000 условно");
  for(const n of String(e.note||"").split("; "))if(/проверьте/iu.test(n)&&!/^За крайними осями/u.test(n))reasons.push(n);
  return{status:reasons.some(r=>/размер вида неоднозначен/u.test(r))?"ambiguous":reasons.length?"partial":"computed",reasons:[...new Set(reasons)].slice(0,4)}
