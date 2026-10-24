@@ -11,10 +11,12 @@
 const fs=require("node:fs"),path=require("node:path");
 const GLOBAL_DIR=path.join(__dirname,"..","knowledge","global");
 // How drawings cite a standard: ГОСТ (Р, ISO, EN), СТ РК (ISO, EN, ASTM), строительные нормы РК (СП, СН, СНиП, НТП, РДС, МСН,
-// МСП), СТО АСЧМ, DIN, ISO. One source for the sheet reader, the fastener reader and standardOf.
+// МСП), СТО АСЧМ, DIN, ISO, and the codes of the RF met in older and Russian projects («СП 16.13330.2017», «СНиП II-23-81*»,
+// «РД 11-02-2006»). One source for the sheet reader, the fastener reader and standardOf.
 const STD_SOURCE="(ГОСТ\\s*Р?\\s*(?:ИСО|ISO|EN)?\\s*\\d+(?:\\.\\d+)*(?:-\\d+)*(?:-\\d{2,4})?"+
  "|(?:ҚР\\s*)?СТ\\s*РК\\s*(?:EN\\s*ISO|ИСО|ISO|EN|IEC|ASTM\\s*[A-Z]?)?\\s*\\d+(?:[.-]\\d+)*"+
  "|(?:СНиП|СП|СН|НТП|РДС|МСН|МСП)\\s*РК\\s*(?:EN\\s*)?\\d+(?:[.-]\\d+)*(?:\\(\\d+(?:\\.\\d+)*\\))?(?:[-:]\\d{4}(?:\\/\\d{4})?)?\\*?"+
+ "|СП\\s*\\d+\\.\\d{5}(?:\\.\\d{4})?|СНиП\\s*(?:[IV]+-\\d+-\\d+|\\d+\\.\\d+\\.\\d+-\\d+)\\*?|РД\\s*\\d+-\\d+-\\d{4}"+
  "|СТО\\s*АСЧМ\\s*\\d+-\\d+|DIN\\s*(?:EN\\s*)?(?:ISO\\s*)?\\d+(?:-\\d+)?|ISO\\s*\\d+(?:-\\d+)?)";
 const normStd=t=>String(t||"").toUpperCase().replace(/ИСО/g,"ISO").replace(/ҚР/g,"").replace(/[\s ]+/g,"").replace(/–|—/g,"-").replace(/\*$/,"");
 const STATUSES=["confirmed","needs_check","unknown"];
@@ -90,6 +92,18 @@ function createGlobalKnowledge({dir=GLOBAL_DIR}={}){
    for(const std of order){const r=confirmed(std==="26020"?"profiles-ibeams-26020":"profiles-ibeams-parallel").find(x=>x.id==="ibeam-"+std+"-"+key);if(r)return r}
    return null
   }
+  // Special I-beams М of ГОСТ 19425-74 for monorails and hoist tracks: «24М», «I30М», «Двутавр 36М».
+  if((m=/^(?:I|І|Двутавр|Дв\.?)?(\d{2})[МM]$/u.exec(t)))return confirmed("profiles-ibeams-19425").find(r=>r.id==="ibeam-19425-"+m[1]+"М")||null;
+  // Crane rails of ГОСТ 4121-96: «КР70», «Рельс КР 100», «КР-80» (the number is the width of the head).
+  if((m=/^(?:Рельс)?(?:КР|KP)-?(\d{2,3})$/u.exec(t)))return confirmed("rails-crane-4121").find(r=>r.id==="rail-4121-КР"+m[1])||null;
+  // A bent channel «[160×60×4», «Швеллер гнутый 160х60х4» (ГОСТ 8278-83, equal flanges): its table is not in the base, so
+  // the mass is the geometry of the bent strip without the bend radii, A = t·(h + 2b − 2t), and the row is to be checked.
+  if((m=/^(?:\[|Швеллер(?:гнутый)?|Шв\.?(?:гн\.?)?)(\d{2,3})x(\d{2,3})x(\d+(?:\.\d+)?)$/iu.exec(t))){
+   const h=Number(m[1]),b=Number(m[2]),th=Number(m[3]);if(!(th>0&&th<b/2&&b<h*1.5))return null;
+   const A=th*(h+2*b-2*th);
+   return{id:"channel-bent-"+h+"x"+b+"x"+th,designation:"Швеллер гнутый "+h+"×"+b+"×"+th,standard:"ГОСТ 8278-83",h_mm:h,b_mm:b,s_mm:th,t_mm:th,
+    bent:true,shape3d:"channel",A_cm2:Math.round(A)/100,mass_kg_m:Math.round(A*0.785)/100,listed:false,sources:[],status:"needs_check"}
+  }
   if((m=/^(?:\[|Швеллер|Шв\.?)(\d+(?:\.5)?а?)([УПЭЛ])$/iu.exec(t)))return confirmed("profiles-channels").find(r=>r.id==="channel-"+m[1].toLowerCase()+m[2].toUpperCase())||null;
   if((m=/^(?:L|∟|Уголок|Уг\.?)(\d+)x(\d+)(?:x(\d+(?:\.\d)?))?$/iu.exec(t))){
    // «75x6» or «75x75x6» — an equal-leg angle (ГОСТ 8509); «63x40x5» — unequal (ГОСТ 8510).
@@ -101,6 +115,14 @@ function createGlobalKnowledge({dir=GLOBAL_DIR}={}){
   if((m=/^(?:Гн\.?|Профиль(?:гнутый)?(?:замкнутый)?)?(□)?(\d+)(?:x(\d+))?x(\d+(?:\.\d+)?)$/iu.exec(t))&&(m[1]||/^(?:Гн|Профиль)/iu.test(t))){
    const h=Number(m[2]),b=Number(m[3]||m[2]),s=Number(m[4]),rows=confirmed("profiles-box-30245");
    return rows.find(r=>r.id==="box-30245-"+Math.max(h,b)+"x"+Math.min(h,b)+"x"+s)||null
+  }
+  // A solid bar — a tie rod, a rung, a railing post: round «Ø18», «Круг 20» (ГОСТ 2590-2006), square «□20», «Квадрат 20»
+  // (ГОСТ 2591-2006). Mass by the geometry at 7850 kg/m³ (as the sortaments give it); the size lists are not in the base.
+  if((m=/^(?:Ø|ø|∅|Круг)(\d+(?:\.\d+)?)$/iu.exec(t))||(m=/^(?:□|Квадрат|Кв\.)(\d+(?:\.\d+)?)$/iu.exec(t))){
+   const d=Number(m[1]),round=!/^(?:□|Кв)/iu.test(t);if(!(d>0&&d<=300))return null;
+   const A=round?Math.PI*d*d/4:d*d;
+   return{id:(round?"bar-round-":"bar-square-")+d,designation:(round?"Круг ":"Квадрат ")+d,standard:round?"ГОСТ 2590-2006":"ГОСТ 2591-2006",
+    D_mm:d,solid:true,shape3d:round?"round":"plate",A_cm2:Math.round(A)/100,mass_kg_m:Math.round(A*0.785)/100,listed:false,sources:[],status:"needs_check"}
   }
   if(/^(?:Тр\.?|Труба|Ø|ø)\d/iu.test(t))return pipeOf(text,{standard});
   return null
@@ -149,18 +171,32 @@ function createGlobalKnowledge({dir=GLOBAL_DIR}={}){
   if(!m)return null;
   const want=normStd(m[1]),reg=list("standards-registry");
   const exact=reg.find(r=>normStd(r.designation)===want)||null;
-  const family=reg.filter(r=>normStd(r.number)===normStd(exact?.number||want)||normStd(r.number)===want);
+  // An edition the registry has not got («ГОСТ 8239-72», «СП 28.13330.2017») still belongs to the family of its number.
+  const number=exact?normStd(exact.number):want.replace(/(?:-(?:\d{2}|\d{4})|\.\d{4})$/,"");
+  const family=reg.filter(r=>normStd(r.number)===number||normStd(r.number)===want);
   const current=family.find(r=>r.ru?.status==="in_force")||null,kzCurrent=family.find(r=>r.kz?.status==="in_force")||null;
-  const r=exact||(family.length===1?family[0]:null);
-  if(!r&&!family.length)return{designation:m[1],known:false};
-  const KZ={replaced:"заменён",cancelled:"отменён",adopted_not_introduced:"принят, но не введён",not_in_force:"не действует"};
+  const r=exact||(family.length===1&&number===want?family[0]:null);
+  if(!r&&!family.length){
+   // «ГОСТ Р 21.501-2018» — an interstate standard written with «Р» by mistake: the registry row without it, said so.
+   if(/^ГОСТР(?!ISO|EN)\d/.test(want)){
+    const alt=standardOf(m[1].replace(/ГОСТ\s*Р\s*/u,"ГОСТ "));
+    if(alt?.known)return{...alt,designation:m[1],note:m[1]+": в реестре — межгосударственный "+(alt.record||alt.family[0]).designation+" (без «Р»)"+(alt.note?"; "+alt.note:"")}
+   }
+   return{designation:m[1],known:false}
+  }
+  const KZ={replaced:"заменён",cancelled:"отменён",adopted_not_introduced:"принят, но не введён",not_in_force:"не действует",not_applicable:"не применяется (документ РФ)"};
   const RU={replaced:"заменён",cancelled:"отменён",not_in_force:"не действует",expired:"срок действия истёк"};
   let note="";
   if(r&&KZ[r.kz?.status])
-   note=r.designation+": в РК "+KZ[r.kz.status]+(kzCurrent&&kzCurrent.id!==r.id?" — в РК действует "+kzCurrent.designation:"")+(r.kz.note?"; "+r.kz.note:"");
+   note=r.designation+": в РК "+KZ[r.kz.status]+(kzCurrent&&kzCurrent.id!==r.id?" — в РК действует "+kzCurrent.designation:r.kz.current?" — в РК действует "+r.kz.current:"")+(r.kz.note?"; "+r.kz.note:"");
   else if(r&&r.kz?.status!=="in_force"&&RU[r.ru?.status])
    note=r.designation+": в РФ "+RU[r.ru.status]+(current&&current.id!==r.id?" — действует "+current.designation:"")+
     (kzCurrent?"; в РК действует "+kzCurrent.designation:"; действие в РК проверить");
+  else if(r&&r.status==="needs_check"&&r.kz?.status!=="in_force")
+   note=r.designation+": действие в РК не подтверждено"+(r.kz?.note?" — "+r.kz.note:"");
+  else if(!r&&number!==want)
+   note=m[1]+": такой редакции нет в реестре"+(kzCurrent?" — в РК действует "+kzCurrent.designation:family.some(x=>x.kz?.status==="not_applicable")?" — документ РФ, в РК не применяется":
+    family.some(x=>KZ[x.kz?.status])?" — в РК ни одна редакция не действует по каталогу":"; действие в РК проверить");
   else if(!r&&!kzCurrent&&family.some(x=>KZ[x.kz?.status]))
    note=m[1]+": в РК ни одна редакция не действует по каталогу";
   return{designation:m[1],known:true,record:r,family,current,kz_current:kzCurrent,group:(r||family[0]).group,item:(r||family[0]).item||null,note}

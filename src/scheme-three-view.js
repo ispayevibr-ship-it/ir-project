@@ -67,7 +67,7 @@ window.irThreeSchemeView=(function(){
  // Rolled sections from the global knowledge base (knowledge/global, confirmed rows only): a member whose profile is
  // found is drawn by its real section; the rest keep a conventional one and are counted as such.
  var sections=new Map(),sectionsPromise=null;
- var CATALOGS=["profiles-ibeams","profiles-ibeams-parallel","profiles-ibeams-26020","profiles-channels","profiles-angles","profiles-angles-unequal","profiles-box-30245","pipes"];
+ var CATALOGS=["profiles-ibeams","profiles-ibeams-parallel","profiles-ibeams-26020","profiles-ibeams-19425","profiles-channels","profiles-angles","profiles-angles-unequal","profiles-box-30245","pipes"];
  function loadSections(){
   // An exported scheme carries the rows it needs (a file opened from the disk cannot fetch the tables).
   if(!sectionsPromise&&Array.isArray(window.irSchemeSections)){window.irSchemeSections.forEach(function(r){if(r&&r.id)sections.set(r.id,r)});sectionsPromise=Promise.resolve()}
@@ -124,12 +124,18 @@ window.irThreeSchemeView=(function(){
    for(var i=0;i<order.length&&!r;i++)r=sections.get("ibeam-"+order[i]+"-"+key);
    if(r)return{shape:"ibeam",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard}
   }
+  // An I-beam М of ГОСТ 19425-74 (monorail, hoist track): «24М», «I30М».
+  if((m=/^(?:I|І|Двутавр|Дв\.?)?(\d{2})[МM]$/.exec(t))&&(r=sections.get("ibeam-19425-"+m[1]+"М")))return{shape:"ibeam",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard};
+  // A bent channel «[160×60×4» (ГОСТ 8278-83): the wall all round, no root fillet.
+  if((m=/^(?:\[|Швеллер(?:гнутый)?|Шв\.?(?:гн\.?)?)(\d{2,3})x(\d{2,3})x(\d+(?:\.\d+)?)$/i.exec(t))&&+m[3]<+m[2]/2)return{shape:"channel",h:+m[1],b:+m[2],s:+m[3],t:+m[3],r:0,std:"ГОСТ 8278-83 по обозначению"};
   if((m=/^(?:\[|Швеллер|Шв\.?)(\d+(?:\.5)?а?)([УПЭЛ])$/i.exec(t))&&(r=sections.get("channel-"+m[1].toLowerCase()+m[2].toUpperCase())))return{shape:"channel",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard};
   if((m=/^(?:L|∟|Уголок|Уг\.?)(\d+)x(\d+)(?:x(\d+(?:\.\d)?))?$/i.exec(t))&&(!m[3]||m[1]===m[2])&&(r=sections.get("angle-"+m[1]+"x"+Number(m[3]||m[2]))))return{shape:"angle",h:r.b_mm,b:r.b_mm,s:r.t_mm,t:r.t_mm,r:root(r),std:r.standard};
   // Unequal legs «L63x40x5»: h — the long leg, b — the short one.
   if((m=/^(?:L|∟|Уголок|Уг\.?)(\d+)x(\d+)x(\d+(?:\.\d)?)$/i.exec(t))&&(r=sections.get("angle-"+Number(m[1])+"x"+Number(m[2])+"x"+Number(m[3]))))return{shape:"angle",h:r.B_mm,b:r.b_mm,s:r.t_mm,t:r.t_mm,r:root(r),std:r.standard};
   // A round bar (tie rod, rung): «∅16», «Ø20» without a wall thickness.
-  if((m=/^(?:∅|Ø|ø)(\d{1,3})$/.exec(t)))return{shape:"round",h:+m[1],b:+m[1],s:+m[1]/2,t:+m[1]/2,solid:true,std:"круг по обозначению"};
+  if((m=/^(?:∅|Ø|ø|Круг)(\d{1,3})$/i.exec(t)))return{shape:"round",h:+m[1],b:+m[1],s:+m[1]/2,t:+m[1]/2,solid:true,std:"круг по обозначению"};
+  // A solid square bar «□20», «Квадрат 20» (no wall thickness: a box always has one).
+  if((m=/^(?:□|Квадрат|Кв\.)(\d{1,3})$/i.exec(t)))return{shape:"plate",h:+m[1],b:+m[1],s:+m[1],t:+m[1],std:"квадрат по обозначению"};
   // A tube is its own designation: «Тр.140х4», «Труба 159x6», «Ø273х8» (round), «Гн.□100х4», «□120х80х5» (box).
   if((m=/^(?:Тр\.?|Труба|Ø|ø)(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)$/i.exec(t))){
    // The sortament whose lists hold both sizes (the one the sheet cites first): ГОСТ 10704-91, ГОСТ 8732-78.

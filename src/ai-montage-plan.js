@@ -801,10 +801,15 @@ function seatWallRails(elements,merged,catalog){
 // under it (a chord of a pitched truss slopes, so do they). An end with no truss under it keeps its level.
 // Height of a section from its designation, mm (I25Б1 → 250, [16П → 160, □180х5 → 180, Тр.140х4 → 140); 0 when unknown.
 function sectionHeight(profile){
- const t=String(profile||"").replace(/\s+/g,"");let m;
+ // A pair «2L75×6», «2[16П» stands as tall as one of it.
+ const t=String(profile||"").replace(/\s+/g,"").replace(/^2(?=[L∟\[])/,"");let m;
  if((m=/^(?:I|І|Дв\.?)?(\d{2,3})(?:ДБ|ДШ|[БШКбшк])\d/.exec(t)))return +m[1]*10;
+ // An I-beam М of ГОСТ 19425 for a monorail: «24М».
+ if((m=/^(?:I|І|Дв\.?)?(\d{2})[МM]$/.exec(t)))return +m[1]*10;
  if((m=/^(?:I|І|\[|Шв\.?|Дв\.?)(\d{2})(?:[УПуп]|$)/.exec(t)))return +m[1]*10;
- if((m=/^(?:□|Гн\.?□?|Тр\.?|Ø|∅|L|∟)(\d{2,3})[xх×]/.exec(t)))return +m[1];
+ // A tube, a box, an angle, a bent channel «[160×60×4» — the first size; a solid bar «Ø18», «□20» — its size.
+ if((m=/^(?:□|Гн\.?□?|Тр\.?|Ø|∅|L|∟|\[)(\d{2,3})[xх×]/.exec(t)))return +m[1];
+ if((m=/^(?:Ø|∅|□)(\d{1,3})$/.exec(t)))return +m[1];
  return 0
 }
 // A platform or a stair landing drawn as a frame of beams carries a grating deck (настил): every cell of one level

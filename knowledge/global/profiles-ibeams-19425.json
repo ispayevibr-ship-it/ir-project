@@ -1,0 +1,112 @@
+{
+ "catalog": "profiles-ibeams-19425",
+ "version": 1,
+ "note": "ГОСТ 19425-74: двутавры специальные М — для монорельсов и путей подвесных кранов (кран-балок, талей); t — средняя толщина полки, уклон внутренних граней полок не более 12 %. В РК действует (каталог Казстандарта). Швеллеры С того же стандарта сюда не внесены.",
+ "records": [
+  {
+   "id": "ibeam-19425-18М",
+   "designation": "Двутавр 18М",
+   "standard": "ГОСТ 19425-74",
+   "type": "М",
+   "h_mm": 180.0,
+   "b_mm": 90.0,
+   "s_mm": 7.0,
+   "t_mm": 12.0,
+   "R_mm": 9.0,
+   "r_mm": 3.5,
+   "flange_slope": true,
+   "slope_max_pct": 12,
+   "A_cm2": 32.9,
+   "mass_kg_m": 25.8,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-19425-74"
+   ]
+  },
+  {
+   "id": "ibeam-19425-24М",
+   "designation": "Двутавр 24М",
+   "standard": "ГОСТ 19425-74",
+   "type": "М",
+   "h_mm": 240.0,
+   "b_mm": 110.0,
+   "s_mm": 8.2,
+   "t_mm": 14.0,
+   "R_mm": 10.5,
+   "r_mm": 4.0,
+   "flange_slope": true,
+   "slope_max_pct": 12,
+   "A_cm2": 48.7,
+   "mass_kg_m": 38.3,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-19425-74"
+   ]
+  },
+  {
+   "id": "ibeam-19425-30М",
+   "designation": "Двутавр 30М",
+   "standard": "ГОСТ 19425-74",
+   "type": "М",
+   "h_mm": 300.0,
+   "b_mm": 130.0,
+   "s_mm": 9.0,
+   "t_mm": 15.0,
+   "R_mm": 12.0,
+   "r_mm": 6.0,
+   "flange_slope": true,
+   "slope_max_pct": 12,
+   "A_cm2": 64.0,
+   "mass_kg_m": 50.2,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-19425-74"
+   ]
+  },
+  {
+   "id": "ibeam-19425-36М",
+   "designation": "Двутавр 36М",
+   "standard": "ГОСТ 19425-74",
+   "type": "М",
+   "h_mm": 360.0,
+   "b_mm": 130.0,
+   "s_mm": 9.5,
+   "t_mm": 16.0,
+   "R_mm": 14.0,
+   "r_mm": 6.0,
+   "flange_slope": true,
+   "slope_max_pct": 12,
+   "A_cm2": 73.8,
+   "mass_kg_m": 57.9,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-19425-74"
+   ]
+  },
+  {
+   "id": "ibeam-19425-45М",
+   "designation": "Двутавр 45М",
+   "standard": "ГОСТ 19425-74",
+   "type": "М",
+   "h_mm": 450.0,
+   "b_mm": 150.0,
+   "s_mm": 10.5,
+   "t_mm": 18.0,
+   "R_mm": 16.0,
+   "r_mm": 7.0,
+   "flange_slope": true,
+   "slope_max_pct": 12,
+   "A_cm2": 98.8,
+   "mass_kg_m": 77.6,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "meganorm-19425-74"
+   ]
+  }
+ ]
+}

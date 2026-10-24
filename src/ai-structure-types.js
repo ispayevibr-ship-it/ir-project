@@ -54,7 +54,8 @@ const TYPES=[
  // Bracing
  T("brace_vertical","Связь вертикальная","ties","brace","angle",["СВ","ВС","Св","Свк","Свф","Вс"],/связ\S*\s+вертикал|вертикальн\S*\s+связ/iu),
  T("brace_horizontal","Связь горизонтальная","ties","brace","angle",["СГ","ГС","Сг","Сгф","Сгк"],/связ\S*\s+горизонт|горизонтальн\S*\s+связ/iu),
- T("brace","Связь","ties","brace","angle",["СФ"],/связ/iu),
+ // «Раскос» alone is a brace; a diagonal of a truss («раскос фермы») stays with the truss.
+ T("brace","Связь","ties","brace","angle",["СФ"],/связ|раскос(?![а-яё]*\s+(?:\S+\s+)?ферм)/iu),
  // «Тяж» as a word, not inside «вытяжной» (a platform of a supply-and-exhaust unit is not a tie rod).
  T("tie_rod","Тяж","ties","brace","round",["Т"],/(?:^|[^а-яё])тяж/iu),
  T("strut","Подкос","ties","brace","angle",[],/подкос/iu),
@@ -65,14 +66,15 @@ const TYPES=[
  // Stairs, platforms, railings
  // Stairs (ГОСТ 23120-2016, серия 1.450.3-7.94; tanks — ГОСТ 31385): flights at 45° or 60° (tanks ≤ 50°), landings,
  // shaft and ring (spiral) stairs of tanks, ladders with cage hoops. Г — hot-rolled, Х — cold-formed profiles.
- T("stair_flight","Лестничный марш","stairs","brace","stair",["ЛГФ","ЛГВ","ЛГР","ЛХФ","ЛХВ","ЛХР","ЛМ","Лм","МЛ","Л"],/марш|косоур|тетив/iu),
+ T("stair_flight","Лестничный марш","stairs","brace","stair",["ЛГФ","ЛГВ","ЛГР","ЛХФ","ЛХВ","ЛХР","ЛМ","Лм","МЛ","Л"],/марш|косоур|тетив|ступен/iu),
  T("stair_landing","Площадка лестницы","stairs","plate","plate",["ПГФ","ПГВ","ПГР","ПХФ","ПХВ","ПХР","П1Х","П2Х","П1Г","П2Г"],/площадк\S*\s+лестниц|лестничн\S*\s+площадк|переходн\S*\s+площадк/iu),
  T("stair_shaft","Шахтная лестница","stairs","column","stair",["Ш","Лш"],/шахтн\S*\s+лестниц/iu),
  T("stair_spiral","Кольцевая (винтовая) лестница","stairs","brace","stair",[],/кольцев\S*\s+лестниц|винтов\S*\s+лестниц|спиральн\S*\s+лестниц/iu),
  T("ladder","Стремянка","stairs","column","ladder",["СХ","Стр"],/стремянк|вертикальн\S*\s+лестниц|лестниц\S*\s+вертикальн/iu),
  T("stair","Лестница","stairs","brace","stair",[],/лестниц/iu),
  T("platform","Площадка","platforms","plate","plate",["ПЛ","Пл","Н"],/площадк|настил\s+площад/iu),
- T("railing","Ограждение","guards","beam","rail",["О","Ог","Огк","ОГ","ОГМ","ОГП","ОПБГ","ОПТГ","ОПБХ","ОПТХ","ОЛГ","ОЛХ","ОСГ","ОСХ"],/ограждени|перил|поручн/iu),
+ // A railing: posts, the handrail (поручень) on top, a middle rail and the toe board (бортовая полоса) below.
+ T("railing","Ограждение","guards","beam","rail",["О","Ог","Огк","ОГ","ОГМ","ОГП","ОПБГ","ОПТГ","ОПБХ","ОПТХ","ОЛГ","ОЛХ","ОСГ","ОСХ"],/ограждени|перил|поручн|поручен|бортов\S*\s+(?:полос|лист|элемент)/iu),
  // Small parts
  T("bracket","Кронштейн, столик","brackets","column","ibeam",["Кр","Крв","Крк"],/кронштейн|столик/iu),
  T("base","База колонны, анкер","embeds","column","plate",["Бк","АБ"],/баз[аы]\s+колонн|анкер|фундаментн\S*\s+болт/iu),
@@ -111,6 +113,8 @@ const TYPES=[
  T("tank_roof","Крыша резервуара","roof","beam","ibeam",[],/крыш|покрыти\S*\s+резервуар/iu),
  T("tank_ring","Кольцо жёсткости / ветровое","rings","plate","ring",[],/кольц\S*\s+(?:жестк|жёстк|ветров|орошен)|ветров\S*\s+кольц/iu),
  T("tank_bottom_beam","Балка под днищем","bottom","beam","ibeam",[],/балк\S*\s+под\s+дн/iu),
+ // The end stop of a crane runway — not the stop of a tank wall.
+ T("crane_stop","Упор тупиковый (кранового пути)","crane","column","box",[],/тупиков|упор\S*\s+(?:\S+\s+)?(?:кран|пут[иья]|рельс)/iu),
  T("tank_stop","Упор стенки (по окрайке днища)","bottom","column","plate",[],/^\s*упор(?![а-яё]*\s+(?:лестниц|площадк))/iu),
  T("roll_frame","Каркас наворачивания рулона (оснастка)","other","column","frame",[],/наворачивани|каркас\S*\s+(?:рулон|для\s+рулон)/iu,{placeByDefault:false}),
  T("shipping","Контейнер, тара для отправки","other","column","box",[],/контейнер|(?:^|\s)тара(?![а-яё])/iu,{placeByDefault:false}),
@@ -134,8 +138,18 @@ const TYPES=[
  T("pump","Насос, агрегат","equipment","column","box",[],/насос|агрегат|компрессор|вентилятор/iu),
  T("pipe","Трубопровод","pipes","beam","round",[],/трубопровод|коллектор/iu),
  T("pipe_support","Опора трубопровода","supports","column","ibeam",["ОПТ"],/опор\S*\s+(?:труб|трубопровод)|эстакад/iu),
+ // A conveyor gallery: a closed span at height between its supports (two side trusses, floor and roof).
+ T("gallery","Галерея (конвейерная, переходная)","trusses","beam","truss",[],/галере/iu),
  // «Оп1» of a KM set — a support of a conveyor or a gallery (a column-like frame); «ОП» upper case stays a fire arrester.
- T("support","Опора (конвейера, галереи)","supports","column","ibeam",["Оп"],/^\s*опор[аыи](?![а-яё])/iu)
+ T("support","Опора (конвейера, галереи)","supports","column","ibeam",["Оп"],/^\s*опор[аыи](?![а-яё])|рам\S*\s+под\s+(?:оборудован|привод|двигател|редуктор|насос|агрегат|конвейер)/iu),
+ // Sheet structures with ribs (ТХ, КМ): a bunker, a chute, a trough.
+ T("bunker","Бункер, течка, жёлоб","other","column","box",[],/бункер|(?:^|[^у])течк|ж[её]лоб/iu),
+ T("mast","Мачта, башня, вышка","other","column","box",[],/мачт|башн|вышк/iu),
+ // Equipment of a process line (ТХ): mounted on its frames and supports, not a steel member.
+ T("conveyor","Конвейер, питатель, дозатор, грохот","equipment","beam","box",[],/конвейер|транспорт[её]р|питател|дозатор|грохот|дробилк/iu),
+ // A part of a node named on its own (КМД positions): a gusset, a stiffener, a splice plate, a base plate, a traverse,
+ // a spacer between paired angles. Only when the name starts with it («Подвеска пути (рёбра t16)» is not one).
+ T("node_detail","Деталь узла (фасонка, ребро, накладка, плита, траверса, прокладка)","other","plate","plate",[],/^\s*(?:фасонк|р[её]бр|накладк|опорн\S*\s+плит|траверс|прокладк|сухар)/iu)
 ];
 const byKey=new Map(TYPES.map(t=>[t.key,t]));
 const groupByKey=new Map(GROUPS.map(g=>[g.key,g]));
@@ -143,9 +157,9 @@ const groupByKey=new Map(GROUPS.map(g=>[g.key,g]));
 // "люк-лаз" before "патрубок", "связь вертикальная" before "связь".
 const NAME_ORDER=["crane_column","column_fahwerk","girder_fahwerk","crane_rail","crane_girder","crane_runway","brake_beam","platform_beam","sub_beam","opening_beam",
  "sub_truss","brace_vertical","brace_horizontal","vessel_detail","tie_rod","fahwerk","weld_fillet","weld_lap","weld_butt","weld","rung_ladder","reinforcing_plate","montage_ring",
- "vessel_weir","vessel_detail","vessel_strut","strut","vessel_support","vessel_cone","vessel_shell","roll_frame","shipping","tank_bottom_beam","tank_stop","tank_annular","tank_wall","tank_bottom","roof_central_ring","roof_support_ring","roof_shield","roof_rafter","roof_deck","tank_ring","pontoon","tank_roof","manhole","roof_hatch","valve","foam",
- "instrument","lightning","heater","mixer","flange","nozzle","grounding","bolt","vessel","pump","pipe_support","support","pipe","sheeting","sandwich","gate","door","window","bracket","base","embed",
- "stair_shaft","stair_spiral","ladder","stair_landing","stair_flight","stair","platform","railing","column","post","beam","girder","purlin","spacer","brace","truss","lantern"];
+ "vessel_weir","vessel_detail","vessel_strut","strut","vessel_support","vessel_cone","vessel_shell","roll_frame","shipping","tank_bottom_beam","crane_stop","tank_stop","tank_annular","tank_wall","tank_bottom","roof_central_ring","roof_support_ring","roof_shield","roof_rafter","roof_deck","tank_ring","pontoon","tank_roof","manhole","roof_hatch","valve","foam",
+ "instrument","lightning","heater","mixer","flange","nozzle","grounding","bolt","vessel","pump","pipe_support","gallery","support","bunker","mast","conveyor","pipe","sheeting","sandwich","gate","door","window","bracket","base","embed",
+ "stair_shaft","stair_spiral","ladder","stair_landing","stair_flight","stair","platform","railing","column","post","beam","girder","purlin","spacer","brace","truss","lantern","node_detail"];
 // What an element is by the words of its name ("Балка подкрановая", "Патрубок приемно-раздаточный").
 // Words learned from drawings (Claude's lessons, checked lessons of the repository): {key, words} — a phrase met in
 // names of real sets ("щит покрытия укрупнённый", "кольцо жёсткости"); checked before the built-in words.
