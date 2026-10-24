@@ -69,7 +69,7 @@ window.irThreeSchemeView=(function(){
  var sections=new Map(),sectionsPromise=null;
  var CATALOGS=["profiles-ibeams","profiles-ibeams-parallel","profiles-ibeams-26020","profiles-ibeams-19425","profiles-channels","profiles-channels-19425",
   "profiles-channels-bent-8278","profiles-channels-bent-8281","profiles-angles","profiles-angles-unequal","profiles-angles-bent-19771","profiles-angles-bent-19772","profiles-box-30245","pipes",
-  "profiles-pipes-square-8639","profiles-pipes-rect-8645","profiles-lipped-8282","profiles-hat-8283","profiles-z-13229","bars"];
+  "profiles-pipes-square-8639","profiles-pipes-rect-8645","profiles-pipes-32931","profiles-lipped-8282","profiles-hat-8283","profiles-z-13229","bars"];
  function loadSections(){
   // An exported scheme carries the rows it needs (a file opened from the disk cannot fetch the tables).
   if(!sectionsPromise&&Array.isArray(window.irSchemeSections)){window.irSchemeSections.forEach(function(r){if(r&&r.id)sections.set(r.id,r)});sectionsPromise=Promise.resolve()}
@@ -124,7 +124,7 @@ window.irThreeSchemeView=(function(){
   // A welded section from the «Ведомость элементов»: «Сварной −20×380, −25×290» — the flange plate first, the web
   // second (thickness × width). A web far taller than the flange is not read as an I (the parts are not that).
   // A strip «−150×4» (the toe board of a railing), «−20×380»: a solid bar standing on its edge, the wider side upright.
-  if((m=/^[−-](\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)$/.exec(t))){var pw=Math.max(+m[1],+m[2]),pt=Math.min(+m[1],+m[2]);return{shape:"plate",h:pw,b:pt,s:pt,t:pt,std:"полоса по обозначению"}}
+  if((m=/^(?:[−-]|Полоса|Пол\.?)(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)$/.exec(t))){var pw=Math.max(+m[1],+m[2]),pt=Math.min(+m[1],+m[2]);return{shape:"plate",h:pw,b:pt,s:pt,t:pt,std:"полоса по обозначению"}}
   if((m=/^Сварной[−-](\d+)x(\d+)\.[−-](\d+)x(\d+)/.exec(t))){
    var tf=+m[1],bf=+m[2],tw=+m[3],hw=+m[4];
    if(hw+2*tf<=4*bf&&tw<bf/3)return{shape:"ibeam",h:hw+2*tf,b:bf,s:tw,t:tf,std:"сварное сечение по ведомости элементов"};
@@ -133,14 +133,15 @@ window.irThreeSchemeView=(function(){
   // «10У» in a «Сечение» column is a channel; «2L80х6» is drawn by one angle of the pair.
   if(/^\d+(?:\.5)?а?[УПЭЛ]$/.test(t))t="["+t;
   if((m=/^2([L∟\[].+)$/.exec(t)))t=m[1];
-  if((m=/^(?:I|І|Двутавр|Дв\.?)(\d{2})$/i.exec(t))&&(r=sections.get("ibeam-8239-"+m[1])))return{shape:"ibeam",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard};
-  if((m=/^(?:I|І|Двутавр|Дв\.?)?(\d{2,3})(ДБ|ДШ|[БШКбшкKk])(\d+(?:\.5)?)$/.exec(t))){
+  // «Балка 20 К1», «Балка 24 М» — as a price list or a specification writes them; a bare «Балка 20» under ГОСТ 26020/57837 is not ГОСТ 8239.
+  if((m=/^(?:I|І|Двутавр|Дв\.?|Балка)(\d{2})$/i.exec(t))&&!(/^Балка/i.test(t)&&/26020|57837/.test(standard||""))&&(r=sections.get("ibeam-8239-"+m[1])))return{shape:"ibeam",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard};
+  if((m=/^(?:I|І|Двутавр|Дв\.?|Балка)?(\d{2,3})(ДБ|ДШ|[БШКбшкKk])(\d+(?:\.5)?)$/.exec(t))){
    var key=m[1]+({K:"К",k:"К",б:"Б",ш:"Ш",к:"К"}[m[2]]||m[2])+m[3],order=/26020/.test(standard||"")?["26020"]:/57837/.test(standard||"")?["57837"]:["57837","26020"];
    for(var i=0;i<order.length&&!r;i++)r=sections.get("ibeam-"+order[i]+"-"+key);
    if(r)return{shape:"ibeam",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard}
   }
   // An I-beam М of ГОСТ 19425-74 (monorail, hoist track): «24М», «I30М».
-  if((m=/^(?:I|І|Двутавр|Дв\.?)?(\d{2})[МM]$/.exec(t))&&(r=sections.get("ibeam-19425-"+m[1]+"М")))return{shape:"ibeam",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard};
+  if((m=/^(?:I|І|Двутавр|Дв\.?|Балка)?(\d{2})[МM]$/.exec(t))&&(r=sections.get("ibeam-19425-"+m[1]+"М")))return{shape:"ibeam",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard};
   // A special channel С of ГОСТ 19425-74: «18С», «[20С».
   if((m=/^(?:\[|Швеллер|Шв\.?)?(\d{2})[СC]([аa]?)$/.exec(t))&&(r=sections.get("channel-19425-"+m[1]+"С"+(m[2]?"а":""))))return{shape:"channel",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard};
   // Bent sections drawn by their bend: the wall all round, the outer corner rounded by R + s, the inner by R (the radius of
@@ -180,10 +181,15 @@ window.irThreeSchemeView=(function(){
    return{shape:"hex",h:+m[1],b:+m[1],s:+m[1],t:+m[1],solid:true,std:r&&r.sizes_mm.indexOf(+m[1])>=0?r.standard:"шестигранник по обозначению"}}
   if((m=/^(?:Арматура|Арм\.?)?(?:Ø|ø|∅)?(\d+(?:\.\d+)?)([АA]п?\d{3,4})([СCНHЕEКKУР]*)$/.exec(t))){r=sections.get("bar-std-34028");
    return{shape:"round",h:+m[1],b:+m[1],s:+m[1]/2,t:+m[1]/2,solid:true,std:r&&r.rows.some(function(x){return x.d_mm===+m[1]})?r.standard:"арматура по обозначению"}}
-  // A round bar (tie rod, rung): «∅16», «Ø20» without a wall thickness.
-  if((m=/^(?:∅|Ø|ø|Круг)(\d{1,3})$/i.exec(t)))return{shape:"round",h:+m[1],b:+m[1],s:+m[1]/2,t:+m[1]/2,solid:true,std:"круг по обозначению"};
-  // A solid square bar «□20», «Квадрат 20» (no wall thickness: a box always has one).
-  if((m=/^(?:□|Квадрат|Кв\.)(\d{1,3})$/i.exec(t)))return{shape:"plate",h:+m[1],b:+m[1],s:+m[1],t:+m[1],std:"квадрат по обозначению"};
+  // The old classes of ГОСТ 5781-82: «Ø12 А-III», «20-А-II», «Ø10 Ас-II».
+  if((m=/^(?:Арматура|Арм\.?)?(?:Ø|ø|∅)?(\d+(?:\.\d+)?)-?[АA][сc]?-?[IІV]{1,3}(?:ГОСТ.*)?$/.exec(t))){r=sections.get("bar-std-5781");
+   return{shape:"round",h:+m[1],b:+m[1],s:+m[1]/2,t:+m[1]/2,solid:true,std:r&&r.rows.some(function(x){return x.d_mm===+m[1]})?r.standard:"арматура по обозначению"}}
+  // A round bar (tie rod, rung): «∅16», «Ø20», «Круг 20» without a wall thickness (ГОСТ 2590-2006), wire rod «Катанка 6,5» (ГОСТ 30136-95).
+  var listed=function(id,d,label){var x=sections.get(id);return x&&x.sizes_mm.indexOf(d)>=0?x.standard:label};
+  if((m=/^(?:∅|Ø|ø|Круг)(\d{1,3}(?:\.\d)?)$/i.exec(t)))return{shape:"round",h:+m[1],b:+m[1],s:+m[1]/2,t:+m[1]/2,solid:true,std:listed("bar-std-2590",+m[1],"круг по обозначению")};
+  if((m=/^Катанка(?:[АБВA-C]-)?(\d+(?:\.\d+)?)(?:-|$)/i.exec(t)))return{shape:"round",h:+m[1],b:+m[1],s:+m[1]/2,t:+m[1]/2,solid:true,std:listed("bar-std-30136",+m[1],"катанка по обозначению")};
+  // A solid square bar «□20», «Квадрат 20» (no wall thickness: a box always has one), ГОСТ 2591-2006.
+  if((m=/^(?:□|Квадрат|Кв\.)(\d{1,3})$/i.exec(t)))return{shape:"plate",h:+m[1],b:+m[1],s:+m[1],t:+m[1],std:listed("bar-std-2591",+m[1],"квадрат по обозначению")};
   // A tube is its own designation: «Тр.140х4», «Труба 159x6», «Ø273х8» (round), «Гн.□100х4», «□120х80х5» (box).
   if((m=/^(?:Тр\.?|Труба|Ø|ø)(ВГП)?((?:[ЦРМНДП]-)*)(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)$/i.exec(t))){
    // A water-gas pipe (ГОСТ 3262-75) is written by its conditional pass: «Труба 20×2,8» of the sheet citing 3262, «Труба
@@ -200,17 +206,22 @@ window.irThreeSchemeView=(function(){
    return{shape:"round",h:+m[3],b:+m[3],s:+m[4],t:+m[4],std:pipeStd?pipeStd.standard:"по обозначению"}
   }
   // A box: a bent closed one of ГОСТ 30245-2003 «Гн.□100х4», «□120х80х5», «Профиль 120х80х5», a square or rectangular tube of
-  // ГОСТ 8639-82, 8645-68 «Труба 100х100х6», «Тр.кв.100х6», «Труба прямоугольная 120х80х5». The table of the cited standard
-  // (a «Труба» — the tubes first, the rest — the boxes first) gives the corner; ГОСТ 32931-2015 — by its rule (2s, 2,5s, 3s);
-  // a size in no table — by designation, square corners.
+  // ГОСТ 8639-82, 8645-68, 32931-2015 «Труба 100х100х6», «Тр.кв.100х6», «Труба прямоугольная 120х80х5». The table of the cited
+  // standard (a «Труба» — the tubes first, the rest — the boxes first) gives the corner; a size the cited standard has not — the
+  // row of another table; ГОСТ 32931-2015 out of its table — by its rule (1,5s up to 2,5; 2s; 2,5s; 3s); a size in no table — by
+  // designation, square corners.
   if((m=/^(Гн\.?|Профиль(?:гнутый)?(?:замкнутый)?|Труба(?:профильная)?(?:квадратная|прямоугольная)?|Тр\.?(?:проф\.?)?(?:кв\.?|пр\.?)?)?(□)?(\d+)(?:x(\d+))?x(\d+(?:\.\d+)?)$/i.exec(t))&&
    (m[2]||/Гн|Профиль/i.test(m[1]||"")||/^Тр/i.test(t)&&(m[4]||/кв|квадрат|прям|проф/i.test(m[1])))){
    var bh=+m[3],bb=+(m[4]||m[3]),bs=Number(m[5]),hbs=Math.max(bh,bb)+"x"+Math.min(bh,bb)+"x"+bs,std=String(standard||"");
    var tube=function(){return bh===bb?sections.get("pipe-sq-8639-"+bh+"x"+bs):sections.get("pipe-rect-8645-"+hbs)},box=function(){return sections.get("box-30245-"+hbs)};
-   if(/32931/.test(std))return{shape:"box",h:bh,b:bb,s:bs,t:bs,r:bs<=6?2*bs:bs<=10?2.5*bs:3*bs,std:"ГОСТ 32931-2015 по обозначению"};
-   var order=/30245/.test(std)?[box]:/8639|8645/.test(std)?[tube]:/^Тр/i.test(t)?[tube,box]:[box,tube];
+   var tube32931=function(){return sections.get("pipe-32931-"+hbs)};
+   if(/32931/.test(std)){r=tube32931();return{shape:"box",h:bh,b:bb,s:bs,t:bs,r:r?number(r.R_mm):bs<=2.5?1.5*bs:bs<=6?2*bs:bs<=10?2.5*bs:3*bs,std:r?r.standard:"ГОСТ 32931-2015 по обозначению"}}
+   var order=/30245/.test(std)?[box]:/8639|8645/.test(std)?[tube]:/^Тр/i.test(t)?[tube,tube32931,box]:[box,tube32931,tube];
    r=null;for(var bi=0;bi<order.length&&!r;bi++)r=order[bi]();
-   return{shape:"box",h:bh,b:bb,s:bs,t:bs,r:r?number(r.R_mm):0,std:r?r.standard:"по обозначению"}
+   if(r)return{shape:"box",h:bh,b:bb,s:bs,t:bs,r:number(r.R_mm),std:r.standard};
+   // A price list writes every profile tube «ГОСТ 8639-82»: the size it has not is drawn by the table that has it.
+   order=[tube,tube32931,box];for(bi=0;bi<order.length&&!r;bi++)r=order[bi]();
+   return{shape:"box",h:bh,b:bb,s:bs,t:bs,r:r?number(r.R_mm):0,std:r?r.standard+(std?" (размера нет в "+std+")":""):"по обозначению"}
   }
   return null
  }
