@@ -91,7 +91,7 @@ function pageContext(texts){
      // Cells of a specification the reading left empty (a section, a mark of a group or of «Требуется»): read again one
      // by one, as a line, and taken when they hold what their column holds.
      const cells=specCells(geometry.texts);
-     for(const kind of ["section","mark"]){
+     for(const kind of Object.keys(cellAccept)){
       const got=await readCells(page,cells.filter(c=>c.kind===kind),{...options,rotation:turn,accept:cellAccept[kind]});
       // What the reading of the whole picture made of such a cell («ро» for «Тр.□160х5») gives way.
       const inCell=t=>t.ocr&&got.some(g=>t.x>=g.cell.x-2&&t.x<=g.cell.x+g.cell.w&&t.y>=g.cell.y&&t.y<=g.cell.y+g.cell.h+2);

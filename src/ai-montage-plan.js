@@ -281,7 +281,16 @@ function buildCatalog(draft,ai=null){
   // is the main one): its specification takes the place of a list read before, the other reading is kept beside.
   for(const r of sheet.spec||[]){const e=entry(r.mark);
    if(r.profile&&e.profile&&e.profile!==r.profile&&/ведомость элементов/.test(e.profileFrom||"")&&p.docType==="КМД сборочные"){e.profile_other={value:e.profile,from:e.profileFrom};e.profile="";delete e.profile_standard}
-   if(!e.profile&&r.profile){e.profile=r.profile;e.profileFrom=where(p)+" · спецификация";if(r.profile_standard)e.profile_standard=r.profile_standard}if(e.mass_kg===null&&r.mass_kg)e.mass_kg=r.mass_kg;e.sources.push(where(p)+" · спецификация")}
+   if(!e.profile&&r.profile){e.profile=r.profile;e.profileFrom=where(p)+" · спецификация"+(r.by_mass?" (сечение — по массе, как "+r.by_mass+")":"");if(r.profile_standard)e.profile_standard=r.profile_standard}if(e.mass_kg===null&&r.mass_kg)e.mass_kg=r.mass_kg;e.sources.push(where(p)+" · спецификация");
+   if(!r.profile&&r.profile_read&&!e.profile_read)e.profile_read={value:r.profile_read,from:where(p)+" · спецификация"}}
+ }
+ // An I-beam whose letter OCR lost on its sheet («двутавр 3512» for 35Ш2) and that sheet does not write elsewhere: the
+ // letter the other sheets of the set give that number, when they give one.
+ for(const e of map.values()){
+  const m=!e.profile&&/^(I|Св\.I)(\d{2})[10](\d)$/u.exec(e.profile_read?.value||"");if(!m)continue;
+  const re=new RegExp("^(?:I|Св\\.I)"+m[2]+"(ДБ|ДШ|[БШКМ]С?)"+m[3]+"$","u");
+  const letters=[...new Set([...map.values()].map(o=>re.exec(o.profile||"")).filter(Boolean).map(x=>x[1]))];
+  if(letters.length===1){e.profile=m[1]+m[2]+letters[0]+m[3];e.profileFrom=e.profile_read.from+" (буква двутавра — по другим листам комплекта, прочитано «"+e.profile_read.value+"»)"}
  }
  // The permanent fasteners and the holes of an assembly sheet («Ведомость постоянных метизов», «Все отверстия Ø23»): the
  // sheet's own, for every mark it makes; the first assembly sheet of a mark gives them.
