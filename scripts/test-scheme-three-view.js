@@ -29,7 +29,17 @@ assert(view.includes("function paintLegend(")&&view.includes("function applyBack
 // Cranes: a runway is known by the member's own name (mark_name; the title of a record is its position «PDF-…»), they
 // have their own colour, the legend counts them and a click there shows them one by one.
 assert(/function runwayKind\(c\)\{\s*var n=String\(c\.mark_name\|\|c\.title\|\|""\)/.test(view)&&view.includes('function slight(c){var t=String(c.mark_name||c.title||"")'),"cranes and railings by the member's name");
-assert(view.includes("color:0xff6a00")&&view.includes("Краны (условно)")&&view.includes("legend.onclick=function(e){")&&view.includes("cranes.push({at:mid.clone().setY(gTop)"),"cranes in the legend, a click flies to them");
+assert(view.includes("color:0xff6a00")&&view.includes("Краны (условно)")&&view.includes("legend.onclick=function(e){")&&view.includes("cranes.push(Object.assign(info,{at:mid.clone().setY(gTop)"),"cranes in the legend, a click flies to them");
+// «Это что за квадрат?» (25.10.2026): the cabin was a plain grey box under the bridge. It is a cab now (hangers, frame,
+// panels below, glass above); every part of a crane knows its crane and name, the pointer over it says what it is, a click
+// opens the crane's card (conventional, not in the КМ, its runways) and does not choose the member behind it.
+assert(view.includes("var cabin=function(top,X,Z){")&&view.includes('partName="кабина крановщика"')&&view.includes("glassMat")&&!view.includes("box(1.5,1.7,1.5,hoistMat"),"the crane's cab drawn as a cab");
+assert(view.includes("m.userData.crane=craneNo;m.userData.part=partName;")&&view.includes("function hitCrane(")&&view.includes("function showCrane(hit)"),"crane parts named");
+assert(view.includes("var hit=hitMember(),cr=hitCrane();if(cr&&(!hit||cr.d<hit.d)){showCrane(cr);return}"),"a click on a crane opens its card, not the member behind");
+assert(view.includes("Крана в чертежах КМ нет — это оборудование.")&&view.includes('" (условно, в КМ его нет): "+cr.part'),"the card and the pointer say what it is");
+// The separate export for the iPhone (USDZ) removed at the engineer's request (25.10.2026): one export, the HTML.
+for(const f of ["src/scheme-page.js","src/ir-runtime.js","src/index.html","src/ai-ipc.js","src/scheme-three-view.js"])assert(!/schemeExportUsdz|irSchemeUsdz|export-usdz|scheme-export-usdz/.test(fs.readFileSync(f,"utf8")),f+": no iPhone export");
+assert(!fs.existsSync("src/scheme-export-usdz.js")&&!fs.readFileSync("hot/latest.json","utf8").includes("usdz"),"the USDZ module gone");
 assert(view.includes('dirX==="rtl"?spanX-number(x)')&&view.includes('dirY==="btt"?spanY-number(y)'),"grid direction honoured");
 assert(view.includes("function startPlacement(")&&view.includes("function snapMember(")&&view.includes("function snapGround("),"placement by clicks with snapping");
 assert(view.includes('"верх "+(c.mark||"колонны")'),"beams rest on column tops");

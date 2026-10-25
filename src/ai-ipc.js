@@ -87,14 +87,6 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
  handle("ai-settings:clear-key",e=>{checkAdmin(e);return engine.clearKey()});
  handle("ai-settings:set-provider",(e,provider)=>{checkAdmin(e);return engine.setProvider(provider)});
  handle("ai-settings:test",()=>engine.start());
- // The montage scheme for the iPhone (src/scheme-export-usdz.js): a binary file, which report:export-html cannot write;
- // an ai-settings channel, so the installed preload passes it.
- handle("ai-settings:export-usdz",async(_e,{bytes,defaultName}={})=>{
-  if(!(bytes instanceof Uint8Array)||!bytes.length)throw new Error("Нет данных модели");
-  const win=getWindow(),r=await dialog.showSaveDialog(win&&!win.isDestroyed()?win:undefined,{defaultPath:String(defaultName||"Монтажная схема.usdz"),filters:[{name:"3D для iPhone (USDZ)",extensions:["usdz"]}]});
-  if(r.canceled||!r.filePath)return false;
-  require("node:fs").writeFileSync(r.filePath,Buffer.from(bytes.buffer,bytes.byteOffset,bytes.byteLength));return r.filePath
- });
  handle("ai-montage:latest",(_e,objectId)=>montage.latest(objectId));
  handle("ai-montage:analyze",(_e,{objectId,documentIds})=>montage.analyze(objectId,documentIds));
  handle("ai-montage:process",async(_e,{objectId,draftId,restart,comment})=>{const r=await montage.process(objectId,draftId,{restart:restart===true,comment:typeof comment==="string"?comment:undefined});github.schedule("ответ Claude");return r});

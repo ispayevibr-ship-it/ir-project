@@ -1973,28 +1973,6 @@ window.irSchemePage=async function(objectId){
   }catch(error){alert("Не удалось выгрузить схему: "+String(error?.message||error))}
   finally{if(btn){btn.disabled=false;btn.textContent=old}}
  }
- // The scheme for the iPhone/iPad (src/scheme-export-usdz.js): the phone shows an HTML file without its scripts, a USDZ
- // model it opens by itself — the members as on the screen now, without labels.
- async function exportSchemeUsdz(btn){
-  const model=window.irThreeSchemeView?.model?.();
-  if(!window.irSchemeUsdz||!model){alert(window.irSchemeUsdz?"Дождитесь, пока построится 3D-схема.":"Выгрузка для iPhone недоступна — обновите программу.");return}
-  const old=btn?.textContent;if(btn){btn.disabled=true;btn.textContent="Выгрузка…"}
-  try{
-   await new Promise(r=>setTimeout(r,30));
-   const bytes=window.irSchemeUsdz.build(model);if(!bytes){alert("На схеме нет элементов для выгрузки.");return}
-   const name=String((object.name||object.title||"Объект")+" — монтажная схема — "+(activeGroup()?.label||"Все")).replace(/[<>:"/\\|?*\u0000-\u001f]/g,"_").trim().slice(0,90)+".usdz";
-   let saved=null;
-   try{saved=await window.irProject?.ai?.invoke?.("ai-settings:export-usdz",{bytes,defaultName:name})}
-   catch(error){if(!/No handler|not registered/i.test(String(error?.message||error)))throw error;saved=undefined}
-   if(saved===undefined||saved===null){
-    // Modules of the main process from before this update: the browser's own download with its save dialog.
-    const url=URL.createObjectURL(new Blob([bytes],{type:"model/vnd.usdz+zip"})),a=document.createElement("a");
-    a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);return
-   }
-   if(saved)alert("Модель для iPhone сохранена:\n"+saved+"\n\nОтправьте файл на телефон (почта, мессенджер, «Файлы») и откройте — схема покажется в 3D, можно вращать и поставить в AR.")
-  }catch(error){alert("Не удалось выгрузить модель: "+String(error?.message||error))}
-  finally{if(btn){btn.disabled=false;btn.textContent=old}}
- }
  function pickerRecords(){
   return records().map(c=>({...c,...coord(c),status:effectiveStatus(c)})).sort((a,b)=>String(a.mark||"").localeCompare(String(b.mark||""),"ru",{numeric:true,sensitivity:"base"})||Number(a.id)-Number(b.id))
  }
@@ -2672,7 +2650,7 @@ window.irSchemePage=async function(objectId){
    <div class="scheme-workspace">
     <section class="scheme-stage scheme-three-stage ${previewFullscreen?"scheme-preview-fullscreen":""}" id="schemePreviewStage" aria-label="Предпросмотр монтажной схемы" data-scheme-background="${currentBackground()}" data-scheme-contrast="${backgroundIsDark()?"dark":"light"}" style="--scheme-custom-background:${currentCustomBackground()}">
      <div class="scheme-stage-toolbar"><div class="scheme-preview-title"><b>Монтажная схема · ${esc(activeGroup().label)}</b><span>${s.total} элементов · 3D</span></div>
-      <div class="scheme-toolbar-actions"><button type="button" id="schemeExportHtml" class="scheme-fullscreen-toggle" title="Выгрузить монтажную схему в HTML: 3D, фильтры, карточки элементов — без редактирования">⇩ HTML</button><button type="button" id="schemeExportUsdz" class="scheme-fullscreen-toggle" title="Выгрузить 3D-модель для iPhone и iPad (USDZ): открывается на телефоне сама — вращение, масштаб, AR; без подписей">⇩ iPhone</button><button type="button" id="schemeFullscreenToggle" class="scheme-fullscreen-toggle" title="${previewFullscreen?"Закрыть полноэкранный просмотр":"Предпросмотр схемы на весь экран"}">${previewFullscreen?"✕ Закрыть":"⛶ На весь экран"}</button><label class="scheme-background-picker" title="Цвет фона поля монтажной схемы"><span>Фон</span><select id="schemeBackgroundSelect" data-native-select="1" aria-label="Цвет фона монтажной схемы"><option value="standard" ${currentBackground()==="standard"?"selected":""}>Стандартный</option><option value="white" ${currentBackground()==="white"?"selected":""}>Белый</option><option value="gray" ${currentBackground()==="gray"?"selected":""}>Серый</option><option value="blue" ${currentBackground()==="blue"?"selected":""}>Голубой</option><option value="sand" ${currentBackground()==="sand"?"selected":""}>Бежевый</option><option value="dark" ${currentBackground()==="dark"?"selected":""}>Тёмный</option><option value="custom" ${currentBackground()==="custom"?"selected":""}>Свой цвет</option></select><input id="schemeBackgroundCustom" type="color" aria-label="Выбрать свой цвет фона" value="${currentCustomBackground()}" ${currentBackground()==="custom"?"":"hidden"}></label><button type="button" id="schemeToggleLabels" class="${labelsVisible?"on":""}" title="Показать марки элементов">Подписи</button><button type="button" id="schemeToggleDimensions" class="${dimensionsVisible?"on":""}" title="Показать межосевые размеры сетки">Размеры</button></div>
+      <div class="scheme-toolbar-actions"><button type="button" id="schemeExportHtml" class="scheme-fullscreen-toggle" title="Выгрузить монтажную схему в HTML: 3D, фильтры, карточки элементов — без редактирования">⇩ HTML</button><button type="button" id="schemeFullscreenToggle" class="scheme-fullscreen-toggle" title="${previewFullscreen?"Закрыть полноэкранный просмотр":"Предпросмотр схемы на весь экран"}">${previewFullscreen?"✕ Закрыть":"⛶ На весь экран"}</button><label class="scheme-background-picker" title="Цвет фона поля монтажной схемы"><span>Фон</span><select id="schemeBackgroundSelect" data-native-select="1" aria-label="Цвет фона монтажной схемы"><option value="standard" ${currentBackground()==="standard"?"selected":""}>Стандартный</option><option value="white" ${currentBackground()==="white"?"selected":""}>Белый</option><option value="gray" ${currentBackground()==="gray"?"selected":""}>Серый</option><option value="blue" ${currentBackground()==="blue"?"selected":""}>Голубой</option><option value="sand" ${currentBackground()==="sand"?"selected":""}>Бежевый</option><option value="dark" ${currentBackground()==="dark"?"selected":""}>Тёмный</option><option value="custom" ${currentBackground()==="custom"?"selected":""}>Свой цвет</option></select><input id="schemeBackgroundCustom" type="color" aria-label="Выбрать свой цвет фона" value="${currentCustomBackground()}" ${currentBackground()==="custom"?"":"hidden"}></label><button type="button" id="schemeToggleLabels" class="${labelsVisible?"on":""}" title="Показать марки элементов">Подписи</button><button type="button" id="schemeToggleDimensions" class="${dimensionsVisible?"on":""}" title="Показать межосевые размеры сетки">Размеры</button></div>
      </div>
      <div class="scheme-canvas" id="schemeCanvas"></div>
      ${emptyOverlay}
@@ -2707,7 +2685,6 @@ window.irSchemePage=async function(objectId){
    renderScene()
   });
   document.getElementById("schemeExportHtml")?.addEventListener("click",e=>exportSchemeHtml(e.currentTarget));
-  document.getElementById("schemeExportUsdz")?.addEventListener("click",e=>exportSchemeUsdz(e.currentTarget));
   document.getElementById("schemeFullscreenToggle")?.addEventListener("click",()=>previewFullscreen?leaveSchemeFullscreen():enterSchemeFullscreen());
   document.getElementById("schemeBackgroundSelect")?.addEventListener("change",e=>applySchemeBackground(e.target.value));
   document.getElementById("schemeBackgroundCustom")?.addEventListener("input",e=>applySchemeBackground("custom",e.target.value));

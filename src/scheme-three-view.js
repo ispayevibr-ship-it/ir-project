@@ -1119,13 +1119,19 @@ window.irThreeSchemeView=(function(){
   // was the colour of the braces: among them the engineer did not find the cranes); the legend counts them and a click
   // on it shows them one by one.
   var craneMat=new T.MeshStandardMaterial({color:0xff6a00,metalness:.2,roughness:.55}),hoistMat=new T.MeshStandardMaterial({color:0x3a4048,metalness:.3,roughness:.5}),
-   wheelMat=new T.MeshStandardMaterial({color:0x1f2328,metalness:.6,roughness:.35});
+   wheelMat=new T.MeshStandardMaterial({color:0x1f2328,metalness:.6,roughness:.35}),
+   glassMat=new T.MeshStandardMaterial({color:0x9ccbe8,metalness:.1,roughness:.08,transparent:true,opacity:.45,depthWrite:false});
   // Only the member's own name makes it a runway: a type «Кран-балка, монорельс» given to a beam by its letters (a beam of
   // a crane service platform, an opening) put cranes and hoists all over the frame. A pair of «путь подвесного крана»
   // carries a suspended crane, a «монорельс» a hoist, a «рельс» (or a rail profile Р43) and a «подкрановая балка» an
   // overhead crane. The name is mark_name: the title of a record in the program is its position («PDF-…»), so read
   // first it left only the rails of profile Р43 (a suspended crane on its runways was not drawn).
-  var cranes=[],craneTurn=0;
+  // Every part of a crane knows its crane and its name: the engineer took the grey cabin (a plain box under the bridge)
+  // for something of the frame and asked «это что за квадрат?» (25.10.2026). The cabin is drawn as a cab — hangers to the
+  // girder, a frame, panels below and glass above; a click on any part of a crane opens its card (what it is, that it
+  // is conventional, on which runways) and does not choose the member behind it.
+  var cranes=[],craneTurn=0,craneNo=-1,partName="";
+  var craneKinds={overhead:"Мостовой кран",hung:"Подвесной кран",hoist:"Таль на монорельсе"};
   function runwayKind(c){
    var n=String(c.mark_name||c.title||""),pr=String(c.profile_name||c.profileName||"");
    if(/площадк|лестниц|ограждени|обрамлени|проём|проем|упор/i.test(n))return"";
@@ -1172,7 +1178,7 @@ window.irThreeSchemeView=(function(){
    var hung=lines(list("hung"));pairUp(hung);
    // Parts in a frame of the crane: X — across (the span), Z — along the runway, Y — up.
    var UP=new T.Vector3(0,1,0);
-   var place=function(geo,mat,at,X,Y,Z){var m=new T.Mesh(geo,mat);m.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(X,Y,Z));m.position.copy(at);equipment.add(m);return m};
+   var place=function(geo,mat,at,X,Y,Z){var m=new T.Mesh(geo,mat);m.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(X,Y,Z));m.position.copy(at);m.userData.crane=craneNo;m.userData.part=partName;equipment.add(m);return m};
    var box=function(w,h,d,mat,at,X,Z){return place(new T.BoxGeometry(w,h,d),mat,at,X,UP,Z)};
    var cyl=function(r,len,mat,at,dir,seg){var d=dir.clone().normalize(),x=Math.abs(d.y)>.9?new T.Vector3(1,0,0):new T.Vector3().crossVectors(UP,d).normalize();
     return place(new T.CylinderGeometry(r,r,len,seg||14),mat,at,x,d,new T.Vector3().crossVectors(x,d))};
@@ -1182,14 +1188,14 @@ window.irThreeSchemeView=(function(){
    };
    // The hook block under the ropes and its hook.
    var hookBlock=function(at,X,Z,k){
-    box(.22*k,.3*k,.14*k,craneMat,at,X,Z);cyl(.1*k,.16*k,wheelMat,at.clone().add(new T.Vector3(0,.04*k,0)),Z,16);
+    partName="крюковая подвеска";box(.22*k,.3*k,.14*k,craneMat,at,X,Z);cyl(.1*k,.16*k,wheelMat,at.clone().add(new T.Vector3(0,.04*k,0)),Z,16);
     cyl(.022*k,.16*k,wheelMat,at.clone().add(new T.Vector3(0,-.23*k,0)),UP,10);
     var hook=place(new T.TorusGeometry(.075*k,.022*k,8,18,Math.PI*1.45),wheelMat,at.clone().add(new T.Vector3(0,-.37*k,0)),X,UP,Z);hook.rotateZ(Math.PI*.78)
    };
    // An electric hoist under a flange (`at` — the underside of the flange, `dir` — along the beam): trolley plates and
    // wheels on the flange, the drum with the rope, the motor and the gearbox at its ends, the control box, the pendant.
    var hoist=function(at,dir,drop){
-    var Z=dir.clone().setY(0).normalize(),X=new T.Vector3().crossVectors(UP,Z).normalize();
+    var Z=dir.clone().setY(0).normalize(),X=new T.Vector3().crossVectors(UP,Z).normalize();partName="электроталь";
     [-1,1].forEach(function(i){box(.012,.36,.5,hoistMat,at.clone().add(X.clone().multiplyScalar(i*.14)).add(new T.Vector3(0,-.06,0)),X,Z);
      [-1,1].forEach(function(j){cyl(.055,.035,wheelMat,at.clone().add(X.clone().multiplyScalar(i*.09)).add(Z.clone().multiplyScalar(j*.16)).add(new T.Vector3(0,.075,0)),X,16)})});
     var drum=at.clone().add(new T.Vector3(0,-.42,0));cyl(.15,.56,hoistMat,drum,Z,18);
@@ -1197,52 +1203,65 @@ window.irThreeSchemeView=(function(){
     box(.14,.24,.3,craneMat,drum.clone().add(X.clone().multiplyScalar(.24)),X,Z);
     var low=drum.clone().add(new T.Vector3(0,-.15-drop,0));
     [-1,1].forEach(function(i){var r=drum.clone().add(Z.clone().multiplyScalar(i*.06)).add(new T.Vector3(0,-.15-drop/2,0));cyl(.007,drop,wheelMat,r,UP,6)});
-    hookBlock(low.clone().add(new T.Vector3(0,-.15,0)),X,Z,1);
+    hookBlock(low.clone().add(new T.Vector3(0,-.15,0)),X,Z,1);partName="пульт управления";
     var pend=drum.clone().add(X.clone().multiplyScalar(.28)).add(new T.Vector3(0,-1.2,0));cyl(.005,2.1,wheelMat,pend.clone().add(new T.Vector3(0,.15,0)),UP,5);box(.08,.24,.07,craneMat,pend.clone().add(new T.Vector3(0,-.95,0)),X,Z)
+   };
+   // The operator's cab under the bridge girder (`top` — the middle of the girder's underside): two hangers, the roof, the
+   // floor, posts at the corners, panels below, glass above on three sides, the back closed (the door to the bridge).
+   var cabin=function(top,X,Z){
+    partName="кабина крановщика";var W=1.6,D=1.6,H=1.9,roof=top.clone().add(new T.Vector3(0,-.3,0)),y0=roof.y-H,lo=.85,gh=H-lo-.07;
+    var at=function(x,y,z){return roof.clone().add(X.clone().multiplyScalar(x)).add(Z.clone().multiplyScalar(z)).setY(y)};
+    [-1,1].forEach(function(i){box(.1,.3,.1,hoistMat,at(i*.5,top.y-.15,0),X,Z)});
+    box(W+.14,.07,D+.14,hoistMat,at(0,roof.y-.035,0),X,Z);box(W,.07,D,hoistMat,at(0,y0+.035,0),X,Z);
+    [-1,1].forEach(function(i){[-1,1].forEach(function(j){box(.06,H,.06,hoistMat,at(i*(W/2-.03),y0+H/2,j*(D/2-.03)),X,Z)})});
+    [-1,1].forEach(function(i){box(W,lo,.03,craneMat,at(0,y0+lo/2,i*D/2),X,Z);box(.03,lo,D,craneMat,at(i*W/2,y0+lo/2,0),X,Z)});
+    var gy=y0+lo+gh/2;[-1,1].forEach(function(i){box(W-.12,gh,.02,glassMat,at(0,gy,i*D/2),X,Z)});
+    box(.02,gh,D-.12,glassMat,at(W/2,gy,0),X,Z);box(.03,gh,D,craneMat,at(-W/2,gy,0),X,Z)
    };
    pairs.forEach(function(p){
     var w=p.w,o=p.o,s=p.lo+(p.hi-p.lo)/3,A={x:w.a.x+w.u.x*s,y:w.a.y+w.u.y*s},t=((A.x-o.a.x)*o.u.x+(A.y-o.a.y)*o.u.y),B={x:o.a.x+o.u.x*t,y:o.a.y+o.u.y*t};
     var pa=toWorld(A.x,A.y,0),pb=toWorld(B.x,B.y,0),span=Math.hypot(pb.x-pa.x,pb.z-pa.z),mid=pa.clone().add(pb).multiplyScalar(.5);
     var along=toWorld(A.x+w.u.x*1000,A.y+w.u.y*1000,0).sub(pa).normalize(),S=pb.clone().sub(pa).setY(0).normalize(),AL=along.clone().setY(0).normalize();
+    craneNo=cranes.length;var info={kind:w.kind==="hung"?"hung":"overhead",span:Math.round(span*1000),runs:[w.c,o.c]};
     if(w.kind==="hung"){
      // A suspended crane: on each runway a carriage — two pairs of wheels on the bottom flange either side of the web,
      // its side plates and the end beam below; the girder (I) hung under the end beams with cantilevers; the hoist on
      // the girder's bottom flange.
-     var bottom=(Math.min(w.z,o.z)-(w.h||400)/2)/1000;
+     var bottom=(Math.min(w.z,o.z)-(w.h||400)/2)/1000;info.on="Низ пути";info.z=Math.round(bottom*1000);
      [pa,pb].forEach(function(q){
       // The wheels on the flange halves either side of the web, the side plates just outside the flange edges.
-      var c0=q.clone(),fb=(q===pa?w.fb:o.fb)/1000;c0.y=bottom;
+      var c0=q.clone(),fb=(q===pa?w.fb:o.fb)/1000;c0.y=bottom;partName="тележка на пути";
       [-1,1].forEach(function(i){[-1,1].forEach(function(j){cyl(.065,.04,wheelMat,c0.clone().add(S.clone().multiplyScalar(i*fb/4)).add(AL.clone().multiplyScalar(j*.32)).add(new T.Vector3(0,.08,0)),S,16)});
        box(.012,.36,.85,craneMat,c0.clone().add(S.clone().multiplyScalar(i*(fb/2+.025))).add(new T.Vector3(0,-.02,0)),S,AL);
        cyl(.02,fb+.06,wheelMat,c0.clone().add(AL.clone().multiplyScalar(i*.32)).add(new T.Vector3(0,.08,0)),S,8)});
-      box(.26,.3,1.5,craneMat,c0.clone().add(new T.Vector3(0,-.38,0)),S,AL)
+      partName="концевая балка";box(.26,.3,1.5,craneMat,c0.clone().add(new T.Vector3(0,-.38,0)),S,AL)
      });
-     var gTop=bottom-.53,gLen=span+1.6;ibeam(gLen,.45,.2,.012,.018,craneMat,mid.clone().setY(gTop),S,AL);cranes.push({at:mid.clone().setY(gTop),size:span,along:AL.clone()});
+     partName="балка крана";var gTop=bottom-.53,gLen=span+1.6;ibeam(gLen,.45,.2,.012,.018,craneMat,mid.clone().setY(gTop),S,AL);cranes.push(Object.assign(info,{at:mid.clone().setY(gTop),size:span,along:AL.clone()}));
      hoist(pa.clone().lerp(pb,.35).setY(gTop-.45),S,Math.max(1.2,Math.min(3.5,gTop-1.5-1)))
     }else{
      // An overhead crane on rails: end trucks with two wheels on each rail, the bridge of two box girders, the trolley
      // on the girders with its drum, motor and gearbox, four falls of rope to the hook block, the cabin under the bridge.
-     var top=(Math.max(w.z,o.z)+(w.kind==="rail"?(w.h||140)/2:(w.h||1000)/2))/1000;
+     var top=(Math.max(w.z,o.z)+(w.kind==="rail"?(w.h||140)/2:(w.h||1000)/2))/1000;info.on=w.kind==="rail"?"Головка рельса":"Верх пути";info.z=Math.round(top*1000);
      [pa,pb].forEach(function(q){
-      var c0=q.clone();c0.y=top;
+      var c0=q.clone();c0.y=top;partName="колесо на рельсе";
       [-1,1].forEach(function(j){cyl(.25,.12,wheelMat,c0.clone().add(AL.clone().multiplyScalar(j*1.5)).add(new T.Vector3(0,.25,0)),S,20)});
-      box(.42,.55,4,craneMat,c0.clone().add(new T.Vector3(0,.62,0)),S,AL)
+      partName="концевая балка";box(.42,.55,4,craneMat,c0.clone().add(new T.Vector3(0,.62,0)),S,AL)
      });
-     var gB=top+.9;[-1,1].forEach(function(k){box(span+.5,1.2,.5,craneMat,mid.clone().add(AL.clone().multiplyScalar(k*1.1)).setY(gB+.6),S,AL)});cranes.push({at:mid.clone().setY(gB),size:span,along:AL.clone()});
-     var tr=pa.clone().lerp(pb,.4).setY(gB+1.2);
+     partName="главная балка моста";var gB=top+.9;[-1,1].forEach(function(k){box(span+.5,1.2,.5,craneMat,mid.clone().add(AL.clone().multiplyScalar(k*1.1)).setY(gB+.6),S,AL)});cranes.push(Object.assign(info,{at:mid.clone().setY(gB),size:span,along:AL.clone()}));
+     var tr=pa.clone().lerp(pb,.4).setY(gB+1.2);partName="грузовая тележка";
      box(2.0,.3,2.8,hoistMat,tr.clone().add(new T.Vector3(0,.15,0)),S,AL);
      [-1,1].forEach(function(i){[-1,1].forEach(function(j){cyl(.16,.08,wheelMat,tr.clone().add(S.clone().multiplyScalar(i*.8)).add(AL.clone().multiplyScalar(j*1.1)).add(new T.Vector3(0,.0,0)),S,16)})});
-     var dr=tr.clone().add(new T.Vector3(0,.68,0));cyl(.34,1.5,hoistMat,dr,AL,20);cyl(.2,.6,hoistMat,dr.clone().add(AL.clone().multiplyScalar(1.1)).add(S.clone().multiplyScalar(.5)),AL,16);
+     var dr=tr.clone().add(new T.Vector3(0,.68,0));partName="лебёдка тележки";cyl(.34,1.5,hoistMat,dr,AL,20);cyl(.2,.6,hoistMat,dr.clone().add(AL.clone().multiplyScalar(1.1)).add(S.clone().multiplyScalar(.5)),AL,16);
      box(.6,.55,.5,hoistMat,dr.clone().add(AL.clone().multiplyScalar(-1.05)),S,AL);
-     var drop=Math.max(2,Math.min(6,gB-2)),hb=tr.clone().add(new T.Vector3(0,-drop,0));
+     var drop=Math.max(2,Math.min(6,gB-2)),hb=tr.clone().add(new T.Vector3(0,-drop,0));partName="канаты";
      [-.25,-.08,.08,.25].forEach(function(z){cyl(.011,drop+.3,wheelMat,tr.clone().add(AL.clone().multiplyScalar(z)).add(new T.Vector3(0,-drop/2+.15,0)),UP,6)});
      hookBlock(hb,S,AL,2);
-     box(1.5,1.7,1.5,hoistMat,pa.clone().lerp(pb,.12).add(AL.clone().multiplyScalar(-1.1)).setY(gB-.85),S,AL)
+     cabin(pa.clone().lerp(pb,.12).add(AL.clone().multiplyScalar(-1.1)).setY(gB),S,AL)
     }
    });
    list("mono").concat(hung.filter(function(w){return!used.has(w)})).forEach(function(w){
     var s=w.L/3,at=toWorld(w.a.x+w.u.x*s,w.a.y+w.u.y*s,w.z-(w.h||300)/2),dir=toWorld(w.a.x+w.u.x*(s+1000),w.a.y+w.u.y*(s+1000),0).sub(toWorld(w.a.x+w.u.x*s,w.a.y+w.u.y*s,0));
-    hoist(at,dir,1.6);cranes.push({at:at.clone(),size:4})
+    craneNo=cranes.length;hoist(at,dir,1.6);cranes.push({at:at.clone(),size:4,kind:"hoist",runs:[w.c],on:"Низ пути",z:Math.round(w.z-(w.h||300)/2)})
    });
    equipment.visible=showDetails
   }
@@ -1453,6 +1472,26 @@ window.irThreeSchemeView=(function(){
     (b.plate_hole_mm?'<span>Отверстия в опорной плите ∅'+escapeHtml(b.plate_hole_mm)+' мм</span>':"")+
     (b.note?'<em>'+escapeHtml(b.note)+'</em>':"")+
     '<small>'+escapeHtml([b.scheme?"схема баз: "+b.scheme:"",b.sheet?"лист базы: "+b.sheet:""].filter(Boolean).join("; "))+'</small></div>'
+  }
+  // A crane's card: what the part is, that the crane is drawn conventionally, the runways it stands on.
+  function hitCrane(){
+   if(!equipment.visible||!equipment.children.length)return null;
+   var h=raycaster.intersectObjects(equipment.children,false)[0];
+   return h&&cranes[h.object.userData.crane]?{k:cranes[h.object.userData.crane],part:h.object.userData.part,d:h.distance}:null
+  }
+  function showCrane(hit){
+   selectedNode=null;var k=hit.k,runs=k.runs.filter(Boolean);
+   nodePanel.hidden=false;
+   nodePanel.innerHTML='<div class="ir-three-place-head"><b>'+escapeHtml(craneKinds[k.kind]+" (условно)")+'</b><button type="button" data-node="close" title="Закрыть">×</button></div>'+
+    '<div class="ir-three-node-meta">'+(hit.part?'<span>Часть: <b>'+escapeHtml(hit.part)+'</b></span>':"")+(k.kind!=="hoist"?'<span>Пролёт <b>'+(k.span/1000).toFixed(1).replace(".",",")+' м</b></span>':"")+'<span>'+k.on+' <b>'+level(k.z)+'</b></span></div>'+
+    '<p class="ir-three-place-note">Крана в чертежах КМ нет — это оборудование. Программа рисует его условно на подкрановых путях, чтобы при монтаже был виден его габарит; размеры — не по паспорту крана. Скрыть краны — снимите «Детали».</p>'+
+    (runs.length?'<div class="ir-three-node-list">'+runs.map(function(c){
+     var ms=c.status==="mounted"?"mounted":c.status==="partial"?"partial":"planned";
+     return '<button type="button" data-node-member="'+escapeHtml(c.id)+'"><i class="'+ms+'"></i><b>'+escapeHtml(c.mark||c.title||"—")+'</b><span>'+escapeHtml(c.mark_name||c.type_name||"путь крана")+'</span><small>'+escapeHtml(c.profile_name||c.profileName||"")+'</small></button>'
+    }).join("")+'</div>':"");
+   nodePanel.querySelector('[data-node="close"]').onclick=function(){nodePanel.hidden=true};
+   nodePanel.querySelectorAll("[data-node-member]").forEach(function(b){b.onclick=function(){choose(b.dataset.nodeMember)}});
+   paintNodesFrame();invalidate()
   }
   function chooseNode(n){
    selectedNode=n;paintNode();
@@ -1761,7 +1800,7 @@ window.irThreeSchemeView=(function(){
   }
   function hitMember(){
    var hits=raycaster.intersectObjects(rayTargets,false);
-   return hits[0]?{id:hits[0].object.userData.memberId,point:hits[0].point}:null
+   return hits[0]?{id:hits[0].object.userData.memberId,point:hits[0].point,d:hits[0].distance}:null
   }
   // ---- Copy a member to another place on the ground plane.
   function reportCopyError(message){
@@ -1977,7 +2016,9 @@ window.irThreeSchemeView=(function(){
    if(copySource){copyToGround(e);return}
    screenRay(e);
    var node=hitNode();if(node){chooseNode(node);return}
-   var hit=hitMember();choose(hit?hit.id:"")
+   // A crane in front of the member: its card, not the member behind it.
+   var hit=hitMember(),cr=hitCrane();if(cr&&(!hit||cr.d<hit.d)){showCrane(cr);return}
+   if(!selectedNode&&nodePanel)nodePanel.hidden=true;choose(hit?hit.id:"")
   }
   // The member under the cursor is looked for once a frame, not on every move of the mouse.
   var pendingHover=null;
@@ -1987,8 +2028,9 @@ window.irThreeSchemeView=(function(){
    pendingHover={clientX:e.clientX,clientY:e.clientY}
   }
   function hoverNow(){
-   var e=pendingHover;pendingHover=null;screenRay(e);var hit=hitMember(),next=hit?hit.id:"";
+   var e=pendingHover;pendingHover=null;screenRay(e);var hit=hitMember(),cr=hitCrane(),near=cr&&(!hit||cr.d<hit.d),next=hit&&!near?hit.id:"";
    if(next!==hover){hover=next;paintHighlight()}
+   var tip=near?craneKinds[cr.k.kind]+" (условно, в КМ его нет): "+cr.part+". Щёлкните — подробнее":"";if(renderer.domElement.title!==tip)renderer.domElement.title=tip
   }
   function leave(){pendingHover=null;if(hover){hover="";paintHighlight()}if(placing){marker.visible=false;cursor.hidden=true;drawPoints(null);invalidate()}}
   function onKey(e){
@@ -2246,13 +2288,7 @@ window.irThreeSchemeView=(function(){
    }
    return out
   }
-  // The members as drawn now, for the USDZ file (src/scheme-export-usdz.js): the selected one keeps its own colour.
-  function model(){
-   var both={updateMatrixWorld:function(f){steel.updateMatrixWorld(f);detailGroup.updateMatrixWorld(f);equipment.updateMatrixWorld(f)},
-    traverseVisible:function(fn){steel.traverseVisible(fn);detailGroup.traverseVisible(fn);equipment.traverseVisible(fn)}};
-   return{root:both,material:function(mesh){return mesh.material}}
-  }
-  return{host:host,key:key,root:root,update:update,focus:focus,startCopy:startCopy,startPlacement:startPlacement,nodes:nodeList,openNode:openNode,model:model,snapshots:snapshots,
+  return{host:host,key:key,root:root,update:update,focus:focus,startCopy:startCopy,startPlacement:startPlacement,nodes:nodeList,openNode:openNode,snapshots:snapshots,
    dispose:function(){
     cameraMemory[memoryKey]={position:camera.position.clone(),target:controls.target.clone(),up:camera.up.clone()};
     alive=false;cancelCopy();cancelPlacement();if(raf)cancelAnimationFrame(raf);
@@ -2264,7 +2300,7 @@ window.irThreeSchemeView=(function(){
     viewport.removeEventListener("wheel",wheel,true);root.removeEventListener("wheel",rootWheel);renderer.domElement.removeEventListener("dblclick",dblclick);
     document.removeEventListener("keydown",keyDown);document.removeEventListener("keyup",keyUp);document.removeEventListener("keydown",shiftKey);document.removeEventListener("keyup",shiftKey);
     window.removeEventListener("blur",releaseKeys);
-    controls.dispose();clearNodes();nodeGeo.dispose();nodeMats.forEach(function(m){m.dispose()});boltMat.dispose();plateMat.dispose();concreteMat.dispose();craneMat.dispose();hoistMat.dispose();wheelMat.dispose();boltMats["8.8"].dispose();boltMats["5.8"].dispose();
+    controls.dispose();clearNodes();nodeGeo.dispose();nodeMats.forEach(function(m){m.dispose()});boltMat.dispose();plateMat.dispose();concreteMat.dispose();craneMat.dispose();hoistMat.dispose();wheelMat.dispose();glassMat.dispose();boltMats["8.8"].dispose();boltMats["5.8"].dispose();
     meshGeo.forEach(function(g){g.dispose()});mats.forEach(function(m){m.dispose()});shellMats.forEach(function(m){m.dispose()});roofMats.forEach(function(m){m.dispose()});
     [selectedMat,hoverMat,axisMaterial,dimMaterial,floorMaterial,darkFloorMaterial,markerMat,pointMat,previewMat].forEach(function(m){m.dispose()});
     var cached=new Set(meshGeo.values());
@@ -2284,6 +2320,5 @@ window.irThreeSchemeView=(function(){
   startPlacement:function(){return call("startPlacement")},
   nodes:function(){return call("nodes")||[]},
   openNode:function(id){return call("openNode",id)},
-  model:function(){return call("model")||null},
   snapshots:function(){return call("snapshots")||[]}}
 })();
