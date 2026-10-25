@@ -15,7 +15,7 @@ const MARK_CODES=[
  ["СТ","column","posts","Стойка"],
  ["С","column","posts","Стойка"],
  // Ф is a truss in ГОСТ 26047, but КМД sets often use it for wind posts and girts: a post unless drawn as a line.
- ["Ф","column","fahwerk","Фахверк / ферма"],
+ ["Ф","column","fahwerk","Фахверк / ферма",true],
  ["ФС","beam","beams","Ферма стропильная"],
  ["ФП","beam","beams","Ферма подстропильная"],
  ["ФН","beam","beams","Фонарь"],
@@ -43,7 +43,8 @@ const MARK_CODES=[
  ["ЛМ",null,null,"Лестничный марш"],
  ["ПЛ",null,null,"Площадка"],
  ["О",null,null,"Ограждение"]
-].map(([code,kind,group,name])=>({code,kind,group,name}));
+// loose: a letter used for anything on some sets — its kind is only a guess where the scheme does not say otherwise.
+].map(([code,kind,group,name,loose])=>({code,kind,group,name,...(loose?{loose}:{})}));
 // Codes written in mixed case on many КМ sets (Kazakhstan and others): "Фс1", "Сгф3", "Свк2". The case matters:
 // "Бк" is a column base, "БК" a crane girder. Checked before the upper-case table, longest first.
 const MIXED_CODES=[

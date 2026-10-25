@@ -30,13 +30,26 @@ function keep(w,lenient){
  const signs=w.symbols||[],text=String(w.text).replace(/[‘’'`]/gu,"");
  return lenient&&w.confidence>=30&&signs.length>0&&signs.every(c=>c.confidence>=90)&&(SURE_WORD.test(text)||w.confidence>=50&&SURE_DIAMETER.test(text))
 }
+// Thin strokes (lettering drawn as curves, one pixel wide) thickened by r pixels: Tesseract reads thin digits poorly
+// (the labels of axis bubbles, see readRings).
+function thickenStrokes(ctx,w,h,r){
+ const im=ctx.getImageData(0,0,w,h),d=im.data,dark=new Uint8Array(w*h);
+ for(let k=0;k<w*h;k++)dark[k]=d[4*k]<170?1:0;
+ const out=new Uint8Array(w*h);
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){if(!dark[y*w+x])continue;for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){const yy=y+dy,xx=x+dx;if(dx*dx+dy*dy<=r*r&&yy>=0&&yy<h&&xx>=0&&xx<w)out[yy*w+xx]=1}}
+ for(let k=0;k<w*h;k++){const v=out[k]?0:255;d[4*k]=d[4*k+1]=d[4*k+2]=v}
+ ctx.putImageData(im,0,0)
+}
 // Runs of words of one image, as a CAD text item would be: words of a line with no wide gap between them.
 // lenient: the words of an area of the sheet (sure signs count, see keep); the turn of a sheet is judged by sure words.
 // A word kept by its sure signs alone is of the height of the surely read words of its line: a box several lines tall
 // is a misreading (УПН: "детина" 36 px tall beside "Шахтная" 8 px, joined, it swallowed the leader of the label).
-async function recognise(worker,buffer,lenient=false){
+// pixels: () => {data, width} of the image read; a "5" of a number is then checked for the flat-topped "3" (flatThree).
+async function recognise(worker,buffer,lenient=false,pixels=null){
  const r=await worker.recognize(buffer,{},{blocks:true});
- const runs=[],height=w=>w.bbox.y1-w.bbox.y0;
+ const runs=[],height=w=>w.bbox.y1-w.bbox.y0;let px=null;
+ for(const w of pixels?(r.data.blocks||[]).flatMap(b=>b.paragraphs.flatMap(p=>p.lines.flatMap(l=>l.words))):[])
+  if(/5/.test(w.text||"")&&NUMBER_WORD.test(w.text)&&(w.symbols||[]).map(c=>c.text).join("")===w.text)w.text=w.symbols.map(c=>flatThree(px||(px=pixels()),c)).join("");
  for(const line of (r.data.blocks||[]).flatMap(b=>b.paragraphs.flatMap(p=>p.lines))){
   const sure=line.words.filter(w=>WORD.test(w.text||"")&&w.confidence>=MIN_CONFIDENCE).map(height).sort((a,b)=>a-b),usual=sure[sure.length>>1];
   let run=null;
@@ -50,6 +63,25 @@ async function recognise(worker,buffer,lenient=false){
   }
  }
  return runs
+}
+// The rows of a sign's box that hold the sign itself: the longest run of rows with ink (a tick of a leader above it,
+// read into the box, is left out).
+function signRows(pixels,b){
+ const {data,width}=pixels,x0=Math.max(0,Math.round(b.x0)),x1=Math.round(b.x1);let best=[b.y0,b.y1],start=-1,gap=0;
+ for(let y=Math.round(b.y0);y<=b.y1+1;y++){
+  let ink=false;if(y<=b.y1)for(let x=x0;x<=x1&&!ink;x++)ink=data[4*(y*width+x)]<128;
+  if(ink){if(start<0)start=y;gap=0;if(y-start>best[1]-best[0])best=[start,y]}else if(start>=0&&++gap>2){start=-1;gap=0}
+ }
+ return best
+}
+// The drafting font of many CAD sheets draws "3" with a flat top, like "Ʒ": Tesseract reads it "5" (355-11: «30» as
+// «50», «33» as «55»). A "5" has a stroke down the left from its top bar; a "3" has nothing there.
+const NUMBER_WORD=/^[^\d]{0,3}\d[\d.,]*$/u;
+function flatThree(pixels,c){
+ if(c.text!=="5")return c.text;
+ const b=c.bbox,[top,bottom]=signRows(pixels,b),h=bottom-top,w=b.x1-b.x0;if(h<8||w<4)return"5";
+ for(let y=Math.round(top+0.22*h);y<=top+0.42*h;y++)for(let x=Math.round(b.x0);x<=b.x0+0.3*w;x++)if(pixels.data[4*(y*pixels.width+x)]<128)return"5";
+ return"3"
 }
 // Typical misreadings of the drafting font in a mark: "ФЗ" for Ф3, "ПЗ2" for П32, "КО" for К0, "К!" for К1; the Ø sign read as "@"
 // or "©" before a number; a stray quote inside a word ("Д‘нище").
@@ -107,7 +139,7 @@ async function readArea(page,rect,{canvas,worker,scale=SCALE,turned=false,shear=
   oc.setTransform(1,0,k,1,0,0);
   if(turned){oc.translate(H,0);oc.rotate(Math.PI/2)}
   oc.drawImage(img,0,0);
-  return{k,runs:await recognise(worker,out.toBuffer("image/png"),true)}
+  return{k,runs:await recognise(worker,out.toBuffer("image/png"),true,()=>({data:oc.getImageData(0,0,out.width,th).data,width:out.width}))}
  };
  const score=r=>r.runs.reduce((a,w)=>a+w.confidence*w.text.length,0);
  let best=await read(shear==="auto"?SHEAR:shear);
@@ -181,6 +213,140 @@ async function sheetTurn(page,{canvas,worker,onArea=()=>{}}){
  const best=[90,180,270].sort((a,b)=>score[b]-score[a])[0];
  return score[best]>=30&&score[best]>score[0]*1.6?best:0
 }
+// Axis bubbles of a sheet whose lettering is drawn as strokes (355-11 «Площадки»: the stamp in text, the drawing in
+// curves): a ring of short segments with one label inside. Read with the rest of the sheet the ring spoils the label
+// ("Ш", "О" for "1"); read alone — the ring and what lies outside it whitened, the thin strokes thickened, at about
+// 30 px a sign, as one line — the label comes out. Labels of a row (or a column) of bubbles are then checked by their
+// order: numbers run on by one, letters by the alphabet of axes, a letter between two neighbouring letters is
+// a fraction ("А/1", "А/2" between А and Б, ГОСТ 21.101).
+const AXIS_LETTERS="АБВГДЕЖИКЛМНПРСТУФШЭЮЯ";
+function ringsOf(segments){
+ const key=p=>Math.round(p.x*20)+","+Math.round(p.y*20);
+ const short=segments.filter(s=>Math.hypot(s.a.x-s.b.x,s.a.y-s.b.y)<=9);
+ const parent=new Map(),find=k=>{let r=k;while(parent.get(r)!==r)r=parent.get(r);let c=k;while(parent.get(c)!==r){const n=parent.get(c);parent.set(c,r);c=n}return r};
+ for(const s of short){const a=key(s.a),b=key(s.b);if(!parent.has(a))parent.set(a,a);if(!parent.has(b))parent.set(b,b);const ra=find(a),rb=find(b);if(ra!==rb)parent.set(ra,rb)}
+ const loops=new Map();for(const s of short){const r=find(key(s.a));if(!loops.has(r))loops.set(r,[]);loops.get(r).push(s)}
+ const rings=[];
+ for(const list of loops.values()){
+  if(list.length<10||list.length>200)continue;
+  const pts=list.flatMap(s=>[s.a,s.b]),x=pts.reduce((a,p)=>a+p.x,0)/pts.length,y=pts.reduce((a,p)=>a+p.y,0)/pts.length;
+  const ds=pts.map(p=>Math.hypot(p.x-x,p.y-y)),r=ds.reduce((a,b)=>a+b,0)/ds.length;
+  const octants=new Set(pts.map(p=>Math.floor((Math.atan2(p.y-y,p.x-x)+Math.PI)/(2*Math.PI)*8)%8));
+  if(r>=7&&r<=20&&ds.every(d=>Math.abs(d-r)<=Math.max(0.6,r*0.08))&&octants.size>=7)rings.push({x,y,r})
+ }
+ return rings.slice(0,200)
+}
+async function readRings(page,rings,{canvas,worker,rotation=0}){
+ const out=[];
+ await worker.setParameters({tessedit_pageseg_mode:"7"});
+ try{
+  for(const ring of rings){
+   const px=60,scale=px/(2*ring.r),pad=25,W=px+2*pad;
+   const viewport=page.getViewport({scale,rotation:((page.rotate||0)+rotation)%360,offsetX:-(ring.x-ring.r)*scale+pad,offsetY:-(ring.y-ring.r)*scale+pad});
+   const img=canvas.createCanvas(W,W),ctx=img.getContext("2d");
+   ctx.fillStyle="#fff";ctx.fillRect(0,0,W,W);
+   await page.render({canvasContext:ctx,viewport,canvas:img}).promise;
+   ctx.fillStyle="#fff";ctx.beginPath();ctx.rect(0,0,W,W);ctx.arc(W/2,W/2,px/2*0.9,0,2*Math.PI,true);ctx.fill("evenodd");
+   thickenStrokes(ctx,W,W,2);
+   const r=await worker.recognize(img.toBuffer("image/png"));
+   out.push({...ring,text:String(r.data.text||"").replace(/\s+/g,"").replace(/[.,:;!?'"`’]+$/u,""),confidence:Math.round(r.data.confidence||0)})
+  }
+ }finally{await worker.setParameters({tessedit_pageseg_mode:"11"})}
+ return ringLabels(out).map(g=>{const size=g.r*0.9,width=g.label.length*size*0.6;
+  return{str:g.label,x:g.x-width/2,y:g.y+size*0.36,width,size,angle:0,ocr:true,ring:true,confidence:g.confidence}})
+}
+// Rings read → labels: what was read surely, what the order of a row or a column of bubbles gives.
+function ringLabels(read){
+ const valid=/^(?:\d{1,3}|[А-ЯЁA-Z]{1,2}\d{0,3})(?:\/\d{1,2})?$/u;
+ const out=read.map(g=>({...g,label:valid.test(g.text)?g.text:"",by:valid.test(g.text)?"read":""}));
+ const lines=(along,across)=>{
+  const groups=[];
+  for(const g of out){const l=groups.find(l=>Math.abs(l[0][across]-g[across])<l[0].r*0.3&&Math.abs(l[0].r-g.r)<1);if(l)l.push(g);else groups.push([g])}
+  return groups.filter(l=>l.length>=3).map(l=>l.sort((a,b)=>a[along]-b[along]))
+ };
+ // A row: numbers by one, left to right or the other way.
+ for(const row of lines("x","y")){
+  let best=null;
+  for(const step of [1,-1]){
+   const count=new Map();row.forEach((g,i)=>{if(/^\d{1,3}$/.test(g.label)){const o=Number(g.label)-step*i;count.set(o,(count.get(o)||0)+1)}});
+   for(const [o,n] of count)if(!best||n>best.n)best={o,n,step}
+  }
+  const numbers=row.filter(g=>/^\d{1,3}$/.test(g.label)).length;
+  if(!best||best.n<3||best.n<numbers*0.5)continue;
+  row.forEach((g,i)=>{
+   const e=String(best.o+best.step*i);if(Number(e)<1||g.label===e||/\//.test(g.label))return;
+   const taken=row.some(o=>o!==g&&o.label===e),twice=g.label&&row.some(o=>o!==g&&o.label===g.label);
+   if(!taken&&(!g.label||g.confidence<80||twice)){g.label=e;g.by="order"}
+  })
+ }
+ // A column: letters by the alphabet of axes from the bottom up (or down), fractions between neighbouring letters.
+ for(const col of lines("y","x")){
+  for(const list of [col.slice().reverse(),col]){
+   const at=list.map(g=>/^[А-ЯЁ]$/u.test(g.label)&&g.confidence>=80?AXIS_LETTERS.indexOf(g.label):-1);
+   const known=at.map((a,i)=>a>=0?i:-1).filter(i=>i>=0);
+   if(known.length<2||at[known[known.length-1]]<at[known[0]])continue;
+   for(let k=0;k+1<known.length;k++){
+    const i=known[k],j=known[k+1],steps=at[j]-at[i];
+    if(steps===j-i)for(let m=i+1;m<j;m++){if(list[m].label!==AXIS_LETTERS[at[i]+m-i]){list[m].label=AXIS_LETTERS[at[i]+m-i];list[m].by="order"}}
+    else if(steps===1)for(let m=i+1;m<j;m++){const f=AXIS_LETTERS[at[i]]+"/"+(m-i);if(list[m].label!==f){list[m].label=f;list[m].by="order"}}
+   }
+   break
+  }
+ }
+ return out.filter(g=>g.label)
+}
+// Labels on the shelves of leaders on a sheet in curves (355-11: «23», «30» over a shelf, its leaders slanting down to
+// two posts): read with the whole sheet, a label crossed by an axis line or next to the leader's tick is lost or
+// misread («57» for «37»). Read alone — the area over the shelf, lines wiped, strokes thickened, as one line — it
+// comes out. A shelf: a short level line with a slanted line from one of its ends, strokes over it and no word read.
+function shelvesOf(segments,texts){
+ const len=s=>Math.hypot(s.a.x-s.b.x,s.a.y-s.b.y),cell=4,key=(x,y)=>Math.floor(x/cell)+","+Math.floor(y/cell);
+ const ends=new Map();
+ for(const s of segments){const dx=Math.abs(s.a.x-s.b.x),dy=Math.abs(s.a.y-s.b.y);if(len(s)<=5||dy<dx*0.27||dx<dy*0.18)continue;
+  for(const p of [s.a,s.b]){const k=key(p.x,p.y);if(!ends.has(k))ends.set(k,[]);ends.get(k).push(p)}}
+ const slanted=p=>{for(let i=-1;i<=1;i++)for(let j=-1;j<=1;j++)for(const q of ends.get(key(p.x+i*cell,p.y+j*cell))||[])if(Math.hypot(p.x-q.x,p.y-q.y)<=1.5)return true;return false};
+ const known=texts.map(boxOf),strokes=segments.filter(s=>len(s)<6),out=[];
+ for(const s of segments){
+  if(Math.abs(s.a.y-s.b.y)>=0.3||len(s)<8||len(s)>60||!slanted(s.a)&&!slanted(s.b))continue;
+  const x0=Math.min(s.a.x,s.b.x),x1=Math.max(s.a.x,s.b.x),y=s.a.y,h=Math.max(14,Math.min(30,(x1-x0)*1.1));
+  const box={x0:x0-2,x1:x1+4,y0:y-h,y1:y-0.8};
+  if(known.some(k=>overlaps(k,box))||out.some(o=>overlaps(o,box)))continue;
+  if(strokes.filter(q=>[q.a,q.b].every(p=>p.x>=box.x0&&p.x<=box.x1&&p.y>=box.y0&&p.y<=box.y1)).length<6)continue;
+  out.push(box)
+ }
+ return out.slice(0,400)
+}
+// Only what a mark can be: «23», «37.1», «Б4», «К12».
+const SHELF_LABEL=/^[А-ЯЁA-Z]{0,3}\d{1,3}(?:\.\d{1,2})?$/u;
+// onArea: called every 20 shelves, so that a sheet with many keeps reporting progress.
+async function readShelves(page,boxes,{canvas,worker,rotation=0,onArea=()=>{}}){
+ const out=[],scale=4,pad=20;
+ await worker.setParameters({tessedit_pageseg_mode:"7"});
+ try{
+  for(const [i,box] of boxes.entries()){
+   if(i&&i%20===0)onArea();
+   const W=Math.ceil((box.x1-box.x0)*scale)+2*pad,H=Math.ceil((box.y1-box.y0)*scale)+2*pad;
+   const viewport=page.getViewport({scale,rotation:((page.rotate||0)+rotation)%360,offsetX:-box.x0*scale+pad,offsetY:-box.y0*scale+pad});
+   const img=canvas.createCanvas(W,H),ctx=img.getContext("2d");
+   ctx.fillStyle="#fff";ctx.fillRect(0,0,W,H);
+   await page.render({canvasContext:ctx,viewport,canvas:img}).promise;
+   ctx.fillStyle="#fff";ctx.beginPath();ctx.rect(0,0,W,H);ctx.rect(pad,pad,W-2*pad,H-2*pad);ctx.fill("evenodd");
+   wipeRules(ctx,W,H,Math.round(RULE_PT*scale));thickenStrokes(ctx,W,H,2);
+   const r=await worker.recognize(img.toBuffer("image/png"),{},{blocks:true});
+   const pixels={data:ctx.getImageData(0,0,W,H).data,width:W};
+   const words=(r.data.blocks||[]).flatMap(b=>b.paragraphs.flatMap(p=>p.lines.flatMap(l=>l.words)));
+   const signs=words.flatMap(w=>w.symbols||[]).filter(c=>WORD.test(c.text)||/^[.,]$/u.test(c.text));
+   const str=signs.map(c=>flatThree(pixels,c)).join("").replace(/^[.,]+|[.,]+$/gu,"").replace(",",".");
+   if(!signs.length||!SHELF_LABEL.test(str))continue;
+   // The box of the signs without the ink added by thickening and without a tick read over them.
+   const x0=Math.min(...signs.map(c=>c.bbox.x0))+2,x1=Math.max(...signs.map(c=>c.bbox.x1))-2;
+   const rows=signs.map(c=>signRows(pixels,c.bbox)),y0=Math.min(...rows.map(r=>r[0]))+2,y1=Math.max(...rows.map(r=>r[1]))-2;
+   out.push({str,x:box.x0+(x0-pad)/scale,y:box.y0+(y1-pad)/scale,width:(x1-x0)/scale,size:(y1-y0)/scale/0.75,angle:0,ocr:true,shelf:true,
+    confidence:Math.round(Math.min(...words.map(w=>w.confidence)))})
+  }
+ }finally{await worker.setParameters({tessedit_pageseg_mode:"11"})}
+ return out
+}
 // The geometry of a sheet read turned: points, boxes and size in the turned sheet (x' = H − y, y' = x for 90°).
 function turnGeometry(g,turn){
  const W=g.widthPt,H=g.heightPt;
@@ -202,4 +368,4 @@ function dropLettering(segments,texts){
  const inside=(p,b)=>p.x>=b.x0&&p.x<=b.x1&&p.y>=b.y0&&p.y<=b.y1;
  return segments.filter(s=>!boxes.some(b=>inside(s.a,b)&&inside(s.b,b)))
 }
-module.exports={ocrPage,ocrImages,dropLettering,createOcrWorker,readArea,sheetTurn,turnGeometry,clean,keep,recognise,strokeWidth,clearSpecks};
+module.exports={ocrPage,ocrImages,dropLettering,createOcrWorker,readArea,sheetTurn,turnGeometry,clean,keep,recognise,strokeWidth,clearSpecks,ringsOf,readRings,ringLabels,shelvesOf,readShelves,flatThree};

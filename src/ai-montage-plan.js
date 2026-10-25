@@ -6,6 +6,7 @@
  */
 const {markCode}=require("./ai-kmd-rules");
 const ST=require("./ai-structure-types");
+const {stampNames}=require("./ai-sheet-extract");
 // Groups of the montage scheme: the catalog of structure types (src/ai-structure-types.js).
 const GROUPS=Object.fromEntries(ST.GROUPS.map(g=>[g.key,g.label]));
 const FITTING_TYPE={deck:"platform",weld:"weld",bolt:"bolt",manhole:"manhole",hatch:"roof_hatch",valve:"valve",foam:"foam",sensor:"instrument",rod:"lightning",nozzle:"nozzle",ring:"tank_ring",railing:"railing",flight:"stair_flight",ladder:"ladder",panel:"sandwich",trim:"trim"};
@@ -18,7 +19,8 @@ function typeFor(pl,geometry,learned){
  const given=pl.type_key&&ST.byKey.get(pl.type_key);if(given)return given;
  if(pl.fitting_type)return ST.byKey.get(FITTING_TYPE[pl.fitting_type]||"nozzle");
  if(geometry==="shell")return ST.byKey.get(pl.scheme_group==="guards"?"railing":"tank_wall");
- const byName=ST.typeByName(pl.name),t=byName||learned?.loose?.(pl.mark)||ST.typeByMark(pl.mark);if(!t)return null;
+ // The index the notes give every mark («ФП», «Т») is the project's own: no kind by its letters.
+ const byName=ST.typeByName(pl.name),t=byName||learned?.loose?.(pl.mark)||(pl.mark_index?null:ST.typeByMark(pl.mark));if(!t)return null;
  const fits={column:["column"],beam:["beam","brace"],bent:["beam"],brace:["brace","beam"],plate:["plate"]}[geometry]||[geometry];
  return fits.includes(t.geometry)||byName===t?t:null
 }
@@ -258,6 +260,9 @@ function buildCatalog(draft,ai=null){
   for(const r of p.railOffsets||[]){const e=entry(r.mark);(e.rail_offsets=e.rail_offsets||[]);if(!e.rail_offsets.some(x=>x.axis===r.axis)){e.rail_offsets.push({...r,source:where(p)});e.sources.push(where(p)+" · привязка ригеля к оси "+r.axis)}}
   // A two-branch column: branches, lattice and upper part, as its sheet draws them.
   for(const c of p.columnDetails||[]){const e=entry(c.mark);if(!e.column_detail){e.column_detail={...c,source:where(p)};e.sources.push(where(p)+" · двухветвевая колонна")}}
+  // The stamp of an assembly sheet says what its marks are («Колонна Ф52, Ф53», «Распорка Ф76-Ф81»): on sets where one
+  // letter indexes every mark, the only word on the kind of each.
+  if(!/схема|план\s|разрез|узл/iu.test(sheet.stamp?.name||""))for(const r of stampNames(sheet.stamp?.name)){const e=entry(r.mark);if(!e.name){e.name=r.name;e.nameFrom=where(p)+" · штамп";e.sources.push(e.nameFrom)}}
   for(const r of sheet.required||[]){const e=entry(r.mark);if(e.count===null)e.count=r.count;if(e.mass_kg===null&&r.mass_kg)e.mass_kg=r.mass_kg;e.sources.push(where(p)+" · «Требуется»")}
   for(const r of sheet.elements||[]){const e=entry(r.mark);if(!e.profile&&r.profile){e.profile=r.profile;e.profileFrom=where(p)+" · ведомость элементов";if(r.profile_standard)e.profile_standard=r.profile_standard}if(!e.steel&&r.steel)e.steel=r.steel;e.sources.push(where(p)+" · ведомость элементов")}
   // Specification of an assembly drawing: the main profile and the mass of the mark.
@@ -519,6 +524,10 @@ function buildPlan(draft,ai=null,heights={},opts={}){
  if(!placed.length)return{grid:null,elements:[],skipped,schemes:schemeInfo,ready:false,problems:["Нет схем для расстановки",...(gap?[gap]:[])],catalog};
  const merged=mergeGrids(placed.map(c=>c.scheme));
  seatFramed(merged,placed,draft);
+ // Marks placed as columns on plans (not elevations).
+ const planColumns=new Set(placed.filter(c=>c.scheme.kind!=="elevation").flatMap(c=>(c.scheme.placements||[]).filter(p=>p.geometry_type==="column").map(p=>p.mark)));
+ // How many marks of an index («ФП1»…) the sheets of the set know.
+ const indexCount=new Map(),indexed=prefix=>{if(!indexCount.has(prefix)){let n=0;for(const e of catalog.values())if(String(e.mark).startsWith(prefix)&&/^\d/u.test(String(e.mark).slice(prefix.length)))n++;indexCount.set(prefix,n)}return indexCount.get(prefix)};
  const problems=[],elements=[],later=[];
 // Without such elements: beams and bracing at the top of the columns, columns from 0 up to the beams.
  const usual=kind=>{
@@ -569,6 +578,18 @@ function buildPlan(draft,ai=null,heights={},opts={}){
    }
    // Heights: AI per element, then the mark's assembly drawing, then the scheme (typed or AI).
    const cat=catalog.get(markKey(scopeOf(c.info.docType,catalog.multi?c.info.volume:""),pl.mark));
+   // The name the mark's own sheet gives it (kept on the scheme's copy only).
+   if(!pl.name&&cat?.name)pl={...pl,name:cat.name};
+   // A bare number read as a mark by the index of the notes that no sheet of the set knows, while the set's sheets
+   // know marks of that index (a small size on a shelf looks the same): not placed, listed with the reason.
+   if(pl.by_index&&!cat&&indexed(pl.by_index)>=5){skipped.push({mark:pl.mark,page:c.info.page,reason:"Марки нет на листах комплекта — вероятно, это размер, проверьте"});return}
+   // A column labelled under its line on the elevation of a wall (the girts' scheme) is read as a member along the wall;
+   // the plan of columns places it.
+   const named=pl.name?ST.typeByName(pl.name):null;
+   if(c.scheme.kind==="elevation"&&named?.geometry==="column"&&geometry!=="column"&&planColumns.has(pl.mark)){skipped.push({mark:pl.mark,page:c.info.page,reason:"Колонна на развёртке стены — поставлена по схеме колонн"});return}
+   // The name the sheets give and the drawing disagree (a «Балка площадки» labelled at a small square): placed as
+   // drawn, said.
+   if(named&&!c.scheme.kind&&(named.geometry==="column")!==(geometry==="column")&&["column","beam"].includes(named.geometry))guess.push("По названию «"+pl.name+"» — "+(named.geometry==="column"?"колонна/стойка":"балка")+", на схеме найдено "+(geometry==="column"?"точкой":"линией")+" — проверьте");
    const own=change&&!c.info.manual&&Number.isFinite(change.z0_mm)&&Number.isFinite(change.z1_mm);
    // An elevation gives every member its own heights.
    const drawn=!own&&Number.isFinite(pl.z0_mm)&&Number.isFinite(pl.z1_mm)?{z0:pl.z0_mm,z1:pl.z1_mm,from:pl.levels_from||"развёртка"}:null;

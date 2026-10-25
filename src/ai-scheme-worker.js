@@ -7,7 +7,7 @@ const {extractSheet,sheetStamp}=require("./ai-sheet-extract");
 const {extractSections,extractElevations,schemeNotes}=require("./ai-section-extract");
 const {importPdfjs,requireCanvas,pdfWasm}=require("./ai-packages");
 const {joinSplitTexts}=require("./ai-scheme-geometry");
-const {ocrPage,ocrImages,dropLettering,createOcrWorker,sheetTurn,turnGeometry}=require("./ai-ocr");
+const {ocrPage,ocrImages,dropLettering,createOcrWorker,sheetTurn,turnGeometry,ringsOf,readRings,shelvesOf,readShelves}=require("./ai-ocr");
 const {extractTank}=require("./ai-tank-extract");
 const {extractTrusses}=require("./ai-truss-extract");
 const {extractBaseDetails}=require("./ai-base-extract");
@@ -71,7 +71,12 @@ function pageContext(texts){
       // A scan lying sideways or upside down is read in its reading position; its lines are turned with it.
       const turn=strokedDims?0:await sheetTurn(page,options);
       if(turn)geometry=turnGeometry(geometry,turn);
-      const read=joinSplitTexts(await ocrPage(page,{...options,turn}));
+      let read=joinSplitTexts(await ocrPage(page,{...options,turn}));
+      // Axis bubbles read one by one; what the whole sheet read over a bubble (its ring as "Ш", "О") gives way.
+      const labels=await readRings(page,ringsOf(geometry.segments),{...options,rotation:turn});
+      if(labels.length){const inRing=t=>labels.some(l=>Math.hypot(t.x+(t.width||0)/2-(l.x+l.width/2),t.y-(t.size||8)*0.36-(l.y-l.size*0.36))<l.size/0.9);read=[...read.filter(t=>!inRing(t)),...labels]}
+      // Labels on leader shelves the sheet's reading missed, read one by one.
+      read=[...read,...await readShelves(page,shelvesOf(geometry.segments,[...geometry.texts,...read]),{...options,rotation:turn})];
       // Dimensions drawn as strokes on a sheet whose names are text: the text layer stays, OCR adds what it lacks.
       const box=t=>({x0:t.x,x1:t.x+(t.width||String(t.str).length*(t.size||8)*0.55),y0:t.y-(t.size||8),y1:t.y});
       const over=(a,b)=>a.x0<b.x1&&b.x0<a.x1&&a.y0<b.y1&&b.y0<a.y1;

@@ -48,6 +48,9 @@ function stampOf(texts,w,h,med){
  const code=(codes.find(t=>/КМД/u.test(t.str))||codes[0])?.str||"";
  const name=box.filter(t=>t.size>=med*1.2&&!/КМД?\s*\(|ТОО|ООО|АО\s|Формат|^А\d$|изм\.?$|ГПЭС|^\d/u.test(t.str)&&t.str!==code&&t.str.length<70)
   .sort((a,b)=>a.y-b.y).map(t=>t.str);
+ // A stamp written in the size of the sheet (its name no larger than the rest): the line naming the marks of the sheet
+ // («Подкрановая балка Ф131») is still its name.
+ if(!stampNames(name.join(" ")).length)name.push(...box.filter(t=>!/^\d+\.\s/u.test(t.str)&&t.str.length<70&&!name.includes(t.str)&&stampNames(t.str).length).sort((a,b)=>a.y-b.y).map(t=>t.str));
  const block=stampBlock(texts,w,h,code);
  return{code,name:name.join(" · "),...(Object.keys(block).length?{block}:{})}
 }
@@ -380,6 +383,29 @@ function sheetStamp({texts=[],widthPt=0,heightPt=0}={}){
 const assemblyTextOf=texts=>texts.some(t=>/^Спецификация\s+на\s+отправочн|^Тре[бдв]уется|^изготовить$|^Отправочная/u.test(t.str));
 // Shipping marks named by the stamp of an assembly sheet («Сегмент 9 · А003855-а»).
 const stampMarks=stamp=>[...new Set(String(stamp?.name||"").split(" · ").flatMap(part=>titleMarks(part.trim())||[]))];
+// Element names with their marks in the stamp of an assembly sheet: «Колонна Ф52, Ф53», «Распорка Ф76-Ф81, · связь
+// горизонтальная Ф82, Ф83», «Ригель фахверка · Ф101-Ф106». A range is every number between its ends. The name is the
+// words before the marks — from the last capitalised word (the object and building come first in the stamp), or all
+// the words after the previous marks. [{mark, name}].
+const STAMP_MARK=/^([А-ЯЁA-Z]{1,3})(\d{1,4})$/u;
+function stampNames(str){
+ const words=String(str||"").replace(/[·,;]/gu," ").replace(/\s*[-–—]\s*(?=[А-ЯЁA-Z]{1,3}\d|\d)/gu,"-").split(/\s+/u).filter(Boolean);
+ const out=[];let run=[],afterMarks=false;
+ for(const w of words){
+  const range=/^([А-ЯЁA-Z]{1,3})(\d{1,4})-(?:([А-ЯЁA-Z]{1,3}))?(\d{1,4})$/u.exec(w),one=STAMP_MARK.exec(w);
+  if(!range&&!one){if(afterMarks){run=[];afterMarks=false}run.push(w);continue}
+  if(STEEL.test(w))continue;
+  const start=run.findLastIndex(x=>/^[А-ЯЁ][а-яё]/u.test(x)),name=(afterMarks||start<0?run:run.slice(start)).join(" ");
+  if(!/^[А-ЯЁа-яё][а-яё]+/u.test(name)){afterMarks=true;continue}
+  const marks=[];
+  if(range&&(!range[3]||range[3]===range[1])&&Number(range[4])>Number(range[2])&&Number(range[4])-Number(range[2])<=60)for(let n=Number(range[2]);n<=Number(range[4]);n++)marks.push(range[1]+n);
+  else if(one)marks.push(w);
+  for(const mark of marks)if(!out.some(o=>o.mark===mark))out.push({mark,name:name[0].toUpperCase()+name.slice(1)});
+  // The marks of one name go on until the next words.
+  if(!afterMarks){run=name.split(" ");afterMarks=true}
+ }
+ return out
+}
 function extractSheet({texts=[],widthPt=0,heightPt=0,segments=[]}={}){
  const med=median(texts.map(t=>t.size))||10;
  const stamp=stampOf(texts,widthPt,heightPt,med),own=stampMarks(stamp).filter(m=>/\d{5}/.test(m));
@@ -407,4 +433,4 @@ function extractSheet({texts=[],widthPt=0,heightPt=0,segments=[]}={}){
  if(own.length===1&&!required.length&&assemblyTextOf(texts))required.push({mark:own[0],count:table.unnamed===1?table.unnamedCount:null,mass_kg:null,from:"stamp"});
  return{stamp,views,required,elements,spec,fasteners:fastenerTable(texts),standards,levelCount:levels.length,assemblyText}
 }
-module.exports={extractSheet,sheetStamp,titleMarks,levelMm,rowsOf,specTable,normProfile,fastenerTable,standardsCited};
+module.exports={extractSheet,sheetStamp,stampNames,titleMarks,levelMm,rowsOf,specTable,normProfile,fastenerTable,standardsCited};
