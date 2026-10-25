@@ -89,6 +89,7 @@
   ".warn{background:#fff6e0;border:1px solid #f0d58a;border-radius:8px;padding:6px 8px;font-size:12px;margin-bottom:8px}",
   ".from{font-size:12px;margin-bottom:8px}.from summary{cursor:pointer;font-weight:700}",
   ".inst{background:#eef8f2;border:1px solid #bfdcc9;border-radius:8px;padding:6px 8px;font-size:12px;margin-bottom:8px;color:#2c5e45}",
+  ".fast{margin-top:10px;font-size:12.5px;border:1px solid #dcd6c8;border-radius:8px;padding:6px 8px;background:#fbf9f4}.fast span,.fast small{display:block}.fast small{color:#6b7280}",
   ".prog{margin-top:10px;font-size:12.5px}.prog .bar{height:6px;background:#e4e9f1;border-radius:3px;margin-top:5px;overflow:hidden}.prog .bar i{display:block;height:100%;background:var(--ok)}",
   ".empty{color:var(--muted)}.foot{padding:0 20px 16px;color:var(--muted);font-size:12px}",
   "@media(max-width:900px){.stage-bar{justify-content:flex-start}.side{width:100vw;max-width:100vw}}",
@@ -101,7 +102,7 @@
   var $=function(id){return document.getElementById(id)};
   var esc=function(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})};
   var fmt=function(v){var n=Number(v);return Number.isFinite(n)?Number(n.toFixed(1)).toLocaleString("ru-RU",{maximumFractionDigits:1}):"—"};
-  var S={hidden:new Set(),sec:new Set(),conf:"all",status:"all",work:"all",min:"",max:"",q:"",sel:"",color:"type",labels:false,dims:false,bg:D.background||"standard"};
+  var S={hidden:new Set(),sec:new Set(),conf:"all",status:"all",work:"all",min:"",max:"",q:"",sel:"",color:"status",labels:false,dims:false,bg:D.background||"standard"};
   var statusText={mounted:"Смонтирована",partial:"Частично смонтирована",planned:"Не смонтирована"};
   var levelOk=function(c){var lo=Math.min(c.z0,c.z2),hi=Math.max(c.z0,c.z2);if(S.min!==""&&hi<Number(S.min))return false;if(S.max!==""&&lo>Number(S.max))return false;return true};
   // How fully the drawings determined an element and its section, as in the program: the preliminary ones are pale.
@@ -140,6 +141,12 @@
    box.innerHTML=[...m].map(function(e){return'<label><input type="checkbox" data-sec="'+esc(e[0])+'"'+(S.sec.has(e[0])?"":" checked")+'> '+esc(e[0]||"Без раздела")+'<small>'+e[1]+'</small></label>'}).join("");
    box.querySelectorAll("[data-sec]").forEach(function(i){i.onchange=function(){if(i.checked)S.sec.delete(i.dataset.sec);else S.sec.add(i.dataset.sec);draw3d();list()}})
   }
+  // The permanent fasteners and the holes of the member's assembly sheet, as the program's card shows them.
+  function fastenersHtml(j){
+   if(!j||!((j.fasteners||[]).length||(j.holes_mm||[]).length))return"";
+   return'<div class="fast"><b>Метизы и отверстия</b>'+(j.fasteners||[]).map(function(f){return'<span>'+esc(f)+'</span>'}).join("")+
+    ((j.holes_mm||[]).length?'<span>Отверстия Ø'+esc(j.holes_mm.join(", Ø"))+(j.hole_mm?" (все Ø"+esc(j.hole_mm)+", кроме оговоренных)":"")+'</span>':"")+(j.fasteners_sheet?'<small>'+esc(j.fasteners_sheet)+'</small>':"")+'</div>'
+  }
   function list(){
    var found=shown().filter(match).sort(function(a,b){return String(a.mark).localeCompare(String(b.mark),"ru",{numeric:true})});
    $("found").textContent="Найдено: "+found.length;
@@ -160,6 +167,7 @@
      ["Ось "+D.axesX[0]+"–"+D.axesX[D.axesX.length-1],a.x],["Ось "+D.axesY[0]+"–"+D.axesY[D.axesY.length-1],a.y],["Коорд. X",fmt(c.x)+" мм"],["Коорд. Y",fmt(c.y)+" мм"],
      ["Низ",fmt(c.z0)+" мм"],["Верх / конец Z",fmt(c.z2)+" мм"]].concat(c.geometryType!=="column"&&c.geometryType!=="shell"&&c.geometryType!=="plate"?[["Конец X",fmt(c.x2)+" мм"],["Конец Y",fmt(c.y2)+" мм"]]:[])
      .map(function(r){return'<div><span>'+esc(r[0])+'</span><b>'+(r[2]?r[1]:esc(r[1]||"—"))+'</b></div>'}).join("")+'</div>'+
+    fastenersHtml(c.joint)+
     (p&&p.total>0?'<div class="prog"><b>Марка '+esc(c.mark)+' по ведомости:</b> всего '+fmt(p.total)+' шт., смонтировано '+fmt(p.mounted)+', осталось '+fmt(p.left)+'<div class="bar"><i style="width:'+Math.max(0,Math.min(100,p.mounted/p.total*100))+'%"></i></div></div>':"");
    $("uncard").onclick=function(){S.sel="";details();list();draw3d()}
   }

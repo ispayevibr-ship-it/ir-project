@@ -45,7 +45,8 @@ function thickenStrokes(ctx,w,h,r){
 // A word kept by its sure signs alone is of the height of the surely read words of its line: a box several lines tall
 // is a misreading (УПН: "детина" 36 px tall beside "Шахтная" 8 px, joined, it swallowed the leader of the label).
 // pixels: () => {data, width} of the image read; a "5" of a number is then checked for the flat-topped "3" (flatThree).
-async function recognise(worker,buffer,lenient=false,pixels=null){
+// all: every word with a letter or digit (a table cell read for what its column holds: the caller judges it).
+async function recognise(worker,buffer,lenient=false,pixels=null,all=false){
  const r=await worker.recognize(buffer,{},{blocks:true});
  const runs=[],height=w=>w.bbox.y1-w.bbox.y0;let px=null;
  for(const w of pixels?(r.data.blocks||[]).flatMap(b=>b.paragraphs.flatMap(p=>p.lines.flatMap(l=>l.words))):[])
@@ -53,7 +54,7 @@ async function recognise(worker,buffer,lenient=false,pixels=null){
  for(const line of (r.data.blocks||[]).flatMap(b=>b.paragraphs.flatMap(p=>p.lines))){
   const sure=line.words.filter(w=>WORD.test(w.text||"")&&w.confidence>=MIN_CONFIDENCE).map(height).sort((a,b)=>a-b),usual=sure[sure.length>>1];
   let run=null;
-  for(const w of line.words.filter(w=>keep(w,lenient)&&(w.confidence>=MIN_CONFIDENCE||!sure.length||height(w)<=usual*2.2))){
+  for(const w of line.words.filter(w=>(all?WORD.test(w.text||""):keep(w,lenient))&&(w.confidence>=MIN_CONFIDENCE||!sure.length||height(w)<=usual*2.2))){
    const h=height(w),hr=run?run.bbox.y1-run.bbox.y0:h,sureBoth=run&&w.confidence>=MIN_CONFIDENCE&&run.confidence>=MIN_CONFIDENCE;
    // Brackets make a word taller ("лестница (90)"): words read surely are joined whatever their heights.
    if(run&&w.bbox.x0-run.bbox.x1<=h*1.2&&Math.abs(w.bbox.y1-run.bbox.y1)<=h*0.4&&(sureBoth||Math.max(h,hr)<=Math.min(h,hr)*2.2)){
@@ -122,7 +123,7 @@ function clearSpecks(ctx,w,h){
 // turned: the area is read turned clockwise, for upward lettering.
 // shear: the slant to straighten (0 for an upright font); "auto" reads both ways and keeps the better reading.
 // rotation: the sheet is read turned by this many degrees clockwise (a scan that lies sideways or upside down).
-async function readArea(page,rect,{canvas,worker,scale=SCALE,turned=false,shear=SHEAR,rotation=0}){
+async function readArea(page,rect,{canvas,worker,scale=SCALE,turned=false,shear=SHEAR,rotation=0,all=false}){
  scale=Math.min(scale,Math.sqrt(MAX_PIXELS/Math.max(1,rect.w*rect.h)));
  const viewport=page.getViewport({scale,rotation:((page.rotate||0)+rotation)%360,offsetX:-rect.x*scale,offsetY:-rect.y*scale});
  const W=Math.ceil(rect.w*scale),H=Math.ceil(rect.h*scale);
@@ -139,7 +140,7 @@ async function readArea(page,rect,{canvas,worker,scale=SCALE,turned=false,shear=
   oc.setTransform(1,0,k,1,0,0);
   if(turned){oc.translate(H,0);oc.rotate(Math.PI/2)}
   oc.drawImage(img,0,0);
-  return{k,runs:await recognise(worker,out.toBuffer("image/png"),true,()=>({data:oc.getImageData(0,0,out.width,th).data,width:out.width}))}
+  return{k,runs:await recognise(worker,out.toBuffer("image/png"),true,()=>({data:oc.getImageData(0,0,out.width,th).data,width:out.width}),all)}
  };
  const score=r=>r.runs.reduce((a,w)=>a+w.confidence*w.text.length,0);
  let best=await read(shear==="auto"?SHEAR:shear);
@@ -362,10 +363,27 @@ async function ocrImages(page,images,known,{canvas,worker,onArea=()=>{}}){
  await readAll(page,images.flatMap(im=>tiles(im.x0,im.y0,im.x1-im.x0,im.y1-im.y0)),{canvas,worker,onArea},texts,state);
  return texts.filter(t=>!have.some(h=>overlaps(h,boxOf(t))))
 }
+// Table cells read one by one as a line, at the usual slant of a CAD italic and a steeper one: Tesseract doubts such a
+// font as a whole («Тр.□160х5» at 5 of 100) yet reads it right; a cell is taken when accept() gives back a text for it
+// (what its column holds, put right), as one text over the cell.
+async function readCells(page,cells,{canvas,worker,accept,rotation=0,onArea=()=>{}}){
+ const out=[];if(!cells.length)return out;
+ await worker.setParameters({tessedit_pageseg_mode:"7"});
+ try{
+  for(const c of cells){
+   for(const shear of [SHEAR,Math.tan(16*Math.PI/180)]){
+    const got=await readArea(page,c,{canvas,worker,shear,rotation,all:true}),str=got.length?accept(got.sort((a,b)=>a.x-b.x).map(t=>t.str).join(" ").trim()):null;
+    if(str){const size=Math.max(...got.map(t=>t.size));out.push({str,x:Math.min(...got.map(t=>t.x)),y:Math.max(...got.map(t=>t.y)),width:Math.max(...got.map(t=>t.x+t.width))-Math.min(...got.map(t=>t.x)),size,angle:0,ocr:true,cell:c,confidence:Math.min(...got.map(t=>t.confidence))});break}
+   }
+   onArea()
+  }
+ }finally{await worker.setParameters({tessedit_pageseg_mode:"11"})}
+ return out
+}
 // Glyph outlines inside recognised words are not drawing lines: they would be taken for leaders and members.
 function dropLettering(segments,texts){
  const boxes=texts.map(t=>{const b=boxOf(t);return{x0:b.x0-1,x1:b.x1+1,y0:b.y0-t.size*0.1,y1:b.y1+1}});
  const inside=(p,b)=>p.x>=b.x0&&p.x<=b.x1&&p.y>=b.y0&&p.y<=b.y1;
  return segments.filter(s=>!boxes.some(b=>inside(s.a,b)&&inside(s.b,b)))
 }
-module.exports={ocrPage,ocrImages,dropLettering,createOcrWorker,readArea,sheetTurn,turnGeometry,clean,keep,recognise,strokeWidth,clearSpecks,ringsOf,readRings,ringLabels,shelvesOf,readShelves,flatThree};
+module.exports={ocrPage,ocrImages,readCells,dropLettering,createOcrWorker,readArea,sheetTurn,turnGeometry,clean,keep,recognise,strokeWidth,clearSpecks,ringsOf,readRings,ringLabels,shelvesOf,readShelves,flatThree};

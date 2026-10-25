@@ -50,12 +50,21 @@ window.irThreeSchemeView=(function(){
  };
  // Every group of the catalog of structure types has its colour and name in the legend.
  (window.irStructureTypes?.GROUPS||[]).forEach(function(g){if(!groups[g.key])groups[g.key]=[g.label,g.color]});
- var statusColors={mounted:[0x159b65,"Смонтировано"],partial:[0xe09b00,"Частично"],planned:[0xc47a7a,"Не смонтировано"]};
+ // Not mounted — the grey of the montage report (the engineer, 25.10.2026: «несмонтированные конструкции сделай цветом
+ // как в отчете»: #B7BDC4).
+ var statusColors={mounted:[0x159b65,"Смонтировано"],partial:[0xe09b00,"Частично"],planned:[0xb7bdc4,"Не смонтировано"]};
  // How fully the reading of the drawings determined an element (src/ai-montage.js). The preliminary ones (not confirmed
  // or computed) are drawn pale in every colouring: placed all the same, to be edited by the engineer.
  var instanceColors={confirmed:[0x159b65,"Подтверждено"],computed:[0x2f6fd6,"Вычислено"],partial:[0xe09b00,"Частично"],ambiguous:[0x8b40de,"Неоднозначно"],
   conflict:[0xd03a2f,"Конфликт данных"],not_found:[0x7a8796,"Нет в новом анализе"],none:[0x586e84,"Без оценки"]};
  function instanceKey(c){return instanceColors[c.instance_status]&&c.instance_status!=="none"?c.instance_status:"none"}
+
+ // RAL Classic in sRGB: the colours the АР gives its panels, trims, doors and gates («ПЭ-RAL7047», «(RAL 2008)»).
+ // Coloured by kinds, an element with its RAL is drawn in that colour, and the legend names it (the engineer, 25.10.2026:
+ // «сэндвич панель (если есть цвет, то и цвет тоже)»).
+ var RAL={};"1000:cdba88,1001:d0b084,1002:d2aa6d,1003:f9a800,1004:e49e00,1005:cb8e00,1006:e29000,1007:e88c00,1011:af804f,1012:ddaf27,1013:e3d9c6,1014:ddc49a,1015:e6d2b5,1016:f1dd38,1017:f6a950,1018:faca30,1019:a48f7a,1020:a08f65,1021:f6b600,1023:f7b500,1024:ba8f4c,1027:a77f0e,1028:ff9b00,1032:e2a300,1033:f99a1c,1034:eb9c52,1035:908370,1036:80643f,1037:f09200,2000:da6e00,2001:ba481b,2002:bf3922,2003:f67828,2004:e25303,2008:ed6b21,2009:de5307,2010:d05d28,2011:e26e0e,2012:d5654d,2013:923e25,3000:a72920,3001:9b2423,3002:9b2321,3003:861a22,3004:6b1c23,3005:59191f,3007:3e2022,3009:6d342d,3011:792423,3012:c6846d,3013:972e25,3014:cb7375,3015:d8a0a6,3016:a63d2f,3017:cb555d,3018:c73f4a,3020:bb1e10,3022:cf6955,3027:ab273c,3028:cc2c24,3031:a63437,3032:701d23,3033:a53a2d,4001:816183,4002:8d3c4b,4003:c4618c,4004:651e38,4005:76689a,4006:903373,4007:47243c,4008:844c82,4009:9d8692,4010:bc4077,5000:384c70,5001:1f4764,5002:2b2c7c,5003:2a3756,5004:1d1f2a,5005:154889,5007:41678d,5008:313c48,5009:2e5978,5010:13447c,5011:232c3f,5012:3481b8,5013:232d53,5014:6c7c98,5015:2874b2,5017:0e518d,5018:21888f,5019:1a5784,5020:0b4151,5021:07737a,5022:2f2a5a,5023:4d668e,5024:6a93b0,5025:296478,5026:102c54,6000:327662,6001:28713e,6002:276235,6003:4b573e,6004:0e4243,6005:0f4336,6006:40433b,6007:283424,6008:35382e,6009:26392f,6010:3e753b,6011:68825b,6012:31403d,6013:797c5a,6014:444337,6015:3d403a,6016:026a52,6017:468641,6018:48a43f,6019:b7d9b1,6020:354733,6021:86a47c,6022:3e3c32,6024:008754,6025:53753c,6026:005d52,6027:81c0bb,6028:2d5546,6029:007243,6032:0f8558,6033:478a84,6034:7fb0b2,6035:1b542c,6036:005d4c,7000:7e8b92,7001:8f999f,7002:817f68,7003:7a7b6d,7004:9ea0a1,7005:6b716f,7006:756f61,7008:746643,7009:5b6259,7010:575d57,7011:555d61,7012:596163,7013:555548,7015:51565c,7016:373f43,7021:2e3234,7022:4b4d46,7023:818479,7024:474a50,7026:374447,7030:939388,7031:5d6970,7032:b9b9a8,7033:818979,7034:939176,7035:cbd0cc,7036:9a9697,7037:7c7f7e,7038:b4b8b0,7039:6b695f,7040:9da3a6,7042:8f9695,7043:4e5451,7044:bdbdb2,7045:91969a,7046:82898e,7047:cfd0cf,7048:888175,8000:887142,8001:9c6b30,8002:7b5141,8003:80542f,8004:8f4e35,8007:6f4a2f,8008:6f4f28,8011:5a3a29,8012:673831,8014:49392d,8015:633a34,8016:4c2f26,8017:44322d,8019:3f3a3a,8022:211f20,8023:a65e2e,8024:79553d,8025:755c48,8028:4e3b31,8029:763c28,9001:fdf4e3,9002:e7ebda,9003:f4f4f4,9004:282828,9005:0a0a0a,9006:a5a5a5,9007:8f8f8f,9010:ffffff,9011:1c1c1c,9016:f6f6f6,9017:1e1e1e,9018:d7d7d7,9022:9c9c9c,9023:828282".split(",").forEach(function(p){var q=p.split(":");RAL[q[0]]=parseInt(q[1],16)});
+ function ralOf(c){var r=c&&c.lay&&String(c.lay.ral||"");return r&&RAL[r]!==undefined?r:""}
+ function colorKey(c){var r=ralOf(c);if(!r)return kind(c);var k="ral:"+r;if(!groups[k])groups[k]=["RAL "+r,RAL[r]];return k}
  var COLOR_MODES=["status","type","mark","confidence"];
  var backgrounds={standard:0xdfe8f3,white:0xffffff,gray:0xd9dde2,blue:0xd6e6f6,sand:0xefe6d6,dark:0x1d2733};
  var kindNames={column:"колонна",beam:"балка",bent:"ломаная балка",brace:"связь",truss:"ферма",shell:"стенка резервуара",plate:"днище / площадка"};
@@ -134,6 +143,13 @@ window.irThreeSchemeView=(function(){
   if((m=/^Сварной[−-](\d+)x(\d+)\.[−-](\d+)x(\d+)/.exec(t))){
    var tf=+m[1],bf=+m[2],tw=+m[3],hw=+m[4];
    if(hw+2*tf<=4*bf&&tw<bf/3)return{shape:"ibeam",h:hw+2*tf,b:bf,s:tw,t:tf,std:"сварное сечение по ведомости элементов"};
+   return null
+  }
+  // A welded copy of a rolled I «Св.I40КС2», «Св.I50ШС2» (the sheet's note: «св. I 40КС2 … вместо прокатного I 40К2»): drawn
+  // by the rolled one of the same number, and the card says so.
+  if((m=/^(?:Св\.?|Сварной)(?:I|І|двутавр)?(\d{2,3}(?:ДБ|ДШ|[БШК]))С?(\d+)$/i.exec(t))){
+   var wd=sectionOf(m[1]+m[2],standard);
+   if(wd&&wd.shape==="ibeam")return Object.assign({},wd,{std:"сварной, по размерам прокатного "+m[1]+m[2]+" ("+wd.std+")"});
    return null
   }
   // «10У» in a «Сечение» column is a channel; «2L80х6» is drawn by one angle of the pair.
@@ -590,7 +606,7 @@ window.irThreeSchemeView=(function(){
    if(colorMode==="status")return(statusColors[c.status]||statusColors.planned)[0];
    if(colorMode==="confidence")return instanceColors[instanceKey(c)][0];
    if(colorMode==="mark")return hsvMark(T,c.mark||c.mark_name||c.id);
-   return(groups[kind(c)]||groups.other)[1]
+   return(groups[colorKey(c)]||groups.other)[1]
   }
   function pale(c){return Boolean(c&&c.preliminary===true)}
   function baseMaterial(c){
@@ -616,6 +632,21 @@ window.irThreeSchemeView=(function(){
   // of the vertical joints of a course; sheet width and length of the bottom rows) and, in the layer of welds, the welds
   // themselves: vertical and ring seams of the wall, the seams of the bottom, the corner weld of the wall to the bottom.
   var jointMat=new T.MeshStandardMaterial({color:0x3b4552,metalness:.1,roughness:.8});
+  // The glass of windows of the АР: see-through, its frame and sashes in the colour of the window.
+  var openingGlass=new T.MeshStandardMaterial({color:0x9ccbe8,metalness:.1,roughness:.08,transparent:true,opacity:.42,depthWrite:false,side:T.DoubleSide});
+  // A rectangle of a wall panel less its holes ([from, to along it, from, to over its foot]) in pieces, rectangles too.
+  function wallPieces(s0,s1,h,holes){
+   var xs=[s0,s1];holes.forEach(function(o){[o[0],o[1]].forEach(function(v){if(v>s0+1e-4&&v<s1-1e-4)xs.push(v)})});
+   xs.sort(function(a,b){return a-b});var out=[];
+   for(var i=0;i+1<xs.length;i++){
+    var a=xs[i],b=xs[i+1];if(b-a<1e-4)continue;
+    var cut=holes.filter(function(o){return o[0]<=a+1e-4&&o[1]>=b-1e-4}).map(function(o){return[Math.max(0,o[2]),Math.min(h,o[3])]}).sort(function(p,q){return p[0]-q[0]});
+    var z=0;cut.forEach(function(o){if(o[0]>z+1e-4)out.push([a,b,z,o[0]]);z=Math.max(z,o[1])});if(z<h-1e-4)out.push([a,b,z,h])
+   }
+   // Pieces side by side of one height as one.
+   out.sort(function(p,q){return p[2]-q[2]||p[3]-q[3]||p[0]-q[0]});
+   return out.reduce(function(m,r){var l=m[m.length-1];if(l&&Math.abs(l[2]-r[2])<1e-4&&Math.abs(l[3]-r[3])<1e-4&&Math.abs(l[1]-r[0])<1e-4)l[1]=r[1];else m.push(r.slice());return m},[])
+  }
   // Shared geometries: a bar of a section t×t along +Z from 0 to 1 (stretched by scale.z), any other by its key.
   function shared(key,make){var g=meshGeo.get(key);if(!g){g=make();meshGeo.set(key,g)}return g}
   function barGeo(t){return shared("bar:"+t,function(){var g=new T.BoxGeometry(t,t,1);g.translate(0,0,.5);return g})}
@@ -1515,7 +1546,7 @@ window.irThreeSchemeView=(function(){
   // column or on a beam, a joint of members), the nodes the sheets name first. Only a hint: the scheme is not changed.
   function nodeQuery(n){
    var named=[],seen=new Set(),bolted=false,hsb=false;
-   n.members.forEach(function(m){var j=m.c.joint;if(!j)return;if(j.bolt)bolted=true;if(/высокопрочн|фрикц/i.test(j.text||""))hsb=true;
+   n.members.forEach(function(m){var j=m.c.joint;if(!j)return;if(j.bolt)bolted=true;if(/высокопр|фрикц/i.test(j.text||""))hsb=true;
     (j.named||[]).forEach(function(x){var k=x.label+"|"+x.title;if(!seen.has(k)){seen.add(k);named.push(x)}})});
    var b=n.kind==="base"?baseOf(n):null;
    return{kind:n.kind,anchors:b&&b.anchors&&number(b.anchors.count)||0,named:named,bolted:bolted,hsb:hsb,
@@ -1726,6 +1757,32 @@ window.irThreeSchemeView=(function(){
     labelLayer.appendChild(de);labels.push({el:de,pos:dl,id:id});
     return
    }
+   // Windows, doors and gates of the АР in their walls (their width along the wall, c.fd their height from the foot): a
+   // frame of 60 mm round the block; a window glazed, its sashes about every 1.2 m; a door — its leaf, two over 1.1 m, a
+   // handle; a gate — its leaf with the ribs across.
+   if(c.ft==="window"||c.ft==="door"||c.ft==="gate"){
+    var wu=new T.Vector3(0,1,0),wx=new T.Vector3().crossVectors(wu,dir);if(wx.lengthSq()<1e-6)wx.set(1,0,0);wx.normalize();
+    var wy=new T.Vector3().crossVectors(dir,wx).normalize(),wq=new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(wx,wy,dir));
+    var wm=start.clone().add(end).multiplyScalar(.5),H=Math.max(.3,(number(c.fd)||1500)/1000),fr=.06,fdp=c.ft==="window"?.07:.08,mat=baseMaterial(c),fp=[];
+    var bar=function(w,h,l,y,s,m){var mesh=new T.Mesh(new T.BoxGeometry(w,h,l),m||mat);mesh.quaternion.copy(wq);mesh.position.copy(wm).add(new T.Vector3(0,y,s).applyQuaternion(wq));fp.push(mesh)};
+    bar(fdp,H,fr,H/2,-len/2+fr/2);bar(fdp,H,fr,H/2,len/2-fr/2);bar(fdp,fr,len-2*fr,H-fr/2,0);
+    if(c.ft==="window"){
+     bar(fdp,fr,len-2*fr,fr/2,0);
+     var ns=Math.max(1,Math.round(len/1.2));for(var k=1;k<ns;k++)bar(fdp,H-2*fr,fr*.8,H/2,-len/2+len*k/ns);
+     bar(.012,H-2*fr,len-2*fr,H/2,0,openingGlass)
+    }
+    else{
+     var nl=c.ft==="door"&&len>1.1||c.ft==="gate"&&len>2.4?2:1,lw=(len-2*fr)/nl;
+     for(var k2=0;k2<nl;k2++)bar(.045,H-fr-.01,lw-.008,(H-fr)/2,-len/2+fr+lw*(k2+.5));
+     if(c.ft==="gate")for(var gy=.5;gy<H-fr-.2;gy+=.5)bar(.06,.03,len-2*fr-.02,gy,0,jointMat);
+     else bar(.07,.025,.13,1.0,-len/2+fr+lw*nl-.1-(nl===2?lw-.2:0),jointMat)
+    }
+    fp.forEach(function(mesh){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh)});
+    var wl=wm.clone();wl.y+=H+.3;
+    var we=document.createElement("span");we.className="ir-three-member-label";we.textContent=c.mark||c.title||"";
+    labelLayer.appendChild(we);labels.push({el:we,pos:wl,id:id});
+    return
+   }
    // A field of sandwich panels (АР): a wall one stands on its lower edge to its height, a roof one lies on the slope at
    // its width; a trim (нащельник, планка) — a thin bent strip of two shelves along its line.
    if(c.ft==="panel"||c.ft==="trim"){
@@ -1733,8 +1790,21 @@ window.irThreeSchemeView=(function(){
     var yv=new T.Vector3().crossVectors(dir,xv).normalize(),q=new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(xv,yv,dir));
     var pm=[],put=function(geo,off){var m=new T.Mesh(geo,baseMaterial(c));m.quaternion.copy(q);m.position.copy(start).add(end).multiplyScalar(.5).add(off.applyQuaternion(q));pm.push(m)};
     var pt=Math.max(.04,(number(c.lay&&c.lay.thickness_mm)||120)/1000),pw=Math.max(.3,(number(c.fd)||1000)/1000);
-    if(c.ft==="panel"&&c.lay&&c.lay.panel==="wall")put(new T.BoxGeometry(pt,pw,len),new T.Vector3(0,pw/2,0).applyQuaternion(q.clone().invert()));
-    else if(c.ft==="panel")put(new T.BoxGeometry(pw,pt,len),new T.Vector3(0,pt/2,0));
+    // Panels of a layout one by one, with their joints (a gap of 12 mm). A wall panel under the slope of a lower roof
+    // is cut along it (lay.cut: the heights of its lower edge at its start and end).
+    var gl=c.lay&&c.lay.width_mm?Math.max(.02,len-.012):len,cut=c.lay&&Array.isArray(c.lay.cut)&&c.lay.cut.length===2?c.lay.cut:null;
+    if(c.ft==="panel"&&c.lay&&c.lay.panel==="wall"&&cut){
+     var z0=number(c.z0),sh=new T.Shape();sh.moveTo(-gl/2,(number(cut[0])-z0)/1000);sh.lineTo(gl/2,(number(cut[1])-z0)/1000);sh.lineTo(gl/2,pw);sh.lineTo(-gl/2,pw);sh.closePath();
+     var cg=new T.ExtrudeGeometry(sh,{depth:pt,bevelEnabled:false});cg.translate(0,0,-pt/2);cg.rotateY(-Math.PI/2);put(cg,new T.Vector3(0,0,0))
+    }
+    // A panel the block of a window, a door or a gate crosses: in pieces round the hole (lay.holes, mm from its start
+    // and its foot).
+    else if(c.ft==="panel"&&c.lay&&c.lay.panel==="wall"&&Array.isArray(c.lay.holes)&&c.lay.holes.length){
+     var hs=c.lay.holes.map(function(o){return[number(o[0])/1000,number(o[1])/1000,number(o[2])/1000,number(o[3])/1000]}),j=(len-gl)/2;
+     wallPieces(j,len-j,pw,hs).forEach(function(r){put(new T.BoxGeometry(pt,r[3]-r[2],r[1]-r[0]),new T.Vector3(0,(r[2]+r[3])/2,(r[0]+r[1])/2-len/2))})
+    }
+    else if(c.ft==="panel"&&c.lay&&c.lay.panel==="wall")put(new T.BoxGeometry(pt,pw,gl),new T.Vector3(0,pw/2,0).applyQuaternion(q.clone().invert()));
+    else if(c.ft==="panel")put(new T.BoxGeometry(pw,pt,gl),new T.Vector3(0,pt/2,0));
     else{var leg=Math.max(.04,Math.min(.4,(number(c.fd)||100)/1000));put(new T.BoxGeometry(leg,.008,len),new T.Vector3(leg/2,0,0));put(new T.BoxGeometry(.008,leg,len),new T.Vector3(0,leg/2,0))}
     pm.forEach(function(mesh){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh)});
     var pl=start.clone().add(end).multiplyScalar(.5);pl.y+=c.ft==="panel"&&c.lay&&c.lay.panel==="wall"?pw+.3:.3;
@@ -1893,7 +1963,7 @@ window.irThreeSchemeView=(function(){
   function legendRows(){
    var counts=new Map(),rows=[];
    elems.forEach(function(c){
-    var k=colorMode==="status"?(statusColors[c.status]?c.status:"planned"):colorMode==="confidence"?instanceKey(c):colorMode==="mark"?String(c.mark||"Без марки"):kind(c);
+    var k=colorMode==="status"?(statusColors[c.status]?c.status:"planned"):colorMode==="confidence"?instanceKey(c):colorMode==="mark"?String(c.mark||"Без марки"):colorKey(c);
     counts.set(k,(counts.get(k)||0)+1)
    });
    counts.forEach(function(n,k){
@@ -2466,7 +2536,7 @@ window.irThreeSchemeView=(function(){
     viewport.removeEventListener("wheel",wheel,true);root.removeEventListener("wheel",rootWheel);renderer.domElement.removeEventListener("dblclick",dblclick);
     document.removeEventListener("keydown",keyDown);document.removeEventListener("keyup",keyUp);document.removeEventListener("keydown",shiftKey);document.removeEventListener("keyup",shiftKey);
     window.removeEventListener("blur",releaseKeys);
-    controls.dispose();clearNodes();nodeGeo.dispose();nodeMats.forEach(function(m){m.dispose()});boltMat.dispose();plateMat.dispose();concreteMat.dispose();craneMat.dispose();hoistMat.dispose();wheelMat.dispose();glassMat.dispose();boltMats["8.8"].dispose();boltMats["5.8"].dispose();
+    controls.dispose();clearNodes();nodeGeo.dispose();nodeMats.forEach(function(m){m.dispose()});boltMat.dispose();plateMat.dispose();concreteMat.dispose();craneMat.dispose();hoistMat.dispose();wheelMat.dispose();glassMat.dispose();openingGlass.dispose();boltMats["8.8"].dispose();boltMats["5.8"].dispose();
     meshGeo.forEach(function(g){g.dispose()});mats.forEach(function(m){m.dispose()});shellMats.forEach(function(m){m.dispose()});roofMats.forEach(function(m){m.dispose()});
     [selectedMat,hoverMat,axisMaterial,dimMaterial,floorMaterial,darkFloorMaterial,markerMat,pointMat,previewMat].forEach(function(m){m.dispose()});
     var cached=new Set(meshGeo.values());

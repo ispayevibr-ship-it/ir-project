@@ -370,4 +370,4 @@ function extractElevations({segments=[],texts=[]}={},page=1){
  }
  return schemes
 }
-module.exports={extractSections,extractElevations,schemeNotes,elevationTitles};
+module.exports={extractSections,extractElevations,schemeNotes,elevationTitles,bubbleRows,levelOf,levelOffset,fit};

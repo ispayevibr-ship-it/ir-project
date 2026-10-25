@@ -44,6 +44,17 @@ function jointNote(text){
  if(gusset)words.push("фасонки t = "+gusset+" мм");
  return{bolt:found[0]?.bolts[0]||null,cls:found[0]?.cls||null,weld,...(gusset?{gusset_mm:gusset}:{}),text:(weld?"монтажная сварка; ":"")+words.join("; ")}
 }
+// The joint of a member with the fasteners of its assembly sheet: the montage sheet's bolt stays; without one, the most
+// numerous permanent bolt of the sheet is drawn (its class, else none). The list and the holes go to the card.
+function withFasteners(joint,f){
+ if(!f||!f.bolts?.length&&!f.holes)return joint||undefined;
+ const main=[...f.bolts].sort((a,b)=>(b.count||0)-(a.count||0)||b.d_mm-a.d_mm)[0];
+ const list=f.bolts.map(b=>b.text+(b.cls&&!b.text.includes(b.cls)?" кл. "+b.cls:"")+(b.high&&!/высокопр/iu.test(b.text)?" (высокопрочный)":"")+(b.count?" — "+b.count+" шт.":"")),holes=f.holes?.diameters_mm?.length?"отверстия Ø"+f.holes.diameters_mm.join(", Ø")+(f.holes.all_mm?" (все Ø"+f.holes.all_mm+", кроме оговоренных)":""):"";
+ const own={fasteners:list,...(f.holes?{holes_mm:f.holes.diameters_mm,...(f.holes.all_mm?{hole_mm:f.holes.all_mm}:{})}:{}),fasteners_sheet:f.sheet};
+ if(joint?.bolt)return{...joint,...own};
+ return{...(joint||{}),bolt:main?"М"+main.d_mm:null,cls:main?.cls||joint?.cls||null,weld:Boolean(joint?.weld),
+  text:[joint?.text,list.length?"постоянные метизы: "+list.join("; "):"",holes].filter(Boolean).join("; "),sheet:joint?.sheet||f.sheet,...own}
+}
 const LOOKALIKE={a:"а",b:"в",c:"с",e:"е",h:"н",k:"к",m:"м",o:"о",p:"р",t:"т",x:"х",y:"у"};
 const normMark=v=>[...String(v||"").trim().toLowerCase().replace(/ё/g,"е").replace(/\s+/g,"")].map(c=>LOOKALIKE[c]||c).join("");
 const cumulative=spans=>spans.reduce((acc,v)=>{acc.push(acc[acc.length-1]+Number(v));return acc},[0]);
@@ -272,6 +283,14 @@ function buildCatalog(draft,ai=null){
    if(r.profile&&e.profile&&e.profile!==r.profile&&/ведомость элементов/.test(e.profileFrom||"")&&p.docType==="КМД сборочные"){e.profile_other={value:e.profile,from:e.profileFrom};e.profile="";delete e.profile_standard}
    if(!e.profile&&r.profile){e.profile=r.profile;e.profileFrom=where(p)+" · спецификация";if(r.profile_standard)e.profile_standard=r.profile_standard}if(e.mass_kg===null&&r.mass_kg)e.mass_kg=r.mass_kg;e.sources.push(where(p)+" · спецификация")}
  }
+ // The permanent fasteners and the holes of an assembly sheet («Ведомость постоянных метизов», «Все отверстия Ø23»): the
+ // sheet's own, for every mark it makes; the first assembly sheet of a mark gives them.
+ for(const p of draft.pages||[]){
+  const sheet=p.sheet||{},bolts=(sheet.fasteners||[]).filter(f=>f.item==="bolt"&&!f.temporary&&f.d_mm>0);
+  if(p.docType!=="КМД сборочные"||!bolts.length&&!sheet.holes)continue;scope=scopeAt(p);
+  const marks=new Set([...(sheet.spec||[]).map(r=>r.mark),...(sheet.required||[]).map(r=>r.mark)]);
+  for(const mark of marks){const e=entry(mark);if(!e.fasteners)e.fasteners={bolts:bolts.map(f=>({text:f.text,d_mm:f.d_mm,length_mm:f.length_mm,cls:f.strength_class||null,high:Boolean(f.high_strength),count:f.count})),holes:sheet.holes||null,sheet:where(p)}}
+ }
  // Sections of the mounting drawings: the most frequent reading of each mark wins.
  const votes=new Map();
  for(const p of draft.pages||[]){
@@ -388,8 +407,8 @@ function panelOf(key,z0,z1,width){
  return{fit:{fitting_type:"panel",diameter_mm:width>=300?Math.round(width):1000,layout:{panel:"roof"}},z0,z1,note:width>=300?"":"ширина поля панелей не найдена, показана условно 1000 — проверьте"}
 }
 // Elements Claude listed by axes and offsets: placed on Claude's grid. A mark the geometry already placed is left to it.
-function claudeScheme(ai,candidates){
- const list=(ai?.elements||[]).filter(e=>e?.mark&&["column","beam","brace"].includes(e.geometry_type));
+function claudeScheme(ai,candidates,{wallPanels=true}={}){
+ const list=(ai?.elements||[]).filter(e=>e?.mark&&["column","beam","brace"].includes(e.geometry_type)&&(wallPanels||e.type!=="sandwich_wall"));
  const g=ai?.grid;if(!list.length||!g||(g.axes_x||[]).length<2||(g.axes_y||[]).length<2)return null;
  const ax=g.axes_x.map(String),ay=g.axes_y.map(String);
  const sx=(g.spans_x_mm||[]).length===ax.length-1&&g.spans_x_mm.every(v=>v>0)?g.spans_x_mm.map(Number):null;
@@ -424,6 +443,162 @@ function claudeScheme(ai,candidates){
  const doc=Object.entries(docs).sort((a,b)=>b[1]-a[1])[0]?.[0]||"КМД";
  return{kind:"claude",title:"Элементы по данным Claude",docType:doc==="КМ"?"КМ":"КМД монтажные",axesX:ax,axesY:ay,spansX:sx,spansY:sy,
   sizeX:cumulative(sx).at(-1),sizeY:cumulative(sy).at(-1),placements,warnings:[]}
+}
+
+// АР read from its sheets (src/ai-ar-extract.js), without Claude: every panel of the facade layouts on its wall, of
+// the size and colour its specification gives. A facade seen with its axes rising to the right is the wall on the
+// first axis across (1-6 — the wall on А, А-Л — on 6, 6-1 — on Л, Л-А — on 1); the wall stands where the facades
+// across it end at its height (its outer face; a wall over a lower part stands back, where the higher part ends).
+function arScheme(pages){
+ const ar=pages.filter(p=>p.docType==="АР"&&p.ar);if(!ar.length)return null;
+ const spec=new Map();for(const p of ar)for(const s of p.ar.panels||[]){if(!spec.has(s.pos))spec.set(s.pos,[]);spec.get(s.pos).push(s)}
+ const all=ar.flatMap(p=>(p.ar.views||[]).map(v=>({...v,page:p.page,sheet:p.pdfPage||p.page,file:p.sourceName||""})));
+ const views=all.filter(v=>!v.section&&v.panels.length);
+ const most=k=>views.filter(v=>v.numbered===k).sort((a,b)=>b.axes.length-a.axes.length)[0];
+ const vx=most(true),vy=most(false);if(!vx||!vy)return null;
+ const ax=vx.axes.map(a=>a.name),ay=vy.axes.map(a=>a.name),sx=vx.axes.slice(1).map((a,i)=>a.mm-vx.axes[i].mm),sy=vy.axes.slice(1).map((a,i)=>a.mm-vy.axes[i].mm);
+ const px=new Map(vx.axes.map(a=>[a.name,a.mm])),py=new Map(vy.axes.map(a=>[a.name,a.mm]));
+ // A view's own distances from its first axis, on the grid of the scheme.
+ const shift=v=>{const a=v.axes[0],g=(v.numbered?px:py).get(a.name);return g===undefined?null:g-a.mm};
+ const sizeOf=(mark,w,h)=>{const list=spec.get(mark)||[];
+  return list.find(q=>Math.abs(q.width_mm-w)<=40&&Math.abs(q.length_mm-h)<=40||Math.abs(q.length_mm-w)<=40&&Math.abs(q.width_mm-h)<=40)||list[0]||null};
+ const placements=[],warnings=[];
+ for(const v of views){
+  const off=shift(v);if(off===null){warnings.push("Фасад на листе "+v.sheet+": оси не совпадают с осями других фасадов — не поставлен");continue}
+  // The middle height of the wall, and the facades across it there.
+  const zs=v.panels.map(p=>(p.z0+p.z1)/2).sort((a,b)=>a-b),zm=zs[zs.length>>1];
+  const across=views.filter(w=>w.numbered!==v.numbered).flatMap(w=>{const o=shift(w);return o===null?[]:w.panels.filter(p=>p.z0<=zm&&p.z1>=zm).map(p=>({u0:p.u0+o,u1:p.u1+o}))});
+  const low=v.numbered!==v.reversed,first=(v.numbered?ay:ax)[0],last=(v.numbered?ay:ax).at(-1),pos=v.numbered?py:px;
+  let face=across.length?(low?Math.min(...across.map(p=>p.u0)):Math.max(...across.map(p=>p.u1))):null;
+  if(face===null){face=pos.get(low?first:last);warnings.push("Фасад на листе "+v.sheet+": положение стены по фасадам поперёк не найдено — поставлен по оси "+(low?first:last))}
+  const axis=[...pos].reduce((b,a)=>Math.abs(a[1]-face)<Math.abs(b[1]-face)?a:b);
+  for(const p of v.panels){
+   // With tables of panels in the set, a label they do not know is not a panel.
+   if(spec.size&&!spec.has(p.mark)){warnings.push(p.mark+" (лист "+v.sheet+"): нет в спецификациях панелей — не поставлена");continue}
+   const w=p.u1-p.u0,h=p.z1-p.z0,q=sizeOf(p.mark,w,h),t=q?.thickness_mm||150;
+   // The panel's middle plane: half its thickness inside the outer face.
+   const across0=Math.round(face+(low?t/2:-t/2)),a=p.u0+off,b=p.u1+off;
+   const differs=q&&!(Math.abs(q.width_mm-w)<=40&&Math.abs(q.length_mm-h)<=40||Math.abs(q.length_mm-w)<=40&&Math.abs(q.width_mm-h)<=40||p.cut&&Math.abs(q.width_mm-w)<=40&&h<=q.length_mm+40);
+   placements.push({mark:p.mark,name:"Сэндвич-панель стеновая"+(q?.name?" "+q.name:""),type_key:"sandwich_wall",scheme_group:"cladding",geometry_type:"beam",
+    fitting_type:"panel",diameter_mm:Math.max(1,Math.round(h)),
+    layout:{panel:"wall",thickness_mm:t,...(q?.ral?{ral:q.ral}:{}),...(q?.ral_inside?{ral_inside:q.ral_inside}:{}),...(p.cut?{cut:p.cut}:{}),...(q?.code?{code:q.code}:{}),width_mm:Math.round(w)},
+    ...(v.numbered?{x_mm:a,y_mm:across0,x2_mm:b,y2_mm:across0}:{x_mm:across0,y_mm:a,x2_mm:across0,y2_mm:b}),
+    z0_mm:p.z0,z1_mm:p.z0,levels_from:"раскладка панелей АР",confidence:q&&!differs?"high":"medium",section:"АР",view:v,line:across0,
+    axis_x:v.numbered?"":axis[0],axis_y:v.numbered?axis[0]:"",sheet:String(v.sheet),sheet_point_pt:p.pt,
+    notes:["Раскладка панелей АР, лист "+v.sheet+(q?" · "+q.name+(q.ral?" · RAL "+q.ral+(q.ral_inside?"/"+q.ral_inside:""):""):" · позиции нет в спецификации панелей"),
+     ...(p.cut?["Низ панели по скату кровли: "+p.cut.join(" → ")]:[]),...(differs?["Размер по чертежу "+Math.round(w)+"×"+Math.round(h)+", по спецификации "+q.width_mm+"×"+q.length_mm+" — проверьте"]:[])]})
+  }
+ }
+ // Windows, doors and gates in the openings of the walls: the block of its table whose size fits the opening (a window
+ // block is 40 smaller than its opening, a door 40 narrower; one at the foot of the wall stands on ±0,000). Outer doors
+ // («ДБН», «ДСН») first; each position as many times as its table counts, then again with a note.
+ const fills=ar.flatMap(p=>p.ar.fills||[]),used=new Map();
+ const fitOf=(o,h,floor)=>{
+  let best=null;
+  for(const f of fills){
+   const shapes=f.kind==="window"?[[40,40]]:f.kind==="door"?[[40,20],[40,40]]:[[0,0],[40,20]];
+   for(const [dw,dh] of shapes){
+    const ew=f.width_mm+dw,eh=f.height_mm+dh,dwid=o.u1-o.u0-ew,ow=Math.abs(dwid),oh=h-eh;
+    // A door or a gate may stand under a panel higher than it (a transom, a louvre over it), and in a gap between the
+    // joints of the panels wider than it (the pieces of panels beside it drawn without their labels).
+    const wide=f.kind!=="window"&&o.base&&dwid>0&&dwid<=260;
+    if(ow>60&&!wide||!(Math.abs(oh)<=60||f.kind!=="window"&&o.base&&oh>0&&oh<=900))continue;
+    const outer=f.kind!=="door"||/^Д[БС]?Н/u.test(f.name),left=(f.count||1)-(used.get(f.pos)||0);
+    const score=ow*(wide?.5:1)+Math.abs(oh)*(oh>0&&f.kind!=="window"?.2:1)+(outer?0:200)+(left>0?0:500);
+    if(!best||score<best.score)best={f,score,dh}
+   }
+  }
+  return best
+ };
+let loose=0;
+ // The facades show every window, door and gate by its label («ОК-1», «Д-7», «В-1») at its block: the block of the size
+ // its table gives, in the rectangle of that size (or of its opening: a window 40 larger, a door 40 wider and 20 higher)
+ // nearest the label, in the wall of that side whose panels are round it (a facade shows a lower wall in front and a
+ // higher one behind it). The panels the block crosses get its hole. Without facade sheets — the openings of the layouts.
+ const blocks=new Map();for(const f of fills)if(!blocks.has(f.pos))blocks.set(f.pos,f);
+ const facades=ar.flatMap(p=>(p.ar.facades||[]).map(v=>({...v,sheet:p.pdfPage||p.page})));
+ const walls=views.map(v=>({v,off:shift(v),list:placements.filter(p=>p.view===v)})).filter(w=>w.off!==null&&w.list.length);
+ const fillOf=(f,numbered,a,b,z,wall,sheet,notes,over)=>{
+  const line=wall.line,t=wall.layout?.thickness_mm||150;
+  placements.push({mark:f.pos,name:{window:"Окно",door:"Дверь",gate:"Ворота"}[f.kind]+" "+f.name,type_key:f.kind,scheme_group:"openings",geometry_type:"beam",
+   fitting_type:f.kind,diameter_mm:f.height_mm,layout:{opening:f.kind,thickness_mm:t,width_mm:f.width_mm},
+   ...(numbered?{x_mm:Math.round(a),y_mm:line,x2_mm:Math.round(b),y2_mm:line}:{x_mm:line,y_mm:Math.round(a),x2_mm:line,y2_mm:Math.round(b)}),
+   z0_mm:z,z1_mm:z,levels_from:"фасады АР",confidence:over?"low":"high",section:"АР",axis_x:wall.axis_x,axis_y:wall.axis_y,sheet:String(sheet),
+   notes:[...notes,...(over?["Таких по спецификации "+(f.count||1)+" — этот сверх, проверьте"]:[])]})
+ };
+ const cutHoles=(numbered,a,b,z0,z1,list)=>{
+  for(const p of list){
+   if(p.layout.cut)continue;
+   const p0=numbered?p.x_mm:p.y_mm,p1=numbered?p.x2_mm:p.y2_mm,lo=Math.min(p0,p1),hi=Math.max(p0,p1),pz0=p.z0_mm,pz1=p.z0_mm+p.diameter_mm;
+   const h0=Math.max(a,lo),h1=Math.min(b,hi),v0=Math.max(z0,pz0),v1=Math.min(z1,pz1);
+   if(h1-h0<20||v1-v0<20)continue;
+   (p.layout.holes||(p.layout.holes=[])).push([Math.round(h0-lo),Math.round(h1-lo),Math.round(v0-pz0),Math.round(v1-pz0)])
+  }
+ };
+ if(facades.length){
+  const lost=[],unknown=new Map(),taken=new Set();
+  for(const fv of facades){
+   const off=shift(fv);
+   for(const x of fv.fills){
+    const f=blocks.get(x.mark);if(!f){unknown.set(x.mark,(unknown.get(x.mark)||0)+1);continue}
+    if(off===null){lost.push(x.mark+" (лист "+fv.sheet+")");continue}
+    const shapes=[[0,0],...(f.kind==="window"?[[40,40]]:f.kind==="door"?[[40,20],[40,40]]:[[40,20]])];
+    // Of the rectangles of its size, the nearest to the label not taken by another label.
+    let best=null;
+    for(const r of x.rects){const w=r[1]-r[0],h=r[3]-r[2];if(taken.has(Math.round((r[0]+r[1])/2/100)+"|"+Math.round((r[2]+r[3])/2/100)+"|"+fv.numbered+fv.reversed))continue;
+     const far=Math.hypot(Math.max(0,r[0]-x.u,x.u-r[1]),Math.max(0,r[2]-x.z,x.z-r[3]));
+     for(const [dw,dh] of shapes){const ew=Math.abs(w-f.width_mm-dw),eh=Math.abs(h-f.height_mm-dh);if(ew>60||eh>60)continue;
+      const score=far+ew+eh+(dw||dh?10:0);if(!best||score<best.score)best={r,score}}}
+    // A door or a gate whose foot a stair or a platform in front hides: by its width and its head.
+    let byHead=null;
+    if(!best&&f.kind!=="window")for(const r of x.rects){const ew=Math.abs(r[1]-r[0]-f.width_mm),ew2=Math.abs(r[1]-r[0]-f.width_mm-40);
+     if(Math.min(ew,ew2)<=60&&r[3]-r[2]>=f.height_mm-60){byHead={r};break}}
+    if(!best&&!byHead){lost.push(x.mark+" (лист "+fv.sheet+")");continue}
+    {const q=(best||byHead).r;taken.add(Math.round((q[0]+q[1])/2/100)+"|"+Math.round((q[2]+q[3])/2/100)+"|"+fv.numbered+fv.reversed)}
+    const r=(best||byHead).r,uc=(r[0]+r[1])/2+off,a=Math.round(uc-f.width_mm/2),b=a+f.width_mm;
+    let z=byHead?Math.round(r[3]-f.height_mm-(Math.abs(r[1]-r[0]-f.width_mm-40)<Math.abs(r[1]-r[0]-f.width_mm)?20:0)):f.kind==="window"?Math.round((r[2]+r[3]-f.height_mm)/2):r[2];if(Math.abs(z)<=30)z=0;
+    const zc=z+f.height_mm/2;let wall=null,wd=Infinity;
+    for(const w of walls){if(w.v.numbered!==fv.numbered||w.v.reversed!==fv.reversed)continue;
+     for(const p of w.v.panels){const d=Math.hypot(Math.max(0,p.u0+w.off-uc,uc-(p.u1+w.off)),Math.max(0,p.z0-zc,zc-p.z1));if(d<wd){wd=d;wall=w}}}
+    if(!wall||wd>3000){lost.push(x.mark+" (лист "+fv.sheet+", стены этой стороны нет в раскладке)");continue}
+    used.set(f.pos,(used.get(f.pos)||0)+1);
+    fillOf(f,fv.numbered,a,b,z,wall.list[0],fv.sheet,["Фасад АР, лист "+fv.sheet+": "+f.pos+" "+f.width_mm+"×"+f.height_mm+" ("+f.name+")",...(byHead?["Низ закрыт на фасаде лестницей или площадкой — поставлен по верху, проверьте"]:[])],(used.get(f.pos)||0)>(f.count||1));
+    cutHoles(fv.numbered,a,b,z,z+f.height_mm,wall.list)
+   }
+  }
+  if(lost.length)warnings.push("Окна, двери, ворота на фасадах без контура своего размера — не поставлены: "+lost.join(", "));
+  if(unknown.size)warnings.push("На фасадах есть позиции, которых нет в спецификациях окон, дверей и ворот: "+[...unknown].map(([k,n])=>k+(n>1?" ×"+n:"")).join(", "));
+  // What the tables count and the facades do not show: inner doors and gates (in the partitions), or not found.
+  const fewer=[],inner=[];
+  for(const f of blocks.values()){const n=used.get(f.pos)||0,k=f.count||1;if(n>=k)continue;(n?fewer:inner).push(f.pos+(n?" "+n+" из "+k:" ×"+k))}
+  if(fewer.length)warnings.push("На фасадах меньше, чем по спецификации: "+fewer.join(", "));
+  if(inner.length)warnings.push("Нет на фасадах (внутренние, в перегородках) — пока не поставлены: "+inner.join(", "));
+ }
+ else for(const v of views){
+  const off=shift(v);if(off===null)continue;
+  const wall=placements.find(p=>p.sheet===String(v.sheet)&&p.view===v);
+  for(const o of v.openings||[]){
+   const floor=o.base&&o.z0<=600?0:o.z0,h=o.z1-floor,fit=fitOf(o,h,floor);
+   if(!fit){loose++;continue}
+   const f=fit.f;used.set(f.pos,(used.get(f.pos)||0)+1);
+   const w=o.u1-o.u0,t=wall?.layout?.thickness_mm||150,a=o.u0+off+(w-f.width_mm)/2,b=a+f.width_mm;
+   const z=f.kind==="window"?Math.round(o.z0+(o.z1-o.z0-f.height_mm)/2):floor,line=wall?.line;
+   if(!line)continue;
+   const over=(used.get(f.pos)||0)>(f.count||1);
+   placements.push({mark:f.pos,name:{window:"Окно",door:"Дверь",gate:"Ворота"}[f.kind]+" "+f.name,type_key:f.kind,scheme_group:"openings",geometry_type:"beam",
+    fitting_type:f.kind,diameter_mm:f.height_mm,layout:{opening:f.kind,thickness_mm:t,width_mm:f.width_mm},
+    ...(v.numbered?{x_mm:Math.round(a),y_mm:line,x2_mm:Math.round(b),y2_mm:line}:{x_mm:line,y_mm:Math.round(a),x2_mm:line,y2_mm:Math.round(b)}),
+    z0_mm:z,z1_mm:z,levels_from:"проём в раскладке панелей АР",confidence:over?"low":"medium",section:"АР",axis_x:wall.axis_x,axis_y:wall.axis_y,sheet:String(v.sheet),
+    notes:["Проём "+Math.round(w)+"×"+Math.round(h)+" в раскладке панелей АР, лист "+v.sheet+"; "+f.pos+" по размеру ("+f.width_mm+"×"+f.height_mm+")"+(fit.dh&&h-f.height_mm>80?"; над ним панель или решётка — проверьте":""),
+     ...(over?["Таких по спецификации "+(f.count||1)+" — этот сверх, проверьте"]:[])]})
+  }
+ }
+ if(loose)warnings.push("Проёмов без подходящего окна, двери или ворот в спецификациях: "+loose+" (вентрешётки, проёмы под оборудование) — не заполнены");
+ for(const p of placements){delete p.view;delete p.line}
+ const cuts=all.filter(v=>v.section).map(v=>v.section);
+ if(cuts.length)warnings.push("Перегородки по разрезам "+[...new Set(cuts)].join(", ")+": место разреза на плане не читается — пока не поставлены");
+ if(!placements.length)return null;
+ return{kind:"ar",title:"АР: стены из сэндвич-панелей, окна, двери, ворота",docType:"АР",axesX:ax,axesY:ay,spansX:sx,spansY:sy,sizeX:cumulative(sx).at(-1),sizeY:cumulative(sy).at(-1),placements,warnings}
 }
 
 // Architecture and technology drawings are reference for the frame: their schemes are off unless ticked.
@@ -510,8 +685,17 @@ function buildPlan(draft,ai=null,heights={},opts={}){
    schemeInfo.push(info);if(info.place)candidates.push({scheme:s,info,decision:null})
   }
  }
+ // АР read from its sheets: the panels of the facades on their walls.
+ const fromAr=ver?null:arScheme(draft.pages||[]);
+ if(fromAr){
+  const key="ar",s=fromAr;
+  const info={key,page:0,index:"ar",title:s.title,file:"",sheet:"",count:s.placements.length,
+   place:typeof heights[key]?.place==="boolean"?heights[key].place:true,reason:(s.warnings||[]).join("; "),docType:"АР",manual:false,z0_mm:null,z1_mm:null};
+  schemeInfo.push(info);if(info.place)candidates.push({scheme:s,info,decision:null})
+ }
  // Members Claude found that the geometry did not: a scheme of their own, on Claude's grid (merged by axis names).
- const fromClaude=ver?null:claudeScheme(ai,candidates);
+ // Walls of panels the АР sheets placed are not taken from Claude again.
+ const fromClaude=ver?null:claudeScheme(ai,candidates,{wallPanels:!fromAr});
  if(fromClaude){
   const key="claude",s=fromClaude;
   const info={key,page:0,index:"claude",title:s.title,file:"",sheet:"",count:s.placements.length,
@@ -635,7 +819,7 @@ function buildPlan(draft,ai=null,heights={},opts={}){
    }
    const inside=v=>v>=-1&&v<=merged.grid.span_x_mm+1,insideY=v=>v>=-1&&v<=merged.grid.span_y_mm+1;
    // A verified scheme also holds what stands beyond the outer axes (canopies, stairs, platforms).
-   if(c.scheme.kind!=="verified"&&c.scheme.kind!=="tank"&&(!inside(x)||!insideY(y)||!point&&(!inside(x2)||!insideY(y2))))guess.push("За крайними осями — проверьте");
+   if(c.scheme.kind!=="verified"&&c.scheme.kind!=="tank"&&c.scheme.kind!=="ar"&&(!inside(x)||!insideY(y)||!point&&(!inside(x2)||!insideY(y2))))guess.push("За крайними осями — проверьте");
    // A size taken from the view where several numbers could be it: the element is «неоднозначно».
    const vague=cat?.length_mm>300&&cat.length_ambiguous?" (размер вида неоднозначен: "+cat.length_ambiguous.join(" или ")+")":"";
    if(!point&&Math.hypot(x2-x,y2-y)<1){x2=x+(cat?.length_mm>300?cat.length_mm:1000);guess.push("Концы совпали — поставлен условно"+vague+", проверьте")}
@@ -649,7 +833,7 @@ function buildPlan(draft,ai=null,heights={},opts={}){
     x_mm:x,y_mm:y,x2_mm:point?undefined:x2,y2_mm:point?undefined:y2,...(geometry==="shell"||geometry==="plate"?{radius_mm:pl.radius_mm,inner_radius_mm:pl.inner_radius_mm,shell_open:pl.shell_open,...(pl.cone_rise_mm?{cone_rise_mm:pl.cone_rise_mm}:{}),...(pl.sector_deg>0?{sector_start_deg:pl.sector_start_deg,sector_deg:pl.sector_deg}:{})}:{}),...(pl.fitting_type?{fitting_type:pl.fitting_type,diameter_mm:pl.diameter_mm}:{}),...(pl.layout&&typeof pl.layout==="object"?{layout:pl.layout}:{}),
     z0_mm:geometry==="beam"&&!drawn&&!flightLevel?z1:z0,z1_mm:z1,group,group_label:GROUPS[group],
     // A verified scheme carries its own profiles and truss lattices.
-    profile:pl.profile||cat?.profile||"",profile_standard:pl.profile?"":cat?.profile_standard||"",...(pl.truss?{truss:pl.truss}:{}),...(pl.nodes?{nodes:pl.nodes}:{}),...(pl.base&&typeof pl.base==="object"?{base:pl.base}:{}),...(pl.joint||joints(c.info)?{joint:pl.joint||joints(c.info)}:{}),doc:scopeOf(c.info.docType,catalog.multi?c.info.volume:""),length_mm:cat?.length_mm??null,levels:own?"Claude":local?local.from:"схема",...(!own&&local?.zeroBase?{z0_assumed:true}:{}),
+    profile:pl.profile||cat?.profile||"",profile_standard:pl.profile?"":cat?.profile_standard||"",...(pl.truss?{truss:pl.truss}:{}),...(pl.nodes?{nodes:pl.nodes}:{}),...(pl.base&&typeof pl.base==="object"?{base:pl.base}:{}),...(pl.joint||joints(c.info)||cat?.fasteners?{joint:withFasteners(pl.joint||joints(c.info),cat?.fasteners)}:{}),doc:scopeOf(c.info.docType,catalog.multi?c.info.volume:""),length_mm:cat?.length_mm??null,levels:own?"Claude":local?local.from:"схема",...(!own&&local?.zeroBase?{z0_assumed:true}:{}),
     page:c.info.page,file:c.info.file,sheet:c.info.sheet,...(!c.info.page&&pl.sheet?{source_sheet:String(pl.sheet)}:{}),...(pl.section?{section:pl.section}:{}),scheme:c.info.title,confidence:pl.confidence,note:[...(pl.notes||[]),change?.note,...guess].filter(Boolean).join("; ")})
   });
   // Bracing and secondary members meet the beams of the same plan: their ends take those beams' levels.

@@ -3,17 +3,18 @@
 const {parentPort,workerData}=require("node:worker_threads");
 const {readPageGeometry,readPageTexts}=require("./ai-scheme-geometry");
 const {extractScheme}=require("./ai-scheme-extract");
-const {extractSheet,sheetStamp}=require("./ai-sheet-extract");
+const {extractSheet,sheetStamp,specCells,cellAccept}=require("./ai-sheet-extract");
 const {extractSections,extractElevations,schemeNotes}=require("./ai-section-extract");
 const {importPdfjs,requireCanvas,pdfWasm}=require("./ai-packages");
 const {joinSplitTexts}=require("./ai-scheme-geometry");
-const {ocrPage,ocrImages,dropLettering,createOcrWorker,sheetTurn,turnGeometry,ringsOf,readRings,shelvesOf,readShelves}=require("./ai-ocr");
+const {ocrPage,ocrImages,readCells,dropLettering,createOcrWorker,sheetTurn,turnGeometry,ringsOf,readRings,shelvesOf,readShelves}=require("./ai-ocr");
 const {extractTank}=require("./ai-tank-extract");
 const {extractTrusses}=require("./ai-truss-extract");
 const {extractBaseDetails}=require("./ai-base-extract");
 const {extractColumnDetails}=require("./ai-column-extract");
 const {extractRailOffsets}=require("./ai-rail-extract");
 const {expandTexts}=require("./ai-text-aliases");
+const {extractArchitecture}=require("./ai-ar-extract");
 // The level marks written on the sheet («+4,700», «0,000»): the levels of a structure drawn on its own sheets.
 function levelMarksOf(geometry){
  const out=new Set();
@@ -67,9 +68,10 @@ function pageContext(texts){
      ocrWorker=ocrWorker||await createOcrWorker(workerData.packages.ocr);
      const options={canvas:requireCanvas(workerData.packages),worker:ocrWorker,
       onArea:()=>parentPort.postMessage({type:"progress",page:n,total:pages.length,ocr:true})};
+     let turn=0;
      if(noText){
       // A scan lying sideways or upside down is read in its reading position; its lines are turned with it.
-      const turn=strokedDims?0:await sheetTurn(page,options);
+      turn=strokedDims?0:await sheetTurn(page,options);
       if(turn)geometry=turnGeometry(geometry,turn);
       let read=joinSplitTexts(await ocrPage(page,{...options,turn}));
       // Axis bubbles read one by one; what the whole sheet read over a bubble (its ring as "Ш", "О") gives way.
@@ -86,6 +88,15 @@ function pageContext(texts){
       const extra=await ocrImages(page,pictures,geometry.texts,options);
       geometry={...geometry,texts:[...geometry.texts,...extra]};ocr=extra.length
      }
+     // Cells of a specification the reading left empty (a section, a mark of a group or of «Требуется»): read again one
+     // by one, as a line, and taken when they hold what their column holds.
+     const cells=specCells(geometry.texts);
+     for(const kind of ["section","mark"]){
+      const got=await readCells(page,cells.filter(c=>c.kind===kind),{...options,rotation:turn,accept:cellAccept[kind]});
+      // What the reading of the whole picture made of such a cell («ро» for «Тр.□160х5») gives way.
+      const inCell=t=>t.ocr&&got.some(g=>t.x>=g.cell.x-2&&t.x<=g.cell.x+g.cell.w&&t.y>=g.cell.y&&t.y<=g.cell.y+g.cell.h+2);
+      if(got.length){geometry={...geometry,texts:[...geometry.texts.filter(t=>!inCell(t)),...got]};ocr+=got.length}
+     }
     }catch{}
    }
    // Abbreviations the program has learned (Claude's lessons): written out before the sheet is read.
@@ -97,7 +108,7 @@ function pageContext(texts){
    for(const s of result.schemes){const notes=schemeNotes(geometry.texts,s.bbox,s.title);if(notes.notes.length||notes.z0_mm!==null||notes.z1_mm!==null)s.levelNotes=notes}
    // Read by OCR or not at all, such a sheet also goes to Claude as an image.
    results.push({page:n,widthPt:geometry.widthPt,heightPt:geometry.heightPt,schemes:result.schemes,context:pageContext(geometry.texts),noText,ocr,...(geometry.turn?{turn:geometry.turn}:{}),
-    sheet:extractSheet(geometry),sections:extractSections(geometry),tank:extractTank(geometry),trusses:extractTrusses(geometry),baseDetails:extractBaseDetails(geometry),columnDetails:extractColumnDetails(geometry),railOffsets:extractRailOffsets(geometry),levelMarks:levelMarksOf(geometry),ms:Date.now()-started});
+    sheet:extractSheet(geometry),sections:extractSections(geometry),tank:extractTank(geometry),trusses:extractTrusses(geometry),baseDetails:extractBaseDetails(geometry),columnDetails:extractColumnDetails(geometry),railOffsets:extractRailOffsets(geometry),levelMarks:levelMarksOf(geometry),ar:extractArchitecture(geometry),ms:Date.now()-started});
    parentPort.postMessage({type:"progress",page:n,total:pages.length});
    page.cleanup()
   }

@@ -146,8 +146,29 @@ function overallOf(inside,segments,box){
  }
  return best
 }
+// The texts of the mark columns of the «Спецификация» and «Требуется изготовить» tables (and the numbers of their rows):
+// what is in a table is not a view.
+function tableMarkCells(texts){
+ const out=new Set();
+ const take=(markH,top,right)=>{
+  let last=null;
+  for(const r of rowsOf(texts.filter(t=>t.y>top+4&&t.y<top+1600&&t.x>markH.x-60&&t.x<right))){
+   if(last!==null&&r.y-last>80||r.items.some(t=>/^(Всего|Итого|Выборка|Ведомость)/u.test(t.str)))break;
+   last=r.y;for(const t of r.items)if(Math.abs(t.x-markH.x)<60&&titleMarks(t.str)||/^\d+(?:[,.]\d+)?$/.test(String(t.str).trim()))out.add(t)
+  }
+ };
+ for(const head of texts.filter(t=>/^Спецификац/u.test(t.str))){const {hdr,markH}=specHeader(texts,head);if(markH)take(markH,Math.max(...hdr.map(t=>t.y)),Math.max(...hdr.map(t=>t.x))+160)}
+ for(const head of texts.filter(t=>/^Тре[бдв]уется|^изготовить$|^Таблица\s+отправочных/u.test(t.str))){
+  const hdr=texts.filter(t=>t.y>head.y&&t.y<head.y+70&&Math.abs(t.x-head.x)<260&&/^(Марка|Отправочная|Отпр|марка|Кол(?!\.?\s*уч)|Масса|Вес|марки|[Вв]сех|шт|изготовить)/u.test(t.str));
+  const markH=requiredMarkHead(hdr,head);if(markH)take(markH,Math.max(...hdr.map(t=>t.y)),markH.x+340)
+ }
+ return out
+}
 function assemblyViews(texts,w,h,med,segments=[]){
- const titles=texts.filter(t=>horizontal(t)&&t.size>=med*1.3&&!(t.x>w-700&&t.y>h-190))
+ // A mark in a table («Требуется изготовить», a «Спецификация») is a cell, not a view's title (ГПЭС Ф126: a sheet of
+ // tables only gave a «view» with the mass of 1000 washers «16,361» for its level and the total «28884» for its length).
+ const cells=tableMarkCells(texts);
+ const titles=texts.filter(t=>horizontal(t)&&t.size>=med*1.3&&!(t.x>w-700&&t.y>h-190)&&!cells.has(t))
   .map(t=>({t,marks:titleMarks(t.str)})).filter(x=>x.marks);
  const views=[];
  for(const v of titles){
@@ -158,8 +179,12 @@ function assemblyViews(texts,w,h,med,segments=[]){
   const right=Math.min(cx+420,...row.map(o=>o.t.x+o.t.width/2).filter(x=>x>cx).map(x=>(x+cx)/2));
   const below=titles.filter(o=>o.t.y>v.t.y+120&&o.t.x+o.t.width/2>left&&o.t.x+o.t.width/2<right).map(o=>o.t.y);
   const bottom=Math.min(h-40,...below);
-  const inside=texts.filter(t=>t.x>=left&&t.x<=right&&t.y>v.t.y&&t.y<bottom);
-  const levels=[...new Set(inside.map(t=>levelMm(t.str)).filter(v=>v!==null))].sort((a,b)=>a-b);
+  const inside=texts.filter(t=>t.x>=left&&t.x<=right&&t.y>v.t.y&&t.y<bottom&&!cells.has(t));
+  // A level without its sign among other numbers of its line is a cell of a table: «17,156» — the mass of 1000 washers in
+  // the «Ведомость метизов» under the view («+9,705» among the dimensions is a level).
+  const tableNumber=t=>/^\d/.test(String(t.str).trim())&&levelMm(t.str)!==0&&texts.some(o=>o!==t&&Math.abs(o.y-t.y)<Math.max(3,(t.size||8)*0.4)&&Math.abs(o.x-t.x)<220&&
+   /^\d+(?:[,.]\d+)?$/.test(String(o.str).trim())&&levelMm(o.str)===null);
+  const levels=[...new Set(inside.filter(t=>levelMm(t.str)!==null&&!tableNumber(t)).map(t=>levelMm(t.str)))].sort((a,b)=>a-b);
   const dims=inside.map(t=>number(t.str)).filter(v=>v&&v>=300&&v<=30000);
   const box={x0:Math.round(left),y0:Math.round(Math.max(0,v.t.y-30)),x1:Math.round(right),y1:Math.round(bottom)};
   const over=dims.length?overallOf(inside,segments,box):null;
@@ -181,22 +206,28 @@ function assemblyViews(texts,w,h,med,segments=[]){
 }
 
 // "Требуется / изготовить": Марка | Кол. | Масса марки | всех.
+// The marks' column of «Требуется изготовить»: the «Отправочная (марка)» / «Марка» header nearest the title — the
+// «Марка» of a «Спецификация» beside it is within reach too (К77); «Отправочная» lost by OCR leaves «марка».
+function requiredMarkHead(hdr,head){
+ const near=re=>hdr.filter(t=>re.test(t.str)).sort((a,b)=>Math.abs(a.x-head.x)-Math.abs(b.x-head.x))[0];
+ return near(/^Марка|^Отправочная|^Отпр/u)||near(/^марка$/u)
+}
 function requiredTable(texts){
  const out=[];
  // OCR of a pasted table often loses one of the two title words.
  // («Тредуется» — OCR of «б».)
- for(const head of texts.filter(t=>/^Тре[бдв]уется|^изготовить$/u.test(t.str)).filter((t,i,all)=>!all.slice(0,i).some(o=>Math.abs(o.y-t.y)<12&&Math.abs(o.x-t.x)<200))){
+ for(const head of texts.filter(t=>/^Тре[бдв]уется|^изготовить$|^Таблица\s+отправочных/u.test(t.str)).filter((t,i,all)=>!all.slice(0,i).some(o=>Math.abs(o.y-t.y)<12&&Math.abs(o.x-t.x)<200))){
   // Only header words, so the first data row is not mistaken for part of the header.
   // («Кол.уч.» of the stamp next to it is not the count.)
-  const hdr=texts.filter(t=>t.y>head.y&&t.y<head.y+70&&Math.abs(t.x-head.x)<260&&/^(Марка|Отправочная|марка|Кол(?!\.?\s*уч)|Масса|Вес|марки|[Вв]сех|шт|изготовить)/u.test(t.str));
-  // («Отправочная» lost by OCR leaves «марка».)
-  const markH=hdr.find(t=>/^Марка/u.test(t.str)||/^Отправочная/u.test(t.str))||hdr.find(t=>/^марка$/u.test(t.str)),qtyH=hdr.find(t=>/^Кол/u.test(t.str));
+  const hdr=texts.filter(t=>t.y>head.y&&t.y<head.y+70&&Math.abs(t.x-head.x)<260&&/^(Марка|Отправочная|Отпр|марка|Кол(?!\.?\s*уч)|Масса|Вес|марки|[Вв]сех|шт|изготовить)/u.test(t.str));
+  const markH=requiredMarkHead(hdr,head),qtyH=hdr.find(t=>/^Кол/u.test(t.str));
   if(!markH)continue;
-  const massH=hdr.find(t=>/^марки/u.test(t.str)),allH=hdr.find(t=>/^Всех/u.test(t.str));
-  const top=Math.max(...hdr.map(t=>t.y));
+  const massH=hdr.find(t=>/^марки/u.test(t.str)),allH=hdr.find(t=>/^[Вв]сех/u.test(t.str));
+  const top=Math.max(...hdr.map(t=>t.y)),usedMarks=new Set();
   for(const row of rowsOf(texts.filter(t=>t.y>top+4&&t.y<top+900&&t.x>markH.x-60&&t.x<(qtyH?qtyH.x:markH.x+80)+260))){
    if(row.items.some(t=>/^(Всего|Итого)/u.test(t.str)))break;
-   const markCell=row.items.find(t=>Math.abs(t.x-markH.x)<60&&titleMarks(t.str));
+   // A mark read by OCR in a taller box than the numbers of its row sits a few points off it.
+   const markCell=row.items.find(t=>Math.abs(t.x-markH.x)<60&&titleMarks(t.str))||texts.filter(t=>!row.items.includes(t)&&!usedMarks.has(t)&&Math.abs(t.x-markH.x)<60&&Math.abs(t.y-row.y)<Math.max(6,(t.size||8)*0.5)&&titleMarks(t.str)).sort((a,b)=>Math.abs(a.y-row.y)-Math.abs(b.y-row.y))[0];
    // Without the "Кол." header (lost by OCR) the quantity is the first whole number right of the mark.
    const qty=qtyH?row.items.find(t=>Math.abs(t.x-qtyH.x)<40&&/^\d{1,4}$/.test(t.str))
     // (only when the mass follows it, so that a lone mass is not taken for a quantity).
@@ -204,13 +235,14 @@ function requiredTable(texts){
    // A row whose mark OCR lost: its count still belongs to the mark of a one-mark sheet.
    if(!markCell&&qty&&qtyH){out.unnamed=(out.unnamed||0)+1;out.unnamedCount=Number(qty.str)}
    if(!markCell||!qty)continue;
+   usedMarks.add(markCell);
    // The mass column is right of the quantity column; never take the quantity again.
    const number=t=>t!==qty&&t.x>qty.x+10&&/^\d+(?:[,.]\d+)?$/.test(t.str);
    const mass=massH?row.items.find(t=>number(t)&&Math.abs(t.x-massH.x)<30):qtyH?null:row.items.filter(number).sort((a,b)=>a.x-b.x)[0];
    // Only the mass of all pieces filled in («Вес, кг: марки | всех»): the mark weighs that over the count.
    const all=!mass&&allH&&row.items.find(t=>number(t)&&Math.abs(t.x-allH.x)<30);
    const count=Number(qty.str),kg=mass?Number(mass.str.replace(",",".")):all&&count?Math.round(Number(all.str.replace(",","."))/count*10)/10:null;
-   for(const mark of titleMarks(markCell.str))out.push({mark,count,mass_kg:kg})
+   for(const mark of titleMarks(markCell.str))out.push({mark,count,mass_kg:kg,...(markCell.ocr?{ocr:true}:{})})
   }
  }
  return out
@@ -260,25 +292,99 @@ function elementTable(texts){
 // "Спецификация на отправочный элемент": per mark the main profile (the longest rolled section of its group)
 // and the mass of the mark. Groups end with "1% на сварку"; "обратно К1" takes the profile of К1.
 // The I-beam sign comes from a symbol font as "}" or "ｴ": "} 30Ш2" is I30Ш2.
-const ROLLED=/двутавр|швеллер|уголок|труба|^Тр\.|^Гн|^∟|^L\s*\d|^\[|^I\s*\d|ｴ|^[}]?\s*\d{2}[БКШМП]\d?$/iu;
+const ROLLED=/двутавр|швеллер|уголок|труба|^Тр\s*\.|^Гн|[□▢]\s*\d|^∟|^L\s*\d|^\[|^I\s*\d|ｴ|^[}]?\s*\d{2}[БКШМП]\d?$|^Св\.?\s*I?\s*\d{2}\s*[БКШ]/iu;
 const LOOK={T:"Т",p:"р",P:"Р",x:"х",X:"Х",H:"Н",K:"К",M:"М",a:"а",e:"е",o:"о",c:"с",B:"В",C:"С",y:"у"};
 const cyr=str=>String(str).replace(/(^|[^A-Za-z])([A-Za-z]{1,3})(?=[\d.\s]|$)/g,(m,pre,w)=>pre+(w==="L"||w==="I"?w:[...w].map(c=>LOOK[c]||c).join("")));
+// OCR digits of the italic in a size: «&» is 4, «О» 0, «б» 6, «З» 3 («Тр.1&0х&» is Тр.140х4); «Сварной двутавр 50ШС2»,
+// «Двутавр сварной 50Ш2», «Св. двутавр 40КС2» (and the reading «орнойдвутавр») are welded I-beams «Св.I…».
+const ocrDigits=d=>d.replace(/&/g,"4").replace(/[Оо]/g,"0").replace(/б/g,"6").replace(/З/g,"3");
+const sizeDigits=v=>v.replace(/[0-9&ОобЗ]{1,4}(?:[хx×][0-9&ОобЗ]{1,4}){1,2}/gu,m=>/\d/.test(m)?ocrDigits(m):m)
+ .replace(/(^|[\s.I])([0-9&ОобЗ]{2})(?=[БКШМ]С?\d)/u,(m,a,d)=>/[\d&]/.test(d)?a+ocrDigits(d):m);
+// OCR of an italic CAD font reads «в» as «б» and the «дв» of «двутавр» as «Об»: «Обутавр 35Ш2», «шбеллер 20», «уголак 160х14».
+// («тавр» alone is a T-section and stays.) A box sign of a font read as a letter: «Тр.r140х4», «Тр.з160х5» are «Тр.□…».
+// A welded I-beam «Св I50 ШС2» is «Св.I50ШС2»; OCR digits of a designation: «IЗОК1» is I30К1.
+const PROFILE_WORDS=[[/^(?:\S*рной\s*двутавр|двутавр\s*сварной|С[вбё]\.?\s*[дО0о]?[вбё]\s?ута[вбё]р)\s*(?=[0-9&ОЗ])/iu,"Св.I"],[/^Св\.?\s*I?\s*([0-9&ОЗ]{2})\s*([БКШ]С?\d)$/iu,(m,a,b)=>"Св.I"+ocrDigits(a)+b],[/^I\s*([0-9ЗОо]{2,3})\s*([БКШМ]С?\d)$/u,(m,a,b)=>"I"+a.replace(/З/g,"3").replace(/[Оо]/g,"0")+b],[/^[дО0о][вбё]\s?ута[вбё]р/iu,"двутавр"],[/^ш[вб]ел+ер/iu,"швеллер"],[/^[ПГL∟]?\s*угол[оа]к/iu,"уголок"],[/^(Тр\.?|Гн\.?)\s*[rгзо0](?=\s*\d{2,3}\s*[хx×])/u,"$1□"]];
+const profileWords=str=>{const v=PROFILE_WORDS.reduce((v,[re,w])=>v.replace(re,w),String(str).trim());return/^(?:Тр|Гн|I|L|\[|[−–—-]|Св\.I)|двутавр|швеллер|уголок|труба/iu.test(v)?sizeDigits(v):v};
 function normProfile(str){
- let s=cyr(str).replace(/\s*\([^)]*\)\s*$/,"").replace(/^Сб\.?\s*/iu,"").trim();
+ let s=profileWords(cyr(str)).replace(/\s*(?:\([^)]*\)?|С\d{3}(?:-\d)?\))\s*$/u,"").replace(/^Сб\.?\s*/iu,"").trim();
  s=s.replace(/^двутавр\s*/iu,"I").replace(/^[ｴ}]\s*/u,"I").replace(/^(\d{2}[БКШМП]\d?)$/u,"I$1").replace(/^швеллер\s*/iu,"[").replace(/^уголок\s*/iu,"L").replace(/^∟\s*/u,"L");
  return s.replace(/\s+/g,"")
 }
+// A text of the «Сечение» column that is a section: a rolled profile, a plate «−220х10», a sheet, a bar (its size: the
+// steel «(С255)» after it is not one — «двутавр С255» is a name whose size OCR lost).
+const sectionLike=str=>{const t=profileWords(cyr(String(str||"")));return/\d/.test(t.replace(/\(?\s*С\d{3}(?:-\d)?\s*\)?/gu,""))&&(ROLLED.test(t)||/^[−–—-]?\s*t?\s*\d{1,4}\s*[хx×]\s*\d|лист|круг|^[Øø∅]|полоса|квадрат|арматур|профнастил|рифл/iu.test(t))};
+// The row «1% на сварку» that closes the parts of a mark (OCR: «сборку», «но сборку», the «1%» alone).
+const WELD_ROW=/н[ао]\s+с[вб][ао]р[кх]у|^\d\s*%/iu;
+// The header of a «Спецификация» table under its title: the words of its columns, «Марка», «Сечение», «Длина».
+// The title stands over the middle of the table, so «Марка» may be some 300 left of it (К76: 124); the marks' column is
+// the «Марка» nearest left of «Сечение» (another table's header farther left is not it; «Марка стали» is right of it).
+// Header words only: the first data row sits right under them («т», «н» of «Кол-во» alone: «Тр.160х5» is a row).
+// (The words of a table beside it, «Требуется изготовить», are left of its «Марка» and not its header.)
+function specHeader(texts,head){
+ const words=texts.filter(t=>t.y>head.y-2&&t.y<head.y+80&&t.x>head.x-320&&t.x<head.x+900&&
+  /^(Марка|Поз|№|Сечение|Длина|Кол|Масса|шт|общ|элем|марки|мм|стали|Примечание|дет|всех)|^[тн]\.?$/iu.test(t.str));
+ const secH=words.filter(t=>/^Сечение/u.test(t.str)).sort((a,b)=>Math.abs(a.x-head.x)-Math.abs(b.x-head.x))[0];
+ const markH=secH&&words.filter(t=>/^Марка$/u.test(t.str)&&t.x<secH.x&&secH.x-t.x<260).sort((a,b)=>b.x-a.x)[0];
+ const lenH=secH&&words.filter(t=>/^Длина/u.test(t.str)&&t.x>secH.x).sort((a,b)=>a.x-b.x)[0];
+ return markH&&lenH?{hdr:words.filter(t=>t.x>markH.x-30),markH,secH,lenH}:{hdr:words}
+}
+// The cells of the «Сечение» column the reading left empty or unreadable, in rows that have a length: OCR reads them
+// again one by one (a pasted table in a CAD italic: «Тр.□160х5» doubted as a whole by Tesseract and dropped).
+function specCells(texts){
+ const out=[];
+ for(const head of texts.filter(t=>/^Спецификац/u.test(t.str))){
+  const {hdr,markH,secH,lenH}=specHeader(texts,head);
+  if(!markH)continue;
+  const top=Math.max(...hdr.map(t=>t.y)),rows=[];
+  for(const r of rowsOf(texts.filter(t=>t.y>top+4&&t.y<top+1600&&t.x>markH.x-60&&t.x<lenH.x+60))){if(rows.length&&r.y-rows[rows.length-1].y>80||r.items.some(t=>/^(Требуется|Выборка|Ведомость)/u.test(t.str)))break;rows.push(r)}
+  // The column: from the right of the position numbers to the length column.
+  const pos=rows.flatMap(r=>r.items).filter(t=>/^\d{1,2}$/.test(t.str)&&t.x<secH.x-15&&t.x>markH.x+20),w=t=>t.width||String(t.str).length*(t.size||8)*0.55;
+  const x0=pos.length?Math.max(...pos.map(t=>t.x+w(t)))+3:secH.x-Math.max(20,lenH.x-secH.x-w(secH)),x1=lenH.x-3;
+  for(const r of rows){
+   const len=r.items.find(t=>Math.abs(t.x-lenH.x)<40&&/^\d{2,5}$/.test(t.str));if(!len)continue;
+   const sec=r.items.filter(t=>t.x>=x0-5&&t.x<x1).map(t=>t.str).join(" ");if(sectionLike(sec))continue;
+   const s=len.size||10;out.push({kind:"section",x:x0,y:r.y-s*1.15,w:x1-x0,h:s*1.45})
+  }
+  // A group of rows (up to its «1% на сварку») without its mark: the mark column read again across the middle of the group.
+  const groups=[];let cur=[];
+  for(const r of rows){cur.push(r);if(r.items.some(t=>WELD_ROW.test(t.str))){groups.push(cur);cur=[]}}
+  if(cur.length)groups.push(cur);
+  const mx1=pos.length?Math.min(...pos.map(t=>t.x))-3:secH.x-40;
+  for(const g of groups){
+   if(g.length<2||g.some(r=>r.items.some(t=>Math.abs(t.x-markH.x)<45&&titleMarks(t.str))))continue;
+   const s=Math.max(...g.flatMap(r=>r.items).map(t=>t.size||10)),mid=(g[0].y+g[g.length-1].y)/2;
+   out.push({kind:"mark",x:markH.x-25,y:mid-s*1.3,w:mx1-(markH.x-25),h:s*2.2})
+  }
+ }
+ // A row of «Требуется изготовить» with its numbers and without its mark.
+ for(const head of texts.filter(t=>/^Тре[бдв]уется|^изготовить$|^Таблица\s+отправочных/u.test(t.str))){
+  const hdr=texts.filter(t=>t.y>head.y&&t.y<head.y+70&&Math.abs(t.x-head.x)<260&&/^(Марка|Отправочная|Отпр|марка)/u.test(t.str));
+  const markH=requiredMarkHead(hdr,head);if(!markH)continue;
+  const top=Math.max(...hdr.map(t=>t.y));
+  for(const row of rowsOf(texts.filter(t=>t.y>top+4&&t.y<top+900&&t.x>markH.x-60&&t.x<markH.x+340))){
+   if(row.items.some(t=>/^(Всего|Итого)/u.test(t.str)))break;
+   const nums=row.items.filter(t=>t.x>markH.x+40&&/^\d+(?:[,.]\d+)?$/.test(t.str));
+   if(nums.length<2||texts.some(t=>Math.abs(t.x-markH.x)<60&&Math.abs(t.y-row.y)<8&&titleMarks(t.str)))continue;
+   const s=nums[0].size||10,x1=Math.min(...nums.map(t=>t.x))-4;
+   out.push({kind:"mark",x:markH.x-30,y:row.y-s*1.3,w:x1-(markH.x-30),h:s*1.7})
+  }
+ }
+ return out
+}
+// A cell read again holds what its column holds: a section, or a mark of one shipping element (OCR digits of the
+// italic: «Вб6» is В66, «КЗ» К3, «ФО» Ф0). Returns the text taken, or null.
+const markDigits=str=>String(str).replace(/\s+/g,"").replace(/^([А-ЯЁ]{1,3})([0-9бЗОо]{1,4})$/u,(m,a,b)=>a+b.replace(/б/g,"6").replace(/З/g,"3").replace(/[Оо]/g,"0"));
+const cellAccept={section:str=>sectionLike(str)?str:null,mark:str=>{const v=markDigits(str),m=titleMarks(v);return m&&m.length===1?v:null}};
 function specTable(texts){
  const out=[];
  for(const head of texts.filter(t=>/^Спецификац/u.test(t.str))){
-  // Header words only: the first data row sits right under them.
-  const hdr=texts.filter(t=>t.y>head.y-2&&t.y<head.y+80&&t.x>head.x-120&&t.x<head.x+900&&
-   /^(Марка|Поз|№|Сечение|Длина|Кол|Масса|шт|общ|элем|марки|мм|стали|т|н|Примечание|дет|всех)/iu.test(t.str));
-  const markH=hdr.filter(t=>/^Марка$/u.test(t.str)).sort((a,b)=>a.x-b.x)[0];
-  const secH=hdr.find(t=>/^Сечение/u.test(t.str)),lenH=hdr.find(t=>/^Длина/u.test(t.str));
-  if(!markH||!secH||!lenH)continue;
+  const {hdr,markH,secH,lenH}=specHeader(texts,head);
+  if(!markH)continue;
   // «Марка дет.» left of «Сечение»: the table lists the parts of one shipping mark, not marks.
-  if(hdr.some(t=>/^дет\.?$/u.test(t.str)&&t.x<secH.x))continue;
+  // «№ дет.» (positions, a column of its own right of «Марка») is not that.
+  const mid=t=>t.x+(t.width||String(t.str).length*(t.size||8)*0.55)/2;
+  if(hdr.some(t=>/^дет\.?$/u.test(t.str)&&t.x<secH.x&&t.y>markH.y&&Math.abs(mid(t)-mid(markH))<(markH.width||30)*0.6+6&&
+   !texts.some(n=>/^№$/u.test(n.str.trim())&&Math.abs(n.y-t.y)<6&&n.x<t.x&&t.x-n.x<30)))continue;
   const massH=hdr.find(t=>/^(элем|марки)\.?$/u.test(t.str));
   // Without the "марки" header (lost by OCR) the mass of the mark is the column between "всех" and "Марка стали".
   const allH=hdr.find(t=>/^всех$/iu.test(t.str)),steelH=allH&&hdr.filter(t=>/^Марка$/u.test(t.str)&&t.x>allH.x).sort((a,b)=>a.x-b.x)[0];
@@ -287,12 +393,12 @@ function specTable(texts){
   const all=rowsOf(texts.filter(t=>t.y>top+4&&t.y<top+1600&&t.x>markH.x-60&&t.x<right));
   // The table ends where its rows stop or where the next table ("Требуется", "Выборка") begins.
   const rows=[];for(const r of all){if(rows.length&&r.y-rows[rows.length-1].y>80||r.items.some(t=>/^(Требуется|Выборка|Ведомость)/u.test(t.str)))break;rows.push(r)}
-  // Groups: up to and including each "1% на сварку" row (OCR may read "сборку").
+  // Groups: up to and including each "1% на сварку" row.
   const groups=[];let cur=[];
   // A row "Все позиции по …" / "обратно …" opens the group of the next mark even without the weld row before it.
   for(const r of rows){
-   if(cur.length&&r.items.some(t=>/позиции\s+по|обратн[ао]/u.test(t.str))){groups.push(cur);cur=[]}
-   cur.push(r);if(r.items.some(t=>/на\s+сварку|\d\s*%\s*на/u.test(t.str))){groups.push(cur);cur=[]}
+   if(cur.length&&r.items.some(t=>/позиции\s+по|обратн[ао]|по\s+марке/iu.test(t.str))){groups.push(cur);cur=[]}
+   cur.push(r);if(r.items.some(t=>WELD_ROW.test(t.str))){groups.push(cur);cur=[]}
   }
   if(cur.length)groups.push(cur);
   const byMark=new Map();let previous=null;
@@ -303,12 +409,13 @@ function specTable(texts){
    for(const r of g){
     // CAD fonts mix Latin lookalikes into Cyrillic profile names ("Tp.140x4"); the position number left of
     // the section column is not part of it.
-    const sec=cyr(r.items.filter(t=>t.x>=secH.x-60&&t.x<lenH.x-10&&!(/^\d{1,2}$/.test(t.str)&&t.x<secH.x-15)).map(t=>t.str).join(" ").trim());
+    const sec=profileWords(cyr(r.items.filter(t=>t.x>=secH.x-60&&t.x<lenH.x-10&&!(/^\d{1,2}$/.test(t.str)&&t.x<secH.x-15)).map(t=>t.str).join(" ").trim()));
     const len=r.items.find(t=>Math.abs(t.x-lenH.x)<40&&/^\d{2,5}$/.test(t.str));
-    const ref=/(?:обратн[ао]|позиции\s+по)\s+([А-ЯЁA-Z]{1,3}\d{1,4}(?:[-.]\d{1,3})?)/u.exec(r.items.map(t=>t.str).join(" "));
-    if(ref)back=ref[1];
-    // "Все позиции по Ф3, кроме …", "обратно Ф4": the mark is made like another; its own rows are only changes.
-    if(r.items.some(t=>/позиции\s+по|обратн[ао]/u.test(t.str)))derived=true;
+    const line=r.items.map(t=>t.str).join(" "),ref=/(?:обратн[ао]|позиции\s+по|по)\s+(?:марке\s+)?([А-ЯЁA-Z]{1,3}\d{1,4}(?:[-.]\d{1,3})?)/iu.exec(line);
+    if(ref&&/обратн|позици|поз\.|по\s+марке/iu.test(line))back=ref[1];
+    // "Все позиции по Ф3, кроме …", "обратно Ф4", «Обратна марке К105»: the mark is made like another; its own rows are
+    // only changes. («Поз. 1, 2, 9-14 по марке К105» — some parts as there: a group without a member of its own takes it.)
+    if(r.items.some(t=>/(?:все\s+)?позиции\s+по|обратн[ао]/iu.test(t.str)&&!/позиции\s+\d/iu.test(t.str)))derived=true;
     {const m=r.items.find(t=>massAt(t)&&/^\d+(?:[,.]\d+)?$/.test(t.str));if(m)mass=Number(m.str.replace(",","."))}
     // The member itself: an I-beam, channel or tube before angles and plates, then the longest; a length the
     // OCR lost does not disqualify it.
@@ -318,23 +425,35 @@ function specTable(texts){
     }
    }
    // The mark it refers to; when OCR lost that name, the group above (such tables list the base mark first).
-   const base=derived?(back&&byMark.get(back))||previous:null;
+   const base=derived?(back&&byMark.get(back))||previous:!best&&back?byMark.get(back)||null:null;
    for(const l of labels)for(const mark of titleMarks(l.str))if(!byMark.get(mark)?.profile){
-    const e=base?{mark,profile:base.profile,length_mm:base.length_mm,mass_kg:mass,same:back}
-     :{mark,profile:best?normProfile(best.sec):"",length_mm:best?.len||null,mass_kg:mass,same:back};
+    const e=base?{mark,profile:base.profile,length_mm:base.length_mm,mass_kg:mass,same:back,ocr:Boolean(l.ocr)}
+     :{mark,profile:best?normProfile(best.sec):"",length_mm:best?.len||null,mass_kg:mass,same:back,ocr:Boolean(l.ocr)};
     byMark.set(mark,e);previous=e
    }
   }
   for(const e of byMark.values()){
    if(!e.profile&&e.same&&byMark.get(e.same))e.profile=byMark.get(e.same).profile;
-   out.push({mark:e.mark,profile:e.profile,mass_kg:e.mass_kg,length_mm:e.length_mm})
+   out.push({mark:e.mark,profile:e.profile,mass_kg:e.mass_kg,length_mm:e.length_mm,...(e.ocr?{ocr:true}:{})})
   }
  }
  return out
 }
 // Fasteners (метизы) in any table of the sheet: «Болт М20-6gх60.58 ГОСТ 7798-70», «Гайка М20.5», «Шайба 20».
 // The designation is the run of close items from the item word; the next column (count, mass) is apart by a gap.
-// The count is read only under a «Кол.» header.
+// The count is read under a «Кол.» header, or left of the «Масса» columns when OCR lost that header.
+const CLASS_NOTE=/кл(?:асс)?\.?\s*(?:пр(?:оч[а-яё]*)?\.?)?\s*(\d{1,2}\.\d)\b/iu;
+// Holes of an assembly sheet as its notes give them: «Все отверстия Ø23, кроме оговоренных» («Неоговоренные отверстия
+// ф23мм»), «отв. Ø27», «отверстия под
+// болты М24-∅27 выполнять сверлением» — the diameters, the one for all first.
+function holeNotes(texts){
+ const all=[],other=[],said=[];
+ for(const t of texts){const s=String(t.str||"").replace(/\s+/g," ");let m;
+  if((m=/(?:вс[еи]|неоговоренн\S*)\s+отверсти\S*\s*(?:—|-|–)?\s*[ØøФ∅]\s*(\d{1,2}(?:[.,]\d)?)/iu.exec(s))){all.push(+m[1].replace(",","."));said.push(s.trim())}
+  else if((m=/(?:отв\.?|отверсти\S*)\s*(?:под\s+болты\s+М\s*\d{2}\s*[-–—]\s*)?[ØøФ∅]\s*(\d{1,2}(?:[.,]\d)?)/iu.exec(s))){other.push(+m[1].replace(",","."));if(/под\s+болт/iu.test(s))said.push(s.trim())}}
+ const d=[...new Set([...all,...other])];
+ return d.length?{all_mm:all[0]||null,diameters_mm:d,notes:[...new Set(said)].slice(0,4)}:null
+}
 const FASTENER_WORD=/^(?:фундаментн\S*\s+)?(?:Болт|Гайк|Шайб|Шпильк|Анкер|Саморез|Винт|Заклеп|Заклёп)/iu;
 function fastenerTable(texts){
  // The count column: «Кол.», or «шт» of a «Кол-во, шт» header split in two; of several (the mass per piece is also
@@ -347,15 +466,28 @@ function fastenerTable(texts){
   const run=[row.items[at]];
   for(const t of row.items.slice(at+1)){
    const prev=run[run.length-1],gap=t.x-(prev.x+(prev.width||prev.str.length*(prev.size||8)*0.55));
-   if(gap>Math.max(8,(prev.size||8)*1.5))break;run.push(t)
+   if(gap>Math.max(8,(prev.size||8)*1.5))break;
+   // A bare number after the standard is the next column (the thickness of the package, the count), however close.
+   if(/^\d{1,4}$/.test(t.str.trim())&&/(?:ГОСТ|ISO|DIN|EN|СТ\s*РК|ОСТ)\s*[\d.-]*\d[-.]\d{2,4}\*?$/iu.test(run.map(r=>r.str).join(" ").trim()))break;
+   run.push(t)
   }
   const text=run.map(t=>t.str).join(" ").replace(/\s+/g," ").trim(),f=parseFastener(text);
   if(!f)continue;
-  const end=run[run.length-1],near=heads.filter(h=>h.y<row.y&&row.y-h.y<1600);
+  // Only a header over this table: right of the designation, not the «Кол-во» of a specification beside it.
+  const end=run[run.length-1],near=heads.filter(h=>h.y<row.y&&row.y-h.y<1600&&h.x>row.items[at].x&&h.x-row.items[at].x<900);
   const top=Math.max(...near.map(h=>h.y)),head=near.filter(h=>top-h.y<40&&h.x>end.x-10).sort((a,b)=>a.x-b.x)[0]||near.sort((a,b)=>b.y-a.y)[0];
-  const qty=head&&row.items.find(t=>t.x>end.x&&Math.abs(t.x-head.x)<30&&/^\d{1,5}$/.test(t.str));
+  // Without the «Кол.» header (lost by OCR of a pasted table) the count is the whole number just left of the «Масса»
+  // columns («Масса, кг» over «1 шт.|общ.» or «1000шт|общ.»): the thickness of the package is left of it.
+  const mass=!head&&texts.filter(h=>/^(?:Масса|Вес|1000\s*шт|1\s*шт)/iu.test(h.str.trim())&&h.y<row.y&&row.y-h.y<400&&h.x>end.x).sort((a,b)=>a.x-b.x)[0];
+  const qty=head?row.items.find(t=>t.x>end.x&&Math.abs(t.x-head.x)<30&&/^\d{1,5}$/.test(t.str)):
+   mass?row.items.filter(t=>t.x>end.x&&t.x<mass.x-2&&/^\d{1,5}$/.test(t.str)).sort((a,b)=>b.x-a.x)[0]:null;
   const title=titles.filter(t=>t.y<row.y&&row.y-t.y<400&&Math.abs(t.x-row.items[at].x)<400).sort((a,b)=>b.y-a.y)[0];
-  out.push({text,item:f.item,d_mm:f.d_mm,length_mm:f.length_mm,strength_class:f.strength_class,tensile_MPa:f.tensile_MPa,
+  // The class written apart, in the «Примечание» column of the row («кл. пр. 8.8», «оцинк.» under it).
+  // «-//-» there (and the standard «-//-») repeats the row above.
+  const size=row.items[at].size||8,beside=texts.filter(t=>t.x>end.x&&Math.abs(t.y-row.y)<=size*1.3);
+  const note=f.strength_class?null:beside.map(t=>CLASS_NOTE.exec(t.str)).find(Boolean),above=out[out.length-1];
+  const ditto=!note&&!f.strength_class&&above&&above.item===f.item&&beside.some(t=>/^[-–—]?\s*[\/|]{2}\s*[-–—]?$/u.test(t.str.trim()));
+  out.push({text,item:f.item,d_mm:f.d_mm,length_mm:f.length_mm,strength_class:f.strength_class||(note?note[1]:ditto?above.strength_class:null),tensile_MPa:f.tensile_MPa,
    standard:f.standard,standard_note:f.standard_note,high_strength:f.high_strength,steel:f.steel,count:qty?Number(qty.str):null,...(title&&/временн|монтажн/iu.test(title.str)?{temporary:true}:{})})
  }
  return out
@@ -406,13 +538,41 @@ function stampNames(str){
  }
  return out
 }
+// Marks read by OCR from a pasted table («ВИ3», «В1390», «В0» for В143, В139, В40) are checked against the marks the
+// sheet's text layer names (view titles, notes): a mark it does not know is the one mark of the sheet left over when
+// only one is left (or the known mark it begins with); otherwise it is not taken, and the sheet keeps what was not read.
+function checkOcrMarks(list,known,unread,table){
+ if(!known.size)return list;
+ const ok=list.filter(e=>!e.ocr||known.has(e.mark)),bad=list.filter(e=>e.ocr&&!known.has(e.mark));
+ const left=[...known].filter(m=>!ok.some(e=>e.mark===m));
+ for(const e of bad){
+  const to=left.find(m=>e.mark.startsWith(m))||(bad.length===1&&left.length===1?left[0]:null);
+  if(to){ok.push({...e,mark:to,read_as:e.mark});left.splice(left.indexOf(to),1)}else unread.push({table,text:e.mark})
+ }
+ return ok
+}
+// The letter of an I-beam in a CAD italic is lost by OCR: «двутавр 35Ш2» read «3512», «3502». The sheet says the letter
+// elsewhere (the «Выборка металла», a section's label «35Ш2»): taken from there when one letter fits; otherwise the
+// profile stays unread rather than made up.
+function ibeamLetters(list,texts,unread){
+ return list.map(e=>{
+  const m=/^(I|Св\.I)(\d{2})[10](\d)$/u.exec(e.profile||"");if(!m||!e.ocr)return e;
+  const re=new RegExp("(?:^|[^\\d])"+m[2]+"\\s*(ДБ|ДШ|[БШКМ])(С?)\\s*"+m[3]+"(?!\\d)","u");
+  const found=[...new Set(texts.map(t=>re.exec(cyr(String(t.str)))).filter(Boolean).map(x=>x[1]+x[2]))];
+  if(found.length===1)return{...e,profile:m[1]+m[2]+found[0]+m[3],read_as:e.profile};
+  unread.push({table:"Спецификация",text:e.mark+": "+e.profile});return{...e,profile:""}
+ })
+}
 function extractSheet({texts=[],widthPt=0,heightPt=0,segments=[]}={}){
  const med=median(texts.map(t=>t.size))||10;
  const stamp=stampOf(texts,widthPt,heightPt,med),own=stampMarks(stamp).filter(m=>/\d{5}/.test(m));
  // A sheet of one shipping mark in plant numbering: other numbers in view titles are its parts.
  const views=assemblyViews(texts,widthPt,heightPt,med,segments).filter(v=>v.levels.length>=2||v.length_mm)
   .filter(v=>!own.length||v.marks.some(m=>own.includes(m)));
- const table=requiredTable(texts),required=[...table],elements=elementTable(texts),spec=specTable(texts);
+ // (ranges of the stamp and the notes, «Ф26-Ф28», «В1 - В4», and the sheet's title «Колонна К77» count too)
+ const range=str=>[...String(str).matchAll(/([А-ЯЁ]{1,3})(\d{1,4})\s*[-–]\s*\1?(\d{1,4})(?!\d)/gu)].flatMap(m=>+m[3]>+m[2]&&+m[3]-+m[2]<=60?Array.from({length:+m[3]-+m[2]+1},(_,i)=>m[1]+(+m[2]+i)):[]);
+ const known=new Set(texts.filter(t=>!t.ocr).flatMap(t=>[...(titleMarks(t.str)||titleMarks(String(t.str).replace(/^[А-ЯЁ][а-яё]{3,}\s+/u,""))||[]),...range(t.str)]).filter(m=>!/^[A-Z]\d$/.test(m))),unread=[];
+ const table=requiredTable(texts),required=checkOcrMarks([...table],known,unread,"Требуется"),elements=elementTable(texts),spec=ibeamLetters(checkOcrMarks(specTable(texts),known,unread,"Спецификация"),texts,unread);
  const levels=texts.map(t=>levelMm(t.str)).filter(v=>v!==null);
  const assemblyText=assemblyTextOf(texts);
  // I-beams «30Ш2» of ГОСТ 26020-83 and of ГОСТ Р 57837-2017 differ (40Б1: 48,1 and 56,6 кг/м): the standard the
@@ -431,6 +591,6 @@ function extractSheet({texts=[],widthPt=0,heightPt=0,segments=[]}={}){
  }
  // The stamp alone names the mark when the table was not read: one piece is not assumed, the count stays open.
  if(own.length===1&&!required.length&&assemblyTextOf(texts))required.push({mark:own[0],count:table.unnamed===1?table.unnamedCount:null,mass_kg:null,from:"stamp"});
- return{stamp,views,required,elements,spec,fasteners:fastenerTable(texts),standards,levelCount:levels.length,assemblyText}
+ return{stamp,views,required,elements,spec,fasteners:fastenerTable(texts),holes:holeNotes(texts),standards,levelCount:levels.length,assemblyText,...(unread.length?{unread}:{})}
 }
-module.exports={extractSheet,sheetStamp,stampNames,titleMarks,levelMm,rowsOf,specTable,normProfile,fastenerTable,standardsCited};
+module.exports={extractSheet,sheetStamp,stampNames,titleMarks,levelMm,rowsOf,specTable,specCells,cellAccept,sectionLike,normProfile,fastenerTable,standardsCited};

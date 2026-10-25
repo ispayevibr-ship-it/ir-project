@@ -1335,10 +1335,12 @@ window.irSchemePage=async function(objectId){
  let frameMode=true,selectedId="",activeWorkId="",activeScheme="all",rows=[],markRows=[],workRows=[],gridXSpans=[],gridYSpans=[],spanX=targetSpanX,spanY=targetSpanY,axisXPos=new Map(),axisYPos=new Map(),labelsVisible=false,dimensionsVisible=false,hiddenGroups=new Set(),hiddenSections=new Set(),confFilter="all",statusFilter="all",levelMin="",levelMax="",layersPanelOpen=false,elementSearch="",pickerScrollTop=0,previewFullscreen=false,previewNativeFullscreen=false,previewOriginalOverflow="";
 
  // Shared view state: neither the 2D plan nor 3D owns a separate data model.
- let schemeColorMode="type",cutHidden=[];
+ // The scheme opens coloured by montage (the engineer, 25.10.2026: «по стандарту первым вывод делай монтаж в схеме»); a
+ // colouring chosen after that is kept.
+ let schemeColorMode="status",cutHidden=[];
  try{
   const mode=localStorage.getItem("ir-project-3d-colors");
-  if(["status","type","mark","confidence"].includes(mode))schemeColorMode=mode;
+  if(localStorage.getItem("ir-project-3d-colors-v3")==="ready"&&["status","type","mark","confidence"].includes(mode))schemeColorMode=mode;
   const saved=JSON.parse(localStorage.getItem("ir-project-3d-sections."+oid)||"[]");
   if(Array.isArray(saved))cutHidden=saved.filter(x=>typeof x==="string")
  }catch(_error){}
@@ -1359,7 +1361,7 @@ window.irSchemePage=async function(objectId){
  const changeColorMode=next=>{
   if(!["status","type","mark","confidence"].includes(next))return;
   schemeColorMode=next;
-  try{localStorage.setItem("ir-project-3d-colors",next);localStorage.setItem("ir-project-3d-colors-v2","ready")}catch(_error){}
+  try{localStorage.setItem("ir-project-3d-colors",next);localStorage.setItem("ir-project-3d-colors-v3","ready")}catch(_error){}
   renderScene()
  };
  const backgroundChoices=["standard","white","gray","blue","sand","dark","custom"],
@@ -2070,6 +2072,12 @@ window.irSchemePage=async function(objectId){
   if(n?.mark&&String(n.mark).trim().toLowerCase()!==String(c.mark||"").trim().toLowerCase())diffs.unshift("марка "+String(n.mark));
   return`<div class="scheme-instance ${isPreliminary(c)?"preliminary":""}"><b>По чертежам: ${esc(INSTANCE_STATUS[st]||"—")}${isPreliminary(c)?" · предварительно":""}</b>${c.source_section?`<small>Раздел: ${esc(c.source_section)}${c.source_import_doc?" · "+esc(c.source_import_doc):""}</small>`:""}${reasons.map(r=>`<small>• ${esc(r)}</small>`).join("")}${n?`<small>Ваша правка сохранена. Новый анализ чертежей: ${diffs.length?esc(diffs.join(", ")):"то же, что у вас"}.</small>`:""}${from.length?`<details><summary>Откуда данные</summary>${from.map(r=>`<small>${esc(r[0])}: ${esc(String(r[1]))}</small>`).join("")}</details>`:""}</div>`
  }
+ // The permanent fasteners and the holes of the member's assembly sheet («Ведомость постоянных метизов», «Все отверстия
+ // Ø23, кроме оговоренных»): the engineer, 25.10.2026, «где метизы? выдай метизы и отверстия».
+ function fastenersHtml(c){
+  const j=c.joint;if(!j||!(j.fasteners?.length||j.holes_mm?.length))return"";
+  return`<div class="scheme-fasteners"><b>Метизы и отверстия</b>${(j.fasteners||[]).map(f=>`<span>${esc(f)}</span>`).join("")}${j.holes_mm?.length?`<span>Отверстия Ø${esc(j.holes_mm.join(", Ø"))}${j.hole_mm?` (все Ø${esc(j.hole_mm)}, кроме оговоренных)`:""}</span>`:""}${j.fasteners_sheet?`<small>${esc(j.fasteners_sheet)}</small>`:""}</div>`
+ }
  function renderDetails(){
   const panel=document.getElementById("schemeDetails");if(!panel)return;const c=selected();
   if(!c){panel.innerHTML=pickerHtml()+`<div class="scheme-detail-empty"><b>Элемент не выбран</b><span>Нажмите на элемент на схеме или добавьте новый.</span>${canEdit()?'<button type="button" data-scheme-add>＋ Добавить элемент</button>':""}</div>`;panel.querySelector("[data-scheme-add]")?.addEventListener("click",()=>window.irThreeSchemeView?.startPlacement?.()??openEditor());bindElementPicker(panel);return}
@@ -2095,6 +2103,7 @@ window.irSchemePage=async function(objectId){
     <div class="scheme-mark-progress-bar"><i style="width:${Math.max(0,Math.min(100,progress.mounted/progress.total*100))}%"></i></div>
     ${progress.state==="partial"?'<small>Ведомость показывает частичное выполнение марки, но не указывает, какой именно экземпляр смонтирован.</small>':""}
    </div>`:""}
+   ${fastenersHtml(c)}
    ${between?`<div class="scheme-between"><b>Элемент между осями</b><span>${esc(a.x)} / ${esc(a.y)}</span><small>Положение вычисляется от выбранных базовых осей и сохраняется точно в миллиметрах.</small></div>`:""}
    ${canEdit()?`<div class="scheme-detail-actions"><button type="button" data-scheme-edit>Редактировать</button><button type="button" data-scheme-copy-place>⧉ Размещение</button><button type="button" data-scheme-copy>⧉ Копировать позицию</button><button type="button" class="danger" data-scheme-delete>Удалить</button></div>${irProject.ai?.invoke?`<div class="scheme-journal-send"><input type="text" data-scheme-journal-note maxlength="500" placeholder="Комментарий к правке (необязательно)"><button type="button" data-scheme-journal title="Записать элемент как он есть сейчас в журнал правок — журнал уходит на GitHub каждый час">В журнал</button><small data-scheme-journal-state>${journalSent.has(String(c.id))?"В журнале: "+esc(journalSent.get(String(c.id))):""}</small></div>`:""}`:""}`;
   loadMarkCard(panel,c);
