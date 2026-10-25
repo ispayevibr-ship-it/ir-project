@@ -740,6 +740,7 @@ function buildPlan(draft,ai=null,heights={},opts={}){
   e.note=e.note.replace(/Отметка не найдена на схеме — поставлено на ±0,000, проверьте/,"Отметка — верх конструкций в контуре ("+(top/1000).toFixed(3).replace(".",",")+")")
  }
  raiseVerticalBraces(elements);
+ trimGuardPosts(elements);
  // Purlins rest on the frames of their sheet: a purlin running more than a metre past the outer column line of the
  // same volume (around it) has been traced into an axis or a dimension line beyond it, and is cut back to that column line.
  for(const e of elements){
@@ -1028,6 +1029,21 @@ function seatOnChords(elements){
   e.note=[e.note,purlin?"Прогон на верхнем поясе фермы под ним: низ прогона — верх пояса":"Отметки по "+(role==="bottom"?"нижнему":"верхнему")+" поясу фермы под элементом"].filter(Boolean).join("; ")
  }
 }
+// A post of a railing (ограждение лестницы, площадки) is about a metre tall: one of several metres is a level taken from
+// another tier (a stair tower of repeated flights: the top moved up with the tier, the foot left on the first one —
+// posts of 5–17 m under the handrail, the engineer 25.10.2026: «труба в никуда выходит?»). Its top stays (it is at the
+// handrail), the foot comes up by the height of the posts of the same railing (else 1000 mm). Not the rows checked by the
+// engineer.
+function trimGuardPosts(elements){
+ const post=e=>e.group==="guards"&&e.geometry_type==="column"&&/стойк/iu.test(e.name||"");
+ const usual=new Map();
+ for(const e of elements){const h=e.z1_mm-e.z0_mm;if(post(e)&&h>=600&&h<=1500){const k=String(e.name).replace(/\s+\S*\d[\d,.]*$/u,"");usual.set(k,Math.max(usual.get(k)||0,h))}}
+ for(const e of elements){
+  if(!post(e)||e.levels==="проверено инженером"||e.z1_mm-e.z0_mm<=2500)continue;
+  const h=usual.get(String(e.name).replace(/\s+\S*\d[\d,.]*$/u,""))||1000,was=e.z0_mm;
+  e.z0_mm=e.z1_mm-h;e.note=[e.note,"Стойка ограждения была высотой "+(e.z1_mm-was)+" мм — низ поднят на высоту стоек этого ограждения ("+h+" мм), проверьте"].filter(Boolean).join("; ")
+ }
+}
 // A vertical brace is drawn on a plan as a line between two columns (or trusses), with one level from a section. In the
 // structure it is a cross in the vertical plane through that line, from the level below to the level above: column
 // bases and tops, struts and beams along the same line, the crane beams beside it, the chords of the trusses at its ends.
@@ -1142,4 +1158,4 @@ function seatTrusses(elements,catalog){
   e.note=[e.note,"Ферма по геометрической схеме"+(moved?", отметка низа — как у соседних ферм":"")+" — проверьте"].filter(Boolean).join("; ")
  }
 }
-module.exports={instanceStatus,sheetNodes,jointNote,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces};
+module.exports={instanceStatus,sheetNodes,jointNote,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces,trimGuardPosts};
