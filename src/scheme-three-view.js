@@ -918,6 +918,68 @@ window.irThreeSchemeView=(function(){
     rib.position.copy(at).add(side.clone().multiplyScalar(q*(tw/2+rw/2)));rib.userData.small=true;parts.push(rib)
    })
   }
+  // ---- Two braces crossing in their plane (an X of a bay, a cross of ties). On the КМ (узел пересечения связей) one of
+  // them runs through with a gusset welded across it, the other is cut at the crossing and both its halves are bolted to
+  // that gusset; drawn whole they went one through the other. Which of the two runs through is of the КМД: here the one
+  // rising toward the larger axis (toward the larger Y when flat). Bolts, their class and the gusset as the drawing gives
+  // them for the crossing (joint.crossing: {bolt, cls, gusset_mm}), else as for the ends of the brace.
+  var crossCut=new Map(),crossPlates=[];
+  function riseScore(c){
+   var dx=number(c.x2)-number(c.x),dy=number(c.y2)-number(c.y),dz=number(c.z2)-number(c.z0);
+   if(dz<-50||Math.abs(dz)<=50&&(dx<-1||Math.abs(dx)<=1&&dy<0)){dx=-dx;dy=-dy}
+   return(dx+dy)/(Math.hypot(dx,dy)||1)
+  }
+  function findCrossings(list){
+   crossCut.clear();crossPlates=[];
+   var C=3,cells=new Map(),seen=new Set();
+   list.forEach(function(c){
+    if(!c.id||c.ft||c.truss||c.cross||c.geometryType!=="brace"||slight(c))return;
+    var p=memberPoints(c);if(p.length!==2)return;var v=p[1].clone().sub(p[0]),L=v.length();if(L<1)return;
+    var it={c:c,id:String(c.id),a:p[0],u:v.divideScalar(L),L:L};
+    for(var i=Math.floor(Math.min(p[0].x,p[1].x)/C);i<=Math.floor(Math.max(p[0].x,p[1].x)/C);i++)for(var j=Math.floor(Math.min(p[0].z,p[1].z)/C);j<=Math.floor(Math.max(p[0].z,p[1].z)/C);j++){
+     var k=i+","+j;if(!cells.has(k))cells.set(k,[]);cells.get(k).push(it)}
+   });
+   cells.forEach(function(group){
+    for(var i=0;i<group.length;i++)for(var j=i+1;j<group.length;j++){
+     var A=group[i],B=group[j],key=A.id<B.id?A.id+"|"+B.id:B.id+"|"+A.id;if(A.id===B.id||seen.has(key))continue;seen.add(key);
+     var b=A.u.dot(B.u),den=1-b*b;if(den<.06)continue;
+     var w=A.a.clone().sub(B.a),d=A.u.dot(w),e=B.u.dot(w),s=(b*e-d)/den,t=(e-b*d)/den;
+     if(s<A.L*.12||s>A.L*.88||t<B.L*.12||t>B.L*.88)continue;
+     var P=A.a.clone().add(A.u.clone().multiplyScalar(s)),Q=B.a.clone().add(B.u.clone().multiplyScalar(t));if(P.distanceTo(Q)>.05)continue;
+     var ra=riseScore(A.c),rb=riseScore(B.c),thr=Math.abs(ra-rb)>.01?(ra>rb?A:B):(A.id<B.id?A:B),cut=thr===A?B:A;
+     if(!crossCut.has(cut.id))crossCut.set(cut.id,[]);
+     crossCut.get(cut.id).push(crossing(thr.c,P.add(Q).multiplyScalar(.5),cut.u.clone().cross(thr.u).normalize(),Math.sqrt(den)))
+    }
+   })
+  }
+  // The cut halves stop clear of the member running through (its section turned any way) and 30 mm more.
+  function crossing(through,at,n,sin){var h=halfSection(through);return{at:at,n:n,g:Math.max(h.h,h.b)/sin+.03,through:through}}
+  // The gusset in the plane of the two, along the cut brace over both bolt rows of each half; welded to the one running
+  // through (its part, picked with it). The bolts go with the cut brace.
+  function crossNode(c,cr,u){
+   var j=c.joint&&c.joint.crossing&&typeof c.joint.crossing==="object"?c.joint.crossing:c.joint||{},gm=number(j.gusset_mm);
+   var gt=gm>=6&&gm<=40?gm/1000:gussetT(c),m=/(\d{2})/.exec(String(j.bolt||"")),dia=m?number(m[1])/1000:0;
+   var row=dia?boltRow(dia):[.06,.14],hs=halfSection(c),by=cr.n.clone().cross(u).normalize();
+   var plate=new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(cr.through));
+   plate.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(u,by,cr.n));
+   plate.scale.set(2*(cr.g+row[row.length-1]+(dia?2*dia:.05)),Math.max(.2,2*Math.min(hs.h,hs.b)+.06),gt);plate.position.copy(cr.at);
+   plate.userData.gusset=true;crossPlates.push({id:String(cr.through.id),mesh:plate});
+   if(dia){var bc={id:c.id,joint:{cls:j.cls||c.joint&&c.joint.cls}};
+    [-1,1].forEach(function(sg){row.forEach(function(s){addBolt(bc,cr.at.clone().add(u.clone().multiplyScalar(sg*(cr.g+s))),cr.n,dia,gt+legT(c))})})}
+  }
+  function cutAtCrossings(c,segments,cuts){
+   cuts.forEach(function(cr){
+    var out=[];
+    segments.forEach(function(sg,k){
+     var v=sg[1].clone().sub(sg[0]),L=v.length(),u=v.divideScalar(L||1),s=cr.at.clone().sub(sg[0]).dot(u);
+     if(cr.only!=null&&cr.only!==k||L<.01||s<cr.g+.05||s>L-cr.g-.05||sg[0].clone().add(u.clone().multiplyScalar(s)).distanceTo(cr.at)>.06){out.push(sg);return}
+     out.push([sg[0],cr.at.clone().sub(u.clone().multiplyScalar(cr.g))],[cr.at.clone().add(u.clone().multiplyScalar(cr.g)),sg[1]]);
+     if(!cr.done){cr.done=true;crossNode(c,cr,u)}
+    });
+    segments=out
+   });
+   return segments
+  }
   function buildMembers(list){
    var cached=new Set(meshGeo.values()),gone=new Set();
    allMeshes.forEach(function(m){steel.remove(m);if(!cached.has(m.geometry))gone.add(m.geometry)});gone.forEach(function(g){g.dispose()});
@@ -925,7 +987,7 @@ window.irThreeSchemeView=(function(){
    labels.forEach(function(l){l.el.remove()});labels=[];
    elems=Array.isArray(list)?list:[];
    seatOnTops(elems);hangTies(elems);
-   var host=jointHosts(elems);
+   var host=jointHosts(elems);findCrossings(elems);
    elems.forEach(function(c){
     var id=String(c.id||"");if(!id)return;
     dataById.set(id,c);
@@ -1047,6 +1109,13 @@ window.irThreeSchemeView=(function(){
      // A bent member keeps its middle point: only its outer ends are cut.
      return segments.length>1&&!c.cross?[i?sg[0]:t[0],i===segments.length-1?t[1]:sg[1]]:t
     });
+    // The second diagonal of a cross of one record is cut where it crosses the first; braces crossing others likewise.
+    var cuts=crossCut.get(id)||[];
+    if(c.cross&&segments.length===2){
+     var a0=segments[0][0],ua=segments[0][1].clone().sub(a0).normalize(),b0=segments[1][0],ub=segments[1][1].clone().sub(b0).normalize(),cb=ua.dot(ub),cd=1-cb*cb;
+     if(cd>.06){var cw=a0.clone().sub(b0),cs=(cb*ub.dot(cw)-ua.dot(cw))/cd,cx=crossing(c,a0.clone().add(ua.clone().multiplyScalar(cs)),ub.clone().cross(ua).normalize(),Math.sqrt(cd));cx.only=1;cuts=[cx]}
+    }
+    if(cuts.length)segments=cutAtCrossings(c,segments,cuts);
     extra.forEach(function(m){m.userData.memberId=id;steel.add(m);allMeshes.push(m);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(m)});
     segments.forEach(function(points){
      if(!sectionOf(c.profile_name||c.profileName,c.profile_standard))conventional.add(id);
@@ -1067,6 +1136,8 @@ window.irThreeSchemeView=(function(){
     var id=String(e.b.id);if(!dataById.has(id))return;var parts=[];seatParts(k,e,parts);
     parts.forEach(function(m){m.userData.memberId=id;steel.add(m);allMeshes.push(m);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(m)})
    })});
+   crossPlates.forEach(function(e){if(!dataById.has(e.id))return;var m=e.mesh;
+    m.userData.memberId=e.id;steel.add(m);allMeshes.push(m);if(!meshesById.has(e.id))meshesById.set(e.id,[]);meshesById.get(e.id).push(m)});
    pedestals=[];
    elems.forEach(function(c){if(c.geometryType==="column"&&dataById.has(String(c.id))&&!c.ft&&!(number(c.r)>0)&&!slight(c)&&!(c.column&&Array.isArray(c.column.members)&&c.column.members.length))baseParts(c)});
    elems.forEach(function(c){if(c.geometryType==="column"&&dataById.has(String(c.id))&&footPlateSize(c.base))footPlate(c)})

@@ -49,6 +49,14 @@ assert(view.includes("function ghost(on)")&&view.includes("Math.min(m.opacity,.0
 assert(view.includes("if(explode&&explode.node!==n)clearExplode()")&&view.includes("selectedNode=null;clearExplode();")&&/function clearNodes\(\)\{\s*clearExplode\(\)/.test(view)&&view.includes("alive=false;clearExplode();")&&view.includes("setExplode(null,0);"),"put together again when the node goes");
 assert(!/explode[^\n]*(irProject|invoke|onSave|onUpdate)/.test(view),"only the picture moves");
 assert(css.includes(".ir-three-node-explode{")&&built.includes(".ir-three-node-explode{")&&css.includes("background:#9aa3ad;white-space:nowrap}"),"the slider styled, the status badge on one line");
+// Braces crossing in their plane (the engineer, 25.10.2026: «почему сквозь друг друга проходят?» — an X of Свк3): one runs
+// through, the other is cut at the crossing with a gap round the first, a gusset in their plane welded to the one running
+// through, the bolts on both halves; the bolts and the gusset as the drawing gives them for the crossing.
+assert(view.includes("function findCrossings(list)")&&view.includes("var host=jointHosts(elems);findCrossings(elems);"),"crossings looked for before the members are drawn");
+assert(view.includes("if(den<.06)continue;")&&view.includes("if(s<A.L*.12||s>A.L*.88||t<B.L*.12||t>B.L*.88)continue;")&&view.includes("if(P.distanceTo(Q)>.05)continue;"),"only braces crossing inside their lengths, in one plane");
+assert(view.includes("g:Math.max(h.h,h.b)/sin+.03")&&view.includes("function cutAtCrossings(c,segments,cuts)"),"the cut halves clear of the one running through");
+assert(view.includes("c.joint.crossing")&&view.includes("crossPlates.push({id:String(cr.through.id),mesh:plate})")&&view.includes("[-1,1].forEach(function(sg){row.forEach(function(s){addBolt(bc,"),"a gusset of the one running through, bolts on both halves");
+assert(view.includes("cx.only=1;cuts=[cx]"),"a cross of one record: its second diagonal cut");
 // The separate export for the iPhone (USDZ) removed at the engineer's request (25.10.2026): one export, the HTML.
 for(const f of ["src/scheme-page.js","src/ir-runtime.js","src/index.html","src/ai-ipc.js","src/scheme-three-view.js"])assert(!/schemeExportUsdz|irSchemeUsdz|export-usdz|scheme-export-usdz/.test(fs.readFileSync(f,"utf8")),f+": no iPhone export");
 assert(!fs.existsSync("src/scheme-export-usdz.js")&&!fs.readFileSync("hot/latest.json","utf8").includes("usdz"),"the USDZ module gone");
