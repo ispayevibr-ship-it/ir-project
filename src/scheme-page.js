@@ -314,7 +314,7 @@ window.irSchemePage=async function(objectId){
  const profileSection=p=>{const t=String(p||"").replace(/\s+/g,"");if(!t)return"";
   if(/^2[L∟]/i.test(t))return"Уголки парные";if(/^[L∟]/i.test(t))return"Уголок";if(/^2\[/.test(t))return"Швеллеры парные";
   if(/^\[/.test(t)||/^\d+(?:\.5)?а?[УПЭЛ]$/.test(t))return"Швеллер";if(/Гн|□|▢|^Кв/.test(t))return"Труба профильная";
-  if(/^(?:Тр|Ø|ø|∅)/.test(t))return/[xх×*]/.test(t)?"Труба":"Круг";if(/^[−-]\d/.test(t))return"Лист, полоса";
+  if(/^(?:Тр|Ø|ø|∅)/.test(t))return/[xх×*]/.test(t)?(window.irThreeSchemeView?.sectionOf?.(t)?.shape==="box"?"Труба профильная":"Труба"):"Круг";if(/^[−-]\d/.test(t))return"Лист, полоса";
   if(/^(?:Р|КР)\d{2,3}$/.test(t))return"Рельс";if(/^Сварной/i.test(t))return"Двутавр сварной";if(/^I|^\d+[БКШДМ]\d*$/.test(t))return"Двутавр";return""};
  const sectionShown=c=>fittingSection(c)||(hasProfile(c)?profileSection(c.profile_name)||sectionTypeLabel(sectionType(c)):catalogSection(c)||sectionTypeLabel(sectionType(c)));
  const profileShown=c=>String(c?.profile_name||"").trim()||fittingSection(c)||catalogSection(c)||"—";

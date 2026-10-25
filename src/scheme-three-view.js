@@ -196,7 +196,11 @@ window.irThreeSchemeView=(function(){
   if((m=/^Катанка(?:[АБВA-C]-)?(\d+(?:\.\d+)?)(?:-|$)/i.exec(t)))return{shape:"round",h:+m[1],b:+m[1],s:+m[1]/2,t:+m[1]/2,solid:true,std:listed("bar-std-30136",+m[1],"катанка по обозначению")};
   // A solid square bar «□20», «Квадрат 20» (no wall thickness: a box always has one), ГОСТ 2591-2006.
   if((m=/^(?:□|Квадрат|Кв\.)(\d{1,3})$/i.exec(t)))return{shape:"plate",h:+m[1],b:+m[1],s:+m[1],t:+m[1],std:listed("bar-std-2591",+m[1],"квадрат по обозначению")};
-  // A tube is its own designation: «Тр.140х4», «Труба 159x6», «Ø273х8» (round), «Гн.□100х4», «□120х80х5» (box).
+  // A tube is its own designation: «Труба 159x6», «Ø273х8» (round), «Гн.□100х4», «□120х80х5» (box). «Труба 160х5», «Тр.140х4»
+  // is a square tube 160×160×5 when a table of square ones has that size (the engineer, 25.10.2026: «если труба указана как
+  // 160х5, то это 160х160х5»; the masses of the sheet agree), or the sheet cites a standard of square tubes; «Ø», «ВГП» and a
+  // standard of round tubes cited keep it round.
+  if((m=/^(?:Тр\.?|Труба)(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)$/i.exec(t))&&squareTube(+m[1],Number(m[2]),standard))t="Тр.кв."+m[1]+"x"+m[2];
   if((m=/^(?:Тр\.?|Труба|Ø|ø)(ВГП)?((?:[ЦРМНДП]-)*)(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)$/i.exec(t))){
    // A water-gas pipe (ГОСТ 3262-75) is written by its conditional pass: «Труба 20×2,8» of the sheet citing 3262, «Труба
    // ВГП Ц-20х2,8» — Ду 20, D = 26,8.
@@ -230,6 +234,10 @@ window.irThreeSchemeView=(function(){
    return{shape:"box",h:bh,b:bb,s:bs,t:bs,r:r?number(r.R_mm):0,std:r?r.standard+(std?" (размера нет в "+std+")":""):"по обозначению"}
   }
   return null
+ }
+ function squareTube(a,s,standard){
+  var std=String(standard||"");if(/10704|8732|8734|3262|20295/.test(std))return false;if(/30245|8639|8645|32931/.test(std))return true;
+  return Boolean(sections.get("pipe-sq-8639-"+a+"x"+s)||sections.get("box-30245-"+a+"x"+a+"x"+s)||sections.get("pipe-32931-"+a+"x"+a+"x"+s))
  }
  // Root fillet of a rolled section (R of ГОСТ 8239, 8240, 8509; r of ГОСТ 26020 and 57837): 0 when the table has none.
  function root(r){return number(r.R_mm!=null?r.R_mm:r.r_mm)}

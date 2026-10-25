@@ -79,6 +79,10 @@ function createGlobalKnowledge({dir=GLOBAL_DIR}={}){
  function findProfile(text,{standard=""}={}){
   const t=String(text||"").replace(/\s+/g,"").replace(/[хХ×*]/g,"x").replace(/,/g,".");
   let m;
+  // «Труба 160х5», «Тр.140х4» — a square tube 160×160×5 when a table of square ones has that size (the engineer, 25.10.2026:
+  // «если труба указана как 160х5, то это 160х160х5»; the masses of the sheet agree) or the sheet cites a standard of square
+  // tubes; «Ø», «ВГП» and a standard of round tubes cited keep it round.
+  if((m=/^(?:Тр\.?|Труба)(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)$/iu.exec(t))&&squareTube(+m[1],Number(m[2]),standard+" "+text))return findProfile("Тр.кв."+m[1]+"x"+m[2],{standard});
   // A pair «2L80х6», «2[16П» (two angles or channels back to back): the row of one, mass of the pair.
   if((m=/^2(?=[L∟\[]|Уг|Шв)(.+)$/u.exec(t))){const one=findProfile(m[1],{standard});return one&&{...one,pair:2,mass_single_kg_m:one.mass_kg_m,mass_kg_m:Math.round(one.mass_kg_m*200)/100}}
   // A channel is often written without the bracket in a «Сечение» column: «10У», «20П» — only channel suffixes.
@@ -218,6 +222,11 @@ function createGlobalKnowledge({dir=GLOBAL_DIR}={}){
  // the thickness checked against the sortament the sheet cites (hot-rolled ГОСТ 19903-2015, cold-rolled ГОСТ 19904-90, strip
  // ГОСТ 103-2006 and wide universal ГОСТ 82-70 with their widths), else the first that has it; mass 1 m² = 7,85·t; with a
  // width — mass 1 m of the strip. `listed` false — the thickness is not in the list, shown for a check.
+ function squareTube(a,s,std){
+  if(/10704|8732|8734|3262|20295/.test(std))return false;if(/30245|8639|8645|32931/.test(std))return true;
+  return Boolean(confirmed("profiles-pipes-square-8639").find(r=>r.id==="pipe-sq-8639-"+a+"x"+s)||confirmed("profiles-box-30245").find(r=>r.id==="box-30245-"+a+"x"+a+"x"+s)||
+   confirmed("profiles-pipes-32931").find(r=>r.id==="pipe-32931-"+a+"x"+a+"x"+s))
+ }
  function plateOf(text,{standard=""}={}){
   const t=String(text||"").replace(/\s+/g,"").replace(/[хХ×*]/g,"x").replace(/,/g,".");
   let c;
