@@ -5,6 +5,9 @@
  * recognised locally (Tesseract, Russian model, no network). Before recognition long straight runs of dark pixels
  * (table rules, drawing lines) are wiped and an italic drafting font (ГОСТ 2.304 type Б, ~15°) is sheared upright:
  * both raise the share of read cells several times. Whether the font is italic is decided on the first area. Words come back as text items in the PDF's top-down points.
+ * A scanned sheet (thick strokes, rules broken into dashes by the scanner) is also cleared of thin specks and dashes
+ * before recognition, and a word read with every sign sure is kept though Tesseract doubts the word as a whole (a Ø it
+ * does not know, a mark of the drafting font).
  */
 const SCALE=3.5,MIN_CONFIDENCE=60,TILE_PT=700,OVERLAP_PT=40,MAX_PIXELS=60e6,SHEAR=Math.tan(12*Math.PI/180),RULE_PT=12;
 // Words worth keeping: letters or digits, not stray strokes read as "|", "=", "—".
@@ -15,15 +18,32 @@ async function createOcrWorker(ocr){
  await worker.setParameters({tessedit_pageseg_mode:"11"});
  return worker
 }
+// A word Tesseract doubts as a whole while every sign of it is read surely (≥ 90): a number (the Ø it does not know
+// comes as "@" or "©"), a mark ("П4", "ПЗ") or a word of four letters or more. Short words of letters are left out:
+// dashed lines of a scan read as "Вай", "Ван" with sure signs. "#" before a number is the Ø too ("#10700" at 55), but a
+// run of digits with commas read at a low word confidence comes the same way ("81,82,85" read "#18265" at 42): it is kept
+// from a word confidence of 50.
+const SURE_WORD=/^[@©Ø]?\d[\d.,]*$|^[А-ЯЁA-Z]{1,3}[З0-9]{1,3}$|^[А-ЯЁа-яё-]{4,}[.,:]?$/u,SURE_DIAMETER=/^#\d{4,6}$/u;
+function keep(w,lenient){
+ if(!WORD.test(w.text||""))return false;
+ if(w.confidence>=MIN_CONFIDENCE)return true;
+ const signs=w.symbols||[],text=String(w.text).replace(/[‘’'`]/gu,"");
+ return lenient&&w.confidence>=30&&signs.length>0&&signs.every(c=>c.confidence>=90)&&(SURE_WORD.test(text)||w.confidence>=50&&SURE_DIAMETER.test(text))
+}
 // Runs of words of one image, as a CAD text item would be: words of a line with no wide gap between them.
-async function recognise(worker,buffer){
+// lenient: the words of an area of the sheet (sure signs count, see keep); the turn of a sheet is judged by sure words.
+// A word kept by its sure signs alone is of the height of the surely read words of its line: a box several lines tall
+// is a misreading (УПН: "детина" 36 px tall beside "Шахтная" 8 px, joined, it swallowed the leader of the label).
+async function recognise(worker,buffer,lenient=false){
  const r=await worker.recognize(buffer,{},{blocks:true});
- const runs=[];
+ const runs=[],height=w=>w.bbox.y1-w.bbox.y0;
  for(const line of (r.data.blocks||[]).flatMap(b=>b.paragraphs.flatMap(p=>p.lines))){
+  const sure=line.words.filter(w=>WORD.test(w.text||"")&&w.confidence>=MIN_CONFIDENCE).map(height).sort((a,b)=>a-b),usual=sure[sure.length>>1];
   let run=null;
-  for(const w of line.words.filter(w=>w.confidence>=MIN_CONFIDENCE&&WORD.test(w.text||""))){
-   const h=w.bbox.y1-w.bbox.y0;
-   if(run&&w.bbox.x0-run.bbox.x1<=h*1.2&&Math.abs(w.bbox.y1-run.bbox.y1)<=h*0.4){
+  for(const w of line.words.filter(w=>keep(w,lenient)&&(w.confidence>=MIN_CONFIDENCE||!sure.length||height(w)<=usual*2.2))){
+   const h=height(w),hr=run?run.bbox.y1-run.bbox.y0:h,sureBoth=run&&w.confidence>=MIN_CONFIDENCE&&run.confidence>=MIN_CONFIDENCE;
+   // Brackets make a word taller ("лестница (90)"): words read surely are joined whatever their heights.
+   if(run&&w.bbox.x0-run.bbox.x1<=h*1.2&&Math.abs(w.bbox.y1-run.bbox.y1)<=h*0.4&&(sureBoth||Math.max(h,hr)<=Math.min(h,hr)*2.2)){
     run.text+=" "+w.text;run.bbox={x0:run.bbox.x0,y0:Math.min(run.bbox.y0,w.bbox.y0),x1:w.bbox.x1,y1:Math.max(run.bbox.y1,w.bbox.y1)};
     run.confidence=Math.min(run.confidence,w.confidence)
    }else{run={text:w.text,confidence:w.confidence,bbox:{...w.bbox}};runs.push(run)}
@@ -31,10 +51,12 @@ async function recognise(worker,buffer){
  }
  return runs
 }
-// Typical misreadings of the drafting font in a mark: "ФЗ" for Ф3, "КО" for К0.
+// Typical misreadings of the drafting font in a mark: "ФЗ" for Ф3, "ПЗ2" for П32, "КО" for К0, "К!" for К1; the Ø sign read as "@"
+// or "©" before a number; a stray quote inside a word ("Д‘нище").
 function clean(str){
- const s=String(str).replace(/^[|\\/()[\]{}'"“”‘’«»,;:]+|[|\\/[\]{}'"“”‘’«»,;:]+$/gu,"").trim();
- return s.replace(/^([А-ЯЁ]{1,3})([З0-9О]{1,4})$/u,(m,a,b)=>/\d/.test(b)||b.length===1?a+b.replace(/З/g,"3").replace(/О/g,"0"):m)
+ const s=String(str).replace(/^[|\\/()[\]{}'"“”‘’«»,;:]+|[|\\/[\]{}'"“”‘’«»,;:]+$/gu,"").trim()
+  .replace(/^[@©](?=\d{3,6}$)/u,"Ø").replace(/([А-ЯЁа-яё])[‘’'`](?=[а-яё])/gu,"$1").replace(/^([А-ЯЁ]{1,3}[З0-9]{0,2})!$/u,(m,a)=>a+"1");
+ return s.replace(/^([А-ЯЁ]{0,2}[А-ЖИ-НП-ЯЁ])([З0-9О]{1,4})$/u,(m,a,b)=>/\d/.test(b)||b.length===1?a+b.replace(/З/g,"3").replace(/О/g,"0"):m)
 }
 // Wipes long horizontal and vertical runs of dark pixels: rules of tables and lines of the drawing.
 function wipeRules(ctx,w,h,run){
@@ -43,6 +65,25 @@ function wipeRules(ctx,w,h,run){
  for(let y=0;y<h;y++){let s=-1;for(let x=0;x<=w;x++){const v=x<w&&dark[y*w+x];if(v&&s<0)s=x;if(!v&&s>=0){if(x-s>=run)kill.fill(1,y*w+s,y*w+x);s=-1}}}
  for(let x=0;x<w;x++){let s=-1;for(let y=0;y<=h;y++){const v=y<h&&dark[y*w+x];if(v&&s<0)s=y;if(!v&&s>=0){if(y-s>=run)for(let k=s;k<y;k++)kill[k*w+x]=1;s=-1}}}
  for(let i=0;i<w*h;i++)if(kill[i])p[i*4]=p[i*4+1]=p[i*4+2]=255;
+ ctx.putImageData(img,0,0)
+}
+// The usual width of strokes in pixels: the median length of dark runs across rows and columns. Lines drawn by a PDF
+// are 1–3 px at the reading scale, those of a scan 5–8 px.
+function strokeWidth(ctx,w,h){
+ const p=ctx.getImageData(0,0,w,h).data,count=new Uint32Array(41);let all=0;
+ const run=(n,len,at)=>{for(let a=0;a<n;a+=2){let r=0;for(let b=0;b<=len;b++){if(b<len&&p[at(a,b)*4]+p[at(a,b)*4+1]+p[at(a,b)*4+2]<600)r++;else if(r){if(r<=40){count[r]++;all++}r=0}}}};
+ run(h,w,(y,x)=>y*w+x);run(w,h,(x,y)=>y*w+x);
+ for(let i=1,c=0;i<=40;i++){c+=count[i];if(c>=all/2)return i}
+ return 0
+}
+// Opening of a scanned image (thinned by a pixel, then thickened back): specks and the dashes left of the rules go,
+// strokes of the lettering stay whole.
+function clearSpecks(ctx,w,h){
+ const img=ctx.getImageData(0,0,w,h),p=img.data,d=new Uint8Array(w*h),e=new Uint8Array(w*h);
+ for(let i=0;i<w*h;i++)d[i]=p[i*4]+p[i*4+1]+p[i*4+2]<600?1:0;
+ for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;e[i]=d[i]&&d[i-1]&&d[i+1]&&d[i-w]&&d[i+w]?1:0}
+ for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;d[i]=e[i]||e[i-1]||e[i+1]||e[i-w]||e[i+w]?1:0}
+ for(let i=0;i<w*h;i++){const v=d[i]?0:255;p[i*4]=p[i*4+1]=p[i*4+2]=v}
  ctx.putImageData(img,0,0)
 }
 // Renders a rectangle of the sheet (top-down points) and returns its words in sheet points.
@@ -57,6 +98,7 @@ async function readArea(page,rect,{canvas,worker,scale=SCALE,turned=false,shear=
  ctx.fillStyle="#fff";ctx.fillRect(0,0,W,H);
  await page.render({canvasContext:ctx,viewport,canvas:img}).promise;
  wipeRules(ctx,W,H,Math.round(RULE_PT*scale));
+ if(strokeWidth(ctx,W,H)>=5)clearSpecks(ctx,W,H);
  const read=async k=>{
   // Turned clockwise first when asked: x' = H - y, y' = x; then sheared upright: x" = x' + k·y'.
   const tw=turned?H:W,th=turned?W:H;
@@ -65,7 +107,7 @@ async function readArea(page,rect,{canvas,worker,scale=SCALE,turned=false,shear=
   oc.setTransform(1,0,k,1,0,0);
   if(turned){oc.translate(H,0);oc.rotate(Math.PI/2)}
   oc.drawImage(img,0,0);
-  return{k,runs:await recognise(worker,out.toBuffer("image/png"))}
+  return{k,runs:await recognise(worker,out.toBuffer("image/png"),true)}
  };
  const score=r=>r.runs.reduce((a,w)=>a+w.confidence*w.text.length,0);
  let best=await read(shear==="auto"?SHEAR:shear);
@@ -120,7 +162,8 @@ async function ocrPage(page,{canvas,worker,onArea=()=>{},turn=0}){
 // A scanned sheet may lie sideways or upside down (the scanner does not care): the whole sheet is read small in the
 // four positions and the one with the most confident words of three letters or more wins — only by a clear margin,
 // so that a sheet that reads poorly every way stays as it is. Returns degrees clockwise (0, 90, 180, 270).
-async function sheetTurn(page,{canvas,worker}){
+// onArea: called after each position, so that a slow sheet keeps reporting progress (a scan read four ways).
+async function sheetTurn(page,{canvas,worker,onArea=()=>{}}){
  const score={};
  for(const turn of [0,90,180,270]){
   const rotation=((page.rotate||0)+turn)%360,v=page.getViewport({scale:1,rotation}),scale=Math.min(2,Math.sqrt(4e6/(v.width*v.height)));
@@ -131,6 +174,7 @@ async function sheetTurn(page,{canvas,worker}){
   wipeRules(ctx,W,H,Math.round(RULE_PT*scale));
   const runs=await recognise(worker,img.toBuffer("image/png"));
   score[turn]=runs.reduce((n,w)=>n+(w.text.match(/[А-Яа-яЁё]{3,}/gu)||[]).join("").length*(w.confidence>=75?1:0.3),0);
+  onArea();
   // A sheet that reads well as it lies is not tried the other ways (most sheets: one probe, not four).
   if(turn===0&&score[0]>=40)return 0
  }
@@ -158,4 +202,4 @@ function dropLettering(segments,texts){
  const inside=(p,b)=>p.x>=b.x0&&p.x<=b.x1&&p.y>=b.y0&&p.y<=b.y1;
  return segments.filter(s=>!boxes.some(b=>inside(s.a,b)&&inside(s.b,b)))
 }
-module.exports={ocrPage,ocrImages,dropLettering,createOcrWorker,readArea,sheetTurn,turnGeometry};
+module.exports={ocrPage,ocrImages,dropLettering,createOcrWorker,readArea,sheetTurn,turnGeometry,clean,keep,recognise,strokeWidth,clearSpecks};

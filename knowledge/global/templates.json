@@ -464,6 +464,53 @@
     "АР"
    ],
    "test": "scripts/test-ai-panels-trims.js"
+  },
+  {
+   "id": "tpl-tank-scan-scheme",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds",
+    "meganorm-31385-2023"
+   ],
+   "name": "Монтажная схема резервуара одним сканом",
+   "depicts": "на одном листе: фасад или разрез 1-1, план днища, вид на крышу, ведомость отправочных марок, таблица патрубков и люков, штамп",
+   "signs": [
+    "скан без текстового слоя и без линий",
+    "«Отпр. марка | Наименование | Кол-во | Вес»",
+    "общий размер высоты на своей линии и цепочка «подъём крыши, пояса»",
+    "Ø под фасадом"
+   ],
+   "method": "src/ai-ocr.js: clearSpecks, keep; src/ai-tank-extract.js: extractTank (scanFacade), shipList, fittingList, buildTank, tankGap",
+   "applies_to": [
+    "КМ",
+    "КМД"
+   ],
+   "test": "scripts/test-ai-tank-scan.js"
+  },
+  {
+   "id": "tpl-nozzle-letter-table",
+   "kind": "drawing_template",
+   "status": "needs_check",
+   "sources": [
+    "meganorm-21502-2016",
+    "stroyinf-spds",
+    "meganorm-31385-2023"
+   ],
+   "name": "Таблица патрубков и люков с буквами",
+   "depicts": "Обозн. (буква на плане) | Наименование | Кол-во | Проход условный Ду | Давление Ру",
+   "signs": [
+    "заголовок «Таблица патрубков и люков»",
+    "буквы А, Б, В… в рамках на плане резервуара",
+    "столбец Ру с одинаковыми числами"
+   ],
+   "method": "src/ai-tank-extract.js: fittingList",
+   "applies_to": [
+    "КМ",
+    "КМД"
+   ],
+   "test": "scripts/test-ai-tank-scan.js"
   }
  ]
 }

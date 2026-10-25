@@ -425,7 +425,7 @@ function claudeScheme(ai,candidates){
 const reference=p=>p.docType==="АР"||p.docType==="ТХ";
 // Roof sheeting and decking are not frame members; such schemes are off unless ticked.
 const SHEETING=/лист[аы]?\s+покрыти|настил|профлист|профнастил/iu;
-const {buildTanks:buildTank}=require("./ai-tank-extract");
+const {buildTanks:buildTank,tankGap}=require("./ai-tank-extract");
 const {buildVessel,vesselFromSheets}=require("./ai-vessel");
 // The checked scheme as one scheme of the plan: its grid and its elements in mm, levels as they were checked.
 function verifiedScheme(ai){
@@ -514,7 +514,9 @@ function buildPlan(draft,ai=null,heights={},opts={}){
   schemeInfo.push(info);if(info.place)candidates.push({scheme:s,info,decision:null})
  }
  const placed=candidates.filter(c=>c.scheme.kind==="tank"||c.scheme.kind==="verified"||c.scheme.kind==="elevation"&&(c.scheme.axesX?.length||0)+(c.scheme.axesY?.length||0)>=3||c.scheme.axesX?.length>=2&&c.scheme.axesY?.length>=2||c.scheme.local&&c.scheme.axesX?.length>=1&&c.scheme.axesY?.length>=1);
- if(!placed.length)return{grid:null,elements:[],skipped,schemes:schemeInfo,ready:false,problems:["Нет схем для расстановки"],catalog};
+ // Sheets of a tank that gave none say what they lack (a scan of a montage scheme without the diameter).
+ const gap=!tank&&!ver?tankGap(draft.pages||[]):null;
+ if(!placed.length)return{grid:null,elements:[],skipped,schemes:schemeInfo,ready:false,problems:["Нет схем для расстановки",...(gap?[gap]:[])],catalog};
  const merged=mergeGrids(placed.map(c=>c.scheme));
  seatFramed(merged,placed,draft);
  const problems=[],elements=[],later=[];

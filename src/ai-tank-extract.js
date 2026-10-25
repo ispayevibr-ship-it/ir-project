@@ -20,22 +20,29 @@ const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 
 // Diameters written on the sheet: a value right after a diameter sign, or "Ø8250" in one text.
 function diameters(texts){
- const out=[];
+ const out=[],signed=[];
  for(const t of texts){
   const one=/^(?:Ø|⌀|Ç|ø)\s*(\d{3,6})\**$/u.exec(t.str.trim());
-  if(one){out.push(Number(one[1]));continue}
+  if(one){out.push(Number(one[1]));signed.push({t,v:Number(one[1])});continue}
   // "Dн=10430", "Дн = 10430"; OCR reads the Ø of "Øн" as 0 or О.
   const named=/^(?:D|Д|Ø|0|О)[нвn]?\s*=\s*(\d{3,6})\**$/u.exec(t.str.trim().replace(/\s+/g," "));
   if(named){out.push(Number(named[1]));continue}
   // "Двн 15180" (OCR: "Дбн"), and the Ø that OCR reads as "#" ("#8530").
-  const dvn=/^(?:D|Д)[вб]н\s*=?\s*(\d{4,6})$/u.exec(t.str.trim())||(t.ocr?/^#\s*(\d{4,6})$/u.exec(t.str.trim()):null);
-  if(dvn){out.push(Number(dvn[1]));continue}
+  // OCR also reads it as "2" before a five-digit diameter ("210700"): no tank has a six-digit size.
+  const dvn=/^(?:D|Д)[вб]н\s*=?\s*(\d{4,6})$/u.exec(t.str.trim())||(t.ocr?/^#\s*(\d{4,6})$/u.exec(t.str.trim())||/^2(\d{5})$/u.exec(t.str.trim()):null);
+  if(dvn){out.push(Number(dvn[1]));signed.push({t,v:Number(dvn[1])});continue}
   // The inner diameter on a wall development: "Вн Ø10480", "Вн. Ø 18980".
   const inner=/^Вн\.?\s*(?:Ø|⌀|Ф|ø|0)?\s*(\d{4,6})\**$/u.exec(t.str.trim());
   if(inner){out.push(Number(inner[1]));continue}
   if(!DIAMETER_SIGN.test(t.str.trim()))continue;
   const next=texts.find(o=>o!==t&&Math.abs(o.y-t.y)<3&&o.x>t.x&&o.x-t.x<t.size*1.6&&num(o.str));
   if(next)out.push(num(next.str))
+ }
+ // A bare size a little smaller than a written Ø, over or under it in the same column of the view, is the wall: the Ø
+ // is the bottom jutting out beyond the wall (РВС-600 «17-600/1»: 10480 over Ø10700).
+ for(const {t,v} of signed){
+  const wall=texts.find(o=>o!==t&&/^\d{4,6}$/u.test(o.str.trim())&&Number(o.str)<v&&Number(o.str)>=v*0.94&&Math.abs(o.x-t.x)<40&&Math.abs(o.y-t.y)>20&&Math.abs(o.y-t.y)<400&&Math.abs(o.angle||0)<5&&Math.abs(t.angle||0)<5);
+  if(wall&&!out.includes(Number(wall.str)))out.push(Number(wall.str))
  }
  return out
 }
@@ -322,6 +329,29 @@ function nozzleTable(texts){
  }
  return rows.length>=2?rows:null
 }
+// "Таблица патрубков и люков" of a montage scheme: Обозн. (the letter on the plan) | Наименование | Кол. | Ду | Ру. The
+// places are the letters on the plan; on a scan they are lost with the lines, the list stays — names, Ду and numbers.
+// The column of Ду is the one with most nominal bores in it (the pressure column next to it repeats "10", not a bore).
+const NOMINAL=new Set([15,20,25,32,40,50,65,80,100,125,150,200,250,300,350,400,450,500,600,700,800,900,1000]);
+function fittingList(texts){
+ // OCR may garble the word: "Таблииа патрубков".
+ const head=texts.find(t=>Math.abs(t.angle||0)<5&&/табл\S*\s+(?:\S+\s+)?(?:патрубк|штуцер)/iu.test(t.str));if(!head)return null;
+ const zone=texts.filter(t=>Math.abs(t.angle||0)<5&&t.y>head.y+8&&t.y<head.y+320&&t.x>head.x-150&&t.x<head.x+400);
+ const cols=[];
+ for(const t of zone.filter(t=>/^\d{2,4}$/.test(t.str.trim())&&NOMINAL.has(Number(t.str)))){const c=cols.find(c=>Math.abs(c.x-t.x)<12);if(c)c.items.push(t);else cols.push({x:t.x,items:[t]})}
+ const du=cols.sort((a,b)=>b.items.length-a.items.length)[0];if(!du||du.items.length<2)return null;
+ const names=zone.filter(t=>t.x<du.x-40&&/[а-яё]{3}|КИП/u.test(t.str)&&!/^(?:Обозн|Наимен|Кол|Проход|Давлен|условн|во\b|Ду|Ру)/iu.test(t.str.trim())).sort((a,b)=>a.y-b.y);
+ const rows=[];
+ for(const n of names){
+  if(rows.length&&Math.abs(rows[rows.length-1].y-n.y)<6){rows[rows.length-1].name+=" "+n.str.trim();continue}
+  const d=du.items.find(t=>Math.abs(t.y-n.y)<7),q=zone.find(t=>Math.abs(t.y-n.y)<7&&t.x>n.x+(n.width||0)-5&&t.x<du.x-10&&/^\d{1,2}$/.test(t.str.trim()));
+  const letter=zone.find(t=>Math.abs(t.y-n.y)<7&&t.x<n.x-5&&/^[А-ЯЁ]$/u.test(t.str.trim()));
+  rows.push({y:n.y,mark:letter?letter.str.trim():null,name:n.str.trim(),qty:q?Number(q.str):null,du:d?Number(d.str):null})
+ }
+ const named=r=>/люк|сифон|патруб|штуцер|клапан|кран|лаз/iu.test(r.name)?r.name:"Патрубок "+(/^[А-ЯЁ][а-яё]/u.test(r.name)?r.name[0].toLowerCase()+r.name.slice(1):r.name);
+ const out=rows.filter(r=>r.du).map(({y,...r})=>({...r,name:named(r).replace(/[.,;]+$/u,""),fitting:true,table:true}));
+ return out.length>=2?out:null
+}
 // The sheet of the shaft stair itself ("Шахтная лестница Ш1", its sections and hoops): its lowest and highest level
 // marks are the foot and the top landing (the facade of the tank may show other levels next to it).
 function ladderSheetOf(texts,all){
@@ -427,13 +457,17 @@ function extractTank({segments=[],texts=[],widthPt=0,heightPt=0}){
   return table||platforms||lsheet||roof?{diameters:[],title:"",byAngle:[],...(table?{nozzleTable:table}:{}),...(platforms?{platforms}:{}),...(lsheet?{ladderSheet:lsheet}:{}),...(roof?{roof}:{})}:null
  }
  const D=diameters(texts).filter(v=>v>=2000&&v<=80000);
- // "Вид профиля и ГОСТ" heads the steel specification, not a view of the tank.
- const title=texts.filter(t=>/^(План|Фасад|Вид|Разрез|Общий вид|Схема расположения)/iu.test(t.str)&&!/^Вид\s+профил/iu.test(t.str)).map(t=>t.str).join(" | ");
+ // "Вид профиля и ГОСТ" heads the steel specification, "Вид изменения" a column of the stamp: not views of the tank.
+ const title=texts.filter(t=>/^(План|Фасад|Вид|Разрез|Общий вид|Схема расположения)/iu.test(t.str)&&!/^Вид\s+(?:профил|изменени)/iu.test(t.str)).map(t=>t.str).join(" | ");
  const isFacade=/Фасад|Общий вид|^Вид\s/iu.test(title),isPlan=/План|Схема расположения/iu.test(title);
  const area={x0:60,y0:40,x1:Math.max(200,widthPt-560),y1:heightPt-40};
+ // A scanned montage scheme (read by OCR, no lines) whose facade title is lost: its diameter and a tall vertical
+ // dimension are enough to read the facade.
+ const scanFacade=!isFacade&&D.length>0&&texts.filter(t=>t.ocr).length>texts.length/2&&texts.some(t=>Math.abs(Math.abs(t.angle||0)-90)<5&&num(t.str)>=3000);
  // Without a diameter sign: a facade dimensioned from the axis, two equal halves side by side ("5215 5215").
  if(!D.length&&isFacade){
-  const flat=texts.filter(t=>Math.abs(t.angle||0)<5&&num(t.str)>=1000).sort((a,b)=>a.y-b.y||a.x-b.x);
+  // Not in the tables right of the drawing (the masses of a mark and of all of them: "8875 8875").
+  const flat=texts.filter(t=>Math.abs(t.angle||0)<5&&num(t.str)>=1000&&t.x<area.x1).sort((a,b)=>a.y-b.y||a.x-b.x);
   for(let i=0;i+1<flat.length;i++){const a=flat[i],b=flat[i+1];if(Math.abs(a.y-b.y)<3&&num(a.str)===num(b.str)&&b.x-a.x<num(a.str)){D.push(num(a.str)*2);break}}
  }
  // Items written with their angle on the plan: "Патрубок … Ду 150(323°)", "Люк световой Ду 500(283°)".
@@ -458,7 +492,7 @@ function extractTank({segments=[],texts=[],widthPt=0,heightPt=0}){
  // shipped in rolls or unrolled.
  if(/наворачива\S*|каркас\S*\s+наворачивани|рулон\S*\s+(?:стенк|полотнищ)|(?:стенк|полотнищ)\S*\s+(?:\S+\s+){0,2}рулон|рулонн\S*\s+(?:сборк|монтаж|метод|заготовк)|разворачива\S*\s+рулон/iu.test(all))out.rolled=true;
  const passport=passportOf(texts);if(passport)out.passport=passport;
- const ship=shipList(texts);if(ship)out.ship=ship;
+ const ship=shipList(texts),fl=fittingList(texts);if(ship||fl)out.ship=[...(ship||[]),...(fl||[])];
  // Plan: a big circle.
  // A facade sheet may carry the plan too (small tanks: facade, bottom and roof plan on one sheet).
  const circle=isPlan||!isFacade?circleOf(segments,area):(c=>c&&c.r>80?c:null)(circleOf(segments,{...area,x0:area.x0+(area.x1-area.x0)*0.4}));
@@ -498,7 +532,13 @@ function extractTank({segments=[],texts=[],widthPt=0,heightPt=0}){
   const top=win.indexOf(Math.max(...win)),usual=[...win].sort((a,b)=>a-b)[18];
   const centre=[-1,0,1].reduce((acc,k)=>{const i=(top+k+36)%36;return{w:acc.w+sectors[i],m:acc.m+sectors[i]*(top*10+5+k*10)}},{w:0,m:0});
   const outside=win[top]>r*3&&win[top]>=usual*2?{bearing:Math.round(((centre.m/centre.w)%360+360)%360/5)*5,weight:Math.round(win[top])}:null;
-  out.plan={radiusPt:r,roofMembers:members.length,items,...(outside?{outside}:{}),outsideSectors:sectors.map(v=>Math.round(v/r*100)/100)};
+  // A stair named on the plan ("Шахтная лестница" with its leader): the bearing from the centre to the leader end.
+  // A leader ends somewhere on the stair, not on its axis: within 6° of an axis of the plan it is on the axis.
+  const named=texts.filter(t=>Math.abs(t.angle||0)<5&&/^(?:шахтн\S*|кольцев\S*\s+лестниц\S*|лестниц\S*)(?:\s|$)/iu.test(t.str.trim())&&dist(t,c)<r*4)
+   .map(t=>({t,p:leaderEnd(t,segments)})).filter(x=>dist(x.p,c)>r*0.8&&dist(x.p,c)<r*3).sort((a,b)=>dist(a.p,c)-dist(b.p,c))[0];
+  const stair=named?(b=>{const axis=Math.round(b/90)*90%360;return{bearing:Math.abs(((b-axis+540)%360)-180)<=6?axis:Math.round(b/5)*5%360,kind:STAIR_KIND(named.t.str)||"shaft"}})
+   ((((90-Math.atan2(-(named.p.y-c.y),named.p.x-c.x)*180/Math.PI)%360)+360)%360):null;
+  out.plan={radiusPt:r,roofMembers:members.length,items,...(outside?{outside}:{}),...(stair?{stair}:{}),outsideSectors:sectors.map(v=>Math.round(v/r*100)/100)};
   const cs=callouts(texts,segments,circle,widthPt,heightPt);
   if(cs.length)out.callouts=cs;
   if(/анкерн/iu.test(all)){const an=anchorsOf(segments,circle);if(an)out.anchors=an}
@@ -514,7 +554,7 @@ function extractTank({segments=[],texts=[],widthPt=0,heightPt=0}){
  // OCR may split the title ("СХЕМА РАСПОЛОЖЕНИЯ" | "И ОГРАЖДЕНИЙ ПО ПОКРЫТИЮ"): the words anywhere on the sheet count.
  const platforms=/площад/iu.test(all)&&/огражд/iu.test(all)&&/покрыти|крыш/iu.test(all)&&/схема\s+расположения/iu.test(all)?platformsOf(texts):null;if(platforms)out.platforms=platforms;
  // Facade: the wall height is the largest vertical dimension; the roof rise is the one above it on the same line.
- if(isFacade){
+ if(isFacade||scanFacade){
   // Roof slope "1:10" (not the bottom slope "1:100"), level marks ("−0,030" at the stair foot, "+9,170" its top)
   // and the width of what stands beside the wall: the third dimension after the two radii ("5215 5215 2500").
   const slopes=texts.map(t=>/^1\s*:\s*(\d{1,3})$/.exec(t.str.trim())).filter(Boolean).map(m=>Number(m[1])).filter(v=>v>=4&&v<=40);
@@ -535,14 +575,29 @@ function extractTank({segments=[],texts=[],widthPt=0,heightPt=0}){
    if(lv.length)out.facade={height:lv.length>1&&lv[0]-lv[1]<lv[0]/3?lv[1]:lv[0],rise:lv.length>1&&lv[0]-lv[1]<lv[0]/3?lv[0]-lv[1]:null,items:[]}
   }
   if(tall){
-   const H=tall.v;
+   let H=tall.v,how=null;
    // The dimension line of the height: the longest vertical segment next to its text.
    const line=segments.filter(s=>Math.abs(s.a.x-s.b.x)<0.5&&Math.abs(s.a.x-tall.t.x)<16&&Math.min(s.a.y,s.b.y)<tall.t.y&&Math.max(s.a.y,s.b.y)>tall.t.y-tall.t.width)
     .sort((a,b)=>Math.abs(b.a.y-b.b.y)-Math.abs(a.a.y-a.b.y))[0];
-   const rise=vert.filter(x=>x!==tall&&Math.abs(x.t.x-tall.t.x)<16&&x.t.y<tall.t.y-tall.t.width&&x.v>=100&&x.v<H/3).sort((a,b)=>b.v-a.v)[0];
-   const facade={height:H,rise:rise?rise.v:null,items:[]};
+   let rise=vert.filter(x=>x!==tall&&Math.abs(x.t.x-tall.t.x)<16&&x.t.y<tall.t.y-tall.t.width&&x.v>=100&&x.v<H/3).sort((a,b)=>b.v-a.v)[0];
+   // An overall dimension is drawn on a line of its own, outside the chain of the wall: the roof rise heading the
+   // neighbouring line (its text above the tall one's) makes the tall one the height up to the roof top. A second
+   // overall one shorter by a written base ("8642" and "8442" with "200": the beams under the bottom) starts at the
+   // bottom; without it the base is the short size closing the neighbouring line at the bottom end ("200" under
+   // "6442" with "980" on top). The wall is what is left.
+   if(!rise){
+    const top=vert.filter(x=>x!==tall&&Math.abs(x.t.x-tall.t.x)>=8&&Math.abs(x.t.x-tall.t.x)<48&&x.t.y<tall.t.y-tall.t.width&&x.v>=300&&x.v<H/3).sort((a,b)=>a.t.y-b.t.y)[0];
+    if(top){
+     const second=vert.find(x=>x!==tall&&x.v<tall.v&&x.v>=tall.v-600&&vert.some(b=>b.v===tall.v-x.v));
+     const low=second?null:vert.filter(x=>x!==tall&&x!==top&&Math.abs(x.t.x-top.t.x)<25).sort((a,b)=>b.t.y-a.t.y)[0];
+     const base=second?tall.v-second.v:low&&low.v>=100&&low.v<=600&&low.t.y-tall.t.y>=(tall.t.y-top.t.y)*0.6?low.v:0;
+     H=tall.v-base-top.v;rise=top;
+     how="общий размер "+tall.v+" за вычетом подъёма крыши "+top.v+(base?" и опоры под днищем "+base:"")
+    }
+   }
+   const facade={height:H,rise:rise?rise.v:null,items:[],...(how?{how}:{})};
    if(line){
-    const y0=Math.max(line.a.y,line.b.y),y1=Math.min(line.a.y,line.b.y),k=H/(y0-y1);
+    const y0=Math.max(line.a.y,line.b.y),y1=Math.min(line.a.y,line.b.y),k=tall.v/(y0-y1);
     for(const {t,mark} of marksOf(texts,widthPt,heightPt)){
      const p=leaderEnd(t,segments);
      facade.items.push({mark,z:Math.round((y0-p.y)*k/10)*10})
@@ -551,6 +606,8 @@ function extractTank({segments=[],texts=[],widthPt=0,heightPt=0}){
    out.facade=facade
   }
  }
+ // A scanned sheet without a facade title is taken for one only with its shape: the roof rise on top of the height.
+ if(scanFacade&&out.facade&&!out.facade.rise)delete out.facade;
  if(out.facade&&out.facadeExtra)Object.assign(out.facade,out.facadeExtra);
  delete out.facadeExtra;
  // The bottom sheets "—8х1500х6000": the thickest one is the thickness of the bottom (its top is at 0,000).
@@ -613,29 +670,61 @@ function bottomKindOf(texts){
  else if(sheet&&Number(sheet[2])>=200&&Number(sheet[2])<=2000){out.annular_width_mm=Number(sheet[2]);out.annular_thickness_mm=Number(sheet[1])}
  return Object.keys(out).length?out:null
 }
+// Words of a dispatch list of a tank: a word OCR misread by a letter or two ("Белки", "Керкас", "Летрубки") is put
+// right when it stands that close to one of them and to no other.
+const SHIP_WORDS=["Стенка","Днище","Щит","Щиты","покрытия","Центральное","кольцо","Кольцо","опорного","Элемент","Элементы","люка","Люк","Патрубки","патрубков",
+ "Патрубок","Поручень","Свободны","Кронштейн","Кронштейны","Площадка","Площадки","Ограждение","Балки","Балка","Упор","Упоры","Контейнер","Каркас","наворачивания",
+ "Лестница","Шахтная","Настил","Окрайка","Крыша","Опора","кольца","крепления","усиления","Заглушка","Фланец","Подкос","Стремянка","монтажная","петля"];
+function editDistance(a,b){
+ const d=Array.from({length:a.length+1},(_,i)=>[i,...new Array(b.length).fill(0)]);for(let j=1;j<=b.length;j++)d[0][j]=j;
+ for(let i=1;i<=a.length;i++)for(let j=1;j<=b.length;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+ return d[a.length][b.length]
+}
+function shipWord(w){
+ const core=w.replace(/[^А-ЯЁа-яё]+$/u,""),tail=w.slice(core.length);
+ if(core.length<3||SHIP_WORDS.some(s=>s.toLowerCase()===core.toLowerCase()))return w;
+ // "Щ" of the drafting font is read as "Ц": "Цит покрытия".
+ if(/^Цит[ыа]?$/u.test(core))return"Щ"+core.slice(1)+tail;
+ const most=core.length>=8?2:core.length>=5?1:0;if(!most)return w;
+ const near=SHIP_WORDS.map(s=>({s,d:editDistance(core.toLowerCase(),s.toLowerCase())})).filter(x=>x.d<=most).sort((a,b)=>a.d-b.d);
+ if(!near.length||near.length>1&&near[1].d===near[0].d&&near[1].s.toLowerCase()!==near[0].s.toLowerCase())return w;
+ const s=near[0].s;return(/^[А-ЯЁ]/u.test(core)?s[0].toUpperCase():s[0].toLowerCase())+s.slice(1)+tail
+}
 // "Ведомость отправочных элементов" (any table headed Марка | Наименование | Кол.): what is shipped and how many.
 // The text layer of КМД sheets loses cells now and then: a row is anchored by its name, a lost mark is the one between
-// its neighbours ("РС3", ?, "РС5" → "РС4"), a bare prefix in the first row is number 1.
+// its neighbours ("РС3", ?, "РС5" → "РС4"), a bare prefix in the first row is number 1. Read from a scan: the head may
+// be "Отпр. марка" (OCR: "тор. морка") and "Наимено…", a mark has its number (a letter alone is a misread "П1"), the
+// words of the names are put right by the list of the usual ones.
 function shipList(texts){
  const out=[];
- for(const head of texts.filter(t=>/^Марка,?$/iu.test(t.str.trim())&&Math.abs(t.angle||0)<5)){
-  const nameHead=texts.find(t=>/^Наименование/iu.test(t.str.trim())&&t.x>head.x&&t.x-head.x<350&&Math.abs(t.y-head.y)<14);if(!nameHead)continue;
+ for(const head of texts.filter(t=>/^(?:\S{1,7}\.\s*)?м[ао]рка,?$/iu.test(t.str.trim())&&Math.abs(t.angle||0)<5)){
+  // On a scan the header may come as the end of the word only ("обание"): the names then start right of the marks.
+  const near=t=>t.x>head.x&&t.x-head.x<350&&Math.abs(t.y-head.y)<14;
+  const full=texts.find(t=>/^Наимен/iu.test(t.str.trim())&&near(t)),nameHead=full||(head.ocr?texts.find(t=>t.ocr&&/(?:ован|обан)ие\.?$/iu.test(t.str.trim())&&near(t)):null);
+  if(!nameHead)continue;
   const qtyHead=texts.find(t=>/^Кол/iu.test(t.str.trim())&&t.x>nameHead.x&&t.x-nameHead.x<400&&Math.abs(t.y-head.y)<14);
   const right=qtyHead?qtyHead.x-8:nameHead.x+nameHead.width+150;
   const end=texts.filter(t=>/^(Итого|Всего)/iu.test(t.str.trim())&&t.y>head.y&&Math.abs(t.x-nameHead.x)<300).sort((a,b)=>a.y-b.y)[0];
   // "Спецификация элементов на патрубки": every row is a fitting, named by its purpose ("Загрузочный", "Сифон").
   const fittings=texts.some(t=>t.y<head.y&&head.y-t.y<60&&Math.abs(t.x-head.x)<500&&/спецификаци|ведомост/iu.test(t.str)&&/патруб|штуцер|люк/iu.test(t.str));
   const y1=end?end.y:head.y+600;
-  const names=texts.filter(t=>t.y>head.y+8&&t.y<y1&&t.x>Math.max(head.x+25,nameHead.x-70)&&t.x<right&&/[а-яё]{3}/iu.test(t.str)&&!/^(Марка|Наименование|Кол|Масса|шт|общ|ед|поз|во)\.?$|^(Сборочные\s+единицы|Детали)$/iu.test(t.str.trim())&&Math.abs(t.angle||0)<5).sort((a,b)=>a.y-b.y);
+  const names=texts.filter(t=>t.y>head.y+8&&t.y<y1&&t.x>(full?Math.max(head.x+25,nameHead.x-70):head.x+25)&&t.x<right&&/[а-яё]{3}/iu.test(t.str)&&!/^(Марка|Наименование|Кол|Масса|шт|общ|ед|поз|во)\.?$|^(Сборочные\s+единицы|Детали)$/iu.test(t.str.trim())&&Math.abs(t.angle||0)<5).sort((a,b)=>a.y-b.y);
   const rows=[];
   for(const n of names){
-   if(rows.length&&Math.abs(rows[rows.length-1].y-n.y)<6){rows[rows.length-1].name+=" "+n.str.trim();continue}
-   // The table ends where the rows stop following each other (the stamp below it).
-   if(rows.length>=2){const gaps=rows.slice(1).map((r,i)=>r.y-rows[i].y).sort((a,b)=>a-b),g=gaps[gaps.length>>1];if(n.y-rows[rows.length-1].y>g*3)break}
-   const mk=texts.find(t=>Math.abs(t.y-n.y)<7&&t.x>=head.x-15&&t.x<head.x+70&&/^[А-ЯЁA-Z][А-ЯЁA-Zа-яё]{0,3}-?\d{0,3}[а-я]?$/u.test(t.str.trim()));
+   const words=n.ocr?n.str.trim().split(/\s+/).map(shipWord).join(" "):n.str.trim();
+   if(rows.length&&Math.abs(rows[rows.length-1].y-n.y)<6){rows[rows.length-1].name+=" "+words;continue}
+   // The table ends where the rows stop following each other (the stamp below it); rows whose names a scan lost still
+   // have their marks.
+   const markAt=t=>t.x>=head.x-15&&t.x<head.x+70&&/^[А-ЯЁA-Z][А-ЯЁA-Zа-яё]{0,3}-?\d{0,3}(?:-\d{1,3})?[а-я]?$/u.test(t.str.trim())&&(!t.ocr||/\d/.test(t.str));
+   if(rows.length>=2){
+    const gaps=rows.slice(1).map((r,i)=>r.y-rows[i].y).sort((a,b)=>a-b),g=gaps[gaps.length>>1],last=rows[rows.length-1].y;
+    const marked=texts.filter(t=>t.y>last+g/2&&t.y<n.y-g/2&&markAt(t)).map(t=>t.y).sort((a,b)=>a-b);
+    if([last,...marked,n.y].some((y,i,a)=>i>0&&y-a[i-1]>g*3))break
+   }
+   const mk=texts.find(t=>Math.abs(t.y-n.y)<7&&markAt(t));
    const qty=texts.filter(t=>Math.abs(t.y-n.y)<7&&/^\d{1,4}$/.test(t.str.trim())&&(qtyHead?Math.abs(t.x-qtyHead.x)<35:t.x>n.x+n.width-5)).sort((a,b)=>a.x-b.x)[0];
    const du=texts.map(t=>Math.abs(t.y-n.y)<7&&/(?:Ду|Dy|Ду)\s*-?\s*(\d{2,4})/iu.exec(t.str)).find(Boolean);
-   rows.push({y:n.y,mark:mk?mk.str.trim().replace("-",""):null,name:n.str.trim(),qty:qty?Number(qty.str):null,...(du?{du:Number(du[1])}:{}),...(fittings?{fitting:true}:{})})
+   rows.push({y:n.y,mark:mk?mk.str.trim().replace(/^([^\d-]+)-(?=\d)/u,"$1"):null,name:words,qty:qty?Number(qty.str):null,...(du?{du:Number(du[1])}:{}),...(fittings?{fitting:true}:{})})
   }
   if(rows.length<2)continue;
   // A lost or bare mark between marks of one series: "РС3", ?, "РС5" → "РС4"; "РС", "РС2" → "РС1".
@@ -643,8 +732,9 @@ function shipList(texts){
   for(let pass=0;pass<rows.length;pass++)rows.forEach((r,i)=>{
    const p=parse(r.mark),pv=parse(rows[i-1]?.mark),nx=parse(rows[i+1]?.mark);
    if(r.mark&&!(p&&!p[2]))return;
-   if(nx&&nx[2]&&(!p||p[1]===nx[1]))r.mark=nx[1]+(Number(nx[2])-1);
-   else if(pv&&pv[2]&&(!p||p[1]===pv[1]))r.mark=pv[1]+(Number(pv[2])+1)
+   // Between two series ("П33", ?, "Я1") the row goes on the series above it; there is no number 0.
+   const up=nx&&nx[2]&&Number(nx[2])>1&&(!p||p[1]===nx[1])?nx[1]+(Number(nx[2])-1):null,down=pv&&pv[2]&&(!p||p[1]===pv[1])?pv[1]+(Number(pv[2])+1):null;
+   const m=up&&down&&pv[1]!==nx[1]?down:up||down;if(m)r.mark=m
   });
   // Fonts of some КМД exports swap letters in the text layer ("Площабка", "Патрудок", "Шасба").
   out.push(...rows.map(({y,...r})=>({...r,name:r.name.replace(/\s+/g," ").replace(/лощабк/gu,"лощадк").replace(/[ао]тру[дб]ок/gu,"атрубок").replace(/наклабк/gu,"накладк").replace(/(?<![а-яё])витов/giu,"винтов").replace(/Шасб/gu,"Шайб")})))
@@ -715,17 +805,30 @@ function buildTank(pages){
  const plan=plans.slice().sort((a,b)=>score(b)-score(a))[0];
  const framing=plans.slice().sort((a,b)=>b.tank.plan.roofMembers-a.tank.plan.roofMembers)[0];
  const facade=tanks.find(p=>p.tank.facade);
- const passport=Object.assign({},...tanks.map(p=>p.tank.passport).filter(Boolean));
- const D=wallDiameter(tanks.flatMap(p=>p.tank.diameters||[]),passport.diameter);
- // Without a plan (scanned sheets give no lines) the tank stands on what the text says: its dispatch list or courses.
- if(!plan&&!tanks.some(p=>p.tank.byAngle?.length||p.tank.nozzleTable?.length||p.tank.fromClaude||p.tank.ship?.some(r=>/^(?:стенк|днищ)/iu.test(r.name))||p.tank.courses?.length)||!D)return null;
+ // The general data of the tank. A set of several tanks has the data of each (УПН: «Ø15180, 12,00 м» of РВС-2000 and
+ // «Ø6550, 7,45 м» of another): a passport of another diameter is another tank's. The one of the known diameter (the
+ // knowledge base, Claude) leads, else the first one.
+ const passports=tanks.map(p=>p.tank.passport).filter(Boolean),known=tanks.find(p=>p.tank.fromClaude)?.tank.diameters?.[0];
+ const same=(a,b)=>Math.abs(a-b)/b<=0.06;
+ const lead=passports.find(p=>known&&p.diameter&&same(p.diameter,known))||passports.find(p=>p.diameter)||{};
+ const passport=Object.assign({},...passports.filter(p=>!p.diameter||!lead.diameter||same(p.diameter,lead.diameter)),lead);
+ // The Ø of the sheets of the shaft stair are its cage hoops (РВС-700: «Ø2660» on two sheets of Ш1), not the wall.
+ const own=tanks.filter(p=>!p.tank.ladderSheet).flatMap(p=>p.tank.diameters||[]);
+ const D=wallDiameter(own.length?own:tanks.flatMap(p=>p.tank.diameters||[]),passport.diameter);
+ // Without a plan (scanned sheets give no lines) the tank stands on what the text says: its dispatch list or courses,
+ // or the facade of a scanned montage scheme with its diameter.
+ if(!plan&&!tanks.some(p=>p.tank.byAngle?.length||p.tank.nozzleTable?.length||p.tank.fromClaude||p.tank.ship?.some(r=>/^(?:стенк|днищ)/iu.test(r.name))||p.tank.courses?.length||p.tank.facade?.height&&p.tank.diameters?.length)||!D)return null;
  const fc={...(facade?.tank.facade||{})};
  // The wall height: the vertical dimension the courses of the wall add up to (the tallest one often runs to the roof
  // top: then the rest above the wall is the roof rise), else the written one of the general data.
  const sums=tanks.flatMap(p=>p.tank.courses||[]).filter(c=>c.length>=2&&c.length<=20).map(c=>c.reduce((a,b)=>a+b,0));
  const byCourses=sums.find(v=>(fc.verticals||[]).includes(v)&&v!==fc.height)||(passport.height&&sums.find(v=>Math.abs(v-passport.height)<=Math.max(20,v*0.005)));
  if(byCourses){const rest=fc.height-byCourses;fc.rise=fc.height>byCourses&&rest<byCourses/3?fc.rise&&fc.rise<rest?fc.rise:rest:null;fc.height=byCourses}
- else if(passport.height&&(!fc.height||Math.abs(fc.height-passport.height)>passport.height*0.1)){fc.height=passport.height;fc.rise=null}
+ // The general data round the height to the metre ("12,00 м"); the level of the wall top on the facade ("+11,920") is exact.
+ else if(passport.height&&(!fc.height||Math.abs(fc.height-passport.height)>passport.height*0.1)){
+  const top=(fc.levels||[]).filter(v=>Math.abs(v-passport.height)<=passport.height*0.02).sort((a,b)=>Math.abs(a-passport.height)-Math.abs(b-passport.height))[0];
+  fc.height=top||passport.height;fc.rise=null
+ }
  const R=Math.round(D/2),H=fc.height||null;
  // Roof rise: written above the wall, else from the roof slope ("1:10" over the radius), else a usual cone.
  const rise=fc.rise??(fc.slope?Math.round(R/fc.slope/10)*10:Math.round(D/16));
@@ -744,11 +847,13 @@ function buildTank(pages){
  const written=tanks.map(p=>p.tank.ladder).find(Boolean)||null;
  // Several tanks of the set on their layout sheet: each with what stands outside it (the stair) at its bearing.
  const lay=tanks.map(p=>p.tank.layout).find(Boolean)||null;
- const stairRow=shipRow(/лестниц/iu);
+ const stairRow=shipRow(/лестниц/iu),labelled=tanks.map(p=>p.tank.plan?.stair).find(Boolean)||null;
  const guess=!written&&(parts.ladder||fc.beside)&&plan?.tank.plan.outside?{bearing:plan.tank.plan.outside.bearing,kind:STAIR_KIND(parts.ladder?.name||"")||"shaft",name:parts.ladder?.name||"Лестница",guessed:true}
   :!written&&stairRow&&lay?.[0]?.outside!==undefined?{bearing:lay[0].outside,kind:STAIR_KIND(stairRow.name)||"shaft",name:stairRow.name,guessed:true}
   // The dispatch list ships a stair (its kind from the names: "Кронштейн (винтовая лестница)"), the plan shows where.
-  :!written&&stairRow&&plan?.tank.plan.outside?{bearing:plan.tank.plan.outside.bearing,kind:STAIR_KIND(ship.map(r=>r.name).join(" "))||"shaft",name:stairRow.name,guessed:true}:null;
+  :!written&&stairRow&&plan?.tank.plan.outside?{bearing:plan.tank.plan.outside.bearing,kind:STAIR_KIND(ship.map(r=>r.name).join(" "))||"shaft",name:stairRow.name,guessed:true}
+  // A plan names the stair with a leader to it ("Шахтная лестница").
+  :!written&&labelled?{...labelled,name:STAIR_NAME[labelled.kind],guessed:true}:null;
  const sheet=tanks.map(p=>p.tank.ladderSheet).find(Boolean)||{};
  const ladder=written||guess?{...(written||guess),sheet}:null;
  // The sheet of the roof platforms gives the width; other sheets only mention them.
@@ -1172,7 +1277,8 @@ function buildTank(pages){
  // (away from the stair), at the lowest height ГОСТ 31385 allows for their Ду — their places are to be checked.
  const placedNames=new Set(placements.map(e=>e.name));
  // Parts ("Элементы люка", "Патрубки" without Ду) are not items when the table or the plan placed the fittings.
- const placedFit=placements.some(e=>["nozzle","manhole","hatch","valve","sensor","foam"].includes(e.fitting_type));
+ // Nor when the table of the nozzles lists them by name.
+ const placedFit=placements.some(e=>["nozzle","manhole","hatch","valve","sensor","foam"].includes(e.fitting_type))||ship.some(r=>r.table);
  const loose=ship.filter(r=>(FITTING_WORDS.test(r.name)||r.fitting)&&!/^элемент/iu.test(r.name)&&!(placedFit&&!r.du&&/^(?:патрубк\S*|люк\S*|штуцер\S*)$/iu.test(r.name.trim()))&&!/^(?:площад|огражд|лестниц)/iu.test(r.name)&&!placedNames.has(r.name)&&!placements.some(e=>r.mark&&e.mark===r.mark)&&!/катушк/iu.test(r.name));
  const looseList=loose.flatMap(r=>Array.from({length:Math.min(6,r.qty>0?r.qty:1)},(_,i)=>({...r,i})));
  looseList.forEach((r,j)=>{
@@ -1267,6 +1373,16 @@ function buildTank(pages){
  return{page:host.page,docType:host.docType,sourceName:host.sourceName,pdfPage:host.pdfPage,
   scheme:{kind:"tank",title,axesX:["1","2"],axesY:["А","Б"],spansX:[spanX],spansY:[spanY],placements,warnings:notes}}
 }
+// Why the sheets of a tank gave no tank: what they lack. Shown to the engineer beside «Нет схем для расстановки» —
+// a scanned montage scheme may carry no diameter at all (the wall sheets do).
+function tankGap(pages){
+ const tanks=pages.filter(p=>p.tank&&!p.tank.fromClaude);if(!tanks.length)return null;
+ const D=wallDiameter(tanks.flatMap(p=>p.tank.diameters||[]),tanks.map(p=>p.tank.passport?.diameter).find(Boolean));
+ const files=new Map();for(const p of tanks){const f=p.sourceName||"";if(!files.has(f))files.set(f,[]);files.get(f).push(p.pdfPage||p.page)}
+ const sheets=[...files].map(([f,n])=>(f?"«"+f+"» ":"")+"стр. "+n.join(", ")).join("; ");
+ return"Резервуар ("+sheets+") не построен: "+(D?"нет ни плана, ни фасада, ни ведомости со стенкой и днищем":"диаметр стенки (Ø) на листах не найден")+
+  " — нужен лист стенки (развёртка) или общие данные резервуара"
+}
 // Several different tanks in one set (a checked entry names them: РВС-2000 and РВС-400 of one КМ): each is built from
 // its own pages and they stand in a row, 6 m apart — the site plan places them, this only keeps them apart. Sheets that
 // belong to no tank of the entry go with the first one.
@@ -1286,4 +1402,4 @@ function buildTanks(pages){
  const t0=built[0];
  return{...t0,scheme:{...t0.scheme,title:built.map((t,k)=>pages.find(p=>p.tankGroup===groups[k]&&p.tank?.label)?.tank.label||t.scheme.title).join(" + "),spansX:[x-6000],spansY:[H],placements,warnings}}
 }
-module.exports={extractTank,buildTank,buildTanks,circleOf,diameters,fittingOf,bottomKindOf};
+module.exports={extractTank,buildTank,buildTanks,tankGap,circleOf,diameters,fittingOf,bottomKindOf};
