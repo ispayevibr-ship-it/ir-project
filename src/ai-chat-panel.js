@@ -259,6 +259,11 @@
   const img=ev.target.closest("img[data-shot]");if(img&&img.src){const z=document.createElement("div");z.className="irc-zoom";z.innerHTML='<img alt="">';z.querySelector("img").src=img.src;z.onclick=()=>z.remove();document.body.appendChild(z)}
  });
  area.addEventListener("keydown",ev=>{if(ev.key==="Enter"&&(ev.ctrlKey||ev.metaKey)){ev.preventDefault();form.requestSubmit()}});
+ const shotRect=()=>{
+  const el=document.getElementById("schemePreviewStage")||document.querySelector(".ir-three-root");if(!el)return null;
+  const b=el.getBoundingClientRect(),x=Math.max(0,b.left),y=Math.max(0,b.top),r=Math.min(window.innerWidth,b.right),d=Math.min(window.innerHeight,b.bottom);
+  return r-x>=200&&d-y>=150?{x:Math.round(x),y:Math.round(y),width:Math.round(r-x),height:Math.round(d-y)}:null
+ };
  const frames=n=>new Promise(r=>{const f=()=>--n<=0?setTimeout(r,120):requestAnimationFrame(f);requestAnimationFrame(f)});
  form.addEventListener("submit",async ev=>{
   ev.preventDefault();const text=area.value.trim()||(photos.length?"Фото с компьютера":"");if(!text||busy)return;
@@ -266,9 +271,10 @@
   try{
    const ctx=context();let shotId="";
    // The panel and the button leave the window for the screenshot (hidden by visibility, the button «Отправить» still
-   // came out on it).
+   // came out on it). Only the montage scheme is taken, not the whole program (the engineer, 25.10.2026): the stage of
+   // the scheme with its picture and bar, within the window; without it on the page — the whole window.
    if(withShot.checked){document.documentElement.classList.add("irc-hide");await frames(3);
-    try{shotId=(await invoke("ai-montage:chat-shot-take")).shotId||""}catch(_e){shotId=""}finally{document.documentElement.classList.remove("irc-hide")}}
+    try{shotId=(await invoke("ai-montage:chat-shot-take",{rect:shotRect()})).shotId||""}catch(_e){shotId=""}finally{document.documentElement.classList.remove("irc-hide")}}
    state.messages=state.messages.concat([{id:"local",from:"user",text,at:new Date().toISOString(),state:"sending",context:ctx}]);paint();area.value="";
    take(await invoke("ai-montage:chat-send",{text,context:ctx,shotId,photoIds:photos.map(p=>p.id)}));dropElement=false;dropPhotos();paintContext()
   }catch(e){alert("Сообщение не отправлено: "+(e.message||e));area.value=area.value||text}

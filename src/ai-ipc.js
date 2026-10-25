@@ -128,8 +128,10 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
  // The engineer's chat with Claude: a screenshot of the window first (the panel hidden), then the message with it.
  const chat=require("./ai-chat").createChat({getUserDataPath,safeStorage,fetch:netFetch,version:hotVersion,github});
  handle("ai-montage:chat-list",()=>chat.list());
- handle("ai-montage:chat-shot-take",async e=>{
-  const img=await e.sender.capturePage(),size=img.getSize(),k=Math.min(1,1600/Math.max(1,size.width));
+ // The window gives the place of the montage scheme (CSS pixels): only it is taken; without it — the whole window.
+ handle("ai-montage:chat-shot-take",async(e,{rect}={})=>{
+  const z=Number(e.sender.getZoomFactor?.())||1,n=v=>Math.round(Number(v)*z),box=rect&&n(rect.width)>=100&&n(rect.height)>=100?{x:Math.max(0,n(rect.x)),y:Math.max(0,n(rect.y)),width:n(rect.width),height:n(rect.height)}:null;
+  const img=await(box?e.sender.capturePage(box):e.sender.capturePage()),size=img.getSize(),k=Math.min(1,1600/Math.max(1,size.width));
   return{shotId:chat.keepShot((k<1?img.resize({width:Math.round(size.width*k),quality:"good"}):img).toJPEG(72))}
  });
  handle("ai-montage:chat-shot",(_e,{id}={})=>chat.shot(String(id||"")));

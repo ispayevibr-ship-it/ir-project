@@ -57,10 +57,23 @@ console.log("AI: drawings → analysis → Claude → montage scheme sub-pages, 
 // The chat with Claude: loaded in the window, its channels pass the old preload and are served by the main process.
 {const panel=fs.readFileSync("src/ai-chat-panel.js","utf8"),OLD=/^ai-(documents|engine|settings|montage):[a-z-]{1,40}$/;
  new vm.Script(panel,{filename:"src/ai-chat-panel.js"});
- assert(files["src/index.html"].includes('ai-chat-panel.js?v=197200'),"chat panel loads");
+ assert(files["src/index.html"].includes('ai-chat-panel.js?v=198900'),"chat panel loads");
  const chs=[...new Set(panel.match(/"ai-[a-z-]+:[a-z-]+"/g).map(x=>x.slice(1,-1)))];
  assert(chs.length>=6,"chat channels");
  for(const ch of chs){assert(OLD.test(ch),"old preload passes "+ch);assert(files["src/ai-ipc.js"].includes('handle("'+ch+'"'),"main serves "+ch)}
  const hot=JSON.parse(fs.readFileSync("hot/latest.json","utf8")).files.map(f=>f.source);
- for(const f of ["src/ai-chat.js","src/ai-chat-panel.js"])assert(hot.includes(f),"hot update carries "+f)}
+ for(const f of ["src/ai-chat.js","src/ai-chat-panel.js"])assert(hot.includes(f),"hot update carries "+f);
+ // The screenshot is of the montage scheme only, not of the whole program (the engineer, 25.10.2026): the window gives
+ // the place of the scheme within it, the main process takes that part (by the zoom of the page).
+ const rectSrc=panel.match(/const shotRect=\(\)=>\{[\s\S]*?\n \};/)[0];
+ const shotRect=vm.runInNewContext("(function(){"+rectSrc+";return shotRect})()",{Math,window:{innerWidth:1600,innerHeight:900},
+  document:{getElementById:id=>id==="schemePreviewStage"?{getBoundingClientRect:()=>({left:200.4,top:-30,right:1250,bottom:950})}:null,querySelector:()=>null}});
+ assert.deepEqual({...shotRect()},{x:200,y:0,width:1050,height:900},"the stage of the scheme within the window");
+ assert(panel.includes('invoke("ai-montage:chat-shot-take",{rect:shotRect()})'),"the panel sends the place of the scheme");
+ const ipc=files["src/ai-ipc.js"],hs=ipc.indexOf('handle("ai-montage:chat-shot-take"'),he=ipc.indexOf("\n });",hs);
+ const handler=vm.runInNewContext("(function(){var r;function handle(c,f){r=f};var chat={keepShot:b=>'s'+b.length};"+ipc.slice(hs,he+5)+";return r})()",{Math,Number});
+ const shots=[];const sender={getZoomFactor:()=>1.25,capturePage:async box=>{shots.push(box);return{getSize:()=>({width:1000,height:600}),toJPEG:()=>Buffer.from("jpg")}}};
+ (async()=>{await handler({sender},{rect:{x:200,y:0,width:1050,height:900}});await handler({sender},{rect:null});await handler({sender});
+  assert.deepEqual({...shots[0]},{x:250,y:0,width:1313,height:1125},"the part of the scheme, by the zoom of the page");
+  assert.equal(shots[1],undefined);assert.equal(shots[2],undefined,"without the place — the whole window")})().catch(e=>{console.error(e);process.exit(1)})}
 console.log("Chat with Claude: panel, channels and hot files OK");
