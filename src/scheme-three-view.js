@@ -497,7 +497,7 @@ window.irThreeSchemeView=(function(){
    '<div class="ir-three-legend" id="irThreeLegend"></div>'+
    '<aside class="ir-three-place" id="irThreePlace" hidden></aside>'+
    '<aside class="ir-three-place ir-three-node" id="irThreeNode" hidden></aside>'+
-   '<div class="ir-three-footer">ЛКМ — вращение · ПКМ — сдвиг · колесо — к точке под курсором · двойной щелчок — центр вращения · W A S D / стрелки — движение, Q E — вниз и вверх, Shift — быстрее · Esc — отмена</div></div>';
+   '<div class="ir-three-footer">ЛКМ — вращение · ПКМ или нажатое колесо — сдвиг · колесо — к точке под курсором · двойной щелчок — центр вращения · W A S D / стрелки — движение, Q E — вниз и вверх, Shift — быстрее · Esc — отмена</div></div>';
   var root=host.querySelector(".ir-three-root"),viewport=root.querySelector("#irThreeViewport"),
    axisLayer=root.querySelector("#irThreeAxisLayer"),labelLayer=root.querySelector("#irThreeLabelLayer"),
    cursor=root.querySelector("#irThreeCursor"),legend=root.querySelector("#irThreeLegend"),placePanel=root.querySelector("#irThreePlace");
@@ -1770,6 +1770,10 @@ window.irThreeSchemeView=(function(){
   var radius=Math.max(24,Math.hypot(X,Y)*.95),controls=new T.OrbitControls(camera,renderer.domElement);
   controls.target.copy(center);controls.enableDamping=true;controls.dampingFactor=.2;controls.rotateSpeed=.6;
   controls.screenSpacePanning=true;controls.minDistance=.05;controls.maxDistance=radius*5;
+  // The pressed wheel moves the model like the right button, as in AutoCAD and Tekla: by default it flew the camera
+  // straight away from the model, a twentieth farther every step of the mouse — 114 m to 438 m in a finger's move (the
+  // engineer, 25.10.2026: «если держать кнопку мышки и пытаться прокрутить схему, то улетает далеко прямо»).
+  controls.mouseButtons={LEFT:T.MOUSE.ROTATE,MIDDLE:T.MOUSE.PAN,RIGHT:T.MOUSE.PAN};
   var raycaster=new T.Raycaster(),pointer=new T.Vector2(),flight=null;
   function setView(name){
    flight=null;
@@ -2042,6 +2046,9 @@ window.irThreeSchemeView=(function(){
    else if(e.key==="Enter"&&placing&&placePanel.contains(document.activeElement)&&document.activeElement.dataset.place!=="search")savePlacement()
   }
   renderer.domElement.addEventListener("pointerdown",down);
+  // No scrolling of the page by the pressed wheel (a browser opening the exported file).
+  function noAutoscroll(e){if(e.button===1)e.preventDefault()}
+  renderer.domElement.addEventListener("mousedown",noAutoscroll);
   renderer.domElement.addEventListener("pointerup",up);
   renderer.domElement.addEventListener("pointermove",move);
   renderer.domElement.addEventListener("pointerleave",leave);
@@ -2294,6 +2301,7 @@ window.irThreeSchemeView=(function(){
     alive=false;cancelCopy();cancelPlacement();if(raf)cancelAnimationFrame(raf);
     observer&&observer.disconnect();window.removeEventListener("resize",resize);document.removeEventListener("keydown",onKey);
     renderer.domElement.removeEventListener("pointerdown",down);
+    renderer.domElement.removeEventListener("mousedown",noAutoscroll);
     renderer.domElement.removeEventListener("pointerup",up);
     renderer.domElement.removeEventListener("pointermove",move);
     renderer.domElement.removeEventListener("pointerleave",leave);

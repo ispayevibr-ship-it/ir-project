@@ -161,7 +161,7 @@
    '<div class="ir-export-scheme-filter" data-panel="cuts" hidden><div class="ir-export-scheme-filterhead"><strong>Разрезы / диапазоны, мм</strong><button type="button" data-close-panel="cuts" aria-label="Закрыть разрезы">×</button></div><div class="ir-export-scheme-cut-list"></div><button type="button" data-reset-cuts>Сбросить разрезы</button></div></div>'+
    '<div class="ir-export-scheme-stage"><canvas id="ir-export-scheme-canvas" aria-label="Реалистичная интерактивная монтажная схема"></canvas>'+
    '<div class="ir-export-scheme-member-card" id="ir-export-scheme-member-card" hidden><div class="ir-export-scheme-member-card-head"><span>Свойства конструкции</span><button class="ir-export-scheme-member-close" type="button" aria-label="Закрыть информацию о марке">✕</button></div><h3 class="ir-export-scheme-member-title"></h3><div class="ir-export-scheme-member-fields"></div></div>'+
-   '<span class="ir-export-scheme-hint">ЛКМ — вращение · ПКМ — перемещение · колесо — масштаб · выбор элемента — информация</span></div>'+
+   '<span class="ir-export-scheme-hint">ЛКМ — вращение · ПКМ или нажатое колесо — перемещение · колесо — масштаб · выбор элемента — информация</span></div>'+
    '<div class="ir-export-scheme-info" id="ir-export-scheme-info">Всего элементов: '+data.members.length+'. Только просмотр, без изменения базы данных.</div></div>'
  }
  function schemeViewer(){
@@ -342,7 +342,7 @@
    pitch=view==="top"?Math.PI/2:view==="front"||view==="side"?0:.6;
    panX=0;panY=0;zoom=1;
    $$("[data-view]").forEach(el=>{const active=el.dataset.view===view;el.classList.toggle("active",active);if(el.dataset.view!=="reset")el.setAttribute("aria-pressed",String(active))});
-   if(hint)hint.textContent=view==="top"?"Сверху · перетаскивание — перемещение · колесо — масштаб":"ЛКМ — вращение · ПКМ — перемещение · колесо — масштаб · щелчок — информация";
+   if(hint)hint.textContent=view==="top"?"Сверху · перетаскивание — перемещение · колесо — масштаб":"ЛКМ — вращение · ПКМ или нажатое колесо — перемещение · колесо — масштаб · щелчок — информация";
    paint(true)
   }
   $$("[data-view]").forEach(button=>button.addEventListener("click",()=>{if(button.dataset.view==="reset")camera(state.view);else camera(button.dataset.view)}));
@@ -383,7 +383,7 @@
   cv.addEventListener("pointerdown",event=>{drag={x:event.clientX,y:event.clientY,button:event.button,yaw,pitch,panX,panY};moved=false;try{cv.setPointerCapture(event.pointerId)}catch{}});
   cv.addEventListener("pointermove",event=>{if(!drag)return;const dx=event.clientX-drag.x,dy=event.clientY-drag.y,dpr=cv.width/Math.max(1,cv.clientWidth);
    if(Math.abs(dx)+Math.abs(dy)>3)moved=true;
-   if(drag.button===2||event.shiftKey||state.view==="top"){panX=drag.panX+dx*dpr;panY=drag.panY+dy*dpr}
+   if(drag.button===2||drag.button===1||event.shiftKey||state.view==="top"){panX=drag.panX+dx*dpr;panY=drag.panY+dy*dpr}
    else{yaw=drag.yaw+dx*.008;pitch=Math.max(0,Math.min(Math.PI/2,drag.pitch+dy*.006))}
    paint()});
   cv.addEventListener("pointerup",event=>{if(!drag)return;drag=null;if(moved)return;
