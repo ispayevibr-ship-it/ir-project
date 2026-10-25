@@ -983,7 +983,27 @@ window.irThreeSchemeView=(function(){
     parts.forEach(function(m){m.userData.memberId=id;steel.add(m);allMeshes.push(m);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(m)})
    })});
    pedestals=[];
-   elems.forEach(function(c){if(c.geometryType==="column"&&dataById.has(String(c.id))&&!c.ft&&!(number(c.r)>0)&&!slight(c)&&!(c.column&&Array.isArray(c.column.members)&&c.column.members.length))baseParts(c)})
+   elems.forEach(function(c){if(c.geometryType==="column"&&dataById.has(String(c.id))&&!c.ft&&!(number(c.r)>0)&&!slight(c)&&!(c.column&&Array.isArray(c.column.members)&&c.column.members.length))baseParts(c)});
+   elems.forEach(function(c){if(c.geometryType==="column"&&dataById.has(String(c.id))&&footPlateSize(c.base))footPlate(c)})
+  }
+  // A post on a plate of its own given by the drawing (the roof guard of a КМ: «−4×320×550» lying on the roof sandwich
+  // panel, fixed to it with self-tapping screws): {plate:"−t×w×l", toward_mm:[dx,dy,dz]} — the plate from the foot of
+  // the post along toward_mm (inward, on the slope), the post 25 mm from its outer end. The covering under it is of the
+  // АР and is not drawn without it: the plate shows what the post stands on.
+  function footPlateSize(b){
+   var m=/(\d+(?:[.,]\d+)?)\s*[×xх*]\s*(\d+)\s*[×xх*]\s*(\d+)/.exec(String(b&&b.plate||"")),v=b&&b.toward_mm;
+   if(!m||!Array.isArray(v)||v.length<3)return null;
+   var t=number(String(m[1]).replace(",","."))/1000,w=number(m[2])/1000,l=number(m[3])/1000,d=Math.hypot(number(v[0]),number(v[1]),number(v[2]));
+   return t>0&&t<.05&&w>.05&&l>.05&&w<2&&l<2&&d>1?{t:t,w:w,l:l,dx:number(v[0])/d,dy:number(v[1])/d,dz:number(v[2])/d}:null
+  }
+  function footPlate(c){
+   var f=footPlateSize(c.base),id=String(c.id),x=number(c.x),y=number(c.y),z=number(c.z0);
+   var a=toWorld(x,y,z),d=toWorld(x+f.dx*1000,y+f.dy*1000,z+f.dz*1000).sub(a);if(d.lengthSq()<1e-9)return;d.normalize();
+   var side=new T.Vector3(0,1,0).cross(d);if(side.lengthSq()<1e-9)return;side.normalize();var up=d.clone().cross(side).normalize();
+   var plate=new T.Mesh(shared("foot:"+f.w.toFixed(3)+":"+f.t.toFixed(3)+":"+f.l.toFixed(3),function(){return new T.BoxGeometry(f.w,f.t,f.l)}),baseMaterial(c));
+   plate.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(side,up,d));
+   plate.position.copy(a).add(d.clone().multiplyScalar(f.l/2-.025)).add(up.clone().multiplyScalar(f.t/2));
+   plate.userData.memberId=id;steel.add(plate);allMeshes.push(plate);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(plate)
   }
   // The base plate of a column under its foot (with the frame, seen from any distance: without it a column stood in the
   // air) and, under a base at the ground (up to +0.300), a conditional concrete footing — the footings are of the КЖ, not
