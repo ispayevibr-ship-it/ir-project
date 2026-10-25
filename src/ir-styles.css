@@ -1693,9 +1693,11 @@ body.ir-delivery-form-route .delivery-form-page *{box-sizing:border-box}
 .ir-three-node{top:58px;left:11px;right:auto;width:320px}
 .ir-three-node-meta{display:flex;flex-wrap:wrap;gap:6px 12px;margin:0 0 8px;color:#58758a}
 .ir-three-node-meta b{color:#173f5b}
-.ir-three-node-meta .st{padding:1px 7px;border-radius:9px;font-weight:800;color:#fff;background:#9aa3ad}
+.ir-three-node-meta .st{padding:1px 7px;border-radius:9px;font-weight:800;color:#fff;background:#9aa3ad;white-space:nowrap}
 .ir-three-node-meta .st.mounted{background:#1f9e89}.ir-three-node-meta .st.partial{background:#f25c05}
 .ir-three-node-list{display:grid;gap:4px}
+.ir-three-node-explode{display:flex;align-items:center;gap:8px;margin:0 0 8px;padding:6px 8px;border:1px solid #d5e3ee;border-radius:7px;background:#f3f8fc;font-size:11px;font-weight:800;color:#173f5b;cursor:pointer}
+.ir-three-node-explode input{flex:1;min-width:80px;accent-color:#236fa9;cursor:pointer}
 .ir-three-node-list button{display:grid;grid-template-columns:10px auto 1fr;gap:2px 7px;align-items:center;text-align:left;padding:6px 8px;border:1px solid #e1e9f0;border-radius:7px;background:#f7fafc;cursor:pointer;font-size:11px;color:#30485e}
 .ir-three-node-list button:hover{border-color:#9bb8cf;background:#eef5fb}
 .ir-three-node-list i{width:9px;height:9px;border-radius:50%;background:#9aa3ad}
@@ -1711,6 +1713,7 @@ body.ir-delivery-form-route .delivery-form-page *{box-sizing:border-box}
 .ir-three-node-type .kb-st.needs_check{color:#a3460a}.ir-three-node-type .kb-st.unknown{color:#b42318}
 .ir-three-root.dark .ir-three-node-list button{background:#1f2a36;border-color:#2b3744;color:#d5dfe8}
 .ir-three-root.dark .ir-three-node-list b{color:#e6ebf1}
+.ir-three-root.dark .ir-three-node-explode{background:#1f2a36;border-color:#2b3744;color:#e6ebf1}
 /* Card of a member's mark: data of the drawings and pieces of the PDF sheets. */
 .scheme-mark-card{display:grid;gap:8px;margin:10px 0;padding:10px;border:1px solid #d8e4ee;border-radius:9px;background:#f8fbfd;font-size:12px;color:#30485e}
 .scheme-mark-card>b{color:#173f5b;font-size:13px}

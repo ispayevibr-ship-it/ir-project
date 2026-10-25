@@ -37,6 +37,18 @@ assert(view.includes("var cabin=function(top,X,Z){")&&view.includes('partName="�
 assert(view.includes("m.userData.crane=craneNo;m.userData.part=partName;")&&view.includes("function hitCrane(")&&view.includes("function showCrane(hit)"),"crane parts named");
 assert(view.includes("var hit=hitMember(),cr=hitCrane();if(cr&&(!hit||cr.d<hit.d)){showCrane(cr);return}"),"a click on a crane opens its card, not the member behind");
 assert(view.includes("Крана в чертежах КМ нет — это оборудование.")&&view.includes('" (условно, в КМ его нет): "+cr.part'),"the card and the pointer say what it is");
+// Разбор узла (the engineer's choice from the report of 21.10.2026): a slider in the node's card; the carrying member stays,
+// the others move off it along their bolts (or their axis), a column at its base goes up off the anchors; the bolts
+// hang in the gap; every member is cut to a box about the node; the rest pale and given back after; the scheme itself
+// does not change; cleared with the node, the crane card, a rebuild, the pictures for the file and the closing.
+assert(view.includes('data-node="explode"')&&view.includes("function setExplode(n,s)")&&view.includes("function buildExplode(n)")&&view.includes("function clearExplode()"),"the slider takes the node apart");
+assert(view.includes('m.role==="опора"||m.role==="примыкание"||n.kind==="top"&&m.c.geometryType==="column"')&&view.includes('n.kind==="base"&&c.geometryType==="column"?up.clone()'),"the carrying member stays, a column goes up off its base");
+assert(view.includes('rod.userData.anchor="rod"')&&view.includes('nut.userData.anchor="nut"')&&view.includes("v.clone().multiplyScalar(.6)"),"anchors stay, bolts in the gap");
+assert(view.includes("renderer.localClippingEnabled=true")&&view.includes("c.clippingPlanes=clip.planes"),"members cut about the node");
+assert(view.includes("function ghost(on)")&&view.includes("Math.min(m.opacity,.08)")&&/ghosted\.forEach\(function\(v,m\)\{m\.transparent=v\.t;m\.opacity=v\.o;m\.depthWrite=v\.d/.test(view),"the rest pale, colours given back");
+assert(view.includes("if(explode&&explode.node!==n)clearExplode()")&&view.includes("selectedNode=null;clearExplode();")&&/function clearNodes\(\)\{\s*clearExplode\(\)/.test(view)&&view.includes("alive=false;clearExplode();")&&view.includes("setExplode(null,0);"),"put together again when the node goes");
+assert(!/explode[^\n]*(irProject|invoke|onSave|onUpdate)/.test(view),"only the picture moves");
+assert(css.includes(".ir-three-node-explode{")&&built.includes(".ir-three-node-explode{")&&css.includes("background:#9aa3ad;white-space:nowrap}"),"the slider styled, the status badge on one line");
 // The separate export for the iPhone (USDZ) removed at the engineer's request (25.10.2026): one export, the HTML.
 for(const f of ["src/scheme-page.js","src/ir-runtime.js","src/index.html","src/ai-ipc.js","src/scheme-three-view.js"])assert(!/schemeExportUsdz|irSchemeUsdz|export-usdz|scheme-export-usdz/.test(fs.readFileSync(f,"utf8")),f+": no iPhone export");
 assert(!fs.existsSync("src/scheme-export-usdz.js")&&!fs.readFileSync("hot/latest.json","utf8").includes("usdz"),"the USDZ module gone");

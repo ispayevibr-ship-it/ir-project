@@ -508,7 +508,7 @@ window.irThreeSchemeView=(function(){
   // lighter: no smoothing of edges, fewer pixels, the sections and bolts nearer the camera only. A picture that takes
   // longer than 0.4 s three times running switches to it too.
   var light=softwareGl();
-  var renderer=new T.WebGLRenderer({antialias:!light,powerPreference:"high-performance"});
+  var renderer=new T.WebGLRenderer({antialias:!light,powerPreference:"high-performance"});renderer.localClippingEnabled=true;
   renderer.setPixelRatio(light?.75:Math.min(window.devicePixelRatio||1,1.5));renderer.outputEncoding=T.sRGBEncoding;
   viewport.appendChild(renderer.domElement);
   scene.add(new T.HemisphereLight(0xffffff,0x7a94b3,.95));
@@ -1335,6 +1335,7 @@ window.irThreeSchemeView=(function(){
    return list.filter(function(n){return n.kind==="base"||n.kind==="top"||n.members.length>1}).map(function(n,i){n.id="У-"+String(i+1).padStart(4,"0");n.status=statusOf(n.members);return n})
   }
   function clearNodes(){
+   clearExplode();
    nodeMeshes.forEach(function(m){helpers.remove(m)});nodeMeshes=[];
    details.forEach(function(d){detailGroup.remove(d.group)});details=[]
   }
@@ -1361,8 +1362,8 @@ window.irThreeSchemeView=(function(){
     var bs=baseSize(col.c),cnt=bs.cnt,dia=bs.dia,side=bs.side,step=bs.step,pd=bs.pd;
     for(var i=0;i<cnt;i++){
      var row=i<side?-1:1,k=row<0?i:i-side,inRow=row<0?side:cnt-side,ax=inRow>1?-(inRow-1)*step/2+k*step:0,az=row*(pd/2-Math.max(.05,dia*1.5));
-     var rod=new T.Mesh(shared("rod:"+dia,function(){return new T.CylinderGeometry(dia/2,dia/2,.1+dia*2,10)}),boltMat);rod.position.set(ax,(.1+dia*2)/2-.02,az);g.add(rod);
-     var nut=new T.Mesh(shared("nut:"+dia,function(){return new T.CylinderGeometry(dia*.92,dia*.92,dia*.8,6)}),boltMat);nut.position.set(ax,dia*.4,az);g.add(nut)
+     var rod=new T.Mesh(shared("rod:"+dia,function(){return new T.CylinderGeometry(dia/2,dia/2,.1+dia*2,10)}),boltMat);rod.position.set(ax,(.1+dia*2)/2-.02,az);rod.userData.anchor="rod";g.add(rod);
+     var nut=new T.Mesh(shared("nut:"+dia,function(){return new T.CylinderGeometry(dia*.92,dia*.92,dia*.8,6)}),boltMat);nut.position.set(ax,dia*.4,az);nut.userData.anchor="nut";g.add(nut)
     }
     // Ribs of the base on both flanges.
     [-1,1].forEach(function(q){var rib=new T.Mesh(shared("rib",function(){return new T.BoxGeometry(.012,.22,.14)}),plateMat);rib.position.set(0,.11,q*(hh/2+.07));g.add(rib)})
@@ -1385,7 +1386,7 @@ window.irThreeSchemeView=(function(){
   function paintNodesFrame(){
    var cam=camera.position;
    // Markers keep about the same size on the screen: small close up, still seen from afar.
-   nodeMeshes.forEach(function(m){var n=m.userData.node;m.visible=nodeVisible(n,cam)||n===selectedNode;
+   nodeMeshes.forEach(function(m){var n=m.userData.node;m.visible=!explode&&(nodeVisible(n,cam)||n===selectedNode);
     if(m.visible){var k=Math.max(.35,Math.min(6,m.position.distanceTo(cam)*.045))*(n===selectedNode?1.6:1)*Math.min(1.5,.85+n.members.length*.08);m.scale.set(k,k,k)}});
    details.forEach(function(d){d.group.visible=showDetails&&d.group.position.distanceTo(cam)<45})
   }
@@ -1399,11 +1400,13 @@ window.irThreeSchemeView=(function(){
   function level(z){var v=number(z)/1000;return(v>0?"+":v<0?"−":"")+Math.abs(v).toFixed(3).replace(".",",")}
   function paintNode(){
    if(!nodePanel)return;
-   var n=selectedNode;nodePanel.hidden=!n;if(!n)return;
+   var n=selectedNode;if(explode&&explode.node!==n)clearExplode();nodePanel.hidden=!n;if(!n)return;
    var st={mounted:"смонтирован",partial:"частично",planned:"не смонтирован"},missing=n.members.filter(function(m){return m.c.status!=="mounted"});
    var names=n.members.filter(function(m){return m.c.geometryType==="column"}).map(function(m){return m.c.mark}).filter(Boolean);
    nodePanel.innerHTML='<div class="ir-three-place-head"><b>'+escapeHtml(n.id+" · "+nodeKinds[n.kind]+(names.length?" "+names[0]:""))+'</b><button type="button" data-node="close" title="Закрыть">×</button></div>'+
     '<div class="ir-three-node-meta"><span>Оси <b>'+escapeHtml(axisOf(n.x,n.y))+'</b></span><span>Отм. <b>'+level(n.z)+'</b></span><span class="st '+n.status+'">'+st[n.status]+'</span></div>'+
+    '<label class="ir-three-node-explode" title="Элементы узла расходятся с того, на чём держатся; болты и гайки — в зазоре по своей оси; остальная схема бледнеет. Схема при этом не меняется.">Разбор узла'+
+    '<input type="range" min="0" max="100" step="1" value="'+Math.round((explode&&explode.node===n?explode.s:0)*100)+'" data-node="explode" aria-label="Разбор узла"></label>'+
     '<div class="ir-three-node-list">'+n.members.map(function(m){
      var ms=m.c.status==="mounted"?"mounted":m.c.status==="partial"?"partial":"planned";
      return '<button type="button" data-node-member="'+escapeHtml(m.c.id)+'"><i class="'+ms+'"></i><b>'+escapeHtml(m.c.mark||m.c.title||"—")+'</b><span>'+escapeHtml((m.c.type_name||kindNames[m.c.geometryType]||"")+" · "+m.role)+'</span><small>'+escapeHtml(m.c.profile_name||"")+'</small></button>'
@@ -1417,7 +1420,8 @@ window.irThreeSchemeView=(function(){
      (baseOf(n)&&baseOf(n).anchors?"Число и диаметр анкеров — с листа базы; плита и рёбра показаны условно.":"Плита и анкеры на модели показаны условно — размеры не из КМД.")+
      (n.z<=300?" Фундамент под базой — условно, по КЖ.":""))+'</p>':"");
    nodePanel.querySelector('[data-node="close"]').onclick=function(){selectedNode=null;paintNode()};
-   nodePanel.querySelectorAll("[data-node-member]").forEach(function(b){b.onclick=function(){choose(b.dataset.nodeMember)}})
+   nodePanel.querySelectorAll("[data-node-member]").forEach(function(b){b.onclick=function(){choose(b.dataset.nodeMember)}});
+   var range=nodePanel.querySelector('[data-node="explode"]');range.oninput=function(){setExplode(n,number(range.value)/100)}
   }
   // How the members of the node are joined, as the notes of their sheets say (bolts, their class, mounting welds).
   function jointHtml(n){
@@ -1480,7 +1484,7 @@ window.irThreeSchemeView=(function(){
    return h&&cranes[h.object.userData.crane]?{k:cranes[h.object.userData.crane],part:h.object.userData.part,d:h.distance}:null
   }
   function showCrane(hit){
-   selectedNode=null;var k=hit.k,runs=k.runs.filter(Boolean);
+   selectedNode=null;clearExplode();var k=hit.k,runs=k.runs.filter(Boolean);
    nodePanel.hidden=false;
    nodePanel.innerHTML='<div class="ir-three-place-head"><b>'+escapeHtml(craneKinds[k.kind]+" (условно)")+'</b><button type="button" data-node="close" title="Закрыть">×</button></div>'+
     '<div class="ir-three-node-meta">'+(hit.part?'<span>Часть: <b>'+escapeHtml(hit.part)+'</b></span>':"")+(k.kind!=="hoist"?'<span>Пролёт <b>'+(k.span/1000).toFixed(1).replace(".",",")+' м</b></span>':"")+'<span>'+k.on+' <b>'+level(k.z)+'</b></span></div>'+
@@ -1497,6 +1501,77 @@ window.irThreeSchemeView=(function(){
    selectedNode=n;paintNode();
    if(n){var c=toWorld(n.x,n.y,n.z),dir=camera.position.clone().sub(controls.target).normalize(),d=Math.min(camera.position.distanceTo(controls.target),14);
     flight={from:controls.target.clone(),to:c,camFrom:camera.position.clone(),camTo:c.clone().add(dir.multiplyScalar(d)),t:0,ms:850,st:performance.now()}}
+  }
+  // ---- Разбор узла (the engineer chose it from the report of 21.10.2026): the slider of the node's card moves the members
+  // of the node apart. The member that carries the others (the column at its side or top, the beam under a beam's end)
+  // stays; the others slide off it along their bolts, or along their own axis where no bolts are drawn, those lying on
+  // a column's top up; at a base the column goes up off the anchors with its plate and ribs, the nuts of the anchors
+  // half way. The bolts hang in the gap along their axes, their nuts nearer the carrying member; a gusset stays with
+  // the member it is welded to. Every member is cut to 3 m about the node; the rest of the scheme turns pale meanwhile.
+  // Only the picture moves: nothing changes in the scheme, and it is so in the exported file too.
+  var explode=null,explodeGroup=new T.Group();scene.add(explodeGroup);
+  function buildExplode(n){
+   var C=toWorld(n.x,n.y,n.z),R=1.6,H=1.5,up=new T.Vector3(0,1,0),zero=new T.Vector3(),made=[],pieces=[],clips=new Map(),hosts=new Set(),movers=new Map(),hmax=.1;
+   // Each member is cut to a box of 3 m about the node, moving with it: the node reads like its drawing, not as whole
+   // beams 12 m long; the bolts are drawn whole.
+   var clipFor=function(v){var k=v.x+","+v.y+","+v.z;if(!clips.has(k))clips.set(k,{v:v,mats:new Map(),planes:[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]].map(function(a){return new T.Plane(new T.Vector3(a[0],a[1],a[2]),0)})});return clips.get(k)};
+   var solid=function(m,clip){var k=clip?clip.mats:clips;if(!clip){if(!clips.bolt)clips.bolt=new Map();k=clips.bolt}
+    if(!k.has(m)){var c=m.clone();if(clip)c.clippingPlanes=clip.planes;k.set(m,c);made.push(c)}return k.get(m)};
+   var near=function(o){var g=o.geometry;if(!g.boundingBox)g.computeBoundingBox();return g.boundingBox.clone().applyMatrix4(o.matrixWorld).distanceToPoint(C)<=R};
+   var add=function(geo,mat,matrix,v,clipped){var o=new T.Mesh(geo,solid(mat,clipped?clipFor(v):null));o.matrixAutoUpdate=false;o.matrix.copy(matrix);explodeGroup.add(o);pieces.push({o:o,base:matrix.clone(),v:v})};
+   n.members.forEach(function(m){var id=String(m.c.id);if(n.kind!=="base"&&(m.role==="опора"||m.role==="примыкание"||n.kind==="top"&&m.c.geometryType==="column"))hosts.add(id);
+    hmax=Math.max(hmax,halfSection(m.c).h*2)});
+   var D=Math.max(.35,Math.min(1.2,.25+2*hmax)),bolts=boltList.filter(function(b){return b.at.distanceTo(C)<=R&&n.members.some(function(m){return String(m.c.id)===b.id})});
+   n.members.forEach(function(m){
+    var c=m.c,id=String(c.id);if(hosts.has(id)||movers.has(id))return;
+    var p=memberPoints(c),a=p[0],b=p[p.length-1],away=a.distanceTo(C)<=b.distanceTo(C)?b.clone().sub(a):a.clone().sub(b);
+    if(away.lengthSq()<1e-6)away.copy(up);away.normalize();
+    var u=new T.Vector3();bolts.forEach(function(x){if(x.id===id)u.add(u.lengthSq()&&u.dot(x.axis)<0?x.axis.clone().negate():x.axis)});
+    var dir=n.kind==="base"&&c.geometryType==="column"?up.clone():u.lengthSq()>1e-6?u.normalize().add(away.multiplyScalar(.5)):n.kind==="top"?up.clone().add(away.multiplyScalar(.5)):away;
+    movers.set(id,dir.normalize().multiplyScalar(D))
+   });
+   steel.updateMatrixWorld(true);
+   var done=new Set();
+   n.members.forEach(function(m){var id=String(m.c.id);if(done.has(id))return;done.add(id);
+    (meshesById.get(id)||[]).forEach(function(o){if(!o.visible||o.userData.footing||!near(o))return;
+     add(o.geometry,o.material,o.matrixWorld,o.userData.gusset&&(hosts.size||n.kind!=="base")?zero:movers.get(id)||zero,true)})});
+   var detail=details.find(function(d){return d.node===n});
+   if(detail){detail.group.updateMatrixWorld(true);var col=n.members.find(function(m){return m.c.geometryType==="column"}),cv=col&&movers.get(String(col.c.id))||zero,nut=up.clone().multiplyScalar(D*.5);
+    detail.group.children.forEach(function(o){add(o.geometry,o.material,o.matrixWorld,o.userData.anchor==="rod"?zero:o.userData.anchor==="nut"?nut:cv,o.userData.anchor!=="nut")})}
+   bolts.forEach(function(b){var v=movers.get(b.id)||zero,mat=boltMats[b.cls];
+    // In the gap between the member and what carries it: the nuts nearer the carrying member, the bolts nearer theirs.
+    boltParts(b).forEach(function(x,i,all){add(x.geometry,mat,x.matrixWorld,all.length===5&&i>=3?v.clone().multiplyScalar(.3).sub(b.axis.clone().multiplyScalar(D*.15)):v.clone().multiplyScalar(.6),false)})});
+   return{node:n,s:0,C:C,H:H,D:D,pieces:pieces,clips:clips,made:made,moved:movers.size}
+  }
+  // The rest of the scheme pale while the node is taken apart; its own colours come back after.
+  var ghosted=null;
+  function ghost(on){
+   if(on&&!ghosted){ghosted=new Map();
+    [batches,detailGroup,equipment].forEach(function(g){g.traverse(function(o){[].concat(o.material||[]).forEach(function(m){
+     if(!ghosted.has(m)){ghosted.set(m,{t:m.transparent,o:m.opacity,d:m.depthWrite});m.transparent=true;m.opacity=Math.min(m.opacity,.08);m.depthWrite=false;m.needsUpdate=true}})})});
+    overlay.visible=false}
+   else if(!on&&ghosted){ghosted.forEach(function(v,m){m.transparent=v.t;m.opacity=v.o;m.depthWrite=v.d;m.needsUpdate=true});ghosted=null;overlay.visible=true}
+   invalidate()
+  }
+  function setExplode(n,s){
+   if(explode&&(explode.node!==n||!(s>0)))clearExplode();
+   if(!n||!(s>0))return;
+   if(!explode){
+    explode=buildExplode(n);ghost(true);
+    // The node in the middle of the view, near enough to see its bolts, looked at a little from above.
+    var dir=camera.position.clone().sub(controls.target).normalize();if(dir.y<.35){dir.y=.35;dir.normalize()}
+    flight={from:controls.target.clone(),to:explode.C.clone(),camFrom:camera.position.clone(),camTo:explode.C.clone().add(dir.multiplyScalar(Math.max(3.5,(explode.H+explode.D)*2.2))),t:0,ms:600,st:performance.now()}
+   }
+   explode.s=s;
+   explode.pieces.forEach(function(p){var e=p.o.matrix.copy(p.base).elements;e[12]+=p.v.x*s;e[13]+=p.v.y*s;e[14]+=p.v.z*s});
+   explode.clips.forEach(function(k){if(!k.planes)return;var c=explode.C.clone().add(k.v.clone().multiplyScalar(s)),h=explode.H;
+    k.planes[0].constant=h-c.x;k.planes[1].constant=c.x+h;k.planes[2].constant=h-c.y;k.planes[3].constant=c.y+h;k.planes[4].constant=h-c.z;k.planes[5].constant=c.z+h});
+   paintNodesFrame();invalidate(300)
+  }
+  function clearExplode(){
+   if(!explode)return;
+   explodeGroup.children.slice().forEach(function(o){explodeGroup.remove(o)});
+   explode.made.forEach(function(m){m.dispose()});explode=null;ghost(false);paintNodesFrame()
   }
   // Members of a lattice ([u0, z0, u1, z1, role, profile, across] in mm) placed by `at(u, z, across)`: a member with a profile
   // of the sortament is drawn by its section (paired angles back to back), the rest by a thin bar.
@@ -1652,6 +1727,8 @@ window.irThreeSchemeView=(function(){
    labelLayer.appendChild(el);labels.push({el:el,pos:top,id:id})
   }
   function refreshMaterials(){
+   // A node taken apart is put together again over the new colours.
+   var apart=explode&&{n:explode.node,s:explode.s};clearExplode();
    allMeshes.forEach(function(mesh){
     var c=dataById.get(mesh.userData.memberId);
     if(!mesh.userData.fixed)mesh.material=mesh.userData.roof?roofMaterial(c):mesh.userData.shell?shellMaterial(c):baseMaterial(c)
@@ -1659,7 +1736,8 @@ window.irThreeSchemeView=(function(){
    rayTargets=allMeshes.filter(function(m){return!m.userData.small});rebatch();lit=null;paintHighlight();
    root.querySelector("#irThreeCount").textContent=elems.length+" элементов"+(failures?" · без геометрии: "+failures:"")+(conventional.size?" · сечение условное: "+conventional.size:"");
    root.querySelector("#irThreeCount").title=conventional.size?"Профиль этих элементов не найден в справочнике сортаментов (или не указан) — сечение нарисовано условно, не по размерам":"Сечения нарисованы по справочнику сортаментов";
-   paintLegend()
+   paintLegend();
+   if(apart)setExplode(apart.n,apart.s)
   }
   // Members merged into one mesh per material and per 15 m cell of the plan (a mirrored member keeps its faces turned
   // out). A cell far from the camera is drawn by boxes of the members (12 triangles each, not the rolled section), the
@@ -2262,6 +2340,7 @@ window.irThreeSchemeView=(function(){
   // Pictures of the scheme for an exported file opened where its scripts do not run (the iPhone preview): the whole
   // model from fixed views with the axis bubbles and the legend drawn in. The camera and the colours come back after.
   function snapshots(){
+   setExplode(null,0);var range=nodePanel&&nodePanel.querySelector('[data-node="explode"]');if(range)range.value=0;
    var W=1600,H=1000,ratio=renderer.getPixelRatio(),keep={pos:camera.position.clone(),target:controls.target.clone(),up:camera.up.clone(),mode:colorMode},out=[];
    renderer.setPixelRatio(1);renderer.setSize(W,H,false);camera.aspect=W/H;camera.updateProjectionMatrix();overlay.visible=false;
    var shot=function(title,view,mode){
@@ -2298,7 +2377,7 @@ window.irThreeSchemeView=(function(){
   return{host:host,key:key,root:root,update:update,focus:focus,startCopy:startCopy,startPlacement:startPlacement,nodes:nodeList,openNode:openNode,snapshots:snapshots,
    dispose:function(){
     cameraMemory[memoryKey]={position:camera.position.clone(),target:controls.target.clone(),up:camera.up.clone()};
-    alive=false;cancelCopy();cancelPlacement();if(raf)cancelAnimationFrame(raf);
+    alive=false;clearExplode();cancelCopy();cancelPlacement();if(raf)cancelAnimationFrame(raf);
     observer&&observer.disconnect();window.removeEventListener("resize",resize);document.removeEventListener("keydown",onKey);
     renderer.domElement.removeEventListener("pointerdown",down);
     renderer.domElement.removeEventListener("mousedown",noAutoscroll);
