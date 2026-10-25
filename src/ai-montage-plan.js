@@ -985,10 +985,21 @@ function deckFrames(elements){
  elements.push(...added);
  return added
 }
+// Distance from the heel of an angle of a chord to its axis, mm, by the areas of its legs («∟140×10» — 38.7; the first
+// size is the upright leg): the truss is given by the axes of its members, the purlins lie on the top of its top chord.
+function angleAxisOf(profile){
+ const m=/^2?(?:L|∟|Уголок|Уг\.?)?(\d{2,3})[xх×](\d{1,3}(?:[.,]\d+)?)(?:[xх×](\d{1,2}(?:[.,]\d+)?))?$/u.exec(String(profile||"").replace(/\s+/g,""));
+ if(!m)return 0;
+ const h=+m[1],b=m[3]?+m[2]:h,t=+String(m[3]||m[2]).replace(",",".");
+ return h>0&&b>0&&t>0&&t<b?(h*h+(b-t)*t)/(2*(h+b-t)):0
+}
 function seatOnChords(elements){
  const trusses=elements.filter(e=>e.truss?.members?.length);if(!trusses.length)return;
+ let chordProfile="";
  const zAt=(t,x,role)=>{const m=t.members.filter(q=>q[4]===role).sort((p,q)=>Math.max(0,p[0]-x,x-p[2])-Math.max(0,q[0]-x,x-q[2]))[0];
+  if(m)chordProfile=String(m[5]||"");
   return m?m[1]+(m[3]-m[1])*(Math.max(m[0],Math.min(m[2],x))-m[0])/Math.max(1,m[2]-m[0]):null};
+ let purlin=null;
  const chordAt=(x,y,role,self)=>{
   let best=null;
   for(const t of trusses){
@@ -998,8 +1009,11 @@ function seatOnChords(elements){
    const ux=(b.x-a.x)/L,uy=(b.y-a.y)/L,along=(x-a.x)*ux+(y-a.y)*uy,off=Math.abs((x-a.x)*uy-(y-a.y)*ux);
    if(off>400||along<-300||along>L+300)continue;
    const z=zAt(t.truss,Math.max(0,Math.min(L,along))*t.truss.span_mm/L,role);
-   if(z!==null&&(!best||off<best.off))best={off,z:Math.round(t.truss.base_mm+z)}
+   if(z!==null&&(!best||off<best.off))best={off,z:Math.round(t.truss.base_mm+z),profile:chordProfile}
   }
+  // A purlin lies on the top chord: its centre over the chord's axis by the chord's angle to its top and half its own
+  // height (КМ: прогон на верхнем поясе фермы); at the axis it went half through the chord.
+  if(best&&purlin)best.z=Math.round(best.z+angleAxisOf(best.profile)+sectionHeight(purlin.profile)/2);
   return best?.z??null
  };
  for(const e of elements){
@@ -1007,10 +1021,11 @@ function seatOnChords(elements){
   const title=String(e.scheme||"");
   const role=/по\s+нижним\s+поясам/iu.test(title)?"bottom":/по\s+верхним\s+поясам/iu.test(title)||e.group==="purlins"?"top":null;
   if(!role)continue;
+  purlin=e.group==="purlins"&&role==="top"&&e.geometry_type==="beam"?e:null;
   const z0=chordAt(e.x_mm,e.y_mm,role),z1=chordAt(e.x2_mm,e.y2_mm,role);
   if(z0===null&&z1===null)continue;
   e.z0_mm=z0??z1;e.z1_mm=z1??z0;e.levels=role==="bottom"?"по нижнему поясу фермы":"по верхнему поясу фермы";
-  e.note=[e.note,"Отметки по "+(role==="bottom"?"нижнему":"верхнему")+" поясу фермы под элементом"].filter(Boolean).join("; ")
+  e.note=[e.note,purlin?"Прогон на верхнем поясе фермы под ним: низ прогона — верх пояса":"Отметки по "+(role==="bottom"?"нижнему":"верхнему")+" поясу фермы под элементом"].filter(Boolean).join("; ")
  }
 }
 // A vertical brace is drawn on a plan as a line between two columns (or trusses), with one level from a section. In the

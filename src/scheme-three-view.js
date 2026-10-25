@@ -244,6 +244,12 @@ window.irThreeSchemeView=(function(){
  }
  // The section as drawn by the sortament: root fillets between the web and the flanges (rounded box corners), so
  // that a member reads as rolled steel close up.
+ // Distance from the heel of an angle to its centre along the leg drawn upright (sec.h; the other leg sec.b, thickness
+ // sec.t), by the areas of the two legs: ∟140×10 — 38.7 mm.
+ function angleAxis(sec){
+  var h=number(sec.h),b=number(sec.b),t=number(sec.t);
+  return h>0&&b>0&&t>0&&h+b>t?(h*h+(b-t)*t)/(2*(h+b-t)):0
+ }
  function realGeometry(T,cache,sec){
   var key="real:"+sec.shape+(sec.solid?"s":"")+(sec.bent?"g"+(sec.b1||""):"")+":"+sec.h+":"+sec.b+":"+sec.s+":"+sec.t+":"+(sec.r||0)+(sec.a?":"+sec.a:"");
   if(cache.has(key))return cache.get(key);
@@ -722,6 +728,19 @@ window.irThreeSchemeView=(function(){
   // under the top flange of the beam it ends on; drawn at the top they went through the purlins. Only at a beam that
   // carries something (a purlin, a beam lying on its top); the ends meeting at one point go down together.
   var hangDrop=new Map();
+  // The top chord of a truss holds the purlins on its horizontal legs (drawn by axis, see drawMembers): the struts and
+  // braces «по верхним поясам» ending at its level are bolted to the gussets under them, like those under a roof beam.
+  function chordHosts(c){
+   var t=c.truss,a={x:number(c.x),y:number(c.y)},b={x:number(c.x2),y:number(c.y2)};if(t.flip){var q=a;a=b;b=q}
+   var L=Math.hypot(b.x-a.x,b.y-a.y),span=number(t.span_mm)||L;if(L<500)return[];
+   var ux=(b.x-a.x)/L,uy=(b.y-a.y)/L,k=L/span,base=number(t.base_mm),out=[];
+   t.members.forEach(function(m){
+    if(m[4]!=="top")return;var pr=String(m[5]||""),sec=pr?sectionOf(/^\d/.test(pr)?"∟"+pr:pr):null;if(!sec||sec.shape!=="angle")return;
+    var x0=number(m[0])*k,x1=number(m[2])*k,ax=a.x+ux*x0,ay=a.y+uy*x0,bx=a.x+ux*x1,by=a.y+uy*x1,M=Math.hypot(bx-ax,by-ay);if(M<300)return;
+    out.push({c:c,chord:true,ax:ax,ay:ay,bx:bx,by:by,az:base+number(m[1]),bz:base+number(m[3]),L:M,ux:(bx-ax)/M,uy:(by-ay)/M,sec:sec,top:angleAxis(sec)})
+   });
+   return out
+  }
   function hangTies(list){
    hangDrop.clear();
    var hosts=[],ties=[],C=3000,cells=new Map();
@@ -730,6 +749,7 @@ window.irThreeSchemeView=(function(){
      var k=i+","+j;(cells.get(k)||cells.set(k,[]).get(k)).push(it)}
    };
    list.forEach(function(c){
+    if(c.id&&c.truss&&Array.isArray(c.truss.members)){chordHosts(c).forEach(function(it){hosts.push(it);add(it)});return}
     if(!c.id||c.ft||c.truss||c.cross||["column","shell","plate","bent"].indexOf(c.geometryType)>=0)return;
     var ax=number(c.x),ay=number(c.y),bx=number(c.x2),by=number(c.y2),L=Math.hypot(bx-ax,by-ay),az=number(c.z0),bz=number(c.z2);
     if(L<500||Math.abs(bz-az)/L>.2)return;
@@ -739,13 +759,13 @@ window.irThreeSchemeView=(function(){
     else if(rolled&&sec.h>=120){hosts.push(it);add(it)}
    });
    if(!ties.length||!hosts.length)return;
-   var topAt=function(h,t){return h.az+(h.bz-h.az)*t+h.sec.h/2};
+   var topAt=function(h,t){return h.az+(h.bz-h.az)*t+(h.chord?h.top:h.sec.h/2)};
    // Something lies on the beam: another rolled member crossing it in plan with its bottom at the beam's top.
    var carries=new Map();
    var carrying=function(h){
     if(carries.has(h))return carries.get(h);var yes=false,seen=new Set();
     for(var i=Math.floor((Math.min(h.ax,h.bx)-400)/C);i<=Math.floor((Math.max(h.ax,h.bx)+400)/C)&&!yes;i++)for(var j=Math.floor((Math.min(h.ay,h.by)-400)/C);j<=Math.floor((Math.max(h.ay,h.by)+400)/C)&&!yes;j++)(cells.get(i+","+j)||[]).forEach(function(p){
-     if(yes||p===h||seen.has(p))return;seen.add(p);
+     if(yes||p===h||p.chord||seen.has(p))return;seen.add(p);
      var den=h.ux*p.uy-h.uy*p.ux;if(Math.abs(den)<.2)return;
      var rx=p.ax-h.ax,ry=p.ay-h.ay,t=(rx*p.uy-ry*p.ux)/den,s=(rx*h.uy-ry*h.ux)/den;
      if(t<-200||t>h.L+200||s<-200||s>p.L+200)return;
@@ -1376,14 +1396,19 @@ window.irThreeSchemeView=(function(){
   }
   // Members of a lattice ([u0, z0, u1, z1, role, profile, across] in mm) placed by `at(u, z, across)`: a member with a profile
   // of the sortament is drawn by its section (paired angles back to back), the rest by a thin bar.
-  function drawMembers(c,members,at,plane){
+  // A truss (byAxis) is given by the axes of its members: a pair of angles stands with its centre on the line, the top
+  // chord with its horizontal legs on top (the purlins lie on them — КМ: прогон на верхнем поясе фермы), the other
+  // members with them at the bottom. Drawn from the line up, the top chord went through the purlins lying on it.
+  function drawMembers(c,members,at,plane,byAxis){
    var up=new T.Vector3(0,1,0),parts=[],mat=baseMaterial(c);
    members.forEach(function(m){
     var p0=at(number(m[0]),number(m[1]),number(m[6])),p1=at(number(m[2]),number(m[3]),number(m[6])),v=p1.clone().sub(p0),len=v.length();if(len<.05)return;
     var dir=v.clone().normalize(),y=up.clone().sub(dir.clone().multiplyScalar(up.dot(dir)));if(y.lengthSq()<1e-6)y=plane.clone().sub(dir.clone().multiplyScalar(plane.dot(dir)));
     y.normalize();var x=new T.Vector3().crossVectors(y,dir).normalize(),basis=new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(x,y,dir));
     var pr=String(m[5]||""),sec=pr?sectionOf(/^\d/.test(pr)?"∟"+pr:pr):null;
-    var put=function(geo,mirror){var mesh=new T.Mesh(geo,mat);mesh.position.copy(p0);mesh.quaternion.copy(basis);mesh.scale.set(mirror?-1:1,1,len);parts.push(mesh)};
+    var lift=0,down=false;
+    var put=function(geo,mirror){var mesh=new T.Mesh(geo,mat);mesh.position.copy(p0).add(y.clone().multiplyScalar(lift));mesh.quaternion.copy(basis);mesh.scale.set(mirror?-1:1,down?-1:1,len);parts.push(mesh)};
+    if(sec&&sec.shape==="angle"&&byAxis){var ca=angleAxis(sec)/1000;down=m[4]==="top";lift=down?ca:-ca}
     if(sec&&sec.shape==="angle"&&/^(?:2|\d)/.test(pr)){var g=realGeometry(T,meshGeo,sec);put(g,false);put(g,true)}
     else if(sec)put(realGeometry(T,meshGeo,sec),false);
     else{var key="truss-bar",bar=meshGeo.get(key);if(!bar){bar=new T.BoxGeometry(.08,.08,1);bar.translate(0,0,.5);meshGeo.set(key,bar)}put(bar,false)}
@@ -1411,7 +1436,7 @@ window.irThreeSchemeView=(function(){
    var L=Math.hypot(b.x-a.x,b.y-a.y),span=number(t.span_mm)||L;if(L<500)return false;
    var ux=(b.x-a.x)/L,uy=(b.y-a.y)/L,k=L/span,base=number(t.base_mm);
    var at=function(x,z){return toWorld(a.x+ux*x*k,a.y+uy*x*k,base+z)};
-   var parts=drawMembers(c,t.members,at,at(1000,0).sub(at(0,0)).normalize());
+   var parts=drawMembers(c,t.members,at,at(1000,0).sub(at(0,0)).normalize(),true);
    if(!parts.length)return false;
    parts.forEach(function(mesh){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh)});
    var tops=t.members.filter(function(m){return m[4]==="top"}),hi=tops.length?Math.max.apply(null,tops.map(function(m){return Math.max(number(m[1]),number(m[3]))})):0;
