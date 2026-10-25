@@ -102,7 +102,11 @@ function create(data){
  // ---- Nodes of the scheme ----
  function memberKind(m){
   var g=String(m.group||"").toLowerCase(),n=String(m.name||"").toLowerCase(),mk=String(m.mark||"").toLowerCase();
-  if(g==="crane"||/подкранов|тормозн/.test(n))return"crane";
+  // The group of the member decides before the words of its name: «Горизонтальная связь Сгк1 (тормозная ферма)» of
+  // the ties is a brace, not a crane girder or a truss.
+  var byGroup={crane:"crane",trusses:"truss",purlins:"purlin",fahwerk:"fahwerk",ties:"brace",platforms:"platform",stairs:"stair",guards:"railing"}[g];
+  if(byGroup)return byGroup;
+  if(/подкранов|тормозн/.test(n))return"crane";
   if(g==="trusses"||/ферм/.test(n))return"truss";
   if(g==="purlins"||/прогон/.test(n))return"purlin";
   if(g==="fahwerk"||/фахверк/.test(n))return"fahwerk";

@@ -202,6 +202,10 @@ function typeByWords(s){
 function typeByName(name){
  const s=String(name||"");if(!s.trim())return null;
  const whole=typeByWords(s),parts=s.split(/\s+[—–]\s+/u);
+ // "Горизонтальная связь Сгк1 L100×8 (тормозная ферма)": the words in brackets name the structure the member is part
+ // of. The name without them wins when it is of another geometry (a brace of the braking truss is a brace, not a beam).
+ const bare=s.replace(/\([^()]*\)/gu," ");
+ if(bare!==s&&whole){const own=typeByWords(bare);if(own&&own.geometry!==whole.geometry)return typeByName(bare)}
  if(parts.length<2||whole?.key==="railing")return whole;
  const tail=parts[parts.length-1],part=typeByWords(tail);
  if(!part||whole&&whole.geometry===part.geometry)return whole;
