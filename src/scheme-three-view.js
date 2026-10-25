@@ -250,6 +250,69 @@ window.irThreeSchemeView=(function(){
   var h=number(sec.h),b=number(sec.b),t=number(sec.t);
   return h>0&&b>0&&t>0&&h+b>t?(h*h+(b-t)*t)/(2*(h+b-t)):0
  }
+ // Nodes of a truss given by the axes of its members (local mm: x along the span, z up). Every end of a lattice member
+ // (diagonal, post) on a chord is a node on a gusset (КМ: «фасонки подстропильных и стропильных ферм»): the member stops
+ // 40 mm short of the inner edge of the chord — it is welded to the gusset, not to the chord; the gusset covers its welded
+ // end (1,6 of its leg, 120–260 mm) and goes along the chord 30 mm past it, 10 mm under the back of the chord.
+ // Conventional, not by the КМД. Returns the members cut so and the outlines of the gussets.
+ function trussNodes(members,secOf){
+  var EPS=6,GAP=40;
+  var info=members.map(function(m){
+   var pr=String(m[5]||""),sec=pr?secOf(/^\d/.test(pr)?"∟"+pr:pr):null,angle=Boolean(sec&&sec.shape==="angle");
+   return{x0:number(m[0]),z0:number(m[1]),x1:number(m[2]),z1:number(m[3]),role:m[4],h:angle?number(sec.h):0,c:angle?angleAxis(sec):0,chord:m[4]==="top"||m[4]==="bottom"}
+  });
+  var nodes=new Map(),cut=info.map(function(){return[0,0]}),gussets=[];
+  info.forEach(function(w,i){if(w.chord)return;[[w.x0,w.z0,0],[w.x1,w.z1,1]].forEach(function(p){
+   var key=Math.round(p[0])+","+Math.round(p[1]);if(!nodes.has(key))nodes.set(key,{x:p[0],z:p[1],webs:[]});nodes.get(key).webs.push({i:i,end:p[2]})})});
+  nodes.forEach(function(n){
+   // The chords through the node: their ways from it, the inside of the truss (nx, nz), the faces of the chord.
+   var arms=[];
+   info.forEach(function(w){
+    if(!w.chord||!(w.h>0))return;var dx=w.x1-w.x0,dz=w.z1-w.z0,L=Math.hypot(dx,dz);if(L<1)return;var ux=dx/L,uz=dz/L;
+    var t=(n.x-w.x0)*ux+(n.z-w.z0)*uz,off=Math.abs((n.x-w.x0)*uz-(n.z-w.z0)*ux);if(off>EPS||t<-EPS||t>L+EPS)return;
+    var nx=-uz,nz=ux;if((w.role==="top")===(nz>0)){nx=-nx;nz=-nz}
+    if(t>EPS)arms.push({ux:-ux,uz:-uz,nx:nx,nz:nz,inner:w.h-w.c,outer:w.c});
+    if(t<L-EPS)arms.push({ux:ux,uz:uz,nx:nx,nz:nz,inner:w.h-w.c,outer:w.c})
+   });
+   if(!arms.length)return;
+   var pts=[];
+   n.webs.forEach(function(e){
+    var w=info[e.i];if(!(w.h>0))return;
+    var fx=e.end?w.x0:w.x1,fz=e.end?w.z0:w.z1,L=Math.hypot(fx-n.x,fz-n.z);if(L<1)return;
+    var dx=(fx-n.x)/L,dz=(fz-n.z)/L;
+    // Its upright leg in the plane, as drawMembers lays it: up less the run of the member; a post — along the span.
+    var yx=-dx*dz,yz=1-dz*dz,yl=Math.hypot(yx,yz);if(yl<1e-6){yx=1;yz=0}else{yx/=yl;yz/=yl}
+    var lo=-w.c,hi=w.h-w.c,s=0;
+    arms.forEach(function(a){var sin=dx*a.nx+dz*a.nz;if(sin<.15)return;var k=yx*a.nx+yz*a.nz;s=Math.max(s,(a.inner+GAP-Math.min(lo*k,hi*k))/sin)});
+    if(!(s>0))return;
+    s=Math.min(s,L*.4);cut[e.i][e.end]=s;
+    var lw=Math.max(120,Math.min(260,1.6*w.h));
+    [s,s+lw].forEach(function(q){[lo-15,hi+15].forEach(function(o){pts.push([n.x+dx*q+yx*o,n.z+dz*q+yz*o])})})
+   });
+   if(!pts.length)return;
+   var web=pts.slice();
+   arms.forEach(function(a){
+    var far=60;web.forEach(function(p){far=Math.max(far,(p[0]-n.x)*a.ux+(p[1]-n.z)*a.uz+30)});
+    var b=Math.max(0,a.outer-10);
+    pts.push([n.x-a.nx*b,n.z-a.nz*b],[n.x+a.ux*far-a.nx*b,n.z+a.uz*far-a.nz*b])
+   });
+   gussets.push(hull(pts))
+  });
+  var out=members.map(function(m,i){
+   var w=info[i],c=cut[i];if(!c[0]&&!c[1])return m;
+   var L=Math.hypot(w.x1-w.x0,w.z1-w.z0),ux=(w.x1-w.x0)/L,uz=(w.z1-w.z0)/L,q=m.slice();
+   q[0]=w.x0+ux*c[0];q[1]=w.z0+uz*c[0];q[2]=w.x1-ux*c[1];q[3]=w.z1-uz*c[1];return q
+  });
+  return{members:out,gussets:gussets}
+ }
+ // The convex outline of points [x, z] (anticlockwise).
+ function hull(pts){
+  var p=pts.slice().sort(function(a,b){return a[0]-b[0]||a[1]-b[1]}),cross=function(o,a,b){return(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0])};
+  var lower=[],upper=[];
+  p.forEach(function(q){while(lower.length>1&&cross(lower[lower.length-2],lower[lower.length-1],q)<=0)lower.pop();lower.push(q)});
+  for(var i=p.length-1;i>=0;i--){var q=p[i];while(upper.length>1&&cross(upper[upper.length-2],upper[upper.length-1],q)<=0)upper.pop();upper.push(q)}
+  return lower.slice(0,-1).concat(upper.slice(0,-1))
+ }
  function realGeometry(T,cache,sec){
   var key="real:"+sec.shape+(sec.solid?"s":"")+(sec.bent?"g"+(sec.b1||""):"")+":"+sec.h+":"+sec.b+":"+sec.s+":"+sec.t+":"+(sec.r||0)+(sec.a?":"+sec.a:"");
   if(cache.has(key))return cache.get(key);
@@ -659,6 +722,8 @@ window.irThreeSchemeView=(function(){
   function legT(c){var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);return sec&&sec.t?sec.t/1000:.008}
   // The gusset as thick as the notes of the sheet say («Толщину фасонок принять 10 мм»), else 12 mm (conventional).
   function gussetT(c){var g=number(c.joint&&c.joint.gusset_mm);return g>=6&&g<=40?g/1000:.012}
+  // The gussets of a truss: as its sheet gives them (truss.gusset_mm), else as the notes, else 12 mm (conventional).
+  function trussGussetT(c){var g=number(c.truss&&c.truss.gusset_mm);return g>=6&&g<=40?g/1000:gussetT(c)}
   // Bolts of a brace end on its gusset by the least distances of СП 16.13330 (табл. 40): the first 2,5d from the end of
   // the brace (not less than 2d along the force), the next 3d further (not less than 2,5d) — until the КМД gives its own.
   function boltRow(dia){return[2.5*dia,5.5*dia]}
@@ -1398,8 +1463,9 @@ window.irThreeSchemeView=(function(){
   // of the sortament is drawn by its section (paired angles back to back), the rest by a thin bar.
   // A truss (byAxis) is given by the axes of its members: a pair of angles stands with its centre on the line, the top
   // chord with its horizontal legs on top (the purlins lie on them — КМ: прогон на верхнем поясе фермы), the other
-  // members with them at the bottom. Drawn from the line up, the top chord went through the purlins lying on it.
-  function drawMembers(c,members,at,plane,byAxis){
+  // members with them at the bottom. Drawn from the line up, the top chord went through the purlins lying on it. The
+  // angles of a pair stand `gap` apart (the gusset between them).
+  function drawMembers(c,members,at,plane,byAxis,gap){
    var up=new T.Vector3(0,1,0),parts=[],mat=baseMaterial(c);
    members.forEach(function(m){
     var p0=at(number(m[0]),number(m[1]),number(m[6])),p1=at(number(m[2]),number(m[3]),number(m[6])),v=p1.clone().sub(p0),len=v.length();if(len<.05)return;
@@ -1407,7 +1473,7 @@ window.irThreeSchemeView=(function(){
     y.normalize();var x=new T.Vector3().crossVectors(y,dir).normalize(),basis=new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(x,y,dir));
     var pr=String(m[5]||""),sec=pr?sectionOf(/^\d/.test(pr)?"∟"+pr:pr):null;
     var lift=0,down=false;
-    var put=function(geo,mirror){var mesh=new T.Mesh(geo,mat);mesh.position.copy(p0).add(y.clone().multiplyScalar(lift));mesh.quaternion.copy(basis);mesh.scale.set(mirror?-1:1,down?-1:1,len);parts.push(mesh)};
+    var put=function(geo,mirror){var mesh=new T.Mesh(geo,mat);mesh.position.copy(p0).add(y.clone().multiplyScalar(lift)).add(x.clone().multiplyScalar((mirror?-1:1)*(number(gap)/2)));mesh.quaternion.copy(basis);mesh.scale.set(mirror?-1:1,down?-1:1,len);parts.push(mesh)};
     if(sec&&sec.shape==="angle"&&byAxis){var ca=angleAxis(sec)/1000;down=m[4]==="top";lift=down?ca:-ca}
     if(sec&&sec.shape==="angle"&&/^(?:2|\d)/.test(pr)){var g=realGeometry(T,meshGeo,sec);put(g,false);put(g,true)}
     else if(sec)put(realGeometry(T,meshGeo,sec),false);
@@ -1436,8 +1502,17 @@ window.irThreeSchemeView=(function(){
    var L=Math.hypot(b.x-a.x,b.y-a.y),span=number(t.span_mm)||L;if(L<500)return false;
    var ux=(b.x-a.x)/L,uy=(b.y-a.y)/L,k=L/span,base=number(t.base_mm);
    var at=function(x,z){return toWorld(a.x+ux*x*k,a.y+uy*x*k,base+z)};
-   var parts=drawMembers(c,t.members,at,at(1000,0).sub(at(0,0)).normalize(),true);
+   var gt=trussGussetT(c),nodes=trussNodes(t.members,sectionOf);
+   var parts=drawMembers(c,nodes.members,at,at(1000,0).sub(at(0,0)).normalize(),true,gt);
    if(!parts.length)return false;
+   // The gussets of its nodes in the plane of the truss, between the angles of the pairs.
+   var o=at(0,0),ex=at(1000,0).sub(o),ez=at(0,1000).sub(o),nrm=new T.Vector3().crossVectors(ex.clone().normalize(),ez).normalize();
+   var place=new T.Matrix4().makeBasis(ex,ez,nrm).setPosition(o);
+   nodes.gussets.forEach(function(g){
+    if(g.length<3)return;var sh=new T.Shape();g.forEach(function(p,i){i?sh.lineTo(p[0]/1000,p[1]/1000):sh.moveTo(p[0]/1000,p[1]/1000)});sh.closePath();
+    var geo=new T.ExtrudeGeometry(sh,{depth:gt,bevelEnabled:false});geo.translate(0,0,-gt/2);geo.applyMatrix4(place);
+    var mesh=new T.Mesh(geo,baseMaterial(c));mesh.userData.gusset=true;parts.push(mesh)
+   });
    parts.forEach(function(mesh){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh)});
    var tops=t.members.filter(function(m){return m[4]==="top"}),hi=tops.length?Math.max.apply(null,tops.map(function(m){return Math.max(number(m[1]),number(m[3]))})):0;
    var lab=at(span/2,hi);lab.y+=.35;
