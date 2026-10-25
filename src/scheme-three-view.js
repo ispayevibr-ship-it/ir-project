@@ -1629,7 +1629,7 @@ window.irThreeSchemeView=(function(){
   }
   var center=new T.Vector3(X/2,Math.max(4,Math.min(15,number(P.maxZ||10000)/1900)),Y/2);
   var radius=Math.max(24,Math.hypot(X,Y)*.95),controls=new T.OrbitControls(camera,renderer.domElement);
-  controls.target.copy(center);controls.enableDamping=true;controls.dampingFactor=.12;
+  controls.target.copy(center);controls.enableDamping=true;controls.dampingFactor=.2;controls.rotateSpeed=.6;
   controls.screenSpacePanning=true;controls.minDistance=.05;controls.maxDistance=radius*5;
   var raycaster=new T.Raycaster(),pointer=new T.Vector2(),flight=null;
   function setView(name){
@@ -1907,6 +1907,7 @@ window.irThreeSchemeView=(function(){
   renderer.domElement.addEventListener("pointerleave",function(){overView=false});
   document.addEventListener("keydown",onKey);
   viewport.addEventListener("wheel",wheel,{capture:true,passive:false});renderer.domElement.addEventListener("dblclick",dblclick);
+  root.addEventListener("wheel",rootWheel,{passive:false});
   document.addEventListener("keydown",keyDown);document.addEventListener("keyup",keyUp);document.addEventListener("keydown",shiftKey);document.addEventListener("keyup",shiftKey);
   function releaseKeys(){held.clear()}
   window.addEventListener("blur",releaseKeys);
@@ -1976,6 +1977,15 @@ window.irThreeSchemeView=(function(){
    screenRay(e);var hit=hitMember();if(hit)return hit.point;
    var q=new T.Vector3();return raycaster.ray.intersectPlane(new T.Plane(new T.Vector3(0,1,0),-ground.position.y),q)?q:null
   }
+  // The point to fly to or turn about: the member or the floor under the cursor, unless it lies far beyond the centre
+  // of rotation (the floor toward the horizon, a member seen through the gaps of a lattice) — then the point of the
+  // cursor's ray at the depth of the centre. The engineer, 25.10.2026: «резкие скачки туда сюда» — one notch of the wheel
+  // toward the sky flew the camera 280 m past the building.
+  function workPoint(e){
+   var p=pointAt(e),d=camera.position.distanceTo(controls.target);
+   if(p&&p.distanceTo(camera.position)<=Math.max(3,d*2.5))return p;
+   return raycaster.ray.at(Math.max(.5,d),new T.Vector3())
+  }
   // Like the report of 21.10.2026: each step scales the camera and the centre of rotation toward the point under the
   // cursor (16 % a notch), the point is looked for once and kept while the wheel turns at one place.
   var wheelAt={x:-9,y:-9,t:0,p:null};
@@ -1984,17 +1994,32 @@ window.irThreeSchemeView=(function(){
    e.preventDefault();e.stopPropagation();flight=null;
    var now=performance.now(),p;
    if(wheelAt.p&&now-wheelAt.t<250&&Math.hypot(e.clientX-wheelAt.x,e.clientY-wheelAt.y)<4)p=wheelAt.p;
-   else{p=pointAt(e)||controls.target.clone();wheelAt={x:e.clientX,y:e.clientY,t:now,p:p}}
+   else{p=workPoint(e);wheelAt={x:e.clientX,y:e.clientY,t:now,p:p}}
    wheelAt.t=now;
-   var k=Math.pow(1.0015,e.deltaY*(e.deltaMode===1?33:1)),cam=camera.position;
+   // One event of a fast wheel or a touchpad is no more than about two notches.
+   var dy=Math.max(-240,Math.min(240,e.deltaY*(e.deltaMode===1?33:e.deltaMode===2?400:1)));
+   var k=Math.pow(1.0015,dy),cam=camera.position;
    var next=p.clone().add(cam.clone().sub(p).multiplyScalar(k));
    if(k<1&&next.distanceTo(p)<.3)return;
    if(k>1&&next.distanceTo(controls.target)>controls.maxDistance)return;
    controls.target.copy(p.clone().add(controls.target.clone().sub(p).multiplyScalar(k)));cam.copy(next);invalidate(700)
   }
+  // The wheel over the bars laid on the picture (the tools, the legend, the hints) turns the model too: it scrolled the
+  // page under them, and the whole picture jumped up and down between the turns of the model (the engineer, 25.10.2026:
+  // «резкие скачки туда сюда»). A list that scrolls itself keeps its wheel.
+  function rootWheel(e){
+   if(viewport.contains(e.target))return;
+   for(var n=e.target;n&&n!==root;n=n.parentElement){
+    if(/^(SELECT|TEXTAREA|DIALOG)$/.test(n.tagName))return;
+    var oy=getComputedStyle(n).overflowY;if((oy==="auto"||oy==="scroll")&&n.scrollHeight>n.clientHeight+1)return
+   }
+   var r=viewport.getBoundingClientRect();
+   if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom){e.preventDefault();return}
+   wheel(e)
+  }
   function dblclick(e){
    if(placing||copySource)return;
-   var p=pointAt(e);if(!p)return;
+   var p=pointAt(e);if(!p||p.distanceTo(camera.position)>Math.max(3,camera.position.distanceTo(controls.target)*4))return;
    var shift=p.clone().sub(controls.target);
    flight={from:controls.target.clone(),to:p,camFrom:camera.position.clone(),camTo:camera.position.clone().add(shift),t:0,ms:280,st:performance.now(),out:true}
   }
@@ -2136,7 +2161,7 @@ window.irThreeSchemeView=(function(){
     renderer.domElement.removeEventListener("pointerup",up);
     renderer.domElement.removeEventListener("pointermove",move);
     renderer.domElement.removeEventListener("pointerleave",leave);
-    viewport.removeEventListener("wheel",wheel,true);renderer.domElement.removeEventListener("dblclick",dblclick);
+    viewport.removeEventListener("wheel",wheel,true);root.removeEventListener("wheel",rootWheel);renderer.domElement.removeEventListener("dblclick",dblclick);
     document.removeEventListener("keydown",keyDown);document.removeEventListener("keyup",keyUp);document.removeEventListener("keydown",shiftKey);document.removeEventListener("keyup",shiftKey);
     window.removeEventListener("blur",releaseKeys);
     controls.dispose();clearNodes();nodeGeo.dispose();nodeMats.forEach(function(m){m.dispose()});boltMat.dispose();plateMat.dispose();concreteMat.dispose();craneMat.dispose();hoistMat.dispose();wheelMat.dispose();boltMats["8.8"].dispose();boltMats["5.8"].dispose();
