@@ -274,8 +274,10 @@ function ownerOf(g,texts,titled,strokes=[]){
  const along=t=>t.x*g.u.x+t.y*g.u.y,across=t=>t.x*g.n.x+t.y*g.n.y,upright=Math.abs(g.u.y)>Math.abs(g.u.x);
  const centre=t=>({x:t.x+(t.width||0)/2,y:t.y});
  // How far over the view a text stands (null — not over it).
- const over=(t,lim)=>upright?(across(t)>=g.lo-200&&across(t)<=g.hi+200&&along(t)<g.s0&&g.s0-along(t)<lim?g.s0-along(t):null):
-  (along(t)>=g.s0-40&&along(t)<=g.s1+40&&across(t)<g.lo&&g.lo-across(t)<lim?g.lo-across(t):null);
+ // (and how far aside of it: of two titles over an upright plate the one over it — ГПЭС К32 «3 - 3 для К32, К37» and
+ // «3 - 3 для К33, К36» side by side, the first a little lower)
+ const over=(t,lim)=>upright?(across(t)>=g.lo-200&&across(t)<=g.hi+200&&along(t)<g.s0&&g.s0-along(t)<lim?g.s0-along(t)+Math.max(0,g.lo-across(t),across(t)-g.hi):null):
+  (along(t)>=g.s0-40&&along(t)<=g.s1+40&&across(t)<g.lo&&g.lo-across(t)<lim?g.lo-across(t)+Math.max(0,g.s0-along(t),along(t)-g.s1):null);
  const nearest=(list,lim)=>list.map(x=>({x,d:over(x.at,lim)})).filter(o=>o.d!==null).sort((a,b)=>a.d-b.d)[0];
  const mains=titled.map(v=>({at:v.title_at,v})),titles=texts.filter(t=>{const v=String(t.str).trim();return VID.test(v)||CUT.test(v)||DETAIL.test(v)}).map(t=>({at:centre(t),t}));
  let own=nearest(mains,150),named=nearest(titles,150);
@@ -290,9 +292,10 @@ function ownerOf(g,texts,titled,strokes=[]){
  if(named&&(!own||named.d<own.d)){
   const title=String(named.x.t.str).trim().replace(/\s+/g," ");
   if(DETAIL.test(title))return{title,view:null,detail:true};
-  // The marks it names; else the arrows of its letter or number.
-  const marks=[...new Set(titled.flatMap(v=>v.marks))].filter(m=>new RegExp("(?:^|[^А-ЯЁа-яё\\d])"+m+"(?![\\dа-яё])","u").test(title));
-  if(marks.length)return{title,view:titled.find(v=>marks.every(m=>v.marks.includes(m)))||{marks,title},named:marks};
+  // The marks it names — in it or in the line «для К101» under it (ГПЭС л. 113: three cuts «4 - 4», «для К101»,
+  // «для К103», «для К133»); else the arrows of its letter or number.
+  const nt=named.x.t,z=nt.size||10,under=texts.filter(t=>t!==nt&&/^для\s/iu.test(String(t.str).trim())&&t.y>nt.y&&t.y-nt.y<=2.5*z&&t.x+(t.width||0)>=nt.x-z&&t.x<=nt.x+(nt.width||0)+z).map(t=>String(t.str)).join(" ");
+  const marks=[...new Set(titled.flatMap(v=>v.marks))].filter(m=>new RegExp("(?:^|[^А-ЯЁа-яё\\d])"+m+"(?![\\dа-яё])","u").test(title+" "+under));
   const label=(VID.exec(title)||CUT.exec(title))[1],all=texts.filter(t=>t!==named.x.t&&new RegExp("^(?:по\\s*)?"+label+"$","u").test(String(t.str).trim()));
   // (an arrow's letter stands by the thick stroke of the cut — not the number of a position in its circle, ГПЭС К39
   // «1–1»: the balloon «1» under the title «К41, К41б, К42, К43»)
@@ -307,6 +310,21 @@ function ownerOf(g,texts,titled,strokes=[]){
   const pairs=[];if(cut)for(let i=0;i<arrows.length;i++)for(let j=i+1;j<arrows.length;j++){const a=centre(arrows[i]),b=centre(arrows[j]);
    const dx=Math.abs(a.x-b.x),dy=Math.abs(a.y-b.y);if(Math.min(dx,dy)<=Math.max(5,0.02*Math.max(dx,dy))&&dist(a,b)>=30)pairs.push({x:(a.x+b.x)/2,y:(a.y+b.y)/2,ends:[arrows[i],arrows[j]]})}
   const off=t=>{const s=along(t),o=across(t);return Math.hypot(Math.max(0,g.s0-s,s-g.s1),Math.max(0,g.lo-o,o-g.hi))};
+  // (the place of the cut: the middle of its two strokes — the numbers stand beside them —, else of its two numbers)
+  const strokeBy=t=>{const c=centre(t);let best=null;for(const s of strokes){const l=dist(s.a,s.b),k=Math.max(0,Math.min(1,((c.x-s.a.x)*(s.b.x-s.a.x)+(c.y-s.a.y)*(s.b.y-s.a.y))/(l*l||1))),d=dist(c,{x:s.a.x+k*(s.b.x-s.a.x),y:s.a.y+k*(s.b.y-s.a.y)});
+   if(d<=35&&(!best||d<best.d))best={d,m:{x:(s.a.x+s.b.x)/2,y:(s.a.y+s.b.y)/2}}}return best?.m};
+  const placeOf=p=>{const sa=strokeBy(p.ends[0]),sb=strokeBy(p.ends[1]);return sa&&sb&&dist(sa,sb)>=10?{x:(sa.x+sb.x)/2,y:(sa.y+sb.y)/2}:{x:p.x,y:p.y}};
+  const inBox=(p,b)=>b&&p.x>=b.x0&&p.x<=b.x1&&p.y>=b.y0&&p.y<=b.y1;
+  // (the marks named: its arrows those on a view of them, the nearest)
+  if(marks.length){const mine=pairs.filter(p=>titled.some(v=>inBox(p,v.box)&&v.marks.some(m=>marks.includes(m)))).sort((a,b)=>off(a)-off(b))[0];
+   return{title,view:titled.find(v=>marks.every(m=>v.marks.includes(m)))||{marks,title},named:marks,...(mine?{cut:placeOf(mine)}:{})}}
+  // (a view of a detail: titled in a row with a «Дет. поз.» beside it, its arrow by that detail's drawing, away from
+  // every member's view — ГПЭС К182 «Вид В», the flange of «Дет. поз. 1» drawn apart; its holes are the member's own,
+  // read in its view. Not a member's view with a detail's title by its arrow — an axis «А» in its circle on the base
+  // plate of «Дет. поз. 17», К29 «Вид А» — or with a detail's title in its row, К66 «Вид Б» and «Дет. поз. 8»)
+  const dets=texts.filter(t=>DETAIL.test(String(t.str).trim())).map(centre),gap=(p,b)=>b?Math.hypot(Math.max(0,b.x0-p.x,p.x-b.x1),Math.max(0,b.y0-p.y,p.y-b.y1)):Infinity;
+  const row=dets.some(q=>Math.abs(q.y-centre(nt).y)<=z&&Math.abs(q.x-centre(nt).x)<=400);
+  if(!cut&&row&&arrows.length&&arrows.every(a=>{const c=centre(a),d=Math.min(...dets.map(q=>dist(c,q)));return d<=300&&titled.every(v=>gap(c,v.box)>d)}))return{title,view:null,detail:true};
   const pair=pairs.sort((a,b)=>off(a)-off(b))[0];
   // (the titles over it, the nearest first)
   const above=titled.filter(v=>{const t=v.title_at;return upright?across(t)>=g.lo-200&&across(t)<=g.hi+200&&along(t)<g.s0:along(t)>=g.s0-40&&along(t)<=g.s1+40&&across(t)<g.lo}).sort((a,b)=>off(a.title_at)-off(b.title_at));
@@ -315,14 +333,10 @@ function ownerOf(g,texts,titled,strokes=[]){
   const long=v=>Number(v.length_mm)>0&&Math.abs(v.length_mm-g.length)<=Math.max(10,g.length*0.01),fit=titled.filter(long);
   const sure=v=>v&&Number(v.length_mm)>0&&!long(v)&&fit.length===1&&above[0]===fit[0]?fit[0]:v;
   // (no cut of its letter by it — the arrows lettered otherwise, ГПЭС «4 - 4» of К14 under arrows «8»: the title nearest it)
-  // (the place of the cut: the middle of its two strokes — the numbers stand beside them —, else of its two numbers)
-  const strokeBy=t=>{const c=centre(t);let best=null;for(const s of strokes){const l=dist(s.a,s.b),k=Math.max(0,Math.min(1,((c.x-s.a.x)*(s.b.x-s.a.x)+(c.y-s.a.y)*(s.b.y-s.a.y))/(l*l||1))),d=dist(c,{x:s.a.x+k*(s.b.x-s.a.x),y:s.a.y+k*(s.b.y-s.a.y)});
-   if(d<=35&&(!best||d<best.d))best={d,m:{x:(s.a.x+s.b.x)/2,y:(s.a.y+s.b.y)/2}}}return best?.m};
-  const sa=pair&&strokeBy(pair.ends[0]),sb=pair&&strokeBy(pair.ends[1]);
-  const cutAt=pair?{cut:sa&&sb&&dist(sa,sb)>=10?{x:(sa.x+sb.x)/2,y:(sa.y+sb.y)/2}:{x:pair.x,y:pair.y}}:{};
+  const cutAt=pair?{cut:placeOf(pair)}:{};
   // (a section drawn far from its cut, the cut on a view of the sheet: that view's — ГПЭС «8-8» drawn under Ф14, its
   // arrows at the foot of Ф15)
-  const on=pair?titled.filter(v=>v.box&&pair.x>=v.box.x0&&pair.x<=v.box.x1&&pair.y>=v.box.y0&&pair.y<=v.box.y1):[];
+  const on=pair?titled.filter(v=>inBox(pair,v.box)):[];
   if(pair&&off(pair)>300){const v=(on.length===1?on[0]:null)||above[0]||titled.slice().sort((a,b)=>off(a.title_at)-off(b.title_at))[0];if(v)return{title,view:on.length===1?v:sure(v),...cutAt}}
   let best=null;
   for(const a of pair?[pair]:arrows)for(const v of titled){const d=Math.hypot(a.x-v.title_at.x,a.y-v.title_at.y);if(!best||d<best.d)best={d,v}}
@@ -333,7 +347,8 @@ function ownerOf(g,texts,titled,strokes=[]){
  return{title:near?near.title:"",view:near||null}
 }
 // Holes of the sheet by view of a member: [{title, marks, scale, length_mm, band_mm, holes:[{at_mm, off_mm, d_mm, sign,
-// from, part?}]}] — at_mm from the start of the member's outline (left, or top), off_mm from its axis (+ down or right).
+// from, part?}]}] — at_mm from the start of the member's outline (left, or top), off_mm from its axis (+ down, or + left
+// of an upright one); of a plate drawn apart (sections) + down or + right.
 // `views` — the titled views of the sheet (src/ai-sheet-extract.js assemblyViews: marks, title_at, length_mm); `allMm` —
 // the diameter of the holes not named («Все отверстия Ø23»). The signs in plates drawn apart (sections, details) are
 // counted in `parts`, the signs not in any member or plate in `loose`.
@@ -529,14 +544,24 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
  }
  // The plates drawn apart with their holes: its size (along its view, across), the holes from its start and its axis as a
  // member's; the place of its cut along the mark's view («1 - 1» at the foot of a column), when its arrows are by it.
- const sections=[];
+ const sections=[],placeOf=new Map();
  for(const [g,own] of plateSigns){const r=holesIn(g,own,true);if(!r.holes.length)continue;const who=g.who,marks=who.named||who.view.marks;
   let at=null;
-  if(who.cut){const m=members.filter(o=>(o.who.view?.marks||[]).some(x=>marks.includes(x))).sort((a,b)=>b.length-a.length)[0];
-   if(m){const sa=who.cut.x*m.u.x+who.cut.y*m.u.y,c=who.cut.x*m.n.x+who.cut.y*m.n.y,w=m.hi-m.lo,L=m.s1-m.s0;
-    if(c>=m.lo-3*w&&c<=m.hi+3*w&&sa>=m.s0-0.05*L&&sa<=m.s1+0.05*L)at={mm:m.alongMm(Math.max(m.s0,Math.min(m.s1,sa))),of:m.length,view:m.who.title,dir:Math.abs(m.u.x)>=Math.abs(m.u.y)?"по горизонтали":"по вертикали"}}}
-  sections.push({title:who.title,marks,scale:"1:"+g.sc.k,plate_mm:[g.length,Math.round((g.hi-g.lo)/g.sc.n)],dir:Math.abs(g.u.x)>=Math.abs(g.u.y)?"по горизонтали":"по вертикали",
-   holes:r.holes.map(h=>({at_mm:h.at_mm,off_mm:h.off_mm,d_mm:h.d_mm,...(h.from?{from:h.from}:{})})),...(at?{at_mm:at.mm,of_mm:at.of,cut_on:at.view,cut_dir:at.dir}:{})})}
+  // (on the longest view of its marks the cut crosses)
+  if(who.cut){const crosses=m=>{const sa=who.cut.x*m.u.x+who.cut.y*m.u.y,c=who.cut.x*m.n.x+who.cut.y*m.n.y,w=m.hi-m.lo,L=m.s1-m.s0;return c>=m.lo-3*w&&c<=m.hi+3*w&&sa>=m.s0-0.05*L&&sa<=m.s1+0.05*L};
+   const m=members.filter(o=>(o.who.view?.marks||[]).some(x=>marks.includes(x))&&crosses(o)).sort((a,b)=>b.length-a.length)[0];
+   if(m){const sa=who.cut.x*m.u.x+who.cut.y*m.u.y;at={mm:m.alongMm(Math.max(m.s0,Math.min(m.s1,sa))),of:m.length,view:m.who.title,dir:Math.abs(m.u.x)>=Math.abs(m.u.y)?"по горизонтали":"по вертикали"}}}
+  const s={title:who.title,marks,scale:"1:"+g.sc.k,plate_mm:[g.length,Math.round((g.hi-g.lo)/g.sc.n)],dir:Math.abs(g.u.x)>=Math.abs(g.u.y)?"по горизонтали":"по вертикали",
+   // (across it + right on the sheet, as + down when it lies: an upright one's axis is measured + left)
+   holes:r.holes.map(h=>({at_mm:h.at_mm,off_mm:Math.abs(g.u.y)>Math.abs(g.u.x)&&h.off_mm?-h.off_mm:h.off_mm,d_mm:h.d_mm,...(h.from?{from:h.from}:{})})),...(at?{at_mm:at.mm,of_mm:at.of,cut_on:at.view,cut_dir:at.dir}:{})};
+  // (one plate between other pairs of its lines as well — drawn over by the lines of the node, ГПЭС К133 «4 - 4»: the
+  // plate 478×299 three times, a hole or three in each —: one plate, its holes together)
+  const corner=(a,o)=>({x:g.u.x*a+g.n.x*o,y:g.u.y*a+g.n.y*o}),c0=corner(g.s0,g.lo),c1=corner(g.s1,g.hi),box={x0:Math.min(c0.x,c1.x),x1:Math.max(c0.x,c1.x),y0:Math.min(c0.y,c1.y),y1:Math.max(c0.y,c1.y)};
+  const area=b=>Math.max(0,b.x1-b.x0)*Math.max(0,b.y1-b.y0),same=sections.find(o=>{const b=placeOf.get(o);if(o.title!==s.title||o.dir!==s.dir||o.marks.join()!==s.marks.join()||Math.abs(o.plate_mm[0]-s.plate_mm[0])>2||Math.abs(o.plate_mm[1]-s.plate_mm[1])>2)return false;
+   const i={x0:Math.max(b.x0,box.x0),x1:Math.min(b.x1,box.x1),y0:Math.max(b.y0,box.y0),y1:Math.min(b.y1,box.y1)};return area(i)>=0.8*Math.min(area(b),area(box))});
+  if(same){for(const h of s.holes)if(!same.holes.some(o=>Math.abs(o.at_mm-h.at_mm)<=2&&Math.abs(o.off_mm-h.off_mm)<=2))same.holes.push(h);same.holes.sort((a,b)=>a.at_mm-b.at_mm||a.off_mm-b.off_mm);
+   if(same.at_mm===undefined&&s.at_mm!==undefined)Object.assign(same,{at_mm:s.at_mm,of_mm:s.of_mm,cut_on:s.cut_on,cut_dir:s.cut_dir});continue}
+  placeOf.set(s,box);sections.push(s)}
  const result={views:out.filter(v=>v.holes.length),parts,loose:signs.filter(h=>h.loose).length,...(unnamed?{unnamed}:{}),...(sections.length?{sections}:{})};
  // (`withMembers`: the views found, for the parts on them — their frames on the sheet)
  if(withMembers)Object.defineProperty(result,"members",{value:members.map((g,i)=>({g,view:out[i]})),enumerable:false});

@@ -1668,8 +1668,9 @@ window.irThreeSchemeView=(function(){
    }else{
     // The cap plate: wider than the column under a beam lying on it; flush with the section where beams come to the
     // sides at the top (an overhang went into their ends).
+    // (none where its sheet draws its own in a cut at the top, addCuts)
     var ov=seatTop.has(String(col.c.id))?.04:0;
-    var cap=new T.Mesh(shared("cap:"+bw+":"+hh+":"+ov,function(){return new T.BoxGeometry(bw+ov,.02,hh+ov)}),plateMat);cap.position.y=.01;g.add(cap)
+    if(!endCuts(col.c).some(function(e){return e.end===1})){var cap=new T.Mesh(shared("cap:"+bw+":"+hh+":"+ov,function(){return new T.BoxGeometry(bw+ov,.02,hh+ov)}),plateMat);cap.position.y=.01;g.add(cap)}
    }
    g.userData.detail=true;g.children.forEach(function(m){m.userData.memberId=String(col.c.id)});
    return g
