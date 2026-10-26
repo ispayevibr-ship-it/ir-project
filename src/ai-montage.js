@@ -604,11 +604,14 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    const cat=plan.catalog?.get?.(markKey(e.doc||"КМД",e.mark));
    const sources={position:sectionOf(e)+(e.page>0?" · "+(e.file||data.source?.name||"PDF")+", лист "+(e.sheet||e.page):"")+(e.scheme?" · «"+String(e.scheme).slice(0,60)+"»":""),levels:String(e.levels||""),
     ...(e.profile?{profile:cat?.profile===e.profile&&cat.profileFrom?cat.profileFrom:"схема листа"}:{}),...(cat?.lengthFrom?{size:cat.lengthFrom}:{}),
-    ...(cat?.profile_other&&cat.profile===e.profile?{profile_other:cat.profile_other.value+" — "+cat.profile_other.from}:{})};
+    ...(cat?.profile_other&&cat.profile===e.profile?{profile_other:cat.profile_other.value+" — "+cat.profile_other.from}:{}),
+    // The name of the mark: the register of the program first (the engineer, 26.10.2026: «если есть ведомость в программе,
+    // то она в приоритете»), the drawing's when it has none; a different name of the drawing is shown beside it.
+    ...(mark?.name?{name:"ведомость марок программы",...(e.name&&e.name!==mark.name?{name_other:e.name+" — чертёж"}:{})}:{})};
    const mid={absolute_mid_x_mm:mx,absolute_mid_y_mm:my,mid_z_mm:bent?e.mid_z_mm:undefined,mid_axis_x:midX?.[0],mid_axis_y:midY?.[0],
     mid_offset_x_mm:bent?mx-midX[1]:undefined,mid_offset_y_mm:bent?my-midY[1]:undefined};
    payloads.push({x,y,mark:e.mark,volume:vol,geometry:e.geometry_type,work,data:{entity_type:"column",
-    mark_id:mark?mark.id:"",mark:mark?(mark.mark||mark.title):e.mark,mark_name:e.name||mark?.name||"",work_type_id:mark?String(mark.work_type_id||""):work,
+    mark_id:mark?mark.id:"",mark:mark?(mark.mark||mark.title):e.mark,mark_name:mark?.name||e.name||"",work_type_id:mark?String(mark.work_type_id||""):work,
     axis_x:ax,axis_y:ay,offset_x_mm:x-axPos,offset_y_mm:y-ayPos,absolute_x_mm:x,absolute_y_mm:y,geometry_type:e.geometry_type,
     absolute_x2_mm:column?undefined:x2,absolute_y2_mm:column?undefined:y2,
     end_axis_x:column?undefined:endX[0],end_axis_y:column?undefined:endY[0],
@@ -619,6 +622,12 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
     source_import_doc:e.page>0?(e.file||data.source?.name||"PDF")+" · лист "+(e.sheet||e.page):/база знаний/.test(e.levels||"")||data.ai?.source==="knowledge"?"база знаний":/^листы/u.test(e.levels||"")?"листы КМД комплекта":"по данным Claude",import_requires_verification:false,check_note:String(e.note||"").split("; ").filter(x=>/проверьте/iu.test(x)).join("; ")||undefined,import_batch:batch}})
   });
   if(!payloads.length)throw Error("Нечего расставлять: все элементы вне сетки схемы или уже добавлены вручную.");
+  // The count of each linked mark of the register against the number on the montage schemes (placed now and added by
+  // hand): a difference is shown, the register is not changed.
+  const placedBy=new Map(),count=id=>{if(id)placedBy.set(String(id),(placedBy.get(String(id))||0)+1)};
+  for(const p of payloads)count(p.data.mark_id);
+  for(const r of manual)if(placedBy.has(String(r.data?.mark_id||"")))count(r.data.mark_id);
+  const qtyDiffs=[...placedBy].map(([id,n])=>{const m=marks.find(x=>x.id===id),q=Number(m?.qty);return m&&q>0&&q!==n?{mark:m.mark||m.title,register:q,placed:n}:null}).filter(Boolean);
   // Marks that the register does not have are added to it: without a register prepared beforehand the program
   // makes one from the drawings. They go under a work type of their own ("из PDF"), so that a register the engineer
   // loaded is never mixed with them; quantity is the larger of "Требуется" and the number placed, mass from the sheets.
@@ -724,7 +733,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   const byWork=[...perWork].map(([wid,count])=>({id:wid,name:wid?workName(wid):"без вида работ",count})).sort((a,b)=>b.count-a.count);
   const preliminary=payloads.filter(p=>p.data.preliminary).length,statuses={};for(const p of payloads)statuses[p.data.instance_status]=(statuses[p.data.instance_status]||0)+1;
   const result={batch,created,updated:updated.length-keptEdited.length-missingNow.length,removed:removed.length,keptMounted:kept.length,keptEdited:keptEdited.length,missing:missingNow.length+stillMissing.length,
-   preliminary,statuses,gridDiffs:gridDiffs.slice(0,40),linked,marksCreated:createdMarks.length,workCreated:Boolean(createdWork),byWork,skippedCount:skipped.length,skipped:skipped.slice(0,300),gridMode,at:new Date().toISOString()};
+   preliminary,statuses,gridDiffs:gridDiffs.slice(0,40),linked,qtyDiffs:qtyDiffs.slice(0,200),marksCreated:createdMarks.length,workCreated:Boolean(createdWork),byWork,skippedCount:skipped.length,skipped:skipped.slice(0,300),gridMode,at:new Date().toISOString()};
   // What was placed, element by element: the engineer's later changes become corrections (src/ai-training.js).
   try{training?.recordPlacement?.(oid,{batch,draftId,source:data.source,carried})}catch(error){console.error("IR Project: training",error)}
   const after=draftRow(oid,draftId);
@@ -732,7 +741,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    (keptEdited.length?", оставлены ваши правки "+keptEdited.length:"")+(missingNow.length+stillMissing.length?", нет в новом анализе "+(missingNow.length+stillMissing.length)+" (оставлены, помечены)":"")+
    (preliminary?", предварительно "+preliminary:"")+" · "+
    Object.entries(payloads.reduce((a,x)=>(a[x.data.scheme_group_label]=(a[x.data.scheme_group_label]||0)+1,a),{})).map(([k,v])=>k+" "+v).join(", ")+
-   ", связано с ведомостью "+linked+(createdMarks.length?", в ведомость добавлено марок "+createdMarks.length+(createdWork?" (вид работ «"+AUTO_WORK+"» создан)":""):"")+
+   ", связано с ведомостью "+linked+(qtyDiffs.length?" (количество не как в ведомости программы: "+qtyDiffs.slice(0,6).map(d=>d.mark+" — в ведомости "+d.register+", на схемах "+d.placed).join("; ")+(qtyDiffs.length>6?"…":"")+")":"")+(createdMarks.length?", в ведомость добавлено марок "+createdMarks.length+(createdWork?" (вид работ «"+AUTO_WORK+"» создан)":""):"")+
    (byWork.length>1||byWork[0]?.id&&String(byWork[0].id)!==String(createdWork)?" · по видам работ: "+byWork.map(w=>"«"+w.name+"» "+w.count).join(", "):"")+
    (enabled.length?" (монтажная схема включена у "+enabled.length+")":"")+", пропущено "+skipped.length+", сетка: "+({created:"создана",replaced:"заменена",kept:ownGrid?"ваша сохранена":"сохранена"}[gridMode])+
    (gridDiffs.length?" (расхождения с PDF: "+gridDiffs.slice(0,6).join("; ")+(gridDiffs.length>6?"…":"")+")":"")})});

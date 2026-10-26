@@ -1947,8 +1947,8 @@ window.irSchemePage=async function(objectId){
  // — this scheme, its grid and elements with their kinds, sections, statuses and the marks register; no editing.
  async function exportSchemeHtml(btn){
   if(!window.irSchemeHtmlExport){alert("Выгрузка схемы в HTML недоступна — обновите программу.");return}
-  const list=records().map(c=>{const p={...c,...coord(c)},g=recordMarkGroup(c),pr=markProgress(linkedMark(c));
-   return{id:String(c.id),mark:String(c.mark||""),mark_name:String(c.mark_name||""),title:String(c.mark_name||c.title||""),type_name:String(c.type_name||FITTING_LABEL[p.ft]||geometryLabel(p.geometryType)),
+  const list=records().map(c=>{const p={...c,...coord(c)},g=recordMarkGroup(c),lm=linkedMark(c),pr=markProgress(lm),name=String(lm?.name||"").trim()||String(c.mark_name||"");
+   return{id:String(c.id),mark:String(c.mark||""),mark_name:name,title:String(name||c.title||""),type_name:String(c.type_name||FITTING_LABEL[p.ft]||geometryLabel(p.geometryType)),
     section:sectionShown(p),profile:profileShown(p),status:effectiveStatus(c),scheme_group:g.key,axisX:p.axisX,axisY:p.axisY,axisText:axisText(p),
     x:p.x,y:p.y,x2:p.x2,y2:p.y2,z0:p.z0,z1:p.z1,z2:p.z2,mx:p.mx,my:p.my,mz:p.mz,r:p.r,ri:p.ri,open:p.open,sa:p.sa,sw:p.sw,cr:p.cr,lay:p.lay,ft:p.ft,fd:p.fd,geometryType:p.geometryType,
     progress:pr&&pr.total>0?pr:null,draft:false,draft_doc:String(c.source_import_doc||""),work:recordWorkId(c),
@@ -2064,7 +2064,7 @@ window.irSchemePage=async function(objectId){
  function instanceHtml(c){
   const st=String(c.instance_status||""),n=c.pdf_new&&typeof c.pdf_new==="object"?c.pdf_new:null;
   const ps=c.param_sources&&typeof c.param_sources==="object"?c.param_sources:null;
-  const from=ps?[["Положение",ps.position],["Отметки",ps.levels],["Профиль",ps.profile],["Габарит",ps.size],["Другой профиль",ps.profile_other]].filter(r=>r[1]):[];
+  const from=ps?[["Положение",ps.position],["Отметки",ps.levels],["Наименование",ps.name],["Наименование на чертеже",ps.name_other],["Профиль",ps.profile],["Габарит",ps.size],["Другой профиль",ps.profile_other]].filter(r=>r[1]):[];
   if(!INSTANCE_STATUS[st]&&!n&&!from.length)return"";
   const reasons=Array.isArray(c.instance_reasons)?c.instance_reasons.map(String):[];
   const top=c.geometryType==="column"||c.geometryType==="shell"||c.geometryType==="plate"?n?.z1:n?.end_z??n?.z1;
@@ -2081,10 +2081,11 @@ window.irSchemePage=async function(objectId){
  function renderDetails(){
   const panel=document.getElementById("schemeDetails");if(!panel)return;const c=selected();
   if(!c){panel.innerHTML=pickerHtml()+`<div class="scheme-detail-empty"><b>Элемент не выбран</b><span>Нажмите на элемент на схеме или добавьте новый.</span>${canEdit()?'<button type="button" data-scheme-add>＋ Добавить элемент</button>':""}</div>`;panel.querySelector("[data-scheme-add]")?.addEventListener("click",()=>window.irThreeSchemeView?.startPlacement?.()??openEditor());bindElementPicker(panel);return}
-  const a=axisText(c),between=c.dx||c.dy,progress=markProgress(linkedMark(c));
-  panel.innerHTML=pickerHtml()+`${c.check_note?`<div class="scheme-check-note"><small>Проверьте: ${esc(String(c.check_note).replace(/\s*—?\s*проверьте\.?/giu,""))}</small></div>`:""}<div class="scheme-detail-title"><span>Выбранный элемент</span><b>${esc(c.mark||"—")}</b>${c.mark_name?`<small>${esc(c.mark_name)}</small>`:""}</div>${instanceHtml(c)}
+  // The name as the register of the program has it now (it goes first: the engineer, 26.10.2026), else as placed.
+  const a=axisText(c),between=c.dx||c.dy,linked=linkedMark(c),progress=markProgress(linked),name=String(linked?.name||"").trim()||c.mark_name;
+  panel.innerHTML=pickerHtml()+`${c.check_note?`<div class="scheme-check-note"><small>Проверьте: ${esc(String(c.check_note).replace(/\s*—?\s*проверьте\.?/giu,""))}</small></div>`:""}<div class="scheme-detail-title"><span>Выбранный элемент</span><b>${esc(c.mark||"—")}</b>${name?`<small>${esc(name)}</small>`:""}</div>${instanceHtml(c)}
    <div class="scheme-detail-grid">
-    <div><span>Наименование</span><b>${esc(c.mark_name||"—")}</b></div>
+    <div><span>Наименование</span><b>${esc(name||"—")}</b></div>
     <div><span>Тип элемента</span><b>${esc(c.type_name||FITTING_LABEL[c.ft]||geometryLabel(c.geometryType))}</b></div><div><span>Сечение</span><b>${esc(sectionShown(c))}</b></div>
     <div><span>Профиль</span><b>${esc(profileShown(c))}</b></div>
     <div><span>${progress?.total>0?"Статус по ведомости":"Статус (ручной)"}</span><b class="${c.status==="mounted"?"ok":c.status==="partial"?"partial":"wait"}">${statusText(c.status)}</b></div>
