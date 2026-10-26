@@ -336,8 +336,18 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
  const thick=thickOf(segs),crossers=thick?segs.filter(thick):segs,edges=edgeLines(segs,dimLine,{widthPt,heightPt,thick}).filter(L=>!gauge(L)),titled=views.filter(v=>v.marks?.length&&v.title_at),len=L=>L.s1-L.s0;
  // The signs between the same two edges: one view of one part.
  const groups=new Map();
+ // A sign in a plate at a member's end (a plate in the plane of its web run on past its end, its holes in it — ГПЭС
+ // К131: the plate 44 pt across, the beam 533 pt on from it): the member's band — the band across the plate, from a point
+ // just past its side, the member's end there at the plate's line.
+ const onEnd=(h,b)=>{if(b.len>=120)return b;const sh=h.x*b.u.x+h.y*b.u.y;
+  for(const [edge,o] of [[b.below.off,8],[b.above.off,-8]]){const p={x:b.u.x*sh+b.n.x*(edge+o),y:b.u.y*sh+b.n.y*(edge+o)},m=memberBand(p,edges,crossers);
+   if(!m||Math.abs(m.u.x*b.n.x+m.u.y*b.n.y)<0.999||m.len<3*b.len)continue;
+   const oh=h.x*m.n.x+h.y*m.n.y,e={x:b.u.x*sh+b.n.x*edge,y:b.u.y*sh+b.n.y*edge},se=e.x*m.u.x+e.y*m.u.y;
+   if(oh<m.above.off-0.5||oh>m.below.off+0.5||![m.above,m.below].some(L=>Math.abs(L.s0-se)<=3||Math.abs(L.s1-se)<=3))continue;
+   h.onEnd=true;return m}
+  return b};
  for(const h of signs){
-  const b=memberBand(h,edges,crossers);if(!b){h.loose=true;continue}
+  const b0=memberBand(h,edges,crossers);if(!b0){h.loose=true;continue}const b=onEnd(h,b0);
   const k=edges.indexOf(b.above)+"|"+edges.indexOf(b.below);
   if(!groups.has(k))groups.set(k,{u:b.u,n:b.n,above:b.above,below:b.below,signs:[]});groups.get(k).signs.push(h)
  }
@@ -418,6 +428,10 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
   {const st=g.edges.map(L=>Math.max(L.s0,g.s0)),en=g.edges.map(L=>Math.min(L.s1,g.s1)),m=Math.max(4,0.01*(g.s1-g.s0));
    const c0=g.cross.filter(p=>p>=Math.min(...st)-m&&p<=Math.max(...st)+2),c1=g.cross.filter(p=>p<=Math.max(...en)+m&&p>=Math.min(...en)-2);
    if(c0.length)g.s0=Math.min(...c0);if(c1.length)g.s1=Math.max(...c1)}
+  // (its signs past an end, in a plate run on from it: the end is the plate's line across past them, the nearest)
+  {const at=g.signs.filter(h=>h.onEnd).map(h=>h.x*g.u.x+h.y*g.u.y),L=g.s1-g.s0;
+   if(at.length&&Math.min(...at)<g.s0-1){const c=g.cross.filter(p=>p<Math.min(...at)-1&&p>=g.s0-0.25*L);if(c.length)g.s0=Math.max(...c)}
+   if(at.length&&Math.max(...at)>g.s1+1){const c=g.cross.filter(p=>p>Math.max(...at)+1&&p<=g.s1+0.25*L);if(c.length)g.s1=Math.min(...c)}}
   const p0={x:g.u.x*g.s0+g.n.x*g.lo,y:g.u.y*g.s0+g.n.y*g.lo},p1={x:g.u.x*g.s1+g.n.x*g.hi,y:g.u.y*g.s1+g.n.y*g.hi};
   const box={x0:Math.min(p0.x,p1.x)-120,x1:Math.max(p0.x,p1.x)+120,y0:Math.min(p0.y,p1.y)-120,y1:Math.max(p0.y,p1.y)+120};
   g.sc=scaleNear(dims,box);
