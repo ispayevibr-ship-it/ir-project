@@ -539,8 +539,9 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
   const holes=named.map(h=>{const k=Math.min(0.5,h.size*0.15),p={x:snap(h.x,xs,k),y:snap(h.y,ys,k)},s=p.x*g.u.x+p.y*g.u.y,o=p.x*g.n.x+p.y*g.n.y;
    const drawn=h.shape==="circle"?mm(h.size):null,round=drawn?HOLE_D.reduce((a,b)=>Math.abs(b-drawn)<Math.abs(a-drawn)?b:a):null;
    const d=h.call?.d??allMm??(drawn&&Math.abs(round-drawn)<=2.5?round:null);
-   return{at_mm:alongMm(s),off_mm:Math.sign(o-axis)*exact(acrossDims,axis,o),d_mm:d,sign:h.shape,...(h.part?{part:true}:{}),
-    ...(h.call?{from:h.call.by==="alike"?"выноска (такое же отверстие)":h.call.by?"выноска (по числу отверстий)":"выноска"}:allMm?{from:"примечание «все отверстия»"}:d?{from:"по размеру на чертеже"}:{})}
+   // (its place on the sheet kept aside: a plate read in pieces is put together by it)
+   return Object.defineProperty({at_mm:alongMm(s),off_mm:Math.sign(o-axis)*exact(acrossDims,axis,o),d_mm:d,sign:h.shape,...(h.part?{part:true}:{}),
+    ...(h.call?{from:h.call.by==="alike"?"выноска (такое же отверстие)":h.call.by?"выноска (по числу отверстий)":"выноска"}:allMm?{from:"примечание «все отверстия»"}:d?{from:"по размеру на чертеже"}:{})},"pt",{value:{...p,shape:h.shape,size:h.size}})
   }).sort((a,b)=>a.at_mm-b.at_mm||a.off_mm-b.off_mm);
   return{holes,unnamed:signsOf.length-named.length}};
  for(const g of members){
@@ -559,7 +560,7 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
    if(m){const sa=who.cut.x*m.u.x+who.cut.y*m.u.y;at={mm:m.alongMm(Math.max(m.s0,Math.min(m.s1,sa))),of:m.length,view:m.who.title,dir:Math.abs(m.u.x)>=Math.abs(m.u.y)?"по горизонтали":"по вертикали"}}}
   const s={title:who.title,marks,scale:"1:"+g.sc.k,plate_mm:[g.length,Math.round((g.hi-g.lo)/g.sc.n)],dir:Math.abs(g.u.x)>=Math.abs(g.u.y)?"по горизонтали":"по вертикали",
    // (across it + right on the sheet, as + down when it lies: an upright one's axis is measured + left)
-   holes:r.holes.map(h=>({at_mm:h.at_mm,off_mm:Math.abs(g.u.y)>Math.abs(g.u.x)&&h.off_mm?-h.off_mm:h.off_mm,d_mm:h.d_mm,...(h.from?{from:h.from}:{})})),...(at?{at_mm:at.mm,of_mm:at.of,cut_on:at.view,cut_dir:at.dir}:{})};
+   holes:r.holes.map(h=>Object.defineProperty({at_mm:h.at_mm,off_mm:Math.abs(g.u.y)>Math.abs(g.u.x)&&h.off_mm?-h.off_mm:h.off_mm,d_mm:h.d_mm,...(h.from?{from:h.from}:{})},"pt",{value:h.pt})),...(at?{at_mm:at.mm,of_mm:at.of,cut_on:at.view,cut_dir:at.dir}:{})};
   // (one plate between other pairs of its lines as well — drawn over by the lines of the node, ГПЭС К133 «4 - 4»: the
   // plate 478×299 three times, a hole or three in each —: one plate, its holes together)
   const corner=(a,o)=>({x:g.u.x*a+g.n.x*o,y:g.u.y*a+g.n.y*o}),c0=corner(g.s0,g.lo),c1=corner(g.s1,g.hi),box={x0:Math.min(c0.x,c1.x),x1:Math.max(c0.x,c1.x),y0:Math.min(c0.y,c1.y),y1:Math.max(c0.y,c1.y)};
@@ -568,6 +569,31 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
   if(same){for(const h of s.holes)if(!same.holes.some(o=>Math.abs(o.at_mm-h.at_mm)<=2&&Math.abs(o.off_mm-h.off_mm)<=2))same.holes.push(h);same.holes.sort((a,b)=>a.at_mm-b.at_mm||a.off_mm-b.off_mm);
    if(same.at_mm===undefined&&s.at_mm!==undefined)Object.assign(same,{at_mm:s.at_mm,of_mm:s.of_mm,cut_on:s.cut_on,cut_dir:s.cut_dir});continue}
   placeOf.set(s,box);sections.push(s)}
+ // (one plate read in pieces across one another — the bands between the lines of a node drawn over it, ГПЭС К101
+ // «4 - 4»: the gusset 644×480 as a band along its top and two upright ones by the column, a hole or four in each —:
+ // one plate, the frame round them all, its holes from their places at the scale; not two plates side by side read
+ // alike, К112 «3 - 3»)
+ {const area=b=>Math.max(0,b.x1-b.x0)*Math.max(0,b.y1-b.y0),meet=(a,b)=>area({x0:Math.max(a.x0,b.x0),x1:Math.min(a.x1,b.x1),y0:Math.max(a.y0,b.y0),y1:Math.min(a.y1,b.y1)});
+  const mixed=new Set();
+  for(let again=true;again;){again=false;
+   for(let i=0;i<sections.length&&!again;i++)for(let j=i+1;j<sections.length&&!again;j++){const a=sections[i],b=sections[j],A=placeOf.get(a),B=placeOf.get(b);
+    if(a.title!==b.title||a.marks.join()!==b.marks.join()||a.scale!==b.scale||!(mixed.has(a)||mixed.has(b)||a.dir!==b.dir)||meet(A,B)<0.25*Math.min(area(A),area(B)))continue;
+    if(![...a.holes,...b.holes].every(h=>h.pt))continue;
+    const U={x0:Math.min(A.x0,B.x0),x1:Math.max(A.x1,B.x1),y0:Math.min(A.y0,B.y0),y1:Math.max(A.y1,B.y1)},n=PT/Number(a.scale.slice(2)),flat=U.x1-U.x0>=U.y1-U.y0;
+    const holes=[];for(const h of [...a.holes,...b.holes]){const at=Math.round(((flat?h.pt.x-U.x0:h.pt.y-U.y0))/n),off=Math.round(((flat?h.pt.y-(U.y0+U.y1)/2:h.pt.x-(U.x0+U.x1)/2))/n);
+     if(!holes.some(o=>Math.abs(o.at_mm-at)<=2&&Math.abs(o.off_mm-off)<=2))holes.push(Object.defineProperty({...h,at_mm:at,off_mm:off},"pt",{value:h.pt}))}
+    Object.assign(a,{plate_mm:[Math.round((flat?U.x1-U.x0:U.y1-U.y0)/n),Math.round((flat?U.y1-U.y0:U.x1-U.x0)/n)],dir:flat?"по горизонтали":"по вертикали",holes:holes.sort((p,q)=>p.at_mm-q.at_mm||p.off_mm-q.off_mm)});
+    if(a.at_mm===undefined&&b.at_mm!==undefined)Object.assign(a,{at_mm:b.at_mm,of_mm:b.of_mm,cut_on:b.cut_on,cut_dir:b.cut_dir});
+    placeOf.set(a,U);mixed.add(a);sections.splice(j,1);again=true}}
+  // (and a sign inside the plate so put together, in none of its pieces — К174 «1 - 1»: the fourth of its holes —; a circle
+  // as large as one named is as that one — a sign of a hole drawn by convention, a diamond, says nothing of its size)
+  const taken=new Set([...plateSigns.values()].flat());
+  for(const a of mixed){if(!sections.includes(a))continue;const U=placeOf.get(a),n=PT/Number(a.scale.slice(2)),flat=a.dir==="по горизонтали";
+   for(const h of signs){const m=h.size*0.5;if(taken.has(h)||h.x<=U.x0+m||h.x>=U.x1-m||h.y<=U.y0+m||h.y>=U.y1-m||members.some(g=>g.signs.includes(h)&&!h.part))continue;
+    const at=Math.round(((flat?h.x-U.x0:h.y-U.y0))/n),off=Math.round(((flat?h.y-(U.y0+U.y1)/2:h.x-(U.x0+U.x1)/2))/n);if(a.holes.some(o=>Math.abs(o.at_mm-at)<=2&&Math.abs(o.off_mm-off)<=2))continue;
+    const like=h.shape==="circle"&&a.holes.find(o=>o.pt.shape===h.shape&&Math.abs(o.pt.size-h.size)<0.6&&o.d_mm);
+    a.holes.push(Object.defineProperty({at_mm:at,off_mm:off,d_mm:like?like.d_mm:null,...(like?{from:/^выноска/.test(like.from||"")?"выноска (такое же отверстие)":like.from}:{})},"pt",{value:{x:h.x,y:h.y,shape:h.shape,size:h.size}}));taken.add(h)}
+   a.holes.sort((p,q)=>p.at_mm-q.at_mm||p.off_mm-q.off_mm)}}
  const result={views:out.filter(v=>v.holes.length),parts,loose:signs.filter(h=>h.loose).length,...(unnamed?{unnamed}:{}),...(sections.length?{sections}:{})};
  // (`withMembers`: the views found, for the parts on them — their frames on the sheet)
  if(withMembers)Object.defineProperty(result,"members",{value:members.map((g,i)=>({g,view:out[i]})),enumerable:false});
