@@ -679,7 +679,9 @@ function memberLine(t,target,segments,lines,skip){
   // A leader shelf is about as long as its label; a member is clearly longer — or drawn in two lines, its edges (ГПЭС
   // М1.9: «В58», a beam of 1 m between two purlins, as long as two of its labels).
   if(l<Math.max(24,f.w*2.2)&&!(l>=12&&twinOf(line,segments,lines,skip)))continue;
-  if(!pick){pick={c,line,l};if(c.score<0||!dashOf(c.i,segments,lines))break;continue}
+  // A run of equal beams with joints between them looks like dashes too; a beam drawn with both edges is no dash (ГПЭС
+  // М1.19, ряд Л: «В169» over each half-bay, the dimension line above taken for it).
+  if(!pick){pick={c,line,l};if(c.score<0||!dashOf(c.i,segments,lines)||twinOf(line,segments,lines,skip))break;continue}
   // A dash of a dash-dot line along the label and a far longer line about as near: the dashes are an axis drawn beside
   // the member (a КМ set: «П1» between its purlin and the axis it stands on).
   if(c.score>pick.c.score+2.5)break;
@@ -1018,8 +1020,16 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
  // A title in two lines («Схема расположения элементов покрытия» / «на отм. +2,200»): the second line starts in lower
  // case and lies under the first, within two heights of the smaller lettering (ГПЭС М1.9: the title read off a picture
  // stands taller than written; «по 9 (М1.8)» of a node 3 cm under it is no part of it).
+ // The end of a line may come as a text of its own: «… в осях» «1-6, Ж-Л» (ГПЭС М1.2). A cut's sign under the title
+ // («по5(М1.6)», a reference to a sheet in brackets) is no second line.
+ const sheetRef=/^[а-яё]{0,3}\s*\d{0,3}[а-я]?\s*\(\s*[А-ЯЁA-Z]?\s*\d+(?:\.\d+)?\s*\)$/u;
  const titles=texts.filter(t=>/^Схема\s/u.test(String(t.str||"").trim())).map(t=>{
-  const next=texts.find(u=>u!==t&&Math.abs(Number(u.angle)||0)<2&&u.y>t.y+1&&u.y-t.y<=Math.min(t.size||10,u.size||t.size||10)*2&&u.x<t.x+(t.width||0)&&u.x+(u.width||0)>t.x&&/^[а-яё(]/u.test(String(u.str||"").trim()));
+  for(let k=0;k<3;k++){
+   const end=t.x+(t.width||0),h=t.size||10;
+   const tail=texts.find(u=>u!==t&&Math.abs(Number(u.angle)||0)<2&&Math.abs(u.y-t.y)<=h*.3&&u.x>=end-2&&u.x-end<=h*1.5&&Math.abs((u.size||h)-h)<=h*.25&&!/^Схема\s/u.test(String(u.str||"").trim()));
+   if(!tail)break;t={...t,str:String(t.str).trim()+" "+String(tail.str).trim(),width:tail.x+(tail.width||0)-t.x}
+  }
+  const next=texts.find(u=>u!==t&&Math.abs(Number(u.angle)||0)<2&&u.y>t.y+1&&u.y-t.y<=Math.min(t.size||10,u.size||t.size||10)*2&&u.x<t.x+(t.width||0)&&u.x+(u.width||0)>t.x&&/^[а-яё(]/u.test(String(u.str||"").trim())&&!sheetRef.test(String(u.str||"").trim()));
   return next?{...t,str:String(t.str).trim()+" "+String(next.str).trim()}:t
  });
  const schemes=[];

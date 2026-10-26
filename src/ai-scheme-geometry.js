@@ -53,15 +53,25 @@ function joinSplitTexts(texts){
  const order=[...texts.keys()].sort((a,b)=>texts[a].y-texts[b].y||texts[a].x-texts[b].x);
  for(const i of order){
   if(used.has(i))continue;
-  const a=texts[i];if(Math.abs(a.angle)>5)continue;
-  for(const j of order){
-   if(j===i||used.has(j))continue;
-   const b=texts[j];
-   if(Math.abs(b.angle)>5||Math.abs(b.y-a.y)>Math.max(1,a.size*.12)||Math.abs(b.size-a.size)>a.size*.25)continue;
-   const gap=b.x-(a.x+a.width);if(gap<-a.size*.2||gap>a.size*.45)continue;
-   const str=a.str+(gap>a.size*.15?" ":"")+b.str;
-   if(!JOINED.test(str.replace(/\s+/g," ").trim()))continue;
-   out[i]={...a,str,width:b.x+b.width-a.x};used.add(j);break
+  // A label turned up a post comes glyph by glyph («В1» «9» «5», ГПЭС М1.19): read along its direction, piece after
+  // piece; the pieces overlap a little more than on a line.
+  const turned=Math.abs(texts[i].angle)>5;
+  for(let more=true;more;){
+   more=false;
+   const a=out[i],r=a.angle*Math.PI/180,dir={x:Math.cos(r),y:-Math.sin(r)};let next=null;
+   for(const j of order){
+    if(j===i||used.has(j))continue;
+    const b=texts[j];
+    if((turned?Math.abs(b.angle-a.angle)>5:Math.abs(b.angle)>5)||Math.abs(b.size-a.size)>a.size*.25)continue;
+    const dx=b.x-a.x,dy=b.y-a.y,along=dx*dir.x+dy*dir.y;
+    if(Math.abs(dx*dir.y-dy*dir.x)>Math.max(1,a.size*.12))continue;
+    const gap=along-a.width;if(gap<-a.size*(turned?.3:.2)||gap>a.size*.45)continue;
+    const str=a.str+(gap>a.size*.15?" ":"")+b.str;
+    if(!JOINED.test(str.replace(/\s+/g," ").trim()))continue;
+    if(!turned){next={j,str,along,b};break}
+    if(!next||along<next.along)next={j,str,along,b}
+   }
+   if(next){out[i]={...a,str:next.str,width:next.along+next.b.width};used.add(next.j);more=turned}
   }
  }
  return out.filter((_,k)=>!used.has(k))

@@ -983,7 +983,7 @@ function buildPlan(draft,ai=null,heights={},opts={}){
     x_mm:x,y_mm:y,x2_mm:point?undefined:x2,y2_mm:point?undefined:y2,...(geometry==="shell"||geometry==="plate"?{radius_mm:pl.radius_mm,inner_radius_mm:pl.inner_radius_mm,shell_open:pl.shell_open,...(pl.cone_rise_mm?{cone_rise_mm:pl.cone_rise_mm}:{}),...(pl.sector_deg>0?{sector_start_deg:pl.sector_start_deg,sector_deg:pl.sector_deg}:{})}:{}),...(pl.fitting_type?{fitting_type:pl.fitting_type,diameter_mm:pl.diameter_mm}:{}),...(pl.layout&&typeof pl.layout==="object"?{layout:pl.layout}:{}),
     z0_mm:geometry==="beam"&&!drawn&&!flightLevel?z1:z0,z1_mm:z1,group,group_label:GROUPS[group],
     // A verified scheme carries its own profiles and truss lattices.
-    profile:pl.profile||cat?.profile||"",profile_standard:pl.profile?"":cat?.profile_standard||"",...(pl.truss?{truss:pl.truss}:{}),...(pl.nodes?{nodes:pl.nodes}:{}),...(pl.base&&typeof pl.base==="object"?{base:pl.base}:{}),...(pl.joint||joints(c.info)||cat?.fasteners?{joint:withFasteners(pl.joint||joints(c.info),cat?.fasteners)}:{}),...(cat?.drill?{drill:cat.drill}:{}),...(cat?.cuts?{cuts:cat.cuts}:{}),...(cat?.parts?{parts:cat.parts}:{}),...(cat?.plates?{plates:cat.plates}:{}),doc:scopeOf(c.info.docType,catalog.multi?c.info.volume:""),length_mm:cat?.length_mm??null,levels:own?"Claude":local?local.from:"схема",...(!own&&local?.zeroBase?{z0_assumed:true}:{}),
+    profile:pl.profile||cat?.profile||"",profile_standard:pl.profile?"":cat?.profile_standard||"",...(pl.truss?{truss:pl.truss.kind==="frame"&&cat?.profile?{...pl.truss,members:pl.truss.members.map(m=>m[5]?m:[...m.slice(0,5),cat.profile])}:pl.truss}:{}),...(pl.nodes?{nodes:pl.nodes}:{}),...(pl.base&&typeof pl.base==="object"?{base:pl.base}:{}),...(pl.joint||joints(c.info)||cat?.fasteners?{joint:withFasteners(pl.joint||joints(c.info),cat?.fasteners)}:{}),...(cat?.drill?{drill:cat.drill}:{}),...(cat?.cuts?{cuts:cat.cuts}:{}),...(cat?.parts?{parts:cat.parts}:{}),...(cat?.plates?{plates:cat.plates}:{}),doc:scopeOf(c.info.docType,catalog.multi?c.info.volume:""),length_mm:cat?.length_mm??null,levels:own?"Claude":local?local.from:"схема",...(!own&&local?.zeroBase?{z0_assumed:true}:{}),
     page:c.info.page,file:c.info.file,sheet:c.info.sheet,...(!c.info.page&&pl.sheet?{source_sheet:String(pl.sheet)}:{}),...(pl.section?{section:pl.section}:{}),scheme:c.info.title,confidence:pl.confidence,note:[...(pl.notes||[]),change?.note,...guess].filter(Boolean).join("; ")})
   });
   // Bracing and secondary members meet the beams of the same plan: their ends take those beams' levels.
@@ -1230,16 +1230,32 @@ function roofOnColumns(elements){
 // used up and down the slope, and a section gives it one level only — the beams under it give each its own.
 function purlinsOnBeams(elements){
  const lying=e=>beamLike(e)&&!SET_BY_HAND.has(e.levels)&&(e.group==="purlins"||/прогон/iu.test(String(e.scheme||""))&&(e.group==="beams"||e.group==="roof"));
- const supports=elements.filter(e=>beamLike(e)&&!lying(e)&&firmLevels(e)&&!["ties","guards","stairs","purlins","crane"].includes(e.group));
+ // A welded frame of a wall (a window's rails and posts) and the rails of a guard carry no purlins.
+ const beams=elements.filter(e=>beamLike(e)&&!lying(e)&&e.truss?.kind!=="frame"&&!/огражд/iu.test(String(e.scheme||""))&&!["ties","guards","stairs","purlins","crane"].includes(e.group));
+ // Where a beam of a roof plan lies under a purlin of a roof plan, the purlin lies on it (on one with its levels from
+ // the neighbours too, when the purlin has none of its own); the members of a wall's elevation crossing it there on the
+ // plan are not under it (ГПЭС М1.3: «К38» over row А taken down onto the girt «К1» at +4,140, the roof beams «К143»,
+ // «К101» at +9,4…9,5). A wall's top beam where the roof plan has none is.
+ const roofPlan=e=>ROOF.test(String(e.scheme||""))&&e.levels!=="развёртка";
+ const supports=beams.filter(e=>firmLevels(e)||roofPlan(e)&&e.levels!=="нет отметок");
+ // The tier of a plan: the middle of the levels its sections give its members. A beam under a purlin metres off it is
+ // of another tier (ГПЭС М1.3, the roof at +9,2…9,9: the roof of the boxes inside, «Ф83» at +4,510, under «К38»).
+ const tiers=new Map();
+ for(const e of elements){if(!lying(e)||!firmLevels(e)||e.levels==="развёртка")continue;const k=e.page+"|"+e.scheme;(tiers.get(k)||tiers.set(k,[]).get(k)).push((e.z0_mm+e.z1_mm)/2)}
+ for(const [k,v] of tiers){v.sort((a,b)=>a-b);tiers.set(k,v[v.length>>1])}
  for(const p of elements){
   if(!lying(p))continue;
-  const hp=depthOf(p),points=[];
+  const hp=depthOf(p);let points=[];
   for(const s of supports){
    if(s.doc!==p.doc)continue;
    const x=crossing(p,s);if(!x)continue;
    const hs=depthOf(s),z=levelAlong(s,x.x,x.y)+((hs||0)+(hp||0))/2;
-   points.push({t:x.t,z,mark:s.mark})
+   points.push({t:x.t,z,mark:s.mark,roof:roofPlan(s),weak:!firmLevels(s)})
   }
+  // A roof beam with its levels from the neighbours does not overrule a purlin's own levels from a section.
+  if(firmLevels(p))points=points.filter(q=>!q.weak);
+  const tier=tiers.get(p.page+"|"+p.scheme);if(Number.isFinite(tier))points=points.filter(q=>Math.abs(q.z-tier)<=1500);
+  if(roofPlan(p)){const at=points.filter(q=>q.roof).map(q=>q.t);points=points.filter(q=>q.roof||!at.some(t=>Math.abs(t-q.t)<=.05))}
   if(!points.length)continue;
   // Several members under one place (the rafter over the eaves and the low beam of a box or an annex beside it): of
   // those at its two ends, the pair that keeps the purlin level — a purlin runs across the slope — and of equal
@@ -1507,7 +1523,8 @@ function angleAxisOf(profile){
  return h>0&&b>0&&t>0&&t<b?(h*h+(b-t)*t)/(2*(h+b-t)):0
 }
 function seatOnChords(elements){
- const trusses=elements.filter(e=>e.truss?.members?.length);if(!trusses.length)return;
+ // A welded frame of a wall (a window's rails and posts) carries no purlins.
+ const trusses=elements.filter(e=>e.truss?.members?.length&&e.truss.kind!=="frame");if(!trusses.length)return;
  let chordProfile="";
  const zAt=(t,x,role)=>{const m=t.members.filter(q=>q[4]===role).sort((p,q)=>Math.max(0,p[0]-x,x-p[2])-Math.max(0,q[0]-x,x-q[2]))[0];
   if(m)chordProfile=String(m[5]||"");
@@ -1562,7 +1579,7 @@ function trimGuardPosts(elements){
 // The tier holding the drawn level is taken (a level equal to a node level starts the tier above it).
 function raiseVerticalBraces(elements){
  const cols=elements.filter(e=>e.geometry_type==="column");
- const trusses=elements.filter(e=>e.truss?.members?.length);
+ const trusses=elements.filter(e=>e.truss?.members?.length&&e.truss.kind!=="frame");
  const zAt=(t,x,role)=>{const m=t.members.filter(q=>q[4]===role).sort((p,q)=>Math.max(0,p[0]-x,x-p[2])-Math.max(0,q[0]-x,x-q[2]))[0];
   return m?m[1]+(m[3]-m[1])*(Math.max(m[0],Math.min(m[2],x))-m[0])/Math.max(1,m[2]-m[0]):null};
  const VERTICAL=/^(?:Св|Свк|Вс|СВ|ВС)(?!ф)/u;

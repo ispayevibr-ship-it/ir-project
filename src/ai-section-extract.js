@@ -6,7 +6,7 @@
  *   line next to its label. Results snap to the written levels when they are close;
  * - notes inside a scheme: "низ на отм. +0,050", "верх +4,100", "отм. верха +4,506".
  */
-const {textBox,textFrame,memberLine,buildLineIndex,notMark,aMarksOn}=require("./ai-scheme-extract");
+const {textBox,textFrame,memberLine,buildLineIndex,buildIndex,leaderTarget,notMark,aMarksOn}=require("./ai-scheme-extract");
 const {levelMm}=require("./ai-sheet-extract");
 const MARK=/^([А-ЯЁA-Z]{1,3}|[А-ЯЁ][а-яё]{1,2})(\d{1,4})(?:[-.]\d{1,3})?[а-я]?$/u;
 const NOT_MARK=/^(?:М\d|Л\d|ПК|[СC]\d{3}|КМД?\d|КЖ\d|АР\d|Ст\d)/u;
@@ -46,7 +46,9 @@ function fit(points,scale){
  // Without another view to compare with, the lowest and highest marks are the ones drawn at their height.
  const lo=Math.min(...points.map(p=>p.mm)),hi=Math.max(...points.map(p=>p.mm));
  const extremes=top.filter(c=>c.inliers.some(p=>p.mm===lo)&&c.inliers.some(p=>p.mm===hi));
- const pick=scale?top.sort((x,y)=>Math.abs(x.b-scale)-Math.abs(y.b-scale))[0]:top.length===1||new Set(top.map(c=>Math.round(c.b))).size===1?top[0]:extremes.length===1?extremes[0]:null;
+ // Many pairs of one consistent set give slopes a little apart (-27.9 … -28.7): still one answer (ГПЭС М1.19, ряд Л).
+ const same=top.every(c=>c.inliers.length===top[0].inliers.length&&c.inliers.every(p=>top[0].inliers.includes(p)));
+ const pick=scale?top.sort((x,y)=>Math.abs(x.b-scale)-Math.abs(y.b-scale))[0]:top.length===1||same||new Set(top.map(c=>Math.round(c.b))).size===1?top[0]:extremes.length===1?extremes[0]:null;
  return pick?lsq(pick.inliers):null
 }
 // The level mark's arrow lies a fixed distance under its text; the most common long line there tells it.
@@ -59,6 +61,33 @@ function levelOffset(levels,horiz){
  }
  let best=0,count=0;for(const [d,n] of votes)if(n>count){best=d;count=n}
  return count>=2?best:0
+}
+
+// The mark's own arrow (ГОСТ 21.101): a stem from the shelf beside the text to a point between two short slants. That
+// point is the height, whichever way the mark looks: «+3,800» written under its shelf points up to its member (ГПЭС
+// М1.19, ряд Л), and the offset common to the sheet would put it 30 cm too low. Marks without such an arrow keep the
+// common offset.
+function placeLevels(levels,horiz,segments=[]){
+ const offset=levelOffset(levels,horiz);
+ const slants=segments.filter(s=>{const dx=Math.abs(s.a.x-s.b.x),dy=Math.abs(s.a.y-s.b.y),n=Math.hypot(dx,dy);return n>=2.5&&n<=15&&dx>=n*.4&&dy>=n*.4});
+ const stems=segments.filter(s=>Math.abs(s.a.x-s.b.x)<=.3&&Math.abs(s.a.y-s.b.y)>=4);
+ const near=(p,q)=>Math.hypot(p.x-q.x,p.y-q.y)<=.8;
+ for(const l of levels){
+  // The shelf may run on past the text: its stem a size and a half beyond it (ГПЭС М1.25: «+4,500»).
+  const size=l.s||12,reach=Math.max(15,size*1.5);let best=null;
+  for(const s of stems){
+   if(s.a.x<l.x-reach||s.a.x>l.x+l.w+reach)continue;
+   for(const [e,tip] of [[s.a,s.b],[s.b,s.a]]){
+    if(e.y<l.y-size-4||e.y>l.y+6||Math.abs(tip.y-l.y)>45)continue;
+    const arms=slants.map(q=>near(q.a,tip)?q.b:near(q.b,tip)?q.a:null).filter(o=>o&&(o.y-tip.y)*(e.y-tip.y)>0);
+    if(!arms.some(o=>o.x<tip.x-1)||!arms.some(o=>o.x>tip.x+1))continue;
+    const d=Math.min(Math.abs(s.a.x-l.x),Math.abs(s.a.x-l.x-l.w));
+    if(!best||d<best.d)best={d,y:tip.y}
+   }
+  }
+  if(best){l.y=best.y;l.tip=true}else l.y+=offset
+ }
+ return levels
 }
 
 function sectionsOf(texts){
@@ -82,21 +111,45 @@ const cyrAxis=str=>String(str).trim().replace(/\s+/g,"").replace(/[ABCEHKMOPTX]/
 function bubbleRows(texts,segments){
  // Only labels drawn in a circle are axis bubbles; dimension numbers nearby are not.
  const short=segments.filter(s=>Math.hypot(s.a.x-s.b.x,s.a.y-s.b.y)<=9);
+ // The ring round the label: its centre and radius (from its strokes' ends), or null. A bubble's ring holds its label
+ // (its radius 0.6–1.0 of the label's size on КМД and АР sheets); a smaller one, 0.40–0.46, is a letter «О» of the title
+ // block written nearby (ГПЭС М1.27).
  const ringed=t=>{
-  const c={x:t.x+(t.width||0)/2,y:t.y-(t.size||8)*.36};let n=0;
+  const c={x:t.x+(t.width||0)/2,y:t.y-(t.size||8)*.36},ends=[];
   for(const s of short){
    const d1=Math.hypot(s.a.x-c.x,s.a.y-c.y),d2=Math.hypot(s.b.x-c.x,s.b.y-c.y);
-   if(d1>4&&d1<22&&d2>4&&d2<22&&Math.abs(d1-d2)<2.5&&++n>=8)return true
+   if(d1>4&&d1<22&&d2>4&&d2<22&&Math.abs(d1-d2)<2.5)ends.push(s.a,s.b)
   }
-  return false
+  if(ends.length<16)return null;
+  const x=ends.reduce((v,p)=>v+p.x,0)/ends.length,y=ends.reduce((v,p)=>v+p.y,0)/ends.length,r=ends.reduce((v,p)=>v+Math.hypot(p.x-x,p.y-y),0)/ends.length;
+  return r>=(t.size||8)*.48?{x,y,r}:null
  };
  const rows=[];
  for(let t of texts){
-  if(Math.abs(t.angle||0)>=10||!/^(?:[А-ЯЁ]?\s*\d{1,2}(?:\s*\/\s*\d{1,2})?|[А-ЯЁ])$/u.test(cyrAxis(t.str))||!ringed(t))continue;
+  const ring=Math.abs(t.angle||0)<10&&/^(?:[А-ЯЁ]?\s*\d{1,2}(?:\s*\/\s*\d{1,2})?|[А-ЯЁ])$/u.test(cyrAxis(t.str))?ringed(t):null;if(!ring)continue;
   // Latin lookalikes in CAD exports («O3» for «О3») name the same axis as on the plans.
   t={...t,str:cyrAxis(t.str)};
+  t={...t,ring};
   const row=rows.find(r=>Math.abs(r.y-t.y)<=4);
+  // One ring, one label: digits stacked in one place (a date of the title block, ГПЭС М1.5) are no row of axes.
+  if(row?.items.some(u=>Math.hypot(u.ring.x-ring.x,u.ring.y-ring.y)<Math.min(u.ring.r,ring.r)))continue;
   if(row){row.items.push(t);row.x0=Math.min(row.x0,t.x);row.x1=Math.max(row.x1,t.x)}else rows.push({y:t.y,x0:t.x,x1:t.x,items:[t]})
+ }
+ // A bubble drawn a little off the line of its row, in the row's order where it stands, is the row's (ГПЭС М1.19:
+ // «6» 5 pt under «1»…«5»; М1.5: «5», «3» between «6», «4», «2», «1»): while their circles overlap mostly.
+ for(const r of rows){
+  if(r.items.length<3||new Set(r.items.map(t=>t.str)).size<r.items.length)continue;
+  for(const o of rows){
+   if(o===r||o.items.length>=3)continue;
+   for(const t of [...o.items]){
+    if(Math.abs(t.y-r.y)>Math.max(4,t.ring.r*.5)||r.items.some(u=>u.str===t.str))continue;
+    // In its place by x the order goes on through it, a step of one or two (letters skip З, Й, О…).
+    const list=[...r.items,t].sort((a,b)=>a.x-b.x),rk=a=>axisRank(a.str),k=list.indexOf(t),way=Math.sign(rk(list.at(-1))-rk(list[0]));
+    const fits=(a,b)=>{const d=(rk(b)-rk(a))*way;return d>=1&&d<=2};
+    if(!way||k>0&&!fits(list[k-1],t)||k<list.length-1&&!fits(t,list[k+1]))continue;
+    r.items.push(t);r.x0=Math.min(r.x0,t.x);r.x1=Math.max(r.x1,t.x);o.items.splice(o.items.indexOf(t),1)
+   }
+  }
  }
  return rows.filter(r=>r.items.length>=3).map((r,i)=>({name:"по осям "+r.items.sort((a,b)=>a.x-b.x).map(t=>t.str).slice(0,1)+"–"+r.items.at(-1).str+" №"+(i+1),
   x:(r.x0+r.x1)/2,y:r.y,x0:r.x0,x1:r.x1,items:r.items,below:true}))
@@ -121,7 +174,7 @@ function extractSections({segments=[],texts=[]}={}){
   const str=String(t.str).trim(),box=textBox(t);
   const row=ownerBelow(rows,box.cx,box.cy),owner=row?row.view:ownerOf(titles,box.cx,box.cy);if(!owner)continue;
   const mm=Math.abs(t.angle||0)<10?levelOf(str):null;
-  if(mm!==null)views.get(owner).levels.push({mm,y:t.y,x:t.x,w:t.width||0});
+  if(mm!==null)views.get(owner).levels.push({mm,y:t.y,x:t.x,w:t.width||0,s:t.size});
   else if(MARK.test(str)&&!skipMark(str,aMarks))views.get(owner).marks.push({mark:str,t,box})
  }
  const horiz=[],vert=[],all=[],slope=[];
@@ -137,8 +190,7 @@ function extractSections({segments=[],texts=[]}={}){
  const sizes=texts.filter(t=>Math.abs(t.angle||0)<10&&/^\d{2,6}$/.test(String(t.str).trim())).map(textBox);
  const dimLines=horiz.filter(h=>sizes.some(z=>z.cx>=h.x0-2&&z.cx<=h.x1+2&&h.y-z.y1>=-0.5&&h.y-z.y1<=5));
  const extension=v=>dimLines.some(h=>v.y0>=h.y-8&&v.y0<=h.y+2&&v.x>=h.x0-6&&v.x<=h.x1+6);
- const offset=levelOffset([...views.values()].flatMap(v=>v.levels),all),out=[];
- for(const view of views.values())for(const l of view.levels)l.y+=offset;
+ placeLevels([...views.values()].flatMap(v=>v.levels),all,segments);const out=[];
  // Vertical scale of the sheet from views whose level marks agree unambiguously.
  const sure=[...views.values()].map(v=>fit(v.levels)).filter(f=>f).map(f=>f.b).sort((x,y)=>x-y);
  const scale=sure.length?sure[sure.length>>1]:null;
@@ -305,6 +357,58 @@ function elevationTitles(texts){
  }
  return out
 }
+// Members named by the leaders of one label that make one frame — two rails and the posts standing from one to the other
+// (a window frame): the whole frame, with the posts no leader names. Returned along the elevation (u, mm) with its
+// members from its start and bottom; null when the members stand apart (one mark on two separate posts or girts).
+// A line with another parallel to it 1.2-8 pt off along at least half of it: one edge of a member drawn in two lines.
+function edgeOf(i,segments,lines){
+ const s=segments[i];if(!s)return false;
+ const l=Math.hypot(s.b.x-s.a.x,s.b.y-s.a.y);if(!l)return false;
+ const u={x:(s.b.x-s.a.x)/l,y:(s.b.y-s.a.y)/l},mid={x:(s.a.x+s.b.x)/2,y:(s.a.y+s.b.y)/2};
+ return lines.near(mid,l/2+8).some(j=>{
+  if(j===i)return false;const q=segments[j],m=Math.hypot(q.b.x-q.a.x,q.b.y-q.a.y);if(m<l*.3)return false;
+  if(Math.abs(u.x*(q.b.y-q.a.y)/m-u.y*(q.b.x-q.a.x)/m)>.02)return false;
+  const off=Math.abs(u.x*(q.a.y-s.a.y)-u.y*(q.a.x-s.a.x));if(off<1.2||off>8)return false;
+  const t1=(q.a.x-s.a.x)*u.x+(q.a.y-s.a.y)*u.y,t2=(q.b.x-s.a.x)*u.x+(q.b.y-s.a.y)*u.y;
+  return Math.min(l,Math.max(t1,t2))-Math.max(0,Math.min(t1,t2))>=l*.5
+ })
+}
+function frameOf(found,segments,along,toZ){
+ // along: the place on the elevation of a point, mm, not drawn to the axes (a post 200 mm off an axis stays there).
+ const rails=found.filter(f=>f.flat);if(rails.length<2||found.some(f=>!f.flat&&!f.vertical))return null;
+ const y0=Math.min(...rails.map(f=>f.line.a.y)),y1=Math.max(...rails.map(f=>f.line.a.y));if(y1-y0<3)return null;
+ const span=f=>[Math.min(f.line.a.x,f.line.b.x),Math.max(f.line.a.x,f.line.b.x)];
+ const xa=Math.max(...rails.map(f=>span(f)[0])),xb=Math.min(...rails.map(f=>span(f)[1]));if(xb-xa<3)return null;
+ // A rail drawn in two lines meets its posts at its inner edge, a few points off the edge the leader found.
+ const ends=(lo,hi)=>lo>=y0-8&&lo<=y0+8&&hi>=y1-8&&hi<=y1+8;
+ const posts=[];
+ // A post a leader names spans from rail to rail; its line may run on a little past one (joined to a stroke beyond).
+ for(const f of found)if(f.vertical){const lo=Math.min(f.line.a.y,f.line.b.y),hi=Math.max(f.line.a.y,f.line.b.y);
+  if(lo>y0+8||hi<y1-8||lo<y0-30||hi>y1+30||f.line.a.x<xa-8||f.line.a.x>xb+8)return null;posts.push(f.line.a.x)}
+ // Rails between the top and the bottom one meet the posts too.
+ if(!posts.length&&!segments.some(q=>Math.abs(q.a.x-q.b.x)<=.3&&q.a.x>=xa-1&&q.a.x<=xb+1&&ends(Math.min(q.a.y,q.b.y),Math.max(q.a.y,q.b.y))))return null;
+ const u0=Math.min(...found.flatMap(f=>[f.a.u,f.b.u])),u1=Math.max(...found.flatMap(f=>[f.a.u,f.b.u])),zb=toZ(y1),zt=toZ(y0);
+ // Posts between the rails within the frame's bay: a vertical line from one to the other, a post drawn in two lines
+ // taken once. A column running on past the rails (the wall's post the frame is fixed to) is no part of it.
+ const vert=segments.filter(q=>Math.abs(q.a.x-q.b.x)<=.3);
+ const beyond=q=>vert.some(o=>{if(Math.abs(o.a.x-q.a.x)>.3||(Number(o.w)||1)<(Number(q.w)||1)*.8)return false;
+  const lo=Math.min(o.a.y,o.b.y),hi=Math.max(o.a.y,o.b.y);return lo<y0-10&&hi>=y0-10||hi>y1+10&&lo<=y1+10});
+ // A post is drawn as heavily as the rails (a thinner line there is an end plate, a gusset, a column of another set).
+ const heavy=Math.min(...rails.map(f=>Number(segments.find(q=>Math.abs(q.a.y-f.line.a.y)<.3&&Math.abs(q.a.y-q.b.y)<.3&&Math.min(q.a.x,q.b.x)<=Math.max(f.line.a.x,f.line.b.x)&&Math.max(q.a.x,q.b.x)>=Math.min(f.line.a.x,f.line.b.x))?.w)||0));
+ for(const q of vert){
+  if(posts.some(x=>Math.abs(x-q.a.x)<.3)||heavy>0&&(Number(q.w)||heavy)<heavy*.8)continue;
+  const u=along(q.a.x);if(u<u0-50||u>u1+50)continue;
+  if(ends(Math.min(q.a.y,q.b.y),Math.max(q.a.y,q.b.y))&&!beyond(q))posts.push(q.a.x)
+ }
+ // The two lines of one post (its edges, a profile's width apart) are one post at their middle.
+ posts.sort((p,q)=>p-q);
+ for(let i=posts.length-1;i>0;i--)if(Math.abs(along(posts[i])-along(posts[i-1]))<=250){posts[i-1]=(posts[i-1]+posts[i])/2;posts.splice(i,1)}
+ if(!posts.length||rails.some(f=>f.line.a.y>y0+1&&f.line.a.y<y1-1&&!posts.some(x=>x>=span(f)[0]-8&&x<=span(f)[1]+8)))return null;
+ const r=v=>Math.round(v);
+ const members=[...rails.map(f=>[r(Math.min(f.a.u,f.b.u)-u0),r(f.a.z-zb),r(Math.max(f.a.u,f.b.u)-u0),r(f.b.z-zb),f.line.a.y<=y0+1?"top":f.line.a.y>=y1-1?"bottom":"mid",""]),
+  ...posts.map(x=>{const u=Math.max(0,Math.min(u1-u0,along(x)-u0));return[r(u),0,r(u),r(zt-zb),"post",""]})];
+ return{u0,u1,z0:zb,z1:zt,members}
+}
 // Wall girts and the like are often marked without a number («Рр», «Рн», «Рст»): such a word repeated on the sheet
 // (three times or more) is a mark of the elevation; ordinary short words are not.
 const NOT_WORD_MARK=/^(?:Поз|Вид|Ось|Оси|Узел|Лист|См|Гр|Кол|Отм|Шаг|Изм|Нет|Тип|Ряд|Для|Под|Над|Низ|Верх|Все|При|Или|Шт|Мм|Кг|Сеч|Ст)$/u;
@@ -320,8 +424,8 @@ function extractElevations({segments=[],texts=[]}={},page=1){
   const row=rows.filter(r=>r.y>title.y&&r.y-title.y<1300&&title.x>=r.x0-300&&title.x<=r.x1+300).sort((a,b)=>a.y-b.y)[0];
   if(!row)continue;
   const region=texts.filter(t=>{const b=textBox(t);return ownerBelow(rows,b.cx,b.cy)===row&&b.cy>title.y});
-  const levels=region.filter(t=>Math.abs(t.angle||0)<10).map(t=>({mm:levelOf(t.str),y:t.y,x:t.x,w:t.width||0})).filter(l=>l.mm!==null);
-  const offset=levelOffset(levels,horiz);levels.forEach(l=>{l.y+=offset});
+  const levels=region.filter(t=>Math.abs(t.angle||0)<10).map(t=>({mm:levelOf(t.str),y:t.y,x:t.x,w:t.width||0,s:t.size})).filter(l=>l.mm!==null);
+  placeLevels(levels,horiz,segments);
   const f=fit(levels);if(!f)continue;
   const scale=Math.abs(f.b),values=[...new Set(levels.map(l=>l.mm))];
   const toZ=y=>{const v=f.a+f.b*y,near=values.reduce((p,c)=>Math.abs(c-v)<Math.abs(p-v)?c:p);return Math.abs(near-v)<=SNAP?near:Math.round(v/ROUND)*ROUND};
@@ -340,39 +444,65 @@ function extractElevations({segments=[],texts=[]}={},page=1){
   const total=left[left.length-1],reversed=axisRank(bubbles[0].name)>axisRank(bubbles[bubbles.length-1].name);
   const canon=m=>reversed?total-m:m;
   const axes=bubbles.map((b,i)=>({name:b.name,mm:canon(left[i])})).sort((a,b)=>a.mm-b.mm);
+  const raw=xpt=>{let k=0;for(let i=1;i<bubbles.length;i++)if(Math.abs(bubbles[i].pt-xpt)<Math.abs(bubbles[k].pt-xpt))k=i;return canon(left[k]+(xpt-bubbles[k].pt)*scale)};
   const along=xpt=>{
-   let k=0;for(let i=1;i<bubbles.length;i++)if(Math.abs(bubbles[i].pt-xpt)<Math.abs(bubbles[k].pt-xpt))k=i;
-   const m=left[k]+(xpt-bubbles[k].pt)*scale,c=canon(m),near=axes.reduce((p,a)=>Math.abs(a.mm-c)<Math.abs(p.mm-c)?a:p);
+   const c=raw(xpt),near=axes.reduce((p,a)=>Math.abs(a.mm-c)<Math.abs(p.mm-c)?a:p);
    return Math.abs(near.mm-c)<=300?near.mm:Math.round(c/10)*10
   };
   const axisNames=new Set(bubbles.map(b=>b.name));
-  // Grid lines through the bubbles are not members.
-  const skip=new Set();
-  segments.forEach((s,i)=>{if(Math.abs(s.a.x-s.b.x)<=.3&&bubbles.some(b=>Math.abs(b.pt-s.a.x)<1.2))skip.add(i)});
-  const lo=Math.min(...values)-1000,hi=Math.max(...values)+1500,placements=[];
+  // Grid lines through the bubbles are not members. The axis is the line that runs down into its bubble: a digit is not
+  // always centred in it, and a post standing on the axis has its edges a few points off (ГПЭС М1.19, ряд Л: «В210»
+  // on axis 6, its axis taken for it).
+  const skip=new Set(),vertical=segments.map((s,i)=>[s,i]).filter(([s])=>Math.abs(s.a.x-s.b.x)<=.3);
+  for(const b of bubbles){
+   const size=row.items.find(t=>String(t.str).trim().toUpperCase()===b.name)?.size||12;
+   const axis=vertical.filter(([s])=>Math.abs(s.a.x-b.pt)<=3&&Math.max(s.a.y,s.b.y)>=row.y-size*2.5&&Math.max(s.a.y,s.b.y)<=row.y+2).sort(([p],[q])=>Math.abs(p.a.x-b.pt)-Math.abs(q.a.x-b.pt))[0];
+   for(const [s,i] of vertical)if(axis?Math.abs(s.a.x-axis[0].a.x)<=.3:Math.abs(b.pt-s.a.x)<1.2)skip.add(i)
+  }
+  const lo=Math.min(...values)-1000,hi=Math.max(...values)+1500,placements=[],index=buildIndex(segments);
   for(const t of region){
    const mark=String(t.str).trim();if(!(MARK.test(mark)||wordMarks.has(mark))||skipMark(mark,aMarks)||axisNames.has(cyrAxis(mark)))continue;
-   const line=memberLine(t,{leader:false},segments,lines,skip);if(!line)continue;
-   const a={u:along(line.a.x),z:toZ(line.a.y)},b={u:along(line.b.x),z:toZ(line.b.y)};
-   // A rail drawn as one continuous line spans only the bay of its mark.
-   if(Math.abs(line.a.y-line.b.y)<1.5){
-    const c=along(textFrame(t).c.x),lowAxis=axes.filter(x=>x.mm<=c).at(-1),highAxis=axes.find(x=>x.mm>c);
-    const [s0,s1]=a.u<=b.u?[a,b]:[b,a];
-    if(lowAxis&&s0.u<lowAxis.mm)s0.u=lowAxis.mm;
-    if(highAxis&&s1.u>highAxis.mm)s1.u=highAxis.mm
+   // A label on a shelf with a slanted leader names the member at the leader's end — at each end, when it has several
+   // (ГПЭС М1.19, ось А: «К21» on the post of axis 2, «К3» on both rails of a window). Others lie along their member.
+   // A leader is one line: a slanted line with another along it a few points off is an edge of a brace drawn behind the
+   // member the label stands on (ГПЭС М1.18, ось 1: «К100» on its crossbar between two posts, the brace behind it).
+   const tg=Math.abs(Number(t.angle)||0)<5?leaderTarget(t,segments,index,skip,lines):null;
+   const led=tg&&tg.leader&&tg.diagonal&&tg.shelf&&!edgeOf(tg.segment,segments,lines),found=[];
+   for(const target of led?[tg,...(tg.more||[]).filter(m=>!edgeOf(m.segment,segments,lines)).map(m=>({...tg,...m}))]:[{leader:false}]){
+    const line=memberLine(t,target,segments,lines,skip);if(!line)continue;
+    const a={u:along(line.a.x),z:toZ(line.a.y)},b={u:along(line.b.x),z:toZ(line.b.y)};
+    // A rail drawn as one continuous line spans only the bay of its mark.
+    if(Math.abs(line.a.y-line.b.y)<1.5){
+     const c=along(target.leader?target.x:textFrame(t).c.x),lowAxis=axes.filter(x=>x.mm<=c).at(-1),highAxis=axes.find(x=>x.mm>c);
+     const [s0,s1]=a.u<=b.u?[a,b]:[b,a];
+     if(lowAxis&&s0.u<lowAxis.mm)s0.u=lowAxis.mm;
+     if(highAxis&&s1.u>highAxis.mm)s1.u=highAxis.mm
+    }
+    if([a.z,b.z].some(z=>z<lo||z>hi))continue;
+    const vertical=Math.abs(line.a.x-line.b.x)<1.5,flat=Math.abs(line.a.y-line.b.y)<1.5;
+    if(vertical&&Math.abs(a.z-b.z)<300||!vertical&&Math.abs(a.u-b.u)<200&&Math.abs(a.z-b.z)<200)continue;
+    if(!found.some(f=>f.line.a.x===line.a.x&&f.line.a.y===line.a.y&&f.line.b.x===line.b.x&&f.line.b.y===line.b.y))found.push({line,a,b,vertical,flat})
    }
-   if([a.z,b.z].some(z=>z<lo||z>hi))continue;
-   const vertical=Math.abs(line.a.x-line.b.x)<1.5,flat=Math.abs(line.a.y-line.b.y)<1.5;
-   const geometry=vertical?"column":flat?"beam":"brace";
-   if(vertical&&Math.abs(a.z-b.z)<300||!vertical&&Math.abs(a.u-b.u)<200&&Math.abs(a.z-b.z)<200)continue;
    const at=u=>numbered(title.name)?{x:0,y:u}:{x:u,y:0};
-   const p0=at(a.u),p1=at(b.u);
-   placements.push({mark,geometry_type:geometry,kind_label:geometry==="column"?"Колонна/стойка":geometry==="brace"?"Связь":"Балка/ригель/прогон",
-    page,sheet_point_pt:{x:Math.round(t.x),y:Math.round(t.y)},x_mm:p0.x,y_mm:p0.y,
-    ...(vertical?{}:{x2_mm:p1.x,y2_mm:p1.y}),
-    z0_mm:vertical?Math.min(a.z,b.z):a.z,z1_mm:vertical?Math.max(a.z,b.z):b.z,
-    axis_x:numbered(title.name)?title.name:"",axis_y:numbered(title.name)?"":title.name,confidence:"medium",
-    notes:["Развёртка по оси "+title.name+": положение и отметки с чертежа"]})
+   const base={mark,page,sheet_point_pt:{x:Math.round(t.x),y:Math.round(t.y)},axis_x:numbered(title.name)?title.name:"",axis_y:numbered(title.name)?"":title.name,confidence:"medium"};
+   // The leaders of one label ending on members joined to one another (rails and the post between them): one welded
+   // frame (ГПЭС М1.19, ось А: «К3» — the window frame of л. 1, two rails and two posts), not a piece at each leader.
+   const frame=found.length>=2?frameOf(found,segments,raw,toZ):null;
+   if(frame){
+    const p0=at(frame.u0),p1=at(frame.u1);
+    placements.push({...base,geometry_type:"beam",kind_label:"Рама",x_mm:p0.x,y_mm:p0.y,x2_mm:p1.x,y2_mm:p1.y,z0_mm:frame.z0,z1_mm:frame.z0,
+     truss:{kind:"frame",span_mm:frame.u1-frame.u0,base_mm:frame.z0,members:frame.members},
+     notes:["Развёртка по оси "+title.name+": рама "+frame.members.length+" эл., "+(frame.u1-frame.u0)+"×"+(frame.z1-frame.z0)+" мм, положение и отметки с чертежа"]});
+    continue
+   }
+   for(const {line,a,b,vertical,flat} of found){
+    const geometry=vertical?"column":flat?"beam":"brace";
+    const p0=at(a.u),p1=at(b.u);
+    placements.push({...base,geometry_type:geometry,kind_label:geometry==="column"?"Колонна/стойка":geometry==="brace"?"Связь":"Балка/ригель/прогон",
+     x_mm:p0.x,y_mm:p0.y,...(vertical?{}:{x2_mm:p1.x,y2_mm:p1.y}),
+     z0_mm:vertical?Math.min(a.z,b.z):a.z,z1_mm:vertical?Math.max(a.z,b.z):b.z,
+     notes:["Развёртка по оси "+title.name+": положение и отметки с чертежа"]})
+   }
   }
   if(!placements.length)continue;
   const names=axes.map(a=>a.name),spans=axes.slice(1).map((a,i)=>a.mm-axes[i].mm),byX=numbered(title.name);
@@ -382,4 +512,4 @@ function extractElevations({segments=[],texts=[]}={},page=1){
  }
  return schemes
 }
-module.exports={extractSections,extractElevations,schemeNotes,elevationTitles,bubbleRows,levelOf,levelOffset,fit};
+module.exports={extractSections,extractElevations,schemeNotes,elevationTitles,bubbleRows,levelOf,levelOffset,placeLevels,fit};
