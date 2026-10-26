@@ -510,6 +510,12 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
   if(best){delete h.loose;best.g.signs.push(h);for(const g of list)if(!members.includes(g))g.signs=g.signs.filter(x=>x!==h)}
  }
  for(const g of members)for(const h of g.signs)if(outOf(h,g)>-h.size*0.5)h.part=true;
+ // A sign inside a plate drawn apart, between other lines of it, is the plate's (ГПЭС В53 «1 - 1»: the hole of
+ // «Дет. поз. 2» by the web, its own band the flange's — one hole of two read in each plate), the smallest plate first.
+ {const inside=(h,g)=>{const s=h.x*g.u.x+h.y*g.u.y,o=h.x*g.n.x+h.y*g.n.y,m=h.size*0.5;return s>g.s0+m&&s<g.s1-m&&o>g.lo+m&&o<g.hi-m};
+  const taken=new Set([...plateSigns.values()].flat()),plates=[...plateSigns.keys()].sort((a,b)=>(a.hi-a.lo)*(a.s1-a.s0)-(b.hi-b.lo)*(b.s1-b.s0));
+  for(const h of signs){if(taken.has(h)||members.some(g=>g.signs.includes(h)&&!h.part))continue;const g=plates.find(g=>inside(h,g));if(!g)continue;
+   plateSigns.get(g).push(h);delete h.loose;delete h.part;for(const m of members)m.signs=m.signs.filter(x=>x!==h)}}
  const out=[],parts=list.filter(g=>!members.includes(g)).reduce((a,g)=>a+g.signs.length,0);let unnamed=0;
  const holesIn=(g,signsOf=g.signs,alike=false)=>{
   const sc=g.sc,mm=v=>v/sc.n;
