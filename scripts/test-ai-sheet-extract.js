@@ -299,4 +299,21 @@ assert.deepEqual(spec,[{mark:"К1",profile:"Тр.140х4",mass_kg:120.5,length_mm
   o("Тр. 80х4",167,1402,14),o("2890",266,1402),o("33",455,1424,14),o("1% на сварку",221,1450,14),
   o("Тр. 80х4",167,1472,14),o("1060",266,1472),o("ВА5",67,1494,14),o("16",455,1494,14),o("1% на сварку",221,1520,14)];
  assert.deepEqual(specTable(w,["В44","В45"]).map(r=>[r.mark,r.profile,r.length_mm]).sort((a,b)=>a[0].localeCompare(b[0])),[["В42","Св.I50ШС2",4311],["В43","I25Ш2",7800],["В44","Тр.80х4",2890],["В45","Тр.80х4",1060]])}
-console.log("Sheets: assembly levels, quantities, КМ profiles, separate КМ/КМД catalogs and per-mark heights PASS");
+// A title written at a slant (a stair's railing drawn along its flight, ГПЭС Ф136 at −45°): its view is read along it —
+// its own texts (along it or across it), its overall dimension between its extreme extension lines; a level number by it
+// is another view's; a level view beside it keeps its own.
+{
+ const T=(str,x,y,size=7,width=str.length*4.5)=>({str,x,y,size,width,angle:0});
+ const H=(y,x0,x1)=>({a:{x:x0,y},b:{x:x1,y}}),V=(x,y0,y1)=>({a:{x,y:y0},b:{x,y:y1}});
+ const c=Math.SQRT1_2,R=p=>({x:600+(p.x-250)*c-(p.y-300)*c,y:300+(p.x-250)*c+(p.y-300)*c});
+ const slant=[T("Ф9",240,200,12,18),T("6000",232,300),T("2000",141,320),T("4000",291,320),T("8400",420,360)].map(t=>({...t,...R(t),angle:-45}));
+ const lines=[H(302,100,400),H(322,100,400),V(100,290,325),V(400,290,325),V(200,315,325)].map(q=>({a:R(q.a),b:R(q.b)}));
+ const texts=[...slant,T("9000",560,420),T("Ф10",1300,200,12,18),T("1500",1290,300),T("Прочее",1600,700),T("Прочее",1620,720),T("Прочее",1640,740)];
+ const segments=[...lines,H(302,1200,1400),V(1200,290,305),V(1400,290,305)];
+ const views=extractSheet({widthPt:2000,heightPt:900,texts,segments}).views,v=views.find(x=>x.marks.includes("Ф9")),o=views.find(x=>x.marks.includes("Ф10"));
+ assert(v,"the slanted title is a view: "+JSON.stringify(views.map(x=>x.marks)));
+ assert.deepEqual([v.length_mm,v.length_how,v.angle],[6000,"по крайним выносным линиям, цепочка сходится",-45],"its overall dimension along it");
+ const at=R({x:249,y:200});assert(Math.hypot(v.title_at.x-at.x,v.title_at.y-at.y)<1,"its title where it is drawn: "+JSON.stringify(v.title_at));
+ assert(v.box.x0<=R({x:100,y:320}).x&&v.box.x1>=R({x:420,y:360}).x&&v.box.y1>=R({x:400,y:320}).y,"its area round its texts: "+JSON.stringify(v.box));
+ assert.deepEqual([o.length_mm,o.angle],[1500,undefined],"the level view beside it")}
+console.log("Sheets: assembly levels, quantities, КМ profiles, separate КМ/КМД catalogs and per-mark heights, slanted views PASS");

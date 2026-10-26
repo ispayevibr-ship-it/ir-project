@@ -115,15 +115,17 @@ function stampBlock(texts,w,h,code){
 // the outline of the part — not the largest number of the view (a reference size, a size of another view or a number of
 // the table can be larger). Its dimensions keep one scale; the overall one spans all the others and the chain under it
 // adds up to it. None spans them — no overall dimension is drawn: the largest number stays, as ambiguous.
-function overallOf(inside,segments,box){
+// (`along`: only the dimensions along the title — a slanted view, its length along the flight, not the height of its
+// posts across it, ГПЭС Ф135 «945»)
+function overallOf(inside,segments,box,along=false){
  if(!segments?.length)return null;
  const {dimensionsOf}=require("./ai-scheme-extract");
  const near=segments.filter(q=>Math.max(q.a.x,q.b.x)>=box.x0&&Math.min(q.a.x,q.b.x)<=box.x1&&Math.max(q.a.y,q.b.y)>=box.y0&&Math.min(q.a.y,q.b.y)<=box.y1);
  const dims=dimensionsOf(inside,near).filter(d=>d.v>=100&&d.v<=30000);
  if(!dims.length)return null;
  const ratio=d=>d.v/(d.hi-d.lo),n=median(dims.map(ratio)),same=dims.filter(d=>Math.abs(ratio(d)-n)/n<=0.06);
- let best=null;
- for(const flat of [true,false]){
+ let best=null;const dirs=along?[true]:[true,false];
+ for(const flat of dirs){
   const list=same.filter(d=>d.flat===flat);if(!list.length)continue;
   const lo=Math.min(...list.map(d=>d.lo)),hi=Math.max(...list.map(d=>d.hi)),tol=Math.max(1.5,(hi-lo)*0.01);
   const over=list.filter(d=>d.lo<=lo+tol&&d.hi>=hi-tol).sort((a,b)=>b.v-a.v)[0];
@@ -138,7 +140,7 @@ function overallOf(inside,segments,box){
  // A long member drawn with a break (a railing, a beam «с разрывом»): its length is written at its true value over a
  // shortened drawing — off the scale of the view, drawn shorter than it. Spanning the extreme extension lines of its
  // direction and larger than the overall found, it is the length (a detail of a larger scale is drawn longer, not shorter).
- for(const flat of [true,false]){
+ for(const flat of dirs){
   const all=dims.filter(d=>d.flat===flat);if(all.length<2)continue;
   const lo=Math.min(...all.map(d=>d.lo)),hi=Math.max(...all.map(d=>d.hi)),tol=Math.max(1.5,(hi-lo)*0.01);
   const broken=all.filter(d=>!same.includes(d)&&ratio(d)>n&&d.lo<=lo+tol&&d.hi>=hi-tol&&d.v>=1000).sort((a,b)=>b.v-a.v)[0];
@@ -164,25 +166,57 @@ function tableMarkCells(texts){
  }
  return out
 }
+// A title written at a slant (a stair's railing drawn along its flight: ГПЭС Ф133 at 45°, Ф136 at −45°, its length
+// «3228» under it): its view is drawn along it. The sheet is read turned so that the title reads level — only the texts
+// written along it or across it (the view's own; the level texts are other views'), the segments turned with them, the
+// other titles of the slant where they stand; its title and its area given back on the sheet as drawn.
+const slanted=t=>{const a=Math.abs(t.angle||0)%90;return a>=10&&a<=80};
+// (a text's middle on the sheet: along its own line)
+const midOf=t=>{const b=-(t.angle||0)*Math.PI/180;return{x:t.x+Math.cos(b)*(t.width||0)/2,y:t.y+Math.sin(b)*(t.width||0)/2}};
+function turnedSheet(title,texts,segments,titles,cells,w,h){
+ const a=-(title.angle||0)*Math.PI/180,u={x:Math.cos(a),y:Math.sin(a)},dn={x:-u.y,y:u.x};
+ const P=p=>({x:p.x*u.x+p.y*u.y,y:p.x*dn.x+p.y*dn.y}),back=p=>({x:p.x*u.x+p.y*dn.x,y:p.x*u.y+p.y*dn.y});
+ const turn=an=>{let d=((an-(title.angle||0))%360+360)%360;return d>180?d-360:d};
+ const own=t=>{const d=Math.abs(turn(t.angle||0))%90;return d<4||d>86};
+ const mid=midOf,tx=texts.filter(t=>t!==title&&!cells.has(t)&&own(t)).map(t=>({...t,...P(t),angle:turn(t.angle||0)}));
+ // (the other titles of the slant part it: the level ones are of views of level texts)
+ const ts=titles.filter(o=>own(o.t)).map(o=>{const c=P(mid(o.t));return{...o,t:{...o.t,x:c.x-(o.t.width||0)/2,y:c.y,angle:0},page:o}});
+ const sg=segments.map(q=>({...q,a:P(q.a),b:P(q.b)}));
+ const corners=[{x:0,y:0},{x:w,y:0},{x:0,y:h},{x:w,y:h}].map(P);
+ // (its area on the sheet: round its own texts and its title, else the turned area)
+ const box=(b,inside)=>{const c=inside.length?[...inside.map(back),mid(title)]:[{x:b.x0,y:b.y0},{x:b.x1,y:b.y0},{x:b.x0,y:b.y1},{x:b.x1,y:b.y1}].map(back),xs=c.map(p=>p.x),ys=c.map(p=>p.y),pad=inside.length?30:0;
+  return{x0:Math.round(Math.max(0,Math.min(...xs)-pad)),y0:Math.round(Math.max(0,Math.min(...ys)-pad)),x1:Math.round(Math.min(w,Math.max(...xs)+pad)),y1:Math.round(Math.min(h,Math.max(...ys)+pad))}};
+ return{texts:tx,titles:ts,segments:sg,v:ts.find(o=>o.page.t===title),bottom:Math.max(...corners.map(p=>p.y))-40,at:mid(title),box}
+}
 function assemblyViews(texts,w,h,med,segments=[]){
  // A mark in a table («Требуется изготовить», a «Спецификация») is a cell, not a view's title (ГПЭС Ф126: a sheet of
  // tables only gave a «view» with the mass of 1000 washers «16,361» for its level and the total «28884» for its length).
  const cells=tableMarkCells(texts);
- const titles=texts.filter(t=>horizontal(t)&&t.size>=med*1.3&&!(t.x>w-700&&t.y>h-190)&&!cells.has(t))
+ const all=texts.filter(t=>(horizontal(t)||slanted(t))&&t.size>=med*1.3&&!(t.x>w-700&&t.y>h-190)&&!cells.has(t))
   .map(t=>({t,marks:titleMarks(t.str)})).filter(x=>x.marks);
+ // (a slanted title parts the sheet where its middle stands)
+ const page={texts,segments,titles:all.map(o=>slanted(o.t)?{...o,t:{...o.t,x:midOf(o.t).x-(o.t.width||0)/2,y:midOf(o.t).y}}:o),h};
  const views=[];
- for(const v of titles){
+ for(const v0 of all){
+  // (a slanted title: the sheet turned to it)
+  const f=slanted(v0.t)?turnedSheet(v0.t,page.texts,page.segments,all,cells,w,page.h):null;
+  const v=f?f.v:v0,texts=f?f.texts:page.texts,segments=f?f.segments:page.segments,titles=f?f.titles:page.titles,h=f?f.bottom+40:page.h;
   const cx=v.t.x+v.t.width/2;
   // The view spans to halfway towards the neighbouring titles on the same band of the sheet.
   // (A title a little higher or lower and well aside — views drawn in steps, Ф15 and Ф16 — parts the sheet across too.)
   const ocx=o=>o.t.x+o.t.width/2,aside=o=>Math.abs(o.t.y-v.t.y)<600&&Math.abs(ocx(o)-cx)>200;
   const row=titles.filter(o=>o!==v&&(Math.abs(o.t.y-v.t.y)<120||aside(o)));
-  const left=Math.max(cx-420,...row.map(ocx).filter(x=>x<cx).map(x=>(x+cx)/2));
-  const right=Math.min(cx+420,...row.map(ocx).filter(x=>x>cx).map(x=>(x+cx)/2));
+  // (a slanted view, of its own texts only: as far as a flight is long)
+  const reach=f?800:420;
+  const left=Math.max(cx-reach,...row.map(ocx).filter(x=>x<cx).map(x=>(x+cx)/2));
+  const right=Math.min(cx+reach,...row.map(ocx).filter(x=>x>cx).map(x=>(x+cx)/2));
   const below=titles.filter(o=>o.t.y>v.t.y+120&&!aside(o)&&ocx(o)>left&&ocx(o)<right).map(o=>o.t.y);
   // (A table under the view — «Требуется изготовить», «Выборка металла», a «Ведомость» — ends it: its «Итого» is not a size.)
   const tables=texts.filter(t=>t.y>v.t.y+60&&t.x+(t.width||0)>left&&t.x<right&&/^(Тре[бдв]уется|Выборка|Ведомость|Спецификац)/u.test(String(t.str))).map(t=>t.y-(t.size||10)*1.5);
-  const bottom=Math.min(h-40,...below,...tables);
+  let bottom=Math.min(h-40,...below,...tables);
+  // (a slanted view: its own texts packed under its title — the next drawing of the slant lies past a gap of 300 pt,
+  // ГПЭС Ф135 over Ф134 and Ф133)
+  if(f){let last=v.t.y;for(const y of texts.filter(t=>t.x>=left&&t.x<=right&&t.y>v.t.y&&t.y<bottom).map(t=>t.y).sort((a,b)=>a-b)){if(y-last>300){bottom=y;break}last=y}}
   const inside=texts.filter(t=>t.x>=left&&t.x<=right&&t.y>v.t.y&&t.y<bottom&&!cells.has(t));
   // A level without its sign among other numbers of its line is a cell of a table: «17,156» — the mass of 1000 washers in
   // the «Ведомость метизов» under the view («+9,705» among the dimensions is a level).
@@ -190,8 +224,9 @@ function assemblyViews(texts,w,h,med,segments=[]){
    /^\d+(?:[,.]\d+)?$/.test(String(o.str).trim())&&levelMm(o.str)===null);
   const levels=[...new Set(inside.filter(t=>levelMm(t.str)!==null&&!tableNumber(t)).map(t=>levelMm(t.str)))].sort((a,b)=>a-b);
   const dims=inside.map(t=>number(t.str)).filter(v=>v&&v>=300&&v<=30000);
-  const box={x0:Math.round(left),y0:Math.round(Math.max(0,v.t.y-30)),x1:Math.round(right),y1:Math.round(bottom)};
-  const over=dims.length?overallOf(inside,segments,box):null;
+  // (the turned sheet runs below naught)
+  const box={x0:Math.round(left),y0:Math.round(f?v.t.y-30:Math.max(0,v.t.y-30)),x1:Math.round(right),y1:Math.round(bottom)};
+  const over=dims.length?overallOf(inside,segments,box,Boolean(f)):null;
   const length=over?over.v:dims.length?Math.max(...dims):null;
   const others=[...new Set(dims)].filter(x=>x!==length).sort((a,b)=>b-a);
   const how=over?over.how:length?"наибольшее число вида — общий размер не найден":"";
@@ -207,7 +242,8 @@ function assemblyViews(texts,w,h,med,segments=[]){
   // The member's own section labelled in its view («□140х4» on the leader of the post Ф15): when it is the one rolled
   // section there.
   const rolled=[...new Set(inside.filter(t=>ROLLED.test(profileWords(cyr(String(t.str))))&&!/^(уголок|L|∟)/iu.test(profileWords(cyr(String(t.str))))).map(t=>normProfile(t.str)))];
-  views.push({marks:v.marks,title:v.t.str,title_at:{x:Math.round(cx*10)/10,y:Math.round(v.t.y*10)/10},levels,z0_mm:z0,z1_mm:z1,length_mm:length,...(rolled.length===1?{profile:rolled[0]}:{}),...(how?{length_how:how}:{}),...((!over||over.weak)&&others.length?{length_candidates:[length,...others.slice(0,2)]}:{}),box})
+  const at=f?f.at:{x:cx,y:v.t.y};
+  views.push({marks:v.marks,title:v.t.str,title_at:{x:Math.round(at.x*10)/10,y:Math.round(at.y*10)/10},levels,z0_mm:z0,z1_mm:z1,length_mm:length,...(rolled.length===1?{profile:rolled[0]}:{}),...(how?{length_how:how}:{}),...((!over||over.weak)&&others.length?{length_candidates:[length,...others.slice(0,2)]}:{}),box:f?f.box(box,inside):box,...(f?{angle:Math.round(v0.t.angle)}:{})})
  }
  return views
 }
