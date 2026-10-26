@@ -799,10 +799,11 @@ window.irThreeSchemeView=(function(){
       var band=number(v&&v.band_mm),len=number(v&&v.length_mm),side=Math.abs(band-sec.h)<=Math.max(15,sec.h*.12),plan=!side&&Math.abs(band-sec.b)<=Math.max(15,sec.b*.12);
       if(!(side||plan)||!(len>0)||!Array.isArray(v.holes))return;
       // (a column drawn upright: from its top)
-      var fromTop=v.dir==="по вертикали"&&c.geometryType==="column";
+      // (a mark of a group drawing: its plates off its axes unequally, its middle off theirs — center_mm)
+      var fromTop=v.dir==="по вертикали"&&c.geometryType==="column",ctr=number(v.center_mm)||0;
       v.holes.forEach(function(h){
-       if(!Array.isArray(h)||number(h[3]))return;var at=number(h[0]),off=number(h[1]),dm=number(h[2]),sa=fromTop?len/2-at:at-len/2;
-       if(Math.abs(sa)>len/2+5)return;
+       if(!Array.isArray(h)||number(h[3]))return;var at=number(h[0]),off=number(h[1]),dm=number(h[2]),sa=fromTop?len/2-at-ctr:at-len/2+ctr;
+       if(Math.abs(at-len/2)>len/2+5)return;
        var pos=mid.clone().add(d.clone().multiplyScalar(sa/1000)),axis,thick;
        if(side){pos.add(X.clone().multiplyScalar(webX)).add(Y.clone().multiplyScalar(-off/1000));axis=X;thick=sec.s/1000}
        else{pos.add(X.clone().multiplyScalar(off/1000)).add(Y.clone().multiplyScalar((sec.h/2-sec.t/2)/1000));axis=Y;thick=sec.t/1000}

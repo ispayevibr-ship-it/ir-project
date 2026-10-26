@@ -124,12 +124,18 @@ function overallOf(inside,segments,box,along=false){
  const dims=dimensionsOf(inside,near).filter(d=>d.v>=100&&d.v<=30000);
  if(!dims.length)return null;
  const ratio=d=>d.v/(d.hi-d.lo),n=median(dims.map(ratio)),same=dims.filter(d=>Math.abs(ratio(d)-n)/n<=0.06);
+ // (the length is along the member: not in a direction whose dimensions span under a third of the other's — the height
+ // of a beam's section, ГПЭС К161 «200» against its run of «120 · 920 · 120» along it)
+ const reachOf=f=>{const l=dims.filter(d=>d.flat===f);return l.length?Math.max(...l.map(d=>d.hi))-Math.min(...l.map(d=>d.lo)):0};
+ const across=f=>!along&&reachOf(f)<0.3*reachOf(!f);
  let best=null;const dirs=along?[true]:[true,false];
  for(const flat of dirs){
-  const list=same.filter(d=>d.flat===flat);if(!list.length)continue;
+  const list=same.filter(d=>d.flat===flat);if(!list.length||across(flat))continue;
   const lo=Math.min(...list.map(d=>d.lo)),hi=Math.max(...list.map(d=>d.hi)),tol=Math.max(1.5,(hi-lo)*0.01);
   const over=list.filter(d=>d.lo<=lo+tol&&d.hi>=hi-tol).sort((a,b)=>b.v-a.v)[0];
-  if(!over||list.length<2&&over.v<1000)continue;
+  // (and spans at least half of all the view's dimensions that way: two sizes of a plate at an end, of one scale, are no
+  // overall size of a beam drawn shorter, ГПЭС К160 «130» at the end of «7480»)
+  if(!over||list.length<2&&over.v<1000||over.hi-over.lo<0.5*reachOf(flat))continue;
   // The chain on another line between the same ends: its parts add up to the overall dimension.
   const chain=list.filter(d=>d!==over&&Math.abs(d.line-over.line)>1&&d.lo>=lo-tol&&d.hi<=hi+tol);
   const lines=new Map();for(const d of chain){const k=Math.round(d.line);lines.set(k,[...(lines.get(k)||[]),d])}
@@ -141,8 +147,10 @@ function overallOf(inside,segments,box,along=false){
  // shortened drawing — off the scale of the view, drawn shorter than it. Spanning the extreme extension lines of its
  // direction and larger than the overall found, it is the length (a detail of a larger scale is drawn longer, not shorter).
  for(const flat of dirs){
-  const all=dims.filter(d=>d.flat===flat);if(all.length<2)continue;
-  const lo=Math.min(...all.map(d=>d.lo)),hi=Math.max(...all.map(d=>d.hi)),tol=Math.max(1.5,(hi-lo)*0.01);
+  // (spanning the extension lines of the dimensions at the scale — a size of another view in the area, drawn shorter
+  // too, runs past them: К161's «7360» over the area of К160)
+  const all=dims.filter(d=>d.flat===flat);if(all.length<2)continue;const ends=same.filter(d=>d.flat===flat).length?same.filter(d=>d.flat===flat):all;
+  const lo=Math.min(...ends.map(d=>d.lo)),hi=Math.max(...ends.map(d=>d.hi)),tol=Math.max(1.5,(hi-lo)*0.01);
   const broken=all.filter(d=>!same.includes(d)&&ratio(d)>n&&d.lo<=lo+tol&&d.hi>=hi-tol&&d.v>=1000).sort((a,b)=>b.v-a.v)[0];
   if(broken&&(!best||broken.v>best.v))best={v:broken.v,how:"по крайним выносным линиям, вид с разрывом"}
  }
@@ -152,17 +160,17 @@ function overallOf(inside,segments,box,along=false){
 // what is in a table is not a view.
 function tableMarkCells(texts){
  const out=new Set();
- const take=(markH,top,right)=>{
+ const take=(markH,top,right,edge=Infinity)=>{
   let last=null;
   for(const r of rowsOf(texts.filter(t=>t.y>top+4&&t.y<top+1600&&t.x>markH.x-60&&t.x<right))){
-   if(last!==null&&r.y-last>80||r.items.some(t=>/^(Всего|Итого|Выборка|Ведомость)/u.test(t.str)))break;
+   if(last!==null&&r.y-last>80||r.items.some(t=>t.x<edge&&/^(Всего|Итого|Выборка|Ведомость)/u.test(t.str)))break;
    last=r.y;for(const t of r.items)if(Math.abs(t.x-markH.x)<60&&titleMarks(t.str)||/^\d+(?:[,.]\d+)?$/.test(String(t.str).trim()))out.add(t)
   }
  };
  for(const head of texts.filter(t=>/^Спецификац/u.test(t.str))){const {hdr,markH}=specHeader(texts,head);if(markH)take(markH,Math.max(...hdr.map(t=>t.y)),Math.max(...hdr.map(t=>t.x))+160)}
  for(const head of texts.filter(t=>/^Тре[бдв]уется|^изготовить$|^Таблица\s+отправочных/u.test(t.str))){
   const hdr=texts.filter(t=>t.y>head.y&&t.y<head.y+70&&Math.abs(t.x-head.x)<260&&/^(Марка|Отправочная|Отпр|марка|Кол(?!\.?\s*уч)|Масса|Вес|марки|[Вв]сех|шт|изготовить)/u.test(t.str));
-  const markH=requiredMarkHead(hdr,head);if(markH)take(markH,Math.max(...hdr.map(t=>t.y)),markH.x+340)
+  const markH=requiredMarkHead(hdr,head);if(markH)take(markH,Math.max(...hdr.map(t=>t.y)),markH.x+340,headerEdge(hdr))
  }
  return out
 }
@@ -194,6 +202,9 @@ function turnedSheet(title,texts,segments,titles,cells,w,h){
 // The length of a mark is its own row's: the longest of its rows — the overall size or the chain of the row added up —
 // when it is as long as the member (at least 0.6 of the view's length: «305 · 305 для К131» is the place of a part).
 // (a label sticks out past the edge of the view's area: К152, «для К152» 9 pt past it — `pool`, the texts round it)
+// Its spans: the middle of a chain of its from end to end, the ends short — between the axes of the holes at its ends
+// (К137 «300 · 6900 · 300», К140 «200 · 7100 · 200»: the holes of the drawing moved for each mark), with the ends and the
+// line of the row (a view may hold two drawings, each with rows of its own). {lengths, spans} or null.
 function markLengths(inside,segments,box,marks,length,pool=inside){
  const labels=pool.map(t=>{const m=/^для\s+(.+)$/u.exec(String(t.str).trim());const own=m?(titleMarks(m[1])||[]).filter(x=>marks.includes(x)):[];return own.length?{t,marks:own}:null}).filter(Boolean);
  if(!labels.length)return null;
@@ -203,8 +214,10 @@ function markLengths(inside,segments,box,marks,length,pool=inside){
  for(const d of dimensionsOf(inside,near)){const r=rows.find(r=>r.flat===d.flat&&Math.abs(r.c-d.line)<=1);if(r)r.dims.push(d);else rows.push({flat:d.flat,c:d.line,dims:[d]})}
  for(const r of rows){r.lo=Math.min(...r.dims.map(d=>d.lo));r.hi=Math.max(...r.dims.map(d=>d.hi));
   const chain=r.dims.slice().sort((a,b)=>a.lo-b.lo),joined=chain.every((d,k)=>!k||Math.abs(d.lo-chain[k-1].hi)<=1.5);
-  r.v=Math.max(...r.dims.map(d=>d.v),joined?chain.reduce((a,d)=>a+d.v,0):0)}
- const out={};
+  r.v=Math.max(...r.dims.map(d=>d.v),joined?chain.reduce((a,d)=>a+d.v,0):0);
+  const sum=chain.reduce((a,d)=>a+d.v,0),e0=chain[0].v,e1=chain[chain.length-1].v;
+  if(joined&&chain.length>=3&&Math.max(e0,e1)<=sum*0.15)r.span={span:sum-e0-e1,a:e0,b:e1,c:Math.round(r.c*10)/10}}
+ const out={},spans={};
  for(const l of labels){
   const b=l.t,flat=Math.abs(b.angle||0)<10,z=Number(b.size)||10,w=Number(b.width)||0;
   const [c,t0,t1]=flat?[b.y-z*0.36,b.x,b.x+w]:[b.x-z*0.36,Math.min(b.y,b.y-w*Math.sign(b.angle||1)),Math.max(b.y,b.y-w*Math.sign(b.angle||1))];
@@ -212,10 +225,10 @@ function markLengths(inside,segments,box,marks,length,pool=inside){
   // of К151 a little nearer «для К151» than the line of «7870» drawn on under it)
   const reach=r=>t0>=r.hi-4?Math.max(...r.dims.map(d=>d.to??d.hi))>=t0-6:Math.min(...r.dims.map(d=>d.from??d.lo))<=t1+6;
   const row=rows.filter(r=>r.flat===flat&&Math.abs(r.c-c)<=z&&(t1<=r.lo+4&&r.lo-t1<=150||t0>=r.hi-4&&t0-r.hi<=150)).sort((p,q)=>reach(q)-reach(p)||Math.abs(p.c-c)-Math.abs(q.c-c))[0];
-  if(row)for(const m of l.marks)out[m]=Math.max(out[m]||0,row.v)
+  if(row)for(const m of l.marks){out[m]=Math.max(out[m]||0,row.v);if(row.span&&row.v>=(Number(length)||0)*0.6&&!(spans[m]||[]).some(o=>o.c===row.span.c))(spans[m]=spans[m]||[]).push(row.span)}
  }
  for(const m of Object.keys(out))if(!(out[m]>=Math.max(1000,(Number(length)||0)*0.6)))delete out[m];
- return Object.keys(out).length?out:null
+ return Object.keys(out).length||Object.keys(spans).length?{lengths:Object.keys(out).length?out:null,spans:Object.keys(spans).length?spans:null}:null
 }
 function assemblyViews(texts,w,h,med,segments=[]){
  // A mark in a table («Требуется изготовить», a «Спецификация») is a cell, not a view's title (ГПЭС Ф126: a sheet of
@@ -276,7 +289,7 @@ function assemblyViews(texts,w,h,med,segments=[]){
   const over=rdims.length?overallOf(rin,rseg,rbox,Boolean(f||gbox)):null;
   const length=over?over.v:rdims.length?Math.max(...rdims):null;
   const wide=t=>t.x+(t.width||0)>=rbox.x0-160&&t.x<=rbox.x1+160&&t.y>=rbox.y0-40&&t.y<=rbox.y1+40;
-  const lengths=v.marks.length>1?markLengths(rin,rseg,rbox,v.marks,length,(gbox?g.of(page.texts):texts).filter(t=>!cells.has(t)&&wide(t))):null;
+  const ml=v.marks.length>1?markLengths(rin,rseg,rbox,v.marks,length,(gbox?g.of(page.texts):texts).filter(t=>!cells.has(t)&&wide(t))):null,lengths=ml?.lengths,spans=ml?.spans;
   const others=[...new Set(rdims)].filter(x=>x!==length).sort((a,b)=>b-a);
   const how=over?over.how:length?"наибольшее число вида — общий размер не найден":"";
   let z0=levels.length>=2?levels[0]:null,z1=levels.length>=2?levels[levels.length-1]:null;
@@ -292,7 +305,7 @@ function assemblyViews(texts,w,h,med,segments=[]){
   // section there.
   const rolled=[...new Set(inside.filter(t=>ROLLED.test(profileWords(cyr(String(t.str))))&&!/^(уголок|L|∟)/iu.test(profileWords(cyr(String(t.str))))).map(t=>normProfile(t.str)))];
   const at=f?f.at:{x:cx,y:v.t.y};
-  views.push({marks:v.marks,title:v.t.str,title_at:{x:Math.round(at.x*10)/10,y:Math.round(at.y*10)/10},levels,z0_mm:z0,z1_mm:z1,length_mm:length,...(lengths?{lengths}:{}),...(rolled.length===1?{profile:rolled[0]}:{}),...(how?{length_how:how}:{}),...(gbox?{slope}:{}),...((!over||over.weak)&&others.length?{length_candidates:[length,...others.slice(0,2)]}:{}),box:f?f.box(box,inside):box,...(f?{angle:Math.round(v0.t.angle)}:{})})
+  views.push({marks:v.marks,title:v.t.str,title_at:{x:Math.round(at.x*10)/10,y:Math.round(at.y*10)/10},levels,z0_mm:z0,z1_mm:z1,length_mm:length,...(lengths?{lengths}:{}),...(spans?{spans}:{}),...(rolled.length===1?{profile:rolled[0]}:{}),...(how?{length_how:how}:{}),...(gbox?{slope}:{}),...((!over||over.weak)&&others.length?{length_candidates:[length,...others.slice(0,2)]}:{}),box:f?f.box(box,inside):box,...(f?{angle:Math.round(v0.t.angle)}:{})})
  }
  return views
 }
@@ -300,6 +313,9 @@ function assemblyViews(texts,w,h,med,segments=[]){
 // "Требуется / изготовить": Марка | Кол. | Масса марки | всех.
 // The marks' column of «Требуется изготовить»: the «Отправочная (марка)» / «Марка» header nearest the title — the
 // «Марка» of a «Спецификация» beside it is within reach too (К77); «Отправочная» lost by OCR leaves «марка».
+// The right edge of a table's header: an «Итого» right of it is of the table beside (ГПЭС л. 123: «Итого:» of «Выборка
+// металла» on the row of К140 ended the marks table there, and К140–К142 were lost).
+const headerEdge=hdr=>Math.max(...hdr.map(t=>t.x+(t.width||0)))+40;
 function requiredMarkHead(hdr,head){
  const near=re=>hdr.filter(t=>re.test(t.str)).sort((a,b)=>Math.abs(a.x-head.x)-Math.abs(b.x-head.x))[0];
  return near(/^Марка|^Отправочная|^Отпр/u)||near(/^марка$/u)
@@ -317,7 +333,7 @@ function requiredTable(texts){
   const massH=hdr.find(t=>/^марки/u.test(t.str)),allH=hdr.find(t=>/^[Вв]сех/u.test(t.str));
   const top=Math.max(...hdr.map(t=>t.y)),usedMarks=new Set();
   for(const row of rowsOf(texts.filter(t=>t.y>top+4&&t.y<top+900&&t.x>markH.x-60&&t.x<(qtyH?qtyH.x:markH.x+80)+260))){
-   if(row.items.some(t=>/^(Всего|Итого)/u.test(t.str)))break;
+   if(row.items.some(t=>t.x<headerEdge(hdr)&&/^(Всего|Итого)/u.test(t.str)))break;
    // A mark read by OCR in a taller box than the numbers of its row sits a few points off it.
    const markCell=row.items.find(t=>Math.abs(t.x-markH.x)<60&&titleMarks(t.str))||texts.filter(t=>!row.items.includes(t)&&!usedMarks.has(t)&&Math.abs(t.x-markH.x)<60&&Math.abs(t.y-row.y)<Math.max(6,(t.size||8)*0.5)&&titleMarks(t.str)).sort((a,b)=>Math.abs(a.y-row.y)-Math.abs(b.y-row.y))[0];
    // Without the "Кол." header (lost by OCR) the quantity is the first whole number right of the mark.

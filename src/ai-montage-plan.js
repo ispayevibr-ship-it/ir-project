@@ -285,6 +285,21 @@ function gussetHoles(gussets,drill){
   delete g.length_mm;if(own.length)g.holes=own.slice(0,40)}
  return gussets
 }
+// A group drawing's holes for each of its marks (src/ai-sheet-extract.js markLengths, the view's spans): the drawing is
+// of the mark whose span between the holes at its ends is the drawn one; another mark's holes at the far end move by the
+// difference of the spans, its member as much longer; its middle off the middle between its axes by half the difference
+// of its ends (ГПЭС К138 «240 · 5560 · 200» under К137 «300 · 6900 · 300»: the holes at 70 from its plates, the plates
+// 170 and 130 off its axes). Holes in the middle of it (a node) — the view kept as drawn.
+function groupDrill(v,mark,views){
+ const sv=(views||[]).find(x=>x.title===v.title&&x.spans),own=sv?.spans?.[mark];if(!own?.length||!v.holes?.length)return null;
+ const L=Number(v.length_mm)||0,at=v.holes.map(h=>h.at_mm);if(!(L>0)||at.some(a=>a>L*0.25&&a<L*0.75))return null;
+ const start=at.filter(a=>a<=L/2),end=at.filter(a=>a>L/2);if(!start.length||!end.length)return null;
+ const outer=Math.max(...end)-Math.min(...start),inner=Math.min(...end)-Math.max(...start),all=Object.values(sv.spans).flat();
+ const base=all.find(o=>Math.abs(o.span-outer)<=2)||all.find(o=>Math.abs(o.span-inner)<=2);if(!base)return null;
+ const m=own.slice().sort((p,q)=>Math.abs(p.c-base.c)-Math.abs(q.c-base.c))[0],d=m.span-base.span,center=(m.a-m.b)/2;
+ if(!d&&!center)return null;
+ return{length_mm:L+d,holes:v.holes.map(h=>({...h,at_mm:h.at_mm>L/2?h.at_mm+d:h.at_mm})),...(center?{center_mm:center}:{})}
+}
 function buildCatalog(draft,ai=null){
  const map=new Map();
  const volumes=new Set((draft.pages||[]).filter(p=>p.docType==="КМ").map(volumeOf).filter(Boolean));
@@ -302,11 +317,13 @@ function buildCatalog(draft,ai=null){
    if(v.levels?.length===1&&e.view_level_mm===undefined)e.view_level_mm=v.levels[0];
    // A column's length is the distance between its levels; otherwise the largest dimension of the view — of a group
    // drawing, the mark's own row «для К114» (src/ai-sheet-extract.js markLengths).
-   const own=v.lengths?.[mark];
-   if(e.length_mm===null){e.length_mm=v.z1_mm!==null&&v.z0_mm!==null&&v.z1_mm>v.z0_mm?v.z1_mm-v.z0_mm:own||v.length_mm;
-    if(e.length_mm!==null&&e.length_mm!==undefined)e.lengthFrom=where(p)+" · вид «"+v.title+"»"+(v.z1_mm>v.z0_mm?" (между отметками)":own?" (размер «для "+mark+"»)":v.length_how?" ("+v.length_how+")":"");
+   // (a length that is only the largest number of a view gives way to a sure one of another view of the mark: ГПЭС К140,
+   // «4047» of a view of its own under the «7500 для К140» of its group drawing)
+   const own=v.lengths?.[mark],levelled=v.z1_mm!==null&&v.z0_mm!==null&&v.z1_mm>v.z0_mm,weak=!levelled&&!own&&/^наибольшее/u.test(v.length_how||"");
+   if(e.length_mm===null||e.lengthWeak&&!weak&&(levelled||own||v.length_mm>0)){e.length_mm=levelled?v.z1_mm-v.z0_mm:own||v.length_mm;delete e.length_ambiguous;
+    if(e.length_mm!==null&&e.length_mm!==undefined){e.lengthFrom=where(p)+" · вид «"+v.title+"»"+(levelled?" (между отметками)":own?" (размер «для "+mark+"»)":v.length_how?" ("+v.length_how+")":"");if(weak)e.lengthWeak=true;else delete e.lengthWeak}
     // No overall dimension drawn: the largest number of the view, the others kept — the size is ambiguous.
-    if(!(v.z1_mm>v.z0_mm)&&!own&&v.length_candidates?.length>1)e.length_ambiguous=v.length_candidates.slice(0,4)}
+    if(!levelled&&!own&&v.length_candidates?.length>1)e.length_ambiguous=v.length_candidates.slice(0,4)}
    e.sources.push(where(p)+" · вид «"+v.title+"»")
   }
   // Geometric scheme of a truss: its lattice, for drawing it as a truss and seating it on its supports.
@@ -357,9 +374,9 @@ function buildCatalog(draft,ai=null){
  for(const p of draft.pages||[]){
   const sheet=p.sheet||{};if(p.docType!=="КМД сборочные"||!sheet.drill?.views?.length)continue;scope=scopeAt(p);
   for(const v of sheet.drill.views)for(const mark of v.marks||[]){const e=entry(mark);
-   if(e.drillFrom&&e.drillFrom!==where(p)||(e.drill||[]).length>=4)continue;e.drillFrom=where(p);
-   (e.drill=e.drill||[]).push({view:v.title,sheet:where(p),scale:v.scale,length_mm:v.length_mm,band_mm:v.band_mm,dir:v.dir,...(v.main?{main:true}:{}),...(v.not_to_scale?{not_to_scale:true}:{}),
-    holes:v.holes.slice(0,80).map(h=>[h.at_mm,h.off_mm,h.d_mm||0,h.part?1:0])})}
+   if(e.drillFrom&&e.drillFrom!==where(p)||(e.drill||[]).length>=4)continue;e.drillFrom=where(p);const fit=groupDrill(v,mark,sheet.views);
+   (e.drill=e.drill||[]).push({view:v.title,sheet:where(p),scale:v.scale,length_mm:fit?fit.length_mm:v.length_mm,band_mm:v.band_mm,dir:v.dir,...(v.main?{main:true}:{}),...(v.not_to_scale?{not_to_scale:true}:{}),...(fit?.center_mm?{center_mm:fit.center_mm}:{}),
+    holes:(fit?fit.holes:v.holes).slice(0,80).map(h=>[h.at_mm,h.off_mm,h.d_mm||0,h.part?1:0])})}
  }
  // The plates across each mark (ribs, connection plates; sheet.plates, src/ai-holes-extract.js sheetPlates) of the first
  // assembly sheet that has them, each with its row of the sheet's specification when one fits it (a plate «−80×10»

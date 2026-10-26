@@ -334,5 +334,38 @@ assert.deepEqual(spec,[{mark:"К1",profile:"Тр.140х4",mass_kg:120.5,length_mm
  const turned=extractSheet({widthPt:2000,heightPt:900,texts:[T("К1, К2",560,40,12,40),...draw.map(t=>({...t,...R(t),angle:-45}))],segments:lines.map(q=>({a:R(q.a),b:R(q.b)}))}).views.find(x=>x.marks.includes("К1"));
  assert.deepEqual([turned.length_mm,turned.lengths,turned.slope],[7500,{К1:7500,К2:6000},-45],"at a slant, along it: "+JSON.stringify(turned));
  const {markKey}=require("../src/ai-montage-plan"),cat=buildCatalog({pages:[{page:1,docType:"КМД сборочные",sourceName:"s.pdf",sheet:{views:[level]}}]});
- assert.deepEqual(["К1","К2"].map(m=>[cat.get(markKey("КМД",m))?.length_mm,cat.get(markKey("КМД",m))?.lengthFrom]),[[7500,"s.pdf, лист 1 · вид «К1, К2» (размер «для К1»)"],[6000,"s.pdf, лист 1 · вид «К1, К2» (размер «для К2»)"]])}
-console.log("Sheets: assembly levels, quantities, КМ profiles, separate КМ/КМД catalogs and per-mark heights, slanted views, group drawings PASS");
+ assert.deepEqual(["К1","К2"].map(m=>[cat.get(markKey("КМД",m))?.length_mm,cat.get(markKey("КМД",m))?.lengthFrom]),[[7500,"s.pdf, лист 1 · вид «К1, К2» (размер «для К1»)"],[6000,"s.pdf, лист 1 · вид «К1, К2» (размер «для К2»)"]]);
+ // The holes drawn are К1's (6900 between them, its «300 · 6900 · 300»): К2's at its far end 1340 nearer, its plates
+ // 240 and 200 off its axes — its middle 20 past theirs (ГПЭС К137 and К138).
+ assert.deepEqual(level.spans,{К1:[{span:6900,a:300,b:300,c:262}],К2:[{span:5560,a:240,b:200,c:282}]},"the spans of the marks: "+JSON.stringify(level.spans));
+ const hole=(at,off)=>({at_mm:at,off_mm:off,d_mm:23});
+ const drill={views:[{title:"К1, К2",marks:["К1","К2"],main:true,scale:"1:10",length_mm:7040,band_mm:160,dir:"по горизонтали",holes:[hole(70,-55),hole(70,55),hole(6970,-55),hole(6970,55)]}]};
+ const cd=buildCatalog({pages:[{page:1,docType:"КМД сборочные",sourceName:"s.pdf",sheet:{views:[level],drill}}]});
+ assert.deepEqual(["К1","К2"].map(m=>{const d=cd.get(markKey("КМД",m)).drill[0];return[d.length_mm,d.center_mm,d.holes.map(h=>h[0])]}),[[7040,undefined,[70,70,6970,6970]],[5700,20,[70,70,5630,5630]]]);
+ assert(require("fs").readFileSync(require("path").join(__dirname,"../src/scheme-three-view.js"),"utf8").includes("at-len/2+ctr"),"the 3D sets the holes off the middle by center_mm")}
+// A length that is only the largest number of a view gives way to the mark's own size in another view («7500 для К5»).
+{const {markKey}=require("../src/ai-montage-plan");
+ const views=[{marks:["К5"],title:"К5",levels:[],z0_mm:null,z1_mm:null,length_mm:4047,length_how:"наибольшее число вида — общий размер не найден"},
+  {marks:["К4","К5"],title:"К4, К5",levels:[],z0_mm:null,z1_mm:null,length_mm:6000,lengths:{К4:6000,К5:7500}}];
+ const e=buildCatalog({pages:[{page:1,docType:"КМД сборочные",sourceName:"s.pdf",sheet:{views}}]}).get(markKey("КМД","К5"));
+ assert.deepEqual([e.length_mm,e.lengthWeak,e.lengthFrom],[7500,undefined,"s.pdf, лист 1 · вид «К4, К5» (размер «для К5»)"])}
+// A beam drawn with a break: its plate sizes at the end (one scale, «120 · 150», «270») are no overall size — they span a
+// small part of the view; its «7480» over the shortened drawing spans the extension lines of the sizes at the scale,
+// and a size of another view in the area running past them («7360», ГПЭС К161 over К160) is not taken.
+{
+ const T=(str,x,y,size=7,width=str.length*4.5)=>({str,x,y,size,width,angle:0});
+ const H=(y,x0,x1)=>({a:{x:x0,y},b:{x:x1,y}}),V=(x,y0,y1)=>({a:{x,y:y0},b:{x,y:y1}}),K=(x,y)=>({a:{x:x-1.5,y:y+1.5},b:{x:x+1.5,y:y-1.5}});
+ const row=(y,xs,vals)=>({lines:[H(y,xs[0],xs[xs.length-1]),...xs.flatMap(x=>[V(x,y-10,y+3),K(x,y)])],texts:vals.map((v,k)=>T(String(v),(xs[k]+xs[k+1])/2-String(v).length*1.5,y-2,6,String(v).length*3))});
+ const rows=[row(242,[100,112,127],[120,150]),row(262,[100,127],[270]),row(282,[100,400],[7480]),row(302,[90,410],[7360])];
+ const v=extractSheet({widthPt:2000,heightPt:900,texts:[T("К1",240,200,12,16),...rows.flatMap(r=>r.texts)],segments:rows.flatMap(r=>r.lines)}).views.find(x=>x.marks.includes("К1"));
+ assert.deepEqual([v.length_mm,v.length_how],[7480,"по крайним выносным линиям, вид с разрывом"],"the length over the break: "+JSON.stringify(v))}
+// «Итого:» of «Выборка металла» beside the marks table, on the row of К140 (ГПЭС л. 123): it does not end the marks
+// table — К140–К142 are its rows, and their cells are no views.
+{const o=(str,x,y,size=17.6)=>T(str,x,y,size);
+ const rows=[["К138",2,154,308],["К139",2,159,318],["К140",2,210,420],["К141",3,184,552],["К142",3,147,441]].flatMap(([m,n,a,b],i)=>{const y=1143+22.7*i;return[o(m,1854,y),o(String(n),1924,y),o(String(a),1983,y),o(String(b),2050,y)]});
+ const k=extractSheet({widthPt:2400,heightPt:1700,texts:[o("Таблица отправочных",1866,986,22),o("марок",1943,1010,22),o("Отпр.",1851,1030,20),o("Вес, кг",1990,1030,20),
+  o("Кол.",1910,1042,22),o("марки",1965,1049,20),o("всех",2046,1049,20),o("марка",1849,1051,20),o("Выборка металла",2176,998,22),o("Марка",2152,1030,20),
+  ...rows,o("Итого:",2159,1184,20),o("4047",2304,1187),o("Итого:",1862,1276,20),o("4047",2045,1278)],segments:[]});
+ assert.deepEqual(k.required.map(r=>r.mark),["К138","К139","К140","К141","К142"],"the whole marks table: "+JSON.stringify(k.required));
+ assert(!k.views.some(v=>v.marks.includes("К140")),"a cell of the table is no view")}
+console.log("Sheets: assembly levels, quantities, КМ profiles, separate КМ/КМД catalogs and per-mark heights, slanted views, group drawings, tables beside tables PASS");
