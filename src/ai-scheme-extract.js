@@ -229,12 +229,21 @@ function dimensionsOf(texts,segments){
   const b=textBox(t),flat=b.angle===0;
   // Along: the direction of the dimension; the line lies 0.3–4 pt off the text's baseline.
   const at=flat?b.cx:b.cy,base=flat?b.y1:b.x1,along=flat?H:V,across=flat?V:H;
-  const line=along.find(l=>l.c>=base+0.3&&l.c<=base+4&&l.lo<=at&&l.hi>=at);if(!line)continue;
+  // A large number stands a little farther off its line (ГПЭС М1.25: up to 5.4 pt at 15 pt); the longest line under
+  // it is the size's. A short size is written past the end of its line, over its end.
+  const band=along.filter(l=>l.c>=base+0.3&&l.c<=base+Math.max(4,(Number(t.size)||0)*0.4)),[u0,u1]=flat?[b.x0,b.x1]:[b.y0,b.y1];
+  const longest=list=>list.reduce((p,l)=>!p||l.hi-l.lo>p.hi-p.lo?l:p,null);
+  const line=longest(band.filter(l=>l.lo<=at&&l.hi>=at))||longest(band.filter(l=>l.lo<=u1&&l.hi>=u0));if(!line)continue;
   const ext=across.filter(e=>e.lo<=line.c+3&&e.hi>=line.c-3&&e.c>=line.lo-1&&e.c<=line.hi+1).map(e=>e.c);
   // A dimension's own extension lines never cross its number: one that does (the middle tick of the chain above,
   // run down through the overall dimension «2430» under «1215 1215») is passed over.
   const [t0,t1]=flat?[b.x0,b.x1]:[b.y0,b.y1],m=(t1-t0)*0.2,cross=ext.some(c=>c>t0+m&&c<t1-m);
-  const lo=Math.max(...ext.filter(c=>cross?c<=t0+m:c<at)),hi=Math.min(...ext.filter(c=>cross?c>=t1-m:c>at));
+  let lo=Math.max(...ext.filter(c=>cross?c<=t0+m:c<at)),hi=Math.min(...ext.filter(c=>cross?c>=t1-m:c>at));
+  // A short size written past its extension lines (ГПЭС М1.25: «100» beside its 8.6 pt): the two lines on its side,
+  // the number starting right at the nearer one (a number 10 pt off is another size's).
+  const gap=Math.max(4,(Number(t.size)||0)*0.3);
+  if(!Number.isFinite(hi)){const below=[...new Set(ext.filter(c=>c<at).map(c=>Math.round(c*10)/10))].sort((a,b)=>b-a);if(below.length>=2&&t0-below[0]<=gap){hi=below[0];lo=below[1]}}
+  else if(!Number.isFinite(lo)){const above=[...new Set(ext.filter(c=>c>at).map(c=>Math.round(c*10)/10))].sort((a,b)=>a-b);if(above.length>=2&&above[0]-t1<=gap){lo=above[0];hi=above[1]}}
   if(Number.isFinite(lo)&&Number.isFinite(hi)&&hi-lo>=4)out.push({v,lo,hi,flat,line:line.c,from:line.lo,to:line.hi})
  }
  return out
@@ -254,9 +263,10 @@ function dimensionScale(texts,segments,measured){
  // A sheet printed at another size (ГПЭС М1.27: 14.7 mm a point, of no scale of the list): the ratio that at least three
  // dimensions agree on within 3 %, two of every three found (asked for local views by their axes; a frame read so
  // would take in elevations). A view drawn out of scale (ГПЭС М1.25: the plan of a stair, its sizes 11…14 mm a point)
- // is not read so.
+ // is not read so. Sizes of another scale altogether (a node beside it at 2.4 mm a point) are of another view, not
+ // against it.
  const r=dims.map(d=>({k:d.v/(d.hi-d.lo),v:d.v}));let most=null;
- for(const m of r){const agree=r.filter(x=>Math.abs(x.k-m.k)/m.k<=0.03);if(agree.length<3||agree.length*3<r.length*2)continue;
+ for(const m of r){const agree=r.filter(x=>Math.abs(x.k-m.k)/m.k<=0.03),near=r.filter(x=>Math.abs(x.k-m.k)/m.k<=0.25);if(agree.length<3||agree.length*3<near.length*2)continue;
   const top=Math.max(...agree.map(x=>x.v));if(!most||agree.length>most.agree.length||agree.length===most.agree.length&&top>most.top)most={agree,top}}
  if(!most)return NaN;
  const ks=most.agree.map(x=>x.k).sort((a,b)=>a-b),k=ks[Math.floor(ks.length/2)];
@@ -264,6 +274,32 @@ function dimensionScale(texts,segments,measured){
  // a plan (М1.1: «50», «78» by the purlin chains of the plan) are not read by the plan's sizes.
  if(Array.isArray(measured)&&dimensionsOf(measured,segments).filter(d=>Math.abs(d.v/(d.hi-d.lo)-k)/k<=0.03).length<2)return NaN;
  return k
+}
+
+// A view drawn out of scale (the plan of a stair, ГПЭС М1.25: 1305, 1938 and 1110 drawn at 11.8, 10.5 and 14.1 mm a
+// point): a point is read by the chain of sizes along its direction, each piece by its own size. The chain through the
+// axis (a node of it or standing in one of its pieces) gives millimetres from the axis, growing with the sheet point;
+// past its ends the end piece goes on. Null without a chain of two pieces through the axis.
+function chainMap(dims,flat,axis){
+ const nodes=[],node=p=>{let n=nodes.find(n=>Math.abs(n.pt-p)<=1.5);if(!n)nodes.push(n={pt:p,mm:null,edges:[]});return n};
+ for(const d of dims.filter(d=>d.flat===flat)){const a=node(d.lo),b=node(d.hi);if(a===b)continue;a.edges.push({to:b,v:d.v});b.edges.push({to:a,v:-d.v})}
+ let best=null;
+ for(const start of nodes){
+  if(start.mm!==null)continue;
+  const part=[start];start.mm=0;
+  for(let i=0;i<part.length;i++)for(const e of part[i].edges)if(e.to.mm===null){e.to.mm=part[i].mm+e.v;part.push(e.to)}
+  const lo=Math.min(...part.map(n=>n.pt)),hi=Math.max(...part.map(n=>n.pt));
+  if(part.length>=3&&axis>=lo-2&&axis<=hi+2&&(!best||part.length>best.length))best=part
+ }
+ if(!best)return null;
+ // Overall sizes over the pieces may disagree with their sum by a rounding: each node keeps its first reading. The
+ // millimetres must grow with the point.
+ const pts=[...best].sort((a,b)=>a.pt-b.pt);
+ if(pts.some((n,i)=>i&&n.mm-pts[i-1].mm<=0))return null;
+ const u=pt=>{let i=pts.findIndex(n=>n.pt>=pt);if(i<0)i=pts.length-1;else if(i===0)i=1;
+  const a=pts[i-1],b=pts[i];return a.mm+(pt-a.pt)*(b.mm-a.mm)/(b.pt-a.pt)};
+ const at=u(axis),k=(pts[pts.length-1].mm-pts[0].mm)/(pts[pts.length-1].pt-pts[0].pt);
+ return{mm:pt=>u(pt)-at,nodes:pts.map(n=>Math.round(n.mm-at)),k}
 }
 
 // A plan drawn without axes («Схема расположения балок на отм. +5,500; +11,100» of a platform standing on its own): the
@@ -595,7 +631,7 @@ function flightsOf(segments,bbox,scale){
    for(const r of runs.filter(r=>r.length>=4)){
     // The flight runs from the step before its first tread to the step after its last.
     const a=r[0]-step,b=r[r.length-1]+step;
-    out.push(flat?{flat,lo,hi,a,b,mid:(lo+hi)/2}:{flat,lo,hi,a,b,mid:(lo+hi)/2})
+    out.push({flat,lo,hi,a,b,mid:(lo+hi)/2,step})
    }
   }
  }
@@ -689,20 +725,38 @@ function columnSymbol(target,segments,index,outline){
  // A square standing on the outline of a partition (ГПЭС АБК: 3.7 pt, the dashed double line through it): its own
  // strokes, joined at their ends, apart from the lines beside it. Only when asked (outline): a leader of a mark whose
  // letters tell no kind; a number of the index ends at junctions of members drawn the same way (029-2025: «41»).
- if(outline==="closed")return closed();
- return box(9,false,Infinity)||box(12,true,7)||(outline?closed():null)
- function closed(){
-  const parts=[...new Set(index.near(target,12))].map(i=>segments[i]).filter(s=>dist(s.a,s.b)>=2.5&&dist(s.a,s.b)<=14.5&&
-   [s.a,s.b].every(p=>Math.abs(p.x-target.x)<=12&&Math.abs(p.y-target.y)<=12));
+ // A post on its base plate (ГПЭС М1.25: the arrow at the corner of the plate of 25 pt, the post's square of 8.7 pt in
+ // its middle): the middle of the plate, not the corner (100 mm off the axis is 8.5 pt there).
+ if(outline==="closed")return plate()||closed();
+ return plate()||box(9,false,Infinity)||box(12,true,7)||(outline?closed():null)
+ function plate(){
+  // Its sides are often cut where the ribs meet them: strokes of one line touching end to end are joined first.
+  const runs=new Map(),joined=[];
+  for(const q of new Set(index.near(target,45))){const s=segments[q],flat=Math.abs(s.a.y-s.b.y)<0.3;if(!flat&&Math.abs(s.a.x-s.b.x)>=0.3)continue;
+   const c=flat?s.a.y:s.a.x,k=(flat?"H":"V")+Math.round(c*2),u0=flat?Math.min(s.a.x,s.b.x):Math.min(s.a.y,s.b.y),u1=flat?Math.max(s.a.x,s.b.x):Math.max(s.a.y,s.b.y);
+   if(!runs.has(k))runs.set(k,[]);runs.get(k).push({flat,c,u0,u1})}
+  for(const list of runs.values()){list.sort((a,b)=>a.u0-b.u0);let cur=null;
+   for(const r of [...list,null]){if(r&&cur&&r.u0<=cur.u1+0.5){cur.u1=Math.max(cur.u1,r.u1);continue}
+    if(cur)joined.push(cur.flat?{a:{x:cur.u0,y:cur.c},b:{x:cur.u1,y:cur.c}}:{a:{x:cur.c,y:cur.u0},b:{x:cur.c,y:cur.u1}});cur=r&&{...r}}}
+  // The plate is the box with the post's square in its middle (the ribs cut it into quarters with none).
+  let post=null;
+  const o=outlineOf(joined,target,30,b=>{const w=b.x1-b.x0,h=b.y1-b.y0;if(w<10||h<10||w>40||h>40||Math.max(w,h)>Math.min(w,h)*1.5)return false;
+   // The post is well inside it (a box of its own size is the plate itself, or another square by it: 029-2025).
+   const c={x:(b.x0+b.x1)/2,y:(b.y0+b.y1)/2},p=closed(c,0,Math.min(w,h)*0.6);return Boolean(p&&Math.hypot(p.x-c.x,p.y-c.y)<=Math.min(w,h)*0.1&&(post=p))})[0];
+  return o?post&&closed({x:(o.x0+o.x1)/2,y:(o.y0+o.y1)/2},0,Math.min(o.x1-o.x0,o.y1-o.y0)*0.6):null
+ }
+ function closed(at=target,within=5,most=14.5){
+  const parts=[...new Set(index.near(at,12))].map(i=>segments[i]).filter(s=>dist(s.a,s.b)>=2.5&&dist(s.a,s.b)<=most&&
+   [s.a,s.b].every(p=>Math.abs(p.x-at.x)<=12&&Math.abs(p.y-at.y)<=12));
   const flat=parts.filter(s=>Math.abs(s.a.y-s.b.y)<.3).map(s=>({y:s.a.y,x0:Math.min(s.a.x,s.b.x),x1:Math.max(s.a.x,s.b.x)}));
   const up=parts.filter(s=>Math.abs(s.a.x-s.b.x)<.3).map(s=>({x:s.a.x,y0:Math.min(s.a.y,s.b.y),y1:Math.max(s.a.y,s.b.y)}));
   const side=(x,y0,y1)=>up.some(v=>Math.abs(v.x-x)<0.6&&Math.abs(v.y0-y0)<0.6&&Math.abs(v.y1-y1)<0.6);
   let best=null;
   for(const a of flat)for(const b of flat){
-   if(b.y-a.y<2.5||b.y-a.y>14.5||Math.abs(a.x0-b.x0)>0.6||Math.abs(a.x1-b.x1)>0.6)continue;
+   if(b.y-a.y<2.5||b.y-a.y>most||Math.abs(a.x0-b.x0)>0.6||Math.abs(a.x1-b.x1)>0.6)continue;
    const w=a.x1-a.x0,h=b.y-a.y;if(Math.max(w,h)>Math.min(w,h)*3||!side(a.x0,a.y,b.y)||!side(a.x1,a.y,b.y))continue;
-   const off=Math.hypot(Math.max(0,a.x0-target.x,target.x-a.x1),Math.max(0,a.y-target.y,target.y-b.y));
-   if(off<=5&&(!best||off<best.off))best={off,x:(a.x0+a.x1)/2,y:(a.y+b.y)/2}
+   const off=Math.hypot(Math.max(0,a.x0-at.x,at.x-a.x1),Math.max(0,a.y-at.y,at.y-b.y));
+   if(off<=within&&(!best||off<best.off))best={off,x:(a.x0+a.x1)/2,y:(a.y+b.y)/2}
   }
   return best?{x:best.x,y:best.y}:null
  }
@@ -729,10 +783,13 @@ function iSymbol(target,strokes){
 
 function leaderTarget(text,segments,index,axisSegs,lines){
  const box=textBox(text);
- // The shelf sits just under the label; the leader leaves from its ends.
- const pad=8;
+ // The shelf sits just under the label; the leader leaves from its ends. A large label's shelf runs on farther past it
+ // (ГПЭС М1.25: «Ф127» at 17.6 pt, its shelf 10 pt past the end): its shelf, the leaders from the shelf's ends and
+ // slanted ones are looked for that far; a straight stroke with no shelf drawn only as near as of any label (ГПЭС М1.1:
+ // a line of the panels under «Ф170-20» is no leader).
+ const pad=8,wide=Math.max(pad,(Number(text.size)||0)*0.6);
  const zone={x0:box.x0-pad,x1:box.x1+pad,y0:box.y1-3,y1:box.y1+12};
- const inZone=p=>p.x>=zone.x0&&p.x<=zone.x1&&p.y>=zone.y0&&p.y<=zone.y1;
+ const inZone=p=>p.x>=zone.x0&&p.x<=zone.x1&&p.y>=zone.y0&&p.y<=zone.y1,inWide=p=>p.x>=box.x0-wide&&p.x<=box.x1+wide&&p.y>=zone.y0&&p.y<=zone.y1;
  const near=[...new Set(index.near({x:box.cx,y:box.y1+4},40))].filter(i=>!axisSegs.has(i));
  // A member drawn under its label (К143 over the beam of axis А): its line, in pieces broken at the joints, runs on
  // well past the label. Its pieces are no shelf, and the braces meeting it there are no leaders.
@@ -756,14 +813,16 @@ function leaderTarget(text,segments,index,axisSegs,lines){
  const onRail=p=>rails.some(r=>Math.abs(p.y-r.y)<5&&p.x>=r.lo-1.5&&p.x<=r.hi+1.5);
  const railSeg=new Set([...rails.map(r=>r.i),...along.filter(i=>{const q=segments[i];return Math.abs(q.a.y-q.b.y)<0.6&&onRail(q.a)&&onRail(q.b)})]);
  // When the shelf is drawn, the leader leaves from one of its ends: a member line passing the zone is not a leader.
- const ends=!flat?[]:near.filter(i=>!railSeg.has(i)&&!onRail(segments[i].a)).map(i=>segments[i]).filter(s=>inZone(s.a)&&inZone(s.b)&&Math.abs(s.a.y-s.b.y)<1.5&&dist(s.a,s.b)>=(box.x1-box.x0)*0.6).flatMap(s=>[s.a,s.b]);
+ const ends=!flat?[]:near.filter(i=>!railSeg.has(i)&&!onRail(segments[i].a)).map(i=>segments[i]).filter(s=>inWide(s.a)&&inWide(s.b)&&Math.abs(s.a.y-s.b.y)<1.5&&dist(s.a,s.b)>=(box.x1-box.x0)*0.6).flatMap(s=>[s.a,s.b]);
  const fromShelf=p=>!ends.length||ends.some(e=>dist(e,p)<4);
  let best=null;const leaders=[];
  for(const i of near){
   const s=segments[i],len=dist(s.a,s.b);if(len<6)continue;
   const diagonal=Math.abs(s.a.x-s.b.x)>1&&Math.abs(s.a.y-s.b.y)>1;
   for(const [p,q] of [[s.a,s.b],[s.b,s.a]]){
-   if(!inZone(p)||inZone(q)||!fromShelf(p)||!ends.length&&onRail(p))continue;
+   const In=diagonal||ends.length?inWide:inZone;
+   // A leader leaves the label's zone: a stroke along the shelf (flat) even its wide one.
+   if(!In(p)||(Math.abs(s.a.y-s.b.y)<1.5?In(q):inZone(q))||!fromShelf(p)||!ends.length&&onRail(p))continue;
    const score=(diagonal?100:0)+len;
    if(diagonal)leaders.push({from:p,to:q,segment:i});
    if(!best||score>best.score)best={score,from:p,to:q,diagonal,segment:i}
@@ -825,6 +884,15 @@ function markKind(mark,kinds){
  return null
 }
 
+// A word written under a mark on its shelf names it: «огр.» (ограждение) under «Ф133» of a stair's plan. Under is across
+// the text's own line, whichever way it is turned.
+function nameUnder(t,texts){
+ const a=(Number(t.angle)||0)*Math.PI/180,size=Number(t.size)||10,down={x:Math.sin(a),y:Math.cos(a)},along={x:Math.cos(a),y:-Math.sin(a)};
+ const u=texts.find(u=>u!==t&&/^огр\.?$/iu.test(String(u.str||"").trim())&&Math.abs((Number(u.angle)||0)-(Number(t.angle)||0))<3&&(()=>{
+  const dx=u.x-t.x,dy=u.y-t.y,p=dx*down.x+dy*down.y,q=dx*along.x+dy*along.y;return p>=size*0.3&&p<=size*1.6&&q>=-size&&q<=size*2})());
+ return u?"Ограждение":null
+}
+
 function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KINDS}={}){
  const aMarks=aMarksOn(texts),markIndex=markIndexOf(texts);
  // The height of the sizes of the sheet (four and five digits are sizes).
@@ -882,7 +950,13 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
   const local1=group.local?texts.filter(t=>{const b=textBox(t);return b.cx>bbox.x0-pad*3&&b.cx<bbox.x1+pad*3&&b.cy>bbox.y0-pad*3&&b.cy<bbox.y1+pad*3}):null;
   // A word read alone on a leader's shelf is a label, not a size (355-11 М1.3: «64», «104» all over the plan).
   const sized=local.filter(t=>!t.shelf);
-  const scale=group.framed?group.framed.scale:group.local?dimensionScale(local1.filter(t=>!t.shelf),segments,local.filter(t=>!t.shelf)):detectScale(vAxes.map(a=>a.pos),hAxes.map(a=>a.pos),sized);
+  let scale=group.framed?group.framed.scale:group.local?dimensionScale(local1.filter(t=>!t.shelf),segments,local.filter(t=>!t.shelf)):detectScale(vAxes.map(a=>a.pos),hAxes.map(a=>a.pos),sized);
+  // A stair's plan drawn out of scale: read by its chains of sizes, both ways through its axes.
+  let chain=null;
+  if(group.local&&!Number.isFinite(scale)&&vAxes.length===1&&hAxes.length===1&&/лестниц|марш/iu.test(titleFor(titles,bbox))){
+   const dims=dimensionsOf(local.filter(t=>!t.shelf),segments),cx=chainMap(dims,true,vAxes[0].pos),cy=chainMap(dims,false,hAxes[0].pos);
+   if(cx&&cy){chain={x:cx,y:cy};scale=(cx.k+cy.k)/2}
+  }
   if(group.local&&!Number.isFinite(scale))continue;
   if(!Number.isFinite(scale)){
    schemes.push({title:titleFor(titles,bbox),bbox,error:"Не удалось определить масштаб: нет размеров между осями",
@@ -915,14 +989,14 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
     if(pt>=Math.min(a,b)&&pt<=Math.max(a,b)&&Math.abs(Math.abs(b-a)*scale-Math.abs(w))>Math.abs(w)*0.05)return mm[k]+Math.round(w*(pt-a)/(b-a)/10)*10}
    return null
   };
-  const toX=pt=>{const o=local1d(vAxes,xMm,pt);if(o!==null)return o;let i=0;for(let k=0;k<vAxes.length;k++)if(Math.abs(vAxes[k].pos-pt)<Math.abs(vAxes[i].pos-pt))i=k;return xMm[i]+Math.round((pt-vAxes[i].pos)*scale/10)*10};
-  const toY=pt=>{const o=local1d(hAxes,yMm,pt);if(o!==null)return o;let i=0;for(let k=0;k<hAxes.length;k++)if(Math.abs(hAxes[k].pos-pt)<Math.abs(hAxes[i].pos-pt))i=k;return yMm[i]+Math.round((hAxes[i].pos-pt)*scale/10)*10};
+  const toX=chain?pt=>Math.round(chain.x.mm(pt)/10)*10:pt=>{const o=local1d(vAxes,xMm,pt);if(o!==null)return o;let i=0;for(let k=0;k<vAxes.length;k++)if(Math.abs(vAxes[k].pos-pt)<Math.abs(vAxes[i].pos-pt))i=k;return xMm[i]+Math.round((pt-vAxes[i].pos)*scale/10)*10};
+  const toY=chain?pt=>-Math.round(chain.y.mm(pt)/10)*10:pt=>{const o=local1d(hAxes,yMm,pt);if(o!==null)return o;let i=0;for(let k=0;k<hAxes.length;k++)if(Math.abs(hAxes[k].pos-pt)<Math.abs(hAxes[i].pos-pt))i=k;return yMm[i]+Math.round((hAxes[i].pos-pt)*scale/10)*10};
   // Exact positions offered by the drawing: labelled axes plus or minus any
   // dimension value written along that direction ("4340", "2375"...).
   const dimsX=sized.filter(t=>textBox(t).angle===0).map(t=>numberValue(t.str)).filter(v=>v>=50);
   const dimsY=sized.filter(t=>textBox(t).angle!==0).map(t=>numberValue(t.str)).filter(v=>v>=50);
   const candidates=(axisMm,dims)=>[...new Set(axisMm.flatMap(a=>[a,...dims.flatMap(v=>[a+v,a-v])]))];
-  const candX=candidates(xMm,dimsX),candY=candidates(yMm,dimsY);
+  const candX=[...candidates(xMm,dimsX),...(chain?chain.x.nodes:[])],candY=[...candidates(yMm,dimsY),...(chain?chain.y.nodes.map(v=>-v):[])];
   const snapDim=(mm,cand,tol)=>{let best=null;for(const c of cand){const d=Math.abs(c-mm);if(d<=tol&&(!best||d<best.d))best={mm:c,d}}return best};
   const lineTol=Math.max(40,scale*1.2);
   const exactLines=(orient,labelled,toMm,cand)=>secondaryLines(segments,bbox,orient,labelled)
@@ -978,7 +1052,8 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    const x=snapMm(toX(p.x),linesX,memberX),y=snapMm(toY(p.y),linesY,memberY);
    return{x:x.mm,y:y.mm,exact:x.exact&&y.exact}
   });
-  const placements=[],bases=[],drawn=new Map();
+  // bare: placed from a label without a leader (written on the thing it names: a flight, a landing).
+  const placements=[],bases=[],drawn=new Map(),bare=new Set(),tips=new Map();
   // Marks of the index written in a size of their own (three and more on shelves with slanted leaders): a number on a
   // shelf in the height of the sizes is then a size too.
   // The height of a word read from a picture is known to a quarter, of a text item exactly.
@@ -1054,6 +1129,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    const box=textBox(t);
    if(box.cx<bbox.x0-40||box.cx>bbox.x1+40||box.cy<bbox.y0-40||box.cy>bbox.y1+40)continue;
    let target=targetOf(t);
+   const under=nameUnder(t,local);
    let ruledKind=markKind(mark,kinds);
    // «Ф» is a truss in ГОСТ 26047, a post on many КМД sets and on some the index of every mark (Ф1…Ф145 of 355-10:
    // columns, beams, struts, bracing alike). On a scheme of beams or bracing its letter tells nothing: the marks there
@@ -1091,13 +1167,13 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
     if(ends&&Math.hypot(ends[1].x-ends[0].x,ends[1].y-ends[0].y)>=300){
      const straight=Math.abs(line.a.x-line.b.x)<1.5||Math.abs(line.a.y-line.b.y)<1.5;
      const geometry=ruledKind==="brace"||!straight?"brace":"beam",frame=textFrame(t),mid=frame.c;
-     const placed={mark,...(byIndex?{by_index:markIndex}:{}),...(indexed?{mark_index:markIndex}:{}),geometry_type:geometry,kind_label:KIND_NAMES[geometry],
+     const placed={mark,...(under?{name:under}:{}),...(byIndex?{by_index:markIndex}:{}),...(indexed?{mark_index:markIndex}:{}),geometry_type:geometry,kind_label:KIND_NAMES[geometry],
       sheet_point_pt:{x:Math.round(mid.x*10)/10,y:Math.round(mid.y*10)/10},page,
       x_mm:ends[0].x,y_mm:ends[0].y,x2_mm:ends[1].x,y2_mm:ends[1].y,
       axis_x:nearestName(linesX,(line.a.x+line.b.x)/2),axis_y:nearestName(linesY,(line.a.y+line.b.y)/2),
       confidence:ends.every(e=>e.exact)?"medium":"low",
       notes:["Концы по линии элемента на схеме"+(ends.every(e=>e.exact)?"":" — часть концов не на оси, проверьте")]};
-     placements.push(placed);drawn.set(placed,labelOn(t,target,line));
+     placements.push(placed);drawn.set(placed,labelOn(t,target,line));if(!target.leader)bare.add(placed);else tips.set(placed,{x:target.x,y:target.y});
      continue
     }
    }
@@ -1159,7 +1235,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    }
    // A bare number read as a mark by the index (a small dimension on a shelf looks the same): the plan checks it
    // against the marks of the assembly sheets.
-   const base={mark,...(byIndex?{by_index:markIndex}:{}),...(indexed?{mark_index:markIndex}:{}),geometry_type:geometry,kind_label:KIND_NAMES[geometry],
+   const base={mark,...(under?{name:under}:{}),...(byIndex?{by_index:markIndex}:{}),...(indexed?{mark_index:markIndex}:{}),geometry_type:geometry,kind_label:KIND_NAMES[geometry],
     sheet_point_pt:{x:Math.round(target.x*10)/10,y:Math.round(target.y*10)/10},page};
    if(geometry==="column"){
     const fx=lx?{mm:lx.mm,dim:true}:freeX(target.x),fy=ly?{mm:ly.mm,dim:true}:freeY(target.y);
@@ -1170,6 +1246,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
     const line=lx&&ly?null:spanAlong(target,lx,ly);
     placements.push({...base,x_mm:fx.mm,y_mm:fy.mm,axis_x:lx?.name||nearestName(linesX,target.x),axis_y:ly?.name||nearestName(linesY,target.y),
      confidence,notes,...(line?{line:{x_mm:line.x_mm,y_mm:line.y_mm,x2_mm:line.x2_mm,y2_mm:line.y2_mm}}:{})});
+    if(!target.leader)bare.add(placements[placements.length-1]);
     continue
    }
    // Linear members lie on one grid line between two neighbouring lines.
@@ -1180,7 +1257,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
     continue
    }
    const spanned={...base,...span,confidence:target.leader&&ruled?"medium":"low",notes};delete spanned.line_pt;
-   placements.push(spanned);
+   placements.push(spanned);if(target.leader)tips.set(spanned,{x:target.x,y:target.y});
    drawn.set(spanned,labelOn(t,target,span.line_pt))
   }
   // Several labels along one member line or one span (struts in a row, crane beams bay after bay drawn as one continuous
@@ -1243,19 +1320,98 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    };
    flights.splice(0,flights.length,...flights.filter(near));
    const marks=levelMarksNear(texts,bbox);
+   // A stair's own plan (ГПЭС М1.25 «Схема расположения металлической лестницы в осях А/6»): a flight is named by the
+   // mark written on its treads without a leader (that label is no post); on a plan drawn out of scale its ends rest on
+   // the ends of the sizes along its run within a step and a half (to scale they are as drawn: ПК-05 КМ1, the ladder
+   // of the series 240 mm past the size of the upper flight). Two flights side by side whose ends meet on one line make a dog-leg stair: the
+   // one lower on the sheet climbs from the ground to the landing at that line, the other from the landing on up (a
+   // reading, to be checked by the section). The landing spans both flights, from that line to the end of the size
+   // beyond it, named by the mark written in it. A railing («огр.») is put by the end of its leader: along a flight
+   // (sloped with it), on a side of the landing, or past the free ends (at the top the stair arrives at).
+   const stairPlan=/лестниц|марш/iu.test(title||"");
+   const runDims=stairPlan?dimensionsOf(sized,segments):[];
+   const span=f=>[Math.min(f.a,f.b),Math.max(f.a,f.b)];
+   const inFlight=(f,p,pad=0)=>{const u=f.flat?p.y:p.x,v=f.flat?p.x:p.y,[a,b]=span(f);return u>=a-pad&&u<=b+pad&&v>=f.lo-pad&&v<=f.hi+pad};
+   // The mark written on it (its leader, if any, not slanted off to something else; no «огр.» under it): what was placed
+   // of that mark there goes.
+   const takeName=inside=>{
+    const t=local.find(t=>{const m=String(t.str||"").trim();if(usedTexts.has(t)||!MARK_LABEL.test(m)||notMark(m,aMarks)||nameUnder(t,local))return false;
+     const b=textBox(t);return inside({x:b.cx,y:b.cy},0)&&!targetOf(t).diagonal});
+    if(!t)return null;
+    const mark=String(t.str).trim().replace(/^([А-ЯЁA-Z]{1,3}|[А-ЯЁA-Z][а-яё]{1,2})\s+(\d)/u,"$1$2");
+    for(const p of placements.filter(p=>p.mark===mark&&p.sheet_point_pt&&inside(p.sheet_point_pt,Math.max(...flights.map(f=>f.step)))))placements.splice(placements.indexOf(p),1);
+    return mark};
+   if(stairPlan&&chain)for(const f of flights){const ends=runDims.filter(d=>d.flat===!f.flat).flatMap(d=>[d.lo,d.hi]);
+    for(const k of ["a","b"]){const e=ends.reduce((m,v)=>Math.abs(v-f[k])<Math.abs(m-f[k])?v:m,Infinity);if(Math.abs(e-f[k])<=f.step*1.5)f[k]=e}}
+   // The dog-leg: the line where the ends of the two flights meet, and the side of the landing beyond it.
+   let leg=null;
+   if(stairPlan&&flights.length===2&&flights[0].flat===flights[1].flat){
+    const [f0,f1]=flights,[a0,b0]=span(f0),[a1,b1]=span(f1),tol=Math.max(f0.step,f1.step);
+    const gap=Math.max(f0.lo,f1.lo)-Math.min(f0.hi,f1.hi),lo=Math.min(f0.lo,f1.lo),hi=Math.max(f0.hi,f1.hi);
+    // Flights of one run meet on both sides: the landing is where the far edge spans both of them (the top the stair
+    // arrives at, beyond the other ends, spans the upper one only).
+    const cover=u=>{const iv=segments.filter(q=>flights[0].flat?Math.abs(q.a.y-q.b.y)<0.3&&Math.abs(q.a.y-u)<=1.5:Math.abs(q.a.x-q.b.x)<0.3&&Math.abs(q.a.x-u)<=1.5)
+      .map(q=>flights[0].flat?[Math.min(q.a.x,q.b.x),Math.max(q.a.x,q.b.x)]:[Math.min(q.a.y,q.b.y),Math.max(q.a.y,q.b.y)]).map(([a,b])=>[Math.max(a,lo),Math.min(b,hi)]).filter(([a,b])=>b>a).sort((p,q)=>p[0]-q[0]);
+     let sum=0,end=lo;for(const [a,b] of iv){if(b>end){sum+=b-Math.max(a,end);end=b}}return sum/(hi-lo)};
+    const sides=[Math.abs(b0-b1)<=tol?{e:(b0+b1)/2,dir:1}:null,Math.abs(a0-a1)<=tol?{e:(a0+a1)/2,dir:-1}:null].filter(Boolean).map(at=>{
+     const d=runDims.filter(d=>d.flat===!f0.flat).map(d=>({o:at.dir>0?d.lo:d.hi,far:at.dir>0?d.hi:d.lo})).filter(x=>Math.abs(x.o-at.e)<=tol).sort((p,q)=>Math.abs(p.o-at.e)-Math.abs(q.o-at.e))[0];
+     return d?{...at,e:d.o,far:d.far,cover:cover(d.far)}:null}).filter(Boolean).sort((p,q)=>q.cover-p.cover);
+    const at=sides[0];
+    if(at&&at.cover>=0.8&&gap<=Math.max(f0.hi-f0.lo,f1.hi-f1.lo)){
+     for(const f of flights)f[at.dir>0?(f.a>f.b?"a":"b"):(f.a<f.b?"a":"b")]=at.e;
+     leg={e:at.e,far:at.far,dir:at.dir,lo,hi,free:at.dir>0?Math.min(a0,a1):Math.max(b0,b1)}
+    }
+   }
+   const slope=stairPlan&&texts.map(t=>/^(\d{2})\s*°$/u.exec(String(t.str||"").trim())).find(m=>m&&+m[1]>=30&&+m[1]<=75);
    flights.forEach((f,i)=>{
     // Along the run: the way the arrow on its line points (ГОСТ 21.201: the climb), else from the sheet-lower end up.
-    const dir=climbOf(f,segments,glyphs),up=dir||-1,[s0,s1]=up<0?[f.b,f.a]:[f.a,f.b];
+    // A dog-leg's flights climb to their landing and away from it.
+    const arrow=climbOf(f,segments,glyphs),dir=leg?(i===0?leg.dir:-leg.dir):arrow,up=dir||-1,[s0,s1]=up<0?[f.b,f.a]:[f.a,f.b];
     const [p,q]=f.flat?[{x:f.mid,y:s0},{x:f.mid,y:s1}]:[{x:s0,y:f.mid},{x:s1,y:f.mid}];
     // The levels of its ends: the marks of the landings it starts and ends at (a stack of marks — one per tier).
     // One mark nearest to both ends names the landing at the nearer one; the other end is the next level.
     let from=marks.nearest(p),to=marks.nearest(q);
     if(from&&to&&from.stack===to.stack){if(from.d<to.d)to=null;else from=null}
     from=from&&from.v;to=to&&to.v;
-    placements.push({mark:"Марш",name:"Марш лестницы",geometry_type:"beam",kind_label:"Марш",page,fitting_type:"flight",diameter_mm:Math.round((f.hi-f.lo)*scale/10)*10,
-     scheme_group:"stairs",flight:{order:i,of:flights.length,...(dir?{arrow:true}:{}),...(from?{from_mm:from}:{}),...(to?{to_mm:to}:{})},x_mm:toX(p.x),y_mm:toY(p.y),x2_mm:toX(q.x),y2_mm:toY(q.y),confidence:"low",
-     notes:[dir?"Марш по ступеням на схеме, подъём по стрелке":"Марш по ступеням на схеме; направление подъёма — с нижнего по листу конца, проверьте"]})
-   })
+    const named=stairPlan?takeName((pt,m)=>inFlight(f,pt,m)):null,x0=toX(p.x),y0=toY(p.y),x1=toX(q.x),y1=toY(q.y);
+    placements.push({mark:named||"Марш",name:"Марш лестницы",geometry_type:"beam",kind_label:"Марш",page,fitting_type:"flight",diameter_mm:Math.round((f.hi-f.lo)*scale/10)*10,
+     scheme_group:"stairs",flight:{order:i,of:flights.length,...(arrow?{arrow:true}:{}),...(from?{from_mm:from}:{}),...(to?{to_mm:to}:{}),
+      ...(leg?{stair:"dog-leg",run_mm:Math.round(Math.hypot(x1-x0,y1-y0)),...(slope?{slope_deg:+slope[1]}:{})}:{})},x_mm:x0,y_mm:y0,x2_mm:x1,y2_mm:y1,confidence:"low",
+     notes:[leg?"Марш двухмаршевой лестницы по ступеням на схеме: "+(i===0?"нижний (ниже по листу) — с земли на площадку":"верхний — с площадки наверх")+", проверьте по разрезу":
+      dir?"Марш по ступеням на схеме, подъём по стрелке":"Марш по ступеням на схеме; направление подъёма — с нижнего по листу конца, проверьте"]})
+   });
+   if(leg){
+    const pad=Math.max(...flights.map(f=>f.step)),flat=flights[0].flat;
+    // In sheet points: u along the run, v across it.
+    const pt=(u,v)=>flat?{x:v,y:u}:{x:u,y:v},uv=p=>flat?{u:p.y,v:p.x}:{u:p.x,v:p.y};
+    const [u0,u1]=[Math.min(leg.e,leg.far),Math.max(leg.e,leg.far)],inLanding=(p,m=0)=>{const {u,v}=uv(p);return u>=u0-m&&u<=u1+m&&v>=leg.lo-m&&v<=leg.hi+m};
+    const named=takeName((p,m)=>inLanding(p,m));
+    const A=pt(u0,(leg.lo+leg.hi)/2),B=pt(u1,(leg.lo+leg.hi)/2),C=pt(u0,leg.lo),D=pt(u0,leg.hi);
+    const [x0,y0,x1,y1]=[toX(A.x),toY(A.y),toX(B.x),toY(B.y)],across=Math.round(Math.hypot(toX(D.x)-toX(C.x),toY(D.y)-toY(C.y)));
+    const long=across>Math.hypot(x1-x0,y1-y0);
+    placements.push({mark:named||"Площадка",name:"Площадка лестницы",geometry_type:"beam",kind_label:"Площадка",page,fitting_type:"deck",scheme_group:"platforms",
+     ...(long?{x_mm:Math.round((x0+x1)/2),y_mm:toY(C.y),x2_mm:Math.round((x0+x1)/2),y2_mm:toY(D.y),diameter_mm:Math.round(Math.hypot(x1-x0,y1-y0))}:{x_mm:x0,y_mm:y0,x2_mm:x1,y2_mm:y1,diameter_mm:across}),
+     ...(flat?{x_mm:toX(C.x),y_mm:Math.round((y0+y1)/2),x2_mm:toX(D.x),y2_mm:Math.round((y0+y1)/2)}:{}),
+     stair:"landing",confidence:"low",notes:["Промежуточная площадка двухмаршевой лестницы: между маршами, до конца размера за ними; высота — по маршам, проверьте по разрезу"]});
+    // Railings by the ends of their leaders.
+    for(const r of placements.filter(p=>p.name==="Ограждение"&&tips.has(p)&&p.x2_mm!==undefined)){
+     const tip=tips.get(r),{u,v}=uv(tip);
+     const dist=f=>{const [a,b]=span(f);return Math.max(0,a-u,u-b)*4+Math.max(0,f.lo-v,v-f.hi)};
+     const f=flights.slice().sort((p,q)=>dist(p)-dist(q))[0],flatR=Math.abs(r.y_mm-r.y2_mm)<1,alongRun=flat?!flatR:flatR;
+     const setU=(a,b)=>{const pa=pt(a,v),pb=pt(b,v);if(flat){r.y_mm=toY(pa.y);r.y2_mm=toY(pb.y)}else{r.x_mm=toX(pa.x);r.x2_mm=toX(pb.x)}};
+     // Across the run: on the edge of the landing nearer its leader, the whole width (the leader of a turned label may
+     // end at its shelf, a little off the edge).
+     if(alongRun?inLanding(tip,pad):u>=u0-pad*2.5&&u<=u1+pad*2.5&&v>=leg.lo-pad&&v<=leg.hi+pad){r.stair="landing";if(alongRun)setU(u0,u1);else{const e=Math.abs(u-u0)<Math.abs(u-u1)?u0:u1,a=pt(e,leg.lo),b=pt(e,leg.hi);
+      if(flat){r.x_mm=toX(a.x);r.x2_mm=toX(b.x);r.y_mm=r.y2_mm=toY(a.y)}else{r.y_mm=toY(a.y);r.y2_mm=toY(b.y);r.x_mm=r.x2_mm=toX(a.x)}}}
+     else if(alongRun&&f&&inFlight(f,tip,pad)){const i=flights.indexOf(f),[a,b]=span(f),cl=i===0?leg.dir:-leg.dir;r.stair="flight";r.stair_flight=i;cl>0?setU(a,b):setU(b,a)}
+     else if(alongRun&&(leg.dir>0?u<leg.free:u>leg.free)){
+      // Past the free ends: on the top the stair arrives at, as far as the size beyond them.
+      const d=runDims.filter(d=>d.flat===!flat).find(d=>Math.abs((leg.dir>0?d.hi:d.lo)-leg.free)<=pad&&(leg.dir>0?d.lo<=u+pad:d.hi>=u-pad));
+      r.stair="top";if(d)setU(leg.dir>0?leg.free:d.hi,leg.dir>0?d.lo:leg.free)}
+     if(r.stair)Object.assign(r,{fitting_type:"railing",diameter_mm:1000,scheme_group:"guards"});
+     if(r.stair)r.notes=[...(r.notes||[]),"Ограждение лестницы: "+(r.stair==="flight"?"вдоль марша, по его уклону":r.stair==="landing"?"на промежуточной площадке":"наверху, у выхода с лестницы")+", проверьте по разрезу"]
+    }
+   }
   }
   // One plan for several tiers («балок на отм. +5,500; +11,100»): its members at each of them.
   const tiers=titleLevels(title);

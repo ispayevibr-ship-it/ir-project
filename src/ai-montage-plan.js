@@ -745,6 +745,28 @@ function buildPlan(draft,ai=null,heights={},opts={}){
    levels,page:c.info.page,file:c.info.file,sheet:c.info.sheet,scheme:c.info.title,confidence:"low",
    note:[...(q.pl.notes||[]),note,q.change?.note,...(q.guess||[])].filter(Boolean).join("; ")})
  };
+ // A dog-leg stair read from its own plan (ГПЭС М1.25): the lower flight from the ground to the landing, the upper one
+ // from it to the top. Each rises its length by its mark's sheets times the sine of the slope written on the sheet (else
+ // 45°), or its run on the plan times the tangent; the top is the level of the sheet nearest their sum (within a
+ // quarter of it), the landing parts the rise as the flights do.
+ const legs=new Map();
+ const stairLevels=c=>{
+  if(legs.has(c.scheme))return legs.get(c.scheme);
+  const fl=c.scheme.placements.filter(p=>p.flight?.stair==="dog-leg").sort((a,b)=>a.flight.order-b.flight.order);
+  let out=null;
+  if(fl.length===2){
+   const deg=fl[0].flight.slope_deg||45,a=deg*Math.PI/180;
+   const rise=fl.map(p=>{const run=p.flight.run_mm||0,len=catalog.get(markKey(scopeOf(c.info.docType,catalog.multi?c.info.volume:""),p.mark))?.length_mm;
+    return len>0&&len*Math.cos(a)>=run*0.7&&len*Math.cos(a)<=run*1.6?{v:len*Math.sin(a),by:"length"}:{v:run*Math.tan(a),by:"run"}});
+   const sum=rise[0].v+rise[1].v,page=(draft.pages||[]).find(p=>p.page===c.info.page);
+   const L=[...new Set([...(c.structureLevels||[]),...(page?.levelMarks||[])])].filter(v=>Number.isFinite(v)&&v>0);
+   const near=L.reduce((m,v)=>m===null||Math.abs(v-sum)<Math.abs(m-sum)?v:m,null);
+   if(sum>0){const top=near!==null&&Math.abs(near-sum)<=sum*0.25?near:Math.round(sum/10)*10;
+    out={base:0,top,landing:Math.round(top*rise[0].v/sum/10)*10,
+     from:"двухмаршевая лестница: уклон "+deg+"°"+(fl[0].flight.slope_deg?" (по листу)":" (принят)")+", подъём маршей по "+(rise.every(r=>r.by==="length")?"длине марок":"заложению на плане")+(near===top?", верх — отметка листа":", верх по маршам")}}
+  }
+  legs.set(c.scheme,out);return out
+ };
  for(const c of placed){
   if(merged.rejected.includes(c.scheme)){
    c.info.place=false;c.info.reason="Оси схемы не совпадают с основной сеткой";continue
@@ -801,7 +823,12 @@ function buildPlan(draft,ai=null,heights={},opts={}){
    // A stair flight climbs from its tier to the next level of the structure (or, on the top plan, arrives there from
    // the level below); flights without a tier follow one another up the levels of the structure's sheets.
    let flightLevel=null;
-   if(pl.flight&&!own){
+   // A dog-leg stair read from its own plan: its flights, landing and railings at the stair's levels.
+   const leg=!own&&(pl.flight?.stair==="dog-leg"||pl.stair)?stairLevels(c):null;
+   if(leg){const k=pl.flight?.stair==="dog-leg"?pl.flight.order:pl.stair==="flight"?pl.stair_flight:null;
+    flightLevel=k===0?{z0:leg.base,z1:leg.landing}:k===1?{z0:leg.landing,z1:leg.top}:pl.stair==="landing"?{z0:leg.landing,z1:leg.landing}:pl.stair==="top"?{z0:leg.top,z1:leg.top}:null;
+    if(flightLevel)flightLevel.from=leg.from}
+   if(pl.flight&&!own&&!flightLevel){
     const L=c.structureLevels||[0,...[c.structureLevel,c.scheme.levelNotes?.z1_mm].filter(Number.isFinite)];
     const f=pl.flight,t=f.tier,above=z=>L.find(v=>v>z),below=z=>[...L].reverse().find(v=>v<z);
     const pick=v=>!Array.isArray(v)||!v.length?null:Number.isFinite(t)?v.reduce((a,b)=>Math.abs(b-t)<Math.abs(a-t)?b:a):v[0];

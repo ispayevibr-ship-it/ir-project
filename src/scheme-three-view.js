@@ -1758,6 +1758,21 @@ window.irThreeSchemeView=(function(){
   function addFitting(c,id,start,end){
    var dir=end.clone().sub(start),len=dir.length();dir.normalize();
    if(c.ft==="flight"||c.ft==="ladder"){addStair(c,id,start,end);return}
+   // A railing along its line (a stair's, ГОСТ 23120: 1,0 m over the treads or the deck — c.fd its height): posts
+   // upright no more than 1,2 m apart, the handrail and the middle rail along the line, sloping with a flight; a low
+   // rail of the toe board on a level one.
+   if(c.ft==="railing"){
+    var rh=Math.max(.6,(number(c.fd)||1000)/1000),rmat=baseMaterial(c),rp=[],np=Math.max(1,Math.ceil(len/1.2)),lift=function(v,h){return v.clone().add(new T.Vector3(0,h,0))};
+    var rbar=function(a,b,t){var v=b.clone().sub(a),L=v.length();if(L<.005)return;var m=new T.Mesh(barGeo(t),rmat);m.position.copy(a);m.scale.z=L;m.quaternion.setFromUnitVectors(zAxis,v.normalize());rp.push(m)};
+    for(var ri=0;ri<=np;ri++){var rq=start.clone().lerp(end,ri/np);rbar(rq,lift(rq,rh),.04)}
+    rbar(lift(start,rh),lift(end,rh),.05);rbar(lift(start,rh/2),lift(end,rh/2),.03);
+    if(Math.abs(end.y-start.y)<.05)rbar(lift(start,.1),lift(end,.1),.02);
+    rp.forEach(function(mesh){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh)});
+    var rl2=lift(start.clone().add(end).multiplyScalar(.5),rh+.3);
+    var re=document.createElement("span");re.className="ir-three-member-label";re.textContent=c.mark||c.title||"";
+    labelLayer.appendChild(re);labels.push({el:re,pos:rl2,id:id});
+    return
+   }
    // A deck of a landing or a platform: a flat grating of its width between the two points.
    if(c.ft==="deck"){
     var dw=Math.max(.3,(number(c.fd)||1000)/1000),dm=new T.Mesh(new T.BoxGeometry(dw,.04,len),baseMaterial(c));
@@ -1877,7 +1892,12 @@ window.irThreeSchemeView=(function(){
     var depth=Math.max(.2,run/n+.03);
     var tg=shared("tread:"+w+":"+depth.toFixed(3),function(){return new T.BoxGeometry(w,.03,depth)});
     for(var k=1;k<n;k++){var tm=new T.Mesh(tg,mat);tm.position.copy(at(k/n));tm.quaternion.copy(basis);parts.push(tm)}
-    [-w/2,w/2].forEach(function(s){bar(off(lo,s,1),off(hi,s,1),.04);bar(off(lo,s,.5),off(hi,s,.5),.025);
+    // Railings of its own along it (a stair's plan names them, «огр.»): its handrails are those.
+    var u=flat.clone().normalize(),railed=elems.some(function(e){if(e===c||e.ft!=="railing"||e.geometryType==="shell")return false;
+     var q=memberPoints(e),v=q[q.length-1].clone().sub(q[0]),fl=new T.Vector3(v.x,0,v.z);if(fl.length()<.3||Math.abs(fl.normalize().dot(u))<.95)return false;
+     var m=q[0].clone().add(q[q.length-1]).multiplyScalar(.5).sub(lo),along=m.x*u.x+m.z*u.z;
+     return Math.abs(m.x*side.x+m.z*side.z)<=w/2+.5&&along>=-.2*run&&along<=1.2*run});
+    if(!railed)[-w/2,w/2].forEach(function(s){bar(off(lo,s,1),off(hi,s,1),.04);bar(off(lo,s,.5),off(hi,s,.5),.025);
      [0,.5,1].forEach(function(f){var p=at(f);bar(off(p,s),off(p,s,1),.035)})});
    }
    parts.forEach(function(mesh){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);
