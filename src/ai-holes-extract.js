@@ -301,7 +301,7 @@ function ownerOf(g,texts,titled,strokes=[]){
   // another view's title, ГПЭС К9/К11 «3 - 3», «по 5» of К10 by К8, «4 - 4» of К14 and of К12)
   // (a cut's: a view «Вид А» has one arrow)
   const pairs=[];if(cut)for(let i=0;i<arrows.length;i++)for(let j=i+1;j<arrows.length;j++){const a=centre(arrows[i]),b=centre(arrows[j]);
-   const dx=Math.abs(a.x-b.x),dy=Math.abs(a.y-b.y);if(Math.min(dx,dy)<=Math.max(5,0.02*Math.max(dx,dy))&&dist(a,b)>=30)pairs.push({x:(a.x+b.x)/2,y:(a.y+b.y)/2})}
+   const dx=Math.abs(a.x-b.x),dy=Math.abs(a.y-b.y);if(Math.min(dx,dy)<=Math.max(5,0.02*Math.max(dx,dy))&&dist(a,b)>=30)pairs.push({x:(a.x+b.x)/2,y:(a.y+b.y)/2,ends:[arrows[i],arrows[j]]})}
   const off=t=>{const s=along(t),o=across(t);return Math.hypot(Math.max(0,g.s0-s,s-g.s1),Math.max(0,g.lo-o,o-g.hi))};
   const pair=pairs.sort((a,b)=>off(a)-off(b))[0];
   // (the titles over it, the nearest first)
@@ -311,10 +311,18 @@ function ownerOf(g,texts,titled,strokes=[]){
   const long=v=>Number(v.length_mm)>0&&Math.abs(v.length_mm-g.length)<=Math.max(10,g.length*0.01),fit=titled.filter(long);
   const sure=v=>v&&Number(v.length_mm)>0&&!long(v)&&fit.length===1&&above[0]===fit[0]?fit[0]:v;
   // (no cut of its letter by it — the arrows lettered otherwise, ГПЭС «4 - 4» of К14 under arrows «8»: the title nearest it)
-  if(pair&&off(pair)>300){const v=above[0]||titled.slice().sort((a,b)=>off(a.title_at)-off(b.title_at))[0];if(v)return{title,view:sure(v)}}
+  // (the place of the cut: the middle of its two strokes — the numbers stand beside them —, else of its two numbers)
+  const strokeBy=t=>{const c=centre(t);let best=null;for(const s of strokes){const l=dist(s.a,s.b),k=Math.max(0,Math.min(1,((c.x-s.a.x)*(s.b.x-s.a.x)+(c.y-s.a.y)*(s.b.y-s.a.y))/(l*l||1))),d=dist(c,{x:s.a.x+k*(s.b.x-s.a.x),y:s.a.y+k*(s.b.y-s.a.y)});
+   if(d<=35&&(!best||d<best.d))best={d,m:{x:(s.a.x+s.b.x)/2,y:(s.a.y+s.b.y)/2}}}return best?.m};
+  const sa=pair&&strokeBy(pair.ends[0]),sb=pair&&strokeBy(pair.ends[1]);
+  const cutAt=pair?{cut:sa&&sb&&dist(sa,sb)>=10?{x:(sa.x+sb.x)/2,y:(sa.y+sb.y)/2}:{x:pair.x,y:pair.y}}:{};
+  // (a section drawn far from its cut, the cut on a view of the sheet: that view's — ГПЭС «8-8» drawn under Ф14, its
+  // arrows at the foot of Ф15)
+  const on=pair?titled.filter(v=>v.box&&pair.x>=v.box.x0&&pair.x<=v.box.x1&&pair.y>=v.box.y0&&pair.y<=v.box.y1):[];
+  if(pair&&off(pair)>300){const v=(on.length===1?on[0]:null)||above[0]||titled.slice().sort((a,b)=>off(a.title_at)-off(b.title_at))[0];if(v)return{title,view:on.length===1?v:sure(v),...cutAt}}
   let best=null;
   for(const a of pair?[pair]:arrows)for(const v of titled){const d=Math.hypot(a.x-v.title_at.x,a.y-v.title_at.y);if(!best||d<best.d)best={d,v}}
-  return{title,view:sure(best?.v)||(titled.length===1?titled[0]:null)}
+  return{title,view:sure(best?.v)||(titled.length===1?titled[0]:null),...cutAt}
  }
  if(own)return{title:own.x.v.title,view:own.x.v,main:true};
  const near=titled.slice().sort((a,b)=>box(a.title_at)-box(b.title_at))[0];
@@ -467,7 +475,10 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
  // (the member is as long as its view says or its longest view of holes; a view of its mark shorter than half of it is
  // a plate — a base plate «1–1» under a column)
  const key=g=>(g.who.view?.marks||[]).join(","),longest=new Map();for(const g of members)longest.set(key(g),Math.max(longest.get(key(g))||0,g.length,Number(g.who.view?.length_mm)||0));
- for(let i=members.length-1;i>=0;i--)if(members[i].length<Math.max(300,longest.get(key(members[i]))*0.5))members.splice(i,1);
+ const apart=[];for(let i=members.length-1;i>=0;i--)if(members[i].length<Math.max(300,longest.get(key(members[i]))*0.5))apart.push(...members.splice(i,1));
+ // (a plate drawn apart, its holes: a cut «1 - 1» or a view «Вид А» of a mark — the base plate of a column, the end plate
+ // of a beam seen from its end, a plate of a node; ГПЭС Ф15 «8-8»: □320 under the post, 4 holes Ø19)
+ const plateSigns=new Map(apart.filter(g=>g.signs.length&&g.who.view&&(CUT.test(g.who.title)||VID.test(g.who.title))).map(g=>[g,g.signs.slice()]));
  // The other signs in a member's view (between other lines of it) are its own; beside it — within its length, off its
  // edge by no more than its width (a gusset of any shape on it) — in a part on it; the nearest member's. A sign on its
  // edge is in a part beside it too (a hole is never so near the edge, ГПЭС К32: a gusset's hole on the flange's line).
@@ -481,11 +492,11 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
  }
  for(const g of members)for(const h of g.signs)if(outOf(h,g)>-h.size*0.5)h.part=true;
  const out=[],parts=list.filter(g=>!members.includes(g)).reduce((a,g)=>a+g.signs.length,0);let unnamed=0;
- for(const g of members){
-  const sc=g.sc,mm=v=>v/sc.n,length=g.length,who=g.who;
+ const holesIn=(g,signsOf=g.signs)=>{
+  const sc=g.sc,mm=v=>v/sc.n;
   // A callout names the diameter of the signs like the one it points to, as many as it says, the nearest first.
-  for(const c of calls.filter(c=>c.hole&&g.signs.includes(c.hole))){
-   const like=g.signs.filter(h=>(h.shape==="circle")===(c.hole.shape==="circle")&&Math.abs(h.size-c.hole.size)<0.6&&!h.call&&Boolean(h.part)===Boolean(c.hole.part)).sort((a,b)=>dist(a,c.hole)-dist(b,c.hole));
+  for(const c of calls.filter(c=>c.hole&&signsOf.includes(c.hole))){
+   const like=signsOf.filter(h=>(h.shape==="circle")===(c.hole.shape==="circle")&&Math.abs(h.size-c.hole.size)<0.6&&!h.call&&Boolean(h.part)===Boolean(c.hole.part)).sort((a,b)=>dist(a,c.hole)-dist(b,c.hole));
    for(const h of like.slice(0,Math.max(0,(c.n||1)-1)))h.call={...c,by:"count"}
   }
   // A sign's middle is where an extension line of a dimension runs through it (a sign drawn a little off it): taken
@@ -493,20 +504,33 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
   const square=Math.abs(g.u.x)>0.999||Math.abs(g.u.y)>0.999,ends=f=>square?[...new Set(dims.filter(d=>d.flat===f).flatMap(d=>[d.lo,d.hi]))]:[];
   const xs=ends(true),ys=ends(false),snap=(v,list,k)=>{let best=v,gap=k;for(const e of list)if(Math.abs(e-v)<=gap){best=e;gap=Math.abs(e-v)}return best};
   const axis=(g.lo+g.hi)/2,acrossDims=square?dims.filter(d=>d.flat!==(Math.abs(g.u.x)>0.999)):[];
-  const alongMm=g.alongMm,byChain=g.byChain,endMm=g.length;
+  const alongMm=g.alongMm;
   const exact=(list,a,b)=>exactMm(list,a,b,sc.n);
   // A circle no callout or note names is not taken for a hole (a round bar cut across has a line through it as well).
-  const named=g.signs.filter(h=>h.shape!=="circle"||h.call||allMm);unnamed+=g.signs.length-named.length;
+  const named=signsOf.filter(h=>h.shape!=="circle"||h.call||allMm);
   const holes=named.map(h=>{const k=Math.min(0.5,h.size*0.15),p={x:snap(h.x,xs,k),y:snap(h.y,ys,k)},s=p.x*g.u.x+p.y*g.u.y,o=p.x*g.n.x+p.y*g.n.y;
    const drawn=h.shape==="circle"?mm(h.size):null,round=drawn?HOLE_D.reduce((a,b)=>Math.abs(b-drawn)<Math.abs(a-drawn)?b:a):null;
    const d=h.call?.d??allMm??(drawn&&Math.abs(round-drawn)<=2.5?round:null);
    return{at_mm:alongMm(s),off_mm:Math.sign(o-axis)*exact(acrossDims,axis,o),d_mm:d,sign:h.shape,...(h.part?{part:true}:{}),
     ...(h.call?{from:h.call.by?"выноска (по числу отверстий)":"выноска"}:allMm?{from:"примечание «все отверстия»"}:d?{from:"по размеру на чертеже"}:{})}
   }).sort((a,b)=>a.at_mm-b.at_mm||a.off_mm-b.off_mm);
+  return{holes,unnamed:signsOf.length-named.length}};
+ for(const g of members){
+  const sc=g.sc,mm=v=>v/sc.n,length=g.length,who=g.who,byChain=g.byChain,endMm=g.length,r0=holesIn(g),holes=r0.holes;unnamed+=r0.unnamed;
   out.push({title:who.title,marks:who.named||who.view?.marks||[],...(who.main?{main:true}:{}),scale:"1:"+sc.k,length_mm:length,...(byChain&&Math.abs(endMm-mm(g.s1-g.s0))>Math.max(5,endMm*0.03)?{not_to_scale:true}:{}),band_mm:Math.round(mm(g.hi-g.lo)),
    dir:Math.abs(g.u.x)>=Math.abs(g.u.y)?"по горизонтали":"по вертикали",holes})
  }
- const result={views:out.filter(v=>v.holes.length),parts,loose:signs.filter(h=>h.loose).length,...(unnamed?{unnamed}:{})};
+ // The plates drawn apart with their holes: its size (along its view, across), the holes from its start and its axis as a
+ // member's; the place of its cut along the mark's view («1 - 1» at the foot of a column), when its arrows are by it.
+ const sections=[];
+ for(const [g,own] of plateSigns){const r=holesIn(g,own);if(!r.holes.length)continue;const who=g.who,marks=who.named||who.view.marks;
+  let at=null;
+  if(who.cut){const m=members.filter(o=>(o.who.view?.marks||[]).some(x=>marks.includes(x))).sort((a,b)=>b.length-a.length)[0];
+   if(m){const sa=who.cut.x*m.u.x+who.cut.y*m.u.y,c=who.cut.x*m.n.x+who.cut.y*m.n.y,w=m.hi-m.lo,L=m.s1-m.s0;
+    if(c>=m.lo-3*w&&c<=m.hi+3*w&&sa>=m.s0-0.05*L&&sa<=m.s1+0.05*L)at={mm:m.alongMm(Math.max(m.s0,Math.min(m.s1,sa))),of:m.length,view:m.who.title,dir:Math.abs(m.u.x)>=Math.abs(m.u.y)?"по горизонтали":"по вертикали"}}}
+  sections.push({title:who.title,marks,scale:"1:"+g.sc.k,plate_mm:[g.length,Math.round((g.hi-g.lo)/g.sc.n)],dir:Math.abs(g.u.x)>=Math.abs(g.u.y)?"по горизонтали":"по вертикали",
+   holes:r.holes.map(h=>({at_mm:h.at_mm,off_mm:h.off_mm,d_mm:h.d_mm,...(h.from?{from:h.from}:{})})),...(at?{at_mm:at.mm,of_mm:at.of,cut_on:at.view,cut_dir:at.dir}:{})})}
+ const result={views:out.filter(v=>v.holes.length),parts,loose:signs.filter(h=>h.loose).length,...(unnamed?{unnamed}:{}),...(sections.length?{sections}:{})};
  // (`withMembers`: the views found, for the parts on them — their frames on the sheet)
  if(withMembers)Object.defineProperty(result,"members",{value:members.map((g,i)=>({g,view:out[i]})),enumerable:false});
  return result
@@ -519,9 +543,9 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
 // [{title, marks, length_mm, plates:[{at_mm:[a0,a1], z_mm:[top,bottom]|null, x_mm:[from,to]|null, t_mm, from}]}] —
 // at_mm as the holes' (from the start of the member's outline), z_mm across the view of the web from its axis (+ down
 // or right), x_mm across the view of the flange from its axis (as the holes' off_mm there).
-function sheetPlates(geo={},{views=[],allMm=null}={}){
+function sheetPlates(geo={},{views=[],allMm=null,seeded=null}={}){
  const segs=dedupe(geo.segments||[]),thick=thickOf(segs);if(!thick)return[];
- const r=sheetHoles(geo,{views,allMm,seed:true,withMembers:true}),bold=segs.filter(thick),found=[];
+ const r=seeded||sheetHoles(geo,{views,allMm,seed:true,withMembers:true}),bold=segs.filter(thick),found=[];
  const dims=dimensionsOf(geo.texts||[],geo.segments||[]);
  for(const {g,view} of r.members){
   const k=g.sc.n,mm=v=>v/k,w=g.hi-g.lo,axis=(g.lo+g.hi)/2,proj=q=>({a:q.a.x*g.u.x+q.a.y*g.u.y,b:q.b.x*g.u.x+q.b.y*g.u.y,c:q.a.x*g.n.x+q.a.y*g.n.y,d:q.b.x*g.n.x+q.b.y*g.n.y});

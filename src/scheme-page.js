@@ -681,7 +681,7 @@ window.irSchemePage=async function(objectId){
     // What the 3D draws a member by: its rolled section, a truss or a lattice column, the base, the joint and the nodes of
     // the drawings — without them the exported scheme showed conventional sections, trusses as beams and no bolts.
     profile_name:String(c.profile_name||""),profile_standard:String(c.profile_standard||""),section_type:String(c.section_type||""),type_key:String(c.type_key||""),
-    truss:c.truss||undefined,column:c.column||undefined,base:c.base||undefined,joint:c.joint||undefined,drill:Array.isArray(c.drill)?c.drill:undefined,parts:Array.isArray(c.parts?.rows)?c.parts:undefined,plates:Array.isArray(c.plates?.rows)||Array.isArray(c.plates?.gussets)?c.plates:undefined,cross:c.cross||undefined,nodes:c.nodes||undefined,
+    truss:c.truss||undefined,column:c.column||undefined,base:c.base||undefined,joint:c.joint||undefined,drill:Array.isArray(c.drill)?c.drill:undefined,cuts:Array.isArray(c.cuts?.rows)?c.cuts:undefined,parts:Array.isArray(c.parts?.rows)?c.parts:undefined,plates:Array.isArray(c.plates?.rows)||Array.isArray(c.plates?.gussets)?c.plates:undefined,cross:c.cross||undefined,nodes:c.nodes||undefined,
     // How fully the drawings determined it and its section: the exported page shows the same pale «предварительно».
     preliminary:isPreliminary(c)||undefined,instance_status:INSTANCE_STATUS[c.instance_status]?String(c.instance_status):undefined,
     instance_reasons:Array.isArray(c.instance_reasons)&&c.instance_reasons.length?c.instance_reasons.map(String).slice(0,5):undefined,source_section:sectionOfRecord(c),
@@ -814,6 +814,20 @@ window.irSchemePage=async function(objectId){
    return`<span>Вид «${esc(v.view||"")}»${v.scale?", М "+esc(v.scale):""}, длина ${fmt(v.length_mm)} мм${v.not_to_scale?" (нарисован не в масштабе — по размерам чертежа)":""}: ${esc(groups.join("; ")||"—")}${part?"; в фасонках на нём — "+part+" шт.":""}</span>`};
   return`<div class="scheme-fasteners"><b>Отверстия по сборочному чертежу</b>${views.map(row).join("")}${views[0].sheet?`<small>${esc(views[0].sheet)}</small>`:""}</div>`
  }
+ // The plates drawn apart with their holes (c.cuts, src/ai-holes-extract.js sheetHoles: a base plate «1 - 1», an end
+ // plate «2 - 2» seen from the end of a beam): size, where its cut is along the mark, the holes from the plate's middle.
+ function cutsHtml(c){
+  const rows=Array.isArray(c.cuts?.rows)?c.cuts.rows:[];if(!rows.length)return"";
+  const line=r=>{const p=Array.isArray(r.plate)?r.plate:[],L=num(p[0]),flat=r.dir!=="по вертикали",of=num(r.of),at=num(r.at);
+   // (at an end as the 3D takes it: within 5% of the view, 250 mm at least; an upright view starts at the top)
+   const edge=Math.max(250,of*0.05),up=r.on_dir==="по вертикали",cut=`разрез в ${fmt(at)} из ${fmt(of)} мм от ${up?"верха":"начала"} вида «${esc(r.on||"")}»`;
+   const where=r.at===undefined||r.at===null?"":of>0&&at>=of-edge?`, ${up?"внизу":"у конца"} (${cut})`:of>0&&at<=edge?`, ${up?"вверху":"у начала"} (${cut})`:`, ${cut}`;
+   const spec=r.section?` — поз. ${esc(r.pos??"—")} «${esc(r.section)}» по спецификации`:"";
+   const by=new Map();for(const h of Array.isArray(r.holes)?r.holes:[]){const d=num(h[2]);if(!by.has(d))by.set(d,[]);const a=num(h[0])-L/2,o=num(h[1]);by.get(d).push(flat?[a,o]:[o,a])}
+   const holes=[...by].map(([d,list])=>(d?"Ø"+d:"Ø не указан")+" — "+list.length+" шт.: "+list.slice(0,16).map(([x,y])=>"("+fmt(x)+"; "+fmt(y)+")").join(", ")).join("; ");
+   return`<span>«${esc(r.view||"")}»: пластина ${fmt(flat?L:num(p[1]))}×${fmt(flat?num(p[1]):L)} мм${spec}${where}; отверстия ${esc(holes||"—")} мм от середины пластины (вправо; вниз по чертежу)</span>`};
+  return`<div class="scheme-fasteners"><b>Пластины с отверстиями по разрезам</b>${rows.map(line).join("")}<small>${esc(c.cuts.sheet||"")}</small></div>`
+ }
  // The plates across the member (ribs, connection plates) at their places on its assembly sheet (c.plates,
  // src/ai-holes-extract.js sheetPlates): one line for the plates at one place, both sides of the web or one; then its
  // gussets — where along it, in which plane, how far out.
@@ -866,7 +880,7 @@ window.irSchemePage=async function(objectId){
     <div class="scheme-mark-progress-bar"><i style="width:${Math.max(0,Math.min(100,progress.mounted/progress.total*100))}%"></i></div>
     ${progress.state==="partial"?'<small>Ведомость показывает частичное выполнение марки, но не указывает, какой именно экземпляр смонтирован.</small>':""}
    </div>`:""}
-   ${fastenersHtml(c)}${drillHtml(c)}${platesHtml(c)}${partsHtml(c)}
+   ${fastenersHtml(c)}${drillHtml(c)}${cutsHtml(c)}${platesHtml(c)}${partsHtml(c)}
    ${between?`<div class="scheme-between"><b>Элемент между осями</b><span>${esc(a.x)} / ${esc(a.y)}</span><small>Положение вычисляется от выбранных базовых осей и сохраняется точно в миллиметрах.</small></div>`:""}
    ${canEdit()?`<div class="scheme-detail-actions"><button type="button" data-scheme-edit>Редактировать</button><button type="button" data-scheme-copy-place>⧉ Размещение</button><button type="button" data-scheme-copy>⧉ Копировать позицию</button><button type="button" class="danger" data-scheme-delete>Удалить</button></div>${irProject.ai?.invoke?`<div class="scheme-journal-send"><input type="text" data-scheme-journal-note maxlength="500" placeholder="Комментарий к правке (необязательно)"><button type="button" data-scheme-journal title="Записать элемент как он есть сейчас в журнал правок — журнал уходит на GitHub каждый час">В журнал</button><small data-scheme-journal-state>${journalSent.has(String(c.id))?"В журнале: "+esc(journalSent.get(String(c.id))):""}</small></div>`:""}`:""}`;
   loadMarkCard(panel,c);

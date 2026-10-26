@@ -156,6 +156,18 @@
     return'<span>Вид «'+esc(v.view||"")+'»'+(v.scale?", М "+esc(v.scale):"")+', длина '+fmt(v.length_mm)+' мм'+(v.not_to_scale?" (нарисован не в масштабе — по размерам чертежа)":"")+': '+esc(groups.join("; ")||"—")+(part?"; в фасонках на нём — "+part+" шт.":"")+'</span>'};
    return'<div class="fast"><b>Отверстия по сборочному чертежу</b>'+views.map(row).join("")+(views[0].sheet?'<small>'+esc(views[0].sheet)+'</small>':"")+'</div>'
   }
+  // The plates drawn apart with their holes, as the program's card shows them.
+  function cutsHtml(c){
+   var rows=c.cuts&&Array.isArray(c.cuts.rows)?c.cuts.rows:[];if(!rows.length)return"";
+   var line=function(r){var p=Array.isArray(r.plate)?r.plate:[],L=Number(p[0])||0,W=Number(p[1])||0,flat=r.dir!=="по вертикали",of=Number(r.of)||0,at=Number(r.at)||0,on=esc(r.on||"");
+    var edge=Math.max(250,of*.05),up=r.on_dir==="по вертикали",cut="разрез в "+fmt(at)+" из "+fmt(of)+" мм от "+(up?"верха":"начала")+" вида «"+on+"»";
+    var where=r.at===undefined||r.at===null?"":of>0&&at>=of-edge?", "+(up?"внизу":"у конца")+" ("+cut+")":of>0&&at<=edge?", "+(up?"вверху":"у начала")+" ("+cut+")":", "+cut;
+    var spec=r.section?" — поз. "+esc(r.pos!=null?r.pos:"—")+" «"+esc(r.section)+"» по спецификации":"";
+    var by={},keys=[];(Array.isArray(r.holes)?r.holes:[]).forEach(function(h){var d=Number(h[2])||0,a=(Number(h[0])||0)-L/2,o=Number(h[1])||0;if(!by[d]){by[d]=[];keys.push(d)}by[d].push(flat?[a,o]:[o,a])});
+    var holes=keys.map(function(d){return(d?"Ø"+d:"Ø не указан")+" — "+by[d].length+" шт.: "+by[d].slice(0,16).map(function(q){return"("+fmt(q[0])+"; "+fmt(q[1])+")"}).join(", ")}).join("; ");
+    return'<span>«'+esc(r.view||"")+'»: пластина '+fmt(flat?L:W)+'×'+fmt(flat?W:L)+' мм'+spec+where+'; отверстия '+esc(holes||"—")+' мм от середины пластины (вправо; вниз по чертежу)</span>'};
+   return'<div class="fast"><b>Пластины с отверстиями по разрезам</b>'+rows.map(line).join("")+'<small>'+esc(c.cuts.sheet||"")+'</small></div>'
+  }
   // The plates across the member (ribs, connection plates) of its assembly sheet, as the program's card shows them.
   function platesHtml(c){
    var rows=c.plates&&Array.isArray(c.plates.rows)?c.plates.rows:[],gussets=c.plates&&Array.isArray(c.plates.gussets)?c.plates.gussets:[];if(!rows.length&&!gussets.length)return"";
@@ -198,7 +210,7 @@
      ["Ось "+D.axesX[0]+"–"+D.axesX[D.axesX.length-1],a.x],["Ось "+D.axesY[0]+"–"+D.axesY[D.axesY.length-1],a.y],["Коорд. X",fmt(c.x)+" мм"],["Коорд. Y",fmt(c.y)+" мм"],
      ["Низ",fmt(c.z0)+" мм"],["Верх / конец Z",fmt(c.z2)+" мм"]].concat(c.geometryType!=="column"&&c.geometryType!=="shell"&&c.geometryType!=="plate"?[["Конец X",fmt(c.x2)+" мм"],["Конец Y",fmt(c.y2)+" мм"]]:[])
      .map(function(r){return'<div><span>'+esc(r[0])+'</span><b>'+(r[2]?r[1]:esc(r[1]||"—"))+'</b></div>'}).join("")+'</div>'+
-    fastenersHtml(c.joint)+drillHtml(c)+platesHtml(c)+partsHtml(c)+
+    fastenersHtml(c.joint)+drillHtml(c)+cutsHtml(c)+platesHtml(c)+partsHtml(c)+
     (p&&p.total>0?'<div class="prog"><b>Марка '+esc(c.mark)+' по ведомости:</b> всего '+fmt(p.total)+' шт., смонтировано '+fmt(p.mounted)+', осталось '+fmt(p.left)+'<div class="bar"><i style="width:'+Math.max(0,Math.min(100,p.mounted/p.total*100))+'%"></i></div></div>':"");
    $("uncard").onclick=function(){S.sel="";details();list();draw3d()}
   }

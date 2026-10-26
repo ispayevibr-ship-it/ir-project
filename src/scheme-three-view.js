@@ -824,6 +824,46 @@ window.irThreeSchemeView=(function(){
    var list=drillOf(c);if(!list)return;
    list.forEach(function(h){putHole(c,parts,h)})
   }
+  // The plates the sheet draws apart in a cut at an end of the mark (c.cuts.rows, src/ai-holes-extract.js sheetHoles
+  // sections; ГПЭС Ф15 «8-8»: □320 under the post, 4 holes Ø19): the base plate of a column (baseSize) and the end plate
+  // of a beam or the cap of a column — across it at that end, as large as drawn, its holes from its middle as drawn, a
+  // bolt of the sheet's list in each. A cut within 5% of the length of its view (250 mm at least) from an end is at that
+  // end; an upright view of a column starts at its top, one lying from its foot (as drillOf). The plate covers the
+  // section (the profile drawn in the cut is not read); as thick as its row of the specification, else conditionally
+  // 20 mm.
+  var cutsCache=new Map();
+  function endCuts(c){
+   var id=String(c.id||"");if(cutsCache.has(id))return cutsCache.get(id);
+   var rows=c.cuts&&Array.isArray(c.cuts.rows)?c.cuts.rows:[],sec=rows.length?sectionOf(c.profile_name||c.profileName,c.profile_standard):null,out=[];
+   if(sec&&!slight(c)&&!c.cross&&memberPoints(c).length===2)rows.forEach(function(r){
+    var p=Array.isArray(r.plate)?r.plate.map(number):[],at=number(r.at),of=number(r.of);
+    if(p.length<2||!(p[0]>0&&p[1]>0)||r.at===undefined||r.at===null||!(of>0))return;
+    var edge=Math.max(250,of*.05),first=at<=edge,last=at>=of-edge;if(first===last)return;
+    var end=c.geometryType==="column"&&r.on_dir==="по вертикали"?(last?0:1):(first?0:1);if(out.some(function(e){return e.end===end}))return;
+    // (as drawn: across the sheet and down it, from the middle; turned a quarter when only so it covers the section, or
+    // when both ways its longer side would lie across the longer side of the section; a plate inside the section — a
+    // rib between the flanges, К60 «6 - 6» 320×360 in 40К1 — is not an end plate)
+    var flat=r.dir!=="по вертикали",w=flat?p[0]:p[1],h=flat?p[1]:p[0],fits=function(x,y){return x>=sec.b-5&&y>=sec.h-5},straight=fits(w,h);
+    if(!straight&&!fits(h,w))return;
+    var turn=!straight||fits(h,w)&&(w>h+5&&sec.h>sec.b+5||h>w+5&&sec.b>sec.h+5);
+    var holes=(Array.isArray(r.holes)?r.holes:[]).filter(Array.isArray).map(function(e){var a=number(e[0])-p[0]/2,o=number(e[1]),x=flat?a:o,y=flat?o:a;return{x:turn?y:x,y:turn?x:-y,d:number(e[2])}});
+    out.push({end:end,x:turn?h:w,y:turn?w:h,t:number(r.t)>0?number(r.t):20,holes:holes})
+   });
+   cutsCache.set(id,out);return out
+  }
+  // `ends` — the ends of the member as drawn (a beam cut short at the face it meets): the plate outside each.
+  function addCuts(c,parts,ends){
+   var list=endCuts(c);if(!list.length)return;
+   var p=memberPoints(c),d=p[1].clone().sub(p[0]),L=d.length();if(L<=.3)return;d.divideScalar(L);
+   var q=new T.Quaternion().setFromUnitVectors(zAxis,d),X=new T.Vector3(1,0,0).applyQuaternion(q),Y=new T.Vector3(0,1,0).applyQuaternion(q),bolts=boltSizes(c);
+   list.forEach(function(e){
+    if(e.end===0&&basePlated(c))return;
+    var out=e.end?d.clone():d.clone().negate(),t=e.t/1000,at=ends[e.end].clone().add(out.clone().multiplyScalar(t/2));
+    var m=new T.Mesh(shared("plate:box",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(c));
+    m.quaternion.copy(q);m.scale.set(e.x/1000,e.y/1000,t);m.position.copy(at);m.userData.plate=true;parts.push(m);
+    e.holes.forEach(function(h){putHole(c,parts,{at:at.clone().add(X.clone().multiplyScalar(h.x/1000)).add(Y.clone().multiplyScalar(h.y/1000)),axis:out.clone(),d:h.d>0?h.d/1000:0,t:t,bolt:boltFor(bolts,h.d)})})
+   })
+  }
   // The plates across a member (ribs, connection plates) as its assembly sheet draws them (c.plates.rows,
   // src/ai-holes-extract.js sheetPlates): along it from the start of its view as the holes, as thick as drawn; its height
   // from the view of the web (from the axis, + down), else by the specification, else between the flanges; its side and
@@ -923,8 +963,8 @@ window.irThreeSchemeView=(function(){
     out[k]=e[0].clone().add(e[1].clone().multiplyScalar(cut));
     var dia=boltDia(c);
     if(!brace){
-     // A beam at a face: an end plate there, its bolts through it into the face.
-     if(!dia)return;var hs=halfSection(c),d0=e[1],side0=Math.abs(d0.y)>.9?new T.Vector3(1,0,0):d0.clone().cross(new T.Vector3(0,1,0)).normalize(),up0=side0.clone().cross(d0).normalize();
+     // A beam at a face: an end plate there, its bolts through it into the face — none where its sheet draws its own (addCuts).
+     if(!dia||endCuts(c).some(function(q){return q.end===k}))return;var hs=halfSection(c),d0=e[1],side0=Math.abs(d0.y)>.9?new T.Vector3(1,0,0):d0.clone().cross(new T.Vector3(0,1,0)).normalize(),up0=side0.clone().cross(d0).normalize();
      var at0=e[0].clone().add(d0.clone().multiplyScalar(face+.01));
      var ep=new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(c));
      ep.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(side0,up0,d0));ep.scale.set(hs.b*2+.02,hs.h*2+.04,.016);ep.position.copy(at0);parts.push(ep);
@@ -1287,7 +1327,7 @@ window.irThreeSchemeView=(function(){
      if(cd>.06){var cw=a0.clone().sub(b0),cs=(cb*ub.dot(cw)-ua.dot(cw))/cd,cx=crossing(c,a0.clone().add(ua.clone().multiplyScalar(cs)),ub.clone().cross(ua).normalize(),Math.sqrt(cd));cx.only=1;cuts=[cx]}
     }
     if(cuts.length)segments=cutAtCrossings(c,segments,cuts);
-    addDrill(c,extra);addPlates(c,extra);addGussets(c,extra);
+    addDrill(c,extra);addPlates(c,extra);addGussets(c,extra);addCuts(c,extra,[segments[0][0],segments[segments.length-1][1]]);
     extra.forEach(function(m){m.userData.memberId=id;steel.add(m);allMeshes.push(m);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(m)});
     segments.forEach(function(points){
      if(!sectionOf(c.profile_name||c.profileName,c.profile_standard))conventional.add(id);
@@ -1311,7 +1351,7 @@ window.irThreeSchemeView=(function(){
    crossPlates.forEach(function(e){if(!dataById.has(e.id))return;var m=e.mesh;
     m.userData.memberId=e.id;steel.add(m);allMeshes.push(m);if(!meshesById.has(e.id))meshesById.set(e.id,[]);meshesById.get(e.id).push(m)});
    pedestals=[];
-   elems.forEach(function(c){if(c.geometryType==="column"&&dataById.has(String(c.id))&&!c.ft&&!(number(c.r)>0)&&!slight(c)&&!(c.column&&Array.isArray(c.column.members)&&c.column.members.length))baseParts(c)});
+   elems.forEach(function(c){if(dataById.has(String(c.id))&&basePlated(c))baseParts(c)});
    elems.forEach(function(c){if(c.geometryType==="column"&&dataById.has(String(c.id))&&footPlateSize(c.base))footPlate(c)})
   }
   // A post on a plate of its own given by the drawing (the roof guard of a КМ: «−4×320×550» lying on the roof sandwich
@@ -1337,17 +1377,28 @@ window.irThreeSchemeView=(function(){
   // air) and, under a base at the ground (up to +0.300), a conditional concrete footing — the footings are of the КЖ, not
   // of the КМ: their size is not known here, only that the column stands on one. Hidden with the details.
   var concreteMat=new T.MeshStandardMaterial({color:0xaeb3b8,roughness:.95}),pedestals=[];
+  function basePlated(c){return c.geometryType==="column"&&!c.ft&&!(number(c.r)>0)&&!slight(c)&&!(c.column&&Array.isArray(c.column.members)&&c.column.members.length)}
+  // The base plate its sheet draws in a cut at the foot (endCuts): as large and thick as drawn, an anchor in each of its
+  // holes — as thick as the base sheet says, else a bolt of the sheet's list fitting the hole, else conditional.
   function baseSize(c){
    var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard),bw=sec?sec.b/1000:.36,hh=sec?sec.h/1000:.4;
    var an=c.base&&c.base.anchors||null,cnt=an&&number(an.count)>0?Math.min(24,number(an.count)):4,dia=an&&number(an.d_mm)>0?number(an.d_mm)/1000:.03;
-   var side=Math.ceil(cnt/2),step=Math.max(.1,dia*4);
+   var side=Math.ceil(cnt/2),step=Math.max(.1,dia*4),cut=endCuts(c).filter(function(e){return e.end===0})[0];
+   if(cut){
+    var hd=cut.holes.reduce(function(m,h){return Math.max(m,h.d)},0),fit=boltFor(boltSizes(c),hd),own=an&&number(an.d_mm)>0;
+    if(!own&&fit)dia=fit/1000;else if(!own&&hd>3)dia=Math.min(dia,(hd-3)/1000);
+    return{cnt:cut.holes.length,dia:dia,side:Math.ceil(cut.holes.length/2),step:step,pw:cut.x/1000,pd:cut.y/1000,pt:cut.t/1000,
+     holes:cut.holes.map(function(h){return{x:h.x/1000,z:-h.y/1000,d:h.d/1000}})}
+   }
    return{cnt:cnt,dia:dia,side:side,step:step,pw:Math.max(bw+.2,(side-1)*step+.1),pd:hh+.2+dia*2,pt:.03}
   }
   function baseParts(c){
    var id=String(c.id),bs=baseSize(c),at=toWorld(number(c.x),number(c.y),number(c.z0));
-   var plate=new T.Mesh(shared("plate:"+bs.pw.toFixed(3)+":"+bs.pd.toFixed(3),function(){return new T.BoxGeometry(bs.pw,bs.pt,bs.pd)}),baseMaterial(c));
+   var plate=new T.Mesh(shared("plate:"+bs.pw.toFixed(3)+":"+bs.pd.toFixed(3)+":"+bs.pt.toFixed(3),function(){return new T.BoxGeometry(bs.pw,bs.pt,bs.pd)}),baseMaterial(c));
    plate.position.copy(at);plate.position.y-=bs.pt/2;plate.userData.memberId=id;steel.add(plate);allMeshes.push(plate);
    if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(plate);
+   var hp=[];(bs.holes||[]).forEach(function(h){putHole(c,hp,{at:plate.position.clone().add(new T.Vector3(h.x,0,h.z)),axis:boltY,d:h.d,t:bs.pt,bolt:0})});
+   hp.forEach(function(m){m.userData.memberId=id;steel.add(m);allMeshes.push(m);meshesById.get(id).push(m)});
    if(number(c.z0)>300)return;
    var fw=bs.pw+.3,fd=bs.pd+.3,fh=1;
    var foot=new T.Mesh(shared("footing:"+fw.toFixed(3)+":"+fd.toFixed(3),function(){return new T.BoxGeometry(fw,fh,fd)}),concreteMat);
@@ -1605,6 +1656,8 @@ window.irThreeSchemeView=(function(){
     var bs=baseSize(col.c),cnt=bs.cnt,dia=bs.dia,side=bs.side,step=bs.step,pd=bs.pd;
     for(var i=0;i<cnt;i++){
      var row=i<side?-1:1,k=row<0?i:i-side,inRow=row<0?side:cnt-side,ax=inRow>1?-(inRow-1)*step/2+k*step:0,az=row*(pd/2-Math.max(.05,dia*1.5));
+     // (in the holes of the plate its sheet draws)
+     if(bs.holes){ax=bs.holes[i].x;az=bs.holes[i].z}
      var rod=new T.Mesh(shared("rod:"+dia,function(){return new T.CylinderGeometry(dia/2,dia/2,.1+dia*2,10)}),boltMat);rod.position.set(ax,(.1+dia*2)/2-.02,az);rod.userData.anchor="rod";g.add(rod);
      var nut=new T.Mesh(shared("nut:"+dia,function(){return new T.CylinderGeometry(dia*.92,dia*.92,dia*.8,6)}),boltMat);nut.position.set(ax,dia*.4,az);nut.userData.anchor="nut";g.add(nut)
     }
