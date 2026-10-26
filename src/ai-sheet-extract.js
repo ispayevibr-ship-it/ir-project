@@ -32,12 +32,12 @@ function rowsOf(texts,tol=4){
  return rows
 }
 
-// A view title is a large text made only of marks: "Ф3", "К1, К2 (обратно К1)".
+// A view title is a large text made only of marks: "Ф3", "К1, К2 (обратно К1)", "(обратна К1)" (ГПЭС К1).
 function titleMarks(str){
  // Steel grades (С245, C345-3) look like marks but are not.
  const marks=(String(str).match(MARK)||[]).filter(m=>!STEEL.test(m)&&!/^Ст\d/u.test(m));
  if(!marks.length)return null;
- const rest=String(str).replace(MARK,"").replace(/обр(?:атно)?\.?|зеркально|[(),;\s]/giu,"");
+ const rest=String(str).replace(MARK,"").replace(/обр(?:атн[оа])?\.?|зеркально|[(),;\s]/giu,"");
  return rest?null:[...new Set(marks)]
 }
 
@@ -872,6 +872,8 @@ function extractSheet({texts=[],widthPt=0,heightPt=0,segments=[]}={}){
  // The holes of each member at their places on its views (src/ai-holes-extract.js): «Все отверстия Ø23» names those no
  // callout does.
  const holes=holeNotes(texts),drill=views.length&&segments.length<=80000?require("./ai-holes-extract").sheetHoles({texts,segments,widthPt,heightPt},{views,allMm:holes?.all_mm||null}):null;
- return{stamp,views,required,elements,spec,fasteners:fastenerTable(texts),holes,...(drill?.views.length?{drill}:{}),standards,levelCount:levels.length,assemblyText,...(unread.length?{unread}:{})}
+ // The plates across each member (ribs, connection plates) at their places on its views.
+ const plates=views.length&&segments.length<=80000?require("./ai-holes-extract").sheetPlates({texts,segments,widthPt,heightPt},{views,allMm:holes?.all_mm||null}).filter(m=>m.plates.length):[];
+ return{stamp,views,required,elements,spec,fasteners:fastenerTable(texts),holes,...(drill?.views.length?{drill}:{}),...(plates.length?{plates}:{}),standards,levelCount:levels.length,assemblyText,...(unread.length?{unread}:{})}
 }
 module.exports={extractSheet,sheetStamp,stampNames,titleMarks,levelMm,rowsOf,specTable,specCells,cellAccept,sectionLike,normProfile,fastenerTable,standardsCited};

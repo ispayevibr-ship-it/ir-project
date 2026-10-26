@@ -681,7 +681,7 @@ window.irSchemePage=async function(objectId){
     // What the 3D draws a member by: its rolled section, a truss or a lattice column, the base, the joint and the nodes of
     // the drawings — without them the exported scheme showed conventional sections, trusses as beams and no bolts.
     profile_name:String(c.profile_name||""),profile_standard:String(c.profile_standard||""),section_type:String(c.section_type||""),type_key:String(c.type_key||""),
-    truss:c.truss||undefined,column:c.column||undefined,base:c.base||undefined,joint:c.joint||undefined,drill:Array.isArray(c.drill)?c.drill:undefined,parts:Array.isArray(c.parts?.rows)?c.parts:undefined,cross:c.cross||undefined,nodes:c.nodes||undefined,
+    truss:c.truss||undefined,column:c.column||undefined,base:c.base||undefined,joint:c.joint||undefined,drill:Array.isArray(c.drill)?c.drill:undefined,parts:Array.isArray(c.parts?.rows)?c.parts:undefined,plates:Array.isArray(c.plates?.rows)?c.plates:undefined,cross:c.cross||undefined,nodes:c.nodes||undefined,
     // How fully the drawings determined it and its section: the exported page shows the same pale «предварительно».
     preliminary:isPreliminary(c)||undefined,instance_status:INSTANCE_STATUS[c.instance_status]?String(c.instance_status):undefined,
     instance_reasons:Array.isArray(c.instance_reasons)&&c.instance_reasons.length?c.instance_reasons.map(String).slice(0,5):undefined,source_section:sectionOfRecord(c),
@@ -814,6 +814,17 @@ window.irSchemePage=async function(objectId){
    return`<span>Вид «${esc(v.view||"")}»${v.scale?", М "+esc(v.scale):""}, длина ${fmt(v.length_mm)} мм${v.not_to_scale?" (нарисован не в масштабе — по размерам чертежа)":""}: ${esc(groups.join("; ")||"—")}${part?"; в фасонках на нём — "+part+" шт.":""}</span>`};
   return`<div class="scheme-fasteners"><b>Отверстия по сборочному чертежу</b>${views.map(row).join("")}${views[0].sheet?`<small>${esc(views[0].sheet)}</small>`:""}</div>`
  }
+ // The plates across the member (ribs, connection plates) at their places on its assembly sheet (c.plates,
+ // src/ai-holes-extract.js sheetPlates): one line for the plates at one place, both sides of the web or one.
+ function platesHtml(c){
+  const rows=Array.isArray(c.plates?.rows)?c.plates.rows:[];if(!rows.length)return"";
+  const groups=new Map();for(const r of rows){const k=(r.at||[]).join("–")+"|"+(r.pos??r.section??r.t);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r)}
+  const line=list=>{const r=list[0],x=list.filter(o=>Array.isArray(o.x)),signs=new Set(x.map(o=>Math.sign(num(o.x[0])+num(o.x[1])))),w=x.length?Math.max(...x.map(o=>num(o.x[1])-num(o.x[0]))):0;
+   const h=Array.isArray(r.z)?num(r.z[1])-num(r.z[0]):num(r.h_mm);
+   const side=!x.length?"сторона стенки на плане не показана":signs.size>1?"с двух сторон стенки":"с одной стороны стенки";
+   return`<span>${r.pos?"поз. "+esc(r.pos)+" — ":""}${esc(r.section||"пластина "+fmt(r.t)+" мм")}: ${fmt(num(r.at?.[0]))}–${fmt(num(r.at?.[1]))} мм от начала, ${side}${w?", ширина "+fmt(w)+" мм":""}${h?", высота "+fmt(h)+" мм":", высота — между полками"}${r.approx?" (место примерно: вид нарисован с разрывом)":""}</span>`};
+  return`<div class="scheme-fasteners"><b>Рёбра и пластины по сборочному чертежу</b>${[...groups.values()].map(line).join("")}<small>${esc(c.plates.sheet||"")}</small></div>`
+ }
  // The parts of the member as the specification of its assembly sheet lists them (c.parts): position, section, length,
  // count, note (the engineer, 25.10.2026: «каждый узел должен быть показан идеально»).
  function partsHtml(c){
@@ -846,7 +857,7 @@ window.irSchemePage=async function(objectId){
     <div class="scheme-mark-progress-bar"><i style="width:${Math.max(0,Math.min(100,progress.mounted/progress.total*100))}%"></i></div>
     ${progress.state==="partial"?'<small>Ведомость показывает частичное выполнение марки, но не указывает, какой именно экземпляр смонтирован.</small>':""}
    </div>`:""}
-   ${fastenersHtml(c)}${drillHtml(c)}${partsHtml(c)}
+   ${fastenersHtml(c)}${drillHtml(c)}${platesHtml(c)}${partsHtml(c)}
    ${between?`<div class="scheme-between"><b>Элемент между осями</b><span>${esc(a.x)} / ${esc(a.y)}</span><small>Положение вычисляется от выбранных базовых осей и сохраняется точно в миллиметрах.</small></div>`:""}
    ${canEdit()?`<div class="scheme-detail-actions"><button type="button" data-scheme-edit>Редактировать</button><button type="button" data-scheme-copy-place>⧉ Размещение</button><button type="button" data-scheme-copy>⧉ Копировать позицию</button><button type="button" class="danger" data-scheme-delete>Удалить</button></div>${irProject.ai?.invoke?`<div class="scheme-journal-send"><input type="text" data-scheme-journal-note maxlength="500" placeholder="Комментарий к правке (необязательно)"><button type="button" data-scheme-journal title="Записать элемент как он есть сейчас в журнал правок — журнал уходит на GitHub каждый час">В журнал</button><small data-scheme-journal-state>${journalSent.has(String(c.id))?"В журнале: "+esc(journalSent.get(String(c.id))):""}</small></div>`:""}`:""}`;
   loadMarkCard(panel,c);

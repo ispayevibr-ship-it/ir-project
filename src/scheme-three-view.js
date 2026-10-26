@@ -820,6 +820,34 @@ window.irThreeSchemeView=(function(){
     if(h.bolt){var gt=gussetT(c);addBolt(c,h.at.clone().add(h.axis.clone().multiplyScalar(gt/2)),h.axis,h.bolt/1000,h.t+gt)}
    })
   }
+  // The plates across a member (ribs, connection plates) as its assembly sheet draws them (c.plates.rows,
+  // src/ai-holes-extract.js sheetPlates): along it from the start of its view as the holes, as thick as drawn; its height
+  // from the view of the web (from the axis, + down), else by the specification, else between the flanges; its side and
+  // width from the plan (from the axis, as the holes in the flange), else both sides of the web out to the flange's edge.
+  function addPlates(c,parts){
+   var rows=c.plates&&Array.isArray(c.plates.rows)?c.plates.rows:[],len=number(c.plates&&c.plates.length_mm);if(!rows.length||!(len>0))return;
+   var p=memberPoints(c),sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);
+   if(p.length!==2||!sec||!(sec.shape==="ibeam"||sec.shape==="channel")||slight(c))return;
+   var d=p[1].clone().sub(p[0]),L=d.length();if(L<=.3)return;d.divideScalar(L);
+   var q=new T.Quaternion().setFromUnitVectors(zAxis,d),X=new T.Vector3(1,0,0).applyQuaternion(q),Y=new T.Vector3(0,1,0).applyQuaternion(q),mid=p[0].clone().add(p[1]).multiplyScalar(.5);
+   var fromTop=c.geometryType==="column"&&c.plates.dir==="по вертикали";
+   var inner=sec.h/2-sec.t,web=sec.s/2,edge=sec.b/2,webX=sec.shape==="channel"?(sec.s/2-sec.b/2):0;
+   rows.forEach(function(r){
+    var at=Array.isArray(r.at)?r.at.map(number):null;if(!at||!(at[1]>at[0]))return;
+    var sa=(at[0]+at[1])/2,along=fromTop?len/2-sa:sa-len/2;if(Math.abs(along)>len/2+5)return;
+    // (across the view of the web: + down; by the specification or between the flanges, centred)
+    var z=Array.isArray(r.z)?[number(r.z[0]),number(r.z[1])]:null,hh=number(r.h_mm)>0?Math.min(number(r.h_mm),2*inner):2*inner;
+    var y0=z?-z[1]:-hh/2,y1=z?-z[0]:hh/2;
+    var xs=Array.isArray(r.x)?[[number(r.x[0]),number(r.x[1])]]:[[web,edge],[-edge,-web]];
+    xs.forEach(function(x){
+     var w=x[1]-x[0];if(!(w>0)||!(y1>y0))return;
+     var m=new T.Mesh(shared("plate:box",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(c));
+     m.quaternion.copy(q);m.scale.set(w/1000,(y1-y0)/1000,(at[1]-at[0])/1000);
+     m.position.copy(mid).add(d.clone().multiplyScalar(along/1000)).add(X.clone().multiplyScalar((webX+(x[0]+x[1])/2)/1000)).add(Y.clone().multiplyScalar((y0+y1)/2000));
+     m.userData.plate=true;parts.push(m)
+    })
+   })
+  }
   // Railings, treads and thin bars (Ø up to 60, strips) are welded: no nodes, end plates or bolts on them — a base
   // plate and a marker on every railing post hid the landings.
   function slight(c){var t=String(c.mark_name||c.title||""),sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);
@@ -1209,7 +1237,7 @@ window.irThreeSchemeView=(function(){
      if(cd>.06){var cw=a0.clone().sub(b0),cs=(cb*ub.dot(cw)-ua.dot(cw))/cd,cx=crossing(c,a0.clone().add(ua.clone().multiplyScalar(cs)),ub.clone().cross(ua).normalize(),Math.sqrt(cd));cx.only=1;cuts=[cx]}
     }
     if(cuts.length)segments=cutAtCrossings(c,segments,cuts);
-    addDrill(c,extra);
+    addDrill(c,extra);addPlates(c,extra);
     extra.forEach(function(m){m.userData.memberId=id;steel.add(m);allMeshes.push(m);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(m)});
     segments.forEach(function(points){
      if(!sectionOf(c.profile_name||c.profileName,c.profile_standard))conventional.add(id);

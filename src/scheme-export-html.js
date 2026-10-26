@@ -156,6 +156,17 @@
     return'<span>Вид «'+esc(v.view||"")+'»'+(v.scale?", М "+esc(v.scale):"")+', длина '+fmt(v.length_mm)+' мм'+(v.not_to_scale?" (нарисован не в масштабе — по размерам чертежа)":"")+': '+esc(groups.join("; ")||"—")+(part?"; в фасонках на нём — "+part+" шт.":"")+'</span>'};
    return'<div class="fast"><b>Отверстия по сборочному чертежу</b>'+views.map(row).join("")+(views[0].sheet?'<small>'+esc(views[0].sheet)+'</small>':"")+'</div>'
   }
+  // The plates across the member (ribs, connection plates) of its assembly sheet, as the program's card shows them.
+  function platesHtml(c){
+   var rows=c.plates&&Array.isArray(c.plates.rows)?c.plates.rows:[];if(!rows.length)return"";
+   var groups=new Map();rows.forEach(function(r){var k=(r.at||[]).join("–")+"|"+(r.pos!=null?r.pos:r.section!=null?r.section:r.t);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r)});
+   var line=function(list){var r=list[0],x=list.filter(function(o){return Array.isArray(o.x)}),signs=new Set(x.map(function(o){return Math.sign((Number(o.x[0])||0)+(Number(o.x[1])||0))})),w=x.length?Math.max.apply(null,x.map(function(o){return(Number(o.x[1])||0)-(Number(o.x[0])||0)})):0;
+    var h=Array.isArray(r.z)?(Number(r.z[1])||0)-(Number(r.z[0])||0):Number(r.h_mm)||0,at=r.at||[];
+    var side=!x.length?"сторона стенки на плане не показана":signs.size>1?"с двух сторон стенки":"с одной стороны стенки";
+    return'<span>'+(r.pos?"поз. "+esc(r.pos)+" — ":"")+esc(r.section||"пластина "+fmt(r.t)+" мм")+': '+fmt(Number(at[0])||0)+'–'+fmt(Number(at[1])||0)+' мм от начала, '+side+(w?", ширина "+fmt(w)+" мм":"")+(h?", высота "+fmt(h)+" мм":", высота — между полками")+(r.approx?" (место примерно: вид нарисован с разрывом)":"")+'</span>'};
+   var out=[];groups.forEach(function(list){out.push(line(list))});
+   return'<div class="fast"><b>Рёбра и пластины по сборочному чертежу</b>'+out.join("")+'<small>'+esc(c.plates.sheet||"")+'</small></div>'
+  }
   // The parts of the member by the specification of its assembly sheet, as the program's card shows them.
   function partsHtml(c){
    var rows=c.parts&&Array.isArray(c.parts.rows)?c.parts.rows:[];if(!rows.length)return"";
@@ -182,7 +193,7 @@
      ["Ось "+D.axesX[0]+"–"+D.axesX[D.axesX.length-1],a.x],["Ось "+D.axesY[0]+"–"+D.axesY[D.axesY.length-1],a.y],["Коорд. X",fmt(c.x)+" мм"],["Коорд. Y",fmt(c.y)+" мм"],
      ["Низ",fmt(c.z0)+" мм"],["Верх / конец Z",fmt(c.z2)+" мм"]].concat(c.geometryType!=="column"&&c.geometryType!=="shell"&&c.geometryType!=="plate"?[["Конец X",fmt(c.x2)+" мм"],["Конец Y",fmt(c.y2)+" мм"]]:[])
      .map(function(r){return'<div><span>'+esc(r[0])+'</span><b>'+(r[2]?r[1]:esc(r[1]||"—"))+'</b></div>'}).join("")+'</div>'+
-    fastenersHtml(c.joint)+drillHtml(c)+partsHtml(c)+
+    fastenersHtml(c.joint)+drillHtml(c)+platesHtml(c)+partsHtml(c)+
     (p&&p.total>0?'<div class="prog"><b>Марка '+esc(c.mark)+' по ведомости:</b> всего '+fmt(p.total)+' шт., смонтировано '+fmt(p.mounted)+', осталось '+fmt(p.left)+'<div class="bar"><i style="width:'+Math.max(0,Math.min(100,p.mounted/p.total*100))+'%"></i></div></div>':"");
    $("uncard").onclick=function(){S.sel="";details();list();draw3d()}
   }

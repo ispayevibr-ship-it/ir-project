@@ -75,7 +75,7 @@ assert.deepEqual(spec,[{mark:"К1",profile:"Тр.140х4",mass_kg:120.5,length_mm
  const src=f=>fs.readFileSync(path.join(__dirname,"..","src",f),"utf8");
  assert(/cat\?\.parts\?\{parts:cat\.parts\}/.test(src("ai-montage-plan.js"))&&/parts:e\.parts\|\|undefined/.test(src("ai-montage.js")),"the plan and the montage carry the parts");
  for(const f of ["scheme-page.js","ir-runtime.js"])assert(/\$\{partsHtml\(c\)\}/.test(src(f))&&/parts:Array\.isArray\(c\.parts\?\.rows\)\?c\.parts:undefined/.test(src(f)),f+": the card and the export");
- assert(/drillHtml\(c\)\+partsHtml\(c\)/.test(src("scheme-export-html.js")),"the exported page");
+ assert(/drillHtml\(c\)\+platesHtml\(c\)\+partsHtml\(c\)/.test(src("scheme-export-html.js")),"the exported page");
 }
 // A column without levels of its own takes those of the nearest column of its plan; it is placed, to be checked.
 {

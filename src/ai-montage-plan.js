@@ -241,6 +241,22 @@ function seatFramed(merged,placed,draft){
 const scopeOf=(docType,volume="")=>docType==="КМ"?volume||"КМ":"КМД";
 const volumeOf=p=>{const m=/КМ\s*(\d{1,2})(?!\d)/u.exec(String(p?.sheet?.stamp?.code||""))||/КМ\s*(\d{1,2})(?![\dД])/u.exec(String(p?.sourceName||""));return m?"КМ"+m[1]:""};
 const markKey=(scope,mark)=>scope+"|"+normMark(mark);
+// The plates of a member's views with the rows of its specification: a row of a plate «−b×t» (the less of the two is
+// the thickness) fits a plate as thick (±1,5 mm) whose width and height seen fit its width and length (±6 mm); the rows
+// with pieces left first. → [{at, t, z, x, pos?, section?, h_mm? (its height by the row, seen in plan only), from,
+// approx?}], mm.
+function platesBySpec(plates,rows){
+ const PLATE=/^[-−–]\s*(\d+(?:[.,]\d+)?)\s*[хx×*]\s*(\d+(?:[.,]\d+)?)/iu,num=v=>Number(String(v).replace(",","."));
+ const list=rows.map(r=>{const m=PLATE.exec(String(r.section||"").trim());if(!m)return null;const a=num(m[1]),b=num(m[2]);return{r,t:Math.min(a,b),b:Math.max(a,b),L:Number(r.length_mm)||0,left:Number(r.count)||0}}).filter(Boolean);
+ const near=(a,b)=>b>0&&Math.abs(a-b)<=6;
+ return plates.map(p=>{
+  const w=p.x_mm?p.x_mm[1]-p.x_mm[0]:null,h=p.z_mm?p.z_mm[1]-p.z_mm[0]:null;
+  const fit=list.filter(o=>Math.abs(o.t-p.t_mm)<=1.5&&(w===null||h===null?[w??h].every(v=>near(v,o.b)||near(v,o.L)):near(w,o.b)&&near(h,o.L)||near(w,o.L)&&near(h,o.b)));
+  const o=fit.sort((a,b)=>(b.left>0)-(a.left>0))[0];if(o)o.left--;
+  const hSpec=o&&h===null&&w!==null?(near(w,o.b)?o.L:o.b):null;
+  return{at:p.at_mm,t:p.t_mm,z:p.z_mm||null,x:p.x_mm||null,...(o?{pos:o.r.pos??null,section:o.r.section}:{}),...(hSpec?{h_mm:hSpec}:{}),from:p.from,...(p.approx?{approx:true}:{})}
+ })
+}
 function buildCatalog(draft,ai=null){
  const map=new Map();
  const volumes=new Set((draft.pages||[]).filter(p=>p.docType==="КМ").map(volumeOf).filter(Boolean));
@@ -314,6 +330,14 @@ function buildCatalog(draft,ai=null){
    if(e.drillFrom&&e.drillFrom!==where(p)||(e.drill||[]).length>=4)continue;e.drillFrom=where(p);
    (e.drill=e.drill||[]).push({view:v.title,sheet:where(p),scale:v.scale,length_mm:v.length_mm,band_mm:v.band_mm,dir:v.dir,...(v.main?{main:true}:{}),...(v.not_to_scale?{not_to_scale:true}:{}),
     holes:v.holes.slice(0,80).map(h=>[h.at_mm,h.off_mm,h.d_mm||0,h.part?1:0])})}
+ }
+ // The plates across each mark (ribs, connection plates; sheet.plates, src/ai-holes-extract.js sheetPlates) of the first
+ // assembly sheet that has them, each with its row of the sheet's specification when one fits it (a plate «−80×10»
+ // 222 long: as thick, as wide and as high) — its position and section; the height of one seen only in plan from it.
+ for(const p of draft.pages||[]){
+  const sheet=p.sheet||{};if(p.docType!=="КМД сборочные"||!sheet.plates?.length)continue;scope=scopeAt(p);
+  for(const m of sheet.plates){const e=entry(m.mark);if(e.plates)continue;
+   e.plates={sheet:where(p),views:m.views,length_mm:m.length_mm,dir:m.dir,rows:platesBySpec(m.plates,e.parts?.rows||[]).slice(0,40)}}
  }
  // Sections of the mounting drawings: the most frequent reading of each mark wins.
  const votes=new Map();
@@ -896,7 +920,7 @@ function buildPlan(draft,ai=null,heights={},opts={}){
     x_mm:x,y_mm:y,x2_mm:point?undefined:x2,y2_mm:point?undefined:y2,...(geometry==="shell"||geometry==="plate"?{radius_mm:pl.radius_mm,inner_radius_mm:pl.inner_radius_mm,shell_open:pl.shell_open,...(pl.cone_rise_mm?{cone_rise_mm:pl.cone_rise_mm}:{}),...(pl.sector_deg>0?{sector_start_deg:pl.sector_start_deg,sector_deg:pl.sector_deg}:{})}:{}),...(pl.fitting_type?{fitting_type:pl.fitting_type,diameter_mm:pl.diameter_mm}:{}),...(pl.layout&&typeof pl.layout==="object"?{layout:pl.layout}:{}),
     z0_mm:geometry==="beam"&&!drawn&&!flightLevel?z1:z0,z1_mm:z1,group,group_label:GROUPS[group],
     // A verified scheme carries its own profiles and truss lattices.
-    profile:pl.profile||cat?.profile||"",profile_standard:pl.profile?"":cat?.profile_standard||"",...(pl.truss?{truss:pl.truss}:{}),...(pl.nodes?{nodes:pl.nodes}:{}),...(pl.base&&typeof pl.base==="object"?{base:pl.base}:{}),...(pl.joint||joints(c.info)||cat?.fasteners?{joint:withFasteners(pl.joint||joints(c.info),cat?.fasteners)}:{}),...(cat?.drill?{drill:cat.drill}:{}),...(cat?.parts?{parts:cat.parts}:{}),doc:scopeOf(c.info.docType,catalog.multi?c.info.volume:""),length_mm:cat?.length_mm??null,levels:own?"Claude":local?local.from:"схема",...(!own&&local?.zeroBase?{z0_assumed:true}:{}),
+    profile:pl.profile||cat?.profile||"",profile_standard:pl.profile?"":cat?.profile_standard||"",...(pl.truss?{truss:pl.truss}:{}),...(pl.nodes?{nodes:pl.nodes}:{}),...(pl.base&&typeof pl.base==="object"?{base:pl.base}:{}),...(pl.joint||joints(c.info)||cat?.fasteners?{joint:withFasteners(pl.joint||joints(c.info),cat?.fasteners)}:{}),...(cat?.drill?{drill:cat.drill}:{}),...(cat?.parts?{parts:cat.parts}:{}),...(cat?.plates?{plates:cat.plates}:{}),doc:scopeOf(c.info.docType,catalog.multi?c.info.volume:""),length_mm:cat?.length_mm??null,levels:own?"Claude":local?local.from:"схема",...(!own&&local?.zeroBase?{z0_assumed:true}:{}),
     page:c.info.page,file:c.info.file,sheet:c.info.sheet,...(!c.info.page&&pl.sheet?{source_sheet:String(pl.sheet)}:{}),...(pl.section?{section:pl.section}:{}),scheme:c.info.title,confidence:pl.confidence,note:[...(pl.notes||[]),change?.note,...guess].filter(Boolean).join("; ")})
   });
   // Bracing and secondary members meet the beams of the same plan: their ends take those beams' levels.
@@ -1583,4 +1607,4 @@ function seatTrusses(elements,catalog){
   e.note=[e.note,"Ферма по геометрической схеме"+(moved?", отметка низа — как у соседних ферм":"")+" — проверьте"].filter(Boolean).join("; ")
  }
 }
-module.exports={instanceStatus,sheetNodes,jointNote,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces,trimGuardPosts,sectionOutliers,roofOnColumns,purlinsOnBeams,hangTracks,relevelNeighbours,oneLadder};
+module.exports={instanceStatus,sheetNodes,jointNote,platesBySpec,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces,trimGuardPosts,sectionOutliers,roofOnColumns,purlinsOnBeams,hangTracks,relevelNeighbours,oneLadder};
