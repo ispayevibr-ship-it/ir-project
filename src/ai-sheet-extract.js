@@ -371,7 +371,7 @@ function specHeader(texts,head){
  // (The header is the lines of «Сечение» up to its «Примечание»: words of a table beside it are not.)
  const noteH=lenH&&words.filter(t=>/^Примечание/u.test(t.str)&&t.x>lenH.x).sort((a,b)=>a.x-b.x)[0];
  const x1=noteH?noteH.x+(noteH.width||60)+40:Infinity;
- return markH&&lenH?{hdr:words.filter(t=>t.x>markH.x-30&&t.x<x1&&t.y<secH.y+2.5*(secH.size||12)),markH,secH,lenH}:{hdr:words}
+ return markH&&lenH?{hdr:words.filter(t=>t.x>markH.x-30&&t.x<x1&&t.y<secH.y+2.5*(secH.size||12)),markH,secH,lenH,noteH}:{hdr:words}
 }
 // A specification ends where the next table under it begins: «Требуется изготовить» (its «изготовить» alone when OCR lost
 // the first word), «Выборка металла», «Ведомость …» — under the width of the table (its header), not only its first
@@ -504,7 +504,7 @@ function markNames(groups,order){
 function specTable(texts,order=[]){
  const out=[];
  for(const head of texts.filter(t=>/^Спецификац/u.test(t.str))){
-  const {hdr,markH,secH,lenH}=specHeader(texts,head);
+  const {hdr,markH,secH,lenH,noteH}=specHeader(texts,head);
   if(!markH)continue;
   // «Марка дет.» left of «Сечение»: the table lists the parts of one shipping mark, not marks.
   // «№ дет.» (positions, a column of its own right of «Марка») is not that.
@@ -548,10 +548,25 @@ function specTable(texts,order=[]){
   const twinOf=r=>{const len=lenOf(r);if(!len)return null;const L=Number(len.str),nums=numsOf(r).filter(t=>t.str.replace(/\D/g,"").length>=3);
    const k=known.find(k=>Math.abs(k.len-L)<=L*0.01&&k.nums.some(a=>nums.some(b=>a.str.replace(",",".")===b.str.replace(",",".")&&Math.abs(a.x-b.x)<15)));
    return k?k.sec:null};
+  // Each row a part of the mark (ГПЭС В46: «2 | −181х10 | 222 | 1 | 3,2 | 3 | скосы, отв. Ø19»): its position (the number
+  // left of «Сечение»), section, length, count (under «т» of «Кол-во», right of the length or left of «Сечение» — ГПЭС К32:
+  // «Поз. | т | н | Сечение»; else the first number after the length) and note (right of «Марка стали»: not «С255»).
+  const kolH=hdr.filter(t=>/^т\.?$/u.test(t.str)).sort((a,b)=>a.x-b.x)[0],steelCol=hdr.filter(t=>/^Марка$/u.test(t.str)&&t.x>lenH.x).sort((a,b)=>a.x-b.x)[0];
+  const partRow=(r,sec,len)=>{
+   const pos=r.items.slice().sort((a,b)=>a.x-b.x).find(t=>/^\d{1,2}$/.test(t.str)&&t.x<secH.x-15&&t.x>markH.x+20&&!(kolH&&Math.abs(t.x-kolH.x)<20)),nums=numsOf(r);
+   const kol=kolH?r.items.find(t=>Math.abs(t.x-kolH.x)<20&&/^\d{1,3}$/.test(t.str)):nums.find(t=>/^\d{1,3}$/.test(t.str));
+   // (the note within its column: «Требуется изготовить» may stand right beside the table)
+   const n0=Math.max(noteH?noteH.x-50:0,steelCol?steelCol.x+(steelCol.width||String(steelCol.str).length*(steelCol.size||8)*0.55)+2:0);
+   const note=noteH?r.items.filter(t=>t.x>=n0&&t.x<noteH.x+(noteH.width||60)+40).sort((a,b)=>a.x-b.x).map(t=>t.str).join(" ").replace(/\s+/g," ").trim():"";
+   let section=sec&&ROLLED.test(sec)?normProfile(sec):String(sec||"").replace(/^[—–-]\s*/u,"−").replace(/\s+/g,"");
+   // A bare size whose dash the reading lost («80х10»): a plate when the mass of one part is that of a plate A×s, within 12 %.
+   {const m=/^(\d{2,4})[хx×](\d{1,2})$/u.exec(section),one=Number(partOf(r)?.str.replace(",","."));
+    if(m&&len&&one>0){const w=Number(m[1])*Number(m[2])*Number(len.str)*7.85e-6;if(Math.abs(w-one)<=one*0.12||Math.abs(w-one/10)<=one*0.012)section="−"+section}}
+   return{pos:pos?Number(pos.str):null,section,length_mm:len?Number(len.str):null,count:kol?Number(kol.str):null,...(note?{note}:{})}};
   const names=markNames(groups.map(g=>g.flatMap(r=>r.items).filter(isLabel).flatMap(l=>titleMarks(l.str).map(mark=>({mark,l})))),order);
   groups.forEach((g,gi)=>{
    const labels=names[gi];
-   let best=null,mass=null,back="",derived=false,except=false,word=false;
+   let best=null,mass=null,back="",derived=false,except=false,word=false;const parts=[];
    for(const r of g){
     let sec=secOf(r);const len=lenOf(r);
     // A bare size: the mass of one part (the number after the count, right of the length) by its length; its comma may
@@ -574,6 +589,8 @@ function specTable(texts,order=[]){
     if(r.items.some(t=>/(?:все\s+)?(?:позиции|детали)\s+по|обратн[ао]/iu.test(t.str)&&!/позиции\s+\d/iu.test(t.str)))derived=true;
     if(/кроме/iu.test(line))except=true;
     {const m=r.items.find(t=>massAt(t)&&/^\d+(?:[,.]\d+)?$/.test(t.str));if(m)mass=Number(m.str.replace(",","."))}
+    // (each row with a section or a length a part of the mark)
+    if((sectionLike(sec)||len)&&!r.items.some(t=>WELD_ROW.test(t.str)))parts.push(partRow(r,sectionLike(sec)?sec:"",len));
     // The member itself: an I-beam, channel or tube before angles and plates, then the longest; a length the
     // OCR lost does not disqualify it.
     if(sec&&ROLLED.test(sec)&&sectionLike(sec)){
@@ -595,12 +612,15 @@ function specTable(texts,order=[]){
    // A group whose member row the reading could not make out (a length or masses, no section): the sheet's «Выборка
    // металла» may still name it.
    const lost=!best&&!base&&g.some(r=>(lenOf(r)||numsOf(r).length>=2)&&!sectionLike(secOf(r))&&!r.items.some(t=>WELD_ROW.test(t.str)||/позиц|детали\s+по|обратн|по[дб]о[дб]н/iu.test(t.str)));
-   if(!labels.length){if(best||base||lost||g.some(r=>lenOf(r)))seq.push({best,base,mass,back,like:like&&back,lost,guessed});if(base||best)previous=base||{profile:normProfile(best.sec),length_mm:best.len||null};return}
+   if(!labels.length){if(best||base||lost||g.some(r=>lenOf(r)))seq.push({best,base,mass,back,like:like&&back,lost,guessed,parts:derived?null:parts});if(base||best)previous=base||{profile:normProfile(best.sec),length_mm:best.len||null};return}
    seq.push({marks:labels.map(x=>x.mark)});
    for(const {mark,l,fixed} of labels)if(!byMark.get(mark)?.profile){
     const e=base?{mark,profile:base.profile,length_mm:base.length_mm,mass_kg:mass,same:back,ocr:Boolean(l.ocr)}
      :{mark,profile:best?normProfile(best.sec):"",length_mm:best?.len||null,mass_kg:mass,same:back,ocr:Boolean(l.ocr)};
     if(fixed){e.read=fixed;e.by_order=true}
+    // (its own parts; a mark made like another lists only its changes — «все позиции по К32», «обратно К1» without
+    // «кроме» has the parts of that mark)
+    if(!derived&&parts.length)e.parts=parts;else if(derived&&back&&!except&&!parts.some(p=>p.section))e.parts_by=back;
     if(like&&back)e.like=back;
     if(lost)e.lost=true;
     if(guessed)e.guessed=true;
@@ -626,8 +646,10 @@ function specTable(texts,order=[]){
     :{mark,profile:u.best?normProfile(u.best.sec):"",length_mm:u.best?.len||null,mass_kg:u.mass,same:u.back,ocr:true,by_order:true,lost:u.lost};
    if(u.like)e.like=u.like;
    if(u.guessed)e.guessed=true;
+   if(u.parts?.length)e.parts=u.parts;
    byMark.set(mark,e)
   });
+  for(const e of byMark.values()){const b=e.parts_by&&byMark.get(e.parts_by);if(b?.parts)e.parts=b.parts.map(p=>({...p}))}
   // «Все позиции по Ф6» takes Ф6 as named in the end (a group named by «Требуется» after it was read).
   for(let k=0;k<2;k++)for(const e of byMark.values()){const b=e.like&&byMark.get(e.like);if(b&&b!==e&&b.profile){e.profile=b.profile;e.length_mm=b.length_mm}}
   // A mark with only its mass left («307» of Ф91 whose «подобна Ф86» the reading lost), or made like a mark whose name
@@ -641,7 +663,7 @@ function specTable(texts,order=[]){
   }
   for(const e of byMark.values()){
    if(!e.profile&&e.same&&byMark.get(e.same))e.profile=byMark.get(e.same).profile;
-   out.push({mark:e.mark,profile:e.profile,mass_kg:e.mass_kg,length_mm:e.length_mm,...(e.ocr?{ocr:true}:{}),...(e.by_order?{by_order:true}:{}),...(e.read?{read:e.read}:{}),...(e.by_mass?{by_mass:e.by_mass}:{}),...(e.lost&&!e.profile?{lost:true}:{})})
+   out.push({mark:e.mark,profile:e.profile,mass_kg:e.mass_kg,length_mm:e.length_mm,...(e.ocr?{ocr:true}:{}),...(e.by_order?{by_order:true}:{}),...(e.read?{read:e.read}:{}),...(e.by_mass?{by_mass:e.by_mass}:{}),...(e.lost&&!e.profile?{lost:true}:{}),...(e.parts?{parts:e.parts,...(e.parts_by?{parts_by:e.parts_by}:{})}:{})})
   }
  }
  return out

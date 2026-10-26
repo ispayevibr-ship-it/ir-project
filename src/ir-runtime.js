@@ -1955,7 +1955,7 @@ window.irSchemePage=async function(objectId){
     // What the 3D draws a member by: its rolled section, a truss or a lattice column, the base, the joint and the nodes of
     // the drawings — without them the exported scheme showed conventional sections, trusses as beams and no bolts.
     profile_name:String(c.profile_name||""),profile_standard:String(c.profile_standard||""),section_type:String(c.section_type||""),type_key:String(c.type_key||""),
-    truss:c.truss||undefined,column:c.column||undefined,base:c.base||undefined,joint:c.joint||undefined,drill:Array.isArray(c.drill)?c.drill:undefined,cross:c.cross||undefined,nodes:c.nodes||undefined,
+    truss:c.truss||undefined,column:c.column||undefined,base:c.base||undefined,joint:c.joint||undefined,drill:Array.isArray(c.drill)?c.drill:undefined,parts:Array.isArray(c.parts?.rows)?c.parts:undefined,cross:c.cross||undefined,nodes:c.nodes||undefined,
     // How fully the drawings determined it and its section: the exported page shows the same pale «предварительно».
     preliminary:isPreliminary(c)||undefined,instance_status:INSTANCE_STATUS[c.instance_status]?String(c.instance_status):undefined,
     instance_reasons:Array.isArray(c.instance_reasons)&&c.instance_reasons.length?c.instance_reasons.map(String).slice(0,5):undefined,source_section:sectionOfRecord(c),
@@ -2088,6 +2088,12 @@ window.irSchemePage=async function(objectId){
    return`<span>Вид «${esc(v.view||"")}»${v.scale?", М "+esc(v.scale):""}, длина ${fmt(v.length_mm)} мм${v.not_to_scale?" (нарисован не в масштабе — по размерам чертежа)":""}: ${esc(groups.join("; ")||"—")}${part?"; в фасонках на нём — "+part+" шт.":""}</span>`};
   return`<div class="scheme-fasteners"><b>Отверстия по сборочному чертежу</b>${views.map(row).join("")}${views[0].sheet?`<small>${esc(views[0].sheet)}</small>`:""}</div>`
  }
+ // The parts of the member as the specification of its assembly sheet lists them (c.parts): position, section, length,
+ // count, note (the engineer, 25.10.2026: «каждый узел должен быть показан идеально»).
+ function partsHtml(c){
+  const rows=Array.isArray(c.parts?.rows)?c.parts.rows:[];if(!rows.length)return"";
+  return`<div class="scheme-fasteners"><b>Детали марки по спецификации</b>${rows.map(r=>`<span>${r.pos?"поз. "+esc(r.pos)+" — ":""}${esc(r.section||"сечение не прочитано")}${r.length_mm?", L "+fmt(r.length_mm)+" мм":""}${r.count?", "+fmt(r.count)+" шт.":""}${r.note?" ("+esc(r.note)+")":""}</span>`).join("")}<small>${esc(c.parts.sheet||"")}${c.parts.by?" · как "+esc(c.parts.by):""}</small></div>`
+ }
  function renderDetails(){
   const panel=document.getElementById("schemeDetails");if(!panel)return;const c=selected();
   if(!c){panel.innerHTML=pickerHtml()+`<div class="scheme-detail-empty"><b>Элемент не выбран</b><span>Нажмите на элемент на схеме или добавьте новый.</span>${canEdit()?'<button type="button" data-scheme-add>＋ Добавить элемент</button>':""}</div>`;panel.querySelector("[data-scheme-add]")?.addEventListener("click",()=>window.irThreeSchemeView?.startPlacement?.()??openEditor());bindElementPicker(panel);return}
@@ -2114,7 +2120,7 @@ window.irSchemePage=async function(objectId){
     <div class="scheme-mark-progress-bar"><i style="width:${Math.max(0,Math.min(100,progress.mounted/progress.total*100))}%"></i></div>
     ${progress.state==="partial"?'<small>Ведомость показывает частичное выполнение марки, но не указывает, какой именно экземпляр смонтирован.</small>':""}
    </div>`:""}
-   ${fastenersHtml(c)}${drillHtml(c)}
+   ${fastenersHtml(c)}${drillHtml(c)}${partsHtml(c)}
    ${between?`<div class="scheme-between"><b>Элемент между осями</b><span>${esc(a.x)} / ${esc(a.y)}</span><small>Положение вычисляется от выбранных базовых осей и сохраняется точно в миллиметрах.</small></div>`:""}
    ${canEdit()?`<div class="scheme-detail-actions"><button type="button" data-scheme-edit>Редактировать</button><button type="button" data-scheme-copy-place>⧉ Размещение</button><button type="button" data-scheme-copy>⧉ Копировать позицию</button><button type="button" class="danger" data-scheme-delete>Удалить</button></div>${irProject.ai?.invoke?`<div class="scheme-journal-send"><input type="text" data-scheme-journal-note maxlength="500" placeholder="Комментарий к правке (необязательно)"><button type="button" data-scheme-journal title="Записать элемент как он есть сейчас в журнал правок — журнал уходит на GitHub каждый час">В журнал</button><small data-scheme-journal-state>${journalSent.has(String(c.id))?"В журнале: "+esc(journalSent.get(String(c.id))):""}</small></div>`:""}`:""}`;
   loadMarkCard(panel,c);

@@ -61,7 +61,22 @@ const spec=specTable([T("Спецификация стали",100,100),T("Мар
  T("2",160,230),T("-200х16",260,230),T("300",420,230),T("1% на сварку",260,260),
  T("К2",100,300),T("обратно К1",260,300),T("1% на сварку",260,330),
  T("Требуется",100,380),T("К3",100,410),T("I30Ш1",260,410),T("6000",420,410)]);
-assert.deepEqual(spec,[{mark:"К1",profile:"Тр.140х4",mass_kg:120.5,length_mm:4144},{mark:"К2",profile:"Тр.140х4",mass_kg:null,length_mm:4144}]);
+// (Each row of its own a part of the mark: position, section, length, count; a mark made «обратно» has the parts of that one.)
+const K1parts=[{pos:1,section:"Тр.140х4",length_mm:4144,count:1},{pos:2,section:"−200х16",length_mm:300,count:null}];
+assert.deepEqual(spec,[{mark:"К1",profile:"Тр.140х4",mass_kg:120.5,length_mm:4144,parts:K1parts},
+ {mark:"К2",profile:"Тр.140х4",mass_kg:null,length_mm:4144,parts:K1parts,parts_by:"К1"}]);
+// The plan takes the parts for the mark from its assembly sheet; the placed member, its card and the exported page carry
+// them.
+{
+ const {markKey}=require("../src/ai-montage-plan"),fs=require("fs"),path=require("path");
+ const cat=buildCatalog({pages:[{docType:"КМД сборочные",sourceName:"К1.pdf",page:2,sheet:{spec}}]});
+ assert.deepEqual(cat.get(markKey("КМД","К1")).parts.rows,K1parts);
+ assert.equal(cat.get(markKey("КМД","К2")).parts.by,"К1");
+ const src=f=>fs.readFileSync(path.join(__dirname,"..","src",f),"utf8");
+ assert(/cat\?\.parts\?\{parts:cat\.parts\}/.test(src("ai-montage-plan.js"))&&/parts:e\.parts\|\|undefined/.test(src("ai-montage.js")),"the plan and the montage carry the parts");
+ for(const f of ["scheme-page.js","ir-runtime.js"])assert(/\$\{partsHtml\(c\)\}/.test(src(f))&&/parts:Array\.isArray\(c\.parts\?\.rows\)\?c\.parts:undefined/.test(src(f)),f+": the card and the export");
+ assert(/drillHtml\(c\)\+partsHtml\(c\)/.test(src("scheme-export-html.js")),"the exported page");
+}
 // A column without levels of its own takes those of the nearest column of its plan; it is placed, to be checked.
 {
  const sch={...scheme,placements:[...scheme.placements,{mark:"Ф10",geometry_type:"column",x_mm:6000,y_mm:6000,confidence:"high",notes:[]}]};

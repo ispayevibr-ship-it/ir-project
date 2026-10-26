@@ -156,6 +156,12 @@
     return'<span>Вид «'+esc(v.view||"")+'»'+(v.scale?", М "+esc(v.scale):"")+', длина '+fmt(v.length_mm)+' мм'+(v.not_to_scale?" (нарисован не в масштабе — по размерам чертежа)":"")+': '+esc(groups.join("; ")||"—")+(part?"; в фасонках на нём — "+part+" шт.":"")+'</span>'};
    return'<div class="fast"><b>Отверстия по сборочному чертежу</b>'+views.map(row).join("")+(views[0].sheet?'<small>'+esc(views[0].sheet)+'</small>':"")+'</div>'
   }
+  // The parts of the member by the specification of its assembly sheet, as the program's card shows them.
+  function partsHtml(c){
+   var rows=c.parts&&Array.isArray(c.parts.rows)?c.parts.rows:[];if(!rows.length)return"";
+   return'<div class="fast"><b>Детали марки по спецификации</b>'+rows.map(function(r){return'<span>'+(r.pos?"поз. "+esc(r.pos)+" — ":"")+esc(r.section||"сечение не прочитано")+(r.length_mm?", L "+fmt(r.length_mm)+" мм":"")+(r.count?", "+fmt(r.count)+" шт.":"")+(r.note?" ("+esc(r.note)+")":"")+'</span>'}).join("")+
+    '<small>'+esc(c.parts.sheet||"")+(c.parts.by?" · как "+esc(c.parts.by):"")+'</small></div>'
+  }
   function list(){
    var found=shown().filter(match).sort(function(a,b){return String(a.mark).localeCompare(String(b.mark),"ru",{numeric:true})});
    $("found").textContent="Найдено: "+found.length;
@@ -176,7 +182,7 @@
      ["Ось "+D.axesX[0]+"–"+D.axesX[D.axesX.length-1],a.x],["Ось "+D.axesY[0]+"–"+D.axesY[D.axesY.length-1],a.y],["Коорд. X",fmt(c.x)+" мм"],["Коорд. Y",fmt(c.y)+" мм"],
      ["Низ",fmt(c.z0)+" мм"],["Верх / конец Z",fmt(c.z2)+" мм"]].concat(c.geometryType!=="column"&&c.geometryType!=="shell"&&c.geometryType!=="plate"?[["Конец X",fmt(c.x2)+" мм"],["Конец Y",fmt(c.y2)+" мм"]]:[])
      .map(function(r){return'<div><span>'+esc(r[0])+'</span><b>'+(r[2]?r[1]:esc(r[1]||"—"))+'</b></div>'}).join("")+'</div>'+
-    fastenersHtml(c.joint)+drillHtml(c)+
+    fastenersHtml(c.joint)+drillHtml(c)+partsHtml(c)+
     (p&&p.total>0?'<div class="prog"><b>Марка '+esc(c.mark)+' по ведомости:</b> всего '+fmt(p.total)+' шт., смонтировано '+fmt(p.mounted)+', осталось '+fmt(p.left)+'<div class="bar"><i style="width:'+Math.max(0,Math.min(100,p.mounted/p.total*100))+'%"></i></div></div>':"");
    $("uncard").onclick=function(){S.sel="";details();list();draw3d()}
   }
