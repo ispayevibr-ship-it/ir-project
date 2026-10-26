@@ -16,7 +16,10 @@ const {textBox}=require("./ai-scheme-extract");
 
 const POS=/^([А-ЯЁ]{1,3})-(\d{1,3}[а-я]?)$/u;
 const PANEL_NAME=/П[СCК]\s*(\d{3,5})[.,](\d{3,4})[.,](\d{2,3})/u;
-const RAL=/RAL\s*(\d{4})/giu;
+// RAL codes in a text: RAL Classic «RAL 7047», «ПЭ-RAL7047-0.5» (the coating's thickness after it) — "7047"; RAL Design
+// System+ «RAL 210 50 15», «RAL 210-50-15» — "210 50 15" (hue, lightness, chroma); RAL Effect «RAL 110-M» — "110-M".
+const RAL=/RAL\s*(?:D\d\s+)?(\d{3})(?:[\s-](\d{2})[\s-](\d{2})(?!\d)|-([1-6M])(?![\dA-Za-zА-Яа-я])|(\d)(?!\d))/giu;
+const ralCodes=str=>[...String(str||"").matchAll(RAL)].map(m=>m[2]?m[1]+" "+m[2]+" "+m[3]:m[4]?m[1]+"-"+m[4].toUpperCase():m[1]+m[5]);
 const horizontalText=t=>Math.abs(t.angle||0)<10;
 
 // One row of a table: the texts on the line of its position, to the right of it.
@@ -33,8 +36,8 @@ function panelSpec(texts){
   const n=PANEL_NAME.exec(String(nameT.str)),title=titleOf(titles,p);
   const count=row.filter(o=>o.x>nameT.x+20&&/^\d{1,4}$/.test(String(o.str).trim())).sort((a,b)=>a.x-b.x)[0];
   // The code is written over the row (the cell holds two lines): «ТСП-Z-150-1190-Н-П-МВ (ПЭ-RAL2008-0.5/…)».
-  const code=texts.filter(o=>o.y<=p.y+1&&o.y>p.y-14&&o.x>=p.x-5&&o.x<nameT.x&&/RAL\s*\d{4}|ТСП|^\S*-\d{2,3}-\d{3,4}-/iu.test(String(o.str))).sort((a,b)=>b.y-a.y)[0];
-  const rals=code?[...String(code.str).matchAll(RAL)].map(r=>r[1]):[],own=title?[...String(title.str).matchAll(RAL)].map(r=>r[1]):[];
+  const code=texts.filter(o=>o.y<=p.y+1&&o.y>p.y-14&&o.x>=p.x-5&&o.x<nameT.x&&/RAL\s*\d{3}|ТСП|^\S*-\d{2,3}-\d{3,4}-/iu.test(String(o.str))).sort((a,b)=>b.y-a.y)[0];
+  const rals=code?ralCodes(code.str):[],own=title?ralCodes(title.str):[];
   out.push({at:p,pos:m[1]+"-"+m[2],kind:m[1],length_mm:Number(n[1]),width_mm:Number(n[2]),thickness_mm:Number(n[3]),
    ral:rals[0]||own[0]||"",...(rals[1]?{ral_inside:rals[1]}:{}),count:count?Number(count.str):null,
    name:String(nameT.str).replace(/[-\s]+$/u,"").trim(),...(code?{code:String(code.str).trim()}:{}),table:title?String(title.str).trim():""})
@@ -344,4 +347,4 @@ function extractArchitecture(geometry){
  const panels=spec.map(({at,...p})=>p);
  return panels.length||fills.length||views.length||facades.length?{panels,fills,views,...(facades.length?{facades}:{})}:null
 }
-module.exports={extractArchitecture,panelSpec,fillSpec,panelViews,fillViews};
+module.exports={extractArchitecture,panelSpec,fillSpec,panelViews,fillViews,ralCodes};

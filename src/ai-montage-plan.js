@@ -7,6 +7,7 @@
 const {markCode}=require("./ai-kmd-rules");
 const ST=require("./ai-structure-types");
 const {stampNames}=require("./ai-sheet-extract");
+const {ralCodes}=require("./ai-ar-extract");
 // Groups of the montage scheme: the catalog of structure types (src/ai-structure-types.js).
 const GROUPS=Object.fromEntries(ST.GROUPS.map(g=>[g.key,g.label]));
 const FITTING_TYPE={deck:"platform",weld:"weld",bolt:"bolt",manhole:"manhole",hatch:"roof_hatch",valve:"valve",foam:"foam",sensor:"instrument",rod:"lightning",nozzle:"nozzle",ring:"tank_ring",railing:"railing",flight:"stair_flight",ladder:"ladder",panel:"sandwich",trim:"trim"};
@@ -442,6 +443,8 @@ function claudeScheme(ai,candidates,{wallPanels=true}={}){
   // field), a roof one from the eave (z0) to the ridge (z1), its width across; a trim along its line. What the sheets
   // do not give is shown conventionally and marked.
   const panel=type?.fitting==="panel"&&!column?panelOf(type.key,z0,z1,e.width_mm):null,trim=type?.fitting==="trim"?{fitting_type:"trim",diameter_mm:e.width_mm>0?Math.round(e.width_mm):0}:null;
+  // Its colour, when its name or note gives a RAL («Стеновая сэндвич-панель 150 мм, RAL 9006»): drawn in it.
+  const ral=panel||trim?ralCodes((e.name||"")+" "+(e.note||""))[0]:"";if(ral)(panel?panel.fit:trim).layout={...((panel?panel.fit:trim).layout||{}),ral};
   placements.push({...stair,...(panel?.fit||trim||{}),mark:String(e.mark).trim(),name:e.name||type?.name||"",type_key:type?.key||"",...(type&&!["shell","plate","fitting"].includes(type.geometry)?{scheme_group:type.group}:{}),geometry_type:e.geometry_type,x_mm:Math.round(x+(Number(e.dx_mm)||0)),y_mm:Math.round(y+(Number(e.dy_mm)||0)),
    ...(column?{}:{x2_mm:Math.round(x2+(Number(e.dx2_mm)||0)),y2_mm:Math.round(y2+(Number(e.dy2_mm)||0))}),
    z0_mm:panel?panel.z0:column?Math.min(z0,z1):z0,z1_mm:panel?panel.z1:column?Math.max(z0,z1):z1,levels_from:"Claude",confidence:"low",axis_x:String(e.axis_x),axis_y:String(e.axis_y),...(e.sheet?{sheet:String(e.sheet)}:{}),

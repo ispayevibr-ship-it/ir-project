@@ -1125,6 +1125,69 @@
    "publisher": "ООО «САРРЗ»",
    "license": "ссылка",
    "accessed": "2026-10-24"
+  },
+  {
+   "id": "ral-gmbh",
+   "title": "RAL gGmbH — цветовые стандарты RAL Classic, RAL Design System+, RAL Effect",
+   "kind": "владелец стандарта",
+   "url": "https://www.ral-farben.de/en/",
+   "publisher": "RAL gGmbH",
+   "license": "ссылка; образцы и цифровые файлы RAL не копируются",
+   "accessed": "2026-10-26"
+  },
+  {
+   "id": "ral-design-system",
+   "title": "RAL Design System+ — 1825 цветов, код = тон, светлота, насыщенность (CIE LCh)",
+   "kind": "описание стандарта",
+   "url": "https://www.ral-farben.de/en/faq",
+   "publisher": "RAL gGmbH",
+   "license": "ссылка",
+   "accessed": "2026-10-26"
+  },
+  {
+   "id": "ral-effect",
+   "title": "RAL Effect — 490 цветов (420 сплошных, 70 металликов)",
+   "kind": "описание стандарта",
+   "url": "https://tikkurila.com/industry/colors/ral-colors-collections/ral-effect/general-information",
+   "publisher": "Tikkurila",
+   "license": "ссылка",
+   "accessed": "2026-10-26"
+  },
+  {
+   "id": "wikipedia-ral-list",
+   "title": "List of RAL colours — CIELab и названия RAL Classic",
+   "kind": "энциклопедия",
+   "url": "https://en.wikipedia.org/wiki/List_of_RAL_colours",
+   "publisher": "Wikipedia",
+   "license": "CC BY-SA 4.0; взяты числа CIELab и названия",
+   "accessed": "2026-10-26"
+  },
+  {
+   "id": "npm-ral-colors",
+   "title": "Пакет ral-colors 1.0.1 — hex RAL Classic, RAL Effect, названия RAL Design System+",
+   "kind": "открытые данные",
+   "url": "https://www.npmjs.com/package/ral-colors",
+   "publisher": "Ibon Eskudero",
+   "license": "MIT",
+   "accessed": "2026-10-26"
+  },
+  {
+   "id": "coloresral-6039",
+   "title": "RAL 6039 Fibrous green (Fasergrün)",
+   "kind": "справочная страница",
+   "url": "https://www.coloresral.com.es/ral-classic/ral-6039-verde-fibra",
+   "publisher": "coloresral.com.es",
+   "license": "ссылка",
+   "accessed": "2026-10-26"
+  },
+  {
+   "id": "plan-home-6039",
+   "title": "RAL 6039 Fibrous green — hex и CIELab",
+   "kind": "справочная страница",
+   "url": "https://plan-home.com/color/fibrous-green-ral-6039.md",
+   "publisher": "plan-home.com",
+   "license": "ссылка",
+   "accessed": "2026-10-26"
   }
  ]
 }
