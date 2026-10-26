@@ -255,9 +255,9 @@ assert.deepEqual(spec,[{mark:"К1",profile:"Тр.140х4",mass_kg:120.5,length_mm
  assert.deepEqual(extractSheet({widthPt:2384,heightPt:1684,texts:u}).spec.map(r=>[r.mark,r.profile,r.length_mm]),[["В5","I25Ш2",6160],["В6","I25Ш2",6160],["В7","I25Ш2",6140]])}
 // A table beside the specification (its «Требуется изготовить» at the height of the header) does not move the header down;
 // the box sign of a tube drawn as a square of lines before «140х4» on a leader; views drawn in steps (Ф15 high, Ф16 lower and
-// aside) part the sheet across; the one rolled section labelled in a view is the section of a mark the specification lacks.
+// aside, Ф15's post running down past Ф16's title) part the sheet across; the one rolled section labelled in a view is the section of a mark the specification lacks.
 {const sq=(x,y,a)=>[[x,y,x+a,y],[x+a,y,x+a,y-a],[x+a,y-a,x,y-a],[x,y-a,x,y]].map(([x0,y0,x1,y1])=>({a:{x:x0,y:y0},b:{x:x1,y:y1}}));
- const v=extractSheet({widthPt:1684,heightPt:1191,segments:[...sq(745.4,343.2,9.9),...sq(1040,522,9.9)],texts:[T("Ф15",707,58,31),T("140х4",756.8,343.2,15.3),T("+3,600",760,90),T("3580",700,700),
+ const v=extractSheet({widthPt:1684,heightPt:1191,segments:[...sq(745.4,343.2,9.9),...sq(1040,522,9.9),{a:{x:743,y:141},b:{x:743,y:872}}],texts:[T("Ф15",707,58,31),T("140х4",756.8,343.2,15.3),T("+3,600",760,90),T("3580",700,700),
   T("Ф16",1007,220,31),T("120х4",1051,522,15.3),T("+2,100",1060,250),T("2080",1000,700),
   T("Требуется изготовить",1000,1050),T("Отправочная",960,1080),T("марка",970,1100),T("Ф15",990,1272,14),T("24",1040,1272),T("70",1090,1272),T("Ф16",990,1300,14),T("12",1040,1300),T("39",1090,1300),T("Итого",1100,1340)]});
  assert.deepEqual(v.views.map(x=>[x.marks[0],x.profile]),[["Ф15","□140х4"],["Ф16","□120х4"]]);
@@ -343,6 +343,34 @@ assert.deepEqual(spec,[{mark:"К1",profile:"Тр.140х4",mass_kg:120.5,length_mm
  const cd=buildCatalog({pages:[{page:1,docType:"КМД сборочные",sourceName:"s.pdf",sheet:{views:[level],drill}}]});
  assert.deepEqual(["К1","К2"].map(m=>{const d=cd.get(markKey("КМД",m)).drill[0];return[d.length_mm,d.center_mm,d.holes.map(h=>h[0])]}),[[7040,undefined,[70,70,6970,6970]],[5700,20,[70,70,5630,5630]]]);
  assert(require("fs").readFileSync(require("path").join(__dirname,"../src/scheme-three-view.js"),"utf8").includes("at-len/2+ctr"),"the 3D sets the holes off the middle by center_mm")}
+// A view ended above a lower title aside of it is above it, not beside it (ГПЭС Ф137 over Ф140): the lower one's area
+// reaches its left end, «250 · 500 · 500 · 250», «1500».
+{
+ const T=(str,x,y,size=7,width=str.length*4.5)=>({str,x,y,size,width,angle:0});
+ const H=(y,x0,x1)=>({a:{x:x0,y},b:{x:x1,y}}),V=(x,y0,y1)=>({a:{x,y:y0},b:{x,y:y1}}),K=(x,y)=>({a:{x:x-1.5,y:y+1.5},b:{x:x+1.5,y:y-1.5}});
+ const row=(y,xs,vals)=>({lines:[H(y,xs[0],xs[xs.length-1]),...xs.flatMap(x=>[V(x,y-10,y+3),K(x,y)])],texts:vals.map((v,k)=>T(String(v),(xs[k]+xs[k+1])/2-String(v).length*1.5,y-2,6,String(v).length*3))});
+ const rows=[row(940,[1070,1120,1220,1320,1370],[250,500,500,250]),row(960,[1070,1370],[1500]),row(500,[950,1150],[1000])];
+ const sheet={widthPt:2400,heightPt:1700,texts:[T("Ф137",1045,70,31,62),T("Ф138",1640,70,31,62),T("Ф140",1278,600,31,62),...rows.flatMap(r=>r.texts)],
+  segments:[...rows.flatMap(r=>r.lines),V(960,100,520),V(1140,100,520),V(1300,630,980)]};
+ const v=extractSheet(sheet).views.find(x=>x.marks.includes("Ф140"));
+ assert.deepEqual([v.length_mm,v.box.x0<1070],[1500,true],"the whole of the lower view: "+JSON.stringify(v));
+ // (Ф137's post running down past it: beside it)
+ const w=extractSheet({...sheet,segments:[...sheet.segments,V(1140,100,900)]}).views.find(x=>x.marks.includes("Ф140"));
+ assert(w.box.x0>1150,"beside: "+JSON.stringify(w.box))}
+// A beam drawn wider than the area round its title (ГПЭС Ф48: 5700 drawn 1700 pt long): its long lines under the title
+// carry its area to its ends, so its overall «6000» is read, not the «3000» of its middle. Pieces joined end to end, each
+// named over its own («Ф76, Ф77»): each its part of the row adding up to the whole.
+{
+ const T=(str,x,y,size=7,width=str.length*4.5)=>({str,x,y,size,width,angle:0});
+ const H=(y,x0,x1)=>({a:{x:x0,y},b:{x:x1,y}}),V=(x,y0,y1)=>({a:{x,y:y0},b:{x,y:y1}}),K=(x,y)=>({a:{x:x-1.5,y:y+1.5},b:{x:x+1.5,y:y-1.5}});
+ const row=(y,xs,vals)=>({lines:[H(y,xs[0],xs[xs.length-1]),...xs.flatMap(x=>[V(x,y-10,y+3),K(x,y)])],texts:vals.map((v,k)=>T(String(v),(xs[k]+xs[k+1])/2-String(v).length*1.5,y-2,6,String(v).length*3))});
+ const beam=[H(150,200,1800),H(200,200,1800),V(200,150,200),V(1800,150,200)];
+ const one=[row(260,[200,600,1400,1800],[1500,3000,1500]),row(280,[200,1800],[6000]),row(300,[970.7,1000,1029.3],[110,110])];
+ const v=extractSheet({widthPt:2400,heightPt:1700,texts:[T("Б1",990,100,31,40),...one.flatMap(r=>r.texts)],segments:[...beam,...one.flatMap(r=>r.lines)]}).views.find(x=>x.marks.includes("Б1"));
+ assert.deepEqual([v.length_mm,v.box.x0<200,v.box.x1>1800],[6000,true,true],"the whole beam: "+JSON.stringify(v));
+ const two=[row(260,[200,1100,1800],[3375,2625]),row(280,[200,1800],[6000])];
+ const p=extractSheet({widthPt:2400,heightPt:1700,texts:[T("Б2, Б3",970,100,31,80),T("Б2",500,130,10,20),T("Б3",1500,130,10,20),...two.flatMap(r=>r.texts)],segments:[...beam,...two.flatMap(r=>r.lines)]}).views.find(x=>x.marks.includes("Б2"));
+ assert.deepEqual([p.length_mm,p.lengths],[6000,{Б2:3375,Б3:2625}],"each piece: "+JSON.stringify(p))}
 // A length that is only the largest number of a view gives way to the mark's own size in another view («7500 для К5»).
 {const {markKey}=require("../src/ai-montage-plan");
  const views=[{marks:["К5"],title:"К5",levels:[],z0_mm:null,z1_mm:null,length_mm:4047,length_how:"наибольшее число вида — общий размер не найден"},

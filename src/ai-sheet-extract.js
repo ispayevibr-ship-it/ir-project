@@ -207,7 +207,10 @@ function turnedSheet(title,texts,segments,titles,cells,w,h){
 // line of the row (a view may hold two drawings, each with rows of its own). {lengths, spans} or null.
 function markLengths(inside,segments,box,marks,length,pool=inside){
  const labels=pool.map(t=>{const m=/^для\s+(.+)$/u.exec(String(t.str).trim());const own=m?(titleMarks(m[1])||[]).filter(x=>marks.includes(x)):[];return own.length?{t,marks:own}:null}).filter(Boolean);
- if(!labels.length)return null;
+ // (a drawing of pieces joined end to end, each named over its piece — ГПЭС «Ф76, Ф77»: «Ф76» over the one of 8785,
+ // «Ф77» over the one of 5195, «8785 · 5195» adding up to its «13980»)
+ const pieceOf=t=>{const s=String(t.str).trim();return marks.includes(s)?s:null},pieces=labels.length?[]:pool.filter(pieceOf);
+ if(!labels.length&&new Set(pieces.map(pieceOf)).size<marks.length)return null;
  const {dimensionsOf}=require("./ai-scheme-extract");
  const near=segments.filter(q=>Math.max(q.a.x,q.b.x)>=box.x0&&Math.min(q.a.x,q.b.x)<=box.x1&&Math.max(q.a.y,q.b.y)>=box.y0&&Math.min(q.a.y,q.b.y)<=box.y1);
  const rows=[];
@@ -217,6 +220,17 @@ function markLengths(inside,segments,box,marks,length,pool=inside){
   r.v=Math.max(...r.dims.map(d=>d.v),joined?chain.reduce((a,d)=>a+d.v,0):0);
   const sum=chain.reduce((a,d)=>a+d.v,0),e0=chain[0].v,e1=chain[chain.length-1].v;
   if(joined&&chain.length>=3&&Math.max(e0,e1)<=sum*0.15)r.span={span:sum-e0-e1,a:e0,b:e1,c:Math.round(r.c*10)/10}}
+ if(!labels.length){
+  const L=Number(length)||0;
+  // (the row adding up to it the closest: «8785 · 5195» to the extension lines of «13980», not «8740 · 5150» between its
+  // end gaps)
+  const total=r=>r.dims.reduce((a,d)=>a+d.v,0);
+  for(const r of rows.slice().sort((p,q)=>Math.abs(total(p)-L)-Math.abs(total(q)-L))){const chain=r.dims.slice().sort((p,q)=>p.lo-q.lo),sum=total(r);
+   if(chain.length!==marks.length||!chain.every((d,k)=>!k||Math.abs(d.lo-chain[k-1].hi)<=1.5)||!(Math.abs(sum-L)<=Math.max(2,L*0.01)))continue;
+   const at=t=>r.flat?t.x+(t.width||0)/2:t.y,got={},used=new Map();
+   for(const t of pieces){const k=chain.findIndex(d=>at(t)>=d.lo&&at(t)<=d.hi),m=pieceOf(t);if(k<0)continue;if(used.has(m)&&used.get(m)!==k){used.set(m,-1);continue}used.set(m,k);got[m]=chain[k].v}
+   const ks=marks.map(m=>used.get(m));if(ks.every(k=>k>=0)&&new Set(ks).size===marks.length)return{lengths:got,spans:null}}
+  return null}
  const out={},spans={};
  for(const l of labels){
   const b=l.t,flat=Math.abs(b.angle||0)<10,z=Number(b.size)||10,w=Number(b.width)||0;
@@ -246,16 +260,30 @@ function assemblyViews(texts,w,h,med,segments=[]){
   const cx=v.t.x+v.t.width/2;
   // The view spans to halfway towards the neighbouring titles on the same band of the sheet.
   // (A title a little higher or lower and well aside — views drawn in steps, Ф15 and Ф16 — parts the sheet across too.)
-  const ocx=o=>o.t.x+o.t.width/2,aside=o=>Math.abs(o.t.y-v.t.y)<600&&Math.abs(ocx(o)-cx)>200;
+  // (on the sheet as drawn, only when the higher view's drawing runs down past the lower title — a line of it, between its title and halfway,
+  // crosses that height from well above it, not a leader by the title; a view ended above the lower title is above it,
+  // not beside it: ГПЭС Ф137 over Ф140, whose «250» at its left end fell in Ф137's half)
+  const ocx=o=>o.t.x+o.t.width/2,runsPast=(hi,lo)=>{const x0=Math.min(ocx(hi),(ocx(hi)+ocx(lo))/2),x1=Math.max(ocx(hi),(ocx(hi)+ocx(lo))/2),y=lo.t.y;
+   return !segments.length||segments.some(q=>Math.min(q.a.y,q.b.y)<y-30&&Math.max(q.a.y,q.b.y)>y&&Math.max(q.a.x,q.b.x)>=x0&&Math.min(q.a.x,q.b.x)<=x1)};
+  const aside=o=>Math.abs(o.t.y-v.t.y)<600&&Math.abs(ocx(o)-cx)>200&&(f||Math.abs(o.t.y-v.t.y)<120||(o.t.y<v.t.y?runsPast(o,v):runsPast(v,o)));
   const row=titles.filter(o=>o!==v&&(Math.abs(o.t.y-v.t.y)<120||aside(o)));
   // (a slanted view, of its own texts only: as far as a flight is long)
   const reach=f?800:420;
-  const left=Math.max(cx-reach,...row.map(ocx).filter(x=>x<cx).map(x=>(x+cx)/2));
-  const right=Math.min(cx+reach,...row.map(ocx).filter(x=>x>cx).map(x=>(x+cx)/2));
-  const below=titles.filter(o=>o.t.y>v.t.y+120&&!aside(o)&&ocx(o)>left&&ocx(o)<right).map(o=>o.t.y);
-  // (A table under the view — «Требуется изготовить», «Выборка металла», a «Ведомость» — ends it: its «Итого» is not a size.)
-  const tables=texts.filter(t=>t.y>v.t.y+60&&t.x+(t.width||0)>left&&t.x<right&&/^(Тре[бдв]уется|Выборка|Ведомость|Спецификац)/u.test(String(t.str))).map(t=>t.y-(t.size||10)*1.5);
-  let bottom=Math.min(h-40,...below,...tables);
+  let left=Math.max(cx-reach,...row.map(ocx).filter(x=>x<cx).map(x=>(x+cx)/2)),right=Math.min(cx+reach,...row.map(ocx).filter(x=>x>cx).map(x=>(x+cx)/2));
+  const bottomOf=()=>{const below=titles.filter(o=>o.t.y>v.t.y+120&&!aside(o)&&ocx(o)>left&&ocx(o)<right).map(o=>o.t.y);
+   // (A table under the view — «Требуется изготовить», «Выборка металла», a «Ведомость» — ends it: its «Итого» is not a size.)
+   const tables=texts.filter(t=>t.y>v.t.y+60&&t.x+(t.width||0)>left&&t.x<right&&/^(Тре[бдв]уется|Выборка|Ведомость|Спецификац)/u.test(String(t.str))).map(t=>t.y-(t.size||10)*1.5);
+   return Math.min(h-40,...below,...tables)};
+  let bottom=bottomOf();
+  // (a view drawn wider than that — a beam of 5500 drawn 1700 pt long under its title, ГПЭС Ф48: its long level lines
+  // under its title, not under a title beside it, run on to its ends — past halfway to that title when it stands far off
+  // its own drawing, В174 by В177)
+  // (again over the area so ended: the lines of a view under a title that ends it are not its, Ф74 under Ф72)
+  // (not a column drawn upright between its levels: its level lines run on across the other views of the sheet, ГПЭС К62)
+  const upright=new Set(texts.filter(t=>t.x>=left&&t.x<=right&&t.y>v.t.y&&t.y<bottom&&levelMm(t.str)!==null).map(t=>levelMm(t.str))).size>=2;
+  if(!f&&!upright){const l0=left,r0=right,xs=row.map(ocx),g0=Math.max(-Infinity,...xs.filter(x=>x<cx)),g1=Math.min(Infinity,...xs.filter(x=>x>cx));
+   for(let i=0;i<2;i++){const long=segments.filter(q=>Math.abs(q.a.y-q.b.y)<0.5&&Math.abs(q.a.x-q.b.x)>=200&&q.a.y>v.t.y&&q.a.y<bottom&&Math.min(q.a.x,q.b.x)<cx&&Math.max(q.a.x,q.b.x)>cx&&!xs.some(x=>Math.min(q.a.x,q.b.x)<x&&Math.max(q.a.x,q.b.x)>x)&&!(q.a.y>h-190&&Math.min(q.a.x,q.b.x)>w-700));
+    left=Math.max(g0,Math.min(l0,...long.map(q=>Math.min(q.a.x,q.b.x)-30)));right=Math.min(g1,Math.max(r0,...long.map(q=>Math.max(q.a.x,q.b.x)+30)));bottom=Math.min(bottom,bottomOf())}}
   // (a slanted view: its own texts packed under its title — the next drawing of the slant lies past a gap of 300 pt,
   // ГПЭС Ф135 over Ф134 and Ф133)
   if(f){let last=v.t.y;for(const y of texts.filter(t=>t.x>=left&&t.x<=right&&t.y>v.t.y&&t.y<bottom).map(t=>t.y).sort((a,b)=>a-b)){if(y-last>300){bottom=y;break}last=y}}
