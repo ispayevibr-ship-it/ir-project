@@ -252,9 +252,14 @@ function memberBand(h,edges,segs=null){
   // The outline goes on past a line inside the member (its web drawn in a plan of a flange, a stiffener's edge): the
   // next line out of the same length, not farther than half as much again as the member is wide so far.
   const same=(a,b)=>Math.abs(a.s0-b.s0)<=Math.max(3,(a.s1-a.s0)*0.02)&&Math.abs(a.s1-b.s1)<=Math.max(3,(a.s1-a.s0)*0.02);
+  // (not past another line between, along the most of it and well apart from both — the plate of the node between two
+  // gussets alike, ГПЭС К112 «3 - 3»: the inner edge of the other gusset as long, 85 pt on past the plate; a web's other
+  // line by its first, К46 «7 - 7», is no such line)
+  const clear=(a,b)=>{const lo=Math.min(a.off,b.off),hi=Math.max(a.off,b.off),s0=Math.max(a.s0,b.s0),s1=Math.min(a.s1,b.s1),m=0.2*(hi-lo);
+   return!near.some(E=>E!==a&&E!==b&&E.off>lo+m&&E.off<hi-m&&Math.min(E.s1,s1)-Math.max(E.s0,s0)>=0.5*(s1-s0))};
   for(let k=0;k<6;k++){
-   const w=below.off-above.off,up2=near.filter(L=>L.off<above.off-0.3&&above.off-L.off<=w*1.5&&same(L,above)&&joined(L,above)).sort((a,b)=>b.off-a.off)[0];
-   const dn2=near.filter(L=>L.off>below.off+0.3&&L.off-below.off<=w*1.5&&same(L,below)&&joined(L,below)).sort((a,b)=>a.off-b.off)[0];
+   const w=below.off-above.off,up2=near.filter(L=>L.off<above.off-0.3&&above.off-L.off<=w*1.5&&same(L,above)&&joined(L,above)&&clear(L,above)).sort((a,b)=>b.off-a.off)[0];
+   const dn2=near.filter(L=>L.off>below.off+0.3&&L.off-below.off<=w*1.5&&same(L,below)&&joined(L,below)&&clear(L,below)).sort((a,b)=>a.off-b.off)[0];
    if(!up2&&!dn2)break;
    // (the nearer first: one side at a time)
    if(up2&&(!dn2||above.off-up2.off<=dn2.off-below.off))above=up2;else below=dn2
