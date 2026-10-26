@@ -186,7 +186,36 @@ function turnedSheet(title,texts,segments,titles,cells,w,h){
  // (its area on the sheet: round its own texts and its title, else the turned area)
  const box=(b,inside)=>{const c=inside.length?[...inside.map(back),mid(title)]:[{x:b.x0,y:b.y0},{x:b.x1,y:b.y0},{x:b.x0,y:b.y1},{x:b.x1,y:b.y1}].map(back),xs=c.map(p=>p.x),ys=c.map(p=>p.y),pad=inside.length?30:0;
   return{x0:Math.round(Math.max(0,Math.min(...xs)-pad)),y0:Math.round(Math.max(0,Math.min(...ys)-pad)),x1:Math.round(Math.min(w,Math.max(...xs)+pad)),y1:Math.round(Math.min(h,Math.max(...ys)+pad))}};
- return{texts:tx,titles:ts,segments:sg,v:ts.find(o=>o.page.t===title),bottom:Math.max(...corners.map(p=>p.y))-40,at:mid(title),box}
+ return{texts:tx,titles:ts,segments:sg,v:ts.find(o=>o.page.t===title),bottom:Math.max(...corners.map(p=>p.y))-40,at:mid(title),box,
+  of:list=>list.filter(t=>own(t)).map(t=>({...t,...P(t),angle:turn(t.angle||0)}))}
+}
+// A group drawing — one view for several marks (ГПЭС К114–К118 on л. 111, К131 and К132 on л. 123) — writes the sizes
+// that differ by mark on rows of their own, «для К114» at the end of the row (on its line run on, over it or under it).
+// The length of a mark is its own row's: the longest of its rows — the overall size or the chain of the row added up —
+// when it is as long as the member (at least 0.6 of the view's length: «305 · 305 для К131» is the place of a part).
+// (a label sticks out past the edge of the view's area: К152, «для К152» 9 pt past it — `pool`, the texts round it)
+function markLengths(inside,segments,box,marks,length,pool=inside){
+ const labels=pool.map(t=>{const m=/^для\s+(.+)$/u.exec(String(t.str).trim());const own=m?(titleMarks(m[1])||[]).filter(x=>marks.includes(x)):[];return own.length?{t,marks:own}:null}).filter(Boolean);
+ if(!labels.length)return null;
+ const {dimensionsOf}=require("./ai-scheme-extract");
+ const near=segments.filter(q=>Math.max(q.a.x,q.b.x)>=box.x0&&Math.min(q.a.x,q.b.x)<=box.x1&&Math.max(q.a.y,q.b.y)>=box.y0&&Math.min(q.a.y,q.b.y)<=box.y1);
+ const rows=[];
+ for(const d of dimensionsOf(inside,near)){const r=rows.find(r=>r.flat===d.flat&&Math.abs(r.c-d.line)<=1);if(r)r.dims.push(d);else rows.push({flat:d.flat,c:d.line,dims:[d]})}
+ for(const r of rows){r.lo=Math.min(...r.dims.map(d=>d.lo));r.hi=Math.max(...r.dims.map(d=>d.hi));
+  const chain=r.dims.slice().sort((a,b)=>a.lo-b.lo),joined=chain.every((d,k)=>!k||Math.abs(d.lo-chain[k-1].hi)<=1.5);
+  r.v=Math.max(...r.dims.map(d=>d.v),joined?chain.reduce((a,d)=>a+d.v,0):0)}
+ const out={};
+ for(const l of labels){
+  const b=l.t,flat=Math.abs(b.angle||0)<10,z=Number(b.size)||10,w=Number(b.width)||0;
+  const [c,t0,t1]=flat?[b.y-z*0.36,b.x,b.x+w]:[b.x-z*0.36,Math.min(b.y,b.y-w*Math.sign(b.angle||1)),Math.max(b.y,b.y-w*Math.sign(b.angle||1))];
+  // (the row whose line runs on to it — the shelf it is written on — before a row merely as near: «130» under the ends
+  // of К151 a little nearer «для К151» than the line of «7870» drawn on under it)
+  const reach=r=>t0>=r.hi-4?Math.max(...r.dims.map(d=>d.to??d.hi))>=t0-6:Math.min(...r.dims.map(d=>d.from??d.lo))<=t1+6;
+  const row=rows.filter(r=>r.flat===flat&&Math.abs(r.c-c)<=z&&(t1<=r.lo+4&&r.lo-t1<=150||t0>=r.hi-4&&t0-r.hi<=150)).sort((p,q)=>reach(q)-reach(p)||Math.abs(p.c-c)-Math.abs(q.c-c))[0];
+  if(row)for(const m of l.marks)out[m]=Math.max(out[m]||0,row.v)
+ }
+ for(const m of Object.keys(out))if(!(out[m]>=Math.max(1000,(Number(length)||0)*0.6)))delete out[m];
+ return Object.keys(out).length?out:null
 }
 function assemblyViews(texts,w,h,med,segments=[]){
  // A mark in a table («Требуется изготовить», a «Спецификация») is a cell, not a view's title (ГПЭС Ф126: a sheet of
@@ -226,9 +255,29 @@ function assemblyViews(texts,w,h,med,segments=[]){
   const dims=inside.map(t=>number(t.str)).filter(v=>v&&v>=300&&v<=30000);
   // (the turned sheet runs below naught)
   const box={x0:Math.round(left),y0:Math.round(f?v.t.y-30:Math.max(0,v.t.y-30)),x1:Math.round(right),y1:Math.round(bottom)};
-  const over=dims.length?overallOf(inside,segments,box,Boolean(f)):null;
-  const length=over?over.v:dims.length?Math.max(...dims):null;
-  const others=[...new Set(dims)].filter(x=>x!==length).sort((a,b)=>b-a);
+  // A level title over a drawing at a slant (a brace drawn along its line, ГПЭС К114–К118 at 41°: its sizes written
+  // along it, the level ones and the upright ones are its run and its rise): its sizes are read with the sheet turned to
+  // them — its length is along it.
+  let g=null,slope=0;
+  if(!f){const sl=inside.filter(t=>slanted(t)&&number(t.str)),lv=inside.filter(t=>!slanted(t)&&number(t.str));
+   if(sl.length>=4&&sl.length>lv.length){const n=new Map(),m=new Map();for(const t of sl){const a=Math.round((((t.angle||0)%90)+90)%90),r=Math.round(t.angle||0);n.set(a,(n.get(a)||0)+1);m.set(r,(m.get(r)||0)+1)}
+    // (turned exactly by its lines: a dimension line is level to a hundredth of a degree, a text's angle is not)
+    const a0=[...n.entries()].sort((p,q)=>q[1]-p[1])[0][0],lines=[];
+    for(const q of segments){const dx=q.b.x-q.a.x,dy=q.b.y-q.a.y,l=Math.hypot(dx,dy);if(l<30||Math.min(q.a.x,q.b.x)<box.x0||Math.max(q.a.x,q.b.x)>box.x1||Math.min(q.a.y,q.b.y)<box.y0||Math.max(q.a.y,q.b.y)>box.y1)continue;
+     const t=((-Math.atan2(dy,dx)*180/Math.PI)%90+90)%90;if(Math.abs(t-a0)<=3)lines.push([t,l])}
+    lines.sort((p,q)=>p[0]-q[0]);let half=lines.reduce((s,x)=>s+x[1],0)/2,a=a0;for(const [t,l] of lines){half-=l;if(half<=0){a=t;break}}
+    // (as its numbers read: along them, not across)
+    const ref=[...m.entries()].sort((p,q)=>q[1]-p[1])[0][0];a+=90*Math.round((ref-a)/90);
+    slope=Math.round(a*10)/10;g=turnedSheet({...v0.t,angle:a},page.texts,page.segments,all,cells,w,page.h)}}
+  // (its lines run on along it past its texts, out of the level area: К192's «6440» to its top end over its title)
+  const gin=g?g.of(inside):null,gbox=gin?.length?{x0:Math.min(...gin.map(t=>t.x))-600,y0:Math.min(...gin.map(t=>t.y))-40,x1:Math.max(...gin.map(t=>t.x+(t.width||0)))+600,y1:Math.max(...gin.map(t=>t.y))+40}:null;
+  const [rin,rseg,rbox]=gbox?[gin,g.segments,gbox]:[inside,segments,box];
+  const rdims=gbox?gin.map(t=>number(t.str)).filter(v=>v&&v>=300&&v<=30000):dims;
+  const over=rdims.length?overallOf(rin,rseg,rbox,Boolean(f||gbox)):null;
+  const length=over?over.v:rdims.length?Math.max(...rdims):null;
+  const wide=t=>t.x+(t.width||0)>=rbox.x0-160&&t.x<=rbox.x1+160&&t.y>=rbox.y0-40&&t.y<=rbox.y1+40;
+  const lengths=v.marks.length>1?markLengths(rin,rseg,rbox,v.marks,length,(gbox?g.of(page.texts):texts).filter(t=>!cells.has(t)&&wide(t))):null;
+  const others=[...new Set(rdims)].filter(x=>x!==length).sort((a,b)=>b-a);
   const how=over?over.how:length?"наибольшее число вида — общий размер не найден":"";
   let z0=levels.length>=2?levels[0]:null,z1=levels.length>=2?levels[levels.length-1]:null;
   // Only the top levels sit in the view (the bottom one is drawn by another view): the bottom is the level
@@ -243,7 +292,7 @@ function assemblyViews(texts,w,h,med,segments=[]){
   // section there.
   const rolled=[...new Set(inside.filter(t=>ROLLED.test(profileWords(cyr(String(t.str))))&&!/^(уголок|L|∟)/iu.test(profileWords(cyr(String(t.str))))).map(t=>normProfile(t.str)))];
   const at=f?f.at:{x:cx,y:v.t.y};
-  views.push({marks:v.marks,title:v.t.str,title_at:{x:Math.round(at.x*10)/10,y:Math.round(at.y*10)/10},levels,z0_mm:z0,z1_mm:z1,length_mm:length,...(rolled.length===1?{profile:rolled[0]}:{}),...(how?{length_how:how}:{}),...((!over||over.weak)&&others.length?{length_candidates:[length,...others.slice(0,2)]}:{}),box:f?f.box(box,inside):box,...(f?{angle:Math.round(v0.t.angle)}:{})})
+  views.push({marks:v.marks,title:v.t.str,title_at:{x:Math.round(at.x*10)/10,y:Math.round(at.y*10)/10},levels,z0_mm:z0,z1_mm:z1,length_mm:length,...(lengths?{lengths}:{}),...(rolled.length===1?{profile:rolled[0]}:{}),...(how?{length_how:how}:{}),...(gbox?{slope}:{}),...((!over||over.weak)&&others.length?{length_candidates:[length,...others.slice(0,2)]}:{}),box:f?f.box(box,inside):box,...(f?{angle:Math.round(v0.t.angle)}:{})})
  }
  return views
 }

@@ -31,6 +31,9 @@ const ring=(cx,cy,r=9)=>Array.from({length:16},(_,i)=>{const a=i/16*2*Math.PI,b=
 {
  const joined=joinSplitTexts([T("К",100,50),{...T("36",107,50),width:12},T("10-10 (",300,50),{...T("М1.2)",344,50)}]).map(t=>t.str);
  assert.deepEqual(joined,["К36","10-10 ( М1.2)"]);
+ // (a list of marks, the title of a group drawing: ГПЭС л. 111 «К» + «114, К115, К116, К117, К118»; words are not joined)
+ const list=joinSplitTexts([T("К",100,50),{...T("114, К115, К116",107,50),width:90},T("Лист",300,50),{...T("7 из 9",326,50)}]).map(t=>t.str);
+ assert.deepEqual(list,["К114, К115, К116","Лист","7 из 9"]);
 }
 // Elevation along axis "1": bubbles А…В under the view, levels on the left, a post and a rail.
 {

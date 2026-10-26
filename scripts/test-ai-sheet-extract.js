@@ -316,4 +316,23 @@ assert.deepEqual(spec,[{mark:"К1",profile:"Тр.140х4",mass_kg:120.5,length_mm
  const at=R({x:249,y:200});assert(Math.hypot(v.title_at.x-at.x,v.title_at.y-at.y)<1,"its title where it is drawn: "+JSON.stringify(v.title_at));
  assert(v.box.x0<=R({x:100,y:320}).x&&v.box.x1>=R({x:420,y:360}).x&&v.box.y1>=R({x:400,y:320}).y,"its area round its texts: "+JSON.stringify(v.box));
  assert.deepEqual([o.length_mm,o.angle],[1500,undefined],"the level view beside it")}
-console.log("Sheets: assembly levels, quantities, КМ profiles, separate КМ/КМД catalogs and per-mark heights, slanted views PASS");
+// A group drawing — one view for several marks, the sizes that differ by mark on rows of their own, «для К1» at the end
+// of the row (ГПЭС л. 123: К137, К140 7500; К138, К139 6000): each mark's length is its own row's; a short row «305 · 305
+// для К1» is the place of a part. Drawn at a slant under its level title (ГПЭС К114–К118, a brace at 39°), it is read
+// along its line. The catalog takes the mark's own length.
+{
+ const T=(str,x,y,size=7,width=str.length*4.5)=>({str,x,y,size,width,angle:0});
+ const H=(y,x0,x1)=>({a:{x:x0,y},b:{x:x1,y}}),V=(x,y0,y1)=>({a:{x,y:y0},b:{x,y:y1}}),K=(x,y)=>({a:{x:x-1.5,y:y+1.5},b:{x:x+1.5,y:y-1.5}});
+ // (a row: its line, its extension lines and ticks, each number over the middle of its span)
+ const row=(y,xs,vals)=>({lines:[H(y,xs[0],xs[xs.length-1]),...xs.flatMap(x=>[V(x,y-10,y+3),K(x,y)])],texts:vals.map((v,k)=>T(String(v),(xs[k]+xs[k+1])/2-String(v).length*1.5,y-2,6,String(v).length*3))});
+ const rows=[row(242,[100,475],[7500]),row(262,[100,115,460,475],[300,6900,300]),row(282,[100,112,390,400],[240,5560,200]),row(302,[100,400],[6000]),row(322,[200,215.25,230.5],[305,305])];
+ const labels=[T("для К1",480,260),T("для К2",405,280),T("для К1",150,320)];
+ const draw=[...rows.flatMap(r=>r.texts),...labels],lines=rows.flatMap(r=>r.lines);
+ const level=extractSheet({widthPt:2000,heightPt:900,texts:[T("К1, К2",215,200,12,40),...draw],segments:lines}).views.find(x=>x.marks.includes("К1"));
+ assert.deepEqual([level.length_mm,level.lengths],[7500,{К1:7500,К2:6000}],"each mark its own row: "+JSON.stringify(level));
+ const c=Math.SQRT1_2,R=p=>({x:600+(p.x-250)*c-(p.y-300)*c,y:300+(p.x-250)*c+(p.y-300)*c});
+ const turned=extractSheet({widthPt:2000,heightPt:900,texts:[T("К1, К2",560,40,12,40),...draw.map(t=>({...t,...R(t),angle:-45}))],segments:lines.map(q=>({a:R(q.a),b:R(q.b)}))}).views.find(x=>x.marks.includes("К1"));
+ assert.deepEqual([turned.length_mm,turned.lengths,turned.slope],[7500,{К1:7500,К2:6000},-45],"at a slant, along it: "+JSON.stringify(turned));
+ const {markKey}=require("../src/ai-montage-plan"),cat=buildCatalog({pages:[{page:1,docType:"КМД сборочные",sourceName:"s.pdf",sheet:{views:[level]}}]});
+ assert.deepEqual(["К1","К2"].map(m=>[cat.get(markKey("КМД",m))?.length_mm,cat.get(markKey("КМД",m))?.lengthFrom]),[[7500,"s.pdf, лист 1 · вид «К1, К2» (размер «для К1»)"],[6000,"s.pdf, лист 1 · вид «К1, К2» (размер «для К2»)"]])}
+console.log("Sheets: assembly levels, quantities, КМ profiles, separate КМ/КМД catalogs and per-mark heights, slanted views, group drawings PASS");

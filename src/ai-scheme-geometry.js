@@ -45,8 +45,9 @@ function joinProfiles(texts){
  return out.filter((_,k)=>!used.has(k))
 }
 // Some CAD exports split one label into pieces: "К" + "36", "10-10 (" + "М1.2)". Pieces on one baseline
-// that touch are joined when the result is a shipping mark or a section name.
-const JOINED=/^(?:[А-ЯЁA-Z]{1,3}\d{1,4}(?:[-.]\d{1,3})?[а-я]?|(?:\d{1,2}|[А-ЯЁ])\s*-\s*(?:\d{1,2}|[А-ЯЁ])\s*\(\s*[А-ЯЁA-Z]?\d+(?:\.\d+)?\s*\))$/u;
+// that touch are joined when the result is a shipping mark or a section name — or a list of marks, the title of a
+// group drawing ("К" + "114, К115, К116, К117, К118", ГПЭС л. 111).
+const JOINED=/^(?:[А-ЯЁA-Z]{1,3}\d{1,4}(?:[-.]\d{1,3})?[а-я]?(?:\s*,\s*[А-ЯЁA-Z]{1,3}\d{1,4}(?:[-.]\d{1,3})?[а-я]?)*|(?:\d{1,2}|[А-ЯЁ])\s*-\s*(?:\d{1,2}|[А-ЯЁ])\s*\(\s*[А-ЯЁA-Z]?\d+(?:\.\d+)?\s*\))$/u;
 function joinSplitTexts(texts){
  const out=[...texts],used=new Set();
  const order=[...texts.keys()].sort((a,b)=>texts[a].y-texts[b].y||texts[a].x-texts[b].x);

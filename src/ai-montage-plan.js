@@ -300,11 +300,13 @@ function buildCatalog(draft,ai=null){
    if(v.z0_mm!==null&&v.z1_mm!==null&&v.z1_mm>v.z0_mm&&e.z0_mm===null){e.z0_mm=v.z0_mm;e.z1_mm=v.z1_mm;e.levelsFrom="PDF"}
    // A single level on a member's view is the level of that member.
    if(v.levels?.length===1&&e.view_level_mm===undefined)e.view_level_mm=v.levels[0];
-   // A column's length is the distance between its levels; otherwise the largest dimension of the view.
-   if(e.length_mm===null){e.length_mm=v.z1_mm!==null&&v.z0_mm!==null&&v.z1_mm>v.z0_mm?v.z1_mm-v.z0_mm:v.length_mm;
-    if(e.length_mm!==null&&e.length_mm!==undefined)e.lengthFrom=where(p)+" · вид «"+v.title+"»"+(v.z1_mm>v.z0_mm?" (между отметками)":v.length_how?" ("+v.length_how+")":"");
+   // A column's length is the distance between its levels; otherwise the largest dimension of the view — of a group
+   // drawing, the mark's own row «для К114» (src/ai-sheet-extract.js markLengths).
+   const own=v.lengths?.[mark];
+   if(e.length_mm===null){e.length_mm=v.z1_mm!==null&&v.z0_mm!==null&&v.z1_mm>v.z0_mm?v.z1_mm-v.z0_mm:own||v.length_mm;
+    if(e.length_mm!==null&&e.length_mm!==undefined)e.lengthFrom=where(p)+" · вид «"+v.title+"»"+(v.z1_mm>v.z0_mm?" (между отметками)":own?" (размер «для "+mark+"»)":v.length_how?" ("+v.length_how+")":"");
     // No overall dimension drawn: the largest number of the view, the others kept — the size is ambiguous.
-    if(!(v.z1_mm>v.z0_mm)&&v.length_candidates?.length>1)e.length_ambiguous=v.length_candidates.slice(0,4)}
+    if(!(v.z1_mm>v.z0_mm)&&!own&&v.length_candidates?.length>1)e.length_ambiguous=v.length_candidates.slice(0,4)}
    e.sources.push(where(p)+" · вид «"+v.title+"»")
   }
   // Geometric scheme of a truss: its lattice, for drawing it as a truss and seating it on its supports.
