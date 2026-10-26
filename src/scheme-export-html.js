@@ -158,14 +158,17 @@
   }
   // The plates across the member (ribs, connection plates) of its assembly sheet, as the program's card shows them.
   function platesHtml(c){
-   var rows=c.plates&&Array.isArray(c.plates.rows)?c.plates.rows:[];if(!rows.length)return"";
+   var rows=c.plates&&Array.isArray(c.plates.rows)?c.plates.rows:[],gussets=c.plates&&Array.isArray(c.plates.gussets)?c.plates.gussets:[];if(!rows.length&&!gussets.length)return"";
    var groups=new Map();rows.forEach(function(r){var k=(r.at||[]).join("–")+"|"+(r.pos!=null?r.pos:r.section!=null?r.section:r.t);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r)});
    var line=function(list){var r=list[0],x=list.filter(function(o){return Array.isArray(o.x)}),signs=new Set(x.map(function(o){return Math.sign((Number(o.x[0])||0)+(Number(o.x[1])||0))})),w=x.length?Math.max.apply(null,x.map(function(o){return(Number(o.x[1])||0)-(Number(o.x[0])||0)})):0;
     var h=Array.isArray(r.z)?(Number(r.z[1])||0)-(Number(r.z[0])||0):Number(r.h_mm)||0,at=r.at||[];
     var side=!x.length?"сторона стенки на плане не показана":signs.size>1?"с двух сторон стенки":"с одной стороны стенки";
     return'<span>'+(r.pos?"поз. "+esc(r.pos)+" — ":"")+esc(r.section||"пластина "+fmt(r.t)+" мм")+': '+fmt(Number(at[0])||0)+'–'+fmt(Number(at[1])||0)+' мм от начала, '+side+(w?", ширина "+fmt(w)+" мм":"")+(h?", высота "+fmt(h)+" мм":", высота — между полками")+(r.approx?" (место примерно: вид нарисован с разрывом)":"")+'</span>'};
    var out=[];groups.forEach(function(list){out.push(line(list))});
-   return'<div class="fast"><b>Рёбра и пластины по сборочному чертежу</b>'+out.join("")+'<small>'+esc(c.plates.sheet||"")+'</small></div>'
+   gussets.forEach(function(g){var cs=(g.poly||[]).map(function(e){return Math.abs(Number(e[1])||0)}),far=cs.length?Math.max.apply(null,cs):0,d=Array.isArray(g.depth)?g.depth:null,x=Array.isArray(g.x)?g.x:null,at=g.at||[];
+    var where=g.plane==="план"?(d?"параллельно полкам, "+fmt(Number(d[0])||0)+"–"+fmt(Number(d[1])||0)+" мм от "+(g.edge>0?"нижней":"верхней")+" грани":"параллельно полкам"):(x&&Math.abs((Number(x[0])||0)+(Number(x[1])||0))>10?"параллельно стенке, "+fmt(Number(x[0])||0)+"…"+fmt(Number(x[1])||0)+" мм от оси":"в плоскости стенки");
+    out.push('<span>'+(g.pos?"поз. "+esc(g.pos)+" — ":"")+esc(g.section||"пластина "+fmt(g.t)+" мм")+': фасонка '+fmt(Number(at[0])||0)+'–'+fmt(Number(at[1])||0)+' мм от начала, '+where+(far?", до "+fmt(far)+" мм от оси":"")+'</span>')});
+   return'<div class="fast"><b>Рёбра, пластины и фасонки по сборочному чертежу</b>'+out.join("")+'<small>'+esc(c.plates.sheet||"")+'</small></div>'
   }
   // The parts of the member by the specification of its assembly sheet, as the program's card shows them.
   function partsHtml(c){

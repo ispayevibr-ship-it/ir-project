@@ -169,6 +169,14 @@ function chainMap(dims,n,{tol=0.6,bridge=60}={}){
   // (the extension lines joined with a: their sizes from it)
   marks(a){const A=place(a);return A?order.filter(q=>root(q.i)===A.r).map(q=>({p:q.p,v:val(q.i)-A.v})):[]}}
 }
+// The convex outline of points [[x, y]] (a gusset drawn with its cut corners: its edges).
+function hull(pts){
+ const p=[...new Map(pts.map(e=>[e.map(v=>Math.round(v*10)).join(),e])).values()].sort((a,b)=>a[0]-b[0]||a[1]-b[1]);if(p.length<3)return p;
+ const x=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]),lo=[],hi=[];
+ for(const e of p){while(lo.length>=2&&x(lo[lo.length-2],lo[lo.length-1],e)<=0)lo.pop();lo.push(e)}
+ for(const e of p.slice().reverse()){while(hi.length>=2&&x(hi[hi.length-2],hi[hi.length-1],e)<=0)hi.pop();hi.push(e)}
+ return lo.slice(0,-1).concat(hi.slice(0,-1))
+}
 // The standard scale of the dimensions around a place: pt per mm of the member.
 function scaleNear(dims,box,{all=false}={}){
  const list=dims.filter(d=>{const c=(d.lo+d.hi)/2;return d.flat?c>=box.x0&&c<=box.x1&&d.line>=box.y0&&d.line<=box.y1:c>=box.y0&&c<=box.y1&&d.line>=box.x0&&d.line<=box.x1});
@@ -262,11 +270,19 @@ function ownerOf(g,texts,titled,strokes=[]){
  const along=t=>t.x*g.u.x+t.y*g.u.y,across=t=>t.x*g.n.x+t.y*g.n.y,upright=Math.abs(g.u.y)>Math.abs(g.u.x);
  const centre=t=>({x:t.x+(t.width||0)/2,y:t.y});
  // How far over the view a text stands (null — not over it).
- const over=t=>upright?(across(t)>=g.lo-200&&across(t)<=g.hi+200&&along(t)<g.s0&&g.s0-along(t)<150?g.s0-along(t):null):
-  (along(t)>=g.s0-40&&along(t)<=g.s1+40&&across(t)<g.lo&&g.lo-across(t)<150?g.lo-across(t):null);
- const nearest=list=>list.map(x=>({x,d:over(x.at)})).filter(o=>o.d!==null).sort((a,b)=>a.d-b.d)[0];
- const own=nearest(titled.map(v=>({at:v.title_at,v})));
- const named=nearest(texts.filter(t=>{const v=String(t.str).trim();return VID.test(v)||CUT.test(v)||DETAIL.test(v)}).map(t=>({at:centre(t),t})));
+ const over=(t,lim)=>upright?(across(t)>=g.lo-200&&across(t)<=g.hi+200&&along(t)<g.s0&&g.s0-along(t)<lim?g.s0-along(t):null):
+  (along(t)>=g.s0-40&&along(t)<=g.s1+40&&across(t)<g.lo&&g.lo-across(t)<lim?g.lo-across(t):null);
+ const nearest=(list,lim)=>list.map(x=>({x,d:over(x.at,lim)})).filter(o=>o.d!==null).sort((a,b)=>a.d-b.d)[0];
+ const mains=titled.map(v=>({at:v.title_at,v})),titles=texts.filter(t=>{const v=String(t.str).trim();return VID.test(v)||CUT.test(v)||DETAIL.test(v)}).map(t=>({at:centre(t),t}));
+ let own=nearest(mains,150),named=nearest(titles,150);
+ // (the distance from a title to the view's outline)
+ const box=t=>{const s=along(t),o=across(t);return Math.hypot(Math.max(0,g.s0-s,s-g.s1),Math.max(0,g.lo-o,o-g.hi))};
+ // (none so near: a title of a view farther over it — five rows of dimensions between, ГПЭС В53 «Вид А» 170 pt over it —
+ // when no mark's title is nearer by it, «В55» under it; a mark's title so far over is another view's, К150–К161 one
+ // under another, and «2 - 2» far over К163 is another's, «К163, К164, К165» just under it)
+ // (a detail's title stands over its own small drawing, not over a view far under it: ГПЭС В129 «Вид Б», «Дет. поз. 5»
+ // between)
+ if(!own&&!named){const far=nearest(titles.filter(o=>!DETAIL.test(String(o.t.str).trim())),400),by=Math.min(...titled.map(v=>box(v.title_at)));if(far&&far.d<by)named=far}
  if(named&&(!own||named.d<own.d)){
   const title=String(named.x.t.str).trim().replace(/\s+/g," ");
   if(DETAIL.test(title))return{title,view:null,detail:true};
@@ -301,8 +317,6 @@ function ownerOf(g,texts,titled,strokes=[]){
   return{title,view:sure(best?.v)||(titled.length===1?titled[0]:null)}
  }
  if(own)return{title:own.x.v.title,view:own.x.v,main:true};
- // (the distance from the title to the view's outline)
- const box=t=>{const s=along(t),o=across(t);return Math.hypot(Math.max(0,g.s0-s,s-g.s1),Math.max(0,g.lo-o,o-g.hi))};
  const near=titled.slice().sort((a,b)=>box(a.title_at)-box(b.title_at))[0];
  return{title:near?near.title:"",view:near||null}
 }
@@ -370,6 +384,17 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
   return W?segs.filter(q=>q.w>=W*1.8&&q.l>=8&&q.l<=80):[]})();
  const longs=list.filter(long).sort((a,b)=>(b.below.off-b.above.off)-(a.below.off-a.above.off));
  for(const g of longs){g.lo=g.above.off;g.hi=g.below.off;g.s0=Math.min(g.above.s0,g.below.s0);g.s1=Math.max(g.above.s1,g.below.s1);g.edges=[g.above,g.below]}
+ // The side of a beam whose web between the flanges is cut by a line along it (a gusset seen edge-on, ГПЭС В59 «8»
+ // under the top): two thin bands as long one over the other — its flanges — and no band of its web between them: one
+ // view from the outer line of one to the outer line of the other.
+ for(const a of longs.slice())for(const b of longs.slice()){
+  if(a===b||a.twin||b.twin||Math.abs(a.u.x*b.u.y-a.u.y*b.u.x)>=0.003||b.lo<a.hi)continue;
+  const wa=a.hi-a.lo,wb=b.hi-b.lo,w=Math.max(wa,wb),gap=b.lo-a.hi,L=a.s1-a.s0;
+  if(w>12||Math.abs(wa-wb)>Math.max(0.5,0.25*w)||gap<8*w||gap>40*w||Math.abs(a.s0-b.s0)>0.02*L+3||Math.abs(a.s1-b.s1)>0.02*L+3)continue;
+  // (no line between them along a third of it: not two views one over the other)
+  if(edges.some(E=>Math.abs(E.u.x*a.u.y-E.u.y*a.u.x)<0.003&&E.off>a.hi+0.5&&E.off<b.lo-0.5&&Math.min(E.s1,a.s1)-Math.max(E.s0,a.s0)>=0.3*L))continue;
+  a.twin=b.twin=true;longs.push({u:a.u,n:a.n,above:a.above,below:b.below,signs:[],lo:a.lo,hi:b.hi,s0:Math.min(a.s0,b.s0),s1:Math.max(a.s1,b.s1),edges:[a.above,b.below]})}
+ longs.sort((a,b)=>(b.hi-b.lo)-(a.hi-a.lo));
  // A view split by a line along it (the web of a beam in the plan of its flange, ГПЭС К32 «1–1»): its parts are one.
  for(const g of longs)if(!g.into)for(const h of longs)if(h!==g&&!h.into&&Math.abs(g.u.x*h.u.y-g.u.y*h.u.x)<0.003&&h.lo>=g.lo-0.5&&h.hi<=g.hi+0.5&&
   Math.min(g.s1,h.s1)-Math.max(g.s0,h.s0)>=0.8*Math.min(g.s1-g.s0,h.s1-h.s0)){h.into=g;g.signs.push(...h.signs);h.signs=[];g.edges.push(...h.edges);g.s0=Math.min(g.s0,h.s0);g.s1=Math.max(g.s1,h.s1)}
@@ -475,6 +500,7 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
 function sheetPlates(geo={},{views=[],allMm=null}={}){
  const segs=dedupe(geo.segments||[]),thick=thickOf(segs);if(!thick)return[];
  const r=sheetHoles(geo,{views,allMm,seed:true,withMembers:true}),bold=segs.filter(thick),found=[];
+ const dims=dimensionsOf(geo.texts||[],geo.segments||[]);
  for(const {g,view} of r.members){
   const k=g.sc.n,mm=v=>v/k,w=g.hi-g.lo,axis=(g.lo+g.hi)/2,proj=q=>({a:q.a.x*g.u.x+q.a.y*g.u.y,b:q.b.x*g.u.x+q.b.y*g.u.y,c:q.a.x*g.n.x+q.a.y*g.n.y,d:q.b.x*g.n.x+q.b.y*g.n.y});
   const P=bold.map(proj),L=g.s1-g.s0;
@@ -526,7 +552,45 @@ function sheetPlates(geo={},{views=[],allMm=null}={}){
    for(const o of pair)plates.push({at_mm:[a0,a0+t],t_mm:t,...(sp?{span:sp.span}:{}),...(o.z?{z_mm:o.z.map(c=>Math.round(mm(c-axis)))}:{x_mm:o.x.map(c=>Math.round(mm(c-axis)))})});
    i++
   }
-  if(plates.length||top!==undefined)found.push({title:view.title,marks:view.marks,length_mm:view.length_mm,dir:view.dir,view:top!==undefined?"web":"flange",plates,marks_mm:top===undefined?[]:
+  // Gussets (фасонки): a plate in the plane of the view — its outline of thick lines beside the member, from its edge
+  // (or from over it) out past it, not a part of another member's view there (ГПЭС В46 «Вид А»: «−260×8» from the end
+  // plate, its cut edge along the brace) — and seen edge-on in the other view: two lines along it a plate's thickness
+  // apart inside the member (В46: «59» under the top, «8» thick, the lines hidden).
+  const outlines=[];{
+   const others=r.members.map(o=>o.g).filter(o=>o!==g);
+   const theirs=q=>others.some(o=>[q.q.a,q.q.b].every(e=>{const sa=e.x*o.u.x+e.y*o.u.y,c=e.x*o.n.x+e.y*o.n.y;return sa>=o.s0-1&&sa<=o.s1+1&&c>=o.lo-1&&c<=o.hi+1}));
+   const cand=bold.map(q=>({...proj(q),q,l:Math.hypot(q.b.x-q.a.x,q.b.y-q.a.y)})).filter(q=>q.l>=8&&Math.max(q.a,q.b)>=g.s0-2&&Math.min(q.a,q.b)<=g.s1+2&&
+    (Math.min(q.c,q.d)<g.lo-0.5||Math.max(q.c,q.d)>g.hi+0.5)&&Math.min(q.c,q.d)>g.lo-4*w&&Math.max(q.c,q.d)<g.hi+4*w&&!(Math.abs(q.c-q.d)<0.4&&Math.abs(q.a-q.b)>L*0.5)&&!theirs(q));
+   // (joined where an end of one lies on another)
+   const par=cand.map((_,i)=>i),root=i=>par[i]===i?i:(par[i]=root(par[i]));
+   const on=(x,y,q)=>{const dx=q.b-q.a,dy=q.d-q.c,l2=dx*dx+dy*dy,t=((x-q.a)*dx+(y-q.c)*dy)/l2;return t>=-0.02&&t<=1.02&&Math.hypot(q.a+t*dx-x,q.c+t*dy-y)<=0.8};
+   for(let i=0;i<cand.length;i++)for(let j=i+1;j<cand.length;j++){const a=cand[i],b=cand[j];
+    if(on(a.a,a.c,b)||on(a.b,a.d,b)||on(b.a,b.c,a)||on(b.b,b.d,a))par[root(i)]=root(j)}
+   const groups=new Map();cand.forEach((q,i)=>{const k=root(i);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(q)});
+   for(const list of groups.values()){if(list.length<3)continue;
+    const pts=list.flatMap(q=>[[q.a,q.c],[q.b,q.d]]),ss=pts.map(e=>e[0]),cs=pts.map(e=>e[1]),c0=Math.min(...cs),c1=Math.max(...cs),s0=Math.min(...ss),s1=Math.max(...ss);
+    // (from the member or over it, out past it by 20 mm at least; along it a local part — not half of it, nor 1.5 m)
+    if(!(c0<=g.hi+1&&c1>=g.lo-1)||!(c0<g.lo-20*k||c1>g.hi+20*k)||s1-s0<50*k||s1-s0>Math.min(L*0.5,1500*k))continue;
+    const poly=hull(pts).map(([sa,c])=>[g.alongMm(sa),Math.round(mm(c-axis))]);
+    outlines.push({at_mm:[g.alongMm(s0),g.alongMm(s1)],poly})}}
+  // The plates seen edge-on: two lines along the member inside it (any — drawn or hidden, in pieces), a plate's
+  // thickness apart, side by side along it; not a flange's inner line nor the web's two lines by the axis.
+  const flats=[];{
+   const flatU=Math.abs(g.u.x)>0.999,across=Math.abs(g.u.x)>0.999||Math.abs(g.u.y)>0.999?dims.filter(d=>d.flat!==flatU):[];
+   const lines=[];for(const q of segs.map(proj)){if(Math.abs(q.c-q.d)>0.4||Math.abs(q.a-q.b)<3)continue;const c=(q.c+q.d)/2;if(c<=g.lo+0.5||c>=g.hi-0.5)continue;
+    let L1=lines.find(o=>Math.abs(o.c-c)<=0.3);if(!L1)lines.push(L1={c,iv:[]});L1.iv.push([Math.max(g.s0,Math.min(q.a,q.b)),Math.min(g.s1,Math.max(q.a,q.b))])}
+   const runs=[];for(const o of lines){const iv=o.iv.filter(([x,y])=>y>x).sort((x,y)=>x[0]-y[0]);let cov=0,e=-Infinity;for(const [x,y] of iv){if(y<=e)continue;cov+=y-Math.max(x,e);e=y}
+    if(cov>=L*0.6)continue;let r0=null;for(const [x,y] of iv){if(r0&&x<=r0[1]+10)r0[1]=Math.max(r0[1],y);else{if(r0)runs.push({c:o.c,s:r0});r0=[x,y]}}if(r0)runs.push({c:o.c,s:r0})}
+   const long=runs.filter(o=>o.s[1]-o.s[0]>=30*k);
+   for(let i=0;i<long.length;i++)for(let j=i+1;j<long.length;j++){const a=long[i],b=long[j],t=mm(Math.abs(a.c-b.c));if(t<3||t>40)continue;
+    const s0=Math.max(a.s[0],b.s[0]),s1=Math.min(a.s[1],b.s[1]);if(s1-s0<Math.min(a.s[1]-a.s[0],b.s[1]-b.s[0])*0.7)continue;
+    const lo2=Math.min(a.c,b.c),hi2=Math.max(a.c,b.c);if(top===undefined&&Math.abs(mm((lo2+hi2)/2-axis))<=2)continue;
+    if(long.some(o=>o!==a&&o!==b&&o.c>lo2+0.3&&o.c<hi2-0.3&&o.s[0]<s1&&o.s[1]>s0))continue;
+    // (from the nearer edge, by the dimensions across when they join it: «59», «8»)
+    const edge=(lo2+hi2)/2<axis?-1:1,from=edge<0?g.lo:g.hi,dist=c=>{const m=Math.abs(c-from)/k,v=chainMm(across,Math.abs(from),Math.abs(c),m);return v===null?Math.round(m):v};
+    flats.push({at_mm:[g.alongMm(s0),g.alongMm(s1)],edge,depth_mm:[dist(edge<0?lo2:hi2),dist(edge<0?hi2:lo2)],x_mm:[Math.round(mm(lo2-axis)),Math.round(mm(hi2-axis))],t_mm:Math.round(mm(hi2-lo2))})}}
+  if(plates.length||outlines.length||flats.length||top!==undefined)found.push({title:view.title,marks:view.marks,length_mm:view.length_mm,dir:view.dir,view:top!==undefined?"web":"flange",plates,outlines,flats,
+   inner_mm:top!==undefined?[mm(top-g.lo),mm(g.hi-bot)]:null,web_mm:web?web.map(c=>Math.round(mm(c-axis))):null,marks_mm:top===undefined?[]:
    // (the extension lines drawn down to it)
    g.marksAt().filter(m=>segs.some(q=>{const o=proj(q);return Math.abs(o.a-m.p)<=0.6&&Math.abs(o.b-m.p)<=0.6&&(Math.min(o.c,o.d)<g.lo-3&&Math.max(o.c,o.d)>=g.lo-3||Math.max(o.c,o.d)>g.hi+3&&Math.min(o.c,o.d)<=g.hi+3)})).map(m=>m.v)})
  }
@@ -555,7 +619,25 @@ function sheetPlates(geo={},{views=[],allMm=null}={}){
     if(new Set(t).size===1){at=[t[0],t[0]+q.t_mm];approx=false}}
    plates.push({at_mm:at,t_mm:q.t_mm,z_mm:null,x_mm:q.x_mm,from:"план",...(approx?{approx:true}:{})})}
   plates.sort((a,b)=>a.at_mm[0]-b.at_mm[0]||(a.x_mm?.[0]??0)-(b.x_mm?.[0]??0));
-  out.push({mark,length_mm:length,dir:(web||mine[0]).dir,views:[...new Set(mine.map(v=>v.title))],plates})
+  // Gussets: an outline in the view of a flange, its edge-on lines in the view of the web over the same stretch (its
+  // depth from the top or the bottom and its thickness; drawn on 40 % of it at least — a rib across breaks them, В63);
+  // an outline in the view of the web, its lines in the view of a
+  // flange (its side) — else in the web's plane. Seen in two views of a flange, once.
+  const gussets=[],sameLen=v=>Math.abs((v.length_mm||0)-(length||0))<=Math.max(10,(length||0)*0.01);
+  const cover=(f,o)=>Math.max(0,Math.min(f.at_mm[1],o.at_mm[1])-Math.max(f.at_mm[0],o.at_mm[0]))/Math.max(1,o.at_mm[1]-o.at_mm[0]);
+  for(const v of mine.filter(sameLen))for(const o of v.outlines){const plane=v.view==="web"?"вид сбоку":"план";
+   if(gussets.some(q=>q.plane===plane&&near(q.at_mm,o.at_mm)))continue;
+   const on=mine.filter(u=>u.view!==v.view&&sameLen(u)).flatMap(u=>u.flats).filter(f=>cover(f,o)>=0.4).sort((a,b)=>cover(b,o)-cover(a,o))[0];
+   // (an outline not seen edge-on in the other view is not taken: a part of another kind, a node drawn apart)
+   if(!on)continue;
+   // (in the plan, a plate between the flanges — deeper than the inner line of the flange — is welded to the web: its
+   // edge there, hidden under the flange, runs along the web's face, ГПЭС В46 «−260×8», В113)
+   let poly=o.poly;const wv=mine.find(u=>u.view==="web"&&u.flats.includes(on));
+   if(plane==="план"&&wv?.inner_mm&&on.depth_mm[0]>=wv.inner_mm[on.edge<0?0:1]-1){const side=Math.sign(poly.reduce((a,e)=>a+e[1],0))||1,face=v.web_mm?v.web_mm[side<0?0:1]:0;
+    poly=hull([...poly,[o.at_mm[0],face],[o.at_mm[1],face]])}
+   gussets.push({at_mm:o.at_mm,plane,poly,t_mm:on?.t_mm??null,...(plane==="план"?{edge:on?.edge??-1,depth_mm:on?.depth_mm??null}:{x_mm:on?.x_mm??null}),view:v.title})}
+  gussets.sort((a,b)=>a.at_mm[0]-b.at_mm[0]);
+  out.push({mark,length_mm:length,dir:(web||mine[0]).dir,views:[...new Set(mine.map(v=>v.title))],plates,...(gussets.length?{gussets}:{})})
  }
  return out
 }

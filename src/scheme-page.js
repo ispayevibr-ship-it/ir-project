@@ -681,7 +681,7 @@ window.irSchemePage=async function(objectId){
     // What the 3D draws a member by: its rolled section, a truss or a lattice column, the base, the joint and the nodes of
     // the drawings — without them the exported scheme showed conventional sections, trusses as beams and no bolts.
     profile_name:String(c.profile_name||""),profile_standard:String(c.profile_standard||""),section_type:String(c.section_type||""),type_key:String(c.type_key||""),
-    truss:c.truss||undefined,column:c.column||undefined,base:c.base||undefined,joint:c.joint||undefined,drill:Array.isArray(c.drill)?c.drill:undefined,parts:Array.isArray(c.parts?.rows)?c.parts:undefined,plates:Array.isArray(c.plates?.rows)?c.plates:undefined,cross:c.cross||undefined,nodes:c.nodes||undefined,
+    truss:c.truss||undefined,column:c.column||undefined,base:c.base||undefined,joint:c.joint||undefined,drill:Array.isArray(c.drill)?c.drill:undefined,parts:Array.isArray(c.parts?.rows)?c.parts:undefined,plates:Array.isArray(c.plates?.rows)||Array.isArray(c.plates?.gussets)?c.plates:undefined,cross:c.cross||undefined,nodes:c.nodes||undefined,
     // How fully the drawings determined it and its section: the exported page shows the same pale «предварительно».
     preliminary:isPreliminary(c)||undefined,instance_status:INSTANCE_STATUS[c.instance_status]?String(c.instance_status):undefined,
     instance_reasons:Array.isArray(c.instance_reasons)&&c.instance_reasons.length?c.instance_reasons.map(String).slice(0,5):undefined,source_section:sectionOfRecord(c),
@@ -815,15 +815,21 @@ window.irSchemePage=async function(objectId){
   return`<div class="scheme-fasteners"><b>Отверстия по сборочному чертежу</b>${views.map(row).join("")}${views[0].sheet?`<small>${esc(views[0].sheet)}</small>`:""}</div>`
  }
  // The plates across the member (ribs, connection plates) at their places on its assembly sheet (c.plates,
- // src/ai-holes-extract.js sheetPlates): one line for the plates at one place, both sides of the web or one.
+ // src/ai-holes-extract.js sheetPlates): one line for the plates at one place, both sides of the web or one; then its
+ // gussets — where along it, in which plane, how far out.
  function platesHtml(c){
-  const rows=Array.isArray(c.plates?.rows)?c.plates.rows:[];if(!rows.length)return"";
+  const rows=Array.isArray(c.plates?.rows)?c.plates.rows:[];
   const groups=new Map();for(const r of rows){const k=(r.at||[]).join("–")+"|"+(r.pos??r.section??r.t);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r)}
   const line=list=>{const r=list[0],x=list.filter(o=>Array.isArray(o.x)),signs=new Set(x.map(o=>Math.sign(num(o.x[0])+num(o.x[1])))),w=x.length?Math.max(...x.map(o=>num(o.x[1])-num(o.x[0]))):0;
    const h=Array.isArray(r.z)?num(r.z[1])-num(r.z[0]):num(r.h_mm);
    const side=!x.length?"сторона стенки на плане не показана":signs.size>1?"с двух сторон стенки":"с одной стороны стенки";
    return`<span>${r.pos?"поз. "+esc(r.pos)+" — ":""}${esc(r.section||"пластина "+fmt(r.t)+" мм")}: ${fmt(num(r.at?.[0]))}–${fmt(num(r.at?.[1]))} мм от начала, ${side}${w?", ширина "+fmt(w)+" мм":""}${h?", высота "+fmt(h)+" мм":", высота — между полками"}${r.approx?" (место примерно: вид нарисован с разрывом)":""}</span>`};
-  return`<div class="scheme-fasteners"><b>Рёбра и пластины по сборочному чертежу</b>${[...groups.values()].map(line).join("")}<small>${esc(c.plates.sheet||"")}</small></div>`
+  const gussets=Array.isArray(c.plates?.gussets)?c.plates.gussets:[];
+  const gline=g=>{const cs=(g.poly||[]).map(e=>num(e[1])),out=cs.length?Math.max(...cs.map(Math.abs)):0,d=Array.isArray(g.depth)?g.depth:null,x=Array.isArray(g.x)?g.x:null;
+   const where=g.plane==="план"?(d?`параллельно полкам, ${fmt(num(d[0]))}–${fmt(num(d[1]))} мм от ${g.edge>0?"нижней":"верхней"} грани`:"параллельно полкам"):(x&&Math.abs(num(x[0])+num(x[1]))>10?`параллельно стенке, ${fmt(num(x[0]))}…${fmt(num(x[1]))} мм от оси`:"в плоскости стенки");
+   return`<span>${g.pos?"поз. "+esc(g.pos)+" — ":""}${esc(g.section||"пластина "+fmt(g.t)+" мм")}: фасонка ${fmt(num(g.at?.[0]))}–${fmt(num(g.at?.[1]))} мм от начала, ${where}${out?", до "+fmt(out)+" мм от оси":""}</span>`};
+  if(!rows.length&&!gussets.length)return"";
+  return`<div class="scheme-fasteners"><b>Рёбра, пластины и фасонки по сборочному чертежу</b>${[...groups.values()].map(line).join("")}${gussets.map(gline).join("")}<small>${esc(c.plates.sheet||"")}</small></div>`
  }
  // The parts of the member as the specification of its assembly sheet lists them (c.parts): position, section, length,
  // count, note (the engineer, 25.10.2026: «каждый узел должен быть показан идеально»).

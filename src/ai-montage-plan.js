@@ -257,6 +257,21 @@ function platesBySpec(plates,rows){
   return{at:p.at_mm,t:p.t_mm,z:p.z_mm||null,x:p.x_mm||null,...(o?{pos:o.r.pos??null,section:o.r.section}:{}),...(hSpec?{h_mm:hSpec}:{}),from:p.from,...(p.approx?{approx:true}:{})}
  })
 }
+// The gussets of a mark's sheet (src/ai-holes-extract.js sheetPlates — an outline in one view, two lines in the other)
+// with the plates of its specification: as thick (±1,5 mm), the outline's sides as the plate's width and length (±8 mm or
+// 4 %: its corners cut inside them). When the specification lists plates and none is as thick, the outline is not a
+// gusset (an angle's leg, a part of another kind); one as thick of other sizes (a size read wrong) leaves it unnamed.
+function gussetsBySpec(gussets,rows){
+ const PLATE=/^[-−–]\s*(\d+(?:[.,]\d+)?)\s*[хx×*]\s*(\d+(?:[.,]\d+)?)/iu,num=v=>Number(String(v).replace(",","."));
+ const list=rows.map(r=>{const m=PLATE.exec(String(r.section||"").trim());if(!m)return null;const a=num(m[1]),b=num(m[2]);return{r,t:Math.min(a,b),b:Math.max(a,b),L:Number(r.length_mm)||0}}).filter(Boolean);
+ const near=(a,b)=>b>0&&Math.abs(a-b)<=Math.max(8,b*0.04);
+ return gussets.map(q=>{
+  const A=q.at_mm[1]-q.at_mm[0],cs=q.poly.map(e=>e[1]),C=Math.max(...cs)-Math.min(...cs);
+  const o=list.find(o=>Math.abs(o.t-q.t_mm)<=1.5&&(near(A,o.L)&&near(C,o.b)||near(A,o.b)&&near(C,o.L)));
+  if(list.length&&!o&&!list.some(o=>Math.abs(o.t-q.t_mm)<=1.5))return null;
+  return{at:q.at_mm,plane:q.plane,poly:q.poly,t:q.t_mm,...(q.plane==="план"?{edge:q.edge,depth:q.depth_mm}:{x:q.x_mm}),...(o?{pos:o.r.pos??null,section:o.r.section}:{})}
+ }).filter(Boolean)
+}
 function buildCatalog(draft,ai=null){
  const map=new Map();
  const volumes=new Set((draft.pages||[]).filter(p=>p.docType==="КМ").map(volumeOf).filter(Boolean));
@@ -337,7 +352,8 @@ function buildCatalog(draft,ai=null){
  for(const p of draft.pages||[]){
   const sheet=p.sheet||{};if(p.docType!=="КМД сборочные"||!sheet.plates?.length)continue;scope=scopeAt(p);
   for(const m of sheet.plates){const e=entry(m.mark);if(e.plates)continue;
-   e.plates={sheet:where(p),views:m.views,length_mm:m.length_mm,dir:m.dir,rows:platesBySpec(m.plates,e.parts?.rows||[]).slice(0,40)}}
+   const gussets=gussetsBySpec(m.gussets||[],e.parts?.rows||[]).slice(0,40);
+   e.plates={sheet:where(p),views:m.views,length_mm:m.length_mm,dir:m.dir,rows:platesBySpec(m.plates,e.parts?.rows||[]).slice(0,40),...(gussets.length?{gussets}:{})}}
  }
  // Sections of the mounting drawings: the most frequent reading of each mark wins.
  const votes=new Map();
@@ -1607,4 +1623,4 @@ function seatTrusses(elements,catalog){
   e.note=[e.note,"Ферма по геометрической схеме"+(moved?", отметка низа — как у соседних ферм":"")+" — проверьте"].filter(Boolean).join("; ")
  }
 }
-module.exports={instanceStatus,sheetNodes,jointNote,platesBySpec,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces,trimGuardPosts,sectionOutliers,roofOnColumns,purlinsOnBeams,hangTracks,relevelNeighbours,oneLadder};
+module.exports={instanceStatus,sheetNodes,jointNote,platesBySpec,gussetsBySpec,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces,trimGuardPosts,sectionOutliers,roofOnColumns,purlinsOnBeams,hangTracks,relevelNeighbours,oneLadder};

@@ -848,6 +848,33 @@ window.irThreeSchemeView=(function(){
     })
    })
   }
+  // The gussets of a member as its assembly sheet draws them (c.plates.gussets, src/ai-holes-extract.js sheetPlates): the
+  // outline (along it from the start of its view as the holes, out from its axis), as thick as it is drawn edge-on in the
+  // other view — an outline of the plan parallel to the flanges at its depth from the top or the bottom (В46 «−260×8», 59
+  // under the top), one of the view of the web parallel to it (in its plane when not seen apart).
+  function addGussets(c,parts){
+   var list=c.plates&&Array.isArray(c.plates.gussets)?c.plates.gussets:[],len=number(c.plates&&c.plates.length_mm);if(!list.length||!(len>0))return;
+   var p=memberPoints(c),sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);
+   if(p.length!==2||!sec||!(sec.shape==="ibeam"||sec.shape==="channel")||slight(c))return;
+   var d=p[1].clone().sub(p[0]),L=d.length();if(L<=.3)return;d.divideScalar(L);
+   var q=new T.Quaternion().setFromUnitVectors(zAxis,d),X=new T.Vector3(1,0,0).applyQuaternion(q),Y=new T.Vector3(0,1,0).applyQuaternion(q),mid=p[0].clone().add(p[1]).multiplyScalar(.5);
+   var fromTop=c.geometryType==="column"&&c.plates.dir==="по вертикали";
+   list.forEach(function(g){
+    var poly=Array.isArray(g.poly)?g.poly.map(function(e){return[number(e[0]),number(e[1])]}):[],t=number(g.t);if(poly.length<3||!(t>0))return;
+    var sh=new T.Shape();poly.forEach(function(e,i){var sa=(fromTop?len/2-e[0]:e[0]-len/2)/1000,o=e[1]/1000;if(i)sh.lineTo(sa,o);else sh.moveTo(sa,o)});sh.closePath();
+    var m=new T.Mesh(new T.ExtrudeGeometry(sh,{depth:t/1000,steps:1,bevelEnabled:false,curveSegments:1}),baseMaterial(c)),basis=new T.Matrix4(),pos=mid.clone();
+    if(g.plane==="план"){
+     // (along it, across it as the plan, its thickness up from its lower face)
+     var dd=Array.isArray(g.depth)?[number(g.depth[0]),number(g.depth[1])]:[sec.t,sec.t+t];
+     basis.makeBasis(d,X,Y);pos.add(Y.clone().multiplyScalar((number(g.edge)>0?-sec.h/2+dd[0]:sec.h/2-dd[1])/1000))
+    }else{
+     // (along it, down across the view of the web, its thickness across it)
+     var x=Array.isArray(g.x)?[number(g.x[0]),number(g.x[1])]:[-t/2,t/2];
+     basis.makeBasis(d,Y.clone().negate(),X);pos.add(X.clone().multiplyScalar(x[0]/1000))
+    }
+    m.quaternion.setFromRotationMatrix(basis);m.position.copy(pos);m.userData.plate=true;m.userData.gusset=true;parts.push(m)
+   })
+  }
   // Railings, treads and thin bars (Ø up to 60, strips) are welded: no nodes, end plates or bolts on them — a base
   // plate and a marker on every railing post hid the landings.
   function slight(c){var t=String(c.mark_name||c.title||""),sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);
@@ -1237,7 +1264,7 @@ window.irThreeSchemeView=(function(){
      if(cd>.06){var cw=a0.clone().sub(b0),cs=(cb*ub.dot(cw)-ua.dot(cw))/cd,cx=crossing(c,a0.clone().add(ua.clone().multiplyScalar(cs)),ub.clone().cross(ua).normalize(),Math.sqrt(cd));cx.only=1;cuts=[cx]}
     }
     if(cuts.length)segments=cutAtCrossings(c,segments,cuts);
-    addDrill(c,extra);addPlates(c,extra);
+    addDrill(c,extra);addPlates(c,extra);addGussets(c,extra);
     extra.forEach(function(m){m.userData.memberId=id;steel.add(m);allMeshes.push(m);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(m)});
     segments.forEach(function(points){
      if(!sectionOf(c.profile_name||c.profileName,c.profile_standard))conventional.add(id);
