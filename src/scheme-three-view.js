@@ -1379,13 +1379,15 @@ window.irThreeSchemeView=(function(){
   var concreteMat=new T.MeshStandardMaterial({color:0xaeb3b8,roughness:.95}),pedestals=[];
   function basePlated(c){return c.geometryType==="column"&&!c.ft&&!(number(c.r)>0)&&!slight(c)&&!(c.column&&Array.isArray(c.column.members)&&c.column.members.length)}
   // The base plate its sheet draws in a cut at the foot (endCuts): as large and thick as drawn, an anchor in each of its
-  // holes — as thick as the base sheet says, else a bolt of the sheet's list fitting the hole, else conditional.
+  // holes — as thick as the base sheet says, else a bolt of the sheet's list fitting its least hole, else conditional,
+  // 3 mm less than that hole.
   function baseSize(c){
    var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard),bw=sec?sec.b/1000:.36,hh=sec?sec.h/1000:.4;
    var an=c.base&&c.base.anchors||null,cnt=an&&number(an.count)>0?Math.min(24,number(an.count)):4,dia=an&&number(an.d_mm)>0?number(an.d_mm)/1000:.03;
    var side=Math.ceil(cnt/2),step=Math.max(.1,dia*4),cut=endCuts(c).filter(function(e){return e.end===0})[0];
    if(cut){
-    var hd=cut.holes.reduce(function(m,h){return Math.max(m,h.d)},0),fit=boltFor(boltSizes(c),hd),own=an&&number(an.d_mm)>0;
+    // (by the least hole: the anchor goes through the washer's, ГПЭС Ф2-1 «1-1»: Ø40 in the plate, Ø27 in the washer)
+    var hd=cut.holes.reduce(function(m,h){return h.d>0&&(!m||h.d<m)?h.d:m},0),fit=boltFor(boltSizes(c),hd),own=an&&number(an.d_mm)>0;
     if(!own&&fit)dia=fit/1000;else if(!own&&hd>3)dia=Math.min(dia,(hd-3)/1000);
     return{cnt:cut.holes.length,dia:dia,side:Math.ceil(cut.holes.length/2),step:step,pw:cut.x/1000,pd:cut.y/1000,pt:cut.t/1000,
      holes:cut.holes.map(function(h){return{x:h.x/1000,z:-h.y/1000,d:h.d/1000}})}

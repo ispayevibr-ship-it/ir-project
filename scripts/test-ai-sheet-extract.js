@@ -6,6 +6,7 @@ const {buildCatalog,buildPlan}=require("../src/ai-montage-plan");
 const T=(str,x,y,size=15,angle=0,width=str.length*size*0.5)=>({str,x,y,size,angle,width});
 assert.deepEqual(titleMarks("Ф4, Ф5 (обр. Ф4)"),["Ф4","Ф5"]);
 assert.deepEqual(titleMarks("К1, К2 (обратно К1)"),["К1","К2"]);
+assert.equal(titleMarks("I50ШС2"),null,"a profile over the sketch of its section is no mark");
 assert.equal(titleMarks("Вид А"),null);assert.equal(titleMarks("С245"),null,"steel grade is not a mark");
 assert.deepEqual([levelMm("+4,144"),levelMm("-0,400"),levelMm("0,000"),levelMm("4144")],[4144,-400,0,null]);
 // A КМД assembly sheet: two column views with levels, a beam view, a "Требуется" table and the stamp.
@@ -342,6 +343,10 @@ assert.deepEqual(spec,[{mark:"К1",profile:"Тр.140х4",mass_kg:120.5,length_mm
  const drill={views:[{title:"К1, К2",marks:["К1","К2"],main:true,scale:"1:10",length_mm:7040,band_mm:160,dir:"по горизонтали",holes:[hole(70,-55),hole(70,55),hole(6970,-55),hole(6970,55)]}]};
  const cd=buildCatalog({pages:[{page:1,docType:"КМД сборочные",sourceName:"s.pdf",sheet:{views:[level],drill}}]});
  assert.deepEqual(["К1","К2"].map(m=>{const d=cd.get(markKey("КМД",m)).drill[0];return[d.length_mm,d.center_mm,d.holes.map(h=>h[0])]}),[[7040,undefined,[70,70,6970,6970]],[5700,20,[70,70,5630,5630]]]);
+ // Another view of the group («Вид Е» of «К85, К87», the plan of the flange) takes the spans of the view of its marks.
+ const other={views:[{...drill.views[0],title:"Вид Е",main:false}]};
+ const co=buildCatalog({pages:[{page:1,docType:"КМД сборочные",sourceName:"s.pdf",sheet:{views:[level],drill:other}}]});
+ assert.deepEqual(["К1","К2"].map(m=>{const d=co.get(markKey("КМД",m)).drill[0];return[d.view,d.length_mm,d.center_mm,d.holes.map(h=>h[0])]}),[["Вид Е",7040,undefined,[70,70,6970,6970]],["Вид Е",5700,20,[70,70,5630,5630]]],"«Вид Е» of the group");
  assert(require("fs").readFileSync(require("path").join(__dirname,"../src/scheme-three-view.js"),"utf8").includes("at-len/2+ctr"),"the 3D sets the holes off the middle by center_mm")}
 // A view ended above a lower title aside of it is above it, not beside it (ГПЭС Ф137 over Ф140): the lower one's area
 // reaches its left end, «250 · 500 · 500 · 250», «1500».

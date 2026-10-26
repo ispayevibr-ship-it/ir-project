@@ -34,6 +34,8 @@ function rowsOf(texts,tol=4){
 
 // A view title is a large text made only of marks: "Ф3", "К1, К2 (обратно К1)", "(обратна К1)" (ГПЭС К1).
 function titleMarks(str){
+ // A profile over the sketch of its section is not a mark (ГПЭС л. 113: «I50ШС2» — the welded I-beam of К101).
+ if(/^[IΙ]\s?\d{2,3}\s?[БШКСДМУ]/u.test(String(str).trim()))return null;
  // Steel grades (С245, C345-3) look like marks but are not.
  const marks=(String(str).match(MARK)||[]).filter(m=>!STEEL.test(m)&&!/^Ст\d/u.test(m));
  if(!marks.length)return null;

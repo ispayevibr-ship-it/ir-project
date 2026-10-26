@@ -113,9 +113,13 @@ function leaderHoles(call,segs,holes){
   for(const [p,q] of [[s.a,s.b],[s.b,s.a]]){
    if(!inBox(p)||inBox(q))continue;
    // The sign at the far end, or on the line near it (the leader runs through a row of holes).
-   for(const h of holes){const v={x:(q.x-p.x)/s.l,y:(q.y-p.y)/s.l},w={x:h.x-p.x,y:h.y-p.y},t=w.x*v.x+w.y*v.y,off=Math.abs(w.x*v.y-w.y*v.x);
-    if(t<s.l*0.5||t>s.l+h.size*1.5||off>Math.max(1.2,h.size*0.8))continue;
-    const k=Math.abs(s.l-t)+off;if(!best||k<best.k)best={k,hole:h}}
+   const along=(p,q,l,extra)=>{for(const h of holes){const v={x:(q.x-p.x)/l,y:(q.y-p.y)/l},w={x:h.x-p.x,y:h.y-p.y},t=w.x*v.x+w.y*v.y,off=Math.abs(w.x*v.y-w.y*v.x);
+    if(t<l*0.5||t>l+h.size*1.5||off>Math.max(1.2,h.size*0.8))continue;
+    const k=extra+Math.abs(l-t)+off;if(!best||k<best.k)best={k,hole:h}}};
+   along(p,q,s.l,0);
+   // (the shelf under the text, the leader on from its end — ГПЭС Ф2-1 «Ø27 в шайбе»)
+   if(Math.abs(p.y-q.y)<0.5)for(const s2 of segs){if(s2===s||s2.l<z*0.8)continue;
+    for(const [a,b] of [[s2.a,s2.b],[s2.b,s2.a]])if(Math.hypot(a.x-q.x,a.y-q.y)<=1.5&&!inBox(b))along(a,b,s2.l,0.5)}
   }
  }
  return best?best.hole:null
@@ -492,13 +496,16 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
  }
  for(const g of members)for(const h of g.signs)if(outOf(h,g)>-h.size*0.5)h.part=true;
  const out=[],parts=list.filter(g=>!members.includes(g)).reduce((a,g)=>a+g.signs.length,0);let unnamed=0;
- const holesIn=(g,signsOf=g.signs)=>{
+ const holesIn=(g,signsOf=g.signs,alike=false)=>{
   const sc=g.sc,mm=v=>v/sc.n;
   // A callout names the diameter of the signs like the one it points to, as many as it says, the nearest first.
   for(const c of calls.filter(c=>c.hole&&signsOf.includes(c.hole))){
    const like=signsOf.filter(h=>(h.shape==="circle")===(c.hole.shape==="circle")&&Math.abs(h.size-c.hole.size)<0.6&&!h.call&&Boolean(h.part)===Boolean(c.hole.part)).sort((a,b)=>dist(a,c.hole)-dist(b,c.hole));
    for(const h of like.slice(0,Math.max(0,(c.n||1)-1)))h.call={...c,by:"count"}
   }
+  // (`alike`: in a plate drawn apart a circle as large as one a callout names is such a hole too — ГПЭС Ф2-1 «1-1»:
+  // «Ø40» on a leader to one of its four holes, no number)
+  if(alike)for(const h of signsOf){if(h.call||h.shape!=="circle")continue;const o=signsOf.find(o=>o.call&&!o.call.by&&o.shape==="circle"&&Math.abs(o.size-h.size)<0.6);if(o)h.call={...o.call,by:"alike"}}
   // A sign's middle is where an extension line of a dimension runs through it (a sign drawn a little off it): taken
   // there, along and across (a member drawn along the sheet or upright).
   const square=Math.abs(g.u.x)>0.999||Math.abs(g.u.y)>0.999,ends=f=>square?[...new Set(dims.filter(d=>d.flat===f).flatMap(d=>[d.lo,d.hi]))]:[];
@@ -512,7 +519,7 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
    const drawn=h.shape==="circle"?mm(h.size):null,round=drawn?HOLE_D.reduce((a,b)=>Math.abs(b-drawn)<Math.abs(a-drawn)?b:a):null;
    const d=h.call?.d??allMm??(drawn&&Math.abs(round-drawn)<=2.5?round:null);
    return{at_mm:alongMm(s),off_mm:Math.sign(o-axis)*exact(acrossDims,axis,o),d_mm:d,sign:h.shape,...(h.part?{part:true}:{}),
-    ...(h.call?{from:h.call.by?"выноска (по числу отверстий)":"выноска"}:allMm?{from:"примечание «все отверстия»"}:d?{from:"по размеру на чертеже"}:{})}
+    ...(h.call?{from:h.call.by==="alike"?"выноска (такое же отверстие)":h.call.by?"выноска (по числу отверстий)":"выноска"}:allMm?{from:"примечание «все отверстия»"}:d?{from:"по размеру на чертеже"}:{})}
   }).sort((a,b)=>a.at_mm-b.at_mm||a.off_mm-b.off_mm);
   return{holes,unnamed:signsOf.length-named.length}};
  for(const g of members){
@@ -523,7 +530,7 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
  // The plates drawn apart with their holes: its size (along its view, across), the holes from its start and its axis as a
  // member's; the place of its cut along the mark's view («1 - 1» at the foot of a column), when its arrows are by it.
  const sections=[];
- for(const [g,own] of plateSigns){const r=holesIn(g,own);if(!r.holes.length)continue;const who=g.who,marks=who.named||who.view.marks;
+ for(const [g,own] of plateSigns){const r=holesIn(g,own,true);if(!r.holes.length)continue;const who=g.who,marks=who.named||who.view.marks;
   let at=null;
   if(who.cut){const m=members.filter(o=>(o.who.view?.marks||[]).some(x=>marks.includes(x))).sort((a,b)=>b.length-a.length)[0];
    if(m){const sa=who.cut.x*m.u.x+who.cut.y*m.u.y,c=who.cut.x*m.n.x+who.cut.y*m.n.y,w=m.hi-m.lo,L=m.s1-m.s0;

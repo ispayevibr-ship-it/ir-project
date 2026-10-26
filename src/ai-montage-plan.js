@@ -291,7 +291,9 @@ function gussetHoles(gussets,drill){
 // of its ends (ГПЭС К138 «240 · 5560 · 200» under К137 «300 · 6900 · 300»: the holes at 70 from its plates, the plates
 // 170 and 130 off its axes). Holes in the middle of it (a node) — the view kept as drawn.
 function groupDrill(v,mark,views){
- const sv=(views||[]).find(x=>x.title===v.title&&x.spans),own=sv?.spans?.[mark];if(!own?.length||!v.holes?.length)return null;
+ // (the spans of its own view, else of the view of the same marks — another view of the group, ГПЭС «Вид Е» of
+ // «К85, К87»: the holes of the drawn one's span, К85 4620; К87's 250 nearer)
+ const sv=(views||[]).find(x=>x.title===v.title&&x.spans)||(views||[]).find(x=>x.spans?.[mark]&&(v.marks||[]).length>1&&(v.marks||[]).every(m=>(x.marks||[]).includes(m))),own=sv?.spans?.[mark];if(!own?.length||!v.holes?.length)return null;
  const L=Number(v.length_mm)||0,at=v.holes.map(h=>h.at_mm);if(!(L>0)||at.some(a=>a>L*0.25&&a<L*0.75))return null;
  const start=at.filter(a=>a<=L/2),end=at.filter(a=>a>L/2);if(!start.length||!end.length)return null;
  const outer=Math.max(...end)-Math.min(...start),inner=Math.min(...end)-Math.max(...start),all=Object.values(sv.spans).flat();
