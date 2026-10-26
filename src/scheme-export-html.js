@@ -147,6 +147,15 @@
    return'<div class="fast"><b>Метизы и отверстия</b>'+(j.fasteners||[]).map(function(f){return'<span>'+esc(f)+'</span>'}).join("")+
     ((j.holes_mm||[]).length?'<span>Отверстия Ø'+esc(j.holes_mm.join(", Ø"))+(j.hole_mm?" (все Ø"+esc(j.hole_mm)+", кроме оговоренных)":"")+'</span>':"")+(j.fasteners_sheet?'<small>'+esc(j.fasteners_sheet)+'</small>':"")+'</div>'
   }
+  // The holes of the member at their places on the views of its assembly sheet, as the program's card shows them.
+  function drillHtml(c){
+   var views=Array.isArray(c.drill)?c.drill.filter(function(v){return v&&Array.isArray(v.holes)}):[];if(!views.length)return"";
+   var row=function(v){var own=v.holes.filter(function(h){return!Number(h[3])}),part=v.holes.length-own.length,by=new Map();
+    own.forEach(function(h){var d=Number(h[2])||0;if(!by.has(d))by.set(d,[]);by.get(d).push(Number(h[0])||0)});
+    var groups=[];by.forEach(function(at,d){groups.push((d?"Ø"+d:"Ø не указан")+" — "+at.length+" шт.: "+at.filter(function(x,i){return at.indexOf(x)===i}).sort(function(a,b){return a-b}).slice(0,24).map(fmt).join(", ")+" мм от начала")});
+    return'<span>Вид «'+esc(v.view||"")+'»'+(v.scale?", М "+esc(v.scale):"")+', длина '+fmt(v.length_mm)+' мм'+(v.not_to_scale?" (нарисован не в масштабе — по размерам чертежа)":"")+': '+esc(groups.join("; ")||"—")+(part?"; в фасонках на нём — "+part+" шт.":"")+'</span>'};
+   return'<div class="fast"><b>Отверстия по сборочному чертежу</b>'+views.map(row).join("")+(views[0].sheet?'<small>'+esc(views[0].sheet)+'</small>':"")+'</div>'
+  }
   function list(){
    var found=shown().filter(match).sort(function(a,b){return String(a.mark).localeCompare(String(b.mark),"ru",{numeric:true})});
    $("found").textContent="Найдено: "+found.length;
@@ -167,7 +176,7 @@
      ["Ось "+D.axesX[0]+"–"+D.axesX[D.axesX.length-1],a.x],["Ось "+D.axesY[0]+"–"+D.axesY[D.axesY.length-1],a.y],["Коорд. X",fmt(c.x)+" мм"],["Коорд. Y",fmt(c.y)+" мм"],
      ["Низ",fmt(c.z0)+" мм"],["Верх / конец Z",fmt(c.z2)+" мм"]].concat(c.geometryType!=="column"&&c.geometryType!=="shell"&&c.geometryType!=="plate"?[["Конец X",fmt(c.x2)+" мм"],["Конец Y",fmt(c.y2)+" мм"]]:[])
      .map(function(r){return'<div><span>'+esc(r[0])+'</span><b>'+(r[2]?r[1]:esc(r[1]||"—"))+'</b></div>'}).join("")+'</div>'+
-    fastenersHtml(c.joint)+
+    fastenersHtml(c.joint)+drillHtml(c)+
     (p&&p.total>0?'<div class="prog"><b>Марка '+esc(c.mark)+' по ведомости:</b> всего '+fmt(p.total)+' шт., смонтировано '+fmt(p.mounted)+', осталось '+fmt(p.left)+'<div class="bar"><i style="width:'+Math.max(0,Math.min(100,p.mounted/p.total*100))+'%"></i></div></div>':"");
    $("uncard").onclick=function(){S.sel="";details();list();draw3d()}
   }

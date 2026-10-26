@@ -218,11 +218,19 @@ const SCALES=[1,2,2.5,4,5,10,15,20,25,40,50,75,100,150,200,250,300,400,500,800,1
 // The scale of a view tied to one axis each way, from its dimensions: the dimension line just under a horizontal
 // number (or beside a vertical one) and the extension lines crossing it nearest to the number on each side.
 function dimensionsOf(texts,segments){
- const H=[],V=[];
+ const H=[],V=[],ticks=[];
  for(const q of segments){
-  if(Math.abs(q.a.y-q.b.y)<0.3&&Math.abs(q.a.x-q.b.x)>=8)H.push({c:(q.a.y+q.b.y)/2,lo:Math.min(q.a.x,q.b.x),hi:Math.max(q.a.x,q.b.x)});
-  else if(Math.abs(q.a.x-q.b.x)<0.3&&Math.abs(q.a.y-q.b.y)>=4)V.push({c:(q.a.x+q.b.x)/2,lo:Math.min(q.a.y,q.b.y),hi:Math.max(q.a.y,q.b.y)})
+  const dx=Math.abs(q.a.x-q.b.x),dy=Math.abs(q.a.y-q.b.y);
+  if(dy<0.3&&dx>=8)H.push({c:(q.a.y+q.b.y)/2,lo:Math.min(q.a.x,q.b.x),hi:Math.max(q.a.x,q.b.x)});
+  else if(dx<0.3&&dy>=4)V.push({c:(q.a.x+q.b.x)/2,lo:Math.min(q.a.y,q.b.y),hi:Math.max(q.a.y,q.b.y)});
+  // The ticks of the ends of dimensions: short strokes at 45° across the dimension line.
+  else{const l=Math.hypot(dx,dy);if(l>=2&&l<=14&&dx>=l*0.5&&dy>=l*0.5)ticks.push({x:(q.a.x+q.b.x)/2,y:(q.a.y+q.b.y)/2})}
  }
+ // A line drawn in pieces end to end is one line (ГПЭС К36: the line of «7350» in three pieces, its number over the
+ // middle one).
+ const joined=list=>{const out=[];for(const l of list.sort((a,b)=>a.c-b.c||a.lo-b.lo)){const p=out[out.length-1];
+  if(p&&Math.abs(p.c-l.c)<0.05&&l.lo<=p.hi+0.5){p.hi=Math.max(p.hi,l.hi)}else out.push({...l})}return out};
+ H.splice(0,H.length,...joined(H));V.splice(0,V.length,...joined(V));
  const out=[];
  for(const t of texts){
   const v=numberValue(t.str);if(!(v>=50))continue;
@@ -233,7 +241,14 @@ function dimensionsOf(texts,segments){
   // it is the size's. A short size is written past the end of its line, over its end.
   const band=along.filter(l=>l.c>=base+0.3&&l.c<=base+Math.max(4,(Number(t.size)||0)*0.4)),[u0,u1]=flat?[b.x0,b.x1]:[b.y0,b.y1];
   const longest=list=>list.reduce((p,l)=>!p||l.hi-l.lo>p.hi-p.lo?l:p,null);
-  const line=longest(band.filter(l=>l.lo<=at&&l.hi>=at))||longest(band.filter(l=>l.lo<=u1&&l.hi>=u0));if(!line)continue;
+  let line=longest(band.filter(l=>l.lo<=at&&l.hi>=at))||longest(band.filter(l=>l.lo<=u1&&l.hi>=u0));
+  // A dimension line broken where its number is — in the break of a view drawn with the middle left out (ГПЭС К36:
+  // «7350» in a gap of 300 pt of its line): the two pieces on one line either side of it, the nearest.
+  if(!line){
+   const z=Number(t.size)||10,left=band.filter(l=>l.hi<=u0+2&&u0-l.hi<=z*15).sort((a,b)=>b.hi-a.hi);
+   for(const l of left){const r=band.filter(q=>Math.abs(q.c-l.c)<=0.3&&q.lo>=u1-2&&q.lo-u1<=z*15).sort((a,b)=>a.lo-b.lo)[0];if(r){line={c:l.c,lo:l.lo,hi:r.hi};break}}
+  }
+  if(!line)continue;
   const ext=across.filter(e=>e.lo<=line.c+3&&e.hi>=line.c-3&&e.c>=line.lo-1&&e.c<=line.hi+1).map(e=>e.c);
   // A dimension's own extension lines never cross its number: one that does (the middle tick of the chain above,
   // run down through the overall dimension «2430» under «1215 1215») is passed over.
@@ -244,6 +259,13 @@ function dimensionsOf(texts,segments){
   const gap=Math.max(4,(Number(t.size)||0)*0.3);
   if(!Number.isFinite(hi)){const below=[...new Set(ext.filter(c=>c<at).map(c=>Math.round(c*10)/10))].sort((a,b)=>b-a);if(below.length>=2&&t0-below[0]<=gap){hi=below[0];lo=below[1]}}
   else if(!Number.isFinite(lo)){const above=[...new Set(ext.filter(c=>c>at).map(c=>Math.round(c*10)/10))].sort((a,b)=>a-b);if(above.length>=2&&above[0]-t1<=gap){lo=above[0];hi=above[1]}}
+  // The ticks on the line mark the ends of its dimensions: an extension line of another dimension crossing an overall
+  // one has none there (ГПЭС К17а: «4320» over «60 4215 45» took the extension lines of the chain for its ends).
+  const marks=[...new Set(ticks.filter(k=>Math.abs((flat?k.y:k.x)-line.c)<=1.2&&(flat?k.x:k.y)>=line.lo-1&&(flat?k.x:k.y)<=line.hi+1).map(k=>Math.round((flat?k.x:k.y)*10)/10))];
+  if(marks.length>=2){
+   const tlo=Math.max(...marks.filter(c=>cross?c<=t0+m:c<at)),thi=Math.min(...marks.filter(c=>cross?c>=t1-m:c>at));
+   if(Number.isFinite(tlo)&&Number.isFinite(thi)&&thi-tlo>=4){lo=tlo;hi=thi}
+  }
   if(Number.isFinite(lo)&&Number.isFinite(hi)&&hi-lo>=4)out.push({v,lo,hi,flat,line:line.c,from:line.lo,to:line.hi,text:t})
  }
  return out

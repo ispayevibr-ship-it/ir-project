@@ -745,7 +745,8 @@ window.irThreeSchemeView=(function(){
   // merged picture of their cell (thousands of bolts × five parts as objects took the memory).
   var boltMats={"8.8":new T.MeshStandardMaterial({color:0x2a2e35,metalness:.45,roughness:.45}),"5.8":new T.MeshStandardMaterial({color:0x8d949c,metalness:.55,roughness:.4})};
   var boltList=[];
-  function boltDia(c){var m=/(\d{2})/.exec(String(c.joint&&c.joint.bolt||""));return m&&!slight(c)?number(m[1])/1000:0}
+  // (a member with its holes from its sheet has its bolts in them, not the conventional ones)
+  function boltDia(c){var m=/(\d{2})/.exec(String(c.joint&&c.joint.bolt||""));return m&&!slight(c)&&!drillOf(c)?number(m[1])/1000:0}
   function boltSet(dmm){
    var b=fasteners.get("bolt:"+dmm),n=fasteners.get("nut:"+dmm),w=fasteners.get("washer:"+dmm),p=fasteners.get("pitch:"+dmm);
    return b&&n&&w&&b.S_mm&&b.k_mm&&n.S_mm&&n.m_mm&&w.d2_mm&&w.s_mm?{S:b.S_mm/1000,k:b.k_mm/1000,nS:n.S_mm/1000,m:n.m_mm/1000,d2:w.d2_mm/1000,s:w.s_mm/1000,p:p&&p.pitch_mm?p.pitch_mm/1000:0}:null
@@ -777,6 +778,48 @@ window.irThreeSchemeView=(function(){
   // Bolts of a brace end on its gusset by the least distances of СП 16.13330 (табл. 40): the first 2,5d from the end of
   // the brace (not less than 2d along the force), the next 3d further (not less than 2,5d) — until the КМД gives its own.
   function boltRow(dia){return[2.5*dia,5.5*dia]}
+  // Holes of a member as its assembly sheet draws them (c.drill: views of the КМД, each hole along the member from the
+  // start of the view and off its axis, src/ai-holes-extract.js; the engineer, 25.10.2026: «каждое отверстие»). A view
+  // as wide as the section is high is its side: the holes go through the web; as wide as its flange — its plan: through
+  // the upper flange. The length of the sheet is centred on the member placed. A bolt of the sheet's list (the hole 1–4 mm
+  // wider) goes in each hole through the member and a gusset on it. The holes of the gussets beside it are on the card
+  // only: the gussets are drawn conventionally.
+  var holeMat=new T.MeshStandardMaterial({color:0x101317,roughness:.9}),drillCache=new Map();
+  function boltSizes(c){var j=c.joint||{},out=[];[j.bolt].concat(j.fasteners||[]).forEach(function(t){var m=/[МM](\d{2})/.exec(String(t||""));if(m&&out.indexOf(+m[1])<0)out.push(+m[1])});return out}
+  function drillOf(c){
+   var id=String(c.id||"");if(drillCache.has(id))return drillCache.get(id);
+   var out=null,views=Array.isArray(c.drill)?c.drill:[],p=views.length?memberPoints(c):[],sec=views.length?sectionOf(c.profile_name||c.profileName,c.profile_standard):null;
+   if(p.length===2&&sec&&(sec.shape==="ibeam"||sec.shape==="channel")&&!slight(c)){
+    var d=p[1].clone().sub(p[0]),L=d.length();
+    if(L>.3){
+     d.divideScalar(L);var q=new T.Quaternion().setFromUnitVectors(zAxis,d),X=new T.Vector3(1,0,0).applyQuaternion(q),Y=new T.Vector3(0,1,0).applyQuaternion(q),mid=p[0].clone().add(p[1]).multiplyScalar(.5);
+     var webX=sec.shape==="channel"?(sec.s/2-sec.b/2)/1000:0,bolts=boltSizes(c);
+     views.forEach(function(v){
+      var band=number(v&&v.band_mm),len=number(v&&v.length_mm),side=Math.abs(band-sec.h)<=Math.max(15,sec.h*.12),plan=!side&&Math.abs(band-sec.b)<=Math.max(15,sec.b*.12);
+      if(!(side||plan)||!(len>0)||!Array.isArray(v.holes))return;
+      // (a column drawn upright: from its top)
+      var fromTop=v.dir==="по вертикали"&&c.geometryType==="column";
+      v.holes.forEach(function(h){
+       if(!Array.isArray(h)||number(h[3]))return;var at=number(h[0]),off=number(h[1]),dm=number(h[2]),sa=fromTop?len/2-at:at-len/2;
+       if(Math.abs(sa)>len/2+5)return;
+       var pos=mid.clone().add(d.clone().multiplyScalar(sa/1000)),axis,thick;
+       if(side){pos.add(X.clone().multiplyScalar(webX)).add(Y.clone().multiplyScalar(-off/1000));axis=X;thick=sec.s/1000}
+       else{pos.add(X.clone().multiplyScalar(off/1000)).add(Y.clone().multiplyScalar((sec.h/2-sec.t/2)/1000));axis=Y;thick=sec.t/1000}
+       (out||(out=[])).push({at:pos,axis:axis.clone(),d:dm>0?dm/1000:0,t:thick,bolt:bolts.filter(function(b){return dm-b>=1&&dm-b<=4}).sort(function(a,b){return b-a})[0]||0})
+      })
+     })
+    }
+   }
+   drillCache.set(id,out);return out
+  }
+  function addDrill(c,parts){
+   var list=drillOf(c);if(!list)return;
+   list.forEach(function(h){
+    var r=(h.d||.022)/2,m=new T.Mesh(shared("hole",function(){return new T.CylinderGeometry(1,1,1,14)}),holeMat);
+    m.quaternion.setFromUnitVectors(boltY,h.axis);m.scale.set(r,h.t+.004,r);m.position.copy(h.at);m.userData.hole=true;parts.push(m);
+    if(h.bolt){var gt=gussetT(c);addBolt(c,h.at.clone().add(h.axis.clone().multiplyScalar(gt/2)),h.axis,h.bolt/1000,h.t+gt)}
+   })
+  }
   // Railings, treads and thin bars (Ø up to 60, strips) are welded: no nodes, end plates or bolts on them — a base
   // plate and a marker on every railing post hid the landings.
   function slight(c){var t=String(c.mark_name||c.title||""),sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);
@@ -1033,7 +1076,7 @@ window.irThreeSchemeView=(function(){
   function buildMembers(list){
    var cached=new Set(meshGeo.values()),gone=new Set();
    allMeshes.forEach(function(m){steel.remove(m);if(!cached.has(m.geometry))gone.add(m.geometry)});gone.forEach(function(g){g.dispose()});
-   allMeshes=[];boltList=[];dataById.clear();meshesById.clear();failures=0;conventional.clear();
+   allMeshes=[];boltList=[];dataById.clear();meshesById.clear();failures=0;conventional.clear();drillCache.clear();
    labels.forEach(function(l){l.el.remove()});labels=[];
    elems=Array.isArray(list)?list:[];
    seatOnTops(elems);hangTies(elems);
@@ -1166,6 +1209,7 @@ window.irThreeSchemeView=(function(){
      if(cd>.06){var cw=a0.clone().sub(b0),cs=(cb*ub.dot(cw)-ua.dot(cw))/cd,cx=crossing(c,a0.clone().add(ua.clone().multiplyScalar(cs)),ub.clone().cross(ua).normalize(),Math.sqrt(cd));cx.only=1;cuts=[cx]}
     }
     if(cuts.length)segments=cutAtCrossings(c,segments,cuts);
+    addDrill(c,extra);
     extra.forEach(function(m){m.userData.memberId=id;steel.add(m);allMeshes.push(m);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(m)});
     segments.forEach(function(points){
      if(!sectionOf(c.profile_name||c.profileName,c.profile_standard))conventional.add(id);

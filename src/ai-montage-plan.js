@@ -301,6 +301,16 @@ function buildCatalog(draft,ai=null){
   const marks=new Set([...(sheet.spec||[]).map(r=>r.mark),...(sheet.required||[]).map(r=>r.mark)]);
   for(const mark of marks){const e=entry(mark);if(!e.fasteners)e.fasteners={bolts:bolts.map(f=>({text:f.text,d_mm:f.d_mm,length_mm:f.length_mm,cls:f.strength_class||null,high:Boolean(f.high_strength),count:f.count})),holes:sheet.holes||null,sheet:where(p)}}
  }
+ // The holes of each mark at their places on its views (sheet.drill, src/ai-holes-extract.js): the views of the first
+ // assembly sheet that has them, up to four; a hole is [along from the start, across from the axis, Ø (0 — not named),
+ // 1 — in a part on the member (a gusset), mm].
+ for(const p of draft.pages||[]){
+  const sheet=p.sheet||{};if(p.docType!=="КМД сборочные"||!sheet.drill?.views?.length)continue;scope=scopeAt(p);
+  for(const v of sheet.drill.views)for(const mark of v.marks||[]){const e=entry(mark);
+   if(e.drillFrom&&e.drillFrom!==where(p)||(e.drill||[]).length>=4)continue;e.drillFrom=where(p);
+   (e.drill=e.drill||[]).push({view:v.title,sheet:where(p),scale:v.scale,length_mm:v.length_mm,band_mm:v.band_mm,dir:v.dir,...(v.main?{main:true}:{}),...(v.not_to_scale?{not_to_scale:true}:{}),
+    holes:v.holes.slice(0,80).map(h=>[h.at_mm,h.off_mm,h.d_mm||0,h.part?1:0])})}
+ }
  // Sections of the mounting drawings: the most frequent reading of each mark wins.
  const votes=new Map();
  for(const p of draft.pages||[]){
@@ -882,7 +892,7 @@ function buildPlan(draft,ai=null,heights={},opts={}){
     x_mm:x,y_mm:y,x2_mm:point?undefined:x2,y2_mm:point?undefined:y2,...(geometry==="shell"||geometry==="plate"?{radius_mm:pl.radius_mm,inner_radius_mm:pl.inner_radius_mm,shell_open:pl.shell_open,...(pl.cone_rise_mm?{cone_rise_mm:pl.cone_rise_mm}:{}),...(pl.sector_deg>0?{sector_start_deg:pl.sector_start_deg,sector_deg:pl.sector_deg}:{})}:{}),...(pl.fitting_type?{fitting_type:pl.fitting_type,diameter_mm:pl.diameter_mm}:{}),...(pl.layout&&typeof pl.layout==="object"?{layout:pl.layout}:{}),
     z0_mm:geometry==="beam"&&!drawn&&!flightLevel?z1:z0,z1_mm:z1,group,group_label:GROUPS[group],
     // A verified scheme carries its own profiles and truss lattices.
-    profile:pl.profile||cat?.profile||"",profile_standard:pl.profile?"":cat?.profile_standard||"",...(pl.truss?{truss:pl.truss}:{}),...(pl.nodes?{nodes:pl.nodes}:{}),...(pl.base&&typeof pl.base==="object"?{base:pl.base}:{}),...(pl.joint||joints(c.info)||cat?.fasteners?{joint:withFasteners(pl.joint||joints(c.info),cat?.fasteners)}:{}),doc:scopeOf(c.info.docType,catalog.multi?c.info.volume:""),length_mm:cat?.length_mm??null,levels:own?"Claude":local?local.from:"схема",...(!own&&local?.zeroBase?{z0_assumed:true}:{}),
+    profile:pl.profile||cat?.profile||"",profile_standard:pl.profile?"":cat?.profile_standard||"",...(pl.truss?{truss:pl.truss}:{}),...(pl.nodes?{nodes:pl.nodes}:{}),...(pl.base&&typeof pl.base==="object"?{base:pl.base}:{}),...(pl.joint||joints(c.info)||cat?.fasteners?{joint:withFasteners(pl.joint||joints(c.info),cat?.fasteners)}:{}),...(cat?.drill?{drill:cat.drill}:{}),doc:scopeOf(c.info.docType,catalog.multi?c.info.volume:""),length_mm:cat?.length_mm??null,levels:own?"Claude":local?local.from:"схема",...(!own&&local?.zeroBase?{z0_assumed:true}:{}),
     page:c.info.page,file:c.info.file,sheet:c.info.sheet,...(!c.info.page&&pl.sheet?{source_sheet:String(pl.sheet)}:{}),...(pl.section?{section:pl.section}:{}),scheme:c.info.title,confidence:pl.confidence,note:[...(pl.notes||[]),change?.note,...guess].filter(Boolean).join("; ")})
   });
   // Bracing and secondary members meet the beams of the same plan: their ends take those beams' levels.

@@ -75,12 +75,17 @@ async function readPageGeometry(pdfjs,page){
  // Small filled shapes: letters of lettering exported as curves (OCR reads their areas later).
  const segments=[],glyphs=[],images=[];
  const images_=new Set([OPS.paintImageXObject,OPS.paintInlineImageXObject,OPS.paintImageMaskXObject,OPS.paintImageXObjectRepeat].filter(v=>v!==undefined));let ctm=[1,0,0,1,0,0];const stack=[];
+ // The width of the line drawn, pt (`w` of a segment): an outline is drawn thick, an axis, a dimension and its
+ // extension lines thin (ГОСТ 2.303).
+ let lw=1;const lws=[];
  const point=(x,y)=>{const ux=ctm[0]*x+ctm[2]*y+ctm[4],uy=ctm[1]*x+ctm[3]*y+ctm[5];return{x:vt[0]*ux+vt[2]*uy+vt[4],y:vt[1]*ux+vt[3]*uy+vt[5]}};
  for(let i=0;i<list.fnArray.length&&segments.length<MAX_SEGMENTS;i++){
   const fn=list.fnArray[i],args=list.argsArray[i];
-  if(fn===OPS.save)stack.push(ctm);
-  else if(fn===OPS.restore)ctm=stack.pop()||[1,0,0,1,0,0];
+  if(fn===OPS.save){stack.push(ctm);lws.push(lw)}
+  else if(fn===OPS.restore){ctm=stack.pop()||[1,0,0,1,0,0];lw=lws.length?lws.pop():1}
   else if(fn===OPS.transform)ctm=mul(ctm,args);
+  else if(fn===OPS.setLineWidth)lw=Number(args?.[0])||0;
+  else if(fn===OPS.setGState){for(const [k,v] of args?.[0]||[])if(k==="LW")lw=Number(v)||0}
   // A picture pasted into the drawing (often a scanned table): its place on the sheet, for OCR.
   else if(images_.has(fn)){
    const c=[point(0,0),point(1,0),point(0,1),point(1,1)];
@@ -101,7 +106,7 @@ async function readPageGeometry(pdfjs,page){
     continue
    }
    if(!stroked.has(paint))continue;
-   const d=Array.from(data);let start=null,last=null,startRaw=null,lastRaw=null;
+   const d=Array.from(data),from=segments.length,w=Math.round(lw*Math.sqrt(Math.abs(ctm[0]*ctm[3]-ctm[1]*ctm[2])*Math.abs(vt[0]*vt[3]-vt[1]*vt[2]))*100)/100;let start=null,last=null,startRaw=null,lastRaw=null;
    for(let j=0;j<d.length;){
     const op=d[j];
     if(op===0){start=last=point(d[j+1],d[j+2]);startRaw=lastRaw=[d[j+1],d[j+2]];j+=3}
@@ -124,6 +129,7 @@ async function readPageGeometry(pdfjs,page){
     }
     else{if(last&&start&&(last.x!==start.x||last.y!==start.y))segments.push({a:last,b:start});last=start;lastRaw=startRaw;j+=1}
    }
+   for(let k=from;k<segments.length;k++)segments[k].w=w
   }
  }
  const {texts}=await readPageTexts(page,viewport);

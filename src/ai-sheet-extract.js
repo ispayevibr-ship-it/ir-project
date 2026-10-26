@@ -207,7 +207,7 @@ function assemblyViews(texts,w,h,med,segments=[]){
   // The member's own section labelled in its view («□140х4» on the leader of the post Ф15): when it is the one rolled
   // section there.
   const rolled=[...new Set(inside.filter(t=>ROLLED.test(profileWords(cyr(String(t.str))))&&!/^(уголок|L|∟)/iu.test(profileWords(cyr(String(t.str))))).map(t=>normProfile(t.str)))];
-  views.push({marks:v.marks,title:v.t.str,levels,z0_mm:z0,z1_mm:z1,length_mm:length,...(rolled.length===1?{profile:rolled[0]}:{}),...(how?{length_how:how}:{}),...((!over||over.weak)&&others.length?{length_candidates:[length,...others.slice(0,2)]}:{}),box})
+  views.push({marks:v.marks,title:v.t.str,title_at:{x:Math.round(cx*10)/10,y:Math.round(v.t.y*10)/10},levels,z0_mm:z0,z1_mm:z1,length_mm:length,...(rolled.length===1?{profile:rolled[0]}:{}),...(how?{length_how:how}:{}),...((!over||over.weak)&&others.length?{length_candidates:[length,...others.slice(0,2)]}:{}),box})
  }
  return views
 }
@@ -655,9 +655,14 @@ const CLASS_NOTE=/кл(?:асс)?\.?\s*(?:пр(?:оч[а-яё]*)?\.?)?\s*(\d{1,2
 // болты М24-∅27 выполнять сверлением» — the diameters, the one for all first.
 function holeNotes(texts){
  const all=[],other=[],said=[];
- for(const t of texts){const s=String(t.str||"").replace(/\s+/g," ");let m;
-  if((m=/(?:вс[еи]|неоговоренн\S*)\s+отверсти\S*\s*(?:—|-|–)?\s*[ØøФ∅]\s*(\d{1,2}(?:[.,]\d)?)/iu.exec(s))){all.push(+m[1].replace(",","."));said.push(s.trim())}
-  else if((m=/(?:отв\.?|отверсти\S*)\s*(?:под\s+болты\s+М\s*\d{2}\s*[-–—]\s*)?[ØøФ∅]\s*(\d{1,2}(?:[.,]\d)?)/iu.exec(s))){other.push(+m[1].replace(",","."));if(/под\s+болт/iu.test(s))said.push(s.trim())}}
+ // A note written in pieces of one line («2. Все отверстия» «Ç» «23 мм, кроме оговоренных.» — «Ç» is the sign Ø of a
+ // CAD font without it): the pieces close together are read as one.
+ const runs=[];
+ for(const r of rowsOf(texts.filter(t=>Math.abs(Math.round(t.angle||0))<10),3)){let run=null;
+  for(const t of r.items){const z=t.size||10;if(run&&t.x-run.end<=z*1.2){run.str+=" "+t.str;run.end=t.x+(t.width||String(t.str).length*z*0.55)}else{run={str:String(t.str),end:t.x+(t.width||String(t.str).length*z*0.55)};runs.push(run)}}}
+ for(const t of [...texts,...runs]){const s=String(t.str||"").replace(/\s+/g," ");let m;
+  if((m=/(?:вс[еи]|неоговоренн\S*)\s+отверсти\S*\s*(?:—|-|–)?\s*[ØøФ∅Ç⌀]\s*(\d{1,2}(?:[.,]\d)?)/iu.exec(s))){all.push(+m[1].replace(",","."));said.push(s.trim())}
+  else if((m=/(?:отв\.?|отверсти\S*)\s*(?:под\s+болты\s+М\s*\d{2}\s*[-–—]\s*)?[ØøФ∅Ç⌀]\s*(\d{1,2}(?:[.,]\d)?)/iu.exec(s))){other.push(+m[1].replace(",","."));if(/под\s+болт/iu.test(s))said.push(s.trim())}}
  const d=[...new Set([...all,...other])];
  return d.length?{all_mm:all[0]||null,diameters_mm:d,notes:[...new Set(said)].slice(0,4)}:null
 }
@@ -842,6 +847,9 @@ function extractSheet({texts=[],widthPt=0,heightPt=0,segments=[]}={}){
  }
  // The stamp alone names the mark when the table was not read: one piece is not assumed, the count stays open.
  if(own.length===1&&!required.length&&assemblyTextOf(texts))required.push({mark:own[0],count:table.unnamed===1?table.unnamedCount:null,mass_kg:null,from:"stamp"});
- return{stamp,views,required,elements,spec,fasteners:fastenerTable(texts),holes:holeNotes(texts),standards,levelCount:levels.length,assemblyText,...(unread.length?{unread}:{})}
+ // The holes of each member at their places on its views (src/ai-holes-extract.js): «Все отверстия Ø23» names those no
+ // callout does.
+ const holes=holeNotes(texts),drill=views.length&&segments.length<=80000?require("./ai-holes-extract").sheetHoles({texts,segments,widthPt,heightPt},{views,allMm:holes?.all_mm||null}):null;
+ return{stamp,views,required,elements,spec,fasteners:fastenerTable(texts),holes,...(drill?.views.length?{drill}:{}),standards,levelCount:levels.length,assemblyText,...(unread.length?{unread}:{})}
 }
 module.exports={extractSheet,sheetStamp,stampNames,titleMarks,levelMm,rowsOf,specTable,specCells,cellAccept,sectionLike,normProfile,fastenerTable,standardsCited};
