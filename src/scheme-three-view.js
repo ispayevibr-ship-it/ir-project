@@ -704,10 +704,10 @@ window.irThreeSchemeView=(function(){
     var hs=halfSection(c),p=memberPoints(c);if(p.length!==2)return;
     if(c.geometryType==="column"){
      if(p[1].y-p[0].y<.3)return;
-     add(p[0].x-hs.b,p[0].z-hs.h,p[0].x+hs.b,p[0].z+hs.h,{id:String(c.id),col:true,c:p[0],y0:p[0].y,y1:p[1].y,hx:hs.b,hz:hs.h})
+     add(p[0].x-hs.b,p[0].z-hs.h,p[0].x+hs.b,p[0].z+hs.h,{id:String(c.id),col:true,c:p[0],y0:p[0].y,y1:p[1].y,hx:hs.b,hz:hs.h,gus:sheetGussets(c,p)})
     }else if(c.geometryType==="beam"){
      var v=p[1].clone().sub(p[0]),L=v.length();if(L<1||Math.abs(v.y)/L>.03)return;v.divideScalar(L);
-     add(p[0].x-hs.b,p[0].z-hs.b,p[1].x+hs.b,p[1].z+hs.b,{id:String(c.id),col:false,a:p[0],u:v,L:L,y:(p[0].y+p[1].y)/2,hv:hs.b,hy:hs.h})
+     add(p[0].x-hs.b,p[0].z-hs.b,p[1].x+hs.b,p[1].z+hs.b,{id:String(c.id),col:false,a:p[0],u:v,L:L,y:(p[0].y+p[1].y)/2,hv:hs.b,hy:hs.h,gus:sheetGussets(c,p)})
     }
    });
    // Ends of the linear members by point (5 cm cells): where braces end together with others and nothing runs
@@ -721,15 +721,16 @@ window.irThreeSchemeView=(function(){
    });
    var find=function(id,E,d){
     var best=null;(cells.get(Math.floor(E.x/C)+","+Math.floor(E.z/C))||[]).forEach(function(h){
-     if(h.id===id)return;var t=Infinity,exit=function(rel,dd,half){if(Math.abs(rel)>half+.02)return-1;if(Math.abs(dd)<1e-6)return Infinity;return((dd>0?half:-half)-rel)/dd};
+     if(h.id===id)return;var t=Infinity,s=0,exit=function(rel,dd,half){if(Math.abs(rel)>half+.02)return-1;if(Math.abs(dd)<1e-6)return Infinity;return((dd>0?half:-half)-rel)/dd};
      if(h.col){
       if(E.y<h.y0-.05||E.y>h.y1+.05)return;
-      var ex=exit(E.x-h.c.x,d.x,h.hx),ez=exit(E.z-h.c.z,d.z,h.hz);if(ex<0||ez<0)return;t=Math.min(ex,ez)
+      var ex=exit(E.x-h.c.x,d.x,h.hx),ez=exit(E.z-h.c.z,d.z,h.hz);if(ex<0||ez<0)return;t=Math.min(ex,ez);s=E.y-h.y0
      }else{
-      var r=E.clone().sub(h.a),s=r.dot(h.u);if(s<h.hv+.1||s>h.L-h.hv-.1)return;
+      var r=E.clone().sub(h.a);s=r.dot(h.u);if(s<h.hv+.1||s>h.L-h.hv-.1)return;
       var vx=-h.u.z,vz=h.u.x,ev=exit(r.x*vx+r.z*vz,d.x*vx+d.z*vz,h.hv),ey=Math.abs(E.y-h.y)<h.hy-.02?exit(E.y-h.y,d.y,h.hy):-1;if(ev<0||ey<0)return;t=Math.min(ev,ey)
      }
-     if(t>0&&t<Infinity&&(!best||t>best.t))best={t:t,col:h.col}
+     // (the gussets its sheet draws there: within 150 mm of the end)
+     if(t>0&&t<Infinity&&(!best||t>best.t))best={t:t,col:h.col,gus:(h.gus||[]).filter(function(g){return s>=g.s0-.15&&s<=g.s1+.15})}
     });
     return best
    };
@@ -883,6 +884,16 @@ window.irThreeSchemeView=(function(){
     })
    })
   }
+  // The gussets the sheet draws on a member, as addGussets draws them: where along it from its first point (m), and whether
+  // their holes carry bolts — a brace ending there is joined by one of them, not by a conventional gusset (trimSegment).
+  function sheetGussets(c,p){
+   var list=c.plates&&Array.isArray(c.plates.gussets)?c.plates.gussets:[],len=number(c.plates&&c.plates.length_mm);if(!list.length||!(len>0)||p.length!==2)return null;
+   var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);if(!sec||!(sec.shape==="ibeam"||sec.shape==="channel")||slight(c))return null;
+   var L=p[1].distanceTo(p[0]),fromTop=c.geometryType==="column"&&c.plates.dir==="по вертикали",bolts=boltSizes(c);
+   return list.filter(function(g){return Array.isArray(g.poly)&&g.poly.length>=3&&number(g.t)>0}).map(function(g){
+    var s=(Array.isArray(g.at)?g.at:[0,0]).map(function(a){return L/2+(fromTop?len/2-number(a):number(a)-len/2)/1000});
+    return{s0:Math.min(s[0],s[1]),s1:Math.max(s[0],s[1]),bolts:Array.isArray(g.holes)&&g.holes.some(function(h){return boltFor(bolts,number(h&&h[2]))>0})}})
+  }
   // Railings, treads and thin bars (Ø up to 60, strips) are welded: no nodes, end plates or bolts on them — a base
   // plate and a marker on every railing post hid the landings.
   function slight(c){var t=String(c.mark_name||c.title||""),sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);
@@ -922,15 +933,18 @@ window.irThreeSchemeView=(function(){
      return
     }
     // The gusset (12 mm): in a vertical brace's plane with one edge upright along the face it is welded to; under a
-    // horizontal brace, lying flat, 400 × 400. A brace nearly upright gets none.
+    // horizontal brace, lying flat, 400 × 400. A brace nearly upright gets none. Where the sheet of the member it ends
+    // on draws a gusset (sheetGussets: В46 «−260×8» at both ends) that one joins it: no conventional one, and no
+    // conventional bolts when its holes carry bolts of their own.
     var d=e[1],up=new T.Vector3(0,1,0),hl=Math.hypot(d.x,d.z),g=new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(c));
     if(hl<.2)return;
+    var real=hit.gus&&hit.gus.length?hit.gus:null,ownBolts=real&&real.some(function(q){return q.bolts});
     var hd=new T.Vector3(d.x/hl,0,d.z/hl),flat=Math.abs(d.y)<.25,side=hd.clone().cross(up);
-    g.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(hd,up,side));g.userData.gusset=true;parts.push(g);
+    g.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(hd,up,side));g.userData.gusset=true;if(!real)parts.push(g);
     var gt=gussetT(c);
     if(flat){
      g.scale.set(.4,gt,.4);g.position.copy(e[0]).add(d.clone().multiplyScalar(face+.2/hl));
-     if(dia)boltRow(dia).forEach(function(s){addBolt(c,e[0].clone().add(d.clone().multiplyScalar(cut+s)),up,dia,gt+legT(c))});
+     if(dia&&!ownBolts)boltRow(dia).forEach(function(s){addBolt(c,e[0].clone().add(d.clone().multiplyScalar(cut+s)),up,dia,gt+legT(c))});
      return
     }
     // A steep brace (a portal leg, a brace of a tall bay) ends 60 mm off the face, inside its gusset: the plate runs from
@@ -939,7 +953,7 @@ window.irThreeSchemeView=(function(){
     out[k]=e[0].clone().add(d.clone().multiplyScalar(end));
     g.scale.set(h1-h0,Math.max(.3,run*dy+.15),gt);
     g.position.copy(e[0]).add(hd.clone().multiplyScalar((h0+h1)/2));g.position.y=e[0].y+d.y*(end+run/2);
-    if(dia)boltRow(dia).forEach(function(s){addBolt(c,e[0].clone().add(d.clone().multiplyScalar(end+s)),side,dia,gt+legT(c))})
+    if(dia&&!ownBolts)boltRow(dia).forEach(function(s){addBolt(c,e[0].clone().add(d.clone().multiplyScalar(end+s)),side,dia,gt+legT(c))})
    });
    return out
   }
