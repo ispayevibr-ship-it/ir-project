@@ -307,11 +307,12 @@ function buildCatalog(draft,ai=null){
   if(p.docType!=="КМД монтажные"&&p.docType!=="КМ")continue;
   scope=scopeAt(p);
   for(const r of p.sections||[]){
-   const k=markKey(scope,r.mark);if(!votes.has(k))votes.set(k,{scope,mark:r.mark,beam:new Map(),post:new Map(),ridge:new Map(),where:new Set()});
+   const k=markKey(scope,r.mark);if(!votes.has(k))votes.set(k,{scope,mark:r.mark,beam:new Map(),post:new Map(),ridge:new Map(),span:new Map(),where:new Set()});
    const v=votes.get(k),add=(map,key)=>map.set(key,(map.get(key)||0)+1);
    if(Number.isFinite(r.beam_mm))add(v.beam,r.beam_mm);
    if(Number.isFinite(r.ridge_mm))add(v.ridge,[r.beam_mm,r.ridge_mm,r.ridge_t,r.ridge_len_mm].join("|"));
    if(Number.isFinite(r.z0_mm)&&Number.isFinite(r.z1_mm))add(v.post,r.z0_mm+"|"+r.z1_mm);
+   if(Array.isArray(r.span_mm)&&r.span_mm[1]-r.span_mm[0]>=1000)add(v.span,r.span_mm.join("|"));
    v.where.add(where(p)+" · разрез "+r.section)
   }
  }
@@ -327,6 +328,7 @@ function buildCatalog(draft,ai=null){
   const ridge=mode(v.ridge);
   if(ridge!==undefined&&v.ridge.get(ridge)>=(v.beam.get(beam)||0)/2){const [end,z,t,len]=ridge.split("|").map(Number);e.section_beam_mm=end;e.section_ridge={z,t,len}}
   if(post!==undefined){const [z0,z1]=post.split("|").map(Number);e.section_z0_mm=z0;e.section_z1_mm=z1}
+  const span=mode(v.span);if(span!==undefined)e.section_span_mm=span.split("|").map(Number);
   e.sources.push(...[...v.where].slice(0,3))
  }
  for(const m of ai?.marks||[]){
@@ -824,7 +826,9 @@ function buildPlan(draft,ai=null,heights={},opts={}){
      if(flightLevel)flightLevel.from="уровни листов конструкции"
     }
    }
-   let local=own?null:flightLevel||drawn||sheetLevel||drawingLevels(levelKind,cat,c.scheme.levelNotes,pl.sheet_point_pt);
+   // A ladder (стремянка) stands from the lowest to the highest level of its section (ГПЭС М1.27 «4-4»: +0,210 … +7,890).
+   const ladder=!own&&!drawn&&(pl.fitting_type==="ladder"||named?.key==="ladder")&&Array.isArray(cat?.section_span_mm)?{z0:cat.section_span_mm[0],z1:cat.section_span_mm[1],from:"разрез (низ и верх стремянки)"}:null;
+   let local=own?null:flightLevel||drawn||ladder||sheetLevel||drawingLevels(levelKind,cat,c.scheme.levelNotes,pl.sheet_point_pt);
    // A roof is never at the ground: a beam of a roof plan read under +1,000 (a size of the section taken for its level)
    // takes its level from its neighbours instead.
    if(local&&levelKind!=="column"&&ROOF.test(String(c.info.title||""))&&Math.max(local.z0,local.z1)<1000&&!flightLevel)local=null;
@@ -941,6 +945,7 @@ function buildPlan(draft,ai=null,heights={},opts={}){
  purlinsOnBeams(elements);
  hangTracks(elements);
  relevelNeighbours(elements);
+ oneLadder(elements,skipped);
  // What is still without levels of its own after all that, per scheme: to be checked.
  const unlevelled=new Map();
  for(const e of elements){if(e.levels!=="нет отметок")continue;const k=(e.file?e.file+", лист "+e.sheet:"Лист "+e.page)+" · "+e.scheme;unlevelled.set(k,(unlevelled.get(k)||0)+1)}
@@ -1148,6 +1153,22 @@ function hangTracks(elements){
 // Members still without levels (their neighbours had none while the scheme was read) take them now, as do those of
 // «как у большинства в схеме» where a beam of their own scheme meets them.
 const LEVELLED_LATER=new Set(["по соседним балкам","нет отметок","как у большинства в схеме"]);
+// A ladder drawn on the plan of the building and again on its own plan (ГПЭС: В124 by the column И/6 on the partitions'
+// plan and on «Схема … пожарной лестницы в осях И/6») is one ladder: the surer place is kept, the other listed.
+function oneLadder(elements,skipped){
+ const rank={high:3,medium:2,low:1},ladders=elements.filter(e=>e.geometry_type==="column"&&(e.type_key==="ladder"||e.fitting_type==="ladder"));
+ const gone=new Set();
+ for(const e of ladders){
+  if(gone.has(e))continue;
+  const same=ladders.filter(o=>o!==e&&!gone.has(o)&&o.mark===e.mark&&Math.hypot(o.x_mm-e.x_mm,o.y_mm-e.y_mm)<=2500);
+  for(const o of same){
+   const keep=(rank[o.confidence]||0)>(rank[e.confidence]||0)?o:e,drop=keep===e?o:e;gone.add(drop);
+   skipped.push({mark:drop.mark,page:drop.page,reason:"Та же стремянка есть на схеме «"+keep.scheme+"» — поставлена один раз"});
+   if(drop===e)break
+  }
+ }
+ if(gone.size)for(let i=elements.length-1;i>=0;i--)if(gone.has(elements[i]))elements.splice(i,1)
+}
 function relevelNeighbours(elements){
  const bySheet=new Map();
  for(const e of elements){if(!beamLike(e))continue;const k=e.page+"|"+e.scheme;(bySheet.get(k)||bySheet.set(k,[]).get(k)).push(e)}
@@ -1521,4 +1542,4 @@ function seatTrusses(elements,catalog){
   e.note=[e.note,"Ферма по геометрической схеме"+(moved?", отметка низа — как у соседних ферм":"")+" — проверьте"].filter(Boolean).join("; ")
  }
 }
-module.exports={instanceStatus,sheetNodes,jointNote,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces,trimGuardPosts,sectionOutliers,roofOnColumns,purlinsOnBeams,hangTracks,relevelNeighbours};
+module.exports={instanceStatus,sheetNodes,jointNote,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces,trimGuardPosts,sectionOutliers,roofOnColumns,purlinsOnBeams,hangTracks,relevelNeighbours,oneLadder};

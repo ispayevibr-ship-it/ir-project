@@ -236,7 +236,9 @@ function extractSections({segments=[],texts=[]}={}){
     // A post outline that runs on into the foundation gets the bottom of the other posts.
     if(z1<=hi&&z1-z0>=500){rec.z0_mm=z0>=lo?z0:null;rec.z1_mm=z1}
    }
-   if(rec.beam_mm!==undefined||rec.z1_mm!==undefined)out.push(rec)
+   // The lowest and highest levels of the view: a ladder drawn in it stands between them (ГПЭС М1.27 «4-4»: +0,210 …
+   // +7,890).
+   if(rec.beam_mm!==undefined||rec.z1_mm!==undefined)out.push({...rec,span_mm:[Math.min(...values),Math.max(...values)]})
   }
  }
  const bottoms=new Map();

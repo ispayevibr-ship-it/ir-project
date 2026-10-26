@@ -15,8 +15,8 @@ const axisName=str=>String(str).trim().replace(/^[OО0](?=\d)/u,"О");
 const MARK_LABEL=/^([А-ЯЁA-Z]{1,3}|[А-ЯЁA-Z][а-яё]{1,2})(\d{1,4})(?:[-.]\d{1,3})?[а-я]?$/u;
 // Sheet references (М1.4) and section names are not shipping marks.
 // Sheet references ("КМ1-21", "КМД-3"), sheet sizes and the like are not shipping marks.
-// Column bases ("Бк1") are drawn at the column and are not members of the scheme.
-const NOT_MARK=/^(?:М\d|Л\d|ПК|КМД?\d|КЖ\d|АР\d|Бк\d)/u,BASE_LABEL=/^Бк\d{1,2}$/u;
+// Column bases ("Бк1") are drawn at the column and are not members of the scheme. A radius («R400», the Latin R) is a size.
+const NOT_MARK=/^(?:М\d|Л\d|ПК|КМД?\d|КЖ\d|АР\d|Бк\d|R\d{2,4}$)/u,BASE_LABEL=/^Бк\d{1,2}$/u;
 // "А1", "А20" are marks in sets that use this letter for their elements: many different such labels on the sheet.
 // Alone, "А3" is a sheet format; А240…А1000 are rebar classes.
 const REBAR=/^А(?:240|300|400|500|600|800|1000)[СC]?$/u;
@@ -35,7 +35,7 @@ function markIndexOf(texts){
 const notMark=(mark,aMarks)=>/^А\d/u.test(mark)?!aMarks||REBAR.test(mark):NOT_MARK.test(mark);
 // Prefix of a shipping mark → element kind, by ГОСТ 26047 and КМД practice (src/ai-kmd-rules.js).
 const {KIND_BY_CODE,schemeTitleKind,markCode}=require("./ai-kmd-rules");
-const {extractFootprints,footprintPlacements}=require("./ai-footprint-extract");
+const {extractFootprints,footprintPlacements,outlineOf}=require("./ai-footprint-extract");
 const DEFAULT_KINDS=KIND_BY_CODE;
 const KIND_NAMES={column:"Колонна/стойка",brace:"Связь",beam:"Балка/ригель/прогон"};
 
@@ -239,7 +239,7 @@ function dimensionsOf(texts,segments){
  }
  return out
 }
-function dimensionScale(texts,segments){
+function dimensionScale(texts,segments,measured){
  const dims=dimensionsOf(texts,segments);
  // Details of a larger scale may stand beside the plan («5-5», 1:10): of the standard scales that at least three
  // dimensions agree with, the one of the overall dimension (the largest number) is the plan's.
@@ -250,7 +250,20 @@ function dimensionScale(texts,segments){
   const top=Math.max(...agree.map(d=>d.v));
   if(!best||top>best.top)best={n,top}
  }
- return best?best.n:NaN
+ if(best||!measured)return best?best.n:NaN;
+ // A sheet printed at another size (ГПЭС М1.27: 14.7 mm a point, of no scale of the list): the ratio that at least three
+ // dimensions agree on within 3 %, two of every three found (asked for local views by their axes; a frame read so
+ // would take in elevations). A view drawn out of scale (ГПЭС М1.25: the plan of a stair, its sizes 11…14 mm a point)
+ // is not read so.
+ const r=dims.map(d=>({k:d.v/(d.hi-d.lo),v:d.v}));let most=null;
+ for(const m of r){const agree=r.filter(x=>Math.abs(x.k-m.k)/m.k<=0.03);if(agree.length<3||agree.length*3<r.length*2)continue;
+  const top=Math.max(...agree.map(x=>x.v));if(!most||agree.length>most.agree.length||agree.length===most.agree.length&&top>most.top)most={agree,top}}
+ if(!most)return NaN;
+ const ks=most.agree.map(x=>x.k).sort((a,b)=>a-b),k=ks[Math.floor(ks.length/2)];
+ // Measured round a view (its neighbours' sizes taken in): two sizes of the view itself agree too — node details beside
+ // a plan (М1.1: «50», «78» by the purlin chains of the plan) are not read by the plan's sizes.
+ if(Array.isArray(measured)&&dimensionsOf(measured,segments).filter(d=>Math.abs(d.v/(d.hi-d.lo)-k)/k<=0.03).length<2)return NaN;
+ return k
 }
 
 // A plan drawn without axes («Схема расположения балок на отм. +5,500; +11,100» of a platform standing on its own): the
@@ -658,7 +671,7 @@ function clipToNodes(line,nodes){
 }
 
 // A column on a plan is drawn as a small closed section symbol (an "I" of a few pt) at the leader end.
-function columnSymbol(target,segments,index){
+function columnSymbol(target,segments,index,outline){
  const box=(reach,few,within)=>{
   const near=p=>Math.abs(p.x-target.x)<=reach&&Math.abs(p.y-target.y)<=reach;
   const parts=[...new Set(index.near(target,reach+4))].map(i=>segments[i])
@@ -673,7 +686,26 @@ function columnSymbol(target,segments,index){
  };
  // The arrow of the leader may stop short of the symbol, at a corner (355-11: a square of 6.6 pt, the tip up to 5 pt
  // from it, drawn by four strokes): looked for farther when nothing is at the tip.
- return box(9,false,Infinity)||box(12,true,7)
+ // A square standing on the outline of a partition (ГПЭС АБК: 3.7 pt, the dashed double line through it): its own
+ // strokes, joined at their ends, apart from the lines beside it. Only when asked (outline): a leader of a mark whose
+ // letters tell no kind; a number of the index ends at junctions of members drawn the same way (029-2025: «41»).
+ if(outline==="closed")return closed();
+ return box(9,false,Infinity)||box(12,true,7)||(outline?closed():null)
+ function closed(){
+  const parts=[...new Set(index.near(target,12))].map(i=>segments[i]).filter(s=>dist(s.a,s.b)>=2.5&&dist(s.a,s.b)<=14.5&&
+   [s.a,s.b].every(p=>Math.abs(p.x-target.x)<=12&&Math.abs(p.y-target.y)<=12));
+  const flat=parts.filter(s=>Math.abs(s.a.y-s.b.y)<.3).map(s=>({y:s.a.y,x0:Math.min(s.a.x,s.b.x),x1:Math.max(s.a.x,s.b.x)}));
+  const up=parts.filter(s=>Math.abs(s.a.x-s.b.x)<.3).map(s=>({x:s.a.x,y0:Math.min(s.a.y,s.b.y),y1:Math.max(s.a.y,s.b.y)}));
+  const side=(x,y0,y1)=>up.some(v=>Math.abs(v.x-x)<0.6&&Math.abs(v.y0-y0)<0.6&&Math.abs(v.y1-y1)<0.6);
+  let best=null;
+  for(const a of flat)for(const b of flat){
+   if(b.y-a.y<2.5||b.y-a.y>14.5||Math.abs(a.x0-b.x0)>0.6||Math.abs(a.x1-b.x1)>0.6)continue;
+   const w=a.x1-a.x0,h=b.y-a.y;if(Math.max(w,h)>Math.min(w,h)*3||!side(a.x0,a.y,b.y)||!side(a.x1,a.y,b.y))continue;
+   const off=Math.hypot(Math.max(0,a.x0-target.x,target.x-a.x1),Math.max(0,a.y-target.y,target.y-b.y));
+   if(off<=5&&(!best||off<best.off))best={off,x:(a.x0+a.x1)/2,y:(a.y+b.y)/2}
+  }
+  return best?{x:best.x,y:best.y}:null
+ }
 }
 
 // An I section symbol of a column: two equal parallel flanges with a web between their middles, one of them under the
@@ -769,7 +801,10 @@ function leaderTarget(text,segments,index,axisSegs,lines){
  }
  // shelf: the label stands on a shelf of its own (a leader label), not over a line passing by.
  // rail: no leader, the label is written over its member line.
- return best?{x:best.to.x,y:best.to.y,leader:true,diagonal:best.diagonal,segment:best.segment,shelf:Boolean(best.shelf||ends.length),...(more.length?{more}:{})}:{x:box.cx,y:box.y1+6,leader:false,...(rails.length?{rail:true}:{})}
+ // slant: the longest slanted leader when a straight stroke from the label was taken (an extension line of a size
+ // passing the label's end); it may end at the post the label names.
+ const slant=best&&!best.diagonal&&leaders.length?leaders.reduce((a,l)=>dist(l.from,l.to)>dist(a.from,a.to)?l:a):null;
+ return best?{x:best.to.x,y:best.to.y,leader:true,diagonal:best.diagonal,segment:best.segment,shelf:Boolean(best.shelf||ends.length),...(more.length?{more}:{}),...(slant?{slant:{x:slant.to.x,y:slant.to.y,segment:slant.segment}}:{})}:{x:box.cx,y:box.y1+6,leader:false,...(rails.length?{rail:true}:{})}
 }
 
 function nearestLine(lines,v,tol){
@@ -847,7 +882,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
   const local1=group.local?texts.filter(t=>{const b=textBox(t);return b.cx>bbox.x0-pad*3&&b.cx<bbox.x1+pad*3&&b.cy>bbox.y0-pad*3&&b.cy<bbox.y1+pad*3}):null;
   // A word read alone on a leader's shelf is a label, not a size (355-11 М1.3: «64», «104» all over the plan).
   const sized=local.filter(t=>!t.shelf);
-  const scale=group.framed?group.framed.scale:group.local?dimensionScale(local1.filter(t=>!t.shelf),segments):detectScale(vAxes.map(a=>a.pos),hAxes.map(a=>a.pos),sized);
+  const scale=group.framed?group.framed.scale:group.local?dimensionScale(local1.filter(t=>!t.shelf),segments,local.filter(t=>!t.shelf)):detectScale(vAxes.map(a=>a.pos),hAxes.map(a=>a.pos),sized);
   if(group.local&&!Number.isFinite(scale))continue;
   if(!Number.isFinite(scale)){
    schemes.push({title:titleFor(titles,bbox),bbox,error:"Не удалось определить масштаб: нет размеров между осями",
@@ -910,6 +945,8 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
   });
   const snap=Math.max(6,250/scale);
   const title=group.framed?String(group.framed.title.str).trim():titleFor(titles,bbox),titleKind=sheetKind(title);
+  // A ladder's own plan («Схема расположения элементов пожарной лестницы в осях И/6», a view by two axes).
+  const ladderPlan=group.local&&/стремянк|(?:пожарн|внутренн|вертикальн|наружн)\S*\s+лестниц/iu.test(title||"");
   // A point not on a grid line is placed at the nearest dimensioned position.
   // A local view (a porch at 1:50) is drawn exactly: a point snaps only to a position within a few points of it.
   const freeTol=group.local?Math.max(30,scale*3):200;
@@ -966,7 +1003,27 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    const more=leaderTarget(t,segments,index,axisSegs,lines).more||[];
    return[t,...more.map(m=>{const c={...t};further.set(c,m);return c})]
   });
-  const targetOf=t=>{const tg=leaderTarget(t,segments,index,axisSegs,lines),m=further.get(t);return m?{...tg,x:m.x,y:m.y,segment:m.segment}:tg};
+  // A bare number of the index written over the shelf of a level mark (029-2025: «41» over «отм. +3,100», whose leader
+  // goes to the post of that level) is no leader label: it names the member it is written along, the shelf left out.
+  const levels=local.filter(t=>/^отм\.?\s*[+\-−±]?\s*\d/iu.test(String(t.str||"").trim()));
+  const levelShelf=(t,tg)=>{
+   if(!markIndex||!tg.leader||!Number.isInteger(tg.segment)||!/^\d{1,3}(?:\.\d{1,2})?$/u.test(String(t.str||"").trim())||Math.abs(Number(t.angle)||0)>=5)return null;
+   const b=textBox(t),h=b.y1-b.y0;
+   const l=levels.map(textBox).find(c=>c.y0>=b.y1-2&&c.y0<=b.y1+h*1.5&&Math.min(c.x1,b.x1)-Math.max(c.x0,b.x0)>0);if(!l)return null;
+   const skip=new Set([...index.near({x:b.cx,y:b.y1+2},Math.max(40,l.x1-l.x0))].filter(i=>{const q=segments[i];
+    return Math.abs(q.a.y-q.b.y)<0.6&&q.a.y>=b.y1-3&&q.a.y<=l.y0+3&&Math.min(Math.max(q.a.x,q.b.x),l.x1)-Math.max(Math.min(q.a.x,q.b.x),l.x0)>=(l.x1-l.x0)*0.3}));
+   // Its leader leaves an end of that shelf.
+   const ld=segments[tg.segment];
+   if(![...skip].some(i=>{const q=segments[i];return[q.a,q.b].some(e=>[ld.a,ld.b].some(p=>dist(p,e)<3))}))return null;
+   skip.add(tg.segment);
+   return skip
+  };
+  const targetOf=t=>{const tg=leaderTarget(t,segments,index,axisSegs,lines),m=further.get(t);if(m)return{...tg,x:m.x,y:m.y,segment:m.segment};
+   const sk=levelShelf(t,tg);if(!sk)return tg;
+   // Only when a member line runs along it (029-2025: «100» over «отм. +2,840» in open space names the landing at the
+   // level's leader).
+   const b=textBox(t),on={x:b.cx,y:b.y1+6,leader:false,rail:true,skip:sk},line=memberLine(t,on,segments,lines,new Set([...namedSegs,...sk]));
+   return line&&dist(line.a,line.b)>=Math.max(24,(b.x1-b.x0)*2.5)?on:tg};
   for(const t of labels){
    // "К 1" is written with a space on some sheets.
    let mark=String(t.str||"").trim().replace(/^([А-ЯЁA-Z]{1,3}|[А-ЯЁA-Z][а-яё]{1,2})\s+(\d)/u,"$1$2"),byIndex=false;
@@ -1008,12 +1065,22 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    if(indexed)ruledKind=titleKind==="beam"||titleKind==="brace"?"beam":titleKind==="column"?"column":null;
    // The leader of a column mark points at its section symbol, often drawn on a beam line: it stays a column.
    // Only a slanted leader from a level label: line junctions next to a label look like a symbol too.
-   const symbol=postAt&&ruledKind!=="beam"?postAt:target.leader&&target.diagonal&&Math.abs(Number(t.angle)||0)<5&&(ruledKind==="column"||indexed&&!ruledKind)&&columnSymbol(target,segments,index);
+   // So does the leader of a mark whose letters tell no kind to a post drawn as a small square (ГПЭС АБК: «В152» at a
+   // post of a partition, its square on the dashed outline of the partition).
+   let symbol=postAt&&ruledKind!=="beam"?postAt:target.leader&&target.diagonal&&Math.abs(Number(t.angle)||0)<5&&(ruledKind==="column"||!ruledKind)&&columnSymbol(target,segments,index,ruledKind||indexed?false:"closed");
+   // A slanted leader beside a straight stroke from the label (an extension line of a size) ending at such a square.
+   if(!symbol&&!postAt&&target.slant&&Math.abs(Number(t.angle)||0)<5&&(ruledKind==="column"||!ruledKind&&!indexed)){const at=columnSymbol(target.slant,segments,index,ruledKind?false:"closed");
+    if(at){symbol=at;target={...target,...target.slant,diagonal:true}}}
+   // On a ladder's own plan its mark (letters of no kind: «В124») is the whole ladder, standing upright in the outline
+   // its leader touches; its height comes from its section.
+   let ladder=null;
+   if(!symbol&&ladderPlan&&!ruledKind&&!indexed&&target.leader){const o=outlineOf(segments,target,60)[0];
+    ladder=o?{x:(o.x0+o.x1)/2,y:(o.y0+o.y1)/2,w:Math.min(o.x1-o.x0,o.y1-o.y0)}:{x:target.x,y:target.y,w:0};symbol={x:ladder.x,y:ladder.y}}
    if(symbol&&!ruledKind)ruledKind="column";
    if(symbol)target={...target,...symbol};
    // Beams, purlins and bracing on a plan are drawn lines: the ends come from the drawing itself.
    if(!symbol&&(titleKind!=="column"||ruledKind==="beam"||ruledKind==="brace")){
-    let line=memberLine(t,target,segments,lines,namedSegs);
+    let line=memberLine(t,target,segments,lines,target.skip?new Set([...namedSegs,...target.skip]):namedSegs);
     // On a local view the frame line runs on past the posts and into the extension lines: the member is between the
     // outermost node symbols on it.
     if(line&&nodes)line=clipToNodes(line,nodes);
@@ -1097,7 +1164,8 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    if(geometry==="column"){
     const fx=lx?{mm:lx.mm,dim:true}:freeX(target.x),fy=ly?{mm:ly.mm,dim:true}:freeY(target.y);
     if(!lx||!ly)notes.push(fx.dim&&fy.dim?"Не на оси — привязано к ближайшему размеру":"Не на оси — координата по геометрии листа");
-    const confidence=!target.leader||!fx.dim||!fy.dim?"low":lx&&ly&&ruled==="column"?"high":"medium";
+    const confidence=ladder||!target.leader||!fx.dim||!fy.dim?"low":lx&&ly&&ruled==="column"?"high":"medium";
+    if(ladder)Object.assign(base,{fitting_type:"ladder",...(ladder.w*scale>=400?{diameter_mm:Math.round(ladder.w*scale/10)*10}:{})}),notes.unshift("Стремянка по своей схеме: стоит вертикально в контуре, на который указывает выноска; высота — по разрезу");
     // Kept for the AI step, which may decide the sheet shows beams, not posts.
     const line=lx&&ly?null:spanAlong(target,lx,ly);
     placements.push({...base,x_mm:fx.mm,y_mm:fy.mm,axis_x:lx?.name||nearestName(linesX,target.x),axis_y:ly?.name||nearestName(linesY,target.y),
