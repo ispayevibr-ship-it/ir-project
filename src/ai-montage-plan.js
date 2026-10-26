@@ -783,6 +783,9 @@ function buildPlan(draft,ai=null,heights={},opts={}){
    // the plan of columns places it.
    const named=pl.name?ST.typeByName(pl.name):null;
    if(c.scheme.kind==="elevation"&&named?.geometry==="column"&&geometry!=="column"&&planColumns.has(pl.mark)){skipped.push({mark:pl.mark,page:c.info.page,reason:"Колонна на развёртке стены — поставлена по схеме колонн"});return}
+   // A tie, a purlin or a spacer of a roof plan read at a point (its label by a column symbol, its line not found) is
+   // not a post standing from the ground up into the roof: listed as not placed, to be put in by hand.
+   if(geometry==="column"&&!c.scheme.kind&&ROOF.test(String(c.info.title||""))&&named&&named.geometry!=="column"&&["ties","purlins","spacers","braces"].includes(named.group)){skipped.push({mark:pl.mark,page:c.info.page,reason:"На схеме покрытия найдено точкой, а по названию это «"+pl.name+"» — линия не найдена, поставьте вручную"});return}
    // The name the sheets give and the drawing disagree (a «Балка площадки» labelled at a small square): placed as
    // drawn, said.
    if(named&&!c.scheme.kind&&(named.geometry==="column")!==(geometry==="column")&&["column","beam"].includes(named.geometry))guess.push("По названию «"+pl.name+"» — "+(named.geometry==="column"?"колонна/стойка":"балка")+", на схеме найдено "+(geometry==="column"?"точкой":"линией")+" — проверьте");
@@ -821,7 +824,10 @@ function buildPlan(draft,ai=null,heights={},opts={}){
      if(flightLevel)flightLevel.from="уровни листов конструкции"
     }
    }
-   const local=own?null:flightLevel||drawn||sheetLevel||drawingLevels(levelKind,cat,c.scheme.levelNotes,pl.sheet_point_pt);
+   let local=own?null:flightLevel||drawn||sheetLevel||drawingLevels(levelKind,cat,c.scheme.levelNotes,pl.sheet_point_pt);
+   // A roof is never at the ground: a beam of a roof plan read under +1,000 (a size of the section taken for its level)
+   // takes its level from its neighbours instead.
+   if(local&&levelKind!=="column"&&ROOF.test(String(c.info.title||""))&&Math.max(local.z0,local.z1)<1000&&!flightLevel)local=null;
    let z0=own?change.z0_mm:local?local.z0:c.info.z0_mm,z1=own?change.z1_mm:local?local.z1:c.info.z1_mm;
    const src=ends||pl;let [x,y]=frameOf(off,src.x_mm,src.y_mm),[x2,y2]=frameOf(off,src.x2_mm??src.x_mm,src.y2_mm??src.y_mm);
    if(!(Number.isFinite(z0)&&Number.isFinite(z1))||(!own&&!local&&!schemeLevels)){
@@ -873,6 +879,14 @@ function buildPlan(draft,ai=null,heights={},opts={}){
    }
    return best
   };
+  const schemeMode=geometry=>{
+   const col=geometry==="column",same=elements.slice(first).filter(e=>(e.geometry_type==="column")===col&&!e.fitting_type&&e.levels!=="схема"&&!WEAK_LEVELS.test(String(e.levels||"")));
+   if(same.length<3)return null;
+   const count=new Map();for(const e of same){const k=col?e.z0_mm+"|"+e.z1_mm:String(e.z1_mm);count.set(k,(count.get(k)||0)+1)}
+   const [k,n]=[...count].sort((a,b)=>b[1]-a[1])[0];
+   if(n<3||n<same.length*0.4)return null;
+   const [a,b]=k.split("|").map(Number);return col?{z0:a,z1:b}:{z0:a,z1:a}
+  };
   // Last resort: the usual levels of that kind on the whole set, so that the element is in the scheme to be corrected.
   const inside=v=>v>=-1&&v<=merged.grid.span_x_mm+1,insideY=v=>v>=-1&&v<=merged.grid.span_y_mm+1;
   for(const q of pending){
@@ -896,13 +910,15 @@ function buildPlan(draft,ai=null,heights={},opts={}){
      else{z0=z1=top;levels="по схеме того же листа";note="Отметка — по схеме того же листа, проверьте"}
     }
    }
+   // The level most members of the same scheme have from the drawings (the beams of a box roof at +4,510): a member
+   // without its own takes it before the typical level of the whole set.
+   if(z0===null||z1===null){const m=schemeMode(q.geometry);if(m){z0=m.z0;z1=m.z1;levels="как у большинства в схеме";note="Отметки — как у большинства "+(q.geometry==="column"?"колонн":"балок")+" этой схемы, проверьте"}}
    if(z0===null||z1===null){
     // Typical levels are taken once every scheme has been read (below), whatever the order of the sheets.
     missing++;later.push({c,q});continue
    }
    push(c,q,z0,z1,levels,note)
   }
-  if(missing)problems.push((c.info.file?c.info.file+", лист "+c.info.sheet:"Лист "+c.info.page)+" · "+c.info.title+": "+missing+" эл. без своих отметок — поставлены типовые, проверьте низ и верх")
  }
  // Several passes: columns placed with typical levels give the beams theirs, and the other way round.
  for(let pass=0,left=later;pass<3&&left.length;pass++){
@@ -920,6 +936,15 @@ function buildPlan(draft,ai=null,heights={},opts={}){
  // supporting truss). Trusses of the same direction whose ends name no column take the direction of their neighbours.
  seatTrusses(elements,catalog);
  seatOnChords(elements);
+ sectionOutliers(elements);
+ roofOnColumns(elements);
+ purlinsOnBeams(elements);
+ hangTracks(elements);
+ relevelNeighbours(elements);
+ // What is still without levels of its own after all that, per scheme: to be checked.
+ const unlevelled=new Map();
+ for(const e of elements){if(e.levels!=="нет отметок")continue;const k=(e.file?e.file+", лист "+e.sheet:"Лист "+e.page)+" · "+e.scheme;unlevelled.set(k,(unlevelled.get(k)||0)+1)}
+ for(const [k,n] of unlevelled)problems.push(k+": "+n+" эл. без своих отметок — поставлены типовые, проверьте низ и верх");
  // A deck from the location plan without a level lies on the members drawn inside its outline (a porch roof, the
  // beams of a platform read from its own sheet): at the top most of them share.
  for(const e of elements){
@@ -993,7 +1018,149 @@ function buildPlan(draft,ai=null,heights={},opts={}){
 // its place and levels come from the drawings (scheme, section, the mark's sheet, notes, Claude reading the sheet);
 // «частично» — something of it is assumed: levels of its neighbours or typical ones, a bottom at ±0,000 nobody wrote,
 // ends cut or guessed (the notes «… проверьте»). An element beyond the outer axes is not assumed for that alone.
-const WEAK_LEVELS=/^(по соседним|по балкам листа|по схеме того же листа|нет отметок|по конструкциям под ним)/u;
+const WEAK_LEVELS=/^(по соседним|по балкам листа|по схеме того же листа|нет отметок|по конструкциям под ним|как у большинства в схеме)/u;
+const SET_BY_HAND=new Set(["проверено инженером","Claude"]);
+// Plans of a roof: «Схема расположения элементов покрытия…», «… на уровне верха прогонов», кровля, ригели.
+const ROOF=/покрыти|кровл|прогон|ригел|стропил/iu;
+const mmText=z=>(z<0?"−":"+")+(Math.abs(z)/1000).toFixed(3).replace(".",",");
+// The depth of a section (mm) from the sortament of the general base (ГОСТ tables): null when the profile is unknown.
+let sortament=null;
+function depthOf(e){
+ if(!e?.profile)return null;
+ try{sortament=sortament||require("./ai-global-kb").createGlobalKnowledge()}catch{return sectionHeight(e.profile)||null}
+ const r=sortament.findProfile?.(String(e.profile),{standard:e.profile_standard||""});
+ return r&&r.h_mm>0?Number(r.h_mm):sectionHeight(e.profile)||null
+}
+// The level of a member at a point of its plan line (a beam broken at the ridge — through its ridge).
+function levelAlong(e,x,y){
+ const ax=e.x_mm,ay=e.y_mm,bx=e.x2_mm??e.x_mm,by=e.y2_mm??e.y_mm,vx=bx-ax,vy=by-ay,L2=vx*vx+vy*vy||1;
+ const t=Math.max(0,Math.min(1,((x-ax)*vx+(y-ay)*vy)/L2));
+ if(Number.isFinite(e.mid_z_mm)&&Number.isFinite(e.mid_x_mm)){
+  const tm=Math.max(0.01,Math.min(0.99,((e.mid_x_mm-ax)*vx+(e.mid_y_mm-ay)*vy)/L2));
+  return t<=tm?e.z0_mm+(e.mid_z_mm-e.z0_mm)*t/tm:e.mid_z_mm+(e.z1_mm-e.mid_z_mm)*(t-tm)/(1-tm)
+ }
+ return e.z0_mm+(e.z1_mm-e.z0_mm)*t
+}
+// Where two members cross in plan: the share along each (0…1, a little past the ends allowed), or null when they
+// run alongside (less than 45° between them) or miss each other.
+function crossing(p,s,reach=300){
+ const px=p.x2_mm-p.x_mm,py=p.y2_mm-p.y_mm,sx=s.x2_mm-s.x_mm,sy=s.y2_mm-s.y_mm,Lp=Math.hypot(px,py),Ls=Math.hypot(sx,sy);
+ if(Lp<300||Ls<300)return null;
+ const den=px*sy-py*sx;if(Math.abs(den)/(Lp*Ls)<Math.SQRT1_2)return null;
+ const rx=s.x_mm-p.x_mm,ry=s.y_mm-p.y_mm,t=(rx*sy-ry*sx)/den,u=(rx*py-ry*px)/den;
+ if(t<-reach/Lp||t>1+reach/Lp||u<-reach/Ls||u>1+reach/Ls)return null;
+ return{t,u,x:p.x_mm+px*t,y:p.y_mm+py*t}
+}
+const firmLevels=e=>e.levels!=="схема"&&!WEAK_LEVELS.test(String(e.levels||""));
+const beamLike=e=>(e.geometry_type==="beam"||e.geometry_type==="bent")&&!e.fitting_type&&Number.isFinite(e.x2_mm);
+// A plan of one level (the roof of the boxes at +4,510): a beam whose level read from a section is far from the level
+// nearly all the beams of the plan share has been read off another view of the sheet (a box beam drawn in the section
+// of the hall under its roof, «+8,800»). It takes the plan's level, said.
+function sectionOutliers(elements){
+ const byScheme=new Map();
+ for(const e of elements){if(!beamLike(e)||!firmLevels(e))continue;const k=e.page+"|"+e.scheme;(byScheme.get(k)||byScheme.set(k,[]).get(k)).push(e)}
+ for(const list of byScheme.values()){
+  if(list.length<8)continue;
+  const count=new Map();for(const e of list){const z=Math.round(e.z1_mm/10)*10;count.set(z,(count.get(z)||0)+1)}
+  const mode=[...count].sort((a,b)=>b[1]-a[1])[0][0],near=list.filter(e=>Math.abs(e.z0_mm-mode)<=400&&Math.abs(e.z1_mm-mode)<=400).length;
+  if(near<list.length*0.6)continue;
+  for(const e of list){
+   if(e.levels!=="разрез"||Math.abs(e.z0_mm-mode)<=1500&&Math.abs(e.z1_mm-mode)<=1500)continue;
+   e.note=[e.note,"В разрезе прочитано "+mmText(e.z1_mm)+" — выбивается из схемы (у большинства балок "+mmText(mode)+"), поставлено "+mmText(mode)+", проверьте"].filter(Boolean).join("; ");
+   e.z0_mm=e.z1_mm=mode;e.levels="как у большинства в схеме"
+  }
+ }
+}
+// Roof beams by the tops of the columns under their ends: the rafter of a frame is fixed flush with the column cap, so
+// where a column of the set stands under the end of a beam of a roof plan and reaches its level (not more than 150 mm
+// under it — a beam lying on a shorter post keeps its level; not more than 800 mm over — a wall post rising past the
+// roof is not its support), the end takes the column top. A section cut across a pitched roof gives one level per
+// mark; the columns give each end its own, so the roof keeps its slope.
+function roofOnColumns(elements){
+ const cols=elements.filter(e=>e.geometry_type==="column"&&!e.fitting_type&&Number.isFinite(e.z1_mm)&&firmLevels(e));
+ for(const e of elements){
+  if(!beamLike(e)&&!(e.geometry_type==="brace"&&Number.isFinite(e.x2_mm))||SET_BY_HAND.has(e.levels)||!ROOF.test(String(e.scheme||""))||e.group==="purlins"||/прогон/iu.test(String(e.scheme||"")))continue;
+  const on=[];
+  for(const [k,x,y] of [["z0_mm",e.x_mm,e.y_mm],["z1_mm",e.x2_mm,e.y2_mm]]){
+   const z=e[k];let best=null;
+   for(const c of cols){const d=Math.hypot(c.x_mm-x,c.y_mm-y);if(d>400||c.doc!==e.doc||c.z1_mm<z-150||c.z1_mm>z+800)continue;if(!best||d<best.d)best={d,c}}
+   if(best){on.push(best.c.mark);if(best.c.z1_mm!==z)e[k]=best.c.z1_mm}
+  }
+  if(!on.length)continue;
+  if(on.length===2&&!firmLevels(e))e.levels="по верху колонн";
+  if(Number.isFinite(e.mid_z_mm)&&e.mid_z_mm<Math.max(e.z0_mm,e.z1_mm)){delete e.mid_x_mm;delete e.mid_y_mm;delete e.mid_z_mm;e.geometry_type="beam"}
+  e.note=[e.note,"Концы на колоннах "+[...new Set(on)].join(", ")+" — отметки по верху колонн"].filter(Boolean).join("; ")
+ }
+}
+// Purlins lie on the beams under them: each end at the top of the beam it rests on (with the depths of both sections,
+// the members being drawn by their centre lines), so the purlins follow the slope of the roof. One mark of a purlin is
+// used up and down the slope, and a section gives it one level only — the beams under it give each its own.
+function purlinsOnBeams(elements){
+ const lying=e=>beamLike(e)&&!SET_BY_HAND.has(e.levels)&&(e.group==="purlins"||/прогон/iu.test(String(e.scheme||""))&&(e.group==="beams"||e.group==="roof"));
+ const supports=elements.filter(e=>beamLike(e)&&!lying(e)&&firmLevels(e)&&!["ties","guards","stairs","purlins","crane"].includes(e.group));
+ for(const p of elements){
+  if(!lying(p))continue;
+  const hp=depthOf(p),points=[];
+  for(const s of supports){
+   if(s.doc!==p.doc)continue;
+   const x=crossing(p,s);if(!x)continue;
+   const hs=depthOf(s),z=levelAlong(s,x.x,x.y)+((hs||0)+(hp||0))/2;
+   points.push({t:x.t,z,mark:s.mark})
+  }
+  if(!points.length)continue;
+  // Several members under one place (the rafter over the eaves and the low beam of a box or an annex beside it): of
+  // those at its two ends, the pair that keeps the purlin level — a purlin runs across the slope — and of equal
+  // pairs the higher one, the top of the roof.
+  const buckets=new Map();for(const q of points){const k=Math.round(q.t*20);(buckets.get(k)||buckets.set(k,[]).get(k)).push(q)}
+  const keys=[...buckets.keys()].sort((x,y)=>x-y),A=buckets.get(keys[0]),B=buckets.get(keys[keys.length-1]);
+  let a=null,b=null,score=Infinity;
+  for(const qa of A)for(const qb of B){const sc=Math.abs(qa.z-qb.z)-(qa.z+qb.z)*1e-4;if(sc<score){score=sc;a=qa;b=qb}}
+  const pts=[a,b].filter((q,k,l)=>l.indexOf(q)===k);
+  const zAt=t=>Math.round((b.t-a.t>0.2?a.z+(b.z-a.z)*(t-a.t)/(b.t-a.t):(a.z+b.z)/2)/5)*5;
+  p.z0_mm=zAt(0);p.z1_mm=zAt(1);p.levels="на балках под ним";
+  p.note=[String(p.note||"").replace(/Отметок нет[^;]*(;\s*)?/u,""),"Лежит на "+[...new Set(pts.map(q=>q.mark))].join(", ")+" — отметки по верху балок под ним"].filter(Boolean).join("; ")
+ }
+}
+// A suspended track (монорельс of a «Схема расположения путей подвесного транспорта») hangs under the beams it crosses:
+// its top at their bottom. Only a track without levels of its own read from the sheets.
+function hangTracks(elements){
+ const supports=elements.filter(e=>beamLike(e)&&firmLevels(e)&&e.group!=="crane");
+ for(const p of elements){
+  if(!beamLike(p)||SET_BY_HAND.has(p.levels)||firmLevels(p)||!(/подвесн/iu.test(String(p.scheme||""))||p.type_key==="monorail"))continue;
+  const hp=depthOf(p),under=[];
+  for(const s of supports){
+   if(s.doc!==p.doc||s.scheme===p.scheme)continue;
+   const x=crossing(p,s,150);if(!x)continue;
+   const z=levelAlong(s,x.x,x.y)-((depthOf(s)||0)+(hp||0))/2;
+   if(z>2000)under.push({z:Math.round(z/5)*5,mark:s.mark,t:x.t})
+  }
+  if(!under.length)continue;
+  // At each crossing the lowest beam over it; the track is level — the level most of them give.
+  const at=new Map();for(const q of under){const k=Math.round(q.t*20);if(!at.has(k)||q.z<at.get(k).z)at.set(k,q)}
+  const count=new Map();for(const q of at.values())count.set(q.z,(count.get(q.z)||0)+1);
+  const z=[...count].sort((a,b)=>b[1]-a[1]||a[0]-b[0])[0][0];
+  p.z0_mm=p.z1_mm=z;p.levels="подвешен к балкам";
+  p.note=[String(p.note||"").replace(/Отметок нет[^;]*(;\s*)?/u,""),"Подвешен к "+[...new Set([...at.values()].map(q=>q.mark))].slice(0,6).join(", ")+" — верх пути под низом балок ("+mmText(z)+")"].filter(Boolean).join("; ")
+ }
+}
+// Members that took their levels from the beams they meet («по соседним балкам») follow those beams once these have
+// been moved (onto the column tops, onto the beams under them).
+// Members still without levels (their neighbours had none while the scheme was read) take them now, as do those of
+// «как у большинства в схеме» where a beam of their own scheme meets them.
+const LEVELLED_LATER=new Set(["по соседним балкам","нет отметок","как у большинства в схеме"]);
+function relevelNeighbours(elements){
+ const bySheet=new Map();
+ for(const e of elements){if(!beamLike(e))continue;const k=e.page+"|"+e.scheme;(bySheet.get(k)||bySheet.set(k,[]).get(k)).push(e)}
+ for(const e of elements){
+  if(!LEVELLED_LATER.has(e.levels)||!Number.isFinite(e.x2_mm)||e.fitting_type)continue;
+  const beams=(bySheet.get(e.page+"|"+e.scheme)||[]).filter(b=>b!==e&&!LEVELLED_LATER.has(b.levels));
+  const at=(x,y)=>{let best=null;for(const b of beams){const vx=b.x2_mm-b.x_mm,vy=b.y2_mm-b.y_mm,l2=vx*vx+vy*vy||1,t=Math.max(0,Math.min(1,((x-b.x_mm)*vx+(y-b.y_mm)*vy)/l2)),d=Math.hypot(b.x_mm+vx*t-x,b.y_mm+vy*t-y);if(d<=400&&(!best||d<best.d))best={d,z:levelAlong(b,x,y)}}return best?Math.round(best.z/10)*10:null};
+  const z0=at(e.x_mm,e.y_mm),z1=at(e.x2_mm,e.y2_mm);
+  if(z0===null&&z1===null)continue;
+  e.z0_mm=z0??z1;e.z1_mm=z1??z0;
+  if(e.levels!=="по соседним балкам"){e.levels="по соседним балкам";e.note=[String(e.note||"").replace(/Отметк[^;]*(;\s*)?/u,""),"Отметки по балкам, к которым примыкает"].filter(Boolean).join("; ")}
+ }
+}
 function instanceStatus(e){
  if(e.levels==="проверено инженером")return{status:"confirmed",reasons:[]};
  const reasons=[];
@@ -1354,4 +1521,4 @@ function seatTrusses(elements,catalog){
   e.note=[e.note,"Ферма по геометрической схеме"+(moved?", отметка низа — как у соседних ферм":"")+" — проверьте"].filter(Boolean).join("; ")
  }
 }
-module.exports={instanceStatus,sheetNodes,jointNote,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces,trimGuardPosts};
+module.exports={instanceStatus,sheetNodes,jointNote,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces,trimGuardPosts,sectionOutliers,roofOnColumns,purlinsOnBeams,hangTracks,relevelNeighbours};

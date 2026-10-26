@@ -481,14 +481,30 @@ function growLine(seed,segments,lines,skip){
  return{a:at(tA),b:at(tB)}
 }
 // A member drawn as a line on the plan: its label lies along it, or a leader points onto it.
+// A stroke with strokes of about its length on its line on both sides, across gaps: a dash of a dash-dot line.
+function dashOf(i,segments,lines){
+ const s=segments[i],len=dist(s.a,s.b);if(len<4)return false;
+ const u={x:(s.b.x-s.a.x)/len,y:(s.b.y-s.a.y)/len};
+ const side=dir=>{const end=dir>0?s.b:s.a;
+  return lines.near(end,len*0.9+4).some(j=>{if(j===i)return false;const q=segments[j],l=dist(q.a,q.b);if(Math.abs(l-len)>len*0.3)return false;
+   const v={x:(q.b.x-q.a.x)/l,y:(q.b.y-q.a.y)/l};if(Math.abs(cross(u,v))>.02||Math.abs(cross(u,{x:q.a.x-s.a.x,y:q.a.y-s.a.y}))>.8)return false;
+   const t1=(q.a.x-s.a.x)*u.x+(q.a.y-s.a.y)*u.y,t2=(q.b.x-s.a.x)*u.x+(q.b.y-s.a.y)*u.y;
+   const gap=dir>0?Math.min(t1,t2)-len:-Math.max(t1,t2);return gap>=2&&gap<=len*0.8})};
+ return side(1)&&side(-1)
+}
+
 function memberLine(t,target,segments,lines,skip){
  const f=textFrame(t);
  const found=[];
  const consider=(i,score)=>found.push({i,score});
  if(target.leader){
   // The leader ends on the member: the longest line through that point.
+  // A turned label's "leader" running along it may be its member itself (a КМ set: «Б2» turned along a short beam
+  // ending on another).
+  const ls0=Number.isInteger(target.segment)?segments[target.segment]:null;
+  const own=ls0&&Math.abs(Number(t.angle)||0)>5&&Math.abs(cross({x:(ls0.b.x-ls0.a.x)/(dist(ls0.a,ls0.b)||1),y:(ls0.b.y-ls0.a.y)/(dist(ls0.a,ls0.b)||1)},f.dir))<=.07;
   for(const i of lines.near(target,6)){
-   if(skip.has(i)||i===target.segment)continue;
+   if(skip.has(i)||i===target.segment&&!own)continue;
    const s=segments[i],l=dist(s.a,s.b);if(l<12)continue;
    const v={x:(s.b.x-s.a.x)/l,y:(s.b.y-s.a.y)/l},w={x:target.x-s.a.x,y:target.y-s.a.y},tt=w.x*v.x+w.y*v.y;
    if(tt<-1||tt>l+1||Math.abs(cross(v,w))>2.5)continue;
@@ -518,17 +534,25 @@ function memberLine(t,target,segments,lines,skip){
    if(Math.abs(cross(v,f.dir))>.07)continue;
    const w={x:f.c.x-s.a.x,y:f.c.y-s.a.y},along=w.x*v.x+w.y*v.y,off=Math.abs(cross(v,w));
    if(off>f.h*1.7||along<-f.w/2-f.h||along>l+f.w/2+f.h)continue;
-   consider(i,off)
+   // A line passing under the label goes before one that only starts beside it (029-2025: «53» over its beam, the
+   // frame of a level mark beside it, nearer).
+   consider(i,off+(along<-f.w/2||along>l+f.w/2?f.h*2:0))
   }
  }
  // Nearest first; short strokes next to the label (ticks, hatching) are passed over.
  found.sort((a,b)=>a.score-b.score);
+ let pick=null;
  for(const c of found.slice(0,8)){
-  const line=growLine(segments[c.i],segments,lines,skip);
+  const line=growLine(segments[c.i],segments,lines,skip),l=dist(line.a,line.b);
   // A leader shelf is about as long as its label; a member is clearly longer.
-  if(dist(line.a,line.b)>=Math.max(24,f.w*2.2))return line
+  if(l<Math.max(24,f.w*2.2))continue;
+  if(!pick){pick={c,line,l};if(c.score<0||!dashOf(c.i,segments,lines))break;continue}
+  // A dash of a dash-dot line along the label and a far longer line about as near: the dashes are an axis drawn beside
+  // the member (a КМ set: «П1» between its purlin and the axis it stands on).
+  if(c.score>pick.c.score+2.5)break;
+  if(l>pick.l*1.5){pick={c,line,l};break}
  }
- return null
+ return pick?.line||null
 }
 
 // Stair flights on a small plan: five or more equal parallel strokes (treads) at an even step of 180–320 mm, each
@@ -671,22 +695,43 @@ function iSymbol(target,strokes){
  return null
 }
 
-function leaderTarget(text,segments,index,axisSegs){
+function leaderTarget(text,segments,index,axisSegs,lines){
  const box=textBox(text);
  // The shelf sits just under the label; the leader leaves from its ends.
  const pad=8;
  const zone={x0:box.x0-pad,x1:box.x1+pad,y0:box.y1-3,y1:box.y1+12};
  const inZone=p=>p.x>=zone.x0&&p.x<=zone.x1&&p.y>=zone.y0&&p.y<=zone.y1;
  const near=[...new Set(index.near({x:box.cx,y:box.y1+4},40))].filter(i=>!axisSegs.has(i));
+ // A member drawn under its label (К143 over the beam of axis А): its line, in pieces broken at the joints, runs on
+ // well past the label. Its pieces are no shelf, and the braces meeting it there are no leaders.
+ const flat=Math.abs(Number(text.angle)||0)<=5,w0=box.x1-box.x0;
+ const rails=[];
+ // Lines passing under the label with their ends far off are found by the index of whole lines.
+ const along=lines?[...new Set([...near,...lines.near({x:box.cx,y:box.y1+4},Math.max(40,w0))])].filter(i=>!axisSegs.has(i)):near;
+ if(flat)for(const i of along){
+  const s=segments[i];if(Math.abs(s.a.y-s.b.y)>=0.6||!(s.a.y>=zone.y0&&s.a.y<=zone.y1))continue;
+  const y=(s.a.y+s.b.y)/2;let lo=Math.min(s.a.x,s.b.x),hi=Math.max(s.a.x,s.b.x);
+  if(Math.min(hi,box.x1)-Math.max(lo,box.x0)<w0*0.3&&hi-lo<w0)continue;
+  for(let grown=true,k=0;grown&&k<40;k++){grown=false;
+   for(const j of [...new Set([...index.near({x:lo,y},4),...index.near({x:hi,y},4)])]){const q=segments[j];if(Math.abs(q.a.y-y)>0.6||Math.abs(q.b.y-y)>0.6)continue;
+    const a=Math.min(q.a.x,q.b.x),b=Math.max(q.a.x,q.b.x);if(b<lo-3||a>hi+3)continue;if(a<lo-0.01){lo=a;grown=true}if(b>hi+0.01){hi=b;grown=true}}}
+  // It runs on past both ends of the label: a line leaving from under the label's start (a КМ set: «Бл2» at the
+  // start of a long leader running across its beams) is the label's leader, not its member.
+  const m=Math.max(3,w0*0.2);
+  if(hi-lo>=Math.max(24,w0*2.2)&&Math.min(hi,box.x1)-Math.max(lo,box.x0)>=w0*0.5&&lo<=box.x0-m&&hi>=box.x1+m)rails.push({y,lo,hi,i})
+ }
+ // The member's other edge (a beam drawn with two lines) belongs to it too.
+ const onRail=p=>rails.some(r=>Math.abs(p.y-r.y)<5&&p.x>=r.lo-1.5&&p.x<=r.hi+1.5);
+ const railSeg=new Set([...rails.map(r=>r.i),...along.filter(i=>{const q=segments[i];return Math.abs(q.a.y-q.b.y)<0.6&&onRail(q.a)&&onRail(q.b)})]);
  // When the shelf is drawn, the leader leaves from one of its ends: a member line passing the zone is not a leader.
- const ends=Math.abs(Number(text.angle)||0)>5?[]:near.map(i=>segments[i]).filter(s=>inZone(s.a)&&inZone(s.b)&&Math.abs(s.a.y-s.b.y)<1.5&&dist(s.a,s.b)>=(box.x1-box.x0)*0.6).flatMap(s=>[s.a,s.b]);
+ const ends=!flat?[]:near.filter(i=>!railSeg.has(i)&&!onRail(segments[i].a)).map(i=>segments[i]).filter(s=>inZone(s.a)&&inZone(s.b)&&Math.abs(s.a.y-s.b.y)<1.5&&dist(s.a,s.b)>=(box.x1-box.x0)*0.6).flatMap(s=>[s.a,s.b]);
  const fromShelf=p=>!ends.length||ends.some(e=>dist(e,p)<4);
  let best=null;const leaders=[];
  for(const i of near){
   const s=segments[i],len=dist(s.a,s.b);if(len<6)continue;
   const diagonal=Math.abs(s.a.x-s.b.x)>1&&Math.abs(s.a.y-s.b.y)>1;
   for(const [p,q] of [[s.a,s.b],[s.b,s.a]]){
-   if(!inZone(p)||inZone(q)||!fromShelf(p))continue;
+   if(!inZone(p)||inZone(q)||!fromShelf(p)||!ends.length&&onRail(p))continue;
    const score=(diagonal?100:0)+len;
    if(diagonal)leaders.push({from:p,to:q,segment:i});
    if(!best||score>best.score)best={score,from:p,to:q,diagonal,segment:i}
@@ -711,7 +756,8 @@ function leaderTarget(text,segments,index,axisSegs){
  if(!best&&Math.abs(Number(text.angle)||0)<=5){
   const w=box.x1-box.x0;
   const shelves=near.map(i=>segments[i]).concat([...new Set(index.near({x:box.cx,y:box.y1+4},Math.min(200,w*8)))].map(i=>segments[i]))
-   .filter(q=>Math.abs(q.a.y-q.b.y)<0.5&&q.a.y>=box.y1-3&&q.a.y<=box.y1+12&&Math.min(Math.max(q.a.x,q.b.x),box.x1)-Math.max(Math.min(q.a.x,q.b.x),box.x0)>=w*0.8&&dist(q.a,q.b)<=Math.min(220,w*9));
+   .filter(q=>Math.abs(q.a.y-q.b.y)<0.5&&q.a.y>=box.y1-3&&q.a.y<=box.y1+12&&Math.min(Math.max(q.a.x,q.b.x),box.x1)-Math.max(Math.min(q.a.x,q.b.x),box.x0)>=w*0.8&&dist(q.a,q.b)<=Math.min(220,w*9)&&
+    !rails.some(r=>r.hi-r.lo>Math.min(220,w*9)&&Math.abs(q.a.y-r.y)<5&&Math.min(q.a.x,q.b.x)>=r.lo-1.5&&Math.max(q.a.x,q.b.x)<=r.hi+1.5));
   // A shelf may come in pieces: carried on along its line to its real ends.
   const extend=(e,dir)=>{let p=e;for(let k=0;k<20;k++){const nx=index.near(p,3).map(i=>segments[i]).find(q=>Math.abs(q.a.y-q.b.y)<0.5&&Math.abs(q.a.y-p.y)<0.5&&
    [q.a,q.b].some(r=>dist(r,p)<1)&&[q.a,q.b].some(r=>(r.x-p.x)*dir>0.5));if(!nx)break;p=[nx.a,nx.b].sort((u,v)=>(v.x-u.x)*dir)[0]}return p};
@@ -722,7 +768,8 @@ function leaderTarget(text,segments,index,axisSegs){
   }
  }
  // shelf: the label stands on a shelf of its own (a leader label), not over a line passing by.
- return best?{x:best.to.x,y:best.to.y,leader:true,diagonal:best.diagonal,segment:best.segment,shelf:Boolean(best.shelf||ends.length),...(more.length?{more}:{})}:{x:box.cx,y:box.y1+6,leader:false}
+ // rail: no leader, the label is written over its member line.
+ return best?{x:best.to.x,y:best.to.y,leader:true,diagonal:best.diagonal,segment:best.segment,shelf:Boolean(best.shelf||ends.length),...(more.length?{more}:{})}:{x:box.cx,y:box.y1+6,leader:false,...(rails.length?{rail:true}:{})}
 }
 
 function nearestLine(lines,v,tol){
@@ -901,7 +948,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
   let own=null;
   const sizeOfDims=t=>Math.abs((Number(t.size)||0)-dimSize)<=dimSize*(t.ocr?0.25:0.1);
   const ownSize=()=>own??(own=local.filter(t=>/^\d{1,3}$/.test(String(t.str).trim())&&!sizeOfDims(t)&&Math.abs(Number(t.angle)||0)<5)
-   .filter(t=>{const tg=leaderTarget(t,segments,index,axisSegs);return tg.leader&&tg.diagonal&&tg.shelf}).length>=3);
+   .filter(t=>{const tg=leaderTarget(t,segments,index,axisSegs,lines);return tg.leader&&tg.diagonal&&tg.shelf}).length>=3);
   // Where a label names its member line: the end of its leader, or the label itself when written along the member (a
   // turned label's "leader" is usually a junction of lines).
   const labelOn=(t,target,line)=>{const frame=textFrame(t),angle=Number(t.angle)||0,led=target.leader&&Math.abs(angle)<5;
@@ -916,10 +963,10 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
   const labels=split.flatMap(t=>{
    const str=String(t.str||"").trim().replace(/\s+/gu,"");
    if(usedTexts.has(t)||Math.abs(Number(t.angle)||0)>=5||!MARK_LABEL.test(str)&&!(markIndex&&/^\d{1,3}(?:\.\d{1,2})?$/u.test(str)))return[t];
-   const more=leaderTarget(t,segments,index,axisSegs).more||[];
+   const more=leaderTarget(t,segments,index,axisSegs,lines).more||[];
    return[t,...more.map(m=>{const c={...t};further.set(c,m);return c})]
   });
-  const targetOf=t=>{const tg=leaderTarget(t,segments,index,axisSegs),m=further.get(t);return m?{...tg,x:m.x,y:m.y,segment:m.segment}:tg};
+  const targetOf=t=>{const tg=leaderTarget(t,segments,index,axisSegs,lines),m=further.get(t);return m?{...tg,x:m.x,y:m.y,segment:m.segment}:tg};
   for(const t of labels){
    // "К 1" is written with a space on some sheets.
    let mark=String(t.str||"").trim().replace(/^([А-ЯЁA-Z]{1,3}|[А-ЯЁA-Z][а-яё]{1,2})\s+(\d)/u,"$1$2"),byIndex=false;
@@ -930,7 +977,8 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    let postAt=null;
    if(markIndex&&/^\d{1,3}(?:\.\d{1,2})?$/u.test(mark)&&!usedTexts.has(t)&&Math.abs(Number(t.angle)||0)<5){const tg=targetOf(t);
     postAt=tg.leader&&!(tg.diagonal&&tg.shelf)&&!sizeOfDims(t)?columnSymbol(tg,segments,index):null;
-    if(tg.leader&&tg.diagonal&&tg.shelf&&!(ownSize()&&sizeOfDims(t))||postAt){mark=markIndex+mark;byIndex=true}}
+    // A number written over its member line, larger or smaller than the sizes (029-2025: «50» over its beam), is one too.
+    if(tg.leader&&tg.diagonal&&tg.shelf&&!(ownSize()&&sizeOfDims(t))||postAt||tg.rail&&!sizeOfDims(t)){mark=markIndex+mark;byIndex=true}}
    // A column base («Бк 4») is not a member: its leader points at the base symbol, which stands at a column. Its place
    // goes with the scheme (from the nearest named axes), for the base details of that column.
    if(BASE_LABEL.test(mark)&&!usedTexts.has(t)){
@@ -1149,7 +1197,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    // A single mark is written for the first tier: the others are as far apart as the tiers.
    ...(p.flight.from_mm?{from_mm:onTier(p.flight.from_mm,k)}:{}),...(p.flight.to_mm?{to_mm:onTier(p.flight.to_mm,k)}:{})}}:{})})})}
   // A location plan of platforms, stairs and porches: the hatched outline of each structure with its level.
-  const footprints=!group.local&&/расположения\s+(?:площад|лестниц|крыл)/iu.test(title||"")?extractFootprints({texts,segments,bbox,toX,toY,target:t=>leaderTarget(t,segments,index,axisSegs)}):[];
+  const footprints=!group.local&&/расположения\s+(?:площад|лестниц|крыл)/iu.test(title||"")?extractFootprints({texts,segments,bbox,toX,toY,target:t=>leaderTarget(t,segments,index,axisSegs,lines)}):[];
   // A structure found by its outline is placed by it: the mark read as a member line beside it is dropped.
   if(footprints.length){const drawn=new Set(footprints.map(f=>f.mark).filter(Boolean));for(let i=placements.length-1;i>=0;i--)if(drawn.has(placements[i].mark))placements.splice(i,1);
    placements.push(...footprintPlacements(footprints,page))}

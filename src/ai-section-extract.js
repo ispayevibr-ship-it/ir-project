@@ -132,6 +132,11 @@ function extractSections({segments=[],texts=[]}={}){
   if(dy<=0.3&&dx>=20)horiz.push({y:s.a.y,x0:Math.min(s.a.x,s.b.x),x1:Math.max(s.a.x,s.b.x)});
   else if(dx<=0.3&&dy>=8)vert.push({x:s.a.x,y0:Math.min(s.a.y,s.b.y),y1:Math.max(s.a.y,s.b.y)})
  }
+ // Dimension lines: a horizontal line with a size written just over it. Their extension lines run down from them to
+ // the members (the chain «2250 2250 …» over the purlins of a roof): such a line beside a label is not a post.
+ const sizes=texts.filter(t=>Math.abs(t.angle||0)<10&&/^\d{2,6}$/.test(String(t.str).trim())).map(textBox);
+ const dimLines=horiz.filter(h=>sizes.some(z=>z.cx>=h.x0-2&&z.cx<=h.x1+2&&h.y-z.y1>=-0.5&&h.y-z.y1<=5));
+ const extension=v=>dimLines.some(h=>v.y0>=h.y-8&&v.y0<=h.y+2&&v.x>=h.x0-6&&v.x<=h.x1+6);
  const offset=levelOffset([...views.values()].flatMap(v=>v.levels),all),out=[];
  for(const view of views.values())for(const l of view.levels)l.y+=offset;
  // Vertical scale of the sheet from views whose level marks agree unambiguously.
@@ -161,15 +166,20 @@ function extractSections({segments=[],texts=[]}={}){
    // from the shelf's end goes up to.
    if(beam&&beam.h.x1-beam.h.x0<=b.x1-b.x0+16&&beam.h.x0>=b.x0-6){
     const ends=[{x:beam.h.x0,y:beam.h.y},{x:beam.h.x1,y:beam.h.y}];
-    let up=null;
+    let up=null,down=null;
     for(const sg of segments)for(const [p,q] of [[sg.a,sg.b],[sg.b,sg.a]]){
-     if(!ends.some(e=>Math.hypot(e.x-p.x,e.y-p.y)<=3)||q.y>p.y-5)continue;
+     if(!ends.some(e=>Math.hypot(e.x-p.x,e.y-p.y)<=3))continue;
+     // A label over its member (the purlins of a roof section, «К46» on a shelf above the rafter): the leader goes down
+     // from the shelf to the member's symbol, whose top is the member's level.
+     if(q.y>p.y+5&&Math.abs(q.x-p.x)<=(q.y-p.y)*1.5&&!extension({x:q.x,y0:p.y})&&(!down||q.y<down.y))down=q;
+     if(q.y>p.y-5)continue;
      // A leader may break once at the shelf end: follow one more piece going on up.
      let far=q;
      for(const sg2 of segments)for(const [p2,q2] of [[sg2.a,sg2.b],[sg2.b,sg2.a]])if(sg2!==sg&&Math.hypot(p2.x-far.x,p2.y-far.y)<=1&&q2.y<far.y-3&&Math.abs(q2.y-p2.y)>Math.abs(q2.x-p2.x)*0.3)far=q2;
      if(!up||far.y<up.y)up=far
     }
     if(up){const on=horiz.find(h=>Math.abs(h.y-up.y)<=4&&h.x0<=up.x+3&&h.x1>=up.x-3);beam={d:0,y:on?on.y:up.y}}
+    else if(down)beam={d:0,y:down.y}
    }
    // A pitched member (a beam broken at the ridge): sloped lines just over or under the label, nearer than a level one.
    const yAt=(l,x)=>l.p.y+(l.q.y-l.p.y)*(x-l.p.x)/(l.q.x-l.p.x);
@@ -204,7 +214,7 @@ function extractSections({segments=[],texts=[]}={}){
    let post=null;
    for(const v of vert){
     const d=Math.min(Math.abs(v.x-b.x0),Math.abs(v.x-b.x1));
-    if(d>16||v.y1<b.y0||v.y0>b.y1)continue;
+    if(d>16||v.y1<b.y0||v.y0>b.y1||extension(v))continue;
     if(!post||d<post.d||d===post.d&&v.y1-v.y0>post.y1-post.y0)post={d,x:v.x,y0:v.y0,y1:v.y1}
    }
    // A column label written under the column's foot, its leader slanting down to it: the longest line ending just
