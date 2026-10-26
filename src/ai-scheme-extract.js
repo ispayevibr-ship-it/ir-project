@@ -256,15 +256,27 @@ function dimensionsOf(texts,segments){
   let lo=Math.max(...ext.filter(c=>cross?c<=t0+m:c<at)),hi=Math.min(...ext.filter(c=>cross?c>=t1-m:c>at));
   // A short size written past its extension lines (ГПЭС М1.25: «100» beside its 8.6 pt): the two lines on its side,
   // the number starting right at the nearer one (a number 10 pt off is another size's).
-  const gap=Math.max(4,(Number(t.size)||0)*0.3);
-  if(!Number.isFinite(hi)){const below=[...new Set(ext.filter(c=>c<at).map(c=>Math.round(c*10)/10))].sort((a,b)=>b-a);if(below.length>=2&&t0-below[0]<=gap){hi=below[0];lo=below[1]}}
-  else if(!Number.isFinite(lo)){const above=[...new Set(ext.filter(c=>c>at).map(c=>Math.round(c*10)/10))].sort((a,b)=>a-b);if(above.length>=2&&above[0]-t1<=gap){lo=above[0];hi=above[1]}}
+  // (or farther off, when its dimension line runs on from that extension line out under the number — the shelf it is
+  // written on, ГПЭС К8 «2 - 2»: «45» 16 pt past the end of the line of «4215», the line drawn on under it — and ending
+  // there, within 0.6 of its height (К8 «60»: 6 pt): a line running on past the number is a longer size whose far
+  // extension line is out of reach, ГПЭС В38 «300»: 32 pt)
+  // (The words written with it on the shelf, aligned with it, «50» over «для К85» under it, ГПЭС «Вид Е», are on it too.)
+  const gap=Math.max(4,(Number(t.size)||0)*0.3),tm=(t0+t1)/2,end=Math.max(4,(Number(t.size)||0)*0.6);let past=0;
+  const label=dir=>{let e=dir>0?t1:t0;for(const q of texts){if(q===t)continue;const qb=textBox(q);if(qb.angle!==b.angle)continue;
+   const [q0,q1]=flat?[qb.x0,qb.x1]:[qb.y0,qb.y1];if(Math.abs((flat?qb.y0+qb.y1:qb.x0+qb.x1)/2-line.c)>(Number(t.size)||10)*1.5)continue;
+   if(Math.abs(q0-t0)<=2||Math.abs(q1-t1)<=2)e=dir>0?Math.max(e,q1):Math.min(e,q0)}return e};
+  if(!Number.isFinite(hi)){const below=[...new Set(ext.filter(c=>c<at).map(c=>Math.round(c*10)/10))].sort((a,b)=>b-a);if(below.length>=2&&(t0-below[0]<=gap||line.lo<=below[0]+0.5&&line.hi>=tm&&(line.hi<=t1+end||line.hi<=label(1)+end))){hi=below[0];lo=below[1];past=1}}
+  else if(!Number.isFinite(lo)){const above=[...new Set(ext.filter(c=>c>at).map(c=>Math.round(c*10)/10))].sort((a,b)=>a-b);if(above.length>=2&&(above[0]-t1<=gap||line.hi>=above[0]-0.5&&line.lo<=tm&&(line.lo>=t0-end||line.lo>=label(-1)-end))){lo=above[0];hi=above[1];past=-1}}
   // The ticks on the line mark the ends of its dimensions: an extension line of another dimension crossing an overall
   // one has none there (ГПЭС К17а: «4320» over «60 4215 45» took the extension lines of the chain for its ends).
   const marks=[...new Set(ticks.filter(k=>Math.abs((flat?k.y:k.x)-line.c)<=1.2&&(flat?k.x:k.y)>=line.lo-1&&(flat?k.x:k.y)<=line.hi+1).map(k=>Math.round((flat?k.x:k.y)*10)/10))];
   if(marks.length>=2){
    const tlo=Math.max(...marks.filter(c=>cross?c<=t0+m:c<at)),thi=Math.min(...marks.filter(c=>cross?c>=t1-m:c>at));
    if(Number.isFinite(tlo)&&Number.isFinite(thi)&&thi-tlo>=4){lo=tlo;hi=thi}
+   // (a size written past its span: the two ticks next to it on its side — a line crossing there with no tick is no end
+   // of it, ГПЭС К37а «90»: the axis of the joint between its ends)
+   const side=past?marks.filter(c=>past<0?c>at:c<at).sort((a,b)=>past<0?a-b:b-a):[];
+   if(side.length>=2&&Math.abs(side[1]-side[0])>=4){lo=Math.min(side[0],side[1]);hi=Math.max(side[0],side[1])}
   }
   if(!(Number.isFinite(lo)&&Number.isFinite(hi)&&hi-lo>=4))continue;
   // (a number standing at an end of its span, far off its middle, beside a span beyond that end too short to hold it:

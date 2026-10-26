@@ -436,6 +436,14 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
   const own=g=>{let best=null;for(const d of g.sc.list){const c=g.sc.list.filter(e=>Math.abs(kOf(e)-kOf(d))<=kOf(d)*0.01);
     if(c.length>=3&&c.some(e=>e.flat===flat(g))&&c.some(e=>e.flat!==flat(g))&&(!best||c.length>best.length))best=c}
    if(!best)return null;const m=median(best.map(kOf)),k=Math.abs(m-Math.round(m))<=m*0.01?Math.round(m):Math.round(m*10)/10;return{k,n:PT/k,count:best.length}};
+  // (a view drawn shorter with its middle left out: the sizes at its ends agree on one scale, the overall size spanning it
+  // on a smaller one — the view is at the scale of its ends, a view is never drawn longer; ГПЭС К14 «4 - 4»: «50» at each
+  // end at 1:10, «2205» and «2105» at 1:15, the band 210 instead of 140)
+  const ends=g=>{if(!square(g))return null;const L=g.s1-g.s0,list=g.sc.list.filter(d=>d.flat===flat(g)&&d.lo>=g.s0-2&&d.hi<=g.s1+2);
+   const end=list.filter(d=>d.hi-d.lo<=0.2*L&&(Math.abs(d.lo-g.s0)<=2||Math.abs(d.hi-g.s1)<=2)),over=list.filter(d=>d.hi-d.lo>=0.9*L);
+   if(end.length<2||!over.length)return null;const ke=median(end.map(kOf));if(!end.every(d=>Math.abs(kOf(d)-ke)<=ke*0.03)||median(over.map(kOf))<ke*1.2)return null;
+   const k=SCALES.find(s=>Math.abs(s-ke)<=ke*0.03);return k?{k,n:PT/k,count:end.length}:null};
+  for(const g of scaled){const e=ends(g);if(e&&e.k!==g.sc.k)g.sc=Object.assign(e,{list:g.sc.list,agree:g.sc.agree})}
   const by=new Map();for(const g of scaled)if(!chance(g))by.set(g.sc.k,(by.get(g.sc.k)||0)+1);
   const k=[...by].sort((a,b)=>b[1]-a[1])[0]?.[0];
   for(const g of scaled)if(chance(g)){const o=own(g);if(o)g.sc=o;else if(k&&k!==g.sc.k)g.sc={k,n:PT/k,count:0}}
