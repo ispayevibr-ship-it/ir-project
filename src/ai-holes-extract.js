@@ -70,10 +70,11 @@ function holeSymbols(segments,texts=[]){
   const pts=g.flatMap(i=>[segs[i].a,segs[i].b]),c={x:pts.reduce((a,p)=>a+p.x,0)/pts.length,y:pts.reduce((a,p)=>a+p.y,0)/pts.length};
   const rs=pts.map(p=>dist(p,c)),r=rs.reduce((a,b)=>a+b,0)/rs.length;
   if(r<0.75||r>7||Math.min(...rs)<r*0.8||Math.max(...rs)>r*1.2)continue;
-  // Closed all round: the chords cover the circle (not an arc of a weld sign or a rounded corner).
-  const len=g.reduce((a,i)=>a+segs[i].l,0);if(len<2*Math.PI*r*0.85)continue;
-  // (and round: of chords shorter than its radius — a small square with its diagonals is not a ring)
-  if(g.some(i=>segs[i].l>r*1.05))continue;
+  // Round: a rim of chords shorter than its radius (a small square with its diagonals is not a ring); a stroke or two
+  // across it (a leader into the hole, ГПЭС К17а) are left aside.
+  const rim=g.filter(i=>segs[i].l<=r*1.05);if(rim.length<6||g.length-rim.length>2)continue;
+  // Closed all round: the rim covers the circle (not an arc of a weld sign or a rounded corner).
+  const len=rim.reduce((a,i)=>a+segs[i].l,0);if(len<2*Math.PI*r*0.85)continue;
   // A circle round a text is a balloon or a bubble, not a hole.
   if(labels.some(t=>Math.abs(t.x+(t.width||0)/2-c.x)<r&&Math.abs(t.y-(t.size||8)*0.36-c.y)<r))continue;
   // A hole has its centre marked: a line through its middle out past it (a centre line, the gauge line of a row); a
@@ -306,8 +307,11 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
   // (an end is drawn there: a line across the member — not an axis the dimensions start from, ГПЭС К36: «75» from the
   // axis, «65» from the end)
   const drawnAt=e=>g.cross.some(p=>Math.abs(p-e)<=0.6);
-  if(beside.length){const e0=Math.min(...beside.map(d=>d.lo)),e1=Math.max(...beside.map(d=>d.hi));
-   if(e0<=g.s0+1&&e1>=g.s1-1&&e1-e0<=(g.s1-g.s0)*1.25){if(e0<g.s0-0.6&&drawnAt(e0))g.s0=e0;if(e1>g.s1+0.6&&drawnAt(e1))g.s1=e1}}
+  // (each end apart, step by step along the dimensions that reach it: «223» to the cap plate's underside, «12» on to its
+  // top — ГПЭС В113 «Вид А», its edges hidden under the plates of the node)
+  {const L=g.s1-g.s0,near=alongDims.filter(d=>cross(d)>=lo-250&&cross(d)<=hi+250);
+   for(let k=0;k<4;k++){const d=near.filter(d=>d.lo<g.s0-0.6&&d.hi>=g.s0-0.6&&g.s0-d.lo<=L*0.25&&drawnAt(d.lo)).sort((a,b)=>a.lo-b.lo)[0];if(!d)break;g.s0=d.lo}
+   for(let k=0;k<4;k++){const d=near.filter(d=>d.hi>g.s1+0.6&&d.lo<=g.s1+0.6&&d.hi-g.s1<=L*0.25&&drawnAt(d.hi)).sort((a,b)=>b.hi-a.hi)[0];if(!d)break;g.s1=d.hi}}
   // (the dimensions beside it, the nearer first)
   const gap=d=>Math.max(0,lo-cross(d),cross(d)-hi),map=chainMap(beside.slice().sort((a,b)=>gap(a)-gap(b)),g.sc.n);
   g.byChain=map.at(g.s0)&&map.at(g.s1)&&map.mm(g.s0,g.s1)>0;
@@ -323,6 +327,12 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
  for(const g of longs)if(!g.into)for(const h of longs)if(h!==g&&!h.into&&Math.abs(g.u.x*h.u.y-g.u.y*h.u.x)<0.003&&h.lo>=g.lo-0.5&&h.hi<=g.hi+0.5&&
   Math.min(g.s1,h.s1)-Math.max(g.s0,h.s0)>=0.8*Math.min(g.s1-g.s0,h.s1-h.s0)){h.into=g;g.signs.push(...h.signs);h.signs=[];g.edges.push(...h.edges);g.s0=Math.min(g.s0,h.s0);g.s1=Math.max(g.s1,h.s1)}
  for(const g of longs.filter(g=>!g.into)){
+  // Its edges run on in a row past a gap wide in both (the member and a row of the table beside it, ГПЭС К17 «3 - 3»:
+  // 7939 mm instead of 4320): the stretch with its signs.
+  {const gapMax=Math.max(60,6*(g.hi-g.lo)),runs=[],at=g.signs.map(h=>h.x*g.u.x+h.y*g.u.y);
+   for(const [a,b] of g.edges.flatMap(L=>L.pieces.map(q=>[q.s0,q.s1])).sort((p,q)=>p[0]-q[0])){const r=runs[runs.length-1];if(r&&a-r[1]<=gapMax)r[1]=Math.max(r[1],b);else runs.push([a,b])}
+   const i0=runs.findIndex(r=>r[1]>=Math.min(...at)-2),i1=runs.map(r=>r[0]<=Math.max(...at)+2).lastIndexOf(true);
+   if(runs.length>1&&i0>=0&&i1>=i0){g.s0=Math.max(g.s0,runs[i0][0]);g.s1=Math.min(g.s1,runs[i1][1])}}
   // Its ends: the outermost lines drawn across it by the ends of its edges (an end plate) — not an axis or a centre line
   // run on past it (ГПЭС К33: «65» from the plate, the middle line drawn on to the axis).
   g.cross=[];for(const q of segs){if(thick&&!thick(q))continue;const a=q.a.x*g.u.x+q.a.y*g.u.y,b=q.b.x*g.u.x+q.b.y*g.u.y;if(Math.abs(a-b)>0.6)continue;
@@ -332,7 +342,7 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
   const w=g.hi-g.lo,axisAt=p=>{const iv=segs.filter(q=>Math.abs(q.a.x*g.u.x+q.a.y*g.u.y-p)<=0.3&&Math.abs(q.b.x*g.u.x+q.b.y*g.u.y-p)<=0.3).map(q=>{const c0=q.a.x*g.n.x+q.a.y*g.n.y,c1=q.b.x*g.n.x+q.b.y*g.n.y;return[Math.min(c0,c1),Math.max(c0,c1)]})
    .filter(([a,b])=>b>=g.lo-3*w&&a<=g.hi+3*w).sort((a,b)=>a[0]-b[0]);let gaps=0,e=null;for(const [a,b] of iv){if(e!==null&&a-e>=1&&a-e<=8)gaps++;e=e===null?b:Math.max(e,b)}return gaps>=2};
   g.cross=g.cross.filter(p=>!axisAt(p));
-  {const st=g.edges.map(L=>L.s0),en=g.edges.map(L=>L.s1),m=Math.max(4,0.01*(g.s1-g.s0));
+  {const st=g.edges.map(L=>Math.max(L.s0,g.s0)),en=g.edges.map(L=>Math.min(L.s1,g.s1)),m=Math.max(4,0.01*(g.s1-g.s0));
    const c0=g.cross.filter(p=>p>=Math.min(...st)-m&&p<=Math.max(...st)+2),c1=g.cross.filter(p=>p<=Math.max(...en)+m&&p>=Math.min(...en)-2);
    if(c0.length)g.s0=Math.min(...c0);if(c1.length)g.s1=Math.max(...c1)}
   const p0={x:g.u.x*g.s0+g.n.x*g.lo,y:g.u.y*g.s0+g.n.y*g.lo},p1={x:g.u.x*g.s1+g.n.x*g.hi,y:g.u.y*g.s1+g.n.y*g.hi};

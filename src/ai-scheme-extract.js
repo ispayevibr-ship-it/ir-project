@@ -266,8 +266,19 @@ function dimensionsOf(texts,segments){
    const tlo=Math.max(...marks.filter(c=>cross?c<=t0+m:c<at)),thi=Math.min(...marks.filter(c=>cross?c>=t1-m:c>at));
    if(Number.isFinite(tlo)&&Number.isFinite(thi)&&thi-tlo>=4){lo=tlo;hi=thi}
   }
-  if(Number.isFinite(lo)&&Number.isFinite(hi)&&hi-lo>=4)out.push({v,lo,hi,flat,line:line.c,from:line.lo,to:line.hi,text:t})
+  if(!(Number.isFinite(lo)&&Number.isFinite(hi)&&hi-lo>=4))continue;
+  // (a number standing at an end of its span, far off its middle, beside a span beyond that end too short to hold it:
+  // maybe that short size written on past it, over the next one's line — see below)
+  const ends=[...new Set(ext.concat(marks))],w=t1-t0,z=Number(t.size)||10;let alt=null;
+  if(hi-lo>w*4&&t0-lo>=-1&&t0-lo<=z&&(at-lo)<(hi-lo)*0.25){const p=Math.max(...ends.filter(c=>c<lo-0.5));if(lo-p<w)alt=[p,lo]}
+  else if(hi-lo>w*4&&hi-t1>=-1&&hi-t1<=z&&(hi-at)<(hi-lo)*0.25){const p=Math.min(...ends.filter(c=>c>hi+0.5));if(p-hi<w)alt=[hi,p]}
+  out.push({v,lo,hi,flat,line:line.c,from:line.lo,to:line.hi,text:t,...(alt?{alt}:{})})
  }
+ // Two numbers over one span: the one off its middle is the short size beyond its end, written on past its own two
+ // extension lines (ГПЭС К17 «3 - 3»: «60 !» over the start of «4215»).
+ const mid=d=>{const b=textBox(d.text);return Math.abs((d.flat?b.cx:b.cy)-(d.lo+d.hi)/2)};
+ for(const d of out)if(d.alt&&out.some(o=>o!==d&&o.flat===d.flat&&Math.abs(o.line-d.line)<0.5&&Math.abs(o.lo-d.lo)<0.5&&Math.abs(o.hi-d.hi)<0.5&&mid(o)<mid(d))){d.lo=d.alt[0];d.hi=d.alt[1]}
+ for(const d of out)delete d.alt;
  return out
 }
 function dimensionScale(texts,segments,measured){
@@ -405,7 +416,8 @@ function bboxOf(axes){
  return{x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)}
 }
 
-const numberValue=s=>{const t=String(s).trim();return/^\d{2,6}$/.test(t)?Number(t):NaN};
+// (a size marked «*» — for reference, ГОСТ 2.307 — or «!» is a size all the same: ГПЭС К17 «60 !», «45 !»)
+const numberValue=s=>{const m=/^(\d{2,6})\s*[*!]?$/.exec(String(s).trim());return m?Number(m[1]):NaN};
 
 // Dimension texts between neighbouring axes give millimetres per point.
 function detectScale(xs,ys,texts){
