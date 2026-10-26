@@ -244,7 +244,7 @@ function dimensionsOf(texts,segments){
   const gap=Math.max(4,(Number(t.size)||0)*0.3);
   if(!Number.isFinite(hi)){const below=[...new Set(ext.filter(c=>c<at).map(c=>Math.round(c*10)/10))].sort((a,b)=>b-a);if(below.length>=2&&t0-below[0]<=gap){hi=below[0];lo=below[1]}}
   else if(!Number.isFinite(lo)){const above=[...new Set(ext.filter(c=>c>at).map(c=>Math.round(c*10)/10))].sort((a,b)=>a-b);if(above.length>=2&&above[0]-t1<=gap){lo=above[0];hi=above[1]}}
-  if(Number.isFinite(lo)&&Number.isFinite(hi)&&hi-lo>=4)out.push({v,lo,hi,flat,line:line.c,from:line.lo,to:line.hi})
+  if(Number.isFinite(lo)&&Number.isFinite(hi)&&hi-lo>=4)out.push({v,lo,hi,flat,line:line.c,from:line.lo,to:line.hi,text:t})
  }
  return out
 }
@@ -276,6 +276,27 @@ function dimensionScale(texts,segments,measured){
  return k
 }
 
+// Sizes read from a picture a digit off (ГПЭС М1.9: «1175» and «125» for the «1125» of the chain, the italic 2 taken
+// for 7, the first of two 1s lost): a size its drawn length at the plan's scale disagrees with by over 2 % takes the
+// number one digit away from it (one changed, added or dropped) that agrees within 1.5 %, one the sheet has more of
+// first. Sizes of the text layer are as drawn.
+function fixReadSizes(texts,segments,scale){
+ const fixed=new Map(),dims=dimensionsOf(texts.filter(t=>t.ocr),segments),times=new Map();
+ for(const d of dims)times.set(d.v,(times.get(d.v)||0)+1);
+ for(const d of dims){
+  const L=(d.hi-d.lo)*scale,v=d.v;if(Math.abs(v-L)<=Math.max(v*0.02,15))continue;
+  const s=String(v),near=[];
+  for(let i=0;i<=s.length;i++)for(const c of "0123456789"){
+   if(i<s.length)near.push(s.slice(0,i)+c+s.slice(i+1));
+   near.push(s.slice(0,i)+c+s.slice(i))
+  }
+  for(let i=0;i<s.length;i++)near.push(s.slice(0,i)+s.slice(i+1));
+  // A size the sheet has more of goes first («1175» drawn 1140 long is the 1125 of its chain, not 1145).
+  const best=near.filter(x=>/^[1-9]/.test(x)).map(Number).filter(x=>Math.abs(x-L)<=L*0.015).sort((a,b)=>(times.get(b)||0)-(times.get(a)||0)||Math.abs(a-L)-Math.abs(b-L))[0];
+  if(best)fixed.set(d.text,{...d.text,str:String(best),read:d.text.str})
+ }
+ return fixed.size?texts.map(t=>fixed.get(t)||t):texts
+}
 // A view drawn out of scale (the plan of a stair, ГПЭС М1.25: 1305, 1938 and 1110 drawn at 11.8, 10.5 and 14.1 mm a
 // point): a point is read by the chain of sizes along its direction, each piece by its own size. The chain through the
 // axis (a node of it or standing in one of its pieces) gives millimetres from the axis, growing with the sheet point;
@@ -509,9 +530,10 @@ function growLine(seed,segments,lines,skip){
  };
  // A member drawn dash-dot (struts and bracing on a scheme): a short dash, and another of about its length at most
  // its own length further on. The line is followed across such gaps from dash to dash; a long stroke still joins
- // only across a small gap.
+ // only across a small gap. A member drawn in two lines is no dash (ГПЭС М1.9: «В4», pieces of purlin 27 pt long between
+ // the double lines of the rafters, the next piece 6 pt on).
  let dash=0;
- if(len<30)for(const i of lines.near(at(len/2),len+30)){
+ if(len<30&&!twinOf(seed,segments,lines,skip))for(const i of lines.near(at(len/2),len+30)){
   if(skip.has(i))continue;const p=piece(i);if(!p||p.l>=30||Math.abs(p.l-len)>len*0.5)continue;
   const gap=p.lo>len?p.lo-len:-p.hi;if(gap>3&&gap<=Math.max(8,len*0.9)){dash=Math.max(8,len*0.9);break}
  }
@@ -542,6 +564,21 @@ function dashOf(i,segments,lines){
  return side(1)&&side(-1)
 }
 
+// The other edge of a member drawn in two lines: a line of about its length beside it 1.2–8 pt off, along at least
+// 80 % of it. A dash of an axis drawn inside a wide beam has the beam's long edges beside it, and a dash of another
+// dash-dot line beside the axis has the axis's dashes (ГПЭС М1.2: «К146»): no twin. The strokes of the axes (skip) are
+// no edges.
+function twinOf(line,segments,lines,skip){
+ const l=dist(line.a,line.b),u={x:(line.b.x-line.a.x)/l,y:(line.b.y-line.a.y)/l},mid={x:(line.a.x+line.b.x)/2,y:(line.a.y+line.b.y)/2};
+ return lines.near(mid,l/2+8).some(i=>{
+  if(skip?.has(i))return false;
+  const s=segments[i],m=dist(s.a,s.b);if(m<l*0.7||m>l*1.3+3)return false;
+  const v={x:(s.b.x-s.a.x)/m,y:(s.b.y-s.a.y)/m};if(Math.abs(cross(u,v))>.02)return false;
+  const off=Math.abs(cross(u,{x:s.a.x-line.a.x,y:s.a.y-line.a.y}));if(off<1.2||off>8)return false;
+  const t1=(s.a.x-line.a.x)*u.x+(s.a.y-line.a.y)*u.y,t2=(s.b.x-line.a.x)*u.x+(s.b.y-line.a.y)*u.y;
+  return Math.min(l,Math.max(t1,t2))-Math.max(0,Math.min(t1,t2))>=l*0.8
+ })
+}
 function memberLine(t,target,segments,lines,skip){
  const f=textFrame(t);
  const found=[];
@@ -593,8 +630,9 @@ function memberLine(t,target,segments,lines,skip){
  let pick=null;
  for(const c of found.slice(0,8)){
   const line=growLine(segments[c.i],segments,lines,skip),l=dist(line.a,line.b);
-  // A leader shelf is about as long as its label; a member is clearly longer.
-  if(l<Math.max(24,f.w*2.2))continue;
+  // A leader shelf is about as long as its label; a member is clearly longer — or drawn in two lines, its edges (ГПЭС
+  // М1.9: «В58», a beam of 1 m between two purlins, as long as two of its labels).
+  if(l<Math.max(24,f.w*2.2)&&!(l>=12&&twinOf(line,segments,lines,skip)))continue;
   if(!pick){pick={c,line,l};if(c.score<0||!dashOf(c.i,segments,lines))break;continue}
   // A dash of a dash-dot line along the label and a far longer line about as near: the dashes are an axis drawn beside
   // the member (a КМ set: «П1» between its purlin and the axis it stands on).
@@ -806,8 +844,10 @@ function leaderTarget(text,segments,index,axisSegs,lines){
     const a=Math.min(q.a.x,q.b.x),b=Math.max(q.a.x,q.b.x);if(b<lo-3||a>hi+3)continue;if(a<lo-0.01){lo=a;grown=true}if(b>hi+0.01){hi=b;grown=true}}}
   // It runs on past both ends of the label: a line leaving from under the label's start (a КМ set: «Бл2» at the
   // start of a long leader running across its beams) is the label's leader, not its member.
+  // A short beam drawn in two lines is a member too (ГПЭС М1.9: «В58» over its 37 pt beam; the extension line of the
+  // size «2120» starting on it is no leader).
   const m=Math.max(3,w0*0.2);
-  if(hi-lo>=Math.max(24,w0*2.2)&&Math.min(hi,box.x1)-Math.max(lo,box.x0)>=w0*0.5&&lo<=box.x0-m&&hi>=box.x1+m)rails.push({y,lo,hi,i})
+  if((hi-lo>=Math.max(24,w0*2.2)||lines&&hi-lo>=12&&twinOf({a:{x:lo,y},b:{x:hi,y}},segments,lines,axisSegs))&&Math.min(hi,box.x1)-Math.max(lo,box.x0)>=w0*0.5&&lo<=box.x0-m&&hi>=box.x1+m)rails.push({y,lo,hi,i})
  }
  // The member's other edge (a beam drawn with two lines) belongs to it too.
  const onRail=p=>rails.some(r=>Math.abs(p.y-r.y)<5&&p.x>=r.lo-1.5&&p.x<=r.hi+1.5);
@@ -848,7 +888,10 @@ function leaderTarget(text,segments,index,axisSegs,lines){
   const w=box.x1-box.x0;
   const shelves=near.map(i=>segments[i]).concat([...new Set(index.near({x:box.cx,y:box.y1+4},Math.min(200,w*8)))].map(i=>segments[i]))
    .filter(q=>Math.abs(q.a.y-q.b.y)<0.5&&q.a.y>=box.y1-3&&q.a.y<=box.y1+12&&Math.min(Math.max(q.a.x,q.b.x),box.x1)-Math.max(Math.min(q.a.x,q.b.x),box.x0)>=w*0.8&&dist(q.a,q.b)<=Math.min(220,w*9)&&
-    !rails.some(r=>r.hi-r.lo>Math.min(220,w*9)&&Math.abs(q.a.y-r.y)<5&&Math.min(q.a.x,q.b.x)>=r.lo-1.5&&Math.max(q.a.x,q.b.x)<=r.hi+1.5));
+    !rails.some(r=>r.hi-r.lo>Math.min(220,w*9)&&Math.abs(q.a.y-r.y)<5&&Math.min(q.a.x,q.b.x)>=r.lo-1.5&&Math.max(q.a.x,q.b.x)<=r.hi+1.5)&&
+    // A shelf is one line: one drawn in two is a member (ГПЭС М1.9: «В3» over its piece of purlin, the rafter's edge
+    // leaving its end).
+    !(lines&&twinOf(q,segments,lines,axisSegs)));
   // A shelf may come in pieces: carried on along its line to its real ends.
   const extend=(e,dir)=>{let p=e;for(let k=0;k<20;k++){const nx=index.near(p,3).map(i=>segments[i]).find(q=>Math.abs(q.a.y-q.b.y)<0.5&&Math.abs(q.a.y-p.y)<0.5&&
    [q.a,q.b].some(r=>dist(r,p)<1)&&[q.a,q.b].some(r=>(r.x-p.x)*dir>0.5));if(!nx)break;p=[nx.a,nx.b].sort((u,v)=>(v.x-u.x)*dir)[0]}return p};
@@ -927,9 +970,10 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
  const axes=mergeAxes(found.filter(Boolean));
  const usedTexts=new Set(bubbles.map(b=>b.text));
  // A title in two lines («Схема расположения элементов покрытия» / «на отм. +2,200»): the second line starts in lower
- // case and lies under the first.
+ // case and lies under the first, within two heights of the smaller lettering (ГПЭС М1.9: the title read off a picture
+ // stands taller than written; «по 9 (М1.8)» of a node 3 cm under it is no part of it).
  const titles=texts.filter(t=>/^Схема\s/u.test(String(t.str||"").trim())).map(t=>{
-  const next=texts.find(u=>u!==t&&Math.abs(Number(u.angle)||0)<2&&u.y>t.y+1&&u.y-t.y<=(t.size||10)*2&&u.x<t.x+(t.width||0)&&u.x+(u.width||0)>t.x&&/^[а-яё(]/u.test(String(u.str||"").trim()));
+  const next=texts.find(u=>u!==t&&Math.abs(Number(u.angle)||0)<2&&u.y>t.y+1&&u.y-t.y<=Math.min(t.size||10,u.size||t.size||10)*2&&u.x<t.x+(t.width||0)&&u.x+(u.width||0)>t.x&&/^[а-яё(]/u.test(String(u.str||"").trim()));
   return next?{...t,str:String(t.str).trim()+" "+String(next.str).trim()}:t
  });
  const schemes=[];
@@ -949,7 +993,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
   if(group.local&&/^Схема без названия/u.test(titleFor(titles,bbox)))continue;
   const local1=group.local?texts.filter(t=>{const b=textBox(t);return b.cx>bbox.x0-pad*3&&b.cx<bbox.x1+pad*3&&b.cy>bbox.y0-pad*3&&b.cy<bbox.y1+pad*3}):null;
   // A word read alone on a leader's shelf is a label, not a size (355-11 М1.3: «64», «104» all over the plan).
-  const sized=local.filter(t=>!t.shelf);
+  let sized=local.filter(t=>!t.shelf);
   let scale=group.framed?group.framed.scale:group.local?dimensionScale(local1.filter(t=>!t.shelf),segments,local.filter(t=>!t.shelf)):detectScale(vAxes.map(a=>a.pos),hAxes.map(a=>a.pos),sized);
   // A stair's plan drawn out of scale: read by its chains of sizes, both ways through its axes.
   let chain=null;
@@ -963,6 +1007,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
     axesX:vAxes.map(a=>a.name),axesY:hAxes.map(a=>a.name),placements:[],warnings});
    continue
   }
+  if(!chain)sized=fixReadSizes(sized,segments,scale);
   const sx=spansFor(vAxes.map(a=>a.pos),"V",sized,scale),sy=spansFor(hAxes.map(a=>a.pos),"H",sized,scale);
   // An axis known by its bubble alone is drawn where the bubble fits, not to scale: of its two bays one has a written
   // size, the other is the rest of the two together as drawn (6 between 5 and 7: «5500», and 500 to 7).
@@ -996,7 +1041,37 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
   const dimsX=sized.filter(t=>textBox(t).angle===0).map(t=>numberValue(t.str)).filter(v=>v>=50);
   const dimsY=sized.filter(t=>textBox(t).angle!==0).map(t=>numberValue(t.str)).filter(v=>v>=50);
   const candidates=(axisMm,dims)=>[...new Set(axisMm.flatMap(a=>[a,...dims.flatMap(v=>[a+v,a-v])]))];
-  const candX=[...candidates(xMm,dimsX),...(chain?chain.x.nodes:[])],candY=[...candidates(yMm,dimsY),...(chain?chain.y.nodes.map(v=>-v):[])];
+  // The ticks of a dimension chain tied to an axis (ГПЭС М1.9: «1125» after «1125» from axis 1 — the purlins of the bay
+  // stand on them): each a position summed from the axis along the chain. A size that its drawn length disagrees with
+  // by over 3 % (misread: «125») breaks the chain there; the next axis ties the rest. The sizes are tied the most
+  // repeated first, then the best drawn: one closing a loop already tied is passed over (a «1135» read for the first
+  // 1125 of a bay drawn a point long, beside the seven other 1125 and the 9000 over them). A part tied to two axes that
+  // disagree with it gives nothing.
+  const ticks=(flat,axes,mm)=>{
+   if(chain)return[];
+   const nodes=[],node=p=>{let n=nodes.find(n=>Math.abs(n.pt-p)<=1.5);if(!n)nodes.push(n={pt:p,up:null,off:0});return n};
+   // mm(n) = mm(n.up) + n.off.
+   const root=n=>{let o=0,r=n;while(r.up){o+=r.off;r=r.up}return{r,o}};
+   const sizes=dimensionsOf(sized,segments).filter(d=>d.flat===flat).map(d=>({d,err:Math.abs(d.v-(d.hi-d.lo)*scale)/d.v})).filter(x=>x.err<=0.03);
+   const times=new Map();for(const {d} of sizes)times.set(d.v,(times.get(d.v)||0)+1);
+   sizes.sort((p,q)=>times.get(q.d.v)-times.get(p.d.v)||p.err-q.err);
+   for(const {d} of sizes){
+    const a=node(d.lo),b=node(d.hi);if(a===b)continue;
+    const A=root(a),B=root(b);if(A.r===B.r)continue;
+    B.r.up=A.r;B.r.off=A.o+(flat?d.v:-d.v)-B.o
+   }
+   const parts=new Map();
+   for(const n of nodes){const {r,o}=root(n);if(!parts.has(r))parts.set(r,[]);parts.get(r).push({n,o})}
+   const out=[];
+   for(const list of parts.values()){
+    const at=list.map(({n,o})=>{const k=axes.findIndex(a=>Math.abs(a.pos-n.pt)<=1.5);return k>=0?{pt:n.pt,base:mm[k]-o}:null}).filter(Boolean);
+    if(!at.length||at.some(v=>Math.abs(v.base-at[0].base)>20))continue;
+    // Each tick from its nearest axis (a size read 10 off between them stays between them).
+    out.push(...list.map(({n,o})=>at.reduce((p,q)=>Math.abs(q.pt-n.pt)<Math.abs(p.pt-n.pt)?q:p).base+o))
+   }
+   return out
+  };
+  const candX=[...candidates(xMm,dimsX),...(chain?chain.x.nodes:[]),...ticks(true,vAxes,xMm)],candY=[...candidates(yMm,dimsY),...(chain?chain.y.nodes.map(v=>-v):[]),...ticks(false,hAxes,yMm)];
   const snapDim=(mm,cand,tol)=>{let best=null;for(const c of cand){const d=Math.abs(c-mm);if(d<=tol&&(!best||d<best.d))best={mm:c,d}}return best};
   const lineTol=Math.max(40,scale*1.2);
   const exactLines=(orient,labelled,toMm,cand)=>secondaryLines(segments,bbox,orient,labelled)
@@ -1043,15 +1118,21 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
   // Secondary beams and bracing often meet the middle of a bay that has no dimension of its own.
   const mids=pos=>pos.slice(1).map((v,i)=>(v+pos[i])/2);
   const memberX=[...candX,...mids(xMm)],memberY=[...candY,...mids(yMm)];
-  const snapMm=(v,lines2,cand)=>{
-   let best=null;for(const l of lines2){const d=Math.abs(l.mm-v);if(d<=endTol&&(!best||d<best.d))best={mm:l.mm,d}}
+  const snapMm=(v,lines2,cand,tol=endTol)=>{
+   let best=null;for(const l of lines2){const d=Math.abs(l.mm-v);if(d<=tol&&(!best||d<best.d))best={mm:l.mm,d}}
    if(best)return{mm:best.mm,exact:true};
-   const h=snapDim(v,cand,endTol);return h?{mm:h.mm,exact:true}:{mm:Math.round(v/10)*10,exact:false}
+   const h=snapDim(v,cand,tol);return h?{mm:h.mm,exact:true}:{mm:Math.round(v/10)*10,exact:false}
   };
-  const memberEnds=line=>[line.a,line.b].map(p=>{
-   const x=snapMm(toX(p.x),linesX,memberX),y=snapMm(toY(p.y),linesY,memberY);
-   return{x:x.mm,y:y.mm,exact:x.exact&&y.exact}
-  });
+  // Across a straight member its line is where it is drawn, give or take its edge: an end may stop short of an axis by
+  // a column's width, the member itself is not moved onto an axis a size away (ГПЭС М1.9: «В58» 530 below И).
+  const acrossTol=Math.min(endTol,Math.max(150,6*scale));
+  const memberEnds=line=>{
+   const flat=Math.abs(line.a.y-line.b.y)<1.5,upright=Math.abs(line.a.x-line.b.x)<1.5;
+   return[line.a,line.b].map(p=>{
+    const x=snapMm(toX(p.x),linesX,memberX,upright?acrossTol:endTol),y=snapMm(toY(p.y),linesY,memberY,flat?acrossTol:endTol);
+    return{x:x.mm,y:y.mm,exact:x.exact&&y.exact}
+   })
+  };
   // bare: placed from a label without a leader (written on the thing it names: a flight, a landing).
   const placements=[],bases=[],drawn=new Map(),bare=new Set(),tips=new Map();
   // Marks of the index written in a size of their own (three and more on shelves with slanted leaders): a number on a
@@ -1453,4 +1534,4 @@ function titleFor(titles,bbox){
  return best?.str||"Схема без названия"
 }
 
-module.exports={extractScheme,markIndexOf,axisFromBubble,dimensionScale,dimensionsOf,flightsOf,climbOf,levelMarksNear,nodeBoxes,titleLevels,columnSymbol,textBox,textFrame,memberLine,buildLineIndex,DEFAULT_KINDS,KIND_NAMES,notMark,aMarksOn};
+module.exports={extractScheme,fixReadSizes,leaderTarget,buildIndex,markIndexOf,axisFromBubble,dimensionScale,dimensionsOf,flightsOf,climbOf,levelMarksNear,nodeBoxes,titleLevels,columnSymbol,textBox,textFrame,memberLine,buildLineIndex,DEFAULT_KINDS,KIND_NAMES,notMark,aMarksOn};

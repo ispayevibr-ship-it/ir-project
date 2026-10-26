@@ -237,20 +237,32 @@ function ringsOf(segments){
  }
  return rings.slice(0,200)
 }
+// A label small in its ring and in a thin italic font (ГПЭС М1.9, a sheet saved as a picture: «1» read «7», «Л» «И»)
+// is read again larger and straightened when the first reading is unsure; Й and Х, never axis letters, are the И and Ж
+// of the drafting font.
+const RING_LABEL=/^(?:\d{1,3}|[А-ЯЁA-Z]{1,2}\d{0,3})(?:\/\d{1,2})?$/u;
 async function readRings(page,rings,{canvas,worker,rotation=0}){
  const out=[];
  await worker.setParameters({tessedit_pageseg_mode:"7"});
+ const readOne=async(ring,px,shear)=>{
+  const scale=px/(2*ring.r),pad=25,W=px+2*pad;
+  const viewport=page.getViewport({scale,rotation:((page.rotate||0)+rotation)%360,offsetX:-(ring.x-ring.r)*scale+pad,offsetY:-(ring.y-ring.r)*scale+pad});
+  const img=canvas.createCanvas(W,W),ctx=img.getContext("2d");
+  ctx.fillStyle="#fff";ctx.fillRect(0,0,W,W);
+  await page.render({canvasContext:ctx,viewport,canvas:img}).promise;
+  ctx.fillStyle="#fff";ctx.beginPath();ctx.rect(0,0,W,W);ctx.arc(W/2,W/2,px/2*0.9,0,2*Math.PI,true);ctx.fill("evenodd");
+  let read=img;
+  if(shear){read=canvas.createCanvas(Math.ceil(W*(1+shear)),W);const rc=read.getContext("2d");rc.fillStyle="#fff";rc.fillRect(0,0,read.width,W);rc.setTransform(1,0,shear,1,0,0);rc.drawImage(img,0,0)}
+  const rc=read.getContext("2d");thickenStrokes(rc,read.width,W,2);
+  const r=await worker.recognize(read.toBuffer("image/png"));
+  const text=String(r.data.text||"").replace(/\s+/g,"").replace(/[.,:;!?'"`’]+$/u,"").replace(/^Й$/u,"И").replace(/^Х$/u,"Ж");
+  return{text,confidence:Math.round(r.data.confidence||0)}
+ };
  try{
   for(const ring of rings){
-   const px=60,scale=px/(2*ring.r),pad=25,W=px+2*pad;
-   const viewport=page.getViewport({scale,rotation:((page.rotate||0)+rotation)%360,offsetX:-(ring.x-ring.r)*scale+pad,offsetY:-(ring.y-ring.r)*scale+pad});
-   const img=canvas.createCanvas(W,W),ctx=img.getContext("2d");
-   ctx.fillStyle="#fff";ctx.fillRect(0,0,W,W);
-   await page.render({canvasContext:ctx,viewport,canvas:img}).promise;
-   ctx.fillStyle="#fff";ctx.beginPath();ctx.rect(0,0,W,W);ctx.arc(W/2,W/2,px/2*0.9,0,2*Math.PI,true);ctx.fill("evenodd");
-   thickenStrokes(ctx,W,W,2);
-   const r=await worker.recognize(img.toBuffer("image/png"));
-   out.push({...ring,text:String(r.data.text||"").replace(/\s+/g,"").replace(/[.,:;!?'"`’]+$/u,""),confidence:Math.round(r.data.confidence||0)})
+   let got=await readOne(ring,60,0);
+   if(!RING_LABEL.test(got.text)||got.confidence<80){const again=await readOne(ring,120,SHEAR);if(RING_LABEL.test(again.text)&&(!RING_LABEL.test(got.text)||again.confidence>got.confidence))got=again}
+   out.push({...ring,...got})
   }
  }finally{await worker.setParameters({tessedit_pageseg_mode:"11"})}
  return ringLabels(out).map(g=>{const size=g.r*0.9,width=g.label.length*size*0.6;
@@ -277,7 +289,10 @@ function ringLabels(read){
   row.forEach((g,i)=>{
    const e=String(best.o+best.step*i);if(Number(e)<1||g.label===e||/\//.test(g.label))return;
    const taken=row.some(o=>o!==g&&o.label===e),twice=g.label&&row.some(o=>o!==g&&o.label===g.label);
-   if(!taken&&(!g.label||g.confidence<80||twice)){g.label=e;g.by="order"}
+   // A number out of the row's order (a «7» before «2», «3»… read surely) cannot stand there.
+   const n=Number(g.label),prev=row.slice(0,i).filter(o=>/^\d{1,3}$/.test(o.label)).map(o=>Number(o.label)),next=row.slice(i+1).filter(o=>/^\d{1,3}$/.test(o.label)).map(o=>Number(o.label));
+   const outOfOrder=/^\d{1,3}$/.test(g.label)&&(best.step>0?prev.some(v=>v>=n)||next.some(v=>v<=n):prev.some(v=>v<=n)||next.some(v=>v>=n));
+   if(!taken&&(!g.label||g.confidence<80||twice||outOfOrder)){g.label=e;g.by="order"}
   })
  }
  // A column: letters by the alphabet of axes from the bottom up (or down), fractions between neighbouring letters.
@@ -290,6 +305,14 @@ function ringLabels(read){
     const i=known[k],j=known[k+1],steps=at[j]-at[i];
     if(steps===j-i)for(let m=i+1;m<j;m++){if(list[m].label!==AXIS_LETTERS[at[i]+m-i]){list[m].label=AXIS_LETTERS[at[i]+m-i];list[m].by="order"}}
     else if(steps===1)for(let m=i+1;m<j;m++){const f=AXIS_LETTERS[at[i]]+"/"+(m-i);if(list[m].label!==f){list[m].label=f;list[m].by="order"}}
+   }
+   // Past the letters read surely the column goes on by the alphabet, where a bubble was read unsurely or not at all
+   // (ГПЭС М1.9: К and Л sure, the И and Ж under them doubtful).
+   const lo=known[0],hi=known[known.length-1];
+   if(at[hi]-at[lo]===hi-lo)for(let m=0;m<list.length;m++){
+    if(m>=lo&&m<=hi)continue;
+    const e=AXIS_LETTERS[at[lo]+m-lo];
+    if(e&&list[m].label!==e&&(!list[m].label||list[m].confidence<80)){list[m].label=e;list[m].by="order"}
    }
    break
   }

@@ -15,6 +15,7 @@ const {extractColumnDetails}=require("./ai-column-extract");
 const {extractRailOffsets}=require("./ai-rail-extract");
 const {expandTexts}=require("./ai-text-aliases");
 const {extractArchitecture}=require("./ai-ar-extract");
+const {rasterLines,readGlyphWords}=require("./ai-raster-lines");
 // The level marks written on the sheet («+4,700», «0,000»): the levels of a structure drawn on its own sheets.
 function levelMarksOf(geometry){
  const out=new Set();
@@ -73,7 +74,24 @@ function pageContext(texts){
       // A scan lying sideways or upside down is read in its reading position; its lines are turned with it.
       turn=strokedDims?0:await sheetTurn(page,options);
       if(turn)geometry=turnGeometry(geometry,turn);
+      // A sheet that is one picture (a CAD sheet saved as an image, ГПЭС М1.9) has no lines either: they are read from
+      // the image — axes, members, sizes, axis bubbles — before its lettering, as a sheet in lines gives them.
+      const area=geometry.widthPt*geometry.heightPt;let picture=null;
+      if(geometry.segments.length<50&&(geometry.images||[]).some(b=>(b.x1-b.x0)*(b.y1-b.y0)>=area*0.5)){
+       picture=await rasterLines(page,{canvas:options.canvas,rotation:turn});
+       geometry={...geometry,segments:[...geometry.segments,...picture.segments],picture:true}
+      }
       let read=joinSplitTexts(await ocrPage(page,{...options,turn}));
+      // Its words read one by one from their own pixels, turned to their direction: where one is read so, it stands for
+      // what the reading of the whole sheet made of that place.
+      if(picture){
+       const words=(await readGlyphWords(picture,options)).filter(t=>t.valid||t.confidence>=60);picture=null;
+       const frame=t=>{const a=(Number(t.angle)||0)*Math.PI/180,d={x:Math.cos(a),y:-Math.sin(a)},u={x:d.y,y:-d.x},h=(t.size||8)*0.75,w=t.width||0;
+        const ps=[[0,0],[w,0],[0,h],[w,h]].map(([p,q])=>({x:t.x+d.x*p+u.x*q,y:t.y+d.y*p+u.y*q}));
+        return{x0:Math.min(...ps.map(p=>p.x)),x1:Math.max(...ps.map(p=>p.x)),y0:Math.min(...ps.map(p=>p.y)),y1:Math.max(...ps.map(p=>p.y))}};
+       const boxes=words.map(frame),hit=(a,b)=>a.x0<b.x1&&b.x0<a.x1&&a.y0<b.y1&&b.y0<a.y1;
+       read=[...read.filter(t=>{const b=frame(t);return!boxes.some(o=>hit(o,b))}),...words.map(({valid,...t})=>t)]
+      }
       // Axis bubbles read one by one; what the whole sheet read over a bubble (its ring as "Ш", "О") gives way.
       const labels=await readRings(page,ringsOf(geometry.segments),{...options,rotation:turn});
       if(labels.length){const inRing=t=>labels.some(l=>Math.hypot(t.x+(t.width||0)/2-(l.x+l.width/2),t.y-(t.size||8)*0.36-(l.y-l.size*0.36))<l.size/0.9);read=[...read.filter(t=>!inRing(t)),...labels]}
@@ -83,7 +101,9 @@ function pageContext(texts){
       const box=t=>({x0:t.x,x1:t.x+(t.width||String(t.str).length*(t.size||8)*0.55),y0:t.y-(t.size||8),y1:t.y});
       const over=(a,b)=>a.x0<b.x1&&b.x0<a.x1&&a.y0<b.y1&&b.y0<a.y1;
       const texts=strokedDims&&geometry.texts.length?[...geometry.texts,...read.filter(o=>!geometry.texts.some(t=>over(box(t),box(o))))]:read;
-      geometry={...geometry,texts,segments:dropLettering(geometry.segments,read)};ocr=read.length
+      // The lines of a picture hold no lettering (its blots are kept apart as words): a word misread over an axis bubble
+      // («С)» over «1») must not take the bubble's ring with it.
+      geometry={...geometry,texts,segments:geometry.picture?geometry.segments:dropLettering(geometry.segments,read)};ocr=read.length
      }else{
       const extra=await ocrImages(page,pictures,geometry.texts,options);
       geometry={...geometry,texts:[...geometry.texts,...extra]};ocr=extra.length
