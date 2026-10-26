@@ -782,8 +782,8 @@ window.irThreeSchemeView=(function(){
   // start of the view and off its axis, src/ai-holes-extract.js; the engineer, 25.10.2026: «каждое отверстие»). A view
   // as wide as the section is high is its side: the holes go through the web; as wide as its flange — its plan: through
   // the upper flange. The length of the sheet is centred on the member placed. A bolt of the sheet's list (the hole 1–4 mm
-  // wider) goes in each hole through the member and a gusset on it. The holes of the gussets beside it are on the card
-  // only: the gussets are drawn conventionally.
+  // wider) goes in each hole through the member and a gusset on it. The holes in a gusset beside it go through that
+  // gusset as its sheet draws it (addGussets).
   var holeMat=new T.MeshStandardMaterial({color:0x101317,roughness:.9}),drillCache=new Map();
   function boltSizes(c){var j=c.joint||{},out=[];[j.bolt].concat(j.fasteners||[]).forEach(function(t){var m=/[МM](\d{2})/.exec(String(t||""));if(m&&out.indexOf(+m[1])<0)out.push(+m[1])});return out}
   function drillOf(c){
@@ -805,20 +805,22 @@ window.irThreeSchemeView=(function(){
        var pos=mid.clone().add(d.clone().multiplyScalar(sa/1000)),axis,thick;
        if(side){pos.add(X.clone().multiplyScalar(webX)).add(Y.clone().multiplyScalar(-off/1000));axis=X;thick=sec.s/1000}
        else{pos.add(X.clone().multiplyScalar(off/1000)).add(Y.clone().multiplyScalar((sec.h/2-sec.t/2)/1000));axis=Y;thick=sec.t/1000}
-       (out||(out=[])).push({at:pos,axis:axis.clone(),d:dm>0?dm/1000:0,t:thick,bolt:bolts.filter(function(b){return dm-b>=1&&dm-b<=4}).sort(function(a,b){return b-a})[0]||0})
+       (out||(out=[])).push({at:pos,axis:axis.clone(),d:dm>0?dm/1000:0,t:thick,bolt:boltFor(bolts,dm)})
       })
      })
     }
    }
    drillCache.set(id,out);return out
   }
+  function boltFor(bolts,dm){return bolts.filter(function(b){return dm-b>=1&&dm-b<=4}).sort(function(a,b){return b-a})[0]||0}
+  function putHole(c,parts,h){
+   var r=(h.d||.022)/2,m=new T.Mesh(shared("hole",function(){return new T.CylinderGeometry(1,1,1,14)}),holeMat);
+   m.quaternion.setFromUnitVectors(boltY,h.axis);m.scale.set(r,h.t+.004,r);m.position.copy(h.at);m.userData.hole=true;parts.push(m);
+   if(h.bolt){var gt=gussetT(c);addBolt(c,h.at.clone().add(h.axis.clone().multiplyScalar(gt/2)),h.axis,h.bolt/1000,h.t+gt)}
+  }
   function addDrill(c,parts){
    var list=drillOf(c);if(!list)return;
-   list.forEach(function(h){
-    var r=(h.d||.022)/2,m=new T.Mesh(shared("hole",function(){return new T.CylinderGeometry(1,1,1,14)}),holeMat);
-    m.quaternion.setFromUnitVectors(boltY,h.axis);m.scale.set(r,h.t+.004,r);m.position.copy(h.at);m.userData.hole=true;parts.push(m);
-    if(h.bolt){var gt=gussetT(c);addBolt(c,h.at.clone().add(h.axis.clone().multiplyScalar(gt/2)),h.axis,h.bolt/1000,h.t+gt)}
-   })
+   list.forEach(function(h){putHole(c,parts,h)})
   }
   // The plates across a member (ribs, connection plates) as its assembly sheet draws them (c.plates.rows,
   // src/ai-holes-extract.js sheetPlates): along it from the start of its view as the holes, as thick as drawn; its height
@@ -851,7 +853,8 @@ window.irThreeSchemeView=(function(){
   // The gussets of a member as its assembly sheet draws them (c.plates.gussets, src/ai-holes-extract.js sheetPlates): the
   // outline (along it from the start of its view as the holes, out from its axis), as thick as it is drawn edge-on in the
   // other view — an outline of the plan parallel to the flanges at its depth from the top or the bottom (В46 «−260×8», 59
-  // under the top), one of the view of the web parallel to it (in its plane when not seen apart).
+  // under the top), one of the view of the web parallel to it (in its plane when not seen apart). Its holes (g.holes, as
+  // the member's: along, across, Ø) through it, a bolt of the sheet's list in each (В46: two Ø19 in each «−260×8»).
   function addGussets(c,parts){
    var list=c.plates&&Array.isArray(c.plates.gussets)?c.plates.gussets:[],len=number(c.plates&&c.plates.length_mm);if(!list.length||!(len>0))return;
    var p=memberPoints(c),sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);
@@ -872,7 +875,12 @@ window.irThreeSchemeView=(function(){
      var x=Array.isArray(g.x)?[number(g.x[0]),number(g.x[1])]:[-t/2,t/2];
      basis.makeBasis(d,Y.clone().negate(),X);pos.add(X.clone().multiplyScalar(x[0]/1000))
     }
-    m.quaternion.setFromRotationMatrix(basis);m.position.copy(pos);m.userData.plate=true;m.userData.gusset=true;parts.push(m)
+    m.quaternion.setFromRotationMatrix(basis);m.position.copy(pos);m.userData.plate=true;m.userData.gusset=true;parts.push(m);
+    var plan=g.plane==="план",across=plan?X:Y.clone().negate(),axis=plan?Y:X,bolts=boltSizes(c);
+    (Array.isArray(g.holes)?g.holes:[]).forEach(function(h){
+     if(!Array.isArray(h))return;var sa=(fromTop?len/2-number(h[0]):number(h[0])-len/2)/1000,dm=number(h[2]);
+     putHole(c,parts,{at:pos.clone().add(d.clone().multiplyScalar(sa)).add(across.clone().multiplyScalar(number(h[1])/1000)).add(axis.clone().multiplyScalar(t/2000)),axis:axis.clone(),d:dm>0?dm/1000:0,t:t/1000,bolt:boltFor(bolts,dm)})
+    })
    })
   }
   // Railings, treads and thin bars (Ø up to 60, strips) are welded: no nodes, end plates or bolts on them — a base

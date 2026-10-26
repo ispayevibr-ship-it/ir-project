@@ -2101,7 +2101,10 @@ window.irSchemePage=async function(objectId){
   const gussets=Array.isArray(c.plates?.gussets)?c.plates.gussets:[];
   const gline=g=>{const cs=(g.poly||[]).map(e=>num(e[1])),out=cs.length?Math.max(...cs.map(Math.abs)):0,d=Array.isArray(g.depth)?g.depth:null,x=Array.isArray(g.x)?g.x:null;
    const where=g.plane==="план"?(d?`параллельно полкам, ${fmt(num(d[0]))}–${fmt(num(d[1]))} мм от ${g.edge>0?"нижней":"верхней"} грани`:"параллельно полкам"):(x&&Math.abs(num(x[0])+num(x[1]))>10?`параллельно стенке, ${fmt(num(x[0]))}…${fmt(num(x[1]))} мм от оси`:"в плоскости стенки");
-   return`<span>${g.pos?"поз. "+esc(g.pos)+" — ":""}${esc(g.section||"пластина "+fmt(g.t)+" мм")}: фасонка ${fmt(num(g.at?.[0]))}–${fmt(num(g.at?.[1]))} мм от начала, ${where}${out?", до "+fmt(out)+" мм от оси":""}</span>`};
+   // (its holes, by diameter: where along)
+   const by=new Map();for(const h of Array.isArray(g.holes)?g.holes:[]){const dm=num(h[2]);if(!by.has(dm))by.set(dm,[]);by.get(dm).push(num(h[0]))}
+   const holes=[...by].map(([dm,at])=>(dm?"Ø"+dm:"Ø не указан")+" — "+at.length+" шт. ("+at.sort((a,b)=>a-b).map(fmt).join(", ")+" мм от начала)").join("; ");
+   return`<span>${g.pos?"поз. "+esc(g.pos)+" — ":""}${esc(g.section||"пластина "+fmt(g.t)+" мм")}: фасонка ${fmt(num(g.at?.[0]))}–${fmt(num(g.at?.[1]))} мм от начала, ${where}${out?", до "+fmt(out)+" мм от оси":""}${holes?", отверстия: "+esc(holes):""}</span>`};
   if(!rows.length&&!gussets.length)return"";
   return`<div class="scheme-fasteners"><b>Рёбра, пластины и фасонки по сборочному чертежу</b>${[...groups.values()].map(line).join("")}${gussets.map(gline).join("")}<small>${esc(c.plates.sheet||"")}</small></div>`
  }

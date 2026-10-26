@@ -269,8 +269,21 @@ function gussetsBySpec(gussets,rows){
   const A=q.at_mm[1]-q.at_mm[0],cs=q.poly.map(e=>e[1]),C=Math.max(...cs)-Math.min(...cs);
   const o=list.find(o=>Math.abs(o.t-q.t_mm)<=1.5&&(near(A,o.L)&&near(C,o.b)||near(A,o.b)&&near(C,o.L)));
   if(list.length&&!o&&!list.some(o=>Math.abs(o.t-q.t_mm)<=1.5))return null;
-  return{at:q.at_mm,plane:q.plane,poly:q.poly,t:q.t_mm,...(q.plane==="план"?{edge:q.edge,depth:q.depth_mm}:{x:q.x_mm}),...(o?{pos:o.r.pos??null,section:o.r.section}:{})}
+  return{at:q.at_mm,plane:q.plane,poly:q.poly,t:q.t_mm,...(q.plane==="план"?{edge:q.edge,depth:q.depth_mm}:{x:q.x_mm}),...(o?{pos:o.r.pos??null,section:o.r.section}:{}),...(q.view?{view:q.view}:{})}
  }).filter(Boolean)
+}
+// The holes of a gusset: the signs in a part on the member (drill views, 1 in the fourth place) of the view its outline
+// is drawn in (its title, as long), inside the outline (2 mm on its line) — [along, across, Ø] as the member's holes.
+function gussetHoles(gussets,drill){
+ const inside=(poly,x,y)=>{let w=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const [ax,ay]=poly[i],[bx,by]=poly[j];if(ay>y!==by>y&&x<(bx-ax)*(y-ay)/(by-ay)+ax)w=!w}
+  if(w)return true;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){const [ax,ay]=poly[j],[bx,by]=poly[i],dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy,t=l2?Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/l2)):0;if(Math.hypot(ax+t*dx-x,ay+t*dy-y)<=2)return true}
+  return false};
+ for(const g of gussets){if(!g.view||!Array.isArray(g.poly)||g.poly.length<3)continue;const len=g.length_mm;
+  const holes=(drill||[]).filter(v=>v.view===g.view&&(!(len>0)||Math.abs((v.length_mm||0)-len)<=Math.max(10,len*0.01))).flatMap(v=>v.holes).filter(h=>h[3]&&inside(g.poly,h[0],h[1]));
+  const own=[];for(const h of holes)if(!own.some(o=>Math.abs(o[0]-h[0])<=1&&Math.abs(o[1]-h[1])<=1))own.push([h[0],h[1],h[2]]);
+  delete g.length_mm;if(own.length)g.holes=own.slice(0,40)}
+ return gussets
 }
 function buildCatalog(draft,ai=null){
  const map=new Map();
@@ -352,7 +365,7 @@ function buildCatalog(draft,ai=null){
  for(const p of draft.pages||[]){
   const sheet=p.sheet||{};if(p.docType!=="КМД сборочные"||!sheet.plates?.length)continue;scope=scopeAt(p);
   for(const m of sheet.plates){const e=entry(m.mark);if(e.plates)continue;
-   const gussets=gussetsBySpec(m.gussets||[],e.parts?.rows||[]).slice(0,40);
+   const gussets=gussetHoles(gussetsBySpec(m.gussets||[],e.parts?.rows||[]).slice(0,40).map(g=>({...g,length_mm:m.length_mm})),e.drillFrom===where(p)?e.drill:null);
    e.plates={sheet:where(p),views:m.views,length_mm:m.length_mm,dir:m.dir,rows:platesBySpec(m.plates,e.parts?.rows||[]).slice(0,40),...(gussets.length?{gussets}:{})}}
  }
  // Sections of the mounting drawings: the most frequent reading of each mark wins.
@@ -1623,4 +1636,4 @@ function seatTrusses(elements,catalog){
   e.note=[e.note,"Ферма по геометрической схеме"+(moved?", отметка низа — как у соседних ферм":"")+" — проверьте"].filter(Boolean).join("; ")
  }
 }
-module.exports={instanceStatus,sheetNodes,jointNote,platesBySpec,gussetsBySpec,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces,trimGuardPosts,sectionOutliers,roofOnColumns,purlinsOnBeams,hangTracks,relevelNeighbours,oneLadder};
+module.exports={instanceStatus,sheetNodes,jointNote,platesBySpec,gussetsBySpec,gussetHoles,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces,trimGuardPosts,sectionOutliers,roofOnColumns,purlinsOnBeams,hangTracks,relevelNeighbours,oneLadder};

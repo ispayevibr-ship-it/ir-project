@@ -167,7 +167,9 @@
    var out=[];groups.forEach(function(list){out.push(line(list))});
    gussets.forEach(function(g){var cs=(g.poly||[]).map(function(e){return Math.abs(Number(e[1])||0)}),far=cs.length?Math.max.apply(null,cs):0,d=Array.isArray(g.depth)?g.depth:null,x=Array.isArray(g.x)?g.x:null,at=g.at||[];
     var where=g.plane==="план"?(d?"параллельно полкам, "+fmt(Number(d[0])||0)+"–"+fmt(Number(d[1])||0)+" мм от "+(g.edge>0?"нижней":"верхней")+" грани":"параллельно полкам"):(x&&Math.abs((Number(x[0])||0)+(Number(x[1])||0))>10?"параллельно стенке, "+fmt(Number(x[0])||0)+"…"+fmt(Number(x[1])||0)+" мм от оси":"в плоскости стенки");
-    out.push('<span>'+(g.pos?"поз. "+esc(g.pos)+" — ":"")+esc(g.section||"пластина "+fmt(g.t)+" мм")+': фасонка '+fmt(Number(at[0])||0)+'–'+fmt(Number(at[1])||0)+' мм от начала, '+where+(far?", до "+fmt(far)+" мм от оси":"")+'</span>')});
+    var by={},keys=[];(Array.isArray(g.holes)?g.holes:[]).forEach(function(h){var dm=Number(h[2])||0;if(!by[dm]){by[dm]=[];keys.push(dm)}by[dm].push(Number(h[0])||0)});
+    var holes=keys.map(function(dm){return(dm?"Ø"+dm:"Ø не указан")+" — "+by[dm].length+" шт. ("+by[dm].sort(function(a,b){return a-b}).map(fmt).join(", ")+" мм от начала)"}).join("; ");
+    out.push('<span>'+(g.pos?"поз. "+esc(g.pos)+" — ":"")+esc(g.section||"пластина "+fmt(g.t)+" мм")+': фасонка '+fmt(Number(at[0])||0)+'–'+fmt(Number(at[1])||0)+' мм от начала, '+where+(far?", до "+fmt(far)+" мм от оси":"")+(holes?", отверстия: "+esc(holes):"")+'</span>')});
    return'<div class="fast"><b>Рёбра, пластины и фасонки по сборочному чертежу</b>'+out.join("")+'<small>'+esc(c.plates.sheet||"")+'</small></div>'
   }
   // The parts of the member by the specification of its assembly sheet, as the program's card shows them.
