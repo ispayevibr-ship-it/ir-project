@@ -9,6 +9,9 @@ assert(files["src/updater.js"].includes("irHotBranch")&&files["src/updater.js"].
 assert(files["main.js"].includes('ai.documents?.deleteObjectFiles(id)'),"cascade storage cleanup after object deletion");
 assert(files["preload.js"].includes('aiDocuments,aiEngine,aiSettings,aiMontage,ai,sections,data:'),"context-isolated documents, Claude and montage bridge");
 assert(files["src/app.js"].includes('key==="ai-recognition"&&window.irAiRecognitionPage'),"route connected");
+// «Фотографии объекта» opened straight (a tab of its own): the first render runs before src/photos-page.js is loaded —
+// the section waits for its page, not a bare title «photos» (27.10.2026).
+for(const f of ["src/app.js","src/ir-runtime.js"])assert(files[f].includes('if(key==="photos"&&typeof window.irPhotosPage==="function")return window.irPhotosPage(id);app.innerHTML=`<button class="back" id="back">'),f+": photos on the first render");
 assert(files["src/object-shell.js"].includes('makeButton("ИИ-распознавание","ai-recognition"'),"sidebar route");
 assert(files["src/tabs-shell.js"].includes('"ai-recognition":"ИИ-распознавание"'),"tab naming");
 assert(files["src/access.js"].includes('"ai-recognition"'),"role configuration");
