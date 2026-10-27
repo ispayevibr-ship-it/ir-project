@@ -47,14 +47,15 @@ function diameters(texts){
  return out
 }
 // The centre most arc chords agree on and the radius of the largest well-drawn circle around it.
-function circleOf(segments,box,minChord=2,maxChord=40){
+// minCount: chords at least; a small circle of a bottom layout (РВС-700, КМ-05: ~45 chords of 20 pt) is found with fewer.
+function circleOf(segments,box,minChord=2,maxChord=40,minCount=60){
  // A circle drawn as a polygon (an 18-gon on a layout sheet) has longer chords.
- return circleBy(segments,box,minChord,maxChord)||(maxChord<90?circleBy(segments,box,minChord,90):null)
+ return circleBy(segments,box,minChord,maxChord,minCount)||(maxChord<90?circleBy(segments,box,minChord,90,minCount):null)
 }
-function circleBy(segments,{x0,y0,x1,y1},minChord,maxChord){
+function circleBy(segments,{x0,y0,x1,y1},minChord,maxChord,minCount=60){
  const cell=4,votes=new Map();
  const chords=segments.filter(s=>{const l=dist(s.a,s.b);return l>=minChord&&l<=maxChord&&Math.min(s.a.x,s.b.x)>=x0&&Math.max(s.a.x,s.b.x)<=x1&&Math.min(s.a.y,s.b.y)>=y0&&Math.max(s.a.y,s.b.y)<=y1});
- if(chords.length<60)return null;
+ if(chords.length<minCount)return null;
  for(const s of chords){
   const m={x:(s.a.x+s.b.x)/2,y:(s.a.y+s.b.y)/2},l=dist(s.a,s.b),n={x:-(s.b.y-s.a.y)/l,y:(s.b.x-s.a.x)/l};
   // Along the bisector in both directions, one vote per cell.
@@ -66,7 +67,7 @@ function circleBy(segments,{x0,y0,x1,y1},minChord,maxChord){
   }
  }
  let best=null;for(const [k,v] of votes)if(!best||v>best.v)best={k,v};
- if(!best||best.v<40)return null;
+ if(!best||best.v<Math.min(40,Math.round(minCount*2/3)))return null;
  const [cx,cy]=best.k.split(":").map(Number),c={x:cx*cell,y:cy*cell};
  // Radii of chords that face the centre (the chord is perpendicular to the radius).
  const radii=new Map();
@@ -626,7 +627,9 @@ function extractTank({segments=[],texts=[],widthPt=0,heightPt=0}){
  if(/дни[щш]/iu.test(title)||texts.some(t=>/^(?:схема\s+(?:сборки\s+|раскроя\s+)?дни[щш]|дни[щш]\S*\s+резервуар|раскрой\s+(?:\S+\s+){1,3}дни[щш])/iu.test(t.str.trim()))){
   const t=texts.map(x=>/^[—–-]\s*(\d{1,2})\s*[хx×]\s*\d{3,4}\s*[хx×]\s*\d{3,5}/u.exec(x.str.trim())).filter(Boolean).map(m=>Number(m[1])).filter(v=>v>=4&&v<=40);
   const bk=bottomKindOf(texts);
-  out.bottom={diameters:D,...(t.length?{thickness:Math.max(...t)}:{}),...(bk?{kind:bk}:{})}
+  const head=texts.find(x=>/^схема\s+(?:расположения\s+(?:\S+\s+)?|сборки\s+|раскроя\s+)?(?:\S+\s+)?дни[щш]/iu.test(x.str.trim()));
+  const lay=head?bottomLayoutOf(segments,texts,head):null;
+  out.bottom={diameters:D,...(t.length?{thickness:Math.max(...t)}:{}),...(bk?{kind:bk}:{}),...(lay?{layout:lay}:{})}
  }
  return out.plan||out.facade||byAngle.length||out.parts||out.platforms||out.ladder||out.bottom||out.nozzleTable||out.ladderSheet||out.roof||out.courses||out.passport||out.ship||out.sheets||out.layout||out.bridge||out.bottomBeams||out.rolled?out:null
 }
@@ -661,6 +664,48 @@ const AXIS_MIN={50:150,80:150,100:150,150:200,200:240,250:290,300:340,350:390,40
 const axisDefault=(name,du,wallTop)=>/люк\s*-?\s*лаз|лаз(?![а-яё])/iu.test(name)?750:Math.min(wallTop,AXIS_MIN[du]||Math.max(300,Math.round((du||200)*1.2/10)*10));
 // How far a fitting sticks out of the wall (or up from the roof) when the drawing gives no length.
 const OUTREACH={nozzle:250,manhole:350,hatch:330,valve:500,foam:600,sensor:250,rod:2500};
+// The layout of the bottom («Схема расположения элементов днища», РВС-700 КМ-05): its sheets lie in rows across the
+// circle; the joints between rows are chords of the whole circle, a joint inside a row runs across it from one row
+// joint to the next (or to the edge). Read from the lines under the title: the rows from the top of the sheet (0°)
+// down and the joints of each, in parts of the radius (the plan turns them into millimetres by the diameter of the
+// bottom); a cell holding a number of one or two digits gets it — the position of its sheet. The axis (dash-dot) and
+// the marks of sections are no joints: they do not run from a row joint to the next.
+function bottomLayoutOf(segments,texts,head){
+ const w=Math.max(120,head.width||200),area={x0:head.x-w*0.5,y0:head.y,x1:head.x+w*1.5,y1:head.y+w*2};
+ const rough=circleOf(segments,area)||circleOf(segments,area,10,90,20);if(!rough)return null;
+ const c0=rough.c,r0=rough.r,tol=Math.max(2,r0*0.03),len=s=>dist(s.a,s.b);
+ const chords=[];
+ for(const s of segments){
+  if(Math.abs(s.a.y-s.b.y)>=0.5)continue;
+  const y=(s.a.y+s.b.y)/2,dy=y-c0.y;if(Math.abs(dy)>=r0-tol)continue;
+  const h=Math.sqrt(r0*r0-dy*dy),x0=Math.min(s.a.x,s.b.x),x1=Math.max(s.a.x,s.b.x);
+  if(len(s)>=2*h-3*tol&&Math.abs(x0-(c0.x-h))<=2*tol&&Math.abs(x1-(c0.x+h))<=2*tol&&!chords.some(c=>Math.abs(c.y-y)<1))chords.push({y,x0,x1,h:(x1-x0)/2})
+ }
+ if(chords.length<2)return null;
+ chords.sort((a,b)=>a.y-b.y);
+ // The circle through the ends of the row joints: its centre between their ends, its height from the pairs of them.
+ const cx=chords.reduce((t,c)=>t+(c.x0+c.x1)/2,0)/chords.length;
+ const pairs=[];for(let i=0;i<chords.length;i++)for(let j=i+1;j<chords.length;j++){const a=chords[i],b=chords[j];if(b.y-a.y>r0*0.2)pairs.push((a.h*a.h-b.h*b.h+a.y*a.y-b.y*b.y)/(2*(a.y-b.y)))}
+ const cy=pairs.length?pairs.reduce((t,v)=>t+v,0)/pairs.length:c0.y,r=chords.reduce((t,c)=>t+Math.hypot(c.h,c.y-cy),0)/chords.length;
+ if(Math.hypot(cx-c0.x,cy-c0.y)>r0*0.1||Math.abs(r-r0)>r0*0.1)return null;
+ const edge=x=>Math.sqrt(Math.max(0,r*r-(x-cx)*(x-cx)));
+ // Vertical lines, the pieces of one line joined (a joint broken by the marks of a weld).
+ const ups=segments.filter(s=>Math.abs(s.a.x-s.b.x)<0.5&&len(s)>=1).map(s=>({x:(s.a.x+s.b.x)/2,y0:Math.min(s.a.y,s.b.y),y1:Math.max(s.a.y,s.b.y)}))
+  .filter(s=>Math.abs(s.x-cx)<r&&s.y1>cy-r&&s.y0<cy+r).sort((a,b)=>a.x-b.x||a.y0-b.y0);
+ const lines=[];for(const s of ups){const l=lines.find(l=>Math.abs(l.x-s.x)<0.5&&s.y0<=l.y1+1&&s.y1>=l.y0-1);if(l){l.y0=Math.min(l.y0,s.y0);l.y1=Math.max(l.y1,s.y1)}else lines.push({...s})}
+ const ys=chords.map(c=>c.y),rows=[];
+ for(let k=0;k<=ys.length;k++){
+  const top=k?ys[k-1]:null,bottom=k<ys.length?ys[k]:null;
+  const joints=[...new Set(lines.filter(l=>{const a=top??cy-edge(l.x),b=bottom??cy+edge(l.x);return b-a>tol&&Math.abs(l.y0-a)<=tol&&Math.abs(l.y1-b)<=tol}).map(l=>Math.round((l.x-cx)/r*10000)/10000))].sort((a,b)=>a-b);
+  const y0=top===null?1:Math.round((cy-top)/r*10000)/10000,y1=bottom===null?-1:Math.round((cy-bottom)/r*10000)/10000;
+  // The positions written in the cells (OCR): one per cell, or none.
+  const cells=[-1,...joints,1].slice(1).map((x1,i,all)=>{const x0=i?all[i-1]:-1;
+   const n=texts.filter(t=>/^\d{1,2}$/u.test(String(t.str).trim())&&Math.abs(t.angle||0)<5).filter(t=>{const fx=(t.x+(t.width||0)/2-cx)/r,fy=(cy-t.y)/r;return fx>x0&&fx<x1&&fy<y0&&fy>y1});
+   return n.length===1?Number(n[0].str):null});
+  rows.push({y0,y1,joints,...(cells.some(v=>v!==null)?{pieces:cells}:{})})
+ }
+ return rows.length>=2?{rows}:null
+}
 // The kind of the bottom, as its sheet writes it (ГОСТ 31385; knowledge/global/tanks.json «днище: виды», «способы сборки»,
 // «окрайки»): with an annular ring («окрайки») or of one thickness; its central part rolled («рулонная сборка», полотнища)
 // or sheet by sheet («полистовая»); flat or conical («уклон 1:100» — from the centre to the wall unless the sheet says «к
@@ -669,9 +714,13 @@ function bottomKindOf(texts){
  const all=texts.map(t=>t.str).join(" ").replace(/\s+/g," ");
  if(!/дни[щш]/iu.test(all))return null;
  const out={};
- if(/окра[ейи]к/iu.test(all))out.kind="annular";
+ // «из полотнищ без кольцевых окраек» (РВС-700): of one thickness, not with a ring.
+ if(/без\s+(?:\S+\s+){0,2}окра[ейи]к/iu.test(all))out.kind="plain";
+ else if(/окра[ейи]к/iu.test(all))out.kind="annular";
  if(/рулон\S*\s+(?:\S+\s+){0,3}дни[щш]|дни[щш]\S*\s+(?:\S+\s+){0,3}рулон|полотнищ\S*\s+(?:\S+\s+){0,2}дни[щш]|рулонн\S*\s+(?:сборк|способ|метод)\S*\s+(?:\S+\s+){0,3}дни[щш]/iu.test(all))out.assembly="rolled";
- else if(/полистов\S*\s+(?:\S+\s+){0,3}(?:сборк|способ|метод|дни[щш])|раскро\S*\s+(?:\S+\s+){0,3}дни[щш]/iu.test(all))out.assembly="sheet";
+ // A cutting plan of the bottom sheets («Раскрой листов днища») is drawn for a rolled bottom too (РВС-700: its полотнища
+ // are made of them): only «полистовая» says sheet by sheet.
+ else if(/полистов\S*\s+(?:\S+\s+){0,3}(?:сборк|способ|метод|дни[щш])/iu.test(all))out.assembly="sheet";
  const slope=/уклон\S*\s*(?:\S+\s+){0,3}?(?:i\s*=\s*)?1\s*:\s*(\d{2,3})(?!\d)/iu.exec(all);
  if(slope&&Number(slope[1])>=20&&Number(slope[1])<=500){out.slope=Number(slope[1]);out.toCentre=/уклон\S*\s+(?:\S+\s+){0,4}к\s+центру|к\s+центру\s+(?:\S+\s+){0,2}дни[щш]/iu.test(all)}
  if(/внахл[её]ст/iu.test(all))out.joint="lap";else if(/встык|стыков\S*\s+(?:\S+\s+){0,2}(?:шв|соединени)/iu.test(all))out.joint="butt";
@@ -927,7 +976,24 @@ function buildTank(pages){
  // The bottom: a flat disc at 0,000 ("верх днища"), a little wider than the wall.
  // Its top is 0,000; the sheet thickness ("—8х1500х6000") goes down from there.
  const bt=Math.max(0,...tanks.map(p=>p.tank.bottom?.thickness||0))||null;
- const bs=bottomSheet||{width:1500,length:6000},bLayout={kind:"bottom",sheet_w_mm:bs.width,sheet_len_mm:bs.length,shift_mm:Math.round(bs.length/2),from:bottomSheet?"схема днища":"лист 1500×6000 принят"};
+ // The diameter of the bottom: written on its sheet («D=10540» over the wall Ø10430, РВС-700 КМ-05) or given;
+ // else 50 past the wall.
+ const bD=[...tanks.flatMap(p=>p.tank.bottom?.diameters||[]),...tanks.map(p=>p.tank.bottom?.diameter)].filter(v=>v>D&&v<=D+400).sort((a,b)=>a-b)[0]||null;
+ const Rb=bD?Math.round(bD/2):R+50;
+ // Its layout: the rows of sheets as its sheet draws them (in parts of its radius, bottomLayoutOf) or as given (mm,
+ // their heights from the top of the sheet — 0° — down); else rows of whole sheets staggered by half a sheet.
+ const mm5=v=>Math.round(v/5)*5;
+ const given=tanks.map(p=>p.tank.bottom?.rowsMm).find(r=>Array.isArray(r)&&r.length>=2);
+ const drawn=tanks.map(p=>p.tank.bottom?.layout?.rows).find(r=>Array.isArray(r)&&r.length>=2);
+ let edgeY=Rb;
+ const bRows=given?given.map(r=>{const y0=edgeY;edgeY-=r.h;return{y0,y1:Math.max(-Rb,y0-r.h),joints:r.joints||[],...(r.pieces?{pieces:r.pieces}:{})}})
+  :drawn?drawn.map(r=>({y0:mm5(r.y0*Rb),y1:mm5(r.y1*Rb),joints:r.joints.map(x=>mm5(x*Rb)),...(r.pieces?{pieces:r.pieces}:{})})):null;
+ const bs=bottomSheet||{width:1500,length:6000},bLayout={kind:"bottom",sheet_w_mm:bs.width,sheet_len_mm:bs.length,shift_mm:Math.round(bs.length/2),
+  from:bRows?(given?"база знаний: схема расположения элементов днища":"схема расположения элементов днища"):bottomSheet?"схема днища":"лист 1500×6000 принят",...(bRows?{rows:bRows}:{})};
+ const bPieces=bRows?[...new Set(bRows.flatMap(r=>r.pieces||[]).filter(Number.isFinite))].sort((a,b)=>a-b):[];
+ const bCut=tanks.map(p=>p.tank.bottom?.cutting).find(c=>Array.isArray(c)&&c.length);
+ const rowsText=bRows?bRows.length+" рядов листов ("+bRows.map(r=>r.y0-r.y1).join(" + ")+")"+(bPieces.length?", позиции "+bPieces.join(", "):"")+" — по схеме днища"
+  +(bCut?"; раскрой: "+bCut.map(c=>c.sheet+" × "+c.qty+" — поз. "+c.pieces.join(", ")).join("; ")+" (всего листов "+bCut.reduce((t,c)=>t+c.qty,0)+")":""):"";
  const bottomMark=groupMark(/^днищ/iu)||"Днище";
  // The kind of the bottom from its sheets (bottomKindOf): with annular plates or of one thickness, rolled or sheet by
  // sheet, flat or conical, its joints.
@@ -942,22 +1008,25 @@ function buildTank(pages){
   // dispatch list counts them; the central part inside it.
   const aw=bk.annular_width_mm||null,ringIn=R-(aw||600),aRow=ship.find(r=>/окра[ейи]к/iu.test(r.name)),segs=aRow?.qty>=3&&aRow.qty<=200?aRow.qty:0;
   if(annular){
-   const an=aRow?.mark&&/^[А-ЯЁA-Z]/u.test(aRow.mark)?aRow.mark:"Окрайка",common={name:"Окрайка днища",type_key:"tank_annular",geometry_type:"plate",x_mm:C,y_mm:C,radius_mm:R+50,inner_radius_mm:ringIn,
+   const an=aRow?.mark&&/^[А-ЯЁA-Z]/u.test(aRow.mark)?aRow.mark:"Окрайка",common={name:"Окрайка днища",type_key:"tank_annular",geometry_type:"plate",x_mm:C,y_mm:C,radius_mm:Rb,inner_radius_mm:ringIn,
     z0_mm:-(bk.annular_thickness_mm||bt||10),z1_mm:0,levels_from:"верх днища 0,000",confidence:aw?"medium":"low",scheme_group:"bottom"};
-   const note="Окрайка днища: кольцо от Ø"+2*ringIn+" до Ø"+(D+100)+(aw?" (ширина от стенки "+aw+")":" — ширина окрайки не найдена на листах, показана условно 600, проверьте")+(bk.annular_thickness_mm?", лист "+bk.annular_thickness_mm+" мм":"");
+   const note="Окрайка днища: кольцо от Ø"+2*ringIn+" до Ø"+2*Rb+(aw?" (ширина от стенки "+aw+")":" — ширина окрайки не найдена на листах, показана условно 600, проверьте")+(bk.annular_thickness_mm?", лист "+bk.annular_thickness_mm+" мм":"");
    if(segs)for(let k=0;k<segs;k++)placements.push({...common,mark:an+(segs>1?"-"+(k+1):""),name:"Окрайка днища — лист "+(k+1)+" из "+segs,sector_start_deg:Math.round(k*36000/segs)/100,sector_deg:Math.round(36000/segs)/100,
     notes:[note+"; листов "+segs+" по ведомости отправочных марок, стыки окраек — радиальные"]});
    else placements.push({...common,mark:an,notes:[note+"; число листов окрайки не прочитано — одним кольцом"]})
   }
-  placements.push({mark:bottomMark,name:annular?"Центральная часть днища":partName("bottom","Днище"),type_key:"tank_bottom",geometry_type:"plate",x_mm:C,y_mm:C,radius_mm:annular?ringIn:R+50,z0_mm:top,z1_mm:0,
-   ...(rise?{cone_rise_mm:rise}:{}),levels_from:"верх днища 0,000",confidence:"medium",scheme_group:"bottom",layout:{...bLayout,...(bk.assembly==="rolled"?{rolled:true}:{})},
-   notes:[(annular?"Центральная часть днища Ø"+2*ringIn+" внутри окрайки":"Днище Ø"+(D+100)+" (стенка Ø"+D+" + выступ 50 принят)")+", верх на отметке 0,000"+(bt?", лист "+bt+" мм":", толщина не найдена — принята 10")+
-    "; "+how+"; листы "+bs.width+"×"+bs.length+" рядами, стыки смещены ("+bLayout.from+")"]});
+  placements.push({mark:bottomMark,name:annular?"Центральная часть днища":partName("bottom","Днище"),type_key:"tank_bottom",geometry_type:"plate",x_mm:C,y_mm:C,radius_mm:annular?ringIn:Rb,z0_mm:top,z1_mm:0,
+   ...(rise?{cone_rise_mm:rise}:{}),levels_from:"верх днища 0,000",confidence:bRows?"high":"medium",scheme_group:"bottom",layout:{...bLayout,...(bk.assembly==="rolled"?{rolled:true}:{})},
+   notes:[(annular?"Центральная часть днища Ø"+2*ringIn+" внутри окрайки":"Днище Ø"+2*Rb+(bD?" (выступ "+(Rb-R)+" за стенку Ø"+D+")":" (стенка Ø"+D+" + выступ 50 принят)"))+", верх на отметке 0,000"+(bt?", лист "+bt+" мм":", толщина не найдена — принята 10")+
+    "; "+how+"; "+(rowsText||"листы "+bs.width+"×"+bs.length+" рядами, стыки смещены ("+bLayout.from+")")]});
   // Welds of the bottom (the joints of its sheets) and the corner weld of the wall to the bottom (уторный шов, both sides).
-  placements.push({mark:"Ш-Д",name:"Сварные швы днища",type_key:"weld_butt",geometry_type:"plate",x_mm:C,y_mm:C,radius_mm:R+50,z0_mm:0,z1_mm:5,
-   levels_from:"верх днища 0,000",confidence:"low",scheme_group:"welds",fitting_type:"weld",diameter_mm:10,layout:{...bLayout,kind:"bottom_welds"},notes:["Швы между листами днища "+bs.width+"×"+bs.length+"; ГОСТ 31385: контроль вакуумированием всех швов днища"]});
+  const corner=tanks.map(p=>p.tank.bottom?.cornerWeld).find(v=>v>0);
+  placements.push({mark:"Ш-Д",name:"Сварные швы днища",type_key:"weld_butt",geometry_type:"plate",x_mm:C,y_mm:C,radius_mm:Rb,z0_mm:0,z1_mm:5,...(rise?{cone_rise_mm:rise}:{}),
+   levels_from:"верх днища 0,000",confidence:bRows?"medium":"low",scheme_group:"welds",fitting_type:"weld",diameter_mm:10,layout:{...bLayout,kind:"bottom_welds"},
+   notes:["Швы между листами днища "+(bRows?"по схеме днища":bs.width+"×"+bs.length)+(bk.joint?", "+JOINT_TEXT[bk.joint]:"")+"; ГОСТ 31385: контроль вакуумированием всех швов днища"]});
   placements.push({mark:"Ш-У",name:"Уторный шов (стенка — днище)",type_key:"weld_fillet",geometry_type:"shell",shell_open:true,x_mm:C,y_mm:C,radius_mm:R,z0_mm:0,z1_mm:20,
-   levels_from:"верх днища 0,000",confidence:"medium",scheme_group:"welds",fitting_type:"weld",diameter_mm:14,layout:{kind:"ring"},notes:["Угловой шов приварки стенки к днищу с двух сторон"]})
+   levels_from:"верх днища 0,000",confidence:"medium",scheme_group:"welds",fitting_type:"weld",diameter_mm:14,layout:{kind:"ring"},
+   notes:["Угловой шов приварки стенки к днищу с двух сторон"+(corner?", катет "+corner+", каждый не менее чем за два прохода":"")]})
  }
  // A bottom on beams (acid tanks: a gap under the bottom to see leaks): the dispatch list ships them as "Балки" by
  // lengths, the longest first (the middle pair), each mark twice — one on each side of the centre line. Parallel, at the

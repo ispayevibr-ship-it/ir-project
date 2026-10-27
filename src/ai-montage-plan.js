@@ -498,8 +498,14 @@ function claudeTankPageOf(ai,t){
   ...(Array.isArray(t.anchors_deg)&&t.anchors_deg.length?{anchors:{bearings:t.anchors_deg.map(Number),ratio:t.anchors_ratio>0?Number(t.anchors_ratio):1.01}}:{}),
   // The bottom: its thickness and its kind (annular plates or one thickness, rolled or sheet by sheet, the slope).
   ...((()=>{const kind={...(t.bottom_kind==="annular"?{kind:"annular"}:{}),...(t.bottom_assembly==="rolled"||t.bottom_assembly==="sheet"?{assembly:t.bottom_assembly}:{}),
-   ...(t.bottom_slope>=20?{slope:Number(t.bottom_slope),toCentre:Boolean(t.bottom_to_centre)}:{}),...(t.annular_width_mm>0?{annular_width_mm:Number(t.annular_width_mm)}:{})};
-   return t.bottom_thickness_mm>0||Object.keys(kind).length?{bottom:{diameters:[],...(t.bottom_thickness_mm>0?{thickness:Number(t.bottom_thickness_mm)}:{}),...(Object.keys(kind).length?{kind}:{})}}:{}})()),
+   ...(t.bottom_slope>=20?{slope:Number(t.bottom_slope),toCentre:Boolean(t.bottom_to_centre)}:{}),...(t.annular_width_mm>0?{annular_width_mm:Number(t.annular_width_mm)}:{}),
+   ...(t.bottom_joint==="lap"||t.bottom_joint==="butt"?{joint:t.bottom_joint}:{})};
+   // A checked entry may carry the layout of the bottom sheets (rows from the top of its sheet: height, joints from the
+   // centre, positions), their cutting, the diameter of the bottom and the leg of the corner weld (РВС-700, КМ-05).
+   const rows=Array.isArray(t.bottom_rows_mm)&&t.bottom_rows_mm.length>=2&&t.bottom_rows_mm.every(r=>r.h>0&&Array.isArray(r.joints))?t.bottom_rows_mm:null;
+   const extra={...(t.bottom_diameter_mm>0?{diameter:Number(t.bottom_diameter_mm)}:{}),...(rows?{rowsMm:rows}:{}),...(Array.isArray(t.bottom_cutting)&&t.bottom_cutting.length?{cutting:t.bottom_cutting}:{}),
+    ...(t.corner_weld_mm>0?{cornerWeld:Number(t.corner_weld_mm)}:{})};
+   return t.bottom_thickness_mm>0||Object.keys(kind).length||Object.keys(extra).length?{bottom:{diameters:[],...(t.bottom_thickness_mm>0?{thickness:Number(t.bottom_thickness_mm)}:{}),...(Object.keys(kind).length?{kind}:{}),...extra}}:{}})()),
   // The dispatch list, the sheets, several tanks of the set (centres in mm, the bearing of each one's stair) and the
   // transition platform between them.
   ...(Array.isArray(t.ship_list)&&t.ship_list.length?{ship:t.ship_list.filter(r=>r&&r.name).map(r=>({mark:r.mark||null,name:String(r.name),qty:r.qty>0?Number(r.qty):null,...(r.du>0?{du:Number(r.du)}:{})}))}:{}),

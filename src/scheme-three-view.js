@@ -715,12 +715,33 @@ window.irThreeSchemeView=(function(){
     if(weld)ring(z1,rr+off)
    }else if(L.kind==="ring")ring(z0,rr+10);
    else if(L.kind==="bottom"||L.kind==="bottom_welds"){
-    var w=number(L.sheet_w_mm)||1500,ln=number(L.sheet_len_mm)||6000,sh=number(L.shift_mm)||ln/2,zz=z1+(weld?8:4),cx=number(c.x),cy=number(c.y);
-    var Q=function(x,y){return toWorld(cx+x,cy+y,zz)};
-    // Rows of sheets across the bottom: their long joints, then the end joints of each row, staggered row by row.
-    for(var y=-rr+w;y<rr;y+=w){var hx=Math.sqrt(rr*rr-y*y);bar(Q(-hx,y),Q(hx,y))}
-    for(var y0=-rr,row=0;y0<rr;y0+=w,row++){var y1=Math.min(rr,y0+w);
-     for(var x=-rr+(row%2?sh:0)+ln;x<rr;x+=ln){var lim=Math.sqrt(Math.max(0,rr*rr-x*x)),a=Math.max(y0,-lim),b=Math.min(y1,lim);if(b>a)bar(Q(x,a),Q(x,b))}}
+    var w=number(L.sheet_w_mm)||1500,ln=number(L.sheet_len_mm)||6000,sh=number(L.shift_mm)||ln/2,zz=z1+(weld?8:4),cx=number(c.x),cy=number(c.y),cone=number(c.cr);
+    // On a conical bottom (уклон 1:100) the joints lie on its cone: up by the rise at the centre, nothing at the edge;
+    // a long joint goes in short pieces along it.
+    var Q=function(x,y){return toWorld(cx+x,cy+y,zz+(cone?cone*(1-Math.min(1,Math.sqrt(x*x+y*y)/rr)):0))};
+    var line=function(x0,y0,x1,y1){var n=cone?Math.max(1,Math.ceil(Math.sqrt((x1-x0)*(x1-x0)+(y1-y0)*(y1-y0))/400)):1;
+     for(var i=0;i<n;i++)bar(Q(x0+(x1-x0)*i/n,y0+(y1-y0)*i/n),Q(x0+(x1-x0)*(i+1)/n,y0+(y1-y0)*(i+1)/n))};
+    if(Array.isArray(L.rows)&&L.rows.length){
+     // The rows of the layout as the sheet of the bottom draws them (РВС-700, КМ-05): the joints between rows across the
+     // whole circle, the joints inside a row from one row joint to the next (or to the edge); the positions of the
+     // sheets written in their cells.
+     L.rows.forEach(function(r,i){
+      var y0=number(r.y0),y1=number(r.y1),js=(r.joints||[]).map(number);
+      if(i){var hx=Math.sqrt(Math.max(0,rr*rr-y0*y0));line(-hx,y0,hx,y0)}
+      js.forEach(function(x){var lim=Math.sqrt(Math.max(0,rr*rr-x*x)),a=Math.max(y1,-lim),b=Math.min(y0,lim);if(b>a)line(x,a,x,b)});
+      if(weld||!Array.isArray(r.pieces))return;
+      var ym=(y0+y1)/2,edges=[-rr].concat(js,[rr]);
+      r.pieces.forEach(function(n,k){if(n===null||n===undefined||k+1>=edges.length)return;
+       var lim=Math.sqrt(Math.max(0,rr*rr-ym*ym)),xa=Math.max(edges[k],-lim),xb=Math.min(edges[k+1],lim);if(xb<=xa)return;
+       var pe=document.createElement("span");pe.className="ir-three-member-label";pe.textContent="поз. "+n;labelLayer.appendChild(pe);
+       var at=Q((xa+xb)/2,ym);at.y+=.05;labels.push({el:pe,pos:at,id:id})})
+     })
+    }else{
+     // Rows of sheets across the bottom: their long joints, then the end joints of each row, staggered row by row.
+     for(var y=-rr+w;y<rr;y+=w){var hx=Math.sqrt(rr*rr-y*y);line(-hx,y,hx,y)}
+     for(var y0=-rr,row=0;y0<rr;y0+=w,row++){var y1=Math.min(rr,y0+w);
+      for(var x=-rr+(row%2?sh:0)+ln;x<rr;x+=ln){var lim=Math.sqrt(Math.max(0,rr*rr-x*x)),a=Math.max(y0,-lim),b=Math.min(y1,lim);if(b>a)line(x,a,x,b)}}
+    }
    }
    parts.forEach(function(m){m.userData.memberId=id;steel.add(m);allMeshes.push(m);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(m)});
    return parts.length
