@@ -156,6 +156,8 @@ window.irThreeSchemeView=(function(){
  // 26020 (ДБ, ДШ, 100Б).
  function sectionOf(text,standard){
   var t=String(text||"").replace(/\s+/g,"").replace(/[хХ×*]/g,"x").replace(/,/g,"."),m,r;
+  // The box sign of a font read as a letter: «Тр.r140х4», «Трубаr140х4» are «Тр.□140х4» (src/ai-sheet-extract.js profileWords).
+  t=t.replace(/^(Тр\.?|Гн\.?|Труба(?:профильная)?)[rгзо0](?=\d{2,3}x)/i,function(s,a){return(/^Труба/i.test(a)?"Тр.":a)+"□"});
   // A welded section from the «Ведомость элементов»: «Сварной −20×380, −25×290» — the flange plate first, the web
   // second (thickness × width). A web far taller than the flange is not read as an I (the parts are not that).
   // A strip «−150×4» (the toe board of a railing), «−20×380»: a solid bar standing on its edge, the wider side upright.

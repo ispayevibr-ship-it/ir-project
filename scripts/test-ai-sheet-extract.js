@@ -142,7 +142,9 @@ assert.deepEqual(spec,[{mark:"К1",profile:"Тр.140х4",mass_kg:120.5,length_mm
  // «Марка дет.» (one word under «Марка») still lists parts, not marks.
  assert.equal(specTable([T("Спецификация",100,100),T("Марка",100,140),T("дет.",104,156),T("Сечение",260,140),T("Длина",420,140),T("К1",100,190),T("I30Ш1",260,190),T("6000",420,190)]).length,0);
  // OCR spellings of the profile words and a box sign read as a letter.
- assert.deepEqual(["Обутавр 35Ш2","дбутавр 40Б1","шбеллер 20П","уголак 100х8","Тр.r140х4","тавр 20ШТ1"].map(normProfile),["I35Ш2","I40Б1","[20П","L100х8","Тр.□140х4","тавр20ШТ1"])}
+ assert.deepEqual(["Обутавр 35Ш2","дбутавр 40Б1","шбеллер 20П","уголак 100х8","Тр.r140х4","тавр 20ШТ1"].map(normProfile),["I35Ш2","I40Б1","[20П","L100х8","Тр.□140х4","тавр20ШТ1"]);
+ // ГПЭС К96 (the engineer, 27.10.2026: «Труба 140х4, это профильная труба 140х140х4»): «Трубаr140х4» is the square tube.
+ assert.deepEqual(["Трубаr140х4","Труба r140х4","Труба□140х4","Труба 140х4"].map(normProfile),["Тр.□140х4","Тр.□140х4","Тр.□140х4","Труба140х4"])}
 // ГПЭС В65–В67: OCR of the picture lost «Тр.□160х5» (Tesseract doubts the italic as a whole) and the mark В66. The cells
 // of the «Сечение» column in rows with a length and the mark of a group without one are read again one by one.
 {const {specCells,cellAccept}=require("../src/ai-sheet-extract"),o=(str,x,y,size=13.7)=>T(str,x,y,size);
