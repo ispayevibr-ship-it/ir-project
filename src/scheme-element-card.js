@@ -135,7 +135,13 @@
  function role(e){var r=TYPE_ROLE[e.type_key]||ROLE[e.group];return r&&typeof r==="object"?r[e.geometry==="column"?"column":"beam"]:r||""}
  // What it is made of, when the reading of its sheet says (the central ring of a shield roof: its box, ribs, shield).
  function made(e){
-  var L=e.lay;if(!L||typeof L!=="object"||L.kind!=="central_ring")return[];
+  var L=e.lay;
+  // An oval manhole of the wall (РВС-700 КМ-14): its opening, shell and flange, how it lies.
+  if(L&&typeof L==="object"&&Array.isArray(L.oval_mm)&&L.oval_mm.length===2){
+   var pair=function(v){return Array.isArray(v)&&v.length===2&&num(v[0])>0?fmt(v[1])+"×"+fmt(v[0]):""},sh=pair(L.shell_mm),fl=pair(L.flange_mm);
+   return["Овальный люк "+pair(L.oval_mm)+" мм — длинной стороной вдоль стенки"+(sh?"; обечайка снаружи "+sh:"")+(fl?", фланец и крышка "+fl:"")+"."+(sh&&fl?"":" Обечайка и фланец показаны условно — размеры по листу люка.")]
+  }
+  if(!L||typeof L!=="object"||L.kind!=="central_ring")return[];
   var out=["Кольцо коробчатого сечения: наружная стенка Ø"+fmt(2*num(L.wall_r_mm))+" и внутренняя обечайка Ø"+fmt(2*num(L.shell_r_mm))+" высотой "+fmt(L.height_mm)+" мм, пояса t"+fmt(L.plate_mm)+"; нижний лист до Ø"+fmt(2*num(e.r))+" — на него опираются щиты."];
   if(num(L.lugs)>0)out.push(fmt(L.lugs)+" рёбер t"+fmt(L.plate_mm)+" "+fmt((L.lug_mm||[])[0])+"×"+fmt((L.lug_mm||[])[1])+" мм по стыкам щитов"+(L.bolt?", щит крепится к ребру болтом "+L.bolt:"")+".");
   if(L.cap&&num(L.cap.r_mm)>0)out.push("Сверху центральный щит — конус Ø"+fmt(2*num(L.cap.r_mm))+" из листов t"+fmt(L.cap.t_mm)+" внахлёст, подъём "+fmt(L.cap.rise_mm)+" мм.");

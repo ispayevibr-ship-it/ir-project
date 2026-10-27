@@ -672,6 +672,14 @@ function fittingOf(name,du,size){
  const d=big||OD[du]||(du>0?Math.round(du*1.06):type==="manhole"?630:type==="hatch"?530:type==="rod"?40:159);
  return{type,label:hit?hit[2]:"Патрубок",d_mm:d}
 }
+// An oval manhole of the wall (ГОСТ 31385, РВС-700 КМ-14 «Люк-лаз овальный 600х900»; the engineer, 27.10.2026: «почему
+// люк показывается как круглый? если он овальный»): its two sizes in the name or the Ду column, the larger along the
+// wall, the smaller up it — [along, up], mm; a square one is not oval.
+function ovalOf(name,size){
+ const m=/(\d{3,4})\s*[хxХ×]\s*(\d{3,4})/u.exec(String(size||"")+" "+String(name||""));if(!m)return null;
+ const a=Number(m[1]),b=Number(m[2]);return a!==b&&Math.min(a,b)>=400?[Math.max(a,b),Math.min(a,b)]:null
+}
+const okPair=v=>Array.isArray(v)&&v.length===2&&v.every(x=>Number(x)>0);
 // Lowest axis of a wall nozzle over the bottom by its Ду (ГОСТ 31385, table of nozzles in the wall).
 const AXIS_MIN={50:150,80:150,100:150,150:200,200:240,250:290,300:340,350:390,400:430,500:530,600:600,700:600};
 const axisDefault=(name,du,wallTop)=>/люк\s*-?\s*лаз|лаз(?![а-яё])/iu.test(name)?750:Math.min(wallTop,AXIS_MIN[du]||Math.max(300,Math.round((du||200)*1.2/10)*10));
@@ -1144,15 +1152,16 @@ function buildTank(pages){
  // Items: on the wall (near the circle) as a short branch outwards, on the roof as a short post.
  // Fittings are drawn as what they are (a pipe with a flange, a hatch with a cover, a valve, a ring), not as members:
  // the placement keeps its axis (out of the wall, up from the roof) and carries the kind and the outer diameter.
- const wallItem=({mark,name,angle,du,size,z,from,note,length})=>{
-  const f=fittingOf(name,du,size);
+ const wallItem=({mark,name,angle,du,size,z,from,note,length,shell,flange})=>{
+  const f=fittingOf(name,du,size),ov=f.type==="manhole"?ovalOf(name,size):null;
   if(f.type==="ring"){ring({mark,name,z,note});return}
   // A foam generator sits on the top course whatever height is given.
   const zz=f.type==="foam"&&!(z>wallTop*0.6)?Math.round(wallTop-600):z;
   const len=length>=60&&length<=3000?length:OUTREACH[f.type]||250,p=at(angle,R),q=at(angle,R+len);
   placements.push({mark,name,geometry_type:"beam",x_mm:p.x,y_mm:p.y,x2_mm:q.x,y2_mm:q.y,z0_mm:zz,z1_mm:zz,levels_from:from,
    confidence:from==="фасад резервуара"||/спецификац|база знаний/.test(from)?"medium":"low",scheme_group:"nozzles",
-   fitting_type:f.type,diameter_mm:f.d_mm,notes:[note]})
+   fitting_type:f.type,diameter_mm:ov?ov[1]:f.d_mm,...(ov?{layout:{oval_mm:ov,...(okPair(shell)?{shell_mm:shell}:{}),...(okPair(flange)?{flange_mm:flange}:{})}}:{}),
+   notes:[note+(ov?"; люк овальный "+ov[1]+"×"+ov[0]+", длинная сторона вдоль стенки"+(okPair(shell)&&okPair(flange)?"":" — обечайка и фланец показаны условно"):"")]})
  };
  const roofAt=(r)=>Math.round(wallTop+rise*(1-Math.max(0,Math.min(1,r))));
  const roofItemAt=({mark,name,angle,r,du,size,note,length})=>{
@@ -1226,7 +1235,7 @@ function buildTank(pages){
    const manhole=/люк\s*-?\s*лаз|лаз(?![а-яё])/iu.test(c.name);
    const z=A>0&&A<wallTop?A:axisDefault(c.name,c.du,wallTop);
    const fromTable=A>0&&A<wallTop;
-   wallItem({mark,name,angle:fromBearing(c.bearing),du:c.du,size:c.size,length:c.row?.b,z,from:fromTable?(c.row?.from||"спецификация люков и патрубков"):"нет отметок",
+   wallItem({mark,name,angle:fromBearing(c.bearing),du:c.du,size:c.size,length:c.row?.b,shell:c.row?.shell_mm,flange:c.row?.flange_mm,z,from:fromTable?(c.row?.from||"спецификация люков и патрубков"):"нет отметок",
     note:"На стенке, "+where+"; "+(fromTable?"ось на "+A+" от днища ("+(c.row?.from||"спецификация")+")":"высота "+(manhole?"оси люка-лаза 1-го пояса принята 750":"не указана — минимальная по ГОСТ 31385 для Ду"+(c.du||"?")+": "+z)+", проверьте")})
   }
  }

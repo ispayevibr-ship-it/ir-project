@@ -79,6 +79,9 @@ vm.runInNewContext(view,scope);
 // its bottom plate, the ribs with the bolts of the shields, the central shield cone over it — not a flat ring with a hole.
 assert(/if\(c\.lay&&c\.lay\.kind==="central_ring"&&number\(c\.r\)>0&&centralRing\(c,id,p\[0\]\)\)return;/.test(view),"the ring before the flat plate");
 const ring=view.slice(view.indexOf("function centralRing("),view.indexOf("function buildMembers("));
+// An oval manhole (РВС-700 КМ-14, 27.10.2026: «почему люк показывается как круглый? если он овальный»): the shell, the flange
+// and the cover of a rounded shape along the wall, the sizes of the sheet.
+assert(/else if\(\(type==="manhole"\|\|type==="hatch"\)&&c\.lay&&Array\.isArray\(c\.lay\.oval_mm\)/.test(view)&&view.includes("mm(c.lay.shell_mm,")&&view.includes("mm(c.lay.flange_mm,")&&view.includes("p.absarc(hx,0,rr,"),"an oval manhole");
 assert(/annulus\(sr,pr,t,0\);annulus\(wr-t\/2,wr\+t\/2,H,t\);annulus\(sr,sr\+\.006,H,t\);annulus\(sr,wr\+/.test(ring),"bottom plate, wall, inner shell, top flange");
 assert(/for\(var k=0;k<n;k\+\+\)/.test(ring)&&/addBolt\(\{id:id,joint:\{\}\}/.test(ring),"a rib and a bolt at every joint of the shields");
 assert(/CylinderGeometry\(\.002,cr,/.test(ring)&&/roofMaterial\(c\)/.test(ring),"the central shield cone");

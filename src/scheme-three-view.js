@@ -2124,6 +2124,23 @@ window.irThreeSchemeView=(function(){
     for(var k=0;k<nb;k++){var a=2*Math.PI*k/nb,o=new T.Vector3(Math.cos(a)*.07,0,Math.sin(a)*.07),at=start.clone().add(o);
      along(tube(rb),at,Math.max(.04,len));var hg=new T.CylinderGeometry(rb*1.8,rb*1.8,rb*1.4,6);hg.rotateX(Math.PI/2);along(hg,at.clone().add(dir.clone().multiplyScalar(Math.max(.04,len))),0)}
    }
+   else if((type==="manhole"||type==="hatch")&&c.lay&&Array.isArray(c.lay.oval_mm)&&c.lay.oval_mm.length===2){
+    // An oval manhole (lay.oval_mm — along the wall × up it, РВС-700 КМ-14 «Люк-лаз овальный 600х900»; the engineer,
+    // 27.10.2026: «почему люк показывается как круглый? если он овальный»): its shell 20 into the tank, the flange and the
+    // cover of the same rounded shape (lay.shell_mm, lay.flange_mm — the outer sizes of the sheet; without them 17 mm of
+    // the shell and 62 of the flange, as on КМ-14), two handles 80 out on the cover, the hinge at its end.
+    var mm=function(v,d){return Array.isArray(v)&&v.length===2&&number(v[0])>0&&number(v[1])>0?[number(v[0])/1000,number(v[1])/1000]:d};
+    var ov=mm(c.lay.oval_mm,[.9,.6]),so=mm(c.lay.shell_mm,[ov[0]+.034,ov[1]+.034]),fo=mm(c.lay.flange_mm,[so[0]+.124,so[1]+.124]);
+    var stadium=function(w,h){var p=new T.Shape(),rr=Math.min(w,h)/2,hx=Math.max(0,w/2-rr);p.moveTo(-hx,-rr);p.lineTo(hx,-rr);
+     p.absarc(hx,0,rr,-Math.PI/2,Math.PI/2,false);p.lineTo(-hx,rr);p.absarc(-hx,0,rr,Math.PI/2,Math.PI*1.5,false);return p};
+    var slab=function(w,h,iw,ih,depth,from){var p=stadium(w,h);if(iw>0)p.holes.push(stadium(iw,ih));
+     var g=new T.ExtrudeGeometry(p,{depth:depth,bevelEnabled:false,curveSegments:14});g.translate(0,0,from||0);return g};
+    along(slab(so[0],so[1],ov[0],ov[1],1),start.clone().sub(dir.clone().multiplyScalar(.02)),len+.02);
+    along(slab(fo[0],fo[1],so[0],so[1],.02,-.02),end,0);along(slab(fo[0],fo[1],0,0,.02,0),end,0);
+    [-.2,.2].forEach(function(x){var g=new T.BoxGeometry(.02,.15,.02);g.translate(x,0,.1);along(g,end,0);
+     [-.065,.065].forEach(function(y){var l=new T.BoxGeometry(.02,.02,.08);l.translate(x,y,.06);along(l,end,0)})});
+    var hinge=new T.BoxGeometry(.06,Math.min(.5,fo[1]*.7),.06);hinge.translate(fo[0]/2+.03,0,-.01);along(hinge,end,0)
+   }
    else{
     along(tube(r),start,len);
     // Flange at the outer end; hatches and manholes carry a cover over it.
