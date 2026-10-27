@@ -163,6 +163,15 @@ window.irThreeSchemeView=(function(){
   // second (thickness × width). A web far taller than the flange is not read as an I (the parts are not that).
   // A strip «−150×4» (the toe board of a railing), «−20×380»: a solid bar standing on its edge, the wider side upright.
   if((m=/^(?:[−-]|Полоса|Пол\.?)(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)$/.exec(t))){var pw=Math.max(+m[1],+m[2]),pt=Math.min(+m[1],+m[2]);return{shape:"plate",h:pw,b:pt,s:pt,t:pt,std:"полоса по обозначению"}}
+  // Three plates «Сварной −16×450, −12×2292, −12×280» (the crane girder Бкр1 of the «Ведомость элементов», its parts 1–3):
+  // the thinnest is the web (of equal ones the middle), the other two the flanges, the one written first on top — an I
+  // with flanges of two widths (b, t on top; b1, t1 at the bottom).
+  if((m=/^Сварной[−-](\d+)x(\d+)\.[−-](\d+)x(\d+)\.[−-](\d+)x(\d+)(?!\.?[−-]\d)/.exec(t))){
+   var pl=[[+m[1],+m[2]],[+m[3],+m[4]],[+m[5],+m[6]]],wi=[0,2].reduce(function(a,i){return pl[i][0]<pl[a][0]?i:a},1);
+   var web=pl[wi],fls=pl.filter(function(q,i){return i!==wi}),hh=web[1]+fls[0][0]+fls[1][0];
+   if(web[0]<Math.min(fls[0][1],fls[1][1])/3&&hh<=8*Math.max(fls[0][1],fls[1][1]))return{shape:"ibeam",h:hh,b:fls[0][1],t:fls[0][0],b1:fls[1][1],t1:fls[1][0],s:web[0],std:"сварное сечение по ведомости элементов"};
+   return null
+  }
   if((m=/^Сварной[−-](\d+)x(\d+)\.[−-](\d+)x(\d+)/.exec(t))){
    var tf=+m[1],bf=+m[2],tw=+m[3],hw=+m[4];
    if(hw+2*tf<=4*bf&&tw<bf/3)return{shape:"ibeam",h:hw+2*tf,b:bf,s:tw,t:tf,std:"сварное сечение по ведомости элементов"};
@@ -191,13 +200,14 @@ window.irThreeSchemeView=(function(){
   // A special channel С of ГОСТ 19425-74: «18С», «[20С».
   if((m=/^(?:\[|Швеллер|Шв\.?)?(\d{2})[СC]([аa]?)$/.exec(t))&&(r=sections.get("channel-19425-"+m[1]+"С"+(m[2]?"а":""))))return{shape:"channel",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard,kgm:r.mass_kg_m};
   // Bent sections drawn by their bend: the wall all round, the outer corner rounded by R + s, the inner by R (the radius of
-  // the table). A bent channel «[160×60×4» (ГОСТ 8278-83, table 1, else table 2; a size in neither — by designation,
-  // square corners), an unequal one «[160×80×50×5» (ГОСТ 8281-80), a bent angle «Уголок гнутый 80×4» (ГОСТ 19771/19772-93).
-  if((m=/^(?:\[|Швеллер(?:гнутый)?(?:неравнополочный)?|Шв\.?(?:гн\.?)?)(\d{2,3})x(\d{2,3})x(\d{2,3})x(\d+(?:\.\d+)?)$/i.exec(t))){
+  // the table). A bent channel «[160×60×4», «гн.[160×80×5» (ГОСТ 8278-83, table 1, else table 2; a size in neither — by
+  // designation, square corners), an unequal one «[160×80×50×5» (ГОСТ 8281-80), a bent angle «Уголок гнутый 80×4» (ГОСТ
+  // 19771/19772-93).
+  if((m=/^(?:(?:гн\.?)?\[|Швеллер(?:гнутый)?(?:неравнополочный)?|Шв\.?(?:гн\.?)?)(\d{2,3})x(\d{2,3})x(\d{2,3})x(\d+(?:\.\d+)?)$/i.exec(t))){
    var k4=+m[1]+"x"+Math.max(+m[2],+m[3])+"x"+Math.min(+m[2],+m[3])+"x"+Number(m[4]);r=sections.get("channel-8281-"+k4)||sections.get("channel-8281-"+k4+"-t2");
    if(r)return{shape:"channel",bent:true,h:r.h_mm,b:r.b_mm,b1:r.b1_mm,s:r.s_mm,t:r.s_mm,r:number(r.R_mm),std:r.standard,kgm:r.mass_kg_m}
   }
-  if((m=/^(?:\[|Швеллер(?:гнутый)?|Шв\.?(?:гн\.?)?)(\d{2,3})x(\d{2,3})x(\d+(?:\.\d+)?)$/i.exec(t))&&+m[3]<+m[2]/2){
+  if((m=/^(?:(?:гн\.?)?\[|Швеллер(?:гнутый)?|Шв\.?(?:гн\.?)?)(\d{2,3})x(\d{2,3})x(\d+(?:\.\d+)?)$/i.exec(t))&&+m[3]<+m[2]/2){
    var k3="channel-8278-"+(+m[1])+"x"+(+m[2])+"x"+Number(m[3]);r=sections.get(k3)||sections.get(k3+"-t2");
    if(r)return{shape:"channel",bent:true,h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.s_mm,r:number(r.R_mm),std:r.standard,kgm:r.mass_kg_m};
    return{shape:"channel",h:+m[1],b:+m[2],s:+m[3],t:+m[3],r:0,std:"ГОСТ 8278-83 по обозначению"}
@@ -208,6 +218,13 @@ window.irThreeSchemeView=(function(){
    return null
   }
   if((m=/^(?:\[|Швеллер|Шв\.?)(\d+(?:\.5)?а?)([УПЭЛ])$/i.exec(t))&&(r=sections.get("channel-"+m[1].toLowerCase()+m[2].toUpperCase())))return{shape:"channel",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard,kgm:r.mass_kg_m};
+  // «[20», «Швеллер 16» without the letter of the series (as ГОСТ 8240-89 wrote them): the rows У and П of ГОСТ 8240-97 have
+  // the same h, b, s, t and mass (they differ by the slope of the flanges), so it is drawn by them; where they differ — not.
+  if((m=/^(?:\[|Швеллер|Шв\.?)(\d+(?:\.5)?а?)$/i.exec(t))){
+   var cu=sections.get("channel-"+m[1].toLowerCase()+"У"),cp=sections.get("channel-"+m[1].toLowerCase()+"П");
+   if(cu&&cp&&["h_mm","b_mm","s_mm","t_mm","mass_kg_m"].every(function(k){return cu[k]===cp[k]}))return{shape:"channel",h:cu.h_mm,b:cu.b_mm,s:cu.s_mm,t:cu.t_mm,r:root(cu),std:cu.standard+" (серия не указана: У и П одинаковы по размерам и массе)",kgm:cu.mass_kg_m};
+   return null
+  }
   if((m=/^(?:L|∟|Уголок|Уг\.?)(\d+)x(\d+)(?:x(\d+(?:\.\d)?))?$/i.exec(t))&&(!m[3]||m[1]===m[2])&&(r=sections.get("angle-"+m[1]+"x"+Number(m[3]||m[2]))))return{shape:"angle",h:r.b_mm,b:r.b_mm,s:r.t_mm,t:r.t_mm,r:root(r),std:r.standard,kgm:r.mass_kg_m};
   // Unequal legs «L63x40x5»: h — the long leg, b — the short one.
   if((m=/^(?:L|∟|Уголок|Уг\.?)(\d+)x(\d+)x(\d+(?:\.\d)?)$/i.exec(t))&&(r=sections.get("angle-"+Number(m[1])+"x"+Number(m[2])+"x"+Number(m[3]))))return{shape:"angle",h:r.B_mm,b:r.b_mm,s:r.t_mm,t:r.t_mm,r:root(r),std:r.standard,kgm:r.mass_kg_m};
@@ -286,7 +303,7 @@ window.irThreeSchemeView=(function(){
   else if(s.shape==="plate")A=h*b;
   else if(s.shape==="round")A=Math.PI*(h-t)*t;
   else if(s.shape==="box")A=2*(h+b-2*t)*t;
-  else if(s.shape==="ibeam"||s.shape==="channel")A=2*b*t+(h-2*t)*w+(s.b1?(number(s.b1)-b)*t:0);
+  else if(s.shape==="ibeam"||s.shape==="channel"){var b1=s.b1?number(s.b1):b,t1=s.t1?number(s.t1):t;A=b*t+b1*t1+(h-t-t1)*w}
   else if(s.shape==="angle")A=(h+b-t)*t;
   else if(s.shape==="lipped"||s.shape==="hat")A=(h+2*b+2*number(s.a)-4*t)*t;
   else if(s.shape==="zed")A=(h+2*b-2*t)*t;
@@ -407,7 +424,7 @@ window.irThreeSchemeView=(function(){
   return lower.slice(0,-1).concat(upper.slice(0,-1))
  }
  function realGeometry(T,cache,sec){
-  var key="real:"+sec.shape+(sec.solid?"s":"")+(sec.bent?"g"+(sec.b1||""):"")+":"+sec.h+":"+sec.b+":"+sec.s+":"+sec.t+":"+(sec.r||0)+(sec.a?":"+sec.a:"");
+  var key="real:"+sec.shape+(sec.solid?"s":"")+(sec.bent?"g"+(sec.b1||""):"")+":"+sec.h+":"+sec.b+":"+sec.s+":"+sec.t+":"+(sec.r||0)+(sec.a?":"+sec.a:"")+(sec.t1?":"+sec.b1+"/"+sec.t1:"");
   if(cache.has(key))return cache.get(key);
   var h=sec.h/2000,b=sec.b/2000,w=sec.s/2000,fl=sec.t/1000,geo,shape=new T.Shape(),rf=Math.max(0,number(sec.r)/1000),cw=true;
   if(sec.shape==="plate"){
@@ -460,13 +477,14 @@ window.irThreeSchemeView=(function(){
    shape.moveTo(0,0);shape.lineTo(leg2,0);shape.lineTo(leg2,th);shape.lineTo(th+ra,th);
    shape.absarc(th+ra,th+ra,ra,Math.PI*1.5,Math.PI,cw);shape.lineTo(th,leg);shape.lineTo(0,leg);shape.closePath()
   }else{
-   var ri2=Math.min(rf,b-w,h-fl);
-   shape.moveTo(-b,-h);shape.lineTo(b,-h);shape.lineTo(b,-h+fl);shape.lineTo(w+ri2,-h+fl);
-   shape.absarc(w+ri2,-h+fl+ri2,ri2,Math.PI*1.5,Math.PI,cw);shape.lineTo(w,h-fl-ri2);
+   // An I; a welded one may have its bottom flange of another width and thickness (b1, t1).
+   var bb2=number(sec.b1||sec.b)/2000,fb=number(sec.t1||sec.t)/1000,ri2=Math.min(rf,Math.min(b,bb2)-w,h-Math.max(fl,fb));
+   shape.moveTo(-bb2,-h);shape.lineTo(bb2,-h);shape.lineTo(bb2,-h+fb);shape.lineTo(w+ri2,-h+fb);
+   shape.absarc(w+ri2,-h+fb+ri2,ri2,Math.PI*1.5,Math.PI,cw);shape.lineTo(w,h-fl-ri2);
    shape.absarc(w+ri2,h-fl-ri2,ri2,Math.PI,Math.PI/2,cw);shape.lineTo(b,h-fl);
    shape.lineTo(b,h);shape.lineTo(-b,h);shape.lineTo(-b,h-fl);shape.lineTo(-w-ri2,h-fl);
-   shape.absarc(-w-ri2,h-fl-ri2,ri2,Math.PI/2,0,cw);shape.lineTo(-w,-h+fl+ri2);
-   shape.absarc(-w-ri2,-h+fl+ri2,ri2,0,-Math.PI/2,cw);shape.lineTo(-b,-h+fl);shape.closePath()
+   shape.absarc(-w-ri2,h-fl-ri2,ri2,Math.PI/2,0,cw);shape.lineTo(-w,-h+fb+ri2);
+   shape.absarc(-w-ri2,-h+fb+ri2,ri2,0,-Math.PI/2,cw);shape.lineTo(-bb2,-h+fb);shape.closePath()
   }
   geo=new T.ExtrudeGeometry(shape,{depth:1,steps:1,bevelEnabled:false,curveSegments:sec.shape==="round"?16:rf>0?5:1});
   geo.computeVertexNormals();cache.set(key,geo);return geo
@@ -851,7 +869,7 @@ window.irThreeSchemeView=(function(){
   // A column's section stands with its height along world z (the minimal turn of +Z to +Y), a horizontal beam's upright.
   function halfSection(c){
    var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);
-   if(sec)return{h:sec.h/2000,b:(sec.shape==="round"?sec.h:sec.b)/2000};
+   if(sec)return{h:sec.h/2000,b:(sec.shape==="round"?sec.h:Math.max(sec.b,number(sec.b1)))/2000};
    var d=materialProfile(c);return{h:d[0]/2,b:d[1]/2}
   }
   // A column before a beam; a main beam (of the roof, a crane girder, a truss) before a secondary one (a purlin, a strut, a
