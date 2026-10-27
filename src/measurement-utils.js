@@ -25,6 +25,28 @@
   return noun+parsed.suffix
  };
  window.irWorkNames={category:workKind,format:formatName,base:v=>formatName(v),mount:v=>formatName(v,"mount"),delivery:v=>formatName(v,"delivery")};
+ // A work type saved in one tab (or made by the placement of the montage scheme) is known at once in every other tab
+ // and window of the program: «Виды работ», the montage scheme and its drawings show the new name without reopening.
+ // One tab tells the others through the shared storage (its «storage» event reaches every other page).
+ const SYNC_KEY="ir-work-types-changed";
+ window.irWorkTypesSync={
+  announce:oid=>{
+   const detail={objectId:String(oid||"")};
+   try{window.dispatchEvent(new CustomEvent(SYNC_KEY,{detail}))}catch(_e){}
+   try{localStorage.setItem(SYNC_KEY,JSON.stringify({...detail,at:Date.now()}))}catch(_e){}
+  },
+  // alive(): the page is still shown; when it is not, it stops listening.
+  watch:(oid,alive,fn)=>{
+   const id=String(oid||"");
+   const on=e=>{
+    if(e.key!==SYNC_KEY||!e.newValue)return;
+    if(!alive()){window.removeEventListener("storage",on);return}
+    let d=null;try{d=JSON.parse(e.newValue)}catch(_e){return}
+    if(d&&(!d.objectId||!id||d.objectId===id))fn()
+   };
+   window.addEventListener("storage",on)
+  }
+ };
  const clean=u=>String(u||"").trim().toLowerCase().replace(/²/g,"2").replace(/³/g,"3").replace(/\s+/g,"");
  const meta=unit=>{
   const u=clean(unit);

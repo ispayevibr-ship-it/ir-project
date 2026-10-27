@@ -1492,6 +1492,12 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   renderScene();renderDetails();bindGridEditor();bindEditor();bindViewManager()
  }
  await loadSnapshot();
+ // A work type renamed in another tab («Виды работ») or made by a placement: its name here too, without reopening.
+ const pageSerial=window.__irSchemePageSerial=(window.__irSchemePageSerial||0)+1;
+ window.irWorkTypesSync?.watch(oid,()=>pageSerial===window.__irSchemePageSerial&&location.hash===requestedRoute,async()=>{
+  workRows=await root.section("work-types").list().catch(()=>workRows);
+  if(pageSerial===window.__irSchemePageSerial&&location.hash===requestedRoute)try{draw()}catch(error){console.error("Монтажная схема: виды работ",error)}
+ });
  draw();
  }catch(error){loading.fail(error)}
 };

@@ -639,7 +639,13 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    let auto=null;
    const workFor=p=>{
     if(p.work)return works.get(p.work);
-    if(!auto)auto=database.listEntity(oid,"work-types").find(w=>w.data?.ai_created===true);
+    // The work type of the marks from PDF, also when the engineer renamed it (a rename up to 1.10.30 lost its sign
+    // ai_created, and the next placement made «… (из PDF)» again): the oldest one so marked or holding marks that a
+    // placement added under that name.
+    if(!auto){
+     const own=new Set(marks.filter(m=>m.ai_created===true&&m.work_type===AUTO_WORK&&m.work_type_id).map(m=>String(m.work_type_id)));
+     auto=database.listEntity(oid,"work-types").filter(w=>w.data?.ai_created===true||own.has(String(w.id))).sort((a,b)=>Number(a.id)-Number(b.id))[0]||null
+    }
     if(!auto){
      const code=String(plan.elements.find(e=>e.file)?.file||data.source?.name||"").replace(/\.pdf$/i,"").split(/[,;]\s*/)[0].trim().slice(0,60);
      auto=database.createEntity(oid,"work-types",{record_type:"item",title:AUTO_WORK,data:{work_category:"installation",has_marks:true,work_type:AUTO_WORK,

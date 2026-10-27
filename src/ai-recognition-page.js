@@ -180,6 +180,8 @@ window.irAiRecognitionPage=async function(objectId){
   if(!aiDone())await run("skip",async()=>{view=await montage.skipAI(id,view.draftId);syncHeights()});
   if(!aiDone()||!view?.plan?.ready)return;
   await run("place",async()=>{view=await montage.place(id,view.draftId,heights)});
+  // The placement may have made the work type «Монтаж металлоконструкций (из PDF)»: this page and the other tabs know it.
+  await loadWorks();window.irWorkTypesSync?.announce(id);
   if(alive())go("place")
  }
  function analyzePage(){
@@ -491,10 +493,10 @@ window.irAiRecognitionPage=async function(objectId){
   on("[data-ms-place]",e=>{const k=e.target.dataset.msPlace;heights[k]={...heights[k],place:e.target.checked};preview()});
   on("[data-ms-z0]",e=>{const k=e.target.dataset.msZ0;heights[k]={...heights[k],z0_mm:e.target.value};preview()});
   on("[data-ms-z1]",e=>{const k=e.target.dataset.msZ1;heights[k]={...heights[k],z1_mm:e.target.value};preview()});
-  on("[data-ms-placeit]",()=>run("place",async()=>{view=await montage.place(id,view.draftId,heights)}));
+  on("[data-ms-placeit]",()=>run("place",async()=>{view=await montage.place(id,view.draftId,heights);await loadWorks();window.irWorkTypesSync?.announce(id)}));
   on("[data-ms-undo]",()=>{
    if(!confirm("Удалить расставленные элементы из монтажной схемы?"))return;
-   run("undo",async()=>{const r=await montage.undo(id,view.draftId);view=r.view;syncHeights()})
+   run("undo",async()=>{const r=await montage.undo(id,view.draftId);view=r.view;syncHeights();await loadWorks();window.irWorkTypesSync?.announce(id)})
   });
   on("[data-ms-clear]",clearScheme);
   on("[data-ms-edits-send]",sendEdits);
@@ -510,5 +512,8 @@ window.irAiRecognitionPage=async function(objectId){
  });
  window.addEventListener("hashchange",()=>stopProgress?.(),{once:true});
  render();
- await load()
+ await load();
+ // A work type renamed or made in another tab: the lists of the drawings show it.
+ const pageSerial=window.__irAiPageSerial=(window.__irAiPageSerial||0)+1;
+ window.irWorkTypesSync?.watch(id,()=>pageSerial===window.__irAiPageSerial&&alive(),async()=>{await loadWorks();if(pageSerial===window.__irAiPageSerial&&alive())render()})
 };
