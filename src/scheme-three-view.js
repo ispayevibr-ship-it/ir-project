@@ -75,7 +75,15 @@ window.irThreeSchemeView=(function(){
  }
  function ralColor(r){return RAL[r]!==undefined?RAL[r]:RAL_EFFECT[r]!==undefined?RAL_EFFECT[r]:ralDesign(r)}
  function ralOf(c){var r=c&&c.lay&&String(c.lay.ral||"");return r&&ralColor(r)!==undefined?r:""}
- function colorKey(c){var r=ralOf(c);if(!r)return kind(c);var k="ral:"+r;if(!groups[k])groups[k]=["RAL "+r+(RAL_NAMES[r]?" "+RAL_NAMES[r]:""),ralColor(r)];return k}
+ // A colour named by a word in the finish of the facade («Окна | Профиль ПВХ | Белый»): the nearest shade of RAL Classic
+ // (white of PVC profiles — 9016, anthracite — 7016, graphite — 7024).
+ var COLOUR_WORDS=[[/^бел/i,"Белый",0xf1f0ea],[/^сер[её]бр/i,"Серебристый",0xa5a9ad],[/^сер/i,"Серый",0x8f9499],[/^ч[её]рн/i,"Чёрный",0x26282b],[/^коричн/i,"Коричневый",0x5b3a29],[/^графит/i,"Графит",0x474a51],[/^антрацит/i,"Антрацит",0x383e42]];
+ function colourWord(c){var w=c&&c.lay&&String(c.lay.colour||"");if(!w)return null;for(var i=0;i<COLOUR_WORDS.length;i++)if(COLOUR_WORDS[i][0].test(w))return COLOUR_WORDS[i];return null}
+ function colorKey(c){
+  var r=ralOf(c);
+  if(!r){var w=colourWord(c);if(!w)return kind(c);var kw="colour:"+w[1];if(!groups[kw])groups[kw]=[w[1],w[2]];return kw}
+  var k="ral:"+r;if(!groups[k])groups[k]=["RAL "+r+(RAL_NAMES[r]?" "+RAL_NAMES[r]:""),ralColor(r)];return k
+ }
  var COLOR_MODES=["status","type","mark","confidence"];
  var backgrounds={standard:0xdfe8f3,white:0xffffff,gray:0xd9dde2,blue:0xd6e6f6,sand:0xefe6d6,dark:0x1d2733};
  var kindNames={column:"колонна",beam:"балка",bent:"ломаная балка",brace:"связь",truss:"ферма",shell:"стенка резервуара",plate:"днище / площадка"};
@@ -646,6 +654,11 @@ window.irThreeSchemeView=(function(){
   var jointMat=new T.MeshStandardMaterial({color:0x3b4552,metalness:.1,roughness:.8});
   // The glass of windows of the АР: see-through, its frame and sashes in the colour of the window.
   var openingGlass=new T.MeshStandardMaterial({color:0x9ccbe8,metalness:.1,roughness:.08,transparent:true,opacity:.42,depthWrite:false,side:T.DoubleSide});
+  // The hinges, handles and thresholds of doors and gates (dark steel; the handles of a PVC door silver); the sill and the
+  // board of a window in their own colours. They keep them in every colouring (fixed).
+  var hardwareMat=new T.MeshStandardMaterial({color:0x3a3f46,metalness:.55,roughness:.4}),silverMat=new T.MeshStandardMaterial({color:0xc9ced3,metalness:.6,roughness:.3});
+  var fixedMats=new Map();
+  function fixedMaterial(color){if(!fixedMats.has(color))fixedMats.set(color,new T.MeshStandardMaterial({color:color,metalness:.2,roughness:.55,side:T.DoubleSide}));return fixedMats.get(color)}
   // A rectangle of a wall panel less its holes ([from, to along it, from, to over its foot]) in pieces, rectangles too.
   function wallPieces(s0,s1,h,holes){
    var xs=[s0,s1];holes.forEach(function(o){[o[0],o[1]].forEach(function(v){if(v>s0+1e-4&&v<s1-1e-4)xs.push(v)})});
@@ -1962,32 +1975,7 @@ window.irThreeSchemeView=(function(){
     labelLayer.appendChild(de);labels.push({el:de,pos:dl,id:id});
     return
    }
-   // Windows, doors and gates of the АР in their walls (their width along the wall, c.fd their height from the foot): a
-   // frame of 60 mm round the block; a window glazed, its sashes about every 1.2 m; a door — its leaf, two over 1.1 m, a
-   // handle; a gate — its leaf with the ribs across.
-   if(c.ft==="window"||c.ft==="door"||c.ft==="gate"){
-    var wu=new T.Vector3(0,1,0),wx=new T.Vector3().crossVectors(wu,dir);if(wx.lengthSq()<1e-6)wx.set(1,0,0);wx.normalize();
-    var wy=new T.Vector3().crossVectors(dir,wx).normalize(),wq=new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(wx,wy,dir));
-    var wm=start.clone().add(end).multiplyScalar(.5),H=Math.max(.3,(number(c.fd)||1500)/1000),fr=.06,fdp=c.ft==="window"?.07:.08,mat=baseMaterial(c),fp=[];
-    var bar=function(w,h,l,y,s,m){var mesh=new T.Mesh(new T.BoxGeometry(w,h,l),m||mat);mesh.quaternion.copy(wq);mesh.position.copy(wm).add(new T.Vector3(0,y,s).applyQuaternion(wq));fp.push(mesh)};
-    bar(fdp,H,fr,H/2,-len/2+fr/2);bar(fdp,H,fr,H/2,len/2-fr/2);bar(fdp,fr,len-2*fr,H-fr/2,0);
-    if(c.ft==="window"){
-     bar(fdp,fr,len-2*fr,fr/2,0);
-     var ns=Math.max(1,Math.round(len/1.2));for(var k=1;k<ns;k++)bar(fdp,H-2*fr,fr*.8,H/2,-len/2+len*k/ns);
-     bar(.012,H-2*fr,len-2*fr,H/2,0,openingGlass)
-    }
-    else{
-     var nl=c.ft==="door"&&len>1.1||c.ft==="gate"&&len>2.4?2:1,lw=(len-2*fr)/nl;
-     for(var k2=0;k2<nl;k2++)bar(.045,H-fr-.01,lw-.008,(H-fr)/2,-len/2+fr+lw*(k2+.5));
-     if(c.ft==="gate")for(var gy=.5;gy<H-fr-.2;gy+=.5)bar(.06,.03,len-2*fr-.02,gy,0,jointMat);
-     else bar(.07,.025,.13,1.0,-len/2+fr+lw*nl-.1-(nl===2?lw-.2:0),jointMat)
-    }
-    fp.forEach(function(mesh){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh)});
-    var wl=wm.clone();wl.y+=H+.3;
-    var we=document.createElement("span");we.className="ir-three-member-label";we.textContent=c.mark||c.title||"";
-    labelLayer.appendChild(we);labels.push({el:we,pos:wl,id:id});
-    return
-   }
+   if(c.ft==="window"||c.ft==="door"||c.ft==="gate"){addOpening(c,id,start,end);return}
    // A field of sandwich panels (АР): a wall one stands on its lower edge to its height, a roof one lies on the slope at
    // its width; a trim (нащельник, планка) — a thin bent strip of two shelves along its line.
    if(c.ft==="panel"||c.ft==="trim"){
@@ -2046,6 +2034,149 @@ window.irThreeSchemeView=(function(){
    var top=end.clone();top.y+=.35;
    var el=document.createElement("span");el.className="ir-three-member-label";el.textContent=c.mark||c.title||"";
    labelLayer.appendChild(el);labels.push({el:el,pos:top,id:id})
+  }
+  // Windows, doors and gates of the АР in their walls (the engineer, 27.10.2026: «Окна и ворота сделай в 3д нормальное
+  // отображение»): the block of its width along the wall and its height (c.fd) from its foot, as its scheme in the АР
+  // draws it — lay.fields (the panes and sashes of a window), lay.joints (the leaves of a door or a gate), lay.wicket,
+  // lay.panes (the glass of a door), mm from its start — else by its mark (ГОСТ 23166, 30970, 31173, 31174).
+  // A window (PVC, 70 mm): the frame and the mullions round its fields, a sash in its own frame a little inside with its
+  // handle inside at the side it opens from («ПОТ», «ПР»; «ОТ» — at the top), glass; the sill outside, the board inside.
+  // A door: its frame, one or two leaves («Оп», «Дп»; the active one the wider) flush with the face it opens to («Н» —
+  // outside, «Вн» — inside), hinged at the side its mark gives («Л», «Пр» — as seen from that face), handles on both
+  // sides, a threshold («Прг», «П» of a PVC door), glass («О» of a PVC door). A gate («ВМ П Р С Г К»): two leaves on
+  // their hinges outside («С») or inside («В») the opening, a wicket («К», «Кл», «Кпр») with its handle; a sectional
+  // one («ПС») — its panels, the guides and the tracks inside.
+  function addOpening(c,id,start,end){
+   var lay=c.lay||{},name=String(c.mark_name||c.title||""),kind=c.ft,L=start.distanceTo(end);
+   var tokens=name.replace(/[,;]/g," ").split(/[\s-]+/).filter(Boolean),has=function(t){return tokens.indexOf(t)>=0};
+   var along=end.clone().sub(start);along.y=0;if(along.lengthSq()<1e-9||L<.05)return;along.normalize();
+   var up=new T.Vector3(0,1,0),side=new T.Vector3().crossVectors(along,up).normalize();
+   var foot=start.clone().add(end).multiplyScalar(.5),out;
+   if(Array.isArray(lay.outside)&&lay.outside.length===2)out=toWorld(number(lay.outside[0])*1000,number(lay.outside[1])*1000,0).sub(toWorld(0,0,0));
+   else out=foot.clone().sub(toWorld(spanX/2,spanY/2,0));
+   // s — across the wall, outwards; x — along it from the middle; y — up from the foot.
+   var sg=out.dot(side)<0?-1:1,q=new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(along,up,side));
+   var H=Math.max(.3,(number(c.fd)||1500)/1000),t=Math.max(.05,(number(lay.thickness_mm)||150)/1000),mat=baseMaterial(c),parts=[];
+   var box=function(a,h,d,x,y,s,m,small,tilt){
+    var mesh=new T.Mesh(new T.BoxGeometry(Math.max(.002,a),Math.max(.002,h),Math.max(.002,d)),m||mat);mesh.quaternion.copy(q);
+    if(tilt)mesh.quaternion.multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),tilt*sg));
+    mesh.position.copy(foot).add(new T.Vector3(x,y,s*sg).applyQuaternion(q));
+    if(m&&m!==mat)mesh.userData.fixed=true;if(small)mesh.userData.small=true;parts.push(mesh);return mesh
+   };
+   var pin=function(r,h,x,y,s,m){var g=new T.CylinderGeometry(r,r,h,10),mesh=new T.Mesh(g,m||hardwareMat);mesh.position.copy(foot).add(new T.Vector3(x,y,s*sg).applyQuaternion(q));mesh.userData.fixed=true;mesh.userData.small=true;parts.push(mesh)};
+   var X=function(u){return u-L/2},mm=function(v){return number(v)/1000};
+   // The side to the right of one standing on the face `face` (+1 outside, -1 inside) looking at the block: +1 — its end.
+   var rightOf=function(face){var look=out.clone().multiplyScalar(-face),r=new T.Vector3().crossVectors(look,up);return r.dot(along)>=0?1:-1};
+   // A frame or a leaf less its holes ([from, to along, from, to over the foot], m): its solid pieces.
+   var solid=function(u0,u1,z0,z1,holes,d,s,m){
+    var hs=holes.map(function(o){return[o[0]-u0,o[1]-u0,o[2]-z0,o[3]-z0]});
+    wallPieces(0,u1-u0,z1-z0,hs).forEach(function(r){box(r[1]-r[0],r[3]-r[2],d,X(u0+(r[0]+r[1])/2),z0+(r[2]+r[3])/2,s,m)})
+   };
+   if(kind==="window"){
+    var fw=.068,fd=.07,fields;
+    if(Array.isArray(lay.fields)&&lay.fields.length)fields=lay.fields.map(function(f){return{u0:mm(f.u&&f.u[0]),u1:mm(f.u&&f.u[1]),z0:mm(f.z&&f.z[0]),z1:mm(f.z&&f.z[1]),sash:Boolean(f.sash||f.open),open:String(f.open||""),handle:String(f.handle||"")}}).filter(function(f){return f.u1-f.u0>.05&&f.z1-f.z0>.05});
+    if(!fields||!fields.length){
+     // By its mark («ОСвп-П-1160х3530-СП-К-ВП»): fields about 1,2 m wide; «К» — every other one opens.
+     var how=(/-(ПОТ|ПР|ОТ|Н|К)(?=-|$)/.exec(name)||[])[1]||"",n=Math.max(1,Math.ceil(L/1.2-.1)),mw=.08,w=(L-2*fw-(n-1)*mw)/n;fields=[];
+     for(var i=0;i<n;i++){var op=how==="К"?(i%2?"":"ПОТ"):how==="Н"?"":how;fields.push({u0:fw+i*(w+mw),u1:fw+i*(w+mw)+w,z0:fw,z1:H-fw,sash:Boolean(op),open:op,handle:op==="ОТ"?"top":i===n-1&&n>1?"start":"end"})}
+    }
+    solid(0,L,0,H,fields.map(function(f){return[f.u0,f.u1,f.z0,f.z1]}),fd,0);
+    fields.forEach(function(f){
+     var w=f.u1-f.u0,h=f.z1-f.z0,cx=X((f.u0+f.u1)/2),cy=(f.z0+f.z1)/2;
+     if(!f.sash){
+      // A pane in the frame, its glazing bead inside.
+      box(w,h,.024,cx,cy,0,openingGlass);var gb=.02;
+      box(w,gb,.02,cx,f.z1-gb/2,-.025);box(w,gb,.02,cx,f.z0+gb/2,-.025);box(gb,h-2*gb,.02,X(f.u0)+gb/2,cy,-.025);box(gb,h-2*gb,.02,X(f.u1)-gb/2,cy,-.025);
+      return
+     }
+     var sw=Math.min(.075,w/4,h/4),sd=.078,si=-.012,e=.003;
+     box(w-2*e,sw,sd,cx,f.z1-e-sw/2,si);box(w-2*e,sw,sd,cx,f.z0+e+sw/2,si);
+     box(sw,h-2*e-2*sw,sd,X(f.u0)+e+sw/2,cy,si);box(sw,h-2*e-2*sw,sd,X(f.u1)-e-sw/2,cy,si);
+     box(w-2*e-2*sw,h-2*e-2*sw,.024,cx,cy,si,openingGlass);
+     if(!f.open)return;
+     // Its handle inside: a plate and the lever down (across at the top of a tilting one).
+     var face=si-sd/2,top=f.handle==="top",hx=f.handle==="start"?X(f.u0)+e+sw/2:f.handle==="end"?X(f.u1)-e-sw/2:cx,hy=top?f.z1-e-sw/2:f.handle==="bottom"?f.z0+e+sw/2:cy;
+     box(top?.075:.03,top?.03:.075,.012,hx,hy,face-.006,mat,true);
+     if(top)box(.12,.022,.02,hx+.05,hy,face-.022,mat,true);else box(.022,.12,.02,hx,hy-.05,face-.022,mat,true)
+    });
+    // The sill outside (its colour from the table of sills), the board inside (its depth from the table of boards).
+    if(lay.sill_ral&&ralColor(String(lay.sill_ral))!==undefined){var sd2=t/2+.05-fd/2;box(L+.04,.003,sd2,0,-.012,fd/2+sd2/2,fixedMaterial(ralColor(String(lay.sill_ral))),false,.14)}
+    if(number(lay.board_mm)>0){var bd=number(lay.board_mm)/1000;box(L+.04,.02,bd,0,-.01,fd/2-bd,fixedMaterial(0xf4f4f0))}
+   }
+   else if(kind==="door"){
+    var pvc=/^Д[БП]/.test(tokens[1]||tokens[0]||"")||/ДБ[НВМ]/.test(name),df=.065,dd=pvc?.07:.09,lt=pvc?.07:.05;
+    var face=has("Вн")?-1:1,sill=has("Прг")||pvc&&has("П"),glazed=pvc&&(has("О")||has("Км"));
+    // Hinged at the left or the right of one standing on the face it opens to.
+    var hingeEnd=(has("Л")?-1:1)*rightOf(face)>0,two=has("Дп"),inner=L-2*df,bottom=sill?.02:0;
+    var cuts=Array.isArray(lay.joints)&&lay.joints.length?lay.joints.map(mm).filter(function(u){return u>df+.1&&u<L-df-.1}):[];
+    if(!cuts.length&&two){var aw=inner<1.6?inner*.65:inner/2;cuts=[hingeEnd?L-df-aw:df+aw]}
+    var edges=[df].concat(cuts,[L-df]),ls=face*(dd/2-lt/2);
+    box(df,H,dd,X(df/2),H/2,0);box(df,H,dd,X(L-df/2),H/2,0);box(L-2*df,df,dd,0,H-df/2,0);
+    if(sill)box(L-2*df,.02,dd,0,.01,0,hardwareMat);
+    var leaves=[];for(var k=0;k+1<edges.length;k++)leaves.push([edges[k]+.002,edges[k+1]-.002]);
+    // The active leaf: the wider (one — itself); hinged at its frame side, the handle at its free edge.
+    var act=leaves.reduce(function(b,l,i){return l[1]-l[0]>leaves[b][1]-leaves[b][0]+.01?i:b},leaves.length===1?0:hingeEnd?leaves.length-1:0);
+    var panes=Array.isArray(lay.panes)?lay.panes.map(function(p){return[mm(p[0]),mm(p[1]),mm(p[2]),mm(p[3])]}):[];
+    leaves.forEach(function(l,i){
+     var z0=bottom+.004,z1=H-df-.003,own=panes.filter(function(p){return p[0]>=l[0]-.01&&p[1]<=l[1]+.01});
+     if(glazed&&!own.length)own=[[l[0]+.11,l[1]-.11,.12,z1-.11]];
+     if(glazed){solid(l[0],l[1],z0,z1,own.map(function(p){return[Math.max(l[0],p[0]),Math.min(l[1],p[1]),Math.max(z0,p[2]),Math.min(z1,p[3])]}),lt,ls);own.forEach(function(p){box(p[1]-p[0],p[3]-p[2],.024,X((p[0]+p[1])/2),(p[2]+p[3])/2,ls,openingGlass)})}
+     else box(l[1]-l[0],z1-z0,lt,X((l[0]+l[1])/2),(z0+z1)/2,ls);
+     // Hinges on the face it opens to, at the side of the frame.
+     var hingeAtEnd=leaves.length===1?hingeEnd:i===leaves.length-1,hx=X(hingeAtEnd?l[1]:l[0]),hs=face*(dd/2+.012);
+     [.25,H-.35].concat(H>1.6?[(H-.1)/2]:[]).forEach(function(y){pin(.012,.12,hx,y,hs)});
+     if(i!==act)return;
+     var fx=X(hingeAtEnd?l[0]+.07:l[1]-.07),dir=hingeAtEnd?1:-1,m=pvc?silverMat:hardwareMat;
+     [1,-1].forEach(function(f){var s=ls+f*(lt/2+.006);box(.045,.2,.012,fx,1.0,s,m,true);box(.13,.022,.022,fx+dir*.055,1.04,s+f*.03,m,true)})
+    })
+   }
+   else{
+    var sect=/подъ[её]мно|ПС\b|Пс\b/.test(name)||has("ПС"),mount=has("В")?-1:has("С")?1:0;
+    var gf=.08,gd=.1,frameS=mount*(t/2-gd/2),lt2=.05,leafS=mount?mount*(t/2+lt2/2+.01):0;
+    box(gf,H,gd,X(gf/2),H/2,frameS);box(gf,H,gd,X(L-gf/2),H/2,frameS);box(L-2*gf,gf,gd,0,H-gf/2,frameS);
+    if(sect){
+     // Sections across, their joints; the guides at the sides and the tracks under the roof inside.
+     var ns=Math.max(4,Math.round(H/.55)),sh=(H-gf)/ns,si2=-(t/2+.04);
+     for(var k=0;k<ns;k++)box(L-2*gf,sh-.006,.045,0,k*sh+sh/2,si2);
+     [gf/2,L-gf/2].forEach(function(u){box(.07,H,.06,X(u),H/2,si2-.01);box(.06,.06,Math.min(H,4),X(u),H+.05,-(t/2+Math.min(H,4)/2),hardwareMat)});
+     box(.3,.05,.03,0,.3,si2-.04,hardwareMat,true)
+    }
+    else{
+     var cuts2=Array.isArray(lay.joints)&&lay.joints.length?lay.joints.map(mm).filter(function(u){return u>.3&&u<L-.3}):L>1.5?[L/2]:[];
+     var ed=[0].concat(cuts2,[L]),wk=Array.isArray(lay.wicket)&&lay.wicket.length===4?lay.wicket.map(mm):null;
+     if(!wk&&(has("К")||has("Кл")||has("Кпр"))&&ed.length>2){
+      // Without its scheme: a wicket 900 × 2000 in the left leaf («Кпр» — the right one) as seen from outside, at its
+      // meeting edge.
+      var rightEnd=rightOf(1)>0,inRight=has("Кпр"),atEnd=inRight===rightEnd,mid=ed[1];
+      wk=atEnd?[mid+.2,mid+1.1,.1,2.1]:[mid-1.1,mid-.2,.1,2.1]
+     }
+     for(var g=0;g+1<ed.length;g++){
+      var a=ed[g]+(g?.004:0),b=ed[g+1]-(g+2<ed.length?.004:0),lw=b-a,cx=X((a+b)/2),own2=wk&&wk[0]>=a-.01&&wk[1]<=b+.01;
+      // The leaf: its steel frame of tubes round the sheet; a wicket cut in it with its own frame.
+      var holes=[[a+.06,b-.06,.06,H-.06]];
+      solid(a,b,0,H,holes,lt2,leafS);
+      solid(a+.06,b-.06,.06,H-.06,own2?[[wk[0],wk[1],wk[2],Math.min(H-.07,wk[3])]]:[],lt2*.5,leafS);
+      if(own2){
+       var wx0=wk[0],wx1=wk[1],wz0=wk[2],wz1=Math.min(H-.07,wk[3]),ww=wx1-wx0,wh=wz1-wz0;
+       solid(wx0+.006,wx1-.006,wz0+.006,wz1-.006,[[wx0+.05,wx1-.05,wz0+.05,wz1-.05]],lt2,leafS);
+       box(ww-.1,wh-.1,lt2*.5,X((wx0+wx1)/2),(wz0+wz1)/2,leafS);
+       // Its handle at the edge toward the meeting of the leaves, its hinges at the other.
+       var meetEnd=g===0,hxw=X(meetEnd?wx1-.07:wx0+.07),hinge=X(meetEnd?wx0+.01:wx1-.01);
+       [1,-1].forEach(function(f){box(.04,.18,.012,hxw,1.0,leafS+f*(lt2/2+.006),hardwareMat,true);box(.12,.022,.022,hxw+(meetEnd?-.05:.05),1.03,leafS+f*(lt2/2+.03),hardwareMat,true)});
+       [wz0+.25,wz1-.25].forEach(function(y){pin(.012,.12,hinge,y,leafS+(mount||1)*(lt2/2+.012))})
+      }
+      // Hinges at the outer edge of the leaf, on the face it hangs on.
+      var hx2=X(g===0?a+.02:b-.02),hs2=(mount||1)*(Math.abs(leafS)+lt2/2+.02);
+      [.4,H-.5].concat(H>2.2?[H/2]:[]).forEach(function(y){pin(.022,.16,hx2,y,hs2)})
+     }
+     // The handles at the meeting of the leaves, a vertical bar on each face.
+     if(ed.length>2){var jm=X(ed[1]);[1,-1].forEach(function(f){var s=leafS+f*(lt2/2+.03);box(.03,.32,.03,jm-.06,1.05,s,hardwareMat,true);box(.03,.32,.03,jm+.06,1.05,s,hardwareMat,true)})}
+    }
+   }
+   parts.forEach(function(mesh){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh)});
+   var lp=foot.clone();lp.y+=H+.3;
+   var le=document.createElement("span");le.className="ir-three-member-label";le.textContent=c.mark||c.title||"";
+   labelLayer.appendChild(le);labels.push({el:le,pos:lp,id:id})
   }
   // A stair flight (ГОСТ 23120, ГОСТ 31385): two stringers, treads at a rise of 200 (no more than 250), handrails 1.0 m
   // over the treads on both sides with a middle rail. A ladder (стремянка): two strings, rungs every 300 (no more than
@@ -2746,7 +2877,7 @@ window.irThreeSchemeView=(function(){
     viewport.removeEventListener("wheel",wheel,true);root.removeEventListener("wheel",rootWheel);renderer.domElement.removeEventListener("dblclick",dblclick);
     document.removeEventListener("keydown",keyDown);document.removeEventListener("keyup",keyUp);document.removeEventListener("keydown",shiftKey);document.removeEventListener("keyup",shiftKey);
     window.removeEventListener("blur",releaseKeys);
-    controls.dispose();clearNodes();nodeGeo.dispose();nodeMats.forEach(function(m){m.dispose()});boltMat.dispose();plateMat.dispose();concreteMat.dispose();craneMat.dispose();hoistMat.dispose();wheelMat.dispose();glassMat.dispose();openingGlass.dispose();boltMats["8.8"].dispose();boltMats["5.8"].dispose();
+    controls.dispose();clearNodes();nodeGeo.dispose();nodeMats.forEach(function(m){m.dispose()});boltMat.dispose();plateMat.dispose();concreteMat.dispose();craneMat.dispose();hoistMat.dispose();wheelMat.dispose();glassMat.dispose();openingGlass.dispose();hardwareMat.dispose();silverMat.dispose();fixedMats.forEach(function(m){m.dispose()});boltMats["8.8"].dispose();boltMats["5.8"].dispose();
     meshGeo.forEach(function(g){g.dispose()});mats.forEach(function(m){m.dispose()});shellMats.forEach(function(m){m.dispose()});roofMats.forEach(function(m){m.dispose()});
     [selectedMat,hoverMat,axisMaterial,dimMaterial,floorMaterial,darkFloorMaterial,markerMat,pointMat,previewMat].forEach(function(m){m.dispose()});
     var cached=new Set(meshGeo.values());

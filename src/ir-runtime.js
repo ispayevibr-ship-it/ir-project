@@ -1579,7 +1579,11 @@ window.irSchemePage=async function(objectId){
  const guessGeometry=m=>{const key=markGroup(m).key;if(["columns","fahwerk","posts"].includes(key))return"column";if(key==="ties")return"brace";if(key==="trusses")return"truss";return"beam"};
  const geometry=c=>["column","beam","bent","brace","truss","shell","plate"].includes(c.geometry_type)?c.geometry_type:c.absolute_x2_mm!==undefined&&c.absolute_y2_mm!==undefined?guessGeometry(c):"column";
  const FITTING_LABEL={nozzle:"Патрубок",manhole:"Люк-лаз",hatch:"Люк на крыше",valve:"Клапан",foam:"Пеногенератор",ring:"Кольцо на стенке",rod:"Молниеприёмник",sensor:"Патрубок прибора",railing:"Ограждение",flight:"Лестничный марш",ladder:"Стремянка",deck:"Настил площадки",panel:"Сэндвич-панели",trim:"Нащельник, доборный элемент"};
- const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?"Ширина "+Math.round(c.fd):""):c.ft&&c.ft!=="ring"&&c.ft!=="railing"?"Труба"+(c.fd>0?" Ø"+Math.round(c.fd):""):"";
+ // A window, a door, a gate — its block, height × width as its mark writes them; a sandwich panel — its thickness.
+const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?"Ширина "+Math.round(c.fd):""):
+ c.ft==="window"||c.ft==="door"||c.ft==="gate"?"Блок "+(c.fd>0?Math.round(c.fd)+"×"+Math.round(num(c.lay?.width_mm)||Math.hypot(c.x2-c.x,c.y2-c.y))+" (высота × ширина)":""):
+ c.ft==="panel"?"Сэндвич-панель"+(num(c.lay?.thickness_mm)>0?" "+Math.round(num(c.lay.thickness_mm))+" мм":""):c.ft==="trim"?"Фасонный элемент":
+ c.ft&&c.ft!=="ring"&&c.ft!=="railing"?"Труба"+(c.fd>0?" Ø"+Math.round(c.fd):""):"";
  const SHAPE_SECTION={ibeam:"Двутавр",channel:"Швеллер",angle:"Уголок",round:"Труба",plate:"Лист",shell:"Лист (обечайка)",ring:"Лист (кольцо)",rail:"Уголок (ограждение)",stair:"Швеллер (косоур марша)",truss:"Ферма",frame:"Рама",box:"Короб",manhole:"Труба с крышкой (люк)",hatch:"Труба с крышкой (люк)",valve:"Труба с клапаном",foam:"Пеногенератор",sensor:"Труба",nozzle:"Труба",rod:"Стержень",panel:"Сэндвич-панель",trim:"Гнутый элемент (нащельник, планка)"};
  // The section of an element without a profile read from the drawings: what the catalog says it is made of
  // (a tank wall is a sheet, a railing — angles, a nozzle — a pipe), not an I-beam by default.

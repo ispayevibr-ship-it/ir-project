@@ -608,6 +608,22 @@ function arScheme(pages){
  // block is 40 smaller than its opening, a door 40 narrower; one at the foot of the wall stands on ±0,000). Outer doors
  // («ДБН», «ДСН») first; each position as many times as its table counts, then again with a note.
  const fills=ar.flatMap(p=>p.ar.fills||[]),used=new Map();
+ // The block as its scheme in the АР draws it (from outside), turned to the direction of its record (along the axes): a
+ // facade whose axes fall to the right shows it mirrored. Outside — the side of the facade. Its colour from the finish
+ // of the facade (window profiles, gates and doors); a window's sill and its board (the length 40 over the block).
+ const finish=ar.flatMap(p=>p.ar.finish||[]),sills=Object.assign({},...ar.map(p=>p.ar.sills||{})),boards=sills.boards||[];
+ const fillLayout=(f,numbered,reversed,t)=>{
+  const W=f.width_mm,low=numbered!==reversed,sk=f.sketch||{},flip=u=>reversed?W-u:u,box=r=>reversed?[W-r[1],W-r[0],r[2],r[3]]:r;
+  const lay={opening:f.kind,thickness_mm:t,width_mm:W,outside:numbered?[0,low?-1:1]:[low?-1:1,0]};
+  const end=h=>h==="left"?(reversed?"end":"start"):h==="right"?(reversed?"start":"end"):h;
+  if(sk.fields)lay.fields=sk.fields.map(x=>({u:reversed?[W-x.u[1],W-x.u[0]]:x.u,z:x.z,sash:x.sash,...(x.open?{open:x.open,handle:end(x.handle)}:{})})).sort((a,b)=>a.u[0]-b.u[0]||a.z[0]-b.z[0]);
+  if(sk.joints)lay.joints=sk.joints.map(flip).sort((a,b)=>a-b);
+  if(sk.wicket)lay.wicket=box(sk.wicket);
+  if(sk.panes)lay.panes=sk.panes.map(box);
+  const c=finish.find(x=>x.what.includes(f.kind));if(c?.ral)lay.ral=c.ral;else if(c?.colour)lay.colour=c.colour;
+  if(f.kind==="window"){if(sills.sill_ral)lay.sill_ral=sills.sill_ral;const bd=boards.find(q=>Math.abs(q.length_mm-W-40)<=15);if(bd)lay.board_mm=bd.depth_mm}
+  return lay
+ };
  const fitOf=(o,h,floor)=>{
   let best=null;
   for(const f of fills){
@@ -633,10 +649,10 @@ let loose=0;
  const blocks=new Map();for(const f of fills)if(!blocks.has(f.pos))blocks.set(f.pos,f);
  const facades=ar.flatMap(p=>(p.ar.facades||[]).map(v=>({...v,sheet:p.pdfPage||p.page})));
  const walls=views.map(v=>({v,off:shift(v),list:placements.filter(p=>p.view===v)})).filter(w=>w.off!==null&&w.list.length);
- const fillOf=(f,numbered,a,b,z,wall,sheet,notes,over)=>{
+ const fillOf=(f,numbered,reversed,a,b,z,wall,sheet,notes,over)=>{
   const line=wall.line,t=wall.layout?.thickness_mm||150;
   placements.push({mark:f.pos,name:{window:"Окно",door:"Дверь",gate:"Ворота"}[f.kind]+" "+f.name,type_key:f.kind,scheme_group:"openings",geometry_type:"beam",
-   fitting_type:f.kind,diameter_mm:f.height_mm,layout:{opening:f.kind,thickness_mm:t,width_mm:f.width_mm},
+   fitting_type:f.kind,diameter_mm:f.height_mm,layout:fillLayout(f,numbered,reversed,t),
    ...(numbered?{x_mm:Math.round(a),y_mm:line,x2_mm:Math.round(b),y2_mm:line}:{x_mm:line,y_mm:Math.round(a),x2_mm:line,y2_mm:Math.round(b)}),
    z0_mm:z,z1_mm:z,levels_from:"фасады АР",confidence:over?"low":"high",section:"АР",axis_x:wall.axis_x,axis_y:wall.axis_y,sheet:String(sheet),
    notes:[...notes,...(over?["Таких по спецификации "+(f.count||1)+" — этот сверх, проверьте"]:[])]})
@@ -677,7 +693,7 @@ let loose=0;
      for(const p of w.v.panels){const d=Math.hypot(Math.max(0,p.u0+w.off-uc,uc-(p.u1+w.off)),Math.max(0,p.z0-zc,zc-p.z1));if(d<wd){wd=d;wall=w}}}
     if(!wall||wd>3000){lost.push(x.mark+" (лист "+fv.sheet+", стены этой стороны нет в раскладке)");continue}
     used.set(f.pos,(used.get(f.pos)||0)+1);
-    fillOf(f,fv.numbered,a,b,z,wall.list[0],fv.sheet,["Фасад АР, лист "+fv.sheet+": "+f.pos+" "+f.width_mm+"×"+f.height_mm+" ("+f.name+")",...(byHead?["Низ закрыт на фасаде лестницей или площадкой — поставлен по верху, проверьте"]:[])],(used.get(f.pos)||0)>(f.count||1));
+    fillOf(f,fv.numbered,fv.reversed,a,b,z,wall.list[0],fv.sheet,["Фасад АР, лист "+fv.sheet+": "+f.pos+" "+f.width_mm+"×"+f.height_mm+" ("+f.name+")",...(byHead?["Низ закрыт на фасаде лестницей или площадкой — поставлен по верху, проверьте"]:[])],(used.get(f.pos)||0)>(f.count||1));
     cutHoles(fv.numbered,a,b,z,z+f.height_mm,wall.list)
    }
   }
@@ -701,7 +717,7 @@ let loose=0;
    if(!line)continue;
    const over=(used.get(f.pos)||0)>(f.count||1);
    placements.push({mark:f.pos,name:{window:"Окно",door:"Дверь",gate:"Ворота"}[f.kind]+" "+f.name,type_key:f.kind,scheme_group:"openings",geometry_type:"beam",
-    fitting_type:f.kind,diameter_mm:f.height_mm,layout:{opening:f.kind,thickness_mm:t,width_mm:f.width_mm},
+    fitting_type:f.kind,diameter_mm:f.height_mm,layout:fillLayout(f,v.numbered,v.reversed,t),
     ...(v.numbered?{x_mm:Math.round(a),y_mm:line,x2_mm:Math.round(b),y2_mm:line}:{x_mm:line,y_mm:Math.round(a),x2_mm:line,y2_mm:Math.round(b)}),
     z0_mm:z,z1_mm:z,levels_from:"проём в раскладке панелей АР",confidence:over?"low":"medium",section:"АР",axis_x:wall.axis_x,axis_y:wall.axis_y,sheet:String(v.sheet),
     notes:["Проём "+Math.round(w)+"×"+Math.round(h)+" в раскладке панелей АР, лист "+v.sheet+"; "+f.pos+" по размеру ("+f.width_mm+"×"+f.height_mm+")"+(fit.dh&&h-f.height_mm>80?"; над ним панель или решётка — проверьте":""),

@@ -341,10 +341,148 @@ function fillViews({segments=[],texts=[]}={}){
  }
  return views
 }
+// Schemes of the blocks over their tables, drawn as on the facade (from outside): the block «ОК-3» is the rectangle of
+// its proportions under its label. Inside it a window's fields (a pane in the frame; a sash — a second rectangle in its
+// field); the joints of the leaves of a door or a gate (lines over its height); a wicket (a rectangle on the foot of a
+// leaf); the glass of a door (a rectangle with the strokes of glass). The lines of a sash meet at the side it opens
+// from: at its handle (turn — hinged at the other side), at the top (tilt — hinged at its foot); both — «ПОТ» (ГОСТ
+// 23166: «с поворотом створки вокруг вертикальной и нижней крайних осей»). Millimetres from the lower left corner of
+// the block as drawn. The engineer, 27.10.2026: «Окна и ворота сделай в 3д нормальное отображение».
+function fillSketches({segments=[],texts=[]}={},fills=[]){
+ const want=new Map(fills.filter(f=>f.width_mm&&f.height_mm).map(f=>[f.pos,f]));
+ const labels=texts.filter(t=>horizontalText(t)&&want.has(String(t.str).trim())&&!rowOf(texts,t,480).some(o=>/ГОСТ|\d{3,5}\s*[хx×-]\s*\d{3,5}/u.test(String(o.str))));
+ if(!labels.length)return;
+ const H=[],V=[],D=[];
+ for(const s of segments){
+  const dx=Math.abs(s.a.x-s.b.x),dy=Math.abs(s.a.y-s.b.y);
+  if(dy<=.3&&dx>=2)H.push({y:(s.a.y+s.b.y)/2,x0:Math.min(s.a.x,s.b.x),x1:Math.max(s.a.x,s.b.x)});
+  else if(dx<=.3&&dy>=2)V.push({x:(s.a.x+s.b.x)/2,y0:Math.min(s.a.y,s.b.y),y1:Math.max(s.a.y,s.b.y)});
+  else if(dx>.4&&dy>.4)D.push(s)
+ }
+ // Rectangles: two upright lines and the outermost lines across both of them, each side one unbroken line; the glass of
+ // a door — from a corner for 80 % of it at least (a handle drawn over a leaf breaks its lines).
+ const cover=(list,a,b,part)=>{
+  const runs=[];for(const q of list.slice().sort((p,q)=>p[0]-q[0])){const r=runs[runs.length-1];if(r&&q[0]<=r[1]+.8)r[1]=Math.max(r[1],q[1]);else runs.push(q.slice())}
+  let best=0;for(const r of runs){if(r[0]>a+.8&&r[1]<b-.8)continue;if(!part&&(r[0]>a+.8||r[1]<b-.8))continue;const lo=Math.max(a,r[0]),hi=Math.min(b,r[1]);if(hi>lo)best=Math.max(best,(hi-lo)/(b-a))}
+  return part?best:best>=.99?1:0
+ };
+ const rectsIn=(x0,x1,y0,y1,part=false)=>{
+  const vs=V.filter(v=>v.x>=x0&&v.x<=x1&&v.y1>=y0&&v.y0<=y1&&v.y1-v.y0>=4),ys=new Map(),xs=new Map(),key=v=>Math.round(v*3)/3,out=[];
+  for(const v of vs){const k=key(v.x);if(!xs.has(k))xs.set(k,[]);xs.get(k).push([v.y0,v.y1])}
+  for(const h of H)if(h.y>=y0&&h.y<=y1&&h.x1>=x0&&h.x0<=x1){const k=key(h.y);if(!ys.has(k))ys.set(k,[]);ys.get(k).push([h.x0,h.x1])}
+  for(const a of vs)for(const b of vs){
+   if(b.x-a.x<3||Math.min(a.y1,b.y1)-Math.max(a.y0,b.y0)<4)continue;
+   const lo=Math.min(a.y0,b.y0)-.8,hi=Math.max(a.y1,b.y1)+.8,across=[...ys.keys()].filter(y=>y>=lo&&y<=hi&&cover(ys.get(y),a.x,b.x,part)>=.8);if(across.length<2)continue;
+   const t=Math.min(...across),u=Math.max(...across);if(u-t<4)continue;
+   if(cover(xs.get(key(a.x)),t,u,part)<.8||cover(xs.get(key(b.x)),t,u,part)<.8)continue;
+   if(!out.some(r=>Math.abs(r.l-a.x)<.3&&Math.abs(r.r-b.x)<.3&&Math.abs(r.t-t)<.3&&Math.abs(r.b-u)<.3))out.push({l:a.x,r:b.x,t,b:u})
+  }
+  return out
+ };
+ const inside=(r,q,e=.4)=>r!==q&&r.l>=q.l-e&&r.r<=q.r+e&&r.t>=q.t-e&&r.b<=q.b+e;
+ // The strokes along a line from p to q: their length over its length.
+ const along=(p,q,box)=>{
+  const L=Math.hypot(q.x-p.x,q.y-p.y),ux=(q.x-p.x)/L,uy=(q.y-p.y)/L,tol=Math.max(.8,.04*Math.min(box.r-box.l,box.b-box.t));let sum=0;
+  for(const s of D){
+   const off=[s.a,s.b].map(e=>Math.abs((e.x-p.x)*uy-(e.y-p.y)*ux)),at=[s.a,s.b].map(e=>((e.x-p.x)*ux+(e.y-p.y)*uy)/L);
+   if(off[0]<=tol&&off[1]<=tol&&Math.min(...at)>=-.05&&Math.max(...at)<=1.05)sum+=Math.hypot(s.a.x-s.b.x,s.a.y-s.b.y)
+  }
+  return sum/L
+ };
+ for(const t of labels){
+  const f=want.get(String(t.str).trim());if(f.sketch)continue;
+  const b=textBox(t),aspect=f.width_mm/f.height_mm;
+  const all=rectsIn(b.cx-420,b.cx+420,b.cy-4,b.cy+520);
+  const blocks=all.filter(r=>r.t>b.cy&&r.t-b.cy<(r.b-r.t)*.9+90&&b.cx>=r.l-10&&b.cx<=r.r+10&&Math.abs((r.r-r.l)/(r.b-r.t)/aspect-1)<=.04)
+   .sort((p,q)=>Math.abs((p.r-p.l)/(p.b-p.t)/aspect-1)-Math.abs((q.r-q.l)/(q.b-q.t)/aspect-1)||(q.r-q.l)*(q.b-q.t)-(p.r-p.l)*(p.b-p.t));
+  const B=blocks[0];if(!B)continue;
+  const w=B.r-B.l,h=B.b-B.t,mmU=x=>Math.round((x-B.l)/w*f.width_mm/5)*5,mmZ=y=>Math.round((B.b-y)/h*f.height_mm/5)*5;
+  const box=r=>[mmU(r.l),mmU(r.r),mmZ(r.b),mmZ(r.t)];
+  const own=all.filter(r=>inside(r,B)&&!(r.r-r.l>=.95*w&&r.b-r.t>=.9*h));
+  const sketch={};
+  if(f.kind==="window"){
+   let fields=own.filter(r=>r.r-r.l>=.08*w&&r.b-r.t>=.2*h);fields=fields.filter(r=>!fields.some(q=>inside(r,q)));
+   // A transom: a pair of lines across the whole field.
+   fields=fields.flatMap(r=>{
+    const cut=H.filter(l=>l.x0<=r.l+.03*(r.r-r.l)&&l.x1>=r.r-.03*(r.r-r.l)&&l.y>r.t+.08*(r.b-r.t)&&l.y<r.b-.08*(r.b-r.t)).map(l=>l.y).sort((p,q)=>p-q);
+    if(!cut.length)return[r];const out=[];let top=r.t;
+    for(let i=0;i<cut.length;){let j=i;while(j+1<cut.length&&cut[j+1]-cut[j]<6)j++;out.push({l:r.l,r:r.r,t:top,b:cut[i]});top=cut[j];i=j+1}
+    out.push({l:r.l,r:r.r,t:top,b:r.b});return out.filter(q=>q.b-q.t>=4)
+   });
+   fields=fields.filter(r=>!fields.some(q=>q!==r&&inside(q,r,.3)));
+   // Fields over each other are not read (the lines of a frame behind a glazing drawn over it).
+   if(!fields.length||fields.some(r=>fields.some(q=>q!==r&&Math.min(r.r,q.r)-Math.max(r.l,q.l)>1&&Math.min(r.b,q.b)-Math.max(r.t,q.t)>1)))continue;
+   sketch.fields=fields.sort((p,q)=>p.l-q.l||q.t-p.t).map(r=>{
+    const inner=own.filter(q=>inside(q,r)&&q.r-q.l>=.6*(r.r-r.l)).sort((p,q)=>(p.r-p.l)-(q.r-q.l))[0]||r,g=inner;
+    const mid={x:(g.l+g.r)/2,y:(g.t+g.b)/2},meets=(p1,p2,q)=>along(p1,q,g)>=.25&&along(p2,q,g)>=.25;
+    const right=meets({x:g.l,y:g.t},{x:g.l,y:g.b},{x:g.r,y:mid.y}),left=meets({x:g.r,y:g.t},{x:g.r,y:g.b},{x:g.l,y:mid.y});
+    const top=meets({x:g.l,y:g.b},{x:g.r,y:g.b},{x:mid.x,y:g.t}),foot=meets({x:g.l,y:g.t},{x:g.r,y:g.t},{x:mid.x,y:g.b});
+    const turn=right?"right":left?"left":"",open=turn&&top?"ПОТ":turn?"ПР":top?"ОТ":foot?"П":"";
+    const [u0,u1,z0,z1]=box(r);
+    return{u:[u0,u1],z:[z0,z1],sash:Boolean(open)||inner!==r&&inner.l-r.l>=.5&&r.r-inner.r>=.5&&inner.t-r.t>=.5&&r.b-inner.b>=.5,...(open?{open,handle:turn||(top?"top":"bottom")}:{})}
+   })
+  }
+  else{
+   const joints=[];
+   for(const v of V.filter(v=>v.x>B.l+.08*w&&v.x<B.r-.08*w&&v.y0<=B.t+.15*h&&v.y1>=B.b-.15*h&&v.y1-v.y0>=.8*h).sort((p,q)=>p.x-q.x)){
+    const last=joints[joints.length-1];if(last&&v.x-last.x1<=3)last.x1=v.x;else joints.push({x0:v.x,x1:v.x})
+   }
+   if(joints.length)sketch.joints=joints.map(j=>mmU((j.x0+j.x1)/2));
+   const wicket=f.kind==="gate"&&own.filter(r=>r.b-r.t>=.3*h&&r.b-r.t<=.85*h&&r.r-r.l>=.12*w&&r.r-r.l<=.45*w&&B.b-r.b<=.08*h).sort((p,q)=>(q.r-q.l)*(q.b-q.t)-(p.r-p.l)*(p.b-p.t))[0];
+   if(wicket)sketch.wicket=box(wicket);
+   // Glass: a rectangle with the strokes of glass inside it (short parallel strokes, not across it).
+   const loose=rectsIn(B.l-1,B.r+1,B.t-1,B.b+1,true).filter(r=>inside(r,B)&&!(r.r-r.l>=.95*w&&r.b-r.t>=.9*h));
+   // Glass: a rectangle with its mark inside — two or three short strokes side by side (not the dashes of one line).
+   const strokes=r=>D.filter(s=>Math.min(s.a.x,s.b.x)>=r.l-.5&&Math.max(s.a.x,s.b.x)<=r.r+.5&&Math.min(s.a.y,s.b.y)>=r.t-.5&&Math.max(s.a.y,s.b.y)<=r.b+.5&&Math.hypot(s.a.x-s.b.x,s.a.y-s.b.y)>=2&&Math.hypot(s.a.x-s.b.x,s.a.y-s.b.y)<.6*Math.max(r.r-r.l,r.b-r.t));
+   const marked=r=>{const list=strokes(r);return list.some((s,i)=>list.some((q,k)=>{if(k<=i)return false;
+    const L1=Math.hypot(s.b.x-s.a.x,s.b.y-s.a.y),L2=Math.hypot(q.b.x-q.a.x,q.b.y-q.a.y),ux=(s.b.x-s.a.x)/L1,uy=(s.b.y-s.a.y)/L1;
+    if(Math.abs(ux*(q.b.y-q.a.y)-uy*(q.b.x-q.a.x))/L2>.09||Math.min(L1,L2)/Math.max(L1,L2)<.4)return false;
+    const off=Math.abs((q.a.x-s.a.x)*uy-(q.a.y-s.a.y)*ux),c=((q.a.x+q.b.x)/2-s.a.x)*ux+((q.a.y+q.b.y)/2-s.a.y)*uy;
+    return off>=.8&&off<=5&&c>-.2*L1&&c<1.2*L1}))};
+   const glass=loose.filter(r=>r!==wicket&&r.r-r.l>=.1*w&&r.b-r.t>=.1*h&&marked(r));
+   const panes=glass.filter(r=>!glass.some(q=>inside(q,r)));
+   if(panes.length)sketch.panes=panes.sort((p,q)=>p.l-q.l||q.b-p.b).map(box)
+  }
+  f.sketch=sketch
+ }
+}
+// The finish of the facade («Ведомость отделки фасада»): the colour of window profiles («Окна | Профиль ПВХ | Белый»),
+// of gates and doors («Ворота, двери | Стальные с полимерным покрытием | RAL 7047»).
+const COLOUR_WORD=/^(бел|сер|черн|чёрн|коричн|графит|антрацит|серебр)[а-яё]*$/iu;
+function facadeFinish(texts){
+ const titles=texts.filter(t=>/Ведомость отделки фасада/iu.test(String(t.str)));if(!titles.length)return[];
+ const out=[];
+ for(const p of texts){
+  const s=String(p.str).trim();if(!horizontalText(p)||!/^(окна|окон|витраж|ворота|двер)/iu.test(s)||s.length>40)continue;
+  if(!titles.some(t=>t.y<p.y&&p.y-t.y<500&&p.x>=t.x-220&&p.x<t.x+500))continue;
+  const what=[...(/окн|окон|витраж/iu.test(s)?["window"]:[]),...(/ворот/iu.test(s)?["gate"]:[]),...(/двер/iu.test(s)?["door"]:[])];
+  const row=texts.filter(o=>o!==p&&Math.abs(o.y-p.y)<9&&o.x>p.x&&o.x<p.x+450).sort((a,b)=>a.x-b.x);
+  const ral=row.flatMap(o=>ralCodes(o.str))[0],word=row.map(o=>String(o.str).trim()).find(x=>COLOUR_WORD.test(x));
+  if(ral||word)out.push({what,...(ral?{ral}:{colour:word.toLowerCase()})})
+ }
+ return out
+}
+// The sills under the windows («Спецификация отливов»: «Отлив из оцинкованной стали … (RAL9003)») and the window
+// boards («ПД-1 | ГОСТ 30673-2015 | 7 | 250х1820»: its depth and length).
+function sillSpec(texts){
+ const out={},title=texts.find(t=>/Спецификация отливов/iu.test(String(t.str)));
+ if(title){const own=texts.filter(t=>t.y>title.y&&t.y<title.y+200&&Math.abs(t.x-title.x)<300&&/отлив|RAL/iu.test(String(t.str)));
+  const ral=own.flatMap(t=>ralCodes(t.str))[0];if(ral)out.sill_ral=ral}
+ const boards=[];
+ for(const p of texts){
+  if(!/^ПД-\d{1,3}$/u.test(String(p.str).trim())||!horizontalText(p))continue;
+  const m=rowOf(texts,p,520).map(o=>/^(\d{2,3})\s*[хx×]\s*(\d{3,5})$/u.exec(String(o.str).trim())).find(Boolean);
+  if(m)boards.push({pos:String(p.str).trim(),depth_mm:Number(m[1]),length_mm:Number(m[2])})
+ }
+ if(boards.length)out.boards=boards;
+ return out
+}
 function extractArchitecture(geometry){
  const texts=geometry?.texts||[];
  const spec=panelSpec(texts),fills=fillSpec(texts),views=panelViews(geometry||{},spec),facades=fillViews(geometry||{});
- const panels=spec.map(({at,...p})=>p);
- return panels.length||fills.length||views.length||facades.length?{panels,fills,views,...(facades.length?{facades}:{})}:null
+ if(fills.length)fillSketches(geometry||{},fills);
+ const finish=facadeFinish(texts),sills=sillSpec(texts);
+ const panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{})};
+ return panels.length||fills.length||views.length||Object.keys(extra).length?{panels,fills,views,...extra}:null
 }
-module.exports={extractArchitecture,panelSpec,fillSpec,panelViews,fillViews,ralCodes};
+module.exports={extractArchitecture,panelSpec,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
