@@ -63,6 +63,9 @@ assert(!fs.existsSync("src/scheme-export-usdz.js")&&!fs.readFileSync("hot/latest
 assert(view.includes('dirX==="rtl"?spanX-number(x)')&&view.includes('dirY==="btt"?spanY-number(y)'),"grid direction honoured");
 assert(view.includes("function startPlacement(")&&view.includes("function snapMember(")&&view.includes("function snapGround("),"placement by clicks with snapping");
 assert(view.includes('"верх "+(c.mark||"колонны")'),"beams rest on column tops");
+// A landing in the guard ring of a shaft stair (РВС-700, «площадка узкая слишком» 27.10.2026): out from the frame to the
+// arc of the ring round the axis of the shaft, not a rectangle inside the frame.
+assert(view.includes("arcR=c.lay&&number(c.lay.arc_r_mm)>0")&&view.includes("ds.lineTo(dx,Math.max(0,Math.sqrt(arcR*arcR-dx*dx)-back))"),"a shaft landing out to the arc of its ring");
 assert(view.includes("P.onQuickPlace(data)")&&view.includes("P.onQuickPlaced&&P.onQuickPlaced(result)"),"placement saved through the page checks");
 assert(view.includes("active.host===host&&active.key===key")&&view.includes("cameraMemory[memoryKey]"),"updates keep WebGL and the camera");
 assert(view.includes('"./vendor/three/three.min.js"')&&fs.existsSync("src/vendor/three/three.min.js")&&fs.existsSync("src/vendor/three/OrbitControls.js"),"Three.js works offline");

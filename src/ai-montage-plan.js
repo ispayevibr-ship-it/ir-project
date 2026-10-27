@@ -486,7 +486,7 @@ function claudeTankPageOf(ai,t){
   facade:t.wall_height_mm>0?{height:Math.round(t.wall_height_mm),rise:t.roof_rise_mm>0?Math.round(t.roof_rise_mm):null,items:[],levels,...(t.beside_mm>0?{beside:Math.round(t.beside_mm)}:{})}:null,
   nozzleTable:rows.length?rows:null,ladder:t.ladder_bearing_deg>=0&&t.ladder_kind!=="none"?{bearing:t.ladder_bearing_deg,kind:t.ladder_kind==="ring"||t.ladder_kind==="single"?t.ladder_kind:"shaft",name:t.ladder_kind==="ring"?"Кольцевая лестница":t.ladder_kind==="single"?"Лестница":"Шахтная лестница",fromBase:Boolean(ai.fromKnowledge||ai.checkedTank),
    ...(t.ladder_top_mm>0?{top:Math.round(t.ladder_top_mm)}:{}),...(Number.isFinite(t.ladder_foot_mm)&&t.ladder_foot_mm!==0?{foot:Math.round(t.ladder_foot_mm)}:{}),
-   ...(t.ladder_depth_mm>0?{depth:Math.round(t.ladder_depth_mm)}:{}),...(t.ladder_width_mm>0?{width:Math.round(t.ladder_width_mm)}:{}),...(t.ladder_gap_mm>0?{gap:Math.round(t.ladder_gap_mm)}:{})}:null,
+   ...(t.ladder_depth_mm>0?{depth:Math.round(t.ladder_depth_mm)}:{}),...(t.ladder_width_mm>0?{width:Math.round(t.ladder_width_mm)}:{}),...(t.ladder_gap_mm>0?{gap:Math.round(t.ladder_gap_mm)}:{}),...(t.ladder_axis_mm>0?{axis:Math.round(t.ladder_axis_mm)}:{})}:null,
   platforms:t.platform_level_mm>0?{exact:true,levels:[Math.round(t.platform_level_mm)],width:t.platform_width_mm>0?Math.round(t.platform_width_mm):null,rail:t.railing_height_mm>0?Math.round(t.railing_height_mm):null,post:t.railing_post_step_mm>0?Math.round(t.railing_post_step_mm):null,
    ...(t.platform_offset_mm>0?{offset:Math.round(t.platform_offset_mm)}:{})}:null,
   parts:t.bottom?{bottom:{name:"Днище"}}:null,

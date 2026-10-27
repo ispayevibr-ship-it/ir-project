@@ -1993,12 +1993,20 @@ window.irThreeSchemeView=(function(){
     labelLayer.appendChild(re);labels.push({el:re,pos:rl2,id:id});
     return
    }
-   // A deck of a landing or a platform: a flat grating of its width between the two points.
+   // A deck of a landing or a platform: a flat grating of its width between the two points. A landing in the guard ring
+   // of a shaft stair (lay.arc_r_mm, Ш1 of РВС-700: 680 out from the frame, 1800 wide) has the arc of the ring for its
+   // outer edge: the ring is round the axis of the shaft, its radius less the depth of the landing behind the start.
    if(c.ft==="deck"){
-    var dw=Math.max(.3,(number(c.fd)||1000)/1000),dm=new T.Mesh(new T.BoxGeometry(dw,.04,len),baseMaterial(c));
-    dm.position.copy(start).add(end).multiplyScalar(.5);dm.rotation.y=Math.atan2(dir.x,dir.z);
+    var dw=Math.max(.3,(number(c.fd)||1000)/1000),arcR=c.lay&&number(c.lay.arc_r_mm)>0?number(c.lay.arc_r_mm)/1000:0,dg=null;
+    if(arcR>len&&arcR>=dw/2){
+     var ds=new T.Shape(),back=arcR-len,dn=24;ds.moveTo(-dw/2,0);ds.lineTo(dw/2,0);
+     for(var di=0;di<=dn;di++){var dx=dw/2-dw*di/dn;ds.lineTo(dx,Math.max(0,Math.sqrt(arcR*arcR-dx*dx)-back))}
+     ds.closePath();dg=new T.ExtrudeGeometry(ds,{depth:.04,bevelEnabled:false});dg.rotateX(Math.PI/2);dg.translate(0,.02,0)
+    }
+    var dm=new T.Mesh(dg||new T.BoxGeometry(dw,.04,len),baseMaterial(c));
+    if(dg)dm.position.copy(start);else dm.position.copy(start).add(end).multiplyScalar(.5);dm.rotation.y=Math.atan2(dir.x,dir.z);
     dm.userData.memberId=id;steel.add(dm);allMeshes.push(dm);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(dm);
-    var dl=dm.position.clone();dl.y+=.3;
+    var dl=start.clone().add(end).multiplyScalar(.5);dl.y+=.3;
     var de=document.createElement("span");de.className="ir-three-member-label";de.textContent=c.mark||c.title||"";
     labelLayer.appendChild(de);labels.push({el:de,pos:dl,id:id});
     return
