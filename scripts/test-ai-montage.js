@@ -189,6 +189,27 @@ function fakeDatabase(){
  assert.deepEqual([view.ai.status,view.ai.batches],["done",2]);
  assert.match(view.journal.log[0].text,/продолжено, ранее готово 1/);
  script=null;
+ // Two batches at once (the engineer, 27.10.2026: «обработка очень долгая»): 20 sheets — three batches, never more
+ // than two asked together; an error of one lets the other finish and keeps its answer.
+ {
+  const row=database.rows.find(r=>r.section_key==="ai-scheme-draft"&&String(r.id)===String(view.draftId));
+  const saved=row.data.pages;
+  row.data.pages=Array.from({length:20},(_,i)=>{const p=saved[i%saved.length];return{...JSON.parse(JSON.stringify(p)),page:i+1,pdfPage:p.pdfPage||p.page,documentId:p.documentId}});
+  let now=0,most=0;const asked=[];
+  // The first answer waits for the second request (the pictures of a batch take longer than this fake Claude).
+  let second=null;const met=new Promise(r=>{second=r});
+  script=async req=>{now++;most=Math.max(most,now);asked.push(req.images.length);if(now===2)second();if(asked.length===1)await Promise.race([met,new Promise(r=>setTimeout(r,20000))]);await new Promise(r=>setTimeout(r,5));now--;return{data:{summary:"",schemes:[]},model:"claude-opus-5-5",usage:{}}};
+  view=await montage.process(7,view.draftId,{restart:true});
+  assert.deepEqual([view.ai.status,view.ai.batches,most],["done",3,2],"three batches, two at a time");
+  assert.deepEqual(asked.sort((a,b)=>b-a),[8,8,4]);
+  let n=0;now=0;
+  script=async req=>{const k=++n;await new Promise(r=>setTimeout(r,k===1?10:40));if(k===1)throw Error("Нет связи с api.anthropic.com");return{data:{summary:"",schemes:[]},model:"claude-opus-5-5",usage:{}}};
+  await assert.rejects(montage.process(7,view.draftId,{restart:true}),/Нет связи/);
+  const after=database.rows.find(r=>r.section_key==="ai-scheme-draft"&&String(r.id)===String(view.draftId)).data.ai;
+  assert.equal(after.status,"failed","the failure is what stays, not the other batch's «running»");
+  assert.equal(Object.keys(after.partial).length,1,"the other batch's answer is kept");assert.equal(n,2,"no new batch after the failure");
+  row.data.pages=saved;script=null
+ }
  // Sheets unticked on the drawings page are not analysed; a file with no sheets left is reported.
  files[1].excluded=[1];
  view=await montage.analyze(7);

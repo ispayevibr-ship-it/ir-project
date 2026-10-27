@@ -31,6 +31,27 @@ const {createClaudeCode,childEnv}=require("../src/ai-claude-code");
  reply=[];
  await assert.rejects(cc.request({system:"S",schema,content:[]}),/без ответа/);
  assert.equal(childEnv({}).ANTHROPIC_API_KEY,undefined);
+ // Batches of sheets side by side (the engineer, 27.10.2026: «обработка очень долгая»): up to three claude processes at
+ // once, each its own; a fourth is refused; cancel stops them all.
+ {
+  const open=[],killed=[];
+  const slow=(command,args,options)=>{
+   const p=new EventEmitter();p.stdin=new PassThrough();p.stdout=new PassThrough();p.stderr=new PassThrough();p.kill=()=>{if(p.exitCode!=null)return;p.exitCode=1;killed.push(p);p.emit("close",1)};
+   p.stdin.resume();p.stdin.on("finish",()=>open.push(()=>{p.stdout.end(JSON.stringify({type:"result",subtype:"success",result:"",structured_output:{n:open.length}})+"\n");setImmediate(()=>{p.exitCode=0;p.emit("close",0)})}));
+   return p
+  };
+  const par=createClaudeCode({locateBinary:()=>({command:"claude",prefix:[],env:{}}),spawnProcess:slow});
+  const runs=[1,2,3].map(()=>par.request({system:"S",schema,content:[]}));
+  await new Promise(r=>setImmediate(r));
+  assert.equal(open.length,3,"three at once");
+  await assert.rejects(par.request({system:"S",schema,content:[]}),/уже выполняет/);
+  open[0]();open[1]();
+  const two=await Promise.all(runs.slice(0,2));assert(two.every(x=>x.data&&typeof x.data.n==="number"));
+  const third=par.request({system:"S",schema,content:[]});await new Promise(r=>setImmediate(r));
+  assert.equal(open.length,4,"a place freed is taken");
+  par.cancel();assert.equal(killed.length,2,"cancel stops every running one");
+  await assert.rejects(runs[2]);await assert.rejects(third)
+ }
  const none=createClaudeCode({locateBinary:()=>null});
  assert.equal((await none.check()).available,false);
  console.log("Claude Code: subscription requests with images and schema, no tools, clear errors PASS")

@@ -46,8 +46,11 @@ function killTree(p,execFileProcess=execFile){
 // The program may close while Claude Code is answering: it must not stay running.
 const running=new Set();
 process.once("exit",()=>{for(const p of running)killTree(p)});
+// Requests of one series may run side by side (src/ai-montage.js sends two batches of sheets at once): each is a
+// claude process of its own; more than PARALLEL at once are refused.
+const PARALLEL=3;
 function createClaudeCode({locateBinary=locate,spawnProcess=spawn,execFileProcess=execFile}={}){
- let child=null;
+ const children=new Set();
  // Installed version, for the settings screen; never starts a model.
  function check(){
   const bin=locateBinary();
@@ -63,7 +66,7 @@ function createClaudeCode({locateBinary=locate,spawnProcess=spawn,execFileProces
  function request({system,content,schema,model,timeout=900000}){
   const bin=locateBinary();
   if(!bin)return Promise.reject(Error("Claude Code не найден на этом компьютере"));
-  if(child)return Promise.reject(Error("Claude Code уже выполняет запрос"));
+  if(children.size>=PARALLEL)return Promise.reject(Error("Claude Code уже выполняет запрос"));
   const args=[...bin.prefix,"-p","--input-format","stream-json","--output-format","stream-json","--verbose",
    "--tools","","--no-session-persistence","--permission-prompts","none",
    "--system-prompt",String(system||""),"--json-schema",JSON.stringify(schema),
@@ -71,8 +74,8 @@ function createClaudeCode({locateBinary=locate,spawnProcess=spawn,execFileProces
   return new Promise((resolve,reject)=>{
    let out="",err="",result=null,done=false;
    const p=spawnProcess(bin.command,args,{env:childEnv(bin.env),windowsHide:true,stdio:["pipe","pipe","pipe"]});
-   child=p;running.add(p);
-   const finish=(error,value)=>{if(done)return;done=true;clearTimeout(timer);child=null;running.delete(p);killTree(p,execFileProcess);error?reject(error):resolve(value)};
+   children.add(p);running.add(p);
+   const finish=(error,value)=>{if(done)return;done=true;clearTimeout(timer);children.delete(p);running.delete(p);killTree(p,execFileProcess);error?reject(error):resolve(value)};
    const timer=setTimeout(()=>finish(Error("Claude Code не ответил за "+Math.round(timeout/60000)+" мин")),timeout);
    p.on("error",error=>finish(Error("Claude Code не запустился: "+String(error.message||error).slice(0,200))));
    p.stderr.on("data",d=>{err=(err+d).slice(-4000)});
@@ -103,7 +106,7 @@ function createClaudeCode({locateBinary=locate,spawnProcess=spawn,execFileProces
    p.stdin.end(JSON.stringify({type:"user",message:{role:"user",content},parent_tool_use_id:null})+"\n")
   })
  }
- function cancel(){if(child)killTree(child,execFileProcess)}
+ function cancel(){for(const p of children)killTree(p,execFileProcess)}
  return{check,request,cancel}
 }
 module.exports={createClaudeCode,locate,candidates,childEnv};

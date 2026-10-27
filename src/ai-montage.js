@@ -20,7 +20,7 @@ const ANALYZER="2026-10-27.2";
 // АР (architecture) and ТХ (technology) sheets are read for context: Claude places what of them is mounted.
 const LOG_LIMIT=200,TYPES=["КМ","КМД сборочные","КМД монтажные","АР","ТХ"];
 // Sheets per Claude request; larger sets are sent in several requests.
-const BATCH_IMAGES=8,ELEMENT_LIMIT=700,CONTEXT_BUDGET=40000,MAX_ANSWER_TOKENS=64000;
+const BATCH_IMAGES=8,ELEMENT_LIMIT=700,CONTEXT_BUDGET=40000,MAX_ANSWER_TOKENS=64000,AI_PARALLEL=2;
 const SYSTEM=`Ты инженер-конструктор КМ/КМД. Программа уже разобрала PDF-комплект по геометрии; то, что она нашла, дано списком с номерами i. Твоя задача — определить по листам ВСЁ, что ставится на монтажную схему металлоконструкций, будь то каркас здания, эстакада или резервуар, и вернуть это так, чтобы программа расставила элементы сама.
 Правила:
 - Найденное программой (список i) не дублируй и его координаты не меняй: они точные. Решай для каждой её схемы place, тип и отметки, в changes — исключения и поправки.
@@ -383,6 +383,9 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   lines.push("","Верни решение по каждой схеме этого запроса (page и index как выше), элементы, которых нет в списках, сетку осей, резервуар (если это он) и марки с листов этого запроса.");
   return lines.join("\n")
  }
+ // The renderer draws one sheet at a time: batches asked side by side take their turns for the pictures.
+ let rendering=Promise.resolve();
+ const renderSheet=(...args)=>{const run=rendering.then(()=>renderer.renderForAnalysis(...args));rendering=run.catch(()=>{});return run};
  // One request per batch of sheets; an answer that does not fit is retried as two smaller batches.
  // Every finished part is handed to `finish` at once, so it is kept even if a later part fails.
  async function askBatch(oid,data,batch,shared,kmReference,done,finish){
@@ -393,7 +396,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   const key=batch.map(p=>p.page).join(",");
   const images=[];
   for(const p of batch){
-   const sheet=await renderer.renderForAnalysis(oid,p.documentId||data.source?.documentId,p.pdfPage||p.page);
+   const sheet=await renderSheet(oid,p.documentId||data.source?.documentId,p.pdfPage||p.page);
    images.push({buffer:sheet.buffer,mime:sheet.mime,label:sheetName(p)})
   }
   try{
@@ -433,13 +436,24 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   const resumed=Object.keys(done).length;
   const save=patch=>{const fresh=draftRow(oid,draftId);saveDraft(oid,fresh,typeof patch==="function"?patch(fresh.data||{}):patch)};
   try{
-   for(const [n,batch] of batches.entries()){
-    onProgress({objectId:oid,step:"ai",batch:n+1,batches:batches.length,resumed});
-    await askBatch(oid,data,batch,shared,kmReference,done,part=>{
-     done[part.key]=part;
-     save(d=>({ai:{...(d.ai||{}),status:"running",partial:done,at:new Date().toISOString()}}))
-    })
-   }
+   // Two batches at once (the engineer, 27.10.2026: «обработка очень долгая»): Claude answers each in minutes, the
+   // program waited for one before sending the next. On an error the other running batch is let finish (its answer is
+   // kept for the next run), no new one is started.
+   let next=0,started=0,failure=null;
+   const worker=async()=>{
+    while(!failure&&next<batches.length){
+     const batch=batches[next++];
+     onProgress({objectId:oid,step:"ai",batch:++started,batches:batches.length,resumed});
+     try{
+      await askBatch(oid,data,batch,shared,kmReference,done,part=>{
+       done[part.key]=part;
+       save(d=>({ai:{...(d.ai||{}),status:"running",partial:done,at:new Date().toISOString()}}))
+      })
+     }catch(error){failure=failure||error}
+    }
+   };
+   await Promise.all(Array.from({length:Math.min(AI_PARALLEL,batches.length)},worker));
+   if(failure)throw failure;
    const parts=Object.values(done),schemes=parts.flatMap(p=>p.schemes),marks=mergeMarks(parts.flatMap(p=>p.marks)),usage=parts.map(p=>p.usage);
    const model=parts.find(p=>p.model)?.model||"",sum=usageTotals(usage),tokens=sum.input+sum.output+sum.cacheRead+sum.cacheWrite;
    const extra=mergeParts(parts);
