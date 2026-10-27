@@ -92,6 +92,13 @@
   ".fast{margin-top:10px;font-size:12.5px;border:1px solid #dcd6c8;border-radius:8px;padding:6px 8px;background:#fbf9f4}.fast span,.fast small{display:block}.fast small{color:#6b7280}",
   ".prog{margin-top:10px;font-size:12.5px}.prog .bar{height:6px;background:#e4e9f1;border-radius:3px;margin-top:5px;overflow:hidden}.prog .bar i{display:block;height:100%;background:var(--ok)}",
   ".empty{color:var(--muted)}.foot{padding:0 20px 16px;color:var(--muted);font-size:12px}",
+  // The card in plain words (src/scheme-element-card.js), as in the program.
+  ".ec-card{display:grid;gap:8px}.ec-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.ec-head>div{display:grid;gap:2px;min-width:0}.ec-mark{font-size:20px;line-height:1.1}.ec-name{font-weight:700}",
+  ".ec-status{flex:none;padding:3px 8px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap;background:#fdeeee;color:#b93838}.ec-status.ec-ok{background:#e9f6ef;color:#23784f}.ec-status.ec-partial{background:#fdf5e4;color:#946411}",
+  ".ec-section{padding:6px 9px;border-radius:8px;background:#f1f5f9;font-weight:700;font-size:13px}.ec-block{display:grid;gap:3px;padding:8px 9px;border:1px solid var(--line);border-radius:9px;background:#fbfcfd}",
+  ".ec-block>b{color:var(--muted);font-size:11px;letter-spacing:.04em;text-transform:uppercase}.ec-block p{margin:0;font-size:13px;line-height:1.45}.ec-block p.ec-muted,.ec-block p.ec-src,.ec-src-title{font-size:12px;color:#3e5568}.ec-src span{font-weight:700}",
+  ".ec-drawings{border-color:#cfe0d6;background:#f5fbf7}.ec-drawings.ec-warn{border-color:#e7d2a6;background:#fdf9ef}.ec-found{font-weight:700}.ec-found.ec-ok{color:#23784f}.ec-found.ec-warn,.ec-block p.ec-check{color:#8a6416}",
+  ".ec-coords{border:1px solid var(--line);border-radius:9px}.ec-coords summary{padding:7px 9px;cursor:pointer;font-weight:700;font-size:12px}.ec-coords>div{display:flex;justify-content:space-between;gap:10px;padding:4px 9px;border-top:1px solid #eef2f7;font-size:12px}.ec-coords span{color:var(--muted)}",
   "@media(max-width:900px){.stage-bar{justify-content:flex-start}.side{width:100vw;max-width:100vw}}",
   "@media print{.stage-bar,.side{display:none}}"
  ].join("\n");
@@ -200,7 +207,16 @@
    var c=D.elements.find(function(x){return x.id===S.sel}),box=$("details");
    // The card of the element: apart from the panel, shown while an element is selected.
    box.hidden=!c;if(!c){box.innerHTML="";return}
-   var p=c.progress,a=c.axisText,cls=c.status==="mounted"?"ok":c.status==="partial"?"partial":"wait";
+   var p=c.progress,a=c.axisText,cls=c.status==="mounted"?"ok":c.status==="partial"?"partial":"wait",EC=window.irSchemeElementCard;
+   var prog=p&&p.total>0?'<div class="prog"><b>Марка '+esc(c.mark)+' по ведомости:</b> всего '+fmt(p.total)+' шт., смонтировано '+fmt(p.mounted)+', осталось '+fmt(p.left)+'<div class="bar"><i style="width:'+Math.max(0,Math.min(100,p.mounted/p.total*100))+'%"></i></div></div>':"";
+   if(EC){
+    var e={mark:c.mark,name:c.mark_name,type_name:/\s\/\s/.test(c.type_name||"")?"":c.type_name,group:c.scheme_group,geometry:c.geometryType,profile:c.profile,standard:c.profile_standard,section:c.section,
+     status:c.status,status_label:statusText[c.status]||c.status,status_title:p&&p.total>0?"Статус по ведомости марок":"",x:c.x,y:c.y,x2:c.x2,y2:c.y2,z0:c.z0,z2:c.z2,mx:c.mx,my:c.my,mz:c.mz,r:c.r,ri:c.ri,sw:c.sw,ft:c.ft,
+     doc:c.draft_doc,src_section:c.source_section,instance_status:c.instance_status,preliminary:!!c.preliminary,reasons:c.instance_reasons||[],sources:c.param_sources||null,pdf_new:c.pdf_new||null,check_note:c.check_note||"",manual:!!c.manual};
+    box.innerHTML='<button type="button" class="side-close" id="uncard" aria-label="Закрыть карточку">✕</button><h3>Выбранный элемент</h3><div class="ec-card">'+EC.head(e)+EC.what(e)+EC.where(e,{axesX:D.axesX,axesY:D.axesY,posX:D.gridX||{},posY:D.gridY||{}})+EC.drawings(e)+
+     prog+fastenersHtml(c.joint)+drillHtml(c)+cutsHtml(c)+platesHtml(c)+partsHtml(c)+EC.coords(e)+'</div>';
+    $("uncard").onclick=function(){S.sel="";details();list();draw3d()};return
+   }
    box.innerHTML='<button type="button" class="side-close" id="uncard" aria-label="Закрыть карточку">✕</button><h3>Выбранный элемент</h3>'+(c.draft?'<div class="warn">Черновое размещение из чертежей — координаты и отметки требуют проверки'+(c.draft_doc?" · "+esc(c.draft_doc):"")+'</div>':"")+
     '<div class="det-title"><b>'+esc(c.mark||"—")+'</b>'+(c.mark_name?'<small>'+esc(c.mark_name)+'</small>':"")+'</div>'+
     (instText[c.instance_status]?'<div class="'+(c.preliminary?"warn":"inst")+'">По чертежам: '+esc(instText[c.instance_status])+(c.preliminary?" · предварительно":"")+(c.source_section?" · раздел "+esc(c.source_section):"")+
@@ -210,8 +226,7 @@
      ["Ось "+D.axesX[0]+"–"+D.axesX[D.axesX.length-1],a.x],["Ось "+D.axesY[0]+"–"+D.axesY[D.axesY.length-1],a.y],["Коорд. X",fmt(c.x)+" мм"],["Коорд. Y",fmt(c.y)+" мм"],
      ["Низ",fmt(c.z0)+" мм"],["Верх / конец Z",fmt(c.z2)+" мм"]].concat(c.geometryType!=="column"&&c.geometryType!=="shell"&&c.geometryType!=="plate"?[["Конец X",fmt(c.x2)+" мм"],["Конец Y",fmt(c.y2)+" мм"]]:[])
      .map(function(r){return'<div><span>'+esc(r[0])+'</span><b>'+(r[2]?r[1]:esc(r[1]||"—"))+'</b></div>'}).join("")+'</div>'+
-    fastenersHtml(c.joint)+drillHtml(c)+cutsHtml(c)+platesHtml(c)+partsHtml(c)+
-    (p&&p.total>0?'<div class="prog"><b>Марка '+esc(c.mark)+' по ведомости:</b> всего '+fmt(p.total)+' шт., смонтировано '+fmt(p.mounted)+', осталось '+fmt(p.left)+'<div class="bar"><i style="width:'+Math.max(0,Math.min(100,p.mounted/p.total*100))+'%"></i></div></div>':"");
+    fastenersHtml(c.joint)+drillHtml(c)+cutsHtml(c)+platesHtml(c)+partsHtml(c)+prog;
    $("uncard").onclick=function(){S.sel="";details();list();draw3d()}
   }
   $("status").onchange=function(e){S.status=e.target.value;draw3d();list()};
@@ -283,7 +298,7 @@
   return'<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script>'+inline(HEAD)+'</script>'+
    '<title>'+esc((d.object.name||"Объект")+" — монтажная схема")+'</title><style>'+libs.css+'\n'+PAGE_CSS+'</style></head><body>'+body+
    '<script type="application/json" id="ir-scheme-data">'+json(Object.assign({},d,{shots:undefined}))+'</script>'+
-   '<script>window.irSchemeSections='+inline(JSON.stringify(libs.sections||[]))+';window.irSchemeFasteners='+inline(JSON.stringify(libs.fasteners||[]))+';window.irSchemeJointKb='+inline(JSON.stringify(libs.jointKb||{families:[],groups:[]}))+';</script><script>'+inline(libs.three)+'</script><script>'+inline(libs.orbit)+'</script><script>'+inline(libs.types)+'</script>'+(libs.joints?'<script>'+inline(libs.joints)+'</script>':'')+'<script>'+inline(libs.view)+'</script>'+
+   '<script>window.irSchemeSections='+inline(JSON.stringify(libs.sections||[]))+';window.irSchemeFasteners='+inline(JSON.stringify(libs.fasteners||[]))+';window.irSchemeJointKb='+inline(JSON.stringify(libs.jointKb||{families:[],groups:[]}))+';</script><script>'+inline(libs.three)+'</script><script>'+inline(libs.orbit)+'</script><script>'+inline(libs.types)+'</script>'+(libs.joints?'<script>'+inline(libs.joints)+'</script>':'')+(libs.card?'<script>'+inline(libs.card)+'</script>':'')+'<script>'+inline(libs.view)+'</script>'+
    '<script>try{('+inline(viewer.toString())+')()}catch(e){window.__irFail(e&&e.message||e)}</script></body></html>'
  }
 
@@ -293,8 +308,8 @@
   d.date=new Date().toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
   var libs={css:threeCss()};
   try{d.shots=window.irThreeSchemeView&&window.irThreeSchemeView.snapshots?window.irThreeSchemeView.snapshots():[]}catch(_e){d.shots=[]}
-  var r=await Promise.all([text(scriptUrl("vendor/three/three.min.js")),text(scriptUrl("vendor/three/OrbitControls.js")),text(scriptUrl("ai-structure-types.js")),text(scriptUrl("scheme-three-view.js")),text(scriptUrl("ai-joint-catalog.js")).catch(function(){return""})]);
-  libs.three=r[0];libs.orbit=r[1];libs.types=r[2];libs.view=r[3];libs.joints=r[4];
+  var r=await Promise.all([text(scriptUrl("vendor/three/three.min.js")),text(scriptUrl("vendor/three/OrbitControls.js")),text(scriptUrl("ai-structure-types.js")),text(scriptUrl("scheme-three-view.js")),text(scriptUrl("ai-joint-catalog.js")).catch(function(){return""}),text(scriptUrl("scheme-element-card.js")).catch(function(){return""})]);
+  libs.three=r[0];libs.orbit=r[1];libs.types=r[2];libs.view=r[3];libs.joints=r[4];libs.card=r[5];
   libs.sections=window.irThreeSchemeView&&window.irThreeSchemeView.sectionRows?await window.irThreeSchemeView.sectionRows().catch(function(){return[]}):[];
   libs.fasteners=window.irThreeSchemeView&&window.irThreeSchemeView.fastenerRows?await window.irThreeSchemeView.fastenerRows().catch(function(){return[]}):[];
   // The catalog of joints: the node card of the exported scheme names the type of the node as the program does.

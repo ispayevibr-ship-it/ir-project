@@ -800,3 +800,28 @@
 .scheme-instance details summary{cursor:pointer;font-size:10px;font-weight:700}.scheme-instance details small{display:block}
 /* «ИИ-распознавание»: the drawings that fill this scheme, opened from it. */
 .scheme-head-actions .scheme-grid-button.scheme-ai-button{display:inline-flex;align-items:center;box-sizing:border-box;text-decoration:none;background:#17658e;border-color:#17658e;color:#fff}.scheme-head-actions .scheme-grid-button.scheme-ai-button:hover{background:#123b59;border-color:#123b59}
+/* The card of the selected element in plain words (src/scheme-element-card.js, 1.10.37). */
+.ec-card{display:grid;gap:10px;color:#263f50}
+.ec-card .scheme-detail-title{padding-bottom:0;border-bottom:0}
+.ec-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.ec-head>div{display:grid;gap:3px;min-width:0}
+.ec-mark{color:#18364b;font-size:20px;line-height:1.1}
+.ec-name{color:#30485e;font-size:13px;font-weight:700;line-height:1.3}
+.ec-status{flex:none;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap;background:#fdeeee;color:#b93838}
+.ec-status.ec-ok{background:#e9f6ef;color:#23784f}.ec-status.ec-partial{background:#fdf5e4;color:#946411}
+.ec-section{padding:7px 10px;border-radius:8px;background:#f1f5f9;color:#294356;font-size:12px;font-weight:700}
+.ec-block{display:grid;gap:4px;padding:9px 10px;border:1px solid #e2e9ee;border-radius:9px;background:#fbfcfd}
+.ec-block>b{color:#6b7f8e;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.ec-block p{margin:0;color:#263f50;font-size:12px;line-height:1.45}
+.ec-block p.ec-muted{color:#6b7f8e;font-size:11px}
+.ec-drawings{border-color:#cfe0d6;background:#f5fbf7}.ec-drawings.ec-warn{border-color:#e7d2a6;background:#fdf9ef}
+.ec-found{font-weight:700}.ec-found.ec-ok{color:#23784f!important}.ec-found.ec-warn{color:#8a6416!important}
+.ec-src-title{margin-top:3px!important;color:#6b7f8e!important;font-size:11px!important}
+.ec-block p.ec-src{font-size:11px;color:#3e5568}.ec-src span{font-weight:700}
+.ec-block p.ec-check{color:#8a6416;font-size:11px}
+.ec-mark-host:empty{display:none}.ec-mark-host .scheme-mark-card{margin:0}
+.ec-coords{border:1px solid #e2e9ee;border-radius:9px;background:#fff}
+.ec-coords summary{padding:8px 10px;cursor:pointer;color:#536a7a;font-size:11px;font-weight:700}
+.ec-coords>div{display:flex;justify-content:space-between;gap:10px;padding:5px 10px;border-top:1px solid #eef2f5;font-size:11px}
+.ec-coords span{color:#7d8d98}.ec-coords b{color:#294356;text-align:right}
+.ec-card .scheme-mark-progress{margin-top:0}

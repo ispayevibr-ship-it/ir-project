@@ -691,7 +691,10 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
     // How fully the drawings determined it and its section: the exported page shows the same pale «предварительно».
     preliminary:isPreliminary(c)||undefined,instance_status:INSTANCE_STATUS[c.instance_status]?String(c.instance_status):undefined,
     instance_reasons:Array.isArray(c.instance_reasons)&&c.instance_reasons.length?c.instance_reasons.map(String).slice(0,5):undefined,source_section:sectionOfRecord(c),
-    param_sources:c.param_sources&&typeof c.param_sources==="object"?c.param_sources:undefined}});
+    param_sources:c.param_sources&&typeof c.param_sources==="object"?c.param_sources:undefined,
+    // The card in plain words of the exported page (src/scheme-element-card.js): what a new analysis gives after an edit,
+    // what to check, an element placed by hand.
+    pdf_new:c.pdf_new&&typeof c.pdf_new==="object"?c.pdf_new:undefined,check_note:c.check_note?String(c.check_note):undefined,manual:c.import_batch?undefined:true}});
   if(!list.length){alert("На схеме нет элементов для выгрузки.");return}
   const counts=new Map();for(const c of list){const g=counts.get(c.scheme_group)||{key:c.scheme_group,label:recordMarkGroup(records().find(r=>String(r.id)===c.id)).label,count:0};g.count++;counts.set(c.scheme_group,g)}
   // All the work types together: the exported page can show each apart, as the scheme does.
@@ -783,7 +786,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   const k=card?.catalog,lv=v=>v===null||v===undefined||v===""?"":(v>0?"+":v<0?"−":"")+(Math.abs(v)/1000).toFixed(3).replace(".",",");
   const rows=k?[["Профиль",k.profile+(k.profile_standard?" ("+k.profile_standard+")":"")],["Сталь",k.steel],["Длина",k.length_mm?fmt(k.length_mm)+" мм":""],["Кол-во по чертежу",k.count?k.count+" шт.":""],["Масса",k.mass_kg?fmt(k.mass_kg)+" кг":""],
    ["Отметки по разрезу",k.z0_mm!==null&&k.z1_mm!==null?lv(k.z0_mm)+" … "+lv(k.z1_mm):""],["Отметка балки",k.beam_mm!==null?lv(k.beam_mm):""]].filter(r=>r[1]):[];
-  return`<div class="scheme-mark-card"><b>Марка ${esc(card.mark||"")} по чертежам${k?.doc?" · "+esc(k.doc):""}</b>
+  return`<div class="scheme-mark-card"><b>Марка ${esc(card.mark||"")} на чертежах${k?.doc?" · "+esc(k.doc):""}</b>
    ${rows.length?`<div class="scheme-mark-card-grid">${rows.map(r=>`<span>${esc(r[0])}</span><b>${esc(r[1])}</b>`).join("")}</div>`:'<small>Сведений о марке в разобранных листах нет.</small>'}
    ${(card.crops||[]).map(c=>c.error?`<small class="scheme-mark-card-error">${esc(c.title)}: ${esc(c.error)}</small>`:`<figure><div class="scheme-mark-card-shot" data-mark-zoom tabindex="0" title="Нажмите, чтобы увеличить"><img src="${esc(c.dataUrl)}" alt="${esc(c.title)}">${c.at&&c.at.x>=0&&c.at.x<=1&&c.at.y>=0&&c.at.y<=1?`<i style="left:${(c.at.x*100).toFixed(2)}%;top:${(c.at.y*100).toFixed(2)}%"></i>`:""}</div><figcaption>${esc(c.title)}<small>${esc(c.source)}</small></figcaption></figure>`).join("")}
    ${k?.sources?.length?`<details><summary>Где описана марка (${k.sources.length})</summary>${k.sources.map(s=>`<div>${esc(s)}</div>`).join("")}</details>`:""}
@@ -792,10 +795,11 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  async function loadMarkCard(panel,c){
   const box=document.createElement("div");box.className="scheme-mark-card-host";
   if(!c.source_import_key||!irProject.ai?.invoke)return;
-  const actions=panel.querySelector(".scheme-detail-actions");actions?panel.insertBefore(box,actions):panel.appendChild(box);
+  const host=panel.querySelector(".ec-mark-host"),actions=panel.querySelector(".scheme-detail-actions");
+  if(host)host.appendChild(box);else if(actions)panel.insertBefore(box,actions);else panel.appendChild(box);
   const volume=(/КМ\s*\d+/u.exec(String(c.source_import_doc||""))||[""])[0].replace(/\s+/g,"");
   const key=oid+"|"+c.source_import_key+"|"+c.mark+"|"+volume;
-  const show=card=>{box.innerHTML=markCardHtml(card);box.querySelectorAll("[data-mark-zoom]").forEach(el=>el.onclick=()=>el.classList.toggle("zoom"))};
+  const show=card=>{if(!card){box.innerHTML="";return}box.innerHTML=markCardHtml(card);box.querySelectorAll("[data-mark-zoom]").forEach(el=>el.onclick=()=>el.classList.toggle("zoom"))};
   if(markCards.has(key)){show(markCards.get(key));return}
   box.innerHTML='<div class="scheme-mark-card"><small>Читаю чертёж марки…</small></div>';
   try{const card=await irProject.ai.invoke("ai-montage:element-card",{objectId:oid,key:c.source_import_key,mark:c.mark,volume});markCards.set(key,card);if(box.isConnected)show(card)}
@@ -875,6 +879,28 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   if(!c){panel.innerHTML=pickerHtml()+`<div class="scheme-detail-empty"><b>Элемент не выбран</b><span>Нажмите на элемент на схеме или добавьте новый.</span>${canEdit()?'<button type="button" data-scheme-add>＋ Добавить элемент</button>':""}</div>`;panel.querySelector("[data-scheme-add]")?.addEventListener("click",()=>window.irThreeSchemeView?.startPlacement?.()??openEditor());bindElementPicker(panel);return}
   // The name as the register of the program has it now (it goes first: the engineer, 26.10.2026), else as placed.
   const a=axisText(c),between=c.dx||c.dy,linked=linkedMark(c),progress=markProgress(linked),name=String(linked?.name||"").trim()||c.mark_name;
+  const progressHtml=progress?.total>0?`<div class="scheme-mark-progress">
+    <b>Марка ${esc(c.mark)} · данные из ведомости</b>
+    <div><span>Всего <strong>${fmt(progress.total)} шт.</strong></span><span>Смонтировано <strong>${fmt(progress.mounted)} шт.</strong></span><span>Осталось <strong>${fmt(progress.left)} шт.</strong></span></div>
+    <div class="scheme-mark-progress-bar"><i style="width:${Math.max(0,Math.min(100,progress.mounted/progress.total*100))}%"></i></div>
+    ${progress.state==="partial"?'<small>Ведомость показывает частичное выполнение марки, но не указывает, какой именно экземпляр смонтирован.</small>':""}
+   </div>`:"";
+  const actionsHtml=canEdit()?`<div class="scheme-detail-actions"><button type="button" data-scheme-edit>Редактировать</button><button type="button" data-scheme-copy-place>⧉ Размещение</button><button type="button" data-scheme-copy>⧉ Копировать позицию</button><button type="button" class="danger" data-scheme-delete>Удалить</button></div>${irProject.ai?.invoke?`<div class="scheme-journal-send"><input type="text" data-scheme-journal-note maxlength="500" placeholder="Комментарий к правке (необязательно)"><button type="button" data-scheme-journal title="Правки и расстановка записываются в журнал сами; кнопка добавляет к элементу ваш комментарий. Журнал уходит на GitHub каждый час">В журнал</button><small data-scheme-journal-state>${journalSent.has(String(c.id))?"В журнале: "+esc(journalSent.get(String(c.id))):""}</small></div>`:""}`:"";
+  // The card in plain words, by the drawings (src/scheme-element-card.js): what it is, its section, where it stands, what
+  // the drawings say of it; the exact coordinates folded away. The tiles of before only when the module is not loaded.
+  const EC=window.irSchemeElementCard;
+  if(EC){
+   const e={mark:c.mark,name,type_name:String(c.type_name||FITTING_LABEL[c.ft]||""),group:recordMarkGroup(c).key,geometry:c.geometryType,
+    profile:profileShown(c),standard:String(c.profile_standard||""),section:sectionShown(c),status:c.status,
+    status_label:statusText(c.status),status_title:progress?.total>0?"Статус по ведомости марок":"Статус задан вручную",
+    x:c.x,y:c.y,x2:c.x2,y2:c.y2,z0:c.z0,z2:c.z2,mx:c.mx,my:c.my,mz:c.mz,r:c.r,ri:c.ri,sw:c.sw,ft:c.ft,
+    doc:String(c.source_import_doc||""),src_section:String(c.source_section||""),instance_status:String(c.instance_status||""),preliminary:isPreliminary(c),
+    reasons:Array.isArray(c.instance_reasons)?c.instance_reasons.map(String):[],sources:c.param_sources&&typeof c.param_sources==="object"?c.param_sources:null,
+    pdf_new:c.pdf_new&&typeof c.pdf_new==="object"?c.pdf_new:null,check_note:String(c.check_note||""),manual:!c.import_batch};
+   const grid={axesX:[...axesX],axesY:[...axesY],posX:Object.fromEntries(axisXPos),posY:Object.fromEntries(axisYPos)};
+   panel.innerHTML=pickerHtml()+`<div class="ec-card"><div class="scheme-detail-title"><span>Выбранный элемент</span></div>${EC.head(e)}${EC.what(e)}${EC.where(e,grid)}${EC.drawings(e)}<div class="ec-mark-host"></div>
+    ${progressHtml}${fastenersHtml(c)}${drillHtml(c)}${cutsHtml(c)}${platesHtml(c)}${partsHtml(c)}${EC.coords(e)}</div>${actionsHtml}`;
+  }else
   panel.innerHTML=pickerHtml()+`${c.check_note?`<div class="scheme-check-note"><small>Проверьте: ${esc(String(c.check_note).replace(/\s*—?\s*проверьте\.?/giu,""))}</small></div>`:""}<div class="scheme-detail-title"><span>Выбранный элемент</span><b>${esc(c.mark||"—")}</b>${name?`<small>${esc(name)}</small>`:""}</div>${instanceHtml(c)}
    <div class="scheme-detail-grid">
     <div><span>Наименование</span><b>${esc(name||"—")}</b></div>
@@ -890,15 +916,10 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
     ${c.geometryType==="bent"?`<div><span>Конёк X</span><b>${fmt(c.mx)} мм</b></div><div><span>Конёк Y</span><b>${fmt(c.my)} мм</b></div><div><span>Конёк Z</span><b>${fmt(c.mz)} мм</b></div><div><span>Длина обеих ветвей</span><b>${fmt(Math.hypot(c.mx-c.x,c.my-c.y,c.mz-c.z0)+Math.hypot(c.x2-c.mx,c.y2-c.my,c.z2-c.mz))} мм</b></div>`:""}
     ${c.geometryType!=="column"?`<div><span>Конец X</span><b>${fmt(c.x2)} мм</b></div><div><span>Конец Y</span><b>${fmt(c.y2)} мм</b></div>`:""}
    </div>
-   ${progress?.total>0?`<div class="scheme-mark-progress">
-    <b>Марка ${esc(c.mark)} · данные из ведомости</b>
-    <div><span>Всего <strong>${fmt(progress.total)} шт.</strong></span><span>Смонтировано <strong>${fmt(progress.mounted)} шт.</strong></span><span>Осталось <strong>${fmt(progress.left)} шт.</strong></span></div>
-    <div class="scheme-mark-progress-bar"><i style="width:${Math.max(0,Math.min(100,progress.mounted/progress.total*100))}%"></i></div>
-    ${progress.state==="partial"?'<small>Ведомость показывает частичное выполнение марки, но не указывает, какой именно экземпляр смонтирован.</small>':""}
-   </div>`:""}
+   ${progressHtml}
    ${fastenersHtml(c)}${drillHtml(c)}${cutsHtml(c)}${platesHtml(c)}${partsHtml(c)}
    ${between?`<div class="scheme-between"><b>Элемент между осями</b><span>${esc(a.x)} / ${esc(a.y)}</span><small>Положение вычисляется от выбранных базовых осей и сохраняется точно в миллиметрах.</small></div>`:""}
-   ${canEdit()?`<div class="scheme-detail-actions"><button type="button" data-scheme-edit>Редактировать</button><button type="button" data-scheme-copy-place>⧉ Размещение</button><button type="button" data-scheme-copy>⧉ Копировать позицию</button><button type="button" class="danger" data-scheme-delete>Удалить</button></div>${irProject.ai?.invoke?`<div class="scheme-journal-send"><input type="text" data-scheme-journal-note maxlength="500" placeholder="Комментарий к правке (необязательно)"><button type="button" data-scheme-journal title="Правки и расстановка записываются в журнал сами; кнопка добавляет к элементу ваш комментарий. Журнал уходит на GitHub каждый час">В журнал</button><small data-scheme-journal-state>${journalSent.has(String(c.id))?"В журнале: "+esc(journalSent.get(String(c.id))):""}</small></div>`:""}`:""}`;
+   ${actionsHtml}`;
   loadMarkCard(panel,c);
   // The journal of edits: the element as it is now, what the program placed and the comment (src/ai-training.js).
   panel.querySelector("[data-scheme-journal]")?.addEventListener("click",async e=>{
