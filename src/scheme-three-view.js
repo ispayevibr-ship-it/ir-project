@@ -50,9 +50,10 @@ window.irThreeSchemeView=(function(){
  };
  // Every group of the catalog of structure types has its colour and name in the legend.
  (window.irStructureTypes?.GROUPS||[]).forEach(function(g){if(!groups[g.key])groups[g.key]=[g.label,g.color]});
- // Not mounted — the grey of the montage report (the engineer, 25.10.2026: «несмонтированные конструкции сделай цветом
- // как в отчете»: #B7BDC4).
- var statusColors={mounted:[0x159b65,"Смонтировано"],partial:[0xe09b00,"Частично"],planned:[0xb7bdc4,"Не смонтировано"]};
+ // Not mounted — steel as it is, silver (the engineer, 27.10.2026: «не смонтированные металлоконструкции сделай цветом
+ // металла, серебристый такой, чтобы не сливался с фоном»; the light grey #B7BDC4 of the report of 25.10.2026 merged
+ // with the light backgrounds): darker than any light background, with the sheen of metal (plannedMetal below).
+ var statusColors={mounted:[0x159b65,"Смонтировано"],partial:[0xe09b00,"Частично"],planned:[0x9ea8b4,"Не смонтировано"]};
  // How fully the reading of the drawings determined an element (src/ai-montage.js). The preliminary ones (not confirmed
  // or computed) are drawn pale in every colouring: placed all the same, to be edited by the engineer.
  var instanceColors={confirmed:[0x159b65,"Подтверждено"],computed:[0x2f6fd6,"Вычислено"],partial:[0xe09b00,"Частично"],ambiguous:[0x8b40de,"Неоднозначно"],
@@ -629,10 +630,37 @@ window.irThreeSchemeView=(function(){
    return(groups[colorKey(c)]||groups.other)[1]
   }
   function pale(c){return Boolean(c&&c.preliminary===true)}
+  // The light of a bright hall for the steel not yet mounted: a light ceiling, a grey horizon, a dark floor, two
+  // windows — what polished steel reflects. Once per view; without it (an old video card) the steel is matt.
+  var metalEnv=null;
+  function metalMap(){
+   if(metalEnv!==null)return metalEnv||null;
+   metalEnv=false;
+   try{
+    var room=new T.Scene(),geo=new T.SphereGeometry(10,32,16),pos=geo.attributes.position,cols=[],col=new T.Color();
+    for(var i=0;i<pos.count;i++){
+     var h=pos.getY(i)/10;
+     col.setHex(h>.15?0xf7f9fb:h>-.08?0x9aa3ad:0x4d555e);if(h>.15&&h<.35)col.lerp(new T.Color(0xc9d0d8),(.35-h)/.2);
+     cols.push(col.r,col.g,col.b)
+    }
+    geo.setAttribute("color",new T.Float32BufferAttribute(cols,3));
+    room.add(new T.Mesh(geo,new T.MeshBasicMaterial({vertexColors:true,side:T.BackSide})));
+    [[6,4,-6],[-7,3,5]].forEach(function(p){var w=new T.Mesh(new T.PlaneGeometry(5,3),new T.MeshBasicMaterial({color:0xffffff,side:T.DoubleSide}));w.position.set(p[0],p[1],p[2]);w.lookAt(0,0,0);room.add(w)});
+    var pm=new T.PMREMGenerator(renderer),rt=pm.fromScene(room,.02);pm.dispose();
+    room.traverse(function(o){if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose()});
+    metalEnv=rt
+   }catch(e){metalEnv=false}
+   return metalEnv?metalEnv.texture:null
+  }
+  function plannedMetal(c){return colorMode==="status"&&!pale(c)&&!(c&&(c.status==="mounted"||c.status==="partial"))}
   function baseMaterial(c){
-   var color=baseColor(c),key=pale(c)?"p"+color:color;
-   if(!mats.has(key))mats.set(key,pale(c)?new T.MeshStandardMaterial({color:color,metalness:.05,roughness:.8,side:T.DoubleSide,transparent:true,opacity:.36,depthWrite:false}):
-    new T.MeshStandardMaterial({color:color,metalness:.13,roughness:.64,side:T.DoubleSide}));
+   var color=baseColor(c),metal=plannedMetal(c),key=metal?"metal":pale(c)?"p"+color:color;
+   if(!mats.has(key)){
+    var env=metal?metalMap():null;
+    mats.set(key,metal?new T.MeshStandardMaterial(env?{color:color,metalness:.85,roughness:.3,envMap:env,envMapIntensity:1.15,side:T.DoubleSide}:{color:color,metalness:.35,roughness:.42,side:T.DoubleSide}):
+     pale(c)?new T.MeshStandardMaterial({color:color,metalness:.05,roughness:.8,side:T.DoubleSide,transparent:true,opacity:.36,depthWrite:false}):
+     new T.MeshStandardMaterial({color:color,metalness:.13,roughness:.64,side:T.DoubleSide}))
+   }
    return mats.get(key)
   }
   var shellMats=new Map();
@@ -2878,7 +2906,7 @@ window.irThreeSchemeView=(function(){
     document.removeEventListener("keydown",keyDown);document.removeEventListener("keyup",keyUp);document.removeEventListener("keydown",shiftKey);document.removeEventListener("keyup",shiftKey);
     window.removeEventListener("blur",releaseKeys);
     controls.dispose();clearNodes();nodeGeo.dispose();nodeMats.forEach(function(m){m.dispose()});boltMat.dispose();plateMat.dispose();concreteMat.dispose();craneMat.dispose();hoistMat.dispose();wheelMat.dispose();glassMat.dispose();openingGlass.dispose();hardwareMat.dispose();silverMat.dispose();fixedMats.forEach(function(m){m.dispose()});boltMats["8.8"].dispose();boltMats["5.8"].dispose();
-    meshGeo.forEach(function(g){g.dispose()});mats.forEach(function(m){m.dispose()});shellMats.forEach(function(m){m.dispose()});roofMats.forEach(function(m){m.dispose()});
+    meshGeo.forEach(function(g){g.dispose()});mats.forEach(function(m){m.dispose()});if(metalEnv)metalEnv.dispose();shellMats.forEach(function(m){m.dispose()});roofMats.forEach(function(m){m.dispose()});
     [selectedMat,hoverMat,axisMaterial,dimMaterial,floorMaterial,darkFloorMaterial,markerMat,pointMat,previewMat].forEach(function(m){m.dispose()});
     var cached=new Set(meshGeo.values());
     [scene,steel].forEach(function(top){top.traverse(function(obj){if(obj.geometry&&obj.geometry.dispose&&!cached.has(obj.geometry))obj.geometry.dispose()})});
