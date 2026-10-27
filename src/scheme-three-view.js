@@ -158,7 +158,8 @@ window.irThreeSchemeView=(function(){
   }
   // A welded copy of a rolled I «Св.I40КС2», «Св.I50ШС2» (the sheet's note: «св. I 40КС2 … вместо прокатного I 40К2»): drawn
   // by the rolled one of the same number, and the card says so.
-  if((m=/^(?:Св\.?|Сварной)(?:I|І|двутавр)?(\d{2,3}(?:ДБ|ДШ|[БШК]))С?(\d+)$/i.exec(t))){
+  // Its «I» may be written as «1» («СВ 145ШС1» is Св.I45ШС1).
+  if((m=/^(?:Св\.?|Сварной)(?:I|І|1(?=\d{2}(?:ДБ|ДШ|[БШК]))|двутавр)?(\d{2,3}(?:ДБ|ДШ|[БШК]))[СC]?(\d+)$/i.exec(t))){
    var wd=sectionOf(m[1]+m[2],standard);
    if(wd&&wd.shape==="ibeam")return Object.assign({},wd,{std:"сварной, по размерам прокатного "+m[1]+m[2]+" ("+wd.std+")"});
    return null

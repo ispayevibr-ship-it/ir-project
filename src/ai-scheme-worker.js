@@ -126,9 +126,11 @@ function pageContext(texts){
    result.schemes.push(...extractElevations(geometry,n));
    // Level notes written next to the elements ("низ на отм. +0,050") and levels read from sections.
    for(const s of result.schemes){const notes=schemeNotes(geometry.texts,s.bbox,s.title);if(notes.notes.length||notes.z0_mm!==null||notes.z1_mm!==null)s.levelNotes=notes}
+   // The levels written along the rows of axes of its sections (the slope of a roof), filled by extractSections.
+   const profiles={};
    // Read by OCR or not at all, such a sheet also goes to Claude as an image.
    results.push({page:n,widthPt:geometry.widthPt,heightPt:geometry.heightPt,schemes:result.schemes,context:pageContext(geometry.texts),noText,ocr,...(geometry.turn?{turn:geometry.turn}:{}),
-    sheet:extractSheet(geometry),sections:extractSections(geometry),tank:extractTank(geometry),trusses:extractTrusses(geometry),baseDetails:extractBaseDetails(geometry),columnDetails:extractColumnDetails(geometry),railOffsets:extractRailOffsets(geometry),levelMarks:levelMarksOf(geometry),ar:extractArchitecture(geometry),ms:Date.now()-started});
+    sheet:extractSheet(geometry),sections:extractSections(geometry,profiles),sectionProfiles:profiles.profiles||[],tank:extractTank(geometry),trusses:extractTrusses(geometry),baseDetails:extractBaseDetails(geometry),columnDetails:extractColumnDetails(geometry),railOffsets:extractRailOffsets(geometry),levelMarks:levelMarksOf(geometry),ar:extractArchitecture(geometry),ms:Date.now()-started});
    parentPort.postMessage({type:"progress",page:n,total:pages.length});
    page.cleanup()
   }

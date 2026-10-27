@@ -82,10 +82,10 @@ function placeLevels(levels,horiz,segments=[]){
     const arms=slants.map(q=>near(q.a,tip)?q.b:near(q.b,tip)?q.a:null).filter(o=>o&&(o.y-tip.y)*(e.y-tip.y)>0);
     if(!arms.some(o=>o.x<tip.x-1)||!arms.some(o=>o.x>tip.x+1))continue;
     const d=Math.min(Math.abs(s.a.x-l.x),Math.abs(s.a.x-l.x-l.w));
-    if(!best||d<best.d)best={d,y:tip.y}
+    if(!best||d<best.d)best={d,y:tip.y,x:tip.x}
    }
   }
-  if(best){l.y=best.y;l.tip=true}else l.y+=offset
+  if(best){l.y=best.y;l.tip=true;l.tx=best.x}else l.y+=offset
  }
  return levels
 }
@@ -159,7 +159,8 @@ function ownerBelow(rows,x,y){
  for(const r of rows)if(r.y>y&&r.y-y<1300&&x>=r.x0-260&&x<=r.x1+260&&(!best||r.y<best.y))best=r;
  return best
 }
-function extractSections({segments=[],texts=[]}={}){
+// sink (optional): sink.profiles gets the levels written along each row of axes (see below).
+function extractSections({segments=[],texts=[]}={},sink=null){
  const aMarks=aMarksOn(texts);
  const titles=sectionsOf(texts),rows=bubbleRows(texts,segments);
  if(!titles.length&&!rows.length)return[];
@@ -174,7 +175,9 @@ function extractSections({segments=[],texts=[]}={}){
   const str=String(t.str).trim(),box=textBox(t);
   const row=ownerBelow(rows,box.cx,box.cy),owner=row?row.view:ownerOf(titles,box.cx,box.cy);if(!owner)continue;
   const mm=Math.abs(t.angle||0)<10?levelOf(str):null;
-  if(mm!==null)views.get(owner).levels.push({mm,y:t.y,x:t.x,w:t.width||0,s:t.size});
+  // «+9,175 ось» is the level of the members' axis; «-0,400 низ оп.пл.», «+9,595 низ прогона» are of something else.
+  const note=mm!==null?str.replace(/^[+\-−±]?\d{1,2}[,.]\d{3}\s*/u,""):"";
+  if(mm!==null)views.get(owner).levels.push({mm,y:t.y,x:t.x,w:t.width||0,s:t.size,...(note?{note:/^ось/iu.test(note)?"ось":"другое"}:{})});
   else if(MARK.test(str)&&!skipMark(str,aMarks))views.get(owner).marks.push({mark:str,t,box})
  }
  const horiz=[],vert=[],all=[],slope=[];
@@ -288,9 +291,37 @@ function extractSections({segments=[],texts=[]}={}){
     // A post outline that runs on into the foundation gets the bottom of the other posts.
     if(z1<=hi&&z1-z0>=500){rec.z0_mm=z0>=lo?z0:null;rec.z1_mm=z1}
    }
+   // (The levels read for the view's marks, for its profile below.)
+   if(rec.beam_mm!==undefined)(view.read=view.read||[]).push([m.mark,rec.beam_mm],...(rec.ridge_mm!==undefined?[[m.mark,rec.ridge_mm]]:[]));
    // The lowest and highest levels of the view: a ladder drawn in it stands between them (ГПЭС М1.27 «4-4»: +0,210 …
    // +7,890).
    if(rec.beam_mm!==undefined||rec.z1_mm!==undefined)out.push({...rec,span_mm:[Math.min(...values),Math.max(...values)]})
+  }
+ }
+ // The levels written along a row of axes (a section across a pitched roof, ГПЭС М1.5 «3-3»: «+9,325» at the eaves,
+ // «+9,595», «+9,865» at the next axes, «+10,000» at the ridge, «+9,175 ось» under them), each with its place among the
+ // axes: the plan builds the slope of the roof from them (src/ai-montage-plan.js roofProfiles) — one mark of a roof beam
+ // is used all along the slope, and its reading above gives it one level only. A level's arrow stands beside its axis:
+ // within a quarter of the bay it is at the axis; farther (the ridge between two axes) it is where its arrow points.
+ if(sink){
+  sink.profiles=[];
+  for(const r of rows){
+   const view=views.get(r.view);if(!view)continue;
+   const axes=r.items.map(t=>({label:t.str,x:t.ring.x})).sort((a,b)=>a.x-b.x);
+   if(axes.length<3||new Set(axes.map(a=>a.label)).size<axes.length)continue;
+   const at=x=>{
+    let k=0;for(let i=1;i<axes.length;i++)if(Math.abs(axes[i].x-x)<Math.abs(axes[k].x-x))k=i;
+    const n=k>0?axes[k-1]:axes[k+1],bay=Math.min(...[axes[k-1],axes[k+1]].filter(Boolean).map(o=>Math.abs(o.x-axes[k].x)));
+    if(Math.abs(x-axes[k].x)<=bay/4)return[axes[k].label,n.label,0];
+    let i=0;while(i<axes.length-2&&x>axes[i+1].x)i++;
+    return[axes[i].label,axes[i+1].label,Math.round((x-axes[i].x)/(axes[i+1].x-axes[i].x)*1000)/1000]
+   };
+   const levels=view.levels.filter(l=>l.note!=="другое").map(l=>({mm:l.mm,...(l.note?{axis:true}:{}),at:at(l.tip?l.tx:l.x+l.w/2)}));
+   // The marks of the view with the levels read for them above (a mark without one: null): the plan takes the levels
+   // near those of its own members only — not those of another roof or of the wall girts in the same section.
+   const read=new Map();for(const [mark,z] of view.read||[])(read.get(mark)||read.set(mark,[]).get(mark)).push(z);
+   const marks=[...new Set(view.marks.map(m=>m.mark))].slice(0,80).map(mark=>[mark,...(read.get(mark)||[null])]);
+   if(levels.length>=2)sink.profiles.push({section:r.view.name,axes:axes.map(a=>a.label),levels,marks})
   }
  }
  const bottoms=new Map();

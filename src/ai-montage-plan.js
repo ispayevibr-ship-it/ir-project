@@ -1069,6 +1069,7 @@ function buildPlan(draft,ai=null,heights={},opts={}){
  seatTrusses(elements,catalog);
  seatOnChords(elements);
  sectionOutliers(elements);
+ roofProfiles(elements,draft,merged);
  roofOnColumns(elements);
  purlinsOnBeams(elements);
  hangTracks(elements);
@@ -1158,11 +1159,14 @@ const ROOF=/покрыти|кровл|прогон|ригел|стропил/iu;
 const mmText=z=>(z<0?"−":"+")+(Math.abs(z)/1000).toFixed(3).replace(".",",");
 // The depth of a section (mm) from the sortament of the general base (ГОСТ tables): null when the profile is unknown.
 let sortament=null;
+// A welded copy of a rolled I is as deep as the rolled one: «Св.I45ШС1» (written «СВ 145ШС1», its «I» as «1») — 45Ш1.
+const WELDED_I=/^(?:Св\.?|Сварной)(?:I|І|1(?=\d{2}(?:ДБ|ДШ|[БШК]))|двутавр)?(\d{2,3}(?:ДБ|ДШ|[БШК]))[СC]?(\d+)$/iu;
 function depthOf(e){
  if(!e?.profile)return null;
- try{sortament=sortament||require("./ai-global-kb").createGlobalKnowledge()}catch{return sectionHeight(e.profile)||null}
- const r=sortament.findProfile?.(String(e.profile),{standard:e.profile_standard||""});
- return r&&r.h_mm>0?Number(r.h_mm):sectionHeight(e.profile)||null
+ const w=WELDED_I.exec(String(e.profile).replace(/\s+/g,"")),name=w?w[1].toUpperCase()+w[2]:String(e.profile);
+ try{sortament=sortament||require("./ai-global-kb").createGlobalKnowledge()}catch{return sectionHeight(name)||null}
+ const r=sortament.findProfile?.(name,{standard:e.profile_standard||""});
+ return r&&r.h_mm>0?Number(r.h_mm):sectionHeight(name)||null
 }
 // The level of a member at a point of its plan line (a beam broken at the ridge — through its ridge).
 function levelAlong(e,x,y){
@@ -1204,6 +1208,127 @@ function sectionOutliers(elements){
   }
  }
 }
+// The line of a pitched roof through the levels written along a row of axes ({u, z}): one slope (z = c + s·u) or two
+// meeting at the ridge (the lower of two lines, one rising, one falling) — the one most levels lie on, within 30 mm;
+// a slip of the pen («+9,695» for +9,595, ГПЭС М1.5) falls off it. The two slopes of a ridge are alike and the ridge is
+// over the middle of the levels: a ridge otherwise must hold two levels more (two slips on one side line up into a
+// slope of their own, «+9,695», «+9,965» at 3 % moving the ridge 1,7 m). Null when the levels lie on no slope (a flat
+// roof, a step): the readings of the sections stand.
+function roofLine(points){
+ const n=points.length;if(n<3)return null;
+ const lines=new Map();
+ for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){
+  const p=points[i],q=points[j];if(Math.abs(q.u-p.u)<1000)continue;
+  const s=(q.z-p.z)/(q.u-p.u);if(Math.abs(s)<0.005||Math.abs(s)>0.3)continue;
+  const c=p.z-s*p.u;lines.set(Math.round(s*1e4)+"|"+Math.round(c/5),{s,c})
+ }
+ const list=[...lines.values()],lo=Math.min(...points.map(p=>p.u)),hi=Math.max(...points.map(p=>p.u));
+ const score=f=>{let k=0,r=0;for(const p of points){const d=Math.abs(f(p.u)-p.z);if(d<=30){k++;r+=d}}return{k,r}};
+ let best=null;
+ const take=(m,sc)=>{if(!best||sc.k>best.k||sc.k===best.k&&(m.parts<best.parts||m.parts===best.parts&&sc.r<best.r))best={...m,...sc}};
+ for(const a of list)take({f:u=>a.c+a.s*u,parts:1,slope:a.s},score(u=>a.c+a.s*u));
+ for(const a of list)for(const b of list){
+  if(a.s<=0||b.s>=0)continue;
+  const ur=(b.c-a.c)/(a.s-b.s);if(ur<=lo+500||ur>=hi-500)continue;
+  const f=u=>Math.min(a.c+a.s*u,b.c+b.s*u),side=p=>Math.abs(f(p.u)-p.z)<=30;
+  // Each slope stands on a level of its own at least, four in all.
+  if(points.filter(p=>p.u<ur-500&&side(p)).length<1||points.filter(p=>p.u>ur+500&&side(p)).length<1||points.filter(side).length<4)continue;
+  const sc=score(f),odd=Math.abs(a.s+b.s)>0.001||Math.abs(ur-(lo+hi)/2)>Math.max(600,(hi-lo)*0.02);
+  take({f,parts:2,ridge:ur,slope:a.s},odd?{...sc,k:sc.k-1.5,real:sc.k}:sc)
+ }
+ if(best&&best.real!==undefined){best.k=best.real;delete best.real}
+ return best&&best.k>=3&&best.k>=n*0.6?best:null
+}
+// A pitched roof by its sections. A section across a roof plan («3-3» along the axes 1…6 of ГПЭС М1.2) writes the
+// levels of its beams at the axes (src/ai-section-extract.js, sink.profiles); one mark of a roof beam is used up and
+// down the slope, and the reading of a section gives it one level only («К130» on the axes 2…5 read at 9,4…9,9, «К144»
+// from +8,900 to +9,325 — the engineer, 27.10.2026: «почему висит? изучи все балки покрытия, криво все стоят»). The
+// sections of a plan are those naming its marks; their levels within 0,4 m of those read there for its members (not
+// those of the wall girts or of another roof drawn in the same section) and inside its axes give the line of the roof
+// across one direction of the grid (the other direction stays level: the ridge runs along it). Each end of the plan's
+// beams then takes its level from that line: the top of the beam on the written tops (its centre half its depth under),
+// or the axis of the beams («+9,175 ось») when its profile is not known. A beam over the ridge is broken there.
+function roofProfiles(elements,draft,merged){
+ const profiles=(draft?.pages||[]).filter(p=>(p.docType==="КМД монтажные"||p.docType==="КМ")&&p.sectionProfiles?.length);
+ if(!profiles.length||!merged?.posX)return;
+ const groups=new Map();
+ for(const e of elements){
+  if(!ROOF.test(String(e.scheme||""))||/прогон/iu.test(String(e.scheme||""))||e.group==="purlins"||SET_BY_HAND.has(e.levels)||e.levels==="развёртка"||!Number.isFinite(e.x2_mm))continue;
+  if(!beamLike(e)&&!(e.geometry_type==="brace"&&!e.fitting_type))continue;
+  const k=e.page+"|"+e.scheme;(groups.get(k)||groups.set(k,[]).get(k)).push(e)
+ }
+ const median=v=>{v=[...v].sort((a,b)=>a-b);return v[v.length>>1]};
+ for(const list of groups.values()){
+  const beams=list.filter(beamLike);if(beams.length<4)continue;
+  const marks=new Set(list.map(e=>normMark(e.mark)));
+  const doc=beams[0].doc,found=[];
+  for(const [dir,pos,a,b] of [["x",merged.posX,"x_mm","x2_mm"],["y",merged.posY,"y_mm","y2_mm"]]){
+   const from=Math.min(...list.map(e=>Math.min(e[a],e[b]))),to=Math.max(...list.map(e=>Math.max(e[a],e[b])));
+   const pts=[],names=new Set();
+   for(const p of profiles){
+    if((doc==="КМД")!==(p.docType==="КМД монтажные"))continue;
+    for(const pr of p.sectionProfiles){
+     const own=pr.marks.filter(m=>marks.has(normMark(m[0]))),read=own.flatMap(m=>m.slice(1)).filter(Number.isFinite);
+     if(own.length<2||!read.length||pr.axes.filter(x=>pos.has(x)).length<3)continue;
+     let used=false;
+     for(const l of pr.levels){
+      const [la,lb,t]=l.at||[];if(!pos.has(la)||!pos.has(lb))continue;
+      const u=pos.get(la)+t*(pos.get(lb)-pos.get(la));
+      if(u<from-1000||u>to+1000||!read.some(z=>Math.abs(l.mm-z)<=400))continue;
+      pts.push({u,z:l.mm,axis:!!l.axis});used=true
+     }
+     if(used)names.add(pr.section)
+    }
+   }
+   // The line by the axis levels when they give one (no slip among them), else by the tops; the tops over the axis
+   // line give the depth between them.
+   const axis=pts.filter(p=>p.axis),tops=pts.filter(p=>!p.axis),la=roofLine(axis),lt=roofLine(tops);
+   const ratio=(l,v)=>l?l.k/v.length:0,useAxis=la&&ratio(la,axis)>=ratio(lt,tops);
+   const line=useAxis?la:lt;if(!line)continue;
+   const other=useAxis?tops:axis,off=other.length?median(other.map(p=>useAxis?p.z-line.f(p.u):line.f(p.u)-p.z)):null;
+   found.push({dir,a,b,line,useAxis,off,names:[...names]})
+  }
+  // A roof sloping both ways (a hipped one) is not of this rule.
+  if(found.length!==1)continue;
+  const {dir,a,b,line,useAxis,off,names}=found[0];
+  const top=u=>useAxis?(off!==null?line.f(u)+off:null):line.f(u),axisAt=u=>useAxis?line.f(u):off!==null?line.f(u)-off:line.f(u);
+  const hb=median(beams.map(depthOf).filter(h=>h>0))||null;
+  const fmt=z=>mmText(Math.round(z/5)*5);
+  for(const e of list){
+   const h=beamLike(e)?depthOf(e):hb;
+   const zAt=u=>{const t=top(u);return Math.round((h>0&&t!==null?t-h/2:axisAt(u))/5)*5};
+   const u0=e[a],u1=e[b];
+   e.z0_mm=zAt(u0);e.z1_mm=zAt(u1);
+   delete e.mid_x_mm;delete e.mid_y_mm;delete e.mid_z_mm;if(e.geometry_type==="bent")e.geometry_type="beam";
+   if(line.ridge!==undefined&&Math.min(u0,u1)<line.ridge-100&&Math.max(u0,u1)>line.ridge+100&&beamLike(e)){
+    const t=(line.ridge-u0)/(u1-u0);
+    e.mid_x_mm=Math.round(e.x_mm+(e.x2_mm-e.x_mm)*t);e.mid_y_mm=Math.round(e.y_mm+(e.y2_mm-e.y_mm)*t);e.mid_z_mm=zAt(line.ridge);e.geometry_type="bent"
+   }
+   e.levels="по скату кровли";
+   const tops=[u0,u1].map(top).filter(z=>z!==null);
+   e.note=[...String(e.note||"").split("; ").filter(x=>x&&!/^(В разрезе прочитано|Отметки по балкам|Концы на колоннах|Отметки —|Отметок нет)/u.test(x)),
+    "Отметки концов — по скату кровли из разрезов "+names.join(", ")+(tops.length&&beamLike(e)?" (верх "+[...new Set(tops.map(fmt))].join(" … ")+")":useAxis||off!==null?" (по оси балок)":"")].join("; ")
+  }
+  // A column under these beams, drawn in the section up to the roof line (its top read there at the beam's top, or a
+  // slip of the pen over it: «+9,695»), would stand through the roof: it ends under the beam (the view seats it on the
+  // beam's bottom with its cap plate). A post rising on past the roof (more than 0,4 m over it — a wall post to the
+  // upper level) is not under the roof.
+  for(const c of elements){
+   if(c.geometry_type!=="column"||c.fitting_type||c.doc!==doc||SET_BY_HAND.has(c.levels)||!Number.isFinite(c.z1_mm))continue;
+   let under=null;
+   for(const e of beams){
+    const vx=e.x2_mm-e.x_mm,vy=e.y2_mm-e.y_mm,L=Math.hypot(vx,vy);if(L<300)continue;
+    const along=((c.x_mm-e.x_mm)*vx+(c.y_mm-e.y_mm)*vy)/L,off=Math.abs((c.x_mm-e.x_mm)*vy-(c.y_mm-e.y_mm)*vx)/L;
+    if(off>400||along<-400||along>L+400)continue;
+    const z=levelAlong(e,c.x_mm,c.y_mm),h=depthOf(e)||0;
+    if(!under||z-h/2<under.bottom)under={mark:e.mark,top:z+h/2,bottom:z-h/2}
+   }
+   if(!under||c.z1_mm<=under.bottom||c.z1_mm>under.top+400)continue;
+   c.z1_mm=Math.round(under.bottom/5)*5;
+   c.note=[String(c.note||"").trim(),"Верх — под балкой покрытия "+under.mark+" (в разрезе колонна доведена до кровли), проверьте по узлу"].filter(Boolean).join("; ")
+  }
+ }
+}
 // Roof beams by the tops of the columns under their ends: the rafter of a frame is fixed flush with the column cap, so
 // where a column of the set stands under the end of a beam of a roof plan and reaches its level (not more than 150 mm
 // under it — a beam lying on a shorter post keeps its level; not more than 800 mm over — a wall post rising past the
@@ -1212,7 +1337,7 @@ function sectionOutliers(elements){
 function roofOnColumns(elements){
  const cols=elements.filter(e=>e.geometry_type==="column"&&!e.fitting_type&&Number.isFinite(e.z1_mm)&&firmLevels(e));
  for(const e of elements){
-  if(!beamLike(e)&&!(e.geometry_type==="brace"&&Number.isFinite(e.x2_mm))||SET_BY_HAND.has(e.levels)||!ROOF.test(String(e.scheme||""))||e.group==="purlins"||/прогон/iu.test(String(e.scheme||"")))continue;
+  if(!beamLike(e)&&!(e.geometry_type==="brace"&&Number.isFinite(e.x2_mm))||SET_BY_HAND.has(e.levels)||e.levels==="по скату кровли"||!ROOF.test(String(e.scheme||""))||e.group==="purlins"||/прогон/iu.test(String(e.scheme||"")))continue;
   const on=[];
   for(const [k,x,y] of [["z0_mm",e.x_mm,e.y_mm],["z1_mm",e.x2_mm,e.y2_mm]]){
    const z=e[k];let best=null;
@@ -1687,4 +1812,4 @@ function seatTrusses(elements,catalog){
   e.note=[e.note,"Ферма по геометрической схеме"+(moved?", отметка низа — как у соседних ферм":"")+" — проверьте"].filter(Boolean).join("; ")
  }
 }
-module.exports={instanceStatus,sheetNodes,jointNote,platesBySpec,gussetsBySpec,gussetHoles,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces,trimGuardPosts,sectionOutliers,roofOnColumns,purlinsOnBeams,hangTracks,relevelNeighbours,oneLadder};
+module.exports={depthOf,instanceStatus,sheetNodes,jointNote,platesBySpec,gussetsBySpec,gussetHoles,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces,trimGuardPosts,sectionOutliers,roofProfiles,roofLine,roofOnColumns,purlinsOnBeams,hangTracks,relevelNeighbours,oneLadder};
