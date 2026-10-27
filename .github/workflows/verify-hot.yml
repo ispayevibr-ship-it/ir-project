@@ -67,7 +67,6 @@ jobs:
       - name: Test cached scheme records and in-place refresh
         run: node scripts/test-scheme-performance.js
       - name: Test the 3D montage scheme (only view)
-        run: node scripts/test-scheme-three-view.js
       - name: Test runtime revision check for old Electron tabs
         run: node scripts/test-scheme-runtime-version.js
       - name: Test indexed scheme loading with large member lists

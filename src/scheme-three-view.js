@@ -352,6 +352,34 @@ window.irThreeSchemeView=(function(){
   });
   return{members:out,gussets:gussets}
  }
+ // The height of a chord of a truss (local mm) at x along its span; null where the chord does not reach.
+ function chordAt(members,role,x){
+  var z=null;
+  members.forEach(function(m){
+   if(m[4]!==role||z!==null)return;var x0=number(m[0]),x1=number(m[2]);if(x0===x1||x<Math.min(x0,x1)-1||x>Math.max(x0,x1)+1)return;
+   z=number(m[1])+(number(m[3])-number(m[1]))*(x-x0)/(x1-x0)
+  });
+  return z
+ }
+ // A truss between lo and hi along its span (local mm) — its ends at the faces of the columns it is bolted to sideways
+ // (КМ: «фермы к колоннам примыкают сбоку и крепятся болтами»): the chords cut at the line; a post or a brace ending past
+ // it is moved onto the line at its chord (the end post becomes the post at the flange, the support brace starts at the
+ // bottom chord there). Nothing passes the line — drawn from axis to axis the angles went through the column.
+ function clipTruss(members,lo,hi){
+  var out=[];
+  members.forEach(function(m){
+   var p=[[number(m[0]),number(m[1])],[number(m[2]),number(m[3])]],chord=m[4]==="top"||m[4]==="bottom",ok=true;
+   for(var e=0;e<2&&ok;e++){
+    var q=p[e],o=p[1-e],line=q[0]<lo?lo:q[0]>hi?hi:null;if(line===null)continue;
+    var role=chord?"":["top","bottom"].filter(function(r){var z=chordAt(members,r,q[0]);return z!==null&&Math.abs(z-q[1])<=40})[0];
+    if(role)p[e]=[line,chordAt(members,role,line)];
+    else if((o[0]-line)*(q[0]-line)<0)p[e]=[line,q[1]+(o[1]-q[1])*(line-q[0])/(o[0]-q[0])];
+    else ok=false
+   }
+   if(ok&&Math.hypot(p[1][0]-p[0][0],p[1][1]-p[0][1])>=30)out.push([p[0][0],p[0][1],p[1][0],p[1][1]].concat(m.slice(4)))
+  });
+  return out
+ }
  // The convex outline of points [x, z] (anticlockwise).
  function hull(pts){
   var p=pts.slice().sort(function(a,b){return a[0]-b[0]||a[1]-b[1]}),cross=function(o,a,b){return(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0])};
@@ -1490,7 +1518,56 @@ window.irThreeSchemeView=(function(){
     m.userData.memberId=e.id;steel.add(m);allMeshes.push(m);if(!meshesById.has(e.id))meshesById.set(e.id,[]);meshesById.get(e.id).push(m)});
    pedestals=[];
    elems.forEach(function(c){if(dataById.has(String(c.id))&&basePlated(c))baseParts(c)});
-   elems.forEach(function(c){if(c.geometryType==="column"&&dataById.has(String(c.id))&&footPlateSize(c.base))footPlate(c)})
+   elems.forEach(function(c){if(c.geometryType==="column"&&dataById.has(String(c.id))&&footPlateSize(c.base))footPlate(c)});
+   girderBrackets()
+  }
+  // The brackets (столики) the wall girders of the framing lie on beside the columns (a КМ1, л.29, 30, узлы 1–8,
+  // разрез 3-3: the girder □180×5 outside the column, its bottom on a horizontal plate t14 welded to the column, a
+  // triangular rib t10 under it, two bolts М16 through the plate and the bottom of each girder end, 90 mm from the axis
+  // of the column, 60 mm apart across): a horizontal girder of the framing ending beside a column, outside its body (its
+  // near face 0–1,2 m from the face of the column, its end within the width of the column), at a level of the column.
+  // The plate reaches from the face of the column to the outer face of the girder, 300 wide; the rib 300 out, 200 deep;
+  // one bracket carries the girders of both spans. Sizes from joint.bracket of the sheet ({plate_mm:[t, along, out],
+  // rib_mm:[t, out, depth], cap_mm}), else as that node. The plate and the rib are of the column, the bolts and the end
+  // caps of the girder.
+  function girderBrackets(){
+   var made=new Set(),up=new T.Vector3(0,1,0);
+   elems.forEach(function(g){
+    var gid=String(g.id||"");
+    if(g.geometryType!=="beam"||!gid||g.ft||g.truss||!dataById.has(gid)||kind(g)!=="fahwerk"||Math.abs(number(g.z2)-number(g.z0))>30)return;
+    var z=number(g.z0),a=toWorld(g.x,g.y,z),b=toWorld(g.x2,g.y2,z),au=b.clone().sub(a),L=au.length();if(L<.5)return;au.divideScalar(L);
+    var hs=halfSection(g),gw=hs.b,gh=hs.h,br=g.joint&&g.joint.bracket&&typeof g.joint.bracket==="object"?g.joint.bracket:{};
+    var mm=function(v,i,d){var x=Array.isArray(v)?number(v[i]):0;return(x>0?x:d)/1000};
+    var tP=mm(br.plate_mm,0,14),wP=mm(br.plate_mm,1,300),tR=mm(br.rib_mm,0,10),oR=mm(br.rib_mm,1,300),dR=mm(br.rib_mm,2,200),cap=number(br.cap_mm)/1000;
+    var gsec=sectionOf(g.profile_name||g.profileName,g.profile_standard),tw=gsec&&gsec.t?gsec.t/1000:.005,d=boltMm(br.bolt,g)/1000;
+    [[a,au],[b,au.clone().negate()]].forEach(function(E){
+     var best=null;
+     elems.forEach(function(k){
+      if(k.geometryType!=="column"||k.ft||!k.id||!dataById.has(String(k.id))||k.column&&Array.isArray(k.column.members)&&k.column.members.length)return;
+      if(z<number(k.z0)+300||z>number(topOf(k)))return;
+      var C=toWorld(k.x,k.y,z),rel=E[0].clone().sub(C),along=rel.dot(au),ov=rel.clone().sub(au.clone().multiplyScalar(along));ov.y=0;
+      var dOut=ov.length(),ks=halfSection(k),hAlong=Math.abs(au.x)*ks.b+Math.abs(au.z)*ks.h,hOut=Math.abs(au.z)*ks.b+Math.abs(au.x)*ks.h,gap=dOut-gw-hOut;
+      if(dOut<1e-3||Math.abs(along)>hAlong+.06||gap<-.005||gap>1.2)return;
+      if(!best||gap<best.gap)best={k:k,C:C,along:along,out:ov.divideScalar(dOut),dOut:dOut,hAlong:hAlong,hOut:hOut,gap:gap}
+     });
+     if(!best)return;
+     var k=best.k,cid=String(k.id),out=best.out,side=out.clone().cross(up).normalize(),bot=z/1000-gh;
+     var mid=best.C.clone().add(au.clone().multiplyScalar(Math.max(-best.hAlong,Math.min(best.hAlong,best.along)))),ext=best.dOut+gw-best.hOut;
+     var key=cid+":"+Math.round(mid.x*20)+":"+Math.round(mid.z*20)+":"+Math.round(bot*20)+":"+Math.round(out.x*2)+":"+Math.round(out.z*2);
+     if(!made.has(key)){
+      made.add(key);
+      var face=mid.clone().add(out.clone().multiplyScalar(best.hOut));face.y=bot-tP;
+      keepPart(plateBox(k,face.clone().add(out.clone().multiplyScalar(ext/2)).add(up.clone().multiplyScalar(tP/2)),out,up,side,ext,tP,wP),cid);
+      var w=Math.min(oR,ext),rib=new T.Mesh(shared("rib:"+w.toFixed(3)+":"+dR.toFixed(3)+":"+tR.toFixed(3),function(){
+       var sh=new T.Shape();sh.moveTo(0,0);sh.lineTo(w,0);sh.lineTo(0,-dR);sh.closePath();var geo=new T.ExtrudeGeometry(sh,{depth:tR,bevelEnabled:false});geo.translate(0,0,-tR/2);return geo}),baseMaterial(k));
+      rib.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(out,up,side));rib.position.copy(face);keepPart(rib,cid)
+     }
+     // Two bolts of the girder end through its bottom and the plate (heads below), its end cap.
+     var at=E[0].clone();at.y=bot;
+     if(d)[-1,1].forEach(function(j){addBolt(g,at.clone().add(E[1].clone().multiplyScalar(.09)).add(out.clone().multiplyScalar(j*gw/3)).add(up.clone().multiplyScalar((tw-tP)/2)),up.clone().negate(),d,tw+tP)});
+     if(cap>0&&cap<.03)keepPart(plateBox(g,E[0].clone().add(E[1].clone().multiplyScalar(cap/2)),E[1],up,E[1].clone().cross(up).normalize(),cap,2*gh,2*gw),gid)
+    })
+   })
   }
   // A post on a plate of its own given by the drawing (the roof guard of a КМ: «−4×320×550» lying on the roof sandwich
   // panel, fixed to it with self-tapping screws): {plate:"−t×w×l", toward_mm:[dx,dy,dz]} — the plate from the foot of
@@ -2047,13 +2124,67 @@ window.irThreeSchemeView=(function(){
   // A truss by its geometric scheme: chords, posts and diagonals in the plane of the truss over its plan line, from the
   // bottom node of its left support (the scheme's left end may be the plan line's end). A member with a profile of the
   // sortament («140х10» of paired angles) is drawn by two angles back to back; the rest — by a thin bar.
+  function keepPart(mesh,id){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh)}
+  // A plate as a box: its middle, its axes (unit vectors) and its sizes along them (m).
+  function plateBox(c,at,ax,ay,az,sx,sy,sz){
+   var m=new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(c));
+   m.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(ax,ay,az));m.scale.set(sx,sy,sz);m.position.copy(at);return m
+  }
+  function boltMm(v,c){var m=/(\d{2})/.exec(String(v||c&&c.joint&&c.joint.bolt||""));return m?number(m[1]):0}
+  // The column a truss end is bolted to sideways (a КМ1: «фермы к колоннам каркаса примыкают сбоку и крепятся
+  // болтами, в уровне нижнего пояса опорная реакция передаётся через опорный столик, в уровне верхнего пояса — вертикальная
+  // листовая фасонка»): the end in the plan of the column, the column higher than the bottom chord there by 300 and more
+  // (a truss lying on the top of a column is not this). `u` — into the span; face — mm from the end along u to the face.
+  function trussSeat(e,u,zBottom){
+   var best=null;
+   elems.forEach(function(k){
+    if(k.geometryType!=="column"||k.ft||!k.id||k.column&&Array.isArray(k.column.members)&&k.column.members.length)return;
+    var hs=halfSection(k),hx=hs.b*1000,hy=hs.h*1000,dx=e.x-number(k.x),dy=e.y-number(k.y);
+    if(Math.abs(dx)>hx+60||Math.abs(dy)>hy+60||zBottom<number(k.z0)||zBottom>number(topOf(k))-300)return;
+    var face=Math.abs(u.x)*hx+Math.abs(u.y)*hy-(dx*u.x+dy*u.y);
+    if(face>0&&face<1500&&(!best||face>best.face))best={k:k,face:face}
+   });
+   return best
+  }
+  // The support node of a truss end at a column side, as the node of its sheet gives it (truss.support: КМ1 л.18 узел 6,
+  // л.16 разрезы 1-1, 2-2 of a КМ1), else conventional: the flange of the truss end (опорное ребро, t25 × 220 × 700)
+  // bolted to the flange of the column in two rows; under it the support table (столик t40 × 200 × 300) welded to the
+  // column; at the top chord the vertical gusset of the truss bolted to a rib of the column (t10, two bolts). The truss
+  // parts are of the truss, the table and the rib of the column. `xe` — where the members start (local mm), `s` — +1 at
+  // the start, −1 at the end; ex — along the span, nrm — across.
+  function trussSupport(c,id,seat,xe,s,members,at,ex,nrm){
+   var sp=c.truss.support&&typeof c.truss.support==="object"?c.truss.support:{},col=seat.k,cid=String(col.id);
+   var mm=function(v,i,d){var x=Array.isArray(v)?number(v[i]):0;return x>0?x:d};
+   var tF=mm(sp.flange_mm,0,20),wF=mm(sp.flange_mm,1,200),hF=mm(sp.flange_mm,2,600),tT=mm(sp.table_mm,0,30),wT=mm(sp.table_mm,1,200),hT=mm(sp.table_mm,2,200);
+   var zb=number(chordAt(members,"bottom",xe)),zt=chordAt(members,"top",xe),fTop=zb+(number(sp.flange_top_mm)||hF-150),face=xe-s*tF;
+   var up=new T.Vector3(0,1,0),place=function(x,z,across){return at(x,z).add(nrm.clone().multiplyScalar((across||0)/1000))};
+   keepPart(plateBox(c,place(face+s*tF/2,fTop-hF/2),ex,up,nrm,tF/1000,hF/1000,wF/1000),id);
+   keepPart(plateBox(col,place(face+s*tT/2,fTop-hF-hT/2),ex,up,nrm,tT/1000,hT/1000,wT/1000),cid);
+   // Bolts through the flange and the flange of the column: by the chain of the sheet from the top of the flange.
+   // (their class as the node gives it: «М24 кл. 8.8» of the support, not of the members)
+   var csec=sectionOf(col.profile_name||col.profileName,col.profile_standard),tc=csec&&csec.t?csec.t:20,d=boltMm(sp.bolt,c),bc={id:c.id,joint:{cls:sp.cls||c.joint&&c.joint.cls}};
+   var rows=Array.isArray(sp.bolts_mm)&&sp.bolts_mm.length?sp.bolts_mm.map(number):[],gap=number(sp.bolt_gap_mm)||Math.max(80,wF-80);
+   if(!rows.length)for(var r=70;r<=hF-70;r+=Math.max(100,(hF-140)/3))rows.push(r);
+   if(d)rows.forEach(function(r){[-1,1].forEach(function(j){addBolt(bc,place(face+s*(tF-tc)/2,fTop-r,j*gap/2),ex.clone().multiplyScalar(s),d/1000,(tF+tc)/1000)})});
+   // The top chord: the vertical gusset of the truss to the face, over the rib of the column, two bolts across.
+   if(zt===null)return;
+   var tp=sp.top&&typeof sp.top==="object"?sp.top:{},gt=trussGussetT(c)*1000,tR=mm(tp.rib_mm,0,10),out=mm(tp.rib_mm,1,250),hR=mm(tp.rib_mm,2,300),dt=boltMm(tp.bolt||sp.bolt,c);
+   keepPart(plateBox(c,place(face+s*(out+100)/2,zt-hR/2+20),ex,up,nrm,(out+100)/1000,(hR+40)/1000,gt/1000),id);
+   keepPart(plateBox(col,place(face+s*out/2,zt-hR/2,(gt+tR)/2),ex,up,nrm,out/1000,hR/1000,tR/1000),cid);
+   if(dt)[.28,.72].forEach(function(f){addBolt(bc,place(face+s*out*.6,zt-hR*f,tR/2-gt/2),nrm,dt/1000,(gt+tR)/1000)})
+  }
   function addTruss(c,id){
    var t=c.truss,a={x:number(c.x),y:number(c.y)},b={x:number(c.x2),y:number(c.y2)};
    if(t.flip){var q=a;a=b;b=q}
    var L=Math.hypot(b.x-a.x,b.y-a.y),span=number(t.span_mm)||L;if(L<500)return false;
    var ux=(b.x-a.x)/L,uy=(b.y-a.y)/L,k=L/span,base=number(t.base_mm);
    var at=function(x,z){return toWorld(a.x+ux*x*k,a.y+uy*x*k,base+z)};
-   var gt=trussGussetT(c),nodes=trussNodes(t.members,sectionOf);
+   // An end at a column side: the truss between the faces, its support node there (trussSupport).
+   var sp=t.support&&typeof t.support==="object"?t.support:{},tF=number(Array.isArray(sp.flange_mm)&&sp.flange_mm[0])||20;
+   var ends=[trussSeat(a,{x:ux,y:uy},base+number(chordAt(t.members,"bottom",0))),trussSeat(b,{x:-ux,y:-uy},base+number(chordAt(t.members,"bottom",span)))];
+   var xa=ends[0]?(ends[0].face+tF)/k:0,xb=ends[1]?span-(ends[1].face+tF)/k:span;
+   var members=ends[0]||ends[1]?clipTruss(t.members,xa,xb):t.members;
+   var gt=trussGussetT(c),nodes=trussNodes(members,sectionOf);
    var parts=drawMembers(c,nodes.members,at,at(1000,0).sub(at(0,0)).normalize(),true,gt);
    if(!parts.length)return false;
    // The gussets of its nodes in the plane of the truss, between the angles of the pairs.
@@ -2065,6 +2196,7 @@ window.irThreeSchemeView=(function(){
     var mesh=new T.Mesh(geo,baseMaterial(c));mesh.userData.gusset=true;parts.push(mesh)
    });
    parts.forEach(function(mesh){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh)});
+   ends.forEach(function(e,i){if(e)trussSupport(c,id,e,i?xb:xa,i?-1:1,members,at,ex.clone().normalize(),nrm)});
    var tops=t.members.filter(function(m){return m[4]==="top"}),hi=tops.length?Math.max.apply(null,tops.map(function(m){return Math.max(number(m[1]),number(m[3]))})):0;
    var lab=at(span/2,hi);lab.y+=.35;
    var el=document.createElement("span");el.className="ir-three-member-label";el.textContent=c.mark||c.title||"";
@@ -3049,7 +3181,7 @@ window.irThreeSchemeView=(function(){
   return loadSections().then(function(){var out=[];sections.forEach(function(r){var o={};
    ["id","status","standard","h_mm","b_mm","B_mm","b1_mm","a_mm","s_mm","t_mm","R_mm","r_mm","diameters_mm","thicknesses_mm","sizes_mm","rows"].forEach(function(k){if(r[k]!=null)o[k]=r[k]});out.push(o)});return out})
  }
- return{render:render,dispose:dispose,sectionOf:sectionOf,loadSections:loadSections,sectionRows:sectionRows,fastenerRows:fastenerRows,jointKbRows:jointKbRows,
+ return{render:render,dispose:dispose,sectionOf:sectionOf,clipTruss:clipTruss,loadSections:loadSections,sectionRows:sectionRows,fastenerRows:fastenerRows,jointKbRows:jointKbRows,
   focus:function(id){return call("focus",id)},
   startCopy:function(id){return call("startCopy",id)},
   startPlacement:function(){return call("startPlacement")},

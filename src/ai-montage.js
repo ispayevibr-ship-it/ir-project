@@ -16,7 +16,7 @@ const KIND_NAME={columns:"Колонна",fahwerk:"Стойка фахверка
  column:"Колонна",beam:"Балка",bent:"Балка",brace:"Связь",truss:"Ферма",shell:"Стенка резервуара",plate:"Площадка"};
 // Version of the reading rules: an analysis made by older rules is flagged, so that the engineer runs it again
 // after an update (the result of step 1 is stored and is not recomputed by itself).
-const ANALYZER="2026-10-27.9";
+const ANALYZER="2026-10-27.10";
 // АР (architecture) and ТХ (technology) sheets are read for context: Claude places what of them is mounted.
 const LOG_LIMIT=200,TYPES=["КМ","КМД сборочные","КМД монтажные","АР","ТХ"];
 // Sheets per Claude request; larger sets are sent in several requests.
