@@ -64,6 +64,8 @@ jobs:
         run: node scripts/test-ai-pdf-render.js
       - name: Test structural member copying
         run: node scripts/test-scheme-copy.js
+      - name: Test element editor lists by element kind
+        run: node scripts/test-scheme-editor-kinds.js
       - name: Test cached scheme records and in-place refresh
         run: node scripts/test-scheme-performance.js
       - name: Test the 3D montage scheme (only view)

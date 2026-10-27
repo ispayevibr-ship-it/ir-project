@@ -35,6 +35,10 @@
  .irc-meta{font-size:11.5px;color:#6b7785;margin-top:4px;display:flex;gap:8px;flex-wrap:wrap}.irc-meta .err{color:#b42318}
  .irc-meta button{border:0;background:none;color:#1d4ed8;cursor:pointer;padding:0;font-size:11.5px}
  .irc-ctxline{font-size:12px;color:#44515e;margin-top:4px}
+ /* The question an answer is to, above the answer in another colour (the engineer, 27.10.2026); a click shows it in the list. */
+ .irc-q{margin:0 0 8px;padding:6px 8px;border-left:3px solid #d97706;border-radius:6px;background:#fff7e6;color:#7a4b00;font-size:12.5px;cursor:pointer}
+ .irc-q b{display:block;font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#b45309;margin-bottom:2px}.irc-q small{display:block;margin-top:2px;color:#92400e}
+ .irc-msg.irc-flash{box-shadow:0 0 0 2px #f59e0b}
  .irc-shot{display:block;margin-top:6px;max-width:100%;border-radius:6px;border:1px solid #d5dde6;cursor:zoom-in}
  .irc-form{border-top:1px solid #e3e8ee;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
  .irc-ctx{display:flex;gap:6px;align-items:center;font-size:12.5px;background:#eef4ff;border-radius:6px;padding:4px 8px;color:#1f3a68}.irc-ctx[hidden]{display:none}
@@ -158,11 +162,11 @@
   if(panel.hidden)return;
   const atEnd=list.scrollHeight-list.scrollTop-list.clientHeight<40;
   list.innerHTML=state.messages.length?state.messages.map(m=>{
-   const e=m.context&&m.context.element;
+   const e=m.context&&m.context.element,asked=m.from!=="user"&&m.reply_to?state.messages.find(x=>x.from==="user"&&x.id===m.reply_to):null,ae=asked&&asked.context&&asked.context.element,said=asked?String(asked.text||"").replace(/\s+/g," ").trim():"";
    const meta=m.from==="user"?(m.answered?"<span>Есть ответ Claude</span>":m.state==="error"?'<span class="err">Не отправлено: '+esc(m.error||"")+'</span><button type="button" data-retry="'+esc(m.id)+'">Повторить</button>':
     m.state==="waiting"?"<span>Ждёт отправки — уйдёт само</span>":m.state==="sending"?"<span>Отправляется…</span>":"<span>"+(m.answered?"Отправлено · есть ответ":"Отправлено Claude")+"</span>"):
     "<span>Claude"+(m.version?" · обновление "+esc(m.version):"")+"</span>";
-   return'<div class="irc-msg '+(m.from==="user"?"user":"claude")+'">'+(m.from==="user"?"<p>"+esc(m.text).replace(/\n/g,"<br>")+"</p>":md(m.text))+
+   return'<div class="irc-msg '+(m.from==="user"?"user":"claude")+'" data-mid="'+esc(m.id)+'">'+(asked?'<div class="irc-q" data-goto="'+esc(asked.id)+'" title="Показать вопрос в чате"><b>Вопрос</b>'+esc(said.length>280?said.slice(0,280)+"…":said)+(ae?"<small>Элемент: "+esc([ae.mark,ae.name].filter(Boolean).join(" · "))+"</small>":"")+"</div>":"")+(m.from==="user"?"<p>"+esc(m.text).replace(/\n/g,"<br>")+"</p>":md(m.text))+
     (e?'<div class="irc-ctxline">Элемент: '+esc([e.mark,e.name].filter(Boolean).join(" · "))+'</div>':"")+
     [m.shot,...(m.photos||[])].filter(Boolean).map((id,i)=>'<img class="irc-shot" data-shot="'+esc(id)+'" alt="'+(i||!m.shot?"фото":"снимок экрана")+'"'+(shots.get(id)?' src="'+shots.get(id)+'"':"")+'>').join("")+
     '<div class="irc-meta">'+meta+"<span>"+time(m.at)+"</span></div></div>"
@@ -256,6 +260,7 @@
  };
  list.addEventListener("click",async ev=>{
   const r=ev.target.closest("[data-retry]");if(r){r.disabled=true;take(await invoke("ai-montage:chat-retry",{id:r.dataset.retry}).catch(e=>{alert(e.message);return null}));return}
+  const q=ev.target.closest("[data-goto]");if(q){const t=[...list.querySelectorAll("[data-mid]")].find(x=>x.dataset.mid===q.dataset.goto);if(t){t.scrollIntoView({block:"center",behavior:"smooth"});t.classList.add("irc-flash");setTimeout(()=>t.classList.remove("irc-flash"),1600)}return}
   const img=ev.target.closest("img[data-shot]");if(img&&img.src){const z=document.createElement("div");z.className="irc-zoom";z.innerHTML='<img alt="">';z.querySelector("img").src=img.src;z.onclick=()=>z.remove();document.body.appendChild(z)}
  });
  area.addEventListener("keydown",ev=>{if(ev.key==="Enter"&&(ev.ctrlKey||ev.metaKey)){ev.preventDefault();form.requestSubmit()}});

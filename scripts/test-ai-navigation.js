@@ -67,9 +67,11 @@ console.log("AI: drawings → analysis → Claude → montage scheme sub-pages, 
 // The chat with Claude: loaded in the window, its channels pass the old preload and are served by the main process.
 {const panel=fs.readFileSync("src/ai-chat-panel.js","utf8"),OLD=/^ai-(documents|engine|settings|montage):[a-z-]{1,40}$/;
  new vm.Script(panel,{filename:"src/ai-chat-panel.js"});
- assert(files["src/index.html"].includes('ai-chat-panel.js?v=198900'),"chat panel loads");
+ assert(files["src/index.html"].includes('ai-chat-panel.js?v=199000'),"chat panel loads");
  const chs=[...new Set(panel.match(/"ai-[a-z-]+:[a-z-]+"/g).map(x=>x.slice(1,-1)))];
  assert(chs.length>=6,"chat channels");
+ // Above each answer — its question in another colour, a click shows the question in the list (the engineer, 27.10.2026).
+ assert(panel.includes('x.from==="user"&&x.id===m.reply_to')&&panel.includes('<div class="irc-q" data-goto="')&&panel.includes(".irc-q{")&&panel.includes('closest("[data-goto]")'),"the question above the answer");
  for(const ch of chs){assert(OLD.test(ch),"old preload passes "+ch);assert(files["src/ai-ipc.js"].includes('handle("'+ch+'"'),"main serves "+ch)}
  const hot=JSON.parse(fs.readFileSync("hot/latest.json","utf8")).files.map(f=>f.source);
  for(const f of ["src/ai-chat.js","src/ai-chat-panel.js"])assert(hot.includes(f),"hot update carries "+f);

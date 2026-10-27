@@ -389,12 +389,28 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  };
  const axisOptions=(items,value)=>items.map(x=>`<option value="${esc(x)}" ${String(value)===x?"selected":""}>${esc(x)}</option>`).join("");
  const statusText=s=>s==="mounted"?"Смонтирована":s==="partial"?"Частично смонтирована":"Не смонтирована";
- const sectionType=c=>{const explicit=String(c?.section_type||"").trim().toLowerCase();if(["ibeam","square","round","box"].includes(explicit))return explicit;const s=`${c?.profile_name||""} ${c?.mark_name||""}`.toLowerCase();if(/круг|труб.*ø|труб.*ф|ø|⌀/.test(s))return"round";if(/квад|проф.*труб|\d+\s*[xх×]\s*\d+/.test(s))return"square";if(/короб|сварн.*короб/.test(s))return"box";return"ibeam"};
- const sectionTypeLabel=t=>({ibeam:"Двутавр",square:"Квадратная труба",round:"Круглая труба",box:"Короб / сплошное"}[t]||"Двутавр");
+ // What an element is besides a frame member — a sandwich panel, a profiled sheet, a trim, a railing, a tank sheet: its kind
+ // decides which sections and geometries the element editor offers (not «Двутавр» and «Балка» for a sandwich panel).
+ const SECTION_LABEL={ibeam:"Двутавр",square:"Квадратная труба",round:"Круглая труба",box:"Короб / сплошное",panel:"Сэндвич-панель",profsheet:"Профлист (профнастил)",trim:"Гнутый элемент (нащельник, планка)",deck:"Настил (рифлёный лист, решётка)",angle:"Уголок (стойки, поручень)",stair:"Косоуры и ступени",block:"Блок (окно, дверь, ворота)",sheet:"Лист"};
+ const SECTION_KIND={panel:["panel","profsheet"],profsheet:["profsheet","panel"],trim:["trim"],deck:["deck"],railing:["angle"],flight:["stair"],ladder:["stair"],window:["block"],door:["block"],gate:["block"],ring:["sheet"],sheet:["sheet"]};
+ const sectionChoices=ek=>SECTION_KIND[ek]||(ek?["round"]:["ibeam","square","round","box"]);
+ // A saved «ibeam» of a panel is the old default of the editor, not a reading of the drawings: a kind takes its own section.
+ const sectionFor=(c,ek)=>{const list=sectionChoices(ek),t=sectionType(c);return list.includes(t)?t:list[0]};
+ const GEOMETRY_LABEL={column:"Колонна / стойка",beam:"Балка / прогон / ригель",bent:"Ломаная балка (3 точки)",brace:"Связь / раскос",truss:"Ферма",shell:"Обечайка резервуара (по радиусу)",plate:"Лист днища, крыши (по радиусу)"};
+ const KIND_NAME={panel:"Сэндвич-панели",profsheet:"Профлист",trim:"Нащельник, планка",sheet:"Лист резервуара",window:"Окно",door:"Дверь",gate:"Ворота"};
+ const elementKind=(c,m)=>{const ft=String(c?.ft||c?.fitting_type||"");if(ft)return ft;const g=String(c?.geometryType||c?.geometry_type||"");if(g==="shell"||g==="plate")return"sheet";
+  const types=window.irStructureTypes,t=types?.byKey?.get?.(String(c?.type_key||""))||types?.typeByName?.(String(c?.mark_name||m?.name||m?.title||""));
+  return t?.key==="sheeting"?"profsheet":t?.shape==="panel"?"panel":t?.shape==="trim"?"trim":""};
+ // A tank sheet keeps its shell or plate (a point and a radius); a fitting, a panel, a trim goes along its line or stands up.
+ const geometryChoices=(kind,ek)=>{const list=ek==="sheet"?[["shell",GEOMETRY_LABEL.shell],["plate",GEOMETRY_LABEL.plate]]:ek?[["beam",(KIND_NAME[ek]||FITTING_LABEL[ek]||"Элемент")+" — по линии от точки до точки"],["column",(KIND_NAME[ek]||FITTING_LABEL[ek]||"Элемент")+" — вертикально, от низа до верха"]]:["column","beam","bent","brace","truss"].map(k=>[k,GEOMETRY_LABEL[k]]);
+  return kind&&!list.some(x=>x[0]===kind)?list.concat([[kind,GEOMETRY_LABEL[kind]||kind]]):list};
+ const pointGeometry=kind=>kind==="column"||kind==="shell"||kind==="plate";
+ const sectionType=c=>{const explicit=String(c?.section_type||"").trim().toLowerCase();if(SECTION_LABEL[explicit])return explicit;const s=`${c?.profile_name||""} ${c?.mark_name||""}`.toLowerCase();if(/профлист|профнастил/.test(s))return"profsheet";if(/сэндвич|тр[её]хслойн/.test(s))return"panel";if(/круг|труб.*ø|труб.*ф|ø|⌀/.test(s))return"round";if(/квад|проф.*труб|\d+\s*[xх×]\s*\d+/.test(s))return"square";if(/короб|сварн.*короб/.test(s))return"box";return"ibeam"};
+ const sectionTypeLabel=t=>SECTION_LABEL[t]||"Двутавр";
  const profileText=c=>String(c?.profile_name||"").trim()||sectionTypeLabel(sectionType(c));
- const sectionOptions=value=>[["ibeam","Двутавр"],["square","Квадратная труба"],["round","Круглая труба"],["box","Короб / сплошное"]].map(([v,n])=>`<option value="${v}" ${value===v?"selected":""}>${n}</option>`).join("");
- const geometryLabel=kind=>({column:"Колонна / стойка",beam:"Балка / прогон / ригель",bent:"Ломаная балка (3 точки)",brace:"Связь / раскос",truss:"Ферма"}[kind]||"Колонна / стойка");
- const geometryOptions=kind=>[["column","Колонна / стойка"],["beam","Балка / прогон / ригель"],["bent","Ломаная балка (3 точки)"],["brace","Связь / раскос"],["truss","Ферма"]].map(([k,label])=>`<option value="${k}" ${k===kind?"selected":""}>${label}</option>`).join("");
+ const sectionOptions=(value,ek="")=>sectionChoices(ek).map(v=>`<option value="${v}" ${value===v?"selected":""}>${SECTION_LABEL[v]}</option>`).join("");
+ const geometryLabel=kind=>GEOMETRY_LABEL[kind]||"Колонна / стойка";
+ const geometryOptions=(kind,ek="")=>geometryChoices(kind,ek).map(([k,label])=>`<option value="${k}" ${k===kind?"selected":""}>${label}</option>`).join("");
  const spanSummary=spans=>{const min=Math.min(...spans),max=Math.max(...spans),avg=spans.reduce((s,x)=>s+x,0)/Math.max(1,spans.length);return max-min<=1?`≈ по ${fmt(avg)} мм`:"индивидуальные размеры"};
  const pairLabel=(items,i)=>`${items[i]}–${items[i+1]}`;
  function stats(){
@@ -1051,6 +1067,8 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   const copyingPosition=Boolean(c&&copy);
   if(copyingPosition)c={...c,id:"",status:"planned",position:"",title:""};
   f.reset();f.dataset.copyPosition=copyingPosition?"1":"0";err.hidden=true;
+  // The geometries and sections of the element's kind: a sandwich panel offers a panel and a profiled sheet, not an I-beam.
+  const fitShape=(src,m,geo)=>{const ek=elementKind(src,m);f.elements.geometry_type.innerHTML=geometryOptions(geo,ek);f.elements.section_type.innerHTML=sectionOptions(sectionFor(src,ek),ek);f.elements.profile_name.placeholder=ek==="panel"||ek==="profsheet"?"Например: ПС 5490.1190.150, Н57-750-0,7":"Например: 40К2, 300×300×10, Ø273×8"};
   document.getElementById("schemeEditorTitle").textContent=copyingPosition?"Копировать позицию — параметры и отметки Z":c?"Редактировать элемент":"Добавить элемент";
   f.elements.id.value=copyingPosition?"":c?.id||"";
   // Reopen the actual stored grid for edits and copies, including the shared grid.
@@ -1077,7 +1095,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    const value=String(selection.value||"");
    if(value&&!editorMarks.some(m=>m.id===value&&markAvailable(m,editingId))){selection.value="";chosenMark="";renderMarkOptions();return}
    chosenMark=value;
-   if(value&&!editingId&&!copyingPosition){const m=editorMarks.find(x=>x.id===value),same=allRecords().find(x=>String(x.mark_id||"")===value);f.elements.section_type.value=sectionType(same||{});f.elements.profile_name.value=same?.profile_name||"";f.elements.geometry_type.value=m?guessGeometry(m):"column";updateGeometry(true)}
+   if(value&&!editingId&&!copyingPosition){const m=editorMarks.find(x=>x.id===value),same=allRecords().find(x=>String(x.mark_id||"")===value);f.elements.profile_name.value=same?.profile_name||"";fitShape(same||{},m,same?geometry(same):m?guessGeometry(m):"column");updateGeometry(true)}
    refreshEditorProgress()
   };
   if(search){search.value="";search.oninput=renderMarkOptions}
@@ -1101,11 +1119,11 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   }
   refreshEditorProgress();
   const sameMark=allRecords().find(x=>String(x.mark_id||"")===chosenMark&&(!c||x.id!==c.id)),shapeSource=c||sameMark||{},chosen=editorMarks.find(x=>x.id===chosenMark);
-  f.elements.section_type.value=sectionType(shapeSource);f.elements.profile_name.value=shapeSource.profile_name||"";
+  f.elements.profile_name.value=shapeSource.profile_name||"";
   f.elements.axis_x.value=c?.axisX||editorGrid.axesX[0]||"";f.elements.axis_y.value=c?.axisY||editorGrid.axesY[0]||"";
   f.elements.offset_x_mm.value=c?.dx??0;f.elements.offset_y_mm.value=c?.dy??0;
   f.elements.z0_mm.value=c?.z0??c?.z0_mm??0;f.elements.z1_mm.value=c?.z2??c?.z1_mm??8400;f.elements.rotation_deg.value=c?.rotation_deg??0;
-  f.elements.geometry_type.value=c?.geometryType||c?.geometry_type||(chosen?guessGeometry(chosen):"column");
+  fitShape(shapeSource,chosen,c?.geometryType||c?.geometry_type||(sameMark?geometry(sameMark):chosen?guessGeometry(chosen):"column"));
   const assignAxes=(reset=false)=>{
    editorGrid=gridForEditor(gridChoice);
    const prevX=reset?editorGrid.axesX[0]:f.elements.axis_x.value,
@@ -1155,7 +1173,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   };
   renderMarkOptions();
   function updateGeometry(defaultHeights=false){
-   const kind=f.elements.geometry_type.value,member=kind!=="column",end=document.getElementById("schemeMemberEnd");
+   const kind=f.elements.geometry_type.value,member=!pointGeometry(kind),end=document.getElementById("schemeMemberEnd");
    if(end)end.hidden=!member;
    const middle=document.getElementById("schemeMemberMiddle");if(middle)middle.hidden=kind!=="bent";
    const manual=f.elements.ridge_mode.value==="manual",
@@ -1169,12 +1187,12 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    refreshPreview()
   }
   const refreshPreview=()=>{
-   const ax=f.elements.axis_x.value,ay=f.elements.axis_y.value,x=num(editorGrid.xPos.get(ax))+num(f.elements.offset_x_mm.value),y=num(editorGrid.yPos.get(ay))+num(f.elements.offset_y_mm.value),member=f.elements.geometry_type.value!=="column",endX=num(editorGrid.xPos.get(f.elements.end_axis_x.value))+num(f.elements.end_offset_x_mm.value),endY=num(editorGrid.yPos.get(f.elements.end_axis_y.value))+num(f.elements.end_offset_y_mm.value),
+   const ax=f.elements.axis_x.value,ay=f.elements.axis_y.value,x=num(editorGrid.xPos.get(ax))+num(f.elements.offset_x_mm.value),y=num(editorGrid.yPos.get(ay))+num(f.elements.offset_y_mm.value),member=!pointGeometry(f.elements.geometry_type.value),endX=num(editorGrid.xPos.get(f.elements.end_axis_x.value))+num(f.elements.end_offset_x_mm.value),endY=num(editorGrid.yPos.get(f.elements.end_axis_y.value))+num(f.elements.end_offset_y_mm.value),
    bent=f.elements.geometry_type.value==="bent",centered=f.elements.ridge_mode.value!=="manual",
    mx=centered?(x+endX)/2:num(editorGrid.xPos.get(f.elements.mid_axis_x.value))+num(f.elements.mid_offset_x_mm.value),
    my=centered?(y+endY)/2:num(editorGrid.yPos.get(f.elements.mid_axis_y.value))+num(f.elements.mid_offset_y_mm.value),
    length=bent?Math.hypot(mx-x,my-y,num(f.elements.mid_z_mm.value)-num(f.elements.z0_mm.value))+Math.hypot(endX-mx,endY-my,num(f.elements.z1_mm.value)-num(f.elements.mid_z_mm.value)):0;
-   document.getElementById("schemeCoordPreview").innerHTML=`<span>Точные координаты</span><b>Начало X = ${fmt(x)} мм · Y = ${fmt(y)} мм</b><small>${member?`${bent?"Конёк X = "+fmt(mx)+" мм · Y = "+fmt(my)+" мм · Z = "+fmt(f.elements.mid_z_mm.value)+" мм · ":""}Конец X = ${fmt(endX)} мм · Y = ${fmt(endY)} мм${bent?" · Длина "+fmt(length)+" мм":""}`:"Колонна расположена вертикально"}</small>`;
+   document.getElementById("schemeCoordPreview").innerHTML=`<span>Точные координаты</span><b>Начало X = ${fmt(x)} мм · Y = ${fmt(y)} мм</b><small>${member?`${bent?"Конёк X = "+fmt(mx)+" мм · Y = "+fmt(my)+" мм · Z = "+fmt(f.elements.mid_z_mm.value)+" мм · ":""}Конец X = ${fmt(endX)} мм · Y = ${fmt(endY)} мм${bent?" · Длина "+fmt(length)+" мм":""}`:f.elements.geometry_type.value==="column"?"Колонна расположена вертикально":"Центр листа, размер — по радиусу элемента"}</small>`;
   };
   // Existing asymmetric beams must stay asymmetric unless explicitly changed.
   // Legacy records without a ridge_mode are classified using their saved X/Y.
@@ -1187,7 +1205,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   if(placement){
    const start=placement.start,end=placement.end||start;
    f.elements.mark_id.value=placement.markId;chosenMark=placement.markId;
-   f.elements.geometry_type.value=placement.geometry;
+   {const same=allRecords().find(x=>String(x.mark_id||"")===String(placement.markId));fitShape(same||{},editorMarks.find(x=>x.id===String(placement.markId)),placement.geometry)}
    f.elements.axis_x.value=start.ax;f.elements.axis_y.value=start.ay;
    f.elements.offset_x_mm.value=start.dx??0;f.elements.offset_y_mm.value=start.dy??0;
    f.elements.end_axis_x.value=end.ax;f.elements.end_axis_y.value=end.ay;
@@ -1215,7 +1233,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    try{rows=await schemeApi.list()}catch(error){err.textContent="Не удалось проверить остатки по схеме: "+String(error?.message||error);err.hidden=false;return}
    if(!markAvailable(m,id)){const quota=markPlacement(m);err.textContent="Марка "+(m.mark||m.title)+" полностью размещена: "+quota.placed+" из "+quota.total+" шт. Добавление невозможно.";err.hidden=false;return}
    const axisX=String(fd.get("axis_x")||targetGrid.axesX[0]),axisY=String(fd.get("axis_y")||targetGrid.axesY[0]),dx=num(fd.get("offset_x_mm")),dy=num(fd.get("offset_y_mm")),x=num(targetGrid.xPos.get(axisX))+dx,y=num(targetGrid.yPos.get(axisY))+dy;
-   const kind=String(fd.get("geometry_type")||"column"),z0=num(fd.get("z0_mm")),z1=num(fd.get("z1_mm"));
+   const kind=String(fd.get("geometry_type")||"column"),point=pointGeometry(kind),z0=num(fd.get("z0_mm")),z1=num(fd.get("z1_mm"));
    if(!id&&f.dataset.copyPosition==="1"&&guessGeometry(m)!==(kind==="bent"?"beam":kind)){
     err.textContent="Для копируемой позиции выберите марку соответствующего типа конструкции.";err.hidden=false;return
    }
@@ -1230,19 +1248,19 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
     midY=ridgeMode==="center"?closestAxis(my,targetGrid.axesY,targetGrid.yPos):manualMidY,
     mdx=mx-num(targetGrid.xPos.get(midX)),mdy=my-num(targetGrid.yPos.get(midY)),
     mz=num(fd.get("mid_z_mm"));
-   if(!targetGrid.axesX.includes(axisX)||!targetGrid.axesY.includes(axisY)||kind!=="column"&&(!targetGrid.axesX.includes(endX)||!targetGrid.axesY.includes(endY))){err.textContent="Выберите существующие оси выбранной сетки.";err.hidden=false;return}
+   if(!targetGrid.axesX.includes(axisX)||!targetGrid.axesY.includes(axisY)||!point&&(!targetGrid.axesX.includes(endX)||!targetGrid.axesY.includes(endY))){err.textContent="Выберите существующие оси выбранной сетки.";err.hidden=false;return}
    if(kind==="bent"){
     if(guessGeometry(m)!=="beam"||!targetGrid.axesX.includes(midX)||!targetGrid.axesY.includes(midY)){err.textContent="Ломаная балка подходит только для балок, ригелей и прогонов. Проверьте оси конька.";err.hidden=false;return}
     if(!String(fd.get("mid_z_mm")||"").trim()||Math.hypot(mx-x,my-y,mz-z0)<1||Math.hypot(x2-mx,y2-my,z1-mz)<1){err.textContent="Нужны три различные точки и отметка Z конька.";err.hidden=false;return}
    }
    if(kind==="column"&&z1<=z0){err.textContent="У колонны верх должен быть выше низа.";err.hidden=false;return}
-   if(kind!=="column"&&Math.hypot(x2-x,y2-y,z1-z0)<1){err.textContent="Конечная точка должна отличаться от начальной.";err.hidden=false;return}
+   if(!point&&Math.hypot(x2-x,y2-y,z1-z0)<1){err.textContent="Конечная точка должна отличаться от начальной.";err.hidden=false;return}
    if(!id&&f.dataset.copyPosition==="1"){
     const overlap=allRecords().some(row=>{
      const q=coord(row);if(q.geometryType!==kind)return false;
      const same=(a,b)=>Math.abs(a-b)<5;
      return same(q.x,x)&&same(q.y,y)&&same(q.z0,z0)&&
-      (kind==="column"||same(q.x2,x2)&&same(q.y2,y2))&&same(q.z2,z1)&&
+      (point||same(q.x2,x2)&&same(q.y2,y2))&&same(q.z2,z1)&&
       (kind!=="bent"||same(q.mx,mx)&&same(q.my,my)&&same(q.mz,mz))
     });
     if(overlap){err.textContent="Позиция полностью совпадает с размещённой конструкцией. Измените оси, смещение или отметки Z перед сохранением копии.";err.hidden=false;return}
@@ -1252,12 +1270,12 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    let internalPosition=String(existing?.position||existing?.title||"");
    if(!internalPosition){let n=1;do{internalPosition="COL-"+String(n++).padStart(4,"0")}while(used.has(internalPosition))}
    const g=markGroup(m),oldRow=id?arr(rows).find(r=>String(r.id)===id):null,previous=oldRow?.data||{},view=targetGrid.view;
-   const payload={record_type:"scheme_column",title:internalPosition,data:{...previous,entity_type:"column",position:internalPosition,mark_id:m.id,mark:m.mark||m.title||"",mark_name:m.name||"",work_type_id:m.work_type_id||"",axis_x:axisX,axis_y:axisY,offset_x_mm:dx,offset_y_mm:dy,absolute_x_mm:x,absolute_y_mm:y,geometry_type:kind,absolute_x2_mm:kind==="column"?undefined:x2,absolute_y2_mm:kind==="column"?undefined:y2,
+   const payload={record_type:"scheme_column",title:internalPosition,data:{...previous,entity_type:"column",position:internalPosition,mark_id:m.id,mark:m.mark||m.title||"",mark_name:m.name||"",work_type_id:m.work_type_id||"",axis_x:axisX,axis_y:axisY,offset_x_mm:dx,offset_y_mm:dy,absolute_x_mm:x,absolute_y_mm:y,geometry_type:kind,absolute_x2_mm:point?undefined:x2,absolute_y2_mm:point?undefined:y2,
    absolute_mid_x_mm:kind==="bent"?mx:undefined,absolute_mid_y_mm:kind==="bent"?my:undefined,mid_z_mm:kind==="bent"?mz:undefined,
    mid_axis_x:kind==="bent"?midX:undefined,mid_axis_y:kind==="bent"?midY:undefined,
    mid_offset_x_mm:kind==="bent"?mdx:undefined,mid_offset_y_mm:kind==="bent"?mdy:undefined,
    ridge_mode:kind==="bent"?ridgeMode:undefined,
-   mid_anchor_member_id:kind==="bent"&&ridgeMode==="manual"?previous.mid_anchor_member_id:undefined,end_axis_x:kind==="column"?undefined:endX,end_axis_y:kind==="column"?undefined:endY,end_offset_x_mm:kind==="column"?undefined:endDx,end_offset_y_mm:kind==="column"?undefined:endDy,end_z_mm:kind==="column"?undefined:z1,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name,scheme_group:g.key,scheme_group_label:g.label,scheme_view_id:view?.id||"all"}};
+   mid_anchor_member_id:kind==="bent"&&ridgeMode==="manual"?previous.mid_anchor_member_id:undefined,end_axis_x:point?undefined:endX,end_axis_y:point?undefined:endY,end_offset_x_mm:point?undefined:endDx,end_offset_y_mm:point?undefined:endDy,end_z_mm:point?undefined:z1,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name,scheme_group:g.key,scheme_group_label:g.label,scheme_view_id:view?.id||"all"}};
    try{
     const saved=id?await schemeApi.update(id,payload):await schemeApi.create(payload);
     const merged=rememberSavedSchemeRecord(saved);
