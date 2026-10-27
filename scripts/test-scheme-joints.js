@@ -14,14 +14,14 @@ assert.ok(view.includes('var r=g==="guards"||slight(c)?0:g==="ties"?1:c.geometry
 // body of a higher rank stops at its face (the slab test along the axis), a truss and a lattice are bodies by their parts.
 assert.match(view,/function pieceBox\(c,a,b\)\{/);assert.match(view,/function jointHosts\(list\)\{/);
 assert.ok(view.includes("host.parts(c,meshesById.get(id))"),"trusses and lattices are bodies too");
-assert.ok(view.includes("plated=!brace&&(dia>0||endCuts(c).some(function(q){return q.end===k}))"),"a bolted or plated end stops at the face");
+assert.ok(view.includes("var face=Math.min(hit.t,L*.4),cut=Math.min(face+(brace?.1:0),L*.45);"),"an end bears on the face it comes to");
 // Braces: the plane of the gussets from the braces it crosses or meets (a bracing in a roof slope lies in the slope),
 // the angles beside the gusset (a pair either side of it), the halves of a crossing clear of each other's edges.
 assert.match(view,/function bracePlanes\(list\)\{/);assert.match(view,/function braceAngle\(c,u\)\{/);
 assert.ok(view.includes("seatOnTops(elems);hangTies(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);"),"planes known before the members are drawn");
 assert.ok(view.includes("function planeWidth(c){")&&view.includes("+(cut?planeWidth(cut)*cs/sin:0)+.03"),"the halves of a crossing clear of each other");
 // Beams crossing in the middle: the lower one is cut round the one running through (no node gusset for those).
-assert.ok(view.includes("crossCut.get(cut.id).push({at:P,n:cut.U.clone().cross(thr.U).normalize(),g:g,through:thr.c,plain:true})"),"a plain crossing splits the lower");
+assert.ok(view.includes("crossCut.get(cut.id).push({at:P,n:cut.U.clone().cross(thr.U).normalize(),g:g,through:thr.c,plain:true,body:thr,host:host})"),"a plain crossing splits the lower");
 assert.ok(view.includes(".plain){cr.done=true;"),"no crossing gusset at a plain crossing");
 // A node gusset: the outline (convex hull) of the members on it, each as far as its bolts and a bit more.
 assert.ok(view.includes("var backOf=function(me){var b=.12;"),"the members on a gusset stand back to clear each other");
@@ -44,4 +44,25 @@ assert.deepEqual(pc.panelExt.get("1"),[-.075,0],"across: stops at the inner face
 assert.deepEqual(pc.panelExt.get("T"),[-.075,0],"at the side of another: stops at its face");
 pc.panelCorners([wall("A",0,0,6000,0),wall("far",0,800,0,6000)]);
 assert.equal(pc.panelExt.size,0,"a wall 800 mm off is no corner");
-console.log("Nodes: ends at the faces of the bodies by rank, plain crossings split, braces beside their gussets in their plane, gusset outlines, decks round columns, panel corners, end plates across PASS");
+// No breaks (the engineer, 27.10.2026, after the report of 21.10: «там все конструкции четко примыкают к друг другу»,
+// «обрывов нет»): an end short of the body ahead of it (up to 250 mm) reaches it, not through another member nor where
+// members meet at its point; a member coming to an I or a channel from its open side goes on to its web, 10 mm short —
+// whole when it has room between the flanges, else its flanges cut back and its web on —, a plate on the web with its
+// bolts; so too the halves of a plain crossing. Drawn only: the scheme keeps its coordinates.
+assert.ok(view.includes("for(var r=.03;r<=.25&&!hit;r+=.03){var P=e[0].clone().sub(e[1].clone().multiplyScalar(r));if(blocked(P))break;hit=host(id,P,e[1]);if(hit)E0=P}"),"an end reaches the body ahead");
+assert.ok(view.includes("if(!hit&&!host.node(e[0]))"),"not where members meet at a point");
+assert.match(view,/function webJoint\(c,E,d,u,hit,parts\)\{/);assert.match(view,/function roomAt\(c,E,u,hit\)\{/);
+assert.ok(view.includes("var w=free?webJoint(c,cr.at,d,u,x,parts||[]):null,g=w!==null?w:x.t;"),"the halves of a plain crossing to the web");
+assert.ok(view.includes("var whole=segments.length===1||c.cross,t=trimSegment(c,id,sg[0],sg[1],host,extra,[whole||i===0,whole||i===segments.length-1]);"),"a bent member's middle point is no end");
+// webOf / exitOf on an I 300 wide (web 10) along X, its line along Z: a member along X from the axis leaves it at the edge
+// of the flange (150) and goes on to the web (5); along Y (through the flange) it has no web to go to.
+function V(x,y,z){this.x=x;this.y=y;this.z=z}
+V.prototype={clone(){return new V(this.x,this.y,this.z)},sub(v){this.x-=v.x;this.y-=v.y;this.z-=v.z;return this},add(v){this.x+=v.x;this.y+=v.y;this.z+=v.z;return this},
+ dot(v){return this.x*v.x+this.y*v.y+this.z*v.z},multiplyScalar(k){this.x*=k;this.y*=k;this.z*=k;return this}};
+const fx=new Function(view.match(/function webOf\(h,x,dx,t\)\{[\s\S]*?\n  \}\n/)[0]+view.match(/function exitOf\(h,E,d\)\{[\s\S]*?\n  \}\n/)[0]+";return{webOf,exitOf}")();
+const I={o:new V(0,0,0),X:new V(1,0,0),Y:new V(0,1,0),U:new V(0,0,1),x0:-.15,x1:.15,y0:-.15,y1:.15,s0:0,s1:6,tf:.015,web:[-.005,.005]};
+const ex=fx.exitOf(I,new V(0,0,3),new V(1,0,0));
+assert.equal(+ex.t.toFixed(3),.15,"out at the edge of the flange");assert.equal(+ex.web.toFixed(3),.005,"on to the web");assert.equal(+ex.lo.toFixed(3),-.135);assert.equal(+ex.hi.toFixed(3),.135);
+assert.equal(fx.exitOf(I,new V(0,0,3),new V(0,1,0)).web,undefined,"through a flange: no web");
+assert.equal(fx.exitOf(I,new V(.4,0,3),new V(1,0,0)),null,"a line clear of it");
+console.log("Nodes: ends at the faces of the bodies by rank, plain crossings split, braces beside their gussets in their plane, gusset outlines, decks round columns, panel corners, end plates across; ends reach their supports, to the web of an I with a plate PASS");

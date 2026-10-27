@@ -894,6 +894,24 @@ window.irThreeSchemeView=(function(){
    if(sec&&sec.shape==="angle"&&!sec.bent)Object.assign(out,{x0:0,x1:sec.b/1000,y0:0,y1:sec.h/1000});else Object.assign(out,{x0:-hs.b,x1:hs.b,y0:-hs.h,y1:hs.h});
    return out
   }
+  // A member coming to an I or a channel from its open side (through the edges of its flanges) goes on between them to
+  // its web, 10 mm short, as in a detailed model of the КМД (the engineer, 27.10.2026, the report of 21.10: «там все
+  // конструкции четко примыкают к друг другу»; stopped at the edges of the flanges, it hung clear of the web — «обрывов
+  // нет»). x — where the end is across the body, dx — how fast the member leaves it across, t — where it leaves it. The
+  // web face, the axis across the flanges and the room between them.
+  function webOf(h,x,dx,t){
+   if(!h.web||Math.abs(dx)<1e-6)return null;var w=((dx>0?h.web[1]:h.web[0])-x)/dx;
+   return w<t-.005?{web:w,Y:h.Y,o:h.o,lo:h.y0+h.tf,hi:h.y1-h.tf}:null
+  }
+  // Where a member from E along d leaves a body (null when its line misses it): t, the face, and the web as webOf gives it.
+  function exitOf(h,E,d){
+   var o=E.clone().sub(h.o),t=Infinity,side=-1,miss=false,x=o.dot(h.X);
+   [[x,d.dot(h.X),h.x0,h.x1],[o.dot(h.Y),d.dot(h.Y),h.y0,h.y1],[o.dot(h.U),d.dot(h.U),h.s0,h.s1]].forEach(function(q,i){
+    if(Math.abs(q[1])<1e-6){if(q[0]<q[2]||q[0]>q[3])miss=true;return}
+    var b=Math.max((q[2]-q[0])/q[1],(q[3]-q[0])/q[1]);if(b<t){t=b;side=i}});
+   if(miss||!(t>0&&t<5))return null;
+   return Object.assign({t:t},side===0?webOf(h,x,d.dot(h.X),t):null)
+  }
   function jointHosts(list){
    var cells=new Map(),C=3,meta=new Map(),bodies=[];
    var add=function(h){
@@ -910,8 +928,10 @@ window.irThreeSchemeView=(function(){
     if(c.ft||c.truss||c.cross||c.column&&Array.isArray(c.column.members)&&c.column.members.length||slight(c)||!/^(column|beam|brace|bent)$/.test(c.geometryType||""))return;
     var p=memberPoints(c);if(c.geometryType==="column"&&p[1].y-p[0].y<.3)return;
     var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard),gus=p.length===2?sheetGussets(c,p):null;
+    // (the web of an I or a channel across X: a member coming in from the open side goes on to it)
+    var web=sec&&!braceAngle(c,p[p.length-1].clone().sub(p[0]).normalize())?sec.shape==="ibeam"?[-sec.s/2000,sec.s/2000]:sec.shape==="channel"?[-Math.max(sec.b,sec.b1||0)/2000,-Math.max(sec.b,sec.b1||0)/2000+sec.s/1000]:null:null;
     for(var i=0;i+1<p.length;i++){var h=pieceBox(c,p[i],p[i+1]);if(!h)continue;
-     Object.assign(h,{id:id,c:c,m:meta.get(id),tf:sec&&sec.t?sec.t/1000:.01,gus:gus});add(h);bodies.push(h)}
+     Object.assign(h,{id:id,c:c,m:meta.get(id),tf:sec&&sec.t?sec.t/1000:.01,gus:gus,web:web});add(h);bodies.push(h)}
    });
    var find=function(id,E,d){
     var me=meta.get(id)||{rank:0},best=null;
@@ -920,19 +940,19 @@ window.irThreeSchemeView=(function(){
      if(Math.abs(du)>.9||r.s<h.s0-.12||r.s>h.s1+.12)return;
      // (the member from its end along itself through the body: in it at its end — or within 20 mm of its side, 100 mm of
      // its end (a truss cut short at a column) —, out of it at t by the face n, outward)
-     var tin=-Infinity,t=Infinity,n=null,miss=false;
-     [[r.x,d.dot(h.X),h.x0,h.x1,h.X,.02],[r.y,d.dot(h.Y),h.y0,h.y1,h.Y,.02],[r.s,du,h.s0,h.s1,h.U,.1]].forEach(function(q){
+     var tin=-Infinity,t=Infinity,n=null,miss=false,side=-1;
+     [[r.x,d.dot(h.X),h.x0,h.x1,h.X,.02],[r.y,d.dot(h.Y),h.y0,h.y1,h.Y,.02],[r.s,du,h.s0,h.s1,h.U,.1]].forEach(function(q,i){
       if(Math.abs(q[1])<1e-6){if(q[0]<q[2]-q[5]||q[0]>q[3]+q[5])miss=true;return}
       var a=(q[2]-q[0])/q[1],b=(q[3]-q[0])/q[1];if(a>b){var w=a;a=b;b=w}
-      if(a>tin)tin=a;if(b<t){t=b;n=q[4].clone().multiplyScalar(q[1]>0?1:-1)}});
+      if(a>tin)tin=a;if(b<t){t=b;n=q[4].clone().multiplyScalar(q[1]>0?1:-1);side=i}});
      if(miss||!(t>0)||t===Infinity||tin>=t||tin>(Math.abs(du)>.3?.1/Math.abs(du):.02))return;
      // (near an end of the other: a corner — only the lower in rank stops; two braces there share their gusset)
      var hw=Math.max(h.x1-h.x0,h.y1-h.y0)/2,inner=r.s>=h.s0+hw+.1&&r.s<=h.s1-hw-.1;
      if(!inner&&(h.m.brace&&me.brace||h.m.rank<me.rank||h.m.rank===me.rank&&h.id<id))return;
      var flat=!h.m.col&&Math.abs(h.U.y)<.03&&Math.abs(h.Y.y)>.99,ya=h.o.y+h.Y.y*h.y0,yb=h.o.y+h.Y.y*h.y1;
      // (the gussets its sheet draws there: within 150 mm of the end)
-     if(!best||t>best.t)best={t:t,col:h.m.col,n:n,top:flat?Math.max(ya,yb):undefined,bot:flat?Math.min(ya,yb):undefined,tf:h.tf,
-      gus:(h.gus||[]).filter(function(g){return r.s>=g.s0-.15&&r.s<=g.s1+.15})}
+     if(!best||t>best.t)best=Object.assign({t:t,body:h,col:h.m.col,n:n,top:flat?Math.max(ya,yb):undefined,bot:flat?Math.min(ya,yb):undefined,tf:h.tf,
+      gus:(h.gus||[]).filter(function(g){return r.s>=g.s0-.15&&r.s<=g.s1+.15})},side===0?webOf(h,r.x,d.dot(h.X),t):null)
     });
     return best
    };
@@ -971,6 +991,11 @@ window.irThreeSchemeView=(function(){
      if(Math.abs(E.y-top)<=.04)out={y:top,up:1};else if(Math.abs(E.y-bot)<=.04)out={y:bot,up:-1}
     });
     return out
+   };
+   // Whether P is within the body of another member (5 mm in).
+   find.inside=function(id,P,skip){
+    return(cells.get(Math.floor(P.x/C)+","+Math.floor(P.z/C))||[]).some(function(h){if(h.id===id||h===skip)return false;var o=P.clone().sub(h.o),x=o.dot(h.X),y=o.dot(h.Y),s=o.dot(h.U);
+     return x>h.x0+.005&&x<h.x1-.005&&y>h.y0+.005&&y<h.y1-.005&&s>h.s0+.005&&s<h.s1-.005})
    };
    find.made=new Set();find.bodies=bodies;
    return find
@@ -1187,11 +1212,54 @@ window.irThreeSchemeView=(function(){
    p.slice().reverse().forEach(function(q){while(up.length>=2&&cr(up[up.length-2],up[up.length-1],q)<=1e-9)up.pop();up.push(q)});
    return lo.slice(0,-1).concat(up.slice(0,-1))
   }
-  function trimSegment(c,id,a,b,host,parts){
+  // The end of a member at the web of an I or a channel it comes to from the open side (hit: find's, with webOf's), from E
+  // along d (into the member); u — the member's line as drawn. Whole between the flanges when it has room there, it goes
+  // to 10 mm off the web; else (an I, a channel) its flanges stop at the edges of the other's and its web goes on —
+  // the flanges cut back, «подрезка полок». A plate welded to the web along the member's web (10 mm, 0.7 of its height,
+  // past the edges of the flanges), its bolts through both — as the КМД draws a beam to a beam, to the web of a column.
+  // The distance from E the member is drawn from; null — it stays at the edges of the flanges (an angle, a pipe without
+  // room).
+  function webJoint(c,E,d,u,hit,parts){
+   var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard),hs=halfSection(c),q=new T.Quaternion().setFromUnitVectors(zAxis,u);
+   var X=new T.Vector3(1,0,0).applyQuaternion(q),Y=new T.Vector3(0,1,0).applyQuaternion(q),yc=E.clone().sub(hit.o).dot(hit.Y);
+   var room=roomAt(c,E,u,hit),at=hit.web+.01,open=sec&&(sec.shape==="ibeam"||sec.shape==="channel")&&!sec.bent;
+   if(!open)return room?at:null;
+   var tf=sec.t/1000,tw=sec.s/1000,xw=sec.shape==="channel"?-sec.b/2000+tw/2:0,cw=Math.max(.04,2*hs.h-2*tf),y0=-cw/2,y1=cw/2,dy=Y.dot(hit.Y);
+   var mat=baseMaterial(c),box=shared("plate:box",function(){return new T.BoxGeometry(1,1,1)}),basis=new T.Matrix4().makeBasis(X,Y,d);
+   var put=function(x,y,s0,s1,w,h){var m=new T.Mesh(box,mat);m.quaternion.setFromRotationMatrix(basis);m.scale.set(w,h,s1-s0);
+    m.position.copy(E).add(d.clone().multiplyScalar((s0+s1)/2)).add(X.clone().multiplyScalar(x)).add(Y.clone().multiplyScalar(y));m.userData.plate=true;parts.push(m)};
+   if(!room){
+    // (its web between the other's flanges: as high as there is room when it stands across them)
+    if(Math.abs(dy)>.7){var ya=(hit.lo+.005-yc)/dy,yb=(hit.hi-.005-yc)/dy;y0=Math.max(y0,Math.min(ya,yb));y1=Math.min(y1,Math.max(ya,yb))}
+    if(y1-y0<.04)return null;
+    put(xw,(y0+y1)/2,at,hit.t,tw,y1-y0)
+   }
+   var dia=boltDia(c),hp=Math.max(.06,Math.min(y1-y0,.7*cw)),ym=(y0+y1)/2,s1=Math.max(hit.t,at)+Math.max(.07,3*(dia||.02)),side=sec.shape==="channel"?-1:1;
+   put(xw+side*(tw/2+.005),ym,hit.web,s1,.01,hp);
+   if(dia){var n=Math.max(2,Math.min(6,Math.floor((hp-.06)/(3*dia))+1)),pitch=n>1?Math.min(3*dia,(hp-.06)/(n-1)):0,sb=s1-Math.max(.035,1.5*dia);
+    for(var i=0;i<n;i++)addBolt(c,E.clone().add(d.clone().multiplyScalar(sb)).add(X.clone().multiplyScalar(xw+side*.005)).add(Y.clone().multiplyScalar(ym+(i-(n-1)/2)*pitch)),X.clone().multiplyScalar(side),dia,tw+.01)}
+   return room?at:hit.t
+  }
+  // Whether the section of the member at E (its line u) is within the room between the flanges of the body it comes to.
+  function roomAt(c,E,u,hit){
+   var hs=halfSection(c),q=new T.Quaternion().setFromUnitVectors(zAxis,u),yc=E.clone().sub(hit.o).dot(hit.Y);
+   var ey=Math.abs(new T.Vector3(1,0,0).applyQuaternion(q).dot(hit.Y))*hs.b+Math.abs(new T.Vector3(0,1,0).applyQuaternion(q).dot(hit.Y))*hs.h;
+   return yc-ey>=hit.lo-.002&&yc+ey<=hit.hi+.002
+  }
+  // `outer` — which ends of the piece are ends of the member (a bent member's middle point is not).
+  function trimSegment(c,id,a,b,host,parts,outer){
    var v=b.clone().sub(a),L=v.length();if(L<.3)return[a,b];v.divideScalar(L);
    var brace=c.geometryType==="brace"||kind(c)==="ties",ends=[[a,v],[b,v.clone().negate()]],out=[a.clone(),b.clone()];
+   // (the section about P — its line and its corners — in another member's body but skip's)
+   var q0=new T.Quaternion().setFromUnitVectors(zAxis,v),hs0=halfSection(c),X0=new T.Vector3(1,0,0).applyQuaternion(q0),Y0=new T.Vector3(0,1,0).applyQuaternion(q0);
+   var blocked=function(P,skip){return[[0,0],[-.9,-.9],[-.9,.9],[.9,-.9],[.9,.9]].some(function(k){return host.inside(id,P.clone().add(X0.clone().multiplyScalar(k[0]*hs0.b)).add(Y0.clone().multiplyScalar(k[1]*hs0.h)),skip)})};
    ends.forEach(function(e,k){
-    var hit=host(id,e[0],e[1]);
+    if(outer&&!outer[k])return;
+    var hit=host(id,e[0],e[1]),E0=e[0];
+    // An end short of the body ahead of it (up to 250 mm) is drawn on to it: as mounted, it bears on it; a gap was a
+    // break in the node (the engineer, 27.10.2026, «обрывов нет»). Drawn only: the scheme keeps its coordinates.
+    // (not where it meets other members at its end point, nor through another member lying on its line)
+    if(!hit&&!host.node(e[0]))for(var r=.03;r<=.25&&!hit;r+=.03){var P=e[0].clone().sub(e[1].clone().multiplyScalar(r));if(blocked(P))break;hit=host(id,P,e[1]);if(hit)E0=P}
     if(!hit){
      // Braces meeting at a point with nothing through it: one gusset there, the braces 120 mm short of the point.
      var node=brace&&host.node(e[0]);if(!node)return;
@@ -1226,15 +1294,21 @@ window.irThreeSchemeView=(function(){
      plate.userData.gusset=true;parts.push(plate);
      return
     }
-    // (an end with a plate — its sheet's, or a conventional one for its bolts — bears on the face; else 10 mm short)
-    var dia=boltDia(c),plated=!brace&&(dia>0||endCuts(c).some(function(q){return q.end===k}));
-    var face=Math.min(hit.t,L*.4),cut=Math.min(face+(brace?.1:plated?0:.01),L*.45);
-    out[k]=e[0].clone().add(e[1].clone().multiplyScalar(cut));
+    // (an end bears on the face it comes to — a brace stops 100 mm short, on its gusset; at the web of an I from its open
+    // side, webJoint)
+    var dia=boltDia(c),sheetPlate=!brace&&endCuts(c).some(function(q){return q.end===k});
+    var face=Math.min(hit.t,L*.4),cut=Math.min(face+(brace?.1:0),L*.45);
+    // (its sheet's end plate goes to the web when the member has room between the flanges)
+    // (nor through another member standing between the flanges)
+    var clear=function(){return[.01,.5,1].every(function(f){return!blocked(E0.clone().add(e[1].clone().multiplyScalar(hit.web+.01+(hit.t-hit.web-.01)*f)),hit.body)})};
+    if(!brace&&hit.web!==undefined&&clear()){var wj=sheetPlate?roomAt(c,E0,v,hit)?hit.web:null:webJoint(c,E0,e[1],v,hit,parts);
+     if(wj!==null){out[k]=E0.clone().add(e[1].clone().multiplyScalar(wj));return}}
+    out[k]=E0.clone().add(e[1].clone().multiplyScalar(cut));
     if(!brace){
      // A beam at a face: an end plate there, its bolts through it into the face — none where its sheet draws its own (addCuts).
      if(!dia||endCuts(c).some(function(q){return q.end===k}))return;var hs=halfSection(c),d0=e[1],side0=Math.abs(d0.y)>.9?new T.Vector3(1,0,0):new T.Vector3(0,1,0).cross(d0).normalize(),up0=d0.clone().cross(side0).normalize();
      // ((side, up, along) right-handed: the left-handed one turned the plate edge-on across the beam's end)
-     var at0=e[0].clone().add(d0.clone().multiplyScalar(face+.008));
+     var at0=E0.clone().add(d0.clone().multiplyScalar(face+.008));
      var ep=new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(c));
      ep.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(side0,up0,d0));ep.scale.set(hs.b*2+.02,hs.h*2+.04,.016);ep.position.copy(at0);parts.push(ep);
      // The package: the end plate (16) and the flange behind it, taken as thick as the plate.
@@ -1260,25 +1334,25 @@ window.irThreeSchemeView=(function(){
      // through it and the leg of the brace under (over) it.
      var nn=hit.n&&Math.abs(hit.n.y)<.5?hit.n.clone().setY(0).normalize():null;
      if(nn){
-      var fp=e[0].clone().add(d.clone().multiplyScalar(face)),lvl=fp.y,lt=legT(c);
+      var fp=E0.clone().add(d.clone().multiplyScalar(face)),lvl=fp.y,lt=legT(c);
       if(!hit.col&&hit.top!==undefined){if(fp.y>=hit.top-.2)lvl=hit.top-hit.tf/2;else if(fp.y<=hit.bot+.2)lvl=hit.bot+hit.tf/2}
       g.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(nn,up,nn.clone().cross(up)));g.scale.set(.3,gt,.4);
       g.position.copy(fp).add(nn.clone().multiplyScalar(.15));g.position.y=lvl;
       var by0=lvl===fp.y?null:lvl>fp.y?lvl-lt/2:lvl+lt/2;
-      if(dia&&!ownBolts)boltRow(dia).forEach(function(s){var q=e[0].clone().add(d.clone().multiplyScalar(cut+s));if(by0!==null)q.y=by0;addBolt(c,q,up,dia,gt+lt)});
+      if(dia&&!ownBolts)boltRow(dia).forEach(function(s){var q=E0.clone().add(d.clone().multiplyScalar(cut+s));if(by0!==null)q.y=by0;addBolt(c,q,up,dia,gt+lt)});
       return
      }
-     g.scale.set(.4,gt,.4);g.position.copy(e[0]).add(d.clone().multiplyScalar(face+.2/hl));
-     if(dia&&!ownBolts)boltRow(dia).forEach(function(s){addBolt(c,e[0].clone().add(d.clone().multiplyScalar(cut+s)),up,dia,gt+legT(c))});
+     g.scale.set(.4,gt,.4);g.position.copy(E0).add(d.clone().multiplyScalar(face+.2/hl));
+     if(dia&&!ownBolts)boltRow(dia).forEach(function(s){addBolt(c,E0.clone().add(d.clone().multiplyScalar(cut+s)),up,dia,gt+legT(c))});
      return
     }
     // A steep brace (a portal leg, a brace of a tall bay) ends 60 mm off the face, inside its gusset: the plate runs from
     // the face past 400 mm of the brace — a gusset placed by its middle left the end of a steep leg hanging below it.
     var end=Math.min(face+.06/hl,L*.45),run=.4,h0=face*hl,h1=Math.max(h0+.3,(end+run)*hl+.05),dy=Math.abs(d.y);
-    out[k]=e[0].clone().add(d.clone().multiplyScalar(end));
+    out[k]=E0.clone().add(d.clone().multiplyScalar(end));
     g.scale.set(h1-h0,Math.max(.3,run*dy+.15),gt);
-    g.position.copy(e[0]).add(hd.clone().multiplyScalar((h0+h1)/2));g.position.y=e[0].y+d.y*(end+run/2);
-    if(dia&&!ownBolts)boltRow(dia).forEach(function(s){addBolt(c,e[0].clone().add(d.clone().multiplyScalar(end+s)),side,dia,gt+legT(c))})
+    g.position.copy(E0).add(hd.clone().multiplyScalar((h0+h1)/2));g.position.y=E0.y+d.y*(end+run/2);
+    if(dia&&!ownBolts)boltRow(dia).forEach(function(s){addBolt(c,E0.clone().add(d.clone().multiplyScalar(end+s)),side,dia,gt+legT(c))})
    });
    return out
   }
@@ -1568,9 +1642,9 @@ window.irThreeSchemeView=(function(){
      var fw=Infinity,bw=Infinity;[[x,cut.U.dot(thr.X),thr.x0,thr.x1],[y,cut.U.dot(thr.Y),thr.y0,thr.y1],[t,b,thr.s0,thr.s1]].forEach(function(q){
       if(Math.abs(q[1])<1e-6)return;var hi=Math.abs((q[3]-q[0])/q[1]),lo=Math.abs((q[2]-q[0])/q[1]);
       fw=Math.min(fw,q[1]>0?hi:lo);bw=Math.min(bw,q[1]>0?lo:hi)});
-     var g=Math.max(fw,bw)+.01;if(!(g<5)||s<g+.05||s>cut.s1-g-.05)continue;
+     var g=Math.max(fw,bw);if(!(g<5)||s<g+.05||s>cut.s1-g-.05)continue;
      if(!crossCut.has(cut.id))crossCut.set(cut.id,[]);
-     crossCut.get(cut.id).push({at:P,n:cut.U.clone().cross(thr.U).normalize(),g:g,through:thr.c,plain:true})
+     crossCut.get(cut.id).push({at:P,n:cut.U.clone().cross(thr.U).normalize(),g:g,through:thr.c,plain:true,body:thr,host:host})
     }
    })
   }
@@ -1594,13 +1668,20 @@ window.irThreeSchemeView=(function(){
    if(dia){var bc={id:c.id,joint:{cls:j.cls||c.joint&&c.joint.cls}};
     [-1,1].forEach(function(sg){row.forEach(function(s){addBolt(bc,cr.at.clone().add(u.clone().multiplyScalar(sg*(cr.g+s))),cr.n,dia,gt+legT(c))})})}
   }
-  function cutAtCrossings(c,segments,cuts){
+  // A plain crossing (findCrossings): each half bears on the face of the one running through, or goes on to its web
+  // from its open side (webJoint) — joined to it, not 10 mm off it with nothing between (the engineer, 27.10.2026,
+  // «обрывов нет»).
+  function cutAtCrossings(c,segments,cuts,parts){
    cuts.forEach(function(cr){
     var out=[];
     segments.forEach(function(sg,k){
      var v=sg[1].clone().sub(sg[0]),L=v.length(),u=v.divideScalar(L||1),s=cr.at.clone().sub(sg[0]).dot(u);
      if(cr.only!=null&&cr.only!==k||L<.01||s<cr.g+.05||s>L-cr.g-.05||sg[0].clone().add(u.clone().multiplyScalar(s)).distanceTo(cr.at)>.06){out.push(sg);return}
-     out.push([sg[0],cr.at.clone().sub(u.clone().multiplyScalar(cr.g))],[cr.at.clone().add(u.clone().multiplyScalar(cr.g)),sg[1]]);
+     var g0=cr.g,g1=cr.g;
+     if(cr.body)[-1,1].forEach(function(i){var d=u.clone().multiplyScalar(i),x=exitOf(cr.body,cr.at,d);if(!x)return;
+      var free=x.web!==undefined&&cr.host&&[.01,.5,1].every(function(f){return!cr.host.inside(String(c.id),cr.at.clone().add(d.clone().multiplyScalar(x.web+.01+(x.t-x.web-.01)*f)),cr.body)});
+      var w=free?webJoint(c,cr.at,d,u,x,parts||[]):null,g=w!==null?w:x.t;if(i<0)g0=g;else g1=g});
+     out.push([sg[0],cr.at.clone().sub(u.clone().multiplyScalar(g0))],[cr.at.clone().add(u.clone().multiplyScalar(g1)),sg[1]]);
      if(!cr.done&&!cr.plain){cr.done=true;crossNode(c,cr,u)}
     });
     segments=out
@@ -1774,7 +1855,7 @@ window.irThreeSchemeView=(function(){
     if(!segments.length){failures++;return}
     var extra=[];
     if(c.geometryType!=="column")segments=segments.map(function(sg,i){
-     var t=trimSegment(c,id,sg[0],sg[1],host,extra);
+     var whole=segments.length===1||c.cross,t=trimSegment(c,id,sg[0],sg[1],host,extra,[whole||i===0,whole||i===segments.length-1]);
      // A bent member keeps its middle point: only its outer ends are cut.
      return segments.length>1&&!c.cross?[i?sg[0]:t[0],i===segments.length-1?t[1]:sg[1]]:t
     });
@@ -1784,7 +1865,7 @@ window.irThreeSchemeView=(function(){
      var a0=segments[0][0],ua=segments[0][1].clone().sub(a0).normalize(),b0=segments[1][0],ub=segments[1][1].clone().sub(b0).normalize(),cb=ua.dot(ub),cd=1-cb*cb;
      if(cd>.06){var cw=a0.clone().sub(b0),cs=(cb*ub.dot(cw)-ua.dot(cw))/cd,cx=crossing(c,a0.clone().add(ua.clone().multiplyScalar(cs)),ub.clone().cross(ua).normalize(),Math.sqrt(cd),c);cx.only=1;cuts=[cx]}
     }
-    if(cuts.length)segments=cutAtCrossings(c,segments,cuts);
+    if(cuts.length)segments=cutAtCrossings(c,segments,cuts,extra);
     addDrill(c,extra);addPlates(c,extra);addGussets(c,extra);addCuts(c,extra,[segments[0][0],segments[segments.length-1][1]]);
     extra.forEach(function(m){m.userData.memberId=id;steel.add(m);allMeshes.push(m);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(m)});
     segments.forEach(function(points){
