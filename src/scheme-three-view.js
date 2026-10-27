@@ -833,7 +833,8 @@ window.irThreeSchemeView=(function(){
      add(p[0].x-hs.b,p[0].z-hs.h,p[0].x+hs.b,p[0].z+hs.h,{id:String(c.id),col:true,c:p[0],y0:p[0].y,y1:p[1].y,hx:hs.b,hz:hs.h,gus:sheetGussets(c,p)})
     }else if(c.geometryType==="beam"){
      var v=p[1].clone().sub(p[0]),L=v.length();if(L<1||Math.abs(v.y)/L>.03)return;v.divideScalar(L);
-     add(p[0].x-hs.b,p[0].z-hs.b,p[1].x+hs.b,p[1].z+hs.b,{id:String(c.id),col:false,a:p[0],u:v,L:L,y:(p[0].y+p[1].y)/2,hv:hs.b,hy:hs.h,gus:sheetGussets(c,p)})
+     var bsec=sectionOf(c.profile_name||c.profileName,c.profile_standard);
+     add(p[0].x-hs.b,p[0].z-hs.b,p[1].x+hs.b,p[1].z+hs.b,{id:String(c.id),col:false,a:p[0],u:v,L:L,y:(p[0].y+p[1].y)/2,hv:hs.b,hy:hs.h,tf:bsec&&bsec.t?bsec.t/1000:.01,gus:sheetGussets(c,p)})
     }
    });
    // Ends of the linear members by point (5 cm cells): where braces end together with others and nothing runs
@@ -848,19 +849,31 @@ window.irThreeSchemeView=(function(){
    var find=function(id,E,d){
     var best=null;(cells.get(Math.floor(E.x/C)+","+Math.floor(E.z/C))||[]).forEach(function(h){
      if(h.id===id)return;var t=Infinity,s=0,exit=function(rel,dd,half){if(Math.abs(rel)>half+.02)return-1;if(Math.abs(dd)<1e-6)return Infinity;return((dd>0?half:-half)-rel)/dd};
+     // (n — the face it leaves by, outward: along the brace)
+     var n=null,sg=function(v){return v<0?-1:1};
      if(h.col){
       if(E.y<h.y0-.05||E.y>h.y1+.05)return;
-      var ex=exit(E.x-h.c.x,d.x,h.hx),ez=exit(E.z-h.c.z,d.z,h.hz);if(ex<0||ez<0)return;t=Math.min(ex,ez);s=E.y-h.y0
+      var ex=exit(E.x-h.c.x,d.x,h.hx),ez=exit(E.z-h.c.z,d.z,h.hz);if(ex<0||ez<0)return;t=Math.min(ex,ez);s=E.y-h.y0;
+      n=ex<=ez?new T.Vector3(sg(d.x),0,0):new T.Vector3(0,0,sg(d.z))
      }else{
       var r=E.clone().sub(h.a);s=r.dot(h.u);if(s<h.hv+.1||s>h.L-h.hv-.1)return;
-      var vx=-h.u.z,vz=h.u.x,ev=exit(r.x*vx+r.z*vz,d.x*vx+d.z*vz,h.hv),ey=Math.abs(E.y-h.y)<h.hy-.02?exit(E.y-h.y,d.y,h.hy):-1;if(ev<0||ey<0)return;t=Math.min(ev,ey)
+      var vx=-h.u.z,vz=h.u.x,dv=d.x*vx+d.z*vz,ev=exit(r.x*vx+r.z*vz,dv,h.hv),ey=Math.abs(E.y-h.y)<h.hy-.02?exit(E.y-h.y,d.y,h.hy):-1;if(ev<0||ey<0)return;t=Math.min(ev,ey);
+      n=ev<=ey?new T.Vector3(vx*sg(dv),0,vz*sg(dv)):new T.Vector3(0,sg(d.y),0)
      }
      // (the gussets its sheet draws there: within 150 mm of the end)
-     if(t>0&&t<Infinity&&(!best||t>best.t))best={t:t,col:h.col,gus:(h.gus||[]).filter(function(g){return s>=g.s0-.15&&s<=g.s1+.15})}
+     if(t>0&&t<Infinity&&(!best||t>best.t))best={t:t,col:h.col,n:n,top:h.col?undefined:h.y+h.hy,bot:h.col?undefined:h.y-h.hy,tf:h.tf,gus:(h.gus||[]).filter(function(g){return s>=g.s0-.15&&s<=g.s1+.15})}
     });
     return best
    };
    find.node=function(E){var k=Q(E),list=ends.get(k);return list&&list.length>=2?{key:k,list:list}:null};
+   // A point on the top (up 1) or the bottom (−1) of a beam, within its width.
+   find.onFace=function(E){
+    var out=null;(cells.get(Math.floor(E.x/C)+","+Math.floor(E.z/C))||[]).forEach(function(h){
+     if(out||h.col)return;var r=E.clone().sub(h.a),s=r.dot(h.u);if(s<-.05||s>h.L+.05||Math.abs(r.x*-h.u.z+r.z*h.u.x)>h.hv+.03)return;
+     if(Math.abs(E.y-(h.y+h.hy))<=.04)out={y:h.y+h.hy,up:1};else if(Math.abs(E.y-(h.y-h.hy))<=.04)out={y:h.y-h.hy,up:-1}
+    });
+    return out
+   };
    find.made=new Set();
    return find
   }
@@ -1080,7 +1093,11 @@ window.irThreeSchemeView=(function(){
      var ax=a.clone().sub(n.clone().multiplyScalar(a.dot(n))).normalize(),by=n.clone().cross(ax);
      var plate=new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(c));
      var gt=gussetT(c),c0=Math.min(.12,L*.3);
-     plate.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(ax,by,n));plate.scale.set(.5,.5,gt);plate.position.copy(e[0]);
+     // (on the top of a beam — the lower node of a vertical bracing on the brake beam, Свк2 on Тб1: the plate upright, on
+     // the flange; under its bottom — hanging from it; centred on the point it went through the beam)
+     var seat=Math.abs(n.y)<.3&&host.onFace?host.onFace(e[0]):null,pos=e[0].clone();
+     if(seat){by=new T.Vector3(0,1,0);ax=by.clone().cross(n).normalize();pos.y=seat.y+seat.up*.25}
+     plate.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(ax,by,n));plate.scale.set(.5,.5,gt);plate.position.copy(pos);
      plate.userData.gusset=true;parts.push(plate);
      var dn=boltDia(c);if(dn)boltRow(dn).forEach(function(s){addBolt(c,e[0].clone().add(e[1].clone().multiplyScalar(c0+s)),n,dn,gt+legT(c))});
      return
@@ -1110,6 +1127,21 @@ window.irThreeSchemeView=(function(){
     g.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(hd,up,side));g.userData.gusset=true;if(!real)parts.push(g);
     var gt=gussetT(c);
     if(flat){
+     // At the side of a member: along its face, out of it only, 400 × 300 (a plate square to the brace, centred on it,
+     // crossed the member and came out of its other side: Сгк1 of a brake truss through the brake beam Тб1, the engineer
+     // 27.10.2026 «почему связь сквозь балки тормозной выходит?»). At a beam, the end in its upper or lower 200 mm: in the
+     // plane of that flange, welded to its edge (КМ: фасонка t10 к полке тормозной балки и подкрановой балки), the bolts
+     // through it and the leg of the brace under (over) it.
+     var nn=hit.n&&Math.abs(hit.n.y)<.5?hit.n.clone().setY(0).normalize():null;
+     if(nn){
+      var fp=e[0].clone().add(d.clone().multiplyScalar(face)),lvl=fp.y,lt=legT(c);
+      if(!hit.col&&hit.top!==undefined){if(fp.y>=hit.top-.2)lvl=hit.top-hit.tf/2;else if(fp.y<=hit.bot+.2)lvl=hit.bot+hit.tf/2}
+      g.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(nn,up,nn.clone().cross(up)));g.scale.set(.3,gt,.4);
+      g.position.copy(fp).add(nn.clone().multiplyScalar(.15));g.position.y=lvl;
+      var by0=lvl===fp.y?null:lvl>fp.y?lvl-lt/2:lvl+lt/2;
+      if(dia&&!ownBolts)boltRow(dia).forEach(function(s){var q=e[0].clone().add(d.clone().multiplyScalar(cut+s));if(by0!==null)q.y=by0;addBolt(c,q,up,dia,gt+lt)});
+      return
+     }
      g.scale.set(.4,gt,.4);g.position.copy(e[0]).add(d.clone().multiplyScalar(face+.2/hl));
      if(dia&&!ownBolts)boltRow(dia).forEach(function(s){addBolt(c,e[0].clone().add(d.clone().multiplyScalar(cut+s)),up,dia,gt+legT(c))});
      return
