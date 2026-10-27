@@ -85,6 +85,15 @@ assert(/else if\(\(type==="manhole"\|\|type==="hatch"\)&&c\.lay&&Array\.isArray\
 assert(/annulus\(sr,pr,t,0\);annulus\(wr-t\/2,wr\+t\/2,H,t\);annulus\(sr,sr\+\.006,H,t\);annulus\(sr,wr\+/.test(ring),"bottom plate, wall, inner shell, top flange");
 assert(/for\(var k=0;k<n;k\+\+\)/.test(ring)&&/addBolt\(\{id:id,joint:\{\}\}/.test(ring),"a rib and a bolt at every joint of the shields");
 assert(/CylinderGeometry\(\.002,cr,/.test(ring)&&/roofMaterial\(c\)/.test(ring),"the central shield cone");
+// A tank (27.10.2026: «если это резервуар показывай высоту на монтажной схеме и диаметр»): Ø on the floor in front of it and
+// the height of the wall at a front corner, always shown — in the program and in the exported page, its pictures too.
+const tank=view.slice(view.indexOf("function buildTankDims("),view.indexOf("var meshGeo=new Map()"));
+assert(/String\(c\.type_key\|\|""\)!=="tank_wall"&&String\(c\.scheme_group/.test(tank)&&tank.includes("k.r=Math.max(k.r,number(c.r));k.z0=Math.min(k.z0,number(c.z0));k.z1=Math.max(k.z1,number(c.z2))"),"the wall: the courses of one centre");
+assert(tank.includes('"Ø "+fmt(2*k.r)+" мм"')&&tank.includes('"Высота стенки "+fmt(H)+" мм"'),"diameter and wall height labels");
+assert(/var on=t\.group==="tank"\?true:/.test(view),"tank sizes do not wait for the dimensions toggle");
+assert.equal(view.split("buildCranes();buildTankDims();").length-1,2,"rebuilt with the members and at the start");
+assert(/if\(t\.group!=="tank"\)return;var q=project\(t\.pos,W,H\)/.test(view),"drawn into the pictures of the exported page");
+assert(/'Выгружено '\+esc\(d\.date\)\+'<small class="made">Сделано в IR Project<\/small>/.test(fs.readFileSync("src/scheme-export-html.js","utf8")),"the exported page: «Сделано в IR Project» in small letters");
 for(const fn of ["render","dispose","focus","startCopy","startPlacement"])assert.equal(typeof scope.window.irThreeSchemeView[fn],"function",fn);
 assert.equal(scope.window.irThreeSchemeView.focus("1"),undefined,"API calls are safe without a model");
 const manifest=JSON.parse(fs.readFileSync("hot/latest.json","utf8")).files.map(f=>f.target);

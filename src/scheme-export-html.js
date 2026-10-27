@@ -47,7 +47,7 @@
   ".hx{display:flex;align-items:center;gap:18px;padding:14px 20px;background:var(--card);border-bottom:1px solid var(--line);flex-wrap:wrap}",
   ".hx-co{display:flex;align-items:center;gap:12px;min-width:0}.hx-co img{max-height:52px;max-width:160px;object-fit:contain}",
   ".hx-co b{font-size:16px}.hx-obj{flex:1 1 320px;min-width:0}.hx-obj h1{margin:0;font-size:19px;line-height:1.25}",
-  ".hx-obj .addr{color:var(--muted);margin-top:3px}.hx-meta{text-align:right;color:var(--muted);font-size:12.5px}.hx-meta b{display:block;color:var(--ink);font-size:14px}",
+  ".hx-obj .addr{color:var(--muted);margin-top:3px}.hx-meta{text-align:right;color:var(--muted);font-size:12.5px}.hx-meta b{display:block;color:var(--ink);font-size:14px}.hx-meta .made{display:block;margin-top:2px;font-size:10.5px;letter-spacing:.02em;opacity:.8}",
   ".sum{display:flex;gap:10px;padding:12px 20px;flex-wrap:wrap}.sum>div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 14px;min-width:120px}",
   ".sum span{display:block;color:var(--muted);font-size:12px}.sum b{font-size:18px;font-variant-numeric:tabular-nums}.sum .bar{height:6px;background:#e4e9f1;border-radius:3px;margin-top:5px;overflow:hidden}.sum .bar i{display:block;height:100%;background:var(--ok)}",
   // The scheme fills the window; the side panel (object, totals, kinds, filter, elements) opens over it on demand.
@@ -278,9 +278,10 @@
   'W.addEventListener("unhandledrejection",function(e){var r=e.reason;W.__irFail(String(r&&r.message||r||"ошибка"))})})()';
  function page(d,libs){
   var s=d.summary;
+  // Under the date in small letters — «Сделано в IR Project» (the engineer, 27.10.2026).
   var head='<header class="hx"><div class="hx-co">'+(d.company.logo?'<img src="'+esc(d.company.logo)+'" alt="Логотип">':"")+(d.company.name?'<b>'+esc(d.company.name)+'</b>':"")+'</div>'+
    '<div class="hx-obj"><h1>'+esc(d.object.name||"Объект")+'</h1>'+(d.object.address?'<div class="addr">📍 '+esc(d.object.address)+'</div>':"")+'</div>'+
-   '<div class="hx-meta"><b>Монтажная схема · '+esc(d.title)+'</b>'+(d.work?esc(d.work)+'<br>':"")+'Выгружено '+esc(d.date)+'</div></header>';
+   '<div class="hx-meta"><b>Монтажная схема · '+esc(d.title)+'</b>'+(d.work?esc(d.work)+'<br>':"")+'Выгружено '+esc(d.date)+'<small class="made">Сделано в IR Project</small></div></header>';
   var pct=s.total?Math.round(s.mounted/s.total*100):0;
   var sum='<section class="sum"><div><span>Элементов на схеме</span><b>'+s.placed+'</b></div><div><span>Смонтировано</span><b class="ok">'+s.placedMounted+'</b></div><div><span>Частично</span><b class="partial">'+s.placedPartial+'</b></div>'+
    '<div><span>Не смонтировано</span><b class="wait">'+(s.placed-s.placedMounted-s.placedPartial)+'</b></div>'+(s.total?'<div><span>По ведомости марок</span><b>'+pct+'%</b> <small>'+s.mounted+' из '+s.total+' шт.</small><div class="bar"><i style="width:'+pct+'%"></i></div></div>':"")+'</section>';

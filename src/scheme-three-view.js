@@ -621,6 +621,39 @@ window.irThreeSchemeView=(function(){
   }
   dimensionChain(axesX.map(function(n){return{w:wx(n),mm:number(gridX[n])}}),Y+1.6,"x");
   dimensionChain(axesY.map(function(n){return{w:wz(n),mm:number(gridY[n])}}),-1.6,"z");
+  // A tank: its diameter on the floor in front of it and the height of its wall beside it, always shown (the engineer,
+  // 27.10.2026: «если это резервуар показывай высоту на монтажной схеме и диаметр»). The wall is the courses of one centre:
+  // the largest radius, from the bottom of the first course to the top of the last.
+  var tankDims=new T.Group(),tankTags=[],tankMaterial=new T.LineBasicMaterial({color:0x173f5b});scene.add(tankDims);
+  function buildTankDims(){
+   tankDims.children.slice().forEach(function(l){tankDims.remove(l);l.geometry.dispose()});
+   tankTags.forEach(function(t){t.el.remove();var i=screenTags.indexOf(t);if(i>=0)screenTags.splice(i,1)});tankTags=[];
+   var tanks=[];
+   elems.forEach(function(c){
+    if(c.geometryType!=="shell"||c.ft||!(number(c.r)>0)||(number(c.ri)>0&&number(c.ri)!==number(c.r)))return;
+    if(String(c.type_key||"")!=="tank_wall"&&String(c.scheme_group||c.schemeGroup||"")!=="tanks")return;
+    var x=number(c.x),y=number(c.y),k=tanks.find(function(t){return Math.hypot(t.x-x,t.y-y)<300});
+    if(!k){k={x:x,y:y,r:0,z0:Infinity,z1:-Infinity};tanks.push(k)}
+    k.r=Math.max(k.r,number(c.r));k.z0=Math.min(k.z0,number(c.z0));k.z1=Math.max(k.z1,number(c.z2))
+   });
+   tanks.forEach(function(k){
+    var H=k.z1-k.z0;if(!(H>=500))return;
+    var c0=toWorld(k.x,k.y,k.z0),c1=toWorld(k.x,k.y,k.z1),r=k.r/1000,y0=c0.y+.02,f=c0.z+r+1.2;
+    var v=function(x,y,z){return new T.Vector3(x,y,z)},line=function(a,b){addLine(tankDims,a,b,tankMaterial)};
+    // The height stands at a front corner, right or left — where fewer members stand (a shaft stair is on one side).
+    var fz=c0.z+r,near=function(sx){var n=0;elems.forEach(function(c){if(c.geometryType==="shell"||c.geometryType==="plate")return;
+     [[c.x,c.y],[c.x2,c.y2]].forEach(function(q){if(q[0]===undefined)return;var w=toWorld(number(q[0]),number(q[1]),0);if(Math.abs(w.x-sx)<3&&Math.abs(w.z-fz)<3)n++})});return n};
+    var s=near(c0.x-r-1.2)<near(c0.x+r+1.2)?c0.x-r-1.2:c0.x+r+1.2,d=v(s-c0.x,0,fz-c0.z).normalize();
+    // Ø on the floor in front of the tank, with extension lines from the wall and ticks.
+    line(v(c0.x-r,y0,f),v(c0.x+r,y0,f));
+    [-1,1].forEach(function(i){var x=c0.x+i*r;line(v(x,y0,c0.z),v(x,y0,f+.3));line(v(x-.25,y0,f+.25),v(x+.25,y0,f-.25))});
+    tankTags.push(tag(axisLayer,"ir-three-dim-label total tank","Ø "+fmt(2*k.r)+" мм",v(c0.x,y0,f),"tank"));
+    // The wall height upright beside it.
+    line(v(s,c0.y,fz),v(s,c1.y,fz));
+    [c0.y,c1.y].forEach(function(y){line(v(c0.x+d.x*r,y,c0.z+d.z*r),v(s+d.x*.3,y,fz+d.z*.3));line(v(s-d.x*.25,y-.25,fz-d.z*.25),v(s+d.x*.25,y+.25,fz+d.z*.25))});
+    tankTags.push(tag(axisLayer,"ir-three-dim-label total tank","Высота стенки "+fmt(H)+" мм",v(s,(c0.y+c1.y)/2,fz),"tank"))
+   })
+  }
   var meshGeo=new Map(),mats=new Map(),allMeshes=[],rayTargets=[],dataById=new Map(),meshesById=new Map(),labels=[];
   var selectedMat=new T.MeshStandardMaterial({color:0x1668ea,emissive:0x07396d,emissiveIntensity:.15,metalness:.25,roughness:.42,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-4});
   var hoverMat=new T.MeshStandardMaterial({color:0xffad1c,emissive:0x59410e,emissiveIntensity:.10,metalness:.22,roughness:.45,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-4});
@@ -2783,7 +2816,7 @@ window.irThreeSchemeView=(function(){
   function paintTags(w,h){
    var taken=[];
    screenTags.forEach(function(t){
-    var on=t.group==="axes"?showAxes&&showGrid:P.showDimensions&&showGrid;
+    var on=t.group==="tank"?true:t.group==="axes"?showAxes&&showGrid:P.showDimensions&&showGrid;
     if(!on){t.el.hidden=true;return}
     var p=project(t.pos,w,h);
     t.el.hidden=!p.inside||p.x<10||p.x>w-10||p.y<10||p.y>h-10;
@@ -2924,7 +2957,7 @@ window.irThreeSchemeView=(function(){
    if(COLOR_MODES.indexOf(P.colorMode)>=0&&P.colorMode!==colorMode){colorMode=P.colorMode;root.querySelector("#irThreeColors").value=colorMode}
    selected=String(P.selected||"");
    var sig=signature(P.elements);
-   if(sig!==built){built=sig;buildMembers(P.elements);buildCranes();buildNodes();lowerGround();refreshMaterials()}
+   if(sig!==built){built=sig;buildMembers(P.elements);buildCranes();buildTankDims();buildNodes();lowerGround();refreshMaterials()}
    else if(mode!==colorMode)refreshMaterials();
    else paintHighlight();
    applyBackground();dims.visible=Boolean(P.showDimensions);invalidate();
@@ -2934,7 +2967,7 @@ window.irThreeSchemeView=(function(){
     paintPlacement()
    }
   }
-  built=signature(P.elements);buildMembers(P.elements);buildCranes();buildNodes();lowerGround();applyBackground();refreshMaterials();dims.visible=Boolean(P.showDimensions);
+  built=signature(P.elements);buildMembers(P.elements);buildCranes();buildTankDims();buildNodes();lowerGround();applyBackground();refreshMaterials();dims.visible=Boolean(P.showDimensions);
   var memory=cameraMemory[memoryKey];
   if(memory){camera.position.copy(memory.position);controls.target.copy(memory.target);camera.up.copy(memory.up);controls.update()}
   else setView("iso");
@@ -2968,6 +3001,10 @@ window.irThreeSchemeView=(function(){
       var hw=Math.max(17,g.measureText(t.el.textContent).width/2+9);g.beginPath();g.moveTo(q.x-hw+17,q.y-17);g.lineTo(q.x+hw-17,q.y-17);
       g.arc(q.x+hw-17,q.y,17,-Math.PI/2,Math.PI/2);g.lineTo(q.x-hw+17,q.y+17);g.arc(q.x-hw+17,q.y,17,Math.PI/2,Math.PI*1.5);g.closePath();g.fillStyle="rgba(255,255,255,.85)";g.fill();
       g.strokeStyle="#9fb4c6";g.lineWidth=1.5;g.stroke();g.fillStyle="#3d5d76";g.fillText(t.el.textContent,q.x,q.y+1)})}
+    // The tank's diameter and height, as on the screen.
+    g.font="700 20px system-ui,sans-serif";g.textAlign="center";g.textBaseline="middle";
+    screenTags.forEach(function(t){if(t.group!=="tank")return;var q=project(t.pos,W,H);if(!q.inside||q.x<60||q.x>W-60||q.y<14||q.y>H-14)return;
+     var tw=g.measureText(t.el.textContent).width+14;g.fillStyle="rgba(255,255,255,.88)";g.fillRect(q.x-tw/2,q.y-14,tw,28);g.fillStyle="#173f5b";g.fillText(t.el.textContent,q.x,q.y+1)});
     var rows=legendRows().slice(0,mode==="mark"?12:16),x=18,y=H-24;g.font="600 28px system-ui,sans-serif";g.textAlign="left";g.textBaseline="middle";
     rows.slice(0,8).reverse().forEach(function(r,i){var t=r.name+" · "+r.n,w=g.measureText(t).width+58;
      g.fillStyle="rgba(255,255,255,.9)";g.fillRect(x-8,y-22-i*46,w,44);g.fillStyle="#"+r.color.toString(16).padStart(6,"0");g.fillRect(x,y-12-i*46,24,24);
