@@ -207,6 +207,9 @@ function createGlobalKnowledge({dir=GLOBAL_DIR}={}){
   // Rails of ГОСТ 19240-73 for runways of hoists: «Рельс Р5», «Рельс двухголовый», «Рельс тавровый».
   // («х» of «двухголовый» is read as a «x» of sizes above.)
   if((m=/^Рельс(дву[xх]головый|тавровый)$|^(?:Рельс)?(?:Р|P)5$/iu.exec(t)))return confirmed("rails-19240").find(r=>r.id==="rail-19240-"+(m[1]?m[1].toLowerCase().replace("x","х"):"Р5"))||null;
+  // Railway rails of ГОСТ 30165-94 on a crane runway: «Р43», «Рельс Р38» (the height, area and mass; the widths are on its
+  // figures only).
+  if((m=/^(?:Рельс)?(?:Р|P)(38|43)$/iu.exec(t)))return confirmed("rails-30165").find(r=>r.id==="rail-30165-Р"+m[1])||null;
   // A solid bar — a tie rod, a rung, a railing post: round «Ø18», «Круг 20» (ГОСТ 2590-2006), square «□20», «Квадрат 20»
   // (ГОСТ 2591-2006), wire rod «Катанка 6,5», «Катанка В-6,0-Ст3кп» (ГОСТ 30136-95, sizes of the circle). Mass by the geometry at
   // 7850 kg/m³ (as the sortaments give it); a size not in the list of the standard is shown for a check.

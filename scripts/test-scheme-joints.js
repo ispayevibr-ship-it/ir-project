@@ -65,4 +65,24 @@ const ex=fx.exitOf(I,new V(0,0,3),new V(1,0,0));
 assert.equal(+ex.t.toFixed(3),.15,"out at the edge of the flange");assert.equal(+ex.web.toFixed(3),.005,"on to the web");assert.equal(+ex.lo.toFixed(3),-.135);assert.equal(+ex.hi.toFixed(3),.135);
 assert.equal(fx.exitOf(I,new V(0,0,3),new V(0,1,0)).web,undefined,"through a flange: no web");
 assert.equal(fx.exitOf(I,new V(.4,0,3),new V(1,0,0)),null,"a line clear of it");
-console.log("Nodes: ends at the faces of the bodies by rank, plain crossings split, braces beside their gussets in their plane, gusset outlines, decks round columns, panel corners, end plates across; ends reach their supports, to the web of an I with a plate PASS");
+// 27.10.2026 (the engineer: «есть еще моменты которые не учли?»): a branch of a lattice column stands with its
+// flanges along the line to the other branch (КМ «сечение 1-1»): drawn as a column of the frame it took the wall girders
+// lying on its outer flange edges 70 mm into it. Its turn about its line goes to every use of its section (the body, the
+// boxes of the nodes, plates, holes, the base plate, the plan of decks and seats).
+assert.match(view,/function branchTurns\(list\)\{/);assert.match(view,/function bodyQuat\(c,u\)\{/);assert.match(view,/function planHalf\(c\)\{/);
+assert.ok(view.includes("branchTurns(elems);seatOnTops(elems);"),"branches turned before the nodes are found");
+assert.ok(!/setFromUnitVectors\(zAxis,(u|d|v)\),(sec|X|hs0)/.test(view)&&!view.includes("var q=new T.Quaternion().setFromUnitVectors(zAxis,d),X="),"every section basis by bodyQuat");
+assert.ok(view.includes("mesh.quaternion.copy(bodyQuat(c,points[1].clone().sub(points[0]).normalize()))")&&view.includes("plate.quaternion.copy(turn)"),"the body and its base plate turned");
+function W(x,y,z){this.x=x;this.y=y;this.z=z}W.prototype.sub=function(v){return new W(this.x-v.x,this.y-v.y,this.z-v.z)};
+const bt=new Function("number","toWorld",view.match(/var branchTurn=new Map\(\);\n  function branchTurns\(list\)\{[\s\S]*?\n  \}\n/)[0]+";return{branchTurns,branchTurn}")(number,(x,y,z)=>new W(number(x)/1000,number(z)/1000,(63200-number(y))/1000));
+const br=(id,y,name)=>({id,mark:"К1",geometryType:"column",x:14150,y,z0:-600,z2:13240,mark_name:name});
+bt.branchTurns([br(2,5850,"Колонна К1 — наружная ветвь, О4/Б"),br(3,7100,"Колонна К1 — подкрановая ветвь, О4/Б"),br(4,5950,"Колонна К1 — надкрановая часть I50Ш3, О4/Б")]);
+assert.deepEqual([...bt.branchTurn].map(([k,v])=>[k,+v.toFixed(4)]),[["2",1.5708],["3",-1.5708]],"the two branches turned to each other, the upper part not");
+// A channel's plate on the web goes inside its flanges when its back stands against the other's flange (the struts [30П
+// between the flanges of a branch went 10 mm into it); a rail ends at the crane stop across it; a railing post at the level
+// of a deck stands on it; the end plate of a beam is flush with its top (a deck lies on it).
+assert.ok(view.includes("if(side<0&&Math.abs(dx)>.7&&(yb<hit.lo||yb>hit.hi))side=1;"),"the plate inside the channel");
+assert.match(view,/function stopTrim\(c,a,b\)\{/);assert.ok(view.includes('segments.length===1&&runwayKind(c)==="rail")segments=[stopTrim('),"rails end at the stops");
+assert.ok(view.includes("guardLift.set(k.id,Math.max(guardLift.get(k.id)||0,y+.04-k.y))")&&view.includes("if(guardLift.has(id)){"),"posts on the deck");
+assert.ok(view.includes("ep.position.copy(at0).sub(up0.clone().multiplyScalar(.02))"),"the end plate flush with the top");
+console.log("Nodes: ends at the faces of the bodies by rank, plain crossings split, braces beside their gussets in their plane, gusset outlines, decks round columns, panel corners, end plates across; ends reach their supports, to the web of an I with a plate; branches of lattice columns turned, rails to the stops, posts on decks PASS");

@@ -1188,6 +1188,24 @@
    "publisher": "plan-home.com",
    "license": "ссылка",
    "accessed": "2026-10-26"
+  },
+  {
+   "id": "dnaop-dstu-2539-94",
+   "title": "ДСТУ 2539-94 (ГОСТ 30165-94) Рельсы типов Р38 и Р43. Технические условия (текст, приложение 1 «Расчётные данные»)",
+   "kind": "текст стандарта",
+   "url": "https://dnaop.com/html/62117_2.html",
+   "publisher": "dnaop.com",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-27"
+  },
+  {
+   "id": "meganorm-7173-54",
+   "title": "ГОСТ 7173-54 Рельсы железнодорожные типа Р43. Конструкция и размеры (текст, расчётные характеристики)",
+   "kind": "текст стандарта",
+   "url": "https://meganorm.ru/mega_doc/norm/gost_gosudarstvennyj-standart/8/gost_7173-54_gosudarstvennyy_standart_soyuza_ssr_relsy.html",
+   "publisher": "meganorm.ru",
+   "license": "ссылка; текст стандарта не копируется",
+   "accessed": "2026-10-27"
   }
  ]
 }

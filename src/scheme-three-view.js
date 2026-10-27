@@ -104,7 +104,8 @@ window.irThreeSchemeView=(function(){
  var sections=new Map(),sectionsPromise=null;
  var CATALOGS=["profiles-ibeams","profiles-ibeams-parallel","profiles-ibeams-26020","profiles-ibeams-19425","profiles-channels","profiles-channels-19425",
   "profiles-channels-bent-8278","profiles-channels-bent-8281","profiles-angles","profiles-angles-unequal","profiles-angles-bent-19771","profiles-angles-bent-19772","profiles-box-30245","pipes",
-  "profiles-pipes-square-8639","profiles-pipes-rect-8645","profiles-pipes-32931","profiles-lipped-8282","profiles-hat-8283","profiles-z-13229","bars"];
+  "profiles-pipes-square-8639","profiles-pipes-rect-8645","profiles-pipes-32931","profiles-lipped-8282","profiles-hat-8283","profiles-z-13229","bars",
+  "rails-crane-4121","rails-30165"];
  function loadSections(){
   // An exported scheme carries the rows it needs (a file opened from the disk cannot fetch the tables).
   if(!sectionsPromise&&Array.isArray(window.irSchemeSections)){window.irSchemeSections.forEach(function(r){if(r&&r.id)sections.set(r.id,r)});sectionsPromise=Promise.resolve()}
@@ -502,9 +503,28 @@ window.irThreeSchemeView=(function(){
   var out=pts.map(function(p){return[p[0]-Math.sin(p[2])*s/2,p[1]+Math.cos(p[2])*s/2]}).concat(pts.map(function(p){return[p[0]+Math.sin(p[2])*s/2,p[1]-Math.cos(p[2])*s/2]}).reverse());
   shape.moveTo(out[0][0],out[0][1]);for(var j=1;j<out.length;j++)shape.lineTo(out[j][0],out[j][1]);shape.closePath()
  }
+ // A rail «Р43», «КР70» (a crane or a railway one) by its row: ГОСТ 30165-94 for Р38, Р43 (the height — the distances to
+ // the centre of gravity from the bottom of the base and the top of the head), ГОСТ 4121-96 for КР (the height, the widths of
+ // the head and the base); null — not a rail of the base.
+ function railRow(member){
+  var m=/^(?:Рельс)?(КР|KP|Р|P)(\d{2,3})$/i.exec(String(member.profile_name||member.profileName||"").replace(/\s+/g,""));
+  if(!m)return null;var r=sections.get(/^[КK]/i.test(m[1])?"rail-4121-КР"+m[2]:"rail-30165-Р"+m[2]);
+  return r&&number(r.h_mm)>0?r:null
+ }
+ // A rail drawn by its head, web and base, as high as its row; widths the text of the standard does not give (of Р43: on
+ // the figures only) and the thicknesses are conventional, so the section is still counted as conventional. As a beam of
+ // 320 it stood half under the top of the crane girder it lies on.
+ function railGeometry(T,cache,r){
+  var key="rail:"+r.id;if(cache.has(key))return cache.get(key);
+  var H=number(r.h_mm)/1000,h=H/2,bh=(number(r.b_mm)||H*500)/2000,bb=(number(r.b2_mm)||H*800)/2000,w=H*.05,e=H*.07,f=H*.2,hh=H*.3,shape=new T.Shape();
+  shape.moveTo(-bb,-h);shape.lineTo(bb,-h);shape.lineTo(bb,-h+e);shape.lineTo(w,-h+f);shape.lineTo(w,h-hh);shape.lineTo(bh,h-hh);shape.lineTo(bh,h);
+  shape.lineTo(-bh,h);shape.lineTo(-bh,h-hh);shape.lineTo(-w,h-hh);shape.lineTo(-w,-h+f);shape.lineTo(-bb,-h+e);shape.closePath();
+  var geo=new T.ExtrudeGeometry(shape,{depth:1,steps:1,bevelEnabled:false,curveSegments:1});geo.computeVertexNormals();cache.set(key,geo);return geo
+ }
  function addGeometry(T,cache,member){
   var sec=sectionOf(member.profile_name||member.profileName,member.profile_standard);
   if(sec)return realGeometry(T,cache,sec);
+  var rail=railRow(member);if(rail)return railGeometry(T,cache,rail);
   var section=String(member.section_type||"").toLowerCase(),category=kind(member);
   var style=section==="round"||category==="ties"&&String(member.profile_name||"").match(/труб|ø|Ø/i)?"round":
    section==="square"||section==="box"?"box":"ibeam";
@@ -870,7 +890,36 @@ window.irThreeSchemeView=(function(){
   function halfSection(c){
    var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);
    if(sec)return{h:sec.h/2000,b:(sec.shape==="round"?sec.h:Math.max(sec.b,number(sec.b1)))/2000};
+   var rail=railRow(c);if(rail)return{h:rail.h_mm/2000,b:(number(rail.b2_mm)||rail.h_mm*.8)/2000};
    var d=materialProfile(c);return{h:d[0]/2,b:d[1]/2}
+  }
+  // A branch of a lattice column («наружная ветвь», «подкрановая ветвь» of a stepped column) stands with its flanges along
+  // the line to the other branch and its web across it (the section of the column, КМ «1-1»: the lattice comes between
+  // the flanges to the web, the wall girders lie on the edges of the outer flanges); drawn as a column of the frame (its
+  // web along that line) it took the girders and the lattice into it. The turn about its line (radians, from world x to
+  // the other branch of its mark within 3 m beside it).
+  var branchTurn=new Map();
+  function branchTurns(list){
+   branchTurn.clear();
+   var br=list.filter(function(c){return c.id&&!c.ft&&c.geometryType==="column"&&/ветв/i.test(String(c.mark_name||""))});
+   br.forEach(function(c){
+    var best=null;
+    br.forEach(function(o){
+     if(o===c||String(o.mark||"")!==String(c.mark||"")||number(o.z0)>=number(c.z2)||number(c.z0)>=number(o.z2))return;
+     var d=Math.hypot(number(o.x)-number(c.x),number(o.y)-number(c.y));if(d>=200&&d<=3000&&(!best||d<best.d))best={d:d,o:o}
+    });
+    if(best){var v=toWorld(best.o.x,best.o.y,0).sub(toWorld(c.x,c.y,0));branchTurn.set(String(c.id),Math.atan2(-v.z,v.x))}
+   })
+  }
+  // The section of a member about its line u: the minimal turn of +Z to u, a branch turned to its other branch.
+  function bodyQuat(c,u){
+   var q=new T.Quaternion().setFromUnitVectors(zAxis,u),a=branchTurn.get(String(c.id||""));
+   return a?q.premultiply(new T.Quaternion().setFromAxisAngle(u,a)):q
+  }
+  // Half the plan of a column along world x and z (m), as its section is turned.
+  function planHalf(c){
+   var hs=halfSection(c),a=branchTurn.get(String(c.id||""))||0,cs=Math.abs(Math.cos(a)),sn=Math.abs(Math.sin(a));
+   return{x:cs*hs.b+sn*hs.h,z:sn*hs.b+cs*hs.h}
   }
   // A column before a beam; a main beam (of the roof, a crane girder, a truss) before a secondary one (a purlin, a strut, a
   // member of the framing, of a platform, of a stair); these before a brace, a railing last; of two alike the deeper
@@ -924,7 +973,7 @@ window.irThreeSchemeView=(function(){
    var u=b.clone().sub(a),L=u.length();if(L<.3)return null;u.divideScalar(L);
    var ang=braceAngle(c,u),out={o:a.clone(),U:u,s0:0,s1:L};
    if(ang){var lb=ang.sec.b/1000,g=ang.gap/2;Object.assign(out,{X:ang.X,Y:ang.Y,x0:ang.pair?-g-lb:g,x1:g+lb,y0:ang.lift,y1:ang.lift+ang.sec.h/1000});return out}
-   var q=new T.Quaternion().setFromUnitVectors(zAxis,u),sec=sectionOf(c.profile_name||c.profileName,c.profile_standard),hs=halfSection(c);
+   var q=bodyQuat(c,u),sec=sectionOf(c.profile_name||c.profileName,c.profile_standard),hs=halfSection(c);
    out.X=new T.Vector3(1,0,0).applyQuaternion(q);out.Y=new T.Vector3(0,1,0).applyQuaternion(q);
    if(sec&&sec.shape==="angle"&&!sec.bent)Object.assign(out,{x0:0,x1:sec.b/1000,y0:0,y1:sec.h/1000});else Object.assign(out,{x0:-hs.b,x1:hs.b,y0:-hs.h,y1:hs.h});
    return out
@@ -1090,7 +1139,7 @@ window.irThreeSchemeView=(function(){
    if(p.length===2&&sec&&(sec.shape==="ibeam"||sec.shape==="channel")&&!slight(c)){
     var d=p[1].clone().sub(p[0]),L=d.length();
     if(L>.3){
-     d.divideScalar(L);var q=new T.Quaternion().setFromUnitVectors(zAxis,d),X=new T.Vector3(1,0,0).applyQuaternion(q),Y=new T.Vector3(0,1,0).applyQuaternion(q),mid=p[0].clone().add(p[1]).multiplyScalar(.5);
+     d.divideScalar(L);var q=bodyQuat(c,d),X=new T.Vector3(1,0,0).applyQuaternion(q),Y=new T.Vector3(0,1,0).applyQuaternion(q),mid=p[0].clone().add(p[1]).multiplyScalar(.5);
      var webX=sec.shape==="channel"?(sec.s/2-sec.b/2)/1000:0,bolts=boltSizes(c);
      views.forEach(function(v){
       var band=number(v&&v.band_mm),len=number(v&&v.length_mm),side=Math.abs(band-sec.h)<=Math.max(15,sec.h*.12),plan=!side&&Math.abs(band-sec.b)<=Math.max(15,sec.b*.12);
@@ -1155,7 +1204,7 @@ window.irThreeSchemeView=(function(){
   function addCuts(c,parts,ends){
    var list=endCuts(c);if(!list.length)return;
    var p=memberPoints(c),d=p[1].clone().sub(p[0]),L=d.length();if(L<=.3)return;d.divideScalar(L);
-   var q=new T.Quaternion().setFromUnitVectors(zAxis,d),X=new T.Vector3(1,0,0).applyQuaternion(q),Y=new T.Vector3(0,1,0).applyQuaternion(q),bolts=boltSizes(c);
+   var q=bodyQuat(c,d),X=new T.Vector3(1,0,0).applyQuaternion(q),Y=new T.Vector3(0,1,0).applyQuaternion(q),bolts=boltSizes(c);
    list.forEach(function(e){
     if(e.end===0&&basePlated(c))return;
     var out=e.end?d.clone():d.clone().negate(),t=e.t/1000,at=ends[e.end].clone().sub(out.clone().multiplyScalar(t/2));
@@ -1173,7 +1222,7 @@ window.irThreeSchemeView=(function(){
    var p=memberPoints(c),sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);
    if(p.length!==2||!sec||!(sec.shape==="ibeam"||sec.shape==="channel")||slight(c))return;
    var d=p[1].clone().sub(p[0]),L=d.length();if(L<=.3)return;d.divideScalar(L);
-   var q=new T.Quaternion().setFromUnitVectors(zAxis,d),X=new T.Vector3(1,0,0).applyQuaternion(q),Y=new T.Vector3(0,1,0).applyQuaternion(q),mid=p[0].clone().add(p[1]).multiplyScalar(.5);
+   var q=bodyQuat(c,d),X=new T.Vector3(1,0,0).applyQuaternion(q),Y=new T.Vector3(0,1,0).applyQuaternion(q),mid=p[0].clone().add(p[1]).multiplyScalar(.5);
    var fromTop=c.geometryType==="column"&&c.plates.dir==="по вертикали";
    var inner=sec.h/2-sec.t,web=sec.s/2,edge=sec.b/2,webX=sec.shape==="channel"?(sec.s/2-sec.b/2):0;
    rows.forEach(function(r){
@@ -1202,7 +1251,7 @@ window.irThreeSchemeView=(function(){
    var p=memberPoints(c),sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);
    if(p.length!==2||!sec||!(sec.shape==="ibeam"||sec.shape==="channel")||slight(c))return;
    var d=p[1].clone().sub(p[0]),L=d.length();if(L<=.3)return;d.divideScalar(L);
-   var q=new T.Quaternion().setFromUnitVectors(zAxis,d),X=new T.Vector3(1,0,0).applyQuaternion(q),Y=new T.Vector3(0,1,0).applyQuaternion(q),mid=p[0].clone().add(p[1]).multiplyScalar(.5);
+   var q=bodyQuat(c,d),X=new T.Vector3(1,0,0).applyQuaternion(q),Y=new T.Vector3(0,1,0).applyQuaternion(q),mid=p[0].clone().add(p[1]).multiplyScalar(.5);
    var fromTop=c.geometryType==="column"&&c.plates.dir==="по вертикали";
    list.forEach(function(g){
     var poly=Array.isArray(g.poly)?g.poly.map(function(e){return[number(e[0]),number(e[1])]}):[],t=number(g.t);if(poly.length<3||!(t>0))return;
@@ -1255,7 +1304,7 @@ window.irThreeSchemeView=(function(){
   // The distance from E the member is drawn from; null — it stays at the edges of the flanges (an angle, a pipe without
   // room).
   function webJoint(c,E,d,u,hit,parts){
-   var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard),hs=halfSection(c),q=new T.Quaternion().setFromUnitVectors(zAxis,u);
+   var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard),hs=halfSection(c),q=bodyQuat(c,u);
    var X=new T.Vector3(1,0,0).applyQuaternion(q),Y=new T.Vector3(0,1,0).applyQuaternion(q),yc=E.clone().sub(hit.o).dot(hit.Y);
    var room=roomAt(c,E,u,hit),at=hit.web+.01,open=sec&&(sec.shape==="ibeam"||sec.shape==="channel")&&!sec.bent;
    if(!open)return room?at:null;
@@ -1270,6 +1319,9 @@ window.irThreeSchemeView=(function(){
     put(xw,(y0+y1)/2,at,hit.t,tw,y1-y0)
    }
    var dia=boltDia(c),hp=Math.max(.06,Math.min(y1-y0,.7*cw)),ym=(y0+y1)/2,s1=Math.max(hit.t,at)+Math.max(.07,3*(dia||.02)),side=sec.shape==="channel"?-1:1;
+   // (a channel's plate is on the back of its web — inside its flanges when the back stands against the other's flange: the
+   // struts [30П of a lattice column between the flanges of its branch)
+   var dx=X.dot(hit.Y),yb=yc+dx*(xw-tw/2-.01)+dy*ym;if(side<0&&Math.abs(dx)>.7&&(yb<hit.lo||yb>hit.hi))side=1;
    put(xw+side*(tw/2+.005),ym,hit.web,s1,.01,hp);
    if(dia){var n=Math.max(2,Math.min(6,Math.floor((hp-.06)/(3*dia))+1)),pitch=n>1?Math.min(3*dia,(hp-.06)/(n-1)):0,sb=s1-Math.max(.035,1.5*dia);
     for(var i=0;i<n;i++)addBolt(c,E.clone().add(d.clone().multiplyScalar(sb)).add(X.clone().multiplyScalar(xw+side*.005)).add(Y.clone().multiplyScalar(ym+(i-(n-1)/2)*pitch)),X.clone().multiplyScalar(side),dia,tw+.01)}
@@ -1277,7 +1329,7 @@ window.irThreeSchemeView=(function(){
   }
   // Whether the section of the member at E (its line u) is within the room between the flanges of the body it comes to.
   function roomAt(c,E,u,hit){
-   var hs=halfSection(c),q=new T.Quaternion().setFromUnitVectors(zAxis,u),yc=E.clone().sub(hit.o).dot(hit.Y);
+   var hs=halfSection(c),q=bodyQuat(c,u),yc=E.clone().sub(hit.o).dot(hit.Y);
    var ey=Math.abs(new T.Vector3(1,0,0).applyQuaternion(q).dot(hit.Y))*hs.b+Math.abs(new T.Vector3(0,1,0).applyQuaternion(q).dot(hit.Y))*hs.h;
    return yc-ey>=hit.lo-.002&&yc+ey<=hit.hi+.002
   }
@@ -1286,7 +1338,7 @@ window.irThreeSchemeView=(function(){
    var v=b.clone().sub(a),L=v.length();if(L<.3)return[a,b];v.divideScalar(L);
    var brace=c.geometryType==="brace"||kind(c)==="ties",ends=[[a,v],[b,v.clone().negate()]],out=[a.clone(),b.clone()];
    // (the section about P — its line and its corners — in another member's body but skip's)
-   var q0=new T.Quaternion().setFromUnitVectors(zAxis,v),hs0=halfSection(c),X0=new T.Vector3(1,0,0).applyQuaternion(q0),Y0=new T.Vector3(0,1,0).applyQuaternion(q0);
+   var q0=bodyQuat(c,v),hs0=halfSection(c),X0=new T.Vector3(1,0,0).applyQuaternion(q0),Y0=new T.Vector3(0,1,0).applyQuaternion(q0);
    var blocked=function(P,skip){return[[0,0],[-.9,-.9],[-.9,.9],[.9,-.9],[.9,.9]].some(function(k){return host.inside(id,P.clone().add(X0.clone().multiplyScalar(k[0]*hs0.b)).add(Y0.clone().multiplyScalar(k[1]*hs0.h)),skip)})};
    ends.forEach(function(e,k){
     if(outer&&!outer[k])return;
@@ -1344,8 +1396,9 @@ window.irThreeSchemeView=(function(){
      if(!dia||endCuts(c).some(function(q){return q.end===k}))return;var hs=halfSection(c),d0=e[1],side0=Math.abs(d0.y)>.9?new T.Vector3(1,0,0):new T.Vector3(0,1,0).cross(d0).normalize(),up0=d0.clone().cross(side0).normalize();
      // ((side, up, along) right-handed: the left-handed one turned the plate edge-on across the beam's end)
      var at0=E0.clone().add(d0.clone().multiplyScalar(face+.008));
+     // (flush with the top of the beam — a deck, a purlin lies on it — and 40 mm below it)
      var ep=new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(c));
-     ep.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(side0,up0,d0));ep.scale.set(hs.b*2+.02,hs.h*2+.04,.016);ep.position.copy(at0);parts.push(ep);
+     ep.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(side0,up0,d0));ep.scale.set(hs.b*2+.02,hs.h*2+.04,.016);ep.position.copy(at0).sub(up0.clone().multiplyScalar(.02));parts.push(ep);
      // The package: the end plate (16) and the flange behind it, taken as thick as the plate.
      var mid0=at0.clone().sub(d0.clone().multiplyScalar(.008));
      [-1,1].forEach(function(i){[-1,1].forEach(function(j){addBolt(c,mid0.clone().add(side0.clone().multiplyScalar(i*Math.max(.04,hs.b-.035))).add(up0.clone().multiplyScalar(j*Math.max(.05,hs.h-.05))),d0,dia,.032)})});
@@ -1500,11 +1553,11 @@ window.irThreeSchemeView=(function(){
    });
    byCol.forEach(function(k,id){
     seatTop.set(id,k.seat);seats.push(k);
-    var hs=halfSection(k.c),cx=number(k.c.x),cy=number(k.c.y),ends=k.beams.filter(function(e){return e.end>=0}),through=k.beams.filter(function(e){return e.end<0});
+    var hs=planHalf(k.c),cx=number(k.c.x),cy=number(k.c.y),ends=k.beams.filter(function(e){return e.end>=0}),through=k.beams.filter(function(e){return e.end<0});
     ends.forEach(function(e,i){
      var dot=function(o){return o.d.x*e.d.x+o.d.y*e.d.y};
      var first=through.concat(ends.filter(function(o,j){return j<i&&Math.abs(dot(o))<.3}))[0];
-     var t=first?halfSection(first.b).b*1000+10:ends.some(function(o){return o!==e&&dot(o)<-.9})?10:-(Math.abs(e.d.x)*hs.b+Math.abs(e.d.y)*hs.h)*1000;
+     var t=first?halfSection(first.b).b*1000+10:ends.some(function(o){return o!==e&&dot(o)<-.9})?10:-(Math.abs(e.d.x)*hs.x+Math.abs(e.d.y)*hs.z)*1000;
      e.at={x:cx+e.d.x*t,y:cy+e.d.y*t};e.bolts=first||t===10?{x:cx+e.d.x*(t+60),y:cy+e.d.y*(t+60)}:{x:cx,y:cy};
      var bid=String(e.b.id),arr=seatEnd.get(bid)||[null,null];arr[e.end]=e.at;seatEnd.set(bid,arr)
     });
@@ -1535,16 +1588,25 @@ window.irThreeSchemeView=(function(){
   // 10 mm more), as it is on site; whole, it showed the column coming through it (the engineer, 27.10.2026: «не должны
   // проходить сквозь друг друга»). Holes as those of a wall: [along it from its start, to, across it from its edge, to], m.
   var deckHoles=new Map();
+  // A railing post standing at the level of a deck stands on it (drawn from the level of the beams under it, it went
+  // through the grating): its foot lifted by guardLift (m), drawn only.
+  var guardLift=new Map();
   function deckCuts(list){
-   deckHoles.clear();var cols=[];
+   deckHoles.clear();guardLift.clear();var cols=[],posts=[];
    list.forEach(function(c){
-    if(!c.id||c.ft||c.geometryType!=="column"||slight(c)||c.column&&Array.isArray(c.column.members)&&c.column.members.length)return;
-    var p=memberPoints(c),hs=halfSection(c);cols.push({x:p[0].x,z:p[0].z,y0:p[0].y,y1:p[1].y,hx:hs.b,hz:hs.h})
+    if(!c.id||c.ft||c.geometryType!=="column"||c.column&&Array.isArray(c.column.members)&&c.column.members.length)return;
+    var p=memberPoints(c),hs=planHalf(c);
+    if(slight(c)){if(p[p.length-1].y>p[0].y+.3)posts.push({id:String(c.id),x:p[0].x,z:p[0].z,y:p[0].y,r:Math.max(hs.x,hs.z)});return}
+    cols.push({x:p[0].x,z:p[0].z,y0:p[0].y,y1:p[1].y,hx:hs.x,hz:hs.z})
    });
-   if(cols.length)list.forEach(function(c){
+   if(cols.length||posts.length)list.forEach(function(c){
     if(c.ft!=="deck"||!c.id||c.lay&&number(c.lay.arc_r_mm)>0)return;
     var p=memberPoints(c),a=p[0],b=p[p.length-1],d=new T.Vector3(b.x-a.x,0,b.z-a.z),len=a.distanceTo(b);if(d.length()<.1)return;d.normalize();
     var w=Math.max(.3,(number(c.fd)||1000)/1000),side=new T.Vector3(d.z,0,-d.x),y=(a.y+b.y)/2,out=[];
+    posts.forEach(function(k){
+     var px=k.x-a.x,pz=k.z-a.z,u=px*d.x+pz*d.z,v=px*side.x+pz*side.z+w/2;
+     if(k.y>y-.03&&k.y<y+.04&&u>-k.r&&u<len+k.r&&v>-k.r&&v<w+k.r)guardLift.set(k.id,Math.max(guardLift.get(k.id)||0,y+.04-k.y))
+    });
     cols.forEach(function(k){
      if(y<k.y0||k.y1<y+.05)return;var us=[],vs=[];
      [-1,1].forEach(function(i){[-1,1].forEach(function(j){var px=k.x+i*k.hx-a.x,pz=k.z+j*k.hz-a.z;us.push(px*d.x+pz*d.z);vs.push(px*side.x+pz*side.z)})});
@@ -1768,7 +1830,7 @@ window.irThreeSchemeView=(function(){
    allMeshes=[];boltList=[];dataById.clear();meshesById.clear();failures=0;conventional.clear();drillCache.clear();
    labels.forEach(function(l){l.el.remove()});labels=[];
    elems=Array.isArray(list)?list:[];
-   seatOnTops(elems);hangTies(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);
+   branchTurns(elems);seatOnTops(elems);hangTies(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);
    var host=jointHosts(elems);findCrossings(elems,host);
    // (trusses and two-branch columns first: the members coming to them stop at their chords and branches)
    var lattice=function(c){return Boolean(c.truss&&Array.isArray(c.truss.members)&&c.truss.members.length||c.column&&Array.isArray(c.column.members)&&c.column.members.length)};
@@ -1894,6 +1956,8 @@ window.irThreeSchemeView=(function(){
      // A bent member keeps its middle point: only its outer ends are cut.
      return segments.length>1&&!c.cross?[i?sg[0]:t[0],i===segments.length-1?t[1]:sg[1]]:t
     });
+    if(segments.length===1&&runwayKind(c)==="rail")segments=[stopTrim(c,segments[0][0],segments[0][1])];
+    if(guardLift.has(id)){var gl0=segments[0][0].clone();gl0.y+=guardLift.get(id);segments[0]=[gl0,segments[0][1]]}
     // The second diagonal of a cross of one record is cut where it crosses the first; braces crossing others likewise.
     var cuts=crossCut.get(id)||[];
     if(c.cross&&segments.length===2){
@@ -1915,7 +1979,7 @@ window.irThreeSchemeView=(function(){
      }
      var mesh=new T.Mesh(addGeometry(T,meshGeo,c),baseMaterial(c));
      mesh.position.copy(points[0]);mesh.scale.z=dist(points[0],points[1]);
-     mesh.quaternion.setFromUnitVectors(zAxis,points[1].clone().sub(points[0]).normalize());
+     mesh.quaternion.copy(bodyQuat(c,points[1].clone().sub(points[0]).normalize()));
      mesh.userData.memberId=id;mesh.userData.body=true;steel.add(mesh);allMeshes.push(mesh);
      if(!meshesById.has(id))meshesById.set(id,[]);
      meshesById.get(id).push(mesh)
@@ -1962,7 +2026,7 @@ window.irThreeSchemeView=(function(){
       if(k.geometryType!=="column"||k.ft||!k.id||!dataById.has(String(k.id))||k.column&&Array.isArray(k.column.members)&&k.column.members.length)return;
       if(z<number(k.z0)+300||z>number(topOf(k)))return;
       var C=toWorld(k.x,k.y,z),rel=E[0].clone().sub(C),along=rel.dot(au),ov=rel.clone().sub(au.clone().multiplyScalar(along));ov.y=0;
-      var dOut=ov.length(),ks=halfSection(k),hAlong=Math.abs(au.x)*ks.b+Math.abs(au.z)*ks.h,hOut=Math.abs(au.z)*ks.b+Math.abs(au.x)*ks.h,gap=dOut-gw-hOut;
+      var dOut=ov.length(),ks=planHalf(k),hAlong=Math.abs(au.x)*ks.x+Math.abs(au.z)*ks.z,hOut=Math.abs(au.z)*ks.x+Math.abs(au.x)*ks.z,gap=dOut-gw-hOut;
       if(dOut<1e-3||Math.abs(along)>hAlong+.06||gap<-.005||gap>1.2)return;
       if(!best||gap<best.gap)best={k:k,C:C,along:along,out:ov.divideScalar(dOut),dOut:dOut,hAlong:hAlong,hOut:hOut,gap:gap}
      });
@@ -2026,16 +2090,16 @@ window.irThreeSchemeView=(function(){
    return{cnt:cnt,dia:dia,side:side,step:step,pw:Math.max(bw+.2,(side-1)*step+.1),pd:hh+.2+dia*2,pt:.03}
   }
   function baseParts(c){
-   var id=String(c.id),bs=baseSize(c),at=toWorld(number(c.x),number(c.y),number(c.z0));
+   var id=String(c.id),bs=baseSize(c),at=toWorld(number(c.x),number(c.y),number(c.z0)),turn=new T.Quaternion().setFromAxisAngle(boltY,branchTurn.get(id)||0);
    var plate=new T.Mesh(shared("plate:"+bs.pw.toFixed(3)+":"+bs.pd.toFixed(3)+":"+bs.pt.toFixed(3),function(){return new T.BoxGeometry(bs.pw,bs.pt,bs.pd)}),baseMaterial(c));
-   plate.position.copy(at);plate.position.y-=bs.pt/2;plate.userData.memberId=id;steel.add(plate);allMeshes.push(plate);
+   plate.position.copy(at);plate.position.y-=bs.pt/2;plate.quaternion.copy(turn);plate.userData.memberId=id;steel.add(plate);allMeshes.push(plate);
    if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(plate);
-   var hp=[];(bs.holes||[]).forEach(function(h){putHole(c,hp,{at:plate.position.clone().add(new T.Vector3(h.x,0,h.z)),axis:boltY,d:h.d,t:bs.pt,bolt:0})});
+   var hp=[];(bs.holes||[]).forEach(function(h){putHole(c,hp,{at:plate.position.clone().add(new T.Vector3(h.x,0,h.z).applyQuaternion(turn)),axis:boltY,d:h.d,t:bs.pt,bolt:0})});
    hp.forEach(function(m){m.userData.memberId=id;steel.add(m);allMeshes.push(m);meshesById.get(id).push(m)});
    if(number(c.z0)>300)return;
    var fw=bs.pw+.3,fd=bs.pd+.3,fh=1;
    var foot=new T.Mesh(shared("footing:"+fw.toFixed(3)+":"+fd.toFixed(3),function(){return new T.BoxGeometry(fw,fh,fd)}),concreteMat);
-   foot.position.copy(at);foot.position.y-=bs.pt+fh/2;foot.visible=showDetails;
+   foot.position.copy(at);foot.position.y-=bs.pt+fh/2;foot.quaternion.copy(turn);foot.visible=showDetails;
    foot.userData.memberId=id;foot.userData.fixed=true;foot.userData.footing=true;steel.add(foot);allMeshes.push(foot);pedestals.push(foot)
   }
   // ---- Cranes on their runways, drawn conventionally (the crane is equipment, not in the КМ): an overhead crane on a
@@ -2068,6 +2132,21 @@ window.irThreeSchemeView=(function(){
    if(/подкранов\S*\s+балк|балк\S*\s+подкранов/i.test(n))return"girder";
    return""
   }
+  // A rail ends at the crane stop across it near its end, 10 mm short of its face (КМ «Узел крановых упоров»: the stop on
+  // the girder past the end of the rail); drawn only, the rail keeps its coordinates. Drawn to the end of the girder it
+  // went through the stop.
+  function stopTrim(c,a,b){
+   var u=b.clone().sub(a),L=u.length();if(L<3)return[a,b];u.divideScalar(L);var s0=0,s1=L;
+   elems.forEach(function(k){
+    if(k===c||k.ft||!k.id||k.geometryType!=="beam"||!/упор/i.test(String(k.mark_name||"")))return;
+    var kp=memberPoints(k),m=kp[0].clone().add(kp[kp.length-1]).multiplyScalar(.5),s=m.clone().sub(a).dot(u),off=m.clone().sub(a).sub(u.clone().multiplyScalar(s));
+    if(Math.hypot(off.x,off.z)>.5||Math.abs(off.y)>.6||Math.abs(kp[kp.length-1].clone().sub(kp[0]).normalize().dot(u))>.3)return;
+    var hb=halfSection(k).b;
+    if(s<1.5&&s+hb+.01>s0)s0=s+hb+.01;
+    if(s>L-1.5&&s-hb-.01<s1)s1=s-hb-.01
+   });
+   return s1-s0>1?[a.clone().add(u.clone().multiplyScalar(s0)),a.clone().add(u.clone().multiplyScalar(s1))]:[a,b]
+  }
   // A welded I of plates «−16×200, −10×494»: the web is the thinner plate, the height is it and two flanges.
   function weldedHeight(p){
    var pl=[],re=/[−-]\s*(\d+(?:[.,]\d+)?)\s*[×xх]\s*(\d+)/g,m;while((m=re.exec(String(p||""))))pl.push({t:number(m[1].replace(",",".")),w:number(m[2])});
@@ -2080,7 +2159,7 @@ window.irThreeSchemeView=(function(){
    elems.forEach(function(c){
     if(c.geometryType!=="beam"||c.ft)return;var k=runwayKind(c);if(!k)return;
     var a={x:number(c.x),y:number(c.y)},b={x:number(c.x2),y:number(c.y2)},L=Math.hypot(b.x-a.x,b.y-a.y);if(L<3000||Math.abs(number(c.z0)-number(c.z2))>50)return;
-    var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);ways.push({c:c,kind:k,a:a,b:b,L:L,u:{x:(b.x-a.x)/L,y:(b.y-a.y)/L},z:number(c.z0),h:sec?sec.h:weldedHeight(c.profile_name||c.profileName),fb:sec&&sec.b?sec.b:200})
+    var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);ways.push({c:c,kind:k,a:a,b:b,L:L,u:{x:(b.x-a.x)/L,y:(b.y-a.y)/L},z:number(c.z0),h:sec?sec.h:railRow(c)?number(railRow(c).h_mm):weldedHeight(c.profile_name||c.profileName),fb:sec&&sec.b?sec.b:200})
    });
    // Rails decide where there are any; crane girders carry a crane only where no rail lies on them.
    var rails=ways.filter(function(w){return w.kind==="rail"});
@@ -2559,7 +2638,7 @@ window.irThreeSchemeView=(function(){
    var best=null;
    elems.forEach(function(k){
     if(k.geometryType!=="column"||k.ft||!k.id||k.column&&Array.isArray(k.column.members)&&k.column.members.length)return;
-    var hs=halfSection(k),hx=hs.b*1000,hy=hs.h*1000,dx=e.x-number(k.x),dy=e.y-number(k.y);
+    var hs=planHalf(k),hx=hs.x*1000,hy=hs.z*1000,dx=e.x-number(k.x),dy=e.y-number(k.y);
     if(Math.abs(dx)>hx+60||Math.abs(dy)>hy+60||zBottom<number(k.z0)||zBottom>number(topOf(k))-300)return;
     var face=Math.abs(u.x)*hx+Math.abs(u.y)*hy-(dx*u.x+dy*u.y);
     if(face>0&&face<1500&&(!best||face>best.face))best={k:k,face:face}
@@ -3716,7 +3795,7 @@ window.irThreeSchemeView=(function(){
  // The sortament rows for an exported scheme: only what drawing a section takes.
  function sectionRows(){
   return loadSections().then(function(){var out=[];sections.forEach(function(r){var o={};
-   ["id","status","standard","h_mm","b_mm","B_mm","b1_mm","a_mm","s_mm","t_mm","R_mm","r_mm","diameters_mm","thicknesses_mm","sizes_mm","rows","mass_kg_m"].forEach(function(k){if(r[k]!=null)o[k]=r[k]});out.push(o)});return out})
+   ["id","status","standard","h_mm","b_mm","B_mm","b1_mm","b2_mm","a_mm","s_mm","t_mm","R_mm","r_mm","diameters_mm","thicknesses_mm","sizes_mm","rows","mass_kg_m"].forEach(function(k){if(r[k]!=null)o[k]=r[k]});out.push(o)});return out})
  }
  return{render:render,dispose:dispose,sectionOf:sectionOf,massPerMetre:massPerMetre,clipTruss:clipTruss,loadSections:loadSections,sectionRows:sectionRows,fastenerRows:fastenerRows,jointKbRows:jointKbRows,
   focus:function(id){return call("focus",id)},
