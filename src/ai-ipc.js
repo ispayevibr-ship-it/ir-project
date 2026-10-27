@@ -96,7 +96,12 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
  handle("ai-montage:undo",(_e,{objectId,draftId})=>montage.undo(objectId,draftId));
  handle("ai-montage:clear-scheme",(_e,{objectId,grid}={})=>montage.clearScheme(objectId,{grid:grid===true}));
  handle("ai-montage:restore-scheme",(_e,{objectId}={})=>montage.restoreScheme(objectId));
- handle("ai-montage:journal-add",(_e,{objectId,elementId,comment,objectName}={})=>training.journalAdd(objectId,{elementId,comment,objectName}));
+ // Every edit and placement on the montage scheme comes here by itself (auto) or with a comment: a kind the engineer gave
+// a mark of a set becomes the rule of that set at once (the next analysis gives the mark that kind) and goes to GitHub.
+handle("ai-montage:journal-add",(_e,{objectId,elementId,comment,objectName,action,auto,grid}={})=>{
+ const r=training.journalAdd(objectId,{elementId,comment,objectName,action,auto:auto===true,grid});
+ if(r.entry?.rule){try{knowledge.setType(r.entry.rule);github.schedule("вид элемента по правке инженера")}catch(e){r.ruleError=String(e.message||e)}}
+ return r});
  handle("ai-montage:journal-list",(_e,{objectId,limit}={})=>({...training.journalList({objectId,limit}),github:github.info()}));
  handle("ai-montage:journal-send",()=>github.push({reason:"журнал, вручную"}));
  handle("ai-montage:training",(_e,{objectId}={})=>{const r=training.status(objectId);return{...r,base:base.stats?base.stats():null}});

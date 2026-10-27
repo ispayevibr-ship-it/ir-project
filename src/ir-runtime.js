@@ -1785,7 +1785,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   }};
   const saved=await schemeApi.create(payload);
   if(!rememberSavedSchemeRecord(saved))rows=await schemeApi.list();
-  selectedId=String(saved?.id||"");
+  selectedId=String(saved?.id||"");journalAuto(saved?.id,"placed");
   return{savedEnd:{ax:end.ax,ay:end.ay,x:end.x,y:end.y,z:end.z}};
  }
 
@@ -1928,6 +1928,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    scheme_view_id:String(source.scheme_view_id||"all"),status:"planned"
   }});
   if(!rememberSavedSchemeRecord(saved))rows=await schemeApi.list();
+  journalAuto(saved?.id,"placed");
   return String(saved?.id||"");
  }
 
@@ -1951,6 +1952,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    if(!confirm("Удалить элемент "+(name?"«"+name+"» ":"")+"со схемы?")){restoreKeyboardAfterConfirm();return}
    restoreKeyboardAfterConfirm();
    try{
+    await journalAuto(id,"deleted");
     await schemeApi.remove(id);
     rows=await schemeApi.list().catch(()=>rows.filter(r=>String(r.id)!==String(id)));
     selectedId="";refreshAfterMemberChange();restoreKeyboardAfterConfirm()
@@ -2074,6 +2076,16 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  // drawn (the montage scheme with a ring round it, the mark's own view). Read locally by the recognition module.
  const markCards=new Map();
  const journalSent=new Map();
+ // Everything the engineer edits and places goes to the journal of edits by itself (src/ai-training.js): what the program
+ // placed, what it is now, what changed; a kind given to a mark becomes the rule of the set. Never in the way of the
+ // edit: a failure is only written to the console.
+ const journalStamp=text=>new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"})+" · "+text;
+ function journalAuto(elementId,action,extra){
+  if(!irProject.ai?.invoke||(!elementId&&action!=="grid"))return Promise.resolve(null);
+  return irProject.ai.invoke("ai-montage:journal-add",{objectId:oid,elementId:elementId?String(elementId):undefined,action,auto:true,objectName:String(object?.name||object?.title||""),...(extra||{})})
+   .then(r=>{if(r?.entry&&elementId)journalSent.set(String(elementId),journalStamp(r.entry.text+(r.entry.rule?" → правило: "+r.entry.rule.mark+" — "+r.entry.rule.typeName:"")));return r})
+   .catch(e=>{console.warn("Монтажная схема: журнал правок не записан",e);return null})
+ }
  function markCardHtml(card){
   const k=card?.catalog,lv=v=>v===null||v===undefined||v===""?"":(v>0?"+":v<0?"−":"")+(Math.abs(v)/1000).toFixed(3).replace(".",",");
   const rows=k?[["Профиль",k.profile+(k.profile_standard?" ("+k.profile_standard+")":"")],["Сталь",k.steel],["Длина",k.length_mm?fmt(k.length_mm)+" мм":""],["Кол-во по чертежу",k.count?k.count+" шт.":""],["Масса",k.mass_kg?fmt(k.mass_kg)+" кг":""],
@@ -2193,13 +2205,13 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    </div>`:""}
    ${fastenersHtml(c)}${drillHtml(c)}${cutsHtml(c)}${platesHtml(c)}${partsHtml(c)}
    ${between?`<div class="scheme-between"><b>Элемент между осями</b><span>${esc(a.x)} / ${esc(a.y)}</span><small>Положение вычисляется от выбранных базовых осей и сохраняется точно в миллиметрах.</small></div>`:""}
-   ${canEdit()?`<div class="scheme-detail-actions"><button type="button" data-scheme-edit>Редактировать</button><button type="button" data-scheme-copy-place>⧉ Размещение</button><button type="button" data-scheme-copy>⧉ Копировать позицию</button><button type="button" class="danger" data-scheme-delete>Удалить</button></div>${irProject.ai?.invoke?`<div class="scheme-journal-send"><input type="text" data-scheme-journal-note maxlength="500" placeholder="Комментарий к правке (необязательно)"><button type="button" data-scheme-journal title="Записать элемент как он есть сейчас в журнал правок — журнал уходит на GitHub каждый час">В журнал</button><small data-scheme-journal-state>${journalSent.has(String(c.id))?"В журнале: "+esc(journalSent.get(String(c.id))):""}</small></div>`:""}`:""}`;
+   ${canEdit()?`<div class="scheme-detail-actions"><button type="button" data-scheme-edit>Редактировать</button><button type="button" data-scheme-copy-place>⧉ Размещение</button><button type="button" data-scheme-copy>⧉ Копировать позицию</button><button type="button" class="danger" data-scheme-delete>Удалить</button></div>${irProject.ai?.invoke?`<div class="scheme-journal-send"><input type="text" data-scheme-journal-note maxlength="500" placeholder="Комментарий к правке (необязательно)"><button type="button" data-scheme-journal title="Правки и расстановка записываются в журнал сами; кнопка добавляет к элементу ваш комментарий. Журнал уходит на GitHub каждый час">В журнал</button><small data-scheme-journal-state>${journalSent.has(String(c.id))?"В журнале: "+esc(journalSent.get(String(c.id))):""}</small></div>`:""}`:""}`;
   loadMarkCard(panel,c);
   // The journal of edits: the element as it is now, what the program placed and the comment (src/ai-training.js).
   panel.querySelector("[data-scheme-journal]")?.addEventListener("click",async e=>{
    const btn=e.currentTarget,state=panel.querySelector("[data-scheme-journal-state]"),note=panel.querySelector("[data-scheme-journal-note]");btn.disabled=true;
    try{const r=await irProject.ai.invoke("ai-montage:journal-add",{objectId:oid,elementId:String(c.id),comment:note?.value||""});
-    const t=new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"})+" · "+r.entry.text;journalSent.set(String(c.id),t);if(state)state.textContent="В журнале: "+t;if(note)note.value=""}
+    const t=journalStamp(r.entry.text);journalSent.set(String(c.id),t);if(state)state.textContent="В журнале: "+t;if(note)note.value=""}
    catch(error){if(state)state.textContent="Не записано: "+String(error?.message||error).replace(/^Error invoking remote method[^:]*: (Error: )?/,"")}
    finally{btn.disabled=false}
   });
@@ -2210,7 +2222,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    if(!quota?.left){alert("Нет остатка марки по ведомости.");return}
    window.irThreeSchemeView?.startCopy?.(String(c.id))
   });
-  panel.querySelector("[data-scheme-delete]")?.addEventListener("click",async()=>{if(!confirm(`Удалить элемент ${c.mark?`«${c.mark}» `:""}со схемы?`)){restoreKeyboardAfterConfirm();return}restoreKeyboardAfterConfirm();await schemeApi.remove(c.id);rows=await schemeApi.list().catch(()=>rows);selectedId="";refreshAfterMemberChange();restoreKeyboardAfterConfirm()});bindElementPicker(panel)
+  panel.querySelector("[data-scheme-delete]")?.addEventListener("click",async()=>{if(!confirm(`Удалить элемент ${c.mark?`«${c.mark}» `:""}со схемы?`)){restoreKeyboardAfterConfirm();return}restoreKeyboardAfterConfirm();await journalAuto(c.id,"deleted");await schemeApi.remove(c.id);rows=await schemeApi.list().catch(()=>rows);selectedId="";refreshAfterMemberChange();restoreKeyboardAfterConfirm()});bindElementPicker(panel)
  }
  let gridDraft=null;
  const yAlphabet=["А","Б","В","Г","Д","Е","Ж","З","И","К","Л","М","Н","П","Р","С","Т","У","Ф","Х","Ц","Ч","Ш","Щ","Э","Ю","Я"];
@@ -2267,7 +2279,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   form.onsubmit=async e=>{e.preventDefault();showGridError("");if(!gridDraft)return;const ax=gridDraft.axesX.map(x=>String(x).trim()),ay=gridDraft.axesY.map(x=>String(x).trim()),xs=gridDraft.spansX.map(num),ys=gridDraft.spansY.map(num),sx=xs.reduce((s,x)=>s+x,0),sy=ys.reduce((s,x)=>s+x,0);if(ax.some(x=>!x)||ay.some(x=>!x)||new Set(ax.map(x=>x.toLowerCase())).size!==ax.length||new Set(ay.map(x=>x.toLowerCase())).size!==ay.length){showGridError("Названия осей должны быть заполнены и не должны повторяться.");return}if(xs.some(x=>x<=0)||ys.some(x=>x<=0)||gridDraft.sizeX<=0||gridDraft.sizeY<=0){showGridError("Размеры и расстояния между осями должны быть больше 0.");return}if(Math.abs(sx-gridDraft.sizeX)>=.11||Math.abs(sy-gridDraft.sizeY)>=.11){showGridError("Сумма пролётов должна совпадать с общим размером каждого направления.");return}
    const mapX=new Map(gridDraft.sourceX.map((old,i)=>old?[String(old),ax[i]]:null).filter(Boolean)),mapY=new Map(gridDraft.sourceY.map((old,i)=>old?[String(old),ay[i]]:null).filter(Boolean));
    const nextGrid={axes_x:ax,axes_y:ay,x_spans_mm:xs,y_spans_mm:ys,span_x_mm:gridDraft.sizeX,span_y_mm:gridDraft.sizeY,x_direction:gridDraft.dirX,y_direction:gridDraft.dirY};
-   const view=activeView();try{
+   const view=activeView(),gridBefore={axes_x:[...axesX],axes_y:[...axesY],x_spans_mm:[...gridXSpans],y_spans_mm:[...gridYSpans]};try{
     if(view)await schemeApi.update(view.id,{record_type:"scheme_view",title:view.data?.name||view.title||"Монтажная сетка",data:{...view.data,grid:nextGrid}});
     else{
      for(const row of arr(rows).filter(r=>r.record_type==="scheme_column"||r.data?.entity_type==="column")){
@@ -2277,7 +2289,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
      const existing=gridRecord(),payload={record_type:"scheme_grid",title:"Сетка осей",data:{entity_type:"grid",...nextGrid}};
      if(existing)await schemeApi.update(existing.id,payload);else await schemeApi.create(payload);
     }
-    rows=await schemeApi.list();refreshGridModel();d.close();gridDraft=null;draw()
+    rows=await schemeApi.list();refreshGridModel();d.close();gridDraft=null;draw();journalAuto(null,"grid",{grid:{before:gridBefore,after:nextGrid}})
    }catch(error){showGridError("Не удалось сохранить сетку: "+String(error?.message||error))}
   }
  }
@@ -2549,6 +2561,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
      }
     }
     selectedId=String(saved?.id||id||"");d.close();
+    journalAuto(saved?.id||id,id?"edited":"placed").then(r=>{if(r?.entry&&String(selectedId)===String(saved?.id||id))renderDetails()});
     refreshAfterMemberChange()
    }catch(error){err.textContent="Не удалось сохранить элемент: "+String(error?.message||error);err.hidden=false}
   }

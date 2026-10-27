@@ -13,6 +13,7 @@
  *   drawings; the next analysis of the same files places it as checked, and similar sets get it as an example.
  */
 const fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypto");
+const ST=require("./ai-structure-types");
 const SECTION="ai-training";
 const n=v=>Number.isFinite(Number(v))?Number(v):null;
 const LOOKALIKE={a:"а",b:"в",c:"с",e:"е",h:"н",k:"к",m:"м",o:"о",p:"р",t:"т",x:"х",y:"у"};
@@ -37,7 +38,20 @@ function diff(before,now){
  if(far(before.radius,now.radius,20))out.push("radius");
  return out
 }
-const KIND={position:"перемещён",levels:"изменены отметки",type:"изменён вид",mark:"изменена марка",geometry:"изменена геометрия",radius:"изменён радиус",deleted:"удалён",added:"добавлен вручную (не найден программой)"};
+const KIND={position:"перемещён",levels:"изменены отметки",type:"изменён вид",mark:"изменена марка",geometry:"изменена геометрия",radius:"изменён радиус",deleted:"удалён",added:"добавлен вручную (не найден программой)",grid:"изменена сетка осей"};
+// The code of a set by its first file ("041-2025 КМД л.М1.19.pdf" → "041-2025"): what a rule of the engineer names its
+// project by (the same as the teaching form of the recognition page).
+const setCodeOf=set=>{const n=String(set?.files?.[0]?.name||set?.name||"").replace(/\.pdf$/i,"");return(/\d{2,}(?:[-.]\d{2,})+/.exec(n)||[n])[0].trim().slice(0,60)};
+// The kind the engineer gave an element becomes a rule of its set: the same mark, a kind of the group it is in now
+// (its name says which; the type the program gave it, if that is of the same group). A changed mark is not a rule — the
+// element went to another mark, whose kind is its own.
+function ruleOf(entry){
+ const a=entry?.element,c=entry?.changes||[];if(!a||!c.includes("type")||c.includes("mark")||!a.mark)return null;
+ const project=setCodeOf(entry.set);if(!project)return null;
+ const byName=ST.typeOf({name:a.name,mark:a.mark}),own=ST.byKey.get(a.type_key);
+ const t=byName&&(!a.group||byName.group===a.group)?byName:own&&(!a.group||own.group===a.group)?own:null;
+ return t?{mark:a.mark,type:t.key,typeName:t.name,project,note:"по правке инженера на монтажной схеме"}:null
+}
 const setIdOf=files=>{const s=(files||[]).map(f=>f.sha256).filter(Boolean).sort();return s.length?crypto.createHash("sha256").update(s.join(",")).digest("hex").slice(0,16):""};
 
 function createTraining({database,getUserDataPath,base=null}){
@@ -135,7 +149,7 @@ function createTraining({database,getUserDataPath,base=null}){
  // For the request to Claude: corrections of these very drawings, then checked examples of similar sets and what
  // was corrected on them (kinds only — values of another object are not given as values).
  function promptFor({files=[],similar=[]}={}){
-  const out=[],own=journalLines(setIdOf(files),25);
+  const out=[],own=journalLines(setIdOf(files));
   if(own.length)out.push("ЖУРНАЛ ПРАВОК ИНЖЕНЕРА ПО ЭТИМ ЧЕРТЕЖАМ (учти: так правильно):",...own);
   const entries=new Map((base?.all?.()||[]).map(e=>[e.id,e]));
   for(const x of (similar||[]).slice(0,3)){
@@ -153,40 +167,65 @@ function createTraining({database,getUserDataPath,base=null}){
   if(out.length)out.push("Примеры — образец того, как читать такие листы; размеры, отметки и количество бери только с листов этого комплекта.");
   return out.join("\n")
  }
- // The journal of edits: the engineer edits an element and sends it to the journal with a button next to it. An entry
- // keeps what the program placed (from the latest placement of the element), what the element is now, what changed
- // and the engineer's comment. Kept on this computer (userData/ai-learned/journal.json) and sent to GitHub every hour
- // or by hand; a development session turns it into rules of the code. Nothing is recorded by itself.
+ // The journal of edits: everything the engineer does on the montage scheme goes there by itself — an element edited,
+ // placed by hand or copied, deleted, the grid of axes changed (src/scheme-page.js) — and with a comment by the button
+ // «В журнал». An entry keeps what the program placed (from the latest placement of the element), what the element is
+ // now, what changed and the comment. Kept on this computer (userData/ai-learned/journal.json) and sent to GitHub every
+ // hour; a kind the engineer gave a mark becomes a rule of the set at once (ruleOf → src/ai-knowledge.js), the lines of
+ // the same drawings go to Claude with the next analysis (promptFor) and a development session turns the rest into rules
+ // of the code. An edit that changed nothing the drawings decide (a status, a profile) is not recorded by itself.
  const journalFile=()=>path.join(getUserDataPath(),"ai-learned","journal.json");
- const journalRead=()=>{const d=readJson(journalFile());return d&&Array.isArray(d.entries)?d:{about:"Журнал правок инженера IR Project: элементы, отправленные кнопкой «В журнал» после редактирования.",entries:[]}};
+ const journalRead=()=>{const d=readJson(journalFile());return d&&Array.isArray(d.entries)?d:{about:"Журнал правок инженера IR Project: всё, что инженер правит и расставляет на монтажной схеме (записывается само), и комментарии кнопкой «В журнал».",entries:[]}};
  function journalWrite(d){fs.mkdirSync(path.dirname(journalFile()),{recursive:true});const tmp=journalFile()+".tmp";fs.writeFileSync(tmp,JSON.stringify(d,null,1),"utf8");fs.renameSync(tmp,journalFile())}
- function journalAdd(oid,{elementId,comment="",objectName=""}={}){
+ const latestSet=oid=>{const all=placements(oid);return all.length?all[all.length-1].data?.set||null:null};
+ const setOf=set=>set?{id:set.id,name:set.name,files:(set.files||[]).map(f=>({name:f.name,sha256:f.sha256}))}:null;
+ const ACTION={edited:"правка",placed:"расставлен",deleted:"удалён",grid:"сетка осей",comment:"комментарий"};
+ function journalAdd(oid,{elementId,comment="",objectName="",action="",auto=false,grid=null}={}){
+  const d=journalRead(),object={id:String(oid),name:String(objectName||"").slice(0,200)},at=new Date().toISOString();
+  const push=entry=>{d.entries.push(entry);if(d.entries.length>20000)d.entries.splice(0,d.entries.length-20000);journalWrite(d);return{entry,total:d.entries.length}};
+  // The grid of axes: what it was and what the engineer made of it.
+  if(action==="grid"){
+   const g=v=>({axes_x:(v?.axes_x||[]).map(String),axes_y:(v?.axes_y||[]).map(String),x_spans_mm:(v?.x_spans_mm||[]).map(Number),y_spans_mm:(v?.y_spans_mm||[]).map(Number)});
+   const before=g(grid?.before),after=g(grid?.after);if(JSON.stringify(before)===JSON.stringify(after))return{entry:null,skipped:true};
+   const line=v=>v.axes_x.join(",")+" ("+v.x_spans_mm.join("+")+") × "+v.axes_y.join(",")+" ("+v.y_spans_mm.join("+")+")";
+   return push({id:crypto.randomUUID(),at,object,set:setOf(latestSet(oid)),action,auto:!!auto,element:null,grid:{before,after},placed:null,changes:["grid"],
+    text:KIND.grid+": "+line(before)+" → "+line(after),comment:String(comment||"").trim().slice(0,2000)})
+  }
   const row=database.listEntity(oid,"scheme").find(r=>String(r.id)===String(elementId)&&!isGrid(r));
   if(!row)throw Error("Элемент не найден в монтажной схеме");
   const x=row.data||{},now=originOf(x);
   let placed=null,set=null;
   for(const p of placements(oid)){const e=(p.data?.elements||[]).find(q=>q.id===String(row.id));if(e){placed=e.origin;set=p.data?.set||null}}
-  const changes=placed?diff(placed,now):["added"];
-  const entry={id:crypto.randomUUID(),at:new Date().toISOString(),object:{id:String(oid),name:String(objectName||"").slice(0,200)},
-   set:set?{id:set.id,name:set.name,files:(set.files||[]).map(f=>({name:f.name,sha256:f.sha256}))}:null,
+  const changes=action==="deleted"?["deleted"]:placed?diff(placed,now):["added"];
+  // By itself: only what differs from the drawings, and not twice the same; an element added and deleted by hand is not
+  // a lesson.
+  if(auto){
+   if(!changes.length||action==="deleted"&&!placed)return{entry:null,skipped:true};
+   const last=[...d.entries].reverse().find(e=>e.object?.id===String(oid)&&e.element?.id===String(row.id));
+   if(last&&JSON.stringify(last.changes)===JSON.stringify(changes)&&JSON.stringify({...last.element,id:undefined,name:undefined,profile:undefined,sheet:undefined})===JSON.stringify({...now,id:undefined}))return{entry:null,skipped:true};
+  }
+  const entry={id:crypto.randomUUID(),at,object,set:setOf(set||(placed?null:latestSet(oid))),action:ACTION[action]?action:"comment",auto:!!auto,
    element:{...now,id:String(row.id),name:String(x.mark_name||""),profile:String(x.profile_name||""),sheet:String(x.source_import_doc||"")},
    placed,changes,text:changes.length?changes.map(k=>KIND[k]).join(", "):"без изменений",comment:String(comment||"").trim().slice(0,2000)};
-  const d=journalRead();d.entries.push(entry);if(d.entries.length>20000)d.entries.splice(0,d.entries.length-20000);journalWrite(d);
-  return{entry,total:d.entries.length}
+  const rule=ruleOf(entry);if(rule)entry.rule=rule;
+  return push(entry)
  }
  function journalList({objectId=null,limit=200}={}){
   const all=journalRead().entries,list=objectId?all.filter(e=>e.object?.id===String(objectId)):all;
   return{total:all.length,count:list.length,entries:list.slice(-limit).reverse()}
  }
- // Lines for Claude from the journal of the same drawings.
- function journalLines(setId,limit=25){
-  const out=[];
-  for(const e of journalRead().entries.filter(e=>e.set?.id&&e.set.id===setId).slice(-limit)){
+ // Lines for Claude from the journal of the same drawings: the latest entry of each element (each is measured from what
+ // the program placed, so the latest says all) and of the grid.
+ function journalLines(setId,limit=40){
+  const out=[],latest=new Map();
+  for(const e of journalRead().entries)if(e.set?.id&&e.set.id===setId){const k=e.grid?"grid":(e.object?.id||"")+"|"+(e.element?.id||e.id);latest.delete(k);latest.set(k,e)}
+  for(const e of [...latest.values()].slice(-limit)){
    const a=e.element||{},b=e.placed||{};
-   out.push("— "+(a.mark||b.mark||"без марки")+": "+e.text+(e.changes?.includes("levels")?" (отметки "+b.z0+"…"+b.z1+" → "+a.z0+"…"+a.z1+")":"")+(e.comment?" — «"+e.comment+"»":""))
+   if(e.grid){out.push("— "+e.text+(e.comment?" — «"+e.comment+"»":""));continue}
+   out.push("— "+(a.mark||b.mark||"без марки")+": "+e.text+(e.changes?.includes("levels")?" (отметки "+b.z0+"…"+b.z1+" → "+a.z0+"…"+a.z1+")":"")+(e.rule?" — это "+e.rule.typeName:"")+(e.comment?" — «"+e.comment+"»":""))
   }
   return out
  }
  return{recordPlacement,corrections,saveCorrections,confirmScheme,status,promptFor,correctionLines,journalAdd,journalList,journalLines,SECTION}
 }
-module.exports={createTraining,originOf,diff,setIdOf,SECTION};
+module.exports={createTraining,originOf,diff,setIdOf,setCodeOf,ruleOf,SECTION};

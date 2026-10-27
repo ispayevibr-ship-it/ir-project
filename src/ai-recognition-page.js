@@ -248,8 +248,9 @@ window.irAiRecognitionPage=async function(objectId){
   if(!confirm("Удалить все элементы монтажной схемы? Сетка осей останется. Копия сохранится — её можно вернуть на странице монтажной схемы."))return;
   await run("clear",async()=>{const r=await irProject.ai.invoke("ai-montage:clear-scheme",{objectId:id});alert("Удалено элементов: "+r.removed)})
  }
- // The journal of edits: elements the engineer sent with «В журнал» on the scheme page. Sent to GitHub every hour by
- // itself, or now with the button.
+ // The journal of edits: everything the engineer edits and places on the scheme page goes there by itself (with a
+ // comment by «В журнал»); a kind given to a mark becomes the rule of the set. Sent to GitHub every hour by itself, or
+ // now with the button.
  let edits=null;
  async function loadEdits(){
   if(!irProject.ai?.invoke||edits?.loading)return;
@@ -266,10 +267,10 @@ window.irAiRecognitionPage=async function(objectId){
   if(edits.loading)return"";
   if(edits.error)return'<div class="ir-ms-card"><p class="muted">'+esc(edits.error)+'</p></div>';
   const g=edits.github||{},last=g.last?.at?new Date(g.last.at).toLocaleString("ru-RU"):"ещё не отправлялся";
-  const rows=(edits.entries||[]).map(e=>'<tr><td>'+esc(new Date(e.at).toLocaleString("ru-RU"))+'</td><td><b>'+esc(e.element?.mark||"")+'</b></td><td>'+esc(e.text)+'</td><td>'+esc(e.comment||"")+'</td></tr>');
+  const rows=(edits.entries||[]).map(e=>'<tr><td>'+esc(new Date(e.at).toLocaleString("ru-RU"))+'</td><td><b>'+esc(e.element?.mark||(e.grid?"Сетка":""))+'</b></td><td>'+esc(e.text)+'</td><td>'+esc(e.rule?"Вид «"+e.rule.typeName+"» для марки "+e.rule.mark+" в комплекте "+e.rule.project:e.grid||e.changes?.some(k=>k!=="added"&&k!=="deleted")?"Claude — при следующем анализе этих чертежей":e.changes?.includes("added")?"Claude — пропущенный элемент":e.changes?.includes("deleted")?"Claude — лишний элемент":"")+'</td><td>'+esc(e.comment||"")+'</td></tr>');
   return'<div class="ir-ms-card"><p><b>Журнал правок</b> · записей по объекту: <b>'+edits.count+'</b> (всего '+edits.total+')</p>'+
-   '<p class="muted">После правки элемента на монтажной схеме нажмите у него «В журнал». Журнал уходит на GitHub сам каждый час'+(g.hasToken?'':' — когда в настройках ИИ указан ключ GitHub')+'. Последняя отправка: '+esc(last)+(g.lastError?' · <span class="bad">'+esc(g.lastError)+'</span>':'')+'.</p>'+
-   (rows.length?table(["Когда","Марка","Что изменено","Комментарий"],rows):'')+
+   '<p class="muted">Всё, что вы правите и расставляете на монтажной схеме, записывается сюда само: что поставила программа и что стало. Вид, заданный марке, сразу становится правилом этого комплекта; остальное учитывается при следующем анализе тех же чертежей и разбирается в правила программы. Комментарий к элементу — кнопкой «В журнал» у элемента. Журнал уходит на GitHub сам каждый час'+(g.hasToken?'':' — когда в настройках ИИ указан ключ GitHub')+'. Последняя отправка: '+esc(last)+(g.lastError?' · <span class="bad">'+esc(g.lastError)+'</span>':'')+'.</p>'+
+   (rows.length?table(["Когда","Марка","Что изменено","Куда пошло","Комментарий"],rows):'')+
    '<div class="ir-ms-row"><button data-ms-edits-send '+(busy||!g.hasToken?'disabled':'')+'>Отправить журнал сейчас</button></div></div>'
  }
  // The journal of fixes: what Claude changed by the engineers' messages from the chat (knowledge/chat/journal.json of
