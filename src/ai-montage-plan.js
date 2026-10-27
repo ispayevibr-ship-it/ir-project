@@ -352,7 +352,7 @@ function buildCatalog(draft,ai=null){
    // Its parts as the specification of its assembly sheet lists them (position, section, length, count, note): the first
    // sheet that lists them («все позиции по К32» — those of К32).
    if(p.docType==="КМД сборочные"&&r.parts?.length&&!e.parts)e.parts={sheet:where(p),...(r.parts_by?{by:r.parts_by}:{}),
-    rows:r.parts.slice(0,40).map(x=>({pos:x.pos??null,section:x.section||"",length_mm:x.length_mm??null,count:x.count??null,...(x.note?{note:x.note}:{})}))}}
+    rows:r.parts.slice(0,40).map(x=>({pos:x.pos??null,section:x.section||"",length_mm:x.length_mm??null,count:x.count??null,...(x.mass_kg>0?{mass_kg:x.mass_kg}:{}),...(x.note?{note:x.note}:{})}))}}
  }
  // An I-beam whose letter OCR lost on its sheet («двутавр 3512» for 35Ш2) and that sheet does not write elsewhere: the
  // letter the other sheets of the set give that number, when they give one.

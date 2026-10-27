@@ -695,7 +695,9 @@ function specTable(texts,order=[]){
    // A bare size whose dash the reading lost («80х10»): a plate when the mass of one part is that of a plate A×s, within 12 %.
    {const m=/^(\d{2,4})[хx×](\d{1,2})$/u.exec(section),one=Number(partOf(r)?.str.replace(",","."));
     if(m&&len&&one>0){const w=Number(m[1])*Number(m[2])*Number(len.str)*7.85e-6;if(Math.abs(w-one)<=one*0.12||Math.abs(w-one/10)<=one*0.012)section="−"+section}}
-   return{pos:pos?Number(pos.str):null,section,length_mm:len?Number(len.str):null,count:kol?Number(kol.str):null,...(note?{note}:{})}};
+   // (the mass of one part, only under «дет.» of «Масса»: without that header the second number may be the mark's)
+   const kg=partH?Number(partOf(r)?.str.replace(",",".")):0;
+   return{pos:pos?Number(pos.str):null,section,length_mm:len?Number(len.str):null,count:kol?Number(kol.str):null,...(kg>0?{mass_kg:kg}:{}),...(note?{note}:{})}};
   const names=markNames(groups.map(g=>g.flatMap(r=>r.items).filter(isLabel).flatMap(l=>titleMarks(l.str).map(mark=>({mark,l})))),order);
   groups.forEach((g,gi)=>{
    const labels=names[gi];

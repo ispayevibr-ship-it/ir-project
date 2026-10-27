@@ -217,7 +217,7 @@ window.irSchemePage=async function(objectId){
   const before=new Map(activeMarks().map(m=>{const v=snapshot(m);return[v.id,v]}));
   try{
    if(typeof window.irSyncMountedFromReports!=="function")throw Error("Модуль сверки отчётов не подключён. Перезапустите приложение после обновления.");
-   const audit=await window.irSyncMountedFromReports(oid);
+   const audit=await window.irSyncMountedFromReports(oid);mountDays=null;
    const fresh=await root.section("marks").list();
    const updated=arr(fresh).map(x=>({id:String(x.id),title:x.title||"",...(x.data||{})}));
    markRows=fresh;marks.splice(0,marks.length,...updated);
@@ -246,6 +246,33 @@ window.irSchemePage=async function(objectId){
   if(!m)return null;
   const total=Math.max(0,num(m.qty??m.count)),mounted=Math.min(total,Math.max(0,num(m.mounted??m.done)));
   return{total,mounted,left:Math.max(0,total-mounted),state:total<=0?"unknown":mounted>=total-1e-9?"mounted":mounted>0?"partial":"planned"}
+ };
+ // The days of mounting of each mark by the daily reports (their sum is the register's «смонтировано», report-mounted-sync):
+ // the day its count was reached and the last day of work on it — the card shows «смонтирован 24.09.2026» (the engineer,
+ // 27.10.2026, after the report of 21.10).
+ let mountDays=null,mountDaysLoading=null;
+ function loadMountDays(){
+  if(mountDays)return Promise.resolve(mountDays);
+  if(!mountDaysLoading)mountDaysLoading=root.section("reports").list().then(list=>{
+   const by=new Map();
+   for(const report of arr(list)){
+    const d=report?.data||report||{},day=String(d.date||d.report_date||"").slice(0,10),works=Array.isArray(d.items)?d.items:Array.isArray(d.works)?d.works:[];
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(day))continue;
+    for(const w of works){
+     if(w?.accounting_type==="service"||w?.is_service===true)continue;
+     const id=String(w?.mark_id??w?.markId??"").trim(),q=Math.max(0,num(w?.qty??w?.count??w?.quantity));if(!id||!q)continue;
+     if(!by.has(id))by.set(id,[]);by.get(id).push([day,q])
+    }
+   }
+   by.forEach(l=>l.sort((a,b)=>a[0]<b[0]?-1:a[0]>b[0]?1:0));return mountDays=by
+  }).catch(()=>mountDays=new Map()).finally(()=>{mountDaysLoading=null});
+  return mountDaysLoading
+ }
+ const ruDay=d=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d||""));return m?m[3]+"."+m[2]+"."+m[1]:""};
+ const mountDay=(m,progress)=>{
+  const l=m&&mountDays?.get(String(m.id));if(!l?.length||!progress?.total)return{date:"",more:""};
+  let sum=0,done="";for(const [day,q] of l){sum+=q;if(!done&&sum>=progress.total-1e-9)done=day}
+  return progress.state==="mounted"?{date:ruDay(done),more:""}:progress.state==="partial"?{date:"",more:fmt(progress.mounted)+" из "+fmt(progress.total)+" шт., последний монтаж "+ruDay(l[l.length-1][0])}:{date:"",more:""}
  };
  const linkedMark=r=>{
   const byId=markById.get(String(r.mark_id||"")),workId=recordWorkId(r);
@@ -695,7 +722,8 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  // — this scheme, its grid and elements with their kinds, sections, statuses and the marks register; no editing.
  async function exportSchemeHtml(btn){
   if(!window.irSchemeHtmlExport){alert("Выгрузка схемы в HTML недоступна — обновите программу.");return}
-  const list=records().map(c=>{const p={...c,...coord(c)},g=recordMarkGroup(c),lm=linkedMark(c),pr=markProgress(lm),name=String(lm?.name||"").trim()||String(c.mark_name||"");
+  await loadMountDays();
+  const list=records().map(c=>{const p={...c,...coord(c)},g=recordMarkGroup(c),lm=linkedMark(c),pr=markProgress(lm),name=String(lm?.name||"").trim()||String(c.mark_name||""),day=mountDay(lm,pr);
    return{id:String(c.id),mark:String(c.mark||""),mark_name:name,title:String(name||c.title||""),type_name:String(c.type_name||FITTING_LABEL[p.ft]||geometryLabel(p.geometryType)),
     section:sectionShown(p),profile:profileShown(p),status:effectiveStatus(c),scheme_group:g.key,axisX:p.axisX,axisY:p.axisY,axisText:axisText(p),
     x:p.x,y:p.y,x2:p.x2,y2:p.y2,z0:p.z0,z1:p.z1,z2:p.z2,mx:p.mx,my:p.my,mz:p.mz,r:p.r,ri:p.ri,open:p.open,sa:p.sa,sw:p.sw,cr:p.cr,lay:p.lay,ft:p.ft,fd:p.fd,geometryType:p.geometryType,
@@ -710,7 +738,9 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
     param_sources:c.param_sources&&typeof c.param_sources==="object"?c.param_sources:undefined,
     // The card in plain words of the exported page (src/scheme-element-card.js): what a new analysis gives after an edit,
     // what to check, an element placed by hand.
-    pdf_new:c.pdf_new&&typeof c.pdf_new==="object"?c.pdf_new:undefined,check_note:c.check_note?String(c.check_note):undefined,manual:c.import_batch?undefined:true}});
+    pdf_new:c.pdf_new&&typeof c.pdf_new==="object"?c.pdf_new:undefined,check_note:c.check_note?String(c.check_note):undefined,manual:c.import_batch?undefined:true,
+    // The top of the card as in the report of 21.10.2026: the day of mounting, the sheet, the mass of the КМД.
+    status_date:day.date||undefined,status_more:day.more||undefined,sheet:sheetOfRecord(c)||undefined,mass_kmd:markMass(c,lm)||undefined}});
   if(!list.length){alert("На схеме нет элементов для выгрузки.");return}
   const counts=new Map();for(const c of list){const g=counts.get(c.scheme_group)||{key:c.scheme_group,label:recordMarkGroup(records().find(r=>String(r.id)===c.id)).label,count:0};g.count++;counts.set(c.scheme_group,g)}
   // All the work types together: the exported page can show each apart, as the scheme does.
@@ -890,6 +920,15 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   const rows=Array.isArray(c.parts?.rows)?c.parts.rows:[];if(!rows.length)return"";
   return`<div class="scheme-fasteners"><b>Детали марки по спецификации</b>${rows.map(r=>`<span>${r.pos?"поз. "+esc(r.pos)+" — ":""}${esc(r.section||"сечение не прочитано")}${r.length_mm?", L "+fmt(r.length_mm)+" мм":""}${r.count?", "+fmt(r.count)+" шт.":""}${r.note?" ("+esc(r.note)+")":""}</span>`).join("")}<small>${esc(c.parts.sheet||"")}${c.parts.by?" · как "+esc(c.parts.by):""}</small></div>`
  }
+ // The sheet of the member for its card: its assembly sheet (the specification, the plates, the cuts, the fasteners), else
+ // the sheet it was placed from.
+ function sheetOfRecord(c){return String(c.parts?.sheet||c.plates?.sheet||c.cuts?.sheet||c.joint?.fasteners_sheet||c.source_import_doc||"")}
+ // The mass of the mark by the КМД: of the register, else of the specification when it gives every part's.
+ function markMass(c,linked){
+  const m=num(linked?.mass_kg);if(m>0)return m;
+  const rows=Array.isArray(c.parts?.rows)?c.parts.rows:[];
+  return rows.length&&rows.every(r=>num(r.mass_kg)>0&&num(r.count)>0)?Math.round(rows.reduce((a,r)=>a+num(r.mass_kg)*num(r.count),0)*10)/10:null
+ }
  function renderDetails(){
   const panel=document.getElementById("schemeDetails");if(!panel)return;const c=selected();
   if(!c){panel.innerHTML=pickerHtml()+`<div class="scheme-detail-empty"><b>Элемент не выбран</b><span>Нажмите на элемент на схеме или добавьте новый.</span>${canEdit()?'<button type="button" data-scheme-add>＋ Добавить элемент</button>':""}</div>`;panel.querySelector("[data-scheme-add]")?.addEventListener("click",()=>window.irThreeSchemeView?.startPlacement?.()??openEditor());bindElementPicker(panel);return}
@@ -914,8 +953,15 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
     reasons:Array.isArray(c.instance_reasons)?c.instance_reasons.map(String):[],sources:c.param_sources&&typeof c.param_sources==="object"?c.param_sources:null,
     pdf_new:c.pdf_new&&typeof c.pdf_new==="object"?c.pdf_new:null,check_note:String(c.check_note||""),manual:!c.import_batch};
    const grid={axesX:[...axesX],axesY:[...axesY],posX:Object.fromEntries(axisXPos),posY:Object.fromEntries(axisYPos)};
-   panel.innerHTML=pickerHtml()+`<div class="ec-card"><div class="scheme-detail-title"><span>Выбранный элемент</span></div>${EC.head(e)}${EC.what(e)}${EC.where(e,grid)}${EC.drawings(e)}<div class="ec-mark-host"></div>
-    ${progressHtml}${fastenersHtml(c)}${drillHtml(c)}${cutsHtml(c)}${platesHtml(c)}${partsHtml(c)}${EC.coords(e)}</div>${actionsHtml}`;
+   // As the card of the report of 21.10.2026: the day of mounting, the sheet, the masses, the bolts, the nodes and the parts
+   // of the member in their colours on the model (src/scheme-element-card.js head … parts).
+   if(!mountDays&&progress?.total>0)loadMountDays().then(()=>{if(selectedId===c.id)renderDetails()});
+   const V=window.irThreeSchemeView,day=mountDay(linked,progress);
+   Object.assign(e,{status_date:day.date,status_more:day.more,sheet:sheetOfRecord(c),mass_kmd:markMass(c,linked),model:V?.card?.(c.id)||null,
+    spec:Array.isArray(c.parts?.rows)?c.parts:null,kgm:t=>V?.massPerMetre?.(t,c.profile_standard)??null});
+   panel.innerHTML=pickerHtml()+`<div class="ec-card"><div class="scheme-detail-title"><span>Выбранный элемент</span></div>${EC.head(e)}${EC.facts(e)}${EC.nodes(e)}${EC.tools(e)}${EC.parts(e)}${EC.what(e)}${EC.where(e,grid)}${EC.drawings(e)}<div class="ec-mark-host"></div>
+    ${progressHtml}${fastenersHtml(c)}${drillHtml(c)}${cutsHtml(c)}${platesHtml(c)}${EC.coords(e)}</div>${actionsHtml}`;
+   EC.bind(panel,String(c.id));
   }else
   panel.innerHTML=pickerHtml()+`${c.check_note?`<div class="scheme-check-note"><small>Проверьте: ${esc(String(c.check_note).replace(/\s*—?\s*проверьте\.?/giu,""))}</small></div>`:""}<div class="scheme-detail-title"><span>Выбранный элемент</span><b>${esc(c.mark||"—")}</b>${name?`<small>${esc(name)}</small>`:""}</div>${instanceHtml(c)}
    <div class="scheme-detail-grid">

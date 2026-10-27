@@ -174,8 +174,10 @@ assert.deepEqual(spec,[{mark:"К1",profile:"Тр.140х4",mass_kg:120.5,length_mm
   o("Ф25",1826,380),o("14",1874,380),o("120х4",1949,380),o("4360",2023,380),o("2",2066,380),o("621",2128,380),o("1% на сварку",1978,410),
   o("Требуется изготовить",1550,30),o("Отправочная",1500,55,17),o("марка",1510,70,13),o("Ф17",1520,95),o("2",1580,95),o("101",1620,95),o("Ф18",1520,115),o("2",1580,115),o("98",1620,115),
   o("Ф24",1520,135),o("6",1580,135),o("146",1620,135),o("Ф25",1520,155),o("4",1580,155),o("151",1620,155),o("Итого",1520,180)];
- const s=extractSheet({widthPt:2384,heightPt:1684,texts:t}).spec.map(r=>[r.mark,r.profile,r.length_mm,Boolean(r.by_order)]);
- assert.deepEqual(s,[["Ф17","□140х4",5770,false],["Ф18","□140х4",5570,false],["Ф25","□120х4",4360,false],["Ф24","□120х4",4175,true]],JSON.stringify(s))}
+ const sp=extractSheet({widthPt:2384,heightPt:1684,texts:t}).spec,s=sp.map(r=>[r.mark,r.profile,r.length_mm,Boolean(r.by_order)]);
+ assert.deepEqual(s,[["Ф17","□140х4",5770,false],["Ф18","□140х4",5570,false],["Ф25","□120х4",4360,false],["Ф24","□120х4",4175,true]],JSON.stringify(s));
+ // (the mass of one part under «дет.» of «Масса» goes with its row: the card of the element shows it, 27.10.2026)
+ const f17=sp[0].parts.map(r=>[r.pos,r.length_mm,r.count,r.mass_kg]);assert.deepEqual(f17[0],[1,5770,1,96.7],JSON.stringify(f17))}
 // ГПЭС К105–К108 (text layer): a welded I-beam «Св I50 ШC2»; «Обратна марке К105»; «Поз. 1, 2, 9-14 по марке К105» —
 // the member of К107 is that of К105; «Таблица отправочных марок» is the «Требуется» table.
 {const o=(str,x,y,size=17.6)=>T(str,x,y,size);

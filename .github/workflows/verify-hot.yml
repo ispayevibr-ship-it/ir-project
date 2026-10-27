@@ -74,6 +74,8 @@ jobs:
         run: node scripts/test-scheme-export-pack.js
       - name: Test members at nodes not through each other
         run: node scripts/test-scheme-joints.js
+      - name: Test the element card as the report of 21.10
+        run: node scripts/test-scheme-element-parts.js
       - name: Test cached scheme records and in-place refresh
         run: node scripts/test-scheme-performance.js
       - name: Test the 3D montage scheme (only view)

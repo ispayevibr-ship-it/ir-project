@@ -154,10 +154,58 @@
   var both=p&&s&&low(p).indexOf(low(s))<0?p+" ("+low(s)+")":p||s;
   return both+(e.standard&&both.indexOf(e.standard)<0?", "+e.standard:"")
  }
+ // The top of the card as the report of 21.10.2026 has it (the engineer, 27.10.2026: «вывод информации об элементе сделай
+ // такой»): the mark — its name; its state with the day it was mounted by the daily reports (e.status_date), for a mark
+ // mounted in part how many and the last day (e.status_more); a line of the sheet, the section, the masses of the КМД and
+ // of the model and the bolts (facts); the nodes of the member (nodes); «Приблизить» / «Снять подсветку» (tools); the parts
+ // of the specification of its assembly sheet with their colours on the model (parts). e.model — what the 3D gives of the
+ // member (irThreeSchemeView.card: mass_kg, bolts, nodes, colors, lit), e.spec — its parts (c.parts), e.kgm(section) —
+ // kilograms in a metre of a section (irThreeSchemeView.massPerMetre).
  function head(e){
-  var cls=e.status==="mounted"?"ec-ok":e.status==="partial"?"ec-partial":"ec-wait",sec=section(e);
-  return'<div class="ec-head"><div><b class="ec-mark">'+esc(e.mark||"—")+'</b>'+(e.name?'<span class="ec-name">'+esc(e.name)+'</span>':"")+'</div>'+
-   '<span class="ec-status '+cls+'"'+(e.status_title?' title="'+esc(e.status_title)+'"':"")+'>'+esc(e.status_label||"")+'</span></div>'+(sec?'<div class="ec-section">'+esc(sec)+'</div>':"")
+  var cls=e.status==="mounted"?"ec-ok":e.status==="partial"?"ec-partial":"ec-wait";
+  return'<div class="ec-head"><div><b class="ec-mark">'+esc(e.mark||"—")+'</b>'+(e.name?'<span class="ec-name">'+esc(e.name)+'</span>':"")+'</div></div>'+
+   '<div class="ec-badge"><span class="ec-status '+cls+'"'+(e.status_title?' title="'+esc(e.status_title)+'"':"")+'>'+esc((e.status_label||"")+(e.status_date?" "+e.status_date:""))+'</span>'+
+   (e.status_more?'<small>'+esc(e.status_more)+'</small>':"")+'</div>'
+ }
+ // Kilograms as the report writes them: «74», «4,6».
+ function kgs(v){var n=num(v);return n>=100?fmt(n):String(Math.round(n*10)/10).replace(".",",")}
+ // «041-2025 КМД л. 79, 80.pdf, лист 2» → «041-2025 КМД л. 79, 80, л. 2».
+ function sheetName(v){return String(v||"").replace(/\.pdf\b/gi,"").replace(/\s*[·,]\s*лист\s+/g,", л. ").trim()}
+ function facts(e){
+  var m=e.model||{},out=[],kg=[],sec=e.profile||section(e);
+  if(e.sheet)out.push(sheetName(e.sheet));if(sec)out.push(sec);
+  if(num(e.mass_kmd)>0)kg.push("масса "+kgs(e.mass_kmd)+" кг (КМД)");
+  if(num(m.mass_kg)>0)kg.push((kg.length?"по модели ":"масса по модели ")+kgs(m.mass_kg)+" кг");
+  if(kg.length)out.push(kg.join(", "));if(num(m.bolts)>0)out.push("болтов "+fmt(m.bolts));
+  return out.length?'<div class="ec-facts">'+esc(out.join(" · "))+'</div>':""
+ }
+ function nodes(e){
+  var l=e.model&&Array.isArray(e.model.nodes)?e.model.nodes:[];if(!l.length)return"";
+  return'<div class="ec-nodes"><span>Узлы марки ('+l.length+'):</span><div>'+l.slice(0,14).map(function(n){
+   return'<button type="button" class="ec-chip" data-ec-node="'+esc(n.id)+'">'+esc([n.id,n.name,n.axes].filter(Boolean).join(" "))+'</button>'}).join("")+(l.length>14?'<span class="ec-more">ещё '+(l.length-14)+'</span>':"")+'</div></div>'
+ }
+ function tools(){return'<div class="ec-tools"><button type="button" data-ec-zoom>Приблизить</button><button type="button" data-ec-unlight>Снять подсветку</button></div>'}
+ // The parts: position (its colour on the model), section with its note, length, count, kilograms — of the specification
+ // where the sheet gives the mass of a part, else by the sortament (pale, with a hint).
+ function parts(e){
+  var p=e.spec,rows=p&&Array.isArray(p.rows)?p.rows:[];if(!rows.length)return"";
+  var colors=e.model&&e.model.colors||{},lit=e.model?e.model.lit:null,kgm=typeof e.kgm==="function"?e.kgm:function(){return null};
+  var body=rows.map(function(r){
+   var pos=r.pos===null||r.pos===undefined?"":String(r.pos),n=num(r.count),L=num(r.length_mm),one=num(r.mass_kg),per=one>0?0:kgm(r.section),kg=n>0?one>0?one*n:per>0&&L>0?per*L/1000*n:0:0,c=colors[pos];
+   return'<tr'+(pos?' data-ec-pos="'+esc(pos)+'"'+(lit===pos?' class="on"':""):"")+'><td><span class="ec-sw"'+(c?' style="background:'+esc(c)+'"':"")+'></span>'+esc(pos||"—")+'</td>'+
+    '<td>'+esc(r.section||"сечение не прочитано")+(r.note?'<div class="ec-note">'+esc(r.note)+'</div>':"")+'</td><td class="ec-n">'+(L>0?esc(fmt(L)):"")+'</td><td class="ec-n">'+(n>0?esc(fmt(n)):"")+'</td>'+
+    '<td class="ec-n'+(kg&&!(one>0)?' ec-calc" title="По сортаменту: '+esc(kgs(per))+' кг/м':"")+'">'+(kg?esc(kgs(kg)):"")+'</td></tr>'}).join("");
+  return'<div class="ec-parts-box"><table class="ec-parts"><thead><tr><th>Поз</th><th>Сечение</th><th class="ec-n">L</th><th class="ec-n">Шт</th><th class="ec-n">кг</th></tr></thead><tbody>'+body+'</tbody></table>'+
+   (p.sheet?'<p class="ec-parts-src">Спецификация: '+esc(sheetName(p.sheet))+(p.by?" · как "+esc(p.by):"")+'</p>':"")+'</div>'
+ }
+ // The buttons and the rows of the card on the 3D (the montage scheme and the exported page alike).
+ function bind(box,id){
+  var V=root.irThreeSchemeView;if(!box||!V)return;
+  [].forEach.call(box.querySelectorAll("[data-ec-node]"),function(b){b.onclick=function(){if(V.openNode)V.openNode(b.getAttribute("data-ec-node"))}});
+  var z=box.querySelector("[data-ec-zoom]"),u=box.querySelector("[data-ec-unlight]");
+  if(z)z.onclick=function(){if(V.focus)V.focus(String(id))};
+  if(u)u.onclick=function(){if(V.lightPart)V.lightPart(null)};
+  [].forEach.call(box.querySelectorAll("[data-ec-pos]"),function(r){r.onclick=function(){if(V.lightPart)V.lightPart(r.classList.contains("on")?null:r.getAttribute("data-ec-pos"))}})
  }
  function what(e){
   var r=role(e),t=String(e.type_name||"").trim(),other=t&&String(e.name||"").toLowerCase().indexOf(t.toLowerCase())<0,m=made(e);
@@ -198,7 +246,7 @@
   if(e.r>0)rows.push(["Радиус",fmt(e.r)+(e.ri>0?", внутри "+fmt(e.ri):"")]);
   return'<details class="ec-coords"><summary>Точные координаты, мм</summary>'+rows.map(function(r){return'<div><span>'+esc(r[0])+'</span><b>'+esc(r[1])+'</b></div>'}).join("")+'</details>'
  }
- var api={ROLE:ROLE,TYPE_ROLE:TYPE_ROLE,made:made,FOUND:FOUND,esc:esc,fmt:fmt,level:level,axisOf:axisOf,between:between,range:range,place:place,role:role,section:section,head:head,what:what,where:where,drawings:drawings,coords:coords};
+ var api={ROLE:ROLE,TYPE_ROLE:TYPE_ROLE,made:made,FOUND:FOUND,esc:esc,fmt:fmt,level:level,axisOf:axisOf,between:between,range:range,place:place,role:role,section:section,head:head,facts:facts,nodes:nodes,tools:tools,parts:parts,bind:bind,kgs:kgs,sheetName:sheetName,what:what,where:where,drawings:drawings,coords:coords};
  root.irSchemeElementCard=api;
  if(typeof module==="object"&&module.exports)module.exports=api;
 })(typeof window!=="undefined"?window:globalThis);

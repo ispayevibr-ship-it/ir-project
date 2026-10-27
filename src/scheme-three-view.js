@@ -180,47 +180,47 @@ window.irThreeSchemeView=(function(){
   if(/^\d+(?:\.5)?а?[УПЭЛ]$/.test(t))t="["+t;
   if((m=/^2([L∟\[].+)$/.exec(t)))t=m[1];
   // «Балка 20 К1», «Балка 24 М» — as a price list or a specification writes them; a bare «Балка 20» under ГОСТ 26020/57837 is not ГОСТ 8239.
-  if((m=/^(?:I|І|Двутавр|Дв\.?|Балка)(\d{2})$/i.exec(t))&&!(/^Балка/i.test(t)&&/26020|57837/.test(standard||""))&&(r=sections.get("ibeam-8239-"+m[1])))return{shape:"ibeam",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard};
+  if((m=/^(?:I|І|Двутавр|Дв\.?|Балка)(\d{2})$/i.exec(t))&&!(/^Балка/i.test(t)&&/26020|57837/.test(standard||""))&&(r=sections.get("ibeam-8239-"+m[1])))return{shape:"ibeam",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard,kgm:r.mass_kg_m};
   if((m=/^(?:I|І|Двутавр|Дв\.?|Балка)?(\d{2,3})(ДБ|ДШ|[БШКбшкKk])(\d+(?:\.5)?)$/.exec(t))){
    var key=m[1]+({K:"К",k:"К",б:"Б",ш:"Ш",к:"К"}[m[2]]||m[2])+m[3],order=/26020/.test(standard||"")?["26020"]:/57837/.test(standard||"")?["57837"]:["57837","26020"];
    for(var i=0;i<order.length&&!r;i++)r=sections.get("ibeam-"+order[i]+"-"+key);
-   if(r)return{shape:"ibeam",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard}
+   if(r)return{shape:"ibeam",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard,kgm:r.mass_kg_m}
   }
   // An I-beam М of ГОСТ 19425-74 (monorail, hoist track): «24М», «I30М».
-  if((m=/^(?:I|І|Двутавр|Дв\.?|Балка)?(\d{2})[МM]$/.exec(t))&&(r=sections.get("ibeam-19425-"+m[1]+"М")))return{shape:"ibeam",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard};
+  if((m=/^(?:I|І|Двутавр|Дв\.?|Балка)?(\d{2})[МM]$/.exec(t))&&(r=sections.get("ibeam-19425-"+m[1]+"М")))return{shape:"ibeam",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard,kgm:r.mass_kg_m};
   // A special channel С of ГОСТ 19425-74: «18С», «[20С».
-  if((m=/^(?:\[|Швеллер|Шв\.?)?(\d{2})[СC]([аa]?)$/.exec(t))&&(r=sections.get("channel-19425-"+m[1]+"С"+(m[2]?"а":""))))return{shape:"channel",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard};
+  if((m=/^(?:\[|Швеллер|Шв\.?)?(\d{2})[СC]([аa]?)$/.exec(t))&&(r=sections.get("channel-19425-"+m[1]+"С"+(m[2]?"а":""))))return{shape:"channel",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard,kgm:r.mass_kg_m};
   // Bent sections drawn by their bend: the wall all round, the outer corner rounded by R + s, the inner by R (the radius of
   // the table). A bent channel «[160×60×4» (ГОСТ 8278-83, table 1, else table 2; a size in neither — by designation,
   // square corners), an unequal one «[160×80×50×5» (ГОСТ 8281-80), a bent angle «Уголок гнутый 80×4» (ГОСТ 19771/19772-93).
   if((m=/^(?:\[|Швеллер(?:гнутый)?(?:неравнополочный)?|Шв\.?(?:гн\.?)?)(\d{2,3})x(\d{2,3})x(\d{2,3})x(\d+(?:\.\d+)?)$/i.exec(t))){
    var k4=+m[1]+"x"+Math.max(+m[2],+m[3])+"x"+Math.min(+m[2],+m[3])+"x"+Number(m[4]);r=sections.get("channel-8281-"+k4)||sections.get("channel-8281-"+k4+"-t2");
-   if(r)return{shape:"channel",bent:true,h:r.h_mm,b:r.b_mm,b1:r.b1_mm,s:r.s_mm,t:r.s_mm,r:number(r.R_mm),std:r.standard}
+   if(r)return{shape:"channel",bent:true,h:r.h_mm,b:r.b_mm,b1:r.b1_mm,s:r.s_mm,t:r.s_mm,r:number(r.R_mm),std:r.standard,kgm:r.mass_kg_m}
   }
   if((m=/^(?:\[|Швеллер(?:гнутый)?|Шв\.?(?:гн\.?)?)(\d{2,3})x(\d{2,3})x(\d+(?:\.\d+)?)$/i.exec(t))&&+m[3]<+m[2]/2){
    var k3="channel-8278-"+(+m[1])+"x"+(+m[2])+"x"+Number(m[3]);r=sections.get(k3)||sections.get(k3+"-t2");
-   if(r)return{shape:"channel",bent:true,h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.s_mm,r:number(r.R_mm),std:r.standard};
+   if(r)return{shape:"channel",bent:true,h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.s_mm,r:number(r.R_mm),std:r.standard,kgm:r.mass_kg_m};
    return{shape:"channel",h:+m[1],b:+m[2],s:+m[3],t:+m[3],r:0,std:"ГОСТ 8278-83 по обозначению"}
   }
   if(/гн|гнут/i.test(t)&&(m=/^(?:L|∟|Уголок|Уг\.?)(?:гнутый|гн\.?)?(\d+)x(\d+)(?:x(\d+(?:\.\d+)?))?(?:гн\.?)?$/i.exec(t))){
    r=m[3]&&m[1]!==m[2]?sections.get("angle-19772-"+Math.max(+m[1],+m[2])+"x"+Math.min(+m[1],+m[2])+"x"+Number(m[3])):sections.get("angle-19771-"+Number(m[1])+"x"+Number(m[3]||m[2]));
-   if(r)return{shape:"angle",bent:true,h:r.B_mm||r.b_mm,b:r.b_mm,s:r.t_mm,t:r.t_mm,r:number(r.R_mm),std:r.standard};
+   if(r)return{shape:"angle",bent:true,h:r.B_mm||r.b_mm,b:r.b_mm,s:r.t_mm,t:r.t_mm,r:number(r.R_mm),std:r.standard,kgm:r.mass_kg_m};
    return null
   }
-  if((m=/^(?:\[|Швеллер|Шв\.?)(\d+(?:\.5)?а?)([УПЭЛ])$/i.exec(t))&&(r=sections.get("channel-"+m[1].toLowerCase()+m[2].toUpperCase())))return{shape:"channel",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard};
-  if((m=/^(?:L|∟|Уголок|Уг\.?)(\d+)x(\d+)(?:x(\d+(?:\.\d)?))?$/i.exec(t))&&(!m[3]||m[1]===m[2])&&(r=sections.get("angle-"+m[1]+"x"+Number(m[3]||m[2]))))return{shape:"angle",h:r.b_mm,b:r.b_mm,s:r.t_mm,t:r.t_mm,r:root(r),std:r.standard};
+  if((m=/^(?:\[|Швеллер|Шв\.?)(\d+(?:\.5)?а?)([УПЭЛ])$/i.exec(t))&&(r=sections.get("channel-"+m[1].toLowerCase()+m[2].toUpperCase())))return{shape:"channel",h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.t_mm,r:root(r),std:r.standard,kgm:r.mass_kg_m};
+  if((m=/^(?:L|∟|Уголок|Уг\.?)(\d+)x(\d+)(?:x(\d+(?:\.\d)?))?$/i.exec(t))&&(!m[3]||m[1]===m[2])&&(r=sections.get("angle-"+m[1]+"x"+Number(m[3]||m[2]))))return{shape:"angle",h:r.b_mm,b:r.b_mm,s:r.t_mm,t:r.t_mm,r:root(r),std:r.standard,kgm:r.mass_kg_m};
   // Unequal legs «L63x40x5»: h — the long leg, b — the short one.
-  if((m=/^(?:L|∟|Уголок|Уг\.?)(\d+)x(\d+)x(\d+(?:\.\d)?)$/i.exec(t))&&(r=sections.get("angle-"+Number(m[1])+"x"+Number(m[2])+"x"+Number(m[3]))))return{shape:"angle",h:r.B_mm,b:r.b_mm,s:r.t_mm,t:r.t_mm,r:root(r),std:r.standard};
+  if((m=/^(?:L|∟|Уголок|Уг\.?)(\d+)x(\d+)x(\d+(?:\.\d)?)$/i.exec(t))&&(r=sections.get("angle-"+Number(m[1])+"x"+Number(m[2])+"x"+Number(m[3]))))return{shape:"angle",h:r.B_mm,b:r.b_mm,s:r.t_mm,t:r.t_mm,r:root(r),std:r.standard,kgm:r.mass_kg_m};
   // A C-shaped bent section with lips «С-образный 160×60×32×4» (ГОСТ 8282-83), a hat «Профиль корытный 80×60×32×3» (ГОСТ
   // 8283-93: the web h, the walls b, the flanges a turned out), a Z «Профиль Z 200×60×5» (ГОСТ 13229-78) — by their tables.
   if((m=/^(?:Профиль)?(?:гнутый)?(С-?образный|корытный|C|С)?(?:профиль)?(\d{2,3})x(\d{2,3})x(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)$/i.exec(t))&&(m[1]||/8282|8283/.test(standard||""))){
    var k4b=+m[2]+"x"+(+m[3])+"x"+Number(m[4])+"x"+Number(m[5]),hat=/корыт/i.test(m[1]||"")||!m[1]&&/8283/.test(standard||"");
    r=hat?sections.get("hat-8283-"+k4b)||sections.get("hat-8283-"+k4b+"-t2"):sections.get("lipped-8282-"+k4b);
-   return r?{shape:hat?"hat":"lipped",bent:true,h:r.h_mm,b:r.b_mm,a:r.a_mm,s:r.s_mm,t:r.s_mm,r:number(r.R_mm),std:r.standard}:null
+   return r?{shape:hat?"hat":"lipped",bent:true,h:r.h_mm,b:r.b_mm,a:r.a_mm,s:r.s_mm,t:r.s_mm,r:number(r.R_mm),std:r.standard,kgm:r.mass_kg_m}:null
   }
   if((m=/^(?:Профиль)?(?:гнутый)?(Z-?образный|зетовый|Z|Зет)?(?:профиль)?(\d{2,3})x(\d{2,3})x(\d+(?:\.\d+)?)$/i.exec(t))&&(m[1]||/13229/.test(standard||""))){
    var kz="z-13229-"+(+m[2])+"x"+(+m[3])+"x"+Number(m[4]);r=sections.get(kz)||sections.get(kz+"-t2");
-   return r?{shape:"zed",bent:true,h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.s_mm,r:number(r.R_mm),std:r.standard}:null
+   return r?{shape:"zed",bent:true,h:r.h_mm,b:r.b_mm,s:r.s_mm,t:r.s_mm,r:number(r.R_mm),std:r.standard,kgm:r.mass_kg_m}:null
   }
   // A hexagon bar «Шестигранник 22», «S22» (ГОСТ 2879-2006, across flats), a reinforcing bar «Ø12А500С», «12А400» (ГОСТ 34028).
   if((m=/^(?:Шестигранник|Шестигр\.?|S|⬡)(\d+(?:\.\d+)?)$/i.exec(t))){r=sections.get("bar-std-2879");
@@ -265,15 +265,32 @@ window.irThreeSchemeView=(function(){
    var bh=+m[3],bb=+(m[4]||m[3]),bs=Number(m[5]),hbs=Math.max(bh,bb)+"x"+Math.min(bh,bb)+"x"+bs,std=String(standard||"");
    var tube=function(){return bh===bb?sections.get("pipe-sq-8639-"+bh+"x"+bs):sections.get("pipe-rect-8645-"+hbs)},box=function(){return sections.get("box-30245-"+hbs)};
    var tube32931=function(){return sections.get("pipe-32931-"+hbs)};
-   if(/32931/.test(std)){r=tube32931();return{shape:"box",h:bh,b:bb,s:bs,t:bs,r:r?number(r.R_mm):bs<=2.5?1.5*bs:bs<=6?2*bs:bs<=10?2.5*bs:3*bs,std:r?r.standard:"ГОСТ 32931-2015 по обозначению"}}
+   if(/32931/.test(std)){r=tube32931();return{shape:"box",h:bh,b:bb,s:bs,t:bs,r:r?number(r.R_mm):bs<=2.5?1.5*bs:bs<=6?2*bs:bs<=10?2.5*bs:3*bs,std:r?r.standard:"ГОСТ 32931-2015 по обозначению",kgm:r?r.mass_kg_m:undefined}}
    var order=/30245/.test(std)?[box]:/8639|8645/.test(std)?[tube]:/^Тр/i.test(t)?[tube,tube32931,box]:[box,tube32931,tube];
    r=null;for(var bi=0;bi<order.length&&!r;bi++)r=order[bi]();
-   if(r)return{shape:"box",h:bh,b:bb,s:bs,t:bs,r:number(r.R_mm),std:r.standard};
+   if(r)return{shape:"box",h:bh,b:bb,s:bs,t:bs,r:number(r.R_mm),std:r.standard,kgm:r.mass_kg_m};
    // A price list writes every profile tube «ГОСТ 8639-82»: the size it has not is drawn by the table that has it.
    order=[tube,tube32931,box];for(bi=0;bi<order.length&&!r;bi++)r=order[bi]();
-   return{shape:"box",h:bh,b:bb,s:bs,t:bs,r:r?number(r.R_mm):0,std:r?r.standard+(std?" (размера нет в "+std+")":""):"по обозначению"}
+   return{shape:"box",h:bh,b:bb,s:bs,t:bs,r:r?number(r.R_mm):0,std:r?r.standard+(std?" (размера нет в "+std+")":""):"по обозначению",kgm:r?r.mass_kg_m:undefined}
   }
   return null
+ }
+
+ // Kilograms in a metre of a section as the drawings write it (the parts of a mark in its card): of its row of the
+ // sortament, else by its sizes — a plate or a bar solid, a welded or a bent section by its walls, a tube by its wall —
+ // × 7850 kg/m³; null when the section is not known.
+ function massPerMetre(text,standard){
+  var s=sectionOf(text,standard);if(!s)return null;if(s.kgm>0)return s.kgm;
+  var h=number(s.h),b=number(s.b),w=number(s.s),t=number(s.t),A=0;
+  if(s.solid)A=s.shape==="hex"?Math.sqrt(3)/2*h*h:Math.PI*h*h/4;
+  else if(s.shape==="plate")A=h*b;
+  else if(s.shape==="round")A=Math.PI*(h-t)*t;
+  else if(s.shape==="box")A=2*(h+b-2*t)*t;
+  else if(s.shape==="ibeam"||s.shape==="channel")A=2*b*t+(h-2*t)*w+(s.b1?(number(s.b1)-b)*t:0);
+  else if(s.shape==="angle")A=(h+b-t)*t;
+  else if(s.shape==="lipped"||s.shape==="hat")A=(h+2*b+2*number(s.a)-4*t)*t;
+  else if(s.shape==="zed")A=(h+2*b-2*t)*t;
+  return A>0?Math.round(A*7.85e-3*1000)/1000:null
  }
  function squareTube(a,s,standard){
   var std=String(standard||"");if(/10704|8732|8734|3262|20295/.test(std))return false;if(/30245|8639|8645|32931/.test(std))return true;
@@ -1109,7 +1126,7 @@ window.irThreeSchemeView=(function(){
     if(!straight&&!fits(h,w))return;
     var turn=!straight||fits(h,w)&&(w>h+5&&sec.h>sec.b+5||h>w+5&&sec.b>sec.h+5);
     var holes=(Array.isArray(r.holes)?r.holes:[]).filter(Array.isArray).map(function(e){var a=number(e[0])-p[0]/2,o=number(e[1]),x=flat?a:o,y=flat?o:a;return{x:turn?y:x,y:turn?x:-y,d:number(e[2])}});
-    out.push({end:end,x:turn?h:w,y:turn?w:h,t:number(r.t)>0?number(r.t):20,holes:holes})
+    out.push({end:end,x:turn?h:w,y:turn?w:h,t:number(r.t)>0?number(r.t):20,holes:holes,pos:r.pos})
    });
    cutsCache.set(id,out);return out
   }
@@ -1125,7 +1142,7 @@ window.irThreeSchemeView=(function(){
     if(e.end===0&&basePlated(c))return;
     var out=e.end?d.clone():d.clone().negate(),t=e.t/1000,at=ends[e.end].clone().sub(out.clone().multiplyScalar(t/2));
     var m=new T.Mesh(shared("plate:box",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(c));
-    m.quaternion.copy(q);m.scale.set(e.x/1000,e.y/1000,t);m.position.copy(at);m.userData.plate=true;parts.push(m);
+    m.quaternion.copy(q);m.scale.set(e.x/1000,e.y/1000,t);m.position.copy(at);m.userData.plate=true;m.userData.pos=e.pos;parts.push(m);
     e.holes.forEach(function(h){putHole(c,parts,{at:at.clone().add(X.clone().multiplyScalar(h.x/1000)).add(Y.clone().multiplyScalar(h.y/1000)),axis:out.clone(),d:h.d>0?h.d/1000:0,t:t,bolt:boltFor(bolts,h.d)})})
    })
   }
@@ -1153,7 +1170,7 @@ window.irThreeSchemeView=(function(){
      var m=new T.Mesh(shared("plate:box",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(c));
      m.quaternion.copy(q);m.scale.set(w/1000,(y1-y0)/1000,(at[1]-at[0])/1000);
      m.position.copy(mid).add(d.clone().multiplyScalar(along/1000)).add(X.clone().multiplyScalar((webX+(x[0]+x[1])/2)/1000)).add(Y.clone().multiplyScalar((y0+y1)/2000));
-     m.userData.plate=true;parts.push(m)
+     m.userData.plate=true;m.userData.pos=r.pos;parts.push(m)
     })
    })
   }
@@ -1182,7 +1199,7 @@ window.irThreeSchemeView=(function(){
      var x=Array.isArray(g.x)?[number(g.x[0]),number(g.x[1])]:[-t/2,t/2];
      basis.makeBasis(d,Y.clone().negate(),X);pos.add(X.clone().multiplyScalar(x[0]/1000))
     }
-    m.quaternion.setFromRotationMatrix(basis);m.position.copy(pos);m.userData.plate=true;m.userData.gusset=true;parts.push(m);
+    m.quaternion.setFromRotationMatrix(basis);m.position.copy(pos);m.userData.plate=true;m.userData.gusset=true;m.userData.pos=g.pos;parts.push(m);
     var plan=g.plane==="план",across=plan?X:Y.clone().negate(),axis=plan?Y:X,bolts=boltSizes(c);
     (Array.isArray(g.holes)?g.holes:[]).forEach(function(h){
      if(!Array.isArray(h))return;var sa=(fromTop?len/2-number(h[0]):number(h[0])-len/2)/1000,dm=number(h[2]);
@@ -1875,13 +1892,13 @@ window.irThreeSchemeView=(function(){
       [1].concat(ang.pair?[-1]:[]).forEach(function(side){
        var am=new T.Mesh(realGeometry(T,meshGeo,ang.sec),baseMaterial(c));am.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(ang.X,ang.Y,dir));
        am.position.copy(points[0]).add(ang.X.clone().multiplyScalar(side*ang.gap/2)).add(ang.Y.clone().multiplyScalar(ang.lift));am.scale.set(side,1,dist(points[0],points[1]));
-       am.userData.memberId=id;steel.add(am);allMeshes.push(am);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(am)});
+       am.userData.memberId=id;am.userData.body=true;steel.add(am);allMeshes.push(am);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(am)});
       return
      }
      var mesh=new T.Mesh(addGeometry(T,meshGeo,c),baseMaterial(c));
      mesh.position.copy(points[0]);mesh.scale.z=dist(points[0],points[1]);
      mesh.quaternion.setFromUnitVectors(zAxis,points[1].clone().sub(points[0]).normalize());
-     mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);
+     mesh.userData.memberId=id;mesh.userData.body=true;steel.add(mesh);allMeshes.push(mesh);
      if(!meshesById.has(id))meshesById.set(id,[]);
      meshesById.get(id).push(mesh)
     });
@@ -3010,15 +3027,83 @@ window.irThreeSchemeView=(function(){
     b.visible=b.userData.lod==="small"?d<bolts:b.userData.lod==="coarse"?d>=near:d<near
    })
   }
-  // The selected member (blue) and the one under the cursor (orange) over their batch.
+  // ---- The parts of the selected member as its card lists them (the engineer, 27.10.2026, after the report of 21.10:
+  // «вывод информации об элементе сделай такой»): each position of the specification of its assembly sheet in a colour of
+  // its own with its number in a circle beside it, the body of the member the position of its section; a position chosen
+  // in the card (or by its number) lit, the others pale. The card takes the colours, the mass of the model, the bolts and
+  // the nodes of the member from here (card).
+  var PART_COLORS=["#4a95c4","#c2507a","#4cbfae","#e0a030","#8a6fd1","#6aae45","#e0703e","#3b6fa8","#b9a832","#9b5a3c"];
+  var partMats=new Map(),litPart=null,litFor="",callouts=[];
+  function partRows(c){return c&&c.parts&&Array.isArray(c.parts.rows)?c.parts.rows.filter(function(r){return r&&r.pos!==null&&r.pos!==undefined&&r.pos!==""}):[]}
+  // The position of the body: the row of its own section, else the longest rolled one at least half as long as the member.
+  function bodyPos(c,rows){
+   var own=sectionOf(c.profile_name||c.profileName,c.profile_standard),pts=memberPoints(c),L=0,best=null;
+   for(var i=1;i<pts.length;i++)L+=pts[i].distanceTo(pts[i-1])*1000;
+   var same=function(a){return own&&a&&a.shape===own.shape&&Math.abs(a.h-own.h)<.6&&Math.abs(a.b-own.b)<.6&&Math.abs(number(a.t)-number(own.t))<.3};
+   rows.forEach(function(r){var sc=sectionOf(r.section,c.profile_standard),len=number(r.length_mm),k=same(sc)?2:sc&&sc.shape!=="plate"&&len>=L*.5?1:0;
+    if(k&&(!best||k>best.k||k===best.k&&len>best.len))best={k:k,len:len,pos:String(r.pos)}});
+   return best?best.pos:null
+  }
+  function partsOf(id){
+   var c=dataById.get(String(id)),rows=partRows(c);if(!rows.length)return null;
+   var color={},n=0;rows.forEach(function(r){var k=String(r.pos);if(!color[k])color[k]=PART_COLORS[n++%PART_COLORS.length]});
+   return{body:bodyPos(c,rows),color:color}
+  }
+  function meshPos(m,parts){var p=m.userData.body?parts.body:m.userData.pos;return p===null||p===undefined||p===""?null:String(p)}
+  // (the others of a member with a position lit: pale grey over the colour of its state)
+  function partMat(hex){
+   if(!partMats.has(hex))partMats.set(hex,new T.MeshStandardMaterial({color:new T.Color(hex),emissive:new T.Color(hex),emissiveIntensity:hex==="#d3dae0"?0:.16,metalness:.2,roughness:.5,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-4}));
+   return partMats.get(hex)
+  }
+  function clearCallouts(){callouts.forEach(function(o){o.el.remove()});callouts=[]}
+  // A number in a circle at the middle of the first piece of each position (as the report draws them).
+  function putCallouts(id,parts){
+   var first=new Map();(meshesById.get(id)||[]).forEach(function(m){var p=meshPos(m,parts);if(p!==null&&parts.color[p]&&!first.has(p))first.set(p,m)});
+   first.forEach(function(m,p){
+    // (not a button: the program disables the buttons of a section for a viewer, and these only show)
+    var el=document.createElement("span");el.setAttribute("role","button");el.className="ir-three-callout";el.textContent=p;el.style.borderColor=parts.color[p];el.title="Поз. "+p;
+    el.onclick=function(e){e.stopPropagation();lightPart(litPart===p?null:p)};
+    labelLayer.appendChild(el);callouts.push({el:el,pos:new T.Box3().setFromObject(m).getCenter(new T.Vector3()),p:p})
+   })
+  }
+  function paintCallouts(w,h){
+   callouts.forEach(function(o){var q=project(o.pos,w,h);o.el.hidden=!q.inside||q.x<8||q.x>w-8||q.y<8||q.y>h-8;
+    if(!o.el.hidden){o.el.style.left=q.x+"px";o.el.style.top=q.y+"px";o.el.classList.toggle("on",litPart===o.p)}})
+  }
+  // The selected member (blue, or its parts in their colours) and the one under the cursor (orange) over their batch.
   var lit=null;
   function paintHighlight(){
-   var key=selected+"|"+hover;if(lit===key)return;lit=key;
+   if(litFor!==selected){litFor=selected;litPart=null}
+   var key=selected+"|"+hover+"|"+litPart;if(lit===key)return;lit=key;
    overlay.children.slice().forEach(function(o){overlay.remove(o)});
-   [[selected,selectedMat],[hover!==selected?hover:"",hoverMat]].forEach(function(s){
-    if(s[0])(meshesById.get(s[0])||[]).forEach(function(m){var o=new T.Mesh(m.geometry,s[1]);o.matrixAutoUpdate=false;o.matrix.copy(m.matrixWorld);overlay.add(o)})
+   var parts=selected?partsOf(selected):null;
+   [[selected,selectedMat],[hover!==selected?hover:"",hoverMat]].forEach(function(s,i){
+    if(s[0])(meshesById.get(s[0])||[]).forEach(function(m){
+     var mat=s[1],p=!i&&parts?meshPos(m,parts):null;
+     if(!i&&parts)mat=litPart!==null&&p!==litPart?partMat("#d3dae0"):p!==null&&parts.color[p]?partMat(parts.color[p]):s[1];
+     var o=new T.Mesh(m.geometry,mat);o.matrixAutoUpdate=false;o.matrix.copy(m.matrixWorld);overlay.add(o)})
    });
+   clearCallouts();if(parts)putCallouts(selected,parts);
+   if(typeof document!=="undefined")document.querySelectorAll("[data-ec-pos]").forEach(function(r){r.classList.toggle("on",litPart!==null&&r.getAttribute("data-ec-pos")===litPart)});
    invalidate()
+  }
+  function lightPart(pos){litPart=pos===null||pos===undefined||pos===""?null:String(pos);paintHighlight();return litPart}
+  // The steel of the member as drawn, by the volume of its pieces (a closed mesh: the sum of the tetrahedra from a point
+  // of it to its faces): the body, its plates, gussets and ends; not the holes, the anchors, the footing.
+  function volumeOf(m){
+   var g=m.geometry,at=g&&g.attributes&&g.attributes.position;if(!at)return 0;m.updateWorldMatrix(true,false);
+   var idx=g.index,n=idx?idx.count:at.count,mw=m.matrixWorld,o=new T.Vector3().setFromMatrixPosition(mw),a=new T.Vector3(),b=new T.Vector3(),c=new T.Vector3(),v=0;
+   var get=function(q,i){return q.fromBufferAttribute(at,idx?idx.getX(i):i).applyMatrix4(mw).sub(o)};
+   for(var i=0;i+2<n;i+=3){get(a,i);get(b,i+1);get(c,i+2);v+=a.dot(b.cross(c))/6}
+   return Math.abs(v)
+  }
+  function card(id){
+   id=String(id||"");var c=dataById.get(id);if(!c)return null;
+   var list=meshesById.get(id)||[],v=0,parts=partsOf(id),own=sectionOf(c.profile_name||c.profileName,c.profile_standard);
+   list.forEach(function(m){if(m.userData.hole||m.userData.anchor||m.userData.footing||m.material===concreteMat)return;v+=volumeOf(m)});
+   return{mass_kg:own&&!conventional.has(id)&&v>0?Math.round(v*7850*10)/10:null,bolts:boltList.filter(function(b){return b.id===id}).length,
+    nodes:nodes.filter(function(n){return n.members.some(function(m){return String(m.c.id)===id})}).map(function(n){return{id:n.id,name:nodeKinds[n.kind],axes:axisOf(n.x,n.y).split(" (")[0]}}),
+    colors:parts?parts.color:{},body:parts?parts.body:null,lit:litFor===id?litPart:null}
   }
   function legendRows(){
    var counts=new Map(),rows=[];
@@ -3506,7 +3591,7 @@ window.irThreeSchemeView=(function(){
    if(pendingHover)hoverNow();
    if(!dirty)return;dirty=false;camRange();
    var w=viewport.clientWidth,h=viewport.clientHeight;
-   paintTags(w,h);paintLabels(w,h);paintNodesFrame();lod();
+   paintTags(w,h);paintLabels(w,h);paintCallouts(w,h);paintNodesFrame();lod();
    renderer.render(scene,camera);drew=true;
    if(!firstPaint){firstPaint=true;P.onFirstPaint&&P.onFirstPaint()}
   }
@@ -3588,7 +3673,7 @@ window.irThreeSchemeView=(function(){
    }
    return out
   }
-  return{host:host,key:key,root:root,update:update,focus:focus,startCopy:startCopy,startPlacement:startPlacement,nodes:nodeList,openNode:openNode,snapshots:snapshots,
+  return{host:host,key:key,root:root,update:update,focus:focus,startCopy:startCopy,startPlacement:startPlacement,nodes:nodeList,openNode:openNode,snapshots:snapshots,card:card,lightPart:lightPart,
    dispose:function(){
     cameraMemory[memoryKey]={position:camera.position.clone(),target:controls.target.clone(),up:camera.up.clone()};
     alive=false;clearExplode();cancelCopy();cancelPlacement();if(raf)cancelAnimationFrame(raf);
@@ -3601,7 +3686,7 @@ window.irThreeSchemeView=(function(){
     viewport.removeEventListener("wheel",wheel,true);root.removeEventListener("wheel",rootWheel);renderer.domElement.removeEventListener("dblclick",dblclick);
     document.removeEventListener("keydown",keyDown);document.removeEventListener("keyup",keyUp);document.removeEventListener("keydown",shiftKey);document.removeEventListener("keyup",shiftKey);
     window.removeEventListener("blur",releaseKeys);
-    controls.dispose();clearNodes();nodeGeo.dispose();nodeMats.forEach(function(m){m.dispose()});boltMat.dispose();plateMat.dispose();concreteMat.dispose();craneMat.dispose();hoistMat.dispose();wheelMat.dispose();glassMat.dispose();openingGlass.dispose();hardwareMat.dispose();silverMat.dispose();fixedMats.forEach(function(m){m.dispose()});boltMats["8.8"].dispose();boltMats["5.8"].dispose();
+    controls.dispose();clearNodes();clearCallouts();partMats.forEach(function(m){m.dispose()});nodeGeo.dispose();nodeMats.forEach(function(m){m.dispose()});boltMat.dispose();plateMat.dispose();concreteMat.dispose();craneMat.dispose();hoistMat.dispose();wheelMat.dispose();glassMat.dispose();openingGlass.dispose();hardwareMat.dispose();silverMat.dispose();fixedMats.forEach(function(m){m.dispose()});boltMats["8.8"].dispose();boltMats["5.8"].dispose();
     meshGeo.forEach(function(g){g.dispose()});mats.forEach(function(m){m.dispose()});if(metalEnv)metalEnv.dispose();shellMats.forEach(function(m){m.dispose()});roofMats.forEach(function(m){m.dispose()});
     [selectedMat,hoverMat,axisMaterial,dimMaterial,floorMaterial,darkFloorMaterial,markerMat,pointMat,previewMat].forEach(function(m){m.dispose()});
     var cached=new Set(meshGeo.values());
@@ -3613,13 +3698,15 @@ window.irThreeSchemeView=(function(){
  // The sortament rows for an exported scheme: only what drawing a section takes.
  function sectionRows(){
   return loadSections().then(function(){var out=[];sections.forEach(function(r){var o={};
-   ["id","status","standard","h_mm","b_mm","B_mm","b1_mm","a_mm","s_mm","t_mm","R_mm","r_mm","diameters_mm","thicknesses_mm","sizes_mm","rows"].forEach(function(k){if(r[k]!=null)o[k]=r[k]});out.push(o)});return out})
+   ["id","status","standard","h_mm","b_mm","B_mm","b1_mm","a_mm","s_mm","t_mm","R_mm","r_mm","diameters_mm","thicknesses_mm","sizes_mm","rows","mass_kg_m"].forEach(function(k){if(r[k]!=null)o[k]=r[k]});out.push(o)});return out})
  }
- return{render:render,dispose:dispose,sectionOf:sectionOf,clipTruss:clipTruss,loadSections:loadSections,sectionRows:sectionRows,fastenerRows:fastenerRows,jointKbRows:jointKbRows,
+ return{render:render,dispose:dispose,sectionOf:sectionOf,massPerMetre:massPerMetre,clipTruss:clipTruss,loadSections:loadSections,sectionRows:sectionRows,fastenerRows:fastenerRows,jointKbRows:jointKbRows,
   focus:function(id){return call("focus",id)},
   startCopy:function(id){return call("startCopy",id)},
   startPlacement:function(){return call("startPlacement")},
   nodes:function(){return call("nodes")||[]},
   openNode:function(id){return call("openNode",id)},
+  card:function(id){return call("card",id)||null},
+  lightPart:function(pos){return call("lightPart",pos)},
   snapshots:function(){return call("snapshots")||[]}}
 })();
