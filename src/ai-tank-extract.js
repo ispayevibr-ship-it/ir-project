@@ -1315,20 +1315,25 @@ function buildTank(pages){
   const steps=given?(H-given)/pitch:Math.max(1,Math.ceil((H-1800)/pitch)),first=given||H-steps*pitch,stops=[foot];
   if(first>=1200)for(let k=0;k<=steps;k++)stops.push(foot+first+k*pitch);
   else{const n=Math.ceil(H/1200);for(let k=1;k<=n;k++)stops.push(Math.round(foot+H*k/n))}
-  const deck=(s0,s1,z,label,w,lay)=>{const p=pt(s0,0),q=pt(s1,0);add({name:name+" — "+label,type_key:"stair_landing",fitting_type:"deck",diameter_mm:w||width,geometry_type:"beam",
+  const deck=(s0,s1,z,label,w,lay,side=0)=>{const p=pt(s0,side),q=pt(s1,side);add({name:name+" — "+label,type_key:"stair_landing",fitting_type:"deck",diameter_mm:w||width,geometry_type:"beam",
    x_mm:p.x,y_mm:p.y,x2_mm:q.x,y2_mm:q.y,z0_mm:z,z1_mm:z,...(lay?{layout:lay}:{}),notes:[label[0].toUpperCase()+label.slice(1)+" на +"+z+", ширина "+(w||width)+(lay?", вылет за каркас "+Math.abs(s1-s0)+" до кольца ограждения Ø"+2*ring:"")]})};
   const beam=(p,q,z,label,extra)=>add({name:name+" — "+label,type_key:"stair_landing",geometry_type:"beam",x_mm:p.x,y_mm:p.y,x2_mm:q.x,y2_mm:q.y,z0_mm:z,z1_mm:z,notes:[label[0].toUpperCase()+label.slice(1)+" на +"+z+(extra||"")]});
   // Landing decks (настил Н, КМ-17/18 of Ш1): outside the frame, in the segment of the guard ring (Ø2660: 680 deep at the
   // middle, 1800 along the wall, its outer edge the arc of the ring), at the side where the flight below arrives —
   // flights alternate towards the wall and away from it, so do the landings (ПК2 at the wall, ПК3 away from it). Under
-  // a landing: the beam Б1 along the side of the frame and Б2 across the middle to the ring. The top landing covers the
-  // shaft (ПК4).
-  const stopsUp=stops.slice(1),outerLevels=[];
+  // a landing: the beam Б1 along the side of the frame and Б2 across the middle to the ring. The top landing does not
+  // cover the shaft (ПК4 and разрез 7-7 of Ш1, КМ-17/18: no deck inside the frame — the last flight comes up through it;
+  // the engineer, 27.10.2026: «лестница проходит сквозь площадку»): the last flight arriving at the wall side, the top
+  // landing is a strip as wide as the flight in line with it from the frame to the ring, and the bridge Б3 goes on from
+  // it to the wall; arriving away from the wall, a landing there as the others, and the bridge goes back over the half
+  // of the shaft the last flight does not take.
+  const stopsUp=stops.slice(1),outerLevels=[],lastK=stops.length-2,lastSide=(lastK%2?1:-1)*(125+350),lastAtWall=lastK%2===0;
+  const bridgeSide=lastAtWall?lastSide:-lastSide,bridgeFrom=lastAtWall?near-landing:far;
   stopsUp.forEach((z,k)=>{
-   if(k===stopsUp.length-1){deck(near,far,z,"верхняя площадка");return}
-   const atWall=k%2===0,s0=atWall?near:far,s1=atWall?near-landing:far+landing;
+   if(k===stopsUp.length-1&&lastAtWall){deck(near,near-landing,z,"верхняя площадка",700,null,lastSide);return}
+   const atWall=k%2===0,s0=atWall?near:far,s1=atWall?near-landing:far+landing,label=k===stopsUp.length-1?"верхняя площадка":"площадка";
    if(!atWall)outerLevels.push(z);
-   deck(s0,s1,z,"площадка",width-300,{arc_r_mm:ring});
+   deck(s0,s1,z,label,width-300,{arc_r_mm:ring});
    beam(pt(s0,-hw),pt(s0,hw),z,"балка Б1 площадки");
    beam(pt(s0,0),pt(s1,0),z,"балка Б2 площадки")
   });
@@ -1365,11 +1370,11 @@ function buildTank(pages){
   // the wall: the bridge stops where that flight starts, the flight rises to the walkway at the wall face.
   const walk=(platforms||parts.platforms)?walkLevel():null,up=walk!==null&&walk-top>150&&walk-top<=1200?walk-top:0;
   if(up){
-   const len=Math.max(300,Math.round(up/Math.tan(45*Math.PI/180))),p=pt(Math.min(near-100,len),0),q=pt(0,0);
-   deck(near,Math.min(near-100,len),top,"переход на крышу",700);
+   const len=Math.max(300,Math.round(up/Math.tan(45*Math.PI/180))),end=Math.min(bridgeFrom-100,len),p=pt(end,bridgeSide),q=pt(0,bridgeSide);
+   deck(bridgeFrom,end,top,"переход на крышу",700,null,bridgeSide);
    add({name:name+" — марш на площадку крыши",type_key:"stair_flight",fitting_type:"flight",diameter_mm:700,geometry_type:"brace",x_mm:p.x,y_mm:p.y,x2_mm:q.x,y2_mm:q.y,z0_mm:top,z1_mm:walk,confidence:"low",
     notes:["Подъём с верхней площадки +"+top+" на площадку крыши +"+walk+": "+Math.max(1,Math.ceil(up/250))+" ступ. — по узлу перехода проверьте"]})
-  }else deck(near,platforms?.offset>0?-platforms.offset:0,top,"переход на крышу",700);
+  }else deck(bridgeFrom,platforms?.offset>0?-platforms.offset:0,top,"переход на крышу",700,null,bridgeSide);
   stairAt={bearing:ladder.bearing,width,top}
   }
  }
