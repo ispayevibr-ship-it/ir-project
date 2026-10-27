@@ -1739,6 +1739,8 @@ body.ir-delivery-form-route .delivery-form-page *{box-sizing:border-box}
 .scheme-instance.preliminary{border-color:#e7d2a6;background:#fdf8ec;color:#6f5523}
 .scheme-instance b{font-size:11px}.scheme-instance small{font-size:10px;line-height:1.4}
 .scheme-instance details summary{cursor:pointer;font-size:10px;font-weight:700}.scheme-instance details small{display:block}
+/* «ИИ-распознавание»: the drawings that fill this scheme, opened from it. */
+.scheme-head-actions .scheme-grid-button.scheme-ai-button{display:inline-flex;align-items:center;box-sizing:border-box;text-decoration:none;background:#17658e;border-color:#17658e;color:#fff}.scheme-head-actions .scheme-grid-button.scheme-ai-button:hover{background:#123b59;border-color:#123b59}
 
 
 /* #40: src/section-action-buttons.css */

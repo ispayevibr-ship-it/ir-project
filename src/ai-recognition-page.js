@@ -431,7 +431,7 @@ window.irAiRecognitionPage=async function(objectId){
  function render(){
   if(!alive())return;
   const page={drawings:drawingsPage,analyze:analyzePage,claude:claudePage,place:placePage,journal:journalPage}[tab]();
-  app.innerHTML='<div class="ir-ms"><header class="ir-ms-hero"><div><small>IR PROJECT AI</small><h1>Монтажная схема из PDF</h1><p>'+esc(object.name)+'</p></div>'+
+  app.innerHTML='<div class="ir-ms"><header class="ir-ms-hero"><div><button type="button" class="back ir-ms-back" data-ms-back>← Монтажная схема</button><small>IR PROJECT AI</small><h1>Монтажная схема из PDF</h1><p>'+esc(object.name)+'</p></div>'+
    '<button class="ir-ms-claude '+(engine?.installed?'on':'')+'" data-ms-settings>'+(engine?.installed?'Claude подключён':'Claude не подключён')+'</button></header>'+
    '<nav class="ir-ms-tabs">'+TABS.map(([key,title],i)=>{const st=tabState(key);
     return'<button type="button" data-ms-tab="'+key+'" class="'+(tab===key?'active ':'')+(st.done?'done':'')+'"><span class="ir-ms-num">'+(key==="journal"?"≡":st.done?"✓":i+1)+'</span><span><b>'+esc(title)+'</b><small>'+esc(st.note)+'</small></span></button>'}).join("")+'</nav>'+
@@ -498,7 +498,8 @@ window.irAiRecognitionPage=async function(objectId){
   });
   on("[data-ms-clear]",clearScheme);
   on("[data-ms-edits-send]",sendEdits);
-  on("[data-ms-open]",()=>{location.hash="#/objects/object/"+id+"/scheme"})
+  on("[data-ms-open]",()=>{location.hash="#/objects/object/"+id+"/scheme"});
+  on("[data-ms-back]",()=>{location.hash="#/objects/object/"+id+"/scheme"})
  }
  // Live progress without re-rendering the page.
  const stopProgress=montage.onProgress?.(d=>{

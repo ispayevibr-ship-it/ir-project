@@ -12,8 +12,8 @@ assert(files["src/app.js"].includes('key==="ai-recognition"&&window.irAiRecognit
 assert(files["src/object-shell.js"].includes('makeButton("ИИ-распознавание","ai-recognition"'),"sidebar route");
 assert(files["src/tabs-shell.js"].includes('"ai-recognition":"ИИ-распознавание"'),"tab naming");
 assert(files["src/access.js"].includes('"ai-recognition"'),"role configuration");
-assert(files["src/index.html"].includes('ai-recognition-page.js?v=1100700'),"UI script loads");
-assert(files["src/index.html"].includes('ai-recognition-page.css?v=192000'),"module css loads");
+assert(files["src/index.html"].includes('ai-recognition-page.js?v=1102700'),"UI script loads");
+assert(files["src/index.html"].includes('ai-recognition-page.css?v=1102700'),"module css loads");
 assert(files["src/index.html"].includes('ai-model-settings.js?v=191690'),"Claude settings loaded");
 // Sub-pages: drawings, analysis, Claude, placement, journal.
 for(const step of ["Чертежи","Анализ","Обработка Claude","Монтажная схема","Журнал"])assert(files["src/ai-recognition-page.js"].includes('"'+step+'"'),"step: "+step);
@@ -49,6 +49,13 @@ assert(files["preload.js"].includes("AI_CHANNEL=/^ai-(documents|engine|settings|
 assert(files["src/ai-recognition-page.js"].includes("data-ms-ai-note")&&files["src/ai-recognition-page.js"].includes('invoke("ai-montage:process",{objectId:id,draftId:view.draftId,restart:restart===true,comment})'),"comment for Claude on the processing page");
 assert(files["src/ai-ipc.js"].includes("comment:typeof comment===\"string\"?comment:undefined"),"the comment reaches the montage");
 assert(files["src/ir-runtime.js"].includes('key==="ai-recognition"&&window.irAiRecognitionPage'),"runtime bundle current");
+// «ИИ-распознавание» is part of the montage scheme (the engineer, 27.10.2026): opened from the scheme's head, back to it
+// from the page; in the object menu only while the scheme itself is not shown there.
+{const scheme=fs.readFileSync("src/scheme-page.js","utf8");
+ assert(scheme.includes('id="schemeAiRecognition" href="#/objects/object/${esc(oid)}/ai-recognition"'),"the scheme opens the recognition");
+ assert(files["src/ir-runtime.js"].includes('id="schemeAiRecognition"'),"runtime bundle has the scheme's button");
+ assert(files["src/ai-recognition-page.js"].includes("data-ms-back")&&files["src/ai-recognition-page.js"].includes('"/scheme"'),"back to the scheme");
+ assert(files["src/object-shell.js"].includes('key==="marks"&&!schemeShown')&&files["src/object-shell.js"].includes('key="scheme"'),"menu: under the scheme, not after the marks")}
 const m=JSON.parse(fs.readFileSync("hot/latest.json","utf8"));
 const cmp=(a,b)=>{const A=a.split(".").map(Number),B=b.split(".").map(Number);for(let i=0;i<3;i++)if(A[i]!==B[i])return A[i]-B[i];return 0};
 assert(cmp(m.version,JSON.parse(fs.readFileSync("package.json","utf8")).version)>=0,"hot version is not older than the installer");

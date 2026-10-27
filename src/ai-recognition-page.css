@@ -122,3 +122,6 @@
 .ir-ms-note{display:block;margin:12px 0;font-size:12px;color:#4a5b6b}.ir-ms-note b{color:#1f3346}
 .ir-ms-note textarea{display:block;width:100%;box-sizing:border-box;margin-top:6px;padding:9px 11px;border:1px solid #cfdbe5;border-radius:9px;font:inherit;font-size:13px;resize:vertical;min-height:64px;background:#fff;color:#1f3346}
 .ir-ms-note textarea:focus{outline:none;border-color:#5b8fc7;box-shadow:0 0 0 3px rgba(91,143,199,.15)}
+/* The way back to the montage scheme this page belongs to. */
+.ir-ms-hero .back.ir-ms-back{display:block;height:auto;min-height:0;margin:0 0 10px;padding:5px 11px;border:1px solid rgba(255,255,255,.32);border-radius:8px;background:rgba(255,255,255,.12);color:#fff;font-size:12px;font-weight:700;cursor:pointer}
+.ir-ms-hero .back.ir-ms-back:hover{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.5)}
