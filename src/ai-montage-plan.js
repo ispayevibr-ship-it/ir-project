@@ -619,6 +619,19 @@ function arScheme(pages){
      ...(p.cut?["Низ панели по скату кровли: "+p.cut.join(" → ")]:[]),...(differs?["Размер по чертежу "+Math.round(w)+"×"+Math.round(h)+", по спецификации "+q.width_mm+"×"+q.length_mm+" — проверьте"]:[])]})
   }
  }
+ // The panels of a layout stand edge to edge (the lock of a sandwich panel): a gap of up to 100 mm between a panel and
+ // the next one along the wall or over it is a misreading of the sheet (ПН-2 of 7070 read 6995 high under ПН-30 — a slit
+ // of 70 mm seen through, the engineer 27.10.2026 «там не должно быть просветов»): the panel is drawn up to its neighbour.
+ // A wider gap is left (an opening, a column between the fields).
+ for(const v of views){
+  const list=placements.filter(p=>p.view===v),lo=p=>v.numbered?p.x_mm:p.y_mm,hi=p=>v.numbered?p.x2_mm:p.y2_mm,top=p=>p.z0_mm+p.diameter_mm;
+  for(const p of list){
+   const up=list.filter(q=>q!==p&&Math.min(hi(q),hi(p))-Math.max(lo(q),lo(p))>=100&&q.z0_mm-top(p)>0&&q.z0_mm-top(p)<=100).map(q=>q.z0_mm-top(p));
+   if(up.length){const g=Math.min(...up);p.diameter_mm+=g;p.notes.push("Верх поднят на "+g+" мм до панели над ней (шов без зазора)")}
+   const next=list.filter(q=>q!==p&&Math.min(top(q),top(p))-Math.max(q.z0_mm,p.z0_mm)>=100&&lo(q)-hi(p)>0&&lo(q)-hi(p)<=100).map(q=>lo(q)-hi(p));
+   if(next.length){const g=Math.min(...next);if(v.numbered)p.x2_mm+=g;else p.y2_mm+=g;p.layout.width_mm+=g;p.notes.push("Край продлён на "+g+" мм до соседней панели (шов без зазора)")}
+  }
+ }
  // Windows, doors and gates in the openings of the walls: the block of its table whose size fits the opening (a window
  // block is 40 smaller than its opening, a door 40 narrower; one at the foot of the wall stands on ±0,000). Outer doors
  // («ДБН», «ДСН») first; each position as many times as its table counts, then again with a note.

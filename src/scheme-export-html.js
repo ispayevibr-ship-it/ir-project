@@ -105,7 +105,7 @@
 
  // The read-only page: filters → visible elements → the same 3D module of the program.
  function viewer(){
-  var D=JSON.parse(document.getElementById("ir-scheme-data").textContent);
+  var D=window.__irSchemeData||JSON.parse(document.getElementById("ir-scheme-data").textContent);
   var $=function(id){return document.getElementById(id)};
   var esc=function(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})};
   var fmt=function(v){var n=Number(v);return Number.isFinite(n)?Number(n.toFixed(1)).toLocaleString("ru-RU",{maximumFractionDigits:1}):"—"};
@@ -298,9 +298,33 @@
    '<div class="empty foot">Выгружено из IR Project — только просмотр. Вращение — левая кнопка мыши, сдвиг — правая, масштаб — колесо; щелчок по элементу — его карточка.</div></aside></div></main>';
   return'<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script>'+inline(HEAD)+'</script>'+
    '<title>'+esc((d.object.name||"Объект")+" — монтажная схема")+'</title><style>'+libs.css+'\n'+PAGE_CSS+'</style></head><body>'+body+
+   (libs.packed?'<script type="application/octet-stream" id="ir-pack">'+libs.packed+'</script><script>('+inline(UNPACK.toString())+')()</script></body></html>':
    '<script type="application/json" id="ir-scheme-data">'+json(Object.assign({},d,{shots:undefined}))+'</script>'+
    '<script>window.irSchemeSections='+inline(JSON.stringify(libs.sections||[]))+';window.irSchemeFasteners='+inline(JSON.stringify(libs.fasteners||[]))+';window.irSchemeJointKb='+inline(JSON.stringify(libs.jointKb||{families:[],groups:[]}))+';</script><script>'+inline(libs.three)+'</script><script>'+inline(libs.orbit)+'</script><script>'+inline(libs.types)+'</script>'+(libs.joints?'<script>'+inline(libs.joints)+'</script>':'')+(libs.card?'<script>'+inline(libs.card)+'</script>':'')+'<script>'+inline(libs.view)+'</script>'+
-   '<script>try{('+inline(viewer.toString())+')()}catch(e){window.__irFail(e&&e.message||e)}</script></body></html>'
+   '<script>try{('+inline(viewer.toString())+')()}catch(e){window.__irFail(e&&e.message||e)}</script></body></html>')
+ }
+ // The data, the tables and the scripts of the 3D packed (gzip, base64) — the file is about three times lighter (5,3 MB of
+ // a frame of 1600 elements were 1,9 MB; the engineer, 27.10.2026 «монтажные схемы выгруженные слишком много весят»).
+ // The pictures and the list of elements stay plain: they are what a viewer without scripts shows.
+ function payload(d,libs){
+  return JSON.stringify({data:Object.assign({},d,{shots:undefined}),sections:libs.sections||[],fasteners:libs.fasteners||[],jointKb:libs.jointKb||{families:[],groups:[]},
+   scripts:[libs.three,libs.orbit,libs.types,libs.joints||"",libs.card||"",libs.view,"try{("+viewer.toString()+")()}catch(e){window.__irFail(e&&e.message||e)}"]})
+ }
+ async function gzip64(text){
+  if(!window.CompressionStream)return"";
+  var buf=new Uint8Array(await new Response(new Blob([text]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer()),out="";
+  for(var i=0;i<buf.length;i+=32768)out+=String.fromCharCode.apply(null,buf.subarray(i,i+32768));
+  return btoa(out)
+ }
+ // In the page: unpacked and run in order (the 3D module after three.js), the data for the viewer in window.__irSchemeData.
+ function UNPACK(){
+  var W=window,el=document.getElementById("ir-pack");
+  if(!W.DecompressionStream||!W.Response||!W.Blob){W.__irFail("Этот браузер не открывает 3D-схему: откройте файл в Chrome, Edge, Яндекс Браузере, Firefox или Safari (2023 года и новее).");return}
+  var b=atob(el.textContent),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);
+  new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream("gzip"))).text().then(function(t){
+   var P=JSON.parse(t);W.irSchemeSections=P.sections;W.irSchemeFasteners=P.fasteners;W.irSchemeJointKb=P.jointKb;W.__irSchemeData=P.data;
+   P.scripts.forEach(function(code){if(!code)return;var e=document.createElement("script");e.textContent=code;document.body.appendChild(e)})
+  }).catch(function(e){W.__irFail("3D-схема не распакована: "+(e&&e.message||e))})
  }
 
  async function save(d){
@@ -315,8 +339,9 @@
   libs.fasteners=window.irThreeSchemeView&&window.irThreeSchemeView.fastenerRows?await window.irThreeSchemeView.fastenerRows().catch(function(){return[]}):[];
   // The catalog of joints: the node card of the exported scheme names the type of the node as the program does.
   libs.jointKb=window.irThreeSchemeView&&window.irThreeSchemeView.jointKbRows?await window.irThreeSchemeView.jointKbRows().catch(function(){return null}):null;
+  try{libs.packed=await gzip64(payload(d,libs))}catch(_e){libs.packed=""}
   var html=page(d,libs);
   return window.irProject.reportExport.html(html,safeFile((d.object.name||"Объект")+" — монтажная схема — "+d.title)+".html")
  }
- window.irSchemeHtmlExport={save:save,page:page,viewer:viewer};
+ window.irSchemeHtmlExport={save:save,page:page,viewer:viewer,payload:payload,gzip64:gzip64,unpack:UNPACK};
 })();

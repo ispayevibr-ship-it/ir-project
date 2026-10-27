@@ -77,8 +77,9 @@ function createGlobalKnowledge({dir=GLOBAL_DIR}={}){
 // «L63x40x5», «Гн.□100х4».
  // Only confirmed rows; «I20Б1», «I30Ш2» are never taken for ГОСТ 8239 (they are ГОСТ Р 57837 rows, `standard` says so).
  function findProfile(text,{standard=""}={}){
-  // The box sign of a font read as a letter: «Тр.r140х4», «Трубаr140х4» are «Тр.□140х4» (src/ai-sheet-extract.js profileWords).
-  const t=String(text||"").replace(/\s+/g,"").replace(/[хХ×*]/g,"x").replace(/,/g,".").replace(/^(Тр\.?|Гн\.?|Труба(?:профильная)?)[rгзо0](?=\d{2,3}x)/iu,(s,a)=>(/^Труба/iu.test(a)?"Тр.":a)+"□");
+  // The box sign of a font read as a letter: «Тр.r140х4», «Трубаr140х4» are «Тр.□140х4» (src/ai-sheet-extract.js profileWords);
+  // «Тр.3120х5» is «Тр.□120х5» (a «3» before three digits: no tube is 3120 across).
+  const t=String(text||"").replace(/\s+/g,"").replace(/[хХ×*]/g,"x").replace(/,/g,".").replace(/^(Тр\.?|Гн\.?|Труба(?:профильная)?)(?:[rгзо0](?=\d{2,3}x)|3(?=\d{3}x))/iu,(s,a)=>(/^Труба/iu.test(a)?"Тр.":a)+"□");
   let m;
   // «Труба 160х5», «Тр.140х4» — a square tube 160×160×5 when a table of square ones has that size (the engineer, 25.10.2026:
   // «если труба указана как 160х5, то это 160х160х5»; the masses of the sheet agree) or the sheet cites a standard of square

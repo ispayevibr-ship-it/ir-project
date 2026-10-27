@@ -68,6 +68,10 @@ jobs:
         run: node scripts/test-scheme-editor-kinds.js
       - name: Test back along tab pages and right-click menus
         run: node scripts/test-tabs-back-menu.js
+      - name: Test sandwich panel joints and steel through walls
+        run: node scripts/test-ar-panel-joints.js
+      - name: Test packed scheme export
+        run: node scripts/test-scheme-export-pack.js
       - name: Test cached scheme records and in-place refresh
         run: node scripts/test-scheme-performance.js
       - name: Test the 3D montage scheme (only view)
