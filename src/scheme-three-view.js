@@ -738,6 +738,40 @@ window.irThreeSchemeView=(function(){
     tankTags.push(tag(axisLayer,"ir-three-dim-label total tank","Высота стенки "+fmt(H)+" мм",v(s,(c0.y+c1.y)/2,fz),"tank"))
    })
   }
+  // The height of the scheme (the engineer, 27.10.2026: «показывай высоту максимальную и низ нулевую отметку»): at a side
+  // corner of the grid beyond the axis bubbles, upright from ±0,000 to the top of the highest member, the two levels marked
+  // as on the sheets (a triangle on the level, the elevation on its shelf) and the height between them; always shown, in
+  // the export too. The top: a column's head (on the member it carries), a bent beam's ridge, a wall of panels its height.
+  var levelDims=new T.Group(),levelTags=[];scene.add(levelDims);
+  function levelText(mm){var v=Math.round(number(mm));return v===0?"±0,000":(v>0?"+":"−")+(Math.abs(v)/1000).toFixed(3).replace(".",",")}
+  function topLevel(list){
+   var top=-Infinity;
+   list.forEach(function(c){
+    var z=Math.max(number(c.z0),c.geometryType==="column"?number(topOf(c)):number(c.z2));
+    if(c.geometryType==="bent")z=Math.max(z,number(c.mz));
+    if(c.ft==="panel"&&c.lay&&c.lay.panel==="wall")z=Math.max(z,number(c.z0)+number(c.fd));
+    if(z>top)top=z
+   });
+   return top
+  }
+  function buildLevels(){
+   levelDims.children.slice().forEach(function(l){levelDims.remove(l);l.geometry.dispose()});
+   levelTags.forEach(function(t){t.el.remove();var i=screenTags.indexOf(t);if(i>=0)screenTags.splice(i,1)});levelTags=[];
+   var top=topLevel(elems);if(!(top>=500))return;
+   // Of the two side corners of the grid as the 3D view opens (left front, right back) the one with fewer members
+   // near it; the shelves and the elevations towards the model.
+   var near=function(cx,cz){var n=0;elems.forEach(function(c){[[c.x,c.y],[c.x2,c.y2]].forEach(function(q){if(q[0]===undefined)return;var w=toWorld(number(q[0]),number(q[1]),0);if(Math.abs(w.x-cx)<10&&Math.abs(w.z-cz)<10)n++})});return n};
+   var left=near(0,Y)<=near(X,0),s=left?1:-1,x=left?-4.6:X+4.6,z=left?Y+4.6:-4.6,h=top/1000;
+   var v=function(x,y,z){return new T.Vector3(x,y,z)},line=function(a,b){addLine(levelDims,a,b,tankMaterial)};
+   line(v(x,0,z),v(x,h,z));
+   [[0,"±0,000"],[h,levelText(top)]].forEach(function(l){
+    var y=l[0];line(v(x-s*.5,y,z),v(x+s*2.6,y,z));line(v(x-.25,y-.25,z+.25),v(x+.25,y+.25,z-.25));
+    // The mark of a level: a triangle standing on its apex at the level, the elevation over the shelf beside it.
+    line(v(x+s,y,z),v(x+s*.7,y+.45,z));line(v(x+s,y,z),v(x+s*1.3,y+.45,z));line(v(x+s*.7,y+.45,z),v(x+s*1.3,y+.45,z));
+    levelTags.push(tag(axisLayer,"ir-three-dim-label total level",l[1],v(x+s*2,y+.9,z),"levels"))
+   });
+   levelTags.push(tag(axisLayer,"ir-three-dim-label total level","Высота "+fmt(top)+" мм",v(x+s*2.4,h/2,z),"levels"))
+  }
   var meshGeo=new Map(),mats=new Map(),allMeshes=[],rayTargets=[],dataById=new Map(),meshesById=new Map(),labels=[];
   var selectedMat=new T.MeshStandardMaterial({color:0x1668ea,emissive:0x07396d,emissiveIntensity:.15,metalness:.25,roughness:.42,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-4});
   var hoverMat=new T.MeshStandardMaterial({color:0xffad1c,emissive:0x59410e,emissiveIntensity:.10,metalness:.22,roughness:.45,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-4});
@@ -3563,7 +3597,7 @@ window.irThreeSchemeView=(function(){
   function paintTags(w,h){
    var taken=[];
    screenTags.forEach(function(t){
-    var on=t.group==="tank"?true:t.group==="axes"?showAxes&&showGrid:P.showDimensions&&showGrid;
+    var on=t.group==="tank"||t.group==="levels"?true:t.group==="axes"?showAxes&&showGrid:P.showDimensions&&showGrid;
     if(!on){t.el.hidden=true;return}
     var p=project(t.pos,w,h);
     t.el.hidden=!p.inside||p.x<10||p.x>w-10||p.y<10||p.y>h-10;
@@ -3704,7 +3738,7 @@ window.irThreeSchemeView=(function(){
    if(COLOR_MODES.indexOf(P.colorMode)>=0&&P.colorMode!==colorMode){colorMode=P.colorMode;root.querySelector("#irThreeColors").value=colorMode}
    selected=String(P.selected||"");
    var sig=signature(P.elements);
-   if(sig!==built){built=sig;buildMembers(P.elements);buildCranes();buildTankDims();buildNodes();lowerGround();refreshMaterials()}
+   if(sig!==built){built=sig;buildMembers(P.elements);buildCranes();buildTankDims();buildLevels();buildNodes();lowerGround();refreshMaterials()}
    else if(mode!==colorMode)refreshMaterials();
    else paintHighlight();
    applyBackground();dims.visible=Boolean(P.showDimensions);invalidate();
@@ -3714,7 +3748,7 @@ window.irThreeSchemeView=(function(){
     paintPlacement()
    }
   }
-  built=signature(P.elements);buildMembers(P.elements);buildCranes();buildTankDims();buildNodes();lowerGround();applyBackground();refreshMaterials();dims.visible=Boolean(P.showDimensions);
+  built=signature(P.elements);buildMembers(P.elements);buildCranes();buildTankDims();buildLevels();buildNodes();lowerGround();applyBackground();refreshMaterials();dims.visible=Boolean(P.showDimensions);
   var memory=cameraMemory[memoryKey];
   if(memory){camera.position.copy(memory.position);controls.target.copy(memory.target);camera.up.copy(memory.up);controls.update()}
   else setView("iso");
@@ -3749,9 +3783,9 @@ window.irThreeSchemeView=(function(){
       var hw=Math.max(17,g.measureText(t.el.textContent).width/2+9);g.beginPath();g.moveTo(q.x-hw+17,q.y-17);g.lineTo(q.x+hw-17,q.y-17);
       g.arc(q.x+hw-17,q.y,17,-Math.PI/2,Math.PI/2);g.lineTo(q.x-hw+17,q.y+17);g.arc(q.x-hw+17,q.y,17,Math.PI/2,Math.PI*1.5);g.closePath();g.fillStyle="rgba(255,255,255,.85)";g.fill();
       g.strokeStyle="#9fb4c6";g.lineWidth=1.5;g.stroke();g.fillStyle="#3d5d76";g.fillText(t.el.textContent,q.x,q.y+1)})}
-    // The tank's diameter and height, as on the screen.
+    // The tank's diameter and height, the levels of the scheme, as on the screen.
     g.font="700 20px system-ui,sans-serif";g.textAlign="center";g.textBaseline="middle";
-    screenTags.forEach(function(t){if(t.group!=="tank")return;var q=project(t.pos,W,H);if(!q.inside||q.x<60||q.x>W-60||q.y<14||q.y>H-14)return;
+    screenTags.forEach(function(t){if(t.group!=="tank"&&t.group!=="levels")return;var q=project(t.pos,W,H);if(!q.inside||q.x<60||q.x>W-60||q.y<14||q.y>H-14)return;
      var tw=g.measureText(t.el.textContent).width+14;g.fillStyle="rgba(255,255,255,.88)";g.fillRect(q.x-tw/2,q.y-14,tw,28);g.fillStyle="#173f5b";g.fillText(t.el.textContent,q.x,q.y+1)});
     var rows=legendRows().slice(0,mode==="mark"?12:16),x=18,y=H-24;g.font="600 28px system-ui,sans-serif";g.textAlign="left";g.textBaseline="middle";
     rows.slice(0,8).reverse().forEach(function(r,i){var t=r.name+" · "+r.n,w=g.measureText(t).width+58;
