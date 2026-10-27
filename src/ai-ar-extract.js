@@ -114,6 +114,30 @@ function sidesAround(b,horiz,vert,scale,sized=null,slopes=[]){
  }
  return null
 }
+// A panel whose outline the drawing breaks — a gate or a grille cut in it, a grille drawn over its joint (ГПЭС, АР-1
+// лист 9: «ПН-27» inside the grille 1000×1400 over a gate): the rectangle of the size its specification gives round its
+// label. Its sides — joints, the lines where the lines along the tiers end (hatching does not end them); its ends — lines
+// across it, however short the pieces of them left; of several, the one whose lines cover it most.
+function sizedAround(b,vert,horiz,scale,kinds,numbers){
+ const tol=40/scale,lines=horiz.filter(h=>!dimensionLine(h,numbers));
+ const near=(v,reach)=>v.y1>b.cy-reach&&v.y0<b.cy+reach&&Math.abs(v.x-b.cx)<reach;
+ let best=null;
+ for(const q of kinds)for(const [w,h] of [[q.width_mm,q.length_mm],[q.length_mm,q.width_mm]]){
+  if(!(w>0&&h>0))continue;
+  const W=w/scale,H=h/scale,ends=lines.filter(l=>Math.abs(l.y-b.cy)<H+1);
+  const joints=uniq(vert.filter(v=>near(v,Math.max(W,H)+1)&&ends.some(l=>(Math.abs(l.x0-v.x)<=.6||Math.abs(l.x1-v.x)<=.6)&&l.y>=v.y0-1&&l.y<=v.y1+1)).map(v=>v.x));
+  for(const l of joints.filter(x=>x<b.cx))for(const r of joints.filter(x=>x>b.cx&&Math.abs(x-l-W)<=tol)){
+   const across=ends.filter(e=>Math.min(e.x1,r)-Math.max(e.x0,l)>=100/scale),ys=uniq(across.map(e=>e.y));
+   const cover=y=>{let s=0,need=l;for(const e of across.filter(e=>Math.abs(e.y-y)<=.3).sort((p,q)=>p.x0-q.x0)){const a=Math.max(need,e.x0),z=Math.min(r,e.x1);if(z>a)s+=z-a;need=Math.max(need,z)}return s/(r-l)};
+   const side=x=>{let s=0;for(const v of vert.filter(v=>Math.abs(v.x-x)<=.3))s+=Math.max(0,Math.min(v.y1,b.cy+H)-Math.max(v.y0,b.cy-H));return s};
+   for(const top of ys.filter(y=>y<b.y0))for(const bottom of ys.filter(y=>y>b.y1&&Math.abs(y-top-H)<=tol)){
+    const score=Math.abs(r-l-W)+Math.abs(bottom-top-H)-(cover(top)+cover(bottom))*2-Math.min(1,(side(l)+side(r))/(2*H));
+    if(!best||score<best.score)best={score,rect:{l,r,top,bottom}}
+   }
+  }
+ }
+ return best?.rect||null
+}
 // Panels drawn by one line along a tier: the joints left and right of the label (not its hatching), the lines under
 // and over it (not dimension lines).
 function jointsAround(b,vert,horiz,numbers,win){
@@ -157,7 +181,7 @@ const axisRows=(texts,segments)=>bubbleRows(texts,segments).filter(r=>{const n=r
 // the panels, joined along the wall where they share their top and bottom; then cut down to its own sides, the lines
 // that start at its top and go down its height (pieces of panels beside it without a label are not the opening). Under
 // a panel cut along a lower roof is that roof, not an opening. One whose bottom is the foot of the wall starts there.
-function openingRects(panels,vert,horiz,scale,u,z){
+function openingRects(panels,vert,horiz,scale,u,z,numbers=[],texts=[],ticks=[]){
  if(panels.length<4)return[];
  const rects=panels.map(p=>p.rect),xs=[];
  for(const v of rects.flatMap(r=>[r.l,r.r]).sort((a,b)=>a-b))if(!xs.length||v-xs[xs.length-1]>.4)xs.push(v);
@@ -182,25 +206,56 @@ function openingRects(panels,vert,horiz,scale,u,z){
   if(sides.length>=2&&(sides[sides.length-1]-sides[0])*scale>=400)out.push({...o,l:sides[0],r:sides[sides.length-1]});
   else out.push(o)
  }
- // Openings cut in a panel drawn whole (a door in the lower part of a panel): two sides that start at one top and end at
- // one bottom, the top drawn across them, nothing running through between them (the hatching stops at the opening),
- // no label of a panel in it, its bottom drawn or the foot of the wall, inside the panel and lower than it.
+ // Openings cut in panels drawn whole — a door in the lower part of a panel, a gate in the corner of two, a grille over
+ // a joint (ГПЭС, АР-1 лист 9: grilles 1000×1400 and 800×800 over the gates): a rectangle its lines close. Two sides
+ // (pieces drawn end to end as one: a side broken at the joint of the tiers), its top drawn across them (a piece of
+ // it may be missing, a tenth), its bottom drawn or the foot of the wall; nothing running through its top but dimension
+ // lines; empty — no joint, hatching or line across through it but dimension lines; in the wall, not a strip of a panel's
+ // full height; no label of its own (the label of the panel round it may stand in it). It takes the place of the gaps
+ // between panels it holds.
  const x0=Math.min(...rects.map(r=>r.l))-1,x1=Math.max(...rects.map(r=>r.r))+1,y0=Math.min(...rects.map(r=>r.top))-1;
- const vs=vert.filter(v=>v.x>=x0&&v.x<=x1&&v.y0>=y0&&v.y1<=foot+2&&(v.y1-v.y0)*scale>=400).sort((a,b)=>a.x-b.x);
- const across=(y,l,r)=>{let need=l;for(const h of horiz.filter(h=>Math.abs(h.y-y)<=.6&&h.x1>l&&h.x0<r).sort((a,b)=>a.x0-b.x0)){if(h.x0>need+1)return false;need=Math.max(need,h.x1)}return need>=r-1};
- for(const A of vs){
-  const B=vs.find(B=>B.x-A.x>=400/scale&&B.x-A.x<=6500/scale&&Math.abs(B.y0-A.y0)<=1&&Math.abs(B.y1-A.y1)<=1.5);
-  if(!B)continue;
-  const l=A.x,r=B.x,top=Math.min(A.y0,B.y0),bottom=Math.max(A.y1,B.y1);
-  if(vs.some(v=>v.x>l+.5&&v.x<r-.5&&v.y0<top-1&&v.y1>top+1))continue;
-  if(vs.filter(v=>v.x>l+.5&&v.x<r-.5&&v.y0<=top+1&&v.y1>=bottom-1).length>=2)continue;
-  if(!across(top,l,r)||!(Math.abs(bottom-foot)<=1.5||across(bottom,l,r)))continue;
-  // Inside a panel, lower than it (a strip of its full height is a piece of it, not an opening).
-  const host=rects.find(q=>q.l<=l+1&&q.r>=r-1&&q.top<=top+1&&q.bottom>=bottom-1);
-  if(!host||(host.bottom-host.top-(bottom-top))*scale<100)continue;
-  if(panels.some(p=>p.pt.x>l&&p.pt.x<r&&p.pt.y>top&&p.pt.y<bottom))continue;
-  const o={l,r,top,bottom,inner:true},i=out.findIndex(q=>q.l<r-1&&q.r>l+1&&q.top<bottom-1&&q.bottom>top+1);
-  if(i<0)out.push(o);else if(r-l<out[i].r-out[i].l)out[i]=o
+ const pieces=vert.filter(v=>v.x>=x0&&v.x<=x1&&v.y0>=y0&&v.y1<=foot+2).sort((a,b)=>a.x-b.x||a.y0-b.y0),joined=[];
+ for(const v of pieces){const o=joined.find(o=>Math.abs(o.x-v.x)<=.3&&Math.abs(o.y1-v.y0)<=.3);if(o)o.y1=Math.max(o.y1,v.y1);else joined.push({...v})}
+ const vs=joined.filter(v=>(v.y1-v.y0)*scale>=300).sort((a,b)=>a.x-b.x);
+ // A dimension line along a side: the nearest line its number is written along (not the side of the opening behind it).
+ const dims=new Set();
+ for(const b of numbers.map(textBox).filter(b=>b.angle!==0)){
+  const at=joined.filter(v=>v.x>=b.x1-.5&&v.x<=b.x1+8&&b.cy>=v.y0&&b.cy<=v.y1).sort((p,q)=>p.x-q.x)[0];
+  if(at)for(const v of joined)if(Math.abs(v.x-at.x)<=.3&&b.cy>=v.y0&&b.cy<=v.y1)dims.add(v)
+ }
+ // … or a line with the ticks of a dimension at both its ends (its number may stand off it).
+ const ticked=v=>[v.y0,v.y1].every(y=>ticks.some(t=>[t.a,t.b].some(p=>Math.abs(p.x-v.x)<=.3&&p.y>=v.y0-.5&&p.y<=v.y1+.5&&Math.abs(p.y-y)<=6)));
+ const sized=v=>dims.has(v)||ticked(v);
+ const rows=new Map();for(const h of horiz){const k=Math.round(h.y*2);if(!rows.has(k))rows.set(k,[]);rows.get(k).push(h)}
+ // The length of [a, b] the pieces cover.
+ const span=(list,a,b)=>{let s=0,need=a;for(const [p,q] of list.sort((x,y)=>x[0]-y[0])){const c=Math.max(need,p),d=Math.min(b,q);if(d>c)s+=d-c;need=Math.max(need,d)}return s};
+ const cover=(y,l,r,skip)=>span([-1,0,1].flatMap(d=>rows.get(Math.round(y*2)+d)||[]).filter(h=>Math.abs(h.y-y)<=.6&&h.x1>l&&h.x0<r&&!(skip&&skip(h))).map(h=>[h.x0,h.x1]),l,r)/(r-l);
+ // The line under a level mark («+2,650») is its shelf, not a line of the wall; one under a number, a dimension line.
+ const marks=texts.filter(t=>horizontalText(t)&&/^[+\-−±]?\d{1,2}[,.]\d{3}$/u.test(String(t.str).trim())).map(textBox);
+ const noted=h=>marks.some(b=>b.y1<=h.y+.5&&b.y1>=h.y-4.5&&b.cx>=h.x0&&b.cx<=h.x1);
+ for(let i=0;i<vs.length;i++){
+  const A=vs[i];
+  for(let j=i+1;j<vs.length&&vs[j].x-A.x<=6500/scale;j++){
+   const B=vs[j];if(B.x-A.x<380/scale||sized(A)||sized(B))continue;
+   const l=A.x,r=B.x,top=Math.max(A.y0,B.y0),bottom=Math.min(A.y1,B.y1);
+   if((bottom-top)*scale<300||cover(top,l,r,noted)<.9||!(Math.abs(bottom-foot)<=1.5||cover(bottom,l,r,noted)>=.9))continue;
+   const within=joined.filter(v=>v.x>l+.5&&v.x<r-.5&&v.y1>top&&v.y0<bottom&&!sized(v));
+   if(within.some(v=>v.y0<top-1&&v.y1>top+1))continue;
+   // Lines through it drawn in pieces (a joint of the tiers panel by panel) as much as whole ones.
+   const xs=uniq(within.map(v=>v.x));
+   if(xs.some(x=>span(within.filter(v=>Math.abs(v.x-x)<=.3).map(v=>[v.y0,v.y1]),top,bottom)>=(bottom-top)/2))continue;
+   const aside=h=>noted(h)||dimensionLine(h,numbers),ys=uniq(horiz.filter(h=>h.y>top+1&&h.y<bottom-1&&h.x1>l&&h.x0<r&&!aside(h)).map(h=>h.y));
+   if(ys.some(y=>cover(y,l,r,aside)>=.5))continue;
+   const over=rects.filter(q=>Math.min(q.r,r)-Math.max(q.l,l)>1&&Math.min(q.bottom,bottom)-Math.max(q.top,top)>1);
+   if(!over.length||over.some(q=>q.l<=l+1&&q.r>=r-1&&(top-q.top)*scale<100&&(q.bottom-bottom)*scale<100))continue;
+   const same=q=>Math.max(Math.abs(q.l-l),Math.abs(q.r-r),Math.abs(q.top-top),Math.abs(q.bottom-bottom))*scale<100;
+   if(panels.some(p=>p.pt.x>l&&p.pt.x<r&&p.pt.y>top&&p.pt.y<bottom&&same(p.rect))||rects.some(same))continue;
+   const o={l,r,top,bottom,inner:true},held=q=>q.l>=l-1&&q.r<=r+1&&q.top>=top-1&&q.bottom<=bottom+1;
+   const k=out.findIndex(q=>!held(q)&&q.l<r-1&&q.r>l+1&&q.top<bottom-1&&q.bottom>top+1);
+   if(k<0){for(let n=out.length-1;n>=0;n--)if(held(out[n]))out.splice(n,1);out.push(o)}
+   else if(r-l<out[k].r-out[k].l)out[k]=o;
+   break
+  }
  }
  return out.map(o=>{const a=u(o.l),b=u(o.r);return{u0:Math.min(a,b),u1:Math.max(a,b),z0:z(o.bottom),z1:z(o.top),base:Math.abs(o.bottom-foot)<=1.5,...(o.inner?{inner:true}:{})}}).sort((p,q)=>p.u0-q.u0||p.z0-q.z0)
 }
@@ -225,9 +280,11 @@ function panelViews({segments=[],texts=[]}={},spec=[]){
  if(labels.length<4)return[];
  const rows=axisRows(texts,segments);if(!rows.length)return[];
  const owner=ownerOf(rows);
- const vert=[],horiz=[],slopes=[];
+ const vert=[],horiz=[],slopes=[],ticks=[];
  for(const s of segments){
   const dx=Math.abs(s.a.x-s.b.x),dy=Math.abs(s.a.y-s.b.y);
+  // The ticks of dimensions: short strokes at 45°.
+  if(dx>.3&&dy>.3&&dy/dx>.5&&dy/dx<2&&Math.hypot(dx,dy)>.8&&Math.hypot(dx,dy)<6)ticks.push(s);
   if(dx<=.3&&dy>=4)vert.push({x:(s.a.x+s.b.x)/2,y0:Math.min(s.a.y,s.b.y),y1:Math.max(s.a.y,s.b.y)});
   else if(dy<=.3&&dx>=3)horiz.push({y:(s.a.y+s.b.y)/2,x0:Math.min(s.a.x,s.b.x),x1:Math.max(s.a.x,s.b.x)});
   else if(dx>=3&&dy/dx<.35){const [p,q]=s.a.x<s.b.x?[s.a,s.b]:[s.b,s.a];slopes.push({x0:p.x,x1:q.x,ya:p.y,yb:q.y})}
@@ -261,7 +318,10 @@ function panelViews({segments=[],texts=[]}={},spec=[]){
    // A rectangle of the size the specification gives the position (either way round: a panel may lie), ±40 mm.
    const kinds=sizes.get(String(t.str).trim()),sized=kinds?rc=>{const w=(rc.r-rc.l)*scale,h=(rc.bottom-rc.top)*scale;
     return kinds.some(q=>Math.abs(q.width_mm-w)<=40&&Math.abs(q.length_mm-h)<=40||Math.abs(q.length_mm-w)<=40&&Math.abs(q.width_mm-h)<=40)}:null;
-   const b=textBox(t),rect=edgesAround(b,horiz,scale,slopes,sized)||sidesAround(b,horiz,vert,scale,sized,slopes)||edgesAround(b,horiz,scale,slopes)||sidesAround(b,horiz,vert,scale,null,slopes)||jointsAround(b,vert,horiz,numbers,win);
+   // Of the size first: drawn round it, by its sides, by its joints and the lines across it; then the nearest outline.
+   const b=textBox(t),first=edgesAround(b,horiz,scale,slopes,sized);
+   const rect=(sized&&((first&&sized(first)?first:null)||sidesAround(b,horiz,vert,scale,sized,slopes)||sizedAround(b,vert,horiz,scale,kinds,numbers)))||
+    first||sidesAround(b,horiz,vert,scale,null,slopes)||jointsAround(b,vert,horiz,numbers,win);
    if(!rect){if(process.env.AR_DEBUG)console.log("unplaced",t.str,Math.round(b.cx),Math.round(b.cy));continue}
    const u0=u(rect.l),u1=u(rect.r);
    // The cut of a panel under a slope: the heights of its lower edge at the ends, in the order along the wall.
@@ -274,7 +334,7 @@ function panelViews({segments=[],texts=[]}={},spec=[]){
   const top=Math.min(...own.map(t=>t.y)),cut=texts.filter(t=>horizontalText(t)&&/^(\d{1,2}|[А-ЯЁ])\s*[-–—]\s*\1$/u.test(String(t.str).trim())&&t.y<top&&top-t.y<220&&t.x>=row.x0-260&&t.x<=row.x1+260).sort((a,b)=>b.y-a.y)[0];
   views.push({axes,numbered:numbered(bubbles[0].name),reversed,...(cut?{section:String(cut.str).replace(/\s+/g,"")}:{}),scaleMmPerPt:Math.round(scale*1000)/1000,
    bbox:{x0:row.x0-260,x1:row.x1+260,y1:row.y},levels:[...new Set(levels.map(l=>l.mm))].sort((a,b)=>a-b),
-   ...(()=>{const openings=openingRects(panels,vert,horiz,scale,u,z);return{panels:holesOf(panels.map(({rect,...p})=>p),openings),openings}})(),unplaced:own.length-panels.length})
+   ...(()=>{const openings=openingRects(panels,vert,horiz,scale,u,z,numbers,region,ticks);return{panels:holesOf(panels.map(({rect,...p})=>p),openings),openings}})(),unplaced:own.length-panels.length})
  }
  return views
 }

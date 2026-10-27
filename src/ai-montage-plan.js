@@ -609,7 +609,9 @@ function arScheme(pages){
    const differs=q&&!(Math.abs(q.width_mm-w)<=40&&Math.abs(q.length_mm-h)<=40||Math.abs(q.length_mm-w)<=40&&Math.abs(q.width_mm-h)<=40||p.cut&&Math.abs(q.width_mm-w)<=40&&h<=q.length_mm+40);
    placements.push({mark:p.mark,name:"Сэндвич-панель стеновая"+(q?.name?" "+q.name:""),type_key:"sandwich_wall",scheme_group:"cladding",geometry_type:"beam",
     fitting_type:"panel",diameter_mm:Math.max(1,Math.round(h)),
-    layout:{panel:"wall",thickness_mm:t,...(q?.ral?{ral:q.ral}:{}),...(q?.ral_inside?{ral_inside:q.ral_inside}:{}),...(p.cut?{cut:p.cut}:{}),...(q?.code?{code:q.code}:{}),width_mm:Math.round(w)},
+    layout:{panel:"wall",thickness_mm:t,...(q?.ral?{ral:q.ral}:{}),...(q?.ral_inside?{ral_inside:q.ral_inside}:{}),...(p.cut?{cut:p.cut}:{}),...(q?.code?{code:q.code}:{}),width_mm:Math.round(w),
+     // The openings the layout draws in it (a grille, a gate in its corner): its holes, along it from its start and up from its foot.
+     ...(p.holes?.length?{holes:p.holes.map(o=>[Math.round(o[0]),Math.round(o[1]),Math.round(o[2]-p.z0),Math.round(o[3]-p.z0)])}:{})},
     ...(v.numbered?{x_mm:a,y_mm:across0,x2_mm:b,y2_mm:across0}:{x_mm:across0,y_mm:a,x2_mm:across0,y2_mm:b}),
     z0_mm:p.z0,z1_mm:p.z0,levels_from:"раскладка панелей АР",confidence:q&&!differs?"high":"medium",section:"АР",view:v,line:across0,
     axis_x:v.numbered?"":axis[0],axis_y:v.numbered?axis[0]:"",sheet:String(v.sheet),sheet_point_pt:p.pt,

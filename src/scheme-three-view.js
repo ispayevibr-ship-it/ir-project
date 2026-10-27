@@ -2083,15 +2083,20 @@ window.irThreeSchemeView=(function(){
     // Panels of a layout one by one, with their joints (a gap of 12 mm). A wall panel under the slope of a lower roof
     // is cut along it (lay.cut: the heights of its lower edge at its start and end).
     var gl=c.lay&&c.lay.width_mm?Math.max(.02,len-.012):len,cut=c.lay&&Array.isArray(c.lay.cut)&&c.lay.cut.length===2?c.lay.cut:null;
+    var holed=c.ft==="panel"&&c.lay&&c.lay.panel==="wall"&&Array.isArray(c.lay.holes)&&c.lay.holes.length?c.lay.holes.map(function(o){return[number(o[0])/1000,number(o[1])/1000,number(o[2])/1000,number(o[3])/1000]}):null;
     if(c.ft==="panel"&&c.lay&&c.lay.panel==="wall"&&cut){
-     var z0=number(c.z0),sh=new T.Shape();sh.moveTo(-gl/2,(number(cut[0])-z0)/1000);sh.lineTo(gl/2,(number(cut[1])-z0)/1000);sh.lineTo(gl/2,pw);sh.lineTo(-gl/2,pw);sh.closePath();
-     var cg=new T.ExtrudeGeometry(sh,{depth:pt,bevelEnabled:false});cg.translate(0,0,-pt/2);cg.rotateY(-Math.PI/2);put(cg,new T.Vector3(0,0,0))
+     // Cut along a slope with holes over it (a window, a grille): the sloped strip whole, the rest in pieces round them.
+     var z0=number(c.z0),ca=(number(cut[0])-z0)/1000,cb=(number(cut[1])-z0)/1000,top=holed?Math.min(pw,Math.max(ca,cb)):pw,sh=new T.Shape();
+     sh.moveTo(-gl/2,ca);sh.lineTo(gl/2,cb);sh.lineTo(gl/2,top);sh.lineTo(-gl/2,top);sh.closePath();
+     if(top-Math.min(ca,cb)>1e-4){var cg=new T.ExtrudeGeometry(sh,{depth:pt,bevelEnabled:false});cg.translate(0,0,-pt/2);cg.rotateY(-Math.PI/2);put(cg,new T.Vector3(0,0,0))}
+     if(holed&&top<pw-1e-4){var jj=(len-gl)/2;
+      wallPieces(jj,len-jj,pw-top,holed.map(function(o){return[o[0],o[1],o[2]-top,o[3]-top]})).forEach(function(r){put(new T.BoxGeometry(pt,r[3]-r[2],r[1]-r[0]),new T.Vector3(0,top+(r[2]+r[3])/2,(r[0]+r[1])/2-len/2))})}
     }
     // A panel the block of a window, a door or a gate crosses: in pieces round the hole (lay.holes, mm from its start
     // and its foot).
-    else if(c.ft==="panel"&&c.lay&&c.lay.panel==="wall"&&Array.isArray(c.lay.holes)&&c.lay.holes.length){
-     var hs=c.lay.holes.map(function(o){return[number(o[0])/1000,number(o[1])/1000,number(o[2])/1000,number(o[3])/1000]}),j=(len-gl)/2;
-     wallPieces(j,len-j,pw,hs).forEach(function(r){put(new T.BoxGeometry(pt,r[3]-r[2],r[1]-r[0]),new T.Vector3(0,(r[2]+r[3])/2,(r[0]+r[1])/2-len/2))})
+    else if(holed){
+     var j=(len-gl)/2;
+     wallPieces(j,len-j,pw,holed).forEach(function(r){put(new T.BoxGeometry(pt,r[3]-r[2],r[1]-r[0]),new T.Vector3(0,(r[2]+r[3])/2,(r[0]+r[1])/2-len/2))})
     }
     else if(c.ft==="panel"&&c.lay&&c.lay.panel==="wall")put(new T.BoxGeometry(pt,pw,gl),new T.Vector3(0,pw/2,0).applyQuaternion(q.clone().invert()));
     else if(c.ft==="panel")put(new T.BoxGeometry(pw,pt,gl),new T.Vector3(0,pt/2,0));
