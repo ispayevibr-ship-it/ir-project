@@ -2130,7 +2130,11 @@ window.irThreeSchemeView=(function(){
    members.forEach(function(m){
     var p0=at(number(m[0]),number(m[1]),number(m[6])),p1=at(number(m[2]),number(m[3]),number(m[6])),v=p1.clone().sub(p0),len=v.length();if(len<.05)return;
     var dir=v.clone().normalize(),y=up.clone().sub(dir.clone().multiplyScalar(up.dot(dir)));if(y.lengthSq()<1e-6)y=plane.clone().sub(dir.clone().multiplyScalar(plane.dot(dir)));
-    y.normalize();var x=new T.Vector3().crossVectors(y,dir).normalize(),basis=new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(x,y,dir));
+    y.normalize();var x=new T.Vector3().crossVectors(y,dir).normalize();
+    // «turn»: an I-section turned a quarter about its axis — its flanges across the plane of the truss (the post I35К1 of a
+    // subtruss Фп1, the trusses bolted to its flanges from both sides: КМ1 л.17 узлы 3, 4).
+    if(m[7]==="turn"){var tx=x;x=y;y=tx.clone().negate()}
+    var basis=new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(x,y,dir));
     var pr=String(m[5]||""),sec=pr?sectionOf(/^\d/.test(pr)?"∟"+pr:pr):null;
     var lift=0,down=false;
     var put=function(geo,mirror){var mesh=new T.Mesh(geo,mat);mesh.position.copy(p0).add(y.clone().multiplyScalar(lift)).add(x.clone().multiplyScalar((mirror?-1:1)*(number(gap)/2)));mesh.quaternion.copy(basis);mesh.scale.set(mirror?-1:1,down?-1:1,len);parts.push(mesh)};
@@ -2176,6 +2180,25 @@ window.irThreeSchemeView=(function(){
     var face=Math.abs(u.x)*hx+Math.abs(u.y)*hy-(dx*u.x+dy*u.y);
     if(face>0&&face<1500&&(!best||face>best.face))best={k:k,face:face}
    });
+   // A post of another truss across the end — the post I35К1 of a subtruss Фп1 with the plates t30 on its flanges (КМ1
+   // л.17 узлы 3, 4: the trusses Фс3 bolted to it from both sides): its faces as it is turned, its flange and plate under
+   // the bolts.
+   elems.forEach(function(k){
+    var tr=k.truss;if(!k.id||!tr||!Array.isArray(tr.members))return;
+    var a0={x:number(k.x),y:number(k.y)},b0={x:number(k.x2),y:number(k.y2)};if(tr.flip){var q=a0;a0=b0;b0=q}
+    var L=Math.hypot(b0.x-a0.x,b0.y-a0.y),kk=L/(number(tr.span_mm)||L),vx=(b0.x-a0.x)/(L||1),vy=(b0.y-a0.y)/(L||1),base=number(tr.base_mm);if(L<500)return;
+    var pad=Array.isArray(tr.post_pad_mm)?number(tr.post_pad_mm[0]):0;
+    tr.members.forEach(function(m){
+     if(m[4]!=="post"||number(m[0])!==number(m[2]))return;
+     var sec=sectionOf(String(m[5]||""));if(!sec||sec.shape!=="ibeam")return;
+     var lo=base+Math.min(number(m[1]),number(m[3])),hi=base+Math.max(number(m[1]),number(m[3]));if(zBottom<lo||zBottom>hi-300)return;
+     var turn=m[7]==="turn",ha=(turn?sec.b:sec.h)/2+(turn?0:pad),hn=(turn?sec.h:sec.b)/2+(turn?pad:0);
+     var dx=e.x-(a0.x+vx*number(m[0])*kk),dy=e.y-(a0.y+vy*number(m[0])*kk),da=dx*vx+dy*vy,dn=-dx*vy+dy*vx;
+     if(Math.abs(da)>ha+60||Math.abs(dn)>hn+60)return;
+     var ua=u.x*vx+u.y*vy,un=-u.x*vy+u.y*vx,face=Math.abs(ua)*ha+Math.abs(un)*hn-(dx*u.x+dy*u.y);
+     if(face>0&&face<1500&&(!best||face>best.face))best={k:k,face:face,tc:number(sec.t)+(Math.abs(un)>Math.abs(ua)===turn?pad:0)}
+    })
+   });
    return best
   }
   // The support node of a truss end at a column side, as the node of its sheet gives it (truss.support: КМ1 л.18 узел 6,
@@ -2184,17 +2207,20 @@ window.irThreeSchemeView=(function(){
   // column; at the top chord the vertical gusset of the truss bolted to a rib of the column (t10, two bolts). The truss
   // parts are of the truss, the table and the rib of the column. `xe` — where the members start (local mm), `s` — +1 at
   // the start, −1 at the end; ex — along the span, nrm — across.
-  function trussSupport(c,id,seat,xe,s,members,at,ex,nrm){
-   var sp=c.truss.support&&typeof c.truss.support==="object"?c.truss.support:{},col=seat.k,cid=String(col.id);
+  function trussSupport(c,id,seat,xe,s,members,at,ex,nrm,sp){
+   var col=seat.k,cid=String(col.id);
    var mm=function(v,i,d){var x=Array.isArray(v)?number(v[i]):0;return x>0?x:d};
    var tF=mm(sp.flange_mm,0,20),wF=mm(sp.flange_mm,1,200),hF=mm(sp.flange_mm,2,600),tT=mm(sp.table_mm,0,30),wT=mm(sp.table_mm,1,200),hT=mm(sp.table_mm,2,200);
    var zb=number(chordAt(members,"bottom",xe)),zt=chordAt(members,"top",xe),fTop=zb+(number(sp.flange_top_mm)||hF-150),face=xe-s*tF;
+   // The top of the flange over the support elevation of the truss (its bottom chord at the end, the mark of the node:
+   // КМ1 л.17 узел 4 — 505 over +18,990), when the node gives it so.
+   if(number(sp.rib_top_mm))fTop=number(chordAt(c.truss.members,"bottom",s>0?0:number(c.truss.span_mm)))+number(sp.rib_top_mm);
    var up=new T.Vector3(0,1,0),place=function(x,z,across){return at(x,z).add(nrm.clone().multiplyScalar((across||0)/1000))};
    keepPart(plateBox(c,place(face+s*tF/2,fTop-hF/2),ex,up,nrm,tF/1000,hF/1000,wF/1000),id);
    keepPart(plateBox(col,place(face+s*tT/2,fTop-hF-hT/2),ex,up,nrm,tT/1000,hT/1000,wT/1000),cid);
    // Bolts through the flange and the flange of the column: by the chain of the sheet from the top of the flange.
    // (their class as the node gives it: «М24 кл. 8.8» of the support, not of the members)
-   var csec=sectionOf(col.profile_name||col.profileName,col.profile_standard),tc=csec&&csec.t?csec.t:20,d=boltMm(sp.bolt,c),bc={id:c.id,joint:{cls:sp.cls||c.joint&&c.joint.cls}};
+   var csec=sectionOf(col.profile_name||col.profileName,col.profile_standard),tc=seat.tc||(csec&&csec.t?csec.t:20),d=boltMm(sp.bolt,c),bc={id:c.id,joint:{cls:sp.cls||c.joint&&c.joint.cls}};
    var rows=Array.isArray(sp.bolts_mm)&&sp.bolts_mm.length?sp.bolts_mm.map(number):[],gap=number(sp.bolt_gap_mm)||Math.max(80,wF-80);
    if(!rows.length)for(var r=70;r<=hF-70;r+=Math.max(100,(hF-140)/3))rows.push(r);
    if(d)rows.forEach(function(r){[-1,1].forEach(function(j){addBolt(bc,place(face+s*(tF-tc)/2,fTop-r,j*gap/2),ex.clone().multiplyScalar(s),d/1000,(tF+tc)/1000)})});
@@ -2203,7 +2229,9 @@ window.irThreeSchemeView=(function(){
    var tp=sp.top&&typeof sp.top==="object"?sp.top:{},gt=trussGussetT(c)*1000,tR=mm(tp.rib_mm,0,10),out=mm(tp.rib_mm,1,250),hR=mm(tp.rib_mm,2,300),dt=boltMm(tp.bolt||sp.bolt,c);
    keepPart(plateBox(c,place(face+s*(out+100)/2,zt-hR/2+20),ex,up,nrm,(out+100)/1000,(hR+40)/1000,gt/1000),id);
    keepPart(plateBox(col,place(face+s*out/2,zt-hR/2,(gt+tR)/2),ex,up,nrm,out/1000,hR/1000,tR/1000),cid);
-   if(dt)[.28,.72].forEach(function(f){addBolt(bc,place(face+s*out*.6,zt-hR*f,tR/2-gt/2),nrm,dt/1000,(gt+tR)/1000)})
+   // Its two bolts from the top of the rib and from the face as the node gives them (top.bolts_mm, top.bolt_out_mm).
+   var tb=Array.isArray(tp.bolts_mm)&&tp.bolts_mm.length?tp.bolts_mm.map(number):[hR*.28,hR*.72],bo=number(tp.bolt_out_mm)||out*.6;
+   if(dt)tb.forEach(function(r){addBolt(bc,place(face+s*bo,zt-r,tR/2-gt/2),nrm,dt/1000,(gt+tR)/1000)})
   }
   function addTruss(c,id){
    var t=c.truss,a={x:number(c.x),y:number(c.y)},b={x:number(c.x2),y:number(c.y2)};
@@ -2212,9 +2240,12 @@ window.irThreeSchemeView=(function(){
    var ux=(b.x-a.x)/L,uy=(b.y-a.y)/L,k=L/span,base=number(t.base_mm);
    var at=function(x,z){return toWorld(a.x+ux*x*k,a.y+uy*x*k,base+z)};
    // An end at a column side: the truss between the faces, its support node there (trussSupport).
-   var sp=t.support&&typeof t.support==="object"?t.support:{},tF=number(Array.isArray(sp.flange_mm)&&sp.flange_mm[0])||20;
+   // truss.supports — the nodes of its two ends when they differ (Фс3: КМ1 л.17 узел 4 at Фп1 of the outer row, узел 3
+   // at Фп1 of the middle one), else truss.support for both.
+   var spec=function(i){var o=Array.isArray(t.supports)&&t.supports[i]&&typeof t.supports[i]==="object"?t.supports[i]:t.support;return o&&typeof o==="object"?o:{}};
+   var tFa=number(Array.isArray(spec(0).flange_mm)&&spec(0).flange_mm[0])||20,tFb=number(Array.isArray(spec(1).flange_mm)&&spec(1).flange_mm[0])||20;
    var ends=[trussSeat(a,{x:ux,y:uy},base+number(chordAt(t.members,"bottom",0))),trussSeat(b,{x:-ux,y:-uy},base+number(chordAt(t.members,"bottom",span)))];
-   var xa=ends[0]?(ends[0].face+tF)/k:0,xb=ends[1]?span-(ends[1].face+tF)/k:span;
+   var xa=ends[0]?(ends[0].face+tFa)/k:0,xb=ends[1]?span-(ends[1].face+tFb)/k:span;
    var members=ends[0]||ends[1]?clipTruss(t.members,xa,xb):t.members;
    var gt=trussGussetT(c),nodes=trussNodes(members,sectionOf);
    var parts=drawMembers(c,nodes.members,at,at(1000,0).sub(at(0,0)).normalize(),true,gt);
@@ -2228,7 +2259,15 @@ window.irThreeSchemeView=(function(){
     var mesh=new T.Mesh(geo,baseMaterial(c));mesh.userData.gusset=true;parts.push(mesh)
    });
    parts.forEach(function(mesh){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh)});
-   ends.forEach(function(e,i){if(e)trussSupport(c,id,e,i?xb:xa,i?-1:1,members,at,ex.clone().normalize(),nrm)});
+   ends.forEach(function(e,i){if(e)trussSupport(c,id,e,i?xb:xa,i?-1:1,members,at,ex.clone().normalize(),nrm,spec(i))});
+   // The plates on the flanges of its turned posts (truss.post_pad_mm: t, length from the bottom of the post; КМ1 л.17 —
+   // t30 С345 under the bolts of the trusses Фс3).
+   var pad=Array.isArray(t.post_pad_mm)?t.post_pad_mm.map(number):null;
+   if(pad&&pad[0]>0)t.members.forEach(function(m){
+    var sec=m[7]==="turn"&&m[4]==="post"?sectionOf(String(m[5]||"")):null;if(!sec||sec.shape!=="ibeam")return;
+    var z0=Math.min(number(m[1]),number(m[3])),hp=Math.min(pad[1]||Infinity,Math.abs(number(m[3])-number(m[1])));
+    [-1,1].forEach(function(j){keepPart(plateBox(c,at(number(m[0]),z0+hp/2).add(nrm.clone().multiplyScalar(j*(sec.h/2+pad[0]/2)/1000)),ex.clone().normalize(),new T.Vector3(0,1,0),nrm,sec.b/1000,hp/1000,pad[0]/1000),id)})
+   });
    var tops=t.members.filter(function(m){return m[4]==="top"}),hi=tops.length?Math.max.apply(null,tops.map(function(m){return Math.max(number(m[1]),number(m[3]))})):0;
    var lab=at(span/2,hi);lab.y+=.35;
    var el=document.createElement("span");el.className="ir-three-member-label";el.textContent=c.mark||c.title||"";
