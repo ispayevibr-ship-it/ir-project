@@ -122,6 +122,7 @@
    button.append(icon,name,close);button.onclick=()=>selectTab(id);
    button.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();selectTab(id)}};
    button.onauxclick=e=>{if(e.button===1){e.preventDefault();closeTab(id)}};
+   button.oncontextmenu=e=>{e.preventDefault();tabMenu(id,e.clientX,e.clientY)};
    list.append(button)
   }
   const hidden=order.filter(id=>frames.has(id)&&!visibleIds.has(id));
@@ -175,6 +176,8 @@
   const tab=frames.get(id);if(!tab)return;
   const next=cleanRoute(route);
   if(tab.route===next)return;
+  // The pages of this tab in the order they were opened: «Назад» returns along them.
+  if(tab.goingBack)tab.goingBack=false;else{tab.trail.push(next);if(tab.trail.length>40)tab.trail.splice(0,tab.trail.length-40)}
   tab.route=next;tab.title=routeLabel(tab.route);
   const oid=tab.route.match(/^\/objects\/object\/(\d+)/)?.[1];
   if(oid)resolveName(id,oid);
@@ -320,6 +323,15 @@
    if(field){tab.lastEditable=field;if(!document.hasFocus()){try{window.focus()}catch(_error){}}scheduleEditingFocus(tab,field)}
   },true);
   child.document.addEventListener("keydown",e=>shortcuts(e),true);
+  // «← Назад» of a section returns to the page the engineer came from in this tab, not to the object's overview
+  // (the engineer, 27.10.2026); with nothing before it the button does what it did. Buttons with their own logic
+  // (a delivery or a report form with its draft) keep it.
+  child.document.addEventListener("click",e=>{
+   const b=e.button===0&&e.target?.closest?.("button.back");
+   if(b&&HOME_BACK.has(b.id)&&goBack(tab)){e.preventDefault();e.stopPropagation()}
+  },true);
+  child.addEventListener("contextmenu",e=>pageMenu(tab,e));
+  child.document.addEventListener("mousedown",e=>{if(e.button!==2)closeMenu()},true);
   child.document.addEventListener("auxclick",e=>{
    const link=e.target?.closest?.("a[href^='#/objects']");
    if(link&&e.button===1){e.preventDefault();createTab(link.getAttribute("href").slice(1),true)}
@@ -333,7 +345,7 @@
   const frame=document.createElement("iframe");
   frame.className="tabs-pane";frame.title=routeLabel(path);frame.name="ir-tab-"+id;frame.referrerPolicy="same-origin";
   frame.setAttribute("aria-hidden","true");
-  const tab={id,frame,route:path,title:routeLabel(path),dirty:false,started:false,active:false,ready:false,readyObserver:null,readyTimer:null,loadError:false,profilePanel:null};
+  const tab={id,frame,route:path,trail:[path],title:routeLabel(path),dirty:false,started:false,active:false,ready:false,readyObserver:null,readyTimer:null,loadError:false,profilePanel:null};
   frames.set(id,tab);order.push(id);
   frame.addEventListener("load",()=>{if(frames.get(id)!==tab||!tab.started)return;attachHandlers(tab);bridgeProfile(tab);watchPageReady(tab)});
   // Inactive/restored tabs keep their address, but do not run the full app until selected.
@@ -535,8 +547,75 @@
  }
  // Pages hosted in iframes delegate all update UI to this single host window.
  window.irTabUpdates={open:checkAppUpdate};
+ // Back along the pages of a tab.
+ const HOME_BACK=new Set(["back","actedBack","deliveriesBack","financeBack","marksBack","penaltiesBack","objectPhotosBack","reportsBack","scheduleBack","schemeBack","unifiedBack","wtBack"]);
+ function goBack(tab){
+  const trail=tab?.trail||[];if(trail.length<2)return false;
+  try{const child=tab.frame.contentWindow;trail.pop();tab.goingBack=true;child.location.hash=trail[trail.length-1];return true}catch{tab.goingBack=false;return false}
+ }
+ function openWindow(route){
+  const url="./tabs-shell.html?detached="+encodeURIComponent(newId())+"#"+cleanRoute(route);
+  const popup=window.open(url,"_blank","width=1180,height=780");
+  if(!popup)alert("Не удалось открыть отдельное окно IR Project. Разрешите открывать новые окна.");
+  return Boolean(popup)
+ }
+ // The right-click menu (the engineer, 27.10.2026): on a menu item, an object or a section — open it here, in a new
+ // tab, a background tab or a new window; anywhere on a page — back, duplicate, the page in a new window, reload; on a
+ // tab — duplicate, a window, reload, close. Fields, the 3D view and selected text keep their own right click.
+ const menu=document.createElement("div");menu.className="tabs-ctx";menu.hidden=true;menu.setAttribute("role","menu");document.body.append(menu);
+ function closeMenu(){menu.hidden=true}
+ function showMenu(x,y,items){
+  menu.replaceChildren();
+  for(const it of items){
+   if(it==="-"){const sep=document.createElement("div");sep.className="tabs-ctx-sep";menu.append(sep);continue}
+   const b=document.createElement("button");b.type="button";b.setAttribute("role","menuitem");b.disabled=Boolean(it.off);
+   const label=document.createElement("span");label.textContent=it.label;b.append(label);
+   if(it.key){const k=document.createElement("small");k.textContent=it.key;b.append(k)}
+   b.onclick=()=>{closeMenu();it.run()};menu.append(b)
+  }
+  menu.hidden=false;menu.style.left="0px";menu.style.top="0px";
+  const r=menu.getBoundingClientRect();
+  menu.style.left=Math.max(4,Math.min(x,window.innerWidth-r.width-4))+"px";menu.style.top=Math.max(4,Math.min(y,window.innerHeight-r.height-4))+"px"
+ }
+ document.addEventListener("mousedown",e=>{if(!menu.contains(e.target))closeMenu()},true);
+ window.addEventListener("blur",closeMenu);
+ // The page an item of a page leads to: a link, an object card, a section of the overview, the object's left menu.
+ function routeAt(node,tab){
+  const a=node.closest("a[href^='#/objects']");if(a)return cleanRoute(a.getAttribute("href").slice(1));
+  const own=node.closest("[data-route]");if(own&&routeValid(own.dataset.route))return own.dataset.route;
+  const card=node.closest(".object-card[data-object]");if(card&&/^\d+$/.test(card.dataset.object))return"/objects/object/"+card.dataset.object;
+  const oid=tab.route.match(/^\/objects\/object\/(\d+)/)?.[1];
+  const sec=node.closest("button.section-link[data-section]:not(:disabled)");if(sec&&oid)return cleanRoute("/objects/object/"+oid+"/"+sec.dataset.section);
+  const nav=node.closest(".ir-object-nav button[data-key]:not(:disabled)");
+  if(nav&&oid)return nav.dataset.key==="overview"?"/objects/object/"+oid:cleanRoute("/objects/object/"+oid+"/"+nav.dataset.key);
+  if(node.closest(".ir-object-all,.ir-object-brand"))return"/objects";
+  return""
+ }
+ function pageMenu(tab,e){
+  const node=e.target;
+  if(e.defaultPrevented||!node?.closest||node.closest("input,textarea,select,[contenteditable='true'],[contenteditable=''],canvas,dialog[open] *"))return;
+  let text="";try{text=String(tab.frame.contentWindow.getSelection()||"").trim()}catch{}
+  if(text)return;
+  e.preventDefault();
+  const route=routeAt(node,tab),r=tab.frame.getBoundingClientRect(),items=[];
+  if(route)items.push({label:"Открыть",run:()=>{try{tab.frame.contentWindow.location.hash=route}catch{}}},{label:"Открыть в новой вкладке",run:()=>createTab(route,true)},
+   {label:"Открыть в фоновой вкладке",run:()=>createTab(route,false)},{label:"Открыть в новом окне",run:()=>openWindow(route)},"-");
+  items.push({label:"Назад",key:"Alt+←",off:tab.trail.length<2,run:()=>goBack(tab)},{label:"Дублировать вкладку",run:()=>createTab(tab.route,true)},
+   {label:"Эту страницу в новом окне",run:()=>openWindow(tab.route)},{label:"Обновить страницу",key:"Ctrl+R",run:()=>{selectTab(tab.id);reloadCurrent()}});
+  showMenu(r.left+e.clientX,r.top+e.clientY,items)
+ }
+ function tabMenu(id,x,y){
+  const tab=frames.get(id);if(!tab)return;
+  const i=order.indexOf(id);
+  showMenu(x,y,[{label:"Дублировать вкладку",run:()=>createTab(tab.route,true)},{label:"Открыть в новом окне",run:()=>openWindow(tab.route)},
+   {label:"Обновить",key:"Ctrl+R",run:()=>{selectTab(id);reloadCurrent()}},"-",{label:"Закрыть вкладку",key:"Ctrl+W",run:()=>closeTab(id)},
+   {label:"Закрыть другие вкладки",off:order.length<2,run:()=>order.filter(x=>x!==id).forEach(closeTab)},
+   {label:"Закрыть вкладки справа",off:i<0||i===order.length-1,run:()=>order.slice(i+1).forEach(closeTab)}])
+ }
  function shortcuts(event){
   const ctrl=event.ctrlKey||event.metaKey;
+  if(event.key==="Escape"&&!menu.hidden){closeMenu();return}
+  if(event.altKey&&!ctrl&&!event.shiftKey&&event.key==="ArrowLeft"){const t=frames.get(activeId);if(t&&goBack(t))event.preventDefault();return}
   if(!ctrl||event.altKey)return;
   const k=String(event.key).toLowerCase();
   if(k==="t"){event.preventDefault();createTab("/objects");return}
@@ -558,11 +637,7 @@
  document.getElementById("tabsDetach").onclick=()=>{
   const selected=frames.get(activeId);if(!selected)return;
   if(selected.dirty&&!confirm("В новой оконной копии откроется сохранённая версия страницы. Несохранённые данные останутся в текущей вкладке. Продолжить?"))return;
-  const id=newId();
-  const url="./tabs-shell.html?detached="+encodeURIComponent(id)+"#"+selected.route;
-  const popup=window.open(url,"_blank","width=1180,height=780");
-  if(!popup)alert("Не удалось открыть отдельное окно IR Project. Разрешите открывать новые окна.");
-  else notify("Страница открыта в отдельном окне. Исходная вкладка сохранена.")
+  if(openWindow(selected.route))notify("Страница открыта в отдельном окне. Исходная вкладка сохранена.")
  };
  const initialHash=location.hash.slice(1);
  let previous=null;try{previous=JSON.parse(localStorage.getItem(storeKey)||"null")}catch{}

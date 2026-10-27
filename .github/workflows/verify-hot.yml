@@ -66,6 +66,8 @@ jobs:
         run: node scripts/test-scheme-copy.js
       - name: Test element editor lists by element kind
         run: node scripts/test-scheme-editor-kinds.js
+      - name: Test back along tab pages and right-click menus
+        run: node scripts/test-tabs-back-menu.js
       - name: Test cached scheme records and in-place refresh
         run: node scripts/test-scheme-performance.js
       - name: Test the 3D montage scheme (only view)

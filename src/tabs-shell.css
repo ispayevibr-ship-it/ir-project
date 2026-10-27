@@ -289,3 +289,14 @@ body{min-width:0}
 .profile-panel .program-settings-menu .program-settings-item:disabled{
  opacity:.6;cursor:wait;pointer-events:none
 }
+
+/* 1.10.47: the right-click menu of tabs and pages — open in a new tab or window, back, duplicate, reload, close. */
+.tabs-ctx{position:fixed;z-index:4000;min-width:240px;padding:5px;background:#fff;border:1px solid #d5dde6;border-radius:9px;
+ box-shadow:0 12px 32px rgba(15,35,80,.22);font:13px/1.3 "Segoe UI",system-ui,sans-serif}
+.tabs-ctx[hidden]{display:none}
+.tabs-ctx button{display:flex;align-items:center;justify-content:space-between;gap:18px;width:100%;min-height:0;margin:0;padding:7px 10px;
+ border:0;border-radius:6px;background:none;box-shadow:none;color:#1f2933;text-align:left;cursor:pointer;font:inherit}
+.tabs-ctx button:hover:not(:disabled),.tabs-ctx button:focus-visible{background:#eef4ff;color:#1d4ed8;outline:none}
+.tabs-ctx button:disabled{color:#a3adb8;cursor:default}
+.tabs-ctx small{color:#8298aa;font-size:11px}
+.tabs-ctx-sep{height:1px;margin:4px 6px;background:#e6edf5}

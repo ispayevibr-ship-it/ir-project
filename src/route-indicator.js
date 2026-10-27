@@ -1,9 +1,4 @@
 "use strict";
-(()=>{
- function routeLabel(){
-  const route=(location.hash.slice(1)||"/objects").replace(/^\//,"");
-  return route.replace(/\/object\/(\d+)/,"/id$1");
- }
- function update(){let el=document.getElementById("routeIndicator");if(!el){el=document.createElement("div");el.id="routeIndicator";el.className="route-indicator";document.body.appendChild(el)}el.textContent=routeLabel()}
- window.addEventListener("hashchange",update);update();
-})();
+// The route label at the bottom of the window («objects/id1/…») is not shown any more (the engineer, 27.10.2026:
+// «убери надпись снизу objects/id и тд, уже не нужно»); a label left by an older copy of the page is removed.
+(()=>{const drop=()=>document.getElementById("routeIndicator")?.remove();drop();window.addEventListener("hashchange",drop)})();
