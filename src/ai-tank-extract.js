@@ -412,6 +412,19 @@ function roofOf(texts){
  if(/центральн[а-яё]*\s+кольц/iu.test(all)){
   const d=texts.map(t=>/^(?:Ø|⌀|Ç|ø|\$|#)\s*(\d{3,4})$/u.exec(t.str.trim())).filter(Boolean).map(m=>Number(m[1])).filter(v=>v>=500&&v<=5000);
   if(d.length)ring={outer:Math.max(...d),inner:Math.min(...d)<Math.max(...d)?Math.min(...d):null}
+  // On the sheet of the ring itself: its ribs for the shields, one at each joint of them ("1/10 часть окружности" round
+  // the ring), and the central shield over it ("ПОКРЫТИЕ ЦЕНТРАЛЬНОГО КОЛЬЦА"): a cone of sheets whose diameter is
+  // written whole and by halves ("ø2280", "1140" "1140"); its rise is one of the small numbers of the sheet, the one the
+  // roof slope gives (chosen in buildTank).
+  if(ring&&sectors)ring.lugs=sectors;
+  if(ring&&/покрыти[а-яё]*\s+центральн[а-яё]*\s+кольц|центральн[а-яё]*\s+щит/iu.test(all)){
+   const nums=texts.map(t=>/^(?:Ø|⌀|ø|\$|#)?\s*(\d{2,4})$/u.exec(t.str.trim())).filter(Boolean).map(m=>Number(m[1]));
+   const lo=ring.inner||ring.outer,halves=[...new Set(nums)].filter(v=>!d.includes(v)&&v>lo/2+50&&v<=ring.outer*2&&nums.filter(x=>x===v).length>=2);
+   const half=halves.find(v=>nums.includes(2*v))||halves[0];
+   if(half){ring.cap=2*half;ring.capRises=[...new Set(nums.filter(v=>v>=20&&v<=half/4))];
+    // The shield written as a diameter ("ø2280") is not the bottom plate of the ring.
+    const rest=d.filter(v=>v!==ring.cap);if(ring.outer===ring.cap&&rest.length)ring.outer=Math.max(...rest)}
+  }
  }
  // The mark of the ring may stand on another roof sheet (the roof layout: "Центральное кольцо ЦК1").
  const ck=/ЦК\s*[1!|lI]/u.test(all);
@@ -1085,9 +1098,27 @@ function buildTank(pages){
     notes:["Щит "+(k+1)+" из "+sectors+" (1/"+sectors+" окружности), сектор "+Math.round(step*k)+"…"+Math.round(step*(k+1))+"° от оси I"+(fc.rise?"":fc.slope?", подъём по уклону 1:"+fc.slope:", подъём принят D/16 — проверьте")]})
   }
  }
- if(cring)placements.push({mark:roofs.some(r=>r.ck)?"ЦК1":markOk(ringRow?.mark)||"Кольцо",name:ringRow?.name||"Центральное кольцо покрытия",type_key:"roof_central_ring",geometry_type:"plate",x_mm:C,y_mm:C,radius_mm:rr,
-  inner_radius_mm:cring.inner?Math.round(cring.inner/2):Math.round(rr*0.8),z0_mm:Math.round(top-rise*rr/R),z1_mm:Math.round(top-rise*rr/R)+20,
-  levels_from:"щиты покрытия",confidence:"medium",scheme_group:"roof",notes:["Центральное кольцо Ø"+cring.outer+(cring.inner?" / Ø"+cring.inner:"")]});
+ // The ring as the sheet draws it (КМ «Центральное кольцо», ГОСТ 31385): a box — the outer wall at the smaller diameter,
+ // the inner shell, flanges t8 — on a bottom plate out to the larger diameter, where the shields bear; ribs for the
+ // shields; the central shield over it. Its top is the roof surface at its wall; what the sheets do not give is taken
+ // from the typical ring of the shield roof and said in the notes.
+ if(cring){
+  const wallR=cring.inner?Math.round(cring.inner/2):Math.round(rr*0.8),shellR=cring.shell?Math.round(cring.shell/2):wallR-Math.round((rr-wallR)/2);
+  const H=cring.height>0?cring.height:200,plate=cring.plate>0?cring.plate:8,ringTop=Math.round(top-rise*wallR/R),z0=ringTop-H-2*plate;
+  const lugs=cring.lugs||sectors||0,lug=Array.isArray(cring.lug)&&cring.lug.length===2?cring.lug:[rr-wallR+230,180];
+  const capR=cring.cap>cring.outer?Math.round(cring.cap/2):0,capFit=capR?Math.round(rise*capR/R):0;
+  const capRise=capR?((cring.capRise>0?[cring.capRise]:cring.capRises||[]).filter(v=>Math.abs(v-capFit)<=capFit*0.15).sort((a,b)=>Math.abs(a-capFit)-Math.abs(b-capFit))[0]||capFit):0,capT=cring.capT>0?cring.capT:6;
+  const guessed=[...(cring.height>0?[]:["высота 200"]),...(cring.shell?[]:["внутренняя обечайка Ø"+2*shellR]),...(lugs&&!Array.isArray(cring.lug)?["рёбра "+lug[0]+"×"+lug[1]]:[])];
+  placements.push({mark:roofs.some(r=>r.ck)?"ЦК1":markOk(ringRow?.mark)||"Кольцо",name:ringRow?.name||(capR?"Центральное кольцо. Центральный щит":"Центральное кольцо покрытия"),type_key:"roof_central_ring",geometry_type:"plate",x_mm:C,y_mm:C,radius_mm:rr,
+   inner_radius_mm:shellR,z0_mm:z0,z1_mm:ringTop,
+   layout:{kind:"central_ring",wall_r_mm:wallR,shell_r_mm:shellR,height_mm:H,plate_mm:plate,top_out_mm:20,lugs,lug_start_deg:lugs?((fromBearing(0)%360)+360)%360:0,lug_mm:lug,
+    ...(cring.bolt?{bolt:cring.bolt}:{}),...(capR?{cap:{r_mm:capR,rise_mm:capRise,t_mm:capT,base_mm:Math.round(top-rise*capR/R)+6-z0}}:{})},
+   levels_from:"щиты покрытия",confidence:guessed.length?"medium":"high",scheme_group:"roof",
+   notes:["Центральное кольцо: стенка Ø"+2*wallR+", внутренняя обечайка Ø"+2*shellR+", высота "+H+", пояса и нижний лист t"+plate+", нижний лист до Ø"+cring.outer+" — опора щитов",
+    ...(lugs?[lugs+" рёбер t"+plate+" "+lug[0]+"×"+lug[1]+" под щиты ("+(cring.bolt?"болт "+cring.bolt:"по болту")+" на ребро), по стыкам щитов"]:[]),
+    ...(capR?["Центральный щит (покрытие кольца): конус Ø"+2*capR+" из листов t"+capT+" внахлёст, подъём "+capRise+(capRise===capFit&&!(cring.capRises||[]).includes(capRise)?" (по уклону крыши)":"")]:[]),
+    ...(guessed.length?["Не прочитано с листа, принято по типовому кольцу: "+guessed.join(", ")+" — проверьте"]:[])]});
+ }
  // Radial members of a frame roof: as many as the dispatch list ships ("Элемент крыши — 18"), else as the plan shows.
  const rafter=sectors?null:shipRow(/элемент\S*\s+(?:крыш|покрыти|каркас)|балк\S*\s+(?:крыш|покрыти)|стропил|радиальн/iu);
  const n=sectors?0:rafter?.qty>=4&&rafter.qty<=200?rafter.qty:(framing||plan)?.tank.plan.roofMembers||0;

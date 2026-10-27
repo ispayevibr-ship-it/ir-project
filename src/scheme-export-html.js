@@ -210,7 +210,7 @@
    var p=c.progress,a=c.axisText,cls=c.status==="mounted"?"ok":c.status==="partial"?"partial":"wait",EC=window.irSchemeElementCard;
    var prog=p&&p.total>0?'<div class="prog"><b>Марка '+esc(c.mark)+' по ведомости:</b> всего '+fmt(p.total)+' шт., смонтировано '+fmt(p.mounted)+', осталось '+fmt(p.left)+'<div class="bar"><i style="width:'+Math.max(0,Math.min(100,p.mounted/p.total*100))+'%"></i></div></div>':"";
    if(EC){
-    var e={mark:c.mark,name:c.mark_name,type_name:/\s\/\s/.test(c.type_name||"")?"":c.type_name,group:c.scheme_group,geometry:c.geometryType,profile:c.profile,standard:c.profile_standard,section:c.section,
+    var e={mark:c.mark,name:c.mark_name,type_name:/\s\/\s/.test(c.type_name||"")?"":c.type_name,type_key:c.type_key,lay:c.lay||null,group:c.scheme_group,geometry:c.geometryType,profile:c.profile,standard:c.profile_standard,section:c.section,
      status:c.status,status_label:statusText[c.status]||c.status,status_title:p&&p.total>0?"Статус по ведомости марок":"",x:c.x,y:c.y,x2:c.x2,y2:c.y2,z0:c.z0,z2:c.z2,mx:c.mx,my:c.my,mz:c.mz,r:c.r,ri:c.ri,sw:c.sw,ft:c.ft,
      doc:c.draft_doc,src_section:c.source_section,instance_status:c.instance_status,preliminary:!!c.preliminary,reasons:c.instance_reasons||[],sources:c.param_sources||null,pdf_new:c.pdf_new||null,check_note:c.check_note||"",manual:!!c.manual};
     box.innerHTML='<button type="button" class="side-close" id="uncard" aria-label="Закрыть карточку">✕</button><h3>Выбранный элемент</h3><div class="ec-card">'+EC.head(e)+EC.what(e)+EC.where(e,{axesX:D.axesX,axesY:D.axesY,posX:D.gridX||{},posY:D.gridY||{}})+EC.drawings(e)+

@@ -7,7 +7,7 @@
  * of the engineer). The exact coordinates are folded away. The same text in the montage scheme (src/scheme-page.js) and
  * in the exported HTML (src/scheme-export-html.js).
  *
- * e: {mark, name, type_name, group, geometry, profile, standard, section, status, status_label, x, y, x2, y2, z0, z2, mx, my,
+ * e: {mark, name, type_name, type_key, lay, group, geometry, profile, standard, section, status, status_label, x, y, x2, y2, z0, z2, mx, my,
  *     mz, r, ri, sw, ft, doc, src_section, instance_status, preliminary, reasons[], sources{}, pdf_new{}, check_note, manual}
  * grid: {axesX:[…], axesY:[…], posX:{axis: mm}, posY:{axis: mm}}
  */
@@ -44,6 +44,9 @@
   pipes:"трубопровод",
   supports:"опора трубопровода"
  };
+ // Of some kinds the role is their own, not of their group.
+ var TYPE_ROLE={roof_central_ring:"центральное кольцо крыши: в нём сходятся и к нему крепятся щиты покрытия, сверху его закрывает центральный щит",
+  roof_shield:"щит покрытия — сектор крыши от стенки до центрального кольца: каркас из швеллеров и уголков с настилом из листа"};
  // How the drawings determined it (instance_status of src/ai-montage.js), in words.
  var FOUND={confirmed:["ok","Найден на чертеже: положение и отметки подтверждены"],computed:["ok","Положение и отметки вычислены по чертежам"],
   partial:["warn","По чертежам определено не всё"],ambiguous:["warn","Чертежи допускают несколько вариантов"],
@@ -92,6 +95,13 @@
    out.push((e.sw>0&&e.sw<360?"Дуга "+fmt(e.sw)+"°":"Кольцо")+(e.r>0?" радиусом "+fmt(e.r)+" мм":"")+(e.ri>0?" (внутри "+fmt(e.ri)+" мм)":"")+" с центром у осей "+point(g,e.x,e.y)+".");
    out.push("От отметки "+level(z0)+" до "+level(z2)+" — высота "+fmt(z2-z0)+" мм.");return out
   }
+  var L=e.lay&&typeof e.lay==="object"?e.lay:null;
+  if(L&&L.kind==="central_ring"){
+   // The central ring of a shield roof: in the middle of the roof, its own levels and the top of its shield.
+   out.push("В центре крыши, центр у осей "+point(g,e.x,e.y)+".");
+   out.push("Низ кольца на отметке "+level(z0)+", верх "+level(z2)+" — высота "+fmt(z2-z0)+" мм."+
+    (L.cap&&num(L.cap.r_mm)>0&&num(L.cap.base_mm)>0?" Верх центрального щита "+level(z0+num(L.cap.base_mm)+num(L.cap.rise_mm))+".":""));return out
+  }
   if(kind==="plate"){
    out.push((e.r>0?"Круг радиусом "+fmt(e.r)+" мм":"Плоский элемент")+(e.ri>0?" с отверстием "+fmt(e.ri)+" мм":"")+" с центром у осей "+point(g,e.x,e.y)+", на отметке "+level(z0)+(Math.abs(z2-z0)>5?" … "+level(z2):"")+".");return out
   }
@@ -122,9 +132,18 @@
   }
   return out
  }
- function role(e){var r=ROLE[e.group];return r&&typeof r==="object"?r[e.geometry==="column"?"column":"beam"]:r||""}
+ function role(e){var r=TYPE_ROLE[e.type_key]||ROLE[e.group];return r&&typeof r==="object"?r[e.geometry==="column"?"column":"beam"]:r||""}
+ // What it is made of, when the reading of its sheet says (the central ring of a shield roof: its box, ribs, shield).
+ function made(e){
+  var L=e.lay;if(!L||typeof L!=="object"||L.kind!=="central_ring")return[];
+  var out=["Кольцо коробчатого сечения: наружная стенка Ø"+fmt(2*num(L.wall_r_mm))+" и внутренняя обечайка Ø"+fmt(2*num(L.shell_r_mm))+" высотой "+fmt(L.height_mm)+" мм, пояса t"+fmt(L.plate_mm)+"; нижний лист до Ø"+fmt(2*num(e.r))+" — на него опираются щиты."];
+  if(num(L.lugs)>0)out.push(fmt(L.lugs)+" рёбер t"+fmt(L.plate_mm)+" "+fmt((L.lug_mm||[])[0])+"×"+fmt((L.lug_mm||[])[1])+" мм по стыкам щитов"+(L.bolt?", щит крепится к ребру болтом "+L.bolt:"")+".");
+  if(L.cap&&num(L.cap.r_mm)>0)out.push("Сверху центральный щит — конус Ø"+fmt(2*num(L.cap.r_mm))+" из листов t"+fmt(L.cap.t_mm)+" внахлёст, подъём "+fmt(L.cap.rise_mm)+" мм.");
+  return out
+ }
  function section(e){
   var p=String(e.profile||"").trim(),s=String(e.section||"").trim();if(p==="—")p="";
+  if(!p&&e.lay&&e.lay.kind==="central_ring")s="Коробчатое кольцо из листов"+(num(e.lay.plate_mm)>0?" t"+fmt(e.lay.plate_mm):"");
   var low=function(v){return v.toLowerCase().replace(/ё/g,"е")};
   var both=p&&s&&low(p).indexOf(low(s))<0?p+" ("+low(s)+")":p||s;
   return both+(e.standard&&both.indexOf(e.standard)<0?", "+e.standard:"")
@@ -135,9 +154,9 @@
    '<span class="ec-status '+cls+'"'+(e.status_title?' title="'+esc(e.status_title)+'"':"")+'>'+esc(e.status_label||"")+'</span></div>'+(sec?'<div class="ec-section">'+esc(sec)+'</div>':"")
  }
  function what(e){
-  var r=role(e),t=String(e.type_name||"").trim(),other=t&&String(e.name||"").toLowerCase().indexOf(t.toLowerCase())<0;
-  if(!r&&!other)return"";
-  return'<div class="ec-block"><b>Что это</b>'+(r?'<p>'+esc((e.name||t||"Элемент")+" — "+r)+'.</p>':"")+(other?'<p class="ec-muted">Вид в программе: '+esc(t)+'.</p>':"")+'</div>'
+  var r=role(e),t=String(e.type_name||"").trim(),other=t&&String(e.name||"").toLowerCase().indexOf(t.toLowerCase())<0,m=made(e);
+  if(!r&&!other&&!m.length)return"";
+  return'<div class="ec-block"><b>Что это</b>'+(r?'<p>'+esc((e.name||t||"Элемент")+" — "+r)+'.</p>':"")+m.map(function(x){return'<p>'+esc(x)+'</p>'}).join("")+(other?'<p class="ec-muted">Вид в программе: '+esc(t)+'.</p>':"")+'</div>'
  }
  function where(e,g){return'<div class="ec-block"><b>Где стоит</b>'+place(e,g).map(function(s){return'<p>'+esc(s)+'</p>'}).join("")+'</div>'}
  // What a new reading of the drawings gives for an element the engineer changed (his values stay).
@@ -173,7 +192,7 @@
   if(e.r>0)rows.push(["Радиус",fmt(e.r)+(e.ri>0?", внутри "+fmt(e.ri):"")]);
   return'<details class="ec-coords"><summary>Точные координаты, мм</summary>'+rows.map(function(r){return'<div><span>'+esc(r[0])+'</span><b>'+esc(r[1])+'</b></div>'}).join("")+'</details>'
  }
- var api={ROLE:ROLE,FOUND:FOUND,esc:esc,fmt:fmt,level:level,axisOf:axisOf,between:between,range:range,place:place,role:role,section:section,head:head,what:what,where:where,drawings:drawings,coords:coords};
+ var api={ROLE:ROLE,TYPE_ROLE:TYPE_ROLE,made:made,FOUND:FOUND,esc:esc,fmt:fmt,level:level,axisOf:axisOf,between:between,range:range,place:place,role:role,section:section,head:head,what:what,where:where,drawings:drawings,coords:coords};
  root.irSchemeElementCard=api;
  if(typeof module==="object"&&module.exports)module.exports=api;
 })(typeof window!=="undefined"?window:globalThis);

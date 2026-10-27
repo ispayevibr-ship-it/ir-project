@@ -27,7 +27,9 @@ function fixture(kind="bent",qty=5){
   axisXPos:new Map([["1",0],["2",7500],["3",15000]]),axisYPos:new Map([["А",0],["Б",7500],["В",15000]]),
   closestAxis:(v,axes,pos)=>axes.reduce((b,a)=>Math.abs(pos.get(a)-v)<Math.abs(pos.get(b)-v)?a:b),
   recordMarkGroup:()=>({key:"beams",label:"Балки"}),recordWorkId:()=>"work-1",sectionType:r=>r.section_type,
-  num:v=>Number(v)||0,fmt:v=>String(v)
+  num:v=>Number(v)||0,fmt:v=>String(v),
+  // The copy goes to the journal of edits by itself (1.10.36); the journal is tested in test-ai-training-journal.js.
+  journalAuto:()=>Promise.resolve(null)
  };
  return{rows,records,original,copy:vm.runInNewContext("("+file.slice(i,j).trim()+")",env)}
 }

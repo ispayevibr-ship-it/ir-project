@@ -494,7 +494,14 @@ function claudeTankPageOf(ai,t){
   // anchors, bottom sheet, walkway offset): the same things the sheets give when read.
   ...(Array.isArray(t.courses_mm)&&t.courses_mm.length>1?{courses:[t.courses_mm.map(Number)]}:{}),
   ...(t.roof_sectors>0||t.central_ring_outer_mm>0?{roof:{sectors:t.roof_sectors>0?Number(t.roof_sectors):null,kinds:Array.isArray(t.roof_shield_kinds)?t.roof_shield_kinds:[],
-   ring:t.central_ring_outer_mm>0?{outer:Number(t.central_ring_outer_mm),inner:t.central_ring_inner_mm>0?Number(t.central_ring_inner_mm):null}:null,...(t.central_ring_mark==="ЦК1"?{ck:true}:{})}}:{}),
+   // The central ring as its sheet draws it: box height, inner shell, plate, ribs for the shields and their bolt, the
+   // central shield over it (diameter, sheet, rise).
+   ring:t.central_ring_outer_mm>0?{outer:Number(t.central_ring_outer_mm),inner:t.central_ring_inner_mm>0?Number(t.central_ring_inner_mm):null,
+    ...(t.central_ring_height_mm>0?{height:Number(t.central_ring_height_mm)}:{}),...(t.central_ring_shell_mm>0?{shell:Number(t.central_ring_shell_mm)}:{}),
+    ...(t.central_ring_plate_mm>0?{plate:Number(t.central_ring_plate_mm)}:{}),...(t.central_ring_lugs>0?{lugs:Number(t.central_ring_lugs)}:{}),
+    ...(Array.isArray(t.central_ring_lug_mm)&&t.central_ring_lug_mm.length===2?{lug:t.central_ring_lug_mm.map(Number)}:{}),...(t.central_ring_bolt?{bolt:String(t.central_ring_bolt)}:{}),
+    ...(t.central_cap_mm>0?{cap:Number(t.central_cap_mm),...(t.central_cap_rise_mm>0?{capRise:Number(t.central_cap_rise_mm)}:{}),...(t.central_cap_t_mm>0?{capT:Number(t.central_cap_t_mm)}:{})}:{})}:null,
+   ...(t.central_ring_mark==="ЦК1"?{ck:true}:{})}}:{}),
   ...(Array.isArray(t.anchors_deg)&&t.anchors_deg.length?{anchors:{bearings:t.anchors_deg.map(Number),ratio:t.anchors_ratio>0?Number(t.anchors_ratio):1.01}}:{}),
   // The bottom: its thickness and its kind (annular plates or one thickness, rolled or sheet by sheet, the slope).
   ...((()=>{const kind={...(t.bottom_kind==="annular"?{kind:"annular"}:{}),...(t.bottom_assembly==="rolled"||t.bottom_assembly==="sheet"?{assembly:t.bottom_assembly}:{}),

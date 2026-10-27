@@ -1254,6 +1254,45 @@ window.irThreeSchemeView=(function(){
    });
    return segments
   }
+  // The central ring of a shield roof (c.lay.kind "central_ring", src/ai-tank-extract.js; КМ «Покрытие. Центральное
+  // кольцо»): its box section — the outer wall, the inner shell, the top flange and the bottom plate out to the bearing
+  // of the shields —, the ribs the shields are bolted to (one bolt each) and the central shield over it, a cone of sheets
+  // with its seams. Before (1.10.37) a flat ring with a hole: the engineer, 27.10.2026, «там просто отверстие в центре и
+  // все?».
+  function centralRing(c,id,base){
+   var L=c.lay,mm=function(v){return number(v)/1000},mat=baseMaterial(c),parts=[];
+   var pr=mm(c.r),wr=mm(L.wall_r_mm)||Math.max(mm(c.ri)+.08,pr*.8),sr=mm(L.shell_r_mm)||mm(c.ri)||wr-.08,H=mm(L.height_mm)||.2,t=mm(L.plate_mm)||.008;
+   var put=function(m){m.userData.memberId=id;parts.push(m);return m};
+   var annulus=function(r0,r1,h,y){
+    var sh=new T.Shape();sh.absarc(0,0,r1,0,2*Math.PI,false);var hole=new T.Path();hole.absarc(0,0,r0,0,2*Math.PI,true);sh.holes.push(hole);
+    var g=new T.ExtrudeGeometry(sh,{depth:h,bevelEnabled:false,curveSegments:72});g.rotateX(-Math.PI/2);
+    var m=put(new T.Mesh(g,mat));m.position.copy(base);m.position.y+=y;return m};
+   annulus(sr,pr,t,0);annulus(wr-t/2,wr+t/2,H,t);annulus(sr,sr+.006,H,t);annulus(sr,wr+(mm(L.top_out_mm)||.02),t,t+H);
+   // The ribs: a plate on edge from the wall outwards, its top along the roof, its outer end cut; the bolt of the shield.
+   var n=Math.round(number(L.lugs)),lug=Array.isArray(L.lug_mm)?L.lug_mm:[],len=mm(lug[0])||.39,lh=mm(lug[1])||.18,bm=/(\d{2})/.exec(String(L.bolt||"")),bd=bm?number(bm[1])/1000:0;
+   if(n>0&&n<=72){
+    var sh=new T.Shape();sh.moveTo(0,0);sh.lineTo(len,0);sh.lineTo(len*.74,lh-len*.074);sh.lineTo(0,lh);sh.lineTo(0,0);
+    var lg=new T.ExtrudeGeometry(sh,{depth:t,bevelEnabled:false});lg.translate(0,0,-t/2);
+    for(var k=0;k<n;k++){
+     var th=planTheta(number(L.lug_start_deg)+360/n*k),d=new T.Vector3(Math.sin(th),0,Math.cos(th));
+     var rib=put(new T.Mesh(lg,mat));rib.rotation.y=th-Math.PI/2;rib.position.copy(base).add(d.clone().multiplyScalar(wr+t/2));
+     if(bd)addBolt({id:id,joint:{}},base.clone().add(d.clone().multiplyScalar(wr+len*.51)).add(new T.Vector3(0,.08,0)),new T.Vector3(d.z,0,-d.x),bd,t+.009)
+    }
+   }
+   // The central shield: a cone from the bearing on the shields up to the middle, its seams along three diameters.
+   var cap=L.cap&&typeof L.cap==="object"?L.cap:null,cr=cap?mm(cap.r_mm):0,rise=cap?mm(cap.rise_mm):0,cy=cap?mm(cap.base_mm):0;
+   if(cr>pr){
+    var cone=put(new T.Mesh(new T.CylinderGeometry(.002,cr,Math.max(rise,.005),72,1,true),roofMaterial(c)));cone.position.copy(base);cone.position.y+=cy+Math.max(rise,.005)/2;cone.userData.shell=true;cone.userData.roof=true;
+    var apex=base.clone().add(new T.Vector3(0,cy+rise+.004,0));
+    [0,45,90,180,225,270].forEach(function(a){var tt=planTheta(a),e=base.clone().add(new T.Vector3(Math.sin(tt)*cr,cy+.004,Math.cos(tt)*cr)),v=e.clone().sub(apex);
+     var m=put(new T.Mesh(barGeo(.012),jointMat));m.position.copy(apex);m.scale.z=v.length();m.quaternion.setFromUnitVectors(zAxis,v.normalize())})
+   }
+   parts.forEach(function(m){steel.add(m);allMeshes.push(m);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(m)});
+   var lp=base.clone();lp.y+=Math.max(H+2*t,cy+rise)+.35;
+   var le=document.createElement("span");le.className="ir-three-member-label";le.textContent=c.mark||c.title||"";
+   labelLayer.appendChild(le);labels.push({el:le,pos:lp,id:id});
+   return true
+  }
   function buildMembers(list){
    var cached=new Set(meshGeo.values()),gone=new Set();
    allMeshes.forEach(function(m){steel.remove(m);if(!cached.has(m.geometry))gone.add(m.geometry)});gone.forEach(function(g){g.dispose()});
@@ -1278,6 +1317,7 @@ window.irThreeSchemeView=(function(){
     // A round plate: a tank bottom (a disc) or a ring platform (an annulus) lying flat at its level. A plate of an
     // annular ring (sector_deg) is its sector, with its two radial joints; a conical bottom rises to its centre by
     // cone_rise_mm (falls when negative: «уклон к центру»).
+    if(c.lay&&c.lay.kind==="central_ring"&&number(c.r)>0&&centralRing(c,id,p[0]))return;
     if(c.geometryType==="plate"&&number(c.r)>0){
      if(c.lay)drawJoints(c,id,false);
      var ro=number(c.r)/1000,ri=Math.max(0,Math.min(number(c.ri)/1000,ro-.05)),rise=number(c.cr)/1000;

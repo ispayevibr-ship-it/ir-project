@@ -75,6 +75,13 @@ assert(css.includes(".ir-three-place{")&&built.includes(".ir-three-member-label{
 assert(html.indexOf("scheme-three-view.js?v=")<html.indexOf("ir-runtime.js?v="),"script order");
 const scope={window:{},Promise,Map,Set,Math,Number,Array,String,Error,JSON,document:{}};
 vm.runInNewContext(view,scope);
+// The central ring of a shield roof is drawn as the sheet shows it (27.10.2026, «там просто отверстие в центре?»): the box on
+// its bottom plate, the ribs with the bolts of the shields, the central shield cone over it — not a flat ring with a hole.
+assert(/if\(c\.lay&&c\.lay\.kind==="central_ring"&&number\(c\.r\)>0&&centralRing\(c,id,p\[0\]\)\)return;/.test(view),"the ring before the flat plate");
+const ring=view.slice(view.indexOf("function centralRing("),view.indexOf("function buildMembers("));
+assert(/annulus\(sr,pr,t,0\);annulus\(wr-t\/2,wr\+t\/2,H,t\);annulus\(sr,sr\+\.006,H,t\);annulus\(sr,wr\+/.test(ring),"bottom plate, wall, inner shell, top flange");
+assert(/for\(var k=0;k<n;k\+\+\)/.test(ring)&&/addBolt\(\{id:id,joint:\{\}\}/.test(ring),"a rib and a bolt at every joint of the shields");
+assert(/CylinderGeometry\(\.002,cr,/.test(ring)&&/roofMaterial\(c\)/.test(ring),"the central shield cone");
 for(const fn of ["render","dispose","focus","startCopy","startPlacement"])assert.equal(typeof scope.window.irThreeSchemeView[fn],"function",fn);
 assert.equal(scope.window.irThreeSchemeView.focus("1"),undefined,"API calls are safe without a model");
 const manifest=JSON.parse(fs.readFileSync("hot/latest.json","utf8")).files.map(f=>f.target);

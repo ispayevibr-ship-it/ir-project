@@ -890,7 +890,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   // the drawings say of it; the exact coordinates folded away. The tiles of before only when the module is not loaded.
   const EC=window.irSchemeElementCard;
   if(EC){
-   const e={mark:c.mark,name,type_name:String(c.type_name||FITTING_LABEL[c.ft]||""),group:recordMarkGroup(c).key,geometry:c.geometryType,
+   const e={mark:c.mark,name,type_name:String(c.type_name||FITTING_LABEL[c.ft]||""),type_key:String(c.type_key||""),lay:c.lay||null,group:recordMarkGroup(c).key,geometry:c.geometryType,
     profile:profileShown(c),standard:String(c.profile_standard||""),section:sectionShown(c),status:c.status,
     status_label:statusText(c.status),status_title:progress?.total>0?"Статус по ведомости марок":"Статус задан вручную",
     x:c.x,y:c.y,x2:c.x2,y2:c.y2,z0:c.z0,z2:c.z2,mx:c.mx,my:c.my,mz:c.mz,r:c.r,ri:c.ri,sw:c.sw,ft:c.ft,
