@@ -72,6 +72,8 @@ jobs:
         run: node scripts/test-ar-panel-joints.js
       - name: Test packed scheme export
         run: node scripts/test-scheme-export-pack.js
+      - name: Test members at nodes not through each other
+        run: node scripts/test-scheme-joints.js
       - name: Test cached scheme records and in-place refresh
         run: node scripts/test-scheme-performance.js
       - name: Test the 3D montage scheme (only view)
