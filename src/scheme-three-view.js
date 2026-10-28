@@ -1050,8 +1050,15 @@ window.irThreeSchemeView=(function(){
     var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard),gus=p.length===2?sheetGussets(c,p):null;
     // (the web of an I or a channel across X: a member coming in from the open side goes on to it)
     var web=sec&&!braceAngle(c,p[p.length-1].clone().sub(p[0]).normalize())?sec.shape==="ibeam"?[-sec.s/2000,sec.s/2000]:sec.shape==="channel"?[-Math.max(sec.b,sec.b1||0)/2000,-Math.max(sec.b,sec.b1||0)/2000+sec.s/1000]:null:null;
+    // (a column with a part of another section on its top — a tube on an I, ГПЭС К26: the body to there, that part over
+    // it as placed; the girders on its brackets there end at the tube, not at the web of the I under it)
+    var up=upperPart(c),f=up?partFrame(c):null;
     for(var i=0;i+1<p.length;i++){var h=pieceBox(c,p[i],p[i+1]);if(!h)continue;
-     Object.assign(h,{id:id,c:c,m:meta.get(id),tf:sec&&sec.t?sec.t/1000:.01,gus:gus,web:web});add(h);bodies.push(h)}
+     Object.assign(h,{id:id,c:c,m:meta.get(id),tf:sec&&sec.t?sec.t/1000:.01,gus:gus,web:web});
+     if(f){h.s1=Math.max(.3,h.s1-bodyCut(c).top);var A=up.acrossX?f.X:f.Y,B=up.acrossX?f.Y:f.X,hx=(up.acrossX?up.sc:up.sd)/2,hy=(up.acrossX?up.sd:up.sc)/2;
+      var tube={o:f.mid.clone().add(f.d.clone().multiplyScalar(up.a-up.sa/2)).add(A.clone().multiplyScalar(up.c)).add(B.clone().multiplyScalar(up.d)),X:f.X,Y:f.Y,U:f.d,s0:0,s1:up.sa,x0:-hx,x1:hx,y0:-hy,y1:hy,id:id,c:c,m:meta.get(id),tf:.01,gus:null,web:null};
+      add(tube);bodies.push(tube)}
+     add(h);bodies.push(h)}
    });
    var find=function(id,E,d){
     var me=meta.get(id)||{rank:0},best=null;
@@ -1206,6 +1213,61 @@ window.irThreeSchemeView=(function(){
    var list=drillOf(c);if(!list)return;
    list.forEach(function(h){putHole(c,parts,h)})
   }
+  // A girder of a closed tube bearing on seats at its ends (ГПЭС К14, К16 on the brackets of К26, К27; the engineer,
+  // 28.10.2026: «дальше к ригелям приступай»): its sheet draws holes near both ends in a view of its bottom (a cut under
+  // the main view — «4 - 4»: 2 Ø19 50 mm from each end, 25 off the axis), none across its end. Its holes from each end
+  // (mm: at, off, d) and the length of its sheet (m).
+  var seatCache=new Map();
+  function seatOf(c){
+   var id=String(c.id||"");if(seatCache.has(id))return seatCache.get(id);
+   var out=null,sec=c.geometryType==="beam"?sectionOf(c.profile_name||c.profileName,c.profile_standard):null,views=Array.isArray(c.drill)?c.drill:[];
+   if(sec&&(sec.shape==="box"||sec.shape==="round"&&!sec.solid)&&!slight(c)&&!c.cross&&!c.truss)views.forEach(function(v){
+    var len=number(v&&v.length_mm);if(out||!v||v.main||v.dir!=="по горизонтали"||!Array.isArray(v.holes)||!(len>300))return;
+    var edge=Math.max(150,sec.h*1.5),ends=[[],[]];
+    v.holes.forEach(function(h){if(!Array.isArray(h)||number(h[3]))return;var at=number(h[0]),dm=number(h[2]);if(!(dm>0))return;
+     if(at<=edge)ends[0].push({at:at,off:number(h[1]),d:dm});else if(at>=len-edge)ends[1].push({at:len-at,off:number(h[1]),d:dm})});
+    if(ends[0].length&&ends[1].length)out={len:len/1000,ends:ends,sec:sec}
+   });
+   seatCache.set(id,out);return out
+  }
+  // Its ends cut aslant over the seats as its main view draws them (c.bevels.rows, src/ai-parts-place.js sheetBevels:
+  // from the top «100» in, «120» down): [run, drop] m of each end, of a box only (null — cut square).
+  function seatBevels(c){
+   var s=seatOf(c),rows=s&&s.sec.shape==="box"&&c.bevels&&Array.isArray(c.bevels.rows)?c.bevels.rows:[],h=s?s.sec.h/1000:0;
+   var out=[0,1].map(function(k){var r=rows.filter(function(x){return x&&number(x.end)===k&&x.from==="top"})[0],run=r?number(r.run_mm)/1000:0;
+    if(!(run>0&&run<s.len*.25))return null;var drop=number(r.drop_mm)>0?number(r.drop_mm)/1000:number(r.drop)*h;return[run,Math.max(0,Math.min(h,drop)),number(r.cap_mm)/1000]});
+   return out[0]||out[1]?out:null
+  }
+  // At each end: the walls left under the cut (the bottom, the sides down to the end), the cap inside (the plate of the
+  // specification as large as the inside of the tube — «−132×4», its face where the sheet's dimension from the end puts
+  // it, «110», else at the cut), the holes in the bottom with the bolts upright through it and the seat under it (its
+  // leg conventionally 10 mm; the seat itself is the column's: its sheet, addPlaced).
+  function addSeats(c,parts,ends){
+   var s=seatOf(c);if(!s)return;var d=ends[1].clone().sub(ends[0]),L=d.length();if(L<=.3)return;d.divideScalar(L);
+   var q=bodyQuat(c,d),X=new T.Vector3(1,0,0).applyQuaternion(q),Y=new T.Vector3(0,1,0).applyQuaternion(q),sec=s.sec,round=sec.shape==="round";
+   var h=sec.h/1000,b=(round?sec.h:sec.b)/1000,t=number(sec.t)/1000,mat=baseMaterial(c),bolts=boltSizes(c),bev=seatBevels(c)||[null,null];
+   var inner=(round?sec.h:Math.min(sec.h,sec.b))-2*number(sec.t),cap=(c.parts&&Array.isArray(c.parts.rows)?c.parts.rows:[]).map(function(r){return{r:r,sh:partShape(r.section)}}).filter(function(x){
+    return x.sh&&x.sh.kind==="plate"&&x.sh.b<=inner+2&&x.sh.b>=inner-12})[0];
+   var box=function(){return shared("plate:box",function(){return new T.BoxGeometry(1,1,1)})};
+   [0,1].forEach(function(k){
+    var E=ends[k],out=k?d.clone():d.clone().negate(),inw=out.clone().negate(),bv=bev[k],run=bv?bv[0]:0;
+    if(bv){
+     var bot=new T.Mesh(box(),mat);bot.quaternion.copy(q);bot.scale.set(b,t,run);bot.position.copy(E).add(inw.clone().multiplyScalar(run/2)).add(Y.clone().multiplyScalar(-h/2+t/2));bot.userData.plate=true;parts.push(partTag(bot,"торец ригеля"));
+     var stub=Math.max(0,h-bv[1]),sh=new T.Shape();sh.moveTo(0,-h/2);sh.lineTo(run,-h/2);sh.lineTo(run,h/2);sh.lineTo(0,-h/2+Math.max(stub,.002));sh.closePath();
+     var Z=inw.clone().cross(Y).normalize();
+     [-1,1].forEach(function(side){var g=new T.ExtrudeGeometry(sh,{depth:t,bevelEnabled:false,curveSegments:1});g.translate(0,0,-t/2);
+      var w=new T.Mesh(g,mat);w.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(inw,Y,Z));w.position.copy(E).add(Z.clone().multiplyScalar(side*(b/2-t/2)));w.userData.plate=true;parts.push(partTag(w,"торец ригеля"))})
+    }
+    if(cap){var tc=number(cap.sh.t)/1000,at=(bv&&bv[2]>run?bv[2]:run)+tc/2,P=E.clone().add(inw.clone().multiplyScalar(at)),m;
+     if(round){m=new T.Mesh(shared("cap:disc",function(){return new T.CylinderGeometry(1,1,1,24)}),mat);m.quaternion.setFromUnitVectors(boltY,d);m.scale.set(inner/2000,tc,inner/2000)}
+     else{m=new T.Mesh(box(),mat);m.quaternion.copy(q);m.scale.set(Math.min(cap.sh.b,sec.b-2*number(sec.t))/1000,Math.min(number(cap.r.length_mm)||cap.sh.b,sec.h-2*number(sec.t))/1000,tc)}
+     m.position.copy(P);m.userData.plate=true;m.userData.pos=cap.r.pos;parts.push(partTag(m,"заглушка",String(cap.r.section||"")))}
+    s.ends[k].forEach(function(o){
+     var P=E.clone().add(inw.clone().multiplyScalar(o.at/1000)).add(X.clone().multiplyScalar(o.off/1000)),bt=boltFor(bolts,o.d);
+     putHole(c,parts,{at:P.clone().add(Y.clone().multiplyScalar(-h/2+t/2)),axis:Y.clone(),d:o.d/1000,t:t,bolt:0});
+     if(bt)addBolt(c,P.clone().add(Y.clone().multiplyScalar(-h/2+(t-.01)/2)),Y,bt/1000,t+.01)})
+   })
+  }
   // The plates the sheet draws apart in a cut at an end of the mark (c.cuts.rows, src/ai-holes-extract.js sheetHoles
   // sections; ГПЭС Ф15 «8-8»: □320 under the post, 4 holes Ø19): the base plate of a column (baseSize) and the end plate
   // of a beam or the cap of a column — across it at that end, as large as drawn, its holes from its middle as drawn, a
@@ -1345,7 +1407,8 @@ window.irThreeSchemeView=(function(){
    return out
   }
   // The shape of a row's section: a plate «−b×t» (its dash read as «1»: «1125х10» — 125 too, alt), an angle «L a×b×t» (its
-  // «L» read as «1»: «1125х80х10»; of two sizes only with its «L» — «1125х10» is the plate «−125×10», ГПЭС К26 «6»), else a rolled
+  // «L» read as «1»: «1125х80х10»; of two sizes only with its «L» — «1125х10» is taken for the plate «−125×10»; on ГПЭС К26 «6»
+  // it is the angle L125×10, 5,0 kg in 270 mm, the mass read wrong there to tell them apart), else a rolled
   // section of the sortament. A shim («Ст. лист −2…20») is not drawn.
   function partShape(text){
    var t=String(text||"").replace(/\s+/g,"").replace(/[хХ×*]/g,"x").replace(/,/g,".").replace(/\(.*$/,""),m;
@@ -1468,6 +1531,8 @@ window.irThreeSchemeView=(function(){
     if(hi<=.06)out.top=Math.max(out.top,f.L/2-(o.a-o.sa/2)+.01);else if(lo<=.06)out.foot=Math.max(out.foot,o.a+o.sa/2+f.L/2+.01)});
    return out
   }
+  // The rolled part standing on the top of a column (bodyCut): the highest of them.
+  function upperPart(c){return c.place&&c.geometryType==="column"&&bodyCut(c).top>0?placedOf(c).filter(function(o){return o.sh.kind==="rolled"}).sort(function(a,b){return b.a-a.a})[0]||null:null}
   function addPlaced(c,parts){
    var f=partFrame(c);if(!f)return;var list=placedOf(c);if(!list.length)return;var up=new T.Vector3(0,1,0);
    list.forEach(function(o){
@@ -1545,7 +1610,7 @@ window.irThreeSchemeView=(function(){
   // `outer` — which ends of the piece are ends of the member (a bent member's middle point is not).
   function trimSegment(c,id,a,b,host,parts,outer){
    var v=b.clone().sub(a),L=v.length();if(L<.3)return[a,b];v.divideScalar(L);
-   var brace=c.geometryType==="brace"||kind(c)==="ties",ends=[[a,v],[b,v.clone().negate()]],out=[a.clone(),b.clone()];
+   var brace=c.geometryType==="brace"||kind(c)==="ties",ends=[[a,v],[b,v.clone().negate()]],out=[a.clone(),b.clone()],onSeat=!brace&&seatOf(c),faced=[false,false];
    // (the section about P — its line and its corners — in another member's body but skip's)
    var q0=bodyQuat(c,v),hs0=halfSection(c),X0=new T.Vector3(1,0,0).applyQuaternion(q0),Y0=new T.Vector3(0,1,0).applyQuaternion(q0);
    var blocked=function(P,skip){return[[0,0],[-.9,-.9],[-.9,.9],[.9,-.9],[.9,.9]].some(function(k){return host.inside(id,P.clone().add(X0.clone().multiplyScalar(k[0]*hs0.b)).add(Y0.clone().multiplyScalar(k[1]*hs0.h)),skip)})};
@@ -1554,8 +1619,9 @@ window.irThreeSchemeView=(function(){
     var hit=host(id,e[0],e[1]),E0=e[0];
     // An end short of the body ahead of it (up to 250 mm) is drawn on to it: as mounted, it bears on it; a gap was a
     // break in the node (the engineer, 27.10.2026, «обрывов нет»). Drawn only: the scheme keeps its coordinates.
-    // (not where it meets other members at its end point, nor through another member lying on its line)
-    if(!hit&&!host.node(e[0]))for(var r=.03;r<=.25&&!hit;r+=.03){var P=e[0].clone().sub(e[1].clone().multiplyScalar(r));if(blocked(P))break;hit=host(id,P,e[1]);if(hit)E0=P}
+    // (not where it meets other members at its end point, nor through another member lying on its line; the step into the
+    // body ahead is no such: the end of ГПЭС К16 44 mm short of the tube of К27 stopped there, 60 mm on inside it)
+    if(!hit&&!host.node(e[0]))for(var r=.03;r<=.25&&!hit;r+=.03){var P=e[0].clone().sub(e[1].clone().multiplyScalar(r)),got=host(id,P,e[1]);if(got&&!blocked(P,got.body)){hit=got;E0=P;break}if(blocked(P))break}
     if(!hit){
      // Braces meeting at a point with nothing through it: one gusset there, the braces 120 mm short of the point.
      var node=brace&&host.node(e[0]);if(!node)return;
@@ -1597,12 +1663,14 @@ window.irThreeSchemeView=(function(){
     // (its sheet's end plate goes to the web when the member has room between the flanges)
     // (nor through another member standing between the flanges)
     var clear=function(){return[.01,.5,1].every(function(f){return!blocked(E0.clone().add(e[1].clone().multiplyScalar(hit.web+.01+(hit.t-hit.web-.01)*f)),hit.body)})};
-    if(!brace&&hit.web!==undefined&&clear()){var wj=sheetPlate?roomAt(c,E0,v,hit)?hit.web:null:webJoint(c,E0,e[1],v,hit,parts);
+    if(!brace&&!onSeat&&hit.web!==undefined&&clear()){var wj=sheetPlate?roomAt(c,E0,v,hit)?hit.web:null:webJoint(c,E0,e[1],v,hit,parts);
      if(wj!==null){out[k]=E0.clone().add(e[1].clone().multiplyScalar(wj));return}}
     out[k]=E0.clone().add(e[1].clone().multiplyScalar(cut));
     if(!brace){
-     // A beam at a face: an end plate there, its bolts through it into the face — none where its sheet draws its own (addCuts).
-     if(!dia||endCuts(c).some(function(q){return q.end===k}))return;var hs=halfSection(c),d0=e[1],side0=Math.abs(d0.y)>.9?new T.Vector3(1,0,0):new T.Vector3(0,1,0).cross(d0).normalize(),up0=d0.clone().cross(side0).normalize();
+     // A beam at a face: an end plate there, its bolts through it into the face — none where its sheet draws its own (addCuts),
+     // nor on a seat (addSeats: its bolts upright through its bottom).
+     faced[k]=true;
+     if(!dia||onSeat||endCuts(c).some(function(q){return q.end===k}))return;var hs=halfSection(c),d0=e[1],side0=Math.abs(d0.y)>.9?new T.Vector3(1,0,0):new T.Vector3(0,1,0).cross(d0).normalize(),up0=d0.clone().cross(side0).normalize();
      // ((side, up, along) right-handed: the left-handed one turned the plate edge-on across the beam's end)
      var at0=E0.clone().add(d0.clone().multiplyScalar(face+.008));
      // (flush with the top of the beam — a deck, a purlin lies on it — and 40 mm below it)
@@ -1651,6 +1719,10 @@ window.irThreeSchemeView=(function(){
     g.position.copy(E0).add(hd.clone().multiplyScalar((h0+h1)/2));g.position.y=E0.y+d.y*(end+run/2);
     if(dia&&!ownBolts)boltRow(dia).forEach(function(s){addBolt(c,E0.clone().add(d.clone().multiplyScalar(end+s)),side,dia,gt+legT(c))})
    });
+   // (a girder on seats between two faces: as long as its sheet, in the middle between them — ГПЭС К16 4070 between the
+   // tubes of К26 and К27, 4090 apart: 10 mm off each)
+   if(onSeat&&faced[0]&&faced[1]&&onSeat.len<=dist(out[0],out[1])+.002){var mid=out[0].clone().add(out[1]).multiplyScalar(.5),w=out[1].clone().sub(out[0]).normalize();
+    out=[mid.clone().sub(w.clone().multiplyScalar(onSeat.len/2)),mid.clone().add(w.clone().multiplyScalar(onSeat.len/2))]}
    return out
   }
   // ---- Braces and struts in the plane of a roof (горизонтальные связи Сг, распорки Рс) are given at the top of the
@@ -1659,6 +1731,21 @@ window.irThreeSchemeView=(function(){
   // under the top flange of the beam it ends on; drawn at the top they went through the purlins. Only at a beam that
   // carries something (a purlin, a beam lying on its top); the ends meeting at one point go down together.
   var hangDrop=new Map();
+  // A girder on seats at a column (seatOf) is no higher than the column's top there: its top at it (ГПЭС К14, К16 at
+  // +11,100 on the elevation by axis А — the top of К26: its brackets 130 under its cap of 10, the tube 140 on them; by
+  // its axis there it stood 70 mm over the column). Drawn only: the scheme keeps its level.
+  function seatLevels(list){
+   var cols=list.filter(function(c){return c.geometryType==="column"&&c.id&&!c.ft&&!slight(c)});if(!cols.length)return;
+   list.forEach(function(b){
+    var s=b.geometryType==="beam"&&b.id?seatOf(b):null;if(!s)return;
+    var hb=s.sec.h/2,drop=0;
+    [[number(b.x),number(b.y),number(b.z0)],[number(b.x2),number(b.y2),number(b.z2)]].forEach(function(e){cols.forEach(function(c){
+     var hs=planHalf(c),top=number(topOf(c));
+     if(Math.hypot(number(c.x)-e[0],number(c.y)-e[1])>Math.max(hs.x,hs.z)*1000+300||e[2]<number(c.z0))return;
+     if(e[2]+hb>top+2&&e[2]-hb<top)drop=Math.max(drop,e[2]+hb-top)})});
+    if(drop>0){var hd=hangDrop.get(String(b.id))||[0,0];hangDrop.set(String(b.id),[hd[0]+drop,hd[1]+drop])}
+   })
+  }
   // The top chord of a truss holds the purlins on its horizontal legs (drawn by axis, see drawMembers): the struts and
   // braces «по верхним поясам» ending at its level are bolted to the gussets under them, like those under a roof beam.
   function chordHosts(c){
@@ -2038,10 +2125,10 @@ window.irThreeSchemeView=(function(){
   function buildMembers(list){
    var cached=new Set(meshGeo.values()),gone=new Set();
    allMeshes.forEach(function(m){steel.remove(m);if(!cached.has(m.geometry))gone.add(m.geometry)});gone.forEach(function(g){g.dispose()});
-   allMeshes=[];boltList=[];dataById.clear();meshesById.clear();failures=0;conventional.clear();drillCache.clear();upperCache.clear();
+   allMeshes=[];boltList=[];dataById.clear();meshesById.clear();failures=0;conventional.clear();drillCache.clear();upperCache.clear();seatCache.clear();
    labels.forEach(function(l){l.el.remove()});labels=[];
    elems=Array.isArray(list)?list:[];
-   branchTurns(elems);seatOnTops(elems);hangTies(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);
+   branchTurns(elems);seatOnTops(elems);hangTies(elems);seatLevels(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);
    var host=jointHosts(elems);findCrossings(elems,host);
    // (trusses and two-branch columns first: the members coming to them stop at their chords and branches)
    var lattice=function(c){return Boolean(c.truss&&Array.isArray(c.truss.members)&&c.truss.members.length||c.column&&Array.isArray(c.column.members)&&c.column.members.length)};
@@ -2186,7 +2273,10 @@ window.irThreeSchemeView=(function(){
     if(c.geometryType!=="column"&&segments.length===1&&c.place){var bk=bodyCut(c);
      if(bk.top>0){var bf=partFrame(c),bs=segments[0],bu=bs[1].clone().sub(bs[0]).normalize(),b0=bk.foot-bf.d.dot(bs[0].clone().sub(bf.p[0])),b1=bk.top-bf.d.dot(bf.p[1].clone().sub(bs[1]));
       if(dist(bs[0],bs[1])-Math.max(0,b0)-Math.max(0,b1)>.1)segments=[[bs[0].clone().add(bu.clone().multiplyScalar(Math.max(0,b0))),bs[1].clone().sub(bu.clone().multiplyScalar(Math.max(0,b1)))]]}}
-    addDrill(c,extra);addPlates(c,extra);addGussets(c,extra);addCuts(c,extra,[segments[0][0],segments[segments.length-1][1]]);addPlaced(c,extra);
+    // (a girder on seats cut aslant at its ends: the whole section between the cuts, its ends addSeats draws)
+    var seatEnds=[segments[0][0].clone(),segments[segments.length-1][1].clone()],sbv=segments.length===1?seatBevels(c):null;
+    if(sbv){var su=seatEnds[1].clone().sub(seatEnds[0]).normalize();segments=[[seatEnds[0].clone().add(su.clone().multiplyScalar(sbv[0]?sbv[0][0]:0)),seatEnds[1].clone().sub(su.clone().multiplyScalar(sbv[1]?sbv[1][0]:0))]]}
+    addDrill(c,extra);addPlates(c,extra);addGussets(c,extra);addCuts(c,extra,[segments[0][0],segments[segments.length-1][1]]);addPlaced(c,extra);addSeats(c,extra,seatEnds);
     extra.forEach(function(m){m.userData.memberId=id;steel.add(m);allMeshes.push(m);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(m)});
     segments.forEach(function(points){
      if(!sectionOf(c.profile_name||c.profileName,c.profile_standard))conventional.add(id);
@@ -2604,7 +2694,7 @@ window.irThreeSchemeView=(function(){
     // (none where its sheet draws its own in a cut at the top, addCuts)
     var ov=seatTop.has(String(col.c.id))?.04:0;
     // (on a part of another section standing on its top — a tube on an I, ГПЭС К26: the size of that part)
-    var up=col.c.place&&bodyCut(col.c).top>0?placedOf(col.c).filter(function(o){return o.sh.kind==="rolled"}).sort(function(a,b){return b.a-a.a})[0]:null;
+    var up=upperPart(col.c);
     if(up){hh=up.sh.sec.h/1000;bw=(up.sh.sec.shape==="round"?up.sh.sec.h:Math.max(up.sh.sec.b,number(up.sh.sec.b1)))/1000}
     if(!endCuts(col.c).some(function(e){return e.end===1})){var cap=new T.Mesh(shared("cap:"+bw+":"+hh+":"+ov,function(){return new T.BoxGeometry(bw+ov,.02,hh+ov)}),plateMat);cap.position.y=.01;g.add(cap)}
    }

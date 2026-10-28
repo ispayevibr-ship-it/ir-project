@@ -23,7 +23,7 @@ assert.equal(second.x2_mm,2430,"a gap of 1200 is an opening: left");assert.equal
 const view=fs.readFileSync(__dirname+"/../src/scheme-three-view.js","utf8");
 assert.ok(!/len-\.012/.test(view),"no gap between panels");assert.match(view,/var gl=len,cut=/);
 assert.match(view,/function wallSeams\(len,h,feet,holes\)/);assert.match(view,/new T\.Mesh\(shared\("plate:box",function\(\)\{return new T\.BoxGeometry\(1,1,1\)\}\),jointMat\);sm\.quaternion\.copy\(q\);sm\.scale\.set\(pt\+\.006/);
-assert.match(view,/function wallCuts\(list\)/);assert.match(view,/seatOnTops\(elems\);hangTies\(elems\);wallCuts\(elems\);/);
+assert.match(view,/function wallCuts\(list\)/);assert.match(view,/seatOnTops\(elems\);hangTies\(elems\);seatLevels\(elems\);wallCuts\(elems\);/);
 assert.match(view,/\.concat\(wallHoles\.get\(id\)\|\|\[\]\)/);
 // wallSeams: both edges, from the foot (the slope of a lower roof) to the top, less the holes that reach the edge.
 const ws=new Function(view.match(/function wallSeams\(len,h,feet,holes\)\{[\s\S]*?\n  \}\n/)[0]+";return wallSeams")();

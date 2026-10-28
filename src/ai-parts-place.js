@@ -6,6 +6,7 @@
 // member from the start of its view (as the holes, src/ai-holes-extract.js), across from its axis (+ down, or + left of
 // an upright one), on each view it is drawn on; the view says which face of an I it shows (facesOf).
 const {dedupe,gridOf,projector,facesOf,thickOf}=require("./ai-holes-extract");
+const {dimensionsOf}=require("./ai-scheme-extract");
 
 const dist=(p,q)=>Math.hypot(p.x-q.x,p.y-q.y);
 const NUMBER=/^(\d{1,2})([а-яё]?)$/u;
@@ -144,4 +145,33 @@ function sheetParts(geo={},{seeded=null}={}){
  }
  return[...byMark].map(([mark,rows])=>({mark,rows}))
 }
-module.exports={sheetParts,balloonsOf,leadersOf,regionAt};
+// The ends of the members cut aslant on their main views drawn along the sheet (a tube cut over its seat — ГПЭС К14,
+// К16: from its top 100 mm in down to 20 mm over its bottom at the end, «100», «120»; the cap welded in 110 from the
+// end, «110»): [{mark, view, rows:[{end, from, run_mm, drop_mm, drop, cap_mm}]}] — end 0 at the start of the view (its
+// left), from the edge it is cut from (top, bottom), run along it, drop across from it — drop_mm by the dimension of its
+// span, drop the part of the width drawn (a view drawn to another scale across); cap_mm — the dimension from the end a
+// little past the cut (up to 60 mm): a plate across inside.
+function sheetBevels(geo={},{seeded=null}={}){
+ if(!seeded||!seeded.members)return[];
+ const segs=dedupe(geo.segments||[]),thick=thickOf(segs);if(!thick)return[];
+ const bold=segs.filter(thick),dims=dimensionsOf(geo.texts||[],geo.segments||[]),out=[];
+ for(const {g,view} of seeded.members){
+  if(!g.who?.main||!(g.length>0)||Math.abs(g.u.x)<0.99)continue;
+  const proj=projector(g),w=g.hi-g.lo,L=g.s1-g.s0,rows=[];
+  for(const q of bold){const p=proj(q);
+   if(Math.abs(p.a-p.b)<1||Math.abs(p.c-p.d)<w*0.3||Math.min(p.c,p.d)<g.lo-1.5||Math.max(p.c,p.d)>g.hi+1.5)continue;
+   for(const end of [0,1]){
+    const e=end?g.s1:g.s0,[near,far]=Math.abs(p.a-e)<=Math.abs(p.b-e)?[[p.a,p.c],[p.b,p.d]]:[[p.b,p.d],[p.a,p.c]];
+    if(Math.abs(near[0]-e)>1.5||Math.abs(far[0]-e)>0.3*L||rows.some(r=>r.end===end))continue;
+    const from=Math.abs(far[1]-g.lo)<=1.5?"top":Math.abs(far[1]-g.hi)<=1.5?"bottom":null;if(!from)continue;
+    const run=Math.round(Math.abs(g.alongMm(far[0])-g.alongMm(e))),lo=Math.min(near[1],far[1]),hi=Math.max(near[1],far[1]);if(!(run>0))continue;
+    const across=dims.filter(d=>!d.flat&&Math.abs(d.lo-lo)<=1.5&&Math.abs(d.hi-hi)<=1.5&&Math.abs(d.line-e)<=150).sort((x,y)=>Math.abs(x.line-e)-Math.abs(y.line-e))[0];
+    const cap=dims.filter(d=>d.flat&&(end?Math.abs(d.hi-e)<=1.5:Math.abs(d.lo-e)<=1.5)&&d.v>run&&d.v<=run+60&&d.line>g.lo-150&&d.line<g.hi+150).sort((x,y)=>x.v-y.v)[0];
+    rows.push({end,from,run_mm:run,drop_mm:across?across.v:null,drop:Math.round((hi-lo)/w*100)/100,...(cap?{cap_mm:cap.v}:{})})
+   }
+  }
+  if(rows.length)for(const mark of g.who.named||g.who.view?.marks||view.marks||[])out.push({mark,view:view.title,rows:rows.sort((x,y)=>x.end-y.end)})
+ }
+ return out
+}
+module.exports={sheetParts,sheetBevels,balloonsOf,leadersOf,regionAt};

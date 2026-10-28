@@ -18,7 +18,7 @@ assert.ok(view.includes("var face=Math.min(hit.t,L*.4),cut=Math.min(face+(brace?
 // Braces: the plane of the gussets from the braces it crosses or meets (a bracing in a roof slope lies in the slope),
 // the angles beside the gusset (a pair either side of it), the halves of a crossing clear of each other's edges.
 assert.match(view,/function bracePlanes\(list\)\{/);assert.match(view,/function braceAngle\(c,u\)\{/);
-assert.ok(view.includes("seatOnTops(elems);hangTies(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);"),"planes known before the members are drawn");
+assert.ok(view.includes("seatOnTops(elems);hangTies(elems);seatLevels(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);"),"planes known before the members are drawn");
 assert.ok(view.includes("function planeWidth(c){")&&view.includes("+(cut?planeWidth(cut)*cs/sin:0)+.03"),"the halves of a crossing clear of each other");
 // Beams crossing in the middle: the lower one is cut round the one running through (no node gusset for those).
 assert.ok(view.includes("crossCut.get(cut.id).push({at:P,n:cut.U.clone().cross(thr.U).normalize(),g:g,through:thr.c,plain:true,body:thr,host:host})"),"a plain crossing splits the lower");
@@ -49,7 +49,7 @@ assert.equal(pc.panelExt.size,0,"a wall 800 mm off is no corner");
 // members meet at its point; a member coming to an I or a channel from its open side goes on to its web, 10 mm short —
 // whole when it has room between the flanges, else its flanges cut back and its web on —, a plate on the web with its
 // bolts; so too the halves of a plain crossing. Drawn only: the scheme keeps its coordinates.
-assert.ok(view.includes("for(var r=.03;r<=.25&&!hit;r+=.03){var P=e[0].clone().sub(e[1].clone().multiplyScalar(r));if(blocked(P))break;hit=host(id,P,e[1]);if(hit)E0=P}"),"an end reaches the body ahead");
+assert.ok(view.includes("for(var r=.03;r<=.25&&!hit;r+=.03){var P=e[0].clone().sub(e[1].clone().multiplyScalar(r)),got=host(id,P,e[1]);if(got&&!blocked(P,got.body)){hit=got;E0=P;break}if(blocked(P))break}"),"an end reaches the body ahead");
 assert.ok(view.includes("if(!hit&&!host.node(e[0]))"),"not where members meet at a point");
 assert.match(view,/function webJoint\(c,E,d,u,hit,parts\)\{/);assert.match(view,/function roomAt\(c,E,u,hit\)\{/);
 assert.ok(view.includes("var w=free?webJoint(c,cr.at,d,u,x,parts||[]):null,g=w!==null?w:x.t;"),"the halves of a plain crossing to the web");

@@ -218,8 +218,10 @@ function edgeLines(segs,dimLine,{widthPt=0,heightPt=0,thick=null}={}){
  const frame=L=>Math.abs(L.u.x)>0.999?widthPt>0&&L.s1-L.s0>=widthPt*0.93:Math.abs(L.u.y)>0.999&&heightPt>0&&L.s1-L.s0>=heightPt*0.93;
  const edge=L=>L.cover>=(L.s1-L.s0)*0.6&&L.longest>=(L.s1-L.s0)*0.2&&!frame(L);
  // (two views in a row on the sheet, their edges on one line: each apart — ГПЭС К41 beside К39, 248 pt between)
+ // (each a third of the longest of them at least, not of the whole line: ГПЭС К15 «1 - 1», its lower edge on one line
+ // with rows of the table at the other side of the sheet)
  const runs=L=>{const out=[];for(const q of L.pieces.slice().sort((a,b)=>a.s0-b.s0)){const r=out[out.length-1];if(r&&q.s0-r.s1<=100){r.pieces.push(q);r.s1=Math.max(r.s1,q.s1)}else out.push({u:L.u,n:L.n,off:L.off,s0:q.s0,s1:q.s1,pieces:[q]})}
-  for(const r of out)measure(r);return out.length>1?out.filter(r=>edge(r)&&r.s1-r.s0>=Math.max(300,(L.s1-L.s0)*0.3)):[]};
+  for(const r of out)measure(r);const most=Math.max(...out.map(r=>r.s1-r.s0));return out.length>1?out.filter(r=>edge(r)&&r.s1-r.s0>=Math.max(300,most*0.3)):[]};
  return lines.flatMap(L=>edge(L)?[L]:runs(L))
 }
 // The member's view around a sign: the nearest edge on each side of it, of one direction, the sign within their
@@ -246,7 +248,11 @@ function memberBand(h,edges,segs=null){
    for(const q of segs){const p0=q.a.x*u.x+q.a.y*u.y,p1=q.b.x*u.x+q.b.y*u.y,c0=q.a.x*n.x+q.a.y*n.y,c1=q.b.x*n.x+q.b.y*n.y;
     if(Math.abs(p0-p1)<=0.6){ends.forEach((e,k)=>{if(Math.abs((p0+p1)/2-e)<=Math.max(2,(hi-lo)*0.1))cover[k].push([Math.max(Math.min(c0,c1),lo),Math.min(Math.max(c0,c1),hi)])});continue}
     const at=(p,c,L)=>Math.abs(c-L.off)<=2&&(Math.abs(p-L.s0)<=2||Math.abs(p-L.s1)<=2);
-    if(at(p0,c0,a)&&at(p1,c1,b)||at(p0,c0,b)&&at(p1,c1,a))return true}
+    if(at(p0,c0,a)&&at(p1,c1,b)||at(p0,c0,b)&&at(p1,c1,a))return true;
+    // (an end cut aslant: from the end of one edge down to the end of the other, short of it across — a tube cut over
+    // its seat, ГПЭС К16: from the top 100 mm in to 20 mm over the bottom at its end)
+    const cut=(p,c,L)=>(Math.abs(p-L.s0)<=2||Math.abs(p-L.s1)<=2)&&c>=lo-1&&c<=hi+1;
+    if(Math.abs(c0-c1)>=(hi-lo)*0.4&&Math.abs(p0-p1)>=1&&(at(p0,c0,a)&&cut(p1,c1,b)||at(p1,c1,a)&&cut(p0,c0,b)||at(p0,c0,b)&&cut(p1,c1,a)||at(p1,c1,b)&&cut(p0,c0,a)))return true}
    return cover.some(iv=>{let c=0,e=-Infinity;for(const [x,y] of iv.filter(([x,y])=>y>x).sort((p,q)=>p[0]-q[0])){if(y<=e)continue;c+=y-Math.max(x,e);e=y}return c>=(hi-lo)*0.8})};
   if(!joined(above,below))continue;
   // The outline goes on past a line inside the member (its web drawn in a plan of a flange, a stiffener's edge): the
@@ -335,14 +341,16 @@ function ownerOf(g,texts,titled,strokes=[]){
   const above=titled.filter(v=>{const t=v.title_at;return upright?across(t)>=g.lo-200&&across(t)<=g.hi+200&&along(t)<g.s0:along(t)>=g.s0-40&&along(t)<=g.s1+40&&across(t)<g.lo}).sort((a,b)=>off(a.title_at)-off(b.title_at));
   // (a view not as long as this one when the title next over it alone is: a cut lettered otherwise than its arrows, ГПЭС
   // «4 - 4» of К16 under arrows «2», К18's «по4» nearer)
-  const long=v=>Number(v.length_mm)>0&&Math.abs(v.length_mm-g.length)<=Math.max(10,g.length*0.01),fit=titled.filter(long);
-  const sure=v=>v&&Number(v.length_mm)>0&&!long(v)&&fit.length===1&&above[0]===fit[0]?fit[0]:v;
+  // (of two as long, the nearer by its length: «4 - 4» of К14 2205, К12 2195 on the sheet too)
+  const long=v=>Number(v.length_mm)>0&&Math.abs(v.length_mm-g.length)<=Math.max(10,g.length*0.01),fit=titled.filter(long),by=v=>Math.abs(v.length_mm-g.length);
+  const sure=v=>v&&Number(v.length_mm)>0&&!long(v)&&above[0]&&long(above[0])&&fit.every(f=>by(f)>=by(above[0]))?above[0]:v;
   // (no cut of its letter by it — the arrows lettered otherwise, ГПЭС «4 - 4» of К14 under arrows «8»: the title nearest it)
   const cutAt=pair?{cut:placeOf(pair)}:{};
   // (a section drawn far from its cut, the cut on a view of the sheet: that view's — ГПЭС «8-8» drawn under Ф14, its
   // arrows at the foot of Ф15)
   const on=pair?titled.filter(v=>inBox(pair,v.box)):[];
-  if(pair&&off(pair)>300){const v=(on.length===1?on[0]:null)||above[0]||titled.slice().sort((a,b)=>off(a.title_at)-off(b.title_at))[0];if(v)return{title,view:on.length===1?v:sure(v),...cutAt}}
+  // (not when that view is not as long and the one next over it is: «4 - 4» of К14 under it, «по4» on К10 by К10's own cut)
+  if(pair&&off(pair)>300){const v=(on.length===1?on[0]:null)||above[0]||titled.slice().sort((a,b)=>off(a.title_at)-off(b.title_at))[0];if(v)return{title,view:sure(v),...cutAt}}
   let best=null;
   for(const a of pair?[pair]:arrows)for(const v of titled){const d=Math.hypot(a.x-v.title_at.x,a.y-v.title_at.y);if(!best||d<best.d)best={d,v}}
   return{title,view:sure(best?.v)||(titled.length===1?titled[0]:null),...cutAt}
