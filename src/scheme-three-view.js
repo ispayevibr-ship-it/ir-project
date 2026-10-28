@@ -1127,37 +1127,103 @@ window.irThreeSchemeView=(function(){
    find.made=new Set();find.bodies=bodies;
    return find
   }
-  // Bolts of a joint as its sheet gives them (c.joint.bolt «М24», class «8.8»), each as a set by the standards: a hex
-  // head (ГОСТ 7798: S, k), a washer under it (ГОСТ 11371: d2, s), the shank through the package, two nuts (ГОСТ 5915:
-  // S, m) and the end of the thread two pitches out. The spring washer under the nut (ГОСТ 6402) is not drawn: its sizes
-  // are not confirmed in the base. Class 8.8 dark, 5.8 light. Number and places of the bolts are of the КМД (two on a
-  // gusset, four through an end plate), not of the scheme. The sets are not separate meshes: they go straight into the
-  // merged picture of their cell (thousands of bolts × five parts as objects took the memory).
-  var boltMats={"8.8":new T.MeshStandardMaterial({color:0x2a2e35,metalness:.45,roughness:.45}),"5.8":new T.MeshStandardMaterial({color:0x8d949c,metalness:.55,roughness:.4})};
+  // Bolts of a joint as its sheet gives them (c.joint.bolt «М24», class «8.8»), each as a set by the standards (the
+  // engineer, 28.10.2026: «БОЛТЫ, шайбы, гайки нормально прорисуй, а то ничего не понятно»): the head of ГОСТ 7798 (S, k)
+  // and the nuts of ГОСТ 5915 (S, m) hexagons with their edges chamfered at 30° — the arcs on their faces —, the washers
+  // of ГОСТ 11371 (d2, s) round, the end of the thread out past the nuts three pitches with its turns (ГОСТ 24705). The
+  // set as the list of fasteners of the sheet gives it for each bolt (joint.set: nuts, washers), else as СП 70.13330
+  // (п. 4.5.7) makes it: a washer under the nut, the nut and a lock nut; a high-strength bolt (class 10.9 and over) — a
+  // washer under its head and under its nut, one nut. The spring washer (ГОСТ 6402) is not drawn: its sizes are not
+  // confirmed in the base. Class 8.8 and over dark, 5.8 light, the washers lighter. Number and places of the bolts are of
+  // the КМД (two on a gusset, four through an end plate), not of the scheme. The sets are not separate meshes: they go
+  // straight into the merged picture of their cell, made only when the camera comes near it (lod).
+  var boltMats={"8.8":new T.MeshStandardMaterial({color:0x3a3f47,metalness:.6,roughness:.38}),"5.8":new T.MeshStandardMaterial({color:0x9aa1a9,metalness:.65,roughness:.32})};
+  var washerMats={"8.8":new T.MeshStandardMaterial({color:0x6b717a,metalness:.6,roughness:.35}),"5.8":new T.MeshStandardMaterial({color:0xc3c8ce,metalness:.65,roughness:.3})};
   var boltList=[];
   // (a member with its holes from its sheet has its bolts in them, not the conventional ones)
   function boltDia(c){var m=/(\d{2})/.exec(String(c.joint&&c.joint.bolt||""));return m&&!slight(c)&&!drillOf(c)?number(m[1])/1000:0}
+  // The sizes of the set of a diameter by the base; of a diameter the base has not, those of the nearest one in its
+  // proportion (dmm: the bolt's own, d: the one the sizes are of).
   function boltSet(dmm){
-   var b=fasteners.get("bolt:"+dmm),n=fasteners.get("nut:"+dmm),w=fasteners.get("washer:"+dmm),p=fasteners.get("pitch:"+dmm);
-   return b&&n&&w&&b.S_mm&&b.k_mm&&n.S_mm&&n.m_mm&&w.d2_mm&&w.s_mm?{S:b.S_mm/1000,k:b.k_mm/1000,nS:n.S_mm/1000,m:n.m_mm/1000,d2:w.d2_mm/1000,s:w.s_mm/1000,p:p&&p.pitch_mm?p.pitch_mm/1000:0}:null
+   var of=function(d){var b=fasteners.get("bolt:"+d),n=fasteners.get("nut:"+d),w=fasteners.get("washer:"+d),p=fasteners.get("pitch:"+d);
+    return b&&n&&w&&b.S_mm&&b.k_mm&&n.S_mm&&n.m_mm&&w.d2_mm&&w.s_mm?{d:d,S:b.S_mm,k:b.k_mm,nS:n.S_mm,m:n.m_mm,d2:w.d2_mm,s:w.s_mm,p:p&&p.pitch_mm?p.pitch_mm:0}:null};
+   var own=of(dmm);if(own)return scaleSet(own,1);
+   var near=null;fasteners.forEach(function(r,k){var d=k.indexOf("bolt:")===0?number(k.slice(5)):0;if(d&&of(d)&&(!near||Math.abs(d-dmm)<Math.abs(near-dmm)))near=d});
+   return near?scaleSet(of(near),dmm/near):null
   }
-  // `at` — the middle of the package, `axis` — toward the head, `grip` — the package thickness.
-  function addBolt(c,at,axis,dia,grip){
-   var cls=String(c.joint&&c.joint.cls||"")==="8.8"||/^(?:8\.8|10\.9|12\.9)$/.test(String(c.joint&&c.joint.cls||""))?"8.8":"5.8";
-   boltList.push({id:String(c.id||""),at:at.clone(),axis:axis.clone().normalize(),d:dia,grip:grip,cls:cls})
+  function scaleSet(o,f){return{d:o.d,S:o.S*f/1000,k:o.k*f/1000,nS:o.nS*f/1000,m:o.m*f/1000,d2:o.d2*f/1000,s:o.s*f/1000,p:(o.p||0)*f/1000,scaled:f!==1}}
+  // The set of a bolt: washers and nuts by the sheet, else by СП 70.13330.
+  function boltKit(c,cls){
+   var j=c.joint||{},k=j.set&&typeof j.set==="object"?j.set:{},high=/^(?:10\.9|12\.9)$/.test(cls)||/высокопр/iu.test(String(j.text||""));
+   var nuts=number(k.nuts),washers=number(k.washers);
+   return{nuts:nuts>=1&&nuts<=2?Math.round(nuts):high?1:2,washers:washers>=1&&washers<=2?Math.round(washers):high?2:1,bySheet:nuts>0||washers>0,high:high}
+  }
+  // `at` — the middle of the package, `axis` — toward the head, `grip` — the package thickness; `how` — where its place
+  // is from: "sheet" (the holes of the assembly sheet), "node" (the drawing of the node), else conventional.
+  function addBolt(c,at,axis,dia,grip,how){
+   var raw=String(c.joint&&c.joint.cls||""),cls=/^(?:8\.8|10\.9|12\.9)$/.test(raw)?"8.8":"5.8",kit=boltKit(c,raw);
+   boltList.push({id:String(c.id||""),at:at.clone(),axis:axis.clone().normalize(),d:dia,grip:grip,cls:cls,raw:raw,how:how||"",nuts:kit.nuts,washers:kit.washers,bySheet:kit.bySheet,high:kit.high})
   }
   var boltY=new T.Vector3(0,1,0);
+  // A hexagon of a head or a nut, S across its flats, h high from 0 up; its edges chamfered at 30° from a circle 0.95 S
+  // across at the top (top) and the bottom (bottom); through it a hole of radius `hole` (a nut).
+  function hexGeo(S,h,top,bottom,hole){
+   var M=3,N=6*M,R=S/2,r0=.95*R,tan=Math.tan(Math.PI/6),pos=[],nor=[],idx=[];
+   var v=function(x,y,z,n){pos.push(x,y,z);nor.push(n[0],n[1],n[2]);return pos.length/3-1};
+   var tri=function(a,b,c,n){var A=[pos[a*3],pos[a*3+1],pos[a*3+2]],B=[pos[b*3],pos[b*3+1],pos[b*3+2]],C=[pos[c*3],pos[c*3+1],pos[c*3+2]];
+    var u=[B[0]-A[0],B[1]-A[1],B[2]-A[2]],w=[C[0]-A[0],C[1]-A[1],C[2]-A[2]],f=[u[1]*w[2]-u[2]*w[1],u[2]*w[0]-u[0]*w[2],u[0]*w[1]-u[1]*w[0]];
+    if(f[0]*n[0]+f[1]*n[1]+f[2]*n[2]<0)idx.push(a,c,b);else idx.push(a,b,c)};
+   var at=function(i){var a=i/N*2*Math.PI,f=a%(Math.PI/3)-Math.PI/6,r=R/Math.cos(f);return{a:a,r:r,c:Math.max(0,(r-r0)*tan)}};
+   var yt=function(p){return top?h-p.c:h},yb=function(p){return bottom?p.c:0};
+   for(var k=0;k<6;k++){var mid=(k+.5)*Math.PI/3,n=[Math.cos(mid),0,Math.sin(mid)],b0=-1,t0=-1;
+    for(var i=0;i<=M;i++){var p=at(k*M+i),x=p.r*Math.cos(p.a),z=p.r*Math.sin(p.a),b=v(x,yb(p),z,n),t=v(x,yt(p),z,n);
+     if(b0>=0){tri(b0,b,t,n);tri(b0,t,t0,n)}b0=b;t0=t}}
+   var cone=function(up){var ring=[],inner=[],y=up?h:0,sg=up?1:-1;
+    for(var i=0;i<N;i++){var p=at(i),ca=Math.cos(p.a),sa=Math.sin(p.a),n=[ca*.5,sg*Math.sqrt(3)/2,sa*.5];
+     ring.push(v(p.r*ca,up?yt(p):yb(p),p.r*sa,n));inner.push(v(r0*ca,y,r0*sa,n))}
+    for(i=0;i<N;i++){var j=(i+1)%N,mn=[Math.cos((i+.5)/N*2*Math.PI)*.5,sg*Math.sqrt(3)/2,Math.sin((i+.5)/N*2*Math.PI)*.5];tri(ring[i],ring[j],inner[j],mn);tri(ring[i],inner[j],inner[i],mn)}};
+   var face=function(up,rOut){var y=up?h:0,n=[0,up?1:-1,0],out=[],inn=[];
+    for(var i=0;i<N;i++){var p=at(i),ca=Math.cos(p.a),sa=Math.sin(p.a),r=rOut||p.r;out.push(v(r*ca,y,r*sa,n));if(hole)inn.push(v(hole*ca,y,hole*sa,n))}
+    var c0=hole?-1:v(0,y,0,n);for(i=0;i<N;i++){var j=(i+1)%N;if(hole){tri(out[i],out[j],inn[j],n);tri(out[i],inn[j],inn[i],n)}else tri(c0,out[i],out[j],n)}};
+   if(top){cone(true);face(true,r0)}else face(true,0);
+   if(bottom){cone(false);face(false,r0)}else face(false,0);
+   var g=new T.BufferGeometry();g.setAttribute("position",new T.Float32BufferAttribute(pos,3));g.setAttribute("normal",new T.Float32BufferAttribute(nor,3));g.setIndex(idx);
+   return g
+  }
+  // A washer: a ring of radii ri, ro, s thick from 0 up (its bore hidden by the shank).
+  function washerGeo(ri,ro,s){
+   var N=20,pos=[],nor=[],idx=[],v=function(x,y,z,n){pos.push(x,y,z);nor.push(n[0],n[1],n[2]);return pos.length/3-1};
+   for(var i=0;i<N;i++){var a=i/N*2*Math.PI,b=(i+1)/N*2*Math.PI,ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(b),sb=Math.sin(b);
+    var t=[v(ro*ca,s,ro*sa,[0,1,0]),v(ro*cb,s,ro*sb,[0,1,0]),v(ri*cb,s,ri*sb,[0,1,0]),v(ri*ca,s,ri*sa,[0,1,0])];idx.push(t[0],t[2],t[1],t[0],t[3],t[2]);
+    var d=[v(ro*ca,0,ro*sa,[0,-1,0]),v(ro*cb,0,ro*sb,[0,-1,0]),v(ri*cb,0,ri*sb,[0,-1,0]),v(ri*ca,0,ri*sa,[0,-1,0])];idx.push(d[0],d[1],d[2],d[0],d[2],d[3]);
+    var o=[v(ro*ca,0,ro*sa,[ca,0,sa]),v(ro*cb,0,ro*sb,[cb,0,sb]),v(ro*cb,s,ro*sb,[cb,0,sb]),v(ro*ca,s,ro*sa,[ca,0,sa])];idx.push(o[0],o[2],o[1],o[0],o[3],o[2])}
+   var g=new T.BufferGeometry();g.setAttribute("position",new T.Float32BufferAttribute(pos,3));g.setAttribute("normal",new T.Float32BufferAttribute(nor,3));g.setIndex(idx);
+   return g
+  }
+  // The end of the thread out past the nut, three pitches from 0 up: its turns (crest d/2, root 0.54 p in), its end
+  // chamfered to the root.
+  function threadGeo(d,p){
+   var pts=[],rc=d/2,rr=d/2-.54*p,n=3;
+   for(var k=0;k<=2*n;k++)pts.push(new T.Vector2(k%2?rr:rc,k*p/2));
+   pts.push(new T.Vector2(rr,n*p+.35*p),new T.Vector2(0,n*p+.35*p));
+   return new T.LatheGeometry(pts,14)
+  }
+  // The parts of a set placed: {geometry, matrixWorld, washer (its material), nut (on the nut's side: apart in a node
+  // taken apart)}.
   function boltParts(b){
-   var q=new T.Quaternion().setFromUnitVectors(boltY,b.axis),set=boltSet(Math.round(b.d*1000)),out=[],u=b.axis,g=b.grip;
-   var part=function(geo,along,r,h){var m=new T.Matrix4().compose(b.at.clone().add(u.clone().multiplyScalar(along)),q,new T.Vector3(r,h,r));out.push({geometry:geo,matrixWorld:m})};
-   var hex=shared("bolt:hex",function(){return new T.CylinderGeometry(1,1,1,6)}),rnd=shared("bolt:round",function(){return new T.CylinderGeometry(1,1,1,12)}),rod=shared("bolt:rod",function(){return new T.CylinderGeometry(1,1,1,8)});
-   if(!set){part(hex,0,b.d*.95,g+b.d*1.6);return out}
-   var tail=2*(set.p||b.d*.15),nuts=2*set.m;
-   part(rnd,g/2+set.s/2,set.d2/2,set.s);
-   part(hex,g/2+set.s+set.k/2,set.S/Math.sqrt(3),set.k);
-   part(rod,(set.s-nuts-tail)/2,b.d/2,g+set.s+nuts+tail);
-   part(hex,-g/2-set.m/2,set.nS/Math.sqrt(3),set.m*.98);
-   part(hex,-g/2-set.m*1.5,set.nS/Math.sqrt(3),set.m*.98);
+   var u=b.axis,q=new T.Quaternion().setFromUnitVectors(boltY,u),qd=new T.Quaternion().setFromUnitVectors(boltY,u.clone().negate()),set=boltSet(Math.round(b.d*1000)),out=[],g=b.grip,one=new T.Vector3(1,1,1);
+   var put=function(geo,along,quat,scale,o){out.push({geometry:geo,matrixWorld:new T.Matrix4().compose(b.at.clone().add(u.clone().multiplyScalar(along)),quat,scale||one),washer:Boolean(o&&o.washer),nut:Boolean(o&&o.nut)})};
+   var rod=shared("bolt:rod",function(){return new T.CylinderGeometry(1,1,1,12,1,true)});
+   if(!set){put(shared("bolt:hex",function(){return new T.CylinderGeometry(1,1,1,6)}),0,q,new T.Vector3(b.d*.95,g+b.d*1.6,b.d*.95));return out}
+   var key=":"+Math.round(b.d*1e4)+":"+Math.round(set.S*1e5),p=set.p||b.d*.15,hw=b.washers>1?set.s:0,nw=set.s,nuts=b.nuts*set.m;
+   var head=shared("bolt:head"+key,function(){return hexGeo(set.S,set.k,true,false,0)}),nut=shared("bolt:nut"+key,function(){return hexGeo(set.nS,set.m,true,true,b.d/2)});
+   var washer=shared("bolt:washer"+key,function(){return washerGeo(b.d/2,set.d2/2,set.s)}),thread=shared("bolt:thread"+key+":"+Math.round(p*1e5),function(){return threadGeo(b.d,p)});
+   if(hw)put(washer,g/2,q,null,{washer:true});
+   put(head,g/2+hw,q);
+   put(rod,(g/2+hw-g/2-nw-nuts)/2,q,new T.Vector3(b.d/2,g+hw+nw+nuts,b.d/2));
+   put(washer,-g/2-nw,q,null,{washer:true,nut:true});
+   for(var i=0;i<b.nuts;i++)put(nut,-g/2-nw-(i+1)*set.m,q,null,{nut:true});
+   put(thread,-g/2-nw-nuts,qd);
    return out
   }
   function legT(c){var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);return sec&&sec.t?sec.t/1000:.008}
@@ -1207,7 +1273,7 @@ window.irThreeSchemeView=(function(){
   function putHole(c,parts,h){
    var r=(h.d||.022)/2,m=new T.Mesh(shared("hole",function(){return new T.CylinderGeometry(1,1,1,14)}),holeMat);
    m.quaternion.setFromUnitVectors(boltY,h.axis);m.scale.set(r,h.t+.004,r);m.position.copy(h.at);m.userData.hole=true;parts.push(m);
-   if(h.bolt){var gt=gussetT(c);addBolt(c,h.at.clone().add(h.axis.clone().multiplyScalar(gt/2)),h.axis,h.bolt/1000,h.t+gt)}
+   if(h.bolt){var gt=gussetT(c);addBolt(c,h.at.clone().add(h.axis.clone().multiplyScalar(gt/2)),h.axis,h.bolt/1000,h.t+gt,"sheet")}
   }
   function addDrill(c,parts){
    var list=drillOf(c);if(!list)return;
@@ -1265,7 +1331,7 @@ window.irThreeSchemeView=(function(){
     s.ends[k].forEach(function(o){
      var P=E.clone().add(inw.clone().multiplyScalar(o.at/1000)).add(X.clone().multiplyScalar(o.off/1000)),bt=boltFor(bolts,o.d);
      putHole(c,parts,{at:P.clone().add(Y.clone().multiplyScalar(-h/2+t/2)),axis:Y.clone(),d:o.d/1000,t:t,bolt:0});
-     if(bt)addBolt(c,P.clone().add(Y.clone().multiplyScalar(-h/2+(t-.01)/2)),Y,bt/1000,t+.01)})
+     if(bt)addBolt(c,P.clone().add(Y.clone().multiplyScalar(-h/2+(t-.01)/2)),Y,bt/1000,t+.01,"sheet")})
    })
   }
   // The plates the sheet draws apart in a cut at an end of the mark (c.cuts.rows, src/ai-holes-extract.js sheetHoles
@@ -2706,8 +2772,16 @@ window.irThreeSchemeView=(function(){
      var row=i<side?-1:1,k=row<0?i:i-side,inRow=row<0?side:cnt-side,ax=inRow>1?-(inRow-1)*step/2+k*step:0,az=row*(pd/2-Math.max(.05,dia*1.5));
      // (in the holes of the plate its sheet draws)
      if(bs.holes){ax=bs.holes[i].x;az=bs.holes[i].z}
-     var rod=new T.Mesh(shared("rod:"+dia,function(){return new T.CylinderGeometry(dia/2,dia/2,.1+dia*2,10)}),boltMat);rod.position.set(ax,(.1+dia*2)/2-.02,az);rod.userData.anchor="rod";g.add(rod);
-     var nut=new T.Mesh(shared("nut:"+dia,function(){return new T.CylinderGeometry(dia*.92,dia*.92,dia*.8,6)}),boltMat);nut.position.set(ax,dia*.4,az);nut.userData.anchor="nut";g.add(nut)
+     // (its washer, nut and lock nut as the sets of the bolts — ГОСТ 11371, 5915 —, the thread out past them)
+     var st=boltSet(Math.round(dia*1000));
+     if(!st){
+      var rod=new T.Mesh(shared("rod:"+dia,function(){return new T.CylinderGeometry(dia/2,dia/2,.1+dia*2,10)}),boltMat);rod.position.set(ax,(.1+dia*2)/2-.02,az);rod.userData.anchor="rod";g.add(rod);
+      var nut=new T.Mesh(shared("nut:"+dia,function(){return new T.CylinderGeometry(dia*.92,dia*.92,dia*.8,6)}),boltMat);nut.position.set(ax,dia*.4,az);nut.userData.anchor="nut";g.add(nut);continue}
+     var key=":"+Math.round(dia*1e4)+":"+Math.round(st.S*1e5),pt=st.p||dia*.15,top=st.s+2*st.m;
+     var nutG=shared("bolt:nut"+key,function(){return hexGeo(st.nS,st.m,true,true,dia/2)}),wG=shared("bolt:washer"+key,function(){return washerGeo(dia/2,st.d2/2,st.s)}),thG=shared("bolt:thread"+key+":"+Math.round(pt*1e5),function(){return threadGeo(dia,pt)});
+     var shank=new T.Mesh(shared("bolt:rod",function(){return new T.CylinderGeometry(1,1,1,12,1,true)}),boltMat);shank.scale.set(dia/2,top+.1,dia/2);shank.position.set(ax,(top-.1)/2,az);shank.userData.anchor="rod";g.add(shank);
+     [[wG,0,washerMats["5.8"]],[nutG,st.s,boltMat],[nutG,st.s+st.m,boltMat]].forEach(function(o){var m=new T.Mesh(o[0],o[2]);m.position.set(ax,o[1],az);m.userData.anchor="nut";g.add(m)});
+     var th=new T.Mesh(thG,boltMat);th.position.set(ax,top,az);th.userData.anchor="rod";g.add(th)
     }
     // Ribs of the base on both flanges.
     [-1,1].forEach(function(q){var rib=new T.Mesh(shared("rib",function(){return new T.BoxGeometry(.012,.22,.14)}),plateMat);rib.position.set(0,.11,q*(hh/2+.07));g.add(rib)})
@@ -2845,6 +2919,55 @@ window.irThreeSchemeView=(function(){
    nodePanel.querySelectorAll("[data-node-member]").forEach(function(b){b.onclick=function(){choose(b.dataset.nodeMember)}});
    paintNodesFrame();invalidate()
   }
+  // ---- A bolt (the engineer, 28.10.2026: «при нажатие на болт показывает информацию о нем»): the set under the cursor —
+  // of those drawn near the camera, the one the ray passes within its head or washer of (a few pixels at least), the
+  // nearest —, its card: the bolt, its class, the set by the standards with their sizes, the package, the length it needs,
+  // the member, how many on it and about, where its place is from; the set lit.
+  var rayAt=new T.Vector3(),segAt=new T.Vector3(),boltPick=new T.Group(),boltPickMat=new T.MeshStandardMaterial({color:0xff8a1f,emissive:0x7a3300,metalness:.3,roughness:.4,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-4});
+  scene.add(boltPick);
+  function boltEnds(b){
+   var set=boltSet(Math.round(b.d*1000)),hw=set&&b.washers>1?set.s:0;
+   if(!set)return{a:b.at.clone().add(b.axis.clone().multiplyScalar(b.grip/2+b.d*.8)),e:b.at.clone().sub(b.axis.clone().multiplyScalar(b.grip/2+b.d*.8)),r:b.d*.95,set:null};
+   return{a:b.at.clone().add(b.axis.clone().multiplyScalar(b.grip/2+hw+set.k)),e:b.at.clone().sub(b.axis.clone().multiplyScalar(b.grip/2+set.s+b.nuts*set.m+3.35*(set.p||b.d*.15))),
+    r:Math.max(Math.max(set.S,set.nS)/Math.sqrt(3),set.d2/2),set:set}
+  }
+  function hitBolt(){
+   var best=null,ray=raycaster.ray;
+   boltList.forEach(function(b){if(!b.cell||!b.cell.meshes||!b.cell.meshes[0].visible)return;var q=boltEnds(b),d2=ray.distanceSqToSegment(q.a,q.e,rayAt,segAt),t=ray.origin.distanceTo(rayAt),r=Math.max(q.r,t*.004);
+    if(d2<=r*r&&(!best||t<best.d))best={b:b,d:t}});
+   return best
+  }
+  function boltTitle(b){return"Болт М"+Math.round(b.d*1000)+(b.raw?" кл. "+b.raw:"")+(b.high?", высокопрочный":"")}
+  function clearBoltPick(){boltPick.children.slice().forEach(function(o){boltPick.remove(o)});invalidate()}
+  function showBolt(hit){
+   selectedNode=null;clearExplode();clearBoltPick();
+   var b=hit.b,c=dataById.get(b.id)||{},j=c.joint||{},dmm=Math.round(b.d*1000),q=boltEnds(b),set=q.set,mm=function(v){return String(Math.round(v*1000*10)/10).replace(".",",")};
+   var row=function(kind){var r=fasteners.get(kind+":"+(set?set.d:dmm));return r&&r.standard?r.standard:""};
+   var mine=boltList.filter(function(o){return o.id===b.id&&Math.round(o.d*1000)===dmm}).length,about=boltList.filter(function(o){return Math.round(o.d*1000)===dmm&&o.at.distanceTo(b.at)<=.5}).length;
+   var need=set?b.grip+(b.washers>1?set.s:0)+set.s+b.nuts*set.m+3*(set.p||b.d*.15):0;
+   var listed=(Array.isArray(j.fasteners)?j.fasteners:[]).filter(function(t){return new RegExp("[МM]\\s?"+dmm+"(?![\\d,.])").test(String(t))});
+   var kit=set?[
+    "Болт М"+dmm+" "+row("bolt")+": головка под ключ S "+mm(set.S)+", высота "+mm(set.k)+" мм"+(set.p?", шаг резьбы "+mm(set.p)+" мм":""),
+    "Шайба "+dmm+" "+row("washer")+": Ø"+mm(set.d2)+" × "+mm(set.s)+" мм — "+(b.washers>1?"2 (под головку и под гайку)":"1 (под гайку)"),
+    "Гайка М"+dmm+" "+row("nut")+": S "+mm(set.nS)+", высота "+mm(set.m)+" мм — "+(b.nuts>1?"2 (гайка и контргайка)":"1")]:[];
+   var whence=b.how==="sheet"?"Место болта — по отверстиям сборочного чертежа (КМД).":b.how==="node"?"Место болта — по чертежу узла.":
+    "Место болта условное: число и шаг — по наименьшим расстояниям СП 16.13330 (табл. 40); точные места — на сборочном чертеже марки.";
+   var made=b.bySheet?"Состав комплекта — по ведомости метизов листа.":b.high?"Состав комплекта — как для высокопрочного болта: шайбы под головку и под гайку, одна гайка.":
+    "Состав комплекта — по СП 70.13330 (п. 4.5.7): шайба под гайку, гайка закреплена контргайкой; пружинная шайба (ГОСТ 6402) не рисуется.";
+   nodePanel.hidden=false;
+   nodePanel.innerHTML='<div class="ir-three-place-head"><b>'+escapeHtml(boltTitle(b))+'</b><button type="button" data-node="close" title="Закрыть">×</button></div>'+
+    '<div class="ir-three-node-meta">'+(c.mark?'<span>Марка <b>'+escapeHtml(c.mark)+'</b></span>':"")+'<span>Пакет <b>'+mm(b.grip)+' мм</b></span>'+(need?'<span>Длина болта не меньше <b>'+Math.ceil(need*1000)+' мм</b></span>':"")+
+    '<span>На марке <b>'+mine+' шт.</b></span><span>Рядом, до 0,5 м <b>'+about+' шт.</b></span></div>'+
+    kit.map(function(t){return'<p class="ir-three-place-note">'+escapeHtml(t)+'</p>'}).join("")+
+    (set&&set.scaled?'<p class="ir-three-place-note">'+escapeHtml("Размеров М"+dmm+" в базе нет — нарисован пропорционально М"+set.d+".")+'</p>':"")+
+    (listed.length?'<p class="ir-three-place-note"><b>По ведомости метизов листа:</b> '+escapeHtml(listed.join("; "))+'</p>':"")+
+    '<p class="ir-three-place-note">'+escapeHtml(whence+" "+made)+'</p>'+
+    (c.mark?'<div class="ir-three-node-list"><button type="button" data-node-member="'+escapeHtml(b.id)+'"><i class="'+(c.status==="mounted"?"mounted":c.status==="partial"?"partial":"planned")+'"></i><b>'+escapeHtml(c.mark)+'</b><span>'+escapeHtml(c.mark_name||c.type_name||"")+'</span><small>'+escapeHtml(c.profile_name||c.profileName||"")+'</small></button></div>':"");
+   nodePanel.querySelector('[data-node="close"]').onclick=function(){nodePanel.hidden=true;clearBoltPick()};
+   nodePanel.querySelectorAll("[data-node-member]").forEach(function(x){x.onclick=function(){clearBoltPick();choose(x.dataset.nodeMember)}});
+   boltParts(b).forEach(function(x){var m=new T.Mesh(x.geometry,boltPickMat);m.matrixAutoUpdate=false;m.matrix.copy(x.matrixWorld);boltPick.add(m)});
+   paintNodesFrame();invalidate()
+  }
   function chooseNode(n){
    selectedNode=n;paintNode();
    if(n){var c=toWorld(n.x,n.y,n.z),dir=camera.position.clone().sub(controls.target).normalize(),d=Math.min(camera.position.distanceTo(controls.target),14);
@@ -2888,15 +3011,17 @@ window.irThreeSchemeView=(function(){
     detail.group.children.forEach(function(o){add(o.geometry,o.material,o.matrixWorld,o.userData.anchor==="rod"?zero:o.userData.anchor==="nut"?nut:cv,o.userData.anchor!=="nut")})}
    bolts.forEach(function(b){var v=movers.get(b.id)||zero,mat=boltMats[b.cls];
     // In the gap between the member and what carries it: the nuts nearer the carrying member, the bolts nearer theirs.
-    boltParts(b).forEach(function(x,i,all){add(x.geometry,mat,x.matrixWorld,all.length===5&&i>=3?v.clone().multiplyScalar(.3).sub(b.axis.clone().multiplyScalar(D*.15)):v.clone().multiplyScalar(.6),false)})});
+    boltParts(b).forEach(function(x){add(x.geometry,x.washer?washerMats[b.cls]:mat,x.matrixWorld,x.nut?v.clone().multiplyScalar(.3).sub(b.axis.clone().multiplyScalar(D*.15)):v.clone().multiplyScalar(.6),false)})});
    return{node:n,s:0,C:C,H:H,D:D,pieces:pieces,clips:clips,made:made,moved:movers.size}
   }
   // The rest of the scheme pale while the node is taken apart; its own colours come back after.
   var ghosted=null;
   function ghost(on){
    if(on&&!ghosted){ghosted=new Map();
-    [batches,detailGroup,equipment].forEach(function(g){g.traverse(function(o){[].concat(o.material||[]).forEach(function(m){
-     if(!ghosted.has(m)){ghosted.set(m,{t:m.transparent,o:m.opacity,d:m.depthWrite});m.transparent=true;m.opacity=Math.min(m.opacity,.08);m.depthWrite=false;m.needsUpdate=true}})})});
+    var pale=function(m){if(!ghosted.has(m)){ghosted.set(m,{t:m.transparent,o:m.opacity,d:m.depthWrite});m.transparent=true;m.opacity=Math.min(m.opacity,.08);m.depthWrite=false;m.needsUpdate=true}};
+    [batches,detailGroup,equipment].forEach(function(g){g.traverse(function(o){[].concat(o.material||[]).forEach(pale)})});
+    // (and the bolt sets made later, as the camera comes near)
+    [boltMats["8.8"],boltMats["5.8"],washerMats["8.8"],washerMats["5.8"]].forEach(pale);
     overlay.visible=false}
    else if(!on&&ghosted){ghosted.forEach(function(v,m){m.transparent=v.t;m.opacity=v.o;m.depthWrite=v.d;m.needsUpdate=true});ghosted=null;overlay.visible=true}
    invalidate()
@@ -3029,7 +3154,7 @@ window.irThreeSchemeView=(function(){
    var csec=sectionOf(col.profile_name||col.profileName,col.profile_standard),tc=seat.tc||(csec&&csec.t?csec.t:20),d=boltMm(sp.bolt,c),bc={id:c.id,joint:{cls:sp.cls||c.joint&&c.joint.cls}};
    var rows=Array.isArray(sp.bolts_mm)&&sp.bolts_mm.length?sp.bolts_mm.map(number):[],gap=number(sp.bolt_gap_mm)||Math.max(80,wF-80);
    if(!rows.length)for(var r=70;r<=hF-70;r+=Math.max(100,(hF-140)/3))rows.push(r);
-   if(d)rows.forEach(function(r){[-1,1].forEach(function(j){addBolt(bc,place(face+s*(tF-tc)/2,fTop-r,j*gap/2),ex.clone().multiplyScalar(s),d/1000,(tF+tc)/1000)})});
+   if(d)rows.forEach(function(r){[-1,1].forEach(function(j){addBolt(bc,place(face+s*(tF-tc)/2,fTop-r,j*gap/2),ex.clone().multiplyScalar(s),d/1000,(tF+tc)/1000,"node")})});
    // The top chord: the vertical gusset of the truss to the face, over the rib of the column, two bolts across.
    if(zt===null)return;
    var tp=sp.top&&typeof sp.top==="object"?sp.top:{},gt=trussGussetT(c)*1000,tR=mm(tp.rib_mm,0,10),out=mm(tp.rib_mm,1,250),hR=mm(tp.rib_mm,2,300),dt=boltMm(tp.bolt||sp.bolt,c);
@@ -3037,7 +3162,7 @@ window.irThreeSchemeView=(function(){
    keepPart(partTag(plateBox(col,place(face+s*out/2,zt-hR/2,(gt+tR)/2),ex,up,nrm,out/1000,hR/1000,tR/1000),"ребро под фасонку фермы"),cid);
    // Its two bolts from the top of the rib and from the face as the node gives them (top.bolts_mm, top.bolt_out_mm).
    var tb=Array.isArray(tp.bolts_mm)&&tp.bolts_mm.length?tp.bolts_mm.map(number):[hR*.28,hR*.72],bo=number(tp.bolt_out_mm)||out*.6;
-   if(dt)tb.forEach(function(r){addBolt(bc,place(face+s*bo,zt-r,tR/2-gt/2),nrm,dt/1000,(gt+tR)/1000)})
+   if(dt)tb.forEach(function(r){addBolt(bc,place(face+s*bo,zt-r,tR/2-gt/2),nrm,dt/1000,(gt+tR)/1000,"node")})
   }
   function addTruss(c,id){
    var t=c.truss,a={x:number(c.x),y:number(c.y)},b={x:number(c.x2),y:number(c.y2)};
@@ -3409,6 +3534,7 @@ window.irThreeSchemeView=(function(){
   // out). A cell far from the camera is drawn by boxes of the members (12 triangles each, not the rolled section), the
   // bolts only near: 4000 members with their sections, plates and bolts are near a million triangles, and a computer
   // whose graphics card is not used drew one picture for seconds — the program and the whole computer stood.
+  var boltCells=[];
   var CELL=15,unitBox=null,boxMatrix=new T.Matrix4(),boxCentre=new T.Vector3(),boxSize=new T.Vector3();
   function merge(list,geoOf,matOf,mat){
    var nv=0,ni=0,p=new T.Vector3(),nm=new T.Matrix3();
@@ -3442,11 +3568,12 @@ window.irThreeSchemeView=(function(){
    var groups=new Map();
    allMeshes.forEach(function(m){if(!m.visible)return;var e=m.matrixWorld.elements,k=(m.userData.small?"s":"m")+"|"+Math.floor(e[12]/CELL)+","+Math.floor(e[14]/CELL);
     var byMat=groups.get(k);if(!byMat)groups.set(k,byMat=new Map());var l=byMat.get(m.material);if(!l)byMat.set(m.material,l=[]);l.push(m)});
-   // The bolt sets of the cell, by class.
+   // The bolt sets of the cell, by class: made when the camera comes near (lod).
    var seen=function(id){var l=meshesById.get(id);return!l||l.some(function(m){return m.visible})};
-   var bolts=new Map();boltList.forEach(function(b){if(!seen(b.id))return;var k=b.cls+"|"+Math.floor(b.at.x/CELL)+","+Math.floor(b.at.z/CELL);if(!bolts.has(k))bolts.set(k,[]);bolts.get(k).push(b)});
-   bolts.forEach(function(list,k){var items=[];list.forEach(function(b){items.push.apply(items,boltParts(b))});
-    var bm=merge(items,function(m){return m.geometry},function(m){return m.matrixWorld},boltMats[k.split("|")[0]]);bm.userData.lod="small";batches.add(bm)});
+   var cells=new Map();boltCells=[];
+   boltList.forEach(function(b){b.cell=null;if(!seen(b.id))return;var k=b.cls+"|"+Math.floor(b.at.x/CELL)+","+Math.floor(b.at.z/CELL);if(!cells.has(k))cells.set(k,{cls:b.cls,list:[],meshes:null});cells.get(k).list.push(b)});
+   cells.forEach(function(cell){var c=new T.Vector3(),r=0;cell.list.forEach(function(b){c.add(b.at);b.cell=cell});c.multiplyScalar(1/cell.list.length);
+    cell.list.forEach(function(b){r=Math.max(r,b.at.distanceTo(c))});cell.centre=c;cell.radius=r+.3;boltCells.push(cell)});
    groups.forEach(function(byMat,k){
     var small=k[0]==="s";
     byMat.forEach(function(list,mat){
@@ -3457,15 +3584,26 @@ window.irThreeSchemeView=(function(){
    });
    lodAt=null;invalidate()
   }
-  // Which of the two pictures of a cell is drawn: by the distance from the camera to the cell's members.
+  // Which of the two pictures of a cell is drawn: by the distance from the camera to the cell's members. The bolt sets
+  // of a cell are made as the camera comes near it and let go far off again (their memory).
   var lodAt=null;
+  function buildBoltCell(cell){
+   var body=[],washers=[];cell.list.forEach(function(b){boltParts(b).forEach(function(x){(x.washer?washers:body).push(x)})});
+   cell.meshes=[[body,boltMats[cell.cls]],[washers,washerMats[cell.cls]]].filter(function(p){return p[0].length}).map(function(p){
+    var m=merge(p[0],function(x){return x.geometry},function(x){return x.matrixWorld},p[1]);m.userData.lod="bolt";batches.add(m);return m})
+  }
+  function dropBoltCell(cell){cell.meshes.forEach(function(m){batches.remove(m);m.geometry.dispose()});cell.meshes=null}
   function lod(){
    var cam=camera.position;if(lodAt&&lodAt.distanceToSquared(cam)<.25)return;lodAt=cam.clone();
    var near=light?22:45,bolts=light?8:18;
    batches.children.forEach(function(b){
+    if(b.userData.lod==="bolt")return;
     var s=b.geometry.boundingSphere,d=s?Math.max(0,cam.distanceTo(s.center)-s.radius):0;
     b.visible=b.userData.lod==="small"?d<bolts:b.userData.lod==="coarse"?d>=near:d<near
-   })
+   });
+   boltCells.forEach(function(cell){var d=Math.max(0,cam.distanceTo(cell.centre)-cell.radius);
+    if(d<bolts){if(!cell.meshes)buildBoltCell(cell);cell.meshes.forEach(function(m){m.visible=true})}
+    else if(cell.meshes){if(d>2*bolts)dropBoltCell(cell);else cell.meshes.forEach(function(m){m.visible=false})}})
   }
   // ---- The parts of the selected member as its card lists them (the engineer, 27.10.2026, after the report of 21.10:
   // «вывод информации об элементе сделай такой»): each position of the specification of its assembly sheet in a colour of
@@ -3903,9 +4041,11 @@ window.irThreeSchemeView=(function(){
    if(placing){placementClick(e);return}
    if(copySource){copyToGround(e);return}
    screenRay(e);
-   var node=hitNode();if(node){chooseNode(node);return}
-   // A crane in front of the member: its card, not the member behind it.
-   var hit=hitMember(),cr=hitCrane();if(cr&&(!hit||cr.d<hit.d)){showCrane(cr);return}
+   var node=hitNode();if(node){clearBoltPick();chooseNode(node);return}
+   // A crane in front of the member: its card, not the member behind it; a bolt on it: the bolt's.
+   var hit=hitMember(),cr=hitCrane(),bt=hitBolt();clearBoltPick();
+   if(bt&&(!hit||bt.d<=hit.d+.01)&&(!cr||bt.d<cr.d)){showBolt(bt);return}
+   if(cr&&(!hit||cr.d<hit.d)){showCrane(cr);return}
    if(!selectedNode&&nodePanel)nodePanel.hidden=true;choose(hit?hit.id:"")
   }
   // The member under the cursor is looked for once a frame, not on every move of the mouse.
@@ -3916,9 +4056,9 @@ window.irThreeSchemeView=(function(){
    pendingHover={clientX:e.clientX,clientY:e.clientY}
   }
   function hoverNow(){
-   var e=pendingHover;pendingHover=null;screenRay(e);var hit=hitMember(),cr=hitCrane(),near=cr&&(!hit||cr.d<hit.d),next=hit&&!near?hit.id:"";
+   var e=pendingHover;pendingHover=null;screenRay(e);var hit=hitMember(),cr=hitCrane(),bt=hitBolt(),onBolt=bt&&(!hit||bt.d<=hit.d+.01)&&(!cr||bt.d<cr.d),near=!onBolt&&cr&&(!hit||cr.d<hit.d),next=hit&&!near&&!onBolt?hit.id:"";
    if(next!==hover){hover=next;paintHighlight()}
-   var tip=near?craneKinds[cr.k.kind]+" (условно, в КМ его нет): "+cr.part+". Щёлкните — подробнее":"";if(renderer.domElement.title!==tip)renderer.domElement.title=tip
+   var tip=onBolt?boltTitle(bt.b)+". Щёлкните — подробнее":near?craneKinds[cr.k.kind]+" (условно, в КМ его нет): "+cr.part+". Щёлкните — подробнее":"";if(renderer.domElement.title!==tip)renderer.domElement.title=tip
   }
   function leave(){pendingHover=null;if(hover){hover="";paintHighlight()}if(placing){marker.visible=false;cursor.hidden=true;drawPoints(null);invalidate()}}
   function onKey(e){
@@ -4198,7 +4338,7 @@ window.irThreeSchemeView=(function(){
     viewport.removeEventListener("wheel",wheel,true);root.removeEventListener("wheel",rootWheel);renderer.domElement.removeEventListener("dblclick",dblclick);
     document.removeEventListener("keydown",keyDown);document.removeEventListener("keyup",keyUp);document.removeEventListener("keydown",shiftKey);document.removeEventListener("keyup",shiftKey);
     window.removeEventListener("blur",releaseKeys);
-    controls.dispose();clearNodes();clearCallouts();partMats.forEach(function(m){m.dispose()});nodeGeo.dispose();nodeMats.forEach(function(m){m.dispose()});boltMat.dispose();plateMat.dispose();concreteMat.dispose();craneMat.dispose();hoistMat.dispose();wheelMat.dispose();glassMat.dispose();openingGlass.dispose();hardwareMat.dispose();silverMat.dispose();fixedMats.forEach(function(m){m.dispose()});boltMats["8.8"].dispose();boltMats["5.8"].dispose();
+    controls.dispose();clearNodes();clearCallouts();partMats.forEach(function(m){m.dispose()});nodeGeo.dispose();nodeMats.forEach(function(m){m.dispose()});boltMat.dispose();plateMat.dispose();concreteMat.dispose();craneMat.dispose();hoistMat.dispose();wheelMat.dispose();glassMat.dispose();openingGlass.dispose();hardwareMat.dispose();silverMat.dispose();fixedMats.forEach(function(m){m.dispose()});boltMats["8.8"].dispose();boltMats["5.8"].dispose();washerMats["8.8"].dispose();washerMats["5.8"].dispose();boltPickMat.dispose();
     meshGeo.forEach(function(g){g.dispose()});mats.forEach(function(m){m.dispose()});if(metalEnv)metalEnv.dispose();shellMats.forEach(function(m){m.dispose()});roofMats.forEach(function(m){m.dispose()});
     [selectedMat,hoverMat,axisMaterial,dimMaterial,floorMaterial,darkFloorMaterial,markerMat,pointMat,previewMat].forEach(function(m){m.dispose()});
     var cached=new Set(meshGeo.values());

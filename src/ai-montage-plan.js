@@ -50,8 +50,11 @@ function jointNote(text){
 function withFasteners(joint,f){
  if(!f||!f.bolts?.length&&!f.holes)return joint||undefined;
  const main=[...f.bolts].sort((a,b)=>(b.count||0)-(a.count||0)||b.d_mm-a.d_mm)[0];
+ // (the set of the bolt drawn: nuts and washers of the list for each bolt of its diameter)
+ const jd=Number((/(\d{2})/.exec(String(joint?.bolt||""))||[])[1])||main?.d_mm,kit=f.bolts.find(b=>b.d_mm===jd&&(b.nuts||b.washers));
  const list=f.bolts.map(b=>b.text+(b.cls&&!b.text.includes(b.cls)?" кл. "+b.cls:"")+(b.high&&!/высокопр/iu.test(b.text)?" (высокопрочный)":"")+(b.count?" — "+b.count+" шт.":"")),holes=f.holes?.diameters_mm?.length?"отверстия Ø"+f.holes.diameters_mm.join(", Ø")+(f.holes.all_mm?" (все Ø"+f.holes.all_mm+", кроме оговоренных)":""):"";
- const own={fasteners:list,...(f.holes?{holes_mm:f.holes.diameters_mm,...(f.holes.all_mm?{hole_mm:f.holes.all_mm}:{})}:{}),fasteners_sheet:f.sheet};
+ const own={fasteners:list,...(f.holes?{holes_mm:f.holes.diameters_mm,...(f.holes.all_mm?{hole_mm:f.holes.all_mm}:{})}:{}),fasteners_sheet:f.sheet,
+  ...(kit?{set:{nuts:kit.nuts||null,washers:kit.washers||null}}:{})};
  if(joint?.bolt)return{...joint,...own};
  return{...(joint||{}),bolt:main?"М"+main.d_mm:null,cls:main?.cls||joint?.cls||null,weld:Boolean(joint?.weld),
   text:[joint?.text,list.length?"постоянные метизы: "+list.join("; "):"",holes].filter(Boolean).join("; "),sheet:joint?.sheet||f.sheet,...own}
@@ -368,7 +371,11 @@ function buildCatalog(draft,ai=null){
   const sheet=p.sheet||{},bolts=(sheet.fasteners||[]).filter(f=>f.item==="bolt"&&!f.temporary&&f.d_mm>0);
   if(p.docType!=="КМД сборочные"||!bolts.length&&!sheet.holes)continue;scope=scopeAt(p);
   const marks=new Set([...(sheet.spec||[]).map(r=>r.mark),...(sheet.required||[]).map(r=>r.mark)]);
-  for(const mark of marks){const e=entry(mark);if(!e.fasteners)e.fasteners={bolts:bolts.map(f=>({text:f.text,d_mm:f.d_mm,length_mm:f.length_mm,cls:f.strength_class||null,high:Boolean(f.high_strength),count:f.count})),holes:sheet.holes||null,sheet:where(p)}}
+  // (the nuts and the flat washers of the list for each bolt of a diameter — not the spring washers, ГОСТ 6402: the set
+  // the 3D draws)
+  const per=(f,item)=>{const n=(sheet.fasteners||[]).filter(o=>o.item===item&&!o.temporary&&o.d_mm===f.d_mm&&!/6402/.test(o.standard||"")).reduce((a,o)=>a+(o.count||0),0),
+   b=bolts.filter(o=>o.d_mm===f.d_mm).reduce((a,o)=>a+(o.count||0),0);return n>0&&b>0?Math.round(n/b*10)/10:null};
+  for(const mark of marks){const e=entry(mark);if(!e.fasteners)e.fasteners={bolts:bolts.map(f=>({text:f.text,d_mm:f.d_mm,length_mm:f.length_mm,cls:f.strength_class||null,high:Boolean(f.high_strength),count:f.count,nuts:per(f,"nut"),washers:per(f,"washer")})),holes:sheet.holes||null,sheet:where(p)}}
  }
  // The holes of each mark at their places on its views (sheet.drill, src/ai-holes-extract.js): the views of the first
  // assembly sheet that has them, up to four; a hole is [along from the start, across from the axis, Ø (0 — not named),
