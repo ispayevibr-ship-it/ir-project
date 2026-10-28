@@ -1477,7 +1477,7 @@ window.irThreeSchemeView=(function(){
     // The middle: of the outline where it fits the size; an outline shorter by an end of the member: the part on out past
     // that end (a plate of a joint, the rest of it beyond the member's outline); from its one side drawn toward the leader's
     // end; else that end.
-    var centre=function(lo,hi,e,s,ends,hw){lo=lo===null||lo===undefined?null:number(lo);hi=hi===null||hi===undefined?null:number(hi);
+    var centre=function(lo,hi,e,s,ends,hw,hin){lo=lo===null||lo===undefined?null:number(lo);hi=hi===null||hi===undefined?null:number(hi);
      if(lo!==null&&hi!==null&&fits(Math.abs(hi-lo),s))return(lo+hi)/2;
      // (a point along — the top of a part a cut alone shows, under its level —: the part on from there)
      if(ends&&lo!==null&&hi!==null&&Math.abs(hi-lo)<2)return lo+s/2;
@@ -1486,18 +1486,25 @@ window.irThreeSchemeView=(function(){
      // К68 «11», a gusset 343 from the web out 150 past the flanges)
      if(hw>0&&lo!==null&&hi!==null&&Math.abs(hi-lo)<s){var nr=Math.abs(lo)<Math.abs(hi)?lo:hi,fr=nr===lo?hi:lo;
       if(nr*fr>0&&Math.abs(Math.abs(nr)-hw)<=15)return fr-(fr>0?1:-1)*s/2}
+     // (a cut's outline across, shorter, one end of it at the inside face of a flange: the part on from that face between
+     // the flanges — ГПЭС К68 «3 - 3», the rib 12 of 360 from flange to flange, the gusset 11 through its middle)
+     if(hin>0&&lo!==null&&hi!==null&&Math.abs(hi-lo)<s&&s<=2*hin+15){var fe=[lo,hi].filter(function(v){return Math.abs(Math.abs(v)-hin)<=15})[0];
+      if(fe!==undefined)return fe-(fe>0?1:-1)*s/2}
      var ev=e===null||e===undefined?null:number(e);
      if(ev!==null&&lo!==null&&Math.abs(ev-lo)<=s)return lo+(ev>=lo?1:-1)*s/2;
      if(ev!==null&&hi!==null&&Math.abs(ev-hi)<=s)return hi+(ev>=hi?1:-1)*s/2;
      return ev};
     var hw=mine?(acrossX?(mine.shape==="round"?mine.h:Math.max(mine.b,number(mine.b1))):mine.h)/2:0;
-    var ca=centre(at[0],at[1],end[0],sz[0],true,0),cc=half(sz[1])?0:centre(off[0],off[1],end[1],sz[1],false,hw);if(ca===null||cc===null)return;
+    var hin=r.cut&&mine&&mine.shape==="ibeam"&&!acrossX?mine.h/2-(number(mine.t)||0):0;
+    var ca=centre(at[0],at[1],end[0],sz[0],true,0),cc=half(sz[1])?0:centre(off[0],off[1],end[1],sz[1],false,hw,hin);if(ca===null||cc===null)return;
     var box={pos:String(r.pos),row:row,sh:sh,view:r.view,a:along(ca),sa:sz[0]/1000,acrossX:acrossX,c:-cc/1000,sc:sz[1]/1000,d:0,sd:sz[2]/1000};
     if(dep){box.d=(dep[0]+dep[1])/2000;box.dk=true;if(r.cut)box.cut=true}
     // (the same part on a view of the other face there: its place that way)
     var same=out.filter(function(o){return o.pos===box.pos&&o.acrossX!==box.acrossX&&Math.abs(o.a-box.a)<=Math.max(o.sa,box.sa)/2+.01})[0];
     if(same){if(Math.abs(same.sd-box.sc)<=Math.max(.03,box.sc*.35))same.d=box.c;return}
-    if(!out.some(function(o){return o.pos===box.pos&&o.acrossX===box.acrossX&&Math.abs(o.a-box.a)<=.01&&Math.abs(o.c-box.c)<=.01}))out.push(box)
+    // (one part, not two: at one place along, across and into the view — the ribs a cut shows on both sides of the web
+    // are two)
+    if(!out.some(function(o){return o.pos===box.pos&&o.acrossX===box.acrossX&&Math.abs(o.a-box.a)<=.01&&Math.abs(o.c-box.c)<=.01&&Math.abs(o.d-box.d)<=.01}))out.push(box)
    });
    // (a part on the plane of the axis through a plate lying on it face-on there: beside the plate — ГПЭС К120 «11» the
    // halves of the end cap, «12» the rib, on the plate «10»)

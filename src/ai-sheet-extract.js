@@ -629,6 +629,10 @@ const sourceKgm=note=>{const m=/из\s*\S?\s*(\d{2,3})\s*[хx×]\s*(\d{1,2})(?:\
 // any). Of those that agree the nearest, then the surest. None — a length one digit off what was read that alone agrees
 // within 3 % (the mass of the row repairs it: by_mass); else in each cell the value most readings give (a known
 // section before one the base does not know). The count: as read, else the mass of all over that of one.
+// The numbers one digit off a number as read: each digit put in, changed or dropped in turn.
+function digitEdits(str){const vs=new Set();
+ for(let i=0;i<=str.length;i++)for(const d of [..."0123456789",""])for(const v of [str.slice(0,i)+d+str.slice(i),str.slice(0,i)+d+str.slice(i+1)])if(/^[1-9]\d{0,4}$/.test(v)&&v!==str)vs.add(v);
+ return vs}
 function pickRow(row){
  const all=col=>[...(row.old[col]?[row.old[col]]:[]),...(row.reads[col]||[]).filter(Boolean)];
  const secs=all("section").flatMap(c=>cellSections(c.str).map(v=>({...v,conf:c.confidence})));
@@ -667,8 +671,25 @@ function pickRow(row){
  const ranked=[...fits.values()].map(f=>({...f,score:[...f.by.values()].reduce((a,b)=>a+b,0)})).sort((a,b)=>b.score-a.score);
  if(ranked.length&&(ranked.length===1||ranked[0].score>ranked[1].score)){const f=ranked[0],sec=vote(f.secs,c=>c.section,c=>c.alt?0:1)[0];
   return{...counted(f.m),section:sec.section,length:f.len,part:f.m,sure:true,by_mass:true}}
+ // (A plate's size one digit off — «−10х20» of −140×20, its «4» lost in the italic, read doubted each time —: each digit
+ // put in, changed or dropped in turn in its width or its thickness, by the length every reading gives and a mass of one
+ // part the count makes that of all; taken when one alone agrees within 3 %. A section read surely stays — «−500х40» with
+ // its mass «113» of 141,3.)
+ if((row.reads.section||[]).length>=2&&!all("section").some(c=>c.confidence>=50)&&lens.length>=2&&lens.every(c=>c.v===lens[0].v)){
+  const L=lens[0].v,got=new Map(),ms=fit.length?fit:out.count!==null&&out.all?[]:parts;
+  for(const c of all("section")){const p=/^[−–—-]?\s*(\d{1,4})\s*[хx×]\s*(\d{1,3})(?!\d)/u.exec(cellDigits(String(c.str).trim()));if(!p)continue;
+   for(const k of [1,2])for(const v of digitEdits(p[k])){const sec="−"+(k===1?v:p[1])+"х"+(k===2?v:p[2]);
+    for(const mv of ms)if(off(kgPerMetre(sec),L,mv,0.03)<=1){const key=sec+"|"+mv.v,f=got.get(key)||{sec,m:mv,score:0};f.score+=Math.max(1,c.confidence);got.set(key,f)}}}
+  // (the width before the thickness, as a plate is written: «−10х280» is not it)
+  const r=[...got.values()].filter(f=>{const [w,t]=f.sec.slice(1).split("х").map(Number);return w>=t});
+  if(r.length===1)return{...counted(r[0].m),section:r[0].sec,length:L,part:r[0].m,sure:true,by_mass:true,section_by_mass:true}}
+ // (Of the masses the cell may be, the one near its section × its length when the other is far off: «28» of 2,8 for a
+ // −50×22 of 350 — 3,0 by its sizes, a chamfer off.)
+ let mass=m;
+ if(!fit.length&&s&&l&&kgmOf(s)&&m){const w=kgmOf(s)*l.v/1000,near=parts.filter(p=>Math.abs(p.v/w-1)<=0.15).sort((a,b)=>Math.abs(a.v/w-1)-Math.abs(b.v/w-1));
+  if(near.length&&Math.abs(m.v/w-1)>1)mass=near[0]}
  // (A section whose metre the base does not know — «Ст.лист −2..20» — cannot be checked: read with its length, it is taken.)
- return{...counted(m),section:s?s.section:null,length:l?l.v:null,part:m,sure:Boolean(s&&l&&!secs.some(kgmOf)&&!/\d{2,4}\s*[хx×]\s*\d/u.test(s.section))}
+ return{...counted(mass),section:s?s.section:null,length:l?l.v:null,part:mass,sure:Boolean(s&&l&&!secs.some(kgmOf)&&!/\d{2,4}\s*[хx×]\s*\d/u.test(s.section))}
 }
 // The cells of a specification pasted as a picture, by the rules of its table (tableRules of ai-ocr): its columns named
 // by the words of its header — the position left of «Сечение», «Длина», the counts «т», «н» (under «Кол-во»), the
@@ -726,20 +747,25 @@ function regrid(grid){
  const sure=parts.map((r,k)=>pos(k)!==null&&parts.some((o,j)=>j!==k&&Math.abs(j-k)<=3&&pos(j)!==null&&pos(k)-pos(j)===k-j)?k:-1).filter(k=>k>=0);
  for(let i=0;i+1<sure.length;i++){const a=sure[i],b=sure[i+1];if(pos(b)-pos(a)===b-a)for(let k=a+1;k<b;k++)parts[k].pick.pos=pos(a)+(k-a)}
  if(sure.length&&pos(sure[0])===sure[0]+1)for(let k=0;k<sure[0];k++)parts[k].pick.pos=k+1;
+ // (After the last sure one: a row one of whose readings is the next number in order takes it, and the rows between take
+ // theirs — ГПЭС К68 «16» read twice, «18» once, under 16 and a row whose position was lost: 17, 18.)
+ const readsOf=r=>[r.old.pos,...(r.reads.pos||[])].filter(Boolean).map(c=>cellDigits(String(c.str).replace(/\s*изм\.?$/u,""))).filter(v=>/^\d{1,3}$/.test(v)).map(Number);
+ if(sure.length)for(let z=sure[sure.length-1],k=z+1;k<parts.length;k++)if(readsOf(parts[k]).includes(pos(z)+(k-z))){for(let j=z+1;j<=k;j++)parts[j].pick.pos=pos(z)+(j-z);z=k}
  if(sure.length){const z=sure[sure.length-1];for(let k=z+1;k<parts.length;k++)if(pos(k)!==null&&pos(k)!==pos(z)+(k-z)&&!parts.slice(k+1).some((o,j)=>o.pick.pos===pos(k)+j+1))parts[k].pick.pos=null}
  for(const r of parts)if(r.pick.pos===null&&r.cells.pos&&!r.need.includes("pos"))r.need.push("pos");
  return grid
 }
 // The texts of the sheet with the cells of the grid as picked: each cell whose pick differs from the reading of the whole
-// picture is one text in its middle on the row's line (the texts it had go); a length the mass repaired is by_mass. The
-// other texts of a part row are put on its line too (a word read lower — «360» under «−190х12» — is not a row of its own).
+// picture is one text in its middle on the row's line (the texts it had go); a length or a section the mass repaired is
+// by_mass. The other texts of a part row are put on its line too (a word read lower — «360» under «−190х12» — is not a
+// row of its own).
 function gridTexts(texts,grid){
  const drop=new Set(),add=[],line=new Map();
  for(const r of grid.rows){if(!r.part)continue;const p=r.pick,size=Math.min((r.y1-r.y0)*0.5,...Object.values(r.old).flatMap(o=>o.texts.map(t=>t.size||12)));
   const vals={pos:p.pos,section:p.section,length:p.length,count:p.count,part:p.part?String(p.part.v).replace(".",","):null};
   for(const [col,v] of Object.entries(vals)){const c=r.cells[col];if(v===null||v===undefined||!c)continue;const str=String(v),o=r.old[col];
    if(o&&o.str===str)continue;if(o)for(const t of o.texts)drop.add(t);
-   const width=str.length*size*0.5;add.push({str,x:c.x+c.w/2-width/2,y:r.y,width,size,angle:0,ocr:true,grid:true,...(col==="length"&&p.by_mass?{by_mass:true}:{}),confidence:p.sure?90:40})}
+   const width=str.length*size*0.5;add.push({str,x:c.x+c.w/2-width/2,y:r.y,width,size,angle:0,ocr:true,grid:true,...(col==="length"&&p.by_mass||col==="section"&&p.section_by_mass?{by_mass:true}:{}),confidence:p.sure?90:40})}
   for(const t of r.texts||[])if(!drop.has(t)&&t.y!==r.y)line.set(t,r.y)}
  return[...texts.filter(t=>!drop.has(t)).map(t=>line.has(t)?{...t,y:line.get(t)}:t),...add]
 }
@@ -1185,7 +1211,8 @@ function extractSheet({texts=[],widthPt=0,heightPt=0,segments=[]}={}){
  const seeded=views.length&&segments.length<=80000?require("./ai-holes-extract").sheetHoles({texts,segments,widthPt,heightPt},{views,allMm:holes?.all_mm||null,seed:true,withMembers:true}):null;
  const plates=seeded?require("./ai-holes-extract").sheetPlates({texts,segments,widthPt,heightPt},{views,allMm:holes?.all_mm||null,seeded}).filter(m=>m.plates.length||m.gussets):[];
  // The positions of the specification at their places on the views (a number in a circle, its leader to the part).
- const place=seeded?require("./ai-parts-place").sheetParts({texts,segments,widthPt,heightPt},{seeded}):[];
+ // (a cut's outline none of whose sizes is the part's: a piece of it, its place across left open)
+ const place=seeded?require("./ai-parts-place").fitCuts(require("./ai-parts-place").sheetParts({texts,segments,widthPt,heightPt},{seeded}),spec):[];
  // The ends cut aslant on the main views (a tube cut over its seat, the cap inside).
  const bevels=seeded?require("./ai-parts-place").sheetBevels({texts,segments,widthPt,heightPt},{seeded}):[];
  // The plates drawn apart with their holes (a base plate «1 - 1», an end plate «2 - 2»), at their cuts.

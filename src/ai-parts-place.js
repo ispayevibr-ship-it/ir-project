@@ -23,18 +23,28 @@ function balloonsOf(texts,segs){
    if(k<2&&pts.length)c={x:pts.reduce((a,q)=>a+q.p.x,0)/pts.length,y:pts.reduce((a,q)=>a+q.p.y,0)/pts.length}}
   let best=ringOf(pts);
   // (a middle the lines round it pull off — a dimension, the part's lines through the ring's reach —: the point near it
-  // most ends lie at one distance from, ГПЭС К26 «8» by the brackets)
-  if(!round(best)){const c0={x:t.x+(t.width||0)/2,y:t.y-t.size*0.35},all=[],step=t.size*0.02,span=t.size*0.25;
+  // the ring's own arcs go round most, ГПЭС К26 «8» by the brackets; a ring of ends only — the ticks of a weld, the hatch
+  // round a number, ГПЭС К68 «18 16» in the cut 1-1 — is none)
+  const fine=(ring,o)=>round(ring)&&(ring.arcs??=arcsOf(o,ring.r,segs,near))>=0.5;
+  if(!fine(best,c)){const c0={x:t.x+(t.width||0)/2,y:t.y-t.size*0.35},all=[],step=t.size*0.02,span=t.size*0.25;best=null;
    for(const i of near(c0))for(const p of [segs[i].a,segs[i].b])if(dist(p,c0)<=t.size*1.5)all.push(p);
    for(let dx=-span;dx<=span+1e-9;dx+=step)for(let dy=-span;dy<=span+1e-9;dy+=step){const o={x:c0.x+dx,y:c0.y+dy},ds=all.map(p=>dist(p,o)).filter(d=>d>=t.size*0.45&&d<=t.size*1.2).sort((a,b)=>a-b);
     let j=0,n=0;for(let i=0;i<ds.length;i++){while(ds[i]-ds[j]>1.2)j++;n=Math.max(n,i-j+1)}
-    if(n>(best?.n||0)){const ring=ringOf(all.map(p=>({p,d:dist(p,o),a:Math.atan2(p.y-o.y,p.x-o.x)})).filter(q=>q.d>=t.size*0.45&&q.d<=t.size*1.2));if(ring){ring.n=n;ring.c=o;best=ring}}}
-   if(best?.c)c=best.c}
-  if(!round(best))continue;
+    if(n<12)continue;const ring=ringOf(all.map(p=>({p,d:dist(p,o),a:Math.atan2(p.y-o.y,p.x-o.x)})).filter(q=>q.d>=t.size*0.45&&q.d<=t.size*1.2));
+    if(fine(ring,o)&&(!best||ring.arcs>best.arcs+0.02||ring.arcs>best.arcs-0.02&&n>best.n)){ring.n=n;ring.c=o;best=ring}}
+   if(best)c=best.c}
+  if(!best||!fine(best,c))continue;
   out.push({pos:m[1],side:m[2]||"",x:c.x,y:c.y,r:best.on.reduce((a,q)=>a+q.d,0)/best.on.length,t})
  }
  return out
 }
+// The share of a turn the ring's arcs draw round a middle: its chords (both ends on it, a sixth of a turn at most), joined.
+function arcsOf(c,r,segs,near){const iv=[];
+ for(const i of near(c)){const s=segs[i];if(Math.abs(dist(s.a,c)-r)>1.2||Math.abs(dist(s.b,c)-r)>1.2)continue;
+  const a=Math.atan2(s.a.y-c.y,s.a.x-c.x);let d=Math.atan2(s.b.y-c.y,s.b.x-c.x)-a;d=Math.atan2(Math.sin(d),Math.cos(d));if(Math.abs(d)>Math.PI/3)continue;
+  const lo=(Math.min(a,a+d)+4*Math.PI)%(2*Math.PI),hi=lo+Math.abs(d);iv.push([lo,hi]);if(hi>2*Math.PI)iv.push([0,hi-2*Math.PI])}
+ iv.sort((x,y)=>x[0]-y[0]);let sum=0,e=0;for(const [a,b] of iv)if(b>e){sum+=b-Math.max(a,e);e=b}
+ return Math.min(1,sum/(2*Math.PI))}
 // The ends at one distance from the middle (within 1.2 pt), the most of them: {r, on}.
 function ringOf(pts){let best=null;for(const p of pts){const on=pts.filter(q=>Math.abs(q.d-p.d)<=1.2);if(!best||on.length>best.on.length)best={r:p.d,on}}return best}
 // (a ring: twelve ends at least, all round — no gap over a quarter turn)
@@ -176,7 +186,7 @@ const CUT=/^(\d{1,2}[а-я]?|[А-ЯЁ])\s*[-–—]\s*\1(?=\s|$|\()/u,MARKS=/[А
 // view's; a part on the main view the cut does not show, its outline touching one placed so (a rib under the angle), is
 // in the middle of that one's depth.
 function cutParts({texts,segs,thick,bold,balloons,near,frames,byMark}){
- const mains=frames.filter(f=>f.g.who.main&&Math.abs(f.g.u.y)>Math.abs(f.g.u.x));if(!mains.length)return;
+ const mains=frames.filter(f=>f.g.who.main&&Math.max(Math.abs(f.g.u.x),Math.abs(f.g.u.y))>0.99);if(!mains.length)return;
  const dims=dimensionsOf(texts,segs),cuts=[];
  const centre=t=>({x:t.x+(t.width||0)/2,y:t.y-(t.size||10)*0.35});
  // (a view at a place along: its outermost long thick lines along it crossing there — its width, and its middle off the
@@ -190,43 +200,61 @@ function cutParts({texts,segs,thick,bold,balloons,near,frames,byMark}){
   const z=t.size||10,label=m[1],at=centre(t);
   const under=texts.filter(o=>o!==t&&/^для\s/iu.test(String(o.str).trim())&&o.y>t.y&&o.y-t.y<=2.5*z&&o.x+(o.width||0)>=t.x-z&&o.x<=t.x+(t.width||0)+z).map(o=>String(o.str)).join(" ");
   const named=[...new Set(((String(t.str)+" "+under).match(MARKS)||[]))].filter(k=>frames.some(f=>f.marks.includes(k)));
-  // (its arrows: «4», «по 4» as large as the title, each by a short thick stroke across a main view of its marks)
+  // (its arrows: «4», «по 4» as large as the title, each by a short thick stroke across a main view of its marks — level
+  // or upright, across the member —; the way it looks: its arrow, a thin line along the member from out to the stroke)
   const re=new RegExp("^(?:по\\s*)?"+label+"$","u"),levels=[];
   for(const a of texts){if(a===t||!re.test(String(a.str||"").trim())||Math.abs((a.size||0)-z)>z*0.2)continue;const c=centre(a);
    // (the stroke off the box of the label by its size and a half at most: under «по 4», 27 pt under its line)
-   const za=a.size||z,bx={x0:a.x,x1:a.x+(a.width||0),y0:a.y-za,y1:a.y};
-   const st=bold.filter(q=>Math.abs(q.a.y-q.b.y)<=1&&q.l>=10&&q.l<=80&&Math.hypot(Math.max(0,bx.x0-Math.max(q.a.x,q.b.x),Math.min(q.a.x,q.b.x)-bx.x1),Math.max(0,bx.y0-q.a.y,q.a.y-bx.y1))<=1.5*za)
-    .sort((p,q)=>Math.abs((p.a.y+p.b.y)/2-c.y)-Math.abs((q.a.y+q.b.y)/2-c.y))[0];if(!st)continue;
-   const y=(st.a.y+st.b.y)/2,x=(st.a.x+st.b.x)/2;
+   const za=a.size||z,bx={x0:a.x,x1:a.x+(a.width||0),y0:a.y-za,y1:a.y},flat=q=>Math.abs(q.a.y-q.b.y)<=1,mid=q=>({x:(q.a.x+q.b.x)/2,y:(q.a.y+q.b.y)/2});
+   const st=bold.filter(q=>(flat(q)||Math.abs(q.a.x-q.b.x)<=1)&&q.l>=10&&q.l<=80&&Math.hypot(Math.max(0,bx.x0-Math.max(q.a.x,q.b.x),Math.min(q.a.x,q.b.x)-bx.x1),Math.max(0,bx.y0-Math.max(q.a.y,q.b.y),Math.min(q.a.y,q.b.y)-bx.y1))<=1.5*za)
+    .sort((p,q)=>(flat(p)?Math.abs(mid(p).y-c.y):Math.abs(mid(p).x-c.x))-(flat(q)?Math.abs(mid(q).y-c.y):Math.abs(mid(q).x-c.x)))[0];if(!st)continue;
+   const {x,y}=mid(st),v={x:(st.b.x-st.a.x)/st.l,y:(st.b.y-st.a.y)/st.l};
    for(const f of mains){const g=f.g,sa=x*g.u.x+y*g.u.y,o=x*g.n.x+y*g.n.y,w=g.hi-g.lo;
-    if(named.length&&!f.marks.some(k=>named.includes(k))||sa<g.s0-2||sa>g.s1+2||Math.abs(o-(g.lo+g.hi)/2)>3*w)continue;
-    if(!levels.some(l=>l.f===f&&Math.abs(l.sa-sa)<=3))levels.push({f,sa,at:g.alongMm(sa)})}}
+    if(Math.abs(v.x*g.u.x+v.y*g.u.y)>0.1||named.length&&!f.marks.some(k=>named.includes(k))||sa<g.s0-150*g.sc.n||sa>g.s1+150*g.sc.n||Math.abs(o-(g.lo+g.hi)/2)>3*w)continue;
+    const arrow=near({x,y}).map(i=>segs[i]).filter(q=>!thick(q)&&q.l>=10&&q.l<=80&&Math.abs((q.b.x-q.a.x)*g.u.x+(q.b.y-q.a.y)*g.u.y)/q.l>0.97).map(q=>{
+     const on=p=>Math.abs((p.x-x)*g.u.x+(p.y-y)*g.u.y)<=2.5&&Math.abs((p.x-x)*v.x+(p.y-y)*v.y)<=st.l/2+2;
+     return on(q.a)&&!on(q.b)?Math.sign((q.a.x-q.b.x)*g.u.x+(q.a.y-q.b.y)*g.u.y):on(q.b)&&!on(q.a)?Math.sign((q.b.x-q.a.x)*g.u.x+(q.b.y-q.a.y)*g.u.y):0}).find(s=>s);
+    if(!levels.some(l=>l.f===f&&Math.abs(l.sa-sa)<=3))levels.push({f,sa,at:g.alongMm(sa),look:arrow||0})}}
   if(!levels.length)continue;
-  const f=levels[0].f,marks=named.length?named:f.marks;
-  // (its scale: of its dimensions under the title, agreeing)
+  // (looking on along the member where its arrows do not say: down an upright one, on from the start of a level one)
+  const f=levels[0].f,marks=named.length?named:f.marks,look=Math.sign(levels.reduce((a,l)=>a+l.look,0))||1,up=Math.abs(f.g.u.y)>Math.abs(f.g.u.x);
+  // (its scale: of its dimensions under the title, agreeing — two at least, the nearest such first: a cut is drawn to
+  // its own scale, ГПЭС К68 «5 - 5» at 1:12 by its views at 1:10 —, else the view's; the section by each, the best)
   const win={x0:at.x-300,x1:at.x+350,y0:t.y,y1:t.y+350},inWin=(x,y)=>x>=win.x0&&x<=win.x1&&y>=win.y0&&y<=win.y1;
-  const ks=dims.filter(d=>d.v>=10&&inWin(d.flat?(d.lo+d.hi)/2:d.line,d.flat?d.line:(d.lo+d.hi)/2)).map(d=>(d.hi-d.lo)/d.v).sort((a,b)=>a-b);
-  const km=ks[Math.floor(ks.length/2)],k=ks.filter(v=>Math.abs(v-km)<=km*0.04).length>=2?km:f.g.sc.n;
+  const ks=dims.map(d=>({d,x:d.flat?(d.lo+d.hi)/2:d.line,y:d.flat?d.line:(d.lo+d.hi)/2})).filter(o=>o.d.v>=10&&inWin(o.x,o.y)).map(o=>({k:(o.d.hi-o.d.lo)/o.d.v,far:Math.hypot(o.x-at.x,o.y-at.y)})).sort((a,b)=>a.k-b.k);
+  const groups=[];for(const o of ks){const g=groups[groups.length-1];if(g&&o.k-g[0].k<=g[0].k*0.04)g.push(o);else groups.push([o])}
+  const scales=groups.filter(g=>g.length>=2).sort((a,b)=>Math.min(...a.map(o=>o.far))-Math.min(...b.map(o=>o.far))).map(g=>g[Math.floor(g.length/2)].k);
+  if(!scales.some(v=>Math.abs(v-f.g.sc.n)<=v*0.02))scales.push(f.g.sc.n);
   // (the section: as wide as the view at its first level — the outer faces of the flanges of an I, its sides open; a box's
   // two sides —, as deep as a view of its side there, else from half to twice as wide)
-  const W=widthAt(f,levels[0].sa)*k,side=frames.find(o=>o!==f&&o.ref===f),H=side?widthAt(side,levels[0].sa)*k:null;
-  const runs=[];for(const q of bold){if(Math.abs(q.a.y-q.b.y)>0.4||Math.abs(q.a.x-q.b.x)<4)continue;const c=(q.a.y+q.b.y)/2,lo=Math.min(q.a.x,q.b.x),hi=Math.max(q.a.x,q.b.x);
-   if(!inWin((lo+hi)/2,c))continue;const r=runs.find(r=>Math.abs(r.c-c)<=0.3&&lo<=r.hi+1&&hi>=r.lo-1);if(r){r.lo=Math.min(r.lo,lo);r.hi=Math.max(r.hi,hi)}else runs.push({c,lo,hi})}
+  const side=frames.find(o=>o!==f&&o.ref===f),Wmm=widthAt(f,levels[0].sa),Hmm=side?widthAt(side,levels[0].sa):null;
+  // (in the cut: p across the member as on the main view — along the sheet for an upright one —, q into it)
+  const P=up?q=>q.x:q=>q.y,Q=up?q=>q.y:q=>q.x,runs={p:[],q:[]};
+  for(const s of bold){const along=Math.abs(Q(s.a)-Q(s.b))<=0.4?"p":Math.abs(P(s.a)-P(s.b))<=0.4?"q":null;if(!along)continue;
+   const [L,C]=along==="p"?[P,Q]:[Q,P],c=(C(s.a)+C(s.b))/2,lo=Math.min(L(s.a),L(s.b)),hi=Math.max(L(s.a),L(s.b));if(hi-lo<4)continue;
+   const m=up?{x:along==="p"?(lo+hi)/2:c,y:along==="p"?c:(lo+hi)/2}:{x:along==="p"?c:(lo+hi)/2,y:along==="p"?(lo+hi)/2:c};if(!inWin(m.x,m.y))continue;
+   const list=runs[along],r=list.find(r=>Math.abs(r.c-c)<=0.3&&lo<=r.hi+1&&hi>=r.lo-1);if(r){r.lo=Math.min(r.lo,lo);r.hi=Math.max(r.hi,hi)}else list.push({c,lo,hi})}
   const covers=(l,a,b)=>Math.min(l.hi,b)-Math.max(l.lo,a)>=0.9*(b-a);
-  let rect=null;
-  for(const free of H?[false,true]:[true]){
-   for(const a of runs){if(Math.abs(a.hi-a.lo-W)>W*0.07)continue;const x0=a.lo,x1=a.hi;
-    for(const b of runs){if(b===a||!covers(b,x0,x1))continue;const y0=Math.min(a.c,b.c),y1=Math.max(a.c,b.c),h=y1-y0;
-     if(free?h<0.5*W||h>2*W:Math.abs(h-H)>H*0.1)continue;
-     // (the nearest under the title as deep as the other view — or, not known, as wide —; of two such round one section,
-     // the inner lines of a flange, the larger)
-     const d=Math.abs(h/(free?W:H)-1)+Math.hypot((x0+x1)/2-at.x,y0-at.y)/(10*W),same=rect&&Math.abs(rect.x0-x0)<=1.5&&Math.abs(rect.x1-x1)<=1.5&&Math.min(rect.y1,y1)-Math.max(rect.y0,y0)>=0.75*Math.min(h,rect.y1-rect.y0);
-     if(!rect||(same?h>rect.y1-rect.y0:d<rect.d-0.05))rect={x0,x1,y0,y1,d}}}
-   if(rect)break}
+  const rectAt=k=>{const W=Wmm*k,H=Hmm?Hmm*k:null;let rect=null;
+   for(const free of H?[false,true]:[true]){
+    // (two lines across as wide as the view, as far apart as the view of its side is wide — the flanges of an I seen on
+    // their faces —; or two lines into it as long as that, as far apart as the view is wide — its flanges edge on)
+    for(const [along,len,gap] of [["p",W,free?null:H],["q",free?null:H,W]])for(const a of runs[along]){const l=a.hi-a.lo;if(len?Math.abs(l-len)>len*0.07:l<0.5*W||l>2*W)continue;
+     for(const b of runs[along]){if(b===a||!covers(b,a.lo,a.hi)||!len&&Math.abs(b.hi-b.lo-l)>l*0.07)continue;const c0=Math.min(a.c,b.c),c1=Math.max(a.c,b.c),h=c1-c0;
+      if(gap?Math.abs(h-gap)>gap*0.1:h<0.5*W||h>2*W)continue;
+      const [p0,p1,q0,q1]=along==="p"?[a.lo,a.hi,c0,c1]:[c0,c1,a.lo,a.hi],x0=up?p0:q0,x1=up?p1:q1,y0=up?q0:p0,y1=up?q1:p1;
+      // (the nearest under the title as deep as the other view — or, not known, as wide —; of two such round one section,
+      // the inner lines of a flange, the larger)
+      const d=Math.abs(h/(gap||W)-1)+Math.hypot((x0+x1)/2-at.x,y0-at.y)/(10*W),ov=(a0,a1,b0,b1)=>Math.min(a1,b1)-Math.max(a0,b0)>=0.75*Math.min(a1-a0,b1-b0);
+      const same=rect&&(Math.abs(rect.x0-x0)<=1.5&&Math.abs(rect.x1-x1)<=1.5&&ov(rect.y0,rect.y1,y0,y1)||Math.abs(rect.y0-y0)<=1.5&&Math.abs(rect.y1-y1)<=1.5&&ov(rect.x0,rect.x1,x0,x1));
+      if(!rect||(same?(x1-x0)*(y1-y0)>(rect.x1-rect.x0)*(rect.y1-rect.y0):d<rect.d-0.05))rect={x0,x1,y0,y1,d}}}
+    if(rect)break}
+   return rect};
+  let rect=null,k=null;for(const v of scales){const r=rectAt(v);if(r&&(!rect||r.d<rect.d-0.05)){rect=r;k=v}}
   if(!rect)continue;
   // (the section's middle off the member's axis: across as the main view, into it as the view of its side — + left there,
   // its arrow on the right of the main one)
-  cuts.push({title:String(t.str).trim()+(under?" "+under.trim():""),marks,levels,k,rect,f,off0:spanAt(f,levels[0].sa).mid,depth0:side?-spanAt(side,levels[0].sa).mid:0})
+  cuts.push({title:String(t.str).trim()+(under?" "+under.trim():""),marks,levels,k,rect,f,look,up,off0:spanAt(f,levels[0].sa).mid,depth0:side?-spanAt(side,levels[0].sa).mid:0})
  }
  if(!cuts.length)return;
  // Each balloon's leader end in a cut (by its section — its own outline round it, as far again as the section is wide).
@@ -234,9 +262,13 @@ function cutParts({texts,segs,thick,bold,balloons,near,frames,byMark}){
   const c=cuts.map(c=>{const r=c.rect,w=r.x1-r.x0,h=r.y1-r.y0;return{c,out:Math.max(0,r.x0-E.x,E.x-r.x1,r.y0-E.y,E.y-r.y1),lim:Math.max(w,h)}}).filter(o=>o.out<=o.lim).sort((p,q)=>p.out-q.out)[0]?.c;
   if(!c)continue;const r=c.rect,g={u:{x:1,y:0},n:{x:0,y:1},s0:r.x0,s1:r.x1,lo:r.y0,hi:r.y1,sc:{n:c.k}};
   if(!c.frame)c.frame={g,P:bold.map(q=>({a:q.a.x,b:q.b.x,c:q.a.y,d:q.b.y,l:q.l}))};
-  const box=regionAt(E,c.frame);if(!box||box.a0===null||box.a1===null)continue;
-  const cx=(r.x0+r.x1)/2,cy=(r.y0+r.y1)/2,mm=v=>Math.round(v/c.k);
-  (c.parts=c.parts||[]).push({pos:b.pos,side:b.side,off:[mm(cx-box.a1)+c.off0,mm(cx-box.a0)+c.off0],depth:[mm(cy-box.c1)+c.depth0,mm(cy-box.c0)+c.depth0]})
+  // (a part of the cut is on its section or in it: a leader from another view by it is not)
+  const box=regionAt(E,c.frame);if(!box||box.a0===null||box.a1===null||box.a1<r.x0-2||box.a0>r.x1+2||box.c1<r.y0-2||box.c0>r.y1+2)continue;
+  // (across: + left as on an upright main view looking down it — mirrored looking up —, + down as on a level one; into
+  // it: + up the sheet looking down an upright one, + toward the start looking on along a level one — its viewer on the
+  // left —, mirrored looking back)
+  const cx=(r.x0+r.x1)/2,cy=(r.y0+r.y1)/2,mm=v=>Math.round(v/c.k),lin=(lo,hi,sg,o,z)=>(sg>0?[lo-o,hi-o]:[o-hi,o-lo]).map(v=>mm(v)+z);
+  (c.parts=c.parts||[]).push({pos:b.pos,side:b.side,off:c.up?lin(box.a0,box.a1,-c.look,cx,c.off0):lin(box.c0,box.c1,1,cy,c.off0),depth:c.up?lin(box.c0,box.c1,-1,cy,c.depth0):lin(box.a0,box.a1,-c.look,cx,c.depth0)})
  }
  const overlap=(p,q)=>p&&q&&p[0]!==null&&p[1]!==null&&q[0]!==null&&q[1]!==null?Math.min(Math.max(...p),Math.max(...q))-Math.max(Math.min(...p),Math.min(...q)):-Infinity;
  const med=a=>a.slice().sort((x,y)=>x-y)[Math.floor(a.length/2)];
@@ -244,19 +276,26 @@ function cutParts({texts,segs,thick,bold,balloons,near,frames,byMark}){
   const rows=byMark.get(mark)||[];if(!byMark.has(mark))byMark.set(mark,rows);
   const mine=cuts.filter(c=>c.parts?.length&&c.marks.includes(mark)),made=[],used=new Set(),shift=[];
   // (and under no other level of the mark's cuts nearer: the bracket under «3 - 3» is not one under «4 - 4» over it)
-  const all=cuts.filter(o=>o.marks.includes(mark)).flatMap(o=>o.levels.map(l=>l.at)),next=a=>all.filter(v=>v<=a+150).sort((x,y)=>y-x)[0];
+  // (under: on the way the cut looks — down an upright member; its near end the one toward the level)
+  const all=cuts.filter(o=>o.marks.includes(mark)).flatMap(o=>o.levels.map(l=>({at:l.at,s:o.look}))),next=(a,s)=>all.filter(l=>l.s===s&&s*(l.at-a)<=150).sort((x,y)=>s*(y.at-x.at))[0]?.at;
+  const end=(r,s)=>s>0?r.at_mm[0]:r.at_mm[1];
   // (the row of the position under the level: on the main view across as the cut; on a view of its side the near side,
   // else the one there)
-  const rowOf=(p,lv)=>{const list=rows.filter(r=>!used.has(r)&&!r.cut&&String(r.pos)===p.pos&&r.at_mm[0]!==null&&r.at_mm[1]!==null&&r.at_mm[0]>=lv.at-150&&r.at_mm[0]<=lv.at+700&&next(r.at_mm[0])===lv.at&&
-    (!r.main||overlap(r.off_mm,p.off)>0)).sort((a,b)=>Math.abs(a.at_mm[0]-lv.at)-Math.abs(b.at_mm[0]-lv.at));
+  const rowOf=(p,lv,s)=>{const list=rows.filter(r=>!used.has(r)&&!r.cut&&String(r.pos)===p.pos&&r.at_mm[0]!==null&&r.at_mm[1]!==null&&s*(end(r,s)-lv.at)>=-150&&s*(end(r,s)-lv.at)<=700&&next(end(r,s),s)===lv.at&&
+    (!r.main||overlap(r.off_mm,p.off)>0)).sort((a,b)=>Math.abs(end(a,s)-lv.at)-Math.abs(end(b,s)-lv.at));
    return list.find(r=>r.main||overlap(r.off_mm,p.depth)>0||overlap(r.off_mm,p.depth.map(v=>-v))>0)||list.find(r=>!r.main)};
-  for(const c of mine)for(const lv of c.levels)for(const p of c.parts){const r=rowOf(p,lv);if(!r)continue;used.add(r);shift.push({c,pos:p.pos,d0:r.at_mm[0]-lv.at,d1:r.at_mm[1]-lv.at});made.push({c,p,lv,at:r.at_mm})}
+  for(const c of mine)for(const lv of c.levels)for(const p of c.parts){const r=rowOf(p,lv,c.look);if(!r)continue;used.add(r);shift.push({c,pos:p.pos,d0:r.at_mm[0]-lv.at,d1:r.at_mm[1]-lv.at});made.push({c,p,lv,at:r.at_mm})}
   // (a part no view draws there: as far under the level as the position is under the others, as long — of this cut, else
-  // any —; of a position no view draws, its top only, as far under as the parts of the cuts are)
+  // any)
   for(const c of mine)for(const lv of c.levels)for(const p of c.parts){if(made.some(x=>x.p===p&&x.lv===lv))continue;
    const s=[shift.filter(x=>x.c===c&&x.pos===p.pos),shift.filter(x=>x.pos===p.pos)].find(l=>l.length);
    if(s){made.push({c,p,lv,at:[lv.at+med(s.map(x=>x.d0)),lv.at+med(s.map(x=>x.d1))]});continue}
-   const o=[shift.filter(x=>x.c===c),shift].find(l=>l.length);if(o){const a=lv.at+med(o.map(x=>x.d0));made.push({c,p,lv,at:[a,a]})}}
+   // (of a position no view balloons there: where the main view draws it edge on — the nearest line across it past the
+   // level as wide as the part, ГПЭС К26 «12» under the tube at its joint, К68 «15» at the top —; else at the level)
+   const g=c.f.g,mid=(g.lo+g.hi)/2,c0=mid+Math.min(...p.off)*g.sc.n,c1=mid+Math.max(...p.off)*g.sc.n,tol=0.1*(c1-c0)+1;
+   const edge=c.f.P.filter(q=>Math.abs(q.a-q.b)<=0.4&&Math.min(q.c,q.d)<=c0+tol&&Math.max(q.c,q.d)>=c1-tol&&c.look*(q.a-lv.sa)>=-1&&c.look*(q.a-lv.sa)<=1500*g.sc.n)
+    .sort((x,y)=>c.look*(x.a-y.a))[0];
+   const a=edge?g.alongMm(edge.a):Math.max(0,Math.min(g.length,lv.at));made.push({c,p,lv,at:[a,a]})}
   for(const r of used)rows.splice(rows.indexOf(r),1);
   for(const x of made){const f=x.c.f;rows.push({pos:x.p.pos,...(x.p.side?{side:x.p.side}:{}),view:f.view.title,main:true,...(f.face?{face:f.face}:{}),dir:f.view.dir,of_mm:f.g.length,
    at_mm:x.at,off_mm:x.p.off,depth_mm:x.p.depth,cut:x.c.title})}
@@ -298,4 +337,18 @@ function sheetBevels(geo={},{seeded=null}={}){
  }
  return out
 }
-module.exports={sheetParts,sheetBevels,balloonsOf,leadersOf,regionAt};
+// The outline a cut gives a part against the sizes of its row of the specification: one none of whose two sizes is any
+// of the part's (a plate's width, thickness, length; an angle's legs, length — within a fifth, 15 mm at least) is a piece
+// of it the lines inside cut off, not its place (ГПЭС К68 «1 - 1»: the base plate −500×40 of 900 closed 244 × 238 by the
+// ribs round the leader's end) — its place across is left open.
+function fitCuts(place,spec){
+ for(const m of place){const sp=(spec||[]).find(s=>s.mark===m.mark);if(!sp||!sp.parts)continue;
+  for(const r of m.rows){if(!r.cut||!Array.isArray(r.depth_mm)||!Array.isArray(r.off_mm)||r.off_mm.some(v=>v===null)||r.depth_mm.some(v=>v===null))continue;
+   const p=sp.parts.find(p=>String(p.pos)===String(r.pos));if(!p)continue;
+   const pl=/^[−–-]\s*(\d+(?:[,.]\d)?)\s*[хx×]\s*(\d+(?:[,.]\d)?)$/u.exec(p.section||""),an=/^L\s*(\d+)\s*[хx×]\s*(\d+)(?:\s*[хx×]\s*(\d+))?$/u.exec(p.section||"");
+   const dims=[...(pl?[pl[1],pl[2]]:an?(an[3]?[an[1],an[2]]:[an[1]]):[]),p.length_mm].map(v=>Number(String(v??"").replace(",","."))).filter(v=>v>0);if(!pl&&!an||!dims.length)continue;
+   const spans=[r.off_mm,r.depth_mm].map(v=>Math.abs(v[1]-v[0]));
+   if(!spans.some(e=>dims.some(d=>Math.abs(e-d)<=Math.max(15,d*0.2)))){r.outline_mm=spans;r.off_mm=[null,null];r.depth_mm=null}}}
+ return place
+}
+module.exports={sheetParts,sheetBevels,fitCuts,balloonsOf,leadersOf,regionAt};

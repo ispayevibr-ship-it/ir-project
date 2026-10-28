@@ -149,14 +149,24 @@ function chainMap(dims,n,{tol=0.6,bridge=60}={}){
  // (a dimension drawn many times longer than its size at the scale is not one: its number is another's — ГПЭС К187
  // «Вид Б», «60» of the holes read on the line of «4196»; a view is drawn shorter, a small size a little larger)
  dims=dims.filter(d=>!(d.hi-d.lo>Math.max(20,5*Math.abs(d.v)*n)));
- const nodes=[],at=p=>{let i=nodes.findIndex(q=>Math.abs(q-p)<=tol);if(i<0){nodes.push(p);i=nodes.length-1}return i};
- const par=[],off=[],find=i=>{let o=0,r=i;while(par[r]!==r){o+=off[r];r=par[r]}return[r,o]};
+ let nodes,par,off,order;
+ const at=p=>{let i=nodes.findIndex(q=>Math.abs(q-p)<=tol);if(i<0){nodes.push(p);i=nodes.length-1}return i};
+ const find=i=>{let o=0,r=i;while(par[r]!==r){o+=off[r];r=par[r]}return[r,o]};
  const join=(i,j,v)=>{const [ri,oi]=find(i),[rj,oj]=find(j);if(ri===rj)return;par[rj]=ri;off[rj]=v+oi-oj};
- for(const d of dims){const i=at(d.lo),j=at(d.hi);while(par.length<nodes.length){par.push(par.length);off.push(0)}if(i!==j)join(i,j,d.v)}
- const order=nodes.map((p,i)=>({p,i})).sort((a,b)=>a.p-b.p);
- const gaps=order.slice(1).map((b,k)=>({a:order[k],b,gap:b.p-order[k].p})).filter(x=>x.gap<=bridge).sort((x,y)=>x.gap-y.gap);
- for(const {a,b,gap} of gaps)join(a.i,b.i,gap/n);
  const val=i=>find(i)[1],root=i=>find(i)[0];
+ const build=list=>{nodes=[];par=[];off=[];
+  for(const d of list){const i=at(d.lo),j=at(d.hi);while(par.length<nodes.length){par.push(par.length);off.push(0)}if(i!==j)join(i,j,d.v)}
+  order=nodes.map((p,i)=>({p,i})).sort((a,b)=>a.p-b.p);
+  const gaps=order.slice(1).map((b,k)=>({a:order[k],b,gap:b.p-order[k].p})).filter(x=>x.gap<=bridge).sort((x,y)=>x.gap-y.gap);
+  for(const {a,b,gap} of gaps)join(a.i,b.i,gap/n)};
+ // (the places along go on one way: a dimension that turns them back — its end read at a line crossing it, ГПЭС К68
+ // «3980» to 1397 where the column ends at 1565 by «10335» — goes, the one of the end fewer dimensions come to)
+ for(let k=0;k<6;k++){build(dims);
+  const deg=new Map();for(const d of dims)for(const p of [d.lo,d.hi]){const i=nodes.findIndex(q=>Math.abs(q-p)<=tol);deg.set(i,(deg.get(i)||0)+1)}
+  let bad=null;for(let x=0;x<order.length&&!bad;x++)for(let y=x+1;y<order.length;y++){const A=order[x],B=order[y];if(root(A.i)===root(B.i)&&val(A.i)>val(B.i)+1){bad=[A,B];break}}
+  if(!bad)break;const drop=bad.sort((a,b)=>(deg.get(a.i)||0)-(deg.get(b.i)||0))[0].p;
+  const rest=dims.filter(d=>Math.abs(d.lo-drop)>tol&&Math.abs(d.hi-drop)>tol);if(rest.length===dims.length)break;dims=rest}
+ build(dims);
  // A place: its value from the root of its extension lines' group.
  const place=p=>{
   const k=order.findIndex(q=>Math.abs(q.p-p)<=tol);if(k>=0)return{r:root(order[k].i),v:val(order[k].i),node:true};
@@ -170,6 +180,8 @@ function chainMap(dims,n,{tol=0.6,bridge=60}={}){
  return{mm(a,b){const A=place(a),B=place(b);return A&&B&&A.r===B.r?B.v-A.v:null},at:p=>order.some(q=>Math.abs(q.p-p)<=tol),
   // (a place in a stretch drawn shorter: the stretch from a, and the place in proportion — not certain)
   span(a,b){const A=place(a),B=place(b);return A&&B&&A.r===B.r&&B.span?{v:B.prop-A.v,span:B.span.map(x=>x-A.v)}:null},
+  // (a place not joined with a by the dimensions: from the nearest place that is, at the scale)
+  near(a,p){const A=place(a);if(!A)return null;const q=order.filter(q=>root(q.i)===A.r).sort((x,y)=>Math.abs(x.p-p)-Math.abs(y.p-p))[0];return q?val(q.i)-A.v+(p-q.p)/n:null},
   // (the extension lines joined with a: their sizes from it)
   marks(a){const A=place(a);return A?order.filter(q=>root(q.i)===A.r).map(q=>({p:q.p,v:val(q.i)-A.v})):[]}}
 }
@@ -421,7 +433,9 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
   // (the dimensions beside it, the nearer first)
   const gap=d=>Math.max(0,lo-cross(d),cross(d)-hi),map=chainMap(beside.slice().sort((a,b)=>gap(a)-gap(b)),g.sc.n);
   g.byChain=map.at(g.s0)&&map.at(g.s1)&&map.mm(g.s0,g.s1)>0;
-  g.alongMm=p=>{const v=map.mm(g.s0,p);return Math.round(v===null?(p-g.s0)/g.sc.n:v)};
+  // (a place the chains from the start do not reach: from the nearest place they do — a view drawn shorter, broken off
+  // over it: ГПЭС К68, a part under «5 - 5» 904 down read 602 from the top at the scale)
+  g.alongMm=p=>{const v=map.mm(g.s0,p)??map.near(g.s0,p);return Math.round(v===null?(p-g.s0)/g.sc.n:v)};
   g.alongSpan=p=>{const o=map.span(g.s0,p);return o&&{v:Math.round(o.v),span:o.span.map(Math.round)}};
   g.marksAt=()=>map.marks(g.s0).map(m=>({p:m.p,v:Math.round(m.v)}));
   g.length=g.alongMm(g.s1)
