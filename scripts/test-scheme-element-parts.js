@@ -55,4 +55,18 @@ const kgm=mm(x=>fake[x]||null,v=>Number(v)||0);
 assert.equal(kgm("I30Ш1"),53.6);assert.equal(kgm("−140×10"),10.99);assert.equal(kgm("Ø20"),2.466);assert.equal(kgm("Тр.□100х4"),12.058);assert.equal(kgm("Ø159х6"),22.639);assert.equal(kgm("?"),null);
 // The mass of the model: the closed pieces by their volume, not the holes, the anchors, the footing.
 assert(view.includes("if(m.userData.hole||m.userData.anchor||m.userData.footing||m.material===concreteMat)return;v+=volumeOf(m)"));
+// Without a КМД (the КМ only, 28.10.2026: «вот смотри как четко показан узел, также сделай»): the positions the model
+// gives of the pieces of the member (model.spec) — the profile, the members of a truss, the plates by thickness — in the
+// same table, with the note that they are conventional; a specification of the КМД goes first.
+const km={model:{colors:{1:"#4a95c4",2:"#c2507a"},spec:{note:"КМД нет: позиции условные",rows:[{pos:"1",section:"∟140×10",count:8,length_mm:null,mass_kg:130.1,note:"верхний пояс"},{pos:"2",section:"−220×25",count:1,length_mm:700,mass_kg:30.2,note:"опорное ребро фермы"}]}}};
+const kt=C.parts(km);
+assert.match(kt,/<tr data-ec-pos="1"><td><span class="ec-sw" style="background:#4a95c4"><\/span>1<\/td><td>∟140×10<div class="ec-note">верхний пояс<\/div><\/td><td class="ec-n"><\/td><td class="ec-n">8<\/td><td class="ec-n">1.041<\/td><\/tr>/);
+assert.match(kt,/−220×25<div class="ec-note">опорное ребро фермы/);assert.match(kt,/<p class="ec-parts-src">КМД нет: позиции условные<\/p>/);
+assert.match(C.parts(Object.assign({},e,{model:Object.assign({},m,{spec:km.model.spec})})),/Спецификация: КМД 043-2026/,"the КМД first");
+assert(view.includes("function deriveParts(){")&&view.includes("buildNodes();deriveParts();lowerGround();")&&view.includes("spec:derivedParts.get(id)||null}"),"positions of the model, in the card");
+assert(view.includes("var c=dataById.get(id);if(!c||c.ft||partRows(c).length)return;")&&view.includes("if(order.length<2)return;"),"only without a КМД, of two pieces and more");
+assert(view.includes('partTag(new T.Mesh(geo,mat),memberRoles[m[4]]||"элемент решётки",/^\\d/.test(pr)?"∟"+pr:pr)')&&view.includes('"опорное ребро фермы"),id)')&&view.includes('"опорный столик фермы"),cid)')&&view.includes('"опорная плита")'),"the pieces named where they are drawn");
+assert(view.includes("order.sort(function(a,b){return a.o-b.o||b.t-a.t||a.i-b.i});"),"the profile, the truss members, the plates by thickness");
+assert(view.includes("if(len<Math.min(w,h)){var t=mm(len);return{n:name(\"фасонка\"),s:\"−\"+t"),"a gusset cut to its shape by its thickness");
+assert(view.includes("closestPointToPointParameter(t,true)")&&view.includes("Math.min(.5,.35/L)"),"the number at the node looked at, 0.35 m in along a member");
 console.log("Element card as the report of 21.10: state with its day, sheet · section · masses · bolts, nodes, parts in their colours with numbers on the 3D — program and export PASS");

@@ -1609,7 +1609,7 @@ window.irThreeSchemeView=(function(){
    [-1,1].forEach(function(q){
     var rib=new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(b));
     rib.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(dir,up,side));rib.scale.set(.01,rh,rw);
-    rib.position.copy(at).add(side.clone().multiplyScalar(q*(tw/2+rw/2)));rib.userData.small=true;parts.push(rib)
+    rib.position.copy(at).add(side.clone().multiplyScalar(q*(tw/2+rw/2)));rib.userData.small=true;parts.push(partTag(rib,"опорное ребро балки"))
    })
   }
   // ---- Steel through a wall of panels (АР). A member whose axis crosses the plane of a wall panel within it — a beam of
@@ -2071,15 +2071,15 @@ window.irThreeSchemeView=(function(){
      if(!made.has(key)){
       made.add(key);
       var face=mid.clone().add(out.clone().multiplyScalar(best.hOut));face.y=bot-tP;
-      keepPart(plateBox(k,face.clone().add(out.clone().multiplyScalar(ext/2)).add(up.clone().multiplyScalar(tP/2)),out,up,side,ext,tP,wP),cid);
+      keepPart(partTag(plateBox(k,face.clone().add(out.clone().multiplyScalar(ext/2)).add(up.clone().multiplyScalar(tP/2)),out,up,side,ext,tP,wP),"столик ригеля"),cid);
       var w=Math.min(oR,ext),rib=new T.Mesh(shared("rib:"+w.toFixed(3)+":"+dR.toFixed(3)+":"+tR.toFixed(3),function(){
        var sh=new T.Shape();sh.moveTo(0,0);sh.lineTo(w,0);sh.lineTo(0,-dR);sh.closePath();var geo=new T.ExtrudeGeometry(sh,{depth:tR,bevelEnabled:false});geo.translate(0,0,-tR/2);return geo}),baseMaterial(k));
-      rib.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(out,up,side));rib.position.copy(face);keepPart(rib,cid)
+      rib.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(out,up,side));rib.position.copy(face);keepPart(partTag(rib,"ребро столика"),cid)
      }
      // Two bolts of the girder end through its bottom and the plate (heads below), its end cap.
      var at=E[0].clone();at.y=bot;
      if(d)[-1,1].forEach(function(j){addBolt(g,at.clone().add(E[1].clone().multiplyScalar(.09)).add(out.clone().multiplyScalar(j*gw/3)).add(up.clone().multiplyScalar((tw-tP)/2)),up.clone().negate(),d,tw+tP)});
-     if(cap>0&&cap<.03)keepPart(plateBox(g,E[0].clone().add(E[1].clone().multiplyScalar(cap/2)),E[1],up,E[1].clone().cross(up).normalize(),cap,2*gh,2*gw),gid)
+     if(cap>0&&cap<.03)keepPart(partTag(plateBox(g,E[0].clone().add(E[1].clone().multiplyScalar(cap/2)),E[1],up,E[1].clone().cross(up).normalize(),cap,2*gh,2*gw),"торцевая заглушка"),gid)
     })
    })
   }
@@ -2097,7 +2097,7 @@ window.irThreeSchemeView=(function(){
    var f=footPlateSize(c.base),id=String(c.id),x=number(c.x),y=number(c.y),z=number(c.z0);
    var a=toWorld(x,y,z),d=toWorld(x+f.dx*1000,y+f.dy*1000,z+f.dz*1000).sub(a);if(d.lengthSq()<1e-9)return;d.normalize();
    var side=new T.Vector3(0,1,0).cross(d);if(side.lengthSq()<1e-9)return;side.normalize();var up=d.clone().cross(side).normalize();
-   var plate=new T.Mesh(shared("foot:"+f.w.toFixed(3)+":"+f.t.toFixed(3)+":"+f.l.toFixed(3),function(){return new T.BoxGeometry(f.w,f.t,f.l)}),baseMaterial(c));
+   var plate=partTag(new T.Mesh(shared("foot:"+f.w.toFixed(3)+":"+f.t.toFixed(3)+":"+f.l.toFixed(3),function(){return new T.BoxGeometry(f.w,f.t,f.l)}),baseMaterial(c)),"опорная плита");
    plate.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(side,up,d));
    plate.position.copy(a).add(d.clone().multiplyScalar(f.l/2-.025)).add(up.clone().multiplyScalar(f.t/2));
    plate.userData.memberId=id;steel.add(plate);allMeshes.push(plate);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(plate)
@@ -2127,7 +2127,7 @@ window.irThreeSchemeView=(function(){
   }
   function baseParts(c){
    var id=String(c.id),bs=baseSize(c),at=toWorld(number(c.x),number(c.y),number(c.z0)),turn=new T.Quaternion().setFromAxisAngle(boltY,branchTurn.get(id)||0);
-   var plate=new T.Mesh(shared("plate:"+bs.pw.toFixed(3)+":"+bs.pd.toFixed(3)+":"+bs.pt.toFixed(3),function(){return new T.BoxGeometry(bs.pw,bs.pt,bs.pd)}),baseMaterial(c));
+   var plate=partTag(new T.Mesh(shared("plate:"+bs.pw.toFixed(3)+":"+bs.pd.toFixed(3)+":"+bs.pt.toFixed(3),function(){return new T.BoxGeometry(bs.pw,bs.pt,bs.pd)}),baseMaterial(c)),"опорная плита");
    plate.position.copy(at);plate.position.y+=number(c.z0)>300?bs.pt/2:-bs.pt/2;plate.quaternion.copy(turn);plate.userData.memberId=id;steel.add(plate);allMeshes.push(plate);
    if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(plate);
    var hp=[];(bs.holes||[]).forEach(function(h){putHole(c,hp,{at:plate.position.clone().add(new T.Vector3(h.x,0,h.z).applyQuaternion(turn)),axis:boltY,d:h.d,t:bs.pt,bolt:0})});
@@ -2624,6 +2624,10 @@ window.irThreeSchemeView=(function(){
   // chord with its horizontal legs on top (the purlins lie on them — КМ: прогон на верхнем поясе фермы), the other
   // members with them at the bottom. Drawn from the line up, the top chord went through the purlins lying on it. The
   // angles of a pair stand `gap` apart (the gusset between them).
+  // What a piece of a member is, for the positions of a member without the specification of its КМД (deriveParts): its
+  // name and section as the drawn node gives them; the sizes of a plate are taken from its box.
+  function partTag(m,name,section){m.userData.part={n:name,s:section||""};return m}
+  var memberRoles={top:"верхний пояс",bottom:"нижний пояс",diag:"раскос",post:"стойка"};
   function drawMembers(c,members,at,plane,byAxis,gap){
    var up=new T.Vector3(0,1,0),parts=[],mat=baseMaterial(c);
    members.forEach(function(m){
@@ -2636,7 +2640,7 @@ window.irThreeSchemeView=(function(){
     var basis=new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(x,y,dir));
     var pr=String(m[5]||""),sec=pr?sectionOf(/^\d/.test(pr)?"∟"+pr:pr):null;
     var lift=0,down=false;
-    var put=function(geo,mirror){var mesh=new T.Mesh(geo,mat);mesh.position.copy(p0).add(y.clone().multiplyScalar(lift)).add(x.clone().multiplyScalar((mirror?-1:1)*(number(gap)/2)));mesh.quaternion.copy(basis);mesh.scale.set(mirror?-1:1,down?-1:1,len);parts.push(mesh)};
+    var put=function(geo,mirror){var mesh=partTag(new T.Mesh(geo,mat),memberRoles[m[4]]||"элемент решётки",/^\d/.test(pr)?"∟"+pr:pr);mesh.position.copy(p0).add(y.clone().multiplyScalar(lift)).add(x.clone().multiplyScalar((mirror?-1:1)*(number(gap)/2)));mesh.quaternion.copy(basis);mesh.scale.set(mirror?-1:1,down?-1:1,len);parts.push(mesh)};
     if(sec&&sec.shape==="angle"&&byAxis){var ca=angleAxis(sec)/1000;down=m[4]==="top";lift=down?ca:-ca}
     if(sec&&sec.shape==="angle"&&/^(?:2|\d)/.test(pr)){var g=realGeometry(T,meshGeo,sec);put(g,false);put(g,true)}
     else if(sec)put(realGeometry(T,meshGeo,sec),false);
@@ -2715,8 +2719,8 @@ window.irThreeSchemeView=(function(){
    // КМ1 л.17 узел 4 — 505 over +18,990), when the node gives it so.
    if(number(sp.rib_top_mm))fTop=number(chordAt(c.truss.members,"bottom",s>0?0:number(c.truss.span_mm)))+number(sp.rib_top_mm);
    var up=new T.Vector3(0,1,0),place=function(x,z,across){return at(x,z).add(nrm.clone().multiplyScalar((across||0)/1000))};
-   keepPart(plateBox(c,place(face+s*tF/2,fTop-hF/2),ex,up,nrm,tF/1000,hF/1000,wF/1000),id);
-   keepPart(plateBox(col,place(face+s*tT/2,fTop-hF-hT/2),ex,up,nrm,tT/1000,hT/1000,wT/1000),cid);
+   keepPart(partTag(plateBox(c,place(face+s*tF/2,fTop-hF/2),ex,up,nrm,tF/1000,hF/1000,wF/1000),"опорное ребро фермы"),id);
+   keepPart(partTag(plateBox(col,place(face+s*tT/2,fTop-hF-hT/2),ex,up,nrm,tT/1000,hT/1000,wT/1000),"опорный столик фермы"),cid);
    // Bolts through the flange and the flange of the column: by the chain of the sheet from the top of the flange.
    // (their class as the node gives it: «М24 кл. 8.8» of the support, not of the members)
    var csec=sectionOf(col.profile_name||col.profileName,col.profile_standard),tc=seat.tc||(csec&&csec.t?csec.t:20),d=boltMm(sp.bolt,c),bc={id:c.id,joint:{cls:sp.cls||c.joint&&c.joint.cls}};
@@ -2726,8 +2730,8 @@ window.irThreeSchemeView=(function(){
    // The top chord: the vertical gusset of the truss to the face, over the rib of the column, two bolts across.
    if(zt===null)return;
    var tp=sp.top&&typeof sp.top==="object"?sp.top:{},gt=trussGussetT(c)*1000,tR=mm(tp.rib_mm,0,10),out=mm(tp.rib_mm,1,250),hR=mm(tp.rib_mm,2,300),dt=boltMm(tp.bolt||sp.bolt,c);
-   keepPart(plateBox(c,place(face+s*(out+100)/2,zt-hR/2+20),ex,up,nrm,(out+100)/1000,(hR+40)/1000,gt/1000),id);
-   keepPart(plateBox(col,place(face+s*out/2,zt-hR/2,(gt+tR)/2),ex,up,nrm,out/1000,hR/1000,tR/1000),cid);
+   keepPart(partTag(plateBox(c,place(face+s*(out+100)/2,zt-hR/2+20),ex,up,nrm,(out+100)/1000,(hR+40)/1000,gt/1000),"фасонка верхнего пояса"),id);
+   keepPart(partTag(plateBox(col,place(face+s*out/2,zt-hR/2,(gt+tR)/2),ex,up,nrm,out/1000,hR/1000,tR/1000),"ребро под фасонку фермы"),cid);
    // Its two bolts from the top of the rib and from the face as the node gives them (top.bolts_mm, top.bolt_out_mm).
    var tb=Array.isArray(tp.bolts_mm)&&tp.bolts_mm.length?tp.bolts_mm.map(number):[hR*.28,hR*.72],bo=number(tp.bolt_out_mm)||out*.6;
    if(dt)tb.forEach(function(r){addBolt(bc,place(face+s*bo,zt-r,tR/2-gt/2),nrm,dt/1000,(gt+tR)/1000)})
@@ -2755,7 +2759,7 @@ window.irThreeSchemeView=(function(){
    nodes.gussets.forEach(function(g){
     if(g.length<3)return;var sh=new T.Shape();g.forEach(function(p,i){i?sh.lineTo(p[0]/1000,p[1]/1000):sh.moveTo(p[0]/1000,p[1]/1000)});sh.closePath();
     var geo=new T.ExtrudeGeometry(sh,{depth:gt,bevelEnabled:false});geo.translate(0,0,-gt/2);geo.applyMatrix4(place);
-    var mesh=new T.Mesh(geo,baseMaterial(c));mesh.userData.gusset=true;parts.push(mesh)
+    var mesh=partTag(new T.Mesh(geo,baseMaterial(c)),"фасонка узла");mesh.userData.gusset=true;parts.push(mesh)
    });
    parts.forEach(function(mesh){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh)});
    ends.forEach(function(e,i){if(e)trussSupport(c,id,e,i?xb:xa,i?-1:1,members,at,ex.clone().normalize(),nrm,spec(i))});
@@ -3177,10 +3181,66 @@ window.irThreeSchemeView=(function(){
     if(k&&(!best||k>best.k||k===best.k&&len>best.len))best={k:k,len:len,pos:String(r.pos)}});
    return best?best.pos:null
   }
+  // The positions of a member without the specification of its КМД (the КМ only): its pieces as the 3D draws them by
+  // the nodes of its sheets — the profile first, then the members of a truss (chords, diagonals, posts), then the plates
+  // by thickness; alike pieces under one number, numbered in that order, in their colours on the model with the number
+  // beside them and in the table of the card, as a КМД gives them (the engineer, 28.10.2026, on a node of a КМД: «вот
+  // смотри как четко показан узел, также сделай»). The numbers are conventional, not of a drawing; a plate is as large
+  // as it is drawn — by its node where the sheet gives it, else conventional. A member of one piece is lit as it was.
+  var derivedParts=new Map(),pieceOrder={"верхний пояс":1,"нижний пояс":2,"раскос":3,"стойка":4,"элемент решётки":5};
+  var DERIVED_NOTE="КМД нет: позиции условные, по деталям модели; размеры — как нарисованы по узлам КМ (где лист их не даёт — условные).";
+  function pieceOf(m,c){
+   var u=m.userData,g=m.geometry,gp=g&&g.parameters||{},tag=u.part||null,mm=function(v){return Math.round(v*1000)};
+   if(u.hole||u.anchor||u.footing||u.fixed||u.shell||!g)return null;
+   if(u.body){var pts=memberPoints(c),L=0;for(var i=1;i<pts.length;i++)L+=pts[i].distanceTo(pts[i-1]);
+    var sec=String(c.profile_name||c.profileName||"").trim();return{n:"профиль марки",s:sec,L:mm(L),kg:(massPerMetre(sec,c.profile_standard)||0)*L,o:0,t:0}}
+   var name=function(d){return tag&&tag.n||(u.gusset?"фасонка":u.small?"ребро":d)},sx=Math.abs(m.scale.x),sy=Math.abs(m.scale.y),sz=Math.abs(m.scale.z);
+   if(g.type==="BoxGeometry"){
+    var d=[gp.width*sx,gp.height*sy,gp.depth*sz].map(mm).sort(function(a,b){return a-b});if(!(d[0]>0))return null;
+    // (a member of a truss of a section not in the sortament, drawn as a bar)
+    if(tag&&pieceOrder[tag.n])return{n:tag.n,s:tag.s,L:d[2],kg:(massPerMetre(tag.s,c.profile_standard)||0)*d[2]/1000,o:pieceOrder[tag.n],t:0};
+    return{n:name("пластина"),s:"−"+d[1]+"×"+d[0],L:d[2],kg:d[0]*d[1]*d[2]*7.85e-6,o:6,t:d[0]}
+   }
+   var sh=gp.shapes?Array.isArray(gp.shapes)?gp.shapes[0]:gp.shapes:null,depth=gp.options?number(gp.options.depth):0;
+   if(g.type==="ExtrudeGeometry"&&sh&&depth>0){
+    var pts2=sh.getPoints(),x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;
+    pts2.forEach(function(q){x0=Math.min(x0,q.x);x1=Math.max(x1,q.x);y0=Math.min(y0,q.y);y1=Math.max(y1,q.y)});
+    var w=x1-x0,h=y1-y0,len=depth*sz;
+    // A plate cut to its shape (a gusset, a rib): thinner than it is wide — by its thickness only, its shapes differ.
+    if(len<Math.min(w,h)){var t=mm(len);return{n:name("фасонка"),s:"−"+t,L:0,kg:Math.abs(T.ShapeUtils.area(pts2))*len*7850,o:6,t:t}}
+    // A piece of a profile along its length.
+    if(tag)return{n:tag.n,s:tag.s,L:mm(len),kg:(massPerMetre(tag.s,c.profile_standard)||0)*len,o:pieceOrder[tag.n]||5,t:0}
+   }
+   return null
+  }
+  function deriveParts(){
+   derivedParts.clear();
+   meshesById.forEach(function(list,id){
+    var c=dataById.get(id);if(!c||c.ft||partRows(c).length)return;
+    var groups=new Map(),order=[];
+    list.forEach(function(m){
+     var p=pieceOf(m,c);if(!p)return;
+     // (a plate by its size; a member of a truss and a gusset by the section: their lengths and shapes differ)
+     var k=p.n+"|"+p.s+"|"+(p.o===6&&p.L?Math.round(p.L/5):""),g=groups.get(k);
+     if(!g){g={n:p.n,s:p.s,o:p.o,t:p.t,L:[],kg:0,meshes:[],i:order.length};groups.set(k,g);order.push(g)}
+     g.L.push(p.L);g.kg+=p.kg;g.meshes.push(m)
+    });
+    if(order.length<2)return;
+    order.sort(function(a,b){return a.o-b.o||b.t-a.t||a.i-b.i});
+    var body=null,rows=order.map(function(g,i){
+     var pos=String(i+1),n=g.meshes.length,L=Math.max.apply(null,g.L),same=g.L.every(function(v){return Math.abs(v-L)<=5});
+     g.meshes.forEach(function(m){m.userData.pos=pos});if(g.o===0)body=pos;
+     // (a body of two angles, «2L180×11»: two pieces of one angle)
+     var sec=g.o===0&&n===2?g.s.replace(/^2\s*[LЛ∟]\s*/i,"∟"):g.s;
+     return{pos:pos,section:sec,count:n,length_mm:same&&L>0?L:null,mass_kg:g.kg>0?Math.round(g.kg/n*10)/10:null,note:g.n}
+    });
+    derivedParts.set(id,{rows:rows,body:body,note:DERIVED_NOTE})
+   })
+  }
   function partsOf(id){
-   var c=dataById.get(String(id)),rows=partRows(c);if(!rows.length)return null;
+   var c=dataById.get(String(id)),rows=partRows(c),own=rows.length?null:derivedParts.get(String(id));if(own)rows=own.rows;if(!rows.length)return null;
    var color={},n=0;rows.forEach(function(r){var k=String(r.pos);if(!color[k])color[k]=PART_COLORS[n++%PART_COLORS.length]});
-   return{body:bodyPos(c,rows),color:color}
+   return{body:own?own.body:bodyPos(c,rows),color:color}
   }
   function meshPos(m,parts){var p=m.userData.body?parts.body:m.userData.pos;return p===null||p===undefined||p===""?null:String(p)}
   // (the others of a member with a position lit: pale grey over the colour of its state)
@@ -3190,17 +3250,32 @@ window.irThreeSchemeView=(function(){
   }
   function clearCallouts(){callouts.forEach(function(o){o.el.remove()});callouts=[]}
   // A number in a circle at the middle of the first piece of each position (as the report draws them).
+  // Without a КМД (the positions of the model) the number goes to the piece of its position nearest to the point the view
+  // turns about, again as the view moves — to the nearest point of a member of a truss, along its axis: a truss has its
+  // gussets in every node, and the numbers of the first ones stood in another node than the one looked at.
+  function calloutSpot(m){
+   var g=m.geometry;if(!g.boundingBox)g.computeBoundingBox();var b=g.boundingBox,c=b.getCenter(new T.Vector3());m.updateWorldMatrix(true,false);
+   var line=m.userData.body||m.userData.part&&pieceOrder[m.userData.part.n];
+   return line?{a:new T.Vector3(c.x,c.y,b.min.z).applyMatrix4(m.matrixWorld),b:new T.Vector3(c.x,c.y,b.max.z).applyMatrix4(m.matrixWorld)}:{a:c.applyMatrix4(m.matrixWorld),b:null}
+  }
   function putCallouts(id,parts){
-   var first=new Map();(meshesById.get(id)||[]).forEach(function(m){var p=meshPos(m,parts);if(p!==null&&parts.color[p]&&!first.has(p))first.set(p,m)});
+   var first=new Map(),all=new Map(),own=derivedParts.has(String(id));
+   (meshesById.get(id)||[]).forEach(function(m){var p=meshPos(m,parts);if(p===null||!parts.color[p])return;if(!first.has(p))first.set(p,m);
+    if(own){if(!all.has(p))all.set(p,[]);all.get(p).push(calloutSpot(m))}});
    first.forEach(function(m,p){
     // (not a button: the program disables the buttons of a section for a viewer, and these only show)
     var el=document.createElement("span");el.setAttribute("role","button");el.className="ir-three-callout";el.textContent=p;el.style.borderColor=parts.color[p];el.title="Поз. "+p;
     el.onclick=function(e){e.stopPropagation();lightPart(litPart===p?null:p)};
-    labelLayer.appendChild(el);callouts.push({el:el,pos:new T.Box3().setFromObject(m).getCenter(new T.Vector3()),p:p})
+    labelLayer.appendChild(el);callouts.push({el:el,pos:new T.Box3().setFromObject(m).getCenter(new T.Vector3()),p:p,near:all.get(p)||null})
    })
   }
   function paintCallouts(w,h){
-   callouts.forEach(function(o){var q=project(o.pos,w,h);o.el.hidden=!q.inside||q.x<8||q.x>w-8||q.y<8||q.y>h-8;
+   callouts.forEach(function(o){
+    // (on a member 0.35 m in from its end at the node: the numbers of the members of one node apart)
+    if(o.near){var d=Infinity,t=controls.target;o.near.forEach(function(v){
+     var q=v.a;if(v.b){var l=new T.Line3(v.a,v.b),L=l.distance(),k=L>0?Math.min(.5,.35/L):0;q=l.at(Math.max(k,Math.min(1-k,l.closestPointToPointParameter(t,true))),new T.Vector3())}
+     var e=q.distanceToSquared(t);if(e<d){d=e;o.pos=q}})}
+    var q=project(o.pos,w,h);o.el.hidden=!q.inside||q.x<8||q.x>w-8||q.y<8||q.y>h-8;
     if(!o.el.hidden){o.el.style.left=q.x+"px";o.el.style.top=q.y+"px";o.el.classList.toggle("on",litPart===o.p)}})
   }
   // The selected member (blue, or its parts in their colours) and the one under the cursor (orange) over their batch.
@@ -3236,7 +3311,7 @@ window.irThreeSchemeView=(function(){
    list.forEach(function(m){if(m.userData.hole||m.userData.anchor||m.userData.footing||m.material===concreteMat)return;v+=volumeOf(m)});
    return{mass_kg:own&&!conventional.has(id)&&v>0?Math.round(v*7850*10)/10:null,bolts:boltList.filter(function(b){return b.id===id}).length,
     nodes:nodes.filter(function(n){return n.members.some(function(m){return String(m.c.id)===id})}).map(function(n){return{id:n.id,name:nodeKinds[n.kind],axes:axisOf(n.x,n.y).split(" (")[0]}}),
-    colors:parts?parts.color:{},body:parts?parts.body:null,lit:litFor===id?litPart:null}
+    colors:parts?parts.color:{},body:parts?parts.body:null,lit:litFor===id?litPart:null,spec:derivedParts.get(id)||null}
   }
   function legendRows(){
    var counts=new Map(),rows=[];
@@ -3740,7 +3815,7 @@ window.irThreeSchemeView=(function(){
    if(COLOR_MODES.indexOf(P.colorMode)>=0&&P.colorMode!==colorMode){colorMode=P.colorMode;root.querySelector("#irThreeColors").value=colorMode}
    selected=String(P.selected||"");
    var sig=signature(P.elements);
-   if(sig!==built){built=sig;buildMembers(P.elements);buildCranes();buildTankDims();buildLevels();buildNodes();lowerGround();refreshMaterials()}
+   if(sig!==built){built=sig;buildMembers(P.elements);buildCranes();buildTankDims();buildLevels();buildNodes();deriveParts();lowerGround();refreshMaterials()}
    else if(mode!==colorMode)refreshMaterials();
    else paintHighlight();
    applyBackground();dims.visible=Boolean(P.showDimensions);invalidate();
@@ -3750,7 +3825,7 @@ window.irThreeSchemeView=(function(){
     paintPlacement()
    }
   }
-  built=signature(P.elements);buildMembers(P.elements);buildCranes();buildTankDims();buildLevels();buildNodes();lowerGround();applyBackground();refreshMaterials();dims.visible=Boolean(P.showDimensions);
+  built=signature(P.elements);buildMembers(P.elements);buildCranes();buildTankDims();buildLevels();buildNodes();deriveParts();lowerGround();applyBackground();refreshMaterials();dims.visible=Boolean(P.showDimensions);
   var memory=cameraMemory[memoryKey];
   if(memory){camera.position.copy(memory.position);controls.target.copy(memory.target);camera.up.copy(memory.up);controls.update()}
   else setView("iso");

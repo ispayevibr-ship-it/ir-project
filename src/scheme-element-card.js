@@ -188,7 +188,8 @@
  // The parts: position (its colour on the model), section with its note, length, count, kilograms — of the specification
  // where the sheet gives the mass of a part, else by the sortament (pale, with a hint).
  function parts(e){
-  var p=e.spec,rows=p&&Array.isArray(p.rows)?p.rows:[];if(!rows.length)return"";
+  // (without a КМД: the positions the model gives of its pieces, model.spec, with a note that they are conventional)
+  var p=e.spec&&Array.isArray(e.spec.rows)&&e.spec.rows.length?e.spec:e.model&&e.model.spec,rows=p&&Array.isArray(p.rows)?p.rows:[];if(!rows.length)return"";
   var colors=e.model&&e.model.colors||{},lit=e.model?e.model.lit:null,kgm=typeof e.kgm==="function"?e.kgm:function(){return null};
   var body=rows.map(function(r){
    var pos=r.pos===null||r.pos===undefined?"":String(r.pos),n=num(r.count),L=num(r.length_mm),one=num(r.mass_kg),per=one>0?0:kgm(r.section),kg=n>0?one>0?one*n:per>0&&L>0?per*L/1000*n:0:0,c=colors[pos];
@@ -196,7 +197,7 @@
     '<td>'+esc(r.section||"сечение не прочитано")+(r.note?'<div class="ec-note">'+esc(r.note)+'</div>':"")+'</td><td class="ec-n">'+(L>0?esc(fmt(L)):"")+'</td><td class="ec-n">'+(n>0?esc(fmt(n)):"")+'</td>'+
     '<td class="ec-n'+(kg&&!(one>0)?' ec-calc" title="По сортаменту: '+esc(kgs(per))+' кг/м':"")+'">'+(kg?esc(kgs(kg)):"")+'</td></tr>'}).join("");
   return'<div class="ec-parts-box"><table class="ec-parts"><thead><tr><th>Поз</th><th>Сечение</th><th class="ec-n">L</th><th class="ec-n">Шт</th><th class="ec-n">кг</th></tr></thead><tbody>'+body+'</tbody></table>'+
-   (p.sheet?'<p class="ec-parts-src">Спецификация: '+esc(sheetName(p.sheet))+(p.by?" · как "+esc(p.by):"")+'</p>':"")+'</div>'
+   (p.sheet?'<p class="ec-parts-src">Спецификация: '+esc(sheetName(p.sheet))+(p.by?" · как "+esc(p.by):"")+'</p>':"")+(p.note?'<p class="ec-parts-src">'+esc(p.note)+'</p>':"")+'</div>'
  }
  // The buttons and the rows of the card on the 3D (the montage scheme and the exported page alike).
  function bind(box,id){
