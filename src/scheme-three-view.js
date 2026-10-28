@@ -2729,26 +2729,33 @@ window.irThreeSchemeView=(function(){
    };
    cols.forEach(function(c){put("base",number(c.x),number(c.y),number(c.z0),c,"низ",250);put("top",number(c.x),number(c.y),number(topOf(c)),c,"верх",250)});
    var onLine=function(x,y,z,self){
-    var best=null,seen=new Set();
+    var best=null,lying=null,seen=new Set();
     var test=function(o){
      if(o===self||seen.has(o))return;seen.add(o);
      var a={x:number(o.x),y:number(o.y),z:number(o.z0)},b={x:number(o.x2),y:number(o.y2),z:number(o.z2)},ab={x:b.x-a.x,y:b.y-a.y,z:b.z-a.z},L=ab.x*ab.x+ab.y*ab.y+ab.z*ab.z;if(L<1)return;
-     var t=((x-a.x)*ab.x+(y-a.y)*ab.y+(z-a.z)*ab.z)/L;if(t<.02||t>.98)return;
-     var q={x:a.x+ab.x*t,y:a.y+ab.y*t,z:a.z+ab.z*t},d=Math.hypot(q.x-x,q.y-y,q.z-z);
+     // (along the other member, off its ends by 2 % of it, by 100 mm at most; the end within 350 mm of its line, or lying
+     // on it — the two half depths over it, a purlin on a beam, which wins)
+     var t=((x-a.x)*ab.x+(y-a.y)*ab.y+(z-a.z)*ab.z)/L,R=Math.sqrt(L);if(Math.min(t,1-t)*R<Math.min(100,.02*R))return;
+     var q={x:a.x+ab.x*t,y:a.y+ab.y*t,z:a.z+ab.z*t},d=Math.hypot(q.x-x,q.y-y,q.z-z),over=z-q.z;
+     if(self&&Math.hypot(q.x-x,q.y-y)<=150&&Math.abs(over-(halfSection(self).h+halfSection(o).h)*1000)<=60&&(!lying||d<lying.d))lying={d:d,q:q,o:o};
      if(d<=350&&(!best||d<best.d))best={d:d,q:q,o:o}
     };
     near(lineCells,x,y,0,test);(lineCells.get("long")||[]).forEach(test);
-    return best
+    return lying||best
    };
    lines.forEach(function(c){
     [[number(c.x),number(c.y),number(c.z0),"начало"],[number(c.x2),number(c.y2),number(c.z2),"конец"]].forEach(function(e){
      var x=e[0],y=e[1],z=e[2],col=null;
      near(colCells,x,y,800,function(k){var d=Math.hypot(number(k.x)-x,number(k.y)-y);if(d<=800&&z>=number(k.z0)-300&&z<=number(topOf(k))+600&&(!col||d<col.d))col={d:d,k:k}});
+     // (a member over the top of a column, not on it, does not adjoin its side: a purlin lying on the beam that ends at
+     // the column — the engineer, 28.10.2026: «на чем держится прогон данный?», the card said «Примыкание к колонне»)
      if(col){
       var k=col.k,kt=number(topOf(k)),top=Math.abs(z-kt)<=450||seatTop.has(String(k.id))&&z>kt&&z-kt<=650;
-      put(top?"top":"side",number(k.x),number(k.y),top?kt:z,c,e[3],top?500:450);
-      if(!top)put("side",number(k.x),number(k.y),z,k,"примыкание",450);
-      return
+      if(top||z<=kt){
+       put(top?"top":"side",number(k.x),number(k.y),top?kt:z,c,e[3],top?500:450);
+       if(!top)put("side",number(k.x),number(k.y),z,k,"примыкание",450);
+       return
+      }
      }
      var on=onLine(x,y,z,c);
      if(on){put("beam",on.q.x,on.q.y,on.q.z,c,e[3]);put("beam",on.q.x,on.q.y,on.q.z,on.o,"опора",450);return}
