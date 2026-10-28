@@ -2104,7 +2104,9 @@ window.irThreeSchemeView=(function(){
   }
   // The base plate of a column under its foot (with the frame, seen from any distance: without it a column stood in the
   // air) and, under a base at the ground (up to +0.300), a conditional concrete footing — the footings are of the КЖ, not
-  // of the КМ: their size is not known here, only that the column stands on one. Hidden with the details.
+  // of the КМ: their size is not known here, only that the column stands on one. Hidden with the details. A column above
+  // +0.300 stands on a member (a post on a gate beam, its foot at the beam's top): its plate lies on that member, above
+  // the foot — drawn under the foot it went into the beam's flange.
   var concreteMat=new T.MeshStandardMaterial({color:0xaeb3b8,roughness:.95}),pedestals=[];
   function basePlated(c){return c.geometryType==="column"&&!c.ft&&!(number(c.r)>0)&&!slight(c)&&!(c.column&&Array.isArray(c.column.members)&&c.column.members.length)}
   // The base plate its sheet draws in a cut at the foot (endCuts): as large and thick as drawn, an anchor in each of its
@@ -2126,7 +2128,7 @@ window.irThreeSchemeView=(function(){
   function baseParts(c){
    var id=String(c.id),bs=baseSize(c),at=toWorld(number(c.x),number(c.y),number(c.z0)),turn=new T.Quaternion().setFromAxisAngle(boltY,branchTurn.get(id)||0);
    var plate=new T.Mesh(shared("plate:"+bs.pw.toFixed(3)+":"+bs.pd.toFixed(3)+":"+bs.pt.toFixed(3),function(){return new T.BoxGeometry(bs.pw,bs.pt,bs.pd)}),baseMaterial(c));
-   plate.position.copy(at);plate.position.y-=bs.pt/2;plate.quaternion.copy(turn);plate.userData.memberId=id;steel.add(plate);allMeshes.push(plate);
+   plate.position.copy(at);plate.position.y+=number(c.z0)>300?bs.pt/2:-bs.pt/2;plate.quaternion.copy(turn);plate.userData.memberId=id;steel.add(plate);allMeshes.push(plate);
    if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(plate);
    var hp=[];(bs.holes||[]).forEach(function(h){putHole(c,hp,{at:plate.position.clone().add(new T.Vector3(h.x,0,h.z).applyQuaternion(turn)),axis:boltY,d:h.d,t:bs.pt,bolt:0})});
    hp.forEach(function(m){m.userData.memberId=id;steel.add(m);allMeshes.push(m);meshesById.get(id).push(m)});
