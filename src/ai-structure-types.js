@@ -44,7 +44,7 @@ const TYPES=[
  T("crane_runway","Кран-балка, монорельс","crane","beam","ibeam",["БМ","Мр"],/кран[\s-]*балк|монорельс|подвесн\S*\s+(?:кран|пут)|пут[ьи]\s+подвесн/iu),
  T("brake_beam","Балка тормозная","crane","beam","ibeam",["БТ","Тб"],/тормозн/iu),
  T("platform_beam","Балка рабочей площадки","beams","beam","ibeam",["БР"],/балк\S*\s+(?:рабоч|площадк)/iu),
- T("sub_beam","Балка подстропильная","beams","beam","ibeam",["БП"],/подстропильн\S*\s+балк/iu),
+ T("sub_beam","Балка подстропильная","beams","beam","ibeam",["БП"],/подстропильн\S*\s+балк|балк\S*\s+подстропильн/iu),
  T("opening_beam","Балка проёма","beams","beam","ibeam",["Бп"],/балк\S*\s+про[её]м|перемычк/iu),
  // Girders, purlins, spacers
  T("girder","Ригель","girders","beam","ibeam",["Р","РР","Рр","Рц","Ро","Рн"],/ригел/iu),
@@ -61,7 +61,7 @@ const TYPES=[
  T("strut","Подкос","ties","brace","angle",[],/подкос/iu),
  // Trusses
  T("truss","Ферма стропильная","trusses","beam","truss",["Ф","ФС","Фс","ВП","НП"],/ферм/iu),
- T("sub_truss","Ферма подстропильная","trusses","beam","truss",["ФП","Фп"],/подстропильн\S*\s+ферм/iu),
+ T("sub_truss","Ферма подстропильная","trusses","beam","truss",["ФП","Фп"],/подстропильн\S*\s+ферм|ферм\S*\s+подстропильн/iu),
  T("lantern","Фонарь","trusses","beam","truss",["ФН"],/фонар/iu),
  // Stairs, platforms, railings
  // Stairs (ГОСТ 23120-2016, серия 1.450.3-7.94; tanks — ГОСТ 31385): flights at 45° or 60° (tanks ≤ 50°), landings,
@@ -123,12 +123,14 @@ const TYPES=[
  T("tank_annular","Окрайка днища","bottom","plate","plate",["ОК"],/окрайк/iu),
  T("tank_bottom","Днище","bottom","plate","plate",[],/днищ|полотнищ\S*\s+днищ/iu),
  // Roof (ГОСТ 31385: frame cone roof of radial members, shield roof, frameless roof): its parts.
+ // (a tank's roof is «крыша»; «покрытие», «стропильная» of a building are not it — ГПЭС «Балка покрытия Б1», «Ферма
+ // стропильная Фс1», «Ферма подстропильная Фп1» are beams and trusses)
  T("roof_shield","Щит покрытия","roof","shell","shell",["Щ","ЩП","ЩК"],/щит/iu),
  T("roof_central_ring","Центральное кольцо крыши","roof","plate","ring",["ЦК"],/центральн\S*\s+кольц/iu),
  T("roof_support_ring","Опорное кольцо крыши","rings","plate","ring",["ОК"],/опорн\S*\s+кольц|кольц\S*\s+опорн/iu),
- T("roof_rafter","Балка (элемент) каркаса крыши","roof","beam","ibeam",["РБ"],/элемент\S*\s+(?:крыш|покрыти|каркас)|радиальн\S*\s+балк|стропил|балк\S*\s+(?:крыш|покрыти)|каркас\S*\s+(?:крыш|покрыти)/iu),
- T("roof_deck","Настил крыши (листы покрытия)","roof","plate","plate",[],/^\s*покрыти[ея]\s*$|настил\S*\s+(?:кровл|крыш|покрыти)|лист\S*\s+(?:кровл|настил\S*\s+крыш)/iu),
- T("tank_roof","Крыша резервуара","roof","beam","ibeam",[],/крыш|покрыти\S*\s+резервуар/iu),
+ T("roof_rafter","Балка (элемент) каркаса крыши","roof","beam","ibeam",["РБ"],/элемент\S*\s+(?:крыш|покрыти)|радиальн\S*\s+балк|балк\S*\s+(?:каркас\S*\s+)?крыш|каркас\S*\s+крыш/iu),
+ T("roof_deck","Настил крыши (листы покрытия)","roof","plate","plate",[],/настил\S*\s+крыш|лист\S*\s+настил\S*\s+крыш/iu),
+ T("tank_roof","Крыша резервуара","roof","beam","ibeam",[],/^\s*крыш|(?:крыш|покрыти)\S*\s+резервуар/iu),
  T("tank_ring","Кольцо жёсткости / ветровое","rings","plate","ring",[],/кольц\S*\s+(?:жестк|жёстк|ветров|орошен)|ветров\S*\s+кольц/iu),
  T("tank_bottom_beam","Балка под днищем","bottom","beam","ibeam",[],/балк\S*\s+под\s+дн/iu),
  // The end stop of a crane runway — not the stop of a tank wall.

@@ -1486,11 +1486,23 @@ window.irSchemePage=async function(objectId){
  const enabledWorks=()=>arr(workRows).filter(r=>r.data?.scheme_enabled===true).map(r=>({id:String(r.id),name:r.data?.work_type||r.title||"Без названия",code:r.data?.project_code||"",data:r.data||{}}));
  const schemeGroupOf=(name,mark="")=>{const st=window.irStructureTypes?.typeByName?.(name);if(st){const g=window.irStructureTypes.group(st.group);return{key:g.key,label:g.label}}const s=norm(name);if(s.includes("резервуар")||s.includes("стенк"))return{key:"tanks",label:"Резервуар"};if(s.includes("патруб")||s.includes("люк"))return{key:"nozzles",label:"Патрубки, люки"};if(s.includes("крыш"))return{key:"roof",label:"Крыша"};if(s.includes("фахвер"))return{key:"fahwerk",label:"Фахверк"};if(s.includes("колон"))return{key:"columns",label:"Колонны"};if(s.includes("связ"))return{key:"ties",label:"Связи"};if(s.includes("прогон"))return{key:"purlins",label:"Прогоны"};if(s.includes("распорк"))return{key:"spacers",label:"Распорки"};if(s.includes("балк"))return{key:"beams",label:"Балки"};if(s.includes("ферм"))return{key:"trusses",label:"Фермы"};if(s.includes("ригел"))return{key:"girders",label:"Ригели"};if(s.includes("огражд"))return{key:"guards",label:"Ограждения"};if(s.includes("лестн"))return{key:"stairs",label:"Лестницы"};if(s.includes("площад"))return{key:"platforms",label:"Площадки"};if(s.includes("стойк"))return{key:"posts",label:"Стойки"};const raw=String(name||mark||"Прочие марки").trim()||"Прочие марки",key="name:"+norm(raw).replace(/[^a-zа-я0-9]+/gi,"-").replace(/^-|-$/g,"");return{key,label:raw}};
  const markGroupCache=new WeakMap();
+ // A mark and its elements are of one kind (the engineer, 28.10.2026: «1 марок - 535 элемента, это как понять?» —
+ // «Стойки: 12 марок, 0 элементов», «Фахверк: 0 марок, 563 элемента»): the kind of the mark by its name in the register;
+ // a mark the register names no kind of (no name, a word that is no kind) — the kind most of its elements were placed
+ // with by the analysis.
+ let placedKinds=null,placedKindsOf=null;
+ const placedKind=id=>{
+  const list=allRecords();
+  if(placedKindsOf!==list){placedKindsOf=list;placedKinds=new Map();const count=new Map();
+   for(const r of list){const g=String(r.scheme_group||"");if(!g||g==="all"||!r.mark_id)continue;const k=String(r.mark_id),c=count.get(k)||new Map();c.set(g,(c.get(g)||{n:0,label:r.scheme_group_label}));c.get(g).n++;count.set(k,c)}
+   for(const [k,c] of count){const [key,best]=[...c].sort((a,b)=>b[1].n-a[1].n)[0];placedKinds.set(k,{key,label:frameLabels[key]||String(best.label||key)})}}
+  return placedKinds.get(String(id))||null
+ };
  const markGroup=m=>{
-  if(m&&typeof m==="object"&&markGroupCache.has(m))return markGroupCache.get(m);
-  const group=schemeGroupOf([m?.name,m?.work_type,workById.get(String(m?.work_type_id||""))?.work_type].filter(Boolean).join(" "),m?.mark||m?.title);
-  if(m&&typeof m==="object")markGroupCache.set(m,group);
-  return group
+  let group=m&&typeof m==="object"&&markGroupCache.has(m)?markGroupCache.get(m):null;
+  if(!group){group=schemeGroupOf([m?.name,m?.work_type,workById.get(String(m?.work_type_id||""))?.work_type].filter(Boolean).join(" "),m?.mark||m?.title);
+   if(m&&typeof m==="object")markGroupCache.set(m,group)}
+  return!frameKeys.has(group.key)&&m?.id!=null&&placedKind(m.id)||group
  };
   const frameCategories=window.irStructureTypes?window.irStructureTypes.GROUPS.map(g=>g.key):["columns","fahwerk","girders","purlins","spacers","ties","beams","trusses","posts","tanks","bottom","roof","nozzles","stairs","platforms","guards"];
   const frameKeys=new Set(frameCategories);
@@ -1628,7 +1640,7 @@ window.irSchemePage=async function(objectId){
  const workMarks=()=>frameMode?marks.filter(m=>frameKeys.has(markGroup(m).key)):activeWorkId?marks.filter(m=>String(m.work_type_id||"")===activeWorkId):[];
  const workRecords=()=>frameMode?allRecords().filter(r=>frameKeys.has(recordMarkGroup(r).key)):activeWorkId?allRecords().filter(r=>recordWorkId(r)===activeWorkId):[];
  const recordGroup=r=>r?.scheme_group&&String(r.scheme_group)!=="all"?{key:String(r.scheme_group),label:String(r.scheme_group_label||schemeGroupOf(r.mark_name,r.mark).label)}:schemeGroupOf(r?.mark_name,r?.mark);
- const recordMarkGroup=r=>{if(r.import_batch&&r.scheme_group&&String(r.scheme_group)!=="all")return recordGroup(r);const m=markById.get(String(r.mark_id||""));return m?markGroup(m):recordGroup(r)};
+ const recordMarkGroup=r=>{const m=markById.get(String(r.mark_id||""));return m?markGroup(m):recordGroup(r)};
  const inView=(r,v)=>{const assigned=String(r.scheme_view_id||"");return assigned?assigned!=="all"&&assigned===String(v.id):groupKeys(v).includes(recordMarkGroup(r).key)};
  const schemeGroups=()=>{const scoped=workMarks(),placed=workRecords();if(frameMode)return[{key:"all",label:"Весь каркас",marks:scoped.length,placed:placed.length},...frameCategories.map(key=>({key,label:frameLabels[key],marks:scoped.filter(m=>markGroup(m).key===key).length,placed:placed.filter(r=>recordMarkGroup(r).key===key).length})).filter(g=>g.marks>0||g.placed>0||g.key===activeScheme)];return[{key:"all",label:"Общая схема",marks:scoped.length,placed:placed.length},...customViews().map(v=>({key:"view:"+v.id,label:v.data?.name||v.title||"Новая сетка",marks:scoped.filter(m=>groupKeys(v).includes(markGroup(m).key)).length,placed:placed.filter(r=>inView(r,v)).length}))]};
  const records=()=>{const v=activeView();return activeScheme==="all"?workRecords():frameMode?workRecords().filter(r=>recordMarkGroup(r).key===activeScheme):v?workRecords().filter(r=>inView(r,v)):[]};

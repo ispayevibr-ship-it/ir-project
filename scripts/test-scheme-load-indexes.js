@@ -12,7 +12,13 @@ marks.push({id:"612",mark:"DUP",work_type_id:"3"});
 marks.push({id:"613",mark:"TWICE",work_type_id:"2"});
 marks.push({id:"614",mark:"TWICE",work_type_id:"2"});
 const norm=s=>String(s||"").trim().toLowerCase().replace(/ё/g,"е");
-const context={marks,workById:new Map(),norm,schemeGroupOf:()=>({key:"columns",label:"Колонны"}),recordGroup:()=>({key:"fallback",label:"Резерв"})};
+marks.push({id:"616",mark:"А1",work_type_id:"2"});
+// (a mark the register names no kind of: the kind most of its elements were placed with; one named — its own, its
+// elements placed by the analysis as another kind with it — the engineer, 28.10.2026: «1 марок - 535 элемента»)
+const records=[{mark_id:"616",scheme_group:"posts",import_batch:"b"},{mark_id:"616",scheme_group:"posts",import_batch:"b"},{mark_id:"616",scheme_group:"beams",import_batch:"b"},
+ {mark_id:"2",scheme_group:"fahwerk",scheme_group_label:"Фахверк",import_batch:"b"}];
+const context={marks,workById:new Map(),norm,schemeGroupOf:(name,mark)=>mark==="А1"?{key:"name:а1",label:"А1"}:{key:"columns",label:"Колонны"},recordGroup:()=>({key:"fallback",label:"Резерв"}),
+ frameKeys:new Set(["columns","fahwerk","posts","beams"]),frameLabels:{posts:"Стойки",fahwerk:"Фахверк"},allRecords:()=>records};
 const head=from(" const markGroupCache=","\n  const frameCategories=");
 const index=from(" const markById=new Map","\n let updatingMarkProgress=");
 const work=from(" const recordWorkId=r=>","\n const workMarks=");
@@ -30,6 +36,9 @@ assert.equal(api.linkedMark({mark:"DUP",work_type_id:"2"}).id,"611");
 assert.equal(api.linkedMark({mark:"TWICE",work_type_id:"2"}),null,"multiple same-work labels remain ambiguous");
 assert.equal(api.recordMarkGroup({mark_id:"1"}).key,"columns");
 assert.equal(api.recordMarkGroup({mark_id:"missing"}).key,"fallback");
+assert.equal(JSON.stringify(api.markGroup(marks.find(m=>m.id==="616"))),JSON.stringify({key:"posts",label:"Стойки"}),"a mark with no kind: of its elements");
+assert.equal(api.recordMarkGroup(records[2]).key,"posts","an element of it with its mark");
+assert.equal(api.recordMarkGroup(records[3]).key,"columns","an element placed as another kind goes with its mark");
 marks.push({id:"615",mark:"NEW",work_type_id:"4"});
 api.rebuildMarkLookup();
 assert.equal(api.recordWorkId({mark:"NEW"}),"4","refresh rebuilds indexes");
