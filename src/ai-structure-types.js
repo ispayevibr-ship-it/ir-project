@@ -50,6 +50,11 @@ const TYPES=[
  T("girder","Ригель","girders","beam","ibeam",["Р","РР","Рр","Рц","Ро","Рн"],/ригел/iu),
  // (a wall girder — «стеновой ригель» — is of the framing: the analysis found them so, the register names them so)
  T("girder_fahwerk","Ригель фахверка","fahwerk","beam","channel",["РФ","Рф"],/ригел\S*\s+фахверк|стенов\S*\s+ригел|ригел\S*\s+стенов/iu),
+ // A leaf hinge «Лш» (КМ, узел крепления колонны торцевого фахверка: a sheet −10 between the column under the end truss
+ // and the column of the framing, bolted at both ends; it bends across the wall and carries the wind along it) — not a
+ // shaft ladder; it lies flat between the columns (the engineer, 28.10.2026: «лестница проходит сквозь стеновой ригель»
+ // — «Лш1 −t10» of the register had been taken for a ladder 21 m high).
+ T("plate_hinge","Листовой шарнир","fahwerk","beam","plate",["Лш"],/листов\S*\s+шарнир/iu),
  T("purlin","Прогон","purlins","beam","channel",["П","ПР","Пр","Пс","Пк"],/прогон/iu),
  T("spacer","Распорка","spacers","beam","round",["РС","Рп","Рпф","Рпк"],/распорк/iu),
  // Bracing
@@ -69,7 +74,7 @@ const TYPES=[
  // shaft and ring (spiral) stairs of tanks, ladders with cage hoops. Г — hot-rolled, Х — cold-formed profiles.
  T("stair_flight","Лестничный марш","stairs","brace","stair",["ЛГФ","ЛГВ","ЛГР","ЛХФ","ЛХВ","ЛХР","ЛМ","Лм","МЛ","Л"],/марш|косоур|тетив|ступен/iu),
  T("stair_landing","Площадка лестницы","stairs","plate","plate",["ПГФ","ПГВ","ПГР","ПХФ","ПХВ","ПХР","П1Х","П2Х","П1Г","П2Г"],/площадк\S*\s+лестниц|лестничн\S*\s+площадк|переходн\S*\s+площадк/iu),
- T("stair_shaft","Шахтная лестница","stairs","column","stair",["Ш","Лш"],/шахтн\S*\s+лестниц/iu),
+ T("stair_shaft","Шахтная лестница","stairs","column","stair",["Ш"],/шахтн\S*\s+лестниц/iu),
  T("stair_spiral","Кольцевая (винтовая) лестница","stairs","brace","stair",[],/кольцев\S*\s+лестниц|винтов\S*\s+лестниц|спиральн\S*\s+лестниц/iu),
  T("ladder","Стремянка","stairs","column","ladder",["СХ","Стр"],/стремянк|вертикальн\S*\s+лестниц|лестниц\S*\s+вертикальн/iu),
  T("stair","Лестница","stairs","brace","stair",[],/лестниц/iu),
@@ -176,7 +181,7 @@ const byKey=new Map(TYPES.map(t=>[t.key,t]));
 const groupByKey=new Map(GROUPS.map(g=>[g.key,g]));
 // Specific names first: "колонна фахверка" before "колонна", "балка подкрановая" before "балка",
 // "люк-лаз" before "патрубок", "связь вертикальная" before "связь".
-const NAME_ORDER=["trim_corner","trim_joint","trim_plinth","trim_start","trim_ridge","trim_eaves","trim_gable","trim_parapet","trim_abutment","trim_sill","trim_opening","trim_drain","trim","sandwich_wall","sandwich_roof","crane_column","column_fahwerk","girder_fahwerk","crane_rail","crane_girder","crane_runway","brake_beam","platform_beam","sub_beam","opening_beam",
+const NAME_ORDER=["trim_corner","trim_joint","trim_plinth","trim_start","trim_ridge","trim_eaves","trim_gable","trim_parapet","trim_abutment","trim_sill","trim_opening","trim_drain","trim","sandwich_wall","sandwich_roof","crane_column","column_fahwerk","girder_fahwerk","plate_hinge","crane_rail","crane_girder","crane_runway","brake_beam","platform_beam","sub_beam","opening_beam",
  "sub_truss","brace_vertical","brace_horizontal","vessel_detail","tie_rod","fahwerk","weld_fillet","weld_lap","weld_butt","weld","rung_ladder","reinforcing_plate","montage_ring",
  "vessel_weir","vessel_detail","vessel_strut","strut","vessel_support","vessel_cone","vessel_shell","roll_frame","shipping","tank_bottom_beam","crane_stop","tank_stop","tank_annular","tank_wall","tank_bottom","roof_central_ring","roof_support_ring","roof_shield","roof_rafter","roof_deck","tank_ring","pontoon","tank_roof","manhole","roof_hatch","valve","foam",
  "instrument","lightning","heater","mixer","flange","nozzle","grounding","bolt","vessel","pump","pipe_support","gallery","support","bunker","mast","conveyor","pipe","sheeting","sandwich","gate","door","window","bracket","base","embed",

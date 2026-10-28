@@ -953,7 +953,10 @@ window.irThreeSchemeView=(function(){
      var d=Math.hypot(number(o.x)-number(c.x),number(o.y)-number(c.y));if(d>=200&&d<=3000&&(!best||d<best.d))best={d:d,o:o}
     });
     if(best){var v=toWorld(best.o.x,best.o.y,0).sub(toWorld(c.x,c.y,0));branchTurn.set(String(c.id),Math.atan2(-v.z,v.x))}
-   })
+   });
+   // A plate lying flat (`flat`: the leaf hinge «Лш» between the end truss and the column of the framing, КМ узел 12 —
+   // a sheet −10×280 bolted to both): its wide side horizontal, a quarter turn about its line.
+   list.forEach(function(c){if(c.id&&(c.flat||c.type_key==="plate_hinge")&&c.geometryType!=="column")branchTurn.set(String(c.id),Math.PI/2)})
   }
   // The section of a member about its line u: the minimal turn of +Z to u, a branch turned to its other branch.
   function bodyQuat(c,u){

@@ -24,6 +24,10 @@ button{font-family:inherit}
 .tabs-tools button{height:31px;padding:0 11px;background:#fff;border:1px solid #d5e2ed;border-radius:7px;color:#476b89;font-size:10px;font-weight:700;white-space:nowrap;cursor:pointer}
 .tabs-tools button:hover{background:#edf6ff;border-color:#a6cbe9;color:#1769e0}
 .tabs-tools button:disabled{opacity:.5;cursor:wait}
+/* A new version downloaded in the background: applied at the next start, or now by this button */
+.tabs-tools #tabsUpdateReady{font-size:10px;padding:0 11px;background:#e9f7ef;border-color:#9fd6b4;color:#17703a}
+.tabs-tools #tabsUpdateReady:hover{background:#d8f1e2;border-color:#6cc08f;color:#0f5c2e}
+.tabs-tools #tabsUpdateReady[hidden]{display:none}
 .tabs-item:focus-visible,.tabs-add:focus-visible,.tabs-tools button:focus-visible{outline:2px solid #277bd5;outline-offset:2px}
 .tabs-content{flex:1;min-height:0;position:relative;background:#f4f6f9}
 .tabs-pane{position:absolute;inset:0;width:100%;height:100%;border:0;background:#f4f6f9;visibility:hidden;pointer-events:none}

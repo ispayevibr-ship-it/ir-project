@@ -57,7 +57,7 @@ const MIXED_CODES=[
  ["Бп","beam","beams","Балка проёма"],["Бл","beam","beams","Балка"],["Бф","beam","beams","Балка фахверка"],["Бкр","beam","beams","Балка крановая"],
  ["Тб","beam","beams","Тормозная балка"],["Ст","column","posts","Стойка"],["Ос","column","posts","Стойка"],
  ["Бк",null,null,"База колонны"],["Кр",null,null,"Кронштейн"],["Крв",null,null,"Кронштейн"],["Крк",null,null,"Кронштейн"],["Кс",null,null,"Элемент"],
- ["Ог",null,null,"Ограждение"],["Огк",null,null,"Ограждение"],["Лш",null,null,"Лестница"],["Лм",null,null,"Лестничный марш"],["Пл",null,null,"Площадка"]
+ ["Ог",null,null,"Ограждение"],["Огк",null,null,"Ограждение"],["Лш","beam","fahwerk","Листовой шарнир"],["Лм",null,null,"Лестничный марш"],["Пл",null,null,"Площадка"]
 ].map(([code,kind,group,name])=>({code,kind,group,name}));
 const LOOKALIKE={A:"А",B:"В",C:"С",E:"Е",H:"Н",K:"К",M:"М",O:"О",P:"Р",T:"Т",X:"Х"};
 const prefixOf=mark=>[...String(mark||"").trim().toUpperCase().replace(/[^A-ZА-ЯЁ].*$/u,"")].map(c=>LOOKALIKE[c]||c).join("");

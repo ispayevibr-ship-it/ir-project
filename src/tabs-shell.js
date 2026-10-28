@@ -386,8 +386,9 @@
   updateBar=document.getElementById("tabsUpdateProgressBar"),
   updatePercent=document.getElementById("tabsUpdateProgressLabel"),
   updateActions=document.getElementById("tabsUpdateActions"),
-  updateClose=document.getElementById("tabsUpdateClose");
- let updateBusy=false,updateTotalBytes=0,updateTransferredBytes=0,updateLatestVersion="",pendingRestartVersion="";
+  updateClose=document.getElementById("tabsUpdateClose"),
+  updateReady=document.getElementById("tabsUpdateReady");
+ let updateBusy=false,updateTotalBytes=0,updateTransferredBytes=0,updateLatestVersion="",pendingRestartVersion="",autoUpdating=false;
  const bytesText=raw=>{
   const count=Number(raw);
   if(!Number.isFinite(count)||count<0)return "—";
@@ -486,8 +487,9 @@
   updateBusy=false;updateProgress.hidden=true;
   if(updateTotalBytes>0)updateTransferredBytes=updateTotalBytes;
   showUpdateSize();showTransfer();
-  setUpdate("Требуется перезапуск","Версия "+(pendingRestartVersion||"IR Project")+" скачана. Код открытых вкладок остаётся прежним, пока IR Project не будет перезапущен.");
-  updateButtons([["Позже",false,closeUpdate],["Установить и перезапустить",true,installUpdate]])
+  setUpdate("Обновление скачано","Версия "+(pendingRestartVersion||"IR Project")+" скачана и применится при следующем запуске IR Project. Открытые вкладки работают на прежней версии до перезапуска.");
+  updateButtons([["Позже",false,closeUpdate],["Перезапустить сейчас",true,installUpdate]]);
+  showUpdateReady()
  }
  async function installUpdate(){
   if(updateBusy)return;
@@ -504,8 +506,8 @@
    // Updater emits manifest sizes while check() is in progress.
    updateTotalBytes=Math.max(0,Number(info.size)||0);
    updateLatestVersion=info.version||"";
-   if(updateDialog.open&&!updateBusy)updateAvailable(info.version,info.installedVersion);
-  }else if(info.type==="current"&&updateDialog.open&&!updateBusy)updateCurrent(info.version);
+   if(updateDialog.open&&!updateBusy&&!autoUpdating)updateAvailable(info.version,info.installedVersion);
+  }else if(info.type==="current"&&updateDialog.open&&!updateBusy&&!autoUpdating)updateCurrent(info.version);
   else if(info.type==="progress"&&updateDialog.open){
    updateTransferredBytes=Math.max(0,Number(info.transferred)||0);
    // Native updater's "total" equals bytes downloaded so far; it is NOT the actual package size.
@@ -516,7 +518,7 @@
    showUpdateSize();showTransfer();updateText.textContent="Скачиваем файлы обновления…";
   }else if(info.type==="downloaded"){
    pendingRestartVersion=info.version||updateLatestVersion;
-   if(updateDialog.open)updateDownloaded(info.version)
+   if(updateDialog.open)updateDownloaded(info.version);else showUpdateReady()
   }else if(info.type==="error"&&updateDialog.open)updateError(info.message||"Ошибка обновления")
  }
  api.updater?.onStatus?.(onUpdaterStatus);
@@ -527,6 +529,10 @@
   // The updater already reports the downloaded manifest as "installed" before
   // the Electron process restarts. Do not claim that open tabs use that code.
   if(pendingRestartVersion){updateDownloaded(pendingRestartVersion);return}
+  if(autoUpdating){
+   setUpdate("Скачивание обновления","Новая версия скачивается в фоне. Окно можно закрыть — работа не прервётся, а обновление применится при следующем запуске.");
+   showUpdateSize();showTransfer();updateProgress.hidden=false;updateButtons([["Скрыть",true,closeUpdate]]);return
+  }
   updateBusy=true;updateTotalBytes=0;updateTransferredBytes=0;updateLatestVersion="";
   updateProgress.hidden=true;updateSize.hidden=true;updateTransfer.hidden=true;
   setUpdate("Проверка обновлений","Проверяем доступную версию IR Project…");updateButtons([]);
@@ -545,6 +551,31 @@
   }catch(e){updateError(e)}
   finally{updateBusy=false;if(button)button.disabled=false}
  }
+ // New versions come by themselves (the engineer, 28.10.2026: «а нельзя как-то сделать чтобы каждый раз обновление
+ // не скачивать из-за таких моментов?»): the main window looks a minute after the start and then every hour and
+ // downloads a newer version in the background, with no question; it is applied at the next start, or at once by the
+ // small button in the tabs bar. A failed look stays silent and is tried again in an hour.
+ function showUpdateReady(){
+  if(!updateReady||!pendingRestartVersion)return;
+  updateReady.hidden=false;
+  updateReady.textContent="Обновление "+pendingRestartVersion+" · перезапустить";
+  updateReady.title="Версия "+pendingRestartVersion+" скачана и применится при следующем запуске IR Project. Нажмите, чтобы перезапустить сейчас."
+ }
+ async function autoUpdate(){
+  if(updateBusy||autoUpdating||pendingRestartVersion||!api.updater)return;
+  autoUpdating=true;
+  try{
+   const result=await api.updater.check(),current=await api.updater.version(),remote=result?.updateInfo?.version;
+   if(remote&&String(remote)!==String(current)){
+    updateLatestVersion=String(remote);
+    await api.updater.download();
+    pendingRestartVersion=String(remote);showUpdateReady()
+   }
+  }catch(_error){}
+  finally{autoUpdating=false}
+ }
+ if(updateReady)updateReady.onclick=()=>{showUpdateDialog();updateDownloaded(pendingRestartVersion)};
+ if(!isDetached&&api.updater){setTimeout(autoUpdate,60000);setInterval(autoUpdate,3600000)}
  // Pages hosted in iframes delegate all update UI to this single host window.
  window.irTabUpdates={open:checkAppUpdate};
  // Back along the pages of a tab.
