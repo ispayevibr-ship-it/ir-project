@@ -234,7 +234,12 @@ function edgeLines(segs,dimLine,{widthPt=0,heightPt=0,thick=null}={}){
  // with rows of the table at the other side of the sheet)
  const runs=L=>{const out=[];for(const q of L.pieces.slice().sort((a,b)=>a.s0-b.s0)){const r=out[out.length-1];if(r&&q.s0-r.s1<=100){r.pieces.push(q);r.s1=Math.max(r.s1,q.s1)}else out.push({u:L.u,n:L.n,off:L.off,s0:q.s0,s1:q.s1,pieces:[q]})}
   for(const r of out)measure(r);const most=Math.max(...out.map(r=>r.s1-r.s0));return out.length>1?out.filter(r=>edge(r)&&r.s1-r.s0>=Math.max(300,most*0.3)):[]};
- return lines.flatMap(L=>edge(L)?[L]:runs(L))
+ // (a line with a run apart on it — over 100 pt off the rest — that is no edge itself: the edges of its runs, not the whole
+ // line — ГПЭС К3 the tube's top on one line with a row of the specification across the sheet, «Вид Б» and «7 - 7»
+ // between)
+ const apart=L=>{const rs=[];for(const q of L.pieces.slice().sort((a,b)=>a.s0-b.s0)){const r=rs[rs.length-1];if(r&&q.s0-r.s1<=100){r.pieces.push(q);r.s1=Math.max(r.s1,q.s1)}else rs.push({u:L.u,pieces:[q],s0:q.s0,s1:q.s1})}
+  for(const r of rs)measure(r);return rs.length>1&&rs.some(r=>!edge(r))};
+ return lines.flatMap(L=>edge(L)&&!apart(L)?[L]:runs(L))
 }
 // The member's view around a sign: the nearest edge on each side of it, of one direction, the sign within their
 // length; of two directions — the longer edges (the member, not a stiffener across it).
@@ -368,7 +373,10 @@ function ownerOf(g,texts,titled,strokes=[]){
   return{title,view:sure(best?.v)||(titled.length===1?titled[0]:null),...cutAt}
  }
  if(own)return{title:own.x.v.title,view:own.x.v,main:true};
- const near=titled.slice().sort((a,b)=>box(a.title_at)-box(b.title_at))[0];
+ // (a title stands over its view: of the titles far off, one over this view before one under it — ГПЭС К3, the lower
+ // tube of its frame, «К3» 440 pt over it, «К6» 310 pt under it over its own view)
+ const overIt=t=>upright?along(t)<g.s0&&across(t)>=g.lo-200&&across(t)<=g.hi+200:across(t)<g.lo&&along(t)>=g.s0-40&&along(t)<=g.s1+40;
+ const near=titled.slice().sort((a,b)=>(overIt(b.title_at)-overIt(a.title_at))||box(a.title_at)-box(b.title_at))[0];
  return{title:near?near.title:"",view:near||null}
 }
 // Holes of the sheet by view of a member: [{title, marks, scale, length_mm, band_mm, holes:[{at_mm, off_mm, d_mm, sign,
@@ -784,4 +792,4 @@ function sheetPlates(geo={},{views=[],allMm=null,seeded=null}={}){
  }
  return out
 }
-module.exports={dedupe,gridOf,projector,facesOf,holeSymbols,holeCallouts,leaderHoles,sheetHoles,sheetPlates,memberBand,edgeLines,thickOf,scaleNear,chainMm,chainMap};
+module.exports={dedupe,gridOf,projector,facesOf,holeSymbols,holeCallouts,leaderHoles,sheetHoles,sheetPlates,memberBand,edgeLines,ownerOf,thickOf,scaleNear,chainMm,chainMap};

@@ -392,9 +392,10 @@ function buildCatalog(draft,ai=null){
  // The positions of each mark at their places on its views (sheet.place, src/ai-parts-place.js: the number in a circle,
  // its leader to the part, the outline round it) of the assembly sheet its specification is read from — the numbers
  // are that table's (the engineer, 28.10.2026: «где все детали?»).
+ // (up to 200 rows of a mark: ГПЭС К25 has 97 with its cuts)
  for(const p of draft.pages||[]){
   const sheet=p.sheet||{};if(p.docType!=="КМД сборочные"||!sheet.place?.length)continue;scope=scopeAt(p);
-  for(const m of sheet.place){const e=entry(m.mark);if(e.place||e.parts&&e.parts.sheet!==where(p))continue;e.place={sheet:where(p),rows:m.rows.slice(0,80)}}
+  for(const m of sheet.place){const e=entry(m.mark);if(e.place||e.parts&&e.parts.sheet!==where(p))continue;e.place={sheet:where(p),rows:m.rows.slice(0,200)}}
  }
  // The ends of each mark cut aslant on its main view (sheet.bevels, src/ai-parts-place.js sheetBevels: a tube cut over
  // its seat, the cap inside) of the assembly sheet its specification is read from.

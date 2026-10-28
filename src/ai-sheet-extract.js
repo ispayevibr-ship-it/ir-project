@@ -619,6 +619,8 @@ function cellSections(s){
  // (and «\» for the italic «4»: «250х1\» is −250×14)
  const out=[n],bare=/^(1?)(\d{2,4}[хx×]\d{1,3}(?:[хx×]\d{1,2})?)$/u.exec(cellDigits(n).replace(/(\d)\\/g,"$14"));
  if(bare){if(bare[1]&&/^\d{2,3}[хx×]/u.test(bare[2]))out.push("L"+bare[2]);out.push("−"+bare[1]+bare[2],"L"+bare[1]+bare[2])}
+ // (the letter of an I read as «0»: «Дбутавр 2502» is I25Б2, I25Ш2 or I25К2 — its mass says which)
+ const ib=/^I(\d{2})[0О](\d)$/u.exec(n);if(ib)for(const k of "БШК")out.push("I"+ib[1]+k+ib[2]);
  return[...new Set(out)].filter(sectionLike).map((section,i)=>({section,kgm:kgPerMetre(section),alt:i>0}))
 }
 // The section a note cuts the part from («из ∟125х10 отб.», its sign read as «1», «[»): kilograms in its metre.
@@ -644,8 +646,8 @@ function pickRow(row){
  const vote=(list,key,prefer=()=>0)=>{const m=new Map();for(const c of list){const k=key(c),e=m.get(k)||{c,score:0};e.score+=Math.max(1,c.conf);m.set(k,e)}
   return[...m.values()].sort((a,b)=>b.score-a.score||prefer(b.c)-prefer(a.c)).map(e=>e.c)};
  const out={pos:null,count:null,count2:null,all:null};
- // (A position changed by a revision: «13 изм.».)
- for(const col of ["pos","count","count2"]){const b=vote(all(col).map(c=>({v:cellDigits(String(c.str).replace(/\s*изм\.?$/u,"")),conf:c.confidence})).filter(c=>/^\d{1,3}$/.test(c.v)),c=>c.v)[0];if(b)out[col]=Number(b.v)}
+ // (A position changed by a revision: «13 изм.»; none is 0 — an empty cell's «О» read in it, ГПЭС В1–В4.)
+ for(const col of ["pos","count","count2"]){const b=vote(all(col).map(c=>({v:cellDigits(String(c.str).replace(/\s*изм\.?$/u,"")),conf:c.confidence})).filter(c=>/^[1-9]\d{0,2}$/.test(c.v)),c=>c.v)[0];if(b)out[col]=Number(b.v)}
  {const b=vote(all("all").flatMap(c=>cellMasses(c.str).filter(m=>!m.comma).map(m=>({...m,conf:c.confidence}))),c=>c.v)[0];if(b)out.all=b}
  const totals=all("all").flatMap(c=>cellMasses(c.str));
  const counted=m=>{if(out.count!==null||!m)return out;
@@ -732,7 +734,8 @@ function regrid(grid){
  // (A row between two part rows with neither its section nor its length read is a part row the reading lost — ГПЭС К26
  // «8 | −65х6 | 110 | 13» with only its note read.)
  const at=grid.rows.map((r,i)=>r.part?i:-1).filter(i=>i>=0);
- for(let i=at[0]+1;i<at[at.length-1];i++){const r=grid.rows[i];if(!r.part&&!cellSections(r.old.section?.str).length&&cellLength(r.old.length?.str)===null&&!WELD_ROW.test(r.old.section?.str||""))r.part=true}
+ // (not an empty row — nothing read in it: the free row under the parts of each mark, ГПЭС В1–В8)
+ for(let i=at[0]+1;i<at[at.length-1];i++){const r=grid.rows[i];if(!r.part&&Object.keys(r.old).length&&!cellSections(r.old.section?.str).length&&cellLength(r.old.length?.str)===null&&!WELD_ROW.test(r.old.section?.str||""))r.part=true}
  // (Read again: of a row whose readings do not agree, the cells not yet read the same twice surely — 90 and over: «200»
  // at 90 and «13» at 95 of 900 and 141,3 — and the note of an angle, which may name the section it is cut from; a count
  // not read.)
@@ -746,10 +749,11 @@ function regrid(grid){
  const parts=grid.rows.filter(r=>r.part),pos=k=>parts[k].pick.pos;
  const sure=parts.map((r,k)=>pos(k)!==null&&parts.some((o,j)=>j!==k&&Math.abs(j-k)<=3&&pos(j)!==null&&pos(k)-pos(j)===k-j)?k:-1).filter(k=>k>=0);
  for(let i=0;i+1<sure.length;i++){const a=sure[i],b=sure[i+1];if(pos(b)-pos(a)===b-a)for(let k=a+1;k<b;k++)parts[k].pick.pos=pos(a)+(k-a)}
- if(sure.length&&pos(sure[0])===sure[0]+1)for(let k=0;k<sure[0];k++)parts[k].pick.pos=k+1;
+ // (a row read otherwise keeps its number: ГПЭС В7 «4» over «2», «3» — the positions of В5 used again)
+ const readsOf=r=>[r.old.pos,...(r.reads.pos||[])].filter(Boolean).map(c=>cellDigits(String(c.str).replace(/\s*изм\.?$/u,""))).filter(v=>/^[1-9]\d{0,2}$/.test(v)).map(Number);
+ if(sure.length&&pos(sure[0])===sure[0]+1)for(let k=0;k<sure[0];k++)if(pos(k)===null||readsOf(parts[k]).includes(k+1))parts[k].pick.pos=k+1;
  // (After the last sure one: a row one of whose readings is the next number in order takes it, and the rows between take
  // theirs — ГПЭС К68 «16» read twice, «18» once, under 16 and a row whose position was lost: 17, 18.)
- const readsOf=r=>[r.old.pos,...(r.reads.pos||[])].filter(Boolean).map(c=>cellDigits(String(c.str).replace(/\s*изм\.?$/u,""))).filter(v=>/^\d{1,3}$/.test(v)).map(Number);
  if(sure.length)for(let z=sure[sure.length-1],k=z+1;k<parts.length;k++)if(readsOf(parts[k]).includes(pos(z)+(k-z))){for(let j=z+1;j<=k;j++)parts[j].pick.pos=pos(z)+(j-z);z=k}
  if(sure.length){const z=sure[sure.length-1];for(let k=z+1;k<parts.length;k++)if(pos(k)!==null&&pos(k)!==pos(z)+(k-z)&&!parts.slice(k+1).some((o,j)=>o.pick.pos===pos(k)+j+1))parts[k].pick.pos=null}
  for(const r of parts)if(r.pick.pos===null&&r.cells.pos&&!r.need.includes("pos"))r.need.push("pos");

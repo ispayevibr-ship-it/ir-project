@@ -254,7 +254,10 @@ function cutParts({texts,segs,thick,bold,balloons,near,frames,byMark}){
   if(!rect)continue;
   // (the section's middle off the member's axis: across as the main view, into it as the view of its side — + left there,
   // its arrow on the right of the main one)
-  cuts.push({title:String(t.str).trim()+(under?" "+under.trim():""),marks,levels,k,rect,f,look,up,off0:spanAt(f,levels[0].sa).mid,depth0:side?-spanAt(side,levels[0].sa).mid:0})
+  // (one cut drawn for the views of several marks, its arrows on each — ГПЭС В5, В7, В8 «2 - 2» at their ends —: each
+  // mark at the levels on its own view, looking as its own arrows do)
+  const views=[...new Set(levels.map(l=>l.f))].map(fr=>{const ls=levels.filter(l=>l.f===fr);return{f:fr,levels:ls,marks:named.length?named.filter(k=>fr.marks.includes(k)):fr.marks,look:Math.sign(ls.reduce((a,l)=>a+l.look,0))||1}});
+  cuts.push({title:String(t.str).trim()+(under?" "+under.trim():""),marks,levels,k,rect,f,look,up,off0:spanAt(f,levels[0].sa).mid,depth0:side?-spanAt(side,levels[0].sa).mid:0,views})
  }
  if(!cuts.length)return;
  // Each balloon's leader end in a cut (by its section — its own outline round it, as far again as the section is wide).
@@ -270,14 +273,16 @@ function cutParts({texts,segs,thick,bold,balloons,near,frames,byMark}){
   const cx=(r.x0+r.x1)/2,cy=(r.y0+r.y1)/2,mm=v=>Math.round(v/c.k),lin=(lo,hi,sg,o,z)=>(sg>0?[lo-o,hi-o]:[o-hi,o-lo]).map(v=>mm(v)+z);
   (c.parts=c.parts||[]).push({pos:b.pos,side:b.side,off:c.up?lin(box.a0,box.a1,-c.look,cx,c.off0):lin(box.c0,box.c1,1,cy,c.off0),depth:c.up?lin(box.c0,box.c1,-1,cy,c.depth0):lin(box.a0,box.a1,-c.look,cx,c.depth0)})
  }
+ // (each cut as used on each view its arrows are on: its parts as drawn, its levels, marks and look of that view)
+ const uses=cuts.flatMap(c=>c.views.map(u=>({...c,f:u.f,levels:u.levels,marks:u.marks,look:u.look})));
  const overlap=(p,q)=>p&&q&&p[0]!==null&&p[1]!==null&&q[0]!==null&&q[1]!==null?Math.min(Math.max(...p),Math.max(...q))-Math.max(Math.min(...p),Math.min(...q)):-Infinity;
  const med=a=>a.slice().sort((x,y)=>x-y)[Math.floor(a.length/2)];
- for(const mark of new Set(cuts.flatMap(c=>c.parts?.length?c.marks:[]))){
+ for(const mark of new Set(uses.flatMap(c=>c.parts?.length?c.marks:[]))){
   const rows=byMark.get(mark)||[];if(!byMark.has(mark))byMark.set(mark,rows);
-  const mine=cuts.filter(c=>c.parts?.length&&c.marks.includes(mark)),made=[],used=new Set(),shift=[];
+  const mine=uses.filter(c=>c.parts?.length&&c.marks.includes(mark)),made=[],used=new Set(),shift=[];
   // (and under no other level of the mark's cuts nearer: the bracket under «3 - 3» is not one under «4 - 4» over it)
   // (under: on the way the cut looks — down an upright member; its near end the one toward the level)
-  const all=cuts.filter(o=>o.marks.includes(mark)).flatMap(o=>o.levels.map(l=>({at:l.at,s:o.look}))),next=(a,s)=>all.filter(l=>l.s===s&&s*(l.at-a)<=150).sort((x,y)=>s*(y.at-x.at))[0]?.at;
+  const all=uses.filter(o=>o.marks.includes(mark)).flatMap(o=>o.levels.map(l=>({at:l.at,s:o.look}))),next=(a,s)=>all.filter(l=>l.s===s&&s*(l.at-a)<=150).sort((x,y)=>s*(y.at-x.at))[0]?.at;
   const end=(r,s)=>s>0?r.at_mm[0]:r.at_mm[1];
   // (the row of the position under the level: on the main view across as the cut; on a view of its side the near side,
   // else the one there)

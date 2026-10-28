@@ -391,10 +391,12 @@ async function ocrImages(page,images,known,{canvas,worker,onArea=()=>{}}){
 // together, a dotted rule between the rows, grey at this scale (its dark: below 230 of 255); through the merged cells
 // of the marks and of the mass of a mark no rule runs across the whole table, so b0, b1 are those of one column.
 function verticalRules(dark,W,H,minRun){
- const out=[];let prev=-2;
+ // (or broken by merged cells across it, its pieces each longer than a word is tall — 30 pt — together over minRun: ГПЭС
+ // В1–В8, the rows «1% на сварку» across the columns of the parts)
+ const out=[],long=Math.min(60,minRun/2);let prev=-2;
  for(let x=0;x<W;x++){
-  let r=0,best=0;for(let y=0;y<H;y++){if(dark[y*W+x]){if(++r>best)best=r}else r=0}
-  if(best>=minRun){if(x-prev<=1&&out.length)out[out.length-1].push(x);else out.push([x]);prev=x}
+  let r=0,best=0,sum=0;for(let y=0;y<H;y++){if(dark[y*W+x]){if(++r>best)best=r}else{if(r>=long)sum+=r;r=0}}if(r>=long)sum+=r;
+  if(best>=minRun||sum>=minRun){if(x-prev<=1&&out.length)out[out.length-1].push(x);else out.push([x]);prev=x}
  }
  return out.map(g=>(g[0]+g[g.length-1]+1)/2)
 }
