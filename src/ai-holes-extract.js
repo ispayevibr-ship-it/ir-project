@@ -604,6 +604,24 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
  if(withMembers)Object.defineProperty(result,"members",{value:members.map((g,i)=>({g,view:out[i]})),enumerable:false});
  return result
 }
+// A member's view on the sheet: a line's ends along it (a, b) and across it (c, d).
+function projector(g){return q=>({a:q.a.x*g.u.x+q.a.y*g.u.y,b:q.b.x*g.u.x+q.b.y*g.u.y,c:q.a.x*g.n.x+q.a.y*g.n.y,d:q.b.x*g.n.x+q.b.y*g.n.y})}
+// Which face of an I (a channel) a view of it shows: of the web — a flange's inner line by each edge (within a fifth of
+// the width): `top`, `bot`; of a flange — the web's two lines by the axis: `web`. `P` — its thick lines projected.
+function facesOf(g,segs,P){
+ const w=g.hi-g.lo,axis=(g.lo+g.hi)/2,proj=projector(g),L=g.s1-g.s0;
+ // (the lines along it: their cover of its length)
+ const along=P.filter(q=>Math.abs(q.c-q.d)<=0.4&&Math.abs(q.a-q.b)>3&&Math.max(q.a,q.b)>g.s0&&Math.min(q.a,q.b)<g.s1).map(q=>({c:(q.c+q.d)/2,s0:Math.max(g.s0,Math.min(q.a,q.b)),s1:Math.min(g.s1,Math.max(q.a,q.b))}));
+ const cover=(lo,hi)=>{const iv=along.filter(q=>q.c>lo&&q.c<hi).map(q=>[q.s0,q.s1]).sort((x,y)=>x[0]-y[0]);let c=0,e=-Infinity;for(const [x,y] of iv){if(y<=e)continue;c+=y-Math.max(x,e);e=y}return c};
+ const lineIn=(lo,hi)=>{const cs=[...new Set(along.filter(q=>q.c>lo&&q.c<hi).map(q=>Math.round(q.c*4)/4))].filter(c=>cover(c-0.3,c+0.3)>=L*0.6);return cs};
+ const top=lineIn(g.lo+0.3,g.lo+w*0.2).sort((x,y)=>x-y)[0],bot=lineIn(g.hi-w*0.2,g.hi-0.3).sort((x,y)=>y-x)[0];
+ const web=top===undefined||bot===undefined?(()=>{const cs=segs.map(proj).filter(q=>Math.abs(q.c-q.d)<=0.4&&Math.abs((q.c+q.d)/2-axis)<=w*0.15&&Math.abs((q.c+q.d)/2-axis)>=0.3).map(q=>(q.c+q.d)/2);
+  const one=[...new Set(cs.map(c=>Math.round(c*4)/4))].filter(c=>{const iv=segs.map(proj).filter(q=>Math.abs((q.c+q.d)/2-c)<=0.3&&Math.abs(q.c-q.d)<=0.4).map(q=>[Math.max(g.s0,Math.min(q.a,q.b)),Math.min(g.s1,Math.max(q.a,q.b))]).filter(([x,y])=>y>x).sort((x,y)=>x[0]-y[0]);
+   // (drawn or dashed — hidden under the flange, the ribs drawn over it all the same: ГПЭС В46 «Вид А»)
+   let c2=0,e=-Infinity;for(const [x,y] of iv){if(y<=e)continue;c2+=y-Math.max(x,e);e=y}return c2>=L*0.6});
+  const a=one.filter(c=>c<axis).sort((x,y)=>y-x)[0],b=one.filter(c=>c>axis).sort((x,y)=>x-y)[0];return a!==undefined&&b!==undefined&&Math.abs((a+b)/2-axis)<=w*0.05?[a,b]:null})():null;
+ return{top,bot,web}
+}
 // The plates across a member (ribs, a connection plate) at their places on its views (the engineer, 25.10.2026: «каждый
 // узел должен быть показан идеально»). A plate across is two thick lines across the member a plate's thickness apart
 // (3–40 mm), of one length. In the view of the web (its flanges drawn as thick lines along it inside the outline) — its
@@ -617,20 +635,8 @@ function sheetPlates(geo={},{views=[],allMm=null,seeded=null}={}){
  const r=seeded||sheetHoles(geo,{views,allMm,seed:true,withMembers:true}),bold=segs.filter(thick),found=[];
  const dims=dimensionsOf(geo.texts||[],geo.segments||[]);
  for(const {g,view} of r.members){
-  const k=g.sc.n,mm=v=>v/k,w=g.hi-g.lo,axis=(g.lo+g.hi)/2,proj=q=>({a:q.a.x*g.u.x+q.a.y*g.u.y,b:q.b.x*g.u.x+q.b.y*g.u.y,c:q.a.x*g.n.x+q.a.y*g.n.y,d:q.b.x*g.n.x+q.b.y*g.n.y});
-  const P=bold.map(proj),L=g.s1-g.s0;
-  // (the lines along it: their cover of its length)
-  const along=P.filter(q=>Math.abs(q.c-q.d)<=0.4&&Math.abs(q.a-q.b)>3&&Math.max(q.a,q.b)>g.s0&&Math.min(q.a,q.b)<g.s1).map(q=>({c:(q.c+q.d)/2,s0:Math.max(g.s0,Math.min(q.a,q.b)),s1:Math.min(g.s1,Math.max(q.a,q.b))}));
-  const cover=(lo,hi)=>{const iv=along.filter(q=>q.c>lo&&q.c<hi).map(q=>[q.s0,q.s1]).sort((x,y)=>x[0]-y[0]);let c=0,e=-Infinity;for(const [x,y] of iv){if(y<=e)continue;c+=y-Math.max(x,e);e=y}return c};
-  const lineIn=(lo,hi)=>{const cs=[...new Set(along.filter(q=>q.c>lo&&q.c<hi).map(q=>Math.round(q.c*4)/4))].filter(c=>cover(c-0.3,c+0.3)>=L*0.6);return cs};
-  // The view of the web: a flange's inner line by each edge (within a fifth of the width); of a flange: the web's two
-  // lines by the axis.
-  const top=lineIn(g.lo+0.3,g.lo+w*0.2).sort((x,y)=>x-y)[0],bot=lineIn(g.hi-w*0.2,g.hi-0.3).sort((x,y)=>y-x)[0];
-  const web=top===undefined||bot===undefined?(()=>{const cs=segs.map(proj).filter(q=>Math.abs(q.c-q.d)<=0.4&&Math.abs((q.c+q.d)/2-axis)<=w*0.15&&Math.abs((q.c+q.d)/2-axis)>=0.3).map(q=>(q.c+q.d)/2);
-   const one=[...new Set(cs.map(c=>Math.round(c*4)/4))].filter(c=>{const iv=segs.map(proj).filter(q=>Math.abs((q.c+q.d)/2-c)<=0.3&&Math.abs(q.c-q.d)<=0.4).map(q=>[Math.max(g.s0,Math.min(q.a,q.b)),Math.min(g.s1,Math.max(q.a,q.b))]).filter(([x,y])=>y>x).sort((x,y)=>x[0]-y[0]);
-    // (drawn or dashed — hidden under the flange, the ribs drawn over it all the same: ГПЭС В46 «Вид А»)
-    let c2=0,e=-Infinity;for(const [x,y] of iv){if(y<=e)continue;c2+=y-Math.max(x,e);e=y}return c2>=L*0.6});
-   const a=one.filter(c=>c<axis).sort((x,y)=>y-x)[0],b=one.filter(c=>c>axis).sort((x,y)=>x-y)[0];return a!==undefined&&b!==undefined&&Math.abs((a+b)/2-axis)<=w*0.05?[a,b]:null})():null;
+  const k=g.sc.n,mm=v=>v/k,w=g.hi-g.lo,axis=(g.lo+g.hi)/2,proj=projector(g);
+  const P=bold.map(proj),L=g.s1-g.s0,{top,bot,web}=facesOf(g,segs,P);
   if(top===undefined&&!web)continue;
   // The lines across inside its length (an end — a line across all of it — apart).
   const cross=new Map();
@@ -756,4 +762,4 @@ function sheetPlates(geo={},{views=[],allMm=null,seeded=null}={}){
  }
  return out
 }
-module.exports={holeSymbols,holeCallouts,leaderHoles,sheetHoles,sheetPlates,memberBand,edgeLines,thickOf,scaleNear,chainMm,chainMap};
+module.exports={dedupe,gridOf,projector,facesOf,holeSymbols,holeCallouts,leaderHoles,sheetHoles,sheetPlates,memberBand,edgeLines,thickOf,scaleNear,chainMm,chainMap};

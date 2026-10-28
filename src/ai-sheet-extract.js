@@ -1011,8 +1011,10 @@ function extractSheet({texts=[],widthPt=0,heightPt=0,segments=[]}={}){
  // (the views of all members, holes or none: the plates on them, the place of a cut of a plate drawn apart on them)
  const seeded=views.length&&segments.length<=80000?require("./ai-holes-extract").sheetHoles({texts,segments,widthPt,heightPt},{views,allMm:holes?.all_mm||null,seed:true,withMembers:true}):null;
  const plates=seeded?require("./ai-holes-extract").sheetPlates({texts,segments,widthPt,heightPt},{views,allMm:holes?.all_mm||null,seeded}).filter(m=>m.plates.length||m.gussets):[];
+ // The positions of the specification at their places on the views (a number in a circle, its leader to the part).
+ const place=seeded?require("./ai-parts-place").sheetParts({texts,segments,widthPt,heightPt},{seeded}):[];
  // The plates drawn apart with their holes (a base plate «1 - 1», an end plate «2 - 2»), at their cuts.
  const sections=seeded?.sections||[];if(drill)delete drill.sections;
- return{stamp,views,required,elements,spec,fasteners:fastenerTable(texts),holes,...(drill?.views.length?{drill}:{}),...(plates.length?{plates}:{}),...(sections.length?{sections}:{}),standards,levelCount:levels.length,assemblyText,...(unread.length?{unread}:{})}
+ return{stamp,views,required,elements,spec,fasteners:fastenerTable(texts),holes,...(drill?.views.length?{drill}:{}),...(plates.length?{plates}:{}),...(place.length?{place}:{}),...(sections.length?{sections}:{}),standards,levelCount:levels.length,assemblyText,...(unread.length?{unread}:{})}
 }
 module.exports={extractSheet,sheetStamp,stampNames,titleMarks,levelMm,rowsOf,specTable,specCells,cellAccept,sectionLike,normProfile,fastenerTable,standardsCited};

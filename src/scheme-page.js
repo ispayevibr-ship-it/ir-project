@@ -731,7 +731,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
     // What the 3D draws a member by: its rolled section, a truss or a lattice column, the base, the joint and the nodes of
     // the drawings — without them the exported scheme showed conventional sections, trusses as beams and no bolts.
     profile_name:String(c.profile_name||""),profile_standard:String(c.profile_standard||""),section_type:String(c.section_type||""),type_key:String(c.type_key||""),
-    truss:c.truss||undefined,column:c.column||undefined,base:c.base||undefined,joint:c.joint||undefined,drill:Array.isArray(c.drill)?c.drill:undefined,cuts:Array.isArray(c.cuts?.rows)?c.cuts:undefined,parts:Array.isArray(c.parts?.rows)?c.parts:undefined,plates:Array.isArray(c.plates?.rows)||Array.isArray(c.plates?.gussets)?c.plates:undefined,cross:c.cross||undefined,nodes:c.nodes||undefined,
+    truss:c.truss||undefined,column:c.column||undefined,base:c.base||undefined,joint:c.joint||undefined,drill:Array.isArray(c.drill)?c.drill:undefined,cuts:Array.isArray(c.cuts?.rows)?c.cuts:undefined,parts:Array.isArray(c.parts?.rows)?c.parts:undefined,plates:Array.isArray(c.plates?.rows)||Array.isArray(c.plates?.gussets)?c.plates:undefined,place:Array.isArray(c.place?.rows)?c.place:undefined,cross:c.cross||undefined,nodes:c.nodes||undefined,
     // How fully the drawings determined it and its section: the exported page shows the same pale «предварительно».
     preliminary:isPreliminary(c)||undefined,instance_status:INSTANCE_STATUS[c.instance_status]?String(c.instance_status):undefined,
     instance_reasons:Array.isArray(c.instance_reasons)&&c.instance_reasons.length?c.instance_reasons.map(String).slice(0,5):undefined,source_section:sectionOfRecord(c),
