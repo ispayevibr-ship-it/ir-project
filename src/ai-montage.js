@@ -198,7 +198,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    .sort((a,b)=>a.mark.localeCompare(b.mark,"ru",{numeric:true}));
   for(const [k,n] of planned)if(!plan.catalog.has(k)){const e=plan.elements.find(x=>markKey(x.doc,x.mark)===k);catalog.push({mark:e.mark,doc:e.doc,planned:n,sources:["монтажная схема"]})}
   const usage=usageTotals(data.ai?.usage);
-  return{draftId:row.id,outdated,tank:plan.schemes.some(x=>x.key==="tank"),source:data.source?.name||"",files:(data.source?.documents||[]).length,failed:data.failed||[],
+  return{draftId:row.id,outdated,stopped:data.stopped||null,running:gates.has(oid)?{step:gates.get(oid).step,state:gates.get(oid).state}:null,tank:plan.schemes.some(x=>x.key==="tank"),source:data.source?.name||"",files:(data.source?.documents||[]).length,failed:data.failed||[],
    sheets:(data.pages||[]).length,createdAt:row.created_at,
    schemesFound:placing(data).reduce((n,p)=>n+(p.schemes||[]).filter(s=>!s.error).length,0),
    elementsFound:placing(data).reduce((n,p)=>n+(p.schemes||[]).reduce((k,s)=>k+(s.placements||[]).length,0),0),
@@ -272,40 +272,93 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   if(!list){const result=await drafts.sheets(oid,doc.id);list=documents.saveSheets(oid,doc.id,result.sheets.map(p=>({page:p.page,name:p.name||p.title||"",code:p.code||""})))}
   return{documentId:doc.id,name:doc.name,kind:doc.kind,sheets:list,excluded:doc.excluded||[]}
  }
- // Step 1 for every stored PDF of the object (or the given ones) as one set of sheets.
- async function analyze(id,documentIds=null){
-  const oid=object(id);
-  const wanted=Array.isArray(documentIds)&&documentIds.length?new Set(documentIds.map(String)):null;
+ // The engineer's «Стоп» (28.10.2026: «сделай кнопку стоп при анализе, а потом остановить полностью (сохранит
+ // результат который есть) и продолжить с момента остановки»): one run of an object at a time, with its gate — paused,
+ // the analysis waits before its next sheet (Claude — before its next request); stopped, it ends, what is read is kept
+ // (data.stopped of the analysis; Claude's finished requests), and a later run continues from there.
+ const gates=new Map();
+ function openGate(oid,step){
+  if(gates.has(oid))throw Error("Анализ этого объекта уже идёт — дождитесь его или остановите");
+  const listeners=new Set(),g={step,state:"run",
+   listen(fn){listeners.add(fn);return()=>listeners.delete(fn)},
+   set(next){if(g.state===next||g.state==="stop")return;g.state=next;for(const fn of [...listeners])try{fn(next)}catch{}},
+   // Waits while paused; false once stopped.
+   wait(){return g.state!=="pause"?Promise.resolve(g.state!=="stop"):new Promise(r=>{const off=g.listen(x=>{if(x!=="pause"){off();r(x!=="stop")}})})}};
+  gates.set(oid,g);return g
+ }
+ function closeGate(oid,g){if(gates.get(oid)===g){gates.delete(oid);onProgress({objectId:oid,step:"control",state:"idle"})}}
+ // pause | resume | stop | status (what runs: analyze or ai, and its state).
+ function control(id,action){
+  const oid=object(id),g=gates.get(oid);
+  if(!g)return{step:"",state:"idle"};
+  if(action==="pause"||action==="resume"||action==="stop"){
+   g.set(action==="pause"?"pause":action==="stop"?"stop":"run");
+   // (a stop ends the requests to Claude under way: their sheets are asked again when continued)
+   if(g.state==="stop"&&g.step==="ai")try{engine.cancel?.()}catch{}
+   onProgress({objectId:oid,step:"control",run:g.step,state:g.state})
+  }
+  return{step:g.step,state:g.state}
+ }
+ // Step 1 for every stored PDF of the object (or the given ones) as one set of sheets. resume: the last analysis was
+ // stopped — its sheets are kept, the sheets and files it did not read are read now.
+ async function analyze(id,documentIds=null,{resume=false}={}){
+  const oid=object(id),g=openGate(oid,"analyze");
+  try{return await analyzeRun(oid,documentIds,resume===true,g)}finally{closeGate(oid,g)}
+ }
+ async function analyzeRun(oid,documentIds,resume,gate){
+  const last=resume?database.listEntity(oid,"ai-scheme-draft").filter(r=>r.record_type==="pdf_scheme_draft").reduce((a,b)=>!a||Number(b.id)>Number(a.id)?b:a,null):null;
+  if(resume&&!last?.data?.stopped)throw Error("Остановленного анализа нет — запустите анализ заново");
+  if(resume&&last.data.analyzer!==ANALYZER)throw Error("После остановки программа обновила правила распознавания — запустите анализ заново, чтобы все листы были прочитаны одними правилами");
+  const kept=last?.data||null;
+  const wanted=Array.isArray(documentIds)&&documentIds.length?new Set(documentIds.map(String)):kept?new Set((kept.stopped.documents||[]).map(String)):null;
   const all=documents.list(oid).filter(d=>d.ext===".pdf"&&d.exists&&(!wanted||wanted.has(String(d.id))));
   const untyped=all.filter(d=>!TYPES.includes(d.kind)&&d.kind!=="Не анализировать");
   if(untyped.length)throw Error("Укажите тип чертежа для: "+untyped.slice(0,5).map(d=>d.name).join(", ")+(untyped.length>5?" и ещё "+(untyped.length-5):""));
   const files=all.filter(d=>TYPES.includes(d.kind)),skippedFiles=all.length-files.length;
   if(!files.length)throw Error("Нет PDF для анализа. Загрузите чертежи и укажите их тип.");
-  const started=Date.now(),pages=[],sources=[],failed=[];
+  const started=Date.now(),pages=kept?[...(kept.pages||[])]:[],sources=kept?(kept.source?.documents||[]).map(x=>({...x})):[],failed=kept?[...(kept.failed||[])]:[];
+  // (what this run read: the project base gets it once; the files read in full before the stop are not read again)
+  const fresh=[],touched=[];let stopped=null;
   for(const [i,file] of files.entries()){
+   const had=sources.findIndex(x=>String(x.documentId)===String(file.id));
+   if(had>=0&&!sources[had].partial||failed.some(f=>String(f.documentId)===String(file.id)))continue;
+   if(!(await gate.wait())){stopped={file:i+1,files:files.length,name:file.name};break}
    onProgress({objectId:oid,step:"analyze",file:i+1,files:files.length,name:file.name});
+   const read=new Set(pages.filter(p=>String(p.documentId)===String(file.id)).map(p=>Number(p.pdfPage)));
    try{
-    const result=await drafts.scan(oid,file.id,point=>onProgress({objectId:oid,step:"analyze",file:i+1,files:files.length,name:file.name,page:point.page,total:point.total,ocr:point.ocr===true}),file.excluded||[]);
-    if(!result.pages.length){failed.push({name:file.name,error:"Все листы сняты с анализа"});continue}
+    const result=await drafts.scan(oid,file.id,point=>onProgress({objectId:oid,step:"analyze",file:i+1,files:files.length,name:file.name,page:point.page,total:point.total,ocr:point.ocr===true,
+     ...(point.paused?{paused:true,done:read.size+point.done}:{})}),[...(file.excluded||[]),...read],gate);
     const type=file.kind;
     // Sheets are numbered through the whole set; the PDF page is kept for rendering.
     const own=result.pages.map((p,k)=>({...p,page:pages.length+k+1,pdfPage:p.page,documentId:file.id,sourceName:file.name,docType:type}));
-    pages.push(...own);
-    sources.push({documentId:file.id,name:file.name,sha256:result.source?.sha256||"",pages:result.pages.length,type,
-     schemes:type==="КМД сборочные"?0:own.reduce((n,p)=>n+(p.schemes||[]).filter(s=>!s.error).length,0),
-     marks:new Set(own.flatMap(p=>(p.sheet?.views||[]).flatMap(v=>v.marks))).size})
-   }catch(error){failed.push({name:file.name,error:String(error.message||error)})}
+    pages.push(...own);fresh.push(...own);
+    const mine=pages.filter(p=>String(p.documentId)===String(file.id));
+    if(!mine.length&&!result.stopped){failed.push({documentId:file.id,name:file.name,error:"Все листы сняты с анализа"});continue}
+    if(mine.length){
+     const entry={documentId:file.id,name:file.name,sha256:result.source?.sha256||sources[had]?.sha256||"",pages:mine.length,type,
+      schemes:type==="КМД сборочные"?0:mine.reduce((n,p)=>n+(p.schemes||[]).filter(s=>!s.error).length,0),
+      marks:new Set(mine.flatMap(p=>(p.sheet?.views||[]).flatMap(v=>v.marks))).size,...(result.stopped?{partial:true}:{})};
+     if(had>=0)sources[had]=entry;else sources.push(entry);
+     touched.push(entry)
+    }
+    if(result.stopped){stopped={file:i+1,files:files.length,name:file.name,sheets:mine.length};break}
+   }catch(error){failed.push({documentId:file.id,name:file.name,error:String(error.message||error)})}
   }
-  if(!pages.length)throw Error("Не удалось разобрать ни один PDF: "+failed.map(f=>f.name+" — "+f.error).join("; "));
+  if(!pages.length)throw Error(stopped?"Анализ остановлен до первого прочитанного листа — сохранять нечего":"Не удалось разобрать ни один PDF: "+failed.map(f=>f.name+" — "+f.error).join("; "));
   const name=sources.length===1?sources[0].name:sources.length+" PDF-файлов";
-  const types={};for(const s of sources)types[s.type]=(types[s.type]||0)+1;
-  const row=database.createEntity(oid,"ai-scheme-draft",{record_type:"pdf_scheme_draft",title:"Анализ PDF: "+name,
-   data:{source:{name,documents:sources},pages,failed,method:"pdf_vector_geometry",generatedByAI:false,review:"requires_review",analyzer:ANALYZER,
-    log:[{at:new Date().toISOString(),step:"analyze",text:"Анализ PDF: файлов "+sources.length+" ("+Object.entries(types).map(([k,v])=>k+" — "+v).join(", ")+"), листов "+pages.length+
-     ", схем "+sources.reduce((n,s)=>n+s.schemes,0)+(skippedFiles?", не анализировались "+skippedFiles:"")+(failed.length?", не разобрано "+failed.length:"")+" · "+Math.round((Date.now()-started)/1000)+" с"}]}});
+  const types={};for(const x of sources)types[x.type]=(types[x.type]||0)+1;
+  const text="Анализ PDF"+(kept?" (продолжение после остановки, прочитано листов "+fresh.length+")":"")+": файлов "+sources.length+" ("+Object.entries(types).map(([k,v])=>k+" — "+v).join(", ")+"), листов "+pages.length+
+   ", схем "+sources.reduce((n,x)=>n+x.schemes,0)+(skippedFiles?", не анализировались "+skippedFiles:"")+(failed.length?", не разобрано "+failed.length:"")+" · "+Math.round((Date.now()-started)/1000)+" с"+
+   (stopped?" · остановлен инженером на файле "+stopped.file+" из "+stopped.files+" («"+stopped.name+"»), прочитанное сохранено — можно продолжить":"");
+  // (stopped: the files of the run, to continue with the same ones; a continued analysis asks Claude anew)
+  const halt=stopped?{at:new Date().toISOString(),...stopped,documents:files.map(d=>d.id)}:null;
+  const row=kept?(saveDraft(oid,last,{source:{name,documents:sources},pages,failed,stopped:halt,ai:kept.ai?.source==="knowledge"?kept.ai:null,log:logged(kept,{step:"analyze",text})}),draftRow(oid,last.id)):
+   database.createEntity(oid,"ai-scheme-draft",{record_type:"pdf_scheme_draft",title:"Анализ PDF: "+name,
+   data:{source:{name,documents:sources},pages,failed,method:"pdf_vector_geometry",generatedByAI:false,review:"requires_review",analyzer:ANALYZER,...(halt?{stopped:halt}:{}),
+    log:[{at:new Date().toISOString(),step:"analyze",text}]}});
   if(!row)throw Error("Не удалось сохранить результат анализа");
   try{
-   const kb=project.recordAnalysis(oid,{pages,sources,failed,started});
+   const kb=project.recordAnalysis(oid,{pages:fresh,sources:touched,failed:kept?failed.filter(f=>!(kept.failed||[]).includes(f)):failed,started});
    saveDraft(oid,row,{log:logged(row.data||{},{step:"analyze",text:"Проектная база: карточек марок "+kb.cards+(kb.conflicts?", расхождений между листами "+kb.conflicts:"")+(kb.fasteners?", видов метизов "+kb.fasteners:"")+
     (kb.errors.length?", не записано "+kb.errors.length+" ("+kb.errors.slice(0,3).join("; ")+")":"")})});
   }catch(error){console.error("IR Project: project knowledge",error)}
@@ -409,8 +462,13 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    await askBatch(oid,data,batch.slice(half),shared,kmReference,done,finish)
   }
  }
- async function process(id,draftId,{restart=false,comment}={}){
-  const oid=object(id),row=draftRow(oid,draftId),data=row.data||{};
+ async function process(id,draftId,options={}){
+  const oid=object(id);draftRow(oid,draftId);
+  const g=openGate(oid,"ai");
+  try{return await processRun(oid,draftId,options,g)}finally{closeGate(oid,g)}
+ }
+ async function processRun(oid,draftId,{restart=false,comment}={},gate){
+  const row=draftRow(oid,draftId),data=row.data||{};
   // The engineer's comment is kept with the analysis: a repeated run uses it unless a new one is given.
   const note=typeof comment==="string"?comment.trim().slice(0,4000):String(data.comment||"");
   if(note!==String(data.comment||"")){saveDraft(oid,row,{comment:note});data.comment=note}
@@ -442,6 +500,8 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    let next=0,started=0,failure=null;
    const worker=async()=>{
     while(!failure&&next<batches.length){
+     // (paused by the engineer: the next request waits; stopped: none is started)
+     if(!(await gate.wait())||failure||next>=batches.length)break;
      const batch=batches[next++];
      onProgress({objectId:oid,step:"ai",batch:++started,batches:batches.length,resumed});
      try{
@@ -453,6 +513,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
     }
    };
    await Promise.all(Array.from({length:Math.min(AI_PARALLEL,batches.length)},worker));
+   if(gate.state==="stop")throw Object.assign(Error("Остановлено инженером"),{code:"stopped"});
    if(failure)throw failure;
    const parts=Object.values(done),schemes=parts.flatMap(p=>p.schemes),marks=mergeMarks(parts.flatMap(p=>p.marks)),usage=parts.map(p=>p.usage);
    const model=parts.find(p=>p.model)?.model||"",sum=usageTotals(usage),tokens=sum.input+sum.output+sum.cacheRead+sum.cacheWrite;
@@ -470,6 +531,12 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
      (extra.lessons.length?" · уроков для программы "+extra.lessons.length+(taught?", новых "+taught.added+" (всего выучено "+taught.total+")":""):"")})}))
   }catch(error){
    const finished=Object.keys(done).length;
+   // A stop is not an error: the finished requests are kept, «Продолжить» asks only the rest.
+   if(error.code==="stopped"){
+    save(d=>({ai:{status:"stopped",error:"",partial:done,at:new Date().toISOString()},
+     log:logged(d,{step:"ai",text:"Claude: остановлено инженером · готово запросов: "+finished+" из "+batches.length+", можно продолжить"})}));
+    return view(oid,draftRow(oid,draftId))
+   }
    save(d=>({ai:{status:"failed",error:String(error.message||error),partial:done,at:new Date().toISOString()},
     log:logged(d,{step:"ai",error:true,text:"Claude: ошибка — "+String(error.message||error)+(finished?" · готово запросов: "+finished+", можно продолжить":"")})}));
    throw error
@@ -880,6 +947,6 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   if(crops.every(c=>!c.error))cards.set(cacheKey,card);
   return card
  }
- return{latest,documentSheets,analyze,process,skipAI,preview,place,undo,clearScheme,restoreScheme,schemeSnapshot,elementCard};
+ return{latest,documentSheets,analyze,control,process,skipAI,preview,place,undo,clearScheme,restoreScheme,schemeSnapshot,elementCard};
 }
 module.exports={createMontage,SCHEMA,SYSTEM,mergeParts,mergeMarks};

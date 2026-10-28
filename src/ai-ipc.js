@@ -88,7 +88,9 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
  handle("ai-settings:set-provider",(e,provider)=>{checkAdmin(e);return engine.setProvider(provider)});
  handle("ai-settings:test",()=>engine.start());
  handle("ai-montage:latest",(_e,objectId)=>montage.latest(objectId));
- handle("ai-montage:analyze",(_e,{objectId,documentIds})=>montage.analyze(objectId,documentIds));
+ handle("ai-montage:analyze",(_e,{objectId,documentIds,resume})=>montage.analyze(objectId,documentIds,{resume:resume===true}));
+ // The engineer's «Стоп» of a running analysis or Claude run: pause, resume, stop, status.
+ handle("ai-montage:control",(_e,{objectId,action}={})=>montage.control(objectId,String(action||"status")));
  handle("ai-montage:process",async(_e,{objectId,draftId,restart,comment})=>{const r=await montage.process(objectId,draftId,{restart:restart===true,comment:typeof comment==="string"?comment:undefined});github.schedule("ответ Claude");return r});
  handle("ai-montage:skip-ai",(_e,{objectId,draftId})=>montage.skipAI(objectId,draftId));
  handle("ai-montage:preview",(_e,{objectId,draftId,heights})=>montage.preview(objectId,draftId,heights));

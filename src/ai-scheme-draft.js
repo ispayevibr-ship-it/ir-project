@@ -10,26 +10,39 @@ function createSchemeDrafts({database,documents,aliases=()=>[],workerFactory=(fi
   if(!Number.isSafeInteger(n)||n<1||!database.getObject(n))throw Error("Объект не найден");
   return n
  };
- function run(bytes,progress,options={}){
+ // gate (scan only): the engineer's pause and stop of the analysis (src/ai-montage.js). Paused, the worker waits before
+ // its next sheet and the deadline is off; stopped, the worker ends at once and the sheets it sent so far are the result
+ // (stopped: true) — the sheet it was reading is read again when the analysis is continued.
+ function run(bytes,progress,options={},gate=null){
   return new Promise((resolve,reject)=>{
    const w=workerFactory(path.join(__dirname,"ai-scheme-worker.js"),{workerData:{bytes:new Uint8Array(bytes),packages:workerPackages(),aliases:(()=>{try{return aliases()||[]}catch{return[]}})(),...options},
     resourceLimits:{maxOldGenerationSizeMb:512,maxYoungGenerationSizeMb:64},execArgv:[]});
-   let completed=false;
+   let completed=false,paused=false,off=null;
+   // Every sheet as it is read (the worker sends them one by one).
+   const pages=[];
    // The deadline runs from the last sign of life: a long set read by OCR keeps reporting its pages.
    let timeout=null;
-   const arm=()=>{clearTimeout(timeout);timeout=setTimeout(()=>finish(new Error("Разбор PDF: нет ответа 180 секунд")),DEADLINE)};
+   const arm=()=>{clearTimeout(timeout);if(!paused)timeout=setTimeout(()=>finish(new Error("Разбор PDF: нет ответа 180 секунд")),DEADLINE)};
    arm();
    function finish(error,result){
     if(completed)return;completed=true;clearTimeout(timeout);
+    try{off?.()}catch{}
     try{w.terminate()}catch{}
     if(error)reject(error);else resolve(result)
    }
+   const steer=state=>{
+    if(state==="stop")return finish(null,{pages,totalPages:null,stopped:true});
+    paused=state==="pause";arm();
+    try{w.postMessage({type:paused?"pause":"resume"})}catch{}
+   };
+   if(gate){off=gate.listen(steer);if(gate.state==="pause"||gate.state==="stop")steer(gate.state)}
    w.on("message",event=>{
-    if(event?.type==="progress"){arm();return progress({page:event.page,total:event.total,...(event.ocr?{ocr:true}:{})})}
+    if(event?.type==="page"){arm();if(event.page)pages.push(event.page);return}
+    if(event?.type==="progress"){arm();return progress({page:event.page,total:event.total,...(event.ocr?{ocr:true}:{}),...(event.paused?{paused:true,done:event.done}:{})})}
     if(event?.type==="error")finish(new Error(event.message||"Ошибка разбора PDF"));
     else if(event?.type==="result"){
-     if(!Array.isArray(event.pages))return finish(new Error("Некорректный результат разбора PDF"));
-     finish(null,event)
+     if(event.pages!==null&&!Array.isArray(event.pages))return finish(new Error("Некорректный результат разбора PDF"));
+     finish(null,{...event,pages:event.pages||pages})
     }
    });
    w.once("error",error=>finish(error));
@@ -45,10 +58,10 @@ function createSchemeDrafts({database,documents,aliases=()=>[],workerFactory=(fi
   return input
  }
  // Every page of one stored PDF except the excluded ones: schemes found by geometry plus the sheet context.
- async function scan(id,documentId,progress=()=>{},exclude=[]){
+ async function scan(id,documentId,progress=()=>{},exclude=[],gate=null){
   const input=await read(id,documentId);
-  const result=await run(input.buffer,progress,{exclude});
-  return{source:input.source,pages:result.pages,totalPages:result.totalPages}
+  const result=await run(input.buffer,progress,{exclude},gate);
+  return{source:input.source,pages:result.pages,totalPages:result.totalPages,...(result.stopped?{stopped:true}:{})}
  }
  // Sheet list with stamp names, read from text only.
  async function sheets(id,documentId){

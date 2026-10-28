@@ -27,6 +27,7 @@
 .ir-ms select{font-weight:600;max-width:420px;background:#fff}
 .ir-ms button.primary{background:#176dc1;border-color:#176dc1;color:#fff}
 .ir-ms button.big{height:42px;padding:0 22px;font-size:13px;margin-top:4px}
+.ir-ms button.stop{background:#fff1f0;border-color:#e8b4ae;color:#b3261e}
 .ir-ms button.link{border:0;background:none;padding:0;height:auto;color:#2a6aa0;text-decoration:underline;font-weight:600}
 .ir-ms button:disabled{opacity:.45;cursor:not-allowed}
 .ir-ms-wait{display:flex;align-items:center;gap:10px;color:#245d86}

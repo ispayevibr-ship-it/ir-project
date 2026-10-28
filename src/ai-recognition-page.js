@@ -17,6 +17,8 @@ window.irAiRecognitionPage=async function(objectId){
  const TABS=[["drawings","Чертежи"],["analyze","Анализ"],["claude","Обработка Claude"],["place","Монтажная схема"],["journal","Журнал"]];
  const tabKey="ir-ms-tab-"+id;
  let object,pdfs=[],picked=new Set(),view=null,engine=null,busy="",error="",heights={},progress="",filter="";
+ // A run of this object in the program (analysis or Claude) and the engineer's pause or stop of it (ai-montage:control).
+ let ctl={step:"",state:"idle"};
  // The engineer's comment to Claude for this analysis: null until edited, then the typed text (saved with the run).
  let aiNote=null;
  // What the program has learned from the engineer (src/ai-knowledge.js) and the catalog of structure types.
@@ -40,7 +42,7 @@ window.irAiRecognitionPage=async function(objectId){
   const jobs=[bridge.list(id).then(setPdfs).catch(()=>{pdfs=[]}),
    montage.latest(id).then(v=>{view=v}).catch(e=>{error=String(e.message||e)})];
   if(runtime)jobs.push(runtime.status().then(v=>{engine=v}).catch(()=>{engine=null}));
-  jobs.push(loadKnowledge(),loadWorks());
+  jobs.push(loadKnowledge(),loadWorks(),invoke("ai-montage:control",{objectId:id,action:"status"}).then(r=>{ctl=r||ctl}).catch(()=>{}));
   await Promise.all(jobs);
   syncHeights();
   if(alive()){render();loadSheets(selected)}
@@ -171,12 +173,32 @@ window.irAiRecognitionPage=async function(objectId){
  // ---- Analysis.
  const wait=text=>'<p class="ir-ms-wait"><i></i><span data-ms-progress>'+esc(progress||text)+'</span></p>';
  const sheetLabel=s=>s.file?esc(s.file)+", лист "+s.sheet:"Лист "+s.page;
- async function analyze(){await run("analyze",async()=>{view=await montage.analyze(id,null);syncHeights()});await autoPlace()}
+ async function analyze(){await run("analyze",async()=>{view=await montage.analyze(id,null);syncHeights()});if(!view?.stopped)await autoPlace()}
+ // A stopped analysis continued: the sheets read are kept, the rest are read from where it stopped.
+ async function resumeAnalysis(){await run("analyze",async()=>{view=await invoke("ai-montage:analyze",{objectId:id,documentIds:null,resume:true});syncHeights()});if(!view?.stopped)await autoPlace()}
+ // The engineer's «Стоп» (28.10.2026: «сделай кнопку стоп при анализе, а потом остановить полностью (сохранит результат
+ // который есть) и продолжить с момента остановки»): «Стоп» pauses; then «Продолжить» or «Остановить полностью».
+ const running=step=>busy===step||ctl.step===step&&ctl.state!=="idle";
+ async function control(action){
+  try{ctl=await invoke("ai-montage:control",{objectId:id,action})||ctl}catch(e){error=String(e.message||e)}
+  render()
+ }
+ function stopBar(step){
+  if(!canEdit)return"";
+  const ai=step==="ai";
+  if(ctl.state==="stop")return'<p class="ir-ms-hint">Останавливаем и сохраняем '+(ai?'готовые ответы Claude':'прочитанные листы')+'…</p>';
+  if(ctl.state==="pause")return'<div class="ir-ms-card warn"><b>Пауза</b><p>'+(ai?'Новые запросы к Claude не отправляются; уже отправленные закончатся.':'Лист, который читался, дочитывается, следующий ждёт.')+
+   ' «Остановить полностью» сохранит '+(ai?'готовые ответы':'прочитанные листы')+' — потом можно продолжить с места остановки.</p>'+
+   '<div class="ir-ms-row"><button class="primary" data-ms-ctl="resume">Продолжить</button><button class="stop" data-ms-ctl="stop">Остановить полностью (сохранить '+(ai?'готовое':'прочитанное')+')</button></div></div>';
+  return'<div class="ir-ms-row"><button class="stop" data-ms-ctl="pause" title="Пауза; затем — продолжить или остановить с сохранением">■ Стоп</button></div>'
+ }
  // Everything goes on the scheme by itself: after the analysis Claude (when connected), then the placement, with no
  // drafts to confirm. What the program is unsure of is placed too, with a note «проверьте» on the element.
  async function autoPlace(){
   if(!canEdit||!view||error)return;
-  if(!aiDone()&&engine?.installed&&view.ai?.status!=="failed")await processAI(false);
+  if(!aiDone()&&engine?.installed&&view.ai?.status!=="failed"&&view.ai?.status!=="stopped")await processAI(false);
+  // (Claude stopped by the engineer: nothing goes on by itself)
+  if(view?.ai?.status==="stopped")return;
   if(!aiDone())await run("skip",async()=>{view=await montage.skipAI(id,view.draftId);syncHeights()});
   if(!aiDone()||!view?.plan?.ready)return;
   await run("place",async()=>{view=await montage.place(id,view.draftId,heights)});
@@ -190,10 +212,14 @@ window.irAiRecognitionPage=async function(objectId){
   const types={};for(const d of files)types[d.kind]=(types[d.kind]||0)+1;
   let body='<p>Файлов на анализ: <b>'+files.length+'</b> ('+Object.entries(types).map(([k,v])=>esc(k)+' — '+v).join(", ")+')'+(sheetsTotal?' · отмечено листов: '+sheetsTotal:'')+'</p>'+
    '<p class="muted">Из КМД монтажных — оси, координаты и марки; из КМД сборочных — отметки низа и верха, длины и количество марок; из КМ — схемы и профили. Без интернета.</p>';
-  if(busy==="analyze")body+=wait("Разбираем PDF…");
+  if(running("analyze"))body+=wait("Разбираем PDF…")+stopBar("analyze");
   else body+='<div class="ir-ms-row"><button class="primary" data-ms-analyze '+(busy||!canEdit||!files.length||missing?'disabled':'')+'>'+(view?'Анализировать заново':'Анализировать')+'</button>'+
    (missing?'<span class="ir-ms-hint">Укажите тип для всех чертежей на странице «Чертежи»</span>':'')+'</div>';
-  if(view&&busy!=="analyze"){
+  if(view?.stopped&&!running("analyze")){const st=view.stopped;
+   body+='<div class="ir-ms-card warn"><b>Анализ остановлен</b><p>Прочитано листов: <b>'+view.sheets+'</b> — сохранено. Остановлен на файле '+st.file+' из '+st.files+' («'+esc(st.name)+'»)'+
+    (st.at?', '+esc(new Date(st.at).toLocaleString("ru-RU")):'')+'. «Продолжить анализ» дочитает остальные листы с места остановки; можно и перейти дальше с тем, что прочитано.</p>'+
+    '<div class="ir-ms-row"><button class="primary" data-ms-resume '+(busy||!canEdit?'disabled':'')+'>Продолжить анализ</button></div></div>'}
+  if(view&&!running("analyze")){
    const types2={};for(const f of view.journal?.files||[])types2[f.type]=(types2[f.type]||0)+1;
    if(view.outdated)body+='<div class="ir-ms-card warn"><b>Анализ сделан старой версией правил</b><p>Программа обновилась и читает чертежи лучше. Нажмите «Анализировать все PDF» ещё раз — иначе на монтажную схему пойдёт старый результат.</p></div>';
    body+='<div class="ir-ms-card ok"><b>Последний анализ</b><p>Файлов: <b>'+view.files+'</b> ('+Object.entries(types2).map(([k,v])=>esc(k)+' — '+v).join(", ")+') · листов: '+view.sheets+
@@ -215,7 +241,7 @@ window.irAiRecognitionPage=async function(objectId){
  function claudePage(){
   const ai=view?.ai;let body="";
   if(!view)body='<p class="muted">Сначала выполните анализ.</p>';
-  else if(busy==="ai")body=wait("Claude изучает листы, разрезы и отметки…");
+  else if(running("ai"))body=wait("Claude изучает листы, разрезы и отметки…")+stopBar("ai");
   else if(ai?.status==="done"){
    body=(ai.source==="knowledge"?'<div class="ir-ms-card ok"><b>Комплект уже знаком — взят из базы знаний</b><p>'+esc((view.knowledge||[]).map(k=>"«"+(k.title||k.id)+"» ("+k.origin+(k.source?", "+k.source:"")+")").join("; "))+'. Запрос к Claude не нужен; «Обработать через Claude» — если хотите прочитать заново.</p></div>':'')+
     '<div class="ir-ms-card ok"><p>'+esc(ai.summary||"Готово.")+'</p><small>'+esc(ai.model)+' · запросов '+ai.batches+' · марок прочитано '+ai.marks+'</small>'+learnedLine(view)+(view.comment?'<p><small>С вашим комментарием: «'+esc(view.comment)+'»</small></p>':'')+'</div><ul class="ir-ms-list">'+view.plan.schemes.map(s=>
@@ -224,11 +250,12 @@ window.irAiRecognitionPage=async function(objectId){
   }else if(ai?.status==="skipped")body='<p>Продолжено без ИИ: отметки укажите на странице «Монтажная схема».</p><div class="ir-ms-row">'+(engine?.installed?'<button data-ms-ai '+(busy?'disabled':'')+'>Обработать через Claude</button>':'')+'<button class="primary" data-ms-go="place">Далее: монтажная схема →</button></div>';
   else{
    const noKey=!engine?.installed;
-   body=(ai?.status==="failed"?'<p class="ir-ms-error">'+esc(ai.error)+'</p>':
+   body=(ai?.status==="stopped"?'<div class="ir-ms-card warn"><b>Обработка остановлена</b><p>Готовые ответы Claude сохранены (запросов: '+(ai.partial||0)+'). «Продолжить» отправит только остальные листы.</p></div>':
+    ai?.status==="failed"?'<p class="ir-ms-error">'+esc(ai.error)+'</p>':
     noKey?'<p>Claude не подключён. Укажите API-ключ в настройках или продолжите без ИИ.</p>':'<p>Claude посмотрит монтажные схемы, сборочные чертежи и таблицы: решит, какие схемы ставить, уточнит типы элементов и отметки, прочитает профили, длины и количество марок. Запускается только по кнопке.</p>')+
-    (noKey?'':noteBox())+'<div class="ir-ms-row">'+(noKey?'<button data-ms-settings>Настроить Claude</button>':'<button class="primary" data-ms-ai '+(busy||!canEdit?'disabled':'')+'>'+(ai?.status==="failed"&&ai.partial?'Продолжить (готово запросов: '+ai.partial+')':ai?.status==="failed"?'Повторить':engine?.provider==="claude-code"?'Обработать через Claude Code (подписка)':'Обработать через Claude')+'</button>')+
+    (noKey?'':noteBox())+'<div class="ir-ms-row">'+(noKey?'<button data-ms-settings>Настроить Claude</button>':'<button class="primary" data-ms-ai '+(busy||!canEdit?'disabled':'')+'>'+((ai?.status==="failed"||ai?.status==="stopped")&&ai.partial?'Продолжить (готово запросов: '+ai.partial+')':ai?.status==="stopped"?'Продолжить':ai?.status==="failed"?'Повторить':engine?.provider==="claude-code"?'Обработать через Claude Code (подписка)':'Обработать через Claude')+'</button>')+
     '<button data-ms-skip '+(busy||!canEdit?'disabled':'')+'>Продолжить без ИИ</button>'+
-    (ai?.status==="failed"&&ai.partial&&!noKey?'<button class="link" data-ms-ai-restart '+(busy||!canEdit?'disabled':'')+'>Начать заново</button>':'')+'</div>'
+    ((ai?.status==="failed"||ai?.status==="stopped")&&ai.partial&&!noKey?'<button class="link" data-ms-ai-restart '+(busy||!canEdit?'disabled':'')+'>Начать заново</button>':'')+'</div>'
   }
   return'<div class="ir-ms-page">'+body+'</div>'
  }
@@ -426,8 +453,8 @@ window.irAiRecognitionPage=async function(objectId){
  function tabState(key){
   const missing=pdfs.filter(d=>!typed(d)).length;
   if(key==="drawings")return{done:pdfs.length>0&&!missing,note:pdfs.length?(missing?"без типа: "+missing:pdfs.length+" файлов"):"нет файлов"};
-  if(key==="analyze")return{done:!!view&&!view.outdated,note:busy==="analyze"?"идёт…":view?.outdated?"устарел — повторите":view?"схем "+view.schemesFound+(view.tank?" · резервуар":""):"не выполнен"};
-  if(key==="claude")return{done:aiDone(),note:busy==="ai"?"идёт…":view?.ai?.source==="knowledge"?"из базы знаний":{done:"готово",skipped:"без ИИ",failed:"ошибка",running:"прервано"}[view?.ai?.status]||"не запускался"};
+  if(key==="analyze")return{done:!!view&&!view.outdated&&!view.stopped,note:running("analyze")?(ctl.state==="pause"?"пауза":"идёт…"):view?.stopped?"остановлен — можно продолжить":view?.outdated?"устарел — повторите":view?"схем "+view.schemesFound+(view.tank?" · резервуар":""):"не выполнен"};
+  if(key==="claude")return{done:aiDone(),note:running("ai")?(ctl.state==="pause"?"пауза":"идёт…"):view?.ai?.source==="knowledge"?"из базы знаний":{done:"готово",skipped:"без ИИ",failed:"ошибка",running:"прервано",stopped:"остановлено — можно продолжить"}[view?.ai?.status]||"не запускался"};
   if(key==="place")return{done:!!view?.placed,note:view?.placed?"расставлено "+view.placed.created:view?.plan?"к расстановке "+view.plan.elements:"—"};
   return{done:false,note:view?.journal?(view.journal.log.length+" событий"):"—"}
  }
@@ -464,6 +491,8 @@ window.irAiRecognitionPage=async function(objectId){
   keepTyping("[data-ms-sheet-filter]",v=>{sheetFilter=v});
   keepTyping("[data-ms-filter]",v=>{filter=v});
   on("[data-ms-analyze]",()=>analyze());
+  on("[data-ms-resume]",()=>resumeAnalysis());
+  on("[data-ms-ctl]",e=>control(e.currentTarget.dataset.msCtl));
   const teachValues=()=>({mark:app.querySelector("[data-teach-mark]")?.value||"",prefix:!!app.querySelector("[data-teach-prefix]")?.checked,
    type:app.querySelector("[data-teach-type]")?.value||"",project:app.querySelector("[data-teach-project]")?.value||"",note:app.querySelector("[data-teach-note]")?.value||""});
   const setCode=()=>{const n=String(pdfs[0]?.name||"").replace(/\.pdf$/i,"");return(/\d{2,}(?:[-.]\d{2,})+/.exec(n)||[n])[0].slice(0,60)};
@@ -507,7 +536,9 @@ window.irAiRecognitionPage=async function(objectId){
  // Live progress without re-rendering the page.
  const stopProgress=montage.onProgress?.(d=>{
   if(String(d?.objectId)!==id)return;
-  progress=d.step==="analyze"?"Файл "+d.file+" из "+d.files+": "+d.name+(d.page?" — лист "+d.page+" из "+d.total+(d.ocr?" · распознаём текст-кривые (OCR)":""):""):
+  // (pause, stop, the end of a run — of this page or another window: the buttons follow it)
+  if(d.step==="control"){const was=ctl.state;ctl={step:d.state==="idle"?"":d.run||ctl.step,state:d.state};if(d.state==="idle"&&!busy&&was!=="idle")load();else render();return}
+  progress=d.step==="analyze"?"Файл "+d.file+" из "+d.files+": "+d.name+(d.paused?" — пауза, прочитано листов "+d.done:d.page?" — лист "+d.page+" из "+d.total+(d.ocr?" · распознаём текст-кривые (OCR)":""):""):
    d.step==="ai"?"Claude обрабатывает листы: пакет "+d.batch+" из "+d.batches+(d.resumed?" (продолжение, готово ранее: "+d.resumed+")":"")+"…":"";
   const el=app.querySelector("[data-ms-progress]");if(el)el.textContent=progress
  });

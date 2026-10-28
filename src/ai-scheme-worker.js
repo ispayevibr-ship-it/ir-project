@@ -29,6 +29,10 @@ function pageContext(texts){
  const levels=[...new Set(strings.filter(s=>/^[+\-−±]?\d{1,2}[,.]\d{3}$/.test(s)))].slice(0,60);
  return{titles,levels,text:strings.join(" ").slice(0,2500)}
 }
+// The engineer's pause (src/ai-scheme-draft.js, gate): the next sheet waits for «Продолжить»; a stop ends the worker
+// from outside, the sheets sent so far are kept.
+let paused=false,wake=null;
+parentPort.on("message",m=>{if(m?.type==="pause")paused=true;else if(m?.type==="resume"){paused=false;if(wake){wake();wake=null}}});
 (async()=>{
  let loading,ocrWorker=null;
  try{
@@ -40,7 +44,9 @@ function pageContext(texts){
   const excluded=new Set((workerData.exclude||[]).map(Number));
   const pages=Array.from({length:pdf.numPages},(_,i)=>i+1).filter(n=>!excluded.has(n));
   const results=[];
+  let sent=0;
   for(const n of pages){
+   if(paused){parentPort.postMessage({type:"progress",page:n,total:pages.length,paused:true,done:sent});await new Promise(r=>{wake=r})}
    const page=await pdf.getPage(n);
    if(workerData.mode==="sheets"){
     const texts=await readPageTexts(page);
@@ -144,12 +150,14 @@ function pageContext(texts){
    // Read by OCR or not at all, such a sheet also goes to Claude as an image.
    results.push({page:n,widthPt:geometry.widthPt,heightPt:geometry.heightPt,schemes:result.schemes,context:pageContext(geometry.texts),noText,ocr,...(geometry.turn?{turn:geometry.turn}:{}),
     sheet:extractSheet(geometry),sections:extractSections(geometry,profiles),sectionProfiles:profiles.profiles||[],tank:extractTank(geometry),trusses:extractTrusses(geometry),baseDetails:extractBaseDetails(geometry),columnDetails:extractColumnDetails(geometry),railOffsets:extractRailOffsets(geometry),levelMarks:levelMarksOf(geometry),ar:extractArchitecture(geometry),ms:Date.now()-started});
+   // (each sheet sent as soon as it is read: a stopped analysis keeps it)
+   parentPort.postMessage({type:"page",page:results.pop()});sent++;
    parentPort.postMessage({type:"progress",page:n,total:pages.length});
    page.cleanup()
   }
   await ocrWorker?.terminate();
   await loading.destroy();
-  parentPort.postMessage({type:"result",pages:results,totalPages:pdf.numPages})
+  parentPort.postMessage({type:"result",pages:workerData.mode==="sheets"?results:null,totalPages:pdf.numPages})
  }catch(error){
   try{await ocrWorker?.terminate()}catch{}
   try{await loading?.destroy()}catch{}
