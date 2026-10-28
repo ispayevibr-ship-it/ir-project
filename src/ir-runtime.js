@@ -1641,6 +1641,10 @@ window.irSchemePage=async function(objectId){
  const workRecords=()=>frameMode?allRecords().filter(r=>frameKeys.has(recordMarkGroup(r).key)):activeWorkId?allRecords().filter(r=>recordWorkId(r)===activeWorkId):[];
  const recordGroup=r=>r?.scheme_group&&String(r.scheme_group)!=="all"?{key:String(r.scheme_group),label:String(r.scheme_group_label||schemeGroupOf(r.mark_name,r.mark).label)}:schemeGroupOf(r?.mark_name,r?.mark);
  const recordMarkGroup=r=>{const m=markById.get(String(r.mark_id||""));return m?markGroup(m):recordGroup(r)};
+ // What the analysis found the element to be draws it in 3D (`role`: a wall girder of the framing on its brackets, a
+ // brace with its gussets) — the kind of its mark only counts and colours it: «Стеновой ригель» counted with the girders
+ // lost its brackets and hung in the air (the engineer, 28.10.2026: «на чем держится? в воздухе будто висит»).
+ const recordRole=r=>r.import_batch&&r.scheme_group&&String(r.scheme_group)!=="all"?String(r.scheme_group):recordMarkGroup(r).key;
  const inView=(r,v)=>{const assigned=String(r.scheme_view_id||"");return assigned?assigned!=="all"&&assigned===String(v.id):groupKeys(v).includes(recordMarkGroup(r).key)};
  const schemeGroups=()=>{const scoped=workMarks(),placed=workRecords();if(frameMode)return[{key:"all",label:"Весь каркас",marks:scoped.length,placed:placed.length},...frameCategories.map(key=>({key,label:frameLabels[key],marks:scoped.filter(m=>markGroup(m).key===key).length,placed:placed.filter(r=>recordMarkGroup(r).key===key).length})).filter(g=>g.marks>0||g.placed>0||g.key===activeScheme)];return[{key:"all",label:"Общая схема",marks:scoped.length,placed:placed.length},...customViews().map(v=>({key:"view:"+v.id,label:v.data?.name||v.title||"Новая сетка",marks:scoped.filter(m=>groupKeys(v).includes(markGroup(m).key)).length,placed:placed.filter(r=>inView(r,v)).length}))]};
  const records=()=>{const v=activeView();return activeScheme==="all"?workRecords():frameMode?workRecords().filter(r=>recordMarkGroup(r).key===activeScheme):v?workRecords().filter(r=>inView(r,v)):[]};
@@ -2016,7 +2020,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   window.irThreeSchemeView.render(box,{
    objectId:oid,axesX:[...axesX],axesY:[...axesY],spanX,spanY,gridDirX,gridDirY,
    gridX:Object.fromEntries(axisXPos),gridY:Object.fromEntries(axisYPos),
-   elements:members.map(c=>({...c,scheme_group:recordMarkGroup(c).key})),
+   elements:members.map(c=>({...c,scheme_group:recordMarkGroup(c).key,role:recordRole(c)})),
    selected:selectedId,
    maxZ:members.reduce((m,c)=>Math.max(m,num(c.z0),num(c.z2),num(c.mz)),0),
    colorMode:schemeColorMode,showLabels:labelsVisible,showDimensions:dimensionsVisible,
@@ -2044,7 +2048,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   await loadMountDays();
   const list=records().map(c=>{const p={...c,...coord(c)},g=recordMarkGroup(c),lm=linkedMark(c),pr=markProgress(lm),name=String(lm?.name||"").trim()||String(c.mark_name||""),day=mountDay(lm,pr);
    return{id:String(c.id),mark:String(c.mark||""),mark_name:name,title:String(name||c.title||""),type_name:String(c.type_name||FITTING_LABEL[p.ft]||geometryLabel(p.geometryType)),
-    section:sectionShown(p),profile:profileShown(p),status:effectiveStatus(c),scheme_group:g.key,axisX:p.axisX,axisY:p.axisY,axisText:axisText(p),
+    section:sectionShown(p),profile:profileShown(p),status:effectiveStatus(c),scheme_group:g.key,role:recordRole(c),axisX:p.axisX,axisY:p.axisY,axisText:axisText(p),
     x:p.x,y:p.y,x2:p.x2,y2:p.y2,z0:p.z0,z1:p.z1,z2:p.z2,mx:p.mx,my:p.my,mz:p.mz,r:p.r,ri:p.ri,open:p.open,sa:p.sa,sw:p.sw,cr:p.cr,lay:p.lay,ft:p.ft,fd:p.fd,geometryType:p.geometryType,
     progress:pr&&pr.total>0?pr:null,draft:false,draft_doc:String(c.source_import_doc||""),work:recordWorkId(c),
     // What the 3D draws a member by: its rolled section, a truss or a lattice column, the base, the joint and the nodes of

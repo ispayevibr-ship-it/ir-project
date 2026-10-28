@@ -48,7 +48,8 @@ const TYPES=[
  T("opening_beam","Балка проёма","beams","beam","ibeam",["Бп"],/балк\S*\s+про[её]м|перемычк/iu),
  // Girders, purlins, spacers
  T("girder","Ригель","girders","beam","ibeam",["Р","РР","Рр","Рц","Ро","Рн"],/ригел/iu),
- T("girder_fahwerk","Ригель фахверка","fahwerk","beam","channel",["РФ","Рф"],/ригел\S*\s+фахверк/iu),
+ // (a wall girder — «стеновой ригель» — is of the framing: the analysis found them so, the register names them so)
+ T("girder_fahwerk","Ригель фахверка","fahwerk","beam","channel",["РФ","Рф"],/ригел\S*\s+фахверк|стенов\S*\s+ригел|ригел\S*\s+стенов/iu),
  T("purlin","Прогон","purlins","beam","channel",["П","ПР","Пр","Пс","Пк"],/прогон/iu),
  T("spacer","Распорка","spacers","beam","round",["РС","Рп","Рпф","Рпк"],/распорк/iu),
  // Bracing

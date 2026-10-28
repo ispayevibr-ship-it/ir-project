@@ -25,7 +25,7 @@ const work=from(" const recordWorkId=r=>","\n const workMarks=");
 const link=from(" const linkedMark=r=>","\n const effectiveStatus=");
 const group=from(" const recordMarkGroup=r=>","\n const inView=");
 const api=vm.runInNewContext(head+"\n"+index+"\n"+work+"\n"+link+"\n"+group+
- "\n({recordWorkId,linkedMark,recordMarkGroup,markGroup,rebuildMarkLookup,marksByName,marksByWorkName})",context);
+ "\n({recordWorkId,linkedMark,recordMarkGroup,recordRole,markGroup,rebuildMarkLookup,marksByName,marksByWorkName})",context);
 assert.equal(api.markGroup(marks[0]),api.markGroup(marks[0]),"category grouping reused");
 assert.equal(api.recordWorkId({mark_id:"1"}),"0");
 assert.equal(api.recordWorkId({mark:"K19"}),String(18%7));
@@ -39,6 +39,10 @@ assert.equal(api.recordMarkGroup({mark_id:"missing"}).key,"fallback");
 assert.equal(JSON.stringify(api.markGroup(marks.find(m=>m.id==="616"))),JSON.stringify({key:"posts",label:"Стойки"}),"a mark with no kind: of its elements");
 assert.equal(api.recordMarkGroup(records[2]).key,"posts","an element of it with its mark");
 assert.equal(api.recordMarkGroup(records[3]).key,"columns","an element placed as another kind goes with its mark");
+// ... and is drawn as what the analysis found it (a wall girder on its brackets; the engineer, 28.10.2026: «на чем
+// держится? в воздухе будто висит»); one placed by hand — as its mark.
+assert.equal(api.recordRole(records[3]),"fahwerk","drawn as the analysis found it");
+assert.equal(api.recordRole({mark_id:"2",scheme_group:"fahwerk"}),"columns","placed by hand: as its mark");
 marks.push({id:"615",mark:"NEW",work_type_id:"4"});
 api.rebuildMarkLookup();
 assert.equal(api.recordWorkId({mark:"NEW"}),"4","refresh rebuilds indexes");
