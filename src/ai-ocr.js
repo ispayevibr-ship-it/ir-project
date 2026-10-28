@@ -386,6 +386,52 @@ async function ocrImages(page,images,known,{canvas,worker,onArea=()=>{}}){
  await readAll(page,images.flatMap(im=>tiles(im.x0,im.y0,im.x1-im.x0,im.y1-im.y0)),{canvas,worker,onArea},texts,state);
  return texts.filter(t=>!have.some(h=>overlaps(h,boxOf(t))))
 }
+// The rules of a table pasted as a picture, from its dark pixels (dark[y·W + x]): the columns of pixels with a dark run
+// of minRun or more down them (the centres of adjacent ones), and the rows of pixels dark over 80 % of [b0, b1) — two
+// together, a dotted rule between the rows, grey at this scale (its dark: below 230 of 255); through the merged cells
+// of the marks and of the mass of a mark no rule runs across the whole table, so b0, b1 are those of one column.
+function verticalRules(dark,W,H,minRun){
+ const out=[];let prev=-2;
+ for(let x=0;x<W;x++){
+  let r=0,best=0;for(let y=0;y<H;y++){if(dark[y*W+x]){if(++r>best)best=r}else r=0}
+  if(best>=minRun){if(x-prev<=1&&out.length)out[out.length-1].push(x);else out.push([x]);prev=x}
+ }
+ return out.map(g=>(g[0]+g[g.length-1]+1)/2)
+}
+function horizontalRules(dark,W,H,b0,b1){
+ const out=[],w=b1-b0;let prev=-3;if(w<4)return out;
+ for(let y=0;y+1<H;y++){
+  let n=0;for(let x=b0;x<b1;x++)if(dark[y*W+x]||dark[(y+1)*W+x])n++;
+  if(n>=w*0.8){if(y-prev<=2&&out.length)out[out.length-1].push(y);else out.push([y]);prev=y}
+ }
+ return out.map(g=>(g[0]+g[g.length-1]+2)/2)
+}
+// The rules of a table in rect (sheet points) at scale 2: x of its vertical rules over half its height; rowsIn(x0, x1)
+// gives y of the horizontal ones across that column.
+async function tableRules(page,rect,{canvas,rotation=0,scale=2}){
+ const viewport=page.getViewport({scale,rotation:((page.rotate||0)+rotation)%360,offsetX:-rect.x*scale,offsetY:-rect.y*scale});
+ const W=Math.ceil(rect.w*scale),H=Math.ceil(rect.h*scale),img=canvas.createCanvas(W,H),ctx=img.getContext("2d");
+ ctx.fillStyle="#fff";ctx.fillRect(0,0,W,H);
+ await page.render({canvasContext:ctx,viewport,canvas:img}).promise;
+ const p=ctx.getImageData(0,0,W,H).data,dark=new Uint8Array(W*H),grey=new Uint8Array(W*H);
+ for(let i=0;i<W*H;i++){const v=p[i*4]+p[i*4+1]+p[i*4+2];dark[i]=v<600?1:0;grey[i]=v<690?1:0}
+ return{xs:verticalRules(dark,W,H,Math.round(H*0.5)).map(v=>rect.x+v/scale),
+  rowsIn:(x0,x1)=>horizontalRules(grey,W,H,Math.max(0,Math.round((x0-rect.x)*scale)+2),Math.min(W,Math.round((x1-rect.x)*scale)-2)).map(v=>rect.y+v/scale)}
+}
+// Cells of a table read one by one as a line at one slant: per cell its words joined, with the least confidence of
+// them, or null.
+async function readTableCells(page,cells,{canvas,worker,shear=SHEAR,rotation=0,onArea=()=>{}}){
+ const out=[];if(!cells.length)return out;
+ await worker.setParameters({tessedit_pageseg_mode:"7"});
+ try{
+  for(const c of cells){
+   const got=(await readArea(page,c,{canvas,worker,shear,rotation,all:true})).sort((a,b)=>a.x-b.x);
+   out.push(got.length?{str:got.map(t=>t.str).join(" ").trim(),confidence:Math.min(...got.map(t=>t.confidence))}:null);
+   onArea()
+  }
+ }finally{await worker.setParameters({tessedit_pageseg_mode:"11"})}
+ return out
+}
 // Table cells read one by one as a line, at the usual slant of a CAD italic and a steeper one: Tesseract doubts such a
 // font as a whole («Тр.□160х5» at 5 of 100) yet reads it right; a cell is taken when accept() gives back a text for it
 // (what its column holds, put right), as one text over the cell.
@@ -409,4 +455,4 @@ function dropLettering(segments,texts){
  const inside=(p,b)=>p.x>=b.x0&&p.x<=b.x1&&p.y>=b.y0&&p.y<=b.y1;
  return segments.filter(s=>!boxes.some(b=>inside(s.a,b)&&inside(s.b,b)))
 }
-module.exports={ocrPage,ocrImages,readCells,dropLettering,createOcrWorker,readArea,sheetTurn,turnGeometry,clean,keep,recognise,strokeWidth,clearSpecks,ringsOf,readRings,ringLabels,shelvesOf,readShelves,flatThree};
+module.exports={ocrPage,ocrImages,readCells,tableRules,readTableCells,verticalRules,horizontalRules,SHEAR,dropLettering,createOcrWorker,readArea,sheetTurn,turnGeometry,clean,keep,recognise,strokeWidth,clearSpecks,ringsOf,readRings,ringLabels,shelvesOf,readShelves,flatThree};

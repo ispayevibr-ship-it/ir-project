@@ -3,11 +3,11 @@
 const {parentPort,workerData}=require("node:worker_threads");
 const {readPageGeometry,readPageTexts}=require("./ai-scheme-geometry");
 const {extractScheme}=require("./ai-scheme-extract");
-const {extractSheet,sheetStamp,specCells,cellAccept}=require("./ai-sheet-extract");
+const {extractSheet,sheetStamp,specCells,cellAccept,specPictures,specGrid,regrid,gridTexts}=require("./ai-sheet-extract");
 const {extractSections,extractElevations,schemeNotes}=require("./ai-section-extract");
 const {importPdfjs,requireCanvas,pdfWasm}=require("./ai-packages");
 const {joinSplitTexts}=require("./ai-scheme-geometry");
-const {ocrPage,ocrImages,readCells,dropLettering,createOcrWorker,sheetTurn,turnGeometry,ringsOf,readRings,shelvesOf,readShelves}=require("./ai-ocr");
+const {ocrPage,ocrImages,readCells,tableRules,readTableCells,SHEAR,dropLettering,createOcrWorker,sheetTurn,turnGeometry,ringsOf,readRings,shelvesOf,readShelves}=require("./ai-ocr");
 const {extractTank}=require("./ai-tank-extract");
 const {extractTrusses}=require("./ai-truss-extract");
 const {extractBaseDetails}=require("./ai-base-extract");
@@ -107,6 +107,19 @@ function pageContext(texts){
      }else{
       const extra=await ocrImages(page,pictures,geometry.texts,options);
       geometry={...geometry,texts:[...geometry.texts,...extra]};ocr=extra.length
+     }
+     // A specification pasted as a picture: its cells by the rules of its table, and a row whose numbers do not agree
+     // (the mass of one part is not its section × its length, a count lost) read again cell by cell, at the usual slant,
+     // a steeper one and the usual one a little taller — the thin italic «4» comes and goes with a tenth of a pixel
+     // (ГПЭС К26: «140» read «10», «∟125х10» «1125х10», the row «−65х6 | 110 | 13» lost).
+     for(const table of specPictures(geometry.texts)){
+      const grid=specGrid(table,await tableRules(page,table.rect,{...options,rotation:turn}),geometry.texts);if(!grid)continue;
+      for(const [shear,grow] of [[SHEAR,0],[Math.tan(16*Math.PI/180),0],[SHEAR,0.6]]){
+       const need=grid.rows.flatMap(r=>r.need.map(col=>({r,col})));if(!need.length)break;
+       const got=await readTableCells(page,need.map(x=>{const c=x.r.cells[x.col];return{x:c.x,y:c.y-grow,w:c.w,h:c.h+2*grow}}),{...options,shear,rotation:turn});
+       need.forEach((x,i)=>{(x.r.reads[x.col]=x.r.reads[x.col]||[]).push(got[i])});regrid(grid);ocr+=got.filter(Boolean).length
+      }
+      geometry={...geometry,texts:gridTexts(geometry.texts,grid)}
      }
      // Cells of a specification the reading left empty (a section, a mark of a group or of «Требуется»): read again one
      // by one, as a line, and taken when they hold what their column holds.

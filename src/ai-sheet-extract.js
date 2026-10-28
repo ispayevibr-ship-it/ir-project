@@ -22,12 +22,18 @@ const number=s=>/^\d{2,5}$/.test(String(s).trim())?Number(s):null;
 const horizontal=t=>Math.abs(t.angle||0)<10;
 
 // Text items on one line, left to right.
+// A word the reading boxed taller than the line (a rule under it caught: «позиции по» 18 pt high among 12, its foot 8 pt
+// lower — ГПЭС К27 «Все позиции по К26» read as two lines) alone on a line of its own: on the line its top part stands on.
 function rowsOf(texts,tol=4){
  const rows=[];
  for(const t of [...texts].sort((a,b)=>a.y-b.y)){
   const row=rows.find(r=>Math.abs(r.y-t.y)<=tol);
   if(row){row.items.push(t);row.y=(row.y*(row.items.length-1)+t.y)/row.items.length}else rows.push({y:t.y,items:[t]})
  }
+ const sizes=texts.filter(t=>t.ocr&&t.size>0).map(t=>t.size).sort((a,b)=>a-b),z=sizes[Math.floor(sizes.length/2)];
+ if(z)for(let i=rows.length-1;i>=0;i--){const r=rows[i];if(!r.items.every(t=>t.ocr&&t.size>1.3*z))continue;
+  const y=r.y-(Math.min(...r.items.map(t=>t.size))-z),to=rows.find(o=>o!==r&&Math.abs(o.y-y)<=tol);if(!to)continue;
+  to.items.push(...r.items);rows.splice(i,1)}
  for(const r of rows)r.items.sort((a,b)=>a.x-b.x);
  return rows
 }
@@ -445,7 +451,7 @@ const sizeDigits=v=>v.replace(/[0-9&ОобЗ]{1,4}(?:[хx×][0-9&ОобЗ]{1,4})
 // «Трубаr140х4» is «Тр.□140х4» too — a square tube 140×140×4 (ГПЭС К96, the engineer, 27.10.2026: «это профильная труба 140х140х4»).
 // A monorail beam «балка 24М» is the I-beam 24М (ГОСТ 19425). A welded I-beam «Св I50 ШС2» is «Св.I50ШС2»; OCR digits of a designation: «IЗОК1» is I30К1, its italic «1» read as
 // «Т» («Сборной двутавр &5ШСТ» is Св.I45ШС1); «Дбутодр» is «двутавр».
-const PROFILE_WORDS=[[/^(?:\S*рной\s*[дО0о]?[вбё]\s?ут[ао][вбёд]р|двутавр\s*сварной|С[вбё]\.?\s*[дО0оа]?[вбё]\s?ут[ао][вбёд]р)\s*(?=[0-9&ОЗ])/iu,"Св.I"],[/^Св\.?\s*I?\s*([0-9&ОЗ]{2})\s*([БКШ]С?)([\dТ])$/iu,(m,a,b,c)=>"Св.I"+ocrDigits(a)+b+(c==="Т"?"1":c)],[/^I\s*([0-9ЗОо]{2,3})\s*([БКШМ]С?)([\dТ])$/u,(m,a,b,c)=>"I"+a.replace(/З/g,"3").replace(/[Оо]/g,"0")+b+(c==="Т"?"1":c)],[/^[дО0оа][вбё]\s?ут[ао][вбёд]р/iu,"двутавр"],[/^[бБ6]ал[кх][аи]\s*(?=\d{2}\s*М)/u,"двутавр "],[/^ш[вб]ел+ер/iu,"швеллер"],[/^[ПГLШ∟]?\s*угол[оа]к/iu,"уголок"],[/^Труба\s*(?:профильная\s*)?(?:[rгзо0□▢](?=\s*\d{2,3}\s*[хx×])|3(?=\d{3}\s*[хx×]))/iu,"Тр.□"],[/^(Тр\.?|Гн\.?)\s*(?:[rгзо0](?=\s*\d{2,3}\s*[хx×])|3(?=\d{3}\s*[хx×]))/u,"$1□"]];
+const PROFILE_WORDS=[[/^(?:\S*рной\s*[дО0о]?[вбё]\s?ут[ао][вбёд]р|двутавр\s*сварной|С[вбё]\.?\s*[дО0оа]?[вбё]\s?ут[ао][вбёд]р)\s*(?=[0-9&ОЗ])/iu,"Св.I"],[/^Св\.?\s*I?\s*([0-9&ОЗ]{2})\s*([БКШ]С?)([\dТ])$/iu,(m,a,b,c)=>"Св.I"+ocrDigits(a)+b+(c==="Т"?"1":c)],[/^I\s*([0-9ЗОо]{2,3})\s*([БКШМ]С?)([\dТ])$/u,(m,a,b,c)=>"I"+a.replace(/З/g,"3").replace(/[Оо]/g,"0")+b+(c==="Т"?"1":c)],[/^[дО0оа][вбё]\s?ут[ао][вбёд]р/iu,"двутавр"],[/^[бБ6]ал[кх][аи]\s*(?=\d{2}\s*М)/u,"двутавр "],[/^ш[вб]ел+ер/iu,"швеллер"],[/^(?:[ПГLШ∟]?\s*угол[оа]к|Чгол[оа]к)/iu,"уголок"],[/^Труба\s*(?:профильная\s*)?(?:[rгзо0□▢](?=\s*\d{2,3}\s*[хx×])|3(?=\d{3}\s*[хx×]))/iu,"Тр.□"],[/^(Тр\.?|Гн\.?)\s*(?:[rгзо0](?=\s*\d{2,3}\s*[хx×])|3(?=\d{3}\s*[хx×]))/u,"$1□"]];
 const profileWords=str=>{const v=PROFILE_WORDS.reduce((v,[re,w])=>v.replace(re,w),String(str).trim());return/^(?:Тр|Гн|I|L|\[|[−–—-]|Св\.I)|двутавр|швеллер|уголок|труба/iu.test(v)?sizeDigits(v):v};
 function normProfile(str){
  let s=profileWords(cyr(str)).replace(/\s*(?:\([^)]*\)?|С\d{3}(?:-\d)?\))\s*$/u,"").replace(/^Сб\.?\s*/iu,"").trim();
@@ -570,6 +576,173 @@ function specCells(texts){
 const markDigits=str=>String(str).replace(/\s+/g,"").replace(/^([А-ЯЁа-яё][А-ЯЁ]{0,2})([0-9бЗОо]{1,4})$/u,(m,a,b)=>a.toUpperCase()+b.replace(/б/g,"6").replace(/З/g,"3").replace(/[Оо]/g,"0"));
 // A box or angle sign read as a letter before a bare size («а 140х4», «В 120х4»): the size, its kind by its mass.
 const cellAccept={length:str=>{const v=ocrDigits(String(str).replace(/\s+/g,""));return/^\d{2,5}$/.test(v)?v:null},section:str=>{const bare=/^\S\s+(\d{2,3}\s*[хx×]\s*\d{1,2})$/u.exec(String(str).trim());return bare&&!sectionLike(str)?bare[1]:sectionLike(str)?str:null},mark:str=>{const v=markDigits(str),m=titleMarks(v);return m&&m.length===1?v:null}};
+// A specification pasted as a picture (its header read by OCR): the area of the table, from its title to its last row,
+// for the rules of its cells (specGrid).
+function specPictures(texts){
+ const out=[],w=t=>t.width||String(t.str).length*(t.size||8)*0.55;
+ for(const head of texts.filter(t=>/^Спецификац/u.test(t.str))){
+  const h=specHeader(texts,head);if(!h.markH||!(h.secH.ocr||h.lenH.ocr))continue;
+  const top=Math.max(...h.hdr.map(t=>t.y)),right=h.noteH?h.noteH.x+w(h.noteH)+50:Math.max(...h.hdr.map(t=>t.x+w(t)))+60,rows=[];
+  for(const r of rowsOf(texts.filter(t=>t.y>top+4&&t.y<top+1600&&t.x>h.markH.x-60&&t.x<right))){if(rows.length&&r.y-rows[rows.length-1].y>80)break;rows.push(r)}
+  const end=Math.min(tableEnd(texts,top,h.markH,h.hdr),(rows.length?rows[rows.length-1].y:top)+40),x0=h.markH.x-70,y0=head.y-4;
+  out.push({...h,top,rect:{x:x0,y:y0,w:right-x0,h:end-y0}})
+ }
+ return out
+}
+// Kilograms in a metre of a section of a specification: a plate «−65х6» by its sizes, a rolled one by the sortament
+// (the global base); null when it is not known.
+function kgPerMetre(section){
+ const p=/^[−–—-]\s*(\d{1,4}(?:[,.]\d)?)\s*[хx×]\s*(\d{1,4}(?:[,.]\d)?)$/u.exec(section);
+ if(p)return Number(p[1].replace(",","."))*Number(p[2].replace(",","."))*7.85e-3;
+ if(!globalKb){try{globalKb=require("./ai-global-kb").createGlobalKnowledge()}catch{return null}}
+ const r=globalKb.findProfile(section,{});return r&&r.mass_kg_m>0?r.mass_kg_m:null
+}
+// What a cell of numbers holds as the italic is read: «&» 4, «О» 0, «б» 6, «З» 3, «!» 1, and a cell «Ш» or «И» alone
+// is «11» (two slanted ones, ГПЭС К26: the count 11 of поз. 6, поз. 11).
+const cellDigits=s=>{const v=ocrDigits(String(s||"").replace(/\s+/g,"")).replace(/!/g,"1");return/^[ШИ]$/u.test(v)?"11":v};
+// A length: whole millimetres — a gap of the italic read as a sign between its digits («14:0», «14-0», «14.0» of 140) is
+// none.
+const cellLength=s=>{const v=cellDigits(s).replace(/[)\]|.,:;]+$/u,""),j=/^(\d{1,3})[.,:-](\d{1,3})$/u.exec(v);
+ return j&&(j[1]+j[2]).length<=5?Number(j[1]+j[2]):/^\d{2,5}$/.test(v)?Number(v):null};
+// The masses a cell may be: as read, or with the comma it lost when it has none («403» of 40,3; «03» of 0,3); unit is
+// the last digit's, for the rounding.
+const cellMasses=s=>{const v=cellDigits(s).replace(/[)\]|]+$/u,"");
+ if(/^\d+[,.]\d+$/.test(v))return[{v:Number(v.replace(",",".")),unit:10**-v.split(/[,.]/)[1].length}];
+ if(!/^\d+$/.test(v))return[];
+ const lost=v.length>=2?[{v:Number(v)/10,unit:0.1,comma:true}]:[];return v.length>=2&&v[0]==="0"?lost:[{v:Number(v),unit:1},...lost]};
+// The sections a cell may be: as read, its angle sign read as «1» («1125х10» is ∟125×10), a bare size without its dash
+// (a plate) or an angle; each with its kilograms in a metre.
+function cellSections(s){
+ // (The steel after a size, its bracket or its letter lost: «50х22 С255)», «190х10 0255)», «500х40 35-3)».)
+ const t=profileWords(cyr(String(s||"").trim().replace(/(\d{2,4}\s*[хx×]\s*\d{1,3})\s+\(?\s*[СC0О]?\s*\d{2,3}(?:\s*-\s*\d)?\s*\)?$/u,"$1")));if(!/\d/.test(t))return[];
+ const n=ROLLED.test(t)?normProfile(t):t.replace(/\s*\([^)]*\)?\s*$/u,"").replace(/^[—–-]\s*/u,"−").replace(/\s+/g,"");
+ // (and «\» for the italic «4»: «250х1\» is −250×14)
+ const out=[n],bare=/^(1?)(\d{2,4}[хx×]\d{1,3}(?:[хx×]\d{1,2})?)$/u.exec(cellDigits(n).replace(/(\d)\\/g,"$14"));
+ if(bare){if(bare[1]&&/^\d{2,3}[хx×]/u.test(bare[2]))out.push("L"+bare[2]);out.push("−"+bare[1]+bare[2],"L"+bare[1]+bare[2])}
+ return[...new Set(out)].filter(sectionLike).map((section,i)=>({section,kgm:kgPerMetre(section),alt:i>0}))
+}
+// The section a note cuts the part from («из ∟125х10 отб.», its sign read as «1», «[»): kilograms in its metre.
+const sourceKgm=note=>{const m=/из\s*\S?\s*(\d{2,3})\s*[хx×]\s*(\d{1,2})(?:\s*[хx×]\s*(\d{1,2}))?(?!\d)/u.exec(String(note||"").replace(/&/g,"4"));
+ return m?kgPerMetre("L"+m[1]+"х"+m[2]+(m[3]?"х"+m[3]:"")):null};
+// The readings of one row of the grid that agree: the mass of one part (as read or with its comma) is its section's
+// kilograms in a metre × its length, within 4 % and the rounding of the mass (by the section the note cuts it from, if
+// any). Of those that agree the nearest, then the surest. None — a length one digit off what was read that alone agrees
+// within 3 % (the mass of the row repairs it: by_mass); else in each cell the value most readings give (a known
+// section before one the base does not know). The count: as read, else the mass of all over that of one.
+function pickRow(row){
+ const all=col=>[...(row.old[col]?[row.old[col]]:[]),...(row.reads[col]||[]).filter(Boolean)];
+ const secs=all("section").flatMap(c=>cellSections(c.str).map(v=>({...v,conf:c.confidence})));
+ const lens=all("length").map(c=>({v:cellLength(c.str),conf:c.confidence,str:cellDigits(c.str).replace(/[^\d]/g,"")})).filter(c=>c.v!==null);
+ const parts=all("part").flatMap(c=>cellMasses(c.str).map(m=>({...m,conf:c.confidence-(m.comma?3:0)})));
+ const src=all("note").map(c=>sourceKgm(c.str)).find(Boolean)||null,kgmOf=s=>src&&/^L/.test(s.section)?src:s.kgm;
+ const off=(kgm,L,m,share)=>Math.abs(kgm*L/1000-m.v)/(m.v*share+m.unit/2);
+ // (Each value by the readings that give it, the best first; then by prefer.)
+ const vote=(list,key,prefer=()=>0)=>{const m=new Map();for(const c of list){const k=key(c),e=m.get(k)||{c,score:0};e.score+=Math.max(1,c.conf);m.set(k,e)}
+  return[...m.values()].sort((a,b)=>b.score-a.score||prefer(b.c)-prefer(a.c)).map(e=>e.c)};
+ const out={pos:null,count:null,count2:null,all:null};
+ // (A position changed by a revision: «13 изм.».)
+ for(const col of ["pos","count","count2"]){const b=vote(all(col).map(c=>({v:cellDigits(String(c.str).replace(/\s*изм\.?$/u,"")),conf:c.confidence})).filter(c=>/^\d{1,3}$/.test(c.v)),c=>c.v)[0];if(b)out[col]=Number(b.v)}
+ {const b=vote(all("all").flatMap(c=>cellMasses(c.str).filter(m=>!m.comma).map(m=>({...m,conf:c.confidence}))),c=>c.v)[0];if(b)out.all=b}
+ const totals=all("all").flatMap(c=>cellMasses(c.str));
+ const counted=m=>{if(out.count!==null||!m)return out;
+  const ks=totals.map(t=>{const n=t.v/m.v-(out.count2||0),k=Math.round(n);return{k,e:Math.abs(n-k)/Math.max(1,k)}}).filter(x=>x.k>=1&&x.e<=0.06).sort((a,b)=>a.e-b.e);
+  return ks.length?{...out,count:ks[0].k,count_by_mass:true}:out};
+ let best=null;
+ for(const s of secs){const kgm=kgmOf(s);if(!kgm)continue;
+  for(const l of lens)for(const m of parts){const e=off(kgm,l.v,m,0.04);if(e>1)continue;
+   const score=-e*100+s.conf+l.conf+m.conf-(s.alt?5:0);if(!best||score>best.score)best={score,s,l,m}}}
+ if(best)return{...counted(best.m),section:best.s.section,length:best.l.v,part:best.m,sure:true};
+ // (The mass of one part: one that the count makes the mass of all, when both are read — «80» of «8,0» for 1 and 8.)
+ const fit=out.count!==null&&out.all?parts.filter(m=>Math.abs(m.v*(out.count+(out.count2||0))-out.all.v)<=out.all.v*0.06+out.all.unit/2):[];
+ const s=vote(secs,c=>c.section,c=>(kgmOf(c)?2:0)+(c.alt?0:1))[0]||null,l=vote(lens,c=>c.v)[0]||null,m=vote(fit.length?fit:parts,c=>c.v,c=>c.comma?0:1)[0]||null;
+ // (One digit off: each one put in, changed or dropped in turn, by each known section the cell may be.)
+ // (Only once its cells were read again at both slants, by a section read surely, and when no two readings of the length
+ // agree surely — «900» read so four times stays, its mass «113» of 141,3 is what is off; of two lengths that fit, the one
+ // more readings come to — «140» from «150» and «10» over «1450» with the mass «27» from «150» alone.)
+ const fits=new Map();
+ if((row.reads["length"]||[]).length>=2&&!lens.some(c=>c.conf>=90&&lens.some(o=>o!==c&&o.conf>=90&&o.v===c.v)))lens.forEach((c,k)=>{const vs=new Set();
+  for(let i=0;i<=c.str.length;i++)for(const d of [..."0123456789",""])for(const v of [c.str.slice(0,i)+d+c.str.slice(i),c.str.slice(0,i)+d+c.str.slice(i+1)])if(/^[1-9]\d{1,4}$/.test(v))vs.add(v);
+  for(const v of vs)for(const sv of secs.filter(x=>kgmOf(x)&&x.conf>=50))for(const mv of parts)if(off(kgmOf(sv),Number(v),mv,0.03)<=1){
+   const key=v+"|"+mv.v;if(!fits.has(key))fits.set(key,{len:Number(v),m:mv,secs:[],by:new Map()});const f=fits.get(key);f.secs.push(sv);f.by.set(k,Math.max(1,c.conf))}});
+ const ranked=[...fits.values()].map(f=>({...f,score:[...f.by.values()].reduce((a,b)=>a+b,0)})).sort((a,b)=>b.score-a.score);
+ if(ranked.length&&(ranked.length===1||ranked[0].score>ranked[1].score)){const f=ranked[0],sec=vote(f.secs,c=>c.section,c=>c.alt?0:1)[0];
+  return{...counted(f.m),section:sec.section,length:f.len,part:f.m,sure:true,by_mass:true}}
+ // (A section whose metre the base does not know — «Ст.лист −2..20» — cannot be checked: read with its length, it is taken.)
+ return{...counted(m),section:s?s.section:null,length:l?l.v:null,part:m,sure:Boolean(s&&l&&!secs.some(kgmOf)&&!/\d{2,4}\s*[хx×]\s*\d/u.test(s.section))}
+}
+// The cells of a specification pasted as a picture, by the rules of its table (tableRules of ai-ocr): its columns named
+// by the words of its header — the position left of «Сечение», «Длина», the counts «т», «н» (under «Кол-во»), the
+// masses of one part and of all (under «Масса»), the note — and its rows between the rules under the header, each cell
+// with what the reading of the whole picture put in it. need: the cells of the rows whose readings do not agree, to be
+// read again one by one (reads, then pickRow).
+function specGrid(table,{xs,rowsIn},texts){
+ const {hdr,markH,secH,lenH,top,rect}=table,w=t=>t.width||String(t.str).length*(t.size||8)*0.55,mid=t=>t.x+w(t)/2;
+ const cols=[];for(let i=0;i+1<xs.length;i++)if(xs[i+1]-xs[i]>=8)cols.push({x0:xs[i],x1:xs[i+1],role:null});
+ const colAt=x=>cols.find(c=>x>=c.x0&&x<c.x1),sec=colAt(mid(secH)),len=colAt(mid(lenH));
+ if(!sec||!len||sec===len)return null;
+ sec.role="section";len.role="length";
+ for(const t of hdr){const c=colAt(mid(t));if(!c||c.role)continue;
+  if(t===markH)c.role="mark";
+  else if(c.x1<=sec.x0+1&&/^(№|Поз|дет)/u.test(t.str))c.role="pos";
+  else if(c.x0>=len.x1-1)c.role=/^т\.?$/u.test(t.str)?"count":/^н\.?$/u.test(t.str)?"count2":/^дет/u.test(t.str)?"part":/^(всех|общ)/iu.test(t.str)?"all":/^(марки|элем)/u.test(t.str)?"markMass":/^Примечание/u.test(t.str)?"note":null}
+ // (Columns under «Кол-во» and «Масса» whose own words the reading lost: in their order.)
+ for(const [re,roles] of [[/^Кол/u,["count","count2"]],[/^Масса/u,["part","all","markMass"]]]){const h=hdr.find(t=>re.test(t.str));if(!h)continue;
+  const under=cols.filter(c=>c.x0>=len.x1-1&&c.x1>h.x-20&&c.x0<h.x+w(h)+20);for(const r of roles)if(!under.some(c=>c.role===r)){const c=under.find(c=>!c.role);if(c)c.role=r}}
+ {const i=cols.indexOf(sec);if(i>0&&!cols[i-1].role&&!cols.some(c=>c.role==="pos"))cols[i-1].role="pos"}
+ const ys=rowsIn(sec.x0,sec.x1),rows=[];
+ for(let i=0;i+1<ys.length;i++){const y0=ys[i],y1=ys[i+1];if(y0<top-3||y1-y0<8||y1>rect.y+rect.h+8)continue;
+  const inRow=texts.filter(t=>!t.angle&&t.y-(t.size||8)*0.375>=y0&&t.y-(t.size||8)*0.375<y1&&mid(t)>cols[0].x0&&mid(t)<cols[cols.length-1].x1);
+  const old={},cells={};
+  for(const c of cols.filter(c=>c.role&&c.role!=="mark"&&c.role!=="markMass")){
+   const at=inRow.filter(t=>mid(t)>=c.x0&&mid(t)<c.x1).sort((a,b)=>a.x-b.x);
+   if(at.length)old[c.role]={str:at.map(t=>t.str).join(" "),confidence:Math.min(...at.map(t=>t.ocr?t.confidence??60:100)),texts:at};
+   cells[c.role]={x:c.x0+2,y:y0+1.5,w:c.x1-c.x0-4,h:y1-y0-3,col:c}}
+  const ty=inRow.filter(t=>t.size<=(y1-y0)*0.8).map(t=>t.y);
+  const own=inRow.filter(t=>{const c=colAt(mid(t));return!c||c.role!=="mark"&&c.role!=="markMass"});
+  rows.push({y0,y1,y:ty.length?median(ty):y1-(y1-y0)*0.28,cells,old,reads:{},texts:own})
+ }
+ const grid={cols,rows};regrid(grid);return grid
+}
+// The picks of the rows again (after reads): a part row (a section or a length) whose readings do not agree needs its
+// section, length and mass of one part read, one without its count its count; the positions by their order — a run of
+// part rows without one (or with one out of order) between two that have theirs takes the numbers between them.
+function regrid(grid){
+ for(const r of grid.rows){r.pick=pickRow(r);const p=r.pick;r.part=Boolean(p.section||p.length)&&!WELD_ROW.test(r.old.section?.str||"")}
+ // (A row between two part rows with neither its section nor its length read is a part row the reading lost — ГПЭС К26
+ // «8 | −65х6 | 110 | 13» with only its note read.)
+ const at=grid.rows.map((r,i)=>r.part?i:-1).filter(i=>i>=0);
+ for(let i=at[0]+1;i<at[at.length-1];i++){const r=grid.rows[i];if(!r.part&&!cellSections(r.old.section?.str).length&&cellLength(r.old.length?.str)===null&&!WELD_ROW.test(r.old.section?.str||""))r.part=true}
+ // (Read again: of a row whose readings do not agree, the cells not yet read the same twice surely — 90 and over: «200»
+ // at 90 and «13» at 95 of 900 and 141,3 — and the note of an angle, which may name the section it is cut from; a count
+ // not read.)
+ const parses={section:v=>cellSections(v).length>0,length:v=>cellLength(v)!==null,part:v=>cellMasses(v).length>0,count:v=>/^\d{1,3}$/.test(cellDigits(v))};
+ const settled=(r,col)=>{const sure=[r.old[col],...(r.reads[col]||[])].filter(c=>c&&c.confidence>=90&&parses[col](c.str)).map(c=>String(c.str).replace(/\s+/g,""));return sure.some((v,i)=>sure.indexOf(v)!==i)};
+ for(const r of grid.rows){const p=r.pick;
+  r.need=!r.part?[]:[...(p.sure?[]:["section","length","part"].filter(c=>!settled(r,c))),...(!p.sure&&/^L/.test(p.section||"")?["note"]:[]),...((p.count===null||p.count_by_mass)&&!settled(r,"count")&&!(r.reads.count||[]).length?["count"]:[])].filter(c=>r.cells[c])}
+ // (Positions go one by one: a position that fits another within three rows of it is sure; the rows between two sure
+ // ones as many apart as their numbers take the numbers between, read otherwise or not — «В», «1» of 13 and 14 between
+ // 12 and 15 — and the rows before the first sure one count down to 1 when it is their number.)
+ const parts=grid.rows.filter(r=>r.part),pos=k=>parts[k].pick.pos;
+ const sure=parts.map((r,k)=>pos(k)!==null&&parts.some((o,j)=>j!==k&&Math.abs(j-k)<=3&&pos(j)!==null&&pos(k)-pos(j)===k-j)?k:-1).filter(k=>k>=0);
+ for(let i=0;i+1<sure.length;i++){const a=sure[i],b=sure[i+1];if(pos(b)-pos(a)===b-a)for(let k=a+1;k<b;k++)parts[k].pick.pos=pos(a)+(k-a)}
+ if(sure.length&&pos(sure[0])===sure[0]+1)for(let k=0;k<sure[0];k++)parts[k].pick.pos=k+1;
+ if(sure.length){const z=sure[sure.length-1];for(let k=z+1;k<parts.length;k++)if(pos(k)!==null&&pos(k)!==pos(z)+(k-z)&&!parts.slice(k+1).some((o,j)=>o.pick.pos===pos(k)+j+1))parts[k].pick.pos=null}
+ for(const r of parts)if(r.pick.pos===null&&r.cells.pos&&!r.need.includes("pos"))r.need.push("pos");
+ return grid
+}
+// The texts of the sheet with the cells of the grid as picked: each cell whose pick differs from the reading of the whole
+// picture is one text in its middle on the row's line (the texts it had go); a length the mass repaired is by_mass. The
+// other texts of a part row are put on its line too (a word read lower — «360» under «−190х12» — is not a row of its own).
+function gridTexts(texts,grid){
+ const drop=new Set(),add=[],line=new Map();
+ for(const r of grid.rows){if(!r.part)continue;const p=r.pick,size=Math.min((r.y1-r.y0)*0.5,...Object.values(r.old).flatMap(o=>o.texts.map(t=>t.size||12)));
+  const vals={pos:p.pos,section:p.section,length:p.length,count:p.count,part:p.part?String(p.part.v).replace(".",","):null};
+  for(const [col,v] of Object.entries(vals)){const c=r.cells[col];if(v===null||v===undefined||!c)continue;const str=String(v),o=r.old[col];
+   if(o&&o.str===str)continue;if(o)for(const t of o.texts)drop.add(t);
+   const width=str.length*size*0.5;add.push({str,x:c.x+c.w/2-width/2,y:r.y,width,size,angle:0,ocr:true,grid:true,...(col==="length"&&p.by_mass?{by_mass:true}:{}),confidence:p.sure?90:40})}
+  for(const t of r.texts||[])if(!drop.has(t)&&t.y!==r.y)line.set(t,r.y)}
+ return[...texts.filter(t=>!drop.has(t)).map(t=>line.has(t)?{...t,y:line.get(t)}:t),...add]
+}
 // Marks of the groups as OCR read them, put right where the italic digits were read wrong: a mark «Требуется» does not
 // list whose one digit read otherwise («Ф62» — 6 for 8 — , «Ф688» with a digit twice, «В13а» with a letter of the
 // frame after it) gives the one listed mark not
@@ -1019,4 +1192,4 @@ function extractSheet({texts=[],widthPt=0,heightPt=0,segments=[]}={}){
  const sections=seeded?.sections||[];if(drill)delete drill.sections;
  return{stamp,views,required,elements,spec,fasteners:fastenerTable(texts),holes,...(drill?.views.length?{drill}:{}),...(plates.length?{plates}:{}),...(place.length?{place}:{}),...(bevels.length?{bevels}:{}),...(sections.length?{sections}:{}),standards,levelCount:levels.length,assemblyText,...(unread.length?{unread}:{})}
 }
-module.exports={extractSheet,sheetStamp,stampNames,titleMarks,levelMm,rowsOf,specTable,specCells,cellAccept,sectionLike,normProfile,fastenerTable,standardsCited};
+module.exports={extractSheet,sheetStamp,stampNames,titleMarks,levelMm,rowsOf,specTable,specCells,cellAccept,specPictures,specGrid,regrid,gridTexts,pickRow,sectionLike,normProfile,fastenerTable,standardsCited};

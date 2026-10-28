@@ -1448,11 +1448,19 @@ window.irThreeSchemeView=(function(){
     var ln=number(row.length_mm)>=3*(sh.t||5)?number(row.length_mm):0;
     var dimsOf=function(b){return sh.kind==="plate"?[ln,b,sh.t]:sh.kind==="angle"?[ln,sh.a,sh.b]:[ln,sh.sec.h,sh.sec.shape==="round"?sh.sec.h:Math.max(sh.sec.b,number(sh.sec.b1))]};
     var at=Array.isArray(r.at_mm)?r.at_mm:[],off=Array.isArray(r.off_mm)?r.off_mm:[],end=Array.isArray(r.end_mm)?r.end_mm:[];
-    var ea=at[0]!==null&&at[1]!==null&&at.length===2?Math.abs(number(at[1])-number(at[0])):null,ec=off[0]!==null&&off[1]!==null&&off.length===2?Math.abs(number(off[1])-number(off[0])):null;
+    var ea=at[0]!==null&&at[1]!==null&&at.length===2&&Math.abs(number(at[1])-number(at[0]))>=2?Math.abs(number(at[1])-number(at[0])):null,ec=off[0]!==null&&off[1]!==null&&off.length===2?Math.abs(number(off[1])-number(off[0])):null;
+    // (into the view as a cut across the member shows it, + away from the main view's viewer: ГПЭС К26 «4 - 4» — the
+    // angles of the brackets by the edges of the flanges, «7т» on the right and «7н» on the left, the rib «8» in the middle
+    // of the angle; src/ai-parts-place.js cutParts)
+    var dep=Array.isArray(r.depth_mm)&&r.depth_mm.length===2&&r.depth_mm[0]!==null&&r.depth_mm[1]!==null?r.depth_mm.map(number):null,ed=dep&&Math.abs(dep[1]-dep[0])>=2?Math.abs(dep[1]-dep[0]):null;
     // (a plate drawn edge-on: a size of its outline about its thickness, its two lines; else its thickness into the view.
     // An outline on one side of the axis out to half a size of the row: a part across the axis, the rest of it behind the
     // member — ГПЭС К120 «10», a plate 200 wide through the slots of a tube 160)
     var t0=sh.kind==="plate"?sh.t:0,edge=t0>0&&[ea,ec].some(function(e){return e!==null&&e>=t0/3&&e<=t0+4});
+    // (placed into the view by a cut: its thickness the way its outline is about as thick, else the way not known — the
+    // plate under the tube lies flat, «5 - 5» shows it 340 × 400)
+    var tWay=null;if(t0>0&&dep){var ex=[ea,ec,ed],thin=ex.map(function(e,i){return e!==null&&e>=t0/3&&e<=t0+4?i:-1}).filter(function(i){return i>=0});
+     tWay=thin.length?thin[0]:ex.indexOf(null)>=0?ex.indexOf(null):ex.indexOf(Math.min.apply(null,ex))}
     var side=ec!==null&&number(off[0])*number(off[1])>0?Math.max(Math.abs(number(off[0])),Math.abs(number(off[1]))):null;
     var half=function(dc){return side!==null&&dc>0&&Math.abs(2*side-dc)<=Math.max(8,dc*.06)};
     // (the sizes of the row to the three ways — along, across, into the view — nearest the outline; a plate's width
@@ -1460,8 +1468,8 @@ window.irThreeSchemeView=(function(){
     var perms=[[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]],best=null;
     [sh.b].concat(sh.alt?[sh.alt]:[]).forEach(function(b){var dims=dimsOf(b);
      perms.forEach(function(k){var cost=0,da=dims[k[0]],dc=dims[k[1]];
-      if(ea!==null)cost+=da>0?Math.abs(ea-da):ea*.3;if(ec!==null)cost+=dc>0?(half(dc)?0:Math.abs(ec-dc)):ec*.3;
-      if(sh.kind==="plate"&&(edge?k[2]===2:k[2]!==2))cost+=1e5;if(!best||cost<best.cost)best={k:k,cost:cost,dims:dims}})});
+      if(ea!==null)cost+=da>0?Math.abs(ea-da):ea*.3;if(ec!==null)cost+=dc>0?(half(dc)?0:Math.abs(ec-dc)):ec*.3;if(ed!==null&&dims[k[2]]>0)cost+=Math.abs(ed-dims[k[2]]);
+      if(sh.kind==="plate"&&(tWay!==null?k[tWay]!==2:edge?k[2]===2:k[2]!==2))cost+=1e5;if(!best||cost<best.cost)best={k:k,cost:cost,dims:dims}})});
     var sz=best.k.map(function(i){return best.dims[i]});
     // (a size of the row not read: as drawn, else 10 mm)
     if(!(sz[0]>0))sz[0]=ea||10;if(!(sz[1]>0))sz[1]=ec||10;if(!(sz[2]>0))sz[2]=10;
@@ -1471,6 +1479,8 @@ window.irThreeSchemeView=(function(){
     // end; else that end.
     var centre=function(lo,hi,e,s,ends,hw){lo=lo===null||lo===undefined?null:number(lo);hi=hi===null||hi===undefined?null:number(hi);
      if(lo!==null&&hi!==null&&fits(Math.abs(hi-lo),s))return(lo+hi)/2;
+     // (a point along — the top of a part a cut alone shows, under its level —: the part on from there)
+     if(ends&&lo!==null&&hi!==null&&Math.abs(hi-lo)<2)return lo+s/2;
      if(ends&&lo!==null&&hi!==null&&Math.abs(hi-lo)<s){var a0=Math.min(lo,hi),a1=Math.max(lo,hi);if(a0<=s)return a1-s/2;if(a1>=len-s)return a0+s/2}
      // (an outline across from the member's outline, shorter: the part on in behind the member, toward its axis — ГПЭС
      // К68 «11», a gusset 343 from the web out 150 past the flanges)
@@ -1483,6 +1493,7 @@ window.irThreeSchemeView=(function(){
     var hw=mine?(acrossX?(mine.shape==="round"?mine.h:Math.max(mine.b,number(mine.b1))):mine.h)/2:0;
     var ca=centre(at[0],at[1],end[0],sz[0],true,0),cc=half(sz[1])?0:centre(off[0],off[1],end[1],sz[1],false,hw);if(ca===null||cc===null)return;
     var box={pos:String(r.pos),row:row,sh:sh,view:r.view,a:along(ca),sa:sz[0]/1000,acrossX:acrossX,c:-cc/1000,sc:sz[1]/1000,d:0,sd:sz[2]/1000};
+    if(dep){box.d=(dep[0]+dep[1])/2000;box.dk=true;if(r.cut)box.cut=true}
     // (the same part on a view of the other face there: its place that way)
     var same=out.filter(function(o){return o.pos===box.pos&&o.acrossX!==box.acrossX&&Math.abs(o.a-box.a)<=Math.max(o.sa,box.sa)/2+.01})[0];
     if(same){if(Math.abs(same.sd-box.sc)<=Math.max(.03,box.sc*.35))same.d=box.c;return}
@@ -1490,7 +1501,7 @@ window.irThreeSchemeView=(function(){
    });
    // (a part on the plane of the axis through a plate lying on it face-on there: beside the plate — ГПЭС К120 «11» the
    // halves of the end cap, «12» the rib, on the plate «10»)
-   out.forEach(function(o){if(o.d!==0)return;
+   out.forEach(function(o){if(o.d!==0||o.dk)return;
     var p=out.filter(function(e){return e!==o&&e.d===0&&e.acrossX===o.acrossX&&e.sh.kind==="plate"&&e.sd<o.sd&&e.sd<=.04&&
      Math.abs(e.a-o.a)<(e.sa+o.sa)/2-.001&&Math.abs(e.c-o.c)<(e.sc+o.sc)/2-.001})[0];
     if(p)o.d=(p.sd+o.sd)/2});
@@ -1500,7 +1511,7 @@ window.irThreeSchemeView=(function(){
    // К68 «5», К26 «4» the ribs of the base on the edges of the flanges. From within out past it: on the plane of the axis —
    // a gusset between the flanges on the web, К68 «11»; a rib on the face of a flange in the plane of the web, К26 «5»)
    var sec0=mine&&(mine.shape==="ibeam"||mine.shape==="channel")?mine:null;
-   if(sec0)out.forEach(function(o){if(o.d!==0||o.sh.kind!=="plate"||o.sd>.04)return;
+   if(sec0)out.forEach(function(o){if(o.d!==0||o.dk||o.sh.kind!=="plate"||o.sd>.04)return;
     var half=(o.acrossX?Math.max(sec0.b,number(sec0.b1)):sec0.h)/2000,inner=Math.abs(o.c)-o.sc/2,outer=Math.abs(o.c)+o.sc/2;
     if(inner>=half-.002){if(o.acrossX)o.d=(sec0.h-number(sec0.t))/2000;return}
     if(outer>half+.01)return;
@@ -1509,10 +1520,11 @@ window.irThreeSchemeView=(function(){
    // plate)
    var count=new Map();out.forEach(function(o){count.set(o.pos,(count.get(o.pos)||0)+1)});
    var more=function(o){return number(o.row.count)>count.get(o.pos)};
-   out.slice().forEach(function(o){if(!more(o)||Math.abs(o.c)<o.sc/2+.005)return;
+   // (not one a cut shows: the cut draws each)
+   out.slice().forEach(function(o){if(!more(o)||o.cut||Math.abs(o.c)<o.sc/2+.005)return;
     if(out.some(function(e){return e.pos===o.pos&&e.acrossX===o.acrossX&&Math.abs(e.a-o.a)<=.01&&Math.abs(e.c+o.c)<=.02}))return;
     out.push(Object.assign({},o,{c:-o.c}));count.set(o.pos,count.get(o.pos)+1)});
-   out.slice().forEach(function(o){if(!more(o)||o.d===0)return;
+   out.slice().forEach(function(o){if(!more(o)||o.cut||o.d===0)return;
     if(out.some(function(e){return e.pos===o.pos&&e.acrossX===o.acrossX&&Math.abs(e.a-o.a)<=.01&&Math.abs(e.c-o.c)<=.01&&Math.abs(e.d+o.d)<=.005}))return;
     out.push(Object.assign({},o,{d:-o.d}));count.set(o.pos,count.get(o.pos)+1)});
    upperCache.set(id,out);return out
@@ -1550,7 +1562,11 @@ window.irThreeSchemeView=(function(){
      // Two legs across its length: the heel toward the member's axis across it, up (or toward the member's middle).
      var ways=[[f.d,o.sa,o.a],[A,o.sc,o.c],[B,o.sd,o.d]],ln=number(o.row.length_mm);
      var li=ways.reduce(function(k,w,i){return Math.abs(w[1]*1000-ln)<Math.abs(ways[k][1]*1000-ln)?i:k},0),W=ways[li],rest=ways.filter(function(w,i){return i!==li}),t=o.sh.t/1000;
-     var heel=rest.map(function(w){return w[0].y>.7?1:w[0].y<-.7?-1:w[2]>0?-1:1});
+     // (an angle within the section — between the flanges of an I by their edges, ГПЭС К26 «6» —: its heel at the edge,
+     // out from the web; one out past it — the angle of a bracket, «7» — on the member)
+     var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard),halfOf=function(v){return sec?(v===f.X?(sec.shape==="round"?sec.h:Math.max(sec.b,number(sec.b1))):sec.h)/2000:0};
+     var heel=rest.map(function(w){if(w[0].y>.7)return 1;if(w[0].y<-.7)return -1;var hw=halfOf(w[0]);
+      if(hw>0&&Math.abs(w[2])>.005&&Math.abs(w[2])+w[1]/2<=hw+.005)return w[2]>0?1:-1;return w[2]>0?-1:1});
      [0,1].forEach(function(k){var P=rest[k],Q=rest[1-k],leg=new T.Mesh(shared("plate:box",function(){return new T.BoxGeometry(1,1,1)}),mat);
       leg.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(W[0],P[0],W[0].clone().cross(P[0])));leg.scale.set(W[1],P[1],t);
       leg.position.copy(ctr).add(Q[0].clone().multiplyScalar(heel[1-k]*(Q[1]/2-t/2)));put(leg)});
