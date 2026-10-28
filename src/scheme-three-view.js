@@ -1672,7 +1672,9 @@ window.irThreeSchemeView=(function(){
    var room=roomAt(c,E,u,hit),at=hit.web+.01,open=sec&&(sec.shape==="ibeam"||sec.shape==="channel")&&!sec.bent;
    if(!open)return room?at:null;
    var tf=sec.t/1000,tw=sec.s/1000,xw=sec.shape==="channel"?-sec.b/2000+tw/2:0,cw=Math.max(.04,2*hs.h-2*tf),y0=-cw/2,y1=cw/2,dy=Y.dot(hit.Y);
-   var mat=baseMaterial(c),box=shared("plate:box",function(){return new T.BoxGeometry(1,1,1)}),basis=new T.Matrix4().makeBasis(X,Y,d);
+   // (the plates turned by a right triple — X, Y and d the way X×Y points, a box the same either way: of a left one
+   // three.js makes no turn, and they stood square to the drawing's axes; 28.10.2026, as the bridge of a crane)
+   var mat=baseMaterial(c),box=shared("plate:box",function(){return new T.BoxGeometry(1,1,1)}),basis=new T.Matrix4().makeBasis(X,Y,X.clone().cross(Y).dot(d)<0?d.clone().negate():d);
    var put=function(x,y,s0,s1,w,h){var m=new T.Mesh(box,mat);m.quaternion.setFromRotationMatrix(basis);m.scale.set(w,h,s1-s0);
     m.position.copy(E).add(d.clone().multiplyScalar((s0+s1)/2)).add(X.clone().multiplyScalar(x)).add(Y.clone().multiplyScalar(y));m.userData.plate=true;parts.push(m)};
    if(!room){
@@ -2584,9 +2586,12 @@ window.irThreeSchemeView=(function(){
     if(!out.some(function(o){return Math.abs(o.z-w.z)<=300&&Math.abs(o.u.x*w.u.y-o.u.y*w.u.x)<=.02&&Math.abs((w.a.x-o.a.x)*-o.u.y+(w.a.y-o.a.y)*o.u.x)<300}))out.push(w)});return out};
    if(rails.length)pairUp(lines(rails));else pairUp(lines(list("girder")));
    var hung=lines(list("hung"));pairUp(hung);
-   // Parts in a frame of the crane: X — across (the span), Z — along the runway, Y — up.
+   // Parts in a frame of the crane: X — across (the span), Z — along the runway, Y — up. The frame turned to the left
+   // (Z against X×Y: the span taken from the other runway) is no turn — three.js left the parts square to the drawing's axes,
+   // and the bridge stood along the runways, its end carriages across (the engineer, 28.10.2026: «кран балка не правильно
+   // расположена… должно быть поперек»); the parts are symmetric, so Z the other way is the same part.
    var UP=new T.Vector3(0,1,0);
-   var place=function(geo,mat,at,X,Y,Z){var m=new T.Mesh(geo,mat);m.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(X,Y,Z));m.position.copy(at);m.userData.crane=craneNo;m.userData.part=partName;equipment.add(m);return m};
+   var place=function(geo,mat,at,X,Y,Z){var m=new T.Mesh(geo,mat);if(new T.Vector3().crossVectors(X,Y).dot(Z)<0)Z=Z.clone().negate();m.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(X,Y,Z));m.position.copy(at);m.userData.crane=craneNo;m.userData.part=partName;equipment.add(m);return m};
    var box=function(w,h,d,mat,at,X,Z){return place(new T.BoxGeometry(w,h,d),mat,at,X,UP,Z)};
    var cyl=function(r,len,mat,at,dir,seg){var d=dir.clone().normalize(),x=Math.abs(d.y)>.9?new T.Vector3(1,0,0):new T.Vector3().crossVectors(UP,d).normalize();
     return place(new T.CylinderGeometry(r,r,len,seg||14),mat,at,x,d,new T.Vector3().crossVectors(x,d))};
