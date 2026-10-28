@@ -177,7 +177,9 @@
   if(num(e.mass_kmd)>0)kg.push("масса "+kgs(e.mass_kmd)+" кг (КМД)");
   if(num(m.mass_kg)>0)kg.push((kg.length?"по модели ":"масса по модели ")+kgs(m.mass_kg)+" кг");
   if(kg.length)out.push(kg.join(", "));if(num(m.bolts)>0)out.push("болтов "+fmt(m.bolts));
-  return out.length?'<div class="ec-facts">'+esc(out.join(" · "))+'</div>':""
+  // (a member that crossed a wall of sandwich panels: drawn to the panel, what was past it named — not hidden)
+  var wall=num(m.wall_mm)>0?'<div class="ec-facts ec-warn">За стену из сэндвич-панелей выходило '+esc(fmt(m.wall_mm))+' мм — показан до стены. Проверьте положение элемента по чертежу.</div>':"";
+  return(out.length?'<div class="ec-facts">'+esc(out.join(" · "))+'</div>':"")+wall
  }
  function nodes(e){
   var l=e.model&&Array.isArray(e.model.nodes)?e.model.nodes:[];if(!l.length)return"";

@@ -102,6 +102,7 @@
   // The top of the card as in the report of 21.10.2026, as in the program.
   ".ec-badge{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}.ec-badge .ec-status{padding:5px 11px;font-size:12px}.ec-badge small{color:#5f7383;font-size:11px}",
   ".ec-facts{color:#4f6474;font-size:12px;line-height:1.45}",
+  ".ec-facts.ec-warn{color:#8a6416;margin-top:4px}",
   ".ec-nodes>span{color:#4f6474;font-size:12px}.ec-nodes>div{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}.ec-more{align-self:center;color:#6b7f8e;font-size:11px}",
   ".ec-chip{padding:5px 10px;border:1px solid #cdd8e1;border-radius:999px;background:#fff;color:#22394b;font:inherit;font-size:11.5px;cursor:pointer}.ec-chip:hover{border-color:#1668ea;color:#1668ea}",
   ".ec-tools{display:flex;flex-wrap:wrap;gap:6px}.ec-tools button{padding:7px 12px;border:1px solid #cdd8e1;border-radius:8px;background:#fff;color:#22394b;font:inherit;font-size:12px;cursor:pointer}.ec-tools button:hover{border-color:#1668ea}",

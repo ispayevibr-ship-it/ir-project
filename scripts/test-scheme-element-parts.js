@@ -63,7 +63,7 @@ const kt=C.parts(km);
 assert.match(kt,/<tr data-ec-pos="1"><td><span class="ec-sw" style="background:#4a95c4"><\/span>1<\/td><td>∟140×10<div class="ec-note">верхний пояс<\/div><\/td><td class="ec-n"><\/td><td class="ec-n">8<\/td><td class="ec-n">1.041<\/td><\/tr>/);
 assert.match(kt,/−220×25<div class="ec-note">опорное ребро фермы/);assert.match(kt,/<p class="ec-parts-src">КМД нет: позиции условные<\/p>/);
 assert.match(C.parts(Object.assign({},e,{model:Object.assign({},m,{spec:km.model.spec})})),/Спецификация: КМД 043-2026/,"the КМД first");
-assert(view.includes("function deriveParts(){")&&view.includes("buildNodes();deriveParts();lowerGround();")&&view.includes("spec:derivedParts.get(id)||null}"),"positions of the model, in the card");
+assert(view.includes("function deriveParts(){")&&view.includes("buildNodes();deriveParts();lowerGround();")&&view.includes("spec:derivedParts.get(id)||null,"),"positions of the model, in the card");
 assert(view.includes("var c=dataById.get(id);if(!c||c.ft||partRows(c).length)return;")&&view.includes("if(order.length<2)return;"),"only without a КМД, of two pieces and more");
 assert(view.includes('partTag(new T.Mesh(geo,mat),memberRoles[m[4]]||"элемент решётки",/^\\d/.test(pr)?"∟"+pr:pr)')&&view.includes('"опорное ребро фермы"),id)')&&view.includes('"опорный столик фермы"),cid)')&&view.includes('"опорная плита")'),"the pieces named where they are drawn");
 assert(view.includes("order.sort(function(a,b){return a.o-b.o||b.t-a.t||a.i-b.i});"),"the profile, the truss members, the plates by thickness");

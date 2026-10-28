@@ -2049,10 +2049,16 @@ window.irThreeSchemeView=(function(){
     if(ext[0]||ext[1])panelExt.set(w.id,ext)
    })
   }
-  var wallHoles=new Map();
+  // Steel does not pass through a sandwich panel (the engineer, 28.10.2026: «металлоконструкции выходят сквозь
+  // сэндвич-панель, так не должно быть, сэндвич-панели закрывают все»; till 1.10.71 the panel got a hole round it): a
+  // member whose line crosses a wall panel within it stops at the inner face of the panel — the side of the frame, the
+  // columns standing along that wall (else the side where more of it is) — its whole section clear of the panel
+  // (wallClip), the parts of its joint past the panel dropped. What was past the wall is not hidden: counted under the
+  // view, its length in the card of the member (wallCut) — a member read a span off sticks out so.
+  var wallClip=new Map(),wallCut=new Map();
   function wallCuts(list){
-   wallHoles.clear();
-   var C=3,cells=new Map(),walls=[];
+   wallClip.clear();wallCut.clear();
+   var C=3,cells=new Map(),walls=[],cols=[];
    list.forEach(function(c){
     if(c.ft!=="panel"||!c.lay||c.lay.panel!=="wall"||!c.id)return;
     var p=memberPoints(c),v=p[1].clone().sub(p[0]),L=v.length();if(L<.1)return;v.divideScalar(L);
@@ -2062,6 +2068,12 @@ window.irThreeSchemeView=(function(){
      var k=i+","+j;(cells.get(k)||cells.set(k,[]).get(k)).push(w)}
    });
    if(!walls.length)return;
+   list.forEach(function(c){if(c.geometryType==="column"&&!c.ft&&c.id)cols.push(memberPoints(c)[0])});
+   // (the side of the frame: of the columns within 2 m of the line of the wall, along it to a span past its ends)
+   function inner(w){
+    if(w.side===undefined){var s=0;cols.forEach(function(p){var d=p.clone().sub(w.a).dot(w.n),u=p.clone().sub(w.a).dot(w.u);if(Math.abs(d)>.02&&Math.abs(d)<2&&u>-9&&u<w.L+9)s+=d>0?1:-1});w.side=s>0?1:s<0?-1:0}
+    return w.side
+   }
    list.forEach(function(c){
     if(!c.id||c.ft||c.truss||["beam","brace","column","bent"].indexOf(c.geometryType)<0)return;
     var p=memberPoints(c),hs=halfSection(c);
@@ -2072,12 +2084,11 @@ window.irThreeSchemeView=(function(){
       var da=a.clone().sub(w.a).dot(w.n),db=b.clone().sub(w.a).dot(w.n),sn=Math.abs(d.dot(w.n));
       if(da*db>0||sn<.3)return;
       var X=a.clone().add(d.clone().multiplyScalar(M*da/(da-db))),u=X.clone().sub(w.a).dot(w.u),z=X.y-w.a.y;
-      // (the box of the section's outline on the plane: across a horizontal member — its width and depth; else round)
-      var hu,hz;
-      if(Math.abs(d.y)<.3){hu=hs.b/sn;hz=hs.h}
-      else{var r=Math.max(hs.h,hs.b),cu=d.dot(w.u),cz=d.y,cl=Math.hypot(cu,cz)||1;cu/=cl;cz/=cl;hu=Math.hypot(r/sn*cu,r*cz);hz=Math.hypot(r/sn*cz,r*cu)}
-      hu+=.02;hz+=.02;if(u+hu<=0||u-hu>=w.L||z+hz<=0||z-hz>=w.h)return;
-      (wallHoles.get(w.id)||wallHoles.set(w.id,[]).get(w.id)).push([u-hu,u+hu,z-hz,z+hz])
+      if(u<0||u>w.L||z<0||z>w.h)return;
+      // (kept: the side of the frame, else of the longer part; the end that far off the face that the corners of its
+      // section are clear)
+      var keep=inner(w)||(Math.abs(da)>=Math.abs(db)?(da>0?1:-1):(db>0?1:-1)),r=Math.max(hs.h,hs.b),gap=w.t/2+.005+r*Math.sqrt(Math.max(0,1-sn*sn));
+      (wallClip.get(String(c.id))||wallClip.set(String(c.id),[]).get(String(c.id))).push({X:X,n:w.n.clone().multiplyScalar(keep),gap:gap})
      })
     }
    })
@@ -2375,6 +2386,17 @@ window.irThreeSchemeView=(function(){
     if(c.geometryType!=="column"&&segments.length===1&&c.place){var bk=bodyCut(c);
      if(bk.top>0){var bf=partFrame(c),bs=segments[0],bu=bs[1].clone().sub(bs[0]).normalize(),b0=bk.foot-bf.d.dot(bs[0].clone().sub(bf.p[0])),b1=bk.top-bf.d.dot(bf.p[1].clone().sub(bs[1]));
       if(dist(bs[0],bs[1])-Math.max(0,b0)-Math.max(0,b1)>.1)segments=[[bs[0].clone().add(bu.clone().multiplyScalar(Math.max(0,b0))),bs[1].clone().sub(bu.clone().multiplyScalar(Math.max(0,b1)))]]}}
+    // (stopped at the face of a wall panel it crossed, the parts of its joint past the panel dropped — wallCuts)
+    if(c.geometryType!=="column"&&wallClip.has(id))wallClip.get(id).forEach(function(w){
+     segments=segments.map(function(sg){
+      var f0=sg[0].clone().sub(w.X).dot(w.n),f1=sg[1].clone().sub(w.X).dot(w.n),sl=dist(sg[0],sg[1]);
+      if(f0>=w.gap&&f1>=w.gap)return sg;if(f0<w.gap&&f1<w.gap||Math.abs(f1-f0)<1e-6){wallCut.set(id,(wallCut.get(id)||0)+sl);return null}
+      var P=sg[0].clone().add(sg[1].clone().sub(sg[0]).multiplyScalar((w.gap-f0)/(f1-f0)));wallCut.set(id,(wallCut.get(id)||0)+sl*Math.abs((w.gap-Math.min(f0,f1))/(f1-f0)));
+      return f0>=w.gap?[sg[0],P]:[P,sg[1]]
+     }).filter(Boolean);
+     extra=extra.filter(function(m){return m.position.clone().sub(w.X).dot(w.n)>=-.005})
+    });
+    if(!segments.length){failures++;return}
     // (a girder on seats cut aslant at its ends: the whole section between the cuts, its ends addSeats draws)
     var seatEnds=[segments[0][0].clone(),segments[segments.length-1][1].clone()],sbv=segments.length===1?seatBevels(c):null;
     if(sbv){var su=seatEnds[1].clone().sub(seatEnds[0]).normalize();segments=[[seatEnds[0].clone().add(su.clone().multiplyScalar(sbv[0]?sbv[0][0]:0)),seatEnds[1].clone().sub(su.clone().multiplyScalar(sbv[1]?sbv[1][0]:0))]]}
@@ -3284,7 +3306,7 @@ window.irThreeSchemeView=(function(){
     // (a wall at a corner: run on to the outer face of the other or stopped at its inner face — panelCorners)
     var pe=c.ft==="panel"?panelExt.get(id):null,p0=pe?pe[0]:0;
     if(pe){start=start.clone().sub(dir.clone().multiplyScalar(pe[0]));end=end.clone().add(dir.clone().multiplyScalar(pe[1]));len+=pe[0]+pe[1];gl=len}
-    var holed=c.ft==="panel"&&c.lay&&c.lay.panel==="wall"?(Array.isArray(c.lay.holes)?c.lay.holes.map(function(o){return[number(o[0])/1000,number(o[1])/1000,number(o[2])/1000,number(o[3])/1000]}):[]).concat(wallHoles.get(id)||[]).map(function(o){return[o[0]+p0,o[1]+p0,o[2],o[3]]}):[];
+    var holed=c.ft==="panel"&&c.lay&&c.lay.panel==="wall"?(Array.isArray(c.lay.holes)?c.lay.holes.map(function(o){return[number(o[0])/1000,number(o[1])/1000,number(o[2])/1000,number(o[3])/1000]}):[]).map(function(o){return[o[0]+p0,o[1]+p0,o[2],o[3]]}):[];
     if(!holed.length)holed=null;
     if(c.ft==="panel"&&c.lay&&c.lay.panel==="wall"&&cut){
      // Cut along a slope with holes over it (a window, a grille): the sloped strip whole, the rest in pieces round them.
@@ -3548,7 +3570,7 @@ window.irThreeSchemeView=(function(){
     if(!mesh.userData.fixed)mesh.material=mesh.userData.roof?roofMaterial(c):mesh.userData.shell?shellMaterial(c):baseMaterial(c)
    });
    rayTargets=allMeshes.filter(function(m){return!m.userData.small});rebatch();lit=null;paintHighlight();
-   root.querySelector("#irThreeCount").textContent=elems.length+" элементов"+(failures?" · без геометрии: "+failures:"")+(conventional.size?" · сечение условное: "+conventional.size:"");
+   root.querySelector("#irThreeCount").textContent=elems.length+" элементов"+(failures?" · без геометрии: "+failures:"")+(conventional.size?" · сечение условное: "+conventional.size:"")+(wallCut.size?" · за стеной обрезано: "+wallCut.size:"");
    root.querySelector("#irThreeCount").title=conventional.size?"Профиль этих элементов не найден в справочнике сортаментов (или не указан) — сечение нарисовано условно, не по размерам":"Сечения нарисованы по справочнику сортаментов";
    paintLegend();
    if(apart)setExplode(apart.n,apart.s)
@@ -3776,7 +3798,7 @@ window.irThreeSchemeView=(function(){
    list.forEach(function(m){if(m.userData.hole||m.userData.anchor||m.userData.footing||m.material===concreteMat)return;v+=volumeOf(m)});
    return{mass_kg:own&&!conventional.has(id)&&v>0?Math.round(v*7850*10)/10:null,bolts:boltList.filter(function(b){return b.id===id}).length,
     nodes:nodes.filter(function(n){return n.members.some(function(m){return String(m.c.id)===id})}).map(function(n){return{id:n.id,name:nodeKinds[n.kind],axes:axisOf(n.x,n.y).split(" (")[0]}}),
-    colors:parts?parts.color:{},body:parts?parts.body:null,lit:litFor===id?litPart:null,spec:derivedParts.get(id)||null}
+    colors:parts?parts.color:{},body:parts?parts.body:null,lit:litFor===id?litPart:null,spec:derivedParts.get(id)||null,wall_mm:wallCut.has(id)?Math.round(wallCut.get(id)*1000):0}
   }
   function legendRows(){
    var counts=new Map(),rows=[];
