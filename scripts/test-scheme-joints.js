@@ -18,7 +18,7 @@ assert.ok(view.includes("var face=Math.min(hit.t,L*.4),cut=Math.min(face+(brace?
 // Braces: the plane of the gussets from the braces it crosses or meets (a bracing in a roof slope lies in the slope),
 // the angles beside the gusset (a pair either side of it), the halves of a crossing clear of each other's edges.
 assert.match(view,/function bracePlanes\(list\)\{/);assert.match(view,/function braceAngle\(c,u\)\{/);
-assert.ok(view.includes("seatOnTops(elems);hangTies(elems);seatLevels(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);"),"planes known before the members are drawn");
+assert.ok(view.includes("seatOnTops(elems);hangTies(elems);seatLevels(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);"),"planes known before the members are drawn");
 assert.ok(view.includes("function planeWidth(c){")&&view.includes("+(cut?planeWidth(cut)*cs/sin:0)+.03"),"the halves of a crossing clear of each other");
 // Beams crossing in the middle: the lower one is cut round the one running through (no node gusset for those).
 assert.ok(view.includes("crossCut.get(cut.id).push({at:P,n:cut.U.clone().cross(thr.U).normalize(),g:g,through:thr.c,plain:true,body:thr,host:host})"),"a plain crossing splits the lower");
@@ -36,7 +36,8 @@ assert.match(view,/function deckCuts\(list\)\{/);assert.ok(view.includes("deckHo
 // Walls of panels at a corner: the one more along X runs on to the outer face of the other, the other stops at its inner
 // face; a wall ending at the side of another stops at its face.
 const number=v=>{const n=Number(v);return Number.isFinite(n)?n:0};
-const pc=new Function("number",view.match(/var panelExt=new Map\(\);\n  function panelCorners\(list\)\{[\s\S]*?\n  \}\n/)[0]+";return {panelCorners,panelExt}")(number);
+// (the ends of a wall as memberPoints gives them — a wall moved onto the outer face of the frame with them; plan mm here)
+const pc=new Function("number","memberPoints","fromWorld",view.match(/var panelExt=new Map\(\);\n  function panelCorners\(list\)\{[\s\S]*?\n  \}\n/)[0]+";return {panelCorners,panelExt}")(number,c=>[{x:c.x,y:c.y,z:0},{x:c.x2,y:c.y2,z:0}],v=>v);
 const wall=(id,x,y,x2,y2)=>({id,ft:"panel",x,y,x2,y2,z0:0,fd:3000,lay:{panel:"wall",thickness_mm:150}});
 pc.panelCorners([wall("A",0,0,6000,0),wall("1",0,0,0,6000),wall("T",3000,0,3000,6000)]);
 assert.deepEqual(pc.panelExt.get("A"),[.075,0],"along X: on to the outer face");

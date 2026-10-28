@@ -614,6 +614,8 @@ window.irThreeSchemeView=(function(){
    var hd=hangDrop&&hangDrop.get(String(m.id||""))||[0,0];
    var start=toWorld(m.x,m.y,number(m.z0)-hd[0]);
    var end=m.geometryType==="column"?toWorld(m.x,m.y,topOf(m)):m.geometryType==="shell"||m.geometryType==="plate"?toWorld(m.x,m.y,m.z2):toWorld(m.x2,m.y2,number(m.z2)-hd[1]);
+   // (a wall of panels, its windows and trims: on the outer face of the frame — wallLines)
+   var ws=m.ft&&lineShift&&lineShift.get(String(m.id||""));if(ws){start.add(ws);end.add(ws)}
    return m.geometryType==="bent"?[start,toWorld(m.mx,m.my,m.mz),end]:[start,end]
   }
   host.innerHTML='<div class="ir-three-root">'+
@@ -2026,7 +2028,7 @@ window.irThreeSchemeView=(function(){
    panelExt.clear();var walls=[],cells=new Map(),C=3000;
    list.forEach(function(c){
     if(c.ft!=="panel"||!c.id||!c.lay||c.lay.panel!=="wall")return;
-    var a={x:number(c.x),y:number(c.y)},b={x:number(c.x2),y:number(c.y2)},L=Math.hypot(b.x-a.x,b.y-a.y);if(L<100)return;
+    var pp=memberPoints(c),a=fromWorld(pp[0]),b=fromWorld(pp[1]),L=Math.hypot(b.x-a.x,b.y-a.y);if(L<100)return;
     var w={id:String(c.id),a:a,b:b,L:L,u:{x:(b.x-a.x)/L,y:(b.y-a.y)/L},t:Math.max(40,number(c.lay.thickness_mm)||120),z0:number(c.z0),z1:number(c.z0)+Math.max(300,number(c.fd)||1000)};
     walls.push(w);[a,b].forEach(function(e){var k=Math.floor(e.x/C)+","+Math.floor(e.y/C);(cells.get(k)||cells.set(k,[]).get(k)).push(w)})
    });
@@ -2047,6 +2049,70 @@ window.irThreeSchemeView=(function(){
      if(best!==null&&Math.abs(best)>=1)ext[k]=best/1000
     });
     if(ext[0]||ext[1])panelExt.set(w.id,ext)
+   })
+  }
+  // ---- A wall of sandwich panels hangs on the outer face of the frame (the engineer, 28.10.2026, ГПЭС: «почти все
+  // распорки выходят сквозь сэндвич-панели», «вот балка торчит из сэндвич-панели»): the line of a wall read from the
+  // facades of the АР is where its panels end; where the facades across end at the axis, the panels stood with their outer
+  // face on it and the posts, struts and girders of that facade, on the axis, stuck out of them by half their section. A
+  // line of wall panels (one plane) is moved out so that its inner face is 5 mm clear of the outer face of the frame of
+  // that facade — columns, posts, fahwerk, girders, struts, ties and beams along it, within its length and height, up to
+  // 1 m out of it; the outside is the side with fewer members of the frame. Its windows, doors, gates and trims go with
+  // it. Nothing is written to the scheme: the line moved is named in the card of the panel (lineMoved, mm).
+  var lineShift=new Map(),lineMoved=new Map(),linesMoved=0;
+  var FRAME={columns:1,fahwerk:1,posts:1,girders:1,spacers:1,ties:1,beams:1};
+  function wallLines(list){
+   lineShift.clear();lineMoved.clear();linesMoved=0;
+   var lines=[],frame=[];
+   list.forEach(function(c){
+    if(c.ft==="panel"&&c.id&&c.lay&&c.lay.panel==="wall"){
+     var p=memberPoints(c),u=new T.Vector3(p[1].x-p[0].x,0,p[1].z-p[0].z),L=u.length();if(L<.1)return;u.divideScalar(L);
+     var n=new T.Vector3(-u.z,0,u.x),d=p[0].dot(n),s0=Math.min(p[0].dot(u),p[1].dot(u)),s1=Math.max(p[0].dot(u),p[1].dot(u)),y0=Math.min(p[0].y,p[1].y);
+     var g=lines.find(function(l){return Math.abs(l.u.x*u.z-l.u.z*u.x)<.02&&Math.abs(p[0].dot(l.n)-l.d)<.03});
+     if(!g){g={u:u,n:n,d:d,s0:s0,s1:s1,y0:y0,y1:y0,t:0,panels:[]};lines.push(g)}
+     s0=Math.min(p[0].dot(g.u),p[1].dot(g.u));s1=Math.max(p[0].dot(g.u),p[1].dot(g.u));
+     g.s0=Math.min(g.s0,s0);g.s1=Math.max(g.s1,s1);g.y0=Math.min(g.y0,y0);g.y1=Math.max(g.y1,y0+Math.max(.3,(number(c.fd)||1000)/1000));
+     g.t=Math.max(g.t,Math.max(.04,(number(c.lay.thickness_mm)||120)/1000));g.panels.push(String(c.id))
+    }
+    else if(!c.ft&&c.id&&!c.truss&&FRAME[role(c)]&&["column","beam","brace","bent"].indexOf(c.geometryType)>=0)frame.push(c)
+   });
+   if(!lines.length||!frame.length)return;
+   var fit=frame.map(function(c){
+    var p=memberPoints(c),a=p[0],b=p[p.length-1],hs=halfSection(c),col=c.geometryType==="column";
+    return{c:c,a:a,b:b,col:col,hs:hs,turn:branchTurn.get(String(c.id))||0,mid:a.clone().add(b).multiplyScalar(.5),y0:Math.min(a.y,b.y),y1:Math.max(a.y,b.y)}
+   });
+   lines.forEach(function(g){
+    // (the outside: the side with fewer members of the frame within 9 m, along the wall and over its height)
+    var near=[0,0];
+    fit.forEach(function(f){
+     var s=f.mid.dot(g.u),o=f.mid.dot(g.n)-g.d;if(s<g.s0||s>g.s1||f.y1<g.y0||f.y0>g.y1||Math.abs(o)<.3||Math.abs(o)>9)return;near[o>0?0:1]++
+    });
+    if(near[0]===near[1])return;
+    var out=near[0]<near[1]?1:-1,need=0;
+    fit.forEach(function(f){
+     var dir=f.b.clone().sub(f.a),len=dir.length();
+     if(!f.col){if(len<.05)return;dir.divideScalar(len);if(Math.abs(dir.dot(g.n))>.2)return}
+     var s=f.mid.dot(g.u);if(s<g.s0-.05||s>g.s1+.05||f.y1<g.y0||f.y0>g.y1)return;
+     var o=(f.mid.dot(g.n)-g.d)*out;if(o>1||o<-1.5)return;
+     // (its section across the wall: a column by its turn — h along plan y; a member along the wall — its width; an angle
+     // its whole leg)
+     var nx=Math.abs(g.n.x),nz=Math.abs(g.n.z),hs=f.hs,ext;
+     if(f.col){var turned=Math.abs(Math.sin(f.turn))>.7;ext=(turned?hs.h:hs.b)*nx+(turned?hs.b:hs.h)*nz;
+      // (and its base plate, when its foot is within the height of the wall — a post on a beam of the wall)
+      if(f.y0>=g.y0&&f.y0<=g.y1){var bs=baseSize(f.c);ext=Math.max(ext,(turned?bs.pd:bs.pw)/2*nx+(turned?bs.pw:bs.pd)/2*nz)}}
+     else ext=String(f.c.profile_name||f.c.profileName||"").match(/^(L|∟|Уголок|Уг\.?)/i)?2*hs.b:hs.b;
+     need=Math.max(need,o+ext+.005+g.t/2)
+    });
+    if(need<.002||need>1.2)return;
+    g.shift=g.n.clone().multiplyScalar(out*need);linesMoved++;
+    g.panels.forEach(function(id){lineShift.set(id,g.shift);lineMoved.set(id,need)})
+   });
+   // (the windows, doors, gates and trims of a wall moved: with it)
+   list.forEach(function(c){
+    if(!c.id||!(c.ft==="window"||c.ft==="door"||c.ft==="gate"||c.ft==="trim"))return;
+    var p=memberPoints(c),m=p[0].clone().add(p[p.length-1]).multiplyScalar(.5);
+    var g=lines.find(function(l){if(!l.shift)return false;var s=m.dot(l.u);return s>=l.s0-.3&&s<=l.s1+.3&&Math.abs(m.dot(l.n)-l.d)<=l.t/2+.15&&m.y>=l.y0-.3&&m.y<=l.y1+.3});
+    if(g)lineShift.set(String(c.id),g.shift)
    })
   }
   // Steel does not pass through a sandwich panel (the engineer, 28.10.2026: «металлоконструкции выходят сквозь
@@ -2241,7 +2307,7 @@ window.irThreeSchemeView=(function(){
    allMeshes=[];boltList=[];dataById.clear();meshesById.clear();failures=0;conventional.clear();drillCache.clear();upperCache.clear();seatCache.clear();
    labels.forEach(function(l){l.el.remove()});labels=[];
    elems=Array.isArray(list)?list:[];
-   branchTurns(elems);seatOnTops(elems);hangTies(elems);seatLevels(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);
+   branchTurns(elems);seatOnTops(elems);hangTies(elems);seatLevels(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);
    var host=jointHosts(elems);findCrossings(elems,host);
    // (trusses and two-branch columns first: the members coming to them stop at their chords and branches)
    var lattice=function(c){return Boolean(c.truss&&Array.isArray(c.truss.members)&&c.truss.members.length||c.column&&Array.isArray(c.column.members)&&c.column.members.length)};
@@ -3570,7 +3636,7 @@ window.irThreeSchemeView=(function(){
     if(!mesh.userData.fixed)mesh.material=mesh.userData.roof?roofMaterial(c):mesh.userData.shell?shellMaterial(c):baseMaterial(c)
    });
    rayTargets=allMeshes.filter(function(m){return!m.userData.small});rebatch();lit=null;paintHighlight();
-   root.querySelector("#irThreeCount").textContent=elems.length+" элементов"+(failures?" · без геометрии: "+failures:"")+(conventional.size?" · сечение условное: "+conventional.size:"")+(wallCut.size?" · за стеной обрезано: "+wallCut.size:"");
+   root.querySelector("#irThreeCount").textContent=elems.length+" элементов"+(failures?" · без геометрии: "+failures:"")+(conventional.size?" · сечение условное: "+conventional.size:"")+(wallCut.size?" · за стеной обрезано: "+wallCut.size:"")+(linesMoved?" · стен по наружной грани каркаса: "+linesMoved:"");
    root.querySelector("#irThreeCount").title=conventional.size?"Профиль этих элементов не найден в справочнике сортаментов (или не указан) — сечение нарисовано условно, не по размерам":"Сечения нарисованы по справочнику сортаментов";
    paintLegend();
    if(apart)setExplode(apart.n,apart.s)
@@ -3798,7 +3864,7 @@ window.irThreeSchemeView=(function(){
    list.forEach(function(m){if(m.userData.hole||m.userData.anchor||m.userData.footing||m.material===concreteMat)return;v+=volumeOf(m)});
    return{mass_kg:own&&!conventional.has(id)&&v>0?Math.round(v*7850*10)/10:null,bolts:boltList.filter(function(b){return b.id===id}).length,
     nodes:nodes.filter(function(n){return n.members.some(function(m){return String(m.c.id)===id})}).map(function(n){return{id:n.id,name:nodeKinds[n.kind],axes:axisOf(n.x,n.y).split(" (")[0]}}),
-    colors:parts?parts.color:{},body:parts?parts.body:null,lit:litFor===id?litPart:null,spec:derivedParts.get(id)||null,wall_mm:wallCut.has(id)?Math.round(wallCut.get(id)*1000):0}
+    colors:parts?parts.color:{},body:parts?parts.body:null,lit:litFor===id?litPart:null,spec:derivedParts.get(id)||null,wall_mm:wallCut.has(id)?Math.round(wallCut.get(id)*1000):0,line_mm:lineMoved.has(id)?Math.round(lineMoved.get(id)*1000):0}
   }
   function legendRows(){
    var counts=new Map(),rows=[];

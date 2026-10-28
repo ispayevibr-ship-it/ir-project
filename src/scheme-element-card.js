@@ -178,6 +178,8 @@
   if(num(m.mass_kg)>0)kg.push((kg.length?"по модели ":"масса по модели ")+kgs(m.mass_kg)+" кг");
   if(kg.length)out.push(kg.join(", "));if(num(m.bolts)>0)out.push("болтов "+fmt(m.bolts));
   // (a member that crossed a wall of sandwich panels: drawn to the panel, what was past it named — not hidden)
+  // (a wall of panels moved out onto the outer face of the frame: by how much, from the line of the facades of the АР)
+  if(num(m.line_mm)>0)out.push("стена поставлена по наружной грани каркаса — на "+fmt(m.line_mm)+" мм наружу от линии по фасадам АР");
   var wall=num(m.wall_mm)>0?'<div class="ec-facts ec-warn">За стену из сэндвич-панелей выходило '+esc(fmt(m.wall_mm))+' мм — показан до стены. Проверьте положение элемента по чертежу.</div>':"";
   return(out.length?'<div class="ec-facts">'+esc(out.join(" · "))+'</div>':"")+wall
  }
