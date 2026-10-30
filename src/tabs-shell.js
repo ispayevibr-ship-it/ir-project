@@ -14,7 +14,7 @@
  const storeKey=isDetached?"ir-project-tabs-detached-"+params.get("detached"):"ir-project-tabs-v1";
  const frames=new Map(),objectsCache=new Map(),MAX_TABS=12;
  let order=[],activeId="",serial=0,restoring=false;
- const sections={"reports":"Ежедневные отчёты","marks":"Ведомость марок","work-types":"Виды работ","schedule":"График работ","deliveries":"Поставки","scheme":"Монтажная схема","ai-recognition":"ИИ-распознавание","extra-works":"Доп. работы","acted-days":"Актированные дни","penalties":"Штрафы","finance":"Финансы","photos":"Фотографии объекта"};
+ const sections={"reports":"Ежедневные отчёты","marks":"Ведомость марок","fasteners":"Ведомость метизов","work-types":"Виды работ","schedule":"График работ","deliveries":"Поставки","scheme":"Монтажная схема","ai-recognition":"ИИ-распознавание","extra-works":"Доп. работы","acted-days":"Актированные дни","penalties":"Штрафы","finance":"Финансы","photos":"Фотографии объекта"};
  const routeValid=route=>typeof route==="string"&&route.length<350&&/^\/objects(?:\/object\/\d+(?:\/[a-z0-9_-]+)*)?$/i.test(route);
  const cleanRoute=route=>routeValid(route)?route:"/objects";
  const newId=()=>String(Date.now().toString(36))+"-"+(++serial).toString(36);
@@ -38,6 +38,7 @@
   scheme:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/><circle cx="9" cy="9" r="1.25"/><circle cx="15" cy="15" r="1.25"/>',
   "ai-recognition":'<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 6v12M6 12h12M5 5l3 3m8 8 3 3"/>',
   reports:'<path d="M7 3h8l4 4v14H5V3h2z"/><path d="M15 3v5h4M9 12h6M9 16h6"/>',
+  fasteners:'<path d="M9 3h6v4H9z"/><path d="M12 7v14"/><path d="M9 10h6M9 13h6M9 16h6"/>',
   marks:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11M14 12h4m-4 4h4M5 6h.01"/>',
   "work-types":'<path d="M7 3h12v18H5V5l2-2z"/><path d="M9 9h7m-7 4h7m-7 4h4M3 8h3"/>',
   deliveries:'<path d="m3 8 9-5 9 5v10l-9 5-9-5V8Z"/><path d="m3 8 9 5 9-5M12 13v10M7.5 5.5l9 5"/>',
@@ -579,7 +580,7 @@
  // Pages hosted in iframes delegate all update UI to this single host window.
  window.irTabUpdates={open:checkAppUpdate};
  // Back along the pages of a tab.
- const HOME_BACK=new Set(["back","actedBack","deliveriesBack","financeBack","marksBack","penaltiesBack","objectPhotosBack","reportsBack","scheduleBack","schemeBack","unifiedBack","wtBack"]);
+ const HOME_BACK=new Set(["back","actedBack","deliveriesBack","financeBack","marksBack","fastenersBack","penaltiesBack","objectPhotosBack","reportsBack","scheduleBack","schemeBack","unifiedBack","wtBack"]);
  function goBack(tab){
   const trail=tab?.trail||[];if(trail.length<2)return false;
   try{const child=tab.frame.contentWindow;trail.pop();tab.goingBack=true;child.location.hash=trail[trail.length-1];return true}catch{tab.goingBack=false;return false}

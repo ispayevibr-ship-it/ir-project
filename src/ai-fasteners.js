@@ -94,7 +94,7 @@ function parseFastener(text){
  out.key=stdKey;
  return out
 }
-const STD_ROW={"ГОСТ7798":"bolt-7798","ГОСТР52644":"bolt-52644","ГОСТР52645":"nut-52645","ГОСТ6958":"washer-6958","ГОСТ22353":"bolt-22353","ГОСТ5915":"nut-5915","ГОСТ22354":"nut-22354","ГОСТ11371":"washer-11371"};
+const STD_ROW={"ГОСТ7798":"bolt-7798","ГОСТР52644":"bolt-52644","ГОСТР52645":"nut-52645","ГОСТ6958":"washer-6958","ГОСТ22353":"bolt-22353","ГОСТ5915":"nut-5915","ГОСТ22354":"nut-22354","ГОСТ11371":"washer-11371","ГОСТР52646":"washer-52646"};
 // Sizes and mass of one parsed fastener from the confirmed rows of the global base; the source says where from.
 function fastenerInfo(f,kb){
  if(!f?.d_mm||!kb)return null;
