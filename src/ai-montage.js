@@ -369,7 +369,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    saveDraft(oid,row,{knowledge:known.map(e=>({id:e.id,title:e.title,origin:e.origin,source:e.source})),
     ai:{status:"done",source:"knowledge",result,model:"база знаний",usage:[],batches:0,at:new Date().toISOString()},
     log:logged(draftRow(oid,row.id).data||{},{step:"ai",text:"Взято из базы знаний: "+known.map(e=>"«"+(e.title||e.id)+"» ("+e.origin+")").join(", ")+
-     " — элементов "+(result.elements||[]).length+", марок "+(result.marks||[]).length+(result.tank?", резервуар":"")+(result.vessel?", чан/ёмкость":"")+"; Claude можно не запускать"})})
+     " — элементов "+((result.elements||[]).length||(result.verified?.elements||[]).length)+(result.verified?.elements?.length?" (проверенная схема)":"")+", марок "+(result.marks||[]).length+(result.tank?", резервуар":"")+(result.vessel?", чан/ёмкость":"")+"; Claude можно не запускать"})})
   }
   // Checked sets like this one (other drawings): shown to the engineer and given to Claude as examples.
   else try{

@@ -990,7 +990,7 @@ window.irThreeSchemeView=(function(){
    // axis of the other — the lattice of the column, КМ «Колонна К1»: struts and diagonals between the branches — are its
    // branches whatever the name of the mark: the register may call the mark «Колонна К1»)
    var byMark=new Map(),mates=new Map();
-   list.forEach(function(c){if(c.id&&!c.ft&&c.geometryType==="column"&&String(c.mark||"")&&!(c.column&&Array.isArray(c.column.members)&&c.column.members.length))(byMark.get(String(c.mark))||byMark.set(String(c.mark),[]).get(String(c.mark))).push(c)});
+   list.forEach(function(c){if(c.id&&!c.ft&&c.geometryType==="column"&&String(c.mark||"")&&!latticed(c))(byMark.get(String(c.mark))||byMark.set(String(c.mark),[]).get(String(c.mark))).push(c)});
    var at=function(k,x,y,z){var best=null;(byMark.get(k)||[]).forEach(function(c){var hs=halfSection(c),r=Math.max(hs.b,hs.h)*1000+60,d=Math.hypot(number(c.x)-x,number(c.y)-y);
     if(d<=r&&z>=number(c.z0)-300&&z<=number(c.z2)+300&&(!best||d<best.d))best={d:d,c:c}});return best&&best.c};
    list.forEach(function(m){
@@ -1168,9 +1168,9 @@ window.irThreeSchemeView=(function(){
      var k=i+","+j;if(!cells.has(k))cells.set(k,[]);cells.get(k).push(h)}
    };
    list.forEach(function(c){
-    if(!c.id)return;var id=String(c.id),col=c.geometryType==="column"||Boolean(c.column&&Array.isArray(c.column.members)&&c.column.members.length);
+    if(!c.id)return;var id=String(c.id),col=c.geometryType==="column"||latticed(c);
     meta.set(id,{rank:jointRank(c),brace:c.geometryType==="brace"||role(c)==="ties",col:col});
-    if(c.ft||c.truss||c.cross||c.column&&Array.isArray(c.column.members)&&c.column.members.length||slight(c)||!/^(column|beam|brace|bent)$/.test(c.geometryType||""))return;
+    if(c.ft||c.truss||c.cross||latticed(c)||slight(c)||!/^(column|beam|brace|bent)$/.test(c.geometryType||""))return;
     var p=memberPoints(c);if(c.geometryType==="column"&&p[1].y-p[0].y<.3)return;
     var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard),gus=p.length===2?sheetGussets(c,p):null;
     // (the web of an I or a channel across X: a member coming in from the open side goes on to it)
@@ -2235,7 +2235,7 @@ window.irThreeSchemeView=(function(){
    seatTop.clear();seatEnd.clear();seats=[];
    var C=2000,cells=new Map(),byCol=new Map();
    list.forEach(function(c){
-    if(c.geometryType!=="column"||!c.id||c.ft||number(c.r)>0||c.column&&Array.isArray(c.column.members)&&c.column.members.length||slight(c))return;
+    if(c.geometryType!=="column"||!c.id||c.ft||number(c.r)>0||latticed(c)||slight(c))return;
     // (a column with a part of another section on its top — a tube on an I: the beams there end at its sides)
     if(c.place&&bodyCut(c).top>0)return;
     var k=Math.floor(number(c.x)/C)+","+Math.floor(number(c.y)/C);(cells.get(k)||cells.set(k,[]).get(k)).push(c)
@@ -2309,7 +2309,7 @@ window.irThreeSchemeView=(function(){
   function deckCuts(list){
    deckHoles.clear();guardLift.clear();deckInfo.clear();var cols=[],posts=[];
    list.forEach(function(c){
-    if(!c.id||c.ft||c.geometryType!=="column"||c.column&&Array.isArray(c.column.members)&&c.column.members.length)return;
+    if(!c.id||c.ft||c.geometryType!=="column"||latticed(c))return;
     var p=memberPoints(c),hs=planHalf(c);
     if(slight(c)){if(p[p.length-1].y>p[0].y+.3)posts.push({id:String(c.id),x:p[0].x,z:p[0].z,y:p[0].y,r:Math.max(hs.x,hs.z)});return}
     cols.push({x:p[0].x,z:p[0].z,y0:p[0].y,y1:p[1].y,hx:hs.x,hz:hs.z})
@@ -2347,7 +2347,8 @@ window.irThreeSchemeView=(function(){
    for(var i=0;i<8;i++)[1,2,4].forEach(function(b){if(!(i&b))edges.push([i,i|b])});
    allMeshes.forEach(function(m){
     var mid=String(m.userData.memberId||""),c=dataById.get(mid);
-    if(!m.geometry||!c||c.ft||slight(c)||role(c)==="guards"||deckInfo.has(mid))return;
+    // (a ladder up through a platform cuts it: Т-23 of a mast through the deck Т-21)
+    if(!m.geometry||!c||c.ft&&c.ft!=="ladder"||slight(c)||role(c)==="guards"||deckInfo.has(mid))return;
     var g=m.geometry;if(!g.boundingBox)g.computeBoundingBox();m.updateMatrixWorld(true);
     var bb=g.boundingBox,pts=[],y0=Infinity,y1=-Infinity,x0=Infinity,x1=-Infinity,z0=Infinity,z1=-Infinity;
     for(var i=0;i<8;i++){var P=new T.Vector3(i&1?bb.max.x:bb.min.x,i&2?bb.max.y:bb.min.y,i&4?bb.max.z:bb.min.z).applyMatrix4(m.matrixWorld);pts.push(P);
@@ -2679,7 +2680,7 @@ window.irThreeSchemeView=(function(){
    slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);seatLevels(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);roofCones(elems);
    var host=jointHosts(elems);findCrossings(elems,host);
    // (trusses and two-branch columns first: the members coming to them stop at their chords and branches)
-   var lattice=function(c){return Boolean(c.truss&&Array.isArray(c.truss.members)&&c.truss.members.length||c.column&&Array.isArray(c.column.members)&&c.column.members.length)};
+   var lattice=function(c){return Boolean(c.truss&&Array.isArray(c.truss.members)&&c.truss.members.length||latticed(c))};
    elems.filter(lattice).concat(elems.filter(function(c){return!lattice(c)})).forEach(function(c){
     var id=String(c.id||"");if(!id)return;
     dataById.set(id,c);
@@ -2794,6 +2795,7 @@ window.irThreeSchemeView=(function(){
     if(c.ft&&c.ft!=="ring"&&p.length===2&&dist(p[0],p[1])>.005){addFitting(c,id,p[0],p[1]);return}
     if(c.truss&&Array.isArray(c.truss.members)&&c.truss.members.length&&addTruss(c,id)){host.parts(c,meshesById.get(id));return}
     if(c.column&&Array.isArray(c.column.members)&&c.column.members.length&&addColumnLattice(c,id)){host.parts(c,meshesById.get(id));return}
+    if(c.lay&&(c.lay.lattice||c.lay.bars)&&addSpaceFrame(c,id)){host.parts(c,meshesById.get(id));return}
     if(latticeAt.has(id)&&branchLattice(c,id,latticeAt.get(id)))return;
     for(var i=0;i<p.length-1;i++)if(dist(p[i],p[i+1])>.005)segments.push([p[i],p[i+1]]);
     // A vertical brace drawn as a cross: the second diagonal from the top of the first end to the foot of the second.
@@ -2910,7 +2912,7 @@ window.irThreeSchemeView=(function(){
      // went 0,6 m out and below the floor into the base of the frame's column).
      var best=null,into=false;
      elems.forEach(function(k){
-      if(k.geometryType!=="column"||k.ft||!k.id||!dataById.has(String(k.id))||k.column&&Array.isArray(k.column.members)&&k.column.members.length)return;
+      if(k.geometryType!=="column"||k.ft||!k.id||!dataById.has(String(k.id))||latticed(k))return;
       if(z<number(k.z0)||z>number(topOf(k)))return;
       var C=toWorld(k.x,k.y,z),rel=E[0].clone().sub(C),along=rel.dot(au),ov=rel.clone().sub(au.clone().multiplyScalar(along));ov.y=0;
       var dOut=ov.length(),ks=planHalf(k),hAlong=Math.abs(au.x)*ks.x+Math.abs(au.z)*ks.z,hOut=Math.abs(au.z)*ks.x+Math.abs(au.x)*ks.z,gap=dOut-gw-hOut;
@@ -3002,7 +3004,7 @@ window.irThreeSchemeView=(function(){
   // +0.300 stands on a member (a post on a gate beam, its foot at the beam's top): its plate lies on that member, above
   // the foot — drawn under the foot it went into the beam's flange.
   var concreteMat=new T.MeshStandardMaterial({color:0xaeb3b8,roughness:.95}),pedestals=[];
-  function basePlated(c){return c.geometryType==="column"&&!hanging(c)&&!c.ft&&!(number(c.r)>0)&&!slight(c)&&!(c.column&&Array.isArray(c.column.members)&&c.column.members.length)&&!(c.base&&c.base.step)}
+  function basePlated(c){return c.geometryType==="column"&&!hanging(c)&&!c.ft&&!(number(c.r)>0)&&!slight(c)&&!latticed(c)&&!(c.base&&c.base.step)}
   // The base plate its sheet draws in a cut at the foot (endCuts): as large and thick as drawn, an anchor in each of its
   // holes — as thick as the base sheet says, else a bolt of the sheet's list fitting its least hole, else conditional,
   // 3 mm less than that hole.
@@ -3359,7 +3361,10 @@ window.irThreeSchemeView=(function(){
    };
    // (a hanging stringer has neither: its brackets are the nodes of the ladder, «Крепление лестницы»)
    // (the foot of an upper part on the step of its column is the step: welded on the traverse, no base there)
-   cols.forEach(function(c){if(hanging(c))return;put(c.base&&c.base.step?"step":"base",number(c.x),number(c.y),number(c.z0),c,c.base&&c.base.step?"на уступе":"низ",250);put("top",number(c.x),number(c.y),number(topOf(c)),c,"верх",250)});
+   // (a space frame — a section of a mast, a guard, brackets — joins the next at its foot and top: no base of a column
+   // with anchors of its own there, its plates and anchors are its bars)
+   cols.forEach(function(c){if(hanging(c))return;if(spaceFrame(c)){put("joint",number(c.x),number(c.y),number(c.z0),c,"низ",250);put("joint",number(c.x),number(c.y),number(topOf(c)),c,"верх",250);return}
+    put(c.base&&c.base.step?"step":"base",number(c.x),number(c.y),number(c.z0),c,c.base&&c.base.step?"на уступе":"низ",250);put("top",number(c.x),number(c.y),number(topOf(c)),c,"верх",250)});
    var onLine=function(x,y,z,self){
     var best=null,lying=null,seen=new Set();
     var test=function(o){
@@ -3741,6 +3746,69 @@ window.irThreeSchemeView=(function(){
    });
    return parts
   }
+  // ---- A space frame of one shipping mark (lay.lattice, lay.bars): a section of a lattice mast or tower (КМД ПМС-18,4:
+  // стойки П-12, П-16А, тросостойка Т-13), a guard round a platform, a fastening frame, brackets. lay.lattice — four legs from the
+  // corners of its base (base_mm: [along X, along Y], at its foot) to those of its top (top_mm, at its top), on each of
+  // its four faces a cross of two braces in each panel between its panel points (levels_mm, from its foot, as its sheet
+  // gives them: a panel across the splice with the section below starts under its foot, −150; none given — its foot and
+  // its top; brace "none" — no crosses), struts round it at struts_mm, no legs with legs:false;
+  // the sections of the legs, braces and struts its sheets give (leg, brace, strut: «L75×6»), else drawn
+  // conventionally. lay.bars — members of its own: [x, y, z, x2, y2, z2 (mm from its point and foot), role, section,
+  // [width, height] of the box drawn without a section (a plate: its size and thickness)]. Its members are its parts; it
+  // has no base, cap or body of a column of its own.
+  var spaceBox={leg:70,post:50,rail:40,anchor:24};
+  function spaceFrame(c){return Boolean(c.lay&&(c.lay.lattice||Array.isArray(c.lay.bars)&&c.lay.bars.length))}
+  function latticed(c){return Boolean(c.column&&Array.isArray(c.column.members)&&c.column.members.length||spaceFrame(c))}
+  function spaceMembers(c){
+   var out=[],L=c.lay&&c.lay.lattice,H=number(c.z2)-number(c.z0);
+   if(L&&H>0){
+    var b=Array.isArray(L.base_mm)?L.base_mm:[L.base_mm],t=Array.isArray(L.top_mm)?L.top_mm:[L.top_mm];
+    var bx=number(b[0]),by=number(b[1])||bx,tx=number(t[0]),ty=number(t[1])||tx;if(!(tx>0)){tx=bx;ty=by}
+    if(bx>0){
+     var lv=[];(Array.isArray(L.levels_mm)&&L.levels_mm.length?L.levels_mm:[0,H]).forEach(function(z){z=number(z);if(Number.isFinite(z)&&lv.indexOf(z)<0)lv.push(z)});lv.sort(function(p,q){return p-q});
+     var C=[[-1,-1],[1,-1],[1,1],[-1,1]],P=function(i,z){var f=z/H;return[C[i][0]*(bx+(tx-bx)*f)/2,C[i][1]*(by+(ty-by)*f)/2,z]};
+     if(L.legs!==false)for(var i=0;i<4;i++)out.push([P(i,0),P(i,H),"leg",String(L.leg||"")]);
+     if(L.brace!=="none")for(var k=0;k+1<lv.length;k++)for(var j=0;j<4;j++){var n=(j+1)%4;out.push([P(j,lv[k]),P(n,lv[k+1]),"brace",String(L.brace||"")]);out.push([P(n,lv[k]),P(j,lv[k+1]),"brace",String(L.brace||"")])}
+     (Array.isArray(L.struts_mm)?L.struts_mm:[]).forEach(function(z){z=number(z);if(z>=0&&z<=H)for(var j=0;j<4;j++)out.push([P(j,z),P((j+1)%4,z),"strut",String(L.strut||"")])});
+     // (a brace or a strut stops at the face of the legs it joins — drawn from axis to axis it went into them, the
+     // engineer's rule «металл не выходит за металл»: by the half width of a leg and its own across the leg)
+     var half=function(s,d){var q=s?sectionOf(s):null;return(q&&q.b>0?q.b:d)/2},a=half(L.leg,spaceBox.leg);
+     out.forEach(function(m){if(m[2]==="leg")return;
+      var p=m[0],q=m[1],d=[q[0]-p[0],q[1]-p[1],q[2]-p[2]],len=Math.sqrt(d[0]*d[0]+d[1]*d[1]+d[2]*d[2]);if(len<1)return;
+      var sn=Math.abs(d[2])/len,cs=Math.sqrt(Math.max(1e-6,1-sn*sn)),b=half(m[3],50),t=Math.min(len*.4,(a+b*sn)/cs);
+      m[0]=[p[0]+d[0]*t/len,p[1]+d[1]*t/len,p[2]+d[2]*t/len];m[1]=[q[0]-d[0]*t/len,q[1]-d[1]*t/len,q[2]-d[2]*t/len]})
+    }
+   }
+   if(c.lay&&Array.isArray(c.lay.bars))c.lay.bars.forEach(function(m){if(Array.isArray(m)&&m.length>=6)out.push([[number(m[0]),number(m[1]),number(m[2])],[number(m[3]),number(m[4]),number(m[5])],String(m[6]||"member"),String(m[7]||""),Array.isArray(m[8])?m[8]:null])});
+   return out
+  }
+  var spaceRoles={leg:"пояс",brace:"раскос",strut:"распорка",post:"стойка",rail:"поручень",bracket:"уголок",plate:"пластина",anchor:"анкерный болт",member:"элемент"};
+  function addSpaceFrame(c,id){
+   var list=spaceMembers(c);if(!list.length)return false;
+   var x0=number(c.x),y0=number(c.y),z0=number(c.z0),up=new T.Vector3(0,1,0),mat=baseMaterial(c),parts=[];
+   var at=function(q){return toWorld(x0+q[0],y0+q[1],z0+q[2])};
+   list.forEach(function(m){
+    var a=at(m[0]),b=at(m[1]),v=b.clone().sub(a),len=v.length();if(len<.01)return;
+    var dir=v.clone().normalize(),y=up.clone().sub(dir.clone().multiplyScalar(up.dot(dir)));
+    // (an upright member — a leg, a post, a plate, an anchor — square to the faces of the frame: its sides along the
+    // grid, as the legs of angles lie along the faces of a mast)
+    if(Math.abs(dir.y)>.9)y=new T.Vector3(1,0,0).sub(dir.clone().multiplyScalar(dir.x));
+    y.normalize();var x=new T.Vector3().crossVectors(y,dir).normalize(),q=new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(x,y,dir));
+    var pr=m[3],sec=pr?sectionOf(pr):null,geo;
+    if(sec)geo=realGeometry(T,meshGeo,sec);
+    // (without a section of its sheet: a box, the frame counted with the members drawn conventionally)
+    else{conventional.add(id);var sz=m[4]||[],w=(number(sz[0])||spaceBox[m[2]]||50)/1000,h=(number(sz[1])||number(sz[0])||spaceBox[m[2]]||50)/1000;
+     geo=shared("space-bar:"+w+":"+h,function(){var g=new T.BoxGeometry(w,h,1);g.translate(0,0,.5);return g})}
+    var mesh=partTag(new T.Mesh(geo,mat),spaceRoles[m[2]]||m[2],pr);mesh.position.copy(a);mesh.quaternion.copy(q);mesh.scale.z=len;
+    parts.push(mesh)
+   });
+   if(!parts.length)return false;
+   parts.forEach(function(mesh){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh)});
+   var lab=toWorld(x0,y0,number(c.z2)||z0);lab.y+=.35;
+   var el=document.createElement("span");el.className="ir-three-member-label";el.textContent=c.mark||c.title||"";
+   labelLayer.appendChild(el);labels.push({el:el,pos:lab,id:id});
+   return true
+  }
   // A two-branch column: branches, upper part and the lattice on both faces of the branches, from its point and base.
   function addColumnLattice(c,id){
    var k=c.column,d=k.dir||[0,1],ux=number(d[0]),uy=number(d[1]),x0=number(c.x),y0=number(c.y),z0=number(c.z0);
@@ -3874,7 +3942,7 @@ window.irThreeSchemeView=(function(){
   function trussSeat(e,u,zBottom){
    var best=null;
    elems.forEach(function(k){
-    if(k.geometryType!=="column"||k.ft||!k.id||k.column&&Array.isArray(k.column.members)&&k.column.members.length)return;
+    if(k.geometryType!=="column"||k.ft||!k.id||latticed(k))return;
     var hs=planHalf(k),hx=hs.x*1000,hy=hs.z*1000,dx=e.x-number(k.x),dy=e.y-number(k.y);
     if(Math.abs(dx)>hx+60||Math.abs(dy)>hy+60||zBottom<number(k.z0)||zBottom>number(topOf(k))-300)return;
     var face=Math.abs(u.x)*hx+Math.abs(u.y)*hy-(dx*u.x+dy*u.y);
@@ -4283,7 +4351,10 @@ window.irThreeSchemeView=(function(){
    if(ladder){
     var nr=Math.max(1,Math.ceil(rise/.3)-1);
     for(var k=1;k<=nr;k++){var p=at(k/(nr+1));bar(off(p,-w/2),off(p,w/2),.025)}
-    if(rise>2.2)for(var z=2;z<rise;z+=.8){var hoop=new T.TorusGeometry(Math.max(.4,w/2+.1),.015,6,24,Math.PI);hoop.rotateX(Math.PI/2);
+    // (a piece of a ladder over another: its cage as its sheet draws it, lay.cage — from_mm, to_mm along it from its foot;
+    // false — none: the ladder of a mast, Т-22 with hoops from its foot, Т-23 up to the platform, Т-24 at the ground none)
+    var cg=c.lay&&c.lay.cage,cz0=cg&&cg.from_mm!=null?Math.max(0,number(cg.from_mm))/1000+.1:2,cz1=cg&&number(cg.to_mm)>0?Math.min(rise,number(cg.to_mm)/1000):rise;
+    if(cg!==false&&(cg||rise>2.2))for(var z=cz0;z<cz1;z+=.8){var hoop=new T.TorusGeometry(Math.max(.4,w/2+.1),.015,6,24,Math.PI);hoop.rotateX(Math.PI/2);
      var hm=new T.Mesh(hoop,mat);hm.position.copy(at(z/rise));hm.quaternion.copy(basis);parts.push(hm)}
    }else{
     var n=Math.max(2,Math.round(rise/.2));if(rise/n>.25)n=Math.ceil(rise/.25);
