@@ -32,7 +32,7 @@ assert.deepEqual(hull2([[0,0],[1,1]]),[],"no outline of two points");
 assert.ok(view.includes("side0=Math.abs(d0.y)>.9?new T.Vector3(1,0,0):new T.Vector3(0,1,0).cross(d0).normalize(),up0=d0.clone().cross(side0).normalize()"),"the end plate across");
 assert.ok(view.includes("sub(out.clone().multiplyScalar(t/2))"),"the end plate within the member's length");
 // A deck: cut round the columns through it, its bottom on the tops of the beams.
-assert.match(view,/function deckCuts\(list\)\{/);assert.ok(view.includes("deckHoles.get(")&&view.includes("y+=.02"),"deck holes, on the beams");
+assert.match(view,/function deckCuts\(list\)\{/);assert.ok(view.includes("deckHoles.get(")&&view.includes("y+=dt/2"),"deck holes, on the beams");
 // Walls of panels at a corner: the one more along X runs on to the outer face of the other, the other stops at its inner
 // face; a wall ending at the side of another stops at its face.
 const number=v=>{const n=Number(v);return Number.isFinite(n)?n:0};

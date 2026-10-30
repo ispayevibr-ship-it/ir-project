@@ -200,6 +200,10 @@ function typeByWords(s){
  for(const l of learnedWords)if(l.re.test(s))return l.t;
  // "Ограждение площадки", "Ограждение лестницы" — a railing: the first word names the element.
  if(/^\s*(ограждени|перил|поручн)/iu.test(s))return byKey.get("railing");
+ // The deck of a platform, a raised floor, a walkway, a landing («Площадка … — настил», «Фальшпол … — настил −Риф.5»,
+ // «Настил площадки»): a platform — not the sheeting of a roof (its card said «ограждающая конструкция — стена или кровля»).
+ if(/настил|рифл[её]н/iu.test(s)&&/площадк|фальшпол|мостик|крыльц|риф\.|рифл[её]н|ромб/iu.test(s)&&!/профнастил|профлист|кровл|покрыти/iu.test(s))
+  return byKey.get(/лестниц/iu.test(s)?"stair_landing":"platform");
  for(const k of NAME_ORDER){const t=byKey.get(k);if(t?.words&&t.words.test(s))return t}
  return null
 }

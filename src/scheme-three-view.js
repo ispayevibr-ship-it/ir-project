@@ -1076,6 +1076,16 @@ window.irThreeSchemeView=(function(){
    if(n.y>.9?y.clone().cross(u).y>0:y.y<-1e-6||Math.abs(y.y)<=1e-6&&y.x+y.z<0)y.negate();
    return{sec:sec,X:y.clone().cross(u).normalize(),Y:y,pair:/^2/.test(pr),gap:gussetT(c),lift:-angleAxis(sec)/1000}
   }
+  // A horizontal angle of the frame of a deck (a platform, a landing, a raised floor; the treads of a stair): its flat leg
+  // on top, flush with the top of the frame, under the deck, the other leg down — КМ3 л.49, разрез 2-2: «б1 L100×7» under
+  // the sheet Н1, the stand Ст1 under its flat leg by the upright one. Drawn as other sections are — from its heel on the
+  // line, both legs up — it stood half its height over the line and through the deck lying on the top of the frame (the
+  // engineer, 30.10.2026, the false floor: «висит в воздухе»). Its line is the middle of its height and of its flat leg.
+  function deckAngle(c,u){
+   if(c.geometryType!=="beam"||c.ft||Math.abs(u.y)>.05)return null;var g=role(c);if(g!=="platforms"&&g!=="stairs")return null;
+   if(/крепл|кронштейн|столик/i.test(String(c.mark_name||c.title||"")))return null;
+   var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);return sec&&sec.shape==="angle"&&!sec.bent?sec:null
+  }
   // The box of a straight piece a → b of a member as it is drawn: its line (U), the axes across it (X, Y) as the section is
   // turned, and the extent of the section along them from the line.
   function pieceBox(c,a,b){
@@ -1084,7 +1094,8 @@ window.irThreeSchemeView=(function(){
    if(ang){var lb=ang.sec.b/1000,g=ang.gap/2;Object.assign(out,{X:ang.X,Y:ang.Y,x0:ang.pair?-g-lb:g,x1:g+lb,y0:ang.lift,y1:ang.lift+ang.sec.h/1000});return out}
    var q=bodyQuat(c,u),sec=sectionOf(c.profile_name||c.profileName,c.profile_standard),hs=halfSection(c);
    out.X=new T.Vector3(1,0,0).applyQuaternion(q);out.Y=new T.Vector3(0,1,0).applyQuaternion(q);
-   if(sec&&sec.shape==="angle"&&!sec.bent)Object.assign(out,{x0:0,x1:sec.b/1000,y0:0,y1:sec.h/1000});else Object.assign(out,{x0:-hs.b,x1:hs.b,y0:-hs.h,y1:hs.h});
+   if(sec&&deckAngle(c,u))Object.assign(out,{x0:-sec.b/2000,x1:sec.b/2000,y0:-sec.h/2000,y1:sec.h/2000});
+   else if(sec&&sec.shape==="angle"&&!sec.bent)Object.assign(out,{x0:0,x1:sec.b/1000,y0:0,y1:sec.h/1000});else Object.assign(out,{x0:-hs.b,x1:hs.b,y0:-hs.h,y1:hs.h});
    return out
   }
   // A member coming to an I or a channel from its open side (through the edges of its flanges) goes on between them to
@@ -1792,7 +1803,7 @@ window.irThreeSchemeView=(function(){
   // `outer` — which ends of the piece are ends of the member (a bent member's middle point is not).
   function trimSegment(c,id,a,b,host,parts,outer){
    var v=b.clone().sub(a),L=v.length();if(L<.3)return[a,b];v.divideScalar(L);
-   var brace=c.geometryType==="brace"||role(c)==="ties",ends=[[a,v],[b,v.clone().negate()]],out=[a.clone(),b.clone()],onSeat=!brace&&seatOf(c),faced=[false,false];
+   var brace=c.geometryType==="brace"||role(c)==="ties",ends=[[a,v],[b,v.clone().negate()]],out=[a.clone(),b.clone()],onSeat=!brace&&seatOf(c),faced=[false,false],dka=deckAngle(c,v);
    // (the section about P — its line and its corners — in another member's body but skip's)
    var q0=bodyQuat(c,v),hs0=halfSection(c),X0=new T.Vector3(1,0,0).applyQuaternion(q0),Y0=new T.Vector3(0,1,0).applyQuaternion(q0);
    var blocked=function(P,skip){return[[0,0],[-.9,-.9],[-.9,.9],[.9,-.9],[.9,.9]].some(function(k){return host.inside(id,P.clone().add(X0.clone().multiplyScalar(k[0]*hs0.b)).add(Y0.clone().multiplyScalar(k[1]*hs0.h)),skip)})};
@@ -1839,6 +1850,10 @@ window.irThreeSchemeView=(function(){
      plate.userData.gusset=true;parts.push(plate);
      return
     }
+    // (an angle of a deck's frame ending over a stand under its flat leg — КМ3 л.49, разрез 2-2: the stand Ст1 up to the
+    // flat leg of б1 by its upright one — lies on it and goes on over it to the edge of the floor; cut at the stand's face
+    // it stopped 100 mm short of the edge, the sheet Н1 there on nothing)
+    if(dka&&hit.col&&Math.abs(hit.body.U.y)>.9){var hb0=hit.body,ct=hb0.o.y+hb0.U.y*(hb0.U.y>0?hb0.s1:hb0.s0);if(ct<=E0.y+dka.h/2000+.005&&ct>=E0.y-dka.h/2000-.005)return}
     // An end lying on the top of a horizontal body (its section all above it: the angle bracket of a fire ladder, its heel
     // on a wall girder, КМ3 л.17) or hung under its bottom does not come to its face: it goes on over it, no end plate there
     // (the engineer, 30.10.2026, «эти болты на чем держатся?» — cut at the side of the girder, four bolts through a plate).
@@ -2600,9 +2615,12 @@ window.irThreeSchemeView=(function(){
        am.userData.memberId=id;am.userData.body=true;steel.add(am);allMeshes.push(am);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(am)});
       return
      }
-     var mesh=new T.Mesh(addGeometry(T,meshGeo,c),baseMaterial(c));
+     var mesh=new T.Mesh(addGeometry(T,meshGeo,c),baseMaterial(c)),dk=deckAngle(c,dir);
      mesh.position.copy(points[0]);mesh.scale.z=dist(points[0],points[1]);
      mesh.quaternion.copy(bodyQuat(c,points[1].clone().sub(points[0]).normalize()));
+     // (the angle of a deck's frame turned half round its line: the heel at the top, the flat leg across the line)
+     if(dk){mesh.position.add(new T.Vector3(1,0,0).applyQuaternion(mesh.quaternion).multiplyScalar(dk.b/2000)).add(new T.Vector3(0,1,0).applyQuaternion(mesh.quaternion).multiplyScalar(dk.h/2000));
+      mesh.quaternion.multiply(new T.Quaternion().setFromAxisAngle(zAxis,Math.PI))}
      mesh.userData.memberId=id;mesh.userData.body=true;steel.add(mesh);allMeshes.push(mesh);
      if(!meshesById.has(id))meshesById.set(id,[]);
      meshesById.get(id).push(mesh)
@@ -2678,6 +2696,9 @@ window.irThreeSchemeView=(function(){
   // panel, fixed to it with self-tapping screws): {plate:"−t×w×l", toward_mm:[dx,dy,dz]} — the plate from the foot of
   // the post along toward_mm (inward, on the slope), the post 25 mm from its outer end. The covering under it is of the
   // АР and is not drawn without it: the plate shows what the post stands on.
+  // The thickness of a deck: a plate its profile names (КМ3 л.49 «Н1 −Риф.5» — a checkered sheet 5 mm, «−6», «ПВ 508»
+  // no), else a grating 40 mm. Drawn 40 mm a sheet of 5 stood 35 mm over the beams it lies on.
+  function deckThick(c){var m=/^\s*[−-]?\s*(?:Риф\.?|Ромб\.?|Чеч\.?)?\s*(\d+(?:[.,]\d+)?)\s*(?:мм)?\s*$/i.exec(String(c.profile_name||c.profileName||"")),t=m?number(m[1].replace(",","."))/1000:0;return t>=.002&&t<=.03?t:.04}
   function footPlateSize(b){
    var m=/(\d+(?:[.,]\d+)?)\s*[×xх*]\s*(\d+)\s*[×xх*]\s*(\d+)/.exec(String(b&&b.plate||"")),v=b&&b.toward_mm;
    if(!m||!Array.isArray(v)||v.length<3)return null;
@@ -2775,7 +2796,9 @@ window.irThreeSchemeView=(function(){
     fr.anchors.forEach(function(q){var a=number(q[0])/1000,cr=number(q[1])/1000;if(Math.abs(a-wa)<=la/2&&Math.abs(cr-wc)<=lc/2)putHole(c,parts,{at:P(a,cr,fr.pt+wt/2),axis:up,d:fr.hole||.04,t:wt,bolt:0})})
    });
    parts.forEach(function(m){keepPart(m,id)});
-   if(number(c.z0)>300)return true;
+   // (no conditional footing under a base its sheet sets on a floor — base.on: the stands of a false floor on the floor
+   // −0,100 of КМ3 л.49, «конструкция пола условно не показана»; a metre of concrete under each was not drawn there)
+   if(number(c.z0)>300||b.on)return true;
    var fw=fr.pl+.3,fd=fr.pc+.3,fh=1,foot=new T.Mesh(shared("footing:"+fw.toFixed(3)+":"+fd.toFixed(3),function(){return new T.BoxGeometry(fw,fh,fd)}),concreteMat);
    foot.position.copy(o);foot.position.y-=fh/2;foot.quaternion.setFromAxisAngle(boltY,branchTurn.get(id)||0);foot.visible=showDetails;
    foot.userData.memberId=id;foot.userData.fixed=true;foot.userData.footing=true;steel.add(foot);allMeshes.push(foot);pedestals.push(foot);
@@ -3679,11 +3702,11 @@ window.irThreeSchemeView=(function(){
    // The deck lies on its beams: its level is the top of the beams under it (src/ai-montage-plan.js) — drawn about it, it
    // went 20 mm into them. Round a column standing through it the grating is cut (deckCuts).
    if(c.ft==="deck"){
-    var dw=Math.max(.3,(number(c.fd)||1000)/1000),arcR=c.lay&&number(c.lay.arc_r_mm)>0?number(c.lay.arc_r_mm)/1000:0,dg=null,dmat=baseMaterial(c);
+    var dt=deckThick(c),dw=Math.max(.3,(number(c.fd)||1000)/1000),arcR=c.lay&&number(c.lay.arc_r_mm)>0?number(c.lay.arc_r_mm)/1000:0,dg=null,dmat=baseMaterial(c);
     if(arcR>len&&arcR>=dw/2){
      var ds=new T.Shape(),back=arcR-len,dn=24;ds.moveTo(-dw/2,0);ds.lineTo(dw/2,0);
      for(var di=0;di<=dn;di++){var dx=dw/2-dw*di/dn;ds.lineTo(dx,Math.max(0,Math.sqrt(arcR*arcR-dx*dx)-back))}
-     ds.closePath();dg=new T.ExtrudeGeometry(ds,{depth:.04,bevelEnabled:false});dg.rotateX(Math.PI/2);dg.translate(0,.04,0)
+     ds.closePath();dg=new T.ExtrudeGeometry(ds,{depth:dt,bevelEnabled:false});dg.rotateX(Math.PI/2);dg.translate(0,dt,0)
     }
     // (a deck whose start is at a round wall — the landing at a shaft stair over the roof edge, lay.start_arc_r_mm the
     // radius of the wall: its start edge the arc of the wall, not a straight line out past it)
@@ -3691,12 +3714,12 @@ window.irThreeSchemeView=(function(){
     if(!dg&&sa>dw/2&&yA(dw/2)<len){
      var da=new T.Shape(),an=24;da.moveTo(-dw/2,len);da.lineTo(dw/2,len);
      for(var ai=0;ai<=an;ai++){var ax=dw/2-dw*ai/an;da.lineTo(ax,yA(ax))}
-     da.closePath();dg=new T.ExtrudeGeometry(da,{depth:.04,bevelEnabled:false});dg.rotateX(Math.PI/2);dg.translate(0,.04,0)
+     da.closePath();dg=new T.ExtrudeGeometry(da,{depth:dt,bevelEnabled:false});dg.rotateX(Math.PI/2);dg.translate(0,dt,0)
     }
     var dholes=dg?null:deckHoles.get(id),dside=new T.Vector3(dir.z,0,-dir.x).normalize(),dps=dholes?wallPieces(0,len,dw,dholes).map(function(r){
-     var m=new T.Mesh(new T.BoxGeometry(r[3]-r[2],.04,r[1]-r[0]),dmat);m.position.copy(start).add(dir.clone().multiplyScalar((r[0]+r[1])/2)).add(dside.clone().multiplyScalar((r[2]+r[3])/2-dw/2));return m}):null;
-    if(!dps){var dm=new T.Mesh(dg||new T.BoxGeometry(dw,.04,len),dmat);if(dg)dm.position.copy(start);else dm.position.copy(start).add(end).multiplyScalar(.5);dps=[dm]}
-    dps.forEach(function(dm){if(!dg)dm.position.y+=.02;dm.rotation.y=Math.atan2(dir.x,dir.z);
+     var m=new T.Mesh(new T.BoxGeometry(r[3]-r[2],dt,r[1]-r[0]),dmat);m.position.copy(start).add(dir.clone().multiplyScalar((r[0]+r[1])/2)).add(dside.clone().multiplyScalar((r[2]+r[3])/2-dw/2));return m}):null;
+    if(!dps){var dm=new T.Mesh(dg||new T.BoxGeometry(dw,dt,len),dmat);if(dg)dm.position.copy(start);else dm.position.copy(start).add(end).multiplyScalar(.5);dps=[dm]}
+    dps.forEach(function(dm){if(!dg)dm.position.y+=dt/2;dm.rotation.y=Math.atan2(dir.x,dir.z);
      dm.userData.memberId=id;steel.add(dm);allMeshes.push(dm);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(dm)});
     // (a deck on its frame over a roof: channels at the edges lay.frame.edges names, on stands to the roof)
     var dfr=frameOf(c);
