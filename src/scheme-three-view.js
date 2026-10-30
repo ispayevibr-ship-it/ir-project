@@ -2040,6 +2040,16 @@ window.irThreeSchemeView=(function(){
       if(!hit.col&&hit.top!==undefined){if(fp.y>=hit.top-.2)lvl=hit.top-hit.tf/2;else if(fp.y<=hit.bot+.2)lvl=hit.bot+hit.tf/2}
       g.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(nn,up,nn.clone().cross(up)));g.scale.set(.3,gt,.4);
       g.position.copy(fp).add(nn.clone().multiplyScalar(.15));g.position.y=lvl;
+      // (along the face no farther than 30 mm short of the end of the member it is on: at a truss's support the plate of the
+      // bracing of the bottom chords, 400 long, went through the support rib of the truss — Сгф1 at Фс1, Фс3)
+      // and short of another member coming to that face there (the truss Фс3 at the подстропильная Фп1: the plate of the
+      // bottom chords' bracing at the node crossed the end of the truss and its support rib)
+      var hb2=hit.body,ga=nn.clone().cross(up).normalize(),gc=g.position.clone(),gl=[.2,.2];
+      if(hb2&&Math.abs(hb2.U.dot(ga))>.95){var sc=gc.clone().sub(hb2.o).dot(hb2.U),su=hb2.U.dot(ga)>0?1:-1;gl[su>0?1:0]=Math.min(.2,hb2.s1-.03-sc);gl[su>0?0:1]=Math.min(.2,sc-hb2.s0-.03)}
+      // (past the line of the brace on the side away from it only by its half width: the plate stays in the brace's corner)
+      var dg=d.dot(ga),dnn=Math.abs(d.dot(nn));if(Math.abs(dg)>.1&&dnn>.1){var far=dg>0?0:1;gl[far]=Math.min(gl[far],Math.max(.05,halfSection(c).b)/Math.max(.3,dnn)+.03)}
+      [0,1].forEach(function(j){var sd=j?1:-1;for(var t=.02;t<=gl[j]+1e-6;t+=.01){if([.03,.15,.27].some(function(dd){return host.inside(id,gc.clone().add(ga.clone().multiplyScalar(sd*t)).add(nn.clone().multiplyScalar(dd-.15)),hb2)})){gl[j]=Math.max(0,t-.035);break}}});
+      if(gl[0]+gl[1]>=.15&&gl[0]+gl[1]<.4-1e-6){g.position.add(ga.clone().multiplyScalar((gl[1]-gl[0])/2));g.scale.z=gl[0]+gl[1]}
       var by0=lvl===fp.y?null:lvl>fp.y?lvl-lt/2:lvl+lt/2;
       var rk1=dia&&riskShift(c,v,up,dia);
       if(dia&&!ownBolts)boltRow(dia).forEach(function(s){var q=E0.clone().add(d.clone().multiplyScalar(cut+s));if(rk1)q.add(rk1);if(by0!==null)q.y=by0;addBolt(c,q,up,dia,gt+lt)});
