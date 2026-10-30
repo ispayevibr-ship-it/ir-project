@@ -55,7 +55,9 @@ window.irSchemePage=async function(objectId){
  const esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
  const arr=v=>Array.isArray(v)?v:[];
  const num=v=>{const n=Number(String(v??"").trim().replace(/\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};
- const fmt=v=>Number(num(v).toFixed(1)).toLocaleString("ru-RU",{maximumFractionDigits:1});
+ // (one number format for the page: toLocaleString with options builds a new one at each call — several thousand
+ // elements of the list cost a third of a second of the opening)
+ const FMT=new Intl.NumberFormat("ru-RU",{maximumFractionDigits:1}),fmt=v=>FMT.format(Number(num(v).toFixed(1)));
  const defaultAxesX=["1","2","3","4","5","6"],defaultAxesY=["А","Б","В","Г","Д","Е","Ж","И","К","Л"],defaultSpanX=45000,defaultSpanY=60000;
  let axesX=[...defaultAxesX],axesY=[...defaultAxesY],targetSpanX=defaultSpanX,targetSpanY=defaultSpanY,gridDirX="ltr",gridDirY="btt";
  let frameMode=true,selectedId="",activeWorkId="",activeScheme="all",rows=[],markRows=[],workRows=[],gridXSpans=[],gridYSpans=[],spanX=targetSpanX,spanY=targetSpanY,axisXPos=new Map(),axisYPos=new Map(),labelsVisible=false,dimensionsVisible=false,hiddenGroups=new Set(),hiddenSections=new Set(),confFilter="all",statusFilter="all",levelMin="",levelMax="",layersPanelOpen=false,elementSearch="",pickerScrollTop=0,previewFullscreen=false,previewNativeFullscreen=false,previewOriginalOverflow="";
@@ -378,7 +380,8 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  const sectionsPresent=()=>{const m=new Map();for(const c of records()){const k=sectionOfRecord(c);m.set(k,(m.get(k)||0)+1)}return[...m].sort((a,b)=>["КМ","КМД","АР","ТХ","Вручную"].indexOf(a[0])-["КМ","КМД","АР","ТХ","Вручную"].indexOf(b[0]))};
  const isShown=c=>{if(hiddenGroups.has(recordMarkGroup(c).key))return false;if(hiddenSections.size&&hiddenSections.has(sectionOfRecord(c)))return false;if(confFilter==="sure"&&isPreliminary(c)||confFilter==="prelim"&&!isPreliminary(c))return false;if(statusFilter!=="all"&&effectiveStatus(c)!==statusFilter)return false;const start=num(c.z0_mm),end=num(c.end_z_mm??c.z1_mm??8400),mid=geometry(c)==="bent"?num(c.mid_z_mm):start,lo=Math.min(start,end,mid),hi=Math.max(start,end,mid),min=String(levelMin).trim()===""?null:Number(levelMin),max=String(levelMax).trim()===""?null:Number(levelMax);if(min!==null&&Number.isFinite(min)&&hi<min)return false;if(max!==null&&Number.isFinite(max)&&lo>max)return false;return true};
  const columns=()=>records().filter(isShown).map(c=>({...c,...coord(c),status:effectiveStatus(c)}));
- const selected=()=>columns().find(x=>x.id===selectedId)||null;
+ // (the selected one alone, not all the shown elements built to find it)
+ const selected=()=>{if(!selectedId)return null;const r=records().find(x=>x.id===selectedId);return r&&isShown(r)?{...r,...coord(r),status:effectiveStatus(r)}:null};
  // What the chat with Claude sends with a message from this page: the object and the element selected on the scheme.
  window.irChatContext=()=>{if(location.hash!==requestedRoute)return null;const c=selected();
   return{page:"Монтажная схема",object:String(object.name||object.title||""),objectId:oid,element:c?{id:String(c.id),mark:String(c.mark||""),name:String(c.mark_name||c.title||""),
@@ -817,7 +820,8 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    const counter=panel.querySelector("#schemeElementCount");if(counter)counter.textContent="Найдено: "+found.length+(found.length<all.length?" из "+all.length:"")
   };
   if(select)select.onchange=()=>selectFromPicker(select.value);
-  const list=panel.querySelector("#schemeElementRows");if(list){list.scrollTop=pickerScrollTop;list.onscroll=()=>{pickerScrollTop=list.scrollTop}}
+  // (the place in the list kept only when it was moved: setting it laid the whole page out again at every drawing)
+  const list=panel.querySelector("#schemeElementRows");if(list){if(pickerScrollTop)list.scrollTop=pickerScrollTop;list.onscroll=()=>{pickerScrollTop=list.scrollTop}}
   panel.onclick=e=>{
    const copy=e.target.closest?.("[data-copy-element]");if(copy){const row=records().find(r=>String(r.id)===copy.dataset.copyElement);if(row&&canEdit())openEditor({...row,...coord(row)},true);return}
    const pick=e.target.closest?.("[data-pick-element]");if(pick)selectFromPicker(pick.dataset.pickElement)
@@ -1517,7 +1521,9 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  }
  function draw(){
   if(activeScheme!=="all"&&!frameMode&&!activeView()){activeScheme="all";refreshGridModel()}
-  if(selectedId&&!columns().some(c=>c.id===selectedId))selectedId="";
+  // (the shown elements once for the drawing: each listing of them took the coordinates of all of them again)
+  const shownNow=columns();
+  if(selectedId&&!shownNow.some(c=>c.id===selectedId))selectedId="";
   const s=stats(),mp=statusCounts(),works=enabledWorks(),currentWork=works.find(w=>w.id===activeWorkId)||null,workOptions='<option value="__frame__" '+(frameMode?'selected':'')+'>Все виды работ вместе</option>'+works.map(w=>'<option value="'+esc(w.id)+'" '+(!frameMode&&w.id===activeWorkId?'selected':'')+'>'+esc(w.name)+(w.code?' · '+esc(w.code):'')+'</option>').join(""),groupOptions=schemeGroups().map(g=>`<option value="${esc(g.key)}" ${g.key===activeScheme?"selected":""}>${esc(g.label)} · ${g.marks} марок · ${g.placed} элементов</option>`).join(""),editActions=canEdit()?`<button type="button" class="scheme-grid-button" id="schemeGridConfig">⚙ Параметры сетки</button>${irProject.ai?.invoke?`<button type="button" class="scheme-grid-button danger" id="schemeClear" ${s.total?"":"disabled"} title="Удалить все элементы схемы; копия сохраняется">Очистить схему</button>${schemeSnapshot?`<button type="button" class="scheme-grid-button" id="schemeRestore" title="Вернуть элементы, удалённые очисткой ${esc(new Date(schemeSnapshot.at).toLocaleString("ru-RU"))}">↺ Вернуть (${schemeSnapshot.count})</button>`:""}`:""}${!frameMode&&activeWorkId?`<button type="button" class="scheme-grid-button" id="schemeNewView">＋ Добавить сетку</button>${activeView()?`<button type="button" class="scheme-grid-button" id="schemeEditView">Изменить</button><button type="button" class="scheme-grid-button danger" id="schemeDeleteView">Удалить сетку</button>`:""}`:""}`:"",emptyOverlay=activeWorkId?(s.total?"":`<div class="scheme-empty-overlay"><b>Схема пока пустая</b><span>Нажмите «Добавить элемент» и выберите марку для этой монтажной схемы${window.irAiRecognitionPage?" или загрузите чертежи в «ИИ-распознавание»":""}.</span></div>`):`<div class="scheme-empty-overlay"><b>Монтажная схема не включена</b><span>Откройте «Виды работ» и включите галочку «Нужна монтажная схема» у нужного вида работ.</span></div>`;
   app.innerHTML=`<div class="scheme-page">
    <div class="scheme-head"><button class="back" id="schemeBack">← Назад</button><div><h1>Монтажная схема</h1><p>${esc(object.name||"")}${frameMode?"":currentWork?` · ${esc(currentWork.name)}`:""} · ${esc(activeGroup().label)}</p></div><div class="scheme-head-actions">${window.irAiRecognitionPage?`<a class="scheme-grid-button scheme-ai-button" id="schemeAiRecognition" href="#/objects/object/${esc(oid)}/ai-recognition" title="Загрузить чертежи КМ / КМД / АР и расставить элементы на этой схеме">ИИ-распознавание</a>`:""}<label class="scheme-type-select-wrap work"><span>Режим / вид работ</span><select id="schemeWorkSelect">${workOptions}</select></label><label class="scheme-type-select-wrap"><span>Схема</span><select id="schemeTypeSelect" ${frameMode||activeWorkId?"":"disabled"}>${groupOptions}</select></label>${editActions}</div></div>
@@ -1550,7 +1556,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
      <label>Отметка от, мм<input id="schemeLevelMin" type="number" step="100" placeholder="Любая" value="${esc(levelMin)}"></label>
      <label>До, мм<input id="schemeLevelMax" type="number" step="100" placeholder="Любая" value="${esc(levelMax)}"></label>
      <button id="schemeVisibilityReset" type="button">Сбросить фильтры</button>
-     <span class="scheme-visible-counter">На экране: <b>${columns().length}</b> из ${s.total}</span>
+     <span class="scheme-visible-counter">На экране: <b>${shownNow.length}</b> из ${s.total}</span>
     </div>
    </section>
    <div class="scheme-workspace">

@@ -163,7 +163,17 @@ window.irThreeSchemeView=(function(){
  // How drawings write a section → {shape, h, b, s, t (mm), std}; null when it is not known. `standard` — the one the
  // sheet cites: «30Ш2» of ГОСТ 26020-83 is not «30Ш2» of ГОСТ Р 57837, so only that one; without it 57837 first, then
  // 26020 (ДБ, ДШ, 100Б).
+ // The section of a designation, once for each designation and standard: the same few hundred profiles were read
+ // again for every use (a large scheme: several thousand members asked it a hundred thousand times, more than a second
+ // of the opening; the engineer 30.10.2026 «почему подвисает»). Read again when the tables of the sortament come.
+ var sectionMemo=new Map(),sectionMemoAt=-1;
  function sectionOf(text,standard){
+  if(sectionMemoAt!==sections.size){sectionMemo.clear();sectionMemoAt=sections.size}
+  var key=String(text==null?"":text)+"\u0001"+String(standard==null?"":standard);
+  if(sectionMemo.has(key))return sectionMemo.get(key);
+  var sec=readSection(text,standard);sectionMemo.set(key,sec);return sec
+ }
+ function readSection(text,standard){
   var t=String(text||"").replace(/\s+/g,"").replace(/[хХ×*]/g,"x").replace(/,/g,"."),m,r;
   // The box sign of a font read as a letter: «Тр.r140х4», «Трубаr140х4» are «Тр.□140х4» (src/ai-sheet-extract.js profileWords);
   // read as «3» before three digits too: «Тр.3120х5» is «Тр.□120х5» (no tube is 3120 across — it was drawn so, through the walls).
@@ -1249,10 +1259,16 @@ window.irThreeSchemeView=(function(){
    // that body (Б1 of the crane platform's tower along the column's flange and the brace Вс1 at its node held Б1 coming
    // between the flanges at the face, its bolts in the air: «гайки точно в ту сторону закручиваются?», 30.10.2026).
    var within=function(B,Q){var o=Q.clone().sub(B.o),x=o.dot(B.X),y=o.dot(B.Y),s=o.dot(B.U);return x>=B.x0-.02&&x<=B.x1+.02&&y>=B.y0-.02&&y<=B.y1+.02&&s>=B.s0-.02&&s<=B.s1+.02};
+   // (in numbers, the test of the point first: asked a few hundred thousand times on opening a large scheme, its copies
+   // of vectors for every body of the cell were a second of the opening)
    find.inside=function(id,P,skip,at){
-    return(cells.get(Math.floor(P.x/C)+","+Math.floor(P.z/C))||[]).some(function(h){if(h.id===id||h===skip)return false;var o=P.clone().sub(h.o),x=o.dot(h.X),y=o.dot(h.Y),s=o.dot(h.U);
-     if(at&&(h.m.brace||Math.abs(h.U.dot(at.d))<.7)&&[h.s0,h.s1].some(function(e){return within(at.body,h.o.clone().add(h.U.clone().multiplyScalar(e)))}))return false;
-     return x>h.x0+.005&&x<h.x1-.005&&y>h.y0+.005&&y<h.y1-.005&&s>h.s0+.005&&s<h.s1-.005})
+    var list=cells.get(Math.floor(P.x/C)+","+Math.floor(P.z/C));if(!list)return false;
+    for(var i=0;i<list.length;i++){var h=list[i];if(h.id===id||h===skip)continue;
+     var ox=P.x-h.o.x,oy=P.y-h.o.y,oz=P.z-h.o.z,x=ox*h.X.x+oy*h.X.y+oz*h.X.z,y=ox*h.Y.x+oy*h.Y.y+oz*h.Y.z,s=ox*h.U.x+oy*h.U.y+oz*h.U.z;
+     if(!(x>h.x0+.005&&x<h.x1-.005&&y>h.y0+.005&&y<h.y1-.005&&s>h.s0+.005&&s<h.s1-.005))continue;
+     if(at&&(h.m.brace||Math.abs(h.U.dot(at.d))<.7)&&[h.s0,h.s1].some(function(e){return within(at.body,h.o.clone().add(h.U.clone().multiplyScalar(e)))}))continue;
+     return true}
+    return false
    };
    find.made=new Set();find.bodies=bodies;
    return find
@@ -2896,7 +2912,9 @@ window.irThreeSchemeView=(function(){
   // girder (the engineer's choice of 30.10.2026: the bracket is mounted with the girder, its colour and its card; of the
   // girders of two spans on one bracket, the first one drawn carries it). A girder the sheet puts on a bracket (joint.bracket) has it whatever kind its mark is.
   function girderBrackets(){
-   var made=new Set(),up=new T.Vector3(0,1,0);
+   // (the columns once, not all the elements for each end of each girder: a large scheme went through them a hundred
+   // thousand times)
+   var made=new Set(),up=new T.Vector3(0,1,0),gcols=elems.filter(function(k){return k.geometryType==="column"&&!k.ft&&k.id&&dataById.has(String(k.id))&&!latticed(k)});
    elems.forEach(function(g){
     var gid=String(g.id||"");
     if(g.geometryType!=="beam"||!gid||g.ft||g.truss||!dataById.has(gid)||role(g)!=="fahwerk"&&!(g.joint&&g.joint.bracket)||Math.abs(number(g.z2)-number(g.z0))>30)return;
@@ -2911,10 +2929,11 @@ window.irThreeSchemeView=(function(){
      // a column farther off (the bracket of the column К7 of the shop under the bottom girder of the frame КМ3 л.29
      // went 0,6 m out and below the floor into the base of the frame's column).
      var best=null,into=false;
-     elems.forEach(function(k){
-      if(k.geometryType!=="column"||k.ft||!k.id||!dataById.has(String(k.id))||latticed(k))return;
+     gcols.forEach(function(k){
       if(z<number(k.z0)||z>number(topOf(k)))return;
-      var C=toWorld(k.x,k.y,z),rel=E[0].clone().sub(C),along=rel.dot(au),ov=rel.clone().sub(au.clone().multiplyScalar(along));ov.y=0;
+      // (a column farther than 4 m in plan is neither in line with the end nor within 1,2 m of it)
+      var C=toWorld(k.x,k.y,z);if(Math.abs(C.x-E[0].x)>4||Math.abs(C.z-E[0].z)>4)return;
+      var rel=E[0].clone().sub(C),along=rel.dot(au),ov=rel.clone().sub(au.clone().multiplyScalar(along));ov.y=0;
       var dOut=ov.length(),ks=planHalf(k),hAlong=Math.abs(au.x)*ks.x+Math.abs(au.z)*ks.z,hOut=Math.abs(au.z)*ks.x+Math.abs(au.x)*ks.z,gap=dOut-gw-hOut;
       if(Math.abs(along)>hAlong+.06)return;
       if(dOut<1e-3||gap<-.005){into=true;return}
@@ -5005,6 +5024,7 @@ window.irThreeSchemeView=(function(){
   root.querySelector("#irThreeDetails").onchange=function(e){showDetails=e.target.checked;equipment.visible=showDetails;paintLegend();
    pedestals.forEach(function(m){m.visible=showDetails});rebatch()};
   function resize(){
+   if(!root.isConnected)return;
    var w=Math.max(250,viewport.clientWidth),h=Math.max(300,viewport.clientHeight);
    renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();invalidate()
   }
@@ -5123,9 +5143,17 @@ window.irThreeSchemeView=(function(){
   // Near and far planes follow the distance to the centre: no flicker of faces close up, nothing cut far away.
   function camRange(){var d=camera.position.distanceTo(controls.target),n=Math.max(.02,d/300),f=Math.max(600,d*25+400);
    if(Math.abs(camera.near-n)>n*.05||camera.far!==f){camera.near=n;camera.far=f;camera.updateProjectionMatrix()}}
+  // Off the page (another section of the program open): nothing is drawn — a change of the window's size redrew the whole
+  // model there, on the processor where the graphics card is not used; looked at twice a second, not at every frame of
+  // the screen; kept 5 minutes for a quick return to the scheme (its size taken again), then let go with its memory (the
+  // engineer 30.10.2026 «почему подвисает»).
+  var awaySince=0,awayTimer=0;
   function frame(time){
    if(!alive)return;
+   if(!root.isConnected){var now=performance.now();if(!awaySince)awaySince=now;else if(now-awaySince>300000&&active&&active.root===root){dispose();return}
+    raf=0;awayTimer=setTimeout(function(){awayTimer=0;if(alive)raf=requestAnimationFrame(frame)},500);return}
    raf=requestAnimationFrame(frame);
+   if(awaySince){awaySince=0;lastTime=time||0;resize()}
    var gap=(time||0)-lastTime,dt=Math.min(.1,Math.max(0,gap/1000));lastTime=time||0;
    // The frame after a picture came late: that picture took that long.
    if(drew&&!light&&gap>400){if(++slow>=3)goLight()}else if(drew)slow=0;drew=false;
@@ -5226,7 +5254,7 @@ window.irThreeSchemeView=(function(){
   return{host:host,key:key,root:root,update:update,focus:focus,look:look,startCopy:startCopy,startPlacement:startPlacement,nodes:nodeList,openNode:openNode,snapshots:snapshots,card:card,lightPart:lightPart,
    dispose:function(){
     cameraMemory[memoryKey]={position:camera.position.clone(),target:controls.target.clone(),up:camera.up.clone()};
-    alive=false;clearExplode();cancelCopy();cancelPlacement();if(raf)cancelAnimationFrame(raf);
+    alive=false;clearExplode();cancelCopy();cancelPlacement();if(raf)cancelAnimationFrame(raf);if(awayTimer)clearTimeout(awayTimer);
     observer&&observer.disconnect();window.removeEventListener("resize",resize);document.removeEventListener("keydown",onKey);
     renderer.domElement.removeEventListener("pointerdown",down);
     renderer.domElement.removeEventListener("mousedown",noAutoscroll);

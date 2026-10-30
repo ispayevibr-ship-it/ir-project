@@ -4,12 +4,14 @@
  const esc=v=>String(v??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
  const fmt=v=>{const n=Number(v)||0;return Number.isInteger(n)?String(n):String(Number(n.toFixed(3))).replace(".",",")};
  function unitOf(text){return String(text||"").replace(/[-+]?\d[\d\s]*(?:[,.]\d+)?/g,"").trim()||"ед."}
+ // (written only when they differ: written every 180 ms, each write woke the twenty watchers of the page)
  function patchLabels(card){
-  const head=card.querySelector(".ood-head h2");if(head)head.textContent="Поставки и монтаж";
-  const sub=card.querySelector(".ood-head p");if(sub)sub.textContent="Поставлено по накладным и смонтировано по ежедневным отчётам";
+  const text=(el,t)=>{if(el&&el.textContent!==t)el.textContent=t},html=(el,t,h)=>{if(el&&el.textContent!==t)el.innerHTML=h};
+  text(card.querySelector(".ood-head h2"),"Поставки и монтаж");
+  text(card.querySelector(".ood-head p"),"Поставлено по накладным и смонтировано по ежедневным отчётам");
   const legend=card.querySelectorAll(".ood-legend span");
-  if(legend[0])legend[0].innerHTML='<i class="delivered"></i>Поставлено по накладным';
-  if(legend[1])legend[1].innerHTML='<i class="mounted"></i>Смонтировано по отчётам';
+  html(legend[0],"Поставлено по накладным",'<i class="delivered"></i>Поставлено по накладным');
+  html(legend[1],"Смонтировано по отчётам",'<i class="mounted"></i>Смонтировано по отчётам');
  }
  function apply(){
   const card=document.querySelector(".ood-comparison");if(!card||card.matches(".ir-supply-chart"))return;
