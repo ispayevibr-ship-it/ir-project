@@ -14,7 +14,9 @@ window.irSelectUI=(()=>{
  const place=api=>{
   if(!api||api.menu.hidden||!api.trigger.isConnected)return;
   const r=api.trigger.getBoundingClientRect(),vw=window.innerWidth,vh=window.innerHeight,gap=6,pad=8;
-  const width=Math.max(180,r.width),below=vh-r.bottom-gap-pad,above=r.top-gap-pad;
+  // (as wide as its longest line, up to 520 — a long name of a kind of works wrapped into three lines in a narrow menu)
+  api.menu.style.width="max-content";const natural=(api.menu.offsetWidth||0)+14;
+  const width=Math.min(Math.max(180,r.width,Math.min(520,natural)),vw-2*pad),below=vh-r.bottom-gap-pad,above=r.top-gap-pad;
   const want=Math.min(280,Math.max(120,api.menu.scrollHeight||180));
   const up=below<want&&above>below;
   const maxH=Math.max(90,Math.min(280,up?above:below));
@@ -77,7 +79,7 @@ window.irSelectUI=(()=>{
   };
   select.addEventListener("change",()=>refresh(api));
   select.addEventListener("invalid",()=>{wrap.classList.add("invalid");setTimeout(()=>wrap.classList.remove("invalid"),1400)});
-  const mo=new MutationObserver(()=>refresh(api));mo.observe(select,{attributes:true,childList:true,subtree:true,characterData:true});
+  const mo=new MutationObserver(()=>refresh(api));mo.observe(select,{attributes:true,childList:true,subtree:true,characterData:true});api.mo=mo;
   refresh(api);
  };
  const scan=root=>{
@@ -85,6 +87,9 @@ window.irSelectUI=(()=>{
   if(isSelect(root))enhance(root);
   root.querySelectorAll?.("select").forEach(enhance);
  };
+ // A select gone from the page (a panel drawn anew — the montage scheme redraws its header and card) takes its menu away.
+ const drop=root=>{const list=isSelect(root)?[root]:[...(root.querySelectorAll?.("select.ir-global-native")||[])];
+  list.forEach(s=>{const api=s._irSelectUI;if(!api||s.isConnected)return;if(openState.api===api)openState.api=null;api.menu.remove();api.mo?.disconnect();s._irSelectUI=null})};
  const refreshAll=root=>(root||document).querySelectorAll?.("select.ir-global-native").forEach(s=>s._irSelectUI?.refresh());
  document.addEventListener("mousedown",e=>{const api=openState.api;if(api&&!api.wrap.contains(e.target)&&!api.menu.contains(e.target))close(api)},true);
  document.addEventListener("change",e=>{if(isSelect(e.target))e.target._irSelectUI?.refresh()},true);
@@ -92,7 +97,7 @@ window.irSelectUI=(()=>{
  window.addEventListener("scroll",()=>place(openState.api),true);
  const observer=new MutationObserver(muts=>{
   for(const m of muts){
-   if(m.type==="childList")m.addedNodes.forEach(n=>n.nodeType===1&&scan(n));
+   if(m.type==="childList"){m.addedNodes.forEach(n=>n.nodeType===1&&scan(n));m.removedNodes.forEach(n=>n.nodeType===1&&drop(n))}
    if(m.type==="attributes"&&m.target.tagName==="DIALOG"&&m.target.hasAttribute("open"))requestAnimationFrame(()=>refreshAll(m.target));
   }
  });
