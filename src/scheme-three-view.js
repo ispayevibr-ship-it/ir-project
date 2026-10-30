@@ -2264,7 +2264,7 @@ window.irThreeSchemeView=(function(){
   // through the grating): its foot lifted by guardLift (m), drawn only.
   var guardLift=new Map();
   function deckCuts(list){
-   deckHoles.clear();guardLift.clear();var cols=[],posts=[];
+   deckHoles.clear();guardLift.clear();deckInfo.clear();var cols=[],posts=[];
    list.forEach(function(c){
     if(!c.id||c.ft||c.geometryType!=="column"||c.column&&Array.isArray(c.column.members)&&c.column.members.length)return;
     var p=memberPoints(c),hs=planHalf(c);
@@ -2287,6 +2287,58 @@ window.irThreeSchemeView=(function(){
     });
     if(out.length)deckHoles.set(String(c.id),out)
    })
+  }
+  // ---- A deck is cut round all the steel drawn through it, as the grating is on site, not only round its columns: a
+  // brace crossing its level, the gusset of a brace at its edge, a girder running along its edge at its level (a КМ3 of a shop:
+  // the deck of the tower of the crane platform at +13,900 went through the brace Вс2 and its gusset, the deck of the
+  // platform +9,500 into the wall girder Рр □180 along the row Ж; the engineer, 30.10.2026: «металл не выходил за
+  // металл»). Every part drawn of another member (its box) that goes through the whole thickness of the deck or out over
+  // it; one reaching into it from below only is a beam the deck lies on (its level is the top of its beams), a railing
+  // stands on it (guardLift). The hole is the footprint of that part in the deck and 10 mm, as round a column (deckCuts).
+  // A deck plain and straight (deckInfo, as drawn), cut after all the members are drawn.
+  var deckInfo=new Map();
+  function deckRecut(){
+   if(!deckInfo.size)return;
+   var C=3,cells=new Map(),levels=[],gone=new Set(),fresh=[],edges=[];
+   deckInfo.forEach(function(k){levels.push([k.y+.003,k.y+k.t-.003])});
+   for(var i=0;i<8;i++)[1,2,4].forEach(function(b){if(!(i&b))edges.push([i,i|b])});
+   allMeshes.forEach(function(m){
+    var mid=String(m.userData.memberId||""),c=dataById.get(mid);
+    if(!m.geometry||!c||c.ft||slight(c)||role(c)==="guards"||deckInfo.has(mid))return;
+    var g=m.geometry;if(!g.boundingBox)g.computeBoundingBox();m.updateMatrixWorld(true);
+    var bb=g.boundingBox,pts=[],y0=Infinity,y1=-Infinity,x0=Infinity,x1=-Infinity,z0=Infinity,z1=-Infinity;
+    for(var i=0;i<8;i++){var P=new T.Vector3(i&1?bb.max.x:bb.min.x,i&2?bb.max.y:bb.min.y,i&4?bb.max.z:bb.min.z).applyMatrix4(m.matrixWorld);pts.push(P);
+     y0=Math.min(y0,P.y);y1=Math.max(y1,P.y);x0=Math.min(x0,P.x);x1=Math.max(x1,P.x);z0=Math.min(z0,P.z);z1=Math.max(z1,P.z)}
+    if(!levels.some(function(l){return y0<l[1]&&y1>l[1]}))return;
+    var box={id:mid,pts:pts,y0:y0,y1:y1};
+    for(var a=Math.floor(x0/C);a<=Math.floor(x1/C);a++)for(var b=Math.floor(z0/C);b<=Math.floor(z1/C);b++){var key=a+","+b;if(!cells.has(key))cells.set(key,[]);cells.get(key).push(box)}
+   });
+   deckInfo.forEach(function(k,id){
+    var lo=k.y+.003,hi=k.y+k.t-.003,holes=k.holes.slice(),seen=new Set(),added=0,x0=Infinity,x1=-Infinity,z0=Infinity,z1=-Infinity;
+    [0,k.len].forEach(function(u){[0,k.w].forEach(function(v){var x=k.start.x+k.dir.x*u+k.side.x*(v-k.w/2),z=k.start.z+k.dir.z*u+k.side.z*(v-k.w/2);
+     x0=Math.min(x0,x);x1=Math.max(x1,x);z0=Math.min(z0,z);z1=Math.max(z1,z)})});
+    for(var a=Math.floor(x0/C);a<=Math.floor(x1/C);a++)for(var b=Math.floor(z0/C);b<=Math.floor(z1/C);b++)(cells.get(a+","+b)||[]).forEach(function(h){
+     if(seen.has(h))return;seen.add(h);if(h.y1<hi||h.y0>hi)return;
+     // (the part of its box within the deck: its corners in it and where its edges cross the faces of the deck)
+     var q=h.pts.filter(function(P){return P.y>=lo&&P.y<=hi});
+     edges.forEach(function(e){var P=h.pts[e[0]],R=h.pts[e[1]];[lo,hi].forEach(function(yy){if((P.y-yy)*(R.y-yy)<0)q.push(P.clone().lerp(R,(yy-P.y)/(R.y-P.y)))})});
+     if(!q.length)return;var u0=Infinity,u1=-Infinity,v0=Infinity,v1=-Infinity;
+     q.forEach(function(P){var dx=P.x-k.start.x,dz=P.z-k.start.z,u=dx*k.dir.x+dz*k.dir.z,v=dx*k.side.x+dz*k.side.z+k.w/2;
+      u0=Math.min(u0,u);u1=Math.max(u1,u);v0=Math.min(v0,v);v1=Math.max(v1,v)});
+     u0-=.01;u1+=.01;v0-=.01;v1+=.01;if(u1<=0||u0>=k.len||v1<=0||v0>=k.w)return;
+     holes.push([u0,u1,v0,v1]);added++
+    });
+    if(!added)return;
+    var own=meshesById.get(id)||[];
+    own.forEach(function(m){if(m.userData.deckPiece){steel.remove(m);gone.add(m);m.geometry.dispose()}});
+    var parts=own.filter(function(m){return!m.userData.deckPiece});
+    wallPieces(0,k.len,k.w,holes).forEach(function(r){
+     var m=new T.Mesh(new T.BoxGeometry(r[3]-r[2],k.t,r[1]-r[0]),k.mat);
+     m.position.copy(k.start).add(k.dir.clone().multiplyScalar((r[0]+r[1])/2)).add(k.side.clone().multiplyScalar((r[2]+r[3])/2-k.w/2));m.position.y+=k.t/2;
+     m.rotation.y=Math.atan2(k.dir.x,k.dir.z);m.userData.memberId=id;m.userData.deckPiece=true;steel.add(m);parts.push(m);fresh.push(m)});
+    meshesById.set(id,parts)
+   });
+   if(fresh.length)allMeshes=allMeshes.filter(function(m){return!gone.has(m)}).concat(fresh)
   }
   // ---- Walls of panels (АР) meeting at a corner were both drawn past the corner point and went into each other there;
   // one runs on to the outer face of the other, the other stops at its inner face, as sandwich panels meet at a corner
@@ -2786,7 +2838,7 @@ window.irThreeSchemeView=(function(){
    elems.forEach(function(c){if(dataById.has(String(c.id))&&basePlated(c))baseParts(c)});
    elems.forEach(function(c){if(c.geometryType!=="column"||!dataById.has(String(c.id)))return;if(capOf(c))capParts(c);if(c.base&&c.base.step)stepParts(c)});
    elems.forEach(function(c){if(c.geometryType==="column"&&dataById.has(String(c.id))&&footPlateSize(c.base))footPlate(c)});
-   girderBrackets()
+   girderBrackets();deckRecut()
   }
   // The brackets (столики) the wall girders of the framing lie on beside the columns (a КМ1, л.29, 30, узлы 1–8,
   // разрез 3-3: the girder □180×5 outside the column, its bottom on a horizontal plate t14 welded to the column, a
@@ -3916,8 +3968,9 @@ window.irThreeSchemeView=(function(){
     var dholes=dg?null:deckHoles.get(id),dside=new T.Vector3(dir.z,0,-dir.x).normalize(),dps=dholes?wallPieces(0,len,dw,dholes).map(function(r){
      var m=new T.Mesh(new T.BoxGeometry(r[3]-r[2],dt,r[1]-r[0]),dmat);m.position.copy(start).add(dir.clone().multiplyScalar((r[0]+r[1])/2)).add(dside.clone().multiplyScalar((r[2]+r[3])/2-dw/2));return m}):null;
     if(!dps){var dm=new T.Mesh(dg||new T.BoxGeometry(dw,dt,len),dmat);if(dg)dm.position.copy(start);else dm.position.copy(start).add(end).multiplyScalar(.5);dps=[dm]}
+    if(!dg)deckInfo.set(id,{start:start.clone(),dir:dir.clone().setY(0).normalize(),side:dside.clone(),w:dw,t:dt,len:len,y:start.y,holes:dholes||[],mat:dmat});
     dps.forEach(function(dm){if(!dg)dm.position.y+=dt/2;dm.rotation.y=Math.atan2(dir.x,dir.z);
-     dm.userData.memberId=id;steel.add(dm);allMeshes.push(dm);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(dm)});
+     dm.userData.memberId=id;dm.userData.deckPiece=!dg;steel.add(dm);allMeshes.push(dm);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(dm)});
     // (a deck on its frame over a roof: channels at the edges lay.frame.edges names, on stands to the roof)
     var dfr=frameOf(c);
     if(dfr){var dfp=[],dy=start.y,ded=dfr.edges,DL=function(sd,u){return start.clone().add(dside.clone().multiplyScalar(sd)).add(dir.clone().multiplyScalar(u))};
