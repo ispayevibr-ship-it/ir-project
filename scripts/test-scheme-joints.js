@@ -9,7 +9,7 @@ const assert=require("node:assert/strict"),fs=require("node:fs");
 const view=fs.readFileSync(__dirname+"/../src/scheme-three-view.js","utf8");
 // Rank: a column, a main beam, a secondary member, a tie, a railing; of two alike the deeper, then the longer.
 assert.match(view,/function jointRank\(c\)\{/);
-assert.ok(view.includes('var r=g==="guards"||slight(c)?0:g==="ties"?1:c.geometryType==="column"||g==="columns"?4:/^(beams|girders|roof|crane|trusses)$/.test(g)||c.truss?3:2;'),"the order of the members at a node");
+assert.ok(view.includes('var r=g==="guards"||slight(c)?0:g==="ties"||stringer(c)?1:c.geometryType==="column"||g==="columns"?4:/^(beams|girders|roof|crane|trusses)$/.test(g)||c.truss?3:2;'),"the order of the members at a node");
 // The bodies: every member as a box of its section along its axis (an angle on its gusset by its legs); an end inside a
 // body of a higher rank stops at its face (the slab test along the axis), a truss and a lattice are bodies by their parts.
 assert.match(view,/function pieceBox\(c,a,b\)\{/);assert.match(view,/function jointHosts\(list\)\{/);

@@ -1014,7 +1014,11 @@ window.irThreeSchemeView=(function(){
    });
    // A plate lying flat (`flat`: the leaf hinge «Лш» between the end truss and the column of the framing, КМ узел 12 —
    // a sheet −10×280 bolted to both): its wide side horizontal, a quarter turn about its line.
-   list.forEach(function(c){if(c.id&&(c.flat||c.type_key==="plate_hinge")&&c.geometryType!=="column")branchTurn.set(String(c.id),Math.PI/2)})
+   list.forEach(function(c){if(c.id&&(c.flat||c.type_key==="plate_hinge")&&c.geometryType!=="column")branchTurn.set(String(c.id),Math.PI/2)});
+   // A column turned as its record says (rotation_deg — the field «Поворот, °» of the element, the plan of its drawing: the
+   // columns К1 of a platform of ИР КМ3 л.12 with their webs along X, the cantilevers Б3 welded to their flanges); unturned
+   // its web runs along Y.
+   list.forEach(function(c){var r=number(c.rotation_deg);if(c.id&&r&&c.geometryType==="column"&&!branchTurn.has(String(c.id)))branchTurn.set(String(c.id),r*Math.PI/180)})
   }
   // The section of a member about its line u: the minimal turn of +Z to u, a branch turned to its other branch.
   function bodyQuat(c,u){
@@ -1028,10 +1032,11 @@ window.irThreeSchemeView=(function(){
   }
   // A column before a beam; a main beam (of the roof, a crane girder, a truss) before a secondary one (a purlin, a strut, a
   // member of the framing, of a platform, of a stair); these before a brace, a railing last; of two alike the deeper
-  // section, then the longer member.
+  // section, then the longer member. A stringer of a stair after the beams of its landings: it ends at them (ИР КМ3 л.15:
+  // Кр1 at the cantilever Б3; as the longer member it ran on and the cantilever stopped at it).
   function jointRank(c){
    var g=role(c),hs=halfSection(c),p=memberPoints(c),L=p.length>1?p[0].distanceTo(p[p.length-1]):0;
-   var r=g==="guards"||slight(c)?0:g==="ties"?1:c.geometryType==="column"||g==="columns"?4:/^(beams|girders|roof|crane|trusses)$/.test(g)||c.truss?3:2;
+   var r=g==="guards"||slight(c)?0:g==="ties"||stringer(c)?1:c.geometryType==="column"||g==="columns"?4:/^(beams|girders|roof|crane|trusses)$/.test(g)||c.truss?3:2;
    return r*1e6+Math.min(9999,Math.round(Math.max(hs.h,hs.b)*2000))*100+Math.min(99,Math.round(L))
   }
   // The plane of the gussets of each brace: of the braces it crosses or meets at a point — a bracing in the slope of a roof
@@ -1805,9 +1810,16 @@ window.irThreeSchemeView=(function(){
    return yc-ey>=hit.lo-.002&&yc+ey<=hit.hi+.002
   }
   // `outer` — which ends of the piece are ends of the member (a bent member's middle point is not).
+  // A stringer of a stair (косоур, тетива) given as a brace is a sloped beam: it ends at the face of the landing beam it is
+  // welded to (ИР КМ3 л.15, узел 8: Кр1 at the back of Б3), with no gusset of a brace 400 × 300 at its end and no web
+  // joint; its end cut in the plane of that face (endPlanes, cutEnds): cut square its lower corner went 57 mm into the beam.
+  var endPlanes=new Map();
+  // (a sloped one: the horizontal part of a bent stringer along a landing is a beam of the landing)
+  function stringer(c){return role(c)==="stairs"&&c.geometryType!=="column"&&Math.abs(number(c.z2)-number(c.z0))>300&&/косоур|тетив/i.test(String(c.mark_name||c.title||""))}
   function trimSegment(c,id,a,b,host,parts,outer){
    var v=b.clone().sub(a),L=v.length();if(L<.3)return[a,b];v.divideScalar(L);
-   var brace=c.geometryType==="brace"||role(c)==="ties",ends=[[a,v],[b,v.clone().negate()]],out=[a.clone(),b.clone()],onSeat=!brace&&seatOf(c),faced=[false,false],dka=deckAngle(c,v);
+   endPlanes.delete(id+":0");endPlanes.delete(id+":1");
+   var brace=c.geometryType==="brace"&&!stringer(c)||role(c)==="ties",ends=[[a,v],[b,v.clone().negate()]],out=[a.clone(),b.clone()],onSeat=!brace&&seatOf(c),faced=[false,false],dka=deckAngle(c,v);
    // (the section about P — its line and its corners — in another member's body but skip's)
    var q0=bodyQuat(c,v),hs0=halfSection(c),X0=new T.Vector3(1,0,0).applyQuaternion(q0),Y0=new T.Vector3(0,1,0).applyQuaternion(q0);
    var blocked=function(P,skip){return[[0,0],[-.9,-.9],[-.9,.9],[.9,-.9],[.9,.9]].some(function(k){return host.inside(id,P.clone().add(X0.clone().multiplyScalar(k[0]*hs0.b)).add(Y0.clone().multiplyScalar(k[1]*hs0.h)),skip)})};
@@ -1876,9 +1888,10 @@ window.irThreeSchemeView=(function(){
     // (its sheet's end plate goes to the web when the member has room between the flanges)
     // (nor through another member standing between the flanges)
     var clear=function(){return[.01,.5,1].every(function(f){return!blocked(E0.clone().add(e[1].clone().multiplyScalar(hit.web+.01+(hit.t-hit.web-.01)*f)),hit.body)})};
-    if(!brace&&!onSeat&&hit.web!==undefined&&clear()){var wj=sheetPlate?roomAt(c,E0,v,hit)?hit.web:null:webJoint(c,E0,e[1],v,hit,parts);
+    if(!brace&&!onSeat&&!stringer(c)&&hit.web!==undefined&&clear()){var wj=sheetPlate?roomAt(c,E0,v,hit)?hit.web:null:webJoint(c,E0,e[1],v,hit,parts);
      if(wj!==null){out[k]=E0.clone().add(e[1].clone().multiplyScalar(wj));return}}
     out[k]=E0.clone().add(e[1].clone().multiplyScalar(cut));
+    if(stringer(c)&&hit.n)endPlanes.set(id+":"+k,{P:out[k].clone(),n:hit.n.clone()});
     if(!brace){
      // A beam at a face: an end plate there, its bolts through it into the face — none where its sheet draws its own (addCuts),
      // nor on a seat (addSeats: its bolts upright through its bottom).
@@ -1936,8 +1949,11 @@ window.irThreeSchemeView=(function(){
     // the face past 400 mm of the brace — a gusset placed by its middle left the end of a steep leg hanging below it.
     var end=Math.min(face+.06/hl,L*.45),run=.4,h0=face*hl,h1=Math.max(h0+.3,(end+run)*hl+.05),dy=Math.abs(d.y);
     out[k]=E0.clone().add(d.clone().multiplyScalar(end));
-    g.scale.set(h1-h0,Math.max(.3,run*dy+.15),gt);
-    g.position.copy(E0).add(hd.clone().multiplyScalar((h0+h1)/2));g.position.y=E0.y+d.y*(end+run/2);
+    var gh=Math.max(.3,run*dy+.15),gy=E0.y+d.y*(end+run/2);
+    // (at the bottom of a beam — a strut under a cantilever, ИР КМ3 л.15 узел 13 — its top edge on the face, not 15 mm into it)
+    if(hit.n&&Math.abs(hit.n.y)>.9){var fy=E0.y+d.y*face;gy=d.y<0?Math.min(gy,fy-gh/2):Math.max(gy,fy+gh/2)}
+    g.scale.set(h1-h0,gh,gt);
+    g.position.copy(E0).add(hd.clone().multiplyScalar((h0+h1)/2));g.position.y=gy;
     var rk3=dia&&riskShift(c,v,side,dia);
     if(dia&&!ownBolts)boltRow(dia).forEach(function(s){var q=E0.clone().add(d.clone().multiplyScalar(end+s));if(rk3)q.add(rk3);addBolt(c,q,side,dia,gt+legT(c))})
    });
@@ -2143,7 +2159,7 @@ window.irThreeSchemeView=(function(){
    if(cols.length||posts.length)list.forEach(function(c){
     if(c.ft!=="deck"||!c.id||c.lay&&number(c.lay.arc_r_mm)>0)return;
     var p=memberPoints(c),a=p[0],b=p[p.length-1],d=new T.Vector3(b.x-a.x,0,b.z-a.z),len=a.distanceTo(b);if(d.length()<.1)return;d.normalize();
-    var w=Math.max(.3,(number(c.fd)||1000)/1000),side=new T.Vector3(d.z,0,-d.x),y=(a.y+b.y)/2,out=[];
+    var w=deckWidth(c),side=new T.Vector3(d.z,0,-d.x),y=(a.y+b.y)/2,out=[];
     posts.forEach(function(k){
      var px=k.x-a.x,pz=k.z-a.z,u=px*d.x+pz*d.z,v=px*side.x+pz*side.z+w/2;
      if(k.y>y-.03&&k.y<y+.04&&u>-k.r&&u<len+k.r&&v>-k.r&&v<w+k.r)guardLift.set(k.id,Math.max(guardLift.get(k.id)||0,y+.04-k.y))
@@ -2349,6 +2365,10 @@ window.irThreeSchemeView=(function(){
      var b=cut.U.dot(thr.U),den=1-b*b;if(den<.06)continue;
      var w=cut.o.clone().sub(thr.o),d=cut.U.dot(w),e=thr.U.dot(w),s=(b*e-d)/den,t=(e-b*d)/den;
      if(t<thr.s0||t>thr.s1||s<.1||s>cut.s1-.1)continue;
+     // (one ending in the other's body frames into it, it does not run through: a stringer under a landing beam, the
+     // beam of a landing starting at another — ИР КМ3 л.15, Б3 cut in two at the end of Кр1 under it; it is cut at the
+     // face itself, trimSegment)
+     if(!thr.m.col&&(t<thr.s0+Math.max(cut.x1-cut.x0,cut.y1-cut.y0)/2+.01||t>thr.s1-Math.max(cut.x1-cut.x0,cut.y1-cut.y0)/2-.01))continue;
      var P=cut.o.clone().add(cut.U.clone().multiplyScalar(s)),rel=P.clone().sub(thr.o),x=rel.dot(thr.X),y=rel.dot(thr.Y);
      if(x<thr.x0+.005||x>thr.x1-.005||y<thr.y0+.005||y>thr.y1-.005)continue;
      // (out of the body each way along the cut member)
@@ -2612,7 +2632,7 @@ window.irThreeSchemeView=(function(){
     // (a girder on seats cut aslant at its ends: the whole section between the cuts, its ends addSeats draws)
     var seatEnds=[segments[0][0].clone(),segments[segments.length-1][1].clone()],sbv=segments.length===1?seatBevels(c):null;
     if(sbv){var su=seatEnds[1].clone().sub(seatEnds[0]).normalize();segments=[[seatEnds[0].clone().add(su.clone().multiplyScalar(sbv[0]?sbv[0][0]:0)),seatEnds[1].clone().sub(su.clone().multiplyScalar(sbv[1]?sbv[1][0]:0))]]}
-    addDrill(c,extra);addPlates(c,extra);addGussets(c,extra);addCuts(c,extra,[segments[0][0],segments[segments.length-1][1]]);addPlaced(c,extra);addSeats(c,extra,seatEnds);
+    stairFootParts(c,extra);addDrill(c,extra);addPlates(c,extra);addGussets(c,extra);addCuts(c,extra,[segments[0][0],segments[segments.length-1][1]]);addPlaced(c,extra);addSeats(c,extra,seatEnds);
     extra.forEach(function(m){m.userData.memberId=id;steel.add(m);allMeshes.push(m);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(m)});
     segments.forEach(function(points){
      if(!sectionOf(c.profile_name||c.profileName,c.profile_standard))conventional.add(id);
@@ -2627,6 +2647,7 @@ window.irThreeSchemeView=(function(){
      var mesh=new T.Mesh(addGeometry(T,meshGeo,c),baseMaterial(c)),dk=deckAngle(c,dir);
      mesh.position.copy(points[0]);mesh.scale.z=dist(points[0],points[1]);
      mesh.quaternion.copy(bodyQuat(c,points[1].clone().sub(points[0]).normalize()));
+     cutEnds(c,id,mesh,points);
      // (the angle of a deck's frame turned half round its line: the heel at the top, the flat leg across the line)
      if(dk){mesh.position.add(new T.Vector3(1,0,0).applyQuaternion(mesh.quaternion).multiplyScalar(dk.b/2000)).add(new T.Vector3(0,1,0).applyQuaternion(mesh.quaternion).multiplyScalar(dk.h/2000));
       mesh.quaternion.multiply(new T.Quaternion().setFromAxisAngle(zAxis,Math.PI))}
@@ -2707,7 +2728,10 @@ window.irThreeSchemeView=(function(){
   // АР and is not drawn without it: the plate shows what the post stands on.
   // The thickness of a deck: a plate its profile names (КМ3 л.49 «Н1 −Риф.5» — a checkered sheet 5 mm, «−6», «ПВ 508»
   // no), else a grating 40 mm. Drawn 40 mm a sheet of 5 stood 35 mm over the beams it lies on.
-  function deckThick(c){var m=/^\s*[−-]?\s*(?:Риф\.?|Ромб\.?|Чеч\.?)?\s*(\d+(?:[.,]\d+)?)\s*(?:мм)?\s*$/i.exec(String(c.profile_name||c.profileName||"")),t=m?number(m[1].replace(",","."))/1000:0;return t>=.002&&t<=.03?t:.04}
+  // (a welded grating «Настил сварной 34.3×101.6/30×3» — as high as its bearing bars, 30)
+  function deckThick(c){var s=String(c.profile_name||c.profileName||""),m=/^\s*[−-]?\s*(?:Риф\.?|Ромб\.?|Чеч\.?)?\s*(\d+(?:[.,]\d+)?)\s*(?:мм)?\s*$/i.exec(s),g=/\/\s*(\d{2,3})\s*[×xх]\s*\d/.exec(s),t=m?number(m[1].replace(",","."))/1000:g?number(g[1])/1000:0;return t>=.002&&t<=.06?t:.04}
+  // A deck as wide as its record (a tread of a stair, С1 800×250: 250; not less than 100 mm).
+  function deckWidth(c){return Math.max(.1,(number(c.fd)||1000)/1000)}
   function footPlateSize(b){
    var m=/(\d+(?:[.,]\d+)?)\s*[×xх*]\s*(\d+)\s*[×xх*]\s*(\d+)/.exec(String(b&&b.plate||"")),v=b&&b.toward_mm;
    if(!m||!Array.isArray(v)||v.length<3)return null;
@@ -2722,6 +2746,35 @@ window.irThreeSchemeView=(function(){
    plate.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(side,up,d));
    plate.position.copy(a).add(d.clone().multiplyScalar(f.l/2-.025)).add(up.clone().multiplyScalar(f.t/2));
    plate.userData.memberId=id;steel.add(plate);allMeshes.push(plate);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(plate)
+  }
+  // A stringer of a stair standing on its plate at the ground (ИР КМ3 л.15, узел 7: the foot of Кр1 [16П cut level on a
+  // plate −10×150×350 at −0,100, two anchors СРБ 16×150 through it): base.plate_mm [across, along, t] of a sloped member —
+  // the plate under its lower end along its run, the top of the plate at the end, the anchors beside the stringer in the
+  // middle of the plate (base.anchors {count, d_mm}); the body cut level on the plate (cutEnds). Cut square it went 57 mm
+  // into the plate and the ground with its lower corner and stood on the other.
+  function stairFoot(c){
+   var pm=c.base&&c.base.plate_mm;if(c.geometryType==="column"||c.ft||!Array.isArray(pm))return null;
+   var p=memberPoints(c),a=p[0],b=p[p.length-1],lo=a.y<=b.y?a:b,hi=a.y<=b.y?b:a,run=new T.Vector3(hi.x-lo.x,0,hi.z-lo.z);
+   var w=number(pm[0])/1000,l=number(pm[1])/1000,t=number(pm[2])/1000;
+   return hi.y-lo.y>.3&&run.length()>.1&&w>0&&l>0&&t>0&&t<.06?{at:lo,u:run.normalize(),w:w,l:l,t:t}:null
+  }
+  function stairFootParts(c,parts){
+   var f=stairFoot(c);if(!f)return;var side=boltY.clone().cross(f.u).normalize(),pm=c.base.plate_mm;
+   parts.push(partTag(plateBox(c,f.at.clone().add(new T.Vector3(0,-f.t/2,0)),side,boltY,f.u,f.w,f.t,f.l),"опорная плита","−"+pm[2]+"×"+pm[0]+"×"+pm[1]));
+   var an=c.base.anchors||{},n=Math.min(4,Math.max(0,Math.round(number(an.count)))),d=number(an.d_mm)/1000;
+   for(var i=0;i<n&&d>0;i++)addBolt(c,f.at.clone().add(side.clone().multiplyScalar(n>1?(i/(n-1)-.5)*(f.w-.05):0)).add(new T.Vector3(0,-f.t/2,0)),boltY,d,f.t,"node")
+  }
+  // (an end of the body in its plane — the level of the plate under the foot, the face a stringer is welded to: the vertices
+  // of that end slid along the member onto it)
+  function cutEnds(c,id,mesh,points){
+   var f=stairFoot(c),L=mesh.scale.z,qi=mesh.quaternion.clone().invert(),g=null;if(!(L>0))return;
+   [0,1].forEach(function(k){
+    var pl=f&&points[k].distanceTo(f.at)<.05?{P:f.at,n:boltY}:endPlanes.get(id+":"+k);if(!pl)return;
+    var n=pl.n.clone().applyQuaternion(qi);if(Math.abs(n.z)<.2)return;var o=pl.P.clone().sub(mesh.position).applyQuaternion(qi).dot(n);
+    if(!g)g=mesh.geometry.clone();var pos=g.attributes.position;
+    for(var i=0;i<pos.count;i++)if(Math.abs(pos.getZ(i)-k)<1e-6)pos.setZ(i,(o-pos.getX(i)*n.x-pos.getY(i)*n.y)/n.z/L)
+   });
+   if(!g)return;g.attributes.position.needsUpdate=true;g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();mesh.geometry=g
   }
   // The base plate of a column under its foot (with the frame, seen from any distance: without it a column stood in the
   // air) and, under a base at the ground (up to +0.300), a conditional concrete footing — the footings are of the КЖ, not
@@ -3711,7 +3764,7 @@ window.irThreeSchemeView=(function(){
    // The deck lies on its beams: its level is the top of the beams under it (src/ai-montage-plan.js) — drawn about it, it
    // went 20 mm into them. Round a column standing through it the grating is cut (deckCuts).
    if(c.ft==="deck"){
-    var dt=deckThick(c),dw=Math.max(.3,(number(c.fd)||1000)/1000),arcR=c.lay&&number(c.lay.arc_r_mm)>0?number(c.lay.arc_r_mm)/1000:0,dg=null,dmat=baseMaterial(c);
+    var dt=deckThick(c),dw=deckWidth(c),arcR=c.lay&&number(c.lay.arc_r_mm)>0?number(c.lay.arc_r_mm)/1000:0,dg=null,dmat=baseMaterial(c);
     if(arcR>len&&arcR>=dw/2){
      var ds=new T.Shape(),back=arcR-len,dn=24;ds.moveTo(-dw/2,0);ds.lineTo(dw/2,0);
      for(var di=0;di<=dn;di++){var dx=dw/2-dw*di/dn;ds.lineTo(dx,Math.max(0,Math.sqrt(arcR*arcR-dx*dx)-back))}
