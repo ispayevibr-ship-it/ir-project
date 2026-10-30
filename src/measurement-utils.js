@@ -19,9 +19,11 @@
  const workKind=raw=>parseWork(raw)?.kind||null;
  const formatName=(raw,context="base")=>{
   const parsed=parseWork(raw);
-  if(!parsed)return String(raw??"");
-  const noun=parsed.kind==="metal"&&parsed.suffix&&context==="base"?"Металлоконструкции":
-   labels[parsed.kind][context==="mount"?1:context==="delivery"?2:0];
+  // The name of a work type as the engineer wrote it: «Монтаж металлоконструкций» stays so in «Виды работ», the cards
+  // of the marks register and the lists (30.10.2026 «почему я пишу … Монтаж металлоконструкций, а выдает
+  // Металлоконструкция»); only a report (mounted) and a delivery (supplied) name it by what was done.
+  if(!parsed||context==="base")return String(raw??"");
+  const noun=labels[parsed.kind][context==="mount"?1:context==="delivery"?2:0];
   return noun+parsed.suffix
  };
  window.irWorkNames={category:workKind,format:formatName,base:v=>formatName(v),mount:v=>formatName(v,"mount"),delivery:v=>formatName(v,"delivery")};

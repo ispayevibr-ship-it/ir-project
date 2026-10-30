@@ -820,8 +820,8 @@ window.irThreeSchemeView=(function(){
     // The mark of a level: a triangle standing on its apex at the level, the elevation over the shelf beside it.
     line(v(x+s,y,z),v(x+s*.7,y+.45,z));line(v(x+s,y,z),v(x+s*1.3,y+.45,z));line(v(x+s*.7,y+.45,z),v(x+s*1.3,y+.45,z));
     levelTags.push(tag(axisLayer,"ir-three-dim-label total level",l[1],v(x+s*2,y+.9,z),"levels"))
-   });
-   levelTags.push(tag(axisLayer,"ir-three-dim-label total level","Высота "+fmt(top)+" мм",v(x+s*2.4,h/2,z),"levels"))
+   })
+   // (no «Высота … мм» over the middle of the ruler: it hung over the model, the marks say it — the engineer 30.10.2026)
   }
   var meshGeo=new Map(),mats=new Map(),allMeshes=[],rayTargets=[],dataById=new Map(),meshesById=new Map(),labels=[];
   var selectedMat=new T.MeshStandardMaterial({color:0x1668ea,emissive:0x07396d,emissiveIntensity:.15,metalness:.25,roughness:.42,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-4});
@@ -1816,6 +1816,35 @@ window.irThreeSchemeView=(function(){
   var endPlanes=new Map();
   // (a sloped one: the horizontal part of a bent stringer along a landing is a beam of the landing)
   function stringer(c){return role(c)==="stairs"&&c.geometryType!=="column"&&Math.abs(number(c.z2)-number(c.z0))>300&&/косоур|тетив/i.test(String(c.mark_name||c.title||""))}
+  // A brace or a strut of a bracing lying in a sloped plane (the bottom chords of trusses with a broken chord, ИР КМ1 л.10,
+  // 23, 24: «Сгф1», «Рпф1» at the chord over row Д, 1:3) ends at the side of the chord on the gusset of the bracing
+  // (фасонка t16 С345; узел 1 «проекция по уклону», разрез 30-30): in that plane, welded to the chord, one on each side of
+  // it for all the members there, the bolts across it through the legs lying on it. Lying flat at the level of each, a
+  // plate of its own, the bolts upright through the legs in the slope, their heads and nuts stood off the plate (the
+  // engineer, 30.10.2026: «как может гайка по середине быть? узел неправильный»).
+  function slopeGusset(c,a,b,E0,d,v,face,cut,dia,hit,pn,host,parts){
+   var U=hit.body.U.clone().normalize(),out=U.clone().cross(pn).normalize();if(out.dot(d)<0)out.negate();
+   var fp=E0.clone().add(d.clone().multiplyScalar(face)),gt=gussetT(c),lt=legT(c),reg=host.slopes||(host.slopes=[]),g=null;
+   // (one plate on that side of the chord for every member ending there in that plane: the same plane, the same face
+   // line — whichever piece of the chord each one found)
+   reg.forEach(function(q){if(g||q.out.dot(out)<.9||q.pn.dot(pn)<.99)return;var r=fp.clone().sub(q.o);
+    if(Math.abs(r.dot(q.pn))<.015&&Math.abs(r.dot(q.out))<.05&&Math.abs(r.dot(q.U))<.8)g=q});
+   if(!g){g={U:U,out:out,pn:pn,by:pn.clone().cross(out),o:fp.clone(),pts:[],geo:null,mesh:new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(c))};
+    g.mesh.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(g.out,g.by,pn));g.mesh.position.copy(g.o);g.mesh.userData.gusset=true;reg.push(g);parts.push(g.mesh)}
+   // (its outline: from the face of the chord along the member past its bolts, as wide as its legs lying on it)
+   var pb=pieceBox(c,a,b),side=pb&&pb.Y?pb.Y.clone():pn.clone().cross(d).normalize(),y0=pb?pb.y0-.02:-.1,y1=pb?pb.y1+.02:.1;
+   var reach=cut-face+(dia?boltRow(dia)[1]+2*dia:.2)+.02,du=d.dot(g.out);
+   var loc=function(P){var r=P.clone().sub(g.o);return[r.dot(g.out),r.dot(g.by)]};
+   [y0,y1].forEach(function(y){var P=fp.clone().add(side.clone().multiplyScalar(y)),u=P.clone().sub(g.o).dot(g.out);
+    g.pts.push(loc(Math.abs(du)>.05?P.clone().sub(d.clone().multiplyScalar(u/du)):P));g.pts.push(loc(P.clone().add(d.clone().multiplyScalar(reach))))});
+   var hull=hull2(g.pts);
+   if(hull.length>=3){var sh=new T.Shape();hull.forEach(function(q,i){i?sh.lineTo(q[0],q[1]):sh.moveTo(q[0],q[1])});sh.closePath();
+    var hg=new T.ExtrudeGeometry(sh,{depth:gt,bevelEnabled:false,curveSegments:1});hg.translate(0,0,-gt/2);if(g.geo)g.geo.dispose();g.geo=hg;g.mesh.geometry=hg}
+   // (the bolts across the plate through the legs on it: a pair of angles both sides of it — the package leg, plate, leg
+   // about the plate's middle; one angle — plate and leg, its middle half a leg to the angle's side)
+   var rk=dia&&riskShift(c,v,pn,dia),ang=braceAngle(c,v),one=ang&&!ang.pair?ang.X.clone().multiplyScalar(lt/2):null;
+   if(dia)boltRow(dia).forEach(function(s){var q=E0.clone().add(d.clone().multiplyScalar(cut+s));if(rk)q.add(rk);if(one)q.add(one);addBolt(c,q,pn,dia,gt+(ang&&ang.pair?2*lt:lt))})
+  }
   function trimSegment(c,id,a,b,host,parts,outer){
    var v=b.clone().sub(a),L=v.length();if(L<.3)return[a,b];v.divideScalar(L);
    endPlanes.delete(id+":0");endPlanes.delete(id+":1");
@@ -1929,7 +1958,9 @@ window.irThreeSchemeView=(function(){
      // 27.10.2026 «почему связь сквозь балки тормозной выходит?»). At a beam, the end in its upper or lower 200 mm: in the
      // plane of that flange, welded to its edge (КМ: фасонка t10 к полке тормозной балки и подкрановой балки), the bolts
      // through it and the leg of the brace under (over) it.
-     var nn=hit.n&&Math.abs(hit.n.y)<.5?hit.n.clone().setY(0).normalize():null;
+     var nn=hit.n&&Math.abs(hit.n.y)<.5?hit.n.clone().setY(0).normalize():null,bn=bracePlane.get(String(id));
+     if(nn&&bn&&!real&&!hit.col&&hit.body&&Math.abs(hit.body.U.y)<.7){var pn=bn.clone().normalize();if(pn.y<0)pn.negate();
+      if(pn.y<.995&&pn.y>.5){var gi=parts.indexOf(g);if(gi>=0)parts.splice(gi,1);slopeGusset(c,ends[0][0],ends[1][0],E0,d,v,face,cut,dia,hit,pn,host,parts);return}}
      if(nn){
       var fp=E0.clone().add(d.clone().multiplyScalar(face)),lvl=fp.y,lt=legT(c);
       if(!hit.col&&hit.top!==undefined){if(fp.y>=hit.top-.2)lvl=hit.top-hit.tf/2;else if(fp.y<=hit.bot+.2)lvl=hit.bot+hit.tf/2}
