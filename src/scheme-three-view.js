@@ -1939,6 +1939,18 @@ window.irThreeSchemeView=(function(){
   // stops at the side of the first; alone — flush with the far face of the column. Conventional, not by the КМД.
   var seatTop=new Map(),seatEnd=new Map(),seats=[];
   function topOf(c){var id=String(c.id||"");return seatTop.has(id)?seatTop.get(id):c.z2}
+  // A sloped rolled beam the analysis gave as a brace (Б1 I60Ш1 of a roof falling 10 %) is drawn as a beam: at the top of
+  // the column it got a brace's flat gusset 400 × 400 and two bolts down its middle, upright, through its web (the
+  // engineer, 30.10.2026, «болты прям в ребро заходят?»). Braces and ties, angles and tubes, members steeper than 30 %
+  // (stair flights), the members of platforms, stairs and guards stay braces; only the drawing changes, not the scheme.
+  function slopedBeams(list){
+   list.forEach(function(c){
+    if(c.geometryType!=="brace"||/^(ties|platforms|stairs|guards)$/.test(role(c)))return;
+    var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);if(!sec||sec.shape!=="ibeam"&&sec.shape!=="channel")return;
+    var run=Math.hypot(number(c.x2)-number(c.x),number(c.y2)-number(c.y)),rise=Math.abs(number(c.z2)-number(c.z0));
+    if(run>0&&rise<=.3*run)c.geometryType="beam"
+   })
+  }
   function seatOnTops(list){
    seatTop.clear();seatEnd.clear();seats=[];
    var C=2000,cells=new Map(),byCol=new Map();
@@ -2319,7 +2331,7 @@ window.irThreeSchemeView=(function(){
    allMeshes=[];boltList=[];dataById.clear();meshesById.clear();failures=0;conventional.clear();drillCache.clear();upperCache.clear();seatCache.clear();
    labels.forEach(function(l){l.el.remove()});labels=[];
    elems=Array.isArray(list)?list:[];
-   branchTurns(elems);seatOnTops(elems);hangTies(elems);seatLevels(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);
+   slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);seatLevels(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);
    var host=jointHosts(elems);findCrossings(elems,host);
    // (trusses and two-branch columns first: the members coming to them stop at their chords and branches)
    var lattice=function(c){return Boolean(c.truss&&Array.isArray(c.truss.members)&&c.truss.members.length||c.column&&Array.isArray(c.column.members)&&c.column.members.length)};
@@ -2846,11 +2858,13 @@ window.irThreeSchemeView=(function(){
    lines.forEach(function(c){
     [[number(c.x),number(c.y),number(c.z0),"начало"],[number(c.x2),number(c.y2),number(c.z2),"конец"]].forEach(function(e){
      var x=e[0],y=e[1],z=e[2],col=null;
-     near(colCells,x,y,800,function(k){var d=Math.hypot(number(k.x)-x,number(k.y)-y);if(d<=800&&z>=number(k.z0)-300&&z<=number(topOf(k))+600&&(!col||d<col.d))col={d:d,k:k}});
+     [false,true].forEach(function(over){if(!col)near(colCells,x,y,800,function(k){var d=Math.hypot(number(k.x)-x,number(k.y)-y);if(d<=800&&z>=number(k.z0)-300&&z<=number(over?k.z2:topOf(k))+600&&(!col||d<col.d))col={d:d,k:k}})});
      // (a member over the top of a column, not on it, does not adjoin its side: a purlin lying on the beam that ends at
      // the column — the engineer, 28.10.2026: «на чем держится прогон данный?», the card said «Примыкание к колонне»)
+     // (a column under a seated beam ends under it; what lies on that beam's end over the column is still of its top —
+     // looked for by the column's own top when no column is near by its seat)
      if(col){
-      var k=col.k,kt=number(topOf(k)),top=Math.abs(z-kt)<=450||seatTop.has(String(k.id))&&z>kt&&z-kt<=650;
+      var k=col.k,kt=number(topOf(k)),top=Math.abs(z-kt)<=450||seatTop.has(String(k.id))&&z>kt&&(z-kt<=650||z<=number(k.z2)+450);
       // (nor beside a column going on up past it, when it lies on a beam there: a purlin of a low roof on the beam at the
       // tall framing column — the engineer, 30.10.2026, «на чем держится данный прогон?», the card «Примыкание к колонне»)
       var ly=!top&&onLine(x,y,z,c);
