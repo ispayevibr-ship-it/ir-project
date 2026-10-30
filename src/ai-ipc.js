@@ -163,6 +163,12 @@ handle("ai-montage:journal-add",(_e,{objectId,elementId,comment,objectName,actio
  handle("ai-montage:chat-journal",()=>chat.journal());
  // The page of the task on claude.ai, where its key is made: only that site opens from the chat.
  handle("ai-montage:chat-open",(_e,{url}={})=>{const u=String(url||chat.link().page);if(!/^https:\/\/claude\.ai\//.test(u))throw Error("Открывается только claude.ai");return shell.openExternal(u)});
+ // Исполнительная документация: documents of quality of the object and the export to Word / PDF.
+ const execDocs=require("./executive-docs-ipc").createExecutiveDocs({getUserDataPath,dialog,shell,getWindow});
+ handle("ai-documents:exec-cert-add",(_e,v={})=>execDocs.add(v));
+ handle("ai-documents:exec-cert-open",(_e,v={})=>execDocs.open(v));
+ handle("ai-documents:exec-cert-remove",(_e,v={})=>execDocs.remove(v));
+ handle("ai-documents:exec-export",(_e,v={})=>execDocs.exportDocs(v));
  handle("ai-knowledge:base",()=>base.all().map(e=>({id:e.id,title:e.title,project:e.project,files:e.files.length,origin:e.origin,source:e.source,created:e.created})));
  return{documents,engine}
 }

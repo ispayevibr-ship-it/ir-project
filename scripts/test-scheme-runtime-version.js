@@ -25,7 +25,7 @@ const mk=(doc,latest)=>{
  const wrongToken=mk(makeDoc("17143",null,null),"17144");
  assert.match(await wrongToken.detectOldTabCode(),/устаревший JavaScript/);
  assert.match(current.runtimeTokenFromHtml(html),/^\d+$/);
- assert(shellHTML.includes("tabs-shell.js?v=1106900"));
+ assert(shellHTML.includes("tabs-shell.js?v=1109400"));
  assert(viewer.includes('id="irThreeAdd"'),"the 3D view has its single Add control");
  assert(!viewer.includes('id="irbStart"'),"obsolete sidebar Add control is absent");
  assert(shell.includes('getElementById?.("irbStart")'),"obsolete cached tabs can still be recognized");

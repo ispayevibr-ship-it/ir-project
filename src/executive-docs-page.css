@@ -1,0 +1,59 @@
+.exec-docs-page{padding:24px 32px 60px;font-size:12px}
+.exd-card{margin:0 0 14px;padding:16px 18px;border:1px solid #dce5eb;border-radius:12px;background:#fff}
+.exd-card-head{display:flex;align-items:baseline;gap:12px;margin:0 0 12px;width:100%;background:none;border:0;padding:0;text-align:left;font:inherit;color:inherit}
+.exd-card-head h2{margin:0;font-size:15px;color:#22394a}
+.exd-card-head small{flex:1;font-size:10px;color:#8191a0}
+.exd-toggle{cursor:pointer}.exd-toggle span{color:#8191a0;font-size:12px}
+.exd-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.exd-grid label{display:flex;flex-direction:column;gap:4px;font-size:10px;color:#5b6d7a}
+.exd-grid label.wide{grid-column:span 2}
+.exd-grid input,.exd-grid select,.exd-cert-top select{height:34px;border:1px solid #d5e0e7;border-radius:7px;padding:0 10px;font-size:11px;background:#fff}
+.exd-grid input:disabled{background:#f6f9fb;color:#6a7b88}
+.exd-person{padding:10px 12px;margin-bottom:8px;border:1px solid #e3eaef;border-radius:10px;background:#fbfdff}
+.exd-person.off{opacity:.55}.exd-person.off .exd-grid{display:none}
+.exd-person .exd-grid{margin:8px 0 0}
+.exd-check{display:flex;align-items:center;gap:6px;font-size:12px;color:#22394a;cursor:pointer}
+.exd-check small{color:#8191a0;font-weight:400;font-size:10px}
+.exd-acts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-bottom:12px}
+.exd-act{display:flex;gap:8px;align-items:flex-start;padding:9px 10px;border:1px solid #e3eaef;border-radius:9px;cursor:pointer;background:#fff}
+.exd-act.on{border-color:#8bb6ef;background:#f3f8ff}
+.exd-act b{display:block;font-size:11px;color:#22394a;line-height:1.3}
+.exd-act small{display:block;margin-top:3px;font-size:9px;color:#8a99a5}
+.exd-summary{margin:0 0 10px;font-size:11px;color:#4b5d6b}
+.exd-warn{margin:0 0 10px;padding:9px 12px;border-radius:8px;background:#fff7e8;border:1px solid #f1d39b;color:#80520c;font-size:10px}
+.exd-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.exd-actions .exd-pdf{background:#22394a}
+.exd-note{font-size:10px;color:#3b6b4c;word-break:break-all}
+.exd-bad{color:#b4321f}
+.exd-cert-top{display:flex;align-items:center;gap:14px;margin-bottom:12px}
+.exd-progress{flex:1;font-size:11px;color:#4b5d6b}
+.exd-bar{height:6px;margin-top:5px;border-radius:4px;background:#edf1f4;overflow:hidden}.exd-bar i{display:block;height:100%;background:#1a8a4a}
+.exd-group{margin-bottom:14px}
+.exd-group-head{display:flex;align-items:baseline;gap:10px;padding:6px 0;border-bottom:1px solid #e3eaef;margin-bottom:6px}
+.exd-group-head b{font-size:12px;color:#22394a}.exd-group-head small{flex:1;font-size:10px;color:#8191a0}
+.exd-item{padding:8px 10px;border:1px solid #edf1f4;border-radius:9px;margin-bottom:6px}
+.exd-item-head{display:flex;gap:9px;align-items:flex-start}
+.exd-item-head>div:not(.exd-item-act){flex:1}
+.exd-item-head b{font-size:11px;color:#22394a}
+.exd-item-head small{display:block;font-size:9px;color:#8a99a5;margin-top:2px}
+.exd-dot{width:9px;height:9px;margin-top:3px;border-radius:50%;background:#e0a33a;flex:none}
+.exd-item.ok .exd-dot{background:#1a8a4a}.exd-item.hidden{opacity:.5}.exd-item.hidden .exd-dot{background:#b8c4cc}
+.exd-item-act{display:flex;gap:5px;flex:none}
+.exd-mini{font-size:10px;padding:5px 9px;border-radius:6px;border:1px solid #c4d8f3;background:#eef5ff;color:#1769e0;cursor:pointer}
+.exd-mini.ghost{background:#fff;border-color:#dce5eb;color:#5b6d7a}
+.exd-doc{display:flex;align-items:center;gap:8px;margin:5px 0 0 18px;font-size:10px;color:#3b5060}
+.exd-doc span{flex:1}
+.exd-link{border:0;background:none;color:#1769e0;cursor:pointer;font-size:10px;text-decoration:underline;padding:0}
+.exd-nofile{color:#a07a2c}
+.exd-x{width:22px;height:22px;padding:0;border-radius:5px;border:1px solid #f0c9c2;background:#fff;color:#b4321f;cursor:pointer}
+.exd-docform{margin:8px 0 2px 18px;padding:10px;border:1px solid #c4d8f3;border-radius:9px;background:#fbfdff}
+.exd-docform .exd-grid{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:8px}
+.exd-file{display:flex;align-items:center;gap:6px;height:34px;font-size:11px;color:#3b5060}
+.exd-form-act{display:flex;gap:8px}
+.exd-empty{font-size:10px;color:#9aa7b1;padding:4px 0}
+.exd-help{margin:12px 2px 0;font-size:10px;color:#8291a0;line-height:1.5}
+@media (max-width:1000px){.exd-acts{grid-template-columns:1fr 1fr}.exd-grid{grid-template-columns:1fr 1fr}}
+.exec-docs-page input[type=checkbox]{width:16px;height:16px;min-width:0;flex:none;margin:1px 0 0;padding:0}
+.exec-docs-page .exd-act,.exec-docs-page .exd-check{display:flex;flex-direction:row;justify-content:flex-start;text-align:left}
+.exec-docs-page .exd-act span{flex:1;text-align:left}
+.exd-progress{min-width:220px}.exd-cert-top select{max-width:280px}
