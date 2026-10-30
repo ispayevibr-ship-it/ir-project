@@ -857,9 +857,9 @@ window.irThreeSchemeView=(function(){
    var color=baseColor(c),metal=plannedMetal(c),key=metal?"metal":pale(c)?"p"+color:color;
    if(!mats.has(key)){
     var env=metal?metalMap():null;
-    mats.set(key,metal?new T.MeshStandardMaterial(env?{color:color,metalness:.85,roughness:.3,envMap:env,envMapIntensity:1.15,side:T.DoubleSide}:{color:color,metalness:.35,roughness:.42,side:T.DoubleSide}):
+    mats.set(key,metal?new T.MeshStandardMaterial(env?{color:color,metalness:.85,roughness:.3,envMap:env,envMapIntensity:1.15,side:T.DoubleSide,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1}:{color:color,metalness:.35,roughness:.42,side:T.DoubleSide,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1}):
      pale(c)?new T.MeshStandardMaterial({color:color,metalness:.05,roughness:.8,side:T.DoubleSide,transparent:true,opacity:.36,depthWrite:false}):
-     new T.MeshStandardMaterial({color:color,metalness:.13,roughness:.64,side:T.DoubleSide}))
+     new T.MeshStandardMaterial({color:color,metalness:.13,roughness:.64,side:T.DoubleSide,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1}))
    }
    return mats.get(key)
   }
@@ -3738,6 +3738,27 @@ window.irThreeSchemeView=(function(){
    bg.setIndex(new T.BufferAttribute(idx.subarray(0,i),1));bg.computeBoundingSphere();
    var bm=new T.Mesh(bg,mat);bm.matrixAutoUpdate=false;return bm
   }
+  // The outlines of the steel (the engineer, 30.10.2026: «более четкие контуры в 3д сделай у металлоконструкций, а то
+  // будто сливается все»): the edges of its pieces, where their faces meet at 28° and more (not the facets of a root
+  // fillet), in thin dark lines over the near cells — the far ones, drawn by boxes, without them. The edges of a geometry
+  // once (a section is shared by the members, stretched along its length: its edges stay its edges); not the panels and
+  // their trims (their joints are drawn), not the see-through, the holes and the footings.
+  var edgeCache=new WeakMap(),edgeMat=new T.LineBasicMaterial({color:0x1f2a33,transparent:true,opacity:.5,depthWrite:false});
+  function edgesOf(g){
+   var e=edgeCache.get(g);if(!e){var eg=new T.EdgesGeometry(g,28);e=eg.attributes.position.array;eg.dispose();edgeCache.set(g,e)}
+   return e
+  }
+  function outlined(m){
+   var u=m.userData,c=dataById.get(String(u.memberId))||{};
+   return!(u.hole||u.footing||u.shell||u.roof||m.material&&m.material.transparent||c.ft==="panel"||c.ft==="trim")
+  }
+  function mergeEdges(list){
+   var n=0;list.forEach(function(m){n+=edgesOf(m.geometry).length});if(!n)return null;
+   var pos=new Float32Array(n),v=0,p=new T.Vector3();
+   list.forEach(function(m){var a=edgesOf(m.geometry),e=m.matrixWorld;for(var k=0;k<a.length;k+=3){p.set(a[k],a[k+1],a[k+2]).applyMatrix4(e);pos[v++]=p.x;pos[v++]=p.y;pos[v++]=p.z}});
+   var bg=new T.BufferGeometry();bg.setAttribute("position",new T.BufferAttribute(pos,3));bg.computeBoundingSphere();
+   var l=new T.LineSegments(bg,edgeMat);l.matrixAutoUpdate=false;l.renderOrder=1;return l
+  }
   // The box of a member in its own axes: the section's extent along its length.
   function coarse(m){var g=m.geometry;return g.index&&g.index.count<=36||!g.index&&g.attributes.position.count<=36?g:unitBox}
   function coarseMatrix(m){
@@ -3758,12 +3779,15 @@ window.irThreeSchemeView=(function(){
    cells.forEach(function(cell){var c=new T.Vector3(),r=0;cell.list.forEach(function(b){c.add(b.at);b.cell=cell});c.multiplyScalar(1/cell.list.length);
     cell.list.forEach(function(b){r=Math.max(r,b.at.distanceTo(c))});cell.centre=c;cell.radius=r+.3;boltCells.push(cell)});
    groups.forEach(function(byMat,k){
-    var small=k[0]==="s";
+    var small=k[0]==="s",lined=[];
     byMat.forEach(function(list,mat){
      var fine=merge(list,function(m){return m.geometry},function(m){return m.matrixWorld},mat);fine.userData.lod=small?"small":"fine";batches.add(fine);
+     list.forEach(function(m){if(outlined(m))lined.push(m)});
      if(small)return;
      var box=merge(list,coarse,coarseMatrix,mat);box.userData.lod="coarse";box.visible=false;batches.add(box)
-    })
+    });
+    // (its outlines with its pieces: shown and hidden with them, lod)
+    var edges=lined.length?mergeEdges(lined):null;if(edges){edges.userData.lod=small?"small":"fine";edges.userData.edges=true;batches.add(edges)}
    });
    lodAt=null;invalidate()
   }
