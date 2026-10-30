@@ -1212,9 +1212,14 @@ window.irThreeSchemeView=(function(){
     });
     return out
    };
-   // Whether P is within the body of another member (5 mm in).
-   find.inside=function(id,P,skip){
+   // Whether P is within the body of another member (5 mm in). With `at` ({body, d}): not a member ending in that body
+   // that will stop at a face of it — a brace (on its gusset) or one coming across d — as drawn it passes the middle of
+   // that body (Б1 of the crane platform's tower along the column's flange and the brace Вс1 at its node held Б1 coming
+   // between the flanges at the face, its bolts in the air: «гайки точно в ту сторону закручиваются?», 30.10.2026).
+   var within=function(B,Q){var o=Q.clone().sub(B.o),x=o.dot(B.X),y=o.dot(B.Y),s=o.dot(B.U);return x>=B.x0-.02&&x<=B.x1+.02&&y>=B.y0-.02&&y<=B.y1+.02&&s>=B.s0-.02&&s<=B.s1+.02};
+   find.inside=function(id,P,skip,at){
     return(cells.get(Math.floor(P.x/C)+","+Math.floor(P.z/C))||[]).some(function(h){if(h.id===id||h===skip)return false;var o=P.clone().sub(h.o),x=o.dot(h.X),y=o.dot(h.Y),s=o.dot(h.U);
+     if(at&&(h.m.brace||Math.abs(h.U.dot(at.d))<.7)&&[h.s0,h.s1].some(function(e){return within(at.body,h.o.clone().add(h.U.clone().multiplyScalar(e)))}))return false;
      return x>h.x0+.005&&x<h.x1-.005&&y>h.y0+.005&&y<h.y1-.005&&s>h.s0+.005&&s<h.s1-.005})
    };
    find.made=new Set();find.bodies=bodies;
@@ -1804,6 +1809,36 @@ window.irThreeSchemeView=(function(){
    return room?at:hit.t
   }
   // Whether the section of the member at E (its line u) is within the room between the flanges of the body it comes to.
+  // A beam's end on an angle cleat its sheet draws (joint.cleat: {angle:"L100×63×8", bolts:2, pitch_mm:80, length_mm:160};
+  // ИР КМ3 л.22 узел 4, разрез 10-10: Б1 20Б1 of the crane platform's tower at the column К1 — the angle welded to the
+  // column, 2 bolts М20 across the web of the beam). The sizes of the angle as its sheet writes them.
+  function cleatOf(c){
+   var j=c.joint&&c.joint.cleat;if(!j||typeof j!=="object")return null;
+   var m=/(\d+(?:[.,]\d+)?)\s*[x×х]\s*(\d+(?:[.,]\d+)?)(?:\s*[x×х]\s*(\d+(?:[.,]\d+)?))?/i.exec(String(j.angle||""));if(!m)return null;
+   var A=number(m[1].replace(",",".")),B=m[3]?number(m[2].replace(",",".")):A,t=number((m[3]||m[2]).replace(",","."));if(!(A>0&&B>0&&t>0))return null;
+   return{long:Math.max(A,B)/1000,short:Math.min(A,B)/1000,t:t/1000,n:Math.max(1,Math.min(6,Math.round(number(j.bolts))||2)),pitch:number(j.pitch_mm)/1000,len:number(j.length_mm)/1000,angle:String(j.angle)}
+  }
+  // The cleat at the face sf (from E along d): its long leg along the web of the beam, its short leg on the face, welded;
+  // the bolts across the web through the long leg (a channel's on the back of its web), the beam 10 mm off the face. At the
+  // web of an I or a channel with no room between its flanges (cope: the hit; [20 Б3 at the web of 20Б1 Б1, узел 5) the
+  // member's flanges stop at the other's edges, its web goes on between them to 10 mm off the web, the cleat on it.
+  function cleatJoint(c,E,d,u,sf,cl,parts,cope){
+   var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard),hs=halfSection(c),q=bodyQuat(c,u);
+   var X=new T.Vector3(1,0,0).applyQuaternion(q),Y=new T.Vector3(0,1,0).applyQuaternion(q),dia=boltDia(c)||.02;
+   var tw=sec&&sec.s?sec.s/1000:.006,tf=sec&&sec.t?sec.t/1000:.01,chan=sec&&sec.shape==="channel",xw=chan?-sec.b/2000+tw/2:0,side=chan?-1:1;
+   var y0=-(hs.h-tf),y1=hs.h-tf,mat=baseMaterial(c),box=shared("plate:box",function(){return new T.BoxGeometry(1,1,1)});
+   if(cope){var yc=E.clone().sub(cope.o).dot(cope.Y),dy=Y.dot(cope.Y);
+    if(Math.abs(dy)>.7){var ya=(cope.lo+.005-yc)/dy,yb=(cope.hi-.005-yc)/dy;y0=Math.max(y0,Math.min(ya,yb));y1=Math.min(y1,Math.max(ya,yb))}}
+   var inner=Math.max(.06,y1-y0-.01),ym=(y0+y1)/2,pitch=cl.pitch>0?cl.pitch:3*dia,len=Math.min(inner,cl.len>0?cl.len:pitch*(cl.n-1)+4*dia),n=Math.max(1,Math.min(cl.n,Math.floor((len-2*dia)/pitch)+1));
+   var basis=new T.Matrix4().makeBasis(X,Y,X.clone().cross(Y).dot(d)<0?d.clone().negate():d);
+   var put=function(x0,x1,s0,s1,h,yc,name,pr){var m=new T.Mesh(box,mat);m.quaternion.setFromRotationMatrix(basis);m.scale.set(Math.abs(x1-x0),h,s1-s0);
+    m.position.copy(E).add(d.clone().multiplyScalar((s0+s1)/2)).add(X.clone().multiplyScalar(xw+side*(x0+x1)/2)).add(Y.clone().multiplyScalar(yc));m.userData.plate=true;parts.push(partTag(m,name,pr))};
+   // (x from the web's face out to the cleat's side; s from E along d)
+   if(cope&&y1-y0>=.04)put(-tw/2,tw/2,sf+.01,cope.t,y1-y0,ym,"стенка с подрезкой полок","");
+   put(tw/2,tw/2+cl.t,sf,sf+cl.long,len,ym,"уголок крепления",cl.angle);put(tw/2+cl.t,tw/2+cl.short,sf,sf+cl.t,len,ym,"уголок крепления",cl.angle);
+   var sb=sf+Math.min(cl.long-1.5*dia,Math.max(.01+2*dia,cl.long*.55));
+   for(var i=0;i<n;i++)addBolt(c,E.clone().add(d.clone().multiplyScalar(sb)).add(X.clone().multiplyScalar(xw+side*cl.t/2)).add(Y.clone().multiplyScalar(ym+(i-(n-1)/2)*pitch)),X.clone().multiplyScalar(side),dia,tw+cl.t)
+  }
   function roomAt(c,E,u,hit){
    var hs=halfSection(c),q=bodyQuat(c,u),yc=E.clone().sub(hit.o).dot(hit.Y);
    var ey=Math.abs(new T.Vector3(1,0,0).applyQuaternion(q).dot(hit.Y))*hs.b+Math.abs(new T.Vector3(0,1,0).applyQuaternion(q).dot(hit.Y))*hs.h;
@@ -1851,7 +1886,7 @@ window.irThreeSchemeView=(function(){
    var brace=c.geometryType==="brace"&&!stringer(c)||role(c)==="ties",ends=[[a,v],[b,v.clone().negate()]],out=[a.clone(),b.clone()],onSeat=!brace&&seatOf(c),faced=[false,false],dka=deckAngle(c,v);
    // (the section about P — its line and its corners — in another member's body but skip's)
    var q0=bodyQuat(c,v),hs0=halfSection(c),X0=new T.Vector3(1,0,0).applyQuaternion(q0),Y0=new T.Vector3(0,1,0).applyQuaternion(q0);
-   var blocked=function(P,skip){return[[0,0],[-.9,-.9],[-.9,.9],[.9,-.9],[.9,.9]].some(function(k){return host.inside(id,P.clone().add(X0.clone().multiplyScalar(k[0]*hs0.b)).add(Y0.clone().multiplyScalar(k[1]*hs0.h)),skip)})};
+   var blocked=function(P,skip,at){return[[0,0],[-.9,-.9],[-.9,.9],[.9,-.9],[.9,.9]].some(function(k){return host.inside(id,P.clone().add(X0.clone().multiplyScalar(k[0]*hs0.b)).add(Y0.clone().multiplyScalar(k[1]*hs0.h)),skip,at)})};
    ends.forEach(function(e,k){
     if(outer&&!outer[k])return;
     var hit=host(id,e[0],e[1]),E0=e[0];
@@ -1916,7 +1951,11 @@ window.irThreeSchemeView=(function(){
     var face=Math.min(hit.t,L*.4),cut=Math.min(face+(brace?.1:0),L*.45);
     // (its sheet's end plate goes to the web when the member has room between the flanges)
     // (nor through another member standing between the flanges)
-    var clear=function(){return[.01,.5,1].every(function(f){return!blocked(E0.clone().add(e[1].clone().multiplyScalar(hit.web+.01+(hit.t-hit.web-.01)*f)),hit.body)})};
+    var clear=function(){return[.01,.5,1].every(function(f){return!blocked(E0.clone().add(e[1].clone().multiplyScalar(hit.web+.01+(hit.t-hit.web-.01)*f)),hit.body,{body:hit.body,d:e[1]})})};
+    // (an angle cleat of its sheet: at the web when the member has room between the flanges, else at the face)
+    var cl=!brace&&!onSeat&&!sheetPlate&&!stringer(c)&&cleatOf(c);
+    if(cl){var toWeb=hit.web!==undefined&&clear(),cope=toWeb&&!roomAt(c,E0,v,hit)?hit:null,sf=toWeb?hit.web:face;
+     cleatJoint(c,E0,e[1],v,sf,cl,parts,cope);out[k]=E0.clone().add(e[1].clone().multiplyScalar(cope?cope.t:sf+.01));faced[k]=true;return}
     if(!brace&&!onSeat&&!stringer(c)&&hit.web!==undefined&&clear()){var wj=sheetPlate?roomAt(c,E0,v,hit)?hit.web:null:webJoint(c,E0,e[1],v,hit,parts);
      if(wj!==null){out[k]=E0.clone().add(e[1].clone().multiplyScalar(wj));return}}
     out[k]=E0.clone().add(e[1].clone().multiplyScalar(cut));
