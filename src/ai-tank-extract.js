@@ -228,6 +228,9 @@ function callouts(texts,segments,circle,widthPt,heightPt){
 // stair on its own frame, a ring (spiral) stair along the wall, resting on it, or a straight single flight.
 const STAIR_KIND=s=>/кольцев|винтов|витов|спирал/iu.test(s)?"ring":/шахтн/iu.test(s)?"shaft":/одномаршев|маршев/iu.test(s)?"single":null;
 const STAIR_NAME={ring:"Кольцевая лестница",shaft:"Шахтная лестница",single:"Лестница"};
+// The posts of a railing on the wall top (L50×5 of РВС-700, КМ-16) stand inside the wall face: a deck or a flight
+// coming over the wall begins past them, not through them.
+const RAIL_POST=50;
 function ladderOf(texts){
  const all=texts.map(t=>t.str).join(" ");
  for(const t of texts){
@@ -1376,17 +1379,24 @@ function buildTank(pages){
   }
   // The bridge from the top landing over the wall top to the roof walkway (Б3 on the stair sheets). A walkway higher
   // than the top landing (РВС-700: Ш1 to +8,970, walkway +9,320 on the roof slope) is reached by a short flight at
-  // the wall: the bridge stops where that flight starts, the flight rises to the walkway at the wall face.
+  // the wall: the bridge stops where that flight starts, the flight rises to the walkway past the posts of the railing
+  // on the wall top (RAIL_POST inside the wall face), where the landing at the stair begins.
   const walk=(platforms||parts.platforms)?walkLevel():null,up=walk!==null&&walk-top>150&&walk-top<=1200?walk-top:0;
   if(up){
-   const len=Math.max(300,Math.round(up/Math.tan(45*Math.PI/180))),end=Math.min(bridgeFrom-100,len),p=pt(end,bridgeSide),q=pt(0,bridgeSide);
+   const len=Math.max(300,Math.round(up/Math.tan(45*Math.PI/180))),end=Math.min(bridgeFrom-100,len),p=pt(end,bridgeSide),q=pt(-RAIL_POST,bridgeSide);
    deck(bridgeFrom,end,top,"переход на крышу",700,null,bridgeSide);
    add({name:name+" — марш на площадку крыши",type_key:"stair_flight",fitting_type:"flight",diameter_mm:700,geometry_type:"brace",x_mm:p.x,y_mm:p.y,x2_mm:q.x,y2_mm:q.y,z0_mm:top,z1_mm:walk,confidence:"low",
     notes:["Подъём с верхней площадки +"+top+" на площадку крыши +"+walk+": "+Math.max(1,Math.ceil(up/250))+" ступ. — по узлу перехода проверьте"]})
   }else deck(bridgeFrom,platforms?.offset>0?-platforms.offset:0,top,"переход на крышу",700,null,bridgeSide);
-  stairAt={bearing:ladder.bearing,width,top}
+  stairAt={bearing:ladder.bearing,width,top,side:bridgeSide}
   }
  }
+ // A railing on a circle of radius r opened over `half` mm each side of a point `side` mm to the left of the stair's
+ // bearing: over the wall where the flight comes up (700 wide, 150 clear each side) — the bridge Б3 and the flight to
+ // the walkway go along one half of the shaft, 475 off its axis on Ш1: opened on the axis, the railing crossed half the
+ // flight (the engineer, 30.10.2026, «нет стыка с лестницей»).
+ const opening=(r,half,side)=>{const g=Math.round(half/r*180/Math.PI*10)/10,mid=fromBearing(stairAt.bearing)+(side||0)/r*180/Math.PI;
+  return{sector_start_deg:Math.round((((mid+g)%360)+360)%360*10)/10,sector_deg:Math.round((360-2*g)*10)/10}};
  // The walkway round the roof edge: a ring at its level, as wide as its section shows, with a railing at the rim.
  if(platforms||parts.platforms){
   const level=walkLevel();
@@ -1395,21 +1405,31 @@ function buildTank(pages){
   // the outer railing standing on the wall top.
   const offset=tanks.map(p=>p.tank.platforms?.offset).find(v=>v>0&&v<width)||0,inner=Math.max(500,R-width),outer=R-offset;
   const deckRow=shipRow(/^площад/iu),railRow=shipRow(/^огражд/iu);
+  // The decks stand on the roof (КМ-16 of РВС-700, разрезы 1-1, 4-4): bent channels at their edges on plates welded to
+  // the roof; the sizes of the sheet (platforms.frame of the knowledge), else conventional (3D draws them «условно»).
+  const frame=platforms?.frame&&typeof platforms.frame==="object"?{...platforms.frame}:{conventional:true};
   placements.push({mark:markOk(deckRow?.mark)||"Площадка",name:partName("platforms","Площадка на крыше"),type_key:"platform",geometry_type:"plate",x_mm:C,y_mm:C,radius_mm:outer,inner_radius_mm:inner,
-   z0_mm:level,z1_mm:level+40,levels_from:platforms?"схема площадок":"нет отметок",confidence:platforms?"medium":"low",scheme_group:"platforms",
+   z0_mm:level,z1_mm:level+40,levels_from:platforms?"схема площадок":"нет отметок",confidence:platforms?"medium":"low",scheme_group:"platforms",layout:{frame},
    notes:["Кольцевая площадка по крыше: настил "+(outer-inner)+(offset?", в "+offset+" от стенки":"")+(platforms?.width?"":" (ширина принята)")+", отметка +"+level]});
-  // The landing between the stair and the walkway (уз. 5): over the roof edge, as wide as the stair beside the wall.
-  if(stairAt&&offset){const a=fromBearing(stairAt.bearing),p=at(a,R),q=at(a,outer),w=fc.beside>stairAt.width?fc.beside:stairAt.width+400;
+  // The landing between the stair and the walkway (уз. 5): over the roof edge, as wide as the stair beside the wall;
+  // its edge at the wall the arc of the wall; its frame along its sides and at the wall — at the walkway it lies on the
+  // walkway's channel.
+  const landW=stairAt&&offset?(fc.beside>stairAt.width?fc.beside:stairAt.width+400):0;
+  if(landW){const a=fromBearing(stairAt.bearing),p=at(a,R-RAIL_POST),q=at(a,outer),w=landW;
    placements.push({mark:"Площадка",name:"Площадка у шахтной лестницы",type_key:"platform",fitting_type:"deck",diameter_mm:w,geometry_type:"beam",x_mm:p.x,y_mm:p.y,x2_mm:q.x,y2_mm:q.y,
-    z0_mm:level,z1_mm:level,levels_from:"схема площадок",confidence:"low",scheme_group:"platforms",notes:["Площадка от шахтной лестницы до кольцевой площадки, ширина "+w+", отметка +"+level]})}
+    z0_mm:level,z1_mm:level,levels_from:"схема площадок",confidence:"low",scheme_group:"platforms",layout:{start_arc_r_mm:R-RAIL_POST,frame:{...frame,edges:"sides,start"}},
+    notes:["Площадка от шахтной лестницы до кольцевой площадки, ширина "+w+", отметка +"+level]})}
   // Railings on both edges of the walkway (ГОСТ: handrail 1.25 m over the deck, posts no farther than 2.5 m apart,
   // two intermediate rails, a toe board): drawn by 3D as posts, rails and the toe board; diameter_mm carries the post step.
   // A checked entry keeps the drawing's handrail height (old sets: 1000); a value read from a sheet is raised to the 1.25 m of ГОСТ.
   const h=platforms?.exact&&platforms?.rail>=900?platforms.rail:Math.max(1250,rail),step=platforms?.post>0?platforms.post:1000;
   // The outer railing stands on the wall top when the deck is set off the wall; its handrail is level with the inner one.
-  // The outer railing is open where the bridge from the stair comes over the wall (700 wide, 150 clear each side).
-  const gap=stairAt?Math.round((350+150)/R*180/Math.PI*10)/10:0,open=stairAt?{sector_start_deg:Math.round((((fromBearing(stairAt.bearing)+gap)%360)+360)%360*10)/10,sector_deg:360-2*gap}:{};
-  for(const [r,edge,z0,arc] of [[R,"наружный край",offset?wallTop:level,open],[inner,"внутренний край",level,{}]])
+  // The outer railing is open where the flight from the stair comes over the wall. A deck set off the wall has its own
+  // railing at its edge toward the wall (КМ-16, разрез 1-1: the posts bolted to the stands at the back of that channel,
+  // outside the deck — 3D draws the posts inside the radius of a railing; the edge toward the centre is free), open
+  // across the landing at the stair (уз. 5).
+  const open=stairAt?opening(R,350+150,stairAt.side):{},innerR=offset?outer+RAIL_POST:inner,innerOpen=landW?opening(innerR,landW/2,0):{};
+  for(const [r,edge,z0,arc] of [[R,"наружный край",offset?wallTop:level,open],[innerR,"внутренний край",level,innerOpen]])
    placements.push({mark:markOk(railRow?.mark)||"Ограждение",name:partName("railing","Ограждение")+" — "+edge,geometry_type:"shell",shell_open:true,x_mm:C,y_mm:C,radius_mm:r,...arc,
     z0_mm:z0,z1_mm:level+h,levels_from:platforms?"схема площадок":"нет отметок",confidence:"low",scheme_group:"guards",type_key:"railing",fitting_type:"railing",diameter_mm:step,
     notes:["Ограждение площадки ("+edge+"): поручень +"+h+" от настила, стойки через "+step+", промежуточные элементы, бортовая полоса"]});
@@ -1418,7 +1438,7 @@ function buildTank(pages){
  // wall top, 1.25 m, open where the stair comes up.
  const roofRail=shipRow(/огражд\S*\s+(?:кровл|крыш|покрыти)/iu);
  if(roofRail&&!placements.some(e=>e.type_key==="railing")){
-  const gap=stairAt?Math.round((350+150)/R*180/Math.PI*10)/10:0,open=stairAt?{sector_start_deg:Math.round((((fromBearing(stairAt.bearing)+gap)%360)+360)%360*10)/10,sector_deg:360-2*gap}:{};
+  const open=stairAt?opening(R,350+150,stairAt.side):{};
   placements.push({mark:roofRail.mark||"Ограждение",name:roofRail.name,type_key:"railing",geometry_type:"shell",shell_open:true,x_mm:C,y_mm:C,radius_mm:R,...open,z0_mm:wallTop,z1_mm:wallTop+1250,
    levels_from:"верх стенки",confidence:"low",scheme_group:"guards",fitting_type:"railing",diameter_mm:1000,notes:["Ограждение по краю крыши на верху стенки, поручень 1250"+(stairAt?", проход у лестницы":"")]})
  }

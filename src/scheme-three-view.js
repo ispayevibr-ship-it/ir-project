@@ -2422,7 +2422,7 @@ window.irThreeSchemeView=(function(){
    allMeshes=[];boltList=[];dataById.clear();meshesById.clear();failures=0;conventional.clear();drillCache.clear();upperCache.clear();seatCache.clear();
    labels.forEach(function(l){l.el.remove()});labels=[];
    elems=Array.isArray(list)?list:[];
-   slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);seatLevels(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);
+   slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);seatLevels(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);roofCones(elems);
    var host=jointHosts(elems);findCrossings(elems,host);
    // (trusses and two-branch columns first: the members coming to them stop at their chords and branches)
    var lattice=function(c){return Boolean(c.truss&&Array.isArray(c.truss.members)&&c.truss.members.length||c.column&&Array.isArray(c.column.members)&&c.column.members.length)};
@@ -2456,6 +2456,8 @@ window.irThreeSchemeView=(function(){
      plate.rotation.x=-Math.PI/2;plate.position.copy(p[0]);plate.position.y+=.005;
      plate.userData.memberId=id;plate.userData.shell=true;steel.add(plate);allMeshes.push(plate);
      if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(plate);
+     // (a walkway over a roof on its frame: channels at both edges, flanges under the deck, on stands to the roof)
+     var pfr=ri>0&&frameOf(c);if(pfr){var pfp=[];frameArc(c,pfp,p[0],ro,-1,p[0].y,p0,pw,pfr);frameArc(c,pfp,p[0],ri,1,p[0].y,p0,pw,pfr);pfp.forEach(function(m){keepPart(m,id)})}
      if(ps)[p0,p0+pw].forEach(function(t){var a=p[0].clone().add(new T.Vector3(Math.sin(t)*Math.max(ri,.01),.006,Math.cos(t)*Math.max(ri,.01))),b=p[0].clone().add(new T.Vector3(Math.sin(t)*ro,.006,Math.cos(t)*ro));
       var v=b.clone().sub(a),m=new T.Mesh(barGeo(.02),jointMat);m.position.copy(a);m.scale.z=v.length();m.quaternion.setFromUnitVectors(zAxis,v.normalize());
       m.userData.memberId=id;steel.add(m);allMeshes.push(m);meshesById.get(id).push(m)});
@@ -3483,6 +3485,68 @@ window.irThreeSchemeView=(function(){
    var m=new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(c));
    m.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(ax,ay,az));m.scale.set(sx,sy,sz);m.position.copy(at);return m
   }
+  // ---- The frame of a deck over a tank roof (РВС-700, КМ-16: разрезы 1-1, 4-4, узел 5): the deck of the walkway and of
+  // the landing at the stair lies on bent channels at its edges (Гн [100×40×3, their backs at the edges of the deck,
+  // the flanges under it, the top at its level), the channels on plates standing on the roof (−6×80 every 500 — 80
+  // along the edge —, welded to pads −6×50×100 on the roof, 100 along the edge). lay.frame: {edge, edge_mm:[h, b, t],
+  // stand, stand_mm:[t, w], pad, pad_mm:[t, w, l], step_mm, edges (of a straight deck: "sides" along it, "start",
+  // "end")}; conventional:true — no sheet: the same parts «условно». Drawn as a flat deck at its level it hung over the
+  // roof on nothing (the engineer, 30.10.2026: «площадка висит в воздухе, нет стыка с лестницей»). The parts are of
+  // the deck (its colour, its card).
+  var roofs=[];
+  function roofCones(list){
+   roofs=[];list.forEach(function(c){
+    if(c.geometryType!=="shell"||c.ft||!(number(c.r)>0)||!(number(c.ri)>0)||number(c.ri)>=number(c.r))return;
+    var p=memberPoints(c);if(!(p[1].y-p[0].y>.005))return;
+    roofs.push({x:p[0].x,z:p[0].z,r:number(c.r)/1000,ri:number(c.ri)/1000,y0:p[0].y,y1:p[1].y})
+   })
+  }
+  // The roof under a point (world): its level, the way out from its axis, its rise per metre toward the axis.
+  function roofAt(v){
+   var best=null;roofs.forEach(function(o){var dx=v.x-o.x,dz=v.z-o.z,d=Math.hypot(dx,dz);if(d<o.ri-.001||d>o.r+.001)return;
+    var s=(o.y1-o.y0)/(o.r-o.ri),y=o.y0+s*(o.r-Math.min(d,o.r));
+    if(!best||y>best.y)best={y:y,s:s,out:d>1e-6?new T.Vector3(dx/d,0,dz/d):new T.Vector3(1,0,0)}});
+   return best
+  }
+  function frameOf(c){
+   var f=c.lay&&c.lay.frame;if(!f||typeof f!=="object")return null;
+   var mm=function(v,i,d){var x=Array.isArray(v)?number(v[i]):0;return(x>0?x:d)/1000},cv=!!f.conventional||!Array.isArray(f.edge_mm);
+   return{h:mm(f.edge_mm,0,100),b:mm(f.edge_mm,1,40),t:mm(f.edge_mm,2,3),st:mm(f.stand_mm,0,6),sw:mm(f.stand_mm,1,80),pt:mm(f.pad_mm,0,6),pw:mm(f.pad_mm,1,50),pl:mm(f.pad_mm,2,100),
+    step:Math.max(.2,(number(f.step_mm)||500)/1000),edges:String(f.edges||"sides,start,end"),
+    en:"швеллер площадки"+(cv?" (условно)":""),es:cv?"":String(f.edge||""),sn:"стойка площадки"+(cv?" (условно)":""),ss:cv?"":String(f.stand||""),
+    pn:"подкладка стойки"+(cv?" (условно)":""),ps:cv?"":String(f.pad||"")}
+  }
+  // A stand under the web of a channel at P (world, on the line of the web, at the level of the channel's bottom), D —
+  // along the edge: from its pad on the roof up to the channel; none where no roof is under it.
+  function frameStand(c,parts,P,D,fr){
+   var rf=roofAt(P);if(!rf)return;var up=new T.Vector3(0,1,0),top=P.y,bot=rf.y+fr.pt,hh=top-bot;if(hh<.01)return;
+   var Z=D.clone().cross(up).normalize();
+   parts.push(partTag(plateBox(c,new T.Vector3(P.x,(top+bot)/2,P.z),D,up,Z,fr.sw,hh,fr.st),fr.sn,fr.ss));
+   var N=rf.out.clone().multiplyScalar(rf.s).add(up).normalize(),ax=D.clone().sub(N.clone().multiplyScalar(D.dot(N))).normalize(),az=ax.clone().cross(N);
+   parts.push(partTag(plateBox(c,new T.Vector3(P.x,rf.y,P.z).add(N.clone().multiplyScalar(fr.pt/2)),ax,N,az,fr.pl,fr.pt,fr.pw),fr.pn,fr.ps))
+  }
+  // A channel along a straight edge A→B at the level y of the deck, n — into the deck.
+  function frameLine(c,parts,A,B,n,y,fr){
+   var D=B.clone().sub(A);D.y=0;var L=D.length();if(L<.05)return;D.divideScalar(L);
+   var up=new T.Vector3(0,1,0),Z=D.clone().cross(up).normalize(),mid=A.clone().add(B).multiplyScalar(.5);mid.y=y;
+   var at=function(off,dy){return mid.clone().add(n.clone().multiplyScalar(off)).add(up.clone().multiplyScalar(dy))};
+   parts.push(partTag(plateBox(c,at(fr.t/2,-fr.h/2),D,up,Z,L,fr.h,fr.t),fr.en,fr.es));
+   [-fr.t/2,-fr.h+fr.t/2].forEach(function(dy){parts.push(partTag(plateBox(c,at(fr.b/2,dy),D,up,Z,L,fr.t,fr.b),fr.en,fr.es))});
+   var m=Math.max(1,Math.ceil(L/fr.step));
+   for(var k=0;k<=m;k++){var s=fr.sw/2+(L-fr.sw)*k/m,P=A.clone().add(D.clone().multiplyScalar(s)).add(n.clone().multiplyScalar(fr.t/2));P.y=y-fr.h;frameStand(c,parts,P,D,fr)}
+  }
+  // A channel along an arc of radius R round O (world) at the level y, its flanges toward the axis (k = −1) or away
+  // (k = 1), over the angles p0 … p0 + pw of the geometry (x = sin, z = cos).
+  function frameArc(c,parts,O,R,k,y,p0,pw,fr){
+   var h=fr.h,b=fr.b,t=fr.t,pts=[[R,0],[R,-h],[R+k*b,-h],[R+k*b,-h+t],[R+k*t,-h+t],[R+k*t,-t],[R+k*b,-t],[R+k*b,0],[R,0]];
+   var area=0;for(var i=0;i+1<pts.length;i++)area+=pts[i][0]*pts[i+1][1]-pts[i+1][0]*pts[i][1];if(area<0)pts.reverse();
+   var full=pw>=2*Math.PI-1e-3,seg=Math.max(8,Math.ceil(96*pw/(2*Math.PI)));
+   var key="frameArc:"+[R,k,h,b,t,p0,pw].map(function(v){return Math.round(v*1e4)}).join(":");
+   var m=new T.Mesh(shared(key,function(){return new T.LatheGeometry(pts.map(function(q){return new T.Vector2(q[0],q[1])}),seg,p0,pw)}),baseMaterial(c));
+   m.position.set(O.x,y,O.z);parts.push(partTag(m,fr.en,fr.es));
+   var rw=R+k*t/2,n=Math.max(1,Math.ceil(rw*pw/fr.step));
+   for(var j=full?0:1;j<n;j++){var f=p0+pw*j/n,P=new T.Vector3(O.x+Math.sin(f)*rw,y-h,O.z+Math.cos(f)*rw);frameStand(c,parts,P,new T.Vector3(Math.cos(f),0,-Math.sin(f)),fr)}
+  }
   function boltMm(v,c){var m=/(\d{2})/.exec(String(v||c&&c.joint&&c.joint.bolt||""));return m?number(m[1]):0}
   // The column a truss end is bolted to sideways (a КМ1: «фермы к колоннам каркаса примыкают сбоку и крепятся
   // болтами, в уровне нижнего пояса опорная реакция передаётся через опорный столик, в уровне верхнего пояса — вертикальная
@@ -3621,11 +3685,28 @@ window.irThreeSchemeView=(function(){
      for(var di=0;di<=dn;di++){var dx=dw/2-dw*di/dn;ds.lineTo(dx,Math.max(0,Math.sqrt(arcR*arcR-dx*dx)-back))}
      ds.closePath();dg=new T.ExtrudeGeometry(ds,{depth:.04,bevelEnabled:false});dg.rotateX(Math.PI/2);dg.translate(0,.04,0)
     }
+    // (a deck whose start is at a round wall — the landing at a shaft stair over the roof edge, lay.start_arc_r_mm the
+    // radius of the wall: its start edge the arc of the wall, not a straight line out past it)
+    var sa=c.lay&&number(c.lay.start_arc_r_mm)>0?number(c.lay.start_arc_r_mm)/1000:0,yA=function(x){return sa?sa-Math.sqrt(Math.max(0,sa*sa-x*x)):0};
+    if(!dg&&sa>dw/2&&yA(dw/2)<len){
+     var da=new T.Shape(),an=24;da.moveTo(-dw/2,len);da.lineTo(dw/2,len);
+     for(var ai=0;ai<=an;ai++){var ax=dw/2-dw*ai/an;da.lineTo(ax,yA(ax))}
+     da.closePath();dg=new T.ExtrudeGeometry(da,{depth:.04,bevelEnabled:false});dg.rotateX(Math.PI/2);dg.translate(0,.04,0)
+    }
     var dholes=dg?null:deckHoles.get(id),dside=new T.Vector3(dir.z,0,-dir.x).normalize(),dps=dholes?wallPieces(0,len,dw,dholes).map(function(r){
      var m=new T.Mesh(new T.BoxGeometry(r[3]-r[2],.04,r[1]-r[0]),dmat);m.position.copy(start).add(dir.clone().multiplyScalar((r[0]+r[1])/2)).add(dside.clone().multiplyScalar((r[2]+r[3])/2-dw/2));return m}):null;
     if(!dps){var dm=new T.Mesh(dg||new T.BoxGeometry(dw,.04,len),dmat);if(dg)dm.position.copy(start);else dm.position.copy(start).add(end).multiplyScalar(.5);dps=[dm]}
     dps.forEach(function(dm){if(!dg)dm.position.y+=.02;dm.rotation.y=Math.atan2(dir.x,dir.z);
      dm.userData.memberId=id;steel.add(dm);allMeshes.push(dm);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(dm)});
+    // (a deck on its frame over a roof: channels at the edges lay.frame.edges names, on stands to the roof)
+    var dfr=frameOf(c);
+    if(dfr){var dfp=[],dy=start.y,ded=dfr.edges,DL=function(sd,u){return start.clone().add(dside.clone().multiplyScalar(sd)).add(dir.clone().multiplyScalar(u))};
+     if(/sides/.test(ded))[-1,1].forEach(function(q){var sd=q*dw/2;frameLine(c,dfp,DL(sd,yA(sd)),DL(sd,len),dside.clone().multiplyScalar(-q),dy,dfr)});
+     if(/start/.test(ded)){
+      if(sa>dw/2){var dO=start.clone().add(dir.clone().multiplyScalar(sa)),f0=Math.atan2(-dir.x,-dir.z),al=Math.asin(Math.min(1,(dw/2-dfr.b)/sa));frameArc(c,dfp,dO,sa,-1,dy,f0-al,2*al,dfr)}
+      else frameLine(c,dfp,DL(-dw/2+dfr.b,0),DL(dw/2-dfr.b,0),dir.clone(),dy,dfr)}
+     if(/end/.test(ded))frameLine(c,dfp,DL(-dw/2+dfr.b,len),DL(dw/2-dfr.b,len),dir.clone().negate(),dy,dfr);
+     dfp.forEach(function(m){keepPart(m,id)})}
     var dl=start.clone().add(end).multiplyScalar(.5);dl.y+=.3;
     var de=document.createElement("span");de.className="ir-three-member-label";de.textContent=c.mark||c.title||"";
     labelLayer.appendChild(de);labels.push({el:de,pos:dl,id:id});
