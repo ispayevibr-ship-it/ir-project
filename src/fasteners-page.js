@@ -68,6 +68,8 @@
     editing=null;paint()};
   }
   await paint();
+  // (a page scrolled sideways before keeps the menu cut at the left)
+  document.scrollingElement&&(document.scrollingElement.scrollLeft=0);
  };
  // The daily report: under the works, what the montage of the day used — before the day, on it, in all, left.
  async function reportBlock(oid,reportId){

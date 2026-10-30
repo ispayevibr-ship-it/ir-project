@@ -159,7 +159,8 @@
   const latest=new Map();
   for(const l of arr(logs)){const d=l.data||l;if(d.status&&d.status!=="ok"||!arr(d.fasteners).length)continue;const k=String(d.file||"");const old=latest.get(k);if(!old||String(d.at||"")>String(old.at||""))latest.set(k,d)}
   for(const d of latest.values())for(const x of d.fasteners){
-   if(x.temporary)continue;const f=parse(x.text)||(x.item?{item:x.item,text:x.text,standard:x.standard||"",std:String(x.standard||"").replace(/\D+/g," ").trim().split(" ")[0]||"",d:x.d_mm,len:x.length_mm,cls:x.strength_class,exec:null,high:Boolean(x.high_strength)}:null);
+   // (temporary bolts stay out; a line without a count is a note of the sheet — «болтов М20 класса точности В по…» — not a row of a table)
+   if(x.temporary||num(x.count)==null||/^[а-яё]/u.test(String(x.text||"").trim()))continue;const f=parse(x.text)||(x.item?{item:x.item,text:x.text,standard:x.standard||"",std:String(x.standard||"").replace(/\D+/g," ").trim().split(" ")[0]||"",d:x.d_mm,len:x.length_mm,cls:x.strength_class,exec:null,high:Boolean(x.high_strength)}:null);
    add(f,num(x.count),(d.file||"чертёж")+(arr(x.sheets).length?", л. "+x.sheets.join(", "):""))}
   // The fasteners of each mark's assembly sheet, once per mark.
   const seen=new Set();
