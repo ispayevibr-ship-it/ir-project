@@ -326,7 +326,11 @@ window.irThreeSchemeView=(function(){
  }
  // Root fillet of a rolled section (R of ГОСТ 8239, 8240, 8509; r of ГОСТ 26020 and 57837): 0 when the table has none.
  function root(r){return number(r.R_mm!=null?r.R_mm:r.r_mm)}
+ // A tie rod whose sheet gives no diameter (КМ2 «тяжи Т1 по прогонам», the engineer, 30.10.2026: «на чем держится данный
+ // прогон? будто чего-то не хватает»): a thin rod of 20 mm, its section conditional, not a beam of 0,3 m.
+ function tieRod(m){return !sectionOf(m.profile_name||m.profileName,m.profile_standard)&&/(?:^|[^а-яё])тяж/i.test(String(m.mark_name||m.title||""))}
  function materialProfile(member){
+  if(tieRod(member))return [.02,.02,.02,.02];
   var source=String(member.profile_name||member.profileName||""),
    match=source.match(/(\d{2,3})\s*[КБKБШ]/i);
   var h=match?Math.max(.18,Math.min(.7,number(match[1])/100)):.32;
@@ -571,13 +575,13 @@ window.irThreeSchemeView=(function(){
   if(sec)return realGeometry(T,cache,sec);
   var rail=railRow(member);if(rail)return railGeometry(T,cache,rail);
   var section=String(member.section_type||"").toLowerCase(),category=role(member);
-  var style=section==="round"||category==="ties"&&String(member.profile_name||"").match(/труб|ø|Ø/i)?"round":
+  var style=section==="round"||tieRod(member)||category==="ties"&&String(member.profile_name||"").match(/труб|ø|Ø/i)?"round":
    section==="square"||section==="box"?"box":"ibeam";
   var dimensions=materialProfile(member),key=style+":"+category+":"+dimensions[0].toFixed(2);
   if(cache.has(key))return cache.get(key);
   var geo;
   if(style==="round"){
-   geo=new T.CylinderGeometry(Math.max(.025,dimensions[0]/6),Math.max(.025,dimensions[0]/6),1,10);
+   var rr=tieRod(member)?dimensions[0]/2:Math.max(.025,dimensions[0]/6);geo=new T.CylinderGeometry(rr,rr,1,10);
    geo.rotateX(Math.PI/2);geo.translate(0,0,.5)
   }else if(style==="box"){
    geo=new T.BoxGeometry(dimensions[1],dimensions[0],1);geo.translate(0,0,.5)
@@ -1850,6 +1854,11 @@ window.irThreeSchemeView=(function(){
      plate.userData.gusset=true;parts.push(plate);
      return
     }
+    // A tie rod ends through the web of the purlin it comes to, on its nuts (КМ2 л.4, узлы 1, 2, разрез а-а: «Т1» through
+    // the web 70 under the top, two nuts): no gusset, not 100 mm short of it as a brace on its gusset.
+    if(tieRod(c)){out[k]=E0.clone().sub(e[1].clone().multiplyScalar(.045));
+     var nut=partTag(new T.Mesh(shared("tie:nut",function(){var g=new T.CylinderGeometry(.017,.017,.032,6);g.rotateX(Math.PI/2);return g}),baseMaterial(c)),"гайки тяжа");
+     nut.quaternion.setFromUnitVectors(new T.Vector3(0,0,1),e[1].clone().negate());nut.position.copy(E0).sub(e[1].clone().multiplyScalar(.022));parts.push(nut);return}
     // (an angle of a deck's frame ending over a stand under its flat leg — КМ3 л.49, разрез 2-2: the stand Ст1 up to the
     // flat leg of б1 by its upright one — lies on it and goes on over it to the edge of the floor; cut at the stand's face
     // it stopped 100 mm short of the edge, the sheet Н1 there on nothing)
