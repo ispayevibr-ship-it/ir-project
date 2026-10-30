@@ -1662,6 +1662,11 @@ window.irThreeSchemeView=(function(){
     b.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(f.d,A,f.d.clone().cross(A)));b.scale.set(o.sa,o.sc,o.sd);b.position.copy(ctr);put(b)
    })
   }
+  // The upright stringer of a fire ladder (the тетива L75 of a vertical fire ladder, КМ3 Л1, Л2) hangs on its brackets to
+  // the wall: its foot stops short of the roof or the ground (250 on their sheets), nothing under it — no base plate, no
+  // anchors, no cap on its top (the engineer, 30.10.2026, «на чем стоит эта лестница»: a base with four anchors at
+  // +15,370). A ladder standing on the floor (Л4 to a crane platform: a plate t=10 on four anchors) keeps its base.
+  function hanging(c){var t=String(c.mark_name||c.title||"");return c.geometryType==="column"&&/тетив/i.test(t)&&/пожарн/i.test(t)}
   function slight(c){var t=String(c.mark_name||c.title||""),sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);
    return role(c)==="guards"||/огражд|поручен|перекладин|ступен/i.test(t)||Boolean(sec&&(sec.shape==="round"&&sec.h<=60||sec.shape==="plate"))}
   // The convex outline of points [x, y] (counter-clockwise).
@@ -2599,7 +2604,7 @@ window.irThreeSchemeView=(function(){
   // +0.300 stands on a member (a post on a gate beam, its foot at the beam's top): its plate lies on that member, above
   // the foot — drawn under the foot it went into the beam's flange.
   var concreteMat=new T.MeshStandardMaterial({color:0xaeb3b8,roughness:.95}),pedestals=[];
-  function basePlated(c){return c.geometryType==="column"&&!c.ft&&!(number(c.r)>0)&&!slight(c)&&!(c.column&&Array.isArray(c.column.members)&&c.column.members.length)}
+  function basePlated(c){return c.geometryType==="column"&&!hanging(c)&&!c.ft&&!(number(c.r)>0)&&!slight(c)&&!(c.column&&Array.isArray(c.column.members)&&c.column.members.length)}
   // The base plate its sheet draws in a cut at the foot (endCuts): as large and thick as drawn, an anchor in each of its
   // holes — as thick as the base sheet says, else a bolt of the sheet's list fitting its least hole, else conditional,
   // 3 mm less than that hole.
@@ -2807,6 +2812,7 @@ window.irThreeSchemeView=(function(){
   // (not by the КМД), only to read the node.
   var nodeColors={mounted:0x1f9e89,partial:0xf25c05,planned:0x9aa3ad};
   var nodeKinds={base:"База колонны",top:"Оголовок колонны",side:"Примыкание к колонне",beam:"Опирание на балку",joint:"Стык элементов"};
+  function kindName(n){return n.kind==="side"&&n.members.some(function(m){return hanging(m.c)})?"Крепление лестницы":nodeKinds[n.kind]}
   var nodes=[],nodeMeshes=[],nodeMats=new Map(),nodeMode="sel",showDetails=true,selectedNode=null,details=[];
   var boltMat=new T.MeshStandardMaterial({color:0x30363d,metalness:.35,roughness:.5});
   var plateMat=new T.MeshStandardMaterial({color:0x7d8793,metalness:.25,roughness:.55});
@@ -2839,7 +2845,8 @@ window.irThreeSchemeView=(function(){
     if(!n.members.some(function(m){return m.c===c&&m.role===role}))n.members.push({c:c,role:role});
     return n
    };
-   cols.forEach(function(c){put("base",number(c.x),number(c.y),number(c.z0),c,"низ",250);put("top",number(c.x),number(c.y),number(topOf(c)),c,"верх",250)});
+   // (a hanging stringer has neither: its brackets are the nodes of the ladder, «Крепление лестницы»)
+   cols.forEach(function(c){if(hanging(c))return;put("base",number(c.x),number(c.y),number(c.z0),c,"низ",250);put("top",number(c.x),number(c.y),number(topOf(c)),c,"верх",250)});
    var onLine=function(x,y,z,self){
     var best=null,lying=null,seen=new Set();
     var test=function(o){
@@ -2864,7 +2871,7 @@ window.irThreeSchemeView=(function(){
      // (a column under a seated beam ends under it; what lies on that beam's end over the column is still of its top —
      // looked for by the column's own top when no column is near by its seat)
      if(col){
-      var k=col.k,kt=number(topOf(k)),top=Math.abs(z-kt)<=450||seatTop.has(String(k.id))&&z>kt&&(z-kt<=650||z<=number(k.z2)+450);
+      var k=col.k,kt=number(topOf(k)),top=!hanging(k)&&(Math.abs(z-kt)<=450||seatTop.has(String(k.id))&&z>kt&&(z-kt<=650||z<=number(k.z2)+450));
       // (nor beside a column going on up past it, when it lies on a beam there: a purlin of a low roof on the beam at the
       // tall framing column — the engineer, 30.10.2026, «на чем держится данный прогон?», the card «Примыкание к колонне»)
       var ly=!top&&onLine(x,y,z,c);
@@ -2966,7 +2973,7 @@ window.irThreeSchemeView=(function(){
    var n=selectedNode;if(explode&&explode.node!==n)clearExplode();nodePanel.hidden=!n;if(!n)return;
    var st={mounted:"смонтирован",partial:"частично",planned:"не смонтирован"},missing=n.members.filter(function(m){return m.c.status!=="mounted"});
    var names=n.members.filter(function(m){return m.c.geometryType==="column"}).map(function(m){return m.c.mark}).filter(Boolean);
-   nodePanel.innerHTML='<div class="ir-three-place-head"><b>'+escapeHtml(n.id+" · "+nodeKinds[n.kind]+(names.length?" "+names[0]:""))+'</b><button type="button" data-node="close" title="Закрыть">×</button></div>'+
+   nodePanel.innerHTML='<div class="ir-three-place-head"><b>'+escapeHtml(n.id+" · "+kindName(n)+(names.length?" "+names[0]:""))+'</b><button type="button" data-node="close" title="Закрыть">×</button></div>'+
     '<div class="ir-three-node-meta"><span>Оси <b>'+escapeHtml(axisOf(n.x,n.y))+'</b></span><span>Отм. <b>'+level(n.z)+'</b></span><span class="st '+n.status+'">'+st[n.status]+'</span></div>'+
     '<label class="ir-three-node-explode" title="Элементы узла расходятся с того, на чём держатся; болты и гайки — в зазоре по своей оси; остальная схема бледнеет. Схема при этом не меняется.">Разбор узла'+
     '<input type="range" min="0" max="100" step="1" value="'+Math.round((explode&&explode.node===n?explode.s:0)*100)+'" data-node="explode" aria-label="Разбор узла"></label>'+
@@ -3893,7 +3900,7 @@ window.irThreeSchemeView=(function(){
    var list=meshesById.get(id)||[],v=0,parts=partsOf(id),own=sectionOf(c.profile_name||c.profileName,c.profile_standard);
    list.forEach(function(m){if(m.userData.hole||m.userData.anchor||m.userData.footing||m.material===concreteMat)return;v+=volumeOf(m)});
    return{mass_kg:own&&!conventional.has(id)&&v>0?Math.round(v*7850*10)/10:null,bolts:boltList.filter(function(b){return b.id===id}).length,
-    nodes:nodes.filter(function(n){return n.members.some(function(m){return String(m.c.id)===id})}).map(function(n){return{id:n.id,name:nodeKinds[n.kind],axes:axisOf(n.x,n.y).split(" (")[0]}}),
+    nodes:nodes.filter(function(n){return n.members.some(function(m){return String(m.c.id)===id})}).map(function(n){return{id:n.id,name:kindName(n),axes:axisOf(n.x,n.y).split(" (")[0]}}),
     colors:parts?parts.color:{},body:parts?parts.body:null,lit:litFor===id?litPart:null,spec:derivedParts.get(id)||null,wall_mm:wallCut.has(id)?Math.round(wallCut.get(id)*1000):0,line_mm:lineMoved.has(id)?Math.round(lineMoved.get(id)*1000):0}
   }
   function legendRows(){
@@ -4421,7 +4428,7 @@ window.irThreeSchemeView=(function(){
    var low=0;elems.forEach(function(c){var z=Math.min(number(c.z0),c.geometryType==="column"?number(c.z0):number(c.z2));if(z<low)low=z});
    var y=Math.min(0,low/1000+.12);ground.position.y=y;dims.position.y=y
   }
-  function nodeList(){return nodes.map(function(n){return{id:n.id,kind:n.kind,name:nodeKinds[n.kind],status:n.status,x:n.x,y:n.y,z:n.z,axes:axisOf(n.x,n.y),
+  function nodeList(){return nodes.map(function(n){return{id:n.id,kind:n.kind,name:kindName(n),status:n.status,x:n.x,y:n.y,z:n.z,axes:axisOf(n.x,n.y),
    members:n.members.map(function(m){return{id:String(m.c.id),mark:m.c.mark||"",role:m.role,status:m.c.status||"planned"}})}})}
   function openNode(id){var n=nodes.find(function(x){return x.id===id});if(n)chooseNode(n);return Boolean(n)}
   // Pictures of the scheme for an exported file opened where its scripts do not run (the iPhone preview): the whole
