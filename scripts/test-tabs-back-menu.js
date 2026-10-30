@@ -24,7 +24,7 @@ for(const label of ["Открыть в новой вкладке","Открыт�
 assert(shell.includes('node.closest("input,textarea,select,[contenteditable=\'true\'],[contenteditable=\'\'],canvas,dialog[open] *")'),"fields, the 3D view and dialogs keep their right click");
 assert(shell.includes(".ir-object-nav button[data-key]:not(:disabled)")&&shell.includes(".object-card[data-object]")&&shell.includes("button.section-link[data-section]:not(:disabled)"),"menu items, object cards and sections lead to their pages");
 assert(shell.includes("if(openWindow(selected.route))"),"the detach button shares the window opening");
-assert(css.includes(".tabs-ctx{")&&html.includes("tabs-shell.js?v=1106900")&&html.includes("tabs-shell.css?v=1106900"),"styles and fresh copies");
+assert(css.includes(".tabs-ctx{")&&html.includes("tabs-shell.js?v=1106900")&&html.includes("tabs-shell.css?v=1107600"),"styles and fresh copies");
 // The route label is gone, in the sources and in the bundles.
 const ri=read("src/route-indicator.js");
 assert(!ri.includes("createElement")&&ri.includes('getElementById("routeIndicator")?.remove()'),"no route label");

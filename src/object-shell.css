@@ -93,3 +93,12 @@ body.ir-object-route:not(.ir-object-overview) #app{padding:18px 20px 22px!import
 .profile-panel .program-settings-menu .program-settings-item:disabled{
  opacity:.6;cursor:wait;pointer-events:none
 }
+
+/* 1.10.76 — Claude and GitHub connections after the gear: the dot green / red / grey. */
+.profile-panel .program-links{display:flex;align-items:center;gap:4px}
+.profile-panel .program-link{position:relative;display:grid;place-items:center;width:33px;min-width:33px;height:33px;padding:0;border:1px solid #d4e2ee;border-radius:7px;background:#fff;color:#406d90;cursor:pointer;font-size:initial}
+.profile-panel .program-link svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.profile-panel .program-link:hover{background:#edf6ff;border-color:#9bc3e6;color:#1769e0}
+.profile-panel .program-link-dot{position:absolute;right:-3px;bottom:-3px;width:10px;height:10px;border-radius:50%;border:2px solid #fff;background:#a7b4c0;box-sizing:border-box}
+.profile-panel .program-link[data-state="on"] .program-link-dot{background:#1f9d55}
+.profile-panel .program-link[data-state="off"] .program-link-dot{background:#d93025}

@@ -4643,9 +4643,16 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
   const aboutIcon=menuIcon('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5h.01"/>');
   const refreshIcon=menuIcon('<path d="M20 11a8 8 0 0 0-14.8-4"/><path d="M4 4v5h5"/><path d="M4 13a8 8 0 0 0 14.8 4"/><path d="M20 20v-5h-5"/>');
   const backupIcon=menuIcon('<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v7c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12v7c0 1.66 4.03 3 9 3s9-1.34 9-3v-7"/>');
+  // (the connections after the gear: Claude — its spark, GitHub — a branch of the repository)
+  const linkIcon=shape=>'<svg viewBox="0 0 24 24" aria-hidden="true">'+shape+'</svg>';
+  const claudeMark=linkIcon('<path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4"/>');
+  const gitMark=linkIcon('<path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>');
   const aiModelsIcon=menuIcon('<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 9h6v6H9zM12 1v3m0 16v3M1 12h3m16 0h3"/>');
   p.innerHTML='<button type="button" id="profileBadge" class="profile-badge">'+names[irAccess.role()]+'</button>'+
    '<button type="button" id="programSettingsButton" class="program-settings-button" title="Настройки программы" aria-label="Настройки программы" aria-expanded="false">'+gear+'</button>'+
+   '<span id="programLinks" class="program-links" role="group" aria-label="Подключения">'+
+   '<button type="button" class="program-link" data-link="claude" data-state="unknown" title="Claude: проверяем…" aria-label="Claude: проверяем…">'+claudeMark+'<i class="program-link-dot" aria-hidden="true"></i></button>'+
+   '<button type="button" class="program-link" data-link="github" data-state="unknown" title="GitHub: проверяем…" aria-label="GitHub: проверяем…">'+gitMark+'<i class="program-link-dot" aria-hidden="true"></i></button></span>'+
    '<div id="programSettingsMenu" class="program-settings-menu" hidden role="group" aria-label="Настройки программы">'+
    '<div class="program-settings-menu-head"><div class="program-settings-menu-title">Настройки</div><small>IR Project</small></div>'+
    '<div class="program-settings-menu-items">'+
@@ -4770,6 +4777,34 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
    if(typeof showUpdate==="function"){showUpdate();return}
    alert("Проверка обновлений недоступна в этом окне IR Project.");
   };
+  // Claude and GitHub as this computer sees them, by the icons after the gear (the engineer, 30.10.2026: «показывать
+  // подключение клауд и гитхаб статус. просто иконками»): the dot green — connected, red — not, grey — not known yet;
+  // the words in the hint. Checked at the start, every minute while the panel is shown and on a click; nothing is sent.
+  const links=p.querySelector("#programLinks");
+  const mark=(name,state,text)=>{const b=links.querySelector('[data-link="'+name+'"]');if(!b)return;b.dataset.state=state;b.title=text;b.setAttribute("aria-label",text)};
+  const when=iso=>{const d=new Date(iso);return Number.isNaN(d.getTime())?"":d.toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})};
+  let checking=false;
+  const checkLinks=async()=>{
+   if(checking)return;checking=true;
+   const ai=window.irProject?.ai;
+   try{
+    if(typeof ai?.invoke!=="function"){mark("claude","unknown","Claude: состояние не видно в этой версии");mark("github","unknown","GitHub: состояние не видно в этой версии");return}
+    try{
+     const s=await ai.invoke("ai-engine:status");
+     const on=Boolean(s?.installed)&&s.state!=="missing"&&s.state!=="failed";
+     mark("claude",on?"on":"off",on?"Claude: подключено"+(s.model?" · "+s.model:""):"Claude: не подключено"+(s?.reason?" — "+s.reason:""))
+    }catch(e){mark("claude","off","Claude: не удалось проверить — "+String(e?.message||e))}
+    try{
+     const g=await ai.invoke("ai-settings:github-info"),error=g?.lastError||g?.data?.error||"";
+     if(!g?.hasToken)mark("github","off","GitHub: не подключено — нет ключа доступа");
+     else if(error)mark("github","off","GitHub: ошибка — "+error);
+     else mark("github","on","GitHub: подключено"+(g.data?.pulled?.at?" · данные получены "+when(g.data.pulled.at):"")+(g.last?.at?" · отправлено "+when(g.last.at):"")+(g.pending?" · ждёт отправки: "+g.pending:""))
+    }catch(e){mark("github","off","GitHub: не удалось проверить — "+String(e?.message||e))}
+   }finally{checking=false}
+  };
+  links.onclick=()=>void checkLinks();
+  void checkLinks();
+  const linkTimer=setInterval(()=>{if(!p.isConnected){clearInterval(linkTimer);return}if(!p.hidden&&document.visibilityState!=="hidden")void checkLinks()},60000);
   companyButton.onclick=async()=>{
    closeSettings();
    if(irAccess.role()!=="admin"){alert("Профиль компании может изменять только администратор.");return}
