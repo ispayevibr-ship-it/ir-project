@@ -1101,6 +1101,32 @@ window.irThreeSchemeView=(function(){
    if(/крепл|кронштейн|столик/i.test(String(c.mark_name||c.title||"")))return null;
    var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);return sec&&sec.shape==="angle"&&!sec.bent?sec:null
   }
+  // Whether P is inside a plate drawn so far (5 mm in): a plate of another member — the support table and rib of a truss
+  // at a column, the plates t30 on the flanges of the post of Фп1, the overlay on the flanges of К1 —, which is not a body
+  // of the joints (jointHosts)
+  // and which a gusset or the end of a brace placed later is not to go through. Not the gussets of other braces: braces
+  // meeting at a node share theirs. The parts drawn are taken in as they are asked for, by their boxes (1,5 m cells).
+  var plateCells=new Map(),platesN=0;
+  function plateAt(P,skip){
+   var C=1.5;
+   for(;platesN<allMeshes.length;platesN++){
+    var m=allMeshes[platesN],g=m.geometry,mc=dataById.get(String(m.userData.memberId));
+    // (not a deck, a panel or another fitting — a deck is cut round what goes through it, deckRecut —, nor a railing)
+    if(!g||g.type!=="BoxGeometry"&&g.type!=="ExtrudeGeometry"||m.userData.footing||m.userData.gusset||mc&&(mc.ft||slight(mc)||role(mc)==="guards"))continue;
+    if(!g.boundingBox)g.computeBoundingBox();m.updateWorldMatrix(true,false);
+    // (of the parts drawn by their outline only a plate, 40 mm thick at most — the overlay on the flanges of a column, a
+    // side sheet of a traverse; not a member drawn by its section, whose box is wider than it)
+    if(g.type!=="BoxGeometry"){var sz=g.boundingBox.getSize(new T.Vector3()),sc=m.scale;if(Math.min(sz.x*Math.abs(sc.x),sz.y*Math.abs(sc.y),sz.z*Math.abs(sc.z))>.04)continue}
+    var b=g.boundingBox.clone().applyMatrix4(m.matrixWorld),it={m:m,b:b,inv:null};
+    for(var i=Math.floor(b.min.x/C);i<=Math.floor(b.max.x/C);i++)for(var j=Math.floor(b.min.z/C);j<=Math.floor(b.max.z/C);j++){var k=i+","+j;if(!plateCells.has(k))plateCells.set(k,[]);plateCells.get(k).push(it)}
+   }
+   return(plateCells.get(Math.floor(P.x/C)+","+Math.floor(P.z/C))||[]).some(function(it){
+    var m=it.m;if(String(m.userData.memberId)===skip||!it.b.containsPoint(P))return false;
+    if(!it.inv)it.inv=m.matrixWorld.clone().invert();
+    var q=P.clone().applyMatrix4(it.inv),bb=m.geometry.boundingBox,s=m.scale,e=function(v){return .005/Math.max(1e-6,Math.abs(v))};
+    return q.x>bb.min.x+e(s.x)&&q.x<bb.max.x-e(s.x)&&q.y>bb.min.y+e(s.y)&&q.y<bb.max.y-e(s.y)&&q.z>bb.min.z+e(s.z)&&q.z<bb.max.z-e(s.z)
+   })
+  }
   // The box of a straight piece a → b of a member as it is drawn: its line (U), the axes across it (X, Y) as the section is
   // turned, and the extent of the section along them from the line.
   function pieceBox(c,a,b){
@@ -2045,10 +2071,15 @@ window.irThreeSchemeView=(function(){
       // and short of another member coming to that face there (the truss Фс3 at the подстропильная Фп1: the plate of the
       // bottom chords' bracing at the node crossed the end of the truss and its support rib)
       var hb2=hit.body,ga=nn.clone().cross(up).normalize(),gc=g.position.clone(),gl=[.2,.2];
+      // (a plate on that face where the gusset meets it — the plate t30 on the flange of the post of Фп1, Сгф1 at its node:
+      // the gusset is welded to the plate, off the face by its thickness, at most 60 mm)
+      for(var so=0;so<=.06&&[0,-.05,.05].some(function(t){return plateAt(gc.clone().add(ga.clone().multiplyScalar(t)).add(nn.clone().multiplyScalar(so-.142)),id)});so+=.005);
+      if(so>0&&so<=.06){g.position.add(nn.clone().multiplyScalar(so+.01));gc.copy(g.position)}
       if(hb2&&Math.abs(hb2.U.dot(ga))>.95){var sc=gc.clone().sub(hb2.o).dot(hb2.U),su=hb2.U.dot(ga)>0?1:-1;gl[su>0?1:0]=Math.min(.2,hb2.s1-.03-sc);gl[su>0?0:1]=Math.min(.2,sc-hb2.s0-.03)}
       // (past the line of the brace on the side away from it only by its half width: the plate stays in the brace's corner)
       var dg=d.dot(ga),dnn=Math.abs(d.dot(nn));if(Math.abs(dg)>.1&&dnn>.1){var far=dg>0?0:1;gl[far]=Math.min(gl[far],Math.max(.05,halfSection(c).b)/Math.max(.3,dnn)+.03)}
-      [0,1].forEach(function(j){var sd=j?1:-1;for(var t=.02;t<=gl[j]+1e-6;t+=.01){if([.03,.15,.27].some(function(dd){return host.inside(id,gc.clone().add(ga.clone().multiplyScalar(sd*t)).add(nn.clone().multiplyScalar(dd-.15)),hb2)})){gl[j]=Math.max(0,t-.035);break}}});
+      // (nor into a plate drawn there: the plates t30 on the flanges of the post of Фп1, Сгф1 at its node)
+      [0,1].forEach(function(j){var sd=j?1:-1;for(var t=.02;t<=gl[j]+1e-6;t+=.01){if([.01,.03,.15,.27].some(function(dd){var P=gc.clone().add(ga.clone().multiplyScalar(sd*t)).add(nn.clone().multiplyScalar(dd-.15));return host.inside(id,P,hb2)||plateAt(P,id)})){gl[j]=Math.max(0,t-.035);break}}});
       if(gl[0]+gl[1]>=.15&&gl[0]+gl[1]<.4-1e-6){g.position.add(ga.clone().multiplyScalar((gl[1]-gl[0])/2));g.scale.z=gl[0]+gl[1]}
       var by0=lvl===fp.y?null:lvl>fp.y?lvl-lt/2:lvl+lt/2;
       var rk1=dia&&riskShift(c,v,up,dia);
@@ -2062,11 +2093,23 @@ window.irThreeSchemeView=(function(){
     }
     // A steep brace (a portal leg, a brace of a tall bay) ends 60 mm off the face, inside its gusset: the plate runs from
     // the face past 400 mm of the brace — a gusset placed by its middle left the end of a steep leg hanging below it.
-    var end=Math.min(face+Math.max(.06/hl,over+.02),L*.45),run=.4,h0=face*hl,h1=Math.max(h0+.3,(end+run)*hl+.05),dy=Math.abs(d.y);
+    var end=Math.min(face+Math.max(.06/hl,over+.02),L*.45),run=.4,h0=face*hl,h1,dy=Math.abs(d.y),gh=Math.max(.3,run*dy+.15),gy;
+    var fit=function(){h1=Math.max(h0+.3,(end+run)*hl+.05);gy=E0.y+d.y*(end+run/2);
+     // (at the bottom of a beam — a strut under a cantilever, ИР КМ3 л.15 узел 13 — its top edge on the face, not 15 mm into it)
+     if(hit.n&&Math.abs(hit.n.y)>.9){var fy=E0.y+d.y*face;gy=d.y<0?Math.min(gy,fy-gh/2):Math.max(gy,fy+gh/2)}};
+    // (where a plate of another member is drawn at that face — the support table and rib of a truss at a column, Св1 at К4
+    // under Фс2: the gusset and the end of the brace went through them — the end goes on along the brace by 50 mm at a
+    // time, at most 1 m, till the gusset and the last 300 mm of the brace are clear of them; never clear, as it was)
+    var clash=function(){
+     for(var i=0;i<=4;i++)for(var j=0;j<=4;j++){var P=E0.clone().add(hd.clone().multiplyScalar(h0+.015+(h1-h0-.03)*i/4));P.y=gy-gh/2+.01+(gh-.02)*j/4;if(plateAt(P,id))return true}
+     var bx=pieceBox(c,E0.clone().add(d.clone().multiplyScalar(end)),E0.clone().add(d.clone().multiplyScalar(end+.31)));if(!bx)return false;
+     for(var a=0;a<3;a++)for(var b=0;b<3;b++)for(var q=0;q<3;q++){
+      var x=bx.x0+.005+(bx.x1-bx.x0-.01)*a/2,y=bx.y0+.005+(bx.y1-bx.y0-.01)*b/2;
+      if(plateAt(bx.o.clone().add(bx.X.clone().multiplyScalar(x)).add(bx.Y.clone().multiplyScalar(y)).add(bx.U.clone().multiplyScalar(.005+.3*q/2)),id))return true}
+     return false};
+    fit();
+    if(clash()){var e0=end,lim=Math.min(L*.45,end+1);while(end+.05<=lim){end+=.05;fit();if(!clash())break}if(clash()){end=e0;fit()}}
     out[k]=E0.clone().add(d.clone().multiplyScalar(end));
-    var gh=Math.max(.3,run*dy+.15),gy=E0.y+d.y*(end+run/2);
-    // (at the bottom of a beam — a strut under a cantilever, ИР КМ3 л.15 узел 13 — its top edge on the face, not 15 mm into it)
-    if(hit.n&&Math.abs(hit.n.y)>.9){var fy=E0.y+d.y*face;gy=d.y<0?Math.min(gy,fy-gh/2):Math.max(gy,fy+gh/2)}
     g.scale.set(h1-h0,gh,gt);
     g.position.copy(E0).add(hd.clone().multiplyScalar((h0+h1)/2));g.position.y=gy;
     var rk3=dia&&riskShift(c,v,side,dia);
@@ -2630,7 +2673,7 @@ window.irThreeSchemeView=(function(){
   function buildMembers(list){
    var cached=new Set(meshGeo.values()),gone=new Set();
    allMeshes.forEach(function(m){steel.remove(m);if(!cached.has(m.geometry))gone.add(m.geometry)});gone.forEach(function(g){g.dispose()});
-   allMeshes=[];boltList=[];dataById.clear();meshesById.clear();failures=0;conventional.clear();drillCache.clear();upperCache.clear();seatCache.clear();
+   allMeshes=[];plateCells.clear();platesN=0;boltList=[];dataById.clear();meshesById.clear();failures=0;conventional.clear();drillCache.clear();upperCache.clear();seatCache.clear();
    labels.forEach(function(l){l.el.remove()});labels=[];
    elems=Array.isArray(list)?list:[];
    slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);seatLevels(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);roofCones(elems);
@@ -2883,6 +2926,10 @@ window.irThreeSchemeView=(function(){
      if(!made.has(key)){
       made.add(key);
       var face=mid.clone().add(out.clone().multiplyScalar(best.hOut));face.y=bot-tP;
+      // (a plate on the face of the column there — the overlay on the outer flanges of К1 at the girders □180 of the row Б:
+      // the bracket went 20 mm into it — is welded to that plate, off the face by its thickness, at most 60 mm)
+      for(var so=0;so<=.06&&[0,-wP/3,wP/3].some(function(t){return plateAt(face.clone().add(out.clone().multiplyScalar(so+.008)).add(side.clone().multiplyScalar(t)).add(up.clone().multiplyScalar(tP/2)),gid)});so+=.005);
+      if(so>0&&so<=.06){so+=.01;face.add(out.clone().multiplyScalar(so));ext=Math.max(.05,ext-so)}
       keepPart(partTag(plateBox(g,face.clone().add(out.clone().multiplyScalar(ext/2)).add(up.clone().multiplyScalar(tP/2)),out,up,side,ext,tP,wP),"столик ригеля"),gid);
       var w=Math.min(oR,ext),rib=new T.Mesh(shared("rib:"+w.toFixed(3)+":"+dR.toFixed(3)+":"+tR.toFixed(3),function(){
        var sh=new T.Shape();sh.moveTo(0,0);sh.lineTo(w,0);sh.lineTo(0,-dR);sh.closePath();var geo=new T.ExtrudeGeometry(sh,{depth:tR,bevelEnabled:false});geo.translate(0,0,-tR/2);return geo}),baseMaterial(g));
@@ -3919,7 +3966,7 @@ window.irThreeSchemeView=(function(){
    if(pad&&pad[0]>0)t.members.forEach(function(m){
     var sec=m[7]==="turn"&&m[4]==="post"?sectionOf(String(m[5]||"")):null;if(!sec||sec.shape!=="ibeam")return;
     var z0=Math.min(number(m[1]),number(m[3])),hp=Math.min(pad[1]||Infinity,Math.abs(number(m[3])-number(m[1])));
-    [-1,1].forEach(function(j){keepPart(plateBox(c,at(number(m[0]),z0+hp/2).add(nrm.clone().multiplyScalar(j*(sec.h/2+pad[0]/2)/1000)),ex.clone().normalize(),new T.Vector3(0,1,0),nrm,sec.b/1000,hp/1000,pad[0]/1000),id)})
+    [-1,1].forEach(function(j){keepPart(partTag(plateBox(c,at(number(m[0]),z0+hp/2).add(nrm.clone().multiplyScalar(j*(sec.h/2+pad[0]/2)/1000)),ex.clone().normalize(),new T.Vector3(0,1,0),nrm,sec.b/1000,hp/1000,pad[0]/1000),"пластина на полке стойки"),id)})
    });
    var tops=t.members.filter(function(m){return m[4]==="top"}),hi=tops.length?Math.max.apply(null,tops.map(function(m){return Math.max(number(m[1]),number(m[3]))})):0;
    var lab=at(span/2,hi);lab.y+=.35;
