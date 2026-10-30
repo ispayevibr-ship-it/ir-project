@@ -75,10 +75,15 @@ assert.ok(view.includes("branchTurns(elems);seatOnTops(elems);"),"branches turne
 assert.ok(!/setFromUnitVectors\(zAxis,(u|d|v)\),(sec|X|hs0)/.test(view)&&!view.includes("var q=new T.Quaternion().setFromUnitVectors(zAxis,d),X="),"every section basis by bodyQuat");
 assert.ok(view.includes("mesh.quaternion.copy(bodyQuat(c,points[1].clone().sub(points[0]).normalize()))")&&view.includes("plate.quaternion.copy(turn)"),"the body and its base plate turned");
 function W(x,y,z){this.x=x;this.y=y;this.z=z}W.prototype.sub=function(v){return new W(this.x-v.x,this.y-v.y,this.z-v.z)};
-const bt=new Function("number","toWorld",view.match(/var branchTurn=new Map\(\);\n  function branchTurns\(list\)\{[\s\S]*?\n  \}\n/)[0]+";return{branchTurns,branchTurn}")(number,(x,y,z)=>new W(number(x)/1000,number(z)/1000,(63200-number(y))/1000));
+const bt=new Function("number","toWorld","halfSection",view.match(/var branchTurn=new Map\(\),latticeAt=new Map\(\),stepUnder=new Map\(\);\n  function branchTurns\(list\)\{[\s\S]*?\n  \}\n/)[0]+";return{branchTurns,branchTurn,latticeAt}")(number,(x,y,z)=>new W(number(x)/1000,number(z)/1000,(63200-number(y))/1000),()=>({b:.15,h:.2}));
 const br=(id,y,name)=>({id,mark:"К1",geometryType:"column",x:14150,y,z0:-600,z2:13240,mark_name:name});
 bt.branchTurns([br(2,5850,"Колонна К1 — наружная ветвь, О4/Б"),br(3,7100,"Колонна К1 — подкрановая ветвь, О4/Б"),br(4,5950,"Колонна К1 — надкрановая часть I50Ш3, О4/Б")]);
 assert.deepEqual([...bt.branchTurn].map(([k,v])=>[k,+v.toFixed(4)]),[["2",1.5708],["3",-1.5708]],"the two branches turned to each other, the upper part not");
+// Whatever the name of the mark: two columns of one mark joined by its lattice from the axis of one to the other.
+const lat=(id,z)=>({id,mark:"К1",geometryType:"beam",x:14150,y:5850,z0:z,x2:14150,y2:7100,z2:z});
+bt.branchTurns([br(12,5850,"Колонна К1"),br(13,7100,"Колонна К1"),lat(14,960),lat(15,2160)]);
+assert.deepEqual([...bt.branchTurn].map(([k,v])=>[k,+v.toFixed(4)]),[["12",1.5708],["13",-1.5708]],"the branches by their lattice");
+assert.deepEqual([...bt.latticeAt.keys()],["14","15"],"the lattice known");
 // A channel's plate on the web goes inside its flanges when its back stands against the other's flange (the struts [30П
 // between the flanges of a branch went 10 mm into it); a rail ends at the crane stop across it; a railing post at the level
 // of a deck stands on it; the end plate of a beam is flush with its top (a deck lies on it).

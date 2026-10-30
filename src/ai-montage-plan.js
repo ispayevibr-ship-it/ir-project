@@ -1539,8 +1539,9 @@ function seatBases(elements,draft,merged,catalog){
  }
  if(!points.length)return;
  for(const e of elements){
-  // A post on a plate of its own (a roof guard of a verified set) keeps it.
-  if(e.geometry_type!=="column"||e.base?.plate)continue;
+  // A post on a plate of its own (a roof guard of a verified set) keeps it; so does a column with the base or the step its
+  // sheet draws (plate_mm, step: a two-branch column of a verified set).
+  if(e.geometry_type!=="column"||e.base?.plate||e.base?.plate_mm||e.base?.step)continue;
   let best=null;
   for(const b of points){if(b.scope!==e.doc)continue;const d=Math.hypot(b.x-e.x_mm,b.y-e.y_mm);if(d<=1500&&(!best||d<best.d))best={d,b}}
   if(!best)continue;
