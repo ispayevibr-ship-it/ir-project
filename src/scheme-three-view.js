@@ -2837,7 +2837,7 @@ window.irThreeSchemeView=(function(){
      // on it — the two half depths over it, a purlin on a beam, which wins)
      var t=((x-a.x)*ab.x+(y-a.y)*ab.y+(z-a.z)*ab.z)/L,R=Math.sqrt(L);if(Math.min(t,1-t)*R<Math.min(100,.02*R))return;
      var q={x:a.x+ab.x*t,y:a.y+ab.y*t,z:a.z+ab.z*t},d=Math.hypot(q.x-x,q.y-y,q.z-z),over=z-q.z;
-     if(self&&Math.hypot(q.x-x,q.y-y)<=150&&Math.abs(over-(halfSection(self).h+halfSection(o).h)*1000)<=60&&(!lying||d<lying.d))lying={d:d,q:q,o:o};
+     if(self&&Math.hypot(q.x-x,q.y-y)<=150&&Math.abs(over-(halfSection(self).h+halfSection(o).h)*1000)<=60&&(!lying||d<lying.d))lying={d:d,q:q,o:o,lies:true};
      if(d<=350&&(!best||d<best.d))best={d:d,q:q,o:o}
     };
     near(lineCells,x,y,0,test);(lineCells.get("long")||[]).forEach(test);
@@ -2851,6 +2851,10 @@ window.irThreeSchemeView=(function(){
      // the column — the engineer, 28.10.2026: «на чем держится прогон данный?», the card said «Примыкание к колонне»)
      if(col){
       var k=col.k,kt=number(topOf(k)),top=Math.abs(z-kt)<=450||seatTop.has(String(k.id))&&z>kt&&z-kt<=650;
+      // (nor beside a column going on up past it, when it lies on a beam there: a purlin of a low roof on the beam at the
+      // tall framing column — the engineer, 30.10.2026, «на чем держится данный прогон?», the card «Примыкание к колонне»)
+      var ly=!top&&onLine(x,y,z,c);
+      if(ly&&ly.lies){put("beam",ly.q.x,ly.q.y,ly.q.z,c,e[3]);put("beam",ly.q.x,ly.q.y,ly.q.z,ly.o,"опора",450);return}
       if(top||z<=kt){
        put(top?"top":"side",number(k.x),number(k.y),top?kt:z,c,e[3],top?500:450);
        if(!top)put("side",number(k.x),number(k.y),z,k,"примыкание",450);
