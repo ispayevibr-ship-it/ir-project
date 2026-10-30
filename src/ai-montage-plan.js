@@ -1624,6 +1624,10 @@ function deckFrames(elements){
  const own=e=>e.geometry_type==="beam"&&!e.fitting_type&&Math.abs(e.z0_mm-e.z1_mm)<=20&&!/каркас/i.test(e.name||"")&&(e.group==="platforms"||DECKED.test(e.name||"")&&e.group!=="guards"||e.type_key==="stair_landing"||e.type_key==="platform_beam");
  // A flight: a flight element, a sloped stair beam, or a stringer (косоур, тетива) of a platform's stair.
  const beams=elements.filter(own),decks=elements.filter(e=>e.fitting_type==="deck"),flights=elements.filter(e=>e.x2_mm!=null&&Math.abs(e.z1_mm-e.z0_mm)>300&&(e.fitting_type==="flight"||e.group==="stairs"&&e.geometry_type==="beam"||/косоур|тетив/i.test(e.name||"")));
+ // Members that may lie on a frame (purlins, ridge beams): beams with two ends, level or at a roof's pitch (not a brace
+ // going up through a platform), not flights, guards or decks.
+ const roofs=elements.filter(e=>e.geometry_type==="beam"&&!e.fitting_type&&e.x2_mm!=null&&e.group!=="guards"&&!/огражден|поручн/i.test(e.name||"")&&!flights.includes(e)&&
+  Math.abs(e.z1_mm-e.z0_mm)<=.25*Math.hypot(e.x2_mm-e.x_mm,e.y2_mm-e.y_mm));
  const levels=new Map();
  for(const b of beams){
   const dx=Math.abs(b.x2_mm-b.x_mm),dy=Math.abs(b.y2_mm-b.y_mm);if(Math.max(dx,dy)<300||Math.min(dx,dy)>30)continue;
@@ -1664,6 +1668,16 @@ function deckFrames(elements){
   for(let k=0;k<nx*ny;k++){const r=find(k);if(!thin(Math.floor(k/ny),k%ny))wide.add(r);
    for(const b of sideOf[k])if(b){if(!byName.has(r))byName.set(r,new Map());const m=byName.get(r),n=pre(b);m.set(n,[(m.get(n)?.[0]||0)+1,m.get(n)?.[1]||b])}}
   for(const [r,m] of byName)beamOf.set(r,[...m.values()].sort((a,b)=>b[0]-a[0])[0][1]);
+  // A roof on the frame (the canopy of a porch: purlins from the eaves to a ridge beam laid on its beams, КМ3 л.45 разрез
+  // 1-1): its covering lies on the purlins, a flat deck on the frame would have them pass through it. A member lies on the
+  // region when a point of it is over one of its cells (clear of the beams closing the cell, not of a line another
+  // structure of the level splits it by) at most 600 over the top of the frame.
+  const roofed=new Set();
+  for(let i=0;i<nx;i++)for(let j=0;j<ny;j++){
+   const x0=xs[i],x1=xs[i+1],y0=ys[j],y1=ys[j+1],k=i*ny+j,sd=sideOf[k],m=q=>sd[q]?100:0;
+   if(roofs.some(e=>{const h=sectionHeight(e.profile)/2;for(let n=0;n<=8;n++){const t=n/8,x=e.x_mm+(e.x2_mm-e.x_mm)*t,y=e.y_mm+(e.y2_mm-e.y_mm)*t;
+    if(x>x0+m(0)&&x<x1-m(1)&&y>y0+m(2)&&y<y1-m(3)){const z=e.z0_mm+(e.z1_mm-e.z0_mm)*t-h;if(z>=L.top-30&&z<=L.top+600)return true}}return false}))roofed.add(find(k))
+  }
   const cell=new Map();
   for(let i=0;i<nx;i++)for(let j=0;j<ny;j++){
    const x0=xs[i],x1=xs[i+1],y0=ys[j],y1=ys[j+1],k=i*ny+j,r=find(k);
@@ -1682,7 +1696,7 @@ function deckFrames(elements){
     if(Math.abs(hi-L.top)<=300&&lo<L.top-300)return over(f,Math.max(lo,L.top-2100),L.top-300);
     if(Math.abs(lo-L.top)<=300&&hi>L.top+300)return !inside(f,lo)&&over(f,L.top+300,Math.min(hi,L.top+2100));
     return false});
-   if(through)continue;
+   if(through||roofed.has(r))continue;
    const b=beamOf.get(r);cell.set(i+":"+j,{i,j,x0,x1,y0,y1,b,r:pre(b)})
   }
   // Cells of a row joined while they follow one another on one structure (over its inner beams, not from a stair landing
