@@ -52,7 +52,7 @@
   if(route?.mode==="view"&&route.reportId)await applyPending(oid,String(route.reportId));
   if(route?.mode==="edit"&&route.reportId){const rec=await api(oid).get(String(route.reportId)).catch(()=>null);initialPhotos=arr(rec?.data?.photos)}
   if(route?.mode==="new"){
-   try{const copy=JSON.parse(sessionStorage.getItem(`ir-report-copy-${oid}`)||"null")||{};initialPhotos=arr(copy?.data?.photos||copy?.photos)}catch{}
+   try{const copy=JSON.parse(sessionStorage.getItem(`ir-report-copy-${window.name?.startsWith("ir-tab-")?window.name+"-":""}${oid}`)||sessionStorage.getItem(`ir-report-copy-${oid}`)||"null")||{};initialPhotos=arr(copy?.data?.photos||copy?.photos)}catch{}
   }
   const result=await base(oid,route);
   if(route?.mode==="new"||route?.mode==="edit"){

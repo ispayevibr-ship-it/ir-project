@@ -106,7 +106,7 @@
    };
   }
   if(route.mode==="new"){
-   let copied={};try{const raw=sessionStorage.getItem(`ir-report-copy-${window.name?.startsWith("ir-tab-")?window.name+"-":""}${oid}`);if(raw){copied=JSON.parse(raw)||{};sessionStorage.removeItem(`ir-report-copy-${window.name?.startsWith("ir-tab-")?window.name+"-":""}${oid}`)}}catch{}return form("new",copied);
+   let copied={};try{const keys=[`ir-report-copy-${window.name?.startsWith("ir-tab-")?window.name+"-":""}${oid}`,`ir-report-copy-${oid}`],key=keys.find(k=>sessionStorage.getItem(k)),raw=key&&sessionStorage.getItem(key);if(raw){const{id,...rest}=JSON.parse(raw)||{};copied=rest;keys.forEach(k=>sessionStorage.removeItem(k))}}catch{}return form("new",copied);
   }
   if(route.mode==="edit"||route.mode==="view"){
    const rec=reports().find(r=>String(r.id)===String(route.reportId));if(!rec){location.hash=`/objects/object/${oid}/reports`;return}return form(route.mode,rec);
