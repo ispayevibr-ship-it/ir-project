@@ -346,7 +346,8 @@ window.irThreeSchemeView=(function(){
  // Nodes of a truss given by the axes of its members (local mm: x along the span, z up). Every end of a lattice member
  // (diagonal, post) on a chord is a node on a gusset (КМ: «фасонки подстропильных и стропильных ферм»): the member stops
  // 40 mm short of the inner edge of the chord — it is welded to the gusset, not to the chord; the gusset covers its welded
- // end (1,6 of its leg, 120–260 mm) and goes along the chord 30 mm past it, 10 mm under the back of the chord.
+ // end (1,6 of its leg, 120–260 mm) and goes along the chord 30 mm past it, 10 mm under the back of the chord. So too
+ // the end of a diagonal on another diagonal, away from the chords (its gusset between the angles of that one).
  // Conventional, not by the КМД. Returns the members cut so and the outlines of the gussets.
  function trussNodes(members,secOf){
   var EPS=6,GAP=40;
@@ -366,6 +367,21 @@ window.irThreeSchemeView=(function(){
     var nx=-uz,nz=ux;if((w.role==="top")===(nz>0)){nx=-nx;nz=-nz}
     if(t>EPS)arms.push({ux:-ux,uz:-uz,nx:nx,nz:nz,inner:w.h-w.c,outer:w.c});
     if(t<L-EPS)arms.push({ux:ux,uz:uz,nx:nx,nz:nz,inner:w.h-w.c,outer:w.c})
+   });
+   // (no chord there: the end of a short diagonal on another one — the brace 2L63×5 at a support of a rafter truss on its
+   // support diagonal 2L125×10, КМ1 л.13 Фс1–Фс3: its gusset between the angles of that diagonal, the brace stops 40 short
+   // of its edge, on the side it comes from; without it the angles of the brace went into those of the diagonal and hung
+   // there — the engineer, 30.10.2026, «уголок не доходит»)
+   if(!arms.length)info.forEach(function(w){
+    if(w.chord||!(w.h>0))return;var dx=w.x1-w.x0,dz=w.z1-w.z0,L=Math.hypot(dx,dz);if(L<1)return;var ux=dx/L,uz=dz/L;
+    var t=(n.x-w.x0)*ux+(n.z-w.z0)*uz,off=Math.abs((n.x-w.x0)*uz-(n.z-w.z0)*ux);if(off>EPS||t<=EPS||t>=L-EPS)return;
+    var nx=-uz,nz=ux,side=0;
+    n.webs.forEach(function(e){var o=info[e.i],fx=e.end?o.x0:o.x1,fz=e.end?o.z0:o.z1;side+=(fx-n.x)*nx+(fz-n.z)*nz});
+    if(side<0){nx=-nx;nz=-nz}
+    // (its leg drawn upright goes h − c up its own normal, c down: inner — toward the coming ends)
+    var yx=-ux*uz,yz=1-uz*uz,yl=Math.hypot(yx,yz);if(yl<1e-6){yx=1;yz=0}else{yx/=yl;yz/=yl}
+    var upw=yx*nx+yz*nz>=0,inner=upw?w.h-w.c:w.c,outer=upw?w.c:w.h-w.c;
+    arms.push({ux:-ux,uz:-uz,nx:nx,nz:nz,inner:inner,outer:outer},{ux:ux,uz:uz,nx:nx,nz:nz,inner:inner,outer:outer})
    });
    if(!arms.length)return;
    var pts=[];
@@ -412,9 +428,9 @@ window.irThreeSchemeView=(function(){
  // it is moved onto the line at its chord (the end post becomes the post at the flange, the support brace starts at the
  // bottom chord there). Nothing passes the line — drawn from axis to axis the angles went through the column.
  function clipTruss(members,lo,hi){
-  var out=[];
-  members.forEach(function(m){
-   var p=[[number(m[0]),number(m[1])],[number(m[2]),number(m[3])]],chord=m[4]==="top"||m[4]==="bottom",ok=true;
+  var lat=function(m){return m[4]!=="top"&&m[4]!=="bottom"};
+  var res=members.map(function(m){
+   var p=[[number(m[0]),number(m[1])],[number(m[2]),number(m[3])]],chord=!lat(m),ok=true;
    for(var e=0;e<2&&ok;e++){
     var q=p[e],o=p[1-e],line=q[0]<lo?lo:q[0]>hi?hi:null;if(line===null)continue;
     var role=chord?"":["top","bottom"].filter(function(r){var z=chordAt(members,r,q[0]);return z!==null&&Math.abs(z-q[1])<=40})[0];
@@ -422,8 +438,27 @@ window.irThreeSchemeView=(function(){
     else if((o[0]-line)*(q[0]-line)<0)p[e]=[line,q[1]+(o[1]-q[1])*(line-q[0])/(o[0]-q[0])];
     else ok=false
    }
-   if(ok&&Math.hypot(p[1][0]-p[0][0],p[1][1]-p[0][1])>=30)out.push([p[0][0],p[0][1],p[1][0],p[1][1]].concat(m.slice(4)))
+   return ok&&Math.hypot(p[1][0]-p[0][0],p[1][1]-p[0][1])>=30?p:null
   });
+  // An end of a diagonal on another one stays on it when that one is moved (the brace 2L63×5 of Фс2 on its support
+  // diagonal, whose foot went onto the bottom chord at the face of the column: the brace ended 79 off it, short of it):
+  // along its own line to the moved one.
+  members.forEach(function(m,i){
+   var p=res[i];if(!p||!lat(m))return;
+   [0,1].forEach(function(e){
+    var x=number(m[2*e]),z=number(m[2*e+1]);if(p[e][0]!==x||p[e][1]!==z)return;
+    members.forEach(function(w,j){
+     var q=res[j];if(j===i||!q||!lat(w))return;
+     var x0=number(w[0]),z0=number(w[1]),x1=number(w[2]),z1=number(w[3]),L=Math.hypot(x1-x0,z1-z0);if(L<1)return;
+     var t=((x-x0)*(x1-x0)+(z-z0)*(z1-z0))/L,off=Math.abs((x-x0)*(z1-z0)-(z-z0)*(x1-x0))/L;
+     if(off>6||t<=6||t>=L-6||q[0][0]===x0&&q[0][1]===z0&&q[1][0]===x1&&q[1][1]===z1)return;
+     var o=p[1-e],dx=x-o[0],dz=z-o[1],ex=q[1][0]-q[0][0],ez=q[1][1]-q[0][1],den=dx*ez-dz*ex;if(Math.abs(den)<1e-6)return;
+     var k=((q[0][0]-o[0])*ez-(q[0][1]-o[1])*ex)/den;if(k>.5&&k<1.5)p[e]=[o[0]+dx*k,o[1]+dz*k]
+    })
+   })
+  });
+  var out=[];
+  members.forEach(function(m,i){var p=res[i];if(p)out.push([p[0][0],p[0][1],p[1][0],p[1][1]].concat(m.slice(4)))});
   return out
  }
  // The convex outline of points [x, z] (anticlockwise).
