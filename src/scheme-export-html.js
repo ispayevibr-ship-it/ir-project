@@ -101,6 +101,7 @@
   ".ec-coords{border:1px solid var(--line);border-radius:9px}.ec-coords summary{padding:7px 9px;cursor:pointer;font-weight:700;font-size:12px}.ec-coords>div{display:flex;justify-content:space-between;gap:10px;padding:4px 9px;border-top:1px solid #eef2f7;font-size:12px}.ec-coords span{color:var(--muted)}",
   // The top of the card as in the report of 21.10.2026, as in the program.
   ".ec-badge{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}.ec-badge .ec-status{padding:5px 11px;font-size:12px}.ec-badge small{color:#5f7383;font-size:11px}",
+  ".ec-traits dl{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:0}.ec-traits dl>div{display:contents}.ec-traits dl>div[hidden]{display:none}.ec-traits dt{color:var(--muted);font-size:12px;line-height:1.45}.ec-traits dd{margin:0;font-size:13px;font-weight:600;line-height:1.45}",
   ".ec-facts{color:#4f6474;font-size:12px;line-height:1.45}",
   ".ec-facts.ec-warn{color:#8a6416;margin-top:4px}",
   ".ec-nodes>span{color:#4f6474;font-size:12px}.ec-nodes>div{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}.ec-more{align-self:center;color:#6b7f8e;font-size:11px}",
@@ -221,13 +222,13 @@
    var p=c.progress,a=c.axisText,cls=c.status==="mounted"?"ok":c.status==="partial"?"partial":"wait",EC=window.irSchemeElementCard,V=window.irThreeSchemeView;
    var prog=p&&p.total>0?'<div class="prog"><b>Марка '+esc(c.mark)+' по ведомости:</b> всего '+fmt(p.total)+' шт., смонтировано '+fmt(p.mounted)+', осталось '+fmt(p.left)+'<div class="bar"><i style="width:'+Math.max(0,Math.min(100,p.mounted/p.total*100))+'%"></i></div></div>':"";
    if(EC){
-    var e={mark:c.mark,name:c.mark_name,type_name:/\s\/\s/.test(c.type_name||"")?"":c.type_name,type_key:c.type_key,lay:c.lay||null,group:c.scheme_group,geometry:c.geometryType,profile:c.profile,standard:c.profile_standard,section:c.section,
+    var e={mark:c.mark,name:c.mark_name,type_name:/\s\/\s/.test(c.type_name||"")?"":c.type_name,type_key:c.type_key,lay:c.lay||null,group:c.scheme_group,geometry:c.geometryType,profile:c.profile,standard:c.profile_standard,section:c.section,steel:c.steel||"",joint:c.joint||null,
      status:c.status,status_label:statusText[c.status]||c.status,status_title:p&&p.total>0?"Статус по ведомости марок":"",x:c.x,y:c.y,x2:c.x2,y2:c.y2,z0:c.z0,z2:c.z2,mx:c.mx,my:c.my,mz:c.mz,r:c.r,ri:c.ri,sw:c.sw,ft:c.ft,
      doc:c.draft_doc,src_section:c.source_section,instance_status:c.instance_status,preliminary:!!c.preliminary,reasons:c.instance_reasons||[],sources:c.param_sources||null,pdf_new:c.pdf_new||null,check_note:c.check_note||"",manual:!!c.manual,
      // As in the program: the day of mounting, the sheet, the masses, the bolts, the nodes and the parts in their colours.
      status_date:c.status_date||"",status_more:c.status_more||"",sheet:c.sheet||"",mass_kmd:c.mass_kmd||null,spec:c.parts||null,
      model:V&&V.card?V.card(c.id):null,kgm:function(t){return V&&V.massPerMetre?V.massPerMetre(t,c.profile_standard):null}};
-    box.innerHTML='<button type="button" class="side-close" id="uncard" aria-label="Закрыть карточку">✕</button><h3>Выбранный элемент</h3><div class="ec-card">'+EC.head(e)+EC.facts(e)+EC.nodes(e)+EC.tools(e)+EC.parts(e)+EC.what(e)+EC.where(e,{axesX:D.axesX,axesY:D.axesY,posX:D.gridX||{},posY:D.gridY||{}})+EC.drawings(e)+
+    box.innerHTML='<button type="button" class="side-close" id="uncard" aria-label="Закрыть карточку">✕</button><h3>Выбранный элемент</h3><div class="ec-card">'+EC.head(e)+EC.facts(e)+EC.nodes(e)+EC.tools(e)+EC.parts(e)+EC.traits(e,{axesX:D.axesX,axesY:D.axesY,posX:D.gridX||{},posY:D.gridY||{}})+EC.drawings(e)+
      prog+fastenersHtml(c.joint)+drillHtml(c)+cutsHtml(c)+platesHtml(c)+EC.coords(e)+'</div>';
     if(EC.bind)EC.bind(box,c.id);
     $("uncard").onclick=function(){S.sel="";details();list();draw3d()};return

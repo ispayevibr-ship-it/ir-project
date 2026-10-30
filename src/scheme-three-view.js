@@ -4383,13 +4383,16 @@ window.irThreeSchemeView=(function(){
    else camera.position.set(center.x+radius*.78,center.y+radius*.5,center.z+radius*.92);
    camera.lookAt(center);controls.update()
   }
-  // Smooth camera move to a member, keeping the viewing direction.
+  // Smooth camera move to a member, keeping the viewing direction: from afar to where it fills the view; nearer than that
+  // a half closer still — never back. (Twice its size and 6 m at least, it flew the camera back from a node looked at
+  // close: the engineer, 30.10.2026, «кнопка приблизить не всегда приближает, бывает отдаляет».)
   function focus(id){
    var meshes=meshesById.get(String(id));if(!meshes||!meshes.length)return false;
    var box=new T.Box3();meshes.forEach(function(m){box.expandByObject(m)});
-   var c=box.getCenter(new T.Vector3()),size=Math.max(6,box.getSize(new T.Vector3()).length()*2.2);
+   var c=box.getCenter(new T.Vector3()),r=Math.max(.3,box.getSize(new T.Vector3()).length()/2),fov=camera.fov*Math.PI/360;
+   var fit=r/Math.sin(Math.min(fov,Math.atan(Math.tan(fov)*camera.aspect)))*1.1,now=camera.position.distanceTo(c),dist=now>fit?fit:Math.max(.3,now*.5);
    var dir=camera.position.clone().sub(controls.target).normalize();
-   flight={from:controls.target.clone(),to:c,camFrom:camera.position.clone(),camTo:c.clone().add(dir.multiplyScalar(size)),t:0,ms:850,st:performance.now()};
+   flight={from:controls.target.clone(),to:c,camFrom:camera.position.clone(),camTo:c.clone().add(dir.multiplyScalar(dist)),t:0,ms:850,st:performance.now()};
    return true
   }
   function choose(id){

@@ -2054,7 +2054,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
     // What the 3D draws a member by: its rolled section, a truss or a lattice column, the base, the joint and the nodes of
     // the drawings — without them the exported scheme showed conventional sections, trusses as beams and no bolts.
     profile_name:String(c.profile_name||""),profile_standard:String(c.profile_standard||""),section_type:String(c.section_type||""),type_key:String(c.type_key||""),
-    truss:c.truss||undefined,column:c.column||undefined,base:c.base||undefined,rotation_deg:num(c.rotation_deg)||undefined,joint:c.joint||undefined,drill:Array.isArray(c.drill)?c.drill:undefined,cuts:Array.isArray(c.cuts?.rows)?c.cuts:undefined,parts:Array.isArray(c.parts?.rows)?c.parts:undefined,plates:Array.isArray(c.plates?.rows)||Array.isArray(c.plates?.gussets)?c.plates:undefined,place:Array.isArray(c.place?.rows)?c.place:undefined,bevels:Array.isArray(c.bevels?.rows)?c.bevels:undefined,cross:c.cross||undefined,flat:c.flat||undefined,nodes:c.nodes||undefined,
+    truss:c.truss||undefined,column:c.column||undefined,base:c.base||undefined,rotation_deg:num(c.rotation_deg)||undefined,steel:c.steel||undefined,joint:c.joint||undefined,drill:Array.isArray(c.drill)?c.drill:undefined,cuts:Array.isArray(c.cuts?.rows)?c.cuts:undefined,parts:Array.isArray(c.parts?.rows)?c.parts:undefined,plates:Array.isArray(c.plates?.rows)||Array.isArray(c.plates?.gussets)?c.plates:undefined,place:Array.isArray(c.place?.rows)?c.place:undefined,bevels:Array.isArray(c.bevels?.rows)?c.bevels:undefined,cross:c.cross||undefined,flat:c.flat||undefined,nodes:c.nodes||undefined,
     // How fully the drawings determined it and its section: the exported page shows the same pale «предварительно».
     preliminary:isPreliminary(c)||undefined,instance_status:INSTANCE_STATUS[c.instance_status]?String(c.instance_status):undefined,
     instance_reasons:Array.isArray(c.instance_reasons)&&c.instance_reasons.length?c.instance_reasons.map(String).slice(0,5):undefined,source_section:sectionOfRecord(c),
@@ -2168,7 +2168,9 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   if(host)host.appendChild(box);else if(actions)panel.insertBefore(box,actions);else panel.appendChild(box);
   const volume=(/КМ\s*\d+/u.exec(String(c.source_import_doc||""))||[""])[0].replace(/\s+/g,"");
   const key=oid+"|"+c.source_import_key+"|"+c.mark+"|"+volume;
-  const show=card=>{if(!card){box.innerHTML="";return}box.innerHTML=markCardHtml(card);box.querySelectorAll("[data-mark-zoom]").forEach(el=>el.onclick=()=>el.classList.toggle("zoom"))};
+  // (the steel of the mark by its drawings into the characteristic of the card when the record has none)
+  const show=card=>{if(!card){box.innerHTML="";return}box.innerHTML=markCardHtml(card);box.querySelectorAll("[data-mark-zoom]").forEach(el=>el.onclick=()=>el.classList.toggle("zoom"));
+   const st=panel.querySelector("[data-ec-steel]");if(st?.hidden&&card.catalog?.steel){st.querySelector("dd").textContent=card.catalog.steel;st.hidden=false}};
   if(markCards.has(key)){show(markCards.get(key));return}
   box.innerHTML='<div class="scheme-mark-card"><small>Читаю чертёж марки…</small></div>';
   try{const card=await irProject.ai.invoke("ai-montage:element-card",{objectId:oid,key:c.source_import_key,mark:c.mark,volume});markCards.set(key,card);if(box.isConnected)show(card)}
@@ -2269,7 +2271,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   const EC=window.irSchemeElementCard;
   if(EC){
    const e={mark:c.mark,name,type_name:String(c.type_name||FITTING_LABEL[c.ft]||""),type_key:String(c.type_key||""),lay:c.lay||null,group:recordMarkGroup(c).key,geometry:c.geometryType,
-    profile:profileShown(c),standard:String(c.profile_standard||""),section:sectionShown(c),status:c.status,
+    profile:profileShown(c),standard:String(c.profile_standard||""),section:sectionShown(c),steel:String(c.steel||""),joint:c.joint||null,status:c.status,
     status_label:statusText(c.status),status_title:progress?.total>0?"Статус по ведомости марок":"Статус задан вручную",
     x:c.x,y:c.y,x2:c.x2,y2:c.y2,z0:c.z0,z2:c.z2,mx:c.mx,my:c.my,mz:c.mz,r:c.r,ri:c.ri,sw:c.sw,ft:c.ft,
     doc:String(c.source_import_doc||""),src_section:String(c.source_section||""),instance_status:String(c.instance_status||""),preliminary:isPreliminary(c),
@@ -2282,7 +2284,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    const V=window.irThreeSchemeView,day=mountDay(linked,progress);
    Object.assign(e,{status_date:day.date,status_more:day.more,sheet:sheetOfRecord(c),mass_kmd:markMass(c,linked),model:V?.card?.(c.id)||null,
     spec:Array.isArray(c.parts?.rows)?c.parts:null,kgm:t=>V?.massPerMetre?.(t,c.profile_standard)??null});
-   panel.innerHTML=pickerHtml()+`<div class="ec-card"><div class="scheme-detail-title"><span>Выбранный элемент</span></div>${EC.head(e)}${EC.facts(e)}${EC.nodes(e)}${EC.tools(e)}${EC.parts(e)}${EC.what(e)}${EC.where(e,grid)}${EC.drawings(e)}<div class="ec-mark-host"></div>
+   panel.innerHTML=pickerHtml()+`<div class="ec-card"><div class="scheme-detail-title"><span>Выбранный элемент</span></div>${EC.head(e)}${EC.facts(e)}${EC.nodes(e)}${EC.tools(e)}${EC.parts(e)}${EC.traits(e,grid)}${EC.drawings(e)}<div class="ec-mark-host"></div>
     ${progressHtml}${fastenersHtml(c)}${drillHtml(c)}${cutsHtml(c)}${platesHtml(c)}${EC.coords(e)}</div>${actionsHtml}`;
    EC.bind(panel,String(c.id));
   }else

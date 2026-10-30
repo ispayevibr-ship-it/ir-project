@@ -818,6 +818,7 @@
 .ec-block>b{color:#6b7f8e;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
 .ec-block p{margin:0;color:#263f50;font-size:12px;line-height:1.45}
 .ec-block p.ec-muted{color:#6b7f8e;font-size:11px}
+.ec-traits dl{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:0}.ec-traits dl>div{display:contents}.ec-traits dl>div[hidden]{display:none}.ec-traits dt{color:#6b7f8e;font-size:12px;line-height:1.45}.ec-traits dd{margin:0;color:#263f50;font-size:12px;font-weight:600;line-height:1.45}
 .ec-drawings{border-color:#cfe0d6;background:#f5fbf7}.ec-drawings.ec-warn{border-color:#e7d2a6;background:#fdf9ef}
 .ec-found{font-weight:700}.ec-found.ec-ok{color:#23784f!important}.ec-found.ec-warn{color:#8a6416!important}
 .ec-src-title{margin-top:3px!important;color:#6b7f8e!important;font-size:11px!important}

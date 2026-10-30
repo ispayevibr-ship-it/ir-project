@@ -1,52 +1,18 @@
 "use strict";
 /*
  * The card of the selected element in plain words (the engineer, 27.10.2026: «вот это описание элемента мне вообще не
- * нравится, толком ничего не понятно. переделай на основе чертежей»): what it is and what it does in the structure, its
- * section, where it stands — by the axes and levels as the drawings give them, its length or height — and what the
- * drawings say of it (the sheet, where each value was taken, what to check, what a new analysis gives after an edit
- * of the engineer). The exact coordinates are folded away. The same text in the montage scheme (src/scheme-page.js) and
- * in the exported HTML (src/scheme-export-html.js).
+ * нравится, толком ничего не понятно. переделай на основе чертежей»): its characteristic — the kind, the section, the
+ * steel, the fasteners, the axes and the levels of its bottom and top, its height or length (the engineer, 30.10.2026:
+ * «убери из описаний лишние тексты… просто сделай общую характеристику») — and what the drawings say of it (the sheet,
+ * where each value was taken, what to check, what a new analysis gives after an edit of the engineer). The exact
+ * coordinates are folded away. The same text in the montage scheme (src/scheme-page.js) and in the exported HTML
+ * (src/scheme-export-html.js).
  *
- * e: {mark, name, type_name, type_key, lay, group, geometry, profile, standard, section, status, status_label, x, y, x2, y2, z0, z2, mx, my,
+ * e: {mark, name, type_name, type_key, lay, group, geometry, profile, standard, section, steel, joint, status, status_label, x, y, x2, y2, z0, z2, mx, my,
  *     mz, r, ri, sw, ft, doc, src_section, instance_status, preliminary, reasons[], sources{}, pdf_new{}, check_note, manual}
  * grid: {axesX:[…], axesY:[…], posX:{axis: mm}, posY:{axis: mm}}
  */
 (function(root){
- // What an element of each group does in the structure (by its geometry where the group has both).
- var ROLE={
-  columns:"вертикальная несущая опора каркаса: держит балки, ригели и фермы и передаёт нагрузку на фундамент",
-  fahwerk:{column:"стойка каркаса стены (фахверка): держит стеновые панели, окна и ворота между основными колоннами",
-   beam:"горизонтальный элемент каркаса стены (фахверка): к нему крепятся стеновые панели, по нему — края окон и ворот"},
-  posts:"вертикальная стойка: держит площадку, перекрытие или фахверк",
-  beams:"горизонтальная несущая балка: держит настил, перекрытие или другие балки",
-  crane:"подкрановый путь: по нему ходит мостовой кран или кран-балка",
-  girders:"ригель — горизонтальная балка между колоннами: держит покрытие или перекрытие",
-  purlins:"прогон — лежит поперёк ригелей или ферм, на него крепится кровля",
-  spacers:"распорка — держит колонны или фермы на нужном расстоянии и не даёт им отклоняться",
-  ties:"связь — делает каркас жёстким: держит его от ветра, торможения крана и раскачивания",
-  trusses:"ферма — решётчатая балка покрытия, перекрывает большой пролёт",
-  stairs:"лестница — подъём на площадки и отметки",
-  platforms:"площадка — место прохода и обслуживания оборудования",
-  guards:"ограждение — перила площадок и лестниц, защищает от падения",
-  brackets:"кронштейн или опорный столик — выступ на колонне или стене, на него опирается балка или оборудование",
-  embeds:"закладная деталь, анкер или база — крепит конструкцию к фундаменту",
-  cladding:"ограждающая конструкция — стена или кровля здания",
-  trims:"нащельник или доборный элемент — закрывает стыки и края обшивки",
-  openings:"проём — ворота, дверь или окно",
-  tanks:"стенка резервуара — пояс из вальцованных листов, сваренных встык; держит давление продукта",
-  bottom:"днище резервуара — листы, сваренные на основании",
-  roof:"крыша резервуара — каркас и настил покрытия",
-  nozzles:"патрубок, люк или оборудование резервуара",
-  rings:"кольцо жёсткости — держит круглую форму стенки",
-  welds:"сварной шов соединения",
-  fasteners:"метизы соединения — болты, гайки, шайбы",
-  equipment:"технологическое оборудование",
-  pipes:"трубопровод",
-  supports:"опора трубопровода"
- };
- // Of some kinds the role is their own, not of their group.
- var TYPE_ROLE={roof_central_ring:"центральное кольцо крыши: в нём сходятся и к нему крепятся щиты покрытия, сверху его закрывает центральный щит",
-  roof_shield:"щит покрытия — сектор крыши от стенки до центрального кольца: каркас из швеллеров и уголков с настилом из листа"};
  // How the drawings determined it (instance_status of src/ai-montage.js), in words.
  var FOUND={confirmed:["ok","Найден на чертеже: положение и отметки подтверждены"],computed:["ok","Положение и отметки вычислены по чертежам"],
   partial:["warn","По чертежам определено не всё"],ambiguous:["warn","Чертежи допускают несколько вариантов"],
@@ -63,23 +29,6 @@
   var best=null;(axes||[]).forEach(function(a){var p=pos&&pos[a];if(!has(p))return;var d=num(v)-num(p);if(!best||Math.abs(d)<Math.abs(best.d))best={a:String(a),d:d}});
   if(!best)return"";return Math.abs(best.d)<5?best.a:best.a+" ("+(best.d>0?"+":"−")+fmt(Math.abs(best.d))+" мм)"
  }
- // The axes in the order of their coordinates.
- function sorted(axes,pos){return(axes||[]).filter(function(a){return has(pos&&pos[a])}).map(function(a){return{a:String(a),p:num(pos[a])}}).sort(function(x,y){return x.p-y.p})}
- // A point along a line of the grid by the axes around it: "на оси 3", "в 4 450 мм от оси 3 (4 550 мм до оси 4)".
- function between(axes,pos,v){
-  var L=sorted(axes,pos);v=num(v);if(!L.length)return fmt(v)+" мм";
-  for(var i=0;i<L.length;i++)if(Math.abs(v-L[i].p)<5)return"на оси "+L[i].a;
-  if(v<L[0].p)return"в "+fmt(L[0].p-v)+" мм перед осью "+L[0].a;
-  if(v>L[L.length-1].p)return"в "+fmt(v-L[L.length-1].p)+" мм за осью "+L[L.length-1].a;
-  for(var j=0;j+1<L.length;j++)if(v>L[j].p&&v<L[j+1].p)return"в "+fmt(v-L[j].p)+" мм от оси "+L[j].a+" ("+fmt(L[j+1].p-v)+" мм до оси "+L[j+1].a+")";
-  return fmt(v)+" мм"
- }
- // The axes a stretch lies between: "между осями 3 и 4".
- function range(axes,pos,a,b){
-  var L=sorted(axes,pos),lo=Math.min(num(a),num(b)),hi=Math.max(num(a),num(b)),from=null,to=null;
-  L.forEach(function(x){if(x.p<=lo+5)from=x;if(!to&&x.p>=hi-5)to=x});
-  return from&&to&&from!==to?"между осями "+from.a+" и "+to.a:""
- }
  function ax(g,v){return axisOf(g.axesX,g.posX,v)}
  function ay(g,v){return axisOf(g.axesY,g.posY,v)}
  function point(g,x,y){var a=ax(g,x),b=ay(g,y);return a&&b?a+"/"+b:a||b||"("+fmt(x)+"; "+fmt(y)+")"}
@@ -88,51 +37,48 @@
   return Math.hypot(num(e.x2)-num(e.x),num(e.y2)-num(e.y),num(e.z2)-num(e.z0))
  }
  var POINT={column:1,shell:1,plate:1};
- // Where it stands, in sentences.
- function place(e,g){
-  g=g||{};var out=[],kind=e.geometry||"column",z0=num(e.z0),z2=num(e.z2),flat=Math.hypot(num(e.x2)-num(e.x),num(e.y2)-num(e.y));
+ // Where it is, as rows of the characteristic: its axes, the levels of its bottom and top (of a horizontal one its level),
+ // its height or length.
+ function position(e,g){
+  g=g||{};var out=[],kind=e.geometry||"column",z0=num(e.z0),z2=num(e.z2),flat=Math.hypot(num(e.x2)-num(e.x),num(e.y2)-num(e.y)),L=e.lay&&typeof e.lay==="object"?e.lay:null;
+  var span=function(){out.push(["Низ",level(Math.min(z0,z2))]);out.push(["Верх",level(Math.max(z0,z2))]);out.push(["Высота",fmt(Math.abs(z2-z0))+" мм"])};
   if(kind==="shell"){
-   out.push((e.sw>0&&e.sw<360?"Дуга "+fmt(e.sw)+"°":"Кольцо")+(e.r>0?" радиусом "+fmt(e.r)+" мм":"")+(e.ri>0?" (внутри "+fmt(e.ri)+" мм)":"")+" с центром у осей "+point(g,e.x,e.y)+".");
-   out.push("От отметки "+level(z0)+" до "+level(z2)+" — высота "+fmt(z2-z0)+" мм.");return out
+   out.push(["Оси","центр у осей "+point(g,e.x,e.y)]);out.push([e.sw>0&&e.sw<360?"Дуга":"Радиус",(e.sw>0&&e.sw<360?fmt(e.sw)+"°, радиус ":"")+fmt(e.r)+" мм"+(e.ri>0?" (внутри "+fmt(e.ri)+" мм)":"")]);span();return out
   }
-  var L=e.lay&&typeof e.lay==="object"?e.lay:null;
   if(L&&L.kind==="central_ring"){
    // The central ring of a shield roof: in the middle of the roof, its own levels and the top of its shield.
-   out.push("В центре крыши, центр у осей "+point(g,e.x,e.y)+".");
-   out.push("Низ кольца на отметке "+level(z0)+", верх "+level(z2)+" — высота "+fmt(z2-z0)+" мм."+
-    (L.cap&&num(L.cap.r_mm)>0&&num(L.cap.base_mm)>0?" Верх центрального щита "+level(z0+num(L.cap.base_mm)+num(L.cap.rise_mm))+".":""));return out
+   out.push(["Оси","центр крыши у осей "+point(g,e.x,e.y)]);span();
+   if(L.cap&&num(L.cap.r_mm)>0&&num(L.cap.base_mm)>0)out.push(["Верх центрального щита",level(z0+num(L.cap.base_mm)+num(L.cap.rise_mm))]);return out
   }
   if(kind==="plate"){
-   out.push((e.r>0?"Круг радиусом "+fmt(e.r)+" мм":"Плоский элемент")+(e.ri>0?" с отверстием "+fmt(e.ri)+" мм":"")+" с центром у осей "+point(g,e.x,e.y)+", на отметке "+level(z0)+(Math.abs(z2-z0)>5?" … "+level(z2):"")+".");return out
+   out.push(["Оси","центр у осей "+point(g,e.x,e.y)]);if(e.r>0)out.push(["Радиус",fmt(e.r)+" мм"+(e.ri>0?", отверстие "+fmt(e.ri)+" мм":"")]);
+   out.push(["Отметка",level(z0)+(Math.abs(z2-z0)>5?" … "+level(z2):"")]);return out
   }
-  if(POINT[kind]||flat<5&&kind!=="bent"){
-   var a=ax(g,e.x),b=ay(g,e.y);
-   out.push((e.ft?"Стоит у осей ":"Стоит на пересечении осей ")+(a&&b?a+" и "+b:a||b)+".");
-   out.push("Низ на отметке "+level(z0)+", верх "+level(z2)+" — высота "+fmt(z2-z0)+" мм.");return out
-  }
+  if(POINT[kind]||flat<5&&kind!=="bent"){out.push(["Оси",point(g,e.x,e.y)]);span();return out}
   if(kind==="bent"){
-   out.push("Ломаная, с коньком: от осей "+point(g,e.x,e.y)+" на отметке "+level(z0)+" через конёк "+point(g,e.mx,e.my)+" на "+level(e.mz)+" до "+point(g,e.x2,e.y2)+" на "+level(z2)+".");
-   out.push("Длина двух частей "+fmt(length(e))+" мм.");return out
+   out.push(["Оси","от "+point(g,e.x,e.y)+" через "+point(g,e.mx,e.my)+" до "+point(g,e.x2,e.y2)]);
+   out.push(["Концы",level(z0)+" и "+level(z2)]);out.push(["Конёк",level(e.mz)]);out.push(["Длина",fmt(length(e))+" мм"]);return out
   }
-  var rise=Math.abs(z2-z0)>20,len=length(e);
-  if(!rise){
-   // Along a line of the grid: the line, the axes it lies between, where it starts and ends between them.
-   var alongX=Math.abs(num(e.y2)-num(e.y))<5,alongY=!alongX&&Math.abs(num(e.x2)-num(e.x))<5;
-   if(alongX||alongY){
-    var axes=alongX?g.axesX:g.axesY,pos=alongX?g.posX:g.posY,a0=alongX?e.x:e.y,a1=alongX?e.x2:e.y2,span=range(axes,pos,a0,a1);
-    out.push("Лежит горизонтально на отметке "+level(z0)+" по оси "+(alongX?ay(g,e.y):ax(g,e.x))+(span?", "+span:"")+".");
-    out.push("Начало — "+between(axes,pos,a0)+", конец — "+between(axes,pos,a1)+". Длина "+fmt(len)+" мм.")
-   }else{
-    out.push("Лежит горизонтально на отметке "+level(z0)+", наискось в плане: от осей "+point(g,e.x,e.y)+" до "+point(g,e.x2,e.y2)+".");
-    out.push("Длина "+fmt(len)+" мм.")
-   }
-  }else{
-   out.push("Идёт наклонно: от осей "+point(g,e.x,e.y)+" на отметке "+level(z0)+" до "+point(g,e.x2,e.y2)+" на отметке "+level(z2)+".");
-   out.push("Длина "+fmt(len)+" мм, перепад высоты "+fmt(Math.abs(z2-z0))+" мм.")
-  }
+  var alongX=Math.abs(num(e.y2)-num(e.y))<5,alongY=!alongX&&Math.abs(num(e.x2)-num(e.x))<5;
+  // (along a line of the grid: the line, then from where to where along it)
+  if(alongX)out.push(["Оси",ay(g,e.y)+": от "+ax(g,e.x)+" до "+ax(g,e.x2)]);
+  else if(alongY)out.push(["Оси",ax(g,e.x)+": от "+ay(g,e.y)+" до "+ay(g,e.y2)]);
+  else out.push(["Оси","от "+point(g,e.x,e.y)+" до "+point(g,e.x2,e.y2)]);
+  if(Math.abs(z2-z0)<=20)out.push(["Отметка",level(z0)]);
+  else{out.push(["Низ",level(Math.min(z0,z2))]);out.push(["Верх",level(Math.max(z0,z2))])}
+  out.push(["Длина",fmt(length(e))+" мм"]);
   return out
  }
- function role(e){var r=TYPE_ROLE[e.type_key]||ROLE[e.group];return r&&typeof r==="object"?r[e.geometry==="column"?"column":"beam"]:r||""}
+ // The fasteners of its joints as its sheet names them (the joint of the КМ: «монтажная сварка; болты М24 кл. 8.8»), else
+ // its bolt and class and the weld, else the list of its КМД; the bolts the model puts there.
+ function fasteners(e){
+  var j=e.joint&&typeof e.joint==="object"?e.joint:{},m=e.model||{},out=[];
+  if(j.text)out.push(String(j.text));
+  else{if(j.bolt)out.push("болты "+j.bolt+(j.cls?" кл. "+j.cls:""));if(j.weld)out.push("монтажная сварка")}
+  if(!out.length&&Array.isArray(j.fasteners)&&j.fasteners.length)out.push(j.fasteners.slice(0,3).join("; ")+(j.fasteners.length>3?" …":""));
+  if(num(m.bolts)>0)out.push("на модели "+fmt(m.bolts)+" шт.");
+  return out.join("; ")
+ }
  // What it is made of, when the reading of its sheet says (the central ring of a shield roof: its box, ribs, shield).
  function made(e){
   var L=e.lay;
@@ -156,8 +102,9 @@
  }
  // The top of the card as the report of 21.10.2026 has it (the engineer, 27.10.2026: «вывод информации об элементе сделай
  // такой»): the mark — its name; its state with the day it was mounted by the daily reports (e.status_date), for a mark
- // mounted in part how many and the last day (e.status_more); a line of the sheet, the section, the masses of the КМД and
- // of the model and the bolts (facts); the nodes of the member (nodes); «Приблизить» / «Снять подсветку» (tools); the parts
+ // mounted in part how many and the last day (e.status_more); a line of the sheet and the masses of the КМД and of the
+ // model (facts — the section and the bolts in the characteristic, traits); the nodes of the member (nodes); «Приблизить»
+ // (tools); the parts
  // of the specification of its assembly sheet with their colours on the model (parts). e.model — what the 3D gives of the
  // member (irThreeSchemeView.card: mass_kg, bolts, nodes, colors, lit), e.spec — its parts (c.parts), e.kgm(section) —
  // kilograms in a metre of a section (irThreeSchemeView.massPerMetre).
@@ -172,11 +119,11 @@
  // «041-2025 КМД л. 79, 80.pdf, лист 2» → «041-2025 КМД л. 79, 80, л. 2».
  function sheetName(v){return String(v||"").replace(/\.pdf\b/gi,"").replace(/\s*[·,]\s*лист\s+/g,", л. ").trim()}
  function facts(e){
-  var m=e.model||{},out=[],kg=[],sec=e.profile||section(e);
-  if(e.sheet)out.push(sheetName(e.sheet));if(sec)out.push(sec);
+  var m=e.model||{},out=[],kg=[];
+  if(e.sheet)out.push(sheetName(e.sheet));
   if(num(e.mass_kmd)>0)kg.push("масса "+kgs(e.mass_kmd)+" кг (КМД)");
   if(num(m.mass_kg)>0)kg.push((kg.length?"по модели ":"масса по модели ")+kgs(m.mass_kg)+" кг");
-  if(kg.length)out.push(kg.join(", "));if(num(m.bolts)>0)out.push("болтов "+fmt(m.bolts));
+  if(kg.length)out.push(kg.join(", "));
   // (a member that crossed a wall of sandwich panels: drawn to the panel, what was past it named — not hidden)
   // (a wall of panels moved out onto the outer face of the frame: by how much, from the line of the facades of the АР)
   if(num(m.line_mm)>0)out.push("стена поставлена по наружной грани каркаса — на "+fmt(m.line_mm)+" мм наружу от линии по фасадам АР");
@@ -188,7 +135,8 @@
   return'<div class="ec-nodes"><span>Узлы марки ('+l.length+'):</span><div>'+l.slice(0,14).map(function(n){
    return'<button type="button" class="ec-chip" data-ec-node="'+esc(n.id)+'">'+esc([n.id,n.name,n.axes].filter(Boolean).join(" "))+'</button>'}).join("")+(l.length>14?'<span class="ec-more">ещё '+(l.length-14)+'</span>':"")+'</div></div>'
  }
- function tools(){return'<div class="ec-tools"><button type="button" data-ec-zoom>Приблизить</button><button type="button" data-ec-unlight>Снять подсветку</button></div>'}
+ // (no «Снять подсветку»: a lit position goes out by its row pressed again — the engineer, 30.10.2026, «убери снять подсветку»)
+ function tools(){return'<div class="ec-tools"><button type="button" data-ec-zoom>Приблизить</button></div>'}
  // The parts: position (its colour on the model), section with its note, length, count, kilograms — of the specification
  // where the sheet gives the mass of a part, else by the sortament (pale, with a hint).
  function parts(e){
@@ -207,17 +155,21 @@
  function bind(box,id){
   var V=root.irThreeSchemeView;if(!box||!V)return;
   [].forEach.call(box.querySelectorAll("[data-ec-node]"),function(b){b.onclick=function(){if(V.openNode)V.openNode(b.getAttribute("data-ec-node"))}});
-  var z=box.querySelector("[data-ec-zoom]"),u=box.querySelector("[data-ec-unlight]");
+  var z=box.querySelector("[data-ec-zoom]");
   if(z)z.onclick=function(){if(V.focus)V.focus(String(id))};
-  if(u)u.onclick=function(){if(V.lightPart)V.lightPart(null)};
   [].forEach.call(box.querySelectorAll("[data-ec-pos]"),function(r){r.onclick=function(){if(V.lightPart)V.lightPart(r.classList.contains("on")?null:r.getAttribute("data-ec-pos"))}})
  }
- function what(e){
-  var r=role(e),t=String(e.type_name||"").trim(),other=t&&String(e.name||"").toLowerCase().indexOf(t.toLowerCase())<0,m=made(e);
-  if(!r&&!other&&!m.length)return"";
-  return'<div class="ec-block"><b>Что это</b>'+(r?'<p>'+esc((e.name||t||"Элемент")+" — "+r)+'.</p>':"")+m.map(function(x){return'<p>'+esc(x)+'</p>'}).join("")+(other?'<p class="ec-muted">Вид в программе: '+esc(t)+'.</p>':"")+'</div>'
+ // The characteristic, a table (the engineer, 30.10.2026: «Колонна К7 — вертикальная несущая опора каркаса… зачем такие
+ // тексты? Где стоит? Просто сделай общую характеристику… металл какой используется, какие метизы используются, положение
+ // (высота, низ, верх…)»): the kind, the section, the steel (of the record; else the mark card of the drawings fills it,
+ // data-ec-steel), the fasteners, where it is; what a ring or a manhole is made of, by its sheet.
+ function traits(e,g){
+  var rows=[],t=String(e.type_name||"").trim(),sec=section(e),f=fasteners(e),st=String(e.steel||"").trim();
+  if(t)rows.push(["Вид",t]);if(sec)rows.push(["Сечение",sec]);rows.push(["Сталь",st,"steel"]);if(f)rows.push(["Метизы",f]);
+  position(e,g).forEach(function(r){rows.push(r)});made(e).forEach(function(x){rows.push(["Устройство",x])});
+  return'<div class="ec-block ec-traits"><b>Характеристика</b><dl>'+rows.map(function(r){
+   return'<div'+(r[2]?' data-ec-'+r[2]+(r[1]?"":" hidden"):"")+'><dt>'+esc(r[0])+'</dt><dd>'+esc(r[1])+'</dd></div>'}).join("")+'</dl></div>'
  }
- function where(e,g){return'<div class="ec-block"><b>Где стоит</b>'+place(e,g).map(function(s){return'<p>'+esc(s)+'</p>'}).join("")+'</div>'}
  // What a new reading of the drawings gives for an element the engineer changed (his values stay).
  function renewed(e){
   var n=e.pdf_new;if(!n||typeof n!=="object")return"";
@@ -251,7 +203,7 @@
   if(e.r>0)rows.push(["Радиус",fmt(e.r)+(e.ri>0?", внутри "+fmt(e.ri):"")]);
   return'<details class="ec-coords"><summary>Точные координаты, мм</summary>'+rows.map(function(r){return'<div><span>'+esc(r[0])+'</span><b>'+esc(r[1])+'</b></div>'}).join("")+'</details>'
  }
- var api={ROLE:ROLE,TYPE_ROLE:TYPE_ROLE,made:made,FOUND:FOUND,esc:esc,fmt:fmt,level:level,axisOf:axisOf,between:between,range:range,place:place,role:role,section:section,head:head,facts:facts,nodes:nodes,tools:tools,parts:parts,bind:bind,kgs:kgs,sheetName:sheetName,what:what,where:where,drawings:drawings,coords:coords};
+ var api={made:made,FOUND:FOUND,esc:esc,fmt:fmt,level:level,axisOf:axisOf,position:position,fasteners:fasteners,traits:traits,section:section,head:head,facts:facts,nodes:nodes,tools:tools,parts:parts,bind:bind,kgs:kgs,sheetName:sheetName,drawings:drawings,coords:coords};
  root.irSchemeElementCard=api;
  if(typeof module==="object"&&module.exports)module.exports=api;
 })(typeof window!=="undefined"?window:globalThis);
