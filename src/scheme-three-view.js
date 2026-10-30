@@ -1760,6 +1760,12 @@ window.irThreeSchemeView=(function(){
      plate.userData.gusset=true;parts.push(plate);
      return
     }
+    // An end lying on the top of a horizontal body (its section all above it: the angle bracket of a fire ladder, its heel
+    // on a wall girder, КМ3 л.17) or hung under its bottom does not come to its face: it goes on over it, no end plate there
+    // (the engineer, 30.10.2026, «эти болты на чем держатся?» — cut at the side of the girder, four bolts through a plate).
+    if(hit.top!==undefined&&Math.abs(v.y)<.1){var pb=pieceBox(c,ends[0][0],ends[1][0]),ys=[];
+     if(pb)[pb.x0,pb.x1].forEach(function(x){[pb.y0,pb.y1].forEach(function(y){ys.push(E0.y+pb.X.y*x+pb.Y.y*y)})});
+     if(ys.length&&(Math.min.apply(null,ys)>=hit.top-.005||Math.max.apply(null,ys)<=hit.bot+.005))return}
     // (an end bears on the face it comes to — a brace stops 100 mm short, on its gusset; at the web of an I from its open
     // side, webJoint)
     var dia=boltDia(c),sheetPlate=!brace&&endCuts(c).some(function(q){return q.end===k});
@@ -1776,13 +1782,19 @@ window.irThreeSchemeView=(function(){
      faced[k]=true;
      if(!dia||onSeat||endCuts(c).some(function(q){return q.end===k}))return;var hs=halfSection(c),d0=e[1],side0=Math.abs(d0.y)>.9?new T.Vector3(1,0,0):new T.Vector3(0,1,0).cross(d0).normalize(),up0=d0.clone().cross(side0).normalize();
      // ((side, up, along) right-handed: the left-handed one turned the plate edge-on across the beam's end)
-     var at0=E0.clone().add(d0.clone().multiplyScalar(face+.008));
+     var at0=E0.clone().add(d0.clone().multiplyScalar(face+.008)),mid0=at0.clone().sub(d0.clone().multiplyScalar(.008)),bp=[];
+     [-1,1].forEach(function(i){[-1,1].forEach(function(j){bp.push(mid0.clone().add(side0.clone().multiplyScalar(i*Math.max(.04,hs.b-.035))).add(up0.clone().multiplyScalar(j*Math.max(.05,hs.h-.05))))})});
+     // (none at a body narrower than the member where its bolts miss it — a ladder's bracket L125 at its stringer L75, a
+     // purlin I35 at a girder □180: the plate and its bolts in the air; the sheet welds the bracket there)
+     var hb=hit.body,ax3=[hb.X,hb.Y,hb.U],lim=[[hb.x0,hb.x1],[hb.y0,hb.y1],[hb.s0,hb.s1]],nk=[0,1,2].sort(function(p,q){return Math.abs(d0.dot(ax3[q]))-Math.abs(d0.dot(ax3[p]))})[0];
+     var span=function(w){return[0,1,2].reduce(function(t,i){return t+(i===nk?0:Math.abs(w.dot(ax3[i]))*(lim[i][1]-lim[i][0]))},0)};
+     var onIt=function(P){var o=P.clone().sub(hb.o);return[0,1,2].every(function(i){var z=o.dot(ax3[i]);return i===nk||z>=lim[i][0]-.002&&z<=lim[i][1]+.002})};
+     if((span(side0)<2*hs.b-.02||span(up0)<2*hs.h-.02)&&!bp.every(onIt))return;
      // (flush with the top of the beam — a deck, a purlin lies on it — and 40 mm below it)
      var ep=new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(c));
      ep.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(side0,up0,d0));ep.scale.set(hs.b*2+.02,hs.h*2+.04,.016);ep.position.copy(at0).sub(up0.clone().multiplyScalar(.02));parts.push(ep);
      // The package: the end plate (16) and the flange behind it, taken as thick as the plate.
-     var mid0=at0.clone().sub(d0.clone().multiplyScalar(.008));
-     [-1,1].forEach(function(i){[-1,1].forEach(function(j){addBolt(c,mid0.clone().add(side0.clone().multiplyScalar(i*Math.max(.04,hs.b-.035))).add(up0.clone().multiplyScalar(j*Math.max(.05,hs.h-.05))),d0,dia,.032)})});
+     bp.forEach(function(P){addBolt(c,P,d0,dia,.032)});
      return
     }
     // The gusset (12 mm): in a vertical brace's plane with one edge upright along the face it is welded to; under a
