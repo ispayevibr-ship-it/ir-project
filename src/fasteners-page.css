@@ -7,7 +7,7 @@
 .fst-tabs{display:flex;gap:6px;margin-bottom:12px}
 .fst-tabs button{font-size:10px;padding:7px 12px;border-radius:7px;border:1px solid #d5e0e7;background:#fff;color:#4d5d6a;cursor:pointer}
 .fst-tabs button.on{border-color:#1769e0;background:#eef5ff;color:#1769e0;font-weight:700}
-.fst-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-bottom:12px}
+.fst-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-bottom:12px}
 .fst-card{padding:12px 14px;border:1px solid #dce5eb;border-radius:10px;background:#fff}
 .fst-card small{display:block;font-size:9px;color:#8191a0;text-transform:uppercase;letter-spacing:.03em}
 .fst-card b{display:block;margin-top:5px;font-size:18px;color:#22394a}
