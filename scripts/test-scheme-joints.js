@@ -14,7 +14,7 @@ assert.ok(view.includes('var r=g==="guards"||slight(c)?0:g==="ties"||stringer(c)
 // body of a higher rank stops at its face (the slab test along the axis), a truss and a lattice are bodies by their parts.
 assert.match(view,/function pieceBox\(c,a,b\)\{/);assert.match(view,/function jointHosts\(list\)\{/);
 assert.ok(view.includes("host.parts(c,meshesById.get(id))"),"trusses and lattices are bodies too");
-assert.ok(view.includes("var face=Math.min(hit.t,L*.4),cut=Math.min(face+(brace?.1:0),L*.45);"),"an end bears on the face it comes to");
+assert.ok(view.includes("face=Math.min(hit.t,L*.4),cut=Math.min(face+(brace?Math.max(.1,over+.02):0),L*.45);"),"an end bears on the face it comes to");
 // Braces: the plane of the gussets from the braces it crosses or meets (a bracing in a roof slope lies in the slope),
 // the angles beside the gusset (a pair either side of it), the halves of a crossing clear of each other's edges.
 assert.match(view,/function bracePlanes\(list\)\{/);assert.match(view,/function braceAngle\(c,u\)\{/);
