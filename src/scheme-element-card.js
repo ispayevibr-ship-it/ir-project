@@ -136,7 +136,10 @@
    return'<button type="button" class="ec-chip" data-ec-node="'+esc(n.id)+'">'+esc([n.id,n.name,n.axes].filter(Boolean).join(" "))+'</button>'}).join("")+(l.length>14?'<span class="ec-more">ещё '+(l.length-14)+'</span>':"")+'</div></div>'
  }
  // (no «Снять подсветку»: a lit position goes out by its row pressed again — the engineer, 30.10.2026, «убери снять подсветку»)
- function tools(){return'<div class="ec-tools"><button type="button" data-ec-zoom>Приблизить</button></div>'}
+ // The member from several sides (the engineer, 30.10.2026: «возможно смотреть с нескольких ракурсов»): irThreeSchemeView.look.
+ var LOOKS=[["top","Сверху"],["bottom","Снизу"],["front","Спереди"],["back","Сзади"],["left","Слева"],["right","Справа"],["iso","3D"]];
+ function tools(){return'<div class="ec-tools"><button type="button" data-ec-zoom>Приблизить</button></div>'+
+  '<div class="ec-looks"><span>Ракурс:</span>'+LOOKS.map(function(l){return'<button type="button" data-ec-look="'+l[0]+'">'+l[1]+'</button>'}).join("")+'</div>'}
  // The parts: position (its colour on the model), section with its note, length, count, kilograms — of the specification
  // where the sheet gives the mass of a part, else by the sortament (pale, with a hint).
  function parts(e){
@@ -157,6 +160,7 @@
   [].forEach.call(box.querySelectorAll("[data-ec-node]"),function(b){b.onclick=function(){if(V.openNode)V.openNode(b.getAttribute("data-ec-node"))}});
   var z=box.querySelector("[data-ec-zoom]");
   if(z)z.onclick=function(){if(V.focus)V.focus(String(id))};
+  [].forEach.call(box.querySelectorAll("[data-ec-look]"),function(b){b.onclick=function(){if(V.look)V.look(String(id),b.getAttribute("data-ec-look"))}});
   [].forEach.call(box.querySelectorAll("[data-ec-pos]"),function(r){r.onclick=function(){if(V.lightPart)V.lightPart(r.classList.contains("on")?null:r.getAttribute("data-ec-pos"))}})
  }
  // The characteristic, a table (the engineer, 30.10.2026: «Колонна К7 — вертикальная несущая опора каркаса… зачем такие

@@ -837,6 +837,7 @@
 .ec-nodes>span{color:#4f6474;font-size:12px}.ec-nodes>div{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}.ec-more{align-self:center;color:#6b7f8e;font-size:11px}
 .ec-chip{padding:5px 10px;border:1px solid #cdd8e1;border-radius:999px;background:#fff;color:#22394b;font:inherit;font-size:11.5px;cursor:pointer}.ec-chip:hover{border-color:#1668ea;color:#1668ea}
 .ec-tools{display:flex;flex-wrap:wrap;gap:6px}.ec-tools button{padding:7px 12px;border:1px solid #cdd8e1;border-radius:8px;background:#fff;color:#22394b;font:inherit;font-size:12px;cursor:pointer}.ec-tools button:hover{border-color:#1668ea}
+.ec-looks{display:flex;flex-wrap:wrap;align-items:center;gap:4px}.ec-looks span{color:#6b7f8e;font-size:11px;margin-right:2px}.ec-looks button{padding:4px 8px;border:1px solid #cdd8e1;border-radius:7px;background:#fff;color:#22394b;font:inherit;font-size:11px;cursor:pointer}.ec-looks button:hover{border-color:#1668ea;color:#1668ea}
 .ec-parts{width:100%;border-collapse:collapse;font-size:12px}.ec-parts th{padding:5px 4px;border-bottom:1px solid #cfd9e2;color:#536a7a;font-weight:700;text-align:left}
 .ec-parts td{padding:6px 4px;border-bottom:1px solid #e6edf2;vertical-align:top}.ec-parts td:first-child{white-space:nowrap}.ec-parts .ec-n{text-align:right;white-space:nowrap}.ec-parts tr[data-ec-pos]{cursor:pointer}.ec-parts tr.on td{background:#e8f1fc}
 .ec-sw{display:inline-block;width:11px;height:11px;margin-right:6px;border-radius:2px;background:#c5ced6;vertical-align:-1px}.ec-note{color:#5f7383;font-size:11px}.ec-calc{color:#6b7f8e}

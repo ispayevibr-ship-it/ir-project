@@ -4395,6 +4395,19 @@ window.irThreeSchemeView=(function(){
    flight={from:controls.target.clone(),to:c,camFrom:camera.position.clone(),camTo:c.clone().add(dir.multiplyScalar(dist)),t:0,ms:850,st:performance.now()};
    return true
   }
+  // The selected member from a side (the engineer, 30.10.2026: «когда смотришь выделенную конструкцию (элемент) возможно
+  // смотреть с нескольких ракурсов»): the camera onto its middle from above, below, the front (from the south, as «Фасад»),
+  // the back, the left, the right or the corner of «3D», as far as it fills the view.
+  var LOOKS={top:[0,1,.002],bottom:[0,-1,.002],front:[0,0,1],back:[0,0,-1],left:[-1,0,0],right:[1,0,0],iso:[.78,.5,.92]};
+  function look(id,side){
+   var meshes=meshesById.get(String(id)),v=LOOKS[side];if(!meshes||!meshes.length||!v)return false;
+   var box=new T.Box3();meshes.forEach(function(m){box.expandByObject(m)});
+   var c=box.getCenter(new T.Vector3()),r=Math.max(.3,box.getSize(new T.Vector3()).length()/2),fov=camera.fov*Math.PI/360;
+   var fit=r/Math.sin(Math.min(fov,Math.atan(Math.tan(fov)*camera.aspect)))*1.1;
+   camera.up.set(0,1,0);
+   flight={from:controls.target.clone(),to:c,camFrom:camera.position.clone(),camTo:c.clone().add(new T.Vector3(v[0],v[1],v[2]).normalize().multiplyScalar(fit)),t:0,ms:850,st:performance.now()};
+   return true
+  }
   function choose(id){
    selected=String(id||"");P.onSelect&&P.onSelect(selected);paintHighlight()
   }
@@ -4904,7 +4917,7 @@ window.irThreeSchemeView=(function(){
    }
    return out
   }
-  return{host:host,key:key,root:root,update:update,focus:focus,startCopy:startCopy,startPlacement:startPlacement,nodes:nodeList,openNode:openNode,snapshots:snapshots,card:card,lightPart:lightPart,
+  return{host:host,key:key,root:root,update:update,focus:focus,look:look,startCopy:startCopy,startPlacement:startPlacement,nodes:nodeList,openNode:openNode,snapshots:snapshots,card:card,lightPart:lightPart,
    dispose:function(){
     cameraMemory[memoryKey]={position:camera.position.clone(),target:controls.target.clone(),up:camera.up.clone()};
     alive=false;clearExplode();cancelCopy();cancelPlacement();if(raf)cancelAnimationFrame(raf);
@@ -4933,6 +4946,7 @@ window.irThreeSchemeView=(function(){
  }
  return{render:render,dispose:dispose,sectionOf:sectionOf,massPerMetre:massPerMetre,clipTruss:clipTruss,loadSections:loadSections,sectionRows:sectionRows,fastenerRows:fastenerRows,jointKbRows:jointKbRows,
   focus:function(id){return call("focus",id)},
+  look:function(id,side){return call("look",id,side)},
   startCopy:function(id){return call("startCopy",id)},
   startPlacement:function(){return call("startPlacement")},
   nodes:function(){return call("nodes")||[]},

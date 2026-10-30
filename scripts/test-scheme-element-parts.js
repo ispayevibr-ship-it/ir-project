@@ -21,7 +21,10 @@ assert.match(C.facts({model:{mass_kg:12.5}}),/масса по модели 12,5 
 // The nodes of the member, each opens its node.
 const n=C.nodes(e);assert.match(n,/Узлы марки \(2\):/);assert.match(n,/data-ec-node="У-0847">У-0847 Стык колонн А\/6</);
 assert.equal(C.nodes({model:{nodes:[]}}),"");// «Приблизить» only (the engineer, 30.10.2026: «убери снять подсветку» — a lit position goes out by its row pressed again).
-assert.equal(C.tools(),'<div class="ec-tools"><button type="button" data-ec-zoom>Приблизить</button></div>');
+// The member from several sides (30.10.2026: «возможно смотреть с нескольких ракурсов»).
+assert.equal(C.tools(),'<div class="ec-tools"><button type="button" data-ec-zoom>Приблизить</button></div><div class="ec-looks"><span>Ракурс:</span>'+
+ [["top","Сверху"],["bottom","Снизу"],["front","Спереди"],["back","Сзади"],["left","Слева"],["right","Справа"],["iso","3D"]].map(([k,t])=>'<button type="button" data-ec-look="'+k+'">'+t+'</button>').join("")+'</div>');
+assert(src("src/scheme-element-card.js").includes('b.onclick=function(){if(V.look)V.look(String(id),b.getAttribute("data-ec-look"))}'),"the buttons bound");
 // The parts: the colour of each position as the model has it, the note under the section, kilograms of the specification
 // (2,3 × 2) or by the sortament (11,73 kg/m × 5,65 m; 3,06 × 0,14 × 4 — pale, with the kg/m in the hint), the lit row.
 const t=C.parts(e);
@@ -42,6 +45,9 @@ assert(exp.includes(".ec-parts{width:100%")&&src("src/scheme-page.css").includes
 // «Приблизить»: to where the member fills the view, nearer than that a half closer — never back (the engineer, 30.10.2026:
 // «кнопка приблизить не всегда приближает, бывает отдаляет»: twice its size and 6 m at least flew back from a node).
 const view0=src("src/scheme-three-view.js");
+assert(view0.includes("var LOOKS={top:[0,1,.002],bottom:[0,-1,.002],front:[0,0,1],back:[0,0,-1],left:[-1,0,0],right:[1,0,0],iso:[.78,.5,.92]};")&&
+ view0.includes("update:update,focus:focus,look:look,")&&view0.includes('look:function(id,side){return call("look",id,side)},'),"the sides of a member, in the program and the export");
+assert(src("src/scheme-page.css").includes(".ec-looks{")&&src("src/scheme-export-html.js").includes(".ec-looks{"),"their buttons styled");
 assert(view0.includes("now=camera.position.distanceTo(c),dist=now>fit?fit:Math.max(.3,now*.5);")&&!view0.includes("size=Math.max(6,box.getSize(new T.Vector3()).length()*2.2)"),"zoom in, never out");
 for(const [now,fit] of [[40,8],[3,8],[.5,8]]){const dist=now>fit?fit:Math.max(.3,now*.5);assert(dist<now,"closer from "+now)}
 // The 3D: the body and the plates, ribs and gussets by their positions; the colours, the numbers, a position lit; the card.
