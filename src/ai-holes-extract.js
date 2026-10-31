@@ -581,8 +581,9 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
   return{holes,unnamed:signsOf.length-named.length}};
  for(const g of members){
   const sc=g.sc,mm=v=>v/sc.n,length=g.length,who=g.who,byChain=g.byChain,endMm=g.length,r0=holesIn(g),holes=r0.holes;unnamed+=r0.unnamed;
-  out.push({title:who.title,marks:who.named||who.view?.marks||[],...(who.main?{main:true}:{}),scale:"1:"+sc.k,length_mm:length,...(byChain&&Math.abs(endMm-mm(g.s1-g.s0))>Math.max(5,endMm*0.03)?{not_to_scale:true}:{}),band_mm:Math.round(mm(g.hi-g.lo)),
-   dir:Math.abs(g.u.x)>=Math.abs(g.u.y)?"по горизонтали":"по вертикали",holes})
+  // (its frame on the sheet kept aside: the level of its start, src/ai-parts-place.js levelsOf)
+  out.push(Object.defineProperty({title:who.title,marks:who.named||who.view?.marks||[],...(who.main?{main:true}:{}),scale:"1:"+sc.k,length_mm:length,...(byChain&&Math.abs(endMm-mm(g.s1-g.s0))>Math.max(5,endMm*0.03)?{not_to_scale:true}:{}),band_mm:Math.round(mm(g.hi-g.lo)),
+   dir:Math.abs(g.u.x)>=Math.abs(g.u.y)?"по горизонтали":"по вертикали",holes},"frame",{value:{s0:g.s0,u:g.u}}))
  }
  // The plates drawn apart with their holes: its size (along its view, across), the holes from its start and its axis as a
  // member's; the place of its cut along the mark's view («1 - 1» at the foot of a column), when its arrows are by it.
@@ -740,7 +741,7 @@ function sheetPlates(geo={},{views=[],allMm=null,seeded=null}={}){
     // (from the nearer edge, by the dimensions across when they join it: «59», «8»)
     const edge=(lo2+hi2)/2<axis?-1:1,from=edge<0?g.lo:g.hi,dist=c=>{const m=Math.abs(c-from)/k,v=chainMm(across,Math.abs(from),Math.abs(c),m);return v===null?Math.round(m):v};
     flats.push({at_mm:[g.alongMm(s0),g.alongMm(s1)],edge,depth_mm:[dist(edge<0?lo2:hi2),dist(edge<0?hi2:lo2)],x_mm:[Math.round(mm(lo2-axis)),Math.round(mm(hi2-axis))],t_mm:Math.round(mm(hi2-lo2))})}}
-  if(plates.length||outlines.length||flats.length||top!==undefined)found.push({title:view.title,marks:view.marks,length_mm:view.length_mm,dir:view.dir,view:top!==undefined?"web":"flange",plates,outlines,flats,
+  if(plates.length||outlines.length||flats.length||top!==undefined)found.push({title:view.title,marks:view.marks,length_mm:view.length_mm,dir:view.dir,view:top!==undefined?"web":"flange",plates,outlines,flats,g,
    inner_mm:top!==undefined?[mm(top-g.lo),mm(g.hi-bot)]:null,web_mm:web?web.map(c=>Math.round(mm(c-axis))):null,marks_mm:top===undefined?[]:
    // (the extension lines drawn down to it)
    g.marksAt().filter(m=>segs.some(q=>{const o=proj(q);return Math.abs(o.a-m.p)<=0.6&&Math.abs(o.b-m.p)<=0.6&&(Math.min(o.c,o.d)<g.lo-3&&Math.max(o.c,o.d)>=g.lo-3||Math.max(o.c,o.d)>g.hi+3&&Math.min(o.c,o.d)<=g.hi+3)})).map(m=>m.v)})
@@ -788,7 +789,7 @@ function sheetPlates(geo={},{views=[],allMm=null,seeded=null}={}){
     poly=hull([...poly,[o.at_mm[0],face],[o.at_mm[1],face]])}
    gussets.push({at_mm:o.at_mm,plane,poly,t_mm:on?.t_mm??null,...(plane==="план"?{edge:on?.edge??-1,depth_mm:on?.depth_mm??null}:{x_mm:on?.x_mm??null}),view:v.title})}
   gussets.sort((a,b)=>a.at_mm[0]-b.at_mm[0]);
-  out.push({mark,length_mm:length,dir:(web||mine[0]).dir,views:[...new Set(mine.map(v=>v.title))],plates,...(gussets.length?{gussets}:{})})
+  out.push(Object.defineProperty({mark,length_mm:length,dir:(web||mine[0]).dir,views:[...new Set(mine.map(v=>v.title))],plates,...(gussets.length?{gussets}:{})},"frame",{value:{s0:(web||mine[0]).g.s0,u:(web||mine[0]).g.u}}))
  }
  return out
 }

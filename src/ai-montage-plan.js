@@ -393,7 +393,7 @@ function buildCatalog(draft,ai=null){
   const sheet=p.sheet||{};if(p.docType!=="КМД сборочные"||!sheet.drill?.views?.length)continue;scope=scopeAt(p);
   for(const v of sheet.drill.views)for(const mark of v.marks||[]){const e=entry(mark);
    if(e.drillFrom&&e.drillFrom!==where(p)||(e.drill||[]).length>=4)continue;e.drillFrom=where(p);const fit=groupDrill(v,mark,sheet.views);
-   (e.drill=e.drill||[]).push({view:v.title,sheet:where(p),scale:v.scale,length_mm:fit?fit.length_mm:v.length_mm,band_mm:v.band_mm,dir:v.dir,...(v.main?{main:true}:{}),...(v.not_to_scale?{not_to_scale:true}:{}),...(fit?.center_mm?{center_mm:fit.center_mm}:{}),
+   (e.drill=e.drill||[]).push({view:v.title,sheet:where(p),scale:v.scale,length_mm:fit?fit.length_mm:v.length_mm,band_mm:v.band_mm,dir:v.dir,...(v.main?{main:true}:{}),...(v.not_to_scale?{not_to_scale:true}:{}),...(fit?.center_mm?{center_mm:fit.center_mm}:{}),...(!fit&&Number.isFinite(v.top_mm)?{top_mm:v.top_mm}:{}),
     holes:(fit?fit.holes:v.holes).slice(0,80).map(h=>[h.at_mm,h.off_mm,h.d_mm||0,h.part?1:0])})}
  }
  // The plates across each mark (ribs, connection plates; sheet.plates, src/ai-holes-extract.js sheetPlates) of the first
@@ -403,15 +403,21 @@ function buildCatalog(draft,ai=null){
   const sheet=p.sheet||{};if(p.docType!=="КМД сборочные"||!sheet.plates?.length)continue;scope=scopeAt(p);
   for(const m of sheet.plates){const e=entry(m.mark);if(e.plates)continue;
    const gussets=gussetHoles(gussetsBySpec(m.gussets||[],e.parts?.rows||[]).slice(0,40).map(g=>({...g,length_mm:m.length_mm})),e.drillFrom===where(p)?e.drill:null);
-   e.plates={sheet:where(p),views:m.views,length_mm:m.length_mm,dir:m.dir,rows:platesBySpec(m.plates,e.parts?.rows||[]).slice(0,40),...(gussets.length?{gussets}:{})}}
+   e.plates={sheet:where(p),views:m.views,length_mm:m.length_mm,dir:m.dir,...(Number.isFinite(m.top_mm)?{top_mm:m.top_mm}:{}),rows:platesBySpec(m.plates,e.parts?.rows||[]).slice(0,40),...(gussets.length?{gussets}:{})}}
  }
  // The positions of each mark at their places on its views (sheet.place, src/ai-parts-place.js: the number in a circle,
  // its leader to the part, the outline round it) of the assembly sheet its specification is read from — the numbers
  // are that table's (the engineer, 28.10.2026: «где все детали?»).
  // (up to 200 rows of a mark: ГПЭС К25 has 97 with its cuts)
- for(const p of draft.pages||[]){
+ // A sheet of the views whose specification is on the next sheet of the same file (ГПЭС л. 150.1 and 150.2, «Работать
+ // совместно с л. 150.2»: В127–В132 — the views and the numbers on one, the table on the other) gives them too, when it
+ // has no specification of the mark of its own and the sheet of the specification gave none.
+ const fileOf=w=>String(w||"").replace(/, лист [^,]*$/u,"");
+ for(const pass of [0,1])for(const p of draft.pages||[]){
   const sheet=p.sheet||{};if(p.docType!=="КМД сборочные"||!sheet.place?.length)continue;scope=scopeAt(p);
-  for(const m of sheet.place){const e=entry(m.mark);if(e.place||e.parts&&e.parts.sheet!==where(p))continue;e.place={sheet:where(p),rows:m.rows.slice(0,200)}}
+  for(const m of sheet.place){const e=entry(m.mark);if(e.place)continue;
+   if(pass===0?e.parts&&e.parts.sheet!==where(p):!e.parts||fileOf(e.parts.sheet)!==fileOf(where(p))||(sheet.spec||[]).some(r=>r.mark===m.mark&&(r.parts||[]).length))continue;
+   e.place={sheet:where(p),rows:m.rows.slice(0,200)}}
  }
  // The ends of each mark cut aslant on its main view (sheet.bevels, src/ai-parts-place.js sheetBevels: a tube cut over
  // its seat, the cap inside) of the assembly sheet its specification is read from.

@@ -1423,9 +1423,9 @@ window.irThreeSchemeView=(function(){
       if(!(side||plan)||!(len>0)||!Array.isArray(v.holes))return;
       // (a column drawn upright: from its top)
       // (a mark of a group drawing: its plates off its axes unequally, its middle off theirs — center_mm)
-      var fromTop=v.dir==="по вертикали"&&c.geometryType==="column",ctr=number(v.center_mm)||0;
+      var fromTop=v.dir==="по вертикали"&&c.geometryType==="column",ctr=number(v.center_mm)||0,t0=fromTop?startOf(c,v,len,mid):len/2;
       v.holes.forEach(function(h){
-       if(!Array.isArray(h)||number(h[3]))return;var at=number(h[0]),off=number(h[1]),dm=number(h[2]),sa=fromTop?len/2-at-ctr:at-len/2+ctr;
+       if(!Array.isArray(h)||number(h[3]))return;var at=number(h[0]),off=number(h[1]),dm=number(h[2]),sa=fromTop?t0-at-ctr:at-len/2+ctr;
        if(Math.abs(at-len/2)>len/2+5)return;
        var pos=mid.clone().add(d.clone().multiplyScalar(sa/1000)),axis,thick;
        if(side){pos.add(X.clone().multiplyScalar(webX)).add(Y.clone().multiplyScalar(-off/1000));axis=X;thick=sec.s/1000}
@@ -1555,11 +1555,11 @@ window.irThreeSchemeView=(function(){
    if(p.length!==2||!sec||!(sec.shape==="ibeam"||sec.shape==="channel")||slight(c))return;
    var d=p[1].clone().sub(p[0]),L=d.length();if(L<=.3)return;d.divideScalar(L);
    var q=bodyQuat(c,d),X=new T.Vector3(1,0,0).applyQuaternion(q),Y=new T.Vector3(0,1,0).applyQuaternion(q),mid=p[0].clone().add(p[1]).multiplyScalar(.5);
-   var fromTop=c.geometryType==="column"&&c.plates.dir==="по вертикали";
+   var fromTop=c.geometryType==="column"&&c.plates.dir==="по вертикали",t0=fromTop?startOf(c,c.plates,len,mid):len/2;
    var inner=sec.h/2-sec.t,web=sec.s/2,edge=sec.b/2,webX=sec.shape==="channel"?(sec.s/2-sec.b/2):0;
    rows.forEach(function(r){
     var at=Array.isArray(r.at)?r.at.map(number):null;if(!at||!(at[1]>at[0]))return;
-    var sa=(at[0]+at[1])/2,along=fromTop?len/2-sa:sa-len/2;if(Math.abs(along)>len/2+5)return;
+    var sa=(at[0]+at[1])/2,along=fromTop?t0-sa:sa-len/2;if(sa<-5||sa>len+5)return;
     // (across the view of the web: + down; by the specification or between the flanges, centred)
     var z=Array.isArray(r.z)?[number(r.z[0]),number(r.z[1])]:null,hh=number(r.h_mm)>0?Math.min(number(r.h_mm),2*inner):2*inner;
     var y0=z?-z[1]:-hh/2,y1=z?-z[0]:hh/2;
@@ -1667,6 +1667,13 @@ window.irThreeSchemeView=(function(){
    var mine=sectionOf(c.profile_name||c.profileName,c.profile_standard),f0=rows.length?partFrame(c):null;
    // (a leader not ended in an outline last, and only for a row none of whose parts is placed yet)
    var drawn=function(r){return[].concat(r.at_mm||[],r.off_mm||[]).some(function(v){return v!==null&&v!==undefined})};
+   // (the frame of a part beside the body in two views — ГПЭС В132: the tube □160×5 270 off the I's axis on the main view
+   // of its web, on its axis on «Вид Б» of its flange —: the parts on it in one view stand into it by its offset in the
+   // other, not on the I)
+   var fin=function(v){return v!==undefined&&v!==null&&isFinite(Number(v))},beside=rows.filter(function(r){return fin(r.axis_mm)&&r.face});
+   var otherAxis=function(r){if(!fin(r.axis_mm)||!r.face)return null;var L=number(r.of_mm);
+    var o=beside.filter(function(e){return e.face!==r.face&&Math.abs(number(e.of_mm)-L)<=Math.max(20,L*.01)&&(!fin(r.top_mm)||!fin(e.top_mm)||Math.abs(number(e.top_mm)-number(r.top_mm))<=20)})[0];
+    return o?number(o.axis_mm):null};
    if(f0)rows.slice().sort(function(a,b){return(drawn(a)?0:1)-(drawn(b)?0:1)}).forEach(function(r){
     var row=spec.get(String(r.pos));if(!row)return;var sh=partShape(row.section);if(!sh)return;
     if(!drawn(r)&&out.some(function(o){return o.pos===String(r.pos)}))return;
@@ -1674,14 +1681,19 @@ window.irThreeSchemeView=(function(){
     if(sh.kind==="rolled"&&(mine&&sh.sec.shape===mine.shape&&Math.abs(sh.sec.h-mine.h)<1&&Math.abs(sh.sec.b-mine.b)<1||number(row.length_mm)>=f0.L*600)){
      if(!out.body)out.body=number(row.length_mm);return}
     var len=number(r.of_mm);if(!(len>0))return;
-    var top=r.dir==="по вертикали"&&col,along=function(a){return(top?len/2-a:a-len/2)/1000};
+    // (an upright view with the level of its start — the frames of a column and of a part beside it start at different
+    // levels, ГПЭС В132: the I to +5,027, the tube to +6,800 —: by that level, the member's middle as placed)
+    var top=r.dir==="по вертикали"&&col,lv=top&&r.top_mm!==undefined&&r.top_mm!==null&&isFinite(Number(r.top_mm))?Number(r.top_mm):null,zm=f0.mid.y*1000;
+    var along=function(a){return(lv!==null?lv-a-zm:top?len/2-a:a-len/2)/1000};
     // (the view of a flange: across it the width of the flange; of the web — its height; a view not known: the main one
     // of a column across the flange, of a beam its side, the other views the other way)
     var acrossX=r.face?r.face==="flange":col?Boolean(r.main):!r.main;
     // (a length read shorter than three thicknesses is not one: «10» of «из 10 отв.» in its cell)
     var ln=number(row.length_mm)>=3*(sh.t||5)?number(row.length_mm):0;
     var dimsOf=function(b){return sh.kind==="plate"?[ln,b,sh.t]:sh.kind==="angle"?[ln,sh.a,sh.b]:[ln,sh.sec.h,sh.sec.shape==="round"?sh.sec.h:Math.max(sh.sec.b,number(sh.sec.b1))]};
-    var at=Array.isArray(r.at_mm)?r.at_mm:[],off=Array.isArray(r.off_mm)?r.off_mm:[],end=Array.isArray(r.end_mm)?r.end_mm:[];
+    // (across from the body's axis: a part of a frame beside the body — its axis_mm off it)
+    var ax=number(r.axis_mm)||0,sh0=function(v){return v===null||v===undefined?v:number(v)+ax};
+    var at=Array.isArray(r.at_mm)?r.at_mm:[],off=Array.isArray(r.off_mm)?r.off_mm.map(sh0):[],end=Array.isArray(r.end_mm)?[r.end_mm[0],sh0(r.end_mm[1])]:[];
     var ea=at[0]!==null&&at[1]!==null&&at.length===2&&Math.abs(number(at[1])-number(at[0]))>=2?Math.abs(number(at[1])-number(at[0])):null,ec=off[0]!==null&&off[1]!==null&&off.length===2?Math.abs(number(off[1])-number(off[0])):null;
     // (into the view as a cut across the member shows it, + away from the main view's viewer: ГПЭС К26 «4 - 4» — the
     // angles of the brackets by the edges of the flanges, «7т» on the right and «7н» on the left, the rib «8» in the middle
@@ -1730,9 +1742,16 @@ window.irThreeSchemeView=(function(){
      return ev};
     var hw=mine?(acrossX?(mine.shape==="round"?mine.h:Math.max(mine.b,number(mine.b1))):mine.h)/2:0;
     var hin=r.cut&&mine&&mine.shape==="ibeam"&&!acrossX?mine.h/2-(number(mine.t)||0):0;
-    var ca=centre(at[0],at[1],end[0],sz[0],true,0),cc=half(sz[1])?0:centre(off[0],off[1],end[1],sz[1],false,hw,hin);if(ca===null||cc===null)return;
+    // (a plate whose leader ends on an end line of a long outline as wide as the plate — the outline of a whole tube, the
+    // cap «Заглушка» −150×4 on the tube □160×5 of ГПЭС В132 at +6,800 —: flat across that end, inside it)
+    var capAt=null;
+    if(sh.kind==="plate"&&ea!==null&&ec!==null&&end[0]!==null&&end[0]!==undefined&&ln>0&&!dep){
+     var e0=number(end[0]),a0=Math.min(number(at[0]),number(at[1])),a1=Math.max(number(at[0]),number(at[1])),wd=Math.max(sh.b,ln);
+     if(ea>=4*wd&&Math.abs(ec-wd)<=Math.max(15,wd*.15)&&Math.min(Math.abs(e0-a0),Math.abs(e0-a1))<=Math.max(15,sh.t*3)){capAt=Math.abs(e0-a0)<=Math.abs(e0-a1)?a0+sh.t/2:a1-sh.t/2;sz=[sh.t,sh.b,ln]}}
+    var ca=capAt!==null?capAt:centre(at[0],at[1],end[0],sz[0],true,0),cc=half(sz[1])?0:centre(off[0],off[1],end[1],sz[1],false,hw,hin);if(ca===null||cc===null)return;
     var box={pos:String(r.pos),row:row,sh:sh,view:r.view,a:along(ca),sa:sz[0]/1000,acrossX:acrossX,c:-cc/1000,sc:sz[1]/1000,d:0,sd:sz[2]/1000};
     if(dep){box.d=(dep[0]+dep[1])/2000;box.dk=true;if(r.cut)box.cut=true}
+    var oa=dep?null:otherAxis(r);if(oa){box.d=-oa/1000;box.dk=true;box.beside=true}
     // (the same part on a view of the other face there: its place that way)
     var same=out.filter(function(o){return o.pos===box.pos&&o.acrossX!==box.acrossX&&Math.abs(o.a-box.a)<=Math.max(o.sa,box.sa)/2+.01})[0];
     if(same){if(Math.abs(same.sd-box.sc)<=Math.max(.03,box.sc*.35))same.d=box.c;return}
@@ -1740,6 +1759,11 @@ window.irThreeSchemeView=(function(){
     // are two)
     if(!out.some(function(o){return o.pos===box.pos&&o.acrossX===box.acrossX&&Math.abs(o.a-box.a)<=.01&&Math.abs(o.c-box.c)<=.01&&Math.abs(o.d-box.d)<=.01}))out.push(box)
    });
+   // (the same part at another level drawn on the body's frame of that view the same way across, its depth not known
+   // there — ГПЭС В132 «16», «17», «19» at +4,590 by the tube where it overlaps the I on «Вид Б» —: by the tube too)
+   out.forEach(function(o){if(o.d!==0||o.dk)return;
+    var e=out.filter(function(x){return x.beside&&x.pos===o.pos&&x.acrossX===o.acrossX&&Math.abs(x.c-o.c)<=.006&&Math.abs(x.sc-o.sc)<=.006})[0];
+    if(e){o.d=e.d;o.dk=true;o.beside=true}});
    // (a part on the plane of the axis through a plate lying on it face-on there: beside the plate — ГПЭС К120 «11» the
    // halves of the end cap, «12» the rib, on the plate «10»)
    out.forEach(function(o){if(o.d!==0||o.dk)return;
@@ -1765,7 +1789,7 @@ window.irThreeSchemeView=(function(){
    out.slice().forEach(function(o){if(!more(o)||o.cut||Math.abs(o.c)<o.sc/2+.005)return;
     if(out.some(function(e){return e.pos===o.pos&&e.acrossX===o.acrossX&&Math.abs(e.a-o.a)<=.01&&Math.abs(e.c+o.c)<=.02}))return;
     out.push(Object.assign({},o,{c:-o.c}));count.set(o.pos,count.get(o.pos)+1)});
-   out.slice().forEach(function(o){if(!more(o)||o.cut||o.d===0)return;
+   out.slice().forEach(function(o){if(!more(o)||o.cut||o.beside||o.d===0)return;
     if(out.some(function(e){return e.pos===o.pos&&e.acrossX===o.acrossX&&Math.abs(e.a-o.a)<=.01&&Math.abs(e.c-o.c)<=.01&&Math.abs(e.d+o.d)<=.005}))return;
     out.push(Object.assign({},o,{d:-o.d}));count.set(o.pos,count.get(o.pos)+1)});
    upperCache.set(id,out);return out
@@ -1779,10 +1803,34 @@ window.irThreeSchemeView=(function(){
    if(c.geometryType!=="column"){var list=placedOf(c),Lb=number(list.body)/1000;
     if(Lb>.3&&f.L-Lb>=.02&&list.some(function(o){return Math.abs(o.a)+o.sa/2>Lb/2+.005}))out.top=out.foot=(f.L-Lb)/2;
     return out}
-   placedOf(c).forEach(function(o){if(o.sh.kind!=="rolled"||o.sa<.3||o.sa<Math.max(o.sc,o.sd)*2)return;
+   var list=placedOf(c),Lb=number(list.body)/1000,sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);
+   list.forEach(function(o){if(o.sh.kind!=="rolled"||o.sa<.3||o.sa<Math.max(o.sc,o.sd)*2)return;
     var hi=f.L/2-(o.a+o.sa/2),lo=o.a-o.sa/2+f.L/2;
+    // (a part beside the body, its section clear of the body's — ГПЭС В132: the tube □160×5 by the flange of the I up to
+    // +6,800 —: the body goes on alongside it to its own length from its base plate, +5,015)
+    var wb=sec?Math.max(sec.b,number(sec.b1)):0,hx=sec?(o.acrossX?wb:sec.h)/2000:0,hy=sec?(o.acrossX?sec.h:wb)/2000:0;
+    if(sec&&(Math.abs(o.c)-o.sc/2>=hx-.005||Math.abs(o.d)-o.sd/2>=hy-.005)){
+     if(hi<=.06&&Lb>.3){var cut=f.L-Lb-basePlateT(c,sec)/1000;if(cut>.05)out.top=Math.max(out.top,cut)}return}
     if(hi<=.06)out.top=Math.max(out.top,f.L/2-(o.a-o.sa/2)+.01);else if(lo<=.06)out.foot=Math.max(out.foot,o.a+o.sa/2+f.L/2+.01)});
    return out
+  }
+  // The thickness of the base plate of a column by its specification: a plate of one piece larger than the section both
+  // ways (ГПЭС В132 «2» −500×30, 800 long, under the I 35Ш2), the thickest such; else none.
+  function basePlateT(c,sec){var t=0;
+   (c.parts&&Array.isArray(c.parts.rows)?c.parts.rows:[]).forEach(function(r){var sh=partShape(r&&r.section),L=number(r&&r.length_mm);
+    if(!sh||sh.kind!=="plate"||number(r.count)!==1||!(L>0)||sh.t>80)return;var wb=Math.max(sec.b,number(sec.b1));
+    if(Math.min(sh.b,L)>=Math.min(wb,sec.h)-5&&Math.max(sh.b,L)>=Math.max(wb,sec.h)-5)t=Math.max(t,sh.t)});
+   return t
+  }
+  // The start of an upright view of a column as its sheet draws it (the holes, the plates across it), mm up from the
+  // member's middle `mid`: the level of its start read on the sheet (top_mm); else the top of the body where it stops
+  // under the top of the member (bodyCut) when the view is about as long as the body, not the member; else the view
+  // centred on the member. ГПЭС В132: the I to +5,015, the tube by it to +6,800 — the holes of the angles «26» from
+  // +4,812 under the cap, the table «7» at +4,570, not 1.8 m higher by the tube's top.
+  function startOf(c,v,len,mid){
+   var lv=v&&v.top_mm!==undefined&&v.top_mm!==null&&isFinite(Number(v.top_mm))?Number(v.top_mm):null;if(lv!==null)return lv-mid.y*1000;
+   var f=partFrame(c),cut=f?bodyCut(c):null;if(!cut||!(cut.top>0))return len/2;
+   var Lb=f.L-cut.top-cut.foot;return Math.abs(len/1000-Lb)<Math.abs(len/1000-f.L)?(f.L/2-cut.top)*1000:len/2
   }
   // The rolled part standing on the top of a column (bodyCut): the highest of them.
   function upperPart(c){return c.place&&c.geometryType==="column"&&bodyCut(c).top>0?placedOf(c).filter(function(o){return o.sh.kind==="rolled"}).sort(function(a,b){return b.a-a.a})[0]||null:null}
