@@ -4078,6 +4078,17 @@ window.irThreeSchemeView=(function(){
    var xa=ends[0]?(ends[0].face+tFa)/k:0,xb=ends[1]?span-(ends[1].face+tFb)/k:span;
    var members=ends[0]||ends[1]?clipTruss(t.members,xa,xb):t.members;
    var gt=trussGussetT(c),nodes=trussNodes(members,sectionOf);
+   // The gusset of a support node is welded to the flange of the end (опорное ребро) along its height — КМ1 л.18 узлы 5, 6:
+   // the flange t25 × 220 × 700, its top 450 over the bottom chord —: from the top of the flange to its planed end, which
+   // stands out under the gusset by 1,5 t at most (СП 16.13330), 20 mm. Drawn by its members alone it met the flange at
+   // the chord only and stood off it above, the reaction carried by nothing (the engineer, 31.10.2026: «здесь какой
+   // узел?», Фс2 at О3/Б).
+   ends.forEach(function(e,i){
+    if(!e)return;var sp=spec(i),xe=i?xb:xa,fl=Array.isArray(sp.flange_mm)?sp.flange_mm:[],tF=number(fl[0])||20,hF=number(fl[2])||600,zb=chordAt(members,"bottom",xe);if(zb===null)return;
+    var fTop=zb+(number(sp.flange_top_mm)||hF-150);if(number(sp.rib_top_mm))fTop=number(chordAt(t.members,"bottom",i?span:0))+number(sp.rib_top_mm);
+    var lo=fTop-hF+Math.min(20,1.5*tF);if(fTop-lo<100)return;
+    nodes.gussets.forEach(function(g,j){if(g.some(function(p){return Math.abs(p[0]-xe)<60&&Math.abs(p[1]-zb)<250}))nodes.gussets[j]=hull(g.concat([[xe,fTop],[xe,lo]]))})
+   });
    var parts=drawMembers(c,nodes.members,at,at(1000,0).sub(at(0,0)).normalize(),true,gt);
    if(!parts.length)return false;
    // The gussets of its nodes in the plane of the truss, between the angles of the pairs.
