@@ -385,7 +385,11 @@ function sheetBevels(geo={},{seeded=null}={}){
     const e=end?g.s1:g.s0,[near,far]=Math.abs(p.a-e)<=Math.abs(p.b-e)?[[p.a,p.c],[p.b,p.d]]:[[p.b,p.d],[p.a,p.c]];
     if(Math.abs(near[0]-e)>1.5||Math.abs(far[0]-e)>0.3*L||rows.some(r=>r.end===end))continue;
     const from=Math.abs(far[1]-g.lo)<=1.5?"top":Math.abs(far[1]-g.hi)<=1.5?"bottom":null;if(!from)continue;
-    const run=Math.round(Math.abs(g.alongMm(far[0])-g.alongMm(e))),lo=Math.min(near[1],far[1]),hi=Math.max(near[1],far[1]);if(!(run>0))continue;
+    // (its run by the dimension from its end when there is one: the chains from the start of a view drawn for two marks
+    // of two lengths do not reach the other end's — ГПЭС «К151, К154» л. 81, «120» at the right end read 509)
+    const xs=[far[0],e].map(v=>v*Math.sign(g.u.x)).sort((a,b)=>a-b);
+    const by=dims.filter(d=>d.flat&&Math.abs(d.lo-xs[0])<=1.5&&Math.abs(d.hi-xs[1])<=1.5&&d.line>g.lo-150&&d.line<g.hi+150).sort((x,y)=>Math.min(Math.abs(x.line-g.lo),Math.abs(x.line-g.hi))-Math.min(Math.abs(y.line-g.lo),Math.abs(y.line-g.hi)))[0];
+    const run=by?Math.round(by.v):Math.round(Math.abs(g.alongMm(far[0])-g.alongMm(e))),lo=Math.min(near[1],far[1]),hi=Math.max(near[1],far[1]);if(!(run>0))continue;
     const across=dims.filter(d=>!d.flat&&Math.abs(d.lo-lo)<=1.5&&Math.abs(d.hi-hi)<=1.5&&Math.abs(d.line-e)<=150).sort((x,y)=>Math.abs(x.line-e)-Math.abs(y.line-e))[0];
     const cap=dims.filter(d=>d.flat&&(end?Math.abs(d.hi-e)<=1.5:Math.abs(d.lo-e)<=1.5)&&d.v>run&&d.v<=run+60&&d.line>g.lo-150&&d.line<g.hi+150).sort((x,y)=>x.v-y.v)[0];
     rows.push({end,from,run_mm:run,drop_mm:across?across.v:null,drop:Math.round((hi-lo)/w*100)/100,...(cap?{cap_mm:cap.v}:{})})

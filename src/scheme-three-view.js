@@ -1028,7 +1028,33 @@ window.irThreeSchemeView=(function(){
    // A column turned as its record says (rotation_deg — the field «Поворот, °» of the element, the plan of its drawing: the
    // columns К1 of a platform of ИР КМ3 л.12 with their webs along X, the cantilevers Б3 welded to their flanges); unturned
    // its web runs along Y.
-   list.forEach(function(c){var r=number(c.rotation_deg);if(c.id&&r&&c.geometryType==="column"&&!branchTurn.has(String(c.id)))branchTurn.set(String(c.id),r*Math.PI/180)})
+   list.forEach(function(c){var r=number(c.rotation_deg);if(c.id&&r&&c.geometryType==="column"&&!branchTurn.has(String(c.id)))branchTurn.set(String(c.id),r*Math.PI/180)});
+   // A post of a square tube or a pipe (the same every way round: its plan says nothing of its turn), not turned by its
+   // record, with the parts of its sheet: the main view of its sheet looks at the wall, its parts across it lie along the
+   // line of the members ending at it — the girders of a wall (ГПЭС К170 л. 80: the seats «13» L125×10 under the girders
+   // К154 at +8,720 left and right on the main view, the girders along the axis 1; unturned, the seats stood out of the
+   // wall and the bolts of the girder hung in the air). Of the plan lines of the level members ending at it within its
+   // height, the one at least twice as many of them run on as on any other (a post at a corner, the girders of both walls
+   // at it — none: which wall its main view looks at the plan does not say).
+   list.forEach(function(c){
+    if(!c.id||c.geometryType!=="column"||c.ft||branchTurn.has(String(c.id))||number(c.rotation_deg))return;
+    var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);if(!sec||!(sec.shape==="box"&&Math.abs(sec.h-sec.b)<=1||sec.shape==="round"&&!sec.solid))return;
+    if(!(c.place&&Array.isArray(c.place.rows)&&c.place.rows.length||Array.isArray(c.drill)&&c.drill.length))return;
+    var cx=number(c.x),cy=number(c.y),z0=number(c.z0),z1=Math.max(number(c.z1),number(c.z2)),r=Math.max(sec.h,sec.b)/2+300,lines=new Map();
+    list.forEach(function(m){
+     if(m===c||m.ft||m.truss||m.cross||m.geometryType!=="beam")return;
+     var ends=[[number(m.x),number(m.y),number(m.z0),number(m.x2),number(m.y2)],[number(m.x2),number(m.y2),number(m.z2),number(m.x),number(m.y)]];
+     var pl=Math.hypot(number(m.x2)-number(m.x),number(m.y2)-number(m.y));if(!(pl>=500)||Math.abs(number(m.z2)-number(m.z0))>pl*.1)return;
+     ends.forEach(function(e){
+      if(Math.hypot(e[0]-cx,e[1]-cy)>r||e[2]<z0-100||e[2]>z1+100)return;
+      var k=((Math.round(Math.atan2(e[4]-e[1],e[3]-e[0])*180/Math.PI)%180)+180)%180;lines.set(k,(lines.get(k)||0)+1)
+     })
+    });
+    var best=null,next=0;lines.forEach(function(n,k){if(!best||n>best.n){if(best)next=Math.max(next,best.n);best={n:n,k:k}}else next=Math.max(next,n)});
+    if(!best||best.n<2*next||best.k===0)return;
+    var a=toWorld(cx,cy,0),b=toWorld(cx+Math.cos(best.k*Math.PI/180)*1000,cy+Math.sin(best.k*Math.PI/180)*1000,0),v=b.sub(a);
+    branchTurn.set(String(c.id),Math.atan2(-v.z,v.x))
+   })
   }
   // The section of a member about its line u: the minimal turn of +Z to u, a branch turned to its other branch.
   function bodyQuat(c,u){
