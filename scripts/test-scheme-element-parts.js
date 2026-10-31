@@ -53,7 +53,7 @@ for(const [now,fit] of [[40,8],[3,8],[.5,8]]){const dist=now>fit?fit:Math.max(.3
 // The 3D: the body and the plates, ribs and gussets by their positions; the colours, the numbers, a position lit; the card.
 const view=src("src/scheme-three-view.js");
 assert(view.includes("mesh.userData.memberId=id;mesh.userData.body=true;")&&view.includes("m.userData.plate=true;m.userData.pos=e.pos;")&&view.includes("m.userData.plate=true;m.userData.pos=r.pos;")&&view.includes("m.userData.gusset=true;m.userData.pos=g.pos;"),"the pieces know their position");
-assert(view.includes("holes:holes,pos:r.pos})"),"an end plate of a cut carries its position");
+assert(view.includes("holes:holes,pos:r.pos,inner:inner})"),"an end plate of a cut carries its position");
 assert(view.includes('if(!i&&parts)mat=litPart!==null&&p!==litPart?partMat("#d3dae0"):p!==null&&parts.color[p]?partMat(parts.color[p]):s[1];'),"the parts in their colours, the others pale when one is lit");
 assert(view.includes('el.className="ir-three-callout";el.textContent=p;')&&view.includes("paintCallouts(w,h);"),"the numbers in circles");
 assert(view.includes("card:card,lightPart:lightPart,")&&view.includes('card:function(id){return call("card",id)||null}'),"the API of the card");

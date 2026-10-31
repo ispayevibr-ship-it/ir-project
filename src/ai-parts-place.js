@@ -180,13 +180,16 @@ function sheetParts(geo={},{seeded=null,views=[]}={}){
    (Math.min(box.c0,box.c1)>g.hi+wd||Math.max(box.c0,box.c1)<g.lo-wd))continue;
   // (past an end of the view at its scale from the end: plates on an end are drawn at it, a chain there may be another's
   // — ГПЭС К120 «12», 215 long, read 873 by a «736» of the holes)
-  const along=p=>p===null?null:p<r.s0?r.alongMm(r.s0)-Math.round((r.s0-p)/r.sc.n):p>r.s1?r.alongMm(r.s1)+Math.round((p-r.s1)/r.sc.n):r.alongMm(p);
+  // (a leg of a bent member — the halves of a ridge beam, ГПЭС В112 —: along the whole from its start, the second leg on
+  // from the kink; `kink_mm` there)
+  const k0=r.bent?.leg?r.bent.kink_mm:0;
+  const along=p=>p===null?null:k0+(p<r.s0?r.alongMm(r.s0)-Math.round((r.s0-p)/r.sc.n):p>r.s1?r.alongMm(r.s1)+Math.round((p-r.s1)/r.sc.n):r.alongMm(p));
   const at=[along(box.a0),along(box.a1)];
   for(const mark of f.marks){if(only.has(b)&&!only.get(b).includes(mark))continue;if(!byMark.has(mark))byMark.set(mark,[]);
    // (a view drawn sloped — a roof beam, ГПЭС К109 rising 3 % to the right —: `rise` +1 rising along it, −1 falling; a
    // mark «обр.» of it, К110, falls the other way in the plan, its parts from the other end)
-   byMark.get(mark).push(tag({pos:b.pos,...(b.side?{side:b.side}:{}),view:f.view.title,...(g.who.main?{main:true}:{}),...(f.face?{face:f.face}:{}),dir:f.view.dir,of_mm:r.length,
-    ...(Math.abs(r.u.x)>0.9&&Math.abs(r.u.y)>=0.008?{rise:r.u.y<0?1:-1}:{}),
+   byMark.get(mark).push(tag({pos:b.pos,...(b.side?{side:b.side}:{}),view:f.view.title,...(g.who.main?{main:true}:{}),...(f.face?{face:f.face}:{}),dir:f.view.dir,of_mm:r.bent?r.bent.all_mm:r.length,
+    ...(r.bent?{kink_mm:r.bent.kink_mm,leg:r.bent.leg}:Math.abs(r.u.x)>0.9&&Math.abs(r.u.y)>=0.008?{rise:r.u.y<0?1:-1}:{}),
     at_mm:at,off_mm:[mm(box.c0),mm(box.c1)],end_mm:[along(box.s),mm(box.o)],
     // (its outline, when it is not a box: [along, across] mm)
     ...(box.hull&&box.hull.length>4&&box.hull.length<=24?{poly:box.hull.map(([a,c])=>[along(a),mm(c)])}:{})},r,f))}
@@ -267,7 +270,7 @@ function cutParts({texts,segs,thick,bold,balloons,near,frames,byMark,tag=r=>r}){
     const arrow=near({x,y}).map(i=>segs[i]).filter(q=>!thick(q)&&q.l>=10&&q.l<=80&&Math.abs((q.b.x-q.a.x)*g.u.x+(q.b.y-q.a.y)*g.u.y)/q.l>0.97).map(q=>{
      const on=p=>Math.abs((p.x-x)*g.u.x+(p.y-y)*g.u.y)<=2.5&&Math.abs((p.x-x)*v.x+(p.y-y)*v.y)<=st.l/2+2;
      return on(q.a)&&!on(q.b)?Math.sign((q.a.x-q.b.x)*g.u.x+(q.a.y-q.b.y)*g.u.y):on(q.b)&&!on(q.a)?Math.sign((q.b.x-q.a.x)*g.u.x+(q.b.y-q.a.y)*g.u.y):0}).find(s=>s);
-    if(!levels.some(l=>l.f===f&&Math.abs(l.sa-sa)<=3))levels.push({f,sa,at:g.alongMm(sa),look:arrow||0})}}
+    if(!levels.some(l=>l.f===f&&Math.abs(l.sa-sa)<=3))levels.push({f,sa,at:(g.bent?.leg?g.bent.kink_mm:0)+g.alongMm(sa),look:arrow||0})}}
   if(!levels.length)continue;
   // (looking on along the member where its arrows do not say: down an upright one, on from the start of a level one)
   const f=levels[0].f,marks=named.length?named:f.marks,look=Math.sign(levels.reduce((a,l)=>a+l.look,0))||1,up=Math.abs(f.g.u.y)>Math.abs(f.g.u.x);
@@ -353,9 +356,9 @@ function cutParts({texts,segs,thick,bold,balloons,near,frames,byMark,tag=r=>r}){
    const g=c.f.g,mid=(g.lo+g.hi)/2,c0=mid+Math.min(...p.off)*g.sc.n,c1=mid+Math.max(...p.off)*g.sc.n,tol=0.1*(c1-c0)+1;
    const edge=c.f.P.filter(q=>Math.abs(q.a-q.b)<=0.4&&Math.min(q.c,q.d)<=c0+tol&&Math.max(q.c,q.d)>=c1-tol&&c.look*(q.a-lv.sa)>=-1&&c.look*(q.a-lv.sa)<=1500*g.sc.n)
     .sort((x,y)=>c.look*(x.a-y.a))[0];
-   const a=edge?g.alongMm(edge.a):Math.max(0,Math.min(g.length,lv.at));made.push({c,p,lv,at:[a,a]})}
+   const k0=g.bent?.leg?g.bent.kink_mm:0,a=edge?k0+g.alongMm(edge.a):Math.max(k0,Math.min(k0+g.length,lv.at));made.push({c,p,lv,at:[a,a]})}
   for(const r of used)rows.splice(rows.indexOf(r),1);
-  for(const x of made){const f=x.c.f;rows.push(tag({pos:x.p.pos,...(x.p.side?{side:x.p.side}:{}),view:f.view.title,main:true,...(f.face?{face:f.face}:{}),dir:f.view.dir,of_mm:f.g.length,
+  for(const x of made){const f=x.c.f;rows.push(tag({pos:x.p.pos,...(x.p.side?{side:x.p.side}:{}),view:f.view.title,main:true,...(f.face?{face:f.face}:{}),dir:f.view.dir,of_mm:f.g.bent?f.g.bent.all_mm:f.g.length,...(f.g.bent?{kink_mm:f.g.bent.kink_mm,leg:f.g.bent.leg}:{}),
    at_mm:x.at,off_mm:x.p.off,depth_mm:x.p.depth,cut:x.c.title},f.g,f))}
   // (a part of the main view the section of a cut is — the tube on top —: as deep as there; one beside a part so placed,
   // half of it within that one both ways — a rib under the angle —: in the middle of its depth)

@@ -935,8 +935,10 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   const line=r=>{const p=Array.isArray(r.plate)?r.plate:[],L=num(p[0]),flat=r.dir!=="по вертикали",of=num(r.of),at=num(r.at);
    // (at an end as the 3D takes it: within 5% of the view, 250 mm at least; an upright view starts at the top)
    const edge=Math.max(250,of*0.05),up=r.on_dir==="по вертикали",cut=`разрез в ${fmt(at)} из ${fmt(of)} мм от ${up?"верха":"начала"} вида «${esc(r.on||"")}»`;
-   const where=r.at===undefined||r.at===null?"":of>0&&at>=of-edge?`, ${up?"внизу":"у конца"} (${cut})`:of>0&&at<=edge?`, ${up?"вверху":"у начала"} (${cut})`:`, ${cut}`;
-   const spec=r.section?` — поз. ${esc(r.pos??"—")} «${esc(r.section)}» по спецификации`:"";
+   const where=r.at===undefined||r.at===null?"":r.both?`, у обоих концов (стрелки вида у обоих концов вида «${esc(r.on||"")}»)`:of>0&&at>=of-edge?`, ${up?"внизу":"у конца"} (${cut})`:of>0&&at<=edge?`, ${up?"вверху":"у начала"} (${cut})`:`, ${cut}`;
+   // (a shim on it — ГПЭС В112 «4» −250×6 on the end rib «3»: its size and thickness by its row of the specification)
+   const ip=Array.isArray(r.inner?.plate)?r.inner.plate:null,shim=ip?`; на ней прокладка ${fmt(flat?num(ip[0]):num(ip[1]))}×${fmt(flat?num(ip[1]):num(ip[0]))}×${fmt(num(r.inner.t))} мм — поз. ${esc(r.inner.pos??"—")}`:"";
+   const spec=(r.section?` — поз. ${esc(r.pos??"—")} «${esc(r.section)}» по спецификации`:"")+shim;
    const by=new Map();for(const h of Array.isArray(r.holes)?r.holes:[]){const d=num(h[2]);if(!by.has(d))by.set(d,[]);const a=num(h[0])-L/2,o=num(h[1]);by.get(d).push(flat?[a,o]:[o,a])}
    const holes=[...by].map(([d,list])=>(d?"Ø"+d:"Ø не указан")+" — "+list.length+" шт.: "+list.slice(0,16).map(([x,y])=>"("+fmt(x)+"; "+fmt(y)+")").join(", ")).join("; ");
    return`<span>«${esc(r.view||"")}»: пластина ${fmt(flat?L:num(p[1]))}×${fmt(flat?num(p[1]):L)} мм${spec}${where}; отверстия ${esc(holes||"—")} мм от середины пластины (вправо; вниз по чертежу)</span>`};

@@ -181,8 +181,9 @@
    var rows=c.cuts&&Array.isArray(c.cuts.rows)?c.cuts.rows:[];if(!rows.length)return"";
    var line=function(r){var p=Array.isArray(r.plate)?r.plate:[],L=Number(p[0])||0,W=Number(p[1])||0,flat=r.dir!=="по вертикали",of=Number(r.of)||0,at=Number(r.at)||0,on=esc(r.on||"");
     var edge=Math.max(250,of*.05),up=r.on_dir==="по вертикали",cut="разрез в "+fmt(at)+" из "+fmt(of)+" мм от "+(up?"верха":"начала")+" вида «"+on+"»";
-    var where=r.at===undefined||r.at===null?"":of>0&&at>=of-edge?", "+(up?"внизу":"у конца")+" ("+cut+")":of>0&&at<=edge?", "+(up?"вверху":"у начала")+" ("+cut+")":", "+cut;
-    var spec=r.section?" — поз. "+esc(r.pos!=null?r.pos:"—")+" «"+esc(r.section)+"» по спецификации":"";
+    var where=r.at===undefined||r.at===null?"":r.both?", у обоих концов (стрелки вида у обоих концов вида «"+on+"»)":of>0&&at>=of-edge?", "+(up?"внизу":"у конца")+" ("+cut+")":of>0&&at<=edge?", "+(up?"вверху":"у начала")+" ("+cut+")":", "+cut;
+    var ip=r.inner&&Array.isArray(r.inner.plate)?r.inner.plate:null,shim=ip?"; на ней прокладка "+fmt(flat?Number(ip[0])||0:Number(ip[1])||0)+"×"+fmt(flat?Number(ip[1])||0:Number(ip[0])||0)+"×"+fmt(Number(r.inner.t)||0)+" мм — поз. "+esc(r.inner.pos!=null?r.inner.pos:"—"):"";
+    var spec=(r.section?" — поз. "+esc(r.pos!=null?r.pos:"—")+" «"+esc(r.section)+"» по спецификации":"")+shim;
     var by={},keys=[];(Array.isArray(r.holes)?r.holes:[]).forEach(function(h){var d=Number(h[2])||0,a=(Number(h[0])||0)-L/2,o=Number(h[1])||0;if(!by[d]){by[d]=[];keys.push(d)}by[d].push(flat?[a,o]:[o,a])});
     var holes=keys.map(function(d){return(d?"Ø"+d:"Ø не указан")+" — "+by[d].length+" шт.: "+by[d].slice(0,16).map(function(q){return"("+fmt(q[0])+"; "+fmt(q[1])+")"}).join(", ")}).join("; ");
     return'<span>«'+esc(r.view||"")+'»: пластина '+fmt(flat?L:W)+'×'+fmt(flat?W:L)+' мм'+spec+where+'; отверстия '+esc(holes||"—")+' мм от середины пластины (вправо; вниз по чертежу)</span>'};

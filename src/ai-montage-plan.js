@@ -445,9 +445,12 @@ function buildCatalog(draft,ai=null){
   for(const s of sheet.sections)for(const mark of s.marks||[]){const e=entry(mark);if(e.cuts&&e.cuts.sheet!==where(p)||(e.cuts?.rows||[]).length>=8)continue;
    // (its row of the specification: a plate «−20×320» 320 long — its thickness and position)
    const spec=(e.parts?.rows||[]).map(r=>{const m=/^[-−–]\s*(\d+(?:[.,]\d+)?)\s*[хx×*]\s*(\d+(?:[.,]\d+)?)/iu.exec(String(r.section||"").trim());if(!m)return null;const a=Number(m[1].replace(",",".")),b=Number(m[2].replace(",","."));return{r,t:Math.min(a,b),b:Math.max(a,b),L:Number(r.length_mm)||0}}).filter(Boolean);
-   const near=(a,b)=>b>0&&Math.abs(a-b)<=6,[P,Q]=s.plate_mm,o=spec.find(o=>near(P,o.b)&&near(Q,o.L)||near(P,o.L)&&near(Q,o.b));
-   (e.cuts=e.cuts||{sheet:where(p),rows:[]}).rows.push({view:s.title,plate:s.plate_mm,dir:s.dir,...(s.at_mm!==undefined?{at:s.at_mm,of:s.of_mm,on:s.cut_on,on_dir:s.cut_dir}:{}),
-    ...(o?{t:o.t,pos:o.r.pos??null,section:o.r.section}:{}),holes:s.holes.slice(0,40).map(h=>[h.at_mm,h.off_mm,h.d_mm||0])})}
+   const near=(a,b)=>b>0&&Math.abs(a-b)<=6,of=([P,Q])=>spec.find(o=>near(P,o.b)&&near(Q,o.L)||near(P,o.L)&&near(Q,o.b)),o=of(s.plate_mm);
+   // (a shim drawn inside it — ГПЭС В112 «Вид А»: «4» −250×6 340 on the rib «3» —: with its row's thickness, else not at all;
+   // a view seen at both ends of the mark — its arrows at both)
+   const io=s.inner_mm?of(s.inner_mm):null;
+   (e.cuts=e.cuts||{sheet:where(p),rows:[]}).rows.push({view:s.title,plate:s.plate_mm,dir:s.dir,...(s.at_mm!==undefined?{at:s.at_mm,of:s.of_mm,on:s.cut_on,on_dir:s.cut_dir,...(s.both_ends?{both:true}:{})}:{}),
+    ...(o?{t:o.t,pos:o.r.pos??null,section:o.r.section}:{}),...(io?{inner:{plate:s.inner_mm,at:s.inner_at_mm,t:io.t,pos:io.r.pos??null}}:{}),holes:s.holes.slice(0,40).map(h=>[h.at_mm,h.off_mm,h.d_mm||0])})}
  }
  // Sections of the mounting drawings: the most frequent reading of each mark wins.
  const votes=new Map();
