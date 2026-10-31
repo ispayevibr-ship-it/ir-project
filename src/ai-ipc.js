@@ -77,6 +77,10 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
  handle("ai-documents:set-excluded",(_e,{objectId,id,pages})=>documents.setExcluded(objectId,id,pages));
  handle("ai-documents:sheets",(_e,{objectId,id})=>montage.documentSheets(objectId,id));
  handle("ai-documents:preview",(_e,{objectId,id,page})=>raster.preview(objectId,id,page));
+ // «Ведомость метизов» from Excel (src/fasteners-excel.js), through the channels the installed preload passes.
+ const fastenersExcel=require("./fasteners-excel"),senderWindow=e=>require("electron").BrowserWindow.fromWebContents(e.sender)||getWindow();
+ handle("ai-settings:fasteners-excel",e=>fastenersExcel.select(dialog,senderWindow(e)));
+ handle("ai-settings:fasteners-example",e=>fastenersExcel.saveExample(dialog,senderWindow(e)));
  handle("ai-settings:refocus",(e,{force}={})=>refocus(require("electron").BrowserWindow.fromWebContents(e.sender),e.sender,force===true));
  handle("ai-engine:status",()=>engine.status());
  handle("ai-engine:start",()=>engine.start());

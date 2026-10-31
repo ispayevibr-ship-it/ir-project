@@ -172,8 +172,25 @@
  // The register filled by hand.
  function fromManual(records){
   return arr(records).filter(r=>(r.record_type||"fastener")==="fastener").map(r=>{const d=r.data||{},f=parse(d.text)||{item:d.item||"bolt",text:d.text||"",standard:d.standard||"",std:"",d:num(d.d_mm),len:num(d.length_mm),cls:d.strength_class||null,exec:null,high:false};
+   // (the class of its own column — «к.п.» of a loaded list — over the one read in the name)
+   const cls=String(d.strength_class||"").trim();if(cls&&!f.cls){f.cls=cls;if(["10.9","12.9","10","12"].includes(cls))f.high=true}
    const g=massOf(f),own=num(d.unit_mass_kg);
-   return{...rowFrom(f),id:String(r.id),qty:num(d.qty),unit_kg:own??g.kg,mass_src:own!=null?"указана вручную":g.src,marks:parseMarks(d.marks),sources:["ведомость, заполненная вручную"],note:d.note||""}})
+   return{...rowFrom(f),id:String(r.id),qty:num(d.qty),unit_kg:own??g.kg,mass_src:own!=null?"указана вручную":g.src,marks:parseMarks(d.marks),sources:[d.file?"загружена из "+d.file:"ведомость, заполненная вручную"],note:d.note||""}})
+ }
+ // The register against the drawings (rows of account(): their total counts the pieces of the marks): for each row what the drawings need of it, where it goes and the difference
+ // (+ extra, − missing); rows of the drawings the register has not, all missing. Matched by the same item, standard,
+ // size and class, else by the same item and size (a list may write the standard otherwise; another class is said).
+ function compare(rows,drawn){
+  const loose=r=>[r.item,r.d||"",r.len||""].join("|"),used=new Set(),out=[];
+  const pick=(r,test)=>drawn.find(x=>!used.has(x)&&test(x));
+  for(const r of rows){
+   const m=pick(r,x=>x.key===r.key)||pick(r,x=>loose(x)===loose(r)&&(!x.cls||!r.cls||String(x.cls)===String(r.cls)))||pick(r,x=>loose(x)===loose(r));
+   if(m)used.add(m);
+   const need=m?(m.total??m.qty):null,clsDiff=m&&m.cls&&r.cls&&String(m.cls)!==String(r.cls)?m.cls:null;
+   out.push({row:r,drawn:m||null,need,clsDiff,diff:need==null||r.qty==null?null:r.qty-need,where:m?(m.marks.length?marksText(m.marks):"на весь объект")+(m.sources.length?" · "+m.sources.join("; "):""):""})
+  }
+  const missing=drawn.filter(x=>!used.has(x)&&(x.total??x.qty)>0).map(x=>({row:null,drawn:x,need:x.total??x.qty,diff:-(x.total??x.qty),where:(x.marks.length?marksText(x.marks):"на весь объект")+(x.sources.length?" · "+x.sources.join("; "):"")}));
+  return{lines:out,missing,short:out.filter(l=>l.diff<0).length+missing.length,extra:out.filter(l=>l.diff>0).length}
  }
  // How many of a row the montage has used, given the mounted pieces of each mark and the mounted share.
  function usedOf(row,marksByKey,mounted,share){
@@ -185,8 +202,11 @@
  async function load(oid){
   const root=irProject.data.forObject(oid),get=k=>root.section(k).list().catch(()=>[]);
   const [manual,marks,works,reports,scheme,logs]=await Promise.all([get("fasteners"),get("marks"),get("work-types"),get("reports"),get("scheme"),get("ai-project-log")]);
-  const manualRows=fromManual(manual),auto=fromDrawings({logs,scheme});
-  return{manual,manualRows,autoRows:auto,rows:manualRows.length?manualRows:auto,mode:manualRows.length?"manual":"auto",marks:montageMarks(marks,works),reports}
+  const manualRows=fromManual(manual),auto=fromDrawings({logs,scheme}),base={marks:montageMarks(marks,works),reports};
+  // The register against the drawings; a row of the register without its marks goes where the drawings put it.
+  const check=manualRows.length&&auto.length?compare(manualRows,account({...base,rows:auto}).rows):null;
+  if(check)for(const l of check.lines)if(!l.row.marks.length&&l.drawn?.marks.length){l.row.marks=l.drawn.marks.map(x=>({...x}));l.row.marks_from="чертёж"}
+  return{manual,manualRows,autoRows:auto,rows:manualRows.length?manualRows:auto,mode:manualRows.length?"manual":"auto",check,...base}
  }
  // The register with its use: overall, or for one daily report (before it, on its day, through it).
  function account(data,report=null){
@@ -199,5 +219,5 @@
   const sum=k=>rows.reduce((s,r)=>s+(r[k]||0),0);
   return{rows,share:shareNow,sharePrev,totals:{total:sum("total"),used:sum("used"),before:sum("before"),day:sum("day"),left:sum("left"),total_kg:sum("total_kg"),used_kg:sum("used_kg"),before_kg:sum("before_kg"),day_kg:sum("day_kg"),left_kg:sum("left_kg")},noMass:rows.filter(r=>r.unit_kg==null).length}
  }
- window.irFasteners={parse,massOf,parseMarks,marksText,splitCount,fromDrawings,fromManual,load,account,mountedBy,mountedShare,ITEM_NAME,keyOf,markKey};
+ window.irFasteners={compare,parse,massOf,parseMarks,marksText,splitCount,fromDrawings,fromManual,load,account,mountedBy,mountedShare,ITEM_NAME,keyOf,markKey};
 })();
