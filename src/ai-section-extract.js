@@ -440,40 +440,71 @@ function frameOf(found,segments,along,toZ){
   ...posts.map(x=>{const u=Math.max(0,Math.min(u1-u0,along(x)-u0));return[r(u),0,r(u),r(zt-zb),"post",""]})];
  return{u0,u1,z0:zb,z1:zt,members}
 }
-// A welded frame of two posts and a crossbar (ГПЭС М1.18: «К100», the door frame Тр.□100×4 of л. 82 — posts 2210 and the
-// crossbar 920 between them — standing from the girt К161 to К159): its label lies on the crossbar, the posts carry no
-// label of their own and run from a member under to a member over it. The label names the whole frame, not the
-// crossbar alone. `f` — the crossbar found under the label; `labelled(x, y0, y1)` — a mark written along a post there.
-function postsFrameOf(f,segments,along,toZ,labelled,cx){
- const y=f.line.a.y,flat=segments.filter(q=>Math.abs(q.a.y-q.b.y)<=.3);
- // The crossbar as drawn heavily: the line found may run on into a thin extension line of a dimension beside it
- // (М1.18, ось 1: «910» by the crossbar of К100).
- const on=flat.filter(q=>Math.abs(q.a.y-y)<.3&&Math.min(q.a.x,q.b.x)<=Math.max(f.line.a.x,f.line.b.x)+1&&Math.max(q.a.x,q.b.x)>=Math.min(f.line.a.x,f.line.b.x)-1);
- const heavy=Math.max(0,...on.map(q=>Number(q.w)||0));
- const runs=[];for(const q of on.filter(q=>!heavy||(Number(q.w)||heavy)>=heavy*.8).map(q=>[Math.min(q.a.x,q.b.x),Math.max(q.a.x,q.b.x)]).sort((p,q)=>p[0]-q[0])){
-  const r=runs[runs.length-1];if(r&&q[0]<=r[1]+3)r[1]=Math.max(r[1],q[1]);else runs.push(q.slice())}
- const run=runs.sort((p,q)=>Math.max(0,p[0]-cx,cx-p[1])-Math.max(0,q[0]-cx,cx-q[1]))[0];if(!run)return null;
- const [xa,xb]=run;if(xb-xa<6)return null;
- const vert=segments.filter(q=>Math.abs(q.a.x-q.b.x)<=.3&&(!heavy||(Number(q.w)||heavy)>=heavy*.8));
- // The lines of a post at an end of the crossbar: on it or outside it, a tube's width (250 mm) at most, across the
- // crossbar's level.
- const postAt=(x,out)=>{const lines=vert.filter(q=>{const d=(q.a.x-x)*out;return d>=-1.5&&Math.abs(along(q.a.x)-along(x))<=250&&Math.min(q.a.y,q.b.y)<y-8&&Math.max(q.a.y,q.b.y)>y+8});
+// A welded frame of two posts and crossbars (ГПЭС М1.18: «К100», the door frame Тр.□100×4 of л. 82 — posts 2210 and the
+// crossbar 920 between them — standing from the girt К161 to К159; л. 168–190: «элементы из стоек фахверка» В182…В245):
+// its label lies on a crossbar or along a post (В212, В234 turned up a post), the other post carries no label of its own,
+// the posts run from a member to a member (or stand on the floor) and no farther. The label names the whole frame.
+// `f` — the member found by the label; `labelled(x, y0, y1)` — a mark written along a post there; `flatLabelled(y, x0,
+// x1)` — a mark of another member written along a crossbar there.
+function postsFrameOf(f,segments,along,toZ,labelled,cx,flatLabelled){
+ const flat=segments.filter(q=>Math.abs(q.a.y-q.b.y)<=.3),vertAll=segments.filter(q=>Math.abs(q.a.x-q.b.x)<=.3);
+ const w=q=>Number(q.w)||0,mm=(x0,x1)=>Math.abs(along(x1)-along(x0));
+ // The lines of a post at x: on it or out of it (`out` ±1, 0 — either way), its edges 250 mm apart at most, across y.
+ let heavy=0;
+ const postAt=(x,out,ys)=>{const lines=vert.filter(q=>{const d=(q.a.x-x)*(out||1);return(out?d>=-1.5:true)&&mm(x,q.a.x)<=250&&ys.every(y=>Math.min(q.a.y,q.b.y)<y-8&&Math.max(q.a.y,q.b.y)>y+8)});
   if(!lines.length)return null;
   return{x:lines.reduce((a,q)=>a+q.a.x,0)/lines.length,lo:Math.min(...lines.map(q=>Math.min(q.a.y,q.b.y))),hi:Math.max(...lines.map(q=>Math.max(q.a.y,q.b.y))),xs:lines.map(q=>q.a.x)}};
- const L=postAt(xa,-1),R=postAt(xb,1);if(!L||!R)return null;
+ let vert=[],L=null,R=null;
+ if(f.flat){
+  const y=f.line.a.y;
+  // The crossbar as drawn heavily: the line found may run on into a thin extension line of a dimension beside it
+  // (М1.18, ось 1: «910» by the crossbar of К100).
+  const on=flat.filter(q=>Math.abs(q.a.y-y)<.3&&Math.min(q.a.x,q.b.x)<=Math.max(f.line.a.x,f.line.b.x)+1&&Math.max(q.a.x,q.b.x)>=Math.min(f.line.a.x,f.line.b.x)-1);
+  heavy=Math.max(0,...on.map(w));
+  const runs=[];for(const q of on.filter(q=>!heavy||(w(q)||heavy)>=heavy*.8).map(q=>[Math.min(q.a.x,q.b.x),Math.max(q.a.x,q.b.x)]).sort((p,q)=>p[0]-q[0])){
+   const r=runs[runs.length-1];if(r&&q[0]<=r[1]+3)r[1]=Math.max(r[1],q[1]);else runs.push(q.slice())}
+  const run=runs.sort((p,q)=>Math.max(0,p[0]-cx,cx-p[1])-Math.max(0,q[0]-cx,cx-q[1]))[0];if(!run)return null;
+  const [xa,xb]=run;if(xb-xa<6)return null;
+  vert=vertAll.filter(q=>!heavy||(w(q)||heavy)>=heavy*.8);
+  L=postAt(xa,-1,[y]);R=postAt(xb,1,[y])
+ }else if(f.vertical){
+  // A label along a post: the crossbars leaving it to one side only, all ending at one other post.
+  const x=f.line.a.x,lo=Math.min(f.line.a.y,f.line.b.y),hi=Math.max(f.line.a.y,f.line.b.y);
+  heavy=Math.max(0,...vertAll.filter(q=>Math.abs(q.a.x-x)<.3&&Math.min(q.a.y,q.b.y)<=hi&&Math.max(q.a.y,q.b.y)>=lo).map(w));
+  vert=vertAll.filter(q=>!heavy||(w(q)||heavy)>=heavy*.8);
+  const S=postAt(x,0,[(lo+hi)/2]);if(!S)return null;
+  const sides=[-1,1].map(out=>{const edge=out>0?Math.max(...S.xs):Math.min(...S.xs);
+   const bars=flat.filter(q=>(!heavy||(w(q)||heavy)>=heavy*.8)&&q.a.y>S.lo+8&&q.a.y<S.hi-8&&[[q.a,q.b],[q.b,q.a]].some(([p,o])=>Math.abs(p.x-edge)<=1.5&&(o.x-p.x)*out>3));
+   if(!bars.length)return null;
+   const far=bars.map(q=>out>0?Math.max(q.a.x,q.b.x):Math.min(q.a.x,q.b.x));if(Math.max(...far)-Math.min(...far)>1.5)return null;
+   const P=postAt(far[0],out,bars.map(q=>q.a.y));return P?{P,out}:null}).filter(Boolean);
+  if(sides.length!==1)return null;
+  [L,R]=sides[0].out>0?[S,sides[0].P]:[sides[0].P,S]
+ }
+ if(!L||!R||R.x-L.x<3)return null;
  if(Math.abs(L.lo-R.lo)>8||Math.abs(L.hi-R.hi)>8)return null;
- const yt=Math.min(L.lo,R.lo),yb=Math.max(L.hi,R.hi);
- // Each end of a post on another member (a girt drawn across it), the post going no farther (a column runs on).
- const onMember=(P,yy)=>flat.some(q=>Math.abs(q.a.y-yy)<=3&&Math.min(q.a.x,q.b.x)<=Math.min(...P.xs)+1&&Math.max(q.a.x,q.b.x)>=Math.max(...P.xs)-1&&Math.abs(q.b.x-q.a.x)>=(xb-xa));
+ const yt=Math.min(L.lo,R.lo),yb=Math.max(L.hi,R.hi),li=Math.max(...L.xs),ri=Math.min(...R.xs);
+ // An end of a post on another member (a girt drawn across it) — one at least: a door frame stands on the floor (В207) —,
+ // the post going no farther (a column runs on).
+ const onMember=(P,yy)=>flat.some(q=>Math.abs(q.a.y-yy)<=3&&Math.min(q.a.x,q.b.x)<=Math.min(...P.xs)+1&&Math.max(q.a.x,q.b.x)>=Math.max(...P.xs)-1&&Math.abs(q.b.x-q.a.x)>=ri-li);
  const beyond=P=>vert.some(o=>{const lo=Math.min(o.a.y,o.b.y),hi=Math.max(o.a.y,o.b.y);return P.xs.some(x=>Math.abs(o.a.x-x)<=.3)&&hi>=yt-3&&lo<=yb+3&&(lo<yt-10||hi>yb+10)});
- for(const P of [L,R])if(!onMember(P,P.lo)||!onMember(P,P.hi)||beyond(P)||labelled(P.x,yt,yb))return null;
- // The crossbar by its middle: its other edge a tube's width under or over the line found.
- const other=flat.filter(q=>Math.abs(q.a.y-y)>=1&&Math.abs(along(xa+Math.abs(q.a.y-y))-along(xa))<=250&&Math.min(q.a.x,q.b.x)<=xa+2&&Math.max(q.a.x,q.b.x)>=xb-2&&(!heavy||(Number(q.w)||heavy)>=heavy*.8)).sort((p,q)=>Math.abs(p.a.y-y)-Math.abs(q.a.y-y))[0];
- const yc=other?(y+other.a.y)/2:y;
+ for(const P of [L,R])if(!onMember(P,P.lo)&&!onMember(P,P.hi)||beyond(P)||labelled(P.x,yt,yb))return null;
+ // Nothing stands between the posts: short posts under a crossbar there are of another member (М1.18: the post В243, the
+ // crossbar of В242 to the door post with its two short posts under it).
+ if(vert.some(q=>q.a.x>li+1.5&&q.a.x<ri-1.5&&Math.min(q.a.y,q.b.y)<yb-3&&Math.max(q.a.y,q.b.y)>yt+3&&Math.abs(q.b.y-q.a.y)>3))return null;
+ // The crossbars: heavy lines from post to post between their ends, each by its middle (its two edges a tube's width
+ // apart), no other mark written along one.
+ const edges=flat.filter(q=>(!heavy||(w(q)||heavy)>=heavy*.8)&&q.a.y>yt+3&&q.a.y<yb-3&&Math.min(q.a.x,q.b.x)<=li+2&&Math.max(q.a.x,q.b.x)>=ri-2&&Math.abs(q.b.x-q.a.x)<=ri-li+4).map(q=>q.a.y).sort((a,b)=>a-b);
+ if(!edges.length)return null;
+ // (a tube's edges 200 mm apart at most, by the scale of the posts: a level mark near both would draw them together)
+ const k=Math.abs(toZ(yt)-toZ(yb))/Math.max(1,yb-yt),bars=[];
+ for(const y of edges){const g=bars[bars.length-1];if(g&&(y-g[0])*k<=200)g.push(y);else bars.push([y])}
+ const ys=bars.map(g=>(g[0]+g[g.length-1])/2);
+ if(ys.some(y=>flatLabelled(y,li,ri)))return null;
  const u0=Math.min(along(L.x),along(R.x)),u1=Math.max(along(L.x),along(R.x)),zb=toZ(yb),zt=toZ(yt),r=v=>Math.round(v);
  if(u1-u0<200||zt-zb<300)return null;
- const zc=r((zt-zb)*(yb-yc)/(yb-yt));
- return{u0:r(u0),u1:r(u1),z0:zb,z1:zt,members:[[0,0,0,r(zt-zb),"post",""],[r(u1-u0),0,r(u1-u0),r(zt-zb),"post",""],[0,zc,r(u1-u0),zc,"mid",""]]}
+ const span=r(u1-u0),H=r(zt-zb);
+ return{u0:r(u0),u1:r(u1),z0:zb,z1:zt,members:[[0,0,0,H,"post",""],[span,0,span,H,"post",""],...ys.map(y=>{const z=r(H*(yb-y)/(yb-yt));return[0,z,span,z,"mid",""]})]}
 }
 // Wall girts and the like are often marked without a number («Рр», «Рн», «Рст»): such a word repeated on the sheet
 // (three times or more) is a mark of the elevation; ordinary short words are not.
@@ -555,7 +586,8 @@ function extractElevations({segments=[],texts=[]}={},page=1){
    // frame (ГПЭС М1.19, ось А: «К3» — the window frame of л. 1, two rails and two posts), not a piece at each leader.
    // (a label on its crossbar, no leader: the posts at its ends with it, when they carry no label of their own)
    const labelled=(x,y0,y1)=>region.some(o=>o!==t&&MARK.test(String(o.str).trim())&&Math.abs(Math.abs(Number(o.angle)||0)-90)<5&&(()=>{const c=textFrame(o).c,h=Number(o.size)||8;return Math.abs(c.x-x)<=h*1.7&&c.y>=y0&&c.y<=y1})());
-   const frame=found.length>=2?frameOf(found,segments,raw,toZ):found.length===1&&!led&&found[0].flat?postsFrameOf(found[0],segments,raw,toZ,labelled,textFrame(t).c.x):null;
+   const flatLabelled=(y,x0,x1)=>region.some(o=>o!==t&&MARK.test(String(o.str).trim())&&Math.abs(Number(o.angle)||0)<5&&(()=>{const c=textFrame(o).c,h=Number(o.size)||8;return Math.abs(c.y-y)<=h*1.7&&c.x>=x0&&c.x<=x1})());
+   const frame=found.length>=2?frameOf(found,segments,raw,toZ):found.length===1&&!led&&(found[0].flat||found[0].vertical)?postsFrameOf(found[0],segments,raw,toZ,labelled,textFrame(t).c.x,flatLabelled):null;
    if(frame){
     const p0=at(frame.u0),p1=at(frame.u1);
     placements.push({...base,geometry_type:"beam",kind_label:"Рама",x_mm:p0.x,y_mm:p0.y,x2_mm:p1.x,y2_mm:p1.y,z0_mm:frame.z0,z1_mm:frame.z0,
