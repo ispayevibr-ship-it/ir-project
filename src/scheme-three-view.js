@@ -2361,17 +2361,33 @@ window.irThreeSchemeView=(function(){
    var C=3,cells=new Map(),levels=[],gone=new Set(),fresh=[],edges=[];
    deckInfo.forEach(function(k){levels.push([k.y+.003,k.y+k.t-.003])});
    for(var i=0;i<8;i++)[1,2,4].forEach(function(b){if(!(i&b))edges.push([i,i|b])});
-   allMeshes.forEach(function(m){
-    var mid=String(m.userData.memberId||""),c=dataById.get(mid);
-    // (a ladder up through a platform cuts it: Т-23 of a mast through the deck Т-21)
-    if(!m.geometry||!c||c.ft&&c.ft!=="ladder"||slight(c)||role(c)==="guards"||deckInfo.has(mid))return;
-    var g=m.geometry;if(!g.boundingBox)g.computeBoundingBox();m.updateMatrixWorld(true);
-    var bb=g.boundingBox,pts=[],y0=Infinity,y1=-Infinity,x0=Infinity,x1=-Infinity,z0=Infinity,z1=-Infinity;
-    for(var i=0;i<8;i++){var P=new T.Vector3(i&1?bb.max.x:bb.min.x,i&2?bb.max.y:bb.min.y,i&4?bb.max.z:bb.min.z).applyMatrix4(m.matrixWorld);pts.push(P);
-     y0=Math.min(y0,P.y);y1=Math.max(y1,P.y);x0=Math.min(x0,P.x);x1=Math.max(x1,P.x);z0=Math.min(z0,P.z);z1=Math.max(z1,P.z)}
+   // (8 corners of a box, bit 1 — x, 2 — y, 4 — z, as its edges are taken)
+   var boxOf=function(mid,pts){
+    var y0=Infinity,y1=-Infinity,x0=Infinity,x1=-Infinity,z0=Infinity,z1=-Infinity;
+    pts.forEach(function(P){y0=Math.min(y0,P.y);y1=Math.max(y1,P.y);x0=Math.min(x0,P.x);x1=Math.max(x1,P.x);z0=Math.min(z0,P.z);z1=Math.max(z1,P.z)});
     if(!levels.some(function(l){return y0<l[1]&&y1>l[1]}))return;
     var box={id:mid,pts:pts,y0:y0,y1:y1};
     for(var a=Math.floor(x0/C);a<=Math.floor(x1/C);a++)for(var b=Math.floor(z0/C);b<=Math.floor(z1/C);b++){var key=a+","+b;if(!cells.has(key))cells.set(key,[]);cells.get(key).push(box)}
+   };
+   allMeshes.forEach(function(m){
+    var mid=String(m.userData.memberId||""),c=dataById.get(mid);
+    if(!m.geometry||!c||c.ft||slight(c)||role(c)==="guards"||deckInfo.has(mid))return;
+    var g=m.geometry;if(!g.boundingBox)g.computeBoundingBox();m.updateMatrixWorld(true);
+    var bb=g.boundingBox,pts=[];
+    for(var i=0;i<8;i++)pts.push(new T.Vector3(i&1?bb.max.x:bb.min.x,i&2?bb.max.y:bb.min.y,i&4?bb.max.z:bb.min.z).applyMatrix4(m.matrixWorld));
+    boxOf(mid,pts)
+   });
+   // A ladder up through a platform: the opening of its hatch — as wide as its cage (R 400–450 about its middle), from
+   // behind its rails out to the hoops, along the ladder — the man climbs through it; not a slot round each rail and rung
+   // with the deck between them (Т-23 of a mast through the deck Т-21, «проём под лестницу Т-23» of its sheet; the
+   // engineer 31.10.2026: «лестница проходит опять сквозь площадку, тысячу раз уже говорил так нельзя»).
+   elems.forEach(function(c){
+    var mid=String(c.id||"");if(c.ft!=="ladder"||!mid||!dataById.has(mid)||deckInfo.has(mid))return;
+    var p=memberPoints(c);if(p.length<2)return;
+    var a=p[0],b=p[p.length-1],lo=a.y<=b.y?a:b,hi=a.y<=b.y?b:a,d=hi.clone().sub(lo),flat=new T.Vector3(d.x,0,d.z),run=flat.length();if(d.y<.3)return;
+    var w=Math.max(.4,(number(c.fd)||600)/1000),R=Math.max(.4,w/2+.1),side=run>.05?new T.Vector3(-flat.z,0,flat.x).normalize():new T.Vector3(1,0,0),out=new T.Vector3().crossVectors(side,new T.Vector3(0,1,0)).normalize(),pts=[];
+    for(var i=0;i<8;i++)pts.push((i&2?hi:lo).clone().add(side.clone().multiplyScalar(i&1?R:-R)).add(out.clone().multiplyScalar(i&4?R+.03:-.05)));
+    boxOf(mid,pts)
    });
    deckInfo.forEach(function(k,id){
     var lo=k.y+.003,hi=k.y+k.t-.003,holes=k.holes.slice(),seen=new Set(),added=0,x0=Infinity,x1=-Infinity,z0=Infinity,z1=-Infinity;
