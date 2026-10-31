@@ -656,6 +656,18 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   const marks=database.listEntity(oid,"marks").map(r=>({id:String(r.id),title:r.title||"",...(r.data||{})}));
   const byName=new Map();
   for(const m of marks){const k=normMark(m.mark||m.title);if(!k)continue;if(!byName.has(k))byName.set(k,[]);byName.get(k).push(m)}
+  // The register the engineer gave (31.10.2026: «зачем ты редактируешь и добавляешь в ведомость то что не указано? я задал
+  // уже ведомость… если ведомость задана, все что нужно - найти и расставить все что указано в ведомости»): a work type
+  // with rows of his own (not made by the program) takes only them. An element links to his row by its mark, else by the
+  // code of a position his row names (mark «Сэндвич-панель», name «Р825» — the panel Р825); one his register lacks is not
+  // placed, nothing is added to the register or moved in it, and it is listed «нет в ведомости марок».
+  const given=new Map();
+  for(const m of marks)if(m.ai_created!==true&&m.work_type_id){const w=String(m.work_type_id);if(!given.has(w))given.set(w,[]);given.get(w).push(m)}
+  const codesOf=t=>String(t||"").split(/[\s,;:()«»"/]+/u).filter(x=>/\p{L}/u.test(x)&&/\d/u.test(x)).map(normMark);
+  const rowCodes=new Map(),codesOfRow=m=>{if(!rowCodes.has(m.id))rowCodes.set(m.id,new Set([normMark(m.mark||m.title),normMark(m.name),...codesOf(m.mark||m.title),...codesOf(m.name)].filter(Boolean)));return rowCodes.get(m.id)};
+  const inGiven=(list,e)=>{const k=normMark(e.mark);if(!k)return{rows:[],code:false};const same=list.filter(m=>normMark(m.mark||m.title)===k);return same.length?{rows:same,code:false}:{rows:list.filter(m=>codesOfRow(m).has(k)),code:true}};
+  const workTitle=wid=>String(works.get(wid)?.data?.work_type||works.get(wid)?.title||"");
+  const touched=new Set(),notInRegister=[];
   // The work type of each drawing (the engineer's choice in «Чертежи»): its elements link to the marks of that work
   // type and the marks it lacks are added under it; a drawing without one — the register as a whole, new marks under
   // «Монтаж металлоконструкций (из PDF)». An element is traced to its drawing by its sheet, else by its КМ volume or
@@ -691,15 +703,19 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    if(e.levels!=="проверено инженером"&&(out(x)||outY(y)||x2!==undefined&&(out(x2)||outY(y2)))&&!/За крайними осями/u.test(e.note||""))e={...e,note:[e.note,"За крайними осями — проверьте"].filter(Boolean).join("; ")};
    if(manual.some(r=>near(r,{...e,x,y}))){skipped.push({mark:e.mark,page:e.page,reason:"Уже есть в монтажной схеме (добавлен вручную)"});return}
    // A mark of one КМ volume of several (К1 of КМ1, К1 of КМ2) links only to the register row of its volume.
-   const work=workOf(e0),vol=/^КМ\d/u.test(e.doc||"")?e.doc:"",all=byName.get(normMark(e.mark))||[];let named=work?all.filter(m=>String(m.work_type_id||"")===work):all;
-   if(work&&!named.length){
+   const work=workOf(e0),vol=/^КМ\d/u.test(e.doc||"")?e.doc:"",all=byName.get(normMark(e.mark))||[],his=work?given.get(work):null;
+   let named=work?all.filter(m=>String(m.work_type_id||"")===work):all,byCode=false;
+   if(his){
+    touched.add(work);const found=inGiven(his,e);named=found.rows;byCode=found.code;
+    if(!named.length){notInRegister.push(e.mark);skipped.push({mark:e.mark,page:e.page,reason:"Нет в ведомости марок вида работ «"+workTitle(work)+"» — ведомость задана вами, в неё ничего не добавляется",register:true});return}
+   }else if(work&&!named.length){
     const own=all.filter(m=>m.ai_created===true&&!(Number(m.mounted)>0)&&drawingWorks.has(String(m.work_type_id||""))&&(!vol||!m.volume||m.volume===vol));
     if(own.length===1){if(!moved.has(own[0].id))moved.set(own[0].id,{from:String(own[0].work_type_id||""),to:work});own[0].work_type_id=work;named=own}
    }
    // One mark in one volume may be two things on two sheets (Кс1 — косоур марша Лм1 and подкос площадки +9,500 in КМ3):
    // of several rows the one of the same name.
    const inVolume=vol&&named.some(m=>m.volume)?named.filter(m=>m.volume===vol):named,sameName=inVolume.filter(m=>e.name&&m.name===e.name);
-   const candidates=inVolume.length>1&&sameName.length?sameName:inVolume,mark=candidates.length===1?candidates[0]:null;
+   const candidates=inVolume.length>1&&sameName.length?sameName:inVolume,mark=candidates.length===1||his&&candidates.length?candidates[0]:null;
    if(mark)linked++;
    const [ax,axPos]=closest(x,frame.posX),[ay,ayPos]=closest(y,frame.posY),column=e.geometry_type==="column"||e.geometry_type==="shell"||e.geometry_type==="plate",round=e.geometry_type==="shell"||e.geometry_type==="plate";
    const endX=column?null:closest(x2,frame.posX),endY=column?null:closest(y2,frame.posY);
@@ -721,7 +737,9 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    const mid={absolute_mid_x_mm:mx,absolute_mid_y_mm:my,mid_z_mm:bent?e.mid_z_mm:undefined,mid_axis_x:midX?.[0],mid_axis_y:midY?.[0],
     mid_offset_x_mm:bent?mx-midX[1]:undefined,mid_offset_y_mm:bent?my-midY[1]:undefined};
    payloads.push({x,y,mark:e.mark,volume:vol,geometry:e.geometry_type,work,data:{entity_type:"column",
-    mark_id:mark?mark.id:"",mark:mark?(mark.mark||mark.title):e.mark,mark_name:mark?.name||e.name||"",work_type_id:mark?String(mark.work_type_id||""):work,
+    // Linked by the code of a position (his row «Сэндвич-панель» / «Р825»): the element keeps its code as the mark.
+    mark_id:mark?mark.id:"",mark:mark&&!byCode?(mark.mark||mark.title):e.mark,
+    mark_name:mark&&byCode?(normMark(mark.name)===normMark(e.mark)?mark.mark||mark.title:mark.name)||e.name||"":mark?.name||e.name||"",work_type_id:mark?String(mark.work_type_id||""):work,
     axis_x:ax,axis_y:ay,offset_x_mm:x-axPos,offset_y_mm:y-ayPos,absolute_x_mm:x,absolute_y_mm:y,geometry_type:e.geometry_type,
     absolute_x2_mm:column?undefined:x2,absolute_y2_mm:column?undefined:y2,
     end_axis_x:column?undefined:endX[0],end_axis_y:column?undefined:endY[0],
@@ -731,13 +749,19 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
     instance_status:status,instance_reasons:reasons.length?reasons:undefined,preliminary:!SURE.has(status),missing_in_analysis:undefined,
     source_import_doc:e.page>0?(e.file||data.source?.name||"PDF")+" · лист "+(e.sheet||e.page):/база знаний/.test(e.levels||"")||data.ai?.source==="knowledge"?"база знаний":/^листы/u.test(e.levels||"")?"листы КМД комплекта":"по данным Claude",import_requires_verification:false,check_note:String(e.note||"").split("; ").filter(x=>/проверьте/iu.test(x)).join("; ")||undefined,import_batch:batch}})
   });
-  if(!payloads.length)throw Error("Нечего расставлять: все элементы вне сетки схемы или уже добавлены вручную.");
+  if(!payloads.length)throw Error(notInRegister.length?"Нечего расставлять: на чертежах не найдено ни одной марки из вашей ведомости марок («"+[...touched].map(workTitle).join("», «")+
+   "»); нет в ведомости: "+[...new Set(notInRegister)].slice(0,12).join(", ")+". Ведомость не изменена.":"Нечего расставлять: все элементы вне сетки схемы или уже добавлены вручную.");
   // The count of each linked mark of the register against the number on the montage schemes (placed now and added by
   // hand): a difference is shown, the register is not changed.
   const placedBy=new Map(),count=id=>{if(id)placedBy.set(String(id),(placedBy.get(String(id))||0)+1)};
   for(const p of payloads)count(p.data.mark_id);
   for(const r of manual)if(placedBy.has(String(r.data?.mark_id||"")))count(r.data.mark_id);
-  const qtyDiffs=[...placedBy].map(([id,n])=>{const m=marks.find(x=>x.id===id),q=Number(m?.qty);return m&&q>0&&q!==n?{mark:m.mark||m.title,register:q,placed:n}:null}).filter(Boolean);
+  // The rows of his register the drawings did not give (of the work types placed now): listed, the register stays.
+  // A row is named with its name when the register has several of the mark or the name is a code («Сэндвич-панель Р825»).
+  const markLabel=m=>m.name&&((byName.get(normMark(m.mark||m.title))||[]).length>1||codesOf(m.name).length)?(m.mark||m.title)+" "+m.name:m.mark||m.title;
+  const onScheme=new Set([...placedBy.keys(),...manual.map(r=>String(r.data?.mark_id||"")).filter(Boolean)]);
+  const registerMissing=[...touched].flatMap(w=>given.get(w).filter(m=>!onScheme.has(m.id)).map(m=>({mark:markLabel(m),qty:Number(m.qty)||0,work:workTitle(w)})));
+  const qtyDiffs=[...placedBy].map(([id,n])=>{const m=marks.find(x=>x.id===id),q=Number(m?.qty);return m&&q>0&&q!==n?{mark:markLabel(m),register:q,placed:n}:null}).filter(Boolean);
   // Marks that the register does not have are added to it: without a register prepared beforehand the program
   // makes one from the drawings. They go under a work type of their own ("из PDF"), so that a register the engineer
   // loaded is never mixed with them; quantity is the larger of "Требуется" and the number placed, mass from the sheets.
@@ -858,7 +882,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   const byWork=[...perWork].map(([wid,count])=>({id:wid,name:wid?workName(wid):"без вида работ",count})).sort((a,b)=>b.count-a.count);
   const preliminary=payloads.filter(p=>p.data.preliminary).length,statuses={};for(const p of payloads)statuses[p.data.instance_status]=(statuses[p.data.instance_status]||0)+1;
   const result={batch,created,updated:updated.length-keptEdited.length-missingNow.length,removed:removed.length,keptMounted:kept.length,keptEdited:keptEdited.length,missing:missingNow.length+stillMissing.length,
-   preliminary,statuses,gridDiffs:gridDiffs.slice(0,40),linked,qtyDiffs:qtyDiffs.slice(0,200),marksCreated:createdMarks.length,marksMoved:movedMarks.length,workCreated:Boolean(createdWork),byWork,skippedCount:skipped.length,skipped:skipped.slice(0,300),gridMode,at:new Date().toISOString()};
+   preliminary,statuses,gridDiffs:gridDiffs.slice(0,40),linked,qtyDiffs:qtyDiffs.slice(0,200),marksCreated:createdMarks.length,marksMoved:movedMarks.length,notInRegister:notInRegister.length,notInRegisterMarks:[...new Set(notInRegister)].slice(0,100),registerMissing:registerMissing.slice(0,200),workCreated:Boolean(createdWork),byWork,skippedCount:skipped.length,skipped:skipped.slice(0,300),gridMode,at:new Date().toISOString()};
   // What was placed, element by element: the engineer's later changes become corrections (src/ai-training.js).
   try{training?.recordPlacement?.(oid,{batch,draftId,source:data.source,carried})}catch(error){console.error("IR Project: training",error)}
   const after=draftRow(oid,draftId);
@@ -867,6 +891,8 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    (preliminary?", предварительно "+preliminary:"")+(movedMarks.length?", марок перенесено под вид работ по их виду "+movedMarks.length:"")+" · "+
    Object.entries(payloads.reduce((a,x)=>(a[x.data.scheme_group_label]=(a[x.data.scheme_group_label]||0)+1,a),{})).map(([k,v])=>k+" "+v).join(", ")+
    ", связано с ведомостью "+linked+(qtyDiffs.length?" (количество не как в ведомости программы: "+qtyDiffs.slice(0,6).map(d=>d.mark+" — в ведомости "+d.register+", на схемах "+d.placed).join("; ")+(qtyDiffs.length>6?"…":"")+")":"")+(createdMarks.length?", в ведомость добавлено марок "+createdMarks.length+(createdWork?" (вид работ «"+AUTO_WORK+"» создан)":""):"")+
+   (notInRegister.length?", нет в вашей ведомости марок — не расставлено "+notInRegister.length+" ("+[...new Set(notInRegister)].slice(0,8).join(", ")+(new Set(notInRegister).size>8?"…":"")+"), ведомость не изменена":"")+
+   (registerMissing.length?", из вашей ведомости не найдено на чертежах "+registerMissing.length+" ("+registerMissing.slice(0,6).map(m=>m.mark+(m.qty?" — "+m.qty+" шт.":"")).join("; ")+(registerMissing.length>6?"…":"")+")":"")+
    (byWork.length>1||byWork[0]?.id&&String(byWork[0].id)!==String(createdWork)?" · по видам работ: "+byWork.map(w=>"«"+w.name+"» "+w.count).join(", "):"")+
    (enabled.length?" (монтажная схема включена у "+enabled.length+")":"")+", пропущено "+skipped.length+", сетка: "+({created:"создана",replaced:"заменена",kept:ownGrid?"ваша сохранена":"сохранена"}[gridMode])+
    (gridDiffs.length?" (расхождения с PDF: "+gridDiffs.slice(0,6).join("; ")+(gridDiffs.length>6?"…":"")+")":"")})});

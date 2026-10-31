@@ -7,6 +7,8 @@
  * Project» on claude.ai by its key). Claude's answers are read every 8 seconds while the panel is open and every 30
  * seconds otherwise: a badge counts the new ones, a note over the button and a notification of Windows (when the
  * program is not in front) tell of each answer once.
+ * The button and the panel stand over the montage scheme opened on the whole screen too (the engineer, 31.10.2026:
+ * «когда на весь экран монтажная схема, чат также показывается»; its stage stands at z-index 2147483000).
  */
 (function(){
  "use strict";
@@ -19,10 +21,10 @@
   .split(/\n{2,}/).map(p=>/^\s*[-*•] /m.test(p)?"<ul>"+p.split(/\n/).map(l=>"<li>"+l.replace(/^\s*[-*•] /,"")+"</li>").join("")+"</ul>":"<p>"+p.replace(/\n/g,"<br>")+"</p>").join("");
  const time=t=>{const d=new Date(t);return isNaN(d)?"":d.toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})};
  const css=`
- .irc-fab{position:fixed;right:18px;bottom:18px;z-index:9990;width:54px;height:54px;border-radius:50%;border:0;background:#1d4ed8;color:#fff;font:600 13px/1 system-ui,sans-serif;box-shadow:0 6px 18px rgba(15,35,80,.28);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;touch-action:none}
+ .irc-fab{position:fixed;right:18px;bottom:18px;z-index:2147483100;width:54px;height:54px;border-radius:50%;border:0;background:#1d4ed8;color:#fff;font:600 13px/1 system-ui,sans-serif;box-shadow:0 6px 18px rgba(15,35,80,.28);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;touch-action:none}
  .irc-fab svg{width:27px;height:27px;pointer-events:none}.irc-fab.irc-moving{cursor:grabbing;box-shadow:0 10px 26px rgba(15,35,80,.38)}
  .irc-fab:hover{background:#1e40af}.irc-fab b{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;border-radius:10px;background:#e8590c;color:#fff;font-size:11px;line-height:20px;padding:0 5px}
- .irc-panel{position:fixed;right:18px;bottom:84px;z-index:9991;width:min(420px,calc(100vw - 36px));height:min(640px,calc(100vh - 110px));display:flex;flex-direction:column;background:#fff;color:#1f2933;border:1px solid #d5dde6;border-radius:12px;box-shadow:0 14px 40px rgba(15,35,80,.25);font:14px/1.45 system-ui,"Segoe UI",sans-serif}
+ .irc-panel{position:fixed;right:18px;bottom:84px;z-index:2147483101;width:min(420px,calc(100vw - 36px));height:min(640px,calc(100vh - 110px));display:flex;flex-direction:column;background:#fff;color:#1f2933;border:1px solid #d5dde6;border-radius:12px;box-shadow:0 14px 40px rgba(15,35,80,.25);font:14px/1.45 system-ui,"Segoe UI",sans-serif}
  .irc-panel[hidden]{display:none}
  .irc-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid #e3e8ee;cursor:grab;user-select:none;touch-action:none}.irc-panel.irc-moving .irc-head{cursor:grabbing}.irc-head h3{margin:0;font-size:15px;flex:1}.irc-head small{display:block;color:#6b7785;font-weight:400;font-size:12px}
  .irc-head button{border:0;background:none;font-size:20px;cursor:pointer;color:#6b7785}
@@ -58,7 +60,7 @@
  .irc-photos img{width:100%;height:100%;object-fit:cover;display:block}
  .irc-photos button{position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:9px;border:0;background:rgba(15,35,80,.7);color:#fff;font-size:12px;line-height:18px;padding:0;cursor:pointer}
  .irc-panel.irc-drop{outline:3px dashed #1d4ed8;outline-offset:-6px}
- .irc-toast{position:fixed;right:18px;bottom:84px;z-index:9992;width:min(340px,calc(100vw - 36px));background:#fff;border:1px solid #c9daf8;border-left:4px solid #1d4ed8;border-radius:10px;box-shadow:0 12px 32px rgba(15,35,80,.25);padding:10px 12px;font:13px/1.45 system-ui,"Segoe UI",sans-serif;color:#1f2933;display:flex;flex-direction:column;gap:6px}
+ .irc-toast{position:fixed;right:18px;bottom:84px;z-index:2147483102;width:min(340px,calc(100vw - 36px));background:#fff;border:1px solid #c9daf8;border-left:4px solid #1d4ed8;border-radius:10px;box-shadow:0 12px 32px rgba(15,35,80,.25);padding:10px 12px;font:13px/1.45 system-ui,"Segoe UI",sans-serif;color:#1f2933;display:flex;flex-direction:column;gap:6px}
  .irc-toast[hidden]{display:none}.irc-toast b{font-size:13.5px}.irc-toast span{color:#44515e;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
  .irc-toast div{display:flex;gap:8px;justify-content:flex-end}.irc-toast button{border:0;border-radius:7px;padding:5px 12px;font-weight:600;cursor:pointer;background:#1d4ed8;color:#fff}.irc-toast button.alt{background:#fff;color:#44515e;border:1px solid #cfd8e3}
  .irc-link{margin:8px 12px 0;padding:10px;border-radius:8px;background:#eef4ff;color:#1f3a68;font-size:12.5px;display:flex;flex-direction:column;gap:6px}.irc-link[hidden]{display:none}
@@ -66,7 +68,7 @@
  .irc-link details small{display:block;margin:4px 0;color:#44515e}.irc-link summary{cursor:pointer;color:#1d4ed8}
  .irc-link div{display:flex;gap:6px;flex-wrap:wrap}.irc-link button{border:0;border-radius:6px;background:#1d4ed8;color:#fff;padding:6px 12px;font-weight:600;cursor:pointer}.irc-link button.alt{background:#fff;color:#1d4ed8;border:1px solid #9db7ef}
  .irc-head .irc-relink{font-size:11.5px;color:#1d4ed8;border:0;background:none;padding:0;cursor:pointer}
- .irc-zoom{position:fixed;inset:0;z-index:9995;background:rgba(10,20,35,.82);display:flex;align-items:center;justify-content:center;cursor:zoom-out}.irc-zoom img{max-width:94vw;max-height:92vh;border-radius:6px}
+ .irc-zoom{position:fixed;inset:0;z-index:2147483105;background:rgba(10,20,35,.82);display:flex;align-items:center;justify-content:center;cursor:zoom-out}.irc-zoom img{max-width:94vw;max-height:92vh;border-radius:6px}
  .irc-fab[hidden]{display:none}.irc-hide .irc-fab,.irc-hide .irc-panel,.irc-hide .irc-toast{display:none!important}
  @media print{.irc-fab,.irc-panel,.irc-toast{display:none!important}}`;
  const style=document.createElement("style");style.textContent=css;document.head.appendChild(style);

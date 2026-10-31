@@ -344,6 +344,9 @@ window.irAiRecognitionPage=async function(objectId){
     // Rules of 24.10.2026: nothing is deleted or overwritten — the engineer's changes stay, what the new reading lacks is
     // marked; everything read is placed, the not fully determined pale («предварительно»).
     (placed.keptEdited?'<p>Ваши правки оставлены: <b>'+placed.keptEdited+'</b> (новое чтение чертежей — в карточке элемента)</p>':'')+
+    // The register the engineer gave (31.10.2026): only its rows are placed, nothing is added to it.
+    (placed.notInRegister?'<p>Нет в вашей ведомости марок — не расставлено: <b>'+placed.notInRegister+'</b> ('+esc((placed.notInRegisterMarks||[]).slice(0,12).join(', '))+((placed.notInRegisterMarks||[]).length>12?'…':'')+'). Ведомость не изменена: расставляется только то, что в ней есть.</p>':'')+
+    (placed.registerMissing?.length?'<p class="ir-ms-error">Из вашей ведомости не найдено на чертежах: <b>'+placed.registerMissing.length+'</b> — '+esc(placed.registerMissing.slice(0,12).map(m=>m.mark+(m.qty?' ('+m.qty+' шт.)':'')).join('; '))+(placed.registerMissing.length>12?' …':'')+'</p>':'')+
     (placed.missing?'<p>Нет в новом анализе: <b>'+placed.missing+'</b> — оставлены на схеме и помечены; удалите вручную, если конструкции нет</p>':'')+
     (placed.preliminary?'<p>Предварительно (определены не полностью, на схеме бледные): <b>'+placed.preliminary+'</b>'+(placed.statuses?' · '+Object.entries(placed.statuses).map(([k,v])=>esc(({confirmed:"подтверждено",computed:"вычислено",partial:"частично",ambiguous:"неоднозначно",conflict:"конфликт",not_found:"нет в анализе"})[k]||k)+' '+v).join(', '):'')+'</p>':'')+
     (placed.gridDiffs?.length?'<p class="ir-ms-error">Ваша сетка осей отличается от PDF: '+esc(placed.gridDiffs.slice(0,8).join('; '))+(placed.gridDiffs.length>8?'…':'')+'</p>':'')+'</div>'+
