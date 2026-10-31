@@ -61,3 +61,5 @@ body.ir-object-route:not(.ir-object-overview) #app>.exec-docs-page{box-sizing:bo
 .exec-docs-page .exd-act,.exec-docs-page .exd-check{display:flex;flex-direction:row;justify-content:flex-start;text-align:left}
 .exec-docs-page .exd-act span{flex:1;text-align:left}
 .exd-progress{min-width:220px}.exd-cert-top select{max-width:280px}
+.exd-tools{display:flex;align-items:center;gap:10px;margin:0 0 10px}
+.exd-tools small{font-size:10px;color:#8191a0;line-height:1.4}
