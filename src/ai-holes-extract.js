@@ -529,7 +529,12 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
  // (the member is as long as its view says or its longest view of holes; a view of its mark shorter than half of it is
  // a plate — a base plate «1–1» under a column)
  const key=g=>(g.who.view?.marks||[]).join(","),longest=new Map();for(const g of members)longest.set(key(g),Math.max(longest.get(key(g))||0,g.length,Number(g.who.view?.length_mm)||0));
- const apart=[];for(let i=members.length-1;i>=0;i--)if(members[i].length<Math.max(300,longest.get(key(members[i]))*0.5))apart.push(...members.splice(i,1));
+ // (not a part of its own beside a longer view of its mark on the sheet, welded to its side — parallel, along it a
+ // quarter of it at least, 40 mm off it at most: ГПЭС К176, the tube □160×5 2595 long by the flange of the I 25Ш2 of
+ // 3630, the view 5270 high)
+ const besideOf=g=>members.some(o=>o!==g&&key(o)===key(g)&&o.length>g.length&&Math.abs(o.u.x*g.u.y-o.u.y*g.u.x)<0.003&&o.u.x*g.u.x+o.u.y*g.u.y>0&&
+  Math.min(o.s1,g.s1)-Math.max(o.s0,g.s0)>=0.25*(g.s1-g.s0)&&Math.max(0,o.lo-g.hi,g.lo-o.hi)<=40*g.sc.n&&Math.abs(o.sc.n-g.sc.n)<=g.sc.n*0.02);
+ const apart=[];for(let i=members.length-1;i>=0;i--)if(members[i].length<Math.max(300,longest.get(key(members[i]))*0.5)&&!(members[i].length>=Math.max(1000,longest.get(key(members[i]))*0.25)&&besideOf(members[i])))apart.push(...members.splice(i,1));
  // (a plate drawn apart, its holes: a cut «1 - 1» or a view «Вид А» of a mark — the base plate of a column, the end plate
  // of a beam seen from its end, a plate of a node; ГПЭС Ф15 «8-8»: □320 under the post, 4 holes Ø19)
  const plateSigns=new Map(apart.filter(g=>g.signs.length&&g.who.view&&(CUT.test(g.who.title)||VID.test(g.who.title))).map(g=>[g,g.signs.slice()]));

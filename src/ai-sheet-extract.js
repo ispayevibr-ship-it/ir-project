@@ -280,7 +280,10 @@ function assemblyViews(texts,w,h,med,segments=[]){
   let left=Math.max(cx-reach,...row.map(ocx).filter(x=>x<cx).map(x=>(x+cx)/2)),right=Math.min(cx+reach,...row.map(ocx).filter(x=>x>cx).map(x=>(x+cx)/2));
   const bottomOf=()=>{const below=titles.filter(o=>o.t.y>v.t.y+120&&!aside(o)&&ocx(o)>left&&ocx(o)<right).map(o=>o.t.y);
    // (A table under the view — «Требуется изготовить», «Выборка металла», a «Ведомость» — ends it: its «Итого» is not a size.)
-   const tables=texts.filter(t=>t.y>v.t.y+60&&t.x+(t.width||0)>left&&t.x<right&&/^(Тре[бдв]уется|Выборка|Ведомость|Спецификац)/u.test(String(t.str))).map(t=>t.y-(t.size||10)*1.5);
+   // (not one beside the drawing of the view: its lines run down past the table's head under the title — ГПЭС К176, the
+   // column drawn the whole height of the sheet, «Требуется» and «Выборка металла» to the right of it ended it at a fifth)
+   const past=t=>segments.some(q=>Math.abs(q.a.x-q.b.x)<1&&Math.abs((q.a.x+q.b.x)/2-cx)<=100&&Math.min(q.a.y,q.b.y)<t.y-40&&Math.max(q.a.y,q.b.y)>t.y+40);
+   const tables=texts.filter(t=>t.y>v.t.y+60&&t.x+(t.width||0)>left&&t.x<right&&/^(Тре[бдв]уется|Выборка|Ведомость|Спецификац)/u.test(String(t.str))&&!past(t)).map(t=>t.y-(t.size||10)*1.5);
    return Math.min(h-40,...below,...tables)};
   let bottom=bottomOf();
   // (a view drawn wider than that — a beam of 5500 drawn 1700 pt long under its title, ГПЭС Ф48: its long level lines
@@ -335,6 +338,10 @@ function assemblyViews(texts,w,h,med,segments=[]){
    const top=levels[levels.length-1],est=top-length;
    const match=texts.map(t=>levelMm(t.str)).filter(v=>v!==null&&Math.abs(v-est)<=150).sort((a,b)=>Math.abs(a-est)-Math.abs(b-est))[0];
    if(match!==undefined){z0=match;z1=top}
+   // (one level only, at the foot of the view — the bottom of a column standing on a beam, ГПЭС К176 «+5,830» —: its top
+   // that much higher by the overall length, 5270 — +11,100 as the sections М1.5 «2-2» and М1.8 «11-11» draw it)
+   else if(levels.length===1&&z0===null&&length<=30000){const lt=inside.filter(t=>levelMm(t.str)===top&&!tableNumber(t)),ys=inside.map(t=>t.y);
+    if(lt.length&&lt.every(t=>t.y>=Math.min(...ys)+(Math.max(...ys)-Math.min(...ys))*0.75)){z0=top;z1=top+length}}
   }
   // Its area on the sheet (points): the mark card shows this piece of the drawing.
   // The member's own section labelled in its view («□140х4» on the leader of the post Ф15): when it is the one rolled

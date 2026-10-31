@@ -174,6 +174,10 @@ function sheetParts(geo={},{seeded=null,views=[]}={}){
   if(!best)continue;
   const {f}=best,g=f.g,k=g.sc.n,axis=(g.lo+g.hi)/2,mm=c=>c===null?null:Math.round((c-axis)/k),r=f.ref.g;
   const box=regionAt(E,f)||{s:E.x*g.u.x+E.y*g.u.y,o:E.x*g.n.x+E.y*g.n.y,a0:null,a1:null,c0:null,c1:null,hull:null};
+  // (an outline wholly past an end of the view and wholly aside of it across, by its width more — a view of its own drawn
+  // there, ГПЭС К176 «Вид Б»: the cap «11» seen from above, over the top of «Вид А» —: not a part on it)
+  const wd=g.hi-g.lo;if(box.a0!==null&&box.a1!==null&&box.c0!==null&&box.c1!==null&&(Math.max(box.a0,box.a1)<g.s0||Math.min(box.a0,box.a1)>g.s1)&&
+   (Math.min(box.c0,box.c1)>g.hi+wd||Math.max(box.c0,box.c1)<g.lo-wd))continue;
   // (past an end of the view at its scale from the end: plates on an end are drawn at it, a chain there may be another's
   // — ГПЭС К120 «12», 215 long, read 873 by a «736» of the holes)
   const along=p=>p===null?null:p<r.s0?r.alongMm(r.s0)-Math.round((r.s0-p)/r.sc.n):p>r.s1?r.alongMm(r.s1)+Math.round((p-r.s1)/r.sc.n):r.alongMm(p);
