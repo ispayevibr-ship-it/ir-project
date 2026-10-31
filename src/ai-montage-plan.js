@@ -399,13 +399,14 @@ function buildCatalog(draft,ai=null){
  }
  // The holes of each mark at their places on its views (sheet.drill, src/ai-holes-extract.js): the views of the first
  // assembly sheet that has them, up to four; a hole is [along from the start, across from the axis, Ø (0 — not named),
- // 1 — in a part on the member (a gusset), mm].
+ // 1 — in a part on the member (a gusset), 2 — in the far face, seen through a cutaway, mm]; a half of a bent member: its
+ // leg and kink (`leg`, `kink_mm`, `of_mm`); a plan with a cut of its own: its level and the way it looks (`cut_level_mm`, `look`).
  for(const p of draft.pages||[]){
   const sheet=p.sheet||{};if(p.docType!=="КМД сборочные"||!sheet.drill?.views?.length)continue;scope=scopeAt(p);
   for(const v of sheet.drill.views)for(const mark of v.marks||[]){const e=entry(mark);
    if(e.drillFrom&&e.drillFrom!==where(p)||(e.drill||[]).length>=4)continue;e.drillFrom=where(p);const fit=groupDrill(v,mark,sheet.views);
-   (e.drill=e.drill||[]).push({view:v.title,sheet:where(p),scale:v.scale,length_mm:fit?fit.length_mm:v.length_mm,band_mm:v.band_mm,dir:v.dir,...(v.main?{main:true}:{}),...(v.not_to_scale?{not_to_scale:true}:{}),...(fit?.center_mm?{center_mm:fit.center_mm}:{}),...(!fit&&Number.isFinite(v.top_mm)?{top_mm:v.top_mm}:{}),
-    holes:(fit?fit.holes:v.holes).slice(0,80).map(h=>[h.at_mm,h.off_mm,h.d_mm||0,h.part?1:0])})}
+   (e.drill=e.drill||[]).push({view:v.title,sheet:where(p),scale:v.scale,length_mm:fit?fit.length_mm:v.length_mm,band_mm:v.band_mm,dir:v.dir,...(v.main?{main:true}:{}),...(Number.isInteger(v.leg)?{leg:v.leg,kink_mm:v.kink_mm,of_mm:v.of_mm}:{}),...(Number.isFinite(v.cut_level_mm)?{cut_level_mm:v.cut_level_mm,...(v.look?{look:v.look}:{})}:{}),...(v.not_to_scale?{not_to_scale:true}:{}),...(fit?.center_mm?{center_mm:fit.center_mm}:{}),...(!fit&&Number.isFinite(v.top_mm)?{top_mm:v.top_mm}:{}),
+    holes:(fit?fit.holes:v.holes).slice(0,80).map(h=>[h.at_mm,h.off_mm,h.d_mm||0,h.part?1:h.far?2:0])})}
  }
  // The plates across each mark (ribs, connection plates; sheet.plates, src/ai-holes-extract.js sheetPlates) of the first
  // assembly sheet that has them, each with its row of the sheet's specification when one fits it (a plate «−80×10»

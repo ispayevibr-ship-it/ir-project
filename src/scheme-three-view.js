@@ -1444,24 +1444,44 @@ window.irThreeSchemeView=(function(){
   function drillOf(c){
    var id=String(c.id||"");if(drillCache.has(id))return drillCache.get(id);
    var out=null,views=Array.isArray(c.drill)?c.drill:[],p=views.length?memberPoints(c):[],sec=views.length?sectionOf(c.profile_name||c.profileName,c.profile_standard):null;
-   if(p.length===2&&sec&&(sec.shape==="ibeam"||sec.shape==="channel")&&!slight(c)){
-    var d=p[1].clone().sub(p[0]),L=d.length();
+   // (a bent member — the two halves of a ridge beam, ГПЭС В112 —: on its frame unrolled from its start, the holes of a half
+   // from the start of the half — the second on from the kink —, those past the kink turned onto the second leg)
+   var bf=p.length===3?bentFrame(c):null;
+   if((p.length===2||bf)&&sec&&(sec.shape==="ibeam"||sec.shape==="channel")&&!slight(c)){
+    var d=bf?bf.d.clone():p[1].clone().sub(p[0]),L=bf?bf.L:d.length();
     if(L>.3){
-     d.divideScalar(L);var q=bodyQuat(c,d),X=new T.Vector3(1,0,0).applyQuaternion(q),Y=new T.Vector3(0,1,0).applyQuaternion(q),mid=p[0].clone().add(p[1]).multiplyScalar(.5);
+     if(!bf)d.divideScalar(L);var q=bf?bf.q:bodyQuat(c,d),X=new T.Vector3(1,0,0).applyQuaternion(q),Y=new T.Vector3(0,1,0).applyQuaternion(q),mid=bf?bf.mid.clone():p[0].clone().add(p[1]).multiplyScalar(.5);
      var webX=sec.shape==="channel"?(sec.s/2-sec.b/2)/1000:0,bolts=boltSizes(c);
+     // (the kink of its main view in halves: a view of the whole of it unrolled — ГПЭС К178 «2 - 2», 8600 —, its holes from
+     // its start, the kink where the halves say)
+     var whole=null;views.forEach(function(v){if(!whole&&v&&(v.leg===0||v.leg===1)&&number(v.kink_mm)>0&&number(v.of_mm)>0)whole={kink:number(v.kink_mm),of:number(v.of_mm)}});
      views.forEach(function(v){
       var band=number(v&&v.band_mm),len=number(v&&v.length_mm),side=Math.abs(band-sec.h)<=Math.max(15,sec.h*.12),plan=!side&&Math.abs(band-sec.b)<=Math.max(15,sec.b*.12);
       if(!(side||plan)||!(len>0)||!Array.isArray(v.holes))return;
+      var leg=v.leg===0||v.leg===1?v.leg:null,kink=number(v.kink_mm),of=number(v.of_mm);
+      if(bf&&leg===null&&whole&&Math.abs(len-whole.of)<=Math.max(30,whole.of*.01)){leg=0;kink=whole.kink}
+      if(bf&&(leg===null||!(kink>0)))return;
+      // (a member drawn in halves, straight on the scheme: its holes from its start along the whole of it)
+      if(!bf&&leg!==null&&!(of>0&&kink>0))return;
+      // (a plan: the flange its cut shows — over the top flange's underside looking down, under the bottom one's top looking
+      // up, the top; else the bottom; its level not known, the nearer —; looking up, mirrored across. ГПЭС В112 «1 - 1» over
+      // the beam, «3 - 3» 179 mm under its axis, both looking down)
+      var lvl=v.cut_level_mm!==undefined&&v.cut_level_mm!==null&&isFinite(Number(v.cut_level_mm))?Number(v.cut_level_mm):null,look=number(v.look)||0,hh=sec.h/2,top=true;
+      if(lvl!==null)top=look>0?lvl<-hh+sec.t:look<0?lvl<=hh-sec.t:lvl<0;var mirror=look<0?-1:1;
       // (a column drawn upright: from its top)
       // (a mark of a group drawing: its plates off its axes unequally, its middle off theirs — center_mm)
-      var fromTop=v.dir==="по вертикали"&&c.geometryType==="column",ctr=number(v.center_mm)||0,t0=fromTop?startOf(c,v,len,mid):len/2,turned=!fromTop&&viewTurned(c);
+      var fromTop=!bf&&v.dir==="по вертикали"&&c.geometryType==="column",ctr=number(v.center_mm)||0,t0=fromTop?startOf(c,v,len,mid):len/2,turned=!bf&&!fromTop&&viewTurned(c);
       v.holes.forEach(function(h){
-       if(!Array.isArray(h)||number(h[3]))return;var at=number(h[0]),off=number(h[1]),dm=number(h[2]),sa=fromTop?t0-at-ctr:(turned?-1:1)*(at-len/2+ctr);
+       if(!Array.isArray(h))return;var kind=number(h[3]);if(kind===1||kind===2&&!plan)return;
+       var at=number(h[0]),off=number(h[1]),dm=number(h[2]),sa=bf?(leg?kink:0)+at-kink+(bf.bend.at-bf.L/2)*1000:leg!==null?(turned?-1:1)*((leg?kink:0)+at-of/2+ctr):fromTop?t0-at-ctr:(turned?-1:1)*(at-len/2+ctr);
        if(Math.abs(at-len/2)>len/2+5)return;
-       var pos=mid.clone().add(d.clone().multiplyScalar(sa/1000)),axis,thick;
-       if(side){pos.add(X.clone().multiplyScalar(webX)).add(Y.clone().multiplyScalar(-off/1000));axis=X;thick=sec.s/1000}
-       else{pos.add(X.clone().multiplyScalar(off/1000)).add(Y.clone().multiplyScalar((sec.h/2-sec.t/2)/1000));axis=Y;thick=sec.t/1000}
-       (out||(out=[])).push({at:pos,axis:axis.clone(),d:dm>0?dm/1000:0,t:thick,bolt:boltFor(bolts,dm)})
+       var pos=mid.clone().add(d.clone().multiplyScalar(sa/1000)),axis,thick,up=kind===2?!top:top;
+       if(side){pos.add(X.clone().multiplyScalar(webX)).add(Y.clone().multiplyScalar(-off/1000));axis=X.clone();thick=sec.s/1000}
+       else{pos.add(X.clone().multiplyScalar(mirror*off/1000)).add(Y.clone().multiplyScalar((up?1:-1)*(sec.h/2-sec.t/2)/1000));axis=Y.clone();thick=sec.t/1000}
+       if(bf){var o3=new T.Object3D();o3.position.copy(pos);onBend(bf,o3);pos=o3.position.clone();axis.applyQuaternion(o3.quaternion)}
+       // (one hole seen on two views — through a cutaway on one, on its own face on the other —: once)
+       if((out||[]).some(function(o){return o.at.distanceTo(pos)<=.025&&Math.abs(o.axis.dot(axis))>.9}))return;
+       (out||(out=[])).push({at:pos,axis:axis,d:dm>0?dm/1000:0,t:thick,bolt:boltFor(bolts,dm)})
       })
      })
     }
@@ -1917,7 +1937,9 @@ window.irThreeSchemeView=(function(){
       cy0=Math.min.apply(null,cq.map(function(q){return q[1]})),cy1=Math.max.apply(null,cq.map(function(q){return q[1]})),car=0;
      cq.forEach(function(q,i){var n2=cq[(i+1)%cq.length];car+=q[0]*n2[1]-n2[0]*q[1]});car=Math.abs(car)/2;
      if(cx1-cx0>=2&&cy1-cy0>=2&&car<=.95*(cx1-cx0)*(cy1-cy0)){var kx=sz[1]/(cx1-cx0),ky=sz[2]/(cy1-cy0),xm=(cx0+cx1)/2,ym=(cy0+cy1)/2;
-      box.cutShape=cq.map(function(q){return[(q[0]-xm)*kx/1000,(q[1]-ym)*ky/1000]})}}
+      box.cutShape=cq.map(function(q){return[(q[0]-xm)*kx/1000,(q[1]-ym)*ky/1000]});
+      // (its holes within it — the two Ø23 of «5» by the gusset «10» for the braces —: there, through its thickness)
+      if(Array.isArray(r.cut_holes))box.cutHoles=r.cut_holes.filter(function(h){return Array.isArray(h)&&fin(h[0])&&fin(h[1])}).map(function(h){return[(-number(h[0])-xm)*kx/1000,(number(h[1])-ym)*ky/1000,number(h[2])]})}}
     var oa=dep||lie!==null?null:otherAxis(r);if(oa){box.d=-oa/1000;box.dk=true;box.beside=true}
     // (the same part on a view of the other face there: its place that way)
     var same=out.filter(function(o){return o.pos===box.pos&&o.acrossX!==box.acrossX&&Math.abs(o.a-box.a)<=Math.max(o.sa,box.sa)/2+.01})[0];
@@ -2083,7 +2105,11 @@ window.irThreeSchemeView=(function(){
     // (its outline in a cut: across and into the view, its thickness along)
     if(o.cutShape&&o.cutShape.length>=3){var cs=new T.Shape();o.cutShape.forEach(function(q,i){if(i)cs.lineTo(q[0],q[1]);else cs.moveTo(q[0],q[1])});cs.closePath();
      var cm=new T.Mesh(new T.ExtrudeGeometry(cs,{depth:o.sa,steps:1,bevelEnabled:false,curveSegments:1}),mat),zc=A.clone().cross(B);
-     cm.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(A,B,zc));cm.position.copy(ctr).sub(zc.clone().multiplyScalar(o.sa/2));put(cm);return}
+     cm.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(A,B,zc));cm.position.copy(ctr).sub(zc.clone().multiplyScalar(o.sa/2));put(cm);
+     if(o.cutHoles&&o.cutHoles.length){var cb=boltSizes(c);o.cutHoles.forEach(function(h){var at=new T.Object3D();
+      at.position.copy(ctr).add(A.clone().multiplyScalar(h[0])).add(B.clone().multiplyScalar(h[1]));onBend(f,at);
+      putHole(c,parts,{at:at.position,axis:zc.clone().applyQuaternion(at.quaternion),d:h[2]>0?h[2]/1000:0,t:o.sa,bolt:boltFor(cb,h[2])})})}
+     return}
     // (its outline drawn: that shape, its thickness into the view)
     if(o.shape&&o.shape.length>=3){var ps=new T.Shape();o.shape.forEach(function(q,i){if(i)ps.lineTo(q[0],q[1]);else ps.moveTo(q[0],q[1])});ps.closePath();
      var em=new T.Mesh(new T.ExtrudeGeometry(ps,{depth:o.sd,steps:1,bevelEnabled:false,curveSegments:1}),mat),zz=f.d.clone().cross(A);

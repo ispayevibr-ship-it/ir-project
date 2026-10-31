@@ -170,10 +170,10 @@
   // The holes of the member at their places on the views of its assembly sheet, as the program's card shows them.
   function drillHtml(c){
    var views=Array.isArray(c.drill)?c.drill.filter(function(v){return v&&Array.isArray(v.holes)}):[];if(!views.length)return"";
-   var row=function(v){var own=v.holes.filter(function(h){return!Number(h[3])}),part=v.holes.length-own.length,by=new Map();
+   var row=function(v){var own=v.holes.filter(function(h){return!Number(h[3])}),part=v.holes.filter(function(h){return Number(h[3])===1}).length,far=v.holes.filter(function(h){return Number(h[3])===2}).length,by=new Map();
     own.forEach(function(h){var d=Number(h[2])||0;if(!by.has(d))by.set(d,[]);by.get(d).push(Number(h[0])||0)});
-    var groups=[];by.forEach(function(at,d){groups.push((d?"Ø"+d:"Ø не указан")+" — "+at.length+" шт.: "+at.filter(function(x,i){return at.indexOf(x)===i}).sort(function(a,b){return a-b}).slice(0,24).map(fmt).join(", ")+" мм от начала")});
-    return'<span>Вид «'+esc(v.view||"")+'»'+(v.scale?", М "+esc(v.scale):"")+', длина '+fmt(v.length_mm)+' мм'+(v.not_to_scale?" (нарисован не в масштабе — по размерам чертежа)":"")+': '+esc(groups.join("; ")||"—")+(part?"; в фасонках на нём — "+part+" шт.":"")+'</span>'};
+    var groups=[];by.forEach(function(at,d){groups.push((d?"Ø"+d:"Ø не указан")+" — "+at.length+" шт.: "+at.filter(function(x,i){return at.indexOf(x)===i}).sort(function(a,b){return a-b}).slice(0,24).map(fmt).join(", ")+" мм от "+(v.leg===1?"перелома":"начала"))});
+    return'<span>Вид «'+esc(v.view||"")+'»'+(v.leg===0?", первая половина":v.leg===1?", вторая половина":"")+(v.scale?", М "+esc(v.scale):"")+', длина '+fmt(v.length_mm)+' мм'+(v.not_to_scale?" (нарисован не в масштабе — по размерам чертежа)":"")+': '+esc(groups.join("; ")||"—")+(part?"; в фасонках на нём — "+part+" шт.":"")+(far?"; дальней полки сквозь вырыв — "+far+" шт.":"")+'</span>'};
    return'<div class="fast"><b>Отверстия по сборочному чертежу</b>'+views.map(row).join("")+(views[0].sheet?'<small>'+esc(views[0].sheet)+'</small>':"")+'</div>'
   }
   // The plates drawn apart with their holes, as the program's card shows them.

@@ -608,6 +608,20 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
   for(const h of signs){if(taken.has(h)||members.some(g=>g.signs.includes(h)&&!h.part))continue;const g=plates.find(g=>inside(h,g));if(!g)continue;
    plateSigns.get(g).push(h);delete h.loose;delete h.part;for(const m of members)m.signs=m.signs.filter(x=>x!==h)}}
  const out=[],parts=list.filter(g=>!members.includes(g)).reduce((a,g)=>a+g.signs.length,0);let unnamed=0;
+ // (a sign within a cutaway — a wavy thin line closed round it, «вырыв»: ГПЭС В112 «1 - 1», the holes of the bottom flange
+ // seen through the top —: a hole of the far face. Wavy: its short pieces as far off their middle as a tenth of it and more
+ // — a circle round a node, a balloon, is round. Within the member's outline only: a cutaway out past its edge is of a
+ // part over it — ГПЭС В17, В19 «Вид Б», В49 «Вид А», the gusset over the flange cut away to show the flange's own hole)
+ let wavy=null;
+ const cutAway=(h,g)=>{if(!wavy){const short=segs.filter(q=>q.l<6&&!(thick&&thick(q)));wavy={short,near:gridOf(short,80)}}
+  const ss=wavy.near(h).map(i=>wavy.short[i]).filter(q=>{const r=Math.hypot((q.a.x+q.b.x)/2-h.x,(q.a.y+q.b.y)/2-h.y);return r>=8&&r<=80});
+  const par=new Map(),key=p=>Math.round(p.x*4)+","+Math.round(p.y*4),find=k=>{let r=k;while(par.get(r)!==r)r=par.get(r);return r};
+  for(const q of ss){const ka=key(q.a),kb=key(q.b);if(!par.has(ka))par.set(ka,ka);if(!par.has(kb))par.set(kb,kb);const a=find(ka),b=find(kb);if(a!==b)par.set(a,b)}
+  const comp=new Map();for(const q of ss){const r=find(key(q.a));if(!comp.has(r))comp.set(r,[]);comp.get(r).push({x:(q.a.x+q.b.x)/2,y:(q.a.y+q.b.y)/2})}
+  for(const ms of comp.values()){if(ms.length<24||ms.some(m=>{const o=m.x*g.n.x+m.y*g.n.y;return o<g.lo-1.5||o>g.hi+1.5}))continue;const sec=new Set(ms.map(m=>Math.floor(((Math.atan2(m.y-h.y,m.x-h.x)*180/Math.PI)+360)%360/30)));if(sec.size<12)continue;
+   const cx=ms.reduce((a,m)=>a+m.x,0)/ms.length,cy=ms.reduce((a,m)=>a+m.y,0)/ms.length,rs=ms.map(m=>Math.hypot(m.x-cx,m.y-cy)),mean=rs.reduce((a,r)=>a+r,0)/rs.length;
+   if(Math.sqrt(rs.reduce((a,r)=>a+(r-mean)**2,0)/rs.length)>=0.05*mean)return true}
+  return false};
  const holesIn=(g,signsOf=g.signs,alike=false)=>{
   const sc=g.sc,mm=v=>v/sc.n;
   // A callout names the diameter of the signs like the one it points to, as many as it says, the nearest first.
@@ -631,14 +645,16 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
    const drawn=h.shape==="circle"?mm(h.size):null,round=drawn?HOLE_D.reduce((a,b)=>Math.abs(b-drawn)<Math.abs(a-drawn)?b:a):null;
    const d=h.call?.d??allMm??(drawn&&Math.abs(round-drawn)<=2.5?round:null);
    // (its place on the sheet kept aside: a plate read in pieces is put together by it)
-   return Object.defineProperty({at_mm:alongMm(s),off_mm:Math.sign(o-axis)*exact(acrossDims,axis,o),d_mm:d,sign:h.shape,...(h.part?{part:true}:{}),
+   return Object.defineProperty({at_mm:alongMm(s),off_mm:Math.sign(o-axis)*exact(acrossDims,axis,o),d_mm:d,sign:h.shape,...(h.part?{part:true}:!alike&&cutAway(h,g)?{far:true}:{}),
     ...(h.call?{from:h.call.by==="alike"?"выноска (такое же отверстие)":h.call.by?"выноска (по числу отверстий)":"выноска"}:allMm?{from:"примечание «все отверстия»"}:d?{from:"по размеру на чертеже"}:{})},"pt",{value:{...p,shape:h.shape,size:h.size}})
   }).sort((a,b)=>a.at_mm-b.at_mm||a.off_mm-b.off_mm);
   return{holes,unnamed:signsOf.length-named.length}};
  for(const g of members){
   const sc=g.sc,mm=v=>v/sc.n,length=g.length,who=g.who,byChain=g.byChain,endMm=g.length,r0=holesIn(g),holes=r0.holes;unnamed+=r0.unnamed;
   // (its frame on the sheet kept aside: the level of its start, src/ai-parts-place.js levelsOf)
-  out.push(Object.defineProperty({title:who.title,marks:who.named||who.view?.marks||[],...(who.main?{main:true}:{}),scale:"1:"+sc.k,length_mm:length,...(byChain&&Math.abs(endMm-mm(g.s1-g.s0))>Math.max(5,endMm*0.03)?{not_to_scale:true}:{}),band_mm:Math.round(mm(g.hi-g.lo)),
+  // (a half of a bent member — ГПЭС В112 «1 - 1» in two halves —: its leg, the place of the kink from the start, the
+  // whole length; its holes from the start of the half)
+  out.push(Object.defineProperty({title:who.title,marks:who.named||who.view?.marks||[],...(who.main?{main:true}:{}),...(g.bent?{leg:g.bent.leg,kink_mm:Math.round(g.bent.kink_mm),of_mm:Math.round(g.bent.all_mm)}:{}),scale:"1:"+sc.k,length_mm:length,...(byChain&&Math.abs(endMm-mm(g.s1-g.s0))>Math.max(5,endMm*0.03)?{not_to_scale:true}:{}),band_mm:Math.round(mm(g.hi-g.lo)),
    dir:Math.abs(g.u.x)>=Math.abs(g.u.y)?"по горизонтали":"по вертикали",holes},"frame",{value:{s0:g.s0,u:g.u}}))
  }
  // The plates drawn apart with their holes: its size (along its view, across), the holes from its start and its axis as a

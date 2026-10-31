@@ -9,6 +9,8 @@ const {dedupe,gridOf,projector,facesOf,thickOf,holeSymbols}=require("./ai-holes-
 const {dimensionsOf}=require("./ai-scheme-extract");
 
 const dist=(p,q)=>Math.hypot(p.x-q.x,p.y-q.y);
+// (a point [x, y] within an outline [[x, y]…])
+const insidePoly=(p,poly)=>{let k=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const [x0,y0]=poly[i],[x1,y1]=poly[j];if(y0>p[1]!==y1>p[1]&&p[0]<x0+(x1-x0)*(p[1]-y0)/(y1-y0))k=!k}return k};
 const NUMBER=/^(\d{1,2})([а-яё]?)$/u;
 
 // The balloons: a number (with a letter, «7т», «8н») written upright in a ring — the ends of the ring's chords at one
@@ -196,9 +198,9 @@ function sheetParts(geo={},{seeded=null,views=[],allMm=null}={}){
     ...(box.hull&&box.hull.length>4&&box.hull.length<=24?{poly:box.hull.map(([a,c])=>[along(a),mm(c)])}:{})},r,f))}
  }
  // (the parts the cuts across the members show — their places across both ways —, each at its level along)
- cutParts({texts:geo.texts||[],segs,thick,bold,balloons,near,frames,byMark,tag});
+ cutParts({texts:geo.texts||[],segs,thick,bold,balloons,near,frames,byMark,tag,allMm});
  // (the parts a cut along a level member shows — a plan through its web, no view of its own —, at its level)
- planParts({texts:geo.texts||[],segments:geo.segments||[],bold,balloons,frames,byMark,tag,taken,ends,allMm});
+ const cutLevels=new Map();planParts({texts:geo.texts||[],segments:geo.segments||[],segs,thick,near,bold,balloons,frames,byMark,tag,taken,ends,allMm,cutLevels});
  // A part of its own frame beside the body on the view, welded to its side (ГПЭС В132, л. 150.1: the tube □160×5 from
  // +4,100 to +6,800 by the flange of the I 35Ш2 that ends at +5,027, 20 mm off it): its places across from the body's
  // axis — `axis_mm`, the axis of its frame off the body's (a longer frame of the mark beside it along a quarter of it,
@@ -216,7 +218,8 @@ function sheetParts(geo={},{seeded=null,views=[],allMm=null}={}){
   const b=bodyOf(t.f),g=t.f.g;
   if(b){row.axis_mm=Math.round(((g.lo+g.hi)/2-(b.g.lo+b.g.hi)/2)/g.sc.n);if(!row.face&&b.face)row.face=b.face}
   const z=levelOf.get(mark);if(z&&t.along.u.y>0.99)row.top_mm=z(t.along.s0)}
- return[...byMark].map(([mark,rows])=>({mark,rows}))
+ // (the levels of the plans with views of their own and the way they look, by title: the flange whose holes they show)
+ return Object.defineProperty([...byMark].map(([mark,rows])=>({mark,rows})),"cutLevels",{value:cutLevels})
 }
 // The levels of the upright views of each mark — its frames from its bottom level to its top at the sheet's scale (the
 // view's levels, z0_mm…z1_mm): mark → (y on the sheet ↦ level, mm). The holes and plates of a view are measured from its
@@ -244,7 +247,8 @@ const CUT=/^(\d{1,2}[а-я]?|[А-ЯЁ])\s*[-–—]\s*\1(?=\s|$|\()/u,MARKS=/[А
 // no view draws («7н» on the far side) as far under it as the others of the cut are. Such a row takes the place of the
 // view's; a part on the main view the cut does not show, its outline touching one placed so (a rib under the angle), is
 // in the middle of that one's depth.
-function cutParts({texts,segs,thick,bold,balloons,near,frames,byMark,tag=r=>r}){
+function cutParts({texts,segs,thick,bold,balloons,near,frames,byMark,tag=r=>r,allMm=null}){
+ let signs=null;
  const mains=frames.filter(f=>f.g.who.main&&Math.max(Math.abs(f.g.u.x),Math.abs(f.g.u.y))>0.99);if(!mains.length)return;
  const dims=dimensionsOf(texts,segs),cuts=[];
  const centre=t=>({x:t.x+(t.width||0)/2,y:t.y-(t.size||10)*0.35});
@@ -353,9 +357,12 @@ function cutParts({texts,segs,thick,bold,balloons,near,frames,byMark,tag=r=>r}){
   const cx=(r.x0+r.x1)/2,cy=(r.y0+r.y1)/2,mm=v=>Math.round(v/c.k),lin=(lo,hi,sg,o,z)=>(sg>0?[lo-o,hi-o]:[o-hi,o-lo]).map(v=>mm(v)+z);
   // (its outline cut to a shape — ГПЭС В112 «5» at the ridge, its corners off on the side out past the flange —: the
   // outline [across, into it] as the box)
-  const pt=(v,sg,o,z)=>(sg>0?mm(v-o):mm(o-v))+z,hull=box.hull&&box.hull.length>4&&box.hull.length<=24?box.hull:null;
+  const pt=(v,sg,o,z)=>(sg>0?mm(v-o):mm(o-v))+z,hull=box.hull&&box.hull.length>4&&box.hull.length<=24?box.hull:null,at=([a,o])=>c.up?[pt(a,-c.look,cx,c.off0),pt(o,-1,cy,c.depth0)]:[pt(o,1,cy,c.off0),pt(a,-c.look,cx,c.depth0)];
+  // (and its holes: the signs within that outline — the two Ø23 of «5» by the gusset «10» for the braces —: [across, into
+  // it, Ø by «Все отверстия Ø23»])
+  if(hull&&!signs)signs=holeSymbols(segs,texts);const holes=hull?signs.filter(h=>insidePoly([h.x,h.y],hull)):[];
   (c.parts=c.parts||[]).push({pos:b.pos,side:b.side,off:c.up?lin(box.a0,box.a1,-c.look,cx,c.off0):lin(box.c0,box.c1,1,cy,c.off0),depth:c.up?lin(box.c0,box.c1,-1,cy,c.depth0):lin(box.a0,box.a1,-c.look,cx,c.depth0),
-   ...(hull?{poly:hull.map(([a,o])=>c.up?[pt(a,-c.look,cx,c.off0),pt(o,-1,cy,c.depth0)]:[pt(o,1,cy,c.off0),pt(a,-c.look,cx,c.depth0)])}:{})})
+   ...(hull?{poly:hull.map(at)}:{}),...(holes.length?{holes:holes.map(h=>[...at([h.x,h.y]),allMm])}:{})})
  }
  // (each cut as used on each view its arrows are on: its parts as drawn, its levels, marks and look of that view)
  const uses=cuts.flatMap(c=>c.views.map(u=>({...c,f:u.f,levels:u.levels,marks:u.marks,look:u.look})));
@@ -402,7 +409,7 @@ function cutParts({texts,segs,thick,bold,balloons,near,frames,byMark,tag=r=>r}){
    for(const y of gone)made.splice(made.indexOf(y),1)}
   for(const r of used)rows.splice(rows.indexOf(r),1);
   for(const x of made){const f=x.c.f;rows.push(tag({pos:x.p.pos,...(x.p.side?{side:x.p.side}:{}),view:f.view.title,main:true,...(f.face?{face:f.face}:{}),dir:f.view.dir,of_mm:f.g.bent?f.g.bent.all_mm:f.g.length,...(f.g.bent?{kink_mm:f.g.bent.kink_mm,leg:f.g.bent.leg}:{}),
-   at_mm:x.at,off_mm:x.p.off,depth_mm:x.p.depth,...(x.p.poly?{cut_poly:x.p.poly}:{}),cut:x.c.title},f.g,f))}
+   at_mm:x.at,off_mm:x.p.off,depth_mm:x.p.depth,...(x.p.poly?{cut_poly:x.p.poly}:{}),...(x.p.holes?{cut_holes:x.p.holes}:{}),cut:x.c.title},f.g,f))}
   // (a part of the main view the section of a cut is — the tube on top —: as deep as there; one beside a part so placed,
   // half of it within that one both ways — a rib under the angle —: in the middle of its depth)
   for(const r of rows){if(r.cut||!r.main||r.depth_mm||r.at_mm[0]===null||r.at_mm[1]===null||r.off_mm[0]===null||r.off_mm[1]===null)continue;
@@ -422,26 +429,38 @@ function cutParts({texts,segs,thick,bold,balloons,near,frames,byMark,tag=r=>r}){
 // level (`level_mm`, its top and bottom off the axis + down, as across the main view): its two lines edge on there over
 // its length as close as a plate is thick nearest the strokes, else the strokes'. Its holes — the signs of holes within
 // its outline (`holes_mm` [along, across, Ø — «Все отверстия Ø23», else none]): no view of the member has them.
-function planParts({texts,segments,bold,balloons,frames,byMark,tag,taken,ends,allMm=null}){
+function planParts({texts,segments,segs,thick,near,bold,balloons,frames,byMark,tag,taken,ends,allMm=null,cutLevels=new Map()}){
  const mains=frames.filter(f=>f.g.who.main&&Math.abs(f.g.u.x)>0.99);if(!mains.length)return;let signs=null;
  const cAt=(q,s)=>Math.abs(q.b-q.a)<1e-6?(q.c+q.d)/2:q.c+(q.d-q.c)*(s-q.a)/(q.b-q.a);
- const inside=(p,poly)=>{let k=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const [x0,y0]=poly[i],[x1,y1]=poly[j];if(y0>p[1]!==y1>p[1]&&p[0]<x0+(x1-x0)*(p[1]-y0)/(y1-y0))k=!k}return k};
+ const inside=insidePoly;
  for(const t of texts){
   const m=CUT.exec(String(t.str||"").trim());if(!m||Math.abs(t.angle||0)>5)continue;
   const title=String(t.str).trim(),z=t.size||10,re=new RegExp("^(?:по\\s*)?"+m[1]+"$","u");
-  if(frames.some(f=>!f.g.who.main&&String(f.view.title||"").trim()===title))continue;
-  // (its strokes: by its labels as large as the title, along a main view, within its height, wholly past an end of it —
-  // 800 mm at most; the level off its axis, mm + down)
+  // (its strokes: by its labels as large as the title, along a main view, wholly past an end of it — 800 mm at most —,
+  // within its height or as far off it as half of it — «1 - 1» of В112 over its top —; of the strokes by a label the one
+  // whose arrow runs out to it, ending within its size, the nearest else — «3» of В112 under the stroke of «2»; the level
+  // off its axis, mm + down; the way it looks — its arrow, a thin line across from out to the stroke: + down the sheet)
   const levels=[];
   for(const a of texts){if(a===t||!re.test(String(a.str||"").trim())||Math.abs((a.size||0)-z)>z*0.2)continue;
-   const za=a.size||z,bx={x0:a.x,x1:a.x+(a.width||0),y0:a.y-za,y1:a.y};
-   for(const q of bold){if(q.l<10||q.l>80||Math.hypot(Math.max(0,bx.x0-Math.max(q.a.x,q.b.x),Math.min(q.a.x,q.b.x)-bx.x1),Math.max(0,bx.y0-Math.max(q.a.y,q.b.y),Math.min(q.a.y,q.b.y)-bx.y1))>1.5*za)continue;
+   const za=a.size||z,bx={x0:a.x,x1:a.x+(a.width||0),y0:a.y-za,y1:a.y},off=(p,q)=>Math.hypot(Math.max(0,bx.x0-Math.max(p.x,q.x),Math.min(p.x,q.x)-bx.x1),Math.max(0,bx.y0-Math.max(p.y,q.y),Math.min(p.y,q.y)-bx.y1));
+   const cand=[];
+   for(const q of bold){if(q.l<10||q.l>80||off(q.a,q.b)>1.5*za)continue;
     const v={x:(q.b.x-q.a.x)/q.l,y:(q.b.y-q.a.y)/q.l},x=(q.a.x+q.b.x)/2,y=(q.a.y+q.b.y)/2;
-    for(const f of mains){const g=f.g,sa=x*g.u.x+y*g.u.y,o=x*g.n.x+y*g.n.y,past=sa<g.s0?g.s0-sa:sa-g.s1;
-     if(Math.abs(v.x*g.u.x+v.y*g.u.y)<0.99||o<g.lo-1||o>g.hi+1||past<q.l/2||past>800*g.sc.n)continue;
-     levels.push({f,mm:(o-(g.lo+g.hi)/2)/g.sc.n})}}}
+    for(const f of mains){const g=f.g,sa=x*g.u.x+y*g.u.y,o=x*g.n.x+y*g.n.y,past=sa<g.s0?g.s0-sa:sa-g.s1,w=g.hi-g.lo;
+     if(Math.abs(v.x*g.u.x+v.y*g.u.y)<0.99||o<g.lo-w/2||o>g.hi+w/2||past<q.l/2||past>800*g.sc.n)continue;
+     const on=p=>Math.abs((p.x-x)*g.n.x+(p.y-y)*g.n.y)<=2.5&&Math.abs((p.x-x)*g.u.x+(p.y-y)*g.u.y)<=q.l/2+2;
+     let look=0,shaft=null;
+     for(const s of near({x,y}).map(i=>segs[i]))if(!thick(s)&&s.l>=10&&s.l<=80&&Math.abs((s.b.x-s.a.x)*g.n.x+(s.b.y-s.a.y)*g.n.y)/s.l>0.97)
+      for(const [e,r] of [[s.a,s.b],[s.b,s.a]])if(on(e)&&!on(r)){if(!look)look=Math.sign((e.x-r.x)*g.n.x+(e.y-r.y)*g.n.y);const d=off(r,r);if(d<=za&&(shaft===null||d<shaft))shaft=d}
+     cand.push({f,q,mm:(o-(g.lo+g.hi)/2)/g.sc.n,look,shaft,d:off(q.a,q.b)})}}
+   const best=cand.sort((p,q)=>(p.shaft===null)!==(q.shaft===null)?(p.shaft===null?1:-1):p.shaft!==null?p.shaft-q.shaft:p.d-q.d)[0];
+   for(const c of cand)if(best&&c.q===best.q)levels.push({f:c.f,mm:c.mm,look:c.look})}
   if(!levels.length)continue;
   const lv=levels.reduce((s,l)=>s+l.mm,0)/levels.length,marks=new Set(levels.flatMap(l=>l.f.marks));
+  // (a plan with a view of its own — «1 - 1», «3 - 3» of В112 on its flanges —: its level and the way it looks kept for its
+  // holes, the flange it shows; its parts its frame's)
+  if(frames.some(f=>!f.g.who.main&&String(f.view.title||"").trim()===title)){
+   cutLevels.set(title,{level_mm:Math.round(lv),look:Math.sign(levels.reduce((s,l)=>s+l.look,0))||0});continue}
   // (the title over the member; the web under it on each main view of its marks — not on a view of its own)
   const mine=mains.filter(f=>f.marks.some(k=>marks.has(k)));
   if(!mine.some(({g})=>{const s=t.x*g.u.x+t.y*g.u.y;return s>=g.s0-0.1*(g.s1-g.s0)&&s<=g.s1+0.1*(g.s1-g.s0)}))continue;

@@ -1236,6 +1236,16 @@ function extractSheet({texts=[],widthPt=0,heightPt=0,segments=[]}={}){
  // The positions of the specification at their places on the views (a number in a circle, its leader to the part).
  // (a cut's outline none of whose sizes is the part's: a piece of it, its place across left open)
  const place=seeded?require("./ai-parts-place").fitCuts(require("./ai-parts-place").sheetParts({texts,segments,widthPt,heightPt},{seeded,views,allMm:holes?.all_mm||null}),spec):[];
+ // (a plan of a member with a view of its own — «1 - 1», «3 - 3» of a beam —: the level of its cut off the axis, + down, and
+ // the way it looks, + down the sheet: the flange its holes are in)
+ // (such a plan through the web — «3 - 3» of В112 over its bottom flange, the web's lines between its holes, lost to the
+ // holes' own search —: its view as the parts' search finds it)
+ const plans=[];
+ if(place.cutLevels?.size)for(const v of seeded.views||[]){const c=place.cutLevels.get(String(v.title||"").trim());
+  if(!c||v.main||!v.holes.some(h=>!h.part)||(drill?.views||[]).some(w=>String(w.title).trim()===String(v.title).trim()&&String(w.marks)===String(v.marks)&&Math.abs(w.length_mm-v.length_mm)<=5&&w.leg===v.leg))continue;
+  plans.push(v)}
+ const drilled=[...(drill?.views||[]),...plans];
+ if(place.cutLevels?.size)for(const v of drilled){const c=place.cutLevels.get(String(v.title||"").trim());if(c&&!v.main){v.cut_level_mm=c.level_mm;if(c.look)v.look=c.look}}
  // The ends cut aslant on the main views (a tube cut over its seat, the cap inside).
  const bevels=seeded?require("./ai-parts-place").sheetBevels({texts,segments,widthPt,heightPt},{seeded}):[];
  // The plates drawn apart with their holes (a base plate «1 - 1», an end plate «2 - 2»), at their cuts.
@@ -1243,7 +1253,7 @@ function extractSheet({texts=[],widthPt=0,heightPt=0,segments=[]}={}){
  // The level of the start of an upright view of the holes, of the plates (a column's body with a part beside it higher
  // up starts lower: ГПЭС В132 — the I's holes from +4,812 under its cap, the tube's from +6,800).
  const lv=seeded?require("./ai-parts-place").levelsOf(seeded,views):null;
- if(lv?.size)for(const v of [...(drill?.views||[]),...plates]){const f=v.frame,z=f&&f.u.y>0.99&&[...(v.marks||[]),v.mark].map(m=>lv.get(m)).find(Boolean);if(z)v.top_mm=z(f.s0)}
- return{stamp,views,required,elements,spec,fasteners:fastenerTable(texts),holes,...(drill?.views.length?{drill}:{}),...(plates.length?{plates}:{}),...(place.length?{place}:{}),...(bevels.length?{bevels}:{}),...(sections.length?{sections}:{}),standards,levelCount:levels.length,assemblyText,...(unread.length?{unread}:{})}
+ if(lv?.size)for(const v of [...drilled,...plates]){const f=v.frame,z=f&&f.u.y>0.99&&[...(v.marks||[]),v.mark].map(m=>lv.get(m)).find(Boolean);if(z)v.top_mm=z(f.s0)}
+ return{stamp,views,required,elements,spec,fasteners:fastenerTable(texts),holes,...(drilled.length?{drill:{...(drill||{}),views:drilled}}:{}),...(plates.length?{plates}:{}),...(place.length?{place}:{}),...(bevels.length?{bevels}:{}),...(sections.length?{sections}:{}),standards,levelCount:levels.length,assemblyText,...(unread.length?{unread}:{})}
 }
 module.exports={extractSheet,sheetStamp,stampNames,titleMarks,levelMm,rowsOf,specTable,specCells,cellAccept,specPictures,specGrid,regrid,gridTexts,pickRow,sectionLike,normProfile,fastenerTable,standardsCited};

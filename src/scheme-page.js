@@ -922,10 +922,12 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  // it from the start of the view, by diameter; those of the gussets on it counted apart.
  function drillHtml(c){
   const views=Array.isArray(c.drill)?c.drill.filter(v=>v&&Array.isArray(v.holes)):[];if(!views.length)return"";
-  const row=v=>{const own=v.holes.filter(h=>!h[3]),part=v.holes.length-own.length,by=new Map();
+  // (a half of a bent member: which, its holes from its start — the second's from the kink; those of the far face seen
+  // through a cutaway counted apart)
+  const row=v=>{const own=v.holes.filter(h=>!h[3]),part=v.holes.filter(h=>num(h[3])===1).length,far=v.holes.filter(h=>num(h[3])===2).length,by=new Map();
    for(const h of own){const d=num(h[2]);if(!by.has(d))by.set(d,[]);by.get(d).push(num(h[0]))}
-   const groups=[...by].map(([d,at])=>(d?"Ø"+d:"Ø не указан")+" — "+at.length+" шт.: "+[...new Set(at)].sort((a,b)=>a-b).slice(0,24).map(fmt).join(", ")+" мм от начала");
-   return`<span>Вид «${esc(v.view||"")}»${v.scale?", М "+esc(v.scale):""}, длина ${fmt(v.length_mm)} мм${v.not_to_scale?" (нарисован не в масштабе — по размерам чертежа)":""}: ${esc(groups.join("; ")||"—")}${part?"; в фасонках на нём — "+part+" шт.":""}</span>`};
+   const groups=[...by].map(([d,at])=>(d?"Ø"+d:"Ø не указан")+" — "+at.length+" шт.: "+[...new Set(at)].sort((a,b)=>a-b).slice(0,24).map(fmt).join(", ")+" мм от "+(v.leg===1?"перелома":"начала"));
+   return`<span>Вид «${esc(v.view||"")}»${v.leg===0?", первая половина":v.leg===1?", вторая половина":""}${v.scale?", М "+esc(v.scale):""}, длина ${fmt(v.length_mm)} мм${v.not_to_scale?" (нарисован не в масштабе — по размерам чертежа)":""}: ${esc(groups.join("; ")||"—")}${part?"; в фасонках на нём — "+part+" шт.":""}${far?"; дальней полки сквозь вырыв — "+far+" шт.":""}</span>`};
   return`<div class="scheme-fasteners"><b>Отверстия по сборочному чертежу</b>${views.map(row).join("")}${views[0].sheet?`<small>${esc(views[0].sheet)}</small>`:""}</div>`
  }
  // The plates drawn apart with their holes (c.cuts, src/ai-holes-extract.js sheetHoles: a base plate «1 - 1», an end
