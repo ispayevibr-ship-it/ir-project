@@ -1,5 +1,7 @@
 /* IR Project AI: PDF → montage scheme, three steps */
-.ir-ms{width:100%;margin:0;padding:16px 20px 40px;color:#24445f;font-family:"Segoe UI",Arial,sans-serif}
+/* The margins of the other pages of the object: #app gives them (the engineer, 31.10.2026: «здесь тоже отступы») */
+.ir-ms{width:100%;margin:0;padding:0;color:#24445f;font-family:"Segoe UI",Arial,sans-serif}
+body.ir-object-route:not(.ir-object-overview) #app>.ir-ms{box-sizing:border-box;width:100%;max-width:none;margin:0!important;padding:0!important}
 .ir-ms *{box-sizing:border-box}
 .ir-ms-hero{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:22px 26px;border-radius:14px;background:linear-gradient(112deg,#123b59,#17658e);color:#fff;margin-bottom:16px}
 .ir-ms-hero small{font-size:10px;letter-spacing:1.3px;color:#a7d4ef;font-weight:800}

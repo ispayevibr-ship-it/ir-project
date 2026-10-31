@@ -3370,7 +3370,15 @@ window.irThreeSchemeView=(function(){
   // members. A marker per node coloured by montage (all mounted, part, none); a click opens the node: its members,
   // their status, what is still missing. Base plates, anchors and cap plates near the camera are drawn schematically
   // (not by the КМД), only to read the node.
-  var nodeColors={mounted:0x1f9e89,partial:0xf25c05,planned:0x9aa3ad};
+  var nodeColors={mounted:0x1f9e89,partial:0xf25c05,planned:0x9aa3ad,apart:0xd62828};
+  // A node the card takes apart and puts together («Разбор узла»: a member of it slides off what carries it, a column off
+  // its base) is red — the engineer, 31.10.2026: «узлы которые собираются и разбираются выведи цветом красным»; one all
+  // mounted stays green, the montage seen. As buildExplode chooses what stays.
+  function apart(n){
+   if(n.kind==="base")return n.members.some(function(m){return m.c.geometryType==="column"});
+   return n.members.some(function(m){return!(m.role==="опора"||m.role==="примыкание"||/пояс$/.test(m.role)||n.kind==="top"&&m.c.geometryType==="column")})
+  }
+  function nodeTint(n){return n.status!=="mounted"&&apart(n)?"apart":n.status}
   var nodeKinds={base:"База колонны",step:"Уступ колонны",top:"Оголовок колонны",side:"Примыкание к колонне",beam:"Опирание на балку",chord:"Крепление к поясу фермы",joint:"Стык элементов"};
   function kindName(n){return n.kind==="side"&&n.members.some(function(m){return hanging(m.c)})?"Крепление лестницы":nodeKinds[n.kind]}
   var nodes=[],nodeMeshes=[],nodeMats=new Map(),nodeMode="sel",showDetails=true,selectedNode=null,details=[];
@@ -3479,7 +3487,7 @@ window.irThreeSchemeView=(function(){
   function buildNodes(){
    clearNodes();nodes=computeNodes();
    nodes.forEach(function(n){
-    var mesh=new T.Mesh(nodeGeo,nodeMaterial(n.status));
+    var mesh=new T.Mesh(nodeGeo,nodeMaterial(nodeTint(n)));
     mesh.position.copy(toWorld(n.x,n.y,n.z));mesh.renderOrder=6;mesh.userData.node=n;
     helpers.add(mesh);nodeMeshes.push(mesh);n.mesh=mesh;
     var d=nodeDetail(n);if(d){detailGroup.add(d);details.push({group:d,node:n})}
