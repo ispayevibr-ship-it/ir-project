@@ -128,3 +128,10 @@ body.ir-object-route:not(.ir-object-overview) #app>.ir-ms{box-sizing:border-box;
 /* The way back to the montage scheme this page belongs to. */
 .ir-ms-hero .back.ir-ms-back{display:block;height:auto;min-height:0;margin:0 0 10px;padding:5px 11px;border:1px solid rgba(255,255,255,.32);border-radius:8px;background:rgba(255,255,255,.12);color:#fff;font-size:12px;font-weight:700;cursor:pointer}
 .ir-ms-hero .back.ir-ms-back:hover{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.5)}
+/* Several work types of one drawing (31.10.2026): chips over its sheets, what each takes below. */
+.ir-ms-works-edit{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:-2px 0 6px;font-size:12px}
+.ir-ms-works-edit select{height:26px;font-size:11px;padding:0 6px;width:auto;max-width:240px}
+.ir-ms-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;background:#e8f0f8;color:#173f5b;font-size:12px}
+.ir-ms-chip button.link{padding:0 2px;font-size:11px}
+.ir-ms-works{font-size:11.5px;color:#173f5b;white-space:nowrap}.ir-ms-works b{color:#2563eb}
+.ir-ms-split{margin:0 0 8px}

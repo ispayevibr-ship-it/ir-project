@@ -21,6 +21,8 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   if(!row||row.record_type!=="document")throw Error("Чертёж не найден");
   return row
  }
+ // The work types of a drawing: the list when it has several, else the one.
+ const workIds=d=>{const l=Array.isArray(d?.work_type_ids)?d.work_type_ids.map(String).filter(Boolean):[];return l.length?[...new Set(l)]:d?.work_type_id?[String(d.work_type_id)]:[]};
  function publicRow(id,row){
   const data=row.data||{};let exists=false;
   try{exists=fs.statSync(safeFile(id,data.stored_name)).isFile()}catch{}
@@ -29,7 +31,7 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
    ext:String(data.extension||""),size:Number(data.size)||0,
    sha256:String(data.sha256||""),addedAt:row.created_at,exists,
    pages:Number(data.page_count)||null,excluded:Array.isArray(data.excluded_pages)?data.excluded_pages:[],
-   workTypeId:String(data.work_type_id||""),status:"Не распознано"}
+   workTypeId:workIds(data)[0]||"",workTypeIds:workIds(data),status:"Не распознано"}
  }
  function setKinds(id,items){
   id=objectId(id);
@@ -43,19 +45,23 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   }
   return{changed,documents:list(id)}
  }
- // The work type of the object each drawing belongs to (section «Виды работ»): its elements are placed under it, the
+ // The work types of the object each drawing belongs to (section «Виды работ»): its elements are placed under them, the
  // montage scheme shows each work type apart. Empty — the program's own «Монтаж металлоконструкций (из PDF)».
+ // Several (the engineer, 31.10.2026: «в АР идет Монтаж окон, сэндвич-панелей, дверей и ворот»): each element goes to
+ // the one that names its kind (src/ai-structure-types.js workTypeFor); work_type_id keeps the first, as before.
  function setWorkTypes(id,items){
   id=objectId(id);
   if(!Array.isArray(items)||items.length>2000)throw Error("Некорректный список документов");
   const works=new Set(database.listEntity(id,"work-types").map(w=>String(w.id)));
   let changed=0;
   for(const item of items){
-   const work=String(item?.workTypeId??"");
-   if(work&&!works.has(work))throw Error("Вид работ не найден у этого объекта");
+   const asked=Array.isArray(item?.workTypeIds)?item.workTypeIds:[item?.workTypeId??""];
+   const chosen=[...new Set(asked.map(w=>String(w??"")).filter(Boolean))].slice(0,20);
+   if(chosen.some(w=>!works.has(w)))throw Error("Вид работ не найден у этого объекта");
    const row=record(id,item?.id);
-   if(String(row.data?.work_type_id||"")===work)continue;
-   const data={...row.data};if(work)data.work_type_id=work;else delete data.work_type_id;
+   if(workIds(row.data||{}).join(",")===chosen.join(","))continue;
+   const data={...row.data};delete data.work_type_ids;delete data.work_type_id;
+   if(chosen.length){data.work_type_id=chosen[0];if(chosen.length>1)data.work_type_ids=chosen}
    database.updateEntity(id,"ai-documents",row.id,{record_type:row.record_type,title:row.title,data});changed++
   }
   return{changed,documents:list(id)}

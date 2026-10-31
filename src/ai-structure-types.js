@@ -262,7 +262,43 @@ function extend(list){
  for(const u of Array.isArray(list)?list:[]){const t=userType(u);if(!t||byKey.has(t.key))continue;TYPES.push(t);byKey.set(t.key,t);NAME_ORDER.unshift(t.key);api.keys.push(t.key);userKeys.add(t.key)}
  return [...userKeys]
 }
-const api={GROUPS,TYPES,byKey,typeByName,typeByMark,typeOf,group,promptList,extend,learn,GEOMETRIES,keys:TYPES.map(t=>t.key)};
+// Several work types of one drawing (the engineer, 31.10.2026: «для одного чертежа может быть несколько видов работ… в АР
+// идет Монтаж окон, сэндвич-панелей, дверей и ворот»): each element goes to the work type whose name speaks of its kind.
+// kind: by its type, else by its group; words: how a work type of the object names that kind; along: the kind whose
+// work type takes it when none of the drawing names it (the trims go with the panels, the sheeting too).
+const WORK_KINDS=[
+ {key:"windows",label:"окна, витражи",types:["window"],words:/окон|окн[аоы]|витраж|светопрозрачн/iu},
+ {key:"doors",label:"двери",types:["door"],words:/двер/iu},
+ {key:"gates",label:"ворота",types:["gate"],words:/ворот/iu},
+ {key:"panels",label:"сэндвич-панели",types:["sandwich","sandwich_wall","sandwich_roof"],groups:["cladding"],words:/сэндвич|панел|ограждающ|обшивк|трёхслойн|трехслойн/iu},
+ {key:"sheeting",label:"профнастил",types:["sheeting"],words:/профнастил|профлист|кровл/iu,along:"panels"},
+ {key:"trims",label:"нащельники, доборные элементы",groups:["trims"],words:/нащельник|доборн|фасонн\S*\s+(?:элем|издел)/iu,along:"panels"},
+ // an opening whose kind is not known: a work type of openings of any kind
+ {key:"openings",label:"",groups:["openings"],words:/окон|окн[аоы]|витраж|двер|ворот|про[её]м/iu},
+ {key:"steel",label:"металлоконструкции",words:/металлоконструкц|металлокаркас|каркас|(?:^|[^а-яё])(?:мк|кмд?)(?![а-яё])/iu}
+];
+const workKindByKey=new Map(WORK_KINDS.map(k=>[k.key,k]));
+function workKindOf(e){
+ const type=String(e?.type_key||""),grp=String(e?.group||e?.scheme_group||(type&&byKey.get(type)?.group)||"");
+ return WORK_KINDS.find(k=>k.types&&k.types.includes(type))||WORK_KINDS.find(k=>k.groups&&k.groups.includes(grp))||workKindByKey.get("steel")
+}
+// works: the work types of the drawing in its order, [{id, name}]. Its own kind, then the kind it goes along with; an
+// element no work type speaks of — the first of the drawing (and, for the steel, a work type of the steel first).
+function workTypeFor(e,works){
+ const list=(Array.isArray(works)?works:[]).filter(w=>w&&w.id!=null&&String(w.id)!=="");if(!list.length)return"";if(list.length===1)return String(list[0].id);
+ const named=k=>list.find(w=>k.words.test(String(w.name||"")));
+ for(let k=workKindOf(e),n=0;k&&n<3;k=k.along?workKindByKey.get(k.along):null,n++){const w=named(k);if(w)return String(w.id)}
+ return String(list[0].id)
+}
+// What each work type of a drawing takes, for the page «Чертежи»: [{id, kinds:[label…]}] and the rest.
+function workSplit(works){
+ const list=(Array.isArray(works)?works:[]).filter(w=>w&&w.id!=null&&String(w.id)!=="");
+ const out=list.map(w=>({id:String(w.id),name:String(w.name||""),kinds:[]}));
+ for(const k of WORK_KINDS){if(!k.label)continue;const id=workTypeFor({type_key:(k.types||[])[0]||"",group:(k.groups||[])[0]||(k.key==="steel"?"columns":"")},list),o=out.find(x=>x.id===id);
+  if(o)o.kinds.push(k.key==="steel"&&list.length>1&&!list.some(w=>k.words.test(String(w.name||"")))?"остальное":k.label)}
+ return out
+}
+const api={GROUPS,TYPES,byKey,typeByName,typeByMark,typeOf,group,promptList,extend,learn,GEOMETRIES,WORK_KINDS,workKindOf,workTypeFor,workSplit,keys:TYPES.map(t=>t.key)};
 if(typeof module==="object"&&module.exports)module.exports=api;
 else{root.irStructureTypes=api;
  // In the program window: the engineer's own kinds (kept in the main process) join at start.

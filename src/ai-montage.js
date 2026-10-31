@@ -660,21 +660,27 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   // type and the marks it lacks are added under it; a drawing without one — the register as a whole, new marks under
   // «Монтаж металлоконструкций (из PDF)». An element is traced to its drawing by its sheet, else by its КМ volume or
   // file name; elements of the knowledge base with none — the work type all the drawings share.
+  // A drawing with several work types (АР: windows, sandwich panels, doors and gates): each element goes to the one that
+  // names its kind (ST.workTypeFor).
   const works=new Map(database.listEntity(oid,"work-types").map(w=>[String(w.id),w]));
-  const docWork=new Map(documents.list(oid).map(d=>[String(d.id),works.has(String(d.workTypeId||""))?String(d.workTypeId):""]));
-  const sourceDocs=(data.source?.documents||[]).map(x=>({name:String(x.name||""),work:docWork.get(String(x.documentId))||""}));
-  const common=sourceDocs.length&&sourceDocs.every(x=>x.work&&x.work===sourceDocs[0].work)?sourceDocs[0].work:"";
+  const docWork=new Map(documents.list(oid).map(d=>[String(d.id),(Array.isArray(d.workTypeIds)&&d.workTypeIds.length?d.workTypeIds:[d.workTypeId]).map(x=>String(x||"")).filter(x=>works.has(x))]));
+  const sourceDocs=(data.source?.documents||[]).map(x=>({name:String(x.name||""),work:docWork.get(String(x.documentId))||[]}));
+  const common=sourceDocs.length&&sourceDocs.every(x=>x.work.length&&x.work.join(",")===sourceDocs[0].work.join(","))?sourceDocs[0].work:[];
+  const pick=(e,list)=>ST.workTypeFor(e,list.map(id=>({id,name:works.get(id)?.data?.work_type||works.get(id)?.title||""})));
+  // A mark the program made from these drawings under another of their work types (before the drawing got several) moves
+  // to the work type of its kind instead of being made again beside it: only one made from PDF and not mounted.
+  const drawingWorks=new Set([...docWork.values()].flat()),moved=new Map();
   const pageDoc=new Map((data.pages||[]).map(p=>[Number(p.page),String(p.documentId||"")]));
   // The section of the drawings an element comes from, for the layers of the 3D (КМ, КМД, АР, ТХ).
   const pageType=new Map((data.pages||[]).map(p=>[Number(p.page),String(p.docType||"")]));
   const sectionOf=e=>{const t=e.page>0?pageType.get(Number(e.page)):"";return/^(АР|ТХ)$/u.test(t)?t:e.section||(t==="КМ"||!t&&/^КМ(?!Д)/u.test(e.doc||"")?"КМ":"КМД")};
   const volumeOfName=n=>{const m=/КМ\s*(\d{1,2})(?![\dД])/u.exec(String(n||""));return m?"КМ"+m[1]:""};
   const workOf=e=>{
-   const doc=e.page>0?pageDoc.get(Number(e.page)):"";if(doc)return docWork.get(doc)||"";
+   const doc=e.page>0?pageDoc.get(Number(e.page)):"";if(doc)return pick(e,docWork.get(doc)||[]);
    const vol=/^КМ\d/u.test(e.doc||"")?e.doc:volumeOfName(e.source_sheet);
-   const byVol=vol?sourceDocs.filter(x=>volumeOfName(x.name)===vol):[];if(byVol.length===1)return byVol[0].work;
-   const byFile=sourceDocs.filter(x=>x.name&&x.name===e.file);if(byFile.length===1)return byFile[0].work;
-   return common
+   const byVol=vol?sourceDocs.filter(x=>volumeOfName(x.name)===vol):[];if(byVol.length===1)return pick(e,byVol[0].work);
+   const byFile=sourceDocs.filter(x=>x.name&&x.name===e.file);if(byFile.length===1)return pick(e,byFile[0].work);
+   return pick(e,common)
   };
   const near=(r,e)=>{const d=r.data||{};return normMark(d.mark)===normMark(e.mark)&&Math.abs(Number(d.absolute_x_mm)-e.x)<250&&Math.abs(Number(d.absolute_y_mm)-e.y)<250&&Math.abs(Number(d.z0_mm)-e.z0_mm)<250};
   const skipped=[...plan.skipped],payloads=[];let linked=0;
@@ -685,7 +691,11 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    if(e.levels!=="проверено инженером"&&(out(x)||outY(y)||x2!==undefined&&(out(x2)||outY(y2)))&&!/За крайними осями/u.test(e.note||""))e={...e,note:[e.note,"За крайними осями — проверьте"].filter(Boolean).join("; ")};
    if(manual.some(r=>near(r,{...e,x,y}))){skipped.push({mark:e.mark,page:e.page,reason:"Уже есть в монтажной схеме (добавлен вручную)"});return}
    // A mark of one КМ volume of several (К1 of КМ1, К1 of КМ2) links only to the register row of its volume.
-   const work=workOf(e0),vol=/^КМ\d/u.test(e.doc||"")?e.doc:"",all=byName.get(normMark(e.mark))||[],named=work?all.filter(m=>String(m.work_type_id||"")===work):all;
+   const work=workOf(e0),vol=/^КМ\d/u.test(e.doc||"")?e.doc:"",all=byName.get(normMark(e.mark))||[];let named=work?all.filter(m=>String(m.work_type_id||"")===work):all;
+   if(work&&!named.length){
+    const own=all.filter(m=>m.ai_created===true&&!(Number(m.mounted)>0)&&drawingWorks.has(String(m.work_type_id||""))&&(!vol||!m.volume||m.volume===vol));
+    if(own.length===1){if(!moved.has(own[0].id))moved.set(own[0].id,{from:String(own[0].work_type_id||""),to:work});own[0].work_type_id=work;named=own}
+   }
    // One mark in one volume may be two things on two sheets (Кс1 — косоур марша Лм1 and подкос площадки +9,500 in КМ3):
    // of several rows the one of the same name.
    const inVolume=vol&&named.some(m=>m.volume)?named.filter(m=>m.volume===vol):named,sameName=inVolume.filter(m=>e.name&&m.name===e.name);
@@ -732,7 +742,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   // makes one from the drawings. They go under a work type of their own ("из PDF"), so that a register the engineer
   // loaded is never mixed with them; quantity is the larger of "Требуется" and the number placed, mass from the sheets.
   // Everything below is written in one transaction (src/ai-db-batch.js): all of it or nothing.
-  const createdMarks=[],enabled=[];let createdWork=null,previousGrid=null,created=0;const updated=[],removed=[],kept=[],keptEdited=[],missingNow=[],stillMissing=[],carried=[];
+  const createdMarks=[],enabled=[],movedMarks=[];let createdWork=null,previousGrid=null,created=0;const updated=[],removed=[],kept=[],keptEdited=[],missingNow=[],stillMissing=[],carried=[];
   writes(database=>{
   const missing=payloads.filter(p=>!p.data.mark_id);
   if(missing.length){
@@ -772,6 +782,12 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
     createdMarks.push(row.id);
     for(const p of list){p.data.mark_id=String(row.id);p.data.work_type_id=String(work.id);p.data.mark_name=row.data.name}
    }
+  }
+  // The marks moved to the work type of their kind (undo moves them back).
+  for(const [id,{from,to}] of moved){
+   const m=database.listEntity(oid,"marks").find(r=>String(r.id)===String(id)),w=works.get(to);if(!m||!w)continue;
+   if(database.updateEntity(oid,"marks",m.id,{record_type:m.record_type||"item",parent_id:m.parent_id,title:m.title,data:{...m.data,work_type_id:to,work_type:w.data?.work_type||w.title||"",project_code:w.data?.project_code||m.data?.project_code||""}}))
+    movedMarks.push({id:String(m.id),from,work_type:m.data?.work_type||"",project_code:m.data?.project_code||""})
   }
   // A work type chosen for a drawing gets its own montage scheme (the tick «Нужна монтажная схема»), so the scheme can
   // show it apart; undo takes the tick back.
@@ -842,13 +858,13 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   const byWork=[...perWork].map(([wid,count])=>({id:wid,name:wid?workName(wid):"без вида работ",count})).sort((a,b)=>b.count-a.count);
   const preliminary=payloads.filter(p=>p.data.preliminary).length,statuses={};for(const p of payloads)statuses[p.data.instance_status]=(statuses[p.data.instance_status]||0)+1;
   const result={batch,created,updated:updated.length-keptEdited.length-missingNow.length,removed:removed.length,keptMounted:kept.length,keptEdited:keptEdited.length,missing:missingNow.length+stillMissing.length,
-   preliminary,statuses,gridDiffs:gridDiffs.slice(0,40),linked,qtyDiffs:qtyDiffs.slice(0,200),marksCreated:createdMarks.length,workCreated:Boolean(createdWork),byWork,skippedCount:skipped.length,skipped:skipped.slice(0,300),gridMode,at:new Date().toISOString()};
+   preliminary,statuses,gridDiffs:gridDiffs.slice(0,40),linked,qtyDiffs:qtyDiffs.slice(0,200),marksCreated:createdMarks.length,marksMoved:movedMarks.length,workCreated:Boolean(createdWork),byWork,skippedCount:skipped.length,skipped:skipped.slice(0,300),gridMode,at:new Date().toISOString()};
   // What was placed, element by element: the engineer's later changes become corrections (src/ai-training.js).
   try{training?.recordPlacement?.(oid,{batch,draftId,source:data.source,carried})}catch(error){console.error("IR Project: training",error)}
   const after=draftRow(oid,draftId);
-  saveDraft(oid,after,{placed:{...result,previousGrid,undo:{updated,removed,marks:createdMarks,work:createdWork,enabled}},log:logged(after.data||{},{step:"place",text:"Расстановка: новых "+created+", обновлено "+result.updated+" (координаты и отметки)"+
+  saveDraft(oid,after,{placed:{...result,previousGrid,undo:{updated,removed,marks:createdMarks,work:createdWork,enabled,moved:movedMarks}},log:logged(after.data||{},{step:"place",text:"Расстановка: новых "+created+", обновлено "+result.updated+" (координаты и отметки)"+
    (keptEdited.length?", оставлены ваши правки "+keptEdited.length:"")+(missingNow.length+stillMissing.length?", нет в новом анализе "+(missingNow.length+stillMissing.length)+" (оставлены, помечены)":"")+
-   (preliminary?", предварительно "+preliminary:"")+" · "+
+   (preliminary?", предварительно "+preliminary:"")+(movedMarks.length?", марок перенесено под вид работ по их виду "+movedMarks.length:"")+" · "+
    Object.entries(payloads.reduce((a,x)=>(a[x.data.scheme_group_label]=(a[x.data.scheme_group_label]||0)+1,a),{})).map(([k,v])=>k+" "+v).join(", ")+
    ", связано с ведомостью "+linked+(qtyDiffs.length?" (количество не как в ведомости программы: "+qtyDiffs.slice(0,6).map(d=>d.mark+" — в ведомости "+d.register+", на схемах "+d.placed).join("; ")+(qtyDiffs.length>6?"…":"")+")":"")+(createdMarks.length?", в ведомость добавлено марок "+createdMarks.length+(createdWork?" (вид работ «"+AUTO_WORK+"» создан)":""):"")+
    (byWork.length>1||byWork[0]?.id&&String(byWork[0].id)!==String(createdWork)?" · по видам работ: "+byWork.map(w=>"«"+w.name+"» "+w.count).join(", "):"")+
@@ -883,6 +899,9 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   const marksNow=database.listEntity(oid,"marks");
   for(const id of placed.undo?.marks||[]){const m=marksNow.find(r=>String(r.id)===String(id));if(m&&!inUse(id)&&!(Number(m.data?.mounted)>0)&&database.deleteEntity(oid,"marks",id))marksRemoved++}
   if(placed.undo?.work&&!database.listEntity(oid,"marks").some(m=>String(m.data?.work_type_id)===String(placed.undo.work)))database.deleteEntity(oid,"work-types",placed.undo.work);
+  // Marks moved to the work type of their kind go back to where they were.
+  for(const mv of placed.undo?.moved||[]){const m=database.listEntity(oid,"marks").find(r=>String(r.id)===String(mv.id));
+   if(m)database.updateEntity(oid,"marks",m.id,{record_type:m.record_type||"item",parent_id:m.parent_id,title:m.title,data:{...m.data,work_type_id:mv.from,work_type:mv.work_type,project_code:mv.project_code}})}
   // The tick «Нужна монтажная схема» this placement set goes back.
   for(const wid of placed.undo?.enabled||[]){const w=database.listEntity(oid,"work-types").find(r=>String(r.id)===String(wid));if(w)database.updateEntity(oid,"work-types",w.id,{record_type:w.record_type||"item",parent_id:w.parent_id,title:w.title,data:{...w.data,scheme_enabled:false}})}
   });
