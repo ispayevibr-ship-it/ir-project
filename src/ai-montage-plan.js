@@ -305,6 +305,15 @@ function groupDrill(v,mark,views){
  if(!d&&!center)return null;
  return{length_mm:L+d,holes:v.holes.map(h=>({...h,at_mm:h.at_mm>L/2?h.at_mm+d:h.at_mm})),...(center?{center_mm:center}:{})}
 }
+// The sections of the members of a welded frame read off an elevation (src/ai-section-extract.js: posts and crossbars):
+// each the part of its assembly sheet as long as it (within 18 %: a crossbar's part is cut between the posts' faces) —
+// ГПЭС В245: posts Тр.□160×5 2062, the crossbar Тр.□100×4 1020 —, else the mark's section.
+function frameProfiles(members,cat){
+ const rows=(cat?.parts?.rows||[]).filter(r=>r.section&&r.length_mm>0&&!/^[-−–]|^(?:уголок|∟|L)\s*\d/iu.test(String(r.section).trim()));
+ return members.map(m=>{if(m[5])return m;const len=Math.hypot(m[2]-m[0],m[3]-m[1]);
+  const best=rows.map(r=>({r,d:Math.abs(r.length_mm-len)/Math.max(len,1)})).filter(x=>x.d<=.18).sort((a,b)=>a.d-b.d)[0];
+  return[...m.slice(0,5),best?best.r.section:cat?.profile||""]})
+}
 function buildCatalog(draft,ai=null){
  const map=new Map();
  const volumes=new Set((draft.pages||[]).filter(p=>p.docType==="КМ").map(volumeOf).filter(Boolean));
@@ -1048,7 +1057,7 @@ function buildPlan(draft,ai=null,heights={},opts={}){
     x_mm:x,y_mm:y,x2_mm:point?undefined:x2,y2_mm:point?undefined:y2,...(geometry==="shell"||geometry==="plate"?{radius_mm:pl.radius_mm,inner_radius_mm:pl.inner_radius_mm,shell_open:pl.shell_open,...(pl.cone_rise_mm?{cone_rise_mm:pl.cone_rise_mm}:{}),...(pl.sector_deg>0?{sector_start_deg:pl.sector_start_deg,sector_deg:pl.sector_deg}:{})}:{}),...(pl.fitting_type?{fitting_type:pl.fitting_type,diameter_mm:pl.diameter_mm}:{}),...(pl.layout&&typeof pl.layout==="object"?{layout:pl.layout}:{}),
     z0_mm:geometry==="beam"&&!drawn&&!flightLevel?z1:z0,z1_mm:z1,group,group_label:GROUPS[group],
     // A verified scheme carries its own profiles and truss lattices.
-    profile:pl.profile||cat?.profile||"",profile_standard:pl.profile?"":cat?.profile_standard||"",...(pl.steel||cat?.steel?{steel:pl.steel||cat.steel}:{}),...(pl.truss?{truss:pl.truss.kind==="frame"&&cat?.profile?{...pl.truss,members:pl.truss.members.map(m=>m[5]?m:[...m.slice(0,5),cat.profile])}:pl.truss}:{}),...(pl.nodes?{nodes:pl.nodes}:{}),...(pl.base&&typeof pl.base==="object"?{base:pl.base}:{}),...(Number(pl.rotation_deg)?{rotation_deg:Number(pl.rotation_deg)}:{}),...(pl.flat?{flat:true}:{}),...(pl.joint||joints(c.info)||cat?.fasteners?{joint:withFasteners(pl.joint||joints(c.info),cat?.fasteners)}:{}),...(cat?.drill?{drill:cat.drill}:{}),...(cat?.cuts?{cuts:cat.cuts}:{}),...(cat?.parts?{parts:cat.parts}:{}),...(cat?.plates?{plates:cat.plates}:{}),...(cat?.place?{place:cat.place}:{}),...(cat?.bevels?{bevels:cat.bevels}:{}),doc:scopeOf(c.info.docType,catalog.multi?c.info.volume:""),length_mm:cat?.length_mm??null,levels:own?"Claude":local?local.from:"схема",...(!own&&local?.zeroBase?{z0_assumed:true}:{}),
+    profile:pl.profile||cat?.profile||"",profile_standard:pl.profile?"":cat?.profile_standard||"",...(pl.steel||cat?.steel?{steel:pl.steel||cat.steel}:{}),...(pl.truss?{truss:pl.truss.kind==="frame"&&(cat?.profile||cat?.parts?.rows?.length)?{...pl.truss,members:frameProfiles(pl.truss.members,cat)}:pl.truss}:{}),...(pl.nodes?{nodes:pl.nodes}:{}),...(pl.base&&typeof pl.base==="object"?{base:pl.base}:{}),...(Number(pl.rotation_deg)?{rotation_deg:Number(pl.rotation_deg)}:{}),...(pl.flat?{flat:true}:{}),...(pl.joint||joints(c.info)||cat?.fasteners?{joint:withFasteners(pl.joint||joints(c.info),cat?.fasteners)}:{}),...(cat?.drill?{drill:cat.drill}:{}),...(cat?.cuts?{cuts:cat.cuts}:{}),...(cat?.parts?{parts:cat.parts}:{}),...(cat?.plates?{plates:cat.plates}:{}),...(cat?.place?{place:cat.place}:{}),...(cat?.bevels?{bevels:cat.bevels}:{}),doc:scopeOf(c.info.docType,catalog.multi?c.info.volume:""),length_mm:cat?.length_mm??null,levels:own?"Claude":local?local.from:"схема",...(!own&&local?.zeroBase?{z0_assumed:true}:{}),
     page:c.info.page,file:c.info.file,sheet:c.info.sheet,...(!c.info.page&&pl.sheet?{source_sheet:String(pl.sheet)}:{}),...(pl.section?{section:pl.section}:{}),scheme:c.info.title,confidence:pl.confidence,note:[...(pl.notes||[]),change?.note,...guess].filter(Boolean).join("; ")})
   });
   // Bracing and secondary members meet the beams of the same plan: their ends take those beams' levels.
@@ -1892,4 +1901,4 @@ function seatTrusses(elements,catalog){
   e.note=[e.note,"Ферма по геометрической схеме"+(moved?", отметка низа — как у соседних ферм":"")+" — проверьте"].filter(Boolean).join("; ")
  }
 }
-module.exports={depthOf,instanceStatus,sheetNodes,jointNote,platesBySpec,gussetsBySpec,gussetHoles,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces,trimGuardPosts,sectionOutliers,roofProfiles,roofLine,roofOnColumns,purlinsOnBeams,hangTracks,relevelNeighbours,oneLadder};
+module.exports={frameProfiles,depthOf,instanceStatus,sheetNodes,jointNote,platesBySpec,gussetsBySpec,gussetHoles,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces,trimGuardPosts,sectionOutliers,roofProfiles,roofLine,roofOnColumns,purlinsOnBeams,hangTracks,relevelNeighbours,oneLadder};
