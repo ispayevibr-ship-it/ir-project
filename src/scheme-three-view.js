@@ -1740,9 +1740,10 @@ window.irThreeSchemeView=(function(){
    return{p:[p[0],end],d:d0,L:L,q:q,X:new T.Vector3(1,0,0).applyQuaternion(q),Y:new T.Vector3(0,1,0).applyQuaternion(q),mid:p[0].clone().add(end).multiplyScalar(.5),
     bend:{at:A,pivot:p[1].clone(),turn:turn}}
   }
-  // (a mesh placed on the unrolled frame: past the kink, turned onto the second leg)
-  function onBend(f,m){if(!f||!f.bend)return m;var t=m.position.clone().sub(f.p[0]).dot(f.d);if(t<=f.bend.at)return m;
-   m.position.sub(f.bend.pivot).applyQuaternion(f.bend.turn).add(f.bend.pivot);m.quaternion.premultiply(f.bend.turn);return m}
+  // (a mesh placed on the unrolled frame: past the kink, turned onto the second leg; at the kink itself — the flange
+  // between the halves of a ridge beam, ГПЭС В112 «5» 5 mm past it —: half way, plumb between them)
+  function onBend(f,m){if(!f||!f.bend)return m;var t=m.position.clone().sub(f.p[0]).dot(f.d),k=Math.abs(t-f.bend.at)<=.015?.5:t>f.bend.at?1:0;if(!k)return m;
+   var q=k<1?new T.Quaternion().slerp(f.bend.turn,k):f.bend.turn;m.position.sub(f.bend.pivot).applyQuaternion(q).add(f.bend.pivot);m.quaternion.premultiply(q);return m}
   // Each placed part of a member: its box in the member's frame (m, from the middle along; across X and Y) and its row.
   function placedOf(c){
    var id=String(c.id||"");if(upperCache.has(id))return upperCache.get(id);
@@ -1899,6 +1900,14 @@ window.irThreeSchemeView=(function(){
       box.shape=pp.map(function(q){return[sg*(q[0]-am)*ka/1000,-(q[1]-cm)*kc/1000]})}}
     if(capC!==null)box.cap=true;if(lie!==null)box.lie=lie;
     if(dep){box.d=(dep[0]+dep[1])/2000;box.dk=true;if(r.cut)box.cut=true}
+    // (a plate across in a cut, its outline cut to a shape — ГПЭС В112 «5» at the ridge, its corners off on the side out
+    // past the flange —: that outline across and into the view, to the sizes of its row, its thickness along)
+    if(dep&&r.cut&&sh.kind==="plate"&&Array.isArray(r.cut_poly)&&r.cut_poly.length>=3&&Math.abs(sz[0]-sh.t)<=1){
+     var cq=r.cut_poly.map(function(q){return[-number(q[0]),number(q[1])]}),cx0=Math.min.apply(null,cq.map(function(q){return q[0]})),cx1=Math.max.apply(null,cq.map(function(q){return q[0]})),
+      cy0=Math.min.apply(null,cq.map(function(q){return q[1]})),cy1=Math.max.apply(null,cq.map(function(q){return q[1]})),car=0;
+     cq.forEach(function(q,i){var n2=cq[(i+1)%cq.length];car+=q[0]*n2[1]-n2[0]*q[1]});car=Math.abs(car)/2;
+     if(cx1-cx0>=2&&cy1-cy0>=2&&car<=.95*(cx1-cx0)*(cy1-cy0)){var kx=sz[1]/(cx1-cx0),ky=sz[2]/(cy1-cy0),xm=(cx0+cx1)/2,ym=(cy0+cy1)/2;
+      box.cutShape=cq.map(function(q){return[(q[0]-xm)*kx/1000,(q[1]-ym)*ky/1000]})}}
     var oa=dep||lie!==null?null:otherAxis(r);if(oa){box.d=-oa/1000;box.dk=true;box.beside=true}
     // (the same part on a view of the other face there: its place that way)
     var same=out.filter(function(o){return o.pos===box.pos&&o.acrossX!==box.acrossX&&Math.abs(o.a-box.a)<=Math.max(o.sa,box.sa)/2+.01})[0];
@@ -1930,7 +1939,7 @@ window.irThreeSchemeView=(function(){
     if(o.lie!==undefined){var Lh=o.sd*Math.cos(o.lie);o.d=s*(hy-Lh/2);o.dk=true;o.rise=-s;return}
     if(o.d!==0||o.dk)return;var gap=Math.abs(e.d)-e.sd/2-hy,t=o.sh.t/1000;if(!(gap>0)||Math.abs(gap-t)>.006)return;
     var L=number(o.row.length_mm)/1000,W=o.sh.b/1000,big=Math.max(L,W),small=Math.min(L,W);if(!(big>0&&small>0))return;
-    o.d=s*(hy+gap/2);o.dk=true;o.gap=true;o.sd=t;o.c=e.c;o.shape=null;if(big<=e.sc+.005){o.sc=big;o.sa=small}else{o.sc=small;o.sa=big}});
+    o.d=s*(hy+gap/2);o.dk=true;o.gap=true;o.sd=t;o.c=e.c;o.shape=null;o.cutShape=null;if(big<=e.sc+.005){o.sc=big;o.sa=small}else{o.sc=small;o.sa=big}});
    // (an angle face-on on the view of a flange across the body, its depth not known there, a plate placed out past the
    // section on one side over the same length on the other view — the seat «3» L180×10 220 of ГПЭС К176 on «Вид А», its
    // rib «4» −165×6 on the view of the web, «2 - 2» —: on the face of that flange, its leg out over the rib)
@@ -1974,7 +1983,7 @@ window.irThreeSchemeView=(function(){
    // (not one a cut shows: the cut draws each; a rib — on the other side of the web however near it)
    out.slice().forEach(function(o){if(!more(o)||o.cut||o.cap||o.gap||o.lie!==undefined||!o.rib&&Math.abs(o.c)<o.sc/2+.005||o.rib&&o.c===0)return;
     if(out.some(function(e){return e.pos===o.pos&&e.acrossX===o.acrossX&&Math.abs(e.a-o.a)<=.01&&Math.abs(e.c+o.c)<=.02}))return;
-    out.push(Object.assign({},o,{c:-o.c},o.shape?{shape:o.shape.map(function(q){return[q[0],-q[1]]})}:{}));count.set(o.pos,count.get(o.pos)+1)});
+    out.push(Object.assign({},o,{c:-o.c},o.shape?{shape:o.shape.map(function(q){return[q[0],-q[1]]})}:{},o.cutShape?{cutShape:o.cutShape.map(function(q){return[-q[0],q[1]]})}:{}));count.set(o.pos,count.get(o.pos)+1)});
    out.slice().forEach(function(o){if(!more(o)||o.cut||o.beside||o.cap||o.gap||o.lie!==undefined||o.d===0)return;
     if(out.some(function(e){return e.pos===o.pos&&e.acrossX===o.acrossX&&Math.abs(e.a-o.a)<=.01&&Math.abs(e.c-o.c)<=.01&&Math.abs(e.d+o.d)<=.005}))return;
     out.push(Object.assign({},o,{d:-o.d}));count.set(o.pos,count.get(o.pos)+1)});
@@ -2057,6 +2066,10 @@ window.irThreeSchemeView=(function(){
     b.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(f.d,A,f.d.clone().cross(A)));
     // (a plate lying sloped: turned about the way across, its end on the side it rises to up)
     if(o.lie){var sB=f.d.clone().cross(A).dot(B)>=0?1:-1;b.quaternion.multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(0,1,0),o.lie*sB*(o.rise||1)))}
+    // (its outline in a cut: across and into the view, its thickness along)
+    if(o.cutShape&&o.cutShape.length>=3){var cs=new T.Shape();o.cutShape.forEach(function(q,i){if(i)cs.lineTo(q[0],q[1]);else cs.moveTo(q[0],q[1])});cs.closePath();
+     var cm=new T.Mesh(new T.ExtrudeGeometry(cs,{depth:o.sa,steps:1,bevelEnabled:false,curveSegments:1}),mat),zc=A.clone().cross(B);
+     cm.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(A,B,zc));cm.position.copy(ctr).sub(zc.clone().multiplyScalar(o.sa/2));put(cm);return}
     // (its outline drawn: that shape, its thickness into the view)
     if(o.shape&&o.shape.length>=3){var ps=new T.Shape();o.shape.forEach(function(q,i){if(i)ps.lineTo(q[0],q[1]);else ps.moveTo(q[0],q[1])});ps.closePath();
      var em=new T.Mesh(new T.ExtrudeGeometry(ps,{depth:o.sd,steps:1,bevelEnabled:false,curveSegments:1}),mat),zz=f.d.clone().cross(A);
