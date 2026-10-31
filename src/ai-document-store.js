@@ -3,8 +3,10 @@
 const fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypto");
 const EXTENSIONS=new Set([".pdf",".dxf",".dwg",".png",".jpg",".jpeg",".tif",".tiff"]);
 const MAX_FILE_BYTES=200*1024*1024,MAX_FILES=30;
-// The engineer states the kind of each drawing; it decides what the montage steps read from it.
-const KINDS=["КМ","КМД сборочные","КМД монтажные","АР","ТХ","Не анализировать"];
+// The engineer states the kind of each drawing; it decides what the montage steps read from it. КМД is one kind: its
+// montage and assembly sheets the program tells apart itself, sheet by sheet (the engineer, 31.10.2026). A file given
+// one of the two old kinds before shows as КМД; the old kind stays in it as a hint for its sheets that say nothing.
+const KINDS=["КМ","КМД","АР","ТХ","Не анализировать"],LEGACY={"КМД сборочные":"КМД","КМД монтажные":"КМД"};
 function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefined}){
  if(typeof getUserDataPath!=="function"||!database)throw Error("AI document store needs local userData and database");
  const root=()=>path.join(getUserDataPath(),"ir-project-ai","objects");
@@ -23,7 +25,7 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   const data=row.data||{};let exists=false;
   try{exists=fs.statSync(safeFile(id,data.stored_name)).isFile()}catch{}
   return{id:row.id,name:String(data.original_name||row.title||""),
-   kind:KINDS.includes(data.kind)?data.kind:"Не определён",
+   kind:LEGACY[data.kind]||(KINDS.includes(data.kind)?data.kind:"Не определён"),...(LEGACY[data.kind]?{kindHint:data.kind}:{}),
    ext:String(data.extension||""),size:Number(data.size)||0,
    sha256:String(data.sha256||""),addedAt:row.created_at,exists,
    pages:Number(data.page_count)||null,excluded:Array.isArray(data.excluded_pages)?data.excluded_pages:[],
@@ -34,9 +36,9 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   if(!Array.isArray(items)||items.length>2000)throw Error("Некорректный список документов");
   let changed=0;
   for(const item of items){
-   if(!KINDS.includes(item?.kind))throw Error("Неизвестный тип чертежа: "+String(item?.kind||""));
+   if(!KINDS.includes(item?.kind)&&!LEGACY[item?.kind])throw Error("Неизвестный тип чертежа: "+String(item?.kind||""));
    const row=record(id,item.id);
-   if(row.data?.kind===item.kind)continue;
+   if(row.data?.kind===item.kind||LEGACY[row.data?.kind]===item.kind)continue;
    database.updateEntity(id,"ai-documents",row.id,{record_type:row.record_type,title:row.title,data:{...row.data,kind:item.kind}});changed++
   }
   return{changed,documents:list(id)}
@@ -87,7 +89,7 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   stream.on("end",()=>resolve(hash.digest("hex")))
  })}
  async function select(id,kind="Не определён"){
-  id=objectId(id);kind=KINDS.includes(kind)?kind:"Не определён";
+  id=objectId(id);kind=LEGACY[kind]||(KINDS.includes(kind)?kind:"Не определён");
   const chosen=await dialog.showOpenDialog(getWindow(),{
    title:"Добавить чертежи в IR Project AI",properties:["openFile","multiSelections"],
    filters:[{name:"Строительные чертежи",extensions:[...EXTENSIONS].map(x=>x.slice(1))}]

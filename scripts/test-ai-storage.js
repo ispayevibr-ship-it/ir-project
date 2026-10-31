@@ -24,7 +24,7 @@ const {createStore}=require("../src/ai-document-store");
  try{
   assert.deepEqual(store.list(1),[]);
   assert.throws(()=>store.list("../1"),/Объект/);
-  const first=await store.select(1,"КМД");assert.equal(dialogCalls,1);
+  const first=await store.select(1,"Чертёж");assert.equal(dialogCalls,1);
   assert.equal(first.imported.length,1);
   assert.equal(first.imported[0].kind,"Не определён","the drawing kind is chosen after import");
   assert.match(first.imported[0].sha256,/^[a-f0-9]{64}$/);
@@ -35,8 +35,14 @@ const {createStore}=require("../src/ai-document-store");
   assert.equal(duplicate.imported.length,0);assert.equal(duplicate.skipped.length,1);
   assert.equal(store.list(1).length,1);
   const id=first.imported[0].id;
+  // КМД is one kind (31.10.2026): its montage and assembly sheets the program tells apart; a file given an old kind
+  // shows as КМД and keeps the old one as the hint for its sheets that say nothing
   const kinds=store.setKinds(1,[{id,kind:"КМД сборочные"}]);
-  assert.deepEqual([kinds.changed,kinds.documents[0].kind],[1,"КМД сборочные"]);
+  assert.deepEqual([kinds.changed,kinds.documents[0].kind,kinds.documents[0].kindHint],[1,"КМД","КМД сборочные"]);
+  assert.equal(store.setKinds(1,[{id,kind:"КМД"}]).changed,0,"the same КМД — the hint stays");
+  assert.equal(store.list(1)[0].kindHint,"КМД сборочные");
+  assert.equal(store.setKinds(1,[{id,kind:"КМ"}]).documents[0].kind,"КМ");
+  const one=store.setKinds(1,[{id,kind:"КМД"}]).documents[0];assert.deepEqual([one.kind,one.kindHint],["КМД",undefined]);
   assert.throws(()=>store.setKinds(1,[{id,kind:"Чертёж"}]),/Неизвестный тип/);
   assert.throws(()=>store.setKinds(2,[{id,kind:"КМ"}]),/не найден/,"kinds cannot be changed across objects");
   const excluded=store.setExcluded(1,id,[3,1,3]);

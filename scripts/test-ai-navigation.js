@@ -15,7 +15,7 @@ for(const f of ["src/app.js","src/ir-runtime.js"])assert(files[f].includes('if(k
 assert(files["src/object-shell.js"].includes('makeButton("ИИ-распознавание","ai-recognition"'),"sidebar route");
 assert(files["src/tabs-shell.js"].includes('"ai-recognition":"ИИ-распознавание"'),"tab naming");
 assert(files["src/access.js"].includes('"ai-recognition"'),"role configuration");
-assert(files["src/index.html"].includes('ai-recognition-page.js?v=1107200'),"UI script loads");
+assert(files["src/index.html"].includes('ai-recognition-page.js?v=1111600'),"UI script loads");
 assert(files["src/index.html"].includes('ai-recognition-page.css?v=1111000'),"module css loads");
 assert(files["src/index.html"].includes('ai-model-settings.js?v=191690'),"Claude settings loaded");
 // Sub-pages: drawings, analysis, Claude, placement, journal.

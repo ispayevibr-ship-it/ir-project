@@ -5,7 +5,7 @@
  * 2. process: Claude decides which schemes to place, element kinds and heights;
  * 3. place: grid and elements are written into the montage scheme in one batch, with undo.
  */
-const {sheetTitleKind}=require("./ai-kmd-rules");
+const {sheetTitleKind,isKmd,kmdFileTypes,kmdSetTypes,KMD_ASSEMBLY,KMD_BY}=require("./ai-kmd-rules");
 const ST=require("./ai-structure-types");
 const {buildPlan,buildCatalog,markKey,normMark,cumulative,volumeOf}=require("./ai-montage-plan");
 const {createProjectKnowledge,cardsFromPages,gradeOf}=require("./ai-project-kb");
@@ -25,9 +25,11 @@ const KIND_NAME={columns:"Колонна",fahwerk:"Стойка фахверка
  column:"Колонна",beam:"Балка",bent:"Балка",brace:"Связь",truss:"Ферма",shell:"Стенка резервуара",plate:"Площадка"};
 // Version of the reading rules: an analysis made by older rules is flagged, so that the engineer runs it again
 // after an update (the result of step 1 is stored and is not recomputed by itself).
-const ANALYZER="2026-10-30.10";
+const ANALYZER="2026-10-31.1";
 // АР (architecture) and ТХ (technology) sheets are read for context: Claude places what of them is mounted.
-const LOG_LIMIT=200,TYPES=["КМ","КМД сборочные","КМД монтажные","АР","ТХ"];
+// (КМД — one kind: the program tells its montage and assembly sheets apart, sheet by sheet — kmdSheetType; the two old
+// kinds of a file are still read, as the engineer's hint for its sheets that say nothing)
+const LOG_LIMIT=200,TYPES=["КМ","КМД","КМД сборочные","КМД монтажные","АР","ТХ"];
 // Sheets per Claude request; larger sets are sent in several requests.
 const BATCH_IMAGES=8,ELEMENT_LIMIT=700,CONTEXT_BUDGET=40000,MAX_ANSWER_TOKENS=64000,AI_PARALLEL=2;
 const SYSTEM=`Ты инженер-конструктор КМ/КМД. Программа уже разобрала PDF-комплект по геометрии; то, что она нашла, дано списком с номерами i. Твоя задача — определить по листам ВСЁ, что ставится на монтажную схему металлоконструкций, будь то каркас здания, эстакада или резервуар, и вернуть это так, чтобы программа расставила элементы сама.
@@ -224,7 +226,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
     schemes:plan.schemes,problems:plan.problems,ready:plan.ready},
    journal:{
     files:(data.source?.documents||[]).map(d=>({name:d.name,type:d.type||"",pages:d.pages,schemes:d.schemes||0,marks:d.marks||0})),
-    sheets:(data.pages||[]).map(p=>({page:p.page,file:p.sourceName||"",sheet:p.pdfPage||p.page,docType:p.docType||"",kind:PAGE_KINDS[pageKind(p)],
+    sheets:(data.pages||[]).map(p=>({page:p.page,file:p.sourceName||"",sheet:p.pdfPage||p.page,docType:p.docType||"",docTypeBy:p.docTypeBy?KMD_BY[p.docTypeBy]||"":"",kind:PAGE_KINDS[pageKind(p)],
      name:p.sheet?.stamp?.name||(p.context?.titles||[])[0]||"",stamp:stampLine(p.sheet?.stamp),schemes:(p.schemes||[]).filter(s=>!s.error).map(s=>s.title),
      views:(p.sheet?.views||[]).length,levels:p.sheet?.levelCount||0,noText:Boolean(p.noText),ocr:Number(p.ocr)||0,
      sections:(p.sections||[]).length,elevations:(p.schemes||[]).filter(s=>s.kind==="elevation").length,
@@ -337,15 +339,17 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    try{
     const result=await drafts.scan(oid,file.id,point=>onProgress({objectId:oid,step:"analyze",file:i+1,files:files.length,name:file.name,page:point.page,total:point.total,ocr:point.ocr===true,
      ...(point.paused?{paused:true,done:read.size+point.done}:{})}),[...(file.excluded||[]),...read],gate);
-    const type=file.kind;
+    const type=isKmd(file.kind)?"КМД":file.kind;
     // Sheets are numbered through the whole set; the PDF page is kept for rendering.
     const own=result.pages.map((p,k)=>({...p,page:pages.length+k+1,pdfPage:p.page,documentId:file.id,sourceName:file.name,docType:type}));
     pages.push(...own);fresh.push(...own);
     const mine=pages.filter(p=>String(p.documentId)===String(file.id));
+    // A КМД: each sheet montage or assembly by itself, the rest by the file (with the sheets read before a stop)
+    if(type==="КМД")kmdFileTypes(mine,{name:file.name,hint:file.kindHint||(file.kind!=="КМД"?file.kind:"")}).forEach((t,k)=>{mine[k].docType=t.type||"КМД монтажные";mine[k].docTypeBy=t.by});
     if(!mine.length&&!result.stopped){failed.push({documentId:file.id,name:file.name,error:"Все листы сняты с анализа"});continue}
     if(mine.length){
      const entry={documentId:file.id,name:file.name,sha256:result.source?.sha256||sources[had]?.sha256||"",pages:mine.length,type,
-      schemes:type==="КМД сборочные"?0:mine.reduce((n,p)=>n+(p.schemes||[]).filter(s=>!s.error).length,0),
+      schemes:mine.reduce((n,p)=>n+(p.docType===KMD_ASSEMBLY?0:(p.schemes||[]).filter(s=>!s.error).length),0),
       marks:new Set(mine.flatMap(p=>(p.sheet?.views||[]).flatMap(v=>v.marks))).size,...(result.stopped?{partial:true}:{})};
      if(had>=0)sources[had]=entry;else sources.push(entry);
      touched.push(entry)
@@ -353,11 +357,17 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
     if(result.stopped){stopped={file:i+1,files:files.length,name:file.name,sheets:mine.length};break}
    }catch(error){failed.push({documentId:file.id,name:file.name,error:String(error.message||error)})}
   }
+  // (the КМД sheets nothing told: as most sheets of the set; the scheme counts of their files again)
+  if(pages.some(p=>p.docTypeBy==="default")){
+   kmdSetTypes(pages.filter(p=>p.docTypeBy));
+   for(const x of sources)if(x.type==="КМД")x.schemes=pages.filter(p=>String(p.documentId)===String(x.documentId)).reduce((n,p)=>n+(p.docType===KMD_ASSEMBLY?0:(p.schemes||[]).filter(s=>!s.error).length),0)
+  }
   if(!pages.length)throw Error(stopped?"Анализ остановлен до первого прочитанного листа — сохранять нечего":"Не удалось разобрать ни один PDF: "+failed.map(f=>f.name+" — "+f.error).join("; "));
   const name=sources.length===1?sources[0].name:sources.length+" PDF-файлов";
   const types={};for(const x of sources)types[x.type]=(types[x.type]||0)+1;
+  const kmdSheets=pages.filter(p=>p.docTypeBy),kmdAsm=kmdSheets.filter(p=>p.docType===KMD_ASSEMBLY).length;
   const text="Анализ PDF"+(kept?" (продолжение после остановки, прочитано листов "+fresh.length+")":"")+": файлов "+sources.length+" ("+Object.entries(types).map(([k,v])=>k+" — "+v).join(", ")+"), листов "+pages.length+
-   ", схем "+sources.reduce((n,x)=>n+x.schemes,0)+(skippedFiles?", не анализировались "+skippedFiles:"")+(failed.length?", не разобрано "+failed.length:"")+" · "+Math.round((Date.now()-started)/1000)+" с"+
+   (kmdSheets.length?" (КМД: монтажных "+(kmdSheets.length-kmdAsm)+", сборочных "+kmdAsm+" — определено по листам)":"")+", схем "+sources.reduce((n,x)=>n+x.schemes,0)+(skippedFiles?", не анализировались "+skippedFiles:"")+(failed.length?", не разобрано "+failed.length:"")+" · "+Math.round((Date.now()-started)/1000)+" с"+
    (stopped?" · остановлен инженером на файле "+stopped.file+" из "+stopped.files+" («"+stopped.name+"»), прочитанное сохранено — можно продолжить":"");
   // (stopped: the files of the run, to continue with the same ones; a continued analysis asks Claude anew)
   const halt=stopped?{at:new Date().toISOString(),...stopped,documents:files.map(d=>d.id)}:null;

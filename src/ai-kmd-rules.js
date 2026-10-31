@@ -87,4 +87,65 @@ function schemeTitleKind(title){
  if(/балок|балк|ригел|прогон|покрыт|перекрыт|путей|ферм|распор|площад|фонар|настил/.test(t))return"beam";
  return null
 }
-module.exports={MIXED_CODES,MARK_CODES,KIND_BY_CODE,markCode,prefixOf,sheetTitleKind,schemeTitleKind};
+// ---- A sheet of a КМД: montage or assembly, by the sheet itself (the engineer, 31.10.2026: «объедини кмд монтажные и
+// сборочные в одно, сделай так чтобы программа их сама различала»). One file often holds both: the montage schemes М1.x
+// and the drawings of the shipping marks. "КМД монтажные" — the montage schemes (М1, М1.1 … of the stamp or the sheet
+// number), the general data, the lists of marks and elements, nodes and sections, a scheme with axes; "КМД сборочные" —
+// the drawing of a shipping mark («Требуется изготовить», «Спецификация на отправочную марку», the views of a mark with
+// its parts); null — the sheet says nothing (lettering as curves, a sheet of notes): the file and the set decide.
+const KMD_MOUNTING="КМД монтажные",KMD_ASSEMBLY="КМД сборочные";
+const KMD_LEGACY=new Set([KMD_MOUNTING,KMD_ASSEMBLY]);
+const isKmd=kind=>kind==="КМД"||KMD_LEGACY.has(kind);
+// (М1, М1.1, M2.3 — a montage sheet's number in the stamp's name or in its sheet field; С1 — the specification of the set)
+const MOUNT_NO=/(?:^|[\s·,;(])[МM]\s?\d+(?:\.\d+)*(?=$|[\s·,;)])/u;
+const MOUNT_NO_DOTTED=/(?:^|[\s·,;(])[МM]\s?\d+(?:\.\d+)+(?=$|[\s·,;)])/u;
+function kmdSheetType(p){return kmdEvidence(p).strong}
+// {strong, weak}: what decides the sheet by itself, and what only leans (the text «Требуется…» of the notes of a КМ
+// scheme, views titled by a mark on a montage sheet) — a lean counts when the file says nothing.
+function kmdEvidence(p){
+ const sheet=p?.sheet||{},st=sheet.stamp||{},name=String(st.name||""),no=String(st.block?.sheet||"").trim();
+ const titles=(p?.context?.titles||[]).join(" · "),titled=sheetTitleKind(name),text=String(p?.context?.text||"");
+ // (the titles of its drawings: «Схема расположения…», «Ведомость рабочих чертежей…» — the stamp is often unread)
+ const titleKinds=new Set((p?.context?.titles||[]).map(sheetTitleKind));
+ const schemes=(p?.schemes||[]).filter(s=>!s.error);
+ const out=(strong,weak)=>({strong:strong||null,weak:weak||strong||null});
+ // (a sheet number М1.1 decides; a bare «М1» may be the mark of an embedded part — after «Требуется изготовить»)
+ if(MOUNT_NO_DOTTED.test(name)||/^[МMСC]\s?\d/u.test(no)||titled==="montage")return out(KMD_MOUNTING);
+ if(titleKinds.has("montage")||/монтажн[а-яё]*\s+схем|схем[аы]\s+(?:монтажн|расположения)/iu.test(titles))return out(KMD_MOUNTING);
+ const views=(sheet.views||[]).some(v=>v.marks?.length),parts=(sheet.spec||[]).some(x=>x.parts?.length);
+ if(sheet.required?.length||/спецификация\s+на\s+отправочн/iu.test(titles+" "+text)||sheet.assemblyText&&(views||parts))return out(KMD_ASSEMBLY);
+ // (a grid of axes after «Требуется изготовить»: a node drawn on an assembly sheet can look like one)
+ if(MOUNT_NO.test(name)||schemes.some(s=>(s.axesX?.length||0)+(s.axesY?.length||0)>=3))return out(KMD_MOUNTING);
+ // (a stamp naming the elements of its marks — «Колонна К184, К185 · Спецификация металла», the second sheet of an
+ // assembly drawing — is not the specification of the set)
+ const named=/(?:колонн|балк|ригел|стойк|связ|ферм|прогон|лестниц|стремянк|площадк|огражден|кронштейн|марш|опор|распорк|подкос|сегмент|рам[аы])[а-яё]*\s+(?:[A-ZА-ЯЁ]{1,3}[-‐–]?\d)/iu.test(name);
+ if(!named&&(titled==="general"||titled==="list"||titleKinds.has("general")||/ведомость\s+(?:отправочных|марок|элементов)/iu.test(titles)))return out(KMD_MOUNTING);
+ if(views||parts||sheet.assemblyText||named)return out(null,KMD_ASSEMBLY);
+ if(schemes.length||titled==="section")return out(null,KMD_MOUNTING);
+ return out(null)
+}
+// The sheets of one КМД file (each its own kind when the sheet tells it; the rest as most sheets of the file, else as
+// the engineer gave the file before, else by its name (л.М1.4), else as the sheet leans, else unknown — the set
+// decides): [{type, by}] in their order.
+const KMD_BY={sheet:"по листу",file:"по другим листам файла",engineer:"как указал инженер",name:"по имени файла",set:"по комплекту",default:"не определён — как монтажный"};
+function kmdFileTypes(pages,{name="",hint=""}={}){
+ const ev=(pages||[]).map(kmdEvidence),own=ev.map(e=>e.strong),a=own.filter(t=>t===KMD_ASSEMBLY).length,m=own.filter(t=>t===KMD_MOUNTING).length;
+ const file=a>m?KMD_ASSEMBLY:m>a?KMD_MOUNTING:null;
+ const base=String(name).replace(/\.[a-z0-9]+$/i,"");
+ const named=MOUNT_NO.test(base.replace(/(?:^|[^А-ЯЁA-Z])л\.\s?(?=[МM]\d)/giu," "))||/монтаж|схем[аы]\s+(?:расположения|монтажн)/iu.test(base)?KMD_MOUNTING:
+  /сборочн|отправочн/iu.test(base)?KMD_ASSEMBLY:null;
+ return own.map((t,i)=>t?{type:t,by:"sheet"}:file?{type:file,by:"file"}:KMD_LEGACY.has(hint)?{type:hint,by:"engineer"}:named?{type:named,by:"name"}:
+  ev[i].weak?{type:ev[i].weak,by:"sheet"}:{type:null,by:"default"})
+}
+// What is still unknown takes the kind most sheets of the set have; with none, a montage sheet (it is placed, and the
+// image goes to Claude). pages: the КМД sheets of the set with {docType, docTypeBy}; changes them in place.
+function kmdSetTypes(pages){
+ const known=(pages||[]).filter(p=>p.docTypeBy&&p.docTypeBy!=="default"&&p.docTypeBy!=="set");
+ const a=known.filter(p=>p.docType===KMD_ASSEMBLY).length,m=known.length-a;
+ for(const p of pages||[])if(p.docTypeBy==="default"||p.docTypeBy==="set"){
+  if(a>m){p.docType=KMD_ASSEMBLY;p.docTypeBy="set"}else{p.docType=KMD_MOUNTING;p.docTypeBy=m>a?"set":"default"}
+ }
+ return pages
+}
+module.exports={MIXED_CODES,MARK_CODES,KIND_BY_CODE,markCode,prefixOf,sheetTitleKind,schemeTitleKind,
+ KMD_MOUNTING,KMD_ASSEMBLY,KMD_LEGACY,KMD_BY,isKmd,kmdSheetType,kmdEvidence,kmdFileTypes,kmdSetTypes};

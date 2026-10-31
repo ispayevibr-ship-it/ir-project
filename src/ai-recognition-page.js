@@ -62,7 +62,9 @@ window.irAiRecognitionPage=async function(objectId){
  function go(next){tab=next;try{localStorage.setItem(tabKey,next)}catch{}render();if(next==="drawings")loadSheets(selected)}
 
  // ---- Drawings: kind of every PDF and the sheets taken into the analysis.
- const KINDS=["КМ","КМД сборочные","КМД монтажные","АР","ТХ","Не анализировать"];
+ // (КМД — one kind: its montage and assembly sheets the program tells apart itself, sheet by sheet; the engineer,
+ // 31.10.2026: «объедини кмд монтажные и сборочные в одно, сделай так чтобы программа их сама различала»)
+ const KINDS=["КМ","КМД","АР","ТХ","Не анализировать"];
  const typed=d=>KINDS.includes(d.kind);
  const kindSelect=(attr,value,placeholder)=>'<select '+attr+' '+(busy||!canEdit?'disabled':'')+'>'+(placeholder?'<option value="">'+esc(placeholder)+'</option>':'')+
   KINDS.map(k=>'<option value="'+esc(k)+'" '+(k===value?'selected':'')+'>'+esc(k)+'</option>').join("")+'</select>';
@@ -144,7 +146,7 @@ window.irAiRecognitionPage=async function(objectId){
    (pdfs.length?pdfs.map(d=>'<tr class="'+(String(d.id)===String(selected)?'sel ':'')+(typed(d)?'':'warn')+'" data-ms-select="'+d.id+'">'+(canEdit?'<td><input type="checkbox" data-ms-pick="'+d.id+'" '+(picked.has(String(d.id))?'checked':'')+'></td>':'')+'<td title="'+esc(d.name)+'">'+esc(d.name)+'</td>'+
     '<td>'+kindSelect('data-ms-kind="'+d.id+'"',typed(d)?d.kind:"","не выбран")+'</td><td>'+workSelect('data-ms-work="'+d.id+'"',workOf(d),"не выбран")+'</td><td>'+sheetCount(d)+'</td>'+
     '<td>'+(canEdit?'<button class="link" data-ms-remove="'+d.id+'" title="Удалить из IR Project AI">✕</button>':'')+'</td></tr>').join(""):
-    '<tr><td colspan="6" class="muted">Загрузите PDF чертежей: КМ, КМД сборочные, КМД монтажные, АР, ТХ.</td></tr>')+'</tbody></table></div>'+
+    '<tr><td colspan="6" class="muted">Загрузите PDF чертежей: КМ, КМД, АР, ТХ. Монтажные и сборочные листы КМД программа различает сама.</td></tr>')+'</tbody></table></div>'+
    '<p class="ir-ms-note">'+(missing?'<b class="bad">Без типа: '+missing+'</b> · ':'')+Object.entries(counts).map(([k,v])=>esc(k)+' — '+v).join(" · ")+'</p>'+
    (pdfs.length?'<p class="ir-ms-note">'+(works.length?'Вид работ — под каким видом работ объекта элементы чертежа встанут в монтажную схему (там можно смотреть все виды вместе или каждый отдельно). Не выбран — «Монтаж металлоконструкций (из PDF)».':'У объекта нет видов работ: элементы встанут под «Монтаж металлоконструкций (из PDF)». Свои виды работ добавляются в разделе «Виды работ».')+'</p>':'')+'</div>';
   let sheets='<div class="ir-ms-pane ir-ms-sheets"><p class="muted">Выберите файл слева.</p></div>';
@@ -211,7 +213,7 @@ window.irAiRecognitionPage=async function(objectId){
   const sheetsTotal=files.reduce((n,d)=>{const c=sheetCache.get(String(d.id));const total=c?.sheets?.length||d.pages||0;return n+Math.max(0,total-(c?.excluded?c.excluded.size:(d.excluded||[]).length))},0);
   const types={};for(const d of files)types[d.kind]=(types[d.kind]||0)+1;
   let body='<p>Файлов на анализ: <b>'+files.length+'</b> ('+Object.entries(types).map(([k,v])=>esc(k)+' — '+v).join(", ")+')'+(sheetsTotal?' · отмечено листов: '+sheetsTotal:'')+'</p>'+
-   '<p class="muted">Из КМД монтажных — оси, координаты и марки; из КМД сборочных — отметки низа и верха, длины и количество марок; из КМ — схемы и профили. Без интернета.</p>';
+   '<p class="muted">В КМД программа сама различает листы: из монтажных — оси, координаты и марки; из сборочных — отметки низа и верха, длины и количество марок (что определено — видно в журнале, «Листы»). Из КМ — схемы и профили. Без интернета.</p>';
   if(running("analyze"))body+=wait("Разбираем PDF…")+stopBar("analyze");
   else body+='<div class="ir-ms-row"><button class="primary" data-ms-analyze '+(busy||!canEdit||!files.length||missing?'disabled':'')+'>'+(view?'Анализировать заново':'Анализировать')+'</button>'+
    (missing?'<span class="ir-ms-hint">Укажите тип для всех чертежей на странице «Чертежи»</span>':'')+'</div>';
@@ -397,7 +399,7 @@ window.irAiRecognitionPage=async function(objectId){
   const marks=j.catalog.filter(c=>matches(c.mark,c.doc,c.profile,(c.sources||[]).join(" ")));
   const elements=j.elements.filter(e=>matches(e.mark,e.group,e.profile,e.file));
   const files=j.files.map(f=>'<tr><td>'+esc(f.name)+'</td><td><b>'+esc(f.type)+'</b></td><td>'+f.pages+'</td><td>'+f.schemes+'</td><td>'+f.marks+'</td></tr>');
-  const sheets=j.sheets.map(p=>'<tr><td>'+p.page+'</td><td>'+esc(p.file)+', стр. '+p.sheet+(p.stamp?'<small>'+esc(p.stamp)+'</small>':'')+'</td><td>'+esc(p.docType)+'</td><td>'+esc(p.kind)+'</td><td>'+esc(p.name)+
+  const sheets=j.sheets.map(p=>'<tr><td>'+p.page+'</td><td>'+esc(p.file)+', стр. '+p.sheet+(p.stamp?'<small>'+esc(p.stamp)+'</small>':'')+'</td><td>'+esc(p.docType)+(p.docTypeBy?'<small>'+esc(p.docTypeBy)+'</small>':'')+'</td><td>'+esc(p.kind)+'</td><td>'+esc(p.name)+
    (p.schemes.length?'<small>'+esc(p.schemes.join("; "))+'</small>':'')+(p.sections?'<small>разрезы: '+p.sections+' марок с отметками</small>':'')+
    (p.noText?(p.ocr?'<small>Текст в кривых — прочитан OCR: '+p.ocr+' надп.; проверьте, лист также уйдёт Claude</small>':'<small class="ir-ms-error">Текст в кривых — локально не читается, лист прочитает только Claude</small>'):'')+'</td><td>'+(p.views||"")+'</td>'+
    // The journal of the sheet: time, axes, marks, elements found and placed, errors, calibration of its plans.
