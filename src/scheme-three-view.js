@@ -4260,7 +4260,23 @@ window.irThreeSchemeView=(function(){
    };
    var tube=function(radius){var g=new T.CylinderGeometry(radius,radius,1,24,1,false);g.rotateX(Math.PI/2);g.translate(0,0,.5);return g};
    var disc=function(radius,thick){var g=new T.CylinderGeometry(radius,radius,thick,28);g.rotateX(Math.PI/2);return g};
-   if(type==="rod"){along(tube(.02),start,len)}
+   // A lightning rod (молниеприёмник стержневой): a steel pipe from its foot and above it a thinner rod with a sharpened
+   // end, the rod in a sleeve at the top of the pipe — not one bar of one thickness (the engineer, 31.10.2026, Т-15 of a
+   // mast: «молниеприемник вот так выглядит, а не как колонна»). lay.rod as its sheet draws it: lower_mm (the pipe from
+   // the foot), d_lower_mm, d_upper_mm, tip_mm; without — the pipe 60 % of its length, Ø60 and Ø20 (conventional:
+   // a picture of its kind, not a section). A short one (under 1.2 m, on a tank roof) — one bar as before.
+   if(type==="rod"){
+    if(len<1.2)along(tube(.02),start,len);
+    else{
+     var rl=c.lay&&c.lay.rod||{},rlo=number(rl.lower_mm)/1000,low=Math.min(len*.9,rlo>.1?rlo:len*.6);
+     var rLow=Math.max(.012,(number(rl.d_lower_mm)||60)/2000),rUp=Math.max(.006,Math.min(rLow*.7,(number(rl.d_upper_mm)||20)/2000));
+     var tip=Math.min((len-low)*.3,Math.max(.05,(number(rl.tip_mm)||150)/1000)),cone=new T.CylinderGeometry(0,1,1,16);cone.rotateX(Math.PI/2);cone.translate(0,0,.5);
+     var at=function(u){return start.clone().add(dir.clone().multiplyScalar(u))};
+     along(tube(rLow),start,low);along(tube(rLow*1.3),at(low-.08),.08);
+     along(tube(rUp),at(low),len-low-tip);
+     var tm=along(cone,at(len-tip),tip);tm.scale.x=tm.scale.y=rUp
+    }
+   }
    // Bolts of a joint: as many as the list gives, round the joint point — a shank and a hexagonal head.
    else if(type==="bolt"){
     var nb=Math.max(1,Math.min(24,number(c.lay&&c.lay.count)||2)),rb=Math.max(.006,(number(c.fd)||20)/2000);
