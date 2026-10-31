@@ -509,6 +509,25 @@ function postsFrameOf(f,segments,along,toZ,labelled,cx,flatLabelled){
 // Wall girts and the like are often marked without a number («Рр», «Рн», «Рст»): such a word repeated on the sheet
 // (three times or more) is a mark of the elevation; ordinary short words are not.
 const NOT_WORD_MARK=/^(?:Поз|Вид|Ось|Оси|Узел|Лист|См|Гр|Кол|Отм|Шаг|Изм|Нет|Тип|Ряд|Для|Под|Над|Низ|Верх|Все|При|Или|Шт|Мм|Кг|Сеч|Ст)$/u;
+// A post on an elevation as far as it is drawn in its own weight: past its end a thin line on its line (0.3 pt at most,
+// half its weight or less) is the extension line of a dimension under it, not the post (ГПЭС М1.19, ось «Ж»: «К97»
+// between the rails at +7,380 and +8,720 read from +6,800 by the line of «1200» under the window; the engineer,
+// 31.10.2026: «также в воздухе вместе с метизами висит»).
+function thickEnds(line,segments,lines){
+ const len=Math.hypot(line.b.x-line.a.x,line.b.y-line.a.y);if(!(len>1)||!lines?.near)return line;
+ const u={x:(line.b.x-line.a.x)/len,y:(line.b.y-line.a.y)/len},at=t=>({x:line.a.x+u.x*t,y:line.a.y+u.y*t});
+ const thick=[],thin=[];
+ for(const i of lines.near(at(len/2),len/2+4)){
+  const s=segments[i],l=Math.hypot(s.b.x-s.a.x,s.b.y-s.a.y);if(l<1)continue;
+  const v={x:(s.b.x-s.a.x)/l,y:(s.b.y-s.a.y)/l};if(Math.abs(u.x*v.y-u.y*v.x)>.02||Math.abs(u.x*(s.a.y-line.a.y)-u.y*(s.a.x-line.a.x))>.8)continue;
+  const t1=(s.a.x-line.a.x)*u.x+(s.a.y-line.a.y)*u.y,t2=(s.b.x-line.a.x)*u.x+(s.b.y-line.a.y)*u.y,w=Number(s.w);
+  (w>0&&w<=.3?thin:thick).push({lo:Math.min(t1,t2),hi:Math.max(t1,t2),w})}
+ const wt=Math.max(0,...thick.map(p=>p.w).filter(w=>w>0));if(!thick.length||!thin.length||!(wt>=.45))return line;
+ const lo=Math.min(...thick.map(p=>p.lo)),hi=Math.max(...thick.map(p=>p.hi));
+ const past=(a,b)=>thin.some(p=>p.hi>a+.5&&p.lo<b-.5)&&thin.every(p=>p.w*1.8<=wt);
+ const t0=lo>.5&&past(0,lo)?Math.max(0,lo):0,t1=hi<len-.5&&past(hi,len)?Math.min(len,hi):len;
+ return t1-t0>=len-.01?line:{a:at(t0),b:at(t1)}
+}
 function extractElevations({segments=[],texts=[]}={},page=1){
  const aMarks=aMarksOn(texts);
  const counts=new Map();for(const t of texts){const s=String(t.str).trim();if(/^[А-ЯЁ][а-яё]{1,2}$/u.test(s)&&!NOT_WORD_MARK.test(s))counts.set(s,(counts.get(s)||0)+1)}
@@ -566,7 +585,8 @@ function extractElevations({segments=[],texts=[]}={},page=1){
    const tg=Math.abs(Number(t.angle)||0)<5?leaderTarget(t,segments,index,skip,lines):null;
    const led=tg&&tg.leader&&tg.diagonal&&tg.shelf&&!edgeOf(tg.segment,segments,lines),found=[];
    for(const target of led?[tg,...(tg.more||[]).filter(m=>!edgeOf(m.segment,segments,lines)).map(m=>({...tg,...m}))]:[{leader:false}]){
-    const line=memberLine(t,target,segments,lines,skip);if(!line)continue;
+    const line0=memberLine(t,target,segments,lines,skip);if(!line0)continue;
+    const line=Math.abs(line0.a.x-line0.b.x)<1.5?thickEnds(line0,segments,lines):line0;
     const a={u:along(line.a.x),z:toZ(line.a.y)},b={u:along(line.b.x),z:toZ(line.b.y)};
     // A rail drawn as one continuous line spans only the bay of its mark.
     if(Math.abs(line.a.y-line.b.y)<1.5){
@@ -612,4 +632,4 @@ function extractElevations({segments=[],texts=[]}={},page=1){
  }
  return schemes
 }
-module.exports={extractSections,extractElevations,schemeNotes,elevationTitles,bubbleRows,levelOf,levelOffset,placeLevels,fit};
+module.exports={extractSections,extractElevations,schemeNotes,elevationTitles,bubbleRows,levelOf,levelOffset,placeLevels,fit,thickEnds};

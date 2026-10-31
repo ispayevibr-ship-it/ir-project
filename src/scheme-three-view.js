@@ -1853,6 +1853,10 @@ window.irThreeSchemeView=(function(){
     if(Lb>.3&&f.L-Lb>=.02&&list.some(function(o){return Math.abs(o.a)+o.sa/2>Lb/2+.005}))out.top=out.foot=(f.L-Lb)/2;
     return out}
    var list=placedOf(c),Lb=number(list.body)/1000,sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);
+   // (a post with no base between two members, its body as long as its row, shorter than its record between their axes —
+   // ГПЭС К97, 1200 between the rails at +7,380 and +8,720 —: in the middle, off their faces)
+   if(noBase(c)){var Lr=0;(c.parts.rows||[]).forEach(function(r){var sh=partShape(r&&r.section);if(sh&&sh.kind==="rolled"&&sh.sec.shape===sec.shape&&Math.abs(sh.sec.h-sec.h)<1)Lr=Math.max(Lr,number(r.length_mm)/1000)});
+    if(Lr>.3&&f.L-Lr>=.02&&f.L-Lr<=.6){out.top=out.foot=(f.L-Lr)/2;out.beside=true;out.mid=true}return out}
    list.forEach(function(o){if(o.sh.kind!=="rolled"||o.sa<.3||o.sa<Math.max(o.sc,o.sd)*2)return;
     var hi=f.L/2-(o.a+o.sa/2),lo=o.a-o.sa/2+f.L/2;
     // (a part beside the body, its section clear of the body's — ГПЭС В132: the tube □160×5 by the flange of the I up to
@@ -1884,7 +1888,7 @@ window.irThreeSchemeView=(function(){
   // The rolled part standing on the top of a column (bodyCut): the highest of them.
   function upperPart(c){return c.place&&c.geometryType==="column"&&bodyCut(c).top>0?placedOf(c).filter(function(o){return o.sh.kind==="rolled"}).sort(function(a,b){return b.a-a.a})[0]||null:null}
   function addPlaced(c,parts){
-   var f=partFrame(c);if(!f)return;var list=placedOf(c);if(!list.length)return;var up=new T.Vector3(0,1,0);
+   var f=partFrame(c);if(!f)return;var list=placedOf(c);if(!list.length)return;var up=new T.Vector3(0,1,0),bc0=c.geometryType==="column"?bodyCut(c):null;
    list.forEach(function(o){
     var A=o.acrossX?f.X:f.Y,B=o.acrossX?f.Y:f.X,ctr=f.mid.clone().add(f.d.clone().multiplyScalar(o.a)).add(A.clone().multiplyScalar(o.c)).add(B.clone().multiplyScalar(o.d));
     var name=o.sh.kind==="angle"?"уголок":o.sh.kind==="rolled"?"профиль":"пластина",sec=String(o.row.section||"").trim(),mat=baseMaterial(c);
@@ -1903,7 +1907,9 @@ window.irThreeSchemeView=(function(){
      // (an angle within the section — between the flanges of an I by their edges, ГПЭС К26 «6» —: its heel at the edge,
      // out from the web; one out past it — the angle of a bracket, «7» — on the member)
      var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard),halfOf=function(v){return sec?(v===f.X?(sec.shape==="round"?sec.h:Math.max(sec.b,number(sec.b1))):sec.h)/2000:0};
-     var heel=rest.map(function(w){if(w[0].y>.7)return 1;if(w[0].y<-.7)return -1;var hw=halfOf(w[0]);
+     // (up — a seat —, but one at the foot of the body its leg there: the angles of a post at its ends to the rails, ГПЭС
+     // К97 «8» flush with the ends of the tube)
+     var heel=rest.map(function(w){if(w[0].y>.7)return bc0&&Math.abs(w[2]-w[1]/2-(bc0.foot-f.L/2))<=.015&&Math.abs(w[2]+w[1]/2-(f.L/2-bc0.top))>.015?-1:1;if(w[0].y<-.7)return -1;var hw=halfOf(w[0]);
       if(hw>0&&Math.abs(w[2])>.005&&Math.abs(w[2])+w[1]/2<=hw+.005)return w[2]>0?1:-1;return w[2]>0?-1:1});
      [0,1].forEach(function(k){var P=rest[k],Q=rest[1-k],leg=new T.Mesh(shared("plate:box",function(){return new T.BoxGeometry(1,1,1)}),mat);
       leg.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(W[0],P[0],W[0].clone().cross(P[0])));leg.scale.set(W[1],P[1],t);
@@ -2991,7 +2997,7 @@ window.irThreeSchemeView=(function(){
     if(c.geometryType==="column"&&segments.length===1){var bc=bodyCut(c),sg=segments[0],du=sg[1].clone().sub(sg[0]).normalize();
      if(bc.top>0||bc.foot>0){segments=[[sg[0].clone().add(du.clone().multiplyScalar(bc.foot)),sg[1].clone().sub(du.clone().multiplyScalar(bc.top))]];
       var topCut=bc.beside?endCuts(c).filter(function(q){return q.end===1})[0]:null;if(topCut)cutTop=segments[0][1].clone().add(du.clone().multiplyScalar(topCut.t/1000));
-      [[bc.top,segments[0][1],-1],[bc.foot,segments[0][0],1]].forEach(function(e){if(!(e[0]>0)||e[2]<0&&bc.beside)return;var hs=halfSection(c),jp=new T.Mesh(shared("plate:box",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(c));
+      [[bc.top,segments[0][1],-1],[bc.foot,segments[0][0],1]].forEach(function(e){if(!(e[0]>0)||e[2]<0&&bc.beside||bc.mid)return;var hs=halfSection(c),jp=new T.Mesh(shared("plate:box",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(c));
        jp.quaternion.copy(bodyQuat(c,du));jp.scale.set(2*hs.b+.04,2*hs.h+.04,.01);jp.position.copy(e[1]).add(du.clone().multiplyScalar(-e[2]*.005));jp.userData.plate=true;extra.push(partTag(jp,"плита стыка (условно)"))})}}
     // (a member with its joints' plates past the ends of its body: the body cut to its length, ends already cut counted)
     if(c.geometryType!=="column"&&segments.length===1&&c.place){var bk=bodyCut(c);
@@ -3174,7 +3180,17 @@ window.irThreeSchemeView=(function(){
   // +0.300 stands on a member (a post on a gate beam, its foot at the beam's top): its plate lies on that member, above
   // the foot — drawn under the foot it went into the beam's flange.
   var concreteMat=new T.MeshStandardMaterial({color:0xaeb3b8,roughness:.95}),pedestals=[];
-  function basePlated(c){return c.geometryType==="column"&&!hanging(c)&&!c.ft&&!(number(c.r)>0)&&!slight(c)&&!latticed(c)&&!(c.base&&c.base.step)}
+  function basePlated(c){return c.geometryType==="column"&&!hanging(c)&&!c.ft&&!(number(c.r)>0)&&!slight(c)&&!latticed(c)&&!(c.base&&c.base.step)&&!noBase(c)}
+  // A post standing on a member (its foot above +0.300) whose assembly sheet lists no base plate — a post of a window
+  // frame between two rails, fastened by angles at its ends (ГПЭС К97: Тр.□100×4 1200 and two L75×6 80, between the
+  // rails at +7,380 and +8,720; the engineer, 31.10.2026: «также в воздухе вместе с метизами висит» — a conditional
+  // plate with anchors under it): no base plate, no anchors, no cap; its ends are joints.
+  function noBase(c){
+   if(c.geometryType!=="column"||!(number(c.z0)>300)||c.base)return false;
+   var rows=c.parts&&Array.isArray(c.parts.rows)?c.parts.rows:[],sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);
+   if(rows.length<2||!sec||!rows.some(function(r){var sh=partShape(r&&r.section);return sh&&sh.kind==="rolled"&&sh.sec.shape===sec.shape&&Math.abs(sh.sec.h-sec.h)<1}))return false;
+   return basePlateT(c,sec)===0
+  }
   // The base plate its sheet draws in a cut at the foot (endCuts): as large and thick as drawn, an anchor in each of its
   // holes — as thick as the base sheet says, else a bolt of the sheet's list fitting its least hole, else conditional,
   // 3 mm less than that hole.
@@ -3555,7 +3571,7 @@ window.irThreeSchemeView=(function(){
    // (the foot of an upper part on the step of its column is the step: welded on the traverse, no base there)
    // (a space frame — a section of a mast, a guard, brackets — joins the next at its foot and top: no base of a column
    // with anchors of its own there, its plates and anchors are its bars)
-   cols.forEach(function(c){if(hanging(c))return;if(spaceFrame(c)){put("joint",number(c.x),number(c.y),number(c.z0),c,"низ",250);put("joint",number(c.x),number(c.y),number(topOf(c)),c,"верх",250);return}
+   cols.forEach(function(c){if(hanging(c))return;if(spaceFrame(c)||noBase(c)){put("joint",number(c.x),number(c.y),number(c.z0),c,"низ",250);put("joint",number(c.x),number(c.y),number(topOf(c)),c,"верх",250);return}
     put(c.base&&c.base.step?"step":"base",number(c.x),number(c.y),number(c.z0),c,c.base&&c.base.step?"на уступе":"низ",250);put("top",number(c.x),number(c.y),number(topOf(c)),c,"верх",250)});
    var onLine=function(x,y,z,self){
     var best=null,lying=null,seen=new Set();
