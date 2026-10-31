@@ -3872,13 +3872,17 @@ window.irThreeSchemeView=(function(){
    if(c.lay&&Array.isArray(c.lay.bars))c.lay.bars.forEach(function(m){if(Array.isArray(m)&&m.length>=6)out.push([[number(m[0]),number(m[1]),number(m[2])],[number(m[3]),number(m[4]),number(m[5])],String(m[6]||"member"),String(m[7]||""),Array.isArray(m[8])?m[8]:null])});
    return out
   }
-  var spaceRoles={leg:"пояс",brace:"раскос",strut:"распорка",post:"стойка",rail:"поручень",bracket:"уголок",plate:"пластина",anchor:"анкерный болт",member:"элемент"};
+  var spaceRoles={leg:"пояс",brace:"раскос",strut:"распорка",post:"стойка",rail:"поручень",bracket:"уголок",plate:"пластина",splice:"накладка",anchor:"анкерный болт",member:"элемент"};
   function addSpaceFrame(c,id){
    var list=spaceMembers(c);if(!list.length)return false;
    var x0=number(c.x),y0=number(c.y),z0=number(c.z0),up=new T.Vector3(0,1,0),mat=baseMaterial(c),parts=[];
    var at=function(q){return toWorld(x0+q[0],y0+q[1],z0+q[2])};
    list.forEach(function(m){
     var a=at(m[0]),b=at(m[1]),v=b.clone().sub(a),len=v.length();if(len<.01)return;
+    // (a bolt of its own, role "bolt": from the face of its package on the nut's side to that on the head's side, its
+    // diameter in its section «М16» — a bolt set of the base as in any joint; the splice of the legs of П-12 and П-16А,
+    // узел 3 and 2-2 of ПМС-18,4: the engineer, 31.10.2026, «где болтовое соединение?»)
+    if(m[2]==="bolt"){var bd=/(\d+)/.exec(String(m[3]||""));if(bd)addBolt(c,a.clone().add(b).multiplyScalar(.5),v,number(bd[1])/1000,len,"node");return}
     var dir=v.clone().normalize(),y=up.clone().sub(dir.clone().multiplyScalar(up.dot(dir)));
     // (an upright member — a leg, a post, a plate, an anchor — square to the faces of the frame: its sides along the
     // grid, as the legs of angles lie along the faces of a mast)
