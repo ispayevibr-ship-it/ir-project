@@ -538,22 +538,25 @@ function secondaryLines(segments,bbox,orient,labelled){
 }
 
 // Segments listed in every cell they cross, so that long member lines are found near a label.
+// Strokes shorter than minLength are kept apart (nearShort): a member's line is followed across them only where it goes
+// on behind them (growLine).
 function buildLineIndex(segments,minLength=6){
- const cell=24,grid=new Map();
+ const cell=24,grid=new Map(),small=new Map();
  segments.forEach((s,i)=>{
-  if(dist(s.a,s.b)<minLength)return;
+  const l=dist(s.a,s.b),g=l<minLength?small:grid;if(l<1&&g===small)return;
   const x0=Math.floor(Math.min(s.a.x,s.b.x)/cell),x1=Math.floor(Math.max(s.a.x,s.b.x)/cell),
    y0=Math.floor(Math.min(s.a.y,s.b.y)/cell),y1=Math.floor(Math.max(s.a.y,s.b.y)/cell);
   if((x1-x0+1)*(y1-y0+1)>400)return;
-  for(let gx=x0;gx<=x1;gx++)for(let gy=y0;gy<=y1;gy++){const k=gx+":"+gy;if(!grid.has(k))grid.set(k,[]);grid.get(k).push(i)}
+  for(let gx=x0;gx<=x1;gx++)for(let gy=y0;gy<=y1;gy++){const k=gx+":"+gy;if(!g.has(k))g.set(k,[]);g.get(k).push(i)}
  });
- return{near(p,r){
+ const near=g=>(p,r)=>{
   const out=new Set();
   for(let gx=Math.floor((p.x-r)/cell);gx<=Math.floor((p.x+r)/cell);gx++)
    for(let gy=Math.floor((p.y-r)/cell);gy<=Math.floor((p.y+r)/cell);gy++)
-    for(const i of grid.get(gx+":"+gy)||[])out.add(i);
+    for(const i of g.get(gx+":"+gy)||[])out.add(i);
   return[...out]
- }}
+ };
+ return{near:near(grid),nearShort:near(small)}
 }
 // Label centre and reading direction for text at any angle (top-down space, +90° reads upwards).
 function textFrame(t){
@@ -583,7 +586,7 @@ function growLine(seed,segments,lines,skip){
   if(skip.has(i))continue;const p=piece(i);if(!p||p.l>=30||Math.abs(p.l-len)>len*0.5)continue;
   const gap=p.lo>len?p.lo-len:-p.hi;if(gap>3&&gap<=Math.max(8,len*0.9)){dash=Math.max(8,len*0.9);break}
  }
- for(let pass=0;pass<(dash?400:80);pass++){
+ const grow=()=>{for(let pass=0;pass<(dash?400:80);pass++){
   let grown=false;
   for(const end of [at(tA),at(tB)])for(const i of lines.near(end,dash?dash+4:8)){
    if(skip.has(i))continue;
@@ -594,6 +597,37 @@ function growLine(seed,segments,lines,skip){
    if(hi>tB+.01){tB=hi;grown=true}
   }
   if(!grown)break
+ }};
+ // A short stroke on the line (the bottom of a small sign standing on a beam's edge — ГПЭС М1.2: «В112», its top edge
+ // broken by a 4 pt piece at the sign by the ridge) joins the line when the line goes on behind it and the other edge of
+ // the member runs on unbroken by it (a long line 1.2–12 pt off, no dash). A joint between beams in a row — a short
+ // thin stroke between their edges, the other edges broken there too (ГПЭС М1.19, ряд Л: «В169») — stays a break.
+ const across=(t0,t1)=>lines.near(at((t0+t1)/2),(t1-t0)/2+12).some(i=>{
+  if(skip.has(i))return false;const s=segments[i],l=dist(s.a,s.b);if(l<30)return false;
+  const v={x:(s.b.x-s.a.x)/l,y:(s.b.y-s.a.y)/l};if(Math.abs(cross(u,v))>.02)return false;
+  const off=Math.abs(cross(u,{x:s.a.x-a0.x,y:s.a.y-a0.y}));if(off<1.2||off>12)return false;
+  const p1=(s.a.x-a0.x)*u.x+(s.a.y-a0.y)*u.y,p2=(s.b.x-a0.x)*u.x+(s.b.y-a0.y)*u.y;
+  return Math.min(p1,p2)<=t0-.5&&Math.max(p1,p2)>=t1+.5&&!dashOf(i,segments,lines)});
+ const bridge=dir=>{
+  if(!lines.nearShort)return null;
+  const t0=dir>0?tB:tA;let t=t0;
+  for(let k=0;k<6;k++){
+   let next=null;
+   for(const i of lines.nearShort(at(t),4)){
+    if(skip.has(i))continue;const p=piece(i);if(!p)continue;
+    const gap=dir>0?p.lo-t:t-p.hi,far=dir>0?p.hi:p.lo;
+    if(gap<=3&&(dir>0?far>t+.01:far<t-.01)&&(next===null||(dir>0?far>next:far<next)))next=far
+   }
+   if(next===null)return null;t=next;
+   if(lines.near(at(t),8).some(i=>{if(skip.has(i))return false;const p=piece(i);if(!p||p.l<6)return false;const gap=dir>0?p.lo-t:t-p.hi;return gap<=3&&(dir>0?p.hi>t+3:p.lo<t-3)}))
+    return across(Math.min(t0,t),Math.max(t0,t))?t:null
+  }
+  return null
+ };
+ grow();
+ for(let n=0;n<12&&!dash;n++){
+  const b=bridge(1),a=bridge(-1);if(b===null&&a===null)break;
+  if(b!==null)tB=b;if(a!==null)tA=a;grow()
  }
  return{a:at(tA),b:at(tB)}
 }

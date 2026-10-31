@@ -1047,10 +1047,13 @@ function fastenerTable(texts){
   if(!f)continue;
   // Only a header over this table: right of the designation, not the «Кол-во» of a specification beside it.
   const end=run[run.length-1],near=heads.filter(h=>h.y<row.y&&row.y-h.y<1600&&h.x>row.items[at].x&&h.x-row.items[at].x<900);
-  const top=Math.max(...near.map(h=>h.y)),head=near.filter(h=>top-h.y<40&&h.x>end.x-10).sort((a,b)=>a.x-b.x)[0]||near.sort((a,b)=>b.y-a.y)[0];
+  const top=Math.max(...near.map(h=>h.y)),head0=near.filter(h=>top-h.y<40&&h.x>end.x-10).sort((a,b)=>a.x-b.x)[0]||near.sort((a,b)=>b.y-a.y)[0];
   // Without the «Кол.» header (lost by OCR of a pasted table) the count is the whole number just left of the «Масса»
-  // columns («Масса, кг» over «1 шт.|общ.» or «1000шт|общ.»): the thickness of the package is left of it.
-  const mass=!head&&texts.filter(h=>/^(?:Масса|Вес|1000\s*шт|1\s*шт)/iu.test(h.str.trim())&&h.y<row.y&&row.y-h.y<400&&h.x>end.x).sort((a,b)=>a.x-b.x)[0];
+  // columns («Масса, кг» over «1 шт.|общ.» or «1000шт|общ.»): the thickness of the package is left of it. A «Кол.» right
+  // of this table's «Масса» is of the table beside it (ГПЭС л. 122, В112: the specification right of the fasteners, its
+  // «1» of the row at that height read as 1 bolt, 1 nut, 1 washer — the sheet gives 12, 24, 24).
+  const mass0=texts.filter(h=>/^(?:Масса|Вес|1000\s*шт|1\s*шт)/iu.test(h.str.trim())&&h.y<row.y&&row.y-h.y<400&&h.x>end.x).sort((a,b)=>a.x-b.x)[0];
+  const head=head0&&mass0&&head0.x>mass0.x+5?null:head0,mass=!head&&mass0;
   const qty=head?row.items.find(t=>t.x>end.x&&Math.abs(t.x-head.x)<30&&/^\d{1,5}$/.test(t.str)):
    mass?row.items.filter(t=>t.x>end.x&&t.x<mass.x-2&&/^\d{1,5}$/.test(t.str)).sort((a,b)=>b.x-a.x)[0]:null;
   const title=titles.filter(t=>t.y<row.y&&row.y-t.y<400&&Math.abs(t.x-row.items[at].x)<400).sort((a,b)=>b.y-a.y)[0];
