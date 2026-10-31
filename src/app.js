@@ -1,5 +1,8 @@
 "use strict";
 const app=document.getElementById("app");
+// A noun after a number in Russian: 1 объект, 2–4 объекта, 5–20 объектов, 21 объект, 22 объекта, 11–14 объектов (the
+// engineer, 31.10.2026: «склонения где? 4 объекта, 3 объекта, 1 объект, 5 объектов»).
+const ruCount=(n,one,few,many)=>{const a=Math.abs(Math.trunc(Number(n)||0))%100,b=a%10;return a>10&&a<20?many:b===1?one:b>=2&&b<=4?few:many};
 const esc=v=>String(v??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const sectionNames={reports:"Ежедневные отчеты","work-types":"Виды работ",marks:"Ведомость марок",deliveries:"Поставки",schedule:"График работ",photos:"Фотографии объекта",scheme:"Монтажная схема","ai-recognition":"ИИ-распознавание","acted-days":"Актированные дни",penalties:"Штрафы",finance:"Финансы"};
 let displayedVersion="...";const el=id=>document.getElementById(id);const data=()=>irProject.data||irProject;const objectSection=(id,key)=>data().forObject(id).section(key);
@@ -174,15 +177,15 @@ async function renderHomePortfolio(objects){
    const overdue=b.late.filter(x=>x.kind==="overdue"),main=overdue[0]||b.late[0],visible=b.late.slice(0,4);
    return '<button type="button" class="home-late-object" data-late-object="'+esc(b.object.id)+'" title="Перейти в график работ объекта">'+
     '<span class="home-late-top"><strong>'+esc(b.shortName||b.object.name)+'</strong><span class="home-late-badge '+(overdue.length?"is-expired":"is-behind")+'">'+(overdue.length?"Срок истёк":"Отставание")+'</span></span>'+
-    '<span class="home-late-summary">'+b.late.length+' '+(b.late.length===1?"отстающий вид работ":b.late.length<5?"отстающих вида работ":"отстающих видов работ")+'</span>'+
-    ganttMarkup(visible)+(b.late.length>4?'<small class="home-gantt-more">Ещё '+(b.late.length-4)+' видов работ</small>':"")+
+    '<span class="home-late-summary">'+b.late.length+' '+ruCount(b.late.length,"отстающий вид работ","отстающих вида работ","отстающих видов работ")+'</span>'+
+    ganttMarkup(visible)+(b.late.length>4?'<small class="home-gantt-more">Ещё '+(b.late.length-4)+' '+ruCount(b.late.length-4,"вид работ","вида работ","видов работ")+'</small>':"")+
     '<span class="home-late-open">Перейти в график работ объекта <span aria-hidden="true">→</span></span></button>'
   };
   host.innerHTML=
    '<div class="home-portfolio-shell">'+
     '<div class="home-portfolio-heading"><div><h2>Общая статистика</h2></div></div>'+
     '<div class="home-portfolio-kpis">'+
-      '<article class="home-portfolio-kpi hpk-active"><div class="home-kpi-top"><span class="home-kpi-icon">'+homeSvg('<path d="M3 21V6l9-4 9 4v15M3 21h18M8 21v-7h8v7M7 8h2M15 8h2M7 11h2M15 11h2"/>')+'</span><span class="home-kpi-scope">Объекты компании</span></div><h3>Объектов в работе</h3><div class="home-kpi-value">'+active.length+' <em>объектов</em></div><div class="home-kpi-foot"></div></article>'+
+      '<article class="home-portfolio-kpi hpk-active"><div class="home-kpi-top"><span class="home-kpi-icon">'+homeSvg('<path d="M3 21V6l9-4 9 4v15M3 21h18M8 21v-7h8v7M7 8h2M15 8h2M7 11h2M15 11h2"/>')+'</span><span class="home-kpi-scope">Объекты компании</span></div><h3>Объектов в работе</h3><div class="home-kpi-value">'+active.length+' <em>'+ruCount(active.length,"объект","объекта","объектов")+'</em></div><div class="home-kpi-foot"></div></article>'+
      '<article class="home-portfolio-kpi hpk-progress"><div class="home-kpi-top"><span class="home-kpi-icon">'+chartIcon+'</span><span class="home-kpi-scope">Все объекты</span></div><h3>Среднее выполнение работ</h3><div class="home-kpi-value">'+(count?pct+"%":"—")+'</div><div class="home-kpi-foot"><div class="hpk-track"><i style="width:'+pct+'%"></i></div></div></article>'+
      '<article class="home-portfolio-kpi hpk-workers"><div class="home-kpi-top"><span class="home-kpi-icon">'+peopleIcon+'</span><span class="home-kpi-scope">Объекты в работе</span></div><h3>Всего людей на объектах</h3><div class="home-kpi-value">'+fmt(staff)+' <em>чел.</em></div><div class="home-kpi-foot"></div></article>'+
      '<article class="home-portfolio-kpi hpk-equipment"><div class="home-kpi-top"><span class="home-kpi-icon">'+craneIcon+'</span><span class="home-kpi-scope">Объекты в работе</span></div><h3>Всего техники на объектах</h3><div class="home-kpi-value">'+fmt(totalEquipment)+' <em>ед.</em></div><div class="home-kpi-foot"></div></article>'+
@@ -191,7 +194,7 @@ async function renderHomePortfolio(objects){
      '<div class="home-portfolio-report-scroll"><div class="home-portfolio-report-grid">'+(recent.length?recent.map(tile).join(""):'<div class="home-portfolio-empty">По действующим объектам пока нет отчётов</div>')+'</div></div></section>'+
     '<section class="home-late-section">'+
      '<div class="home-late-heading"><div><h2>Объекты, требующие внимания</h2></div>'+
-      '<span class="home-late-count">'+lateObjects.length+' '+(lateObjects.length===1?"объект":lateObjects.length<5?"объекта":"объектов")+'</span></div>'+
+      '<span class="home-late-count">'+lateObjects.length+' '+ruCount(lateObjects.length,"объект","объекта","объектов")+'</span></div>'+
      '<div class="home-late-grid">'+(lateObjects.length?lateObjects.map(lateTile).join(""):'<div class="home-late-empty">По заполненным графикам работ отстающих объектов нет.</div>')+'</div>'+
     '</section>'+
     (incomplete?'<p class="home-portfolio-warning">Часть данных не загружена — статистика может быть неполной.</p>':"")+
