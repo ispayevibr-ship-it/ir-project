@@ -43,12 +43,24 @@ function createChat({getUserDataPath,safeStorage,fetch:doFetch=globalThis.fetch,
  function link(){const t=target(),d=json(linkFile())||{},key=Boolean(d.key&&t.fire_url),gh=viaGithub();return{connected:key||gh,github:gh,hasKey:Boolean(d.key),fireUrl:t.fire_url||"",own:Boolean(t.own),task:t.task||"Чат IR Project",page:t.page||"https://claude.ai/code/routines",since:d.at||""}}
  // Claude's answers: from the chat branch, the file Claude wrote onto this computer and the journal of the update, once each.
  const branchFile=()=>path.join(dir(),"claude-branch.json");
+ // An answer may carry buttons: «remove» takes the elements it names off the montage scheme of the object when the
+ // engineer presses it and confirms (the engineer, 31.10.2026: «перепроверь этот прогон, если его нет удали»).
+ const short=(v,n)=>String(v==null?"":v).slice(0,n);
+ function actions(list){
+  const out=[];
+  for(const a of Array.isArray(list)?list.slice(0,5):[])if(a&&a.type==="remove"&&/^\d+$/.test(String(a.object_id||""))){
+   const ids=(Array.isArray(a.ids)?a.ids:[]).slice(0,5000).map(String).filter(x=>/^\d+$/.test(x));
+   if(!ids.length&&!(a.mark&&a.name_has))continue;
+   out.push({type:"remove",object_id:String(a.object_id),object:short(a.object,200),ids,mark:short(a.mark,40),name_has:short(a.name_has,120),label:short(a.label||"Удалить со схемы",120),reason:short(a.reason,400)})
+  }
+  return out.length?{actions:out}:{}
+ }
  function answers(){
   const journal=json(journalFile());
   const out=[];
   for(const own of[json(path.join(dir(),"claude.json")),json(branchFile())])
-   for(const m of Array.isArray(own?.messages)?own.messages:[])if(m&&m.id&&m.text&&!out.some(o=>o.id==="c-"+m.id))out.push({id:"c-"+m.id,from:"claude",at:m.at||"",text:footer(m.text),reply_to:m.reply_to||""});
-  for(const e of Array.isArray(journal?.entries)?journal.entries:[])if(e&&e.id&&e.text&&e.reply_to)out.push({id:"j-"+e.id,from:"claude",at:e.at||"",text:footer(e.text),reply_to:e.reply_to,version:e.version||"",journal:true});
+   for(const m of Array.isArray(own?.messages)?own.messages:[])if(m&&m.id&&m.text&&!out.some(o=>o.id==="c-"+m.id))out.push({id:"c-"+m.id,from:"claude",at:m.at||"",text:footer(m.text),reply_to:m.reply_to||"",...actions(m.actions)});
+  for(const e of Array.isArray(journal?.entries)?journal.entries:[])if(e&&e.id&&e.text&&e.reply_to)out.push({id:"j-"+e.id,from:"claude",at:e.at||"",text:footer(e.text),reply_to:e.reply_to,version:e.version||"",journal:true,...actions(e.actions)});
   return out
  }
  function merged(d){

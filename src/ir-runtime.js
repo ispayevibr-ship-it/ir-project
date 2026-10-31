@@ -2844,9 +2844,27 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    schemeSnapshot=r.snapshot;rows=await schemeApi.list().catch(()=>rows);if(selectedId&&!allRecords().some(x=>x.id===selectedId))selectedId="";draw()
   }catch(error){alert("Не удалось убрать элементы: "+String(error?.message||error).replace(/^Error invoking remote method '[^']+': (Error: )?/,""))}
  }
+ // A button of Claude's answer in the chat (the engineer, 31.10.2026: «перепроверь этот прогон, если его нет удали»):
+ // the elements it names — by their ids or by the mark and words of the name — leave the scheme when he presses it and
+ // confirms; mounted ones stay; the same copy as the clearing, brought back by «Вернуть». Another page: null.
+ window.irChatAction=async a=>{
+  if(location.hash!==requestedRoute||!a||a.type!=="remove"||String(a.object_id)!==String(oid))return null;
+  if(!canEdit())return"Нет права менять монтажную схему";
+  const ids=new Set((Array.isArray(a.ids)?a.ids:[]).map(String)),low=v=>String(v||"").trim().toLowerCase(),mk=v=>low(v).replace(/[\s\-–—]/g,""),words=low(a.name_has);
+  const asked=allRecords().filter(r=>ids.has(r.id)||Boolean(a.mark&&words)&&mk(r.mark)===mk(a.mark)&&low(r.mark_name||r.title).includes(words));
+  const live=asked.filter(r=>!r.status||r.status==="planned"),stay=asked.length-live.length;
+  if(!live.length)return asked.length?"Эти элементы смонтированы — они остаются на схеме":"Этих элементов на схеме уже нет";
+  const names=[...new Set(live.map(r=>[r.mark,r.mark_name||r.title].filter(Boolean).join(" · ")))];
+  if(!confirm("Удалить со схемы элементов: "+live.length+" — "+names.slice(0,4).join("; ")+(names.length>4?" и др.":"")+"?"+(a.reason?"\n"+a.reason:"")+
+   (stay?"\nСмонтированные ("+stay+") остаются.":"")+"\nКопия сохранится — её можно вернуть кнопкой «Вернуть».")){restoreKeyboardAfterConfirm();return"Отменено — элементы остались"}
+  restoreKeyboardAfterConfirm();
+  const r=await irProject.ai.invoke("ai-montage:clear-scheme",{objectId:oid,ids:live.map(x=>x.id)});
+  schemeSnapshot=r.snapshot;rows=await schemeApi.list().catch(()=>rows);if(selectedId&&!allRecords().some(x=>x.id===selectedId))selectedId="";draw();
+  return"Удалено со схемы: "+r.removed+(stay?", смонтированные ("+stay+") оставлены":"")+". Вернуть — кнопка «Вернуть» на схеме"
+ };
  async function restoreScheme(){
   if(!canEdit()||!schemeSnapshot)return;
-  if(!confirm("Вернуть "+schemeSnapshot.count+" элементов, удалённых "+(schemeSnapshot.missing?"кнопкой «Убрать «нет в анализе»»":"очисткой")+"?")){restoreKeyboardAfterConfirm();return}
+  if(!confirm("Вернуть "+schemeSnapshot.count+" элементов, удалённых "+(schemeSnapshot.missing?"кнопкой «Убрать «нет в анализе»»":schemeSnapshot.chat?"кнопкой из ответа в чате":"очисткой")+"?")){restoreKeyboardAfterConfirm();return}
   restoreKeyboardAfterConfirm();
   try{
    const r=await irProject.ai.invoke("ai-montage:restore-scheme",{objectId:oid});

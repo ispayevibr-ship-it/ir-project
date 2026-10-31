@@ -67,7 +67,7 @@ console.log("AI: drawings → analysis → Claude → montage scheme sub-pages, 
 // The chat with Claude: loaded in the window, its channels pass the old preload and are served by the main process.
 {const panel=fs.readFileSync("src/ai-chat-panel.js","utf8"),OLD=/^ai-(documents|engine|settings|montage):[a-z-]{1,40}$/;
  new vm.Script(panel,{filename:"src/ai-chat-panel.js"});
- assert(files["src/index.html"].includes('ai-chat-panel.js?v=199000'),"chat panel loads");
+ assert(files["src/index.html"].includes('ai-chat-panel.js?v=1112100'),"chat panel loads");
  const chs=[...new Set(panel.match(/"ai-[a-z-]+:[a-z-]+"/g).map(x=>x.slice(1,-1)))];
  assert(chs.length>=6,"chat channels");
  // Above each answer — its question in another colour, a click shows the question in the list (the engineer, 27.10.2026).

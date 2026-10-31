@@ -39,6 +39,10 @@
  .irc-q{margin:0 0 8px;padding:6px 8px;border-left:3px solid #d97706;border-radius:6px;background:#fff7e6;color:#7a4b00;font-size:12.5px;cursor:pointer}
  .irc-q b{display:block;font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#b45309;margin-bottom:2px}.irc-q small{display:block;margin-top:2px;color:#92400e}
  .irc-msg.irc-flash{box-shadow:0 0 0 2px #f59e0b}
+ /* A button of an answer (31.10.2026: «если его нет удали»): the program does it on the montage scheme when pressed. */
+ .irc-acts{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+ .irc-acts button{align-self:flex-start;border:1px solid #b91c1c;background:#fff;color:#b91c1c;border-radius:6px;padding:4px 10px;font:inherit;font-size:12.5px;cursor:pointer}
+ .irc-acts button:disabled{opacity:.6;cursor:default}.irc-acts small{color:#44515e;font-size:12px}
  .irc-shot{display:block;margin-top:6px;max-width:100%;border-radius:6px;border:1px solid #d5dde6;cursor:zoom-in}
  .irc-form{border-top:1px solid #e3e8ee;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
  .irc-ctx{display:flex;gap:6px;align-items:center;font-size:12.5px;background:#eef4ff;border-radius:6px;padding:4px 8px;color:#1f3a68}.irc-ctx[hidden]{display:none}
@@ -87,6 +91,7 @@
  // Photos chosen for the next message: kept by the main process at once, shown here until sent.
  let photos=[];
  let state={messages:[],unread:0,link:null},dropElement=false,busy=false,timer=null,relink=false;
+ const acted=new Map();
  const linkBox=panel.querySelector(".irc-link"),keyInput=linkBox.querySelector("[data-key]"),urlInput=linkBox.querySelector("[data-url]");
  const shots=new Map();
  // ---- The button and the panel go where the engineer drags them (the button by itself, the panel by its title), the
@@ -168,6 +173,8 @@
     "<span>Claude"+(m.version?" · обновление "+esc(m.version):"")+"</span>";
    return'<div class="irc-msg '+(m.from==="user"?"user":"claude")+'" data-mid="'+esc(m.id)+'">'+(asked?'<div class="irc-q" data-goto="'+esc(asked.id)+'" title="Показать вопрос в чате"><b>Вопрос</b>'+esc(said.length>280?said.slice(0,280)+"…":said)+(ae?"<small>Элемент: "+esc([ae.mark,ae.name].filter(Boolean).join(" · "))+"</small>":"")+"</div>":"")+(m.from==="user"?"<p>"+esc(m.text).replace(/\n/g,"<br>")+"</p>":md(m.text))+
     (e?'<div class="irc-ctxline">Элемент: '+esc([e.mark,e.name].filter(Boolean).join(" · "))+'</div>':"")+
+    (m.from!=="user"&&Array.isArray(m.actions)&&m.actions.length?'<div class="irc-acts">'+m.actions.map((a,i)=>{const k=m.id+"|"+i,st=acted.get(k);
+     return'<button type="button" data-act="'+esc(k)+'"'+(st&&st.busy?" disabled":"")+'>'+esc(a.label||"Удалить со схемы")+"</button>"+(st&&st.text?"<small>"+esc(st.text)+"</small>":"")}).join("")+"</div>":"")+
     [m.shot,...(m.photos||[])].filter(Boolean).map((id,i)=>'<img class="irc-shot" data-shot="'+esc(id)+'" alt="'+(i||!m.shot?"фото":"снимок экрана")+'"'+(shots.get(id)?' src="'+shots.get(id)+'"':"")+'>').join("")+
     '<div class="irc-meta">'+meta+"<span>"+time(m.at)+"</span></div></div>"
   }).join(""):'<div class="irc-empty">Напишите, что не так на схеме или в программе. К сообщению приложится снимок экрана и выбранный на схеме элемент; Claude исправит и пришлёт сюда отчёт.</div>';
@@ -261,6 +268,12 @@
  list.addEventListener("click",async ev=>{
   const r=ev.target.closest("[data-retry]");if(r){r.disabled=true;take(await invoke("ai-montage:chat-retry",{id:r.dataset.retry}).catch(e=>{alert(e.message);return null}));return}
   const q=ev.target.closest("[data-goto]");if(q){const t=[...list.querySelectorAll("[data-mid]")].find(x=>x.dataset.mid===q.dataset.goto);if(t){t.scrollIntoView({block:"center",behavior:"smooth"});t.classList.add("irc-flash");setTimeout(()=>t.classList.remove("irc-flash"),1600)}return}
+  // A button of an answer: the page on the screen does it (the montage scheme of its object), else says where to go.
+  const act=ev.target.closest("[data-act]");if(act){
+   const k=act.dataset.act,cut=k.lastIndexOf("|"),m=state.messages.find(x=>x.id===k.slice(0,cut)),a=m&&m.actions&&m.actions[Number(k.slice(cut+1))];if(!a)return;
+   acted.set(k,{busy:true,text:""});paint();let text=null;
+   try{text=typeof window.irChatAction==="function"?await window.irChatAction(a):null}catch(e){text="Не удалось: "+String(e&&e.message||e).replace(/^Error invoking remote method '[^']+': (Error: )?/,"")}
+   acted.set(k,{busy:false,text:text==null?"Откройте монтажную схему объекта "+(a.object?"«"+a.object+"»":"(id "+a.object_id+")")+" и нажмите кнопку там":String(text)});paint();return}
   const img=ev.target.closest("img[data-shot]");if(img&&img.src){const z=document.createElement("div");z.className="irc-zoom";z.innerHTML='<img alt="">';z.querySelector("img").src=img.src;z.onclick=()=>z.remove();document.body.appendChild(z)}
  });
  area.addEventListener("keydown",ev=>{if(ev.key==="Enter"&&(ev.ctrlKey||ev.metaKey)){ev.preventDefault();form.requestSubmit()}});

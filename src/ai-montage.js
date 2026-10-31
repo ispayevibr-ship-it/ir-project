@@ -893,22 +893,25 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
  const SNAPSHOTS="scheme-snapshots";
  // missing: only the elements a later placement no longer found («нет в новом анализе» — leftovers of an older reading),
  // not mounted and not changed by the engineer; the engineer's own action, with the same copy to bring them back.
- function clearScheme(id,{grid=false,missing=false}={}){
-  const oid=object(id),rows=database.listEntity(oid,"scheme");
-  const targets=missing?rows.filter(r=>isElement(r)&&fromPdf(r)&&r.data?.missing_in_analysis&&!mounted(r)&&!r.data?.engineer_edited):rows.filter(r=>isElement(r)||grid&&isGrid(r));
-  if(!targets.length)throw Error(missing?"Элементов «нет в новом анализе» в схеме нет":"Монтажная схема уже пуста");
-  if(missing)grid=false;
-  database.createEntity(oid,SNAPSHOTS,{record_type:"scheme_snapshot",title:(missing?"Убраны «нет в новом анализе» ":"Очистка ")+new Date().toLocaleString("ru-RU"),
-   data:{at:new Date().toISOString(),grid,...(missing?{missing:true}:{}),records:targets.map(r=>({record_type:r.record_type,title:r.title,data:r.data}))}});
+ // ids: the elements Claude's answer in the chat names, taken away when the engineer presses its button and confirms
+ // (31.10.2026: «перепроверь этот прогон, если его нет удали») — any of them but mounted ones, with the same copy.
+ function clearScheme(id,{grid=false,missing=false,ids=null}={}){
+  const oid=object(id),rows=database.listEntity(oid,"scheme"),asked=Array.isArray(ids)?new Set(ids.map(String)):null;
+  const targets=asked?rows.filter(r=>isElement(r)&&asked.has(String(r.id))&&!mounted(r)):
+   missing?rows.filter(r=>isElement(r)&&fromPdf(r)&&r.data?.missing_in_analysis&&!mounted(r)&&!r.data?.engineer_edited):rows.filter(r=>isElement(r)||grid&&isGrid(r));
+  if(!targets.length)throw Error(asked?"Этих элементов на схеме уже нет (или они смонтированы)":missing?"Элементов «нет в новом анализе» в схеме нет":"Монтажная схема уже пуста");
+  if(missing||asked)grid=false;
+  database.createEntity(oid,SNAPSHOTS,{record_type:"scheme_snapshot",title:(asked?"Убраны по просьбе в чате ":missing?"Убраны «нет в новом анализе» ":"Очистка ")+new Date().toLocaleString("ru-RU"),
+   data:{at:new Date().toISOString(),grid,...(missing&&!asked?{missing:true}:{}),...(asked?{chat:true}:{}),records:targets.map(r=>({record_type:r.record_type,title:r.title,data:r.data}))}});
   const old=database.listEntity(oid,SNAPSHOTS).sort((a,b)=>String(b.data?.at).localeCompare(String(a.data?.at))).slice(5);
   for(const r of old)database.deleteEntity(oid,SNAPSHOTS,r.id);
   let removed=0;
   for(const r of targets)if(database.deleteEntity(oid,"scheme",r.id))removed++;
-  return{removed,grid,missing,snapshot:schemeSnapshot(oid)}
+  return{removed,grid,missing:missing&&!asked,chat:Boolean(asked),snapshot:schemeSnapshot(oid)}
  }
  function schemeSnapshot(id){
   const oid=object(id),last=database.listEntity(oid,SNAPSHOTS).sort((a,b)=>String(b.data?.at).localeCompare(String(a.data?.at)))[0];
-  return last?{id:last.id,at:last.data?.at,count:(last.data?.records||[]).filter(r=>r.record_type!=="scheme_grid").length,grid:Boolean(last.data?.grid),missing:Boolean(last.data?.missing)}:null
+  return last?{id:last.id,at:last.data?.at,count:(last.data?.records||[]).filter(r=>r.record_type!=="scheme_grid").length,grid:Boolean(last.data?.grid),missing:Boolean(last.data?.missing),chat:Boolean(last.data?.chat)}:null
  }
  function restoreScheme(id){
   const oid=object(id),last=database.listEntity(oid,SNAPSHOTS).sort((a,b)=>String(b.data?.at).localeCompare(String(a.data?.at)))[0];
