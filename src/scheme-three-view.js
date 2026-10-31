@@ -2358,6 +2358,25 @@ window.irThreeSchemeView=(function(){
     if(out.length)deckHoles.set(String(c.id),out)
    })
   }
+  // ---- A grating deck shows its bars (the engineer, 31.10.2026, mast ПМС-18,4: «площадка такая» — the platform Т-21 of
+  // the 3D view of the sheet, a grating, was drawn as a plain slab): dark strips of the bearing bars every 34 mm along
+  // it and of the cross bars every 100 mm on its top, piece by piece round its holes and in step from piece to piece;
+  // near the camera only (small). A deck whose profile names a sheet (−6, лист 4, t=5, Риф.5, Ромб, Чеч) stays plain.
+  var gratingMat=new T.MeshBasicMaterial({color:0x2f353c,side:T.DoubleSide});
+  function isGrating(c){var s=String(c.profile_name||c.profileName||"").trim();
+   return!(/риф|ромб|чеч|лист|^t\s*=/i.test(s)||/^[−-]?\s*\d+(?:[.,]\d+)?\s*(?:мм)?$/.test(s))}
+  // (r: the piece in the deck — [from, to] along it, [from, to] across it from its edge, m; its strips in the frame of the
+  // piece: x across, z along, on its top)
+  function gratingOn(piece,r,t,id){
+   var pos=[],nor=[],idx=[],y=t/2+.0015,B=.034,X=.1,cu=(r[0]+r[1])/2,cv=(r[2]+r[3])/2,hu=(r[1]-r[0])/2,hv=(r[3]-r[2])/2;
+   var quad=function(x0,x1,z0,z1){var b=pos.length/3;pos.push(x0,y,z0,x1,y,z0,x1,y,z1,x0,y,z1);nor.push(0,1,0,0,1,0,0,1,0,0,1,0);idx.push(b,b+2,b+1,b,b+3,b+2)};
+   for(var i=Math.ceil(r[2]/B-1e-6);i*B<=r[3]+1e-6;i++)quad(Math.max(-hv,i*B-cv-.0025),Math.min(hv,i*B-cv+.0025),-hu,hu);
+   for(var j=Math.ceil(r[0]/X-1e-6);j*X<=r[1]+1e-6;j++)quad(-hv,hv,Math.max(-hu,j*X-cu-.002),Math.min(hu,j*X-cu+.002));
+   if(!idx.length)return null;
+   var g=new T.BufferGeometry();g.setAttribute("position",new T.Float32BufferAttribute(pos,3));g.setAttribute("normal",new T.Float32BufferAttribute(nor,3));g.setIndex(idx);
+   var m=new T.Mesh(g,gratingMat);m.position.copy(piece.position);m.rotation.copy(piece.rotation);
+   m.userData.memberId=id;m.userData.deckPiece=true;m.userData.grating=true;m.userData.small=true;m.userData.fixed=true;return m
+  }
   // ---- A deck is cut round all the steel drawn through it, as the grating is on site, not only round its columns: a
   // brace crossing its level, the gusset of a brace at its edge, a girder running along its edge at its level (a КМ3 of a shop:
   // the deck of the tower of the crane platform at +13,900 went through the brace Вс2 and its gusset, the deck of the
@@ -2397,7 +2416,7 @@ window.irThreeSchemeView=(function(){
     var p=memberPoints(c);if(p.length<2)return;
     var a=p[0],b=p[p.length-1],lo=a.y<=b.y?a:b,hi=a.y<=b.y?b:a,d=hi.clone().sub(lo),flat=new T.Vector3(d.x,0,d.z),run=flat.length();if(d.y<.3)return;
     var w=Math.max(.4,(number(c.fd)||600)/1000),R=Math.max(.4,w/2+.1),side=run>.05?new T.Vector3(-flat.z,0,flat.x).normalize():new T.Vector3(1,0,0),out=new T.Vector3().crossVectors(side,new T.Vector3(0,1,0)).normalize(),pts=[];
-    for(var i=0;i<8;i++)pts.push((i&2?hi:lo).clone().add(side.clone().multiplyScalar(i&1?R:-R)).add(out.clone().multiplyScalar(i&4?R+.03:-.05)));
+    for(var i=0;i<8;i++)pts.push((i&2?hi:lo).clone().add(side.clone().multiplyScalar(i&1?R:-R)).add(out.clone().multiplyScalar(i&4?cageReach(c,R)+.03:-.05)));
     boxOf(mid,pts)
    });
    deckInfo.forEach(function(k,id){
@@ -2422,7 +2441,8 @@ window.irThreeSchemeView=(function(){
     wallPieces(0,k.len,k.w,holes).forEach(function(r){
      var m=new T.Mesh(new T.BoxGeometry(r[3]-r[2],k.t,r[1]-r[0]),k.mat);
      m.position.copy(k.start).add(k.dir.clone().multiplyScalar((r[0]+r[1])/2)).add(k.side.clone().multiplyScalar((r[2]+r[3])/2-k.w/2));m.position.y+=k.t/2;
-     m.rotation.y=Math.atan2(k.dir.x,k.dir.z);m.userData.memberId=id;m.userData.deckPiece=true;steel.add(m);parts.push(m);fresh.push(m)});
+     m.rotation.y=Math.atan2(k.dir.x,k.dir.z);m.userData.memberId=id;m.userData.deckPiece=true;
+     [m,k.grate?gratingOn(m,r,k.t,id):null].forEach(function(q){if(q){steel.add(q);parts.push(q);fresh.push(q)}})});
     meshesById.set(id,parts)
    });
    if(fresh.length)allMeshes=allMeshes.filter(function(m){return!gone.has(m)}).concat(fresh)
@@ -4161,12 +4181,19 @@ window.irThreeSchemeView=(function(){
      for(var ai=0;ai<=an;ai++){var ax=dw/2-dw*ai/an;da.lineTo(ax,yA(ax))}
      da.closePath();dg=new T.ExtrudeGeometry(da,{depth:dt,bevelEnabled:false});dg.rotateX(Math.PI/2);dg.translate(0,dt,0)
     }
-    var dholes=dg?null:deckHoles.get(id),dside=new T.Vector3(dir.z,0,-dir.x).normalize(),dps=dholes?wallPieces(0,len,dw,dholes).map(function(r){
-     var m=new T.Mesh(new T.BoxGeometry(r[3]-r[2],dt,r[1]-r[0]),dmat);m.position.copy(start).add(dir.clone().multiplyScalar((r[0]+r[1])/2)).add(dside.clone().multiplyScalar((r[2]+r[3])/2-dw/2));return m}):null;
-    if(!dps){var dm=new T.Mesh(dg||new T.BoxGeometry(dw,dt,len),dmat);if(dg)dm.position.copy(start);else dm.position.copy(start).add(end).multiplyScalar(.5);dps=[dm]}
-    if(!dg)deckInfo.set(id,{start:start.clone(),dir:dir.clone().setY(0).normalize(),side:dside.clone(),w:dw,t:dt,len:len,y:start.y,holes:dholes||[],mat:dmat});
+    // (its own openings the drawing gives, lay.holes: [from, to] along it from its start and [from, to] across it from its
+    // middle line, + to the left looking from the start, mm — the opening round the top of a mast in its platform)
+    var lholes=!dg&&c.lay&&Array.isArray(c.lay.holes)?c.lay.holes.filter(function(o){return Array.isArray(o)&&o.length===4}).map(function(o){
+     return[number(o[0])/1000,number(o[1])/1000,number(o[2])/1000+dw/2,number(o[3])/1000+dw/2]}):[];
+    var dholes=dg?null:(deckHoles.get(id)||[]).concat(lholes),dside=new T.Vector3(dir.z,0,-dir.x).normalize(),grate=!dg&&isGrating(c);if(dholes&&!dholes.length)dholes=null;
+    var dps=dholes?wallPieces(0,len,dw,dholes).map(function(r){
+     var m=new T.Mesh(new T.BoxGeometry(r[3]-r[2],dt,r[1]-r[0]),dmat);m.position.copy(start).add(dir.clone().multiplyScalar((r[0]+r[1])/2)).add(dside.clone().multiplyScalar((r[2]+r[3])/2-dw/2));m.userData.rect=r;return m}):null;
+    if(!dps){var dm=new T.Mesh(dg||new T.BoxGeometry(dw,dt,len),dmat);if(dg)dm.position.copy(start);else{dm.position.copy(start).add(end).multiplyScalar(.5);dm.userData.rect=[0,len,0,dw]}dps=[dm]}
+    if(!dg)deckInfo.set(id,{start:start.clone(),dir:dir.clone().setY(0).normalize(),side:dside.clone(),w:dw,t:dt,len:len,y:start.y,holes:dholes||[],mat:dmat,grate:grate});
     dps.forEach(function(dm){if(!dg)dm.position.y+=dt/2;dm.rotation.y=Math.atan2(dir.x,dir.z);
-     dm.userData.memberId=id;dm.userData.deckPiece=!dg;steel.add(dm);allMeshes.push(dm);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(dm)});
+     dm.userData.memberId=id;dm.userData.deckPiece=!dg;
+     var gm=grate&&dm.userData.rect?gratingOn(dm,dm.userData.rect,dt,id):null;
+     [dm,gm].forEach(function(m){if(!m)return;steel.add(m);allMeshes.push(m);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(m)})});
     // (a deck on its frame over a roof: channels at the edges lay.frame.edges names, on stands to the roof)
     var dfr=frameOf(c);
     if(dfr){var dfp=[],dy=start.y,ded=dfr.edges,DL=function(sd,u){return start.clone().add(dside.clone().multiplyScalar(sd)).add(dir.clone().multiplyScalar(u))};
@@ -4418,6 +4445,8 @@ window.irThreeSchemeView=(function(){
   // A stair flight (ГОСТ 23120, ГОСТ 31385): two stringers, treads at a rise of 200 (no more than 250), handrails 1.0 m
   // over the treads on both sides with a middle rail. A ladder (стремянка): two strings, rungs every 300 (no more than
   // 350) and cage hoops (R 400–450) every 800 from 2 m up. Width — diameter_mm of the record.
+  // How far a ladder's cage reaches out from the ladder: lay.cage.depth_mm when its sheet gives it, else its half ring.
+  function cageReach(c,R){var cg=c&&c.lay&&c.lay.cage,d=cg&&cg.depth_mm!=null?number(cg.depth_mm)/1000:0;return d>R+.05&&d<2?d:R}
   function addStair(c,id,a,b){
    var ladder=c.ft==="ladder",w=Math.max(.4,(number(c.fd)||(ladder?600:800))/1000),parts=[],mat=baseMaterial(c);
    var lo=a.y<=b.y?a:b,hi=a.y<=b.y?b:a,d=hi.clone().sub(lo),flat=new T.Vector3(d.x,0,d.z),run=flat.length(),rise=d.y;
@@ -4435,8 +4464,12 @@ window.irThreeSchemeView=(function(){
     // (a piece of a ladder over another: its cage as its sheet draws it, lay.cage — from_mm, to_mm along it from its foot;
     // false — none: the ladder of a mast, Т-22 with hoops from its foot, Т-23 up to the platform, Т-24 at the ground none)
     var cg=c.lay&&c.lay.cage,cz0=cg&&cg.from_mm!=null?Math.max(0,number(cg.from_mm))/1000+.1:2,cz1=cg&&number(cg.to_mm)>0?Math.min(rise,number(cg.to_mm)/1000):rise;
-    if(cg!==false&&(cg||rise>2.2))for(var z=cz0;z<cz1;z+=.8){var hoop=new T.TorusGeometry(Math.max(.4,w/2+.1),.015,6,24,Math.PI);hoop.rotateX(Math.PI/2);
-     var hm=new T.Mesh(hoop,mat);hm.position.copy(at(z/rise));hm.quaternion.copy(basis);parts.push(hm)}
+    // (its depth from the ladder, lay.cage.depth_mm, as its sheet draws it — the hoop a U: two straight legs from the
+    // stringers and a half ring; Т-22/Т-23 of a mast ≈780 by its side view, the cage reaching the bulge of the railing)
+    var hr=Math.max(.4,w/2+.1),leg=cageReach(c,hr)-hr;
+    if(cg!==false&&(cg||rise>2.2))for(var z=cz0;z<cz1;z+=.8){var hoop=new T.TorusGeometry(hr,.015,6,24,Math.PI);hoop.rotateX(Math.PI/2);
+     var hp=at(z/rise),hm=new T.Mesh(hoop,mat);hm.position.copy(hp).add(out.clone().multiplyScalar(leg));hm.quaternion.copy(basis);parts.push(hm);
+     if(leg>.01)[-1,1].forEach(function(s){bar(off(hp,s*w/2),off(hp,s*hr).add(out.clone().multiplyScalar(leg)),.03)})}
    }else{
     var n=Math.max(2,Math.round(rise/.2));if(rise/n>.25)n=Math.ceil(rise/.25);
     var depth=Math.max(.2,run/n+.03);
@@ -4506,7 +4539,7 @@ window.irThreeSchemeView=(function(){
   }
   function outlined(m){
    var u=m.userData,c=dataById.get(String(u.memberId))||{};
-   return!(u.hole||u.footing||u.shell||u.roof||m.material&&m.material.transparent||c.ft==="panel"||c.ft==="trim")
+   return!(u.hole||u.footing||u.shell||u.roof||u.grating||m.material&&m.material.transparent||c.ft==="panel"||c.ft==="trim")
   }
   function mergeEdges(list){
    var n=0;list.forEach(function(m){n+=edgesOf(m.geometry).length});if(!n)return null;
