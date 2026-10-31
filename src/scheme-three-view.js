@@ -1059,6 +1059,11 @@ window.irThreeSchemeView=(function(){
   // The section of a member about its line u: the minimal turn of +Z to u, a branch turned to its other branch.
   function bodyQuat(c,u){
    var q=new T.Quaternion().setFromUnitVectors(zAxis,u),a=branchTurn.get(String(c.id||""));
+   // (a member sloped along x up to 30° — a roof beam 1.7° up to its ridge, ГПЭС В112 —: across it level, as one sloped
+   // along z; the shortest turn onto its way turned it about its axis by its slope, its flanges and its end ribs aslant)
+   if(Math.abs(u.x)>1e-4&&Math.abs(u.y)>1e-4&&Math.abs(u.y)<=.5){
+    var X=new T.Vector3(1,0,0).applyQuaternion(q),W=new T.Vector3(0,1,0).cross(u).normalize(),r=Math.atan2(X.clone().cross(W).dot(u),X.dot(W));
+    if(Math.abs(r)>1e-7)q.premultiply(new T.Quaternion().setFromAxisAngle(u,r))}
    return a?q.premultiply(new T.Quaternion().setFromAxisAngle(u,a)):q
   }
   // Half the section of a member across (b) and up (h) (m), as it is turned: a wall girder гн.[160×80 laid flat (КМ3 л.29
@@ -1550,7 +1555,9 @@ window.irThreeSchemeView=(function(){
     // (as drawn: across the sheet and down it, from the middle; turned a quarter when only so it covers the section, or
     // when both ways its longer side would lie across the longer side of the section; a plate inside the section — a
     // rib between the flanges, К60 «6 - 6» 320×360 in 40К1 — is not an end plate)
-    var flat=r.dir!=="по вертикали",w=flat?p[0]:p[1],h=flat?p[1]:p[0],fits=function(x,y){return x>=sec.b-5&&y>=sec.h-5},straight=fits(w,h);
+    // (a view from the end — «Вид А» placed by its arrow —: the end rib, narrower than the flanges too, ГПЭС В38 −250×20
+    // 510 on 50ШС2 300 wide, as deep as the section)
+    var vid=/^Вид\s/.test(String(r.view||"")),flat=r.dir!=="по вертикали",w=flat?p[0]:p[1],h=flat?p[1]:p[0],fits=function(x,y){return x>=(vid?.6*sec.b:sec.b-5)&&y>=sec.h-5},straight=fits(w,h);
     if(!straight&&!fits(h,w))return;
     var turn=!straight||fits(h,w)&&(w>h+5&&sec.h>sec.b+5||h>w+5&&sec.b>sec.h+5);
     var holes=(Array.isArray(r.holes)?r.holes:[]).filter(Array.isArray).map(function(e){var a=number(e[0])-p[0]/2,o=number(e[1]),x=flat?a:o,y=flat?o:a;return{x:turn?y:x,y:turn?x:-y,d:number(e[2])}});
