@@ -133,6 +133,27 @@ function fakeDatabase(){
  assert.equal(montage.restoreScheme(7).restored,3);assert.equal(cols().length,3);
  montage.clearScheme(7);
  view=montage.place(7,view.draftId);assert.equal(view.placed.created,3);
+ // The same mark written with a dash (К-7 for K7: Claude writes either) is the same element read again — renewed, not a
+ // second K7 beside a leftover «нет в новом анализе» (the engineer, 31.10.2026, mast ПМС-18,4: Т-23 and П-16А of an
+ // earlier answer had stayed beside Т23 and П16А of the checked scheme).
+ const dashed=cols().find(r=>r.data.mark==="K7");
+ database.updateEntity(7,"scheme",dashed.id,{record_type:"scheme_column",title:dashed.title,data:{...dashed.data,mark:"К-7"}});
+ view=montage.place(7,view.draftId);
+ assert.deepEqual([view.placed.created,view.placed.missing,cols().length,cols().find(r=>r.id===dashed.id).data.mark],[0,0,3,"K7"]);
+ // What a placement no longer finds can be taken away in one go (the engineer's button «Убрать «нет в анализе»»):
+ // only those, not mounted ones, with a copy to bring them back.
+ const gone=cols().find(r=>r.data.mark==="K7"),p1row=cols().find(r=>r.data.mark==="P1");
+ database.updateEntity(7,"scheme",gone.id,{record_type:"scheme_column",title:gone.title,data:{...gone.data,mark:"K98"}});
+ database.updateEntity(7,"scheme",p1row.id,{record_type:"scheme_column",title:p1row.title,data:{...p1row.data,mark:"P98",status:"mounted"}});
+ view=montage.place(7,view.draftId);
+ assert.deepEqual([view.placed.created,view.placed.missing,cols().length],[2,2,5]);
+ const cleanedUp=montage.clearScheme(7,{missing:true});
+ assert.deepEqual([cleanedUp.removed,cleanedUp.missing,cleanedUp.snapshot.count,cleanedUp.snapshot.missing],[1,true,1,true]);
+ assert.deepEqual(cols().map(r=>r.data.mark).sort(),["K7","P1","P98","К1"],"the mounted leftover stays, the grid too");
+ assert.throws(()=>montage.clearScheme(7,{missing:true}),/«нет в новом анализе»/);
+ assert.equal(montage.restoreScheme(7).restored,1);assert(cols().some(r=>r.data.mark==="K98"));
+ for(const r of cols().filter(r=>/98$/.test(r.data.mark)))database.deleteEntity(7,"scheme",r.id);
+ assert.equal(cols().length,3);
  // An element changed by the engineer after the placement keeps his values; the new reading of the drawings goes beside
  // it, and the placement records what was placed before, so that the change stays a correction.
  const k1now=cols().find(r=>r.data.mark==="К1");

@@ -96,7 +96,7 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
  handle("ai-montage:preview",(_e,{objectId,draftId,heights})=>montage.preview(objectId,draftId,heights));
  handle("ai-montage:place",(_e,{objectId,draftId,heights})=>montage.place(objectId,draftId,heights));
  handle("ai-montage:undo",(_e,{objectId,draftId})=>montage.undo(objectId,draftId));
- handle("ai-montage:clear-scheme",(_e,{objectId,grid}={})=>montage.clearScheme(objectId,{grid:grid===true}));
+ handle("ai-montage:clear-scheme",(_e,{objectId,grid,missing}={})=>montage.clearScheme(objectId,{grid:grid===true,missing:missing===true}));
  handle("ai-montage:restore-scheme",(_e,{objectId}={})=>montage.restoreScheme(objectId));
  // Every edit and placement on the montage scheme comes here by itself (auto) or with a comment: a kind the engineer gave
 // a mark of a set becomes the rule of that set at once (the next analysis gives the mark that kind) and goes to GitHub.

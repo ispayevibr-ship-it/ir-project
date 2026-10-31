@@ -10,6 +10,15 @@ const ST=require("./ai-structure-types");
 const {buildPlan,buildCatalog,markKey,normMark,cumulative,volumeOf}=require("./ai-montage-plan");
 const {createProjectKnowledge,cardsFromPages,gradeOf}=require("./ai-project-kb");
 const AUTO_WORK="Монтаж металлоконструкций (из PDF)";
+// One element read again by a new placement: the same mark — with or without a dash between its letters and number
+// (Т-23 and Т23, П-16А and П16А: Claude writes either, the sheets too) — and the same kind; a ladder is a ladder whether
+// it stands upright in one reading or leans along the face of a tapering mast in the next. The engineer, 31.10.2026,
+// mast ПМС-18,4: «это что за лестница?» — Т-23 and П-16А of an earlier answer had stayed beside Т23 and П16А of the
+// checked scheme, marked «нет в новом анализе», a ladder through the mast and a column inside its lattice.
+function sameElementKey(mark,geometry,fitting){
+ const g=String(geometry||"column");
+ return normMark(mark).replace(/(\p{L})[-‐‑–—](?=\d)/gu,"$1")+"|"+(fitting==="ladder"?"ladder":g==="bent"?"beam":g)
+}
 // A name for a mark the drawings do not name: what the element is (the scheme page groups marks by their names).
 const KIND_NAME={columns:"Колонна",fahwerk:"Стойка фахверка",posts:"Стойка",ties:"Связь",beams:"Балка",girders:"Ригель",purlins:"Прогон",spacers:"Распорка",
  trusses:"Ферма",roof:"Элемент крыши",nozzles:"Патрубок",tanks:"Стенка резервуара",bottom:"Днище",stairs:"Лестница",platforms:"Площадка",guards:"Ограждение",
@@ -760,18 +769,21 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    const w=works.get(wid);if(!w||w.data?.scheme_enabled===true)continue;
    if(database.updateEntity(oid,"work-types",w.id,{record_type:w.record_type||"item",parent_id:w.parent_id,title:w.title,data:{...w.data,scheme_enabled:true}}))enabled.push(String(w.id))
   }
-  // The same mark and kind, nearest first: that is the same element drawn again.
+  // The same mark and kind, nearest first: that is the same element drawn again (sameElementKey: with or without a dash
+  // in the mark, a ladder upright or leaning).
   // Looked up by mark and kind: 4000 new against 4000 placed before, each with each, held the program for 16 s.
-  const pairs=[],kind=g=>g==="bent"?"beam":g,sameKey=new Map();
+  const pairs=[],sameKey=new Map();
   // An element whose mark the engineer changed is found by the mark it was placed with, at either of its positions.
   const keyed=(k,j)=>{if(!sameKey.has(k))sameKey.set(k,[]);if(!sameKey.get(k).includes(j))sameKey.get(k).push(j)};
-  imported.forEach((r,j)=>{const g=kind(String(r.data?.geometry_type||"column")),was=edited.get(String(r.id))?.before;keyed(normMark(r.data?.mark)+"|"+g,j);if(was?.mark)keyed(normMark(was.mark)+"|"+g,j)});
-  payloads.forEach((p,i)=>(sameKey.get(normMark(p.mark)+"|"+kind(p.geometry))||[]).forEach(j=>{
+  imported.forEach((r,j)=>{const d=r.data||{},was=edited.get(String(r.id))?.before;keyed(sameElementKey(d.mark,d.geometry_type,d.fitting_type),j);if(was?.mark)keyed(sameElementKey(was.mark,d.geometry_type,d.fitting_type),j)});
+  payloads.forEach((p,i)=>(sameKey.get(sameElementKey(p.mark,p.geometry,p.data.fitting_type))||[]).forEach(j=>{
    const r=imported[j],was=edited.get(String(r.id))?.before;
    const d=Math.min(Math.hypot(Number(r.data.absolute_x_mm)-p.x,Number(r.data.absolute_y_mm)-p.y),was?Math.hypot(Number(was.x)-p.x,Number(was.y)-p.y):Infinity);
-   pairs.push({i,j,d})
+   pairs.push({i,j,d,gone:r.data?.missing_in_analysis?1:0})
   }));
-  pairs.sort((a,b)=>a.d-b.d);
+  // At the same distance the element the last reading found goes before one it no longer found (a leftover of an older
+  // answer standing on the same place).
+  pairs.sort((a,b)=>a.d-b.d||a.gone-b.gone);
   const matchOf=new Map(),taken=new Set();
   for(const q of pairs)if(!matchOf.has(q.i)&&!taken.has(q.j)){matchOf.set(q.i,q.j);taken.add(q.j)}
   if(gridMode==="created")database.createEntity(oid,"scheme",{record_type:"scheme_grid",title:"Сетка осей",data:{entity_type:"grid",...plan.grid,import_batch:batch}});
@@ -869,21 +881,24 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
  }
  // Clearing the montage scheme keeps a copy (the last five), so it can be brought back.
  const SNAPSHOTS="scheme-snapshots";
- function clearScheme(id,{grid=false}={}){
+ // missing: only the elements a later placement no longer found («нет в новом анализе» — leftovers of an older reading),
+ // not mounted and not changed by the engineer; the engineer's own action, with the same copy to bring them back.
+ function clearScheme(id,{grid=false,missing=false}={}){
   const oid=object(id),rows=database.listEntity(oid,"scheme");
-  const targets=rows.filter(r=>isElement(r)||grid&&isGrid(r));
-  if(!targets.length)throw Error("Монтажная схема уже пуста");
-  database.createEntity(oid,SNAPSHOTS,{record_type:"scheme_snapshot",title:"Очистка "+new Date().toLocaleString("ru-RU"),
-   data:{at:new Date().toISOString(),grid,records:targets.map(r=>({record_type:r.record_type,title:r.title,data:r.data}))}});
+  const targets=missing?rows.filter(r=>isElement(r)&&fromPdf(r)&&r.data?.missing_in_analysis&&!mounted(r)&&!r.data?.engineer_edited):rows.filter(r=>isElement(r)||grid&&isGrid(r));
+  if(!targets.length)throw Error(missing?"Элементов «нет в новом анализе» в схеме нет":"Монтажная схема уже пуста");
+  if(missing)grid=false;
+  database.createEntity(oid,SNAPSHOTS,{record_type:"scheme_snapshot",title:(missing?"Убраны «нет в новом анализе» ":"Очистка ")+new Date().toLocaleString("ru-RU"),
+   data:{at:new Date().toISOString(),grid,...(missing?{missing:true}:{}),records:targets.map(r=>({record_type:r.record_type,title:r.title,data:r.data}))}});
   const old=database.listEntity(oid,SNAPSHOTS).sort((a,b)=>String(b.data?.at).localeCompare(String(a.data?.at))).slice(5);
   for(const r of old)database.deleteEntity(oid,SNAPSHOTS,r.id);
   let removed=0;
   for(const r of targets)if(database.deleteEntity(oid,"scheme",r.id))removed++;
-  return{removed,grid,snapshot:schemeSnapshot(oid)}
+  return{removed,grid,missing,snapshot:schemeSnapshot(oid)}
  }
  function schemeSnapshot(id){
   const oid=object(id),last=database.listEntity(oid,SNAPSHOTS).sort((a,b)=>String(b.data?.at).localeCompare(String(a.data?.at)))[0];
-  return last?{id:last.id,at:last.data?.at,count:(last.data?.records||[]).filter(r=>r.record_type!=="scheme_grid").length,grid:Boolean(last.data?.grid)}:null
+  return last?{id:last.id,at:last.data?.at,count:(last.data?.records||[]).filter(r=>r.record_type!=="scheme_grid").length,grid:Boolean(last.data?.grid),missing:Boolean(last.data?.missing)}:null
  }
  function restoreScheme(id){
   const oid=object(id),last=database.listEntity(oid,SNAPSHOTS).sort((a,b)=>String(b.data?.at).localeCompare(String(a.data?.at)))[0];
@@ -949,4 +964,4 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
  }
  return{latest,documentSheets,analyze,control,process,skipAI,preview,place,undo,clearScheme,restoreScheme,schemeSnapshot,elementCard};
 }
-module.exports={createMontage,SCHEMA,SYSTEM,mergeParts,mergeMarks};
+module.exports={createMontage,SCHEMA,SYSTEM,mergeParts,mergeMarks,sameElementKey};
