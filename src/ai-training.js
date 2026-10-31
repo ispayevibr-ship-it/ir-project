@@ -179,7 +179,7 @@ function createTraining({database,getUserDataPath,base=null}){
  function journalWrite(d){fs.mkdirSync(path.dirname(journalFile()),{recursive:true});const tmp=journalFile()+".tmp";fs.writeFileSync(tmp,JSON.stringify(d,null,1),"utf8");fs.renameSync(tmp,journalFile())}
  const latestSet=oid=>{const all=placements(oid);return all.length?all[all.length-1].data?.set||null:null};
  const setOf=set=>set?{id:set.id,name:set.name,files:(set.files||[]).map(f=>({name:f.name,sha256:f.sha256}))}:null;
- const ACTION={edited:"правка",placed:"расставлен",deleted:"удалён",grid:"сетка осей",comment:"комментарий"};
+ const ACTION={edited:"правка",placed:"расставлен",deleted:"удалён",grid:"сетка осей",comment:"комментарий",confirmed:"подтверждён инженером"};
  function journalAdd(oid,{elementId,comment="",objectName="",action="",auto=false,grid=null}={}){
   const d=journalRead(),object={id:String(oid),name:String(objectName||"").slice(0,200)},at=new Date().toISOString();
   const push=entry=>{d.entries.push(entry);if(d.entries.length>20000)d.entries.splice(0,d.entries.length-20000);journalWrite(d);return{entry,total:d.entries.length}};

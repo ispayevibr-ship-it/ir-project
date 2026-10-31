@@ -625,11 +625,45 @@ function twinOf(line,segments,lines,skip){
   return Math.min(l,Math.max(t1,t2))-Math.max(0,Math.min(t1,t2))>=l*0.8
  })
 }
-function memberLine(t,target,segments,lines,skip){
+// A brace drawn slanting across a bay with its mark beside it, no member along the label (ГПЭС М1.3: «К57» upright by
+// each diagonal of the roof bracing): the slanted lines (20°–70° to the label, 10°–80° on the sheet) the label stands
+// beside — not over — at their middle part, nearest first.
+function slantedNear(t,segments,lines,skip){
+ const f=textFrame(t),out=[];
+ for(const i of lines.near(f.c,f.w/2+f.h*2.2)){
+  if(skip.has(i))continue;
+  const s=segments[i],l=dist(s.a,s.b);if(l<24)continue;
+  const v={x:(s.b.x-s.a.x)/l,y:(s.b.y-s.a.y)/l},sl=Math.abs(cross(v,f.dir));
+  if(sl<.34||sl>.94||Math.abs(v.x)<.17||Math.abs(v.y)<.17)continue;
+  const w={x:f.c.x-s.a.x,y:f.c.y-s.a.y},along=w.x*v.x+w.y*v.y,off=Math.abs(cross(v,w));
+  if(off<f.h*.5||off>f.h*2||along<l*.15||along>l*.85)continue;
+  out.push({i,off})
+ }
+ return out.sort((a,b)=>a.off-b.off)
+}
+// The nearest member line along the label (as memberLine looks for it without a leader): its distance, or null.
+function parallelNear(t,segments,lines,skip){
+ const f=textFrame(t);let best=null;
+ for(const i of lines.near(f.c,f.w/2+f.h*2.2)){
+  if(skip.has(i))continue;
+  const s=segments[i],l=dist(s.a,s.b);if(l<Math.max(24,f.w*2.2))continue;
+  const v={x:(s.b.x-s.a.x)/l,y:(s.b.y-s.a.y)/l};if(Math.abs(cross(v,f.dir))>.07)continue;
+  const w={x:f.c.x-s.a.x,y:f.c.y-s.a.y},along=w.x*v.x+w.y*v.y,off=Math.abs(cross(v,w));
+  if(off>f.h*1.7||along<-f.w/2-f.h||along>l+f.w/2+f.h)continue;
+  if(best===null||off<best)best=off
+ }
+ return best
+}
+// slant: the mark is one of slanted braces (most of its labels stand by a slanted line only) — its slanted line goes
+// before a line along the label.
+function memberLine(t,target,segments,lines,skip,slant=false){
  const f=textFrame(t);
  const found=[];
  const consider=(i,score)=>found.push({i,score});
- if(target.leader){
+ // A straight stroke taken for the leader of a slanted brace's label is a tick of the drawing (ГПЭС М1.3: the end of a
+ // purlin by «К57»): its slanted line beside it goes first.
+ const slanted=slantedNear(t,segments,lines,skip);
+ if(target.leader&&!(slant&&slanted.length&&!target.diagonal)){
   // The leader ends on the member: the longest line through that point.
   // A turned label's "leader" running along it may be its member itself (a КМ set: «Б2» turned along a short beam
   // ending on another).
@@ -668,8 +702,10 @@ function memberLine(t,target,segments,lines,skip){
    if(off>f.h*1.7||along<-f.w/2-f.h||along>l+f.w/2+f.h)continue;
    // A line passing under the label goes before one that only starts beside it (029-2025: «53» over its beam, the
    // frame of a level mark beside it, nearer).
-   consider(i,off+(along<-f.w/2||along>l+f.w/2?f.h*2:0))
+   consider(i,off+(along<-f.w/2||along>l+f.w/2?f.h*2:0)+(slant?f.h*3:0))
   }
+  // A slanted brace beside the label: after a line along it, unless the mark is one of slanted braces.
+  for(const c of slanted)consider(c.i,c.off+(slant?0:f.h))
  }
  // Nearest first; short strokes next to the label (ticks, hatching) are passed over.
  found.sort((a,b)=>a.score-b.score);
@@ -1236,6 +1272,20 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    // level's leader).
    const b=textBox(t),on={x:b.cx,y:b.y1+6,leader:false,rail:true,skip:sk},line=memberLine(t,on,segments,lines,new Set([...namedSegs,...sk]));
    return line&&dist(line.a,line.b)>=Math.max(24,(b.x1-b.x0)*2.5)?on:tg};
+  // Marks of slanted braces: two and more of their labels, and at least half of them, stand nearer a slanted line than
+  // any member line along them (ГПЭС М1.3: «К56» upright in a narrow bay between its diagonal and a rafter a little
+  // farther; «К40» by the same diagonal is nearer its rafter and stays a rafter).
+  const slantMarks=new Set();{
+   const n=new Map(),all=new Map(),key=t=>String(t.str||"").trim().replace(/\s+/gu,"");
+   for(const t of labels){
+    if(!MARK_LABEL.test(key(t)))continue;
+    all.set(key(t),(all.get(key(t))||0)+1);
+    const sn=slantedNear(t,segments,lines,namedSegs);if(!sn.length)continue;
+    const par=parallelNear(t,segments,lines,namedSegs);if(par!==null&&par<=sn[0].off)continue;
+    n.set(key(t),(n.get(key(t))||0)+1)
+   }
+   for(const [k,c] of n)if(c>=2&&c*2>=all.get(k))slantMarks.add(k)
+  }
   for(const t of labels){
    // "К 1" is written with a space on some sheets.
    let mark=String(t.str||"").trim().replace(/^([А-ЯЁA-Z]{1,3}|[А-ЯЁA-Z][а-яё]{1,2})\s+(\d)/u,"$1$2"),byIndex=false;
@@ -1248,6 +1298,12 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
     postAt=tg.leader&&!(tg.diagonal&&tg.shelf)&&!sizeOfDims(t)?columnSymbol(tg,segments,index):null;
     // A number written over its member line, larger or smaller than the sizes (029-2025: «50» over its beam), is one too.
     if(tg.leader&&tg.diagonal&&tg.shelf&&!(ownSize()&&sizeOfDims(t))||postAt||tg.rail&&!sizeOfDims(t)){mark=markIndex+mark;byIndex=true}}
+   // A bare number by a slanted brace whose mark with a letter is one of the slanted braces of this sheet (only one such):
+   // the letter was dropped (ГПЭС М1.3: «56» by four diagonals of the bracing marked «К56» elsewhere).
+   const lettered=!byIndex&&/^\d{1,3}$/u.test(mark)&&!usedTexts.has(t)?[...slantMarks].filter(k=>MARK_LABEL.exec(k)?.[2]===mark&&!/[-.а-я]$/u.test(k)):[];
+   if(lettered.length===1){
+    const sn=slantedNear(t,segments,lines,namedSegs),par=sn.length?parallelNear(t,segments,lines,namedSegs):null;
+    if(sn.length&&(par===null||par>sn[0].off))mark=lettered[0]}
    // A column base («Бк 4») is not a member: its leader points at the base symbol, which stands at a column. Its place
    // goes with the scheme (from the nearest named axes), for the base details of that column.
    if(BASE_LABEL.test(mark)&&!usedTexts.has(t)){
@@ -1293,7 +1349,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    if(symbol)target={...target,...symbol};
    // Beams, purlins and bracing on a plan are drawn lines: the ends come from the drawing itself.
    if(!symbol&&(titleKind!=="column"||ruledKind==="beam"||ruledKind==="brace")){
-    let line=memberLine(t,target,segments,lines,target.skip?new Set([...namedSegs,...target.skip]):namedSegs);
+    let line=memberLine(t,target,segments,lines,target.skip?new Set([...namedSegs,...target.skip]):namedSegs,slantMarks.has(mark));
     // On a local view the frame line runs on past the posts and into the extension lines: the member is between the
     // outermost node symbols on it.
     if(line&&nodes)line=clipToNodes(line,nodes);

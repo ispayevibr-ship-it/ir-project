@@ -2072,6 +2072,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
     // The card in plain words of the exported page (src/scheme-element-card.js): what a new analysis gives after an edit,
     // what to check, an element placed by hand.
     pdf_new:c.pdf_new&&typeof c.pdf_new==="object"?c.pdf_new:undefined,check_note:c.check_note?String(c.check_note):undefined,manual:c.import_batch?undefined:true,
+    engineer_confirmed:c.engineer_confirmed&&typeof c.engineer_confirmed==="object"?c.engineer_confirmed:undefined,engineer_edited:c.engineer_edited?true:undefined,
     // The top of the card as in the report of 21.10.2026: the day of mounting, the sheet, the mass of the КМД.
     status_date:day.date||undefined,status_more:day.more||undefined,sheet:sheetOfRecord(c)||undefined,mass_kmd:markMass(c,lm)||undefined}});
   if(!list.length){alert("На схеме нет элементов для выгрузки.");return}
@@ -2163,6 +2164,19 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  // placed, what it is now, what changed; a kind given to a mark becomes the rule of the set. Never in the way of the
  // edit: a failure is only written to the console.
  const journalStamp=text=>new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"})+" · "+text;
+ // The engineer confirms elements as they stand: «подтверждено», who and when; the journal keeps it for the drawings.
+ async function confirmElements(ids){
+  const want=new Set(ids.map(String)),who={admin:"администратор",engineer:"инженер"}[window.irAccess?.role?.()]||"",at=new Date().toISOString();let n=0;
+  for(const row of arr(rows).filter(r=>want.has(String(r.id)))){
+   const d=row.data||{};if(d.engineer_confirmed)continue;
+   const data={...d,instance_status:"confirmed",preliminary:false,engineer_confirmed:{at,...(who?{by:who}:{})}};delete data.instance_reasons;
+   const saved=await schemeApi.update(row.id,{record_type:row.record_type||"scheme_column",parent_id:row.parent_id,title:row.title,data});n++;
+   if(!rememberSavedSchemeRecord(saved))rows=arr(rows).map(r=>String(r.id)===String(row.id)?{...r,data}:r);
+   if(irProject.ai?.invoke)irProject.ai.invoke("ai-montage:journal-add",{objectId:oid,elementId:String(row.id),action:"confirmed",auto:false,comment:"Подтверждено инженером",objectName:String(object?.name||object?.title||"")}).catch(()=>null)
+  }
+  if(n)refreshAfterMemberChange();
+  return n
+ }
  function journalAuto(elementId,action,extra){
   if(!irProject.ai?.invoke||(!elementId&&action!=="grid"))return Promise.resolve(null);
   return irProject.ai.invoke("ai-montage:journal-add",{objectId:oid,elementId:elementId?String(elementId):undefined,action,auto:true,objectName:String(object?.name||object?.title||""),...(extra||{})})
@@ -2283,7 +2297,12 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
     <div class="scheme-mark-progress-bar"><i style="width:${Math.max(0,Math.min(100,progress.mounted/progress.total*100))}%"></i></div>
     ${progress.state==="partial"?'<small>Ведомость показывает частичное выполнение марки, но не указывает, какой именно экземпляр смонтирован.</small>':""}
    </div>`:"";
-  const actionsHtml=canEdit()?`<div class="scheme-detail-actions"><button type="button" data-scheme-edit>Редактировать</button><button type="button" data-scheme-copy-place>⧉ Размещение</button><button type="button" data-scheme-copy>⧉ Копировать позицию</button><button type="button" class="danger" data-scheme-delete>Удалить</button></div>${irProject.ai?.invoke?`<div class="scheme-journal-send"><input type="text" data-scheme-journal-note maxlength="500" placeholder="Комментарий к правке (необязательно)"><button type="button" data-scheme-journal title="Правки и расстановка записываются в журнал сами; кнопка добавляет к элементу ваш комментарий. Журнал уходит на GitHub каждый час">В журнал</button><small data-scheme-journal-state>${journalSent.has(String(c.id))?"В журнале: "+esc(journalSent.get(String(c.id))):""}</small></div>`:""}`:"";
+  // Confirmation by the engineer (31.10.2026: «вот есть колонна, она не подтверждана статус, как ее подтвердить?»): the
+  // element as it stands is right; a new placement keeps it as it is (the new reading beside it, in its card).
+  const sameMark=c.import_batch?records().filter(r=>String(r.id)!==String(c.id)&&r.import_batch&&!r.engineer_confirmed&&String(r.mark||"")===String(c.mark||"")&&String(c.mark||"")):[];
+  const confirmHtml=(c.import_batch&&!c.engineer_confirmed?`<button type="button" class="ok" data-scheme-confirm title="Положение, отметки и сечение верны: элемент станет «подтверждено», повторная расстановка его не изменит">✓ Подтвердить</button>`:"")+
+   (sameMark.length?`<button type="button" class="ok" data-scheme-confirm-mark title="Подтвердить все неподтверждённые элементы марки ${esc(c.mark)} на схеме">✓ Все ${esc(c.mark)} (${sameMark.length+(c.engineer_confirmed?0:1)})</button>`:"");
+  const actionsHtml=canEdit()?`<div class="scheme-detail-actions">${confirmHtml}<button type="button" data-scheme-edit>Редактировать</button><button type="button" data-scheme-copy-place>⧉ Размещение</button><button type="button" data-scheme-copy>⧉ Копировать позицию</button><button type="button" class="danger" data-scheme-delete>Удалить</button></div>${irProject.ai?.invoke?`<div class="scheme-journal-send"><input type="text" data-scheme-journal-note maxlength="500" placeholder="Комментарий к правке (необязательно)"><button type="button" data-scheme-journal title="Правки и расстановка записываются в журнал сами; кнопка добавляет к элементу ваш комментарий. Журнал уходит на GitHub каждый час">В журнал</button><small data-scheme-journal-state>${journalSent.has(String(c.id))?"В журнале: "+esc(journalSent.get(String(c.id))):""}</small></div>`:""}`:"";
   // The card in plain words, by the drawings (src/scheme-element-card.js): what it is, its section, where it stands, what
   // the drawings say of it; the exact coordinates folded away. The tiles of before only when the module is not loaded.
   const EC=window.irSchemeElementCard;
@@ -2294,7 +2313,8 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
     x:c.x,y:c.y,x2:c.x2,y2:c.y2,z0:c.z0,z2:c.z2,mx:c.mx,my:c.my,mz:c.mz,r:c.r,ri:c.ri,sw:c.sw,ft:c.ft,
     doc:String(c.source_import_doc||""),src_section:String(c.source_section||""),instance_status:String(c.instance_status||""),preliminary:isPreliminary(c),
     reasons:Array.isArray(c.instance_reasons)?c.instance_reasons.map(String):[],sources:c.param_sources&&typeof c.param_sources==="object"?c.param_sources:null,
-    pdf_new:c.pdf_new&&typeof c.pdf_new==="object"?c.pdf_new:null,check_note:String(c.check_note||""),manual:!c.import_batch};
+    pdf_new:c.pdf_new&&typeof c.pdf_new==="object"?c.pdf_new:null,check_note:String(c.check_note||""),manual:!c.import_batch,
+    confirmed:c.engineer_confirmed&&typeof c.engineer_confirmed==="object"?c.engineer_confirmed:null,edited:Boolean(c.engineer_edited)};
    const grid={axesX:[...axesX],axesY:[...axesY],posX:Object.fromEntries(axisXPos),posY:Object.fromEntries(axisYPos)};
    // As the card of the report of 21.10.2026: the day of mounting, the sheet, the masses, the bolts, the nodes and the parts
    // of the member in their colours on the model (src/scheme-element-card.js head … parts).
@@ -2333,6 +2353,18 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
     const t=journalStamp(r.entry.text);journalSent.set(String(c.id),t);if(state)state.textContent="В журнале: "+t;if(note)note.value=""}
    catch(error){if(state)state.textContent="Не записано: "+String(error?.message||error).replace(/^Error invoking remote method[^:]*: (Error: )?/,"")}
    finally{btn.disabled=false}
+  });
+  const confirmBy=async(ids,btn)=>{
+   if(btn)btn.disabled=true;
+   try{const n=await confirmElements(ids);if(!n)alert("Нечего подтверждать: элементы уже подтверждены или удалены.")}
+   catch(error){alert("Не подтверждено: "+String(error?.message||error))}
+   finally{if(btn)btn.disabled=false}
+  };
+  panel.querySelector("[data-scheme-confirm]")?.addEventListener("click",e=>confirmBy([String(c.id)],e.currentTarget));
+  panel.querySelector("[data-scheme-confirm-mark]")?.addEventListener("click",e=>{
+   const ids=[...(c.engineer_confirmed?[]:[String(c.id)]),...sameMark.map(r=>String(r.id))];
+   if(!confirm(`Подтвердить все элементы марки «${c.mark}» на схеме: ${ids.length}?\nИх положение и отметки станут «подтверждено», повторная расстановка их не изменит.`)){restoreKeyboardAfterConfirm();return}
+   restoreKeyboardAfterConfirm();confirmBy(ids,e.currentTarget)
   });
   panel.querySelector("[data-scheme-edit]")?.addEventListener("click",()=>openEditor(c));
   panel.querySelector("[data-scheme-copy]")?.addEventListener("click",()=>openEditor(c,true));

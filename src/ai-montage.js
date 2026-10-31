@@ -25,7 +25,7 @@ const KIND_NAME={columns:"Колонна",fahwerk:"Стойка фахверка
  column:"Колонна",beam:"Балка",bent:"Балка",brace:"Связь",truss:"Ферма",shell:"Стенка резервуара",plate:"Площадка"};
 // Version of the reading rules: an analysis made by older rules is flagged, so that the engineer runs it again
 // after an update (the result of step 1 is stored and is not recomputed by itself).
-const ANALYZER="2026-10-31.1";
+const ANALYZER="2026-10-31.2";
 // АР (architecture) and ТХ (technology) sheets are read for context: Claude places what of them is mounted.
 // (КМД — one kind: the program tells its montage and assembly sheets apart, sheet by sheet — kmdSheetType; the two old
 // kinds of a file are still read, as the engineer's hint for its sheets that say nothing)
@@ -844,13 +844,14 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   payloads.forEach((p,i)=>{
    if(matchOf.has(i)){
     const old=imported[matchOf.get(i)],before=old.data||{},change=edited.get(String(old.id));
-    // Changed by the engineer: his element stays as it is, the new reading beside it (shown in its card).
-    if(change){
+    // Changed by the engineer, or confirmed by him as it stands (a button of the card, 31.10.2026): his element stays as
+    // it is, the new reading beside it (shown in its card).
+    if(change||before.engineer_confirmed){
      const next={...before,pdf_new:{batch,x:p.x,y:p.y,x2:p.data.absolute_x2_mm,y2:p.data.absolute_y2_mm,z0:p.data.z0_mm,z1:p.data.z1_mm,end_z:p.data.end_z_mm,
-      mark:p.data.mark,type_name:p.data.type_name,source:p.data.source_import_doc},instance_status:"confirmed",preliminary:false,instance_reasons:undefined,missing_in_analysis:undefined,engineer_edited:true};
+      mark:p.data.mark,type_name:p.data.type_name,source:p.data.source_import_doc},instance_status:"confirmed",preliminary:false,instance_reasons:undefined,missing_in_analysis:undefined,engineer_edited:change?true:before.engineer_edited};
      for(const k of Object.keys(next))if(next[k]===undefined)delete next[k];
      if(database.updateEntity(oid,"scheme",old.id,{record_type:old.record_type||"scheme_column",title:old.title,data:next})){
-      updated.push({id:old.id,record_type:old.record_type,title:old.title,data:before});keptEdited.push(before.mark||old.title);carried.push({id:String(old.id),origin:change.before})
+      updated.push({id:old.id,record_type:old.record_type,title:old.title,data:before});keptEdited.push(before.mark||old.title);if(change)carried.push({id:String(old.id),origin:change.before})
      }
      return
     }
@@ -869,8 +870,9 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    if(taken.has(j))return;
    if(mounted(r))kept.push(r.data?.mark||r.title);
    const before=r.data||{},change=edited.get(String(r.id));
-   // Changed by the engineer: his element, left as it is.
+   // Changed or confirmed by the engineer: his element, left as it is.
    if(change){carried.push({id:String(r.id),origin:change.before});return}
+   if(before.engineer_confirmed)return;
    if(before.missing_in_analysis){stillMissing.push(before.mark||r.title);return}
    const next={...before,missing_in_analysis:batch,instance_status:"not_found",instance_reasons:["нет в новом анализе чертежей — проверьте, удалите вручную, если конструкции нет"],preliminary:true};
    if(database.updateEntity(oid,"scheme",r.id,{record_type:r.record_type||"scheme_column",title:r.title,data:next})){updated.push({id:r.id,record_type:r.record_type,title:r.title,data:before});missingNow.push(before.mark||r.title)}

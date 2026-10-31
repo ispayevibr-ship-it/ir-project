@@ -225,7 +225,7 @@
    if(EC){
     var e={mark:c.mark,name:c.mark_name,type_name:/\s\/\s/.test(c.type_name||"")?"":c.type_name,type_key:c.type_key,lay:c.lay||null,group:c.scheme_group,geometry:c.geometryType,profile:c.profile,standard:c.profile_standard,section:c.section,steel:c.steel||"",joint:c.joint||null,
      status:c.status,status_label:statusText[c.status]||c.status,status_title:p&&p.total>0?"Статус по ведомости марок":"",x:c.x,y:c.y,x2:c.x2,y2:c.y2,z0:c.z0,z2:c.z2,mx:c.mx,my:c.my,mz:c.mz,r:c.r,ri:c.ri,sw:c.sw,ft:c.ft,
-     doc:c.draft_doc,src_section:c.source_section,instance_status:c.instance_status,preliminary:!!c.preliminary,reasons:c.instance_reasons||[],sources:c.param_sources||null,pdf_new:c.pdf_new||null,check_note:c.check_note||"",manual:!!c.manual,
+     doc:c.draft_doc,src_section:c.source_section,instance_status:c.instance_status,preliminary:!!c.preliminary,reasons:c.instance_reasons||[],sources:c.param_sources||null,pdf_new:c.pdf_new||null,check_note:c.check_note||"",manual:!!c.manual,confirmed:c.engineer_confirmed||null,edited:!!c.engineer_edited,
      // As in the program: the day of mounting, the sheet, the masses, the bolts, the nodes and the parts in their colours.
      status_date:c.status_date||"",status_more:c.status_more||"",sheet:c.sheet||"",mass_kmd:c.mass_kmd||null,spec:c.parts||null,
      model:V&&V.card?V.card(c.id):null,kgm:function(t){return V&&V.massPerMetre?V.massPerMetre(t,c.profile_standard):null}};

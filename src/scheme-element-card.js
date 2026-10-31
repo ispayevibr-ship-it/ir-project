@@ -182,10 +182,12 @@
   [["X",e.x,n.x],["Y",e.y,n.y]].forEach(function(r){if(has(r[2])&&Math.abs(num(r[1])-num(r[2]))>5)d.push(r[0]+" "+fmt(r[2])+" мм")});
   if(has(n.z0)&&Math.abs(num(e.z0)-num(n.z0))>5)d.push("низ "+level(n.z0));
   if(has(top)&&Math.abs(num(e.z2)-num(top))>5)d.push("верх "+level(top));
-  return'<p>Вы меняли этот элемент — сохранены ваши значения. '+(d.length?"Повторный анализ чертежей даёт другое: "+esc(d.join(", "))+".":"Повторный анализ чертежей даёт то же самое.")+'</p>'
+  return'<p>'+(e.confirmed&&!e.edited?"Вы подтвердили этот элемент":"Вы меняли этот элемент")+' — сохранены ваши значения. '+(d.length?"Повторный анализ чертежей даёт другое: "+esc(d.join(", "))+".":"Повторный анализ чертежей даёт то же самое.")+'</p>'
  }
  function drawings(e){
-  var f=e.manual?["manual","Поставлен вручную, не из анализа чертежей"]:FOUND[e.instance_status]||null,rows=[];
+  // Confirmed by the engineer (a button of the card): his word, not the drawings'.
+  var cf=e.confirmed&&typeof e.confirmed==="object"?e.confirmed:null,cd=cf&&cf.at?new Date(cf.at):null;
+  var f=e.manual?["manual","Поставлен вручную, не из анализа чертежей"]:cf?["ok","Подтверждено инженером"+(cf.by?" ("+cf.by+")":"")+(cd&&!isNaN(cd)?", "+cd.toLocaleDateString("ru-RU"):"")+" — повторная расстановка его не меняет"]:FOUND[e.instance_status]||null,rows=[];
   if(e.doc)rows.push('<p>Лист: '+esc(e.doc)+(e.src_section&&String(e.doc).indexOf(e.src_section)<0?" (раздел "+esc(e.src_section)+")":"")+'</p>');
   // Where each value was taken (the position only when it says more than the sheet above: the title of the scheme).
   var s=e.sources&&typeof e.sources==="object"?e.sources:null,file=String(e.doc||"").split(" · ")[0],from=[];

@@ -104,17 +104,27 @@ function createGithubSync({getUserDataPath,safeStorage,fetch:doFetch=globalThis.
   await gh("GET","/repos/"+d.repo+"/git/ref/heads/"+d.branch.split("/").map(encodeURIComponent).join("/"));
   return{ok:true,repo:d.repo,branch:d.branch}
  }
- // One commit of the given files ({path, text} or {path, base64}) on the branch; a branch moved meanwhile — once more.
- async function commitFiles(d,files,message){
+ // One commit of the given files ({path, text} or {path, base64}) on the branch; a branch moved meanwhile — again, up to
+ // five times with a growing pause. The commits of this program go one after another (the engineer, 31.10.2026: a
+ // message sent while another was going failed «GitHub: 422 Update is not a fast forward»).
+ let commitQueue=Promise.resolve();
+ function commitFiles(d,files,message){
+  const run=commitQueue.then(()=>commitOnce(d,files,message));
+  commitQueue=run.catch(()=>{});
+  return run
+ }
+ const pause=ms=>new Promise(r=>setTimeout(r,ms));
+ async function commitOnce(d,files,message){
   const ref="/repos/"+d.repo+"/git/refs/heads/"+d.branch.split("/").map(encodeURIComponent).join("/");
-  for(let attempt=0;attempt<2;attempt++){
+  for(let attempt=0;attempt<5;attempt++){
+   if(attempt)await pause(400*2**(attempt-1));
    const head=await gh("GET","/repos/"+d.repo+"/git/ref/heads/"+d.branch.split("/").map(encodeURIComponent).join("/"));
    const parent=await gh("GET","/repos/"+d.repo+"/git/commits/"+head.object.sha);
    const tree=[];
    for(const f of files){const b=await gh("POST","/repos/"+d.repo+"/git/blobs",f.base64!==undefined?{content:f.base64,encoding:"base64"}:{content:f.text,encoding:"utf-8"});tree.push({path:f.path,mode:"100644",type:"blob",sha:b.sha})}
    const t=await gh("POST","/repos/"+d.repo+"/git/trees",{base_tree:parent.tree.sha,tree});
    const c=await gh("POST","/repos/"+d.repo+"/git/commits",{message,tree:t.sha,parents:[head.object.sha]});
-   try{await gh("PATCH",ref,{sha:c.sha,force:false});return c.sha}catch(e){if(e.status!==422||attempt)throw e}
+   try{await gh("PATCH",ref,{sha:c.sha,force:false});return c.sha}catch(e){if(e.status!==422||attempt===4)throw e}
   }
  }
  let running=null;
