@@ -33,7 +33,7 @@
  }
  window.irExecDocsPage=async oid=>{
   const app=document.getElementById("app"),api=irProject.data.forObject(oid).section("executive-docs");
-  let D=await loadAll(oid),open={people:false,certs:true},busy=false,note="",filterGroup="",editing=null;
+  let D=await loadAll(oid),open={people:false,certs:true},busy=false,note="",filterGroup="",editing=null,adding=null;
   const last=()=>D.settings.last||{};
   const saveSettings=async patch=>{D.settings={...D.settings,...patch};const payload={record_type:"settings",title:"Настройки исполнительной документации",data:D.settings};
    if(D.settingsRec)D.settingsRec=await api.update(D.settingsRec.id,payload)||D.settingsRec;else D.settingsRec=await api.create(payload)};
@@ -67,8 +67,12 @@
    const ed=canEdit(),list=D.needs.filter(x=>!filterGroup||x.group===filterGroup),done=D.needs.filter(x=>!x.hidden&&x.docs.length).length,total=D.needs.filter(x=>!x.hidden).length;
    const groups=X.GROUPS.filter(g=>D.needs.some(x=>x.group===g.key)||g.key==="other");
    const rows=groups.map(g=>{const items=list.filter(x=>x.group===g.key);if(!items.length&&filterGroup&&filterGroup!==g.key)return"";if(!items.length&&g.key!=="other")return"";
-    return`<div class="exd-group"><div class="exd-group-head"><b>${esc(g.name)}</b><small>${esc(g.hint)}</small>${ed?`<button data-addcustom="${g.key}" class="exd-mini">＋ пункт</button>`:""}</div>${items.map(x=>itemHtml(x,ed)).join("")||'<div class="exd-empty">Пунктов нет</div>'}</div>`}).join("");
+    return`<div class="exd-group"><div class="exd-group-head"><b>${esc(g.name)}</b><small>${esc(g.hint)}</small>${ed?`<button data-addcustom="${g.key}" class="exd-mini">＋ пункт</button>`:""}</div>${ed&&adding===g.key?newItemHtml(g):""}${items.map(x=>itemHtml(x,ed)).join("")||(adding===g.key?"":'<div class="exd-empty">Пунктов нет</div>')}</div>`}).join("");
    return`<div class="exd-cert-top"><div class="exd-progress"><b>${done} из ${total}</b> пунктов с документами<div class="exd-bar"><i style="width:${total?Math.round(done/total*100):0}%"></i></div></div><select id="exdGroup"><option value="">Все группы</option>${X.GROUPS.map(g=>`<option value="${g.key}" ${filterGroup===g.key?"selected":""}>${esc(g.name)}</option>`).join("")}</select></div>${rows}`
+  }
+  // A new point of the group: its name typed in the page (a window of the system asking for it does not open in the program).
+  function newItemHtml(g){
+   return`<div class="exd-newitem"><input id="exdNewTitle" placeholder="Наименование, напр. «Электроды УОНИ-13/55 Э50А ⌀4 мм», «Эмаль ПФ-115 серая»" maxlength="200"><button class="primary exd-mini" id="exdNewSave">Добавить</button><button class="exd-mini ghost" id="exdNewCancel">Отмена</button></div>`
   }
   function itemHtml(x,ed){
    const st=x.hidden?"hidden":x.docs.length?"ok":"no";
@@ -110,8 +114,14 @@
    app.querySelectorAll("[data-adddoc]").forEach(b=>b.onclick=()=>{editing={key:b.dataset.adddoc,kind:DOC_KINDS[0],date:"",number:"",supplier:"",qty:"",file:null};paint()});
    app.querySelectorAll("[data-hide]").forEach(b=>b.onclick=async()=>{const x=need(b.dataset.hide);await certRecord(x,{hidden:!x.hidden});reload()});
    app.querySelectorAll("[data-delitem]").forEach(b=>b.onclick=async()=>{const x=need(b.dataset.delitem);if(!x?.record||!confirm(`Удалить пункт «${x.title}»?`))return;for(const d of x.docs)if(d.file?.path)await call("ai-documents:exec-cert-remove",{path:d.file.path}).catch(()=>{});await api.remove(x.record.id);reload()});
-   app.querySelectorAll("[data-addcustom]").forEach(b=>b.onclick=async()=>{const g=X.GROUPS.find(x=>x.key===b.dataset.addcustom),t=prompt(`Новый пункт — ${g.name}.\nНаименование (напр. «Электроды УОНИ-13/55 Э50А ⌀4 мм», «Эмаль ПФ-115 серая»):`);if(!t||!t.trim())return;
-    await api.create({record_type:"certificate",title:t.trim(),data:{key:"custom:"+Date.now(),group:g.key,title:t.trim(),custom:true,docs:[]}});reload()});
+   app.querySelectorAll("[data-addcustom]").forEach(b=>b.onclick=()=>{adding=adding===b.dataset.addcustom?null:b.dataset.addcustom;open.certs=true;paint();document.getElementById("exdNewTitle")?.focus()});
+   const nt=document.getElementById("exdNewTitle");
+   if(nt){const g=X.GROUPS.find(x=>x.key===adding);
+    const add=async()=>{const t=nt.value.trim();if(!t){nt.focus();return}
+     try{await api.create({record_type:"certificate",title:t,data:{key:"custom:"+Date.now(),group:g.key,title:t,custom:true,docs:[]}});adding=null;await reload()}
+     catch(e){alert("Пункт не добавлен: "+(e.message||e))}};
+    document.getElementById("exdNewSave").onclick=add;document.getElementById("exdNewCancel").onclick=()=>{adding=null;paint()};
+    nt.addEventListener("keydown",e=>{if(e.key==="Enter")add();else if(e.key==="Escape"){adding=null;paint()}})}
    app.querySelectorAll("[data-open]").forEach(b=>{if(!b.dataset.i)return;b.onclick=()=>{const d=need(b.dataset.open)?.docs[Number(b.dataset.i)];if(d?.file?.path)call("ai-documents:exec-cert-open",{path:d.file.path}).catch(e=>alert("Файл не открылся: "+e.message))}});
    app.querySelectorAll("[data-deldoc]").forEach(b=>b.onclick=async()=>{const x=need(b.dataset.deldoc),d=x?.docs[Number(b.dataset.i)];if(!d||!confirm(`Удалить «${X.certText(d)}»?`))return;
     if(d.file?.path)await call("ai-documents:exec-cert-remove",{path:d.file.path}).catch(()=>{});await certRecord(x,{docs:x.docs.filter((_,i)=>i!==Number(b.dataset.i))});reload()});
