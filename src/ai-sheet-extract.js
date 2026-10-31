@@ -328,7 +328,15 @@ function assemblyViews(texts,w,h,med,segments=[]){
   const over=rdims.length?overallOf(rin,rseg,rbox,Boolean(f||gbox)):null;
   const length=over?over.v:rdims.length?Math.max(...rdims):null;
   const wide=t=>t.x+(t.width||0)>=rbox.x0-160&&t.x<=rbox.x1+160&&t.y>=rbox.y0-40&&t.y<=rbox.y1+40;
-  const ml=v.marks.length>1?markLengths(rin,rseg,rbox,v.marks,length,(gbox?g.of(page.texts):texts).filter(t=>!cells.has(t)&&wide(t))):null,lengths=ml?.lengths,spans=ml?.spans;
+  const ml=v.marks.length>1?markLengths(rin,rseg,rbox,v.marks,length,(gbox?g.of(page.texts):texts).filter(t=>!cells.has(t)&&wide(t))):null,lengths=ml?.lengths;
+  // (the rows of its marks over its title — a view of the holes drawn over it, its own rows over that: «60 · 7755 · 55
+  // для К151», «50 · 7220 · 50 для К154» over «К151, К154» of ГПЭС л. 81 —: the spans of a mark none of its rows under
+  // the title give, by a label naming it)
+  let spans=ml?.spans;
+  if(v.marks.length>1&&!f&&!gbox&&v.marks.some(m=>!spans?.[m])){
+   const ub={x0:box.x0,y0:Math.max(0,v.t.y-250),x1:box.x1,y1:Math.round(v.t.y)},uin=texts.filter(t=>t.x>=left&&t.x<=right&&t.y>=ub.y0&&t.y<v.t.y&&!cells.has(t));
+   const up=uin.length?markLengths(uin,segments,ub,v.marks,length,texts.filter(t=>!cells.has(t)&&t.x+(t.width||0)>=ub.x0-160&&t.x<=ub.x1+160&&t.y>=ub.y0&&t.y<v.t.y)):null;
+   for(const m of v.marks)if(!spans?.[m]&&up?.spans?.[m])spans={...(spans||{}),[m]:up.spans[m]}}
   const others=[...new Set(rdims)].filter(x=>x!==length).sort((a,b)=>b-a);
   const how=over?over.how:length?"наибольшее число вида — общий размер не найден":"";
   let z0=levels.length>=2?levels[0]:null,z1=levels.length>=2?levels[levels.length-1]:null;

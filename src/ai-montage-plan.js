@@ -300,8 +300,19 @@ function groupDrill(v,mark,views){
  const L=Number(v.length_mm)||0,at=v.holes.map(h=>h.at_mm);if(!(L>0)||at.some(a=>a>L*0.25&&a<L*0.75))return null;
  const start=at.filter(a=>a<=L/2),end=at.filter(a=>a>L/2);if(!start.length||!end.length)return null;
  const outer=Math.max(...end)-Math.min(...start),inner=Math.min(...end)-Math.max(...start),all=Object.values(sv.spans).flat();
- const base=all.find(o=>Math.abs(o.span-outer)<=2)||all.find(o=>Math.abs(o.span-inner)<=2);if(!base)return null;
+ const base=all.find(o=>Math.abs(o.span-outer)<=2)||all.find(o=>Math.abs(o.span-inner)<=2);
+ // (no span drawn as the view measures it — its places from the rows of two marks, «К151, К154» of ГПЭС л. 81: 60 from
+ // the start by К151's row, its length К154's —: a mark whose row adds up to its own length, the holes at each end in
+ // one place along, at its row's ends; K154 «50 · 7220 · 50» of 7320 — at 50 and 7270)
+ if(!base){const len=Number(sv.lengths?.[mark])||0,one=a=>Math.max(...a)-Math.min(...a)<=3,r=own.find(o=>len>0&&Math.abs(o.a+o.span+o.b-len)<=2);
+  if(!r||!one(start)||!one(end))return null;
+  return{length_mm:len,holes:v.holes.map(h=>({...h,at_mm:h.at_mm>L/2?r.a+r.span:r.a}))}}
  const m=own.slice().sort((p,q)=>Math.abs(p.c-base.c)-Math.abs(q.c-base.c))[0],d=m.span-base.span,center=(m.a-m.b)/2;
+ // (rows from end to end — the outer holes drawn at the first size of the drawn mark's row from the start, ГПЭС «К152,
+ // К157, К158» л. 81: «60 · 7590 · 70», the holes 60 from the end —: each mark's outer holes at its own row's inner ends,
+ // its length the row's; К157 «50 · 7220 · 50» — at 50 and 7270 of 7320. Rows from the axes, the holes off them — as below)
+ if(Math.abs(Math.min(...start)-base.a)<=2){const s0=Math.min(...start),e1=Math.max(...end);
+  return{length_mm:m.a+m.span+m.b,holes:v.holes.map(h=>({...h,at_mm:h.at_mm>L/2?m.a+m.span+(h.at_mm-e1):m.a+(h.at_mm-s0)}))}}
  if(!d&&!center)return null;
  return{length_mm:L+d,holes:v.holes.map(h=>({...h,at_mm:h.at_mm>L/2?h.at_mm+d:h.at_mm})),...(center?{center_mm:center}:{})}
 }

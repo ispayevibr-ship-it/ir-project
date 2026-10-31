@@ -218,14 +218,24 @@ const SCALES=[1,2,2.5,4,5,10,15,20,25,40,50,75,100,150,200,250,300,400,500,800,1
 // The scale of a view tied to one axis each way, from its dimensions: the dimension line just under a horizontal
 // number (or beside a vertical one) and the extension lines crossing it nearest to the number on each side.
 function dimensionsOf(texts,segments){
- const H=[],V=[],ticks=[];
+ const H=[],V=[],ticks=[],short=[];
  for(const q of segments){
   const dx=Math.abs(q.a.x-q.b.x),dy=Math.abs(q.a.y-q.b.y);
   if(dy<0.3&&dx>=8)H.push({c:(q.a.y+q.b.y)/2,lo:Math.min(q.a.x,q.b.x),hi:Math.max(q.a.x,q.b.x)});
   else if(dx<0.3&&dy>=4)V.push({c:(q.a.x+q.b.x)/2,lo:Math.min(q.a.y,q.b.y),hi:Math.max(q.a.y,q.b.y)});
   // The ticks of the ends of dimensions: short strokes at 45° across the dimension line.
-  else{const l=Math.hypot(dx,dy);if(l>=2&&l<=14&&dx>=l*0.5&&dy>=l*0.5)ticks.push({x:(q.a.x+q.b.x)/2,y:(q.a.y+q.b.y)/2})}
+  else{const l=Math.hypot(dx,dy);if(l>=0.5&&l<=14&&dx>=l*0.5&&dy>=l*0.5){const k={x:(q.a.x+q.b.x)/2,y:(q.a.y+q.b.y)/2,l,s:Math.sign((q.b.x-q.a.x)*(q.b.y-q.a.y)),a:q.a,b:q.b};short.push(k);if(l>=2)ticks.push(k)}}
  }
+ // (a diamond on a dimension line — the dot under a short size written past its span, ГПЭС л. 81 «60 для К158» —: a side of a
+ // closed rhombus of short strokes, each end joined to a stroke the other way, their far ends joined by one this way — no
+ // tick; its «60» took the end and the dot for its span. Not the strokes of a zigzag of hatching: open)
+ const cell=new Map(),ck=(x,y)=>Math.round(x*2)+","+Math.round(y*2);
+ for(const k of short)for(const e of [k.a,k.b]){const c=ck(e.x,e.y);if(!cell.has(c))cell.set(c,[]);cell.get(c).push(k)}
+ const at=(e,s,not)=>{const out=[],X=Math.round(e.x*2),Y=Math.round(e.y*2);for(let i=-1;i<=1;i++)for(let j=-1;j<=1;j++)for(const o of cell.get((X+i)+","+(Y+j))||[]){
+  if(o===not||o.s!==s||out.includes(o))continue;const f=Math.hypot(o.a.x-e.x,o.a.y-e.y)<=0.3?o.b:Math.hypot(o.b.x-e.x,o.b.y-e.y)<=0.3?o.a:null;if(f)out.push({o,f})}return out};
+ const dot=k=>at(k.a,-k.s,k).some(p=>at(k.b,-k.s,k).some(q=>q.o!==p.o&&at(p.f,k.s,p.o).some(r=>r.o!==k&&(Math.hypot(r.f.x-q.f.x,r.f.y-q.f.y)<=0.3))));
+ const dots=ticks.filter(dot);
+ if(dots.length)ticks.splice(0,ticks.length,...ticks.filter(k=>!dots.includes(k)));
  // A line drawn in pieces end to end is one line (ГПЭС К36: the line of «7350» in three pieces, its number over the
  // middle one).
  const joined=list=>{const out=[];for(const l of list.sort((a,b)=>a.c-b.c||a.lo-b.lo)){const p=out[out.length-1];
@@ -265,8 +275,10 @@ function dimensionsOf(texts,segments){
   const label=dir=>{let e=dir>0?t1:t0;for(const q of texts){if(q===t)continue;const qb=textBox(q);if(qb.angle!==b.angle)continue;
    const [q0,q1]=flat?[qb.x0,qb.x1]:[qb.y0,qb.y1];if(Math.abs((flat?qb.y0+qb.y1:qb.x0+qb.x1)/2-line.c)>(Number(t.size)||10)*1.5)continue;
    if(Math.abs(q0-t0)<=2||Math.abs(q1-t1)<=2)e=dir>0?Math.max(e,q1):Math.min(e,q0)}return e};
-  if(!Number.isFinite(hi)){const below=[...new Set(ext.filter(c=>c<at).map(c=>Math.round(c*10)/10))].sort((a,b)=>b-a);if(below.length>=2&&(t0-below[0]<=gap||line.lo<=below[0]+0.5&&line.hi>=tm&&(line.hi<=t1+end||line.hi<=label(1)+end))){hi=below[0];lo=below[1];past=1}}
-  else if(!Number.isFinite(lo)){const above=[...new Set(ext.filter(c=>c>at).map(c=>Math.round(c*10)/10))].sort((a,b)=>a-b);if(above.length>=2&&(above[0]-t1<=gap||line.hi>=above[0]-0.5&&line.lo<=tm&&(line.lo>=t0-end||line.lo>=label(-1)-end))){lo=above[0];hi=above[1];past=-1}}
+  // (a dot on its line under it — the shelf run on past it to its label, «60 для К158» —: a size written past its span)
+  const dot=dots.some(k=>Math.abs((flat?k.y:k.x)-line.c)<=1.5&&(flat?k.x:k.y)>=t0-2&&(flat?k.x:k.y)<=t1+2);
+  if(!Number.isFinite(hi)){const below=[...new Set(ext.filter(c=>c<at).map(c=>Math.round(c*10)/10))].sort((a,b)=>b-a);if(below.length>=2&&(t0-below[0]<=gap||line.lo<=below[0]+0.5&&(dot||line.hi>=tm&&(line.hi<=t1+end||line.hi<=label(1)+end)))){hi=below[0];lo=below[1];past=1}}
+  else if(!Number.isFinite(lo)){const above=[...new Set(ext.filter(c=>c>at).map(c=>Math.round(c*10)/10))].sort((a,b)=>a-b);if(above.length>=2&&(above[0]-t1<=gap||line.hi>=above[0]-0.5&&(dot||line.lo<=tm&&(line.lo>=t0-end||line.lo>=label(-1)-end)))){lo=above[0];hi=above[1];past=-1}}
   // The ticks on the line mark the ends of its dimensions: an extension line of another dimension crossing an overall
   // one has none there (ГПЭС К17а: «4320» over «60 4215 45» took the extension lines of the chain for its ends).
   const marks=[...new Set(ticks.filter(k=>Math.abs((flat?k.y:k.x)-line.c)<=1.2&&(flat?k.x:k.y)>=line.lo-1&&(flat?k.x:k.y)<=line.hi+1).map(k=>Math.round((flat?k.x:k.y)*10)/10))];

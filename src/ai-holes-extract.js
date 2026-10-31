@@ -376,6 +376,16 @@ function ownerOf(g,texts,titled,strokes=[]){
  // (a title stands over its view: of the titles far off, one over this view before one under it — ГПЭС К3, the lower
  // tube of its frame, «К3» 440 pt over it, «К6» 310 pt under it over its own view)
  const overIt=t=>upright?along(t)<g.s0&&across(t)>=g.lo-200&&across(t)<=g.hi+200:across(t)<g.lo&&along(t)>=g.s0-40&&along(t)<=g.s1+40;
+ // (a title just under it — within 150 pt, three times nearer than every title over it — is its own: a view of the holes
+ // drawn over the title of its marks, their main view under it — ГПЭС л. 82 «К163, К164, К165» under the plan of their
+ // bottom, «К100» 520 pt over it; «К99» under its own, «К98» over it)
+ const underIt=t=>upright?along(t)>g.s1&&across(t)>=g.lo-200&&across(t)<=g.hi+200:across(t)>g.hi&&along(t)>=g.s0-40&&along(t)<=g.s1+40;
+ // (not a view «Вид А» of the mark over it — a title «Вид …» over this view, the mark's under it not as long as this view,
+ // the one over it as long: ГПЭС Ф26 «Вид А» 6160, «Ф27, Ф28 (обр. Ф27)» 6000 just under it over its own view)
+ const fits=v=>[v.length_mm,...Object.values(v.lengths||{})].some(n=>Number(n)>0&&Math.abs(n-g.length)<=Math.max(10,g.length*0.01));
+ const vid=nearest(titles.filter(o=>VID.test(String(o.t.str).trim())),400);
+ const under=titled.filter(v=>underIt(v.title_at)&&box(v.title_at)<=150).sort((a,b)=>box(a.title_at)-box(b.title_at))[0];
+ if(under&&!(vid&&!fits(under)&&titled.some(v=>v!==under&&overIt(v.title_at)&&fits(v)))&&titled.every(v=>v===under||!overIt(v.title_at)||box(v.title_at)>=3*box(under.title_at)))return{title:under.title,view:under};
  const near=titled.slice().sort((a,b)=>(overIt(b.title_at)-overIt(a.title_at))||box(a.title_at)-box(b.title_at))[0];
  return{title:near?near.title:"",view:near||null}
 }
