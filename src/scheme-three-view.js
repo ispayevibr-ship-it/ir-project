@@ -3857,9 +3857,14 @@ window.irThreeSchemeView=(function(){
     if(bx>0){
      var lv=[];(Array.isArray(L.levels_mm)&&L.levels_mm.length?L.levels_mm:[0,H]).forEach(function(z){z=number(z);if(Number.isFinite(z)&&lv.indexOf(z)<0)lv.push(z)});lv.sort(function(p,q){return p-q});
      var C=[[-1,-1],[1,-1],[1,1],[-1,1]],P=function(i,z){var f=z/H;return[C[i][0]*(bx+(tx-bx)*f)/2,C[i][1]*(by+(ty-by)*f)/2,z]};
-     if(L.legs!==false)for(var i=0;i<4;i++)out.push([P(i,0),P(i,H),"leg",String(L.leg||"")]);
-     if(L.brace!=="none")for(var k=0;k+1<lv.length;k++)for(var j=0;j<4;j++){var n=(j+1)%4;out.push([P(j,lv[k]),P(n,lv[k+1]),"brace",String(L.brace||"")]);out.push([P(n,lv[k]),P(j,lv[k+1]),"brace",String(L.brace||"")])}
-     (Array.isArray(L.struts_mm)?L.struts_mm:[]).forEach(function(z){z=number(z);if(z>=0&&z<=H)for(var j=0;j<4;j++)out.push([P(j,z),P((j+1)%4,z),"strut",String(L.strut||"")])});
+     // (shape "angle": its members angles, as the sheet draws them, when it gives no section — a leg with its heel out at
+     // the corner and its flanges along the two faces, a brace or a strut with one flange in the face and the other into
+     // the frame at its upper edge; the engineer, 31.10.2026, П-16А: «металл какой? ты рисуешь квадратный, может там
+     // уголок?»)
+     var ang=L.shape==="angle",face=function(j,n){return ang?[null,{heel:[(C[j][0]+C[n][0])/2,(C[j][1]+C[n][1])/2,1]}]:[]};
+     if(L.legs!==false)for(var i=0;i<4;i++)out.push([P(i,0),P(i,H),"leg",String(L.leg||"")].concat(ang?[null,{heel:[C[i][0],C[i][1],0]}]:[]));
+     if(L.brace!=="none")for(var k=0;k+1<lv.length;k++)for(var j=0;j<4;j++){var n=(j+1)%4;out.push([P(j,lv[k]),P(n,lv[k+1]),"brace",String(L.brace||"")].concat(face(j,n)));out.push([P(n,lv[k]),P(j,lv[k+1]),"brace",String(L.brace||"")].concat(face(j,n)))}
+     (Array.isArray(L.struts_mm)?L.struts_mm:[]).forEach(function(z){z=number(z);if(z>=0&&z<=H)for(var j=0;j<4;j++)out.push([P(j,z),P((j+1)%4,z),"strut",String(L.strut||"")].concat(face(j,(j+1)%4)))});
      // (a brace or a strut stops at the face of the legs it joins — drawn from axis to axis it went into them, the
      // engineer's rule «металл не выходит за металл»: by the half width of a leg and its own across the leg)
      var half=function(s,d){var q=s?sectionOf(s):null;return(q&&q.b>0?q.b:d)/2},a=half(L.leg,spaceBox.leg);
@@ -3869,7 +3874,9 @@ window.irThreeSchemeView=(function(){
       m[0]=[p[0]+d[0]*t/len,p[1]+d[1]*t/len,p[2]+d[2]*t/len];m[1]=[q[0]-d[0]*t/len,q[1]-d[1]*t/len,q[2]-d[2]*t/len]})
     }
    }
-   if(c.lay&&Array.isArray(c.lay.bars))c.lay.bars.forEach(function(m){if(Array.isArray(m)&&m.length>=6)out.push([[number(m[0]),number(m[1]),number(m[2])],[number(m[3]),number(m[4]),number(m[5])],String(m[6]||"member"),String(m[7]||""),Array.isArray(m[8])?m[8]:null])});
+   // (a bar of its own an angle: its 10th item {heel: [x, y, z] — where its heel is from its line, in the directions of the
+   // scheme; t — its thickness, mm}; Т-25 of a mast: «написано же уголок»)
+   if(c.lay&&Array.isArray(c.lay.bars))c.lay.bars.forEach(function(m){if(Array.isArray(m)&&m.length>=6)out.push([[number(m[0]),number(m[1]),number(m[2])],[number(m[3]),number(m[4]),number(m[5])],String(m[6]||"member"),String(m[7]||""),Array.isArray(m[8])?m[8]:null].concat(m[9]&&Array.isArray(m[9].heel)?[m[9]]:[]))});
    return out
   }
   var spaceRoles={leg:"пояс",brace:"раскос",strut:"распорка",post:"стойка",rail:"поручень",bracket:"уголок",plate:"пластина",splice:"накладка",anchor:"анкерный болт",member:"элемент"};
@@ -3891,8 +3898,14 @@ window.irThreeSchemeView=(function(){
     var pr=m[3],sec=pr?sectionOf(pr):null,geo;
     if(sec)geo=realGeometry(T,meshGeo,sec);
     // (without a section of its sheet: a box, the frame counted with the members drawn conventionally)
-    else{conventional.add(id);var sz=m[4]||[],w=(number(sz[0])||spaceBox[m[2]]||50)/1000,h=(number(sz[1])||number(sz[0])||spaceBox[m[2]]||50)/1000;
-     geo=shared("space-bar:"+w+":"+h,function(){var g=new T.BoxGeometry(w,h,1);g.translate(0,0,.5);return g})}
+    else{conventional.add(id);var sz=m[4]||[],w=(number(sz[0])||spaceBox[m[2]]||50)/1000,h=(number(sz[1])||number(sz[0])||spaceBox[m[2]]||50)/1000,hd=m[5]&&m[5].heel;
+     // (an angle drawn conventionally: within the same box, its heel at the corner of the box toward m[5].heel, its
+     // flanges along the two sides from it, thick a tenth of its width or m[5].t)
+     if(hd){var hw=toWorld(number(hd[0]),number(hd[1]),number(hd[2])).sub(toWorld(0,0,0)),sx=hw.dot(x)<0?-1:1,sy=hw.dot(y)<0?-1:1,th=number(m[5].t)/1000||Math.min(w,h)/10;
+      geo=shared("space-angle:"+w+":"+h+":"+th+":"+sx+":"+sy,function(){var X0=sx*w/2,Y0=sy*h/2,s=new T.Shape();s.moveTo(X0,Y0);s.lineTo(X0-sx*w,Y0);s.lineTo(X0-sx*w,Y0-sy*th);
+       s.lineTo(X0-sx*th,Y0-sy*th);s.lineTo(X0-sx*th,Y0-sy*h);s.lineTo(X0,Y0-sy*h);s.lineTo(X0,Y0);return new T.ExtrudeGeometry(s,{depth:1,bevelEnabled:false})});
+      if(!pr)pr="уголок (сечение условно)"}
+     else geo=shared("space-bar:"+w+":"+h,function(){var g=new T.BoxGeometry(w,h,1);g.translate(0,0,.5);return g})}
     var mesh=partTag(new T.Mesh(geo,mat),spaceRoles[m[2]]||m[2],pr);mesh.position.copy(a);mesh.quaternion.copy(q);mesh.scale.z=len;
     parts.push(mesh)
    });
