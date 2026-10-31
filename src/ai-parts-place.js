@@ -5,7 +5,7 @@
 // the part is the outline of thick lines round the end of the leader. Its place in the scale of the view: along the
 // member from the start of its view (as the holes, src/ai-holes-extract.js), across from its axis (+ down, or + left of
 // an upright one), on each view it is drawn on; the view says which face of an I it shows (facesOf).
-const {dedupe,gridOf,projector,facesOf,thickOf}=require("./ai-holes-extract");
+const {dedupe,gridOf,projector,facesOf,thickOf,holeSymbols}=require("./ai-holes-extract");
 const {dimensionsOf}=require("./ai-scheme-extract");
 
 const dist=(p,q)=>Math.hypot(p.x-q.x,p.y-q.y);
@@ -142,7 +142,7 @@ function hullOf(pts){
 }
 // The positions on the views of the members of a sheet: [{mark, rows:[{pos, side, view, face, at_mm:[a0, a1],
 // off_mm:[o0, o1]}]}] — `seeded`: the views of the members (sheetHoles with `seed` and `withMembers`).
-function sheetParts(geo={},{seeded=null,views=[]}={}){
+function sheetParts(geo={},{seeded=null,views=[],allMm=null}={}){
  if(!seeded||!seeded.members)return[];
  const segs=dedupe(geo.segments||[]),thick=thickOf(segs);if(!thick)return[];
  const near=gridOf(segs,40),bold=segs.filter(thick),balloons=balloonsOf(geo.texts||[],segs),byMark=new Map();
@@ -165,13 +165,14 @@ function sheetParts(geo={},{seeded=null,views=[]}={}){
   const far=[];for(const i of new Set([x0,(x0+x1)/2,x1].flatMap(x=>near({x,y:t.y}))))for(const [p,q] of [[segs[i].a,segs[i].b],[segs[i].b,segs[i].a]])if(!thick(segs[i])&&inBox(p)&&!inBox(q))far.push(q);
   let best=null;for(const [b,list] of ends)for(const E of list)for(const F of far){const d=dist(E,F);if(d<=60&&(!best||d<best.d))best={b,d}}
   if(best)only.set(best.b,marks)}
+ const taken=new Set();
  for(const b of balloons)for(const E of ends.get(b)){
   // (the view the end of the leader is in, or beside it — out of it by its width, 400 mm at least; past its ends by
   // 400 mm: a plate on an end, К120 «12»)
   let best=null;
   for(const f of frames){const g=f.g,s=E.x*g.u.x+E.y*g.u.y,o=E.x*g.n.x+E.y*g.n.y,w=g.hi-g.lo,far=400*g.sc.n,out=Math.max(0,g.lo-o,o-g.hi,g.s0-s,s-g.s1);
    if(s<g.s0-far||s>g.s1+far||out>Math.max(w,far))continue;if(!best||out<best.out)best={f,out}}
-  if(!best)continue;
+  if(!best)continue;taken.add(E);
   const {f}=best,g=f.g,k=g.sc.n,axis=(g.lo+g.hi)/2,mm=c=>c===null?null:Math.round((c-axis)/k),r=f.ref.g;
   const box=regionAt(E,f)||{s:E.x*g.u.x+E.y*g.u.y,o:E.x*g.n.x+E.y*g.n.y,a0:null,a1:null,c0:null,c1:null,hull:null};
   // (an outline wholly past an end of the view and wholly aside of it across, by its width more — a view of its own drawn
@@ -196,6 +197,8 @@ function sheetParts(geo={},{seeded=null,views=[]}={}){
  }
  // (the parts the cuts across the members show — their places across both ways —, each at its level along)
  cutParts({texts:geo.texts||[],segs,thick,bold,balloons,near,frames,byMark,tag});
+ // (the parts a cut along a level member shows — a plan through its web, no view of its own —, at its level)
+ planParts({texts:geo.texts||[],segments:geo.segments||[],bold,balloons,frames,byMark,tag,taken,ends,allMm});
  // A part of its own frame beside the body on the view, welded to its side (ГПЭС В132, л. 150.1: the tube □160×5 from
  // +4,100 to +6,800 by the flange of the I 35Ш2 that ends at +5,027, 20 mm off it): its places across from the body's
  // axis — `axis_mm`, the axis of its frame off the body's (a longer frame of the mark beside it along a quarter of it,
@@ -270,13 +273,19 @@ function cutParts({texts,segs,thick,bold,balloons,near,frames,byMark,tag=r=>r}){
   const re=new RegExp("^(?:по\\s*)?"+label+"$","u"),levels=[];
   for(const a of texts){if(a===t||!re.test(String(a.str||"").trim())||Math.abs((a.size||0)-z)>z*0.2)continue;const c=centre(a);
    // (the stroke off the box of the label by its size and a half at most: under «по 4», 27 pt under its line)
-   const za=a.size||z,bx={x0:a.x,x1:a.x+(a.width||0),y0:a.y-za,y1:a.y},flat=q=>Math.abs(q.a.y-q.b.y)<=1,mid=q=>({x:(q.a.x+q.b.x)/2,y:(q.a.y+q.b.y)/2});
-   // (of two strokes as near, the one whose arrow runs out toward the label — ГПЭС В112 «4» under the main view between
-   // the strokes of «4» and «7»)
-   const shaft=q=>{const m=mid(q),w={x:(q.b.x-q.a.x)/q.l,y:(q.b.y-q.a.y)/q.l};return near(m).map(i=>segs[i]).some(s=>!thick(s)&&s.l>=10&&s.l<=80&&Math.abs((s.b.x-s.a.x)*w.x+(s.b.y-s.a.y)*w.y)/s.l<0.1&&
-    [[s.a,s.b],[s.b,s.a]].some(([e,o])=>Math.abs((e.x-m.x)*w.x+(e.y-m.y)*w.y)<=q.l/2+2&&Math.abs((e.x-m.x)*w.y-(e.y-m.y)*w.x)<=2.5&&(o.x-e.x)*(c.x-e.x)+(o.y-e.y)*(c.y-e.y)>0))};
-   const st=bold.filter(q=>(flat(q)||Math.abs(q.a.x-q.b.x)<=1)&&q.l>=10&&q.l<=80&&Math.hypot(Math.max(0,bx.x0-Math.max(q.a.x,q.b.x),Math.min(q.a.x,q.b.x)-bx.x1),Math.max(0,bx.y0-Math.max(q.a.y,q.b.y),Math.min(q.a.y,q.b.y)-bx.y1))<=1.5*za)
-    .map(q=>({q,d:flat(q)?Math.abs(mid(q).y-c.y):Math.abs(mid(q).x-c.x),s:shaft(q)})).sort((p,q)=>Math.abs(p.d-q.d)<=0.25*za&&p.s!==q.s?(p.s?-1:1):p.d-q.d)[0]?.q;if(!st)continue;
+   // (level or upright within 4° — square to a view a little sloped, the strokes of В112 by its halves 1.7° up)
+   const za=a.size||z,bx={x0:a.x,x1:a.x+(a.width||0),y0:a.y-za,y1:a.y},flat=q=>Math.abs(q.a.y-q.b.y)<=Math.max(1,0.07*q.l),mid=q=>({x:(q.a.x+q.b.x)/2,y:(q.a.y+q.b.y)/2});
+   // (of the strokes in reach, the one whose arrow runs out to the label — its shaft from the stroke ending by the label,
+   // within its size —, the nearer such end first, however near another stroke — ГПЭС В112 «4» under the main view
+   // between the strokes of «4» and «7»; the lower «6» nearer the stroke of «7» by it than its own, «7» on the right
+   // nearer that of «8»: the ribs of «6 - 6», «7 - 7» put 200 mm off)
+   const off=q=>Math.hypot(Math.max(0,bx.x0-Math.max(q.a.x,q.b.x),Math.min(q.a.x,q.b.x)-bx.x1),Math.max(0,bx.y0-Math.max(q.a.y,q.b.y),Math.min(q.a.y,q.b.y)-bx.y1));
+   const shaft=q=>{const m=mid(q),w={x:(q.b.x-q.a.x)/q.l,y:(q.b.y-q.a.y)/q.l};let best=Infinity;
+    for(const s of near(m).map(i=>segs[i]))if(!thick(s)&&s.l>=10&&s.l<=80&&Math.abs((s.b.x-s.a.x)*w.x+(s.b.y-s.a.y)*w.y)/s.l<0.1)
+     for(const [e,o] of [[s.a,s.b],[s.b,s.a]])if(Math.abs((e.x-m.x)*w.x+(e.y-m.y)*w.y)<=q.l/2+2&&Math.abs((e.x-m.x)*w.y-(e.y-m.y)*w.x)<=2.5&&(o.x-e.x)*(c.x-e.x)+(o.y-e.y)*(c.y-e.y)>0)best=Math.min(best,off({a:o,b:o}));
+    return best<=za?best:null};
+   const st=bold.filter(q=>(flat(q)||Math.abs(q.a.x-q.b.x)<=Math.max(1,0.07*q.l))&&q.l>=10&&q.l<=80&&off(q)<=1.5*za)
+    .map(q=>({q,d:flat(q)?Math.abs(mid(q).y-c.y):Math.abs(mid(q).x-c.x),s:shaft(q)})).sort((p,q)=>(p.s===null)!==(q.s===null)?(p.s===null?1:-1):p.s!==null?p.s-q.s:p.d-q.d)[0]?.q;if(!st)continue;
    const {x,y}=mid(st),v={x:(st.b.x-st.a.x)/st.l,y:(st.b.y-st.a.y)/st.l};
    for(const f of mains){const g=f.g,sa=x*g.u.x+y*g.u.y,o=x*g.n.x+y*g.n.y,w=g.hi-g.lo;
     if(Math.abs(v.x*g.u.x+v.y*g.u.y)>0.1||named.length&&!f.marks.some(k=>named.includes(k))||sa<g.s0-150*g.sc.n||sa>g.s1+150*g.sc.n||Math.abs(o-(g.lo+g.hi)/2)>3*w)continue;
@@ -376,8 +385,14 @@ function cutParts({texts,segs,thick,bold,balloons,near,frames,byMark,tag=r=>r}){
    // (a view a little sloped: a line plumb on the sheet across it too, where it crosses the part's middle — ГПЭС В112 «5»
    // at the ridge between the halves)
    const sl=Math.min(Math.abs(g.u.x),Math.abs(g.u.y)),cm=(c0+c1)/2,ax=q=>Math.abs(q.c-q.d)>0.4?q.a+(q.b-q.a)*(cm-q.c)/(q.d-q.c):(q.a+q.b)/2;
-   const edge=c.f.P.filter(q=>Math.abs(q.a-q.b)<=0.4+(sl<=0.1?Math.abs(q.c-q.d)*sl*1.1:0)&&Math.min(q.c,q.d)<=c0+tol&&Math.max(q.c,q.d)>=c1-tol&&c.look*(ax(q)-lv.sa)>=-1&&c.look*(ax(q)-lv.sa)<=1500*g.sc.n)
-    .sort((x,y)=>c.look*(ax(x)-ax(y)))[0];
+   // (or, the first thing seen past the level, its pieces at one place across it, 25 mm apart at most — a rib split by a
+   // gusset through it, ГПЭС В112 «8», «9» over and under the gusset «10»: «7» behind them in «7 - 7» was put at the rib
+   // of «6 - 6», 200 mm off; not pieces farther on — the end of В156 in «4 - 4», 750 mm past the stub under the stroke)
+   const cand=c.f.P.filter(q=>Math.abs(q.a-q.b)<=0.4+(sl<=0.1?Math.abs(q.c-q.d)*sl*1.1:0)&&Math.min(q.c,q.d)<=c1&&Math.max(q.c,q.d)>=c0&&c.look*(ax(q)-lv.sa)>=-1&&c.look*(ax(q)-lv.sa)<=1500*g.sc.n)
+    .sort((x,y)=>c.look*(ax(x)-ax(y)));
+   const covers=q=>{const at=ax(q),ps=cand.filter(o=>Math.abs(ax(o)-at)<=0.6).map(o=>[Math.min(o.c,o.d),Math.max(o.c,o.d)]).sort((x,y)=>x[0]-y[0]);let e=c0+tol;
+    if(ps[0][0]>e)return false;for(const [lo,hi] of ps){if(lo>e+25*g.sc.n)return false;e=Math.max(e,hi)}return e>=c1-tol};
+   const edge=cand[0]&&covers(cand[0])?cand[0]:cand.find(q=>Math.min(q.c,q.d)<=c0+tol&&Math.max(q.c,q.d)>=c1-tol);
    const k0=g.bent?.leg?g.bent.kink_mm:0,a=edge?k0+g.alongMm(ax(edge)):Math.max(k0,Math.min(k0+g.length,lv.at));made.push({c,p,lv,at:[a,a]})}
   // (one part of a cut seen at levels a few mm apart — the two arrows of «4 - 4» of В112 each side of its ridge, on
   // both halves —: one, at their middle)
@@ -395,6 +410,80 @@ function cutParts({texts,segs,thick,bold,balloons,near,frames,byMark,tag=r=>r}){
    if(c&&c.depth0){const h=(c.rect.y1-c.rect.y0)/c.k/2;r.depth_mm=[Math.round(c.depth0-h),Math.round(c.depth0+h)];continue}
    const o=rows.find(q=>q.cut&&overlap(q.off_mm,r.off_mm)>=0.5*Math.abs(r.off_mm[1]-r.off_mm[0])&&overlap(q.at_mm,r.at_mm)>=0.5*Math.abs(r.at_mm[1]-r.at_mm[0]));
    if(o){const d=Math.round((o.depth_mm[0]+o.depth_mm[1])/2);r.depth_mm=[d,d]}}
+ }
+}
+// The parts a cut along a level member shows — a plan through its web, its strokes along the member past its ends, its
+// arrows down (ГПЭС В112 «2 - 2» 150 under the top of the ridge beam: the gussets «10т», «10н» −360×10 440 for the braces,
+// each side of the ridge between the rib «7» and the flange «5», out 360 from the web, two holes each; the engineer,
+// 31.10.2026, about В111 and В112) — drawn under its title by the web cut only, the flanges not drawn (no view of its own,
+// unlike «1 - 1», «3 - 3» on the flanges): the web two long lines along each half as its main view, as close as a web is
+// thick, the nearest under the title. A balloon whose leader ends by it (no view took it): the outline round the end —
+// along as on the main view (the plan drawn in line with it along), across from the web (+ down, as on «1 - 1»); its
+// level (`level_mm`, its top and bottom off the axis + down, as across the main view): its two lines edge on there over
+// its length as close as a plate is thick nearest the strokes, else the strokes'. Its holes — the signs of holes within
+// its outline (`holes_mm` [along, across, Ø — «Все отверстия Ø23», else none]): no view of the member has them.
+function planParts({texts,segments,bold,balloons,frames,byMark,tag,taken,ends,allMm=null}){
+ const mains=frames.filter(f=>f.g.who.main&&Math.abs(f.g.u.x)>0.99);if(!mains.length)return;let signs=null;
+ const cAt=(q,s)=>Math.abs(q.b-q.a)<1e-6?(q.c+q.d)/2:q.c+(q.d-q.c)*(s-q.a)/(q.b-q.a);
+ const inside=(p,poly)=>{let k=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const [x0,y0]=poly[i],[x1,y1]=poly[j];if(y0>p[1]!==y1>p[1]&&p[0]<x0+(x1-x0)*(p[1]-y0)/(y1-y0))k=!k}return k};
+ for(const t of texts){
+  const m=CUT.exec(String(t.str||"").trim());if(!m||Math.abs(t.angle||0)>5)continue;
+  const title=String(t.str).trim(),z=t.size||10,re=new RegExp("^(?:по\\s*)?"+m[1]+"$","u");
+  if(frames.some(f=>!f.g.who.main&&String(f.view.title||"").trim()===title))continue;
+  // (its strokes: by its labels as large as the title, along a main view, within its height, wholly past an end of it —
+  // 800 mm at most; the level off its axis, mm + down)
+  const levels=[];
+  for(const a of texts){if(a===t||!re.test(String(a.str||"").trim())||Math.abs((a.size||0)-z)>z*0.2)continue;
+   const za=a.size||z,bx={x0:a.x,x1:a.x+(a.width||0),y0:a.y-za,y1:a.y};
+   for(const q of bold){if(q.l<10||q.l>80||Math.hypot(Math.max(0,bx.x0-Math.max(q.a.x,q.b.x),Math.min(q.a.x,q.b.x)-bx.x1),Math.max(0,bx.y0-Math.max(q.a.y,q.b.y),Math.min(q.a.y,q.b.y)-bx.y1))>1.5*za)continue;
+    const v={x:(q.b.x-q.a.x)/q.l,y:(q.b.y-q.a.y)/q.l},x=(q.a.x+q.b.x)/2,y=(q.a.y+q.b.y)/2;
+    for(const f of mains){const g=f.g,sa=x*g.u.x+y*g.u.y,o=x*g.n.x+y*g.n.y,past=sa<g.s0?g.s0-sa:sa-g.s1;
+     if(Math.abs(v.x*g.u.x+v.y*g.u.y)<0.99||o<g.lo-1||o>g.hi+1||past<q.l/2||past>800*g.sc.n)continue;
+     levels.push({f,mm:(o-(g.lo+g.hi)/2)/g.sc.n})}}}
+  if(!levels.length)continue;
+  const lv=levels.reduce((s,l)=>s+l.mm,0)/levels.length,marks=new Set(levels.flatMap(l=>l.f.marks));
+  // (the title over the member; the web under it on each main view of its marks — not on a view of its own)
+  const mine=mains.filter(f=>f.marks.some(k=>marks.has(k)));
+  if(!mine.some(({g})=>{const s=t.x*g.u.x+t.y*g.u.y;return s>=g.s0-0.1*(g.s1-g.s0)&&s<=g.s1+0.1*(g.s1-g.s0)}))continue;
+  const webs=[];
+  for(const f of mine){const g=f.g,L=g.s1-g.s0,ot=t.x*g.n.x+t.y*g.n.y,lim=1000*g.sc.n;
+   const own=frames.filter(o=>o!==f&&Math.abs(o.g.u.x*g.u.y-o.g.u.y*g.u.x)<0.003).map(o=>o.g),inOwn=c=>own.some(h=>c>=h.lo-1&&c<=h.hi+1);
+   // (drawn apart, a little turned off the main view: 0.1° — ГПЭС В112 «2 - 2», 1.1 pt over a half)
+   const lines=f.P.filter(q=>Math.abs(q.c-q.d)<=Math.max(0.4,0.002*Math.abs(q.a-q.b))&&Math.min(Math.max(q.a,q.b),g.s1)-Math.max(Math.min(q.a,q.b),g.s0)>=0.4*L).map(q=>({q,c:(q.c+q.d)/2,a0:Math.min(q.a,q.b),a1:Math.max(q.a,q.b)}))
+    .filter(q=>q.c>ot&&q.c-ot<=lim&&!inOwn(q.c)&&(q.c<g.lo-1||q.c>g.hi+1));
+   let best=null;
+   for(const p of lines)for(const q of lines){const d=q.c-p.c;if(d<0.5||d>25*g.sc.n||Math.min(p.a1,q.a1)-Math.max(p.a0,q.a0)<0.8*Math.min(p.a1-p.a0,q.a1-q.a0))continue;
+    if(!best||p.c<best.lo)best={lo:p.c,hi:q.c,p:p.q,q:q.q}}
+   if(best)webs.push({f,ow:(best.lo+best.hi)/2,pair:[best.p,best.q]})}
+  if(!webs.length)continue;
+  for(const b of balloons)for(const E of ends.get(b)||[]){if(taken.has(E))continue;
+   let pick=null;
+   for(const w of webs){const g=w.f.g,s=E.x*g.u.x+E.y*g.u.y,o=E.x*g.n.x+E.y*g.n.y,far=400*g.sc.n,out=Math.max(0,g.s0-s,s-g.s1);
+    if(out>far||Math.abs(o-w.ow)>Math.max(g.hi-g.lo,far))continue;if(!pick||out<pick.out)pick={w,out}}
+   if(!pick)continue;
+   const {f,ow:o0,pair}=pick.w,g=f.g,k=g.sc.n,half=(g.hi-g.lo)/2;
+   pick.w.fr=pick.w.fr||{g:{...g,lo:o0-half,hi:o0+half},P:f.P};
+   const box=regionAt(E,pick.w.fr);if(!box||[box.a0,box.a1,box.c0,box.c1].some(v=>v===null))continue;
+   // (across from the web, along from the axis of the main view, both where the part is: the lines a little turned off
+   // the view's way — ГПЭС В112 its first half, its flanges 1.2 pt over its length: the level read 5 mm high)
+   const a0=Math.min(box.a0,box.a1),a1=Math.max(box.a0,box.a1),sm=(a0+a1)/2,ow=(cAt(pair[0],sm)+cAt(pair[1],sm))/2,mm=c=>Math.round((c-ow)/k);
+   const rim=f.P.filter(q=>Math.abs(q.a-q.b)>=0.5*(g.s1-g.s0)&&Math.min(q.a,q.b)<=sm&&Math.max(q.a,q.b)>=sm).map(q=>cAt(q,sm)),top=rim.filter(c=>Math.abs(c-g.lo)<=2),bot=rim.filter(c=>Math.abs(c-g.hi)<=2);
+   const axis=top.length&&bot.length?(Math.min(...top)+Math.max(...bot))/2:(g.lo+g.hi)/2;
+   // (its level: the pair of lines along it on the main view over its length, as close as a plate is thick, nearest the
+   // strokes' level — within 60 mm)
+   const lc=axis+lv*k,at=f.P.filter(q=>Math.abs(q.c-q.d)<=0.4&&Math.min(Math.max(q.a,q.b),a1)-Math.max(Math.min(q.a,q.b),a0)>=0.6*(a1-a0)&&Math.abs(q.a-q.b)<=1.5*(a1-a0)+2&&
+    cAt(q,sm)>g.lo+1&&cAt(q,sm)<g.hi-1).map(q=>cAt(q,sm));
+   let lev=null;for(const p of at)for(const q of at){const d=q-p;if(d<0.5||d>25*k)continue;const dd=Math.abs((p+q)/2-lc);if(dd<=60*k&&(!lev||dd<lev.d))lev={lo:p,hi:q,d:dd}}
+   const level=lev?[lev.lo,lev.hi].map(c=>Math.round((c-axis)/k)):[Math.round(lv),Math.round(lv)];
+   const k0=g.bent?.leg?g.bent.kink_mm:0,along=p=>k0+(p<g.s0?g.alongMm(g.s0)-Math.round((g.s0-p)/k):p>g.s1?g.alongMm(g.s1)+Math.round((p-g.s1)/k):g.alongMm(p));
+   const hull=box.hull&&box.hull.length>4&&box.hull.length<=24?box.hull:null,out=box.hull&&box.hull.length>=3?box.hull:[[a0,box.c0],[a1,box.c0],[a1,box.c1],[a0,box.c1]];
+   const holes=(signs=signs||holeSymbols(segments,texts)).map(h=>[h.x*g.u.x+h.y*g.u.y,h.x*g.n.x+h.y*g.n.y]).filter(p=>inside(p,out));
+   for(const mark of f.marks){if(!marks.has(mark))continue;if(!byMark.has(mark))byMark.set(mark,[]);
+    byMark.get(mark).push(tag({pos:b.pos,...(b.side?{side:b.side}:{}),view:title,face:"flange",dir:f.view.dir,of_mm:g.bent?g.bent.all_mm:g.length,
+     ...(g.bent?{kink_mm:g.bent.kink_mm,leg:g.bent.leg}:Math.abs(g.u.y)>=0.008?{rise:g.u.y<0?1:-1}:{}),
+     at_mm:[along(a0),along(a1)],off_mm:[mm(box.c0),mm(box.c1)],end_mm:[along(box.s),mm(box.o)],level_mm:level,
+     ...(hull?{poly:hull.map(([a,c])=>[along(a),mm(c)])}:{}),...(holes.length?{holes_mm:holes.map(([a,c])=>[Math.round(along(a)),mm(c),allMm])}:{})},g,f))}
+   taken.add(E)}
  }
 }
 // The ends of the members cut aslant on their main views drawn along the sheet (a tube cut over its seat — ГПЭС К14,

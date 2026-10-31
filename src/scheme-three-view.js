@@ -1791,7 +1791,11 @@ window.irThreeSchemeView=(function(){
     // (into the view as a cut across the member shows it, + away from the main view's viewer: ГПЭС К26 «4 - 4» — the
     // angles of the brackets by the edges of the flanges, «7т» on the right and «7н» on the left, the rib «8» in the middle
     // of the angle; src/ai-parts-place.js cutParts)
-    var dep=Array.isArray(r.depth_mm)&&r.depth_mm.length===2&&r.depth_mm[0]!==null&&r.depth_mm[1]!==null?r.depth_mm.map(number):null,ed=dep&&Math.abs(dep[1]-dep[0])>=2?Math.abs(dep[1]-dep[0]):null;
+    var dep=Array.isArray(r.depth_mm)&&r.depth_mm.length===2&&r.depth_mm[0]!==null&&r.depth_mm[1]!==null?r.depth_mm.map(number):null;
+    // (a part a cut along the member shows, on the view of a flange — a plan through the web, ГПЭС В112 «2 - 2» the gussets
+    // «10т», «10н» 150 under the top —: into that view at its level, its top and bottom off the axis + down)
+    if(!dep&&acrossX&&Array.isArray(r.level_mm)&&r.level_mm.length===2&&fin(r.level_mm[0])&&fin(r.level_mm[1]))dep=[-number(r.level_mm[1]),-number(r.level_mm[0])];
+    var ed=dep&&Math.abs(dep[1]-dep[0])>=2?Math.abs(dep[1]-dep[0]):null;
     // (a plate drawn edge-on: a size of its outline about its thickness, its two lines; else its thickness into the view.
     // An outline on one side of the axis out to half a size of the row: a part across the axis, the rest of it behind the
     // member — ГПЭС К120 «10», a plate 200 wide through the slots of a tube 160)
@@ -1824,6 +1828,9 @@ window.irThreeSchemeView=(function(){
     // that end (a plate of a joint, the rest of it beyond the member's outline); from its one side drawn toward the leader's
     // end; else that end.
     var centre=function(lo,hi,e,s,ends,hw,hin){lo=lo===null||lo===undefined?null:number(lo);hi=hi===null||hi===undefined?null:number(hi);
+     // (in a cut, a part as long as the room between the flanges of an I, its outline within them: from flange to flange —
+     // ГПЭС В112 «6 - 6», the rib «7» 400 read 261 under the gusset «10» seen behind it, stood 68 mm through the flange)
+     if(hin>0&&lo!==null&&hi!==null&&Math.abs(s-2*hin)<=15&&Math.max(Math.abs(lo),Math.abs(hi))<=hin+15)return 0;
      if(lo!==null&&hi!==null&&fits(Math.abs(hi-lo),s))return(lo+hi)/2;
      // (a point along — the top of a part a cut alone shows, under its level —: the part on from there)
      if(ends&&lo!==null&&hi!==null&&Math.abs(hi-lo)<2)return lo+s/2;
@@ -1899,6 +1906,9 @@ window.irThreeSchemeView=(function(){
      if(a1p-a0p>=2&&c1p-c0p>=2&&ar2<=.85*(a1p-a0p)*(c1p-c0p)){var ka=sz[0]/(a1p-a0p),kc=sz[1]/(c1p-c0p),am=(a0p+a1p)/2,cm=(c0p+c1p)/2,sg=along(1000)-along(0)>0?1:-1;
       box.shape=pp.map(function(q){return[sg*(q[0]-am)*ka/1000,-(q[1]-cm)*kc/1000]})}}
     if(capC!==null)box.cap=true;if(lie!==null)box.lie=lie;
+    // (its holes, the sign drawn within its outline face-on — the gussets «10т», «10н» of ГПЭС В112 in «2 - 2», two each
+    // for the braces —: through it, its thickness into the view)
+    if(sh.kind==="plate"&&best.k[2]===2&&Array.isArray(r.holes_mm))box.holes=r.holes_mm.filter(function(h){return Array.isArray(h)&&fin(h[0])&&fin(h[1])}).map(function(h){return[along(number(h[0])),-number(sh0(h[1]))/1000,number(h[2])]});
     if(dep){box.d=(dep[0]+dep[1])/2000;box.dk=true;if(r.cut)box.cut=true}
     // (a plate across in a cut, its outline cut to a shape — ГПЭС В112 «5» at the ridge, its corners off on the side out
     // past the flange —: that outline across and into the view, to the sizes of its row, its thickness along)
@@ -2039,6 +2049,10 @@ window.irThreeSchemeView=(function(){
     var A=o.acrossX?f.X:f.Y,B=o.acrossX?f.Y:f.X,ctr=f.mid.clone().add(f.d.clone().multiplyScalar(o.a)).add(A.clone().multiplyScalar(o.c)).add(B.clone().multiplyScalar(o.d));
     var name=o.sh.kind==="angle"?"уголок":o.sh.kind==="rolled"?"профиль":"пластина",sec=String(o.row.section||"").trim(),mat=baseMaterial(c);
     var put=function(m){onBend(f,m);m.userData.pos=o.pos;m.userData.placed=true;parts.push(partTag(m,name,sec))};
+    // (the holes of a plate placed face-on, through its thickness — past the kink of a bent member turned with it)
+    if(o.holes&&o.holes.length&&o.sh.kind==="plate"){var hb=boltSizes(c);o.holes.forEach(function(h){var at=new T.Object3D();
+     at.position.copy(f.mid).add(f.d.clone().multiplyScalar(h[0])).add(A.clone().multiplyScalar(h[1])).add(B.clone().multiplyScalar(o.d));onBend(f,at);
+     putHole(c,parts,{at:at.position,axis:B.clone().applyQuaternion(at.quaternion),d:h[2]>0?h[2]/1000:0,t:o.sd,bolt:boltFor(hb,h[2])})})}
     if(o.sh.kind==="rolled"){
      // (along its longest way)
      var ax=[[f.d,o.sa],[A,o.sc],[B,o.sd]].sort(function(x,y){return y[1]-x[1]})[0],dir=ax[0],Lr=ax[1];

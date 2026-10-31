@@ -1235,7 +1235,7 @@ function extractSheet({texts=[],widthPt=0,heightPt=0,segments=[]}={}){
  const plates=seeded?require("./ai-holes-extract").sheetPlates({texts,segments,widthPt,heightPt},{views,allMm:holes?.all_mm||null,seeded}).filter(m=>m.plates.length||m.gussets):[];
  // The positions of the specification at their places on the views (a number in a circle, its leader to the part).
  // (a cut's outline none of whose sizes is the part's: a piece of it, its place across left open)
- const place=seeded?require("./ai-parts-place").fitCuts(require("./ai-parts-place").sheetParts({texts,segments,widthPt,heightPt},{seeded,views}),spec):[];
+ const place=seeded?require("./ai-parts-place").fitCuts(require("./ai-parts-place").sheetParts({texts,segments,widthPt,heightPt},{seeded,views,allMm:holes?.all_mm||null}),spec):[];
  // The ends cut aslant on the main views (a tube cut over its seat, the cap inside).
  const bevels=seeded?require("./ai-parts-place").sheetBevels({texts,segments,widthPt,heightPt},{seeded}):[];
  // The plates drawn apart with their holes (a base plate «1 - 1», an end plate «2 - 2»), at their cuts.
