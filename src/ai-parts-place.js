@@ -183,7 +183,10 @@ function sheetParts(geo={},{seeded=null,views=[]}={}){
   const along=p=>p===null?null:p<r.s0?r.alongMm(r.s0)-Math.round((r.s0-p)/r.sc.n):p>r.s1?r.alongMm(r.s1)+Math.round((p-r.s1)/r.sc.n):r.alongMm(p);
   const at=[along(box.a0),along(box.a1)];
   for(const mark of f.marks){if(only.has(b)&&!only.get(b).includes(mark))continue;if(!byMark.has(mark))byMark.set(mark,[]);
+   // (a view drawn sloped — a roof beam, ГПЭС К109 rising 3 % to the right —: `rise` +1 rising along it, −1 falling; a
+   // mark «обр.» of it, К110, falls the other way in the plan, its parts from the other end)
    byMark.get(mark).push(tag({pos:b.pos,...(b.side?{side:b.side}:{}),view:f.view.title,...(g.who.main?{main:true}:{}),...(f.face?{face:f.face}:{}),dir:f.view.dir,of_mm:r.length,
+    ...(Math.abs(r.u.x)>0.9&&Math.abs(r.u.y)>=0.008?{rise:r.u.y<0?1:-1}:{}),
     at_mm:at,off_mm:[mm(box.c0),mm(box.c1)],end_mm:[along(box.s),mm(box.o)],
     // (its outline, when it is not a box: [along, across] mm)
     ...(box.hull&&box.hull.length>4&&box.hull.length<=24?{poly:box.hull.map(([a,c])=>[along(a),mm(c)])}:{})},r,f))}

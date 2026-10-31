@@ -466,6 +466,21 @@ function sheetHoles({texts=[],segments=[],widthPt=0,heightPt=0}={},{views=[],all
   // (no line between them along a third of it: not two views one over the other)
   if(edges.some(E=>Math.abs(E.u.x*a.u.y-E.u.y*a.u.x)<0.003&&E.off>a.hi+0.5&&E.off<b.lo-0.5&&Math.min(E.s1,a.s1)-Math.max(E.s0,a.s0)>=0.3*L))continue;
   a.twin=b.twin=true;longs.push({u:a.u,n:a.n,above:a.above,below:b.below,signs:[],lo:a.lo,hi:b.hi,s0:Math.min(a.s0,b.s0),s1:Math.max(a.s1,b.s1),edges:[a.above,b.below]})}
+ // (the other flange not closed at its ends — run on into the haunches at the end plates, ГПЭС К109–К111 л. 115: the
+ // top flange a band of its own, the bottom one its two lines only —: its two lines as long, as far apart)
+ for(const a of longs.slice()){
+  const wa=a.hi-a.lo,L=a.s1-a.s0;if(a.twin||wa>12||wa<1)continue;
+  const par=edges.filter(E=>Math.abs(E.u.x*a.u.y-E.u.y*a.u.x)<0.003&&Math.abs(E.s0-a.s0)<=0.02*L+3&&Math.abs(E.s1-a.s1)<=0.02*L+3);
+  for(const dir of [1,-1]){
+   const fl=par.filter(E=>dir>0?E.off>=a.hi+8*wa&&E.off<=a.hi+40*wa:E.off<=a.lo-8*wa&&E.off>=a.lo-40*wa).sort((x,y)=>dir*(x.off-y.off));
+   let pair=null;for(const E of fl){const F=par.find(F=>F!==E&&Math.abs(Math.abs(F.off-E.off)-wa)<=Math.max(0.5,0.25*wa)&&dir*(F.off-E.off)>0);if(F){pair=[E,F];break}}
+   if(!pair)continue;const near=pair[0].off,far=pair[1].off,lo=dir>0?a.hi:near,hi=dir>0?near:a.lo;
+   // (no line between them along a third of it: not two views one over the other)
+   if(edges.some(E=>Math.abs(E.u.x*a.u.y-E.u.y*a.u.x)<0.003&&E.off>lo+0.5&&E.off<hi-0.5&&Math.min(E.s1,a.s1)-Math.max(E.s0,a.s0)>=0.3*L))continue;
+   // (nor a band of a member's view there already)
+   if(longs.some(g=>g!==a&&Math.abs(g.u.x*a.u.y-g.u.y*a.u.x)<0.003&&g.lo<=Math.max(near,far)+0.5&&g.hi>=Math.min(near,far)-0.5&&Math.min(g.s1,a.s1)-Math.max(g.s0,a.s0)>=0.5*L))continue;
+   const above=dir>0?a.above:pair[1],below=dir>0?pair[1]:a.below;
+   a.twin=true;longs.push({u:a.u,n:a.n,above,below,signs:[],lo:above.off,hi:below.off,s0:Math.min(a.s0,pair[1].s0),s1:Math.max(a.s1,pair[1].s1),edges:[above,below]});break}}
  longs.sort((a,b)=>(b.hi-b.lo)-(a.hi-a.lo));
  // A view split by a line along it (the web of a beam in the plan of its flange, ГПЭС К32 «1–1»): its parts are one.
  for(const g of longs)if(!g.into)for(const h of longs)if(h!==g&&!h.into&&Math.abs(g.u.x*h.u.y-g.u.y*h.u.x)<0.003&&h.lo>=g.lo-0.5&&h.hi<=g.hi+0.5&&

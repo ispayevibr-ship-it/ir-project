@@ -346,7 +346,8 @@ function assemblyViews(texts,w,h,med,segments=[]){
   // Its area on the sheet (points): the mark card shows this piece of the drawing.
   // The member's own section labelled in its view («□140х4» on the leader of the post Ф15): when it is the one rolled
   // section there.
-  const rolled=[...new Set(inside.filter(t=>ROLLED.test(profileWords(cyr(String(t.str))))&&!/^(уголок|L|∟)/iu.test(profileWords(cyr(String(t.str))))).map(t=>normProfile(t.str)))];
+  // (not a note's sentence that names one — «Поясные швы двутавров варить автоматом…», ГПЭС л. 115)
+  const rolled=[...new Set(inside.filter(t=>{const v=String(t.str).trim();return v.length<=45&&v.split(/\s+/).length<=5&&ROLLED.test(profileWords(cyr(v)))&&!/^(уголок|L|∟)/iu.test(profileWords(cyr(v)))}).map(t=>normProfile(t.str)))];
   const at=f?f.at:{x:cx,y:v.t.y};
   views.push({marks:v.marks,title:v.t.str,title_at:{x:Math.round(at.x*10)/10,y:Math.round(at.y*10)/10},levels,z0_mm:z0,z1_mm:z1,length_mm:length,...(lengths?{lengths}:{}),...(spans?{spans}:{}),...(rolled.length===1?{profile:rolled[0]}:{}),...(how?{length_how:how}:{}),...(gbox?{slope}:{}),...((!over||over.weak)&&others.length?{length_candidates:[length,...others.slice(0,2)]}:{}),box:f?f.box(box,inside):box,...(f?{angle:Math.round(v0.t.angle)}:{})})
  }
