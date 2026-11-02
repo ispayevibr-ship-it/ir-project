@@ -173,6 +173,12 @@ handle("ai-montage:journal-add",(_e,{objectId,elementId,comment,objectName,actio
  handle("ai-documents:exec-cert-open",(_e,v={})=>execDocs.open(v));
  handle("ai-documents:exec-cert-remove",(_e,v={})=>execDocs.remove(v));
  handle("ai-documents:exec-export",(_e,v={})=>execDocs.exportDocs(v));
+ // Фото и баннер объекта: окно подгонки кадра (src/object-image-crop.js, src/object-media-ui.js).
+ const objectImages=require("./object-image-crop").create({getUserDataPath,nativeImage:require("electron").nativeImage});
+ handle("ai-settings:image-pick",e=>objectImages.pick(dialog,require("electron").BrowserWindow.fromWebContents(e.sender)||getWindow()));
+ handle("ai-settings:image-open",(_e,{file}={})=>objectImages.preview(String(file||"")));
+ handle("ai-settings:image-crop",(_e,v={})=>objectImages.crop(v));
+ handle("ai-settings:image-forget",(_e,{file}={})=>objectImages.remove(String(file||"")));
  // Исходящие письма: вход в почту (Настройки → «Почта», src/mail-smtp.js), выгрузка письма в Word / PDF и отправка.
  // Каналы ai-settings:mail-* и ai-documents:letter-* — их пропускает установленный preload.
  const mail=require("./mail-smtp").createMail({getUserDataPath,safeStorage});
