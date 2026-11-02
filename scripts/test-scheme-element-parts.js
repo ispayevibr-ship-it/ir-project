@@ -66,7 +66,7 @@ const fake={"I30Ш1":{shape:"ibeam",h:291,b:200,s:8,t:11,kgm:53.6},"−140×10":
 const kgm=mm(x=>fake[x]||null,v=>Number(v)||0);
 assert.equal(kgm("I30Ш1"),53.6);assert.equal(kgm("−140×10"),10.99);assert.equal(kgm("Ø20"),2.466);assert.equal(kgm("Тр.□100х4"),12.058);assert.equal(kgm("Ø159х6"),22.639);assert.equal(kgm("?"),null);
 // The mass of the model: the closed pieces by their volume, not the holes, the anchors, the footing.
-assert(view.includes("if(m.userData.hole||m.userData.anchor||m.userData.footing||m.material===concreteMat)return;v+=volumeOf(m)"));
+assert(view.includes("if(m.userData.hole||m.userData.anchor||m.userData.footing||m.userData.weld||m.material===concreteMat)return;v+=volumeOf(m)"),"the mass: not the holes, anchors, footing, weld seams (1.11.53)");
 // Without a КМД (the КМ only, 28.10.2026: «вот смотри как четко показан узел, также сделай»): the positions the model
 // gives of the pieces of the member (model.spec) — the profile, the members of a truss, the plates by thickness — in the
 // same table, with the note that they are conventional; a specification of the КМД goes first.

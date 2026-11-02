@@ -4505,7 +4505,8 @@ window.irThreeSchemeView=(function(){
      // back clear of the braces of the next face; the two braces meeting at a node 10 mm apart across its level, a strut
      // there between them 10 mm off; of the two braces of a cross the first whole, the second in two halves welded to it
      // 10 mm off. lap: the face (O, eu along it, ev up it, nf out of it, mm from the point and foot) and the half-planes
-     // [a, b, c, k] of the face, a·u + b·v ≥ c, of the flange in the face (k 1), of the outstanding one (k 2), of both (0).)
+     // [a, b, c, k, x] of the face, a·u + b·v ≥ c, of the flange in the face (k 1), of the outstanding one (k 2), of both (0);
+     // x 1 — a cut of a half of a cross at the whole brace.)
      var conv=function(s){return!(s&&sectionOf(s))},lsec=L.leg?sectionOf(L.leg):null,lw=lsec&&lsec.b>0?lsec.b:spaceBox.leg,lt=lsec&&lsec.t>0?lsec.t:lw/10;
      var lap=ang&&L.legs!==false,vs=function(a,b){return[a[0]-b[0],a[1]-b[1],a[2]-b[2]]},vk=function(a,k){return[a[0]*k,a[1]*k,a[2]*k]},vd=function(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]},
       vx=function(a,b){return[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]]},vn=function(a){var l=Math.sqrt(vd(a,a))||1;return vk(a,1/l)};
@@ -4516,17 +4517,19 @@ window.irThreeSchemeView=(function(){
       return{n:n,O:O,eu:eu,ev:ev,nf:nf,to2:to2,legs:[side(j,1),side(n,-1)]}});
      var struts=(Array.isArray(L.struts_mm)?L.struts_mm:[]).map(number).filter(function(z){return z>=0&&z<=H});
      var lapOf=function(F,b,extra){var s1=lw/2-lt,hp=[F.legs[0](-lw/2+lt+10,1),F.legs[1](-lw/2+lt+10,1),F.legs[0](Math.max(-lw/2+lt+10,b-s1+5),2),F.legs[1](Math.max(-lw/2+lt+10,b-s1+5),2)].concat(extra||[]);
-      return{O:F.O,eu:F.eu,ev:F.ev,nf:F.nf,hp:hp,shift:s1-b/2}};
+      return{O:F.O,eu:F.eu,ev:F.ev,nf:F.nf,hp:hp,shift:s1-b/2,b:b,s1:s1,tips:[F.legs[0](lw/2,0),F.legs[1](lw/2,0)]}};
      var lapped=function(p,q,role,sec,F,heel,b,extra){var d=vn(vs(q,p)),L2=lapOf(F,b,extra),sh=vk(F.nf,L2.shift),e=vk(d,lw);
       return[[p[0]-e[0]+sh[0],p[1]-e[1]+sh[1],p[2]-e[2]+sh[2]],[q[0]+e[0]+sh[0],q[1]+e[1]+sh[1],q[2]+e[2]+sh[2]],role,sec,null,{heel:heel,lap:L2}]};
-     var bb=conv(L.brace)?50:sectionOf(L.brace).b,sb=conv(L.strut)?50:sectionOf(L.strut).b,gapAt=function(z){return struts.some(function(s){return Math.abs(s-z)<1})?sb/2+10:5};
+     // (xg: the root gap of a half of a cross at the whole brace, butt-welded over it — 10 before 1.11.53, the halves stood
+     // off it in the air: the engineer, 02.11.2026, «где сварка? узел сварки»)
+     var xg=2,bb=conv(L.brace)?50:sectionOf(L.brace).b,sb=conv(L.strut)?50:sectionOf(L.strut).b,gapAt=function(z){return struts.some(function(s){return Math.abs(s-z)<1})?sb/2+10:5};
      if(L.brace!=="none")for(var k=0;k+1<lv.length;k++)for(var j=0;j<4;j++){var n=(j+1)%4;
       if(lap&&conv(L.brace)){var F=faces[j],v0=F.to2(P(j,lv[k]))[1],v1=F.to2(P(j,lv[k+1]))[1],ends=[[0,1,v0+gapAt(lv[k]),0],[0,-1,-(v1-gapAt(lv[k+1])),0]],hd=face(j,n)[1].heel;
        var A1=F.to2(P(j,lv[k])),B1=F.to2(P(n,lv[k+1])),l1=Math.hypot(B1[0]-A1[0],B1[1]-A1[1])||1,m1=[-(B1[1]-A1[1])/l1,(B1[0]-A1[0])/l1];if(m1[1]<0)m1=[-m1[0],-m1[1]];
        var c1=m1[0]*A1[0]+m1[1]*A1[1];
        out.push(lapped(P(j,lv[k]),P(n,lv[k+1]),"brace",String(L.brace||""),F,hd,bb,ends));
-       out.push(lapped(P(n,lv[k]),P(j,lv[k+1]),"brace",String(L.brace||""),F,hd,bb,ends.concat([[-m1[0],-m1[1],-c1+bb/2+10,0]])));
-       out.push(lapped(P(n,lv[k]),P(j,lv[k+1]),"brace",String(L.brace||""),F,hd,bb,ends.concat([[m1[0],m1[1],c1+bb/2+10,0]])));
+       out.push(lapped(P(n,lv[k]),P(j,lv[k+1]),"brace",String(L.brace||""),F,hd,bb,ends.concat([[-m1[0],-m1[1],-c1+bb/2+xg,0,1]])));
+       out.push(lapped(P(n,lv[k]),P(j,lv[k+1]),"brace",String(L.brace||""),F,hd,bb,ends.concat([[m1[0],m1[1],c1+bb/2+xg,0,1]])));
        continue}
       out.push([P(j,lv[k]),P(n,lv[k+1]),"brace",String(L.brace||"")].concat(face(j,n)));out.push([P(n,lv[k]),P(j,lv[k+1]),"brace",String(L.brace||"")].concat(face(j,n)))}
      struts.forEach(function(z){for(var j=0;j<4;j++){var n=(j+1)%4;if(lap&&conv(L.strut)){out.push(lapped(P(j,z),P(n,z),"strut",String(L.strut||""),faces[j],face(j,n)[1].heel,sb,[]));continue}
@@ -4537,15 +4540,74 @@ window.irThreeSchemeView=(function(){
      out.forEach(function(m){if(m[2]==="leg"||m[5]&&m[5].lap)return;
       var p=m[0],q=m[1],d=[q[0]-p[0],q[1]-p[1],q[2]-p[2]],len=Math.sqrt(d[0]*d[0]+d[1]*d[1]+d[2]*d[2]);if(len<1)return;
       var sn=Math.abs(d[2])/len,cs=Math.sqrt(Math.max(1e-6,1-sn*sn)),b=half(m[3],50),t=Math.min(len*.4,(a+b*sn)/cs);
-      m[0]=[p[0]+d[0]*t/len,p[1]+d[1]*t/len,p[2]+d[2]*t/len];m[1]=[q[0]-d[0]*t/len,q[1]-d[1]*t/len,q[2]-d[2]*t/len]})
+      m[0]=[p[0]+d[0]*t/len,p[1]+d[1]*t/len,p[2]+d[2]*t/len];m[1]=[q[0]-d[0]*t/len,q[1]-d[1]*t/len,q[2]-d[2]*t/len]});
+     // (its pieces and welds — the engineer, 02.11.2026, П-16А: «если тут сварка, покажи в 3д сварку», «где сварка? узел
+     // сварки», «изучи как делается сварка»: a lapped angle of a lattice is welded round its lap — фланговые швы по обушку и
+     // перу и лобовой по торцу (СП 16.13330; узлы решётчатых опор из уголков внахлёстку) —. Its flange in the face a plate
+     // by the half-planes of that flange (lap.flange: strip ∩ half-planes, in the face, mm from O), its outstanding flange
+     // one by its own (lap.web) — before each line of the section was cut by itself and the flange in the face ended
+     // slanted from its toe to its heel, lapped on the leg by a corner of a few mm. Its welds: where the flange in the face
+     // lies on the flange of a leg, inside the frame along the edges of its own there (toe, heel, end) on the flange of the
+     // leg, outside along the edge of the flange of the leg across it; a half of the second brace of a cross butt-welded
+     // to the whole one over the root gap xg, outside and inside. A weld: [p, q, "weld", "", null, {seam}] — seam {a, b,
+     // s}: a fillet along p→q, its legs s mm along the directions a and b; {n, u, w, h}: a butt seam w wide across u, h high
+     // along n.)
+     if(lap){var kf=5,welds=[];
+      var cut=function(poly,e){var r=[];poly.forEach(function(P,i){var Q=poly[(i+1)%poly.length],fa=e[0]*P[0]+e[1]*P[1]-e[2],fb=e[0]*Q[0]+e[1]*Q[1]-e[2];if(fa>=0)r.push(P);
+        if(fa>0&&fb<0||fa<0&&fb>0){var t=fa/(fa-fb);r.push([P[0]+(Q[0]-P[0])*t,P[1]+(Q[1]-P[1])*t])}});return r};
+      out.forEach(function(x){var l=x[5]&&x[5].lap;if(!l||!l.tips)return;
+       var f2=function(p){var r=vs(p,l.O);return[vd(r,l.eu),vd(r,l.ev)]},
+        P3=function(u,v,n){return[l.O[0]+l.eu[0]*u+l.ev[0]*v+l.nf[0]*n,l.O[1]+l.eu[1]*u+l.ev[1]*v+l.nf[1]*n,l.O[2]+l.eu[2]*u+l.ev[2]*v+l.nf[2]*n]},
+        in3=function(v){return vn([l.eu[0]*v[0]+l.ev[0]*v[1],l.eu[1]*v[0]+l.ev[1]*v[1],l.eu[2]*v[0]+l.ev[2]*v[1]])};
+       var p2=f2(x[0]),q2=f2(x[1]),dq=[q2[0]-p2[0],q2[1]-p2[1]],ln=Math.hypot(dq[0],dq[1]);if(ln<1)return;
+       // (its heel at its upper edge — addSpaceFrame —, its toe at the lower; the flange in the face from toe to heel)
+       var m=[-dq[1]/ln,dq[0]/ln];if(m[1]<0)m=[-m[0],-m[1]];
+       var hb=l.b/2,th=l.b/10,s1=l.s1,at2=function(o,t){return[p2[0]+m[0]*o+dq[0]*t,p2[1]+m[1]*o+dq[1]*t]};
+       var fl=[at2(-hb,0),at2(-hb,1),at2(hb,1),at2(hb,0)],wb=[at2(hb-th,0),at2(hb-th,1),at2(hb,1),at2(hb,0)];
+       l.hp.forEach(function(e){if(!e[3]||e[3]===1)fl=cut(fl,e);if(!e[3]||e[3]===2)wb=cut(wb,e)});
+       if(fl.length<3)return;l.flange=fl;l.web=wb.length>2?wb:null;l.th=th;l.dir=[dq[0]/ln,dq[1]/ln];
+       var bead=function(A,B,n,seam){var p=P3(A[0],A[1],n),q=P3(B[0],B[1],n);if(Math.hypot(p[0]-q[0],p[1]-q[1],p[2]-q[2])>=2)welds.push([p,q,"weld","",null,{seam:seam}])};
+       var outward=function(poly,P,Q){var cx=0,cy=0,e=[Q[0]-P[0],Q[1]-P[1]],el=Math.hypot(e[0],e[1])||1,no=[e[1]/el,-e[0]/el];poly.forEach(function(R){cx+=R[0]/poly.length;cy+=R[1]/poly.length});
+        return no[0]*((P[0]+Q[0])/2-cx)+no[1]*((P[1]+Q[1])/2-cy)<0?[-no[0],-no[1]]:no};
+       l.tips.forEach(function(T){var f=function(p){return T[0]*p[0]+T[1]*p[1]-T[2]},lp=cut(fl,[-T[0],-T[1],-T[2]]);if(lp.length<3)return;
+        // (the lap: the flange in the face over the flange of the leg, f ≤ 0 — the edge of that flange the line f = 0)
+        lp.forEach(function(P,i){var Q=lp[(i+1)%lp.length];if(Math.hypot(Q[0]-P[0],Q[1]-P[1])<1)return;var no=outward(lp,P,Q);
+         if(Math.abs(f(P))<.01&&Math.abs(f(Q))<.01)bead(P,Q,s1,{a:l.nf.slice(),b:in3(no),s:kf});
+         else bead(P,Q,s1,{a:vk(l.nf,-1),b:in3(no),s:Math.min(kf,th)})})
+       });
+       // (an end at the whole brace of a cross — its edge on a cut of the cross, e[4]: butt-welded over the gap)
+       fl.forEach(function(P,i){var Q=fl[(i+1)%fl.length];if(!l.hp.some(function(e){return e[4]&&Math.abs(e[0]*P[0]+e[1]*P[1]-e[2])<.01&&Math.abs(e[0]*Q[0]+e[1]*Q[1]-e[2])<.01}))return;
+        var no=outward(fl,P,Q),A=[P[0]+no[0]*xg/2,P[1]+no[1]*xg/2],B=[Q[0]+no[0]*xg/2,Q[1]+no[1]*xg/2];
+        bead(A,B,s1,{n:l.nf.slice(),u:in3(no),w:xg+8,h:1.5});bead(A,B,s1-th,{n:vk(l.nf,-1),u:in3(no),w:xg+8,h:1.5})})
+      });
+      out=out.concat(welds)}
     }
    }
    // (a bar of its own an angle: its 10th item {heel: [x, y, z] — where its heel is from its line, in the directions of the
-   // scheme; t — its thickness, mm}; Т-25 of a mast: «написано же уголок»)
-   if(c.lay&&Array.isArray(c.lay.bars))c.lay.bars.forEach(function(m){if(Array.isArray(m)&&m.length>=6)out.push([[number(m[0]),number(m[1]),number(m[2])],[number(m[3]),number(m[4]),number(m[5])],String(m[6]||"member"),String(m[7]||""),Array.isArray(m[8])?m[8]:null].concat(m[9]&&Array.isArray(m[9].heel)?[m[9]]:[]))});
+   // scheme; t — its thickness, mm}; Т-25 of a mast: «написано же уголок»; a weld of its own, role "weld": {seam} as above —
+   // the angle Т-25 welded to the braces of the mast, its arms to it and to the stringers: «уголки сквозь друг друга
+   // проходят на 3д, сделай сварку»)
+   if(c.lay&&Array.isArray(c.lay.bars))c.lay.bars.forEach(function(m){if(Array.isArray(m)&&m.length>=6)out.push([[number(m[0]),number(m[1]),number(m[2])],[number(m[3]),number(m[4]),number(m[5])],String(m[6]||"member"),String(m[7]||""),Array.isArray(m[8])?m[8]:null].concat(m[9]&&(Array.isArray(m[9].heel)||m[9].seam)?[m[9]]:[]))});
    return out
   }
   var spaceRoles={leg:"пояс",brace:"раскос",strut:"распорка",post:"стойка",rail:"поручень",bracket:"уголок",plate:"пластина",splice:"накладка",anchor:"анкерный болт",member:"элемент"};
+  // A weld seam from p to q (world): a fillet — its legs s mm along the directions a and b of the scheme (seam.a, seam.b) —
+  // or a butt seam — w mm wide across seam.u, h high along seam.n —; its section a little convex, as a seam's is. Of its
+  // own colour, darker than the steel, so that it is seen at a node (the engineer, 02.11.2026: «где сварка? узел сварки»).
+  var weldMat=new T.MeshStandardMaterial({color:0x4f4338,metalness:.45,roughness:.55,side:T.DoubleSide});
+  function weldBead(p,q,seam){
+   var o=toWorld(0,0,0),dir=function(v){return toWorld(number(v[0]),number(v[1]),number(v[2])).sub(o).normalize()},sec=[],i,t;
+   if(seam.a&&seam.b){var s=number(seam.s)/1000,A=dir(seam.a).multiplyScalar(s),B=dir(seam.b).multiplyScalar(s),M=A.clone().add(B).normalize().multiplyScalar(.2*s);
+    sec.push(new T.Vector3());for(i=0;i<=4;i++){t=i/4;sec.push(A.clone().multiplyScalar(1-t).add(B.clone().multiplyScalar(t)).add(M.clone().multiplyScalar(Math.sin(Math.PI*t))))}}
+   else{var U=dir(seam.u),N=dir(seam.n),w=number(seam.w)/1000,h=number(seam.h)/1000;
+    for(i=0;i<=4;i++){t=-w/2+w*i/4;sec.push(U.clone().multiplyScalar(t).add(N.clone().multiplyScalar(h*(1-4*t*t/(w*w)))))}}
+   var L=q.clone().sub(p),pos=[],n=sec.length,put=function(v){pos.push(v.x,v.y,v.z)};
+   for(i=0;i<n;i++){var a0=sec[i],a1=sec[(i+1)%n];put(a0);put(a1);put(a1.clone().add(L));put(a0);put(a1.clone().add(L));put(a0.clone().add(L))}
+   for(i=1;i+1<n;i++){put(sec[0]);put(sec[i+1]);put(sec[i]);put(sec[0].clone().add(L));put(sec[i].clone().add(L));put(sec[i+1].clone().add(L))}
+   var g=new T.BufferGeometry();g.setAttribute("position",new T.Float32BufferAttribute(pos,3));g.computeVertexNormals();
+   var mesh=new T.Mesh(g,weldMat);mesh.position.copy(p);mesh.userData.weld=true;mesh.userData.small=true;mesh.userData.fixed=true;
+   return partTag(mesh,"сварной шов",seam.a?"катет "+number(seam.s)+" мм":"стыковой")
+  }
   function addSpaceFrame(c,id){
    var list=spaceMembers(c);if(!list.length)return false;
    var x0=number(c.x),y0=number(c.y),z0=number(c.z0),up=new T.Vector3(0,1,0),mat=baseMaterial(c),parts=[];
@@ -4556,6 +4618,23 @@ window.irThreeSchemeView=(function(){
     // diameter in its section «М16» — a bolt set of the base as in any joint; the splice of the legs of П-12 and П-16А,
     // узел 3 and 2-2 of ПМС-18,4: the engineer, 31.10.2026, «где болтовое соединение?»)
     if(m[2]==="bolt"){var bd=/(\d+)/.exec(String(m[3]||""));if(bd)addBolt(c,a.clone().add(b).multiplyScalar(.5),v,number(bd[1])/1000,len,"node");return}
+    // (a weld seam, spaceMembers — welds: a bead along its line)
+    if(m[2]==="weld"){var sm=m[5]&&m[5].seam;if(sm)parts.push(weldBead(a,b,sm));return}
+    // (an angle lapped on the legs — spaceMembers, lap —: its flange in the face and its outstanding flange plates by their
+    // outlines in the face, the first on the inner side of the flange of the leg, the second into the frame from its heel)
+    var lw0=m[5]&&m[5].lap;
+    if(lw0&&lw0.flange){conventional.add(id);
+     var W=function(r,n){return at([lw0.O[0]+lw0.eu[0]*r[0]+lw0.ev[0]*r[1]+lw0.nf[0]*n,lw0.O[1]+lw0.eu[1]*r[0]+lw0.ev[1]*r[1]+lw0.nf[1]*n,lw0.O[2]+lw0.eu[2]*r[0]+lw0.ev[2]*r[1]+lw0.nf[2]*n])};
+     var o0=at([0,0,0]),Xw=at(lw0.nf).sub(o0).normalize(),Zw=W(lw0.dir,0).sub(W([0,0],0)).normalize(),Yw=new T.Vector3().crossVectors(Zw,Xw).normalize();Zw=new T.Vector3().crossVectors(Xw,Yw);
+     var org=W(lw0.flange[0],lw0.s1),loc=function(v){v.sub(org);return new T.Vector3(v.dot(Xw),v.dot(Yw),v.dot(Zw))},pos=[],put=function(v){pos.push(v.x,v.y,v.z)};
+     var prism=function(poly,n0,n1){var top=poly.map(function(r){return loc(W(r,n0))}),bot=poly.map(function(r){return loc(W(r,n1))}),k=poly.length,i;
+      for(i=0;i<k;i++){var j=(i+1)%k;put(top[i]);put(top[j]);put(bot[j]);put(top[i]);put(bot[j]);put(bot[i])}
+      for(i=1;i+1<k;i++){put(top[0]);put(top[i]);put(top[i+1]);put(bot[0]);put(bot[i+1]);put(bot[i])}};
+     prism(lw0.flange,lw0.s1,lw0.s1-lw0.th);if(lw0.web)prism(lw0.web,lw0.s1-lw0.th,lw0.s1-lw0.b);
+     var pg=new T.BufferGeometry();pg.setAttribute("position",new T.Float32BufferAttribute(pos,3));pg.computeVertexNormals();
+     var ex=lw0.flange.map(function(r){return r[0]*lw0.dir[0]+r[1]*lw0.dir[1]}),pm=partTag(new T.Mesh(pg,mat),spaceRoles[m[2]]||m[2],m[3]||"уголок (сечение условно)");
+     pm.position.copy(org);pm.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(Xw,Yw,Zw));pm.userData.piece=Math.round(Math.max.apply(null,ex)-Math.min.apply(null,ex));
+     parts.push(pm);return}
     var dir=v.clone().normalize(),y=up.clone().sub(dir.clone().multiplyScalar(up.dot(dir)));
     // (an upright member — a leg, a post, a plate, an anchor — square to the faces of the frame: its sides along the
     // grid, as the legs of angles lie along the faces of a mast)
@@ -4570,18 +4649,6 @@ window.irThreeSchemeView=(function(){
      if(hd){var hw=toWorld(number(hd[0]),number(hd[1]),number(hd[2])).sub(toWorld(0,0,0)),sx=hw.dot(x)<0?-1:1,sy=hw.dot(y)<0?-1:1,th=number(m[5].t)/1000||Math.min(w,h)/10;
       geo=shared("space-angle:"+w+":"+h+":"+th+":"+sx+":"+sy,function(){var X0=sx*w/2,Y0=sy*h/2,s=new T.Shape();s.moveTo(X0,Y0);s.lineTo(X0-sx*w,Y0);s.lineTo(X0-sx*w,Y0-sy*th);
        s.lineTo(X0-sx*th,Y0-sy*th);s.lineTo(X0-sx*th,Y0-sy*h);s.lineTo(X0,Y0-sy*h);s.lineTo(X0,Y0);return new T.ExtrudeGeometry(s,{depth:1,bevelEnabled:false})});
-      // (lapped on the legs — spaceMembers, lap —: each line of its section from where it comes into the half-planes of its
-      // face to where it leaves them, the flange in the face by its own, the outstanding flange and the heel by theirs; the
-      // piece from the first of those ends to the last)
-      var lp=m[5].lap;
-      if(lp){var g2=geo.clone(),ps=g2.attributes.position,P0=m[0],f2=function(p){var r0=[p[0]-lp.O[0],p[1]-lp.O[1],p[2]-lp.O[2]];return[r0[0]*lp.eu[0]+r0[1]*lp.eu[1]+r0[2]*lp.eu[2],r0[0]*lp.ev[0]+r0[1]*lp.ev[1]+r0[2]*lp.ev[2]]};
-       var q00=f2(P0),q11=f2(m[1]),dq=[q11[0]-q00[0],q11[1]-q00[1]],zs=[],zlo=Infinity,zhi=-Infinity;
-       for(var vi=0;vi<ps.count;vi++){var wv=new T.Vector3(ps.getX(vi),ps.getY(vi),0).applyQuaternion(q).add(a),rv=fromWorld(wv),q0=f2([rv.x-x0,rv.y-y0,rv.z-z0]),kc=sy*ps.getY(vi)>=h/2-th-1e-6?2:1,lo=0,hi=1;
-        lp.hp.forEach(function(e){if(e[3]&&e[3]!==kc)return;var A=e[0]*q0[0]+e[1]*q0[1]-e[2],B=e[0]*dq[0]+e[1]*dq[1];if(Math.abs(B)<1e-9){if(A<0){lo=1;hi=0}return}
-         if(B>0)lo=Math.max(lo,-A/B);else hi=Math.min(hi,-A/B)});
-        if(lo>hi)lo=hi=Math.max(0,Math.min(1,(lo+hi)/2));var zv=ps.getZ(vi)<.5?lo:hi;zs.push(zv);zlo=Math.min(zlo,zv);zhi=Math.max(zhi,zv)}
-       if(zhi-zlo>1e-4){for(vi=0;vi<ps.count;vi++)ps.setZ(vi,(zs[vi]-zlo)/(zhi-zlo));ps.needsUpdate=true;g2.computeVertexNormals();g2.computeBoundingBox();g2.computeBoundingSphere();geo=g2;
-        a=a.clone().add(dir.clone().multiplyScalar(len*zlo));len=len*(zhi-zlo)}}
       if(!pr)pr="уголок (сечение условно)"}
      else geo=shared("space-bar:"+w+":"+h,function(){var g=new T.BoxGeometry(w,h,1);g.translate(0,0,.5);return g})}
     var mesh=partTag(new T.Mesh(geo,mat),spaceRoles[m[2]]||m[2],pr);mesh.position.copy(a);mesh.quaternion.copy(q);mesh.scale.z=len;
@@ -5250,7 +5317,7 @@ window.irThreeSchemeView=(function(){
   }
   function outlined(m){
    var u=m.userData,c=dataById.get(String(u.memberId))||{};
-   return!(u.hole||u.footing||u.shell||u.roof||u.grating||m.material&&m.material.transparent||c.ft==="panel"||c.ft==="trim")
+   return!(u.hole||u.footing||u.shell||u.roof||u.grating||u.weld||m.material&&m.material.transparent||c.ft==="panel"||c.ft==="trim")
   }
   function mergeEdges(list){
    var n=0;list.forEach(function(m){n+=edgesOf(m.geometry).length});if(!n)return null;
@@ -5344,6 +5411,8 @@ window.irThreeSchemeView=(function(){
    if(u.body){var pts=memberPoints(c),L=0;for(var i=1;i<pts.length;i++)L+=pts[i].distanceTo(pts[i-1]);
     var sec=String(c.profile_name||c.profileName||"").trim();return{n:"профиль марки",s:sec,L:mm(L),kg:(massPerMetre(sec,c.profile_standard)||0)*L,o:0,t:0}}
    var name=function(d){return tag&&tag.n||(u.gusset?"фасонка":u.small?"ребро":d)},sx=Math.abs(m.scale.x),sy=Math.abs(m.scale.y),sz=Math.abs(m.scale.z);
+   // (a piece drawn by its outline — an angle lapped on the legs of a lattice —: its length, mm)
+   if(u.piece&&tag)return{n:tag.n,s:tag.s,L:u.piece,kg:(massPerMetre(tag.s,c.profile_standard)||0)*u.piece/1000,o:pieceOrder[tag.n]||5,t:0};
    if(g.type==="BoxGeometry"){
     var d=[gp.width*sx,gp.height*sy,gp.depth*sz].map(mm).sort(function(a,b){return a-b});if(!(d[0]>0))return null;
     // (a member of a truss of a section not in the sortament, drawn as a bar)
@@ -5436,6 +5505,8 @@ window.irThreeSchemeView=(function(){
    var parts=selected?partsOf(selected):null;
    [[selected,selectedMat],[hover!==selected?hover:"",hoverMat]].forEach(function(s,i){
     if(s[0])(meshesById.get(s[0])||[]).forEach(function(m){
+     // (a weld seam keeps its own colour over the selected member: «где сварка?»)
+     if(m.userData.weld)return;
      var mat=s[1],p=!i&&parts?meshPos(m,parts):null;
      if(!i&&parts)mat=litPart!==null&&p!==litPart?partMat("#d3dae0"):p!==null&&parts.color[p]?partMat(parts.color[p]):s[1];
      var o=new T.Mesh(m.geometry,mat);o.matrixAutoUpdate=false;o.matrix.copy(m.matrixWorld);overlay.add(o)})
@@ -5457,7 +5528,7 @@ window.irThreeSchemeView=(function(){
   function card(id){
    id=String(id||"");var c=dataById.get(id);if(!c)return null;
    var list=meshesById.get(id)||[],v=0,parts=partsOf(id),own=sectionOf(c.profile_name||c.profileName,c.profile_standard);
-   list.forEach(function(m){if(m.userData.hole||m.userData.anchor||m.userData.footing||m.material===concreteMat)return;v+=volumeOf(m)});
+   list.forEach(function(m){if(m.userData.hole||m.userData.anchor||m.userData.footing||m.userData.weld||m.material===concreteMat)return;v+=volumeOf(m)});
    return{mass_kg:own&&!conventional.has(id)&&v>0?Math.round(v*7850*10)/10:null,bolts:boltList.filter(function(b){return b.id===id}).length,
     nodes:nodes.filter(function(n){return n.members.some(function(m){return String(m.c.id)===id})}).map(function(n){return{id:n.id,name:kindName(n),axes:axisOf(n.x,n.y).split(" (")[0]}}),
     colors:parts?parts.color:{},body:parts?parts.body:null,lit:litFor===id?litPart:null,spec:derivedParts.get(id)||null,wall_mm:wallCut.has(id)?Math.round(wallCut.get(id)*1000):0,line_mm:lineMoved.has(id)?Math.round(lineMoved.get(id)*1000):0}
