@@ -1065,6 +1065,16 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   if(crops.every(c=>!c.error))cards.set(cacheKey,card);
   return card
  }
- return{latest,documentSheets,analyze,control,process,skipAI,preview,place,undo,clearScheme,restoreScheme,schemeSnapshot,elementCard};
+ // When the last analysis of an object was placed and whether it took checked data (a set of the knowledge base): the
+ // window of the scheme offers to place it again when newer data of the drawings came (src/ai-scheme-pack.js).
+ function placedInfo(id){
+  const oid=object(id),rows=database.listEntity(oid,"ai-scheme-draft").filter(r=>r.record_type==="pdf_scheme_draft");
+  if(!rows.length)return null;
+  const row=rows.reduce((a,b)=>Number(b.id)>Number(a.id)?b:a),data=row.data||{},batch=String(data.placed?.batch||"");
+  const t=/^pdf-([0-9a-z]+)$/.exec(batch),at=t?new Date(parseInt(t[1],36)):null;
+  let verified=false;try{verified=Boolean(checkedResult(data)?.verified?.elements?.length)}catch{}
+  return{draftId:row.id,placedAt:at&&Number.isFinite(at.getTime())?at.toISOString():"",verified}
+ }
+ return{latest,documentSheets,analyze,control,process,skipAI,preview,place,undo,clearScheme,restoreScheme,schemeSnapshot,elementCard,placedInfo};
 }
 module.exports={createMontage,SCHEMA,SYSTEM,mergeParts,mergeMarks,sameElementKey};

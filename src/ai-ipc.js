@@ -56,6 +56,11 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
  require("./ai-knowledge-dirs").setDataDir(dataDir);
  const pullData=()=>github.pullData({dir:dataDir}).catch(error=>console.warn("IR Project: data of the drawings not pulled",error.message));
  setTimeout(pullData,15e3).unref?.();setInterval(pullData,3600e3).unref?.();
+ // The pack of schemes (src/ai-scheme-pack.js): the 3D of the montage scheme and the checked data of the drawings come
+ // from the closed repository without a new version of the program — at the start, every 15 minutes and when a scheme
+ // is opened (the window asks, src/scheme-updates.js).
+ let schemePack=null;
+ const appVersion=()=>{try{return require("electron").app.getVersion()}catch{return"0"}};
  // What runs in the main process: the version of the update these modules came from and when they started.
  const startedAt=new Date().toISOString();
  const hotVersion=()=>{try{return JSON.parse(require("node:fs").readFileSync(require("node:path").join(__dirname,"..","hot-manifest.json"),"utf8")).version||""}catch{return"установленная"}};
@@ -93,6 +98,16 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
  handle("ai-settings:set-provider",(e,provider)=>{checkAdmin(e);return engine.setProvider(provider)});
  handle("ai-settings:test",()=>engine.start());
  handle("ai-montage:latest",(_e,objectId)=>montage.latest(objectId));
+ schemePack=require("./ai-scheme-pack").createSchemePack({getUserDataPath,appVersion,montage,
+  readBranch:(paths,commit)=>github.readBranch(paths,commit),pull:()=>github.hasToken()?github.pullData({dir:dataDir}):null});
+ const packCheck=()=>github.hasToken()?schemePack.check().catch(error=>console.warn("IR Project: pack of schemes",error.message)):null;
+ setTimeout(packCheck,25e3).unref?.();setInterval(packCheck,900e3).unref?.();
+ handle("ai-montage:scheme-pack",async(_e,{objectId,action}={})=>{
+  if(action==="apply")return schemePack.apply(objectId);
+  if(action==="check"){if(!github.hasToken())return{...schemePack.status(objectId),note:"нет ключа GitHub — пакет схем не проверяется"};
+   try{await schemePack.check({force:false})}catch(_e2){}}
+  return schemePack.status(objectId)
+ });
  handle("ai-montage:analyze",(_e,{objectId,documentIds,resume})=>montage.analyze(objectId,documentIds,{resume:resume===true}));
  // The engineer's «Стоп» of a running analysis or Claude run: pause, resume, stop, status.
  handle("ai-montage:control",(_e,{objectId,action}={})=>montage.control(objectId,String(action||"status")));

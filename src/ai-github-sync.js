@@ -179,6 +179,18 @@ function createGithubSync({getUserDataPath,safeStorage,fetch:doFetch=globalThis.
  // The data of the drawings of the closed repository into a folder of this computer (userData/knowledge-data): only
  // what changed since the last time (by the hash of each file); what was removed there is removed here.
  let pulling=null;
+ // Files of the branch of the data at one commit (the head when none is given), for the pack of schemes
+ // (src/ai-scheme-pack.js): blobs, so that a file above 1 MB comes too.
+ async function readBranch(paths,commitSha){
+  const t=await dataRepo();
+  const head=commitSha||(await gh("GET","/repos/"+t.repo+"/git/ref/heads/"+t.branch.split("/").map(encodeURIComponent).join("/"))).object.sha;
+  const commit=await gh("GET","/repos/"+t.repo+"/git/commits/"+head);
+  const tree=await gh("GET","/repos/"+t.repo+"/git/trees/"+commit.tree.sha+"?recursive=1");
+  const files=new Map();
+  for(const p of paths){const x=(tree?.tree||[]).find(e=>e.type==="blob"&&e.path===p);if(!x)continue;
+   const b=await gh("GET","/repos/"+t.repo+"/git/blobs/"+x.sha);files.set(p,Buffer.from(String(b?.content||""),"base64"))}
+  return{commit:head,files}
+ }
  async function pullData({dir}={}){
   if(!dir)throw Error("Не указана папка данных");
   if(pulling)return pulling;
@@ -191,20 +203,20 @@ function createGithubSync({getUserDataPath,safeStorage,fetch:doFetch=globalThis.
    const want=(tree?.tree||[]).filter(x=>x.type==="blob"&&PRIVATE(x.path)&&!(x.size>50e6));
    const indexFile=path.join(dir,".index.json"),dest=p=>path.join(dir,...p.slice("knowledge/".length).split("/"));
    let index={};try{index=JSON.parse(fs.readFileSync(indexFile,"utf8"))||{}}catch{}
-   const next={};let changed=0,removed=0;
+   const next={},paths=[];let changed=0,removed=0;
    for(const x of want){
     if(index[x.path]===x.sha&&fs.existsSync(dest(x.path))){next[x.path]=x.sha;continue}
     const b=await gh("GET","/repos/"+t.repo+"/git/blobs/"+x.sha);
     const f=dest(x.path),tmp=f+".tmp";fs.mkdirSync(path.dirname(f),{recursive:true});
-    fs.writeFileSync(tmp,Buffer.from(String(b?.content||""),"base64"));fs.renameSync(tmp,f);next[x.path]=x.sha;changed++
+    fs.writeFileSync(tmp,Buffer.from(String(b?.content||""),"base64"));fs.renameSync(tmp,f);next[x.path]=x.sha;changed++;paths.push(x.path)
    }
-   for(const p of Object.keys(index))if(!next[p]&&PRIVATE(p)){try{fs.rmSync(dest(p),{force:true});removed++}catch{}}
+   for(const p of Object.keys(index))if(!next[p]&&PRIVATE(p)){try{fs.rmSync(dest(p),{force:true});removed++;paths.push(p)}catch{}}
    fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(indexFile,JSON.stringify(next),"utf8");
    const a=read();a.pulled={at:now().toISOString(),repo:t.repo,files:want.length,changed,removed};delete a.pullError;write(a);
-   return a.pulled
+   return{...a.pulled,paths}
   })().catch(e=>{const a=read();a.pullError=String(e.message||e)+" ("+now().toLocaleString("ru-RU")+")";write(a);throw e}).finally(()=>{pulling=null});
   return pulling
  }
- return{info,set,clearToken,test,push,schedule,outgoing,startHourly,computer:computerName,chatReady,chatPost,chatAnswers,CHAT_BRANCH,dataRepo,pullData}
+ return{info,set,clearToken,test,push,schedule,outgoing,startHourly,computer:computerName,chatReady,chatPost,chatAnswers,CHAT_BRANCH,dataRepo,pullData,readBranch,hasToken:()=>Boolean(read().token)}
 }
 module.exports={createGithubSync,DEFAULTS};
