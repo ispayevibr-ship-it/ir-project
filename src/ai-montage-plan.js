@@ -1393,6 +1393,10 @@ function roofProfiles(elements,draft,merged){
   for(const e of list){
    const h=beamLike(e)?depthOf(e):hb;
    const zAt=u=>{const t=top(u);return Math.round((h>0&&t!==null?t-h/2:axisAt(u))/5)*5};
+   // (profile not known: on the axis of the beams, its top as far over it as the section writes the tops over the axes —
+   // a purlin on it rests on that top, not on the axis: ГПЭС М1.3, «К37а» at 4/Б sank 150 into «К112», the engineer,
+   // 02.11.2026: «перепроверь прогон, будто ниже чем должно быть»)
+   if(!(h>0)&&off!==null&&off>0)e.top_over_axis_mm=Math.round(off);else delete e.top_over_axis_mm;
    const u0=e[a],u1=e[b];
    e.z0_mm=zAt(u0);e.z1_mm=zAt(u1);
    delete e.mid_x_mm;delete e.mid_y_mm;delete e.mid_z_mm;if(e.geometry_type==="bent")e.geometry_type="beam";
@@ -1470,7 +1474,8 @@ function purlinsOnBeams(elements){
   for(const s of supports){
    if(s.doc!==p.doc)continue;
    const x=crossing(p,s);if(!x)continue;
-   const hs=depthOf(s),z=levelAlong(s,x.x,x.y)+((hs||0)+(hp||0))/2;
+   // (a beam of no known profile on the axis of the beams: its depth twice its top over that axis, roofProfiles)
+   const hs=depthOf(s)||(s.top_over_axis_mm>0?2*s.top_over_axis_mm:0),z=levelAlong(s,x.x,x.y)+((hs||0)+(hp||0))/2;
    points.push({t:x.t,z,mark:s.mark,roof:roofPlan(s),weak:!firmLevels(s)})
   }
   // A roof beam with its levels from the neighbours does not overrule a purlin's own levels from a section.
