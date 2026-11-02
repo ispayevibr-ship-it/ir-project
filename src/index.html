@@ -2,7 +2,7 @@
  const params=new URLSearchParams(location.search);
  if(window===window.top&&!params.has("tabContent")){location.replace("./tabs-shell.html"+location.hash);return}
  if(window!==window.top){
-  try{if(!window.irProject&&window.parent.irProject)window.irProject=window.parent.irProject}catch(e){}
+  try{if(!window.irProject&&window.parent.irProject)window.irProject=window.parent.irProjectFast||window.parent.irProject}catch(e){}
   document.documentElement.classList.add("ir-tab-content")
  }
 })();</script><style>

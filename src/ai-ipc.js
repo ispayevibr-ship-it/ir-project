@@ -63,7 +63,8 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
  const training=createTraining({database,getUserDataPath,base});
  // A placement writes thousands of rows: in one transaction, not one disk wait per row.
  const writes=require("./ai-db-batch").createBatch({getUserDataPath,database});
- const montage=createMontage({database,documents,drafts,renderer:raster,engine,knowledge,base,training,writes,
+ const draftIds=require("./ai-db-batch").createIndex({getUserDataPath});
+ const montage=createMontage({database,documents,drafts,renderer:raster,engine,knowledge,base,training,writes,draftIds,
   onProgress:payload=>{const win=getWindow();if(win&&!win.isDestroyed())win.webContents.send("ai-montage:progress",payload)}});
  // The installed preload passes only ai-documents/engine/settings/montage channels: knowledge, GitHub and diagnostics
  // are also served as ai-settings:<group>-<name> (see aiChannel in the windows), so a hot update reaches them.

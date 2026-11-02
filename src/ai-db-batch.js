@@ -38,4 +38,19 @@ function createBatch({getUserDataPath,database}){
   }finally{db.close()}
  }
 }
-module.exports={createBatch};
+// Ids (newest first) of one section's rows of a type, without their data: the stored analyses of drawings are 9 MB each
+// and an object keeps dozens of them — reading all of them to find the newest stopped the program for seconds at every
+// open of the recognition page and every step of the processing (the engineer 02.11.2026 «переходах между страницами
+// подвисает»). null without the file: the caller then reads the section as before.
+function createIndex({getUserDataPath}){
+ return function ids(oid,section,recordType){
+  let f="";try{f=path.join(getUserDataPath(),"ir-project.db");if(!fs.existsSync(f))return null}catch{return null}
+  let Sync=null;try{Sync=require("node:sqlite").DatabaseSync}catch{return null}
+  let db=null;
+  try{
+   db=new Sync(f,{readOnly:true});db.exec("PRAGMA busy_timeout=5000");
+   return db.prepare("SELECT id FROM object_records WHERE object_id=? AND section_key=? AND record_type=? ORDER BY id DESC").all(Number(oid),String(section),String(recordType)).map(r=>Number(r.id))
+  }catch{return null}finally{try{db?.close()}catch{}}
+ }
+}
+module.exports={createBatch,createIndex};

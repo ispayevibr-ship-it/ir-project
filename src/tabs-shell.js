@@ -2,8 +2,9 @@
 (()=>{
  const list=document.getElementById("tabsList"),stage=document.getElementById("tabsContent"),addButton=document.getElementById("tabsAdd"),loader=document.getElementById("tabsLoading"),loadingText=document.getElementById("tabsLoadingText"),retryButton=document.getElementById("tabsLoadingRetry"),showButton=document.getElementById("tabsLoadingShow"),profileSlot=document.getElementById("tabsProfileSlot");
  if(!list||!stage)return;
- const openerBridge=()=>{try{return window.opener?.irProject||null}catch{return null}};
- const api=window.irProject||openerBridge();
+ const openerBridge=()=>{try{return window.opener?.irProjectFast||window.opener?.irProject||null}catch{return null}};
+ // irProjectFast (ir-data-cache.js): the same bridge, the same reads of one moment joined into one.
+ const api=window.irProjectFast||window.irProject||openerBridge();
  if(!api?.data?.objects){
   const error=document.createElement("div");error.style.cssText="padding:25px;color:#a94444;font:13px Segoe UI";error.textContent="Нет подключения к данным. Откройте страницу из главного окна IR Project.";stage.append(error);
   return

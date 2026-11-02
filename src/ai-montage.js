@@ -158,7 +158,7 @@ function mergeParts(parts){
  for(const l of parts.flatMap(p=>p.lessons||[])){const k=JSON.stringify([l?.kind,l?.letters,l?.words,l?.to,l?.type,l?.text]);if(l&&!lessonSeen.has(k)){lessonSeen.add(k);lessons.push(l)}}
  return{elements:mergeElements(parts.flatMap(p=>p.elements||[])),grid,tank,vessel,new_types:newTypes,lessons,conflicts}
 }
-function createMontage({database,documents,drafts,renderer,engine,knowledge=null,base=null,training=null,writes=fn=>fn(database),onProgress=()=>{}}){
+function createMontage({database,documents,drafts,renderer,engine,knowledge=null,base=null,training=null,writes=fn=>fn(database),draftIds=null,onProgress=()=>{}}){
  // The engineer's rules for this set (a rule may be limited to a project code found in the file names).
  const learned=data=>knowledge?{typeOfMark:knowledge.resolver([data.source?.name||"",...(data.source?.documents||[]).map(d=>d.name)].join(" "))}:{};
  if(!database||!documents||!drafts||!renderer||!engine)throw Error("Montage needs drafts, renderer and engine");
@@ -166,9 +166,19 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
  // The project knowledge base of the object: mark cards with the sheet of every value, processing log.
  const project=createProjectKnowledge({database});
  const draftRow=(oid,draftId)=>{
-  const row=database.listEntity(oid,"ai-scheme-draft").find(r=>r.record_type==="pdf_scheme_draft"&&String(r.id)===String(draftId));
+  // One stored analysis by its id (9 MB): not the whole section of dozens of them.
+  const n=Number(draftId),one=typeof database.getEntity!=="function"?database.listEntity(oid,"ai-scheme-draft").find(r=>String(r.id)===String(draftId)):
+   Number.isSafeInteger(n)&&n>0?database.getEntity(oid,"ai-scheme-draft",n):null;
+  const row=one?.record_type==="pdf_scheme_draft"?one:null;
   if(!row)throw Error("Результат анализа не найден. Начните с шага 1.");
   return row
+ };
+ // The newest stored analysis of the object: its id is looked up without reading the data of the others.
+ const lastDraft=oid=>{
+  let ids=null;try{ids=draftIds?draftIds(oid,"ai-scheme-draft","pdf_scheme_draft"):null}catch{ids=null}
+  if(Array.isArray(ids)&&typeof database.getEntity==="function"){for(const id of ids){const r=database.getEntity(oid,"ai-scheme-draft",id);if(r?.record_type==="pdf_scheme_draft")return r}return null}
+  const rows=database.listEntity(oid,"ai-scheme-draft").filter(r=>r.record_type==="pdf_scheme_draft");
+  return rows.length?rows.reduce((a,b)=>Number(b.id)>Number(a.id)?b:a):null
  };
  const saveDraft=(oid,row,patch)=>database.updateEntity(oid,"ai-scheme-draft",row.id,{record_type:row.record_type,title:row.title,data:{...row.data,...patch}});
  // Journal of what happened to this set: analysis, Claude, placement, undo.
@@ -270,9 +280,8 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
  }
  function latest(id){
   const oid=object(id);
-  const rows=database.listEntity(oid,"ai-scheme-draft").filter(r=>r.record_type==="pdf_scheme_draft");
-  if(!rows.length)return null;
-  const row=rows.reduce((a,b)=>Number(b.id)>Number(a.id)?b:a);
+  const row=lastDraft(oid);
+  if(!row)return null;
   return view(oid,row)
  }
  // Sheets of one PDF with their stamp names, for choosing what to analyse.
@@ -317,7 +326,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   try{return await analyzeRun(oid,documentIds,resume===true,g)}finally{closeGate(oid,g)}
  }
  async function analyzeRun(oid,documentIds,resume,gate){
-  const last=resume?database.listEntity(oid,"ai-scheme-draft").filter(r=>r.record_type==="pdf_scheme_draft").reduce((a,b)=>!a||Number(b.id)>Number(a.id)?b:a,null):null;
+  const last=resume?lastDraft(oid):null;
   if(resume&&!last?.data?.stopped)throw Error("Остановленного анализа нет — запустите анализ заново");
   if(resume&&last.data.analyzer!==ANALYZER)throw Error("После остановки программа обновила правила распознавания — запустите анализ заново, чтобы все листы были прочитаны одними правилами");
   const kept=last?.data||null;
@@ -990,9 +999,9 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
  // on an assembly sheet. Pieces are rendered locally and kept while the program runs.
  const cards=new Map();
  async function elementCard(id,{key="",mark="",volume=""}={}){
-  const oid=object(id),rows=database.listEntity(oid,"ai-scheme-draft").filter(r=>r.record_type==="pdf_scheme_draft");
-  if(!rows.length)return{mark,catalog:null,crops:[],note:"Анализ чертежей ещё не выполнялся"};
-  const row=rows.reduce((a,b)=>Number(b.id)>Number(a.id)?b:a),data=row.data||{},cacheKey=oid+"|"+row.id+"|"+key+"|"+normMark(mark)+"|"+volume;
+  const oid=object(id),row=lastDraft(oid);
+  if(!row)return{mark,catalog:null,crops:[],note:"Анализ чертежей ещё не выполнялся"};
+  const data=row.data||{},cacheKey=oid+"|"+row.id+"|"+key+"|"+normMark(mark)+"|"+volume;
   if(cards.has(cacheKey))return cards.get(cacheKey);
   const pages=data.pages||[],nm=normMark(mark);
   let catalog=null;
