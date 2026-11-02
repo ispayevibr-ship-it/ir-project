@@ -4187,12 +4187,42 @@ window.irThreeSchemeView=(function(){
      // уголок?»)
      var ang=L.shape==="angle",face=function(j,n){return ang?[null,{heel:[(C[j][0]+C[n][0])/2,(C[j][1]+C[n][1])/2,1]}]:[]};
      if(L.legs!==false)for(var i=0;i<4;i++)out.push([P(i,0),P(i,H),"leg",String(L.leg||"")].concat(ang?[null,{heel:[C[i][0],C[i][1],0]}]:[]));
-     if(L.brace!=="none")for(var k=0;k+1<lv.length;k++)for(var j=0;j<4;j++){var n=(j+1)%4;out.push([P(j,lv[k]),P(n,lv[k+1]),"brace",String(L.brace||"")].concat(face(j,n)));out.push([P(n,lv[k]),P(j,lv[k+1]),"brace",String(L.brace||"")].concat(face(j,n)))}
-     (Array.isArray(L.struts_mm)?L.struts_mm:[]).forEach(function(z){z=number(z);if(z>=0&&z<=H)for(var j=0;j<4;j++)out.push([P(j,z),P((j+1)%4,z),"strut",String(L.strut||"")].concat(face(j,(j+1)%4)))});
+     // (angles drawn conventionally, a welded node of angles — the engineer, 02.11.2026, П-16А: «узел сварки уголков
+     // нормально покажи»; no sheet of its nodes: a brace or a strut lies with its flange in the face on the inner side of
+     // the leg's flange there, lapped on it and welded — 10 mm short of the leg's other flange —, its outstanding flange cut
+     // back clear of the braces of the next face; the two braces meeting at a node 10 mm apart across its level, a strut
+     // there between them 10 mm off; of the two braces of a cross the first whole, the second in two halves welded to it
+     // 10 mm off. lap: the face (O, eu along it, ev up it, nf out of it, mm from the point and foot) and the half-planes
+     // [a, b, c, k] of the face, a·u + b·v ≥ c, of the flange in the face (k 1), of the outstanding one (k 2), of both (0).)
+     var conv=function(s){return!(s&&sectionOf(s))},lsec=L.leg?sectionOf(L.leg):null,lw=lsec&&lsec.b>0?lsec.b:spaceBox.leg,lt=lsec&&lsec.t>0?lsec.t:lw/10;
+     var lap=ang&&L.legs!==false,vs=function(a,b){return[a[0]-b[0],a[1]-b[1],a[2]-b[2]]},vk=function(a,k){return[a[0]*k,a[1]*k,a[2]*k]},vd=function(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]},
+      vx=function(a,b){return[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]]},vn=function(a){var l=Math.sqrt(vd(a,a))||1;return vk(a,1/l)};
+     var faces=[0,1,2,3].map(function(j){var n=(j+1)%4,O=P(j,0),eu=vn(vs(P(n,0),O)),nf=vn(vx(eu,vs(P(j,H),O)));if(vd(nf,[C[j][0]+C[n][0],C[j][1]+C[n][1],0])<0)nf=vk(nf,-1);
+      var ev=vn(vx(nf,eu));if(ev[2]<0)ev=vk(ev,-1);var to2=function(p){var q=vs(p,O);return[vd(q,eu),vd(q,ev)]};
+      var side=function(i,sg){var a=to2(P(i,0)),b=to2(P(i,H)),l=Math.hypot(b[0]-a[0],b[1]-a[1])||1,nl=[(b[1]-a[1])/l,-(b[0]-a[0])/l];if(nl[0]*sg<0)nl=[-nl[0],-nl[1]];
+       return function(off,k){return[nl[0],nl[1],nl[0]*a[0]+nl[1]*a[1]+off,k]}};
+      return{n:n,O:O,eu:eu,ev:ev,nf:nf,to2:to2,legs:[side(j,1),side(n,-1)]}});
+     var struts=(Array.isArray(L.struts_mm)?L.struts_mm:[]).map(number).filter(function(z){return z>=0&&z<=H});
+     var lapOf=function(F,b,extra){var s1=lw/2-lt,hp=[F.legs[0](-lw/2+lt+10,1),F.legs[1](-lw/2+lt+10,1),F.legs[0](Math.max(-lw/2+lt+10,b-s1+5),2),F.legs[1](Math.max(-lw/2+lt+10,b-s1+5),2)].concat(extra||[]);
+      return{O:F.O,eu:F.eu,ev:F.ev,nf:F.nf,hp:hp,shift:s1-b/2}};
+     var lapped=function(p,q,role,sec,F,heel,b,extra){var d=vn(vs(q,p)),L2=lapOf(F,b,extra),sh=vk(F.nf,L2.shift),e=vk(d,lw);
+      return[[p[0]-e[0]+sh[0],p[1]-e[1]+sh[1],p[2]-e[2]+sh[2]],[q[0]+e[0]+sh[0],q[1]+e[1]+sh[1],q[2]+e[2]+sh[2]],role,sec,null,{heel:heel,lap:L2}]};
+     var bb=conv(L.brace)?50:sectionOf(L.brace).b,sb=conv(L.strut)?50:sectionOf(L.strut).b,gapAt=function(z){return struts.some(function(s){return Math.abs(s-z)<1})?sb/2+10:5};
+     if(L.brace!=="none")for(var k=0;k+1<lv.length;k++)for(var j=0;j<4;j++){var n=(j+1)%4;
+      if(lap&&conv(L.brace)){var F=faces[j],v0=F.to2(P(j,lv[k]))[1],v1=F.to2(P(j,lv[k+1]))[1],ends=[[0,1,v0+gapAt(lv[k]),0],[0,-1,-(v1-gapAt(lv[k+1])),0]],hd=face(j,n)[1].heel;
+       var A1=F.to2(P(j,lv[k])),B1=F.to2(P(n,lv[k+1])),l1=Math.hypot(B1[0]-A1[0],B1[1]-A1[1])||1,m1=[-(B1[1]-A1[1])/l1,(B1[0]-A1[0])/l1];if(m1[1]<0)m1=[-m1[0],-m1[1]];
+       var c1=m1[0]*A1[0]+m1[1]*A1[1];
+       out.push(lapped(P(j,lv[k]),P(n,lv[k+1]),"brace",String(L.brace||""),F,hd,bb,ends));
+       out.push(lapped(P(n,lv[k]),P(j,lv[k+1]),"brace",String(L.brace||""),F,hd,bb,ends.concat([[-m1[0],-m1[1],-c1+bb/2+10,0]])));
+       out.push(lapped(P(n,lv[k]),P(j,lv[k+1]),"brace",String(L.brace||""),F,hd,bb,ends.concat([[m1[0],m1[1],c1+bb/2+10,0]])));
+       continue}
+      out.push([P(j,lv[k]),P(n,lv[k+1]),"brace",String(L.brace||"")].concat(face(j,n)));out.push([P(n,lv[k]),P(j,lv[k+1]),"brace",String(L.brace||"")].concat(face(j,n)))}
+     struts.forEach(function(z){for(var j=0;j<4;j++){var n=(j+1)%4;if(lap&&conv(L.strut)){out.push(lapped(P(j,z),P(n,z),"strut",String(L.strut||""),faces[j],face(j,n)[1].heel,sb,[]));continue}
+      out.push([P(j,z),P(n,z),"strut",String(L.strut||"")].concat(face(j,n)))}});
      // (a brace or a strut stops at the face of the legs it joins — drawn from axis to axis it went into them, the
      // engineer's rule «металл не выходит за металл»: by the half width of a leg and its own across the leg)
      var half=function(s,d){var q=s?sectionOf(s):null;return(q&&q.b>0?q.b:d)/2},a=half(L.leg,spaceBox.leg);
-     out.forEach(function(m){if(m[2]==="leg")return;
+     out.forEach(function(m){if(m[2]==="leg"||m[5]&&m[5].lap)return;
       var p=m[0],q=m[1],d=[q[0]-p[0],q[1]-p[1],q[2]-p[2]],len=Math.sqrt(d[0]*d[0]+d[1]*d[1]+d[2]*d[2]);if(len<1)return;
       var sn=Math.abs(d[2])/len,cs=Math.sqrt(Math.max(1e-6,1-sn*sn)),b=half(m[3],50),t=Math.min(len*.4,(a+b*sn)/cs);
       m[0]=[p[0]+d[0]*t/len,p[1]+d[1]*t/len,p[2]+d[2]*t/len];m[1]=[q[0]-d[0]*t/len,q[1]-d[1]*t/len,q[2]-d[2]*t/len]})
@@ -4228,6 +4258,18 @@ window.irThreeSchemeView=(function(){
      if(hd){var hw=toWorld(number(hd[0]),number(hd[1]),number(hd[2])).sub(toWorld(0,0,0)),sx=hw.dot(x)<0?-1:1,sy=hw.dot(y)<0?-1:1,th=number(m[5].t)/1000||Math.min(w,h)/10;
       geo=shared("space-angle:"+w+":"+h+":"+th+":"+sx+":"+sy,function(){var X0=sx*w/2,Y0=sy*h/2,s=new T.Shape();s.moveTo(X0,Y0);s.lineTo(X0-sx*w,Y0);s.lineTo(X0-sx*w,Y0-sy*th);
        s.lineTo(X0-sx*th,Y0-sy*th);s.lineTo(X0-sx*th,Y0-sy*h);s.lineTo(X0,Y0-sy*h);s.lineTo(X0,Y0);return new T.ExtrudeGeometry(s,{depth:1,bevelEnabled:false})});
+      // (lapped on the legs — spaceMembers, lap —: each line of its section from where it comes into the half-planes of its
+      // face to where it leaves them, the flange in the face by its own, the outstanding flange and the heel by theirs; the
+      // piece from the first of those ends to the last)
+      var lp=m[5].lap;
+      if(lp){var g2=geo.clone(),ps=g2.attributes.position,P0=m[0],f2=function(p){var r0=[p[0]-lp.O[0],p[1]-lp.O[1],p[2]-lp.O[2]];return[r0[0]*lp.eu[0]+r0[1]*lp.eu[1]+r0[2]*lp.eu[2],r0[0]*lp.ev[0]+r0[1]*lp.ev[1]+r0[2]*lp.ev[2]]};
+       var q00=f2(P0),q11=f2(m[1]),dq=[q11[0]-q00[0],q11[1]-q00[1]],zs=[],zlo=Infinity,zhi=-Infinity;
+       for(var vi=0;vi<ps.count;vi++){var wv=new T.Vector3(ps.getX(vi),ps.getY(vi),0).applyQuaternion(q).add(a),rv=fromWorld(wv),q0=f2([rv.x-x0,rv.y-y0,rv.z-z0]),kc=sy*ps.getY(vi)>=h/2-th-1e-6?2:1,lo=0,hi=1;
+        lp.hp.forEach(function(e){if(e[3]&&e[3]!==kc)return;var A=e[0]*q0[0]+e[1]*q0[1]-e[2],B=e[0]*dq[0]+e[1]*dq[1];if(Math.abs(B)<1e-9){if(A<0){lo=1;hi=0}return}
+         if(B>0)lo=Math.max(lo,-A/B);else hi=Math.min(hi,-A/B)});
+        if(lo>hi)lo=hi=Math.max(0,Math.min(1,(lo+hi)/2));var zv=ps.getZ(vi)<.5?lo:hi;zs.push(zv);zlo=Math.min(zlo,zv);zhi=Math.max(zhi,zv)}
+       if(zhi-zlo>1e-4){for(vi=0;vi<ps.count;vi++)ps.setZ(vi,(zs[vi]-zlo)/(zhi-zlo));ps.needsUpdate=true;g2.computeVertexNormals();g2.computeBoundingBox();g2.computeBoundingSphere();geo=g2;
+        a=a.clone().add(dir.clone().multiplyScalar(len*zlo));len=len*(zhi-zlo)}}
       if(!pr)pr="уголок (сечение условно)"}
      else geo=shared("space-bar:"+w+":"+h,function(){var g=new T.BoxGeometry(w,h,1);g.translate(0,0,.5);return g})}
     var mesh=partTag(new T.Mesh(geo,mat),spaceRoles[m[2]]||m[2],pr);mesh.position.copy(a);mesh.quaternion.copy(q);mesh.scale.z=len;
