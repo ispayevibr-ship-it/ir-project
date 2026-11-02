@@ -2349,9 +2349,11 @@ window.irThreeSchemeView=(function(){
     if(hit.n&&(stringer(c)||!brace&&slant(e[1],hit.n)))endPlanes.set(id+":"+k,{P:out[k].clone(),n:hit.n.clone()});
     if(!brace){
      // A beam at a face: an end plate there, its bolts through it into the face — none where its sheet draws its own (addCuts),
-     // nor on a seat (addSeats: its bolts upright through its bottom).
+     // nor on a seat (addSeats: its bolts upright through its bottom). A stringer of a flight is welded to the web of the
+     // landing beam, its end cut on the face: no plate, no bolts (КМ3 л.7, узел 2.1: косоур [16П к швеллеру площадки, шов по
+     // торцу; the engineer, 02.11.2026, «какой-то странный узел» — a plate with four bolts at the foot of Кс1).
      faced[k]=true;
-     if(!dia||onSeat||endCuts(c).some(function(q){return q.end===k}))return;var hs=turnedHalf(c),d0=e[1],side0=Math.abs(d0.y)>.9?new T.Vector3(1,0,0):new T.Vector3(0,1,0).cross(d0).normalize(),up0=d0.clone().cross(side0).normalize();
+     if(!dia||onSeat||stringer(c)||endCuts(c).some(function(q){return q.end===k}))return;var hs=turnedHalf(c),d0=e[1],side0=Math.abs(d0.y)>.9?new T.Vector3(1,0,0):new T.Vector3(0,1,0).cross(d0).normalize(),up0=d0.clone().cross(side0).normalize();
      // ((side, up, along) right-handed: the left-handed one turned the plate edge-on across the beam's end)
      var at0=E0.clone().add(d0.clone().multiplyScalar(face+.008)),mid0=at0.clone().sub(d0.clone().multiplyScalar(.008)),bp=[];
      var fp=endPlanes.get(id+":"+k);if(fp&&Math.abs(fp.n.y)<.9){d0=fp.n.clone();if(d0.dot(e[1])<0)d0.negate();side0=new T.Vector3(0,1,0).cross(d0).normalize();up0=d0.clone().cross(side0).normalize();mid0=fp.P.clone();at0=mid0.clone().add(d0.clone().multiplyScalar(.008))}
