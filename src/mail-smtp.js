@@ -143,7 +143,7 @@ function createMail({getUserDataPath,safeStorage}){
   if(v.fromName!==undefined)next.fromName=String(v.fromName||"").trim().slice(0,120);
   if(v.copySelf!==undefined)next.copySelf=v.copySelf!==false;
   if(v.letterhead!==undefined&&v.letterhead&&typeof v.letterhead==="object"){const l=v.letterhead,t=x=>String(x||"").slice(0,600);
-   next.letterhead={org:t(l.org),details:t(l.details),signPosition:t(l.signPosition),signName:t(l.signName),executor:t(l.executor),prefix:t(l.prefix).slice(0,30)}}
+   next.letterhead={org:t(l.org),orgKz:t(l.orgKz),details:t(l.details),signPosition:t(l.signPosition),signName:t(l.signName),executor:t(l.executor),prefix:t(l.prefix).slice(0,30)}}
   if(v.password!==undefined){next.password=v.password?secret(v.password):"";next.checkedAt=""}
   store(next);return info()
  }
