@@ -2333,7 +2333,29 @@ window.irThreeSchemeView=(function(){
   // л.11) — the node at the purlin, the end raised to the plane through it. Before, the ends at a truss were left as other
   // nodes and nothing took them: the gusset hung off the chord's edge (the engineer, 02.11.2026: «Сгф2 так и висит в
   // воздухе»).
-  var purlinAt=new Map(),purlinPlane=new Map();
+  var purlinAt=new Map(),purlinPlane=new Map(),purlinCaps=[];
+  // The cap of a column under a point (plan mm): its top and bottom there — a cap plate (joint.cap_mm) or a cap of the
+  // plates of its top (base.step, «колпак» — over К2 by the ridge, sloped); null when none within 60 mm under it.
+  function capUnder(q){
+   var got=null;
+   purlinCaps.forEach(function(c){
+    var cp=capOf(c);
+    if(cp){var o=fromWorld(toWorld(c.x,c.y,c.z2)),d={x:q.x-o.x,y:q.y-o.y},L=fromWorld(toWorld(number(c.x)+cp.L.x*1000,number(c.y),0)),top=number(c.z2);
+     var lx=Math.abs(L.x-number(c.x))>.5?1:0,a=lx?Math.abs(d.x):Math.abs(d.y),b=lx?Math.abs(d.y):Math.abs(d.x);
+     if(a<=cp.a*500&&b<=cp.b*500&&q.z>=top-5&&q.z-top<=60&&(!got||top>got.top))got={top:top,bottom:top-cp.t*1000}}
+    var st=c.base&&c.base.step;if(!st||!Array.isArray(st.at_mm)||!Array.isArray(st.dir))return;
+    var x0=number(st.at_mm[0]),y0=number(st.at_mm[1]),dl=Math.hypot(number(st.dir[0]),number(st.dir[1]))||1,dx=number(st.dir[0])/dl,dy=number(st.dir[1])/dl;
+    var u=(q.x-x0)*dx+(q.y-y0)*dy,w=-(q.x-x0)*dy+(q.y-y0)*dx;
+    st.plates.forEach(function(pl){
+     if(!/колпак/i.test(String(pl.n||""))||!Array.isArray(pl.uz)||!Array.isArray(pl.w))return;
+     var w0=Math.min(number(pl.w[0]),number(pl.w[1])),w1=Math.max(number(pl.w[0]),number(pl.w[1]));if(w<w0||w>w1)return;
+     var zs=[];pl.uz.forEach(function(a,i){var b=pl.uz[(i+1)%pl.uz.length],ua=number(a[0]),ub=number(b[0]);
+      if(ua!==ub&&(u-ua)*(u-ub)<=0)zs.push(number(a[1])+(number(b[1])-number(a[1]))*(u-ua)/(ub-ua))});
+     if(zs.length<2)return;var top=Math.max.apply(null,zs),bot=Math.min.apply(null,zs);
+     if(q.z>=top-5&&q.z-top<=60&&(!got||top>got.top))got={top:top,bottom:bot}})
+   });
+   return got
+  }
   // Half the width of a truss's top chord of two angles over its gusset, m (0 when not of angles).
   function chordHalf(t){var tr=t.truss,b=0;if(!tr||!Array.isArray(tr.members))return 0;
    tr.members.forEach(function(q){if(q[4]!=="top")return;var pr=String(q[5]||""),cs=pr?sectionOf(/^\d/.test(pr)?"∟"+pr:pr):null;if(cs&&cs.shape==="angle")b=Math.max(b,number(cs.b)/1000)});
@@ -2341,6 +2363,7 @@ window.irThreeSchemeView=(function(){
   function purlinLayout(c){var p=crossPair(c)&&c.joint&&c.joint.purlin;return p&&typeof p==="object"&&Array.isArray(p.plate_mm)&&Array.isArray(p.lap_mm)?p:null}
   function purlinNodes(list){
    purlinAt.clear();purlinPlane.clear();var beams=null,trusses=null;
+   purlinCaps=list.filter(function(c){return c.geometryType==="column"&&c.id&&(capOf(c)||c.base&&c.base.step&&Array.isArray(c.base.step.plates))});
    list.forEach(function(c){
     var lp=purlinLayout(c);if(!lp||!c.id||c.ft||c.truss||c.cross||!(c.geometryType==="brace"||role(c)==="ties")||slight(c))return;
     if(!beams){beams=list.filter(function(b){return b.id&&b.geometryType==="beam"&&!b.ft&&!b.truss&&!slight(b)});trusses=list.filter(function(t){return t.id&&t.truss&&!slight(t)})}
@@ -2367,6 +2390,10 @@ window.irThreeSchemeView=(function(){
      var ax=number(best.b.x)+best.q.f*(number(best.b.x2)-number(best.b.x)),ay=number(best.b.y)+best.q.f*(number(best.b.y2)-number(best.b.y));
      var nx=-best.q.uy,ny=best.q.ux,sp=(o[0]-e[0])*nx+(o[1]-e[1])*ny,sa=(ax-e[0])*nx+(ay-e[1])*ny,ze=Math.abs(sp)>500&&best.q.off>1?mid-(o[2]-e[2])/sp*sa:mid;
      dr[k]=e[2]-ze;any=true;
+     // (the node sets the end's level itself: not hung under the chord as well — by the ridge over К2 the end, its gusset
+     // and the plate went 79 mm under the purlin and through the column and its cap, the engineer, 02.11.2026: «почему
+     // торчит кусок фасонки сквозь металл?»)
+     var hg=hangDrop.get(String(c.id));if(hg&&hg[k]){hg=hg.slice();hg[k]=0;hangDrop.set(String(c.id),hg)}
      purlinAt.set(String(c.id)+":"+k,{b:best.b,sec:best.sec,lp:lp,gt:gt/1000,ch:ch,o:toWorld(ax,ay,mid).sub(toWorld(e[0],e[1],ze)),U:toWorld(e[0]+best.q.ux*1000,e[1]+best.q.uy*1000,mid).sub(toWorld(e[0],e[1],mid)).normalize()})
     });
     if(!any)return;
@@ -2405,7 +2432,12 @@ window.irThreeSchemeView=(function(){
    if(gs){gs.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(pu,pv,pw));gs.position.copy(A);gs.userData.gusset=true;parts.push(partTag(gs,"фасонка",plateName(lp,gt)))}
    // (the bolts in one row along the purlin through the gusset and the plate)
    var dia=boltDia(c);
-   if(dia)(lp.bolts_mm||[]).forEach(function(b){addBolt(c,A.clone().add(pu.clone().multiplyScalar(ss*(s0+mm(b)))).add(pv.clone().multiplyScalar(bf+LF+row)).sub(pn.clone().multiplyScalar(gt/2)),pn,dia,2*gt)});
+   // (over the cap of a column — by the ridge over К2 — through the cap too, the nut under it: КМ1 л.16 узел 1, л.18
+   // узел 5, the bolts М24-8.8 through the plates and the sloped cap; above it they went into it)
+   if(dia)(lp.bolts_mm||[]).forEach(function(b){var Q=A.clone().add(pu.clone().multiplyScalar(ss*(s0+mm(b)))).add(pv.clone().multiplyScalar(bf+LF+row)).sub(pn.clone().multiplyScalar(gt/2)),grip=2*gt;
+    var lo=fromWorld(Q.clone().sub(pn.clone().multiplyScalar(gt))),cu=pn.y>.5?capUnder(lo):null;
+    if(cu){var add=(lo.z-cu.bottom)/1000/pn.y;if(add>0&&add<.08){Q.sub(pn.clone().multiplyScalar(add/2));grip+=add}}
+    addBolt(c,Q,pn,dia,grip)});
    return E
   }
   // A brace or a strut of a bracing lying in a sloped plane (the bottom chords of trusses with a broken chord, ИР КМ1 л.10,
