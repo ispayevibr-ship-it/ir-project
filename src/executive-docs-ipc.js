@@ -45,6 +45,6 @@ function createExecutiveDocs({getUserDataPath,dialog,shell,getWindow}){
   try{shell.showItemInFolder(r.filePath)}catch{}
   return{path:r.filePath,copied,missing}
  }
- return{add,open,remove,exportDocs}
+ return{add,open,remove,exportDocs,pdfOf}
 }
 module.exports={createExecutiveDocs};

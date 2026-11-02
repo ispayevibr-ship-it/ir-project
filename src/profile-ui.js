@@ -52,6 +52,7 @@
   const linkIcon=shape=>'<svg viewBox="0 0 24 24" aria-hidden="true">'+shape+'</svg>';
   const claudeMark=linkIcon('<path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4"/>');
   const gitMark=linkIcon('<path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>');
+  const mailIcon=menuIcon('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>');
   const aiModelsIcon=menuIcon('<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 9h6v6H9zM12 1v3m0 16v3M1 12h3m16 0h3"/>');
   p.innerHTML='<button type="button" id="profileBadge" class="profile-badge">'+names[irAccess.role()]+'</button>'+
    '<button type="button" id="programSettingsButton" class="program-settings-button" title="Настройки программы" aria-label="Настройки программы" aria-expanded="false">'+gear+'</button>'+
@@ -63,6 +64,7 @@
    '<div class="program-settings-menu-items">'+
    '<button type="button" id="companyProfileSettings" class="program-settings-item">'+companyIcon+'<span class="program-settings-item-text"><strong>Профиль компании</strong><small>Реквизиты и логотип</small></span></button>'+
    '<button type="button" id="programAiModels" class="program-settings-item">'+aiModelsIcon+'<span class="program-settings-item-text"><strong>ИИ-помощник Claude</strong><small>API-ключ и проверка подключения</small></span></button>'+
+   '<button type="button" id="programMail" class="program-settings-item">'+mailIcon+'<span class="program-settings-item-text"><strong>Почта</strong><small>Вход в почту для отправки писем</small></span></button>'+
    '<button type="button" id="programExportDatabase" class="program-settings-item" title="Выбрать папку для сохранения файла базы данных">'+backupIcon+'<span class="program-settings-item-text"><strong>Выгрузить базу данных</strong><small>Выбрать папку и сохранить .db</small></span></button>'+
    '<button type="button" id="programAboutButton" class="program-settings-item">'+aboutIcon+'<span class="program-settings-item-text"><strong>О программе</strong><small>Авторские права и версия</small></span></button>'+
    '<div class="program-settings-divider" role="separator"></div>'+
@@ -137,6 +139,12 @@
   aboutButton.onclick=()=>{
    closeSettings();
    void aboutDialog(settingsMenu)
+  };
+  p.querySelector("#programMail").onclick=()=>{
+   closeSettings();
+   const open=window.irMailSettings?.open;
+   if(typeof open!=="function"){alert("Почта появится после обновления IR Project.");return}
+   void open(settingsMenu)
   };
   modelButton.onclick=()=>{
    closeSettings();

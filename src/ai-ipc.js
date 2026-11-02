@@ -173,6 +173,32 @@ handle("ai-montage:journal-add",(_e,{objectId,elementId,comment,objectName,actio
  handle("ai-documents:exec-cert-open",(_e,v={})=>execDocs.open(v));
  handle("ai-documents:exec-cert-remove",(_e,v={})=>execDocs.remove(v));
  handle("ai-documents:exec-export",(_e,v={})=>execDocs.exportDocs(v));
+ // Исходящие письма: вход в почту (Настройки → «Почта», src/mail-smtp.js), выгрузка письма в Word / PDF и отправка.
+ // Каналы ai-settings:mail-* и ai-documents:letter-* — их пропускает установленный preload.
+ const mail=require("./mail-smtp").createMail({getUserDataPath,safeStorage});
+ const letterFile=async({format,html,docx}={})=>format==="pdf"?await execDocs.pdfOf(String(html||"")):Buffer.from(docx||[]);
+ handle("ai-settings:mail-info",()=>mail.info());
+ handle("ai-settings:mail-set",(_e,v={})=>mail.set(v));
+ handle("ai-settings:mail-clear",()=>mail.clear());
+ handle("ai-settings:mail-test",()=>mail.test());
+ handle("ai-settings:mail-send",async(_e,{to,cc,subject,text,letter}={})=>{
+  const attachments=[];
+  if(letter&&(letter.format==="pdf"||letter.format==="docx"))attachments.push({name:String(letter.name||"Письмо").replace(/[<>:"/\\|?*\x00-\x1F]/g,"_").slice(0,120)+"."+letter.format,data:await letterFile(letter)});
+  for(const a of Array.isArray(letter?.extra)?letter.extra:[])if(a?.data?.length)attachments.push({name:String(a.name||"файл"),data:Buffer.from(a.data)});
+  return mail.send({to,cc,subject,text,attachments})});
+ handle("ai-documents:letter-export",async(_e,{format="docx",name="Письмо",html,docx}={})=>{
+  const pdf=format==="pdf",safe=String(name||"Письмо").replace(/[<>:"/\\|?*\x00-\x1F]/g,"_").trim().slice(0,120)||"Письмо";
+  const r=await dialog.showSaveDialog(getWindow(),{defaultPath:safe+(pdf?".pdf":".docx"),filters:[pdf?{name:"PDF",extensions:["pdf"]}:{name:"Документ Word",extensions:["docx"]}]});
+  if(r.canceled||!r.filePath)return null;
+  require("node:fs").writeFileSync(r.filePath,await letterFile({format,html,docx}));
+  try{shell.showItemInFolder(r.filePath)}catch{}
+  return{path:r.filePath}});
+ // Вложение к письму: файлы с компьютера (до 20 МБ всего).
+ handle("ai-documents:letter-attach",async e=>{
+  const r=await dialog.showOpenDialog(require("electron").BrowserWindow.fromWebContents(e.sender)||getWindow(),{title:"Приложить к письму",properties:["openFile","multiSelections"]});
+  if(r.canceled||!r.filePaths?.length)return[];
+  const fs=require("node:fs"),path=require("node:path");
+  return r.filePaths.filter(f=>fs.statSync(f).size<=20e6).map(f=>({name:path.basename(f),data:fs.readFileSync(f)}))});
  handle("ai-knowledge:base",()=>base.all().map(e=>({id:e.id,title:e.title,project:e.project,files:e.files.length,origin:e.origin,source:e.source,created:e.created})));
  return{documents,engine}
 }
