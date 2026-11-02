@@ -1091,11 +1091,13 @@ window.irThreeSchemeView=(function(){
   // other at the crossing). A crossing is in the run of one of them at least: two ending at one point are the ends' case.
   var bracePlane=new Map(),slopeEnds=new Map();
   function bracePlanes(list){
-   bracePlane.clear();slopeEnds.clear();var lines=[],ends=new Map(),cells=new Map(),C=3,Q=function(v){return Math.round(v.x*20)+","+Math.round(v.y*20)+","+Math.round(v.z*20)};
+   bracePlane.clear();slopeEnds.clear();var upright=new Set(),lines=[],ends=new Map(),cells=new Map(),C=3,Q=function(v){return Math.round(v.x*20)+","+Math.round(v.y*20)+","+Math.round(v.z*20)};
    list.forEach(function(c){
     if(!c.id||c.ft||c.truss||c.cross||!(c.geometryType==="brace"||role(c)==="ties")||slight(c))return;
     var p=memberPoints(c);if(p.length!==2)return;var u=p[1].clone().sub(p[0]),L=u.length();if(L<.5)return;u.divideScalar(L);
     var it={id:String(c.id),a:p[0],u:u,L:L};lines.push(it);
+    // (a strut of the bottom chords' bracing: upright, its plate across the truss — chordStrut)
+    if(chordStrut(c)&&Math.abs(u.y)<.05){var sn=u.clone().cross(new T.Vector3(0,1,0));if(sn.lengthSq()>1e-6){bracePlane.set(it.id,sn.normalize());upright.add(it.id)}}
     [[p[0],u],[p[1],u.clone().negate()]].forEach(function(e){var k=Q(e[0]);(ends.get(k)||ends.set(k,[]).get(k)).push({id:it.id,d:e[1],mk:String(c.mark||""),at:e[0]})});
     for(var i=Math.floor(Math.min(p[0].x,p[1].x)/C);i<=Math.floor(Math.max(p[0].x,p[1].x)/C);i++)for(var j=Math.floor(Math.min(p[0].z,p[1].z)/C);j<=Math.floor(Math.max(p[0].z,p[1].z)/C);j++){
      var k=i+","+j;(cells.get(k)||cells.set(k,[]).get(k)).push(it)}
@@ -1121,7 +1123,7 @@ window.irThreeSchemeView=(function(){
    // slope; a flat one of its own crossed it by half its thickness)
    var sloped=function(n){return n&&Math.abs(n.y)>.5&&Math.abs(n.y)<.9995};
    ends.forEach(function(l){if(l.length<2)return;
-    l.forEach(function(m){if(sloped(bracePlane.get(m.id)))return;
+    l.forEach(function(m){if(sloped(bracePlane.get(m.id))||upright.has(m.id))return;
      l.some(function(o){var n=bracePlane.get(o.id);if(o.mk===m.mk||!sloped(n)||Math.abs(m.d.dot(n))>.08)return false;
       (slopeEnds.get(m.id)||slopeEnds.set(m.id,[]).get(m.id)).push({at:m.at,n:n});return true})})})
   }
@@ -1414,7 +1416,7 @@ window.irThreeSchemeView=(function(){
   }
   function legT(c){var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);return sec&&sec.t?sec.t/1000:.008}
   // The gusset as thick as the notes of the sheet say («Толщину фасонок принять 10 мм»), else 12 mm (conventional).
-  function gussetT(c){var g=number(c.joint&&c.joint.gusset_mm);return g>=6&&g<=40?g/1000:.012}
+  function gussetT(c){var j=c.joint||{},s=chordStrut(c)&&j.strut||null,g=number(s&&s.gusset_mm||j.gusset_mm);return g>=6&&g<=40?g/1000:.012}
   // The gussets of a truss: as its sheet gives them (truss.gusset_mm), else as the notes, else 12 mm (conventional).
   function trussGussetT(c){var g=number(c.truss&&c.truss.gusset_mm);return g>=6&&g<=40?g/1000:gussetT(c)}
   // Bolts of a brace end on its gusset by the least distances of СП 16.13330 (табл. 40): the first 2,5d from the end of
@@ -2224,6 +2226,9 @@ window.irThreeSchemeView=(function(){
   }
   // (a sloped one: the horizontal part of a bent stringer along a landing is a beam of the landing)
   function stringer(c){return role(c)==="stairs"&&c.geometryType!=="column"&&Math.abs(number(c.z2)-number(c.z0))>300&&/косоур|тетив/i.test(String(c.mark_name||c.title||""))}
+  // A strut of the bracing of the bottom chords of trusses («Распорка по нижним поясам Рпф1»): square to the trusses, at a
+  // chord on an upright plate across the truss (КМ1 л.24, разрез 32-32), not on the plate of the bracing in the slope.
+  function chordStrut(c){var n=String(c.mark_name||c.title||"");return role(c)==="ties"&&c.geometryType!=="column"&&/распорк/i.test(n)&&/нижн\S*\s+пояс/i.test(n)}
   // A brace or a strut of a bracing lying in a sloped plane (the bottom chords of trusses with a broken chord, ИР КМ1 л.10,
   // 23, 24: «Сгф1», «Рпф1» at the chord over row Д, 1:3) ends at the side of the chord on the gusset of the bracing
   // (фасонка t16 С345; узел 1 «проекция по уклону», разрез 30-30): in that plane, welded to the chord, one on each side of
@@ -2388,6 +2393,33 @@ window.irThreeSchemeView=(function(){
      // plane of that flange, welded to its edge (КМ: фасонка t10 к полке тормозной балки и подкрановой балки), the bolts
      // through it and the leg of the brace under (over) it.
      var nn=hit.n&&Math.abs(hit.n.y)<.5?hit.n.clone().setY(0).normalize():null,bn=slopeEnd(id,e[0])||bracePlane.get(String(id));
+     // A strut of the bottom chords' bracing at a truss (КМ1 л.24, разрез 32-32: Рпф1 2L125×10 at Фс1): its end 20 mm off
+     // the chord, on an upright plate across the truss in its own plane — standing on the chord's lower leg, welded to it
+     // and to its upright leg —, the bolts across through leg, plate, leg: as the joint's strut gives them (from the end
+     // of the strut, the plate past it, its thickness, the class), else two by СП 16 and the plate 2d past them. It lay
+     // on the plate of the bracing in the slope 100 mm short of the chord, that plate at the edge of the chord's leg: the
+     // struts in the air (the engineer, 02.11.2026, «распорки в воздухе висят», Рпф1 at О4/2–О5/Д).
+     var hcs=hit.body&&dataById.get(String(hit.body.id));
+     if(nn&&!real&&!hit.col&&hcs&&hcs.truss&&chordStrut(c)&&Math.abs(d.dot(hit.body.U))<.2){
+      var gi1=parts.indexOf(g);if(gi1>=0)parts.splice(gi1,1);
+      var js=c.joint&&c.joint.strut||{},hb4=hit.body,dh=new T.Vector3(d.x,0,d.z).normalize(),sd4=dh.clone().cross(up).normalize();
+      var wd=Math.abs(hb4.X.dot(dh))*(hb4.x1-hb4.x0)+Math.abs(hb4.Y.dot(dh))*(hb4.y1-hb4.y0),lt4=Math.max(.006,wd/16),c4=face+.02;
+      out[k]=E0.clone().add(d.clone().multiplyScalar(c4));
+      var bs=Array.isArray(js.bolts_mm)&&js.bolts_mm.length?js.bolts_mm.map(function(x){return number(x)/1000}):dia?boltRow(dia):[];
+      var u0=face-wd+lt4,u1=c4+(number(js.reach_mm)>0?number(js.reach_mm)/1000:(bs.length?bs[bs.length-1]:.1)+2*(dia||.02));
+      // (the chord up and down there: its box about the upright axis; the strut's section)
+      var A4=Math.abs(hb4.X.y)>Math.abs(hb4.Y.y)?[hb4.X,hb4.x0,hb4.x1]:[hb4.Y,hb4.y0,hb4.y1],r4=E0.clone().sub(hb4.o),bo=hb4.o.clone().add(hb4.U.clone().multiplyScalar(r4.dot(hb4.U)));
+      var cb=Math.min(bo.y+A4[0].y*A4[1],bo.y+A4[0].y*A4[2]),ct=Math.max(bo.y+A4[0].y*A4[1],bo.y+A4[0].y*A4[2]);
+      var pb4=pieceBox(c,ends[0][0],ends[1][0]),sy=[];if(pb4)[pb4.x0,pb4.x1].forEach(function(x){[pb4.y0,pb4.y1].forEach(function(y){sy.push(E0.y+pb4.X.y*x+pb4.Y.y*y)})});
+      var sb=sy.length?Math.min.apply(null,sy):E0.y-.06,st=sy.length?Math.max.apply(null,sy):E0.y+.06,low=E0.y<(cb+ct)/2;
+      var gt4=gussetT(c),sl4=Math.abs(hb4.U.y)/Math.max(.1,Math.hypot(hb4.U.x,hb4.U.z))*gt4/2+.002,yb=low?cb+lt4+sl4:Math.min(sb-.02,ct-lt4-sl4-.1),yt=low?Math.max(st+.02,cb+lt4+sl4+.1):ct-lt4-sl4;
+      var pl=new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(c));pl.userData.gusset=true;
+      pl.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(dh,up,sd4));pl.scale.set(u1-u0,yt-yb,gt4);
+      pl.position.copy(E0).add(dh.clone().multiplyScalar((u0+u1)/2*d.dot(dh)));pl.position.y=(yb+yt)/2;parts.push(pl);
+      var ang4=braceAngle(c,v),rk4=dia&&riskShift(c,v,sd4,dia),one4=ang4&&!ang4.pair?ang4.X.clone().multiplyScalar(legT(c)/2):null,cls4=String(js.cls||"");
+      if(dia)bs.forEach(function(s){var q=E0.clone().add(d.clone().multiplyScalar(c4+s));if(rk4)q.add(rk4);if(one4)q.add(one4);addBolt(c,q,sd4,dia,gt4+(ang4&&ang4.pair?2*legT(c):legT(c)));
+       if(cls4){var bl=boltList[boltList.length-1];bl.raw=cls4;bl.cls=/^(?:8\.8|10\.9|12\.9)$/.test(cls4)?"8.8":"5.8"}});
+      return}
      if(nn&&bn&&!real&&!hit.col&&hit.body&&Math.abs(hit.body.U.y)<.7){var pn=bn.clone().normalize();if(pn.y<0)pn.negate();
       if(pn.y<.9995&&pn.y>.5){var gi=parts.indexOf(g);if(gi>=0)parts.splice(gi,1);slopeGusset(c,ends[0][0],ends[1][0],E0,d,v,face,cut,dia,hit,pn,host,parts);return}}
      if(nn){
