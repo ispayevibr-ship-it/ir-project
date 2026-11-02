@@ -3632,10 +3632,12 @@ window.irThreeSchemeView=(function(){
   // panel, fixed to it with self-tapping screws): {plate:"−t×w×l", toward_mm:[dx,dy,dz]} — the plate from the foot of
   // the post along toward_mm (inward, on the slope), the post 25 mm from its outer end. The covering under it is of the
   // АР and is not drawn without it: the plate shows what the post stands on.
-  // The thickness of a deck: a plate its profile names (КМ3 л.49 «Н1 −Риф.5» — a checkered sheet 5 mm, «−6», «ПВ 508»
-  // no), else a grating 40 mm. Drawn 40 mm a sheet of 5 stood 35 mm over the beams it lies on.
+  // The thickness of a deck: a plate its profile names (КМ3 л.49 «Н1 −Риф.5» — a checkered sheet 5 mm, «−6»), else a
+  // grating 40 mm. Drawn 40 mm a sheet of 5 stood 35 mm over the beams it lies on.
   // (a welded grating «Настил сварной 34.3×101.6/30×3» — as high as its bearing bars, 30)
-  function deckThick(c){var s=String(c.profile_name||c.profileName||""),m=/^\s*[−-]?\s*(?:Риф\.?|Ромб\.?|Чеч\.?)?\s*(\d+(?:[.,]\d+)?)\s*(?:мм)?\s*$/i.exec(s),g=/\/\s*(\d{2,3})\s*[×xх]\s*\d/.exec(s),t=m?number(m[1].replace(",","."))/1000:g?number(g[1])/1000:0;return t>=.002&&t<=.06?t:.04}
+  // (an expanded sheet «ПВ 510» of ГОСТ 8706-78 — its overall thickness S after stretching, knowledge/global/sheets.json:
+  // the treads С1 of the stair of the crane platform +16,100, КМ3 л.24 — drawn 40, a tread of 20.5 stood 20 over its step)
+  function deckThick(c){var s=String(c.profile_name||c.profileName||""),m=/^\s*[−-]?\s*(?:Риф\.?|Ромб\.?|Чеч\.?)?\s*(\d+(?:[.,]\d+)?)\s*(?:мм)?\s*$/i.exec(s),g=/\/\s*(\d{2,3})\s*[×xх]\s*\d/.exec(s),pv=/ПВЛ?\s*-?\s*(\d{3})(?!\d)/i.exec(s),S={"406":12.7,"506":13,"508":16.8,"510":20.5,"606":13.4,"608":17.1,"610":20.8},t=m?number(m[1].replace(",","."))/1000:pv&&S[pv[1]]?S[pv[1]]/1000:g?number(g[1])/1000:0;return t>=.002&&t<=.06?t:.04}
   // A deck as wide as its record (a tread of a stair, С1 800×250: 250; not less than 100 mm).
   function deckWidth(c){return Math.max(.1,(number(c.fd)||1000)/1000)}
   function footPlateSize(b){
