@@ -2321,7 +2321,18 @@ window.irThreeSchemeView=(function(){
   // octagonal gusset of their own, not joined to it (the engineer, 02.11.2026: «узлы перепроверь»). The joint's «purlin»
   // (plate_mm: along, out; lap_mm: along, off the flange, wide; gap_mm, bolts_mm, row_mm, weld_mm). Drawn only: the end
   // raised to the middle of the gussets (underDrop, memberPoints); each side of the purlin in the plane of its braces.
+  // At a truss the braces end at the purlin over its top chord (КМ1 л.11: the lines stop short of the chord and the purlin;
+  // л.16 разрез 6-6, by the ridge: the plates welded beside the purlins, each brace's gusset lapped on one, 4 bolts М24).
+  // There a plate of the lap's length for each brace, from 20 mm off the chord's legs outward (the chord between the two
+  // halves), the angles ended clear of the chord too; by the ridge the end lies beside the purlin (225 mm from it, КМ1
+  // л.11) — the node at the purlin, the end raised to the plane through it. Before, the ends at a truss were left as other
+  // nodes and nothing took them: the gusset hung off the chord's edge (the engineer, 02.11.2026: «Сгф2 так и висит в
+  // воздухе»).
   var purlinAt=new Map(),purlinPlane=new Map();
+  // Half the width of a truss's top chord of two angles over its gusset, m (0 when not of angles).
+  function chordHalf(t){var tr=t.truss,b=0;if(!tr||!Array.isArray(tr.members))return 0;
+   tr.members.forEach(function(q){if(q[4]!=="top")return;var pr=String(q[5]||""),cs=pr?sectionOf(/^\d/.test(pr)?"∟"+pr:pr):null;if(cs&&cs.shape==="angle")b=Math.max(b,number(cs.b)/1000)});
+   return b?trussGussetT(t)/2+b:0}
   function purlinLayout(c){var p=crossPair(c)&&c.joint&&c.joint.purlin;return p&&typeof p==="object"&&Array.isArray(p.plate_mm)&&Array.isArray(p.lap_mm)?p:null}
   function purlinNodes(list){
    purlinAt.clear();purlinPlane.clear();var beams=null,trusses=null;
@@ -2332,19 +2343,26 @@ window.irThreeSchemeView=(function(){
     var line=function(b,e){var ax=number(b.x),ay=number(b.y),L=Math.hypot(number(b.x2)-ax,number(b.y2)-ay);if(L<1000)return null;
      var ux=(number(b.x2)-ax)/L,uy=(number(b.y2)-ay)/L,al=(e[0]-ax)*ux+(e[1]-ay)*uy;return al<0||al>L?null:{ux:ux,uy:uy,f:al/L,off:Math.abs((e[0]-ax)*uy-(e[1]-ay)*ux)}};
     E.forEach(function(e,k){
-     // (between the trusses: the ends at a truss are other nodes)
-     if(trusses.some(function(t){var q=line(t,e);return q&&q.off<150}))return;
-     var best=null;
+     // (at a truss: the purlin over its chord or beside the end by the ridge, the plates clear of the chord; a truss of
+     // no angles in its top chord — another node)
+     var on=false,ch=0;trusses.forEach(function(t){var q=line(t,e);if(q&&q.off<150){on=true;ch=Math.max(ch,chordHalf(t))}});
+     if(on&&!ch)return;
+     var best=null,o=E[1-k];
      beams.forEach(function(b){
-      if(lp.mark&&String(b.mark||"")!==String(lp.mark))return;var q=line(b,e);if(!q||q.off>60)return;
+      if(lp.mark&&String(b.mark||"")!==String(lp.mark))return;var q=line(b,e);if(!q||q.off>(on?300:60))return;
       var sec=sectionOf(b.profile_name||b.profileName,b.profile_standard);if(!sec||sec.shape!=="ibeam")return;
+      // (beside it: the end on the side the brace goes, past its flange)
+      var sx=(e[0]-number(b.x))*q.uy-(e[1]-number(b.y))*q.ux,so=(o[0]-number(b.x))*q.uy-(o[1]-number(b.y))*q.ux;if(q.off>60&&(sx*so<0||Math.abs(so)<Math.abs(sx)))return;
       var bot=zOf(b,q.f)-sec.h/2;if(bot<e[2]-20||bot>e[2]+400)return;
       if(!best||q.off<best.q.off)best={b:b,q:q,bot:bot,sec:sec}
      });
      if(!best)return;
      var gm=number(lp.gusset_mm),gt=gm>=6&&gm<=40?gm:16,mid=best.bot+(number(best.sec.t)||8)/2+gt;
-     dr[k]=e[2]-mid;any=true;
-     purlinAt.set(String(c.id)+":"+k,{b:best.b,sec:best.sec,lp:lp,gt:gt/1000,U:toWorld(e[0]+best.q.ux*1000,e[1]+best.q.uy*1000,mid).sub(toWorld(e[0],e[1],mid)).normalize()})
+     // (the point on the purlin's line; the end beside it in the plane through it: rising as the brace across it)
+     var ax=number(best.b.x)+best.q.f*(number(best.b.x2)-number(best.b.x)),ay=number(best.b.y)+best.q.f*(number(best.b.y2)-number(best.b.y));
+     var nx=-best.q.uy,ny=best.q.ux,sp=(o[0]-e[0])*nx+(o[1]-e[1])*ny,sa=(ax-e[0])*nx+(ay-e[1])*ny,ze=Math.abs(sp)>500&&best.q.off>1?mid-(o[2]-e[2])/sp*sa:mid;
+     dr[k]=e[2]-ze;any=true;
+     purlinAt.set(String(c.id)+":"+k,{b:best.b,sec:best.sec,lp:lp,gt:gt/1000,ch:ch,o:toWorld(ax,ay,mid).sub(toWorld(e[0],e[1],ze)),U:toWorld(e[0]+best.q.ux*1000,e[1]+best.q.uy*1000,mid).sub(toWorld(e[0],e[1],mid)).normalize()})
     });
     if(!any)return;
     var hd=[ud[0]+dr[0],ud[1]+dr[1]];underDrop.set(String(c.id),hd);
@@ -2359,24 +2377,30 @@ window.irThreeSchemeView=(function(){
    var a=d.dot(pv);if(a<.2)return null;var pw=pu.clone().cross(pv);
    var ss=d.dot(pu)>=0?1:-1,bf=number(pa.sec.b)/2000,gt=pa.gt,h=ang.sec.h/1000,PL=mm(lp.plate_mm[0])||.86,PO=mm(lp.plate_mm[1])||.17;
    var LL=mm(lp.lap_mm[0])||.4,LF=mm(lp.lap_mm[1])||.05,LW=mm(lp.lap_mm[2])||PO-LF,gap=mm(lp.gap_mm)||.06,row=mm(lp.row_mm)||.06,weld=mm(lp.weld_mm)||.24;
-   // (the end of the angles past the plate's edge: the one under the gusset would go into the plate)
-   var cut=(bf+PO+.01+h*Math.abs(ang.Y.dot(pv)))/a,E=E0.clone().add(d.clone().multiplyScalar(cut));
-   // (the plate on that side of the purlin, once for the braces there — the purlin's part, welded to it)
-   var reg=host.purlins||(host.purlins=[]),done=reg.some(function(r){return r.o.distanceTo(E0)<.05&&r.pv.dot(pv)>.9});
-   if(!done){reg.push({o:E0.clone(),pv:pv.clone()});
+   // (the node on the purlin's line — beside the end by the ridge; at a truss the laps from 20 mm off its chord)
+   var A=pa.o?E0.clone().add(pa.o):E0.clone(),rA=E0.clone().sub(A),s0=pa.ch?pa.ch+.02:gap/2;
+   // (the end of the angles past the plate's edge: the one under the gusset would go into the plate; at a truss clear of
+   // its chord as well)
+   var cut=(bf+PO+.01+h*Math.abs(ang.Y.dot(pv))-rA.dot(pv))/a,du=Math.abs(d.dot(pu));
+   if(pa.ch&&du>.05)cut=Math.max(cut,(pa.ch+.02+h*Math.abs(ang.Y.dot(pu))-ss*rA.dot(pu))/du);
+   var E=E0.clone().add(d.clone().multiplyScalar(Math.max(cut,0)));
+   // (the plate on that side of the purlin, once for the braces there — the purlin's part, welded to it; at a truss one
+   // for each half, the lap's length)
+   var reg=host.purlins||(host.purlins=[]),done=reg.some(function(r){return r.o.distanceTo(A)<.05&&r.pv.dot(pv)>.9&&(!pa.ch||r.ss===ss)});
+   if(!done){reg.push({o:A.clone(),pv:pv.clone(),ss:ss});
     var pl=new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(pa.b));
-    pl.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(pu,pv,pw));pl.scale.set(PL,PO,gt);
-    pl.position.copy(E0).add(pv.clone().multiplyScalar(bf+PO/2)).sub(pn.clone().multiplyScalar(gt));pl.userData.gusset=true;
+    pl.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(pu,pv,pw));pl.scale.set(pa.ch?LL:PL,PO,gt);
+    pl.position.copy(A).add(pv.clone().multiplyScalar(bf+PO/2)).sub(pn.clone().multiplyScalar(gt));if(pa.ch)pl.position.add(pu.clone().multiplyScalar(ss*(s0+LL/2)));pl.userData.gusset=true;
     crossPlates.push({id:String(pa.b.id),mesh:partTag(pl,"фасонка узла связей",plateName(lp,gt))})}
    // (its gusset: the lap on the plate — off the flange, clear of the other half's — and the end of the pair welded on it)
-   var loc=function(P){var r=P.clone().sub(E0);return[r.dot(pu),r.dot(pv)]},pts=[];
-   [gap/2,gap/2+LL].forEach(function(s){[bf+LF,bf+LF+LW].forEach(function(r){pts.push([ss*s,r])})});
+   var loc=function(P){var r=P.clone().sub(A);return[r.dot(pu),r.dot(pv)]},pts=[];
+   [s0,s0+LL].forEach(function(s){[bf+LF,bf+LF+LW].forEach(function(r){pts.push([ss*s,r])})});
    [-h-.02,h+.02].forEach(function(y){[0,weld+.02].forEach(function(s){pts.push(loc(E.clone().add(d.clone().multiplyScalar(s)).add(ang.Y.clone().multiplyScalar(y))))})});
    var gs=hullPlate(hull2(pts),gt,baseMaterial(c));
-   if(gs){gs.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(pu,pv,pw));gs.position.copy(E0);gs.userData.gusset=true;parts.push(partTag(gs,"фасонка",plateName(lp,gt)))}
+   if(gs){gs.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(pu,pv,pw));gs.position.copy(A);gs.userData.gusset=true;parts.push(partTag(gs,"фасонка",plateName(lp,gt)))}
    // (the bolts in one row along the purlin through the gusset and the plate)
    var dia=boltDia(c);
-   if(dia)(lp.bolts_mm||[]).forEach(function(b){addBolt(c,E0.clone().add(pu.clone().multiplyScalar(ss*(gap/2+mm(b)))).add(pv.clone().multiplyScalar(bf+LF+row)).sub(pn.clone().multiplyScalar(gt/2)),pn,dia,2*gt)});
+   if(dia)(lp.bolts_mm||[]).forEach(function(b){addBolt(c,A.clone().add(pu.clone().multiplyScalar(ss*(s0+mm(b)))).add(pv.clone().multiplyScalar(bf+LF+row)).sub(pn.clone().multiplyScalar(gt/2)),pn,dia,2*gt)});
    return E
   }
   // A brace or a strut of a bracing lying in a sloped plane (the bottom chords of trusses with a broken chord, ИР КМ1 л.10,
