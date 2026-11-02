@@ -9,7 +9,7 @@
  min-height:54px;padding:12px 14px;display:grid;align-content:center;gap:3px;
  background:#fff;border:1px solid #dce5eb;border-radius:10px
 }
-.ir-object-overview-sidehead h2{margin:0;font-size:14px;font-weight:800;line-height:1.2;color:#18364b}
+.ir-object-overview-sidehead h2{margin:0 0 3px;font-size:14px;font-weight:700;line-height:1.2;color:#17364d}
 .ir-object-overview-sidehead p{margin:0;font-size:9px;color:#81909c}
 .ir-object-overview-left>.object-overview-top-stats{
  display:grid!important;grid-template-columns:minmax(0,1fr)!important;

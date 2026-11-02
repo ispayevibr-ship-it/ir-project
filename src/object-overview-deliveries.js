@@ -115,7 +115,7 @@
  function initOffline(){const e=document.getElementById("ir-supply-chart-data");if(!e)return;try{const model=JSON.parse(e.textContent);for(const c of document.querySelectorAll("[data-supply-chart]"))bind(c,model)}catch{}}
  const css=`
  .ir-supply-chart{box-sizing:border-box;max-width:100%;min-width:0;width:100%;overflow:hidden;background:white;font-family:'Segoe UI',Arial,sans-serif}.ir-supply-chart *{box-sizing:border-box}
- .ir-supply-chart .supply-title{padding:17px 18px 5px}.ir-supply-chart .supply-title h2{color:#214b66;font-size:16px;font-weight:850;margin:0 0 4px}.ir-supply-chart .supply-title p{color:#859cad;font-size:11px;margin:0}
+ .ir-supply-chart .supply-title{padding:17px 18px 5px}.ir-supply-chart .supply-title h2{color:#17364d;font:700 14px/1.2 Inter,'Segoe UI',Arial,sans-serif;margin:0 0 3px}.ir-supply-chart .supply-title p{color:#81909c;font:400 9px/1.2 Inter,'Segoe UI',Arial,sans-serif;margin:0}
  .ir-supply-chart .supply-filters{display:grid;grid-template-columns:minmax(0,2fr) minmax(125px,1fr) auto;align-items:end;gap:10px;padding:14px 18px}
  .ir-supply-chart .supply-filters label{display:grid;gap:5px;min-width:0;color:#56778b;font-size:11px;font-weight:700}
  .ir-supply-chart input,.ir-supply-chart select{box-sizing:border-box;width:100%;min-width:0;height:36px;padding:0 10px;background:#f9fbfe;border:1px solid #d5e3ed;border-radius:8px;color:#35546c;font:600 12px 'Segoe UI',Arial,sans-serif}
@@ -136,10 +136,10 @@
  
  /* IR Project shared compact chart layout: same spacing and typography in the app and exported HTML. */
  .ir-supply-chart{width:100%;max-width:100%;min-width:0;margin:0;box-shadow:none;font-family:'Segoe UI',Arial,sans-serif;font-size:12px;line-height:1.35}
- .ir-supply-chart .supply-title{padding:12px 14px 5px}
- .ir-supply-chart .supply-title h2{font:800 14px/1.35 'Segoe UI',Arial,sans-serif;color:#214b66;margin:0}
- .ir-supply-chart .supply-title p{font:400 11px/1.4 'Segoe UI',Arial,sans-serif;color:#8195a4;margin:3px 0 0}
- .ir-supply-chart .supply-filters{grid-template-columns:minmax(0,2fr) minmax(0,1fr);align-items:end;gap:10px;padding:10px 14px}
+ .ir-supply-chart .supply-title{padding:12px 14px;min-height:56px;border-bottom:1px solid #e7edf1;display:flex;flex-direction:column;justify-content:center}
+ .ir-supply-chart .supply-title h2{font:700 14px/1.2 Inter,'Segoe UI',Arial,sans-serif;color:#17364d;margin:0 0 3px}
+ .ir-supply-chart .supply-title p{font:400 9px/1.2 Inter,'Segoe UI',Arial,sans-serif;color:#81909c;margin:0}
+ .ir-supply-chart .supply-filters{grid-template-columns:minmax(0,2fr) minmax(0,1fr);align-items:end;gap:10px;padding:12px 14px 10px}
  .ir-supply-chart .supply-filters label{font:700 11px/1.3 'Segoe UI',Arial,sans-serif}
  .ir-supply-chart .supply-filters select{width:100%;max-width:100%;font:600 12px/1.35 'Segoe UI',Arial,sans-serif}
  .ir-supply-chart .supply-modes{grid-column:1/-1;justify-self:end;min-width:0;max-width:100%}
@@ -157,8 +157,9 @@
  body.ir-object-overview #app #section-deliveries .ir-export-deliveries-unified{box-sizing:border-box!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;padding:14px 20px 18px!important}
  body.ir-object-overview #app #section-deliveries .ir-export-deliveries-unified>.ir-export-preview{box-sizing:border-box!important;display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;padding:0!important}
  body.ir-object-overview #app #section-deliveries .ir-export-preview>.ir-supply-chart{box-sizing:border-box!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;box-shadow:none!important}
- body.ir-object-overview #app #section-deliveries .ir-supply-chart .supply-title{padding:0 0 5px!important}
- body.ir-object-overview #app #section-deliveries .ir-supply-chart .supply-title h2{font:800 16px/1.35 'Segoe UI',Arial,sans-serif!important}
+ body.ir-object-overview #app #section-deliveries .ir-supply-chart .supply-title{padding:0 0 5px!important;min-height:0!important;border-bottom:0!important}
+ body.ir-object-overview #app #section-deliveries .ir-supply-chart .supply-title h2{font:800 16px/1.35 'Segoe UI',Arial,sans-serif!important;color:#214b66!important;margin:0!important}
+ body.ir-object-overview #app #section-deliveries .ir-supply-chart .supply-title p{font:400 11px/1.4 'Segoe UI',Arial,sans-serif!important;color:#8195a4!important;margin:3px 0 0!important}
  body.ir-object-overview #app #section-deliveries .ir-supply-chart .supply-filters{padding:10px 0!important}
  body.ir-object-overview #app #section-deliveries .ir-supply-chart .supply-metrics{padding:0 0 10px!important}
  body.ir-object-overview #app #section-deliveries .ir-supply-chart .supply-legend{padding:2px 0 8px!important}

@@ -73,3 +73,8 @@ assert(archive.includes('window.irSupplyChart.css'),"same styling embedded offli
 assert(archive.includes("script-src 'nonce-")&&archive.includes("connect-src 'none'"),"offline CSP allows embedded scripts without networking");
 assert(fs.readFileSync("src/ir-runtime.js","utf8").includes("irSupplyChartFactory"),"desktop app bundle contains the engine");
 console.log("Supply and installation charts, filters, colors, offline packaging: OK");
+// 1.11.62: in the program the «Поставки и монтаж» heading is styled like every other block heading (14px/700, subtitle 9px).
+assert(engine.css.includes(".ir-supply-chart .supply-title h2{font:700 14px/1.2 Inter,'Segoe UI',Arial,sans-serif;color:#17364d;margin:0 0 3px}"),"supply heading matches other blocks");
+const unified=fs.readFileSync("src/section-unified.css","utf8");
+assert(unified.includes(".ir-object-overview-placeholder,.supply-title,")&&unified.includes("font-size:14px!important;line-height:1.2!important;font-weight:700!important")&&unified.includes("font-size:9px!important"),"one heading style for all blocks");
+console.log("Unified block headings: OK");
