@@ -65,7 +65,7 @@
    const hit=images.get(k);if(hit){images.delete(k);images.set(k,hit);return hit}
    const p=Promise.resolve(raw.images.read(file)).then(url=>{
     const size=typeof url==="string"?url.length:0;
-    if(!url||size>IMAGE_LIMIT/4){if(images.get(k)===p)images.delete(k);return url}
+    if(typeof url!=="string"||size>IMAGE_LIMIT/4){if(images.get(k)===p)images.delete(k);return url}
     imageBytes+=size;p.size=size;
     for(const [key,old] of images){if(imageBytes<=IMAGE_LIMIT)break;if(key===k)continue;imageBytes-=old.size||0;images.delete(key)}
     return url},e=>{if(images.get(k)===p)images.delete(k);throw e});

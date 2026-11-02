@@ -3393,7 +3393,6 @@ window.addEventListener("hashchange",routeChanged);routeChanged();
 /* #33: src/object-sort-latest-report.js */
 "use strict";
 (()=>{
- const originalActivity=typeof objectActivity==="function"?objectActivity:null;
  const dateStamp=v=>{
   const s=String(v||"").trim();if(!s)return 0;
   const iso=s.slice(0,10),t=Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(iso)?`${iso}T00:00:00Z`:s);
@@ -3411,12 +3410,20 @@ window.addEventListener("hashchange",routeChanged);routeChanged();
    return best;
   }catch(e){console.error("object latest report sort",id,e);return{has:false,date:0,id:0,updated:0}}
  }
+ async function reportActivity(id){
+  let lastId=0,lastTime=0;
+  try{for(const r of await irProject.data.forObject(id).section("reports").list()){const rid=Number(r?.id)||0,t=updatedStamp(r);if(rid>lastId)lastId=rid;if(t>lastTime)lastTime=t}}catch{}
+  return{lastId,lastTime}
+ }
  async function sortObjectsByLatestReport(){
   const objects=await irProject.data.objects.list();
   const enriched=await Promise.all((Array.isArray(objects)?objects:[]).map(async o=>({
    ...o,
    _latestReport:await reportFreshness(o.id),
-   _activity:originalActivity?await originalActivity(o.id):{lastId:0,lastTime:0}
+   // Last change of the object from its reports only (read above anyway): the old way read every section of every
+   // object — the montage scheme of thousands of elements too — at each return to the list of objects, and the
+   // program stood (the engineer 02.11.2026 «при переходе в объекты со страницы объекта… подвисает»).
+   _activity:await reportActivity(o.id)
   })));
   return enriched.sort((a,b)=>{
    const aActive=a.status!=="Завершен",bActive=b.status!=="Завершен";
