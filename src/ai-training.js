@@ -197,6 +197,10 @@ function createTraining({database,getUserDataPath,base=null}){
   let placed=null,set=null;
   for(const p of placements(oid)){const e=(p.data?.elements||[]).find(q=>q.id===String(row.id));if(e){placed=e.origin;set=p.data?.set||null}}
   const changes=action==="deleted"?["deleted"]:placed?diff(placed,now):["added"];
+  // An element the program placed and the engineer deleted is not placed again by a later placement (src/ai-montage.js
+  // place; 02.11.2026: «удаляю сэндвич-панели они все равно потом появляются»): kept in the object, with where it was.
+  if(action==="deleted"&&placed&&!database.listEntity(oid,SECTION).some(r=>r.record_type==="element_removed"&&String(r.data?.id)===String(row.id)))
+   database.createEntity(oid,SECTION,{record_type:"element_removed",title:String(x.mark||""),data:{id:String(row.id),at,element:now,placed}});
   // By itself: only what differs from the drawings, and not twice the same; an element added and deleted by hand is not
   // a lesson.
   if(auto){
