@@ -2258,12 +2258,15 @@ window.irThreeSchemeView=(function(){
    var trusses=list.filter(function(t){return t.id&&t.truss&&Array.isArray(t.truss.members)&&!slight(t)});if(!trusses.length)return;
    list.forEach(function(c){
     if(!c.id||c.ft||c.truss||c.cross||!(c.geometryType==="brace"||role(c)==="ties")||slight(c)||!crossPair(c))return;
-    var E=[[number(c.x),number(c.y),number(c.z0)],[number(c.x2),number(c.y2),number(c.z2)]],dr=[0,0],any=false;
+    var E=[[number(c.x),number(c.y),number(c.z0)],[number(c.x2),number(c.y2),number(c.z2)]],dr=[0,0],any=false,sub=[null,null],sup=[null,null];
     E.forEach(function(e,k){var o=E[1-k],best=null;
      trusses.forEach(function(t){
       var tr=t.truss,a={x:number(t.x),y:number(t.y)},b={x:number(t.x2),y:number(t.y2)};if(tr.flip){var q=a;a=b;b=q}
       var L=Math.hypot(b.x-a.x,b.y-a.y),span=number(tr.span_mm)||L;if(L<1000)return;
       var ux=(b.x-a.x)/L,uy=(b.y-a.y)/L,rx=e[0]-a.x,ry=e[1]-a.y,al=rx*ux+ry*uy,off=Math.abs(rx*uy-ry*ux);
+      // (at a support of the truss, by the end of its bottom chord: the end on the post — supEnd; under the lowest chord
+      // ending there — at a column of row Е the bottom chord of the подстропильная Фп1, 70 under those of the trusses)
+      if(off<=60&&(Math.abs(al)<300||Math.abs(al-L)<300)){var se=supEnd(tr,al<L/2?0:span,e[2],L/span);if(se&&(!sup[k]||se.z<sup[k].z))sup[k]=se}
       // (on its line between its supports — at a support the bracing is on the post of the подстропильная Фп1 —, the
       // brace going off it across it)
       if(off>60||al<300||al>L-300)return;
@@ -2279,12 +2282,25 @@ window.irThreeSchemeView=(function(){
      if(!best)return;
      // (the middle of the plate under the chord's legs: the chord's centre of gravity over its bottom, half the plate)
      var cosT=1/Math.sqrt(1+best.sl*best.sl),N=toWorld(e[0],e[1],best.zc),U=toWorld(e[0]+best.sd*best.ux*1000,e[1]+best.sd*best.uy*1000,best.zc+best.sd*best.sl*1000).sub(N).normalize();
-     dr[k]=e[2]-best.zc+(angleAxis(best.cs)+gussetT(c)*500)/cosT;any=true;
+     sub[k]=(angleAxis(best.cs)+gussetT(c)*500)/cosT;dr[k]=e[2]-best.zc+sub[k];any=true;
      underAt.set(String(c.id)+":"+k,{N:N,U:U,w:trussGussetT(best.t)/2+number(best.cs.b)/1000})
     });
+    // (an end on the post at a support, the other under a chord: as far under the line as that one — the pair in the plane
+    // of the bracing, under the chords, at the support too; left at the level of the chord's line there, the brace went
+    // aslant out of that plane, 0.4°…0.9°: on the plate under the chord shared with the braces of the panel it lay 6 mm
+    // into the plate, at its crossing with a brace under the chords at both ends it passed 55 mm over that one's line,
+    // their angles through each other, no node 1 there — the engineer, 02.11.2026, Сгф1 at О6/2/Д: «опять кусочек
+    // металла торчит»)
+    [0,1].forEach(function(k){var q=sup[k];if(sub[k]===null&&sub[1-k]!==null&&q)dr[k]=E[k][2]-q.z+(q.cs?(angleAxis(q.cs)+gussetT(c)*500)*Math.sqrt(1+q.sl*q.sl):sub[1-k])});
     if(any)underDrop.set(String(c.id),dr)
    });
   }
+  // The end of a truss's bottom chord at a support (x 0 or the span, along the truss) near the level z (within 120 mm): its
+  // level, its section (an angle) and slope (kk — the length in plan over the span).
+  function supEnd(tr,x,z,kk){var r=null;(tr.members||[]).forEach(function(q){if(q[4]!=="bottom"||number(q[2])===number(q[0]))return;[[q[0],q[1]],[q[2],q[3]]].forEach(function(p){
+   var zc=number(tr.base_mm)+number(p[1]);if(Math.abs(number(p[0])-x)>1||Math.abs(zc-z)>=120||r&&Math.abs(zc-z)>=Math.abs(r.z-z))return;
+   var pr=String(q[5]||""),cs=pr?sectionOf(/^\d/.test(pr)?"∟"+pr:pr):null;
+   r={z:zc,cs:cs&&cs.shape==="angle"?cs:null,sl:(number(q[3])-number(q[1]))/((number(q[2])-number(q[0]))*(kk||1))}})});return r}
   function underChord(c,id,E0,d,v,ua,host,parts){
    var ang=braceAngle(c,v);if(!ang||!ang.cross)return null;
    var n=ang.X.clone().normalize(),eu=ua.U.clone().sub(n.clone().multiplyScalar(ua.U.dot(n))).normalize(),ev=n.clone().cross(eu).normalize();
