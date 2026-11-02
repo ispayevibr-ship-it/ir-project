@@ -4,11 +4,12 @@ const {parentPort,workerData}=require("node:worker_threads");
 const {readPageGeometry,readPageTexts}=require("./ai-scheme-geometry");
 const {extractScheme}=require("./ai-scheme-extract");
 const {extractSheet,sheetStamp,specCells,cellAccept,specPictures,specGrid,regrid,gridTexts}=require("./ai-sheet-extract");
-const {extractSections,extractElevations,schemeNotes}=require("./ai-section-extract");
+const {extractSections,extractElevations,schemeNotes,nearbySchemeNotes}=require("./ai-section-extract");
 const {importPdfjs,requireCanvas,pdfWasm}=require("./ai-packages");
 const {joinSplitTexts}=require("./ai-scheme-geometry");
 const {ocrPage,ocrImages,readCells,tableRules,readTableCells,SHEAR,dropLettering,createOcrWorker,sheetTurn,turnGeometry,ringsOf,readRings,shelvesOf,readShelves}=require("./ai-ocr");
 const {extractTank}=require("./ai-tank-extract");
+const {auditSheet}=require("./ai-sheet-audit");
 const {extractTrusses}=require("./ai-truss-extract");
 const {extractBaseDetails}=require("./ai-base-extract");
 const {extractColumnDetails}=require("./ai-column-extract");
@@ -145,11 +146,15 @@ parentPort.on("message",m=>{if(m?.type==="pause")paused=true;else if(m?.type==="
    result.schemes.push(...extractElevations(geometry,n));
    // Level notes written next to the elements ("низ на отм. +0,050") and levels read from sections.
    for(const s of result.schemes){const notes=schemeNotes(geometry.texts,s.bbox,s.title);if(notes.notes.length||notes.z0_mm!==null||notes.z1_mm!==null)s.levelNotes=notes}
+   // Levels written only on the views beside a plan (all alike): the levels of its members.
+   nearbySchemeNotes(geometry.texts,result.schemes);
    // The levels written along the rows of axes of its sections (the slope of a roof), filled by extractSections.
    const profiles={};
    // Read by OCR or not at all, such a sheet also goes to Claude as an image.
    results.push({page:n,widthPt:geometry.widthPt,heightPt:geometry.heightPt,schemes:result.schemes,context:pageContext(geometry.texts),noText,ocr,...(geometry.turn?{turn:geometry.turn}:{}),
     sheet:extractSheet(geometry),sections:extractSections(geometry,profiles),sectionProfiles:profiles.profiles||[],tank:extractTank(geometry),trusses:extractTrusses(geometry),baseDetails:extractBaseDetails(geometry),columnDetails:extractColumnDetails(geometry),railOffsets:extractRailOffsets(geometry),levelMarks:levelMarksOf(geometry),ar:extractArchitecture(geometry),ms:Date.now()-started});
+   // The check of the sheet (the engineer's hard rule of 02.11.2026): every label of it against what was taken from it.
+   {const p=results[results.length-1];try{p.audit=auditSheet(geometry,p)}catch(error){p.audit={error:String(error?.message||error).slice(0,200)}}p.ms=Date.now()-started}
    // (each sheet sent as soon as it is read: a stopped analysis keeps it)
    parentPort.postMessage({type:"page",page:results.pop()});sent++;
    parentPort.postMessage({type:"progress",page:n,total:pages.length});

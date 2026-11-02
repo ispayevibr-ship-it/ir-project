@@ -1692,4 +1692,4 @@ function titleFor(titles,bbox){
  return best?.str||"Схема без названия"
 }
 
-module.exports={extractScheme,fixReadSizes,leaderTarget,buildIndex,markIndexOf,axisFromBubble,dimensionScale,dimensionsOf,flightsOf,climbOf,levelMarksNear,nodeBoxes,titleLevels,columnSymbol,textBox,textFrame,memberLine,buildLineIndex,DEFAULT_KINDS,KIND_NAMES,notMark,aMarksOn};
+module.exports={extractScheme,fixReadSizes,leaderTarget,buildIndex,findBubble,markIndexOf,axisFromBubble,dimensionScale,dimensionsOf,flightsOf,climbOf,levelMarksNear,nodeBoxes,titleLevels,columnSymbol,textBox,textFrame,memberLine,buildLineIndex,DEFAULT_KINDS,KIND_NAMES,notMark,aMarksOn};

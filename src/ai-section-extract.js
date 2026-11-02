@@ -331,6 +331,26 @@ function extractSections({segments=[],texts=[]}={},sink=null){
  return out.filter(r=>r.beam_mm!==undefined||r.z1_mm!==undefined)
 }
 
+// «низ на отм. +0,050 / верх +4,100» written on the small views drawn beside a plan (its side views «А», «Б», «В» under
+// it, ГПЭС М1.1 «Схема расположения стоек фахверка боксов»: four such pairs 110–240 pt under the plan, none within
+// it): when every pair there is the same, they are the levels of the scheme's members. A pair inside another scheme or
+// nearer to another scheme is not this one's; pairs that disagree say nothing for the whole scheme.
+function nearbySchemeNotes(texts,schemes,reach=300){
+ const gap=(b,c)=>Math.hypot(Math.max(b.x0-c.x,0,c.x-b.x1),Math.max(b.y0-c.y,0,c.y-b.y1));
+ for(const s of schemes){
+  if(s.error||!s.bbox||s.levelNotes)continue;
+  const near=[];
+  for(const t of texts){const b=textBox(t),c={x:b.cx,y:b.cy},d=gap(s.bbox,c);
+   if(d<=90||d>reach)continue;
+   if(schemes.some(o=>o!==s&&!o.error&&o.bbox&&gap(o.bbox,c)<=d))continue;
+   if(/низ|верх/iu.test(String(t.str))&&LEVEL_IN.test(String(t.str)))near.push(t)}
+  if(near.length<2)continue;
+  const got=schemeNotes(near,{x0:-1e9,x1:1e9,y0:-1e9,y1:1e9}).notes.filter(n=>n.z0_mm!==null&&n.z1_mm!==null);
+  if(got.length<2||got.some(n=>n.z0_mm!==got[0].z0_mm||n.z1_mm!==got[0].z1_mm)||!(got[0].z1_mm>got[0].z0_mm))continue;
+  s.levelNotes={notes:[],z0_mm:got[0].z0_mm,z1_mm:got[0].z1_mm,beside:got.length}
+ }
+ return schemes
+}
 // "низ на отм. +0,050" / "верх +4,100" near the elements of one scheme, paired when written together.
 function schemeNotes(texts,bbox,title=""){
  const pad=90,notes=[];
@@ -632,4 +652,4 @@ function extractElevations({segments=[],texts=[]}={},page=1){
  }
  return schemes
 }
-module.exports={extractSections,extractElevations,schemeNotes,elevationTitles,bubbleRows,levelOf,levelOffset,placeLevels,fit,thickEnds};
+module.exports={extractSections,extractElevations,schemeNotes,nearbySchemeNotes,elevationTitles,bubbleRows,levelOf,levelOffset,placeLevels,fit,thickEnds};

@@ -420,6 +420,19 @@ window.irAiRecognitionPage=async function(objectId){
    '<td>'+(p.ms?(p.ms/1000).toFixed(1)+' с':'')+'</td><td>'+(p.axes||'')+'</td><td>'+(p.marks||'')+'</td><td>'+(p.found||p.placed?(p.found||0)+' / '+(p.placed||0):'')+'</td>'+
    '<td>'+(p.errors?'<span class="ir-ms-error">'+p.errors+'</span>':'')+(p.warnings?'<small>замечаний '+p.warnings+'</small>':'')+'</td>'+
    '<td>'+(p.calibration?'<span class="'+(p.calibration.max_pct>2?'ir-ms-error':'')+'" title="Наибольшее расхождение пролёта между осями по чертежу (по масштабу) с написанным размером; пролётов: '+p.calibration.spans+'">'+p.calibration.max_mm+' мм ('+p.calibration.max_pct+'%)</span>':'')+'</td></tr>');
+  // The check of the sheets (the engineer's hard rule of 02.11.2026): what each sheet shows and what of it got into the
+  // program; after placement — the marks of the sheets no element carries; the node callouts and their sheets.
+  const au=j.audit||null,KIND={mark:"марка",axis:"ось",dim:"размер",level:"отметка"};
+  const pct=c=>c&&c.total?Math.round(c.used/c.total*100)+'% ('+c.used+' из '+c.total+')':'—';
+  const auditBlock=au?block("audit","Сверка листов",au.after.length+au.nodesMissing,
+   '<p class="muted">Каждая надпись листа проверена: попала ли она в то, что программа взяла с листа. Проверено листов '+au.checked+' из '+j.sheets.length+', надписей '+mm(au.texts)+
+   '. Взято: марок '+pct(au.marks)+', осей '+pct(au.axes)+', размеров схем '+pct(au.dims)+', отметок '+pct(au.levels)+'. Пропуски листов идут Claude отдельным списком — разместить или объяснить.</p>'+
+   (au.after.length?'<div class="ir-ms-card warn"><b>После расстановки не хватает марок: '+au.after.length+'</b>'+table(["Марка","Лист","У осей","Почему"],au.after.filter(m=>matches(m.mark,m.file)).slice(0,500).map(m=>'<tr><td><b>'+esc(m.mark)+'</b></td><td>'+esc(m.file)+', стр. '+m.sheet+'</td><td>'+esc(m.axes||"—")+'</td><td><small>'+esc(m.why)+'</small></td></tr>'))+'</div>':
+    '<p><b>Все марки, подписанные на схемах листов, есть в расстановке.</b></p>')+
+   (au.nodes.length?'<details><summary>Выноски узлов: '+au.nodes.length+(au.nodesMissing?' — листа узла нет в комплекте: '+au.nodesMissing:'')+'</summary>'+table(["Узел","Лист узла","Где выноска","У осей","Проверка"],au.nodes.map(n=>'<tr class="'+(n.state==="no-sheet"?'warn':'')+'"><td>'+esc(n.node)+'</td><td>'+esc(n.sheet)+'</td><td>лист '+n.page+'</td><td>'+esc(n.axes||"—")+'</td><td>'+(n.state==="found"?'узел найден на листе':n.state==="no-title"?'лист есть, заголовок «Узел '+esc(n.node)+'» не прочитан':'лист узла не загружен')+'</td></tr>'))+'</details>':'')+
+   (au.sheets.length?'<details><summary>Пропуски по листам ('+au.missed+')</summary>'+au.sheets.map(p=>'<p><b>Лист '+p.page+'</b> '+esc(p.file)+', стр. '+p.sheet+' — пропусков '+p.missed.length+'</p>'+
+    table(["Что","Надпись","У осей","Почему"],p.missed.map(m=>'<tr><td>'+esc(KIND[m.kind]||m.kind)+'</td><td><b>'+esc(m.text)+'</b></td><td>'+esc(m.axes||"")+'</td><td><small>'+esc(m.why)+'</small></td></tr>'))+
+    (p.unknown.length?'<p class="muted">Не опознано: '+esc(p.unknown.join(" · "))+'</p>':'')).join("")+'</details>':'')):'';
   const markRows=marks.slice(0,1500).map(c=>{
    const short=c.count&&c.planned&&c.planned<c.count,over=c.count&&c.planned>c.count;
    return'<tr class="'+(over?'bad':short?'warn':'')+'"><td><b>'+esc(c.mark)+'</b></td><td>'+cell(c.doc)+'</td><td>'+cell(c.profile)+(c.steel?' <small>'+esc(c.steel)+'</small>':'')+'</td><td>'+cell(c.length_mm)+'</td>'+
@@ -445,6 +458,7 @@ window.irAiRecognitionPage=async function(objectId){
   return'<div class="ir-ms-page ir-ms-journal">'+fixesCard()+editsCard()+
    '<input type="search" class="ir-ms-filter" data-ms-filter placeholder="Поиск по марке, профилю, файлу" value="'+esc(filter)+'">'+
    block("files","Файлы",j.files.length,table(["Файл","Тип","Листов","Схем","Марок на сборочных"],files))+
+   auditBlock+
    block("sheets","Листы",j.sheets.length,table(["№","Файл","Документ","Тип листа","Название","Видов марок","Время","Осей","Марок","Найдено / расставлено","Ошибки","Калибровка"],sheets))+
    block("marks","Марки",marks.length,'<p class="muted">Жёлтым — на схеме меньше, чем требуется; красным — больше. Отметки «PDF» прочитаны с вида марки, «Claude» — с картинки.</p>'+
     table(["Марка","Документ","Профиль","Длина","Низ","Верх","Отметки","Требуется","На схеме","Масса, кг","Источник"],markRows))+

@@ -503,7 +503,7 @@ function drawingLevels(geometry,cat,notes,point){
  // mark gives a level far from it (one mark used at several levels in one volume); a section near it is more exact.
  if(geometry==="beam"&&Number.isFinite(notes?.z1_mm)&&!(notes.notes||[]).length){
   const sec=Number.isFinite(cat?.section_beam_mm)?cat.section_beam_mm:Number.isFinite(cat?.view_level_mm)?cat.view_level_mm:null;
-  if(sec===null||Math.abs(sec-notes.z1_mm)>1500)return{z0:notes.z1_mm,z1:notes.z1_mm,from:"отметка в названии схемы"}
+  if(sec===null||Math.abs(sec-notes.z1_mm)>1500)return{z0:notes.z1_mm,z1:notes.z1_mm,from:notes.beside?"надпись на видах у схемы":"отметка в названии схемы"}
  }
  if(geometry==="beam"&&Number.isFinite(cat?.section_beam_mm)&&cat.section_ridge)return{z0:cat.section_beam_mm,z1:cat.section_beam_mm,ridge:cat.section_ridge,from:"разрез"};
  if(geometry!=="beam"&&cat?.z0_mm!==null&&cat?.z0_mm!==undefined)return{z0:cat.z0_mm,z1:cat.z1_mm,from:"чертёж марки ("+cat.levelsFrom+")"};
@@ -518,7 +518,7 @@ function drawingLevels(geometry,cat,notes,point){
  if(geometry==="beam")return Number.isFinite(z1)?{z0:z1,z1,from:"надпись на схеме"}:null;
  // A post with its bottom written on the scheme and its length on the assembly drawing.
  if(Number.isFinite(z0)&&!Number.isFinite(z1)&&cat?.length_mm>0)z1=z0+cat.length_mm;
- return Number.isFinite(z0)&&Number.isFinite(z1)&&z1>z0?{z0,z1,from:"надпись на схеме"}:null
+ return Number.isFinite(z0)&&Number.isFinite(z1)&&z1>z0?{z0,z1,from:notes.beside&&!near?"надпись на видах у схемы":"надпись на схеме"}:null
 }
 
 // Claude's answer about a tank as one more tank "page": its numbers fill what the sheets did not give locally.
