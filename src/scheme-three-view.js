@@ -338,7 +338,9 @@ window.irThreeSchemeView=(function(){
  function root(r){return number(r.R_mm!=null?r.R_mm:r.r_mm)}
  // A tie rod whose sheet gives no diameter (КМ2 «тяжи Т1 по прогонам», the engineer, 30.10.2026: «на чем держится данный
  // прогон? будто чего-то не хватает»): a thin rod of 20 mm, its section conditional, not a beam of 0,3 m.
- function tieRod(m){return !sectionOf(m.profile_name||m.profileName,m.profile_standard)&&/(?:^|[^а-яё])тяж/i.test(String(m.mark_name||m.title||""))}
+ // (a round bar too: «Тяж Т1 Ø16» of ИР КМ1 л.12 — through the web of П1 on its nuts, as КМ2 л.4; read as a member of a
+ // bracing it lay on a gusset 400×300 on the top of the purlin at node 1 of Сгф2, the engineer, 02.11.2026)
+ function tieRod(m){var s=sectionOf(m.profile_name||m.profileName,m.profile_standard);return(!s||s.shape==="round"&&s.solid&&s.h<=36)&&/(?:^|[^а-яё])тяж/i.test(String(m.mark_name||m.title||""))}
  function materialProfile(member){
   if(tieRod(member))return [.02,.02,.02,.02];
   var source=String(member.profile_name||member.profileName||""),
@@ -1091,7 +1093,7 @@ window.irThreeSchemeView=(function(){
   // other at the crossing). A crossing is in the run of one of them at least: two ending at one point are the ends' case.
   var bracePlane=new Map(),slopeEnds=new Map();
   function bracePlanes(list){
-   bracePlane.clear();slopeEnds.clear();var upright=new Set(),lines=[],ends=new Map(),cells=new Map(),C=3,Q=function(v){return Math.round(v.x*20)+","+Math.round(v.y*20)+","+Math.round(v.z*20)};
+   bracePlane.clear();slopeEnds.clear();purlinPlane.forEach(function(n,id){bracePlane.set(id,n)});var upright=new Set(),lines=[],ends=new Map(),cells=new Map(),C=3,Q=function(v){return Math.round(v.x*20)+","+Math.round(v.y*20)+","+Math.round(v.z*20)};
    list.forEach(function(c){
     if(!c.id||c.ft||c.truss||c.cross||!(c.geometryType==="brace"||role(c)==="ties")||slight(c))return;
     var p=memberPoints(c);if(p.length!==2)return;var u=p[1].clone().sub(p[0]),L=u.length();if(L<.5)return;u.divideScalar(L);
@@ -2237,7 +2239,8 @@ window.irThreeSchemeView=(function(){
   // the truss lies under the chord: on a plate t16 (as the gussets of its node 1, С345) welded to the underside of the
   // chord's legs and out past its bolts, the line of the pair in the middle of the plate; its angles end 20 mm clear of
   // the edge of the chord's legs — the one on the plate beside the chord, the other under it —; the bolts square to the
-  // plate, each through the plate and the leg of one angle on its side of the line (two rows, as node 1). Conventional
+  // plate, each through the plate and the leg of one angle on its side of the line (two rows; at node 1 the angles are
+  // welded to their gusset and the gusset bolted to the plate of the node — lapNode, 1.11.46). Conventional
   // until the КМД gives the node: the КМ draws none at the chord (sections 30-30, 31-31 of КМ1 л.24 — the joint of the
   // chord at its bend; 32-32 — the strut Рпф1). It lay in the slope at the level of the chord's line, on a plate beside
   // the chord 30 mm over its legs, the pair turned «┬», its bolts on one line (the engineer, 02.11.2026: «как крепится
@@ -2303,6 +2306,79 @@ window.irThreeSchemeView=(function(){
     var P=E0.clone().add(d.clone().multiplyScalar(cut+s)).add(ang.X.clone().multiplyScalar(f*t/2));if(rk)P.add(rk.clone().multiplyScalar(f));addBolt(c,P,n,dia,gt+t)})})}
    return E0.clone().add(d.clone().multiplyScalar(cut))
   }
+  // A plate of a node by its outline (hull2, in the plane x, y), gt thick about its middle.
+  function hullPlate(hull,gt,mat){
+   if(hull.length<3)return null;var sh=new T.Shape();hull.forEach(function(q,i){i?sh.lineTo(q[0],q[1]):sh.moveTo(q[0],q[1])});sh.closePath();
+   var g=new T.ExtrudeGeometry(sh,{depth:gt,bevelEnabled:false,curveSegments:1});g.translate(0,0,-gt/2);return new T.Mesh(g,mat)
+  }
+  function plateName(lp,gt){return"t"+Math.round(gt*1000)+(lp&&lp.steel?" "+lp.steel:"")}
+  // Node 1 of a bracing by the top chords of trusses at a purlin between the trusses (ИР КМ1 л.11, узел 1 «проекция по
+  // уклону»: four Сгф2 2L90×8 «┼» at П1 I25Б1 in the middle of the panel). On each side of the purlin a plate t16 С345
+  // welded to the edge of its bottom flange, 861 along it and 170 out of it; each brace welded (240 mm) to a gusset t16 of
+  // its own, the gusset lapped on the plate 50 mm off the flange, 60 between the gussets of the two halves, four bolts
+  // М24-8.8 in one row along the purlin 60 from the plate's edge (60, 70, 140, 70 from the gusset's end), field welds
+  // round the lap; the angles end past the plate's edge. In the scheme the four ended 76 mm under the purlin on an
+  // octagonal gusset of their own, not joined to it (the engineer, 02.11.2026: «узлы перепроверь»). The joint's «purlin»
+  // (plate_mm: along, out; lap_mm: along, off the flange, wide; gap_mm, bolts_mm, row_mm, weld_mm). Drawn only: the end
+  // raised to the middle of the gussets (underDrop, memberPoints); each side of the purlin in the plane of its braces.
+  var purlinAt=new Map(),purlinPlane=new Map();
+  function purlinLayout(c){var p=crossPair(c)&&c.joint&&c.joint.purlin;return p&&typeof p==="object"&&Array.isArray(p.plate_mm)&&Array.isArray(p.lap_mm)?p:null}
+  function purlinNodes(list){
+   purlinAt.clear();purlinPlane.clear();var beams=null,trusses=null;
+   list.forEach(function(c){
+    var lp=purlinLayout(c);if(!lp||!c.id||c.ft||c.truss||c.cross||!(c.geometryType==="brace"||role(c)==="ties")||slight(c))return;
+    if(!beams){beams=list.filter(function(b){return b.id&&b.geometryType==="beam"&&!b.ft&&!b.truss&&!slight(b)});trusses=list.filter(function(t){return t.id&&t.truss&&!slight(t)})}
+    var E=[[number(c.x),number(c.y),number(c.z0)],[number(c.x2),number(c.y2),number(c.z2)]],dr=[0,0],any=false,ud=underDrop.get(String(c.id))||[0,0],zOf=function(b,f){var z2=b.z2!==undefined&&b.z2!==null&&b.z2!==""?number(b.z2):number(b.z0);return number(b.z0)+(z2-number(b.z0))*f};
+    var line=function(b,e){var ax=number(b.x),ay=number(b.y),L=Math.hypot(number(b.x2)-ax,number(b.y2)-ay);if(L<1000)return null;
+     var ux=(number(b.x2)-ax)/L,uy=(number(b.y2)-ay)/L,al=(e[0]-ax)*ux+(e[1]-ay)*uy;return al<0||al>L?null:{ux:ux,uy:uy,f:al/L,off:Math.abs((e[0]-ax)*uy-(e[1]-ay)*ux)}};
+    E.forEach(function(e,k){
+     // (between the trusses: the ends at a truss are other nodes)
+     if(trusses.some(function(t){var q=line(t,e);return q&&q.off<150}))return;
+     var best=null;
+     beams.forEach(function(b){
+      if(lp.mark&&String(b.mark||"")!==String(lp.mark))return;var q=line(b,e);if(!q||q.off>60)return;
+      var sec=sectionOf(b.profile_name||b.profileName,b.profile_standard);if(!sec||sec.shape!=="ibeam")return;
+      var bot=zOf(b,q.f)-sec.h/2;if(bot<e[2]-20||bot>e[2]+400)return;
+      if(!best||q.off<best.q.off)best={b:b,q:q,bot:bot,sec:sec}
+     });
+     if(!best)return;
+     var gm=number(lp.gusset_mm),gt=gm>=6&&gm<=40?gm:16,mid=best.bot+(number(best.sec.t)||8)/2+gt;
+     dr[k]=e[2]-mid;any=true;
+     purlinAt.set(String(c.id)+":"+k,{b:best.b,sec:best.sec,lp:lp,gt:gt/1000,U:toWorld(e[0]+best.q.ux*1000,e[1]+best.q.uy*1000,mid).sub(toWorld(e[0],e[1],mid)).normalize()})
+    });
+    if(!any)return;
+    var hd=[ud[0]+dr[0],ud[1]+dr[1]];underDrop.set(String(c.id),hd);
+    var P0=toWorld(E[0][0],E[0][1],E[0][2]-hd[0]),P1=toWorld(E[1][0],E[1][1],E[1][2]-hd[1]),pa=purlinAt.get(String(c.id)+":0")||purlinAt.get(String(c.id)+":1");
+    var n=pa.U.clone().cross(P1.sub(P0));if(n.lengthSq()<1e-6)return;n.normalize();if(n.y<0)n.negate();purlinPlane.set(String(c.id),n)
+   })
+  }
+  function purlinEnd(c,id,E0,d,v,pa,host,parts){
+   var ang=braceAngle(c,v);if(!ang||!ang.cross)return null;
+   var lp=pa.lp,mm=function(q){return number(q)/1000},pn=ang.X.clone();if(pn.y<0)pn.negate();
+   var pu=pa.U.clone().sub(pn.clone().multiplyScalar(pa.U.dot(pn))).normalize(),pv=pn.clone().cross(pu).normalize();if(pv.dot(d)<0)pv.negate();
+   var a=d.dot(pv);if(a<.2)return null;var pw=pu.clone().cross(pv);
+   var ss=d.dot(pu)>=0?1:-1,bf=number(pa.sec.b)/2000,gt=pa.gt,h=ang.sec.h/1000,PL=mm(lp.plate_mm[0])||.86,PO=mm(lp.plate_mm[1])||.17;
+   var LL=mm(lp.lap_mm[0])||.4,LF=mm(lp.lap_mm[1])||.05,LW=mm(lp.lap_mm[2])||PO-LF,gap=mm(lp.gap_mm)||.06,row=mm(lp.row_mm)||.06,weld=mm(lp.weld_mm)||.24;
+   // (the end of the angles past the plate's edge: the one under the gusset would go into the plate)
+   var cut=(bf+PO+.01+h*Math.abs(ang.Y.dot(pv)))/a,E=E0.clone().add(d.clone().multiplyScalar(cut));
+   // (the plate on that side of the purlin, once for the braces there — the purlin's part, welded to it)
+   var reg=host.purlins||(host.purlins=[]),done=reg.some(function(r){return r.o.distanceTo(E0)<.05&&r.pv.dot(pv)>.9});
+   if(!done){reg.push({o:E0.clone(),pv:pv.clone()});
+    var pl=new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(pa.b));
+    pl.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(pu,pv,pw));pl.scale.set(PL,PO,gt);
+    pl.position.copy(E0).add(pv.clone().multiplyScalar(bf+PO/2)).sub(pn.clone().multiplyScalar(gt));pl.userData.gusset=true;
+    crossPlates.push({id:String(pa.b.id),mesh:partTag(pl,"фасонка узла связей",plateName(lp,gt))})}
+   // (its gusset: the lap on the plate — off the flange, clear of the other half's — and the end of the pair welded on it)
+   var loc=function(P){var r=P.clone().sub(E0);return[r.dot(pu),r.dot(pv)]},pts=[];
+   [gap/2,gap/2+LL].forEach(function(s){[bf+LF,bf+LF+LW].forEach(function(r){pts.push([ss*s,r])})});
+   [-h-.02,h+.02].forEach(function(y){[0,weld+.02].forEach(function(s){pts.push(loc(E.clone().add(d.clone().multiplyScalar(s)).add(ang.Y.clone().multiplyScalar(y))))})});
+   var gs=hullPlate(hull2(pts),gt,baseMaterial(c));
+   if(gs){gs.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(pu,pv,pw));gs.position.copy(E0);gs.userData.gusset=true;parts.push(partTag(gs,"фасонка",plateName(lp,gt)))}
+   // (the bolts in one row along the purlin through the gusset and the plate)
+   var dia=boltDia(c);
+   if(dia)(lp.bolts_mm||[]).forEach(function(b){addBolt(c,E0.clone().add(pu.clone().multiplyScalar(ss*(gap/2+mm(b)))).add(pv.clone().multiplyScalar(bf+LF+row)).sub(pn.clone().multiplyScalar(gt/2)),pn,dia,2*gt)});
+   return E
+  }
   // A brace or a strut of a bracing lying in a sloped plane (the bottom chords of trusses with a broken chord, ИР КМ1 л.10,
   // 23, 24: «Сгф1», «Рпф1» at the chord over row Д, 1:3) ends at the side of the chord on the gusset of the bracing
   // (фасонка t16 С345; узел 1 «проекция по уклону», разрез 30-30): in that plane, welded to the chord, one on each side of
@@ -2346,6 +2422,7 @@ window.irThreeSchemeView=(function(){
    ends.forEach(function(e,k){
     if(outer&&!outer[k])return;
     var ua=brace&&underAt.get(id+":"+k),ue=ua?underChord(c,id,e[0],e[1],v,ua,host,parts):null;if(ue){out[k]=ue;return}
+    var pa=brace&&purlinAt.get(id+":"+k),pe=pa?purlinEnd(c,id,e[0],e[1],v,pa,host,parts):null;if(pe){out[k]=pe;return}
     var hit=host(id,e[0],e[1]),E0=e[0];
     // An end short of the body ahead of it (up to 250 mm) is drawn on to it: as mounted, it bears on it; a gap was a
     // break in the node (the engineer, 27.10.2026, «обрывов нет»). Drawn only: the scheme keeps its coordinates.
@@ -3071,11 +3148,44 @@ window.irThreeSchemeView=(function(){
   // through and each other's edges: w/sin + w'/tan)
   function planeWidth(c){var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard),h=halfSection(c);
    if(sec&&sec.shape==="angle"&&!sec.bent){var za=angleAxis(sec)/1000;return crossPair(c)?sec.h/1000:Math.max(za,sec.h/1000-za)}return Math.max(h.h,h.b)}
-  function crossing(through,at,n,sin,cut){var cs=Math.sqrt(Math.max(0,1-sin*sin));
+  function crossing(through,at,n,sin,cut){var cs=Math.sqrt(Math.max(0,1-sin*sin)),lp=cut&&crossLap(cut);
+   // (lapped on the plate of the node: past the plate's edge — the angle under the gusset would go into it)
+   if(lp)return{at:at,n:n,g:(planeWidth(through)+number(lp.plate_mm[1])/1000+.01)/sin+planeWidth(cut)*cs/sin,through:through,lap:lp};
    return{at:at,n:n,g:Math.max(halfSection(through).h,halfSection(through).b,planeWidth(through))/sin+(cut?planeWidth(cut)*cs/sin:0)+.03,through:through}}
+  // Node 1 of a cruciform bracing «┼» where one runs through the other (ИР КМ1 л.10, узел 1: Сгф1 2L125×10): a plate t16
+  // С345 in the plane of the one running through, between its angles, welded to it — 440 along it, out 180 past the edges
+  // of its legs —; each half of the other welded (240 mm) to a gusset t16 of its own, the gusset lapped on the plate 50 mm
+  // off the legs of the one running through, 130 wide, 400 along it (20 in from the plate's ends), four bolts М24-8.8 in
+  // one row along it 60 from the gusset's edge (60, 70, 140, 70 from its end), field welds round the lap; the halves end
+  // past the plate's edge, raised by the plate's thickness (their gussets on it). Before (1.11.44) one plate along the cut
+  // brace over the crossing, two rows of bolts through the angles' legs (the engineer, 02.11.2026: «узлы перепроверь»).
+  // The joint's «crossing» (plate_mm: along, out; lap_mm: along, off the legs, wide; bolts_mm, row_mm, weld_mm).
+  function crossLap(c){var j=crossPair(c)&&c.joint&&c.joint.crossing;return j&&typeof j==="object"&&Array.isArray(j.plate_mm)&&Array.isArray(j.lap_mm)?j:null}
+  function lapT(lp,c){var g=number(lp.gusset_mm);return g>=6&&g<=40?g/1000:gussetT(c)}
+  function lapNode(c,cr,u,parts){
+   var lp=cr.lap,tp=memberPoints(cr.through);if(tp.length!==2)return;
+   var n=cr.n.clone();if(n.y<0)n.negate();var tu=tp[1].clone().sub(tp[0]);tu.sub(n.clone().multiplyScalar(tu.dot(n))).normalize();var ty=n.clone().cross(tu).normalize();
+   var mm=function(q){return number(q)/1000},gt=lapT(lp,c),w=planeWidth(cr.through),PL=mm(lp.plate_mm[0])||.44,PO=mm(lp.plate_mm[1])||.18;
+   var LL=mm(lp.lap_mm[0])||PL-.04,LF=mm(lp.lap_mm[1])||.05,LW=mm(lp.lap_mm[2])||PO-LF,row=mm(lp.row_mm)||.06,weld=mm(lp.weld_mm)||.24;
+   var plate=new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(cr.through));
+   plate.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(tu,ty,n));plate.scale.set(PL,2*(w+PO),gt);plate.position.copy(cr.at);
+   plate.userData.gusset=true;crossPlates.push({id:String(cr.through.id),mesh:partTag(plate,"фасонка узла связей",plateName(lp,gt))});
+   var ang=braceAngle(c,u),h=ang?ang.sec.h/1000:planeWidth(c),m=/(\d{2})/.exec(String(lp.bolt||c.joint&&c.joint.bolt||"")),dia=m&&!slight(c)?number(m[1])/1000:0;
+   var bc={id:c.id,joint:{cls:lp.cls||c.joint&&c.joint.cls}},o=cr.at.clone().add(n.clone().multiplyScalar(gt));
+   [-1,1].forEach(function(sg){
+    var d=u.clone().multiplyScalar(sg),sd=d.dot(ty)>=0?1:-1,cy=ang?ang.Y.clone():n.clone().cross(d).normalize(),E=o.clone().add(d.clone().multiplyScalar(cr.g));
+    var loc=function(P){var r=P.clone().sub(o);return[r.dot(tu),r.dot(ty)]},pts=[];
+    [-LL/2,LL/2].forEach(function(s){[w+LF,w+LF+LW].forEach(function(r){pts.push([s,sd*r])})});
+    [-h-.02,h+.02].forEach(function(y){[0,weld+.02].forEach(function(s){pts.push(loc(E.clone().add(d.clone().multiplyScalar(s)).add(cy.clone().multiplyScalar(y))))})});
+    var gs=hullPlate(hull2(pts),gt,baseMaterial(c));
+    if(gs){gs.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(tu,ty,n));gs.position.copy(o);gs.userData.gusset=true;parts.push(partTag(gs,"фасонка",plateName(lp,gt)))}
+    if(dia)(lp.bolts_mm||[]).forEach(function(b){addBolt(bc,cr.at.clone().add(tu.clone().multiplyScalar(mm(b)-LL/2)).add(ty.clone().multiplyScalar(sd*(w+LF+row))).add(n.clone().multiplyScalar(gt/2)),n,dia,2*gt)})
+   })
+  }
   // The gusset in the plane of the two, along the cut brace over both bolt rows of each half; welded to the one running
   // through (its part, picked with it). The bolts go with the cut brace.
-  function crossNode(c,cr,u){
+  function crossNode(c,cr,u,parts){
+   if(cr.lap){lapNode(c,cr,u,parts);return}
    var j=c.joint&&c.joint.crossing&&typeof c.joint.crossing==="object"?c.joint.crossing:c.joint||{},gm=number(j.gusset_mm);
    var gt=gm>=6&&gm<=40?gm/1000:gussetT(c),m=/(\d{2})/.exec(String(j.bolt||"")),dia=m?number(m[1])/1000:0;
    var row=dia?boltRow(dia):[.06,.14],hs=halfSection(c),by=cr.n.clone().cross(u).normalize();
@@ -3085,7 +3195,8 @@ window.irThreeSchemeView=(function(){
    plate.scale.set(2*(cr.g+row[row.length-1]+(dia?2*dia:.05)),cw,gt);plate.position.copy(cr.at);
    plate.userData.gusset=true;crossPlates.push({id:String(cr.through.id),mesh:plate});
    if(dia){var bc={id:c.id,joint:{cls:j.cls||c.joint&&c.joint.cls}};
-    // (a cruciform pair: each bolt through the gusset and the leg of one angle, on its side of the line — node 1)
+    // (a cruciform pair: each bolt through the gusset and the leg of one angle, on its side of the line — conventional,
+    // where the joint gives no layout of the node: «crossing» with plate_mm, lap_mm draws node 1 by its drawing, lapNode)
     var rx=an&&an.cross?riskShift(c,u,cr.n,dia):null,lx=legT(c);
     [-1,1].forEach(function(sg){row.forEach(function(s){var q=cr.at.clone().add(u.clone().multiplyScalar(sg*(cr.g+s)));
      if(rx)[1,-1].forEach(function(f){addBolt(bc,q.clone().add(rx.clone().multiplyScalar(f)).add(an.X.clone().multiplyScalar(f*lx/2)),an.X,dia,gt+lx)});else addBolt(bc,q,cr.n,dia,gt+legT(c))})})}
@@ -3103,8 +3214,10 @@ window.irThreeSchemeView=(function(){
      if(cr.body)[-1,1].forEach(function(i){var d=u.clone().multiplyScalar(i),x=exitOf(cr.body,cr.at,d);if(!x)return;
       var free=x.web!==undefined&&cr.host&&[.01,.5,1].every(function(f){return!cr.host.inside(String(c.id),cr.at.clone().add(d.clone().multiplyScalar(x.web+.01+(x.t-x.web-.01)*f)),cr.body)});
       var w=free?webJoint(c,cr.at,d,u,x,parts||[]):null,g=w!==null?w:x.t;if(i<0)g0=g;else g1=g});
-     out.push([sg[0],cr.at.clone().sub(u.clone().multiplyScalar(g0))],[cr.at.clone().add(u.clone().multiplyScalar(g1)),sg[1]]);
-     if(!cr.done&&!cr.plain){cr.done=true;crossNode(c,cr,u)}
+     // (lapped on the plate of the node: the halves on it, raised by its thickness)
+     var up=cr.lap?cr.n.clone().multiplyScalar((cr.n.y<0?-1:1)*lapT(cr.lap,c)):new T.Vector3();
+     out.push([sg[0],cr.at.clone().sub(u.clone().multiplyScalar(g0)).add(up)],[cr.at.clone().add(u.clone().multiplyScalar(g1)).add(up),sg[1]]);
+     if(!cr.done&&!cr.plain){cr.done=true;crossNode(c,cr,u,parts)}
     });
     segments=out
    });
@@ -3155,7 +3268,7 @@ window.irThreeSchemeView=(function(){
    allMeshes=[];plateCells.clear();platesN=0;boltList=[];dataById.clear();meshesById.clear();failures=0;conventional.clear();drillCache.clear();upperCache.clear();seatCache.clear();
    labels.forEach(function(l){l.el.remove()});labels=[];
    elems=Array.isArray(list)?list:[];
-   slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);underChords(elems);seatLevels(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);roofCones(elems);
+   slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);underChords(elems);purlinNodes(elems);seatLevels(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);roofCones(elems);
    var host=jointHosts(elems);findCrossings(elems,host);
    // (trusses and two-branch columns first: the members coming to them stop at their chords and branches)
    var lattice=function(c){return Boolean(c.truss&&Array.isArray(c.truss.members)&&c.truss.members.length||latticed(c))};
