@@ -660,7 +660,7 @@ window.irThreeSchemeView=(function(){
    return{x:dirX==="rtl"?spanX-v.x*1000:v.x*1000,y:dirY==="btt"?spanY-v.z*1000:v.z*1000,z:v.y*1000}
   }
   function memberPoints(m){
-   var hd=hangDrop&&hangDrop.get(String(m.id||""))||[0,0];
+   var hd=hangDrop&&hangDrop.get(String(m.id||""))||[0,0],ud=underDrop&&underDrop.get(String(m.id||""));if(ud)hd=[hd[0]+ud[0],hd[1]+ud[1]];
    var start=toWorld(m.x,m.y,number(m.z0)-hd[0]);
    var end=m.geometryType==="column"?toWorld(m.x,m.y,topOf(m)):m.geometryType==="shell"||m.geometryType==="plate"?toWorld(m.x,m.y,m.z2):toWorld(m.x2,m.y2,number(m.z2)-hd[1]);
    // (a wall of panels, its windows and trims: on the outer face of the frame — wallLines)
@@ -1141,7 +1141,10 @@ window.irThreeSchemeView=(function(){
    var n=bracePlane.get(String(c.id))||gussetNormal(u);n=n.clone().sub(u.clone().multiplyScalar(n.dot(u)));if(n.lengthSq()<1e-4)n=gussetNormal(u);n.normalize();
    var y=u.clone().cross(n);if(y.lengthSq()<1e-6)return null;y.normalize();
    if(n.y>.9?y.clone().cross(u).y>0:y.y<-1e-6||Math.abs(y.y)<=1e-6&&y.x+y.z<0)y.negate();
-   return{sec:sec,X:y.clone().cross(u).normalize(),Y:y,pair:/^2/.test(pr),gap:gussetT(c),lift:-angleAxis(sec)/1000}
+   // (a cruciform pair «┼» — crossPair: the second angle turned half round the line, its leg on the gusset on the other
+   // side of the line, its other leg on the other side of the gusset; the line through the heels, the middle of the pair)
+   var cross=crossPair(c);
+   return{sec:sec,X:y.clone().cross(u).normalize(),Y:y,pair:/^2/.test(pr),cross:cross,gap:gussetT(c),lift:cross?0:-angleAxis(sec)/1000}
   }
   // A horizontal angle of the frame of a deck (a platform, a landing, a raised floor; the treads of a stair): its flat leg
   // on top, flush with the top of the frame, under the deck, the other leg down — КМ3 л.49, разрез 2-2: «б1 L100×7» under
@@ -1184,7 +1187,7 @@ window.irThreeSchemeView=(function(){
   function pieceBox(c,a,b){
    var u=b.clone().sub(a),L=u.length();if(L<.3)return null;u.divideScalar(L);
    var ang=braceAngle(c,u),out={o:a.clone(),U:u,s0:0,s1:L};
-   if(ang){var lb=ang.sec.b/1000,g=ang.gap/2;Object.assign(out,{X:ang.X,Y:ang.Y,x0:ang.pair?-g-lb:g,x1:g+lb,y0:ang.lift,y1:ang.lift+ang.sec.h/1000});return out}
+   if(ang){var lb=ang.sec.b/1000,g=ang.gap/2;Object.assign(out,{X:ang.X,Y:ang.Y,x0:ang.pair?-g-lb:g,x1:g+lb,y0:ang.cross?-ang.sec.h/1000:ang.lift,y1:ang.lift+ang.sec.h/1000});return out}
    var q=bodyQuat(c,u),sec=sectionOf(c.profile_name||c.profileName,c.profile_standard),hs=halfSection(c);
    out.X=new T.Vector3(1,0,0).applyQuaternion(q);out.Y=new T.Vector3(0,1,0).applyQuaternion(q);
    if(sec&&deckAngle(c,u))Object.assign(out,{x0:-sec.b/2000,x1:sec.b/2000,y0:-sec.h/2000,y1:sec.h/2000});
@@ -2219,7 +2222,7 @@ window.irThreeSchemeView=(function(){
    var a=Math.abs(d.dot(n));if(!(a>.3&&a<.9999))return 0;
    var ang=braceAngle(c,d),cs=[];
    if(ang){var ea=angleAxis(ang.sec)/1000,lh=ang.sec.h/1000,xo=(ang.pair?ang.gap/2:0)+(ang.sec.b||ang.sec.h)/1000;
-    [-ea,lh-ea].forEach(function(y){[-xo,xo].forEach(function(x){cs.push(ang.X.clone().multiplyScalar(x).add(ang.Y.clone().multiplyScalar(y)))})})}
+    (ang.cross?[-lh,lh]:[-ea,lh-ea]).forEach(function(y){[-xo,xo].forEach(function(x){cs.push(ang.X.clone().multiplyScalar(x).add(ang.Y.clone().multiplyScalar(y)))})})}
    else{var q=bodyQuat(c,d),hs=halfSection(c),X=new T.Vector3(1,0,0).applyQuaternion(q),Y=new T.Vector3(0,1,0).applyQuaternion(q);
     [-1,1].forEach(function(i){[-1,1].forEach(function(j){cs.push(X.clone().multiplyScalar(i*hs.b).add(Y.clone().multiplyScalar(j*hs.h)))})})}
    var sg=d.dot(n)>0?1:-1;return cs.reduce(function(m,p){return Math.max(m,-sg*p.dot(n)/a)},0)
@@ -2229,6 +2232,77 @@ window.irThreeSchemeView=(function(){
   // A strut of the bracing of the bottom chords of trusses («Распорка по нижним поясам Рпф1»): square to the trusses, at a
   // chord on an upright plate across the truss (КМ1 л.24, разрез 32-32), not on the plate of the bracing in the slope.
   function chordStrut(c){var n=String(c.mark_name||c.title||"");return role(c)==="ties"&&c.geometryType!=="column"&&/распорк/i.test(n)&&/нижн\S*\s+пояс/i.test(n)}
+  // A cruciform bracing of the bottom chords of trusses (Сгф1 2L125×10 «┼» — the sketch of its section in the list of
+  // elements of КМ1 л.10; drawn under the chords on the sections 5-5, 6-6 of КМ1 л.23) at a chord between the supports of
+  // the truss lies under the chord: on a plate t16 (as the gussets of its node 1, С345) welded to the underside of the
+  // chord's legs and out past its bolts, the line of the pair in the middle of the plate; its angles end 20 mm clear of
+  // the edge of the chord's legs — the one on the plate beside the chord, the other under it —; the bolts square to the
+  // plate, each through the plate and the leg of one angle on its side of the line (two rows, as node 1). Conventional
+  // until the КМД gives the node: the КМ draws none at the chord (sections 30-30, 31-31 of КМ1 л.24 — the joint of the
+  // chord at its bend; 32-32 — the strut Рпф1). It lay in the slope at the level of the chord's line, on a plate beside
+  // the chord 30 mm over its legs, the pair turned «┬», its bolts on one line (the engineer, 02.11.2026: «как крепится
+  // данная связь? почему метизы боком стоят? связь выходит за линию и торчит уголочек», Сгф1 at О6/2/Д). Drawn only: the
+  // scheme keeps its levels (underDrop — the end lowered in memberPoints).
+  var underDrop=new Map(),underAt=new Map();
+  function crossPair(c){return/^2/.test(String(c.profile_name||c.profileName||"").replace(/\s/g,""))&&String((c.joint||{}).angles||"")==="cross"}
+  function underChords(list){
+   underDrop.clear();underAt.clear();
+   var trusses=list.filter(function(t){return t.id&&t.truss&&Array.isArray(t.truss.members)&&!slight(t)});if(!trusses.length)return;
+   list.forEach(function(c){
+    if(!c.id||c.ft||c.truss||c.cross||!(c.geometryType==="brace"||role(c)==="ties")||slight(c)||!crossPair(c))return;
+    var E=[[number(c.x),number(c.y),number(c.z0)],[number(c.x2),number(c.y2),number(c.z2)]],dr=[0,0],any=false;
+    E.forEach(function(e,k){var o=E[1-k],best=null;
+     trusses.forEach(function(t){
+      var tr=t.truss,a={x:number(t.x),y:number(t.y)},b={x:number(t.x2),y:number(t.y2)};if(tr.flip){var q=a;a=b;b=q}
+      var L=Math.hypot(b.x-a.x,b.y-a.y),span=number(tr.span_mm)||L;if(L<1000)return;
+      var ux=(b.x-a.x)/L,uy=(b.y-a.y)/L,rx=e[0]-a.x,ry=e[1]-a.y,al=rx*ux+ry*uy,off=Math.abs(rx*uy-ry*ux);
+      // (on its line between its supports — at a support the bracing is on the post of the подстропильная Фп1 —, the
+      // brace going off it across it)
+      if(off>60||al<300||al>L-300)return;
+      var px=o[0]-e[0],py=o[1]-e[1],pl=Math.hypot(px,py);if(pl<500||Math.abs(px*uy-py*ux)/pl<.4)return;
+      var kk=L/span,xs=al/kk,sd=px*ux+py*uy>=0?1:-1,m=null;
+      tr.members.forEach(function(q){if(q[4]!=="bottom")return;var x0=Math.min(number(q[0]),number(q[2])),x1=Math.max(number(q[0]),number(q[2])),xq=xs+sd*50/kk;if(xq>=x0&&xq<=x1)m=q});
+      if(!m||number(m[2])===number(m[0]))return;
+      var zc=number(tr.base_mm)+number(m[1])+(number(m[3])-number(m[1]))*(xs-number(m[0]))/(number(m[2])-number(m[0]));if(Math.abs(e[2]-zc)>80)return;
+      var pr=String(m[5]||""),cs=pr?sectionOf(/^\d/.test(pr)?"∟"+pr:pr):null;if(!cs||cs.shape!=="angle")return;
+      var sl=(number(m[3])-number(m[1]))/((number(m[2])-number(m[0]))*kk);
+      if(!best||off<best.off)best={off:off,t:t,zc:zc,sl:sl,cs:cs,ux:ux,uy:uy,sd:sd}
+     });
+     if(!best)return;
+     // (the middle of the plate under the chord's legs: the chord's centre of gravity over its bottom, half the plate)
+     var cosT=1/Math.sqrt(1+best.sl*best.sl),N=toWorld(e[0],e[1],best.zc),U=toWorld(e[0]+best.sd*best.ux*1000,e[1]+best.sd*best.uy*1000,best.zc+best.sd*best.sl*1000).sub(N).normalize();
+     dr[k]=e[2]-best.zc+(angleAxis(best.cs)+gussetT(c)*500)/cosT;any=true;
+     underAt.set(String(c.id)+":"+k,{N:N,U:U,w:trussGussetT(best.t)/2+number(best.cs.b)/1000})
+    });
+    if(any)underDrop.set(String(c.id),dr)
+   });
+  }
+  function underChord(c,id,E0,d,v,ua,host,parts){
+   var ang=braceAngle(c,v);if(!ang||!ang.cross)return null;
+   var n=ang.X.clone().normalize(),eu=ua.U.clone().sub(n.clone().multiplyScalar(ua.U.dot(n))).normalize(),ev=n.clone().cross(eu).normalize();
+   var o=ua.N.clone().sub(n.clone().multiplyScalar(ua.N.clone().sub(E0).dot(n))),sg=d.dot(ev)>=0?1:-1,a=d.dot(ev)*sg;if(a<.3)return null;
+   // (the end: no corner of the section nearer to the chord's line than the edge of its legs and 20 mm)
+   var h=ang.sec.h/1000,t=number(ang.sec.t)/1000,gt=gussetT(c),c0=E0.clone().sub(o).dot(ev)*sg,q=ang.Y.dot(ev)*sg,cut=0;
+   [-h,h].forEach(function(y){cut=Math.max(cut,(ua.w+.02-c0-q*y)/a)});
+   var dia=boltDia(c),bs=dia?boltRow(dia):[],reach=cut+(bs.length?bs[bs.length-1]+2*dia:.2);
+   // (one plate at the node in that plane for all the braces there)
+   var reg=host.under||(host.under=[]),g=null;
+   reg.forEach(function(r){if(!g&&r.o.distanceTo(o)<.05&&Math.abs(r.n.dot(n))>.99&&r.eu.dot(eu)>.99)g=r});
+   if(!g){g={o:o.clone(),n:n.clone(),eu:eu.clone(),ev:ev.clone(),pts:[],geo:null,mesh:new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(c))};
+    g.mesh.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(g.eu,g.ev,g.n));g.mesh.position.copy(g.o);g.mesh.userData.gusset=true;reg.push(g);parts.push(g.mesh)}
+   // (its outline: the end of the pair to past its bolts, as wide as its legs, and under the chord from edge to edge of its
+   // legs there — welded to them)
+   var loc=function(P){var r=P.clone().sub(g.o);return[r.dot(g.eu),r.dot(g.ev)]};
+   [-h-.02,h+.02].forEach(function(y){[cut,reach].forEach(function(s){var l=loc(E0.clone().add(d.clone().multiplyScalar(s)).add(ang.Y.clone().multiplyScalar(y)));g.pts.push(l);
+    if(s===cut){g.pts.push([Math.max(.01,l[0]),-ua.w]);g.pts.push([Math.max(.01,l[0]),ua.w])}})});
+   var hull=hull2(g.pts);
+   if(hull.length>=3){var sh=new T.Shape();hull.forEach(function(p,i){i?sh.lineTo(p[0],p[1]):sh.moveTo(p[0],p[1])});sh.closePath();
+    var hg=new T.ExtrudeGeometry(sh,{depth:gt,bevelEnabled:false,curveSegments:1});hg.translate(0,0,-gt/2);if(g.geo)g.geo.dispose();g.geo=hg;g.mesh.geometry=hg}
+   // (the bolts: through the plate and the leg of the angle on each side of the line)
+   if(dia){var rk=riskShift(c,v,n,dia);bs.forEach(function(s){[1,-1].forEach(function(f){
+    var P=E0.clone().add(d.clone().multiplyScalar(cut+s)).add(ang.X.clone().multiplyScalar(f*t/2));if(rk)P.add(rk.clone().multiplyScalar(f));addBolt(c,P,n,dia,gt+t)})})}
+   return E0.clone().add(d.clone().multiplyScalar(cut))
+  }
   // A brace or a strut of a bracing lying in a sloped plane (the bottom chords of trusses with a broken chord, ИР КМ1 л.10,
   // 23, 24: «Сгф1», «Рпф1» at the chord over row Д, 1:3) ends at the side of the chord on the gusset of the bracing
   // (фасонка t16 С345; узел 1 «проекция по уклону», разрез 30-30): in that plane, welded to the chord, one on each side of
@@ -2258,7 +2332,9 @@ window.irThreeSchemeView=(function(){
    // (the bolts across the plate through the legs on it: a pair of angles both sides of it — the package leg, plate, leg
    // about the plate's middle; one angle — plate and leg, its middle half a leg to the angle's side)
    var rk=dia&&riskShift(c,v,pn,dia),ang=braceAngle(c,v),one=ang&&!ang.pair?ang.X.clone().multiplyScalar(lt/2):null;
-   if(dia)boltRow(dia).forEach(function(s){var q=E0.clone().add(d.clone().multiplyScalar(cut+s));if(rk)q.add(rk);if(one)q.add(one);addBolt(c,q,pn,dia,gt+(ang&&ang.pair?2*lt:lt))})
+   if(dia)boltRow(dia).forEach(function(s){var q=E0.clone().add(d.clone().multiplyScalar(cut+s));
+    if(ang&&ang.cross&&rk){[1,-1].forEach(function(f){addBolt(c,q.clone().add(rk.clone().multiplyScalar(f)).add(ang.X.clone().multiplyScalar(f*lt/2)),pn,dia,gt+lt)});return}
+    if(rk)q.add(rk);if(one)q.add(one);addBolt(c,q,pn,dia,gt+(ang&&ang.pair?2*lt:lt))})
   }
   function trimSegment(c,id,a,b,host,parts,outer){
    var v=b.clone().sub(a),L=v.length();if(L<.3)return[a,b];v.divideScalar(L);
@@ -2269,6 +2345,7 @@ window.irThreeSchemeView=(function(){
    var blocked=function(P,skip,at){return[[0,0],[-.9,-.9],[-.9,.9],[.9,-.9],[.9,.9]].some(function(k){return host.inside(id,P.clone().add(X0.clone().multiplyScalar(k[0]*hs0.b)).add(Y0.clone().multiplyScalar(k[1]*hs0.h)),skip,at)})};
    ends.forEach(function(e,k){
     if(outer&&!outer[k])return;
+    var ua=brace&&underAt.get(id+":"+k),ue=ua?underChord(c,id,e[0],e[1],v,ua,host,parts):null;if(ue){out[k]=ue;return}
     var hit=host(id,e[0],e[1]),E0=e[0];
     // An end short of the body ahead of it (up to 250 mm) is drawn on to it: as mounted, it bears on it; a gap was a
     // break in the node (the engineer, 27.10.2026, «обрывов нет»). Drawn only: the scheme keeps its coordinates.
@@ -2993,7 +3070,7 @@ window.irThreeSchemeView=(function(){
   // (an angle on its gusset is as wide in the plane as its leg off its centre of gravity; the halves clear the one running
   // through and each other's edges: w/sin + w'/tan)
   function planeWidth(c){var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard),h=halfSection(c);
-   if(sec&&sec.shape==="angle"&&!sec.bent){var za=angleAxis(sec)/1000;return Math.max(za,sec.h/1000-za)}return Math.max(h.h,h.b)}
+   if(sec&&sec.shape==="angle"&&!sec.bent){var za=angleAxis(sec)/1000;return crossPair(c)?sec.h/1000:Math.max(za,sec.h/1000-za)}return Math.max(h.h,h.b)}
   function crossing(through,at,n,sin,cut){var cs=Math.sqrt(Math.max(0,1-sin*sin));
    return{at:at,n:n,g:Math.max(halfSection(through).h,halfSection(through).b,planeWidth(through))/sin+(cut?planeWidth(cut)*cs/sin:0)+.03,through:through}}
   // The gusset in the plane of the two, along the cut brace over both bolt rows of each half; welded to the one running
@@ -3004,10 +3081,14 @@ window.irThreeSchemeView=(function(){
    var row=dia?boltRow(dia):[.06,.14],hs=halfSection(c),by=cr.n.clone().cross(u).normalize();
    var plate=new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(cr.through));
    plate.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(u,by,cr.n));
-   plate.scale.set(2*(cr.g+row[row.length-1]+(dia?2*dia:.05)),Math.max(.2,2*Math.min(hs.h,hs.b)+.06),gt);plate.position.copy(cr.at);
+   var an=braceAngle(c,u),cw=an&&an.cross?2*(an.sec.h/1000+.03):Math.max(.2,2*Math.min(hs.h,hs.b)+.06);
+   plate.scale.set(2*(cr.g+row[row.length-1]+(dia?2*dia:.05)),cw,gt);plate.position.copy(cr.at);
    plate.userData.gusset=true;crossPlates.push({id:String(cr.through.id),mesh:plate});
    if(dia){var bc={id:c.id,joint:{cls:j.cls||c.joint&&c.joint.cls}};
-    [-1,1].forEach(function(sg){row.forEach(function(s){addBolt(bc,cr.at.clone().add(u.clone().multiplyScalar(sg*(cr.g+s))),cr.n,dia,gt+legT(c))})})}
+    // (a cruciform pair: each bolt through the gusset and the leg of one angle, on its side of the line — node 1)
+    var rx=an&&an.cross?riskShift(c,u,cr.n,dia):null,lx=legT(c);
+    [-1,1].forEach(function(sg){row.forEach(function(s){var q=cr.at.clone().add(u.clone().multiplyScalar(sg*(cr.g+s)));
+     if(rx)[1,-1].forEach(function(f){addBolt(bc,q.clone().add(rx.clone().multiplyScalar(f)).add(an.X.clone().multiplyScalar(f*lx/2)),an.X,dia,gt+lx)});else addBolt(bc,q,cr.n,dia,gt+legT(c))})})}
   }
   // A plain crossing (findCrossings): each half bears on the face of the one running through, or goes on to its web
   // from its open side (webJoint) — joined to it, not 10 mm off it with nothing between (the engineer, 27.10.2026,
@@ -3074,7 +3155,7 @@ window.irThreeSchemeView=(function(){
    allMeshes=[];plateCells.clear();platesN=0;boltList=[];dataById.clear();meshesById.clear();failures=0;conventional.clear();drillCache.clear();upperCache.clear();seatCache.clear();
    labels.forEach(function(l){l.el.remove()});labels=[];
    elems=Array.isArray(list)?list:[];
-   slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);seatLevels(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);roofCones(elems);
+   slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);underChords(elems);seatLevels(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);roofCones(elems);
    var host=jointHosts(elems);findCrossings(elems,host);
    // (trusses and two-branch columns first: the members coming to them stop at their chords and branches)
    var lattice=function(c){return Boolean(c.truss&&Array.isArray(c.truss.members)&&c.truss.members.length||latticed(c))};
@@ -3253,7 +3334,7 @@ window.irThreeSchemeView=(function(){
      if(ang){
       [1].concat(ang.pair?[-1]:[]).forEach(function(side){
        var am=new T.Mesh(realGeometry(T,meshGeo,ang.sec),baseMaterial(c));am.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(ang.X,ang.Y,dir));
-       am.position.copy(points[0]).add(ang.X.clone().multiplyScalar(side*ang.gap/2)).add(ang.Y.clone().multiplyScalar(ang.lift));am.scale.set(side,1,dist(points[0],points[1]));
+       am.position.copy(points[0]).add(ang.X.clone().multiplyScalar(side*ang.gap/2)).add(ang.Y.clone().multiplyScalar(ang.lift));am.scale.set(side,ang.cross?side:1,dist(points[0],points[1]));
        am.userData.memberId=id;am.userData.body=true;steel.add(am);allMeshes.push(am);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(am)});
       return
      }
