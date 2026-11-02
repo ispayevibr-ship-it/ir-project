@@ -1319,8 +1319,12 @@ function buildTank(pages){
   const note="Шахтная лестница "+depth+"×"+width+", угол "+ladder.bearing+"°"+(ladder.guessed?" (по плану, надпись не прочитана — проверьте)":"")+", от "+foot+" до +"+top+
    ", ось шахты в "+(gap+depth/2)+" от стенки"+(gapGuessed?" (принято по типовой Ш1 — проверьте)":"");
   const add=(o)=>placements.push({mark:stairRow?.mark||"Лестница",levels_from:from,confidence:conf,scheme_group:"stairs",type_key:"stair_shaft",...o});
+  // Sections of its members from the list of elements of the stair sheet, when the data give them (ladder.profiles:
+  // frame — the posts СТ1, b1 — the beams Б1 of the frame, b2 — Б2 out to the ring, tie — ГС; Ш1 of РВС-700, КМ-17:
+  // [12, [12, L50×4, [12). Not given — the conventional section of the type, as before.
+  const pf=ladder.profiles&&typeof ladder.profiles==="object"?ladder.profiles:{},P=k=>pf[k]?{profile:String(pf[k])}:{};
   const near=gap,far=gap+depth,hw=width/2;
-  for(const [s,t] of [[near,-hw],[near,hw],[far,-hw],[far,hw]]){const p=pt(s,t);add({name:name+" — стойка каркаса",geometry_type:"column",x_mm:p.x,y_mm:p.y,z0_mm:foot,z1_mm:top+1250,notes:[note]})}
+  for(const [s,t] of [[near,-hw],[near,hw],[far,-hw],[far,hw]]){const p=pt(s,t);add({name:name+" — стойка каркаса",geometry_type:"column",...P("frame"),x_mm:p.x,y_mm:p.y,z0_mm:foot,z1_mm:top+1250,notes:[note]})}
   // Landings: the first rise takes what is left over whole 1200 mm rises.
   // Rises of 1200 with the first one 1200–1800 (as on Ш1: 1800 + 6×1200 = 9000); otherwise equal rises up to 1200.
   const pitch=sh.step||1200,H=top-foot,given=sh.first&&(H-sh.first)%pitch===0?sh.first:null;
@@ -1329,7 +1333,7 @@ function buildTank(pages){
   else{const n=Math.ceil(H/1200);for(let k=1;k<=n;k++)stops.push(Math.round(foot+H*k/n))}
   const deck=(s0,s1,z,label,w,lay,side=0)=>{const p=pt(s0,side),q=pt(s1,side);add({name:name+" — "+label,type_key:"stair_landing",fitting_type:"deck",diameter_mm:w||width,geometry_type:"beam",
    x_mm:p.x,y_mm:p.y,x2_mm:q.x,y2_mm:q.y,z0_mm:z,z1_mm:z,...(lay?{layout:lay}:{}),notes:[label[0].toUpperCase()+label.slice(1)+" на +"+z+", ширина "+(w||width)+(lay?", вылет за каркас "+Math.abs(s1-s0)+" до кольца ограждения Ø"+2*ring:"")]})};
-  const beam=(p,q,z,label,extra)=>add({name:name+" — "+label,type_key:"stair_landing",geometry_type:"beam",x_mm:p.x,y_mm:p.y,x2_mm:q.x,y2_mm:q.y,z0_mm:z,z1_mm:z,notes:[label[0].toUpperCase()+label.slice(1)+" на +"+z+(extra||"")]});
+  const beam=(p,q,z,label,extra,k)=>add({name:name+" — "+label,type_key:"stair_landing",geometry_type:"beam",...P(k),x_mm:p.x,y_mm:p.y,x2_mm:q.x,y2_mm:q.y,z0_mm:z,z1_mm:z,notes:[label[0].toUpperCase()+label.slice(1)+" на +"+z+(extra||"")]});
   // Landing decks (настил Н, КМ-17/18 of Ш1): outside the frame, in the segment of the guard ring (Ø2660: 680 deep at the
   // middle, 1800 along the wall, its outer edge the arc of the ring), at the side where the flight below arrives —
   // flights alternate towards the wall and away from it, so do the landings (ПК2 at the wall, ПК3 away from it). Under
@@ -1346,24 +1350,30 @@ function buildTank(pages){
    const atWall=k%2===0,s0=atWall?near:far,s1=atWall?near-landing:far+landing,label=k===stopsUp.length-1?"верхняя площадка":"площадка";
    if(!atWall)outerLevels.push(z);
    deck(s0,s1,z,label,width-300,{arc_r_mm:ring});
-   beam(pt(s0,-hw),pt(s0,hw),z,"балка Б1 площадки");
-   beam(pt(s0,0),pt(s1,0),z,"балка Б2 площадки")
+   beam(pt(s0,-hw),pt(s0,hw),z,"балка Б1 площадки","","b1");
+   beam(pt(s0,0),pt(s1,0),z,"балка Б2 площадки","","b2")
   });
   for(const [k,z] of stopsUp.entries()){
-   for(const t of [-hw,hw]){const p=pt(near,t),q=pt(far,t);add({name:name+" — балка площадки",type_key:"stair_landing",geometry_type:"beam",x_mm:p.x,y_mm:p.y,x2_mm:q.x,y2_mm:q.y,z0_mm:z,z1_mm:z,notes:["Площадка лестницы на +"+z]})}
+   for(const t of [-hw,hw]){const p=pt(near,t),q=pt(far,t);add({name:name+" — балка площадки",type_key:"stair_landing",geometry_type:"beam",...P("b1"),x_mm:p.x,y_mm:p.y,x2_mm:q.x,y2_mm:q.y,z0_mm:z,z1_mm:z,notes:["Площадка лестницы на +"+z]})}
    // The guard ring round the shaft (ПК), from the axis of the shaft: at a landing at the wall only its arc over the
    // landing (ПК2 of Ш1 — the elevation shows it to the wall side only), elsewhere the whole ring (ПК3, ПК4).
    const c=pt(gap+depth/2,0),arc=k<stopsUp.length-1&&k%2===0,half=Math.round(Math.atan2(hw,depth/2)*180/Math.PI*10)/10;
    add({name:name+" — кольцо ограждения шахты",type_key:"stair_shaft",geometry_type:"plate",x_mm:c.x,y_mm:c.y,radius_mm:ring,inner_radius_mm:ring-30,z0_mm:z,z1_mm:z+10,
     ...(arc?{sector_start_deg:Math.round((((a+180-half)%360)+360)%360*10)/10,sector_deg:2*half}:{}),notes:["Поперечное кольцо Ø"+2*ring+(arc?", дугой над площадкой у стенки":"")+" на +"+z]})
   }
-  // Ties of the frame to the wall (ГС, разрезы 6-6 and 7-7 of Ш1): from the two corners of the frame at the wall, 25° off
-  // the radius of the tank, to the wall — at the top and at the landing away from the wall nearest the middle height.
-  const mid=(foot+top)/2,tieAt=[...new Set([outerLevels.sort((p,q)=>Math.abs(p-mid)-Math.abs(q-mid))[0],top].filter(Number.isFinite))],tan=Math.tan(25*Math.PI/180);
+  // Ties of the frame to the wall (ГС, разрезы 6-6 and 7-7 of Ш1, КМ-18): from the two corners of the frame at the wall
+  // (узел К, КМ-20: on the gusset t16 of the ring), 23° off the radius of the tank (the angle the sections give; the 25°
+  // of the rings ПК3, ПК4 on КМ-17 is the cut of the ring, not the tie — the engineer, 02.11.2026, «перепроверь по
+  // чертежу»), to the wall (узел Л: a plate t8 on a pad 320×100×8 welded to the wall, the tie on it with 2 bolts М12) —
+  // at the top and at the landing away from the wall nearest the middle height. ladder.tieDeg — another angle.
+  const mid=(foot+top)/2,tieAt=[...new Set([outerLevels.sort((p,q)=>Math.abs(p-mid)-Math.abs(q-mid))[0],top].filter(Number.isFinite))];
+  const tieDeg=ladder.tieDeg>0&&ladder.tieDeg<60?ladder.tieDeg:23,tan=Math.tan(tieDeg*Math.PI/180);
   for(const z of tieAt)for(const sgn of [-1,1]){
-   let s=hw+near*tan,w=Math.sqrt(Math.max(0,R*R-s*s))-R;s=hw+(near-w)*tan;w=Math.sqrt(Math.max(0,R*R-s*s))-R;
+   // (where the line meets the wall: two rounds left the end 0.5° off the angle — on until it holds)
+   let w=0,s=hw;for(let i=0;i<8;i++){s=hw+(near-w)*tan;w=Math.sqrt(Math.max(0,R*R-s*s))-R}s=hw+(near-w)*tan;
    const p=pt(near,sgn*hw),q=pt(w,sgn*s);
-   add({name:name+" — связь ГС к стенке",type_key:"stair_shaft",geometry_type:"beam",x_mm:p.x,y_mm:p.y,x2_mm:q.x,y2_mm:q.y,z0_mm:z,z1_mm:z,confidence:"low",notes:["Связь ГС от каркаса шахты к стенке резервуара на +"+z+", под 25° к радиусу — по разрезу проверьте"]})
+   add({name:name+" — связь ГС к стенке",type_key:"stair_shaft",geometry_type:"beam",x_mm:p.x,y_mm:p.y,x2_mm:q.x,y2_mm:q.y,z0_mm:z,z1_mm:z,...P("tie"),confidence:ladder.tieDeg>0||pf.tie?conf:"low",
+    notes:["Связь ГС"+(pf.tie?" "+pf.tie:"")+" от угла каркаса шахты (узел К: на фасонке t16 кольца) к стенке резервуара (узел Л: пластина t8 на подкладном листе 320×100×8, 2 болта М12) на +"+z+", под "+tieDeg+"° к радиусу"+(ladder.tieDeg>0?"":" (по разрезам 6-6, 7-7 типовой Ш1 — проверьте)")]})
   }
   // Flights: two stringers 700 apart, in alternate halves of the shaft, running across its depth.
   const run=depth-200,tan50=Math.tan(50*Math.PI/180);
