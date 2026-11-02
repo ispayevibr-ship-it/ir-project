@@ -61,7 +61,7 @@
    const q=query.trim().toLowerCase(),shown=rows.filter(r=>!q||[r.data?.number,r.data?.title,r.data?.to,r.data?.email].join(" ").toLowerCase().includes(q));
    const status=d=>{const s=arr(d.sent);if(!s.length)return'<span class="ltr-badge draft">Черновик</span>';const last=s[s.length-1];return`<span class="ltr-badge sent" title="${esc(s.map(x=>when(x.at)+" → "+arr(x.to).join(", ")).join("\n"))}">Отправлено ${esc(when(last.at))}</span><small>${esc(arr(last.to).join(", "))}</small>`};
    return`<div class="ltr-tools"><input id="ltrSearch" placeholder="Поиск по номеру, заголовку, адресату" value="${esc(query)}">${canEdit()?'<button class="primary" id="ltrNew">＋ Новое письмо</button>':""}</div>
-   ${shown.length?`<div class="ltr-table"><div class="ltr-row head"><span>Исх. №</span><span>Дата</span><span>Кому</span><span>Заголовок</span><span>Статус</span></div>${shown.map(r=>{const d=r.data||{};return`<button class="ltr-row" data-open="${r.id}"><b>${esc(d.number||"б/н")}</b><span>${esc(L.ruDate(d.date))}</span><span class="ltr-to">${esc(String(d.to||"").split(/\n/).filter(Boolean).join(", "))}</span><span class="ltr-title">${esc(d.title||"Без заголовка")}</span><span class="ltr-st">${status(d)}</span></button>`}).join("")}</div>`
+   ${shown.length?`<div class="ltr-table"><div class="ltr-row head"><span>Исх. №</span><span>Дата</span><span>Кому</span><span>Заголовок</span><span>Статус</span><span></span></div>${shown.map(r=>{const d=r.data||{};return`<div class="ltr-row" role="button" tabindex="0" data-open="${r.id}"><b>${esc(d.number||"б/н")}</b><span>${esc(L.ruDate(d.date))}</span><span class="ltr-to">${esc(String(d.to||"").split(/\n/).filter(Boolean).join(", "))}</span><span class="ltr-title">${esc(d.title||"Без заголовка")}</span><span class="ltr-st">${status(d)}</span><span class="ltr-act">${canEdit()?`<button type="button" data-copy="${r.id}" title="Копировать письмо"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg></button>`:""}</span></div>`}).join("")}</div>`
    :`<div class="ltr-empty">${rows.length?"Ничего не найдено":"Писем пока нет."+(canEdit()?" Нажмите «＋ Новое письмо».":"")}</div>`}`
   }
   function headHtml(){
@@ -81,7 +81,8 @@
    document.getElementById("lettersBack").onclick=()=>location.hash=`/objects/object/${oid}`;
    const s=document.getElementById("ltrSearch");s.oninput=()=>{query=s.value;const pos=s.selectionStart;paintList();const n=document.getElementById("ltrSearch");n.focus();n.setSelectionRange(pos,pos)};
    document.getElementById("ltrNew")?.addEventListener("click",create);
-   app.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{cur=rows.find(r=>String(r.id)===b.dataset.open);if(cur)paintEdit()});
+   app.querySelectorAll("[data-open]").forEach(b=>{const go=()=>{cur=rows.find(r=>String(r.id)===b.dataset.open);if(cur)paintEdit()};b.onclick=ev=>{if(!ev.target.closest("[data-copy]"))go()};b.onkeydown=ev=>{if(ev.key==="Enter"&&ev.target===b)go()}});
+   app.querySelectorAll("[data-copy]").forEach(b=>b.onclick=ev=>{ev.stopPropagation();const r=rows.find(x=>String(x.id)===b.dataset.copy);if(r)copyLetter(r)});
    app.querySelectorAll("[data-mailset]").forEach(b=>b.onclick=()=>openMail());
    document.getElementById("ltrHeadToggle").onclick=()=>{headOpen=!headOpen;paintList()};
    document.getElementById("ltrHeadSave")?.addEventListener("click",async()=>{
@@ -92,6 +93,15 @@
    const h=mailInfo?.letterhead||{},number=L.nextNumber(await allNumbers(),h.prefix||"");
    const data={number,date:today(),to:"",email:"",cc:"",title:"",html:"",sign_position:h.signPosition||"",sign_name:h.signName||"",executor:h.executor||"",reply_number:"",reply_date:"",sent:[]};
    cur=await api.create({record_type:"letter",title:"Исх. "+number,data});await reload();paintEdit()
+  }
+  // Копия письма: тот же адресат, почта, заголовок, текст и подпись; новый номер, сегодняшняя дата, не отправлено.
+  async function copyLetter(src){
+   if(busy||!canEdit())return;busy=true;
+   try{if(cur&&dirty)await save();const h=mailInfo?.letterhead||{},number=L.nextNumber(await allNumbers(),h.prefix||""),d=src.data||{};
+    const data={...d,number,date:today(),reply_number:"",reply_date:"",sent:[],copied_from:d.number||""};
+    cur=await api.create({record_type:"letter",title:(d.title||"Исх. "+number).slice(0,200),data});dirty=false;await reload();
+    note="Создана копия письма № "+(d.number||"б/н")+" — новый номер "+number+". Проверьте адресата и текст.";noteKind="ok";paintEdit()}
+   catch(e){alert(errText(e))}finally{busy=false}
   }
   // ---- письмо ----
   function editHtml(){
@@ -110,7 +120,7 @@
     <input class="ltr-title-input" data-f="title" placeholder="Заголовок письма (напр. «О поставке металлоконструкций»)" value="${esc(d.title||"")}" ${ed}>
     ${ed?"":`<div class="ltr-toolbar">${TOOLS.map(t=>t?`<button type="button" data-cmd="${t[0]}" title="${esc(t[1])}">${t[2]}</button>`:'<i></i>').join("")}</div>`}
     <div class="ltr-paper"><div class="ltr-editor" id="ltrEditor" contenteditable="${ed?"false":"true"}" spellcheck="true" data-ph="Текст письма…">${L.blocksHtml(L.blocksFromHtml(d.html||""))}</div></div>
-    <div class="ltr-actions"><button id="ltrDocx">Выгрузить в Word</button><button id="ltrPdf">Выгрузить в PDF</button><button class="primary" id="ltrSend">Отправить на почту</button><span class="grow"></span>${canEdit()?'<button class="danger" id="ltrDel">Удалить письмо</button>':""}</div>
+    <div class="ltr-actions"><button id="ltrDocx">Выгрузить в Word</button><button id="ltrPdf">Выгрузить в PDF</button><button id="ltrCopy" title="Новое письмо с тем же адресатом и текстом, со следующим номером">Копировать письмо</button><button class="primary" id="ltrSend">Отправить на почту</button><span class="grow"></span>${canEdit()?'<button class="danger" id="ltrDel">Удалить письмо</button>':""}</div>
    </div></div></div>`
   }
   const collect=()=>{const d={...(cur.data||{})};app.querySelectorAll("[data-f]").forEach(i=>d[i.dataset.f]=i.value);const e=document.getElementById("ltrEditor");if(e)d.html=L.blocksHtml(L.blocksFromHtml(e.innerHTML));return d};
@@ -139,6 +149,7 @@
    document.getElementById("ltrDocx").onclick=()=>exportAs("docx");
    document.getElementById("ltrPdf").onclick=()=>exportAs("pdf");
    document.getElementById("ltrSend").onclick=()=>sendDialog();
+   document.getElementById("ltrCopy").onclick=()=>copyLetter(cur);
    document.getElementById("ltrDel")?.addEventListener("click",async()=>{if(!confirm(`Удалить письмо «${cur.data?.title||cur.data?.number||""}»?`))return;clearTimeout(saveTimer);await api.remove(cur.id);dirty=false;await reload();paintList()});
   }
   async function exportAs(format){
