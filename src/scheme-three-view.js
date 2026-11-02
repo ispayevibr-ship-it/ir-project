@@ -3928,7 +3928,9 @@ window.irThreeSchemeView=(function(){
      if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(plate);
      // (a walkway over a roof on its frame: channels at both edges, flanges under the deck, on stands to the roof)
      var pfr=ri>0&&frameOf(c);if(pfr){var pfp=[];frameArc(c,pfp,p[0],ro,-1,p[0].y,p0,pw,pfr);frameArc(c,pfp,p[0],ri,1,p[0].y,p0,pw,pfr);pfp.forEach(function(m){keepPart(m,id)})}
-     if(ps)[p0,p0+pw].forEach(function(t){var a=p[0].clone().add(new T.Vector3(Math.sin(t)*Math.max(ri,.01),.006,Math.cos(t)*Math.max(ri,.01))),b=p[0].clone().add(new T.Vector3(Math.sin(t)*ro,.006,Math.cos(t)*ro));
+     // (not on a hoop — a guard ring of a shaft stair, 30 wide, its arc's ends welded to the posts of the frame: the
+     // joints stood 7 mm into the posts, РВС-700 Ш1 ПК2)
+     if(ps&&number(c.r)-number(c.ri)>=100)[p0,p0+pw].forEach(function(t){var a=p[0].clone().add(new T.Vector3(Math.sin(t)*Math.max(ri,.01),.006,Math.cos(t)*Math.max(ri,.01))),b=p[0].clone().add(new T.Vector3(Math.sin(t)*ro,.006,Math.cos(t)*ro));
       var v=b.clone().sub(a),m=new T.Mesh(barGeo(.02),jointMat);m.position.copy(a);m.scale.z=v.length();m.quaternion.setFromUnitVectors(zAxis,v.normalize());
       m.userData.memberId=id;steel.add(m);allMeshes.push(m);meshesById.get(id).push(m)});
      var pl=p[0].clone(),pm=p0+pw/2;if(ps){pl.x+=Math.sin(pm)*(ri+ro)/2;pl.z+=Math.cos(pm)*(ri+ro)/2}else pl.x+=ri>0?(ri+ro)/2:0;pl.y+=.35+(ri>0||ps?0:Math.max(0,rise));
@@ -3973,10 +3975,14 @@ window.irThreeSchemeView=(function(){
      cone.position.copy(p[0]);cone.position.y+=ch/2;if(ch<0)cone.rotation.x=Math.PI;
      cone.userData.memberId=id;cone.userData.shell=true;cone.userData.roof=true;steel.add(cone);allMeshes.push(cone);
      if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(cone);
-     // The joints of a shield (its two radial edges) as thin bars, so that the shields read apart.
+     // The joints of a shield (its two radial edges) as thin bars, so that the shields read apart: under the sheet, the
+     // top 1 mm over it (a line on the roof) — about the line, 20 mm over the roof, the reinforcing ring of a hatch and the
+     // pads of a platform on the roof went into them (РВС-700 П13).
      if(tl<2*Math.PI-.01)[t0,t0+tl].forEach(function(t){var a=p[0].clone().add(new T.Vector3(Math.sin(t)*cr,0,Math.cos(t)*cr)),b=p[0].clone().add(new T.Vector3(Math.sin(t)*ci,ch,Math.cos(t)*ci));
-      var v=b.clone().sub(a),m=new T.Mesh(barGeo(.04),baseMaterial(c));m.position.copy(a);m.scale.z=v.length();
-      m.quaternion.setFromUnitVectors(zAxis,v.normalize());m.userData.memberId=id;steel.add(m);allMeshes.push(m);meshesById.get(id).push(m)});
+      var v=b.clone().sub(a),m=new T.Mesh(barGeo(.04),baseMaterial(c)),L=v.length();v.normalize();
+      var sn=new T.Vector3(Math.sin(t),0,Math.cos(t)).multiplyScalar(ch/(cr-ci)).add(new T.Vector3(0,1,0)).normalize();
+      m.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(new T.Vector3().crossVectors(sn,v).normalize(),sn,v));
+      m.position.copy(a).add(sn.clone().multiplyScalar(-.019));m.scale.z=L;m.userData.memberId=id;steel.add(m);allMeshes.push(m);meshesById.get(id).push(m)});
      var cm=t0+tl/2,cl=p[0].clone().add(new T.Vector3(Math.sin(cm)*(cr+ci)/2,ch/2+.3,Math.cos(cm)*(cr+ci)/2));
      var ce=document.createElement("span");ce.className="ir-three-member-label";ce.textContent=c.mark||c.title||"";
      labelLayer.appendChild(ce);labels.push({el:ce,pos:cl,id:id});
@@ -4939,6 +4945,7 @@ window.irThreeSchemeView=(function(){
     "Шайба "+dmm+" "+row("washer")+": Ø"+mm(set.d2)+" × "+mm(set.s)+" мм — "+(b.washers>1?"2 (под головку и под гайку)":"1 (под гайку)"),
     "Гайка М"+dmm+" "+row("nut")+": S "+mm(set.nS)+", высота "+mm(set.m)+" мм — "+(b.nuts>1?"2 (гайка и контргайка)":"1")]:[];
    var whence=b.how==="sheet"?"Место болта — по отверстиям сборочного чертежа (КМД).":b.how==="node"?"Место болта — по чертежу узла.":
+    b.how==="hatch"?"Болты крышки люка — по листу люка (разрез 1-1): по окружности R300, 30 мм от края фланца, по одному на осях.":
     "Место болта условное: число и шаг — по наименьшим расстояниям СП 16.13330 (табл. 40); точные места — на сборочном чертеже марки.";
    var made=b.bySheet?"Состав комплекта — по ведомости метизов листа.":b.high?"Состав комплекта — как для высокопрочного болта: шайбы под головку и под гайку, одна гайка.":
     "Состав комплекта — по СП 70.13330 (п. 4.5.7): шайба под гайку, гайка закреплена контргайкой; пружинная шайба (ГОСТ 6402) не рисуется.";
@@ -5296,11 +5303,27 @@ window.irThreeSchemeView=(function(){
    var sa=sectionOf(A.profile_name||A.profileName,A.profile_standard)||{h:400,b:300,s:20,t:20},sb=sectionOf(B.profile_name||B.profileName,B.profile_standard)||sa;
    var za=p[0].y,zb=p[1].y,parts=[],pr=String(c.profile_name||c.profileName||"");
    if(sec.shape==="channel"){
-    var s0=sa.s/2000,s1=D-sb.s/2000,down=new T.Vector3(0,-1,0),a=pa.clone().add(U.clone().multiplyScalar(s0)).add(W.clone().multiplyScalar(off)),b=pa.clone().add(U.clone().multiplyScalar(s1)).add(W.clone().multiplyScalar(off));
+    // (from the web of a branch turned to it, between its flanges; a strut wider than the room between them from the tips
+    // of the flanges; at a branch turned the other way — its flanges across the line — from the outer face of a flange:
+    // the frame of a shaft stair, РВС-700 Ш1, four posts [12 and Б1 [12 laid flat both ways between them, went 5 mm
+    // into the flanges)
+    var faceOf=function(X,S){var t=branchTurn.has(String(X.id))?branchTurn.get(String(X.id)):null;if(t===null)return S.s/2000;
+     var fx=new T.Vector3(Math.cos(t),0,-Math.sin(t)),al=Math.abs(fx.dot(U));if(al<.5)return S.h/2000;
+     return sec.h/2000>S.h/2000-S.t/1000?S.b/1000:S.s/2000};
+    var s0=faceOf(A,sa),s1=D-faceOf(B,sb),down=new T.Vector3(0,-1,0),a=pa.clone().add(U.clone().multiplyScalar(s0)).add(W.clone().multiplyScalar(off)),b=pa.clone().add(U.clone().multiplyScalar(s1)).add(W.clone().multiplyScalar(off));
     a.y=za+(zb-za)*s0/D;b.y=za+(zb-za)*s1/D;
+    // (a deck lying on it at its level — a landing of a shaft stair on its Б1, РВС-700 Ш1 —: its top at that level, as of
+    // every beam under a deck; centred on its line it stood 26 mm up into the grating)
+    var mid=p[0].clone().add(p[1]).multiplyScalar(.5),under=elems.some(function(d){if(d.ft!=="deck"||d===c)return false;var q=memberPoints(d);if(!q.length)return false;
+     var o=q[0].clone().sub(pa),u=o.dot(U);return Math.abs(q[0].y-mid.y)<.005&&Math.abs(o.dot(W)-off)<.1&&u>=-.1&&u<=D+.1});
+    if(under){a.y-=sec.b/2000;b.y-=sec.b/2000}
     var Z=b.clone().sub(a),len=Z.length();Z.divideScalar(len);
     var m=new T.Mesh(realGeometry(T,meshGeo,sec),baseMaterial(c));m.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(down,Z.clone().cross(down).normalize(),Z));
-    m.position.copy(a);m.scale.z=len;m.userData.body=true;parts.push(partTag(m,"распорка",pr))
+    m.position.copy(a);m.scale.z=len;m.userData.body=true;parts.push(partTag(m,"распорка",pr));
+    // (at the foot of a branch: the conventional rib of its base in the strut's way gives way to it — РВС-700 Ш1, Б1 of
+    // the bottom of the frame on the base plates, the ribs 220 high along it stood 6 mm into its flanges)
+    [[A,U],[B,U.clone().negate()]].forEach(function(e){if(Math.abs(e[1].z)<.7||Math.min(za,zb)-number(e[0].z0)/1000>.22+sec.b/1000)return;
+     var k=String(e[0].id);if(!footRibFree.has(k))footRibFree.set(k,new Set());footRibFree.get(k).add(e[1].z>0?1:-1)})
    }else{
     var sd=off<0?-1:1,P0=pa.clone().add(W.clone().multiplyScalar(sd*(sa.h/2000-sa.t/1000))),P1=pb.clone().add(W.clone().multiplyScalar(sd*(sb.h/2000-sb.t/1000)));P0.y=za;P1.y=zb;
     var dir=P1.clone().sub(P0),dl=dir.length();dir.divideScalar(dl);var du=dir.dot(U);if(du<.1)return false;
@@ -5684,14 +5707,57 @@ window.irThreeSchemeView=(function(){
      [-.065,.065].forEach(function(y){var l=new T.BoxGeometry(.02,.02,.08);l.translate(x,y,.06);along(l,end,0)})});
     var hinge=new T.BoxGeometry(.06,Math.min(.5,fo[1]*.7),.06);hinge.translate(fo[0]/2+.03,0,-.01);along(hinge,end,0)
    }
+   // A light hatch on a roof (люк световой — РВС-700 П12, П13; the engineer, 02.11.2026, the sheet «ЛЮК СВЕТОВОЙ» sent in
+   // the chat of the scheme at П13): the pipe 530×8 upright through the roof, its lower end level 130 under the roof at
+   // its high side, its upper end 340 over it, flush with the top of the flange ø660(534) t10 slipped on it (330 to the
+   // flange, 10 the flange, 10 the cover, 80 the handle: 560 from the end of the pipe); on the flange the gasket and the
+   // cover ø660 t10 with two handles 150 wide 80 high, 120 off its middle across the slope (разрез 1-1 of КМ-13); the
+   // bolts М20×40 through the cover and the flange, 16 on R300 — 30 in from their edge, 35 out from the pipe —, one on
+   // each centre line (1-1); round the pipe the reinforcing ring ø1060(534) t6 lying on the slope, its hole oval to the
+   // upright pipe. The sizes of that sheet (Ду500); another Ду the same steps out from its pipe (lay.hatch.bolts,
+   // bolt_d_mm another bolting). Drawn as a solid cylinder standing on the roof with two discs on it.
+   else if(type==="hatch"&&dir.y>.99&&/светов/i.test(String(c.mark_name||c.title||""))){
+    var rf=roofAt(start),yUp=new T.Vector3(0,1,0),hOut=rf?rf.out.clone():new T.Vector3(1,0,0),hs=rf?rf.s:0,hy=rf?rf.y:start.y;
+    var hSide=new T.Vector3().crossVectors(yUp,hOut).normalize(),hl=c.lay&&c.lay.hatch||{};
+    var hHi=hy+hs*r,hy0=hHi-.13,hy1=hHi+.34,hfo=r+.065,hAt=function(y){return new T.Vector3(start.x,y,start.z)};
+    var hBasis=function(X,Y,Z){return new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(X,Y,Z))},hFlat=hBasis(hOut,hSide,yUp);
+    // (a disc of radius ro with a hole — semi-axes ax along its x, ay along its y —, depth along its z from 0)
+    var hDisc=function(ro,ax,ay,depth){var p=new T.Shape();p.absarc(0,0,ro,0,2*Math.PI,false);
+     if(ax>0){var h=new T.Path();h.absellipse(0,0,ax,ay,0,2*Math.PI,true);p.holes.push(h)}
+     return new T.ExtrudeGeometry(p,{depth:depth,bevelEnabled:false,curveSegments:36})};
+    var hPut=function(geo,at,q,name,sec,mat){var m=new T.Mesh(geo,mat||baseMaterial(c));m.position.copy(at);m.quaternion.copy(q);partTag(m,name,sec);if(mat)m.userData.fixed=true;parts.push(m);return m};
+    var dmm=Math.round(r*2000),fmm=Math.round(hfo*2000);
+    hPut(hDisc(r,r-.008,r-.008,hy1-hy0),hAt(hy0),hFlat,"труба люка",dmm+"×8");
+    hPut(hDisc(hfo,r+.002,r+.002,.01),hAt(hy1-.01),hFlat,"фланец","ø"+fmm+"("+(dmm+4)+") t10");
+    hPut(hDisc(hfo,r-.008,r-.008,.003),hAt(hy1),hFlat,"прокладка","ø"+fmm+", толщина условно 3",jointMat);
+    hPut(hDisc(hfo,0,0,.01),hAt(hy1+.003),hFlat,"крышка","ø"+fmm+" t10");
+    // (the handles: bent bars, their outline in the plane of the slope, 16 thick — conventional, the sheet gives no section)
+    var hh=new T.Shape(),hw=.075,ht=.016;hh.moveTo(-hw,0);hh.lineTo(-hw,.08);hh.lineTo(hw,.08);hh.lineTo(hw,0);hh.lineTo(hw-ht,0);hh.lineTo(hw-ht,.08-ht);hh.lineTo(-hw+ht,.08-ht);hh.lineTo(-hw+ht,0);hh.closePath();
+    var hg=new T.ExtrudeGeometry(hh,{depth:ht,bevelEnabled:false});hg.translate(0,0,-ht/2);
+    [-.12,.12].forEach(function(o){hPut(hg,hAt(hy1+.013).add(hSide.clone().multiplyScalar(o)),hBasis(hOut,yUp,hOut.clone().cross(yUp)),"ручка крышки","150×80, пруток 16 условно")});
+    // (the ring on the slope: its bottom on the plane of the roof at the axis of the pipe)
+    var hN=hOut.clone().multiplyScalar(hs).add(yUp).normalize(),hX=hOut.clone().sub(yUp.clone().multiplyScalar(hs)).normalize();
+    hPut(hDisc(2*r,(r+.002)*Math.sqrt(1+hs*hs)+.006*hs,r+.002,.006),hAt(hy),hBasis(hX,hSide,hN),"усиливающее кольцо","ø"+2*dmm+"("+(dmm+4)+") t6");
+    var hnb=Math.max(4,Math.min(48,Math.round(number(hl.bolts))||16)),hbd=Math.max(.01,(number(hl.bolt_d_mm)||20)/1000);
+    for(var hb=0;hb<hnb;hb++){var ha=2*Math.PI*hb/hnb;
+     addBolt(c,hAt(hy1+.0015).add(hOut.clone().multiplyScalar(Math.cos(ha)*(r+.035))).add(hSide.clone().multiplyScalar(Math.sin(ha)*(r+.035))),yUp,hbd,.023,"hatch")}
+   }
    else{
-    along(tube(r),start,len);
+    // (upright on a sloping roof: from the roof at its low side — from the level at its axis the pipe hung over the roof
+    // there, 26 mm at Ду500 on 1:10)
+    var rs=dir.y>.99?roofAt(start):null,low=rs?Math.min(.1,rs.s*r):0;
+    along(tube(r),start.clone().sub(dir.clone().multiplyScalar(low)),len+low);
     // Flange at the outer end; hatches and manholes carry a cover over it.
     along(disc(r*1.3+.03,.03),end,0);
     if(type==="manhole"||type==="hatch")along(disc(r*1.25+.03,.05),end.clone().add(dir.clone().multiplyScalar(.04)),0);
-    if(type==="valve"){var vb=new T.BoxGeometry(r*2.6,r*2.6,r*2.2);vb.translate(0,0,r*1.1);along(vb,end,0)}
+    // (a mounting nozzle of a device — «Патрубок монтажный для клапана аварийного Ду500», «… для пробоотборника», «… для
+    // сигнализатора уровня» — is the nozzle only: the device set on it later is not of the КМ and is not drawn; with the
+    // body of a valve 2.6 Ду wide on it П16 of РВС-700 was a cube of 0.7 m — the engineer, 02.11.2026, the scheme of the
+    // hatches and nozzles sent in the chat at П16)
+    var dev=!/^\s*патруб|патрубок\s+монтажн/i.test(String(c.mark_name||c.title||""));
+    if(type==="valve"&&dev){var vb=new T.BoxGeometry(r*2.6,r*2.6,r*2.2);vb.translate(0,0,r*1.1);along(vb,end,0)}
     if(type==="foam"){var fb=new T.BoxGeometry(.45,.45,.7);fb.translate(0,0,.35);along(fb,end,0)}
-    if(type==="sensor"){var sb=new T.BoxGeometry(r*2,r*2,r*1.6);sb.translate(0,0,r*.8);along(sb,end,0)}
+    if(type==="sensor"&&dev){var sb=new T.BoxGeometry(r*2,r*2,r*1.6);sb.translate(0,0,r*.8);along(sb,end,0)}
    }
    parts.forEach(function(mesh){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);
     if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh)});
@@ -5857,7 +5923,13 @@ window.irThreeSchemeView=(function(){
     var m=new T.Mesh(barGeo(t),mat);m.position.copy(p);m.scale.z=L;m.quaternion.setFromUnitVectors(zAxis,v.normalize());parts.push(m)};
    var off=function(p,s,h){return p.clone().add(side.clone().multiplyScalar(s)).add(new T.Vector3(0,h||0,0))};
    var at=function(f){return lo.clone().add(d.clone().multiplyScalar(f))};
-   [-w/2,w/2].forEach(function(s){bar(off(lo,s),off(hi,s),ladder?.05:.07)});
+   // (a box from p to q, t square, its section's x along X: a stringer, a post and a rail of a flight square to the
+   // flight — turned the shortest way onto the line their corners went 30 mm into each other)
+   var bx=function(p,q,t,X){var v=q.clone().sub(p),L=v.length();if(L<.005)return;v.normalize();
+    var xa=X.clone().sub(v.clone().multiplyScalar(X.dot(v))).normalize(),ya=v.clone().cross(xa);
+    var m=new T.Mesh(barGeo(t),mat);m.position.copy(p);m.scale.z=L;m.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(xa,ya,v));parts.push(m)};
+   if(ladder)[-w/2,w/2].forEach(function(s){bar(off(lo,s),off(hi,s),.05)});
+   else[-w/2,w/2].forEach(function(s){bx(off(lo,s),off(hi,s),.07,side)});
    if(ladder){
     var nr=Math.max(1,Math.ceil(rise/.3)-1);
     for(var k=1;k<=nr;k++){var p=at(k/(nr+1));bar(off(p,-w/2),off(p,w/2),.025)}
@@ -5873,15 +5945,22 @@ window.irThreeSchemeView=(function(){
    }else{
     var n=Math.max(2,Math.round(rise/.2));if(rise/n>.25)n=Math.ceil(rise/.25);
     var depth=Math.max(.2,run/n+.03);
-    var tg=shared("tread:"+w+":"+depth.toFixed(3),function(){return new T.BoxGeometry(w,.03,depth)});
+    // (the treads between the stringers, from the inner face of one to the other's — across their middles they were
+    // 35 mm into each: РВС-700 Ш1, the engineer, 02.11.2026, the sheet of the shaft stair sent at its first flight)
+    var tg=shared("tread:"+w+":"+depth.toFixed(3),function(){return new T.BoxGeometry(w-.07,.03,depth)});
     for(var k=1;k<n;k++){var tm=new T.Mesh(tg,mat);tm.position.copy(at(k/n));tm.quaternion.copy(basis);parts.push(tm)}
     // Railings of its own along it (a stair's plan names them, «огр.»): its handrails are those.
     var u=flat.clone().normalize(),railed=elems.some(function(e){if(e===c||e.ft!=="railing"||e.geometryType==="shell")return false;
      var q=memberPoints(e),v=q[q.length-1].clone().sub(q[0]),fl=new T.Vector3(v.x,0,v.z);if(fl.length()<.3||Math.abs(fl.normalize().dot(u))<.95)return false;
      var m=q[0].clone().add(q[q.length-1]).multiplyScalar(.5).sub(lo),along=m.x*u.x+m.z*u.z;
      return Math.abs(m.x*side.x+m.z*side.z)<=w/2+.5&&along>=-.2*run&&along<=1.2*run});
-    if(!railed)[-w/2,w/2].forEach(function(s){bar(off(lo,s,1),off(hi,s,1),.04);bar(off(lo,s,.5),off(hi,s,.5),.025);
-     [0,.5,1].forEach(function(f){var p=at(f);bar(off(p,s),off(p,s,1),.035)})});
+    // (its posts on the outer faces of the stringers, from under the line of the stringer up to the handrail on them, the
+    // middle rail on their inner faces over the stringer — on the line of the stringer all three went through it and
+    // through each other)
+    var ca=run/Math.max(1e-6,Math.hypot(run,rise)),ta=rise/Math.max(1e-6,run);
+    if(!railed)[-w/2,w/2].forEach(function(s){var sg=s<0?-1:1,sp=s+sg*.0525,sm=s+sg*.0225;
+     bx(off(lo,sp,1),off(hi,sp,1),.04,side);bx(off(lo,sm,.5),off(hi,sm,.5),.025,side);
+     [0,.5,1].forEach(function(f){var p=at(f);bx(off(p,sp,-.035/ca),off(p,sp,1-.02/ca-.0175*ta-.001),.035,side)})});
    }
    parts.forEach(function(mesh){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);
     if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh)});

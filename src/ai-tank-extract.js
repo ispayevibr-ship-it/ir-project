@@ -1345,6 +1345,17 @@ function buildTank(pages){
   // of the shaft the last flight does not take.
   const stopsUp=stops.slice(1),outerLevels=[],lastK=stops.length-2,lastSide=(lastK%2?1:-1)*(125+350),lastAtWall=lastK%2===0;
   const bridgeSide=lastAtWall?lastSide:-lastSide,bridgeFrom=lastAtWall?near-landing:far;
+  // The foot of the shaft (Ш1 of РВС-700, КМ-17: ПК1 on the elevation, Б1 at −0,030 on разрезы 1-1 and 2-2; the
+  // engineer, 02.11.2026, the sheet sent in the chat at the first flight): the whole guard ring ПК1 at the foot — the
+  // bottom flight starts on it (узел М) — and the beams Б1 across both faces of the frame. Drawn from the first landing
+  // up, the bottom flight stood on nothing. The beams lie on the base plates of the posts (the frame's [12 laid flat as
+  // its landing beams, 52 high: the axis 30 over the foot — on the foot they went 15 mm into the plates). Put before the
+  // landings: the posts keep the turn the beams of the landings give them (3D turns a post by the last beam to it).
+  {const c=pt(gap+depth/2,0);
+   add({name:name+" — кольцо ограждения шахты",type_key:"stair_shaft",geometry_type:"plate",x_mm:c.x,y_mm:c.y,radius_mm:ring,inner_radius_mm:ring-30,z0_mm:foot,z1_mm:foot+10,
+    notes:["Поперечное кольцо ПК1 Ø"+2*ring+" внизу шахты на "+foot+": на нём начинается нижний марш (узел М)"]});
+   for(const s of [near,far])add({name:name+" — балка Б1 низа каркаса",type_key:"stair_landing",geometry_type:"beam",...P("b1"),x_mm:pt(s,-hw).x,y_mm:pt(s,-hw).y,x2_mm:pt(s,hw).x,y2_mm:pt(s,hw).y,
+    z0_mm:foot+30,z1_mm:foot+30,notes:["Балка Б1 по низу каркаса, на опорных плитах стоек (уровень "+foot+"; разрезы 1-1, 2-2 листа шахтной лестницы)"]})}
   stopsUp.forEach((z,k)=>{
    if(k===stopsUp.length-1&&lastAtWall){deck(near,near-landing,z,"верхняя площадка",700,null,lastSide);return}
    const atWall=k%2===0,s0=atWall?near:far,s1=atWall?near-landing:far+landing,label=k===stopsUp.length-1?"верхняя площадка":"площадка";
