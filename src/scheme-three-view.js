@@ -2819,8 +2819,10 @@ window.irThreeSchemeView=(function(){
      if(top>=zb+hb/2||top<bottom-250||seat<number(c.z0)+300)return;
      var id=String(c.id),k=byCol.get(id);if(!k)byCol.set(id,k={c:c,seat:seat,beams:[]});
      k.seat=Math.min(k.seat,seat);
-     var end=along<reach+50?0:along>L-reach-50?1:-1;
-     k.beams.push({b:b,end:end,d:end===1?{x:-ux,y:-uy}:{x:ux,y:uy},zb:zb,hb:hb})
+     var end=along<reach+50?0:along>L-reach-50?1:-1,fa=Math.max(0,Math.min(L,along));
+     // (the beam's own point over the column — its axis there, not the column's centre: two purlins 100 mm either side
+     // of the ridge over one column had their ribs and bolts between them, the engineer, 02.11.2026)
+     k.beams.push({b:b,end:end,d:end===1?{x:-ux,y:-uy}:{x:ux,y:uy},zb:zb,hb:hb,foot:{x:ax+ux*fa,y:ay+uy*fa}})
     })
    });
    byCol.forEach(function(k,id){
@@ -2830,16 +2832,18 @@ window.irThreeSchemeView=(function(){
      var dot=function(o){return o.d.x*e.d.x+o.d.y*e.d.y};
      var first=through.concat(ends.filter(function(o,j){return j<i&&Math.abs(dot(o))<.3}))[0];
      var t=first?halfSection(first.b).b*1000+10:ends.some(function(o){return o!==e&&dot(o)<-.9})?10:-(Math.abs(e.d.x)*hs.x+Math.abs(e.d.y)*hs.z)*1000;
-     e.at={x:cx+e.d.x*t,y:cy+e.d.y*t};e.bolts=first||t===10?{x:cx+e.d.x*(t+60),y:cy+e.d.y*(t+60)}:{x:cx,y:cy};
+     var fx=e.foot.x+e.d.x*((cx-e.foot.x)*e.d.x+(cy-e.foot.y)*e.d.y),fy=e.foot.y+e.d.y*((cx-e.foot.x)*e.d.x+(cy-e.foot.y)*e.d.y);
+     e.at={x:fx+e.d.x*t,y:fy+e.d.y*t};e.bolts=first||t===10?{x:fx+e.d.x*(t+60),y:fy+e.d.y*(t+60)}:{x:fx,y:fy};
      var bid=String(e.b.id),arr=seatEnd.get(bid)||[null,null];arr[e.end]=e.at;seatEnd.set(bid,arr)
     });
-    through.forEach(function(e){e.bolts={x:cx,y:cy}})
+    through.forEach(function(e){e.bolts={x:e.foot.x,y:e.foot.y}})
    })
   }
   // The bolts through the bottom flange into the cap plate and the bearing ribs of a seated beam (I sections only).
   function seatParts(k,e,parts){
    var b=e.b,sec=sectionOf(b.profile_name||b.profileName,b.profile_standard);if(!sec||sec.shape!=="ibeam")return;
    var h=sec.h/1000,w=sec.b/1000,tf=sec.t/1000,tw=sec.s/1000,at=toWorld(e.bolts.x,e.bolts.y,e.zb),dir=toWorld(e.bolts.x+e.d.x,e.bolts.y+e.d.y,e.zb).sub(at).normalize(),up=new T.Vector3(0,1,0),side=dir.clone().cross(up).normalize();
+   if(b.joint&&b.joint.seat&&typeof b.joint.seat==="object"){finSeat(k,e,b.joint.seat,sec,at,dir,up,side,parts);return}
    var dia=boltDia(b)||boltDia(k.c),bottom=at.y-h/2,cp=capOf(k.c);
    // (on a cap of the column's own with holes: through those on the beam's side — all of them under a beam going on over
    // the column —, from the cap's bottom through its bottom flange; the bolt fitting the hole by the lists, else 3 mm
@@ -2857,6 +2861,50 @@ window.irThreeSchemeView=(function(){
     var rib=new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(b));
     rib.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(dir,up,side));rib.scale.set(.01,rh,rw);
     rib.position.copy(at).add(side.clone().multiplyScalar(q*(tw/2+rw/2)));rib.userData.small=true;parts.push(partTag(rib,"опорное ребро балки"))
+   })
+  }
+  // The seat of a purlin over a column by its node (ИР КМ1 л.16 узел 1, разрез 1-1; л.18 узел 5: the two П1 I25Б1 at
+  // the ridge, 100 mm either side of row Е, over the columns К2, К6). Not the conventional seat — the ribs in its web and
+  // two bolts down through its bottom flange: drawn at the column's centre, they stood between the two purlins and held
+  // nothing (the engineer, 02.11.2026: «это что за метизы? что они соединяют?»). By the sheet the purlin lies on the cap
+  // of the column; over it a plate t10 С245 (fin_mm [t, along]) stands beside its web on the side away from the
+  // column's centre and is bolted through the web (bolts_mm [along from the column, up from the axis], М24-8.8 in oval
+  // holes 60×23); the ends of the purlin 20 mm apart there (gap_mm — not drawn: the scheme gives it whole).
+  function finSeat(k,e,st,sec,at,dir,up,side,parts){
+   var b=e.b,h=sec.h/1000,tf=sec.t/1000,tw=sec.s/1000,fm=Array.isArray(st.fin_mm)?st.fin_mm:[],ft=number(fm[0])/1000||.01,fl=number(fm[1])/1000||.26;
+   var cw=toWorld(k.c.x,k.c.y,e.zb).sub(at).dot(side),out=Math.abs(cw)<.005?1:cw>0?-1:1,o=side.clone().multiplyScalar(out);
+   var y0=-h/2+tf,y1=h/2-tf-.01,fin=plateBox(b,at.clone().add(o.clone().multiplyScalar(tw/2+ft/2)).add(up.clone().multiplyScalar((y0+y1)/2)),dir,up,side,fl,y1-y0,ft);
+   fin.userData.gusset=true;parts.push(partTag(fin,"пластина опирания прогона","t"+Math.round(ft*1000)+(st.steel?" "+st.steel:"")));
+   var m=/(\d{2})/.exec(String(st.bolt||"")),dia=m?number(m[1])/1000:0,bc={id:b.id,joint:{bolt:st.bolt,cls:st.cls||"",set:b.joint.set}};
+   if(dia)(Array.isArray(st.bolts_mm)?st.bolts_mm:[]).forEach(function(q){if(!Array.isArray(q))return;
+    addBolt(bc,at.clone().add(dir.clone().multiplyScalar(number(q[0])/1000)).add(up.clone().multiplyScalar(number(q[1])/1000)).add(o.clone().multiplyScalar(ft/2)),o,dia,tw+ft,"node")})
+  }
+  // The channels between a pair of purlins (ИР КМ1 л.16 узел 1, л.18 узел 5: «С16П / С245 шаг 1000» between the two П1
+  // at the ridge): joint.pair {profile, step_mm, steel} — across from web to web, its back upright, its top under the
+  // top flanges; the step from each column under the pair both ways (half a step off it — where the sheet starts it is
+  // not given), drawn once for the pair.
+  function pairChannels(list){
+   var beams=list.filter(function(b){return b.id&&b.geometryType==="beam"&&b.joint&&b.joint.pair&&typeof b.joint.pair==="object"&&!slight(b)});
+   beams.forEach(function(b){
+    var pr=b.joint.pair,cs=sectionOf(pr.profile),sec=sectionOf(b.profile_name||b.profileName,b.profile_standard);
+    if(!cs||cs.shape!=="channel"||!sec||sec.shape!=="ibeam")return;
+    var ax=number(b.x),ay=number(b.y),L=Math.hypot(number(b.x2)-ax,number(b.y2)-ay);if(L<1000)return;var ux=(number(b.x2)-ax)/L,uy=(number(b.y2)-ay)/L;
+    var mate=null;beams.forEach(function(o){if(o===b||mate)return;var L2=Math.hypot(number(o.x2)-number(o.x),number(o.y2)-number(o.y));if(L2<1000)return;
+     var dot=((number(o.x2)-number(o.x))*ux+(number(o.y2)-number(o.y))*uy)/L2,off=(number(o.x)-ax)*-uy+(number(o.y)-ay)*ux;
+     if(Math.abs(dot)>.999&&off>100&&off<400&&Math.abs(number(o.z0)-number(b.z0))<50)mate={o:o,off:off}});
+    if(!mate)return;
+    var step=number(pr.step_mm)||1000,cols=[];seats.forEach(function(k){k.beams.forEach(function(e){if(e.b===b&&e.end<0)cols.push((e.foot.x-ax)*ux+(e.foot.y-ay)*uy)})});
+    cols.sort(function(p,q){return p-q});var at=[],stops=[0].concat(cols,[L]);
+    if(!cols.length)for(var s0=step/2;s0<L-100;s0+=step)at.push(s0);
+    cols.forEach(function(c,i){var lo=i?(cols[i-1]+c)/2:100,hi=i<cols.length-1?(c+cols[i+1])/2:L-100;
+     for(var s=c-step/2;s>=lo;s-=step)at.push(s);for(var s2=c+step/2;s2<=hi;s2+=step)at.push(s2)});
+    var p0=toWorld(ax,ay,number(b.z0)),dir=toWorld(ax+ux*1000,ay+uy*1000,number(b.z0)).sub(p0).normalize(),up=new T.Vector3(0,1,0);
+    var acr=toWorld(ax-uy*1000,ay+ux*1000,number(b.z0)).sub(p0).normalize(),tw=sec.s/1000,len=mate.off/1000-tw,h=cs.h/1000,cb=cs.b/1000,cs_=cs.s/1000,ct=cs.t/1000;
+    var top=sec.h/2000-sec.t/1000,name="швеллер "+String(pr.profile).replace(/^\[/,"С")+" между прогонами",sn=String(pr.profile)+(pr.steel?" "+pr.steel:""),id=String(b.id),parts=[];
+    at.forEach(function(s){var z=number(b.z0)+(number(b.z2!==undefined?b.z2:b.z0)-number(b.z0))*s/L,c0=toWorld(ax+ux*s,ay+uy*s,z).add(acr.clone().multiplyScalar(mate.off/2000)).add(up.clone().multiplyScalar(top-h/2));
+     parts.push(partTag(plateBox(b,c0,acr,up,dir,len,h,cs_),name,sn));
+     [1,-1].forEach(function(f){parts.push(partTag(plateBox(b,c0.clone().add(up.clone().multiplyScalar(f*(h/2-ct/2))).add(dir.clone().multiplyScalar(cb/2-cs_/2)),acr,up,dir,len,ct,cb),name,sn))})});
+    parts.forEach(function(m){m.userData.small=true;keepPart(m,id)})
    })
   }
   // ---- Steel through a wall of panels (АР). A member whose axis crosses the plane of a wall panel within it — a beam of
@@ -3523,6 +3571,7 @@ window.irThreeSchemeView=(function(){
     var id=String(e.b.id);if(!dataById.has(id))return;var parts=[];seatParts(k,e,parts);
     parts.forEach(function(m){m.userData.memberId=id;steel.add(m);allMeshes.push(m);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(m)})
    })});
+   pairChannels(elems.filter(function(c){return dataById.has(String(c.id))}));
    crossPlates.forEach(function(e){if(!dataById.has(e.id))return;var m=e.mesh;
     m.userData.memberId=e.id;steel.add(m);allMeshes.push(m);if(!meshesById.has(e.id))meshesById.set(e.id,[]);meshesById.get(e.id).push(m)});
    pedestals=[];platelessPosts();
