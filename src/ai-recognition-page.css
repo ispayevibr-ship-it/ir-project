@@ -3,25 +3,13 @@
 .ir-ms{width:100%;margin:0;padding:0;color:#24445f;font-family:"Segoe UI",Arial,sans-serif}
 body.ir-object-route:not(.ir-object-overview) #app>.ir-ms{box-sizing:border-box;width:100%;max-width:none;margin:0!important;padding:0!important}
 .ir-ms *{box-sizing:border-box}
-.ir-ms-hero{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:22px 26px;border-radius:14px;background:linear-gradient(112deg,#123b59,#17658e);color:#fff;margin-bottom:16px}
+.ir-ms-hero{display:flex;justify-content:space-between;align-items:center;gap:16px;border-radius:14px;background:linear-gradient(112deg,#123b59,#17658e);color:#fff;}
 .ir-ms-hero small{font-size:10px;letter-spacing:1.3px;color:#a7d4ef;font-weight:800}
-.ir-ms-hero h1{margin:6px 0 4px;font-size:24px}
 .ir-ms-hero p{margin:0;font-size:12px;color:#d3e9f6}
 .ir-ms-claude{border:1px solid #ffffff55;background:#ffffff14;color:#fff;border-radius:999px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
 .ir-ms-claude::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:#f0b23c;margin-right:7px}
 .ir-ms-claude.on::before{background:#4fd18b}
-.ir-ms-steps{display:grid;gap:12px}
-.ir-ms-step{background:#fff;border:1px solid #dce7ef;border-radius:12px;padding:18px 20px;box-shadow:0 2px 8px #23476308}
-.ir-ms-step.waiting{opacity:.55}
-.ir-ms-step.active{border-color:#7fb3dc;box-shadow:0 0 0 3px #176dc11a}
-.ir-ms-step>header{display:flex;gap:12px;align-items:center;margin-bottom:12px}
-.ir-ms-step h2{margin:0;font-size:16px;color:#173f5b}
-.ir-ms-step header small{display:block;font-size:11px;color:#7d95a7;margin-top:2px}
 .ir-ms-num{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:13px;background:#e8f1f8;color:#245d86}
-.ir-ms-step.done .ir-ms-num{background:#2c9b5c;color:#fff}
-.ir-ms-step.active .ir-ms-num{background:#176dc1;color:#fff}
-.ir-ms-step p{margin:0 0 10px;font-size:12px;line-height:1.6}
-.ir-ms-step p.muted{color:#93a6b4}
 .ir-ms-result{color:#2b506b}
 .ir-ms-result.ok{color:#22704a}
 .ir-ms-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -36,7 +24,6 @@ body.ir-object-route:not(.ir-object-overview) #app>.ir-ms{box-sizing:border-box;
 .ir-ms-wait i{width:16px;height:16px;border:2px solid #b9d4ea;border-top-color:#176dc1;border-radius:50%;animation:ir-ms-spin .8s linear infinite}
 @keyframes ir-ms-spin{to{transform:rotate(360deg)}}
 .ir-ms-error{padding:11px 14px;border:1px solid #f0c3c3;background:#fff0f0;color:#aa3535;border-radius:9px;font-size:12px;margin-bottom:12px;line-height:1.5}
-.ir-ms-step .ir-ms-error{margin:0 0 10px}
 .ir-ms-list{margin:0 0 10px;padding-left:18px;font-size:12px;line-height:1.6}
 .ir-ms-list small{display:block;color:#7d95a7}
 .ir-ms-table{width:100%;border-collapse:collapse;font-size:12px;margin:4px 0 10px}
@@ -66,13 +53,6 @@ body.ir-object-route:not(.ir-object-overview) #app>.ir-ms{box-sizing:border-box;
 .ir-ms-events li{padding:6px 0;border-bottom:1px solid #f0f4f7;line-height:1.5}
 .ir-ms-events li.bad{color:#aa3535}
 .ir-ms-events time{display:inline-block;min-width:150px;color:#7d95a7;font-size:11px}
-/* Drawing kinds */
-.ir-ms-kinds{margin:0 0 12px}
-.ir-ms-kinds summary{cursor:pointer;font-weight:700;font-size:12px;color:#245d86;margin-bottom:6px}
-.ir-ms-kinds .bad{color:#b0473f}
-.ir-ms-kinds .ir-ms-scroll{max-height:420px}
-.ir-ms-kinds td{vertical-align:middle}
-.ir-ms-kinds select{height:28px;font-size:11px}
 .ir-ms-bulk{font-size:12px;color:#5c7b90;margin:6px 0}
 .ir-ms-bulk button+button{margin-left:6px}
 .ir-ms-hint{font-size:11px;color:#b0473f}
@@ -110,7 +90,6 @@ body.ir-object-route:not(.ir-object-overview) #app>.ir-ms{box-sizing:border-box;
 .ir-ms-sheet-tools{margin-bottom:6px}
 .ir-ms-sheet-tools input{flex:1;min-width:200px;height:30px;border:1px solid #ccdae7;border-radius:7px;padding:0 9px;font-size:12px}
 .ir-ms-sheet-tools button{height:30px;font-size:11px}
-.ir-ms-note{font-size:11px;color:#6d8496;margin:8px 0 0}
 .ir-ms-note .bad{color:#b0473f}
 .ir-ms-preview{width:min(1400px,96vw);max-width:96vw;max-height:94vh;padding:0;border:1px solid #cfdde8;border-radius:12px}
 .ir-ms-preview::backdrop{background:#061c30a6}

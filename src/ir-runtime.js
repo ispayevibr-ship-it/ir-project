@@ -1008,109 +1008,7 @@ window.irAccess=(()=>{
 
 ;
 
-/* #24: src/acted-days-page.js */
-"use strict";
-window.irActedDaysPage=async function(objectId){
- const oid=String(objectId||"");if(!oid)return;
- const app=document.getElementById("app"),root=irProject.data.forObject(oid),api=root.section("acted-days"),object=await irProject.data.objects.get(oid);
- if(!object){location.hash="/objects";return}
- const canEdit=()=>window.irAccess?window.irAccess.canEdit("acted-days"):false;
- const esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
- const reasons=[
-  ["wind","Ветер"],
-  ["power","Отключение электроэнергии"],
-  ["readiness","Отсутствие стройготовности"],
-  ["low_temp","Низкая температура (например, −40 °C)"],
-  ["high_temp","Повышенная температура (например, +40 °C)"],
-  ["precipitation","Сильные осадки"],
-  ["other","Другая причина"]
- ];
- const reasonText=(code,other="")=>code==="other"?(String(other||"").trim()||"Другая причина"):(reasons.find(x=>x[0]===code)?.[1]||code||"—");
- const dmy=v=>{const s=String(v||"");if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return s||"—";const[y,m,d]=s.split("-");return`${d}.${m}.${y}`};
- const mins=v=>{const m=String(v||"").match(/^(\d{1,2}):(\d{2})$/);return m?(Number(m[1])*60+Number(m[2])):0};
- const duration=(a,b)=>{const x=mins(a),y=mins(b);return y>x?(y-x)/60:0};
- const fmtHours=h=>{const n=Math.round(Number(h||0)*100)/100;return String(n).replace(".",",")+" ч"};
- let rows=await api.list().catch(()=>[]);
- const data=r=>({id:r.id,title:r.title||"",...(r.data||{})});
- const sorted=()=>rows.map(data).sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))||Number(b.id)-Number(a.id));
- function dialogHtml(){if(!canEdit())return"";return `<dialog id="actedDialog" class="acted-dialog"><form id="actedForm" novalidate><input type="hidden" name="id"><div class="acted-form-head"><div><h2 id="actedFormTitle">Добавить актированный день</h2><p>Дата, причина и время остановки работ</p></div><button type="button" id="actedX" class="acted-x">×</button></div><label>Дата<input type="date" name="date" required></label><label>Причина актирования<select name="reason" required>${reasons.map(([v,t])=>`<option value="${v}">${esc(t)}</option>`).join("")}</select></label><label data-other-reason hidden>Другая причина<input name="reason_other" placeholder="Укажите причину актирования"></label><label>Показатель<input name="indicator" placeholder="Например: 22 м/с"></label><div class="acted-time-grid"><label>Время с<input type="time" name="time_from" value="08:00" required></label><label>Время по<input type="time" name="time_to" value="17:00" required></label></div><div class="acted-form-error" id="actedError" hidden></div><div class="actions"><button type="button" id="actedCancel">Отмена</button><button type="submit" class="primary">Сохранить</button></div></form></dialog>`}
- function draw(){
-  const all=sorted(),uniqueDays=new Set(all.map(x=>x.date).filter(Boolean)).size,totalHours=all.reduce((s,x)=>s+duration(x.time_from,x.time_to),0),latest=all[0]?.date||"";
-  const body=all.length?all.map(r=>`<div class="acted-row" data-id="${esc(r.id)}"><div><span>Дата</span><b>${dmy(r.date)}</b></div><div class="acted-reason"><span>Причина</span><b>${esc(reasonText(r.reason,r.reason_other))}</b></div><div class="acted-indicator"><span>Показатель</span><b>${esc(r.indicator||"—")}</b></div><div><span>Время актирования</span><b>${esc(r.time_from||"—")} — ${esc(r.time_to||"—")}</b></div><div><span>Продолжительность</span><b>${fmtHours(duration(r.time_from,r.time_to))}</b></div>${canEdit()?`<div class="acted-actions"><button type="button" data-edit="${esc(r.id)}">Редактировать</button><button type="button" class="danger" data-delete="${esc(r.id)}">Удалить</button></div>`:"<div></div>"}</div>`).join(""):'<div class="acted-empty">Актированные дни пока не добавлены</div>';
-  app.innerHTML=`<div class="acted-days-page"><div class="acted-head"><button class="back" id="actedBack">← Назад</button><div><h1>Актированные дни</h1><p>${esc(object.name||"")}</p></div>${canEdit()?'<button class="primary" id="actedAdd">＋ Добавить актированный день</button>':""}</div><div class="acted-summary"><div><span>Записей</span><b>${all.length}</b></div><div><span>Актированных дней</span><b>${uniqueDays}</b></div><div><span>Всего времени</span><b>${fmtHours(totalHours)}</b></div><div><span>Последняя дата</span><b>${latest?dmy(latest):"—"}</b></div></div><div class="acted-card"><div class="acted-table-head"><span>Дата</span><span>Причина актирования</span><span>Показатель</span><span>Время актирования</span><span>Продолжительность</span><span></span></div><div class="acted-list">${body}</div></div>${dialogHtml()}</div>`;
-  document.getElementById("actedBack").onclick=()=>location.hash=`/objects/object/${oid}`;
-  if(canEdit())wireForm(all);
- }
- function wireForm(all){
-  const dialog=document.getElementById("actedDialog"),form=document.getElementById("actedForm"),otherWrap=form.querySelector("[data-other-reason]"),error=document.getElementById("actedError"),reason=form.elements.reason;
-  const prettySelect=select=>{select.classList.add("ir-pretty-native");const box=document.createElement("div");box.className="ir-pretty-select";const trigger=document.createElement("button");trigger.type="button";trigger.className="ir-pretty-trigger";const menu=document.createElement("div");menu.className="ir-pretty-menu";menu.hidden=true;box.append(trigger,menu);select.insertAdjacentElement("afterend",box);const close=()=>{menu.hidden=true;box.classList.remove("open","open-up");trigger.setAttribute("aria-expanded","false")};const refresh=()=>{const current=select.options[select.selectedIndex];trigger.innerHTML=`<span>${esc(current?.textContent||"Выберите")}</span><i></i>`;menu.innerHTML=[...select.options].map(o=>`<button type="button" data-value="${esc(o.value)}" class="${o.selected?"selected":""}" ${o.disabled?"disabled":""}>${esc(o.textContent)}</button>`).join("")};const openMenu=()=>{refresh();menu.hidden=false;box.classList.add("open");trigger.setAttribute("aria-expanded","true");requestAnimationFrame(()=>{const r=trigger.getBoundingClientRect(),need=Math.min(menu.scrollHeight,280)+10,below=window.innerHeight-r.bottom;box.classList.toggle("open-up",below<need&&r.top>below)})};trigger.onclick=e=>{e.preventDefault();e.stopPropagation();menu.hidden?openMenu():close()};menu.onclick=e=>{const b=e.target.closest("button[data-value]");if(!b||b.disabled)return;e.preventDefault();select.value=b.dataset.value;select.dispatchEvent(new Event("change",{bubbles:true}));refresh();close()};box.onclick=e=>e.stopPropagation();refresh();return{refresh,close}};
-  const reasonPretty=prettySelect(reason);dialog.addEventListener("click",e=>{if(!e.target.closest(".ir-pretty-select"))reasonPretty.close()});
-  const syncReason=()=>{const other=reason.value==="other";otherWrap.hidden=!other;form.elements.reason_other.required=other;if(!other)form.elements.reason_other.value="";const hints={wind:"Например: 22 м/с",low_temp:"Например: -30 °C",high_temp:"Например: +40 °C",precipitation:"Например: 20 мм",power:"Например: 380 В отсутствует",readiness:"Например: 0% готовности",other:"Введите показатель"};form.elements.indicator.placeholder=hints[reason.value]||"Введите показатель";reasonPretty.refresh()};
-  const open=r=>{form.reset();error.hidden=true;form.elements.id.value=r?.id||"";form.elements.date.value=r?.date||new Date().toISOString().slice(0,10);form.elements.reason.value=r?.reason||"wind";form.elements.reason_other.value=r?.reason_other||"";form.elements.indicator.value=r?.indicator||"";form.elements.time_from.value=r?.time_from||"08:00";form.elements.time_to.value=r?.time_to||"17:00";syncReason();document.getElementById("actedFormTitle").textContent=r?"Редактировать актированный день":"Добавить актированный день";dialog.showModal()};
-  reason.onchange=syncReason;document.getElementById("actedAdd").onclick=()=>open(null);document.getElementById("actedX").onclick=()=>dialog.close();document.getElementById("actedCancel").onclick=()=>dialog.close();
-  document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>open(all.find(r=>String(r.id)===String(b.dataset.edit))));
-  document.querySelectorAll("[data-delete]").forEach(b=>b.onclick=async()=>{const r=all.find(x=>String(x.id)===String(b.dataset.delete));if(!r||!confirm(`Удалить актирование за ${dmy(r.date)}?`))return;await api.remove(r.id);rows=await api.list().catch(()=>[]);draw()});
-  form.onsubmit=async e=>{e.preventDefault();error.hidden=true;const fd=new FormData(form),id=String(fd.get("id")||""),date=String(fd.get("date")||""),reasonCode=String(fd.get("reason")||""),other=String(fd.get("reason_other")||"").trim(),indicator=String(fd.get("indicator")||"").trim(),from=String(fd.get("time_from")||""),to=String(fd.get("time_to")||"");if(!date||!reasonCode||!from||!to){error.textContent="Заполните дату, причину и время актирования.";error.hidden=false;return}if(reasonCode==="other"&&!other){error.textContent="Укажите другую причину актирования.";error.hidden=false;return}if(mins(to)<=mins(from)){error.textContent="Время окончания должно быть позже времени начала.";error.hidden=false;return}const payload={record_type:"acted_day",title:`Актированный день ${dmy(date)}`,data:{date,reason:reasonCode,reason_other:reasonCode==="other"?other:"",indicator,time_from:from,time_to:to}};if(id)await api.update(id,payload);else await api.create(payload);rows=await api.list().catch(()=>[]);dialog.close();draw()};
- }
- draw();
-};
-;
-
-/* #25: src/acted-days-page-v2.js */
-"use strict";
-window.irActedDaysPageV2=async function(objectId){
- const oid=String(objectId||"");if(!oid)return;
- const app=document.getElementById("app"),root=irProject.data.forObject(oid),api=root.section("acted-days"),reportsApi=root.section("reports"),object=await irProject.data.objects.get(oid);
- if(!object){location.hash="/objects";return}
- const canEdit=()=>window.irAccess?window.irAccess.canEdit("acted-days"):false;
- const esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
- const reasons=[
-  ["wind","Ветер"],
-  ["power","Отключение электроэнергии"],
-  ["readiness","Отсутствие стройготовности"],
-  ["low_temp","Низкая температура (например, −40 °C)"],
-  ["high_temp","Повышенная температура (например, +40 °C)"],
-  ["precipitation","Сильные осадки"],
-  ["other","Другая причина"]
- ];
- const reasonText=(code,other="")=>code==="other"?(String(other||"").trim()||"Другая причина"):(reasons.find(x=>x[0]===code)?.[1]||code||"—");
- const dmy=v=>{const s=String(v||"");if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return s||"—";const[y,m,d]=s.split("-");return`${d}.${m}.${y}`};
- const mins=v=>{const m=String(v||"").match(/^(\d{1,2}):(\d{2})$/);return m?(Number(m[1])*60+Number(m[2])):0};
- const duration=(a,b)=>{const x=mins(a),y=mins(b);return y>x?(y-x)/60:0};
- const fmtHours=h=>{const n=Math.round(Number(h||0)*100)/100;return String(n).replace(".",",")+" ч"};
- let [rows,reportRows]=await Promise.all([api.list().catch(()=>[]),reportsApi.list().catch(()=>[])]);
- const data=r=>({id:r.id,title:r.title||"",...(r.data||{})});
- const sorted=()=>rows.map(data).sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))||Number(b.id)-Number(a.id));
- const isoDate=v=>{const s=String(v||"").slice(0,10);return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:""};
- const monthNames=["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
- const weekdays=["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
- const reportData=r=>({id:r.id,...(r.data||r)});
- const reportWorkDates=()=>new Set(reportRows.map(reportData).filter(r=>{const items=Array.isArray(r.items)?r.items:Array.isArray(r.works)?r.works:[];return items.length>0}).map(r=>isoDate(r.date||r.report_date)).filter(Boolean));
- const calendarHtml=all=>{const workDates=reportWorkDates(),actedDates=new Set(all.map(r=>isoDate(r.date)).filter(Boolean)),months=[...new Set([...workDates,...actedDates].map(d=>d.slice(0,7)))].sort();if(!months.length)return'<section class="acted-calendar-section"><div class="acted-calendar-head"><div><h2>Календарь работ</h2><p>Рабочие и актированные дни по месяцам</p></div></div><div class="acted-calendar-empty">Пока нет дат для отображения</div></section>';const cards=months.map(key=>{const[y,m]=key.split("-").map(Number),first=new Date(Date.UTC(y,m-1,1)),days=new Date(Date.UTC(y,m,0)).getUTCDate(),offset=(first.getUTCDay()+6)%7;let cells="";for(let i=0;i<offset;i++)cells+='<div class="acted-cal-day empty"></div>';let workCount=0,actedCount=0;for(let d=1;d<=days;d++){const iso=`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`,work=workDates.has(iso),acted=actedDates.has(iso);if(work)workCount++;if(acted)actedCount++;const actRows=acted?all.filter(r=>isoDate(r.date)===iso):[],tip=[work?"Работы выполнялись":"",...actRows.map(r=>`${reasonText(r.reason,r.reason_other)}${r.indicator?" · "+r.indicator:""}${r.time_from&&r.time_to?" · "+r.time_from+"–"+r.time_to:""}`)].filter(Boolean).join(" | ");cells+=`<div class="acted-cal-day${work?" work":""}${acted?" acted":""}" title="${esc(tip)}"><b>${d}</b>${work?'<i class="work-dot"></i>':""}${acted?'<i class="acted-dot"></i>':""}</div>`}let totalCells=offset+days;while(totalCells%7!==0){cells+='<div class="acted-cal-day empty"></div>';totalCells++;}return`<article class="acted-calendar-month"><div class="acted-calendar-month-head"><div><b>${monthNames[m-1]}</b><span>${y}</span></div><small>Работы: ${workCount} · Акт.: ${actedCount}</small></div><div class="acted-calendar-weekdays">${weekdays.map(x=>`<span>${x}</span>`).join("")}</div><div class="acted-calendar-days">${cells}</div></article>`}).join("");return`<section class="acted-calendar-section"><div class="acted-calendar-head"><div><h2>Календарь работ и актированных дней</h2><p>По месяцам, в которых есть ежедневные отчёты или актирование</p></div><div class="acted-calendar-legend"><span><i class="work"></i>Работы</span><span><i class="acted"></i>Актированный день</span></div></div><div class="acted-calendar-grid">${cards}</div></section>`};
- function dialogHtml(){if(!canEdit())return"";return `<dialog id="actedDialog" class="acted-dialog"><form id="actedForm" novalidate><input type="hidden" name="id"><div class="acted-form-head"><div><h2 id="actedFormTitle">Добавить актированный день</h2><p>Дата, причина, показатель и время остановки работ</p></div><button type="button" id="actedX" class="acted-x">×</button></div><label>Дата<input type="date" name="date" required></label><label>Причина актирования<select name="reason" required>${reasons.map(([v,t])=>`<option value="${v}">${esc(t)}</option>`).join("")}</select></label><label data-other-reason hidden>Другая причина<input name="reason_other" placeholder="Укажите причину актирования"></label><label>Показатель<input name="indicator" placeholder="Например: 22 м/с"></label><div class="acted-time-grid"><label>Время с<input type="time" name="time_from" value="08:00" required></label><label>Время по<input type="time" name="time_to" value="17:00" required></label></div><div class="acted-form-error" id="actedError" hidden></div><div class="actions"><button type="button" id="actedCancel">Отмена</button><button type="submit" class="primary">Сохранить</button></div></form></dialog>`}
- function draw(){
-  const all=sorted(),uniqueDays=new Set(all.map(x=>x.date).filter(Boolean)).size,totalHours=all.reduce((s,x)=>s+duration(x.time_from,x.time_to),0),latest=all[0]?.date||"";
-  const body=all.length?all.map(r=>`<div class="acted-row" data-id="${esc(r.id)}"><div><span>Дата</span><b>${dmy(r.date)}</b></div><div class="acted-reason"><span>Причина</span><b>${esc(reasonText(r.reason,r.reason_other))}</b></div><div class="acted-indicator"><span>Показатель</span><b>${esc(r.indicator||"—")}</b></div><div><span>Время актирования</span><b>${esc(r.time_from||"—")} — ${esc(r.time_to||"—")}</b></div><div><span>Продолжительность</span><b>${fmtHours(duration(r.time_from,r.time_to))}</b></div>${canEdit()?`<div class="acted-actions"><button type="button" data-edit="${esc(r.id)}" title="Редактировать" aria-label="Редактировать"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg></button><button type="button" class="acted-delete" data-delete="${esc(r.id)}" title="Удалить" aria-label="Удалить"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="m6 7 1 13h10l1-13"/><path d="M10 11v5M14 11v5"/></svg></button></div>`:"<div></div>"}</div>`).join(""):'<div class="acted-empty">Актированные дни пока не добавлены</div>';
-  app.innerHTML=`<div class="acted-days-page"><div class="acted-head"><button class="back" id="actedBack">← Назад</button><div><h1>Актированные дни</h1><p>${esc(object.name||"")}</p></div>${canEdit()?'<button class="primary" id="actedAdd">＋ Добавить актированный день</button>':""}</div><div class="acted-summary"><div><span>Записей</span><b>${all.length}</b></div><div><span>Актированных дней</span><b>${uniqueDays}</b></div><div><span>Всего времени</span><b>${fmtHours(totalHours)}</b></div><div><span>Последняя дата</span><b>${latest?dmy(latest):"—"}</b></div></div>${calendarHtml(all)}<div class="acted-card"><div class="acted-table-head"><span>Дата</span><span>Причина актирования</span><span>Показатель</span><span>Время актирования</span><span>Продолжительность</span><span></span></div><div class="acted-list">${body}</div></div>${dialogHtml()}</div>`;
-  document.getElementById("actedBack").onclick=()=>location.hash=`/objects/object/${oid}`;
-  if(canEdit())wireForm(all);
- }
- function wireForm(all){
-  const dialog=document.getElementById("actedDialog"),form=document.getElementById("actedForm"),otherWrap=form.querySelector("[data-other-reason]"),error=document.getElementById("actedError"),reason=form.elements.reason;
-  const prettySelect=select=>{select.classList.add("ir-pretty-native");const box=document.createElement("div");box.className="ir-pretty-select";const trigger=document.createElement("button");trigger.type="button";trigger.className="ir-pretty-trigger";const menu=document.createElement("div");menu.className="ir-pretty-menu";menu.hidden=true;box.append(trigger,menu);select.insertAdjacentElement("afterend",box);const close=()=>{menu.hidden=true;box.classList.remove("open","open-up");trigger.setAttribute("aria-expanded","false")};const refresh=()=>{const current=select.options[select.selectedIndex];trigger.innerHTML=`<span>${esc(current?.textContent||"Выберите")}</span><i></i>`;menu.innerHTML=[...select.options].map(o=>`<button type="button" data-value="${esc(o.value)}" class="${o.selected?"selected":""}" ${o.disabled?"disabled":""}>${esc(o.textContent)}</button>`).join("")};const openMenu=()=>{refresh();menu.hidden=false;box.classList.add("open");trigger.setAttribute("aria-expanded","true");requestAnimationFrame(()=>{const r=trigger.getBoundingClientRect(),need=Math.min(menu.scrollHeight,280)+10,below=window.innerHeight-r.bottom;box.classList.toggle("open-up",below<need&&r.top>below)})};trigger.onclick=e=>{e.preventDefault();e.stopPropagation();menu.hidden?openMenu():close()};menu.onclick=e=>{const b=e.target.closest("button[data-value]");if(!b||b.disabled)return;e.preventDefault();select.value=b.dataset.value;select.dispatchEvent(new Event("change",{bubbles:true}));refresh();close()};box.onclick=e=>e.stopPropagation();refresh();return{refresh,close}};
-  const reasonPretty=prettySelect(reason);dialog.addEventListener("click",e=>{if(!e.target.closest(".ir-pretty-select"))reasonPretty.close()});
-  const syncReason=()=>{const other=reason.value==="other";otherWrap.hidden=!other;form.elements.reason_other.required=other;if(!other)form.elements.reason_other.value="";const hints={wind:"Например: 22 м/с",low_temp:"Например: -30 °C",high_temp:"Например: +40 °C",precipitation:"Например: 20 мм",power:"Например: 380 В отсутствует",readiness:"Например: 0% готовности",other:"Введите показатель"};form.elements.indicator.placeholder=hints[reason.value]||"Введите показатель";reasonPretty.refresh()};
-  const open=r=>{form.reset();error.hidden=true;form.elements.id.value=r?.id||"";form.elements.date.value=r?.date||new Date().toISOString().slice(0,10);form.elements.reason.value=r?.reason||"wind";form.elements.reason_other.value=r?.reason_other||"";form.elements.indicator.value=r?.indicator||"";form.elements.time_from.value=r?.time_from||"08:00";form.elements.time_to.value=r?.time_to||"17:00";syncReason();document.getElementById("actedFormTitle").textContent=r?"Редактировать актированный день":"Добавить актированный день";dialog.showModal()};
-  reason.onchange=syncReason;document.getElementById("actedAdd").onclick=()=>open(null);document.getElementById("actedX").onclick=()=>dialog.close();document.getElementById("actedCancel").onclick=()=>dialog.close();
-  document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>open(all.find(r=>String(r.id)===String(b.dataset.edit))));
-  document.querySelectorAll("[data-delete]").forEach(b=>b.onclick=async()=>{const r=all.find(x=>String(x.id)===String(b.dataset.delete));if(!r||!confirm(`Удалить актирование за ${dmy(r.date)}?`))return;await api.remove(r.id);rows=await api.list().catch(()=>[]);draw()});
-  form.onsubmit=async e=>{e.preventDefault();error.hidden=true;const fd=new FormData(form),id=String(fd.get("id")||""),date=String(fd.get("date")||""),reasonCode=String(fd.get("reason")||""),other=String(fd.get("reason_other")||"").trim(),indicator=String(fd.get("indicator")||"").trim(),from=String(fd.get("time_from")||""),to=String(fd.get("time_to")||"");if(!date||!reasonCode||!from||!to){error.textContent="Заполните дату, причину и время актирования.";error.hidden=false;return}if(reasonCode==="other"&&!other){error.textContent="Укажите другую причину актирования.";error.hidden=false;return}if(mins(to)<=mins(from)){error.textContent="Время окончания должно быть позже времени начала.";error.hidden=false;return}const payload={record_type:"acted_day",title:`Актированный день ${dmy(date)}`,data:{date,reason:reasonCode,reason_other:reasonCode==="other"?other:"",indicator,time_from:from,time_to:to}};if(id)await api.update(id,payload);else await api.create(payload);rows=await api.list().catch(()=>[]);dialog.close();draw()};
- }
- draw();
-};
-;
-
-/* #26: src/acted-days-page-v3.js */
+/* #24: src/acted-days-page-v3.js */
 "use strict";
 window.irActedDaysPageV3=async function(objectId){
  const oid=String(objectId||"");if(!oid)return;
@@ -1165,41 +1063,7 @@ window.irActedDaysPageV3=async function(objectId){
 };
 ;
 
-/* #27: src/penalties-page.js */
-"use strict";
-window.irPenaltiesPage=async function(objectId){
- const oid=String(objectId||"");if(!oid)return;
- const app=document.getElementById("app"),root=irProject.data.forObject(oid),api=root.section("penalties"),object=await irProject.data.objects.get(oid);
- if(!object){location.hash="/objects";return}
- const canEdit=()=>window.irAccess?window.irAccess.canEdit("penalties"):false;
- const esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
- const num=v=>{const n=Number(String(v??"").replace(/\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};
- const money=v=>Math.round(num(v)).toLocaleString("ru-RU")+" тг";
- const dmy=v=>{const s=String(v||"").slice(0,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return s||"—";const[y,m,d]=s.split("-");return`${d}.${m}.${y}`};
- const data=r=>({id:r.id,title:r.title||"",...(r.data||{})});
- let rows=await api.list().catch(()=>[]);
- const sorted=()=>rows.map(data).sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))||Number(b.id)-Number(a.id));
- function dialogHtml(){if(!canEdit())return"";return `<dialog id="penaltyDialog" class="penalty-dialog"><form id="penaltyForm" novalidate><input type="hidden" name="id"><div class="penalty-form-head"><div><h2 id="penaltyFormTitle">Добавить штраф</h2><p>Дата, ответственный, причина и сумма штрафа</p></div><button type="button" id="penaltyX" class="penalty-x">×</button></div><label>Дата<input type="date" name="date" required></label><label>Ответственный<input name="responsible" required placeholder="ФИО ответственного"></label><label>Причина штрафа<textarea name="reason" required placeholder="Укажите причину штрафа"></textarea></label><label>Сумма штрафа, тг<input name="amount" inputmode="decimal" required placeholder="Например: 50 000"></label><div class="penalty-form-error" id="penaltyError" hidden></div><div class="actions"><button type="button" id="penaltyCancel">Отмена</button><button type="submit" class="primary">Сохранить</button></div></form></dialog>`}
- function draw(){
-  const all=sorted(),total=all.reduce((s,r)=>s+num(r.amount),0),latest=all[0]?.date||"",people=new Set(all.map(r=>String(r.responsible||"").trim()).filter(Boolean)).size;
-  const body=all.length?all.map(r=>`<div class="penalty-row" data-id="${esc(r.id)}"><div><span>Дата</span><b>${dmy(r.date)}</b></div><div class="penalty-responsible"><span>Ответственный</span><b>${esc(r.responsible||"—")}</b></div><div class="penalty-reason"><span>Причина штрафа</span><b>${esc(r.reason||"—")}</b></div><div class="penalty-amount"><span>Сумма</span><b>${money(r.amount)}</b></div>${canEdit()?`<div class="penalty-actions"><button type="button" data-edit="${esc(r.id)}" title="Редактировать" aria-label="Редактировать"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg></button><button type="button" class="penalty-delete" data-delete="${esc(r.id)}" title="Удалить" aria-label="Удалить"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="m6 7 1 13h10l1-13"/><path d="M10 11v5M14 11v5"/></svg></button></div>`:"<div></div>"}</div>`).join(""):'<div class="penalty-empty">Штрафы пока не добавлены</div>';
-  app.innerHTML=`<div class="penalties-page"><div class="penalties-head"><button class="back" id="penaltiesBack">← Назад</button><div><h1>Штрафы</h1><p>${esc(object.name||"")}</p></div>${canEdit()?'<button class="primary" id="penaltyAdd">＋ Добавить штраф</button>':""}</div><div class="penalty-summary"><div><span>Всего штрафов</span><b>${all.length}</b></div><div><span>Общая сумма</span><b>${money(total)}</b></div><div><span>Ответственных</span><b>${people}</b></div><div><span>Последний штраф</span><b>${latest?dmy(latest):"—"}</b></div></div><div class="penalty-card"><div class="penalty-table-head"><span>Дата</span><span>Ответственный</span><span>Причина штрафа</span><span>Сумма</span><span></span></div><div class="penalty-list">${body}</div></div>${dialogHtml()}</div>`;
-  document.getElementById("penaltiesBack").onclick=()=>location.hash=`/objects/object/${oid}`;
-  if(canEdit())wireForm(all);
- }
- function wireForm(all){
-  const dialog=document.getElementById("penaltyDialog"),form=document.getElementById("penaltyForm"),error=document.getElementById("penaltyError");
-  const open=r=>{form.reset();error.hidden=true;form.elements.id.value=r?.id||"";form.elements.date.value=r?.date||new Date().toISOString().slice(0,10);form.elements.responsible.value=r?.responsible||"";form.elements.reason.value=r?.reason||"";form.elements.amount.value=r?.amount??"";document.getElementById("penaltyFormTitle").textContent=r?"Редактировать штраф":"Добавить штраф";dialog.showModal()};
-  document.getElementById("penaltyAdd").onclick=()=>open(null);document.getElementById("penaltyX").onclick=()=>dialog.close();document.getElementById("penaltyCancel").onclick=()=>dialog.close();
-  document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>open(all.find(r=>String(r.id)===String(b.dataset.edit))));
-  document.querySelectorAll("[data-delete]").forEach(b=>b.onclick=async()=>{const r=all.find(x=>String(x.id)===String(b.dataset.delete));if(!r||!confirm(`Удалить штраф за ${dmy(r.date)} на сумму ${money(r.amount)}?`))return;await api.remove(r.id);rows=await api.list().catch(()=>[]);draw()});
-  form.onsubmit=async e=>{e.preventDefault();error.hidden=true;const fd=new FormData(form),id=String(fd.get("id")||""),date=String(fd.get("date")||""),responsible=String(fd.get("responsible")||"").trim(),reason=String(fd.get("reason")||"").trim(),amount=num(fd.get("amount"));if(!date||!responsible||!reason){error.textContent="Заполните дату, ответственного и причину штрафа.";error.hidden=false;return}if(amount<=0){error.textContent="Сумма штрафа должна быть больше 0.";error.hidden=false;return}const payload={record_type:"penalty",title:`Штраф ${dmy(date)} · ${responsible}`,data:{date,responsible,reason,amount}};if(id)await api.update(id,payload);else await api.create(payload);rows=await api.list().catch(()=>[]);dialog.close();draw()};
- }
- draw();
-};
-;
-
-/* #28: src/penalties-page-v2.js */
+/* #25: src/penalties-page-v2.js */
 "use strict";
 window.irPenaltiesPageV2=async function(objectId){
  const oid=String(objectId||"");if(!oid)return;
@@ -1234,7 +1098,7 @@ window.irPenaltiesPageV2=async function(objectId){
 };
 ;
 
-/* #29: src/finance-page.js */
+/* #26: src/finance-page.js */
 "use strict";
 window.irFinancePage=async function(objectId){
  const oid=String(objectId||"");if(!oid)return;
@@ -1306,7 +1170,7 @@ window.irFinancePage=async function(objectId){
 };
 ;
 
-/* #30: src/scheme-page.js */
+/* #27: src/scheme-page.js */
 "use strict";
 // Visible immediately on navigation, before the DB and GPU work begins.
 // A generation token prevents an old paint callback from hiding a newer load.
@@ -3018,8 +2882,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
 };
 ;
 
-;
-/* #31: src/additional-works-page.js */
+/* #28: src/additional-works-page.js */
 "use strict";
 window.irAdditionalWorksPage=async function(objectId,route={}){
  const oid=String(objectId||""),app=document.getElementById("app"),root=irProject.data.forObject(oid),reportsApi=root.section("reports");
@@ -3165,7 +3028,7 @@ window.irAdditionalWorksPage=async function(objectId,route={}){
 };
 ;
 
-/* #32: src/app.js */
+/* #29: src/app.js */
 "use strict";
 const app=document.getElementById("app");
 // A noun after a number in Russian: 1 объект, 2–4 объекта, 5–20 объектов, 21 объект, 22 объекта, 11–14 объектов (the
@@ -3383,14 +3246,14 @@ async function objectShortNameRecord(id){const list=await objectSection(id,"obje
  if(photo){savedPhotos.cover=await saveObjectPhoto(objectId,"cover",photo,savedPhotos.cover,cropMeta.cover);photo="";cropMeta.cover=null}if(banner){savedPhotos.banner=await saveObjectPhoto(objectId,"banner",banner,savedPhotos.banner,cropMeta.banner);banner="";cropMeta.banner=null}if(customerLogo){savedLogos.customer_logo=await saveObjectLogo(objectId,"customer_logo",customerLogo,savedLogos.customer_logo);customerLogo=""}if(contractorLogo){savedLogos.general_contractor_logo=await saveObjectLogo(objectId,"general_contractor_logo",contractorLogo,savedLogos.general_contractor_logo);contractorLogo=""}d.close();if(id)go(`/objects/object/${id}`);else objectsPage()};el("deleteObject").onclick=async()=>{const id=form.elements.id.value,name=form.elements.name.value;if(!id)return;if(!confirm(`Удалить объект «${name}»?\n\nВсе данные этого объекта будут удалены.`))return;await discardPending();await data().objects.remove(id);d.close();go("/objects");objectsPage()}}
 async function objectPage(id){const o=await data().objects.get(id);if(!o)return go("/objects");const [sections,photos]=await Promise.all([data().sections.get(id),objectPhotoMap(id)]);let bannerUrl="";const bannerFile=photos.banner?.data?.file_path||"";if(bannerFile)try{bannerUrl=await irProject.images.read(bannerFile)}catch{}app.innerHTML=`${bannerUrl?'<div class="object-page-banner" id="objectPageBanner"></div>':""}<div class="object-page-head"><button class="back" id="back">← Объекты</button><div><h1>${esc(o.name)}</h1><p>Заказчик: ${esc(o.customer||"—")} · Генподрядчик: ${esc(o.general_contractor||"—")} · ${esc(o.address)}</p></div><button class="ghost-btn" id="editObject">✎ Редактировать объект</button></div><div class="sections">${sections.map(s=>`<div class="section-row"><button class="section-link" data-section="${esc(s.section_key)}" ${s.enabled?"":"disabled"}>${esc(s.title||sectionNames[s.section_key]||s.section_key)}</button><span class="section-state ${s.enabled?"on":"off"}">${s.enabled?"Включён":"Отключён"}</span></div>`).join("")}<div class="section-row"><button class="section-link" data-section="ai-recognition">ИИ-распознавание</button><span class="section-state on">Отдельный модуль</span></div></div>${formHtml()}${versionHtml()}`;if(bannerUrl){const b=el("objectPageBanner");b.style.backgroundImage=`linear-gradient(180deg,rgba(10,17,27,.03),rgba(10,17,27,.20)),url("${bannerUrl}")`}refreshVersion();el("back").onclick=()=>go("/objects");document.querySelectorAll("[data-section]").forEach(x=>x.onclick=()=>go(`/objects/object/${id}/${x.dataset.section}`));setupObjectForm();el("editObject").onclick=()=>openObjectForm(id)}
 async function sectionPage(id,key){const o=await data().objects.get(id);if(!o)return go("/objects");const sections=await data().sections.get(id),section=sections.find(x=>x.section_key===key);if(!section?.enabled)return go(`/objects/object/${id}`);if(key==="photos"&&typeof window.irPhotosPage==="function")return window.irPhotosPage(id);app.innerHTML=`<button class="back" id="back">← ${esc(o.name)}</button><h1>${esc(section.title||sectionNames[key]||key)}</h1>${versionHtml()}`;refreshVersion();el("back").onclick=()=>go(`/objects/object/${id}`)}
-async function render(){const route=location.hash.slice(1)||"/objects";if(route==="/objects")return objectsPage();let m=route.match(/^\/objects\/object\/(\d+)$/);if(m)return objectPage(m[1]);m=route.match(/^\/objects\/object\/(\d+)\/reports(?:\/(new|\d+)(?:\/(edit))?)?$/);if(m&&window.irReportsPage){const oid=m[1],part=m[2]||"",edit=m[3]==="edit";if(part==="new")return window.irReportsPage(oid,{mode:"new"});if(/^\d+$/.test(part))return window.irReportsPage(oid,{mode:edit?"edit":"view",reportId:part});return window.irReportsPage(oid)}m=route.match(/^\/objects\/object\/(\d+)\/extra-works(?:\/([A-Za-z0-9_-]+))?$/);if(m&&window.irAdditionalWorksPage)return window.irAdditionalWorksPage(m[1],{workId:m[2]||""});m=route.match(/^\/objects\/object\/(\d+)\/([^/]+)$/);if(m){const key=decodeURIComponent(m[2]);if(key==="reports"&&window.irReportsPage)return window.irReportsPage(m[1]);if(key==="marks"&&window.irMarksPage)return window.irMarksPage(m[1]);if(key==="fasteners")return window.irFastenersPage?.(m[1]);if(key==="executive-docs")return window.irExecDocsPage?.(m[1]);if(key==="letters")return window.irLettersPage?.(m[1]);if(key==="work-types"&&window.irWorkTypesPage)return window.irWorkTypesPage(m[1]);if(key==="acted-days"&&window.irActedDaysPageV3)return window.irActedDaysPageV3(m[1]);if(key==="acted-days"&&window.irActedDaysPageV2)return window.irActedDaysPageV2(m[1]);if(key==="acted-days"&&window.irActedDaysPage)return window.irActedDaysPage(m[1]);if(key==="penalties"&&window.irPenaltiesPageV2)return window.irPenaltiesPageV2(m[1]);if(key==="penalties"&&window.irPenaltiesPage)return window.irPenaltiesPage(m[1]);if(key==="finance"&&window.irFinancePage)return window.irFinancePage(m[1]);if(key==="scheme"&&window.irSchemePage)return window.irSchemePage(m[1]);if(key==="ai-recognition"&&window.irAiRecognitionPage)return window.irAiRecognitionPage(m[1]);return sectionPage(m[1],key)}go("/objects")}
+async function render(){const route=location.hash.slice(1)||"/objects";if(route==="/objects")return objectsPage();let m=route.match(/^\/objects\/object\/(\d+)$/);if(m)return objectPage(m[1]);m=route.match(/^\/objects\/object\/(\d+)\/reports(?:\/(new|\d+)(?:\/(edit))?)?$/);if(m&&window.irReportsPage){const oid=m[1],part=m[2]||"",edit=m[3]==="edit";if(part==="new")return window.irReportsPage(oid,{mode:"new"});if(/^\d+$/.test(part))return window.irReportsPage(oid,{mode:edit?"edit":"view",reportId:part});return window.irReportsPage(oid)}m=route.match(/^\/objects\/object\/(\d+)\/extra-works(?:\/([A-Za-z0-9_-]+))?$/);if(m&&window.irAdditionalWorksPage)return window.irAdditionalWorksPage(m[1],{workId:m[2]||""});m=route.match(/^\/objects\/object\/(\d+)\/([^/]+)$/);if(m){const key=decodeURIComponent(m[2]);if(key==="reports"&&window.irReportsPage)return window.irReportsPage(m[1]);if(key==="marks"&&window.irMarksPage)return window.irMarksPage(m[1]);if(key==="fasteners")return window.irFastenersPage?.(m[1]);if(key==="executive-docs")return window.irExecDocsPage?.(m[1]);if(key==="letters")return window.irLettersPage?.(m[1]);if(key==="work-types"&&window.irWorkTypesPage)return window.irWorkTypesPage(m[1]);if(key==="acted-days"&&window.irActedDaysPageV3)return window.irActedDaysPageV3(m[1]);if(key==="penalties"&&window.irPenaltiesPageV2)return window.irPenaltiesPageV2(m[1]);if(key==="finance"&&window.irFinancePage)return window.irFinancePage(m[1]);if(key==="scheme"&&window.irSchemePage)return window.irSchemePage(m[1]);if(key==="ai-recognition"&&window.irAiRecognitionPage)return window.irAiRecognitionPage(m[1]);return sectionPage(m[1],key)}go("/objects")}
 try{if("scrollRestoration"in history)history.scrollRestoration="manual"}catch{}
 function scrollPageTop(){window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0}
 async function routeChanged(){scrollPageTop();await render();requestAnimationFrame(()=>scrollPageTop())}
 window.addEventListener("hashchange",routeChanged);routeChanged();
 ;
 
-/* #33: src/object-sort-latest-report.js */
+/* #30: src/object-sort-latest-report.js */
 "use strict";
 (()=>{
  const dateStamp=v=>{
@@ -3444,7 +3307,8 @@ window.addEventListener("hashchange",routeChanged);routeChanged();
 
 ;
 
-/* #34: src/schedule-page-v2.js */
+;
+/* #31: src/schedule-page-v2.js */
 "use strict";
 (()=>{
  const workLabel=(v,context="base")=>window.irWorkNames?.format?.(v,context)||String(v??"");
@@ -3529,7 +3393,7 @@ window.addEventListener("hashchange",routeChanged);routeChanged();
 })();
 ;
 
-/* #35: src/object-overview-direct-v3.js */
+/* #32: src/object-overview-direct-v3.js */
 "use strict";
 (()=>{
 const icon=body=>`<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
@@ -3592,7 +3456,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-/* #36: src/object-overview-trend-v3.js */
+/* #33: src/object-overview-trend-v3.js */
 "use strict";
 (()=>{
  const arr=v=>Array.isArray(v)?v:[];
@@ -3657,7 +3521,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-/* #37: src/object-overview-reports-v4.js */
+/* #34: src/object-overview-reports-v4.js */
 "use strict";
 (()=>{
  const workLabel=(v,context="base")=>window.irWorkNames?.format?.(v,context)||String(v??"");
@@ -3711,7 +3575,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-/* #38: src/object-overview-deliveries.js */
+/* #35: src/object-overview-deliveries.js */
 "use strict";
 (()=>{
  const workLabel=(v,context="base")=>window.irWorkNames?.format?.(v,context)||String(v??"");
@@ -3898,39 +3762,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-/* #39: src/object-overview-deliveries-donut.js */
-"use strict";
-(()=>{
- const num=v=>{const m=String(v??"").replace(/\s/g,"").replace(",",".").match(/-?\d+(?:\.\d+)?/);const n=m?Number(m[0]):0;return Number.isFinite(n)?n:0};
- const esc=v=>String(v??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
- const fmt=v=>{const n=Number(v)||0;return Number.isInteger(n)?String(n):String(Number(n.toFixed(3))).replace(".",",")};
- function unitOf(text){return String(text||"").replace(/[-+]?\d[\d\s]*(?:[,.]\d+)?/g,"").trim()||"ед."}
- // (written only when they differ: written every 180 ms, each write woke the twenty watchers of the page)
- function patchLabels(card){
-  const text=(el,t)=>{if(el&&el.textContent!==t)el.textContent=t},html=(el,t,h)=>{if(el&&el.textContent!==t)el.innerHTML=h};
-  text(card.querySelector(".ood-head h2"),"Поставки и монтаж");
-  text(card.querySelector(".ood-head p"),"Поставлено по накладным и смонтировано по ежедневным отчётам");
-  const legend=card.querySelectorAll(".ood-legend span");
-  html(legend[0],"Поставлено по накладным",'<i class="delivered"></i>Поставлено по накладным');
-  html(legend[1],"Смонтировано по отчётам",'<i class="mounted"></i>Смонтировано по отчётам');
- }
- function apply(){
-  const card=document.querySelector(".ood-comparison");if(!card||card.matches(".ir-supply-chart"))return;
-  patchLabels(card);
-  const stats=card.querySelector(".ood-stats");if(!stats||card.querySelector(".ood-donut-summary"))return;
-  const values=[...stats.querySelectorAll(":scope > div b")].map(x=>x.textContent.trim());if(values.length<3)return;
-  const delivered=num(values[0]),mounted=num(values[1]),unit=unitOf(values[0]),remaining=Math.max(0,delivered-mounted),over=Math.max(0,mounted-delivered);
-  const ratio=delivered>0?Math.max(0,Math.min(1,mounted/delivered)):0,C=2*Math.PI*42,green=C*ratio;
-  const wrap=document.createElement("div");wrap.className="ood-donut-summary";
-  wrap.innerHTML=`<div class="ood-donut-visual"><svg viewBox="0 0 160 160" role="img" aria-label="Поставлено ${esc(fmt(delivered))} ${esc(unit)}, смонтировано ${esc(fmt(mounted))} ${esc(unit)}, остаток ${esc(fmt(remaining))} ${esc(unit)}"><circle class="ood-donut-outer" cx="80" cy="80" r="58"></circle><circle class="ood-donut-rest" cx="80" cy="80" r="42"></circle><circle class="ood-donut-mounted" cx="80" cy="80" r="42" stroke-dasharray="${green.toFixed(2)} ${(C-green).toFixed(2)}"></circle></svg><div class="ood-donut-center"><span>Поставлено</span><b>${esc(fmt(delivered))}</b><small>${esc(unit)}</small></div></div><div class="ood-donut-info"><div class="ood-donut-row delivered"><i></i><span>Поставлено по накладным</span><b>${esc(fmt(delivered))} ${esc(unit)}</b></div><div class="ood-donut-row mounted"><i></i><span>Смонтировано по отчётам</span><b>${esc(fmt(mounted))} ${esc(unit)}</b></div><div class="ood-donut-row remaining"><i></i><span>Остаток на площадке</span><b>${esc(fmt(remaining))} ${esc(unit)}</b></div>${over>0?`<div class="ood-donut-warning">Смонтировано больше, чем поставлено по накладным, на <b>${esc(fmt(over))} ${esc(unit)}</b>. Проверь данные поставок.</div>`:""}</div>`;
-  stats.replaceWith(wrap);
- }
- let lastHash="";setInterval(()=>{const h=location.hash;if(h!==lastHash)lastHash=h;apply()},180);window.addEventListener("hashchange",()=>setTimeout(apply,80));setTimeout(apply,120);
-})();
-
-;
-
-/* #40: src/object-overview-admin-analysis.js */
+/* #36: src/object-overview-admin-analysis.js */
 "use strict";
 (()=>{
  const arr=v=>Array.isArray(v)?v:[];
@@ -3991,8 +3823,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 })();
 ;
 
-;
-/* #41: src/object-overview-top-stats.js */
+/* #37: src/object-overview-top-stats.js */
 "use strict";
 (()=>{
  const arr=v=>Array.isArray(v)?v:[];
@@ -4094,7 +3925,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 })();
 ;
 
-/* #42: src/object-data-recovery.js */
+/* #38: src/object-data-recovery.js */
 "use strict";
 (()=>{
  const KEYS=["reports","schedule","work-types","marks","deliveries"];
@@ -4178,7 +4009,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-/* #43: src/deliveries-page.js */
+/* #39: src/deliveries-page.js */
 "use strict";
 (()=>{
  const workLabel=(v,context="base")=>window.irWorkNames?.format?.(v,context)||String(v??"");
@@ -4253,7 +4084,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-/* #44: src/deliveries-route-v2.js */
+/* #40: src/deliveries-route-v2.js */
 "use strict";
 (()=>{
  const workLabel=(v,context="base")=>window.irWorkNames?.format?.(v,context)||String(v??"");
@@ -4368,7 +4199,8 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-/* #45: src/deliveries-filters.js */
+;
+/* #41: src/deliveries-filters.js */
 "use strict";
 (()=>{
  const arr=v=>Array.isArray(v)?v:[];
@@ -4457,7 +4289,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-/* #46: src/deliveries-pagination-fix.js */
+/* #42: src/deliveries-pagination-fix.js */
 "use strict";
 (()=>{
  const PAGE_SIZE=15;
@@ -4524,7 +4356,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-/* #47: src/photos-page.js */
+/* #43: src/photos-page.js */
 "use strict";
 (()=>{
  const arr=v=>Array.isArray(v)?v:[];
@@ -4569,7 +4401,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-/* #48: src/section-unified.js */
+/* #44: src/section-unified.js */
 "use strict";
 (()=>{
  const esc=v=>String(v??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -4579,10 +4411,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
   if(key==="schedule"&&previous)return previous(id,key);
   if(key==="photos"&&typeof window.irPhotosPage==="function")return window.irPhotosPage(id);
   if(key==="acted-days"&&typeof window.irActedDaysPageV3==="function")return window.irActedDaysPageV3(id);
-  if(key==="acted-days"&&typeof window.irActedDaysPageV2==="function")return window.irActedDaysPageV2(id);
-  if(key==="acted-days"&&typeof window.irActedDaysPage==="function")return window.irActedDaysPage(id);
   if(key==="penalties"&&typeof window.irPenaltiesPageV2==="function")return window.irPenaltiesPageV2(id);
-  if(key==="penalties"&&typeof window.irPenaltiesPage==="function")return window.irPenaltiesPage(id);
   if(key==="finance"&&typeof window.irFinancePage==="function")return window.irFinancePage(id);
   if(key==="scheme"&&typeof window.irSchemePage==="function")return window.irSchemePage(id);
   const deliveryMatch=String(key||"").match(/^deliveries(?:\?(.*))?$/);
@@ -4598,13 +4427,11 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
   app.innerHTML=`<div class="section-unified-page"><div class="section-unified-head"><button class="back" id="unifiedBack">← Назад</button><div><h1>${esc(title)}</h1><p>${esc(o.name||"")}</p></div></div><div class="section-unified-card">${rows.length?`<div class="section-unified-list">${rowHtml}</div>`:`<div class="section-unified-empty" data-empty="Раздел ${esc(title)} пуст"></div>`}</div></div>`;
   document.getElementById("unifiedBack").onclick=()=>location.hash=`/objects/object/${id}`;
  };
- const enhanceWorkTypes=()=>{const page=document.querySelector(".wt-page"),list=page?.querySelector(".wt-list");if(!page||!list)return;let tabs=page.querySelector(".wt-switch");if(tabs){tabs.style.display="inline-flex";return}const rows=[...list.querySelectorAll(".wt-row[data-id]")],other=rows.filter(r=>r.classList.contains("wt-other-row")||r.classList.contains("wt-service-row")),main=rows.filter(r=>!other.includes(r)),active=page.dataset.wtGroup==="other"?"other":"main";tabs=document.createElement("div");tabs.className="wt-switch wt-switch-fallback";tabs.setAttribute("role","tablist");tabs.innerHTML=`<button type="button" data-wt-fallback="main" class="${active==="main"?"on":""}">Монтаж / изготовление <span>${main.length}</span></button><button type="button" data-wt-fallback="other" class="${active==="other"?"on":""}">Другие виды работ <span>${other.length}</span></button>`;list.insertAdjacentElement("beforebegin",tabs);const apply=group=>{page.dataset.wtGroup=group;tabs.querySelectorAll("[data-wt-fallback]").forEach(b=>b.classList.toggle("on",b.dataset.wtFallback===group));for(const r of main)r.hidden=group!=="main";for(const r of other)r.hidden=group!=="other"};tabs.querySelectorAll("[data-wt-fallback]").forEach(b=>b.onclick=()=>apply(b.dataset.wtFallback));apply(active)};
- const observer=new MutationObserver(()=>queueMicrotask(enhanceWorkTypes));observer.observe(document.getElementById("app"),{childList:true,subtree:true});window.addEventListener("hashchange",()=>setTimeout(enhanceWorkTypes,0));setTimeout(enhanceWorkTypes,0);
 })();
 
 ;
 
-/* #49: src/object-card-photo.js */
+/* #45: src/object-card-photo.js */
 "use strict";
 (()=>{
   async function enhance(){
@@ -4638,7 +4465,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-/* #50: src/object-media-ui.js */
+/* #46: src/object-media-ui.js */
 "use strict";
 (()=>{
   const patchHints=()=>{
@@ -4745,8 +4572,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-;
-/* #51: src/object-card-actions.js */
+/* #47: src/object-card-actions.js */
 "use strict";
 (()=>{
   function enhance(){
@@ -4783,7 +4609,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-/* #52: src/profile-ui.js */
+/* #48: src/profile-ui.js */
 "use strict";
 (()=>{
  const names={admin:"Администратор",engineer:"Инженер ПТО",guest:"Гость"};
@@ -5019,7 +4845,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-/* #53: src/company-profile.js */
+/* #49: src/company-profile.js */
 "use strict";
 (()=>{
 let profile={name:"",logo:""},profileLoaded=false,brandPaintSerial=0;
@@ -5076,7 +4902,7 @@ const root=document.getElementById("app");if(root)new MutationObserver(()=>paint
 })();
 ;
 
-/* #54: src/object-filters.js */
+/* #50: src/object-filters.js */
 "use strict";
 (()=>{
   let lastSignature="";
@@ -5104,7 +4930,8 @@ const root=document.getElementById("app");if(root)new MutationObserver(()=>paint
 
 ;
 
-/* #55: src/route-indicator.js */
+;
+/* #51: src/route-indicator.js */
 "use strict";
 // The route label at the bottom of the window («objects/id1/…») is not shown any more (the engineer, 27.10.2026:
 // «убери надпись снизу objects/id и тд, уже не нужно»); a label left by an older copy of the page is removed.
@@ -5112,7 +4939,7 @@ const root=document.getElementById("app");if(root)new MutationObserver(()=>paint
 
 ;
 
-/* #56: src/titlebar.js */
+/* #52: src/titlebar.js */
 "use strict";
 (async()=>{try{const v=await irProject.updater.version(),el=document.getElementById("titlebarVersion");if(el)el.textContent="("+v+")"}catch{}})();
 const updateBtn=document.getElementById("titlebarUpdate");if(updateBtn)updateBtn.onclick=async()=>{
@@ -5129,7 +4956,7 @@ const updateBtn=document.getElementById("titlebarUpdate");if(updateBtn)updateBtn
 };
 ;
 
-/* #57: src/object-shell.js */
+/* #53: src/object-shell.js */
 "use strict";
 (()=>{
 const root=document.getElementById("app");if(!root)return;
@@ -5165,13 +4992,18 @@ async function buildNav(info){const aside=ensureSidebar(),nav=aside.querySelecto
 const schemeShown=schemeVisible&&sections.some(s=>s.section_key==="scheme");for(const s of sections){const key=s.section_key;if(key==="scheme"&&!schemeVisible||key==="ai-recognition")continue;const label=names[key]||s.title||key;nav.append(makeButton(label,key,!s.enabled,()=>location.hash=`/objects/object/${info.id}/${encodeURIComponent(key)}`));if(key==="reports")nav.append(makeButton("Доп. работы","extra-works",false,()=>location.hash=`/objects/object/${info.id}/extra-works`));if(key==="marks")nav.append(makeButton("Ведомость метизов","fasteners",!s.enabled,()=>location.hash=`/objects/object/${info.id}/fasteners`));if(key==="marks"){nav.append(makeButton(names["executive-docs"],"executive-docs",false,()=>location.hash=`/objects/object/${info.id}/executive-docs`));nav.append(makeButton(names.letters,"letters",false,()=>location.hash=`/objects/object/${info.id}/letters`));}if(key==="marks"&&!schemeShown)nav.append(makeButton("ИИ-распознавание","ai-recognition",false,()=>location.hash=`/objects/object/${info.id}/ai-recognition`))}if(!schemeShown&&!sections.some(s=>s.section_key==="marks"))nav.append(makeButton("ИИ-распознавание","ai-recognition",false,()=>location.hash=`/objects/object/${info.id}/ai-recognition`));if(!sections.some(s=>s.section_key==="marks")){nav.append(makeButton(names["executive-docs"],"executive-docs",false,()=>location.hash=`/objects/object/${info.id}/executive-docs`));nav.append(makeButton(names.letters,"letters",false,()=>location.hash=`/objects/object/${info.id}/letters`));}if(!sections.some(s=>s.section_key==="reports"))nav.append(makeButton("Доп. работы","extra-works",false,()=>location.hash=`/objects/object/${info.id}/extra-works`));setActive(info.key)}
 function routeClasses(info){document.body.classList.toggle("ir-object-route",!!info);document.body.classList.toggle("ir-object-overview",!!info&&info.key==="overview")}
 function leaveObject(){routeClasses(null);currentObjectId="";navSerial++;if(sidebar){sidebar.remove();sidebar=null}}
-function apply(){cleanupLegacyShell();const info=routeInfo();if(!info){leaveObject();return}routeClasses(info);ensureSidebar();if(currentObjectId!==info.id){currentObjectId=info.id;buildNav(info)}else setActive(info.key)}
+// Leaving the object: the menu stays until the next page has put its content in (it was taken away at once, and the
+// object page stood there without it while the list of objects loaded — the engineer 02.11.2026).
+let leaving=null;
+function stopLeaving(){if(leaving){leaving.observer.disconnect();clearTimeout(leaving.timer);leaving=null}}
+function leaveWhenReady(){if(!sidebar){leaveObject();return}if(leaving)return;const done=()=>{stopLeaving();if(!routeInfo())leaveObject()};const observer=new MutationObserver(()=>{if(root.querySelector(".home-shell"))done()});observer.observe(root,{childList:true,subtree:true});leaving={observer,timer:setTimeout(done,4000)}}
+function apply(){cleanupLegacyShell();const info=routeInfo();if(!info){leaveWhenReady();return}stopLeaving();routeClasses(info);ensureSidebar();if(currentObjectId!==info.id){currentObjectId=info.id;buildNav(info)}else setActive(info.key)}
 window.addEventListener("ir-company-profile-updated",()=>{if(sidebar)paintBrand()});window.addEventListener("hashchange",apply);window.addEventListener("ir-work-types-changed",e=>{const id=String(e?.detail?.objectId||"");if(id&&id===currentObjectId){const info=routeInfo();if(info)buildNav(info)}});apply();
 })();
 
 ;
 
-/* #58: src/select-ui.js */
+/* #54: src/select-ui.js */
 "use strict";
 window.irSelectUI=(()=>{
  const openState={api:null};
@@ -5281,7 +5113,7 @@ window.irSelectUI=(()=>{
 })();
 ;
 
-/* #59: src/object-overview-right-column.js */
+/* #55: src/object-overview-right-column.js */
 "use strict";
 /* Object overview right column, version 1.7.73.
  * Move existing module WRAPPERS, not their interactive children:

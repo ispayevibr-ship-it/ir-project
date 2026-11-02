@@ -7,9 +7,7 @@
 .ir-pretty-select.open .ir-pretty-trigger{border-color:#75a9e8;box-shadow:0 0 0 3px rgba(23,105,224,.09)}
 .ir-pretty-trigger i{width:8px;height:8px;border-right:1.7px solid #5b6f7e;border-bottom:1.7px solid #5b6f7e;transform:rotate(45deg) translateY(-2px);transition:transform .15s}
 .ir-pretty-select.open .ir-pretty-trigger i{transform:rotate(225deg) translate(-1px,-1px)}
-.ir-pretty-menu{position:absolute;z-index:1000;left:0;right:0;top:calc(100% + 6px);max-height:280px;overflow:auto;padding:5px;border:1px solid #cfd9e1;border-radius:9px;background:#fff;box-shadow:0 14px 34px rgba(24,54,75,.18)}
 .ir-pretty-menu[hidden]{display:none!important}
-.ir-pretty-select.open-up .ir-pretty-menu{top:auto;bottom:calc(100% + 6px)}
 .ir-pretty-menu button{display:block;width:100%;min-height:34px;padding:8px 10px;border:0;border-radius:6px;background:#fff;color:#304757;font-size:10px;font-weight:500;text-align:left}
 .ir-pretty-menu button:hover{background:#f2f7fb}
 .ir-pretty-menu button.selected{background:#eaf3ff;color:#1769e0;font-weight:700}
