@@ -2758,6 +2758,9 @@ window.irThreeSchemeView=(function(){
      if(nn){
       var fp=E0.clone().add(d.clone().multiplyScalar(face)),lvl=fp.y,lt=legT(c);
       if(!hit.col&&hit.top!==undefined){if(fp.y>=hit.top-.2)lvl=hit.top-hit.tf/2;else if(fp.y<=hit.bot+.2)lvl=hit.bot+hit.tf/2}
+      // (a line in the plane of the top flange already — of a brake truss, hangTies: the gusset's bottom flush with the
+      // flange's — keeps its level: the gusset there, the angle under it)
+      var inF=!hit.col&&hit.top!==undefined&&fp.y-gt/2>=hit.top-hit.tf-.0005&&fp.y+gt/2<=hit.top+.0005;if(inF)lvl=fp.y;
       g.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(nn,up,nn.clone().cross(up)));g.scale.set(.3,gt,.4);
       g.position.copy(fp).add(nn.clone().multiplyScalar(.15));g.position.y=lvl;
       // (along the face no farther than 30 mm short of the end of the member it is on: at a truss's support the plate of the
@@ -2776,7 +2779,32 @@ window.irThreeSchemeView=(function(){
       [0,1].forEach(function(j){var sd=j?1:-1;for(var t=.02;t<=gl[j]+1e-6;t+=.01){if([.01,.03,.15,.27].some(function(dd){var P=gc.clone().add(ga.clone().multiplyScalar(sd*t)).add(nn.clone().multiplyScalar(dd-.15));return host.inside(id,P,hb2)||plateAt(P,id)})){gl[j]=Math.max(0,t-.035);break}}});
       if(gl[0]+gl[1]>=.15&&gl[0]+gl[1]<.4-1e-6){g.position.add(ga.clone().multiplyScalar((gl[1]-gl[0])/2));g.scale.z=gl[0]+gl[1]}
       var by0=lvl===fp.y?null:lvl>fp.y?lvl-lt/2:lvl+lt/2;
-      var rk1=dia&&riskShift(c,v,up,dia);
+      var rk1=dia&&riskShift(c,v,up,dia),jn=c.joint||{},eg=inF&&jn.edge_gusset,cg=hit.col&&jn.column_gusset;
+      // (at the beam the node is drawn at, edge_gusset.beam: Бкр1 — not at Тб1, where no node is drawn and the two angles
+      // meeting 90 mm off its edge would go into each other)
+      if(eg&&eg.beam&&String((hit.body&&hit.body.c||{}).mark||"")!==String(eg.beam))eg=null;
+      // The node of the sheet (КМ1 л.9 узлы 1, 2: Сгк1 at the crane girder Бкр1): the plate as drawn — edge_gusset.outline_mm,
+      // [along the edge toward the side the member goes, out of the edge] from where the line crosses it —, the bolts on the
+      // line from the edge (bolts_mm: 4 × М20 at 50), the angle on under the flange (reach_mm) as far as it is clear of the
+      // web. Conventional, 300 × 400 and two bolts, the angle 100 mm short of the edge, where the joint has no node.
+      if(eg&&Array.isArray(eg.outline_mm)&&eg.outline_mm.length>=3){
+       var au=ga.clone().multiplyScalar(d.dot(ga)>=0?1:-1),esh=new T.Shape();
+       eg.outline_mm.forEach(function(q,i){var x=number(q[0])/1000,y=number(q[1])/1000;if(i)esh.lineTo(x,y);else esh.moveTo(x,y)});esh.closePath();
+       var egeo=new T.ExtrudeGeometry(esh,{depth:gt,bevelEnabled:false,curveSegments:1});egeo.translate(0,0,-gt/2);
+       g.geometry=egeo;g.scale.set(1,1,1);g.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(au,nn,au.clone().cross(nn)));g.position.copy(fp);g.position.y=lvl;
+       // (the body of the beam is its box: the web — 10 mm off its face, the corners of the angle's end — by the line's
+       // way in to it, hit.web; anything else there by its body)
+       var ang5=braceAngle(c,v),rc=number(eg.reach_mm)/1000,dn=d.dot(nn);
+       if(ang5&&!ang5.pair&&rc>0&&hit.web!==undefined&&dn>.2){var ay5=ang5.Y,an=ay5.dot(nn),w5=[ang5.lift,ang5.lift+ang5.sec.h/1000],W=(face-hit.web)*dn-.01;
+        w5.forEach(function(y){rc=Math.min(rc,(W+an*y)/dn)});var sk5={ids:[String(hit.body.id)]};
+        for(;rc>.005;rc-=.01){var P5=E0.clone().add(d.clone().multiplyScalar(face-rc));
+         if(!w5.concat([ang5.lift+ang5.sec.h/2000]).some(function(y){return[gt/2+.004,gt/2+ang5.sec.b/1000-.004].some(function(z){var Q=P5.clone().add(ay5.clone().multiplyScalar(y));Q.y=lvl-z;return host.inside(id,Q,sk5)})}))break}
+        if(rc>.005)out[k]=E0.clone().add(d.clone().multiplyScalar(face-rc))}
+       if(dia&&!ownBolts)(Array.isArray(eg.bolts_mm)?eg.bolts_mm:[]).forEach(function(s){var q=fp.clone().add(d.clone().multiplyScalar(number(s)/1000));if(rk1)q.add(rk1);q.y=lvl-lt/2;addBolt(c,q,up,dia,gt+lt)});
+       return}
+      // (at a column — КМ1 л.9 узел 1: the plate t16 welded to the column, the angle welded to it —: the plate as thick as
+      // the joint gives it, on the angle; no bolts where it gives none)
+      if(cg){var gcol=number(cg.gusset_mm)/1000;if(gcol>=.006&&gcol<=.04){g.scale.y=gcol;g.position.y=lvl-gt/2+gcol/2}if(cg.bolts===false)return}
       if(dia&&!ownBolts)boltRow(dia).forEach(function(s){var q=E0.clone().add(d.clone().multiplyScalar(cut+s));if(rk1)q.add(rk1);if(by0!==null)q.y=by0;addBolt(c,q,up,dia,gt+lt)});
       return
      }
@@ -2973,15 +3001,22 @@ window.irThreeSchemeView=(function(){
     var up=ang?(two&&!tee?it.sec.b+g/2:g/2):halfSection(it.c).h*1000;
     // (a single angle or a pair «┬» hangs wholly under its gusset: the gusset welded under the top flange of a rolled
     // beam, lapped on it — flush with it, КМ2 л.12 узлы 33–35 —; flangeEnd draws it)
-    var flush=ang&&(!two||tee);
+    var flush=ang&&(!two||tee),brake=ang&&!two;
     [[it.ax,it.ay,it.az],[it.bx,it.by,it.bz]].forEach(function(e,k){
      var best=null;
      (cells.get(Math.floor(e[0]/C)+","+Math.floor(e[1]/C))||[]).forEach(function(h){
       var rx=e[0]-h.ax,ry=e[1]-h.ay,along=rx*h.ux+ry*h.uy,off=Math.abs(rx*h.uy-ry*h.ux);
       if(along<-300||along>h.L+300||off>h.sec.b/2+250)return;
       var top=topAt(h,Math.max(0,Math.min(1,along/h.L))),d=Math.abs(e[2]-top);
-      if(d<=100&&(!best||d<best.d))best={d:d,h:h,top:top}
+      if((d<=100||d<=200&&e[2]<top&&brake&&!h.chord&&role(h.c)==="crane")&&(!best||d<best.d))best={d:d,h:h,top:top}
      });
+     // (a tie of a brake truss — Сгк1 L100×8 between the crane girder Бкр1 and the brake beam Тб1, КМ1 л.9 узлы 1, 2 —:
+     // its gusset welded to the edge of the top flange, in the plane of the flange, the bottoms flush; the angle under the
+     // gusset and on under the flange. The line, the middle of the gusset, there — at the level of the scheme, 100 mm under
+     // the top, the angle hung 92 mm under its gussets: the engineer, 02.11.2026, «сейчас она у тебя в воздухе висит»)
+     if(best&&brake&&!best.h.chord&&role(best.h.c)==="crane"){var zc=best.top-number(best.h.sec.t)+g/2;if(Math.abs(zc-e[2])<.5)return;
+      var kc=Math.round(e[0]/50)+","+Math.round(e[1]/50)+","+Math.round(e[2]/50);groups.set(kc,Math.min(groups.has(kc)?groups.get(kc):Infinity,zc));
+      ends.push({id:String(it.c.id),k:k,z0:e[2],key:kc,z:zc,host:null});return}
      if(!best||!carrying(best.h)&&!kinCarries(best.h))return;
      var lap=flush&&!best.h.chord,z=best.top-best.h.sec.t-(lap?0:10)-up;if(z>=e[2])return;
      var key=Math.round(e[0]/50)+","+Math.round(e[1]/50)+","+Math.round(e[2]/50);
