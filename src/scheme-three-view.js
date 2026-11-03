@@ -667,6 +667,8 @@ window.irThreeSchemeView=(function(){
    var end=m.geometryType==="column"?toWorld(m.x,m.y,topOf(m)):m.geometryType==="shell"||m.geometryType==="plate"?toWorld(m.x,m.y,m.z2):toWorld(m.x2,m.y2,number(m.z2)-hd[1]);
    // (a wall of panels, its windows and trims: on the outer face of the frame — wallLines)
    var ws=m.ft&&lineShift&&lineShift.get(String(m.id||""));if(ws){start.add(ws);end.add(ws)}
+   // (a rail of a roof guard where the frames of its posts hold it — guardRails)
+   var gs=railShift&&railShift.get(String(m.id||""));if(gs){start.add(gs[0]);end.add(gs[1])}
    return m.geometryType==="bent"?[start,toWorld(m.mx,m.my,m.mz),end]:[start,end]
   }
   host.innerHTML='<div class="ir-three-root">'+
@@ -3275,28 +3277,168 @@ window.irThreeSchemeView=(function(){
     var hd=hangDrop.get(String(p.id))||[0,0];hangDrop.set(String(p.id),[hd[0]-lift,hd[1]-lift]);
     // (the middle of its top flange: up (h/2)·cos, shifted (h/2)·sin downhill — for what lies on the purlins, guardFeet)
     var dn=got.rise>0?-1:1;
-    purlinTops.push({ax:ax,ay:ay,ux:ux,uy:uy,L:L,b:sec.b/2,z:number(p.z0)+lift+sec.h/2*Math.cos(ar),sx:dn*got.ux*sec.h/2*Math.sin(ar),sy:dn*got.uy*sec.h/2*Math.sin(ar)})
+    // (wx, wy uphill, k the rise of the flange's top across the purlin, as the roof's)
+    purlinTops.push({id:String(p.id),ax:ax,ay:ay,ux:ux,uy:uy,L:L,b:sec.b/2,z:number(p.z0)+lift+sec.h/2*Math.cos(ar),sx:dn*got.ux*sec.h/2*Math.sin(ar),sy:dn*got.uy*sec.h/2*Math.sin(ar),wx:-dn*got.ux,wy:-dn*got.uy,k:Math.tan(ar)})
    })
   }
   // A post of a roof guard on a plate of its own lying on the roof (footPlate: Огк1 «−4×320×550» on the sandwich panel,
   // КМ3 л.48) over purlins turned with the slope (purlinTilts): the plate on the top flange of the purlin under it, the
   // post's foot and its plate lifted by what the top of that flange stands over the plane of the plate (hangDrop of the
   // post). Laid at the level of the post's foot, the plate went 1.7 mm into П1 along the eaves of the annex (Огк1 at О10).
-  var purlinTops=[];
+  // (the plate as it is drawn — from the leg of a guard's frame out, guardFrame — over the top of any level rolled beam under
+  // it, turned or not: the highest point of that top within the plate's footprint. A plate along a purlin was skipped —
+  // only crossings were looked for — and a purlin not turned was not looked at: the plate of Огк1 at О8/Г lay along П1
+  // I25Б1 12 mm under the top of its flange, the engineer's chat 03.11.2026 «перепроверь этот элемент, как здесь должен
+  // быть узел»)
+  // (the tops of the level rolled beams under the roof — I, channel, box, zed —: for the toe board too, roofTops)
+  var purlinTops=[],roofTops=[];
+  function clipPoly(poly,clip){
+   var area=0;clip.forEach(function(q,i){var w=clip[(i+1)%clip.length];area+=q[0]*w[1]-w[0]*q[1]});var sg=area<0?-1:1,out=poly;
+   for(var i=0;i<clip.length&&out.length;i++){
+    var A=clip[i],B=clip[(i+1)%clip.length],inside=function(P){return sg*((B[0]-A[0])*(P[1]-A[1])-(B[1]-A[1])*(P[0]-A[0]))>=-1e-9},src=out;out=[];
+    src.forEach(function(P,k){var Q=src[(k+1)%src.length],pi=inside(P),qi=inside(Q);
+     if(pi)out.push(P);
+     if(pi!==qi){var dx=Q[0]-P[0],dy=Q[1]-P[1],den=(B[0]-A[0])*dy-(B[1]-A[1])*dx;if(Math.abs(den)>1e-12){var t=((B[1]-A[1])*(P[0]-A[0])-(B[0]-A[0])*(P[1]-A[1]))/den;out.push([P[0]+dx*t,P[1]+dy*t])}}})}
+   return out
+  }
+  // (the plate's run along toward_mm, mm: from s0 to s1 — of a guard's frame from its leg 70 mm in to the outer end)
+  function plateRun(c,f){var gf=guardFrame(c);return gf?[GF.ain-f.l*1000,GF.ain]:[-25,f.l*1000-25]}
+  var postInWall=new Map();
   function guardFeet(list){
-   if(!purlinTops.length)return;
+   postInWall.clear();var tops=purlinTops.slice(),seen=new Set(purlinTops.map(function(t){return t.id}));roofTops=tops;
+   // (a box too: the wall girt Рр □180×5 at the step of row Ж of the annex, its top at the roof's level)
+   list.forEach(function(p){
+    if(p.geometryType!=="beam"||!p.id||seen.has(String(p.id))||role(p)==="guards")return;
+    var sec=sectionOf(p.profile_name||p.profileName,p.profile_standard);if(!sec||!/^(ibeam|channel|box|zed)$/.test(sec.shape))return;
+    var ax=number(p.x),ay=number(p.y),L=Math.hypot(number(p.x2)-ax,number(p.y2)-ay);if(L<500||Math.abs(number(p.z2)-number(p.z0))>5)return;
+    var hd=hangDrop.get(String(p.id))||[0,0];
+    tops.push({id:String(p.id),mark:String(p.mark||p.mark_name||""),ax:ax,ay:ay,ux:(number(p.x2)-ax)/L,uy:(number(p.y2)-ay)/L,L:L,b:sec.b/2,z:number(p.z0)-hd[0]+sec.h/2,sx:0,sy:0,wx:0,wy:0,k:0})});
+   if(!tops.length)return;
+   // (a post of a guard's frame standing where a wall's beam passes over the roof — the girt Рр □180×5 of the step at row Ж
+   // of the annex, 120…220 mm over the roof towards О10: its leg in the girt —: not drawn, its card says so; postInWall)
    list.forEach(function(c){
-    if(!c.id||c.geometryType!=="column")return;var f=footPlateSize(c.base);if(!f)return;
+    if(!c.id||!guardFrame(c))return;var x=number(c.x),y=number(c.y),z=number(c.z0),r=guardFrame(c).r*1000;
+    tops.some(function(t){var mx=t.ax+t.sx,my=t.ay+t.sy,s=(x-mx)*t.ux+(y-my)*t.uy,m=(y-my)*t.ux-(x-mx)*t.uy;
+     if(s<-r||s>t.L+r||Math.abs(m)>t.b+r||!(t.z-z>=60&&t.z-z<1000))return false;postInWall.set(String(c.id),t.mark||"стена");return true})});
+   list.forEach(function(c){
+    if(!c.id||c.geometryType!=="column"||postInWall.has(String(c.id)))return;var f=footPlateSize(c.base);if(!f)return;
     var x=number(c.x),y=number(c.y),z=number(c.z0),hl=Math.hypot(f.dx,f.dy);if(hl<.1)return;
-    var vx=f.dx/hl,vy=f.dy/hl,gz=f.dz/hl,s0=-25*hl,s1=(f.l*1000-25)*hl,up=0;
-    purlinTops.forEach(function(t){
-     // (where the line of the plate crosses the middle of the purlin's top in plan; within its length and the plate)
-     var px=t.ax+t.sx,py=t.ay+t.sy,den=vx*t.uy-vy*t.ux;if(Math.abs(den)<.2)return;
-     var rx=px-x,ry=py-y,s=(rx*t.uy-ry*t.ux)/den,m=(rx*vy-ry*vx)/den;
-     if(m<-t.b||m>t.L+t.b||s<s0-t.b||s>s1+t.b)return;
-     var d=t.z-(z+gz*s);if(d>up&&d<30)up=d});
+    var vx=f.dx/hl,vy=f.dy/hl,gz=f.dz/hl,run=plateRun(c,f),s0=run[0]*hl,s1=run[1]*hl,hw=f.w*500,up=0,ln=postLine.get(String(c.id));
+    // (across: level, or rising along the line of its guard — footBasis)
+    var gq=ln?ln.g*((ln.ux*-vy+ln.uy*vx)<0?-1:1):0;
+    var plate=[[s0,-hw],[s1,-hw],[s1,hw],[s0,hw]].map(function(q){return[x+vx*q[0]-vy*q[1],y+vy*q[0]+vx*q[1]]});
+    tops.forEach(function(t){
+     var mx=t.ax+t.sx,my=t.ay+t.sy;if(Math.abs((x-mx)*-t.uy+(y-my)*t.ux)>t.b+f.l*1000+f.w*1000)return;
+     var top=[[0,-t.b],[t.L,-t.b],[t.L,t.b],[0,t.b]].map(function(q){return[mx+t.ux*q[0]-t.uy*q[1],my+t.uy*q[0]+t.ux*q[1]]});
+     clipPoly(plate,top).forEach(function(V){
+      // (to 60 mm: a plate on the slope along a purlin not turned with it — Огк1 at О8 — stands 30 mm under the downhill
+      // edge of its flange)
+      var s=(V[0]-x)*vx+(V[1]-y)*vy,q=(V[1]-y)*vx-(V[0]-x)*vy,d=t.z+t.k*((V[0]-mx)*t.wx+(V[1]-my)*t.wy)-(z+gz*s+gq*q);if(d>up&&d<60)up=d})});
     if(up>.05){var id=String(c.id),hd=hangDrop.get(id)||[0,0];hangDrop.set(id,[hd[0]-up,hd[1]])}
    })
+  }
+  // A roof guard of a КМ drawn as its sheet gives it (ИР-71535 КМ3 л.48, Огк1: «Ограждение кровли»): on each plate
+  // −4×320×550 lying on the roof panel (поз. 3, self-tapping screws) a bar Ø18 bent in a triangle (поз. 2, l=1350): its leg
+  // square to the plate 70 mm from the plate's inner end — on the line of the guard —, bent at the top round the handrail,
+  // the strut down outward to the plate 65 mm from its outer end; the lugs −4×50×90 (поз. 5) and −4×50×80 (поз. 4) welded
+  // beside the feet of the leg and of the strut; the handrail Ø18 (поз. 1) in the bend, the middle rail 300 under the top
+  // on the outer side of the legs, the toe board −4×150×1000 (поз. 6) on the plates on their inner side. The plate goes
+  // from the leg OUT, down the slope (toward_mm of the base points in, up it). Drawn as an upright Ø18 at the plate's outer
+  // end with the plate in, the rails ran through the posts (538 places of ИР-71535), the posts 4 mm into their plates
+  // (259) — the engineer's chat 03.11.2026 «перепроверь этот элемент, как здесь должен быть узел».
+  // GF (mm): the leg from the plate's inner end, the strut's foot from its outer end, the lugs [along, high], the toe board
+  // [high, thick], the gap of the toe board to the leg.
+  var GF={ain:70,aout:65,lug5:[90,50],lug4:[80,50],toe:[150,4],gap:2};
+  function guardFrame(c){
+   if(!c||c.geometryType!=="column")return null;var f=footPlateSize(c.base);if(!f||f.l<.3)return null;
+   var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);if(!sec||sec.shape!=="round"||!(sec.h>=8&&sec.h<=30))return null;
+   var H=number(topOf(c))-number(c.z0);if(!(H>=300&&H<=1500))return null;
+   return{f:f,r:sec.h/2000,H:H/1000}
+  }
+  // The plate's frame at the foot of a post (m, world): a its foot (on the plate's bottom; raw — the foot of the record,
+  // not lifted onto a purlin), d along toward_mm (in), side across it level, up square to the plate.
+  // (across it along the line of its guard where that rises — a gable: the plate on the slope along the guard, the leg
+  // square to it; drawn level across, the toe board along the slope went into the plates — postLine)
+  function footBasis(c,f,raw){
+   var x=number(c.x),y=number(c.y),z=number(c.z0)-(raw?0:(hangDrop.get(String(c.id))||[0])[0]),ln=postLine.get(String(c.id));
+   var a=toWorld(x,y,z),d=toWorld(x+f.dx*1000,y+f.dy*1000,z+f.dz*1000).sub(a);if(d.lengthSq()<1e-9)return null;d.normalize();
+   var side=new T.Vector3(0,1,0).cross(d);if(side.lengthSq()<1e-9)return null;side.normalize();
+   if(ln){var lw=toWorld(x+ln.ux*1000,y+ln.uy*1000,z+ln.g*1000).sub(a).normalize();lw.sub(d.clone().multiplyScalar(lw.dot(d)));
+    if(lw.lengthSq()>.25){lw.normalize();if(lw.dot(side)<0)lw.negate();side=lw}}
+   return{a:a,d:d,side:side,up:d.clone().cross(side).normalize()}
+  }
+  // The rails of a guard through its posts (beams of a round bar to 30 mm): the posts within 30 mm of the rail's line in
+  // plan, the rail at their tops (k 1) or halfway up (k .5), and whether the post's plate goes across it (its own line).
+  function railPosts(e,posts){
+   if(!e.id||e.geometryType!=="beam")return null;var sec=sectionOf(e.profile_name||e.profileName,e.profile_standard);if(!sec||sec.shape!=="round"||sec.h>30)return null;
+   var ax=number(e.x),ay=number(e.y),bx=number(e.x2),by=number(e.y2),L=Math.hypot(bx-ax,by-ay);if(L<300)return null;var ux=(bx-ax)/L,uy=(by-ay)/L,on=[];
+   posts.forEach(function(p){var s=(p.x-ax)*ux+(p.y-ay)*uy,m=(p.y-ay)*ux-(p.x-ax)*uy;if(Math.abs(m)>30||s<-30||s>L+30)return;
+    var zr=number(e.z0)+(number(e.z2)-number(e.z0))*Math.max(0,Math.min(1,s/L)),H=p.g.H*1000,k=Math.abs(zr-p.z-H)<40?1:Math.abs(zr-p.z-H/2)<40?.5:0;if(!k)return;
+    var hl=Math.hypot(p.g.f.dx,p.g.f.dy);on.push({p:p,s:s,k:k,zr:zr,across:hl>.1&&Math.abs((p.g.f.dx*ux+p.g.f.dy*uy)/hl)<.5})});
+   return{ax:ax,ay:ay,bx:bx,by:by,L:L,ux:ux,uy:uy,g:(number(e.z2)-number(e.z0))/L,R:sec.h/2000,on:on}
+  }
+  function guardPosts(list){var posts=[];list.forEach(function(c){var g=c.id&&guardFrame(c);if(g)posts.push({c:c,id:String(c.id),g:g,x:number(c.x),y:number(c.y),z:number(c.z0)})});return posts}
+  // (no toe board to a post not drawn — postInWall)
+  var postLine=new Map();
+  function guardLines(list){
+   postLine.clear();var posts=guardPosts(list);if(!posts.length)return;
+   list.forEach(function(e){var rp=railPosts(e,posts);if(!rp)return;rp.on.forEach(function(q){if(q.across&&!postLine.has(q.p.id))postLine.set(q.p.id,{ux:rp.ux,uy:rp.uy,g:rp.g})})})
+  }
+  // (the handrail and the middle rail of such a guard where its frames hold them: each rail moved by what its posts give —
+  // railShift, [start, end] in m —, at a corner the end of the one on the side of the other; the toe board under the
+  // middle rail from post to post — toeRuns)
+  var railShift=new Map(),toeRuns=[];
+  function railSpot(p,k,R){
+   var B=footBasis(p.c,p.g.f,true);if(!B)return null;var r=p.g.r,rho=r+R+.0003,o=B.d.clone().negate();
+   return B.a.clone().add(B.up.clone().multiplyScalar(p.g.f.t+(k===1?p.g.H-r-rho:p.g.H/2))).add(o.multiplyScalar(k===1?rho:r+R))
+  }
+  function guardRails(list){
+   railShift.clear();toeRuns=[];
+   var posts=guardPosts(list);if(!posts.length)return;
+   var rails=[];
+   list.forEach(function(e){
+    var rp=railPosts(e,posts);if(!rp)return;var on=rp.on,R=rp.R;
+    var own=on.filter(function(q){return q.across});if(on.length<2||!own.length)return;
+    var k=own[0].k,S=new T.Vector3(),n=0,inw=new T.Vector3();
+    own.forEach(function(q){if(q.k!==k)return;var t=railSpot(q.p,k,R);if(!t)return;S.add(t.sub(toWorld(q.p.x,q.p.y,q.zr)));n++;var B=footBasis(q.p.c,q.p.g.f,true);if(B)inw.add(B.d)});
+    if(!n)return;S.multiplyScalar(1/n);inw.setY(0);if(inw.lengthSq()<1e-9)return;inw.normalize();
+    var a=toWorld(rp.ax,rp.ay,number(e.z0)),b=toWorld(rp.bx,rp.by,number(e.z2)),u=b.clone().sub(a).normalize();
+    // (square to the rail: along itself its ends stay)
+    S.sub(u.clone().multiplyScalar(S.dot(u)));
+    railShift.set(String(e.id),[S.clone(),S.clone()]);
+    rails.push({e:e,id:String(e.id),k:k,R:R,a0:a.clone(),b0:b.clone(),a:a.add(S),b:b.add(S),u:u,L:rp.L,on:on.filter(function(q){return q.k===k}).sort(function(p,q){return p.s-q.s}),inw:inw})});
+   // (a corner: the end of the rail whose posts there stand across it goes on to the other's axis and past it by its
+   // radius, the other stops on its side)
+   rails.forEach(function(A,i){rails.forEach(function(B,j){
+    if(j<=i||A.k!==B.k||Math.abs(A.u.x*B.u.x+A.u.z*B.u.z)/Math.hypot(A.u.x,A.u.z)/Math.hypot(B.u.x,B.u.z)>.5)return;
+    [0,1].forEach(function(ea){[0,1].forEach(function(eb){
+     var pa=ea?A.b:A.a,pb=eb?B.b:B.a;if(Math.hypot(pa.x-pb.x,pa.z-pb.z)>.3||Math.abs(pa.y-pb.y)>.1)return;
+     // (the plan crossing of the two lines)
+     var dax=A.u.x,daz=A.u.z,dbx=B.u.x,dbz=B.u.z,den=dax*dbz-daz*dbx;if(Math.abs(den)<1e-6)return;
+     var ta=((pb.x-pa.x)*dbz-(pb.z-pa.z)*dbx)/den,tb=((pb.x-pa.x)*daz-(pb.z-pa.z)*dax)/den;
+     var endA=A.on[ea?A.on.length-1:0],ownA=endA&&endA.across&&Math.abs(endA.s-(ea?A.L:0))<60;
+     var P=ownA?A:B,Q=ownA?B:A,eP=ownA?ea:eb,eQ=ownA?eb:ea,tP=ownA?ta:tb,tQ=ownA?tb:ta;
+     // (t along the rail's own line, the plan lengths over the plan part of it)
+     var mv=function(X,e,t){railShift.get(X.id)[e].add(X.u.clone().multiplyScalar(t))},ch=function(X){return Math.hypot(X.u.x,X.u.z)};
+     var sP=eP?1:-1,sQ=eQ?1:-1;
+     mv(P,eP,tP+sP*P.R/ch(P));mv(Q,eQ,tQ-sQ*(P.R+Q.R+.0003)/ch(Q))})})})});
+   // (a ridge: two rails of one line rising to it from both sides — each moved square to itself, they met past each
+   // other —: both to where their lines cross, each short of it by its radius × tan of half the turn)
+   rails.forEach(function(A,i){rails.forEach(function(B,j){
+    if(j<=i||A.k!==B.k)return;
+    [0,1].forEach(function(ea){[0,1].forEach(function(eb){
+     var pa=(ea?A.b0:A.a0).clone().add(railShift.get(A.id)[ea]),pb=(eb?B.b0:B.a0).clone().add(railShift.get(B.id)[eb]);if(pa.distanceTo(pb)>.1)return;
+     var oa=ea?A.u.clone():A.u.clone().negate(),ob=eb?B.u.clone():B.u.clone().negate(),ha=Math.hypot(oa.x,oa.z),hb=Math.hypot(ob.x,ob.z);
+     if(ha<.5||hb<.5||(oa.x*ob.x+oa.z*ob.z)/ha/hb>-.95)return;
+     var turn=Math.acos(Math.max(-1,Math.min(1,oa.dot(ob.clone().negate()))));if(turn<.02)return;
+     // (the nearest points of the two lines)
+     var w=pa.clone().sub(pb),b=oa.dot(ob),dd=oa.dot(w),e=ob.dot(w),den=1-b*b;if(den<1e-6)return;
+     var ta=(b*e-dd)/den,tb=(e-b*dd)/den,M=pa.clone().add(oa.clone().multiplyScalar(ta)).add(pb.clone().add(ob.clone().multiplyScalar(tb))).multiplyScalar(.5);
+     var back=Math.max(A.R,B.R)*Math.tan(turn/2)+.0005;
+     railShift.get(A.id)[ea].add(M.clone().sub(oa.clone().multiplyScalar(back)).sub(pa));
+     railShift.get(B.id)[eb].add(M.clone().sub(ob.clone().multiplyScalar(back)).sub(pb))})})})});
+   rails.forEach(function(A){if(A.k!==.5)return;
+    for(var i=1;i<A.on.length;i++){var p=A.on[i-1],q=A.on[i];if(q.s-p.s>2000||q.s-p.s<100||postInWall.has(p.p.id)||postInWall.has(q.p.id))continue;toeRuns.push({c:A.e,id:A.id,p:p.p,q:q.p,pa:p.across,qa:q.across,inw:A.inw})}})
   }
   var flangeAt=new Map();
   function hangTies(list){
@@ -4000,7 +4142,7 @@ window.irThreeSchemeView=(function(){
    allMeshes=[];plateCells.clear();platesN=0;boltList=[];webGus=[];webTraps=[];footRibFree.clear();dataById.clear();meshesById.clear();failures=0;conventional.clear();drillCache.clear();upperCache.clear();seatCache.clear();
    labels.forEach(function(l){l.el.remove()});labels=[];
    elems=Array.isArray(list)?list:[];
-   slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);underChords(elems);purlinNodes(elems);seatLevels(elems);purlinTilts(elems);guardFeet(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);roofCones(elems);ladderStringers(elems);stairStringers(elems);
+   slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);underChords(elems);purlinNodes(elems);seatLevels(elems);purlinTilts(elems);guardLines(elems);guardFeet(elems);guardRails(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);roofCones(elems);ladderStringers(elems);stairStringers(elems);
    var host=jointHosts(elems);findCrossings(elems,host);
    // (trusses and two-branch columns first: the members coming to them stop at their chords and branches)
    var lattice=function(c){return Boolean(c.truss&&Array.isArray(c.truss.members)&&c.truss.members.length||latticed(c))};
@@ -4127,6 +4269,8 @@ window.irThreeSchemeView=(function(){
     if(c.lay&&(c.lay.lattice||c.lay.bars)&&addSpaceFrame(c,id)){host.parts(c,meshesById.get(id));return}
     if(latticeAt.has(id)&&branchLattice(c,id,latticeAt.get(id)))return;
     if(postAtCol.has(id))return;
+    if(postInWall.has(id))return;
+    if(c.geometryType==="column"&&guardFrame(c)&&guardFrameParts(c,id))return;
     for(var i=0;i<p.length-1;i++)if(dist(p[i],p[i+1])>.005)segments.push([p[i],p[i+1]]);
     // A vertical brace drawn as a cross: the second diagonal from the top of the first end to the foot of the second.
     if(c.cross&&p.length===2&&segments.length){var q0=p[0].clone(),q1=p[1].clone();q0.y=p[1].y;q1.y=p[0].y;segments.push([q0,q1])}
@@ -4220,13 +4364,14 @@ window.irThreeSchemeView=(function(){
     var id=String(e.b.id);if(!dataById.has(id))return;var parts=[];seatParts(k,e,parts);
     parts.forEach(function(m){m.userData.memberId=id;steel.add(m);allMeshes.push(m);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(m)})
    })});
+   toeRuns.forEach(function(run){if(dataById.has(run.id))toeBoard(run)});
    pairChannels(elems.filter(function(c){return dataById.has(String(c.id))}));
    crossPlates.forEach(function(e){if(!dataById.has(e.id))return;var m=e.mesh;
     m.userData.memberId=e.id;steel.add(m);allMeshes.push(m);if(!meshesById.has(e.id))meshesById.set(e.id,[]);meshesById.get(e.id).push(m)});
    pedestals=[];platelessPosts();
    elems.forEach(function(c){if(dataById.has(String(c.id))&&basePlated(c))baseParts(c)});
    elems.forEach(function(c){if(c.geometryType!=="column"||!dataById.has(String(c.id)))return;if(capOf(c))capParts(c);if(c.base&&c.base.step)stepParts(c)});
-   elems.forEach(function(c){if(c.geometryType==="column"&&dataById.has(String(c.id))&&footPlateSize(c.base))footPlate(c)});
+   elems.forEach(function(c){if(c.geometryType==="column"&&dataById.has(String(c.id))&&footPlateSize(c.base)&&!postInWall.has(String(c.id)))footPlate(c)});
    girderBrackets();webPlates();deckRecut()
   }
   // The gussets of braces at a column from the open side of its I (trimSegment; КМ1 л.19, узлы 21, 22: the gusset t16
@@ -4350,13 +4495,76 @@ window.irThreeSchemeView=(function(){
    return t>0&&t<.05&&w>.05&&l>.05&&w<2&&l<2&&d>1?{t:t,w:w,l:l,dx:number(v[0])/d,dy:number(v[1])/d,dz:number(v[2])/d}:null
   }
   function footPlate(c){
-   var f=footPlateSize(c.base),id=String(c.id),x=number(c.x),y=number(c.y),z=number(c.z0)-(hangDrop.get(id)||[0])[0];
-   var a=toWorld(x,y,z),d=toWorld(x+f.dx*1000,y+f.dy*1000,z+f.dz*1000).sub(a);if(d.lengthSq()<1e-9)return;d.normalize();
-   var side=new T.Vector3(0,1,0).cross(d);if(side.lengthSq()<1e-9)return;side.normalize();var up=d.clone().cross(side).normalize();
+   var f=footPlateSize(c.base),id=String(c.id),B=footBasis(c,f);if(!B)return;var a=B.a,d=B.d,side=B.side,up=B.up,run=plateRun(c,f);
    var plate=partTag(new T.Mesh(shared("foot:"+f.w.toFixed(3)+":"+f.t.toFixed(3)+":"+f.l.toFixed(3),function(){return new T.BoxGeometry(f.w,f.t,f.l)}),baseMaterial(c)),"опорная плита");
    plate.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(side,up,d));
-   plate.position.copy(a).add(d.clone().multiplyScalar(f.l/2-.025)).add(up.clone().multiplyScalar(f.t/2));
+   plate.position.copy(a).add(d.clone().multiplyScalar((run[0]+run[1])/2000)).add(up.clone().multiplyScalar(f.t/2));
    plate.userData.memberId=id;steel.add(plate);allMeshes.push(plate);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(plate)
+  }
+  // A bar bent along a path in one plane (m, world; `side` square to that plane): rings of 10 round it, mitred at the
+  // bends, the first and the last ring cut in the plane through `base` square to `up` (the bar's ends on a plate) — one
+  // solid, its bends not parts going into each other.
+  function sweepBar(path,r,side,up,base){
+   var k=10,pos=[],idx=[],N=path.length,rings=[];
+   for(var i=0;i<N;i++){var a=i>0?path[i].clone().sub(path[i-1]).normalize():null,b=i<N-1?path[i+1].clone().sub(path[i]).normalize():null;
+    var t=a&&b?a.clone().add(b).normalize():(a||b).clone(),e=side.clone().cross(t).normalize(),sc=a&&b?1/Math.max(.3,a.dot(t)):1,ring=[];
+    for(var j=0;j<k;j++){var w=2*Math.PI*j/k,v=path[i].clone().add(side.clone().multiplyScalar(r*Math.cos(w))).add(e.clone().multiplyScalar(r*Math.sin(w)*sc));
+     if(i===0||i===N-1){var h=v.clone().sub(base).dot(up),dn=t.dot(up);if(Math.abs(dn)>.05)v.sub(t.clone().multiplyScalar(h/dn))}
+     ring.push(v)}
+    rings.push(ring)}
+   var add=function(v){pos.push(v.x,v.y,v.z);return pos.length/3-1};
+   // (each triangle turned out: its normal away from the bar's line there)
+   var tri=function(A,B,C,out){var n=B.clone().sub(A).cross(C.clone().sub(A));if(n.dot(out)<0){var X=B;B=C;C=X}idx.push(add(A),add(B),add(C))};
+   for(i=0;i+1<N;i++)for(j=0;j<k;j++){var p0=rings[i][j],p1=rings[i][(j+1)%k],q0=rings[i+1][j],q1=rings[i+1][(j+1)%k],mid=path[i].clone().add(path[i+1]).multiplyScalar(.5);
+    var o=p0.clone().add(p1).add(q0).add(q1).multiplyScalar(.25).sub(mid);tri(p0,p1,q1,o);tri(p0,q1,q0,o)}
+   [[0,path[1].clone().sub(path[0]).negate()],[N-1,path[N-1].clone().sub(path[N-2])]].forEach(function(e){
+    var R=rings[e[0]],cn=R.reduce(function(s,v){return s.add(v)},new T.Vector3()).multiplyScalar(1/k);for(var j=0;j<k;j++)tri(cn,R[j],R[(j+1)%k],e[1])});
+   var g=new T.BufferGeometry();g.setAttribute("position",new T.Float32BufferAttribute(pos,3));g.setIndex(idx);g.computeVertexNormals();return g
+  }
+  // The frame of a guard post on its plate (guardFrame): the bent bar — the leg, the bend round the handrail, the strut —
+  // and the two lugs; drawn in place of the post's upright body.
+  function guardFrameParts(c,id){
+   var gf=guardFrame(c),f=gf&&gf.f,B=gf&&footBasis(c,f);if(!B)return false;
+   var r=gf.r,rho=2*r+.0003,o=B.d.clone().negate(),top=B.a.clone().add(B.up.clone().multiplyScalar(f.t)),mat=baseMaterial(c),parts=[];
+   var at=function(L,h){return top.clone().add(o.clone().multiplyScalar(L)).add(B.up.clone().multiplyScalar(h))};
+   var hc=gf.H-r-rho,D=f.l-(GF.ain+GF.aout)/1000,vx=D-rho,vy=-hc,dd=Math.hypot(vx,vy);if(dd<=rho+.01||hc<.05)return false;
+   // (the strut leaves the bend where it is tangent to it: from the leg's side over the top, clockwise, to there)
+   var th=Math.atan2(vy,vx)+Math.acos(rho/dd),n=Math.max(4,Math.ceil((Math.PI-th)/(Math.PI/18))),pts=[at(0,0),at(0,hc)];
+   for(var i=1;i<=n;i++){var w=Math.PI-(Math.PI-th)*i/n;pts.push(at(rho+rho*Math.cos(w),hc+rho*Math.sin(w)))}
+   pts.push(at(D,0));
+   parts.push(partTag(new T.Mesh(sweepBar(pts,r,B.side,B.up,top),mat),"стойка с подкосом (пруток гнутый, поз. 2)",c.profile_name));
+   // (the lugs on the plate beside the bars, along the plate: поз. 5 at the leg from the toe board out, поз. 4 round the strut's foot)
+   var lt=.004,sd=r+lt/2,gap=GF.gap/1000,l5=GF.lug5[0]/1000,h5=GF.lug5[1]/1000,l4=GF.lug4[0]/1000,h4=GF.lug4[1]/1000;
+   parts.push(partTag(plateBox(c,at(-r-gap+.0003+l5/2,h5/2).add(B.side.clone().multiplyScalar(sd)),o,B.up,B.side,l5,h5,lt),"упор −4×50×90 (поз. 5)"));
+   parts.push(partTag(plateBox(c,at(D,h4/2).add(B.side.clone().multiplyScalar(sd)),o,B.up,B.side,l4,h4,lt),"упор −4×50×80 (поз. 4)"));
+   parts.forEach(function(m){m.userData.memberId=id;steel.add(m);allMeshes.push(m);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(m)});
+   var lab=at(rho,gf.H+.35),el=document.createElement("span");el.className="ir-three-member-label";el.textContent=c.mark||c.title||"";
+   labelLayer.appendChild(el);labels.push({el:el,pos:lab,id:id});
+   return true
+  }
+  // The toe board of such a guard (поз. 6, −4×150×1000): on the plates from post to post on the inner side of the legs.
+  // (its bottom over both plates: from foot to foot, raised by what the plate of a post lifted onto a purlin stands over
+  // that line at its edge, 0.3 mm over them; 4 mm short of the feet — the pieces turn a little at a lifted post —; at a
+  // post of another line — a corner — short of its plate)
+  function toeBoard(run){
+   // (in along the plate's own plane: on the slope of an eave, offset level, it went 2.7 mm into the plates)
+   var c=run.c,id=run.id,ends=[run.p,run.q].map(function(p){var B=footBasis(p.c,p.g.f);if(!B)return null;var iw=run.inw.clone().sub(B.up.clone().multiplyScalar(run.inw.dot(B.up))).normalize();
+    return{B:B,f:p.g.f,P:B.a.clone().add(B.up.clone().multiplyScalar(p.g.f.t)).add(iw.multiplyScalar(p.g.r+(GF.gap+GF.toe[1]/2)/1000))}});
+   if(!ends[0]||!ends[1])return;var X=ends[1].P.clone().sub(ends[0].P),len=X.length();if(len<.1)return;X.normalize();
+   var up=ends[0].B.up.clone().add(ends[1].B.up),Y=up.sub(X.clone().multiplyScalar(up.dot(X))).normalize(),Z=X.clone().cross(Y),h=GF.toe[0]/1000,lift=.0003;
+   ends.forEach(function(e,i){var sd=e.B.side.clone().multiplyScalar((e.B.side.dot(X)<0?-1:1)*(i?-1:1)*e.f.w/2),Q=e.P.clone().add(sd);
+    lift=Math.max(lift,Q.clone().sub(ends[0].P).dot(Y)+.0003)});
+   // (and over the top of a purlin it crosses between the posts — П1 at the ridge of the annex О1–О3, 300 off the post at
+   // the ridge: the board went 4 mm into it)
+   var A=fromWorld(ends[0].P.clone().add(Y.clone().multiplyScalar(lift))),Bq=fromWorld(ends[1].P.clone().add(Y.clone().multiplyScalar(lift))),ax=Bq.x-A.x,ay=Bq.y-A.y,al=Math.hypot(ax,ay),need=0;
+   if(al>1){var nx=-ay/al*2,ny=ax/al*2,strip=[[A.x+nx,A.y+ny],[Bq.x+nx,Bq.y+ny],[Bq.x-nx,Bq.y-ny],[A.x-nx,A.y-ny]];
+    roofTops.forEach(function(t){var mx=t.ax+t.sx,my=t.ay+t.sy,top=[[0,-t.b],[t.L,-t.b],[t.L,t.b],[0,t.b]].map(function(q){return[mx+t.ux*q[0]-t.uy*q[1],my+t.uy*q[0]+t.ux*q[1]]});
+     clipPoly(strip,top).forEach(function(V){var f=((V[0]-A.x)*ax+(V[1]-A.y)*ay)/al/al,d=t.z+t.k*((V[0]-mx)*t.wx+(V[1]-my)*t.wy)-(A.z+(Bq.z-A.z)*f);if(d>need&&d<100)need=d})})}
+   if(need>0)lift+=need/1000/Math.max(.5,Y.y)+.0003;
+   var cut=[run.pa?.004:.004+run.p.g.f.w/2,run.qa?.004:.004+run.q.g.f.w/2];if(len-cut[0]-cut[1]<.1)return;
+   var mid=ends[0].P.clone().add(X.clone().multiplyScalar((cut[0]+len-cut[1])/2)).add(Y.clone().multiplyScalar(lift+h/2));
+   var m=partTag(plateBox(c,mid,X,Y,Z,len-cut[0]-cut[1],h,GF.toe[1]/1000),"бортовая полоса −4×150×1000 (поз. 6)");
+   m.userData.memberId=id;steel.add(m);allMeshes.push(m);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(m)
   }
   // A stringer of a stair standing on its plate at the ground (ИР КМ3 л.15, узел 7: the foot of Кр1 [16П cut level on a
   // plate −10×150×350 at −0,100, one bolt СРБ 16×150 through it inside the channel, 40 mm off the web — разрез 8-8):
@@ -6398,7 +6606,7 @@ window.irThreeSchemeView=(function(){
    list.forEach(function(m){if(m.userData.hole||m.userData.anchor||m.userData.footing||m.userData.weld||m.material===concreteMat)return;v+=volumeOf(m)});
    return{mass_kg:own&&!conventional.has(id)&&v>0?Math.round(v*7850*10)/10:null,bolts:boltList.filter(function(b){return b.id===id}).length,
     nodes:nodes.filter(function(n){return n.members.some(function(m){return String(m.c.id)===id})}).map(function(n){return{id:n.id,name:kindName(n),axes:axisOf(n.x,n.y).split(" (")[0]}}),
-    colors:parts?parts.color:{},body:parts?parts.body:null,lit:litFor===id?litPart:null,spec:derivedParts.get(id)||null,wall_mm:wallCut.has(id)?Math.round(wallCut.get(id)*1000):0,col_post:postAtCol.get(id)||"",line_mm:lineMoved.has(id)?Math.round(lineMoved.get(id)*1000):0}
+    colors:parts?parts.color:{},body:parts?parts.body:null,lit:litFor===id?litPart:null,spec:derivedParts.get(id)||null,wall_mm:wallCut.has(id)?Math.round(wallCut.get(id)*1000):0,col_post:postAtCol.get(id)||"",wall_post:postInWall.get(id)||"",line_mm:lineMoved.has(id)?Math.round(lineMoved.get(id)*1000):0}
   }
   function legendRows(){
    var counts=new Map(),rows=[];

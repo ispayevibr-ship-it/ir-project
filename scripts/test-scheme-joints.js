@@ -18,7 +18,7 @@ assert.ok(view.includes("face=Math.min(hit.t,L*.4),cut=Math.min(face+(brace?Math
 // Braces: the plane of the gussets from the braces it crosses or meets (a bracing in a roof slope lies in the slope),
 // the angles beside the gusset (a pair either side of it), the halves of a crossing clear of each other's edges.
 assert.match(view,/function bracePlanes\(list\)\{/);assert.match(view,/function braceAngle\(c,u\)\{/);
-assert.ok(view.includes("seatOnTops(elems);hangTies(elems);underChords(elems);purlinNodes(elems);seatLevels(elems);purlinTilts(elems);guardFeet(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);"),"planes known before the members are drawn");
+assert.ok(view.includes("seatOnTops(elems);hangTies(elems);underChords(elems);purlinNodes(elems);seatLevels(elems);purlinTilts(elems);guardLines(elems);guardFeet(elems);guardRails(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);"),"planes known before the members are drawn");
 assert.ok(view.includes("function planeWidth(c){")&&view.includes("+(cut?planeWidth(cut)*cs/sin:0)+.03"),"the halves of a crossing clear of each other");
 // Beams crossing in the middle: the lower one is cut round the one running through (no node gusset for those).
 assert.ok(view.includes("crossCut.get(cut.id).push({at:P,n:cut.U.clone().cross(thr.U).normalize(),g:g,through:thr.c,plain:true,body:thr,host:host})"),"a plain crossing splits the lower");

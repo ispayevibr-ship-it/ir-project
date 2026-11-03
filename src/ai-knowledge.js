@@ -21,6 +21,13 @@ function createKnowledge({getUserDataPath}){
    return(d.rules||[]).filter(r=>ST.byKey.get(r.type)).map(r=>({...r,mark:norm(r.mark),prefix:norm(r.prefix).replace(/\d.*$/,""),repo:true}))}
   catch{return[]}
  }
+ // The engineer's hard rules and standing requests (knowledge/hard-rules.json: the closed repository, else the update):
+ // {id, hard, since, area, title, text, check, prompt} — those with prompt go to Claude in every request.
+ function hardRules(){
+  try{const d=JSON.parse(fs.readFileSync(require("./ai-knowledge-dirs").file("hard-rules.json"),"utf8"));
+   return(Array.isArray(d.rules)?d.rules:[]).filter(r=>r&&r.id&&r.title&&r.text).map(r=>({id:String(r.id),hard:!!r.hard,since:String(r.since||""),area:String(r.area||""),title:String(r.title).slice(0,200),text:String(r.text).slice(0,1500),check:String(r.check||""),prompt:r.prompt!==false}))}
+  catch{return[]}
+ }
  // Lessons of Claude's processing (what it found out about reading drawings, not about one object): kept in
  // userData/ai-learned/lessons.json, sent to GitHub with the answers; the checked ones of the repository are in
  // knowledge/lessons.json. Letters of marks → a kind, words of names → a kind (applied by the program itself on every
@@ -127,10 +134,14 @@ function createKnowledge({getUserDataPath}){
  // For the request to Claude: the engineer's rules and notes in plain words.
  // Rules of other projects are left out: their marks mean other things.
  function forPrompt(projectHint=""){
-  const proj=String(projectHint||""),d=read(),repo=repoRules();if(!d.rules.length&&!d.notes.length&&!repo.length&&!d.types.length&&!lessons().length)return"";
+  const hard=hardRules().filter(r=>r.prompt);
+  const proj=String(projectHint||""),d=read(),repo=repoRules();if(!hard.length&&!d.rules.length&&!d.notes.length&&!repo.length&&!d.types.length&&!lessons().length)return"";
   d.rules=[...d.rules,...repo].filter(r=>!r.project||proj.includes(r.project));
-  const lines=["УКАЗАНИЯ ИНЖЕНЕРА (запомненные программой, выполняй их):",
-   "- Марка в разных комплектах значит разное (К12 в одном — колонна, в другом — прогон). Вид элемента бери из ведомости и наименований этого комплекта; марки без проекта и буквы марок ниже — только подсказка, когда наименования нет."];
+  const lines=[];
+  // The engineer's hard rules first: they hold for every set, without exceptions.
+  if(hard.length)lines.push("ЖЁСТКИЕ ПРАВИЛА И ПОСТОЯННЫЕ ПРОСЬБЫ ИНЖЕНЕРА (knowledge/hard-rules.json; «без исключений» — нарушать нельзя ни в одном ответе):",...hard.map(r=>"- "+r.title+(r.hard?" (без исключений)":"")+": "+r.text),"");
+  lines.push("УКАЗАНИЯ ИНЖЕНЕРА (запомненные программой, выполняй их):",
+   "- Марка в разных комплектах значит разное (К12 в одном — колонна, в другом — прогон). Вид элемента бери из ведомости и наименований этого комплекта; марки без проекта и буквы марок ниже — только подсказка, когда наименования нет.");
   for(const r of d.rules)lines.push("- "+(r.mark?"марка "+r.mark:"марки на «"+r.prefix+"…»")+" — "+(ST.byKey.get(r.type)?.name||r.type)+" ("+r.type+")"+(r.project?", в этом комплекте ("+r.project+")":", подсказка")+(r.note?" — "+r.note:""));
   for(const n of d.notes.slice(-40))lines.push("- "+n.text);
   const learned=lessons();
@@ -141,6 +152,6 @@ function createKnowledge({getUserDataPath}){
   if(d.types.length)lines.push("Виды конструкций, добавленные инженером (ключ — наименование (буквы марок) — слова): "+d.types.map(t=>t.key+" — "+t.name+(t.marks.length?" ("+t.marks.join(", ")+")":"")+(t.words.length?" — "+t.words.join(", "):"")).join("; "));
   return lines.join("\n")
  }
- return{list,setType,addNote,addType,remove,resolver,forPrompt,lessons,addLessons,lessonsFile,aliases}
+ return{list,setType,addNote,addType,remove,resolver,forPrompt,lessons,addLessons,lessonsFile,aliases,hardRules}
 }
 module.exports={createKnowledge};

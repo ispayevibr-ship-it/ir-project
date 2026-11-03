@@ -128,6 +128,7 @@
   if(num(m.line_mm)>0)out.push("стена поставлена по наружной грани каркаса — на "+fmt(m.line_mm)+" мм наружу от линии по фасадам АР");
   // (a railing post in a column: not drawn — the column holds the rails there)
   if(m.col_post)out.push("стойка ограждения стоит на оси колонны "+m.col_post+" — в 3D не рисуется: здесь поручни крепятся к колонне");
+  if(m.wall_post)out.push("стойка ограждения кровли попадает в стеновой ригель "+m.wall_post+", который здесь выше кровли, — в 3D не рисуется; место ограждения проверьте по разделу АР");
   var wall=num(m.wall_mm)>0?'<div class="ec-facts ec-warn">За стену из сэндвич-панелей выходило '+esc(fmt(m.wall_mm))+' мм — показан до стены. Проверьте положение элемента по чертежу.</div>':"";
   return(out.length?'<div class="ec-facts">'+esc(out.join(" · "))+'</div>':"")+wall
  }
