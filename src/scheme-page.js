@@ -1004,7 +1004,9 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   const sameMark=c.import_batch?records().filter(r=>String(r.id)!==String(c.id)&&r.import_batch&&!r.engineer_confirmed&&String(r.mark||"")===String(c.mark||"")&&String(c.mark||"")):[];
   const confirmHtml=(c.import_batch&&!c.engineer_confirmed?`<button type="button" class="ok" data-scheme-confirm title="Положение, отметки и сечение верны: элемент станет «подтверждено», повторная расстановка его не изменит">✓ Подтвердить</button>`:"")+
    (sameMark.length?`<button type="button" class="ok" data-scheme-confirm-mark title="Подтвердить все неподтверждённые элементы марки ${esc(c.mark)} на схеме">✓ Все ${esc(c.mark)} (${sameMark.length+(c.engineer_confirmed?0:1)})</button>`:"");
-  const actionsHtml=canEdit()?`<div class="scheme-detail-actions">${confirmHtml}<button type="button" data-scheme-edit>Редактировать</button><button type="button" data-scheme-copy-place>⧉ Размещение</button><button type="button" data-scheme-copy>⧉ Копировать позицию</button><button type="button" class="danger" data-scheme-delete>Удалить</button></div>${irProject.ai?.invoke?`<div class="scheme-journal-send"><input type="text" data-scheme-journal-note maxlength="500" placeholder="Комментарий к правке (необязательно)"><button type="button" data-scheme-journal title="Правки и расстановка записываются в журнал сами; кнопка добавляет к элементу ваш комментарий. Журнал уходит на GitHub каждый час">В журнал</button><small data-scheme-journal-state>${journalSent.has(String(c.id))?"В журнале: "+esc(journalSent.get(String(c.id))):""}</small></div>`:""}`:"";
+  // (all of the mark at once, beside «✓ Все» — the engineer, 03.11.2026: «и удалить все? если есть подтвердить все»)
+  const allOfMark=String(c.mark||"")?records().filter(r=>String(r.mark||"")===String(c.mark)):[];
+  const actionsHtml=canEdit()?`<div class="scheme-detail-actions">${confirmHtml}<button type="button" data-scheme-edit>Редактировать</button><button type="button" data-scheme-copy-place>⧉ Размещение</button><button type="button" data-scheme-copy>⧉ Копировать позицию</button><button type="button" class="danger" data-scheme-delete>Удалить</button>${allOfMark.length>1?`<button type="button" class="danger" data-scheme-delete-mark title="Удалить со схемы все элементы марки ${esc(c.mark)}">Удалить все ${esc(c.mark)} (${allOfMark.length})</button>`:""}</div>${irProject.ai?.invoke?`<div class="scheme-journal-send"><input type="text" data-scheme-journal-note maxlength="500" placeholder="Комментарий к правке (необязательно)"><button type="button" data-scheme-journal title="Правки и расстановка записываются в журнал сами; кнопка добавляет к элементу ваш комментарий. Журнал уходит на GitHub каждый час">В журнал</button><small data-scheme-journal-state>${journalSent.has(String(c.id))?"В журнале: "+esc(journalSent.get(String(c.id))):""}</small></div>`:""}`:"";
   // The card in plain words, by the drawings (src/scheme-element-card.js): what it is, its section, where it stands, what
   // the drawings say of it; the exact coordinates folded away. The tiles of before only when the module is not loaded.
   const EC=window.irSchemeElementCard;
@@ -1074,6 +1076,17 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    const mark=linkedMark(c),quota=mark&&markPlacement(mark);
    if(!quota?.left){alert("Нет остатка марки по ведомости.");return}
    window.irThreeSchemeView?.startCopy?.(String(c.id))
+  });
+  panel.querySelector("[data-scheme-delete-mark]")?.addEventListener("click",async e=>{
+   const btn=e.currentTarget,ids=allOfMark.map(r=>String(r.id));
+   if(!confirm(`Удалить со схемы все элементы марки «${c.mark}»: ${ids.length}?\nЭто нельзя отменить.`)){restoreKeyboardAfterConfirm();return}
+   restoreKeyboardAfterConfirm();btn.disabled=true;let n=0;
+   try{
+    // (one line in the journal for the whole mark: the journal is read whole for each line)
+    await journalAuto(c.id,"deleted",{comment:`Удалены все элементы марки ${c.mark}: ${ids.length}`});
+    for(const id of ids){btn.textContent=`Удаляется… ${n}/${ids.length}`;await schemeApi.remove(id);n++}
+   }catch(error){alert(`Удалено ${n} из ${ids.length}: `+String(error?.message||error))}
+   rows=await schemeApi.list().catch(()=>rows);selectedId="";refreshAfterMemberChange();restoreKeyboardAfterConfirm()
   });
   panel.querySelector("[data-scheme-delete]")?.addEventListener("click",async()=>{if(!confirm(`Удалить элемент ${c.mark?`«${c.mark}» `:""}со схемы?`)){restoreKeyboardAfterConfirm();return}restoreKeyboardAfterConfirm();await journalAuto(c.id,"deleted");await schemeApi.remove(c.id);rows=await schemeApi.list().catch(()=>rows);selectedId="";refreshAfterMemberChange();restoreKeyboardAfterConfirm()});bindElementPicker(panel)
  }

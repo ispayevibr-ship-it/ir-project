@@ -303,16 +303,16 @@
   let child;
   try{child=frame.contentWindow;if(!child)return;void child.location.hash}catch{notify("Ошибка доступа к вкладке — проверьте обновление.");return}
   // A route change follows successful saves. Before leaving a page, retain its draft warning.
-  const onHash=()=>{try{tab.dirty=false;setRoute(tab.id,child.location.hash.slice(1)||"/objects")}catch{}};
+  const onHash=()=>{try{tab.dirty=false;tab.dirtyForms=null;setRoute(tab.id,child.location.hash.slice(1)||"/objects")}catch{}};
   child.addEventListener("hashchange",onHash);
   child.document.addEventListener("input",e=>{
    const target=e.target;
    if(!target?.closest)return;
-   if(target.closest('form')&&!target.matches('input[type="search"],input[type="hidden"]'))markDirty(tab.id);
+   if(target.closest('form')&&!target.matches('input[type="search"],input[type="hidden"]')){markDirty(tab.id);(tab.dirtyForms||(tab.dirtyForms=new Set())).add(target.closest('form'))}
   },true);
   child.document.addEventListener("change",e=>{
    const target=e.target;
-   if(target?.closest?.("form")&&!target.matches('input[type="search"]'))markDirty(tab.id)
+   if(target?.closest?.("form")&&!target.matches('input[type="search"]')){markDirty(tab.id);(tab.dirtyForms||(tab.dirtyForms=new Set())).add(target.closest("form"))}
   },true);
   // A real click inside an editor restores the native iframe keyboard target.
   // This also handles an input that visually has focus but accepts no keys.
@@ -498,9 +498,37 @@
  async function installUpdate(){
   if(updateBusy)return;
   if([...frames.values()].some(tab=>tab.dirty)){
-   updateText.textContent="Есть вкладки с несохранёнными изменениями. Сохраните отчёты и другие формы перед перезапуском, затем повторите установку.";
+   updateText.textContent="Есть вкладки с несохранёнными изменениями. Программа сохранит их и перезапустится.";
+   updateButtons([["Позже",false,closeUpdate],["Сохранить и перезапустить",true,saveAndInstall]]);
    return
   }
+  restartNow()
+ }
+ // «Сохранить и перезапустить» (the engineer, 03.11.2026: «если так, то делай сохранить и перезапустить»): each changed
+ // form of each tab is sent as its own «Сохранить» sends it; a form saved leaves the page (the route changes) or is
+ // drawn anew. What could not be saved (a required field empty, an error) is named, and the restart waits — or goes on
+ // without it when the engineer says so.
+ async function saveAndInstall(){
+  if(updateBusy)return;
+  updateBusy=true;updateButtons([]);updateText.textContent="Сохраняем изменения во вкладках…";
+  const dirty=[...frames.values()].filter(tab=>tab.dirty);
+  for(const tab of dirty){
+   for(const form of [...(tab.dirtyForms||[])]){
+    try{if(!form.isConnected){tab.dirtyForms.delete(form);continue}
+     if(form.checkValidity&&!form.checkValidity())continue;
+     if(form.requestSubmit)form.requestSubmit();else form.dispatchEvent(new (form.ownerDocument.defaultView.Event)("submit",{bubbles:true,cancelable:true}))}catch{}
+   }
+  }
+  const saved=tab=>!tab.dirty||!tab.dirtyForms||[...tab.dirtyForms].every(form=>!form.isConnected);
+  for(let waited=0;waited<8000&&!dirty.every(saved);waited+=250)await new Promise(r=>setTimeout(r,250));
+  updateBusy=false;
+  const left=dirty.filter(tab=>!saved(tab));
+  if(!left.length){dirty.forEach(tab=>{tab.dirty=false;tab.dirtyForms=null});renderTabBar();restartNow();return}
+  updateText.textContent="Не удалось сохранить: "+left.map(tab=>"«"+tab.title+"»").join(", ")+". Откройте вкладку, проверьте поля и сохраните — или перезапустите без этих изменений.";
+  updateButtons([["Позже",false,closeUpdate],["Перезапустить без сохранения",true,()=>{left.forEach(tab=>{tab.dirty=false;tab.dirtyForms=null});renderTabBar();restartNow()}]])
+ }
+ async function restartNow(){
+  if(updateBusy)return;
   updateBusy=true;setUpdate("Установка обновления","Перезапускаем IR Project…");updateButtons([]);
   try{await api.updater.install()}catch(e){updateError(e)}
  }

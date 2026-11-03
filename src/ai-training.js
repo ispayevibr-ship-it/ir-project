@@ -68,6 +68,33 @@ function createTraining({database,getUserDataPath,base=null}){
    set:{id:setIdOf(files),name:String(source?.name||""),files},elements:[...own,...kept]}})
  }
  const placements=oid=>database.listEntity(oid,SECTION).filter(r=>r.record_type==="placement").sort((a,b)=>String(a.data?.at).localeCompare(String(b.data?.at)));
+ // For one edit of the scheme (the journal): the placements read one by one by their numbers, each once, kept as what
+ // they placed per element — the whole section (56 MB on the engineer's object: every placement with all its elements)
+ // was read for each deleted or edited element (the engineer, 03.11.2026: «при удаление элемента, так долго удаляется»).
+ let index=null;try{index=require("./ai-db-batch").createIndex({getUserDataPath})}catch{index=null}
+ const oneRow=(oid,section,id)=>typeof database.getEntity==="function"?database.getEntity(oid,section,Number(id)):database.listEntity(oid,section).find(r=>String(r.id)===String(id))||null;
+ const placedKept=new Map(),removedKept=new Map();
+ // [{at, set, byId: id → origin}] in the order of placement; null when the numbers cannot be read (then the whole section)
+ function placedList(oid){
+  const ids=typeof database.getEntity==="function"&&index?index(oid,SECTION,"placement"):null;
+  if(!Array.isArray(ids))return null;
+  return ids.map(id=>{const k=oid+":"+id;let p=placedKept.get(k);
+   if(!p){const r=oneRow(oid,SECTION,id);p={at:String(r?.data?.at),set:r?.data?.set||null,byId:new Map((r?.data?.elements||[]).map(e=>[String(e.id),e.origin]))};placedKept.set(k,p)}
+   return p}).sort((a,b)=>a.at.localeCompare(b.at))
+ }
+ function placedOf(oid,elementId){
+  const list=placedList(oid);let placed=null,set=null;
+  if(list){for(const p of list)if(p.byId.has(String(elementId))){placed=p.byId.get(String(elementId));set=p.set}return{placed,set,last:list.length?list[list.length-1].set:null}}
+  const all=placements(oid);
+  for(const p of all){const e=(p.data?.elements||[]).find(q=>q.id===String(elementId));if(e){placed=e.origin;set=p.data?.set||null}}
+  return{placed,set,last:all.length?all[all.length-1].data?.set||null:null}
+ }
+ // the elements deleted by the engineer, kept in the object (the numbers of their records, each read once)
+ function removedHas(oid,elementId){
+  const ids=typeof database.getEntity==="function"&&index?index(oid,SECTION,"element_removed"):null;
+  if(!Array.isArray(ids))return database.listEntity(oid,SECTION).some(r=>r.record_type==="element_removed"&&String(r.data?.id)===String(elementId));
+  return ids.some(id=>{const k=oid+":"+id;if(!removedKept.has(k))removedKept.set(k,String(oneRow(oid,SECTION,id)?.data?.id));return removedKept.get(k)===String(elementId)})
+ }
  // Corrections of the latest placement of each set: compared with the scheme as it is now.
  function corrections(oid){
   const rows=database.listEntity(oid,"scheme").filter(r=>!isGrid(r)),byId=new Map(rows.map(r=>[String(r.id),r]));
@@ -191,15 +218,15 @@ function createTraining({database,getUserDataPath,base=null}){
    return push({id:crypto.randomUUID(),at,object,set:setOf(latestSet(oid)),action,auto:!!auto,element:null,grid:{before,after},placed:null,changes:["grid"],
     text:KIND.grid+": "+line(before)+" → "+line(after),comment:String(comment||"").trim().slice(0,2000)})
   }
-  const row=database.listEntity(oid,"scheme").find(r=>String(r.id)===String(elementId)&&!isGrid(r));
+  const one=Number.isSafeInteger(Number(elementId))&&Number(elementId)>0?oneRow(oid,"scheme",elementId):null;
+  const row=one&&!isGrid(one)?one:typeof database.getEntity==="function"?null:database.listEntity(oid,"scheme").find(r=>String(r.id)===String(elementId)&&!isGrid(r));
   if(!row)throw Error("Элемент не найден в монтажной схеме");
   const x=row.data||{},now=originOf(x);
-  let placed=null,set=null;
-  for(const p of placements(oid)){const e=(p.data?.elements||[]).find(q=>q.id===String(row.id));if(e){placed=e.origin;set=p.data?.set||null}}
+  const found=placedOf(oid,row.id),placed=found.placed||null,set=found.set||null;
   const changes=action==="deleted"?["deleted"]:placed?diff(placed,now):["added"];
   // An element the program placed and the engineer deleted is not placed again by a later placement (src/ai-montage.js
   // place; 02.11.2026: «удаляю сэндвич-панели они все равно потом появляются»): kept in the object, with where it was.
-  if(action==="deleted"&&placed&&!database.listEntity(oid,SECTION).some(r=>r.record_type==="element_removed"&&String(r.data?.id)===String(row.id)))
+  if(action==="deleted"&&placed&&!removedHas(oid,row.id))
    database.createEntity(oid,SECTION,{record_type:"element_removed",title:String(x.mark||""),data:{id:String(row.id),at,element:now,placed}});
   // By itself: only what differs from the drawings, and not twice the same; an element added and deleted by hand is not
   // a lesson.
@@ -208,7 +235,7 @@ function createTraining({database,getUserDataPath,base=null}){
    const last=[...d.entries].reverse().find(e=>e.object?.id===String(oid)&&e.element?.id===String(row.id));
    if(last&&JSON.stringify(last.changes)===JSON.stringify(changes)&&JSON.stringify({...last.element,id:undefined,name:undefined,profile:undefined,sheet:undefined})===JSON.stringify({...now,id:undefined}))return{entry:null,skipped:true};
   }
-  const entry={id:crypto.randomUUID(),at,object,set:setOf(set||(placed?null:latestSet(oid))),action:ACTION[action]?action:"comment",auto:!!auto,
+  const entry={id:crypto.randomUUID(),at,object,set:setOf(set||(placed?null:found.last)),action:ACTION[action]?action:"comment",auto:!!auto,
    element:{...now,id:String(row.id),name:String(x.mark_name||""),profile:String(x.profile_name||""),sheet:String(x.source_import_doc||"")},
    placed,changes,text:changes.length?changes.map(k=>KIND[k]).join(", "):"без изменений",comment:String(comment||"").trim().slice(0,2000)};
   const rule=ruleOf(entry);if(rule)entry.rule=rule;

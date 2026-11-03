@@ -656,3 +656,12 @@
 .scheme-workspace.side-off .scheme-side-toggle{margin:0;padding:10px 0;text-align:center;writing-mode:vertical-rl;min-height:120px}
 .scheme-workspace.side-off .scheme-side-toggle span{display:inline-block;margin-top:6px}
 @media(max-width:1100px){.scheme-workspace.side-off,.scheme-workspace.side-off:has(>.scheme-three-stage){grid-template-columns:minmax(0,1fr)!important}.scheme-workspace.side-off .scheme-side-toggle{writing-mode:horizontal-tb;min-height:0}}
+/* «В журнал» in the style of the buttons of the card, its field as high (the engineer, 03.11.2026: «в журнал норм кнопку оформить») */
+.scheme-journal-send{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.scheme-journal-send input{min-height:38px;border-color:#d8e1e7;border-radius:7px}
+.scheme-journal-send button{min-height:38px;padding:7px 14px;border:1px solid #bcd6ee;border-radius:7px;background:#eef6ff;color:#1769e0;font:inherit;font-size:8px;font-weight:700;cursor:pointer}
+.scheme-journal-send button:hover{border-color:#92b9db;background:#e3f0ff}
+.scheme-journal-send button:disabled{opacity:.6;cursor:default}
+.scheme-journal-send small{grid-column:1/-1}
+.ir-three-node-meta .fix.bolt{color:#c62828;font-weight:700}
+.ir-three-node-meta .fix.weld{color:#14181c;font-weight:700}

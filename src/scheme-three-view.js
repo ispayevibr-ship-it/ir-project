@@ -4631,7 +4631,7 @@ window.irThreeSchemeView=(function(){
   // members. A marker per node coloured by montage (all mounted, part, none); a click opens the node: its members,
   // their status, what is still missing. Base plates, anchors and cap plates near the camera are drawn schematically
   // (not by the КМД), only to read the node.
-  var nodeColors={mounted:0x1f9e89,partial:0xf25c05,planned:0x9aa3ad,apart:0xd62828};
+  var nodeColors={mounted:0x1f9e89,partial:0xf25c05,planned:0x9aa3ad,apart:0xd62828,bolt:0xd62828,weld:0x14181c};
   // A node the card takes apart and puts together («Разбор узла»: a member of it slides off what carries it, a column off
   // its base) is red — the engineer, 31.10.2026: «узлы которые собираются и разбираются выведи цветом красным»; one all
   // mounted stays green, the montage seen. As buildExplode chooses what stays.
@@ -4640,6 +4640,14 @@ window.irThreeSchemeView=(function(){
    return n.members.some(function(m){return!(m.role==="опора"||m.role==="примыкание"||/пояс$/.test(m.role)||n.kind==="top"&&m.c.geometryType==="column")})
   }
   function nodeTint(n){return n.status!=="mounted"&&apart(n)?"apart":n.status}
+  // How a node is joined (the engineer, 03.11.2026: «узлы где метизы покажи круглым и красным, где сварка черным
+  // треугольник»): with fasteners — the bolts the model puts there on its members (within 0.6 m), the anchors of a base —
+  // a red ball; welded — a black three-sided marker. A node all mounted stays green, the montage seen.
+  function nodeFix(n){
+   if(n.kind==="base")return"bolt";
+   var at=toWorld(n.x,n.y,n.z),ids=new Set(n.members.map(function(m){return String(m.c.id)}));
+   return boltList.some(function(b){return ids.has(b.id)&&b.at.distanceToSquared(at)<=.36})?"bolt":"weld"
+  }
   var nodeKinds={base:"База колонны",step:"Уступ колонны",top:"Оголовок колонны",side:"Примыкание к колонне",beam:"Опирание на балку",chord:"Крепление к поясу фермы",joint:"Стык элементов"};
   function kindName(n){return n.kind==="side"&&n.members.some(function(m){return hanging(m.c)})?"Крепление лестницы":nodeKinds[n.kind]}
   var nodes=[],nodeMeshes=[],nodeMats=new Map(),nodeMode="sel",showDetails=true,selectedNode=null,details=[];
@@ -4744,11 +4752,12 @@ window.irThreeSchemeView=(function(){
    nodeMeshes.forEach(function(m){helpers.remove(m)});nodeMeshes=[];
    details.forEach(function(d){detailGroup.remove(d.group)});details=[]
   }
-  var nodeGeo=new T.OctahedronGeometry(.1,0);
+  var nodeGeo=new T.SphereGeometry(.085,14,10),weldNodeGeo=new T.ConeGeometry(.1,.17,3);
   function buildNodes(){
    clearNodes();nodes=computeNodes();
    nodes.forEach(function(n){
-    var mesh=new T.Mesh(nodeGeo,nodeMaterial(nodeTint(n)));
+    n.fix=nodeFix(n);
+    var mesh=new T.Mesh(n.fix==="bolt"?nodeGeo:weldNodeGeo,nodeMaterial(n.status==="mounted"?"mounted":n.fix));
     mesh.position.copy(toWorld(n.x,n.y,n.z));mesh.renderOrder=6;mesh.userData.node=n;
     helpers.add(mesh);nodeMeshes.push(mesh);n.mesh=mesh;
     var d=nodeDetail(n);if(d){detailGroup.add(d);details.push({group:d,node:n})}
@@ -4834,7 +4843,7 @@ window.irThreeSchemeView=(function(){
    var st={mounted:"смонтирован",partial:"частично",planned:"не смонтирован"},missing=n.members.filter(function(m){return m.c.status!=="mounted"});
    var names=n.members.filter(function(m){return m.c.geometryType==="column"}).map(function(m){return m.c.mark}).filter(Boolean);
    nodePanel.innerHTML='<div class="ir-three-place-head"><b>'+escapeHtml(n.id+" · "+kindName(n)+(names.length?" "+names[0]:""))+'</b><button type="button" data-node="close" title="Закрыть">×</button></div>'+
-    '<div class="ir-three-node-meta"><span>Оси <b>'+escapeHtml(axisOf(n.x,n.y))+'</b></span><span>Отм. <b>'+level(n.z)+'</b></span><span class="st '+n.status+'">'+st[n.status]+'</span></div>'+
+    '<div class="ir-three-node-meta"><span>Оси <b>'+escapeHtml(axisOf(n.x,n.y))+'</b></span><span>Отм. <b>'+level(n.z)+'</b></span><span class="st '+n.status+'">'+st[n.status]+'</span><span class="fix '+n.fix+'">'+(n.fix==="bolt"?"● на метизах":"▲ сварной")+'</span></div>'+
     '<label class="ir-three-node-explode" title="Элементы узла расходятся с того, на чём держатся; болты и гайки — в зазоре по своей оси; остальная схема бледнеет. Схема при этом не меняется.">Разбор узла'+
     '<input type="range" min="0" max="100" step="1" value="'+Math.round((explode&&explode.node===n?explode.s:0)*100)+'" data-node="explode" aria-label="Разбор узла"></label>'+
     '<div class="ir-three-node-list">'+n.members.map(function(m){
@@ -4980,6 +4989,7 @@ window.irThreeSchemeView=(function(){
    paintNodesFrame();invalidate()
   }
   function chooseNode(n){
+   if(n&&selected)choose("");
    selectedNode=n;paintNode();
    if(n){var c=toWorld(n.x,n.y,n.z),dir=camera.position.clone().sub(controls.target).normalize(),d=Math.min(camera.position.distanceTo(controls.target),14);
     flight={from:controls.target.clone(),to:c,camFrom:camera.position.clone(),camTo:c.clone().add(dir.multiplyScalar(d)),t:0,ms:850,st:performance.now()}}
@@ -6145,7 +6155,6 @@ window.irThreeSchemeView=(function(){
   // смотри как четко показан узел, также сделай»). The numbers are conventional, not of a drawing; a plate is as large
   // as it is drawn — by its node where the sheet gives it, else conventional. A member of one piece is lit as it was.
   var derivedParts=new Map(),pieceOrder={"верхний пояс":1,"нижний пояс":2,"раскос":3,"стойка":4,"элемент решётки":5};
-  var DERIVED_NOTE="КМД нет: позиции условные, по деталям модели; размеры — как нарисованы по узлам КМ (где лист их не даёт — условные).";
   function pieceOf(m,c){
    var u=m.userData,g=m.geometry,gp=g&&g.parameters||{},tag=u.part||null,mm=function(v){return Math.round(v*1000)};
    if(u.hole||u.anchor||u.footing||u.fixed||u.shell||!g)return null;
@@ -6193,7 +6202,7 @@ window.irThreeSchemeView=(function(){
      var sec=g.o===0&&n===2?g.s.replace(/^2\s*[LЛ∟]\s*/i,"∟"):g.s;
      return{pos:pos,section:sec,count:n,length_mm:same&&L>0?L:null,mass_kg:g.kg>0?Math.round(g.kg/n*10)/10:null,note:g.n}
     });
-    derivedParts.set(id,{rows:rows,body:body,note:DERIVED_NOTE})
+    derivedParts.set(id,{rows:rows,body:body})
    })
   }
   function partsOf(id){
@@ -6353,8 +6362,12 @@ window.irThreeSchemeView=(function(){
   }
   // (the empty floor clicked again with nothing chosen does not draw the page's side panel anew: it lists all 5000
   // members then, and every short click on the floor stopped the window)
+  // (one card at a time — the engineer, 03.11.2026: «у тебя получается окно поверх окна, выбранный элемент и за ним
+  // узел»: a member chosen closes the card of the node, the bolt or the crane; a node chosen closes the member's card)
   function choose(id){
-   var next=String(id||""),same=!next&&!selected;selected=next;if(!same)P.onSelect&&P.onSelect(selected);paintHighlight()
+   var next=String(id||""),same=!next&&!selected;selected=next;
+   if(next&&nodePanel){if(selectedNode){selectedNode=null;clearExplode()}nodePanel.hidden=true}
+   if(!same)P.onSelect&&P.onSelect(selected);paintHighlight()
   }
   function screenRay(e){
    var rect=renderer.domElement.getBoundingClientRect();
@@ -6898,7 +6911,7 @@ window.irThreeSchemeView=(function(){
     viewport.removeEventListener("wheel",wheel,true);root.removeEventListener("wheel",rootWheel);renderer.domElement.removeEventListener("dblclick",dblclick);
     document.removeEventListener("keydown",keyDown);document.removeEventListener("keyup",keyUp);document.removeEventListener("keydown",shiftKey);document.removeEventListener("keyup",shiftKey);
     window.removeEventListener("blur",releaseKeys);
-    controls.dispose();clearNodes();clearCallouts();partMats.forEach(function(m){m.dispose()});nodeGeo.dispose();nodeMats.forEach(function(m){m.dispose()});boltMat.dispose();plateMat.dispose();concreteMat.dispose();craneMat.dispose();hoistMat.dispose();wheelMat.dispose();glassMat.dispose();openingGlass.dispose();hardwareMat.dispose();silverMat.dispose();fixedMats.forEach(function(m){m.dispose()});boltMats["8.8"].dispose();boltMats["5.8"].dispose();washerMats["8.8"].dispose();washerMats["5.8"].dispose();boltPickMat.dispose();
+    controls.dispose();clearNodes();clearCallouts();partMats.forEach(function(m){m.dispose()});nodeGeo.dispose();weldNodeGeo.dispose();nodeMats.forEach(function(m){m.dispose()});boltMat.dispose();plateMat.dispose();concreteMat.dispose();craneMat.dispose();hoistMat.dispose();wheelMat.dispose();glassMat.dispose();openingGlass.dispose();hardwareMat.dispose();silverMat.dispose();fixedMats.forEach(function(m){m.dispose()});boltMats["8.8"].dispose();boltMats["5.8"].dispose();washerMats["8.8"].dispose();washerMats["5.8"].dispose();boltPickMat.dispose();
     meshGeo.forEach(function(g){g.dispose()});mats.forEach(function(m){m.dispose()});if(metalEnv)metalEnv.dispose();shellMats.forEach(function(m){m.dispose()});roofMats.forEach(function(m){m.dispose()});
     [selectedMat,hoverMat,axisMaterial,dimMaterial,floorMaterial,darkFloorMaterial,markerMat,pointMat,previewMat].forEach(function(m){m.dispose()});
     var cached=new Set(meshGeo.values());
