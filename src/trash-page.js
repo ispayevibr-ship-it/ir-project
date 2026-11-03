@@ -57,24 +57,48 @@
   refresh();return{close,refresh}
  }
  // Страница объекта «Корзина».
+ // Страница объекта «Корзина» — в виде остальных разделов объекта (как «Ведомость метизов»): шапка с «Назад»,
+ // карточки итогов, строка поиска с вкладками разделов, таблица.
+ const short=iso=>{const d=new Date(iso);return isNaN(d)?"":d.toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})};
+ function rowHtml(b){
+  const names=[...new Set(b.items.map(i=>i.name))],what=names.slice(0,6).join(", ")+(names.length>6||b.count>b.items.length?" …":"");
+  const soon=Date.parse(b.expiresAt)-Date.now()<864e5;
+  return`<tr><td><span class="ir-trash-sec">${esc(b.sectionName)}</span></td><td><b>${esc(what||"—")}</b>${b.title?`<small>${esc(b.title)}</small>`:""}</td>
+   <td class="n">${b.count}</td><td class="nw">${esc(short(b.deletedAt))}</td><td class="nw ${soon?"ir-trash-soon":""}">${esc(left(b.expiresAt))}</td>
+   <td class="act">${canEdit(b.section)?`<button type="button" class="ir-trash-restore" data-restore="${b.id}">↺ Восстановить</button>`:""}</td></tr>`
+ }
  async function page(oid){
   const app=document.getElementById("app");if(!app)return;
   let object=null;try{object=await api().data.objects.get(oid)}catch{}
-  let filter="";
-  app.innerHTML=`<div class="ir-trash-page"><div class="marks-top"><button class="back" id="trashBack">← Назад</button><div><h1>Корзина</h1><p>${esc(object?.name||"")} · удалённое за последние 7 дней</p></div></div>${note}<div class="ir-trash-tools"><select id="trashFilter"><option value="">Все разделы</option></select></div><div class="ir-trash-list" id="trashList"><div class="ir-trash-empty">Загрузка…</div></div></div>`;
-  document.getElementById("trashBack").onclick=()=>location.hash=`/objects/object/${oid}`;
-  const box=document.getElementById("trashList"),sel=document.getElementById("trashFilter");
+  let filter="",query="",rows=[],error="";
   const routeOk=()=>new RegExp(`^/objects/object/${oid}/trash$`).test(location.hash.slice(1));
+  const paint=()=>{
+   if(!routeOk())return;
+   const q=query.trim().toLowerCase(),secs=[...new Map(rows.map(b=>[b.section,b.sectionName])).entries()];
+   const shown=rows.filter(b=>(!filter||b.section===filter)&&(!q||[b.sectionName,b.title,...b.items.map(i=>i.name)].join(" ").toLowerCase().includes(q)));
+   const total=rows.reduce((n,b)=>n+(Number(b.count)||0),0),soon=rows.filter(b=>Date.parse(b.expiresAt)-Date.now()<864e5);
+   const tab=(k,n,c)=>`<button type="button" data-sec="${esc(k)}" class="${filter===k?"on":""}">${esc(n)} <i>${c}</i></button>`;
+   app.innerHTML=`<div class="ir-trash-page"><div class="marks-top"><button class="back" id="trashBack">← Назад</button><div><h1>Корзина</h1><p>${esc(object?.name||"")}</p></div></div>
+    <div class="ir-trash-source">Здесь всё, что удалили в объекте за последние <b>7 дней</b>: элементы схемы, марки, отчёты, поставки, письма, чертежи. Через 7 дней удалённое стирается само. Восстановленное возвращается на своё место с прежними номерами — связи с отчётами, ведомостью и схемой сохраняются.</div>
+    <div class="ir-trash-cards"><div class="ir-trash-card"><small>В корзине</small><b>${total} шт.</b><span>удалений: ${rows.length}</span></div>
+     <div class="ir-trash-card"><small>Стирается в ближайшие сутки</small><b class="${soon.length?"warn":""}">${soon.reduce((n,b)=>n+(Number(b.count)||0),0)} шт.</b><span>удалений: ${soon.length}</span></div>
+     <div class="ir-trash-card"><small>Срок хранения</small><b>7 дней</b><span>от момента удаления</span></div></div>
+    <div class="marks-tools ir-trash-tools"><input id="trashSearch" value="${esc(query)}" placeholder="Поиск по марке, номеру, названию…"><div class="ir-trash-tabs">${tab("","Все",rows.length)}${secs.map(([k,n])=>tab(k,n,rows.filter(b=>b.section===k).length)).join("")}</div></div>
+    ${error?`<div class="ir-trash-empty err">${esc(error)}</div>`:shown.length?`<div class="ir-trash-table-wrap"><table class="ir-trash-table"><thead><tr><th>Раздел</th><th>Что удалено</th><th class="n">Кол-во</th><th>Удалено</th><th>Хранится</th><th></th></tr></thead><tbody>${shown.map(rowHtml).join("")}</tbody></table></div>`
+     :`<div class="ir-trash-empty">${rows.length?"Ничего не найдено":"За последние 7 дней в объекте ничего не удаляли."}</div>`}</div>`;
+   document.getElementById("trashBack").onclick=()=>location.hash=`/objects/object/${oid}`;
+   const sIn=document.getElementById("trashSearch");sIn.oninput=()=>{query=sIn.value;const pos=sIn.selectionStart;paint();const n=document.getElementById("trashSearch");n.focus();n.setSelectionRange(pos,pos)};
+   app.querySelectorAll("[data-sec]").forEach(b=>b.onclick=()=>{filter=b.dataset.sec;paint()});
+   bindRows(app,shown,refresh,()=>{try{window.dispatchEvent(new CustomEvent("ir-work-types-changed",{detail:{objectId:String(oid)}}))}catch{}})
+  };
   const refresh=async()=>{
    if(!routeOk())return;
-   let rows=[];try{rows=await list({objectId:oid})}catch(e){box.innerHTML=`<div class="ir-trash-empty err">${esc(errText(e))}</div>`;return}
-   const secs=[...new Map(rows.map(b=>[b.section,b.sectionName])).entries()];
-   sel.innerHTML=`<option value="">Все разделы (${rows.length})</option>`+secs.map(([k,n])=>`<option value="${esc(k)}" ${k===filter?"selected":""}>${esc(n)} (${rows.filter(b=>b.section===k).length})</option>`).join("");
-   const shown=rows.filter(b=>!filter||b.section===filter);
-   box.innerHTML=shown.length?shown.map(b=>batchHtml(b)).join(""):`<div class="ir-trash-empty">За последние 7 дней в объекте ничего не удаляли.</div>`;
-   bindRows(box,shown,refresh,()=>{try{window.dispatchEvent(new CustomEvent("ir-work-types-changed",{detail:{objectId:String(oid)}}))}catch{}})
+   try{rows=await list({objectId:oid});error=""}catch(e){rows=[];error=errText(e)}
+   if(filter&&!rows.some(b=>b.section===filter))filter="";
+   paint()
   };
-  sel.onchange=()=>{filter=sel.value;refresh()};
+  app.innerHTML=`<div class="ir-trash-page"><div class="marks-top"><button class="back" id="trashBack">← Назад</button><div><h1>Корзина</h1><p>${esc(object?.name||"")}</p></div></div><div class="ir-trash-empty">Загрузка…</div></div>`;
+  document.getElementById("trashBack").onclick=()=>location.hash=`/objects/object/${oid}`;
   refresh()
  }
  // Главная: «Удалённые объекты (N)», если за 7 дней удаляли объект.

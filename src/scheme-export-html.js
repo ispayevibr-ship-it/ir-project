@@ -85,7 +85,7 @@
   // the window-filling layout gave the 3D field no height in the iPhone viewer, and the scheme stayed empty.
   "@media(max-width:760px){html.js,html.js body{height:auto;overflow:auto}.js .wrap{position:static;display:block}.js .area>.stage{position:relative;inset:auto}",
   " #stage3d{flex:none;height:78vh;min-height:420px}.side{position:fixed}.wrap>.hx{padding:8px 12px}.wrap>.hx .hx-obj h1{font-size:14px}}",
-  ".help{position:absolute;right:12px;top:52px;width:380px;max-width:calc(100% - 24px);z-index:16;box-shadow:0 8px 24px rgba(15,30,60,.18)}.help[hidden]{display:none}.help ul{margin:0;padding-left:18px;display:grid;gap:5px;font-size:13px}.help p{margin:8px 0 0;color:var(--muted);font-size:12px}",
+  "#helpBtn{display:inline-flex;align-items:center;gap:6px}#helpBtn .ic{flex:none;color:#1668ea}.help{position:absolute;right:12px;top:52px;width:380px;max-width:calc(100% - 24px);z-index:16;box-shadow:0 8px 24px rgba(15,30,60,.18)}.help[hidden]{display:none}.help ul{margin:0;padding-left:18px;display:grid;gap:5px;font-size:13px}.help p{margin:8px 0 0;color:var(--muted);font-size:12px}",
   ".side{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}",
   ".box h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}",
   ".groups label{display:flex;align-items:center;gap:7px;padding:3px 0;cursor:pointer}.groups small{margin-left:auto;color:var(--muted)}",
@@ -302,7 +302,7 @@
    var node=document.querySelector("#irThreeNode");if(node&&!node.hidden&&!inside("#irThreeNode")){var x=node.querySelector('[data-node="close"]');if(x)x.click();else node.hidden=true}
    if(S.sel&&!$("details").hidden&&!inside("#details")&&!inside("#stage3d canvas")&&!inside("#list")){S.sel="";details();list();draw3d()}
   },true);
-  // «Помощь по 3D»: how to move through the scheme (the hints that stood under it).
+  // «Инструкция» (was «? Помощь по 3D»; the engineer, 03.11.2026: «нормальную иконку поставь, переименуй Инструкция»): how to move through the scheme (the hints that stood under it).
   $("helpBtn").onclick=function(){$("help").hidden=!$("help").hidden};
   $("full").onclick=function(){var st=$("stage");if(document.fullscreenElement)document.exitFullscreen();else if(st.requestFullscreen)st.requestFullscreen()};
   groups();sections();list();details();draw3d()
@@ -349,9 +349,9 @@
   var body='<main class="wrap" id="wrap">'+head+'<div class="area"><section class="stage" id="stage"><div class="stage-bar">'+
    '<label><input type="checkbox" id="labels"> Марки</label><label><input type="checkbox" id="dims"> Размеры</label>'+
    '<select id="bg" title="Фон"><option value="standard">Фон: стандартный</option><option value="white">Белый</option><option value="gray">Серый</option><option value="blue">Голубой</option><option value="sand">Песочный</option><option value="dark">Тёмный</option></select>'+
-   '<button type="button" id="helpBtn" aria-controls="help">? Помощь по 3D</button><button type="button" id="full">⛶ На весь экран</button><button type="button" id="panel" aria-expanded="false" aria-controls="side">☰ Сведения и фильтры</button></div><div id="stage3d"></div>'+still(d)+'</section>'+
+   '<button type="button" id="helpBtn" aria-controls="help"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/><path d="M9 7h7M9 11h5"/></svg>Инструкция</button><button type="button" id="full">⛶ На весь экран</button><button type="button" id="panel" aria-expanded="false" aria-controls="side">☰ Сведения и фильтры</button></div><div id="stage3d"></div>'+still(d)+'</section>'+
    '<div class="box card" id="details" hidden></div>'+
-   '<div class="box help" id="help" hidden><h3>Помощь по 3D-схеме</h3><ul>'+
+   '<div class="box help" id="help" hidden><h3>Инструкция</h3><ul>'+
    '<li><b>Левая кнопка мыши</b> — вращение схемы</li><li><b>Правая кнопка или нажатое колесо</b> — сдвиг</li><li><b>Колесо</b> — приблизить или отдалить к точке под курсором</li>'+
    '<li><b>Двойной щелчок</b> — сделать точку центром вращения</li><li><b>W A S D, стрелки</b> — движение по схеме, <b>Q E</b> — вниз и вверх, <b>Shift</b> — быстрее</li>'+
    '<li><b>Щелчок по элементу</b> — его карточка; по маркеру узла — карточка узла</li><li><b>Телефон:</b> один палец — вращение, два — сдвиг и масштаб</li>'+

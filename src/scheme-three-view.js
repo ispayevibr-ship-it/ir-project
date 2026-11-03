@@ -3468,8 +3468,18 @@ window.irThreeSchemeView=(function(){
      if(e.end<0||v.dot(dir)>0)addBolt(b,new T.Vector3(o.x+v.x,lo+grip/2,o.z+v.z),up,dm/1000,grip)});
     dia=0
    }
-   if(dia&&w>=.1){var g=Math.max(.035,w/2-.035),mid=new T.Vector3(at.x,bottom+(tf-.02)/2,at.z);
-    [-1,1].forEach(function(q){addBolt(b,mid.clone().add(side.clone().multiplyScalar(q*g)),up,dia,tf+.02)})}
+   // (beside the bearing ribs, not under them: the ribs stand from the web to the edges of the flanges over the point, the
+   // bolts 35 mm in from those edges — at the point the head and its washer were in the rib; the engineer, 03.11.2026,
+   // «метиз торчит в ребре». Off the rib toward the column's middle by the rib's half and the washer's radius.)
+   if(dia&&w>=.1){var g=Math.max(.035,w/2-.035),st=boltSet(Math.round(dia*1000)),rr=.005+(st?Math.max(st.d2,st.S/Math.cos(Math.PI/6))/2:dia)+.003;
+    var cc=toWorld(k.c.x,k.c.y,e.zb).sub(at).dot(dir),sh=dir.clone().multiplyScalar(cc<-.001?-rr:rr);
+    // (through the plate under it as thick as it is drawn — the plate t30 under the upper part of К1 at the step: with a
+    // cap of 20 taken the nut stood 10 mm in it)
+    [-1,1].forEach(function(q){var P=new T.Vector3(at.x,bottom,at.z).add(sh).add(side.clone().multiplyScalar(q*g)),cap=.02;
+     var sb=stepBoxes(P),under=function(dz){var Q=P.clone().add(up.clone().multiplyScalar(-dz));return plateAt(Q,String(b.id))||inStep(sb,Q)};
+     var top=-1;for(var z0=.003;z0<.1;z0+=.002)if(under(z0)){top=z0;break}
+     if(top>=0){for(cap=top+.002;cap<top+.08&&under(cap+.001);cap+=.002);}
+     addBolt(b,P.clone().add(up.clone().multiplyScalar((tf-cap)/2)),up,dia,tf+cap)})}
    var rw=Math.max(.02,(w-tw)/2-.005),rh=Math.max(.05,h-2*tf);
    [-1,1].forEach(function(q){
     var rib=new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(b));
@@ -5138,9 +5148,13 @@ window.irThreeSchemeView=(function(){
    var done=new Set();
    n.members.forEach(function(m){var id=String(m.c.id);if(done.has(id))return;done.add(id);
     (meshesById.get(id)||[]).forEach(function(o){if(!o.visible||o.userData.footing||!near(o))return;
+     
      add(o.geometry,o.material,o.matrixWorld,o.userData.gusset&&(hosts.size||n.kind!=="base")?zero:movers.get(id)||zero,true)})});
+   // (the footing under a base stays where it is, clipped as the steel: the anchor rods stand in it — without it they hung
+   // in the air under the column lifted off, «а причем тут фундаментные болты? где там фундамент?», 03.11.2026)
+   if(n.kind==="base")pedestals.forEach(function(o){if(o.visible&&near(o))add(o.geometry,o.material,o.matrixWorld,zero,true)});
    var detail=details.find(function(d){return d.node===n});
-   if(detail){detail.group.updateMatrixWorld(true);var col=n.members.find(function(m){return m.c.geometryType==="column"}),cv=col&&movers.get(String(col.c.id))||zero,nut=up.clone().multiplyScalar(D*.5);
+   if(detail){detail.group.updateMatrixWorld(true);var col=n.members.find(function(m){return m.c.geometryType==="column"}),cv=col&&movers.get(String(col.c.id))||zero,nut=up.clone().multiplyScalar(Math.min(D*.5,.16));// (the nuts and washers of the anchor bolts just off the tops of their rods, each over its own: lifted half the spread they hung apart from them and the engineer did not see the bolts in them — 03.11.2026, «шпиль какой-то, где болт?»)
     detail.group.children.forEach(function(o){add(o.geometry,o.material,o.matrixWorld,o.userData.anchor==="rod"?zero:o.userData.anchor==="nut"?nut:cv,o.userData.anchor!=="nut")})}
    bolts.forEach(function(b){var v=movers.get(b.id)||zero,mat=boltMats[b.cls];
     // In the gap between the member and what carries it: the nuts nearer the carrying member, the bolts nearer theirs.
@@ -7006,7 +7020,12 @@ window.irThreeSchemeView=(function(){
    }
    return out
   }
-  return{host:host,key:key,root:root,update:update,focus:focus,look:look,startCopy:startCopy,startPlacement:startPlacement,nodes:nodeList,openNode:openNode,snapshots:snapshots,card:card,lightPart:lightPart,
+  // The bolts as the check of the model takes them (scripts/check-3d-clashes.js, «метиз только в отверстии пакета»): the
+  // middle of the pack, the axis toward the head, the shank's diameter, the pack, how far the head (with its washer) and the
+  // nuts (with theirs) reach past it, across how wide.
+  function boltsForCheck(){return boltList.map(function(b){var q=boltEnds(b),st=q.set,v=function(x){return[x.x,x.y,x.z]};
+   return{id:b.id,at:v(b.at),axis:v(b.axis),d:b.d,grip:b.grip,head:st?(b.washers>1?st.s:0)+st.k:b.d*.7,nut:st?st.s+b.nuts*st.m:b.d*.8,S:st?Math.min(st.S,st.nS):b.d*1.6,how:b.how}})}
+  return{host:host,key:key,root:root,bolts:boltsForCheck,update:update,focus:focus,look:look,startCopy:startCopy,startPlacement:startPlacement,nodes:nodeList,openNode:openNode,snapshots:snapshots,card:card,lightPart:lightPart,
    dispose:function(){
     cameraMemory[memoryKey]={position:camera.position.clone(),target:controls.target.clone(),up:camera.up.clone()};
     alive=false;clearExplode();cancelCopy();cancelPlacement();if(raf)cancelAnimationFrame(raf);if(awayTimer)clearTimeout(awayTimer);
@@ -7033,7 +7052,7 @@ window.irThreeSchemeView=(function(){
   return loadSections().then(function(){var out=[];sections.forEach(function(r){var o={};
    ["id","status","standard","h_mm","b_mm","B_mm","b1_mm","b2_mm","a_mm","s_mm","t_mm","R_mm","r_mm","diameters_mm","thicknesses_mm","sizes_mm","rows","mass_kg_m"].forEach(function(k){if(r[k]!=null)o[k]=r[k]});out.push(o)});return out})
  }
- return{render:render,dispose:dispose,sectionOf:sectionOf,massPerMetre:massPerMetre,clipTruss:clipTruss,loadSections:loadSections,sectionRows:sectionRows,fastenerRows:fastenerRows,jointKbRows:jointKbRows,
+ return{boltsForCheck:function(){return active&&active.bolts?active.bolts():[]},render:render,dispose:dispose,sectionOf:sectionOf,massPerMetre:massPerMetre,clipTruss:clipTruss,loadSections:loadSections,sectionRows:sectionRows,fastenerRows:fastenerRows,jointKbRows:jointKbRows,
   focus:function(id){return call("focus",id)},
   look:function(id,side){return call("look",id,side)},
   startCopy:function(id){return call("startCopy",id)},
