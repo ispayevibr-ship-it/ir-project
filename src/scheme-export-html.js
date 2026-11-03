@@ -74,6 +74,9 @@
   "#panel{font-weight:600}",
   ".stage{position:relative;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-height:0}",
   ".stage-bar{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;padding:8px 10px;border-bottom:1px solid var(--line);background:#f8fafc}",
+  ".stage-bar .bgdd{position:relative;display:inline-flex}.stage-bar .bgdd>button i{width:34px;height:16px;border-radius:4px;border:1px solid rgba(23,35,58,.3);display:inline-block}.stage-bar .bgdd>button b{font-weight:400;font-size:10px;color:var(--muted)}",
+  ".bglist{position:absolute;top:calc(100% + 4px);right:0;z-index:18;margin:0;padding:5px;list-style:none;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(15,30,60,.18);display:grid;gap:4px}.bglist[hidden]{display:none}",
+  ".bglist li{width:96px;height:22px;border-radius:5px;border:1px solid rgba(23,35,58,.3);cursor:pointer}.bglist li:hover{box-shadow:0 0 0 2px #fff,0 0 0 3px rgba(22,104,234,.45)}.bglist li[aria-selected=true]{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--accent)}",
   ".stage-bar button,.stage-bar select,.stage-bar label{font:inherit;font-size:12.5px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:5px 9px;color:var(--ink);display:inline-flex;align-items:center;gap:5px;cursor:pointer}",
   "#stage3d{position:relative;flex:1 1 auto;min-height:0}#stage3d .ir-three-root{position:absolute;inset:0;height:100%}",
   // The pictures and the list of elements stand apart from the 3D: seen where the page's scripts do not run, and where
@@ -84,7 +87,21 @@
   // A phone: the page scrolls as a document and the scheme has its own height (78% of the screen, at least 420 px) —
   // the window-filling layout gave the 3D field no height in the iPhone viewer, and the scheme stayed empty.
   "@media(max-width:760px){html.js,html.js body{height:auto;overflow:auto}.js .wrap{position:static;display:block}.js .area>.stage{position:relative;inset:auto}",
-  " #stage3d{flex:none;height:78vh;min-height:420px}.side{position:fixed}.wrap>.hx{padding:8px 12px}.wrap>.hx .hx-obj h1{font-size:14px}}",
+  " #stage3d{flex:none;height:78vh;height:calc(100svh - 150px);min-height:380px}.side{position:fixed}.wrap>.hx{padding:8px 12px}.wrap>.hx .hx-obj h1{font-size:14px}}",
+  // A phone (the engineer, 03.11.2026, a picture of the export on a phone: «Мобильную версию подправь» — the header,
+  // the bar in three rows and the bar of the 3D over half of it, the scheme a strip under them): the header in a few
+  // lines — the logo small beside the name, the company, the work and the date in one small line —; the bar in one row,
+  // its buttons by their icons (the words in their titles); the bar of the 3D one row that scrolls sideways, its hints
+  // of the mouse hidden (the help is in «Инструкция»); the 3D the rest of the screen.
+  "@media(max-width:760px){.wrap>.hx{gap:4px 10px;padding:6px 10px}.hx-co img{min-height:0;max-height:38px;max-width:96px}.hx-obj{flex:1 1 180px}",
+  " .wrap>.hx .hx-obj h1{font-size:12.5px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.hx-obj .addr{font-size:11.5px;margin-top:1px}",
+  " .hx-meta{flex:1 1 100%;text-align:left;font-size:11px;line-height:1.35}.hx-meta b{display:inline;font-size:11.5px;margin-right:6px}.hx-meta .wk{margin-right:6px}.hx-meta br{display:none}.hx-meta .made{display:inline;margin:0 0 0 6px}",
+  " .stage-bar{flex-wrap:nowrap;justify-content:flex-start;gap:5px;padding:5px 6px}.stage-bar button,.stage-bar label{padding:6px 8px;font-size:12.5px;white-space:nowrap}.stage-bar .lbl{display:none}",
+  " .stage-bar #panel{margin-left:auto}#help{top:46px;right:6px;left:6px;width:auto;max-width:none}",
+  " #stage3d .ir-three-toolbar{left:6px;right:6px;top:6px;min-height:0;padding:4px 5px;gap:4px;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none;border-radius:9px;background:#ffffffe6}",
+  " #stage3d .ir-three-toolbar::-webkit-scrollbar{display:none}#stage3d .ir-three-toolbar>*{flex:none}#stage3d .ir-three-views{flex-wrap:nowrap;padding:2px}",
+  " #stage3d .ir-three-toolbar button,#stage3d .ir-three-toolbar select{min-height:30px;padding:4px 7px;font-size:11.5px}#stage3d .ir-three-check{font-size:11.5px;margin:0 2px;white-space:nowrap}",
+  " #stage3d .ir-three-count{display:none}#stage3d .ir-three-footer{display:none}.card{top:52px;left:6px;max-width:calc(100% - 12px);max-height:calc(100% - 64px)}}",
   "#helpBtn{display:inline-flex;align-items:center;gap:6px}#helpBtn .ic{flex:none;color:#1668ea}.help{position:absolute;right:12px;top:52px;width:380px;max-width:calc(100% - 24px);z-index:16;box-shadow:0 8px 24px rgba(15,30,60,.18)}.help[hidden]{display:none}.help ul{margin:0;padding-left:18px;display:grid;gap:5px;font-size:13px}.help p{margin:8px 0 0;color:var(--muted);font-size:12px}",
   ".side{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}",
   ".box h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}",
@@ -286,12 +303,18 @@
   $("none").onclick=function(){D.groups.forEach(function(g){S.hidden.add(g.key)});groups();draw3d();list()};
   $("labels").onchange=function(e){S.labels=e.target.checked;draw3d()};
   $("dims").onchange=function(e){S.dims=e.target.checked;draw3d()};
-  $("bg").value=S.bg;$("bg").onchange=function(e){S.bg=e.target.value;draw3d()};
+  // The background: a button of the colour chosen opens the list of the colours (the engineer, 03.11.2026: «Цвета
+  // выпадающим списком сделай»); a colour chosen closes it.
+  var bgOpen=function(open){$("bgList").hidden=!open;$("bgBtn").setAttribute("aria-expanded",String(open))};
+  var paintBg=function(){var on=null;Array.prototype.forEach.call($("bgList").querySelectorAll("li[data-bg]"),function(b){var me=b.getAttribute("data-bg")===S.bg;b.setAttribute("aria-selected",me?"true":"false");if(me)on=b});
+   if(on){$("bgBtn").querySelector("i").style.background=on.style.background;$("bgBtn").title=on.title}};
+  paintBg();$("bgBtn").onclick=function(){bgOpen($("bgList").hidden)};
+  $("bgList").onclick=function(e){var b=e.target.closest&&e.target.closest("li[data-bg]");if(!b)return;S.bg=b.getAttribute("data-bg");paintBg();bgOpen(false);draw3d()};
   // The side panel: closed until opened; a click on an element opens it on the element's card.
   var panel=function(open){$("wrap").classList.toggle("open",open);$("panel").setAttribute("aria-expanded",String(open))};
   $("panel").onclick=function(){panel(!$("wrap").classList.contains("open"))};$("close").onclick=function(){panel(false)};
   // Escape closes the card first, then the panel.
-  document.addEventListener("keydown",function(e){if(e.key!=="Escape")return;if(S.sel){S.sel="";details();list();draw3d()}else if($("wrap").classList.contains("open"))panel(false)});
+  document.addEventListener("keydown",function(e){if(e.key!=="Escape")return;if(!$("bgList").hidden)bgOpen(false);else if(S.sel){S.sel="";details();list();draw3d()}else if($("wrap").classList.contains("open"))panel(false)});
   // Every window closes by a click elsewhere (the engineer, 03.11.2026: «Все окна должны после открытия закрываться при
   // нажатие в другое место»): the panel of the filters, the card of an element (a click on the 3D chooses there itself),
   // the card of a node, a bolt or a crane, the help.
@@ -299,6 +322,7 @@
    var t=e.target,inside=function(sel){return t.closest&&t.closest(sel)};
    if($("wrap").classList.contains("open")&&!inside("#side")&&!inside("#panel"))panel(false);
    if(!$("help").hidden&&!inside("#help")&&!inside("#helpBtn"))$("help").hidden=true;
+   if(!$("bgList").hidden&&!inside("#bg"))bgOpen(false);
    var node=document.querySelector("#irThreeNode");if(node&&!node.hidden&&!inside("#irThreeNode")){var x=node.querySelector('[data-node="close"]');if(x)x.click();else node.hidden=true}
    if(S.sel&&!$("details").hidden&&!inside("#details")&&!inside("#stage3d canvas")&&!inside("#list")){S.sel="";details();list();draw3d()}
   },true);
@@ -334,6 +358,11 @@
   'document.documentElement.classList.remove("js");var f=document.getElementById("fail"),t=document.getElementById("failText");if(f&&t){f.hidden=false;t.textContent=E.join("\\n")}};'+
   'W.addEventListener("error",function(e){var m=String(e.message||"ошибка");if(/ResizeObserver loop/i.test(m))return;W.__irFail(m+(e.lineno?" (строка "+e.lineno+")":""))});'+
   'W.addEventListener("unhandledrejection",function(e){var r=e.reason;W.__irFail(String(r&&r.message||r||"ошибка"))})})()';
+ // A kind of work with the code of its drawings cut to its tail («Монтаж металлоконструкций · ИР-71535.00-05.2025-01-КМ3» —
+ // «… · КМ3»; the whole in the option's title): the list of the filter as wide as its field — with the whole codes it
+ // opened out to the left over the scheme (the engineer, 03.11.2026: «окно кривое»).
+ var BGS=[["standard","стандартный","#dfe8f3"],["white","белый","#ffffff"],["gray","серый","#d9dde2"],["blue","голубой","#d6e6f6"],["sand","песочный","#efe6d6"],["dark","тёмный","#1d2733"]];
+ var workShort=function(t){var s=String(t||""),i=s.lastIndexOf(" · ");if(i<0)return s;var code=s.slice(i+3),m=/[-–.]([A-Za-zА-Яа-яЁё]{1,4}\d*(?:\.\d+)?)$/.exec(code);return m&&code.length>12?s.slice(0,i+3)+m[1]:s};
  function page(d,libs){
   var s=d.summary;
   // Under the date in small letters — «Сделано в IR Project» (the engineer, 27.10.2026).
@@ -342,14 +371,17 @@
   var PIN='<svg class="pin" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>';
   var head='<header class="hx"><div class="hx-co">'+(d.company.logo?'<img src="'+esc(d.company.logo)+'" alt="Логотип">':"")+'</div>'+
    '<div class="hx-obj"><h1>'+esc(d.object.name||"Объект")+'</h1>'+(d.object.address?'<div class="addr">'+PIN+esc(d.object.address)+'</div>':"")+'</div>'+
-   '<div class="hx-meta">'+(d.company.name?'<b>'+esc(d.company.name)+'</b>':"")+(d.work?esc(d.work)+'<br>':"")+'Выгружено '+esc(d.date)+'<small class="made">Сделано в IR Project</small></div></header>';
+   '<div class="hx-meta">'+(d.company.name?'<b>'+esc(d.company.name)+'</b>':"")+(d.work?'<span class="wk">'+esc(d.work)+'</span><br>':"")+'Выгружено '+esc(d.date)+'<small class="made">Сделано в IR Project</small></div></header>';
   var pct=s.total?Math.round(s.mounted/s.total*100):0;
   var sum='<section class="sum"><div><span>Элементов на схеме</span><b>'+s.placed+'</b></div><div><span>Смонтировано</span><b class="ok">'+s.placedMounted+'</b></div><div><span>Частично</span><b class="partial">'+s.placedPartial+'</b></div>'+
    '<div><span>Не смонтировано</span><b class="wait">'+(s.placed-s.placedMounted-s.placedPartial)+'</b></div>'+(s.total?'<div><span>По ведомости марок</span><b>'+pct+'%</b> <small>'+s.mounted+' из '+s.total+' шт.</small><div class="bar"><i style="width:'+pct+'%"></i></div></div>':"")+'</section>';
   var body='<main class="wrap" id="wrap">'+head+'<div class="area"><section class="stage" id="stage"><div class="stage-bar">'+
    '<label><input type="checkbox" id="labels"> Марки</label><label><input type="checkbox" id="dims"> Размеры</label>'+
-   '<select id="bg" title="Фон"><option value="standard">Фон: стандартный</option><option value="white">Белый</option><option value="gray">Серый</option><option value="blue">Голубой</option><option value="sand">Песочный</option><option value="dark">Тёмный</option></select>'+
-   '<button type="button" id="helpBtn" aria-controls="help"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/><path d="M9 7h7M9 11h5"/></svg>Инструкция</button><button type="button" id="full">⛶ На весь экран</button><button type="button" id="panel" aria-expanded="false" aria-controls="side">☰ Сведения и фильтры</button></div><div id="stage3d"></div>'+still(d)+'</section>'+
+   // (the background chosen by its colour, not by words — the engineer, 03.11.2026: «просто цвет сделай выбор, вместо текста»,
+   // «Цвета выпадающим списком сделай»: the button shows the colour chosen, its list — the colours, their names on hover)
+   '<span class="bgdd" id="bg"><button type="button" id="bgBtn" aria-haspopup="listbox" aria-expanded="false" aria-controls="bgList" title="Фон: '+BGS[0][1]+'"><span class="lbl">Фон</span><i style="background:'+BGS[0][2]+'"></i><b>▼</b></button>'+
+   '<ul class="bglist" id="bgList" role="listbox" aria-label="Фон" hidden>'+BGS.map(function(b){return'<li role="option" data-bg="'+b[0]+'" title="Фон: '+b[1]+'" aria-label="Фон: '+b[1]+'" style="background:'+b[2]+'"></li>'}).join("")+'</ul></span>'+
+   '<button type="button" id="helpBtn" aria-controls="help"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/><path d="M9 7h7M9 11h5"/></svg><span class="lbl">Инструкция</span></button><button type="button" id="full" title="На весь экран">⛶<span class="lbl"> На весь экран</span></button><button type="button" id="panel" aria-expanded="false" aria-controls="side" title="Сведения и фильтры">☰<span class="lbl"> Сведения и фильтры</span></button></div><div id="stage3d"></div>'+still(d)+'</section>'+
    '<div class="box card" id="details" hidden></div>'+
    '<div class="box help" id="help" hidden><h3>Инструкция</h3><ul>'+
    '<li><b>Левая кнопка мыши</b> — вращение схемы</li><li><b>Правая кнопка или нажатое колесо</b> — сдвиг</li><li><b>Колесо</b> — приблизить или отдалить к точке под курсором</li>'+
@@ -358,7 +390,7 @@
    '<li><b>☰ Сведения и фильтры</b> — сводка, виды конструкций, фильтр и список элементов</li><li>Окна закрываются щелчком в любом другом месте или клавишей Esc</li></ul>'+
    '<p>Выгружено из IR Project — только просмотр.</p></div>'+
    '<aside class="side" id="side"><div class="box"><button type="button" class="side-close" id="close" aria-label="Свернуть панель">✕</button><h3>Сводка</h3>'+sum+'</div><div class="box"><h3>Виды конструкций</h3><div class="groups" id="groups"></div><div class="groups-actions"><button type="button" id="all">Показать все</button><button type="button" id="none">Скрыть все</button></div></div>'+
-   '<div class="box"><h3>Фильтр</h3>'+((d.works||[]).length>1?'<label class="f">Вид работ<select id="work"><option value="all">Все виды работ вместе</option>'+d.works.map(function(w){return'<option value="'+esc(w.id)+'">'+esc(w.label)+' · '+w.count+'</option>'}).join("")+'</select></label>':'')+((d.elements||[]).some(function(c){return c.preliminary})?'<label class="f" title="Предварительно — экземпляры, определённые по чертежам не полностью; показаны бледно">Достоверность<select id="conf"><option value="all">Все</option><option value="sure">Определены полностью</option><option value="prelim">Только предварительные</option></select></label>':'')+
+   '<div class="box"><h3>Фильтр</h3>'+((d.works||[]).length>1?'<label class="f">Вид работ<select id="work"><option value="all">Все виды работ вместе</option>'+d.works.map(function(w){return'<option value="'+esc(w.id)+'" title="'+esc(w.label)+'">'+esc(workShort(w.label))+' · '+w.count+'</option>'}).join("")+'</select></label>':'')+((d.elements||[]).some(function(c){return c.preliminary})?'<label class="f" title="Предварительно — экземпляры, определённые по чертежам не полностью; показаны бледно">Достоверность<select id="conf"><option value="all">Все</option><option value="sure">Определены полностью</option><option value="prelim">Только предварительные</option></select></label>':'')+
    (new Set((d.elements||[]).map(function(c){return c.source_section||""})).size>1?'<div class="f">Разделы чертежей<div class="groups" id="sections"></div></div>':'')+'<label class="f">Статус<select id="status"><option value="all">Все</option><option value="mounted">Смонтированы</option><option value="partial">Частично</option><option value="planned">Не смонтированы</option></select></label>'+
    '<div class="row2"><label class="f">Отметка от, мм<input id="lmin" type="number" inputmode="numeric"></label><label class="f">до, мм<input id="lmax" type="number" inputmode="numeric"></label></div><div class="empty">На экране: <b id="cnt"></b></div></div>'+
    '<div class="box"><h3>Элементы</h3><input id="q" type="search" placeholder="Марка, наименование, ось" autocomplete="off"><div class="empty" id="found"></div><div class="list" id="list"></div></div>'+

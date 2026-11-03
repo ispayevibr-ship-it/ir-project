@@ -279,6 +279,30 @@ function platformsOf(texts){
  const rail=Math.max(0,...texts.filter(t=>Math.abs(Math.abs(t.angle||0)-90)<5&&num(t.str)>=900&&num(t.str)<=1500).map(t=>num(t.str)))||null;
  return levels.length?{levels,width,rail,...(offset?{offset}:{})}:null
 }
+// The columns of a row of the specification past B (ГОСТ 31385 form, РВС-700 КМ-15): C (the pipe inside the tank or
+// under the roof), the pipe Dp × Tp, the flange («50-16-01-В» ГОСТ 33259, or «t10» of a hatch's own), its mass, the
+// cover Tc («–» none), the reinforcing sheet Dr × Tr, the welds K1, K2 — read left to right, each only where its kind of
+// value stands; what is not read stays out (the 3D draws the item by what is given). The tokens of the row right of B.
+function specColumns(B,tokens){
+ const spec={b_mm:B},s=t=>String(t.str||"").trim().replace(/[–—−]/g,"-"),ints=[];
+ for(const t of tokens.sort((a,b)=>a.x-b.x)){
+  const v=s(t);
+  const fl=/^(\d{2,4})-(\d{1,2}(?:[,.]\d)?)-(0\d)-([A-ZА-ЯЁ])$/u.exec(v);
+  if(fl&&!spec.flange){spec.flange=fl[1]+"-"+fl[2].replace(".",",")+"-"+fl[3]+"-"+fl[4];continue}
+  if(/^[tт]\s?\d{1,2}$/iu.test(v)&&!spec.flange){spec.flange="t"+v.replace(/\D/g,"");continue}
+  if(/^\d{1,3}[,.]\d{1,2}$/.test(v)&&spec.flange&&!spec.flange_kg){spec.flange_kg=Number(v.replace(",","."));continue}
+  if(v==="-"&&spec.flange&&!("cover_t_mm" in spec)){spec.cover_t_mm=0;continue}
+  if(/^\d{1,4}$/.test(v))ints.push({v:Number(v),after:Boolean(spec.flange)})
+ }
+ const pre=ints.filter(i=>!i.after).map(i=>i.v),post=ints.filter(i=>i.after).map(i=>i.v);
+ // before the flange: C, Dp, Tp; after it: [Tc,] Dr, Tr, K1, K2[, the sheet]
+ if(pre[0]>=0&&pre[0]<=3000)spec.c_mm=pre[0];
+ if(pre[1]>=20&&pre[1]<=3000&&pre[2]>0&&pre[2]<=40)spec.pipe_mm=[pre[1],pre[2]];
+ let k=0;if(spec.flange&&/^t/.test(spec.flange)&&post[0]>0&&post[0]<=40&&!("cover_t_mm" in spec)){spec.cover_t_mm=post[0];k=1}
+ const dr=post[k],tr=post[k+1];
+ if(dr>(spec.pipe_mm?.[0]||0)&&dr<=4000&&tr>0&&tr<=40){spec.reinf_mm=[dr,tr];if(post[k+2]>0&&post[k+2]<=30&&post[k+3]>0&&post[k+3]<=30)spec.welds_mm=[post[k+2],post[k+3]]}
+ return Object.keys(spec).length>1?spec:null
+}
 // "Спецификация люков и патрубков": rows "Поз. | Наименование | Ду | … | α° | A | B | C | …" under the section
 // rows "СТЕНКА" and "КРЫША". α is the bearing; A is the height of a wall item's axis over the bottom and the distance
 // of a roof item from the tank axis.
@@ -300,7 +324,7 @@ function nozzleTable(texts){
   // B: the length of the nozzle out of the wall or above the roof, the column after A.
   const after=next?right.find(o=>o.x>next.x+(next.width||0)*0.5&&o.x-next.x<90):null;
   const B=after&&/^\d{2,4}$/.test(after.str.trim())?Number(after.str):null;
-  if(A!==null&&A>=50)cand.push({t,v,A,B})
+  if(A!==null&&A>=50)cand.push({t,v,A,B,spec:B?specColumns(B,after?right.filter(o=>o.x>after.x+(after.width||0)*0.5):[]):null})
  }
  if(cand.length<2)return null;
  const xs=cand.map(c=>c.t.x).sort((a,b)=>a-b),mx=xs[xs.length>>1];
@@ -329,7 +353,7 @@ function nozzleTable(texts){
   const read=readPos[i];
   const agreed=read!==null&&read>last&&(read===last+1||readPos.some((q,j)=>j>i&&q!==null&&q-read===j-i));
   const pos=agreed?read:last+1;last=pos;
-  rows.push({pos,name:tidy(name.map(w=>w.str.trim()).join(" ")),du:du?Number(du[1]):null,size:du?.[2]?du[1]+"x"+du[2]:null,bearing:r.v,a:r.A,b:r.B,roof:section.roof})
+  rows.push({pos,name:tidy(name.map(w=>w.str.trim()).join(" ")),du:du?Number(du[1]):null,size:du?.[2]?du[1]+"x"+du[2]:null,bearing:r.v,a:r.A,b:r.B,roof:section.roof,...(r.spec?{spec:r.spec}:{})})
  }
  return rows.length>=2?rows:null
 }
@@ -1155,23 +1179,26 @@ function buildTank(pages){
  // Items: on the wall (near the circle) as a short branch outwards, on the roof as a short post.
  // Fittings are drawn as what they are (a pipe with a flange, a hatch with a cover, a valve, a ring), not as members:
  // the placement keeps its axis (out of the wall, up from the roof) and carries the kind and the outer diameter.
- const wallItem=({mark,name,angle,du,size,z,from,note,length,shell,flange})=>{
-  const f=fittingOf(name,du,size),ov=f.type==="manhole"?ovalOf(name,size):null;
+ // (spec: the columns of the specification of hatches and nozzles past A — B, C, the pipe, the flange, its mass, the
+ // cover, the reinforcing sheet, the welds — and the sizes of a hatch's own sheet; carried to the 3D as layout.nozzle)
+ const specLay=spec=>spec&&typeof spec==="object"&&Object.keys(spec).length?{nozzle:spec}:null;
+ const wallItem=({mark,name,angle,du,size,z,from,note,length,shell,flange,spec})=>{
+  const f=fittingOf(name,du,size),ov=f.type==="manhole"?ovalOf(name,size):null,sl=specLay(spec);
   if(f.type==="ring"){ring({mark,name,z,note});return}
   // A foam generator sits on the top course whatever height is given.
   const zz=f.type==="foam"&&!(z>wallTop*0.6)?Math.round(wallTop-600):z;
   const len=length>=60&&length<=3000?length:OUTREACH[f.type]||250,p=at(angle,R),q=at(angle,R+len);
   placements.push({mark,name,geometry_type:"beam",x_mm:p.x,y_mm:p.y,x2_mm:q.x,y2_mm:q.y,z0_mm:zz,z1_mm:zz,levels_from:from,
    confidence:from==="фасад резервуара"||/спецификац|база знаний/.test(from)?"medium":"low",scheme_group:"nozzles",
-   fitting_type:f.type,diameter_mm:ov?ov[1]:f.d_mm,...(ov?{layout:{oval_mm:ov,...(okPair(shell)?{shell_mm:shell}:{}),...(okPair(flange)?{flange_mm:flange}:{})}}:{}),
+   fitting_type:f.type,diameter_mm:ov?ov[1]:f.d_mm,...(ov?{layout:{oval_mm:ov,...(okPair(shell)?{shell_mm:shell}:{}),...(okPair(flange)?{flange_mm:flange}:{}),...(sl||{})}}:sl?{layout:sl}:{}),
    notes:[note+(ov?"; люк овальный "+ov[1]+"×"+ov[0]+", длинная сторона вдоль стенки"+(okPair(shell)&&okPair(flange)?"":" — обечайка и фланец показаны условно"):"")]})
  };
  const roofAt=(r)=>Math.round(wallTop+rise*(1-Math.max(0,Math.min(1,r))));
- const roofItemAt=({mark,name,angle,r,du,size,note,length})=>{
-  const f=fittingOf(name,du,size);
+ const roofItemAt=({mark,name,angle,r,du,size,note,length,spec})=>{
+  const f=fittingOf(name,du,size),sl=specLay(spec);
   const len=length>=60&&length<=3000?length:OUTREACH[f.type]||250,p=at(angle,R*r),z=roofAt(r);
   placements.push({mark,name,geometry_type:"column",x_mm:p.x,y_mm:p.y,z0_mm:z,z1_mm:z+len,levels_from:"крыша резервуара",
-   confidence:"low",scheme_group:"nozzles",fitting_type:f.type,diameter_mm:f.d_mm,notes:[note]})
+   confidence:"low",scheme_group:"nozzles",fitting_type:f.type,diameter_mm:f.d_mm,...(sl?{layout:sl}:{}),notes:[note]})
  };
  // Stiffening, wind and spray rings: a ring round the wall at their level.
  const ring=({mark,name,z,note})=>{
@@ -1232,13 +1259,13 @@ function buildTank(pages){
   const A=c.row?.a;
   if(onRoof){
    const r=A>0&&A<R?A/R:c.leader?Math.max(0.15,Math.min(0.95,c.leader.r)):0.75;
-   roofItemAt({mark,name,angle:fromBearing(c.bearing),r,du:c.du,size:c.size,length:c.row?.b,
+   roofItemAt({mark,name,angle:fromBearing(c.bearing),r,du:c.du,size:c.size,length:c.row?.b,spec:c.row?.spec,
     note:"На крыше, "+where+(A>0&&A<R?", A="+A+" от оси ("+(c.row?.from||"спецификация")+")":c.leader?"":"; радиус не найден — принят 0,75R, проверьте")})
   }else{
    const manhole=/люк\s*-?\s*лаз|лаз(?![а-яё])/iu.test(c.name);
    const z=A>0&&A<wallTop?A:axisDefault(c.name,c.du,wallTop);
    const fromTable=A>0&&A<wallTop;
-   wallItem({mark,name,angle:fromBearing(c.bearing),du:c.du,size:c.size,length:c.row?.b,shell:c.row?.shell_mm,flange:c.row?.flange_mm,z,from:fromTable?(c.row?.from||"спецификация люков и патрубков"):"нет отметок",
+   wallItem({mark,name,angle:fromBearing(c.bearing),du:c.du,size:c.size,length:c.row?.b,shell:c.row?.shell_mm,flange:c.row?.flange_mm,spec:c.row?.spec,z,from:fromTable?(c.row?.from||"спецификация люков и патрубков"):"нет отметок",
     note:"На стенке, "+where+"; "+(fromTable?"ось на "+A+" от днища ("+(c.row?.from||"спецификация")+")":"высота "+(manhole?"оси люка-лаза 1-го пояса принята 750":"не указана — минимальная по ГОСТ 31385 для Ду"+(c.du||"?")+": "+z)+", проверьте")})
   }
  }

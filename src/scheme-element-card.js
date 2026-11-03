@@ -82,10 +82,30 @@
  function made(e){
   var L=e.lay;
   // An oval manhole of the wall (РВС-700 КМ-14): its opening, shell and flange, how it lies.
+  var tank=[];
   if(L&&typeof L==="object"&&Array.isArray(L.oval_mm)&&L.oval_mm.length===2){
    var pair=function(v){return Array.isArray(v)&&v.length===2&&num(v[0])>0?fmt(v[1])+"×"+fmt(v[0]):""},sh=pair(L.shell_mm),fl=pair(L.flange_mm);
-   return["Овальный люк "+pair(L.oval_mm)+" мм — длинной стороной вдоль стенки"+(sh?"; обечайка снаружи "+sh:"")+(fl?", фланец и крышка "+fl:"")+"."+(sh&&fl?"":" Обечайка и фланец показаны условно — размеры по листу люка.")]
+   tank.push("Овальный люк "+pair(L.oval_mm)+" мм — длинной стороной вдоль стенки"+(sh?"; обечайка снаружи "+sh:"")+(fl?", фланец и крышка "+fl:"")+"."+(sh&&fl?"":" Обечайка и фланец показаны условно — размеры по листу люка."))
   }
+  // A hatch, a manhole, a nozzle of a tank by the row of the specification of hatches and nozzles (КМ-15) and its own
+  // sheet (lay.nozzle) — what the 3D draws of it.
+  var z=L&&typeof L==="object"&&L.nozzle&&typeof L.nozzle==="object"?L.nozzle:null;
+  if(z){
+   var o=[],pp=Array.isArray(z.pipe_mm)?z.pipe_mm:null,dr=Array.isArray(z.reinf_mm)?z.reinf_mm:null,kg=function(v){return String(Math.round(num(v)*100)/100).replace(".",",")};
+   if(num(z.b_mm)>0)o.push("вылет B "+fmt(z.b_mm)+" мм"+(num(z.c_mm)>0?", внутрь C "+fmt(z.c_mm)+" мм":""));
+   if(pp)o.push("труба "+fmt(pp[0])+"×"+fmt(pp[1]));
+   var ft=z.manhole&&z.manhole.flange_mm&&num(z.manhole.flange_mm.t)>0?num(z.manhole.flange_mm.t):0;
+   if(z.flange)o.push("фланец "+z.flange+(/^\d/.test(String(z.flange))?" ГОСТ 33259"+(ft?" t"+fmt(ft)+" по листу люка":" (толщина — по его массе "+kg(z.flange_kg)+" кг)"):""));
+   if(num(z.cover_t_mm)>0)o.push("крышка t"+fmt(z.cover_t_mm));
+   if(dr)o.push("усиливающий лист Ø"+fmt(dr[0])+" t"+fmt(dr[1])+(z.reinf_to_bottom?" до днища":""));
+   if(o.length)tank.push(o.join(", ").replace(/^./,function(ch){return ch.toUpperCase()})+".");
+   var h=z.hatch&&typeof z.hatch==="object"?z.hatch:null,m=z.manhole&&typeof z.manhole==="object"?z.manhole:null;
+   if(h&&h.bolts)tank.push("Крышка на "+fmt(h.bolts.n)+" болтах М"+fmt(h.bolts.d_mm)+" по R"+fmt(h.bolts.circle_r_mm)+", прокладка, "+fmt(h.handles&&h.handles.n||0)+" ручк"+(num(h.handles&&h.handles.n)===1?"а":"и")+".");
+   if(m&&m.flange_mm&&typeof m.flange_mm==="object")tank.push("Крышка t"+fmt(m.cover_t_mm)+" на "+fmt(m.flange_mm.n)+" болтах М"+fmt(m.bolt&&m.bolt.d_mm||num(m.flange_mm.d)-2)+(m.bolt&&m.bolt.len_mm?"×"+fmt(m.bolt.len_mm):"")+" с шайбой и гайкой, две ручки"+(m.davit?"; кронштейн Ø"+fmt(m.davit.rod_d_mm)+" в проушинах на кольце, подвеска М16 к ушку крышки":"")+".");
+   if(m&&m.bolts&&!m.flange_mm)tank.push("Крышка t"+fmt(m.cover_t_mm)+" на "+fmt(m.bolts.n)+" болтах М"+fmt(m.bolts.d_mm)+" по овалу R"+fmt(m.bolts.line_r_mm)+", две ручки"+(m.plate?"; усиливающий лист шестигранный t"+fmt(m.plate.t_mm)+" "+fmt(2*num(m.plate.tip_mm))+"×"+fmt(m.plate.h_mm):"")+(m.hinge?"; петля — кронштейны, звенья t10, оси Ø"+fmt(m.hinge.pin_d_mm):"")+".");
+   if(z.sheet)tank.push("По листу: "+z.sheet+".");
+  }
+  if(tank.length)return tank;
   if(!L||typeof L!=="object"||L.kind!=="central_ring")return[];
   var out=["Кольцо коробчатого сечения: наружная стенка Ø"+fmt(2*num(L.wall_r_mm))+" и внутренняя обечайка Ø"+fmt(2*num(L.shell_r_mm))+" высотой "+fmt(L.height_mm)+" мм, пояса t"+fmt(L.plate_mm)+"; нижний лист до Ø"+fmt(2*num(e.r))+" — на него опираются щиты."];
   if(num(L.lugs)>0)out.push(fmt(L.lugs)+" рёбер t"+fmt(L.plate_mm)+" "+fmt((L.lug_mm||[])[0])+"×"+fmt((L.lug_mm||[])[1])+" мм по стыкам щитов"+(L.bolt?", щит крепится к ребру болтом "+L.bolt:"")+".");
@@ -128,6 +148,8 @@
   if(num(m.line_mm)>0)out.push("стена поставлена по наружной грани каркаса — на "+fmt(m.line_mm)+" мм наружу от линии по фасадам АР");
   // (a railing post in a column: not drawn — the column holds the rails there)
   if(m.col_post)out.push("стойка ограждения стоит на оси колонны "+m.col_post+" — в 3D не рисуется: здесь поручни крепятся к колонне");
+  // (a post of the framing standing on a girder: welded to it, no base and no anchors — by the angle its sheet gives)
+  if(m.post_on){var fa=m.foot_angle;out.push(fa?"стойка стоит на ригеле "+m.post_on+": уголок "+fa.angle+" длиной "+fmt(fa.len_mm)+" мм внутри швеллера приварен к стенке стойки и к ригелю, низ стойки на "+fmt(fa.gap_mm)+" мм выше ригеля"+(fa.node?" — "+fa.node:"")+"; болтов и анкеров нет":"стойка стоит на ригеле "+m.post_on+" — крепится к нему сваркой по узлу листа; базы с анкерами нет")}
   if(m.wall_post)out.push("стойка ограждения кровли попадает в стеновой ригель "+m.wall_post+", который здесь выше кровли, — в 3D не рисуется; место ограждения проверьте по разделу АР");
   var wall=num(m.wall_mm)>0?'<div class="ec-facts ec-warn">За стену из сэндвич-панелей выходило '+esc(fmt(m.wall_mm))+' мм — показан до стены. Проверьте положение элемента по чертежу.</div>':"";
   return(out.length?'<div class="ec-facts">'+esc(out.join(" · "))+'</div>':"")+wall

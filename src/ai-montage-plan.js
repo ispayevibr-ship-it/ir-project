@@ -531,7 +531,10 @@ function claudeTankPage(ai){
 function claudeTankPageOf(ai,t){
  if(!t?.is_tank||!(t.diameter_mm>0))return[];
  const rows=(t.items||[]).filter(i=>Number.isFinite(i.bearing_deg)).map((i,k)=>({pos:i.pos>0?i.pos:900+k,name:i.name||"",du:i.du>0?i.du:null,size:null,
-  ...(i.mark?{mark:String(i.mark)}:{}),...(Array.isArray(i.shell_mm)?{shell_mm:i.shell_mm}:{}),...(Array.isArray(i.flange_mm)?{flange_mm:i.flange_mm}:{}),bearing:Math.round(i.bearing_deg*10)/10,a:i.on_roof?(i.radius_mm>0?i.radius_mm:null):(i.height_mm>0?i.height_mm:null),roof:Boolean(i.on_roof),from:ai.fromKnowledge||ai.checkedTank?"база знаний":"Claude"}));
+  ...(i.mark?{mark:String(i.mark)}:{}),...(Array.isArray(i.shell_mm)?{shell_mm:i.shell_mm}:{}),...(Array.isArray(i.flange_mm)?{flange_mm:i.flange_mm}:{}),
+  // (the columns of the specification beyond α and A — B, C, the pipe, the flange, the cover, the reinforcing sheet —, and
+  // the sizes of the item's own sheet (a hatch): spec, as the 3D draws the item; B the length out of the wall or the roof)
+  ...(i.spec&&typeof i.spec==="object"?{spec:i.spec,...(i.spec.b_mm>0?{b:Number(i.spec.b_mm)}:{})}:{}),bearing:Math.round(i.bearing_deg*10)/10,a:i.on_roof?(i.radius_mm>0?i.radius_mm:null):(i.height_mm>0?i.height_mm:null),roof:Boolean(i.on_roof),from:ai.fromKnowledge||ai.checkedTank?"база знаний":"Claude"}));
  const levels=[t.ladder_foot_mm,t.ladder_top_mm].filter(v=>Number.isFinite(v)&&v!==0);
  return[{page:0,pdfPage:0,docType:"КМ",sourceName:ai.fromKnowledge||ai.checkedTank?"База знаний":"Claude",tank:{fromClaude:true,diameters:[Math.round(t.diameter_mm)],
   facade:t.wall_height_mm>0?{height:Math.round(t.wall_height_mm),rise:t.roof_rise_mm>0?Math.round(t.roof_rise_mm):null,items:[],levels,...(t.beside_mm>0?{beside:Math.round(t.beside_mm)}:{})}:null,
