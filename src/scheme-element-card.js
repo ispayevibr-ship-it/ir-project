@@ -14,10 +14,9 @@
  */
 (function(root){
  // How the drawings determined it (instance_status of src/ai-montage.js), in words.
- var FOUND={confirmed:["ok","Найден на чертеже: положение и отметки подтверждены"],computed:["ok","Положение и отметки вычислены по чертежам"],
+ var FOUND={confirmed:["ok","Найден на чертеже"],computed:["ok","Положение и отметки вычислены по чертежам"],
   partial:["warn","По чертежам определено не всё"],ambiguous:["warn","Чертежи допускают несколько вариантов"],
   conflict:["warn","На разных листах разные значения"],not_found:["warn","Повторный анализ чертежей этот элемент не нашёл"]};
- var SOURCE=[["position","Положение"],["levels","Отметки"],["name","Наименование"],["name_other","На чертеже названо"],["profile","Профиль"],["size","Длина"],["profile_other","Другой профиль на чертеже"]];
  function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
  function num(v){var n=Number(v);return isFinite(n)?n:0}
  function has(v){return v!==null&&v!==undefined&&v!==""&&isFinite(Number(v))}
@@ -186,17 +185,22 @@
   if(has(top)&&Math.abs(num(e.z2)-num(top))>5)d.push("верх "+level(top));
   return'<p>'+(e.confirmed&&!e.edited?"Вы подтвердили этот элемент":"Вы меняли этот элемент")+' — сохранены ваши значения. '+(d.length?"Повторный анализ чертежей даёт другое: "+esc(d.join(", "))+".":"Повторный анализ чертежей даёт то же самое.")+'</p>'
  }
+ function drawingSheet(e){
+  var doc=String(e.doc||""),pos=String(e.sources&&e.sources.position||""),drawing="",sheet=String(e.src_sheet||"").trim(),i=doc.indexOf(" · лист ");
+  if(i>=0){drawing=doc.slice(0,i);if(!sheet)sheet=doc.slice(i+8)}
+  else if(e.src_file)drawing=String(e.src_file);
+  if(!drawing){var q=pos.match(/«([^»]+)»/);if(q)drawing=q[1].replace(/^Проверенная схема\s*·\s*/,"").replace(/:\s.*$/,"").trim()}
+  if(!drawing&&doc&&!/^(база знаний|по данным Claude)$/.test(doc))drawing=doc;
+  return{drawing:drawing.replace(/\.pdf$/i,"").trim(),sheet:sheet.replace(/^лист\s+/i,"")}
+ }
  function drawings(e){
   // Confirmed by the engineer (a button of the card): his word, not the drawings'.
   var cf=e.confirmed&&typeof e.confirmed==="object"?e.confirmed:null,cd=cf&&cf.at?new Date(cf.at):null;
   var f=e.manual?["manual","Поставлен вручную, не из анализа чертежей"]:cf?["ok","Подтверждено инженером"+(cf.by?" ("+cf.by+")":"")+(cd&&!isNaN(cd)?", "+cd.toLocaleDateString("ru-RU"):"")+" — повторная расстановка его не меняет"]:FOUND[e.instance_status]||null,rows=[];
-  if(e.doc)rows.push('<p>Лист: '+esc(e.doc)+(e.src_section&&String(e.doc).indexOf(e.src_section)<0?" (раздел "+esc(e.src_section)+")":"")+'</p>');
-  // Where each value was taken (the position only when it says more than the sheet above: the title of the scheme).
-  var s=e.sources&&typeof e.sources==="object"?e.sources:null,file=String(e.doc||"").split(" · ")[0],from=[];
-  if(s)SOURCE.forEach(function(r){var v=String(s[r[0]]||"");
-   if(r[0]==="position"&&file&&v.indexOf(file)>=0){var t=v.indexOf(" · «");v=t>=0?v.slice(t+3):""}
-   if(v)from.push('<p class="ec-src"><span>'+esc(r[1])+'</span> — '+esc(v)+'</p>')});
-  if(from.length)rows.push('<p class="ec-src-title">Откуда взято:</p>'+from.join(""));
+  // Which drawing and which sheet — no more (the engineer, 03.11.2026: «упрости, просто какой чертеж и какой лист»).
+  var ds=drawingSheet(e);
+  if(ds.drawing)rows.push('<p class="ec-src"><span>Чертёж</span> — '+esc(ds.drawing)+'</p>');
+  if(ds.sheet)rows.push('<p class="ec-src"><span>Лист</span> — '+esc(ds.sheet)+'</p>');
   var checks=[];(e.reasons||[]).concat(e.check_note?String(e.check_note).split("; "):[]).forEach(function(r){var t=String(r).replace(/\s*—?\s*проверьте\.?/gi,"").trim();if(t&&checks.indexOf(t)<0)checks.push(t)});
   checks.forEach(function(t){rows.push('<p class="ec-check">Проверьте: '+esc(t)+'</p>')});
   var again=renewed(e);if(again)rows.push(again);
@@ -211,7 +215,7 @@
   if(e.r>0)rows.push(["Радиус",fmt(e.r)+(e.ri>0?", внутри "+fmt(e.ri):"")]);
   return'<details class="ec-coords"><summary>Точные координаты, мм</summary>'+rows.map(function(r){return'<div><span>'+esc(r[0])+'</span><b>'+esc(r[1])+'</b></div>'}).join("")+'</details>'
  }
- var api={made:made,FOUND:FOUND,esc:esc,fmt:fmt,level:level,axisOf:axisOf,position:position,fasteners:fasteners,traits:traits,section:section,head:head,facts:facts,nodes:nodes,tools:tools,parts:parts,bind:bind,kgs:kgs,sheetName:sheetName,drawings:drawings,coords:coords};
+ var api={drawingSheet:drawingSheet,made:made,FOUND:FOUND,esc:esc,fmt:fmt,level:level,axisOf:axisOf,position:position,fasteners:fasteners,traits:traits,section:section,head:head,facts:facts,nodes:nodes,tools:tools,parts:parts,bind:bind,kgs:kgs,sheetName:sheetName,drawings:drawings,coords:coords};
  root.irSchemeElementCard=api;
  if(typeof module==="object"&&module.exports)module.exports=api;
 })(typeof window!=="undefined"?window:globalThis);

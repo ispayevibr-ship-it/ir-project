@@ -1931,7 +1931,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
     truss:c.truss||undefined,column:c.column||undefined,base:c.base||undefined,rotation_deg:num(c.rotation_deg)||undefined,steel:c.steel||undefined,joint:c.joint||undefined,drill:Array.isArray(c.drill)?c.drill:undefined,cuts:Array.isArray(c.cuts?.rows)?c.cuts:undefined,parts:Array.isArray(c.parts?.rows)?c.parts:undefined,plates:Array.isArray(c.plates?.rows)||Array.isArray(c.plates?.gussets)?c.plates:undefined,place:Array.isArray(c.place?.rows)?c.place:undefined,bevels:Array.isArray(c.bevels?.rows)?c.bevels:undefined,cross:c.cross||undefined,flat:c.flat||undefined,nodes:c.nodes||undefined,
     // How fully the drawings determined it and its section: the exported page shows the same pale «предварительно».
     preliminary:isPreliminary(c)||undefined,instance_status:INSTANCE_STATUS[c.instance_status]?String(c.instance_status):undefined,
-    instance_reasons:Array.isArray(c.instance_reasons)&&c.instance_reasons.length?c.instance_reasons.map(String).slice(0,5):undefined,source_section:sectionOfRecord(c),
+    instance_reasons:Array.isArray(c.instance_reasons)&&c.instance_reasons.length?c.instance_reasons.map(String).slice(0,5):undefined,source_section:sectionOfRecord(c),source_sheet:c.source_sheet?String(c.source_sheet):undefined,source_file:c.source_file?String(c.source_file):undefined,
     param_sources:c.param_sources&&typeof c.param_sources==="object"?c.param_sources:undefined,
     // The card in plain words of the exported page (src/scheme-element-card.js): what a new analysis gives after an edit,
     // what to check, an element placed by hand.
@@ -2188,7 +2188,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
     profile:profileShown(c),standard:String(c.profile_standard||""),section:sectionShown(c),steel:String(c.steel||""),joint:c.joint||null,status:c.status,
     status_label:statusText(c.status),status_title:progress?.total>0?"Статус по ведомости марок":"Статус задан вручную",
     x:c.x,y:c.y,x2:c.x2,y2:c.y2,z0:c.z0,z2:c.z2,mx:c.mx,my:c.my,mz:c.mz,r:c.r,ri:c.ri,sw:c.sw,ft:c.ft,
-    doc:String(c.source_import_doc||""),src_section:String(c.source_section||""),instance_status:String(c.instance_status||""),preliminary:isPreliminary(c),
+    doc:String(c.source_import_doc||""),src_section:String(c.source_section||""),src_sheet:String(c.source_sheet||""),src_file:String(c.source_file||""),instance_status:String(c.instance_status||""),preliminary:isPreliminary(c),
     reasons:Array.isArray(c.instance_reasons)?c.instance_reasons.map(String):[],sources:c.param_sources&&typeof c.param_sources==="object"?c.param_sources:null,
     pdf_new:c.pdf_new&&typeof c.pdf_new==="object"?c.pdf_new:null,check_note:String(c.check_note||""),manual:!c.import_batch,
     confirmed:c.engineer_confirmed&&typeof c.engineer_confirmed==="object"?c.engineer_confirmed:null,edited:Boolean(c.engineer_edited)};
