@@ -160,7 +160,7 @@ function mergeParts(parts){
  for(const l of parts.flatMap(p=>p.lessons||[])){const k=JSON.stringify([l?.kind,l?.letters,l?.words,l?.to,l?.type,l?.text]);if(l&&!lessonSeen.has(k)){lessonSeen.add(k);lessons.push(l)}}
  return{elements:mergeElements(parts.flatMap(p=>p.elements||[])),grid,tank,vessel,new_types:newTypes,lessons,conflicts}
 }
-function createMontage({database,documents,drafts,renderer,engine,knowledge=null,base=null,training=null,writes=fn=>fn(database),draftIds=null,onProgress=()=>{}}){
+function createMontage({database,documents,drafts,renderer,engine,knowledge=null,base=null,training=null,writes=fn=>fn(database),draftIds=null,trash=null,onProgress=()=>{}}){
  // The engineer's rules for this set (a rule may be limited to a project code found in the file names).
  const learned=data=>knowledge?{typeOfMark:knowledge.resolver([data.source?.name||"",...(data.source?.documents||[]).map(d=>d.name)].join(" "))}:{};
  if(!database||!documents||!drafts||!renderer||!engine)throw Error("Montage needs drafts, renderer and engine");
@@ -948,6 +948,11 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   if(!placed?.batch)throw Error("Расстановка не найдена");
   const restored=new Set((placed.undo?.updated||[]).map(u=>String(u.id)));
   let removed=0,marksRemoved=0;
+  // Что отмена уберёт со схемы — в корзину одной пачкой (до транзакции расстановки: корзина пишет своим соединением).
+  if(trash)try{
+   const gone=database.listEntity(oid,"scheme").filter(r=>r.data?.import_batch===placed.batch&&!restored.has(String(r.id))&&(!isGrid(r)||placed.gridMode==="created")).map(r=>r.id);
+   if(gone.length)trash.capture(oid,"scheme",gone,{title:"Отмена расстановки",kind:"records"})
+  }catch(error){console.warn("IR Project: trash",error.message)}
   writes(database=>{
   for(const r of database.listEntity(oid,"scheme")){
    if(r.data?.import_batch!==placed.batch)continue;
@@ -991,8 +996,14 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    missing?rows.filter(r=>isElement(r)&&fromPdf(r)&&r.data?.missing_in_analysis&&!mounted(r)&&!r.data?.engineer_edited):rows.filter(r=>isElement(r)||grid&&isGrid(r));
   if(!targets.length)throw Error(asked?"Этих элементов на схеме уже нет (или они смонтированы)":missing?"Элементов «нет в новом анализе» в схеме нет":"Монтажная схема уже пуста");
   if(missing||asked)grid=false;
-  database.createEntity(oid,SNAPSHOTS,{record_type:"scheme_snapshot",title:(asked?"Убраны по просьбе в чате ":missing?"Убраны «нет в новом анализе» ":"Очистка ")+new Date().toLocaleString("ru-RU"),
-   data:{at:new Date().toISOString(),grid,...(missing&&!asked?{missing:true}:{}),...(asked?{chat:true}:{}),records:targets.map(r=>({record_type:r.record_type,title:r.title,data:r.data}))}});
+  const what=asked?"Убраны по просьбе в чате":missing?"Убраны «нет в новом анализе»":"Очистка схемы";
+  // Корзина (src/trash.js) тоже хранит удалённое 7 дней; копия очистки и её запись в корзине знают друг о друге,
+  // чтобы одно и то же не вернулось дважды.
+  let trashBatch=null;
+  try{trashBatch=trash?trash.capture(oid,"scheme",targets.map(r=>r.id),{title:what,kind:"records"}):null}catch(error){console.warn("IR Project: trash",error.message)}
+  const snap=database.createEntity(oid,SNAPSHOTS,{record_type:"scheme_snapshot",title:(asked?"Убраны по просьбе в чате ":missing?"Убраны «нет в новом анализе» ":"Очистка ")+new Date().toLocaleString("ru-RU"),
+   data:{at:new Date().toISOString(),grid,...(missing&&!asked?{missing:true}:{}),...(asked?{chat:true}:{}),...(trashBatch?{trash_batch:trashBatch}:{}),records:targets.map(r=>({record_type:r.record_type,title:r.title,data:r.data}))}});
+  if(trashBatch&&snap?.id)try{trash.setInfo(trashBatch,{snapshot:snap.id})}catch(_e){}
   const old=database.listEntity(oid,SNAPSHOTS).sort((a,b)=>String(b.data?.at).localeCompare(String(a.data?.at))).slice(5);
   for(const r of old)database.deleteEntity(oid,SNAPSHOTS,r.id);
   let removed=0;
@@ -1012,6 +1023,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   let restored=0;
   for(const r of records)if(database.createEntity(oid,"scheme",{record_type:r.record_type,title:r.title,data:r.data})&&r.record_type!=="scheme_grid")restored++;
   database.deleteEntity(oid,SNAPSHOTS,last.id);
+  if(trash&&last.data?.trash_batch)try{trash.drop(last.data.trash_batch)}catch(_e){}
   return{restored,snapshot:schemeSnapshot(oid)}
  }
  // Card of a scheme element as in a detailed montage report: what the drawings say of its mark (profile, steel, length,

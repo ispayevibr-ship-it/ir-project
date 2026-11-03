@@ -15,7 +15,7 @@
  const storeKey=isDetached?"ir-project-tabs-detached-"+params.get("detached"):"ir-project-tabs-v1";
  const frames=new Map(),objectsCache=new Map(),MAX_TABS=12;
  let order=[],activeId="",serial=0,restoring=false;
- const sections={"reports":"Ежедневные отчёты","marks":"Ведомость марок","fasteners":"Ведомость метизов","executive-docs":"Исполнительная документация","letters":"Исходящие письма","work-types":"Виды работ","schedule":"График работ","deliveries":"Поставки","scheme":"Монтажная схема","ai-recognition":"ИИ-распознавание","extra-works":"Доп. работы","acted-days":"Актированные дни","penalties":"Штрафы","finance":"Финансы","photos":"Фотографии объекта"};
+ const sections={"reports":"Ежедневные отчёты","marks":"Ведомость марок","fasteners":"Ведомость метизов","executive-docs":"Исполнительная документация","letters":"Исходящие письма","trash":"Корзина","work-types":"Виды работ","schedule":"График работ","deliveries":"Поставки","scheme":"Монтажная схема","ai-recognition":"ИИ-распознавание","extra-works":"Доп. работы","acted-days":"Актированные дни","penalties":"Штрафы","finance":"Финансы","photos":"Фотографии объекта"};
  const routeValid=route=>typeof route==="string"&&route.length<350&&/^\/objects(?:\/object\/\d+(?:\/[a-z0-9_-]+)*)?$/i.test(route);
  const cleanRoute=route=>routeValid(route)?route:"/objects";
  const newId=()=>String(Date.now().toString(36))+"-"+(++serial).toString(36);
@@ -42,6 +42,7 @@
   fasteners:'<path d="M9 3h6v4H9z"/><path d="M12 7v14"/><path d="M9 10h6M9 13h6M9 16h6"/>',
   "executive-docs":'<path d="M6 3h9l3 3v15H6z"/><path d="M15 3v3h3M9 11l2 2 4-4M9 17h6"/>',
   letters:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+  trash:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',
   marks:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11M14 12h4m-4 4h4M5 6h.01"/>',
   "work-types":'<path d="M7 3h12v18H5V5l2-2z"/><path d="M9 9h7m-7 4h7m-7 4h4M3 8h3"/>',
   deliveries:'<path d="m3 8 9-5 9 5v10l-9 5-9-5V8Z"/><path d="m3 8 9 5 9-5M12 13v10M7.5 5.5l9 5"/>',
@@ -611,7 +612,7 @@
  // Pages hosted in iframes delegate all update UI to this single host window.
  window.irTabUpdates={open:checkAppUpdate};
  // Back along the pages of a tab.
- const HOME_BACK=new Set(["back","actedBack","deliveriesBack","financeBack","marksBack","fastenersBack","execDocsBack","lettersBack","penaltiesBack","objectPhotosBack","reportsBack","scheduleBack","schemeBack","unifiedBack","wtBack"]);
+ const HOME_BACK=new Set(["back","actedBack","deliveriesBack","financeBack","marksBack","fastenersBack","execDocsBack","lettersBack","trashBack","penaltiesBack","objectPhotosBack","reportsBack","scheduleBack","schemeBack","unifiedBack","wtBack"]);
  function goBack(tab){
   const trail=tab?.trail||[];if(trail.length<2)return false;
   try{const child=tab.frame.contentWindow;trail.pop();tab.goingBack=true;child.location.hash=trail[trail.length-1];return true}catch{tab.goingBack=false;return false}

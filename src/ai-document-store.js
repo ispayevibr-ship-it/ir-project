@@ -7,7 +7,7 @@ const MAX_FILE_BYTES=200*1024*1024,MAX_FILES=30;
 // montage and assembly sheets the program tells apart itself, sheet by sheet (the engineer, 31.10.2026). A file given
 // one of the two old kinds before shows as КМД; the old kind stays in it as a hint for its sheets that say nothing.
 const KINDS=["КМ","КМД","АР","ТХ","Не анализировать"],LEGACY={"КМД сборочные":"КМД","КМД монтажные":"КМД"};
-function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefined}){
+function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefined,trash=null}){
  if(typeof getUserDataPath!=="function"||!database)throw Error("AI document store needs local userData and database");
  const root=()=>path.join(getUserDataPath(),"ir-project-ai","objects");
  function objectId(id){const value=Number(id);if(!Number.isSafeInteger(value)||value<=0||!database.getObject(value))throw Error("Объект не найден");return value}
@@ -152,6 +152,12 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   const file=safeFile(id,row.data?.stored_name);
   // Refuse to follow symlinks, including those that could be created externally.
   if(fs.existsSync(file)&&fs.lstatSync(file).isSymbolicLink())throw Error("Символьная ссылка запрещена");
+  // С корзиной (src/trash.js): запись и сам файл чертежа хранятся 7 дней и возвращаются вместе.
+  if(trash){
+   const r=trash.deleteRecords(id,"ai-documents",[row.id]);if(!r.removed)return false;
+   if(r.batch&&fs.existsSync(file))trash.keepFile(r.batch,file);else if(fs.existsSync(file))fs.unlinkSync(file);
+   return true
+  }
   if(!database.deleteEntity(id,"ai-documents",row.id))return false;
   if(fs.existsSync(file))fs.unlinkSync(file);
   return true

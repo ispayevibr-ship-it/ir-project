@@ -1,0 +1,19 @@
+.ir-trash-page{padding:24px 32px 60px;font-size:12px;max-width:1100px}
+.ir-trash-note{margin:0 0 12px;padding:10px 12px;border-radius:8px;background:#f3f7fa;color:#5d6f7d;font-size:11px;line-height:1.5}
+.ir-trash-tools{margin-bottom:10px}.ir-trash-tools select{height:34px;border:1px solid #d5e0e7;border-radius:7px;padding:0 10px;font-size:11px;background:#fff}
+.ir-trash-list{display:grid;gap:8px}
+.ir-trash-row{display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid #dce5eb;border-radius:10px;background:#fff}
+.ir-trash-main{flex:1;min-width:0}.ir-trash-what{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.ir-trash-what b{font-size:12px;color:#173a51;overflow-wrap:anywhere}.ir-trash-what em{font-style:normal;font-size:10px;color:#1769e0;font-weight:700}
+.ir-trash-sec{padding:2px 7px;border-radius:5px;background:#eef3f7;color:#5d6f7d;font-size:9px;font-weight:700;white-space:nowrap}
+.ir-trash-row small{display:block;margin-top:4px;color:#7d8d99;font-size:10px}
+.ir-trash-restore{flex:none;height:32px;padding:0 12px;border:1px solid #b9d4f3;border-radius:7px;background:#eaf3ff;color:#1769e0;font-weight:700;font-size:11px;cursor:pointer}
+.ir-trash-restore:hover{background:#dcebff}.ir-trash-restore:disabled{opacity:.5;cursor:wait}
+.ir-trash-empty{padding:30px;text-align:center;color:#80919e;border:1px dashed #dce5eb;border-radius:10px;background:#fff}.ir-trash-empty.err{color:#b33a3a}
+.ir-trash-overlay{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:rgba(15,23,32,.45)}
+.ir-trash-dialog{width:min(760px,calc(100vw - 32px));max-height:calc(100vh - 60px);display:flex;flex-direction:column;padding:18px 20px;border-radius:12px;background:#f7f9fb;box-shadow:0 20px 60px rgba(0,0,0,.3);font-size:12px}
+.ir-trash-dialog .ir-trash-list{overflow:auto;padding-right:2px}
+.ir-trash-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.ir-trash-head h2{margin:0;font-size:17px;color:#17364d}
+.ir-trash-x{width:32px;height:32px;border:0;border-radius:8px;background:transparent;font-size:22px;color:#5d6f7d;cursor:pointer}.ir-trash-x:hover{background:#e8eef3}
+.ir-trash-home{margin:0 8px 0 auto;height:34px;font-size:12px;padding:0 14px;border:1px solid #d5e0e7;border-radius:8px;background:#fff;color:#5d6f7d;font-weight:650;cursor:pointer}
+.ir-trash-home:hover{background:#f3f7fa}

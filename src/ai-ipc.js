@@ -38,7 +38,9 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
  const {createGithubSync}=require("./ai-github-sync");
  const {createTraining}=require("./ai-training");
  try{require("node:fs").rmSync(require("node:path").join(getUserDataPath(),"ai-hot-error.txt"),{force:true})}catch(_e){}
- const documents=createStore({getUserDataPath,dialog,shell,database,getWindow});
+ // Корзина удалённого на 7 дней (src/trash.js): всё, что удаляется в объекте, и сами объекты можно вернуть.
+ const trash=require("./trash").createTrash({getUserDataPath});
+ const documents=createStore({getUserDataPath,dialog,shell,database,getWindow,trash});
  const engine=createEngine({getUserDataPath,safeStorage,fetch:netFetch});
  const raster=createPdfRenderer({database,documents});
  const knowledge=createKnowledge({getUserDataPath});
@@ -69,7 +71,7 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
  // A placement writes thousands of rows: in one transaction, not one disk wait per row.
  const writes=require("./ai-db-batch").createBatch({getUserDataPath,database});
  const draftIds=require("./ai-db-batch").createIndex({getUserDataPath});
- const montage=createMontage({database,documents,drafts,renderer:raster,engine,knowledge,base,training,writes,draftIds,
+ const montage=createMontage({database,documents,drafts,renderer:raster,engine,knowledge,base,training,writes,draftIds,trash,
   onProgress:payload=>{const win=getWindow();if(win&&!win.isDestroyed())win.webContents.send("ai-montage:progress",payload)}});
  // The installed preload passes only ai-documents/engine/settings/montage channels: knowledge, GitHub and diagnostics
  // are also served as ai-settings:<group>-<name> (see aiChannel in the windows), so a hot update reaches them.
@@ -221,7 +223,39 @@ handle("ai-montage:journal-add",(_e,{objectId,elementId,comment,objectName,actio
   if(r.canceled||!r.filePaths?.length)return[];
   const fs=require("node:fs"),path=require("node:path");
   return r.filePaths.filter(f=>fs.statSync(f).size<=20e6).map(f=>({name:path.basename(f),data:fs.readFileSync(f)}))});
+ // Корзина: список (объекта — его удалённое; без объекта — удалённые объекты) и восстановление. Чтение — через
+ // ai-settings (кэш окна не сбрасывается), восстановление — ai-montage (окно перечитывает данные).
+ handle("ai-settings:trash-list",(_e,{objectId,section,kind}={})=>trash.list({objectId:objectId==null||objectId===""?null:objectId,section:String(section||""),kind:String(kind||"")}));
+ handle("ai-montage:trash-restore",(_e,{id}={})=>{
+  const r=trash.restore(id);
+  // Очистка схемы держит ещё и свою копию для кнопки «Вернуть»: восстановленное из корзины она больше не вернёт.
+  const snap=r.batch?.info?.snapshot;
+  if(snap)try{database.deleteEntity(Number(r.batch.objectId),"scheme-snapshots",Number(snap))}catch(_e){}
+  return r});
+ setTimeout(()=>{try{trash.purge({force:true})}catch(error){console.warn("IR Project: trash purge",error.message)}},20e3).unref?.();
+ setInterval(()=>{try{trash.purge({force:true})}catch(_e){}},6*3600e3).unref?.();
  handle("ai-knowledge:base",()=>base.all().map(e=>({id:e.id,title:e.title,project:e.project,files:e.files.length,origin:e.origin,source:e.source,created:e.created})));
+ routeDeletesToTrash({trash,database,documents,getUserDataPath});
  return{documents,engine}
+}
+// Удаление записей и объектов из окна (обработчики main.js, установщик не меняется) — через корзину. Последним шагом
+// регистрации: если что-то выше упало, остаются прежние обработчики main.js. Ошибка корзины — удаление как раньше.
+function routeDeletesToTrash({trash,database,documents,getUserDataPath}){
+ let ipc;try{ipc=require("electron").ipcMain}catch{return false}
+ if(!ipc?.removeHandler)return false;
+ const swap=(channel,fn)=>{ipc.removeHandler(channel);ipc.handle(channel,fn)};
+ swap("entity:delete",(_e,x={})=>{
+  try{return trash.deleteRecords(x.objectId,x.entity,[x.id]).removed>0}
+  catch(error){if(/Object not found/.test(String(error?.message)))throw error;console.warn("IR Project: trash",error.message);return database.deleteEntity(x.objectId,x.entity,x.id)}
+ });
+ swap("objects:delete",(_e,id)=>{
+  const docsDir=require("node:path").join(getUserDataPath(),"ir-project-ai","objects",String(Number(id)));
+  try{return trash.deleteObject(id,{docsDir})}
+  catch(error){console.warn("IR Project: trash",error.message);const ok=database.deleteObject(id);if(ok)documents?.deleteObjectFiles(id);return ok}
+ });
+ // Фото и акты: окно стирает их вместе с записью — файл стирается через 7 дней, восстановленная запись будет с ним.
+ const later=(_e,file)=>{try{return trash.deferFile(file)}catch(_e2){return false}};
+ swap("images:remove",later);swap("report:remove-photo",later);swap("report:remove-document",later);
+ return true
 }
 module.exports={API,register};

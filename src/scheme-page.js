@@ -709,11 +709,11 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    const record=allRecords().find(r=>String(r.id)===String(id));
    if(!record)return;
    const name=String(record.mark||record.title||"").trim();
-   if(!confirm("Удалить элемент "+(name?"«"+name+"» ":"")+"со схемы?")){restoreKeyboardAfterConfirm();return}
+   if(!confirm("Удалить элемент "+(name?"«"+name+"» ":"")+"со схемы?\nВернуть можно 7 дней: кнопка «🗑 Удалённые».")){restoreKeyboardAfterConfirm();return}
    restoreKeyboardAfterConfirm();
    try{
     await journalAuto(id,"deleted");
-    await schemeApi.remove(id);
+    await schemeApi.remove(id);bumpTrash();
     rows=await schemeApi.list().catch(()=>rows.filter(r=>String(r.id)!==String(id)));
     selectedId="";refreshAfterMemberChange();restoreKeyboardAfterConfirm()
    }catch(error){alert("Не удалось удалить элемент: "+String(error?.message||error))}
@@ -1079,16 +1079,17 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   });
   panel.querySelector("[data-scheme-delete-mark]")?.addEventListener("click",async e=>{
    const btn=e.currentTarget,ids=allOfMark.map(r=>String(r.id));
-   if(!confirm(`Удалить со схемы все элементы марки «${c.mark}»: ${ids.length}?\nЭто нельзя отменить.`)){restoreKeyboardAfterConfirm();return}
+   if(!confirm(`Удалить со схемы все элементы марки «${c.mark}»: ${ids.length}?\nВернуть можно 7 дней: кнопка «🗑 Удалённые».`)){restoreKeyboardAfterConfirm();return}
    restoreKeyboardAfterConfirm();btn.disabled=true;let n=0;
    try{
     // (one line in the journal for the whole mark: the journal is read whole for each line)
     await journalAuto(c.id,"deleted",{comment:`Удалены все элементы марки ${c.mark}: ${ids.length}`});
     for(const id of ids){btn.textContent=`Удаляется… ${n}/${ids.length}`;await schemeApi.remove(id);n++}
    }catch(error){alert(`Удалено ${n} из ${ids.length}: `+String(error?.message||error))}
+   bumpTrash();
    rows=await schemeApi.list().catch(()=>rows);selectedId="";refreshAfterMemberChange();restoreKeyboardAfterConfirm()
   });
-  panel.querySelector("[data-scheme-delete]")?.addEventListener("click",async()=>{if(!confirm(`Удалить элемент ${c.mark?`«${c.mark}» `:""}со схемы?`)){restoreKeyboardAfterConfirm();return}restoreKeyboardAfterConfirm();await journalAuto(c.id,"deleted");await schemeApi.remove(c.id);rows=await schemeApi.list().catch(()=>rows);selectedId="";refreshAfterMemberChange();restoreKeyboardAfterConfirm()});bindElementPicker(panel)
+  panel.querySelector("[data-scheme-delete]")?.addEventListener("click",async()=>{if(!confirm(`Удалить элемент ${c.mark?`«${c.mark}» `:""}со схемы?\nВернуть можно 7 дней: кнопка «🗑 Удалённые».`)){restoreKeyboardAfterConfirm();return}restoreKeyboardAfterConfirm();await journalAuto(c.id,"deleted");await schemeApi.remove(c.id);bumpTrash();rows=await schemeApi.list().catch(()=>rows);selectedId="";refreshAfterMemberChange();restoreKeyboardAfterConfirm()});bindElementPicker(panel)
  }
  let gridDraft=null;
  const yAlphabet=["А","Б","В","Г","Д","Е","Ж","З","И","К","Л","М","Н","П","Р","С","Т","У","Ф","Х","Ц","Ч","Ш","Щ","Э","Ю","Я"];
@@ -1567,7 +1568,17 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   }
  }
  let schemeSnapshot=null;
- const loadSnapshot=async()=>{try{schemeSnapshot=await irProject.ai?.invoke?.("ai-montage:scheme-snapshot",{objectId:oid})||null}catch(_error){schemeSnapshot=null}};
+ // Корзина схемы (src/trash.js, src/trash-page.js): сколько удалённого за 7 дней можно вернуть.
+ let schemeTrashCount=0;
+ const loadSnapshot=async()=>{try{schemeSnapshot=await irProject.ai?.invoke?.("ai-montage:scheme-snapshot",{objectId:oid})||null}catch(_error){schemeSnapshot=null}
+  await loadTrashCount()};
+ async function loadTrashCount(){try{const list=await irProject.ai.invoke("ai-settings:trash-list",{objectId:oid,section:"scheme"});schemeTrashCount=(Array.isArray(list)?list:[]).reduce((n,b)=>n+(Number(b.count)||0),0)}catch(_error){schemeTrashCount=0}}
+ // После удаления: число на кнопке «Удалённые» — без перерисовки схемы.
+ function bumpTrash(){loadTrashCount().then(()=>{const b=document.getElementById("schemeTrash");if(b)b.textContent="🗑 Удалённые"+(schemeTrashCount?" ("+schemeTrashCount+")":"")}).catch(()=>{})}
+ async function openSchemeTrash(){
+  if(!window.irTrash){alert("Корзина заработает после перезапуска программы: закройте IR Project и откройте снова.");return}
+  window.irTrash.open({objectId:oid,section:"scheme",title:"Удалённое со схемы",onRestored:async()=>{rows=await schemeApi.list().catch(()=>rows);await loadSnapshot();refreshGridModel();draw()}})
+ }
  async function clearScheme(){
   if(!canEdit())return;
   const total=allRecords().length;
@@ -1575,7 +1586,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   restoreKeyboardAfterConfirm();
   try{
    const r=await irProject.ai.invoke("ai-montage:clear-scheme",{objectId:oid});
-   schemeSnapshot=r.snapshot;rows=await schemeApi.list().catch(()=>[]);selectedId="";draw()
+   schemeSnapshot=r.snapshot;await loadTrashCount();rows=await schemeApi.list().catch(()=>[]);selectedId="";draw()
   }catch(error){alert("Не удалось очистить схему: "+String(error?.message||error).replace(/^Error invoking remote method '[^']+': (Error: )?/,""))}
  }
  // Elements a later placement no longer found («нет в новом анализе»): leftovers of an older reading (the engineer,
@@ -1588,7 +1599,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   restoreKeyboardAfterConfirm();
   try{
    const r=await irProject.ai.invoke("ai-montage:clear-scheme",{objectId:oid,missing:true});
-   schemeSnapshot=r.snapshot;rows=await schemeApi.list().catch(()=>rows);if(selectedId&&!allRecords().some(x=>x.id===selectedId))selectedId="";draw()
+   schemeSnapshot=r.snapshot;await loadTrashCount();rows=await schemeApi.list().catch(()=>rows);if(selectedId&&!allRecords().some(x=>x.id===selectedId))selectedId="";draw()
   }catch(error){alert("Не удалось убрать элементы: "+String(error?.message||error).replace(/^Error invoking remote method '[^']+': (Error: )?/,""))}
  }
  // A button of Claude's answer in the chat (the engineer, 31.10.2026: «перепроверь этот прогон, если его нет удали»):
@@ -1606,7 +1617,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    (stay?"\nСмонтированные ("+stay+") остаются.":"")+"\nКопия сохранится — её можно вернуть кнопкой «Вернуть».")){restoreKeyboardAfterConfirm();return"Отменено — элементы остались"}
   restoreKeyboardAfterConfirm();
   const r=await irProject.ai.invoke("ai-montage:clear-scheme",{objectId:oid,ids:live.map(x=>x.id)});
-  schemeSnapshot=r.snapshot;rows=await schemeApi.list().catch(()=>rows);if(selectedId&&!allRecords().some(x=>x.id===selectedId))selectedId="";draw();
+  schemeSnapshot=r.snapshot;await loadTrashCount();rows=await schemeApi.list().catch(()=>rows);if(selectedId&&!allRecords().some(x=>x.id===selectedId))selectedId="";draw();
   return"Удалено со схемы: "+r.removed+(stay?", смонтированные ("+stay+") оставлены":"")+". Вернуть — кнопка «Вернуть» на схеме"
  };
  async function restoreScheme(){
@@ -1615,7 +1626,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   restoreKeyboardAfterConfirm();
   try{
    const r=await irProject.ai.invoke("ai-montage:restore-scheme",{objectId:oid});
-   schemeSnapshot=r.snapshot;rows=await schemeApi.list().catch(()=>rows);refreshGridModel();draw()
+   schemeSnapshot=r.snapshot;await loadTrashCount();rows=await schemeApi.list().catch(()=>rows);refreshGridModel();draw()
   }catch(error){alert("Не удалось вернуть схему: "+String(error?.message||error).replace(/^Error invoking remote method '[^']+': (Error: )?/,""))}
  }
  function draw(){
@@ -1623,7 +1634,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   // (the shown elements once for the drawing: each listing of them took the coordinates of all of them again)
   const shownNow=columns();
   if(selectedId&&!shownNow.some(c=>c.id===selectedId))selectedId="";
-  const s=stats(),mp=statusCounts(),works=enabledWorks(),currentWork=works.find(w=>w.id===activeWorkId)||null,workOptions='<option value="__frame__" '+(frameMode?'selected':'')+'>Все виды работ вместе</option>'+works.map(w=>'<option value="'+esc(w.id)+'" '+(!frameMode&&w.id===activeWorkId?'selected':'')+'>'+esc(w.name)+(w.code?' · '+esc(w.code):'')+'</option>').join(""),groupOptions=schemeGroups().map(g=>`<option value="${esc(g.key)}" ${g.key===activeScheme?"selected":""}>${esc(g.label)} · ${g.marks} марок · ${g.placed} элементов</option>`).join(""),editActions=canEdit()?`<button type="button" class="scheme-grid-button" id="schemeGridConfig">⚙ Параметры сетки</button>${irProject.ai?.invoke?`<button type="button" class="scheme-grid-button danger" id="schemeClear" ${s.total?"":"disabled"} title="Удалить все элементы схемы; копия сохраняется">Очистить схему</button>${leftovers().length?`<button type="button" class="scheme-grid-button danger" id="schemeClearMissing" title="Удалить элементы, которых нет в новом анализе чертежей, — остатки прежних расстановок. Смонтированные и изменённые вами остаются. Копия сохраняется — их можно вернуть кнопкой «Вернуть».">Убрать «нет в анализе» (${leftovers().length})</button>`:""}${schemeSnapshot?`<button type="button" class="scheme-grid-button" id="schemeRestore" title="Вернуть элементы, удалённые очисткой ${esc(new Date(schemeSnapshot.at).toLocaleString("ru-RU"))}">↺ Вернуть (${schemeSnapshot.count})</button>`:""}`:""}${!frameMode&&activeWorkId?`<button type="button" class="scheme-grid-button" id="schemeNewView">＋ Добавить сетку</button>${activeView()?`<button type="button" class="scheme-grid-button" id="schemeEditView">Изменить</button><button type="button" class="scheme-grid-button danger" id="schemeDeleteView">Удалить сетку</button>`:""}`:""}`:"",emptyOverlay=activeWorkId?(s.total?"":`<div class="scheme-empty-overlay"><b>Схема пока пустая</b><span>Нажмите «Добавить элемент» и выберите марку для этой монтажной схемы${window.irAiRecognitionPage?" или загрузите чертежи в «ИИ-распознавание»":""}.</span></div>`):`<div class="scheme-empty-overlay"><b>Монтажная схема не включена</b><span>Откройте «Виды работ» и включите галочку «Нужна монтажная схема» у нужного вида работ.</span></div>`;
+  const s=stats(),mp=statusCounts(),works=enabledWorks(),currentWork=works.find(w=>w.id===activeWorkId)||null,workOptions='<option value="__frame__" '+(frameMode?'selected':'')+'>Все виды работ вместе</option>'+works.map(w=>'<option value="'+esc(w.id)+'" '+(!frameMode&&w.id===activeWorkId?'selected':'')+'>'+esc(w.name)+(w.code?' · '+esc(w.code):'')+'</option>').join(""),groupOptions=schemeGroups().map(g=>`<option value="${esc(g.key)}" ${g.key===activeScheme?"selected":""}>${esc(g.label)} · ${g.marks} марок · ${g.placed} элементов</option>`).join(""),editActions=canEdit()?`<button type="button" class="scheme-grid-button" id="schemeGridConfig">⚙ Параметры сетки</button>${irProject.ai?.invoke?`<button type="button" class="scheme-grid-button danger" id="schemeClear" ${s.total?"":"disabled"} title="Удалить все элементы схемы; копия сохраняется">Очистить схему</button>${leftovers().length?`<button type="button" class="scheme-grid-button danger" id="schemeClearMissing" title="Удалить элементы, которых нет в новом анализе чертежей, — остатки прежних расстановок. Смонтированные и изменённые вами остаются. Копия сохраняется — их можно вернуть кнопкой «Вернуть».">Убрать «нет в анализе» (${leftovers().length})</button>`:""}${schemeSnapshot?`<button type="button" class="scheme-grid-button" id="schemeRestore" title="Вернуть элементы, удалённые очисткой ${esc(new Date(schemeSnapshot.at).toLocaleString("ru-RU"))}">↺ Вернуть (${schemeSnapshot.count})</button>`:""}${`<button type="button" class="scheme-grid-button" id="schemeTrash" title="Удалённое со схемы за последние 7 дней: элементы, марки целиком, сетки, очистки — можно вернуть">🗑 Удалённые${schemeTrashCount?" ("+schemeTrashCount+")":""}</button>`}`:""}${!frameMode&&activeWorkId?`<button type="button" class="scheme-grid-button" id="schemeNewView">＋ Добавить сетку</button>${activeView()?`<button type="button" class="scheme-grid-button" id="schemeEditView">Изменить</button><button type="button" class="scheme-grid-button danger" id="schemeDeleteView">Удалить сетку</button>`:""}`:""}`:"",emptyOverlay=activeWorkId?(s.total?"":`<div class="scheme-empty-overlay"><b>Схема пока пустая</b><span>Нажмите «Добавить элемент» и выберите марку для этой монтажной схемы${window.irAiRecognitionPage?" или загрузите чертежи в «ИИ-распознавание»":""}.</span></div>`):`<div class="scheme-empty-overlay"><b>Монтажная схема не включена</b><span>Откройте «Виды работ» и включите галочку «Нужна монтажная схема» у нужного вида работ.</span></div>`;
   app.innerHTML=`<div class="scheme-page">
    <div class="scheme-head"><button class="back" id="schemeBack">← Назад</button><div><h1>Монтажная схема</h1><p>${esc(object.name||"")}${frameMode?"":currentWork?` · ${esc(currentWork.name)}`:""} · ${esc(activeGroup().label)}</p></div><div class="scheme-head-actions">${window.irAiRecognitionPage?`<a class="scheme-grid-button scheme-ai-button" id="schemeAiRecognition" href="#/objects/object/${esc(oid)}/ai-recognition" title="Загрузить чертежи КМ / КМД / АР и расставить элементы на этой схеме">ИИ-распознавание</a>`:""}<label class="scheme-type-select-wrap work"><span>Режим / вид работ</span><select id="schemeWorkSelect">${workOptions}</select></label><label class="scheme-type-select-wrap"><span>Схема</span><select id="schemeTypeSelect" ${frameMode||activeWorkId?"":"disabled"}>${groupOptions}</select></label>${editActions}</div></div>
    <details class="scheme-data" id="schemeDataPanel" ${dataPanelOpen?"open":""}><summary><b>Данные схемы</b><small>оси ${fmt(spanX)} × ${fmt(spanY)} мм · на схеме ${s.total} · готовность ${mp.pct}% · смонтировано ${fmt(mp.mounted)} из ${fmt(mp.total)} шт.</small><span class="scheme-data-act"><i class="when-open">Скрыть</i><i class="when-closed">Показать</i></span></summary>
@@ -1714,6 +1725,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   document.getElementById("schemeToggleDimensions")?.addEventListener("click",()=>{dimensionsVisible=!dimensionsVisible;updateAnnotations()});
   document.getElementById("schemeClear")?.addEventListener("click",clearScheme);
   document.getElementById("schemeRestore")?.addEventListener("click",restoreScheme);
+  document.getElementById("schemeTrash")?.addEventListener("click",openSchemeTrash);
   document.getElementById("schemeClearMissing")?.addEventListener("click",clearMissing);
   renderScene();renderDetails();bindGridEditor();bindEditor();bindViewManager()
  }
