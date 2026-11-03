@@ -84,3 +84,8 @@ body.ir-object-route:not(.ir-object-overview) #app>.exec-docs-page{box-sizing:bo
 @media (max-width:1000px){.exd-stats{grid-template-columns:1fr 1fr}.exec-docs-page .exd-acts{grid-template-columns:1fr}}
 .exec-docs-page .exd-actions{margin-bottom:16px}
 .exd-acts-title{margin:0 0 10px;padding-top:14px;border-top:1px solid #e3eaef;font-size:13px;font-weight:700;color:#22394a}
+/* Names of the acts in an ordinary font, not bold (просьба инженера 03.11.2026). */
+.exec-docs-page .exd-act b{font-family:"Segoe UI",Arial,sans-serif;font-weight:400;font-size:12.5px;color:#1f3242;letter-spacing:0;line-height:1.35}
+.exec-docs-page .exd-act small{font-family:"Segoe UI",Arial,sans-serif;font-weight:400;font-size:10px;color:#8a99a5;letter-spacing:0}
+.exec-docs-page .exd-act.on b{color:#0f2a40}
+.exec-docs-page .exd-actgroup-head b,.exec-docs-page .exd-acts-title{font-family:"Segoe UI",Arial,sans-serif;font-weight:600}
