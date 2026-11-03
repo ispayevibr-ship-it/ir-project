@@ -59,7 +59,16 @@
   // Do not call focus() here: the user must retain focus in the edited field.
   return undefined
  }
- window.alert=message=>showMessage(message,"error");
+ // 1.11.72: every message that reports a done action (saved, exported, sent, deleted…) came through alert() and was
+ // shown red as an error. alert() now picks the colour by the text: a success without any failure words is green.
+ const FAIL=/не\s+удал|не\s+(сохран|загруж|выгруж|отправ|добав|найд|подтвержд|открыл|подключ|создан|принят|скопир)|ошиб|сбой|нельзя|невозможн|недоступн|запрещ|отклон|прерван|превыш|заблокирован|неверн|нечего/i;
+ const DONE=/(сохранен|сохранён|выгружен|загружен|отправлен|добавлен|удален|удалён|создан|скопирован|обновлен|обновлён|подтвержден|подтверждён|импортирован|принят)(а|о|ы)?(?![а-яё])|заверш[её]н|успешно|готово|установлена последняя/i;
+ function alertTone(message){
+  const text=String(message??"").replace(/ошибок:\s*0(?![0-9])/gi,"");
+  return !FAIL.test(text)&&DONE.test(text)?"success":"error"
+ }
+ window.alert=message=>showMessage(message,alertTone(message));
+ window.irProjectAlertTone=alertTone;
  window.irProjectNotice=showMessage
  // Windows: after a native window (a question of confirm(), a file dialog, an error) the program took no keys until it
  // was minimized and opened again. The main process gives the window its keyboard back (ai-settings:refocus in
