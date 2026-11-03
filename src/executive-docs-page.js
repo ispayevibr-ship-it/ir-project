@@ -18,6 +18,11 @@
  const DOC_KINDS=["Сертификат качества","Паспорт качества","Сертификат соответствия","Декларация о соответствии","Протокол испытаний"];
  // The last choice of the period, work type and acts is kept for the next export.
  const DEFAULT_ACTS=["aosr","aook","certs"];
+ // The page is split into tabs (просьба инженера 03.11.2026: «раздели на разделы и сверху сделай переключение»); the open
+ // tab is remembered. The acts of the export are grouped by what they are.
+ const TABS=[["export","Выгрузка"],["people","Участники"],["certs","Сертификаты"],["surveys","Исполнительные съёмки"]];
+ const ACT_GROUPS=[["Освидетельствование и приёмка",["aosr","aook","foundation","equipment","ready"]],["Контроль и испытания",["input","bolts","welds","akz","fireproof","tank","vacuum"]],["Геодезия",["asbuilt","geodesy"]],["Журналы и реестры",["journal","certs"]]];
+ const store={get:k=>{try{return localStorage.getItem(k)}catch{return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch{}}};
  async function loadAll(oid){
   const root=irProject.data.forObject(oid),get=k=>root.section(k).list().catch(()=>[]);
   const [own,marks,workTypes,reports,scheme,logs,kb,object,company]=await Promise.all([get("executive-docs"),get("marks"),get("work-types"),get("reports"),get("scheme"),get("ai-project-log"),get("ai-project-kb"),irProject.data.objects.get(oid),irProject.company?.get?.().catch(()=>null)]);
@@ -35,7 +40,7 @@
  }
  window.irExecDocsPage=async oid=>{
   const app=document.getElementById("app"),api=irProject.data.forObject(oid).section("executive-docs");
-  let D=await loadAll(oid),open={people:false,certs:true,surveys:true},busy=false,note="",filterGroup="",editing=null,adding=null,surveyEdit=null;
+  let D=await loadAll(oid),busy=false,note="",filterGroup="",editing=null,adding=null,surveyEdit=null,tab=TABS.some(t=>t[0]===store.get("ir-exd-tab"))?store.get("ir-exd-tab"):"export";
   const last=()=>D.settings.last||{};
   const saveSettings=async patch=>{D.settings={...D.settings,...patch};const payload={record_type:"settings",title:"Настройки исполнительной документации",data:D.settings};
    if(D.settingsRec)D.settingsRec=await api.update(D.settingsRec.id,payload)||D.settingsRec;else D.settingsRec=await api.create(payload)};
@@ -57,13 +62,16 @@
    const preview=X.buildPackage({settings:D.settings,reports:D.reports,marks:D.marks,scheme:D.scheme,workTypes:D.workTypes,needsList:D.needs,surveys:D.surveys,acts:[...acts],from,to,workTypeId:L.workTypeId||"",split:L.split||"period"});
    const missing=preview.missing;
    return`<div class="exd-grid exd-period"><label>С<input type="date" id="exdFrom" value="${esc(from)}"></label><label>По<input type="date" id="exdTo" value="${esc(to)}"></label>
-    <label class="wide">Вид работы<select id="exdWork"><option value="">Все виды работ</option>${D.workTypes.map(w=>`<option value="${esc(w.id)}" ${String(L.workTypeId||"")===w.id?"selected":""}>${esc(w.name)}${w.code?" ("+esc(w.code)+")":""}</option>`).join("")}</select></label>
+    <label>Вид работы<select id="exdWork"><option value="">Все виды работ</option>${D.workTypes.map(w=>`<option value="${esc(w.id)}" ${String(L.workTypeId||"")===w.id?"selected":""}>${esc(w.name)}${w.code?" ("+esc(w.code)+")":""}</option>`).join("")}</select></label>
     <label>Акты<select id="exdSplit"><option value="period" ${L.split!=="day"?"selected":""}>один на период</option><option value="day" ${L.split==="day"?"selected":""}>отдельно за каждый день</option></select></label></div>
-    <div class="exd-acts">${X.ACTS.map(a=>`<label class="exd-act ${acts.has(a.key)?"on":""}"><input type="checkbox" data-act="${a.key}" ${acts.has(a.key)?"checked":""}><span><b>${esc(a.name)}</b><small>${esc(a.basis)}</small></span></label>`).join("")}</div>
-    <div class="exd-summary">За период — ${preview.works.length?`<b>${preview.works.length}</b> позиций работ (${esc(preview.works.slice(0,6).map(r=>r.mark||r.work_type).join(", "))}${preview.works.length>6?"…":""})`:"<b>работ в ежедневных отчётах нет</b>"}; документов к выгрузке: <b>${preview.docs.length}</b>; исполнительных съёмок к актам: <b>${preview.surveys.length}</b>; файлов в папку приложений: <b>${preview.attachments.length}</b>.</div>
-    ${preview.noSurvey.length?`<div class="exd-warn">Нет исполнительной съёмки для: ${esc(preview.noSurvey.slice(0,6).join("; "))}${preview.noSurvey.length>6?"…":""}. Загрузите съёмку ниже или отметьте «Исполнительная геодезическая схема (из монтажной схемы)» — программа нарисует её сама.</div>`:""}
-    ${missing.length?`<div class="exd-warn">Нет документа о качестве у ${missing.length} поз.: ${esc(missing.slice(0,8).map(x=>x.title).join("; "))}${missing.length>8?"…":""}. В актах будет «документ о качестве не загружен».</div>`:""}
-    <div class="exd-actions"><button class="primary" id="exdDocx" ${busy?"disabled":""}>Выгрузить исполнительную документацию — Word</button><button class="primary exd-pdf" id="exdPdf" ${busy?"disabled":""}>Выгрузить — PDF</button>${note?`<span class="exd-note">${note}</span>`:""}</div>`
+    <div class="exd-stats"><div><small>Работ за период</small><b>${preview.works.length}</b><span>${preview.works.length?esc(preview.works.slice(0,4).map(r=>r.mark||r.work_type).join(", "))+(preview.works.length>4?"…":""):"в ежедневных отчётах нет"}</span></div>
+     <div><small>Документов к выгрузке</small><b>${preview.docs.length}</b><span>с описью</span></div>
+     <button data-goto="surveys" class="${preview.noSurvey.length?"warn":""}"><small>Исполнительные съёмки</small><b>${preview.surveys.length}</b><span>${preview.noSurvey.length?`нет для ${preview.noSurvey.length} акт.`:"к актам"}</span></button>
+     <button data-goto="certs" class="${missing.length?"warn":""}"><small>Сертификаты</small><b>${missing.length?missing.length:"✓"}</b><span>${missing.length?"позиций без документа":"все загружены"}</span></button></div>
+    <div class="exd-actions"><button class="primary" id="exdDocx" ${busy?"disabled":""}>Выгрузить исполнительную документацию — Word</button><button class="primary exd-pdf" id="exdPdf" ${busy?"disabled":""}>Выгрузить — PDF</button>${note?`<span class="exd-note">${note}</span>`:""}</div>
+    <div class="exd-acts-title">Какие акты нужны</div>
+    ${ACT_GROUPS.map(([title,keys])=>{const list=keys.map(k=>X.ACT[k]).filter(Boolean);const on=list.filter(a=>acts.has(a.key)).length;
+     return`<div class="exd-actgroup"><div class="exd-actgroup-head"><b>${esc(title)}</b><small>${on?`выбрано ${on} из ${list.length}`:""}</small></div><div class="exd-acts">${list.map(a=>`<label class="exd-act ${acts.has(a.key)?"on":""}" title="${esc(a.basis)}"><input type="checkbox" data-act="${a.key}" ${acts.has(a.key)?"checked":""}><span><b>${esc(a.name)}</b><small>${esc(a.basis)}</small></span></label>`).join("")}</div></div>`}).join("")}`
   }
  // As-built surveys: the list and the form of one.
   function surveysHtml(){
@@ -107,18 +115,22 @@
   function paint(){
    const ed=canEdit();
    app.innerHTML=`<div class="exec-docs-page"><div class="marks-top"><button class="back" id="execDocsBack">← Назад</button><div><h1>Исполнительная документация</h1><p>${esc(D.object?.name||"")}</p></div></div>
-    <section class="exd-card"><div class="exd-card-head"><h2>Выгрузка</h2><small>период, вид работы и какие акты нужны</small></div>${exportHtml()}</section>
-    <section class="exd-card"><button class="exd-card-head exd-toggle" data-open="people"><h2>Участники и объект</h2><small>${esc(X.people(D.settings).map(p=>p.name.split(" (")[0]).join(" · "))}</small><span>${open.people?"▴":"▾"}</span></button>${open.people?`${objectHtml()}${peopleHtml()}${ed?"":'<p class="exd-help">Изменять может тот, у кого есть права на ежедневные отчёты.</p>'}`:""}</section>
-    <section class="exd-card"><button class="exd-card-head exd-toggle" data-open="surveys"><h2>Исполнительные съёмки</h2><small>${D.surveys.length?D.surveys.length+" загружено":"схемы геодезиста к актам"}</small><span>${open.surveys?"▴":"▾"}</span></button>${open.surveys?surveysHtml():""}</section>
-    <section class="exd-card"><button class="exd-card-head exd-toggle" data-open="certs"><h2>Документы о качестве</h2><small>металл, метизы, электроды, грунтовка, краска — каждый отдельным пунктом</small><span>${open.certs?"▴":"▾"}</span></button>${open.certs?certsHtml():""}</section>
-    <p class="exd-help">Работы актов берутся из ежедневных отчётов за выбранный период и вид работы, марки и их оси — из ведомости марок и монтажной схемы, метизы — из ведомости метизов, сталь и профили — из монтажной схемы (ведомостей КМ). Марки электродов, грунтовки и краски программа ищет в распознанных чертежах; не нашла — пункт «по КМ», его можно переименовать своим пунктом. Загруженные сертификаты и съёмки кладутся рядом с выгруженным файлом в папку «… — приложения».</p></div>`;
+    <div class="exd-tabs">${TABS.map(([k,t])=>`<button data-tab="${k}" class="${tab===k?"on":""}">${esc(t)}${count(k)}</button>`).join("")}</div>
+    <section class="exd-card">${tab==="export"?exportHtml():tab==="people"?`${objectHtml()}${peopleHtml()}${ed?"":'<p class="exd-help">Изменять может тот, у кого есть права на ежедневные отчёты.</p>'}`:tab==="surveys"?surveysHtml():certsHtml()}</section>
+    <p class="exd-help">${HELP[tab]}</p></div>`;
    bind()
   }
+ const HELP={export:"Работы актов берутся из ежедневных отчётов за выбранный период и вид работы, марки и их оси — из ведомости марок и монтажной схемы. Загруженные сертификаты и съёмки кладутся рядом с выгруженным файлом в папку «… — приложения».",
+   people:"Технический и авторский надзор попадают в акты, только если отмечены. Названия организаций при первом открытии берутся из карточки объекта и профиля компании.",
+   certs:"Каждая сталь с профилем и каждая строка ведомости метизов — отдельный пункт; сталь и профили — из монтажной схемы (ведомостей КМ), метизы — из ведомости метизов. Марки электродов, грунтовки и краски программа ищет в распознанных чертежах; не нашла — пункт «по КМ», можно добавить свой пункт.",
+   surveys:"Съёмка попадает в акты своего вида работ, за период до её даты (до 30 дней после работ), по маркам или осям. Схему может нарисовать и сама программа — пункт «Исполнительная геодезическая схема (из монтажной схемы)» на вкладке «Выгрузка»."};
+  // The counter of a tab: certificates loaded of needed, surveys loaded.
+  const count=k=>{if(k==="certs"){const t=D.needs.filter(x=>!x.hidden),d=t.filter(x=>x.docs.length).length;return` <small>${d}/${t.length}</small>`}if(k==="surveys")return D.surveys.length?` <small>${D.surveys.length}</small>`:"";if(k==="people")return` <small>${X.people(D.settings).length}</small>`;return""};
   const choice=()=>{const acts=[...app.querySelectorAll("[data-act]:checked")].map(i=>i.dataset.act);return{from:val("exdFrom"),to:val("exdTo"),workTypeId:val("exdWork"),split:val("exdSplit"),acts}};
   const val=id=>document.getElementById(id)?.value||"";
   function bind(){
    document.getElementById("execDocsBack").onclick=()=>location.hash=`/objects/object/${oid}`;
-   app.querySelectorAll(".exd-toggle").forEach(b=>b.onclick=()=>{open[b.dataset.open]=!open[b.dataset.open];paint()});
+   app.querySelectorAll("[data-tab],[data-goto]").forEach(b=>b.onclick=()=>{tab=b.dataset.tab||b.dataset.goto;store.set("ir-exd-tab",tab);editing=null;surveyEdit=null;adding=null;paint();app.scrollTop=0;window.scrollTo?.(0,0)});
    const keep=async()=>{const c=choice();D.settings.last={...last(),...c};paint();try{await saveSettings({last:D.settings.last})}catch(e){console.warn(e)}};
    ["exdFrom","exdTo","exdWork","exdSplit"].forEach(id=>document.getElementById(id)?.addEventListener("change",keep));
    app.querySelectorAll("[data-act]").forEach(i=>i.onchange=keep);
@@ -135,7 +147,7 @@
    app.querySelectorAll("[data-adddoc]").forEach(b=>b.onclick=()=>{editing={key:b.dataset.adddoc,kind:DOC_KINDS[0],date:"",number:"",supplier:"",qty:"",file:null};paint()});
    app.querySelectorAll("[data-hide]").forEach(b=>b.onclick=async()=>{const x=need(b.dataset.hide);await certRecord(x,{hidden:!x.hidden});reload()});
    app.querySelectorAll("[data-delitem]").forEach(b=>b.onclick=async()=>{const x=need(b.dataset.delitem);if(!x?.record||!confirm(`Удалить пункт «${x.title}»?`))return;for(const d of x.docs)if(d.file?.path)await call("ai-documents:exec-cert-remove",{path:d.file.path}).catch(()=>{});await api.remove(x.record.id);reload()});
-   app.querySelectorAll("[data-addcustom]").forEach(b=>b.onclick=()=>{adding=adding===b.dataset.addcustom?null:b.dataset.addcustom;open.certs=true;paint();document.getElementById("exdNewTitle")?.focus()});
+   app.querySelectorAll("[data-addcustom]").forEach(b=>b.onclick=()=>{adding=adding===b.dataset.addcustom?null:b.dataset.addcustom;paint();document.getElementById("exdNewTitle")?.focus()});
    const nt=document.getElementById("exdNewTitle");
    if(nt){const g=X.GROUPS.find(x=>x.key===adding);
     const add=async()=>{const t=nt.value.trim();if(!t){nt.focus();return}
@@ -157,7 +169,7 @@
      await certRecord(x,{docs:[...x.docs,one(editing.file),...arr(editing.more).map(one)]});editing=null;reload()}}
    // As-built surveys.
    const sRec=id=>D.surveys.find(r=>String(r.id)===String(id));
-   document.getElementById("exdSurveyAdd")?.addEventListener("click",()=>{surveyEdit={title:"Исполнительная геодезическая схема",date:last().to||today(),work_type_id:last().workTypeId||"",files:[],added:[]};open.surveys=true;paint()});
+   document.getElementById("exdSurveyAdd")?.addEventListener("click",()=>{surveyEdit={title:"Исполнительная геодезическая схема",date:last().to||today(),work_type_id:last().workTypeId||"",files:[],added:[]};paint()});
    app.querySelectorAll("[data-sedit]").forEach(b=>b.onclick=()=>{const r=sRec(b.dataset.sedit);surveyEdit={id:r.id,...(r.data||{}),files:arr(r.data?.files),added:[]};paint()});
    app.querySelectorAll("[data-sdel]").forEach(b=>b.onclick=async()=>{const r=sRec(b.dataset.sdel);if(!r||!confirm(`Удалить «${X.surveyText(X.surveyOf(r))}» вместе с файлами?`))return;
     for(const f of arr(r.data?.files))if(f?.path)await call("ai-documents:exec-cert-remove",{path:f.path}).catch(()=>{});await api.remove(r.id);reload()});
@@ -182,7 +194,7 @@
      note=r?.path?`Сохранено: ${esc(r.path)}${r.copied?` · приложений в папке: ${r.copied}`:""}${r.missing?.length?` · не найдено файлов: ${r.missing.length}`:""}`:"Выгрузка отменена"}
     catch(e){note=`<span class="exd-bad">Не выгружено: ${esc(e.message||e)}</span>`}
     busy=false;paint()};
-   document.getElementById("exdDocx").onclick=()=>run("docx");document.getElementById("exdPdf").onclick=()=>run("pdf");
+   document.getElementById("exdDocx")?.addEventListener("click",()=>run("docx"));document.getElementById("exdPdf")?.addEventListener("click",()=>run("pdf"));
   }
   paint()
  };
