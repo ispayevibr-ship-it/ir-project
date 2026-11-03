@@ -892,7 +892,10 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   const volume=(/КМ\s*\d+/u.exec(String(c.source_import_doc||""))||[""])[0].replace(/\s+/g,"");
   const key=oid+"|"+c.source_import_key+"|"+c.mark+"|"+volume;
   // (the steel of the mark by its drawings into the characteristic of the card when the record has none)
-  const show=card=>{if(!card){box.innerHTML="";return}box.innerHTML=markCardHtml(card);box.querySelectorAll("[data-mark-zoom]").forEach(el=>el.onclick=()=>el.classList.toggle("zoom"));
+  // 1.11.73: the enlarged drawing opens in its own layer on top of the whole window (the details panel is a stacking context, so the 3D toolbar and the cuts chip were drawn over it)
+  const zoomMarkShot=img=>{if(!img)return;const o=document.createElement("div");o.className="scheme-mark-card-shot zoom";o.style.zIndex="2147483600";o.title="Нажмите, чтобы закрыть";const i=document.createElement("img");i.src=img.src;i.alt=img.alt;o.appendChild(i);
+   const key=e=>{if(e.key==="Escape"){e.stopPropagation();close()}};const close=()=>{o.remove();document.removeEventListener("keydown",key,true)};o.onclick=close;document.addEventListener("keydown",key,true);document.body.appendChild(o)};
+  const show=card=>{if(!card){box.innerHTML="";return}box.innerHTML=markCardHtml(card);box.querySelectorAll("[data-mark-zoom]").forEach(el=>el.onclick=()=>zoomMarkShot(el.querySelector("img")));
    const st=panel.querySelector("[data-ec-steel]");if(st?.hidden&&card.catalog?.steel){st.querySelector("dd").textContent=card.catalog.steel;st.hidden=false}};
   if(markCards.has(key)){show(markCards.get(key));return}
   box.innerHTML='<div class="scheme-mark-card"><small>Читаю чертёж марки…</small></div>';
