@@ -781,8 +781,12 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   }catch(error){alert("Не удалось выгрузить схему: "+String(error?.message||error))}
   finally{if(btn){btn.disabled=false;btn.textContent=old}}
  }
+ let pickerCollator=null;
  function pickerRecords(){
-  return records().map(c=>({...c,...coord(c),status:effectiveStatus(c)})).sort((a,b)=>String(a.mark||"").localeCompare(String(b.mark||""),"ru",{numeric:true,sensitivity:"base"})||Number(a.id)-Number(b.id))
+  // (one comparer for the whole list: the comparison of strings with options built a new one at each of the ~60 000 comparisons of
+  // 5000 members, and the list is drawn anew at every choice on the scheme — «монтажная схема подвисает», 03.11.2026)
+  pickerCollator||=new Intl.Collator("ru",{numeric:true,sensitivity:"base"});
+  return records().map(c=>({...c,...coord(c),status:effectiveStatus(c)})).sort((a,b)=>pickerCollator.compare(String(a.mark||""),String(b.mark||""))||Number(a.id)-Number(b.id))
  }
  function pickerMatches(c,query){
   const q=norm(query);return !q||norm([c.mark,c.mark_name,c.position,c.title,c.id,c.axisX,c.axisY,fmt(c.x),fmt(c.y)].join(" ")).includes(q)

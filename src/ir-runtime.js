@@ -1954,8 +1954,12 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   }catch(error){alert("Не удалось выгрузить схему: "+String(error?.message||error))}
   finally{if(btn){btn.disabled=false;btn.textContent=old}}
  }
+ let pickerCollator=null;
  function pickerRecords(){
-  return records().map(c=>({...c,...coord(c),status:effectiveStatus(c)})).sort((a,b)=>String(a.mark||"").localeCompare(String(b.mark||""),"ru",{numeric:true,sensitivity:"base"})||Number(a.id)-Number(b.id))
+  // (one comparer for the whole list: the comparison of strings with options built a new one at each of the ~60 000 comparisons of
+  // 5000 members, and the list is drawn anew at every choice on the scheme — «монтажная схема подвисает», 03.11.2026)
+  pickerCollator||=new Intl.Collator("ru",{numeric:true,sensitivity:"base"});
+  return records().map(c=>({...c,...coord(c),status:effectiveStatus(c)})).sort((a,b)=>pickerCollator.compare(String(a.mark||""),String(b.mark||""))||Number(a.id)-Number(b.id))
  }
  function pickerMatches(c,query){
   const q=norm(query);return !q||norm([c.mark,c.mark_name,c.position,c.title,c.id,c.axisX,c.axisY,fmt(c.x),fmt(c.y)].join(" ")).includes(q)
@@ -3928,91 +3932,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 })();
 ;
 
-/* #38: src/object-data-recovery.js */
-"use strict";
-(()=>{
- const KEYS=["reports","schedule","work-types","marks","deliveries"];
- const ALIASES={
-  reports:["daily-reports","daily_reports","dailyreports","report"],
-  schedule:["work-schedule","work_schedule","schedule-items","timeline"],
-  "work-types":["work_types","worktypes","works"],
-  marks:["mark-list","mark_list","statement-marks","statement_marks"],
-  deliveries:["invoices","delivery","supplies"]
- };
- const norm=v=>String(v??"").trim().toLowerCase().replace(/\s+/g," ");
- const sleep=ms=>new Promise(r=>setTimeout(r,ms));
- const sameObject=(a,b)=>norm(a?.name)===norm(b?.name)&&norm(a?.customer)===norm(b?.customer)&&norm(a?.address)===norm(b?.address);
- async function readOnce(oid,key){return irProject.data.forObject(oid).section(key).list()}
- async function readRetry(oid,key,tries=3){
-  let firstError=false,lastError=null;
-  for(let i=0;i<tries;i++){
-   try{
-    const rows=await readOnce(oid,key);
-    if(Array.isArray(rows))return{rows,firstError,retried:i>0};
-    return{rows:[],firstError,retried:i>0};
-   }catch(e){if(i===0)firstError=true;lastError=e;if(i<tries-1)await sleep(90*(i+1))}
-  }
-  console.error(`IR data read failed: object ${oid}, section ${key}`,lastError);
-  return{rows:[],firstError:true,retried:true,error:lastError};
- }
- async function copyRows(oid,key,rows){
-  if(!rows?.length)return 0;
-  const api=irProject.data.forObject(oid).section(key);let count=0;
-  for(const r of rows){
-   const payload={record_type:r.record_type||"item",title:r.title||"",data:{...(r.data||{})}};
-   try{await api.create(payload);count++}catch(e){console.error(`IR recovery copy failed: ${key}`,e)}
-  }
-  return count;
- }
- async function readAny(oid,key){
-  const primary=await readRetry(oid,key);
-  if(primary.rows.length)return{...primary,key};
-  for(const alias of ALIASES[key]||[]){
-   const x=await readRetry(oid,alias,2);
-   if(x.rows.length)return{...x,key:alias,alias:true};
-  }
-  return{...primary,key};
- }
- async function exactSibling(oid,current,objects){
-  const matches=(objects||[]).filter(o=>String(o.id)!==String(oid)&&sameObject(o,current));
-  return matches.length===1?matches[0]:null;
- }
- async function ensureObject(oid){
-  const current=await irProject.data.objects.get(oid).catch(()=>null);if(!current)return{changed:false,refresh:false};
-  const objects=await irProject.data.objects.list().catch(()=>[]),sibling=await exactSibling(oid,current,objects);
-  let changed=false,refresh=false;
-  for(const key of KEYS){
-   const target=await readRetry(oid,key);
-   if(target.rows.length){if(target.firstError||target.retried)refresh=true;continue}
-   let source=null;
-   for(const alias of ALIASES[key]||[]){const a=await readRetry(oid,alias,2);if(a.rows.length){source=a.rows;break}}
-   if(!source&&sibling){const s=await readAny(sibling.id,key);if(s.rows.length)source=s.rows}
-   if(source?.length){const copied=await copyRows(oid,key,source);if(copied){changed=true;refresh=true;console.warn(`IR recovery: restored ${copied} ${key} rows for object ${oid}`)}}
-  }
-  return{changed,refresh};
- }
- window.irObjectDataRecovery={ensureObject,readRetry,readAny};
- const overviewId=()=>location.hash.match(/^#\/objects\/object\/(\d+)\/?$/)?.[1]||"";
- let busy=false,lastRefresh="",lastRouteObject=overviewId();
- async function run(){
-  const oid=overviewId();if(!oid||busy)return;busy=true;
-  try{
-   const result=await ensureObject(oid);
-   if(result.refresh&&lastRefresh!==String(oid)){
-    lastRefresh=String(oid);
-    const render=typeof window.objectPage==="function"?window.objectPage:(typeof objectPage==="function"?objectPage:null);
-    if(render)await render(oid);
-    setTimeout(()=>window.dispatchEvent(new Event("hashchange")),40);
-   }
-  }catch(e){console.error("IR object data recovery",e)}finally{busy=false}
- }
- window.addEventListener("hashchange",()=>{const oid=overviewId();if(oid!==lastRouteObject){lastRefresh="";lastRouteObject=oid}setTimeout(run,60)});
- setTimeout(run,80);
-})();
-
-;
-
-/* #39: src/deliveries-page.js */
+/* #38: src/deliveries-page.js */
 "use strict";
 (()=>{
  const workLabel=(v,context="base")=>window.irWorkNames?.format?.(v,context)||String(v??"");
@@ -4087,7 +4007,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-/* #40: src/deliveries-route-v2.js */
+/* #39: src/deliveries-route-v2.js */
 "use strict";
 (()=>{
  const workLabel=(v,context="base")=>window.irWorkNames?.format?.(v,context)||String(v??"");
@@ -4202,8 +4122,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-;
-/* #41: src/deliveries-filters.js */
+/* #40: src/deliveries-filters.js */
 "use strict";
 (()=>{
  const arr=v=>Array.isArray(v)?v:[];
@@ -4292,7 +4211,8 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-/* #42: src/deliveries-pagination-fix.js */
+;
+/* #41: src/deliveries-pagination-fix.js */
 "use strict";
 (()=>{
  const PAGE_SIZE=15;
@@ -4359,7 +4279,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-/* #43: src/photos-page.js */
+/* #42: src/photos-page.js */
 "use strict";
 (()=>{
  const arr=v=>Array.isArray(v)?v:[];
@@ -4404,7 +4324,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-/* #44: src/section-unified.js */
+/* #43: src/section-unified.js */
 "use strict";
 (()=>{
  const esc=v=>String(v??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -4434,7 +4354,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-/* #45: src/object-card-photo.js */
+/* #44: src/object-card-photo.js */
 "use strict";
 (()=>{
   async function enhance(){
@@ -4468,7 +4388,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-/* #46: src/object-media-ui.js */
+/* #45: src/object-media-ui.js */
 "use strict";
 (()=>{
   const patchHints=()=>{
@@ -4575,7 +4495,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-/* #47: src/object-card-actions.js */
+/* #46: src/object-card-actions.js */
 "use strict";
 (()=>{
   function enhance(){
@@ -4612,7 +4532,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-/* #48: src/profile-ui.js */
+/* #47: src/profile-ui.js */
 "use strict";
 (()=>{
  const names={admin:"Администратор",engineer:"Инженер ПТО",guest:"Гость"};
@@ -4848,7 +4768,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
 
 ;
 
-/* #49: src/company-profile.js */
+/* #48: src/company-profile.js */
 "use strict";
 (()=>{
 let profile={name:"",logo:""},profileLoaded=false,brandPaintSerial=0;
@@ -4905,7 +4825,7 @@ const root=document.getElementById("app");if(root)new MutationObserver(()=>paint
 })();
 ;
 
-/* #50: src/object-filters.js */
+/* #49: src/object-filters.js */
 "use strict";
 (()=>{
   let lastSignature="";
@@ -4933,8 +4853,7 @@ const root=document.getElementById("app");if(root)new MutationObserver(()=>paint
 
 ;
 
-;
-/* #51: src/route-indicator.js */
+/* #50: src/route-indicator.js */
 "use strict";
 // The route label at the bottom of the window («objects/id1/…») is not shown any more (the engineer, 27.10.2026:
 // «убери надпись снизу objects/id и тд, уже не нужно»); a label left by an older copy of the page is removed.
@@ -4942,7 +4861,8 @@ const root=document.getElementById("app");if(root)new MutationObserver(()=>paint
 
 ;
 
-/* #52: src/titlebar.js */
+;
+/* #51: src/titlebar.js */
 "use strict";
 (async()=>{try{const v=await irProject.updater.version(),el=document.getElementById("titlebarVersion");if(el)el.textContent="("+v+")"}catch{}})();
 const updateBtn=document.getElementById("titlebarUpdate");if(updateBtn)updateBtn.onclick=async()=>{
@@ -4959,7 +4879,7 @@ const updateBtn=document.getElementById("titlebarUpdate");if(updateBtn)updateBtn
 };
 ;
 
-/* #53: src/object-shell.js */
+/* #52: src/object-shell.js */
 "use strict";
 (()=>{
 const root=document.getElementById("app");if(!root)return;
@@ -5006,7 +4926,7 @@ window.addEventListener("ir-company-profile-updated",()=>{if(sidebar)paintBrand(
 
 ;
 
-/* #54: src/select-ui.js */
+/* #53: src/select-ui.js */
 "use strict";
 window.irSelectUI=(()=>{
  const openState={api:null};
@@ -5116,7 +5036,7 @@ window.irSelectUI=(()=>{
 })();
 ;
 
-/* #55: src/object-overview-right-column.js */
+/* #54: src/object-overview-right-column.js */
 "use strict";
 /* Object overview right column, version 1.7.73.
  * Move existing module WRAPPERS, not their interactive children:
