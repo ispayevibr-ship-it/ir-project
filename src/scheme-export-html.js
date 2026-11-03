@@ -17,12 +17,22 @@
  async function text(url){var r=await fetch(url,{cache:"no-store"});if(!r.ok)throw Error("Не прочитан файл "+url);return r.text()}
  // The styles of the 3D view (.ir-three-…) as the program has them now.
  function threeCss(){
-  var out=[];
+  // (a rule whose every property a later rule of the same selector gives again is left out — the later one wins there
+  // anyway, whatever stands between; the same rule twice once; the spaces of the text out: «уменьши размер схемы
+  // выгружаемой, удали стили если повторно друг на друга наложены», the engineer, 03.11.2026)
+  var out=[],seen=new Set();
   [].slice.call(document.styleSheets).forEach(function(sheet){
    var rules;try{rules=sheet.cssRules}catch(_e){return}
-   [].slice.call(rules||[]).forEach(function(r){if(/ir-three/.test(r.cssText))out.push(r.cssText)})
+   [].slice.call(rules||[]).forEach(function(r){if(!/ir-three/.test(r.cssText))return;
+    if(r.type===1&&r.style){var ps=[],imp=[];for(var i=0;i<r.style.length;i++){ps.push(r.style[i]);if(r.style.getPropertyPriority(r.style[i]))imp.push(r.style[i])}out.push({sel:r.selectorText,ps:ps,imp:imp,text:r.cssText})}
+    else if(!seen.has(r.cssText)){seen.add(r.cssText);out.push({text:r.cssText})}})
   });
-  return out.join("\n")
+  var keep=out.map(function(o,i){if(!o.ps)return true;
+   for(var j=i+1;j<out.length;j++){var l=out[j];if(!l.ps||l.sel!==o.sel)continue;
+    if(l.text===o.text)return false;
+    if(o.ps.every(function(p){return l.ps.indexOf(p)>=0&&(o.imp.indexOf(p)<0||l.imp.indexOf(p)>=0)}))return false}
+   return true});
+  return out.filter(function(o,i){return keep[i]}).map(function(o){return o.text.replace(/\s*\{\s*/,"{").replace(/;\s+/g,";").replace(/\s*\}\s*$/,"}")}).join("\n")
  }
  async function logoOf(company){
   var logo=String(company&&company.logo||"");if(!logo)return"";if(dataUrl(logo))return logo;
@@ -45,8 +55,8 @@
   ":root{--bg:#eef2f7;--card:#fff;--ink:#17233a;--muted:#5d6b80;--line:#dbe3ee;--accent:#1f5fbf;--ok:#1f8a4c;--part:#c98a0b;--wait:#7a8699;color-scheme:light}",
   "*{box-sizing:border-box}html,body{margin:0}html.js,html.js body{height:100%}body{background:var(--bg);color:var(--ink);font:14px/1.4 'Segoe UI',system-ui,-apple-system,sans-serif}",
   ".hx{display:flex;align-items:center;gap:18px;padding:14px 20px;background:var(--card);border-bottom:1px solid var(--line);flex-wrap:wrap}",
-  ".hx-co{display:flex;align-items:center;gap:12px;min-width:0}.hx-co img{max-height:52px;max-width:160px;object-fit:contain}",
-  ".hx-co b{font-size:16px}.hx-obj{flex:1 1 320px;min-width:0}.hx-obj h1{margin:0;font-size:19px;line-height:1.25}",
+  ".hx-co{display:flex;align-items:center;gap:12px;min-width:0}.hx-co:empty{display:none}.hx-co img{min-height:70px;max-height:90px;max-width:240px;object-fit:contain}",
+  ".hx-obj{flex:1 1 320px;min-width:0}.hx-obj h1{margin:0;font-size:15px;line-height:1.25}.hx-obj .pin{flex:none;color:#1f5fbf}.hx-obj .addr{display:flex;align-items:center;gap:5px}",
   ".hx-obj .addr{color:var(--muted);margin-top:3px}.hx-meta{text-align:right;color:var(--muted);font-size:12.5px}.hx-meta b{display:block;color:var(--ink);font-size:14px}.hx-meta .made{display:block;margin-top:2px;font-size:10.5px;letter-spacing:.02em;opacity:.8}",
   ".sum{display:flex;gap:10px;padding:12px 20px;flex-wrap:wrap}.sum>div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 14px;min-width:120px}",
   ".sum span{display:block;color:var(--muted);font-size:12px}.sum b{font-size:18px;font-variant-numeric:tabular-nums}.sum .bar{height:6px;background:#e4e9f1;border-radius:3px;margin-top:5px;overflow:hidden}.sum .bar i{display:block;height:100%;background:var(--ok)}",
@@ -54,7 +64,7 @@
   // The window: the header (company, object, address, date) on top, the scheme under it to the edges; the side panel
   // (totals, kinds, filter, elements) opens over the scheme on demand, the card of a clicked element is its own box.
   "html.js,html.js body{height:100%;overflow:hidden}.js .wrap{position:fixed;inset:0;display:flex;flex-direction:column;padding:0}",
-  ".wrap>.hx{flex:0 0 auto;padding:8px 16px;gap:14px}.wrap>.hx .hx-co img{max-height:40px}.wrap>.hx .hx-obj h1{font-size:17px}",
+  ".wrap>.hx{flex:0 0 auto;padding:8px 16px;gap:14px}",
   ".area{position:relative;flex:1 1 auto;min-height:0}.js .area>.stage{position:absolute;inset:0;border:0;border-radius:0}",
   ".card{position:absolute;left:12px;top:122px;width:340px;max-width:calc(100% - 24px);max-height:calc(100% - 180px);overflow:auto;z-index:15;box-shadow:0 8px 24px rgba(15,30,60,.18)}",
   ".card[hidden]{display:none}.card .side-close{margin-left:8px}",
@@ -74,7 +84,8 @@
   // A phone: the page scrolls as a document and the scheme has its own height (78% of the screen, at least 420 px) —
   // the window-filling layout gave the 3D field no height in the iPhone viewer, and the scheme stayed empty.
   "@media(max-width:760px){html.js,html.js body{height:auto;overflow:auto}.js .wrap{position:static;display:block}.js .area>.stage{position:relative;inset:auto}",
-  " #stage3d{flex:none;height:78vh;min-height:420px}.ir-three-footer{display:none!important}.side{position:fixed}.wrap>.hx{padding:8px 12px}.wrap>.hx .hx-obj h1{font-size:15px}}",
+  " #stage3d{flex:none;height:78vh;min-height:420px}.side{position:fixed}.wrap>.hx{padding:8px 12px}.wrap>.hx .hx-obj h1{font-size:14px}}",
+  ".help{position:absolute;right:12px;top:52px;width:380px;max-width:calc(100% - 24px);z-index:16;box-shadow:0 8px 24px rgba(15,30,60,.18)}.help[hidden]{display:none}.help ul{margin:0;padding-left:18px;display:grid;gap:5px;font-size:13px}.help p{margin:8px 0 0;color:var(--muted);font-size:12px}",
   ".side{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}",
   ".box h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}",
   ".groups label{display:flex;align-items:center;gap:7px;padding:3px 0;cursor:pointer}.groups small{margin-left:auto;color:var(--muted)}",
@@ -113,13 +124,30 @@
   ".ec-sw{display:inline-block;width:11px;height:11px;margin-right:6px;border-radius:2px;background:#c5ced6;vertical-align:-1px}.ec-note{color:#5f7383;font-size:11px}.ec-calc{color:#6b7f8e}",
   ".ec-parts-src{margin:4px 0 0;color:#6b7f8e;font-size:11px}",
   "@media(max-width:900px){.stage-bar{justify-content:flex-start}.side{width:100vw;max-width:100vw}}",
-  "@media print{.stage-bar,.side{display:none}}"
+  ".ir-three-footer .ir-three-st{display:inline-flex;align-items:center;gap:6px;margin-right:16px}.ir-three-footer .ir-three-st i{width:11px;height:11px;border-radius:3px;display:inline-block}",
+    "@media print{.stage-bar,.side{display:none}}"
  ].join("\n");
 
  // The read-only page: filters → visible elements → the same 3D module of the program.
  function viewer(){
   var D=window.__irSchemeData||JSON.parse(document.getElementById("ir-scheme-data").textContent);
   var $=function(id){return document.getElementById(id)};
+  // No word of the conventional in the exported page (the engineer, 03.11.2026: «все упоминания об условных убери при
+  // выгрузке»): «(условно)», «(сечение условно)», «· сечение условное: 24», a sentence «… показаны условно …» are taken
+  // out of every text and hint the page and its 3D write, now and later.
+  var plain=function(t){
+   if(!/условн/i.test(t))return t;
+   return t.replace(/\s*\([^()]*условн[^()]*\)/gi,"").replace(/\s*·[^·.!?;]*условн[^·.!?;]*/gi,"").replace(/[^.!?;]*условн[^.!?;]*[.!?;]?\s*/gi,"").replace(/[\s,—–-]+$/,"")
+  };
+  var clean=function(node){
+   if(node.nodeType===3){var v=plain(node.nodeValue);if(v!==node.nodeValue)node.nodeValue=v;return}
+   if(node.nodeType!==1)return;
+   if(node.title&&/условн/i.test(node.title))node.title=plain(node.title);
+   var w=document.createTreeWalker(node,5),n;while((n=w.nextNode())){if(n.nodeType===3){var t=plain(n.nodeValue);if(t!==n.nodeValue)n.nodeValue=t}else if(n.title&&/условн/i.test(n.title))n.title=plain(n.title)}
+  };
+  clean(document.body);
+  new MutationObserver(function(list){list.forEach(function(m){if(m.type==="characterData")clean(m.target);else if(m.type==="attributes")clean(m.target);else m.addedNodes.forEach(clean)})})
+   .observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:["title"]});
   var esc=function(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})};
   var fmt=function(v){var n=Number(v);return Number.isFinite(n)?Number(n.toFixed(1)).toLocaleString("ru-RU",{maximumFractionDigits:1}):"—"};
   var S={hidden:new Set(),sec:new Set(),conf:"all",status:"all",work:"all",min:"",max:"",q:"",sel:"",color:"status",labels:false,dims:false,bg:D.background||"standard"};
@@ -134,7 +162,7 @@
    var els=shown();
    window.irThreeSchemeView.render($("stage3d"),{objectId:"export:"+D.objectId,axesX:D.axesX,axesY:D.axesY,spanX:D.spanX,spanY:D.spanY,gridDirX:D.gridDirX,gridDirY:D.gridDirY,
     gridX:D.gridX,gridY:D.gridY,elements:els,selected:S.sel,maxZ:els.reduce(function(m,c){return Math.max(m,c.z0,c.z2,c.mz||0)},0),
-    colorMode:S.color,showLabels:S.labels,showDimensions:S.dims,background:S.bg,canEdit:false,marks:[],
+    colorMode:S.color,showLabels:S.labels,showDimensions:S.dims,background:S.bg,canEdit:false,marks:[],report:true,
     onColorModeChange:function(m){S.color=m;draw3d()},onSelect:function(id){S.sel=String(id||"");details();list()},onFirstPaint:firstPaint});
    $("cnt").textContent=els.length+" из "+D.elements.length
   }
@@ -264,6 +292,18 @@
   $("panel").onclick=function(){panel(!$("wrap").classList.contains("open"))};$("close").onclick=function(){panel(false)};
   // Escape closes the card first, then the panel.
   document.addEventListener("keydown",function(e){if(e.key!=="Escape")return;if(S.sel){S.sel="";details();list();draw3d()}else if($("wrap").classList.contains("open"))panel(false)});
+  // Every window closes by a click elsewhere (the engineer, 03.11.2026: «Все окна должны после открытия закрываться при
+  // нажатие в другое место»): the panel of the filters, the card of an element (a click on the 3D chooses there itself),
+  // the card of a node, a bolt or a crane, the help.
+  document.addEventListener("pointerdown",function(e){
+   var t=e.target,inside=function(sel){return t.closest&&t.closest(sel)};
+   if($("wrap").classList.contains("open")&&!inside("#side")&&!inside("#panel"))panel(false);
+   if(!$("help").hidden&&!inside("#help")&&!inside("#helpBtn"))$("help").hidden=true;
+   var node=document.querySelector("#irThreeNode");if(node&&!node.hidden&&!inside("#irThreeNode")){var x=node.querySelector('[data-node="close"]');if(x)x.click();else node.hidden=true}
+   if(S.sel&&!$("details").hidden&&!inside("#details")&&!inside("#stage3d canvas")&&!inside("#list")){S.sel="";details();list();draw3d()}
+  },true);
+  // «Помощь по 3D»: how to move through the scheme (the hints that stood under it).
+  $("helpBtn").onclick=function(){$("help").hidden=!$("help").hidden};
   $("full").onclick=function(){var st=$("stage");if(document.fullscreenElement)document.exitFullscreen();else if(st.requestFullscreen)st.requestFullscreen()};
   groups();sections();list();details();draw3d()
  }
@@ -297,23 +337,32 @@
  function page(d,libs){
   var s=d.summary;
   // Under the date in small letters — «Сделано в IR Project» (the engineer, 27.10.2026).
-  var head='<header class="hx"><div class="hx-co">'+(d.company.logo?'<img src="'+esc(d.company.logo)+'" alt="Логотип">':"")+(d.company.name?'<b>'+esc(d.company.name)+'</b>':"")+'</div>'+
-   '<div class="hx-obj"><h1>'+esc(d.object.name||"Объект")+'</h1>'+(d.object.address?'<div class="addr">📍 '+esc(d.object.address)+'</div>':"")+'</div>'+
-   '<div class="hx-meta"><b>Монтажная схема · '+esc(d.title)+'</b>'+(d.work?esc(d.work)+'<br>':"")+'Выгружено '+esc(d.date)+'<small class="made">Сделано в IR Project</small></div></header>';
+  // (the engineer, 03.11.2026: the logo at least 70 px high; the company's name where «Монтажная схема · Весь каркас»
+  // stood; the pin of the address drawn, the name of the object smaller)
+  var PIN='<svg class="pin" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>';
+  var head='<header class="hx"><div class="hx-co">'+(d.company.logo?'<img src="'+esc(d.company.logo)+'" alt="Логотип">':"")+'</div>'+
+   '<div class="hx-obj"><h1>'+esc(d.object.name||"Объект")+'</h1>'+(d.object.address?'<div class="addr">'+PIN+esc(d.object.address)+'</div>':"")+'</div>'+
+   '<div class="hx-meta">'+(d.company.name?'<b>'+esc(d.company.name)+'</b>':"")+(d.work?esc(d.work)+'<br>':"")+'Выгружено '+esc(d.date)+'<small class="made">Сделано в IR Project</small></div></header>';
   var pct=s.total?Math.round(s.mounted/s.total*100):0;
   var sum='<section class="sum"><div><span>Элементов на схеме</span><b>'+s.placed+'</b></div><div><span>Смонтировано</span><b class="ok">'+s.placedMounted+'</b></div><div><span>Частично</span><b class="partial">'+s.placedPartial+'</b></div>'+
    '<div><span>Не смонтировано</span><b class="wait">'+(s.placed-s.placedMounted-s.placedPartial)+'</b></div>'+(s.total?'<div><span>По ведомости марок</span><b>'+pct+'%</b> <small>'+s.mounted+' из '+s.total+' шт.</small><div class="bar"><i style="width:'+pct+'%"></i></div></div>':"")+'</section>';
   var body='<main class="wrap" id="wrap">'+head+'<div class="area"><section class="stage" id="stage"><div class="stage-bar">'+
    '<label><input type="checkbox" id="labels"> Марки</label><label><input type="checkbox" id="dims"> Размеры</label>'+
    '<select id="bg" title="Фон"><option value="standard">Фон: стандартный</option><option value="white">Белый</option><option value="gray">Серый</option><option value="blue">Голубой</option><option value="sand">Песочный</option><option value="dark">Тёмный</option></select>'+
-   '<button type="button" id="full">⛶ На весь экран</button><button type="button" id="panel" aria-expanded="false" aria-controls="side">☰ Сведения и фильтры</button></div><div id="stage3d"></div>'+still(d)+'</section>'+
+   '<button type="button" id="helpBtn" aria-controls="help">? Помощь по 3D</button><button type="button" id="full">⛶ На весь экран</button><button type="button" id="panel" aria-expanded="false" aria-controls="side">☰ Сведения и фильтры</button></div><div id="stage3d"></div>'+still(d)+'</section>'+
    '<div class="box card" id="details" hidden></div>'+
+   '<div class="box help" id="help" hidden><h3>Помощь по 3D-схеме</h3><ul>'+
+   '<li><b>Левая кнопка мыши</b> — вращение схемы</li><li><b>Правая кнопка или нажатое колесо</b> — сдвиг</li><li><b>Колесо</b> — приблизить или отдалить к точке под курсором</li>'+
+   '<li><b>Двойной щелчок</b> — сделать точку центром вращения</li><li><b>W A S D, стрелки</b> — движение по схеме, <b>Q E</b> — вниз и вверх, <b>Shift</b> — быстрее</li>'+
+   '<li><b>Щелчок по элементу</b> — его карточка; по маркеру узла — карточка узла</li><li><b>Телефон:</b> один палец — вращение, два — сдвиг и масштаб</li>'+
+   '<li><b>☰ Сведения и фильтры</b> — сводка, виды конструкций, фильтр и список элементов</li><li>Окна закрываются щелчком в любом другом месте или клавишей Esc</li></ul>'+
+   '<p>Выгружено из IR Project — только просмотр.</p></div>'+
    '<aside class="side" id="side"><div class="box"><button type="button" class="side-close" id="close" aria-label="Свернуть панель">✕</button><h3>Сводка</h3>'+sum+'</div><div class="box"><h3>Виды конструкций</h3><div class="groups" id="groups"></div><div class="groups-actions"><button type="button" id="all">Показать все</button><button type="button" id="none">Скрыть все</button></div></div>'+
    '<div class="box"><h3>Фильтр</h3>'+((d.works||[]).length>1?'<label class="f">Вид работ<select id="work"><option value="all">Все виды работ вместе</option>'+d.works.map(function(w){return'<option value="'+esc(w.id)+'">'+esc(w.label)+' · '+w.count+'</option>'}).join("")+'</select></label>':'')+((d.elements||[]).some(function(c){return c.preliminary})?'<label class="f" title="Предварительно — экземпляры, определённые по чертежам не полностью; показаны бледно">Достоверность<select id="conf"><option value="all">Все</option><option value="sure">Определены полностью</option><option value="prelim">Только предварительные</option></select></label>':'')+
    (new Set((d.elements||[]).map(function(c){return c.source_section||""})).size>1?'<div class="f">Разделы чертежей<div class="groups" id="sections"></div></div>':'')+'<label class="f">Статус<select id="status"><option value="all">Все</option><option value="mounted">Смонтированы</option><option value="partial">Частично</option><option value="planned">Не смонтированы</option></select></label>'+
    '<div class="row2"><label class="f">Отметка от, мм<input id="lmin" type="number" inputmode="numeric"></label><label class="f">до, мм<input id="lmax" type="number" inputmode="numeric"></label></div><div class="empty">На экране: <b id="cnt"></b></div></div>'+
    '<div class="box"><h3>Элементы</h3><input id="q" type="search" placeholder="Марка, наименование, ось" autocomplete="off"><div class="empty" id="found"></div><div class="list" id="list"></div></div>'+
-   '<div class="empty foot">Выгружено из IR Project — только просмотр. Вращение — левая кнопка мыши, сдвиг — правая, масштаб — колесо; щелчок по элементу — его карточка.</div></aside></div></main>';
+   '</aside></div></main>';
   return'<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script>'+inline(HEAD)+'</script>'+
    '<title>'+esc((d.object.name||"Объект")+" — монтажная схема")+'</title><style>'+libs.css+'\n'+PAGE_CSS+'</style></head><body>'+body+
    (libs.packed?'<script type="application/octet-stream" id="ir-pack">'+libs.packed+'</script><script>('+inline(UNPACK.toString())+')()</script></body></html>':
@@ -352,7 +401,10 @@
   var libs={css:threeCss()};
   try{d.shots=window.irThreeSchemeView&&window.irThreeSchemeView.snapshots?window.irThreeSchemeView.snapshots():[]}catch(_e){d.shots=[]}
   var r=await Promise.all([text(scriptUrl("vendor/three/three.min.js")),text(scriptUrl("vendor/three/OrbitControls.js")),text(scriptUrl("ai-structure-types.js")),text(scriptUrl("scheme-three-view.js")),text(scriptUrl("ai-joint-catalog.js")).catch(function(){return""}),text(scriptUrl("scheme-element-card.js")).catch(function(){return""})]);
-  libs.three=r[0];libs.orbit=r[1];libs.types=r[2];libs.view=r[3];libs.joints=r[4];libs.card=r[5];
+  // (the lines of comments of the program's scripts left out — a third of the 3D module: «уменьши размер схемы выгружаемой»,
+  // the engineer, 03.11.2026; the code itself unchanged)
+  var bare=function(t){return String(t||"").replace(/^[ \t]*\/\/.*(?:\r?\n|$)/gm,"")};
+  libs.three=r[0];libs.orbit=r[1];libs.types=bare(r[2]);libs.view=bare(r[3]);libs.joints=bare(r[4]);libs.card=bare(r[5]);
   libs.sections=window.irThreeSchemeView&&window.irThreeSchemeView.sectionRows?await window.irThreeSchemeView.sectionRows().catch(function(){return[]}):[];
   libs.fasteners=window.irThreeSchemeView&&window.irThreeSchemeView.fastenerRows?await window.irThreeSchemeView.fastenerRows().catch(function(){return[]}):[];
   // The catalog of joints: the node card of the exported scheme names the type of the node as the program does.

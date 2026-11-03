@@ -39,8 +39,8 @@ const libs={css:"",three:"window.THREE={};",orbit:"",types:"",view:"window.irThr
  await new Promise(r=>setTimeout(r,300));
  assert.equal(page.__irSchemeData.elements.length,400);assert.equal(page.irSchemeSections.length,1);
  assert.deepEqual(ran.slice(0,2),["window.THREE={};","window.irThreeSchemeView={};"]);assert.match(ran[2],/^try\{\(function viewer/);
- // The pictures of the scheme for a viewer without scripts: 1280 × 800, JPEG 74 %.
+ // The pictures of the scheme for a viewer without scripts: 1120 × 700, JPEG 62 % (lighter export, the engineer 03.11.2026).
  const view=fs.readFileSync(__dirname+"/../src/scheme-three-view.js","utf8");
- assert.match(view,/var W=1280,H=800,ratio=renderer\.getPixelRatio\(\)/);assert.match(view,/toDataURL\("image\/jpeg",\.74\)/);
+ assert.match(view,/var W=1120,H=700,ratio=renderer\.getPixelRatio\(\)/);assert.match(view,/toDataURL\("image\/jpeg",\.62\)/);
  console.log("scheme export pack: ok ("+plain.length+" → "+packed.length+" bytes)");
 })().catch(e=>{console.error(e);process.exit(1)});

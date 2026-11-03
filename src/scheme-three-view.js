@@ -672,9 +672,8 @@ window.irThreeSchemeView=(function(){
   host.innerHTML='<div class="ir-three-root">'+
    '<div class="ir-three-toolbar">'+
    '<div class="ir-three-views">'+
-   '<button data-three-view="iso" class="active">3D</button><button data-three-view="top">Сверху</button>'+
+   '<button data-three-view="iso" class="active" title="Общий вид модели сбоку сверху">Общий вид</button><button data-three-view="top">Сверху</button>'+
    '<button data-three-view="front">Фасад</button><button data-three-view="side">Сбоку</button></div>'+
-   '<button id="irThreeReset" title="Вернуть исходный ракурс">⟲ Ракурс</button>'+
    '<select id="irThreeColors" data-native-select="1" aria-label="Раскраска конструкции">'+
    '<option value="type">Цвет: виды</option><option value="status">Цвет: монтаж</option><option value="mark">Цвет: марки</option><option value="confidence">Цвет: достоверность</option></select>'+
    '<label class="ir-three-check"><input type="checkbox" id="irThreeGrid" checked> Сетка</label>'+
@@ -696,6 +695,11 @@ window.irThreeSchemeView=(function(){
    axisLayer=root.querySelector("#irThreeAxisLayer"),labelLayer=root.querySelector("#irThreeLabelLayer"),
    cursor=root.querySelector("#irThreeCursor"),legend=root.querySelector("#irThreeLegend"),placePanel=root.querySelector("#irThreePlace");
   nodePanel=root.querySelector("#irThreeNode");
+  // (the exported report: no colouring by the confidence — the engineer, 03.11.2026: «Цвет достоверность при выгрузке не надо»)
+  if(P.report){var conf=root.querySelector('#irThreeColors option[value="confidence"]');if(conf)conf.remove();if(P.colorMode==="confidence")P.colorMode="status"}
+  // (under the scheme of the report only the colours of the montage; how to move is in «Помощь по 3D» of the page —
+  // the engineer, 03.11.2026: «Внизу оставь подсказки только Серый цвет - не смонтировано, зеленый - смонтировано»)
+  if(P.report){var foot=root.querySelector(".ir-three-footer");if(foot)foot.innerHTML='<span class="ir-three-st"><i style="background:#9ea8b4"></i>Серый — не смонтировано</span><span class="ir-three-st"><i style="background:#159b65"></i>Зелёный — смонтировано</span>'}
   var scene=new T.Scene();
   var camera=new T.PerspectiveCamera(42,1,.08,3000);
   // Without the graphics card (Windows draws WebGL by the processor: SwiftShader, «Basic Render») the picture is made
@@ -2768,10 +2772,16 @@ window.irThreeSchemeView=(function(){
   function slopeGusset(c,a,b,E0,d,v,face,cut,dia,hit,pn,host,parts){
    var U=hit.body.U.clone().normalize(),out=U.clone().cross(pn).normalize();if(out.dot(d)<0)out.negate();
    var fp=E0.clone().add(d.clone().multiplyScalar(face)),gt=gussetT(c),lt=legT(c),reg=host.slopes||(host.slopes=[]),g=null;
+   // (at a column, hit.n its face: off the face by as much as the plate's thickness leans in the slope — square to the
+   // plate its end's corners went 2.5 mm into the column)
+   var on=hit.tight&&hit.n?Math.abs(out.dot(hit.n)):0;if(on>.2)fp.add(out.clone().multiplyScalar((gt/2*Math.abs(pn.dot(hit.n))+.0005)/on));
    // (one plate on that side of the chord for every member ending there in that plane: the same plane, the same face
    // line — whichever piece of the chord each one found)
-   reg.forEach(function(q){if(g||q.out.dot(out)<.9||q.pn.dot(pn)<.99)return;var r=fp.clone().sub(q.o);
-    if(Math.abs(r.dot(q.pn))<.015&&Math.abs(r.dot(q.out))<.05&&Math.abs(r.dot(q.U))<.8)g=q});
+   // (at a column — hit.tight — only in the very plane: the half of a crossed Сгф1 lapped over the gusset of the crossing
+   // comes to the column 0.5° off the plane of the whole one, on their common plate its leg went 4 mm into it; a plate
+   // of its own there, the two going apart from the face)
+   reg.forEach(function(q){if(g||q.out.dot(out)<.9||q.pn.dot(pn)<(hit.tight?.99995:.99))return;var r=fp.clone().sub(q.o);
+    if(Math.abs(r.dot(q.pn))<(hit.tight?.0015:.015)&&Math.abs(r.dot(q.out))<.05&&Math.abs(r.dot(q.U))<.8)g=q});
    if(!g){g={U:U,out:out,pn:pn,by:pn.clone().cross(out),o:fp.clone(),pts:[],geo:null,mesh:new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(c))};
     g.mesh.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(g.out,g.by,pn));g.mesh.position.copy(g.o);g.mesh.userData.gusset=true;reg.push(g);parts.push(g.mesh)}
    // (its outline: from the face of the chord along the member past its bolts, as wide as its legs lying on it)
@@ -2781,6 +2791,11 @@ window.irThreeSchemeView=(function(){
    [y0,y1].forEach(function(y){var P=fp.clone().add(side.clone().multiplyScalar(y)),u=P.clone().sub(g.o).dot(g.out);
     g.pts.push(loc(Math.abs(du)>.05?P.clone().sub(d.clone().multiplyScalar(u/du)):P));g.pts.push(loc(P.clone().add(d.clone().multiplyScalar(reach))))});
    var hull=hull2(g.pts);
+   // (at a column, along its face only as far as no plate stands there — the support rib of the truss on it: Сгф1 at К2,
+   // О4/Е, its plate went 12 mm into the rib of Фс1)
+   if(hit.tight){var lim=[-1,1].map(function(sd){for(var t=.002;t<=.6;t+=.002){if([.01,.06,.12].some(function(o){return[-gt/2,0,gt/2].some(function(z){
+     return plateAt(g.o.clone().add(g.by.clone().multiplyScalar(sd*t)).add(g.out.clone().multiplyScalar(o)).add(pn.clone().multiplyScalar(z)),String(c.id))})}))return sd*(t-.009)}return sd*1e3});
+    hull=hull2(hull.map(function(q){return[q[0],Math.max(lim[0],Math.min(lim[1],q[1]))]}))}
    if(hull.length>=3){var sh=new T.Shape();hull.forEach(function(q,i){i?sh.lineTo(q[0],q[1]):sh.moveTo(q[0],q[1])});sh.closePath();
     var hg=new T.ExtrudeGeometry(sh,{depth:gt,bevelEnabled:false,curveSegments:1});hg.translate(0,0,-gt/2);if(g.geo)g.geo.dispose();g.geo=hg;g.mesh.geometry=hg}
    // (the bolts across the plate through the legs on it: a pair of angles both sides of it — the package leg, plate, leg
@@ -2828,6 +2843,16 @@ window.irThreeSchemeView=(function(){
    return r}
   function inUpright(r,Q){return r.some(function(s){var D=Q.clone().sub(s.A),a=D.dot(s.hd);return Math.abs(D.dot(s.n))<s.t&&a>-.01&&a<.6&&D.y>-.01&&D.y<.6})}
   function inFlange(y,gt,hit){var m=Math.min(gt,hit.tf)-.001,o=function(a,b){return Math.min(y+gt/2,b)-Math.max(y-gt/2,a)};return o(hit.top-hit.tf,hit.top)>=m||o(hit.bot,hit.bot+hit.tf)>=m}
+  // The end of an angle of a deck's frame clear of the members and plates at it: from P back along it (d — into the
+  // member) 5 mm at a time, at most 400 mm and 45 % of it, till no corner of its section over its last 300 mm is inside.
+  function deckAngleEnd(c,id,k,P,d,v,L,host){
+   var sk={margin:.001},bad=function(Q0){var w=v.clone().multiplyScalar(.3),bx=k?pieceBox(c,Q0.clone().sub(w),Q0):pieceBox(c,Q0,Q0.clone().add(w));if(!bx)return false;
+    for(var s=0;s<=.3;s+=.05)for(var a=0;a<2;a++)for(var b=0;b<2;b++){var Q=bx.o.clone().add(bx.U.clone().multiplyScalar(k?.298-s:s+.002)).add(bx.X.clone().multiplyScalar(a?bx.x1-.002:bx.x0+.002)).add(bx.Y.clone().multiplyScalar(b?bx.y1-.002:bx.y0+.002));
+     if(host.inside(id,Q,sk)||plateAt(Q,id))return true}
+    return false};
+   for(var r=0;r<=Math.min(.4,L*.45);r+=.005){var Q=P.clone().add(d.clone().multiplyScalar(r));if(!bad(Q))return Q}
+   return P
+  }
   function trimSegment(c,id,a,b,host,parts,outer){
    var v=b.clone().sub(a),L=v.length();if(L<.3)return[a,b];v.divideScalar(L);
    endPlanes.delete(id+":0");endPlanes.delete(id+":1");
@@ -2919,6 +2944,11 @@ window.irThreeSchemeView=(function(){
     // (its sheet's end plate goes to the web when the member has room between the flanges)
     // (nor through another member standing between the flanges)
     var clear=function(){return[.01,.5,1].every(function(f){return!blocked(E0.clone().add(e[1].clone().multiplyScalar(hit.web+.01+(hit.t-hit.web-.01)*f)),hit.body,{body:hit.body,d:e[1]})})};
+    // (an angle of a deck's frame — the horizontal bracing р2 L75×6 of the crane platform +16,100, КМ3 л.22, л.24 — at a
+    // beam: welded to it, no end plate; back from the face till no corner of its section is in a member or a plate there.
+    // An end plate square to it with four bolts, the angle coming aslant to the corner of two beams over a column, stood
+    // through the web of the beam into the node — the engineer, 03.11.2026: «опять торчит металл»)
+    if(dka&&!brace){out[k]=deckAngleEnd(c,id,k,E0.clone().add(e[1].clone().multiplyScalar(cut)),e[1],v,L,host);faced[k]=true;return}
     // (an angle cleat of its sheet: at the web when the member has room between the flanges, else at the face)
     var cl=!brace&&!onSeat&&!sheetPlate&&!stringer(c)&&cleatOf(c);
     if(cl){var toWeb=hit.web!==undefined&&clear(),cope=toWeb&&!roomAt(c,E0,v,hit)?hit:null,sf=toWeb?hit.web:face;
@@ -2980,6 +3010,17 @@ window.irThreeSchemeView=(function(){
     // +19,950, КМ1 л.19, узлы 21, 22: on an upright gusset, its bolts across it, as the braces there; a plate lying flat at
     // the column touched nothing)
     var vpl=hit.col&&bracePlane.get(String(id)),upr=Boolean(vpl&&Math.abs(vpl.y)<.3&&Math.abs(d.dot(vpl))<.1);
+    // (a brace of a bracing lying in a slope at a column — Сгф1 2L125×10 in the plane of the bottom chords, 1:3,9, at the
+    // supports of the trusses on row Е —: its gusset in that plane, welded to the column, the bolts across it through the
+    // legs on it, as at the chords (slopeGusset). The brace 14° to the level, one end took a plate lying flat at the face,
+    // its bolts upright 40 mm under it in the air, the other — a bit steeper — an upright plate, the bolts through the
+    // plate only, past the legs (the engineer, 03.11.2026, in the chat of the scheme: «метиз выходит за металл»)). A brace
+    // only, and one that rises: the level struts Рс-1, Рс-2 at the columns keep their ends; a pair «┬» under a flat gusset
+    // (teePair — Сг-1 2L110×8, 1:10, its flat legs side by side under the plate) keeps its flat one too.
+    var cn=hit.col&&!real&&c.geometryType==="brace"&&Math.abs(d.y)>.05&&hit.n&&Math.abs(hit.n.y)<.5?hit.n.clone().setY(0).normalize():null,cp=cn&&(slopeEnd(id,e[0])||bracePlane.get(String(id)));
+    if(cp&&!upr&&!(braceAngle(c,v)||{}).tee){cp=cp.clone().normalize();if(cp.y<0)cp.negate();var cu=cp.clone().cross(cn);
+     if(cp.y>.5&&cp.y<.9995&&cu.lengthSq()>1e-4){var gi3=parts.indexOf(g);if(gi3>=0)parts.splice(gi3,1);
+      slopeGusset(c,ends[0][0],ends[1][0],E0,d,v,face,cut,dia,{body:{U:cu.normalize()},n:cn,tight:true},cp,host,parts);return}}
     if(flat&&!upr){
      // At the side of a member: along its face, out of it only, 400 × 300 (a plate square to the brace, centred on it,
      // crossed the member and came out of its other side: Сгк1 of a brake truss through the brake beam Тб1, the engineer
@@ -3461,14 +3502,23 @@ window.irThreeSchemeView=(function(){
   // A railing post standing at the level of a deck stands on it (drawn from the level of the beams under it, it went
   // through the grating): its foot lifted by guardLift (m), drawn only.
   var guardLift=new Map();
+  // A railing post standing in a column — its axis inside the column's section at its level (Ог1 Ø32×3 at the corners of
+  // the landings of the stair tower at О7/Ж, +2,700…+16,100, on the axes of the columns К1 I30Б1 of the tower; the
+  // engineer, 03.11.2026, in the chat of the scheme: «это что? почему стойка сзади колонны?») is not drawn: there the
+  // column holds the railing, its rails end on the column (on its web between the flanges, at the face of a flange), as
+  // they are welded on site; the post drawn showed in the web of the column, out between its flanges behind it. Its card
+  // says so (col_post: the mark of the column). The scheme keeps it.
+  var postAtCol=new Map();
   function deckCuts(list){
-   deckHoles.clear();guardLift.clear();deckInfo.clear();var cols=[],posts=[];
+   deckHoles.clear();guardLift.clear();deckInfo.clear();postAtCol.clear();var cols=[],posts=[];
    list.forEach(function(c){
     if(!c.id||c.ft||c.geometryType!=="column"||latticed(c))return;
     var p=memberPoints(c),hs=planHalf(c);
     if(slight(c)){if(p[p.length-1].y>p[0].y+.3)posts.push({id:String(c.id),x:p[0].x,z:p[0].z,y:p[0].y,r:Math.max(hs.x,hs.z)});return}
-    cols.push({x:p[0].x,z:p[0].z,y0:p[0].y,y1:p[1].y,hx:hs.x,hz:hs.z})
+    cols.push({x:p[0].x,z:p[0].z,y0:p[0].y,y1:p[1].y,hx:hs.x,hz:hs.z,mark:String(c.mark||c.mark_name||"")})
    });
+   posts.forEach(function(k){cols.some(function(q){
+    if(Math.abs(k.x-q.x)>q.hx||Math.abs(k.z-q.z)>q.hz||k.y<q.y0-.05||k.y>q.y1-.3)return false;postAtCol.set(k.id,q.mark||"колонна");return true})});
    if(cols.length||posts.length)list.forEach(function(c){
     if(c.ft!=="deck"||!c.id||c.lay&&number(c.lay.arc_r_mm)>0)return;
     var p=memberPoints(c),a=p[0],b=p[p.length-1],d=new T.Vector3(b.x-a.x,0,b.z-a.z),len=a.distanceTo(b);if(d.length()<.1)return;d.normalize();
@@ -4034,6 +4084,7 @@ window.irThreeSchemeView=(function(){
     if(c.column&&Array.isArray(c.column.members)&&c.column.members.length&&addColumnLattice(c,id)){host.parts(c,meshesById.get(id));return}
     if(c.lay&&(c.lay.lattice||c.lay.bars)&&addSpaceFrame(c,id)){host.parts(c,meshesById.get(id));return}
     if(latticeAt.has(id)&&branchLattice(c,id,latticeAt.get(id)))return;
+    if(postAtCol.has(id))return;
     for(var i=0;i<p.length-1;i++)if(dist(p[i],p[i+1])>.005)segments.push([p[i],p[i+1]]);
     // A vertical brace drawn as a cross: the second diagonal from the top of the first end to the foot of the second.
     if(c.cross&&p.length===2&&segments.length){var q0=p[0].clone(),q1=p[1].clone();q0.y=p[1].y;q1.y=p[0].y;segments.push([q0,q1])}
@@ -4465,6 +4516,12 @@ window.irThreeSchemeView=(function(){
   var craneMat=new T.MeshStandardMaterial({color:0xff6a00,metalness:.2,roughness:.55}),hoistMat=new T.MeshStandardMaterial({color:0x3a4048,metalness:.3,roughness:.5}),
    wheelMat=new T.MeshStandardMaterial({color:0x1f2328,metalness:.6,roughness:.35}),
    glassMat=new T.MeshStandardMaterial({color:0x9ccbe8,metalness:.1,roughness:.08,transparent:true,opacity:.45,depthWrite:false});
+  // (the bridge of an overhead crane drawn as one is made — the engineer, 03.11.2026: «Кран балку без кабины и прорисуй
+  // еще, чтобы поинтереснее была»: flanges and stiffeners of the box girders, the walkway with its railing, the bridge
+  // drives, buffers striped black and yellow, the trolley's frame and guard, the cable of the hoist on its festoon)
+  var stripeMat=new T.MeshStandardMaterial({color:0x15181c,metalness:.2,roughness:.6}),yellowMat=new T.MeshStandardMaterial({color:0xffc400,metalness:.15,roughness:.55}),
+   railMat=new T.MeshStandardMaterial({color:0xffc400,metalness:.25,roughness:.5}),deckMat=new T.MeshStandardMaterial({color:0x5b6570,metalness:.4,roughness:.6}),
+   guardMat=new T.MeshStandardMaterial({color:0xffc400,metalness:.15,roughness:.55,side:T.DoubleSide});
   // Only the member's own name makes it a runway: a type «Кран-балка, монорельс» given to a beam by its letters (a beam of
   // a crane service platform, an opening) put cranes and hoists all over the frame. A pair of «путь подвесного крана»
   // carries a suspended crane, a «монорельс» a hoist, a «рельс» (or a rail profile Р43) and a «подкрановая балка» an
@@ -4568,18 +4625,6 @@ window.irThreeSchemeView=(function(){
     hookBlock(low.clone().add(new T.Vector3(0,-.15,0)),X,Z,1);partName="пульт управления";
     var pend=drum.clone().add(X.clone().multiplyScalar(.28)).add(new T.Vector3(0,-1.2,0));cyl(.005,2.1,wheelMat,pend.clone().add(new T.Vector3(0,.15,0)),UP,5);box(.08,.24,.07,craneMat,pend.clone().add(new T.Vector3(0,-.95,0)),X,Z)
    };
-   // The operator's cab under the bridge girder (`top` — the middle of the girder's underside): two hangers, the roof, the
-   // floor, posts at the corners, panels below, glass above on three sides, the back closed (the door to the bridge).
-   var cabin=function(top,X,Z){
-    partName="кабина крановщика";var W=1.6,D=1.6,H=1.9,roof=top.clone().add(new T.Vector3(0,-.3,0)),y0=roof.y-H,lo=.85,gh=H-lo-.07;
-    var at=function(x,y,z){return roof.clone().add(X.clone().multiplyScalar(x)).add(Z.clone().multiplyScalar(z)).setY(y)};
-    [-1,1].forEach(function(i){box(.1,.3,.1,hoistMat,at(i*.5,top.y-.15,0),X,Z)});
-    box(W+.14,.07,D+.14,hoistMat,at(0,roof.y-.035,0),X,Z);box(W,.07,D,hoistMat,at(0,y0+.035,0),X,Z);
-    [-1,1].forEach(function(i){[-1,1].forEach(function(j){box(.06,H,.06,hoistMat,at(i*(W/2-.03),y0+H/2,j*(D/2-.03)),X,Z)})});
-    [-1,1].forEach(function(i){box(W,lo,.03,craneMat,at(0,y0+lo/2,i*D/2),X,Z);box(.03,lo,D,craneMat,at(i*W/2,y0+lo/2,0),X,Z)});
-    var gy=y0+lo+gh/2;[-1,1].forEach(function(i){box(W-.12,gh,.02,glassMat,at(0,gy,i*D/2),X,Z)});
-    box(.02,gh,D-.12,glassMat,at(W/2,gy,0),X,Z);box(.03,gh,D,craneMat,at(-W/2,gy,0),X,Z)
-   };
    pairs.forEach(function(p){
     var w=p.w,o=p.o,s=p.lo+(p.hi-p.lo)/3,A={x:w.a.x+w.u.x*s,y:w.a.y+w.u.y*s},t=((A.x-o.a.x)*o.u.x+(A.y-o.a.y)*o.u.y),B={x:o.a.x+o.u.x*t,y:o.a.y+o.u.y*t};
     var pa=toWorld(A.x,A.y,0),pb=toWorld(B.x,B.y,0),span=Math.hypot(pb.x-pa.x,pb.z-pa.z),mid=pa.clone().add(pb).multiplyScalar(.5);
@@ -4609,16 +4654,42 @@ window.irThreeSchemeView=(function(){
       [-1,1].forEach(function(j){cyl(.25,.12,wheelMat,c0.clone().add(AL.clone().multiplyScalar(j*1.5)).add(new T.Vector3(0,.25,0)),S,20)});
       partName="концевая балка";box(.42,.55,4,craneMat,c0.clone().add(new T.Vector3(0,.62,0)),S,AL)
      });
-     partName="главная балка моста";var gB=top+.9;[-1,1].forEach(function(k){box(span+.5,1.2,.5,craneMat,mid.clone().add(AL.clone().multiplyScalar(k*1.1)).setY(gB+.6),S,AL)});cranes.push(Object.assign(info,{at:mid.clone().setY(gB),size:span,along:AL.clone()}));
+     partName="главная балка моста";var gB=top+.9,gL=span+.5;[-1,1].forEach(function(k){var gc=mid.clone().add(AL.clone().multiplyScalar(k*1.1));
+      box(gL,1.12,.46,craneMat,gc.clone().setY(gB+.6),S,AL);
+      // the flanges of the box, a little wider than its webs; stiffeners on the outer web every 1.5 m
+      partName="пояс главной балки";[gB+1.18,gB+.02].forEach(function(y){box(gL,.04,.56,craneMat,gc.clone().setY(y),S,AL)});
+      partName="ребро жёсткости";var nS=Math.max(2,Math.floor(span/1.5));for(var q=1;q<nS;q++)box(.02,1.02,.06,craneMat,gc.clone().add(S.clone().multiplyScalar(-gL/2+q*gL/nS)).add(AL.clone().multiplyScalar(k*.26)).setY(gB+.6),S,AL);
+      // the walkway along the outer side: its deck on brackets, posts every 1.5 m, two rails and a toe board
+      partName="галерея моста";var wc=gc.clone().add(AL.clone().multiplyScalar(k*.73));box(gL-.4,.03,.9,deckMat,wc.clone().setY(gB+.08),S,AL);
+      for(var q2=0;q2<=nS;q2++){var px=-(gL-.4)/2+q2*(gL-.4)/nS,pc=wc.clone().add(S.clone().multiplyScalar(px));
+       box(.05,.12,.9,craneMat,pc.clone().setY(gB+.0),S,AL);box(.04,1.05,.04,railMat,pc.clone().add(AL.clone().multiplyScalar(k*.42)).setY(gB+.62),S,AL)}
+      [gB+1.13,gB+.62].forEach(function(y){box(gL-.4,.04,.04,railMat,wc.clone().add(AL.clone().multiplyScalar(k*.42)).setY(y),S,AL)});
+      box(gL-.4,.12,.012,railMat,wc.clone().add(AL.clone().multiplyScalar(k*.44)).setY(gB+.15),S,AL)});
+     // the bridge drives on the end trucks (motor and gearbox to the wheel), buffers at the ends of the trucks
+     [pa,pb].forEach(function(q,i){var c0=q.clone().setY(top),inS=S.clone().multiplyScalar(i?-1:1);
+      partName="привод передвижения моста";cyl(.16,.42,hoistMat,c0.clone().add(inS.clone().multiplyScalar(.5)).add(AL.clone().multiplyScalar(1.5)).setY(top+.65),S,16);
+      box(.36,.4,.34,hoistMat,c0.clone().add(inS.clone().multiplyScalar(.36)).add(AL.clone().multiplyScalar(1.5)).setY(top+.32),S,AL);
+      partName="буфер";[-1,1].forEach(function(j){var bc=c0.clone().add(AL.clone().multiplyScalar(j*2.12)).setY(top+.55);cyl(.11,.24,stripeMat,bc,AL,14);
+       cyl(.13,.05,yellowMat,bc.clone().add(AL.clone().multiplyScalar(j*.14)),AL,14);
+       // black and yellow on the end of the truck
+       for(var st=0;st<4;st++)box(.42/4,.55,.012,st%2?stripeMat:yellowMat,c0.clone().add(S.clone().multiplyScalar(-.21+.42/8+st*.42/4)).add(AL.clone().multiplyScalar(j*2.006)).setY(top+.62),S,AL)})});
+     cranes.push(Object.assign(info,{at:mid.clone().setY(gB),size:span,along:AL.clone()}));
      var tr=pa.clone().lerp(pb,.4).setY(gB+1.2);partName="грузовая тележка";
      box(2.0,.3,2.8,hoistMat,tr.clone().add(new T.Vector3(0,.15,0)),S,AL);
+     // its frame on the rails of the girders, the guard over the drum, the travel drive
+     [-1,1].forEach(function(i){box(.18,.24,3.0,craneMat,tr.clone().add(S.clone().multiplyScalar(i*.92)).add(new T.Vector3(0,.12,0)),S,AL)});
+     partName="кожух барабана";var gz=new T.Vector3().crossVectors(S,AL).normalize();place(new T.CylinderGeometry(.42,.42,1.56,20,1,true,gz.y>0?-Math.PI/2:Math.PI/2,Math.PI),guardMat,tr.clone().add(new T.Vector3(0,.68,0)),S,AL,gz);
+     partName="привод тележки";cyl(.12,.36,hoistMat,tr.clone().add(S.clone().multiplyScalar(-.75)).add(AL.clone().multiplyScalar(1.2)).add(new T.Vector3(0,.42,0)),S,14);partName="грузовая тележка";
      [-1,1].forEach(function(i){[-1,1].forEach(function(j){cyl(.16,.08,wheelMat,tr.clone().add(S.clone().multiplyScalar(i*.8)).add(AL.clone().multiplyScalar(j*1.1)).add(new T.Vector3(0,.0,0)),S,16)})});
      var dr=tr.clone().add(new T.Vector3(0,.68,0));partName="лебёдка тележки";cyl(.34,1.5,hoistMat,dr,AL,20);cyl(.2,.6,hoistMat,dr.clone().add(AL.clone().multiplyScalar(1.1)).add(S.clone().multiplyScalar(.5)),AL,16);
      box(.6,.55,.5,hoistMat,dr.clone().add(AL.clone().multiplyScalar(-1.05)),S,AL);
      var drop=Math.max(2,Math.min(6,gB-2)),hb=tr.clone().add(new T.Vector3(0,-drop,0));partName="канаты";
      [-.25,-.08,.08,.25].forEach(function(z){cyl(.011,drop+.3,wheelMat,tr.clone().add(AL.clone().multiplyScalar(z)).add(new T.Vector3(0,-drop/2+.15,0)),UP,6)});
      hookBlock(hb,S,AL,2);
-     cabin(pa.clone().lerp(pb,.12).add(AL.clone().multiplyScalar(-1.1)).setY(gB),S,AL)
+     // (no cabin: the crane is run from the floor — the pendant on the festoon cable along the bridge)
+     partName="кабель на гирлянде";var fz=AL.clone().multiplyScalar(-1.62);cyl(.012,span,wheelMat,mid.clone().add(fz).setY(gB+1.0),S,6);
+     for(var fl=0;fl<6;fl++){var fp=pa.clone().lerp(pb,.15+fl*.05).add(fz);box(.05,.08,.05,hoistMat,fp.clone().setY(gB+1.0),S,AL);cyl(.01,.5,wheelMat,fp.clone().setY(gB+.72),UP,6)}
+     partName="пульт управления";var pp=pa.clone().lerp(pb,.38).add(fz),pdrop=Math.max(1.5,gB-1.4);cyl(.007,pdrop,wheelMat,pp.clone().setY(gB+.75-pdrop/2),UP,6);box(.1,.32,.09,yellowMat,pp.clone().setY(gB+.75-pdrop-.12),S,AL)
     }
    });
    list("mono").concat(hung.filter(function(w){return!used.has(w)})).forEach(function(w){
@@ -6012,7 +6083,7 @@ window.irThreeSchemeView=(function(){
     if(!mesh.userData.fixed)mesh.material=mesh.userData.roof?roofMaterial(c):mesh.userData.shell?shellMaterial(c):baseMaterial(c)
    });
    rayTargets=allMeshes.filter(function(m){return!m.userData.small});rebatch();lit=null;paintHighlight();
-   root.querySelector("#irThreeCount").textContent=elems.length+" элементов"+(failures?" · без геометрии: "+failures:"")+(conventional.size?" · сечение условное: "+conventional.size:"")+(wallCut.size?" · за стеной обрезано: "+wallCut.size:"")+(linesMoved?" · стен по наружной грани каркаса: "+linesMoved:"");
+   root.querySelector("#irThreeCount").textContent=elems.length+" элементов"+(failures?" · без геометрии: "+failures:"")+(conventional.size&&!P.report?" · сечение условное: "+conventional.size:"")+(wallCut.size?" · за стеной обрезано: "+wallCut.size:"")+(linesMoved?" · стен по наружной грани каркаса: "+linesMoved:"");
    root.querySelector("#irThreeCount").title=conventional.size?"Профиль этих элементов не найден в справочнике сортаментов (или не указан) — сечение нарисовано условно, не по размерам":"Сечения нарисованы по справочнику сортаментов";
    paintLegend();
    if(apart)setExplode(apart.n,apart.s)
@@ -6281,7 +6352,7 @@ window.irThreeSchemeView=(function(){
    list.forEach(function(m){if(m.userData.hole||m.userData.anchor||m.userData.footing||m.userData.weld||m.material===concreteMat)return;v+=volumeOf(m)});
    return{mass_kg:own&&!conventional.has(id)&&v>0?Math.round(v*7850*10)/10:null,bolts:boltList.filter(function(b){return b.id===id}).length,
     nodes:nodes.filter(function(n){return n.members.some(function(m){return String(m.c.id)===id})}).map(function(n){return{id:n.id,name:kindName(n),axes:axisOf(n.x,n.y).split(" (")[0]}}),
-    colors:parts?parts.color:{},body:parts?parts.body:null,lit:litFor===id?litPart:null,spec:derivedParts.get(id)||null,wall_mm:wallCut.has(id)?Math.round(wallCut.get(id)*1000):0,line_mm:lineMoved.has(id)?Math.round(lineMoved.get(id)*1000):0}
+    colors:parts?parts.color:{},body:parts?parts.body:null,lit:litFor===id?litPart:null,spec:derivedParts.get(id)||null,wall_mm:wallCut.has(id)?Math.round(wallCut.get(id)*1000):0,col_post:postAtCol.get(id)||"",line_mm:lineMoved.has(id)?Math.round(lineMoved.get(id)*1000):0}
   }
   function legendRows(){
    var counts=new Map(),rows=[];
@@ -6638,7 +6709,8 @@ window.irThreeSchemeView=(function(){
   // Anything done on the panels (toggles, the node card, placement) may change the picture.
   ["click","change","input","keydown","pointerup"].forEach(function(t){root.addEventListener(t,invalidate,true)});
   root.querySelectorAll("[data-three-view]").forEach(function(button){button.onclick=function(){setView(button.dataset.threeView)}});
-  root.querySelector("#irThreeReset").onclick=function(){setView("iso")};
+  // («⟲ Ракурс» did what «Общий вид» does — the engineer, 03.11.2026: «кнопка ракурс и 3д не отличаются же? удали ракурс,
+  // 3д переименуй»)
   root.querySelector("#irThreeAdd")?.addEventListener("click",function(){placing?cancelPlacement():startPlacement()});
   root.querySelector("#irThreeCancelCopy").onclick=cancelCopy;
   root.querySelector("#irThreeColors").value=colorMode;
@@ -6779,7 +6851,7 @@ window.irThreeSchemeView=(function(){
   function shiftKey(e){if(e.code==="ShiftLeft"||e.code==="ShiftRight"){if(e.type==="keydown")held.add(e.code);else held.delete(e.code)}}
   // The picture is drawn again only when something changed: the camera, the members, a toggle (a still scheme cost
   // a full redraw of thousands of members and labels every frame).
-  var dirty=true,lastTime=0,needUntil=0,drew=false,slow=0;
+  var dirty=true,lastTime=0,needUntil=0,drew=false,slow=0,rebuiltAt=0;
   function goLight(){light=true;renderer.setPixelRatio(.75);lodAt=null;resize();showLight()}
   function showLight(){var n=root.querySelector("#irThreeLight");if(n)n.hidden=!light}
   // A change draws the picture now and for a while after it (the camera eases out of a turn, like the report).
@@ -6800,7 +6872,7 @@ window.irThreeSchemeView=(function(){
    if(awaySince){awaySince=0;lastTime=time||0;resize()}
    var gap=(time||0)-lastTime,dt=Math.min(.1,Math.max(0,gap/1000));lastTime=time||0;
    // The frame after a picture came late: that picture took that long.
-   if(drew&&!light&&gap>400){if(++slow>=3)goLight()}else if(drew)slow=0;drew=false;
+   if(drew&&!light&&gap>400&&performance.now()-rebuiltAt>1500){if(++slow>=3)goLight()}else if(drew)slow=0;drew=false;
    if(flight){
     flight.t=Math.min(1,(performance.now()-(flight.st||0))/(flight.ms||850));
     var k=flight.out?flight.t*(2-flight.t):flight.t<.5?4*flight.t*flight.t*flight.t:1-Math.pow(-2*flight.t+2,3)/2;
@@ -6832,7 +6904,11 @@ window.irThreeSchemeView=(function(){
    if(COLOR_MODES.indexOf(P.colorMode)>=0&&P.colorMode!==colorMode){colorMode=P.colorMode;root.querySelector("#irThreeColors").value=colorMode}
    selected=String(P.selected||"");
    var sig=signature(P.elements);
-   if(sig!==built){built=sig;buildMembers(P.elements);buildCranes();buildTankDims();buildLevels();buildNodes();deriveParts();lowerGround();refreshMaterials()}
+   // (the time of a rebuild is not the time of a picture: three kinds of members switched off on the legend — three
+   // rebuilds of over 0.4 s — took the window for a slow one, and it went over to the simplified drawing for good, without
+   // smoothing and with fewer pixels — the engineer, 03.11.2026: «когда виды конструкций начинаешь отключать, как будто
+   // качество графики падает»)
+   if(sig!==built){built=sig;buildMembers(P.elements);buildCranes();buildTankDims();buildLevels();buildNodes();deriveParts();lowerGround();refreshMaterials();drew=false;slow=0;rebuiltAt=performance.now()}
    else if(mode!==colorMode)refreshMaterials();
    else paintHighlight();
    applyBackground();dims.visible=Boolean(P.showDimensions);invalidate();
@@ -6861,7 +6937,7 @@ window.irThreeSchemeView=(function(){
   // 1280 × 800, JPEG 74 % (1600 × 1000 at 84 % were a megabyte of the file in five pictures).
   function snapshots(){
    setExplode(null,0);var range=nodePanel&&nodePanel.querySelector('[data-node="explode"]');if(range)range.value=0;
-   var W=1280,H=800,ratio=renderer.getPixelRatio(),keep={pos:camera.position.clone(),target:controls.target.clone(),up:camera.up.clone(),mode:colorMode},out=[];
+   var W=1120,H=700,ratio=renderer.getPixelRatio(),keep={pos:camera.position.clone(),target:controls.target.clone(),up:camera.up.clone(),mode:colorMode},out=[];
    renderer.setPixelRatio(1);renderer.setSize(W,H,false);camera.aspect=W/H;camera.updateProjectionMatrix();overlay.visible=false;
    var shot=function(title,view,mode){
     if(mode!==colorMode){colorMode=mode;refreshMaterials()}
@@ -6885,11 +6961,11 @@ window.irThreeSchemeView=(function(){
     rows.slice(0,8).reverse().forEach(function(r,i){var t=r.name+" · "+r.n,w=g.measureText(t).width+58;
      g.fillStyle="rgba(255,255,255,.9)";g.fillRect(x-8,y-22-i*46,w,44);g.fillStyle="#"+r.color.toString(16).padStart(6,"0");g.fillRect(x,y-12-i*46,24,24);
      g.fillStyle="#1d2b3a";g.fillText(t,x+34,y+1-i*46)});
-    out.push({title:title,src:c.toDataURL("image/jpeg",.74)})
+    out.push({title:title,src:c.toDataURL("image/jpeg",.62)})
    };
    try{
-    shot("Общий вид · цвет по монтажу","iso","status");shot("Общий вид · цвет по видам конструкций","iso","type");
-    shot("Сверху · цвет по видам","top","type");shot("Фасад · цвет по монтажу","front","status");shot("Сбоку · цвет по монтажу","side","status")
+    // (three pictures, not five, and lighter: the exported file is smaller — the engineer, 03.11.2026)
+    shot("Общий вид · цвет по монтажу","iso","status");shot("Сверху · цвет по видам","top","type");shot("Фасад · цвет по монтажу","front","status")
    }finally{
     if(colorMode!==keep.mode){colorMode=keep.mode;refreshMaterials()}
     overlay.visible=true;camera.position.copy(keep.pos);controls.target.copy(keep.target);camera.up.copy(keep.up);camera.lookAt(controls.target);controls.update();
@@ -6911,7 +6987,7 @@ window.irThreeSchemeView=(function(){
     viewport.removeEventListener("wheel",wheel,true);root.removeEventListener("wheel",rootWheel);renderer.domElement.removeEventListener("dblclick",dblclick);
     document.removeEventListener("keydown",keyDown);document.removeEventListener("keyup",keyUp);document.removeEventListener("keydown",shiftKey);document.removeEventListener("keyup",shiftKey);
     window.removeEventListener("blur",releaseKeys);
-    controls.dispose();clearNodes();clearCallouts();partMats.forEach(function(m){m.dispose()});nodeGeo.dispose();weldNodeGeo.dispose();nodeMats.forEach(function(m){m.dispose()});boltMat.dispose();plateMat.dispose();concreteMat.dispose();craneMat.dispose();hoistMat.dispose();wheelMat.dispose();glassMat.dispose();openingGlass.dispose();hardwareMat.dispose();silverMat.dispose();fixedMats.forEach(function(m){m.dispose()});boltMats["8.8"].dispose();boltMats["5.8"].dispose();washerMats["8.8"].dispose();washerMats["5.8"].dispose();boltPickMat.dispose();
+    controls.dispose();clearNodes();clearCallouts();partMats.forEach(function(m){m.dispose()});nodeGeo.dispose();weldNodeGeo.dispose();nodeMats.forEach(function(m){m.dispose()});boltMat.dispose();plateMat.dispose();concreteMat.dispose();craneMat.dispose();[stripeMat,yellowMat,railMat,deckMat,guardMat].forEach(function(m){m.dispose()});hoistMat.dispose();wheelMat.dispose();glassMat.dispose();openingGlass.dispose();hardwareMat.dispose();silverMat.dispose();fixedMats.forEach(function(m){m.dispose()});boltMats["8.8"].dispose();boltMats["5.8"].dispose();washerMats["8.8"].dispose();washerMats["5.8"].dispose();boltPickMat.dispose();
     meshGeo.forEach(function(g){g.dispose()});mats.forEach(function(m){m.dispose()});if(metalEnv)metalEnv.dispose();shellMats.forEach(function(m){m.dispose()});roofMats.forEach(function(m){m.dispose()});
     [selectedMat,hoverMat,axisMaterial,dimMaterial,floorMaterial,darkFloorMaterial,markerMat,pointMat,previewMat].forEach(function(m){m.dispose()});
     var cached=new Set(meshGeo.values());

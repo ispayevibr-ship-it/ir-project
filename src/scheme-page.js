@@ -769,7 +769,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   if(!list.length){alert("На схеме нет элементов для выгрузки.");return}
   const counts=new Map();for(const c of list){const g=counts.get(c.scheme_group)||{key:c.scheme_group,label:recordMarkGroup(records().find(r=>String(r.id)===c.id)).label,count:0};g.count++;counts.set(c.scheme_group,g)}
   // All the work types together: the exported page can show each apart, as the scheme does.
-  const workCounts=new Map();for(const c of list){const w=workCounts.get(c.work)||{id:c.work,label:c.work?String(workById.get(c.work)?.work_type||"Вид работ "+c.work):"Без вида работ",count:0};w.count++;workCounts.set(c.work,w)}
+  const workCounts=new Map();for(const c of list){const w=workCounts.get(c.work)||{id:c.work,label:c.work?String(workById.get(c.work)?.work_type||"Вид работ "+c.work)+(workById.get(c.work)?.project_code?" · "+workById.get(c.work).project_code:""):"Без вида работ",count:0};w.count++;workCounts.set(c.work,w)}
   const currentWork=frameMode?null:enabledWorks().find(w=>w.id===activeWorkId);
   const old=btn?.textContent;if(btn){btn.disabled=true;btn.textContent="Выгрузка…"}
   try{

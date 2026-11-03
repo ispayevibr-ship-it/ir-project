@@ -19,7 +19,8 @@
  function show(text,button,onClick){
   if(!bar){
    bar=document.createElement("div");bar.className="scheme-updates-bar";bar.setAttribute("role","status");
-   bar.style.cssText="position:fixed;right:16px;bottom:16px;z-index:9000;max-width:min(460px,calc(100vw - 32px));display:flex;gap:10px;align-items:center;"+
+   // (left of the round «Чат» button in the corner, right 18 px, 54 px wide: they lay one on the other — the engineer, 03.11.2026)
+   bar.style.cssText="position:fixed;right:86px;bottom:16px;z-index:9000;max-width:min(460px,calc(100vw - 104px));display:flex;gap:10px;align-items:center;"+
     "padding:10px 12px;border-radius:10px;background:#1f2937;color:#fff;font:13px/1.35 system-ui,'Segoe UI',sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.25)";
    document.body.appendChild(bar)
   }
