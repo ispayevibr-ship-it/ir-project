@@ -40,7 +40,24 @@ function bumpIndex(html,targets){
  return out
 }
 
-function createSchemePack({getUserDataPath,appVersion,readBranch,pull,montage,now=()=>new Date()}){
+// The checked data of the drawings that a placement takes (the rest of the closed repository — lessons, the journal of
+// the chat, the quality list — does not change a scheme).
+const DATA=/^knowledge\/(sets|projects)\/|^knowledge\/rules\.json$/;
+// When the data of the drawings were last written into the folder of this computer (userData/knowledge-data): by any
+// pull — the program's own at the start and every hour (src/ai-ipc.js) as well as the one of check() — and by those
+// before this version too (the engineer, 04.11.2026: «где кнопка обновить схему? нет такой» — the pull at the start
+// took the data, the check after it found nothing new and the window never offered «Обновить схему»).
+function dataWritten(dir){
+ if(!dir)return 0;
+ let t=0;const look=f=>{try{const m=fs.statSync(f).mtimeMs;if(m>t)t=m}catch{}};
+ look(path.join(dir,"rules.json"));
+ const walk=(d,depth)=>{let list=[];try{list=fs.readdirSync(d,{withFileTypes:true})}catch{return}
+  for(const e of list){const f=path.join(d,e.name);if(e.isDirectory()){if(depth<4)walk(f,depth+1)}else if(/\.json$/i.test(e.name))look(f)}};
+ walk(path.join(dir,"sets"),0);walk(path.join(dir,"projects"),0);
+ return t
+}
+
+function createSchemePack({getUserDataPath,appVersion,readBranch,pull,montage,dataDir,now=()=>new Date()}){
  const current=()=>path.join(getUserDataPath(),"app-updates","current");
  const stateFile=()=>path.join(getUserDataPath(),"ai-scheme-pack.json");
  function state(){try{return JSON.parse(fs.readFileSync(stateFile(),"utf8"))||{}}catch{return{}}}
@@ -99,17 +116,24 @@ function createSchemePack({getUserDataPath,appVersion,readBranch,pull,montage,no
    // the data of the drawings at once, not at the next hour
    try{
     const r=await pull?.();
-    const paths=(r?.paths||[]).filter(p=>/^knowledge\/(sets|projects)\/|^knowledge\/rules\.json$/.test(p));
-    if(paths.length)save({...state(),dataAt:now().toISOString(),dataPaths:paths.slice(0,50)})
+    noteData(r?.paths)
    }catch(_e){}
    return status()
   })().finally(()=>{running=null});
   return running
  }
+ // A pull of the data of the drawings, whoever made it: removed files too (a written one also shows by its time).
+ function noteData(paths){
+  const p=(Array.isArray(paths)?paths:[]).map(String).filter(x=>DATA.test(x));
+  if(p.length)save({...state(),dataAt:now().toISOString(),dataPaths:p.slice(0,50)});
+  return p.length
+ }
  // What the window of an object needs: the pack it runs and whether the checked data came after its placement.
  function status(objectId){
-  const s=state(),r={version:s.version||0,appliedAt:s.appliedAt||"",changed:s.changed||[],checkedAt:s.checkedAt||"",error:s.error||"",note:s.note||"",waiting:s.waiting||"",dataAt:s.dataAt||"",dataNewer:false};
-  if(objectId&&s.dataAt&&montage?.placedInfo){try{const p=montage.placedInfo(objectId);r.placedAt=p?.placedAt||"";r.dataNewer=Boolean(p?.placedAt&&p.verified&&new Date(s.dataAt)>new Date(p.placedAt))}catch(_e){}}
+  const s=state(),dir=typeof dataDir==="function"?dataDir():dataDir;
+  const at=Math.max(s.dataAt?Date.parse(s.dataAt)||0:0,dataWritten(dir));
+  const r={version:s.version||0,appliedAt:s.appliedAt||"",changed:s.changed||[],checkedAt:s.checkedAt||"",error:s.error||"",note:s.note||"",waiting:s.waiting||"",dataAt:at?new Date(at).toISOString():"",dataNewer:false};
+  if(objectId&&at&&montage?.placedInfo){try{const p=montage.placedInfo(objectId);r.placedAt=p?.placedAt||"";r.dataNewer=Boolean(p?.placedAt&&p.verified&&at>Date.parse(p.placedAt))}catch(_e){}}
   return r
  }
  // «Обновить схему»: the object placed again from its last analysis with the checked data that came (what the
@@ -120,6 +144,6 @@ function createSchemePack({getUserDataPath,appVersion,readBranch,pull,montage,no
   const v=montage.place(objectId,p.draftId);
   return{placed:v?.placed||null,status:status(objectId)}
  }
- return{check,status,apply,FILES}
+ return{check,status,apply,noteData,FILES}
 }
-module.exports={createSchemePack,validPack,bumpIndex,FILES,MANIFEST};
+module.exports={createSchemePack,validPack,bumpIndex,dataWritten,FILES,MANIFEST,DATA};

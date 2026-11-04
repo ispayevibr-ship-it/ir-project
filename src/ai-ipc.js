@@ -56,7 +56,10 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
  // start and every hour; the knowledge base reads them before the open knowledge of the update.
  const dataDir=require("node:path").join(getUserDataPath(),"knowledge-data");
  require("./ai-knowledge-dirs").setDataDir(dataDir);
- const pullData=()=>github.pullData({dir:dataDir}).catch(error=>console.warn("IR Project: data of the drawings not pulled",error.message));
+ // (what came is told to the pack of schemes: the window of the scheme then offers «Обновить схему» — the engineer,
+ // 04.11.2026: «где кнопка обновить схему? нет такой»)
+ const pullData=()=>github.pullData({dir:dataDir}).then(r=>{try{schemePack?.noteData(r?.paths)}catch(_e){}return r})
+  .catch(error=>console.warn("IR Project: data of the drawings not pulled",error.message));
  setTimeout(pullData,15e3).unref?.();setInterval(pullData,3600e3).unref?.();
  // The pack of schemes (src/ai-scheme-pack.js): the 3D of the montage scheme and the checked data of the drawings come
  // from the closed repository without a new version of the program — at the start, every 15 minutes and when a scheme
@@ -100,7 +103,7 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
  handle("ai-settings:set-provider",(e,provider)=>{checkAdmin(e);return engine.setProvider(provider)});
  handle("ai-settings:test",()=>engine.start());
  handle("ai-montage:latest",(_e,objectId)=>montage.latest(objectId));
- schemePack=require("./ai-scheme-pack").createSchemePack({getUserDataPath,appVersion,montage,
+ schemePack=require("./ai-scheme-pack").createSchemePack({getUserDataPath,appVersion,montage,dataDir,
   readBranch:(paths,commit)=>github.readBranch(paths,commit),pull:()=>github.hasToken()?github.pullData({dir:dataDir}):null});
  const packCheck=()=>github.hasToken()?schemePack.check().catch(error=>console.warn("IR Project: pack of schemes",error.message)):null;
  setTimeout(packCheck,25e3).unref?.();setInterval(packCheck,900e3).unref?.();
