@@ -990,29 +990,35 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
  // not mounted and not changed by the engineer; the engineer's own action, with the same copy to bring them back.
  // ids: the elements Claude's answer in the chat names, taken away when the engineer presses its button and confirms
  // (31.10.2026: «перепроверь этот прогон, если его нет удали») — any of them but mounted ones, with the same copy.
- function clearScheme(id,{grid=false,missing=false,ids=null}={}){
+ // preliminary: the pale elements the drawings did not determine fully (the engineer, 04.11.2026: «сделай функцию Удалить
+ // все предварительное») — those of ids that are still preliminary, not mounted; each the program placed is kept as
+ // deleted by the engineer (src/ai-training.js removedMany), so a later placement does not put it back; «Вернуть» forgets it.
+ function clearScheme(id,{grid=false,missing=false,ids=null,preliminary=false}={}){
   const oid=object(id),rows=database.listEntity(oid,"scheme"),asked=Array.isArray(ids)?new Set(ids.map(String)):null;
-  const targets=asked?rows.filter(r=>isElement(r)&&asked.has(String(r.id))&&!mounted(r)):
+  const targets=preliminary?rows.filter(r=>isElement(r)&&r.data?.preliminary===true&&(!asked||asked.has(String(r.id)))&&!mounted(r)):
+   asked?rows.filter(r=>isElement(r)&&asked.has(String(r.id))&&!mounted(r)):
    missing?rows.filter(r=>isElement(r)&&fromPdf(r)&&r.data?.missing_in_analysis&&!mounted(r)&&!r.data?.engineer_edited):rows.filter(r=>isElement(r)||grid&&isGrid(r));
-  if(!targets.length)throw Error(asked?"Этих элементов на схеме уже нет (или они смонтированы)":missing?"Элементов «нет в новом анализе» в схеме нет":"Монтажная схема уже пуста");
-  if(missing||asked)grid=false;
-  const what=asked?"Убраны по просьбе в чате":missing?"Убраны «нет в новом анализе»":"Очистка схемы";
+  if(!targets.length)throw Error(preliminary?"Предварительных элементов на схеме нет (или они смонтированы)":asked?"Этих элементов на схеме уже нет (или они смонтированы)":missing?"Элементов «нет в новом анализе» в схеме нет":"Монтажная схема уже пуста");
+  if(missing||asked||preliminary)grid=false;
+  const what=preliminary?"Удалены предварительные":asked?"Убраны по просьбе в чате":missing?"Убраны «нет в новом анализе»":"Очистка схемы";
+  let forgot=[];
+  if(preliminary)try{forgot=training?.removedMany?.(oid,targets)?.ids||[]}catch(error){console.warn("IR Project: training",error.message)}
   // Корзина (src/trash.js) тоже хранит удалённое 7 дней; копия очистки и её запись в корзине знают друг о друге,
   // чтобы одно и то же не вернулось дважды.
   let trashBatch=null;
   try{trashBatch=trash?trash.capture(oid,"scheme",targets.map(r=>r.id),{title:what,kind:"records"}):null}catch(error){console.warn("IR Project: trash",error.message)}
-  const snap=database.createEntity(oid,SNAPSHOTS,{record_type:"scheme_snapshot",title:(asked?"Убраны по просьбе в чате ":missing?"Убраны «нет в новом анализе» ":"Очистка ")+new Date().toLocaleString("ru-RU"),
-   data:{at:new Date().toISOString(),grid,...(missing&&!asked?{missing:true}:{}),...(asked?{chat:true}:{}),...(trashBatch?{trash_batch:trashBatch}:{}),records:targets.map(r=>({record_type:r.record_type,title:r.title,data:r.data}))}});
+  const snap=database.createEntity(oid,SNAPSHOTS,{record_type:"scheme_snapshot",title:(preliminary?"Удалены предварительные ":asked?"Убраны по просьбе в чате ":missing?"Убраны «нет в новом анализе» ":"Очистка ")+new Date().toLocaleString("ru-RU"),
+   data:{at:new Date().toISOString(),grid,...(missing&&!asked&&!preliminary?{missing:true}:{}),...(preliminary?{prelim:true,removed_ids:forgot}:asked?{chat:true}:{}),...(trashBatch?{trash_batch:trashBatch}:{}),records:targets.map(r=>({record_type:r.record_type,title:r.title,data:r.data}))}});
   if(trashBatch&&snap?.id)try{trash.setInfo(trashBatch,{snapshot:snap.id})}catch(_e){}
   const old=database.listEntity(oid,SNAPSHOTS).sort((a,b)=>String(b.data?.at).localeCompare(String(a.data?.at))).slice(5);
   for(const r of old)database.deleteEntity(oid,SNAPSHOTS,r.id);
   let removed=0;
   for(const r of targets)if(database.deleteEntity(oid,"scheme",r.id))removed++;
-  return{removed,grid,missing:missing&&!asked,chat:Boolean(asked),snapshot:schemeSnapshot(oid)}
+  return{removed,grid,missing:missing&&!asked&&!preliminary,chat:Boolean(asked)&&!preliminary,preliminary,snapshot:schemeSnapshot(oid)}
  }
  function schemeSnapshot(id){
   const oid=object(id),last=database.listEntity(oid,SNAPSHOTS).sort((a,b)=>String(b.data?.at).localeCompare(String(a.data?.at)))[0];
-  return last?{id:last.id,at:last.data?.at,count:(last.data?.records||[]).filter(r=>r.record_type!=="scheme_grid").length,grid:Boolean(last.data?.grid),missing:Boolean(last.data?.missing),chat:Boolean(last.data?.chat)}:null
+  return last?{id:last.id,at:last.data?.at,count:(last.data?.records||[]).filter(r=>r.record_type!=="scheme_grid").length,grid:Boolean(last.data?.grid),missing:Boolean(last.data?.missing),chat:Boolean(last.data?.chat),prelim:Boolean(last.data?.prelim)}:null
  }
  function restoreScheme(id){
   const oid=object(id),last=database.listEntity(oid,SNAPSHOTS).sort((a,b)=>String(b.data?.at).localeCompare(String(a.data?.at)))[0];
@@ -1024,6 +1030,8 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   for(const r of records)if(database.createEntity(oid,"scheme",{record_type:r.record_type,title:r.title,data:r.data})&&r.record_type!=="scheme_grid")restored++;
   database.deleteEntity(oid,SNAPSHOTS,last.id);
   if(trash&&last.data?.trash_batch)try{trash.drop(last.data.trash_batch)}catch(_e){}
+  // (brought back: no longer «deleted by the engineer» — they come back with new numbers)
+  if(Array.isArray(last.data?.removed_ids)&&last.data.removed_ids.length)try{training?.forgetRemoved?.(oid,last.data.removed_ids)}catch(_e){}
   return{restored,snapshot:schemeSnapshot(oid)}
  }
  // Card of a scheme element as in a detailed montage report: what the drawings say of its mark (profile, steel, length,

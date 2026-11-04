@@ -47,6 +47,7 @@ assert(css.includes(".ir-scheme-loading-wheel"));
 console.log("Scheme loader: first frame, navigation, race-safe callbacks and errors OK");
 // The page opened again over the built model (same grid, a new box): the update path also reports its first picture.
 {const u=view.indexOf("function update(next){"),body=view.slice(u,view.indexOf("\n  }",u));
- assert(/firstPaint=false;/.test(body)&&body.indexOf("firstPaint=false;")<body.indexOf("invalidate()"),"an update waits for its own first paint");
+ // (the redraw at its end — updated(), also after a rebuild by steps where the page shows its loading)
+ assert(/firstPaint=false;/.test(body)&&body.indexOf("firstPaint=false;")<body.indexOf("updated()")&&view.includes("function updated(){\n   applyBackground();dims.visible=Boolean(P.showDimensions);invalidate();"),"an update waits for its own first paint");
  assert(/if\(!firstPaint\)\{firstPaint=true;P\.onFirstPaint&&P\.onFirstPaint\(\)\}/.test(view),"the next drawn frame tells the page");
  console.log("Scheme loader: reopening over the built model ends its loading screen OK")}

@@ -95,6 +95,22 @@ function createTraining({database,getUserDataPath,base=null}){
   if(!Array.isArray(ids))return database.listEntity(oid,SECTION).some(r=>r.record_type==="element_removed"&&String(r.data?.id)===String(elementId));
   return ids.some(id=>{const k=oid+":"+id;if(!removedKept.has(k))removedKept.set(k,String(oneRow(oid,SECTION,id)?.data?.id));return removedKept.get(k)===String(elementId)})
  }
+ // Many elements deleted at once by the engineer («Удалить все предварительные», 04.11.2026): each one the program placed
+ // is kept as deleted (as one deleted on the scheme by itself — journalAdd), so a later placement does not put it back.
+ function removedMany(oid,rows){
+  const at=new Date().toISOString(),ids=[];
+  for(const row of rows||[]){
+   if(!row||isGrid(row))continue;const found=placedOf(oid,row.id);if(!found.placed||removedHas(oid,row.id))continue;
+   database.createEntity(oid,SECTION,{record_type:"element_removed",title:String(row.data?.mark||""),data:{id:String(row.id),at,element:originOf(row.data||{}),placed:found.placed}});
+   ids.push(String(row.id))}
+  return{ids}
+ }
+ // …and brought back by «Вернуть»: no longer deleted.
+ function forgetRemoved(oid,ids){
+  const want=new Set((ids||[]).map(String));let n=0;if(!want.size)return 0;
+  for(const r of database.listEntity(oid,SECTION))if(r.record_type==="element_removed"&&want.has(String(r.data?.id))&&database.deleteEntity(oid,SECTION,r.id))n++;
+  removedKept.clear();return n
+ }
  // Corrections of the latest placement of each set: compared with the scheme as it is now.
  function corrections(oid){
   const rows=database.listEntity(oid,"scheme").filter(r=>!isGrid(r)),byId=new Map(rows.map(r=>[String(r.id),r]));
@@ -257,6 +273,6 @@ function createTraining({database,getUserDataPath,base=null}){
   }
   return out
  }
- return{recordPlacement,corrections,saveCorrections,confirmScheme,status,promptFor,correctionLines,journalAdd,journalList,journalLines,SECTION}
+ return{recordPlacement,corrections,saveCorrections,confirmScheme,status,promptFor,correctionLines,journalAdd,journalList,journalLines,removedMany,forgetRemoved,SECTION}
 }
 module.exports={createTraining,originOf,diff,setIdOf,setCodeOf,ruleOf,SECTION};

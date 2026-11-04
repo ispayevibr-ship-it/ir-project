@@ -82,6 +82,15 @@
   // The pictures and the list of elements stand apart from the 3D: seen where the page's scripts do not run, and where
   // the 3D failed — then with the reason (red), not an empty field.
   "html.js #still{display:none}html:not(.js) #stage3d{display:none}",
+  // The bar of loading over the scheme (the engineer, 04.11.2026: «сделай при загрузке монтажной схемы в выгрузке Полосу
+  // загрузки»): what is done now and how much, from the opening of the file to the first picture of the 3D. Its light runs
+  // by itself (transform — drawn even while a step of the building holds the page).
+  ".load{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:12;width:min(420px,calc(100% - 32px));padding:14px 16px 12px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(15,30,60,.16)}",
+  ".load[hidden],html:not(.js) .load{display:none}.load b{display:block;font-size:14px;margin-bottom:9px}.load-row{display:flex;align-items:center;gap:10px}",
+  ".load-bar{position:relative;flex:1 1 auto;height:10px;border-radius:5px;background:#e3eaf3;overflow:hidden}.load-bar i{display:block;height:100%;width:2%;border-radius:5px;background:linear-gradient(90deg,#1f5fbf,#4f8fe6);transition:width .3s ease-out}",
+  ".load-bar:after{content:\"\";position:absolute;top:0;bottom:0;left:0;width:40%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);animation:irLoadRun 1.3s linear infinite}",
+  "@keyframes irLoadRun{from{transform:translateX(-100%)}to{transform:translateX(250%)}}@media(prefers-reduced-motion:reduce){.load-bar:after{animation:none}}",
+  ".load em{flex:none;min-width:40px;text-align:right;font-style:normal;font-weight:600;font-variant-numeric:tabular-nums}.load span{display:block;margin-top:7px;color:var(--muted);font-size:12.5px;min-height:1.4em}",
   ".fail{margin:0 0 12px;padding:10px 12px;background:#fdecea;border:1px solid #f1a9a0;border-radius:10px;font-size:13px;color:#7a1f16}.fail[hidden]{display:none}.fail b{display:block;margin-bottom:4px}.fail span{display:block;white-space:pre-wrap;overflow-wrap:anywhere}",
   ".errnote{position:fixed;left:8px;right:8px;bottom:8px;z-index:40;padding:8px 36px 8px 10px;background:#fdecea;border:1px solid #f1a9a0;border-radius:10px;font-size:12.5px;color:#7a1f16;white-space:pre-wrap;overflow-wrap:anywhere}.errnote button{position:absolute;top:4px;right:6px;border:0;background:none;font-size:18px;color:#7a1f16;cursor:pointer}",
   // A phone: the page scrolls as a document and the scheme has its own height (78% of the screen, at least 420 px) —
@@ -186,12 +195,16 @@
    window.irThreeSchemeView.render($("stage3d"),{objectId:"export:"+D.objectId,axesX:D.axesX,axesY:D.axesY,spanX:D.spanX,spanY:D.spanY,gridDirX:D.gridDirX,gridDirY:D.gridDirY,
     gridX:D.gridX,gridY:D.gridY,elements:els,selected:S.sel,maxZ:els.reduce(function(m,c){return Math.max(m,c.z0,c.z2,c.mz||0)},0),
     colorMode:S.color,showLabels:S.labels,showDimensions:S.dims,background:S.bg,canEdit:false,marks:[],report:true,
-    onColorModeChange:function(m){S.color=m;draw3d()},onSelect:function(id){S.sel=String(id||"");details();list()},onFirstPaint:firstPaint});
+    onColorModeChange:function(m){S.color=m;draw3d()},onSelect:function(id){S.sel=String(id||"");details();list()},onFirstPaint:firstPaint,onProgress:building});
    $("cnt").textContent=els.length+" из "+D.elements.length
   }
   // The 3D drew (or showed its own error): an error, a field without height or the graphics taken away by the phone go
   // to the pictures with the reason (window.__irFail in the page head).
+  // The model built by steps (the 3D module, onProgress): the bar from 12 % to 98 %; any of them a sign of life.
+  var lastStep=performance.now();
+  function building(v,what){lastStep=performance.now();if(window.__irLoad)window.__irLoad(.12+.86*Math.max(0,Math.min(1,v)),what||"Построение модели")}
   function firstPaint(){
+   if(window.__irLoad)window.__irLoad(1);
    var host=$("stage3d"),err=host.querySelector(".ir-three-error");
    if(err){window.__irFail([].slice.call(err.querySelectorAll("strong,span")).map(function(x){return x.textContent}).join(": "));return}
    window.__irOk=true;
@@ -200,7 +213,13 @@
    if(cv){cv.addEventListener("webglcontextlost",function(){clearTimeout(lost);lost=setTimeout(function(){window.__irOk=false;window.__irFail("Телефон отключил 3D-графику (WebGL): не хватило памяти")},3000)});
     cv.addEventListener("webglcontextrestored",function(){clearTimeout(lost)})}
   }
-  setTimeout(function(){if(!window.__irOk&&document.documentElement.classList.contains("js"))window.__irFail("3D-схема не построилась за 60 с")},60000);
+  // (60 s without a step of the building while the page is seen — not 60 s in all: a large scheme on a slow phone builds
+  // longer, and a page opened in the background builds when it is looked at)
+  var watch=setInterval(function(){
+   if(window.__irOk||!document.documentElement.classList.contains("js")){clearInterval(watch);return}
+   if(document.hidden){lastStep=performance.now();return}
+   if(performance.now()-lastStep>60000){clearInterval(watch);window.__irFail("3D-схема не построилась за 60 с")}
+  },2000);
   function groups(){
    var box=$("groups");
    box.innerHTML=D.groups.map(function(g){return'<label><input type="checkbox" data-g="'+esc(g.key)+'"'+(S.hidden.has(g.key)?"":" checked")+'> '+esc(g.label)+'<small>'+g.count+'</small></label>'}).join("");
@@ -379,7 +398,11 @@
  }
  // The page head: scripts run (the class "js" — the 3D layout), and every error of the page is kept and shown. Before the 3D
  // drew, an error turns the page to the pictures with the reason; after it, the reason is a note at the bottom.
+ // window.__irLoad(share 0…1, what is done now) moves the bar of loading (and shows it again for a rebuild after a filter);
+ // a share of 1 or more takes it away.
  var HEAD='document.documentElement.className+=" js";(function(){var E=window.__irErrors=[],W=window;'+
+  'W.__irLoad=function(v,what){var b=document.getElementById("irLoad");if(!b)return;if(!(v<1)){b.hidden=true;return}b.hidden=false;var p=Math.max(2,Math.min(99,Math.round(v*100)));'+
+  'b.setAttribute("aria-valuenow",p);document.getElementById("irLoadBar").style.width=p+"%";document.getElementById("irLoadPct").textContent=p+" %";if(what)document.getElementById("irLoadText").textContent=what};'+
   'W.__irFail=function(why){if(why)E.push(String(why));if(W.__irOk){var n=document.getElementById("errnote");if(!n&&document.body){n=document.createElement("div");n.id="errnote";n.className="errnote";'+
   'n.innerHTML=\'<button type="button" aria-label="Закрыть">×</button><span></span>\';n.firstChild.onclick=function(){n.remove()};document.body.appendChild(n)}if(n)n.lastChild.textContent="Ошибка на странице: "+E.join("\\n");return}'+
   'document.documentElement.classList.remove("js");var f=document.getElementById("fail"),t=document.getElementById("failText");if(f&&t){f.hidden=false;t.textContent=E.join("\\n")}};'+
@@ -408,7 +431,9 @@
    // «Цвета выпадающим списком сделай»: the button shows the colour chosen, its list — the colours, their names on hover)
    '<span class="bgdd" id="bg"><button type="button" id="bgBtn" aria-haspopup="listbox" aria-expanded="false" aria-controls="bgList" title="Фон: '+BGS[0][1]+'"><span class="lbl">Фон</span><i style="background:'+BGS[0][2]+'"></i><b>▼</b></button>'+
    '<ul class="bglist" id="bgList" role="listbox" aria-label="Фон" hidden>'+BGS.map(function(b){return'<li role="option" data-bg="'+b[0]+'" title="Фон: '+b[1]+'" aria-label="Фон: '+b[1]+'" style="background:'+b[2]+'"></li>'}).join("")+'</ul></span>'+
-   '<button type="button" id="helpBtn" aria-controls="help"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/><path d="M9 7h7M9 11h5"/></svg><span class="lbl">Инструкция</span></button><button type="button" id="full" title="На весь экран">⛶<span class="lbl"> На весь экран</span></button><button type="button" id="panel" aria-expanded="false" aria-controls="side" title="Сведения и фильтры">☰<span class="lbl"> Сведения и фильтры</span></button></div><div id="stage3d"></div>'+still(d)+'</section>'+
+   '<button type="button" id="helpBtn" aria-controls="help"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/><path d="M9 7h7M9 11h5"/></svg><span class="lbl">Инструкция</span></button><button type="button" id="full" title="На весь экран">⛶<span class="lbl"> На весь экран</span></button><button type="button" id="panel" aria-expanded="false" aria-controls="side" title="Сведения и фильтры">☰<span class="lbl"> Сведения и фильтры</span></button></div><div id="stage3d"></div>'+
+   '<div class="load" id="irLoad" role="progressbar" aria-label="Загрузка 3D-схемы" aria-valuemin="0" aria-valuemax="100" aria-valuenow="2"><b>Загрузка 3D-схемы</b>'+
+   '<div class="load-row"><div class="load-bar"><i id="irLoadBar"></i></div><em id="irLoadPct">2 %</em></div><span id="irLoadText">Открываем файл</span></div>'+still(d)+'</section>'+
    '<div class="box card" id="details" hidden></div>'+
    '<div class="box help" id="help" hidden><h3>Инструкция</h3><ul>'+
    '<li><b>Левая кнопка мыши</b> — вращение схемы</li><li><b>Правая кнопка или нажатое колесо</b> — сдвиг</li><li><b>Колесо</b> — приблизить или отдалить к точке под курсором</li>'+
@@ -446,10 +471,18 @@
  function UNPACK(){
   var W=window,el=document.getElementById("ir-pack");
   if(!W.DecompressionStream||!W.Response||!W.Blob){W.__irFail("Этот браузер не открывает 3D-схему: откройте файл в Chrome, Edge, Яндекс Браузере, Firefox или Safari (2023 года и новее).");return}
+  var say=function(v,what){if(W.__irLoad)W.__irLoad(v,what)};
+  say(.03,"Распаковка данных схемы");
   var b=atob(el.textContent),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);
   new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream("gzip"))).text().then(function(t){
    var P=JSON.parse(t);W.irSchemeSections=P.sections;W.irSchemeFasteners=P.fasteners;W.irSchemeJointKb=P.jointKb;W.__irSchemeData=P.data;
-   P.scripts.forEach(function(code){if(!code)return;var e=document.createElement("script");e.textContent=code;document.body.appendChild(e)})
+   // (one script a step: the bar is drawn between them; the viewer, the last, builds the model by its own steps)
+   var n=P.scripts.length,k=0,next=function(){
+    if(k>=n)return;var code=P.scripts[k++];
+    if(code){var e=document.createElement("script");e.textContent=code;document.body.appendChild(e)}
+    if(k<n){say(.06+.06*k/n,k<n-1?"Загрузка 3D-модуля":"Построение модели");setTimeout(next,0)}
+   };
+   say(.06,"Загрузка 3D-модуля");setTimeout(next,0)
   }).catch(function(e){W.__irFail("3D-схема не распакована: "+(e&&e.message||e))})
  }
 

@@ -33,7 +33,7 @@ const libs={css:"",three:"window.THREE={};",orbit:"",types:"",view:"window.irThr
  assert.match(un,/new DecompressionStream\("gzip"\)/);assert.match(un,/W\.__irFail\("Этот браузер не открывает 3D-схему/);
  assert.match(un,/W\.irSchemeSections=P\.sections;W\.irSchemeFasteners=P\.fasteners;W\.irSchemeJointKb=P\.jointKb;W\.__irSchemeData=P\.data/);
  // Run the unpacking as a page would: the scripts are appended in order and run.
- const ran=[],page={DecompressionStream,Response,Blob,atob:s=>Buffer.from(s,"base64").toString("binary"),__irFail:e=>{throw Error(e)},
+ const ran=[],page={DecompressionStream,Response,Blob,setTimeout,atob:s=>Buffer.from(s,"base64").toString("binary"),__irFail:e=>{throw Error(e)},
   document:{getElementById:()=>({textContent:packed.match(/id="ir-pack">([^<]*)</)[1]}),createElement:()=>({}),body:{appendChild:e=>{if(e.textContent)ran.push(e.textContent.slice(0,30))}}}};
  page.window=page;vm.createContext(page);vm.runInContext("("+un+")()",page);
  await new Promise(r=>setTimeout(r,300));
