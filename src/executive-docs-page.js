@@ -5,7 +5,9 @@
  * quality — each metal, fastener, electrode, paint and primer a separate point — and «Выгрузить» to Word or PDF.
  * As-built surveys (исполнительные съёмки) loaded with their date, axes, work type and marks go to the acts they cover.
  * Records of the object section «executive-docs»: one «settings», a «certificate» per point of the documents of quality,
- * a «survey» per as-built survey.
+ * a «survey» per as-built survey, an «issued» per exported act (its number, date, period, a copy of the exported file and,
+ * once signed, «Подписан всеми подписантами» with the date and the signed scan — просьба инженера 04.11.2026).
+ * The acts: only those of СН РК 1.03-00-2022 п. 15.2 (просьба инженера 04.11.2026).
  * Rights: those of the daily reports.
  */
 (()=>{
@@ -20,8 +22,8 @@
  const DEFAULT_ACTS=["aosr","aook","certs"];
  // The page is split into tabs (просьба инженера 03.11.2026: «раздели на разделы и сверху сделай переключение»); the open
  // tab is remembered. The acts of the export are grouped by what they are.
- const TABS=[["export","Выгрузка"],["people","Участники"],["certs","Сертификаты"],["surveys","Исполнительные съёмки"]];
- const ACT_GROUPS=[["Освидетельствование и приёмка",["aosr","aook","foundation","equipment","ready"]],["Контроль и испытания",["input","bolts","welds","akz","fireproof","tank","vacuum"]],["Геодезия",["asbuilt","geodesy"]],["Журналы и реестры",["journal","certs"]]];
+ const TABS=[["export","Выгрузка"],["issued","Выгруженные акты"],["people","Участники"],["certs","Сертификаты"],["surveys","Исполнительные съёмки"]];
+ const ACT_GROUPS=[["Скрытые работы и ответственные конструкции (приложения Д, Е)",["aosr","aosr_grout","aosr_akz","aosr_fire","aosr_equipment","aook"]],["Геодезия",["geodesy","asbuilt"]],["Оборудование",["equipment_test","equipment_complex"]],["Журналы, ведомость, сертификаты",["journal","welding","input","unmounted","certs"]]];
  const store={get:k=>{try{return localStorage.getItem(k)}catch{return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch{}}};
  async function loadAll(oid){
   const root=irProject.data.forObject(oid),get=k=>root.section(k).list().catch(()=>[]);
@@ -29,6 +31,7 @@
   let fast=[];try{if(window.irFasteners){const d=await window.irFasteners.load(oid);fast=window.irFasteners.account(d).rows.map(r=>({text:r.text,total:r.total,marks:arr(r.marks).map(m=>m?.mark||m)}))}}catch(e){console.warn("exec docs: fasteners",e)}
   const texts=[];let size=0;for(const r of[...logs,...kb]){const t=JSON.stringify(r.data||{});if(size+t.length>3e6)break;size+=t.length;texts.push(t)}
   const settingsRec=own.find(r=>r.record_type==="settings")||null,certs=own.filter(r=>r.record_type==="certificate"),surveys=own.filter(r=>r.record_type==="survey").sort((a,b)=>String(b.data?.date||"").localeCompare(String(a.data?.date||"")));
+  const issued=own.filter(r=>r.record_type==="issued").sort((a,b)=>String(b.data?.exported_at||"").localeCompare(String(a.data?.exported_at||""))||(Number(a.data?.number)||0)-(Number(b.data?.number)||0));
   const markRows=marks.map(r=>({id:String(r.id),...(r.data||{}),title:r.title||r.data?.title||""})).filter(x=>x.accounting_type!=="service");
   const s=settingsRec?.data||{};
   // What the object already knows fills the empty fields.
@@ -36,11 +39,11 @@
   const fill=(key,org)=>{const p=settings.participants[key]||{};if(!p.org&&org)settings.participants[key]={...p,org}};
   fill("customer",object?.customer);fill("general",object?.general_contractor);fill("contractor",company?.name);
   const needs=X.needs({marks:markRows,scheme,fasteners:fast,texts,records:certs});
-  return{object,settingsRec,settings,certs,marks:markRows,workTypes:workTypes.map(r=>({id:String(r.id),...(r.data||{}),name:r.data?.name||r.title||""})),reports,scheme,needs,surveys}
+  return{object,settingsRec,settings,certs,marks:markRows,workTypes:workTypes.map(r=>({id:String(r.id),...(r.data||{}),name:r.data?.name||r.title||""})),reports,scheme,needs,surveys,issued}
  }
  window.irExecDocsPage=async oid=>{
   const app=document.getElementById("app"),api=irProject.data.forObject(oid).section("executive-docs");
-  let D=await loadAll(oid),busy=false,note="",filterGroup="",editing=null,adding=null,surveyEdit=null,tab=TABS.some(t=>t[0]===store.get("ir-exd-tab"))?store.get("ir-exd-tab"):"export";
+  let D=await loadAll(oid),busy=false,note="",signing=null,filterGroup="",editing=null,adding=null,surveyEdit=null,tab=TABS.some(t=>t[0]===store.get("ir-exd-tab"))?store.get("ir-exd-tab"):"export";
   const last=()=>D.settings.last||{};
   const saveSettings=async patch=>{D.settings={...D.settings,...patch};const payload={record_type:"settings",title:"Настройки исполнительной документации",data:D.settings};
    if(D.settingsRec)D.settingsRec=await api.update(D.settingsRec.id,payload)||D.settingsRec;else D.settingsRec=await api.create(payload)};
@@ -58,7 +61,7 @@
    return`<div class="exd-grid">${f("name","Объект")}${f("address","Адрес")}${f("city","Город (место составления)")}${f("project_code","Шифр проекта","напр. 047-2025-КМ")}${f("designer","Проектная организация")}<label>Номер первого акта<input data-s="start_number" inputmode="numeric" value="${esc(D.settings.start_number||"1")}" ${ed}></label><label>Экземпляров<input data-s="copies" value="${esc(D.settings.copies||"3")}" ${ed}></label><label class="wide">Разрешается производство последующих работ<input data-s="next_works" value="${esc(D.settings.next_works||"")}" placeholder="напр. монтаж ограждающих конструкций" ${ed}></label></div>`
   }
   function exportHtml(){
-   const L=last(),acts=new Set(L.acts||DEFAULT_ACTS),from=L.from||firstDate(),to=L.to||today();
+   const L=last(),acts=new Set(L.acts?X.actKeys(L.acts):DEFAULT_ACTS),from=L.from||firstDate(),to=L.to||today();
    const preview=X.buildPackage({settings:D.settings,reports:D.reports,marks:D.marks,scheme:D.scheme,workTypes:D.workTypes,needsList:D.needs,surveys:D.surveys,acts:[...acts],from,to,workTypeId:L.workTypeId||"",split:L.split||"period"});
    const missing=preview.missing;
    return`<div class="exd-grid exd-period"><label>С<input type="date" id="exdFrom" value="${esc(from)}"></label><label>По<input type="date" id="exdTo" value="${esc(to)}"></label>
@@ -90,6 +93,23 @@
     <label class="wide">Геодезист, организация<input data-sv="surveyor" value="${esc(e.surveyor||"")}"></label><label class="wide">Файлы<span class="exd-file">${arr(e.files).map(f=>esc(f.name)).join(", ")||"не выбраны"} <button class="exd-mini" id="exdSurveyPick">${arr(e.files).length?"Добавить":"Выбрать файлы"}</button></span></label></div>
     <p class="exd-help exd-auto">${auto&&!e.axes?`Оси по монтажной схеме для этих марок: ${esc(auto)} — подставятся, если поле пустое.`:""}</p><div class="exd-form-act"><button class="primary" id="exdSurveySave">Сохранить</button><button id="exdSurveyCancel">Отмена</button></div></div>`
   }
+  // The exported acts: each with its number, date and file; «Подписан всеми подписантами» with the date and the signed scan.
+  const isOf=r=>{const d=r.data||{};return{...d,id:r.id,signed:d.signed&&arr(d.signed.scans).length?d.signed:null}};
+  function issuedHtml(){
+   const ed=canEdit(),list=D.issued.map(isOf),signed=list.filter(x=>x.signed).length;
+   if(!list.length)return'<div class="exd-empty">Выгруженных актов пока нет. Акты появляются здесь после выгрузки на вкладке «Выгрузка».</div>';
+   const row=x=>{const s=x.signed,title=`${x.name||"Акт"}${x.number?" № "+x.number:""}${x.date?" от "+X.ru(x.date):""}`;
+    return`<div class="exd-item ${s?"ok":"no"}"><div class="exd-item-head"><span class="exd-dot"></span><div><b>${esc(title)}</b><small>${esc([x.from&&x.to?(x.from===x.to?"за "+X.ru(x.from):"период "+X.ru(x.from)+" – "+X.ru(x.to)):"",x.work_type||"",(x.format==="pdf"?"PDF":"Word")+", выгружен "+X.ru(x.exported_at)].filter(Boolean).join(" · "))}</small>
+     <small class="${s?"exd-signed":"exd-unsigned"}">${s?`✓ Подписан всеми подписантами ${esc(X.ru(s.date))}`:"Не подписан"}</small></div>
+     <div class="exd-item-act">${x.file?.path?`<button class="exd-mini ghost" data-iopen="${esc(x.id)}">Открыть акт</button>`:""}${ed&&!s?`<button class="exd-mini" data-isign="${esc(x.id)}">Подписан всеми подписантами</button>`:""}${ed&&s?`<button class="exd-mini ghost" data-iunsign="${esc(x.id)}">Снять отметку</button>`:""}${ed?`<button class="exd-mini ghost" data-idel="${esc(x.id)}">Удалить</button>`:""}</div></div>
+     ${s?arr(s.scans).map((f,i)=>`<div class="exd-doc"><span>Скан подписанного акта</span><button class="exd-link" data-iscan="${esc(x.id)}" data-i="${i}">${esc(f.name||"файл")}</button></div>`).join(""):""}
+     ${signing&&String(signing.id)===String(x.id)?signForm(signing):""}</div>`};
+   return`<div class="exd-stats exd-stats3"><div><small>Выгружено актов</small><b>${list.length}</b></div><div><small>Подписаны всеми</small><b>${signed}</b></div><div class="${list.length-signed?"warn":""}"><small>Ждут подписи</small><b>${list.length-signed}</b></div></div>${list.map(row).join("")}`
+  }
+  function signForm(e){
+   return`<div class="exd-docform exd-sign-form"><div class="exd-grid"><label>Дата подписания<input type="date" data-sg="date" value="${esc(e.date||"")}"></label><label class="wide">Скан подписанного акта (обязательно)<span class="exd-file">${arr(e.scans).map(f=>esc(f.name)).join(", ")||"не выбран"} <button class="exd-mini" id="exdSignPick">${arr(e.scans).length?"Добавить":"Выбрать скан"}</button></span></label></div>
+    <p class="exd-help">Отметку «Подписан всеми подписантами» можно поставить только со сканом акта со всеми подписями (PDF, JPG, PNG или TIFF).</p><div class="exd-form-act"><button class="primary" id="exdSignSave">Подтвердить</button><button id="exdSignCancel">Отмена</button></div></div>`
+  }
   const firstDate=()=>{const d=D.reports.map(r=>String((r.data||{}).date||"").slice(0,10)).filter(Boolean).sort();return d[0]||today()};
   function certsHtml(){
    const ed=canEdit(),list=D.needs.filter(x=>!filterGroup||x.group===filterGroup),done=D.needs.filter(x=>!x.hidden&&x.docs.length).length,total=D.needs.filter(x=>!x.hidden).length;
@@ -116,21 +136,22 @@
    const ed=canEdit();
    app.innerHTML=`<div class="exec-docs-page"><div class="marks-top"><button class="back" id="execDocsBack">← Назад</button><div><h1>Исполнительная документация</h1><p>${esc(D.object?.name||"")}</p></div></div>
     <div class="exd-tabs">${TABS.map(([k,t])=>`<button data-tab="${k}" class="${tab===k?"on":""}">${esc(t)}${count(k)}</button>`).join("")}</div>
-    <section class="exd-card">${tab==="export"?exportHtml():tab==="people"?`${objectHtml()}${peopleHtml()}${ed?"":'<p class="exd-help">Изменять может тот, у кого есть права на ежедневные отчёты.</p>'}`:tab==="surveys"?surveysHtml():certsHtml()}</section>
+    <section class="exd-card">${tab==="export"?exportHtml():tab==="issued"?issuedHtml():tab==="people"?`${objectHtml()}${peopleHtml()}${ed?"":'<p class="exd-help">Изменять может тот, у кого есть права на ежедневные отчёты.</p>'}`:tab==="surveys"?surveysHtml():certsHtml()}</section>
     <p class="exd-help">${HELP[tab]}</p></div>`;
    bind()
   }
- const HELP={export:"Работы актов берутся из ежедневных отчётов за выбранный период и вид работы, марки и их оси — из ведомости марок и монтажной схемы. Загруженные сертификаты и съёмки кладутся рядом с выгруженным файлом в папку «… — приложения».",
+ const HELP={export:"Работы актов берутся из ежедневных отчётов за выбранный период и вид работы, марки и их оси — из ведомости марок и монтажной схемы. Загруженные сертификаты и съёмки кладутся рядом с выгруженным файлом в папку «… — приложения». Перечень документов — по СН РК 1.03-00-2022 п. 15.2, формы актов — по его приложениям Д и Е.",
    people:"Технический и авторский надзор попадают в акты, только если отмечены. Названия организаций при первом открытии берутся из карточки объекта и профиля компании.",
    certs:"Каждая сталь с профилем и каждая строка ведомости метизов — отдельный пункт; сталь и профили — из монтажной схемы (ведомостей КМ), метизы — из ведомости метизов. Марки электродов, грунтовки и краски программа ищет в распознанных чертежах; не нашла — пункт «по КМ», можно добавить свой пункт.",
-   surveys:"Съёмка попадает в акты своего вида работ, за период до её даты (до 30 дней после работ), по маркам или осям. Схему может нарисовать и сама программа — пункт «Исполнительная геодезическая схема (из монтажной схемы)» на вкладке «Выгрузка»."};
+   issued:"Каждая выгрузка добавляет сюда свои акты с номером и датой; копия выгруженного файла хранится в программе. Когда акт подписан всеми членами комиссии — нажмите «Подписан всеми подписантами» и загрузите скан. Номер следующего акта продолжает последний выгруженный.",
+   surveys:"Съёмка попадает в акты своего вида работ, за период до её даты (до 30 дней после работ), по маркам или осям. Схему может нарисовать и сама программа — пункт «Исполнительная геодезическая схема возведённых конструкций» на вкладке «Выгрузка»."};
   // The counter of a tab: certificates loaded of needed, surveys loaded.
-  const count=k=>{if(k==="certs"){const t=D.needs.filter(x=>!x.hidden),d=t.filter(x=>x.docs.length).length;return` <small>${d}/${t.length}</small>`}if(k==="surveys")return D.surveys.length?` <small>${D.surveys.length}</small>`:"";if(k==="people")return` <small>${X.people(D.settings).length}</small>`;return""};
+  const count=k=>{if(k==="issued"){const l=D.issued.map(isOf);return l.length?` <small>${l.filter(x=>x.signed).length}/${l.length}</small>`:""}if(k==="certs"){const t=D.needs.filter(x=>!x.hidden),d=t.filter(x=>x.docs.length).length;return` <small>${d}/${t.length}</small>`}if(k==="surveys")return D.surveys.length?` <small>${D.surveys.length}</small>`:"";if(k==="people")return` <small>${X.people(D.settings).length}</small>`;return""};
   const choice=()=>{const acts=[...app.querySelectorAll("[data-act]:checked")].map(i=>i.dataset.act);return{from:val("exdFrom"),to:val("exdTo"),workTypeId:val("exdWork"),split:val("exdSplit"),acts}};
   const val=id=>document.getElementById(id)?.value||"";
   function bind(){
    document.getElementById("execDocsBack").onclick=()=>location.hash=`/objects/object/${oid}`;
-   app.querySelectorAll("[data-tab],[data-goto]").forEach(b=>b.onclick=()=>{tab=b.dataset.tab||b.dataset.goto;store.set("ir-exd-tab",tab);editing=null;surveyEdit=null;adding=null;paint();app.scrollTop=0;window.scrollTo?.(0,0)});
+   app.querySelectorAll("[data-tab],[data-goto]").forEach(b=>b.onclick=()=>{tab=b.dataset.tab||b.dataset.goto;store.set("ir-exd-tab",tab);editing=null;surveyEdit=null;adding=null;if(signing)dropSigning();paint();app.scrollTop=0;window.scrollTo?.(0,0)});
    const keep=async()=>{const c=choice();D.settings.last={...last(),...c};paint();try{await saveSettings({last:D.settings.last})}catch(e){console.warn(e)}};
    ["exdFrom","exdTo","exdWork","exdSplit"].forEach(id=>document.getElementById(id)?.addEventListener("change",keep));
    app.querySelectorAll("[data-act]").forEach(i=>i.onchange=keep);
@@ -158,7 +179,7 @@
    app.querySelectorAll("[data-open]").forEach(b=>{if(!b.dataset.i)return;b.onclick=()=>{const d=need(b.dataset.open)?.docs[Number(b.dataset.i)];if(d?.file?.path)call("ai-documents:exec-cert-open",{path:d.file.path}).catch(e=>alert("Файл не открылся: "+e.message))}});
    app.querySelectorAll("[data-deldoc]").forEach(b=>b.onclick=async()=>{const x=need(b.dataset.deldoc),d=x?.docs[Number(b.dataset.i)];if(!d||!confirm(`Удалить «${X.certText(d)}»?`))return;
     if(d.file?.path)await call("ai-documents:exec-cert-remove",{path:d.file.path}).catch(()=>{});await certRecord(x,{docs:x.docs.filter((_,i)=>i!==Number(b.dataset.i))});reload()});
-   const form=app.querySelector(".exd-docform:not(.exd-survey-form)");
+   const form=app.querySelector(".exd-docform:not(.exd-survey-form):not(.exd-sign-form)");
    if(form){form.querySelectorAll("[data-d]").forEach(i=>i.addEventListener("input",()=>{editing[i.dataset.d]=i.value}));
     form.querySelector("#exdPick").onclick=async()=>{try{const files=await call("ai-documents:exec-cert-add",{objectId:oid});if(files?.length){editing.file=files[0];
       // Several files at once: the rest become documents of the same point with the same number and date.
@@ -184,17 +205,46 @@
      const marks=String(e.marks||"").split(/[,;]/).map(v=>v.trim()).filter(Boolean),axes=String(e.axes||"").trim()||X.axesOf(D.scheme,marks);
      const data={title:String(e.title||"").trim()||"Исполнительная геодезическая схема",number:String(e.number||"").trim(),date:e.date||"",work_type_id:e.work_type_id||"",marks:marks.join(", "),axes,surveyor:String(e.surveyor||"").trim(),files:arr(e.files)};
      try{const payload={record_type:"survey",title:data.title,data};if(e.id)await api.update(e.id,payload);else await api.create(payload);surveyEdit=null;await reload()}catch(err){alert("Съёмка не сохранена: "+(err.message||err))}}}
+   // Exported acts and their signing.
+   const iRec=id=>D.issued.find(r=>String(r.id)===String(id));
+   const open=f=>{if(f?.path)call("ai-documents:exec-cert-open",{path:f.path}).catch(e=>alert("Файл не открылся: "+e.message))};
+   app.querySelectorAll("[data-iopen]").forEach(b=>b.onclick=()=>open(iRec(b.dataset.iopen)?.data?.file));
+   app.querySelectorAll("[data-iscan]").forEach(b=>b.onclick=()=>open(arr(iRec(b.dataset.iscan)?.data?.signed?.scans)[Number(b.dataset.i)]));
+   app.querySelectorAll("[data-isign]").forEach(b=>b.onclick=()=>{if(signing)dropSigning();signing={id:b.dataset.isign,date:today(),scans:[]};paint()});
+   const putIssued=async(r,data)=>{await api.update(r.id,{record_type:"issued",title:r.title||data.name||"Акт",data});await reload()};
+   app.querySelectorAll("[data-iunsign]").forEach(b=>b.onclick=async()=>{const r=iRec(b.dataset.iunsign);if(!r||!confirm("Снять отметку «Подписан всеми подписантами»? Скан будет удалён."))return;
+    for(const f of arr(r.data?.signed?.scans))await call("ai-documents:exec-cert-remove",{path:f.path}).catch(()=>{});const {signed,...rest}=r.data||{};void signed;await putIssued(r,rest)});
+   app.querySelectorAll("[data-idel]").forEach(b=>b.onclick=async()=>{const r=iRec(b.dataset.idel),x=r&&isOf(r);if(!r||!confirm(`Удалить из списка «${x.name||"акт"}${x.number?" № "+x.number:""}» вместе с копией файла${x.signed?" и сканом":""}?`))return;
+    for(const f of[r.data?.file,...arr(r.data?.signed?.scans)])if(f?.path)await call("ai-documents:exec-cert-remove",{path:f.path}).catch(()=>{});await api.remove(r.id);reload()});
+   if(document.getElementById("exdSignSave")){
+    app.querySelector("[data-sg=date]").addEventListener("input",e=>{signing.date=e.target.value});
+    document.getElementById("exdSignPick").onclick=async()=>{try{const files=await call("ai-documents:exec-cert-add",{objectId:oid,kind:"scan"});if(files?.length){signing.scans=[...arr(signing.scans),...files];paint()}}catch(e){alert("Скан не загружен: "+e.message)}};
+    document.getElementById("exdSignCancel").onclick=()=>{dropSigning();paint()};
+    document.getElementById("exdSignSave").onclick=async()=>{const r=iRec(signing.id);if(!arr(signing.scans).length){alert("Загрузите скан акта со всеми подписями.");return}if(!signing.date){alert("Укажите дату подписания.");return}
+     try{await putIssued(r,{...(r.data||{}),signed:{date:signing.date,scans:signing.scans,at:new Date().toISOString()}});signing=null;await reload()}catch(e){alert("Отметка не сохранена: "+(e.message||e))}}}
    // Export.
    const run=async format=>{const c=choice();if(!c.acts.length){alert("Выберите хотя бы один акт.");return}if(c.from&&c.to&&c.from>c.to){alert("Дата «с» позже даты «по».");return}
     busy=true;note="Готовлю документы…";paint();
     try{const pkg=X.buildPackage({settings:D.settings,reports:D.reports,marks:D.marks,scheme:D.scheme,workTypes:D.workTypes,needsList:D.needs,surveys:D.surveys,...c});
      if(format==="docx")await X.rasterize(pkg);
      const wt=D.workTypes.find(w=>w.id===c.workTypeId),name=["ИД",D.settings.object?.name||D.object?.name||"",wt?.name||"",X.ru(c.from)+"–"+X.ru(c.to)].filter(Boolean).join(" ");
-     const r=await call("ai-documents:exec-export",{format,name,html:format==="pdf"?X.toHtml(pkg):"",docx:format==="docx"?X.toDocx(pkg):null,attachments:pkg.attachments});
-     note=r?.path?`Сохранено: ${esc(r.path)}${r.copied?` · приложений в папке: ${r.copied}`:""}${r.missing?.length?` · не найдено файлов: ${r.missing.length}`:""}`:"Выгрузка отменена"}
+     const r=await call("ai-documents:exec-export",{format,name,html:format==="pdf"?X.toHtml(pkg):"",docx:format==="docx"?X.toDocx(pkg):null,attachments:pkg.attachments,objectId:oid});
+     let more="";if(r?.path){try{more=await keepIssued(pkg,c,format,r,wt)}catch(e){console.warn("exec docs: issued",e);more=" · список выгруженных актов не пополнен: "+esc(e.message||e)}}
+     note=r?.path?`Сохранено: ${esc(r.path)}${more}${r.copied?` · приложений в папке: ${r.copied}`:""}${r.missing?.length?` · не найдено файлов: ${r.missing.length}`:""}`:"Выгрузка отменена"}
     catch(e){note=`<span class="exd-bad">Не выгружено: ${esc(e.message||e)}</span>`}
     busy=false;paint()};
    document.getElementById("exdDocx")?.addEventListener("click",()=>run("docx"));document.getElementById("exdPdf")?.addEventListener("click",()=>run("pdf"));
+  }
+  // A dropped signing form: the scans it loaded go away.
+  function dropSigning(){for(const f of arr(signing?.scans))call("ai-documents:exec-cert-remove",{path:f.path}).catch(()=>{});signing=null}
+  // After an export: an «issued» record per document of the set; the next act number continues the last one.
+  async function keepIssued(pkg,c,format,r,wt){
+   const at=new Date().toISOString(),file=r.archived?{path:r.archived,name:String(r.path).split(/[\\/]/).pop()}:null,id="exp-"+Date.now();
+   for(const d of pkg.docs)await api.create({record_type:"issued",title:d.act.name+(d.number?" № "+d.number:""),data:{act:d.act.key,name:d.act.name,number:d.number,date:d.to||d.from,from:d.from,to:d.to,work_type_id:c.workTypeId||"",work_type:wt?.name||"",format,file,saved_path:r.path,export_id:id,exported_at:at}});
+   const nums=pkg.docs.map(d=>Number(d.number)).filter(Number.isFinite);let next="";
+   if(nums.length){next=String(Math.max(...nums)+1);await saveSettings({start_number:next})}
+   D=await loadAll(oid);
+   return` · в «Выгруженные акты» добавлено: ${pkg.docs.length}${next?` · следующий акт — № ${next}`:""}`
   }
   paint()
  };

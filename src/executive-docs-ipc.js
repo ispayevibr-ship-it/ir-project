@@ -3,6 +3,8 @@
  * Исполнительная документация, main process: the documents of quality loaded for an object (copied into
  * userData/executive-documents/<object>) and the export — a .docx made by the page, or a PDF printed here from its HTML in
  * a hidden window; the loaded documents of quality and as-built surveys go next to it, in a folder by groups.
+ * Every export keeps a copy in userData/executive-documents/<object>/issued for the list of exported acts; the signed
+ * scans of the acts are loaded like the documents of quality (kind «scan»).
  * Channels ai-documents:exec-* — the installed preload passes ai-documents:*.
  */
 const fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypto");
@@ -12,7 +14,8 @@ function createExecutiveDocs({getUserDataPath,dialog,shell,getWindow}){
  const inside=file=>{if(!file)return false;const t=path.resolve(String(file));return t.startsWith(path.resolve(root())+path.sep)};
  // Documents of quality: PDF or a photo; as-built surveys also come as drawings (DWG, DXF) and scans (TIFF).
  const KINDS={cert:{title:"Документ о качестве (сертификат, паспорт)",name:"Сертификат",ext:["pdf","png","jpg","jpeg"]},
-  survey:{title:"Исполнительная съёмка",name:"Исполнительная съёмка",ext:["pdf","png","jpg","jpeg","tif","tiff","dwg","dxf"]}};
+  survey:{title:"Исполнительная съёмка",name:"Исполнительная съёмка",ext:["pdf","png","jpg","jpeg","tif","tiff","dwg","dxf"]},
+  scan:{title:"Скан подписанного акта",name:"Скан",ext:["pdf","png","jpg","jpeg","tif","tiff"]}};
  async function add({objectId,kind}={}){
   const K=KINDS[kind]||KINDS.cert,EXT=K.ext.map(e=>"."+e);
   const r=await dialog.showOpenDialog(getWindow(),{title:K.title,properties:["openFile","multiSelections"],filters:[{name:K.name,extensions:K.ext}]});
@@ -29,10 +32,12 @@ function createExecutiveDocs({getUserDataPath,dialog,shell,getWindow}){
   try{await w.loadFile(tmp);return await w.webContents.printToPDF({pageSize:"A4",printBackground:true,preferCSSPageSize:true})}
   finally{w.destroy();fs.rmSync(tmp,{force:true})}
  }
- async function exportDocs({format="docx",name="Исполнительная документация",html="",docx=null,attachments=[]}={}){
+ async function exportDocs({format="docx",name="Исполнительная документация",html="",docx=null,attachments=[],objectId=null}={}){
   const pdf=format==="pdf",r=await dialog.showSaveDialog(getWindow(),{defaultPath:safe(name)+(pdf?".pdf":".docx"),filters:[pdf?{name:"PDF",extensions:["pdf"]}:{name:"Документ Word",extensions:["docx"]}]});
   if(r.canceled||!r.filePath)return null;
-  fs.writeFileSync(r.filePath,pdf?await pdfOf(html):Buffer.from(docx||[]));
+  const bytes=pdf?await pdfOf(html):Buffer.from(docx||[]);fs.writeFileSync(r.filePath,bytes);
+  // A copy for the list of exported acts («Выгруженные акты»): it opens even when the saved file is moved.
+  let archived="";if(objectId!=null){try{const dir=path.join(root(),String(Number(objectId)||0),"issued");fs.mkdirSync(dir,{recursive:true});archived=path.join(dir,`${Date.now()}-${safe(path.basename(r.filePath,path.extname(r.filePath)))}${pdf?".pdf":".docx"}`);fs.writeFileSync(archived,bytes)}catch{archived=""}}
   // The documents of quality and surveys: next to the file, «<имя> — приложения/<группа>/<что это> — <файл>».
   let copied=0;const missing=[];
   if(Array.isArray(attachments)&&attachments.length){
@@ -43,7 +48,7 @@ function createExecutiveDocs({getUserDataPath,dialog,shell,getWindow}){
     for(let i=2;fs.existsSync(dest);i++)dest=dest.replace(/( \(\d+\))?(\.[^.]+)$/,` (${i})$2`);
     fs.copyFileSync(a.path,dest);copied++}}
   try{shell.showItemInFolder(r.filePath)}catch{}
-  return{path:r.filePath,copied,missing}
+  return{path:r.filePath,archived,copied,missing}
  }
  return{add,open,remove,exportDocs,pdfOf}
 }
