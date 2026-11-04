@@ -107,9 +107,14 @@
   }
   if(tank.length)return tank;
   if(!L||typeof L!=="object"||L.kind!=="central_ring")return[];
-  var out=["Кольцо коробчатого сечения: наружная стенка Ø"+fmt(2*num(L.wall_r_mm))+" и внутренняя обечайка Ø"+fmt(2*num(L.shell_r_mm))+" высотой "+fmt(L.height_mm)+" мм, пояса t"+fmt(L.plate_mm)+"; нижний лист до Ø"+fmt(2*num(e.r))+" — на него опираются щиты."];
-  if(num(L.lugs)>0)out.push(fmt(L.lugs)+" рёбер t"+fmt(L.plate_mm)+" "+fmt((L.lug_mm||[])[0])+"×"+fmt((L.lug_mm||[])[1])+" мм по стыкам щитов"+(L.bolt?", щит крепится к ребру болтом "+L.bolt:"")+".");
-  if(L.cap&&num(L.cap.r_mm)>0)out.push("Сверху центральный щит — конус Ø"+fmt(2*num(L.cap.r_mm))+" из листов t"+fmt(L.cap.t_mm)+" внахлёст, подъём "+fmt(L.cap.rise_mm)+" мм.");
+  var out=["Кольцо коробчатого сечения: наружная стенка Ø"+fmt(2*num(L.wall_r_mm))+" и внутренняя обечайка Ø"+fmt(2*num(L.shell_r_mm))+(num(L.shell_t_mm)>0?" t"+fmt(L.shell_t_mm):"")+" высотой "+fmt(L.height_mm)+" мм, пояса t"+fmt(L.plate_mm)+"; нижний лист до Ø"+fmt(2*num(e.r))+" — на него опираются щиты."];
+  // (КМ-12, КМ-07 узел 2 of РВС-700: the ribs beside the joints with their hole, the diaphragms, the ribs and the seam of the shield)
+  if(num(L.lugs)>0)out.push(fmt(L.lugs)+" рёбер t"+fmt(L.plate_mm)+" "+fmt((L.lug_mm||[])[0])+"×"+fmt((L.lug_mm||[])[1])+" мм на нижнем листе, "+(num(L.lug_off_mm)?"у стыков щитов (в "+fmt(Math.abs(num(L.lug_off_mm)))+" мм от линии стыка)":"по стыкам щитов")+
+   (L.bolt?", щит крепится к ребру болтом "+L.bolt:"")+(Array.isArray(L.lug_hole_mm)&&L.lug_hole_mm.length===2?" — отверстие в "+fmt(L.lug_hole_mm[0])+" мм от конца ребра и "+fmt(L.lug_hole_mm[1])+" мм от низа":"")+".");
+  if(num(L.diaphragms)>0)out.push(fmt(L.diaphragms)+" диафрагм t"+fmt(num(L.diaphragm_t_mm)||num(L.plate_mm))+" внутри коробки — между стенкой и обечайкой, посредине между рёбрами.");
+  if(L.cap&&num(L.cap.r_mm)>0)out.push("Сверху центральный щит — конус Ø"+fmt(2*num(L.cap.r_mm))+" из листов t"+fmt(L.cap.t_mm)+" внахлёст, подъём "+fmt(L.cap.rise_mm)+" мм"+
+   (L.cap.seam_deg!==undefined&&L.cap.seam_deg!==null&&isFinite(Number(L.cap.seam_deg))?"; два листа внахлёст по диаметру под "+fmt(L.cap.seam_deg)+"° к стыку щитов":"")+
+   (Array.isArray(L.cap.ribs_mm)&&L.cap.ribs_mm.length===3?"; снизу крест из двух рёбер t"+fmt(L.cap.ribs_mm[2])+" длиной "+fmt(L.cap.ribs_mm[0])+" мм, высотой "+fmt(L.cap.ribs_mm[1])+" мм в центре":"")+".");
   return out
  }
  function section(e){
@@ -150,6 +155,9 @@
   if(m.col_post)out.push("стойка ограждения стоит на оси колонны "+m.col_post+" — в 3D не рисуется: здесь поручни крепятся к колонне");
   // (a post of the framing standing on a girder: welded to it, no base and no anchors — by the angle its sheet gives)
   if(m.post_on){var fa=m.foot_angle;out.push(fa?"стойка стоит на ригеле "+m.post_on+": уголок "+fa.angle+" длиной "+fmt(fa.len_mm)+" мм внутри швеллера приварен к стенке стойки и к ригелю, низ стойки на "+fmt(fa.gap_mm)+" мм выше ригеля"+(fa.node?" — "+fa.node:"")+"; болтов и анкеров нет":"стойка стоит на ригеле "+m.post_on+" — крепится к нему сваркой по узлу листа; базы с анкерами нет")}
+  // (a guard its sheet draws on the line of a vertical bracing: drawn moved into its landing, clear of the angles and
+  // gussets of the bracing — guardMoved of the 3D view)
+  if(m.guard_moved&&num(m.guard_moved.mm)>0)out.push("ограждение по чертежу стоит в плоскости вертикальной связи"+(m.guard_moved.mark?" "+m.guard_moved.mark:"")+" — её уголки и фасонки прошли бы сквозь него; в 3D отодвинуто внутрь площадки на "+fmt(m.guard_moved.mm)+" мм, место крепления уточните по КМД");
   if(m.wall_post)out.push("стойка ограждения кровли попадает в стеновой ригель "+m.wall_post+", который здесь выше кровли, — в 3D не рисуется; место ограждения проверьте по разделу АР");
   var wall=num(m.wall_mm)>0?'<div class="ec-facts ec-warn">За стену из сэндвич-панелей выходило '+esc(fmt(m.wall_mm))+' мм — показан до стены. Проверьте положение элемента по чертежу.</div>':"";
   return(out.length?'<div class="ec-facts">'+esc(out.join(" · "))+'</div>':"")+wall

@@ -1144,14 +1144,23 @@ function buildTank(pages){
   const capR=cring.cap>cring.outer?Math.round(cring.cap/2):0,capFit=capR?Math.round(rise*capR/R):0;
   const capRise=capR?((cring.capRise>0?[cring.capRise]:cring.capRises||[]).filter(v=>Math.abs(v-capFit)<=capFit*0.15).sort((a,b)=>Math.abs(a-capFit)-Math.abs(b-capFit))[0]||capFit):0,capT=cring.capT>0?cring.capT:6;
   const guessed=[...(cring.height>0?[]:["высота 200"]),...(cring.shell?[]:["внутренняя обечайка Ø"+2*shellR]),...(lugs&&!Array.isArray(cring.lug)?["рёбра "+lug[0]+"×"+lug[1]]:[])];
+  // (what the sheets of the ring and of its node give beyond that — the sheet of the inner shell, the rib beside the joint
+  // of the shields and its hole, the diaphragms in the box, the ribs under the central shield, its one seam — goes into
+  // the layout as read; the 3D draws the typical ring where it is not given)
+  const diaph=cring.diaphragms>0?Math.round(cring.diaphragms):0,capRibs=Array.isArray(cring.capRibs)&&cring.capRibs.length===3&&cring.capRibs.every(v=>v>0)?cring.capRibs:null;
   placements.push({mark:roofs.some(r=>r.ck)?"ЦК1":markOk(ringRow?.mark)||"Кольцо",name:ringRow?.name||(capR?"Центральное кольцо. Центральный щит":"Центральное кольцо покрытия"),type_key:"roof_central_ring",geometry_type:"plate",x_mm:C,y_mm:C,radius_mm:rr,
    inner_radius_mm:shellR,z0_mm:z0,z1_mm:ringTop,
    layout:{kind:"central_ring",wall_r_mm:wallR,shell_r_mm:shellR,height_mm:H,plate_mm:plate,top_out_mm:20,lugs,lug_start_deg:lugs?((fromBearing(0)%360)+360)%360:0,lug_mm:lug,
-    ...(cring.bolt?{bolt:cring.bolt}:{}),...(capR?{cap:{r_mm:capR,rise_mm:capRise,t_mm:capT,base_mm:Math.round(top-rise*capR/R)+6-z0}}:{})},
+    ...(cring.shellT>0?{shell_t_mm:cring.shellT}:{}),...(Number.isFinite(cring.lugOff)&&cring.lugOff!==0?{lug_off_mm:cring.lugOff}:{}),
+    ...(Array.isArray(cring.lugHole)&&cring.lugHole.length===2?{lug_hole_mm:cring.lugHole}:{}),...(diaph?{diaphragms:diaph,diaphragm_t_mm:cring.diaphragmT>0?cring.diaphragmT:plate}:{}),
+    ...(cring.bolt?{bolt:cring.bolt}:{}),...(capR?{cap:{r_mm:capR,rise_mm:capRise,t_mm:capT,base_mm:Math.round(top-rise*capR/R)+6-z0,...(capRibs?{ribs_mm:capRibs}:{}),...(Number.isFinite(cring.capSeam)?{seam_deg:cring.capSeam}:{})}}:{})},
    levels_from:"щиты покрытия",confidence:guessed.length?"medium":"high",scheme_group:"roof",
    notes:["Центральное кольцо: стенка Ø"+2*wallR+", внутренняя обечайка Ø"+2*shellR+", высота "+H+", пояса и нижний лист t"+plate+", нижний лист до Ø"+cring.outer+" — опора щитов",
-    ...(lugs?[lugs+" рёбер t"+plate+" "+lug[0]+"×"+lug[1]+" под щиты ("+(cring.bolt?"болт "+cring.bolt:"по болту")+" на ребро), по стыкам щитов"]:[]),
-    ...(capR?["Центральный щит (покрытие кольца): конус Ø"+2*capR+" из листов t"+capT+" внахлёст, подъём "+capRise+(capRise===capFit&&!(cring.capRises||[]).includes(capRise)?" (по уклону крыши)":"")]:[]),
+    ...(lugs?[lugs+" рёбер t"+plate+" "+lug[0]+"×"+lug[1]+" под щиты ("+(cring.bolt?"болт "+cring.bolt:"по болту")+" на ребро), "+(Number.isFinite(cring.lugOff)&&cring.lugOff!==0?"у стыков щитов, в "+Math.abs(cring.lugOff)+" мм от линии стыка":"по стыкам щитов")+
+     (Array.isArray(cring.lugHole)?"; отверстие в "+cring.lugHole[0]+" мм от конца ребра и "+cring.lugHole[1]+" мм от низа":"")+"; рёбра стоят на нижнем листе"]:[]),
+    ...(diaph?[diaph+" диафрагм t"+(cring.diaphragmT>0?cring.diaphragmT:plate)+" между стенкой и обечайкой, посредине между рёбрами"]:[]),
+    ...(capR?["Центральный щит (покрытие кольца): конус Ø"+2*capR+" из листов t"+capT+" внахлёст, подъём "+capRise+(capRise===capFit&&!(cring.capRises||[]).includes(capRise)?" (по уклону крыши)":"")+
+     (Number.isFinite(cring.capSeam)?"; два листа внахлёст по диаметру под "+cring.capSeam+"° к стыку щитов":"")+(capRibs?"; снизу крест из двух рёбер t"+capRibs[2]+" длиной "+capRibs[0]+", высотой "+capRibs[1]+" в центре":"")]:[]),
     ...(guessed.length?["Не прочитано с листа, принято по типовому кольцу: "+guessed.join(", ")+" — проверьте"]:[])]});
  }
  // Radial members of a frame roof: as many as the dispatch list ships ("Элемент крыши — 18"), else as the plan shows.

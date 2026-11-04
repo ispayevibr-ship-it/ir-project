@@ -109,8 +109,14 @@
   ".groups-actions{display:flex;gap:6px;margin-top:6px}.groups-actions button{font:inherit;font-size:12px;border:1px solid var(--line);background:#f6f8fb;border-radius:7px;padding:3px 8px;cursor:pointer}",
   ".row2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.box input[type=checkbox]{width:auto;margin:0}.box select,.box input{width:100%;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}",
   ".box label.f{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}.box label.f input,.box label.f select{margin-top:3px}",
-  ".list{max-height:260px;overflow:auto;margin-top:8px;border-top:1px solid var(--line)}.list button{display:block;width:100%;text-align:left;font:inherit;background:none;border:0;border-bottom:1px solid #eef2f7;padding:6px 4px;cursor:pointer;color:var(--ink)}",
-  ".list button:hover{background:#f3f6fb}.list button.on{background:#e6efff}.list button span{display:block;font-size:12px;color:var(--muted)}",
+  // The list by marks: a card a mark, its elements under it when opened.
+  "#found{margin-top:7px;font-size:12px}#found b{color:var(--ink)}.list{max-height:380px;overflow:auto;margin-top:8px;display:grid;gap:5px;align-content:start;padding:1px}",
+  ".mk{border:1px solid var(--line);border-radius:9px;background:#fff;overflow:hidden}.mk-h{display:flex;align-items:center;gap:8px;width:100%;text-align:left;font:inherit;background:none;border:0;padding:7px 9px;cursor:pointer;color:var(--ink)}",
+  ".mk-h:hover{background:#f5f8fc}.mk.open>.mk-h{background:#f3f7fd;border-bottom:1px solid #e8eef6}.mk .chev{flex:none;width:0;height:0;border-left:5px solid #8a96a8;border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .15s}.mk.open .chev{transform:rotate(90deg)}",
+  ".mk .chip{flex:none;min-width:48px;box-sizing:border-box;max-width:42%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:2px 7px;border-radius:6px;background:#e7effd;color:#1450b4;font-size:12.5px;text-align:center}",
+  ".mk-t{flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mk-t small{margin-left:6px;font-size:12px;color:var(--muted)}.mk-n{flex:none;font-size:12px;color:var(--muted);white-space:nowrap}.mk-n i.st{margin-right:4px}",
+  ".mk-l{display:grid}.mk-l .it{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:7px;width:100%;text-align:left;font:inherit;font-size:12.5px;background:none;border:0;border-top:1px solid #f0f3f7;padding:5px 9px 5px 22px;cursor:pointer;color:var(--ink)}",
+  ".mk-l .it:first-child{border-top:0}.mk-l .it:hover{background:#f5f8fc}.mk-l .it.on{background:#e6efff;box-shadow:inset 3px 0 0 #1668ea}.mk-l .it i.st{margin:0}.mk-l .ax{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mk-l .lv{color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}.mk-l .empty{padding:5px 9px 6px 22px;font-size:12px}",
   "i.st{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}i.st.mounted{background:var(--ok)}i.st.partial{background:var(--part)}i.st.planned{background:var(--wait)}",
   ".det-title b{font-size:18px;display:block}.det-title small{color:var(--muted)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin-top:8px}",
   ".grid div span{display:block;font-size:11.5px;color:var(--muted)}.grid div b{font-weight:600;word-break:break-word}.ok{color:var(--ok)}.partial{color:var(--part)}.wait{color:var(--wait)}",
@@ -167,7 +173,7 @@
    .observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:["title"]});
   var esc=function(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})};
   var fmt=function(v){var n=Number(v);return Number.isFinite(n)?Number(n.toFixed(1)).toLocaleString("ru-RU",{maximumFractionDigits:1}):"—"};
-  var S={hidden:new Set(),sec:new Set(),conf:"all",status:"all",work:"all",min:"",max:"",q:"",sel:"",color:"status",labels:false,dims:false,bg:D.background||"standard"};
+  var S={open:new Set(),hidden:new Set(),sec:new Set(),conf:"all",status:"all",work:"all",min:"",max:"",q:"",sel:"",color:"status",labels:false,dims:false,bg:D.background||"standard"};
   var statusText={mounted:"Смонтирована",partial:"Частично смонтирована",planned:"Не смонтирована"};
   var levelOk=function(c){var lo=Math.min(c.z0,c.z2),hi=Math.max(c.z0,c.z2);if(S.min!==""&&hi<Number(S.min))return false;if(S.max!==""&&lo>Number(S.max))return false;return true};
   // How fully the drawings determined an element and its section, as in the program: the preliminary ones are pale.
@@ -256,11 +262,32 @@
    return'<div class="fast"><b>Детали марки по спецификации</b>'+rows.map(function(r){return'<span>'+(r.pos?"поз. "+esc(r.pos)+" — ":"")+esc(r.section||"сечение не прочитано")+(r.length_mm?", L "+fmt(r.length_mm)+" мм":"")+(r.count?", "+fmt(r.count)+" шт.":"")+(r.note?" ("+esc(r.note)+")":"")+'</span>'}).join("")+
     '<small>'+esc(c.parts.sheet||"")+(c.parts.by?" · как "+esc(c.parts.by):"")+'</small></div>'
   }
+  // The list of elements by marks (the engineer, 03.11.2026, a picture of it: «не нравится вид блока» — 5071 rows
+  // «● 1 Балка / О4 − 2 280 мм / Л + 1 140 мм · низ 2 225 · верх 2 225» one under another): a row a mark — its badge, its
+  // kind and section, how many and how many mounted —; opened, its elements: the place by the axes, short, and the level as
+  // on the drawings (+2,225). Few found — all open; the mark of the element selected — open, the element in view.
+  var plural=function(n,a,b,c){var m=n%10,h=n%100;return m===1&&h!==11?a:m>=2&&m<=4&&(h<12||h>14)?b:c};
+  var lvl=function(v){v=Number(v)||0;return(v<0?"−":"+")+(Math.abs(v)/1000).toFixed(3).replace(".",",")};
+  var lvls=function(c){var a=Number(c.z0)||0,b=Number(c.z2);return!Number.isFinite(b)||Math.abs(b-a)<1?lvl(a):lvl(Math.min(a,b))+" … "+lvl(Math.max(a,b))};
+  var axShort=function(t){return String(t||"").replace(/\s*мм/g,"").replace(/\s+([−+–-])\s+/g," $1")};
   function list(){
-   var found=shown().filter(match).sort(function(a,b){return String(a.mark).localeCompare(String(b.mark),"ru",{numeric:true})});
-   $("found").textContent="Найдено: "+found.length;
-   $("list").innerHTML=found.slice(0,300).map(function(c){return'<button type="button" data-id="'+esc(c.id)+'" class="'+(c.id===S.sel?"on":"")+'"><i class="st '+esc(c.status)+'"></i><b>'+esc(c.mark||"Без марки")+'</b> '+esc(c.type_name||"")+'<span>'+esc(c.axisText.x+" / "+c.axisText.y)+' · низ '+fmt(c.z0)+' · верх '+fmt(c.z2)+'</span></button>'}).join("")+(found.length>300?'<div class="empty">Показаны первые 300 — уточните поиск.</div>':"");
-   $("list").querySelectorAll("[data-id]").forEach(function(b){b.onclick=function(){S.sel=b.dataset.id;draw3d();window.irThreeSchemeView.focus&&window.irThreeSchemeView.focus(S.sel);details();list()}})
+   var found=shown().filter(match),by=new Map();
+   found.forEach(function(c){var k=String(c.mark||"");if(!by.has(k))by.set(k,[]);by.get(k).push(c)});
+   var keys=Array.from(by.keys()).sort(function(a,b){return!a?1:!b?-1:a.localeCompare(b,"ru",{numeric:true})}),auto=found.length<=40;
+   $("found").innerHTML=found.length?"<b>"+found.length.toLocaleString("ru-RU")+"</b> "+plural(found.length,"элемент","элемента","элементов")+" · <b>"+keys.length.toLocaleString("ru-RU")+"</b> "+plural(keys.length,"марка","марки","марок"):"Ничего не найдено — измените поиск или фильтр";
+   $("list").innerHTML=keys.slice(0,300).map(function(k){
+    var g=by.get(k),c=g[0],open=auto||S.open.has(k)||g.some(function(o){return o.id===S.sel}),m=g.filter(function(o){return o.status==="mounted"}).length;
+    var kinds=new Set(g.map(function(o){return o.type_name||""})),profs=new Set(g.map(function(o){return o.profile||""}));
+    var kind=kinds.size===1?c.type_name||c.mark_name||"":"разные виды",prof=profs.size===1?c.profile||"":"";
+    return'<div class="mk'+(open?" open":"")+'"><button type="button" class="mk-h" data-mark="'+esc(k)+'" aria-expanded="'+open+'" title="'+esc((k||"Без марки")+" — "+(c.mark_name||kind))+'">'+
+     '<i class="chev"></i><b class="chip">'+esc(k||"Без марки")+'</b><span class="mk-t">'+esc(kind)+(prof?'<small>'+esc(prof)+'</small>':"")+'</span>'+
+     '<span class="mk-n" title="'+(m?"Смонтировано "+m+" из "+g.length:"Всего на схеме: "+g.length)+'">'+(m?'<i class="st mounted"></i>'+m+" из ":"")+g.length+" шт.</span></button>"+
+     (open?'<div class="mk-l">'+g.slice(0,200).map(function(o){var a=o.axisText||{};return'<button type="button" data-id="'+esc(o.id)+'" class="it'+(o.id===S.sel?" on":"")+'" title="'+esc((a.x||"")+" / "+(a.y||""))+'">'+
+      '<i class="st '+esc(o.status)+'"></i><span class="ax">'+esc(axShort(a.x)+" / "+axShort(a.y))+'</span><span class="lv">'+esc(lvls(o))+"</span></button>"}).join("")+(g.length>200?'<div class="empty">Показаны первые 200 — уточните поиск.</div>':"")+"</div>":"")+"</div>"}).join("")+
+    (keys.length>300?'<div class="empty">Показаны первые 300 марок — уточните поиск.</div>':"");
+   $("list").querySelectorAll("[data-mark]").forEach(function(b){b.onclick=function(){var k=b.dataset.mark;if(S.open.has(k))S.open.delete(k);else S.open.add(k);if(!S.open.has(k)&&auto)S.open.add(k);list()}});
+   $("list").querySelectorAll("[data-id]").forEach(function(b){b.onclick=function(){S.sel=b.dataset.id;draw3d();window.irThreeSchemeView.focus&&window.irThreeSchemeView.focus(S.sel);details();list()}});
+   var on=$("list").querySelector(".it.on");if(on&&on.scrollIntoView)on.scrollIntoView({block:"nearest"})
   }
   function details(){
    var c=D.elements.find(function(x){return x.id===S.sel}),box=$("details");

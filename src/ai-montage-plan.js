@@ -555,7 +555,13 @@ function claudeTankPageOf(ai,t){
     ...(t.central_ring_height_mm>0?{height:Number(t.central_ring_height_mm)}:{}),...(t.central_ring_shell_mm>0?{shell:Number(t.central_ring_shell_mm)}:{}),
     ...(t.central_ring_plate_mm>0?{plate:Number(t.central_ring_plate_mm)}:{}),...(t.central_ring_lugs>0?{lugs:Number(t.central_ring_lugs)}:{}),
     ...(Array.isArray(t.central_ring_lug_mm)&&t.central_ring_lug_mm.length===2?{lug:t.central_ring_lug_mm.map(Number)}:{}),...(t.central_ring_bolt?{bolt:String(t.central_ring_bolt)}:{}),
-    ...(t.central_cap_mm>0?{cap:Number(t.central_cap_mm),...(t.central_cap_rise_mm>0?{capRise:Number(t.central_cap_rise_mm)}:{}),...(t.central_cap_t_mm>0?{capT:Number(t.central_cap_t_mm)}:{})}:{})}:null,
+    // (КМ-12 разрезы 1-1, 2-2, 3-3 and КМ-07 узел 2 of РВС-700, 04.11.2026: the inner shell's sheet, the rib beside the
+    // joint of the shields and its hole, the diaphragms in the box, the ribs under the central shield and its one seam)
+    ...(t.central_ring_shell_t_mm>0?{shellT:Number(t.central_ring_shell_t_mm)}:{}),...(Number.isFinite(Number(t.central_ring_lug_offset_mm))&&t.central_ring_lug_offset_mm!==null&&t.central_ring_lug_offset_mm!==undefined?{lugOff:Number(t.central_ring_lug_offset_mm)}:{}),
+    ...(Array.isArray(t.central_ring_lug_hole_mm)&&t.central_ring_lug_hole_mm.length===2?{lugHole:t.central_ring_lug_hole_mm.map(Number)}:{}),
+    ...(t.central_ring_diaphragms>0?{diaphragms:Number(t.central_ring_diaphragms),...(t.central_ring_diaphragm_t_mm>0?{diaphragmT:Number(t.central_ring_diaphragm_t_mm)}:{})}:{}),
+    ...(t.central_cap_mm>0?{cap:Number(t.central_cap_mm),...(t.central_cap_rise_mm>0?{capRise:Number(t.central_cap_rise_mm)}:{}),...(t.central_cap_t_mm>0?{capT:Number(t.central_cap_t_mm)}:{}),
+     ...(Array.isArray(t.central_cap_ribs_mm)&&t.central_cap_ribs_mm.length===3?{capRibs:t.central_cap_ribs_mm.map(Number)}:{}),...(Number.isFinite(Number(t.central_cap_seam_deg))&&t.central_cap_seam_deg!==null&&t.central_cap_seam_deg!==undefined?{capSeam:Number(t.central_cap_seam_deg)}:{})}:{})}:null,
    ...(t.central_ring_mark==="ЦК1"?{ck:true}:{})}}:{}),
   ...(Array.isArray(t.anchors_deg)&&t.anchors_deg.length?{anchors:{bearings:t.anchors_deg.map(Number),ratio:t.anchors_ratio>0?Number(t.anchors_ratio):1.01}}:{}),
   // The bottom: its thickness and its kind (annular plates or one thickness, rolled or sheet by sheet, the slope).
