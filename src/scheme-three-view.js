@@ -1513,7 +1513,11 @@ window.irThreeSchemeView=(function(){
      var vy=Math.abs(h.Y.y)>.99;if(!vy&&!(wide&&Math.abs(h.X.y)>.99))return;
      var r=E.clone().sub(h.o),s=r.dot(h.U),x=r.dot(vy?h.X:h.Y),xa=vy?h.x0:h.y0,xb=vy?h.x1:h.y1;
      if(s<h.s0-.05||s>h.s1+.05||x<xa-.03||x>xb+.03)return;
-     var V=vy?h.Y:h.X,ya=h.o.y+V.y*(vy?h.y0:h.x0),yb=h.o.y+V.y*(vy?h.y1:h.x1),top=Math.max(ya,yb),bot=Math.min(ya,yb);
+     // (the corners of the section, both its axes: a strut lying in the slope of the bracing at its end — Рс-3 on the
+     // gussets of the crosses Сг-1 on the beams Б3 1:10, КМ2 л.12 узлы 40, 42 — is turned 6° about its line, its lower
+     // edge 4 mm under the bottom of its upright axis; the apex of Св-4 under it went 4 mm into its leg)
+     var cy=[];[h.x0,h.x1].forEach(function(xq){[h.y0,h.y1].forEach(function(yq){cy.push(h.o.y+h.X.y*xq+h.Y.y*yq+h.U.y*s)})});
+     var top=Math.max.apply(null,cy),bot=Math.min.apply(null,cy);
      if(Math.abs(E.y-top)<=.04)out={y:top,up:1};else if(Math.abs(E.y-bot)<=.04)out={y:bot,up:-1}
     });
     return out
@@ -3100,6 +3104,31 @@ window.irThreeSchemeView=(function(){
    for(var r=0;r<=Math.min(.4,L*.45);r+=.005){var Q=P.clone().add(d.clone().multiplyScalar(r));if(!bad(Q))return Q}
    return P
   }
+  // A level strut of angle in a node of a level bracing on a beam — Рс-3 L90×8 at the beams Б3 of the annex О8–О10 on
+  // +3,900 where the crosses Сг-1 2L110×8 come to its line (КМ2 л.10, л.12 узлы 40, 42): one gusset −t10 welded to the
+  // beam; the braces on it at the beam, the strut on its far part — its end short of the beam by as much as the braces
+  // need to clear its legs (on the sheet ~600 mm from the axis of the beam), three bolts through its flat leg and the
+  // plate. Drawn to the beam, the strut and the braces lay through each other (4 clashes, ИР-71535).
+  function strutAtBraceNode(c,id,k,P,d,L,host,parts){
+   if(c.geometryType!=="beam"||Math.abs(d.y)>.05)return null;
+   var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);if(!sec||sec.shape!=="angle"||/^2/.test(String(c.profile_name||c.profileName||"").replace(/\s/g,"")))return null;
+   var node=host.node(P);if(!node)return null;
+   var dh=new T.Vector3(d.x,0,d.z).normalize(),ws=sec.h/1000,S=0;
+   node.list.forEach(function(m){if(m.id===id||m.c.geometryType!=="brace"||Math.abs(m.d.y)>.25)return;
+    var mh=new T.Vector3(m.d.x,0,m.d.z).normalize(),cs=Math.abs(mh.dot(dh)),sn=Math.sqrt(Math.max(0,1-cs*cs));if(sn<.26||sn>.97||mh.dot(dh)<0)return;
+    var hs=halfSection(m.c),hb=Math.max(hs.b,hs.h)+(/^2/.test(m.pr)?hs.b:0);S=Math.max(S,(hb+ws+.02)*cs/sn)});
+   if(!S)return null;S=Math.min(S+.03,L*.4);
+   var E=P.clone().add(d.clone().multiplyScalar(S)),bx=pieceBox(c,E,E.clone().add(d.clone().multiplyScalar(.31)));if(!bx)return E;
+   var lo=1e9,up=new T.Vector3(0,1,0),side=dh.clone().cross(up).normalize(),sa=[];[bx.x0,bx.x1].forEach(function(x){[bx.y0,bx.y1].forEach(function(y){var Q=bx.X.clone().multiplyScalar(x).add(bx.Y.clone().multiplyScalar(y));lo=Math.min(lo,E.y+Q.y);sa.push(Q.dot(side))})});
+   var gt=gussetT(c),dia=boltDia(c)||.02,row=[.05,.1,.15],reach=row[2]+.05,s0=Math.min.apply(null,sa)-.02,s1=Math.max.apply(null,sa)+.02;
+   var g=new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(c));g.userData.gusset=true;
+   g.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(dh,up,side));g.scale.set(reach+.03,gt,s1-s0);
+   g.position.copy(E).add(dh.clone().multiplyScalar((reach-.03)/2*(d.dot(dh)>0?1:-1))).add(side.clone().multiplyScalar((s0+s1)/2));g.position.y=lo-gt/2;parts.push(g);
+   // (on the gauge line of the flat leg, riskShift; in the middle of the plate only where that is not to be had)
+   var u0=k?d.clone().negate():d,off=riskShift(c,u0,up,dia)||riskShift(c,u0,up.clone().negate(),dia);if(off)off.y=0;else off=side.clone().multiplyScalar((s0+s1)/2);
+   row.forEach(function(r){var q=E.clone().add(d.clone().multiplyScalar(r)).add(off);q.y=lo-gt/2+(gt+legT(c))/2;addBolt(c,q,up,dia,gt+legT(c))});
+   return E
+  }
   function trimSegment(c,id,a,b,host,parts,outer){
    var v=b.clone().sub(a),L=v.length();if(L<.3)return[a,b];v.divideScalar(L);
    endPlanes.delete(id+":0");endPlanes.delete(id+":1");
@@ -3111,6 +3140,7 @@ window.irThreeSchemeView=(function(){
    var blocked=function(P,skip,at){return[[0,0],[-.9,-.9],[-.9,.9],[.9,-.9],[.9,.9]].some(function(k){return host.inside(id,P.clone().add(X0.clone().multiplyScalar(k[0]*hs0.b)).add(Y0.clone().multiplyScalar(k[1]*hs0.h)),skip,at)})};
    ends.forEach(function(e,k){
     if(outer&&!outer[k])return;
+    var sbn=brace&&strutAtBraceNode(c,id,k,e[0],e[1],L,host,parts);if(sbn){out[k]=sbn;return}
     var ua=brace&&underAt.get(id+":"+k),ue=ua?underChord(c,id,e[0],e[1],v,ua,host,parts):null;if(ue){out[k]=ue;return}
     var pa=brace&&purlinAt.get(id+":"+k),pe=pa?purlinEnd(c,id,e[0],e[1],v,pa,host,parts):null;if(pe){out[k]=pe;return}
     var rse=brace&&ribStrut.get(id+":"+k),re=rse?ribEnd(c,id,e[0],e[1],v,rse,host,parts):null;if(re){out[k]=re;return}
@@ -3173,13 +3203,27 @@ window.irThreeSchemeView=(function(){
      // its bolts 388 − … well under the strut —: back along each till its bolts are two diameters under that face; 120 mm
      // back the heads of the upper ones stood in the strut's leg, 2 bolts. hangBack: the same for the outline of the plate)
      var sH=Math.abs(n.y)<.3&&host.onFace?host.onFace(e[0],true):null,hangs=Boolean(sH&&sH.up<0&&node.list.every(function(m){return m.brace&&Math.abs(m.d.y)<.5}));
+     // (and on till no point of its end — corners and across its width: the pair is wider than the strut, its corners
+     // beside it — is within 3 mm of the strut over it: the strut turned 6° in the slope of the crosses Сг-1 ending on it —
+     // КМ2 л.12 узлы 29, 40 — came 8 mm lower at one edge, the tops of the angles 4 mm in its leg; the plate's outline
+     // the same, its bolts past its edge else)
+     var hangClear=function(mc,mid,P0,d1,b1,Lm){if(!hangs)return b1;var pm=memberPoints(mc);if(pm.length<2)return b1;var vm=pm[pm.length-1].clone().sub(pm[0]).normalize(),fw=d1.dot(vm)>0,sk={margin:-.003};
+      var bad=function(t){var P1=P0.clone().add(d1.clone().multiplyScalar(t)),bx=fw?pieceBox(mc,P1,P1.clone().add(vm.clone().multiplyScalar(.31))):pieceBox(mc,P1.clone().sub(vm.clone().multiplyScalar(.31)),P1);if(!bx)return false;
+       for(var a=0;a<=4;a++)for(var b=0;b<=4;b++)for(var u=0;u<2;u++){var Q=bx.o.clone().add(bx.U.clone().multiplyScalar(fw?(u?.11:.002):(u?.2:.308))).add(bx.X.clone().multiplyScalar(bx.x0+.0005+(bx.x1-bx.x0-.001)*a/4)).add(bx.Y.clone().multiplyScalar(bx.y0+.0005+(bx.y1-bx.y0-.001)*b/4));if(host.inside(mid,Q,sk))return true}
+       return false};
+      while(b1+.005<=Math.min(.6,(Lm||1)*.35)&&bad(b1))b1+=.005;return b1};
      var hangBack=function(d1,b,off){if(!hangs||!dn)return b;var lim=Math.max(b,Math.min(.45,L*.3));
       var high=function(b1){return boltRow(dn).some(function(s){var q=e[0].clone().add(d1.clone().multiplyScalar(b1+s));if(off)q.add(off);return q.y+2*dn>sH.y})};
       while(b+.01<=lim&&high(b))b+=.01;return b};
      // (the line of the bolts off the axis as each brace lays it — the risk of its angles, half a leg toward a single one)
      var offOf=function(mc){var pm=memberPoints(mc);if(pm.length<2)return null;var vm=pm[pm.length-1].clone().sub(pm[0]).normalize(),r=riskShift(mc,vm,n,dn),am=braceAngle(mc,vm),o=am&&!backToBack(am)?am.X.clone().multiplyScalar(legT(mc)/2):null;
       return r&&o?r.clone().add(o):r?r.clone():o};
-     if(hangs&&dn){var c1=hangBack(e[1],c0,offOf(c));if(c1>c0){c0=c1;out[k]=e[0].clone().add(e[1].clone().multiplyScalar(c0))}}
+     if(hangs&&dn){var c1=hangBack(e[1],c0,offOf(c));
+      // (and on till no point of its end — corners and across its width: the pair is wider than the strut, its corners
+      // beside it — is in the strut over it: the strut turned 6° in the slope of the crosses Сг-1 ending on it — КМ2 л.12
+      // узлы 29, 40 — came 8 mm lower at one edge, the tops of the angles 4 mm in its leg)
+      c1=hangClear(c,id,e[0],e[1],c1,L);
+      if(c1>c0){c0=c1;out[k]=e[0].clone().add(e[1].clone().multiplyScalar(c0))}}
      if(dn)boltRow(dn).forEach(function(s){var q=e[0].clone().add(e[1].clone().multiplyScalar(c0+s));if(rk)q.add(rk);if(og)q.add(og);addBolt(c,q,n,dn,gt+(backToBack(ag)?2*legT(c):legT(c)))});
      if(host.made.has(node.key))return;host.made.add(node.key);
      var ax=a.clone().sub(n.clone().multiplyScalar(a.dot(n))).normalize(),by=n.clone().cross(ax);
@@ -3193,7 +3237,7 @@ window.irThreeSchemeView=(function(){
      // its legs: a square centred on the point stood out of the node where no member comes, through a column or a wall
      // beside it (the engineer, 27.10.2026: «если в узле фасонная часть, она не должна выходить сквозь металлоконструкции»).
      var pts=[];
-     if(!seat||hang)node.list.forEach(function(m){var dx=m.d.dot(ax),dy=m.d.dot(by),l=Math.hypot(dx,dy),w=m.w||.08,reach=hangBack(m.d,clearBack(m,Math.min(backOf(m),.45)),hangs&&dn&&m.c?offOf(m.c):null)+Math.max(.18,7.5*dn);if(l<.2)return;dx/=l;dy/=l;
+     if(!seat||hang)node.list.forEach(function(m){var dx=m.d.dot(ax),dy=m.d.dot(by),l=Math.hypot(dx,dy),w=m.w||.08,reach=hangBack(m.d,clearBack(m,Math.min(backOf(m),.45)),hangs&&dn&&m.c?offOf(m.c):null);if(hangs&&m.c){var pq=memberPoints(m.c);reach=hangClear(m.c,m.id,e[0],m.d,reach,pq.length>1?pq[0].distanceTo(pq[pq.length-1]):1)}reach+=Math.max(.18,7.5*dn);if(l<.2)return;dx/=l;dy/=l;
       [[0,w],[0,-w],[reach,w],[reach,-w]].forEach(function(q){pts.push([dx*q[0]-dy*q[1],dy*q[0]+dx*q[1]])})});
      var hull=hull2(pts);
      // (hanging from the bottom of a beam — braces nearly level coming up to it, the apex of Вс2 under Б1 —: the outline
@@ -5069,7 +5113,7 @@ window.irThreeSchemeView=(function(){
    allMeshes.forEach(function(m){steel.remove(m);if(!cached.has(m.geometry))gone.add(m.geometry)});gone.forEach(function(g){g.dispose()});
    allMeshes=[];plateCells.clear();platesN=0;boltList=[];seatIndex=null;webGus=[];webTraps=[];footRibFree.clear();dataById.clear();meshesById.clear();failures=0;conventional.clear();drillCache.clear();upperCache.clear();seatCache.clear();boltNear.clear();boltNearN=0;
    labels.forEach(function(l){l.el.remove()});labels=[];
-   elems=Array.isArray(list)?list:[];deckPairs.clear();deckRects=null;deckCols=null;
+   elems=Array.isArray(list)?list:[];deckPairs.clear();deckRects=null;deckCols=null;bridgeList=null;bridgePlates=[];
    slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);ribStruts(elems);underChords(elems);purlinNodes(elems);seatLevels(elems);purlinTilts(elems);restLifts(elems);ridgeMiters(elems);guardLines(elems);guardFeet(elems);postFeet(elems);stubTops(elems);guardRails(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);roofCones(elems);ladderStringers(elems);stairStringers(elems);toeBoards(elems);flightPosts(elems);guardBraces(elems);wallRings(elems);
    // (the posts with no conditional plate of their own before the members: a column on a member stands on its plate)
    platelessPosts();
@@ -5128,12 +5172,24 @@ window.irThreeSchemeView=(function(){
      var a0=number(c.sw)>0&&number(c.sw)<360?number(c.sa):0,aw=number(c.sw)>0&&number(c.sw)<360?number(c.sw):360;
      var onArc=function(deg,z){var a=deg*Math.PI/180;return toWorld(number(c.x)+Math.cos(a)*rr,number(c.y)+Math.sin(a)*rr,z)};
      var stepM=Math.max(.5,(number(c.fd)||1000)/1000),span=2*Math.PI*rr/1000*aw/360,posts=Math.max(aw<360?2:8,Math.round(span/stepM)+(aw<360?1:0)),parts=[],mat=baseMaterial(c);
-     var postGeo=new T.BoxGeometry(.05,hh,.05),z0=number(c.z0),zz=function(f){return z0+hh*1000*f};
-     for(var k=0;k<posts;k++){var post=new T.Mesh(postGeo,mat);post.position.copy(onArc(a0+aw*k/(aw<360?posts-1:posts),z0));post.position.y+=hh/2;parts.push(post)}
+     // The handrail on the posts, the rails below it welded between them, at their faces (each post square to the ring):
+     // drawn through the posts on their circle, each post went into the handrail and the three rings through it — 240
+     // places of 18–25 mm on РВС-700, 444 on РВС-3000, 152 on РВС-600, 356 on the tank of УПН (the check of the whole
+     // model, 04.11.2026).
+     var z0=number(c.z0),zz=function(f){return z0+hh*1000*f},TR=.025,PW=.05,gap=.001,ph=hh-TR-gap/2,postGeo=new T.BoxGeometry(PW,ph,PW),up=new T.Vector3(0,1,0);
+     var pa=[];for(var k=0;k<posts;k++)pa.push(a0+aw*k/(aw<360?posts-1:posts));
+     pa.forEach(function(deg){var post=new T.Mesh(postGeo,mat),tg=onArc(deg+.01,z0).sub(onArc(deg-.01,z0)).setY(0).normalize();
+      post.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(tg,up,new T.Vector3().crossVectors(tg,up)));
+      post.position.copy(onArc(deg,z0));post.position.y+=ph/2;parts.push(post)});
      var segs=Math.max(24,Math.round(aw/3));
      var ring=function(f,t){var pts=[];for(var i=0;i<=segs;i++)pts.push(onArc(a0+aw*i/segs,zz(f)));
       parts.push(new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts,aw>=360),segs,t,6,aw>=360),mat))};
-     ring(1,.025);ring(.712,.015);ring(.424,.015);ring(.06,.012);
+     // (a rail from the face of a post to the face of the next, along the circle)
+     var dg=(PW/2+gap)/(rr/1000)*180/Math.PI;
+     var rails=function(f,t){for(var k=0;k<pa.length;k++){var g0=pa[k],g1=k+1<pa.length?pa[k+1]:aw>=360?pa[0]+360:null;if(g1===null)break;
+      var b0=g0+dg,b1=g1-dg;if(b1-b0<=.05)continue;var n=Math.max(2,Math.ceil((b1-b0)/1.5)),pts=[];for(var i=0;i<=n;i++)pts.push(onArc(b0+(b1-b0)*i/n,zz(f)));
+      parts.push(new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts,false),n,t,6,false),mat))}};
+     ring(1,TR);rails(.712,.015);rails(.424,.015);rails(.06,.012);
      parts.forEach(function(mesh){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);
       if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh)});
      var rl=onArc(a0+aw/2,zz(1));rl.y+=.2;
@@ -7343,7 +7399,7 @@ window.irThreeSchemeView=(function(){
   function frameOf(c){
    var f=c.lay&&c.lay.frame;if(!f||typeof f!=="object")return null;
    var mm=function(v,i,d){var x=Array.isArray(v)?number(v[i]):0;return(x>0?x:d)/1000},cv=!!f.conventional||!Array.isArray(f.edge_mm);
-   return{h:mm(f.edge_mm,0,100),b:mm(f.edge_mm,1,40),t:mm(f.edge_mm,2,3),st:mm(f.stand_mm,0,6),sw:mm(f.stand_mm,1,80),pt:mm(f.pad_mm,0,6),pw:mm(f.pad_mm,1,50),pl:mm(f.pad_mm,2,100),
+   return{h:mm(f.edge_mm,0,100),b:mm(f.edge_mm,1,40),t:mm(f.edge_mm,2,3),tf:mm(f.edge_mm,3,mm(f.edge_mm,2,3)*1000),pt8:mm([f.plate_t_mm],0,8),st:mm(f.stand_mm,0,6),sw:mm(f.stand_mm,1,80),pt:mm(f.pad_mm,0,6),pw:mm(f.pad_mm,1,50),pl:mm(f.pad_mm,2,100),
     step:Math.max(.2,(number(f.step_mm)||500)/1000),edges:String(f.edges||"sides,start,end"),
     en:"швеллер площадки"+(cv?" (условно)":""),es:cv?"":String(f.edge||""),sn:"стойка площадки"+(cv?" (условно)":""),ss:cv?"":String(f.stand||""),
     pn:"подкладка стойки"+(cv?" (условно)":""),ps:cv?"":String(f.pad||"")}
@@ -7351,9 +7407,20 @@ window.irThreeSchemeView=(function(){
   // A stand under the web of a channel at P (world, on the line of the web, at the level of the channel's bottom), D —
   // along the edge: from its pad on the roof up to the channel; none where no roof is under it.
   function frameStand(c,parts,P,D,fr){
+   // (over the bridge Б3 of a shaft stair: on a plate t8 on the beam under it, none over the deck between the beams —
+   // КМ-20 узел И, разрез 5-5 of РВС-700; to the roof through the bridge it went through its deck)
+   var bo=bridgeOver(P,D,fr.sw/2,fr.st/2);if(bo){if(bo.beam)bridgePlate(c,parts,P,bo,fr);return}
+   // (beside the end of a bridge its pad would be under the bridge's end — its angle, the piece on the roof: none)
+   if(bridgeOver(P,D,fr.pl/2,fr.pw/2))return;
    var rf=roofAt(P);if(!rf)return;var up=new T.Vector3(0,1,0),top=P.y,bot=rf.y+fr.pt,hh=top-bot;if(hh<.01)return;
    var Z=D.clone().cross(up).normalize();
-   parts.push(partTag(plateBox(c,new T.Vector3(P.x,(top+bot)/2,P.z),D,up,Z,fr.sw,hh,fr.st),fr.sn,fr.ss));
+   // (its foot cut to the slope of the pad under it: square, its corner up the roof went into the pad — the reach of the
+   // walkway over the bridge of РВС-700 along the slope, 80 wide: 3 mm)
+   var sm=plateBox(c,new T.Vector3(P.x,(top+bot)/2,P.z),D,up,Z,fr.sw,hh,fr.st);
+   if(Math.abs(rf.s)>1e-4){var sg=new T.BoxGeometry(1,1,1),sp=sg.attributes.position;
+    for(var si=0;si<sp.count;si++)if(sp.getY(si)<0)sp.setY(si,-.5-rf.s*D.clone().multiplyScalar(sp.getX(si)*fr.sw).add(Z.clone().multiplyScalar(sp.getZ(si)*fr.st)).dot(rf.out)/hh);
+    sg.computeVertexNormals();sm.geometry=sg}
+   parts.push(partTag(sm,fr.sn,fr.ss));
    var N=rf.out.clone().multiplyScalar(rf.s).add(up).normalize(),ax=D.clone().sub(N.clone().multiplyScalar(D.dot(N))).normalize(),az=ax.clone().cross(N);
    parts.push(partTag(plateBox(c,new T.Vector3(P.x,rf.y,P.z).add(N.clone().multiplyScalar(fr.pt/2)),ax,N,az,fr.pl,fr.pt,fr.pw),fr.pn,fr.ps))
   }
@@ -7361,11 +7428,109 @@ window.irThreeSchemeView=(function(){
   function frameLine(c,parts,A,B,n,y,fr){
    var D=B.clone().sub(A);D.y=0;var L=D.length();if(L<.05)return;D.divideScalar(L);
    var up=new T.Vector3(0,1,0),Z=D.clone().cross(up).normalize(),mid=A.clone().add(B).multiplyScalar(.5);mid.y=y;
-   var at=function(off,dy){return mid.clone().add(n.clone().multiplyScalar(off)).add(up.clone().multiplyScalar(dy))};
-   parts.push(partTag(plateBox(c,at(fr.t/2,-fr.h/2),D,up,Z,L,fr.h,fr.t),fr.en,fr.es));
-   [-fr.t/2,-fr.h+fr.t/2].forEach(function(dy){parts.push(partTag(plateBox(c,at(fr.b/2,dy),D,up,Z,L,fr.t,fr.b),fr.en,fr.es))});
+   // (one solid of its section: the web and flanges as three boxes overlap at the corners of the web — the [8 over the
+   // bridge of РВС-700, 4.5 × 7.4 — and the check of metal counts that)
+   var cm=chanAlong(c,A.clone().setY(y),B.clone().setY(y),n.clone().setY(0).normalize(),y,fr.h,fr.b,fr.t,fr.tf);if(cm)parts.push(partTag(cm,fr.en,fr.es));
    var m=Math.max(1,Math.ceil(L/fr.step));
    for(var k=0;k<=m;k++){var s=fr.sw/2+(L-fr.sw)*k/m,P=A.clone().add(D.clone().multiplyScalar(s)).add(n.clone().multiplyScalar(fr.t/2));P.y=y-fr.h;frameStand(c,parts,P,D,fr)}
+   // (where the edge crosses a beam of a bridge under it: a plate t8 on the beam — разрез 5-5)
+   bridgeBeams().forEach(function(bm){var dn=D.dot(bm.s);if(Math.abs(dn)<.2)return;var w0=A.clone().add(n.clone().multiplyScalar(fr.t/2)).sub(bm.a).dot(bm.s),sx=(bm.w-w0)/dn;
+    if(sx<0||sx>L||y-fr.h<bm.y-.001)return;var P=A.clone().add(D.clone().multiplyScalar(sx)).add(n.clone().multiplyScalar(fr.t/2)),u=P.clone().sub(bm.a).dot(bm.d);if(u<bm.u0||u>bm.u1)return;P.y=y-fr.h;
+    if(!bridgePlates.some(function(q){return q.distanceTo(P)<.1}))bridgePlate(c,parts,P,{beam:bm},fr)});
+  }
+  // A channel of one solid (its section extruded) along A→B (level), the back of its web on that line, its flanges
+  // toward o (horizontal, across), its top at yTop; tw — the web, tf — the flanges.
+  function chanAlong(c,A,B,o,yTop,h,b,tw,tf){
+   var D=B.clone().sub(A);D.y=0;var L=D.length();if(L<.005)return null;D.divideScalar(L);
+   var up=new T.Vector3(0,1,0),Z=o.clone().cross(up).normalize(),s=new T.Shape();
+   [[0,0],[0,-h],[b,-h],[b,-h+tf],[tw,-h+tf],[tw,-tf],[b,-tf],[b,0]].forEach(function(p,i){if(i)s.lineTo(p[0],p[1]);else s.moveTo(p[0],p[1])});s.closePath();
+   var m=new T.Mesh(new T.ExtrudeGeometry(s,{depth:L,bevelEnabled:false}),baseMaterial(c));
+   m.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(o,up,Z));m.position.copy(Z.dot(D)>0?A:B);m.position.y=yTop;return m
+  }
+  // ---- The bridge Б3 of a shaft stair onto the roof (lay.bridge — BRIDGE_SH1 of src/ai-tank-extract.js; РВС-700 КМ-18
+  // разрезы 3-3, 7-7, КМ-20 узлы Ж, И, разрезы 1-1, 2-2, 3-3, 5-5; the engineer, 04.11.2026, «перепроверь по чертежу переход
+  // на крышу»): the beams Б3 along both edges of its deck, the backs of their webs at its edges and the flanges out, their
+  // tops at its top (the deck between them flush with them); L50×4 across both ends, the horizontal leg at the top beside
+  // the deck, the other down the end; the pieces Гн.[180×50×4 L=150 inside the beams, back to back with their webs, 40
+  // under their tops — on the ring of the top landing (z_mm) or on the roof (null: sheared to the roof's slope, as узел И
+  // draws them tilted, bolted to the beam М12). Drawn as a flat deck at the level of the top landing, the bridge stood on
+  // nothing.
+  function bridgeOf(c){
+   var b=c.lay&&c.lay.bridge;if(!b||typeof b!=="object"||!Array.isArray(b.beam_mm))return null;
+   var mm=function(v,i,d){var x=Array.isArray(v)?number(v[i]):0;return(x>0?x:d)/1000};
+   return{h:mm(b.beam_mm,0,180),b:mm(b.beam_mm,1,50),t:mm(b.beam_mm,2,4),bn:"балка "+String(b.mark||"Б3"),bs:String(b.beam||""),
+    ea:Array.isArray(b.end_mm)?mm(b.end_mm,0,50):0,et:mm(b.end_mm,1,4),es:String(b.end||""),
+    ch:mm(b.clip_mm,0,180),cb:mm(b.clip_mm,1,50),ct:mm(b.clip_mm,2,4),cl:mm(b.clip_mm,3,150),cs:String(b.clip||""),cd:Math.max(0,number(b.clip_drop_mm))/1000,
+    clips:Array.isArray(b.clips)?b.clips:[]}
+  }
+  // The beams of the bridges of the scheme in the plan, for what stands over them (bridgeOver): a — the start of the deck
+  // at its top, d — along it, s — across (to the side of the beam), w — the line of the beam's web across from a, the
+  // beam from w0 to w1 across (its web and flanges) and u0 … u1 along; deck — the band between the beams.
+  var bridgeList=null,bridgePlates=[];
+  function bridgeBeams(){
+   if(bridgeList)return bridgeList;bridgeList=[];
+   elems.forEach(function(e){var br=e.ft==="deck"?bridgeOf(e):null;if(!br)return;var q=memberPoints(e),a=q[0],b=q[q.length-1],d=new T.Vector3(b.x-a.x,0,b.z-a.z),L=d.length();if(L<.1)return;d.divideScalar(L);
+    var sd=new T.Vector3(d.z,0,-d.x),hw=deckWidth(e)/2;
+    [-1,1].forEach(function(q){var s=sd.clone().multiplyScalar(q);bridgeList.push({a:a.clone(),d:d,s:s,w:hw+br.t/2,w0:hw,w1:hw+br.b,u0:0,u1:L,y:a.y,beam:true,hw:hw,bh:br.h})})});
+   return bridgeList
+  }
+  // What of a bridge is under a stand at P (its half sizes along D and across it): {beam} — its line over the web of a beam
+  // (the stand becomes a plate on it), {} — over the bridge elsewhere (no stand), null — not over a bridge.
+  function bridgeOver(P,D,hl,ht){
+   var out=null;bridgeBeams().forEach(function(bm){if(out&&out.beam)return;var r=P.clone().sub(bm.a),u=r.dot(bm.d),w=r.dot(bm.s),Z=D.clone().cross(new T.Vector3(0,1,0));
+    var eu=Math.abs(D.dot(bm.d))*hl+Math.abs(Z.dot(bm.d))*ht,ew=Math.abs(D.dot(bm.s))*hl+Math.abs(Z.dot(bm.s))*ht;
+    if(u+eu<bm.u0-.002||u-eu>bm.u1+.002||P.y<bm.y-.001)return;
+    if(w>=bm.w0-.001&&w<=bm.w1+.001&&Math.abs(w-bm.w)<=bm.w1-bm.w0)out={beam:bm};
+    else if(w+ew>-bm.hw-.002&&w-ew<bm.w1+.002)out=out||{}});
+   return out
+  }
+  // A plate t8 on the top of a beam of a bridge under a frame's channel (its bottom at P): in the plane of the beam's
+  // web, 100 along it.
+  function bridgePlate(c,parts,P,bo,fr){
+   var bm=bo.beam,r=P.clone().sub(bm.a),u=r.dot(bm.d),hh=P.y-bm.y;if(hh<.003)return;
+   var at=bm.a.clone().add(bm.d.clone().multiplyScalar(Math.max(bm.u0+.05,Math.min(bm.u1-.05,u)))).add(bm.s.clone().multiplyScalar(bm.w));at.y=bm.y+hh/2;
+   bridgePlates.push(new T.Vector3(at.x,P.y,at.z));
+   parts.push(partTag(plateBox(c,at,bm.d,new T.Vector3(0,1,0),bm.s,.1,hh,fr.pt8),"пластина на балке перехода","t"+Math.round(fr.pt8*1000)))
+  }
+  // A piece under a beam of a bridge (its record k of lay.bridge.clips): u along the bridge from S, q — the side, line —
+  // the back of the beam's web there, o — into the bridge. Clear of the angle across the end (КМ-20 узел И: the piece
+  // starts beside its leg; at the end, 40 under the top, it went 2 mm into the leg 50 deep).
+  function bridgeClip(k,br,S,dir,L,dw){
+   if(!k||!Array.isArray(k.at))return null;var sd=new T.Vector3(dir.z,0,-dir.x).normalize(),r=toWorld(number(k.at[0]),number(k.at[1]),0).sub(S),u=r.dot(dir),q=r.dot(sd)<0?-1:1;
+   if(br.ea>0&&br.cd<br.ea){var e0=br.cl/2+br.et+.001;u=Math.max(e0,Math.min(L-e0,u))}
+   return{u:u,q:q,line:S.clone().add(sd.clone().multiplyScalar(q*dw/2)),o:sd.clone().multiplyScalar(-q),onRoof:k.z_mm===null||k.z_mm===undefined}
+  }
+  // The pieces of the bridges standing on the ring of a landing under its deck (deck — the start of the deck, along it,
+  // across it): the plan rectangles to cut out of it, [x0, x1] across from its middle line and y0 along from its start —
+  // КМ-20 узел Ж: the piece Гн.[ L=150 on the ring K1 reaches 100 in over the edge of the landing.
+  function bridgeClipCuts(at,along,side,dt){
+   var out=[],g=.002;
+   elems.forEach(function(e){var br=e.ft==="deck"?bridgeOf(e):null;if(!br||!br.clips.length)return;var q=memberPoints(e),S=q[0],d=new T.Vector3(q[q.length-1].x-S.x,0,q[q.length-1].z-S.z),L=d.length();if(L<.1)return;d.divideScalar(L);
+    var dw=deckWidth(e);br.clips.forEach(function(k){var cp=bridgeClip(k,br,S,d,L,dw);if(!cp||cp.onRoof||!(number(k.z_mm)/1000<at.y+dt-.001))return;
+     var xs=[],ys=[];[-1,1].forEach(function(a){[0,br.cb].forEach(function(b){var P=cp.line.clone().add(d.clone().multiplyScalar(cp.u+a*br.cl/2)).add(cp.o.clone().multiplyScalar(b)).sub(at);xs.push(P.dot(side));ys.push(P.dot(along))})});
+     out.push({x0:Math.min.apply(null,xs)-g,x1:Math.max.apply(null,xs)+g,y0:Math.min.apply(null,ys)-g})})});
+   return out
+  }
+  function bridgeParts(c,id,S,dir,L,dw,br){
+   var up=new T.Vector3(0,1,0),sd=new T.Vector3(dir.z,0,-dir.x).normalize(),y=S.y,E=S.clone().add(dir.clone().multiplyScalar(L)),parts=[];
+   [-1,1].forEach(function(q){var o=sd.clone().multiplyScalar(q),off=o.clone().multiplyScalar(dw/2),m=chanAlong(c,S.clone().add(off),E.clone().add(off),o,y,br.h,br.b,br.t,br.t);if(m)parts.push(partTag(m,br.bn,br.bs))});
+   if(br.ea>0)[[S,dir.clone()],[E,dir.clone().negate()]].forEach(function(e){var a=br.ea,t=br.et,n=e[1],s=new T.Shape();
+    [[0,0],[a,0],[a,-t],[t,-t],[t,-a],[0,-a]].forEach(function(p,i){if(i)s.lineTo(p[0],p[1]);else s.moveTo(p[0],p[1])});s.closePath();
+    var Z=n.clone().cross(up).normalize(),m=new T.Mesh(new T.ExtrudeGeometry(s,{depth:dw,bevelEnabled:false}),baseMaterial(c));
+    m.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(n,up,Z));m.position.copy(e[0]).sub(Z.clone().multiplyScalar(dw/2));m.position.y=y;parts.push(partTag(m,"уголок по концу перехода",br.es))});
+   br.clips.forEach(function(k){var cp=bridgeClip(k,br,S,dir,L,dw);if(!cp)return;var u=cp.u,o=cp.o,line=cp.line;
+    var A=line.clone().add(dir.clone().multiplyScalar(u-br.cl/2)),B=line.clone().add(dir.clone().multiplyScalar(u+br.cl/2)),yTop=y-br.cd,onRoof=cp.onRoof,r0,r1;
+    if(onRoof){var f0=roofAt(A.clone().add(o.clone().multiplyScalar(br.cb/2))),f1=roofAt(B.clone().add(o.clone().multiplyScalar(br.cb/2)));if(!f0||!f1)return;r0=f0.y;r1=f1.y}else r0=r1=number(k.z_mm)/1000;
+    var hh=yTop-Math.max(r0,r1);if(hh<.02)return;
+    var m=chanAlong(c,A,B,o,yTop,hh,br.cb,br.ct,br.ct);if(!m)return;
+    // (sheared to the roof: the piece's z runs from where chanAlong put its origin)
+    var Zl=o.clone().cross(up).normalize(),z0=Zl.dot(B.clone().sub(A))>0?r0:r1,z1=z0===r0?r1:r0,kz=(z1-z0)/br.cl;
+    if(Math.abs(kz)>1e-6){m.geometry.applyMatrix4(new T.Matrix4().set(1,0,0,0,0,1,kz,0,0,0,1,0,0,0,0,1));m.position.y=z0+hh}
+    parts.push(partTag(m,"опора балки "+br.bn.replace(/^балка /,""),br.cs));
+    // (on the roof bolted to the beam through the two webs, М12 — узел И; on the ring welded to it — узел Ж)
+    if(onRoof){var bt=line.clone().add(dir.clone().multiplyScalar(u));bt.y=(z0+z1)/2+hh/2;addBolt(c,bt,sd,.012,br.t+br.ct,"переход")}
+   });
+   parts.forEach(function(m){keepPart(m,id)})
   }
   // A channel along an arc of radius R round O (world) at the level y, its flanges toward the axis (k = −1) or away
   // (k = 1), over the angles p0 … p0 + pw of the geometry (x = sin, z = cos).
@@ -7692,12 +7857,25 @@ window.irThreeSchemeView=(function(){
    // A railing along its line (a stair's, ГОСТ 23120: 1,0 m over the treads or the deck — c.fd its height): posts
    // upright no more than 1,2 m apart, the handrail and the middle rail along the line, sloping with a flight; a low
    // rail of the toe board on a level one.
+   // The handrail lies on the posts, the middle rail and the toe rail are welded between them, at their faces: drawn
+   // through the posts on their line, each post went 20 mm into the handrail and the rails through it (the check of the
+   // whole model, 04.11.2026: the railings ОГ1 of the bridge from the shaft stair of РВС-700 — 28 places of 17–22 mm).
+   // Each bar square to its line: its sides upright and across (the posts — along the line and across).
    if(c.ft==="railing"){
     var rh=Math.max(.6,(number(c.fd)||1000)/1000),rmat=baseMaterial(c),rp=[],np=Math.max(1,Math.ceil(len/1.2)),lift=function(v,h){return v.clone().add(new T.Vector3(0,h,0))};
-    var rbar=function(a,b,t){var v=b.clone().sub(a),L=v.length();if(L<.005)return;var m=new T.Mesh(barGeo(t),rmat);m.position.copy(a);m.scale.z=L;m.quaternion.setFromUnitVectors(zAxis,v.normalize());rp.push(m)};
-    for(var ri=0;ri<=np;ri++){var rq=start.clone().lerp(end,ri/np);rbar(rq,lift(rq,rh),.04)}
-    rbar(lift(start,rh),lift(end,rh),.05);rbar(lift(start,rh/2),lift(end,rh/2),.03);
-    if(Math.abs(end.y-start.y)<.05)rbar(lift(start,.1),lift(end,.1),.02);
+    var up=new T.Vector3(0,1,0),dh=new T.Vector3(dir.x,0,dir.z),hl=dh.length();dh=hl>1e-6?dh.multiplyScalar(1/hl):new T.Vector3(1,0,0);
+    var ca=Math.max(.2,hl),sa=Math.abs(dir.y),PH=.02,HR=.05,gap=.0005;
+    var rbar=function(a,b,t){var v=b.clone().sub(a),L=v.length();if(L<.005)return;v.normalize();var X=Math.abs(v.y)>.999?dh.clone():new T.Vector3().crossVectors(up,v).normalize(),Y=new T.Vector3().crossVectors(v,X);
+     var m=new T.Mesh(barGeo(t),rmat);m.position.copy(a);m.scale.z=L;m.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(X,Y,v));rp.push(m)};
+    // (the post up to the bottom of the handrail over its whole width: the handrail sloping with a flight)
+    var ptop=rh-HR/2/ca-PH*sa/ca-gap,qs=[];
+    for(var ri=0;ri<=np;ri++){var rq=start.clone().lerp(end,ri/np);qs.push(rq);rbar(rq,lift(rq,ptop),PH*2)}
+    rbar(lift(start,rh),lift(end,rh),HR);
+    // (a rail from the face of a post to the face of the next: its end square to it, its corners clear of the post)
+    var between=function(h,t){var s=(PH+t/2*sa+gap)/ca;for(var k=0;k+1<qs.length;k++){var a=qs[k],b=qs[k+1],L=a.distanceTo(b);if(L<=2*s+.005)continue;
+     rbar(lift(a.clone().add(dir.clone().multiplyScalar(s)),h),lift(b.clone().sub(dir.clone().multiplyScalar(s)),h),t)}};
+    between(rh/2,.03);
+    if(Math.abs(end.y-start.y)<.05)between(.1,.02);
     rp.forEach(function(mesh){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh)});
     var rl2=lift(start.clone().add(end).multiplyScalar(.5),rh+.3);
     var re=document.createElement("span");re.className="ir-three-member-label";re.textContent=c.mark||c.title||"";
@@ -7711,9 +7889,20 @@ window.irThreeSchemeView=(function(){
    // went 20 mm into them. Round a column standing through it the grating is cut (deckCuts).
    if(c.ft==="deck"){
     var dt=deckThick(c),dw=deckWidth(c),arcR=c.lay&&number(c.lay.arc_r_mm)>0?number(c.lay.arc_r_mm)/1000:0,dg=null,dmat=baseMaterial(c);
-    if(arcR>len&&arcR>=dw/2){
-     var ds=new T.Shape(),back=arcR-len,dn=24;ds.moveTo(-dw/2,0);ds.lineTo(dw/2,0);
-     for(var di=0;di<=dn;di++){var dx=dw/2-dw*di/dn;ds.lineTo(dx,Math.max(0,Math.sqrt(arcR*arcR-dx*dx)-back))}
+    // (the deck of a bridge between its beams: its top at theirs — the level of the bridge —, short of its ends by the
+    // angles across them; bridgeParts)
+    var dbr=bridgeOf(c),bS=start.clone(),bL=len;
+    if(dbr){start=start.clone().add(dir.clone().multiplyScalar(dbr.ea));start.y-=dt;end=end.clone().sub(dir.clone().multiplyScalar(dbr.ea));end.y-=dt;len=Math.max(.01,len-2*dbr.ea)}
+    // (an arc round a centre off its middle line, lay.arc_center_mm — the top landing of a shaft stair beside its middle,
+    // under the bridge: to the inner edge of the ring, the pieces under the bridge's beams stand on the ring)
+    var ac=c.lay&&Array.isArray(c.lay.arc_center_mm)&&c.lay.arc_center_mm.length===2?toWorld(number(c.lay.arc_center_mm[0]),number(c.lay.arc_center_mm[1]),0).sub(start):null;
+    var axc=ac?ac.dot(new T.Vector3(dir.z,0,-dir.x).normalize()):0,aback=ac?-ac.dot(new T.Vector3(dir.x,0,dir.z).normalize()):arcR-len;
+    if(arcR>len&&arcR>=dw/2&&!ac||ac&&arcR>aback){
+     var ds=new T.Shape(),back=aback,dn=24,dcut=ac?bridgeClipCuts(start,new T.Vector3(dir.x,0,dir.z).normalize(),new T.Vector3(dir.z,0,-dir.x).normalize(),dt):[];ds.moveTo(-dw/2,0);ds.lineTo(dw/2,0);
+     var fy=function(dx){var v=Math.max(0,Math.sqrt(Math.max(0,arcR*arcR-(dx-axc)*(dx-axc)))-back);dcut.forEach(function(k){if(dx>=k.x0&&dx<=k.x1)v=Math.max(0,Math.min(v,k.y0))});return v},dxs=[];
+     for(var di=0;di<=dn;di++)dxs.push(dw/2-dw*di/dn);
+     dcut.forEach(function(k){[k.x1+1e-4,k.x1,k.x0,k.x0-1e-4].forEach(function(x){if(x>-dw/2&&x<dw/2)dxs.push(x)})});
+     dxs.sort(function(a,b){return b-a}).forEach(function(dx,i){if(i&&dxs[i-1]-dx<1e-6)return;ds.lineTo(dx,fy(dx))});
      ds.closePath();dg=new T.ExtrudeGeometry(ds,{depth:dt,bevelEnabled:false});dg.rotateX(Math.PI/2);dg.translate(0,dt,0)
     }
     // (a deck whose start is at a round wall — the landing at a shaft stair over the roof edge, lay.start_arc_r_mm the
@@ -7746,6 +7935,7 @@ window.irThreeSchemeView=(function(){
       else frameLine(c,dfp,DL(-dw/2+dfr.b,0),DL(dw/2-dfr.b,0),dir.clone(),dy,dfr)}
      if(/end/.test(ded))frameLine(c,dfp,DL(-dw/2+dfr.b,len),DL(dw/2-dfr.b,len),dir.clone().negate(),dy,dfr);
      dfp.forEach(function(m){keepPart(m,id)})}
+    if(dbr)bridgeParts(c,id,bS,dir.clone().setY(0).normalize(),bL,dw,dbr);
     var dl=start.clone().add(end).multiplyScalar(.5);dl.y+=.3;
     var de=document.createElement("span");de.className="ir-three-member-label";de.textContent=c.mark||c.title||"";
     labelLayer.appendChild(de);labels.push({el:de,pos:dl,id:id});

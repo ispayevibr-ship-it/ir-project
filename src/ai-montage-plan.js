@@ -541,7 +541,9 @@ function claudeTankPageOf(ai,t){
   nozzleTable:rows.length?rows:null,ladder:t.ladder_bearing_deg>=0&&t.ladder_kind!=="none"?{bearing:t.ladder_bearing_deg,kind:t.ladder_kind==="ring"||t.ladder_kind==="single"?t.ladder_kind:"shaft",name:t.ladder_kind==="ring"?"Кольцевая лестница":t.ladder_kind==="single"?"Лестница":"Шахтная лестница",fromBase:Boolean(ai.fromKnowledge||ai.checkedTank),
    ...(t.ladder_top_mm>0?{top:Math.round(t.ladder_top_mm)}:{}),...(Number.isFinite(t.ladder_foot_mm)&&t.ladder_foot_mm!==0?{foot:Math.round(t.ladder_foot_mm)}:{}),
    ...(t.ladder_depth_mm>0?{depth:Math.round(t.ladder_depth_mm)}:{}),...(t.ladder_width_mm>0?{width:Math.round(t.ladder_width_mm)}:{}),...(t.ladder_gap_mm>0?{gap:Math.round(t.ladder_gap_mm)}:{}),...(t.ladder_axis_mm>0?{axis:Math.round(t.ladder_axis_mm)}:{}),
-   ...(t.ladder_tie_deg>0?{tieDeg:Number(t.ladder_tie_deg)}:{}),...(t.ladder_profiles&&typeof t.ladder_profiles==="object"?{profiles:t.ladder_profiles}:{})}:null,
+   ...(t.ladder_tie_deg>0?{tieDeg:Number(t.ladder_tie_deg)}:{}),...(t.ladder_profiles&&typeof t.ladder_profiles==="object"?{profiles:t.ladder_profiles}:{}),
+   // (the bridge Б3 onto the roof as the stair's sheets give it — BRIDGE_SH1 of src/ai-tank-extract.js; РВС-700 КМ-18, КМ-20)
+   ...(t.ladder_bridge&&typeof t.ladder_bridge==="object"?{bridge:t.ladder_bridge}:{})}:null,
   platforms:t.platform_level_mm>0?{exact:true,levels:[Math.round(t.platform_level_mm)],width:t.platform_width_mm>0?Math.round(t.platform_width_mm):null,rail:t.railing_height_mm>0?Math.round(t.railing_height_mm):null,post:t.railing_post_step_mm>0?Math.round(t.railing_post_step_mm):null,
    ...(t.platform_offset_mm>0?{offset:Math.round(t.platform_offset_mm)}:{}),...(t.platform_frame&&typeof t.platform_frame==="object"?{frame:t.platform_frame}:{})}:null,
   parts:t.bottom?{bottom:{name:"Днище"}}:null,
