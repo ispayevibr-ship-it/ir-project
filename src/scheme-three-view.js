@@ -676,6 +676,8 @@ window.irThreeSchemeView=(function(){
    // (a strut on the bearing ribs of the beams' ends over the columns: into the plane of the ribs, its flat leg 20 mm
    // under the beams' top — ribStruts)
    var rsh=typeof ribShift!=="undefined"&&ribShift&&ribShift.get(String(m.id||""));if(rsh){start.add(rsh[0]);end.add(rsh[1])}
+   // (a brace whose node is on the beam by its end at the face of a column, not at the column's axis — beamEndNodes)
+   var nsh=typeof nodeShift!=="undefined"&&nodeShift&&nodeShift.get(String(m.id||""));if(nsh){start.add(nsh[0]);end.add(nsh[1])}
    return m.geometryType==="bent"?[start,toWorld(m.mx,m.my,m.mz),end]:[start,end]
   }
   host.innerHTML='<div class="ir-three-root">'+
@@ -4114,9 +4116,9 @@ window.irThreeSchemeView=(function(){
      var up=new T.Vector3(0,1,0),n=up.clone().sub(S.d.clone().multiplyScalar(S.d.y)).normalize(),P=new T.Vector3(F.x,top,F.z);
      guardLift.set(String(c.id),top-F.y);endPlanes.set(String(c.id)+":0",{P:P,n:n});return true})})
   }
-  var flangeAt=new Map();
+  var flangeAt=new Map(),lapEnds=new Map();
   function hangTies(list){
-   hangDrop.clear();flangeAt.clear();purlinTops=[];
+   hangDrop.clear();flangeAt.clear();lapEnds.clear();purlinTops=[];
    var hosts=[],ties=[],C=3000,cells=new Map();
    var add=function(it){
     for(var i=Math.floor((Math.min(it.ax,it.bx)-400)/C);i<=Math.floor((Math.max(it.ax,it.bx)+400)/C);i++)for(var j=Math.floor((Math.min(it.ay,it.by)-400)/C);j<=Math.floor((Math.max(it.ay,it.by)+400)/C);j++){
@@ -4204,8 +4206,57 @@ window.irThreeSchemeView=(function(){
      ends.push({id:String(it.c.id),k:k,z0:e[2],key:key,z:z,host:lap?best.h.c:null})
     })
    });
+   // (lapEnds: every end that would lie under the flange at its own level, whatever the others at its point —
+   // beamEndNodes moves some of them off that point)
    ends.forEach(function(e){var d=hangDrop.get(e.id)||[0,0];d[e.k]=e.z0-groups.get(e.key);hangDrop.set(e.id,d);
+    if(e.host)lapEnds.set(e.id+":"+e.k,{hc:e.host,drop:e.z0-e.z});
     if(e.host&&groups.get(e.key)>=e.z-1)flangeAt.set(e.id+":"+e.k,{hc:e.host})})
+  }
+  // The node of a level bracing at the end of a roof beam framed to the face of a column (КМ2 л.9 «по 32», л.12 узел 32:
+  // Б1 I60Ш1 of the annex О8–О10 on its flange −t27 at the face of the column К7 of the main building on О8; the braces
+  // Сг-1 2L110×8 drawn on the plan to the column's axis): the gusset −t10 of the braces is welded under the top flange of
+  // the beam 70 mm from its end, the line of the brace meeting the beam's axis ~180 mm from the end — not inside the
+  // column. Drawn to the axis, its end could not be laid under the flange (flangeEnd: the plate in the column) and was
+  // drawn on a plate at the column at the level of the beam's top — the heads of its bolts in the bottom flange of the
+  // purlin П1 there, a bolt half off its plate (ИР-71535; the engineer, 04.11.2026: «эт что он на половину торчит?»).
+  // The end of a brace hung under the flange of a beam (flangeAt) at a point in the body of a column standing on past it,
+  // the beam's end in that column too, the brace oblique to the beam (a strut along the line of the columns stays):
+  // moved along the beam's axis to the face of the column — where the beam ends — and on past it by as much as the
+  // brace's joint gives for a column of that mark (joint.end_node_mm: {"К7": 180} — узел 32; Сг-2 2L90×8 under Б2 I50Ш1
+  // of +5,900 at К7 on О8: {"К7": 215} — узел 36, 50 + 165). Only where the joint gives it: at К2 on О10 (узел 39, the
+  // line through the beam's end) moved to the face the end of Сг-2 bent the cross of its bay out of true — its gusset of
+  // the crossing 3.5 mm in the angles —, drawn from the axis it was clear. Its other end where it is. nodeShift: id → the
+  // shifts of its two ends (memberPoints).
+  // (an end at a point where a strut along the line of the columns hangs lower — Рс-2 2L125×8 back to back with Сг-2 at
+  // К7 on О8, узел 36 —: the point's level was the strut's, the brace not hung under the flange (flangeAt) and drawn on a
+  // plate at the column, its bolts at the plate's edge; moved, it is under the flange at its own level — lapEnds)
+  var nodeShift=new Map();
+  function beamEndNodes(list){
+   nodeShift.clear();if(!lapEnds.size)return;
+   var cols=[];
+   list.forEach(function(m){if(!m.id||m.geometryType!=="column")return;var q=memberPoints(m);if(q.length<2)return;var bx=pieceBox(m,q[0],q[q.length-1]);if(bx&&Math.abs(bx.U.y)>.99)cols.push({b:bx,m:m})});
+   if(!cols.length)return;
+   var inCol=function(bx,P){var o=P.clone().sub(bx.o),x=o.dot(bx.X),y=o.dot(bx.Y),s=o.dot(bx.U);return x>=bx.x0-.005&&x<=bx.x1+.005&&y>=bx.y0-.005&&y<=bx.y1+.005&&s>=bx.s0&&s<=bx.s1-.1};
+   list.forEach(function(c){
+    var id=String(c.id||"");if(!id||!lapEnds.has(id+":0")&&!lapEnds.has(id+":1"))return;
+    var p=memberPoints(c);if(p.length!==2)return;var sh=[new T.Vector3(),new T.Vector3()],any=false,lv=[null,null];
+    [0,1].forEach(function(k){var fa=lapEnds.get(id+":"+k);if(!fa)return;
+     var E=p[k],d=p[1-k].clone().sub(E);if(d.length()<1)return;var dh=new T.Vector3(d.x,0,d.z);if(dh.length()<.3)return;dh.normalize();
+     var hp=memberPoints(fa.hc);if(hp.length<2)return;var B=hp[0].distanceTo(E)<=hp[hp.length-1].distanceTo(E)?0:1,Bend=hp[B?hp.length-1:0],Ui=hp[B?0:hp.length-1].clone().sub(Bend);
+     // (Ui: along the beam from that end into its span, per metre in plan)
+     var Uh=new T.Vector3(Ui.x,0,Ui.z),hz=Uh.length();if(hz<.5)return;Uh.divideScalar(hz);Ui.divideScalar(hz);
+     var cs=dh.dot(Uh);if(cs<.26||cs>.97||Math.hypot(E.x-Bend.x,E.z-Bend.z)>.3)return;
+     var Bp=new T.Vector3(Bend.x,E.y,Bend.z),col=null;cols.forEach(function(q){if(!col&&inCol(q.b,E)&&inCol(q.b,Bp))col=q});if(!col)return;
+     var bx=col.b,en=(c.joint||{}).end_node_mm,mk=String(col.m.mark||""),past=en&&typeof en==="object"&&Object.prototype.hasOwnProperty.call(en,mk)?number(en[mk])/1000:NaN;
+     if(!(past>=0&&past<.6))return;
+     // (where the beam's line leaves the column in plan: its face)
+     var o=E.clone().sub(bx.o),t=Infinity;
+     [[o.dot(bx.X),Uh.dot(bx.X),bx.x0,bx.x1],[o.dot(bx.Y),Uh.dot(bx.Y),bx.y0,bx.y1]].forEach(function(q){if(Math.abs(q[1])<1e-6)return;t=Math.min(t,Math.max((q[2]-q[0])/q[1],(q[3]-q[0])/q[1]))});
+     if(!(t>0&&t<1))return;sh[k]=Ui.clone().multiplyScalar(t+past);any=true;lv[k]=fa});
+    if(!any)return;nodeShift.set(id,sh);
+    // (under the flange there at its own level)
+    var hd=(hangDrop.get(id)||[0,0]).slice();
+    [0,1].forEach(function(k){if(!lv[k])return;hd[k]=lv[k].drop;flangeAt.set(id+":"+k,{hc:lv[k].hc})});hangDrop.set(id,hd)});
   }
   // A strut along the line of the columns between the ends of the beams over them (КМ2 л.11 узел 22, разрез 1-1 of л.10:
   // Рс-1 L90×8 along О10 at +13,150 between the ends of the roof beams Б1 I60Ш1 on К2): its gusset −t10 is the bearing
@@ -5114,7 +5165,7 @@ window.irThreeSchemeView=(function(){
    allMeshes=[];plateCells.clear();platesN=0;boltList=[];seatIndex=null;webGus=[];webTraps=[];footRibFree.clear();dataById.clear();meshesById.clear();failures=0;conventional.clear();drillCache.clear();upperCache.clear();seatCache.clear();boltNear.clear();boltNearN=0;
    labels.forEach(function(l){l.el.remove()});labels=[];
    elems=Array.isArray(list)?list:[];deckPairs.clear();deckRects=null;deckCols=null;bridgeList=null;bridgePlates=[];
-   slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);ribStruts(elems);underChords(elems);purlinNodes(elems);seatLevels(elems);purlinTilts(elems);restLifts(elems);ridgeMiters(elems);guardLines(elems);guardFeet(elems);postFeet(elems);stubTops(elems);guardRails(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);roofCones(elems);ladderStringers(elems);stairStringers(elems);toeBoards(elems);flightPosts(elems);guardBraces(elems);wallRings(elems);
+   slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);beamEndNodes(elems);ribStruts(elems);underChords(elems);purlinNodes(elems);seatLevels(elems);purlinTilts(elems);restLifts(elems);ridgeMiters(elems);guardLines(elems);guardFeet(elems);postFeet(elems);stubTops(elems);guardRails(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);roofCones(elems);ladderStringers(elems);stairStringers(elems);toeBoards(elems);flightPosts(elems);guardBraces(elems);wallRings(elems);
    // (the posts with no conditional plate of their own before the members: a column on a member stands on its plate)
    platelessPosts();
    var host=jointHosts(elems);findCrossings(elems,host);

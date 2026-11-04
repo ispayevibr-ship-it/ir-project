@@ -34,6 +34,10 @@ function pageContext(texts){
 // from outside, the sheets sent so far are kept.
 let paused=false,wake=null;
 parentPort.on("message",m=>{if(m?.type==="pause")paused=true;else if(m?.type==="resume"){paused=false;if(wake){wake();wake=null}}});
+// A sign of life every 20 s while the worker waits — on the OCR of a sheet (its own thread), on pdf.js —: the runner
+// (src/ai-scheme-draft.js) gives a file up only after minutes of silence; a sheet of ГПЭС АР-1 read by OCR is silent up
+// to 3 minutes between its areas on the stand (04.11.2026).
+setInterval(()=>parentPort.postMessage({type:"alive"}),20000).unref();
 (async()=>{
  let loading,ocrWorker=null;
  try{
@@ -58,17 +62,21 @@ parentPort.on("message",m=>{if(m?.type==="pause")paused=true;else if(m?.type==="
    }
    const started=Date.now();
    let geometry=await readPageGeometry(pdfjs,page);
+   // The list of the page's paths read for its lines is let go before the sheet is drawn for OCR (drawing builds a list
+   // of its own): a sheet of 800 000 paths held both and the worker ran out of memory (ГПЭС «Раскладка сэндвич-панелей»).
+   page.cleanup();
    // A drawing whose lettering was exported as curves, or a scanned sheet, has no text layer: the lettering
    // is recognised from the image.
    // A few stray text items (angle signs "∟", single digits, the stamp's side labels) do not make a sheet readable:
    // what counts is how much lettering there is for a drawing of that size.
    const letters=geometry.texts.reduce((n,t)=>n+(String(t.str).match(/[0-9A-Za-zА-Яа-яЁё]/gu)||[]).length,0);
    // Dimensions drawn as strokes beside a stamp in text: many tiny strokes (letters) and not one number in the text layer.
-   const tiny=geometry.segments.reduce((n,s)=>n+(Math.hypot(s.a.x-s.b.x,s.a.y-s.b.y)<2?1:0),0);
+   // (the specks the reader only counted on a sheet of very many lines — src/ai-scheme-geometry.js — are of them)
+   const tiny=geometry.segments.reduce((n,s)=>n+(Math.hypot(s.a.x-s.b.x,s.a.y-s.b.y)<2?1:0),0)+(geometry.tiny||0),lines=geometry.segments.length+(geometry.tiny||0);
    const strokedDims=tiny>1500&&!geometry.texts.some(t=>/^\d{3,6}$/.test(String(t.str).trim()));
-   const noText=strokedDims||(geometry.segments.length>3000?letters<Math.max(120,geometry.segments.length/150):geometry.texts.length<5&&geometry.segments.length<50);
+   const noText=strokedDims||(lines>3000?letters<Math.max(120,lines/150):geometry.texts.length<5&&geometry.segments.length<50);
    // Pictures pasted into a sheet (scanned tables) are read the same way, only their areas.
-   let ocr=0;
+   let ocr=0,ocrError="";
    const pictures=noText?[]:(geometry.images||[]).filter(b=>(b.x1-b.x0)*(b.y1-b.y0)>=4000);
    if((noText||pictures.length)&&workerData.ocr!==false&&workerData.packages?.ocr){
     parentPort.postMessage({type:"progress",page:n,total:pages.length,ocr:true});
@@ -137,7 +145,11 @@ parentPort.on("message",m=>{if(m?.type==="pause")paused=true;else if(m?.type==="
       const inCell=t=>t.ocr&&got.some(g=>t.x>=g.cell.x-2&&t.x<=g.cell.x+g.cell.w&&t.y>=g.cell.y&&t.y<=g.cell.y+g.cell.h+2);
       if(got.length){geometry={...geometry,texts:[...geometry.texts.filter(t=>!inCell(t)),...got]};ocr+=got.length}
      }
-    }catch{}
+    }catch(error){
+     // A reading that failed is told on the sheet, not left as a sheet with nothing to read (the engineer's rule:
+     // errors of recognition are not hidden).
+     ocrError=String(error?.message||error||"ошибка").slice(0,300)
+    }
    }
    // Abbreviations the program has learned (Claude's lessons): written out before the sheet is read.
    if(workerData.aliases?.length)geometry={...geometry,texts:expandTexts(geometry.texts,workerData.aliases)};
@@ -151,7 +163,7 @@ parentPort.on("message",m=>{if(m?.type==="pause")paused=true;else if(m?.type==="
    // The levels written along the rows of axes of its sections (the slope of a roof), filled by extractSections.
    const profiles={};
    // Read by OCR or not at all, such a sheet also goes to Claude as an image.
-   results.push({page:n,widthPt:geometry.widthPt,heightPt:geometry.heightPt,schemes:result.schemes,context:pageContext(geometry.texts),noText,ocr,...(geometry.turn?{turn:geometry.turn}:{}),
+   results.push({page:n,widthPt:geometry.widthPt,heightPt:geometry.heightPt,schemes:result.schemes,context:pageContext(geometry.texts),noText,ocr,...(ocrError?{ocrError}:{}),...(geometry.cut?{cut:geometry.cut}:{}),...(geometry.turn?{turn:geometry.turn}:{}),
     sheet:extractSheet(geometry),sections:extractSections(geometry,profiles),sectionProfiles:profiles.profiles||[],tank:extractTank(geometry),trusses:extractTrusses(geometry),baseDetails:extractBaseDetails(geometry),columnDetails:extractColumnDetails(geometry),railOffsets:extractRailOffsets(geometry),levelMarks:levelMarksOf(geometry),ar:extractArchitecture(geometry),ms:Date.now()-started});
    // The check of the sheet (the engineer's hard rule of 02.11.2026): every label of it against what was taken from it.
    {const p=results[results.length-1];try{p.audit=auditSheet(geometry,p)}catch(error){p.audit={error:String(error?.message||error).slice(0,200)}}p.ms=Date.now()-started}

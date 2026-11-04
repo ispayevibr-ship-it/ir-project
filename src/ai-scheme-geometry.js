@@ -1,6 +1,13 @@
 "use strict";
 /* IR Project: read stroked line segments and text items of one PDF page in top-down points, page rotation applied. */
 const MAX_SEGMENTS=400000,MAX_TEXTS=20000,MAX_GLYPHS=200000,GLYPH_PT=20;
+// A sheet whose lettering is drawn in strokes flattened into specks (ГПЭС «Раскладка сэндвич-панелей», 04.11.2026: 567 000
+// and 814 000 lines, 533 000 and 790 000 of them shorter than half a point): its first 400 000 lines were all the lettering
+// could give, more than half of the drawing's own lines (8 700 of 14 000 — the joints of the panels) were never read, and the
+// worker holding them and the list of the page's paths ran out of memory before its OCR. From COMPACT_AT lines on, a
+// speck (SPECK_PT) gives way to the lines of the drawing: it is only counted (tiny) — the lettering is read by OCR from
+// the picture of the sheet. What would still be over MAX_SEGMENTS is counted too (cut), not lost unseen.
+const COMPACT_AT=150000,SPECK_PT=0.5;
 const mul=(m,n)=>[m[0]*n[0]+m[2]*n[1],m[1]*n[0]+m[3]*n[1],m[0]*n[2]+m[2]*n[3],m[1]*n[2]+m[3]*n[3],m[0]*n[4]+m[2]*n[5]+m[4],m[1]*n[4]+m[3]*n[5]+m[5]];
 // Text items only — fast enough to list the sheets of a large PDF.
 async function readPageTexts(page,viewport=page.getViewport({scale:1})){
@@ -90,7 +97,10 @@ async function readPageGeometry(pdfjs,page){
  // extension lines thin (ГОСТ 2.303).
  let lw=1;const lws=[];
  const point=(x,y)=>{const ux=ctm[0]*x+ctm[2]*y+ctm[4],uy=ctm[1]*x+ctm[3]*y+ctm[5];return{x:vt[0]*ux+vt[2]*uy+vt[4],y:vt[1]*ux+vt[3]*uy+vt[5]}};
- for(let i=0;i<list.fnArray.length&&segments.length<MAX_SEGMENTS;i++){
+ let tiny=0,cut=0,compact=false;
+ const specks=from=>{let k=from;for(let j=from;j<segments.length;j++){const s=segments[j];if(Math.abs(s.a.x-s.b.x)<SPECK_PT&&Math.abs(s.a.y-s.b.y)<SPECK_PT&&Math.hypot(s.a.x-s.b.x,s.a.y-s.b.y)<SPECK_PT){tiny++;continue}segments[k++]=s}segments.length=k};
+ for(let i=0;i<list.fnArray.length;i++){
+  if(segments.length>=MAX_SEGMENTS){cut=list.fnArray.length-i;break}
   const fn=list.fnArray[i],args=list.argsArray[i];
   if(fn===OPS.save){stack.push(ctm);lws.push(lw)}
   else if(fn===OPS.restore){ctm=stack.pop()||[1,0,0,1,0,0];lw=lws.length?lws.pop():1}
@@ -140,10 +150,11 @@ async function readPageGeometry(pdfjs,page){
     }
     else{if(last&&start&&(last.x!==start.x||last.y!==start.y))segments.push({a:last,b:start});last=start;lastRaw=startRaw;j+=1}
    }
-   for(let k=from;k<segments.length;k++)segments[k].w=w
+   for(let k=from;k<segments.length;k++)segments[k].w=w;
+   if(!compact&&segments.length>=COMPACT_AT){compact=true;specks(0)}else if(compact)specks(from)
   }
  }
  const {texts}=await readPageTexts(page,viewport);
- return{segments,glyphs,images,texts:joinSplitTexts(texts),widthPt:viewport.width,heightPt:viewport.height}
+ return{segments,glyphs,images,texts:joinSplitTexts(texts),widthPt:viewport.width,heightPt:viewport.height,...(tiny?{tiny}:{}),...(cut?{cut}:{})}
 }
 module.exports={readPageGeometry,readPageTexts,joinSplitTexts,plainText,joinProfiles};

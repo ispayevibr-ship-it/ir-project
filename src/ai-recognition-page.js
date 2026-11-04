@@ -415,7 +415,9 @@ window.irAiRecognitionPage=async function(objectId){
   const files=j.files.map(f=>'<tr><td>'+esc(f.name)+'</td><td><b>'+esc(f.type)+'</b></td><td>'+f.pages+'</td><td>'+f.schemes+'</td><td>'+f.marks+'</td></tr>');
   const sheets=j.sheets.map(p=>'<tr><td>'+p.page+'</td><td>'+esc(p.file)+', стр. '+p.sheet+(p.stamp?'<small>'+esc(p.stamp)+'</small>':'')+'</td><td>'+esc(p.docType)+(p.docTypeBy?'<small>'+esc(p.docTypeBy)+'</small>':'')+'</td><td>'+esc(p.kind)+'</td><td>'+esc(p.name)+
    (p.schemes.length?'<small>'+esc(p.schemes.join("; "))+'</small>':'')+(p.sections?'<small>разрезы: '+p.sections+' марок с отметками</small>':'')+
-   (p.noText?(p.ocr?'<small>Текст в кривых — прочитан OCR: '+p.ocr+' надп.; проверьте, лист также уйдёт Claude</small>':'<small class="ir-ms-error">Текст в кривых — локально не читается, лист прочитает только Claude</small>'):'')+'</td><td>'+(p.views||"")+'</td>'+
+   (p.noText?(p.ocr?'<small>Текст в кривых — прочитан OCR: '+p.ocr+' надп.; проверьте, лист также уйдёт Claude</small>':'<small class="ir-ms-error">Текст в кривых — локально не читается, лист прочитает только Claude</small>'):'')+
+   // A reading that failed and lines over the reader's limit: told, not hidden (the engineer's rule).
+   (p.ocrError?'<small class="ir-ms-error">OCR листа не удался: '+esc(p.ocrError)+'</small>':'')+(p.cut?'<small class="ir-ms-error">Лист прочитан не весь: линий больше 400 000, не прочитано путей '+p.cut+'</small>':'')+'</td><td>'+(p.views||"")+'</td>'+
    // The journal of the sheet: time, axes, marks, elements found and placed, errors, calibration of its plans.
    '<td>'+(p.ms?(p.ms/1000).toFixed(1)+' с':'')+'</td><td>'+(p.axes||'')+'</td><td>'+(p.marks||'')+'</td><td>'+(p.found||p.placed?(p.found||0)+' / '+(p.placed||0):'')+'</td>'+
    '<td>'+(p.errors?'<span class="ir-ms-error">'+p.errors+'</span>':'')+(p.warnings?'<small>замечаний '+p.warnings+'</small>':'')+'</td>'+

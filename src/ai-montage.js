@@ -26,7 +26,7 @@ const KIND_NAME={columns:"Колонна",fahwerk:"Стойка фахверка
  column:"Колонна",beam:"Балка",bent:"Балка",brace:"Связь",truss:"Ферма",shell:"Стенка резервуара",plate:"Площадка"};
 // Version of the reading rules: an analysis made by older rules is flagged, so that the engineer runs it again
 // after an update (the result of step 1 is stored and is not recomputed by itself).
-const ANALYZER="2026-11-03.1";
+const ANALYZER="2026-11-04.1";
 // АР (architecture) and ТХ (technology) sheets are read for context: Claude places what of them is mounted.
 // (КМД — one kind: the program tells its montage and assembly sheets apart, sheet by sheet — kmdSheetType; the two old
 // kinds of a file are still read, as the engineer's hint for its sheets that say nothing)
@@ -246,7 +246,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
     files:(data.source?.documents||[]).map(d=>({name:d.name,type:d.type||"",pages:d.pages,schemes:d.schemes||0,marks:d.marks||0})),
     sheets:(data.pages||[]).map(p=>({page:p.page,file:p.sourceName||"",sheet:p.pdfPage||p.page,docType:p.docType||"",docTypeBy:p.docTypeBy?KMD_BY[p.docTypeBy]||"":"",kind:PAGE_KINDS[pageKind(p)],
      name:p.sheet?.stamp?.name||(p.context?.titles||[])[0]||"",stamp:stampLine(p.sheet?.stamp),schemes:(p.schemes||[]).filter(s=>!s.error).map(s=>s.title),
-     views:(p.sheet?.views||[]).length,levels:p.sheet?.levelCount||0,noText:Boolean(p.noText),ocr:Number(p.ocr)||0,
+     views:(p.sheet?.views||[]).length,levels:p.sheet?.levelCount||0,noText:Boolean(p.noText),ocr:Number(p.ocr)||0,...(p.ocrError?{ocrError:String(p.ocrError)}:{}),...(p.cut?{cut:Number(p.cut)}:{}),
      sections:(p.sections||[]).length,elevations:(p.schemes||[]).filter(s=>s.kind==="elevation").length,
      // The journal of the sheet (rules of 24.10.2026): time, what was found on it, what of it was placed, errors and the
      // worst error of the calibration of its plans (a span between axes as drawn by the scale against the span written).
