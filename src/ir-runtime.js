@@ -1310,6 +1310,10 @@ window.irSchemePage=async function(objectId){
   if(stored&&backgroundChoices.includes(stored.mode))schemeBackground=stored.mode;
   if(stored&&isHexColor(stored.color))schemeCustomBackground=stored.color.toLowerCase()
  }catch(e){}
+ // (the background light or dark only, one icon — the engineer, 06.11.2026: «убери цвета кроме светлого и темного.
+ // Переключение где-нибудь сделай иконкой просто»; a colour chosen before — the light one)
+ if(schemeBackground!=="dark")schemeBackground="standard";
+ const backgroundIcon=()=>schemeBackground==="dark"?'<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>':'<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg>';
  const currentBackground=()=>schemeBackground;
  const currentCustomBackground=()=>schemeCustomBackground;
  const backgroundIsDark=()=>{
@@ -1320,7 +1324,7 @@ window.irSchemePage=async function(objectId){
   return(r*299+g*587+b*114)/1000<155
  };
  function applySchemeBackground(selected=currentBackground(),color=currentCustomBackground()){
-  if(!backgroundChoices.includes(selected))selected="standard";
+  if(selected!=="dark")selected="standard";
   schemeBackground=selected;
   if(isHexColor(color))schemeCustomBackground=color.toLowerCase();
   const stage=document.getElementById("schemePreviewStage");
@@ -1329,10 +1333,8 @@ window.irSchemePage=async function(objectId){
    stage.dataset.schemeContrast=backgroundIsDark()?"dark":"light";
    stage.style.setProperty("--scheme-custom-background",currentCustomBackground())
   }
-  const select=document.getElementById("schemeBackgroundSelect");
-  if(select)select.value=currentBackground();
-  const custom=document.getElementById("schemeBackgroundCustom");
-  if(custom){custom.value=currentCustomBackground();custom.hidden=currentBackground()!=="custom"}
+  const toggle=document.getElementById("schemeBackgroundToggle");
+  if(toggle){const dark=backgroundIsDark();toggle.innerHTML=backgroundIcon();toggle.title=dark?"Светлый фон":"Тёмный фон";toggle.setAttribute("aria-label",toggle.title);toggle.setAttribute("aria-pressed",String(dark))}
   try{window.localStorage?.setItem(backgroundStorageKey,JSON.stringify({mode:currentBackground(),color:currentCustomBackground()}))}catch(e){}
   renderScene()
  }
@@ -2903,7 +2905,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    <div class="scheme-workspace ${sidePanelOpen?"":"side-off"}">
     <section class="scheme-stage scheme-three-stage ${previewFullscreen?"scheme-preview-fullscreen":""}" id="schemePreviewStage" aria-label="Предпросмотр монтажной схемы" data-scheme-background="${currentBackground()}" data-scheme-contrast="${backgroundIsDark()?"dark":"light"}" style="--scheme-custom-background:${currentCustomBackground()}">
      <div class="scheme-stage-toolbar"><div class="scheme-preview-title"><b>Монтажная схема · ${esc(activeGroup().label)}</b><span>${s.total} элементов · 3D</span></div>
-      <div class="scheme-toolbar-actions"><button type="button" id="schemeExportHtml" class="scheme-fullscreen-toggle" title="Выгрузить монтажную схему в HTML: 3D, фильтры, карточки элементов — без редактирования">⇩ HTML</button><button type="button" id="schemeFullscreenToggle" class="scheme-fullscreen-toggle" title="${previewFullscreen?"Закрыть полноэкранный просмотр":"Предпросмотр схемы на весь экран"}">${previewFullscreen?"✕ Закрыть":"⛶ На весь экран"}</button><label class="scheme-background-picker" title="Цвет фона поля монтажной схемы"><span>Фон</span><select id="schemeBackgroundSelect" aria-label="Цвет фона монтажной схемы"><option value="standard" ${currentBackground()==="standard"?"selected":""}>Стандартный</option><option value="white" ${currentBackground()==="white"?"selected":""}>Белый</option><option value="gray" ${currentBackground()==="gray"?"selected":""}>Серый</option><option value="blue" ${currentBackground()==="blue"?"selected":""}>Голубой</option><option value="sand" ${currentBackground()==="sand"?"selected":""}>Бежевый</option><option value="dark" ${currentBackground()==="dark"?"selected":""}>Тёмный</option><option value="custom" ${currentBackground()==="custom"?"selected":""}>Свой цвет</option></select><input id="schemeBackgroundCustom" type="color" aria-label="Выбрать свой цвет фона" value="${currentCustomBackground()}" ${currentBackground()==="custom"?"":"hidden"}></label><button type="button" id="schemeToggleLabels" class="${labelsVisible?"on":""}" title="Показать марки элементов">Подписи</button><button type="button" id="schemeToggleDimensions" class="${dimensionsVisible?"on":""}" title="Показать межосевые размеры сетки">Размеры</button></div>
+      <div class="scheme-toolbar-actions"><button type="button" id="schemeExportHtml" class="scheme-fullscreen-toggle" title="Выгрузить монтажную схему в HTML: 3D, фильтры, карточки элементов — без редактирования">⇩ HTML</button><button type="button" id="schemeFullscreenToggle" class="scheme-fullscreen-toggle" title="${previewFullscreen?"Закрыть полноэкранный просмотр":"Предпросмотр схемы на весь экран"}">${previewFullscreen?"✕ Закрыть":"⛶ На весь экран"}</button><button type="button" id="schemeBackgroundToggle" class="scheme-background-toggle" aria-pressed="${backgroundIsDark()}" title="${backgroundIsDark()?"Светлый фон":"Тёмный фон"}" aria-label="${backgroundIsDark()?"Светлый фон":"Тёмный фон"}">${backgroundIcon()}</button><button type="button" id="schemeToggleLabels" class="${labelsVisible?"on":""}" title="Показать марки элементов">Подписи</button><button type="button" id="schemeToggleDimensions" class="${dimensionsVisible?"on":""}" title="Показать межосевые размеры сетки">Размеры</button></div>
      </div>
      <div class="scheme-canvas" id="schemeCanvas"></div>
      ${emptyOverlay}
@@ -2941,9 +2943,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   });
   document.getElementById("schemeExportHtml")?.addEventListener("click",e=>exportSchemeHtml(e.currentTarget));
   document.getElementById("schemeFullscreenToggle")?.addEventListener("click",()=>previewFullscreen?leaveSchemeFullscreen():enterSchemeFullscreen());
-  document.getElementById("schemeBackgroundSelect")?.addEventListener("change",e=>applySchemeBackground(e.target.value));
-  document.getElementById("schemeBackgroundCustom")?.addEventListener("input",e=>applySchemeBackground("custom",e.target.value));
-  document.getElementById("schemeBackgroundCustom")?.addEventListener("change",e=>applySchemeBackground("custom",e.target.value));
+  document.getElementById("schemeBackgroundToggle")?.addEventListener("click",()=>applySchemeBackground(currentBackground()==="dark"?"standard":"dark"));
   // Annotation switches only update the existing 3D model; WebGL is not recreated.
   const updateAnnotations=()=>{
    document.getElementById("schemeToggleLabels")?.classList.toggle("on",labelsVisible);
@@ -4994,18 +4994,42 @@ const routeInfo=()=>{const r=(location.hash.slice(1)||"/objects").split(/[?#]/)[
 function cleanupLegacyShell(){const shell=root.querySelector(":scope > .ir-object-shell");if(!shell)return;const main=shell.querySelector(":scope > .ir-object-main");const nodes=main?[...main.childNodes]:[];root.replaceChildren(...nodes)}
 const fullNames={"executive-docs":"Исполнительная документация"};
 function makeButton(label,key,disabled,onClick){const b=document.createElement("button");b.type="button";b.dataset.key=key;if(fullNames[key])b.title=fullNames[key];b.disabled=!!disabled;const i=document.createElement("span");i.className="nav-icon";i.innerHTML=svg(key);const t=document.createElement("span");t.className="nav-label";t.textContent=label;b.append(i,t);if(!disabled)b.onclick=onClick;return b}
-function ensureSidebar(){if(sidebar&&document.body.contains(sidebar))return sidebar;sidebar=document.createElement("aside");sidebar.className="ir-object-sidebar-fixed";sidebar.innerHTML=`<button class="ir-object-brand" type="button" title="На главную страницу" aria-label="На главную страницу"><span>IR Project</span></button><button class="ir-object-all" type="button"><span class="menu-icon">${simpleSvg("back")}</span><b>Все объекты</b></button><nav class="ir-object-nav"></nav><button class="ir-object-top" type="button"><span class="menu-icon round">${simpleSvg("up")}</span><b>Наверх</b></button>`;sidebar.querySelector(".ir-object-brand").onclick=()=>location.hash="/objects";sidebar.querySelector(".ir-object-all").onclick=()=>location.hash="/objects";sidebar.querySelector(".ir-object-top").onclick=()=>window.scrollTo({top:0,behavior:"smooth"});sidebar.querySelector(".ir-object-nav").addEventListener("wheel",e=>{const n=e.currentTarget;if(!document.body.classList.contains("ir-object-topnav")||Math.abs(e.deltaX)>=Math.abs(e.deltaY)||n.scrollWidth<=n.clientWidth)return;n.scrollLeft+=e.deltaY;e.preventDefault()},{passive:false});document.body.appendChild(sidebar);paintBrand();return sidebar}
+function ensureSidebar(){if(sidebar&&document.body.contains(sidebar))return sidebar;sidebar=document.createElement("aside");sidebar.className="ir-object-sidebar-fixed";sidebar.innerHTML=`<button class="ir-object-brand" type="button" title="На главную страницу" aria-label="На главную страницу"><span>IR Project</span></button><button class="ir-object-all" type="button"><span class="menu-icon">${simpleSvg("back")}</span><b>Все объекты</b></button><nav class="ir-object-nav"></nav><button class="ir-object-top" type="button"><span class="menu-icon round">${simpleSvg("up")}</span><b>Наверх</b></button>`;sidebar.querySelector(".ir-object-brand").onclick=()=>location.hash="/objects";sidebar.querySelector(".ir-object-all").onclick=()=>location.hash="/objects";sidebar.querySelector(".ir-object-top").onclick=()=>window.scrollTo({top:0,behavior:"smooth"});if(window.ResizeObserver)new ResizeObserver(()=>fitTopnav()).observe(sidebar);document.body.appendChild(sidebar);paintBrand();return sidebar}
 async function paintBrand(){const aside=sidebar;if(!aside)return;const host=aside.querySelector(".ir-object-brand");if(!host)return;try{const p=await irProject.company.get()||{};if(aside!==sidebar)return;if(p.logo){const u=await irProject.images.read(p.logo);if(u){const im=document.createElement("img");im.src=u;im.alt=p.name||"Логотип компании";host.replaceChildren(im);return}}const s=document.createElement("span");s.textContent=p.name||"IR Project";host.replaceChildren(s)}catch{if(aside!==sidebar)return;const s=document.createElement("span");s.textContent="IR Project";host.replaceChildren(s)}}
 function setActive(key){if(!sidebar)return;const nav=sidebar.querySelector(".ir-object-nav");if(key==="ai-recognition"&&nav&&!nav.querySelector('button[data-key="ai-recognition"]'))key="scheme";sidebar.querySelectorAll(".ir-object-nav button").forEach(b=>b.classList.toggle("active",b.dataset.key===key));
-// (the menu a strip on top — the scheme: the page chosen brought into sight, the wheel turns the strip sideways)
-if(nav&&document.body.classList.contains("ir-object-topnav")){const a=nav.querySelector("button.active");if(a)requestAnimationFrame(()=>{const r=a.offsetLeft-nav.offsetLeft;if(r<nav.scrollLeft||r+a.offsetWidth>nav.scrollLeft+nav.clientWidth)nav.scrollLeft=r-(nav.clientWidth-a.offsetWidth)/2})}}
+fitTopnav()}
+// The menu a strip on top (the scheme): the sections that do not fit go into the list «Ещё ▾» at its end, the chosen one
+// always in the strip (the engineer, 06.11.2026: «сделай выпадющее меню если не вмещается»).
+let moreMenu=null;
+function closeMore(){if(moreMenu){moreMenu.remove();moreMenu=null}const b=sidebar&&sidebar.querySelector(".ir-object-more");if(b)b.setAttribute("aria-expanded","false")}
+function fitTopnav(){
+ if(!sidebar)return;const nav=sidebar.querySelector(".ir-object-nav");if(!nav)return;
+ const items=[...nav.querySelectorAll(":scope>button[data-key]")];items.forEach(b=>b.hidden=false);
+ let more=nav.querySelector(":scope>.ir-object-more");
+ if(!document.body.classList.contains("ir-object-topnav")){if(more)more.remove();closeMore();return}
+ if(!more){more=document.createElement("button");more.type="button";more.className="ir-object-more";more.setAttribute("aria-haspopup","menu");more.setAttribute("aria-expanded","false");more.innerHTML='<span class="nav-label">Ещё</span><b aria-hidden="true">▾</b>';more.onclick=e=>{e.stopPropagation();if(moreMenu){closeMore();return}openMore(more)}}
+ nav.append(more);more.hidden=true;
+ if(nav.scrollWidth<=nav.clientWidth+1){closeMore();return}
+ more.hidden=false;
+ for(let i=items.length-1;i>=0&&nav.scrollWidth>nav.clientWidth+1;i--)if(!items[i].classList.contains("active"))items[i].hidden=true;
+ if(moreMenu)openMore(more)
+}
+function openMore(more){
+ closeMore();const hidden=[...sidebar.querySelectorAll(".ir-object-nav>button[data-key][hidden]")];if(!hidden.length)return;
+ moreMenu=document.createElement("div");moreMenu.className="ir-object-more-menu";moreMenu.setAttribute("role","menu");
+ hidden.forEach(b=>{const c=b.cloneNode(true);c.hidden=false;c.setAttribute("role","menuitem");c.onclick=()=>{closeMore();b.click()};moreMenu.append(c)});
+ const r=more.getBoundingClientRect();moreMenu.style.top=Math.round(r.bottom+4)+"px";moreMenu.style.right=Math.max(6,Math.round(innerWidth-r.right))+"px";
+ document.body.append(moreMenu);more.setAttribute("aria-expanded","true")
+}
+document.addEventListener("pointerdown",e=>{if(moreMenu&&!moreMenu.contains(e.target)&&!(e.target.closest&&e.target.closest(".ir-object-more")))closeMore()},true);
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&moreMenu)closeMore()});
 async function buildNav(info){const aside=ensureSidebar(),nav=aside.querySelector(".ir-object-nav"),token=++navSerial;nav.replaceChildren();nav.append(makeButton("Обзор","overview",false,()=>location.hash=`/objects/object/${info.id}`));let sections=[],schemeVisible=false;try{sections=await irProject.data.sections.get(info.id)||[]}catch{}try{const wt=await irProject.data.forObject(info.id).section("work-types").list();schemeVisible=Array.isArray(wt)&&wt.some(r=>r?.data?.scheme_enabled===true)}catch{}if(token!==navSerial||aside!==sidebar||currentObjectId!==info.id)return;// «ИИ-распознавание» opens from the montage scheme it fills (the engineer, 27.10.2026); in the menu only while the scheme is not.
 const schemeShown=schemeVisible&&sections.some(s=>s.section_key==="scheme");for(const s of sections){const key=s.section_key;if(key==="scheme"&&!schemeVisible||key==="ai-recognition")continue;const label=names[key]||s.title||key;nav.append(makeButton(label,key,!s.enabled,()=>location.hash=`/objects/object/${info.id}/${encodeURIComponent(key)}`));if(key==="reports")nav.append(makeButton("Доп. работы","extra-works",false,()=>location.hash=`/objects/object/${info.id}/extra-works`));if(key==="marks")nav.append(makeButton("Ведомость метизов","fasteners",!s.enabled,()=>location.hash=`/objects/object/${info.id}/fasteners`));if(key==="marks"){nav.append(makeButton(names["executive-docs"],"executive-docs",false,()=>location.hash=`/objects/object/${info.id}/executive-docs`));nav.append(makeButton(names.letters,"letters",false,()=>location.hash=`/objects/object/${info.id}/letters`));}if(key==="marks"&&!schemeShown)nav.append(makeButton("ИИ-распознавание","ai-recognition",false,()=>location.hash=`/objects/object/${info.id}/ai-recognition`))}if(!schemeShown&&!sections.some(s=>s.section_key==="marks"))nav.append(makeButton("ИИ-распознавание","ai-recognition",false,()=>location.hash=`/objects/object/${info.id}/ai-recognition`));if(!sections.some(s=>s.section_key==="marks")){nav.append(makeButton(names["executive-docs"],"executive-docs",false,()=>location.hash=`/objects/object/${info.id}/executive-docs`));nav.append(makeButton(names.letters,"letters",false,()=>location.hash=`/objects/object/${info.id}/letters`));}if(!sections.some(s=>s.section_key==="reports"))nav.append(makeButton("Доп. работы","extra-works",false,()=>location.hash=`/objects/object/${info.id}/extra-works`));// Корзина объекта: удалённое за 7 дней (src/trash-page.js).
 nav.append(makeButton(names.trash,"trash",false,()=>location.hash=`/objects/object/${info.id}/trash`));setActive(info.key)}
 // (the montage scheme and its «ИИ-распознавание»: the menu a strip on top, the scheme over the whole width — the engineer,
 // 06.11.2026 «левое меню сделаем сверху, чтобы была сама схема на всю страницу»; object-shell.css)
 function routeClasses(info){document.body.classList.toggle("ir-object-route",!!info);document.body.classList.toggle("ir-object-overview",!!info&&info.key==="overview");document.body.classList.toggle("ir-object-topnav",!!info&&(info.key==="scheme"||info.key==="ai-recognition"))}
-function leaveObject(){routeClasses(null);currentObjectId="";navSerial++;if(sidebar){sidebar.remove();sidebar=null}}
+function leaveObject(){closeMore();routeClasses(null);currentObjectId="";navSerial++;if(sidebar){sidebar.remove();sidebar=null}}
 // Leaving the object: the menu stays until the next page has put its content in (it was taken away at once, and the
 // object page stood there without it while the list of objects loaded — the engineer 02.11.2026).
 let leaving=null;

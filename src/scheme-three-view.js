@@ -695,7 +695,7 @@ window.irThreeSchemeView=(function(){
    '<option value="type">Цвет: виды</option><option value="status">Цвет: монтаж</option><option value="mark">Цвет: марки</option><option value="confidence">Цвет: достоверность</option></select>'+
    '<label class="ir-three-check"><input type="checkbox" id="irThreeGrid" checked> Сетка</label>'+
    '<label class="ir-three-check"><input type="checkbox" id="irThreeAxes" checked> Оси</label>'+
-   '<select id="irThreeNodes" data-native-select="1" aria-label="Узлы" title="Маркеры узлов: опоры колонн, оголовки, концы балок"><option value="sel">Узлы: у выбранного</option><option value="all">Узлы: все</option><option value="open">Узлы: не готовые</option><option value="off">Узлы: скрыть</option></select>'+
+   '<select id="irThreeNodes" data-native-select="1" aria-label="Узлы" title="Маркеры узлов: опоры колонн, оголовки, концы балок"><option value="sel">Узлы: у выбранного</option><option value="all">Узлы: все</option><option value="open">Узлы: несмонтированные</option><option value="off">Узлы: скрыть</option></select>'+
    '<label class="ir-three-check" title="Опорные плиты, анкеры и оголовки вблизи, краны на путях — условно, не по КМД"><input type="checkbox" id="irThreeDetails" checked> Детали</label>'+
    '<span class="ir-three-count" id="irThreeCount"></span><span class="ir-three-count" id="irThreeLight" hidden title="Окно рисует 3D без видеокарты (процессором): сечения и болты показаны только вблизи, края без сглаживания. Включите видеокарту для программы в настройках Windows («Графика» → высокая производительность) или обновите её драйвер.">· упрощённый показ: видеокарта не используется</span>'+
    (P.canEdit?'<button class="ir-three-add" id="irThreeAdd">＋ Добавить элемент</button>':"")+'</div>'+

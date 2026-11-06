@@ -715,12 +715,22 @@ body.ir-object-topnav .ir-object-brand{flex:0 0 auto;width:auto;max-width:150px;
 body.ir-object-topnav .ir-object-brand img{width:auto;height:38px;max-width:130px;object-fit:contain}
 body.ir-object-topnav .ir-object-brand span{min-height:0;padding:0 4px;white-space:nowrap}
 body.ir-object-topnav .ir-object-all{flex:0 0 auto;width:auto;min-height:32px;margin:0;padding:0 10px;white-space:nowrap}
-body.ir-object-topnav .ir-object-nav{flex:1 1 auto;min-width:0;height:46px;flex-direction:row;align-items:center;gap:2px;padding:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.25) transparent}
-body.ir-object-topnav .ir-object-nav::-webkit-scrollbar{display:block;height:4px}
-body.ir-object-topnav .ir-object-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.25);border-radius:2px}
+body.ir-object-topnav .ir-object-nav{flex:1 1 auto;min-width:0;height:46px;flex-direction:row;align-items:center;gap:2px;padding:0;overflow:hidden}
+body.ir-object-topnav .ir-object-nav>button[hidden]{display:none}
+.ir-object-more{flex:0 0 auto;min-height:32px;padding:0 10px;border:0;border-radius:5px;background:rgba(255,255,255,.07);color:#d5e0e9;display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;white-space:nowrap;cursor:pointer}
+.ir-object-more:hover,.ir-object-more[aria-expanded="true"]{background:rgba(255,255,255,.14);color:#fff}
+.ir-object-more b{font-weight:400;font-size:9px}
+.ir-object-more-menu{position:fixed;z-index:10001;min-width:200px;max-height:calc(100vh - 110px);overflow:auto;padding:5px;display:grid;gap:2px;background:#13283b;border:1px solid rgba(255,255,255,.12);border-radius:8px;box-shadow:0 12px 30px rgba(8,20,32,.35)}
+.ir-object-more-menu button{min-height:34px;padding:0 10px;border:0;border-radius:5px;background:transparent;color:#c9d5df;display:flex;align-items:center;gap:8px;text-align:left;font-size:11px;white-space:nowrap;cursor:pointer}
+.ir-object-more-menu button:hover:not(:disabled){background:rgba(255,255,255,.08);color:#fff}
+.ir-object-more-menu button:disabled{opacity:.4;cursor:default}
 body.ir-object-topnav .ir-object-nav button{flex:0 0 auto;width:auto;min-height:32px;padding:0 7px;gap:5px}
 body.ir-object-topnav .ir-object-nav button .nav-label{overflow:visible}
 body.ir-object-topnav .ir-object-top{display:none}
+/* (the program's window of tabs puts the menu at the very top and stretches it, index.html «html.ir-tab-content …
+   !important» — the strip there too: 1.11.91 stood over the whole page, the engineer 06.11.2026 «все сломалось») */
+html.ir-tab-content body.ir-object-topnav .ir-object-sidebar-fixed{top:0!important;height:46px!important}
+html.ir-tab-content body.ir-object-topnav #app{min-height:calc(100vh - 46px)!important}
 body.ir-object-topnav .scheme-workspace>.scheme-details{top:56px}
 body.ir-object-topnav .scheme-workspace:has(>.scheme-three-stage)>.scheme-details{max-height:clamp(680px,calc(100dvh - 336px),1060px)}
 body.ir-object-topnav .scheme-three-stage .scheme-canvas{height:clamp(680px,calc(100dvh - 336px),1060px)}
@@ -1615,6 +1625,10 @@ body.ir-delivery-form-route .delivery-form-page *{box-sizing:border-box}
 .scheme-journal-send small{grid-column:1/-1}
 .ir-three-node-meta .fix.bolt{color:#c62828;font-weight:700}
 .ir-three-node-meta .fix.weld{color:#14181c;font-weight:700}
+
+/* The background light or dark by one icon (the engineer, 06.11.2026) */
+.scheme-toolbar-actions>.scheme-background-toggle{display:inline-grid;place-items:center;width:32px;padding:0}
+.scheme-toolbar-actions>.scheme-background-toggle[aria-pressed="true"]{background:#26394b;border-color:#26394b;color:#ffd666}
 
 
 /* #39: src/section-action-buttons.css */

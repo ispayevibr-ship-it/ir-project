@@ -74,9 +74,7 @@
   "#panel{font-weight:600}",
   ".stage{position:relative;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-height:0}",
   ".stage-bar{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;padding:8px 10px;border-bottom:1px solid var(--line);background:#f8fafc}",
-  ".stage-bar .bgdd{position:relative;display:inline-flex}.stage-bar .bgdd>button i{width:34px;height:16px;border-radius:4px;border:1px solid rgba(23,35,58,.3);display:inline-block}.stage-bar .bgdd>button b{font-weight:400;font-size:10px;color:var(--muted)}",
-  ".bglist{position:absolute;top:calc(100% + 4px);right:0;z-index:18;margin:0;padding:5px;list-style:none;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(15,30,60,.18);display:grid;gap:4px}.bglist[hidden]{display:none}",
-  ".bglist li{width:96px;height:22px;border-radius:5px;border:1px solid rgba(23,35,58,.3);cursor:pointer}.bglist li:hover{box-shadow:0 0 0 2px #fff,0 0 0 3px rgba(22,104,234,.45)}.bglist li[aria-selected=true]{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--accent)}",
+  ".stage-bar .bgbtn{display:inline-grid;place-items:center;min-width:40px;padding:0 9px}",
   ".stage-bar button,.stage-bar select,.stage-bar label{font:inherit;font-size:12.5px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:5px 9px;color:var(--ink);display:inline-flex;align-items:center;gap:5px;cursor:pointer}",
   "#stage3d{position:relative;flex:1 1 auto;min-height:0}#stage3d .ir-three-root{position:absolute;inset:0;height:100%}",
   // The pictures and the list of elements stand apart from the 3D: seen where the page's scripts do not run, and where
@@ -183,7 +181,7 @@
    .observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:["title"]});
   var esc=function(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})};
   var fmt=function(v){var n=Number(v);return Number.isFinite(n)?Number(n.toFixed(1)).toLocaleString("ru-RU",{maximumFractionDigits:1}):"—"};
-  var S={open:new Set(),hidden:new Set(),sec:new Set(),conf:"all",status:"all",work:"all",min:"",max:"",q:"",sel:"",color:"status",labels:false,dims:false,bg:D.background||"standard"};
+  var S={open:new Set(),hidden:new Set(),sec:new Set(),conf:"all",status:"all",work:"all",min:"",max:"",q:"",sel:"",color:"status",labels:false,dims:false,bg:D.background==="dark"?"dark":"standard"};
   var statusText={mounted:"Смонтирована",partial:"Частично смонтирована",planned:"Не смонтирована"};
   var levelOk=function(c){var lo=Math.min(c.z0,c.z2),hi=Math.max(c.z0,c.z2);if(S.min!==""&&hi<Number(S.min))return false;if(S.max!==""&&lo>Number(S.max))return false;return true};
   // How fully the drawings determined an element and its section, as in the program: the preliminary ones are pale.
@@ -350,18 +348,17 @@
   $("none").onclick=function(){D.groups.forEach(function(g){S.hidden.add(g.key)});groups();draw3d();list()};
   $("labels").onchange=function(e){S.labels=e.target.checked;draw3d()};
   $("dims").onchange=function(e){S.dims=e.target.checked;draw3d()};
-  // The background: a button of the colour chosen opens the list of the colours (the engineer, 03.11.2026: «Цвета
-  // выпадающим списком сделай»); a colour chosen closes it.
-  var bgOpen=function(open){$("bgList").hidden=!open;$("bgBtn").setAttribute("aria-expanded",String(open))};
-  var paintBg=function(){var on=null;Array.prototype.forEach.call($("bgList").querySelectorAll("li[data-bg]"),function(b){var me=b.getAttribute("data-bg")===S.bg;b.setAttribute("aria-selected",me?"true":"false");if(me)on=b});
-   if(on){$("bgBtn").querySelector("i").style.background=on.style.background;$("bgBtn").title=on.title}};
-  paintBg();$("bgBtn").onclick=function(){bgOpen($("bgList").hidden)};
-  $("bgList").onclick=function(e){var b=e.target.closest&&e.target.closest("li[data-bg]");if(!b)return;S.bg=b.getAttribute("data-bg");paintBg();bgOpen(false);draw3d()};
+  // The background light or dark, one icon (the engineer, 06.11.2026: «убери цвета кроме светлого и темного.
+  // Переключение где-нибудь сделай иконкой просто»): the moon — to the dark, the sun — back to the light.
+  var paintBg=function(){var dark=S.bg==="dark",b=$("bgBtn");
+   b.innerHTML=dark?'<svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>':'<svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg>';
+   b.title=dark?"Светлый фон":"Тёмный фон";b.setAttribute("aria-label",b.title);b.setAttribute("aria-pressed",String(dark))};
+  paintBg();$("bgBtn").onclick=function(){S.bg=S.bg==="dark"?"standard":"dark";paintBg();draw3d()};
   // The side panel: closed until opened; a click on an element opens it on the element's card.
   var panel=function(open){$("wrap").classList.toggle("open",open);$("panel").setAttribute("aria-expanded",String(open))};
   $("panel").onclick=function(){panel(!$("wrap").classList.contains("open"))};$("close").onclick=function(){panel(false)};
   // Escape closes the card first, then the panel.
-  document.addEventListener("keydown",function(e){if(e.key!=="Escape")return;if(!$("bgList").hidden)bgOpen(false);else if(S.sel){S.sel="";details();list();draw3d()}else if($("wrap").classList.contains("open"))panel(false)});
+  document.addEventListener("keydown",function(e){if(e.key!=="Escape")return;if(S.sel){S.sel="";details();list();draw3d()}else if($("wrap").classList.contains("open"))panel(false)});
   // Every window closes by a click elsewhere (the engineer, 03.11.2026: «Все окна должны после открытия закрываться при
   // нажатие в другое место»): the panel of the filters, the card of an element (a click on the 3D chooses there itself),
   // the card of a node, a bolt or a crane, the help.
@@ -369,7 +366,6 @@
    var t=e.target,inside=function(sel){return t.closest&&t.closest(sel)};
    if($("wrap").classList.contains("open")&&!inside("#side")&&!inside("#panel"))panel(false);
    if(!$("help").hidden&&!inside("#help")&&!inside("#helpBtn"))$("help").hidden=true;
-   if(!$("bgList").hidden&&!inside("#bg"))bgOpen(false);
    var node=document.querySelector("#irThreeNode");if(node&&!node.hidden&&!inside("#irThreeNode")){var x=node.querySelector('[data-node="close"]');if(x)x.click();else node.hidden=true}
    if(S.sel&&!$("details").hidden&&!inside("#details")&&!inside("#stage3d canvas")&&!inside("#list")){S.sel="";details();list();draw3d()}
   },true);
@@ -412,7 +408,6 @@
  // A kind of work with the code of its drawings cut to its tail («Монтаж металлоконструкций · ИР-71535.00-05.2025-01-КМ3» —
  // «… · КМ3»; the whole in the option's title): the list of the filter as wide as its field — with the whole codes it
  // opened out to the left over the scheme (the engineer, 03.11.2026: «окно кривое»).
- var BGS=[["standard","стандартный","#dfe8f3"],["white","белый","#ffffff"],["gray","серый","#d9dde2"],["blue","голубой","#d6e6f6"],["sand","песочный","#efe6d6"],["dark","тёмный","#1d2733"]];
  var workShort=function(t){var s=String(t||""),i=s.lastIndexOf(" · ");if(i<0)return s;var code=s.slice(i+3),m=/[-–.]([A-Za-zА-Яа-яЁё]{1,4}\d*(?:\.\d+)?)$/.exec(code);return m&&code.length>12?s.slice(0,i+3)+m[1]:s};
  function page(d,libs){
   var s=d.summary;
@@ -428,10 +423,8 @@
    '<div><span>Не смонтировано</span><b class="wait">'+(s.placed-s.placedMounted-s.placedPartial)+'</b></div>'+(s.total?'<div><span>По ведомости марок</span><b>'+pct+'%</b> <small>'+s.mounted+' из '+s.total+' шт.</small><div class="bar"><i style="width:'+pct+'%"></i></div></div>':"")+'</section>';
   var body='<main class="wrap" id="wrap">'+head+'<div class="area"><section class="stage" id="stage"><div class="stage-bar">'+
    '<label><input type="checkbox" id="labels"> Марки</label><label><input type="checkbox" id="dims"> Размеры</label>'+
-   // (the background chosen by its colour, not by words — the engineer, 03.11.2026: «просто цвет сделай выбор, вместо текста»,
-   // «Цвета выпадающим списком сделай»: the button shows the colour chosen, its list — the colours, their names on hover)
-   '<span class="bgdd" id="bg"><button type="button" id="bgBtn" aria-haspopup="listbox" aria-expanded="false" aria-controls="bgList" title="Фон: '+BGS[0][1]+'"><span class="lbl">Фон</span><i style="background:'+BGS[0][2]+'"></i><b>▼</b></button>'+
-   '<ul class="bglist" id="bgList" role="listbox" aria-label="Фон" hidden>'+BGS.map(function(b){return'<li role="option" data-bg="'+b[0]+'" title="Фон: '+b[1]+'" aria-label="Фон: '+b[1]+'" style="background:'+b[2]+'"></li>'}).join("")+'</ul></span>'+
+   // (the background light or dark by one icon — the engineer, 06.11.2026; viewer, paintBg)
+   '<button type="button" id="bgBtn" class="bgbtn" aria-pressed="false" title="Тёмный фон" aria-label="Тёмный фон"></button>'+
    '<button type="button" id="helpBtn" aria-controls="help"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/><path d="M9 7h7M9 11h5"/></svg><span class="lbl">Инструкция</span></button><button type="button" id="full" title="На весь экран">⛶<span class="lbl"> На весь экран</span></button><button type="button" id="panel" aria-expanded="false" aria-controls="side" title="Сведения и фильтры">☰<span class="lbl"> Сведения и фильтры</span></button></div><div id="stage3d"></div>'+
    '<div class="load" id="irLoad" role="progressbar" aria-label="Загрузка 3D-схемы" aria-valuemin="0" aria-valuemax="100" aria-valuenow="2"><b>Загрузка 3D-схемы</b>'+
    '<div class="load-row"><div class="load-bar"><i id="irLoadBar"></i></div><em id="irLoadPct">2 %</em></div><span id="irLoadText">Открываем файл</span></div>'+still(d)+'</section>'+

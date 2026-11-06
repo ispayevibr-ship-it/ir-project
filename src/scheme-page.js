@@ -137,6 +137,10 @@ window.irSchemePage=async function(objectId){
   if(stored&&backgroundChoices.includes(stored.mode))schemeBackground=stored.mode;
   if(stored&&isHexColor(stored.color))schemeCustomBackground=stored.color.toLowerCase()
  }catch(e){}
+ // (the background light or dark only, one icon — the engineer, 06.11.2026: «убери цвета кроме светлого и темного.
+ // Переключение где-нибудь сделай иконкой просто»; a colour chosen before — the light one)
+ if(schemeBackground!=="dark")schemeBackground="standard";
+ const backgroundIcon=()=>schemeBackground==="dark"?'<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>':'<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg>';
  const currentBackground=()=>schemeBackground;
  const currentCustomBackground=()=>schemeCustomBackground;
  const backgroundIsDark=()=>{
@@ -147,7 +151,7 @@ window.irSchemePage=async function(objectId){
   return(r*299+g*587+b*114)/1000<155
  };
  function applySchemeBackground(selected=currentBackground(),color=currentCustomBackground()){
-  if(!backgroundChoices.includes(selected))selected="standard";
+  if(selected!=="dark")selected="standard";
   schemeBackground=selected;
   if(isHexColor(color))schemeCustomBackground=color.toLowerCase();
   const stage=document.getElementById("schemePreviewStage");
@@ -156,10 +160,8 @@ window.irSchemePage=async function(objectId){
    stage.dataset.schemeContrast=backgroundIsDark()?"dark":"light";
    stage.style.setProperty("--scheme-custom-background",currentCustomBackground())
   }
-  const select=document.getElementById("schemeBackgroundSelect");
-  if(select)select.value=currentBackground();
-  const custom=document.getElementById("schemeBackgroundCustom");
-  if(custom){custom.value=currentCustomBackground();custom.hidden=currentBackground()!=="custom"}
+  const toggle=document.getElementById("schemeBackgroundToggle");
+  if(toggle){const dark=backgroundIsDark();toggle.innerHTML=backgroundIcon();toggle.title=dark?"Светлый фон":"Тёмный фон";toggle.setAttribute("aria-label",toggle.title);toggle.setAttribute("aria-pressed",String(dark))}
   try{window.localStorage?.setItem(backgroundStorageKey,JSON.stringify({mode:currentBackground(),color:currentCustomBackground()}))}catch(e){}
   renderScene()
  }
@@ -1730,7 +1732,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    <div class="scheme-workspace ${sidePanelOpen?"":"side-off"}">
     <section class="scheme-stage scheme-three-stage ${previewFullscreen?"scheme-preview-fullscreen":""}" id="schemePreviewStage" aria-label="Предпросмотр монтажной схемы" data-scheme-background="${currentBackground()}" data-scheme-contrast="${backgroundIsDark()?"dark":"light"}" style="--scheme-custom-background:${currentCustomBackground()}">
      <div class="scheme-stage-toolbar"><div class="scheme-preview-title"><b>Монтажная схема · ${esc(activeGroup().label)}</b><span>${s.total} элементов · 3D</span></div>
-      <div class="scheme-toolbar-actions"><button type="button" id="schemeExportHtml" class="scheme-fullscreen-toggle" title="Выгрузить монтажную схему в HTML: 3D, фильтры, карточки элементов — без редактирования">⇩ HTML</button><button type="button" id="schemeFullscreenToggle" class="scheme-fullscreen-toggle" title="${previewFullscreen?"Закрыть полноэкранный просмотр":"Предпросмотр схемы на весь экран"}">${previewFullscreen?"✕ Закрыть":"⛶ На весь экран"}</button><label class="scheme-background-picker" title="Цвет фона поля монтажной схемы"><span>Фон</span><select id="schemeBackgroundSelect" aria-label="Цвет фона монтажной схемы"><option value="standard" ${currentBackground()==="standard"?"selected":""}>Стандартный</option><option value="white" ${currentBackground()==="white"?"selected":""}>Белый</option><option value="gray" ${currentBackground()==="gray"?"selected":""}>Серый</option><option value="blue" ${currentBackground()==="blue"?"selected":""}>Голубой</option><option value="sand" ${currentBackground()==="sand"?"selected":""}>Бежевый</option><option value="dark" ${currentBackground()==="dark"?"selected":""}>Тёмный</option><option value="custom" ${currentBackground()==="custom"?"selected":""}>Свой цвет</option></select><input id="schemeBackgroundCustom" type="color" aria-label="Выбрать свой цвет фона" value="${currentCustomBackground()}" ${currentBackground()==="custom"?"":"hidden"}></label><button type="button" id="schemeToggleLabels" class="${labelsVisible?"on":""}" title="Показать марки элементов">Подписи</button><button type="button" id="schemeToggleDimensions" class="${dimensionsVisible?"on":""}" title="Показать межосевые размеры сетки">Размеры</button></div>
+      <div class="scheme-toolbar-actions"><button type="button" id="schemeExportHtml" class="scheme-fullscreen-toggle" title="Выгрузить монтажную схему в HTML: 3D, фильтры, карточки элементов — без редактирования">⇩ HTML</button><button type="button" id="schemeFullscreenToggle" class="scheme-fullscreen-toggle" title="${previewFullscreen?"Закрыть полноэкранный просмотр":"Предпросмотр схемы на весь экран"}">${previewFullscreen?"✕ Закрыть":"⛶ На весь экран"}</button><button type="button" id="schemeBackgroundToggle" class="scheme-background-toggle" aria-pressed="${backgroundIsDark()}" title="${backgroundIsDark()?"Светлый фон":"Тёмный фон"}" aria-label="${backgroundIsDark()?"Светлый фон":"Тёмный фон"}">${backgroundIcon()}</button><button type="button" id="schemeToggleLabels" class="${labelsVisible?"on":""}" title="Показать марки элементов">Подписи</button><button type="button" id="schemeToggleDimensions" class="${dimensionsVisible?"on":""}" title="Показать межосевые размеры сетки">Размеры</button></div>
      </div>
      <div class="scheme-canvas" id="schemeCanvas"></div>
      ${emptyOverlay}
@@ -1768,9 +1770,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   });
   document.getElementById("schemeExportHtml")?.addEventListener("click",e=>exportSchemeHtml(e.currentTarget));
   document.getElementById("schemeFullscreenToggle")?.addEventListener("click",()=>previewFullscreen?leaveSchemeFullscreen():enterSchemeFullscreen());
-  document.getElementById("schemeBackgroundSelect")?.addEventListener("change",e=>applySchemeBackground(e.target.value));
-  document.getElementById("schemeBackgroundCustom")?.addEventListener("input",e=>applySchemeBackground("custom",e.target.value));
-  document.getElementById("schemeBackgroundCustom")?.addEventListener("change",e=>applySchemeBackground("custom",e.target.value));
+  document.getElementById("schemeBackgroundToggle")?.addEventListener("click",()=>applySchemeBackground(currentBackground()==="dark"?"standard":"dark"));
   // Annotation switches only update the existing 3D model; WebGL is not recreated.
   const updateAnnotations=()=>{
    document.getElementById("schemeToggleLabels")?.classList.toggle("on",labelsVisible);

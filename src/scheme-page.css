@@ -674,3 +674,7 @@
 .scheme-journal-send small{grid-column:1/-1}
 .ir-three-node-meta .fix.bolt{color:#c62828;font-weight:700}
 .ir-three-node-meta .fix.weld{color:#14181c;font-weight:700}
+
+/* The background light or dark by one icon (the engineer, 06.11.2026) */
+.scheme-toolbar-actions>.scheme-background-toggle{display:inline-grid;place-items:center;width:32px;padding:0}
+.scheme-toolbar-actions>.scheme-background-toggle[aria-pressed="true"]{background:#26394b;border-color:#26394b;color:#ffd666}
