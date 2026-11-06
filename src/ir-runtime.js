@@ -1240,6 +1240,8 @@ const irSchemeLoading=(()=>{
  return{begin,cardHtml,setBar}
 })();
 window.irSchemePage=async function(objectId,opts){
+ // (the 3D modules come with the scheme — src/lazy-modules.js; asked at once, while the data are read)
+ const lazy3d=typeof window.irLazy==="function"?window.irLazy("scheme").catch(()=>null):null;
  const oid=String(objectId||"");if(!oid)return;
  // {exportData:true} — without the page: the object's scheme read from the base and given back as the data of the
  // exported scheme (exportSchemeData), the same as the «HTML» button gathers — the report of the object shows the very
@@ -1912,6 +1914,11 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  // exported scheme; at once it held the window as long as the opening)
  function renderScene(opts){
   const box=document.getElementById("schemeCanvas");if(!box)return;
+  // (the 3D is loaded when the scheme opens, not in every tab — src/lazy-modules.js)
+  if(!window.irThreeSchemeView&&typeof window.irLazy==="function"&&!opts?.lazyTried){
+   loading.progress(.06,"Загрузка 3D-модуля");
+   window.irLazy("scheme").then(()=>renderScene({...(opts||{}),lazyTried:true}),()=>renderScene({...(opts||{}),lazyTried:true}));return
+  }
   if(!window.irThreeSchemeView){
    box.innerHTML='<div class="scheme-three-failed">Модуль 3D не подключён. Переустановите программу.</div>';
    loading.done();return
@@ -2982,7 +2989,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   renderScene();renderDetails();bindGridEditor();bindEditor();bindViewManager()
  }
  await loadSnapshot();
- if(headless){refreshGridModel();try{return await exportSchemeData()}finally{chatBack()}}
+ if(headless&&lazy3d)await lazy3d;if(headless){refreshGridModel();try{return await exportSchemeData()}finally{chatBack()}}
  // (the bar drawn before the page and its lists are built: they hold the window for a moment)
  loading.progress(.1,"Оси, марки и список элементов");await loading.paint();
  if(location.hash!==requestedRoute){loading.cancel();return}
