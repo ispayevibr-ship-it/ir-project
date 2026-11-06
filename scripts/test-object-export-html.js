@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=1119400'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=1119500'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -51,7 +51,7 @@ assert(source.includes('ir-export-work-radio-'+""),"per-work offline filter cont
 assert(!source.includes('renderRows(rows,"marks",images)'),"technical ID/Type/mounted/received list is no longer exported for marks");
 const detailStart=source.indexOf(" function markDetailData("),detailEnd=source.indexOf(" function renderMarkCards(",detailStart);
 assert(detailStart>=0&&detailEnd>detailStart,"mark detail math helper exists");
-const detailFn=vm.runInNewContext('(function(){const array=x=>Array.isArray(x)?x:[];const exportNumber=v=>{const n=Number(String(v??0).replace(/\\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};'+source.slice(detailStart,detailEnd)+';return markDetailData})()', {});
+const detailFn=vm.runInNewContext('(function(){const array=x=>Array.isArray(x)?x:[];const codeText=c=>String(c||"");const countText=(n,a,b,c)=>n+" "+c;const exportNumber=v=>{const n=Number(String(v??0).replace(/\\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};'+source.slice(detailStart,detailEnd)+';return markDetailData})()', {});
 const detailRows=detailFn(
  [{id:101,data:{work_type_id:7,mark:"В1",name:"Связь горизонтальная",qty:36,mounted:36,unit:"тн",unit_volume:0.023}},{id:102,data:{work_type_id:7,mark:"В2",qty:4,mounted:0,unit:"тн",total_volume:0.1}}],
  [{id:7,title:"Монтаж металлоконструкций",data:{project_code:"041-2025 КМД"}}],
@@ -83,7 +83,7 @@ assert(source.includes(".ir-export-work-tabs{box-sizing:border-box!important;dis
 const groupStart=source.indexOf(" function markProgressGroups(");
 const groupEnd=source.indexOf(" function markProgressRow(",groupStart);
 assert(groupStart>=0&&groupEnd>groupStart,"pure mark grouping code exists");
-const groupCalc=vm.runInNewContext('(function(){const array=x=>Array.isArray(x)?x:[];const exportNumber=v=>{const n=Number(String(v??0).replace(/\\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};'+source.slice(groupStart,groupEnd)+';return markProgressGroups})()', {});
+const groupCalc=vm.runInNewContext('(function(){const array=x=>Array.isArray(x)?x:[];const codeText=c=>String(c||"");const countText=(n,a,b,c)=>n+" "+c;const exportNumber=v=>{const n=Number(String(v??0).replace(/\\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};'+source.slice(groupStart,groupEnd)+';return markProgressGroups})()', {});
 const sampleGroups=groupCalc(
  [{id:101,data:{work_type_id:"7",qty:5,mark:"Б1"}},{id:102,data:{work_type_id:"7",qty:3,mark:"Б2"}},{id:103,data:{work_type_id:"8",qty:2,mark:"К1"}}],
  [{id:7,title:"Монтаж балок",data:{project_code:"КМ-01"}},{id:8,title:"Монтаж колонн",data:{project_code:"КМ-02"}}],
@@ -180,7 +180,7 @@ const cardEnd=source.indexOf(" function renderMarkSection(",cardStart);
 assert(cardStart>=0&&cardEnd>cardStart,"render helpers can be executed independently");
 const renderCards=vm.runInNewContext(
  '(function(){'+
- 'const array=x=>Array.isArray(x)?x:[];'+
+ 'const array=x=>Array.isArray(x)?x:[];const codeText=c=>String(c||"");const countText=(n,a,b,c)=>n+" "+c;'+
  'const exportNumber=v=>{const n=Number(v);return Number.isFinite(n)?n:0};'+
  'const exportFormat=v=>String(v);'+
  'const workLabel=v=>String(v??" ");'+
@@ -360,7 +360,7 @@ assert(source.includes('.ir-export-companies-grid{display:grid!important;grid-te
 assert(source.includes('.ir-export-companies-two .ir-export-companies-grid{grid-template-columns:repeat(2,minmax(0,1fr))'),"contractor mode displays two balanced columns");
 const brandStart=source.indexOf(" function companyHeaderHtml("),brandEnd=source.indexOf(" function sidebarHtml(",brandStart);
 assert(brandStart>=0&&brandEnd>brandStart,"standalone brand helpers can be tested");
-const brandFns=vm.runInNewContext('(function(){const esc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");const array=x=>Array.isArray(x)?x:[];'+source.slice(brandStart,brandEnd)+';return {companyHeaderHtml,redactCompanyIdentity}})()', {});
+const brandFns=vm.runInNewContext('(function(){const esc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");const array=x=>Array.isArray(x)?x:[];const codeText=c=>String(c||"");const countText=(n,a,b,c)=>n+" "+c;'+source.slice(brandStart,brandEnd)+';return {companyHeaderHtml,redactCompanyIdentity}})()', {});
 const companies={customerName:'АО "Заказчик"',contractorName:'ТОО "Генподрядчик"',ownName:'ТОО "А-Темир Строй"',
  customerLogo:"data:image/png;base64,QQ==",contractorLogo:"data:image/png;base64,Qg==",ownLogo:"data:image/png;base64,Qw==",underContractor:false};
 const regular=brandFns.companyHeaderHtml(companies);
@@ -369,9 +369,9 @@ assert(regular.indexOf("Заказчик")<regular.indexOf("Генподрядч
 assert(regular.includes("А-Темир Строй")&&regular.includes("data:image/png;base64,Qw=="),"owner name and logo are embedded after contractor");
 
 assert(regular.indexOf('ir-export-company-logo')<regular.indexOf('ir-export-company-meta'),"logo leads company name in a horizontal card");
-assert(source.includes('primary=["scheme","schedule","deliveries","reports","marks","photos"]'),"main export menu uses the requested sections");
+assert(source.includes('primary=["schedule","deliveries","reports","marks","photos"]'),"main export menu uses the requested sections");
 assert(source.includes('primary.map(key=>item(key)).join("")'),"selected sections have direct menu anchors");
-assert(source.includes('key==="deliveries"?"Поставки и монтаж"')&&source.includes('key==="marks"?"Ведомость / марки"'),"navigation labels match the reference");
+assert(source.includes('key==="deliveries"?"Poставки и монтаж"')||source.includes('const name=key=>key==="deliveries"?"Поставки и монтаж":labels[key]'),"navigation labels in full (06.11.2026: «в меню не сокращая наименования»)");
 assert(source.includes('const workPeriod=exportWorkPeriod(scheduleRows)')&&source.includes('api.section("schedule").list().catch('),"export reads actual start/end dates from work schedule");
 assert(!source.includes('Установленная мощность')&&!source.includes('const power=found?'),"installed capacity card is removed from archive masthead");
 assert(source.includes('ir-export-company-meta')&&source.includes('ir-export-hero-facts'),"company strip and project fact cells present");
@@ -433,7 +433,7 @@ assert(source.includes('hero.querySelector(".object-hero-copy h1")'),"banner get
 assert(source.includes('hero.querySelector(".object-hero-info-item.location b")'),"banner gets object's real location");
 const periodStart=source.indexOf(" function exportWorkPeriod("),periodEnd=source.indexOf(" function snapshot(",periodStart);
 assert(periodStart>=0&&periodEnd>periodStart,"work schedule period calculator is available");
-const periodFn=vm.runInNewContext('(function(){const array=x=>Array.isArray(x)?x:[];'+source.slice(periodStart,periodEnd)+';return exportWorkPeriod})()', {});
+const periodFn=vm.runInNewContext('(function(){const array=x=>Array.isArray(x)?x:[];const codeText=c=>String(c||"");const countText=(n,a,b,c)=>n+" "+c;'+source.slice(periodStart,periodEnd)+';return exportWorkPeriod})()', {});
 assert.equal(periodFn([{data:{start_date:"2026-08-20",end_date:"2026-10-02"}},{data:{start_date:"2026-02-15",end_date:"2026-11-30"}},{data:{start_date:"2026-03-04",end_date:"2026-07-10"}}]),"15.02.2026 — 30.11.2026","overall period uses earliest work start and latest work finish");
 assert.equal(periodFn([{data:{start_date:"2026-02-15",end_date:""}},{data:{start_date:"",end_date:"2026-11-30"}}]),"15.02.2026 — 30.11.2026","partial entries contribute valid dates");
 assert.equal(periodFn([{data:{start_date:"",end_date:""}}]),"","missing schedule dates do not fabricate a period");
@@ -628,7 +628,7 @@ assert(source.includes('select.addEventListener("change",update)')&&source.inclu
 {
  const first=source.indexOf(" function reportMarkNames("),last=source.indexOf(" function reportFull(",first);
  assert(first>0&&last>first,"isolatable mark name lookup");
- const helpers=vm.runInNewContext('(function(){const array=x=>Array.isArray(x)?x:[];const esc=v=>String(v??"");'+source.slice(first,last)+';return {reportMarkNames,reportMarkLabel}})()', {});
+ const helpers=vm.runInNewContext('(function(){const array=x=>Array.isArray(x)?x:[];const codeText=c=>String(c||"");const countText=(n,a,b,c)=>n+" "+c;const esc=v=>String(v??"");'+source.slice(first,last)+';return {reportMarkNames,reportMarkLabel}})()', {});
  const index=helpers.reportMarkNames([{id:101,data:{work_type_id:"7",project_code:"КМ",mark:"B144",name:"Балка покрытия"}}]);
  assert(helpers.reportMarkLabel({work_type_id:"7",project_code:"КМ",mark_id:"101",mark:"B144"},index).includes("Балка покрытия"),"archive resolves mark name from mark_id");
  assert(!helpers.reportMarkLabel({work_type_id:"8",project_code:"СП",mark:"B144"},index).includes("Балка покрытия"),"fallback never uses unrelated work mark");
@@ -637,7 +637,7 @@ assert(source.includes('select.addEventListener("change",update)')&&source.inclu
  const begin=source.indexOf(" function markDetailData("),end=source.indexOf(" function renderMarkCards(",begin);
  const trendStart=source.indexOf(" function renderExportTrend("),trendEnd=source.indexOf(" function renderSection(",trendStart);
  assert(begin>=0&&end>begin&&trendStart>=0&&trendEnd>trendStart,"work and trend renderers found");
- const base='const array=x=>Array.isArray(x)?x:[];const esc=v=>String(v??"");const exportNumber=v=>Number(v)||0;const exportFormat=v=>String(Number((Number(v)||0).toFixed(4)));const exportDate=v=>v;const reportService=w=>w.accounting_type==="service"||w.is_service===true||w.unit==="услуга";const reportVolume=w=>Number(w.volume??(Number(w.qty)*Number(w.unit_volume))??0)||0;const workLabel=v=>v;';
+ const base='const array=x=>Array.isArray(x)?x:[];const codeText=c=>String(c||"");const countText=(n,a,b,c)=>n+" "+c;const esc=v=>String(v??"");const exportNumber=v=>Number(v)||0;const exportFormat=v=>String(Number((Number(v)||0).toFixed(4)));const exportDate=v=>v;const reportService=w=>w.accounting_type==="service"||w.is_service===true||w.unit==="услуга";const reportVolume=w=>Number(w.volume??(Number(w.qty)*Number(w.unit_volume))??0)||0;const workLabel=v=>v;';
  const api=vm.runInNewContext('(function(){'+base+source.slice(begin,end)+source.slice(trendStart,trendEnd)+';return {renderExportTrend,renderExportWorkTypes}})()', {});
  const works=[{id:7,data:{work_type:"Монтаж металлоконструкций",project_code:"КМ",unit:"тн"}}];
  const marks=[{id:101,data:{work_type_id:"7",project_code:"КМ",mark:"B144",name:"Балка",qty:2,unit_volume:0.3,unit:"тн"}}];
@@ -675,7 +675,7 @@ assert(extras.schemeViewer.toString().includes("member.status"),"current mark st
 {
  const start=source.indexOf(" function reportAdditionalWorks("),end=source.indexOf(" function reportFull(",start);
  assert(start>0&&end>start,"standalone additional works renderer exists");
- const fn=vm.runInNewContext('(function(){const array=x=>Array.isArray(x)?x:[];const esc=v=>String(v??"");'+source.slice(start,end)+';return reportAdditionalWorks})()', {});
+ const fn=vm.runInNewContext('(function(){const array=x=>Array.isArray(x)?x:[];const codeText=c=>String(c||"");const countText=(n,a,b,c)=>n+" "+c;const esc=v=>String(v??"");'+source.slice(start,end)+';return reportAdditionalWorks})()', {});
  const html=fn({additional_works:[{name:"Дополнительная сварка",qty:"5",unit:"м",volume:"8.5"}]});
  assert(html.includes("Дополнительная сварка")&&html.includes("5 м")&&html.includes("8.5 м"),"additional work name, quantity and volume are printed");
  assert.equal(fn({additional_works:[]}),"","empty additional work rows are not fabricated");
@@ -716,8 +716,18 @@ assert.equal(typeof extras.axisLabelLayout,"function","the standalone scheme pro
  const s=require("node:fs").readFileSync("src/object-export-html.js","utf8");
  require("node:assert/strict").ok(s.includes('#section-scheme.ir-export-group:not(:target){display:none!important}'),"no montage scheme on the main page");
  require("node:assert/strict").ok(s.includes(':has(#section-scheme:target) #app>:not(.ir-export-topnav):not(#section-scheme){display:none!important}'),"the scheme alone under the top bar");
- require("node:assert/strict").ok(s.includes('const name=key=>key==="scheme"?"Монтажная схема"'),"«Монтажная схема» in the top bar");
+ require("node:assert/strict").ok(s.includes('key!=="scheme");')&&s.includes('const name=key=>key==="deliveries"?"Поставки и монтаж":labels[key]||'),"no scheme in the menu (the main page link opens it), names in full");
  require("node:assert/strict").ok(s.includes('"html.ir-dark #app{filter:invert(1) hue-rotate(180deg)}"')&&s.includes('html.ir-dark #app img'),"dark: every text and field, pictures as they are");
  require("node:assert/strict").ok(s.includes('class="ir-export-theme" id="ir-export-theme"')&&s.includes("themeButton+viewerScripts"),"the icon in the top right corner");
  console.log("Object report: scheme page of its own, dark theme by the icon OK");
+}
+// Sections in Russian and as their pages show them (the engineer, 06.11.2026: «название на анг, блоки внутри, сами письма»).
+{
+ const s=require("node:fs").readFileSync("src/object-export-html.js","utf8"),ok=require("node:assert/strict").ok;
+ ok(s.includes('fasteners:"Ведомость метизов","executive-docs":"Исполнительная документация",letters:"Исходящие письма"'),"no English section names");
+ ok(s.includes('key==="letters"?renderLetters(rows):key==="executive-docs"?renderExecDocs(rows,support.workTypes||[]):key==="fasteners"?renderFasteners(rows)'),"letters, acts, fasteners by their own layouts");
+ ok(s.includes("function letterBody(html)")&&s.includes("SCRIPT|STYLE|IFRAME"),"the letter's text without anything that runs");
+ ok(s.includes('const codeText=c=>')&&s.includes('countText(group.positions,"позиция","позиции","позиций")'),"«3 PDF-файла», «126 позиций» said right");
+ ok(!s.includes('["ID",r.id],["Тип",r.record_type]'),"no inner ids in the records");
+ console.log("Object report: sections in Russian, letters, acts, fasteners laid out OK");
 }

@@ -2,7 +2,12 @@
 /* Self-contained read-only HTML object archive. Source DB is never changed. */
 (()=>{
  const workLabel=(v,context="base")=>window.irWorkNames?.format?.(v,context)||String(v??"");
- const labels={overview:"Обзор объекта",reports:"Ежедневные отчёты","extra-works":"Дополнительные работы","work-types":"Виды работ",marks:"Ведомость марок",deliveries:"Поставки",schedule:"График работ",photos:"Фотографии объекта",scheme:"Монтажная схема","acted-days":"Актированные дни",penalties:"Штрафы",finance:"Финансы"};
+ const labels={overview:"Обзор объекта",reports:"Ежедневные отчёты","extra-works":"Дополнительные работы","work-types":"Виды работ",marks:"Ведомость марок",deliveries:"Поставки",schedule:"График работ",photos:"Фотографии объекта",scheme:"Монтажная схема","acted-days":"Актированные дни",penalties:"Штрафы",finance:"Финансы",fasteners:"Ведомость метизов","executive-docs":"Исполнительная документация",letters:"Исходящие письма",trash:"Корзина","ai-recognition":"ИИ-распознавание"};
+ // Russian counting words: 1 запись, 2 записи, 5 записей.
+ const plural=(n,one,few,many)=>{const a=Math.abs(Math.round(Number(n)||0)),t=a%100,u=a%10;return t>10&&t<20?many:u===1?one:u>=2&&u<=4?few:many};
+ const countText=(n,one,few,many)=>n+" "+plural(n,one,few,many);
+ // A work type made by the recognition of drawings carries «3 PDF-файлов» for its code: said right.
+ const codeText=c=>{const m=String(c||"").match(/^(\d+) PDF-файл\S*$/);return m?countText(+m[1],"PDF-файл","PDF-файла","PDF-файлов"):String(c||"")};
  const fields={mark:"Марка",name:"Наименование",title:"Наименование",date:"Дата",report_date:"Дата отчёта",type:"Тип",work_type:"Вид работы",work_type_id:"ID вида работ",project_code:"Шифр",code:"Шифр",qty:"Кол-во",count:"Кол-во",unit:"Ед. изм.",unit_volume:"Объём 1 ед.",total_volume:"Общий объём",total_value:"Общий объём",volume:"Объём",status:"Статус",note:"Примечание",extra:"Дополнительная информация",address:"Адрес",start_date:"Начало",end_date:"Окончание",weather:"Погода",temperature:"Температура",wind:"Ветер",workers:"Работники",responsible:"Ответственные",equipment:"Техника",items:"Выполненные работы",works:"Выполненные работы",photos:"Фотографии",mark_id:"ID марки",created_at:"Создано",updated_at:"Изменено",record_type:"Тип записи",parent_id:"Родительская запись"};
  const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  const array=x=>Array.isArray(x)?x:[];
@@ -76,7 +81,8 @@
    const d=r.data||{},entries=Object.entries(d).filter(([k,v])=>!k.startsWith("__")&&v!==undefined);
    const heading=rowHeading(r,i,key);
    const pills=[d.date||d.report_date,d.project_code||d.code,d.qty!=null?"Кол-во: "+d.qty:null,d.status].filter(Boolean);
-   const details=[["ID",r.id],["Тип",r.record_type],...entries];
+   // (no inner ids and record types — the engineer, 06.11.2026: «блоки внутри … оформи как положенно»)
+   const details=entries.filter(([k,v])=>!/(^id$|_id$|^record_type$|^file_?path$)/i.test(k)&&v!==null&&v!==""&&!(Array.isArray(v)&&!v.length));
    return'<article class="ir-export-record"><details><summary><span class="ir-export-row-no">'+(i+1)+'</span><span class="ir-export-row-title">'+esc(heading)+'</span><span class="ir-export-row-meta">'+pills.map(v=>'<small>'+esc(v)+'</small>').join("")+'</span></summary><div class="ir-export-details">'+details.map(([name,value])=>'<div class="ir-export-detail"><b>'+esc(label(name))+'</b><div>'+fieldHtml(name,value,images)+'</div></div>').join("")+'</div></details></article>'
   }).join("")+"</div>"
  }
@@ -289,8 +295,8 @@
   const mounted=group.mountedPct,remaining=group.remainingPct;
   const pct=v=>exportFormat(Math.round(v*10)/10)+"%";
   return'<article class="ir-export-mark-row">'+
-   '<div class="ir-export-mark-name"><b>'+esc(group.name)+'</b><small>'+group.positions+' позиций</small></div>'+
-   '<div class="ir-export-mark-code"><b>'+esc(group.code||"Без шифра")+'</b>'+(group.code2?'<small>Доп. шифр: '+esc(group.code2)+'</small>':"")+'</div>'+
+   '<div class="ir-export-mark-name"><b>'+esc(group.name)+'</b><small>'+esc(countText(group.positions,"позиция","позиции","позиций"))+'</small></div>'+
+   '<div class="ir-export-mark-code"><b>'+esc(codeText(group.code)||"Без шифра")+'</b>'+(group.code2?'<small>Доп. шифр: '+esc(group.code2)+'</small>':"")+'</div>'+
    '<div class="ir-export-mark-count"><b>'+esc(exportFormat(group.total))+'</b><small>шт.</small></div>'+
    '<div class="ir-export-mark-progress" role="img" aria-label="Смонтировано '+esc(pct(mounted))+'"><div class="ir-export-mark-track"><i style="width:'+mounted.toFixed(2)+'%"></i></div><small>'+esc(pct(mounted))+' готовность</small></div>'+
    '<div class="ir-export-mark-fact"><b>'+esc(exportFormat(group.mounted))+' шт.</b><small>'+esc(pct(mounted))+'</small></div>'+
@@ -378,7 +384,7 @@
       '<div class="ir-export-mark-specs">'+
        '<div><small>Наименование</small><b>'+esc(m.name||"—")+'</b></div>'+
        '<div><small>Вид работы</small><b>'+esc(workLabel(m.work))+'</b></div>'+
-       '<div><small>Шифр</small><b>'+esc(m.code||"—")+'</b>'+(m.code2?'<small>Доп. шифр: '+esc(m.code2)+'</small>':"")+'</div>'+
+       '<div><small>Шифр</small><b>'+esc(codeText(m.code)||"—")+'</b>'+(m.code2?'<small>Доп. шифр: '+esc(m.code2)+'</small>':"")+'</div>'+
        '<div><small>'+esc(unitName)+' 1 шт.</small><b>'+esc(exportFormat(m.uv))+' '+esc(unit)+'</b></div>'+
        '<div><small>'+esc(unitName)+' всего</small><b>'+esc(exportFormat(m.total))+' '+esc(unit)+'</b></div>'+
       '</div>'+
@@ -469,7 +475,7 @@
     '<div class="trend-delta '+(delta>0?"up":delta<0?"down":"flat")+'"><span>К предыдущему отчёту</span><b>'+esc(prev?(delta>0?"+":"")+exportFormat(delta)+" "+unit:"—")+'</b></div></div>'+
     '<div class="schedule-trend-chart daily-volume-chart"><div class="daily-volume-scroll"><svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" aria-label="Объёмы '+esc(work.name)+' по дням"><line class="daily-grid" x1="'+L+'" y1="'+T+'" x2="'+(W-R)+'" y2="'+T+'"></line><line class="daily-grid" x1="'+L+'" y1="'+(T+ih/2)+'" x2="'+(W-R)+'" y2="'+(T+ih/2)+'"></line><line class="daily-grid" x1="'+L+'" y1="'+(H-B)+'" x2="'+(W-R)+'" y2="'+(H-B)+'"></line><text class="daily-axis" x="4" y="'+(T+4)+'">'+esc(exportFormat(maxY))+'</text><text class="daily-axis" x="4" y="'+(H-B+4)+'">0</text>'+bars+line+'</svg></div></div></div>'
   }).join("");
-  const options=types.map((g,i)=>'<option value="'+i+'">'+esc(workLabel(g.work.name,"mount"))+(g.work.code?" · "+esc(g.work.code):"")+'</option>').join("");
+  const options=types.map((g,i)=>'<option value="'+i+'">'+esc(workLabel(g.work.name,"mount"))+(g.work.code?" · "+esc(codeText(g.work.code)):"")+'</option>').join("");
   return'<div class="schedule-trend ir-export-trend"><div class="schedule-trend-head"><div><b>Динамика по ежедневным отчётам</b><span>Фактический объём выбранного вида работ по дням</span></div><select class="schedule-trend-select" data-export-trend-select aria-label="Выберите вид работы">'+options+'</select></div>'+panels+'</div>'
  }
  function renderExportWorkTypes(rows,markRows,reportRows){
@@ -499,23 +505,87 @@
   });
   for(const w of display)(w.category==="other"?other:main).push(w);
   const tableHead='<div class="ir-export-wt-head"><span>Вид работы</span><span>Шифр проекта</span><span>Ед. изм.</span><span>Общий объём</span><span>Готовность</span></div>';
-  const table=items=>tableHead+(items.length?items.map(w=>'<div class="ir-export-wt-row"><div><small>Вид работы</small><b>'+esc(workLabel(w.name))+'</b></div><div><small>Шифр проекта</small><b>'+esc(w.category==="other"?"—":w.code||"—")+'</b></div><div><small>Ед. изм.</small><b>'+esc(w.unit)+'</b></div><div><small>Общий объём</small><b>'+(w.service?"Не требуется":w.plan>0?esc(exportFormat(w.plan))+" "+esc(w.unit):"—")+'</b><small>'+esc(w.service?"Без ведомости марок":w.note)+'</small></div><div class="ir-export-wt-ready"><small>Готовность</small>'+(w.service?'<b>'+esc(w.note)+'</b>':w.plan>0?'<b>'+exportFormat(Math.round(w.ready*10)/10)+'%</b><i class="ir-export-wt-track"><em style="width:'+w.ready.toFixed(2)+'%"></em></i>':'<b>—</b>')+'</div></div>').join(""):'<div class="ir-export-wt-empty">Виды работ не добавлены</div>');
+  const table=items=>tableHead+(items.length?items.map(w=>'<div class="ir-export-wt-row"><div><small>Вид работы</small><b>'+esc(workLabel(w.name))+'</b></div><div><small>Шифр проекта</small><b>'+esc(w.category==="other"?"—":codeText(w.code)||"—")+'</b></div><div><small>Ед. изм.</small><b>'+esc(w.unit)+'</b></div><div><small>Общий объём</small><b>'+(w.service?"Не требуется":w.plan>0?esc(exportFormat(w.plan))+" "+esc(w.unit):"—")+'</b><small>'+esc(w.service?"Без ведомости марок":w.note)+'</small></div><div class="ir-export-wt-ready"><small>Готовность</small>'+(w.service?'<b>'+esc(w.note)+'</b>':w.plan>0?'<b>'+exportFormat(Math.round(w.ready*10)/10)+'%</b><i class="ir-export-wt-track"><em style="width:'+w.ready.toFixed(2)+'%"></em></i>':'<b>—</b>')+'</div></div>').join(""):'<div class="ir-export-wt-empty">Виды работ не добавлены</div>');
   return'<div class="ir-export-wt"><input type="radio" class="ir-export-wt-radio" id="ir-export-wt-main" name="ir-export-wt-group" checked><input type="radio" class="ir-export-wt-radio" id="ir-export-wt-other" name="ir-export-wt-group"><div class="ir-export-wt-tabs"><label for="ir-export-wt-main">Монтаж / изготовление <span>'+main.length+'</span></label><label for="ir-export-wt-other">Другие виды работ <span>'+other.length+'</span></label></div><div class="ir-export-wt-list ir-export-wt-main">'+table(main)+'</div><div class="ir-export-wt-list ir-export-wt-other">'+table(other)+'</div></div>'
  }
 
+ // ---- Letters, executive documents and fasteners as their pages show them, not as raw records (the engineer,
+ // 06.11.2026: «название на анг, блоки внутри, сами письма и тд оформи как положенно»).
+ const own=(rows,type)=>rows.filter(r=>r.record_type===type);
+ function sectionCount(key,rows){
+  if(key==="letters")return countText(own(rows,"letter").length,"письмо","письма","писем");
+  if(key==="fasteners")return countText((own(rows,"fastener").length?own(rows,"fastener"):rows.filter(r=>r.record_type!=="settings")).length,"позиция","позиции","позиций");
+  if(key==="executive-docs")return countText(own(rows,"issued").length,"акт","акта","актов");
+  return countText(rows.length,"запись","записи","записей")
+ }
+ // A letter's text as written, without anything that runs or loads (the report opens offline).
+ function letterBody(html){
+  try{
+   const doc=new DOMParser().parseFromString("<div>"+String(html||"")+"</div>","text/html"),root=doc.body.firstChild;
+   const okTags=new Set(["P","BR","B","STRONG","I","EM","U","S","UL","OL","LI","TABLE","THEAD","TBODY","TR","TD","TH","DIV","SPAN","H1","H2","H3","H4","BLOCKQUOTE","HR","A","SUB","SUP"]);
+   const walk=n=>{[...n.childNodes].forEach(c=>{
+    if(c.nodeType===1){
+     if(!okTags.has(c.tagName)){c.replaceWith(doc.createTextNode(/^(SCRIPT|STYLE|IFRAME|OBJECT|EMBED|IMG|SVG|NOSCRIPT|TEMPLATE)$/.test(c.tagName)?"":c.textContent));return}
+     [...c.attributes].forEach(a=>{if(!/^(colspan|rowspan|href)$/i.test(a.name)||(a.name.toLowerCase()==="href"&&!/^(https?:|mailto:)/i.test(a.value)))c.removeAttribute(a.name)});walk(c)
+    }else if(c.nodeType!==3)c.remove()})};
+   walk(root);return root.innerHTML.trim()
+  }catch{return esc(String(html||"").replace(/<[^>]*>/g," "))}
+ }
+ const pair=(k,v)=>v?'<div class="ir-export-detail"><b>'+esc(k)+'</b><div><span class="ir-export-value">'+esc(v)+'</span></div></div>':"";
+ function renderLetters(rows){
+  const list=own(rows,"letter").sort((a,b)=>String(b.data?.date||"").localeCompare(String(a.data?.date||""))||String(b.data?.number||"").localeCompare(String(a.data?.number||""),"ru",{numeric:true}));
+  if(!list.length)return'<div class="ir-export-empty-card">Писем нет</div>';
+  return'<div class="ir-export-records ir-export-letters">'+list.map((r,i)=>{
+   const d=r.data||{},sent=array(d.sent),last=sent[sent.length-1];
+   const head="Исх. № "+(d.number||"—")+(d.date?" от "+exportDate(d.date):"");
+   const status=last?'<small class="ir-export-letter-sent">Отправлено '+esc(exportDate(String(last.at||"").slice(0,10)))+'</small>':'<small class="ir-export-letter-draft">Не отправлено</small>';
+   const body=letterBody(d.html);
+   return'<article class="ir-export-record"><details><summary><span class="ir-export-row-no">'+(i+1)+'</span><span class="ir-export-row-title">'+esc(head)+(d.title?'<em class="ir-export-letter-subject">'+esc(d.title)+'</em>':"")+'</span><span class="ir-export-row-meta">'+(d.to?'<small>'+esc(d.to)+'</small>':"")+status+'</span></summary>'+
+    '<div class="ir-export-details">'+pair("Кому",d.to)+pair("Эл. почта",d.email)+pair("Копия",d.cc)+pair("Тема",d.title)+
+    (d.reply_number?pair("В ответ на","№ "+d.reply_number+(d.reply_date?" от "+exportDate(d.reply_date):"")):"")+
+    '<div class="ir-export-letter-text">'+(body||'<span class="ir-export-empty">Текст письма не заполнен</span>')+'</div>'+
+    pair("Подпись",[d.sign_position,d.sign_name].filter(Boolean).join(" — "))+pair("Исполнитель",d.executor)+
+    (sent.length?pair("Отправки",sent.map(x=>exportDate(String(x.at||"").slice(0,10))+" → "+(x.to||"")+(x.cc?" (копия: "+x.cc+")":"")).join("; ")):"")+
+    '</div></details></article>'
+  }).join("")+'</div>'
+ }
+ function renderExecDocs(rows,workRows){
+  const issued=own(rows,"issued").sort((a,b)=>String(b.data?.date||"").localeCompare(String(a.data?.date||""))),certs=own(rows,"certificate"),surveys=own(rows,"survey");
+  const workName=id=>{const w=workRows.find(x=>String(x.id)===String(id));return w?String(w.data?.work_type||w.title||""):""};
+  const block=(title,count,html)=>'<div class="ir-export-exd-block"><h3>'+esc(title)+' <small>'+esc(count)+'</small></h3>'+html+'</div>';
+  const signedOf=d=>d.signed&&array(d.signed.scans).length?d.signed:null;
+  const nSigned=issued.filter(r=>signedOf(r.data||{})).length;
+  const acts=issued.length?'<div class="ir-export-table-wrap"><table class="ir-export-table"><thead><tr><th>№</th><th>Акт</th><th>Период работ</th><th>Вид работ</th><th>Подписание</th></tr></thead><tbody>'+issued.map((r,i)=>{const d=r.data||{},sg=signedOf(d);
+   return'<tr><td>'+(i+1)+'</td><td><b>'+esc((d.name||r.title||"Акт")+(d.number?" № "+d.number:""))+'</b>'+(d.date?'<small>от '+esc(exportDate(d.date))+'</small>':"")+'</td><td>'+esc(d.from||d.to?exportDate(d.from)+" — "+exportDate(d.to):"—")+'</td><td>'+esc(d.work_type||workName(d.work_type_id)||"—")+'</td><td>'+(sg?'<span class="ir-export-ok">Подписан всеми'+(sg.date?" "+esc(exportDate(sg.date)):"")+'</span>':'<span class="ir-export-warn">Не подписан</span>')+'</td></tr>'}).join("")+'</tbody></table></div>':'<div class="ir-export-empty-card">Акты ещё не выгружались</div>';
+  const certText=x=>[x.kind||"Сертификат",x.number?"№ "+x.number:"",x.date?"от "+exportDate(x.date):"",x.supplier?"("+x.supplier+")":""].filter(Boolean).join(" ");
+  const certHtml=certs.length?'<div class="ir-export-table-wrap"><table class="ir-export-table"><thead><tr><th>№</th><th>Материал / изделие</th><th>Документ о качестве</th></tr></thead><tbody>'+certs.map((r,i)=>{const d=r.data||{},docs=array(d.docs);
+   return'<tr><td>'+(i+1)+'</td><td><b>'+esc(d.title||r.title||"—")+'</b></td><td>'+(docs.length?esc(docs.map(certText).join("; ")):'<span class="ir-export-warn">не загружен</span>')+'</td></tr>'}).join("")+'</tbody></table></div>':'<div class="ir-export-empty-card">Сертификаты не загружены</div>';
+  const surveyHtml=surveys.length?'<div class="ir-export-table-wrap"><table class="ir-export-table"><thead><tr><th>№</th><th>Съёмка</th><th>Дата</th><th>Оси</th><th>Вид работ</th><th>Марки</th></tr></thead><tbody>'+surveys.map((r,i)=>{const d=r.data||{};
+   return'<tr><td>'+(i+1)+'</td><td><b>'+esc((d.title||r.title||"Съёмка")+(d.number?" № "+d.number:""))+'</b>'+(d.surveyor?'<small>'+esc(d.surveyor)+'</small>':"")+'</td><td>'+esc(d.date?exportDate(d.date):"—")+'</td><td>'+esc(Array.isArray(d.axes)?d.axes.join(", "):d.axes||"—")+'</td><td>'+esc(workName(d.work_type_id)||"—")+'</td><td>'+esc(d.marks||"—")+'</td></tr>'}).join("")+'</tbody></table></div>':"";
+  return'<div class="ir-export-exd"><div class="ir-export-exd-stats"><div><small>Выгружено актов</small><b>'+issued.length+'</b></div><div><small>Подписаны всеми</small><b>'+nSigned+'</b></div><div><small>Ждут подписания</small><b>'+(issued.length-nSigned)+'</b></div></div>'+
+   block("Выгруженные акты",countText(issued.length,"акт","акта","актов"),acts)+block("Сертификаты и документы о качестве",countText(certs.length,"позиция","позиции","позиций"),certHtml)+
+   (surveys.length?block("Исполнительные съёмки",countText(surveys.length,"съёмка","съёмки","съёмок"),surveyHtml):"")+'</div>'
+ }
+ function renderFasteners(rows){
+  const list=own(rows,"fastener").length?own(rows,"fastener"):rows.filter(r=>r.record_type!=="settings");
+  if(!list.length)return'<div class="ir-export-empty-card">Метизы не внесены</div>';
+  return'<div class="ir-export-table-wrap"><table class="ir-export-table"><thead><tr><th>№</th><th>Обозначение</th><th>Ø, мм</th><th>Длина, мм</th><th>Класс прочности</th><th>Кол-во, шт.</th><th>Марки</th></tr></thead><tbody>'+list.map((r,i)=>{const d=r.data||{};
+   return'<tr><td>'+(i+1)+'</td><td><b>'+esc(d.text||r.title||"—")+'</b>'+(d.note?'<small>'+esc(d.note)+'</small>':"")+'</td><td>'+esc(d.d_mm??"—")+'</td><td>'+esc(d.length_mm??"—")+'</td><td>'+esc(d.strength_class||"—")+'</td><td>'+esc(d.qty??"по маркам")+'</td><td>'+esc(d.marks||"—")+'</td></tr>'}).join("")+'</tbody></table></div>'
+ }
  function renderSection(key,rows,images,preview="",support={}){
   const extras=window.irObjectExportExtras;
   const body=key==="reports"?renderDailyReports(rows,images,support.markNames):key==="work-types"?renderExportWorkTypes(rows,support.marks||[],support.reports||[]):key==="marks"?renderMarkSection(rows,support.workTypes||[],support.reports||[],images):
    key==="deliveries"?extras.deliveries(rows):key==="photos"?extras.recentPhotos(support.reports||[],images):
-   key==="scheme"?extras.schemeHtml(extras.schemeData(rows,support.schemeDetails||[])):["schedule","acted-days","penalties"].includes(key)?"":renderRows(rows,key,images);
+   key==="scheme"?extras.schemeHtml(extras.schemeData(rows,support.schemeDetails||[])):["schedule","acted-days","penalties"].includes(key)?"":
+   key==="letters"?renderLetters(rows):key==="executive-docs"?renderExecDocs(rows,support.workTypes||[]):key==="fasteners"?renderFasteners(rows):renderRows(rows,key,images);
   if(["schedule","acted-days","penalties"].includes(key))return'<div class="ir-export-group" id="section-'+esc(key)+'"><section class="ir-export-section ir-export-visual-section"><header class="ir-export-section-head"><h2>'+esc(labels[key]||key)+'</h2></header>'+(preview?'<div class="ir-export-preview">'+preview+'</div>':'<div class="ir-export-empty-card">Нет данных для анализа</div>')+(key==="schedule"?(support.trendHtml||""):"")+'</section></div>';
-  if(key==="work-types")return'<div class="ir-export-group" id="section-work-types"><section class="ir-export-section ir-export-worktypes-section"><header class="ir-export-section-head"><h2>Виды работ</h2><span class="ir-export-count">'+rows.length+' видов</span></header>'+body+'</section></div>';
+  if(key==="work-types")return'<div class="ir-export-group" id="section-work-types"><section class="ir-export-section ir-export-worktypes-section"><header class="ir-export-section-head"><h2>Виды работ</h2><span class="ir-export-count">'+esc(countText(rows.length,"вид","вида","видов"))+'</span></header>'+body+'</section></div>';
   if(key==="marks")return'<div class="ir-export-group" id="section-marks"><section class="ir-export-section ir-export-marks-section">'+body+'</section></div>';
   if(key==="deliveries")return'<div class="ir-export-group" id="section-deliveries"><section class="ir-export-section ir-export-deliveries-unified">'+
    (support.supplyModel?'<div class="ir-export-preview">'+window.irSupplyChart.render(support.supplyModel,{})+'</div>':"")+
    '<div class="ir-export-delivery-register"><header class="ir-export-section-head"><h2>Накладные</h2></header>'+body+'</div></section></div>';
   return'<div class="ir-export-group" id="section-'+esc(key)+'">'+(preview?'<div class="ir-export-preview">'+preview+'</div>':"")+
-   '<section class="ir-export-section"><header class="ir-export-section-head"><div><h2>'+esc(labels[key]||key)+'</h2></div>'+(key==="photos"||key==="scheme"?"":'<span class="ir-export-count">'+rows.length+' записей</span>')+'</header>'+body+'</section></div>'
+   '<section class="ir-export-section"><header class="ir-export-section-head"><div><h2>'+esc(labels[key]||key)+'</h2></div>'+(key==="photos"||key==="scheme"?"":'<span class="ir-export-count">'+esc(sectionCount(key,rows))+'</span>')+'</header>'+body+'</section></div>'
  }
 
  function companyHeaderHtml(parties){
@@ -572,9 +642,11 @@
   const links=originalNav?[...originalNav.querySelectorAll("button[data-key]")]:[];
   const original=key=>links.find(el=>el.dataset.key===key);
   const icon=key=>original(key)?.querySelector(".nav-icon")?.innerHTML||'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="'+({scheme:'M4 20V9l8-5 8 5v11M4 13h16M8 20v-7m8 7v-7M12 4v16',overview:'M3 11 12 4l9 7v10h-6v-7H9v7H3z',schedule:'M3 21h18M6 18V9h3v9m3 0V5h3v13m3 0v-7h3v7',deliveries:'M5 3h13v18H5zM9 8h5m-5 4h5m-5 4h4',reports:'M5 4h14v17H5zM9 9h6m-6 4h6m-6 4h4',marks:'m12 2 9 5v10l-9 5-9-5V7zM3 7l9 5 9-5M12 12v10',photos:'M3 3h18v18H3zM3 17l6-6 4 4 3-3 5 5'}[key]||'M12 3v18M3 12h18')+'"/></svg>';
-  const name=key=>key==="scheme"?"Монтажная схема":key==="deliveries"?"Поставки и монтаж":key==="marks"?"Ведомость / марки":key==="photos"?"Фото":original(key)?.querySelector(".nav-label")?.textContent||labels[key]||key;
-  const primary=["scheme","schedule","deliveries","reports","marks","photos"].filter(key=>keys.includes(key));
-  const other=keys.filter(key=>!primary.includes(key));
+  // (the names in full, as the sections are called — the engineer, 06.11.2026: «в меню не сокращая наименования»)
+  const name=key=>key==="deliveries"?"Поставки и монтаж":labels[key]||original(key)?.querySelector(".nav-label")?.textContent||key;
+  // (no «Монтажная схема» in the menu: the main page opens it by «Открыть монтажную схему» — the engineer, 06.11.2026)
+  const primary=["schedule","deliveries","reports","marks","photos"].filter(key=>keys.includes(key));
+  const other=keys.filter(key=>!primary.includes(key)&&key!=="scheme");
   const item=(key,extra=false)=>'<a class="'+(extra?"ir-export-subnav-link":"ir-export-toplink")+'" href="#section-'+esc(key)+'"><span class="nav-icon" aria-hidden="true">'+icon(key)+'</span><span class="nav-label">'+esc(name(key))+'</span></a>';
   const gear='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2m0-14-2 2M7 17l-2 2"/></svg>';
   return'<nav class="ir-export-topnav" aria-label="Навигация по HTML-отчёту"><div class="ir-export-topnav-inner">'+
@@ -1551,6 +1623,15 @@
     "html.ir-dark #app img,html.ir-dark #app video,html.ir-dark #app picture{filter:invert(1) hue-rotate(180deg)}",
     "html.ir-dark .ir-export-theme{background:#22282f;border-color:#3a434d;color:#e7edf3;box-shadow:0 2px 10px rgba(0,0,0,.5)}",
     "@media(max-width:650px){.ir-export-theme{top:8px;right:8px;width:36px;height:36px}}",
+    ".ir-export-table-wrap{overflow-x:auto;border:1px solid #e3ebf1;border-radius:10px;background:#fff}.ir-export-table{width:100%;border-collapse:collapse;font-size:13px;color:#24435c}",
+    ".ir-export-table th{background:#eef5fb;color:#55708a;font-weight:700;text-align:left;padding:10px 12px;border-bottom:1px solid #dbe6ef;white-space:nowrap}",
+    ".ir-export-table td{padding:10px 12px;border-bottom:1px solid #edf1f4;vertical-align:top}.ir-export-table tr:last-child td{border-bottom:0}.ir-export-table td small{display:block;color:#7a8fa3;font-size:11.5px;margin-top:2px}",
+    ".ir-export-table td:first-child{color:#8aa0b4;width:34px}.ir-export-ok{color:#13895a;font-weight:700}.ir-export-warn{color:#c0612b;font-weight:700}",
+    ".ir-export-exd{display:grid;gap:16px}.ir-export-exd-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.ir-export-exd-stats>div{border:1px solid #e3ebf1;border-radius:10px;background:#fbfdff;padding:10px 14px}",
+    ".ir-export-exd-stats small{display:block;color:#7a8fa3;font-size:12px}.ir-export-exd-stats b{font-size:20px;color:#1f3d55}.ir-export-exd-block h3{margin:0 0 8px;font-size:15px;color:#1f3d55}.ir-export-exd-block h3 small{color:#7a8fa3;font-weight:600;font-size:12px;margin-left:6px}",
+    ".ir-export-letter-subject{display:block;font-style:normal;font-weight:500;color:#5b7389;font-size:12.5px;margin-top:2px}.ir-export-letter-sent{color:#13895a!important}.ir-export-letter-draft{color:#c0612b!important}",
+    ".ir-export-letter-text{margin:10px 0;padding:16px 18px;border:1px solid #e3ebf1;border-radius:10px;background:#fff;font:14px/1.6 'Times New Roman',Georgia,serif;color:#1d2b38;overflow-wrap:anywhere}.ir-export-letter-text p{margin:0 0 8px}.ir-export-letter-text table{border-collapse:collapse}.ir-export-letter-text td,.ir-export-letter-text th{border:1px solid #c9d5df;padding:4px 8px}",
+    "@media(max-width:650px){.ir-export-exd-stats{grid-template-columns:1fr}.ir-export-table{font-size:12px}.ir-export-table th,.ir-export-table td{padding:8px}}",
     "@media print{.ir-export-theme{display:none}html.ir-dark #app,html.ir-dark #app img{filter:none}html.ir-dark,html.ir-dark body{background:#fff!important}html body.ir-object-overview #app #section-scheme.ir-export-group:not(:target){display:block!important}}"
    ].join("\n");
    const extras=window.irObjectExportExtras;
