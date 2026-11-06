@@ -1824,8 +1824,9 @@
      // «Disallowed by permissions policy» — the engineer, 06.11.2026; where the screen is not given, the frame covers the window)
      'd.addEventListener("click",function(e){if(!e.target||!e.target.closest||!e.target.closest("#full"))return;e.stopImmediatePropagation();e.preventDefault();if(document.fullscreenElement){document.exitFullscreen().catch(function(){});return}if(document.body.classList.contains("ir-scheme-max")){document.body.classList.remove("ir-scheme-max");return}var go=box.requestFullscreen?box.requestFullscreen():Promise.reject();go.catch(function(){document.body.classList.add("ir-scheme-max")})},true);'+
      'd.addEventListener("pointerdown",function(){[].forEach.call(document.querySelectorAll(".ir-export-topnav details[open]"),function(x){x.removeAttribute("open")})},true);var st=d.createElement("style");st.id="ir-embed";st.textContent='+JSON.stringify(EMBED_CSS)+';d.head.appendChild(st);'+
-     'window.__irSchemeTheme=('+exportTheme.toString()+')(d,{scope:""});window.__irSchemeSync&&window.__irSchemeSync()});'+
-     'f.srcdoc=JSON.parse(src.textContent);box.textContent="";box.appendChild(f)}'+
+     'window.__irSchemeTheme=('+exportTheme.toString()+')(d,{scope:""});window.__irSchemeSync&&window.__irSchemeSync();f.style.visibility=""});'+
+     'var page=JSON.parse(src.textContent),dk=document.documentElement.classList.contains("ir-dark");if(dk){f.style.visibility="hidden";page=page.replace(/<head>/i,function(h){return h+\'<script nonce="'+nonce+'">window.__irBg="dark"<\\/script><style>html,body{background:#0f1317!important}</style>\'})}'+
+     'f.srcdoc=page;box.textContent="";box.appendChild(f)}'+
      // (the theme of the report given to the scheme: its page and its 3D background — once the 3D button is there)
      'window.__irSchemeSync=function(){var d=f&&f.contentDocument,T=window.__irSchemeTheme;if(!d||!T)return;var dark=document.documentElement.classList.contains("ir-dark");'+
      'T.light();if(dark)T.dark();d.documentElement.classList.toggle("ir-dark",dark);var b=d.getElementById("bgBtn"),tries=0,bg=function(){b=d.getElementById("bgBtn");var w=d.defaultView;dark=document.documentElement.classList.contains("ir-dark");if(b&&(b.getAttribute("aria-pressed")==="true")!==dark)b.click();if((!b||!w||w.__irOk===undefined)&&tries++<300)setTimeout(bg,200)};bg()};'+
