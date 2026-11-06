@@ -3,7 +3,7 @@
 html,body{height:100%;margin:0}
 body{display:flex;flex-direction:column;min-width:760px;overflow:hidden;font-family:Inter,"Segoe UI",Arial,sans-serif;background:#f4f6f9;color:#263c50}
 button{font-family:inherit}
-.tabs-bar{height:43px;min-height:43px;background:#f3f6fa;display:flex;align-items:center;gap:8px;padding:0 141px 0 9px;border-bottom:1px solid #dce5ee;-webkit-app-region:drag;user-select:none}
+.tabs-bar{height:43px;min-height:43px;background:#f7f7f7;display:flex;align-items:center;gap:8px;padding:0 141px 0 9px;border-bottom:1px solid #dce5ee;-webkit-app-region:drag;user-select:none}
 .tabs-list{display:flex;flex:1 1 auto;align-items:center;gap:6px;min-width:0;height:100%;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:#bfd0e0 transparent;-webkit-app-region:no-drag}
 .tabs-item{flex:0 1 225px;min-width:122px;max-width:245px;height:34px;display:flex;align-items:center;gap:8px;padding:0 5px 0 8px;border:1px solid #d9e4ee;border-radius:8px;background:#e8eef5;color:#5e778d;cursor:pointer;text-align:left;font-size:11px;transition:background .14s,border-color .14s;-webkit-app-region:no-drag}
 .tabs-item:hover{background:#e0ecf9;color:#24445e;border-color:#bcd5ea}
@@ -44,6 +44,11 @@ button{font-family:inherit}
 /* One update dialog for the whole multi-tab Electron window */
 .tabs-update-dialog{position:fixed;inset:0;width:min(560px,calc(100vw - 40px));max-width:560px;max-height:min(85vh,660px);margin:auto;overflow:auto;border:1px solid #dce7f0;border-radius:15px;padding:24px;background:#fff;color:#263e52;box-shadow:0 22px 65px rgba(19,45,72,.23)}
 .tabs-update-dialog::backdrop{background:rgba(17,34,52,.43);backdrop-filter:blur(2px)}
+/* 1.11.90: the buttons of the window (свернуть, развернуть, закрыть) are drawn by Windows over the right of the bar,
+   #f7f7f7, 38 px (main.js titleBarOverlay) — the page can neither dim nor blur them. The bar is of their colour, and the
+   dim of a window opened over the program starts under the bar: the bar with its buttons stays one piece (the engineer,
+   05.11.2026: «почему кнопки скрыть закрыть выделяются другим цветом? будто не основная часть программы»). */
+dialog::backdrop{top:43px}
 .tabs-update-header{display:flex;align-items:center;gap:11px}
 .tabs-update-icon{display:grid;place-items:center;width:37px;height:37px;border-radius:10px;color:#1769e0;background:#eaf3ff;font-size:22px}
 .tabs-update-header h2{flex:1;margin:0;font-size:19px;line-height:1.35;color:#193c55}

@@ -1174,8 +1174,24 @@ window.irFinancePage=async function(objectId){
 "use strict";
 // Visible immediately on navigation, before the DB and GPU work begins.
 // A generation token prevents an old paint callback from hiding a newer load.
+// The bar as in the exported scheme (the engineer, 04.11.2026: «загрузку монтажной схемы сделай также как в выгрузке в
+// программе»): the share done and what is done now — the object, its elements from the base, the page, then the 3D model
+// built by steps (scheme-three-view.js, onProgress: 12 % to 98 %); its first picture — 100 %, the bar goes.
 const irSchemeLoading=(()=>{
  let active=null,nextId=0;
+ const cardHtml=(title,what)=>'<div class="ir-scheme-loading-card"><strong>'+title+'</strong>'+
+  '<div class="ir-scheme-loading-row"><div class="ir-scheme-loading-bar" role="progressbar" aria-label="'+title+'" aria-valuemin="0" aria-valuemax="100" aria-valuenow="2"><i style="width:2%"></i></div>'+
+  '<em class="ir-scheme-loading-pct">2 %</em></div><p class="ir-scheme-loading-step">'+what+'</p></div>';
+ // (share 0…1; the words of the step kept when none are given)
+ const setBar=(element,share,what)=>{
+  const p=Math.max(2,Math.min(100,Math.round(Number(share)*100)||0)),bar=element.querySelector(".ir-scheme-loading-bar");
+  if(bar){bar.setAttribute("aria-valuenow",String(p));const fill=bar.querySelector("i");if(fill)fill.style.width=p+"%"}
+  const pct=element.querySelector(".ir-scheme-loading-pct");if(pct)pct.textContent=p+" %";
+  const step=element.querySelector(".ir-scheme-loading-step");if(what&&step)step.textContent=String(what)
+ };
+ // (a frame for the bar to be drawn before work that holds the window; a hidden window draws no frames — 100 ms at most)
+ const paint=()=>new Promise(resolve=>{let ok=false;const go=()=>{if(!ok){ok=true;resolve()}};
+  try{requestAnimationFrame(()=>setTimeout(go,0))}catch(_e){}setTimeout(go,100)});
  function begin(){
   const id=++nextId,route=location.hash;
   active?.element?.remove();
@@ -1184,23 +1200,29 @@ const irSchemeLoading=(()=>{
   element.className="ir-scheme-loading";
   element.setAttribute("role","status");
   element.setAttribute("aria-live","polite");
-  element.innerHTML='<div class="ir-scheme-loading-card">'+
-   '<div class="ir-scheme-loading-wheel" aria-hidden="true"></div>'+
-   '<strong>Загрузка монтажной схемы</strong>'+
-   '<p>Подготавливаем оси, элементы и 3D-модель…</p>'+
-   '</div>';
+  element.innerHTML=cardHtml("Загрузка монтажной схемы","Открываем объект");
   document.body.appendChild(element);
   active={id,route,element};
+  let shown=.02,closing=false;
   const current=()=>active?.id===id&&active.element===element;
   const cancel=()=>{if(current()){element.remove();active=null}};
   return {
-   cancel,
+   cancel,paint,
+   // Moves the bar (never back: a model begun again goes on from where the bar stands); false — no bar of this
+   // opening any more (finished, replaced or left).
+   progress(share,what){
+    if(!current()||closing)return false;
+    const v=Number(share);if(Number.isFinite(v))shown=Math.max(shown,Math.min(1,v));
+    setBar(element,shown,what);return true
+   },
    done(){
     if(!current())return;
+    closing=true;setBar(element,1,"Готово");
     requestAnimationFrame(()=>{if(current()&&location.hash===route)cancel()})
    },
    fail(error){
     if(!current())return;
+    closing=true;
     const card=element.querySelector(".ir-scheme-loading-card");
     if(!card)return cancel();
     card.classList.add("error");
@@ -1215,15 +1237,24 @@ const irSchemeLoading=(()=>{
  window.addEventListener("hashchange",()=>{
   if(active&&location.hash!==active.route){active.element.remove();active=null}
  });
- return{begin}
+ return{begin,cardHtml,setBar}
 })();
 window.irSchemePage=async function(objectId){
  const oid=String(objectId||"");if(!oid)return;
  const loading=irSchemeLoading.begin(),requestedRoute=location.hash;
+ // The first picture of the 3D drawn: the opening is over (its bar gone); later rebuilds — at once.
+ let opened=false;
+ const rebuildBar=(share,what)=>{
+  const box=document.getElementById("schemeCanvas");let bar=box?box.querySelector(".ir-scheme-rebuild"):null;
+  if(!box||!(share<1)){bar?.remove();return}
+  if(!bar){bar=document.createElement("div");bar.className="ir-scheme-rebuild";bar.setAttribute("role","status");bar.innerHTML=irSchemeLoading.cardHtml("Перестроение 3D-схемы","Построение модели");box.appendChild(bar)}
+  irSchemeLoading.setBar(bar,share,what)
+ };
  try{
  const app=document.getElementById("app"),root=irProject.data.forObject(oid),schemeApi=root.section("scheme"),object=await irProject.data.objects.get(oid);
  if(location.hash!==requestedRoute){loading.cancel();return}
  if(!object){loading.cancel();location.hash="/objects";return}
+ loading.progress(.04,"Читаем элементы схемы из базы");
  const canEdit=()=>window.irAccess?window.irAccess.canEdit("scheme"):false;
  const esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
  const arr=v=>Array.isArray(v)?v:[];
@@ -1307,6 +1338,7 @@ window.irSchemePage=async function(objectId){
  }
  [rows,markRows,workRows]=await Promise.all([schemeApi.list().catch(()=>[]),root.section("marks").list().catch(()=>[]),root.section("work-types").list().catch(()=>[])]);
  if(location.hash!==requestedRoute){loading.cancel();return}
+ loading.progress(.08,"Элементы прочитаны: "+rows.length);
  const equalSpans=(total,count)=>{count=Math.max(1,count);const base=Math.floor(total/count),rem=Math.round(total-base*count);return Array.from({length:count},(_,i)=>base+(i<rem?1:0))};
  const validAxes=v=>Array.isArray(v)&&v.length>=2&&v.every(x=>String(x||"").trim());
  const validSpans=(v,count,total)=>Array.isArray(v)&&v.length===count&&v.every(x=>num(x)>0)&&Math.abs(v.reduce((s,x)=>s+num(x),0)-total)<.11;
@@ -1749,7 +1781,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   if(heading)heading.textContent=groups.filter(g=>!hiddenGroups.has(g.key)).length+" из "+groups.length;
   const visible=columns();
   const count=document.querySelector(".scheme-visible-counter b");if(count)count.textContent=String(visible.length);
-  renderScene();
+  renderScene({steps:true});
  }
 
  // Updating the current 3D model does not require destroying the entire
@@ -1866,13 +1898,16 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  }
 
  // The montage scheme is shown in 3D only; filters, cuts and the details panel stay on the page.
- function renderScene(){
+ // (steps: a filter or a cut changed what is shown — the model rebuilt by steps with the bar over the 3D, as in the
+ // exported scheme; at once it held the window as long as the opening)
+ function renderScene(opts){
   const box=document.getElementById("schemeCanvas");if(!box)return;
   if(!window.irThreeSchemeView){
    box.innerHTML='<div class="scheme-three-failed">Модуль 3D не подключён. Переустановите программу.</div>';
    loading.done();return
   }
   const members=columns().filter(planCutVisible);
+  loading.progress(.11,"3D-модуль и сортаменты");
   const count=document.querySelector(".scheme-visible-counter b");
   if(count)count.textContent=String(members.length);
   const cutSummary=document.querySelector(".scheme-plan-cuts>summary>small");
@@ -1911,7 +1946,12 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    onCopyPlacement:(id,target)=>copySchemeMember(id,target),
    onCopied:id=>{selectedId=String(id||"");refreshAfterMemberChange()},
    onDelete:remove,
-   onFirstPaint:()=>loading.done()
+   // The model built by steps with the bar of the opening — 12 % to 98 % of it, as in the exported scheme. After the
+   // opening a rebuild after a filter or a cut goes by steps too, with the same bar over the 3D (one asked for while the
+   // model was still being built — as well); after an edit, at once, as before (a member placed, copied or deleted is
+   // looked at and focused at once).
+   onProgress:opened&&!(opts&&opts.steps)?undefined:(v,what)=>{const share=.12+.86*Math.max(0,Math.min(1,Number(v)||0));if(!loading.progress(share,what||"Построение модели"))rebuildBar(share,what)},
+   onFirstPaint:()=>{opened=true;rebuildBar(1);loading.done()}
   })
  }
 
@@ -2892,12 +2932,12 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    const id=input.dataset.planCut;
    cutHidden=input.checked?cutHidden.filter(x=>x!==id):[...new Set([...cutHidden,id])];
    try{localStorage.setItem("ir-project-3d-sections."+oid,JSON.stringify(cutHidden))}catch(_error){}
-   renderScene()
+   renderScene({steps:true})
   }));
   document.getElementById("schemePlanCutsReset")?.addEventListener("click",()=>{
    cutHidden=[];document.querySelectorAll("[data-plan-cut]").forEach(input=>input.checked=true);
    try{localStorage.setItem("ir-project-3d-sections."+oid,"[]")}catch(_error){}
-   renderScene()
+   renderScene({steps:true})
   });
   document.getElementById("schemeExportHtml")?.addEventListener("click",e=>exportSchemeHtml(e.currentTarget));
   document.getElementById("schemeFullscreenToggle")?.addEventListener("click",()=>previewFullscreen?leaveSchemeFullscreen():enterSchemeFullscreen());
@@ -2920,6 +2960,9 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   renderScene();renderDetails();bindGridEditor();bindEditor();bindViewManager()
  }
  await loadSnapshot();
+ // (the bar drawn before the page and its lists are built: they hold the window for a moment)
+ loading.progress(.1,"Оси, марки и список элементов");await loading.paint();
+ if(location.hash!==requestedRoute){loading.cancel();return}
  // A work type renamed in another tab («Виды работ») or made by a placement: its name here too, without reopening.
  const pageSerial=window.__irSchemePageSerial=(window.__irSchemePageSerial||0)+1;
  window.irWorkTypesSync?.watch(oid,()=>pageSerial===window.__irSchemePageSerial&&location.hash===requestedRoute,async()=>{

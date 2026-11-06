@@ -7,7 +7,7 @@ const start=page.indexOf("const irSchemeLoading=(()=>{"),stop=page.indexOf("\nwi
 assert(start>=0&&stop>start);
 const frames=[],handlers=new Map(),children=[];
 const makeElement=()=>{
- const card={classList:{add(){}},innerHTML:"",querySelector(){return {onclick:null}}};
+ const card={classList:{add(){}},innerHTML:"",style:{},textContent:"",setAttribute(){},querySelector(){return card},onclick:null};
  return{
   id:"",className:"",innerHTML:"",attributes:{},removed:false,
   setAttribute(k,v){this.attributes[k]=v},
@@ -41,9 +41,9 @@ assert.match(children[0].querySelector(".ir-scheme-loading-card").innerHTML,/ÐÐ
 failed.cancel();assert.equal(children.length,0);
 assert(view.includes("if(!firstPaint){firstPaint=true;P.onFirstPaint&&P.onFirstPaint()}"),"3D canvas reports its first rendered frame");
 assert(view.includes("props.onFirstPaint&&props.onFirstPaint()"),"a failed 3D load still releases the loader");
-assert(page.includes("onFirstPaint:()=>loading.done()"));
+assert(page.includes("onFirstPaint:()=>{opened=true;rebuildBar(1);loading.done()}"));
 assert(page.includes("if(location.hash!==requestedRoute){loading.cancel();return}"));
-assert(css.includes(".ir-scheme-loading-wheel"));
+assert(css.includes(".ir-scheme-loading-bar")&&!css.includes(".ir-scheme-loading-wheel"),"the bar of the exported scheme, not the wheel (1.11.90)");
 console.log("Scheme loader: first frame, navigation, race-safe callbacks and errors OK");
 // The page opened again over the built model (same grid, a new box): the update path also reports its first picture.
 {const u=view.indexOf("function update(next){"),body=view.slice(u,view.indexOf("\n  }",u));

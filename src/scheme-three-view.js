@@ -7129,7 +7129,8 @@ window.irThreeSchemeView=(function(){
   var weldMat=new T.MeshStandardMaterial({color:0x4f4338,metalness:.45,roughness:.55,side:T.DoubleSide});
   function weldBead(p,q,seam){
    var o=toWorld(0,0,0),dir=function(v){return toWorld(number(v[0]),number(v[1]),number(v[2])).sub(o).normalize()},sec=[],i,t;
-   if(seam.a&&seam.b){var s=number(seam.s)/1000,A=dir(seam.a).multiplyScalar(s),B=dir(seam.b).multiplyScalar(s),M=A.clone().add(B).normalize().multiplyScalar(.2*s);
+   // (seam.wa, seam.wb: the directions of the legs in the world, for a seam drawn from the 3D's own parts)
+   if(seam.wa&&seam.wb||seam.a&&seam.b){var s=number(seam.s)/1000,A=(seam.wa?seam.wa.clone().normalize():dir(seam.a)).multiplyScalar(s),B=(seam.wb?seam.wb.clone().normalize():dir(seam.b)).multiplyScalar(s),M=A.clone().add(B).normalize().multiplyScalar(.2*s);
     sec.push(new T.Vector3());for(i=0;i<=4;i++){t=i/4;sec.push(A.clone().multiplyScalar(1-t).add(B.clone().multiplyScalar(t)).add(M.clone().multiplyScalar(Math.sin(Math.PI*t))))}}
    else{var U=dir(seam.u),N=dir(seam.n),w=number(seam.w)/1000,h=number(seam.h)/1000;
     for(i=0;i<=4;i++){t=-w/2+w*i/4;sec.push(U.clone().multiplyScalar(t).add(N.clone().multiplyScalar(h*(1-4*t*t/(w*w)))))}}
@@ -7138,7 +7139,7 @@ window.irThreeSchemeView=(function(){
    for(i=1;i+1<n;i++){put(sec[0]);put(sec[i+1]);put(sec[i]);put(sec[0].clone().add(L));put(sec[i].clone().add(L));put(sec[i+1].clone().add(L))}
    var g=new T.BufferGeometry();g.setAttribute("position",new T.Float32BufferAttribute(pos,3));g.computeVertexNormals();
    var mesh=new T.Mesh(g,weldMat);mesh.position.copy(p);mesh.userData.weld=true;mesh.userData.small=true;mesh.userData.fixed=true;
-   return partTag(mesh,"сварной шов",seam.a?"катет "+number(seam.s)+" мм":"стыковой")
+   return partTag(mesh,"сварной шов",seam.a||seam.wa?"катет "+number(seam.s)+" мм":"стыковой")
   }
   function addSpaceFrame(c,id){
    var list=spaceMembers(c);if(!list.length)return false;
@@ -7919,6 +7920,28 @@ window.irThreeSchemeView=(function(){
    })
   }
   // The plates of the trusses (columns) the corners of a panel lap, and their bolts.
+  // The plate is the column's (the truss's), not the panel's: welded to the web of the column in the plant, in the plane
+  // of the panel between its flanges (КМ1 л.16 разрез 1-1, л.18 узел 5 — the plate t16 / t10 С245 by the web, the corner
+  // gusset of Св4 bolted on it, М20-5.8). Drawn as a part of the panel, with no seam, it hung in the air: the engineer,
+  // 04.11.2026, at Св4-1 О3/Е — «болты куда крепятся то в итоге? просто болт прошел сквозь пластину и гайками с шайбами
+  // закрутился, а во что?». The host: the column whose plan holds the end of the panel and whose height the plate is in,
+  // else the truss whose line runs through it (Свф at the post of a truss — КМ1 л.24 разрез 32-32).
+  function panelHost(P,z0,z1){
+   var best=null,bd=1e9;
+   elems.forEach(function(k){
+    if(!k.id)return;
+    if(k.geometryType==="column"&&!k.ft&&!latticed(k)){
+     var hs=planHalf(k),dx=P.x-number(k.x),dy=P.y-number(k.y);
+     if(Math.abs(dx)<=hs.x*1000+30&&Math.abs(dy)<=hs.z*1000+30&&z0>=number(k.z0)-50&&z1<=number(topOf(k))+120){var d=Math.hypot(dx,dy);if(d<bd){bd=d;best=k}}
+     return}
+    var tr=k.truss;if(!tr||!Array.isArray(tr.members)||tr.panel)return;
+    var a0={x:number(k.x),y:number(k.y)},b0={x:number(k.x2),y:number(k.y2)},L=Math.hypot(b0.x-a0.x,b0.y-a0.y);if(L<500)return;
+    var t=Math.max(0,Math.min(1,((P.x-a0.x)*(b0.x-a0.x)+(P.y-a0.y)*(b0.y-a0.y))/(L*L))),d2=Math.hypot(a0.x+(b0.x-a0.x)*t-P.x,a0.y+(b0.y-a0.y)*t-P.y);
+    var zs=[];tr.members.forEach(function(m){zs.push(number(m[1]),number(m[3]))});var base=number(tr.base_mm);
+    if(d2<=120&&z0>=base+Math.min.apply(null,zs)-150&&z1<=base+Math.max.apply(null,zs)+150&&d2+200<bd){bd=d2+200;best=k}
+   });
+   return best
+  }
   function panelPlates(c,id,pn,members,span,at,nrm,gt){
    var up=new T.Vector3(0,1,0),ex=at(1000,0).sub(at(0,0)).normalize(),dia=boltDia(c),zOf={};
    members.forEach(function(m){if(m[4]==="top"||m[4]==="bottom")zOf[m[4]]=number(m[1])});
@@ -7934,7 +7957,12 @@ window.irThreeSchemeView=(function(){
     if(!sd)sd=1;
     var x0=f,x1=pl[1],z0=zc+into*pl[2],z1=zc+into*pl[3];if(x1-x0<20)return;
     var mid=at(mx((x0+x1)/2),(z0+z1)/2).add(nrm.clone().multiplyScalar(-sd*(gt/2+tp/2)));
-    keepPart(partTag(plateBox(c,mid,ex,up,nrm,(x1-x0)/1000,Math.abs(z1-z0)/1000,tp),lvl==="bottom"?"фасонка под нижний пояс связи":"фасонка под верхний пояс связи","−"+pl[0]),id);
+    var w0=fromWorld(at(mx(x0),Math.min(z0,z1))),w1=fromWorld(at(mx(x0),Math.max(z0,z1))),host=panelHost(w0,w0.z,w1.z),hid=host?String(host.id):id,col=Boolean(host&&host.geometryType==="column");
+    keepPart(partTag(plateBox(host||c,mid,ex,up,nrm,(x1-x0)/1000,Math.abs(z1-z0)/1000,tp),(col?"фасонка колонны ":host?"фасонка фермы ":"фасонка ")+(lvl==="bottom"?"под нижний пояс связи":"под верхний пояс связи"),"−"+pl[0]),hid);
+    // (its seam to the web of the column along its height, on its free face — the face under the gusset is covered by it;
+    // the leg conventional, 6 mm: the sheet gives none)
+    if(col){var inP=ex.clone().multiplyScalar(side?-1:1),off=nrm.clone().multiplyScalar(-sd*(gt/2+tp)),ws=at(mx(x0-1),Math.min(z0,z1)).add(off),we=at(mx(x0-1),Math.max(z0,z1)).add(off);
+     keepPart(weldBead(ws,we,{wa:inP,wb:nrm.clone().multiplyScalar(-sd),s:6}),hid)}
     if(dia)(Array.isArray(L.cols_mm)?L.cols_mm:[]).forEach(function(cx){(Array.isArray(L.rows_mm)?L.rows_mm:[]).forEach(function(r){
      addBolt(c,at(mx(number(cx)),zc+into*number(r)).add(nrm.clone().multiplyScalar(-sd*tp/2)),nrm,dia,gt+tp,"panel")})})
    })})
