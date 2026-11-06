@@ -10,6 +10,7 @@
     "appId":"com.irproject.app",
     "productName":"IR Project",
     "asar":true,
+    "electronLanguages":["ru","kk","en-US"],
     "artifactName":"IR-Project-Setup-${version}.${ext}",
     "files":["main.js","preload.js","src/**/*","assets/**/*","knowledge/**/*.json","package.json","!node_modules/@tesseract.js-data/rus/4.0.0/**"],
     "asarUnpack":["node_modules/tesseract.js/**","node_modules/tesseract.js-core/**","node_modules/@tesseract.js-data/rus/4.0.0_best_int/**","node_modules/pdfjs-dist/wasm/**"],

@@ -1874,6 +1874,9 @@
     "html.ir-dark{color-scheme:dark}html.ir-dark #app img{opacity:.92}",
     "html.ir-dark body.ir-object-overview #app .ir-export-theme{background:#22282f;border-color:#3a434d;color:#e7edf3}",
     "@media(max-width:650px){html body.ir-object-overview #app .ir-export-theme{width:34px;height:34px}}",
+    "html body.ir-object-overview #app .ir-export-lang{width:auto;min-width:42px;padding:0 8px;margin-right:0;font:700 12px/1 Inter,\"Segoe UI\",Arial,sans-serif;letter-spacing:.03em}",
+    // (on a phone the theme icon stays at the right end over the menu — the language button beside it, one pair)
+    "@media(max-width:700px){html body.ir-object-overview #app .ir-export-lang{right:36px!important;width:auto!important;min-width:40px!important;padding:0 6px!important}html body.ir-object-overview #app .ir-export-lang+.ir-export-theme{margin-left:0!important;border-radius:0!important;box-shadow:none!important;border-left:0!important}}",
     ".ir-export-table-wrap{overflow-x:auto;border:1px solid #e3ebf1;border-radius:10px;background:#fff}.ir-export-table{width:100%;border-collapse:collapse;font-size:13px;color:#24435c}",
     ".ir-export-table th{background:#eef5fb;color:#55708a;font-weight:700;text-align:left;padding:10px 12px;border-bottom:1px solid #dbe6ef;white-space:nowrap}",
     ".ir-export-table td{padding:10px 12px;border-bottom:1px solid #edf1f4;vertical-align:top}.ir-export-table tr:last-child td{border-bottom:0}.ir-export-table td small{display:block;color:#7a8fa3;font-size:11.5px;margin-top:2px}",
@@ -1938,7 +1941,7 @@
      // «Disallowed by permissions policy» — the engineer, 06.11.2026; where the screen is not given, the frame covers the window)
      'd.addEventListener("click",function(e){if(!e.target||!e.target.closest||!e.target.closest("#full"))return;e.stopImmediatePropagation();e.preventDefault();if(document.fullscreenElement){document.exitFullscreen().catch(function(){});return}if(document.body.classList.contains("ir-scheme-max")){document.body.classList.remove("ir-scheme-max");return}var go=box.requestFullscreen?box.requestFullscreen():Promise.reject();go.catch(function(){document.body.classList.add("ir-scheme-max")})},true);'+
      'd.addEventListener("pointerdown",function(){[].forEach.call(document.querySelectorAll(".ir-export-topnav details[open]"),function(x){x.removeAttribute("open")})},true);var st=d.createElement("style");st.id="ir-embed";st.textContent='+JSON.stringify(EMBED_CSS)+';d.head.appendChild(st);'+
-     'window.__irSchemeTheme=('+exportTheme.toString()+')(d,{scope:""});window.__irSchemeSync&&window.__irSchemeSync();f.style.visibility=""});'+
+     'window.__irLangSync&&window.__irLangSync();window.__irSchemeTheme=('+exportTheme.toString()+')(d,{scope:""});window.__irSchemeSync&&window.__irSchemeSync();f.style.visibility=""});'+
      // (the page of the scheme packed — unpacked here; written plain in a report of before)
      '(src.type==="application/gzip"?new Response(new Blob([Uint8Array.from(atob(src.textContent),function(c){return c.charCodeAt(0)})]).stream().pipeThrough(new DecompressionStream("gzip"))).text():Promise.resolve(JSON.parse(src.textContent))).then(function(page){'+
      'var dk=document.documentElement.classList.contains("ir-dark");if(dk){f.style.visibility="hidden";page=page.replace(/<head>/i,function(h){return h+\'<script nonce="'+nonce+'">window.__irBg="dark"<\\/script><style>html,body{background:#0f1317!important}</style>\'})}'+
@@ -1978,6 +1981,18 @@
     'var d=false;try{d=localStorage.getItem(k)==="dark"}catch(e){}paint(d);'+
     'b.addEventListener("click",function(){d=!document.documentElement.classList.contains("ir-dark");paint(d);try{localStorage.setItem(k,d?"dark":"light")}catch(e){}});'+
     'addEventListener("beforeprint",function(){T.light()});addEventListener("afterprint",function(){if(d)T.dark()})})();</script>';
+   // (the report in Kazakh: the button РУС/ҚАЗ beside the theme — the words of the report and of its scheme put into Kazakh and
+   // back, the data as entered; the choice kept — the engineer, 06.11.2026 «Сделай перевод выгруженного отчета на казахский
+   // язык, кнопку переключения рус-каз»; src/object-export-kk.js)
+   const kk=window.irReportKk;let langButton="";
+   if(kk&&typeof kk.runtime==="function"){
+    langButton='<button type="button" class="ir-export-theme ir-export-lang" id="ir-export-lang" title="Қазақша" aria-label="Қазақша" aria-pressed="false" lang="kk">ҚАЗ</button>';
+    viewerScripts+='<script nonce="'+nonce+'">(function(){var K=('+kk.runtime.toString()+')('+safeJson(kk.dict)+','+safeJson(kk.patterns)+'),b=document.getElementById("ir-export-lang"),key="ir-project.object-export-lang",main=K.make(document),fd=null,fk=null,on=false;'+
+     'if(!b)return;function frame(){var f=document.querySelector(".ir-export-scheme3d-frame"),d=f&&f.contentDocument;if(!d||!d.body)return null;if(fd!==d){fd=d;fk=K.make(d)}return fk}'+
+     'function paint(){main.set(on);var x=frame();if(x)x.set(on);b.textContent=on?"РУС":"ҚАЗ";b.title=on?"Орысша":"Қазақша";b.setAttribute("lang",on?"ru":"kk");b.setAttribute("aria-label",b.title);b.setAttribute("aria-pressed",String(on))}'+
+     'try{on=localStorage.getItem(key)==="kk"}catch(e){}window.__irLangSync=function(){var x=frame();if(x)x.set(on)};if(on)paint();'+
+     'b.addEventListener("click",function(){on=!on;paint();try{localStorage.setItem(key,on?"kk":"ru")}catch(e){}})})();</script>'
+   }
    if(viewerScripts)viewerCsp="; script-src 'nonce-"+nonce+"'; connect-src 'none'; object-src 'none'";
    const generated=new Date().toLocaleString("ru-RU");
    // (a dark report opens dark: the page waits hidden on the dark background until the dark colours are made — the engineer,
@@ -1985,7 +2000,7 @@
    let html='<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;; img-src data:; font-src data:'+viewerCsp+'"><title>'+esc(object.name||"IR Project")+' — отчёт объекта</title><style>html.ir-dark-wait,html.ir-dark-wait body{background:#111417!important}html.ir-dark-wait body>*{visibility:hidden!important}</style>'+(viewerScripts?'<script nonce="'+nonce+'">try{if(localStorage.getItem("ir-project.object-export-theme")==="dark"){document.documentElement.classList.add("ir-dark-wait");setTimeout(function(){document.documentElement.classList.remove("ir-dark-wait")},15000)}}catch(e){}</script>':'')+'<style>'+css+'</style><style>'+extraStyles+'\n'+(extras?.css||'')+'\n'+(supplyModel?window.irSupplyChart.css:'')+'\n'+activeNavStyles+'\n'+pageStyles+'</style></head><body class="ir-object-route ir-object-overview"><main id="app">'+htmlSnapshot+sectionsHtml+'<footer class="ir-export-section"><b>IR Project</b> · Снимок объекта от '+esc(generated)+'. Только просмотр. Данные не связаны с рабочей базой.</footer></main>'+viewerScripts+'</body></html>';
    // (the theme switch an icon of the menu itself — the engineer, 06.11.2026 «переключение режима в выгруженном отчете
    // встрой в меню как иконку»)
-   html=html.replace('</details></div></nav>',()=>'</details>'+themeButton+'</div></nav>');
+   html=html.replace('</details></div></nav>',()=>'</details>'+langButton+themeButton+'</div></nav>');
    if(companyHeader.brandLogo)html=html.replace('<div class="ir-export-topnav-inner">',()=>'<div class="ir-export-topnav-inner"><a class="ir-export-brand" href="#overview" title="'+esc(companyHeader.brandName||"")+'"><img src="'+esc(companyHeader.brandLogo)+'" alt="Логотип"></a>');
    const exportedDate=new Date().toLocaleDateString("ru-RU",{day:"2-digit",month:"2-digit",year:"numeric"})+"г";
    html=html.replace('<div class="ir-export-topnav-inner">',()=>'<div class="ir-export-scheme-title">'+(companyHeader.brandLogo?'<img src="'+esc(companyHeader.brandLogo)+'" alt="Логотип">':'')+'<b>'+esc(object.name||object.short_name||"Объект")+'</b><span>Отчёт от '+esc(exportedDate)+'</span></div><div class="ir-export-topnav-inner">');
