@@ -9275,7 +9275,10 @@ window.irThreeSchemeView=(function(){
   // fillet), in thin dark lines over the near cells — the far ones, drawn by boxes, without them. The edges of a geometry
   // once (a section is shared by the members, stretched along its length: its edges stay its edges); not the panels and
   // their trims (their joints are drawn), not the see-through, the holes and the footings.
-  var edgeCache=new WeakMap(),edgeMat=new T.LineBasicMaterial({color:0x1f2a33,transparent:true,opacity:.5,depthWrite:false});
+  // (06.11.2026 «сделай какой нибудь контур и конструкций чтобы не сливались в одном сером цвете»: the lines darker and
+  // nearly solid, over all the near cells — as far as the pieces themselves are drawn; the far cells, drawn by boxes,
+  // still without them: outlined, the whole model from afar went one dark mass)
+  var edgeCache=new WeakMap(),edgeMat=new T.LineBasicMaterial({color:0x0c1217,transparent:true,opacity:.82,depthWrite:false});
   function edgesOf(g){
    var e=edgeCache.get(g);if(!e){var eg=new T.EdgesGeometry(g,28);e=eg.attributes.position.array;eg.dispose();edgeCache.set(g,e)}
    return e
@@ -9429,7 +9432,7 @@ window.irThreeSchemeView=(function(){
    // the heaviest part of a picture close up; the bolt sets of at most 3 cells made in a picture, the rest in the next
    // ones — flying in, the sets of a dozen cells at once held the window: «из-за чего может подвисать схема?», 03.11.2026)
    // (a phone: nearer still — its detailed cells made as the camera comes near and let go far off, lazyCells)
-   var near=phone?8:light?22:45,bolts=phone?5:light?8:18,lines=phone?6:light?10:25,made=0,more=false;
+   var near=phone?8:light?22:45,bolts=phone?5:light?8:18,lines=phone?8:light?16:45,made=0,more=false;
    batches.children.forEach(function(b){
     if(b.userData.lod==="bolt"||b.userData.lod==="weld"||b.userData.lazy)return;
     var s=b.geometry.boundingSphere,d=s?Math.max(0,cam.distanceTo(s.center)-s.radius):0;
