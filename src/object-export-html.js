@@ -1992,11 +1992,15 @@
    // (lighter: only the styles the report uses, a twice-written rule once; the scheme packed)
    await bar.step(.93,"Сжатие отчёта");
    try{html=slimReportStyles(html,[css,extraStyles,pageStyles]);html=await packSchemePage(html)}catch(e){console.warn("Сжатие отчёта:",e)}
+   // (the name of the report: «Отчёт на 06.11.2026г., <short name of the object>» — the file and the page's title; the
+   // engineer, 06.11.2026 «При выгрузке пиши в название отчета. Отчет на 06.11.2026г. (Пример), Краткое название объекта»)
+   const reportName="Отчёт на "+exportedDate+"., "+String(object.short_name||object.name||"Объект").trim();
+   html=html.replace(/<title>[^<]*<\/title>/,()=>"<title>"+esc(reportName)+"</title>");
    if(selection.underContractor)html=redactCompanyIdentity(html,companyHeader.ownName);
-   const name=safeFile(object.short_name||object.name||"Объект");
+   const name=safeFile(reportName);
    const fileName=selection.underContractor?redactCompanyIdentity(name,companyHeader.ownName).trim()||"Объект":name;
    await bar.step(.96,"Сохранение файла");
-   const result=await irProject.reportExport.html(html,"IR Project — "+fileName+" — весь объект.html");
+   const result=await irProject.reportExport.html(html,fileName+".html");
    if(result&&typeof window.irProjectNotice==="function")window.irProjectNotice("HTML-отчёт объекта сохранён. Файл доступен только для просмотра.","success");
    return result
   }catch(error){

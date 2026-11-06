@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=1122200'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=1122300'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -738,3 +738,8 @@ assert(source.includes(".ir-export-exd{grid-template-columns:minmax(0,1fr)}.ir-e
 assert(source.includes("grid-template-areas:'name name' 'code count' 'bar bar' 'fact left'!important")&&source.includes(".ir-export-mark-code:before{content:'Шифр'}"),"a phone: the readiness rows cards with headings, not a wide table");
 assert(!source.includes('"Открыть монтажную схему","♜"')&&source.includes("const lineIcon=d=>")&&source.includes(".ir-export-indicator-link i svg{display:block;width:20px;height:20px}"),"quick links with line icons, not glyphs");
 assert(source.includes(".ir-export-hero-facts{flex-direction:column!important;flex-wrap:nowrap!important")&&source.includes(".ir-export-company-card{grid-template-columns:96px minmax(0,1fr)!important"),"a phone: header facts one under another, participants compact");
+// The name of the report (the engineer, 06.11.2026 «При выгрузке пиши в название отчета. Отчет на 06.11.2026г. (Пример),
+// Краткое название объекта»): the file and the page's title.
+assert(source.includes('const reportName="Отчёт на "+exportedDate+"., "+String(object.short_name||object.name||"Объект").trim();')&&source.includes('"<title>"+esc(reportName)+"</title>"')&&source.includes('const name=safeFile(reportName);')&&source.includes('irProject.reportExport.html(html,fileName+".html")')&&!source.includes("— весь объект.html"),"the report named «Отчёт на ДД.ММ.ГГГГг., краткое название»");
+{const exportedDate="06.11.2026г";const name="Отчёт на "+exportedDate+"., "+"ИР-71535";assert.equal(name,"Отчёт на 06.11.2026г., ИР-71535")}
+console.log("Object report: named «Отчёт на 06.11.2026г., ИР-71535» OK");
