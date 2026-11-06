@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=1119500'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=1119600'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -717,7 +717,7 @@ assert.equal(typeof extras.axisLabelLayout,"function","the standalone scheme pro
  require("node:assert/strict").ok(s.includes('#section-scheme.ir-export-group:not(:target){display:none!important}'),"no montage scheme on the main page");
  require("node:assert/strict").ok(s.includes(':has(#section-scheme:target) #app>:not(.ir-export-topnav):not(#section-scheme){display:none!important}'),"the scheme alone under the top bar");
  require("node:assert/strict").ok(s.includes('key!=="scheme");')&&s.includes('const name=key=>key==="deliveries"?"Поставки и монтаж":labels[key]||'),"no scheme in the menu (the main page link opens it), names in full");
- require("node:assert/strict").ok(s.includes('"html.ir-dark #app{filter:invert(1) hue-rotate(180deg)}"')&&s.includes('html.ir-dark #app img'),"dark: every text and field, pictures as they are");
+ require("node:assert/strict").ok(s.includes("function exportTheme(){")&&s.includes("T=('+exportTheme.toString()+')()")&&!s.includes("filter:invert(1)"),"dark: every colour its dark pair, not an inverted picture (scripts/test-object-export-scheme3d.js)");
  require("node:assert/strict").ok(s.includes('class="ir-export-theme" id="ir-export-theme"')&&s.includes("themeButton+viewerScripts"),"the icon in the top right corner");
  console.log("Object report: scheme page of its own, dark theme by the icon OK");
 }

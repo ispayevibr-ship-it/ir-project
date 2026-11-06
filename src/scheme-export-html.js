@@ -464,6 +464,8 @@
  // In the page: unpacked and run in order (the 3D module after three.js), the data for the viewer in window.__irSchemeData.
  function UNPACK(){
   var W=window,el=document.getElementById("ir-pack");
+  // (the scripts made here carry the nonce of this one: inside the report of the object the page runs under its rule)
+  var NONCE=document.currentScript&&document.currentScript.nonce||"";
   if(!W.DecompressionStream||!W.Response||!W.Blob){W.__irFail("Этот браузер не открывает 3D-схему: откройте файл в Chrome, Edge, Яндекс Браузере, Firefox или Safari (2023 года и новее).");return}
   var say=function(v,what){if(W.__irLoad)W.__irLoad(v,what)};
   say(.03,"Распаковка данных схемы");
@@ -473,19 +475,22 @@
    // (one script a step: the bar is drawn between them; the viewer, the last, builds the model by its own steps)
    var n=P.scripts.length,k=0,next=function(){
     if(k>=n)return;var code=P.scripts[k++];
-    if(code){var e=document.createElement("script");e.textContent=code;document.body.appendChild(e)}
+    if(code){var e=document.createElement("script");if(NONCE)e.nonce=NONCE;e.textContent=code;document.body.appendChild(e)}
     if(k<n){say(.06+.06*k/n,k<n-1?"Загрузка 3D-модуля":"Построение модели");setTimeout(next,0)}
    };
    say(.06,"Загрузка 3D-модуля");setTimeout(next,0)
   }).catch(function(e){W.__irFail("3D-схема не распакована: "+(e&&e.message||e))})
  }
 
- async function save(d){
-  var company=await window.irProject.company.get().catch(function(){return{}});
-  d.company={name:String(company&&company.name||""),logo:await logoOf(company)};
+ // The whole page of the exported scheme for its data — one for the «HTML» button and for the report of the object
+ // (src/object-export-html.js shows this same page in its «Монтажная схема»: a change here is there too).
+ async function build(d){
+  // (a company given — the report of the object «под подрядчика»: without the own name and logo)
+  if(!d.company||typeof d.company!=="object"){var company=await window.irProject.company.get().catch(function(){return{}});
+   d.company={name:String(company&&company.name||""),logo:await logoOf(company)}}
   d.date=new Date().toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
   var libs={css:threeCss()};
-  try{d.shots=window.irThreeSchemeView&&window.irThreeSchemeView.snapshots?window.irThreeSchemeView.snapshots():[]}catch(_e){d.shots=[]}
+  if(!Array.isArray(d.shots))try{d.shots=window.irThreeSchemeView&&window.irThreeSchemeView.snapshots?window.irThreeSchemeView.snapshots():[]}catch(_e){d.shots=[]}
   var r=await Promise.all([text(scriptUrl("vendor/three/three.min.js")),text(scriptUrl("vendor/three/OrbitControls.js")),text(scriptUrl("ai-structure-types.js")),text(scriptUrl("scheme-three-view.js")),text(scriptUrl("ai-joint-catalog.js")).catch(function(){return""}),text(scriptUrl("scheme-element-card.js")).catch(function(){return""})]);
   // (the lines of comments of the program's scripts left out — a third of the 3D module: «уменьши размер схемы выгружаемой»,
   // the engineer, 03.11.2026; the code itself unchanged)
@@ -496,8 +501,11 @@
   // The catalog of joints: the node card of the exported scheme names the type of the node as the program does.
   libs.jointKb=window.irThreeSchemeView&&window.irThreeSchemeView.jointKbRows?await window.irThreeSchemeView.jointKbRows().catch(function(){return null}):null;
   try{libs.packed=await gzip64(payload(d,libs))}catch(_e){libs.packed=""}
-  var html=page(d,libs);
+  return page(d,libs)
+ }
+ async function save(d){
+  var html=await build(d);
   return window.irProject.reportExport.html(html,safeFile((d.object.name||"Объект")+" — монтажная схема — "+d.title)+".html")
  }
- window.irSchemeHtmlExport={save:save,page:page,viewer:viewer,payload:payload,gzip64:gzip64,unpack:UNPACK};
+ window.irSchemeHtmlExport={save:save,build:build,page:page,viewer:viewer,payload:payload,gzip64:gzip64,unpack:UNPACK};
 })();

@@ -66,9 +66,15 @@ const irSchemeLoading=(()=>{
  });
  return{begin,cardHtml,setBar}
 })();
-window.irSchemePage=async function(objectId){
+window.irSchemePage=async function(objectId,opts){
  const oid=String(objectId||"");if(!oid)return;
- const loading=irSchemeLoading.begin(),requestedRoute=location.hash;
+ // {exportData:true} — without the page: the object's scheme read from the base and given back as the data of the
+ // exported scheme (exportSchemeData), the same as the «HTML» button gathers — the report of the object shows the very
+ // same scheme (the engineer, 06.11.2026: «монтажную схему выведи ту которую мы при выгрузке используем … 100%»).
+ const headless=Boolean(opts&&opts.exportData);
+ // (the chat of the open scheme keeps its own context: the gathering sets them as the page does, then puts them back)
+ const chatBefore=headless?[window.irChatContext,window.irChatAction]:null,chatBack=()=>{if(chatBefore){window.irChatContext=chatBefore[0];window.irChatAction=chatBefore[1]}};
+ const loading=headless?{progress:()=>true,cancel(){},paint:async()=>{},done(){},fail(error){chatBack();throw error}}:irSchemeLoading.begin(),requestedRoute=location.hash;
  // The first picture of the 3D drawn: the opening is over (its bar gone); later rebuilds — at once.
  let opened=false;
  const rebuildBar=(share,what)=>{
@@ -80,7 +86,7 @@ window.irSchemePage=async function(objectId){
  try{
  const app=document.getElementById("app"),root=irProject.data.forObject(oid),schemeApi=root.section("scheme"),object=await irProject.data.objects.get(oid);
  if(location.hash!==requestedRoute){loading.cancel();return}
- if(!object){loading.cancel();location.hash="/objects";return}
+ if(!object){loading.cancel();if(!headless)location.hash="/objects";return}
  loading.progress(.04,"Читаем элементы схемы из базы");
  const canEdit=()=>window.irAccess?window.irAccess.canEdit("scheme"):false;
  const esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -788,8 +794,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
 
  // The scheme as one HTML file for viewing without the program (src/scheme-export-html.js): what is on the screen now
  // — this scheme, its grid and elements with their kinds, sections, statuses and the marks register; no editing.
- async function exportSchemeHtml(btn){
-  if(!window.irSchemeHtmlExport){alert("Выгрузка схемы в HTML недоступна — обновите программу.");return}
+ async function exportSchemeData(){
   await loadMountDays();
   const list=records().map(c=>{const p={...c,...coord(c)},g=recordMarkGroup(c),lm=linkedMark(c),pr=markProgress(lm),name=String(lm?.name||"").trim()||String(c.mark_name||""),day=mountDay(lm,pr);
    return{id:String(c.id),mark:String(c.mark||""),mark_name:name,title:String(name||c.title||""),type_name:String(c.type_name||FITTING_LABEL[p.ft]||geometryLabel(p.geometryType)),
@@ -810,17 +815,23 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
     engineer_confirmed:c.engineer_confirmed&&typeof c.engineer_confirmed==="object"?c.engineer_confirmed:undefined,engineer_edited:c.engineer_edited?true:undefined,
     // The top of the card as in the report of 21.10.2026: the day of mounting, the sheet, the mass of the КМД.
     status_date:day.date||undefined,status_more:day.more||undefined,sheet:sheetOfRecord(c)||undefined,mass_kmd:markMass(c,lm)||undefined}});
-  if(!list.length){alert("На схеме нет элементов для выгрузки.");return}
+  if(!list.length)return null;
   const counts=new Map();for(const c of list){const g=counts.get(c.scheme_group)||{key:c.scheme_group,label:recordMarkGroup(records().find(r=>String(r.id)===c.id)).label,count:0};g.count++;counts.set(c.scheme_group,g)}
   // All the work types together: the exported page can show each apart, as the scheme does.
   const workCounts=new Map();for(const c of list){const w=workCounts.get(c.work)||{id:c.work,label:c.work?String(workById.get(c.work)?.work_type||"Вид работ "+c.work)+(workById.get(c.work)?.project_code?" · "+workById.get(c.work).project_code:""):"Без вида работ",count:0};w.count++;workCounts.set(c.work,w)}
   const currentWork=frameMode?null:enabledWorks().find(w=>w.id===activeWorkId);
-  const old=btn?.textContent;if(btn){btn.disabled=true;btn.textContent="Выгрузка…"}
-  try{
-   const saved=await window.irSchemeHtmlExport.save({objectId:oid,object:{name:String(object.name||object.title||""),address:String(object.address||"")},title:activeGroup()?.label||"Все",
+  return{objectId:oid,object:{name:String(object.name||object.title||""),address:String(object.address||"")},title:activeGroup()?.label||"Все",
     axesX:[...axesX],axesY:[...axesY],spanX,spanY,gridDirX,gridDirY,gridX:Object.fromEntries(axisXPos),gridY:Object.fromEntries(axisYPos),background:currentBackground(),
     elements:list,groups:[...counts.values()].sort((a,b)=>b.count-a.count),summary:statusCounts(),
-    work:frameMode?(workCounts.size>1?"Все виды работ":""):currentWork?currentWork.name+(currentWork.code?" · "+currentWork.code:""):"",works:frameMode&&workCounts.size>1?[...workCounts.values()].sort((a,b)=>b.count-a.count):[]});
+    work:frameMode?(workCounts.size>1?"Все виды работ":""):currentWork?currentWork.name+(currentWork.code?" · "+currentWork.code:""):"",works:frameMode&&workCounts.size>1?[...workCounts.values()].sort((a,b)=>b.count-a.count):[]}
+ }
+ async function exportSchemeHtml(btn){
+  if(!window.irSchemeHtmlExport){alert("Выгрузка схемы в HTML недоступна — обновите программу.");return}
+  const old=btn?.textContent;if(btn){btn.disabled=true;btn.textContent="Выгрузка…"}
+  try{
+   const data=await exportSchemeData();
+   if(!data){alert("На схеме нет элементов для выгрузки.");return}
+   const saved=await window.irSchemeHtmlExport.save(data);
    if(saved)alert("Монтажная схема сохранена:\n"+saved)
   }catch(error){alert("Не удалось выгрузить схему: "+String(error?.message||error))}
   finally{if(btn){btn.disabled=false;btn.textContent=old}}
@@ -1789,6 +1800,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   renderScene();renderDetails();bindGridEditor();bindEditor();bindViewManager()
  }
  await loadSnapshot();
+ if(headless){refreshGridModel();try{return await exportSchemeData()}finally{chatBack()}}
  // (the bar drawn before the page and its lists are built: they hold the window for a moment)
  loading.progress(.1,"Оси, марки и список элементов");await loading.paint();
  if(location.hash!==requestedRoute){loading.cancel();return}

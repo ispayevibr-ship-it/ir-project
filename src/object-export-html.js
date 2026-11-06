@@ -572,8 +572,46 @@
   return'<div class="ir-export-table-wrap"><table class="ir-export-table"><thead><tr><th>№</th><th>Обозначение</th><th>Ø, мм</th><th>Длина, мм</th><th>Класс прочности</th><th>Кол-во, шт.</th><th>Марки</th></tr></thead><tbody>'+list.map((r,i)=>{const d=r.data||{};
    return'<tr><td>'+(i+1)+'</td><td><b>'+esc(d.text||r.title||"—")+'</b>'+(d.note?'<small>'+esc(d.note)+'</small>':"")+'</td><td>'+esc(d.d_mm??"—")+'</td><td>'+esc(d.length_mm??"—")+'</td><td>'+esc(d.strength_class||"—")+'</td><td>'+esc(d.qty??"по маркам")+'</td><td>'+esc(d.marks||"—")+'</td></tr>'}).join("")+'</tbody></table></div>'
  }
+ // The dark theme of the report (the engineer, 06.11.2026: «темную версию доработай, очень все тяжело читаемое», «фон сам
+ // тоже темный должен быть»): not an inverted picture — every colour of the page given its dark pair: light fields and
+ // cards dark grey-blue, dark text light, grey hints lighter, coloured marks (green, orange, blue) brighter on the dark;
+ // borders dim; the light ones put back as they were. Runs in the report (by the moon, top right).
+ function exportTheme(){
+  var orig=new Map(),PROPS=["color","background-color","border-top-color","border-right-color","border-bottom-color","border-left-color","outline-color","fill","stroke"];
+  var parse=function(v){var m=/rgba?\(([^)]+)\)/.exec(v||"");if(!m)return null;var p=m[1].split(/[\s,\/]+/).filter(Boolean).map(parseFloat);return{r:p[0]/255,g:p[1]/255,b:p[2]/255,a:p.length>3?p[3]:1}};
+  var hsl=function(c){var mx=Math.max(c.r,c.g,c.b),mn=Math.min(c.r,c.g,c.b),l=(mx+mn)/2,h=0,s=0,d=mx-mn;
+   if(d){s=l>.5?d/(2-mx-mn):d/(mx+mn);h=mx===c.r?(c.g-c.b)/d+(c.g<c.b?6:0):mx===c.g?(c.b-c.r)/d+2:(c.r-c.g)/d+4;h/=6}return{h:h,s:s,l:l,a:c.a}};
+  var css=function(o){var q=function(t){t=(t%1+1)%1;return t<1/6?p+(r-p)*6*t:t<.5?r:t<2/3?p+(r-p)*(2/3-t)*6:p},r=o.l<.5?o.l*(1+o.s):o.l+o.s-o.l*o.s,p=2*o.l-r,
+   v=o.s?[q(o.h+1/3),q(o.h),q(o.h-1/3)]:[o.l,o.l,o.l];return"rgba("+v.map(function(x){return Math.round(x*255)}).join(",")+","+o.a+")"};
+  // (fields: white — #161b21, the page's grey-blue — a step darker; strong colours of fields — dimmed, not turned)
+  var field=function(o){if(o.l>.55){o.l=.085+(1-o.l)*.5;o.s=Math.min(o.s,.3)}else if(o.s>.25)o.l=Math.min(o.l,.32)*.85;return o};
+  // (text: dark — light, grey — lighter grey, coloured — brighter of its hue; light text on a coloured field stays)
+  var ink=function(o){if(o.l<.62){o.l=o.s>.35&&o.l>.2?Math.max(.68,1-o.l*.55):.93-o.l*.45;o.s=Math.min(o.s,o.s>.35?.75:.25)}return o};
+  var line=function(o){if(o.l>.5){o.l=.2+(1-o.l)*.4;o.s=Math.min(o.s,.2)}return o};
+  var map=function(prop,v,el){var c=parse(v);if(!c||c.a===0)return"";var o=hsl(c);
+   if(prop==="color")return css(ink(o));if(prop==="background-color")return css(field(o));
+   if(prop==="fill"||prop==="stroke"){if(el.tagName==="text"||el.tagName==="tspan")return css(ink(o));if(o.l>.8)return css(field(o));if(o.l<.3&&o.s<.3)return css(ink(o));return""}
+   return css(line(o))};
+  var grad=function(v){return v.replace(/rgba?\([^)]+\)/g,function(x){var c=parse(x);return c?css(field(hsl(c))):x})};
+  function dark(){
+   [document.documentElement,document.body].concat([].slice.call(document.body.querySelectorAll("*"))).forEach(function(el){
+    if(el.id==="ir-export-theme"||/^(SCRIPT|STYLE|IFRAME|IMG|VIDEO|CANVAS|BR)$/.test(el.tagName)||el.closest("iframe,img"))return;
+    var cs=getComputedStyle(el),set=[];
+    PROPS.forEach(function(p){if((p==="fill"||p==="stroke")&&!(el instanceof SVGElement))return;if(/^border/.test(p)&&cs[p.replace(/color$/,"width")]==="0px")return;var nv=map(p,cs.getPropertyValue(p),el);if(nv)set.push([p,nv])});
+    var bi=cs.backgroundImage;if(bi&&/gradient/.test(bi))set.push(["background-image",grad(bi)]);
+    if(cs.boxShadow&&cs.boxShadow!=="none")set.push(["box-shadow","none"]);
+    if(!set.length)return;if(!orig.has(el))orig.set(el,el.getAttribute("style"));
+    set.forEach(function(x){el.style.setProperty(x[0],x[1],"important")})});
+   document.documentElement.style.setProperty("background-color","#0f1317","important");document.body.style.setProperty("background-color","#0f1317","important")
+  }
+  function light(){orig.forEach(function(v,el){if(v==null)el.removeAttribute("style");else el.setAttribute("style",v)});orig.clear()}
+  return{dark:dark,light:light}
+ }
  function renderSection(key,rows,images,preview="",support={}){
   const extras=window.irObjectExportExtras;
+  // The montage scheme — the page of the exported scheme itself (src/scheme-export-html.js, build), opened in a frame
+  // when «Монтажная схема» is chosen: the same 3D, panel, card and nodes as the «HTML» button gives.
+  if(key==="scheme"&&support.schemePage)return'<div class="ir-export-group ir-export-scheme3d-group" id="section-scheme"><div class="ir-export-scheme3d" id="ir-export-scheme3d"><div class="ir-export-scheme3d-wait">Монтажная схема открывается…</div></div></div>';
   const body=key==="reports"?renderDailyReports(rows,images,support.markNames):key==="work-types"?renderExportWorkTypes(rows,support.marks||[],support.reports||[]):key==="marks"?renderMarkSection(rows,support.workTypes||[],support.reports||[],images):
    key==="deliveries"?extras.deliveries(rows):key==="photos"?extras.recentPhotos(support.reports||[],images):
    key==="scheme"?extras.schemeHtml(extras.schemeData(rows,support.schemeDetails||[])):["schedule","acted-days","penalties"].includes(key)?"":
@@ -1613,14 +1651,17 @@
    // текста, поля все переделывай на темную при переключение. знак где-нибудь вверху в правом углу поставь»).
    const pageStyles=[
     "html body.ir-object-overview #app #section-scheme.ir-export-group:not(:target){display:none!important}",
+    // (the exported scheme in a frame under the top bar, to the edges of the window)
+    "html body.ir-object-overview #app #section-scheme.ir-export-scheme3d-group{display:block;width:100%!important;max-width:none!important;margin:0!important;padding:0!important;scroll-margin-top:0!important}",
+    ".ir-export-scheme3d{position:relative;width:100%;height:calc(100vh - 65px);min-height:420px;background:#eef2f7}.ir-export-scheme3d-frame{display:block;width:100%;height:100%;border:0}",
+    ".ir-export-scheme3d-wait{padding:48px 16px;text-align:center;color:#5d6b80;font-size:15px}",
     "html body.ir-object-overview:has(#section-scheme:target) #app>:not(.ir-export-topnav):not(#section-scheme){display:none!important}",
     "html body.ir-object-overview:has(#section-scheme:target) .ir-export-topnav .ir-export-toplink[href=\"#section-scheme\"]{background:#246da7!important;color:#fff!important;border-color:#246da7!important}",
     "html body.ir-object-overview:has(#section-scheme:target) .ir-export-topnav .ir-export-toplink.active{background:#f4f8fc!important;border-color:#dae6ef!important;color:#315a76!important;box-shadow:none!important}",
     ".ir-export-theme{position:fixed;top:10px;right:12px;z-index:200;display:grid;place-items:center;width:40px;height:40px;padding:0;border:1px solid #d3dfe8;border-radius:10px;background:#fff;color:#24435c;cursor:pointer;box-shadow:0 2px 10px rgba(15,35,55,.14)}",
     ".ir-export-theme svg{width:20px;height:20px}.ir-export-theme:focus-visible{outline:2px solid #2b7cc0;outline-offset:2px}",
     "html.ir-dark,html.ir-dark body{background:#111417!important}",
-    "html.ir-dark #app{filter:invert(1) hue-rotate(180deg)}",
-    "html.ir-dark #app img,html.ir-dark #app video,html.ir-dark #app picture{filter:invert(1) hue-rotate(180deg)}",
+    "html.ir-dark{color-scheme:dark}html.ir-dark #app img{opacity:.92}",
     "html.ir-dark .ir-export-theme{background:#22282f;border-color:#3a434d;color:#e7edf3;box-shadow:0 2px 10px rgba(0,0,0,.5)}",
     "@media(max-width:650px){.ir-export-theme{top:8px;right:8px;width:36px;height:36px}}",
     ".ir-export-table-wrap{overflow-x:auto;border:1px solid #e3ebf1;border-radius:10px;background:#fff}.ir-export-table{width:100%;border-collapse:collapse;font-size:13px;color:#24435c}",
@@ -1637,11 +1678,26 @@
    const extras=window.irObjectExportExtras;
    if(!extras)throw new Error("Модуль экспорта разделов не загружен. Перезапустите IR Project.");
    const trendHtml=keys.includes("schedule")?renderExportTrend(supporting[1],supporting[0]):"";
-   const sectionsHtml=keys.map(key=>renderSection(key,rows[key]||[],photos,overviewSnapshot.preview[key]||"",{workTypes:supporting[0],reports:supporting[1],marks:supporting[2],markNames,schemeDetails,supplyModel,trendHtml})).join("");
+   // The scheme of the report is the exported scheme (the engineer, 06.11.2026: «монтажную схему выведи ту которую мы при
+   // выгрузке используем … 100%. В будущем если какие-то изменения в выгруженной схеме делаем, но и в отчетной»): its
+   // data gathered as by the «HTML» button (src/scheme-page.js, exportData) and its page built by the same code.
+   let schemePage="";
+   if(keys.includes("scheme")&&typeof window.irSchemePage==="function"&&window.irSchemeHtmlExport?.build){
+    try{const data=await window.irSchemePage(id,{exportData:true});if(data){data.shots=[];if(selection.underContractor)data.company={name:"",logo:""};schemePage=await window.irSchemeHtmlExport.build(data)}}
+    catch(error){console.warn("Object HTML: the exported scheme was not built",error);schemePage=""}
+   }
+   const sectionsHtml=keys.map(key=>renderSection(key,rows[key]||[],photos,overviewSnapshot.preview[key]||"",{workTypes:supporting[0],reports:supporting[1],marks:supporting[2],markNames,schemeDetails,supplyModel,trendHtml,schemePage:Boolean(schemePage)})).join("");
    let viewerScripts="",viewerCsp="";
    const nonce=btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
    const safeJson=value=>JSON.stringify(value).replace(/</g,"\\u003c").replace(/\u2028/g,"\\u2028").replace(/\u2029/g,"\\u2029");
-   if(keys.includes("scheme")){
+   if(schemePage){
+    // (the frame takes the rule of the report: its scripts with the report's nonce, the scripts it unpacks — with theirs)
+    const inner=schemePage.replace(/<script(?=[\s>])/g,'<script nonce="'+nonce+'"');
+    viewerScripts+='<script type="application/json" id="ir-export-scheme-page" nonce="'+nonce+'">'+safeJson(inner)+'</script><script nonce="'+nonce+'">(function(){var box=document.getElementById("ir-export-scheme3d"),src=document.getElementById("ir-export-scheme-page"),f=null;'+
+     'function fit(){var n=document.querySelector(".ir-export-topnav");if(box)box.style.height=Math.max(420,innerHeight-(n?n.offsetHeight:0))+"px"}'+
+     'function open(){if(location.hash==="#section-scheme"){fit();scrollTo(0,0)}if(f||!box||!src||location.hash!=="#section-scheme")return;f=document.createElement("iframe");f.className="ir-export-scheme3d-frame";f.title="Монтажная схема";f.setAttribute("allow","fullscreen");f.setAttribute("allowfullscreen","");f.srcdoc=JSON.parse(src.textContent);box.textContent="";box.appendChild(f)}'+
+     'addEventListener("hashchange",open);addEventListener("resize",fit);open()})();</script>'
+   }else if(keys.includes("scheme")){
     const scheme=extras.schemeData(rows.scheme||[],schemeDetails);
     const engine="("+extras.schemeViewer.toString()+")();";
     viewerScripts+='<script type="application/json" id="ir-export-scheme-data" nonce="'+nonce+'">'+safeJson(scheme)+'</script><script nonce="'+nonce+'">'+engine+'</script>'
@@ -1654,10 +1710,11 @@
    const moon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg>',
     sun='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>';
    const themeButton='<button type="button" class="ir-export-theme" id="ir-export-theme" title="Тёмная тема" aria-label="Тёмная тема" aria-pressed="false">'+moon+'</button>';
-   viewerScripts+='<script nonce="'+nonce+'">(function(){var b=document.getElementById("ir-export-theme"),k="ir-project.object-export-theme",moon='+JSON.stringify(moon)+',sun='+JSON.stringify(sun)+';'+
-    'function paint(d){document.documentElement.classList.toggle("ir-dark",d);b.innerHTML=d?sun:moon;b.title=d?"Светлая тема":"Тёмная тема";b.setAttribute("aria-label",b.title);b.setAttribute("aria-pressed",String(d))}'+
+   viewerScripts+='<script nonce="'+nonce+'">(function(){var b=document.getElementById("ir-export-theme"),k="ir-project.object-export-theme",moon='+JSON.stringify(moon)+',sun='+JSON.stringify(sun)+',T=('+exportTheme.toString()+')();'+
+    'function paint(d){T.light();if(d)T.dark();document.documentElement.classList.toggle("ir-dark",d);b.innerHTML=d?sun:moon;b.title=d?"Светлая тема":"Тёмная тема";b.setAttribute("aria-label",b.title);b.setAttribute("aria-pressed",String(d))}'+
     'var d=false;try{d=localStorage.getItem(k)==="dark"}catch(e){}paint(d);'+
-    'b.addEventListener("click",function(){d=!document.documentElement.classList.contains("ir-dark");paint(d);try{localStorage.setItem(k,d?"dark":"light")}catch(e){}})})();</script>';
+    'b.addEventListener("click",function(){d=!document.documentElement.classList.contains("ir-dark");paint(d);try{localStorage.setItem(k,d?"dark":"light")}catch(e){}});'+
+    'addEventListener("beforeprint",function(){T.light()});addEventListener("afterprint",function(){if(d)T.dark()})})();</script>';
    if(viewerScripts)viewerCsp="; script-src 'nonce-"+nonce+"'; connect-src 'none'; object-src 'none'";
    const generated=new Date().toLocaleString("ru-RU");
    let html='<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;; img-src data:; font-src data:'+viewerCsp+'"><title>'+esc(object.name||"IR Project")+' — отчёт объекта</title><style>'+css+'</style><style>'+extraStyles+'\n'+(extras?.css||'')+'\n'+(supplyModel?window.irSupplyChart.css:'')+'\n'+activeNavStyles+'\n'+pageStyles+'</style></head><body class="ir-object-route ir-object-overview"><main id="app">'+htmlSnapshot+sectionsHtml+'<footer class="ir-export-section"><b>IR Project</b> · Снимок объекта от '+esc(generated)+'. Только просмотр. Данные не связаны с рабочей базой.</footer></main>'+themeButton+viewerScripts+'</body></html>';

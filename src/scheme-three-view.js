@@ -5586,7 +5586,7 @@ window.irThreeSchemeView=(function(){
   function buildMembers(list,queue){
    var cached=new Set(meshGeo.values()),gone=new Set();
    allMeshes.forEach(function(m){steel.remove(m);if(!cached.has(m.geometry))gone.add(m.geometry)});gone.forEach(function(g){g.dispose()});
-   allMeshes=[];plateCells.clear();platesN=0;boltList=[];seatIndex=null;webGus=[];webTraps=[];cleatRibs=[];footRibFree.clear();dataById.clear();meshesById.clear();failures=0;conventional.clear();drillCache.clear();upperCache.clear();seatCache.clear();boltNear.clear();boltNearN=0;
+   allMeshes=[];plateCells.clear();platesN=0;boltList=[];seatIndex=null;webGus=[];webTraps=[];cleatRibs=[];footRibFree.clear();dataById.clear();meshesById.clear();failures=0;weldList=[];weldRun++;conventional.clear();drillCache.clear();upperCache.clear();seatCache.clear();boltNear.clear();boltNearN=0;
    labels.forEach(function(l){l.el.remove()});labels=[];
    elems=Array.isArray(list)?list:[];deckPairs.clear();deckRects=null;deckCols=null;bridgeList=null;bridgePlates=[];
    strutGus.length=0;ribGus.length=0;slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);beamEndNodes(elems);ribsUnderPlates(elems);ribStruts(elems);underChords(elems);purlinNodes(elems);seatLevels(elems);purlinTilts(elems);restLifts(elems);ridgeMiters(elems);guardLines(elems);guardFeet(elems);postFeet(elems);stubTops(elems);guardRails(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);roofCones(elems);ladderStringers(elems);stairStringers(elems);landingChannels(elems);toeBoards(elems);flightPosts(elems);guardBraces(elems);wallRings(elems);guardJoints(elems);
@@ -7727,6 +7727,189 @@ window.irThreeSchemeView=(function(){
   // bottom node of its left support (the scheme's left end may be the plan line's end). A member with a profile of the
   // sortament («140х10» of paired angles) is drawn by two angles back to back; the rest — by a thin bar.
   function keepPart(mesh,id){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh)}
+  // ---- The welds of the parts, found from the 3D itself (the engineer, 06.11.2026: «там где есть сварной шов,
+  // показывай его»; the rule welds-shown of knowledge/hard-rules.json). Two parts are welded where a face of one lies
+  // on a face of the other — one plane, facing each other — and no bolt of the two members goes through the pack there:
+  // a rib on a web and under the flanges, a gusset on a column, a plate lying on a flange, a column's end on its base
+  // plate or under its cap, a beam's end on its end plate, a brace's leg on its gusset, a cleat on the column it is
+  // welded to. A fillet runs along each edge of the face where the other part goes on past it: its legs along that
+  // part's face and up the side of the part whose edge it is. Not welded: a bolted pack (a bolt through the face of one
+  // part and through a part of the other member there — a cleat bolted to a beam's web lies on its coped end too, the
+  // bolts a little farther); two pieces of one member's body, or of one part (an angle drawn by its two legs); two
+  // members' bodies with a bolt within 300 mm of their contact (a purlin bolted on a rafter lies on it unwelded);
+  // panels, decks, gratings, tanks' shells, footings, anchors, bolts, nuts, bars and handrails. Leg: the thinner part's
+  // thickness, 4–6 mm. Not where a seam is drawn already (a node's own seams: those stretches cut out). A seam is of the
+  // member of the part whose edge it runs along. Only the faces with a face of the other way in their plane somewhere
+  // are looked at. ИР-71535: 41 thousand seams, about 1 s — found after the model is shown (weldsLater), kept as
+  // numbers (weldList), drawn by cells near the camera as the bolt sets (weldCellsOf, buildWeldCell).
+  var WELD_SKIP_FT={panel:1,trim:1,window:1,door:1,gate:1,deck:1},WELD_BODY=/^(стенка с подрезкой|продолжение полки|стенка надколонника)/i;
+  function weldable(m){
+   var u=m.userData||{};if(!m.isMesh||u.weld||u.hole||u.anchor||u.footing||u.shell||u.deckPiece||u.grating||u.crane||u.node||u.lod||u.edges)return false;
+   if(u.memberId===undefined||u.memberId===null)return false;
+   var c=dataById.get(String(u.memberId));if(!c||WELD_SKIP_FT[c.ft])return false;
+   var g=m.geometry;if(!g||!g.attributes||!g.attributes.position||/^(Cylinder|Lathe|Tube|Sphere|Torus|Plane|Shape|Circle|Ring|Cone)Geometry$/.test(g.type))return false;
+   return !/гайк|шайб|болт|анкер|шов|прут|поручен/i.test(String(u.part&&u.part.n||""))
+  }
+  // The planes of a mesh's triangles, in the world: fn(triangle, its vertices' indices, normal's key, side, millimetre,
+  // normal, offset) for each (the normal's key — its direction to 1/64, the same for the two sides of a plane).
+  var weldScratch=new Float64Array(3072);
+  function weldPlanes(m,fn){
+   var g=m.geometry,pa=g.attributes.position,ix=g.index,n=ix?ix.count:pa.count,e=m.matrixWorld.elements,i;
+   if(weldScratch.length<pa.count*3)weldScratch=new Float64Array(pa.count*3+3072);var W=weldScratch;
+   for(i=0;i<pa.count;i++){var x=pa.getX(i),y=pa.getY(i),z=pa.getZ(i);W[3*i]=e[0]*x+e[4]*y+e[8]*z+e[12];W[3*i+1]=e[1]*x+e[5]*y+e[9]*z+e[13];W[3*i+2]=e[2]*x+e[6]*y+e[10]*z+e[14]}
+   for(var k=0;k+2<n;k+=3){
+    var a=ix?ix.getX(k):k,b=ix?ix.getX(k+1):k+1,c=ix?ix.getX(k+2):k+2;
+    var ax=W[3*a],ay=W[3*a+1],az=W[3*a+2],ux=W[3*b]-ax,uy=W[3*b+1]-ay,uz=W[3*b+2]-az,wx=W[3*c]-ax,wy=W[3*c+1]-ay,wz=W[3*c+2]-az;
+    var nx=uy*wz-uz*wy,ny=uz*wx-ux*wz,nz=ux*wy-uy*wx,nl=Math.sqrt(nx*nx+ny*ny+nz*nz);if(nl<2e-9)continue;
+    nx/=nl;ny/=nl;nz/=nl;var qx=Math.round(nx*64),qy=Math.round(ny*64),qz=Math.round(nz*64),sg=qx>0||qx===0&&(qy>0||qy===0&&qz>0)?1:-1,d=nx*ax+ny*ay+nz*az;
+    fn(k,a,b,c,((sg*qx+64)*129+sg*qy+64)*129+sg*qz+64,sg,Math.floor(sg*d*1000),nx,ny,nz,d)}
+   return W
+  }
+  // The search by steps (each a function; one that is not done gives itself back), for the seams found to be drawn
+  // after the model is shown (weldsLater) or at once (autoWelds).
+  function weldSteps(){
+   var ms=0,list=[],found=[],drawn=new Map(),boltAt=new Map(),seen=new Set(),pairs=0,there=new Set(),buckets=new Map(),faces=0;
+   var cellKey=function(x,y,z,s){return Math.floor(x/s)+":"+Math.floor(y/s)+":"+Math.floor(z/s)};
+   var putBox=function(map,b,s,val){for(var x=Math.floor(b.min.x/s);x<=Math.floor(b.max.x/s);x++)for(var y=Math.floor(b.min.y/s);y<=Math.floor(b.max.y/s);y++)for(var z=Math.floor(b.min.z/s);z<=Math.floor(b.max.z/s);z++){var k=x+":"+y+":"+z;if(!map.has(k))map.set(k,[]);map.get(k).push(val)}};
+   var prepare=function(){
+    steel.updateMatrixWorld(true);
+    boltList.forEach(function(b){var k=cellKey(b.at.x,b.at.y,b.at.z,.5);if(!boltAt.has(k))boltAt.set(k,[]);boltAt.get(k).push(b)})};
+   var sort=function(m){if(m.userData&&m.userData.weld){var b=new T.Box3().setFromObject(m).expandByScalar(.003);putBox(drawn,b,.5,b)}else if(weldable(m))list.push(m)};
+   var boltsNear=function(lo,hi,pad,fn){for(var x=Math.floor((lo[0]-pad)/.5);x<=Math.floor((hi[0]+pad)/.5);x++)for(var y=Math.floor((lo[1]-pad)/.5);y<=Math.floor((hi[1]+pad)/.5);y++)for(var z=Math.floor((lo[2]-pad)/.5);z<=Math.floor((hi[2]+pad)/.5);z++){
+    var l=boltAt.get(x+":"+y+":"+z);if(l)for(var i=0;i<l.length;i++)if(fn(l[i]))return true}return false};
+   var thickOf=function(m){var u=m.userData;if(u.body)return Infinity;var g=m.geometry,q=g.parameters||{},s=m.scale;
+    if(g.type==="BoxGeometry")return Math.min(Math.abs(q.width*s.x),Math.abs(q.height*s.y),Math.abs(q.depth*s.z));
+    if(g.type==="ExtrudeGeometry"&&q.options&&q.options.depth)return Math.abs(q.options.depth*s.z);
+    return .006};
+   // (the planes there are: a millimetre of a normal's key, each side)
+   var bkey=function(ck,mm){return ck*1e6+mm+500000};
+   var planes=function(m){var last=-1;weldPlanes(m,function(k,a,b,c,ck,sg,mm){var key=2*bkey(ck,mm)+(sg>0?1:0);if(key!==last){there.add(key);last=key}})};
+   var faced=function(ck,sg,mm){var o=sg>0?0:1;for(var j=-1;j<=1;j++)if(there.has(2*bkey(ck,mm+j)+o))return true;return false};
+   // The faces: of one mesh, one plane (of one normal, apart by more than 0.05 mm — another), with a face of the other
+   // way in its plane somewhere; each with its triangles' corners in the world.
+   var facesOf=function(m){
+    var pn=String(m.userData.part&&m.userData.part.n||""),S={m:m,id:String(m.userData.memberId),name:pn,body:Boolean(m.userData.body)||WELD_BODY.test(pn),t:thickOf(m)},own=new Map();
+    var memo=new Map(),W=weldPlanes(m,function(k,a,b,c,ck,sg,mm,nx,ny,nz,d){var mk=(ck*2+(sg>0?1:0))*1e6+mm+500000,ok=memo.get(mk);if(ok===undefined){ok=faced(ck,sg,mm);memo.set(mk,ok)}if(!ok)return;var key=ck*2+(sg>0?1:0),l=own.get(key);if(!l){l={n:[nx,ny,nz],ck:ck,sg:sg,t:[]};own.set(key,l)}l.t.push(d,a,b,c)});
+    own.forEach(function(l){
+     // (the corners of the group's triangles in one array, by their offset; a face — a stretch of it)
+     var t=l.t,n=t.length/4,ord=[],f=null,i,buf=new Float32Array(n*9),at=0;for(i=0;i<t.length;i+=4)ord.push(i);if(n>1)ord.sort(function(p,q){return t[p]-t[q]});
+     var close=function(){if(f)f.P=buf.subarray(f.P,at)};
+     for(var r=0;r<n;r++){var o=ord[r],d=t[o];
+      if(!f||d-f.d1>5e-5){
+       close();f={S:S,n:l.n,d:d,d1:d,ck:l.ck,sg:l.sg,P:at,lo:[1e9,1e9,1e9],hi:[-1e9,-1e9,-1e9]};f.bk=bkey(l.ck,Math.floor(l.sg*d*1000));
+       if(!buckets.has(f.bk))buckets.set(f.bk,[]);buckets.get(f.bk).push(f);faces++}
+      f.d1=d;var lo=f.lo,hi=f.hi;
+      for(i=1;i<4;i++){var v=3*t[o+i];for(var j=0;j<3;j++){var w=W[v+j];buf[at++]=w;if(w<lo[j])lo[j]=w;if(w>hi[j])hi[j]=w}}}
+     close()})};
+   // A face in 2D, in its plane: each triangle — its box and its three sides as lines (inward normal, offset).
+   var flat=function(f){if(f.p2)return f.p2;var n=f.n,U=Math.abs(n[0])<.9?[0,n[2],-n[1]]:[-n[2],0,n[0]],ul=Math.hypot(U[0],U[1],U[2]);U=[U[0]/ul,U[1]/ul,U[2]/ul];
+    var V=[n[1]*U[2]-n[2]*U[1],n[2]*U[0]-n[0]*U[2],n[0]*U[1]-n[1]*U[0]],P=f.P,T2=[];
+    for(var i=0;i<P.length;i+=9){var x=[],y=[];for(var j=0;j<3;j++){var o=i+3*j;x.push(P[o]*U[0]+P[o+1]*U[1]+P[o+2]*U[2]);y.push(P[o]*V[0]+P[o+1]*V[1]+P[o+2]*V[2])}
+     var sg=(x[1]-x[0])*(y[2]-y[0])-(y[1]-y[0])*(x[2]-x[0])<0?-1:1,t=[Math.min(x[0],x[1],x[2]),Math.min(y[0],y[1],y[2]),Math.max(x[0],x[1],x[2]),Math.max(y[0],y[1],y[2])];
+     for(j=0;j<3;j++){var k=(j+1)%3,dx=x[k]-x[j],dy=y[k]-y[j],l=Math.hypot(dx,dy)||1,nx=-sg*dy/l,ny=sg*dx/l;t.push(nx,ny,nx*x[j]+ny*y[j])}
+     T2.push(t)}
+    f.p2={U:U,V:V,T:T2};return f.p2};
+   // (the leeway: 0.1 mm)
+   var inFace=function(f,x,y,z){var F=flat(f),u=x*F.U[0]+y*F.U[1]+z*F.U[2],v=x*F.V[0]+y*F.V[1]+z*F.V[2];
+    for(var i=0;i<F.T.length;i++){var t=F.T[i];if(u<t[0]-1e-4||v<t[1]-1e-4||u>t[2]+1e-4||v>t[3]+1e-4)continue;
+     if(t[4]*u+t[5]*v>=t[6]-1e-4&&t[7]*u+t[8]*v>=t[9]-1e-4&&t[10]*u+t[11]*v>=t[12]-1e-4)return true}
+    return false};
+   // The stretches [t0, t1] of the line A + d·t (0 ≤ t ≤ L) in the face, joined where they meet.
+   var inLine=function(f,ax,ay,az,dx,dy,dz,L){var F=flat(f),U=F.U,V=F.V,u0=ax*U[0]+ay*U[1]+az*U[2],v0=ax*V[0]+ay*V[1]+az*V[2],du=dx*U[0]+dy*U[1]+dz*U[2],dv=dx*V[0]+dy*V[1]+dz*V[2],out=[];
+    var lo0=Math.min(u0,u0+du*L),hi0=Math.max(u0,u0+du*L),lo1=Math.min(v0,v0+dv*L),hi1=Math.max(v0,v0+dv*L);
+    for(var i=0;i<F.T.length;i++){var t=F.T[i];if(hi0<t[0]-1e-4||hi1<t[1]-1e-4||lo0>t[2]+1e-4||lo1>t[3]+1e-4)continue;
+     var a=0,b=L;for(var j=4;j<13&&a<=b;j+=3){var al=t[j]*u0+t[j+1]*v0-t[j+2]+1e-4,be=t[j]*du+t[j+1]*dv;
+      if(Math.abs(be)<1e-12){if(al<0)b=-1}else if(be>0)a=Math.max(a,-al/be);else b=Math.min(b,-al/be)}
+     if(b-a>1e-6)out.push(a,b)}
+    if(out.length<=2)return out;
+    var ord=[];for(i=0;i<out.length;i+=2)ord.push(i);ord.sort(function(p,q){return out[p]-out[q]});var m=[];
+    ord.forEach(function(k){var n=m.length;if(n&&out[k]<=m[n-1]+2e-4)m[n-1]=Math.max(m[n-1],out[k+1]);else m.push(out[k],out[k+1])});return m};
+   var both=function(X,Y){var out=[];for(var i=0;i<X.length;i+=2)for(var j=0;j<Y.length;j+=2){var p=Math.max(X[i],Y[j]),q=Math.min(X[i+1],Y[j+1]);if(q>p)out.push(p,q)}return out};
+   // The edges of a face where it ends (in one of its triangles only), 20 mm and longer: by tens of numbers — its
+   // start, its direction, its length, its outward direction in the plane.
+   var edgesOf=function(f){if(f.edges)return f.edges;
+    // (the corners of a mesh's triangles are the same numbers where they are one point: its twin edge found by them —
+    // pair by pair in a small face, by a key in a large one)
+    var P=f.P,nt=P.length/9,ed=[],out=[],i,j,twin=new Uint8Array(nt*3),same=function(a,b){return P[a]===P[b]&&P[a+1]===P[b+1]&&P[a+2]===P[b+2]};
+    for(i=0;i<P.length;i+=9)for(j=0;j<3;j++)ed.push(i+3*j,i+3*((j+1)%3),i+3*((j+2)%3));
+    if(nt<=16){for(i=0;i<ed.length;i+=3)for(j=i+3;j<ed.length;j+=3)if(same(ed[i],ed[j+1])&&same(ed[i+1],ed[j])||same(ed[i],ed[j])&&same(ed[i+1],ed[j+1])){twin[i/3]=1;twin[j/3]=1}}
+    else{var key=function(a){return P[a]+","+P[a+1]+","+P[a+2]},met=new Map();
+     for(i=0;i<ed.length;i+=3){var ka=key(ed[i]),kb=key(ed[i+1]),k=ka<kb?ka+"|"+kb:kb+"|"+ka;if(met.has(k)){twin[i/3]=1;twin[met.get(k)/3]=1}else met.set(k,i)}}
+    var n=f.n;
+    for(i=0;i<ed.length;i+=3){if(twin[i/3])continue;var a=ed[i],b=ed[i+1],c=ed[i+2],dx=P[b]-P[a],dy=P[b+1]-P[a+1],dz=P[b+2]-P[a+2],L=Math.sqrt(dx*dx+dy*dy+dz*dz);if(L<.02)continue;
+     dx/=L;dy/=L;dz/=L;var ox=n[1]*dz-n[2]*dy,oy=n[2]*dx-n[0]*dz,oz=n[0]*dy-n[1]*dx,ol=Math.sqrt(ox*ox+oy*oy+oz*oz)||1;ox/=ol;oy/=ol;oz/=ol;
+     if(ox*(P[c]-P[a])+oy*(P[c+1]-P[a+1])+oz*(P[c+2]-P[a+2])>0){ox=-ox;oy=-oy;oz=-oz}
+     out.push(P[a],P[a+1],P[a+2],dx,dy,dz,L,ox,oy,oz)}
+    f.edges=out;return out};
+   // The seams along the edges of fa where fb is under the face at the edge and goes on past it by the leg.
+   // The stretches without the seams drawn already (their boxes, 3 mm round them): a seam of a node drawn by its own
+   // sheet — shorter, or another leg — not drawn twice.
+   var apart=function(runs,ax,ay,az,dx,dy,dz){
+    if(!drawn.size||!runs.length)return runs;var A=[ax,ay,az],D=[dx,dy,dz],L=Math.max.apply(null,runs),cut=[],met=new Set();
+    for(var x=Math.floor(Math.min(ax,ax+dx*L)/.5);x<=Math.floor(Math.max(ax,ax+dx*L)/.5);x++)for(var y=Math.floor(Math.min(ay,ay+dy*L)/.5);y<=Math.floor(Math.max(ay,ay+dy*L)/.5);y++)for(var z=Math.floor(Math.min(az,az+dz*L)/.5);z<=Math.floor(Math.max(az,az+dz*L)/.5);z++){
+     var l=drawn.get(x+":"+y+":"+z);if(l)l.forEach(function(b){if(met.has(b))return;met.add(b);var lo=[b.min.x,b.min.y,b.min.z],hi=[b.max.x,b.max.y,b.max.z],t0=-1e9,t1=1e9;
+      for(var j=0;j<3&&t0<=t1;j++){if(Math.abs(D[j])<1e-9){if(A[j]<lo[j]||A[j]>hi[j])t1=-1e9}else{var u=(lo[j]-A[j])/D[j],v=(hi[j]-A[j])/D[j];t0=Math.max(t0,Math.min(u,v));t1=Math.min(t1,Math.max(u,v))}}
+      if(t1>t0)cut.push([t0,t1])})}
+    if(!cut.length)return runs;var out=[];
+    for(var i=0;i<runs.length;i+=2){var parts=[[runs[i],runs[i+1]]];cut.forEach(function(c){var next=[];parts.forEach(function(q){if(c[1]<=q[0]||c[0]>=q[1]){next.push(q);return}if(c[0]>q[0])next.push([q[0],c[0]]);if(c[1]<q[1])next.push([c[1],q[1]])});parts=next});
+     parts.forEach(function(q){out.push(q[0],q[1])})}
+    return out};
+   var seams=function(fa,fb,s){
+    var E=edgesOf(fa),lo=fb.lo,hi=fb.hi,pad=s+.001;
+    for(var e=0;e<E.length;e+=10){
+     var ax=E[e],ay=E[e+1],az=E[e+2],dx=E[e+3],dy=E[e+4],dz=E[e+5],L=E[e+6],ox=E[e+7],oy=E[e+8],oz=E[e+9];
+     if(Math.max(ax,ax+dx*L)<lo[0]-pad||Math.min(ax,ax+dx*L)>hi[0]+pad||Math.max(ay,ay+dy*L)<lo[1]-pad||Math.min(ay,ay+dy*L)>hi[1]+pad||Math.max(az,az+dz*L)<lo[2]-pad||Math.min(az,az+dz*L)>hi[2]+pad)continue;
+     var runs=both(inLine(fb,ax-ox*8e-4,ay-oy*8e-4,az-oz*8e-4,dx,dy,dz,L),inLine(fb,ax+ox*s*.9,ay+oy*s*.9,az+oz*s*.9,dx,dy,dz,L));
+     runs=apart(runs,ax,ay,az,dx,dy,dz);
+     for(var r=0;r<runs.length;r+=2){var r0=runs[r],r1=runs[r+1];if(r1-r0<.02)continue;
+      var mx=ax+dx*(r0+r1)/2,my=ay+dy*(r0+r1)/2,mz=az+dz*(r0+r1)/2;
+      var kk=Math.round(mx*1000)+","+Math.round(my*1000)+","+Math.round(mz*1000);if(seen.has(kk))continue;seen.add(kk);
+      found.push({id:fa.S.id,x:ax+dx*r0,y:ay+dy*r0,z:az+dz*r0,dx:dx,dy:dy,dz:dz,L:r1-r0,ax:ox,ay:oy,az:oz,bx:-fa.n[0],by:-fa.n[1],bz:-fa.n[2],s:s});
+      if(kinds){var kn=nm(fa.S)+" | "+nm(fb.S);kinds[kn]=(kinds[kn]||0)+1;if(!where[kn])where[kn]=[Math.round(mx*1000),Math.round(63200-mz*1000),Math.round(my*1000),fa.S.id,fb.S.id]}}}
+   };
+   // Bolted: a bolt through both faces (along their normal, within its grip), or — two members' bodies — one near.
+   var bolted=function(fa,fb){var n=fa.n,lo=[0,1,2].map(function(j){return Math.max(fa.lo[j],fb.lo[j])}),hi=[0,1,2].map(function(j){return Math.min(fa.hi[j],fb.hi[j])});
+    if(fa.S.body&&fb.S.body&&boltsNear(lo,hi,.3,function(b){var p=b.at;return p.x>lo[0]-.3&&p.x<hi[0]+.3&&p.y>lo[1]-.3&&p.y<hi[1]+.3&&p.z>lo[2]-.3&&p.z<hi[2]+.3}))return true;
+    // (the pack is of the two members: a bolt through the face of one part and through a part of the other member
+    // there — a cleat bolted to a beam's web lies on its coped end too, the bolts a little farther, in the web)
+    var their=function(f,id,x,y,z){for(var j=-1;j<=1;j++){var l=buckets.get(f.bk+j);if(l)for(var i=0;i<l.length;i++){var g=l[i];if(g.sg!==f.sg&&g.S.id===id&&g.ck===f.ck&&Math.abs(g.sg*g.d-f.sg*f.d)<4e-4&&inFace(g,x,y,z))return true}}return false};
+    return boltsNear(lo,hi,.15,function(b){var ax=b.axis;if(Math.abs(ax.x*n[0]+ax.y*n[1]+ax.z*n[2])<.9)return false;var p=b.at,h=p.x*n[0]+p.y*n[1]+p.z*n[2]-fa.d;if(Math.abs(h)>number(b.grip)/2+.01)return false;
+     var x=p.x-n[0]*h,y=p.y-n[1]*h,z=p.z-n[2]*h;return inFace(fa,x,y,z)&&their(fa,fb.S.id,x,y,z)||inFace(fb,x,y,z)&&their(fb,fa.S.id,x,y,z)})};
+   var where={},kinds=typeof window!=="undefined"&&window.__weldStats?{}:null,nm=function(S){var u=S.m.userData;return (u.body?"[тело] ":"")+String(u.part&&u.part.n||"")+" "+String(dataById.get(S.id).mark||"")};
+   var pair=function(fa,fb){
+    if(fa.S===fb.S||fb.ck!==fa.ck||Math.abs(fa.sg*fa.d-fb.sg*fb.d)>4e-4)return;
+    for(var j=0;j<3;j++)if(fa.lo[j]>fb.hi[j]+5e-4||fb.lo[j]>fa.hi[j]+5e-4)return;
+    if(fa.S.id===fb.S.id&&(fa.S.body&&fb.S.body||fa.S.name===fb.S.name))return;
+    pairs++;if(bolted(fa,fb))return;
+    var s=Math.max(.004,Math.min(.006,fa.S.t,fb.S.t));seams(fa,fb,s);seams(fb,fa,s)};
+   // (a face facing one way with each facing the other in its millimetre and the next; many — by cells of 1 m)
+   var cross=function(X,Y){
+    if(!X.length||!Y.length)return;
+    if(X.length*Y.length<=400){X.forEach(function(a){Y.forEach(function(b){pair(a,b)})});return}
+    var cells=new Map();Y.forEach(function(b){putBox(cells,{min:{x:b.lo[0],y:b.lo[1],z:b.lo[2]},max:{x:b.hi[0],y:b.hi[1],z:b.hi[2]}},1,b)});
+    X.forEach(function(a){var met=new Set();for(var x=Math.floor(a.lo[0]);x<=Math.floor(a.hi[0]);x++)for(var y=Math.floor(a.lo[1]);y<=Math.floor(a.hi[1]);y++)for(var z=Math.floor(a.lo[2]);z<=Math.floor(a.hi[2]);z++){
+     var l=cells.get(x+":"+y+":"+z);if(l)l.forEach(function(b){if(!met.has(b)){met.add(b);pair(a,b)}})}})};
+   var keys=null,at=0,by=function(fn,n,all){return function step(){var A=all?all():list,t=performance.now(),e=Math.min(A.length,at+n);for(;at<e;at++)fn(A[at]);ms+=performance.now()-t;if(at<A.length)return step;at=0}};
+   var pairUp=function(L,bk){
+    var M=buckets.get(bk+1)||[],side=function(A,s){return A.filter(function(f){return f.sg===s})};
+    cross(side(L,1),side(L,-1));cross(side(L,1),side(M,-1));cross(side(L,-1),side(M,1))};
+   var pairsStep=function step(){var t=performance.now();if(!keys){keys=Array.from(buckets.keys());at=0}var e=Math.min(keys.length,at+80);
+    for(;at<e;at++)pairUp(buckets.get(keys[at]),keys[at]);ms+=performance.now()-t;if(at<keys.length)return step};
+   var finish=function(){weldList=found;if(typeof window!=="undefined"&&window.__weldStats)window.__weldStats.push({kinds:kinds,where:where,meshes:list.length,faces:faces,pairs:pairs,seams:found.length,ms:Math.round(ms)})};
+   return[function(){var t=performance.now();prepare();ms+=performance.now()-t},by(sort,3000,function(){return allMeshes}),by(planes,600),by(facesOf,150),pairsStep,finish]
+  }
+  function autoWelds(){var steps=weldSteps();while(steps.length){var f=steps.shift(),more=f();if(more)steps.unshift(more)}return weldList.length}
+  // (the seams found after the model is shown, by slices of 40 ms: the opening of a large scheme does not wait for them
+  // — 1–1.5 s for ИР-71535 —, and they are drawn only near the camera; a new building of the model drops a search not
+  // done)
+  var weldRun=0;
+  function weldsLater(){
+   var run=++weldRun,steps=weldSteps();
+   var go=function(){if(!alive||run!==weldRun)return;var t0=performance.now();
+    while(steps.length&&performance.now()-t0<30){var f=steps.shift(),more=f();if(more)steps.unshift(more)}
+    if(steps.length)setTimeout(go,0);else{weldCellsOf();lodAt=null;invalidate()}};
+   setTimeout(go,0)
+  }
   // A plate as a box: its middle, its axes (unit vectors) and its sizes along them (m).
   // A stiffener between the flanges of a rolled I, its corners at the web sniped clear of the root fillets (r + 1 mm, at
   // 45°: the fillet's farthest point from the corner is r along either face). 0 for a welded I or one without r.
@@ -9035,7 +9218,7 @@ window.irThreeSchemeView=(function(){
   // out). A cell far from the camera is drawn by boxes of the members (12 triangles each, not the rolled section), the
   // bolts only near: 4000 members with their sections, plates and bolts are near a million triangles, and a computer
   // whose graphics card is not used drew one picture for seconds — the program and the whole computer stood.
-  var boltCells=[];
+  var boltCells=[],weldCells=[],weldList=[];
   var CELL=phone?7.5:15,unitBox=null,boxMatrix=new T.Matrix4(),boxCentre=new T.Vector3(),boxSize=new T.Vector3();
   function merge(list,geoOf,matOf,mat){
    var nv=0,ni=0,p=new T.Vector3(),nm=new T.Matrix3();
@@ -9099,7 +9282,7 @@ window.irThreeSchemeView=(function(){
    return boxMatrix.copy(m.matrixWorld).multiply(new T.Matrix4().makeTranslation(boxCentre.x,boxCentre.y,boxCentre.z)).scale(boxSize)
   }
   function rebatch(queue){
-   batches.children.slice().forEach(function(b){batches.remove(b);b.geometry.dispose()});
+   batches.children.slice().forEach(function(b){batches.remove(b);b.geometry.dispose()});weldCells.forEach(function(cell){cell.meshes=null});
    steel.updateMatrixWorld(true);if(!unitBox)unitBox=new T.BoxGeometry(1,1,1);
    var groups=new Map();
    allMeshes.forEach(function(m){if(!m.visible)return;var e=m.matrixWorld.elements,k=(m.userData.small?"s":"m")+"|"+Math.floor(e[12]/CELL)+","+Math.floor(e[14]/CELL);
@@ -9110,6 +9293,7 @@ window.irThreeSchemeView=(function(){
    boltList.forEach(function(b){b.cell=null;if(!seen(b.id))return;var k=b.cls+"|"+Math.floor(b.at.x/CELL)+","+Math.floor(b.at.z/CELL);if(!cells.has(k))cells.set(k,{cls:b.cls,list:[],meshes:null});cells.get(k).list.push(b)});
    cells.forEach(function(cell){var c=new T.Vector3(),r=0;cell.list.forEach(function(b){c.add(b.at);b.cell=cell});c.multiplyScalar(1/cell.list.length);
     cell.list.forEach(function(b){r=Math.max(r,b.at.distanceTo(c))});cell.centre=c;cell.radius=r+.3;boltCells.push(cell)});
+   weldCellsOf();
    // (a phone: the detailed picture of a cell — its pieces and their outlines — made only while the camera is near it and
    // let go again far off, as the bolt sets: made for all the cells at the opening, they held 130 MB of ИР-71535 in the
    // page, and each node looked at sent 50–90 MB more of them to the graphics — the phone's browser ran out of memory and
@@ -9194,6 +9378,32 @@ window.irThreeSchemeView=(function(){
   }
   function dropLazyCell(cell){cell.meshes.forEach(function(m){batches.remove(m);m.geometry.dispose()});cell.meshes=null}
   function dropBoltCell(cell){cell.meshes.forEach(function(m){batches.remove(m);m.geometry.dispose()});cell.meshes=null}
+  // The seams found from the parts (autoWelds), by cells too: made as the camera comes near, as the bolt sets.
+  function weldCellsOf(){
+   weldCells.forEach(function(cell){if(cell.meshes)dropBoltCell(cell)});
+   var seen=function(id){var l=meshesById.get(id);return!l||l.some(function(m){return m.visible})};
+   var wcs=new Map();weldCells=[];
+   weldList.forEach(function(w){if(!seen(w.id))return;var mx=w.x+w.dx*w.L/2,mz=w.z+w.dz*w.L/2,k=Math.floor(mx/CELL)+","+Math.floor(mz/CELL);if(!wcs.has(k))wcs.set(k,{list:[],meshes:null});wcs.get(k).list.push(w)});
+   wcs.forEach(function(cell){var c=new T.Vector3(),r=0,m=new T.Vector3();
+    cell.list.forEach(function(w){c.x+=w.x+w.dx*w.L/2;c.y+=w.y+w.dy*w.L/2;c.z+=w.z+w.dz*w.L/2});c.multiplyScalar(1/cell.list.length);
+    cell.list.forEach(function(w){m.set(w.x+w.dx*w.L/2,w.y+w.dy*w.L/2,w.z+w.dz*w.L/2);r=Math.max(r,m.distanceTo(c)+w.L/2)});cell.centre=c;cell.radius=r+.01;weldCells.push(cell)});
+  }
+  // The seams of a cell in one mesh: each a fillet — its two faces out from the steel (from the end of one leg over the
+  // swell of the seam to the end of the other) and its two ends, its legs along a and b, s long; the faces on the steel
+  // not drawn (unseen).
+  function buildWeldCell(cell){
+   var n=cell.list.length,pos=new Float32Array(n*48),nor=new Float32Array(n*48),idx=new Uint32Array(n*24),v=0,q=0;
+   var put=function(x,y,z,nx,ny,nz){pos[3*v]=x;pos[3*v+1]=y;pos[3*v+2]=z;nor[3*v]=nx;nor[3*v+1]=ny;nor[3*v+2]=nz;return v++};
+   var quad=function(a,b,c,d){idx[q++]=a;idx[q++]=b;idx[q++]=c;idx[q++]=a;idx[q++]=c;idx[q++]=d};
+   cell.list.forEach(function(w){
+    var s=w.s,k=.641*s,ends=[0,w.L].map(function(t){var x=w.x+w.dx*t,y=w.y+w.dy*t,z=w.z+w.dz*t;
+     return[[x,y,z],[x+w.ax*s,y+w.ay*s,z+w.az*s],[x+(w.ax+w.bx)*k,y+(w.ay+w.by)*k,z+(w.az+w.bz)*k],[x+w.bx*s,y+w.by*s,z+w.bz*s]]});
+    [[1,2,.872,.489],[2,3,.489,.872]].forEach(function(f){var nx=w.ax*f[2]+w.bx*f[3],ny=w.ay*f[2]+w.by*f[3],nz=w.az*f[2]+w.bz*f[3],P=ends[0][f[0]],Q=ends[0][f[1]],R=ends[1][f[1]],S=ends[1][f[0]];
+     quad(put(P[0],P[1],P[2],nx,ny,nz),put(Q[0],Q[1],Q[2],nx,ny,nz),put(R[0],R[1],R[2],nx,ny,nz),put(S[0],S[1],S[2],nx,ny,nz))});
+    [0,1].forEach(function(e){var g=e?1:-1,E=ends[e];quad(put(E[0][0],E[0][1],E[0][2],w.dx*g,w.dy*g,w.dz*g),put(E[1][0],E[1][1],E[1][2],w.dx*g,w.dy*g,w.dz*g),put(E[2][0],E[2][1],E[2][2],w.dx*g,w.dy*g,w.dz*g),put(E[3][0],E[3][1],E[3][2],w.dx*g,w.dy*g,w.dz*g))})});
+   var g=new T.BufferGeometry();g.setAttribute("position",new T.BufferAttribute(pos,3));g.setAttribute("normal",new T.BufferAttribute(nor,3));g.setIndex(new T.BufferAttribute(idx,1));g.computeBoundingSphere();
+   var m=new T.Mesh(g,weldMat);m.userData.lod="weld";m.matrixAutoUpdate=false;batches.add(m);cell.meshes=[m]
+  }
   function lod(){
    var cam=camera.position;if(lodAt&&lodAt.distanceToSquared(cam)<.25)return;lodAt=cam.clone();
    // (the outlines of the steel nearer than its shapes: half a million lines over the near cells, drawn see-through, were
@@ -9202,7 +9412,7 @@ window.irThreeSchemeView=(function(){
    // (a phone: nearer still — its detailed cells made as the camera comes near and let go far off, lazyCells)
    var near=phone?8:light?22:45,bolts=phone?5:light?8:18,lines=phone?6:light?10:25,made=0,more=false;
    batches.children.forEach(function(b){
-    if(b.userData.lod==="bolt"||b.userData.lazy)return;
+    if(b.userData.lod==="bolt"||b.userData.lod==="weld"||b.userData.lazy)return;
     var s=b.geometry.boundingSphere,d=s?Math.max(0,cam.distanceTo(s.center)-s.radius):0;
     b.visible=b.userData.lod==="small"?d<(b.userData.edges?Math.min(bolts,lines):bolts):b.userData.lod==="coarse"?d>=near:d<(b.userData.edges?lines:near);
    });
@@ -9212,6 +9422,9 @@ window.irThreeSchemeView=(function(){
    boltCells.forEach(function(cell){var d=Math.max(0,cam.distanceTo(cell.centre)-cell.radius);
     if(d<bolts){if(!cell.meshes){if(made>=3){more=true;return}made++;buildBoltCell(cell)}cell.meshes.forEach(function(m){m.visible=true})}
     else if(cell.meshes){if(d>2*bolts)dropBoltCell(cell);else cell.meshes.forEach(function(m){m.visible=false})}});
+   var welds=0;weldCells.forEach(function(cell){var d=Math.max(0,cam.distanceTo(cell.centre)-cell.radius);
+    if(d<bolts){if(!cell.meshes){if(welds>=6){more=true;return}welds++;buildWeldCell(cell)}cell.meshes[0].visible=true}
+    else if(cell.meshes){if(d>2*bolts)dropBoltCell(cell);else cell.meshes[0].visible=false}});
    if(more){lodAt=null;invalidate()}
   }
   // ---- The parts of the selected member as its card lists them (the engineer, 27.10.2026, after the report of 21.10:
@@ -9940,7 +10153,7 @@ window.irThreeSchemeView=(function(){
    // easing out after it: on a slow graphics card that easing lasts many pictures, and they stayed bare after a stop.
    var nowMs=performance.now();if(flight||held.size)movedAt=nowMs;
    var moving=nowMs-movedAt<160&&!explode,hidden=[];
-   if(moving){batches.children.forEach(function(b){if(b.visible&&(b.userData.edges||b.userData.lod==="bolt")){b.visible=false;hidden.push(b)}})}
+   if(moving){batches.children.forEach(function(b){if(b.visible&&(b.userData.edges||b.userData.lod==="bolt"||b.userData.lod==="weld")){b.visible=false;hidden.push(b)}})}
    bare=hidden.length>0;
    renderer.render(scene,camera);drew=true;
    for(var hi=0;hi<hidden.length;hi++)hidden[hi].visible=true;
@@ -9967,7 +10180,7 @@ window.irThreeSchemeView=(function(){
    // (where the page shows how far the building is — the exported scheme —, a rebuild after a filter goes by steps too,
    // with its bar: at once it held the page as long as the opening)
    if(sig!==built&&typeof P.onProgress==="function"){built=sig;buildSteps(P.elements,function(){drew=false;slow=0;rebuiltAt=performance.now();updated()});return}
-   if(sig!==built){built=sig;buildMembers(P.elements);buildCranes();buildTankDims();buildLevels();buildNodes();deriveParts();lowerGround();refreshMaterials();drew=false;slow=0;rebuiltAt=performance.now()}
+   if(sig!==built){built=sig;buildMembers(P.elements);buildCranes();buildTankDims();buildLevels();buildNodes();deriveParts();lowerGround();refreshMaterials();weldsLater();drew=false;slow=0;rebuiltAt=performance.now()}
    else if(mode!==colorMode)refreshMaterials();
    else paintHighlight();
    updated()
@@ -10011,7 +10224,7 @@ window.irThreeSchemeView=(function(){
      while(queue.length){var st=queue.shift();st.run();did+=st.w;if(queue.length&&performance.now()-t0>100){tell();pause(slice);return}}
     }catch(e){building=null;throw e}
     did=total-BUILD_W.show;tell();
-    pause(function(){if(!alive)return;var next=building.next;building=null;layers.forEach(function(l){l.style.visibility=""});done();if(next)update(next)})
+    pause(function(){if(!alive)return;var next=building.next;building=null;layers.forEach(function(l){l.style.visibility=""});done();if(next)update(next);else weldsLater()})
    };
    tell();pause(slice)
   }
@@ -10024,7 +10237,7 @@ window.irThreeSchemeView=(function(){
   }
   built=signature(P.elements);
   if(typeof P.onProgress==="function")buildSteps(P.elements,shown);
-  else{buildMembers(P.elements);buildCranes();buildTankDims();buildLevels();buildNodes();deriveParts();lowerGround();applyBackground();refreshMaterials();shown()}
+  else{buildMembers(P.elements);buildCranes();buildTankDims();buildLevels();buildNodes();deriveParts();lowerGround();applyBackground();refreshMaterials();shown();weldsLater()}
   // Footings below ±0.000 (bases at −0.600): the floor, the grid and the dimensions go down to the lowest member,
   // so that bases and their plates stay above the floor.
   function lowerGround(){
