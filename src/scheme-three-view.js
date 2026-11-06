@@ -54,6 +54,9 @@ window.irThreeSchemeView=(function(){
  // металла, серебристый такой, чтобы не сливался с фоном»; the light grey #B7BDC4 of the report of 25.10.2026 merged
  // with the light backgrounds): darker than any light background, with the sheen of metal (plannedMetal below).
  var statusColors={mounted:[0x159b65,"Смонтировано"],partial:[0xe09b00,"Частично"],planned:[0x9ea8b4,"Не смонтировано"]};
+ // On the dark background the steel not mounted is light blue metal, not grey (the engineer, 06.11.2026: «при темном фоне
+ // сделай металлоконструкции другого цвета»): applyBackground puts it into statusColors.planned and the metal material.
+ var PLANNED_LIGHT=0x9ea8b4,PLANNED_DARK=0x8cc4f5;
  // How fully the reading of the drawings determined an element (src/ai-montage.js). The preliminary ones (not confirmed
  // or computed) are drawn pale in every colouring: placed all the same, to be edited by the engineer.
  var instanceColors={confirmed:[0x159b65,"Подтверждено"],computed:[0x2f6fd6,"Вычислено"],partial:[0xe09b00,"Частично"],ambiguous:[0x8b40de,"Неоднозначно"],
@@ -691,14 +694,20 @@ window.irThreeSchemeView=(function(){
    '<div class="ir-three-views">'+
    '<button data-three-view="iso" class="active" title="Общий вид модели сбоку сверху">Общий вид</button><button data-three-view="top">Сверху</button>'+
    '<button data-three-view="front">Фасад</button><button data-three-view="side">Сбоку</button></div>'+
+   // (the colouring, the grid, the axes, the nodes and the details under one button «Вид ▾» — the bar one narrow row, not
+   // a white band over the whole width wrapping «Добавить элемент» under it: the engineer, 06.11.2026 «переделай это,
+   // раздражает»; the list itself — .ir-three-opts after the bar, placed under the button: toolsMenu)
+   '<button type="button" class="ir-three-more" id="irThreeMore" aria-haspopup="true" aria-expanded="false" aria-controls="irThreeOpts" title="Цвет, сетка, оси, узлы, детали"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>Вид</span><b aria-hidden="true">▾</b></button>'+
+   '<span class="ir-three-count" id="irThreeCount"></span><span class="ir-three-count" id="irThreeLight" hidden title="Окно рисует 3D без видеокарты (процессором): сечения и болты показаны только вблизи, края без сглаживания. Включите видеокарту для программы в настройках Windows («Графика» → высокая производительность) или обновите её драйвер.">· упрощённый показ: видеокарта не используется</span>'+
+   (P.canEdit?'<button class="ir-three-add" id="irThreeAdd" title="Добавить элемент">＋ Элемент</button>':"")+'</div>'+
+   '<div class="ir-three-opts" id="irThreeOpts" role="group" aria-label="Вид схемы" hidden>'+
    '<select id="irThreeColors" data-native-select="1" aria-label="Раскраска конструкции">'+
    '<option value="type">Цвет: виды</option><option value="status">Цвет: монтаж</option><option value="mark">Цвет: марки</option><option value="confidence">Цвет: достоверность</option></select>'+
    '<label class="ir-three-check"><input type="checkbox" id="irThreeGrid" checked> Сетка</label>'+
    '<label class="ir-three-check"><input type="checkbox" id="irThreeAxes" checked> Оси</label>'+
    '<select id="irThreeNodes" data-native-select="1" aria-label="Узлы" title="Маркеры узлов: опоры колонн, оголовки, концы балок"><option value="sel">Узлы: у выбранного</option><option value="all">Узлы: все</option><option value="open">Узлы: несмонтированные</option><option value="off">Узлы: скрыть</option></select>'+
    '<label class="ir-three-check" title="Опорные плиты, анкеры и оголовки вблизи, краны на путях — условно, не по КМД"><input type="checkbox" id="irThreeDetails" checked> Детали</label>'+
-   '<span class="ir-three-count" id="irThreeCount"></span><span class="ir-three-count" id="irThreeLight" hidden title="Окно рисует 3D без видеокарты (процессором): сечения и болты показаны только вблизи, края без сглаживания. Включите видеокарту для программы в настройках Windows («Графика» → высокая производительность) или обновите её драйвер.">· упрощённый показ: видеокарта не используется</span>'+
-   (P.canEdit?'<button class="ir-three-add" id="irThreeAdd">＋ Добавить элемент</button>':"")+'</div>'+
+   '</div>'+
    '<div id="irThreeCopyHint" class="ir-three-copy-hint" hidden>Щёлкните новое начало конструкции на плоскости X/Y. <button id="irThreeCancelCopy" type="button">Отмена</button></div>'+
    '<div class="ir-three-viewport" id="irThreeViewport" role="img" aria-label="Интерактивная 3D модель металлического каркаса"></div>'+
    '<div class="ir-three-axis-layer" id="irThreeAxisLayer" aria-hidden="true"></div>'+
@@ -712,6 +721,7 @@ window.irThreeSchemeView=(function(){
    axisLayer=root.querySelector("#irThreeAxisLayer"),labelLayer=root.querySelector("#irThreeLabelLayer"),
    cursor=root.querySelector("#irThreeCursor"),legend=root.querySelector("#irThreeLegend"),placePanel=root.querySelector("#irThreePlace");
   nodePanel=root.querySelector("#irThreeNode");
+  toolsMenu();
   // (the exported report: no colouring by the confidence — the engineer, 03.11.2026: «Цвет достоверность при выгрузке не надо»)
   if(P.report){var conf=root.querySelector('#irThreeColors option[value="confidence"]');if(conf)conf.remove();if(P.colorMode==="confidence")P.colorMode="status"}
   // (under the scheme of the report only the colours of the montage; how to move is in «Помощь по 3D» of the page —
@@ -6939,6 +6949,26 @@ window.irThreeSchemeView=(function(){
   function axisOf(x,y){var ax=nearestAxis(axesX,gridX,x),ay=nearestAxis(axesY,gridY,y),dx=Math.round(x-number(gridX[ax])),dy=Math.round(y-number(gridY[ay]));
    return ax+"/"+ay+(dx||dy?" ("+(dx>0?"+":"")+fmt(dx)+"; "+(dy>0?"+":"")+fmt(dy)+")":"")}
   function level(z){var v=number(z)/1000;return(v>0?"+":v<0?"−":"")+Math.abs(v).toFixed(3).replace(".",",")}
+  // The bar of the 3D one narrow row only as wide as it needs (the views, «Вид ▾», «＋ Элемент»); «Вид ▾» opens the
+  // colouring, the grid, the axes, the nodes and the details under it, closed by a click elsewhere or Esc. The styles given
+  // here: the scheme pack carries the scripts, not the program's styles.
+  function toolsMenu(){
+   if(!document.getElementById("irThreeBarCompact")){var st=document.createElement("style");st.id="irThreeBarCompact";
+    st.textContent=".ir-three-root .ir-three-toolbar{right:auto;max-width:calc(100% - 22px);flex-wrap:nowrap;gap:5px;padding:4px 5px;background:#fffffff2}"+
+     ".ir-three-root .ir-three-toolbar .ir-three-views{flex-wrap:nowrap;padding:2px;gap:2px}.ir-three-root .ir-three-toolbar button,.ir-three-root .ir-three-toolbar select{min-height:28px;padding:3px 9px;white-space:nowrap}"+
+     ".ir-three-root .ir-three-toolbar .ir-three-count{margin-left:4px;white-space:nowrap}"+
+     ".ir-three-more{display:inline-flex;align-items:center;gap:5px;font-weight:700}.ir-three-more b{font-weight:400;font-size:9px;color:#7891a3}.ir-three-more[aria-expanded=true]{background:#eaf3ff;border-color:#9dc2ed;color:#1769e0}"+
+     ".ir-three-opts{position:absolute;z-index:9;display:grid;gap:7px;min-width:220px;padding:10px 12px;background:#fff;border:1px solid #d7e5f0;border-radius:10px;box-shadow:0 10px 26px rgba(20,45,70,.18)}.ir-three-opts[hidden]{display:none}"+
+     ".ir-three-opts select{width:100%;min-height:30px;border:1px solid #cfdde8;border-radius:7px;background:#fff;color:#21445e;padding:4px 8px;font:inherit;font-size:12px;font-weight:600}.ir-three-root.dark .ir-three-opts select{background:#1f2a36;border-color:#2b3744;color:#e6ebf1}.ir-three-opts .ir-three-check{margin:0;font-size:11px}"+
+     ".ir-three-root.dark .ir-three-toolbar{background:#1b2633f2;border-color:#2b3744}.ir-three-root.dark .ir-three-opts{background:#1b2633;border-color:#2b3744;color:#e6ebf1}.ir-three-root.dark .ir-three-opts .ir-three-check{color:#d5e2ee}";
+    document.head.appendChild(st)}
+   var btn=root.querySelector("#irThreeMore"),box=root.querySelector("#irThreeOpts");if(!btn||!box)return;
+   var show=function(on){box.hidden=!on;btn.setAttribute("aria-expanded",String(on));if(!on)return;
+    var r=btn.getBoundingClientRect(),o=root.getBoundingClientRect();box.style.top=Math.round(r.bottom-o.top+4)+"px";box.style.left=Math.max(6,Math.min(Math.round(r.left-o.left),Math.round(o.width-box.offsetWidth-6)))+"px"};
+   btn.onclick=function(e){e.stopPropagation();show(box.hidden)};
+   document.addEventListener("pointerdown",function(e){if(!box.hidden&&!box.contains(e.target)&&!btn.contains(e.target))show(false)},true);
+   document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!box.hidden)show(false)})
+  }
   // A phone, or the field narrow (under 600 px): the node's card a strip at its bottom, folded at first (paintNode).
   var nodeMin=true;
   function narrowField(){var w=root.clientWidth||(root.getBoundingClientRect?root.getBoundingClientRect().width:0);return phone||w>0&&w<600}
@@ -9222,7 +9252,9 @@ window.irThreeSchemeView=(function(){
    // A dark floor is not lit (lit, it turned grey and the grid stood out light on it).
    floorMaterial.color.setHex(0xd0dfec);floor.material=dark?darkFloorMaterial:floorMaterial;
    if(Boolean(grid.userData.dark)!==dark){floorGrid(dark);grid.userData.dark=dark}
-   root.classList.toggle("dark",dark)
+   root.classList.toggle("dark",dark);
+   var steel=dark?PLANNED_DARK:PLANNED_LIGHT;
+   if(statusColors.planned[0]!==steel){statusColors.planned[0]=steel;var mm=mats.get("metal");if(mm)mm.color.setHex(steel);if(typeof paintLegend==="function")paintLegend()}
   }
   var center=new T.Vector3(X/2,Math.max(4,Math.min(15,number(P.maxZ||10000)/1900)),Y/2);
   var radius=Math.max(24,Math.hypot(X,Y)*.95),controls=new T.OrbitControls(camera,renderer.domElement);

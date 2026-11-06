@@ -139,7 +139,9 @@ window.irSchemePage=async function(objectId){
  }catch(e){}
  // (the background light or dark only, one icon — the engineer, 06.11.2026: «убери цвета кроме светлого и темного.
  // Переключение где-нибудь сделай иконкой просто»; a colour chosen before — the light one)
- if(schemeBackground!=="dark")schemeBackground="standard";
+ // The scheme always opens on the light background (the engineer, 06.11.2026: «стандарт светлый фон»); the dark one —
+ // by the icon, for this viewing only.
+ schemeBackground="standard";
  const backgroundIcon=()=>schemeBackground==="dark"?'<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>':'<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg>';
  const currentBackground=()=>schemeBackground;
  const currentCustomBackground=()=>schemeCustomBackground;
