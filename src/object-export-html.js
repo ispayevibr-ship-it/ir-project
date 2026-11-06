@@ -25,7 +25,7 @@
   if(/\.(pdf|docx?|xlsx?)$/i.test(value))return;
   if(value.length<1200)refs.add(value)
  }
- async function inlinePhotos(sectionRows){
+ async function inlinePhotos(sectionRows,onPhoto){
   const refs=new Set();
   for(const [section,rows] of Object.entries(sectionRows))for(const row of rows){
    const d=row.data||row;
@@ -41,6 +41,7 @@
     const key=keys[cursor++];
     try{const result=await irProject.images.read(key);if(dataUrl(result))output.set(key,result)}
     catch(error){console.warn("Object HTML: photo unavailable",error)}
+    if(onPhoto)onPhoto(output.size,keys.length)
    }
   }
   await Promise.all(Array.from({length:Math.min(keys.length,5)},worker));
@@ -1095,11 +1096,26 @@
   })
  }
 
+ // The bar of the export (the engineer, 06.11.2026: «при выгрузке отчета сделай полосу загрузки, а то будто зависает,
+ // ждешь ждешь, а потом бац и уведомление»): what is done now and how much, from the choice of the sections to the file;
+ // its light runs by itself (an animation of transform — moves even while a long step holds the page).
+ function exportProgress(){
+  const box=document.createElement("div");box.className="ir-export-progress";box.setAttribute("role","status");
+  box.innerHTML='<style>.ir-export-progress{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;background:rgba(15,30,45,.28)}.ir-export-progress>div{width:min(440px,calc(100% - 32px));padding:16px 18px 14px;background:#fff;border:1px solid #dce5ed;border-radius:12px;box-shadow:0 12px 34px rgba(15,30,60,.22);color:#21435b;font:14px/1.4 Inter,"Segoe UI",Arial,sans-serif}.ir-export-progress b{display:block;font-size:15px;margin-bottom:10px}.ir-export-progress .row{display:flex;align-items:center;gap:10px}.ir-export-progress .bar{position:relative;flex:1 1 auto;height:10px;border-radius:5px;background:#e3eaf3;overflow:hidden}.ir-export-progress .bar i{display:block;height:100%;width:2%;border-radius:5px;background:linear-gradient(90deg,#1f5fbf,#4f8fe6);transition:width .3s ease-out}.ir-export-progress .bar:after{content:"";position:absolute;top:0;bottom:0;left:0;width:40%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.6),transparent);animation:irExportRun 1.3s linear infinite}@keyframes irExportRun{from{transform:translateX(-100%)}to{transform:translateX(250%)}}.ir-export-progress em{min-width:40px;text-align:right;font-style:normal;font-weight:650;font-variant-numeric:tabular-nums}.ir-export-progress span{display:block;margin-top:8px;color:#6f879b;font-size:13px;min-height:1.4em}</style><div><b>Выгрузка отчёта по объекту</b><div class="row"><div class="bar"><i></i></div><em>0%</em></div><span>Подготовка…</span></div>';
+  document.body.appendChild(box);
+  const bar=box.querySelector(".bar i"),pct=box.querySelector("em"),what=box.querySelector("span");let at=0;
+  return{
+   // (the page drawn before the next step: a step that holds the page shows its name, not the one before)
+   async step(v,text){at=Math.max(at,Math.min(1,v));bar.style.width=Math.max(2,at*100).toFixed(1)+"%";pct.textContent=Math.round(at*100)+"%";if(text)what.textContent=text;await new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0)))},
+   quiet(v,text){at=Math.max(at,Math.min(1,v));bar.style.width=Math.max(2,at*100).toFixed(1)+"%";pct.textContent=Math.round(at*100)+"%";if(text)what.textContent=text},
+   done(){box.remove()}
+  }
+ }
  async function exportObject(objectId){
   const id=String(objectId);
   if(!/^\d+$/.test(id))throw Error("Неверный ID объекта.");
   if(exportObject.busy)return false;
-  exportObject.busy=true;
+  exportObject.busy=true;let bar=null;
   try{
    const object=await irProject.data.objects.get(id);
    if(!object)throw Error("Объект не найден.");
@@ -1111,8 +1127,10 @@
   const selection=await chooseExportSections(availableKeys,nav);
   if(!selection)return false;
   const keys=selection.keys;
+   bar=exportProgress();await bar.step(.03,"Логотипы и сведения о компаниях");
    const api=irProject.data.forObject(id);
    const companyHeader=await exportCompanyHeader(api,object,selection.underContractor);
+   await bar.step(.08,"Разделы объекта");
    const batches=await Promise.all(keys.map(async key=>{
     try{return[key,array(await api.section(key).list())]}
     catch(error){console.warn("Object HTML: failed to load section",key,error);return[key,[]]}
@@ -1130,7 +1148,9 @@
    const schemeMarks=keys.includes("scheme")?(rows.marks||await api.section("marks").list().catch(()=>[])):[];
    const schemeDetails=keys.includes("scheme")?markDetailData(schemeMarks,supporting[0],supporting[1]):[];
    const photoInputs=keys.includes("photos")?{...rows,reports:supporting[1]}:rows;
-   const photos=await inlinePhotos(photoInputs);
+   await bar.step(.25,"Фотографии");
+   const photos=await inlinePhotos(photoInputs,(n,all)=>bar.quiet(.25+.25*n/Math.max(1,all),"Фотографии: "+n+" из "+all));
+   await bar.step(.5,"Оформление отчёта");
    const cssResponse=await fetch("./ir-styles.css?v=17149",{cache:"no-store"});
    if(!cssResponse.ok)throw Error("Не удалось загрузить оформление отчёта.");
    const css=await cssResponse.text();
@@ -1693,6 +1713,7 @@
     catch(error){console.warn("Object HTML: indicators unavailable",key,error);return[key,[]]}
    }))):{};
    const indicatorsMarkup=selection.overview?renderIndicatorBlock(indicatorRows,keys):"";
+   await bar.step(.55,"Показатели объекта");
    if(selection.overview)await exportWaitForWeather();
    // Read work-type schedule dates even when the schedule section is not selected for export.
    const scheduleRows=rows.schedule||await api.section("schedule").list().catch(error=>{console.warn("Object HTML: work schedule dates unavailable",error);return []});
@@ -1770,11 +1791,12 @@
    // The scheme of the report is the exported scheme (the engineer, 06.11.2026: «монтажную схему выведи ту которую мы при
    // выгрузке используем … 100%. В будущем если какие-то изменения в выгруженной схеме делаем, но и в отчетной»): its
    // data gathered as by the «HTML» button (src/scheme-page.js, exportData) and its page built by the same code.
-   let schemePage="";
+   let schemePage="";if(keys.includes("scheme"))await bar.step(.62,"Монтажная схема — элементы, узлы, болты");
    if(keys.includes("scheme")&&typeof window.irSchemePage==="function"&&window.irSchemeHtmlExport?.build){
     try{const data=await window.irSchemePage(id,{exportData:true});if(data){data.shots=[];if(selection.underContractor)data.company={name:"",logo:""};schemePage=await window.irSchemeHtmlExport.build(data)}}
     catch(error){console.warn("Object HTML: the exported scheme was not built",error);schemePage=""}
    }
+   await bar.step(.88,"Сборка страниц отчёта");
    const sectionsHtml=keys.map(key=>renderSection(key,rows[key]||[],photos,overviewSnapshot.preview[key]||"",{workTypes:supporting[0],reports:supporting[1],marks:supporting[2],markNames,schemeDetails,supplyModel,trendHtml,schemePage:Boolean(schemePage)})).join("");
    let viewerScripts="",viewerCsp="";
    const nonce=btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
@@ -1848,6 +1870,7 @@
    if(selection.underContractor)html=redactCompanyIdentity(html,companyHeader.ownName);
    const name=safeFile(object.short_name||object.name||"Объект");
    const fileName=selection.underContractor?redactCompanyIdentity(name,companyHeader.ownName).trim()||"Объект":name;
+   await bar.step(.96,"Сохранение файла");
    const result=await irProject.reportExport.html(html,"IR Project — "+fileName+" — весь объект.html");
    if(result&&typeof window.irProjectNotice==="function")window.irProjectNotice("HTML-отчёт объекта сохранён. Файл доступен только для просмотра.","success");
    return result
@@ -1856,7 +1879,7 @@
    if(typeof window.irProjectNotice==="function")window.irProjectNotice("Не удалось выгрузить объект: "+String(error?.message||error),"error");
    else alert("Не удалось выгрузить объект: "+String(error?.message||error));
    return false
-  }finally{exportObject.busy=false}
+  }finally{exportObject.busy=false;if(bar)bar.done()}
  }
  window.irObjectHtmlExport={save:exportObject};
 })();
