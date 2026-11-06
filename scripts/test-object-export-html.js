@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=1119900'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=1120000'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -725,7 +725,7 @@ assert.equal(typeof extras.axisLabelLayout,"function","the standalone scheme pro
 {
  const s=require("node:fs").readFileSync("src/object-export-html.js","utf8"),ok=require("node:assert/strict").ok;
  ok(s.includes('fasteners:"Ведомость метизов","executive-docs":"Исполнительная документация",letters:"Исходящие письма"'),"no English section names");
- ok(s.includes('key==="letters"?renderLetters(rows):key==="executive-docs"?renderExecDocs(rows,support.workTypes||[]):key==="fasteners"?renderFasteners(rows)'),"letters, acts, fasteners by their own layouts");
+ ok(s.includes('key==="letters"?renderLetters(rows):key==="executive-docs"?renderExecDocs(rows,support.workTypes||[],support.reports||[]):key==="fasteners"?renderFasteners(rows)'),"letters, acts, fasteners by their own layouts");
  ok(s.includes("function letterBody(html)")&&s.includes("SCRIPT|STYLE|IFRAME"),"the letter's text without anything that runs");
  ok(s.includes('const codeText=c=>')&&s.includes('countText(group.positions,"позиция","позиции","позиций")'),"«3 PDF-файла», «126 позиций» said right");
  ok(!s.includes('["ID",r.id],["Тип",r.record_type]'),"no inner ids in the records");

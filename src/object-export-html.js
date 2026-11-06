@@ -549,22 +549,33 @@
     '</div></details></article>'
   }).join("")+'</div>'
  }
- function renderExecDocs(rows,workRows){
-  const issued=own(rows,"issued").sort((a,b)=>String(b.data?.date||"").localeCompare(String(a.data?.date||""))),certs=own(rows,"certificate"),surveys=own(rows,"survey");
+ // Исполнительная документация in the report — only the acts and the tonnage they close (the engineer, 06.11.2026:
+ // «убираем сертификаты в выгруженном, только акты оставляем, и тоннаж показываем сколько закрытые»): the tonnes of the
+ // daily reports in each act's period and work type; the whole — each day and work type once, however many acts cover it.
+ const isTonne=u=>/^(т|тн|тонн[аы]?|t)\.?$/i.test(String(u||"").trim());
+ function closedTonnes(reports,workRows,acts){
+  const unitOf=new Map(array(workRows).map(w=>[String(w.id),String(w.data?.unit||"")])),items=[];
+  for(const r of array(reports)){const d=r.data||r,date=String(d.date||d.report_date||"").slice(0,10);if(!date)continue;
+   for(const w of array(d.items).length?d.items:array(d.works)){if(!w||w.accounting_type==="service")continue;const wid=String(w.work_type_id||"");
+    if(!isTonne(w.unit||unitOf.get(wid)))continue;const t=exportNumber(w.volume)||exportNumber(w.qty??w.count)*exportNumber(w.unit_volume);if(t>0)items.push({date,wid,t})}}
+  const covers=(a,x)=>{const d=a.data||{};return(!d.from||x.date>=String(d.from).slice(0,10))&&(!d.to||x.date<=String(d.to).slice(0,10))&&(!d.work_type_id||String(d.work_type_id)===x.wid)};
+  const sum=list=>items.filter(x=>list.some(a=>covers(a,x))).reduce((s,x)=>s+x.t,0);
+  return{each:a=>sum([a]),all:sum,total:items.reduce((s,x)=>s+x.t,0)}
+ }
+ const tonnes=v=>v.toLocaleString("ru-RU",{minimumFractionDigits:v?1:0,maximumFractionDigits:3})+" т";
+ function renderExecDocs(rows,workRows,reports){
+  const issued=own(rows,"issued").sort((a,b)=>String(b.data?.date||"").localeCompare(String(a.data?.date||"")));
   const workName=id=>{const w=workRows.find(x=>String(x.id)===String(id));return w?String(w.data?.work_type||w.title||""):""};
-  const block=(title,count,html)=>'<div class="ir-export-exd-block"><h3>'+esc(title)+' <small>'+esc(count)+'</small></h3>'+html+'</div>';
   const signedOf=d=>d.signed&&array(d.signed.scans).length?d.signed:null;
-  const nSigned=issued.filter(r=>signedOf(r.data||{})).length;
-  const acts=issued.length?'<div class="ir-export-table-wrap"><table class="ir-export-table"><thead><tr><th>№</th><th>Акт</th><th>Период работ</th><th>Вид работ</th><th>Подписание</th></tr></thead><tbody>'+issued.map((r,i)=>{const d=r.data||{},sg=signedOf(d);
-   return'<tr><td>'+(i+1)+'</td><td><b>'+esc((d.name||r.title||"Акт")+(d.number?" № "+d.number:""))+'</b>'+(d.date?'<small>от '+esc(exportDate(d.date))+'</small>':"")+'</td><td>'+esc(d.from||d.to?exportDate(d.from)+" — "+exportDate(d.to):"—")+'</td><td>'+esc(d.work_type||workName(d.work_type_id)||"—")+'</td><td>'+(sg?'<span class="ir-export-ok">Подписан всеми'+(sg.date?" "+esc(exportDate(sg.date)):"")+'</span>':'<span class="ir-export-warn">Не подписан</span>')+'</td></tr>'}).join("")+'</tbody></table></div>':'<div class="ir-export-empty-card">Акты ещё не выгружались</div>';
-  const certText=x=>[x.kind||"Сертификат",x.number?"№ "+x.number:"",x.date?"от "+exportDate(x.date):"",x.supplier?"("+x.supplier+")":""].filter(Boolean).join(" ");
-  const certHtml=certs.length?'<div class="ir-export-table-wrap"><table class="ir-export-table"><thead><tr><th>№</th><th>Материал / изделие</th><th>Документ о качестве</th></tr></thead><tbody>'+certs.map((r,i)=>{const d=r.data||{},docs=array(d.docs);
-   return'<tr><td>'+(i+1)+'</td><td><b>'+esc(d.title||r.title||"—")+'</b></td><td>'+(docs.length?esc(docs.map(certText).join("; ")):'<span class="ir-export-warn">не загружен</span>')+'</td></tr>'}).join("")+'</tbody></table></div>':'<div class="ir-export-empty-card">Сертификаты не загружены</div>';
-  const surveyHtml=surveys.length?'<div class="ir-export-table-wrap"><table class="ir-export-table"><thead><tr><th>№</th><th>Съёмка</th><th>Дата</th><th>Оси</th><th>Вид работ</th><th>Марки</th></tr></thead><tbody>'+surveys.map((r,i)=>{const d=r.data||{};
-   return'<tr><td>'+(i+1)+'</td><td><b>'+esc((d.title||r.title||"Съёмка")+(d.number?" № "+d.number:""))+'</b>'+(d.surveyor?'<small>'+esc(d.surveyor)+'</small>':"")+'</td><td>'+esc(d.date?exportDate(d.date):"—")+'</td><td>'+esc(Array.isArray(d.axes)?d.axes.join(", "):d.axes||"—")+'</td><td>'+esc(workName(d.work_type_id)||"—")+'</td><td>'+esc(d.marks||"—")+'</td></tr>'}).join("")+'</tbody></table></div>':"";
-  return'<div class="ir-export-exd"><div class="ir-export-exd-stats"><div><small>Выгружено актов</small><b>'+issued.length+'</b></div><div><small>Подписаны всеми</small><b>'+nSigned+'</b></div><div><small>Ждут подписания</small><b>'+(issued.length-nSigned)+'</b></div></div>'+
-   block("Выгруженные акты",countText(issued.length,"акт","акта","актов"),acts)+block("Сертификаты и документы о качестве",countText(certs.length,"позиция","позиции","позиций"),certHtml)+
-   (surveys.length?block("Исполнительные съёмки",countText(surveys.length,"съёмка","съёмки","съёмок"),surveyHtml):"")+'</div>'
+  const signed=issued.filter(r=>signedOf(r.data||{})),T=closedTonnes(reports,workRows,issued);
+  const acts=issued.length?'<div class="ir-export-table-wrap"><table class="ir-export-table"><thead><tr><th>№</th><th>Акт</th><th>Период работ</th><th>Вид работ</th><th>Тоннаж</th><th>Подписание</th></tr></thead><tbody>'+issued.map((r,i)=>{const d=r.data||{},sg=signedOf(d);
+   return'<tr><td>'+(i+1)+'</td><td><b>'+esc((d.name||r.title||"Акт")+(d.number?" № "+d.number:""))+'</b>'+(d.date?'<small>от '+esc(exportDate(d.date))+'</small>':"")+'</td><td>'+esc(d.from||d.to?exportDate(d.from)+" — "+exportDate(d.to):"—")+'</td><td>'+esc(d.work_type||workName(d.work_type_id)||"Все виды работ")+'</td><td><b>'+esc(tonnes(T.each(r)))+'</b></td><td>'+(sg?'<span class="ir-export-ok">Подписан всеми'+(sg.date?" "+esc(exportDate(sg.date)):"")+'</span>':'<span class="ir-export-warn">Не подписан</span>')+'</td></tr>'}).join("")+'</tbody></table></div>':'<div class="ir-export-empty-card">Акты ещё не выгружались</div>';
+  const closed=T.all(issued),closedSigned=T.all(signed);
+  return'<div class="ir-export-exd"><div class="ir-export-exd-stats">'+
+   '<div><small>Закрыто актами</small><b>'+esc(tonnes(closed))+'</b>'+(T.total?'<small>из '+esc(tonnes(T.total))+' смонтированных по отчётам</small>':"")+'</div>'+
+   '<div><small>Из них подписано всеми</small><b>'+esc(tonnes(closedSigned))+'</b><small>'+esc(countText(signed.length,"акт","акта","актов"))+'</small></div>'+
+   '<div><small>Выгружено актов</small><b>'+issued.length+'</b><small>ждут подписания: '+(issued.length-signed.length)+'</small></div></div>'+
+   '<div class="ir-export-exd-block"><h3>Выгруженные акты <small>'+esc(countText(issued.length,"акт","акта","актов"))+'</small></h3>'+acts+'</div></div>'
  }
  function renderFasteners(rows){
   const list=own(rows,"fastener").length?own(rows,"fastener"):rows.filter(r=>r.record_type!=="settings");
@@ -642,7 +653,7 @@
   const body=key==="reports"?renderDailyReports(rows,images,support.markNames):key==="work-types"?renderExportWorkTypes(rows,support.marks||[],support.reports||[]):key==="marks"?renderMarkSection(rows,support.workTypes||[],support.reports||[],images):
    key==="deliveries"?extras.deliveries(rows):key==="photos"?extras.recentPhotos(support.reports||[],images):
    key==="scheme"?extras.schemeHtml(extras.schemeData(rows,support.schemeDetails||[])):["schedule","acted-days","penalties"].includes(key)?"":
-   key==="letters"?renderLetters(rows):key==="executive-docs"?renderExecDocs(rows,support.workTypes||[]):key==="fasteners"?renderFasteners(rows):renderRows(rows,key,images);
+   key==="letters"?renderLetters(rows):key==="executive-docs"?renderExecDocs(rows,support.workTypes||[],support.reports||[]):key==="fasteners"?renderFasteners(rows):renderRows(rows,key,images);
   if(["schedule","acted-days","penalties"].includes(key))return'<div class="ir-export-group" id="section-'+esc(key)+'"><section class="ir-export-section ir-export-visual-section"><header class="ir-export-section-head"><h2>'+esc(labels[key]||key)+'</h2></header>'+(preview?'<div class="ir-export-preview">'+preview+'</div>':'<div class="ir-export-empty-card">Нет данных для анализа</div>')+(key==="schedule"?(support.trendHtml||""):"")+'</section></div>';
   if(key==="work-types")return'<div class="ir-export-group" id="section-work-types"><section class="ir-export-section ir-export-worktypes-section"><header class="ir-export-section-head"><h2>Виды работ</h2><span class="ir-export-count">'+esc(countText(rows.length,"вид","вида","видов"))+'</span></header>'+body+'</section></div>';
   if(key==="marks")return'<div class="ir-export-group" id="section-marks"><section class="ir-export-section ir-export-marks-section">'+body+'</section></div>';
@@ -1077,8 +1088,8 @@
     catch(error){console.warn("Object HTML: failed to load section",key,error);return[key,[]]}
    }));
    const rows=Object.fromEntries(batches);
-   const needsWork=["reports","marks","scheme","work-types","schedule"].some(k=>keys.includes(k));
-   const needsReports=["reports","photos","marks","work-types","schedule","scheme"].some(k=>keys.includes(k));
+   const needsWork=["reports","marks","scheme","work-types","schedule","executive-docs"].some(k=>keys.includes(k));
+   const needsReports=["reports","photos","marks","work-types","schedule","scheme","executive-docs"].some(k=>keys.includes(k));
    const needsMarks=["reports","marks","work-types","scheme"].some(k=>keys.includes(k));
    const supporting=await Promise.all([
     needsWork?(rows["work-types"]?Promise.resolve(rows["work-types"]):api.section("work-types").list().catch(()=>[])):Promise.resolve([]),
