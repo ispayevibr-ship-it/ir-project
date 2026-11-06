@@ -894,8 +894,10 @@
   const last=exportLatestResources(reports).date;
   const icons={
    readiness:'<circle cx="12" cy="12" r="9"/><path d="M12 12V6M12 12l4 3"/>',
-   mounted:'<path d="M4 17 10 11l4 4 6-8M15 7h5v5"/>',
-   delivered:'<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 8h8v8H8z"/>',
+   // (signs of the work itself: a crane lifting a beam — mounted, a lorry — delivered; a rising chart and a square said
+   // nothing of mounting: the engineer, 06.11.2026 «знак у поставленно и смонтировано поменяй, вообще не относятся к монтажу»)
+   mounted:'<path d="M6 21V4M3 4h18M6 8l4-4M4 21h4M16 4v7"/><rect x="12" y="11" width="8" height="3" rx=".5"/>',
+   delivered:'<path d="M2 6h12v10H2zM14 9h4.5l3.5 3.5V16h-8"/><circle cx="6" cy="17.5" r="1.8"/><circle cx="17.5" cy="17.5" r="1.8"/>',
    reports:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h6"/>',
    resources:'<circle cx="8" cy="7" r="3"/><path d="M3 21v-2a5 5 0 0 1 10 0v2M17 9h4M19 7v4M15 16l3-5 3 5M14 18h8"/>'
   };
