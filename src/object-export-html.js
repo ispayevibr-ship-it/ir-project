@@ -1218,7 +1218,6 @@
     ".ir-export-subnav-link .nav-label{min-width:0!important;white-space:normal!important;overflow-wrap:anywhere!important;line-height:1.35!important;color:inherit!important}",
     ".ir-export-menu-empty{padding:13px 11px;color:#8197a8;font-size:12px}",
     ".ir-export-topnav :is(a,summary):focus-visible{outline:2px solid #2b7cc0!important;outline-offset:2px!important}",
-    "body:has(.ir-export-group:target) .ir-export-topnav .ir-export-toplink.active{background:#f4f8fc!important;border-color:#dae6ef!important;color:#315a76!important;box-shadow:none!important}",
     "body:has(.ir-export-group:target) .ir-export-topnav .ir-export-menu-trigger{background:#246da7!important;color:#fff!important;border-color:#246da7!important}",
     "body.ir-object-overview #app #overview,body.ir-object-overview #app .ir-export-group{scroll-margin-top:74px!important}",
     "@media(max-width:650px){.ir-export-topnav{padding:8px!important}.ir-export-topnav-inner{gap:6px}.ir-export-toplink,.ir-export-menu-trigger{padding:8px 10px!important;font-size:11px!important}.ir-export-menu-items{left:auto!important;right:0!important;transform:none!important}}",
@@ -1735,18 +1734,25 @@
     "html body.ir-object-overview:has(#section-scheme:target) .ir-export-topnav{min-height:0!important;padding:3px 12px!important}",
     "html body.ir-object-overview:has(#section-scheme:target) #app .ir-export-toplink,html body.ir-object-overview:has(#section-scheme:target) #app .ir-export-menu-trigger{min-height:0!important;padding:6px 10px!important;font-size:12px!important}",
     "html body.ir-object-overview:has(#section-scheme:target) #app .ir-export-topnav .nav-icon svg{width:16px!important;height:16px!important}",
-    "html body.ir-object-overview #app .ir-export-brand{display:flex!important;align-items:center!important;flex:none!important;padding:0 14px 0 6px!important;border:0!important;background:none!important}.ir-export-brand img{display:block;max-height:34px;max-width:130px;object-fit:contain}",
+    // (the logo only over the montage scheme; the names of the menu in full, no «…» — the engineer, 06.11.2026 «на главной
+    // странице убери логотип из меню, только в монтажной оставь, и сокращения точками убери в меню»)
+    "html body.ir-object-overview #app .ir-export-brand{display:none!important}",
+    "html body.ir-object-overview #app .ir-export-menu.active>.ir-export-menu-trigger{background:#277bb3!important;color:#fff!important;border-radius:9px!important}",
+    "html body.ir-object-overview #app .ir-export-subnav-link.active{background:#e8f1f8!important;color:#1d5f92!important;font-weight:700!important}",
+    "html body.ir-object-overview:has(#section-scheme:target) #app .ir-export-topnav .ir-export-brand{display:flex!important}",
+    "html body.ir-object-overview #app .ir-export-topnav .nav-label,html body.ir-object-overview #app .ir-export-toplink>span:not(.nav-icon),html body.ir-object-overview #app .ir-export-menu-trigger>span:not(.nav-icon){overflow:visible!important;text-overflow:clip!important;white-space:normal!important;text-align:center!important;line-height:1.2!important}",
+    "html body.ir-object-overview #app .ir-export-toplink,html body.ir-object-overview #app .ir-export-menu-trigger{white-space:normal!important}",
+    "html body.ir-object-overview #app .ir-export-brand{align-items:center!important;flex:none!important;padding:0 14px 0 6px!important;border:0!important;background:none!important}.ir-export-brand img{display:block;max-height:34px;max-width:130px;object-fit:contain}",
     "html body.ir-object-overview:has(#section-scheme:target) .ir-export-brand img{max-height:24px}",
     "html body.ir-object-overview #app #section-scheme.ir-export-scheme3d-group:target .ir-export-scheme3d{position:fixed;left:0;right:0;bottom:0;top:var(--ir-scheme-top,62px);width:auto;height:auto!important;min-height:0;margin:0;border:0;border-radius:0;z-index:5}",
     "html body.ir-object-overview:has(#section-scheme:target) #app>:not(.ir-export-topnav):not(#section-scheme){display:none!important}",
     "html body.ir-object-overview:has(#section-scheme:target) .ir-export-topnav .ir-export-toplink[href=\"#section-scheme\"]{background:#246da7!important;color:#fff!important;border-color:#246da7!important}",
-    "html body.ir-object-overview:has(#section-scheme:target) .ir-export-topnav .ir-export-toplink.active{background:#f4f8fc!important;border-color:#dae6ef!important;color:#315a76!important;box-shadow:none!important}",
-    ".ir-export-theme{position:fixed;top:10px;right:12px;z-index:200;display:grid;place-items:center;width:40px;height:40px;padding:0;border:1px solid #d3dfe8;border-radius:10px;background:#fff;color:#24435c;cursor:pointer;box-shadow:0 2px 10px rgba(15,35,55,.14)}",
+    "html body.ir-object-overview #app .ir-export-theme{position:static;flex:none;align-self:center;display:grid!important;visibility:visible!important;place-items:center;width:38px;height:38px;margin:0 6px 0 8px;padding:0;border:1px solid #d3dfe8;border-radius:10px;background:#fff;color:#24435c;cursor:pointer;box-shadow:none}",
     ".ir-export-theme svg{width:20px;height:20px}.ir-export-theme:focus-visible{outline:2px solid #2b7cc0;outline-offset:2px}",
     "html.ir-dark,html.ir-dark body{background:#111417!important}",
     "html.ir-dark{color-scheme:dark}html.ir-dark #app img{opacity:.92}",
-    "html.ir-dark .ir-export-theme{background:#22282f;border-color:#3a434d;color:#e7edf3;box-shadow:0 2px 10px rgba(0,0,0,.5)}",
-    "@media(max-width:650px){.ir-export-theme{top:8px;right:8px;width:36px;height:36px}}",
+    "html.ir-dark body.ir-object-overview #app .ir-export-theme{background:#22282f;border-color:#3a434d;color:#e7edf3}",
+    "@media(max-width:650px){html body.ir-object-overview #app .ir-export-theme{width:34px;height:34px}}",
     ".ir-export-table-wrap{overflow-x:auto;border:1px solid #e3ebf1;border-radius:10px;background:#fff}.ir-export-table{width:100%;border-collapse:collapse;font-size:13px;color:#24435c}",
     ".ir-export-table th{background:#eef5fb;color:#55708a;font-weight:700;text-align:left;padding:10px 12px;border-bottom:1px solid #dbe6ef;white-space:nowrap}",
     ".ir-export-table td{padding:10px 12px;border-bottom:1px solid #edf1f4;vertical-align:top}.ir-export-table tr:last-child td{border-bottom:0}.ir-export-table td small{display:block;color:#7a8fa3;font-size:11.5px;margin-top:2px}",
@@ -1795,7 +1801,7 @@
      // («На весь экран» of the scheme — the report puts its frame on the screen: asked from inside the frame it was refused,
      // «Disallowed by permissions policy» — the engineer, 06.11.2026; where the screen is not given, the frame covers the window)
      'd.addEventListener("click",function(e){if(!e.target||!e.target.closest||!e.target.closest("#full"))return;e.stopImmediatePropagation();e.preventDefault();if(document.fullscreenElement){document.exitFullscreen().catch(function(){});return}if(document.body.classList.contains("ir-scheme-max")){document.body.classList.remove("ir-scheme-max");return}var go=box.requestFullscreen?box.requestFullscreen():Promise.reject();go.catch(function(){document.body.classList.add("ir-scheme-max")})},true);'+
-     'var st=d.createElement("style");st.id="ir-embed";st.textContent='+JSON.stringify(EMBED_CSS)+';d.head.appendChild(st);'+
+     'd.addEventListener("pointerdown",function(){[].forEach.call(document.querySelectorAll(".ir-export-topnav details[open]"),function(x){x.removeAttribute("open")})},true);var st=d.createElement("style");st.id="ir-embed";st.textContent='+JSON.stringify(EMBED_CSS)+';d.head.appendChild(st);'+
      'window.__irSchemeTheme=('+exportTheme.toString()+')(d,{scope:""});window.__irSchemeSync&&window.__irSchemeSync()});'+
      'f.srcdoc=JSON.parse(src.textContent);box.textContent="";box.appendChild(f)}'+
      // (the theme of the report given to the scheme: its page and its 3D background — once the 3D button is there)
@@ -1807,6 +1813,18 @@
     const engine="("+extras.schemeViewer.toString()+")();";
     viewerScripts+='<script type="application/json" id="ir-export-scheme-data" nonce="'+nonce+'">'+safeJson(scheme)+'</script><script nonce="'+nonce+'">'+engine+'</script>'
    }
+   // (the menu shows where the reader is — the section opened, not always «Обзор объекта»; an open menu closes by a click
+   // elsewhere, Esc or a choice: the engineer, 06.11.2026 «открытые окна закрываются при нажатие в другую область экрана,
+   // меню также. при переключение в меню не показывается активная вкладка, всегда обзор объекта»)
+   viewerScripts+='<script nonce="'+nonce+'">(function(){'+
+    'function mark(){var h=location.hash&&location.hash!=="#"?location.hash:"#overview";'+
+    '[].forEach.call(document.querySelectorAll(".ir-export-topnav a.ir-export-toplink,.ir-export-topnav a.ir-export-subnav-link"),function(a){a.classList.toggle("active",a.getAttribute("href")===h)});'+
+    '[].forEach.call(document.querySelectorAll(".ir-export-menu"),function(m){m.classList.toggle("active",!!m.querySelector("a.active"))})}'+
+    'function shut(except){[].forEach.call(document.querySelectorAll("details[open]"),function(x){if(x!==except&&!x.contains(except))x.removeAttribute("open")})}'+
+    'window.__irShutMenus=function(){shut(null)};'+
+    'document.addEventListener("click",function(e){var t=e.target,d=t&&t.closest?t.closest("details"):null;if(t&&t.closest&&t.closest(".ir-export-menu-items a")){shut(null);return}if(!d||!d.closest(".ir-export-topnav,.ir-export-menu")){[].forEach.call(document.querySelectorAll(".ir-export-topnav details[open]"),function(x){x.removeAttribute("open")})}else shut(d)});'+
+    'document.addEventListener("keydown",function(e){if(e.key==="Escape")[].forEach.call(document.querySelectorAll(".ir-export-topnav details[open]"),function(x){x.removeAttribute("open")})});'+
+    'addEventListener("hashchange",mark);mark()})();</script>';
    if(trendHtml&&keys.includes("schedule"))viewerScripts+='<script nonce="'+nonce+'">(function(){document.querySelectorAll("[data-export-trend-select]").forEach(function(select){var root=select.closest(".ir-export-trend");function update(){root.querySelectorAll("[data-export-trend-panel]").forEach(function(panel){panel.hidden=panel.getAttribute("data-export-trend-panel")!==select.value;});}select.addEventListener("change",update);update();});})();</script>';
    if(supplyModel){
     const engine="("+window.irSupplyChartFactory.toString()+")().initOffline();";
@@ -1822,7 +1840,10 @@
     'addEventListener("beforeprint",function(){T.light()});addEventListener("afterprint",function(){if(d)T.dark()})})();</script>';
    if(viewerScripts)viewerCsp="; script-src 'nonce-"+nonce+"'; connect-src 'none'; object-src 'none'";
    const generated=new Date().toLocaleString("ru-RU");
-   let html='<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;; img-src data:; font-src data:'+viewerCsp+'"><title>'+esc(object.name||"IR Project")+' — отчёт объекта</title><style>'+css+'</style><style>'+extraStyles+'\n'+(extras?.css||'')+'\n'+(supplyModel?window.irSupplyChart.css:'')+'\n'+activeNavStyles+'\n'+pageStyles+'</style></head><body class="ir-object-route ir-object-overview"><main id="app">'+htmlSnapshot+sectionsHtml+'<footer class="ir-export-section"><b>IR Project</b> · Снимок объекта от '+esc(generated)+'. Только просмотр. Данные не связаны с рабочей базой.</footer></main>'+themeButton+viewerScripts+'</body></html>';
+   let html='<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;; img-src data:; font-src data:'+viewerCsp+'"><title>'+esc(object.name||"IR Project")+' — отчёт объекта</title><style>'+css+'</style><style>'+extraStyles+'\n'+(extras?.css||'')+'\n'+(supplyModel?window.irSupplyChart.css:'')+'\n'+activeNavStyles+'\n'+pageStyles+'</style></head><body class="ir-object-route ir-object-overview"><main id="app">'+htmlSnapshot+sectionsHtml+'<footer class="ir-export-section"><b>IR Project</b> · Снимок объекта от '+esc(generated)+'. Только просмотр. Данные не связаны с рабочей базой.</footer></main>'+viewerScripts+'</body></html>';
+   // (the theme switch an icon of the menu itself — the engineer, 06.11.2026 «переключение режима в выгруженном отчете
+   // встрой в меню как иконку»)
+   html=html.replace('</details></div></nav>',()=>'</details>'+themeButton+'</div></nav>');
    if(companyHeader.brandLogo)html=html.replace('<div class="ir-export-topnav-inner">',()=>'<div class="ir-export-topnav-inner"><a class="ir-export-brand" href="#overview" title="'+esc(companyHeader.brandName||"")+'"><img src="'+esc(companyHeader.brandLogo)+'" alt="Логотип"></a>');
    if(selection.underContractor)html=redactCompanyIdentity(html,companyHeader.ownName);
    const name=safeFile(object.short_name||object.name||"Объект");
