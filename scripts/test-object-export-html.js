@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=1121900'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=1122000'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -735,3 +735,4 @@ assert.equal(typeof extras.axisLabelLayout,"function","the standalone scheme pro
  console.log("Object report: sections in Russian, letters, acts, fasteners laid out OK");
 }
 assert(source.includes(".ir-export-exd{grid-template-columns:minmax(0,1fr)}.ir-export-exd>*,.ir-export-exd-block{min-width:0}.ir-export-table-wrap{max-width:100%;overflow-x:auto")&&source.includes("html body.ir-object-overview #app{overflow-x:clip!important}"),"a phone: the acts table scrolls in its frame, the page not sideways");
+assert(source.includes("grid-template-areas:'name name' 'code count' 'bar bar' 'fact left'!important")&&source.includes(".ir-export-mark-code:before{content:'Шифр'}"),"a phone: the readiness rows cards with headings, not a wide table");
