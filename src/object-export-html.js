@@ -602,6 +602,66 @@
   return'<div class="ir-export-table-wrap"><table class="ir-export-table"><thead><tr><th>№</th><th>Обозначение</th><th>Ø, мм</th><th>Длина, мм</th><th>Класс прочности</th><th>Кол-во, шт.</th><th>Марки</th></tr></thead><tbody>'+list.map((r,i)=>{const d=r.data||{};
    return'<tr><td>'+(i+1)+'</td><td><b>'+esc(d.text||r.title||"—")+'</b>'+(d.note?'<small>'+esc(d.note)+'</small>':"")+'</td><td>'+esc(d.d_mm??"—")+'</td><td>'+esc(d.length_mm??"—")+'</td><td>'+esc(d.strength_class||"—")+'</td><td>'+esc(d.qty??"по маркам")+'</td><td>'+esc(d.marks||"—")+'</td></tr>'}).join("")+'</tbody></table></div>'
  }
+ // A lighter report (the engineer, 06.11.2026: «Уменьшить размер выгруженного отчета сможем? Удалить дублирующие стили, и то
+ // что не используем»): the styles of the program are given whole to every report — of them only the rules for what the
+ // report shows are kept, a rule written twice once (the last, it is the one that wins), comments and spaces out; the
+ // text of the rules as written (not re-written by the browser — the prefixed properties of other browsers stay).
+ // (has(selector) — is there such an element in the report; rules for what the report's scripts make or mark later —
+ // the open menu, the dark theme, the scheme on the screen, the chart of deliveries — kept by their names)
+ function slimCss(texts,has){
+  const strip=t=>{let o="",i=0;while(i<t.length){const c=t[i];if(c==='"'||c==="'"){let j=i+1;while(j<t.length&&t[j]!==c){if(t[j]==="\\")j++;j++}o+=t.slice(i,j+1);i=j+1}else if(c==="/"&&t[i+1]==="*"){const j=t.indexOf("*/",i+2);i=j<0?t.length:j+2;o+=" "}else{o+=c;i++}}return o};
+  const squeeze=(t,body)=>t.split(/("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/).map((p,k)=>k%2?p:(body?p.replace(/\s+/g," ").replace(/\s*([;:{},])\s*/g,"$1"):p.replace(/\s+/g," ").replace(/\s*,\s*/g,","))).join("").trim();
+  // the rules of a text: {pre, body} — body null for «@import …;»; strings and brackets passed over
+  const parse=t=>{const out=[];let i=0;const n=t.length;
+   while(i<n){while(i<n&&/\s/.test(t[i]))i++;if(i>=n)break;let j=i,par=0;
+    while(j<n){const c=t[j];if(c==='"'||c==="'"){j++;while(j<n&&t[j]!==c){if(t[j]==="\\")j++;j++}}else if(c==="(")par++;else if(c===")")par--;else if(!par&&(c==="{"||c===";"||c==="}"))break;j++}
+    if(j>=n||t[j]==="}"){if(t.slice(i,j).trim())out.push({pre:t.slice(i,j).trim()+";",body:null});i=j+1;continue}
+    if(t[j]===";"){out.push({pre:t.slice(i,j+1).trim(),body:null});i=j+1;continue}
+    let k=j+1,depth=1;while(k<n&&depth){const c=t[k];if(c==='"'||c==="'"){k++;while(k<n&&t[k]!==c){if(t[k]==="\\")k++;k++}}else if(c==="{")depth++;else if(c==="}")depth--;k++}
+    out.push({pre:t.slice(i,j).trim(),body:t.slice(j+1,k-1)});i=k}
+   return out};
+  const KEEP=/ir-export-scheme|ir-scheme|ood-|sup-|supply|deliver|mounted|remaining|ir-export-theme|ir-dark/;
+  const DYN=/\.(?:active|open|ir-dark-wait|ir-dark|ir-scheme-max|is-open|over|exhausted)(?![\w-])/g;
+  const cache=new Map();
+  const used=sel=>{if(KEEP.test(sel)||sel.includes("\\")||sel.includes("&")||sel.includes("|"))return true;if(cache.has(sel))return cache.get(sel);
+   let s="",i=0;while(i<sel.length){const c=sel[i];
+    if(c==="["){let d=1,j=i+1;while(j<sel.length&&d){if(sel[j]==="[")d++;else if(sel[j]==="]")d--;j++}i=j}
+    else if(c===":"){let j=i+1;if(sel[j]===":")j++;while(j<sel.length&&/[\w-]/.test(sel[j]))j++;if(sel[j]==="("){let d=1;j++;while(j<sel.length&&d){if(sel[j]==="(")d++;else if(sel[j]===")")d--;j++}}i=j}
+    else{s+=c;i++}}
+   s=s.replace(DYN,"").replace(/\s+/g," ").replace(/\s*([>+~])\s*/g,"$1").trim().replace(/(^|[ >+~])(?=[ >+~]|$)/g,"$1*");
+   let r=true;try{r=!!has(s)}catch(_e){r=true}cache.set(sel,r);return r};
+  const split=sel=>{const out=[];let d=0,b=0,last=0;for(let i=0;i<sel.length;i++){const c=sel[i];if(c==="(")d++;else if(c===")")d--;else if(c==="[")b++;else if(c==="]")b--;else if(c===","&&!d&&!b){out.push(sel.slice(last,i));last=i+1}}out.push(sel.slice(last));return out.map(x=>x.trim()).filter(Boolean)};
+  const GROUP=/^@(?:media|supports|layer|container|document)\b/i;
+  // the rules kept, in order; «where» — the @media … around them, for the twice-written ones
+  const keep=(list,where,emit)=>{const out=[];list.forEach(r=>{
+   if(r.body==null){out.push({text:squeeze(r.pre,false)});return}
+   if(r.pre[0]==="@"){if(GROUP.test(r.pre)){const inner=keep(parse(r.body),where+"|"+squeeze(r.pre,false),emit);if(inner.length)out.push({pre:squeeze(r.pre,false),inner})}
+    else out.push({text:squeeze(r.pre,false)+"{"+squeeze(r.body,!/[{}]/.test(r.body)?true:false)+"}"});return}
+   const nested=/[{}]/.test(r.body),list2=split(r.pre),sels=nested?(list2.some(used)?list2:[]):list2.filter(used);
+   if(!sels.length)return;const body=nested?r.body.replace(/\s+/g," ").trim():squeeze(r.body,true).replace(/;$/,"");if(!body)return;
+   const item={text:sels.map(x=>squeeze(x,false)).join(",")+"{"+body+"}"};item.key=where+"\n"+item.text;emit(item);out.push(item)});return out};
+  const all=[];const trees=texts.map(t=>keep(parse(strip(String(t||""))),"",x=>all.push(x)));
+  const lastOf=new Map();all.forEach((x,i)=>lastOf.set(x.key,i));all.forEach((x,i)=>{x.drop=lastOf.get(x.key)!==i});
+  const write=list=>list.map(x=>x.inner?(()=>{const t=write(x.inner);return t?x.pre+"{"+t+"}":""})():x.drop?"":x.text).join("");
+  return trees.map(write)
+ }
+ // The report's styles made light in the report itself (its page as the browser reads it) — see slimCss.
+ function slimReportStyles(html,parts){
+  if(typeof DOMParser!=="function")return html;
+  const doc=new DOMParser().parseFromString(html,"text/html"),slim=slimCss(parts,s=>doc.querySelector(s));
+  parts.forEach((p,i)=>{if(p&&p.length>slim[i].length){const at=html.indexOf(p);if(at>=0)html=html.slice(0,at)+slim[i]+html.slice(at+p.length)}});
+  return html
+ }
+ // The montage scheme kept packed in the report (the engineer, 06.11.2026 «Уменьшить размер выгруженного отчета»): its page
+ // — with the list of every element — written escaped took about 2,8 MB; packed (gzip, as the scheme packs its own scripts)
+ // about 1 MB; opened when «Монтажная схема» is chosen. Where the program cannot pack, it stays as it was.
+ async function packSchemePage(html){
+  const m=/<script type="application\/json" id="ir-export-scheme-page" nonce="([^"]+)">([\s\S]*?)<\/script>/.exec(html);
+  if(!m||typeof CompressionStream!=="function")return html;
+  const buf=new Uint8Array(await new Response(new Blob([JSON.parse(m[2])]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer());
+  let s="";for(let i=0;i<buf.length;i+=32768)s+=String.fromCharCode.apply(null,buf.subarray(i,i+32768));
+  return html.slice(0,m.index)+'<script type="application/gzip" id="ir-export-scheme-page" nonce="'+m[1]+'">'+btoa(s)+'</script>'+html.slice(m.index+m[0].length)
+ }
  // The dark theme of the report (the engineer, 06.11.2026: «темную версию доработай, очень все тяжело читаемое», «фон сам
  // тоже темный должен быть»): not an inverted picture — every colour of the page given its dark pair: light fields and
  // cards dark grey-blue, dark text light, grey hints lighter, coloured marks (green, orange, blue) brighter on the dark;
@@ -1879,8 +1939,10 @@
      'd.addEventListener("click",function(e){if(!e.target||!e.target.closest||!e.target.closest("#full"))return;e.stopImmediatePropagation();e.preventDefault();if(document.fullscreenElement){document.exitFullscreen().catch(function(){});return}if(document.body.classList.contains("ir-scheme-max")){document.body.classList.remove("ir-scheme-max");return}var go=box.requestFullscreen?box.requestFullscreen():Promise.reject();go.catch(function(){document.body.classList.add("ir-scheme-max")})},true);'+
      'd.addEventListener("pointerdown",function(){[].forEach.call(document.querySelectorAll(".ir-export-topnav details[open]"),function(x){x.removeAttribute("open")})},true);var st=d.createElement("style");st.id="ir-embed";st.textContent='+JSON.stringify(EMBED_CSS)+';d.head.appendChild(st);'+
      'window.__irSchemeTheme=('+exportTheme.toString()+')(d,{scope:""});window.__irSchemeSync&&window.__irSchemeSync();f.style.visibility=""});'+
-     'var page=JSON.parse(src.textContent),dk=document.documentElement.classList.contains("ir-dark");if(dk){f.style.visibility="hidden";page=page.replace(/<head>/i,function(h){return h+\'<script nonce="'+nonce+'">window.__irBg="dark"<\\/script><style>html,body{background:#0f1317!important}</style>\'})}'+
-     'f.srcdoc=page;box.textContent="";box.appendChild(f)}'+
+     // (the page of the scheme packed — unpacked here; written plain in a report of before)
+     '(src.type==="application/gzip"?new Response(new Blob([Uint8Array.from(atob(src.textContent),function(c){return c.charCodeAt(0)})]).stream().pipeThrough(new DecompressionStream("gzip"))).text():Promise.resolve(JSON.parse(src.textContent))).then(function(page){'+
+     'var dk=document.documentElement.classList.contains("ir-dark");if(dk){f.style.visibility="hidden";page=page.replace(/<head>/i,function(h){return h+\'<script nonce="'+nonce+'">window.__irBg="dark"<\\/script><style>html,body{background:#0f1317!important}</style>\'})}'+
+     'f.srcdoc=page;box.textContent="";box.appendChild(f)}).catch(function(){box.textContent="Монтажная схема не открылась в этом браузере — откройте отчёт в Chrome, Edge или Safari."})}'+
      // (the theme of the report given to the scheme: its page and its 3D background — once the 3D button is there)
      'window.__irSchemeSync=function(){var d=f&&f.contentDocument,T=window.__irSchemeTheme;if(!d||!T)return;var dark=document.documentElement.classList.contains("ir-dark");'+
      'T.light();if(dark)T.dark();d.documentElement.classList.toggle("ir-dark",dark);var b=d.getElementById("bgBtn"),tries=0,bg=function(){b=d.getElementById("bgBtn");var w=d.defaultView;dark=document.documentElement.classList.contains("ir-dark");if(b&&(b.getAttribute("aria-pressed")==="true")!==dark)b.click();if((!b||!w||w.__irOk===undefined)&&tries++<300)setTimeout(bg,200)};bg()};'+
@@ -1927,6 +1989,9 @@
    if(companyHeader.brandLogo)html=html.replace('<div class="ir-export-topnav-inner">',()=>'<div class="ir-export-topnav-inner"><a class="ir-export-brand" href="#overview" title="'+esc(companyHeader.brandName||"")+'"><img src="'+esc(companyHeader.brandLogo)+'" alt="Логотип"></a>');
    const exportedDate=new Date().toLocaleDateString("ru-RU",{day:"2-digit",month:"2-digit",year:"numeric"})+"г";
    html=html.replace('<div class="ir-export-topnav-inner">',()=>'<div class="ir-export-scheme-title">'+(companyHeader.brandLogo?'<img src="'+esc(companyHeader.brandLogo)+'" alt="Логотип">':'')+'<b>'+esc(object.name||object.short_name||"Объект")+'</b><span>Отчёт от '+esc(exportedDate)+'</span></div><div class="ir-export-topnav-inner">');
+   // (lighter: only the styles the report uses, a twice-written rule once; the scheme packed)
+   await bar.step(.93,"Сжатие отчёта");
+   try{html=slimReportStyles(html,[css,extraStyles,pageStyles]);html=await packSchemePage(html)}catch(e){console.warn("Сжатие отчёта:",e)}
    if(selection.underContractor)html=redactCompanyIdentity(html,companyHeader.ownName);
    const name=safeFile(object.short_name||object.name||"Объект");
    const fileName=selection.underContractor?redactCompanyIdentity(name,companyHeader.ownName).trim()||"Объект":name;
