@@ -284,9 +284,12 @@
   for(const raw of array(markRows)){
    const d=raw.data||{},qty=Math.max(0,exportNumber(d.qty??d.count));
    if(qty<=0||d.accounting_type==="service"||normalize(d.unit)==="услуга")continue;
-   const wid=String(d.work_type_id||""),work=catalog.get(wid),name=String(work?.name||d.work_type||"Без вида работ").trim(),code=String(d.project_code||work?.code||d.code||"").trim();
-   const code2=String(d.project_code_2||work?.code2||"").trim();
-   const key=(wid||normalize(name))+"|"+normalize(code)+"|"+normalize(code2);
+   // (one row for each work type, with its own code, as the program's register: a mark keeping a code of its own — «3
+   // PDF-файлов» of the recognition — made a fourth «Монтаж металлоконструкций» the program has not, the engineer,
+   // 06.11.2026: «что за вид работы вверху? в программе их три всего, а выдает 4»; a mark of no work type is in none)
+   const wid=String(d.work_type_id||""),work=catalog.get(wid);if(!work)continue;
+   const name=String(work.name).trim(),code=String(work.code||"").trim(),code2=String(work.code2||"").trim();
+   const key=wid+"|"+normalize(code);
    if(!groups.has(key))groups.set(key,{workId:wid,name,code,code2,total:0,mounted:0,remaining:0,positions:0});
    const mark=groups.get(key),markId=String(raw.id);
    const fromReports=mountedMap.get(markId),saved=d.mounted??d.done,done=Math.min(qty,Math.max(0,saved==null?exportNumber(fromReports):exportNumber(saved)));
@@ -365,7 +368,7 @@
    const total=rawTotal!==null&&rawTotal!==undefined&&String(rawTotal).trim()!==""?exportNumber(rawTotal):qty*uv;
    return{
     id,index:i+1,workId:String(d.work_type_id||""),mark:String(d.mark||raw.title||"—"),name:String(d.name||"").trim(),
-    work:String(work.name||d.work_type||"Без вида работы"),code:String(d.project_code||d.code||work.code||"").trim(),code2:String(d.project_code_2||work.code2||"").trim(),
+    work:String(work.name||d.work_type||"Без вида работы"),code:String(work.code||d.project_code||d.code||"").trim(),code2:String(work.code2||d.project_code_2||"").trim(),
     qty,done,left,pct,uv,total,unit,
     status:qty>0&&done>=qty-1e-9?"done":done>0?"partial":"left"
    }
