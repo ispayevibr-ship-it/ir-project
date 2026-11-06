@@ -723,7 +723,10 @@
    ownName:String(profile?.name||""),customerLogo,contractorLogo,ownLogo,
    underContractor:Boolean(underContractor)
   };
-  return{markup:companyHeaderHtml(identity),ownName:identity.ownName}
+  // (the logo in the report's menu: the company's own, or the general contractor's when the report goes under him — the
+  // engineer, 06.11.2026 «логотип фирмы выведи, а если от генподрядчика (флаг генподрядчика) то его логотип»)
+  const brandLogo=underContractor?contractorLogo:ownLogo,brandName=underContractor?identity.contractorName:identity.ownName;
+  return{markup:companyHeaderHtml(identity),ownName:identity.ownName,brandLogo,brandName}
  }
  function redactCompanyIdentity(html,name){
   const tokens=String(name||"").replace(/(?:&quot;|&#0*34;|&#x0*22;|&laquo;|&raquo;|["'«»“”„])/gi," ").trim().split(/\s+/).filter(Boolean);
@@ -1727,6 +1730,13 @@
     // 06.11.2026 «сделай при переходе в Монтажную схему в отчете выгруженном на всю страницу»)
     "html body.ir-object-route.ir-object-overview:has(#section-scheme:target) #app{max-width:none!important}",
     "html body.ir-object-overview #app #section-scheme.ir-export-scheme3d-group:target .ir-export-section-head{display:none!important}",
+    "body.ir-scheme-max #section-scheme .ir-export-scheme3d{top:0!important;z-index:300!important}",
+    // (the menu over the scheme smaller — the engineer, 06.11.2026 «Меню поменьше в монтажной схеме»)
+    "html body.ir-object-overview:has(#section-scheme:target) .ir-export-topnav{min-height:0!important;padding:3px 12px!important}",
+    "html body.ir-object-overview:has(#section-scheme:target) #app .ir-export-toplink,html body.ir-object-overview:has(#section-scheme:target) #app .ir-export-menu-trigger{min-height:0!important;padding:6px 10px!important;font-size:12px!important}",
+    "html body.ir-object-overview:has(#section-scheme:target) #app .ir-export-topnav .nav-icon svg{width:16px!important;height:16px!important}",
+    "html body.ir-object-overview #app .ir-export-brand{display:flex!important;align-items:center!important;flex:none!important;padding:0 14px 0 6px!important;border:0!important;background:none!important}.ir-export-brand img{display:block;max-height:34px;max-width:130px;object-fit:contain}",
+    "html body.ir-object-overview:has(#section-scheme:target) .ir-export-brand img{max-height:24px}",
     "html body.ir-object-overview #app #section-scheme.ir-export-scheme3d-group:target .ir-export-scheme3d{position:fixed;left:0;right:0;bottom:0;top:var(--ir-scheme-top,62px);width:auto;height:auto!important;min-height:0;margin:0;border:0;border-radius:0;z-index:5}",
     "html body.ir-object-overview:has(#section-scheme:target) #app>:not(.ir-export-topnav):not(#section-scheme){display:none!important}",
     "html body.ir-object-overview:has(#section-scheme:target) .ir-export-topnav .ir-export-toplink[href=\"#section-scheme\"]{background:#246da7!important;color:#fff!important;border-color:#246da7!important}",
@@ -1768,8 +1778,8 @@
      ".wrap>.hx,#bgBtn{display:none!important}",
      ":root{--bg:#f4f8fc;--card:#fff;--ink:#21435b;--muted:#6f879b;--line:#dce5ed;--accent:#246da7}",
      "body{font-family:Inter,'Segoe UI',Arial,sans-serif;color:var(--ink);background:var(--bg)}",
-     ".stage-bar{background:#fff;padding:9px 12px;gap:8px}",
-     ".stage-bar button,.stage-bar label{border:1px solid #dae6ef;border-radius:10px;color:#315a76;font-weight:650;padding:7px 11px;background:#fff}",
+     ".stage-bar{background:#fff;padding:5px 10px;gap:6px}",
+     ".stage-bar button,.stage-bar label{border:1px solid #dae6ef;border-radius:9px;color:#315a76;font-weight:650;font-size:12px;padding:4px 9px;background:#fff}",
      ".stage-bar button:hover,.stage-bar label:hover{background:#f4f8fc}.box{border-radius:12px;border-color:var(--line)}.box h3{color:#6f879b}",
      "html.ir-dark .stage-bar button,html.ir-dark .stage-bar label{color:#d5e2ee}"
     ].join("\n");
@@ -1781,7 +1791,11 @@
      // (the scheme inside the report looks as the report: no header of its own, the report's font, colours and buttons;
      // the report's theme on it — dark the whole scheme and its 3D background: the engineer, 06.11.2026 «если стоит темная
      // тема, то везде будет темная и в монтажной схеме. Монтажная схема не как отдельная страница со своими стилями»)
-     'f.addEventListener("load",function(){var d=f.contentDocument;if(!d)return;var st=d.createElement("style");st.id="ir-embed";st.textContent='+JSON.stringify(EMBED_CSS)+';d.head.appendChild(st);'+
+     'f.addEventListener("load",function(){var d=f.contentDocument;if(!d)return;'+
+     // («На весь экран» of the scheme — the report puts its frame on the screen: asked from inside the frame it was refused,
+     // «Disallowed by permissions policy» — the engineer, 06.11.2026; where the screen is not given, the frame covers the window)
+     'd.addEventListener("click",function(e){if(!e.target||!e.target.closest||!e.target.closest("#full"))return;e.stopImmediatePropagation();e.preventDefault();if(document.fullscreenElement){document.exitFullscreen().catch(function(){});return}if(document.body.classList.contains("ir-scheme-max")){document.body.classList.remove("ir-scheme-max");return}var go=box.requestFullscreen?box.requestFullscreen():Promise.reject();go.catch(function(){document.body.classList.add("ir-scheme-max")})},true);'+
+     'var st=d.createElement("style");st.id="ir-embed";st.textContent='+JSON.stringify(EMBED_CSS)+';d.head.appendChild(st);'+
      'window.__irSchemeTheme=('+exportTheme.toString()+')(d,{scope:""});window.__irSchemeSync&&window.__irSchemeSync()});'+
      'f.srcdoc=JSON.parse(src.textContent);box.textContent="";box.appendChild(f)}'+
      // (the theme of the report given to the scheme: its page and its 3D background — once the 3D button is there)
@@ -1809,6 +1823,7 @@
    if(viewerScripts)viewerCsp="; script-src 'nonce-"+nonce+"'; connect-src 'none'; object-src 'none'";
    const generated=new Date().toLocaleString("ru-RU");
    let html='<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;; img-src data:; font-src data:'+viewerCsp+'"><title>'+esc(object.name||"IR Project")+' — отчёт объекта</title><style>'+css+'</style><style>'+extraStyles+'\n'+(extras?.css||'')+'\n'+(supplyModel?window.irSupplyChart.css:'')+'\n'+activeNavStyles+'\n'+pageStyles+'</style></head><body class="ir-object-route ir-object-overview"><main id="app">'+htmlSnapshot+sectionsHtml+'<footer class="ir-export-section"><b>IR Project</b> · Снимок объекта от '+esc(generated)+'. Только просмотр. Данные не связаны с рабочей базой.</footer></main>'+themeButton+viewerScripts+'</body></html>';
+   if(companyHeader.brandLogo)html=html.replace('<div class="ir-export-topnav-inner">',()=>'<div class="ir-export-topnav-inner"><a class="ir-export-brand" href="#overview" title="'+esc(companyHeader.brandName||"")+'"><img src="'+esc(companyHeader.brandLogo)+'" alt="Логотип"></a>');
    if(selection.underContractor)html=redactCompanyIdentity(html,companyHeader.ownName);
    const name=safeFile(object.short_name||object.name||"Объект");
    const fileName=selection.underContractor?redactCompanyIdentity(name,companyHeader.ownName).trim()||"Объект":name;
