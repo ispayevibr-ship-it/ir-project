@@ -1031,7 +1031,9 @@
    const items=[{key:"overview",name:"Обзор объекта — сводка, ресурсы, погода"},...keys.map(key=>({key,name:names.get(key)||labels[key]||key}))];
    dlg.innerHTML='<div class="ir-export-options-head"><h2>Выгрузка объекта в HTML</h2><p>Выберите разделы, которые будут включены в отчёт.</p></div>'+
     '<div class="ir-export-options-tools"><small data-export-count></small><div><button type="button" data-export-all>Выбрать все</button> <button type="button" data-export-none>Снять все</button></div></div>'+
-    '<div class="ir-export-options-list">'+items.map(x=>'<label><input type="checkbox" data-export-key="'+esc(x.key)+'" checked><span>'+esc(workLabel(x.name))+'</span></label>').join("")+
+    // («Финансы» unchecked at every opening — put in only by hand: the engineer, 06.11.2026 «раздел финансы выключен
+    // всегда при выгрузке»)
+    '<div class="ir-export-options-list">'+items.map(x=>'<label><input type="checkbox" data-export-key="'+esc(x.key)+'"'+(x.key==="finance"?"":" checked")+'><span>'+esc(workLabel(x.name))+(x.key==="finance"?' <small>(по умолчанию выключен)</small>':"")+'</span></label>').join("")+
     '<div class="ir-export-options-flag"><label><input type="checkbox" data-under-contractor><span>Под флагом Генподрядчика</span></label><p>Не показывать название и логотип нашей компании в выгруженном отчёте. По умолчанию выключено.</p></div></div>'+
     '<div class="ir-export-options-foot"><button type="button" data-export-cancel>Отмена</button><button type="button" class="ir-export-save" data-export-confirm>Выгрузить HTML</button></div>';
    document.body.append(dlg);
