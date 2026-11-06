@@ -79,6 +79,18 @@ assert(view.includes("function deriveParts(){")&&view.includes("buildNodes();der
 assert(view.includes("var c=dataById.get(id);if(!c||c.ft||partRows(c).length)return;")&&view.includes("if(order.length<2)return;"),"only without a КМД, of two pieces and more");
 assert(view.includes('partTag(new T.Mesh(geo,mat),memberRoles[m[4]]||"элемент решётки",/^\\d/.test(pr)?"∟"+pr:pr)')&&view.includes('"опорное ребро фермы"),id)')&&view.includes('"опорный столик фермы"),cid)')&&view.includes('"опорная плита")'),"the pieces named where they are drawn");
 assert(view.includes("order.sort(function(a,b){return a.o-b.o||b.t-a.t||a.i-b.i});"),"the profile, the truss members, the plates by thickness");
+// Alike plates are one position by their length within 5 mm (the engineer's chat 06.11.2026 «чет здесь сломалось у тебя»:
+// the toe boards −4×150 of the roof guard Огк1, 1022…1025 mm long, rounded to 5 mm were positions 2 and 3 painted in turn).
+{const src=view.slice(view.indexOf("  function deriveParts(){"),view.indexOf("  function partsOf(id){"));
+ const vmm=require("node:vm"),derived=new Map(),ms=[];
+ const piece=(n,s,L,o,kg)=>({n,s,L,o,kg,t:o===6?4:0});
+ const pieces=[piece("профиль марки","Ø18",18095,0,36)].concat([1025,1023,1022,1025,1023,1022].map(L=>piece("бортовая полоса −4×150×1000 (поз. 6)","−150×4",L,6,4.8)),[piece("бортовая полоса −4×150×1000 (поз. 6)","−150×4",600,6,2.8)]);
+ pieces.forEach(p=>ms.push({userData:{},p}));
+ const cx={Math,String,Map,derivedParts:derived,meshesById:new Map([["7",ms]]),dataById:new Map([["7",{id:"7"}]]),partRows:()=>[],pieceOf:m=>m.p};
+ vmm.runInNewContext(src+";deriveParts()",cx);
+ const rows=derived.get("7").rows;
+ assert.equal(JSON.stringify(rows.map(r=>[r.pos,r.count,r.length_mm])),JSON.stringify([["1",1,18095],["2",6,1025],["3",1,600]]),"the toe boards 1022…1025 one position, a short one another: "+JSON.stringify(rows.map(r=>[r.pos,r.count,r.length_mm])));
+ assert.ok(ms.slice(1,7).every(m=>m.userData.pos==="2"),"painted alike")}
 assert(view.includes("if(len<Math.min(w,h)){var t=mm(len);return{n:name(\"фасонка\"),s:\"−\"+t"),"a gusset cut to its shape by its thickness");
 assert(view.includes("closestPointToPointParameter(t,true)")&&view.includes("Math.min(.5,.35/L)"),"the number at the node looked at, 0.35 m in along a member");
 console.log("Element card as the report of 21.10: state with its day, sheet · masses, nodes, «Приблизить», parts in their colours with numbers on the 3D — program and export PASS");

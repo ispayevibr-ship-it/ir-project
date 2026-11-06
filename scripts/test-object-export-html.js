@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=17195'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=1119400'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -369,7 +369,7 @@ assert(regular.indexOf("Заказчик")<regular.indexOf("Генподрядч
 assert(regular.includes("А-Темир Строй")&&regular.includes("data:image/png;base64,Qw=="),"owner name and logo are embedded after contractor");
 
 assert(regular.indexOf('ir-export-company-logo')<regular.indexOf('ir-export-company-meta'),"logo leads company name in a horizontal card");
-assert(source.includes('primary=["schedule","deliveries","reports","marks","photos"]'),"main export menu uses the requested sections");
+assert(source.includes('primary=["scheme","schedule","deliveries","reports","marks","photos"]'),"main export menu uses the requested sections");
 assert(source.includes('primary.map(key=>item(key)).join("")'),"selected sections have direct menu anchors");
 assert(source.includes('key==="deliveries"?"Поставки и монтаж"')&&source.includes('key==="marks"?"Ведомость / марки"'),"navigation labels match the reference");
 assert(source.includes('const workPeriod=exportWorkPeriod(scheduleRows)')&&source.includes('api.section("schedule").list().catch('),"export reads actual start/end dates from work schedule");
@@ -710,4 +710,14 @@ assert.equal(typeof extras.axisLabelLayout,"function","the standalone scheme pro
  assert(renderer.includes("ctx.roundRect"),"axis identifiers are drawn as bordered badges");
  assert(renderer.includes("ctx.lineTo(endX,endY)"),"badge leader lines link their names to the actual axes");
  assert(!renderer.includes("ctx.fillText(label,p.x+5,p.y-9)"),"fixed-offset overlapping labels are removed");
+}
+// The montage scheme a page of its own, the whole report light or dark by the icon (the engineer, 06.11.2026).
+{
+ const s=require("node:fs").readFileSync("src/object-export-html.js","utf8");
+ require("node:assert/strict").ok(s.includes('#section-scheme.ir-export-group:not(:target){display:none!important}'),"no montage scheme on the main page");
+ require("node:assert/strict").ok(s.includes(':has(#section-scheme:target) #app>:not(.ir-export-topnav):not(#section-scheme){display:none!important}'),"the scheme alone under the top bar");
+ require("node:assert/strict").ok(s.includes('const name=key=>key==="scheme"?"Монтажная схема"'),"«Монтажная схема» in the top bar");
+ require("node:assert/strict").ok(s.includes('"html.ir-dark #app{filter:invert(1) hue-rotate(180deg)}"')&&s.includes('html.ir-dark #app img'),"dark: every text and field, pictures as they are");
+ require("node:assert/strict").ok(s.includes('class="ir-export-theme" id="ir-export-theme"')&&s.includes("themeButton+viewerScripts"),"the icon in the top right corner");
+ console.log("Object report: scheme page of its own, dark theme by the icon OK");
 }

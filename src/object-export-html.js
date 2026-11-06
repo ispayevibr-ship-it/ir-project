@@ -571,9 +571,9 @@
   const originalNav=aside?.querySelector(".ir-object-nav");
   const links=originalNav?[...originalNav.querySelectorAll("button[data-key]")]:[];
   const original=key=>links.find(el=>el.dataset.key===key);
-  const icon=key=>original(key)?.querySelector(".nav-icon")?.innerHTML||'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="'+({overview:'M3 11 12 4l9 7v10h-6v-7H9v7H3z',schedule:'M3 21h18M6 18V9h3v9m3 0V5h3v13m3 0v-7h3v7',deliveries:'M5 3h13v18H5zM9 8h5m-5 4h5m-5 4h4',reports:'M5 4h14v17H5zM9 9h6m-6 4h6m-6 4h4',marks:'m12 2 9 5v10l-9 5-9-5V7zM3 7l9 5 9-5M12 12v10',photos:'M3 3h18v18H3zM3 17l6-6 4 4 3-3 5 5'}[key]||'M12 3v18M3 12h18')+'"/></svg>';
-  const name=key=>key==="deliveries"?"Поставки и монтаж":key==="marks"?"Ведомость / марки":key==="photos"?"Фото":original(key)?.querySelector(".nav-label")?.textContent||labels[key]||key;
-  const primary=["schedule","deliveries","reports","marks","photos"].filter(key=>keys.includes(key));
+  const icon=key=>original(key)?.querySelector(".nav-icon")?.innerHTML||'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="'+({scheme:'M4 20V9l8-5 8 5v11M4 13h16M8 20v-7m8 7v-7M12 4v16',overview:'M3 11 12 4l9 7v10h-6v-7H9v7H3z',schedule:'M3 21h18M6 18V9h3v9m3 0V5h3v13m3 0v-7h3v7',deliveries:'M5 3h13v18H5zM9 8h5m-5 4h5m-5 4h4',reports:'M5 4h14v17H5zM9 9h6m-6 4h6m-6 4h4',marks:'m12 2 9 5v10l-9 5-9-5V7zM3 7l9 5 9-5M12 12v10',photos:'M3 3h18v18H3zM3 17l6-6 4 4 3-3 5 5'}[key]||'M12 3v18M3 12h18')+'"/></svg>';
+  const name=key=>key==="scheme"?"Монтажная схема":key==="deliveries"?"Поставки и монтаж":key==="marks"?"Ведомость / марки":key==="photos"?"Фото":original(key)?.querySelector(".nav-label")?.textContent||labels[key]||key;
+  const primary=["scheme","schedule","deliveries","reports","marks","photos"].filter(key=>keys.includes(key));
   const other=keys.filter(key=>!primary.includes(key));
   const item=(key,extra=false)=>'<a class="'+(extra?"ir-export-subnav-link":"ir-export-toplink")+'" href="#section-'+esc(key)+'"><span class="nav-icon" aria-hidden="true">'+icon(key)+'</span><span class="nav-label">'+esc(name(key))+'</span></a>';
   const gear='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2m0-14-2 2M7 17l-2 2"/></svg>';
@@ -1535,6 +1535,24 @@
    const overviewSnapshot=snapshot(keys,selection.overview,companyHeader.markup,indicatorsMarkup,indicatorRows.reports||[],workPeriod);
    const htmlSnapshot=overviewSnapshot.overview;
    const activeNavStyles=keys.filter(key=>/^[a-z0-9_-]+$/i.test(key)).map(key=>'body:has(#section-'+key+':target) .ir-export-topnav .ir-export-subnav-link[href="#section-'+key+'"]{background:#e6f2fc!important;color:#176ca7!important;font-weight:800!important}').join("\n");
+   // The montage scheme is not on the main page: a page of its own by «Монтажная схема» in the top bar (the engineer,
+   // 06.11.2026: «убери монтажную схему с главной страницы. создай отдельный пункт переключения на монтажную схему и там
+   // выводи»); the whole page light or dark by the icon in the top right corner («на всю страницу сделай темную версию,
+   // текста, поля все переделывай на темную при переключение. знак где-нибудь вверху в правом углу поставь»).
+   const pageStyles=[
+    "html body.ir-object-overview #app #section-scheme.ir-export-group:not(:target){display:none!important}",
+    "html body.ir-object-overview:has(#section-scheme:target) #app>:not(.ir-export-topnav):not(#section-scheme){display:none!important}",
+    "html body.ir-object-overview:has(#section-scheme:target) .ir-export-topnav .ir-export-toplink[href=\"#section-scheme\"]{background:#246da7!important;color:#fff!important;border-color:#246da7!important}",
+    "html body.ir-object-overview:has(#section-scheme:target) .ir-export-topnav .ir-export-toplink.active{background:#f4f8fc!important;border-color:#dae6ef!important;color:#315a76!important;box-shadow:none!important}",
+    ".ir-export-theme{position:fixed;top:10px;right:12px;z-index:200;display:grid;place-items:center;width:40px;height:40px;padding:0;border:1px solid #d3dfe8;border-radius:10px;background:#fff;color:#24435c;cursor:pointer;box-shadow:0 2px 10px rgba(15,35,55,.14)}",
+    ".ir-export-theme svg{width:20px;height:20px}.ir-export-theme:focus-visible{outline:2px solid #2b7cc0;outline-offset:2px}",
+    "html.ir-dark,html.ir-dark body{background:#111417!important}",
+    "html.ir-dark #app{filter:invert(1) hue-rotate(180deg)}",
+    "html.ir-dark #app img,html.ir-dark #app video,html.ir-dark #app picture{filter:invert(1) hue-rotate(180deg)}",
+    "html.ir-dark .ir-export-theme{background:#22282f;border-color:#3a434d;color:#e7edf3;box-shadow:0 2px 10px rgba(0,0,0,.5)}",
+    "@media(max-width:650px){.ir-export-theme{top:8px;right:8px;width:36px;height:36px}}",
+    "@media print{.ir-export-theme{display:none}html.ir-dark #app,html.ir-dark #app img{filter:none}html.ir-dark,html.ir-dark body{background:#fff!important}html body.ir-object-overview #app #section-scheme.ir-export-group:not(:target){display:block!important}}"
+   ].join("\n");
    const extras=window.irObjectExportExtras;
    if(!extras)throw new Error("Модуль экспорта разделов не загружен. Перезапустите IR Project.");
    const trendHtml=keys.includes("schedule")?renderExportTrend(supporting[1],supporting[0]):"";
@@ -1552,9 +1570,16 @@
     const engine="("+window.irSupplyChartFactory.toString()+")().initOffline();";
     viewerScripts+='<script type="application/json" id="ir-supply-chart-data" nonce="'+nonce+'">'+safeJson(supplyModel)+'</script><script nonce="'+nonce+'">'+engine+'</script>';
    }
+   const moon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg>',
+    sun='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>';
+   const themeButton='<button type="button" class="ir-export-theme" id="ir-export-theme" title="Тёмная тема" aria-label="Тёмная тема" aria-pressed="false">'+moon+'</button>';
+   viewerScripts+='<script nonce="'+nonce+'">(function(){var b=document.getElementById("ir-export-theme"),k="ir-project.object-export-theme",moon='+JSON.stringify(moon)+',sun='+JSON.stringify(sun)+';'+
+    'function paint(d){document.documentElement.classList.toggle("ir-dark",d);b.innerHTML=d?sun:moon;b.title=d?"Светлая тема":"Тёмная тема";b.setAttribute("aria-label",b.title);b.setAttribute("aria-pressed",String(d))}'+
+    'var d=false;try{d=localStorage.getItem(k)==="dark"}catch(e){}paint(d);'+
+    'b.addEventListener("click",function(){d=!document.documentElement.classList.contains("ir-dark");paint(d);try{localStorage.setItem(k,d?"dark":"light")}catch(e){}})})();</script>';
    if(viewerScripts)viewerCsp="; script-src 'nonce-"+nonce+"'; connect-src 'none'; object-src 'none'";
    const generated=new Date().toLocaleString("ru-RU");
-   let html='<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;; img-src data:; font-src data:'+viewerCsp+'"><title>'+esc(object.name||"IR Project")+' — отчёт объекта</title><style>'+css+'</style><style>'+extraStyles+'\n'+(extras?.css||'')+'\n'+(supplyModel?window.irSupplyChart.css:'')+'\n'+activeNavStyles+'</style></head><body class="ir-object-route ir-object-overview"><main id="app">'+htmlSnapshot+sectionsHtml+'<footer class="ir-export-section"><b>IR Project</b> · Снимок объекта от '+esc(generated)+'. Только просмотр. Данные не связаны с рабочей базой.</footer></main>'+viewerScripts+'</body></html>';
+   let html='<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;; img-src data:; font-src data:'+viewerCsp+'"><title>'+esc(object.name||"IR Project")+' — отчёт объекта</title><style>'+css+'</style><style>'+extraStyles+'\n'+(extras?.css||'')+'\n'+(supplyModel?window.irSupplyChart.css:'')+'\n'+activeNavStyles+'\n'+pageStyles+'</style></head><body class="ir-object-route ir-object-overview"><main id="app">'+htmlSnapshot+sectionsHtml+'<footer class="ir-export-section"><b>IR Project</b> · Снимок объекта от '+esc(generated)+'. Только просмотр. Данные не связаны с рабочей базой.</footer></main>'+themeButton+viewerScripts+'</body></html>';
    if(selection.underContractor)html=redactCompanyIdentity(html,companyHeader.ownName);
    const name=safeFile(object.short_name||object.name||"Объект");
    const fileName=selection.underContractor?redactCompanyIdentity(name,companyHeader.ownName).trim()||"Объект":name;
