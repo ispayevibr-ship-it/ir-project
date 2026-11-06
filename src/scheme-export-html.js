@@ -207,7 +207,9 @@
    var host=$("stage3d"),err=host.querySelector(".ir-three-error");
    if(err){window.__irFail([].slice.call(err.querySelectorAll("strong,span")).map(function(x){return x.textContent}).join(": "));return}
    window.__irOk=true;
-   var h=host.getBoundingClientRect().height;if(h<40){window.__irOk=false;window.__irFail("Поле 3D-схемы получилось высотой "+Math.round(h)+" пкс (экран "+innerWidth+"×"+innerHeight+")");return}
+   // (inside the object report the frame may get its size a moment later — wait for it, 10 s, before the pictures)
+   var h=host.getBoundingClientRect().height;if(h<40&&window.parent!==window&&(firstPaint.n=(firstPaint.n||0)+1)<50){setTimeout(firstPaint,200);return}
+   if(h<40){window.__irOk=false;window.__irFail("Поле 3D-схемы получилось высотой "+Math.round(h)+" пкс (экран "+innerWidth+"×"+innerHeight+")");return}
    var cv=host.querySelector("canvas"),lost=0;
    if(cv){cv.addEventListener("webglcontextlost",function(){clearTimeout(lost);lost=setTimeout(function(){window.__irOk=false;window.__irFail("Телефон отключил 3D-графику (WebGL): не хватило памяти")},3000)});
     cv.addEventListener("webglcontextrestored",function(){clearTimeout(lost)})}

@@ -1715,6 +1715,11 @@
     "@media(max-width:760px){body.ir-object-overview #app #section-scheme.ir-export-group>.ir-export-section>.ir-export-section-head{padding:15px 12px!important}body.ir-object-overview #app #section-scheme .ir-export-scheme-controls{padding:10px 12px!important}body.ir-object-overview #app #section-scheme .ir-export-scheme-info{padding:10px 12px!important}body.ir-object-overview #app #section-scheme .ir-export-scheme-stage{height:65vh!important;min-height:360px!important}}",
     "html body.ir-object-overview #app #section-scheme .ir-export-scheme3d{box-sizing:border-box;position:relative;width:auto;margin:16px 20px 20px;height:calc(100vh - 170px);min-height:420px;border:1px solid #dce5ed;border-radius:10px;overflow:hidden;background:#f4f8fc}.ir-export-scheme3d-frame{display:block;width:100%;height:100%;border:0}@media(max-width:760px){html body.ir-object-overview #app #section-scheme .ir-export-scheme3d{margin:10px 8px 12px}}",
     ".ir-export-scheme3d-wait{padding:48px 16px;text-align:center;color:#5d6b80;font-size:15px}",
+    // (the scheme opened — on the whole window under the menu of the report, without the section's header: the engineer,
+    // 06.11.2026 «сделай при переходе в Монтажную схему в отчете выгруженном на всю страницу»)
+    "html body.ir-object-route.ir-object-overview:has(#section-scheme:target) #app{max-width:none!important}",
+    "html body.ir-object-overview #app #section-scheme.ir-export-scheme3d-group:target .ir-export-section-head{display:none!important}",
+    "html body.ir-object-overview #app #section-scheme.ir-export-scheme3d-group:target .ir-export-scheme3d{position:fixed;left:0;right:0;bottom:0;top:var(--ir-scheme-top,62px);width:auto;height:auto!important;min-height:0;margin:0;border:0;border-radius:0;z-index:5}",
     "html body.ir-object-overview:has(#section-scheme:target) #app>:not(.ir-export-topnav):not(#section-scheme){display:none!important}",
     "html body.ir-object-overview:has(#section-scheme:target) .ir-export-topnav .ir-export-toplink[href=\"#section-scheme\"]{background:#246da7!important;color:#fff!important;border-color:#246da7!important}",
     "html body.ir-object-overview:has(#section-scheme:target) .ir-export-topnav .ir-export-toplink.active{background:#f4f8fc!important;border-color:#dae6ef!important;color:#315a76!important;box-shadow:none!important}",
@@ -1763,8 +1768,8 @@
     // (the frame takes the rule of the report: its scripts with the report's nonce, the scripts it unpacks — with theirs)
     const inner=schemePage.replace(/<script(?=[\s>])/g,'<script nonce="'+nonce+'"');
     viewerScripts+='<script type="application/json" id="ir-export-scheme-page" nonce="'+nonce+'">'+safeJson(inner)+'</script><script nonce="'+nonce+'">(function(){var box=document.getElementById("ir-export-scheme3d"),src=document.getElementById("ir-export-scheme-page"),f=null;'+
-     'function fit(){if(box)box.style.height=Math.max(420,innerHeight-Math.max(0,box.getBoundingClientRect().top+scrollY)-24)+"px"}'+
-     'function open(){if(location.hash==="#section-scheme"){fit();scrollTo(0,0)}if(f||!box||!src||location.hash!=="#section-scheme")return;f=document.createElement("iframe");f.className="ir-export-scheme3d-frame";f.title="Монтажная схема";f.setAttribute("allow","fullscreen");f.setAttribute("allowfullscreen","");'+
+     'function fit(){var n=document.querySelector(".ir-export-topnav");if(box)box.style.setProperty("--ir-scheme-top",(n?Math.max(0,n.getBoundingClientRect().bottom):0)+"px")}'+
+     'function open(){if(location.hash==="#section-scheme"){scrollTo(0,0);fit()}if(f||!box||!src||location.hash!=="#section-scheme")return;f=document.createElement("iframe");f.className="ir-export-scheme3d-frame";f.title="Монтажная схема";f.setAttribute("allow","fullscreen");f.setAttribute("allowfullscreen","");'+
      // (the scheme inside the report looks as the report: no header of its own, the report's font, colours and buttons;
      // the report's theme on it — dark the whole scheme and its 3D background: the engineer, 06.11.2026 «если стоит темная
      // тема, то везде будет темная и в монтажной схеме. Монтажная схема не как отдельная страница со своими стилями»)
@@ -1773,7 +1778,7 @@
      'f.srcdoc=JSON.parse(src.textContent);box.textContent="";box.appendChild(f)}'+
      // (the theme of the report given to the scheme: its page and its 3D background — once the 3D button is there)
      'window.__irSchemeSync=function(){var d=f&&f.contentDocument,T=window.__irSchemeTheme;if(!d||!T)return;var dark=document.documentElement.classList.contains("ir-dark");'+
-     'T.light();if(dark)T.dark();d.documentElement.classList.toggle("ir-dark",dark);var b=d.getElementById("bgBtn"),tries=0,bg=function(){b=d.getElementById("bgBtn");if(!b){if(tries++<100)setTimeout(bg,200);return}if((b.getAttribute("aria-pressed")==="true")!==dark)b.click()};bg()};'+
+     'T.light();if(dark)T.dark();d.documentElement.classList.toggle("ir-dark",dark);var b=d.getElementById("bgBtn"),tries=0,bg=function(){b=d.getElementById("bgBtn");var w=d.defaultView;dark=document.documentElement.classList.contains("ir-dark");if(b&&(b.getAttribute("aria-pressed")==="true")!==dark)b.click();if((!b||!w||w.__irOk===undefined)&&tries++<300)setTimeout(bg,200)};bg()};'+
      'addEventListener("hashchange",open);addEventListener("resize",fit);open()})();</script>'
    }else if(keys.includes("scheme")){
     const scheme=extras.schemeData(rows.scheme||[],schemeDetails);
