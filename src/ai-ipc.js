@@ -52,6 +52,9 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
  // What this computer learned goes to the repository (knowledge/inbox/) when the administrator gave a token.
  const github=createGithubSync({getUserDataPath,safeStorage,fetch:netFetch});
  github.startHourly();
+ // The database kept light: of each object the 2 newest analyses of the drawings (and the placed one) stay, the older go —
+ // 90 s after the start and once a day (src/ai-db-cleanup.js; the engineer, 06.11.2026 «Хранить 2 последних»).
+ try{require("./ai-db-cleanup").createCleanup({getUserDataPath}).start()}catch(error){console.warn("IR Project: database cleanup",error)}
  // The data of the drawings come from the closed repository (knowledge/data.json) into userData/knowledge-data: at the
  // start and every hour; the knowledge base reads them before the open knowledge of the update.
  const dataDir=require("node:path").join(getUserDataPath(),"knowledge-data");
