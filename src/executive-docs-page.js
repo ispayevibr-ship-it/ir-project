@@ -39,7 +39,9 @@
   const fill=(key,org)=>{const p=settings.participants[key]||{};if(!p.org&&org)settings.participants[key]={...p,org}};
   fill("customer",object?.customer);fill("general",object?.general_contractor);fill("contractor",company?.name);
   const needs=X.needs({marks:markRows,scheme,fasteners:fast,texts,records:certs});
-  return{object,settingsRec,settings,certs,marks:markRows,workTypes:workTypes.map(r=>({id:String(r.id),...(r.data||{}),name:r.data?.name||r.title||""})),reports,scheme,needs,surveys,issued}
+  return{object,settingsRec,settings,certs,marks:markRows,workTypes:workTypes.map(r=>({id:String(r.id),...(r.data||{}),name:r.data?.work_type||r.data?.name||r.title||"",
+   // (the code of the drawings in the list: three «Монтаж металлоконструкций» told apart — the engineer, 06.11.2026 «шифра нет»)
+   code:[r.data?.project_code,r.data?.project_code_2].map(x=>String(x||"").trim()).filter(Boolean).join(", ")})),reports,scheme,needs,surveys,issued}
  }
  window.irExecDocsPage=async oid=>{
   const app=document.getElementById("app"),api=irProject.data.forObject(oid).section("executive-docs");
