@@ -988,7 +988,7 @@
   const fmt=d=>d.slice(8,10)+"."+d.slice(5,7)+"."+d.slice(0,4);
   return fmt(first)+" — "+fmt(last)
  }
- function snapshot(keys,includeOverview=true,headerMarkup="",indicatorsMarkup="",reportRows=[],workPeriod=""){
+ function snapshot(keys,includeOverview=true,headerMarkup="",indicatorsMarkup="",reportRows=[],workPeriod="",bannerRatio=0){
   const live=document.getElementById("app");
   if(!live?.querySelector(".object-overview-hero"))throw Error("Откройте страницу «Обзор объекта» нужного объекта.");
   const copy=live.cloneNode(true);
@@ -1002,13 +1002,16 @@
    const bannerName=hero.querySelector(".object-hero-copy h1")?.textContent?.trim()||"";
    const bannerAddress=hero.querySelector(".object-hero-info-item.location b")?.textContent?.trim()||"";
    hero.classList.add("ir-export-banner-only");
+   // (the header as high as the banner is — the whole picture, not a strip of it: the engineer, 06.11.2026 «шапку отчета
+   // сделай максимальной высотой баннера и шрифт подгони, убери промышленный объект»)
+   if(bannerRatio>0){hero.classList.add("ir-export-banner-full");hero.style.setProperty("--ir-banner-ratio",String(bannerRatio))}
    hero.querySelector(".object-hero-content")?.remove();
    hero.querySelector(".object-hero-shade")?.remove();
    const icon=path=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+path+'</svg>';
    const pin=icon('<path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>');
    const calendar=icon('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M8 14h2M14 14h2"/>');
    const fact=(symbol,label,value)=>'<div class="ir-export-hero-fact"><span class="ir-export-hero-fact-icon">'+symbol+'</span><span class="ir-export-hero-fact-copy">'+(label?'<span>'+esc(label)+'</span>':"")+'<b>'+esc(value)+'</b></span></div>';
-   hero.insertAdjacentHTML("beforeend",'<div class="ir-export-banner-copy"><span class="ir-export-hero-type">'+icon('<path d="m13 2-9 12h7l-1 8 10-13h-7z"/>')+' ПРОМЫШЛЕННЫЙ ОБЪЕКТ</span><h1>'+esc(bannerName)+'</h1><div class="ir-export-hero-facts">'+
+   hero.insertAdjacentHTML("beforeend",'<div class="ir-export-banner-copy"><h1>'+esc(bannerName)+'</h1><div class="ir-export-hero-facts">'+
     (bannerAddress?fact(pin,"",bannerAddress):"")+(workPeriod?fact(calendar,"Период реализации",workPeriod):"")+'</div></div>');
    if(headerMarkup)hero.insertAdjacentHTML("afterend",headerMarkup);
    (copy.querySelector(".ir-export-companies")||hero).insertAdjacentHTML("afterend",sidebarHtml(document.querySelector(".ir-object-sidebar-fixed"),keys,includeOverview));
@@ -1653,6 +1656,12 @@
     "@media(max-width:640px){body.ir-object-overview #app #section-marks .ir-export-mark-brief{flex-wrap:wrap!important;gap:8px!important}body.ir-object-overview #app #section-marks .ir-export-mark-main{flex:1 1 55%!important}body.ir-object-overview #app #section-marks .ir-export-mark-badge{flex:0 1 auto!important;min-width:0!important}}",    "/* Reference masthead: project banner / three horizontal identities / full inline menu */",
     "body.ir-object-overview #app .object-overview-hero.ir-export-banner-only{position:relative!important;isolation:isolate!important;height:310px!important;min-height:310px!important;max-height:310px!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;overflow:hidden!important}",
     "body.ir-object-overview #app .object-overview-hero.ir-export-banner-only:before{content:none!important;display:none!important}",
+    "html body.ir-object-overview #app .object-overview-hero.ir-export-banner-only.ir-export-banner-full{height:auto!important;max-height:640px!important;min-height:300px!important;aspect-ratio:var(--ir-banner-ratio)!important}",
+    "html body.ir-object-overview #app .object-overview-hero.ir-export-banner-full .object-overview-hero-bg{position:absolute!important;inset:0!important;background-size:cover!important;background-position:center!important}",
+    "html body.ir-object-overview #app .ir-export-banner-copy h1{font-size:clamp(28px,3.6vw,40px)!important;line-height:1.15!important;max-width:820px!important}",
+    "html body.ir-object-overview #app .ir-export-hero-fact-copy b{font-size:15px!important}html body.ir-object-overview #app .ir-export-hero-fact-copy span{font-size:13px!important}html body.ir-object-overview #app .ir-export-hero-fact-icon,html body.ir-object-overview #app .ir-export-hero-fact-icon svg{width:26px!important;height:26px!important}",
+    "html body.ir-object-overview #app .ir-export-banner-copy{padding:30px 34px!important}",
+    "@media(max-width:640px){html body.ir-object-overview #app .object-overview-hero.ir-export-banner-only.ir-export-banner-full{aspect-ratio:auto!important;min-height:300px!important}html body.ir-object-overview #app .ir-export-banner-copy h1{font-size:24px!important}html body.ir-object-overview #app .ir-export-banner-copy{padding:22px 16px!important}}",
     "body.ir-object-overview #app .object-overview-hero.ir-export-banner-only:after{content:''!important;position:absolute!important;inset:0!important;z-index:1!important;background:linear-gradient(90deg,rgba(2,28,54,.97) 0%,rgba(2,35,64,.88) 33%,rgba(5,39,70,.53) 62%,rgba(3,27,51,.06) 100%)!important}",
     "body.ir-object-overview #app .ir-export-banner-copy{position:relative!important;z-index:3!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:center!important;gap:16px!important;width:100%!important;height:100%!important;margin:0!important;padding:26px 29px!important}",
     "body.ir-object-overview #app .ir-export-banner-copy h1{display:block!important;max-width:760px!important;margin:0!important;color:#fff!important;font:850 31px/1.16 'Segoe UI',Arial,sans-serif!important;letter-spacing:0!important;overflow-wrap:anywhere!important;-webkit-line-clamp:unset!important}",
@@ -1718,7 +1727,9 @@
    // Read work-type schedule dates even when the schedule section is not selected for export.
    const scheduleRows=rows.schedule||await api.section("schedule").list().catch(error=>{console.warn("Object HTML: work schedule dates unavailable",error);return []});
    const workPeriod=exportWorkPeriod(scheduleRows);
-   const overviewSnapshot=snapshot(keys,selection.overview,companyHeader.markup,indicatorsMarkup,indicatorRows.reports||[],workPeriod);
+   // (the banner's own proportion: the header shows the whole picture)
+   let bannerRatio=0;try{const bg=document.querySelector("#app .object-overview-hero .object-overview-hero-bg"),u=bg&&/url\(["']?([^"')]+)["']?\)/.exec(getComputedStyle(bg).backgroundImage||"");if(u){const im=new Image();im.src=u[1];await Promise.race([im.decode(),new Promise((_,no)=>setTimeout(no,4000))]);if(im.naturalWidth&&im.naturalHeight)bannerRatio=im.naturalWidth/im.naturalHeight}}catch(error){console.warn("Object HTML: banner size unknown",error)}
+   const overviewSnapshot=snapshot(keys,selection.overview,companyHeader.markup,indicatorsMarkup,indicatorRows.reports||[],workPeriod,bannerRatio);
    const htmlSnapshot=overviewSnapshot.overview;
    const activeNavStyles=keys.filter(key=>/^[a-z0-9_-]+$/i.test(key)).map(key=>'body:has(#section-'+key+':target) .ir-export-topnav .ir-export-subnav-link[href="#section-'+key+'"]{background:#e6f2fc!important;color:#176ca7!important;font-weight:800!important}').join("\n");
    // The montage scheme is not on the main page: a page of its own by «Монтажная схема» in the top bar (the engineer,
@@ -1814,7 +1825,10 @@
     // (the frame takes the rule of the report: its scripts with the report's nonce, the scripts it unpacks — with theirs)
     const inner=schemePage.replace(/<script(?=[\s>])/g,'<script nonce="'+nonce+'"');
     viewerScripts+='<script type="application/json" id="ir-export-scheme-page" nonce="'+nonce+'">'+safeJson(inner)+'</script><script nonce="'+nonce+'">(function(){var box=document.getElementById("ir-export-scheme3d"),src=document.getElementById("ir-export-scheme-page"),f=null;'+
-     'function fit(){var n=document.querySelector(".ir-export-topnav");if(box)box.style.setProperty("--ir-scheme-top",(n?Math.max(0,n.getBoundingClientRect().bottom):0)+"px")}'+
+     'function fit(){var n=document.querySelector(".ir-export-topnav");if(box)box.style.setProperty("--ir-scheme-top",(n&&n.offsetParent!==null?n.offsetHeight:0)+"px")}'+
+     // (a reload on the scheme: the browser put back the scroll of before after the first measure, and the scheme stood
+     // half down the window without the menu — the engineer, 06.11.2026 «после перезагрузки страницы»)
+     'try{history.scrollRestoration="manual"}catch(e){}addEventListener("load",function(){if(location.hash==="#section-scheme"){scrollTo(0,0);fit()}});setTimeout(fit,300);setTimeout(fit,1500);'+
      'function open(){if(location.hash==="#section-scheme"){scrollTo(0,0);fit()}if(f||!box||!src||location.hash!=="#section-scheme")return;f=document.createElement("iframe");f.className="ir-export-scheme3d-frame";f.title="Монтажная схема";f.setAttribute("allow","fullscreen");f.setAttribute("allowfullscreen","");'+
      // (the scheme inside the report looks as the report: no header of its own, the report's font, colours and buttons;
      // the report's theme on it — dark the whole scheme and its 3D background: the engineer, 06.11.2026 «если стоит темная
