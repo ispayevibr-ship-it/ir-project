@@ -576,8 +576,10 @@
  // тоже темный должен быть»): not an inverted picture — every colour of the page given its dark pair: light fields and
  // cards dark grey-blue, dark text light, grey hints lighter, coloured marks (green, orange, blue) brighter on the dark;
  // borders dim; the light ones put back as they were. Runs in the report (by the moon, top right).
+ // (by the rules of the page's styles, one dark rule for each — not element by element: a big report hung, «Страница не
+ // отвечает», the engineer 06.11.2026; only elements with colours of their own are gone through one by one)
  function exportTheme(){
-  var orig=new Map(),PROPS=["color","background-color","border-top-color","border-right-color","border-bottom-color","border-left-color","outline-color","fill","stroke"];
+  var sheet=null,orig=new Map(),cache=new Map(),probe=null;
   var parse=function(v){var m=/rgba?\(([^)]+)\)/.exec(v||"");if(!m)return null;var p=m[1].split(/[\s,\/]+/).filter(Boolean).map(parseFloat);return{r:p[0]/255,g:p[1]/255,b:p[2]/255,a:p.length>3?p[3]:1}};
   var hsl=function(c){var mx=Math.max(c.r,c.g,c.b),mn=Math.min(c.r,c.g,c.b),l=(mx+mn)/2,h=0,s=0,d=mx-mn;
    if(d){s=l>.5?d/(2-mx-mn):d/(mx+mn);h=mx===c.r?(c.g-c.b)/d+(c.g<c.b?6:0):mx===c.g?(c.b-c.r)/d+2:(c.r-c.g)/d+4;h/=6}return{h:h,s:s,l:l,a:c.a}};
@@ -588,23 +590,48 @@
   // (text: dark — light, grey — lighter grey, coloured — brighter of its hue; light text on a coloured field stays)
   var ink=function(o){if(o.l<.62){o.l=o.s>.35&&o.l>.2?Math.max(.68,1-o.l*.55):.93-o.l*.45;o.s=Math.min(o.s,o.s>.35?.75:.25)}return o};
   var line=function(o){if(o.l>.5){o.l=.2+(1-o.l)*.4;o.s=Math.min(o.s,.2)}return o};
-  var map=function(prop,v,el){var c=parse(v);if(!c||c.a===0)return"";var o=hsl(c);
-   if(prop==="color")return css(ink(o));if(prop==="background-color")return css(field(o));
-   if(prop==="fill"||prop==="stroke"){if(el.tagName==="text"||el.tagName==="tspan")return css(ink(o));if(o.l>.8)return css(field(o));if(o.l<.3&&o.s<.3)return css(ink(o));return""}
-   return css(line(o))};
-  var grad=function(v){return v.replace(/rgba?\([^)]+\)/g,function(x){var c=parse(x);return c?css(field(hsl(c))):x})};
-  function dark(){
-   [document.documentElement,document.body].concat([].slice.call(document.body.querySelectorAll("*"))).forEach(function(el){
-    if(el.id==="ir-export-theme"||/^(SCRIPT|STYLE|IFRAME|IMG|VIDEO|CANVAS|BR)$/.test(el.tagName)||el.closest("iframe,img"))return;
-    var cs=getComputedStyle(el),set=[];
-    PROPS.forEach(function(p){if((p==="fill"||p==="stroke")&&!(el instanceof SVGElement))return;if(/^border/.test(p)&&cs[p.replace(/color$/,"width")]==="0px")return;var nv=map(p,cs.getPropertyValue(p),el);if(nv)set.push([p,nv])});
-    var bi=cs.backgroundImage;if(bi&&/gradient/.test(bi))set.push(["background-image",grad(bi)]);
-    if(cs.boxShadow&&cs.boxShadow!=="none")set.push(["box-shadow","none"]);
-    if(!set.length)return;if(!orig.has(el))orig.set(el,el.getAttribute("style"));
-    set.forEach(function(x){el.style.setProperty(x[0],x[1],"important")})});
-   document.documentElement.style.setProperty("background-color","#0f1317","important");document.body.style.setProperty("background-color","#0f1317","important")
+  // A colour as the browser reads it (names, #hex, hsl) — once for each written value.
+  var rgb=function(v){v=String(v||"").trim();if(!v||/var\(|currentcolor|inherit|initial|unset|transparent/i.test(v))return null;if(/^rgba?\(/i.test(v))return parse(v);
+   if(cache.has(v))return cache.get(v);if(!probe){probe=document.createElement("i");probe.style.display="none";document.body.appendChild(probe)}
+   probe.style.color="";probe.style.color=v;var c=probe.style.color?parse(getComputedStyle(probe).color):null;cache.set(v,c);return c};
+  var conv=function(kind,v){var c=rgb(v);if(!c||c.a===0)return null;var o=hsl(c);return css(kind==="ink"?ink(o):kind==="line"?line(o):field(o))};
+  var allColours=function(kind,v){return String(v).replace(/rgba?\([^)]*\)|#[0-9a-f]{3,8}\b|\b(?:white|black)\b/gi,function(x){return conv(kind,x)||x})};
+  var KIND={"color":"ink","background-color":"field","border-color":"line","border-top-color":"line","border-right-color":"line","border-bottom-color":"line","border-left-color":"line","outline-color":"line","fill":"svg","stroke":"svg","caret-color":"ink","text-decoration-color":"ink","column-rule-color":"line"};
+  var svgKind=function(v){var c=rgb(v);if(!c)return null;var o=hsl(c);return o.l>.8?"field":o.l<.3&&o.s<.3?"ink":null};
+  // One declaration of the page in dark: what to write, or null.
+  function declare(name,value){
+   if(/^--/.test(name)){var c=rgb(value);if(!c)return null;var o=hsl(c),k=/bg|background|card|surface|panel|paper|fill|base/i.test(name)?"field":/line|border|rule|stroke|divider/i.test(name)?"line":/ink|text|muted|fg|color|accent|ok|warn|part|wait/i.test(name)?"ink":o.l>.5?"field":"ink";return conv(k,value)}
+   var k=KIND[name];
+   if(k==="svg"){k=svgKind(value);return k?conv(k,value):null}
+   if(k)return /^border-color$/.test(name)?allColours("line",value):conv(k,value);
+   if(name==="background-image"&&/gradient/i.test(value))return allColours("field",value);
+   if(name==="box-shadow"&&value!=="none")return"none";
+   return null
   }
-  function light(){orig.forEach(function(v,el){if(v==null)el.removeAttribute("style");else el.setAttribute("style",v)});orig.clear()}
+  var scope=function(sel){return sel.split(/,(?![^(]*\))/).map(function(x){x=x.trim();if(/^html\b/.test(x))return x.replace(/^html/,"html.ir-dark");if(/^:root\b/.test(x))return x.replace(/^:root/,"html.ir-dark");return"html.ir-dark "+x}).join(",")};
+  function rulesOf(list){var out=[];[].slice.call(list||[]).forEach(function(r){
+   if(r.type===1&&r.style){var d=[];for(var i=0;i<r.style.length;i++){var n=r.style[i],v=declare(n,r.style.getPropertyValue(n));if(v)d.push(n+":"+v+(r.style.getPropertyPriority(n)?"!important":""))}
+    if(d.length)out.push(scope(r.selectorText)+"{"+d.join(";")+"}")}
+   else if(r.type===4&&r.cssRules&&!/print/.test(r.conditionText||r.media&&r.media.mediaText||"")){var inner=rulesOf(r.cssRules);if(inner.length)out.push("@media "+(r.conditionText||r.media.mediaText)+"{"+inner.join("")+"}")}
+   else if(r.cssRules&&r.type!==4){out=out.concat(rulesOf(r.cssRules))}});return out}
+  function dark(){
+   if(!sheet){
+    var out=[];[].slice.call(document.styleSheets).forEach(function(s){try{out=out.concat(rulesOf(s.cssRules))}catch(_e){}});
+    out.push("html.ir-dark,html.ir-dark body{background:#0f1317!important;color:#e3e9ef}html.ir-dark{color-scheme:dark}html.ir-dark #app img{opacity:.92}");
+    sheet=document.createElement("style");sheet.id="ir-export-dark";sheet.textContent=out.join("\n");document.head.appendChild(sheet)
+   }
+   sheet.disabled=false;
+   // (colours written on the elements themselves and in drawings — read all, then write all)
+   var todo=[];[].slice.call(document.querySelectorAll("#app [style],#app [fill],#app [stroke],#app [color],#app [bgcolor]")).forEach(function(el){
+    if(el.closest("iframe")||el.id==="ir-export-theme")return;var set=[],st=el.style;
+    for(var i=0;i<st.length;i++){var n=st[i],v=declare(n,st.getPropertyValue(n));if(v)set.push([n,v])}
+    ["fill","stroke"].forEach(function(a){var v=el.getAttribute(a);if(v&&!st.getPropertyValue(a)){var nv=declare(a,v);if(nv)set.push([a,nv])}});
+    if(el.getAttribute("color")&&!st.color){var c=conv("ink",el.getAttribute("color"));if(c)set.push(["color",c])}
+    if(el.getAttribute("bgcolor")&&!st.backgroundColor){var b=conv("field",el.getAttribute("bgcolor"));if(b)set.push(["background-color",b])}
+    if(set.length)todo.push([el,set])});
+   todo.forEach(function(t){if(!orig.has(t[0]))orig.set(t[0],t[0].getAttribute("style"));t[1].forEach(function(x){t[0].style.setProperty(x[0],x[1],"important")})})
+  }
+  function light(){if(sheet)sheet.disabled=true;orig.forEach(function(v,el){if(v==null)el.removeAttribute("style");else el.setAttribute("style",v)});orig.clear()}
   return{dark:dark,light:light}
  }
  function renderSection(key,rows,images,preview="",support={}){
@@ -1036,7 +1063,8 @@
    const sections=array(await irProject.data.sections.get(id));
    const nav=document.querySelector(".ir-object-sidebar-fixed .ir-object-nav");
    const visibleKeys=nav?[...nav.querySelectorAll("button[data-key]")].filter(b=>!b.disabled&&b.dataset.key!=="overview").map(b=>b.dataset.key):[];
-   const availableKeys=[...new Set(visibleKeys.length?visibleKeys:sections.filter(s=>s.enabled).map(s=>s.section_key))];
+   // (the trash is never in the report — not offered, not shown: the engineer, 06.11.2026 «корзина не выводится никогда»)
+   const availableKeys=[...new Set(visibleKeys.length?visibleKeys:sections.filter(s=>s.enabled).map(s=>s.section_key))].filter(key=>key!=="trash");
   const selection=await chooseExportSections(availableKeys,nav);
   if(!selection)return false;
   const keys=selection.keys;
