@@ -796,11 +796,15 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  // — this scheme, its grid and elements with their kinds, sections, statuses and the marks register; no editing.
  async function exportSchemeData(){
   await loadMountDays();
+  // (a member whose work type is no longer in the object — deleted or its id left from an old placement — goes as
+  // «Без вида работ», not as «Вид работ 12» that the object has not: the engineer, 06.11.2026 «почему выводятся виды
+  // работ которых нет?»)
+  const liveWorks=new Map(arr(workRows).map(r=>[String(r.id),{...(r.data||{}),work_type:r.data?.work_type||r.title||""}])),workOf=c=>{const w=recordWorkId(c);return w&&liveWorks.has(w)?w:""};
   const list=records().map(c=>{const p={...c,...coord(c)},g=recordMarkGroup(c),lm=linkedMark(c),pr=markProgress(lm),name=String(lm?.name||"").trim()||String(c.mark_name||""),day=mountDay(lm,pr);
    return{id:String(c.id),mark:String(c.mark||""),mark_name:name,title:String(name||c.title||""),type_name:String(c.type_name||FITTING_LABEL[p.ft]||geometryLabel(p.geometryType)),
     section:sectionShown(p),profile:profileShown(p),status:effectiveStatus(c),scheme_group:g.key,role:recordRole(c),axisX:p.axisX,axisY:p.axisY,axisText:axisText(p),
     x:p.x,y:p.y,x2:p.x2,y2:p.y2,z0:p.z0,z1:p.z1,z2:p.z2,mx:p.mx,my:p.my,mz:p.mz,r:p.r,ri:p.ri,open:p.open,sa:p.sa,sw:p.sw,cr:p.cr,lay:p.lay,ft:p.ft,fd:p.fd,geometryType:p.geometryType,
-    progress:pr&&pr.total>0?pr:null,draft:false,draft_doc:String(c.source_import_doc||""),work:recordWorkId(c),
+    progress:pr&&pr.total>0?pr:null,draft:false,draft_doc:String(c.source_import_doc||""),work:workOf(c),
     // What the 3D draws a member by: its rolled section, a truss or a lattice column, the base, the joint and the nodes of
     // the drawings — without them the exported scheme showed conventional sections, trusses as beams and no bolts.
     profile_name:String(c.profile_name||""),profile_standard:String(c.profile_standard||""),section_type:String(c.section_type||""),type_key:String(c.type_key||""),
@@ -818,7 +822,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   if(!list.length)return null;
   const counts=new Map();for(const c of list){const g=counts.get(c.scheme_group)||{key:c.scheme_group,label:recordMarkGroup(records().find(r=>String(r.id)===c.id)).label,count:0};g.count++;counts.set(c.scheme_group,g)}
   // All the work types together: the exported page can show each apart, as the scheme does.
-  const workCounts=new Map();for(const c of list){const w=workCounts.get(c.work)||{id:c.work,label:c.work?String(workById.get(c.work)?.work_type||"Вид работ "+c.work)+(workById.get(c.work)?.project_code?" · "+workById.get(c.work).project_code:""):"Без вида работ",count:0};w.count++;workCounts.set(c.work,w)}
+  const workCounts=new Map();for(const c of list){const w=workCounts.get(c.work)||{id:c.work,label:c.work?String(liveWorks.get(c.work).work_type||"Без названия")+(liveWorks.get(c.work).project_code?" · "+liveWorks.get(c.work).project_code:""):"Без вида работ",count:0};w.count++;workCounts.set(c.work,w)}
   const currentWork=frameMode?null:enabledWorks().find(w=>w.id===activeWorkId);
   return{objectId:oid,object:{name:String(object.name||object.title||""),address:String(object.address||"")},title:activeGroup()?.label||"Все",
     axesX:[...axesX],axesY:[...axesY],spanX,spanY,gridDirX,gridDirY,gridX:Object.fromEntries(axisXPos),gridY:Object.fromEntries(axisYPos),background:currentBackground(),
