@@ -619,7 +619,9 @@
   var field=function(o){if(o.l>.55){o.l=.085+(1-o.l)*.5;o.s=Math.min(o.s,.3)}else if(o.s>.25)o.l=Math.min(o.l,.32)*.85;return o};
   // (text: dark — light, grey — lighter grey, coloured — brighter of its hue; light text on a coloured field stays)
   var ink=function(o){if(o.l<.62){o.l=o.s>.35&&o.l>.2?Math.max(.68,1-o.l*.55):.93-o.l*.45;o.s=Math.min(o.s,o.s>.35?.75:.25)}return o};
-  var line=function(o){if(o.l>.5){o.l=.2+(1-o.l)*.4;o.s=Math.min(o.s,.2)}return o};
+  // (the borders of the blocks — light grey ones — #313131 in dark: the engineer, 06.11.2026 «сделай в темном режиме бордер
+  // блоков на странице отчета 1px solid #313131»; a coloured border keeps its colour, darker)
+  var line=function(o){if(o.l>.5){if(o.s<.45){o.h=0;o.s=0;o.l=49/255;return o}o.l=.2+(1-o.l)*.4;o.s=Math.min(o.s,.2)}return o};
   // A colour as the browser reads it (names, #hex, hsl) — once for each written value.
   var rgb=function(v){v=String(v||"").trim();if(!v||/var\(|currentcolor|inherit|initial|unset|transparent/i.test(v))return null;if(/^rgba?\(/i.test(v))return parse(v);
    if(cache.has(v))return cache.get(v);if(!probe){probe=document.createElement("i");probe.style.display="none";document.body.appendChild(probe)}
