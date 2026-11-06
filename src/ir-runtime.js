@@ -1972,7 +1972,12 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   // (a member whose work type is no longer in the object — deleted or its id left from an old placement — goes as
   // «Без вида работ», not as «Вид работ 12» that the object has not: the engineer, 06.11.2026 «почему выводятся виды
   // работ которых нет?»)
-  const liveWorks=new Map(arr(workRows).map(r=>[String(r.id),{...(r.data||{}),work_type:r.data?.work_type||r.title||""}])),workOf=c=>{const w=recordWorkId(c);return w&&liveWorks.has(w)?w:""};
+  // Only the work types the scheme is on for («Нужна монтажная схема»), as the list «Вид работ» of the program: a member
+  // whose mark is also listed under another work type of the object (delivery, painting — the same mark name) went to
+  // the filter as that work type, which has no scheme (the engineer, 06.11.2026: «так и показывает лишние виды работ»).
+  // Such a member goes to the scheme work type its mark name has there, or to the only one when there is one.
+  const liveWorks=new Map(enabledWorks().map(w=>[w.id,{...w.data,work_type:w.name,project_code:w.code}])),onlyWork=liveWorks.size===1?[...liveWorks.keys()][0]:"",
+   workOf=c=>{const w=recordWorkId(c);if(w&&liveWorks.has(w))return w;const named=(marksByName.get(norm(c?.mark))||[]).map(m=>String(m.work_type_id||"")).filter(id=>liveWorks.has(id));return named.length&&named.every(id=>id===named[0])?named[0]:onlyWork};
   const list=records().map(c=>{const p={...c,...coord(c)},g=recordMarkGroup(c),lm=linkedMark(c),pr=markProgress(lm),name=String(lm?.name||"").trim()||String(c.mark_name||""),day=mountDay(lm,pr);
    return{id:String(c.id),mark:String(c.mark||""),mark_name:name,title:String(name||c.title||""),type_name:String(c.type_name||FITTING_LABEL[p.ft]||geometryLabel(p.geometryType)),
     section:sectionShown(p),profile:profileShown(p),status:effectiveStatus(c),scheme_group:g.key,role:recordRole(c),axisX:p.axisX,axisY:p.axisY,axisText:axisText(p),

@@ -249,7 +249,21 @@
  }
 
 
+ // The marks register as the program's page «Ведомость марок» shows it (src/marks-page.js): only the work types that have
+ // marks (installation, fabrication — not «Другие виды работ», not services), and only marks of such a work type or of
+ // none — a mark left from a deleted work type is not shown. The report showed every work type of the object in the
+ // readiness of the register and a mark's own title as a work type (the engineer, 06.11.2026: «в самой программе их нигде
+ // и нет, а в выгрузке есть, что в ведомостях марок, что в видах работ»).
+ function markWorkRows(workRows,markRows){
+  const norm=v=>String(v??"").trim().toLowerCase().replace(/\s+/g," ");
+  return array(workRows).filter(r=>{const d=r.data||{},service=(d.accounting_type||"")==="service"||norm(d.unit)==="услуга";if(service||d.has_marks===false||d.work_category==="other")return false;if(d.has_marks===true||["installation","fabrication"].includes(d.work_category))return true;const id=String(r.id),name=norm(d.work_type||r.title||"");return name.includes("монтаж")||name.includes("изготов")||array(markRows).some(m=>String(m.data?.work_type_id||"")===id)})
+ }
+ function liveMarkRows(markRows,workRows){
+  const allowed=new Set(markWorkRows(workRows,markRows).map(r=>String(r.id)));
+  return array(markRows).filter(m=>{const w=String(m.data?.work_type_id||"");return!w||allowed.has(w)})
+ }
  function markProgressGroups(markRows,workRows,reportRows){
+  workRows=markWorkRows(workRows,markRows);markRows=liveMarkRows(markRows,workRows);
   const normalize=v=>String(v??"").trim().toLowerCase().replace(/\s+/g," ");
   const catalog=new Map(array(workRows).map(row=>{
    const d=row.data||{};
@@ -270,7 +284,7 @@
   for(const raw of array(markRows)){
    const d=raw.data||{},qty=Math.max(0,exportNumber(d.qty??d.count));
    if(qty<=0||d.accounting_type==="service"||normalize(d.unit)==="услуга")continue;
-   const wid=String(d.work_type_id||""),work=catalog.get(wid),name=String(work?.name||d.work_type||raw.title||"Без вида работ").trim(),code=String(d.project_code||work?.code||d.code||"").trim();
+   const wid=String(d.work_type_id||""),work=catalog.get(wid),name=String(work?.name||d.work_type||"Без вида работ").trim(),code=String(d.project_code||work?.code||d.code||"").trim();
    const code2=String(d.project_code_2||work?.code2||"").trim();
    const key=(wid||normalize(name))+"|"+normalize(code)+"|"+normalize(code2);
    if(!groups.has(key))groups.set(key,{workId:wid,name,code,code2,total:0,mounted:0,remaining:0,positions:0});
@@ -323,6 +337,7 @@
  }
 
  function markDetailData(markRows,workRows,reportRows){
+  markRows=liveMarkRows(markRows,workRows);
   const norm=v=>String(v??"").trim().toLowerCase().replace(/\s+/g," ");
   const works=new Map(array(workRows).map(row=>{
    const d=row.data||{};
@@ -589,7 +604,11 @@
  // borders dim; the light ones put back as they were. Runs in the report (by the moon, top right).
  // (by the rules of the page's styles, one dark rule for each — not element by element: a big report hung, «Страница не
  // отвечает», the engineer 06.11.2026; only elements with colours of their own are gone through one by one)
- function exportTheme(){
+ // (doc — the page to paint, the report or the scheme in its frame; opts.scope — where elements with colours of their own
+ // are gone through ("" — nowhere), opts.skip — rules left as they are: the 3D has its own dark look)
+ function exportTheme(doc,opts){
+  var document=doc||window.document,win=document.defaultView||window,getComputedStyle=function(e){return win.getComputedStyle(e)};
+  opts=opts||{};var SCOPE=opts.scope==null?"#app":opts.scope,SKIP=opts.skip||null;
   var sheet=null,orig=new Map(),cache=new Map(),probe=null;
   var parse=function(v){var m=/rgba?\(([^)]+)\)/.exec(v||"");if(!m)return null;var p=m[1].split(/[\s,\/]+/).filter(Boolean).map(parseFloat);return{r:p[0]/255,g:p[1]/255,b:p[2]/255,a:p.length>3?p[3]:1}};
   var hsl=function(c){var mx=Math.max(c.r,c.g,c.b),mn=Math.min(c.r,c.g,c.b),l=(mx+mn)/2,h=0,s=0,d=mx-mn;
@@ -621,7 +640,7 @@
   }
   var scope=function(sel){return sel.split(/,(?![^(]*\))/).map(function(x){x=x.trim();if(/^html\b/.test(x))return x.replace(/^html/,"html.ir-dark");if(/^:root\b/.test(x))return x.replace(/^:root/,"html.ir-dark");return"html.ir-dark "+x}).join(",")};
   function rulesOf(list){var out=[];[].slice.call(list||[]).forEach(function(r){
-   if(r.type===1&&r.style){var d=[];for(var i=0;i<r.style.length;i++){var n=r.style[i],v=declare(n,r.style.getPropertyValue(n));if(v)d.push(n+":"+v+(r.style.getPropertyPriority(n)?"!important":""))}
+   if(r.type===1&&r.style){if(SKIP&&SKIP.test(r.selectorText))return;var d=[];for(var i=0;i<r.style.length;i++){var n=r.style[i],v=declare(n,r.style.getPropertyValue(n));if(v)d.push(n+":"+v+(r.style.getPropertyPriority(n)?"!important":""))}
     if(d.length)out.push(scope(r.selectorText)+"{"+d.join(";")+"}")}
    else if(r.type===4&&r.cssRules&&!/print/.test(r.conditionText||r.media&&r.media.mediaText||"")){var inner=rulesOf(r.cssRules);if(inner.length)out.push("@media "+(r.conditionText||r.media.mediaText)+"{"+inner.join("")+"}")}
    else if(r.cssRules&&r.type!==4){out=out.concat(rulesOf(r.cssRules))}});return out}
@@ -633,7 +652,7 @@
    }
    sheet.disabled=false;
    // (colours written on the elements themselves and in drawings — read all, then write all)
-   var todo=[];[].slice.call(document.querySelectorAll("#app [style],#app [fill],#app [stroke],#app [color],#app [bgcolor]")).forEach(function(el){
+   var todo=[];[].slice.call(SCOPE?document.querySelectorAll(["[style]","[fill]","[stroke]","[color]","[bgcolor]"].map(function(a){return SCOPE+" "+a}).join(",")):[]).forEach(function(el){
     if(el.closest("iframe")||el.id==="ir-export-theme")return;var set=[],st=el.style;
     for(var i=0;i<st.length;i++){var n=st[i],v=declare(n,st.getPropertyValue(n));if(v)set.push([n,v])}
     ["fill","stroke"].forEach(function(a){var v=el.getAttribute(a);if(v&&!st.getPropertyValue(a)){var nv=declare(a,v);if(nv)set.push([a,nv])}});
@@ -649,7 +668,7 @@
   const extras=window.irObjectExportExtras;
   // The montage scheme — the page of the exported scheme itself (src/scheme-export-html.js, build), opened in a frame
   // when «Монтажная схема» is chosen: the same 3D, panel, card and nodes as the «HTML» button gives.
-  if(key==="scheme"&&support.schemePage)return'<div class="ir-export-group ir-export-scheme3d-group" id="section-scheme"><div class="ir-export-scheme3d" id="ir-export-scheme3d"><div class="ir-export-scheme3d-wait">Монтажная схема открывается…</div></div></div>';
+  if(key==="scheme"&&support.schemePage)return'<div class="ir-export-group ir-export-scheme3d-group" id="section-scheme"><section class="ir-export-section ir-export-scheme3d-section"><header class="ir-export-section-head"><h2>Монтажная схема</h2></header><div class="ir-export-scheme3d" id="ir-export-scheme3d"><div class="ir-export-scheme3d-wait">Монтажная схема открывается…</div></div></section></div>';
   const body=key==="reports"?renderDailyReports(rows,images,support.markNames):key==="work-types"?renderExportWorkTypes(rows,support.marks||[],support.reports||[]):key==="marks"?renderMarkSection(rows,support.workTypes||[],support.reports||[],images):
    key==="deliveries"?extras.deliveries(rows):key==="photos"?extras.recentPhotos(support.reports||[],images):
    key==="scheme"?extras.schemeHtml(extras.schemeData(rows,support.schemeDetails||[])):["schedule","acted-days","penalties"].includes(key)?"":
@@ -1476,12 +1495,6 @@
     ".ir-export-daily-photo-link:focus-visible{outline:2px solid #3985c2;outline-offset:3px}",
     ".ir-export-daily-photo-link:hover img{filter:brightness(.92);transform:scale(1.015)}",
     ".ir-export-daily-photo-link img{transition:transform .16s ease,filter .16s ease}",
-    "#section-scheme>.ir-export-section{padding:0!important;width:100%!important;max-width:none!important}",
-    "#section-scheme>.ir-export-section>.ir-export-section-head{padding:18px 20px 15px!important;margin:0!important}",
-    "#section-scheme .ir-export-scheme{display:block!important;width:100%!important;max-width:none!important;margin:0!important;border:0!important;border-radius:0!important;box-shadow:none!important}",
-    "#section-scheme .ir-export-scheme-stage{width:100%!important;height:min(82vh,950px)!important;min-height:510px!important}",
-    "body.ir-object-overview #app #section-scheme .ir-export-scheme-controls button{display:inline-flex!important;align-items:center!important;justify-content:center!important}",
-    "@media(max-width:760px){#section-scheme>.ir-export-section>.ir-export-section-head{padding:14px 12px!important}#section-scheme .ir-export-scheme-stage{min-height:360px!important;height:65vh!important}}",
     ".ir-export-companies{position:relative!important;margin:15px 20px!important;padding:22px!important;background:radial-gradient(circle at 95% 0,rgba(92,151,248,.2),transparent 35%),linear-gradient(130deg,#f9fbff,#eef5ff)!important;border:1px solid #dce8f8!important;border-radius:23px!important;box-shadow:0 12px 30px rgba(40,86,146,.08)!important;overflow:visible!important}",
     ".ir-export-companies-heading{min-height:0!important;display:flex!important;gap:12px!important;align-items:center!important;padding:0 0 20px!important;background:transparent!important;border:0!important;text-transform:none!important}.ir-export-companies-heading:before{display:none!important}.ir-export-companies-heading>span:last-child{display:grid!important;gap:4px!important}.ir-export-companies-heading b{font-size:22px!important;color:#14284b!important}.ir-export-companies-heading small{color:#8b9ab2!important;font-size:11px!important}",
     ".ir-export-companies-glyph{width:45px!important;height:45px!important;display:grid!important;place-items:center!important;border-radius:12px!important;color:#fff!important;background:linear-gradient(145deg,#78a6ee,#4074d1)!important}.ir-export-companies-glyph svg{width:26px!important;height:26px!important}",
@@ -1652,15 +1665,6 @@
     "body.ir-object-overview #app #section-schedule .object-overview-block-head,body.ir-object-overview #app #section-acted-days .ooa-head,body.ir-object-overview #app #section-penalties .ooa-head{display:none!important}",
     "body.ir-object-overview #app #section-deliveries .ir-export-delivery-register{padding:18px 0 0!important;border-top:1px solid #e2eaf0!important}",
     "body.ir-object-overview #app #section-deliveries .ir-export-delivery-register>.ir-export-section-head{margin:0 20px 16px!important}",
-    "body.ir-object-overview #app #section-scheme.ir-export-group{box-sizing:border-box!important;display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;padding:0!important;overflow:visible!important}",
-    "body.ir-object-overview #app #section-scheme.ir-export-group>.ir-export-section{box-sizing:border-box!important;display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;padding:0!important;border:0!important}",
-    "body.ir-object-overview #app #section-scheme.ir-export-group>.ir-export-section>.ir-export-section-head{box-sizing:border-box!important;width:100%!important;margin:0!important;padding:17px 20px 15px!important;border-bottom:1px solid #e2eaf0!important}",
-    "body.ir-object-overview #app #section-scheme .ir-export-scheme{box-sizing:border-box!important;display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;box-shadow:none!important}",
-    "body.ir-object-overview #app #section-scheme .ir-export-scheme-controls{box-sizing:border-box!important;width:100%!important;margin:0!important;padding:12px 20px!important}",
-    "body.ir-object-overview #app #section-scheme .ir-export-scheme-stage{box-sizing:border-box!important;position:relative!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;padding:0!important;height:min(80vh,850px)!important;min-height:500px!important}",
-    "body.ir-object-overview #app #section-scheme .ir-export-scheme-stage canvas{display:block!important;width:100%!important;height:100%!important;margin:0!important;padding:0!important}",
-    "body.ir-object-overview #app #section-scheme .ir-export-scheme-info{margin:0!important;padding:12px 20px!important}",
-    "@media(max-width:760px){body.ir-object-overview #app #section-scheme.ir-export-group>.ir-export-section>.ir-export-section-head{padding:15px 12px!important}body.ir-object-overview #app #section-scheme .ir-export-scheme-controls{padding:10px 12px!important}body.ir-object-overview #app #section-scheme .ir-export-scheme-info{padding:10px 12px!important}body.ir-object-overview #app #section-scheme .ir-export-scheme-stage{height:65vh!important;min-height:360px!important}}",
     "@media print{body.ir-object-route.ir-object-overview{background:#fff!important}body.ir-object-overview #app{margin:0 auto!important;width:100%!important;max-width:1000px!important;box-shadow:none!important}.ir-export-topnav{position:relative!important;top:auto!important}.ir-export-menu-items{box-shadow:none!important}.ir-export-record{break-inside:avoid}.ir-export-section{break-before:page;margin:8px 0!important}.ir-export-daily-card details,.ir-export-mark-card details{display:block!important}}"
    ].join("\n");
    const activeHero=document.querySelector(".object-overview-hero");
@@ -1693,8 +1697,23 @@
    const pageStyles=[
     "html body.ir-object-overview #app #section-scheme.ir-export-group:not(:target){display:none!important}",
     // (the exported scheme in a frame under the top bar, to the edges of the window)
-    "html body.ir-object-overview #app #section-scheme.ir-export-scheme3d-group{display:block;width:100%!important;max-width:none!important;margin:0!important;padding:0!important;scroll-margin-top:0!important}",
-    ".ir-export-scheme3d{position:relative;width:100%;height:calc(100vh - 65px);min-height:420px;background:#eef2f7}.ir-export-scheme3d-frame{display:block;width:100%;height:100%;border:0}",
+    // (a section like the others — its title, its card; the 3D in a box of the card, to the bottom of the window)
+    "#section-scheme>.ir-export-section{padding:0!important;width:100%!important;max-width:none!important}",
+    "#section-scheme>.ir-export-section>.ir-export-section-head{padding:18px 20px 15px!important;margin:0!important}",
+    "#section-scheme .ir-export-scheme{display:block!important;width:100%!important;max-width:none!important;margin:0!important;border:0!important;border-radius:0!important;box-shadow:none!important}",
+    "#section-scheme .ir-export-scheme-stage{width:100%!important;height:min(82vh,950px)!important;min-height:510px!important}",
+    "body.ir-object-overview #app #section-scheme .ir-export-scheme-controls button{display:inline-flex!important;align-items:center!important;justify-content:center!important}",
+    "@media(max-width:760px){#section-scheme>.ir-export-section>.ir-export-section-head{padding:14px 12px!important}#section-scheme .ir-export-scheme-stage{min-height:360px!important;height:65vh!important}}",
+    "body.ir-object-overview #app #section-scheme.ir-export-group{box-sizing:border-box!important;display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;padding:0!important;overflow:visible!important}",
+    "body.ir-object-overview #app #section-scheme.ir-export-group>.ir-export-section{box-sizing:border-box!important;display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;padding:0!important;border:0!important}",
+    "body.ir-object-overview #app #section-scheme.ir-export-group>.ir-export-section>.ir-export-section-head{box-sizing:border-box!important;width:100%!important;margin:0!important;padding:17px 20px 15px!important;border-bottom:1px solid #e2eaf0!important}",
+    "body.ir-object-overview #app #section-scheme .ir-export-scheme{box-sizing:border-box!important;display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;box-shadow:none!important}",
+    "body.ir-object-overview #app #section-scheme .ir-export-scheme-controls{box-sizing:border-box!important;width:100%!important;margin:0!important;padding:12px 20px!important}",
+    "body.ir-object-overview #app #section-scheme .ir-export-scheme-stage{box-sizing:border-box!important;position:relative!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;padding:0!important;height:min(80vh,850px)!important;min-height:500px!important}",
+    "body.ir-object-overview #app #section-scheme .ir-export-scheme-stage canvas{display:block!important;width:100%!important;height:100%!important;margin:0!important;padding:0!important}",
+    "body.ir-object-overview #app #section-scheme .ir-export-scheme-info{margin:0!important;padding:12px 20px!important}",
+    "@media(max-width:760px){body.ir-object-overview #app #section-scheme.ir-export-group>.ir-export-section>.ir-export-section-head{padding:15px 12px!important}body.ir-object-overview #app #section-scheme .ir-export-scheme-controls{padding:10px 12px!important}body.ir-object-overview #app #section-scheme .ir-export-scheme-info{padding:10px 12px!important}body.ir-object-overview #app #section-scheme .ir-export-scheme-stage{height:65vh!important;min-height:360px!important}}",
+    "html body.ir-object-overview #app #section-scheme .ir-export-scheme3d{box-sizing:border-box;position:relative;width:auto;margin:16px 20px 20px;height:calc(100vh - 170px);min-height:420px;border:1px solid #dce5ed;border-radius:10px;overflow:hidden;background:#f4f8fc}.ir-export-scheme3d-frame{display:block;width:100%;height:100%;border:0}@media(max-width:760px){html body.ir-object-overview #app #section-scheme .ir-export-scheme3d{margin:10px 8px 12px}}",
     ".ir-export-scheme3d-wait{padding:48px 16px;text-align:center;color:#5d6b80;font-size:15px}",
     "html body.ir-object-overview:has(#section-scheme:target) #app>:not(.ir-export-topnav):not(#section-scheme){display:none!important}",
     "html body.ir-object-overview:has(#section-scheme:target) .ir-export-topnav .ir-export-toplink[href=\"#section-scheme\"]{background:#246da7!important;color:#fff!important;border-color:#246da7!important}",
@@ -1732,11 +1751,29 @@
    const nonce=btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
    const safeJson=value=>JSON.stringify(value).replace(/</g,"\\u003c").replace(/\u2028/g,"\\u2028").replace(/\u2029/g,"\\u2029");
    if(schemePage){
+    const EMBED_CSS=[
+     ".wrap>.hx,#bgBtn{display:none!important}",
+     ":root{--bg:#f4f8fc;--card:#fff;--ink:#21435b;--muted:#6f879b;--line:#dce5ed;--accent:#246da7}",
+     "body{font-family:Inter,'Segoe UI',Arial,sans-serif;color:var(--ink);background:var(--bg)}",
+     ".stage-bar{background:#fff;padding:9px 12px;gap:8px}",
+     ".stage-bar button,.stage-bar label{border:1px solid #dae6ef;border-radius:10px;color:#315a76;font-weight:650;padding:7px 11px;background:#fff}",
+     ".stage-bar button:hover,.stage-bar label:hover{background:#f4f8fc}.box{border-radius:12px;border-color:var(--line)}.box h3{color:#6f879b}",
+     "html.ir-dark .stage-bar button,html.ir-dark .stage-bar label{color:#d5e2ee}"
+    ].join("\n");
     // (the frame takes the rule of the report: its scripts with the report's nonce, the scripts it unpacks — with theirs)
     const inner=schemePage.replace(/<script(?=[\s>])/g,'<script nonce="'+nonce+'"');
     viewerScripts+='<script type="application/json" id="ir-export-scheme-page" nonce="'+nonce+'">'+safeJson(inner)+'</script><script nonce="'+nonce+'">(function(){var box=document.getElementById("ir-export-scheme3d"),src=document.getElementById("ir-export-scheme-page"),f=null;'+
-     'function fit(){var n=document.querySelector(".ir-export-topnav");if(box)box.style.height=Math.max(420,innerHeight-(n?n.offsetHeight:0))+"px"}'+
-     'function open(){if(location.hash==="#section-scheme"){fit();scrollTo(0,0)}if(f||!box||!src||location.hash!=="#section-scheme")return;f=document.createElement("iframe");f.className="ir-export-scheme3d-frame";f.title="Монтажная схема";f.setAttribute("allow","fullscreen");f.setAttribute("allowfullscreen","");f.srcdoc=JSON.parse(src.textContent);box.textContent="";box.appendChild(f)}'+
+     'function fit(){if(box)box.style.height=Math.max(420,innerHeight-Math.max(0,box.getBoundingClientRect().top+scrollY)-24)+"px"}'+
+     'function open(){if(location.hash==="#section-scheme"){fit();scrollTo(0,0)}if(f||!box||!src||location.hash!=="#section-scheme")return;f=document.createElement("iframe");f.className="ir-export-scheme3d-frame";f.title="Монтажная схема";f.setAttribute("allow","fullscreen");f.setAttribute("allowfullscreen","");'+
+     // (the scheme inside the report looks as the report: no header of its own, the report's font, colours and buttons;
+     // the report's theme on it — dark the whole scheme and its 3D background: the engineer, 06.11.2026 «если стоит темная
+     // тема, то везде будет темная и в монтажной схеме. Монтажная схема не как отдельная страница со своими стилями»)
+     'f.addEventListener("load",function(){var d=f.contentDocument;if(!d)return;var st=d.createElement("style");st.id="ir-embed";st.textContent='+JSON.stringify(EMBED_CSS)+';d.head.appendChild(st);'+
+     'window.__irSchemeTheme=('+exportTheme.toString()+')(d,{scope:""});window.__irSchemeSync&&window.__irSchemeSync()});'+
+     'f.srcdoc=JSON.parse(src.textContent);box.textContent="";box.appendChild(f)}'+
+     // (the theme of the report given to the scheme: its page and its 3D background — once the 3D button is there)
+     'window.__irSchemeSync=function(){var d=f&&f.contentDocument,T=window.__irSchemeTheme;if(!d||!T)return;var dark=document.documentElement.classList.contains("ir-dark");'+
+     'T.light();if(dark)T.dark();d.documentElement.classList.toggle("ir-dark",dark);var b=d.getElementById("bgBtn"),tries=0,bg=function(){b=d.getElementById("bgBtn");if(!b){if(tries++<100)setTimeout(bg,200);return}if((b.getAttribute("aria-pressed")==="true")!==dark)b.click()};bg()};'+
      'addEventListener("hashchange",open);addEventListener("resize",fit);open()})();</script>'
    }else if(keys.includes("scheme")){
     const scheme=extras.schemeData(rows.scheme||[],schemeDetails);
@@ -1752,7 +1789,7 @@
     sun='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>';
    const themeButton='<button type="button" class="ir-export-theme" id="ir-export-theme" title="Тёмная тема" aria-label="Тёмная тема" aria-pressed="false">'+moon+'</button>';
    viewerScripts+='<script nonce="'+nonce+'">(function(){var b=document.getElementById("ir-export-theme"),k="ir-project.object-export-theme",moon='+JSON.stringify(moon)+',sun='+JSON.stringify(sun)+',T=('+exportTheme.toString()+')();'+
-    'function paint(d){T.light();if(d)T.dark();document.documentElement.classList.toggle("ir-dark",d);b.innerHTML=d?sun:moon;b.title=d?"Светлая тема":"Тёмная тема";b.setAttribute("aria-label",b.title);b.setAttribute("aria-pressed",String(d))}'+
+    'function paint(d){T.light();if(d)T.dark();document.documentElement.classList.toggle("ir-dark",d);window.__irSchemeSync&&window.__irSchemeSync();b.innerHTML=d?sun:moon;b.title=d?"Светлая тема":"Тёмная тема";b.setAttribute("aria-label",b.title);b.setAttribute("aria-pressed",String(d))}'+
     'var d=false;try{d=localStorage.getItem(k)==="dark"}catch(e){}paint(d);'+
     'b.addEventListener("click",function(){d=!document.documentElement.classList.contains("ir-dark");paint(d);try{localStorage.setItem(k,d?"dark":"light")}catch(e){}});'+
     'addEventListener("beforeprint",function(){T.light()});addEventListener("afterprint",function(){if(d)T.dark()})})();</script>';

@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=1120000'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=1120200'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -49,9 +49,10 @@ assert(source.includes("ir-export-mark-card:nth-child(-n+5)"),"only five cards s
 assert(source.includes("Показать всю ведомость марок"),"users can reveal full register");
 assert(source.includes('ir-export-work-radio-'+""),"per-work offline filter controls are generated");
 assert(!source.includes('renderRows(rows,"marks",images)'),"technical ID/Type/mounted/received list is no longer exported for marks");
+const markHelpers=source.slice(source.indexOf(" function markWorkRows("),source.indexOf(" function markProgressGroups("));
 const detailStart=source.indexOf(" function markDetailData("),detailEnd=source.indexOf(" function renderMarkCards(",detailStart);
 assert(detailStart>=0&&detailEnd>detailStart,"mark detail math helper exists");
-const detailFn=vm.runInNewContext('(function(){const array=x=>Array.isArray(x)?x:[];const codeText=c=>String(c||"");const countText=(n,a,b,c)=>n+" "+c;const exportNumber=v=>{const n=Number(String(v??0).replace(/\\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};'+source.slice(detailStart,detailEnd)+';return markDetailData})()', {});
+const detailFn=vm.runInNewContext('(function(){const array=x=>Array.isArray(x)?x:[];const codeText=c=>String(c||"");const countText=(n,a,b,c)=>n+" "+c;const exportNumber=v=>{const n=Number(String(v??0).replace(/\\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};'+markHelpers+source.slice(detailStart,detailEnd)+';return markDetailData})()', {});
 const detailRows=detailFn(
  [{id:101,data:{work_type_id:7,mark:"В1",name:"Связь горизонтальная",qty:36,mounted:36,unit:"тн",unit_volume:0.023}},{id:102,data:{work_type_id:7,mark:"В2",qty:4,mounted:0,unit:"тн",total_volume:0.1}}],
  [{id:7,title:"Монтаж металлоконструкций",data:{project_code:"041-2025 КМД"}}],
@@ -83,7 +84,7 @@ assert(source.includes(".ir-export-work-tabs{box-sizing:border-box!important;dis
 const groupStart=source.indexOf(" function markProgressGroups(");
 const groupEnd=source.indexOf(" function markProgressRow(",groupStart);
 assert(groupStart>=0&&groupEnd>groupStart,"pure mark grouping code exists");
-const groupCalc=vm.runInNewContext('(function(){const array=x=>Array.isArray(x)?x:[];const codeText=c=>String(c||"");const countText=(n,a,b,c)=>n+" "+c;const exportNumber=v=>{const n=Number(String(v??0).replace(/\\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};'+source.slice(groupStart,groupEnd)+';return markProgressGroups})()', {});
+const groupCalc=vm.runInNewContext('(function(){const array=x=>Array.isArray(x)?x:[];const codeText=c=>String(c||"");const countText=(n,a,b,c)=>n+" "+c;const exportNumber=v=>{const n=Number(String(v??0).replace(/\\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};'+markHelpers+source.slice(groupStart,groupEnd)+';return markProgressGroups})()', {});
 const sampleGroups=groupCalc(
  [{id:101,data:{work_type_id:"7",qty:5,mark:"Б1"}},{id:102,data:{work_type_id:"7",qty:3,mark:"Б2"}},{id:103,data:{work_type_id:"8",qty:2,mark:"К1"}}],
  [{id:7,title:"Монтаж балок",data:{project_code:"КМ-01"}},{id:8,title:"Монтаж колонн",data:{project_code:"КМ-02"}}],
@@ -185,7 +186,7 @@ const renderCards=vm.runInNewContext(
  'const exportFormat=v=>String(v);'+
  'const workLabel=v=>String(v??" ");'+
  'const esc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;");'+
- source.slice(cardStart,cardEnd)+';return renderMarkCards})()',{}
+ markHelpers+source.slice(cardStart,cardEnd)+';return renderMarkCards})()',{}
 );
 const cardMarks=Array.from({length:11},(_,i)=>({
  id:100+i,data:{work_type_id:i<8?"7":"8",mark:"В"+(i+1),name:"Связь "+(i+1),qty:2,mounted:0,unit:"тн",unit_volume:0.25}
@@ -638,7 +639,7 @@ assert(source.includes('select.addEventListener("change",update)')&&source.inclu
  const trendStart=source.indexOf(" function renderExportTrend("),trendEnd=source.indexOf(" function renderSection(",trendStart);
  assert(begin>=0&&end>begin&&trendStart>=0&&trendEnd>trendStart,"work and trend renderers found");
  const base='const array=x=>Array.isArray(x)?x:[];const codeText=c=>String(c||"");const countText=(n,a,b,c)=>n+" "+c;const esc=v=>String(v??"");const exportNumber=v=>Number(v)||0;const exportFormat=v=>String(Number((Number(v)||0).toFixed(4)));const exportDate=v=>v;const reportService=w=>w.accounting_type==="service"||w.is_service===true||w.unit==="услуга";const reportVolume=w=>Number(w.volume??(Number(w.qty)*Number(w.unit_volume))??0)||0;const workLabel=v=>v;';
- const api=vm.runInNewContext('(function(){'+base+source.slice(begin,end)+source.slice(trendStart,trendEnd)+';return {renderExportTrend,renderExportWorkTypes}})()', {});
+ const api=vm.runInNewContext('(function(){'+base+markHelpers+source.slice(begin,end)+source.slice(trendStart,trendEnd)+';return {renderExportTrend,renderExportWorkTypes}})()', {});
  const works=[{id:7,data:{work_type:"Монтаж металлоконструкций",project_code:"КМ",unit:"тн"}}];
  const marks=[{id:101,data:{work_type_id:"7",project_code:"КМ",mark:"B144",name:"Балка",qty:2,unit_volume:0.3,unit:"тн"}}];
  const reports=[{id:1,data:{date:"2026-10-08",items:[{work_type_id:"7",work_type:"Монтаж металлоконструкций",project_code:"КМ",mark_id:"101",mark:"B144",qty:1,unit:"тн",volume:0.3}]}}];
@@ -717,7 +718,7 @@ assert.equal(typeof extras.axisLabelLayout,"function","the standalone scheme pro
  require("node:assert/strict").ok(s.includes('#section-scheme.ir-export-group:not(:target){display:none!important}'),"no montage scheme on the main page");
  require("node:assert/strict").ok(s.includes(':has(#section-scheme:target) #app>:not(.ir-export-topnav):not(#section-scheme){display:none!important}'),"the scheme alone under the top bar");
  require("node:assert/strict").ok(s.includes('key!=="scheme");')&&s.includes('const name=key=>key==="deliveries"?"Поставки и монтаж":labels[key]||'),"no scheme in the menu (the main page link opens it), names in full");
- require("node:assert/strict").ok(s.includes("function exportTheme(){")&&s.includes("T=('+exportTheme.toString()+')()")&&!s.includes("filter:invert(1)"),"dark: every colour its dark pair, not an inverted picture (scripts/test-object-export-scheme3d.js)");
+ require("node:assert/strict").ok(s.includes("function exportTheme(doc,opts){")&&s.includes("T=('+exportTheme.toString()+')()")&&!s.includes("filter:invert(1)"),"dark: every colour its dark pair, not an inverted picture (scripts/test-object-export-scheme3d.js)");
  require("node:assert/strict").ok(s.includes('class="ir-export-theme" id="ir-export-theme"')&&s.includes("themeButton+viewerScripts"),"the icon in the top right corner");
  console.log("Object report: scheme page of its own, dark theme by the icon OK");
 }
