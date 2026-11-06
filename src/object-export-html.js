@@ -108,7 +108,7 @@
  };
  const reportTotals=r=>{const totals=new Map();for(const w of reportWorks(r)){if(reportService(w))continue;const unit=String(w.unit||"ед.");totals.set(unit,(totals.get(unit)||0)+reportVolume(w))}return [...totals.entries()].map(([unit,value])=>exportFormat(value)+" "+unit)};
  const exportSvg=name=>{
-  const paths={calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M8 14h5"/>',weather:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12h2M20 12h2"/>',people:'<circle cx="12" cy="7" r="3"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/>',equipment:'<path d="M3 18h18M5 18V8h8l5-4M18 4l3 3M5 8l7 6M7 19h.01M17 19h.01"/>',volume:'<path d="m3 7 9-4 9 4-9 4-9-4M3 7v10l9 4 9-4V7M12 11v10"/>'};
+  const paths={calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M8 14h5"/>',weather:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12h2M20 12h2"/>',people:'<circle cx="12" cy="7" r="3"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/>',equipment:'<path d="M2 17v-3h12v3M14 17v-6h4l3 3.5V17M2 17h19M12 14 5 4.5M5 4.5V10M4 10.5h2"/><circle cx="6" cy="18.5" r="1.6"/><circle cx="17.5" cy="18.5" r="1.6"/>',volume:'<path d="m3 7 9-4 9 4-9 4-9-4M3 7v10l9 4 9-4V7M12 11v10"/>'};
   return '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+(paths[name]||paths.volume)+'</svg>'
  };
  const reportMetric=(icon,title,value,sub="")=>'<div class="ir-export-daily-metric"><span class="ir-export-daily-icon">'+exportSvg(icon)+'</span><div><small>'+esc(title)+'</small><b>'+esc(value)+'</b>'+(sub?'<em>'+esc(sub)+'</em>':"")+'</div></div>';
@@ -899,7 +899,8 @@
    readiness:'<circle cx="12" cy="12" r="9"/><path d="M12 12V6M12 12l4 3"/>',
    // (signs of the work itself: a crane lifting a beam — mounted, a lorry — delivered; a rising chart and a square said
    // nothing of mounting: the engineer, 06.11.2026 «знак у поставленно и смонтировано поменяй, вообще не относятся к монтажу»)
-   mounted:'<path d="M6 21V4M3 4h18M6 8l4-4M4 21h4M16 4v7"/><rect x="12" y="11" width="8" height="3" rx=".5"/>',
+   // (mounted — a gear with a tick, as the engineer showed: 06.11.2026 «где смонтировано такую иконку поставь»)
+   mounted:'<path d="M20 10.1 22.5 10.4V13.6L20 13.9 19 16.3 20.5 18.3 18.3 20.5 16.3 19 13.9 20 13.6 22.5H10.4L10.1 20 7.7 19 5.7 20.5 3.5 18.3 5 16.3 4 13.9 1.5 13.6V10.4L4 10.1 5 7.7 3.5 5.7 5.7 3.5 7.7 5 10.1 4 10.4 1.5H13.6L13.9 4 16.3 5 18.3 3.5 20.5 5.7 19 7.7Z"/><circle cx="12" cy="12" r="4.6"/><path d="m9.9 12 1.5 1.5 2.8-2.9"/>',
    delivered:'<path d="M2 6h12v10H2zM14 9h4.5l3.5 3.5V16h-8"/><circle cx="6" cy="17.5" r="1.8"/><circle cx="17.5" cy="17.5" r="1.8"/>',
    reports:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h6"/>',
    resources:'<circle cx="8" cy="7" r="3"/><path d="M3 21v-2a5 5 0 0 1 10 0v2M17 9h4M19 7v4M15 16l3-5 3 5M14 18h8"/>'

@@ -120,7 +120,7 @@ async function renderHomePortfolio(objects){
   const homeSvg=b=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+b+'</svg>';
   const chartIcon=homeSvg('<path d="M3 20h18M6 17v-6m6 6V5m6 12V9"/><path d="m5 8 4-4 4 4 6-5"/>');
   const peopleIcon=homeSvg('<circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 5v1"/>');
-  const craneIcon=homeSvg('<path d="M3 17h14M5 17v-5h6v5M11 12V8l6-5 2 2-6 6v6M17 5h4v8"/><circle cx="6" cy="20" r="1.5"/><circle cx="15" cy="20" r="1.5"/><circle cx="21" cy="17" r="1.5"/>');
+  const craneIcon=homeSvg('<path d="M2 17v-3h12v3M14 17v-6h4l3 3.5V17M2 17h19M12 14 5 4.5M5 4.5V10M4 10.5h2"/><circle cx="6" cy="18.5" r="1.6"/><circle cx="17.5" cy="18.5" r="1.6"/>');
   const tile=x=>{
    const r=x.r,all=reportVolumes(r),shown=all.slice(0,3);
    const weather=String(typeof r.weather==="string"?r.weather:r.weather?.text||r.weather?.condition||r.weather_text||"Не указана");
