@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=1121600'),"source loaded after runtime");
+assert(html.includes('object-export-html.js?v=1121700'),"source loaded after runtime");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -513,9 +513,11 @@ const fixture={
  deliveries:[{id:2,data:{items:[{mark_id:10,unit:"тн",qty:1,unit_volume:5.25}]}}],
  scheme:[{id:1,record_type:"scheme_grid",data:{}},{id:2,record_type:"scheme_column",data:{mark:"К1"}}]
 };
-assert.equal(metrics.exportIndicatorDate(new Date(2026,9,14,12)),"14 октября 2026 г.","date is written with Russian month name");
+assert.equal(metrics.exportIndicatorDate(new Date(2026,9,14,12)),"14 октября 2026г","date is written with Russian month name");
+assert.equal(metrics.exportIndicatorDate(new Date(2026,10,6,12)),"06 ноября 2026г","two-digit day");
+assert(source.includes('<span class="ir-export-report-date">Отчёт на \'+esc(exportIndicatorDate())')&&source.includes(".ir-export-report-date{display:inline-flex!important"),"«Отчёт на …» large and coloured on the main page");
 const all=metrics.renderIndicatorBlock(fixture,["overview","reports","deliveries","marks","scheme","photos"]);
-assert(/ir-export-indicators-heading"><h2>Показатели объекта<\/h2><span>\d{1,2} [а-яё]+ \d{4} г\.<\/span>/.test(all),"current calendar date appears in the indicator header");
+assert(/ir-export-indicators-heading"><h2>Показатели объекта<\/h2><span class="ir-export-report-date">Отчёт на \d{2} [а-яё]+ \d{4}г<\/span>/.test(all),"current calendar date appears in the indicator header");
 assert.equal((all.match(/class="ir-export-indicator-card ir-export-indicator-/g)||[]).length,4,"four KPI cards generated");
 assert(all.includes("Средняя готовность")&&all.includes('50<small>%'),"readiness is based on work volume");
 assert(all.includes('1,5<small>тн'),"installed volume is derived from daily reports");

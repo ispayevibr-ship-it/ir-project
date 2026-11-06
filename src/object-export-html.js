@@ -840,8 +840,10 @@
  }
 
  function exportIndicatorDate(date=new Date()){
-  return new Intl.DateTimeFormat("ru-RU",{day:"numeric",month:"long",year:"numeric"})
-   .format(date).replace(/\s*г\.?\s*$/u," г.");
+  // («Отчёт на 06 ноября 2026г», крупно и выделено цветом — the engineer, 06.11.2026 «на главной отчета сделай больше шрифт и
+  // напиши Отчет на 06 ноября 2026г. Прям выдели цветом еще, чтобы понятно было»)
+  return new Intl.DateTimeFormat("ru-RU",{day:"2-digit",month:"long",year:"numeric"})
+   .format(date).replace(/\s*г\.?\s*$/u,"г");
  }
  function renderIndicatorBlock(data,keys){
   const works=array(data["work-types"]),marks=array(data.marks),reports=array(data.reports),deliveries=array(data.deliveries);
@@ -928,7 +930,7 @@
    '<a class="ir-export-indicator-link" href="#section-'+esc(key)+'"><span><i aria-hidden="true">'+glyph+'</i>'+esc(title)+'</span><b aria-hidden="true">↗</b></a>'
   ).join("");
   return'<section class="ir-export-indicators" aria-label="Показатели объекта">'+
-   '<div class="ir-export-indicators-heading"><h2>Показатели объекта</h2><span>'+esc(exportIndicatorDate())+'</span></div>'+
+   '<div class="ir-export-indicators-heading"><h2>Показатели объекта</h2><span class="ir-export-report-date">Отчёт на '+esc(exportIndicatorDate())+'</span></div>'+
    '<div class="ir-export-indicator-cards">'+cardHtml+'</div>'+(links?'<nav class="ir-export-indicator-links" aria-label="Быстрые переходы по отчёту">'+links+'</nav>':"")+'</section>'
  }
 
@@ -1774,6 +1776,9 @@
     // whole width — the engineer, 06.11.2026; before:
     // the engineer, 06.11.2026 «в монтажной схеме … логотип и название объекта. дата выгрузки. а внизу меню»)
     "html body.ir-object-overview #app .ir-export-scheme-title{display:none!important}",
+    "html body.ir-object-overview #app .ir-export-indicators-heading .ir-export-report-date{display:inline-flex!important;align-items:center!important;padding:7px 16px!important;border-radius:999px!important;background:#e3f0fb!important;border:1px solid #b9d7f0!important;color:#145f97!important;font:800 15px/1.3 'Segoe UI',Arial,sans-serif!important;white-space:nowrap!important}",
+    "html.ir-dark body.ir-object-overview #app .ir-export-indicators .ir-export-indicators-heading span.ir-export-report-date{background:#163b5c!important;border-color:#2f6c9f!important;color:#d4ebff!important}",
+    "@media(max-width:560px){html body.ir-object-overview #app .ir-export-indicators-heading{flex-wrap:wrap!important}html body.ir-object-overview #app .ir-export-indicators-heading .ir-export-report-date{font-size:13px!important;padding:5px 12px!important}}",
     "html body.ir-object-overview:has(#section-scheme:target) #app .ir-export-topnav .ir-export-scheme-title{display:flex!important;align-items:center;gap:12px;min-width:0;padding:5px 16px 6px;margin:-3px -12px 3px;border-bottom:1px solid #e3ebf1}",
     ".ir-export-scheme-title img{display:block;flex:none;max-height:30px;max-width:130px;object-fit:contain}",
     ".ir-export-scheme-title b{flex:1 1 auto;min-width:0;color:#183b56;font:800 12px/1.3 'Segoe UI',Arial,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
