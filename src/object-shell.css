@@ -102,3 +102,23 @@ body.ir-object-route:not(.ir-object-overview) #app>.back:first-child{display:non
 .profile-panel .program-link-dot{position:absolute;right:-3px;bottom:-3px;width:10px;height:10px;border-radius:50%;border:2px solid #fff;background:#a7b4c0;box-sizing:border-box}
 .profile-panel .program-link[data-state="on"] .program-link-dot{background:#1f9d55}
 .profile-panel .program-link[data-state="off"] .program-link-dot{background:#d93025}
+
+/* The montage scheme (and its «ИИ-распознавание»): the object's menu a strip on top, the scheme over the whole width
+   (the engineer, 06.11.2026: «левое меню сделаем сверху, чтобы была сама схема на всю страницу»). object-shell.js puts
+   body.ir-object-topnav on these pages. */
+body.ir-object-topnav #app{margin-left:0!important;width:100%!important;margin-top:46px!important;min-height:calc(100vh - 84px)}
+body.ir-object-topnav .ir-object-sidebar-fixed{top:38px;left:0;right:0;width:auto!important;height:46px;padding:0 8px 0 0;flex-direction:row;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(10,25,40,.18)}
+body.ir-object-topnav .ir-object-brand{flex:0 0 auto;width:auto;max-width:150px;height:46px;margin:0;padding:0 10px}
+body.ir-object-topnav .ir-object-brand img{width:auto;height:38px;max-width:130px;object-fit:contain}
+body.ir-object-topnav .ir-object-brand span{min-height:0;padding:0 4px;white-space:nowrap}
+body.ir-object-topnav .ir-object-all{flex:0 0 auto;width:auto;min-height:32px;margin:0;padding:0 10px;white-space:nowrap}
+body.ir-object-topnav .ir-object-nav{flex:1 1 auto;min-width:0;height:46px;flex-direction:row;align-items:center;gap:2px;padding:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.25) transparent}
+body.ir-object-topnav .ir-object-nav::-webkit-scrollbar{display:block;height:4px}
+body.ir-object-topnav .ir-object-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.25);border-radius:2px}
+body.ir-object-topnav .ir-object-nav button{flex:0 0 auto;width:auto;min-height:32px;padding:0 7px;gap:5px}
+body.ir-object-topnav .ir-object-nav button .nav-label{overflow:visible}
+body.ir-object-topnav .ir-object-top{display:none}
+body.ir-object-topnav .scheme-workspace>.scheme-details{top:56px}
+body.ir-object-topnav .scheme-workspace:has(>.scheme-three-stage)>.scheme-details{max-height:clamp(680px,calc(100dvh - 336px),1060px)}
+body.ir-object-topnav .scheme-three-stage .scheme-canvas{height:clamp(680px,calc(100dvh - 336px),1060px)}
+@media(max-width:900px){body.ir-object-topnav #app{margin-left:0!important;width:100%!important}body.ir-object-topnav .ir-object-sidebar-fixed{width:auto!important}}

@@ -169,13 +169,14 @@
   // out of every text and hint the page and its 3D write, now and later.
   var plain=function(t){
    if(!/условн/i.test(t))return t;
-   return t.replace(/\s*\([^()]*условн[^()]*\)/gi,"").replace(/\s*·[^·.!?;]*условн[^·.!?;]*/gi,"").replace(/[^.!?;]*условн[^.!?;]*[.!?;]?\s*/gi,"").replace(/[\s,—–-]+$/,"")
+   return t.replace(/\s*\([^()]*условн[^()]*\)/gi,"").replace(/\s*·[^·.!?;]*условн[^·.!?;]*/gi,"").replace(/[^.!?;]+[.!?;]?\s*/g,function(x){return/условн/i.test(x)?"":x}).replace(/[\s,—–-]+$/,"")
   };
   var clean=function(node){
-   if(node.nodeType===3){var v=plain(node.nodeValue);if(v!==node.nodeValue)node.nodeValue=v;return}
+   if(node.nodeType===3){if(node.parentNode&&/^(SCRIPT|STYLE|TEXTAREA)$/.test(node.parentNode.nodeName))return;var v=plain(node.nodeValue);if(v!==node.nodeValue)node.nodeValue=v;return}
    if(node.nodeType!==1)return;
    if(node.title&&/условн/i.test(node.title))node.title=plain(node.title);
-   var w=document.createTreeWalker(node,5),n;while((n=w.nextNode())){if(n.nodeType===3){var t=plain(n.nodeValue);if(t!==n.nodeValue)n.nodeValue=t}else if(n.title&&/условн/i.test(n.title))n.title=plain(n.title)}
+   if(/^(SCRIPT|STYLE|TEXTAREA)$/.test(node.nodeName))return;
+   var w=document.createTreeWalker(node,5,{acceptNode:function(x){return/^(SCRIPT|STYLE|TEXTAREA)$/.test(x.nodeName)?2:1}}),n;while((n=w.nextNode())){if(n.nodeType===3){var t=plain(n.nodeValue);if(t!==n.nodeValue)n.nodeValue=t}else if(n.title&&/условн/i.test(n.title))n.title=plain(n.title)}
   };
   clean(document.body);
   new MutationObserver(function(list){list.forEach(function(m){if(m.type==="characterData")clean(m.target);else if(m.type==="attributes")clean(m.target);else m.addedNodes.forEach(clean)})})
