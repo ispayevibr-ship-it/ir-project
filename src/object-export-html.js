@@ -1770,14 +1770,15 @@
     "html body.ir-object-overview #app .ir-export-brand{display:none!important}",
     "html body.ir-object-overview #app .ir-export-menu.active>.ir-export-menu-trigger{background:#277bb3!important;color:#fff!important;border-radius:9px!important}",
     "html body.ir-object-overview #app .ir-export-subnav-link.active{background:#e8f1f8!important;color:#1d5f92!important;font-weight:700!important}",
-    // (over the montage scheme: the logo, the name of the object and the date of the export in a line, the menu under it —
+    // (over the montage scheme: the logo, the name of the object (12 px) and «Отчёт от ДД.ММ.ГГГГг», the line under them the
+    // whole width — the engineer, 06.11.2026; before:
     // the engineer, 06.11.2026 «в монтажной схеме … логотип и название объекта. дата выгрузки. а внизу меню»)
     "html body.ir-object-overview #app .ir-export-scheme-title{display:none!important}",
-    "html body.ir-object-overview:has(#section-scheme:target) #app .ir-export-topnav .ir-export-scheme-title{display:flex!important;align-items:center;gap:12px;min-width:0;padding:4px 4px 6px;margin:0 0 3px;border-bottom:1px solid #e3ebf1}",
+    "html body.ir-object-overview:has(#section-scheme:target) #app .ir-export-topnav .ir-export-scheme-title{display:flex!important;align-items:center;gap:12px;min-width:0;padding:5px 16px 6px;margin:-3px -12px 3px;border-bottom:1px solid #e3ebf1}",
     ".ir-export-scheme-title img{display:block;flex:none;max-height:30px;max-width:130px;object-fit:contain}",
-    ".ir-export-scheme-title b{flex:1 1 auto;min-width:0;color:#183b56;font:800 16px/1.25 'Segoe UI',Arial,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+    ".ir-export-scheme-title b{flex:1 1 auto;min-width:0;color:#183b56;font:800 12px/1.3 'Segoe UI',Arial,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
     ".ir-export-scheme-title span{flex:none;color:#6b8399;font:600 12px/1.3 'Segoe UI',Arial,sans-serif;white-space:nowrap}",
-    "@media(max-width:650px){html body.ir-object-overview:has(#section-scheme:target) #app .ir-export-topnav .ir-export-scheme-title{flex-wrap:wrap;gap:2px 10px}.ir-export-scheme-title b{flex:1 1 0;font-size:14px;white-space:normal}.ir-export-scheme-title img{max-height:24px;max-width:80px}.ir-export-scheme-title span{flex-basis:100%;font-size:11px}}",
+    "@media(max-width:650px){html body.ir-object-overview:has(#section-scheme:target) #app .ir-export-topnav .ir-export-scheme-title{flex-wrap:wrap;gap:2px 10px;margin:-6px -6px 3px;padding:5px 10px 6px}.ir-export-scheme-title b{flex:1 1 0;font-size:12px;white-space:normal}.ir-export-scheme-title img{max-height:24px;max-width:80px}.ir-export-scheme-title span{flex-basis:100%;font-size:11px}}",
     // (the menu even: every item the same width, the icon and the name in one line, the opened one only coloured, not wider —
     // the engineer, 06.11.2026 «все меню корявое»; narrow window — the icon over the name)
     "html body.ir-object-overview #app .ir-export-topnav .nav-label,html body.ir-object-overview #app .ir-export-toplink>span:not(.nav-icon),html body.ir-object-overview #app .ir-export-menu-trigger>span:not(.nav-icon){overflow:visible!important;text-overflow:clip!important;white-space:nowrap!important;text-align:center!important;line-height:1.2!important}",
@@ -1901,8 +1902,8 @@
    // встрой в меню как иконку»)
    html=html.replace('</details></div></nav>',()=>'</details>'+themeButton+'</div></nav>');
    if(companyHeader.brandLogo)html=html.replace('<div class="ir-export-topnav-inner">',()=>'<div class="ir-export-topnav-inner"><a class="ir-export-brand" href="#overview" title="'+esc(companyHeader.brandName||"")+'"><img src="'+esc(companyHeader.brandLogo)+'" alt="Логотип"></a>');
-   const exportedDate=new Date().toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
-   html=html.replace('<div class="ir-export-topnav-inner">',()=>'<div class="ir-export-scheme-title">'+(companyHeader.brandLogo?'<img src="'+esc(companyHeader.brandLogo)+'" alt="Логотип">':'')+'<b>'+esc(object.name||object.short_name||"Объект")+'</b><span>Выгружено '+esc(exportedDate)+'</span></div><div class="ir-export-topnav-inner">');
+   const exportedDate=new Date().toLocaleDateString("ru-RU",{day:"2-digit",month:"2-digit",year:"numeric"})+"г";
+   html=html.replace('<div class="ir-export-topnav-inner">',()=>'<div class="ir-export-scheme-title">'+(companyHeader.brandLogo?'<img src="'+esc(companyHeader.brandLogo)+'" alt="Логотип">':'')+'<b>'+esc(object.name||object.short_name||"Объект")+'</b><span>Отчёт от '+esc(exportedDate)+'</span></div><div class="ir-export-topnav-inner">');
    if(selection.underContractor)html=redactCompanyIdentity(html,companyHeader.ownName);
    const name=safeFile(object.short_name||object.name||"Объект");
    const fileName=selection.underContractor?redactCompanyIdentity(name,companyHeader.ownName).trim()||"Объект":name;
