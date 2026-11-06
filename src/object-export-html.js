@@ -978,7 +978,7 @@
  }
  function snapshot(keys,includeOverview=true,headerMarkup="",indicatorsMarkup="",reportRows=[],workPeriod=""){
   const live=document.getElementById("app");
-  if(!live?.querySelector(".object-overview-hero"))throw Error("Откройте страницу «Обзор» нужного объекта.");
+  if(!live?.querySelector(".object-overview-hero"))throw Error("Откройте страницу «Обзор объекта» нужного объекта.");
   const copy=live.cloneNode(true);
   copyCanvas(live,copy);
   copy.querySelectorAll("dialog,form,script,iframe,object,embed,video,audio,button,input,textarea,select,[contenteditable],.window-update,.profile-panel,.ir-notice-stack").forEach(el=>el.remove());

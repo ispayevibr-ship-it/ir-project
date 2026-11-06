@@ -8441,7 +8441,7 @@ window.irThreeSchemeView=(function(){
    if(across+rw<=gt/2||across-rw>=gt/2+b)return rows;
    return rows.map(function(r){var z=fTop-r;if(z<=lo-rw||z>=hi+rw)return r;return z-(lo-rw)<hi+rw-z?fTop-(lo-rw):fTop-(hi+rw)})
   }
-  function trussSupport(c,id,seat,xe,s,members,at,ex,nrm,sp){
+  function trussSupport(c,id,seat,xe,s,members,at,ex,nrm,sp,topGus){
    var col=seat.k,cid=String(col.id);
    var mm=function(v,i,d){var x=Array.isArray(v)?number(v[i]):0;return x>0?x:d};
    var tF=mm(sp.flange_mm,0,20),wF=mm(sp.flange_mm,1,200),hF=mm(sp.flange_mm,2,600),tT=mm(sp.table_mm,0,30),wT=mm(sp.table_mm,1,200),hT=mm(sp.table_mm,2,200);
@@ -8482,7 +8482,14 @@ window.irThreeSchemeView=(function(){
    var gTop=zt+40,b0=at(0,0).y*1000;
    if(capOf(col)||col.base&&col.base.step&&Array.isArray(col.base.step.plates))for(var q5=go;q5<=out+100+1e-6;q5+=Math.min(10,out+100-q5||10)){var P5=fromWorld(place(face+s*q5,gTop)),cu=capUnder(P5,true);
     if(cu&&cu.bottom-b0-1<gTop&&cu.top-b0>zt)gTop=Math.max(zt,cu.bottom-b0-1)}
-   keepPart(partTag(plateBox(c,place(face+s*(go+out+100)/2,(zt-hR+gTop)/2),ex,up,nrm,(out+100-go)/1000,(gTop-zt+hR)/1000,gt/1000),"фасонка верхнего пояса"),id);
+   // (with the gussets of the node at the chord's end, when there are any, one outline — their hull, under the cap)
+   var gp=[[face+s*go,zt-hR],[face+s*(out+100),zt-hR],[face+s*(out+100),gTop],[face+s*go,gTop]];
+   (topGus||[]).forEach(function(g){gp=gp.concat(g)});
+   gp=hull(gp);if(gTop<zt+40-.5)gp=clipAxis(gp,1,gTop,-1);
+   if(gp.length>=3){var o6=at(0,0),sh6=new T.Shape();gp.forEach(function(q,i){i?sh6.lineTo(q[0]/1000,q[1]/1000):sh6.moveTo(q[0]/1000,q[1]/1000)});sh6.closePath();
+    var geo6=new T.ExtrudeGeometry(sh6,{depth:gt/1000,bevelEnabled:false,curveSegments:1});geo6.translate(0,0,-gt/2000);
+    geo6.applyMatrix4(new T.Matrix4().makeBasis(at(1000,0).sub(o6),at(0,1000).sub(o6),nrm).setPosition(o6));
+    var gm6=partTag(new T.Mesh(geo6,baseMaterial(c)),"фасонка верхнего пояса");gm6.userData.gusset=true;keepPart(gm6,id)}
    keepPart(partTag(plateBox(col,place(face+s*out/2,(zt-hR+rTop)/2,(gt+tR)/2),ex,up,nrm,out/1000,(rTop-zt+hR)/1000,tR/1000),"ребро под фасонку фермы"),cid);
    // (the rib welded to the flange of the column on both its faces along its height — conventionally 6 mm, as the table)
    [-1,1].forEach(function(j){keepPart(weldBead(place(face,zt-hR,(gt+tR)/2+j*tR/2),place(face,rTop,(gt+tR)/2+j*tR/2),{wa:outS,wb:nrm.clone().multiplyScalar(j),s:6}),cid)});
@@ -8698,11 +8705,23 @@ window.irThreeSchemeView=(function(){
    // each other, 6 mm: Фс1, Фс2)
    ends.forEach(function(e,i){if(!e)return;var xe=i?xb:xa,s=i?-1:1,sp=spec(i),tF=number(Array.isArray(sp.flange_mm)&&sp.flange_mm[0])||20,face=xe-s*tF,zt=chordAt(members,"top",xe);
     var tp=sp.top&&typeof sp.top==="object"?sp.top:{},rb=Array.isArray(tp.rib_mm)?tp.rib_mm.map(number):[],out=rb[1]>0?rb[1]:250,hR=rb[2]>0?rb[2]:300,u0=Math.min(face,face+s*(out+100)),u1=Math.max(face,face+s*(out+100)),gs=[];
+    // (the gusset of the node at the end of the top chord and the gusset of the top chord to the rib — one plate t16, КМ1
+    // л.17 узел 3: the chord on it, the end diagonal welded to it, two bolts to the rib. Cut round that gusset's rectangle
+    // the node's gusset was left as slivers — the chord on it 80 mm, the diagonal 13 mm, a gap between them and the post;
+    // the engineer, 06.11.2026, Фс3 at Фп1 О4/1/Е: «куда пропала часть уголка? или что тут должно быть». Drawn together
+    // with it as one outline in trussSupport — topGussets)
+    var mg=[];
     nodes.gussets.forEach(function(g){var p=clipAxis(g,0,xe,s);if(p.length<3)return;var b=polyBox(p);
-     if(zt!==null&&b[1]>u0+.5&&b[0]<u1-.5&&b[3]>zt-hR+.5&&b[2]<zt+40-.5){var mid=clipAxis(clipAxis(p,0,u0,1),0,u1,-1);
-      [clipAxis(p,0,u0,-1),clipAxis(p,0,u1,1),clipAxis(mid,1,zt-hR,-1),clipAxis(mid,1,zt+40,1)].forEach(function(q){if(q.length>=3&&Math.abs(polyArea(q))>1)gs.push(q)})}
+     if(zt!==null&&b[1]>u0+.5&&b[0]<u1-.5&&b[3]>zt-hR+.5&&b[2]<zt+40-.5)mg.push(p);
      else gs.push(p)});
-    nodes.gussets=gs;if(zt!==null)nodes.members=ribClear(nodes.members,face,s,out,hR,zt)});
+    nodes.gussets=gs;(nodes.topGussets=nodes.topGussets||[])[i]=mg;if(zt===null)return;
+    // (a diagonal cut short of the rib by ribClear ends on that plate too: it reaches down over its end and 150 mm along it)
+    var pre=nodes.members;nodes.members=ribClear(pre,face,s,out,hR,zt);
+    nodes.members.forEach(function(q,j){var m=pre[j];if(q[4]!=="diag")return;[0,2].forEach(function(k){var x=number(q[k]),z=number(q[k+1]);
+     if(Math.abs(x-number(m[k]))<.5&&Math.abs(z-number(m[k+1]))<.5)return;
+     var ox=number(q[2-k]),oz=number(q[3-k]),L=Math.hypot(ox-x,oz-z);if(L<200)return;
+     var dx=(ox-x)/L,dz=(oz-z)/L,pr=String(q[5]||""),sc=sectionOf(/^\d/.test(pr)?"∟"+pr:pr),w=(sc?number(sc.b)||number(sc.h):100)*.7+15;
+     mg.push([[x-dz*w,z+dx*w],[x+dz*w,z-dx*w],[x+dx*150-dz*w,z+dz*150+dx*w],[x+dx*150+dz*w,z+dz*150-dx*w]])})})});
    postWebCuts(nodes,gt*1000);
    var parts=drawMembers(c,nodes.members,at,at(1000,0).sub(at(0,0)).normalize(),true,gt,trussEndPlanes(nodes.members,at,ends[0]?xa:null,ends[1]?xb:null));
    if(!parts.length)return false;
@@ -8715,7 +8734,7 @@ window.irThreeSchemeView=(function(){
     var mesh=partTag(new T.Mesh(geo,baseMaterial(c)),"фасонка узла");mesh.userData.gusset=true;parts.push(mesh)
    });
    parts.forEach(function(mesh){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh)});
-   ends.forEach(function(e,i){if(e)trussSupport(c,id,e,i?xb:xa,i?-1:1,members,at,ex.clone().normalize(),nrm,spec(i))});
+   ends.forEach(function(e,i){if(e)trussSupport(c,id,e,i?xb:xa,i?-1:1,members,at,ex.clone().normalize(),nrm,spec(i),nodes.topGussets&&nodes.topGussets[i])});
    if(pn)panelPlates(c,id,pn,nodes.members,span,at,nrm,gt);
    // The plates on the flanges of its turned posts (truss.post_pad_mm: t, length from the bottom of the post; КМ1 л.17 —
    // t30 С345 under the bolts of the trusses Фс3).
@@ -10145,18 +10164,12 @@ window.irThreeSchemeView=(function(){
    camera.updateMatrixWorld();
    var w=viewport.clientWidth,h=viewport.clientHeight;
    paintTags(w,h);paintLabels(w,h);paintCallouts(w,h);paintNodesFrame();lod();
-   // While the camera turns, flies or comes near, the outlines of the steel and the bolts are not drawn — the heaviest
-   // part of a picture for the graphics card (300 thousand lines and the bolts, nuts and washers of the near cells); they
-   // come back in the picture after the camera stops (the engineer, 06.11.2026: «что самое большое тормозит при
-   // прорисовке?» — «давай»). A node taken apart keeps them.
-   // A move is the hand on the model — a button or a finger pressed and moving, the wheel, a flight, the keys — not the
-   // easing out after it: on a slow graphics card that easing lasts many pictures, and they stayed bare after a stop.
+   // The outlines of the steel, the bolts and the welds stay in every picture, the camera turning or not: hidden while the
+   // camera moved and put back after it stopped (pack №111), the scheme blinked at every turn (the engineer, 06.11.2026:
+   // «это моргание в монтажной схеме меня раздражает»). A slow graphics card draws fewer pixels instead (goLight).
    var nowMs=performance.now();if(flight||held.size)movedAt=nowMs;
-   var moving=nowMs-movedAt<160&&!explode,hidden=[];
-   if(moving){batches.children.forEach(function(b){if(b.visible&&(b.userData.edges||b.userData.lod==="bolt"||b.userData.lod==="weld")){b.visible=false;hidden.push(b)}})}
-   bare=hidden.length>0;
+   bare=false;
    renderer.render(scene,camera);drew=true;
-   for(var hi=0;hi<hidden.length;hi++)hidden[hi].visible=true;
    if(!firstPaint){firstPaint=true;P.onFirstPaint&&P.onFirstPaint()}
   }
   // The members are rebuilt only when they changed: choosing a member or a toggle on the page only repaints.
