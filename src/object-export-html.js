@@ -1819,6 +1819,10 @@
     ".ir-export-exd-stats small{display:block;color:#7a8fa3;font-size:12px}.ir-export-exd-stats b{font-size:20px;color:#1f3d55}.ir-export-exd-block h3{margin:0 0 8px;font-size:15px;color:#1f3d55}.ir-export-exd-block h3 small{color:#7a8fa3;font-weight:600;font-size:12px;margin-left:6px}",
     ".ir-export-letter-subject{display:block;font-style:normal;font-weight:500;color:#5b7389;font-size:12.5px;margin-top:2px}.ir-export-letter-sent{color:#13895a!important}.ir-export-letter-draft{color:#c0612b!important}",
     ".ir-export-letter-text{margin:10px 0;padding:16px 18px;border:1px solid #e3ebf1;border-radius:10px;background:#fff;font:14px/1.6 'Times New Roman',Georgia,serif;color:#1d2b38;overflow-wrap:anywhere}.ir-export-letter-text p{margin:0 0 8px}.ir-export-letter-text table{border-collapse:collapse}.ir-export-letter-text td,.ir-export-letter-text th{border:1px solid #c9d5df;padding:4px 8px}",
+    // (a phone: the wide table of the acts scrolls inside its frame — as a grid item it widened the whole page, and the page
+    // went sideways: the engineer's screenshot, 06.11.2026; and nothing of the report wider than the window)
+    ".ir-export-exd{grid-template-columns:minmax(0,1fr)}.ir-export-exd>*,.ir-export-exd-block{min-width:0}.ir-export-table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}",
+    "html body.ir-object-overview #app{overflow-x:clip!important}html body.ir-object-overview #app :is(.ir-export-group,.ir-export-section){min-width:0!important;max-width:100%!important}",
     "@media(max-width:650px){.ir-export-exd-stats{grid-template-columns:1fr}.ir-export-table{font-size:12px}.ir-export-table th,.ir-export-table td{padding:8px}}",
     "@media print{.ir-export-theme{display:none}html.ir-dark #app,html.ir-dark #app img{filter:none}html.ir-dark,html.ir-dark body{background:#fff!important}html body.ir-object-overview #app #section-scheme.ir-export-group:not(:target){display:block!important}}"
    ].join("\n");
