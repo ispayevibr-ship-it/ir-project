@@ -33,8 +33,9 @@ function loadAi(){
 let ai={documents:null,engine:null};
 const dbPath=()=>path.join(app.getPath("userData"),"ir-project.db");
 const roleHashes={admin:crypto.createHash("sha256").update("333111").digest("hex"),engineer:crypto.createHash("sha256").update("000000").digest("hex")};
-protocol.registerSchemesAsPrivileged([{scheme:"irapp",privileges:{standard:true,secure:true,supportFetchAPI:true}}]);
-function createWindow(){Menu.setApplicationMenu(null);win=new BrowserWindow({width:1280,height:800,icon:path.join(__dirname,"assets","icon.ico"),autoHideMenuBar:true,titleBarStyle:"hidden",titleBarOverlay:{color:"#f7f7f7",symbolColor:"#1f2937",height:38},webPreferences:{preload:path.join(__dirname,"preload.js"),contextIsolation:true,nodeIntegration:false}});win.setMenuBarVisibility(false);win.loadURL("irapp://app/src/index.html")}
+// (codeCache: the compiled scripts of the window kept, as Chrome keeps them — the engineer, 07.11.2026 «Сам хром быстрее работает»)
+protocol.registerSchemesAsPrivileged([{scheme:"irapp",privileges:{standard:true,secure:true,supportFetchAPI:true,codeCache:true}}]);
+function createWindow(){Menu.setApplicationMenu(null);win=new BrowserWindow({width:1280,height:800,icon:path.join(__dirname,"assets","icon.ico"),autoHideMenuBar:true,titleBarStyle:"hidden",titleBarOverlay:{color:"#f7f7f7",symbolColor:"#1f2937",height:38},webPreferences:{preload:path.join(__dirname,"preload.js"),contextIsolation:true,nodeIntegration:false,spellcheck:false}});win.setMenuBarVisibility(false);win.loadURL("irapp://app/src/index.html")}
 async function chooseImage(){const r=await dialog.showOpenDialog(win,{properties:["openFile"],filters:[{name:"Images",extensions:["png","jpg","jpeg","webp"]}]});return r.canceled||!r.filePaths[0]?"":r.filePaths[0]}
 async function selectObjectImage(type){const file=await chooseImage();return file?imageStore.saveObject(file,type==="banner"?"banner":"cover"):""}
 async function selectCompanyLogo(){const file=await chooseImage();return file?imageStore.saveLogo(file):""}
