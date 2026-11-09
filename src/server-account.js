@@ -75,7 +75,7 @@ function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects,app
   if(auth){const t=token();if(!t)throw Error("Войдите в программу (почта и пароль)");headers.Authorization=t}
   let res;
   try{res=await fetch(server()+p,{method,headers,body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(20000)})}
-  catch(e){throw Error("Нет связи с сервером "+server().replace(/^https?:\/\//,"")+" — проверьте интернет")}
+  catch(e){throw Error("Нет связи с сервером — проверьте интернет")}
   const text=await res.text();let data=null;try{data=text?JSON.parse(text):null}catch{}
   if(!res.ok){
    if(res.status===401&&auth){const d=load();delete d.token;store(d)}

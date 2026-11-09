@@ -388,7 +388,7 @@ window.irAiRecognitionPage=async function(objectId){
    '<input data-teach-project placeholder="Комплект (шифр); пусто — этот комплект" value="'+esc(teach.project)+'">'+
    '<button type="button" class="primary" data-teach-save '+(canEdit?'':'disabled')+'>Запомнить</button></div>'+
    table(["Марка / буквы","Вид конструкции","Где действует","Примечание",""],rows)+
-   '<div class="ir-ms-teach"><input data-teach-note placeholder="Заметка для Claude: например, «в проектах КГНТ пояса стенки по 1490 мм»" value="'+esc(teach.note)+'">'+
+   '<div class="ir-ms-teach"><input data-teach-note placeholder="Заметка для Claude: например, «в проектах этого заказчика пояса стенки по 1490 мм»" value="'+esc(teach.note)+'">'+
    '<button type="button" data-teach-note-add '+(canEdit?'':'disabled')+'>Добавить заметку</button></div>'+(notes.length?'<ul class="ir-ms-events">'+notes.join("")+'</ul>':'')+typesBlock()
  }
  // New kinds of structures for the catalog: the engineer's own and those Claude met in the drawings.

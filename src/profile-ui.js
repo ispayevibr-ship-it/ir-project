@@ -67,7 +67,7 @@
    '<div class="program-settings-menu-items">'+
    '<button type="button" id="companyProfileSettings" class="program-settings-item">'+companyIcon+'<span class="program-settings-item-text"><strong>Профиль компании</strong><small>Реквизиты и логотип</small></span></button>'+
    '<button type="button" id="programAiModels" class="program-settings-item">'+aiModelsIcon+'<span class="program-settings-item-text"><strong>ИИ-помощник Claude</strong><small>API-ключ и проверка подключения</small></span></button>'+
-   '<button type="button" id="programSite" class="program-settings-item">'+siteIcon+'<span class="program-settings-item-text"><strong>Сайт и синхронизация</strong><small>a-ts.kz, вход, инструкция</small></span></button>'+
+   '<button type="button" id="programSite" class="program-settings-item">'+siteIcon+'<span class="program-settings-item-text"><strong>Сайт и синхронизация</strong><small>Вход, сервер, инструкция</small></span></button>'+
    '<button type="button" id="programMail" class="program-settings-item">'+mailIcon+'<span class="program-settings-item-text"><strong>Почта</strong><small>Вход в почту для отправки писем</small></span></button>'+
    '<button type="button" id="programExportDatabase" class="program-settings-item" title="Выбрать папку для сохранения файла базы данных">'+backupIcon+'<span class="program-settings-item-text"><strong>Выгрузить базу данных</strong><small>Выбрать папку и сохранить .db</small></span></button>'+
    '<button type="button" id="programAboutButton" class="program-settings-item">'+aboutIcon+'<span class="program-settings-item-text"><strong>О программе</strong><small>Авторские права и версия</small></span></button>'+

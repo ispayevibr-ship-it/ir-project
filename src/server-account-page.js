@@ -102,7 +102,7 @@
  const style=doc=>{if(!doc.getElementById(STYLE_ID)){const s=doc.createElement("style");s.id=STYLE_ID;s.textContent=CSS;doc.head.appendChild(s)}};
  const dialog=(doc,cls,html)=>{style(doc);const d=doc.createElement("dialog");d.className="ir-acc "+(cls||"");d.innerHTML=html;doc.body.appendChild(d);d.showModal();
   d.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>d.close());d.addEventListener("close",()=>d.remove(),{once:true});return d};
- const head=(title,text)=>`<div class="ir-acc-head"><div><small>IR PROJECT · СЕРВЕР A-TS.KZ</small><h2>${esc(title)}</h2>${text?`<p>${esc(text)}</p>`:""}</div><button type="button" class="ir-acc-x" data-close aria-label="Закрыть">✕</button></div>`;
+ const head=(title,text)=>`<div class="ir-acc-head"><div><small>IR PROJECT · СЕРВЕР КОМПАНИИ</small><h2>${esc(title)}</h2>${text?`<p>${esc(text)}</p>`:""}</div><button type="button" class="ir-acc-x" data-close aria-label="Закрыть">✕</button></div>`;
 
  // The role of the window follows the server; the profile badge shows the name.
  function apply(info){
@@ -246,7 +246,7 @@
   return new Promise(resolve=>{
    let changed=null;
    const d=dialog(doc,"wide",head(person?"Доступ: "+(person.name||person.email):"Дать доступ инженеру",person?person.email:"Человек получит письмо: логин — почта, пароль — созданный программой (потом сменит сам).")+
-    `<form><div class="ir-acc-body"><div class="ir-acc-row"><label>Почта${person?"":" (логин)"}<input name="email" type="email" value="${esc(person?.email||"")}" ${person?"disabled":"required"} placeholder="engineer@a-ts.kz"></label>
+    `<form><div class="ir-acc-body"><div class="ir-acc-row"><label>Почта${person?"":" (логин)"}<input name="email" type="email" value="${esc(person?.email||"")}" ${person?"disabled":"required"} placeholder="name@site.kz"></label>
     <label>Имя<input name="name" value="${esc(person?.name||"")}" placeholder="Фамилия Имя"></label></div>
     <label>Роль<select name="role">${Object.entries(roles).map(([k,v])=>`<option value="${k}" ${(person?.role||"foreman")===k?"selected":""}>${esc(v)}</option>`).join("")}</select></label>
     <div class="ir-acc-help" data-rolehelp></div>
@@ -299,7 +299,7 @@
  }
  function syncDialog(doc){
   const admin=state?.user?.role==="admin";
-  const d=dialog(doc,"",head("Синхронизация","Изменения в объектах уходят на сервер a-ts.kz и приходят на компьютеры тех, кому вы дали доступ — сами, раз в несколько секунд.")+
+  const d=dialog(doc,"",head("Синхронизация","Изменения в объектах уходят на сервер компании и приходят на компьютеры тех, кому вы дали доступ — сами, раз в несколько секунд.")+
    `<div class="ir-acc-body"><div class="ir-acc-st" data-st>Проверяем…</div><div class="ir-acc-note" data-why hidden></div>
    <div class="ir-acc-note">Не передаются (тяжёлые, делаются на каждом компьютере): анализы ИИ-распознавания, снимки схемы, документы распознавания.</div>
    ${admin?`<div class="ir-acc-note" data-first hidden>Первый раз: отправьте на сервер всю базу этого компьютера — она станет общей. Перед отправкой рядом с базой сохранится копия <b>ir-project-before-sync.db</b>.<br><button type="button" class="ir-acc-btn" data-up hidden style="margin-top:8px">Отправить мою базу на сервер</button></div>`:""}</div>
@@ -326,14 +326,14 @@
  const SITE_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h7v7M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>';
  function siteDialog(doc){
   doc=doc||document;
-  const d=dialog(doc,"ir-acc-site",head("Сайт и синхронизация","Сервер компании a-ts.kz: вход в программу, общие объекты для всех, кому дан доступ, скачивание программы.")+
+  const d=dialog(doc,"ir-acc-site",head("Сайт и синхронизация","Сервер компании: вход в программу, общие объекты для всех, кому дан доступ, скачивание программы.")+
    `<div class="ir-acc-body">
     <div class="ir-acc-card">
      <div class="ir-acc-line"><i data-net></i><b>Связь с сервером:</b><span data-nett>проверяем…</span></div>
      <div class="ir-acc-line"><i data-me></i><b>Вход:</b><span data-met></span></div>
      <div class="ir-acc-line"><i data-sy></i><b>Синхронизация:</b><span data-syt></span></div>
      <div class="ir-acc-acts" style="margin-top:6px">
-      <button type="button" class="ir-acc-btn" data-site>${SITE_ICON}Открыть сайт a-ts.kz</button>
+      <button type="button" class="ir-acc-btn" data-site>${SITE_ICON}Открыть сайт компании</button>
       <button type="button" class="ir-acc-btn" data-db hidden>${SITE_ICON}База данных (администратор)</button>
       <button type="button" class="ir-acc-btn main" data-login hidden>Войти</button>
       <button type="button" class="ir-acc-btn" data-sync hidden>Синхронизация…</button>
@@ -349,7 +349,7 @@
      </ol>
      <h3>Инженер — на своём компьютере</h3>
      <ol>
-      <li>Откройте сайт <b>a-ts.kz</b> → «Войти» → почта и пароль из письма → <b>«Скачать программу»</b>. Установите её.</li>
+      <li>Откройте сайт компании (адрес вида <b>site.kz</b>) → «Войти» → почта и пароль из письма → <b>«Скачать программу»</b>. Установите её.</li>
       <li>Откройте программу и войдите той же почтой и паролем.</li>
       <li>Профиль → <b>Синхронизация</b> → <b>«Включить»</b>. Объекты и разделы, к которым дан доступ, придут сами.</li>
      </ol>
@@ -363,7 +363,7 @@
      </ul>
      <h3>Если что-то не так</h3>
      <ul>
-      <li><b>«Нет связи с сервером»</b> — откройте a-ts.kz в браузере. Не открывается — проверьте интернет; если адрес сервера недавно менялся, подождите полчаса или выключите роутер на 10 секунд.</li>
+      <li><b>«Нет связи с сервером»</b> — откройте сайт компании в браузере. Не открывается — проверьте интернет; если адрес сервера недавно менялся, подождите полчаса или выключите роутер на 10 секунд.</li>
       <li><b>Сменить пароль</b> — профиль → «Сменить пароль». Забыли пароль — администратор выдаст новый в панели, он придёт письмом.</li>
       <li><b>Нет нужного объекта</b> — попросите администратора дать доступ к нему.</li>
      </ul>
