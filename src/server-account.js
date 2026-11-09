@@ -97,7 +97,7 @@ function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects,app
  function info(){
   const d=load();
   return{server:server(),signedIn:Boolean(d.token&&d.user),user:d.user||null,lastEmail:d.lastEmail||d.user?.email||"",
-   checkedAt:d.checkedAt||"",roles:ROLES,sections:SECTIONS.map(({key,name})=>({key,name})),mailReady:Boolean(mail?.info?.().ready)}
+   checkedAt:d.checkedAt||"",adminTrusted:isAdmin(),roles:ROLES,sections:SECTIONS.map(({key,name})=>({key,name})),mailReady:Boolean(mail?.info?.().ready)}
  }
  async function login({email,password}={}){
   const identity=String(email||"").trim().toLowerCase();
@@ -116,6 +116,11 @@ function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects,app
   catch(e){if(e.status===401||e.status===404){const d=load();delete d.token;delete d.user;store(d)}else return{...info(),offline:e.message}}
   return info()
  }
+ // The administrator signed in to the server is the administrator of this computer too: the old password of the
+ // administrator (Claude key, GitHub key, «Отправка в хранилище») is no longer asked (the engineer, 09.11.2026
+ // «в отправке репозитория просит пароль администратора»). The sign-in is renewed with the server every 30 minutes,
+ // a person removed or no longer administrator loses it at the next check.
+ function isAdmin(){const d=load();return Boolean(d.user?.role==="admin"&&reveal(d.token))}
  function logout(){const d=load();delete d.token;delete d.user;store(d);return info()}
  async function changePassword({oldPassword,password}={}){
   const d=load();if(!d.user)throw Error("Войдите в программу");
@@ -250,7 +255,7 @@ function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects,app
   requireAdmin();if(!id)throw Error("Не выбран человек");if(id===load().user?.id)throw Error("Себя удалить нельзя");
   await api(`/api/collections/users/records/${id}`,{method:"DELETE"});return{ok:true}
  }
- return{info,login,refresh,logout,changePassword,setName,people,invite,update,resetPassword,remove,heartbeat}
+ return{info,login,refresh,logout,changePassword,setName,people,invite,update,resetPassword,remove,heartbeat,isAdmin}
 }
 
 module.exports={createServerAccount,generatePassword,explain,SECTIONS,ROLES,SERVER};

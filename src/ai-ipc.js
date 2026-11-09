@@ -15,11 +15,14 @@ function register(deps){
   throw error
  }
 }
-function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:nativeDialog,shell,database,getWindow,checkAdmin}){
+function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:nativeDialog,shell,database,getWindow,checkAdmin:checkAdminPassword}){
+ // Administrator: signed in to the server as administrator (src/server-account.js) or confirmed by the old password.
+ const checkAdmin=e=>{if(account?.isAdmin?.())return;checkAdminPassword(e)};
  // Windows: after a native window (a question, a file dialog) the page takes no keys until the program is minimized and
  // opened again — Chromium leaves the keyboard elsewhere (an Electron bug). The window gets it back the same way: blur,
  // then focus. After every file dialog of these modules, and on request of the page (ai-settings:refocus, see
  // src/ir-dialog-guard.js: after each confirm() and on a click into a field while the page has no focus).
+ let account=null;
  const refocus=(win,contents,force)=>{
   if(!win||win.isDestroyed()||win.isMinimized())return false;
   const page=contents||win.webContents;
@@ -210,7 +213,7 @@ handle("ai-montage:journal-add",(_e,{objectId,elementId,comment,objectName,actio
  const letterFile=async({format,html,docx}={})=>format==="pdf"?await execDocs.pdfOf(String(html||"")):Buffer.from(docx||[]);
  // Вход на сервер компании и панель администратора (src/server-account.js, src/server-account-page.js): почта — логин,
  // доступ к объектам и разделам задаёт администратор, приглашение уходит письмом этой же почтой.
- const account=require("./server-account").createServerAccount({getUserDataPath,safeStorage,fetch:netFetch,mail,objects:()=>database.listObjects(),appVersion});
+ account=require("./server-account").createServerAccount({getUserDataPath,safeStorage,fetch:netFetch,mail,objects:()=>database.listObjects(),appVersion});
  const accountCall=(name,fn)=>handle("ai-settings:server-"+name,(_e,v={})=>fn(v||{}));
  accountCall("info",()=>account.info());accountCall("login",v=>account.login(v));accountCall("refresh",()=>account.refresh());
  accountCall("logout",()=>account.logout());accountCall("password",v=>account.changePassword(v));accountCall("name",v=>account.setName(v));

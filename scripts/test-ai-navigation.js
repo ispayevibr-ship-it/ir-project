@@ -17,7 +17,7 @@ assert(files["src/tabs-shell.js"].includes('"ai-recognition":"ИИ-распоз�
 assert(files["src/access.js"].includes('"ai-recognition"'),"role configuration");
 assert(files["src/index.html"].includes('ai-recognition-page.js?v=1118600'),"UI script loads");
 assert(files["src/index.html"].includes('ai-recognition-page.css?v=1116900'),"module css loads");
-assert(files["src/index.html"].includes('ai-model-settings.js?v=191690'),"Claude settings loaded");
+assert(files["src/index.html"].includes('ai-model-settings.js?v=1123900'),"Claude settings loaded");
 // Sub-pages: drawings, analysis, Claude, placement, journal.
 for(const step of ["Чертежи","Анализ","Обработка Claude","Монтажная схема","Журнал"])assert(files["src/ai-recognition-page.js"].includes('"'+step+'"'),"step: "+step);
 for(const call of ["montage.analyze(id,","montage.process(id,","montage.place(id,","montage.undo(id,","montage.skipAI(id,"])

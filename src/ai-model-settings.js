@@ -114,6 +114,8 @@
   const isAdmin=()=>window.irAccess?.role?.()==="admin";
   async function authorize(){
    if(!isAdmin()){status("Изменять подключение и ключи может только администратор.","err");render();return false}
+   // вошли в программу как администратор сервера — пароль не спрашивается (src/server-account.js)
+   try{const s=await aiInvoke("ai-settings:server-info");if(s?.signedIn&&s.adminTrusted)return true}catch(_e){}
    let pw=await new Promise(resolve=>{
     const prompt=doc.createElement("dialog");prompt.className="ir-ais-pw";
     prompt.innerHTML='<form method="dialog"><h3>Подтверждение администратора</h3><p>Введите пароль администратора IR Project.</p>'+
