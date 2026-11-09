@@ -129,8 +129,18 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
   let body;
   if(local){const row=plain(local);if(JSON.stringify(row).length>MAX_ROW)return"big";body={...t.fields(row),deleted:false,device:Number(getState("range"))||0}}
   else body={deleted:true};
-  const r=sid?await account.api(`/api/collections/${t.coll}/records/${sid}`,{method:"PATCH",body}):
-   await account.api(`/api/collections/${t.coll}/records`,{method:"POST",body:{rid:Number(rid),...body}});
+  const patch=id=>account.api(`/api/collections/${t.coll}/records/${id}`,{method:"PATCH",body});
+  let r;
+  if(sid)r=await patch(sid);
+  else{
+   try{r=await account.api(`/api/collections/${t.coll}/records`,{method:"POST",body:{rid:Number(rid),...body}})}
+   catch(e){
+    // the row is already there (an earlier sending reached the server, the answer did not come back) — change it instead
+    if(e.status!==400||!e.data?.data?.rid)throw e;
+    const f=await account.api(`/api/collections/${t.coll}/records?perPage=1&fields=id,version&filter=${encodeURIComponent("rid="+Number(rid))}`);
+    const id=f?.items?.[0]?.id;if(!id)throw e;r=await patch(id)
+   }
+  }
   setMap(tbl,rid,r.id,r.version);
   return"ok"
  }
@@ -144,14 +154,17 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
    const groups=[batch.filter(b=>b.tbl==="objects"),batch.filter(b=>b.tbl==="object_sections"),batch.filter(b=>b.tbl==="object_records")];
    for(const g of groups){
     for(let i=0;i<g.length;i+=6){
-     await Promise.all(g.slice(i,i+6).map(async b=>{
+     // all six finish before the next step (a failed one must not leave the others running into the next cycle,
+     // which would send the same rows again — 3 «rid not unique» at the first sending, 09.11.2026)
+     const done=await Promise.allSettled(g.slice(i,i+6).map(async b=>{
       let res;
       try{res=await sendOne(b)}
       catch(e){if(!e.status||e.status>=500||e.status===401||e.status===429)throw e;res="refused";status.rejected++;status.rejectedWhy=e.data?.data?.rid?"Строка с таким номером уже есть на сервере":"Нет прав на этот объект или раздел — изменение осталось только на этом компьютере"}
       d.prepare("DELETE FROM sync_outbox WHERE tbl=? AND rid=? AND seq<=?").run(b.tbl,b.rid,b.seq);
       if(status.progress)status.progress.done++;
       return res
-     }))
+     }));
+     const failed=done.find(x=>x.status==="rejected");if(failed)throw failed.reason
     }
    }
   }
