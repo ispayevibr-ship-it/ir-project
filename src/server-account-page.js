@@ -52,6 +52,10 @@
 .ir-acc-x{transition:background .15s;outline:none}.ir-acc-x:focus-visible{box-shadow:0 0 0 2px #fff}.ir-acc-x:hover{background:rgba(255,255,255,.22)}
 .ir-acc-tools{display:flex;gap:8px;align-items:center}.ir-acc-tools .grow{flex:1}
 .ir-acc-st:empty{display:none}
+.ir-acc-on,.ir-acc-off{display:inline-flex;align-items:center;gap:5px;margin-left:8px;font-size:11.5px;font-weight:600}
+.ir-acc-on{color:#1f7a4c}.ir-acc-on::before{content:"";width:8px;height:8px;border-radius:50%;background:#22a35a;box-shadow:0 0 0 3px rgba(34,163,90,.18)}
+.ir-acc-off{color:#7b8f9f;font-weight:500}.ir-acc-off::before{content:"";width:8px;height:8px;border-radius:50%;background:#b8c6d1}
+.ir-acc-count{font-size:12px;color:#3c5568;margin-right:4px}
 .ir-acc-people{display:grid;gap:8px}
 .ir-acc-person{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:center;padding:12px 14px;border:1px solid #d9e4ee;border-radius:11px;background:#fff}
 .ir-acc-person strong{font-size:13.5px}
@@ -135,6 +139,24 @@
    catch(e){st.className="ir-acc-st err";st.textContent=errText(e)}finally{go.disabled=false}}
  }
 
+ // The name of the person signed in (the browser question box does not work in the program's window — an own dialog).
+ function rename(doc){
+  const d=dialog(doc,"",head("Изменить имя",state?.user?.email||"")+
+   `<form><div class="ir-acc-body"><label>Имя (видно в письмах и в истории изменений)<input name="name" value="${esc(state?.user?.name||"")}" maxlength="200" placeholder="Фамилия Имя"></label>
+   <div class="ir-acc-st" data-st></div></div>
+   <div class="ir-acc-foot"><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Отмена</button><button type="submit" class="ir-acc-btn main" data-go>Сохранить</button></div></form>`);
+  const f=d.querySelector("form"),st=d.querySelector("[data-st]"),go=d.querySelector("[data-go]");f.name.focus();f.name.select();
+  f.onsubmit=async ev=>{ev.preventDefault();go.disabled=true;
+   try{apply(await call("ai-settings:server-name",{name:f.name.value}));d.close()}
+   catch(e){st.className="ir-acc-st err";st.textContent=errText(e)}finally{go.disabled=false}}
+  return new Promise(resolve=>d.addEventListener("close",()=>resolve(),{once:true}))
+ }
+ const ago=iso=>{const t=Date.parse(iso);if(!t)return"";const m=Math.round((Date.now()-t)/60e3);
+  if(m<60)return m+" мин назад";if(m<24*60&&new Date(t).toDateString()===new Date().toDateString())return"сегодня в "+new Date(t).toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});
+  return new Date(t).toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})};
+ const presence=p=>p.online?`<span class="ir-acc-on" title="${esc(p.onlineOn.join(", "))}">в программе</span>`:
+  `<span class="ir-acc-off">${p.lastSeen?"был(а) "+esc(ago(p.lastSeen)):"ещё не входил(а)"}</span>`;
+
  // ---- the administrator's panel ----
  const grantText=(grants,objects,sections)=>{
   if(!grants?.length)return"Нет доступа ни к одному объекту";
@@ -148,7 +170,7 @@
   if(!st0?.signedIn){if(await login(doc))return panel(doc);return}
   if(st0.user.role!=="admin"){alert("Панель администратора — только для администратора.");return}
   const d=dialog(doc,"wide",head("Панель администратора","Кто входит в программу и что видит. Сервер проверяет права сам: человек получает только свои объекты и разделы.")+
-   `<div class="ir-acc-body"><div data-mail></div><div class="ir-acc-tools"><button type="button" class="ir-acc-btn main" data-add><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Дать доступ инженеру</span></button><span class="grow"></span><button type="button" class="ir-acc-btn" data-reload>Обновить</button></div>
+   `<div class="ir-acc-body"><div data-mail></div><div class="ir-acc-tools"><button type="button" class="ir-acc-btn main" data-add><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Дать доступ инженеру</span></button><span class="grow"></span><span class="ir-acc-count" data-count></span><button type="button" class="ir-acc-btn" data-reload>Обновить</button></div>
    <div class="ir-acc-st" data-st>Загружаем…</div><div class="ir-acc-people" data-list></div></div>
    <div class="ir-acc-foot"><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Закрыть</button></div>`);
   const st=d.querySelector("[data-st]"),list=d.querySelector("[data-list]");
@@ -157,15 +179,17 @@
    box.innerHTML=state.mailReady?"":`<div class="ir-acc-help warn">Почта программы не настроена — письмо с паролем не уйдёт, пароль будет показан здесь, передайте его сами. <button type="button" class="ir-acc-btn small" data-mailset>Настроить почту</button></div>`;
    box.querySelector("[data-mailset]")?.addEventListener("click",async()=>{if(window.irMailSettings?.open)await irMailSettings.open(d);await info();mailNote()})};
   const load=async()=>{
-   st.className="ir-acc-st";st.textContent="Загружаем…";
+   if(!list.childElementCount){st.className="ir-acc-st";st.textContent="Загружаем…"}
    try{const [people,objs]=await Promise.all([call("ai-settings:server-people"),call("ai-settings:server-objects")]);objects=objs||[];
-    st.textContent="";
-    list.innerHTML=people.map(p=>`<div class="ir-acc-person" data-id="${esc(p.id)}"><div class="who"><strong>${esc(p.name||p.email)}</strong><span class="ir-acc-role ${p.role==="admin"?"admin":""}">${esc(p.roleName)}</span><small>${esc(p.email)}</small></div>
-     <div class="acts">${p.id===state.user.id?'<button type="button" class="ir-acc-btn small" data-pw>Сменить свой пароль</button>':`<button type="button" class="ir-acc-btn small" data-edit>Доступ</button><button type="button" class="ir-acc-btn small" data-reset>Новый пароль</button><button type="button" class="ir-acc-btn small danger" data-del>Убрать</button>`}</div>
+    const on=people.filter(p=>p.online).length;
+    st.textContent="";d.querySelector("[data-count]").textContent="Сейчас в программе: "+on+" из "+people.length;
+    list.innerHTML=people.map(p=>`<div class="ir-acc-person" data-id="${esc(p.id)}"><div class="who"><strong>${esc(p.name||p.email)}</strong><span class="ir-acc-role ${p.role==="admin"?"admin":""}">${esc(p.roleName)}</span>${presence(p)}<small>${esc(p.email)}</small></div>
+     <div class="acts">${p.id===state.user.id?'<button type="button" class="ir-acc-btn small" data-rename>Изменить имя</button><button type="button" class="ir-acc-btn small" data-pw>Сменить свой пароль</button>':`<button type="button" class="ir-acc-btn small" data-edit>Доступ</button><button type="button" class="ir-acc-btn small" data-reset>Новый пароль</button><button type="button" class="ir-acc-btn small danger" data-del>Убрать</button>`}</div>
      <div class="grants">${p.role==="admin"?"Все объекты и разделы":esc(grantText(p.grants,objects,state.sections))}</div></div>`).join("")||'<div class="ir-acc-help">Пока никого нет.</div>';
     list.querySelectorAll(".ir-acc-person").forEach(row=>{const p=people.find(x=>x.id===row.dataset.id);
      row.querySelector("[data-pw]")?.addEventListener("click",()=>changePassword(d));
-     row.querySelector("[data-edit]")?.addEventListener("click",()=>editor(d,{person:p,objects}).then(ch=>ch&&load()));
+     row.querySelector("[data-rename]")?.addEventListener("click",()=>rename(d.ownerDocument).then(load));
+     row.querySelector("[data-edit]")?.addEventListener("click",()=>editor(d,{person:p,objects}).then(r=>{if(!r)return;load().then(()=>{if(r.note){st.className="ir-acc-st ok";st.textContent=r.note}})}));
      row.querySelector("[data-reset]")?.addEventListener("click",async()=>{if(!confirm("Выдать "+(p.name||p.email)+" новый пароль? Старый перестанет работать, новый уйдёт письмом на "+p.email+"."))return;
       st.className="ir-acc-st";st.textContent="Выдаём новый пароль…";
       try{const r=await call("ai-settings:server-reset",{id:p.id});st.className="ir-acc-st ok";st.textContent="";if(r.mailed)st.textContent="Новый пароль отправлен на "+p.email+".";else shown(d,p.email,r.password,r.mailError)}
@@ -175,7 +199,10 @@
    catch(e){st.className="ir-acc-st err";st.textContent=errText(e)}
   };
   d.querySelector("[data-reload]").onclick=load;
-  d.querySelector("[data-add]").onclick=()=>editor(d,{objects}).then(ch=>ch&&load());
+  // after the letter — back in the panel, the result above the list
+  d.querySelector("[data-add]").onclick=()=>editor(d,{objects}).then(r=>{if(!r)return;load().then(()=>{if(r.note){st.className="ir-acc-st ok";st.textContent=r.note}})});
+  // who is in the program — renewed every minute while the panel is open
+  const timer=setInterval(()=>{if(!d.open){clearInterval(timer);return}if(d.ownerDocument.querySelectorAll("dialog.ir-acc[open]").length===1)void load()},60e3);
   mailNote();load()
  }
  // The password is shown only when the letter could not go — once, to be passed on by the administrator himself.
@@ -195,7 +222,7 @@
     <label class="ir-acc-check"><input type="checkbox" data-edit ${g?.canEdit!==false?"checked":""}><span>Может изменять</span></label></div>
     <div class="ir-acc-secs" ${whole?"hidden":""}>${sections.map(s=>`<label class="ir-acc-check"><input type="checkbox" value="${esc(s.key)}" ${g&&!g.whole&&g.sections.includes(s.key)?"checked":""}><span>${esc(s.name)}</span></label>`).join("")}</div></div></div>`};
   return new Promise(resolve=>{
-   let changed=false;
+   let changed=null;
    const d=dialog(doc,"wide",head(person?"Доступ: "+(person.name||person.email):"Дать доступ инженеру",person?person.email:"Человек получит письмо: логин — почта, пароль — созданный программой (потом сменит сам).")+
     `<form><div class="ir-acc-body"><div class="ir-acc-row"><label>Почта${person?"":" (логин)"}<input name="email" type="email" value="${esc(person?.email||"")}" ${person?"disabled":"required"} placeholder="engineer@a-ts.kz"></label>
     <label>Имя<input name="name" value="${esc(person?.name||"")}" placeholder="Фамилия Имя"></label></div>
@@ -227,10 +254,11 @@
     if(f.role.value!=="admin"&&!g.length&&!confirm("Не отмечен ни один объект — человек войдёт, но ничего не увидит. Продолжить?"))return;
     go.disabled=true;st.className="ir-acc-st";st.textContent=person?"Сохраняем…":"Создаём вход и отправляем письмо…";
     try{
-     if(person){await call("ai-settings:server-update",{id:person.id,name:f.name.value,role:f.role.value,grants:g});changed=true;d.close();return}
+     if(person){await call("ai-settings:server-update",{id:person.id,name:f.name.value,role:f.role.value,grants:g});changed={note:"Сохранено: "+(f.name.value||person.email)+"."};d.close();return}
      const r=await call("ai-settings:server-invite",{email:f.email.value,name:f.name.value,role:f.role.value,grants:g});changed=true;
-     if(r.mailed){st.className="ir-acc-st ok";st.textContent="Готово: письмо с логином и паролем отправлено на "+r.person.email+".";go.hidden=true;d.querySelector("[data-close]").textContent="Закрыть"}
-     else{d.close();shown(parent,r.person.email,r.password,r.mailError)}
+     if(r.mailed)changed={note:"Готово: "+(r.person.name||r.person.email)+" — письмо с логином и паролем отправлено на "+r.person.email+"."};
+     else{changed={note:"Вход для "+r.person.email+" создан, письмо не ушло — пароль показан отдельно."};shown(parent,r.person.email,r.password,r.mailError)}
+     d.close()
     }catch(e){st.className="ir-acc-st err";st.textContent=errText(e)}finally{go.disabled=false}}
   })
  }
@@ -252,8 +280,7 @@
   setTimeout(()=>doc.addEventListener("pointerdown",out,true));
   m.querySelector("[data-panel]")?.addEventListener("click",()=>{close();panel(doc)});
   m.querySelector("[data-pw]").onclick=()=>{close();changePassword(doc)};
-  m.querySelector("[data-name]").onclick=async()=>{close();const n=prompt("Ваше имя (видно в письмах и в истории изменений):",u.name||"");if(n===null)return;
-   try{apply(await call("ai-settings:server-name",{name:n}))}catch(e){alert(errText(e))}};
+  m.querySelector("[data-name]").onclick=()=>{close();rename(doc)};
   m.querySelector("[data-out]").onclick=async()=>{close();if(!confirm("Выйти из программы на этом компьютере?"))return;
    try{apply(await call("ai-settings:server-logout"))}catch{}if(window.irAccess?.logout)irAccess.logout();apply();location.reload()};
  }

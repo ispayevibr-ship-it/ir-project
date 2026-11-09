@@ -60,7 +60,7 @@ function explain(status,body,fallback){
  return fallback||("Сервер ответил: "+(body?.message||status))
 }
 
-function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects}){
+function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects,appVersion,machine,timers=true}){
  const file=()=>path.join(getUserDataPath(),"server-account.json");
  const load=()=>{try{return JSON.parse(fs.readFileSync(file(),"utf8"))||{}}catch{return{}}};
  const store=v=>{fs.mkdirSync(path.dirname(file()),{recursive:true});fs.writeFileSync(file(),JSON.stringify(v,null,1),"utf8")};
@@ -104,6 +104,7 @@ function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects}){
   if(!EMAIL.test(identity))throw Error("Введите почту");if(!password)throw Error("Введите пароль");
   const r=await api("/api/collections/users/auth-with-password",{method:"POST",auth:false,body:{identity,password:String(password)}});
   store({...load(),server:server(),token:secret(r.token),user:person(r.record),lastEmail:identity,checkedAt:new Date().toISOString()});
+  void heartbeat();
   return info()
  }
  // At the start and every so often: the token is renewed, the role is taken fresh (the administrator may have changed
@@ -129,12 +130,43 @@ function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects}){
   store({...load(),user:person(r)});return info()
  }
 
+ // «Кто сейчас в программе» (the engineer, 09.11.2026 «Сделать проверку подключения, кто сейчас подключен из добавленных»):
+ // every computer keeps its row in `devices` (one per person and computer — later its range of row numbers for the sync)
+ // and touches it every 2 minutes while the program is open; the server's `updated` is the last time it was seen.
+ const machineName=()=>{try{return String(machine?.()||require("node:os").hostname()||"ПК").slice(0,200)}catch{return"ПК"}};
+ let beating=null;
+ function heartbeat(){if(!beating)beating=beat().finally(()=>{beating=null});return beating}
+ async function beat(){
+  const d=load();if(!d.token||!d.user)return false;
+  try{
+   const body={machine:machineName(),name:("IR Project "+(appVersion?.()||"")).trim().slice(0,200)};
+   const key=d.user.id+"|"+body.machine;
+   let id=d.devices?.[key];
+   if(id){try{await api(`/api/collections/devices/records/${id}`,{method:"PATCH",body});return true}catch(e){if(e.status!==404)throw e;id=null}}
+   const mine=(await list("devices",`filter=${encodeURIComponent(`author='${d.user.id}' && machine='${body.machine.replace(/'/g,"")}'`)}`))[0];
+   if(mine){id=mine.id;await api(`/api/collections/devices/records/${id}`,{method:"PATCH",body})}
+   else for(let i=0;i<5&&!id;i++){
+    const top=await api("/api/collections/devices/records?perPage=1&sort=-rid");
+    const rid=(top?.items?.[0]?.rid||0)+1+i;
+    try{id=(await api("/api/collections/devices/records",{method:"POST",body:{...body,rid}})).id}catch(e){if(e.status!==400)throw e}
+   }
+   if(id)store({...load(),devices:{...(load().devices||{}),[key]:id}});
+   return Boolean(id)
+  }catch(e){return false}
+ }
+ if(timers){const t=setInterval(()=>void heartbeat(),120e3);t.unref?.();setTimeout(()=>void heartbeat(),5e3).unref?.()}
+ const ONLINE_MS=5*60e3;
+
  // ---- the administrator's panel ----
  async function people(){
   requireAdmin();
-  const [users,rows]=await Promise.all([list("users","sort=email"),list("access")]);
+  const [users,rows,devs]=await Promise.all([list("users","sort=email"),list("access"),list("devices").catch(()=>[])]);
   const by={};for(const a of rows)(by[a.user]||(by[a.user]=[])).push(a);
-  return users.map(u=>({...person(u),grants:grantsOf(by[u.id]||[])}))
+  const seen={};for(const v of devs){const at=Date.parse(String(v.updated||"").replace(" ","T"));if(!v.author||!at)continue;
+   const s=seen[v.author]||(seen[v.author]={lastSeen:0,machines:[]});if(at>s.lastSeen)s.lastSeen=at;
+   if(Date.now()-at<ONLINE_MS)s.machines.push(v.machine||"ПК")}
+  return users.map(u=>{const s=seen[u.id];return{...person(u),grants:grantsOf(by[u.id]||[]),
+   online:Boolean(s?.machines.length),onlineOn:s?.machines||[],lastSeen:s?.lastSeen?new Date(s.lastSeen).toISOString():""}})
  }
  // The rows of `access` → per object: whole or by sections, may change or only view.
  function grantsOf(rows){
@@ -218,7 +250,7 @@ function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects}){
   requireAdmin();if(!id)throw Error("Не выбран человек");if(id===load().user?.id)throw Error("Себя удалить нельзя");
   await api(`/api/collections/users/records/${id}`,{method:"DELETE"});return{ok:true}
  }
- return{info,login,refresh,logout,changePassword,setName,people,invite,update,resetPassword,remove}
+ return{info,login,refresh,logout,changePassword,setName,people,invite,update,resetPassword,remove,heartbeat}
 }
 
 module.exports={createServerAccount,generatePassword,explain,SECTIONS,ROLES,SERVER};
