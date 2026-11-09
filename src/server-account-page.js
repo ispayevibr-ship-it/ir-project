@@ -35,12 +35,23 @@
 .ir-acc-st.err{color:#b4321f}
 .ir-acc-foot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:14px 24px;border-top:1px solid #dbe5ee;background:#fff}
 .ir-acc-foot .grow{flex:1}
-.ir-acc-btn{height:36px;padding:0 14px;border:1px solid #c9d8e4;border-radius:8px;background:#fff;color:#1d4f75;font:inherit;font-weight:650;cursor:pointer}
+.ir-acc-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:36px;padding:0 14px;border:1px solid #c9d8e4;border-radius:8px;background:#fff;color:#1d4f75;font:inherit;font-weight:650;line-height:1;white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s,color .15s,box-shadow .15s}
+.ir-acc-btn svg{flex:none;width:16px;height:16px}
+.ir-acc-btn:not(:disabled):hover{background:#e8f1fa;border-color:#8fb8dc;color:#123f63}
+.ir-acc-btn:not(:disabled):active{background:#d7e7f6}
+.ir-acc-btn:focus-visible{outline:2px solid #176dc1;outline-offset:2px}
 .ir-acc-btn.main{background:#176dc1;border-color:#176dc1;color:#fff}
+.ir-acc-btn.main:not(:disabled):hover{background:#0f5aa3;border-color:#0f5aa3;color:#fff;box-shadow:0 4px 12px rgba(23,109,193,.3)}
+.ir-acc-btn.main:not(:disabled):active{background:#0b4a87}
 .ir-acc-btn.small{height:30px;padding:0 10px;font-size:12px}
 .ir-acc-btn.link{border:0;background:none;color:#5b7a92;font-weight:500;text-decoration:underline;padding:0 4px}
 .ir-acc-btn:disabled{opacity:.5;cursor:default}
 .ir-acc-btn.danger{color:#b4321f;border-color:#efc9c3}
+.ir-acc-btn.danger:not(:disabled):hover{background:#fdecea;border-color:#e59a8f;color:#9a2615}
+.ir-acc-btn.link:not(:disabled):hover{background:none;color:#176dc1}
+.ir-acc-x{transition:background .15s;outline:none}.ir-acc-x:focus-visible{box-shadow:0 0 0 2px #fff}.ir-acc-x:hover{background:rgba(255,255,255,.22)}
+.ir-acc-tools{display:flex;gap:8px;align-items:center}.ir-acc-tools .grow{flex:1}
+.ir-acc-st:empty{display:none}
 .ir-acc-people{display:grid;gap:8px}
 .ir-acc-person{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:center;padding:12px 14px;border:1px solid #d9e4ee;border-radius:11px;background:#fff}
 .ir-acc-person strong{font-size:13.5px}
@@ -137,7 +148,7 @@
   if(!st0?.signedIn){if(await login(doc))return panel(doc);return}
   if(st0.user.role!=="admin"){alert("Панель администратора — только для администратора.");return}
   const d=dialog(doc,"wide",head("Панель администратора","Кто входит в программу и что видит. Сервер проверяет права сам: человек получает только свои объекты и разделы.")+
-   `<div class="ir-acc-body"><div data-mail></div><div style="display:flex;gap:8px;align-items:center"><button type="button" class="ir-acc-btn main" data-add>＋ Дать доступ инженеру</button><span class="grow" style="flex:1"></span><button type="button" class="ir-acc-btn small" data-reload>Обновить</button></div>
+   `<div class="ir-acc-body"><div data-mail></div><div class="ir-acc-tools"><button type="button" class="ir-acc-btn main" data-add><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Дать доступ инженеру</span></button><span class="grow"></span><button type="button" class="ir-acc-btn" data-reload>Обновить</button></div>
    <div class="ir-acc-st" data-st>Загружаем…</div><div class="ir-acc-people" data-list></div></div>
    <div class="ir-acc-foot"><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Закрыть</button></div>`);
   const st=d.querySelector("[data-st]"),list=d.querySelector("[data-list]");

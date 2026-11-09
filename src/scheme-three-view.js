@@ -5000,7 +5000,7 @@ window.irThreeSchemeView=(function(){
     if(b.geometryType!=="beam"||!b.id||b.ft||b.truss||slight(b))return;
     var ax=number(b.x),ay=number(b.y),bx=number(b.x2),by=number(b.y2),L=Math.hypot(bx-ax,by-ay),az=number(b.z0),bz=number(b.z2);
     if(L<300||Math.abs(bz-az)/L>.1)return;
-    var ux=(bx-ax)/L,uy=(by-ay)/L,hb=halfSection(b).h*1000,seen=new Set();
+    var ux=(bx-ax)/L,uy=(by-ay)/L,hb=turnedHalf(b).h*1000,seen=new Set();
     for(var i=Math.floor((Math.min(ax,bx)-600)/C);i<=Math.floor((Math.max(ax,bx)+600)/C);i++)for(var j=Math.floor((Math.min(ay,by)-600)/C);j<=Math.floor((Math.max(ay,by)+600)/C);j++)(cells.get(i+","+j)||[]).forEach(function(c){
      if(seen.has(c))return;seen.add(c);
      var cx=number(c.x),cy=number(c.y),along=(cx-ax)*ux+(cy-ay)*uy,off=Math.abs((cx-ax)*uy-(cy-ay)*ux),hs=halfSection(c),reach=Math.max(hs.b,hs.h)*1000;
