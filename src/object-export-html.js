@@ -2025,5 +2025,6 @@
    return false
   }finally{exportObject.busy=false;if(bar)bar.done()}
  }
- window.irObjectHtmlExport={save:exportObject};
+ // (the daily report saved as HTML takes the same dark theme and the same slimming of styles: src/report-export-html.js)
+ window.irObjectHtmlExport={save:exportObject,theme:exportTheme,slimCss};
 })();

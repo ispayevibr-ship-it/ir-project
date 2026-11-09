@@ -3459,6 +3459,11 @@ window.irThreeSchemeView=(function(){
     // (a tie aslant to the web — the diagonal ties Т1 between the purlins, 42° off square to П1 in plan (КМ2 л.4): its nuts
     // back from the web by what the corner of their face reaches toward it, r·tan of the angle — square to the tie, that
     // corner went 6 mm into the web, 16 places; on a bevelled washer as mounted)
+    // (a purlin turned with the slope under it — chordSeats, purlinTilts —: its web aslant, the end moved square to it onto
+    // its middle plane at the rod's height (along the rod, the nuts of two rods meeting there went into each other), the nuts square to the rod back from it by the web's lean too; at the line of the purlin the nuts
+    // went 11 mm into the web 70 under its top, 14 places of ИР-71535 КМ2 л.4)
+    var tb0=hit&&hit.body&&hit.body.X&&hit.body.c&&branchTurn.get(String(hit.body.c.id||""))?hit.body:null;
+    if(tieRod(c)&&tb0){var dX=e[1].dot(tb0.X);if(Math.abs(dX)>.2){E0=E0.clone().add(tb0.X.clone().multiplyScalar(tb0.o.clone().sub(E0).dot(tb0.X)));hit=Object.assign({},hit,{n:tb0.X.clone()})}}
     if(tieRod(c)){var tc=hit.n?Math.abs(e[1].dot(hit.n)):1,tb=.022+(tc>.2&&tc<.9999?Math.min(.05,.017*Math.sqrt(1-tc*tc)/tc):0);out[k]=E0.clone().sub(e[1].clone().multiplyScalar(tb+.023));
      var nut=partTag(new T.Mesh(shared("tie:nut",function(){var g=new T.CylinderGeometry(.017,.017,.032,6);g.rotateX(Math.PI/2);return g}),baseMaterial(c)),"гайки тяжа");
      nut.quaternion.setFromUnitVectors(new T.Vector3(0,0,1),e[1].clone().negate());nut.position.copy(E0).sub(e[1].clone().multiplyScalar(tb));parts.push(nut);return}
@@ -4019,6 +4024,69 @@ window.irThreeSchemeView=(function(){
     var dn=got.rise>0?-1:1;
     // (wx, wy uphill, k the rise of the flange's top across the purlin, as the roof's)
     purlinTops.push({id:String(p.id),ax:ax,ay:ay,ux:ux,uy:uy,L:L,b:sec.b/2,z:number(p.z0)+lift+sec.h/2*Math.cos(ar),sx:dn*got.ux*sec.h/2*Math.sin(ar),sy:dn*got.uy*sec.h/2*Math.sin(ar),wx:-dn*got.ux,wy:-dn*got.uy,k:Math.tan(ar)})
+   })
+  }
+  // A rolled purlin on the top chord of a truss on a seat plate (КМ2 л.5 ИР-71535, узлы 1–4, разрез 6-6: П1 I25Б1 on
+  // the chords 2L160×10 of Ф-1 — a plate −14 С255 on the horizontal legs, 560 along the chord, the purlin square to the
+  // chord's slope on it, welded; the plate bolted to the legs, М20, one each side of the purlin in each angle, 80 off the
+  // truss's plane). joint.chord_seat: {plate_mm: [along the chord, across it, thickness], bolt_along_mm (from the
+  // purlin's bottom flange's middle along the chord), bolt_across_mm (off the truss's plane)}. The purlin, given by its
+  // line level 31 mm over the chord with nothing under it, hung in the air (the engineer, 09.11.2026: «прогон в воздухе
+  // висит», У-1352 Опирание на балку О2/Ж): it is turned with the chord's slope, its bottom flange laid on the plate of
+  // the highest seat under it; the plate and its bolts drawn (chordSeatDraw). Drawn only: the scheme keeps its levels.
+  var chordSeatList=[];
+  function chordSeatOf(c){var s=c&&c.joint&&c.joint.chord_seat;return s&&typeof s==="object"&&Array.isArray(s.plate_mm)&&number(s.plate_mm[2])>0?s:null}
+  function chordSeats(list){
+   chordSeatList=[];
+   var chords=[];list.forEach(function(c){if(c.id&&c.truss&&Array.isArray(c.truss.members)&&!slight(c))chordHosts(c).forEach(function(h){chords.push(h)})});
+   if(!chords.length)return;
+   list.forEach(function(p){
+    var seat=chordSeatOf(p);if(!seat||p.geometryType!=="beam"||!p.id||p.ft||p.truss||slight(p)||branchTurn.has(String(p.id)))return;
+    var sec=sectionOf(p.profile_name||p.profileName,p.profile_standard);if(!sec||sec.shape!=="ibeam"&&sec.shape!=="channel")return;
+    var ax=number(p.x),ay=number(p.y),L=Math.hypot(number(p.x2)-ax,number(p.y2)-ay);if(L<500||Math.abs(number(p.z2)-number(p.z0))>5)return;
+    var ux=(number(p.x2)-ax)/L,uy=(number(p.y2)-ay)/L,hd=hangDrop.get(String(p.id))||[0,0],z0=number(p.z0)-hd[0],TH=number(seat.plate_mm[2]),got=[];
+    chords.forEach(function(h){
+     var den=ux*h.uy-uy*h.ux;if(Math.abs(den)<.85)return;
+     var rx=h.ax-ax,ry=h.ay-ay,t=(rx*h.uy-ry*h.ux)/den,w=(rx*uy-ry*ux)/den;
+     if(t<-60||t>L+60||w<-1||w>h.L+1)return;
+     var k=(h.bz-h.az)/h.L,f=Math.sqrt(1+k*k),top=h.az+k*w+h.top*f,gap=z0-sec.h/2-top;
+     // (only a purlin given at the chord, its bottom near the top: not one passing over or through it)
+     if(gap<-40||gap>120)return;
+     // (not over a column at the truss's end: the purlin lies on its cap there — КМ2 л.5 узел 5, разрез 4-4)
+     var tc=h.c,cx=ax+ux*t,cy=ay+uy*t;if(Math.hypot(cx-number(tc.x),cy-number(tc.y))<500||Math.hypot(cx-number(tc.x2),cy-number(tc.y2))<500)return;
+     if(got.some(function(g){return Math.abs(g.t-t)<300}))return;
+     got.push({h:h,t:t,w:w,k:k,f:f,top:top})});
+    if(!got.length)return;
+    // (the turn: the web square to the chord's top — as purlinTilts on a sloped beam)
+    var g0=got[0],h0=g0.h,a=toWorld(h0.ax,h0.ay,h0.az),b=toWorld(h0.bx,h0.by,h0.bz),U=b.clone().sub(a).normalize();
+    var n=U.clone().cross(new T.Vector3(0,1,0)).cross(U).normalize();if(n.y<0)n.negate();
+    var pa=toWorld(ax,ay,number(p.z0)),pb=toWorld(number(p.x2),number(p.y2),number(p.z2)),u=pb.clone().sub(pa).normalize();
+    var Y0=new T.Vector3(0,1,0).applyQuaternion(new T.Quaternion().setFromUnitVectors(zAxis,u)),r=Math.atan2(Y0.clone().cross(n).dot(u),Y0.dot(n));
+    if(Math.abs(r)>.35)return;if(Math.abs(r)<.002)r=0;var ar=Math.abs(r),hh=sec.h/2;
+    if(r)branchTurn.set(String(p.id),r);
+    // (the middle of the turned bottom flange is (h/2)·sin uphill of the line, where the plate is higher by the slope)
+    var lift=-Infinity;got.forEach(function(g){lift=Math.max(lift,g.top+TH*g.f+Math.abs(g.k)*hh*Math.sin(ar)+hh*Math.cos(ar)-z0)});
+    hangDrop.set(String(p.id),[hd[0]-lift,hd[1]-lift]);
+    got.forEach(function(g){chordSeatList.push({p:p,h:g.h,seat:seat,sec:sec,x:ax+ux*g.t,y:ay+uy*g.t,top:g.top,k:g.k,s0:hh*Math.sin(ar),TH:TH})});
+    if(r){var dn=g0.k>0?-1:1;
+     purlinTops.push({id:String(p.id),ax:ax,ay:ay,ux:ux,uy:uy,L:L,b:sec.b/2,z:z0+lift+hh*Math.cos(ar),sx:dn*h0.ux*hh*Math.sin(ar),sy:dn*h0.uy*hh*Math.sin(ar),wx:-dn*h0.ux,wy:-dn*h0.uy,k:Math.tan(ar)})}
+   })
+  }
+  // The seat plates on the chords and their bolts (chordSeats): the plate the truss's part, the bolts the purlin's joint's.
+  function chordSeatDraw(){
+   chordSeatList.forEach(function(s){
+    var tc=s.h.c,id=String(tc.id);if(!dataById.has(id)||!dataById.has(String(s.p.id)))return;
+    var mm=function(q){return number(q)/1000},a=toWorld(s.h.ax,s.h.ay,s.h.az),b=toWorld(s.h.bx,s.h.by,s.h.bz),U=b.clone().sub(a).normalize();
+    var n=U.clone().cross(new T.Vector3(0,1,0)).cross(U).normalize();if(n.y<0)n.negate();var W=U.clone().cross(n).normalize();
+    // (uphill along the chord: the middle of the purlin's bottom there)
+    var up=U.clone().multiplyScalar(U.y>=0?1:-1),P=toWorld(s.x,s.y,s.top).add(up.clone().multiplyScalar(s.s0/1000));
+    var pl=s.seat.plate_mm,PL=mm(pl[0])||.56,PW=mm(pl[1])||.36,t=s.TH/1000;
+    var m=plateBox(tc,P.clone().add(n.clone().multiplyScalar(t/2)),U,n,W,PL,t,PW);m.userData.plate=true;partTag(m,"опорный лист прогона","−"+s.TH+(s.seat.steel?" "+s.seat.steel:""));
+    m.userData.memberId=id;steel.add(m);allMeshes.push(m);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(m);
+    var dia=boltDia(s.p),tl=number(s.h.sec.t)/1000;if(!dia||!tl)return;
+    var along=mm(s.seat.bolt_along_mm)||(number(s.sec.b)/2+50)/1000,across=mm(s.seat.bolt_across_mm)||.08;
+    [-1,1].forEach(function(i){[-1,1].forEach(function(j){
+     addBolt(s.p,P.clone().add(U.clone().multiplyScalar(i*along)).add(W.clone().multiplyScalar(j*across)).add(n.clone().multiplyScalar((t-tl)/2)),n,dia,t+tl,"node")})})
    })
   }
   // A member lying on another across it with either of them sloped — the purlins п1 □80×4 of the porches Кр1–Кр5, Кр7
@@ -5589,7 +5657,7 @@ window.irThreeSchemeView=(function(){
    allMeshes=[];plateCells.clear();platesN=0;boltList=[];seatIndex=null;webGus=[];webTraps=[];cleatRibs=[];footRibFree.clear();dataById.clear();meshesById.clear();failures=0;weldList=[];weldRun++;conventional.clear();drillCache.clear();upperCache.clear();seatCache.clear();boltNear.clear();boltNearN=0;
    labels.forEach(function(l){l.el.remove()});labels=[];
    elems=Array.isArray(list)?list:[];deckPairs.clear();deckRects=null;deckCols=null;bridgeList=null;bridgePlates=[];
-   strutGus.length=0;ribGus.length=0;slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);beamEndNodes(elems);ribsUnderPlates(elems);ribStruts(elems);underChords(elems);purlinNodes(elems);seatLevels(elems);purlinTilts(elems);restLifts(elems);ridgeMiters(elems);guardLines(elems);guardFeet(elems);postFeet(elems);stubTops(elems);guardRails(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);roofCones(elems);ladderStringers(elems);stairStringers(elems);landingChannels(elems);toeBoards(elems);flightPosts(elems);guardBraces(elems);wallRings(elems);guardJoints(elems);
+   strutGus.length=0;ribGus.length=0;slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);beamEndNodes(elems);ribsUnderPlates(elems);ribStruts(elems);underChords(elems);purlinNodes(elems);seatLevels(elems);purlinTilts(elems);chordSeats(elems);restLifts(elems);ridgeMiters(elems);guardLines(elems);guardFeet(elems);postFeet(elems);stubTops(elems);guardRails(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);roofCones(elems);ladderStringers(elems);stairStringers(elems);landingChannels(elems);toeBoards(elems);flightPosts(elems);guardBraces(elems);wallRings(elems);guardJoints(elems);
    // (the posts with no conditional plate of their own before the members: a column on a member stands on its plate)
    platelessPosts();
    var host=jointHosts(elems);findCrossings(elems,host);
@@ -5844,6 +5912,7 @@ window.irThreeSchemeView=(function(){
     pairChannels(elems.filter(function(c){return dataById.has(String(c.id))}));
     crossPlates.forEach(function(e){if(!dataById.has(e.id))return;var m=e.mesh;
      m.userData.memberId=e.id;steel.add(m);allMeshes.push(m);if(!meshesById.has(e.id))meshesById.set(e.id,[]);meshesById.get(e.id).push(m)});
+    chordSeatDraw();
     pedestals=[];
     elems.forEach(function(c){if(dataById.has(String(c.id))&&basePlated(c))baseParts(c)});
     elems.forEach(function(c){if(c.geometryType==="column"&&dataById.has(String(c.id)))footAngleParts(c)});
@@ -10178,6 +10247,13 @@ window.irThreeSchemeView=(function(){
   // The members are rebuilt only when they changed: choosing a member or a toggle on the page only repaints.
   var built="";
   function signature(list){try{return JSON.stringify(list||[])}catch(e){return String(Math.random())}}
+  // In the exported scheme and the report the members never change — the same objects come back, only fewer or more of
+  // them by the filters. Compared by their text, a member written into after the building (a card opened: its parts,
+  // its nodes) looked like a new scheme, and the closing of the card built the whole model again with its bar of loading
+  // (the engineer, 09.11.2026: «смотрел прогон, нажал на крестик и отчет опять пишет загрузка»). There the same members
+  // in the same order are the same scheme; in the program — by their text, as before.
+  var builtRefs=null;
+  function sameRefs(list){if(!P.report||!builtRefs||!list||list.length!==builtRefs.length)return false;for(var i=0;i<list.length;i++)if(list[i]!==builtRefs[i])return false;return true}
   function update(next){
    // (the model still being built by steps: the new members and settings wait for it — buildSteps)
    if(building){building.next=next;return}
@@ -10188,7 +10264,7 @@ window.irThreeSchemeView=(function(){
    firstPaint=false;
    if(COLOR_MODES.indexOf(P.colorMode)>=0&&P.colorMode!==colorMode){colorMode=P.colorMode;root.querySelector("#irThreeColors").value=colorMode}
    selected=String(P.selected||"");
-   var sig=signature(P.elements);
+   var sig=sameRefs(P.elements)?built:signature(P.elements);if(sig!==built)builtRefs=(P.elements||[]).slice();
    // (the time of a rebuild is not the time of a picture: three kinds of members switched off on the legend — three
    // rebuilds of over 0.4 s — took the window for a slow one, and it went over to the simplified drawing for good, without
    // smoothing and with fewer pixels — the engineer, 03.11.2026: «когда виды конструкций начинаешь отключать, как будто
@@ -10251,7 +10327,7 @@ window.irThreeSchemeView=(function(){
    else setView("iso");
    showLight();frame()
   }
-  built=signature(P.elements);
+  built=signature(P.elements);builtRefs=(P.elements||[]).slice();
   if(typeof P.onProgress==="function")buildSteps(P.elements,shown);
   else{buildMembers(P.elements);buildCranes();buildTankDims();buildLevels();buildNodes();deriveParts();lowerGround();applyBackground();refreshMaterials();shown();weldsLater()}
   // Footings below ±0.000 (bases at −0.600): the floor, the grid and the dimensions go down to the lowest member,

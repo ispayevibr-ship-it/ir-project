@@ -206,11 +206,17 @@
   function building(v,what){lastStep=performance.now();if(window.__irLoad)window.__irLoad(.12+.86*Math.max(0,Math.min(1,v)),what||"Построение модели")}
   function firstPaint(){
    if(window.__irLoad)window.__irLoad(1);
+   // (once the 3D is up, a later picture — after a filter or a closed card — checks nothing again: the field may be hidden
+   // then, the report showing another section, and it took the working 3D for a broken one — the engineer, 09.11.2026:
+   // «Поле 3D-схемы получилось высотой 0 пкс»)
+   if(window.__irOk)return;
    var host=$("stage3d"),err=host.querySelector(".ir-three-error");
    if(err){window.__irFail([].slice.call(err.querySelectorAll("strong,span")).map(function(x){return x.textContent}).join(": "));return}
    window.__irOk=true;
    // (inside the object report the frame may get its size a moment later — wait for it, 10 s, before the pictures)
-   var h=host.getBoundingClientRect().height;if(h<40&&window.parent!==window&&(firstPaint.n=(firstPaint.n||0)+1)<50){setTimeout(firstPaint,200);return}
+   var h=host.getBoundingClientRect().height;
+   // (in the report a field without height is a section not shown now — the 3D waits for it, as long as it takes)
+   if(h<40&&window.parent!==window){var fe=null;try{fe=window.frameElement}catch(e){}if((fe&&!fe.getClientRects().length)||(firstPaint.n=(firstPaint.n||0)+1)<50){setTimeout(firstPaint,fe&&!fe.getClientRects().length?500:200);return}}
    if(h<40){window.__irOk=false;window.__irFail("Поле 3D-схемы получилось высотой "+Math.round(h)+" пкс (экран "+innerWidth+"×"+innerHeight+")");return}
    var cv=host.querySelector("canvas"),lost=0;
    if(cv){cv.addEventListener("webglcontextlost",function(){clearTimeout(lost);lost=setTimeout(function(){window.__irOk=false;window.__irFail("Телефон отключил 3D-графику (WebGL): не хватило памяти")},3000)});
