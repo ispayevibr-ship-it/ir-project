@@ -52,6 +52,13 @@
 .ir-acc-x{transition:background .15s;outline:none}.ir-acc-x:focus-visible{box-shadow:0 0 0 2px #fff}.ir-acc-x:hover{background:rgba(255,255,255,.22)}
 .ir-acc-tools{display:flex;gap:8px;align-items:center}.ir-acc-tools .grow{flex:1}
 .ir-acc-st:empty{display:none}
+.ir-acc-person .grants{display:grid;gap:5px;padding-top:8px;border-top:1px solid #edf2f6}
+.ir-acc-g{display:grid;grid-template-columns:auto minmax(0,1fr);gap:1px 10px;align-items:baseline}
+.ir-acc-g b{font-weight:650;color:#1d3247;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ir-acc-g .what{grid-column:2;color:#5b7a92;font-size:11.5px}
+.ir-acc-g.none{display:block;color:#7b8f9f}
+.ir-acc-tag{grid-row:span 2;align-self:start;min-width:86px;text-align:center;padding:1px 8px;border-radius:20px;background:#eef2f5;color:#5b6b78;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+.ir-acc-tag.edit{background:#e3f4ea;color:#1f7a4c}
 .ir-acc-on,.ir-acc-off{display:inline-flex;align-items:center;gap:5px;margin-left:8px;font-size:11.5px;font-weight:600}
 .ir-acc-on{color:#1f7a4c}.ir-acc-on::before{content:"";width:8px;height:8px;border-radius:50%;background:#22a35a;box-shadow:0 0 0 3px rgba(34,163,90,.18)}
 .ir-acc-off{color:#7b8f9f;font-weight:500}.ir-acc-off::before{content:"";width:8px;height:8px;border-radius:50%;background:#b8c6d1}
@@ -158,11 +165,14 @@
   `<span class="ir-acc-off">${p.lastSeen?"был(а) "+esc(ago(p.lastSeen)):"ещё не входил(а)"}</span>`;
 
  // ---- the administrator's panel ----
- const grantText=(grants,objects,sections)=>{
-  if(!grants?.length)return"Нет доступа ни к одному объекту";
+ // What a person sees: a line per object — the name, «изменяет» / «просмотр», the sections short (the engineer, 09.11.2026
+ // «каша» about one long line): all — «все разделы», almost all — «все, кроме: …», otherwise the list in the menu's order.
+ const grantHtml=(grants,objects,sections)=>{
+  if(!grants?.length)return'<div class="ir-acc-g none">Нет доступа ни к одному объекту</div>';
   return grants.map(g=>{const o=objects.find(x=>Number(x.id)===Number(g.objectId));
-   const what=g.whole?"весь объект":g.sections.map(k=>sections.find(s=>s.key===k)?.name||k).join(", ");
-   return(o?o.name:"объект №"+g.objectId)+" — "+what+(g.canEdit?" · изменяет":" · просмотр")}).join("; ")
+   const have=sections.filter(x=>g.sections.includes(x.key)),miss=sections.filter(x=>!g.sections.includes(x.key));
+   const what=g.whole||!miss.length?"все разделы":miss.length<=3?"все разделы, кроме: "+miss.map(x=>x.name).join(", "):have.map(x=>x.name).join(", ");
+   return`<div class="ir-acc-g"><span class="ir-acc-tag ${g.canEdit?"edit":""}">${g.canEdit?"изменяет":"просмотр"}</span><b>${esc(o?o.name:"объект №"+g.objectId)}</b><span class="what">${esc(what)}</span></div>`}).join("")
  };
  async function panel(anchorDoc){
   const doc=anchorDoc||document;
@@ -185,7 +195,7 @@
     st.textContent="";d.querySelector("[data-count]").textContent="Сейчас в программе: "+on+" из "+people.length;
     list.innerHTML=people.map(p=>`<div class="ir-acc-person" data-id="${esc(p.id)}"><div class="who"><strong>${esc(p.name||p.email)}</strong><span class="ir-acc-role ${p.role==="admin"?"admin":""}">${esc(p.roleName)}</span>${presence(p)}<small>${esc(p.email)}</small></div>
      <div class="acts">${p.id===state.user.id?'<button type="button" class="ir-acc-btn small" data-rename>Изменить имя</button><button type="button" class="ir-acc-btn small" data-pw>Сменить свой пароль</button>':`<button type="button" class="ir-acc-btn small" data-edit>Доступ</button><button type="button" class="ir-acc-btn small" data-reset>Новый пароль</button><button type="button" class="ir-acc-btn small danger" data-del>Убрать</button>`}</div>
-     <div class="grants">${p.role==="admin"?"Все объекты и разделы":esc(grantText(p.grants,objects,state.sections))}</div></div>`).join("")||'<div class="ir-acc-help">Пока никого нет.</div>';
+     <div class="grants">${p.role==="admin"?'<div class="ir-acc-g"><span class="ir-acc-tag edit">изменяет</span><b>Все объекты</b><span class="what">все разделы</span></div>':grantHtml(p.grants,objects,state.sections)}</div></div>`).join("")||'<div class="ir-acc-help">Пока никого нет.</div>';
     list.querySelectorAll(".ir-acc-person").forEach(row=>{const p=people.find(x=>x.id===row.dataset.id);
      row.querySelector("[data-pw]")?.addEventListener("click",()=>changePassword(d));
      row.querySelector("[data-rename]")?.addEventListener("click",()=>rename(d.ownerDocument).then(load));
