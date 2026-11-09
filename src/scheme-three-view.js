@@ -9272,8 +9272,16 @@ window.irThreeSchemeView=(function(){
     // through each other)
     var ca=run/Math.max(1e-6,Math.hypot(run,rise)),ta=rise/Math.max(1e-6,run);
     if(!railed)[-w/2,w/2].forEach(function(s){var sg=s<0?-1:1,sp=s+sg*.0525,sm=s+sg*.0225;
+     // (each post's top cut along the flight on the handrail's bottom, the end posts in from the ends of the handrail by
+     // their half and the slope of its square end — the top square, at the lower corner of the handrail, stood up to 38 mm
+     // under it, and the handrail began over the end post's middle: the engineer, 09.11.2026, РВС-700 Ш1 at 2/А, «это
+     // что за стык воздушный у лестницы такой»; the handrail not on past its ends — the frame of a shaft is there)
+     var fe=Math.min(.2,(.0185+.02*rise/Math.hypot(run,rise))/Math.max(run,1e-6));
      bx(off(lo,sp,1),off(hi,sp,1),.04,side);bx(off(lo,sm,.5),off(hi,sm,.5),.025,side);
-     [0,.5,1].forEach(function(f){var p=at(f);bx(off(p,sp,-.035/ca),off(p,sp,1-.02/ca-.0175*ta-.001),.035,side)})});
+     [fe,.5,1-fe].forEach(function(f){var p=at(f),b0=off(p,sp,-.035/ca),L=1-.02/ca-.0005+.035/ca;bx(b0,off(p,sp,1-.02/ca-.0005),.035,side);
+      var pm=parts[parts.length-1],g=pm.geometry.clone(),ps=g.attributes.position;
+      for(var i=0;i<ps.count;i++)if(ps.getZ(i)>.5)ps.setZ(i,1+ta*ps.getY(i)/L);
+      ps.needsUpdate=true;g.computeVertexNormals();pm.geometry=g})});
    }
    parts.forEach(function(mesh){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);
     if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh)});

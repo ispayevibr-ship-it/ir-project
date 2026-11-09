@@ -1321,6 +1321,10 @@
     ".ir-export-daily-card>details[open]>summary{background:#f6faff;border-bottom:1px solid #e1eaf2}",
     ".ir-export-daily-card>details>summary:hover{background:#f1f8fe}",
     ".ir-export-daily-brief{display:flex;align-items:stretch;flex-wrap:wrap;gap:8px;padding:12px 14px}",
+    // (the brief of a daily report in a narrow window — a grid, not a ragged wrap: the engineer, 09.11.2026 «при маленьком
+    // разрешение кривит»; wide — one row, narrow — date and weather, people and equipment, the volume under them, the arrow top right)
+    ".ir-export-daily-brief{display:grid!important;grid-template-columns:minmax(120px,1.1fr) minmax(130px,1.25fr) minmax(90px,.8fr) minmax(90px,.8fr) minmax(170px,2fr) 32px;align-items:center}.ir-export-daily-brief>.ir-export-daily-metric{flex:none}",
+    "@media(max-width:860px){.ir-export-daily-brief{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 32px;gap:4px 8px;padding:10px 12px}.ir-export-daily-brief>.ir-export-daily-metric:nth-child(1){grid-area:1/1}.ir-export-daily-brief>.ir-export-daily-metric:nth-child(2){grid-area:1/2}.ir-export-daily-brief>.ir-export-daily-metric:nth-child(3){grid-area:2/1}.ir-export-daily-brief>.ir-export-daily-metric:nth-child(4){grid-area:2/2}.ir-export-daily-brief>.ir-export-daily-metric:nth-child(5){grid-area:3/1/4/3}.ir-export-daily-brief>.ir-export-daily-chevron{grid-area:1/3;align-self:start}}",
     ".ir-export-daily-metric{display:flex;align-items:center;gap:8px;flex:1 1 143px;min-width:0;padding:7px}",
     ".ir-export-daily-metric:last-of-type{flex:2 1 220px}",
     ".ir-export-daily-icon{width:29px;height:29px;flex:0 0 29px;display:grid;place-items:center;border-radius:8px;background:#eaf4fd;color:#4385b4}",

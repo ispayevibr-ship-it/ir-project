@@ -432,6 +432,37 @@ body.ir-object-route:has(.wt-page){max-width:100vw;overflow-x:clip}
  .report-row.ir-reference-row .report-cell-work{padding:8px 11px}
 }
 
+/* 1.12.29: строка отчёта в узком окне (инженер, 09.11.2026 «при маленьком разрешение кривит»): подписи не переносятся
+   («ед. техники» в одну строку), колонки по ширине подписей, кнопки всегда внутри строки, техника не пропадает; совсем
+   узко — работы второй строкой под датой, людьми и техникой. */
+.reports-page .report-row.ir-reference-row .report-cell:not(.report-cell-work) b,.reports-page .report-row.ir-reference-row .report-cell:not(.report-cell-work) small{white-space:nowrap}
+.reports-page .report-row.ir-reference-row .report-cell-actions{padding:12px 14px!important}
+.reports-page .report-row.ir-reference-row .report-cell-actions .report-actions{flex-wrap:nowrap;gap:8px!important}
+.reports-page .report-row.ir-reference-row .report-cell-actions .report-actions button{flex:none}
+.reports-page .report-row.ir-reference-row{grid-template-columns:180px 125px 160px 115px 190px minmax(240px,1fr) 156px!important}
+@media(max-width:1320px){.reports-page .report-row.ir-reference-row{grid-template-columns:170px 115px 150px 180px minmax(220px,1fr) 150px!important}.reports-page .report-row.ir-reference-row .report-cell{gap:12px}}
+@container ir-all-reports (max-width:1240px){
+ .reports-page .report-row.ir-reference-row{grid-template-columns:160px 110px 145px minmax(170px,1fr) 146px!important}
+ .reports-page .report-row.ir-reference-row .report-cell{gap:12px;padding-left:16px;padding-right:16px}
+ .reports-page .report-row.ir-reference-row .report-cell-actions .report-actions button{width:34px;height:34px;padding:7px}
+}
+@container ir-all-reports (max-width:900px){
+ .reports-page .report-row.ir-reference-row{grid-template-columns:140px 92px 122px minmax(150px,1fr) 132px!important}
+ .reports-page .report-row.ir-reference-row .report-cell-equipment{display:flex!important}
+ .reports-page .report-row.ir-reference-row .report-cell{gap:9px;padding:10px 12px}
+ .reports-page .report-row.ir-reference-row .report-list-icon{flex-basis:24px;width:24px;height:24px}
+ .reports-page .report-row.ir-reference-row .report-list-icon svg{width:22px;height:22px}
+ .reports-page .report-row.ir-reference-row .report-cell-actions{padding:10px 12px!important}
+ .reports-page .report-row.ir-reference-row .report-cell-actions .report-actions{gap:6px!important}
+ .reports-page .report-row.ir-reference-row .report-cell-actions .report-actions button{width:32px;height:32px;padding:6px}
+}
+@container ir-all-reports (max-width:640px){
+ .reports-page .report-row.ir-reference-row{grid-template-columns:132px 84px 116px minmax(0,1fr)!important;min-height:0}
+ .reports-page .report-row.ir-reference-row .report-cell-actions{grid-column:4;grid-row:1;justify-content:flex-end}
+ .reports-page .report-row.ir-reference-row .report-cell-work{grid-column:1/-1;grid-row:2;align-items:flex-start;text-align:left;border-left:0;border-top:1px solid #e4eaee;padding:9px 12px}
+ .reports-page .report-row.ir-reference-row .report-cell-work .reference-work-group,.reports-page .report-row.ir-reference-row .report-cell-work .reference-work-codes{align-items:flex-start;text-align:left}
+}
+
 
 /* #10: src/reports-no-flicker.css */
 .reports-page .reports-list{visibility:hidden!important}.reports-page .reports-list.reports-final-ready{visibility:visible!important}
