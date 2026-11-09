@@ -81,12 +81,12 @@
   "Нажмите <b>«Проверить подключение»</b> — должно появиться «Подключение работает»."
  ]);
  const helpGit=repo=>help("Как получить ключ GitHub — пошагово",[
-  "Войдите на <b>github.com</b> под аккаунтом, у которого есть доступ к репозиторию <b>"+esc(repo)+"</b>.",
+  "Войдите на <b>github.com</b> под аккаунтом, у которого есть доступ к репозиторию программы (его даёт администратор).",
   "Нажмите на свой аватар справа вверху → <b>Settings</b> → в самом низу меню слева <b>Developer settings</b>.",
   "<b>Personal access tokens</b> → <b>Fine-grained tokens</b> → <b>Generate new token</b>.",
   "Token name: «IR Project — этот компьютер». Expiration: 1 год (по окончании выпустите новый и вставьте сюда).",
-  "Resource owner: владелец репозитория — <b>"+esc(String(repo).split("/")[0])+"</b>.",
-  "Repository access: <b>Only select repositories</b> → выберите <b>"+esc(repo)+"</b>.",
+  "Resource owner: владелец репозитория программы.",
+  "Repository access: <b>Only select repositories</b> → выберите репозиторий программы.",
   "Permissions → в блоке <b>Repository permissions</b> нажмите <b>Add permissions</b>. В окне поиска напишите <b>Contents</b> (не «repo» — по нему этот пункт не находится), поставьте галочку и закройте окно.",
   "Справа от строки <b>Contents</b> смените «Read-only» на <b>Read and write</b>. Metadata добавится сама.",
   "Внизу <b>Generate token</b> → скопируйте ключ (начинается с <code>github_pat_</code>). Он показывается один раз.",
@@ -161,14 +161,14 @@
    return'<section class="ir-ais-card"><header><div><div class="ir-ais-kicker">БАЗА ЗНАНИЙ НА GITHUB</div><h3>Отправка обучения в репозиторий</h3>'+
     '<p>Ответы Claude по комплектам, ваши указания и новые виды конструкций уходят в <b>'+esc(git.folder)+'</b>. После проверки они приходят на все компьютеры с обновлением.</p></div>'+
     (git.hasToken?'<span class="ir-ais-chip ok">Подключено</span>':'<span class="ir-ais-chip">Ключ не указан</span>')+'</header>'+
-    '<div class="ir-ais-fields"><label>Репозиторий (владелец/имя)<input type="text" data-gh-repo value="'+esc(git.repo)+'" spellcheck="false"></label>'+
+    '<div class="ir-ais-fields"><label>Репозиторий (владелец/имя)<input type="text" data-gh-repo value="" placeholder="'+(git.repo?"Задан — введите новый, чтобы заменить":"владелец/имя")+'" spellcheck="false"></label>'+
     '<label>Ветка<input type="text" data-gh-branch value="'+esc(git.branch)+'" spellcheck="false"></label>'+
     '<label class="wide">Ключ доступа GitHub (github_pat_…)<input type="password" data-gh-token autocomplete="off" spellcheck="false" placeholder="'+(git.hasToken?"Сохранён — введите новый, чтобы заменить":"github_pat_…")+'"></label></div>'+
     '<label class="ir-ais-check"><input type="checkbox" data-gh-auto'+(git.auto?" checked":"")+dis()+'> Отправлять автоматически после обработки Claude и обучения</label>'+
     '<div class="ir-ais-stats"><div>Ждут отправки<b>'+git.pending+' из '+git.total+' файлов</b></div><div>Последняя отправка<b>'+(git.last?.at?esc(when(git.last.at))+" · "+git.last.files+" файл(ов)":"ещё не было")+'</b></div></div>'+
     (git.lastError?'<div class="ir-ais-note err">Ошибка отправки: '+esc(git.lastError)+'</div>':'')+
     // The closed repository of the data: where everything goes and where the data of the drawings come from.
-    (git.data?'<div class="ir-ais-note">Данные чертежей, обучение и чат — в '+(git.data.private?'закрытом':'')+' хранилище <b>'+esc(git.data.repo||"…")+'</b>'+
+    (git.data?'<div class="ir-ais-note">Данные чертежей, обучение и чат — в '+(git.data.private?'закрытом ':'')+'хранилище программы'+
      (git.data.pulled?.at?'. Данные чертежей получены '+esc(when(git.data.pulled.at))+' · файлов '+git.data.pulled.files:'')+'</div>'+
      (git.data.error?'<div class="ir-ais-note err">Данные чертежей не получены: '+esc(git.data.error)+'</div>':''):'')+
     '<div class="ir-ais-actions"><button type="button" class="ir-ais-btn main" data-gh-save'+dis()+'>Сохранить и проверить</button>'+
@@ -201,9 +201,9 @@
     if(!key)throw Error("Вставьте API-ключ");if(!await authorize())return;data=await api.setKey(key,model);const c=await api.test();
     status(c.reason?"Ключ сохранён, но проверка не прошла: "+c.reason:"Ключ сохранён и проверен. Claude готов к работе.",c.reason?"err":"")})});
    q("[data-clear-key]")&&(q("[data-clear-key]").onclick=()=>action(async()=>{if(!await authorize())return;data=await api.clearKey();status("API-ключ удалён с этого компьютера.")}));
-   q("[data-gh-save]")&&(q("[data-gh-save]").onclick=()=>{const v={repo:q("[data-gh-repo]").value,branch:q("[data-gh-branch]").value,auto:q("[data-gh-auto]").checked},tk=q("[data-gh-token]").value.trim();if(tk)v.token=tk;
+   q("[data-gh-save]")&&(q("[data-gh-save]").onclick=()=>{const repoIn=q("[data-gh-repo]").value.trim(),v={...(repoIn?{repo:repoIn}:{}),branch:q("[data-gh-branch]").value,auto:q("[data-gh-auto]").checked},tk=q("[data-gh-token]").value.trim();if(tk)v.token=tk;
     action(async()=>{if(!await authorize())return;git=await aiInvoke("ai-github:set",v);
-     if(git.hasToken){const t=await aiInvoke("ai-github:test");status("Доступ к "+(t?.repo||git.repo)+" ("+(t?.branch||git.branch)+") проверен. "+(git.pending?"Можно отправить: "+git.pending+" файл(ов).":"Отправлять пока нечего."))}
+     if(git.hasToken){const t=await aiInvoke("ai-github:test");status("Доступ к репозиторию программы проверен. "+(git.pending?"Можно отправить: "+git.pending+" файл(ов).":"Отправлять пока нечего."))}
      else status("Настройки сохранены. Вставьте ключ доступа GitHub — инструкция ниже.","warn")})});
    q("[data-gh-auto]")&&(q("[data-gh-auto]").onchange=e=>{const auto=e.target.checked;action(async()=>{if(!await authorize()){git=await aiInvoke("ai-github:info");return}
     git=await aiInvoke("ai-github:set",{auto});status(auto?"Обучение будет отправляться само.":"Автоматическая отправка выключена.")})});
