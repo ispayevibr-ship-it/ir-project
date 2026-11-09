@@ -86,6 +86,8 @@
 .ir-acc-menu button{display:block;width:100%;text-align:left;padding:8px 10px;border:0;border-radius:8px;background:none;font:inherit;color:inherit;cursor:pointer}
 .ir-acc-menu button:hover{background:#eef4fa}
 .ir-acc-menu button.danger{color:#b4321f}
+.ir-acc-note{font-size:12.5px;color:#4d6a80;line-height:1.45}
+.ir-acc-bar{position:fixed;z-index:9999;left:50%;bottom:18px;transform:translateX(-50%);display:flex;gap:10px;align-items:center;padding:10px 12px 10px 16px;border-radius:12px;background:#fff;border:1px solid #c9d8e4;box-shadow:0 12px 32px rgba(8,28,48,.22);font:13px/1.4 "Segoe UI",system-ui,Arial,sans-serif;color:#1d3247}
 @media (max-width:640px){.ir-acc-row{grid-template-columns:1fr}.ir-acc-person{grid-template-columns:1fr}.ir-acc-person .acts{justify-content:flex-start}}`;
  const style=doc=>{if(!doc.getElementById(STYLE_ID)){const s=doc.createElement("style");s.id=STYLE_ID;s.textContent=CSS;doc.head.appendChild(s)}};
  const dialog=(doc,cls,html)=>{style(doc);const d=doc.createElement("dialog");d.className="ir-acc "+(cls||"");d.innerHTML=html;doc.body.appendChild(d);d.showModal();
@@ -273,6 +275,59 @@
   })
  }
 
+ // Синхронизация базы через сервер (src/server-sync.js): включить, выключить, обменяться сейчас; администратору —
+ // первая отправка всей базы (просьба инженера: «база у меня на ПК — главная»).
+ const when=iso=>{if(!iso)return"";const d=new Date(iso);return isNaN(d)?"":d.toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"})};
+ function syncText(s){
+  if(!s.enabled)return["","Выключена. Данные этого компьютера никуда не уходят."];
+  if(s.progress)return["",`Отправляется база: ${s.progress.done} из ${s.progress.total}`];
+  if(s.state==="offline")return["err",`Нет связи с сервером. Изменения ждут на этом компьютере${s.pending?" ("+s.pending+")":""} и уйдут сами.`];
+  if(s.state==="error")return["err","Сервер не принял: "+(s.error||"ошибка")];
+  if(s.state==="signed-out")return["err","Войдите в программу — без входа обмен остановлен."];
+  if(s.pending)return["",`Отправляется изменений: ${s.pending}`];
+  return["ok","Включена. Всё отправлено"+(s.lastAt?", последний обмен "+when(s.lastAt):"")+"."];
+ }
+ function syncDialog(doc){
+  const admin=state?.user?.role==="admin";
+  const d=dialog(doc,"",head("Синхронизация","Изменения в объектах уходят на сервер a-ts.kz и приходят на компьютеры тех, кому вы дали доступ — сами, раз в несколько секунд.")+
+   `<div class="ir-acc-body"><div class="ir-acc-st" data-st>Проверяем…</div><div class="ir-acc-note" data-why hidden></div>
+   <div class="ir-acc-note">Не передаются (тяжёлые, делаются на каждом компьютере): анализы ИИ-распознавания, снимки схемы, документы распознавания.</div>
+   ${admin?`<div class="ir-acc-note" data-first hidden>Первый раз: отправьте на сервер всю базу этого компьютера — она станет общей. Перед отправкой рядом с базой сохранится копия <b>ir-project-before-sync.db</b>.<br><button type="button" class="ir-acc-btn" data-up hidden style="margin-top:8px">Отправить мою базу на сервер</button></div>`:""}</div>
+   <div class="ir-acc-foot"><span class="grow"></span>
+   <button type="button" class="ir-acc-btn" data-now>Обменяться сейчас</button><button type="button" class="ir-acc-btn main" data-on></button></div>`);
+  const st=d.querySelector("[data-st]"),why=d.querySelector("[data-why]"),on=d.querySelector("[data-on]"),now=d.querySelector("[data-now]"),up=d.querySelector("[data-up]"),first=d.querySelector("[data-first]");
+  let s=null;
+  const show=v=>{s=v||s;if(!s)return;const [k,t]=syncText(s);st.className="ir-acc-st "+k;st.textContent=t;
+   why.hidden=!s.rejected;why.textContent=s.rejected?`Не принято сервером: ${s.rejected}. ${s.rejectedWhy||""}`:"";
+   on.textContent=s.enabled?"Выключить":"Включить";now.disabled=!s.enabled;
+   if(up){first.hidden=Boolean(s.uploaded)||Boolean(s.progress);up.hidden=first.hidden}};
+  const fail=e=>{st.className="ir-acc-st err";st.textContent=errText(e)};
+  const load=async()=>{try{show(await call("ai-settings:server-sync-info"))}catch(e){fail(e)}};
+  const t=setInterval(load,2000);d.addEventListener("close",()=>clearInterval(t),{once:true});
+  on.onclick=async()=>{on.disabled=true;try{show(await call(s?.enabled?"ai-settings:server-sync-disable":"ai-settings:server-sync-enable"))}catch(e){fail(e)}finally{on.disabled=false}};
+  now.onclick=async()=>{now.disabled=true;st.className="ir-acc-st";st.textContent="Обмен…";try{show(await call("ai-settings:server-sync-now"))}catch(e){fail(e)}finally{now.disabled=!s?.enabled}};
+  if(up)up.onclick=async()=>{if(!confirm("Отправить всю базу этого компьютера на сервер? Она станет общей для всех, кому вы дали доступ. Копия базы сохранится рядом."))return;
+   up.disabled=true;try{show(await call("ai-settings:server-sync-upload"))}catch(e){fail(e)}finally{up.disabled=false}};
+  void load();
+ }
+ // Пришли изменения с сервера — полоса «Обновить» над вкладками (один раз на всё окно программы).
+ function watchChanges(){
+  const h=host();if(h.__irSyncWatch)return;h.__irSyncWatch=true;
+  let seen=0;
+  setInterval(async()=>{
+   let s;try{s=await call("ai-settings:server-sync-info")}catch{return}
+   if(!s?.enabled||!s.changedAt)return;
+   if(!seen){seen=s.changedAt;return}
+   if(s.changedAt===seen)return;seen=s.changedAt;
+   const doc=h.document;style(doc);if(doc.querySelector(".ir-acc-bar"))return;
+   const bar=doc.createElement("div");bar.className="ir-acc-bar";
+   bar.innerHTML='<span>Пришли изменения с сервера.</span><button type="button" class="ir-acc-btn main" data-r>Обновить</button><button type="button" class="ir-acc-btn" data-x>Позже</button>';
+   doc.body.appendChild(bar);
+   bar.querySelector("[data-r]").onclick=()=>{try{h.location.reload()}catch{location.reload()}};
+   bar.querySelector("[data-x]").onclick=()=>bar.remove();
+  },15000);
+ }
+
  // The menu of the profile badge: who is signed in, the panel, the password, sign out.
  function menu(anchor){
   const doc=anchor?.ownerDocument||document;style(doc);
@@ -281,7 +336,7 @@
   if(!u){void login(doc);return}
   const m=doc.createElement("div");m.className="ir-acc-menu";
   m.innerHTML=`<div class="me"><strong>${esc(u.name||u.email)}</strong><small>${esc(u.email)}</small><small>${esc(u.roleName)}</small></div>
-   ${u.role==="admin"?'<button type="button" data-panel>Панель администратора</button>':""}<button type="button" data-name>Изменить имя</button><button type="button" data-pw>Сменить пароль</button><button type="button" class="danger" data-out>Выйти</button>`;
+   ${u.role==="admin"?'<button type="button" data-panel>Панель администратора</button>':""}<button type="button" data-sync>Синхронизация</button><button type="button" data-name>Изменить имя</button><button type="button" data-pw>Сменить пароль</button><button type="button" class="danger" data-out>Выйти</button>`;
   doc.body.appendChild(m);
   const r=anchor.getBoundingClientRect(),vw=doc.defaultView.innerWidth;
   m.style.top=Math.round(r.bottom+6)+"px";m.style.left=Math.max(8,Math.min(Math.round(r.right-m.offsetWidth),vw-m.offsetWidth-8))+"px";
@@ -294,6 +349,7 @@
   setTimeout(()=>{doc.addEventListener("pointerdown",out,true);doc.addEventListener("ir-outside-click",close);doc.addEventListener("keydown",esc,true);win?.addEventListener("blur",close)});
   m.querySelector("[data-panel]")?.addEventListener("click",()=>{close();panel(doc)});
   m.querySelector("[data-pw]").onclick=()=>{close();changePassword(doc)};
+  m.querySelector("[data-sync]").onclick=()=>{close();syncDialog(doc)};
   m.querySelector("[data-name]").onclick=()=>{close();rename(doc)};
   m.querySelector("[data-out]").onclick=async()=>{close();if(!confirm("Выйти из программы на этом компьютере?"))return;
    try{apply(await call("ai-settings:server-logout"))}catch{}if(window.irAccess?.logout)irAccess.logout();apply();location.reload()};
@@ -312,8 +368,9 @@
   const s=await check();
   if(s&&!s.signedIn){let asked=true;try{asked=sessionStorage.getItem("ir-login-asked");sessionStorage.setItem("ir-login-asked","1")}catch{}
    if(!asked)setTimeout(()=>login(host().document,{first:true}),800)}
-  setInterval(()=>void check(),30*60e3)
+  setInterval(()=>void check(),30*60e3);
+  watchChanges()
  }
- window.irServerAccount={menu,panel,login,changePassword,info,state:()=>state};
+ window.irServerAccount={menu,panel,login,changePassword,syncDialog,info,state:()=>state};
  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>void start(),{once:true});else void start();
 })();

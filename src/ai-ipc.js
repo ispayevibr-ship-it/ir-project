@@ -220,6 +220,13 @@ handle("ai-montage:journal-add",(_e,{objectId,elementId,comment,objectName,actio
  accountCall("people",()=>account.people());accountCall("invite",v=>account.invite(v));accountCall("update",v=>account.update(v));
  accountCall("reset",v=>account.resetPassword(v));accountCall("remove",v=>account.remove(v));
  accountCall("objects",()=>database.listObjects().map(o=>({id:o.id,name:o.name,status:o.status})));
+ // Синхронизация базы программы через сервер (src/server-sync.js): изменения уходят и приходят сами, раз в несколько секунд.
+ let sync=null;
+ try{sync=require("./server-sync").createServerSync({dbFile:()=>require("node:path").join(getUserDataPath(),"ir-project.db"),account,getUserDataPath})}
+ catch(e){console.error("IR sync:",e)}
+ const syncCall=(name,fn)=>accountCall("sync-"+name,v=>{if(!sync)throw Error("Синхронизация недоступна в этой версии программы — нужен установщик");return fn(v)});
+ syncCall("info",()=>sync.info());syncCall("enable",()=>sync.enable());syncCall("disable",()=>sync.disable());
+ syncCall("upload",()=>sync.uploadAll());syncCall("now",async()=>{await sync.cycle({force:true});return sync.info()});
  handle("ai-settings:mail-info",()=>mail.info());
  handle("ai-settings:mail-set",(_e,v={})=>mail.set(v));
  handle("ai-settings:mail-clear",()=>mail.clear());

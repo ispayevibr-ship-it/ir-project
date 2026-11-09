@@ -79,7 +79,7 @@ function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects,app
   const text=await res.text();let data=null;try{data=text?JSON.parse(text):null}catch{}
   if(!res.ok){
    if(res.status===401&&auth){const d=load();delete d.token;store(d)}
-   const e=Error(explain(res.status,data));e.status=res.status;throw e
+   const e=Error(explain(res.status,data));e.status=res.status;e.data=data;throw e
   }
   return data
  }
@@ -191,8 +191,9 @@ function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects,app
   for(const g of Array.isArray(grants)?grants:[]){
    const id=Number(g?.objectId);if(!Number.isInteger(id)||id<=0)continue;
    const canEdit=g.canEdit===true;
+   // with chosen sections the card of the object itself (status, cover, the people of the object — «object-meta») goes too
    const keys=g.whole!==false&&!(Array.isArray(g.sections)&&g.sections.length)?[""]:
-    SECTIONS.filter(s=>g.sections.includes(s.key)).flatMap(s=>s.keys);
+    ["object-meta",...SECTIONS.filter(s=>g.sections.includes(s.key)).flatMap(s=>s.keys)];
    for(const k of keys)out.set(id+"|"+k,{object_rid:id,section_key:k,can_edit:canEdit})
   }
   return out
@@ -255,7 +256,7 @@ function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects,app
   requireAdmin();if(!id)throw Error("Не выбран человек");if(id===load().user?.id)throw Error("Себя удалить нельзя");
   await api(`/api/collections/users/records/${id}`,{method:"DELETE"});return{ok:true}
  }
- return{info,login,refresh,logout,changePassword,setName,people,invite,update,resetPassword,remove,heartbeat,isAdmin}
+ return{info,login,refresh,logout,changePassword,setName,people,invite,update,resetPassword,remove,heartbeat,isAdmin,api}
 }
 
 module.exports={createServerAccount,generatePassword,explain,SECTIONS,ROLES,SERVER};
