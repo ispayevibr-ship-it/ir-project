@@ -342,11 +342,14 @@
   m.style.top=Math.round(r.bottom+6)+"px";m.style.left=Math.max(8,Math.min(Math.round(r.right-m.offsetWidth),vw-m.offsetWidth-8))+"px";
   // closes on a click anywhere else: in the tab bar, inside a tab (the frame tells it — src/ir-dialog-guard.js), on Esc
   const win=doc.defaultView;
-  const close=()=>{m.remove();doc.removeEventListener("pointerdown",out,true);doc.removeEventListener("ir-outside-click",close);doc.removeEventListener("keydown",esc,true);win?.removeEventListener("blur",close)};
+  // the window's blur closes it only when the program itself lost focus: the tab host gives the keyboard back to the field
+  // of the open tab (the mark search on the montage scheme) right after the click, which is a blur too (engineer 09.11.2026)
+  const blur=()=>setTimeout(()=>{try{if(!doc.hasFocus())close()}catch{close()}},50);
+  const close=()=>{m.remove();doc.removeEventListener("pointerdown",out,true);doc.removeEventListener("ir-outside-click",close);doc.removeEventListener("keydown",onKey,true);win?.removeEventListener("blur",blur)};
   const out=e=>{if(!m.contains(e.target)&&!anchor.contains(e.target))close()};
-  const esc=e=>{if(e.key==="Escape")close()};
+  const onKey=e=>{if(e.key==="Escape")close()};
   m._close=close;
-  setTimeout(()=>{doc.addEventListener("pointerdown",out,true);doc.addEventListener("ir-outside-click",close);doc.addEventListener("keydown",esc,true);win?.addEventListener("blur",close)});
+  setTimeout(()=>{doc.addEventListener("pointerdown",out,true);doc.addEventListener("ir-outside-click",close);doc.addEventListener("keydown",onKey,true);win?.addEventListener("blur",blur)});
   m.querySelector("[data-panel]")?.addEventListener("click",()=>{close();panel(doc)});
   m.querySelector("[data-pw]").onclick=()=>{close();changePassword(doc)};
   m.querySelector("[data-sync]").onclick=()=>{close();syncDialog(doc)};
