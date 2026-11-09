@@ -220,6 +220,8 @@ handle("ai-montage:journal-add",(_e,{objectId,elementId,comment,objectName,actio
  accountCall("people",()=>account.people());accountCall("invite",v=>account.invite(v));accountCall("update",v=>account.update(v));
  accountCall("reset",v=>account.resetPassword(v));accountCall("remove",v=>account.remove(v));
  accountCall("objects",()=>database.listObjects().map(o=>({id:o.id,name:o.name,status:o.status})));
+accountCall("ping",async()=>{const t=Date.now();await account.api("/api/health",{auth:false});return{ok:true,ms:Date.now()-t}});
+accountCall("open-site",({path}={})=>{const p=path==="/_/"?"/_/":"/";return shell.openExternal("https://a-ts.kz"+p)});
  // Синхронизация базы программы через сервер (src/server-sync.js): изменения уходят и приходят сами, раз в несколько секунд.
  let sync=null;
  try{sync=require("./server-sync").createServerSync({dbFile:()=>require("node:path").join(getUserDataPath(),"ir-project.db"),account,getUserDataPath})}

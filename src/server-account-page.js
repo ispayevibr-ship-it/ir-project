@@ -52,6 +52,16 @@
 .ir-acc-x{transition:background .15s;outline:none}.ir-acc-x:focus-visible{box-shadow:0 0 0 2px #fff}.ir-acc-x:hover{background:rgba(255,255,255,.22)}
 .ir-acc-tools{display:flex;gap:8px;align-items:center}.ir-acc-tools .grow{flex:1}
 .ir-acc-st:empty{display:none}
+.ir-acc-site[open]{display:flex;flex-direction:column;overflow:hidden}.ir-acc-site>*{flex:none}.ir-acc-site .ir-acc-body{flex:1 1 auto;min-height:0;overflow:auto}
+.ir-acc-card{display:grid;gap:6px;padding:12px 14px;border:1px solid #dbe5ee;border-radius:10px;background:#fff}
+.ir-acc-line{display:flex;gap:8px;align-items:baseline;font-size:12.5px}.ir-acc-line b{flex:none}
+.ir-acc-line i{flex:none;width:9px;height:9px;border-radius:50%;background:#aab8c4;align-self:center}
+.ir-acc-line i.ok{background:#27a96a}.ir-acc-line i.err{background:#d0452f}
+.ir-acc-line span{color:#5b7a92}
+.ir-acc-acts{display:flex;gap:8px;flex-wrap:wrap}
+.ir-acc-guide h3{margin:4px 0 2px;font-size:13.5px;color:#0f3553}
+.ir-acc-guide ol,.ir-acc-guide ul{margin:0;padding-left:20px;display:grid;gap:4px;font-size:12.5px}
+.ir-acc-guide b{color:#1d3247}
 .ir-acc-person .grants{display:grid;gap:5px;padding-top:8px;border-top:1px solid #edf2f6}
 .ir-acc-g{display:grid;grid-template-columns:auto minmax(0,1fr);gap:1px 10px;align-items:baseline}
 .ir-acc-g b{font-weight:650;color:#1d3247;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -310,6 +320,77 @@
    up.disabled=true;try{show(await call("ai-settings:server-sync-upload"))}catch(e){fail(e)}finally{up.disabled=false}};
   void load();
  }
+
+ // Settings → «Сайт и синхронизация» (просьба инженера 09.11.2026): the site a-ts.kz, the connection, who is signed in,
+ // the sync — and the instruction how to start the sync for the administrator and for an engineer.
+ const SITE_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h7v7M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>';
+ function siteDialog(doc){
+  doc=doc||document;
+  const d=dialog(doc,"ir-acc-site",head("Сайт и синхронизация","Сервер компании a-ts.kz: вход в программу, общие объекты для всех, кому дан доступ, скачивание программы.")+
+   `<div class="ir-acc-body">
+    <div class="ir-acc-card">
+     <div class="ir-acc-line"><i data-net></i><b>Связь с сервером:</b><span data-nett>проверяем…</span></div>
+     <div class="ir-acc-line"><i data-me></i><b>Вход:</b><span data-met></span></div>
+     <div class="ir-acc-line"><i data-sy></i><b>Синхронизация:</b><span data-syt></span></div>
+     <div class="ir-acc-acts" style="margin-top:6px">
+      <button type="button" class="ir-acc-btn" data-site>${SITE_ICON}Открыть сайт a-ts.kz</button>
+      <button type="button" class="ir-acc-btn" data-db hidden>${SITE_ICON}База данных (администратор)</button>
+      <button type="button" class="ir-acc-btn main" data-login hidden>Войти</button>
+      <button type="button" class="ir-acc-btn" data-sync hidden>Синхронизация…</button>
+      <button type="button" class="ir-acc-btn" data-panel hidden>Панель администратора…</button>
+     </div>
+    </div>
+    <div class="ir-acc-card ir-acc-guide">
+     <h3>Администратор — один раз</h3>
+     <ol>
+      <li>Войдите: значок профиля вверху справа → почта и пароль.</li>
+      <li>Дайте доступ людям: профиль → <b>Панель администратора</b> → <b>«Дать доступ инженеру»</b> — почта, имя, роль, объекты и разделы («изменяет» или «просмотр»). Логин и пароль уйдут письмом (нужна почта в Настройках → «Почта»).</li>
+      <li>Отправьте свою базу на сервер: профиль → <b>Синхронизация</b> → <b>«Отправить мою базу на сервер»</b>. Перед отправкой рядом с базой сохранится копия. Это делается один раз, с главного компьютера.</li>
+     </ol>
+     <h3>Инженер — на своём компьютере</h3>
+     <ol>
+      <li>Откройте сайт <b>a-ts.kz</b> → «Войти» → почта и пароль из письма → <b>«Скачать программу»</b>. Установите её.</li>
+      <li>Откройте программу и войдите той же почтой и паролем.</li>
+      <li>Профиль → <b>Синхронизация</b> → <b>«Включить»</b>. Объекты и разделы, к которым дан доступ, придут сами.</li>
+     </ol>
+     <h3>Как работает</h3>
+     <ul>
+      <li>Изменения уходят на сервер сами, через несколько секунд; чужие приходят раз в 15 секунд — сверху появится «Пришли изменения с сервера. <b>Обновить</b>».</li>
+      <li>Без интернета работать можно: изменения уйдут, когда связь вернётся.</li>
+      <li>Нет прав на раздел — изменение остаётся только на этом компьютере (в окне синхронизации — «Не принято сервером»).</li>
+      <li>Не передаются (тяжёлые, делаются на каждом компьютере): анализы ИИ-распознавания, снимки схемы, документы распознавания. Файлы и фотографии пока остаются на своём компьютере.</li>
+      <li>Сервер каждую ночь сохраняет копию базы.</li>
+     </ul>
+     <h3>Если что-то не так</h3>
+     <ul>
+      <li><b>«Нет связи с сервером»</b> — откройте a-ts.kz в браузере. Не открывается — проверьте интернет; если адрес сервера недавно менялся, подождите полчаса или выключите роутер на 10 секунд.</li>
+      <li><b>Сменить пароль</b> — профиль → «Сменить пароль». Забыли пароль — администратор выдаст новый в панели, он придёт письмом.</li>
+      <li><b>Нет нужного объекта</b> — попросите администратора дать доступ к нему.</li>
+     </ul>
+    </div>
+   </div>
+   <div class="ir-acc-foot"><span class="grow"></span><button type="button" class="ir-acc-btn" data-check>Проверить связь</button><button type="button" class="ir-acc-btn main" data-close>Закрыть</button></div>`);
+  const q=k=>d.querySelector(k),dot=(k,c)=>{q(k).className=c||""};
+  const open=async path=>{try{await call("ai-settings:server-open-site",{path})}catch(e){q("[data-nett]").textContent=errText(e)}};
+  q("[data-site]").onclick=()=>open("/");q("[data-db]").onclick=()=>open("/_/");
+  q("[data-login]").onclick=()=>login(doc).then(load);
+  q("[data-sync]").onclick=()=>syncDialog(doc);q("[data-panel]").onclick=()=>panel(doc);
+  async function ping(){
+   dot("[data-net]");q("[data-nett]").textContent="проверяем…";
+   try{const r=await call("ai-settings:server-ping");dot("[data-net]","ok");q("[data-nett]").textContent="есть ("+r.ms+" мс)"}
+   catch(e){dot("[data-net]","err");q("[data-nett]").textContent=errText(e)}
+  }
+  async function load(){
+   const s=await info(),u=s?.signedIn?s.user:null;
+   dot("[data-me]",u?"ok":"");q("[data-met]").textContent=u?(u.name||u.email)+" · "+u.roleName:"не выполнен — нажмите «Войти»";
+   q("[data-login]").hidden=Boolean(u);q("[data-sync]").hidden=!u;q("[data-panel]").hidden=u?.role!=="admin";q("[data-db]").hidden=u?.role!=="admin";
+   try{const y=await call("ai-settings:server-sync-info");const [k,t]=syncText(y);dot("[data-sy]",y.enabled?k||"ok":"");q("[data-syt]").textContent=y.enabled?t:"выключена"+(u?" — профиль → «Синхронизация» → «Включить»":"")}
+   catch(e){dot("[data-sy]");q("[data-syt]").textContent=errText(e)}
+  }
+  q("[data-check]").onclick=()=>{void ping();void load()};
+  void ping();void load();
+  return d;
+ }
  // Пришли изменения с сервера — полоса «Обновить» над вкладками (один раз на всё окно программы).
  function watchChanges(){
   const h=host();if(h.__irSyncWatch)return;h.__irSyncWatch=true;
@@ -374,6 +455,6 @@
   setInterval(()=>void check(),30*60e3);
   watchChanges()
  }
- window.irServerAccount={menu,panel,login,changePassword,syncDialog,info,state:()=>state};
+ window.irServerAccount={menu,panel,login,changePassword,syncDialog,siteDialog,info,state:()=>state};
  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>void start(),{once:true});else void start();
 })();
