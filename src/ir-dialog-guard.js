@@ -89,6 +89,28 @@
   refocus(field,true);
   return answer
  };
+ // A click past an open window closes it (the engineer, 09.11.2026 «все выпадающие окна и открывающиеся окна
+ // закрывались после нажатия в другое место»). A window: the click on its dark background outside the frame — it closes
+ // as by Esc (the page's own «cancel» runs first); with typed fields it asks first. A window marked data-keep-open stays.
+ // A dropdown in the tab bar: a click inside a tab is told to the tab bar as «ir-outside-click» (clicks do not cross frames).
+ const typed=new WeakSet();
+ document.addEventListener?.("input",e=>{const d=e.target?.closest?.("dialog[open]");if(d)typed.add(d)},true);
+ document.addEventListener?.("close",e=>{if(e.target?.tagName==="DIALOG")typed.delete(e.target)},true);
+ document.addEventListener?.("pointerdown",event=>{
+  const d=event.target;
+  if(d?.tagName==="DIALOG"&&d.open&&!d.hasAttribute("data-keep-open")&&event.button===0){
+   const r=d.getBoundingClientRect();
+   const out=event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom;
+   if(out){
+    event.preventDefault();
+    if(typed.has(d)&&!window.confirm("Закрыть окно? Введённое не сохранится."))return;
+    const cancel=new Event("cancel",{cancelable:true});d.dispatchEvent(cancel);
+    if(!cancel.defaultPrevented&&d.open)d.close();
+    return
+   }
+  }
+  try{if(window.parent!==window)window.parent.document.dispatchEvent(new CustomEvent("ir-outside-click"))}catch{}
+ },true);
  document.addEventListener?.("pointerdown",event=>{
   if(topFocused())return;
   refocus(event.target?.closest?.("input,textarea,select,[contenteditable]")||null,false)

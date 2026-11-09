@@ -276,7 +276,7 @@
  // The menu of the profile badge: who is signed in, the panel, the password, sign out.
  function menu(anchor){
   const doc=anchor?.ownerDocument||document;style(doc);
-  doc.querySelectorAll(".ir-acc-menu").forEach(m=>m.remove());
+  const open=doc.querySelector(".ir-acc-menu");if(open){(open._close||(()=>open.remove()))();return}
   const u=state?.signedIn?state.user:null;
   if(!u){void login(doc);return}
   const m=doc.createElement("div");m.className="ir-acc-menu";
@@ -285,9 +285,13 @@
   doc.body.appendChild(m);
   const r=anchor.getBoundingClientRect(),vw=doc.defaultView.innerWidth;
   m.style.top=Math.round(r.bottom+6)+"px";m.style.left=Math.max(8,Math.min(Math.round(r.right-m.offsetWidth),vw-m.offsetWidth-8))+"px";
-  const close=()=>{m.remove();doc.removeEventListener("pointerdown",out,true)};
-  const out=e=>{if(!m.contains(e.target)&&e.target!==anchor)close()};
-  setTimeout(()=>doc.addEventListener("pointerdown",out,true));
+  // closes on a click anywhere else: in the tab bar, inside a tab (the frame tells it — src/ir-dialog-guard.js), on Esc
+  const win=doc.defaultView;
+  const close=()=>{m.remove();doc.removeEventListener("pointerdown",out,true);doc.removeEventListener("ir-outside-click",close);doc.removeEventListener("keydown",esc,true);win?.removeEventListener("blur",close)};
+  const out=e=>{if(!m.contains(e.target)&&!anchor.contains(e.target))close()};
+  const esc=e=>{if(e.key==="Escape")close()};
+  m._close=close;
+  setTimeout(()=>{doc.addEventListener("pointerdown",out,true);doc.addEventListener("ir-outside-click",close);doc.addEventListener("keydown",esc,true);win?.addEventListener("blur",close)});
   m.querySelector("[data-panel]")?.addEventListener("click",()=>{close();panel(doc)});
   m.querySelector("[data-pw]").onclick=()=>{close();changePassword(doc)};
   m.querySelector("[data-name]").onclick=()=>{close();rename(doc)};
