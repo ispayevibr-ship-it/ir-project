@@ -52,6 +52,7 @@
 .ir-acc-x{transition:background .15s;outline:none}.ir-acc-x:focus-visible{box-shadow:0 0 0 2px #fff}.ir-acc-x:hover{background:rgba(255,255,255,.22)}
 .ir-acc-tools{display:flex;gap:8px;align-items:center}.ir-acc-tools .grow{flex:1}
 .ir-acc-st:empty{display:none}
+.ir-acc-bar-p{height:8px;border-radius:5px;background:#dfe8f0;overflow:hidden}.ir-acc-bar-p i{display:block;height:100%;width:0;background:#176dc1;border-radius:5px;transition:width .4s}
 .ir-acc-site[open]{display:flex;flex-direction:column;overflow:hidden}.ir-acc-site>*{flex:none}.ir-acc-site .ir-acc-body{flex:1 1 auto;min-height:0;overflow:auto}
 .ir-acc-card{display:grid;gap:6px;padding:12px 14px;border:1px solid #dbe5ee;border-radius:10px;background:#fff}
 .ir-acc-line{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;line-height:19px}.ir-acc-line b{flex:none;min-width:122px}
@@ -288,26 +289,38 @@
  // Синхронизация базы через сервер (src/server-sync.js): включить, выключить, обменяться сейчас; администратору —
  // первая отправка всей базы (просьба инженера: «база у меня на ПК — главная»).
  const when=iso=>{if(!iso)return"";const d=new Date(iso);return isNaN(d)?"":d.toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"})};
+ // how much of the sending is done: the count of the first sending, or the largest queue seen on this computer
+ // (kept between windows and restarts — «проценты введи», инженер 09.11.2026)
+ function sent(s){
+  let max=0;try{max=Number(localStorage.getItem("ir-sync-max"))||0}catch{}
+  const left=s.progress?Math.max(0,s.progress.total-s.progress.done):Number(s.pending)||0;
+  if(!left){try{localStorage.removeItem("ir-sync-max")}catch{}return null}
+  const total=Math.max(s.progress?.total||0,max,left);
+  if(total!==max)try{localStorage.setItem("ir-sync-max",String(total))}catch{}
+  const done=total-left;return{done,total,left,pct:Math.min(99,Math.floor(done*100/total))}
+ }
+ const num=n=>Number(n).toLocaleString("ru-RU");
  function syncText(s){
   if(!s.enabled)return["","Выключена. Данные этого компьютера никуда не уходят."];
-  if(s.progress)return["",`Отправляется база: ${s.progress.done} из ${s.progress.total}`];
-  if(s.state==="offline")return["err",`Нет связи с сервером. Изменения ждут на этом компьютере${s.pending?" ("+s.pending+")":""} и уйдут сами.`];
-  if(s.state==="error")return["err","Сервер не принял: "+(s.error||"ошибка")];
+  const p=sent(s);
+  const part=p?`${p.pct}% — отправлено ${num(p.done)} из ${num(p.total)}`:"";
+  if(s.state==="offline")return["err",`Нет связи с сервером. Изменения ждут на этом компьютере${s.pending?" ("+num(s.pending)+")":""} и уйдут сами.`];
+  if(s.state==="error")return["err","Сервер не принял: "+(s.error||"ошибка")+(part?"\n"+part:"")];
   if(s.state==="signed-out")return["err","Войдите в программу — без входа обмен остановлен."];
-  if(s.pending)return["",`Отправляется изменений: ${s.pending}`];
+  if(p)return["",(s.progress?"Отправляется база: ":"Отправляются изменения: ")+part];
   return["ok","Включена. Всё отправлено"+(s.lastAt?", последний обмен "+when(s.lastAt):"")+"."];
  }
  function syncDialog(doc){
   const admin=state?.user?.role==="admin";
   const d=dialog(doc,"",head("Синхронизация","Изменения в объектах уходят на сервер компании и приходят на компьютеры тех, кому вы дали доступ — сами, раз в несколько секунд.")+
-   `<div class="ir-acc-body"><div class="ir-acc-st" data-st>Проверяем…</div><div class="ir-acc-note" data-why hidden></div>
+   `<div class="ir-acc-body"><div class="ir-acc-st" data-st>Проверяем…</div><div class="ir-acc-bar-p" data-bar hidden><i></i></div><div class="ir-acc-note" data-why hidden></div>
    <div class="ir-acc-note">Не передаются (тяжёлые, делаются на каждом компьютере): анализы ИИ-распознавания, снимки схемы, документы распознавания.</div>
    ${admin?`<div class="ir-acc-note" data-first hidden>Первый раз: отправьте на сервер всю базу этого компьютера — она станет общей. Перед отправкой рядом с базой сохранится копия <b>ir-project-before-sync.db</b>.<br><button type="button" class="ir-acc-btn" data-up hidden style="margin-top:8px">Отправить мою базу на сервер</button></div>`:""}</div>
    <div class="ir-acc-foot"><span class="grow"></span>
    <button type="button" class="ir-acc-btn" data-now>Обменяться сейчас</button><button type="button" class="ir-acc-btn main" data-on></button></div>`);
   const st=d.querySelector("[data-st]"),why=d.querySelector("[data-why]"),on=d.querySelector("[data-on]"),now=d.querySelector("[data-now]"),up=d.querySelector("[data-up]"),first=d.querySelector("[data-first]");
   let s=null;
-  const show=v=>{s=v||s;if(!s)return;const [k,t]=syncText(s);st.className="ir-acc-st "+k;st.textContent=t;
+  const show=v=>{s=v||s;if(!s)return;const [k,t]=syncText(s);st.className="ir-acc-st "+k;st.textContent=t;const p=s.enabled?sent(s):null,bar=d.querySelector("[data-bar]");bar.hidden=!p;if(p)bar.firstChild.style.width=p.pct+"%";
    why.hidden=!s.rejected;why.textContent=s.rejected?`Не принято сервером: ${s.rejected}. ${s.rejectedWhy||""}`:"";
    on.textContent=s.enabled?"Выключить":"Включить";now.disabled=!s.enabled;
    if(up){first.hidden=Boolean(s.uploaded)||Boolean(s.progress);up.hidden=first.hidden}};
