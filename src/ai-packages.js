@@ -37,7 +37,36 @@ function workerPackages(){
   out.ocr={tesseract:unpacked(resolvePackage("tesseract.js")),
    langPath:path.join(path.dirname(unpacked(resolvePackage("@tesseract.js-data/rus/package.json"))),"4.0.0_best_int")}
  }catch{}
+ try{if(out.ocr)Object.assign(out.ocr,ocrWorkerOutside(resolvePackage("tesseract.js")))}catch{}
  return out
+}
+// Tesseract's own worker thread (ГПЭС, 09.11.2026: «Cannot find module 'regenerator-runtime/runtime'» on every sheet in
+// curves — OCR never ran in the installed program): only tesseract.js and its core are unpacked, the packages its worker
+// script needs (regenerator-runtime, node-fetch, is-url, wasm-feature-detect…) stay in app.asar, which that thread
+// cannot read. The main process copies them out once (its fs reads the archive) and starts the worker through a small
+// script that adds the copy to the module lookup; tesseract.js itself needs regenerator-runtime too, so the PDF worker
+// adds it before loading it (`nodePath`, src/ai-ocr.js).
+function ocrWorkerOutside(entry,tmp=require("node:os").tmpdir()){
+ if(!/app\.asar(\.unpacked)?[\\/]/.test(entry))return{};
+ const fs=require("node:fs"),root=entry.replace(/app\.asar\.unpacked([\\/])/,"app.asar$1").replace(/([\\/]node_modules[\\/]tesseract\.js)[\\/].*$/,"$1");
+ const pkg=JSON.parse(fs.readFileSync(path.join(root,"package.json"),"utf8"));
+ const dir=path.join(tmp,"ir-project-ocr-"+pkg.version),nm=path.join(dir,"node_modules"),done=path.join(dir,"ready.json");
+ const script=path.join(unpacked(root),"src","worker-script","node","index.js"),wrapper=path.join(dir,"worker.js");
+ if(!fs.existsSync(done)){
+  // A package's folder: in node_modules next to the one needing it, or higher up.
+  const find=(name,from)=>{for(let d=from;;){const c=path.join(d,"node_modules",name);if(fs.existsSync(c))return c;
+   const up=path.dirname(d);if(up===d)return null;d=up}};
+  const copy=(a,b)=>{if(fs.statSync(a).isDirectory()){fs.mkdirSync(b,{recursive:true});for(const f of fs.readdirSync(a))copy(path.join(a,f),path.join(b,f))}
+   else fs.writeFileSync(b,fs.readFileSync(a))};
+  const seen=new Set(["tesseract.js","tesseract.js-core"]),todo=Object.keys(pkg.dependencies||{}).map(n=>[n,root]);
+  while(todo.length){const [name,from]=todo.shift();if(seen.has(name))continue;seen.add(name);
+   const src=find(name,from);if(!src)continue;copy(src,path.join(nm,name));
+   let p={};try{p=JSON.parse(fs.readFileSync(path.join(src,"package.json"),"utf8"))}catch{}for(const n of Object.keys(p.dependencies||{}))todo.push([n,src])}
+  fs.mkdirSync(dir,{recursive:true});
+  fs.writeFileSync(wrapper,'"use strict";process.env.NODE_PATH='+JSON.stringify(nm)+';require("module")._initPaths();require('+JSON.stringify(script)+");\n");
+  fs.writeFileSync(done,JSON.stringify({packages:[...seen].filter(n=>!/^tesseract\.js/.test(n))}))
+ }
+ return{workerPath:wrapper,nodePath:nm}
 }
 // In a worker: the path given by the main process, otherwise the usual lookup.
 async function importPdfjs(packages){
@@ -58,4 +87,4 @@ function pdfWasm(packages){
  return undefined
 }
 function requireCanvas(packages){return require(packages?.canvas||resolvePackage("@napi-rs/canvas"))}
-module.exports={resolvePackage,workerPackages,importPdfjs,requireCanvas,pdfWasm};
+module.exports={resolvePackage,workerPackages,ocrWorkerOutside,importPdfjs,requireCanvas,pdfWasm};

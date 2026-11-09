@@ -13,7 +13,10 @@ const SCALE=3.5,MIN_CONFIDENCE=60,TILE_PT=700,OVERLAP_PT=40,MAX_PIXELS=60e6,SHEA
 // Words worth keeping: letters or digits, not stray strokes read as "|", "=", "—".
 const WORD=/[0-9A-Za-zА-Яа-яЁё]/u;
 async function createOcrWorker(ocr){
- const worker=await require(ocr.tesseract).createWorker("rus",1,{langPath:ocr.langPath,gzip:true,cacheMethod:"none"});
+ // Packages tesseract.js needs that the installed app keeps in app.asar, copied out by the main process (ai-packages.js).
+ if(ocr.nodePath&&!String(process.env.NODE_PATH||"").split(require("node:path").delimiter).includes(ocr.nodePath)){
+  process.env.NODE_PATH=[ocr.nodePath,process.env.NODE_PATH].filter(Boolean).join(require("node:path").delimiter);require("node:module")._initPaths()}
+ const worker=await require(ocr.tesseract).createWorker("rus",1,{langPath:ocr.langPath,gzip:true,cacheMethod:"none",...(ocr.workerPath?{workerPath:ocr.workerPath}:{})});
  // Sparse text: a drawing has scattered labels, not paragraphs.
  await worker.setParameters({tessedit_pageseg_mode:"11"});
  return worker
