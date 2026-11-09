@@ -10289,12 +10289,13 @@ window.irThreeSchemeView=(function(){
    if(Math.abs(camera.near-n)>n*.05||camera.far!==f){camera.near=n;camera.far=f;camera.updateProjectionMatrix()}}
   // Off the page (another section of the program open): nothing is drawn — a change of the window's size redrew the whole
   // model there, on the processor where the graphics card is not used; looked at twice a second, not at every frame of
-  // the screen; kept 5 minutes for a quick return to the scheme (its size taken again), then let go with its memory (the
-  // engineer 30.10.2026 «почему подвисает»).
+  // the screen (the engineer 30.10.2026 «почему подвисает»). The built model is kept while the program is open — the
+  // return to the scheme shows it at once, without building it again (the engineer 09.11.2026: «почему монтажную схему
+  // каждый раз заново рисует программа?» — it was let go after 5 minutes away). Another object's scheme takes its place.
   var awaySince=0,awayTimer=0;
   function frame(time){
    if(!alive)return;
-   if(!root.isConnected){var now=performance.now();if(!awaySince)awaySince=now;else if(now-awaySince>300000&&active&&active.root===root){dispose();return}
+   if(!root.isConnected){if(!awaySince)awaySince=performance.now();
     raf=0;awayTimer=setTimeout(function(){awayTimer=0;if(alive)raf=requestAnimationFrame(frame)},500);return}
    raf=requestAnimationFrame(frame);
    if(awaySince){awaySince=0;lastTime=time||0;resize()}
