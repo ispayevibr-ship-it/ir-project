@@ -94,3 +94,18 @@ body.ir-object-route:not(.ir-object-overview) #app>.exec-docs-page{box-sizing:bo
 .exd-item-head small.exd-signed{color:#1a8a4a;font-weight:600;font-size:10px;margin-top:3px}
 .exd-item-head small.exd-unsigned{color:#c26a12;font-size:10px;margin-top:3px}
 .exd-sign-form{border-color:#9fd3b2;background:#f6fcf8}
+/* The text of an act (1.12.30): the editor beside the preview. */
+.exec-docs-page .exd-act{position:relative}
+.exec-docs-page .exd-act .exd-textbtn{flex:none;align-self:center;font-size:10px;padding:4px 8px}
+.exd-own{font-style:normal;color:#1769e0}
+.exd-text-head{display:flex;align-items:baseline;gap:12px;margin:0 0 12px}.exd-text-head b{font-size:13px;color:#22394a}.exd-text-head small{color:#8191a0;font-size:10px}
+.exd-text-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.exd-text-form{display:flex;flex-direction:column;gap:10px}
+.exd-text-form label{display:flex;flex-direction:column;gap:4px;font-size:10px;color:#5b6d7a}
+.exd-text-form input,.exd-text-form textarea{border:1px solid #d5e0e7;border-radius:7px;padding:7px 10px;font:12px/1.45 "Segoe UI",Arial,sans-serif;color:#1f3242;background:#fff;resize:vertical}
+.exd-text-form input{height:34px;padding:0 10px}
+.exd-markers{display:flex;flex-wrap:wrap;gap:5px;align-items:center}.exd-markers small{width:100%;font-size:10px;color:#8191a0}
+.exd-marker{font-size:10px;padding:3px 7px;border-radius:6px;border:1px solid #c4d8f3;background:#eef5ff;color:#1769e0;cursor:pointer}
+.exd-text-view small{display:block;font-size:10px;color:#8191a0;margin-bottom:4px}
+.exd-text-view iframe{width:100%;height:680px;border:1px solid #dce5eb;border-radius:9px;background:#fff}
+@media (max-width:1000px){.exd-text-body{grid-template-columns:1fr}}

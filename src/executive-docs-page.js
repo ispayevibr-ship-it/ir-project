@@ -45,7 +45,7 @@
  }
  window.irExecDocsPage=async oid=>{
   const app=document.getElementById("app"),api=irProject.data.forObject(oid).section("executive-docs");
-  let D=await loadAll(oid),busy=false,note="",signing=null,filterGroup="",editing=null,adding=null,surveyEdit=null,tab=TABS.some(t=>t[0]===store.get("ir-exd-tab"))?store.get("ir-exd-tab"):"export";
+  let D=await loadAll(oid),busy=false,note="",signing=null,textEdit=null,filterGroup="",editing=null,adding=null,surveyEdit=null,tab=TABS.some(t=>t[0]===store.get("ir-exd-tab"))?store.get("ir-exd-tab"):"export";
   const last=()=>D.settings.last||{};
   const saveSettings=async patch=>{D.settings={...D.settings,...patch};const payload={record_type:"settings",title:"Настройки исполнительной документации",data:D.settings};
    if(D.settingsRec)D.settingsRec=await api.update(D.settingsRec.id,payload)||D.settingsRec;else D.settingsRec=await api.create(payload)};
@@ -62,7 +62,32 @@
    const o=D.settings.object||{},ed=canEdit()?"":"disabled",f=(k,l,ph="")=>`<label>${esc(l)}<input data-o="${k}" value="${esc(o[k]||"")}" placeholder="${esc(ph)}" ${ed}></label>`;
    return`<div class="exd-grid">${f("name","Объект")}${f("address","Адрес")}${f("city","Город (место составления)")}${f("project_code","Шифр проекта","напр. 047-2025-КМ")}${f("designer","Проектная организация")}<label>Номер первого акта<input data-s="start_number" inputmode="numeric" value="${esc(D.settings.start_number||"1")}" ${ed}></label><label>Экземпляров<input data-s="copies" value="${esc(D.settings.copies||"3")}" ${ed}></label><label class="wide">Разрешается производство последующих работ<input data-s="next_works" value="${esc(D.settings.next_works||"")}" placeholder="напр. монтаж ограждающих конструкций" ${ed}></label></div>`
   }
+  // The editor of an act's text (просьба инженера 09.11.2026): the name, the line under it, the words after the
+  // commission and the paragraphs, one per line; markers in square brackets are filled at each export. Saved for good in
+  // the settings of the object (settings.texts), «Вернуть стандартный текст» drops the change. The preview is the act of
+  // the chosen period with the text as typed.
+  const draftText=()=>({title:textEdit.title,subtitle:textEdit.subtitle,intro:textEdit.intro,paras:String(textEdit.paras||"").split(/\n+/).map(v=>v.trim()).filter(Boolean)});
+  function previewHtml(){
+   const L=last(),act=X.ACT[textEdit.key],settings={...D.settings,texts:{...(D.settings.texts||{}),[act.key]:draftText()}};
+   const pkg=X.buildPackage({settings,reports:D.reports,marks:D.marks,scheme:D.scheme,workTypes:D.workTypes,needsList:D.needs,surveys:D.surveys,acts:act.form==="E"?["aosr",act.key]:[act.key],from:L.from||firstDate(),to:L.to||today(),workTypeId:L.workTypeId||"",split:"period"});
+   const doc=pkg.docs.find(d=>d.act.key===act.key);
+   return X.toHtml({title:"Просмотр",blocks:doc?doc.blocks:[]})
+  }
+  function textHtml(){
+   const act=X.ACT[textEdit.key],T=X.textOf(act,D.settings),ed=canEdit()?"":"disabled",e=textEdit;
+   return`<div class="exd-text"><div class="exd-text-head"><button class="exd-mini ghost" id="exdTextBack">← К выгрузке</button><b>Текст: ${esc(act.name)}</b><small>${T.custom?"сохранён ваш текст":"стандартный текст по "+esc(act.basis)}</small></div>
+    <div class="exd-text-body"><div class="exd-text-form">
+     <label>Наименование<input data-tx="title" value="${esc(e.title)}" ${ed}></label>
+     <label>Строка под наименованием<input data-tx="subtitle" value="${esc(e.subtitle)}" placeholder="пусто — без неё" ${ed}></label>
+     ${e.intro==null?"":`<label>После «Комиссия в составе»<textarea data-tx="intro" rows="2" ${ed}>${esc(e.intro)}</textarea></label>`}
+     <label>${e.intro==null?"Текст под таблицей — каждый абзац с новой строки":"Пункты — каждый абзац с новой строки"}<textarea data-tx="paras" rows="14" ${ed}>${esc(e.paras)}</textarea></label>
+     <div class="exd-markers"><small>Подставляется программой при выгрузке — нажмите, чтобы вставить:</small>${X.MARKERS.map(([k,h])=>`<button class="exd-marker" data-mk="${esc(k)}" title="${esc(h)}" ${ed}>[${esc(k)}]</button>`).join("")}</div>
+     <div class="exd-form-act">${ed?'<span class="exd-help">Изменять может тот, у кого есть права на ежедневные отчёты.</span>':""}<button class="primary" id="exdTextSave" ${ed}>Сохранить текст</button><button id="exdTextReset" ${ed||(!T.custom?"disabled":"")}>Вернуть стандартный текст</button></div>
+     <p class="exd-help">Сохранённый текст остаётся для этого вида акта на объекте и идёт во все следующие выгрузки — Word и PDF. Абзац, начинающийся со слов «Решение комиссии», печатается жирным.</p></div>
+    <div class="exd-text-view"><small>Как будет выглядеть (выбранный на вкладке период)</small><iframe id="exdTextView" title="Просмотр акта"></iframe></div></div></div>`
+  }
   function exportHtml(){
+   if(textEdit)return textHtml();
    const L=last(),acts=new Set(L.acts?X.actKeys(L.acts):DEFAULT_ACTS),from=L.from||firstDate(),to=L.to||today();
    const preview=X.buildPackage({settings:D.settings,reports:D.reports,marks:D.marks,scheme:D.scheme,workTypes:D.workTypes,needsList:D.needs,surveys:D.surveys,acts:[...acts],from,to,workTypeId:L.workTypeId||"",split:L.split||"period"});
    const missing=preview.missing;
@@ -76,7 +101,7 @@
     <div class="exd-actions"><button class="primary" id="exdDocx" ${busy?"disabled":""}>Выгрузить исполнительную документацию — Word</button><button class="primary exd-pdf" id="exdPdf" ${busy?"disabled":""}>Выгрузить — PDF</button>${note?`<span class="exd-note">${note}</span>`:""}</div>
     <div class="exd-acts-title">Какие акты нужны</div>
     ${ACT_GROUPS.map(([title,keys])=>{const list=keys.map(k=>X.ACT[k]).filter(Boolean);const on=list.filter(a=>acts.has(a.key)).length;
-     return`<div class="exd-actgroup"><div class="exd-actgroup-head"><b>${esc(title)}</b><small>${on?`выбрано ${on} из ${list.length}`:""}</small></div><div class="exd-acts">${list.map(a=>`<label class="exd-act ${acts.has(a.key)?"on":""}" title="${esc(a.basis)}"><input type="checkbox" data-act="${a.key}" ${acts.has(a.key)?"checked":""}><span><b>${esc(a.name)}</b><small>${esc(a.basis)}</small></span></label>`).join("")}</div></div>`}).join("")}`
+     return`<div class="exd-actgroup"><div class="exd-actgroup-head"><b>${esc(title)}</b><small>${on?`выбрано ${on} из ${list.length}`:""}</small></div><div class="exd-acts">${list.map(a=>`<label class="exd-act ${acts.has(a.key)?"on":""}" title="${esc(a.basis)}"><input type="checkbox" data-act="${a.key}" ${acts.has(a.key)?"checked":""}><span><b>${esc(a.name)}</b><small>${esc(a.basis)}${D.settings.texts?.[a.key]?' · <i class="exd-own">свой текст</i>':""}</small></span><button type="button" class="exd-mini ghost exd-textbtn" data-text="${a.key}" title="Изменить текст акта и сохранить">✎ Текст</button></label>`).join("")}</div></div>`}).join("")}`
   }
  // As-built surveys: the list and the form of one.
   function surveysHtml(){
@@ -153,7 +178,22 @@
   const val=id=>document.getElementById(id)?.value||"";
   function bind(){
    document.getElementById("execDocsBack").onclick=()=>location.hash=`/objects/object/${oid}`;
-   app.querySelectorAll("[data-tab],[data-goto]").forEach(b=>b.onclick=()=>{tab=b.dataset.tab||b.dataset.goto;store.set("ir-exd-tab",tab);editing=null;surveyEdit=null;adding=null;if(signing)dropSigning();paint();app.scrollTop=0;window.scrollTo?.(0,0)});
+   app.querySelectorAll("[data-tab],[data-goto]").forEach(b=>b.onclick=()=>{tab=b.dataset.tab||b.dataset.goto;store.set("ir-exd-tab",tab);editing=null;textEdit=null;surveyEdit=null;adding=null;if(signing)dropSigning();paint();app.scrollTop=0;window.scrollTo?.(0,0)});
+   // The text of an act.
+   app.querySelectorAll("[data-text]").forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();const act=X.ACT[b.dataset.text],T=X.textOf(act,D.settings);
+    textEdit={key:act.key,title:T.title,subtitle:T.subtitle,intro:T.intro,paras:T.paras.join("\n")};paint();app.scrollTop=0;window.scrollTo?.(0,0)});
+   if(textEdit&&document.getElementById("exdTextView")){
+    const view=document.getElementById("exdTextView"),show=()=>{try{view.srcdoc=previewHtml()}catch(e){console.warn("exec docs: preview",e)}};show();
+    let field=null,t;const later=()=>{clearTimeout(t);t=setTimeout(show,300)};
+    app.querySelectorAll("[data-tx]").forEach(i=>{i.addEventListener("focus",()=>field=i);i.addEventListener("input",()=>{textEdit[i.dataset.tx]=i.value;later()})});
+    app.querySelectorAll("[data-mk]").forEach(b=>b.onmousedown=e=>e.preventDefault());
+    app.querySelectorAll("[data-mk]").forEach(b=>b.onclick=()=>{const i=field||app.querySelector("[data-tx=paras]"),m="["+b.dataset.mk+"]",a=i.selectionStart??i.value.length,z=i.selectionEnd??a;
+     i.value=i.value.slice(0,a)+m+i.value.slice(z);i.focus();i.selectionStart=i.selectionEnd=a+m.length;textEdit[i.dataset.tx]=i.value;later()});
+    document.getElementById("exdTextBack").onclick=()=>{textEdit=null;paint()};
+    document.getElementById("exdTextSave").onclick=async()=>{const d=draftText();if(!String(d.title||"").trim()){alert("Наименование акта не может быть пустым.");return}
+     try{await saveSettings({texts:{...(D.settings.texts||{}),[textEdit.key]:{...d,saved_at:new Date().toISOString()}}});note=`Текст «${esc(X.ACT[textEdit.key].name)}» сохранён — он будет во всех следующих выгрузках.`;textEdit=null;paint()}catch(e){alert("Текст не сохранён: "+(e.message||e))}};
+    document.getElementById("exdTextReset").onclick=async()=>{if(!confirm("Вернуть стандартный текст этого акта? Ваш текст будет удалён."))return;
+     const texts={...(D.settings.texts||{})};delete texts[textEdit.key];try{await saveSettings({texts});const T=X.textOf(X.ACT[textEdit.key],D.settings);textEdit={key:textEdit.key,title:T.title,subtitle:T.subtitle,intro:T.intro,paras:T.paras.join("\n")};paint()}catch(e){alert("Не сохранено: "+(e.message||e))}}}
    const keep=async()=>{const c=choice();D.settings.last={...last(),...c};paint();try{await saveSettings({last:D.settings.last})}catch(e){console.warn(e)}};
    ["exdFrom","exdTo","exdWork","exdSplit"].forEach(id=>document.getElementById(id)?.addEventListener("change",keep));
    app.querySelectorAll("[data-act]").forEach(i=>i.onchange=keep);
@@ -242,7 +282,7 @@
   // After an export: an «issued» record per document of the set; the next act number continues the last one.
   async function keepIssued(pkg,c,format,r,wt){
    const at=new Date().toISOString(),file=r.archived?{path:r.archived,name:String(r.path).split(/[\\/]/).pop()}:null,id="exp-"+Date.now();
-   for(const d of pkg.docs)await api.create({record_type:"issued",title:d.act.name+(d.number?" № "+d.number:""),data:{act:d.act.key,name:d.act.name,number:d.number,date:d.to||d.from,from:d.from,to:d.to,work_type_id:c.workTypeId||"",work_type:wt?.name||"",format,file,saved_path:r.path,export_id:id,exported_at:at}});
+   for(const d of pkg.docs)await api.create({record_type:"issued",title:d.name+(d.number?" № "+d.number:""),data:{act:d.act.key,name:d.name,number:d.number,date:d.to||d.from,from:d.from,to:d.to,work_type_id:c.workTypeId||"",work_type:wt?.name||"",format,file,saved_path:r.path,export_id:id,exported_at:at}});
    const nums=pkg.docs.map(d=>Number(d.number)).filter(Number.isFinite);let next="";
    if(nums.length){next=String(Math.max(...nums)+1);await saveSettings({start_number:next})}
    D=await loadAll(oid);

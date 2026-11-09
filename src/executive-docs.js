@@ -223,18 +223,52 @@
  const materialText=x=>x.title+(x.docs.length?" — "+x.docs.map(certText).join("; "):" — документ о качестве не загружен");
  const objText=o=>[o.name,o.address].filter(Boolean).join(", ");
  const doerOf=ctx=>ctx.people.find(p=>p.key==="sub")||ctx.people.find(p=>p.key==="contractor")||{};
- // The head of an act of the forms Д and Е: the name, the object, the date and the commission.
- function header(act,ctx,n,date,what){
-  const o=ctx.settings.object||{},title=act.form==="D"?"Акт освидетельствования скрытых работ":act.form==="E"?"Акт промежуточной приёмки ответственных конструкций":act.name;
-  return[B.title(title+(n?" № "+n:"")),...(act.form&&act.work?[B.center(act.work)]:[]),B.small(act.basis),
+ // The text of each act as a template the engineer can change and keep (просьба инженера 09.11.2026: «сделай возможность
+ // редактировать акт и сохранять, чтобы потом был такой постоянно»): the name, the line under it, the words after the
+ // commission and the paragraphs. What changes from act to act stays a marker in square brackets — [работы], [материалы],
+ // [начало]… — and is filled from the reports, the scheme and the certificates at each export. Kept in the settings of the
+ // object (settings.texts[<act>]); a paragraph starting with «Решение комиссии» is bold.
+ const LINE="_______________________________";
+ const MARKERS=[["работы","что предъявлено: вид работ, оси, марки и количество за период"],["вид работ","вид работ и оси"],["оборудование","марки и количество за период"],["проект","проектная организация и шифр"],["материалы","применённые материалы с документами о качестве"],["отклонения","«отсутствуют» или «допущены: …» из настроек"],["начало","дата начала работ"],["окончание","дата окончания работ"],["период","период акта"],["документация","съёмка, акты скрытых работ этой выгрузки, отчёты"],["приложения","съёмка и документы о качестве"],["последующие работы","поле «Разрешается производство последующих работ»"],["исполнитель","организация, выполнившая работы"],["экземпляров","число экземпляров"],["объект","наименование и адрес объекта"]];
+ const DECISION_D="Работы выполнены в соответствии с проектно-сметной документацией, стандартами, строительными нормами и правилами и отвечают требованиям их приёмки. На основании изложенного разрешается производство последующих работ по устройству (монтажу): [последующие работы].";
+ const DECISION_E="Конструкции выполнены в соответствии с проектно-сметной документацией, стандартами, строительными нормами и правилами и отвечают требованиям их приёмки. На основании изложенного разрешается использование конструкций по назначению (или производство последующих работ): [последующие работы].";
+ const ITEMS=["2. Работы выполнены по проектно-сметной документации: [проект].","3. При выполнении работ применены: [материалы].","4. При выполнении работ отклонения от проектно-сметной документации [отклонения].","5. Даты: начала работ [начало], окончания работ [окончание]."];
+ function defaultText(act){
+  if(act.form==="D")return{title:"Акт освидетельствования скрытых работ",subtitle:act.work||"",intro:"произвела осмотр работ, выполненных [исполнитель], и составила настоящий акт о нижеследующем:",
+   paras:["1. К освидетельствованию предъявлены следующие работы: [работы].",...ITEMS,"Решение комиссии:",DECISION_D,"Приложения: [приложения].","Акт составлен в экземплярах: [экземпляров]."]};
+  if(act.form==="E")return{title:"Акт промежуточной приёмки ответственных конструкций",subtitle:"",intro:"произвела осмотр конструкций и проверку качества работ, выполненных [исполнитель], и составила настоящий акт о нижеследующем:",
+   paras:["1. К приёмке предъявлены следующие конструкции: [работы].",...ITEMS,"6. Документация, на основании которой производилась приёмка: [документация].","Решение комиссии:",DECISION_E,"Акт составлен в экземплярах: [экземпляров]."]};
+  if(act.key==="geodesy")return{title:act.name,subtitle:"",intro:"произвела осмотр и проверку геодезической разбивочной основы и составила настоящий акт о нижеследующем:",
+   paras:["1. Предъявлена к приёмке геодезическая разбивочная основа для монтажа: [вид работ].","2. Знаки разбивочной основы закреплены; их положение и отметки соответствуют проекту, отклонения не превышают допускаемых. Схема закрепления знаков и каталог координат прилагаются.","Решение комиссии: геодезическая разбивочная основа принимается для производства работ."]};
+  if(act.key==="equipment_test")return{title:act.name,subtitle:"",intro:"произвела проверку результатов индивидуального испытания оборудования и составила настоящий акт о нижеследующем:",
+   paras:["1. Предъявлено к испытанию оборудование: [оборудование].","2. Оборудование испытано по программе индивидуальных испытаний (для резервуаров — наливом воды до проектного уровня с выдержкой) в течение ______ ч, с __________ по __________.","3. При испытании дефектов изготовления и монтажа, течей и недопустимых деформаций не обнаружено.","4. Применены: [материалы].","Решение комиссии: оборудование выдержало индивидуальное испытание и считается готовым к комплексному опробованию."]};
+  if(act.key==="equipment_complex")return{title:act.name,subtitle:"",intro:"произвела проверку результатов комплексного опробования оборудования и составила настоящий акт о нижеследующем:",
+   paras:["1. Оборудование: [оборудование] прошло комплексное опробование в течение ______ ч, с __________ по __________, по утверждённой программе.","2. При комплексном опробовании оборудование работало нормально; выявленные дефекты устранены.","Решение комиссии: оборудование, прошедшее комплексное опробование, считается принятым для предъявления приёмочной комиссии."]};
+  // Journals, lists and the as-built scheme: the name and the notes under the table.
+  return{title:act.name,subtitle:"",intro:null,paras:act.key==="asbuilt"?["Допускаемые отклонения — по проекту и действующим нормам на монтаж стальных конструкций."]:[]}
+ }
+ // The text of the act: the engineer's kept one over the standard.
+ function textOf(act,settings){
+  const d=defaultText(act),c=settings?.texts?.[act.key];if(!c)return{...d,custom:false};
+  const str=(v,def)=>typeof v==="string"?v:def;
+  return{title:str(c.title,d.title).trim()||d.title,subtitle:str(c.subtitle,d.subtitle),intro:d.intro==null?null:str(c.intro,d.intro),paras:Array.isArray(c.paras)?c.paras.map(String):d.paras,custom:true}
+ }
+ const fill=(t,V)=>String(t||"").replace(/\[([^\]]{1,40})\]/g,(m,k)=>{const v=V[norm(k)];return v==null?m:v});
+ const textBlocks=(paras,V)=>arr(paras).map(t=>fill(t,V).trim()).filter(Boolean).map(t=>B.p(t,/^решение комиссии/i.test(t)?{b:true}:{}));
+ // The name of the document in the inventory and the list of exported acts.
+ const docName=(act,T)=>T&&T.custom?T.title+(T.subtitle?" ("+T.subtitle+")":""):act.name;
+ // The head of an act: the name, the object, the date and the commission.
+ function header(act,ctx,n,date,T,V){
+  const o=ctx.settings.object||{};
+  return[B.title(T.title+(n?" № "+n:"")),...(T.subtitle?[B.center(fill(T.subtitle,V))]:[]),B.small(act.basis),
    B.p((o.city||"")+(o.city?"   ":"")+ruLong(date),{align:"right"}),
    B.field("Объект",objText(o)),B.field("Шифр проекта (рабочей документации)",o.project_code),
    B.p("Комиссия в составе:",{b:true}),...ctx.people.map(p=>B.field(p.short,personText(p))),
-   B.p(what||(act.form==="E"?"произвела осмотр конструкций и проверку качества работ, выполненных ":"произвела осмотр работ, выполненных ")+(doerOf(ctx).org||"_______________________________")+", и составила настоящий акт о нижеследующем:",{})]
+   ...(T.intro?[B.p(fill(T.intro,V),{})]:[])]
  }
  function footer(ctx,extra){return[...(extra||[]),B.p("Подписи членов комиссии:",{b:true}),B.sign(signRows(ctx.people))]}
- const listHead=(act,ctx,workName,period)=>[B.title(act.name),B.small(act.basis),B.field("Объект",objText(ctx.settings.object||{})),B.field("Вид работ",workName),B.field("Период",period)];
- const docText=d=>d.act.name.replace(/ \(.*\)$/,"")+(d.number?" № "+d.number:"")+" от "+ru(d.to||d.from);
+ const listHead=(act,ctx,workName,period,T)=>[B.title(T.title),...(T.subtitle?[B.center(T.subtitle)]:[]),B.small(act.basis),B.field("Объект",objText(ctx.settings.object||{})),B.field("Вид работ",workName),B.field("Период",period)];
+ const docText=d=>(d.text?.title||d.act.name.replace(/ \(.*\)$/,""))+(d.number?" № "+d.number:"")+" от "+ru(d.to||d.from);
  function actBlocks(act,ctx,part,n){
   const {rows,from,to}=part,date=to||from,marks=rows.map(r=>r.mark).filter(Boolean),markSet=new Set(marks.map(norm));
   const axes=axesOf(ctx.plan,marks),wt=ctx.workType,mats=materialsOf(act,ctx.needs,markSet);
@@ -247,64 +281,47 @@
   const survey=surveys.length?surveys.map(surveyText).join("; "):ctx.asbuilt?"Исполнительная геодезическая схема"+(axes?" в осях "+axes:"")+" (прилагается)":"Исполнительная геодезическая схема"+(axes?" в осях "+axes:"")+" № ____ от ________";
   const project=[ctx.settings.object?.designer,[ctx.settings.object?.project_code,rows.map(r=>r.code).filter(Boolean)[0]].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join(", ")].filter(Boolean).join(", ");
   const used=mats.map(materialText).join("; ")||"—";
+  const T=part.text=textOf(act,ctx.settings);
+  const what=act.work?act.work+(axes?" в осях "+axes:"")+" — "+scope:workName+" — "+scope;
+  const V={"работы":what,"вид работ":workName,"оборудование":scope,"проект":project||LINE,"материалы":used,"отклонения":ctx.settings.deviations?"допущены: "+ctx.settings.deviations:"отсутствуют",
+   "начало":ru(dates[0]||from),"окончание":ru(dates.slice(-1)[0]||to),"период":period,"приложения":survey+"; документы о качестве по п. 3",
+   "документация":[survey,...ctx.issued.filter(d=>d.act.form==="D").map(docText),"ежедневные отчёты о выполненных работах за "+period].join("; "),
+   "последующие работы":ctx.settings.next_works||LINE,"исполнитель":doerOf(ctx).org||LINE,"экземпляров":String(ctx.settings.copies||"3"),"объект":objText(ctx.settings.object||{})};
+  const notes=()=>textBlocks(T.paras,V);
   const certRows=list=>list.map((x,i)=>[String(i+1),x.title+(x.detail?" ("+x.detail+")":""),x.docs.length?x.docs.map(certText).join("; "):"не загружен",arr(x.marks).slice(0,12).join(", ")+(arr(x.marks).length>12?"…":"")]);
-  if(act.key==="certs")return[...listHead(act,ctx,workName,period).slice(0,3),B.table(["№","Материал / изделие","Сертификат (СТ-KZ, индустриальный), документ о качестве","Марки"],certRows(ctx.needs.filter(x=>!x.hidden)),[5,38,37,20]),...footer(ctx)];
-  if(act.key==="input")return[...listHead(act,ctx,workName,period).slice(0,3),
-   B.table(["№","Дата поступления","Материал, изделие, конструкция","Документ о качестве","Количество, партия","Результат контроля","Подпись"],mats.flatMap(x=>(x.docs.length?x.docs:[{}]).map(d=>[x.title,d]).map(([t,d])=>["",ru(d.date),t,d.number||d.kind?certText(d):"не загружен",String(d.qty||""),d.number||d.file?"соответствует":"",""])).map((r,i)=>(r[0]=String(i+1),r)),[5,11,28,24,12,12,8]),...footer(ctx)];
+  if(act.key==="certs")return[...listHead(act,ctx,workName,period,T).filter(b=>!["Вид работ","Период"].includes(b.label)),B.table(["№","Материал / изделие","Сертификат (СТ-KZ, индустриальный), документ о качестве","Марки"],certRows(ctx.needs.filter(x=>!x.hidden)),[5,38,37,20]),...notes(),...footer(ctx)];
+  if(act.key==="input")return[...listHead(act,ctx,workName,period,T).filter(b=>!["Вид работ","Период"].includes(b.label)),
+   B.table(["№","Дата поступления","Материал, изделие, конструкция","Документ о качестве","Количество, партия","Результат контроля","Подпись"],mats.flatMap(x=>(x.docs.length?x.docs:[{}]).map(d=>[x.title,d]).map(([t,d])=>["",ru(d.date),t,d.number||d.kind?certText(d):"не загружен",String(d.qty||""),d.number||d.file?"соответствует":"",""])).map((r,i)=>(r[0]=String(i+1),r)),[5,11,28,24,12,12,8]),...notes(),...footer(ctx)];
   if(act.key==="journal"){
    const lines=[];for(const r of ctx.reports){const d=r.data||r,w=itemsOf(r).filter(x=>!ctx.workTypeId||String(x.work_type_id||"")===String(ctx.workTypeId));if(!w.length)continue;
     lines.push([ru(d.date),worksText(works([r],{workTypeId:ctx.workTypeId,marks:ctx.marks})),String(d.weather||""),arr(d.responsible).map(x=>x?.name||x).filter(Boolean).join(", ")||String(d.responsible||""),String(d.note||"")])}
-   return[...listHead(act,ctx,workName,period),B.table(["Дата","Наименование работ, выполненных за смену (марки, количество, объём)","Условия производства работ","Ответственный","Замечания контролирующих лиц"],lines.length?lines:[["—","записей нет","","",""]],[12,46,12,15,15]),...footer(ctx)]
+   return[...listHead(act,ctx,workName,period,T),B.table(["Дата","Наименование работ, выполненных за смену (марки, количество, объём)","Условия производства работ","Ответственный","Замечания контролирующих лиц"],lines.length?lines:[["—","записей нет","","",""]],[12,46,12,15,15]),...notes(),...footer(ctx)]
   }
   if(act.key==="welding"){
    const el=mats.map(x=>x.title+(x.docs.length?" ("+x.docs.map(certText).join("; ")+")":"")).join("; ")||"по КМ";
    const lines=[];for(const r of ctx.reports){const d=r.data||r,w=works([r],{workTypeId:ctx.workTypeId,marks:ctx.marks});if(!w.length)continue;lines.push([ru(d.date),worksText(w),"",el,"",""])}
-   return[...listHead(act,ctx,workName,period),B.table(["Дата","Конструкции, узлы (марки)","Сварщик: ФИО, клеймо, № удостоверения","Сварочные материалы, документ о качестве","Температура воздуха, °С","Результат контроля швов"],lines.length?lines:[["—","записей нет","","","",""]],[11,33,16,22,8,10]),...footer(ctx)]
+   return[...listHead(act,ctx,workName,period,T),B.table(["Дата","Конструкции, узлы (марки)","Сварщик: ФИО, клеймо, № удостоверения","Сварочные материалы, документ о качестве","Температура воздуха, °С","Результат контроля швов"],lines.length?lines:[["—","записей нет","","","",""]],[11,33,16,22,8,10]),...notes(),...footer(ctx)]
   }
   if(act.key==="unmounted"){
    const done=new Map();for(const r of works(ctx.reportsTo,{workTypeId:ctx.workTypeId,marks:ctx.marks}))if(r.mark)done.set(norm(r.mark),(done.get(norm(r.mark))||0)+r.qty);
    const list=arr(ctx.marks).map(m=>{const mark=String(m.mark||m.title||"").trim(),q=num(m.qty)||0,got=done.get(norm(mark))||0,left=Math.max(0,q-got),uv=num(m.unit_volume);return{mark,name:String(m.name||""),q,got,left,mass:uv?left*uv:null}}).filter(x=>x.mark&&x.left>0).sort((a,b)=>a.mark.localeCompare(b.mark,"ru",{numeric:true}));
    const t=list.reduce((s,x)=>s+(x.mass||0),0);
-   return[...listHead(act,ctx,workName,"на "+ru(to)),B.table(["№","Марка","Наименование","По проекту, шт.","Смонтировано, шт.","Не смонтировано, шт.","Масса, т","Причина"],list.length?list.map((x,i)=>[String(i+1),x.mark,x.name,fmt(x.q),fmt(x.got),fmt(x.left),x.mass==null?"":fmt(x.mass,3),""]):[["—","все конструкции ведомости марок смонтированы","","","","","",""]],[5,11,25,11,12,12,10,14]),
-    ...(t?[B.p("Итого не смонтировано: "+fmt(t,3)+" т.",{})]:[]),...footer(ctx)]
+   return[...listHead(act,ctx,workName,"на "+ru(to),T),B.table(["№","Марка","Наименование","По проекту, шт.","Смонтировано, шт.","Не смонтировано, шт.","Масса, т","Причина"],list.length?list.map((x,i)=>[String(i+1),x.mark,x.name,fmt(x.q),fmt(x.got),fmt(x.left),x.mass==null?"":fmt(x.mass,3),""]):[["—","все конструкции ведомости марок смонтированы","","","","","",""]],[5,11,25,11,12,12,10,14]),
+    ...(t?[B.p("Итого не смонтировано: "+fmt(t,3)+" т.",{})]:[]),...notes(),...footer(ctx)]
   }
   if(act.key==="asbuilt"){
    const P=ctx.plan,pic=planSvg(P,marks),els=elementsOf(P,marks).sort((a,b)=>a.mark.localeCompare(b.mark,"ru",{numeric:true})||a.x-b.x||a.y-b.y);
    const lv=v=>v==null?"":(v>0?"+":v<0?"−":"±")+(Math.abs(v)/1000).toFixed(3).replace(".",",");
    const rows=els.slice(0,300).map((e,i)=>[String(i+1),e.mark,e.kind==="column"?axisPoint(P,e.x,e.y):axisPoint(P,e.x,e.y)+" – "+axisPoint(P,e.x2,e.y2),e.kind==="column"?lv(e.z0)+" / "+lv(e.z1):lv(e.z0)+(e.z1!=null&&Math.abs(e.z1-e.z0)>5?" … "+lv(e.z1):""),"","","",""]);
-   return[B.title(act.name+(n?" № "+n:"")),B.small(act.basis),B.field("Объект",objText(ctx.settings.object||{})),B.field("Вид работ",workName),B.field("Период",period),
+   return[B.title(T.title+(n?" № "+n:"")),...(T.subtitle?[B.center(T.subtitle)]:[]),B.small(act.basis),B.field("Объект",objText(ctx.settings.object||{})),B.field("Вид работ",workName),B.field("Период",period),
     pic?B.plan(pic):B.p("Сетка осей монтажной схемы не задана — план не построен.",{}),
     B.small("Условные обозначения: чёрным — конструкции марок, смонтированных за период (смонтированные экземпляры, если они отмечены на монтажной схеме, иначе все элементы марки); серым — остальные конструкции схемы. Отклонения — в мм; «+» — в сторону возрастания координаты (от оси 1 / А)."),
     B.table(["№","Марка","Оси","Отметка по проекту (низ / верх)","Смещение по X, мм","Смещение по Y, мм","Отметка факт.","Вертикальность, мм"],rows.length?rows:[["—","конструкций за период на схеме нет","","","","","",""]],[5,10,21,18,11,11,12,12]),
     ...(els.length>300?[B.small(`Показаны первые 300 из ${els.length} элементов.`)]:[]),
-    B.p("Допускаемые отклонения — по проекту и действующим нормам на монтаж стальных конструкций.",{}),...footer(ctx,[B.field("Съёмку выполнил (геодезист, организация)",""),B.field("Прибор (марка, № свидетельства о поверке)","")])]
+    ...notes(),...footer(ctx,[B.field("Съёмку выполнил (геодезист, организация)",""),B.field("Прибор (марка, № свидетельства о поверке)","")])]
   }
-  const out=header(act,ctx,n,date);
-  if(act.key==="geodesy")return[...header(act,ctx,n,date,"произвела осмотр и проверку геодезической разбивочной основы и составила настоящий акт о нижеследующем:"),
-   B.p("1. Предъявлена к приёмке геодезическая разбивочная основа для монтажа: "+workName+".",{}),B.p("2. Знаки разбивочной основы закреплены; их положение и отметки соответствуют проекту, отклонения не превышают допускаемых. Схема закрепления знаков и каталог координат прилагаются.",{}),
-   B.p("Решение комиссии: геодезическая разбивочная основа принимается для производства работ.",{b:true}),...footer(ctx)];
-  if(act.key==="equipment_test")return[...header(act,ctx,n,date,"произвела проверку результатов индивидуального испытания оборудования и составила настоящий акт о нижеследующем:"),
-   B.p("1. Предъявлено к испытанию оборудование: "+scope+".",{}),B.p("2. Оборудование испытано по программе индивидуальных испытаний (для резервуаров — наливом воды до проектного уровня с выдержкой) в течение ______ ч, с __________ по __________.",{}),
-   B.p("3. При испытании дефектов изготовления и монтажа, течей и недопустимых деформаций не обнаружено.",{}),B.p("4. Применены: "+used+".",{}),
-   B.p("Решение комиссии: оборудование выдержало индивидуальное испытание и считается готовым к комплексному опробованию.",{b:true}),...footer(ctx)];
-  if(act.key==="equipment_complex")return[...header(act,ctx,n,date,"произвела проверку результатов комплексного опробования оборудования и составила настоящий акт о нижеследующем:"),
-   B.p("1. Оборудование: "+scope+" прошло комплексное опробование в течение ______ ч, с __________ по __________, по утверждённой программе.",{}),
-   B.p("2. При комплексном опробовании оборудование работало нормально; выявленные дефекты устранены.",{}),
-   B.p("Решение комиссии: оборудование, прошедшее комплексное опробование, считается принятым для предъявления приёмочной комиссии.",{b:true}),...footer(ctx)];
-  // Forms Д and Е: items 1–5 (and 6 for Е), the decision of the commission.
-  const what=act.work?act.work+(axes?" в осях "+axes:"")+" — "+scope:workName+" — "+scope;
-  const docs=[survey,...(act.form==="E"?ctx.issued.filter(d=>d.act.form==="D").map(docText):[]),"ежедневные отчёты о выполненных работах за "+period];
-  return[...out,
-   B.p("1. К "+(act.form==="E"?"приёмке предъявлены следующие конструкции":"освидетельствованию предъявлены следующие работы")+": "+what+".",{}),
-   B.p("2. Работы выполнены по проектно-сметной документации: "+(project||"_______________________________")+".",{}),
-   B.p("3. При выполнении работ применены: "+used+".",{}),
-   B.p("4. При выполнении работ отклонения от проектно-сметной документации "+(ctx.settings.deviations?"допущены: "+ctx.settings.deviations:"отсутствуют")+".",{}),
-   B.p("5. Даты: начала работ "+ru(dates[0]||from)+", окончания работ "+ru(dates.slice(-1)[0]||to)+".",{}),
-   ...(act.form==="E"?[B.p("6. Документация, на основании которой производилась приёмка: "+docs.join("; ")+".",{})]:[]),
-   B.p("Решение комиссии:",{b:true}),
-   B.p(act.form==="E"?"Конструкции выполнены в соответствии с проектно-сметной документацией, стандартами, строительными нормами и правилами и отвечают требованиям их приёмки. На основании изложенного разрешается использование конструкций по назначению (или производство последующих работ): "+(ctx.settings.next_works||"_______________________________")+".":
-    "Работы выполнены в соответствии с проектно-сметной документацией, стандартами, строительными нормами и правилами и отвечают требованиям их приёмки. На основании изложенного разрешается производство последующих работ по устройству (монтажу): "+(ctx.settings.next_works||"_______________________________")+".",{}),
-   ...(act.form==="D"?[B.field("Приложения",survey+"; документы о качестве по п. 3")]:[]),B.field("Акт составлен в экземплярах",ctx.settings.copies||"3"),...footer(ctx)]
+  // Acts of paragraphs (forms Д and Е, geodesy, equipment): the head, the text with its markers filled, the signatures.
+  return[...header(act,ctx,n,date,T,V),...textBlocks(T.paras,V),...footer(ctx)]
  }
  // The whole set: the inventory first, then each chosen document in the order of the list (one for the period or one
  // per day of works); acts of the form Е after the hidden works they refer to.
@@ -317,14 +334,14 @@
   const parts=split==="day"&&days.length?days.map(d=>({from:d,to:d,rows:works(inPeriod.filter(r=>day((r.data||r).date)===d),{workTypeId,marks})})):[{from:from||days[0]||"",to:to||days[days.length-1]||"",rows:all}];
   let n=Math.max(1,Math.round(num(settings.start_number)||1));const docs=ctx.issued;
   for(const act of ACTS.filter(a=>acts.includes(a.key))){
-   for(const part of act.single?[{from:parts[0].from,to:parts[parts.length-1].to,rows:all}]:parts){const no=act.list?"":String(n++);const blocks=actBlocks(act,ctx,part,no);docs.push({act,number:no,from:part.from,to:part.to,blocks,surveys:part.surveys||[]})}}
+   for(const part of act.single?[{from:parts[0].from,to:parts[parts.length-1].to,rows:all}]:parts){const no=act.list?"":String(n++);const blocks=actBlocks(act,ctx,part,no);docs.push({act,name:docName(act,part.text),text:part.text,number:no,from:part.from,to:part.to,blocks,surveys:part.surveys||[]})}}
   // Acts that point to an as-built survey and got none: loaded surveys do not cover them and the program draws none.
   const used=new Map();
   for(const d of docs)for(const x of d.surveys)used.set(String(x.id??surveyText(x)),x);
-  const noSurvey=ctx.asbuilt?[]:docs.filter(d=>d.act.geo&&!d.surveys.length).map(d=>d.act.name+(d.number?" № "+d.number:""));
+  const noSurvey=ctx.asbuilt?[]:docs.filter(d=>d.act.geo&&!d.surveys.length).map(d=>d.name+(d.number?" № "+d.number:""));
   const o=settings.object||{};
   const inventory=[B.title("Опись исполнительной документации"),B.small(RK+", п. 15.2"),B.field("Объект",objText(o)),B.field("Вид работ",workType?.name||"все виды работ"),B.field("Период",ru(from)+" – "+ru(to)),
-   B.table(["№","Наименование документа","Дата","Листов"],docs.map((d,i)=>[String(i+1),d.act.name+(d.number?" № "+d.number:""),d.from===d.to?ru(d.to):ru(d.from)+" – "+ru(d.to),"1"]).concat([...used.values()].map((x,i)=>[String(docs.length+i+1),surveyText(x)+(x.surveyor?", "+x.surveyor:""),x.date?ru(x.date):"",String(x.files.length||1)])).concat(needsList.filter(x=>!x.hidden&&x.docs.length).map((x,i)=>[String(docs.length+used.size+i+1),"Документ о качестве: "+x.title+" — "+x.docs.map(certText).join("; "),x.docs[0]?.date?ru(x.docs[0].date):"",String(x.docs.length)])),[6,64,16,14])];
+   B.table(["№","Наименование документа","Дата","Листов"],docs.map((d,i)=>[String(i+1),d.name+(d.number?" № "+d.number:""),d.from===d.to?ru(d.to):ru(d.from)+" – "+ru(d.to),"1"]).concat([...used.values()].map((x,i)=>[String(docs.length+i+1),surveyText(x)+(x.surveyor?", "+x.surveyor:""),x.date?ru(x.date):"",String(x.files.length||1)])).concat(needsList.filter(x=>!x.hidden&&x.docs.length).map((x,i)=>[String(docs.length+used.size+i+1),"Документ о качестве: "+x.title+" — "+x.docs.map(certText).join("; "),x.docs[0]?.date?ru(x.docs[0].date):"",String(x.docs.length)])),[6,64,16,14])];
   const missing=needsList.filter(x=>!x.hidden&&!x.docs.length&&acts.some(k=>arr(ACT[k]?.need).includes(x.group)));
   return{title:"Исполнительная документация — "+(o.name||"объект"),docs,inventory,missing,noSurvey,surveys:[...used.values()],works:all,people:ctx.people,
    blocks:[...inventory,...docs.flatMap(d=>[B.brk(),...d.blocks])],
@@ -420,7 +437,7 @@
   return pkg
  }
 
- const api={RK,ROLES,GROUPS,ACTS,ACT,actKeys,needs,fromTexts,reportsIn,works,axesOf,axesOverlap,plan,planSvg,surveysFor,surveyOf,surveyText,people,buildPackage,toHtml,toDocx,rasterize,documentXml,zip,crc32,certText,ru,day};
+ const api={MARKERS,defaultText,textOf,fill,RK,ROLES,GROUPS,ACTS,ACT,actKeys,needs,fromTexts,reportsIn,works,axesOf,axesOverlap,plan,planSvg,surveysFor,surveyOf,surveyText,people,buildPackage,toHtml,toDocx,rasterize,documentXml,zip,crc32,certText,ru,day};
  root.irExecDocs=api;
  if(typeof module==="object"&&module.exports)module.exports=api;
 })(typeof window!=="undefined"?window:globalThis);
