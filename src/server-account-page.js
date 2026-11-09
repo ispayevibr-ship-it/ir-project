@@ -54,8 +54,8 @@
 .ir-acc-st:empty{display:none}
 .ir-acc-site[open]{display:flex;flex-direction:column;overflow:hidden}.ir-acc-site>*{flex:none}.ir-acc-site .ir-acc-body{flex:1 1 auto;min-height:0;overflow:auto}
 .ir-acc-card{display:grid;gap:6px;padding:12px 14px;border:1px solid #dbe5ee;border-radius:10px;background:#fff}
-.ir-acc-line{display:flex;gap:8px;align-items:baseline;font-size:12.5px}.ir-acc-line b{flex:none}
-.ir-acc-line i{flex:none;width:9px;height:9px;border-radius:50%;background:#aab8c4;align-self:center}
+.ir-acc-line{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;line-height:19px}.ir-acc-line b{flex:none;min-width:122px}
+.ir-acc-line i{flex:none;width:9px;height:9px;margin-top:5px;border-radius:50%;background:#aab8c4}
 .ir-acc-line i.ok{background:#27a96a}.ir-acc-line i.err{background:#d0452f}
 .ir-acc-line span{color:#5b7a92}
 .ir-acc-acts{display:flex;gap:8px;flex-wrap:wrap}
