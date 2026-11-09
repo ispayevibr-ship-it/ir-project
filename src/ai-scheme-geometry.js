@@ -1,6 +1,6 @@
 "use strict";
 /* IR Project: read stroked line segments and text items of one PDF page in top-down points, page rotation applied. */
-const MAX_SEGMENTS=400000,MAX_TEXTS=20000,MAX_GLYPHS=200000,GLYPH_PT=20;
+const MAX_SEGMENTS=400000,MAX_TEXTS=20000,MAX_GLYPHS=200000,GLYPH_PT=20,PAINT_PT=3,MAX_PAINT=200000;
 // A sheet whose lettering is drawn in strokes flattened into specks (ГПЭС «Раскладка сэндвич-панелей», 04.11.2026: 567 000
 // and 814 000 lines, 533 000 and 790 000 of them shorter than half a point): its first 400 000 lines were all the lettering
 // could give, more than half of the drawing's own lines (8 700 of 14 000 — the joints of the panels) were never read, and the
@@ -92,6 +92,10 @@ async function readPageGeometry(pdfjs,page){
  const filled=new Set([OPS.fill,OPS.eoFill,OPS.fillStroke,OPS.eoFillStroke,OPS.closeFillStroke,OPS.closeEOFillStroke]);
  // Small filled shapes: letters of lettering exported as curves (OCR reads their areas later).
  const segments=[],glyphs=[],images=[];
+ // The colour laid on the sheet, in cells of PAINT_PT (ГПЭС «Раскладка сэндвич-панелей»: panels of RAL 2004 coloured
+ // orange, of RAL 7004 grey, by hatching of thin coloured strokes — the colour tells two positions of one size apart):
+ // filled areas larger than a letter and coloured strokes, not black or white.
+ let fillColor="",strokeColor="";const fillColors=[],strokeColors=[],painted=new Map();
  const images_=new Set([OPS.paintImageXObject,OPS.paintInlineImageXObject,OPS.paintImageMaskXObject,OPS.paintImageXObjectRepeat].filter(v=>v!==undefined));let ctm=[1,0,0,1,0,0];const stack=[];
  // The width of the line drawn, pt (`w` of a segment): an outline is drawn thick, an axis, a dimension and its
  // extension lines thin (ГОСТ 2.303).
@@ -102,8 +106,10 @@ async function readPageGeometry(pdfjs,page){
  for(let i=0;i<list.fnArray.length;i++){
   if(segments.length>=MAX_SEGMENTS){cut=list.fnArray.length-i;break}
   const fn=list.fnArray[i],args=list.argsArray[i];
-  if(fn===OPS.save){stack.push(ctm);lws.push(lw)}
-  else if(fn===OPS.restore){ctm=stack.pop()||[1,0,0,1,0,0];lw=lws.length?lws.pop():1}
+  if(fn===OPS.save){stack.push(ctm);lws.push(lw);fillColors.push(fillColor);strokeColors.push(strokeColor)}
+  else if(fn===OPS.restore){ctm=stack.pop()||[1,0,0,1,0,0];lw=lws.length?lws.pop():1;fillColor=fillColors.length?fillColors.pop():"";strokeColor=strokeColors.length?strokeColors.pop():""}
+  else if(fn===OPS.setFillRGBColor)fillColor=typeof args?.[0]==="string"?args[0].toLowerCase():""
+  else if(fn===OPS.setStrokeRGBColor)strokeColor=typeof args?.[0]==="string"?args[0].toLowerCase():""
   else if(fn===OPS.transform)ctm=mul(ctm,args);
   else if(fn===OPS.setLineWidth)lw=Number(args?.[0])||0;
   else if(fn===OPS.setGState){for(const [k,v] of args?.[0]||[])if(k==="LW")lw=Number(v)||0}
@@ -124,6 +130,7 @@ async function readPageGeometry(pdfjs,page){
      j+=1+n
     }
     if(x1-x0<=GLYPH_PT&&y1-y0<=GLYPH_PT&&x1>x0)glyphs.push({x0,y0,x1,y1});
+    else if(fillColor&&!/^#(ffffff|000000)$/.test(fillColor)&&(x1-x0)*(y1-y0)>=40)for(let x=Math.floor(x0/PAINT_PT);x<=Math.floor(x1/PAINT_PT);x++)for(let y=Math.floor(y0/PAINT_PT);y<=Math.floor(y1/PAINT_PT);y++)painted.set(x+","+y,fillColor);
     continue
    }
    if(!stroked.has(paint))continue;
@@ -151,10 +158,11 @@ async function readPageGeometry(pdfjs,page){
     else{if(last&&start&&(last.x!==start.x||last.y!==start.y))segments.push({a:last,b:start});last=start;lastRaw=startRaw;j+=1}
    }
    for(let k=from;k<segments.length;k++)segments[k].w=w;
+   if(strokeColor&&!/^#(ffffff|000000)$/.test(strokeColor))for(let k=from;k<segments.length;k++){const q=segments[k];painted.set(Math.floor((q.a.x+q.b.x)/2/PAINT_PT)+","+Math.floor((q.a.y+q.b.y)/2/PAINT_PT),strokeColor)}
    if(!compact&&segments.length>=COMPACT_AT){compact=true;specks(0)}else if(compact)specks(from)
   }
  }
  const {texts}=await readPageTexts(page,viewport);
- return{segments,glyphs,images,texts:joinSplitTexts(texts),widthPt:viewport.width,heightPt:viewport.height,...(tiny?{tiny}:{}),...(cut?{cut}:{})}
+ return{segments,glyphs,images,...(painted.size&&painted.size<=MAX_PAINT?{paint:[...painted].map(([k,c])=>{const [x,y]=k.split(",").map(Number);return{x:x*PAINT_PT,y:y*PAINT_PT,c}})}:{}),texts:joinSplitTexts(texts),widthPt:viewport.width,heightPt:viewport.height,...(tiny?{tiny}:{}),...(cut?{cut}:{})}
 }
 module.exports={readPageGeometry,readPageTexts,joinSplitTexts,plainText,joinProfiles};

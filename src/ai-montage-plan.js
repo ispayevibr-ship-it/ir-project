@@ -1939,4 +1939,4 @@ function seatTrusses(elements,catalog){
   e.note=[e.note,"Ферма по геометрической схеме"+(moved?", отметка низа — как у соседних ферм":"")+" — проверьте"].filter(Boolean).join("; ")
  }
 }
-module.exports={frameProfiles,depthOf,instanceStatus,sheetNodes,jointNote,platesBySpec,gussetsBySpec,gussetHoles,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces,trimGuardPosts,sectionOutliers,roofProfiles,roofLine,roofOnColumns,purlinsOnBeams,hangTracks,relevelNeighbours,oneLadder};
+module.exports={arScheme,frameProfiles,depthOf,instanceStatus,sheetNodes,jointNote,platesBySpec,gussetsBySpec,gussetHoles,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces,trimGuardPosts,sectionOutliers,roofProfiles,roofLine,roofOnColumns,purlinsOnBeams,hangTracks,relevelNeighbours,oneLadder};

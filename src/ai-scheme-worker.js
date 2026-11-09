@@ -96,7 +96,9 @@ setInterval(()=>parentPort.postMessage({type:"alive"}),20000).unref();
        picture=await rasterLines(page,{canvas:options.canvas,rotation:turn});
        geometry={...geometry,segments:[...geometry.segments,...picture.segments],picture:true}
       }
-      let read=joinSplitTexts(await ocrPage(page,{...options,turn}));
+      // (the colours panels are laid with — hatching over their labels — are wiped before reading: ГПЭС «Р68», «Р220»)
+      const colours=[...new Set((geometry.paint||[]).map(p=>p.c))];
+      let read=joinSplitTexts(await ocrPage(page,{...options,turn,colours}));
       // Its words read one by one from their own pixels, turned to their direction: where one is read so, it stands for
       // what the reading of the whole sheet made of that place.
       if(picture){

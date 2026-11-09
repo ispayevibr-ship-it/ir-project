@@ -30,6 +30,25 @@ function keep(w,lenient){
  const signs=w.symbols||[],text=String(w.text).replace(/[‘’'`]/gu,"");
  return lenient&&w.confidence>=30&&signs.length>0&&signs.every(c=>c.confidence>=90)&&(SURE_WORD.test(text)||w.confidence>=50&&SURE_DIAMETER.test(text))
 }
+// An area laid with colour (ГПЭС «Раскладка сэндвич-панелей»: panels of RAL 2004 hatched orange, their labels «Р68»,
+// «Р220» on it never read): the colour is made white, the black lettering stays. Only where colour covers much of the
+// area — a coloured line or word of a drawing (a red mark, a blue dimension) is kept.
+function wipeColour(ctx,w,h,colours=[]){
+ const im=ctx.getImageData(0,0,w,h),d=im.data,n=w*h;let c=0,done=false;
+ // The colours the sheet lays its panels with (geometry `paint`, ГПЭС: orange #f3752c, grey #cfd0cf hatching): a pixel
+ // of such a colour, or of it thinned with white by anti-aliasing (every channel the same share of the way from white),
+ // is the hatching, not lettering — black text and its halo stay.
+ const rgb=colours.map(h=>/^#[0-9a-f]{6}$/i.test(h)?[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)):null).filter(q=>q&&Math.max(...q.map(v=>255-v))>=30);
+ if(rgb.length){
+  for(let k=0;k<n;k++){const p=[d[4*k],d[4*k+1],d[4*k+2]];if(p[0]>=250&&p[1]>=250&&p[2]>=250)continue;
+   for(const q of rgb){const t=p.map((v,i)=>(255-v)/(255-q[i]||1)),lo=Math.min(...t),hi=Math.max(...t);
+    if(hi<=1.15&&hi-lo<=0.2){d[4*k]=d[4*k+1]=d[4*k+2]=255;done=true;break}}}
+ }
+ const coloured=k=>{const r=d[4*k],g=d[4*k+1],b=d[4*k+2];return Math.max(r,g,b)-Math.min(r,g,b)>60};
+ for(let k=0;k<n;k+=7)if(coloured(k))c++;
+ if(c*7>=n*.15){for(let k=0;k<n;k++)if(coloured(k)){d[4*k]=d[4*k+1]=d[4*k+2]=255}done=true}
+ if(done)ctx.putImageData(im,0,0);return done
+}
 // Thin strokes (lettering drawn as curves, one pixel wide) thickened by r pixels: Tesseract reads thin digits poorly
 // (the labels of axis bubbles, see readRings).
 function thickenStrokes(ctx,w,h,r){
@@ -123,13 +142,14 @@ function clearSpecks(ctx,w,h){
 // turned: the area is read turned clockwise, for upward lettering.
 // shear: the slant to straighten (0 for an upright font); "auto" reads both ways and keeps the better reading.
 // rotation: the sheet is read turned by this many degrees clockwise (a scan that lies sideways or upside down).
-async function readArea(page,rect,{canvas,worker,scale=SCALE,turned=false,shear=SHEAR,rotation=0,all=false}){
+async function readArea(page,rect,{canvas,worker,scale=SCALE,turned=false,shear=SHEAR,rotation=0,all=false,colours=[]}){
  scale=Math.min(scale,Math.sqrt(MAX_PIXELS/Math.max(1,rect.w*rect.h)));
  const viewport=page.getViewport({scale,rotation:((page.rotate||0)+rotation)%360,offsetX:-rect.x*scale,offsetY:-rect.y*scale});
  const W=Math.ceil(rect.w*scale),H=Math.ceil(rect.h*scale);
  const img=canvas.createCanvas(W,H),ctx=img.getContext("2d");
  ctx.fillStyle="#fff";ctx.fillRect(0,0,W,H);
  await page.render({canvasContext:ctx,viewport,canvas:img}).promise;
+ wipeColour(ctx,W,H,colours);
  wipeRules(ctx,W,H,Math.round(RULE_PT*scale));
  if(strokeWidth(ctx,W,H)>=5)clearSpecks(ctx,W,H);
  const read=async k=>{
@@ -175,18 +195,19 @@ function addUnique(list,texts){
  */
 // onArea: called after each area, so that a long sheet keeps reporting progress.
 // The slant of the font is found on the first area that has lettering and kept for the rest of the sheet.
-async function readAll(page,areas,{canvas,worker,onArea,turned=false,rotation=0},into,state){
+async function readAll(page,areas,{canvas,worker,onArea,turned=false,rotation=0,colours=[]},into,state){
  for(const t of areas){
-  const got=await readArea(page,t,{canvas,worker,turned,rotation,shear:state.shear??"auto"});
+  const got=await readArea(page,t,{canvas,worker,turned,rotation,colours,shear:state.shear??"auto"});
   if(state.shear===undefined&&got.length>=3)state.shear=got.shear;
   addUnique(into,got);onArea()
  }
 }
 // turn: the sheet's reading position found by sheetTurn; the words come back in the turned sheet's points.
-async function ocrPage(page,{canvas,worker,onArea=()=>{},turn=0}){
+// colours: the colours the sheet lays its panels with, wiped before reading (see wipeColour).
+async function ocrPage(page,{canvas,worker,onArea=()=>{},turn=0,colours=[]}){
  const v=page.getViewport({scale:1,rotation:((page.rotate||0)+turn)%360}),texts=[],up=[],state={};
- await readAll(page,tiles(0,0,v.width,v.height),{canvas,worker,onArea,rotation:turn},texts,state);
- await readAll(page,tiles(0,0,v.width,v.height),{canvas,worker,onArea,turned:true,rotation:turn},up,state);
+ await readAll(page,tiles(0,0,v.width,v.height),{canvas,worker,onArea,rotation:turn,colours},texts,state);
+ await readAll(page,tiles(0,0,v.width,v.height),{canvas,worker,onArea,turned:true,rotation:turn,colours},up,state);
  // Short upright words also read sideways as noise: the upright reading wins where they overlap.
  const flat=texts.map(boxOf);
  for(const t of up)if(!flat.some(f=>overlaps(f,boxOf(t))))texts.push(t);
@@ -378,7 +399,7 @@ function turnGeometry(g,turn){
  const box=b=>{const a=f({x:b.x0,y:b.y0}),c=f({x:b.x1,y:b.y1});return{...b,x0:Math.min(a.x,c.x),x1:Math.max(a.x,c.x),y0:Math.min(a.y,c.y),y1:Math.max(a.y,c.y)}};
  const side=turn===90||turn===270;
  return{...g,widthPt:side?H:W,heightPt:side?W:H,turn,
-  segments:g.segments.map(s=>({...s,a:f(s.a),b:f(s.b)})),images:(g.images||[]).map(box),texts:[]}
+  segments:g.segments.map(s=>({...s,a:f(s.a),b:f(s.b)})),images:(g.images||[]).map(box),...(g.paint?{paint:g.paint.map(p=>({...f(p),c:p.c}))}:{}),texts:[]}
 }
 // Pictures pasted into a sheet with text: only their areas are read, and only words not already in the text layer.
 async function ocrImages(page,images,known,{canvas,worker,onArea=()=>{}}){
@@ -457,4 +478,4 @@ function dropLettering(segments,texts){
  const inside=(p,b)=>p.x>=b.x0&&p.x<=b.x1&&p.y>=b.y0&&p.y<=b.y1;
  return segments.filter(s=>!boxes.some(b=>inside(s.a,b)&&inside(s.b,b)))
 }
-module.exports={ocrPage,ocrImages,readCells,tableRules,readTableCells,verticalRules,horizontalRules,SHEAR,dropLettering,createOcrWorker,readArea,sheetTurn,turnGeometry,clean,keep,recognise,strokeWidth,clearSpecks,ringsOf,readRings,ringLabels,shelvesOf,readShelves,flatThree};
+module.exports={wipeColour,ocrPage,ocrImages,readCells,tableRules,readTableCells,verticalRules,horizontalRules,SHEAR,dropLettering,createOcrWorker,readArea,sheetTurn,turnGeometry,clean,keep,recognise,strokeWidth,clearSpecks,ringsOf,readRings,ringLabels,shelvesOf,readShelves,flatThree};

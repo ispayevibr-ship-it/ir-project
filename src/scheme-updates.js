@@ -46,7 +46,7 @@
    const code=Boolean(s?.appliedAt)&&s.appliedAt!==loaded,data=s?.dataNewer===true;
    busy=false;
    if(code||data)return refresh(objectId,data);
-   show("Схема свежая: пакет схем №"+(s?.version||"—")+(s?.waiting?" (новый пакет ждёт версию программы "+s.waiting+")":"")+(s?.error?" · "+s.error:""));
+   show("Обновлений нет. Схема №\u00a0"+(s?.version||"—")+"."+(s?.waiting?" (новый пакет ждёт версию программы "+s.waiting+")":"")+(s?.error?" · "+s.error:""));
    setTimeout(()=>{if(bar&&!busy&&bar.dataset.kind!=="update")hide()},6000)
   }catch(error){show("Не обновлено: "+clean(error),"Повторить",()=>{hide();now(objectId)})}
   finally{busy=false}

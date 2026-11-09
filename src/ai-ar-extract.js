@@ -44,6 +44,96 @@ function panelSpec(texts){
  }
  return out
 }
+// Tables of a layout of panels by columns (ГПЭС 40 МВт «Раскладка сэндвич-панелей», ООО «Металл Престиж», 09.11.2026:
+// «где мои сэндвич-панели?»): «Поз.» — a letter and the length in centimetres, no hyphen («Р380», «С704»: 3800, 7040);
+// «Обозначение» «МП-СМ 150х1190 К/К (ПЭ-0,5/ПЭ-0,5)» — thickness × width; then «Тип», RAL outside, RAL inside, length,
+// width, thickness, count, area — each in its own column. The lettering of such a sheet is in curves and comes from OCR:
+// a letter of a position is lost («578»), a width «1190» read «119», a thickness «150» read «50», RAL «7004» read «04».
+// A row is told by its length: the number of its position × 10 in that row. A position without its letter takes it from
+// the rows of the same table with the same RAL outside; the label on the facade decides as well (panelViews).
+const LAYOUT_POS=/^([А-ЯЁ]{1,2})?(\d{2,3})$/u;
+const latin=s=>String(s).trim().replace(/C/g,"С").replace(/P/g,"Р").replace(/H/g,"Н").replace(/K/g,"К");
+const WIDTHS=[1000,1150,1160,1190,1200],THICK=[40,50,60,80,100,120,150,170,200,250];
+function layoutSpec(texts){
+ const rows=[];
+ for(const p of texts){
+  if(!horizontalText(p))continue;
+  const m=LAYOUT_POS.exec(latin(p.str));if(!m)continue;
+  const digits=m[2],L=Number(digits)*10,row=rowOf(texts,p,620),nums=row.map(o=>({o,s:String(o.str).trim()}));
+  const len=nums.find(n=>Number(n.s)===L);if(!len||row.length<4)continue;
+  const after=nums.filter(n=>n.o.x>len.o.x).sort((a,b)=>a.o.x-b.o.x),before=nums.filter(n=>n.o.x<len.o.x).sort((a,b)=>a.o.x-b.o.x);
+  const name=nums.find(n=>/(\d{2,3})\s*[хx×]\s*(\d{3,4})/u.test(n.s)),nm=name&&/(\d{2,3})\s*[хx×]\s*(\d{3,4})/u.exec(name.s);
+  let width=0,thick=0,count=null;
+  for(const n of after){
+   const v=Number(n.s);if(!/^\d{2,4}$/.test(n.s)){if(/^\d+[.,]\d+$/.test(n.s))break;continue}
+   if(!width&&(WIDTHS.includes(v)||WIDTHS.includes(v*10))){width=WIDTHS.includes(v)?v:v*10;continue}
+   if(width&&!thick&&THICK.includes(v)){thick=v;continue}
+   if(width&&thick&&count===null&&v>0&&v<1000){count=v;break}
+  }
+  // (the count stands just before the area, a number with a point)
+  if(count===null){const i=after.findIndex(n=>/^\d+[.,]\d+$/.test(n.s)),c=i>0?after[i-1]:null;if(c&&/^\d{1,3}$/.test(c.s)&&c.o.x>len.o.x+60)count=Number(c.s)}
+  if(nm){thick=Number(nm[1]);width=width||Number(nm[2])}
+  const ral=before.filter(n=>/^\d{4}$/.test(n.s)).map(n=>n.s),short=before.filter(n=>/^\d{2}$/.test(n.s)).map(n=>n.s);
+  rows.push({at:p,letter:m[1]||"",digits,length_mm:L,width_mm:width,thickness_mm:thick,count,ral:ral.length>=2?ral[0]:"",ral_inside:ral[ral.length-1]||"",
+   short:ral.length>=2?"":short[0]||"",x:p.x,lenX:len.o.x,name:name?String(name.o.str).trim():""})
+ }
+ // A row whose position the OCR lost («337», «Ø0380»): told by its length in the column of the lengths of its table.
+ for(const col of [...new Set(rows.map(r=>Math.round(r.lenX)))]){
+  const at=rows.find(r=>Math.round(r.lenX)===col);
+  for(const t of texts){
+   const v=String(t.str).trim();if(!horizontalText(t)||Math.abs(t.x-col)>6||!/^\d{3,5}$/.test(v)||Number(v)%10||Number(v)<300)continue;
+   if(rows.some(r=>Math.abs(r.at.y-t.y)<3&&Math.abs(r.x-at.x)<8))continue;
+   const line=texts.filter(o=>o!==t&&Math.abs(o.y-t.y)<3&&o.x>at.x-10&&o.x<at.x+620);if(line.length<4)continue;
+   const pos=line.filter(o=>o.x<at.x+40).sort((a,b)=>a.x-b.x)[0]||{x:at.x,y:t.y,str:""};
+   const ral=line.filter(o=>o.x<t.x&&/^\d{4}$/.test(String(o.str).trim())).sort((a,b)=>a.x-b.x).map(o=>String(o.str).trim());
+   const short=line.filter(o=>o.x<t.x&&o.x>at.x+150&&/^\d{2}$/.test(String(o.str).trim())).map(o=>String(o.str).trim());
+   const after=line.filter(o=>o.x>t.x).sort((a,b)=>a.x-b.x).map(o=>String(o.str).trim());
+   const w=after.map(Number).find(x=>WIDTHS.includes(x)||WIDTHS.includes(x*10)),th=after.map(Number).find(x=>THICK.includes(x));
+   rows.push({at:{...pos,y:t.y,x:at.x},letter:"",digits:String(Number(v)/10),length_mm:Number(v),width_mm:w?(WIDTHS.includes(w)?w:w*10):0,thickness_mm:th||0,count:null,
+    ral:ral.length>=2?ral[0]:"",ral_inside:ral[ral.length-1]||"",short:ral.length>=2?"":short[0]||"",x:at.x,lenX:t.x,name:"",lost:true})
+  }
+ }
+ // (the letter and RAL of a row read short: from the rows of the same table column with the same RAL)
+ const sameTable=(a,b)=>Math.abs(a.x-b.x)<8;
+ for(const r of rows){
+  // («04» is 7004 and 2004 alike: the RAL of the nearest such row of the table — its rows go by colour)
+  if(!r.ral&&r.short)r.ral=(rows.filter(o=>o!==r&&sameTable(o,r)&&o.ral.endsWith(r.short)&&(!r.letter||o.letter===r.letter)).sort((a,b)=>Math.abs(a.at.y-r.at.y)-Math.abs(b.at.y-r.at.y))[0]||{}).ral||"";
+  if(!r.letter){const votes=new Map();for(const o of rows)if(o!==r&&o.letter&&!o.lost&&sameTable(o,r)&&o.ral&&o.ral===r.ral)votes.set(o.letter,(votes.get(o.letter)||0)+1);
+   r.letter=[...votes].sort((a,b)=>b[1]-a[1])[0]?.[0]||""}
+ }
+ // (a RAL of a table none of whose rows kept its letter, while the table has one letter not of another RAL: that one —
+ // ГПЭС лист 1: «Р…» are 2004, every row of 7004 read without its «С»)
+ for(const r of rows.filter(q=>!q.letter&&q.ral)){
+  const kin=rows.filter(o=>sameTable(o,r)),other=new Set(kin.filter(o=>o.letter&&o.ral&&o.ral!==r.ral).map(o=>o.letter));
+  const free=[...new Set(kin.map(o=>o.letter).filter(Boolean))].filter(l=>!other.has(l));if(free.length===1)r.letter=free[0]
+ }
+ // A table whose every row of one RAL lost its letter (ГПЭС лист 2: «825», «434», «251»): the letter of the labels of the
+ // facades with that number, other than the letter a row of another RAL with that number already has.
+ const onFacade=new Map(),letterCount=new Map();for(const t of texts){const m=/^([А-ЯЁ])(\d{2,3})$/u.exec(latin(t.str));if(!m||horizontalText(t)&&rowOf(texts,t,620).length>=4)continue;if(!onFacade.has(m[2]))onFacade.set(m[2],new Set());onFacade.get(m[2]).add(m[1]);letterCount.set(m[1],(letterCount.get(m[1])||0)+1)}
+ for(const r of rows.filter(q=>!q.letter)){
+  const taken=new Set(rows.filter(o=>o.letter&&o.digits===r.digits&&o.ral!==r.ral).map(o=>o.letter));
+  const known=new Set([...rows.map(o=>o.letter).filter(Boolean),...[...letterCount].filter(x=>x[1]>=5).map(x=>x[0])]),free=[...(onFacade.get(r.digits)||[])].filter(l=>known.has(l)&&!taken.has(l));if(free.length===1)r.letter=free[0]
+ }
+ for(const r of rows.filter(q=>q.lost)){const kin=rows.filter(o=>!o.lost&&sameTable(o,r)&&o.letter===r.letter);if(!kin.length)continue;r.width_mm=r.width_mm||kin[0].width_mm;r.thickness_mm=r.thickness_mm||kin[0].thickness_mm;r.name=kin[0].name}
+ // (a width or thickness not read: the one of the rows of its table — «90» for «1190», a name on the line above)
+ const modeOf=(list,k)=>{const c=new Map();for(const o of list)if(o[k])c.set(o[k],(c.get(o[k])||0)+1);return[...c].sort((a,b)=>b[1]-a[1])[0]?.[0]||0};
+ for(const r of rows){const kin=rows.filter(o=>sameTable(o,r));if(!r.width_mm)r.width_mm=modeOf(kin,"width_mm")||modeOf(rows,"width_mm");if(!r.thickness_mm)r.thickness_mm=modeOf(kin,"thickness_mm")||modeOf(rows,"thickness_mm")}
+ // (a thickness read without its leading «1» — «50» in a table whose other rows read «150»)
+ for(const r of rows){if(rows.some(o=>sameTable(o,r)&&o.thickness_mm===r.thickness_mm+100))r.thickness_mm+=100}
+ return rows.filter(r=>r.letter).map(r=>({at:r.at,pos:r.letter+r.digits,kind:r.letter,length_mm:r.length_mm,width_mm:r.width_mm,thickness_mm:r.thickness_mm,
+  ral:r.ral||"",...(r.ral_inside&&r.ral_inside!==r.ral?{ral_inside:r.ral_inside}:{}),count:r.count,name:r.name,table:"",layout:true}))
+}
+// A label of a panel on a facade of such a sheet: a position of its table, read by OCR («С704» upright or turned; «Ø380»,
+// «0372», «6372» — the letter misread). A number that two positions share («С380», «Р380») is settled by the labels read
+// whole in the same band of the view.
+function layoutLabel(str,byPos,byDigits,turned=true){
+ const s=latin(str);if(byPos.has(s))return[s];
+ // (a bare number or one with a misread first sign only as a turned label: upright ones are dimensions — «2380»)
+ if(!turned)return null;
+ const m=/^\D?(\d{2,3})$/u.exec(s)||/^[^\d]?[0-9]?(\d{3})$/u.exec(s);if(!m)return null;
+ return byDigits.get(m[1])||null
+}
+
 // «ОСвп-П-1160х3530» and «ДБН 2080х1280»: height×width; «О-П (6000 х 3600)»: width×height as drawn; gates
 // «ВМ П Р С Г К 3600-4000»: height-width.
 function fillSpec(texts){
@@ -269,13 +359,37 @@ function holesOf(panels,openings){
  return panels
 }
 // Views of panels: every row of bubbles with panel labels over it.
-function panelViews({segments=[],texts=[]}={},spec=[]){
+function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
+ // The colour laid inside a rectangle of the sheet (the most of its cells), if any.
+ const cells=new Map();for(const c of paint){const k=Math.floor(c.x/30)+","+Math.floor(c.y/30);if(!cells.has(k))cells.set(k,[]);cells.get(k).push(c)}
+ const colourOf=rc=>{const n=new Map();for(let x=Math.floor(rc.l/30);x<=Math.floor(rc.r/30);x++)for(let y=Math.floor(rc.top/30);y<=Math.floor(rc.bottom/30);y++)for(const c of cells.get(x+","+y)||[])if(c.x>rc.l&&c.x+3<rc.r&&c.y>rc.top&&c.y+3<rc.bottom)n.set(c.c,(n.get(c.c)||0)+1);
+  const b=[...n].sort((a,q)=>q[1]-a[1])[0];return b&&b[1]>=4?b[0]:""};
  // Positions of the tables are not labels of panels.
  const rowsOf=new Set(spec.map(p=>p.at));
  // Labels of panels: «ПН-30» (наружная), «ПС», «ПК», «ПП», «ПВ», «ПШ», or the positions of the panel table of the
  // sheet («ПД-3» is a sill board, not a panel).
  const kinds=new Set(spec.map(p=>p.kind));
- const labels=texts.filter(t=>{const m=horizontalText(t)&&POS.exec(String(t.str).trim());return m&&(/^П[НСКПВШ]$/u.test(m[1])||kinds.has(m[1]))&&!rowsOf.has(t)});
+ let labels=texts.filter(t=>{const m=horizontalText(t)&&POS.exec(String(t.str).trim());return m&&(/^П[НСКПВШ]$/u.test(m[1])||kinds.has(m[1]))&&!rowsOf.has(t)});
+ // A layout by columns: its labels, upright or turned, as the positions of its table.
+ if(spec.some(p=>p.layout)){
+  // A position read whole on the facades at least twice whose row the OCR of the table lost («С704», «Р380»): its length
+  // from its number, the width, thickness and RAL of the rows of its letter.
+  const read=new Map();for(const t of texts){if(rowsOf.has(t))continue;const s=latin(t.str),m=/^([А-ЯЁ])(\d{2,3})$/u.exec(s);if(m&&!spec.some(p=>p.pos===s))read.set(s,(read.get(s)||0)+1)}
+  for(const [pos,n] of read){const kin=spec.filter(p=>p.layout&&p.kind===pos[0]);
+   // (not a cut-off label of a position of the table — «Р21» of «Р212», «Р214»)
+   // (nor a misread one: «Р218» among «Р219» — a position of its letter one off)
+   if(n<2||!kin.length||Number(pos.slice(1))<50||spec.some(p=>p.pos!==pos&&p.pos.startsWith(pos))||kin.some(p=>Math.abs(Number(p.pos.slice(1))-Number(pos.slice(1)))===1))continue;
+   const mode=k=>{const c=new Map();for(const p of kin)c.set(p[k],(c.get(p[k])||0)+1);return[...c].sort((a,b)=>b[1]-a[1])[0][0]};
+   spec.push({pos,kind:pos[0],length_mm:Number(pos.slice(1))*10,width_mm:mode("width_mm"),thickness_mm:mode("thickness_mm"),ral:mode("ral"),
+    ...(mode("ral_inside")?{ral_inside:mode("ral_inside")}:{}),count:null,name:kin[0].name,table:"",layout:true,fromFacade:true})}
+  const byPos=new Map(),byDigits=new Map();for(const p of spec.filter(q=>q.layout)){byPos.set(p.pos,p);const d=p.pos.replace(/^\D+/u,"");if(!byDigits.has(d))byDigits.set(d,[]);if(!byDigits.get(d).includes(p.pos))byDigits.get(d).push(p.pos)}
+  const found=[];for(const t of texts){if(rowsOf.has(t)||horizontalText(t)&&rowOf(texts,t,620).length>=4)continue;const c=layoutLabel(t.str,byPos,byDigits,!horizontalText(t));if(c)found.push({t,c})}
+  const band=f=>Math.round(textBox(f.t).cy/6);
+  labels=found.map(f=>{let pos=f.c[0];
+   if(f.c.length>1){const votes=new Map();for(const o of found)if(o.c.length===1&&f.c.includes(o.c[0])&&Math.abs(textBox(o.t).cy-textBox(f.t).cy)<6&&Math.abs(textBox(o.t).cx-textBox(f.t).cx)<900)votes.set(o.c[0],(votes.get(o.c[0])||0)+1);
+    pos=[...votes].sort((a,b)=>b[1]-a[1])[0]?.[0]||pos}
+   return{...f.t,str:pos,...(f.c.length>1?{cands:f.c}:{})}});void band
+ }
  const sizes=new Map();for(const p of spec){if(!sizes.has(p.pos))sizes.set(p.pos,[]);sizes.get(p.pos).push(p)}
  if(labels.length<4)return[];
  const rows=axisRows(texts,segments);if(!rows.length)return[];
@@ -295,7 +409,8 @@ function panelViews({segments=[],texts=[]}={},spec=[]){
   const own=labels.filter(t=>{const b=textBox(t);return owner(b.cx,b.cy)===row});
   if(own.length<4)continue;
   const region=texts.filter(t=>{const b=textBox(t);return owner(b.cx,b.cy)===row});
-  const levels=region.filter(horizontalText).map(t=>({mm:levelOf(t.str),y:t.y,x:t.x,w:t.width||0})).filter(l=>l.mm!==null);
+  // (a number with a point and no sign is an area or a sum read by OCR — «37х1190= 44.030» —, not a level mark)
+  const levels=region.filter(t=>horizontalText(t)&&!/^\d{1,2}\.\d{3}$/.test(String(t.str).trim())).map(t=>({mm:levelOf(t.str),y:t.y,x:t.x,w:t.width||0})).filter(l=>l.mm!==null);
   const offset=levelOffset(levels,horiz);levels.forEach(l=>{l.y+=offset});
   found.push({row,own,region,levels,f:fit(levels)})
  }
@@ -308,33 +423,81 @@ function panelViews({segments=[],texts=[]}={},spec=[]){
   const bubbles=row.items.map(t=>({name:String(t.str).trim().toUpperCase(),pt:t.x+(t.width||0)/2})).sort((a,b)=>a.pt-b.pt);
   if(new Set(bubbles.map(b=>b.name)).size!==bubbles.length||new Set(bubbles.map(b=>numbered(b.name))).size!==1)continue;
   const dims=region.filter(t=>/^\d{3,5}$/.test(String(t.str).trim())).map(t=>Number(t.str));
-  const left=along(bubbles,dims,scale),total=left[left.length-1];
+  // Along the wall the scale of the dimensions between the bubbles: a facade drawn lower than its length (ГПЭС
+  // «Раскладка сэндвич-панелей», ряд Ж: heights at 1:31.8, lengths at 1:35.3) is read at each scale its own way.
+  const hs=(()=>{if(sameScale(bubbles,dims,scale))return scale;let best=null;
+   for(let i=1;i<bubbles.length;i++)for(const d of dims){const s=d/(bubbles[i].pt-bubbles[i-1].pt);if(!(s>0))continue;
+    let n=0;for(let j=1;j<bubbles.length;j++){const raw=(bubbles[j].pt-bubbles[j-1].pt)*s;if(dims.some(q=>Math.abs(q-raw)<=raw*.01))n++}
+    if(!best||n>best.n)best={s,n}}
+   return best&&best.n>=Math.max(2,(bubbles.length-1)/2)?best.s:scale})();
+  const left=along(bubbles,dims,hs),total=left[left.length-1];
   const reversed=axisRank(bubbles[0].name)>axisRank(bubbles[bubbles.length-1].name);
   const canon=m=>reversed?total-m:m;
-  const u=xpt=>{let k=0;for(let i=1;i<bubbles.length;i++)if(Math.abs(bubbles[i].pt-xpt)<Math.abs(bubbles[k].pt-xpt))k=i;return Math.round(canon(left[k]+(xpt-bubbles[k].pt)*scale)/5)*5};
+  const u=xpt=>{let k=0;for(let i=1;i<bubbles.length;i++)if(Math.abs(bubbles[i].pt-xpt)<Math.abs(bubbles[k].pt-xpt))k=i;return Math.round(canon(left[k]+(xpt-bubbles[k].pt)*hs)/5)*5};
   const z=ypt=>Math.round((f.a+f.b*ypt)/5)*5;
   const win=3000/scale,panels=[];
   for(const t of own){
    // A rectangle of the size the specification gives the position (either way round: a panel may lie), ±40 mm.
-   const kinds=sizes.get(String(t.str).trim()),sized=kinds?rc=>{const w=(rc.r-rc.l)*scale,h=(rc.bottom-rc.top)*scale;
+   const kinds=sizes.get(String(t.str).trim()),sized=kinds?rc=>{const w=(rc.r-rc.l)*hs,h=(rc.bottom-rc.top)*scale;
     return kinds.some(q=>Math.abs(q.width_mm-w)<=40&&Math.abs(q.length_mm-h)<=40||Math.abs(q.length_mm-w)<=40&&Math.abs(q.width_mm-h)<=40)}:null;
    // Of the size first: drawn round it, by its sides, by its joints and the lines across it; then the nearest outline.
    const b=textBox(t),first=edgesAround(b,horiz,scale,slopes,sized);
    const rect=(sized&&((first&&sized(first)?first:null)||sidesAround(b,horiz,vert,scale,sized,slopes)||sizedAround(b,vert,horiz,scale,kinds,numbers)))||
     first||sidesAround(b,horiz,vert,scale,null,slopes)||jointsAround(b,vert,horiz,numbers,win);
-   if(!rect){if(process.env.AR_DEBUG)console.log("unplaced",t.str,Math.round(b.cx),Math.round(b.cy));continue}
+   if(!rect)continue
    const u0=u(rect.l),u1=u(rect.r);
    // The cut of a panel under a slope: the heights of its lower edge at the ends, in the order along the wall.
    const cut=rect.cut?(u0<=u1?[z(rect.cut.l),z(rect.cut.r)]:[z(rect.cut.r),z(rect.cut.l)]):null;
-   panels.push({mark:String(t.str).trim(),u0:Math.min(u0,u1),u1:Math.max(u0,u1),z0:z(rect.bottom),z1:z(rect.top),...(cut?{cut}:{}),pt:{x:Math.round(b.cx),y:Math.round(b.cy)},rect})
+   panels.push({...(t.cands?{cands:t.cands}:{}),mark:String(t.str).trim(),u0:Math.min(u0,u1),u1:Math.max(u0,u1),z0:z(rect.bottom),z1:z(rect.top),...(cut?{cut}:{}),pt:{x:Math.round(b.cx),y:Math.round(b.cy)},rect})
   }
   if(!panels.length)continue;
+  // A panel of a layout by columns is as long as its position says (its height on the facade): a view drawn lower than
+  // its length, with a break under the wall (ГПЭС ряд Ж: «+0,300» 47 pt under the foot), keeps the top as its level mark
+  // gives it and the length of its table.
+  if(spec.some(p=>p.layout))for(const p of panels){const q=(sizes.get(p.mark)||[])[0];if(q&&q.length_mm&&Math.abs(p.z1-p.z0-q.length_mm)>100&&!p.cut){p.z0=p.z1-q.length_mm;p.lengthFromTable=true}}
+  // A layout by columns read by OCR loses labels: a field between two joints that run the whole height of a band of its
+  // labelled panels, of their width, is one of them — of the position of the nearest labelled panel of that band and of
+  // its size (the engineer: «все 100% должен показывать»).
+  if(spec.some(p=>p.layout)){
+   // (a label two positions share, «Ø380» of «С380» and «Р380»: the one whose panels read whole are of its colour)
+   for(const p of panels.filter(q=>q.cands)){const col=colourOf(p.rect);if(!col)continue;
+    const hit=p.cands.filter(c=>panels.some(o=>!o.cands&&o.mark===c&&colourOf(o.rect)===col));if(hit.length===1)p.mark=hit[0]}
+   const bands=new Map();for(const p of panels){const k=Math.round(p.rect.top)+":"+Math.round(p.rect.bottom);if(!bands.has(k))bands.set(k,[]);bands.get(k).push(p)}
+   for(const list of bands.values()){
+    const {top,bottom}=list[0].rect,h=bottom-top,mod=list.map(p=>p.rect.r-p.rect.l).sort((a,b)=>a-b)[list.length>>1];
+    const full=[...new Set(vert.filter(v=>v.y0<=top+1.5&&v.y1>=bottom-1.5).map(v=>Math.round(v.x*2)/2))].sort((a,b)=>a-b);
+    const lo=Math.min(...list.map(p=>p.rect.l))-mod*40,hi=Math.max(...list.map(p=>p.rect.r))+mod*40;
+    // (the hatching of a coloured panel runs its whole height too: a field is two such lines a panel's width apart)
+    const pairs=[];for(const l of full){const r=full.filter(x=>Math.abs(x-l-mod)<=40/hs).sort((a,b)=>Math.abs(a-l-mod)-Math.abs(b-l-mod))[0];if(r!==undefined)pairs.push([l,r])}
+    for(const [l,r] of pairs){
+     if(l<lo||r>hi)continue;
+     if(panels.some(p=>p.rect.l<r-1&&p.rect.r>l+1&&p.rect.top<bottom-1&&p.rect.bottom>top+1))continue;
+     // (its lower edge is the band's: no edge of a shorter panel just above it — «С372» beside «Р380»)
+     const across=y=>horiz.some(hh=>Math.abs(hh.y-y)<1&&hh.x0<=l+(r-l)*.1&&hh.x1>=r-(r-l)*.1);
+     if(!across(bottom)||!across(top)||horiz.some(hh=>hh.y<bottom-1&&hh.y>bottom-150/scale&&hh.x0<=l+(r-l)*.1&&hh.x1>=r-(r-l)*.1))continue;
+     const col=colourOf({l,r,top,bottom}),same=list.filter(p=>!p.byJoints&&col&&colourOf(p.rect)===col);
+     // (of another colour than the labelled panels of its band: a labelled panel of its colour and height elsewhere in the
+     // view; none — not guessed)
+     const other=!same.length&&col?panels.filter(p=>!p.byJoints&&Math.abs((p.rect.bottom-p.rect.top)-h)*scale<=40&&colourOf(p.rect)===col):[];
+     if(col&&!same.length&&!other.length)continue;
+     const near=(same.length?same:other.length?other:list.filter(p=>!p.byJoints)).slice().sort((a,b)=>Math.abs((a.rect.l+a.rect.r)/2-(l+r)/2)-Math.abs((b.rect.l+b.rect.r)/2-(l+r)/2))[0];
+     const rect={l,r,top,bottom},u0=u(l),u1=u(r);
+     panels.push({mark:near.mark,u0:Math.min(u0,u1),u1:Math.max(u0,u1),z0:near.lengthFromTable?near.z0:z(bottom),z1:near.lengthFromTable?near.z1:z(top),pt:{x:Math.round((l+r)/2),y:Math.round((top+bottom)/2)},rect,byJoints:true});
+     list.push(panels[panels.length-1])
+    }
+   }
+  }
   const axes=bubbles.map((bb,i)=>({name:bb.name,mm:canon(left[i])})).sort((a,b)=>a.mm-b.mm);
   // A view under a title of a section («4-4») is a cut through the building (partitions, barriers), not a facade.
   const top=Math.min(...own.map(t=>t.y)),cut=texts.filter(t=>horizontalText(t)&&/^(\d{1,2}|[А-ЯЁ])\s*[-–—]\s*\1$/u.test(String(t.str).trim())&&t.y<top&&top-t.y<220&&t.x>=row.x0-260&&t.x<=row.x1+260).sort((a,b)=>b.y-a.y)[0];
   views.push({axes,numbered:numbered(bubbles[0].name),reversed,...(cut?{section:String(cut.str).replace(/\s+/g,"")}:{}),scaleMmPerPt:Math.round(scale*1000)/1000,
    bbox:{x0:row.x0-260,x1:row.x1+260,y1:row.y},levels:[...new Set(levels.map(l=>l.mm))].sort((a,b)=>a-b),
-   ...(()=>{const openings=openingRects(panels,vert,horiz,scale,u,z,numbers,region,ticks);return{panels:holesOf(panels.map(({rect,...p})=>p),openings),openings}})(),unplaced:own.length-panels.length})
+   ...(()=>{let openings=openingRects(panels,vert,horiz,scale,u,z,numbers,region,ticks);
+    // (a layout's wall whose foot follows a slope — ГПЭС ряд Ж, +5,260 at the ends, +5,950 in the middle —: what lies under
+    // its panels down to the lowest foot is the slope, not openings)
+    if(spec.some(p=>p.layout)){const col=new Map();for(const p of panels){const k=Math.round(p.u0/100);col.set(k,Math.min(col.get(k)??Infinity,p.z0))}
+     const feet=[...col.values()],lo=Math.min(...feet);if(feet.filter(f=>f>lo+50).length>feet.length/2){const foot=z(Math.max(...panels.map(p=>p.rect.bottom)));openings=openings.filter(o=>o.z0>foot+5)}}
+    return{panels:holesOf(panels.map(({rect,...p})=>p),openings),openings}})(),unplaced:own.length-panels.filter(p=>!p.byJoints).length})
  }
  return views
 }
@@ -539,10 +702,10 @@ function sillSpec(texts){
 }
 function extractArchitecture(geometry){
  const texts=geometry?.texts||[];
- const spec=panelSpec(texts),fills=fillSpec(texts),views=panelViews(geometry||{},spec),facades=fillViews(geometry||{});
+ const spec=(()=>{const a=panelSpec(texts);return a.length?a:layoutSpec(texts)})(),fills=fillSpec(texts),views=panelViews(geometry||{},spec),facades=fillViews(geometry||{});
  if(fills.length)fillSketches(geometry||{},fills);
  const finish=facadeFinish(texts),sills=sillSpec(texts);
  const panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{})};
  return panels.length||fills.length||views.length||Object.keys(extra).length?{panels,fills,views,...extra}:null
 }
-module.exports={extractArchitecture,panelSpec,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
+module.exports={extractArchitecture,panelSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};

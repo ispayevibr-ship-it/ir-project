@@ -5033,6 +5033,11 @@ window.irThreeSchemeView=(function(){
     var sl=k.beams.length===1&&Math.abs(k.beams[0].gk)>.003?k.beams[0]:null;
     if(sl)seatTilt.set(id,{c:k.c,e:sl});else k.seat=k.beams.reduce(function(m,e){return Math.min(m,e.low)},k.seat);
     seatTop.set(id,k.seat);seats.push(k);
+    // (the beams before the struts and ties on the same top, whatever the order of the list: in the engineer's scheme
+    // the struts Рс-2 along О10 came before Б2 at К3 on И — the seat of Б2 taken 130 mm off the column's axis past them,
+    // its rib there, and the struts, not finding the rib on their line, went on at their level through the purlin П1
+    // over them; the engineer, 09.11.2026: «металл через металл торчит». In the set's order Б2 came first.)
+    k.beams=k.beams.map(function(e,i){return{e:e,i:i,t:(typeof role==="function"?role(e.b):e.b.role)==="ties"?1:0}}).sort(function(a,b){return a.t-b.t||a.i-b.i}).map(function(o){return o.e});
     var hs=planHalf(k.c),cx=number(k.c.x),cy=number(k.c.y),ends=k.beams.filter(function(e){return e.end>=0}),through=k.beams.filter(function(e){return e.end<0});
     ends.forEach(function(e,i){
      var dot=function(o){return o.d.x*e.d.x+o.d.y*e.d.y};
