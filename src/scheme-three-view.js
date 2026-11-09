@@ -337,13 +337,18 @@ window.irThreeSchemeView=(function(){
   var std=String(standard||"");if(/10704|8732|8734|3262|20295/.test(std))return false;if(/30245|8639|8645|32931/.test(std))return true;
   return Boolean(sections.get("pipe-sq-8639-"+a+"x"+s)||sections.get("box-30245-"+a+"x"+a+"x"+s)||sections.get("pipe-32931-"+a+"x"+a+"x"+s))
  }
+ // The name a 3D rule reads (the engineer, 09.11.2026, chat «висит снова» — Рпф1 по О6/2/В): in the program mark_name is
+ // the name of the engineer's marks list («Распорка»), the drawing's own name («Распорка по нижним поясам Рпф1») stays in
+ // param_sources.name_other. Rules by name (a strut of the chords, a stringer, a tie rod, a runway…) read both.
+ function nameOf(c){if(!c)return"";var n=String(c.mark_name||c.title||""),o=c.param_sources&&c.param_sources.name_other;
+  return o?n+" · "+String(o).replace(/\s*[—–-]\s*чертёж\s*$/,""):n}
  // Root fillet of a rolled section (R of ГОСТ 8239, 8240, 8509; r of ГОСТ 26020 and 57837): 0 when the table has none.
  function root(r){return number(r.R_mm!=null?r.R_mm:r.r_mm)}
  // A tie rod whose sheet gives no diameter (КМ2 «тяжи Т1 по прогонам», the engineer, 30.10.2026: «на чем держится данный
  // прогон? будто чего-то не хватает»): a thin rod of 20 mm, its section conditional, not a beam of 0,3 m.
  // (a round bar too: «Тяж Т1 Ø16» of ИР КМ1 л.12 — through the web of П1 on its nuts, as КМ2 л.4; read as a member of a
  // bracing it lay on a gusset 400×300 on the top of the purlin at node 1 of Сгф2, the engineer, 02.11.2026)
- function tieRod(m){var s=sectionOf(m.profile_name||m.profileName,m.profile_standard);return(!s||s.shape==="round"&&s.solid&&s.h<=36)&&/(?:^|[^а-яё])тяж/i.test(String(m.mark_name||m.title||""))}
+ function tieRod(m){var s=sectionOf(m.profile_name||m.profileName,m.profile_standard);return(!s||s.shape==="round"&&s.solid&&s.h<=36)&&/(?:^|[^а-яё])тяж/i.test(nameOf(m))}
  function materialProfile(member){
   if(tieRod(member))return [.02,.02,.02,.02];
   var source=String(member.profile_name||member.profileName||""),
@@ -1072,7 +1077,7 @@ window.irThreeSchemeView=(function(){
    stepUnder.clear();
    list.forEach(function(k){var st=k.base&&k.base.step;if(!st||!(number(st.on_mm)>0)||k.geometryType!=="column")return;
     (byMark.get(String(k.mark||""))||[]).forEach(function(c){if(c!==k&&Math.abs(number(c.z2)-number(k.z0))<=100&&Math.hypot(number(c.x)-number(k.x),number(c.y)-number(k.y))<=3000)stepUnder.set(String(c.id),number(st.on_mm))})});
-   var br=list.filter(function(c){return c.id&&!c.ft&&c.geometryType==="column"&&(mates.has(String(c.id))||/ветв/i.test(String(c.mark_name||"")))});
+   var br=list.filter(function(c){return c.id&&!c.ft&&c.geometryType==="column"&&(mates.has(String(c.id))||/ветв/i.test(nameOf(c)))});
    br.forEach(function(c){
     var best=mates.has(String(c.id))?{o:mates.get(String(c.id))}:null;
     if(!best)br.forEach(function(o){
@@ -1137,7 +1142,7 @@ window.irThreeSchemeView=(function(){
     var A=p.a,B=p.b,pa=toWorld(A.x,A.y,0),pb=toWorld(B.x,B.y,0),v=pb.clone().sub(pa);v.y=0;var D=v.length();if(D<.2)return;v.divideScalar(D);
     // (the cage: the hoops and strips of the mark beside the pair, more than 200 mm off its line)
     var w=new T.Vector3(v.z,0,-v.x),mid=pa.clone().add(pb).multiplyScalar(.5),side=0;
-    list.forEach(function(m){var t=String(m.mark_name||m.title||"");
+    list.forEach(function(m){var t=nameOf(m);
      if(m===A||m===B||String(m.mark||"")!==String(A.mark||"")||!slight(m)||!/огражд|полос|дуг/i.test(t)||/ступен/i.test(t))return;
      var q=memberPoints(m),c=q[0].clone().add(q[q.length-1]).multiplyScalar(.5).sub(mid);c.y=0;if(c.length()>1.5)return;
      var o=c.dot(w);if(Math.abs(o)>.2)side+=o>0?1:-1});
@@ -1165,7 +1170,7 @@ window.irThreeSchemeView=(function(){
   // −x side) looks away from the other.
   function stairStringers(list){
    var st=list.filter(function(c){var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);
-    return c.id&&role(c)==="stairs"&&c.geometryType!=="column"&&sec&&sec.shape==="channel"&&/косоур|тетив/i.test(String(c.mark_name||c.title||""))});
+    return c.id&&role(c)==="stairs"&&c.geometryType!=="column"&&sec&&sec.shape==="channel"&&/косоур|тетив/i.test(nameOf(c))});
    var turn=[];
    st.forEach(function(c){
     var p=memberPoints(c),u=p[p.length-1].clone().sub(p[0]),L=u.length();if(p.length!==2||L<.3)return;u.divideScalar(L);
@@ -1400,7 +1405,7 @@ window.irThreeSchemeView=(function(){
   // so where the joint gives the room between them, deckPair)
   function deckAngle(c,u){
    if(c.geometryType!=="beam"||c.ft||Math.abs(u.y)>.05)return null;var g=role(c);if(g!=="platforms"&&g!=="stairs")return null;
-   if(/крепл|кронштейн|столик/i.test(String(c.mark_name||c.title||"")))return null;
+   if(/крепл|кронштейн|столик/i.test(nameOf(c)))return null;
    var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);return sec&&sec.shape==="angle"&&!sec.bent?sec:null
   }
   // The angles of a deck's frame in pairs, the stands between them — КМ3 л.49, разрез 2-2 (seen at 600 dpi): at each line
@@ -2483,8 +2488,8 @@ window.irThreeSchemeView=(function(){
   // the wall: its foot stops short of the roof or the ground (250 on their sheets), nothing under it — no base plate, no
   // anchors, no cap on its top (the engineer, 30.10.2026, «на чем стоит эта лестница»: a base with four anchors at
   // +15,370). A ladder standing on the floor (Л4 to a crane platform: a plate t=10 on four anchors) keeps its base.
-  function hanging(c){var t=String(c.mark_name||c.title||"");return c.geometryType==="column"&&/тетив/i.test(t)&&/пожарн/i.test(t)}
-  function slight(c){var t=String(c.mark_name||c.title||""),sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);
+  function hanging(c){var t=nameOf(c);return c.geometryType==="column"&&/тетив/i.test(t)&&/пожарн/i.test(t)}
+  function slight(c){var t=nameOf(c),sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);
    return role(c)==="guards"||/огражд|поручен|перекладин|ступен/i.test(t)||Boolean(sec&&(sec.shape==="round"&&sec.h<=60||sec.shape==="plate"))}
   // The convex outline of points [x, y] (counter-clockwise).
   function hull2(pts){
@@ -2638,7 +2643,7 @@ window.irThreeSchemeView=(function(){
   // (a flight of a platform too — «Площадка обслуживания крана +16,100, марш — косоур [16П», in the group of the platform:
   // drawn as a brace, it had the brace's gussets 12 mm thick down the middle of its channel, through its flanges and the
   // rails of the guard of the flight)
-  function stringer(c){var nm=String(c.mark_name||c.title||"");return(role(c)==="stairs"||role(c)==="platforms"&&/марш/i.test(nm))&&c.geometryType!=="column"&&Math.abs(number(c.z2)-number(c.z0))>300&&/косоур|тетив/i.test(nm)}
+  function stringer(c){var nm=nameOf(c);return(role(c)==="stairs"||role(c)==="platforms"&&/марш/i.test(nm))&&c.geometryType!=="column"&&Math.abs(number(c.z2)-number(c.z0))>300&&/косоур|тетив/i.test(nm)}
   // A strut of the bracing of the bottom chords of trusses («Распорка по нижним поясам Рпф1»): square to the trusses, at a
   // chord on an upright plate across the truss (КМ1 л.24, разрез 32-32), not on the plate of the bracing in the slope.
   // And of the top chords («Распорка по верхним поясам Рпф2», разрезы 29-29, 32-32): its plate t10 hangs under the legs of
@@ -2646,7 +2651,7 @@ window.irThreeSchemeView=(function(){
   // chord, touching nothing (the engineer, 02.11.2026: «3д прорисовку всю перепроверь»). The bottom chord of a vertical
   // bracing by the trusses («Вертикальная связь по фермам Свф1-3, ряд В — нижний пояс») is such a strut in its panel
   // (разрез 32-32: Рпф1 under the diagonal Свф1-2 on the one plate t16).
-  function chordStrut(c){var n=String(c.mark_name||c.title||"");return role(c)==="ties"&&c.geometryType!=="column"&&(/распорк/i.test(n)&&/(?:нижн|верхн)\S*\s+пояс/i.test(n)||c.geometryType==="beam"&&/связ\S*\s+по\s+фермам/i.test(n)&&/[—–-]\s*(?:нижн|верхн)\S*\s+пояс\s*$/i.test(n))}
+  function chordStrut(c){var n=nameOf(c);return role(c)==="ties"&&c.geometryType!=="column"&&(/распорк/i.test(n)&&/(?:нижн|верхн)\S*\s+пояс/i.test(n)||c.geometryType==="beam"&&/связ\S*\s+по\s+фермам/i.test(n)&&/[—–-]\s*(?:нижн|верхн)\S*\s+пояс\s*$/i.test(n))}
   // A cruciform bracing of the bottom chords of trusses (Сгф1 2L125×10 «┼» — the sketch of its section in the list of
   // elements of КМ1 л.10; drawn under the chords on the sections 5-5, 6-6 of КМ1 л.23) at a chord between the supports of
   // the truss lies under the chord: on a plate t16 (as the gussets of its node 1, С345) welded to the underside of the
@@ -2667,7 +2672,7 @@ window.irThreeSchemeView=(function(){
   // drawn before the braces (after the trusses and the latticed columns), its gusset at a column from the open side kept
   // in strutGus as drawn — Св-2 over it and Св-3 under it come to that node on one plate −t10 407 × 814 with it; drawn each
   // a plate of its own, the one of Св-3 went 4.9 mm into the strut's.
-  function levelStrut(c){if(c.geometryType==="column"||role(c)!=="ties"||!/^\s*распор/i.test(String(c.mark_name||c.title||"")))return false;
+  function levelStrut(c){if(c.geometryType==="column"||role(c)!=="ties"||!/^\s*распор/i.test(nameOf(c)))return false;
    var p=memberPoints(c);if(p.length!==2)return false;var L=dist(p[0],p[1]);return L>.3&&Math.abs(p[1].y-p[0].y)<.05*L}
   function crossPair(c){return/^2/.test(String(c.profile_name||c.profileName||"").replace(/\s/g,""))&&String((c.joint||{}).angles||"")==="cross"}
   function teePair(c){return/^2/.test(String(c.profile_name||c.profileName||"").replace(/\s/g,""))&&String((c.joint||{}).angles||"")==="tee"}
@@ -5055,7 +5060,7 @@ window.irThreeSchemeView=(function(){
     // 5 mm into it, and at the girder's end on the column's axis by half its thickness —: narrower, clear of it; under
     // half as wide — none. Only girders: the bodies of the members the scheme gives meet at the column untrimmed, the
     // beams' over its axis)
-    var rwq=rw,rcq=rc,gir=seatHost&&(seatHost.bodies||[]).filter(function(h){return h.id!==String(b.id)&&h.c&&/ригел/i.test(String(h.c.mark_name||""))});
+    var rwq=rw,rcq=rc,gir=seatHost&&(seatHost.bodies||[]).filter(function(h){return h.id!==String(b.id)&&h.c&&/ригел/i.test(nameOf(h.c))});
     if(gir&&gir.length){var so0=side.clone().multiplyScalar(q),hit=null,inG=function(P){return gir.some(function(h){var o=P.clone().sub(h.o),x=o.dot(h.X),y=o.dot(h.Y),u=o.dot(h.U);return x>h.x0+.001&&x<h.x1-.001&&y>h.y0+.001&&y<h.y1-.001&&u>h.s0-.006&&u<h.s1+.006})};
      for(var s=.005;s<=rw+1e-9&&hit===null;s+=.005)for(var j=0;j<=6;j++){var P=at.clone().add(so0.clone().multiplyScalar(tw/2+s));P.y+=dy-rq/2+.003+(rq-.006)*j/6;if(inG(P)){hit=s;break}}
      if(hit!==null){rwq=hit-.005;if(rwq<rw/2)return;rcq=ribSnipe(sec,rwq,rh)}}
@@ -6342,7 +6347,7 @@ window.irThreeSchemeView=(function(){
     // 280 × 340, and the base of its node with anchors and ribs 220 high was drawn on the top of Ст1 under Б1, through Б1
     // and the plate. Not any short column: the hangers Б4 of the crane way, 574 mm, stand on their plates −t25 bolted M24,
     // КМ2 л.16 узлы 1, 2)
-    var stand=number(c.z2)-number(c.z0)<=600&&/подставк/i.test(String(c.mark_name||c.title||""));
+    var stand=number(c.z2)-number(c.z0)<=600&&/подставк/i.test(nameOf(c));
     if(c.geometryType!=="column"||!c.id||c.base||!(number(c.z0)>300)||!(c.type_key==="post"||role(c)==="fahwerk"||stand))return;
     var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);if(!sec||sec.h>200)return;
     var x=number(c.x),y=number(c.y),z=number(c.z0);
@@ -6727,7 +6732,7 @@ window.irThreeSchemeView=(function(){
   var cranes=[],craneTurn=0,craneNo=-1,partName="";
   var craneKinds={overhead:"Мостовой кран",hung:"Подвесной кран",hoist:"Таль на монорельсе"};
   function runwayKind(c){
-   var n=String(c.mark_name||c.title||""),pr=String(c.profile_name||c.profileName||"");
+   var n=nameOf(c),pr=String(c.profile_name||c.profileName||"");
    if(/площадк|лестниц|ограждени|обрамлени|проём|проем|упор/i.test(n))return"";
    if(/(^|[^о])рельс/i.test(n)||/^(?:Р|КР)\d{2,3}$/.test(pr))return"rail";
    if(/монорельс/i.test(n))return"mono";
@@ -6741,7 +6746,7 @@ window.irThreeSchemeView=(function(){
   function stopTrim(c,a,b){
    var u=b.clone().sub(a),L=u.length();if(L<3)return[a,b];u.divideScalar(L);var s0=0,s1=L;
    elems.forEach(function(k){
-    if(k===c||k.ft||!k.id||k.geometryType!=="beam"||!/упор/i.test(String(k.mark_name||"")))return;
+    if(k===c||k.ft||!k.id||k.geometryType!=="beam"||!/упор/i.test(nameOf(k)))return;
     var kp=memberPoints(k),m=kp[0].clone().add(kp[kp.length-1]).multiplyScalar(.5),s=m.clone().sub(a).dot(u),off=m.clone().sub(a).sub(u.clone().multiplyScalar(s));
     if(Math.hypot(off.x,off.z)>.5||Math.abs(off.y)>.6||Math.abs(kp[kp.length-1].clone().sub(kp[0]).normalize().dot(u))>.3)return;
     var hb=halfSection(k).b;

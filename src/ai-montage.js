@@ -26,6 +26,9 @@ const KIND_NAME={columns:"Колонна",fahwerk:"Стойка фахверка
  column:"Колонна",beam:"Балка",bent:"Балка",brace:"Связь",truss:"Ферма",shell:"Стенка резервуара",plate:"Площадка"};
 // Version of the reading rules: an analysis made by older rules is flagged, so that the engineer runs it again
 // after an update (the result of step 1 is stored and is not recomputed by itself).
+// What a new reading of the drawings brings even to an element the engineer changed or confirmed: the details of its
+// node and its make (from the sheets), not its position, mark, levels or profile.
+const DRAWING_DETAILS=["joint","truss","nodes","base","column","parts","plates","cuts","drill","place","bevels","cross"];
 const ANALYZER="2026-11-04.1";
 // АР (architecture) and ТХ (technology) sheets are read for context: Claude places what of them is mounted.
 // (КМД — one kind: the program tells its montage and assembly sheets apart, sheet by sheet — kmdSheetType; the two old
@@ -889,7 +892,11 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
     // Changed by the engineer, or confirmed by him as it stands (a button of the card, 31.10.2026): his element stays as
     // it is, the new reading beside it (shown in its card).
     if(change||before.engineer_confirmed){
-     const next={...before,pdf_new:{batch,x:p.x,y:p.y,x2:p.data.absolute_x2_mm,y2:p.data.absolute_y2_mm,z0:p.data.z0_mm,z1:p.data.z1_mm,end_z:p.data.end_z_mm,
+     // The details of the drawings (the node, the lattice, the parts of the mark) are not what the engineer changes or
+     // confirms — his position, mark and levels stay; the details come from the new reading (the engineer, 09.11.2026,
+     // chat: «Прогон П1 так и висит в воздухе» — a confirmed П1 kept the joint of an older reading without its seat on Ф-1).
+     const fresh={};for(const k of DRAWING_DETAILS)if(p.data[k]!==undefined)fresh[k]=p.data[k];
+     const next={...before,...fresh,pdf_new:{batch,x:p.x,y:p.y,x2:p.data.absolute_x2_mm,y2:p.data.absolute_y2_mm,z0:p.data.z0_mm,z1:p.data.z1_mm,end_z:p.data.end_z_mm,
       mark:p.data.mark,type_name:p.data.type_name,source:p.data.source_import_doc},instance_status:"confirmed",preliminary:false,instance_reasons:undefined,missing_in_analysis:undefined,engineer_edited:change?true:before.engineer_edited};
      for(const k of Object.keys(next))if(next[k]===undefined)delete next[k];
      if(database.updateEntity(oid,"scheme",old.id,{record_type:old.record_type||"scheme_column",title:old.title,data:next})){
