@@ -154,12 +154,12 @@ function createMail({getUserDataPath,safeStorage}){
   const d=load();d.checkedAt=new Date().toISOString();store(d);return info()
  }
  // Письмо: кому, копия, тема, текст и вложения [{name, data: Uint8Array}]. Копия себе — если включена.
- async function send({to,cc,subject,text,attachments=[]}={}){
+ async function send({to,cc,subject,text,attachments=[],noCopy=false}={}){
   const c=config();if(!c.host||!c.user||!c.password)throw Error("Почта не настроена: Настройки → «Почта»");
   const toList=addresses(to),ccList=addresses(cc);if(!toList.length)throw Error("Укажите адрес получателя");
   const files=(Array.isArray(attachments)?attachments:[]).filter(a=>a&&a.data&&a.data.length);
   const size=files.reduce((s,a)=>s+a.data.length,0);if(size>20e6)throw Error("Вложения больше 20 МБ — почта их не примет");
-  const bcc=load().copySelf!==false&&!toList.concat(ccList).some(a=>a.toLowerCase()===c.user.toLowerCase())?[c.user]:[];
+  const bcc=!noCopy&&load().copySelf!==false&&!toList.concat(ccList).some(a=>a.toLowerCase()===c.user.toLowerCase())?[c.user]:[];
   const raw=message({from:c.user,fromName:c.fromName,to:toList,cc:ccList,subject,text,attachments:files});
   try{await deliver(c,{to:toList,cc:[...ccList,...bcc],raw})}catch(e){throw Error(explain(e,c))}
   return{ok:true,at:new Date().toISOString(),to:toList,cc:ccList,from:c.user}

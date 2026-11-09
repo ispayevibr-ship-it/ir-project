@@ -216,7 +216,7 @@
   for(const [id,t] of frames){
    const panel=t.profilePanel;if(!panel)continue;
    panel.hidden=id!==activeId;
-   const badge=panel.querySelector("#profileBadge");if(badge)badge.textContent=roleLabels[role]||roleLabels.guest;
+   const badge=panel.querySelector("#profileBadge");if(badge)badge.textContent=localStorage.getItem("ir-account-label")||roleLabels[role]||roleLabels.guest;
    const select=panel.querySelector("#roleSelect");if(select)select.value=role;
    if(id!==activeId){const menu=panel.querySelector("#profileMenu");if(menu)menu.hidden=true}
   }

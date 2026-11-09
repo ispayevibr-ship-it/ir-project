@@ -208,6 +208,15 @@ handle("ai-montage:journal-add",(_e,{objectId,elementId,comment,objectName,actio
  // Каналы ai-settings:mail-* и ai-documents:letter-* — их пропускает установленный preload.
  const mail=require("./mail-smtp").createMail({getUserDataPath,safeStorage});
  const letterFile=async({format,html,docx}={})=>format==="pdf"?await execDocs.pdfOf(String(html||"")):Buffer.from(docx||[]);
+ // Вход на сервер компании и панель администратора (src/server-account.js, src/server-account-page.js): почта — логин,
+ // доступ к объектам и разделам задаёт администратор, приглашение уходит письмом этой же почтой.
+ const account=require("./server-account").createServerAccount({getUserDataPath,safeStorage,fetch:netFetch,mail,objects:()=>database.listObjects()});
+ const accountCall=(name,fn)=>handle("ai-settings:server-"+name,(_e,v={})=>fn(v||{}));
+ accountCall("info",()=>account.info());accountCall("login",v=>account.login(v));accountCall("refresh",()=>account.refresh());
+ accountCall("logout",()=>account.logout());accountCall("password",v=>account.changePassword(v));accountCall("name",v=>account.setName(v));
+ accountCall("people",()=>account.people());accountCall("invite",v=>account.invite(v));accountCall("update",v=>account.update(v));
+ accountCall("reset",v=>account.resetPassword(v));accountCall("remove",v=>account.remove(v));
+ accountCall("objects",()=>database.listObjects().map(o=>({id:o.id,name:o.name,status:o.status})));
  handle("ai-settings:mail-info",()=>mail.info());
  handle("ai-settings:mail-set",(_e,v={})=>mail.set(v));
  handle("ai-settings:mail-clear",()=>mail.clear());
