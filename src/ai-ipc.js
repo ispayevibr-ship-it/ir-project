@@ -112,8 +112,9 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
  setTimeout(packCheck,25e3).unref?.();setInterval(packCheck,900e3).unref?.();
  handle("ai-montage:scheme-pack",async(_e,{objectId,action}={})=>{
   if(action==="apply")return schemePack.apply(objectId);
-  if(action==="check"){if(!github.hasToken())return{...schemePack.status(objectId),note:"нет ключа GitHub — пакет схем не проверяется"};
-   try{await schemePack.check({force:false})}catch(_e2){}}
+  // («check-now» — the button «Обновить схему» of the window: at once, not once in 2 minutes)
+  if(action==="check"||action==="check-now"){if(!github.hasToken())return{...schemePack.status(objectId),note:"нет ключа GitHub — пакет схем не проверяется"};
+   try{await schemePack.check({force:action==="check-now"})}catch(_e2){}}
   return schemePack.status(objectId)
  });
  handle("ai-montage:analyze",(_e,{objectId,documentIds,resume})=>montage.analyze(objectId,documentIds,{resume:resume===true}));
