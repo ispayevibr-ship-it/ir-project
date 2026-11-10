@@ -9,6 +9,10 @@
  * program is not in front) tell of each answer once.
  * The button and the panel stand over the montage scheme opened on the whole screen too (the engineer, 31.10.2026:
  * «когда на весь экран монтажная схема, чат также показывается»; its stage stands at z-index 2147483000).
+ * A computer without Claude of its own, signed in to the company's server, writes to the administrators: the panel is
+ * «Чат с администратором», their answers and Claude's answers passed on by them come here. The administrator has a tab
+ * «Инженеры»: the engineers' messages with «Передать Claude» and «Ответить», and the queue of their recognition
+ * (src/server-relay.js; the engineer, 10.11.2026 «чат с администратором — а дальше администратор клоду отправляет»).
  */
 (function(){
  "use strict";
@@ -69,24 +73,38 @@
  .irc-link div{display:flex;gap:6px;flex-wrap:wrap}.irc-link button{border:0;border-radius:6px;background:#1d4ed8;color:#fff;padding:6px 12px;font-weight:600;cursor:pointer}.irc-link button.alt{background:#fff;color:#1d4ed8;border:1px solid #9db7ef}
  .irc-head .irc-relink{font-size:11.5px;color:#1d4ed8;border:0;background:none;padding:0;cursor:pointer}
  .irc-zoom{position:fixed;inset:0;z-index:2147483105;background:rgba(10,20,35,.82);display:flex;align-items:center;justify-content:center;cursor:zoom-out}.irc-zoom img{max-width:94vw;max-height:92vh;border-radius:6px}
+ .irc-tabs{display:flex;gap:4px;padding:8px 12px 0}.irc-tabs[hidden]{display:none}
+ .irc-tabs button{flex:1;border:1px solid #cfd8e3;background:#fff;color:#44515e;border-radius:7px;padding:5px 8px;font:600 12.5px system-ui,sans-serif;cursor:pointer;position:relative}
+ .irc-tabs button.on{background:#1d4ed8;border-color:#1d4ed8;color:#fff}.irc-tabs button b{display:inline-block;min-width:18px;margin-left:4px;border-radius:9px;background:#e8590c;color:#fff;font-size:11px;line-height:18px;padding:0 4px}.irc-tabs button b:empty{display:none}
+ .irc-inbox{flex:1;overflow:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px;background:#f6f8fb}.irc-inbox[hidden],.irc-list[hidden],.irc-form[hidden]{display:none}
+ .irc-jobs{font-size:12px;color:#1f3a68;background:#eef4ff;border-radius:8px;padding:7px 9px;display:flex;flex-direction:column;gap:4px}
+ .irc-jobs label{display:flex;gap:6px;align-items:center;cursor:pointer;margin:0}.irc-jobs input[type=checkbox]{appearance:auto!important;-webkit-appearance:checkbox!important;width:15px!important;height:15px!important;min-height:0!important;margin:0!important;padding:0!important;flex:0 0 15px}
+ .irc-in{background:#fff;border:1px solid #e1e7ee;border-radius:10px;padding:8px 10px}.irc-in.new{border-color:#f59e0b;box-shadow:0 0 0 1px #f59e0b}
+ .irc-in-head{font-size:12px;color:#6b7785;margin-bottom:4px}.irc-in-head b{color:#1f2933}.irc-in p{margin:0 0 6px;white-space:pre-wrap;word-wrap:break-word}
+ .irc-ans{margin-top:6px;padding:6px 8px;border-left:3px solid #1d4ed8;background:#f3f6fb;border-radius:6px;font-size:13px}.irc-ans.claude{border-left-color:#7c3aed}.irc-ans>b{display:block;font-size:11px;color:#44515e}
+ .irc-in-acts{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}.irc-in-acts button,.irc-in-reply button{border:0;border-radius:7px;background:#1d4ed8;color:#fff;padding:5px 11px;font:600 12.5px system-ui,sans-serif;cursor:pointer}
+ .irc-in-acts button.alt{background:#fff;color:#1d4ed8;border:1px solid #9db7ef}.irc-in-acts button:disabled,.irc-in-reply button:disabled{opacity:.55;cursor:default}
+ .irc-in-reply{display:flex;flex-direction:column;gap:6px;margin-top:6px}.irc-in-reply[hidden]{display:none}.irc-in-reply textarea{min-height:56px;padding:6px 8px;border:1px solid #cfd8e3;border-radius:7px;font:inherit;resize:vertical}.irc-in-reply button{align-self:flex-end}
+ .irc-in-err{color:#b42318;font-size:12px}
  .irc-fab[hidden]{display:none}.irc-hide .irc-fab,.irc-hide .irc-panel,.irc-hide .irc-toast{display:none!important}
  @media print{.irc-fab,.irc-panel,.irc-toast{display:none!important}}`;
  const style=document.createElement("style");style.textContent=css;document.head.appendChild(style);
  const fab=document.createElement("button");fab.type="button";fab.className="irc-fab";fab.title="Чат с Claude: замечания по монтажной схеме. Значок можно перетащить в любое место";fab.setAttribute("aria-label","Чат с Claude");
  fab.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 3.5V17A2.5 2.5 0 0 1 4 14.5z"/><path d="M8.5 9h7M8.5 12.5h4.5"/></svg><b hidden></b>';
  const panel=document.createElement("aside");panel.className="irc-panel";panel.hidden=true;
- panel.innerHTML=`<div class="irc-head" title="Окно чата можно перетащить за заголовок; двойной щелчок — вернуть к значку"><h3>Чат с Claude<small>Сообщение сразу уходит Claude — ответ и отчёт придут сюда <button type="button" class="irc-relink" data-relink hidden>ключ claude.ai</button></small></h3><button type="button" data-close title="Закрыть">×</button></div>
- <div class="irc-link" hidden><b>Чат пока не может отправлять</b><span>Сообщения уходят Claude через GitHub программы. Администратор один раз вставляет ключ GitHub в настройках ИИ, раздел «Отправка обучения в репозиторий». После этого всё, что ждёт, уйдёт само.</span>
+ panel.innerHTML=`<div class="irc-head" title="Окно чата можно перетащить за заголовок; двойной щелчок — вернуть к значку"><h3><span data-title>Чат с Claude</span><small><span data-sub>Сообщение сразу уходит Claude — ответ и отчёт придут сюда</span> <button type="button" class="irc-relink" data-relink hidden>ключ claude.ai</button></small></h3><button type="button" data-close title="Закрыть">×</button></div>
+ <div class="irc-link" hidden><b>Чат пока не может отправлять</b><span>Войдите в программу (профиль вверху справа → «Войти») — тогда сообщения пойдут администратору, он ответит сам или передаст Claude. Или администратор один раз вставляет ключ GitHub в настройках ИИ, раздел «Отправка обучения в репозиторий». После этого всё, что ждёт, уйдёт само.</span>
  <details><summary>Ключ задачи claude.ai (необязательно)</summary><small>Если у вас есть ключ задачи «Чат IR Project» (начинается с sk-ant-) и её адрес Fire URL — вставьте их, сообщения пойдут туда.</small>
  <input type="password" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" data-key>
  <input placeholder="https://api.anthropic.com/v1/claude_code/routines/trig_…/fire" autocomplete="off" spellcheck="false" data-url><div><button type="button" data-link>Подключить</button></div></details></div>
- <div class="irc-note"></div><div class="irc-list"></div>
+ <div class="irc-tabs" hidden><button type="button" data-tab="claude" class="on">Claude</button><button type="button" data-tab="inbox">Инженеры<b></b></button></div>
+ <div class="irc-note"></div><div class="irc-list"></div><div class="irc-inbox" hidden></div>
  <form class="irc-form"><div class="irc-ctx" hidden><span></span><button type="button" title="Не прикладывать элемент">×</button></div>
  <textarea placeholder="Что не так или что сделать? Например: «у колонны К7 нет базы». Фото можно вставить сюда (Ctrl+V) или перетащить."></textarea>
  <div class="irc-photos" hidden></div>
  <div class="irc-row"><label><input type="checkbox" checked> Приложить снимок экрана</label><button type="button" class="irc-attach" title="Приложить фото или картинку с компьютера (до 6)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><circle cx="8.8" cy="10" r="1.7"/><path d="M21 15.5l-4.8-4.8L7.5 19.5"/></svg>Фото</button><input type="file" accept="image/*" multiple hidden><button type="submit">Отправить</button></div></form>`;
  const toast=document.createElement("div");toast.className="irc-toast";toast.hidden=true;toast.setAttribute("role","status");
- toast.innerHTML='<b>Claude ответил в чате</b><span></span><div><button type="button" class="alt" data-later>Позже</button><button type="button" data-open>Открыть чат</button></div>';
+ toast.innerHTML='<b>Ответ в чате</b><span></span><div><button type="button" class="alt" data-later>Позже</button><button type="button" data-open>Открыть чат</button></div>';
  document.body.append(fab,panel,toast);
  const list=panel.querySelector(".irc-list"),note=panel.querySelector(".irc-note"),form=panel.querySelector("form"),area=form.querySelector("textarea"),withShot=form.querySelector("input[type=checkbox]"),sendBtn=form.querySelector("[type=submit]"),ctxBox=form.querySelector(".irc-ctx");
  const photoBox=form.querySelector(".irc-photos"),photoInput=form.querySelector("input[type=file]");
@@ -162,29 +180,84 @@
   if(state.error)return state.error;
   return""
  }
+ // ---- The administrator: the tab «Инженеры» — their messages, «Передать Claude», «Ответить», the queue of recognition.
+ const tabs=panel.querySelector(".irc-tabs"),inboxBox=panel.querySelector(".irc-inbox");
+ let tab="claude";const drafts=new Map(),replying=new Set(),inErr=new Map(),inBusy=new Set(),inImgs=new Map();
+ function paintInbox(){
+  const ib=state.inbox||{items:[]},j=ib.jobs||{};
+  // a reply being typed is not lost when the list is drawn again
+  inboxBox.querySelectorAll("textarea[data-draft]").forEach(t=>drafts.set(t.dataset.draft,t.value));
+  const jobs=!j.admin?"":'<div class="irc-jobs"><span><b>Распознавание для инженеров без Claude</b> — '+(!j.claude?"на этом компьютере Claude не подключён, листы обработает администратор с Claude":
+   j.on?"листы инженеров обрабатывает эта программа вашим Claude":"на этом компьютере выключено")+(j.waiting?" · в очереди: "+j.waiting:"")+'</span>'+
+   (j.current?'<span>Сейчас: '+esc(j.current.author||"инженер")+" — "+esc(j.current.title||"листы")+'</span>':"")+
+   (j.claude?'<label><input type="checkbox" data-jobs'+(j.on?" checked":"")+'> Обрабатывать на этом компьютере (пока программа открыта)</label>':"")+'</div>';
+  const items=(ib.items||[]).slice().reverse();
+  inboxBox.innerHTML=jobs+(ib.error?'<div class="irc-in-err">'+esc(ib.error)+"</div>":"")+(items.length?items.map(m=>{
+   const e=m.context&&m.context.element,open=replying.has(m.id),busy=inBusy.has(m.id),err=inErr.get(m.id);
+   return'<div class="irc-in'+(m.answers.length?"":" new")+'"><div class="irc-in-head"><b>'+esc(m.name)+"</b>"+(m.computer?" · "+esc(m.computer):"")+" · "+time(m.at)+"</div><p>"+esc(m.text)+"</p>"+
+    (e?'<div class="irc-ctxline">Элемент: '+esc([e.mark,e.name].filter(Boolean).join(" · "))+"</div>":"")+(m.context&&m.context.object?'<div class="irc-ctxline">Объект: '+esc(m.context.object)+"</div>":"")+
+    m.images.map(n=>{const k=m.id+"|"+n;return'<img class="irc-shot" data-inimg="'+esc(k)+'" alt="снимок"'+(inImgs.get(k)?' src="'+inImgs.get(k)+'"':"")+">"}).join("")+
+    m.answers.map(a=>'<div class="irc-ans '+(a.from==="claude"?"claude":"")+'"><b>'+(a.from==="claude"?"Claude":"Администратор"+(a.by?" · "+esc(a.by):""))+" · "+time(a.at)+"</b>"+(a.from==="claude"?md(a.text):esc(a.text).replace(/\n/g,"<br>"))+"</div>").join("")+
+    '<div class="irc-in-acts"><button type="button" data-fwd="'+esc(m.id)+'"'+(m.forwarded||busy?" disabled":"")+">"+(m.forwarded?"Передано Claude":"Передать Claude")+'</button><button type="button" class="alt" data-reply="'+esc(m.id)+'">Ответить</button></div>'+
+    (err?'<div class="irc-in-err">'+esc(err)+"</div>":"")+
+    '<div class="irc-in-reply"'+(open?"":" hidden")+'><textarea data-draft="'+esc(m.id)+'" placeholder="Ваш ответ инженеру">'+esc(drafts.get(m.id)||"")+'</textarea><button type="button" data-answer="'+esc(m.id)+'"'+(busy?" disabled":"")+">Отправить ответ</button></div></div>"
+  }).join(""):'<div class="irc-empty">Сообщений от инженеров пока нет. Сюда пишут те, у кого в программе не подключён Claude: вы отвечаете сами или передаёте сообщение Claude — его ответ вернётся инженеру сам.</div>');
+  inboxBox.querySelectorAll("img[data-inimg]").forEach(img=>{if(img.src)return;const k=img.dataset.inimg,cut=k.indexOf("|");
+   invoke("ai-montage:chat-inbox-image",{id:k.slice(0,cut),name:k.slice(cut+1)}).then(u=>{if(u){inImgs.set(k,u);img.src=u}}).catch(()=>{})})
+ }
+ function setTab(t){
+  tab=t;tabs.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("on",b.dataset.tab===tab));
+  if(tab==="inbox"&&state.inbox&&state.inbox.unread)invoke("ai-montage:chat-inbox-seen").then(i=>{if(i)state.inbox=i;paint()}).catch(()=>{});
+  paint()
+ }
+ tabs.addEventListener("click",ev=>{const b=ev.target.closest("[data-tab]");if(b)setTab(b.dataset.tab)});
+ inboxBox.addEventListener("change",async ev=>{const c=ev.target.closest("[data-jobs]");if(!c)return;
+  try{const j=await invoke("ai-montage:chat-jobs",{on:c.checked});if(state.inbox)state.inbox.jobs=j}catch(e){alert(e.message||e)}paint()});
+ inboxBox.addEventListener("input",ev=>{const t=ev.target.closest("textarea[data-draft]");if(t)drafts.set(t.dataset.draft,t.value)});
+ inboxBox.addEventListener("click",async ev=>{
+  const img=ev.target.closest("img[data-inimg]");if(img&&img.src){const z=document.createElement("div");z.className="irc-zoom";z.innerHTML='<img alt="">';z.querySelector("img").src=img.src;z.onclick=()=>z.remove();document.body.appendChild(z);return}
+  const r=ev.target.closest("[data-reply]");if(r){const id=r.dataset.reply;replying.has(id)?replying.delete(id):replying.add(id);paint();const t=inboxBox.querySelector('textarea[data-draft="'+CSS.escape(id)+'"]');if(t)t.focus();return}
+  const f=ev.target.closest("[data-fwd]"),a=ev.target.closest("[data-answer]");if(!f&&!a)return;
+  const id=(f||a).dataset.fwd||(f||a).dataset.answer;inBusy.add(id);inErr.delete(id);paint();
+  try{
+   if(f){const v=await invoke("ai-montage:chat-inbox-forward",{id});take(v)}
+   else{const text=String(drafts.get(id)||"").trim();if(!text)throw Error("Напишите ответ");const i=await invoke("ai-montage:chat-inbox-answer",{id,text});if(i)state.inbox=i;drafts.delete(id);replying.delete(id)}
+  }catch(e){inErr.set(id,(f?"Не передано: ":"Не отправлено: ")+String(e.message||e).replace(/^Error invoking remote method '[^']+': (Error: )?/,""))}
+  finally{inBusy.delete(id);paint()}
+ });
  function paint(){
+  const va=Boolean(state.link&&state.link.viaAdmin);
+  panel.querySelector("[data-title]").textContent=va?"Чат с администратором":"Чат с Claude";
+  panel.querySelector("[data-sub]").textContent=va?"Claude на этом компьютере не подключён: сообщение уходит администратору — он ответит сам или передаст Claude":"Сообщение сразу уходит Claude — ответ и отчёт придут сюда";
+  fab.title=(va?"Чат с администратором":"Чат с Claude")+": замечания по монтажной схеме. Значок можно перетащить в любое место";
+  const ib=state.inbox,inUnread=ib&&ib.unread||0;tabs.hidden=!ib;if(!ib&&tab==="inbox")tab="claude";
+  tabs.querySelector("[data-tab=inbox] b").textContent=inUnread?String(inUnread):"";
+  const onInbox=tab==="inbox"&&Boolean(ib);inboxBox.hidden=!onInbox;list.hidden=onInbox;form.hidden=onInbox;
   note.textContent=warn();
-  const l=state.link;linkBox.hidden=!(l&&(!l.connected||relink));if(relink)linkBox.querySelector("details").open=true;const rl=panel.querySelector("[data-relink]");rl.hidden=!l||relink;rl.textContent=l&&l.hasKey?"сменить ключ claude.ai":"ключ claude.ai";
-  const b=fab.querySelector("b");b.hidden=!(state.unread>0)||!panel.hidden;b.textContent=state.unread>9?"9+":String(state.unread||"");
+  const l=state.link;linkBox.hidden=!(l&&(!l.connected||relink));if(relink)linkBox.querySelector("details").open=true;const rl=panel.querySelector("[data-relink]");rl.hidden=!l||relink||va;rl.textContent=l&&l.hasKey?"сменить ключ claude.ai":"ключ claude.ai";
+  const all=(state.unread||0)+inUnread,b=fab.querySelector("b");b.hidden=!(all>0)||!panel.hidden;b.textContent=all>9?"9+":String(all||"");
   if(panel.hidden)return;
+  if(onInbox){linkBox.hidden=true;paintInbox();return}
   const atEnd=list.scrollHeight-list.scrollTop-list.clientHeight<40;
   list.innerHTML=state.messages.length?state.messages.map(m=>{
    const e=m.context&&m.context.element,asked=m.from!=="user"&&m.reply_to?state.messages.find(x=>x.from==="user"&&x.id===m.reply_to):null,ae=asked&&asked.context&&asked.context.element,said=asked?String(asked.text||"").replace(/\s+/g," ").trim():"";
-   const meta=m.from==="user"?(m.answered?"<span>Есть ответ Claude</span>":m.state==="error"?'<span class="err">Не отправлено: '+esc(m.error||"")+'</span><button type="button" data-retry="'+esc(m.id)+'">Повторить</button>':
-    m.state==="waiting"?"<span>Ждёт отправки — уйдёт само</span>":m.state==="sending"?"<span>Отправляется…</span>":"<span>"+(m.answered?"Отправлено · есть ответ":"Отправлено Claude")+"</span>"):
-    "<span>Claude"+(m.version?" · обновление "+esc(m.version):"")+"</span>";
+   const meta=m.from==="user"?(m.answered?"<span>Есть ответ</span>":m.state==="error"?'<span class="err">Не отправлено: '+esc(m.error||"")+'</span><button type="button" data-retry="'+esc(m.id)+'">Повторить</button>':
+    m.state==="waiting"?"<span>Ждёт отправки — уйдёт само</span>":m.state==="sending"?"<span>Отправляется…</span>":"<span>"+(m.answered?"Отправлено · есть ответ":m.via==="admin"?"Отправлено администратору":"Отправлено Claude")+"</span>"):
+    m.from==="admin"?"<span>Администратор"+(m.author?" · "+esc(m.author):"")+"</span>":
+    "<span>Claude"+(m.via==="admin"?" (передал администратор)":"")+(m.version?" · обновление "+esc(m.version):"")+"</span>";
    return'<div class="irc-msg '+(m.from==="user"?"user":"claude")+'" data-mid="'+esc(m.id)+'">'+(asked?'<div class="irc-q" data-goto="'+esc(asked.id)+'" title="Показать вопрос в чате"><b>Вопрос</b>'+esc(said.length>280?said.slice(0,280)+"…":said)+(ae?"<small>Элемент: "+esc([ae.mark,ae.name].filter(Boolean).join(" · "))+"</small>":"")+"</div>":"")+(m.from==="user"?"<p>"+esc(m.text).replace(/\n/g,"<br>")+"</p>":md(m.text))+
     (e?'<div class="irc-ctxline">Элемент: '+esc([e.mark,e.name].filter(Boolean).join(" · "))+'</div>':"")+
     (m.from!=="user"&&Array.isArray(m.actions)&&m.actions.length?'<div class="irc-acts">'+m.actions.map((a,i)=>{const k=m.id+"|"+i,st=acted.get(k);
      return'<button type="button" data-act="'+esc(k)+'"'+(st&&st.busy?" disabled":"")+'>'+esc(a.label||"Удалить со схемы")+"</button>"+(st&&st.text?"<small>"+esc(st.text)+"</small>":"")}).join("")+"</div>":"")+
     [m.shot,...(m.photos||[])].filter(Boolean).map((id,i)=>'<img class="irc-shot" data-shot="'+esc(id)+'" alt="'+(i||!m.shot?"фото":"снимок экрана")+'"'+(shots.get(id)?' src="'+shots.get(id)+'"':"")+'>').join("")+
     '<div class="irc-meta">'+meta+"<span>"+time(m.at)+"</span></div></div>"
-  }).join(""):'<div class="irc-empty">Напишите, что не так на схеме или в программе. К сообщению приложится снимок экрана и выбранный на схеме элемент; Claude исправит и пришлёт сюда отчёт.</div>';
+  }).join(""):'<div class="irc-empty">'+(va?"Напишите, что не так на схеме или в программе. К сообщению приложится снимок экрана и выбранный на схеме элемент. Сообщение получит администратор: он ответит сам или передаст Claude, ответ придёт сюда.":"Напишите, что не так на схеме или в программе. К сообщению приложится снимок экрана и выбранный на схеме элемент; Claude исправит и пришлёт сюда отчёт.")+'</div>';
   const stick=atEnd||busy;
   list.querySelectorAll("img[data-shot]").forEach(img=>{img.onload=()=>{if(stick)list.scrollTop=list.scrollHeight};if(img.src)return;const id=img.dataset.shot;invoke("ai-montage:chat-shot",{id}).then(u=>{if(u){shots.set(id,u);img.src=u}}).catch(()=>{})});
   if(stick)list.scrollTop=list.scrollHeight
  }
- const take=v=>{if(v&&Array.isArray(v.messages)){state=v;paint()}return v};
+ // (an answer without the engineers' messages — the send of the chat — keeps those already shown)
+ const take=v=>{if(v&&Array.isArray(v.messages)){state=!("inbox" in v)&&state.inbox?{...v,inbox:state.inbox}:v;paint()}return v};
  // ---- A new answer of Claude: a note over the button and, with the program not in front, a notification of Windows.
  // Every tab runs this panel: only the tab on the screen tells, and each answer is told once (remembered in the
  // window's storage, shared by the tabs).
@@ -195,14 +268,28 @@
  const plain=t=>String(t||"").replace(/\*\*|`/g,"").replace(/\[([^\]]+)\]\([^)]*\)/g,"$1").replace(/\s+/g," ").trim();
  let toldRoute="",toastTimer=null;
  function announce(){
-  if(!state.unread||!onScreen()||!panel.hidden&&inFront())return;
-  const done=told(),news=state.messages.filter(m=>m.from==="claude").slice(-state.unread).filter(m=>!done.has(m.id));
+  if(!onScreen()||!panel.hidden&&inFront())return;
+  const done=told();
+  // the administrator: a new message of an engineer
+  const fresh=state.inbox&&state.inbox.unread?(state.inbox.items||[]).filter(m=>!m.answers.length&&!done.has("in-"+m.id)).slice(-state.inbox.unread):[];
+  if(fresh.length){
+   fresh.forEach(m=>done.add("in-"+m.id));try{localStorage.setItem(TOLD,JSON.stringify([...done].slice(-300)))}catch(_e){}
+   const m=fresh[fresh.length-1];toldRoute="";tab="inbox";
+   toast.querySelector("b").textContent="Сообщение от инженера «"+m.name+"»"+(fresh.length>1?" (+"+(fresh.length-1)+")":"");
+   toast.querySelector("span").textContent=plain(m.text).slice(0,220);toast.hidden=false;arrange();
+   clearTimeout(toastTimer);toastTimer=setTimeout(()=>{toast.hidden=true},60000);
+   if(!inFront())invoke("ai-montage:chat-notify",{title:toast.querySelector("b").textContent+" · IR Project",body:plain(m.text).slice(0,220),route:""}).catch(()=>{});
+   return
+  }
+  if(!state.unread)return;
+  const news=state.messages.filter(m=>m.from!=="user").slice(-state.unread).filter(m=>!done.has(m.id));
   if(!news.length)return;
   news.forEach(m=>done.add(m.id));try{localStorage.setItem(TOLD,JSON.stringify([...done].slice(-300)))}catch(_e){}
   const last=news[news.length-1],asked=state.messages.find(m=>m.id===last.reply_to),route=String(asked?.context?.route||"");
   toldRoute=/^#\/objects\/object\/\d+\/scheme/.test(route)?route:"";
   const body=plain(last.text).slice(0,220);
-  toast.querySelector("b").textContent=news.length>1?"Claude ответил в чате ("+news.length+")":"Claude ответил в чате";
+  const who=last.from==="admin"?"Администратор ответил в чате":"Claude ответил в чате";
+  toast.querySelector("b").textContent=news.length>1?who+" ("+news.length+")":who;
   toast.querySelector("span").textContent=body;toast.hidden=false;arrange();
   clearTimeout(toastTimer);toastTimer=setTimeout(()=>{toast.hidden=true},60000);
   if(!inFront())invoke("ai-montage:chat-notify",{title:toast.querySelector("b").textContent+" · IR Project",body,route:toldRoute}).catch(()=>{});

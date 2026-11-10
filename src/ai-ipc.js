@@ -44,7 +44,13 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
  // Корзина удалённого на 7 дней (src/trash.js): всё, что удаляется в объекте, и сами объекты можно вернуть.
  const trash=require("./trash").createTrash({getUserDataPath});
  const documents=createStore({getUserDataPath,dialog,shell,database,getWindow,trash});
- const engine=createEngine({getUserDataPath,safeStorage,fetch:netFetch});
+ const ownEngine=createEngine({getUserDataPath,safeStorage,fetch:netFetch});
+ // Without Claude of its own and signed in to the company's server — the administrator's Claude through the server
+ // (src/server-relay.js): the analysis, the chat «Чат с администратором»; the administrator's program does the jobs.
+ let chat=null;
+ const relay=require("./server-relay").createRelay({account:()=>account,engine:ownEngine,getUserDataPath,chat:()=>chat,
+  version:()=>{try{return require("electron").app.getVersion()}catch{return""}}});
+ const engine=relay.engine;
  const raster=createPdfRenderer({database,documents});
  const knowledge=createKnowledge({getUserDataPath});
  // The abbreviations learned from Claude's processing are written out on every sheet before it is read.
@@ -159,7 +165,8 @@ handle("ai-montage:journal-add",(_e,{objectId,elementId,comment,objectName,actio
  handle("ai-github:test",()=>github.test());
  handle("ai-github:push",()=>github.push({reason:"вручную"}));
  // The engineer's chat with Claude: a screenshot of the window first (the panel hidden), then the message with it.
- const chat=require("./ai-chat").createChat({getUserDataPath,safeStorage,fetch:netFetch,version:hotVersion,github});
+ chat=require("./ai-chat").createChat({getUserDataPath,safeStorage,fetch:netFetch,version:hotVersion,github,admin:relay.chat});
+ setTimeout(()=>{relay.tick();setInterval(()=>relay.tick(),30e3).unref?.()},20e3).unref?.();
  handle("ai-montage:chat-list",()=>chat.list());
  // The window gives the place of the montage scheme (CSS pixels): only it is taken; without it — the whole window.
  handle("ai-montage:chat-shot-take",async(e,{rect}={})=>{
@@ -190,7 +197,14 @@ handle("ai-montage:journal-add",(_e,{objectId,elementId,comment,objectName,actio
  });
  handle("ai-montage:chat-send",(_e,v={})=>chat.send(v));
  handle("ai-montage:chat-retry",(_e,v={})=>chat.retry(v));
- handle("ai-montage:chat-sync",()=>chat.sync());
+ // the administrator: the engineers' messages come with the chat (tab «Инженеры»)
+ const withInbox=async v=>{try{const i=await relay.inbox({maxAge:8e3});return i?{...v,inbox:i}:v}catch(e){return{...v,inbox:{items:[],unread:0,error:String(e.message||e),jobs:relay.jobsInfo()}}}};
+ handle("ai-montage:chat-sync",async()=>withInbox(await chat.sync()));
+ handle("ai-montage:chat-inbox-seen",()=>relay.inboxSeen());
+ handle("ai-montage:chat-inbox-image",(_e,v={})=>relay.image(v));
+ handle("ai-montage:chat-inbox-answer",(_e,v={})=>relay.answer(v));
+ handle("ai-montage:chat-inbox-forward",async(_e,v={})=>{const r=await relay.forward(v);return withInbox(r.chat||chat.list())});
+ handle("ai-montage:chat-jobs",(_e,v={})=>v.on===undefined?relay.jobsInfo():relay.setJobs(v));
  handle("ai-montage:chat-seen",()=>chat.markSeen());
  handle("ai-montage:chat-link",(_e,v={})=>chat.setLink(v));
  handle("ai-montage:chat-unlink",()=>chat.clearLink());

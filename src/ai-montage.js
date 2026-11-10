@@ -516,6 +516,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   lines.push("","Верни решение по каждой схеме этого запроса (page и index как выше), элементы, которых нет в списках, сетку осей, резервуар (если это он) и марки с листов этого запроса.");
   return lines.join("\n")
  }
+ const objectName=oid=>{try{return String(database.getObject?.(oid)?.name||"")}catch{return""}};
  // The renderer draws one sheet at a time: batches asked side by side take their turns for the pictures.
  let rendering=Promise.resolve();
  const renderSheet=(...args)=>{const run=rendering.then(()=>renderer.renderForAnalysis(...args));rendering=run.catch(()=>{});return run};
@@ -533,7 +534,9 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    images.push({buffer:sheet.buffer,mime:sheet.mime,label:sheetName(p)})
   }
   try{
-   const answer=await engine.requestJSON({system:SYSTEM,shared,images,text:batchPrompt(batch,kmReference),schema:SCHEMA,maxTokens:MAX_ANSWER_TOKENS});
+   const answer=await engine.requestJSON({system:SYSTEM,shared,images,text:batchPrompt(batch,kmReference),schema:SCHEMA,maxTokens:MAX_ANSWER_TOKENS,
+    // what the administrator sees in the queue when the request goes through him (src/server-relay.js)
+    title:(objectName(oid)?"«"+objectName(oid)+"» · ":"")+batch.map(sheetName).join(", ").slice(0,240)});
    finish({key,schemes:answer.data?.schemes||[],marks:answer.data?.marks||[],elements:answer.data?.elements||[],grid:answer.data?.grid||null,tank:answer.data?.tank||null,vessel:answer.data?.vessel||null,new_types:answer.data?.new_types||[],lessons:answer.data?.lessons||[],summary:answer.data?.summary||"",model:answer.model,usage:answer.usage})
   }catch(error){
    if(error.code!=="max_tokens"||batch.length<2)throw error;

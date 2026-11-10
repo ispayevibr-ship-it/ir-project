@@ -265,7 +265,7 @@ window.irAiRecognitionPage=async function(objectId){
    const noKey=!engine?.installed;
    body=(ai?.status==="stopped"?'<div class="ir-ms-card warn"><b>Обработка остановлена</b><p>Готовые ответы Claude сохранены (запросов: '+(ai.partial||0)+'). «Продолжить» отправит только остальные листы.</p></div>':
     ai?.status==="failed"?'<p class="ir-ms-error">'+esc(ai.error)+'</p>':
-    noKey?'<p>Claude не подключён. Укажите API-ключ в настройках или продолжите без ИИ.</p>':'<p>Claude посмотрит монтажные схемы, сборочные чертежи и таблицы: решит, какие схемы ставить, уточнит типы элементов и отметки, прочитает профили, длины и количество марок. Запускается только по кнопке.</p>')+
+    noKey?'<p>Claude не подключён. Укажите API-ключ в настройках или войдите в программу (профиль → «Войти») — тогда листы обработает Claude администратора. Можно продолжить без ИИ.</p>':(engine?.provider==="admin"?'<p class="ir-ms-note">На этом компьютере Claude не подключён: листы уйдут администратору, его программа обработает их своим Claude и вернёт ответ. Если программа администратора закрыта, обработка подождёт.</p>':'')+'<p>Claude посмотрит монтажные схемы, сборочные чертежи и таблицы: решит, какие схемы ставить, уточнит типы элементов и отметки, прочитает профили, длины и количество марок. Запускается только по кнопке.</p>')+
     (noKey?'':noteBox())+'<div class="ir-ms-row">'+(noKey?'<button data-ms-settings>Настроить Claude</button>':'<button class="primary" data-ms-ai '+(busy||!canEdit?'disabled':'')+'>'+((ai?.status==="failed"||ai?.status==="stopped")&&ai.partial?'Продолжить (готово запросов: '+ai.partial+')':ai?.status==="stopped"?'Продолжить':ai?.status==="failed"?'Повторить':engine?.provider==="claude-code"?'Обработать через Claude Code (подписка)':'Обработать через Claude')+'</button>')+
     '<button data-ms-skip '+(busy||!canEdit?'disabled':'')+'>Продолжить без ИИ</button>'+
     ((ai?.status==="failed"||ai?.status==="stopped")&&ai.partial&&!noKey?'<button class="link" data-ms-ai-restart '+(busy||!canEdit?'disabled':'')+'>Начать заново</button>':'')+'</div>'
@@ -494,7 +494,7 @@ window.irAiRecognitionPage=async function(objectId){
   if(!alive())return;
   const page={drawings:drawingsPage,analyze:analyzePage,claude:claudePage,place:placePage,journal:journalPage}[tab]();
   app.innerHTML='<div class="ir-ms"><header class="ir-ms-hero"><div><button type="button" class="back ir-ms-back" data-ms-back>← Монтажная схема</button><small>IR PROJECT AI</small><h1>Монтажная схема из PDF</h1><p>'+esc(object.name)+'</p></div>'+
-   '<button class="ir-ms-claude '+(engine?.installed?'on':'')+'" data-ms-settings>'+(engine?.installed?'Claude подключён':'Claude не подключён')+'</button></header>'+
+   '<button class="ir-ms-claude '+(engine?.installed?'on':'')+'" data-ms-settings>'+(engine?.provider==="admin"?'Claude администратора':engine?.installed?'Claude подключён':'Claude не подключён')+'</button></header>'+
    '<nav class="ir-ms-tabs">'+TABS.map(([key,title],i)=>{const st=tabState(key);
     return'<button type="button" data-ms-tab="'+key+'" class="'+(tab===key?'active ':'')+(st.done?'done':'')+'"><span class="ir-ms-num">'+(key==="journal"?"≡":st.done?"✓":i+1)+'</span><span><b>'+esc(title)+'</b><small>'+esc(st.note)+'</small></span></button>'}).join("")+'</nav>'+
    (error?'<div class="ir-ms-error" role="alert">'+esc(error)+'</div>':'')+
