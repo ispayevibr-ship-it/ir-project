@@ -87,28 +87,6 @@ ${sums.length?`<div class="arch-totals">${sums.map(s=>`<div><b>${esc(fmt(s.value
   if(!m){if(!/^\/objects\/object\/\d+$/.test(location.hash.slice(1)))document.body.classList.remove("ir-archive-object");return}
   if(await isArchive(m[1]))location.replace(`#/objects/object/${m[1]}`);
  }
- // Объекты портфолио компании (archive-import.js): кнопка у администратора на списке объектов, пока не все загружены.
- const call=(ch,v)=>irProject.ai?.invoke?irProject.ai.invoke("ai-settings:archive-portfolio-"+ch,v):Promise.reject(Error("Недоступно"));
- let portfolioState=null,portfolioAsked=0;
- async function portfolioButton(){
-  const box=document.querySelector(".objects-add-buttons");if(!box||box.querySelector("[data-portfolio]"))return;
-  if(window.irAccess?.role?.()!=="admin")return;
-  if(!portfolioState||Date.now()-portfolioAsked>60000){portfolioAsked=Date.now();try{portfolioState=await call("status")}catch{portfolioState=null}}
-  const st=portfolioState;if(!st?.ready||!(st.total>st.imported)||box.querySelector("[data-portfolio]"))return;
-  const b=document.createElement("button");b.type="button";b.dataset.portfolio="1";
-  const left=st.total-st.imported;b.innerHTML=`<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>Объекты портфолио (${left})</span>`;b.title="Завершённые объекты компании с сайта: виды работ, объёмы и фото";
-  b.onclick=async()=>{
-   if(!confirm(`Загрузить в программу ${left} завершённых объектов портфолио компании (виды работ, объёмы, фото)?\n\nОни появятся у вас и, через синхронизацию, у тех, кому вы дадите доступ.`))return;
-   b.disabled=true;const timer=setInterval(async()=>{try{const p=await call("progress");if(p)b.querySelector("span").textContent=`Загрузка… ${p.done} из ${p.total}`}catch{}},1500);
-   try{const r=await call("import");portfolioState=null;alert(`Загружено объектов: ${r.imported}, фото: ${r.photos}.`)}
-   catch(e){alert("Объекты не загружены: "+(e.message||e));b.disabled=false}
-   finally{clearInterval(timer)}
-   if(location.hash.replace(/^#/,"")==="/objects"||!location.hash)try{objectsPage()}catch{location.reload()}
-  };
-  box.prepend(b)
- }
- const appRoot=document.getElementById("app");
- if(appRoot)new MutationObserver(()=>{if(document.querySelector(".objects-add-buttons:not([data-portfolio-seen])")){document.querySelector(".objects-add-buttons").dataset.portfolioSeen="1";portfolioButton()}}).observe(appRoot,{childList:true,subtree:true});
  window.addEventListener("hashchange",guard);
  window.irArchive={isArchive,setArchive,page,known,SECTION,KIND};
  if(window.irProject)guard();
