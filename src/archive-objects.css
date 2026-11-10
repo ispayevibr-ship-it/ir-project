@@ -51,3 +51,4 @@
 .arch-photo-del{position:absolute;top:6px;right:6px;opacity:0;transition:opacity .15s}
 .arch-photo:hover .arch-photo-del{opacity:1}
 @media(max-width:700px){.arch-card-head{align-items:flex-start;flex-direction:column}.arch-gallery{grid-template-columns:repeat(2,1fr)}.arch-photo-del{opacity:1}}
+.archive-years{display:none;grid-template-columns:1fr 1fr;gap:13px;margin:4px 0 2px}#objectForm.is-archive .archive-years{display:grid}.arch-years{min-width:200px}

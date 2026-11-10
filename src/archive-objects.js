@@ -25,11 +25,31 @@
   else if(!on&&r)await api(id,"object-meta").remove(r.id);
   known.set(String(id),!!on);
  }
+ // Годы начала и завершения (просьба инженера 10.11.2026): записи object-meta «object_year_start», «object_year_end»;
+ // «object_years» («2019–2021») — для показа и для объектов, загруженных раньше с одной строкой лет.
+ const YEARS={start:"object_year_start",end:"object_year_end",both:"object_years"};
+ const year=v=>{const m=String(v??"").match(/\d{4}/);return m?m[0]:""};
+ function yearsOf(rows){
+  const get=t=>String(rows.find(r=>r.record_type===t)?.data?.value||"");
+  let start=year(get(YEARS.start)),end=year(get(YEARS.end));
+  if(!start&&!end){const all=get(YEARS.both).match(/\d{4}/g)||[];start=all[0]||"";end=all.length>1?all[all.length-1]:""}
+  return{start,end,text:start&&end&&start!==end?start+"–"+end:start||end}
+ }
+ async function getYears(id){return yearsOf(await api(id,"object-meta").list().catch(()=>[]))}
+ async function setYears(id,start,end){
+  start=year(start);end=year(end);if(start&&end&&Number(end)<Number(start))[start,end]=[end,start];
+  const rows=await api(id,"object-meta").list().catch(()=>[]);
+  const put=async(type,title,value)=>{const r=rows.find(x=>x.record_type===type);const body={record_type:type,title,data:{entity_type:type,value}};
+   if(!value){if(r)await api(id,"object-meta").remove(r.id);return}
+   if(!r)await api(id,"object-meta").create(body);else if(String(r.data?.value||"")!==value)await api(id,"object-meta").update(r.id,body)};
+  await put(YEARS.start,"Год начала",start);await put(YEARS.end,"Год завершения",end);
+  await put(YEARS.both,"Годы работ",start&&end&&start!==end?start+"–"+end:start||end);
+ }
  const ru=(n,one,few,many)=>{const a=Math.abs(n)%100,b=a%10;return a>10&&a<20?many:b===1?one:b>=2&&b<=4?few:many};
  const num=v=>{const n=Number(String(v??"").replace(/\s/g,"").replace(",","."));return Number.isFinite(n)?n:NaN};
  const fmt=v=>{const n=num(v);return Number.isFinite(n)?n.toLocaleString("ru-RU",{maximumFractionDigits:3}):String(v??"")};
  const svg=p=>`<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
- const I={edit:svg('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13 7 4 4"/>'),pin:svg('<path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/>'),check:svg('<path d="m5 12 4 4L19 6"/>'),trash:svg('<path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13"/>'),plus:svg('<path d="M12 5v14M5 12h14"/>')};
+ const I={edit:svg('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13 7 4 4"/>'),pin:svg('<path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/>'),check:svg('<path d="m5 12 4 4L19 6"/>'),trash:svg('<path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13"/>'),plus:svg('<path d="M12 5v14M5 12h14"/>'),cal:svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>')};
 
  // Объёмы одной единицы складываются в итог («465 т», «14 900 м²»).
  function totals(works){const m=new Map();for(const w of works){const u=String(w.unit||"").trim(),n=num(w.volume);if(!u||!Number.isFinite(n))continue;m.set(u,(m.get(u)||0)+n)}return[...m].map(([u,n])=>({unit:u,value:n}))}
@@ -39,7 +59,7 @@
   const o=await irProject.data.objects.get(id);if(!o){location.hash="/objects";return}
   document.body.classList.remove("ir-object-overview");document.body.classList.add("ir-archive-object");
   const [rows,metaRows]=await Promise.all([api(id,SECTION).list().catch(()=>[]),api(id,"object-meta").list().catch(()=>[])]);
-  const years=String(metaRows.find(r=>r.record_type==="object_years")?.data?.value||"");
+  const yrs=yearsOf(metaRows),years=yrs.text;
   const works=rows.filter(r=>r.record_type==="work").sort((a,b)=>(Number(a.data?.order)||0)-(Number(b.data?.order)||0)||Number(a.id)-Number(b.id));
   const photos=rows.filter(r=>r.record_type==="photo").sort((a,b)=>Number(a.id)-Number(b.id));
   let bannerUrl="",coverUrl="";
@@ -50,7 +70,7 @@
   const workRows=works.length?works.map((w,i)=>{const d=w.data||{};return `<tr data-work="${esc(w.id)}"><td class="arch-n">${i+1}</td><td>${edit?`<input data-f="name" value="${esc(d.name||w.title||"")}" placeholder="Вид работ"><input data-f="note" class="arch-note-input" value="${esc(d.note||"")}" placeholder="Состав работ (необязательно)">`:`<b>${esc(d.name||w.title||"")}</b>${d.note?`<small>${esc(d.note)}</small>`:""}`}</td><td class="arch-unit">${edit?`<input data-f="unit" value="${esc(d.unit||"")}" placeholder="т, м², шт">`:esc(d.unit||"")}</td><td class="arch-vol">${edit?`<input data-f="volume" value="${esc(d.volume??"")}" inputmode="decimal" placeholder="0">`:esc(fmt(d.volume))}</td>${edit?`<td class="arch-del"><button type="button" data-del-work="${esc(w.id)}" title="Удалить строку" aria-label="Удалить строку">${I.trash}</button></td>`:""}</tr>`}).join(""):`<tr class="arch-empty-row"><td colspan="${edit?5:4}">Виды работ ещё не указаны${edit?" — нажмите «Добавить вид работ»":""}.</td></tr>`;
   const gallery=photos.length?photos.map((p,i)=>photoSrc[i]?`<div class="arch-photo"><button type="button" class="object-photo-tile" data-photo-src="${esc(photoSrc[i])}" data-photo-number="${i+1}"><img src="${esc(photoSrc[i])}" alt="Фото ${i+1}" loading="lazy"><span>Фото ${i+1}</span></button>${edit?`<button type="button" class="arch-photo-del" data-del-photo="${esc(p.id)}" title="Удалить фото" aria-label="Удалить фото">${I.trash}</button>`:""}</div>`:"").join(""):`<div class="object-photos-empty"><b>Фотографий пока нет</b>${edit?"<span>Нажмите «Добавить фото».</span>":""}</div>`;
   app.innerHTML=`<div class="arch-page">
-<section class="object-overview-hero arch-hero" data-object-id="${esc(id)}">${bg?`<div class="object-overview-hero-bg" style="background-image:linear-gradient(180deg,rgba(10,17,27,.05),rgba(10,17,27,.35)),url(&quot;${bg}&quot;)"></div>`:""}<div class="object-hero-shade"></div><div class="object-hero-content"><div class="object-hero-top"><div class="object-hero-copy"><div class="object-hero-breadcrumbs"><button type="button" data-arch-objects>Объекты</button><span>›</span><span>${esc(o.name)}</span></div><h1>${esc(o.name)}</h1><div class="object-hero-contract"><span><b>Заказчик:</b> ${esc(o.customer||"—")}</span><span><b>Генподрядчик:</b> ${esc(o.general_contractor||"—")}</span></div></div><div class="object-hero-actions">${edit?`<button type="button" class="object-hero-action" data-arch-edit>${I.edit}<span>Редактировать</span></button>`:""}</div></div><div class="object-hero-info"><div class="object-hero-status done">${I.check}<span>Завершён${years?" · "+esc(years):""}</span></div><div class="object-hero-info-item location">${I.pin}<div><b>${esc(o.address||"Адрес не указан")}</b><span>Расположение объекта</span></div></div></div></div></section>
+<section class="object-overview-hero arch-hero" data-object-id="${esc(id)}">${bg?`<div class="object-overview-hero-bg" style="background-image:linear-gradient(180deg,rgba(10,17,27,.05),rgba(10,17,27,.35)),url(&quot;${bg}&quot;)"></div>`:""}<div class="object-hero-shade"></div><div class="object-hero-content"><div class="object-hero-top"><div class="object-hero-copy"><div class="object-hero-breadcrumbs"><button type="button" data-arch-objects>Объекты</button><span>›</span><span>${esc(o.name)}</span></div><h1>${esc(o.name)}</h1><div class="object-hero-contract"><span><b>Заказчик:</b> ${esc(o.customer||"—")}</span><span><b>Генподрядчик:</b> ${esc(o.general_contractor||"—")}</span></div></div><div class="object-hero-actions">${edit?`<button type="button" class="object-hero-action" data-arch-edit>${I.edit}<span>Редактировать</span></button>`:""}</div></div><div class="object-hero-info"><div class="object-hero-status done">${I.check}<span>Завершён</span></div><div class="object-hero-info-item arch-years">${I.cal}<div><b>${yrs.start||yrs.end?`${esc(yrs.start||"—")} — ${esc(yrs.end||"—")}`:"Не указаны"}</b><span>Годы начала и завершения</span></div></div><div class="object-hero-info-item location">${I.pin}<div><b>${esc(o.address||"Адрес не указан")}</b><span>Расположение объекта</span></div></div></div></div></section>
 ${sums.length?`<div class="arch-totals">${sums.map(s=>`<div><b>${esc(fmt(s.value))} ${esc(s.unit)}</b><span>Всего, ${esc(s.unit)}</span></div>`).join("")}</div>`:""}
 <section class="arch-card"><div class="arch-card-head"><div><h2>Виды работ и объёмы</h2><p>${works.length} ${ru(works.length,"вид","вида","видов")} работ</p></div>${edit?`<button type="button" class="arch-add" data-add-work>${I.plus}<span>Добавить вид работ</span></button>`:""}</div><div class="arch-table-wrap"><table class="arch-table"><thead><tr><th>№</th><th>Вид работ</th><th>Ед.</th><th>Объём</th>${edit?"<th></th>":""}</tr></thead><tbody>${workRows}</tbody></table></div>${edit&&works.length?'<p class="arch-hint">Изменения сохраняются сами, когда вы выходите из поля.</p>':""}</section>
 <section class="arch-card"><div class="arch-card-head"><div><h2>Фотографии объекта</h2><p>${photos.length} фото</p></div>${edit?`<button type="button" class="arch-add" data-add-photo>${I.plus}<span>Добавить фото</span></button>`:""}</div><div class="arch-gallery">${gallery}</div></section>
@@ -88,6 +108,6 @@ ${sums.length?`<div class="arch-totals">${sums.map(s=>`<div><b>${esc(fmt(s.value
   if(await isArchive(m[1]))location.replace(`#/objects/object/${m[1]}`);
  }
  window.addEventListener("hashchange",guard);
- window.irArchive={isArchive,setArchive,page,known,SECTION,KIND};
+ window.irArchive={isArchive,setArchive,getYears,setYears,page,known,SECTION,KIND};
  if(window.irProject)guard();
 })();
