@@ -391,6 +391,8 @@
      <div class="ir-acc-line"><i data-net></i><b>Связь с сервером:</b><span data-nett>проверяем…</span></div>
      <div class="ir-acc-line"><i data-me></i><b>Вход:</b><span data-met></span></div>
      <div class="ir-acc-line"><i data-sy></i><b>Синхронизация:</b><span data-syt></span></div>
+     <div class="ir-acc-line"><i data-sh></i><b>Обучение:</b><span data-sht></span></div>
+     <label class="ir-acc-check" style="margin-top:2px"><input type="checkbox" data-share><span>Отправлять разработчику данные проверки чертежей — чтобы программа лучше распознавала (сами PDF не отправляются)</span></label>
      <div class="ir-acc-acts" style="margin-top:6px">
       <button type="button" class="ir-acc-btn" data-site>${SITE_ICON}Открыть сайт компании</button>
       <button type="button" class="ir-acc-btn" data-db hidden>${SITE_ICON}База данных (администратор)</button>
@@ -419,6 +421,7 @@
       <li>Нет прав на раздел — изменение остаётся только на этом компьютере (в окне синхронизации — «Не принято сервером»).</li>
       <li>Не передаются (тяжёлые, делаются на каждом компьютере): анализы ИИ-распознавания, снимки схемы, документы распознавания. Файлы и фотографии пока остаются на своём компьютере.</li>
       <li>Сервер каждую ночь сохраняет копию базы.</li>
+      <li><b>Обучение</b> (галочка выше): то, что программа узнала при проверке чертежей — ответы ИИ по комплектам, поправки и уроки инженера, журнал, — уходит разработчику через сервер, чтобы распознавание становилось лучше у всех. Сами чертежи и база объектов не отправляются. Спрашивается при первом запуске; у вошедших в программу включено, выключить можно здесь.</li>
      </ul>
      <h3>Если что-то не так</h3>
      <ul>
@@ -446,8 +449,16 @@
    try{const y=await call("ai-settings:server-sync-info");const [k,t]=syncText(y);dot("[data-sy]",y.enabled?k||"ok":"");q("[data-syt]").textContent=y.enabled?t:"выключена"+(u?" — профиль → «Синхронизация» → «Включить»":"")}
    catch(e){dot("[data-sy]");q("[data-syt]").textContent=errText(e)}
   }
-  q("[data-check]").onclick=()=>{void ping();void load()};
-  void ping();void load();
+  async function share(){
+   try{const h=await call("ai-settings:server-share-get");q("[data-share]").checked=h.on;q("[data-share]").disabled=h.viaKey;
+    dot("[data-sh]",h.error?"err":h.on||h.viaKey?"ok":"");
+    q("[data-sht]").textContent=h.viaKey?"уходит напрямую ключом GitHub этого компьютера":!h.on?"не отправляется":h.error?h.error:
+     (h.last?"отправлено "+when(h.last.at)+(h.pending?", ждёт: "+h.pending:""):h.pending?"ждёт отправки: "+h.pending:"отправлять пока нечего")}
+   catch(e){dot("[data-sh]");q("[data-sht]").textContent=errText(e)}
+  }
+  q("[data-share]").onchange=async e=>{try{await call("ai-settings:server-share-set",{on:e.target.checked});if(e.target.checked)await call("ai-settings:server-share-send").catch(()=>{})}catch(err){q("[data-sht]").textContent=errText(err)}void share()};
+  q("[data-check]").onclick=()=>{void ping();void load();void share()};
+  void ping();void load();void share();
   return d;
  }
  // Пришли изменения с сервера — полоса «Обновить» над вкладками (один раз на всё окно программы).
@@ -507,8 +518,22 @@
   h.__irAccountAt=Date.now();
   try{return apply(await call("ai-settings:server-refresh"))}catch{h.__irAccountAt=0;return null}
  }
+ // The first start: the consent to send what the program learned (the engineer, 10.11.2026: «Спросить при запуске»).
+ async function askShare(){
+  let h;try{h=await call("ai-settings:server-share-get")}catch{return}
+  if(!h?.ask)return;
+  const d=dialog(host().document,"",head("Помочь улучшить распознавание","Один вопрос при первом запуске")+
+   `<div class="ir-acc-body"><p style="margin:0">Отправлять разработчику программы данные проверки чертежей? Это то, что программа узнала при распознавании: ответы ИИ по комплектам, ваши поправки и уроки, журнал. По ним распознавание станет точнее у всех.</p>
+   <div class="ir-acc-help">Сами PDF-чертежи, база объектов, отчёты и письма <b>не отправляются</b>. Изменить решение можно в Настройках → «Сайт и синхронизация».</div></div>
+   <div class="ir-acc-foot"><span class="grow"></span><button type="button" class="ir-acc-btn" data-no>Нет</button><button type="button" class="ir-acc-btn main" data-yes>Да, отправлять</button></div>`);
+  const pick=on=>{void call("ai-settings:server-share-set",{on}).catch(()=>{});d.close()};
+  d.querySelector("[data-yes]").onclick=()=>pick(true);d.querySelector("[data-no]").onclick=()=>pick(false);
+  // closed with ✕ or Esc — asked again next start
+  return new Promise(r=>d.addEventListener("close",()=>r(),{once:true}))
+ }
  async function start(){
   const s=await check();
+  {const h=host();if(!h.__irShareAsked){h.__irShareAsked=true;await new Promise(r=>setTimeout(r,800)).then(askShare)}}
   if(s&&!s.signedIn){let asked=true;try{asked=sessionStorage.getItem("ir-login-asked");sessionStorage.setItem("ir-login-asked","1")}catch{}
    if(!asked)setTimeout(()=>login(host().document,{first:true}),800)}
   setInterval(()=>void check(),30*60e3);

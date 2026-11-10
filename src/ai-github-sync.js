@@ -13,6 +13,12 @@
  * Access: a GitHub token typed in by the administrator (fine-grained, "Contents: read and write" for this repository
  * only). It is stored encrypted with Electron safeStorage (Windows DPAPI) and never shown again or put in an update.
  *
+ * Without a key (any installed program, the engineer 10.11.2026 «любой, кто скачал программу … его анализ уходил к нам на
+ * GitHub»): the same files go to the company's server (POST /api/ir/training, server/pb_hooks/ir_training.pb.js), which
+ * passes them to the closed repository with its own key (knowledge/inbox/server/<computer>-<install>/). Only with consent:
+ * asked at the first start; a person signed in to the company's server sends unless he turned it off. PDF files are
+ * never sent — only what the program learned from them.
+ *
  * The closed repository of the data (knowledge/data.json of the update): the data of the drawings, what the computers
  * send and the chat live there, the program itself in the open one. It is found by its number (repo_id), so that its
  * name may change: everything this computer sends goes there, never to a repository of the same name, and the data
@@ -28,7 +34,10 @@ const REPO_RE=/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/,BRANCH_RE=/^[A-Za-z0-9_.\/-]{
 const sha=t=>crypto.createHash("sha256").update(t).digest("hex");
 const computerName=()=>String(os.hostname()||"pc").toLowerCase().replace(/[^a-z0-9-]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40)||"pc";
 
-function createGithubSync({getUserDataPath,safeStorage,fetch:doFetch=globalThis.fetch,now=()=>new Date(),dataFile=DATA_FILE}){
+// The server relay: a file above 5 MB is not taken by the server, a request carries at most 40 files and 8 MB.
+const RELAY={file:5e6,total:7.5e6,files:40};
+function createGithubSync({getUserDataPath,safeStorage,fetch:doFetch=globalThis.fetch,now=()=>new Date(),dataFile=DATA_FILE,
+ server=()=> "https://a-ts.kz",signedIn=()=>false,appVersion=()=>""}){
  const file=()=>path.join(getUserDataPath(),"ai-github.json");
  function read(){try{return{...DEFAULTS,auto:false,sent:{},...JSON.parse(fs.readFileSync(file(),"utf8"))}}catch{return{...DEFAULTS,auto:false,sent:{}}}}
  function write(d){fs.mkdirSync(path.dirname(file()),{recursive:true});const tmp=file()+".tmp";fs.writeFileSync(tmp,JSON.stringify(d,null,1),"utf8");fs.renameSync(tmp,file())}
@@ -74,10 +83,41 @@ function createGithubSync({getUserDataPath,safeStorage,fetch:doFetch=globalThis.
   return out
  }
  function pending(){const d=read();return outgoing().filter(f=>d.sent[f.path]!==sha(f.text)).length}
+ // ---- consent and the server relay ----
+ const isIn=()=>{try{return Boolean(signedIn())}catch{return false}};
+ const shareOn=d=>d.share===true||(d.share===undefined&&isIn());
+ function installId(){const d=read();if(/^[a-f0-9]{32}$/.test(d.install||""))return d.install;d.install=crypto.randomBytes(16).toString("hex");write(d);return d.install}
+ const relPath=p=>p.replace(/^knowledge\/inbox\/[^/]+\//,"");
+ const relayPending=d=>outgoing().filter(f=>f.text.length<=RELAY.file&&d.sent["srv:"+relPath(f.path)]!==sha(f.text));
+ function shareInfo(){const d=read();
+  return{on:shareOn(d),choice:d.share===undefined?null:Boolean(d.share),ask:d.share===undefined&&!isIn()&&!d.token,viaKey:Boolean(d.token),
+   last:d.relay||null,error:d.relayError||"",pending:d.token?0:relayPending(d).length}}
+ function setShare(on){const d=read();d.share=Boolean(on);write(d);if(d.share&&!d.token)schedule("согласие на отправку");return shareInfo()}
+ let relaying=null;
+ async function relay({reason}={}){
+  if(relaying)return relaying;
+  relaying=(async()=>{
+   const d=read(),files=relayPending(d).map(f=>({path:relPath(f.path),text:f.text}));
+   if(!files.length)return{sent:0};
+   const install=installId(),batches=[];let cur=[],size=0;
+   for(const f of files){if(cur.length&&(cur.length>=RELAY.files||size+f.text.length>RELAY.total)){batches.push(cur);cur=[];size=0}cur.push(f);size+=f.text.length}
+   if(cur.length)batches.push(cur);
+   let sent=0;
+   for(const b of batches){
+    const r=await doFetch(String(server()).replace(/\/+$/,"")+"/api/ir/training",{method:"POST",headers:{"Content-Type":"application/json"},
+     body:JSON.stringify({install,computer:computerName(),version:String(appVersion()||""),files:b}),signal:AbortSignal.timeout(120000)});
+    if(!r.ok){let m="";try{m=(await r.json())?.message||""}catch{}throw Error(r.status===429?"Сервер просит подождать — отправка позже":"Сервер компании: "+r.status+(m?" "+m:""))}
+    const a=read();for(const f of b)a.sent["srv:"+f.path]=sha(f.text);write(a);sent+=b.length
+   }
+   const a=read();a.relay={at:now().toISOString(),files:sent,reason};delete a.relayError;write(a);return{sent}
+  })().catch(e=>{const a=read();a.relayError=String(e.message||e)+" ("+now().toLocaleString("ru-RU")+")";write(a);throw e}).finally(()=>{relaying=null});
+  return relaying
+ }
  function info(){
   const d=read();
   return{repo:d.repo,branch:d.branch,hasToken:Boolean(d.token),encryption:encryption(),auto:Boolean(d.auto),computer:computerName(),
    folder:"knowledge/inbox/"+computerName()+"/",last:d.last||null,lastError:d.lastError||"",pending:pending(),total:outgoing().length,
+   share:shareInfo(),
    data:dataConf()?{repo:d.dataRepo?.full_name||"",private:Boolean(d.dataRepo?.private),pulled:d.pulled||null,error:d.pullError||""}:null}
  }
  // The administrator's settings; a new token is checked against the repository before it is kept.
@@ -130,6 +170,7 @@ function createGithubSync({getUserDataPath,safeStorage,fetch:doFetch=globalThis.
  let running=null;
  // One commit with every changed file; a branch moved meanwhile (another computer, a development session) — once more.
  async function push({reason="вручную"}={}){
+  {const d=read();if(!d.token){if(shareOn(d))return relay({reason}).then(r=>({...r,info:info(),via:"server"}));throw Error("Ключ доступа GitHub не указан")}}
   if(running)return running;
   running=(async()=>{
    const d=read(),files=outgoing().filter(f=>d.sent[f.path]!==sha(f.text));
@@ -144,14 +185,14 @@ function createGithubSync({getUserDataPath,safeStorage,fetch:doFetch=globalThis.
  // After Claude's answer or a lesson of the engineer: sent by itself when the administrator turned it on.
  let timer=null;
  function schedule(reason){
-  const d=read();if(!d.auto||!d.token)return;
+  const d=read();if(!(d.auto&&d.token)&&!(!d.token&&shareOn(d)))return;
   clearTimeout(timer);timer=setTimeout(()=>push({reason}).catch(e=>console.warn("IR Project: sending to GitHub failed",e.message)),5000);timer.unref?.()
  }
  // Every hour: whatever changed (the journal first of all) goes by itself when a token is given.
  let hourly=null;
  function startHourly(ms=3600e3){
   clearInterval(hourly);
-  hourly=setInterval(()=>{const d=read();if(d.token)push({reason:"журнал, каждый час"}).catch(e=>console.warn("IR Project: hourly sending to GitHub failed",e.message))},ms);hourly.unref?.()
+  hourly=setInterval(()=>{const d=read();if(d.token||shareOn(d))push({reason:"журнал, каждый час"}).catch(e=>console.warn("IR Project: hourly sending to GitHub failed",e.message))},ms);hourly.unref?.()
  }
  // ---- The chat with Claude (src/ai-chat.js): a message goes as one commit into chat/<computer>/ of the chat branch;
  // the check of that branch marks it on the branch's pull request, which wakes the development session. Claude's
@@ -217,6 +258,6 @@ function createGithubSync({getUserDataPath,safeStorage,fetch:doFetch=globalThis.
   })().catch(e=>{const a=read();a.pullError=String(e.message||e)+" ("+now().toLocaleString("ru-RU")+")";write(a);throw e}).finally(()=>{pulling=null});
   return pulling
  }
- return{info,set,clearToken,test,push,schedule,outgoing,startHourly,computer:computerName,chatReady,chatPost,chatAnswers,CHAT_BRANCH,dataRepo,pullData,readBranch,hasToken:()=>Boolean(read().token)}
+ return{info,set,clearToken,test,push,schedule,outgoing,startHourly,shareInfo,setShare,relay,computer:computerName,chatReady,chatPost,chatAnswers,CHAT_BRANCH,dataRepo,pullData,readBranch,hasToken:()=>Boolean(read().token)}
 }
 module.exports={createGithubSync,DEFAULTS};

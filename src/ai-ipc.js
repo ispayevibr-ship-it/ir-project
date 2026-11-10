@@ -53,7 +53,9 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
  // The engineer's own structure types join the catalog before anything is read or sent to Claude.
  try{knowledge.list()}catch(error){console.warn("IR Project: engineer's types not loaded",error)}
  // What this computer learned goes to the repository (knowledge/inbox/) when the administrator gave a token.
- const github=createGithubSync({getUserDataPath,safeStorage,fetch:netFetch});
+ // Without a token — through the company's server, with the consent asked at the first start (src/server-account-page.js).
+ const github=createGithubSync({getUserDataPath,safeStorage,fetch:netFetch,signedIn:()=>{try{return Boolean(account?.info().signedIn)}catch{return false}},
+  appVersion:()=>{try{return require("electron").app.getVersion()}catch{return""}}});
  github.startHourly();
  // The database kept light: of each object the 2 newest analyses of the drawings (and the placed one) stay, the older go —
  // 90 s after the start and once a day (src/ai-db-cleanup.js; the engineer, 06.11.2026 «Хранить 2 последних»).
@@ -220,6 +222,8 @@ handle("ai-montage:journal-add",(_e,{objectId,elementId,comment,objectName,actio
  accountCall("people",()=>account.people());accountCall("invite",v=>account.invite(v));accountCall("update",v=>account.update(v));
  accountCall("reset",v=>account.resetPassword(v));accountCall("letter-get",()=>account.letterTemplate());accountCall("letter-set",v=>account.setLetterTemplate(v));accountCall("letter-preview",v=>account.previewLetter(v));accountCall("letter-test",v=>account.testLetter(v));accountCall("remove",v=>account.remove(v));
  accountCall("objects",()=>database.listObjects().map(o=>({id:o.id,name:o.name,status:o.status})));
+accountCall("share-get",()=>github.shareInfo());accountCall("share-set",({on}={})=>github.setShare(on));
+accountCall("share-send",()=>github.push({reason:"вручную"}).then(()=>github.shareInfo()));
 accountCall("ping",async()=>{const t=Date.now();await account.api("/api/health",{auth:false});return{ok:true,ms:Date.now()-t}});
 accountCall("open-site",({path}={})=>{const p=path==="/_/"?"/_/":"/";return shell.openExternal("https://a-ts.kz"+p)});
  // Синхронизация базы программы через сервер (src/server-sync.js): изменения уходят и приходят сами, раз в несколько секунд.
