@@ -5,7 +5,13 @@
 .archive-kind-check small{display:block;margin-top:3px;color:#7d8e9b;font-size:10px;line-height:1.4}
 #objectForm.is-archive .archive-kind-check{border-color:#9cc9a8;background:#f0faf3}
 #objectForm.is-archive .form-section-title,#objectForm.is-archive #formSections{display:none!important}
-.objects-add-buttons{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.objects-section>.section-head>.objects-add-buttons{display:flex;flex-direction:row;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-left:auto}
+.objects-add-buttons>button{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:36px;min-height:36px;margin:0;padding:0 14px;border-radius:8px;font-size:12px;font-weight:650;line-height:1;white-space:nowrap;box-sizing:border-box;cursor:pointer}
+.objects-add-buttons>button:not(.primary){border:1px solid #d5e0e7;background:#fff;color:#365267;box-shadow:none}
+.objects-add-buttons>button:not(.primary):hover{background:#f3f7fa;border-color:#bfd0dc}
+.objects-add-buttons>button svg{width:15px;height:15px;flex:0 0 auto}
+.objects-add-buttons>button:disabled{opacity:.7;cursor:progress}
+@media(max-width:760px){.objects-section>.section-head>.objects-add-buttons{width:100%;margin-left:0;justify-content:stretch}.objects-add-buttons>button{flex:1 1 auto}}
 .arch-page{display:grid;gap:12px;padding-bottom:40px}
 .arch-hero .object-hero-actions:empty{display:none}
 .arch-totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}

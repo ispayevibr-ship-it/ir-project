@@ -106,7 +106,7 @@
   const head=document.querySelector(".objects-section .section-head");if(!head||head.querySelector(".ir-trash-home"))return;
   let rows=[];try{rows=await list({kind:"object"})}catch{return}
   if(!rows.length||!head.isConnected||head.querySelector(".ir-trash-home"))return;
-  const b=document.createElement("button");b.type="button";b.className="ir-trash-home";b.textContent=`🗑 Удалённые объекты (${rows.length})`;
+  const b=document.createElement("button");b.type="button";b.className="ir-trash-home";b.innerHTML=`<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg><span>Удалённые объекты (${rows.length})</span>`;
   b.title="Объекты, удалённые за последние 7 дней, — можно восстановить";
   b.onclick=()=>open({kind:"object",title:"Удалённые объекты",onRestored:()=>{location.reload()}});
   const add=head.querySelector("#add");if(add)add.before(b);else head.append(b)
