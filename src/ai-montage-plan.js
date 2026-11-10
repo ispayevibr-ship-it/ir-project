@@ -732,6 +732,11 @@ function arScheme(pages,opts={}){
    if(next.length){const g=Math.min(...next);if(v.numbered)p.x2_mm+=g;else p.y2_mm+=g;p.layout.width_mm+=g;p.notes.push("Край продлён на "+g+" мм до соседней панели (шов без зазора)")}
   }
  }
+ // (an opening its note puts at another level than the view draws it — src/ai-ar-extract.js noteLevels)
+ const lv=mm=>(mm<0?"−":"+")+(Math.abs(mm)/1000).toFixed(3).replace(".",",");
+ for(const v of views)for(const o of v.openings||[]){const at=(v.title||"схема раскладки")+" (лист "+v.sheet+"), отверстие "+(o.u1-o.u0)+"×"+(o.z1-o.z0);
+  if(o.drawn_z0!=null)warnings.push(at+": по выноске отм. низа "+lv(o.z0)+", на виде нарисовано на "+lv(o.drawn_z0)+" — вырезано по выноске, проверьте");
+  if(o.note_z0!=null)warnings.push(at+": на виде отметка низа "+lv(o.z0)+", в выноске "+lv(o.note_z0)+" — вырезано по виду, проверьте")}
  // Windows, doors and gates in the openings of the walls: the block of its table whose size fits the opening (a window
  // block is 40 smaller than its opening, a door 40 narrower; one at the foot of the wall stands on ±0,000). Outer doors
  // («ДБН», «ДСН») first; each position as many times as its table counts, then again with a note.
@@ -887,13 +892,20 @@ let loose=0;
    const xa=X(p.x0),xb=X(p.x1),ya=Y(p.y0),yb=Y(p.y1),alongY=p.dir!=="x";
    const st=alongY?[(xa+xb)/2,Math.min(ya,yb)]:[Math.min(xa,xb),(ya+yb)/2],en=alongY?[(xa+xb)/2,Math.max(ya,yb)]:[Math.max(xa,xb),(ya+yb)/2],w=alongY?Math.abs(xb-xa):Math.abs(yb-ya);
    const za=zAt(alongY?st[1]:st[0]),zb=zAt(alongY?en[1]:en[0]),L=Math.hypot(en[0]-st[0],en[1]-st[1],zb-za),t=q?.thickness_mm||150,off=q&&Math.abs(L-q.length_mm)>450;
+   // (the openings of the plan in it — roofOpenings —: its holes along it from its start, on the slope, and across from
+   // its middle line, + to the left looking from its start, mm)
+   const pl=Math.hypot(en[0]-st[0],en[1]-st[1])||1,ex=(en[0]-st[0])/pl,ey=(en[1]-st[1])/pl;
+   const holes=(r.openings||[]).map(o=>{const a0=Math.max(o.x0,p.x0),a1=Math.min(o.x1,p.x1),b0=Math.max(o.y0,p.y0),b1=Math.min(o.y1,p.y1);if(a1-a0<.3||b1-b0<.3)return null;
+    const c=[[a0,b0],[a1,b0],[a0,b1],[a1,b1]].map(([x,y])=>{const dx=X(x)-st[0],dy=Y(y)-st[1];return[(dx*ex+dy*ey)*L/pl,-dx*ey+dy*ex]}),u=c.map(v=>v[0]),v=c.map(v=>v[1]);
+    return[Math.round(Math.max(0,Math.min(...u))),Math.round(Math.min(L,Math.max(...u))),Math.round(Math.max(-w/2,Math.min(...v))),Math.round(Math.min(w/2,Math.max(...v)))]}).filter(h=>h&&h[1]-h[0]>=50&&h[3]-h[2]>=50);
    placements.push({mark:p.mark,name:"Сэндвич-панель кровельная"+(q?.name?" "+q.name:""),type_key:"sandwich_roof",scheme_group:"cladding",geometry_type:"beam",
     fitting_type:"panel",diameter_mm:Math.max(1,Math.round(w)),
-    layout:{panel:"roof",thickness_mm:t,...(q?.ral?{ral:q.ral}:{}),...(q?.ral_inside?{ral_inside:q.ral_inside}:{}),width_mm:Math.round(w)},
+    layout:{panel:"roof",thickness_mm:t,...(q?.ral?{ral:q.ral}:{}),...(q?.ral_inside?{ral_inside:q.ral_inside}:{}),width_mm:Math.round(w),...(holes.length?{holes}:{})},
     x_mm:Math.round(st[0]),y_mm:Math.round(st[1]),x2_mm:Math.round(en[0]),y2_mm:Math.round(en[1]),z0_mm:Math.round(za),z1_mm:Math.round(zb),
     levels_from:"раскладка кровельных панелей АР",confidence:q&&!off?"high":"medium",section:"АР",source_page:r.page,source_file:r.file,axis_x:near(px,(st[0]+en[0])/2),axis_y:near(py,(st[1]+en[1])/2),sheet:String(r.sheet),sheet_point_pt:p.pt,
     notes:["Раскладка кровельных панелей АР, лист "+r.sheet+(q?" · "+q.name+(q.ral?" · RAL "+q.ral:""):" · позиции нет в спецификации панелей"),"Скат по отметкам листа: "+Math.round(za)+" → "+Math.round(zb),
-     ...(off?["Длина по чертежу "+Math.round(L)+", по спецификации "+q.length_mm+" — проверьте"]:[])]})
+     ...(off?["Длина по чертежу "+Math.round(L)+", по спецификации "+q.length_mm+" — проверьте"]:[]),
+     ...holes.map(h=>"Отверстие в панели по плану: "+(h[1]-h[0])+" × "+(h[3]-h[2])+" мм, в "+h[0]+" мм от начала")]})
   }
   if(r.unplaced)warnings.push(name+": контур не найден у панелей "+r.unplaced)
  }

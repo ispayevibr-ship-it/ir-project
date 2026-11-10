@@ -420,11 +420,24 @@ function roofPlans({segments=[],texts=[]}={}){
  const area=b=>(b.x1-b.x0)*(b.y1-b.y0),inBox=(b,x,y)=>x>=b.x0&&x<=b.x1&&y>=b.y0&&y<=b.y1;
  const own=new Map(views.map(v=>[v,[]]));
  for(const t of labels){const b=textBox(t),v=views.filter(w=>inBox(w.box,b.cx,b.cy)).sort((p,q)=>area(p.box)-area(q.box))[0];if(v)own.get(v).push(t)}
- // Lines along both ways (dashes too).
+ // Lines along both ways (dashes too) — but not the dashes of an axis (ИР-71535 л.21 «в осях 03-08 - Б-Л»: the axes К
+ // and В across the slope cut the eaves panels at them, О3, О4/1, О6, О8 along it narrowed the strips by 190 mm). A
+ // line drawn solid on an axis (the ridge on Е) stays.
+ const ax=[...rows.flat(),...lone.flat()].map(mid),ay=cols.flat().map(q=>q.y-(q.size||8)*.36);
+ const dash=(c,len,list)=>len<60&&list.some(a=>Math.abs(a-c)<=2.5);
+ // (nor a dimension line — its number written along it: л.22 «08-010 - Ж-Н», the chain «2385 900 5000 900 3150» of the
+ // openings across the strip Пк-13 took a third of it)
  const H=[],V=[];
  for(const s of segments){const dx=Math.abs(s.a.x-s.b.x),dy=Math.abs(s.a.y-s.b.y);
-  if(dx<=.3&&dy>=.8)V.push({x:(s.a.x+s.b.x)/2,y0:Math.min(s.a.y,s.b.y),y1:Math.max(s.a.y,s.b.y)});
-  else if(dy<=.3&&dx>=.8)H.push({y:(s.a.y+s.b.y)/2,x0:Math.min(s.a.x,s.b.x),x1:Math.max(s.a.x,s.b.x)})}
+  if(dx<=.3&&dy>=.8){if(!dash((s.a.x+s.b.x)/2,dy,ax))V.push({x:(s.a.x+s.b.x)/2,y0:Math.min(s.a.y,s.b.y),y1:Math.max(s.a.y,s.b.y)})}
+  else if(dy<=.3&&dx>=.8&&!dash((s.a.y+s.b.y)/2,dx,ay))H.push({y:(s.a.y+s.b.y)/2,x0:Math.min(s.a.x,s.b.x),x1:Math.max(s.a.x,s.b.x)})}
+ // (the line nearest under a number, or right of an upright one, within 8 pt)
+ const sized=new Set();
+ for(const b of texts.filter(t=>/^\d{2,5}\*?$/.test(String(t.str).trim())).map(textBox)){
+  const at=b.angle===0?H.filter(h=>h.y>=b.y1-.5&&h.y<=b.y1+8&&b.cx>=h.x0&&b.cx<=h.x1).sort((p,q)=>p.y-q.y)[0]:V.filter(v=>v.x>=b.x1-.5&&v.x<=b.x1+8&&b.cy>=v.y0&&b.cy<=v.y1).sort((p,q)=>p.x-q.x)[0];
+  if(at)sized.add(at)
+ }
+ for(const list of [H,V])for(let i=list.length-1;i>=0;i--)if(sized.has(list[i]))list.splice(i,1);
  // Panels along the slope as drawn: columns of a plan whose panels run up and down the sheet (л.21), or — the sheet
  // turned in thought (x for y) — strips running across it (л.22: the roofs of the annexes, panels from О8 to О10, the
  // label at the end of each strip).
@@ -451,13 +464,30 @@ function roofPlans({segments=[],texts=[]}={}){
    // (a strip's label may stand off its start — the edge of a wall beside it, «Пк-15» 40 pt from it)
    const panels=[],tol=w.flip?50:20;let lost=0;
    for(const [i,t] of list.entries()){
-    const b=bs[i],cross=w.run.filter(q=>q.y0<=b.cy&&q.y1>=b.cy);
-    const l=cross.filter(q=>q.x<b.x0+.3).sort((p,q)=>q.x-p.x)[0],r=cross.filter(q=>q.x>b.x1-.3).sort((p,q)=>p.x-q.x)[0];
+    const b=bs[i];
     // (the line the label stands at, within tol of it; the band runs from it past the label to the next line)
     const near=tiers.filter(y=>y>=b.y0-tol&&y<=b.y1+tol).sort((p,q)=>Math.min(Math.abs(p-b.y0),Math.abs(p-b.y1))-Math.min(Math.abs(q-b.y0),Math.abs(q-b.y1)))[0];
     const far=near===undefined?undefined:near>=b.cy?tiers.filter(y=>y<b.y0-5).sort((p,q)=>q-p)[0]:tiers.filter(y=>y>b.y1+5).sort((p,q)=>p-q)[0];
-    if(!l||!r||far===undefined||r.x-l.x>120){lost++;continue}
-    const a0=Math.min(near,far),a1=Math.max(near,far);
+    if(far===undefined){lost++;continue}
+    let a0=Math.min(near,far),a1=Math.max(near,far);
+    // (the sides of the strip run along at least half its band, pieces broken at an opening counted together — not a
+    // dimension line or the side of an opening in it: л.21 «3350» from an opening ОВ 700×900 across the label Пк-2
+    // took 290 mm of the strip)
+    const sides=w.run.filter(q=>q.y1>a0&&q.y0<a1),along=x=>{let c=0,at=a0;
+     for(const [p,q] of sides.filter(q=>Math.abs(q.x-x)<=.3).map(q=>[Math.max(a0,q.y0),Math.min(a1,q.y1)]).sort((m,n)=>m[0]-n[0])){const s=Math.max(at,p);if(q>s)c+=q-s;at=Math.max(at,q)}
+     return c};
+    const cross=sides.filter(q=>along(q.x)>=(a1-a0)*.5);
+    const l=cross.filter(q=>q.x<b.x0+.3).sort((p,q)=>q.x-p.x)[0],r=cross.filter(q=>q.x>b.x1-.3).sort((p,q)=>p.x-q.x)[0];
+    if(!l||!r||r.x-l.x>120){lost++;continue}
+    // (the strip runs on past the line at either end of its band to where both its sides end, at a line across it
+    // within 40 pt: л.22 «08-010 - А-А/1» — the dashed line of a wall under the roof crosses the strips 300 mm before
+    // their end; «08-010 - Ж-Н» — the line of a wall above, 1200 mm from the eaves, and the line short of the end)
+    const reach=(y,s)=>{
+     const ends=[l.x,r.x].map(x=>{const q=w.run.filter(q=>Math.abs(q.x-x)<=.3&&q.y0<=y+.5&&q.y1>=y-.5);return q.length?s>0?Math.max(...q.map(q=>q.y1)):Math.min(...q.map(q=>q.y0)):y});
+     const e=s>0?Math.min(...ends):Math.max(...ends);if(Math.abs(e-y)<=1||Math.abs(e-y)>40)return y;
+     let c=0,at=l.x;for(const [p,q] of w.cross.filter(h=>Math.abs(h.y-e)<=.8&&h.x1>l.x&&h.x0<r.x).map(h=>[Math.max(l.x,h.x0),Math.min(r.x,h.x1)]).sort((m,n)=>m[0]-n[0])){const g=Math.max(at,p);if(q>g)c+=q-g;at=Math.max(at,q)}
+     return c>=(r.x-l.x)*.6?e:y};
+    a0=reach(a0,-1);a1=reach(a1,1);
     panels.push({mark:String(t.str).trim(),...(w.flip?{x0:a0,x1:a1,y0:l.x,y1:r.x,dir:"x"}:{x0:l.x,x1:r.x,y0:a0,y1:a1,dir:"y"}),pt:{x:Math.round(textBox(t).cx),y:Math.round(textBox(t).cy)}})
    }
    if(!best||panels.length>best.panels.length)best={w,tiers,panels,lost}
@@ -474,9 +504,33 @@ function roofPlans({segments=[],texts=[]}={}){
   }
   const title=titles.filter(q=>q.y<v.box.y0+150&&q.x+(q.width||0)>v.box.x0-100&&q.x<v.box.x1+100).sort((p,q)=>q.y-p.y)[0];
   out.push({...(title?{title:String(title.str).replace(/\s+/g," ").trim()}:{}),xAxes:v.row.map(q=>({name:name(q),pt:Math.round(mid(q)*10)/10})),
-   yAxes:v.col.map(q=>({name:name(q),pt:Math.round((q.y-(q.size||8)*.36)*10)/10})),levels,panels:best.panels,unplaced:best.lost,...(v.mixed?.length?{mixed:v.mixed}:{})})
+   yAxes:v.col.map(q=>({name:name(q),pt:Math.round((q.y-(q.size||8)*.36)*10)/10})),levels,panels:best.panels,unplaced:best.lost,...(v.mixed?.length?{mixed:v.mixed}:{}),
+   ...(()=>{const o=roofOpenings(segments,best.panels);return o.length?{openings:o}:{}})()})
  }
  return out
+}
+// Openings in a roof (ИР-71535 АР ч.2 л.21 «Отверстие ОВ 700 x 900(h)», л.22 «ОВ 900 x 600»): a rectangle of its own four
+// lines among the strips — over a strip or the joint of two, the joint broken at it —, no side longer than three strips
+// are wide, no label of a panel in it. Its panels are cut round it (holes), none of them is lost.
+function roofOpenings(segments,panels){
+ if(!panels.length)return[];
+ const ws=panels.map(p=>p.dir==="x"?p.y1-p.y0:p.x1-p.x0).sort((a,b)=>a-b),w=ws[ws.length>>1],max=w*3,min=Math.max(3,w*.3);
+ const x0=Math.min(...panels.map(p=>p.x0)),x1=Math.max(...panels.map(p=>p.x1)),y0=Math.min(...panels.map(p=>p.y0)),y1=Math.max(...panels.map(p=>p.y1));
+ const H=[],V=[];
+ for(const s of segments){const dx=Math.abs(s.a.x-s.b.x),dy=Math.abs(s.a.y-s.b.y);
+  if(dx<=.3&&dy>=min&&dy<=max){const x=(s.a.x+s.b.x)/2;if(x>=x0&&x<=x1)V.push({x,y0:Math.min(s.a.y,s.b.y),y1:Math.max(s.a.y,s.b.y)})}
+  else if(dy<=.3&&dx>=min&&dx<=max){const y=(s.a.y+s.b.y)/2;if(y>=y0&&y<=y1)H.push({y,x0:Math.min(s.a.x,s.b.x),x1:Math.max(s.a.x,s.b.x)})}}
+ const out=[],same=(a,b)=>Math.abs(a-b)<=.6;
+ for(const t of H)for(const b of H){
+  if(b.y-t.y<min||b.y-t.y>max||!same(t.x0,b.x0)||!same(t.x1,b.x1))continue;
+  const r={x0:(t.x0+b.x0)/2,x1:(t.x1+b.x1)/2,y0:t.y,y1:b.y},side=x=>V.some(v=>same(v.x,x)&&same(v.y0,r.y0)&&same(v.y1,r.y1));
+  if(!side(r.x0)||!side(r.x1)||out.some(o=>same(o.x0,r.x0)&&same(o.x1,r.x1)&&same(o.y0,r.y0)&&same(o.y1,r.y1)))continue;
+  const cx=(r.x0+r.x1)/2,cy=(r.y0+r.y1)/2;
+  if(!panels.some(p=>cx>=p.x0&&cx<=p.x1&&cy>=p.y0&&cy<=p.y1))continue;
+  if(panels.some(p=>p.pt.x>r.x0&&p.pt.x<r.x1&&p.pt.y>r.y0&&p.pt.y<r.y1||[p.x0-r.x0,p.x1-r.x1,p.y0-r.y0,p.y1-r.y1].every(d=>Math.abs(d)<=1.5)))continue;
+  out.push(r)
+ }
+ return out.map(o=>({x0:Math.round(o.x0*10)/10,x1:Math.round(o.x1*10)/10,y0:Math.round(o.y0*10)/10,y1:Math.round(o.y1*10)/10}))
 }
 // A level mark of a layout by sketches: its text on a shelf, a stem from the end of the shelf to the line it marks (the
 // arrow a filled triangle, no strokes) — down, or up («-0,250 Ур.з.», «+2,000» under «+2,020»). The mark's height is the
@@ -573,14 +627,21 @@ function openingRects(panels,vert,horiz,scale,u,z,numbers=[],texts=[],ticks=[]){
  // The line under a level mark («+2,650») is its shelf, not a line of the wall; one under a number, a dimension line.
  const marks=texts.filter(t=>horizontalText(t)&&/^[+\-−±]?\d{1,2}[,.]\d{3}$/u.test(String(t.str).trim())).map(textBox);
  const noted=h=>marks.some(b=>b.y1<=h.y+.5&&b.y1>=h.y-4.5&&b.cx>=h.x0&&b.cx<=h.x1);
+ // An extension line of a dimension — it runs a little past the dimension line across it (ИР-71535 АР ч.2 л.8 ряд Б:
+ // «3570», «3400» from the top and the bottom of an opening ОВ 900×900, 3.5 pt past, made the panel Пс-129 beside it all
+ // holes) — is not a line of the wall, unless it starts at a side of the opening (its top drawn on to the dimension: л.9
+ // ряд Л, «ОВ 500 х 300» and «300»).
+ const from=h=>{for(const v of vert){if(h.y<v.y0-1||h.y>v.y1+1)continue;if(h.x1-v.x>=.5&&h.x1-v.x<=6)return h.x0;if(v.x-h.x0>=.5&&v.x-h.x0<=6)return h.x1}return null};
+ const plain=(l,r)=>h=>{if(noted(h))return true;const f=from(h);return f!==null&&Math.abs(f-l)>1&&Math.abs(f-r)>1};
  for(let i=0;i<vs.length;i++){
   const A=vs[i];
   for(let j=i+1;j<vs.length&&vs[j].x-A.x<=6500/scale;j++){
    const B=vs[j];if(B.x-A.x<380/scale||sized(A)||sized(B))continue;
    const l=A.x,r=B.x,top=Math.max(A.y0,B.y0),bottom=Math.min(A.y1,B.y1);
-   if((bottom-top)*scale<300||cover(top,l,r,noted)<.9||!(Math.abs(bottom-foot)<=1.5||cover(bottom,l,r,noted)>=.9))continue;
+   if((bottom-top)*scale<300||cover(top,l,r,plain(l,r))<.9||!(Math.abs(bottom-foot)<=1.5||cover(bottom,l,r,plain(l,r))>=.9))continue;
    const within=joined.filter(v=>v.x>l+.5&&v.x<r-.5&&v.y1>top&&v.y0<bottom&&!sized(v));
-   if(within.some(v=>v.y0<top-1&&v.y1>top+1))continue;
+   // (a joint over it may run on past its top up to 100 mm — л.8 ряд Б, ОВ 1050×1050 at +19,070)
+   if(within.some(v=>v.y0<top-1&&v.y1>top+Math.max(1,100/scale)))continue;
    // Lines through it drawn in pieces (a joint of the tiers panel by panel) as much as whole ones.
    const xs=uniq(within.map(v=>v.x));
    if(xs.some(x=>span(within.filter(v=>Math.abs(v.x-x)<=.3).map(v=>[v.y0,v.y1]),top,bottom)>=(bottom-top)/2))continue;
@@ -589,7 +650,10 @@ function openingRects(panels,vert,horiz,scale,u,z,numbers=[],texts=[],ticks=[]){
    const over=rects.filter(q=>Math.min(q.r,r)-Math.max(q.l,l)>1&&Math.min(q.bottom,bottom)-Math.max(q.top,top)>1);
    if(!over.length||over.some(q=>q.l<=l+1&&q.r>=r-1&&(top-q.top)*scale<100&&(q.bottom-bottom)*scale<100))continue;
    const same=q=>Math.max(Math.abs(q.l-l),Math.abs(q.r-r),Math.abs(q.top-top),Math.abs(q.bottom-bottom))*scale<100;
-   if(panels.some(p=>p.pt.x>l&&p.pt.x<r&&p.pt.y>top&&p.pt.y<bottom&&same(p.rect))||rects.some(same))continue;
+   // (a label in it of a panel not round it: panels, not an opening — л.5 ряд 03, the gable panels Пс-67 under the slope
+   // two by two between their joints)
+   const round=q=>q.l<=l+1&&q.r>=r-1&&q.top<=top+1&&q.bottom>=bottom-1;
+   if(panels.some(p=>p.pt.x>l&&p.pt.x<r&&p.pt.y>top&&p.pt.y<bottom&&(same(p.rect)||!round(p.rect)))||rects.some(same))continue;
    const o={l,r,top,bottom,inner:true},held=q=>q.l>=l-1&&q.r<=r+1&&q.top>=top-1&&q.bottom<=bottom+1;
    const k=out.findIndex(q=>!held(q)&&q.l<r-1&&q.r>l+1&&q.top<bottom-1&&q.bottom>top+1);
    if(k<0){for(let n=out.length-1;n>=0;n--)if(held(out[n]))out.splice(n,1);out.push(o)}
@@ -597,7 +661,32 @@ function openingRects(panels,vert,horiz,scale,u,z,numbers=[],texts=[],ticks=[]){
    break
   }
  }
- return out.map(o=>{const a=u(o.l),b=u(o.r);return{u0:Math.min(a,b),u1:Math.max(a,b),z0:z(o.bottom),z1:z(o.top),base:Math.abs(o.bottom-foot)<=1.5,...(o.inner?{inner:true}:{})}}).sort((p,q)=>p.u0-q.u0||p.z0-q.z0)
+ return out.map(o=>{const a=u(o.l),b=u(o.r);return{u0:Math.min(a,b),u1:Math.max(a,b),z0:z(o.bottom),z1:z(o.top),base:Math.abs(o.bottom-foot)<=1.5,...(o.inner?{inner:true}:{}),at:{l:o.l,r:o.r,top:o.top,bottom:o.bottom}}}).sort((p,q)=>p.u0-q.u0||p.z0-q.z0)
+}
+// The note of an opening with its leader to it — «Отверстие ОВ 1050 х 1050(h).» and «отм .низа +19,070» under it (ИР-71535
+// АР ч.2 л.8 ряд Б: drawn with its bottom at +17,300 beside the two «ОВ 900 х 900» at +17,300) —: an opening of the note's
+// size goes to the level the note writes; the level it was drawn at is kept for the warning. A level mark at its bottom
+// on the view (л.9 ряд Л: «+4,800» and «4880» at «ОВ 500 х 300», the note «+3,400») — the view stays, the note is kept.
+const OPENING_NOTE=/Отверсти[еяй]\s+[А-ЯA-Z]{0,3}\s*(\d{2,5})\s*[хxХX×]\s*(\d{2,5})/u,LOW=/низа\s*([+\-−±]?\d{1,2}[,.]\d{3})/u;
+function noteLevels(openings,texts,segments){
+ const notes=texts.filter(t=>horizontalText(t)&&OPENING_NOTE.test(String(t.str))).map(t=>{
+  const m=OPENING_NOTE.exec(String(t.str)),b=textBox(t);let low=LOW.exec(String(t.str));
+  if(!low){const u=texts.filter(q=>q!==t&&horizontalText(q)&&LOW.test(String(q.str))).map(q=>({q,b:textBox(q)})).filter(o=>o.b.y0>=b.y1-2&&o.b.y0-b.y1<=18&&o.b.x1>=b.x0&&o.b.x0<=b.x1+30).sort((p,q)=>p.b.y0-q.b.y0)[0];if(u)low=LOW.exec(String(u.q.str))}
+  const lv=low?levelOf(low[1]):null;return{w:Number(m[1]),h:Number(m[2]),lv,b}}).filter(n=>n.lv!==null);
+ if(!notes.length)return openings;
+ const marks=texts.filter(t=>horizontalText(t)&&levelOf(String(t.str).trim())!==null).map(t=>({mm:levelOf(String(t.str).trim()),b:textBox(t)}));
+ const marked=o=>marks.some(m=>Math.abs(m.mm-o.z0)<=30&&m.b.x1>=o.at.l-60&&m.b.x0<=o.at.r+60&&Math.abs(m.b.y1-o.at.bottom)<=12);
+ const on=(o,p)=>p.x>=o.at.l-2&&p.x<=o.at.r+2&&p.y>=o.at.top-2&&p.y<=o.at.bottom+2;
+ for(const n of notes){
+  const near=p=>p.x>=n.b.x0-15&&p.x<=n.b.x1+15&&p.y>=n.b.y0-3&&p.y<=n.b.y1+8;
+  for(const s of segments){
+   const [p,q]=near(s.a)?[s.a,s.b]:near(s.b)?[s.b,s.a]:[null,null];if(!p||Math.hypot(q.x-p.x,q.y-p.y)<20)continue;
+   const o=openings.find(o=>o.at&&on(o,q));if(!o||Math.abs(o.u1-o.u0-n.w)>60||Math.abs(o.z1-o.z0-n.h)>60)continue;
+   if(Math.abs(o.z0-n.lv)>30){if(marked(o))o.note_z0=n.lv;else{const h=o.z1-o.z0;o.drawn_z0=o.z0;o.z0=n.lv;o.z1=n.lv+h}}
+   o.noted=true;break
+  }
+ }
+ return openings
 }
 // Openings inside a panel drawn whole are holes of that panel (along it from its start, and up).
 function holesOf(panels,openings){
@@ -769,11 +858,12 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
   views.push({axes,numbered:numbered(bubbles[0].name),reversed,...(cut?{section:String(cut.str).replace(/\s+/g,"")}:{}),scaleMmPerPt:Math.round(scale*1000)/1000,
    ...(title?{title:String(title.str).replace(/\s+/g," ").trim()}:{}),...(wallRow?{row:wallRow}:{}),
    bbox:{x0:row.x0-260,x1:row.x1+260,y1:row.y},levels:[...new Set(levels.map(l=>l.mm))].sort((a,b)=>a-b),
-   ...(()=>{let openings=openingRects(panels,vert,horiz,scale,u,z,numbers,region,ticks);
+   ...(()=>{let openings=noteLevels(openingRects(panels,vert,horiz,scale,u,z,numbers,region,ticks),texts,segments);
     // (a layout's wall whose foot follows a slope — ГПЭС ряд Ж, +5,260 at the ends, +5,950 in the middle —: what lies under
     // its panels down to the lowest foot is the slope, not openings)
     if(spec.some(p=>p.layout)){const col=new Map();for(const p of panels){const k=Math.round(p.u0/100);col.set(k,Math.min(col.get(k)??Infinity,p.z0))}
      const feet=[...col.values()],lo=Math.min(...feet);if(feet.filter(f=>f>lo+50).length>feet.length/2){const foot=z(Math.max(...panels.map(p=>p.rect.bottom)));openings=openings.filter(o=>o.z0>foot+5)}}
+    openings=openings.map(({at,...o})=>o);
     return{panels:holesOf(panels.map(({rect,...p})=>p),openings),openings}})(),unplaced:own.length-panels.filter(p=>!p.byJoints).length})
  }
  // A piece of a wall drawn on beyond its view (row 010: «М», «Н» a little lower than «А»…«Л», ИР-71535 АР ч.2 л.4) is
@@ -989,4 +1079,4 @@ function extractArchitecture(geometry){
  const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{})};
  return panels.length||fills.length||views.length||Object.keys(extra).length?{panels,fills,views,...extra}:null
 }
-module.exports={extractArchitecture,roofPlans,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
+module.exports={extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};

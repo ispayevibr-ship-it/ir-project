@@ -9034,7 +9034,12 @@ window.irThreeSchemeView=(function(){
      wallPieces(j,len-j,pw,holed).forEach(function(r){put(new T.BoxGeometry(pt,r[3]-r[2],r[1]-r[0]),new T.Vector3(0,(r[2]+r[3])/2,(r[0]+r[1])/2-len/2))})
     }
     else if(c.ft==="panel"&&c.lay&&c.lay.panel==="wall")put(new T.BoxGeometry(pt,pw,gl),new T.Vector3(0,pw/2,0).applyQuaternion(q.clone().invert()));
-    else if(c.ft==="panel")put(new T.BoxGeometry(pw,pt,gl),new T.Vector3(0,pt/2,0));
+    // A roof panel round its openings (lay.holes: [from, to] along it from its start and [from, to] across it from its
+    // middle line, + to the left looking from its start, mm — ИР-71535 АР ч.2 л.21 «Отверстие ОВ 700 x 900»).
+    else if(c.ft==="panel"){
+     var rh=c.lay&&Array.isArray(c.lay.holes)?c.lay.holes.filter(function(o){return Array.isArray(o)&&o.length===4}).map(function(o){return[number(o[0])/1000+p0,number(o[1])/1000+p0,number(o[2])/1000+pw/2,number(o[3])/1000+pw/2]}):[];
+     if(rh.length)wallPieces(0,len,pw,rh).forEach(function(r){if(r[1]-r[0]>.001&&r[3]-r[2]>.001)put(new T.BoxGeometry(r[3]-r[2],pt,r[1]-r[0]),new T.Vector3((r[2]+r[3])/2-pw/2,pt/2,(r[0]+r[1])/2-len/2))});
+     else put(new T.BoxGeometry(pw,pt,gl),new T.Vector3(0,pt/2,0))}
     else{var leg=Math.max(.04,Math.min(.4,(number(c.fd)||100)/1000));put(new T.BoxGeometry(leg,.008,len),new T.Vector3(leg/2,0,0));put(new T.BoxGeometry(.008,leg,len),new T.Vector3(0,leg/2,0))}
     if(c.ft==="panel"&&c.lay&&c.lay.panel==="wall"&&c.lay.width_mm)wallSeams(len,pw,cut?[(number(cut[0])-number(c.z0))/1000,(number(cut[1])-number(c.z0))/1000]:[0,0],holed||[],tops).forEach(function(r){
      var sm=new T.Mesh(shared("plate:box",function(){return new T.BoxGeometry(1,1,1)}),jointMat);sm.quaternion.copy(q);sm.scale.set(pt+.006,r[2]-r[1],.005);
