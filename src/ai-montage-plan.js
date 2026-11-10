@@ -647,6 +647,13 @@ function claudeScheme(ai,candidates,{wallPanels=true}={}){
 const AXIS_LETTERS="АБВГДЕЖЗИКЛМНПРСТУФХЦЧШЩЭЮЯ";
 const axisOrder=n=>{const s=String(n).toUpperCase(),m=/(\d+)(?:\/(\d+))?/.exec(s),sub=/\/(\d+)/.exec(s);
  return /^[^\d]*\d/.test(s.split("/")[0])&&m?Number(m[1])+(m[2]?Number(m[2])/100:0):1000+AXIS_LETTERS.indexOf(s.charAt(0))+(sub?Number(sub[1])/100:0)};
+// The drawing an element comes from: its scheme's sheet, or — a scheme put together from several drawings (the АР: the
+// layouts of ч.2, the facades of ч.1) — the sheet of its own (`source_page`), so that it goes to the work type of that
+// drawing (ИР-71535, the engineer 10.11.2026: «сэндвич-панели почему-то ушли в км1 вместо монтаж сэндвич-панелей»).
+function fromDrawing(c,pl){
+ if(c.info.page||!(Number(pl?.source_page)>0))return{page:c.info.page,file:c.info.file,sheet:c.info.sheet};
+ return{page:Number(pl.source_page),file:pl.source_file||"",sheet:String(pl.sheet||pl.source_page)}
+}
 function arScheme(pages,opts={}){
  const ar=pages.filter(p=>p.docType==="АР"&&p.ar);if(!ar.length)return null;
  const spec=new Map();for(const p of ar)for(const s of p.ar.panels||[]){if(!spec.has(s.pos))spec.set(s.pos,[]);spec.get(s.pos).push(s)}
@@ -706,7 +713,7 @@ function arScheme(pages,opts={}){
      // The openings the layout draws in it (a grille, a gate in its corner): its holes, along it from its start and up from its foot.
      ...(p.holes?.length?{holes:p.holes.map(o=>[Math.round(o[0]),Math.round(o[1]),Math.round(o[2]-p.z0),Math.round(o[3]-p.z0)])}:{})},
     ...(v.numbered?{x_mm:a,y_mm:across0,x2_mm:b,y2_mm:across0}:{x_mm:across0,y_mm:a,x2_mm:across0,y2_mm:b}),
-    z0_mm:p.z0,z1_mm:p.z0,levels_from:"раскладка панелей АР",confidence:q&&!differs?"high":"medium",section:"АР",view:v,line:across0,
+    z0_mm:p.z0,z1_mm:p.z0,levels_from:"раскладка панелей АР",confidence:q&&!differs?"high":"medium",section:"АР",view:v,line:across0,source_page:v.page,source_file:v.file,
     axis_x:v.numbered?"":axis[0],axis_y:v.numbered?axis[0]:"",sheet:String(v.sheet),sheet_point_pt:p.pt,
     notes:["Раскладка панелей АР, лист "+v.sheet+(q?" · "+q.name+(q.ral?" · RAL "+q.ral+(q.ral_inside?"/"+q.ral_inside:""):""):" · позиции нет в спецификации панелей"),
      ...(p.cut?["Низ панели по скату кровли: "+p.cut.join(" → ")]:[]),...(p.top?["Верх по скату кровли (обрезать по месту): "+p.top.join(" → ")]:[]),...(differs?["Размер по чертежу "+Math.round(w)+"×"+Math.round(h)+", по спецификации "+q.width_mm+"×"+q.length_mm+" — проверьте"]:[])]})
@@ -768,14 +775,14 @@ let loose=0;
  // nearest the label, in the wall of that side whose panels are round it (a facade shows a lower wall in front and a
  // higher one behind it). The panels the block crosses get its hole. Without facade sheets — the openings of the layouts.
  const blocks=new Map();for(const f of fills)if(!blocks.has(f.pos))blocks.set(f.pos,f);
- const facades=ar.flatMap(p=>(p.ar.facades||[]).map(v=>({...v,sheet:p.pdfPage||p.page})));
+ const facades=ar.flatMap(p=>(p.ar.facades||[]).map(v=>({...v,sheet:p.pdfPage||p.page,page:p.page,file:p.sourceName||""})));
  const walls=views.map(v=>({v,off:shift(v),list:placements.filter(p=>p.view===v)})).filter(w=>w.off!==null&&w.list.length);
- const fillOf=(f,numbered,reversed,a,b,z,wall,sheet,notes,over)=>{
+ const fillOf=(f,numbered,reversed,a,b,z,wall,src,notes,over)=>{const sheet=src.sheet;
   const line=wall.line,t=wall.layout?.thickness_mm||150;
   placements.push({mark:f.pos,name:{window:"Окно",door:"Дверь",gate:"Ворота"}[f.kind]+" "+f.name,type_key:f.kind,scheme_group:"openings",geometry_type:"beam",
    fitting_type:f.kind,diameter_mm:f.height_mm,layout:fillLayout(f,numbered,reversed,t),
    ...(numbered?{x_mm:Math.round(a),y_mm:line,x2_mm:Math.round(b),y2_mm:line}:{x_mm:line,y_mm:Math.round(a),x2_mm:line,y2_mm:Math.round(b)}),
-   z0_mm:z,z1_mm:z,levels_from:"фасады АР",confidence:over?"low":"high",section:"АР",axis_x:wall.axis_x,axis_y:wall.axis_y,sheet:String(sheet),
+   z0_mm:z,z1_mm:z,levels_from:"фасады АР",confidence:over?"low":"high",section:"АР",axis_x:wall.axis_x,axis_y:wall.axis_y,sheet:String(sheet),source_page:src.page,source_file:src.file,
    notes:[...notes,...(over?["Таких по спецификации "+(f.count||1)+" — этот сверх, проверьте"]:[])]})
  };
  const cutHoles=(numbered,a,b,z0,z1,list)=>{
@@ -814,7 +821,7 @@ let loose=0;
      for(const p of w.v.panels){const d=Math.hypot(Math.max(0,p.u0+w.off-uc,uc-(p.u1+w.off)),Math.max(0,p.z0-zc,zc-p.z1));if(d<wd){wd=d;wall=w}}}
     if(!wall||wd>3000){lost.push(x.mark+" (лист "+fv.sheet+", стены этой стороны нет в раскладке)");continue}
     used.set(f.pos,(used.get(f.pos)||0)+1);
-    fillOf(f,fv.numbered,fv.reversed,a,b,z,wall.list[0],fv.sheet,["Фасад АР, лист "+fv.sheet+": "+f.pos+" "+f.width_mm+"×"+f.height_mm+" ("+f.name+")",...(byHead?["Низ закрыт на фасаде лестницей или площадкой — поставлен по верху, проверьте"]:[])],(used.get(f.pos)||0)>(f.count||1));
+    fillOf(f,fv.numbered,fv.reversed,a,b,z,wall.list[0],fv,["Фасад АР, лист "+fv.sheet+": "+f.pos+" "+f.width_mm+"×"+f.height_mm+" ("+f.name+")",...(byHead?["Низ закрыт на фасаде лестницей или площадкой — поставлен по верху, проверьте"]:[])],(used.get(f.pos)||0)>(f.count||1));
     cutHoles(fv.numbered,a,b,z,z+f.height_mm,wall.list)
    }
   }
@@ -840,7 +847,7 @@ let loose=0;
    placements.push({mark:f.pos,name:{window:"Окно",door:"Дверь",gate:"Ворота"}[f.kind]+" "+f.name,type_key:f.kind,scheme_group:"openings",geometry_type:"beam",
     fitting_type:f.kind,diameter_mm:f.height_mm,layout:fillLayout(f,v.numbered,v.reversed,t),
     ...(v.numbered?{x_mm:Math.round(a),y_mm:line,x2_mm:Math.round(b),y2_mm:line}:{x_mm:line,y_mm:Math.round(a),x2_mm:line,y2_mm:Math.round(b)}),
-    z0_mm:z,z1_mm:z,levels_from:"проём в раскладке панелей АР",confidence:over?"low":"medium",section:"АР",axis_x:wall.axis_x,axis_y:wall.axis_y,sheet:String(v.sheet),
+    z0_mm:z,z1_mm:z,levels_from:"проём в раскладке панелей АР",confidence:over?"low":"medium",section:"АР",axis_x:wall.axis_x,axis_y:wall.axis_y,sheet:String(v.sheet),source_page:v.page,source_file:v.file,
     notes:["Проём "+Math.round(w)+"×"+Math.round(h)+" в раскладке панелей АР, лист "+v.sheet+"; "+f.pos+" по размеру ("+f.width_mm+"×"+f.height_mm+")"+(fit.dh&&h-f.height_mm>80?"; над ним панель или решётка — проверьте":""),
      ...(over?["Таких по спецификации "+(f.count||1)+" — этот сверх, проверьте"]:[])]})
   }
@@ -850,7 +857,7 @@ let loose=0;
  // «О1/1» — at the scale of the other way, in its order), each panel along the slope over its band, its ends at the
  // heights the marks of the eaves and the ridge give there (between them along the slope).
  const near=(map,v)=>[...map].reduce((b,a)=>Math.abs(a[1]-v)<Math.abs(b[1]-v)?a:b)[0];
- const roofs=ar.flatMap(p=>(p.ar.roofs||[]).map(q=>({...q,sheet:p.pdfPage||p.page})));
+ const roofs=ar.flatMap(p=>(p.ar.roofs||[]).map(q=>({...q,sheet:p.pdfPage||p.page,page:p.page,file:p.sourceName||""})));
  // (the way the axes run on the sheet — numbers to the right, letters up — as most plans of the set show them: for a
  // plan with one bubble of a way)
  const way=k=>{const s=roofs.map(r=>r[k].slice().sort((p,q)=>p.pt-q.pt)).filter(l=>l.length>=2).map(l=>Math.sign(axisOrder(l[l.length-1].name)-axisOrder(l[0].name))).reduce((t,v)=>t+v,0);
@@ -884,7 +891,7 @@ let loose=0;
     fitting_type:"panel",diameter_mm:Math.max(1,Math.round(w)),
     layout:{panel:"roof",thickness_mm:t,...(q?.ral?{ral:q.ral}:{}),...(q?.ral_inside?{ral_inside:q.ral_inside}:{}),width_mm:Math.round(w)},
     x_mm:Math.round(st[0]),y_mm:Math.round(st[1]),x2_mm:Math.round(en[0]),y2_mm:Math.round(en[1]),z0_mm:Math.round(za),z1_mm:Math.round(zb),
-    levels_from:"раскладка кровельных панелей АР",confidence:q&&!off?"high":"medium",section:"АР",axis_x:near(px,(st[0]+en[0])/2),axis_y:near(py,(st[1]+en[1])/2),sheet:String(r.sheet),sheet_point_pt:p.pt,
+    levels_from:"раскладка кровельных панелей АР",confidence:q&&!off?"high":"medium",section:"АР",source_page:r.page,source_file:r.file,axis_x:near(px,(st[0]+en[0])/2),axis_y:near(py,(st[1]+en[1])/2),sheet:String(r.sheet),sheet_point_pt:p.pt,
     notes:["Раскладка кровельных панелей АР, лист "+r.sheet+(q?" · "+q.name+(q.ral?" · RAL "+q.ral:""):" · позиции нет в спецификации панелей"),"Скат по отметкам листа: "+Math.round(za)+" → "+Math.round(zb),
      ...(off?["Длина по чертежу "+Math.round(L)+", по спецификации "+q.length_mm+" — проверьте"]:[])]})
   }
@@ -1028,7 +1035,7 @@ function buildPlan(draft,ai=null,heights={},opts={}){
   elements.push({key:"p"+c.info.page+"s"+c.info.index+"e"+q.i,mark:q.pl.mark,name:q.pl.name||type?.name||markCode(q.pl.mark)?.name||"",type_key:type?.key||"",type_name:type?.name||"",geometry_type:q.geometry,x_mm:q.x,y_mm:q.y,
    x2_mm:q.geometry==="column"?undefined:q.x2,y2_mm:q.geometry==="column"?undefined:q.y2,
    z0_mm:z0,z1_mm:z1,group,group_label:GROUPS[group],profile:q.cat?.profile||"",profile_standard:q.cat?.profile_standard||"",...(q.cat?.steel?{steel:q.cat.steel}:{}),doc:scopeOf(c.info.docType,catalog.multi?c.info.volume:""),length_mm:q.cat?.length_mm??null,
-   levels,page:c.info.page,file:c.info.file,sheet:c.info.sheet,scheme:c.info.title,confidence:"low",
+   levels,...fromDrawing(c,q.pl),scheme:c.info.title,confidence:"low",
    note:[...(q.pl.notes||[]),note,q.change?.note,...(q.guess||[])].filter(Boolean).join("; ")})
  };
  // A dog-leg stair read from its own plan (ГПЭС М1.25): the lower flight from the ground to the landing, the upper one
@@ -1170,7 +1177,7 @@ function buildPlan(draft,ai=null,heights={},opts={}){
     z0_mm:geometry==="beam"&&!drawn&&!flightLevel?z1:z0,z1_mm:z1,group,group_label:GROUPS[group],
     // A verified scheme carries its own profiles and truss lattices.
     profile:pl.profile||cat?.profile||"",profile_standard:pl.profile?"":cat?.profile_standard||"",...(pl.steel||cat?.steel?{steel:pl.steel||cat.steel}:{}),...(pl.truss?{truss:pl.truss.kind==="frame"&&(cat?.profile||cat?.parts?.rows?.length)?{...pl.truss,members:frameProfiles(pl.truss.members,cat)}:pl.truss}:{}),...(pl.nodes?{nodes:pl.nodes}:{}),...(pl.base&&typeof pl.base==="object"?{base:pl.base}:{}),...(Number(pl.rotation_deg)?{rotation_deg:Number(pl.rotation_deg)}:{}),...(pl.flat?{flat:true}:{}),...(pl.joint||joints(c.info)||cat?.fasteners?{joint:withFasteners(pl.joint||joints(c.info),cat?.fasteners)}:{}),...(cat?.drill?{drill:cat.drill}:{}),...(cat?.cuts?{cuts:cat.cuts}:{}),...(cat?.parts?{parts:cat.parts}:{}),...(cat?.plates?{plates:cat.plates}:{}),...(cat?.place?{place:cat.place}:{}),...(cat?.bevels?{bevels:cat.bevels}:{}),doc:scopeOf(c.info.docType,catalog.multi?c.info.volume:""),length_mm:cat?.length_mm??null,levels:own?"Claude":local?local.from:"схема",...(!own&&local?.zeroBase?{z0_assumed:true}:{}),
-    page:c.info.page,file:c.info.file,sheet:c.info.sheet,...(!c.info.page&&pl.sheet?{source_sheet:String(pl.sheet)}:{}),...(pl.section?{section:pl.section}:{}),scheme:c.info.title,confidence:pl.confidence,note:[...(pl.notes||[]),change?.note,...guess].filter(Boolean).join("; ")})
+    ...fromDrawing(c,pl),...(!c.info.page&&pl.sheet?{source_sheet:String(pl.sheet)}:{}),...(pl.section?{section:pl.section}:{}),scheme:c.info.title,confidence:pl.confidence,note:[...(pl.notes||[]),change?.note,...guess].filter(Boolean).join("; ")})
   });
   // Bracing and secondary members meet the beams of the same plan: their ends take those beams' levels.
   const beams=elements.slice(first).filter(e=>e.geometry_type!=="column");
