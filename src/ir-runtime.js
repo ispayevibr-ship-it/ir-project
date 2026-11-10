@@ -4703,6 +4703,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
   // (the connections after the gear: Claude — its spark, GitHub — a branch of the repository)
   const linkIcon=shape=>'<svg viewBox="0 0 24 24" aria-hidden="true">'+shape+'</svg>';
   const claudeMark=linkIcon('<path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4"/>');
+  const syncMark=linkIcon('<path d="M20 12a8 8 0 0 1-13.7 5.7M4 12a8 8 0 0 1 13.7-5.7"/><path d="M18 3v4h-4M6 21v-4h4"/>');
   const gitMark=linkIcon('<path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>');
   const siteIcon=menuIcon('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>');
   const mailIcon=menuIcon('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>');
@@ -4711,7 +4712,8 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
    '<button type="button" id="programSettingsButton" class="program-settings-button" title="Настройки программы" aria-label="Настройки программы" aria-expanded="false">'+gear+'</button>'+
    '<span id="programLinks" class="program-links" role="group" aria-label="Подключения">'+
    '<button type="button" class="program-link" data-link="claude" data-state="unknown" title="Claude: проверяем…" aria-label="Claude: проверяем…">'+claudeMark+'<i class="program-link-dot" aria-hidden="true"></i></button>'+
-   '<button type="button" class="program-link" data-link="github" data-state="unknown" title="GitHub: проверяем…" aria-label="GitHub: проверяем…">'+gitMark+'<i class="program-link-dot" aria-hidden="true"></i></button></span>'+
+   '<button type="button" class="program-link" data-link="github" data-state="unknown" title="GitHub: проверяем…" aria-label="GitHub: проверяем…">'+gitMark+'<i class="program-link-dot" aria-hidden="true"></i></button>'+
+   '<button type="button" class="program-link" data-link="sync" data-state="unknown" title="Синхронизация: проверяем…" aria-label="Синхронизация: проверяем…">'+syncMark+'<i class="program-link-dot" aria-hidden="true"></i></button></span>'+
    '<div id="programSettingsMenu" class="program-settings-menu" hidden role="group" aria-label="Настройки программы">'+
    '<div class="program-settings-menu-head"><div class="program-settings-menu-title">Настройки</div><small>IR Project</small></div>'+
    '<div class="program-settings-menu-items">'+
@@ -4877,7 +4879,27 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
     }catch(e){mark("github","off","GitHub: не удалось проверить — "+String(e?.message||e))}
    }finally{checking=false}
   };
-  links.onclick=()=>void checkLinks();
+  // The sync with the company's server (the engineer, 10.11.2026 «где-нибудь иконку автосинхронизации выведи, работает
+  // или нет»): green — on and everything sent, blue turning — sending or taking now, grey — off, red — no connection or
+  // refused; the hint says when the last exchange was and how many changes wait. A click opens «Синхронизация».
+  const checkSync=async()=>{
+   const ai=window.irProject?.ai;if(typeof ai?.invoke!=="function")return mark("sync","unknown","Синхронизация: не видно в этой версии");
+   try{
+    const y=await ai.invoke("ai-settings:server-sync-info"),n=v=>Number(v||0).toLocaleString("ru-RU");
+    const last=y?.lastAt?" · последний обмен "+when(y.lastAt):"";
+    if(!y?.enabled)mark("sync","unknown","Синхронизация выключена — нажмите, чтобы включить");
+    else if(y.state==="offline")mark("sync","off","Синхронизация: нет связи с сервером"+(y.pending?" · ждут отправки: "+n(y.pending):"")+last);
+    else if(y.state==="signed-out")mark("sync","off","Синхронизация: войдите в программу");
+    else if(y.state==="error")mark("sync","off","Синхронизация: сервер не принял — "+(y.error||"ошибка")+last);
+    else if(y.pending||y.progress||y.state==="sending")mark("sync","busy","Синхронизация: идёт обмен"+(y.pending?" · ждут отправки: "+n(y.pending):""));
+    else mark("sync","on","Синхронизация: работает, всё отправлено"+last)
+   }catch(e){mark("sync","unknown","Синхронизация недоступна — "+String(e?.message||e).replace(/^Error invoking remote method '[^']+': (Error: )?/,""))}
+  };
+  links.onclick=e=>{
+   if(e.target.closest?.('[data-link="sync"]')){const a=window.irServerAccount;if(a?.syncDialog){const d=a.syncDialog(p.ownerDocument);d?.addEventListener?.("close",()=>void checkSync(),{once:true})}else void checkSync();return}
+   void checkLinks()};
+  void checkSync();
+  const syncTimer=setInterval(()=>{if(!p.isConnected){clearInterval(syncTimer);return}if(document.visibilityState!=="hidden")void checkSync()},10000);
   void checkLinks();
   const linkTimer=setInterval(()=>{if(!p.isConnected){clearInterval(linkTimer);return}if(!p.hidden&&document.visibilityState!=="hidden")void checkLinks()},60000);
   companyButton.onclick=async()=>{

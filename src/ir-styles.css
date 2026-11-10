@@ -736,6 +736,9 @@ body.ir-object-route:not(.ir-object-overview) #app>.back:first-child{display:non
 .profile-panel .program-link-dot{position:absolute;right:-3px;bottom:-3px;width:10px;height:10px;border-radius:50%;border:2px solid #fff;background:#a7b4c0;box-sizing:border-box}
 .profile-panel .program-link[data-state="on"] .program-link-dot{background:#1f9d55}
 .profile-panel .program-link[data-state="off"] .program-link-dot{background:#d93025}
+.profile-panel .program-link[data-state="busy"] .program-link-dot{background:#1769e0}
+.profile-panel .program-link[data-link="sync"][data-state="busy"] svg{animation:ir-sync-turn 1.2s linear infinite}
+@keyframes ir-sync-turn{to{transform:rotate(360deg)}}
 
 /* The montage scheme (and its «ИИ-распознавание»): the object's menu a strip on top, the scheme over the whole width
    (the engineer, 06.11.2026: «левое меню сделаем сверху, чтобы была сама схема на всю страницу»). object-shell.js puts
