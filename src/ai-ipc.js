@@ -240,7 +240,7 @@ accountCall("share-get",()=>github.shareInfo());accountCall("share-set",({on}={}
 accountCall("share-send",()=>github.push({reason:"вручную"}).then(()=>github.shareInfo()));
 // Объекты на сайте a-ts.kz (просьба инженера 10.11.2026): администратор выбирает объекты, сайт считает итоги сам (src/site-objects.js).
 const siteObjects=require("./site-objects").createSiteObjects({account,getUserDataPath,nativeImage:require("electron").nativeImage});
-accountCall("site-objects",()=>siteObjects.info());accountCall("site-publish",v=>siteObjects.publish(v));accountCall("site-status",()=>siteObjects.status());
+accountCall("site-objects",()=>siteObjects.info());accountCall("site-publish",v=>siteObjects.publish(v));accountCall("site-status",()=>siteObjects.status());accountCall("site-remove",v=>siteObjects.remove(v));
 // Отчёт по объекту ссылкой (src/report-links.js): тот же HTML-отчёт — на сервер, ссылка https://a-ts.kz/r/…
 const reportLinks=require("./report-links").createReportLinks({account:()=>account});
 accountCall("report-link",v=>reportLinks.info(v));accountCall("report-share",v=>reportLinks.share(v));accountCall("report-unshare",v=>reportLinks.remove(v));

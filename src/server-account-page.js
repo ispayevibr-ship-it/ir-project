@@ -109,14 +109,44 @@
 .ir-acc-prev summary{cursor:pointer;font-weight:650;color:#1d4f75}
 .ir-acc-prev-s{margin-top:8px;font-weight:650}
 .ir-acc-prev pre{margin:6px 0 0;white-space:pre-wrap;font:13px/1.5 "Segoe UI",system-ui,Arial,sans-serif;color:#1d3247}
-.ir-acc-site-list{display:grid;gap:6px}
-.ir-acc-site-obj{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 12px;border:1px solid #d9e4ee;border-radius:10px;background:#fff;cursor:pointer}
-.ir-acc-site-obj.on{border-color:#8fb8dc;background:#f7fbff}
-.ir-acc-site-obj input{width:16px;height:16px;margin:0}
-.ir-acc-site-obj b{display:block;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ir-acc-site-obj small{display:block;color:#5b7a92;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ir-acc-site-tag{padding:1px 8px;border-radius:20px;background:#eef2f5;color:#5b6b78;font-size:10.5px;font-weight:700;white-space:nowrap}
-.ir-acc-site-tag.on{background:#e3f4ea;color:#1f7a4c}
+.ir-acc-so[open]{display:flex;flex-direction:column;overflow:hidden;height:min(760px,92vh)}.ir-acc-so>*{flex:none}.ir-acc-so .ir-acc-body{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;align-content:start;grid-template-columns:minmax(0,1fr)}.ir-acc-so .ir-acc-body>*{min-width:0}
+.ir-so-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ir-so-bar input[type=search]{flex:1 1 220px;min-width:0;height:36px;border:1px solid #cfdbe5;border-radius:8px;padding:0 12px;font:inherit;background:#fff;color:#1d3247}
+.ir-so-bar input[type=search]:focus{outline:2px solid #176dc1;outline-offset:-1px;border-color:#176dc1}
+.ir-so-tabs{display:flex;gap:4px;padding:3px;border-radius:10px;background:#e4ecf3;max-width:100%;overflow-x:auto;scrollbar-width:none}
+.ir-so-tabs button{height:30px;padding:0 12px;border:0;border-radius:8px;background:none;color:#3c5568;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+.ir-so-tabs button:hover{color:#123f63}
+.ir-so-tabs button.on{background:#fff;color:#123f63;box-shadow:0 1px 3px rgba(8,28,48,.15)}
+.ir-so-tabs button span{margin-left:5px;color:#7b8f9f;font-weight:500}
+.ir-so-sum{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:#4d6a80}
+.ir-so-sum b{color:#1d3247}.ir-so-sum .grow{flex:1}
+.ir-so-list{display:grid;gap:6px}
+.ir-so-obj{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px 14px;border:1px solid #d9e4ee;border-radius:11px;background:#fff;cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s}
+.ir-so-obj:hover{border-color:#a9c6df;box-shadow:0 2px 8px rgba(8,28,48,.06)}
+.ir-so-obj.on{border-color:#7fb0dc;background:#f5f9fe}
+.ir-so-obj input{width:18px;height:18px;margin:0;accent-color:#176dc1;cursor:pointer}
+.ir-so-obj .t{min-width:0}
+.ir-so-obj b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:650;font-size:13px;line-height:1.35;color:#1d3247}
+.ir-so-obj small{display:block;margin-top:2px;color:#6a8396;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ir-so-tags{display:flex;gap:5px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.ir-so-tag{padding:2px 9px;border-radius:20px;background:#eef2f5;color:#5b6b78;font-size:11px;font-weight:650;white-space:nowrap}
+.ir-so-tag.done{background:#eef2f5;color:#4f6272}.ir-so-tag.work{background:#e3eefb;color:#1d5c99}.ir-so-tag.prep{background:#fdf1dc;color:#8a5a0b}
+.ir-so-tag.site{background:#e2f4ea;color:#1b7448}.ir-so-tag.site::before{content:"";display:inline-block;width:6px;height:6px;margin-right:5px;border-radius:50%;background:#22a35a;vertical-align:1px}
+.ir-so-del{height:24px;padding:0 9px;border:1px solid #efc9c3;border-radius:20px;background:#fff;color:#b4321f;font:inherit;font-size:11px;font-weight:650;cursor:pointer;white-space:nowrap}.ir-so-del:hover{background:#fdecea;border-color:#e59a8f}.ir-so-del:disabled{opacity:.5;cursor:default}
+.ir-so-empty{padding:22px;text-align:center;color:#7b8f9f;border:1px dashed #cfdbe5;border-radius:11px;background:#fff}
+.ir-so-prog{display:grid;gap:6px;padding:12px 14px;border:1px solid #cfe0ef;border-radius:11px;background:#fff}
+.ir-so-prog .row{display:flex;gap:10px;justify-content:space-between;font-size:12.5px;color:#3c5568}.ir-so-prog .row b{color:#1d3247}
+.ir-so-prog .track{height:8px;border-radius:5px;background:#e2eaf1;overflow:hidden}
+.ir-so-prog .track i{display:block;height:100%;width:0;border-radius:5px;background:linear-gradient(90deg,#176dc1,#3a8fe0);transition:width .4s}
+.ir-so-prog.ok .track i{background:#22a35a}.ir-so-prog.err{border-color:#efc9c3}.ir-so-prog.err .track i{background:#d0452f}
+.ir-acc-so .ir-acc-foot .ir-acc-btn.link{padding:0}
+.ir-toast{position:fixed;z-index:10001;inset:auto 20px 20px auto;margin:0;overflow:visible;display:flex;gap:12px;align-items:flex-start;width:min(380px,calc(100vw - 40px));padding:14px 16px;border-radius:12px;background:#fff;border:1px solid #cfe0ef;border-left:4px solid #22a35a;box-shadow:0 16px 40px rgba(8,28,48,.25);font:13px/1.45 "Segoe UI",system-ui,Arial,sans-serif;color:#1d3247;animation:irToast .25s ease-out}
+.ir-toast.err{border-left-color:#d0452f}
+.ir-toast b{display:block;margin-bottom:2px}.ir-toast p{margin:0;color:#4d6a80}.ir-toast .grow{flex:1;min-width:0}
+.ir-toast button{flex:none;border:0;background:none;color:#7b8f9f;font-size:16px;cursor:pointer;padding:0 2px}
+.ir-toast .acts{margin-top:8px;display:flex;gap:8px}
+@keyframes irToast{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+@media (max-width:640px){.ir-so-obj{grid-template-columns:20px minmax(0,1fr)}.ir-so-tags{grid-column:2;justify-content:flex-start}}
 @media (max-width:640px){.ir-acc-row{grid-template-columns:1fr}.ir-acc-person{grid-template-columns:1fr}.ir-acc-person .acts{justify-content:flex-start}}`;
  const style=doc=>{if(!doc.getElementById(STYLE_ID)){const s=doc.createElement("style");s.id=STYLE_ID;s.textContent=CSS;doc.head.appendChild(s)}};
  const dialog=(doc,cls,html)=>{style(doc);const d=doc.createElement("dialog");d.className="ir-acc "+(cls||"");d.innerHTML=html;doc.body.appendChild(d);d.showModal();
@@ -322,43 +352,91 @@
   return{rid:Number(o.id),name:o.name||"",customer:o.customer||"",general_contractor:o.general_contractor||"",address:o.address||"",
    status:o.status||"",years,works,cover:cover||banner,photos:[...(cover&&banner?[banner]:[]),...gallery].filter(Boolean).slice(0,30),sort}
  }
+ const STATUS_TAG=st=>/заверш/i.test(st)?"done":/подгот/i.test(st)?"prep":"work";
+ const objWord=n=>n%10===1&&n%100!==11?"объект":n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?"объекта":"объектов";
+ // The notification when the sending ends: a card in the corner of the program (stays while the window is closed) and
+ // the system notification of Windows.
+ function toast(doc,{title,text,error,site}){
+  style(doc);doc.querySelectorAll(".ir-toast").forEach(t=>t.remove());
+  const t=doc.createElement("div");t.className="ir-toast"+(error?" err":"");t.setAttribute("role","status");
+  t.innerHTML=`<div class="grow"><b>${esc(title)}</b><p>${esc(text)}</p>${site?'<div class="acts"><button type="button" class="ir-acc-btn small" data-open>Открыть сайт</button></div>':""}</div><button type="button" aria-label="Закрыть" data-x>✕</button>`;
+  // above an open window of the program: a popover is drawn over modal windows too
+  t.setAttribute("popover","manual");doc.body.appendChild(t);
+  try{t.showPopover()}catch{t.removeAttribute("popover");const top=[...doc.querySelectorAll("dialog[open]")].pop();if(top)top.appendChild(t)}
+  const close=()=>t.remove();t.querySelector("[data-x]").onclick=close;
+  t.querySelector("[data-open]")?.addEventListener("click",()=>{call("ai-settings:server-open-site",{}).catch(()=>{});close()});
+  setTimeout(close,error?20000:12000);
+  try{if(typeof Notification!=="undefined"&&Notification.permission!=="denied"){const show=()=>new Notification("IR Project — "+title,{body:text,silent:false});
+   if(Notification.permission==="granted")show();else Notification.requestPermission().then(p=>{if(p==="granted")show()}).catch(()=>{})}}catch{}
+ }
+ let siteSending=false;
  async function siteObjects(parent){
-  const d=dialog(parent.ownerDocument,"wide ir-acc-site",head("Объекты на сайте","Отметьте объекты, которые показывает сайт компании. Итоги на сайте (тоннаж, площади, число объектов и заказчиков) считаются сами по отправленным объектам.")+
-   `<div class="ir-acc-body"><div class="ir-acc-tools"><button type="button" class="ir-acc-btn small" data-all>Все завершённые</button><button type="button" class="ir-acc-btn small" data-none>Снять все</button><span class="grow"></span><span class="ir-acc-count" data-count></span></div>
-   <div class="ir-acc-help">На сайт уходят: название, заказчик, генподрядчик, адрес, статус, годы, виды работ с объёмами (у объекта в работе — смонтировано по ежедневным отчётам), фото объекта и до 30 фотографий. Финансы, письма, акты, схемы и отчёты не уходят. Объект, с которого снята отметка, после отправки исчезает с сайта.</div>
-   <div class="ir-acc-st" data-st>Загружаем…</div><div class="ir-acc-site-list" data-list></div></div>
-   <div class="ir-acc-foot"><button type="button" class="ir-acc-btn link" data-open>Открыть сайт</button><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Закрыть</button><button type="button" class="ir-acc-btn main" data-go>Отправить на сайт</button></div>`);
-  const st=d.querySelector("[data-st]"),list=d.querySelector("[data-list]"),go=d.querySelector("[data-go]");
-  const ok=t=>{st.className="ir-acc-st ok";st.textContent=t},bad=e=>{st.className="ir-acc-st err";st.textContent=errText(e)};
-  let objects=[],onSite=new Set();
-  const count=()=>{const n=list.querySelectorAll("input:checked").length;d.querySelector("[data-count]").textContent="Отмечено: "+n+" из "+objects.length;go.textContent=n?"Отправить на сайт ("+n+")":"Убрать все объекты с сайта";
-   list.querySelectorAll(".ir-acc-site-obj").forEach(l=>l.classList.toggle("on",l.querySelector("input").checked))};
+  const doc=parent?.ownerDocument||document;
+  const d=dialog(doc,"wide ir-acc-so",head("Объекты на сайте","Отметьте объекты, которые показывает сайт компании a-ts.kz. Итоги на сайте считаются сами по отправленным объектам.")+
+   `<div class="ir-acc-body">
+    <div class="ir-so-bar"><input type="search" data-q placeholder="Поиск по названию, заказчику, адресу"><div class="ir-so-tabs" data-tabs></div></div>
+    <div class="ir-so-sum"><span data-onsite></span><span class="grow"></span><button type="button" class="ir-acc-btn small" data-all>Отметить показанные</button><button type="button" class="ir-acc-btn small" data-none>Снять все</button></div>
+    <div class="ir-so-prog" data-prog hidden><div class="row"><b data-pt>Готовим отправку…</b><span data-pp>0%</span></div><div class="track"><i data-pb></i></div><div class="row"><span data-ps></span></div></div>
+    <div class="ir-acc-st" data-st></div>
+    <div class="ir-so-list" data-list><div class="ir-so-empty">Загружаем…</div></div>
+    <div class="ir-acc-note">На сайт уходят: название, заказчик, генподрядчик, адрес, статус, годы, виды работ с объёмами (у объекта в работе — смонтировано по ежедневным отчётам), фото объекта и до 30 фотографий. Финансы, письма, акты, схемы и отчёты не уходят. Объект без отметки после отправки убирается с сайта.</div></div>
+   <div class="ir-acc-foot"><button type="button" class="ir-acc-btn link" data-open>Открыть сайт a-ts.kz</button><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Закрыть</button><button type="button" class="ir-acc-btn main" data-go>Отправить на сайт</button></div>`);
+  const $=q=>d.querySelector(q),st=$("[data-st]"),list=$("[data-list]"),go=$("[data-go]"),prog=$("[data-prog]");
+  const bad=e=>{st.className="ir-acc-st err";st.textContent=errText(e)};
+  let objects=[],onSite=new Set(),chosen=new Set(),tab="all",q="";
+  const TABS=[["all","Все"],["done","Завершённые"],["work","В работе"],["prep","Подготовка"],["site","На сайте"]];
+  const match=o=>(tab==="all"||(tab==="site"?onSite.has(Number(o.id)):STATUS_TAG(o.status||"")===tab))&&(!q||[o.name,o.customer,o.address].join(" ").toLowerCase().includes(q));
+  const shown=()=>objects.filter(match);
+  const drawTabs=()=>{$("[data-tabs]").innerHTML=TABS.map(([k,t])=>{const n=k==="all"?objects.length:k==="site"?onSite.size:objects.filter(o=>STATUS_TAG(o.status||"")===k).length;
+    return n||k==="all"||k===tab?`<button type="button" class="${k===tab?"on":""}" data-tab="${k}">${t}<span>${n}</span></button>`:""}).join("")};
+  const drawCount=()=>{const n=chosen.size;$("[data-onsite]").innerHTML=`Сейчас на сайте: <b>${onSite.size}</b> · Отмечено: <b>${n}</b> из ${objects.length}`;
+   go.textContent=n?"Отправить на сайт ("+n+")":"Убрать все объекты с сайта"};
+  const draw=()=>{
+   drawTabs();drawCount();const rows=shown();
+   list.innerHTML=rows.map(o=>{const id=Number(o.id),on=chosen.has(id),tag=STATUS_TAG(o.status||"");
+    return`<label class="ir-so-obj${on?" on":""}" data-id="${id}" title="${esc(o.name)}"><input type="checkbox" ${on?"checked":""}><span class="t"><b>${esc(o.name)}</b><small>${esc([o.customer,o.address].filter(Boolean).join(" · ")||"—")}</small></span><span class="ir-so-tags">${onSite.has(id)?'<span class="ir-so-tag site">на сайте</span><button type="button" class="ir-so-del" data-del title="Убрать этот объект с сайта сейчас">Удалить с сайта</button>':""}<span class="ir-so-tag ${tag}">${esc(o.status||"—")}</span></span></label>`}).join("")||
+    `<div class="ir-so-empty">${objects.length?"Ничего не найдено":"В программе пока нет объектов"}</div>`;
+   list.querySelectorAll("[data-del]").forEach(b=>b.onclick=async e=>{e.preventDefault();e.stopPropagation();
+    const l=b.closest(".ir-so-obj"),id=Number(l.dataset.id),o=objects.find(x=>Number(x.id)===id);
+    if(siteSending)return;if(!confirm("Удалить с сайта «"+(o?.name||"объект")+"»? В программе объект остаётся."))return;
+    b.disabled=true;b.textContent="Удаляем…";
+    try{await call("ai-settings:server-site-remove",{rids:[id]});onSite.delete(id);chosen.delete(id);draw();
+     toast(doc,{title:"Объект удалён с сайта",text:"«"+(o?.name||"")+"» больше не показывается на a-ts.kz, итоги сайта пересчитаны.",site:true})}
+    catch(err){bad(err);b.disabled=false;b.textContent="Удалить с сайта"}});
+   list.querySelectorAll(".ir-so-obj").forEach(l=>{const i=l.querySelector("input");i.onchange=()=>{const id=Number(l.dataset.id);if(i.checked)chosen.add(id);else chosen.delete(id);l.classList.toggle("on",i.checked);drawCount()}})
+  };
   try{
    const [site,all]=await Promise.all([call("ai-settings:server-site-objects"),irProject.data.objects.list()]);
    onSite=new Set(sarr(site?.objects).map(x=>Number(x.rid)));objects=sarr(all);
-   st.textContent=onSite.size?"Сейчас на сайте: "+onSite.size+".":"Сейчас на сайте объектов нет.";st.className="ir-acc-st";
-   list.innerHTML=objects.map(o=>`<label class="ir-acc-site-obj" data-id="${esc(o.id)}"><input type="checkbox" ${onSite.has(Number(o.id))?"checked":""}><span><b>${esc(o.name)}</b><small>${esc([o.customer,o.address].filter(Boolean).join(" · ")||"—")}</small></span><span class="ir-acc-site-tag ${onSite.has(Number(o.id))?"on":""}">${onSite.has(Number(o.id))?"на сайте · ":""}${esc(o.status||"")}</span></label>`).join("")||'<div class="ir-acc-help">В программе пока нет объектов.</div>';
-   list.querySelectorAll("input").forEach(i=>i.onchange=count);count()
-  }catch(e){bad(e);go.disabled=true}
-  d.querySelector("[data-all]").onclick=()=>{list.querySelectorAll(".ir-acc-site-obj").forEach(l=>{const o=objects.find(x=>String(x.id)===l.dataset.id);if(/заверш/i.test(o?.status||""))l.querySelector("input").checked=true});count()};
-  d.querySelector("[data-none]").onclick=()=>{list.querySelectorAll("input").forEach(i=>i.checked=false);count()};
-  d.querySelector("[data-open]").onclick=()=>call("ai-settings:server-open-site",{}).catch(bad);
+   chosen=new Set([...onSite].filter(id=>objects.some(o=>Number(o.id)===id)));draw()
+  }catch(e){bad(e);go.disabled=true;list.innerHTML=""}
+  $("[data-q]").oninput=e=>{q=e.target.value.trim().toLowerCase();draw()};
+  $("[data-tabs]").onclick=e=>{const b=e.target.closest("[data-tab]");if(b){tab=b.dataset.tab;draw()}};
+  $("[data-all]").onclick=()=>{shown().forEach(o=>chosen.add(Number(o.id)));draw()};
+  $("[data-none]").onclick=()=>{chosen.clear();draw()};
+  $("[data-open]").onclick=()=>call("ai-settings:server-open-site",{}).catch(bad);
+  const setProg=(pct,title,sub,cls="")=>{prog.hidden=false;prog.className="ir-so-prog"+(cls?" "+cls:"");$("[data-pb]").style.width=Math.max(0,Math.min(100,pct)).toFixed(1)+"%";
+   $("[data-pp]").textContent=Math.round(pct)+"%";$("[data-pt]").textContent=title;$("[data-ps]").textContent=sub||""};
+  if(siteSending){go.disabled=true;setProg(0,"Идёт отправка на сайт…","Окно можно закрыть — по окончании будет уведомление.")}
   go.onclick=async()=>{
-   const ids=[...list.querySelectorAll(".ir-acc-site-obj")].filter(l=>l.querySelector("input").checked).map(l=>l.dataset.id);
+   const ids=objects.filter(o=>chosen.has(Number(o.id))).map(o=>o.id);
    if(!ids.length&&!confirm("Убрать с сайта все объекты?"))return;
-   go.disabled=true;st.className="ir-acc-st";st.textContent="Собираем данные объектов…";
-   let timer=0;
+   go.disabled=true;siteSending=true;st.textContent="";let timer=0;
    try{
-    const chosen=[];for(const [i,id] of ids.entries()){const o=objects.find(x=>String(x.id)===id);if(o)chosen.push(await siteObjectData(o,i+1))}
-    timer=setInterval(async()=>{try{const s=await call("ai-settings:server-site-status");if(s.running)st.textContent="Отправляем на сайт: "+s.done+" из "+s.total+(s.name?" — "+s.name:"")+"…"}catch{}},800);
-    st.textContent="Отправляем на сайт… Фотографии уменьшаются и уходят на сервер — это может занять несколько минут.";
-    const r=await call("ai-settings:server-site-publish",{objects:chosen});
+    const data=[];
+    for(const [i,id] of ids.entries()){const o=objects.find(x=>String(x.id)===String(id));setProg(ids.length?i/ids.length*10:0,"Собираем данные объектов…",(i+1)+" из "+ids.length+" — "+(o?.name||""));if(o)data.push(await siteObjectData(o,i+1))}
+    setProg(10,"Отправляем на сайт…","Окно можно закрыть — по окончании будет уведомление.");
+    timer=setInterval(async()=>{try{const s=await call("ai-settings:server-site-status");if(!s.running)return;
+     const pct=10+90*(s.units?s.unitsDone/s.units:s.total?s.done/s.total:0);
+     setProg(pct,"Отправляем на сайт: объект "+Math.min(s.done+1,s.total)+" из "+s.total,(s.name||"")+(s.photos?" · фото "+Math.min(s.photo,s.photos)+" из "+s.photos:""))}catch{}},500);
+    const r=await call("ai-settings:server-site-publish",{objects:data});
     clearInterval(timer);
-    onSite=new Set(chosen.map(o=>o.rid));
-    list.querySelectorAll(".ir-acc-site-obj").forEach(l=>{const t=l.querySelector(".ir-acc-site-tag"),o=objects.find(x=>String(x.id)===l.dataset.id),on=onSite.has(Number(l.dataset.id));t.classList.toggle("on",on);t.textContent=(on?"на сайте · ":"")+(o?.status||"")});
-    ok("Готово. На сайте "+r.sent+" "+(r.sent%10===1&&r.sent%100!==11?"объект":r.sent%10>=2&&r.sent%10<=4&&(r.sent%100<10||r.sent%100>=20)?"объекта":"объектов")+(r.removed?", убрано: "+r.removed:"")+". Сайт a-ts.kz уже показывает их и пересчитал итоги.")
-   }catch(e){clearInterval(timer);bad(e)}
-   go.disabled=false;count()
+    onSite=new Set(data.map(o=>o.rid));
+    const text="На сайте "+r.sent+" "+objWord(r.sent)+(r.removed?", убрано: "+r.removed:"")+(r.photos?", фото: "+r.photos:"")+". Сайт уже показывает их и пересчитал итоги.";
+    setProg(100,"Готово",text,"ok");if(d.isConnected)draw();
+    toast(doc,{title:"Объекты отправлены на сайт",text,site:true})
+   }catch(e){clearInterval(timer);setProg(100,"Отправка не удалась",errText(e),"err");toast(doc,{title:"Отправка на сайт не удалась",text:errText(e),error:true})}
+   siteSending=false;go.disabled=false;
   };
  }
  // The password is shown only when the letter could not go — once, to be passed on by the administrator himself.
@@ -626,6 +704,6 @@
   setInterval(()=>void check(),30*60e3);
   watchChanges()
  }
- window.irServerAccount={menu,panel,login,changePassword,syncDialog,siteDialog,info,state:()=>state};
+ window.irServerAccount={menu,panel,login,changePassword,syncDialog,siteDialog,siteObjects,info,state:()=>state};
  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>void start(),{once:true});else void start();
 })();

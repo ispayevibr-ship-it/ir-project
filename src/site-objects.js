@@ -36,7 +36,7 @@ function clean(list){
 }
 
 function createSiteObjects({account,getUserDataPath,nativeImage=null}){
- let state={running:false,done:0,total:0,name:"",error:""};
+ let state={running:false,done:0,total:0,name:"",error:"",units:0,unitsDone:0,photo:0,photos:0};
  const requireAdmin=()=>{if(account.info().user?.role!=="admin")throw Error("Отправка на сайт — только для администратора")};
  // only the pictures of the program itself (its folder of data), never any file of the computer
  const inside=file=>{try{const rel=path.relative(getUserDataPath(),path.resolve(String(file)));return!!rel&&!rel.startsWith("..")&&!path.isAbsolute(rel)}catch{return false}};
@@ -64,13 +64,17 @@ function createSiteObjects({account,getUserDataPath,nativeImage=null}){
   const key=photoKey(o);
   const fields={rid:o.rid,name:o.name,customer:o.customer,general_contractor:o.general_contractor,address:o.address,
    status:o.status,years:o.years,works:o.works,sort:o.sort,photo_key:key};
-  if(have&&have.photo_key===key)return account.api(`/api/collections/${COLL}/records/${have.id}`,{method:"PATCH",body:fields});
+  if(have&&have.photo_key===key){state.unitsDone+=(o.cover?1:0)+o.photos.length;return account.api(`/api/collections/${COLL}/records/${have.id}`,{method:"PATCH",body:fields})}
   const form=new FormData();
   for(const [k,v] of Object.entries(fields))form.append(k,typeof v==="object"?JSON.stringify(v):String(v));
+  // the progress for the window: every photo made smaller is one step, the sending of the object — one more
+  state.photo=0;state.photos=(o.cover?1:0)+o.photos.length;
+  const step=()=>{state.photo++;state.unitsDone++};
   if(o.cover&&usable(o.cover))form.append("cover",new Blob([picture(o.cover)],{type:"image/jpeg"}),"cover.jpg");
   else form.append("cover","");
+  if(o.cover)step();
   let n=0;
-  for(const f of o.photos){if(!usable(f))continue;try{form.append("photos",new Blob([picture(f)],{type:"image/jpeg"}),`photo-${++n}.jpg`)}catch{}}
+  for(const f of o.photos){if(usable(f))try{form.append("photos",new Blob([picture(f)],{type:"image/jpeg"}),`photo-${++n}.jpg`)}catch{}step();await new Promise(r=>setImmediate(r))}
   if(!n)form.append("photos","");
   return have?account.form("PATCH",`/api/collections/${COLL}/records/${have.id}`,form):account.form("POST",`/api/collections/${COLL}/records`,form)
  }
@@ -79,17 +83,24 @@ function createSiteObjects({account,getUserDataPath,nativeImage=null}){
   requireAdmin();
   if(state.running)throw Error("Отправка уже идёт — подождите");
   const want=clean(objects);
-  state={running:true,done:0,total:want.length,name:"",error:""};
+  state={running:true,done:0,total:want.length,name:"",error:"",units:want.reduce((n,o)=>n+1+(o.cover?1:0)+o.photos.length,0),unitsDone:0,photo:0,photos:0};
   try{
    const rows=await current(),byRid=new Map(rows.map(r=>[Number(r.rid),r]));
    let removed=0;
    for(const r of rows)if(!want.some(o=>o.rid===Number(r.rid))){await account.api(`/api/collections/${COLL}/records/${r.id}`,{method:"DELETE"});removed++}
-   for(const o of want){state.name=o.name;await sendOne(o,byRid.get(o.rid));state.done++}
+   for(const o of want){state.name=o.name;await sendOne(o,byRid.get(o.rid));state.done++;state.unitsDone++}
    state.running=false;state.name="";
    return{sent:want.length,removed,photos:want.reduce((n,o)=>n+(o.cover?1:0)+o.photos.length,0)}
   }catch(e){state.running=false;state.error=String(e?.message||e);throw e}
  }
- return{info,publish,status}
+ // «Удалить с сайта» one object (the engineer, 10.11.2026 «также сделай удалить с сайта кнопку»): the rest stay as they are.
+ async function remove({rids}={}){
+  requireAdmin();if(state.running)throw Error("Идёт отправка — подождите");
+  const want=new Set((Array.isArray(rids)?rids:[]).map(Number).filter(n=>Number.isInteger(n)&&n>0));
+  let removed=0;for(const r of await current())if(want.has(Number(r.rid))){await account.api(`/api/collections/${COLL}/records/${r.id}`,{method:"DELETE"});removed++}
+  return{removed}
+ }
+ return{info,publish,status,remove}
 }
 
 module.exports={createSiteObjects,clean,MAX_PHOTOS};
