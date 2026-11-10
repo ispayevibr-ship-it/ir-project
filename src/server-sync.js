@@ -28,6 +28,28 @@ const TABLES=[
 const byTable=Object.fromEntries(TABLES.map(t=>[t.table,t]));
 const MAX_ROW=60*1048576;
 
+// ---- the photos (просьба инженера 10.11.2026: завершённые объекты и их фото видны другому пользователю после входа) ----
+// A row keeps the place of its picture on its own computer (C:\Users\…\ir-project\images\reports\….jpg). The file
+// goes to the server collection «files» by its place inside the program's folder («images/reports/….jpg»); a row
+// that comes from another computer gets the place of the same file here, and the file is taken from the server.
+const IMAGE_RE=/[\\/]images[\\/]((?:[A-Za-z0-9_-]+[\\/])?[A-Za-z0-9_.-]+\.(?:jpe?g|png|webp))$/i;
+function relOf(value){const m=typeof value==="string"&&value.length<1000?IMAGE_RE.exec(value):null;if(!m||m[1].includes(".."))return"";return"images/"+m[1].replace(/\\/g,"/")}
+function imagesIn(json){
+ const out=new Set();let data;try{data=JSON.parse(json||"{}")}catch{return out}
+ const walk=v=>{if(typeof v==="string"){const r=relOf(v);if(r)out.add(r)}else if(Array.isArray(v))v.forEach(walk);else if(v&&typeof v==="object")Object.values(v).forEach(walk)};
+ walk(data);return out
+}
+// the same text with every picture place of another computer turned into the place here
+function localizeJson(json,base){
+ if(!base||typeof json!=="string"||!/images/i.test(json))return json;
+ let data;try{data=JSON.parse(json)}catch{return json}
+ let changed=false;
+ const walk=v=>{if(typeof v==="string"){const r=relOf(v);if(r){const here=path.join(base,...r.split("/"));if(here!==v){changed=true;return here}}return v}if(Array.isArray(v))return v.map(walk);if(v&&typeof v==="object"){for(const k of Object.keys(v))v[k]=walk(v[k]);return v}return v};
+ data=walk(data);return changed?JSON.stringify(data):json
+}
+const fileRid=rel=>parseInt(require("node:crypto").createHash("sha1").update(rel).digest("hex").slice(0,12),16);
+const FILES_PER_CYCLE=12;
+
 function triggersSql(){
  const quiet="(SELECT v FROM sync_state WHERE k='applying') IS NOT '1'";
  return TABLES.map(({table})=>[
@@ -39,7 +61,8 @@ function triggersSql(){
 const SCHEMA=`CREATE TABLE IF NOT EXISTS sync_state(k TEXT PRIMARY KEY,v TEXT);
 CREATE TABLE IF NOT EXISTS sync_outbox(seq INTEGER PRIMARY KEY AUTOINCREMENT,tbl TEXT NOT NULL,rid INTEGER NOT NULL,at TEXT DEFAULT CURRENT_TIMESTAMP);
 CREATE INDEX IF NOT EXISTS idx_sync_outbox_row ON sync_outbox(tbl,rid);
-CREATE TABLE IF NOT EXISTS sync_map(tbl TEXT NOT NULL,rid INTEGER NOT NULL,sid TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(tbl,rid));`;
+CREATE TABLE IF NOT EXISTS sync_map(tbl TEXT NOT NULL,rid INTEGER NOT NULL,sid TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(tbl,rid));
+CREATE TABLE IF NOT EXISTS sync_files(rel TEXT PRIMARY KEY,state TEXT NOT NULL,object_rid INTEGER,section_key TEXT,tries INTEGER NOT NULL DEFAULT 0,at TEXT DEFAULT CURRENT_TIMESTAMP);`;
 
 function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("node:sqlite").DatabaseSync,timers=true,now=()=>Date.now()}){
  let db=null;
@@ -50,6 +73,70 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
  const columns={};
  const colsOf=t=>columns[t]||(columns[t]=open().prepare(`PRAGMA table_info(${t})`).all().map(c=>c.name));
  const enabled=()=>getState("enabled")==="1";
+ const userBase=()=>{try{return getUserDataPath?getUserDataPath():""}catch{return""}};
+ const fileState=rel=>open().prepare("SELECT state,tries FROM sync_files WHERE rel=?").get(rel);
+ const setFile=(rel,state,objectRid,sectionKey)=>open().prepare("INSERT INTO sync_files(rel,state,object_rid,section_key) VALUES(?,?,?,?) ON CONFLICT(rel) DO UPDATE SET state=excluded.state,object_rid=COALESCE(excluded.object_rid,sync_files.object_rid),section_key=COALESCE(excluded.section_key,sync_files.section_key),at=CURRENT_TIMESTAMP").run(rel,state,objectRid??null,sectionKey??null);
+ // a sent row: its pictures that the server has not got yet are put in the queue
+ function queueUploads(row){
+  if(!row||!userBase()||typeof account.upload!=="function")return;
+  for(const rel of imagesIn(row.data_json)){
+   const st=fileState(rel)?.state;
+   if(st==="up"||st==="down")continue;
+   if(fs.existsSync(path.join(userBase(),...rel.split("/"))))setFile(rel,"send",Number(row.object_id),row.section_key)
+  }
+ }
+ async function findFile(rel){const f=await account.api(`/api/collections/files/records?perPage=1&fields=id,file,path&filter=${encodeURIComponent(`path="${rel}"`)}`);return f?.items?.[0]||null}
+ async function sendFiles(){
+  if(!userBase()||typeof account.upload!=="function")return 0;
+  const list=open().prepare("SELECT rel,object_rid,section_key FROM sync_files WHERE state='send' ORDER BY at LIMIT ?").all(FILES_PER_CYCLE);
+  let n=0;
+  for(const f of list){
+   const file=path.join(userBase(),...f.rel.split("/"));
+   if(!fs.existsSync(file)){open().prepare("DELETE FROM sync_files WHERE rel=?").run(f.rel);continue}
+   try{
+    if(!await findFile(f.rel)){
+     try{await account.upload("files",{rid:fileRid(f.rel),path:f.rel,object_rid:Number(f.object_rid)||0,section_key:f.section_key||"",device:Number(getState("range"))||0},path.basename(file),fs.readFileSync(file))}
+     catch(e){if(!(e.status===400&&e.data?.data?.rid))throw e}
+    }
+    setFile(f.rel,"up");n++
+   }catch(e){
+    if(!e.status||e.status>=500||e.status===401||e.status===429)throw e;
+    open().prepare("UPDATE sync_files SET state='refused',tries=tries+1 WHERE rel=?").run(f.rel);status.filesRefused=(status.filesRefused||0)+1
+   }
+  }
+  return n
+ }
+ // pictures of rows that came from other computers and are not here yet
+ async function takeFiles(){
+  if(!userBase()||typeof account.download!=="function")return 0;
+  const list=open().prepare("SELECT rel FROM sync_files WHERE state='need' AND tries<20 ORDER BY tries,at LIMIT ?").all(FILES_PER_CYCLE);
+  let n=0;
+  for(const {rel} of list){
+   const file=path.join(userBase(),...rel.split("/"));
+   if(fs.existsSync(file)){setFile(rel,"down");continue}
+   try{
+    const it=await findFile(rel);
+    if(!it?.file){open().prepare("UPDATE sync_files SET tries=tries+1 WHERE rel=?").run(rel);continue}
+    const buf=await account.download("files",it.id,it.file);
+    fs.mkdirSync(path.dirname(file),{recursive:true});const tmp=file+".part";fs.writeFileSync(tmp,buf);fs.renameSync(tmp,file);
+    setFile(rel,"down");n++
+   }catch(e){
+    if(!e.status||e.status>=500||e.status===401||e.status===429)throw e;
+    open().prepare("UPDATE sync_files SET tries=tries+1 WHERE rel=?").run(rel)
+   }
+  }
+  if(n)status.changedAt=now();
+  return n
+ }
+ // once: the pictures of the rows that went to the server before the photos were sent (all records of this database)
+ function queueOldFiles(){
+  if(getState("files_backfill")==="1"||!userBase()||typeof account.upload!=="function")return;
+  const ph=[...LOCAL_ONLY].map(()=>"?").join(",");
+  const rows=open().prepare(`SELECT object_id,section_key,data_json FROM object_records WHERE section_key NOT IN (${ph}) AND data_json LIKE '%images%'`).all(...LOCAL_ONLY);
+  for(const r of rows)queueUploads(r);
+  setState("files_backfill","1")
+ }
+ const filesPending=()=>{try{return open().prepare("SELECT SUM(state='send') up,SUM(state='need' AND tries<20) down FROM sync_files").get()}catch{return{up:0,down:0}}};
 
  // ---- this database's range of numbers ----
  function fixSequences(){
@@ -110,7 +197,8 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
  const pending=()=>{try{return open().prepare("SELECT COUNT(DISTINCT tbl||':'||rid) n FROM sync_outbox").get().n}catch{return 0}};
  function info(){
   const on=enabled();
-  return{enabled:on,range:Number(getState("range"))||0,uploaded:getState("uploaded"),pending:on?pending():0,...status,
+  const fp=on?filesPending():{up:0,down:0};
+  return{enabled:on,range:Number(getState("range"))||0,uploaded:getState("uploaded"),pending:on?pending():0,filesUp:Number(fp?.up)||0,filesDown:Number(fp?.down)||0,...status,
    state:on?status.state:"off",localOnly:[...LOCAL_ONLY]}
  }
 
@@ -142,6 +230,7 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
    }
   }
   setMap(tbl,rid,r.id,r.version);
+  if(local&&tbl==="object_records")try{queueUploads(local)}catch{}
   return"ok"
  }
  async function pushNow(){
@@ -189,6 +278,10 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
     }else{
      const row=it.row&&typeof it.row==="object"?it.row:null;if(!row)continue;
      if(table==="object_records"&&LOCAL_ONLY.has(row.section_key))continue;
+     if(table==="object_records"&&typeof row.data_json==="string"&&userBase()){
+      for(const rel of imagesIn(row.data_json)){const st=fileState(rel)?.state;if(st!=="up"&&st!=="down"&&!fs.existsSync(path.join(userBase(),...rel.split("/"))))setFile(rel,"need",Number(row.object_id),row.section_key)}
+      row.data_json=localizeJson(row.data_json,userBase())
+     }
      const keys=cols.filter(c=>c!=="id"&&row[c]!==undefined);
      const vals=keys.map(k=>{const v=row[k];return v===null||typeof v==="number"||typeof v==="string"?v:typeof v==="boolean"?(v?1:0):JSON.stringify(v)});
      // a row that does not fit this database (an older or a broken one) is passed by, the rest go on
@@ -244,6 +337,7 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
   try{
    await push();
    if(force||now()-lastPull>15e3||again){await pull();lastPull=now()}
+   await serial(async()=>{queueOldFiles();await sendFiles();await takeFiles()});
    status.state="idle";status.error="";status.lastAt=new Date(now()).toISOString()
   }catch(e){status.state=e.status?"error":"offline";status.error=String(e.message||e)}
   finally{running=false;if(again){again=false;setTimeout(()=>void cycle(),500)}}
@@ -253,4 +347,4 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
  function close(){if(timer)clearInterval(timer);try{db?.close()}catch{}db=null}
  return{info,enable,disable,uploadAll,cycle,push,pull,close,LOCAL_ONLY}
 }
-module.exports={createServerSync,LOCAL_ONLY,RANGE,triggersSql};
+module.exports={createServerSync,LOCAL_ONLY,RANGE,triggersSql,relOf,imagesIn,localizeJson};

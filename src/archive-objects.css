@@ -1,0 +1,47 @@
+/* Ранее завершённые объекты (archive-objects.js) */
+.archive-kind-check{display:flex;gap:10px;align-items:flex-start;margin:14px 0 4px;padding:12px 14px;border:1px solid #d8e1e7;border-radius:10px;background:#f7fafc;cursor:pointer}
+.archive-kind-check input{margin-top:3px;width:16px;height:16px;flex:0 0 auto}
+.archive-kind-check strong{display:block;color:#17364d;font-size:12px}
+.archive-kind-check small{display:block;margin-top:3px;color:#7d8e9b;font-size:10px;line-height:1.4}
+#objectForm.is-archive .archive-kind-check{border-color:#9cc9a8;background:#f0faf3}
+#objectForm.is-archive .form-section-title,#objectForm.is-archive #formSections{display:none!important}
+.objects-add-buttons{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.arch-page{display:grid;gap:12px;padding-bottom:40px}
+.arch-hero .object-hero-actions:empty{display:none}
+.arch-totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.arch-totals>div{padding:12px 14px;background:#fff;border:1px solid #dfe7ed;border-radius:10px;box-shadow:0 1px 4px rgba(23,54,77,.04)}
+.arch-totals b{display:block;color:#17364d;font-size:17px}
+.arch-totals span{display:block;margin-top:3px;color:#87919f;font-size:9px}
+.arch-card{background:#fff;border:1px solid #dfe7ed;border-radius:12px;box-shadow:0 1px 4px rgba(23,54,77,.04);overflow:hidden}
+.arch-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-bottom:1px solid #e7edf1}
+.arch-card-head h2{margin:0 0 2px;color:#17364d;font-size:14px}
+.arch-card-head p{margin:0;color:#81909c;font-size:9px}
+.arch-add{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid #cfe0ea;border-radius:8px;background:#f3f8fc;color:#1769e0;font-size:10px;font-weight:700;cursor:pointer}
+.arch-add svg{width:15px;height:15px}
+.arch-add:hover{background:#e8f2fb}
+.arch-table-wrap{overflow:auto}
+.arch-table{width:100%;border-collapse:collapse;min-width:560px}
+.arch-table th{padding:8px 10px;text-align:left;background:#f8fafb;border-bottom:1px solid #e3e9ee;color:#7d8e9a;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+.arch-table td{padding:8px 10px;border-bottom:1px solid #edf1f4;color:#41596a;font-size:11px;vertical-align:top}
+.arch-table tbody tr:last-child td{border-bottom:0}
+.arch-table td b{color:#17364d;font-weight:650}
+.arch-table td small{display:block;margin-top:3px;color:#8a99a3;font-size:9px;line-height:1.4}
+.arch-table .arch-n{width:34px;color:#8a99a3}
+.arch-table .arch-unit{width:90px}
+.arch-table .arch-vol{width:120px;white-space:nowrap}
+.arch-table .arch-del{width:36px;text-align:right}
+.arch-table input{box-sizing:border-box;width:100%;height:30px;padding:0 8px;border:1px solid #dbe4ea;border-radius:6px;background:#fff;color:#17364d;font-size:11px}
+.arch-table input:focus{outline:none;border-color:#7fb2e5;box-shadow:0 0 0 3px rgba(23,105,224,.12)}
+.arch-table .arch-note-input{margin-top:4px;height:26px;font-size:10px;color:#5c7282}
+.arch-table .arch-del button,.arch-photo-del{display:inline-grid;place-items:center;width:28px;height:28px;padding:0;border:1px solid #f0d2d2;border-radius:7px;background:#fff;color:#d14343;cursor:pointer}
+.arch-table .arch-del button svg,.arch-photo-del svg{width:15px;height:15px}
+.arch-empty-row td{padding:22px 12px;text-align:center;color:#8696a1}
+.arch-hint{margin:0;padding:8px 14px 12px;color:#8a99a3;font-size:9px}
+.arch-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;padding:12px}
+.arch-gallery .object-photos-empty{grid-column:1/-1;border:0;min-height:120px}
+.arch-photo{position:relative}
+.arch-photo .object-photo-tile{width:100%;aspect-ratio:4/3}
+.arch-photo .object-photo-tile span{font-size:8px}
+.arch-photo-del{position:absolute;top:6px;right:6px;opacity:0;transition:opacity .15s}
+.arch-photo:hover .arch-photo-del{opacity:1}
+@media(max-width:700px){.arch-card-head{align-items:flex-start;flex-direction:column}.arch-gallery{grid-template-columns:repeat(2,1fr)}.arch-photo-del{opacity:1}}

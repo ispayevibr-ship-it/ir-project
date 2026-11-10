@@ -233,6 +233,11 @@ accountCall("open-site",({path}={})=>{const p=path==="/_/"?"/_/":"/";return shel
  const syncCall=(name,fn)=>accountCall("sync-"+name,v=>{if(!sync)throw Error("Синхронизация недоступна в этой версии программы — нужен установщик");return fn(v)});
  syncCall("info",()=>sync.info());syncCall("enable",()=>sync.enable());syncCall("disable",()=>sync.disable());
  syncCall("upload",()=>sync.uploadAll());syncCall("now",async()=>{await sync.cycle({force:true});return sync.info()});
+ // Завершённые объекты портфолио (src/archive-import.js): один раз в базу этого компьютера, дальше — синхронизация.
+ let portfolio=null;try{portfolio=require("./archive-import").createArchiveImport({database,github})}catch(e){console.error("IR portfolio:",e)}
+ handle("ai-settings:archive-portfolio-status",()=>{if(!portfolio)throw Error("Недоступно в этой версии программы");return portfolio.status()});
+ handle("ai-settings:archive-portfolio-import",()=>{if(!portfolio)throw Error("Недоступно в этой версии программы");return portfolio.run()});
+ handle("ai-settings:archive-portfolio-progress",()=>portfolio?.progress()||null);
  handle("ai-settings:mail-info",()=>mail.info());
  handle("ai-settings:mail-set",(_e,v={})=>mail.set(v));
  handle("ai-settings:mail-clear",()=>mail.clear());

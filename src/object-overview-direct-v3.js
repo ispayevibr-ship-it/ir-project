@@ -41,6 +41,7 @@ function scheduleControl(schedule,workTypes,marks,reports){
 }
 async function directObjectPageV3(id){
  const o=await data().objects.get(id);if(!o)return go("/objects");
+ document.body.classList.remove("ir-archive-object");try{if(window.irArchive&&await window.irArchive.isArchive(id))return window.irArchive.page(id)}catch(e){console.error("archive object",e)}
  document.body.classList.add("ir-object-overview");
  const root=data().forObject(id),[photos,schedule,workTypes,marks,reports]=await Promise.all([objectPhotoMap(id),root.section("schedule").list().catch(()=>[]),root.section("work-types").list().catch(()=>[]),root.section("marks").list().catch(()=>[]),root.section("reports").list().catch(()=>[])]);
  let bannerUrl="";const bannerFile=photos.banner?.data?.file_path||"";if(bannerFile)try{bannerUrl=await irProject.images.read(bannerFile)}catch{}

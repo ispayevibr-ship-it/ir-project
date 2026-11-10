@@ -113,6 +113,27 @@ function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects,app
   }
   return data
  }
+ // Files on the server (the photos of the objects — server-sync.js): sending as a form with the file, taking back
+ // through a short file token (works for protected and open file fields alike).
+ async function upload(collection,fields,name,buffer){
+  const t=token();if(!t)throw Error("Войдите в программу (почта и пароль)");
+  const form=new FormData();for(const [k,v] of Object.entries(fields||{}))form.append(k,String(v));
+  form.append("file",new Blob([buffer]),name);
+  let res;
+  try{res=await fetch(server()+`/api/collections/${collection}/records`,{method:"POST",headers:{Authorization:t},body:form,signal:AbortSignal.timeout(120000)})}
+  catch(e){throw Error("Нет связи с сервером — проверьте интернет")}
+  const text=await res.text();let data=null;try{data=text?JSON.parse(text):null}catch{}
+  if(!res.ok){const e=Error(explain(res.status,data));e.status=res.status;e.data=data;throw e}
+  return data
+ }
+ async function download(collection,id,name){
+  const ft=await api("/api/files/token",{method:"POST"});
+  let res;
+  try{res=await fetch(server()+`/api/files/${collection}/${id}/${encodeURIComponent(name)}?token=${encodeURIComponent(ft?.token||"")}`,{headers:{Authorization:token()},signal:AbortSignal.timeout(120000)})}
+  catch(e){throw Error("Нет связи с сервером — проверьте интернет")}
+  if(!res.ok){const e=Error("Сервер не отдал файл: "+res.status);e.status=res.status;throw e}
+  return Buffer.from(await res.arrayBuffer())
+ }
  const list=async(collection,query="")=>{
   const out=[];
   for(let page=1;page<50;page++){
@@ -310,7 +331,7 @@ function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects,app
   requireAdmin();if(!id)throw Error("Не выбран человек");if(id===load().user?.id)throw Error("Себя удалить нельзя");
   await api(`/api/collections/users/records/${id}`,{method:"DELETE"});return{ok:true}
  }
- return{info,login,refresh,logout,changePassword,setName,people,invite,update,resetPassword,remove,heartbeat,isAdmin,api,letterTemplate,setLetterTemplate,previewLetter,testLetter}
+ return{info,login,refresh,logout,changePassword,setName,people,invite,update,resetPassword,remove,heartbeat,isAdmin,api,upload,download,letterTemplate,setLetterTemplate,previewLetter,testLetter}
 }
 
 module.exports={createServerAccount,generatePassword,explain,fill,LETTERS,SECTIONS,ROLES,SERVER};
