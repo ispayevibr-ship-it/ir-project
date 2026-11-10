@@ -108,7 +108,8 @@ function ownerOf(titles,x,y){
 const LOOK_AXIS={A:"А",B:"В",C:"С",E:"Е",H:"Н",K:"К",M:"М",O:"О",P:"Р",T:"Т",X:"Х"};
 // «08», «O8» and «О8» are one axis (the plans read them so too).
 const cyrAxis=str=>String(str).trim().replace(/\s+/g,"").replace(/[ABCEHKMOPTX]/g,c=>LOOK_AXIS[c]).replace(/^[О0](?=\d)/u,"О");
-function bubbleRows(texts,segments){
+// min: the fewest bubbles of a row (3; the small views of a layout of panels show two — «О8 О10» of a wall along К).
+function bubbleRows(texts,segments,min=3){
  // Only labels drawn in a circle are axis bubbles; dimension numbers nearby are not.
  const short=segments.filter(s=>Math.hypot(s.a.x-s.b.x,s.a.y-s.b.y)<=9);
  // The ring round the label: its centre and radius (from its strokes' ends), or null. A bubble's ring holds its label
@@ -151,7 +152,7 @@ function bubbleRows(texts,segments){
    }
   }
  }
- return rows.filter(r=>r.items.length>=3).map((r,i)=>({name:"по осям "+r.items.sort((a,b)=>a.x-b.x).map(t=>t.str).slice(0,1)+"–"+r.items.at(-1).str+" №"+(i+1),
+ return rows.filter(r=>r.items.length>=min).map((r,i)=>({name:"по осям "+r.items.sort((a,b)=>a.x-b.x).map(t=>t.str).slice(0,1)+"–"+r.items.at(-1).str+" №"+(i+1),
   x:(r.x0+r.x1)/2,y:r.y,x0:r.x0,x1:r.x1,items:r.items,below:true}))
 }
 function ownerBelow(rows,x,y){

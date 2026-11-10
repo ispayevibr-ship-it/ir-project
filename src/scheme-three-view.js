@@ -968,8 +968,10 @@ window.irThreeSchemeView=(function(){
   // The joints of a wall panel of a layout: a strip 5 mm wide inside each of its two edges, 3 mm proud of both faces, from
   // its foot there (feet: at its start and end — along the slope of a lower roof) to its top, less the holes that reach
   // that edge. [along it, from, to] in metres.
-  function wallSeams(len,h,feet,holes){
-   var out=[];[[.0025,feet[0]],[len-.0025,feet[1]]].forEach(function(e){
+  // (tops: the heights of its top at the ends, a panel cut under the slope of its roof — lay.top)
+  function wallSeams(len,H,feet,holes,tops){
+   var out=[];[[.0025,feet[0]],[len-.0025,feet[1]]].forEach(function(e,k){
+    var h=tops?Math.min(H,tops[k]):H;
     var z=Math.max(0,e[1]),cut=holes.filter(function(o){return o[0]<=e[0]+1e-3&&o[1]>=e[0]-1e-3}).map(function(o){return[Math.max(0,o[2]),Math.min(h,o[3])]}).sort(function(a,b){return a[0]-b[0]});
     cut.forEach(function(o){if(o[0]>z+.01)out.push([e[0],z,o[0]]);z=Math.max(z,o[1])});if(h>z+.01)out.push([e[0],z,h])
    });
@@ -8998,19 +9000,32 @@ window.irThreeSchemeView=(function(){
     // them was seen through, the engineer 27.10.2026 «изучи шов между сэндвичами, там не должно быть просветов»); the
     // joint is a dark line on both faces (wallSeams). A wall panel under the slope of a lower roof is cut along it
     // (lay.cut: the heights of its lower edge at its start and end).
-    var gl=len,cut=c.lay&&Array.isArray(c.lay.cut)&&c.lay.cut.length===2?c.lay.cut:null;
+    // A gable panel under the slope of its roof is cut along it on the site («Обрезать по месту»): lay.top — the heights
+    // of its top at its start and end (ИР-71535 АР ч.2, ряд 08).
+    var gl=len,cut=c.lay&&Array.isArray(c.lay.cut)&&c.lay.cut.length===2?c.lay.cut:null,tp=c.lay&&Array.isArray(c.lay.top)&&c.lay.top.length===2?c.lay.top:null;
     // (a wall at a corner: run on to the outer face of the other or stopped at its inner face — panelCorners)
     var pe=c.ft==="panel"?panelExt.get(id):null,p0=pe?pe[0]:0;
     if(pe){start=start.clone().sub(dir.clone().multiplyScalar(pe[0]));end=end.clone().add(dir.clone().multiplyScalar(pe[1]));len+=pe[0]+pe[1];gl=len}
     var holed=c.ft==="panel"&&c.lay&&c.lay.panel==="wall"?(Array.isArray(c.lay.holes)?c.lay.holes.map(function(o){return[number(o[0])/1000,number(o[1])/1000,number(o[2])/1000,number(o[3])/1000]}):[]).map(function(o){return[o[0]+p0,o[1]+p0,o[2],o[3]]}):[];
     if(!holed.length)holed=null;
+    var z0=number(c.z0),tops=tp?[Math.min(pw,(number(tp[0])-z0)/1000),Math.min(pw,(number(tp[1])-z0)/1000)]:null;
     if(c.ft==="panel"&&c.lay&&c.lay.panel==="wall"&&cut){
      // Cut along a slope with holes over it (a window, a grille): the sloped strip whole, the rest in pieces round them.
-     var z0=number(c.z0),ca=(number(cut[0])-z0)/1000,cb=(number(cut[1])-z0)/1000,top=holed?Math.min(pw,Math.max(ca,cb)):pw,sh=new T.Shape();
-     sh.moveTo(-gl/2,ca);sh.lineTo(gl/2,cb);sh.lineTo(gl/2,top);sh.lineTo(-gl/2,top);sh.closePath();
+     var ca=(number(cut[0])-z0)/1000,cb=(number(cut[1])-z0)/1000,top=holed?Math.min(pw,Math.max(ca,cb)):pw,sh=new T.Shape();
+     sh.moveTo(-gl/2,ca);sh.lineTo(gl/2,cb);
+     if(tops&&!holed){sh.lineTo(gl/2,tops[1]);sh.lineTo(-gl/2,tops[0])}else{sh.lineTo(gl/2,top);sh.lineTo(-gl/2,top)}
+     sh.closePath();
      if(top-Math.min(ca,cb)>1e-4){var cg=new T.ExtrudeGeometry(sh,{depth:pt,bevelEnabled:false});cg.translate(0,0,-pt/2);cg.rotateY(-Math.PI/2);put(cg,new T.Vector3(0,0,0))}
      if(holed&&top<pw-1e-4){var jj=(len-gl)/2;
       wallPieces(jj,len-jj,pw-top,holed.map(function(o){return[o[0],o[1],o[2]-top,o[3]-top]})).forEach(function(r){put(new T.BoxGeometry(pt,r[3]-r[2],r[1]-r[0]),new T.Vector3(0,top+(r[2]+r[3])/2,(r[0]+r[1])/2-len/2))})}
+    }
+    // The top along the slope: the panel to its lower top in a box (in pieces round its holes), the sloped strip over it.
+    else if(c.ft==="panel"&&c.lay&&c.lay.panel==="wall"&&tops){
+     var lo=Math.min(tops[0],tops[1]),jt=(len-gl)/2;
+     if(holed)wallPieces(jt,len-jt,lo,holed).forEach(function(r){put(new T.BoxGeometry(pt,r[3]-r[2],r[1]-r[0]),new T.Vector3(0,(r[2]+r[3])/2,(r[0]+r[1])/2-len/2))});
+     else put(new T.BoxGeometry(pt,lo,gl),new T.Vector3(0,lo/2,0).applyQuaternion(q.clone().invert()));
+     if(Math.abs(tops[0]-tops[1])>1e-4){var ts=new T.Shape();ts.moveTo(-gl/2,lo);ts.lineTo(gl/2,lo);ts.lineTo(gl/2,tops[1]);ts.lineTo(-gl/2,tops[0]);ts.closePath();
+      var tg=new T.ExtrudeGeometry(ts,{depth:pt,bevelEnabled:false});tg.translate(0,0,-pt/2);tg.rotateY(-Math.PI/2);put(tg,new T.Vector3(0,0,0))}
     }
     // A panel the block of a window, a door or a gate crosses: in pieces round the hole (lay.holes, mm from its start
     // and its foot).
@@ -9021,7 +9036,7 @@ window.irThreeSchemeView=(function(){
     else if(c.ft==="panel"&&c.lay&&c.lay.panel==="wall")put(new T.BoxGeometry(pt,pw,gl),new T.Vector3(0,pw/2,0).applyQuaternion(q.clone().invert()));
     else if(c.ft==="panel")put(new T.BoxGeometry(pw,pt,gl),new T.Vector3(0,pt/2,0));
     else{var leg=Math.max(.04,Math.min(.4,(number(c.fd)||100)/1000));put(new T.BoxGeometry(leg,.008,len),new T.Vector3(leg/2,0,0));put(new T.BoxGeometry(.008,leg,len),new T.Vector3(0,leg/2,0))}
-    if(c.ft==="panel"&&c.lay&&c.lay.panel==="wall"&&c.lay.width_mm)wallSeams(len,pw,cut?[(number(cut[0])-number(c.z0))/1000,(number(cut[1])-number(c.z0))/1000]:[0,0],holed||[]).forEach(function(r){
+    if(c.ft==="panel"&&c.lay&&c.lay.panel==="wall"&&c.lay.width_mm)wallSeams(len,pw,cut?[(number(cut[0])-number(c.z0))/1000,(number(cut[1])-number(c.z0))/1000]:[0,0],holed||[],tops).forEach(function(r){
      var sm=new T.Mesh(shared("plate:box",function(){return new T.BoxGeometry(1,1,1)}),jointMat);sm.quaternion.copy(q);sm.scale.set(pt+.006,r[2]-r[1],.005);
      sm.position.copy(start).add(end).multiplyScalar(.5).add(new T.Vector3(0,(r[1]+r[2])/2,r[0]-len/2).applyQuaternion(q));sm.userData.fixed=true;sm.userData.small=true;pm.push(sm)});
     pm.forEach(function(mesh){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh)});

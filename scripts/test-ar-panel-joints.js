@@ -22,13 +22,15 @@ assert.equal(second.x2_mm,2430,"a gap of 1200 is an opening: left");assert.equal
 // The 3D: no gap of 12 mm between the panels of a layout; the joints (wallSeams) in the joint colour; no holes for steel.
 const view=fs.readFileSync(__dirname+"/../src/scheme-three-view.js","utf8");
 assert.ok(!/len-\.012/.test(view),"no gap between panels");assert.match(view,/var gl=len,cut=/);
-assert.match(view,/function wallSeams\(len,h,feet,holes\)/);assert.match(view,/new T\.Mesh\(shared\("plate:box",function\(\)\{return new T\.BoxGeometry\(1,1,1\)\}\),jointMat\);sm\.quaternion\.copy\(q\);sm\.scale\.set\(pt\+\.006/);
-assert.match(view,/function wallCuts\(list\)/);assert.match(view,/seatOnTops\(elems\);hangTies\(elems\);seatLevels\(elems\);wallLines\(elems\);wallCuts\(elems\);/);
+assert.match(view,/function wallSeams\(len,H,feet,holes,tops\)/);assert.match(view,/new T\.Mesh\(shared\("plate:box",function\(\)\{return new T\.BoxGeometry\(1,1,1\)\}\),jointMat\);sm\.quaternion\.copy\(q\);sm\.scale\.set\(pt\+\.006/);
+assert.match(view,/function wallCuts\(list\)/);assert.match(view,/seatOnTops\(elems\);hangTies\(elems\);[^\n]*seatLevels\(elems\);[^\n]*wallLines\(elems\);wallCuts\(elems\);/);
 assert.ok(!/wallHoles/.test(view),"a panel is whole: steel stops at it");
 // wallSeams: both edges, from the foot (the slope of a lower roof) to the top, less the holes that reach the edge.
-const ws=new Function(view.match(/function wallSeams\(len,h,feet,holes\)\{[\s\S]*?\n  \}\n/)[0]+";return wallSeams")();
+const ws=new Function(view.match(/function wallSeams\(len,H,feet,holes,tops\)\{[\s\S]*?\n  \}\n/)[0]+";return wallSeams")();
 assert.deepEqual(ws(1.19,3,[0,0],[]).map(r=>r.map(v=>+v.toFixed(4))),[[.0025,0,3],[1.1875,0,3]]);
 assert.deepEqual(ws(1.19,3,[.5,.2],[[.9,1.19,1,2]]).map(r=>r.map(v=>+v.toFixed(4))),[[.0025,.5,3],[1.1875,.2,1],[1.1875,2,3]]);
+// (a gable panel cut under the slope of its roof — lay.top: each joint up to the top at its edge)
+assert.deepEqual(ws(1,3,[0,0],[],[2.4,2.6]).map(r=>r.map(v=>+v.toFixed(4))),[[.0025,0,2.4],[.9975,0,2.6]]);
 // A tube «Тр.3120х5» is the square tube 120×120×5 read with its box sign as «3».
 const {normProfile}=require("../src/ai-sheet-extract");
 assert.equal(normProfile("Тр.3120х5"),"Тр.□120х5");assert.equal(normProfile("Тр.325х8"),"Тр.325х8");

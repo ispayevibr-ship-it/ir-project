@@ -123,6 +123,51 @@ function layoutSpec(texts){
  return rows.filter(r=>r.letter).map(r=>({at:r.at,pos:r.letter+r.digits,kind:r.letter,length_mm:r.length_mm,width_mm:r.width_mm,thickness_mm:r.thickness_mm,
   ral:r.ral||"",...(r.ral_inside&&r.ral_inside!==r.ral?{ral_inside:r.ral_inside}:{}),count:r.count,name:r.name,table:"",layout:true}))
 }
+// Tables of panels with a sketch of each (ИР-71535 АР ч.2, ТОО «ПСК Инженерные решения»; the engineer, 10.11.2026:
+// «сэндвич-панели так и не раставляет, вообще»): «Марка поз.» — «Пс-1», «Пс-7.1», «Пк-12» (a capital and small letters);
+// «Обозначение» «МП-ТСП-Z-120-1000-Т-Т-МВ (ПРМ-01-5012-0,5/ ПРМ-01-5012-0,5)» — the thickness 120 and the width 1000, the
+// colours outside/inside; «-//-» in a row — as the row above. The «Эскиз» gives the length: the largest number written
+// along the panel without «*» (the width is written across it, sizes with «*» are the cuts). «Площадь, м2», «Кол-во,
+// шт.», «Цвет по RAL (наружный)» and «(внутренний)» in their columns. A table «…кровельных сэндвич-панелей» is of the roof.
+const SKETCH_POS=/^(П[А-ЯЁа-яё]{0,2})-(\d{1,3}(?:\.\d{1,2})?)$/u;
+const sketchDesignation=str=>{const s=String(str||"").replace(/\s+/g,""),m=/ТСП-[A-ZА-ЯЁ]-(\d{2,3})-(\d{3,4})/u.exec(s);
+ if(!m)return null;const c=[...s.matchAll(/(?:ПРМ|ПЭ|ПВДФ|PE|PVDF)?-\d{2}-(\d{4})-0[.,]\d/gu)].map(x=>x[1]);
+ return{thickness_mm:Number(m[1]),width_mm:Number(m[2]),name:s.replace(/\(.*$/u,""),rals:c}};
+function sketchSpec(texts){
+ const out=[];
+ for(const head of texts.filter(t=>horizontalText(t)&&/^Эскиз$/u.test(String(t.str).trim()))){
+  const hdr=texts.filter(t=>horizontalText(t)&&Math.abs(t.y-head.y)<20&&Math.abs(t.x-head.x)<900);
+  const markH=hdr.filter(t=>/^Марка/u.test(String(t.str))&&t.x<head.x).sort((a,b)=>b.x-a.x)[0];
+  const areaH=hdr.filter(t=>/^Площадь/u.test(String(t.str))&&t.x>head.x).sort((a,b)=>a.x-b.x)[0];
+  const countH=hdr.filter(t=>/^Кол/u.test(String(t.str))&&t.x>head.x).sort((a,b)=>a.x-b.x)[0];
+  const colours=hdr.filter(t=>/^Цвет/u.test(String(t.str))&&t.x>head.x).sort((a,b)=>a.x-b.x).slice(0,2);
+  if(!markH||!areaH)continue;
+  const title=texts.filter(t=>/Спецификация.*панел/iu.test(String(t.str))&&t.y<head.y&&head.y-t.y<90&&Math.abs(t.x-head.x)<700).sort((a,b)=>b.y-a.y)[0];
+  const roof=/кровельн/iu.test(String(title?.str||""));
+  const marks=texts.filter(t=>horizontalText(t)&&t.y>head.y&&Math.abs(t.x-markH.x)<30&&SKETCH_POS.test(String(t.str).trim())).sort((a,b)=>a.y-b.y);
+  const lo=markH.x+(head.x-markH.x)*.45,hi=areaH.x-150;
+  let prev=null;
+  marks.forEach((m,i)=>{
+   const y0=i?(marks[i-1].y+m.y)/2:Math.max(head.y+15,m.y-(marks[1]?(marks[1].y-m.y)/2:40)),y1=marks[i+1]?(m.y+marks[i+1].y)/2:m.y+(m.y-y0);
+   const band=texts.filter(o=>o!==m&&o.y>=y0&&o.y<y1&&o.x>markH.x+20&&o.x<areaH.x+700),line=band.filter(o=>Math.abs(o.y-m.y)<4);
+   const at=(x,re,tol)=>line.filter(o=>re.test(String(o.str).trim())&&Math.abs(o.x-x)<tol).sort((a,b)=>Math.abs(a.x-x)-Math.abs(b.x-x))[0];
+   const area=at(areaH.x,/^\d+[.,]\d+$/,40),count=countH?at(countH.x,/^\d{1,4}$/,30):null;
+   const des=band.filter(o=>o.x<areaH.x&&sketchDesignation(o.str)).sort((a,b)=>Math.abs(a.x-markH.x)-Math.abs(b.x-markH.x))[0],d=des?sketchDesignation(des.str):prev?.d||null;
+   const ral=colours.map(c=>{const own=band.filter(o=>Math.abs(o.x-c.x)<30).flatMap(o=>ralCodes(o.str));return own[0]||""});
+   const rals=[ral[0]||(d&&des?d.rals[0]:"")||prev?.ral[0]||"",ral[1]||(d&&des?d.rals[1]:"")||prev?.ral[1]||""];
+   const lens=band.filter(o=>horizontalText(o)&&o.x>lo&&o.x<hi&&/^\d{3,5}$/.test(String(o.str).trim())).map(o=>Number(o.str)).filter(v=>v>=300&&v<=20000);
+   const width=d?.width_mm||1000,sq=area?Number(String(area.str).replace(",",".")):0;
+   const length=lens.length?Math.max(...lens):sq?Math.round(sq*1e6/width/10)*10:0;
+   prev={d,ral:rals};
+   if(!length)return;
+   const mm=SKETCH_POS.exec(String(m.str).trim());
+   out.push({at:m,pos:String(m.str).trim(),kind:mm[1].toUpperCase(),length_mm:length,width_mm:width,thickness_mm:d?.thickness_mm||0,ral:rals[0]||rals[1]||"",
+    ...(rals[1]&&rals[1]!==rals[0]?{ral_inside:rals[1]}:{}),count:count?Number(count.str):null,name:d?.name||"",table:String(title?.str||"").trim(),
+    ...(sq?{area_m2:sq}:{}),sketch:true,...(roof?{roof:true}:{})})
+  })
+ }
+ return out
+}
 // A label of a panel on a facade of such a sheet: a position of its table, read by OCR («С704» upright or turned; «Ø380»,
 // «0372», «6372» — the letter misread). A number that two positions share («С380», «Р380») is settled by the labels read
 // whole in the same band of the view.
@@ -239,6 +284,54 @@ function jointsAround(b,vert,horiz,numbers,win){
  const top=ys.filter(y=>!hy.has(y)&&y<b.y0-.3).at(-1),bottom=ys.find(y=>!hy.has(y)&&y>b.y1+.3);
  return top===undefined||bottom===undefined?null:{l,r,top,bottom}
 }
+// Panels of a layout by columns drawn by their joints (ИР-71535 АР ч.2 «Схема раскладки стеновых панелей по ряду 08»): a
+// joint runs the whole height of its panel, the lines along the wall run on past it (its tiers, the foot of the wall). The
+// joints left and right of the label from its foot to its top; the nearest line along the wall over and under the label
+// that runs across the whole column closes it sooner. Under the slope of a roof the top is where each joint ends (topCut).
+// (gap: the longest break bridged — a dashed line is one run)
+function columnRuns(vert,gap=.2){
+ const runs=[];
+ for(const v of vert.slice().sort((a,b)=>a.x-b.x||a.y0-b.y0)){const p=runs.find(q=>Math.abs(q.x-v.x)<=.3&&v.y0<=q.y1+gap&&v.y1>=q.y0-gap);
+  if(p){p.y0=Math.min(p.y0,v.y0);p.y1=Math.max(p.y1,v.y1)}else runs.push({...v})}
+ return runs
+}
+// With the size its table gives (size: width × length, mm): a side that is the edge of an opening in it (a hole for a beam,
+// a duct) gives way to the joint a panel's width off, and a panel the opening's edge would end goes on to its length where
+// its joints do — the opening is a hole in it, not its end.
+function columnAround(b,runs,horiz,numbers,hs,scale,size=null,slopes=[]){
+ const cross=runs.filter(v=>v.y0<=b.cy&&v.y1>=b.cy);
+ let l=cross.filter(v=>v.x<b.x0-.3).sort((p,q)=>q.x-p.x)[0],r=cross.filter(v=>v.x>b.x1+.3).sort((p,q)=>p.x-q.x)[0];
+ if(!l||!r)return null;
+ if(size?.width_mm&&Math.abs((r.x-l.x)*hs-size.width_mm)>40){
+  const reach=v=>v.y0<=b.cy+size.length_mm/scale&&v.y1>=b.cy-size.length_mm/scale;
+  const r2=runs.filter(v=>reach(v)&&Math.abs(v.x-l.x-size.width_mm/hs)<=40/hs)[0],l2=runs.filter(v=>reach(v)&&Math.abs(r.x-v.x-size.width_mm/hs)<=40/hs)[0];
+  if(r2&&r2.x>b.x1)r=r2;else if(l2&&l2.x<b.x0)l=l2;
+ }
+ const w=(r.x-l.x)*hs;if(w<150||w>1300)return null;
+ const spans=h=>h.x0<=l.x+1&&h.x1>=r.x-1&&!dimensionLine(h,numbers);
+ const over=horiz.filter(h=>h.y<b.y0-.3&&spans(h)).sort((p,q)=>q.y-p.y)[0],under=horiz.filter(h=>h.y>b.y1+.3&&spans(h)).sort((p,q)=>p.y-q.y)[0];
+ // (a joint broken by small holes on it — openings for the beams of the roof drawn across it —: on through the gaps,
+ // up to where the other joint goes)
+ const chain=(v,lim,dirUp)=>{let y=dirUp?v.y0:v.y1;for(let k=0;k<40;k++){const n=runs.find(q=>Math.abs(q.x-v.x)<=.3&&(dirUp?q.y1<y-.1&&y-q.y1<=40&&q.y0<y:q.y0>y+.1&&q.y0-y<=40&&q.y1>y));
+   if(!n||(dirUp?n.y0<lim-.5:n.y1>lim+.5))break;y=dirUp?n.y0:n.y1}return y};
+ let l0=l.y0,r0=r.y0,l1=l.y1,r1=r.y1;
+ if(l0>r0+.8)l0=chain(l,r0,true);else if(r0>l0+.8)r0=chain(r,l0,true);
+ if(l1<r1-.8)l1=chain(l,r1,false);else if(r1<l1-.8)r1=chain(r,l1,false);
+ let tl=Math.max(l0,over?over.y:-Infinity),tr=Math.max(r0,over?over.y:-Infinity),bl=Math.min(l1,under?under.y:Infinity),br=Math.min(r1,under?under.y:Infinity);
+ // (under the slope of a roof: the top where the line of the roof crosses each joint — the piece over it is cut off on
+ // the site, «Обрезать по месту»)
+ const yAt=(s,x)=>s.ya+(s.yb-s.ya)*(x-s.x0)/(s.x1-s.x0);
+ const roof=slopes.filter(s=>s.x0<=l.x+1&&s.x1>=r.x-1&&yAt(s,(l.x+r.x)/2)<b.y0&&yAt(s,(l.x+r.x)/2)>Math.min(tl,tr)-.5).sort((p,q)=>yAt(q,(l.x+r.x)/2)-yAt(p,(l.x+r.x)/2))[0];
+ if(roof){tl=Math.max(tl,yAt(roof,l.x));tr=Math.max(tr,yAt(roof,r.x))}
+ let bottom=Math.max(bl,br),top=Math.min(tl,tr);
+ if(size?.length_mm&&Math.abs((bottom-Math.min(tl,tr))*scale-size.length_mm)>60&&Math.abs(tl-tr)<=.8){
+  const L=size.length_mm/scale,tol=60/scale,up=bottom-L,down=top+L;
+  if(Math.min(l0,r0)<=up+tol&&Math.max(l0,r0)<=bottom-L*.5){top=up;tl=tr=up}
+  else if(Math.max(l1,r1)>=down-tol){bottom=down}
+ }
+ if((bottom-top)*scale<250)return null;
+ return{l:l.x,r:r.x,top,bottom,...(Math.abs(tl-tr)>.8?{topCut:{l:tl,r:tr}}:{}),column:true}
+}
 function along(bubbles,dims,scale){
  const left=[0];
  for(let i=1;i<bubbles.length;i++){
@@ -267,6 +360,163 @@ const ownerOf=rows=>(x,y)=>{
 const axisRows=(texts,segments)=>bubbleRows(texts,segments).filter(r=>{const n=r.items.slice().sort((a,b)=>a.x-b.x).map(t=>String(t.str).trim().toUpperCase()),k=n.map(axisRank);
  return n.length>=2&&new Set(n).size===n.length&&new Set(n.map(numbered)).size===1&&(k.every((v,i)=>!i||v>k[i-1])||k.every((v,i)=>!i||v<k[i-1]))});
 
+// The title of a view of a layout: «Схема раскладки стеновых панелей по ряду 08» over it (the nearest above, nearest the
+// middle of its bubbles), and the row it names — the axis its wall stands on: «08» → «8», «Л».
+const VIEW_TITLE=/^Схем[аы]\s+раскладки\s+стенов/iu;
+function viewTitle(texts,row,top){
+ const mid=(row.x0+row.x1)/2,cost=t=>top-t.y+Math.abs(t.x+(t.width||0)/2-mid)*.5;
+ return texts.filter(t=>horizontalText(t)&&VIEW_TITLE.test(String(t.str).trim())&&t.y<top&&top-t.y<700&&t.x+(t.width||0)>row.x0-260&&t.x<row.x1+260).sort((a,b)=>cost(a)-cost(b))[0]||null
+}
+const titleRow=str=>{
+ const m=/по\s+ряду\s+([А-ЯЁ]|\d{1,3}(?:\/\d{1,2})?)\s*(?=[,.;]|\s+в\s|$)/iu.exec(String(str).replace(/\s+/g," ").trim());if(!m)return null;
+ const n=m[1].toUpperCase();return /^\d/.test(n)?n.replace(/^0+(?=\d)/,""):n
+};
+// Roofs of a layout by sketches (ИР-71535 АР ч.2 л.21, 22: «Схема раскладки кровельных панелей в осях 03-08 - Б-Л»): a
+// plan — its numbered axes in a row under it, its lettered ones in a column at its left; the panels in columns between
+// their joints and in bands between the lines across the whole roof (the eaves, the joints of the tiers — dashed —, the
+// ridge); a panel's label «Пк-6» stands over the lower line of its band. Its levels: «+21,750» at the eaves,
+// «~+26,800 отм. конька» at the ridge — each at the line across nearest its text. All in points of the sheet: the scheme
+// puts it on the grid by its bubbles.
+const ROOF_POS=/^Пк-\d{1,3}(?:\.\d{1,2})?$/u;
+function roofPlans({segments=[],texts=[]}={}){
+ const titles=texts.filter(t=>horizontalText(t)&&/^Схем[аы]\s+раскладки\s+кровельн/iu.test(String(t.str).trim()));
+ const labels=texts.filter(t=>horizontalText(t)&&ROOF_POS.test(String(t.str).trim()));
+ if(!titles.length||labels.length<4)return[];
+ const name=t=>String(t.str).trim().toUpperCase(),mid=t=>t.x+(t.width||0)/2;
+ const ringed=bubbleRows(texts,segments,1).flatMap(r=>r.items);
+ // (rows of numbered bubbles split where a name comes again or the order turns — two plans side by side; columns of
+ // lettered ones at one x)
+ // A row of one numbered bubble beside a lettered one (ИР-71535 л.21 «в осях К-03 - В-К»: «К» and «03» under a roof
+ // over the annex, «~10000» between them — the edge of the building beside it) is kept apart: its plan takes the place
+ // from that one axis and the scale of its lettered column, and says which bubble it did not use.
+ const rows=[],lone=[];
+ for(const r of bubbleRows(texts,segments,1)){let cur=[];
+  const nums=r.items.filter(q=>numbered(name(q)));
+  if(nums.length===1){lone.push(Object.assign([nums[0]],{mixed:r.items.filter(q=>!numbered(name(q))).map(name)}));continue}
+  const flush=()=>{if(cur.length>=2)rows.push(cur);cur=[]};
+  for(const t of r.items.filter(q=>numbered(name(q))).sort((a,b)=>a.x-b.x)){const k=cur.map(q=>axisRank(name(q))),way=k.length>=2?Math.sign(k[1]-k[0]):0;
+   if(cur.some(q=>name(q)===name(t))||way&&Math.sign(axisRank(name(t))-k[k.length-1])!==way)flush();cur.push(t)}
+  flush()}
+ const cols=[];for(const t of ringed.filter(q=>!numbered(name(q))).sort((a,b)=>a.y-b.y)){const g=cols.find(c=>Math.abs(mid(c[0])-mid(t))<=4&&!c.some(q=>name(q)===name(t)));if(g)g.push(t);else cols.push([t])}
+ const views=[],used=new Set();
+ for(const row of rows.sort((a,b)=>a[0].y-b[0].y)){
+  const x0=Math.min(...row.map(mid)),x1=Math.max(...row.map(mid)),y=row[0].y;
+  const col=cols.filter(c=>c.length>=2&&!used.has(c)&&mid(c[0])<x0&&Math.max(...c.map(q=>q.y))<y).sort((a,b)=>(x0-mid(a[0]))+(y-Math.max(...a.map(q=>q.y)))-((x0-mid(b[0]))+(y-Math.max(...b.map(q=>q.y)))))[0];
+  if(!col)continue;used.add(col);
+  const cx=mid(col[0]),y0=Math.min(...col.map(q=>q.y));
+  views.push({row,col,box:{x0:cx,x1:x1+150,y0:y0-150,y1:y}})
+ }
+ // (a row of one bubble: after the full ones, with a column left free, under a title of a roof plan of its own)
+ for(const row of lone.sort((a,b)=>a[0].y-b[0].y)){
+  const x0=mid(row[0]),y=row[0].y;
+  const col=cols.filter(c=>c.length>=2&&!used.has(c)&&mid(c[0])<x0&&x0-mid(c[0])<=900&&Math.max(...c.map(q=>q.y))<y).sort((a,b)=>(x0-mid(a[0]))-(x0-mid(b[0])))[0];
+  if(!col)continue;
+  const cx=mid(col[0]),y0=Math.min(...col.map(q=>q.y));
+  if(!titles.some(t=>{const b=textBox(t);return b.cy<y0&&y0-b.cy<=400&&b.x1>=cx-50&&b.x0<=x0+150}))continue;
+  used.add(col);views.push({row,col,mixed:row.mixed,box:{x0:cx,x1:x0+150,y0:y0-150,y1:y}})
+ }
+ if(!views.length)return[];
+ // (a label in two boxes: the smaller)
+ const area=b=>(b.x1-b.x0)*(b.y1-b.y0),inBox=(b,x,y)=>x>=b.x0&&x<=b.x1&&y>=b.y0&&y<=b.y1;
+ const own=new Map(views.map(v=>[v,[]]));
+ for(const t of labels){const b=textBox(t),v=views.filter(w=>inBox(w.box,b.cx,b.cy)).sort((p,q)=>area(p.box)-area(q.box))[0];if(v)own.get(v).push(t)}
+ // Lines along both ways (dashes too).
+ const H=[],V=[];
+ for(const s of segments){const dx=Math.abs(s.a.x-s.b.x),dy=Math.abs(s.a.y-s.b.y);
+  if(dx<=.3&&dy>=.8)V.push({x:(s.a.x+s.b.x)/2,y0:Math.min(s.a.y,s.b.y),y1:Math.max(s.a.y,s.b.y)});
+  else if(dy<=.3&&dx>=.8)H.push({y:(s.a.y+s.b.y)/2,x0:Math.min(s.a.x,s.b.x),x1:Math.max(s.a.x,s.b.x)})}
+ // Panels along the slope as drawn: columns of a plan whose panels run up and down the sheet (л.21), or — the sheet
+ // turned in thought (x for y) — strips running across it (л.22: the roofs of the annexes, panels from О8 to О10, the
+ // label at the end of each strip).
+ const ways=[false,true].map(flip=>{
+  const run=columnRuns((flip?H.map(h=>({x:h.y,y0:h.x0,y1:h.x1})):V).filter(v=>v.y1-v.y0>=4),20);
+  const cross=flip?V.map(v=>({y:v.x,x0:v.y0,x1:v.y1})):H;
+  return{flip,run,cross,box:t=>{const b=textBox(t);return flip?{x0:b.y0,x1:b.y1,y0:b.x0,y1:b.x1,cx:b.cy,cy:b.cx}:b}}
+ });
+ const out=[];
+ for(const v of views){
+  const list=own.get(v);if(list.length<4)continue;
+  let best=null;
+  for(const w of ways){
+   const bs=list.map(w.box),lx0=Math.min(...bs.map(b=>b.x0))-30,lx1=Math.max(...bs.map(b=>b.x1))+30,ly0=Math.min(...bs.map(b=>b.y0))-700,ly1=Math.max(...bs.map(b=>b.y1))+700;
+   // The lines across the roof: dashes and lines at one height covering most of the width of its labels.
+   const byY=new Map();for(const h of w.cross){if(h.x1<lx0||h.x0>lx1||h.y<ly0||h.y>ly1)continue;const k=Math.round(h.y*2);if(!byY.has(k))byY.set(k,[]);byY.get(k).push(h)}
+   const tiers=[];
+   for(const [k,hs] of byY){
+    const all=[...hs,...(byY.get(k-1)||[]),...(byY.get(k+1)||[])].map(h=>[Math.max(lx0,h.x0),Math.min(lx1,h.x1)]).filter(q=>q[1]>q[0]).sort((a,b)=>a[0]-b[0]);
+    let cov=0,at=lx0;for(const [a,b] of all){const c=Math.max(at,a);if(b>c)cov+=b-c;at=Math.max(at,b)}
+    if(cov>=(lx1-lx0)*.6&&!tiers.some(y=>Math.abs(y-k/2)<=.6))tiers.push(k/2)
+   }
+   tiers.sort((a,b)=>a-b);
+   // (a strip's label may stand off its start — the edge of a wall beside it, «Пк-15» 40 pt from it)
+   const panels=[],tol=w.flip?50:20;let lost=0;
+   for(const [i,t] of list.entries()){
+    const b=bs[i],cross=w.run.filter(q=>q.y0<=b.cy&&q.y1>=b.cy);
+    const l=cross.filter(q=>q.x<b.x0+.3).sort((p,q)=>q.x-p.x)[0],r=cross.filter(q=>q.x>b.x1-.3).sort((p,q)=>p.x-q.x)[0];
+    // (the line the label stands at, within tol of it; the band runs from it past the label to the next line)
+    const near=tiers.filter(y=>y>=b.y0-tol&&y<=b.y1+tol).sort((p,q)=>Math.min(Math.abs(p-b.y0),Math.abs(p-b.y1))-Math.min(Math.abs(q-b.y0),Math.abs(q-b.y1)))[0];
+    const far=near===undefined?undefined:near>=b.cy?tiers.filter(y=>y<b.y0-5).sort((p,q)=>q-p)[0]:tiers.filter(y=>y>b.y1+5).sort((p,q)=>p-q)[0];
+    if(!l||!r||far===undefined||r.x-l.x>120){lost++;continue}
+    const a0=Math.min(near,far),a1=Math.max(near,far);
+    panels.push({mark:String(t.str).trim(),...(w.flip?{x0:a0,x1:a1,y0:l.x,y1:r.x,dir:"x"}:{x0:l.x,x1:r.x,y0:a0,y1:a1,dir:"y"}),pt:{x:Math.round(textBox(t).cx),y:Math.round(textBox(t).cy)}})
+   }
+   if(!best||panels.length>best.panels.length)best={w,tiers,panels,lost}
+  }
+  if(!best.panels.length)continue;
+  // Levels at the line across nearest their text («~» — approximate — read as written).
+  const levels=[];
+  for(const t of texts){
+   // (a plan of strips writes its marks upright along its edges: the line nearest the text's foot)
+   const str=String(t.str).trim().replace(/^~\s*/,"");if(horizontalText(t)===best.w.flip||!/^[+\-−±]\d{1,2}[,.]\d{3}$/u.test(str))continue;
+   if(t.x<v.box.x0-150||t.x>v.box.x1+60||t.y<v.box.y0-100||t.y>v.box.y1)continue;
+   const mm=levelOf(str),c=best.w.flip?t.x:t.y;if(mm===null)continue;
+   const at=best.tiers.filter(y=>Math.abs(y-c)<=25).sort((p,q)=>Math.abs(p-c)-Math.abs(q-c))[0];if(at!==undefined)levels.push({mm,at,dir:best.w.flip?"x":"y"})
+  }
+  const title=titles.filter(q=>q.y<v.box.y0+150&&q.x+(q.width||0)>v.box.x0-100&&q.x<v.box.x1+100).sort((p,q)=>q.y-p.y)[0];
+  out.push({...(title?{title:String(title.str).replace(/\s+/g," ").trim()}:{}),xAxes:v.row.map(q=>({name:name(q),pt:Math.round(mid(q)*10)/10})),
+   yAxes:v.col.map(q=>({name:name(q),pt:Math.round((q.y-(q.size||8)*.36)*10)/10})),levels,panels:best.panels,unplaced:best.lost,...(v.mixed?.length?{mixed:v.mixed}:{})})
+ }
+ return out
+}
+// A level mark of a layout by sketches: its text on a shelf, a stem from the end of the shelf to the line it marks (the
+// arrow a filled triangle, no strokes) — down, or up («-0,250 Ур.з.», «+2,000» under «+2,020»). The mark's height is the
+// end of its stem; a mark without one keeps the offset common to the sheet.
+function stemLevels(levels,horiz,vert){
+ const offset=levelOffset(levels,horiz);
+ for(const l of levels){
+  const best=[];
+  for(const h of horiz){
+   if(h.x0>l.x+l.w*.5||h.x1<l.x+l.w*.5||h.y-l.y<-1||h.y-l.y>4)continue;
+   for(const v of vert){
+    if(v.x<h.x0-.5||v.x>h.x1+.5||v.y1-v.y0>45)continue;
+    const tip=Math.abs(v.y0-h.y)<=.4?v.y1:Math.abs(v.y1-h.y)<=.4?v.y0:null;
+    if(tip!==null)best.push({tip,d:Math.min(Math.abs(v.x-l.x),Math.abs(v.x-l.x-l.w))})
+   }
+  }
+  best.sort((p,q)=>p.d-q.d);
+  if(best.length&&best[0].d<=l.w+20){l.y=best[0].tip;l.tip=true}else l.y+=offset
+ }
+ return levels
+}
+// Rows of bubbles of a layout of panels by sketches (ИР-71535 АР ч.2 л.6): small views side by side at one height make
+// one row of bubbles («О8 О10 О8 О10 О10 О8» — the walls along Г, К and Л, two bubbles each) — split where a name comes
+// again, the kind changes or the order turns; a view may show two bubbles only. A bubble alone (a view of another
+// building, «по фасаду 3-1» on «3», «2В») keeps the labels over it from the view beside it, and makes no view.
+const viewRows=(texts,segments)=>{
+ const out=[],name=t=>String(t.str).trim().toUpperCase();
+ for(const r of bubbleRows(texts,segments,1)){
+  if(r.items.length===1){out.push({...r,lone:true});continue}
+  let cur=[];
+  const flush=()=>{if(cur.length)out.push({...r,items:cur,x0:cur[0].x,x1:cur[cur.length-1].x,x:(cur[0].x+cur[cur.length-1].x)/2,...(cur.length<2?{lone:true}:{})});cur=[]};
+  for(const t of r.items.slice().sort((a,b)=>a.x-b.x)){
+   const k=cur.map(c=>axisRank(name(c))),way=k.length>=2?Math.sign(k[1]-k[0]):0,rk=axisRank(name(t));
+   if(cur.some(c=>name(c)===name(t))||cur.length&&numbered(name(cur[0]))!==numbered(name(t))||way&&Math.sign(rk-k[k.length-1])!==way)flush();
+   cur.push(t)
+  }
+  flush()
+ }
+ return out
+};
 // Openings of a wall of panels: what no panel covers under a panel over it, column by column between the joints of
 // the panels, joined along the wall where they share their top and bottom; then cut down to its own sides, the lines
 // that start at its top and go down its height (pieces of panels beside it without a label are not the opening). Under
@@ -370,6 +620,11 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
  // sheet («ПД-3» is a sill board, not a panel).
  const kinds=new Set(spec.map(p=>p.kind));
  let labels=texts.filter(t=>{const m=horizontalText(t)&&POS.exec(String(t.str).trim());return m&&(/^П[НСКПВШ]$/u.test(m[1])||kinds.has(m[1]))&&!rowsOf.has(t)});
+ // Tables with sketches: labels «Пс-1», «Пс-7.1» as the positions are written; the roof's («Пк-6») are on its own plans.
+ // (a sheet of a layout without its table — the table is on the next sheet: the same labels)
+ if(spec.some(p=>p.sketch)||!labels.length){const wall=new Set(spec.filter(p=>p.sketch&&!p.roof).map(p=>p.pos)),roof=new Set(spec.filter(p=>p.roof).map(p=>p.pos));
+  const mixed=texts.filter(t=>{const s=String(t.str).trim(),m=horizontalText(t)&&SKETCH_POS.exec(s);return m&&!rowsOf.has(t)&&!roof.has(s)&&(wall.has(s)||/^П[НС]$/u.test(m[1].toUpperCase()))});
+  if(spec.some(p=>p.sketch)||mixed.length>=4)labels=mixed}
  // A layout by columns: its labels, upright or turned, as the positions of its table.
  if(spec.some(p=>p.layout)){
   // A position read whole on the facades at least twice whose row the OCR of the table lost («С704», «Р380»): its length
@@ -392,7 +647,8 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
  }
  const sizes=new Map();for(const p of spec){if(!sizes.has(p.pos))sizes.set(p.pos,[]);sizes.get(p.pos).push(p)}
  if(labels.length<4)return[];
- const rows=axisRows(texts,segments);if(!rows.length)return[];
+ const sketch=labels.some(t=>SKETCH_POS.test(String(t.str).trim())&&!POS.test(String(t.str).trim()));
+ const rows=sketch?viewRows(texts,segments):axisRows(texts,segments);if(!rows.length)return[];
  const owner=ownerOf(rows);
  const vert=[],horiz=[],slopes=[],ticks=[];
  for(const s of segments){
@@ -404,19 +660,30 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
   else if(dx>=3&&dy/dx<.35){const [p,q]=s.a.x<s.b.x?[s.a,s.b]:[s.b,s.a];slopes.push({x0:p.x,x1:q.x,ya:p.y,yb:q.y})}
  }
  const numbers=texts.filter(t=>/^\d{2,5}$/.test(String(t.str).trim()));
+ const runs=sketch?columnRuns(vert):[];
  const views=[],found=[];
  for(const row of rows){
+  if(row.lone)continue;
   const own=labels.filter(t=>{const b=textBox(t);return owner(b.cx,b.cy)===row});
   if(own.length<4)continue;
   const region=texts.filter(t=>{const b=textBox(t);return owner(b.cx,b.cy)===row});
   // (a number with a point and no sign is an area or a sum read by OCR — «37х1190= 44.030» —, not a level mark)
-  const levels=region.filter(t=>horizontalText(t)&&!/^\d{1,2}\.\d{3}$/.test(String(t.str).trim())).map(t=>({mm:levelOf(t.str),y:t.y,x:t.x,w:t.width||0})).filter(l=>l.mm!==null);
-  const offset=levelOffset(levels,horiz);levels.forEach(l=>{l.y+=offset});
+  const levels=region.filter(t=>horizontalText(t)&&!/^\d{1,2}\.\d{3}$/.test(String(t.str).trim())).map(t=>({mm:levelOf(t.str),y:t.y,x:t.x,w:t.width||0,s:t.size||0})).filter(l=>l.mm!==null);
+  // (a layout by sketches pairs its marks — «+2,020» over the shelf and «+2,000» under it, pointing up —: each at the
+  // point of its own arrow)
+  if(sketch)stemLevels(levels,horiz,vert);else{const offset=levelOffset(levels,horiz);levels.forEach(l=>{l.y+=offset})}
   found.push({row,own,region,levels,f:fit(levels)})
  }
  // Marks of openings drawn under their line («+7,450» under the head of a window) can make two scales agree as well:
  // the scale of the other views of the sheet decides (a facade is drawn at one scale both ways).
  const sure=found.filter(v=>v.f).map(v=>v.f.b).sort((x,y)=>x-y);
+ // (a layout by sketches draws all its views at one scale: a mark written wrong — «+15,205» over a wall the dimension
+ // gives 8820 high, ИР-71535 АР ч.2 л.6, ряд 08 в осях Н-Л — does not set a scale of its own)
+ if(sketch&&sure.length>=3){const m=sure[sure.length>>1];
+  for(const v of found)if(v.f&&Math.abs(v.f.b-m)>Math.abs(m)*.1){
+   // (at that scale, the height most marks agree on)
+   const as=v.levels.map(l=>l.mm-m*l.y);let best=null;for(const a of as){const n=as.filter(x=>Math.abs(x-a)<=60).length;if(!best||n>best.n)best={a,n}}
+   if(best&&best.n>=2)v.f={a:best.a,b:m}}}
  for(const v of found){
   const {row,own,region,levels}=v,f=v.f||(sure.length?fit(levels,sure[sure.length>>1]):null);if(!f)continue;
   const scale=Math.abs(f.b);
@@ -429,7 +696,8 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
    for(let i=1;i<bubbles.length;i++)for(const d of dims){const s=d/(bubbles[i].pt-bubbles[i-1].pt);if(!(s>0))continue;
     let n=0;for(let j=1;j<bubbles.length;j++){const raw=(bubbles[j].pt-bubbles[j-1].pt)*s;if(dims.some(q=>Math.abs(q-raw)<=raw*.01))n++}
     if(!best||n>best.n)best={s,n}}
-   return best&&best.n>=Math.max(2,(bubbles.length-1)/2)?best.s:scale})();
+   // (not another scale altogether: dimensions of the panels, «1000 1000», fit any two bubbles at a sixth of it)
+   return best&&best.n>=Math.max(2,(bubbles.length-1)/2)&&best.s>scale/1.5&&best.s<scale*1.5?best.s:scale})();
   const left=along(bubbles,dims,hs),total=left[left.length-1];
   const reversed=axisRank(bubbles[0].name)>axisRank(bubbles[bubbles.length-1].name);
   const canon=m=>reversed?total-m:m;
@@ -442,14 +710,19 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
     return kinds.some(q=>Math.abs(q.width_mm-w)<=40&&Math.abs(q.length_mm-h)<=40||Math.abs(q.length_mm-w)<=40&&Math.abs(q.width_mm-h)<=40)}:null;
    // Of the size first: drawn round it, by its sides, by its joints and the lines across it; then the nearest outline.
    const b=textBox(t),first=edgesAround(b,horiz,scale,slopes,sized);
-   const rect=(sized&&((first&&sized(first)?first:null)||sidesAround(b,horiz,vert,scale,sized,slopes)||sizedAround(b,vert,horiz,scale,kinds,numbers)))||
+   const rect=(sketch&&columnAround(b,runs,horiz,numbers,hs,scale,kinds?.[0]||null,slopes))||(sized&&((first&&sized(first)?first:null)||sidesAround(b,horiz,vert,scale,sized,slopes)||sizedAround(b,vert,horiz,scale,kinds,numbers)))||
     first||sidesAround(b,horiz,vert,scale,null,slopes)||jointsAround(b,vert,horiz,numbers,win);
    if(!rect)continue
    const u0=u(rect.l),u1=u(rect.r);
    // The cut of a panel under a slope: the heights of its lower edge at the ends, in the order along the wall.
    const cut=rect.cut?(u0<=u1?[z(rect.cut.l),z(rect.cut.r)]:[z(rect.cut.r),z(rect.cut.l)]):null;
-   panels.push({...(t.cands?{cands:t.cands}:{}),mark:String(t.str).trim(),u0:Math.min(u0,u1),u1:Math.max(u0,u1),z0:z(rect.bottom),z1:z(rect.top),...(cut?{cut}:{}),pt:{x:Math.round(b.cx),y:Math.round(b.cy)},rect})
+   // (the top under a slope: its heights at the ends, in the order along the wall)
+   const topCut=rect.topCut?(u0<=u1?[z(rect.topCut.l),z(rect.topCut.r)]:[z(rect.topCut.r),z(rect.topCut.l)]):null;
+   panels.push({...(t.cands?{cands:t.cands}:{}),mark:String(t.str).trim(),u0:Math.min(u0,u1),u1:Math.max(u0,u1),z0:z(rect.bottom),z1:z(rect.top),...(cut?{cut}:{}),...(topCut?{top:topCut}:{}),pt:{x:Math.round(b.cx),y:Math.round(b.cy)},rect})
   }
+  // (a layout by sketches: a label of another view over this row — «по фасаду 3-1» beside «по ряду К, в осях 01-03»,
+  // ИР-71535 АР ч.2 л.5 — lies off its axes, past the 3 m a wall runs on beyond its last axis)
+  if(sketch)for(let i=panels.length-1;i>=0;i--)if(panels[i].u1<-3000||panels[i].u0>total+3000)panels.splice(i,1);
   if(!panels.length)continue;
   // A panel of a layout by columns is as long as its position says (its height on the facade): a view drawn lower than
   // its length, with a break under the wall (ГПЭС ряд Ж: «+0,300» 47 pt under the foot), keeps the top as its level mark
@@ -490,7 +763,11 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
   const axes=bubbles.map((bb,i)=>({name:bb.name,mm:canon(left[i])})).sort((a,b)=>a.mm-b.mm);
   // A view under a title of a section («4-4») is a cut through the building (partitions, barriers), not a facade.
   const top=Math.min(...own.map(t=>t.y)),cut=texts.filter(t=>horizontalText(t)&&/^(\d{1,2}|[А-ЯЁ])\s*[-–—]\s*\1$/u.test(String(t.str).trim())&&t.y<top&&top-t.y<220&&t.x>=row.x0-260&&t.x<=row.x1+260).sort((a,b)=>b.y-a.y)[0];
+  // (its title: the row its wall stands on — «по ряду 08», «по ряду К, в осях 03-02»; «по фасаду 3-1», «в нише въезда»
+  // name none)
+  const title=viewTitle(texts,row,Math.min(...panels.map(p=>p.rect.top))),wallRow=title?titleRow(title.str):null;
   views.push({axes,numbered:numbered(bubbles[0].name),reversed,...(cut?{section:String(cut.str).replace(/\s+/g,"")}:{}),scaleMmPerPt:Math.round(scale*1000)/1000,
+   ...(title?{title:String(title.str).replace(/\s+/g," ").trim()}:{}),...(wallRow?{row:wallRow}:{}),
    bbox:{x0:row.x0-260,x1:row.x1+260,y1:row.y},levels:[...new Set(levels.map(l=>l.mm))].sort((a,b)=>a-b),
    ...(()=>{let openings=openingRects(panels,vert,horiz,scale,u,z,numbers,region,ticks);
     // (a layout's wall whose foot follows a slope — ГПЭС ряд Ж, +5,260 at the ends, +5,950 in the middle —: what lies under
@@ -499,6 +776,10 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
      const feet=[...col.values()],lo=Math.min(...feet);if(feet.filter(f=>f>lo+50).length>feet.length/2){const foot=z(Math.max(...panels.map(p=>p.rect.bottom)));openings=openings.filter(o=>o.z0>foot+5)}}
     return{panels:holesOf(panels.map(({rect,...p})=>p),openings),openings}})(),unplaced:own.length-panels.filter(p=>!p.byJoints).length})
  }
+ // A piece of a wall drawn on beyond its view (row 010: «М», «Н» a little lower than «А»…«Л», ИР-71535 АР ч.2 л.4) is
+ // of the view titled beside it, at the height of its bubbles, of the same kind and with axes of its own.
+ for(const v of views)if(!v.title){const o=views.find(w=>w!==v&&w.title&&w.numbered===v.numbered&&Math.abs(w.bbox.y1-v.bbox.y1)<=40&&!w.axes.some(a=>v.axes.some(b=>b.name===a.name)));
+  if(o){v.title=o.title;if(o.row)v.row=o.row}}
  return views
 }
 // Windows, doors and gates on the facades («ОК-1», «Д-7», «В-1» at each of them): every label with the rectangles
@@ -702,10 +983,10 @@ function sillSpec(texts){
 }
 function extractArchitecture(geometry){
  const texts=geometry?.texts||[];
- const spec=(()=>{const a=panelSpec(texts);return a.length?a:layoutSpec(texts)})(),fills=fillSpec(texts),views=panelViews(geometry||{},spec),facades=fillViews(geometry||{});
+ const spec=(()=>{const a=panelSpec(texts);if(a.length)return a;const s=sketchSpec(texts);return s.length?s:layoutSpec(texts)})(),fills=fillSpec(texts),views=panelViews(geometry||{},spec),facades=fillViews(geometry||{});
  if(fills.length)fillSketches(geometry||{},fills);
  const finish=facadeFinish(texts),sills=sillSpec(texts);
- const panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{})};
+ const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{})};
  return panels.length||fills.length||views.length||Object.keys(extra).length?{panels,fills,views,...extra}:null
 }
-module.exports={extractArchitecture,panelSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
+module.exports={extractArchitecture,roofPlans,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
