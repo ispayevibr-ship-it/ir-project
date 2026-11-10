@@ -10,10 +10,10 @@
     const cards=[...grid.querySelectorAll(".object-card")];
     const meta=cards.map(card=>({card,id:card.dataset.object,status:card.querySelector(".status")?.textContent.trim()||"В работе"}));
     const left=head.querySelector("div");
-    if(left){left.innerHTML='<div class="object-filter-tabs"><button class="object-filter active" data-filter="all">Все</button><button class="object-filter" data-filter="active">В работе</button><button class="object-filter" data-filter="done">Завершен</button></div><p class="object-count"></p>'}
+    if(left){left.innerHTML='<div class="object-filter-tabs"><button class="object-filter active" data-filter="all">Все</button><button class="object-filter" data-filter="prep">Подготовка</button><button class="object-filter" data-filter="active">В работе</button><button class="object-filter" data-filter="done">Завершен</button></div><p class="object-count"></p>'}
     const apply=filter=>{
       let shown=0;
-      meta.forEach(x=>{const visible=filter==="all"||(filter==="active"&&x.status!=="Завершен")||(filter==="done"&&x.status==="Завершен");x.card.hidden=!visible;if(visible)shown++});
+      meta.forEach(x=>{const visible=filter==="all"||(filter==="prep"&&x.status==="Подготовка")||(filter==="active"&&x.status!=="Завершен"&&x.status!=="Подготовка")||(filter==="done"&&x.status==="Завершен");x.card.hidden=!visible;if(visible)shown++});
       head.querySelectorAll(".object-filter").forEach(b=>b.classList.toggle("active",b.dataset.filter===filter));
       const count=head.querySelector(".object-count");if(count)count.textContent=`Показано объектов: ${shown}`;
     };

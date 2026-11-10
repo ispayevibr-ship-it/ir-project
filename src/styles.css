@@ -187,3 +187,4 @@ html,body{margin:0;min-height:100%;font-family:Inter,"Segoe UI",Arial,sans-serif
 .ir-about-done{min-height:37px;padding:9px 22px;border:0;border-radius:8px;background:#176fcb;color:#fff;font-size:12px;font-weight:750;cursor:pointer}
 .ir-about-done:hover{background:#105dab}
 .ir-about-dialog button:focus-visible{outline:2px solid #3186d8;outline-offset:2px}
+.status.prep i{background:#e3a21a}

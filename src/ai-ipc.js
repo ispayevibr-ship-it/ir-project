@@ -233,6 +233,10 @@ accountCall("open-site",({path}={})=>{const p=path==="/_/"?"/_/":"/";return shel
  const syncCall=(name,fn)=>accountCall("sync-"+name,v=>{if(!sync)throw Error("Синхронизация недоступна в этой версии программы — нужен установщик");return fn(v)});
  syncCall("info",()=>sync.info());syncCall("enable",()=>sync.enable());syncCall("disable",()=>sync.disable());
  syncCall("upload",()=>sync.uploadAll());syncCall("now",async()=>{await sync.cycle({force:true});return sync.info()});
+ // Статус объекта «Подготовка» (просьба инженера 10.11.2026) — в проверку таблицы objects базы (src/object-statuses.js).
+ const objectStatuses=()=>{try{return require("./object-statuses").ensure(require("node:path").join(getUserDataPath(),"ir-project.db"))}catch(e){console.error("IR object statuses:",e);return{statuses:["В работе","Завершен"],error:String(e?.message||e)}}};
+ let statusesNow=objectStatuses();
+ handle("ai-settings:objects-statuses",()=>{if(statusesNow.error||statusesNow.migrated)statusesNow=objectStatuses();return statusesNow});
  handle("ai-settings:mail-info",()=>mail.info());
  handle("ai-settings:mail-set",(_e,v={})=>mail.set(v));
  handle("ai-settings:mail-clear",()=>mail.clear());
