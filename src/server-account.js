@@ -44,6 +44,36 @@ function generatePassword(n=14){
  }
 }
 
+// The letters to a person: the default text (neutral, the administrator changes it in the panel → «Шаблон письма»).
+const LETTER_FIELDS=[["имя","имя человека (пусто, если не указано)"],["почта","почта — логин"],["пароль","пароль — обязательно"],
+ ["роль","роль в программе"],["объекты","список объектов и разделов"],["сайт","адрес сервера компании"],["администратор","кто выдал доступ"]];
+const LETTERS={
+ invite:{subject:"IR Project: доступ в программу",text:["Здравствуйте, {имя}!","","Вам открыт доступ в программу IR Project. Доступ выдал администратор {администратор}.","",
+  "Логин: {почта}","Пароль: {пароль}","Роль: {роль}","","Доступ:","{объекты}","",
+  "Как войти: откройте IR Project, нажмите на профиль вверху справа → «Войти», введите почту и пароль.",
+  "Пароль можно сменить там же: профиль → «Сменить пароль».","","Это письмо отправлено программой IR Project. Не пересылайте его — в нём ваш пароль."].join("\n")},
+ again:{subject:"IR Project: новый пароль",text:["Здравствуйте, {имя}!","","Вам выдан новый пароль для входа в программу IR Project.","",
+  "Логин: {почта}","Пароль: {пароль}","Роль: {роль}","",
+  "Как войти: откройте IR Project, нажмите на профиль вверху справа → «Войти», введите почту и пароль.",
+  "Пароль можно сменить там же: профиль → «Сменить пароль».","","Это письмо отправлено программой IR Project. Не пересылайте его — в нём ваш пароль."].join("\n")}
+};
+// Fills {поле}; an empty field takes away what is left hanging: «Здравствуйте, !» → «Здравствуйте!», a line «Доступ:» before an
+// empty list, a sentence about an empty administrator.
+function fill(t,v){
+ const E="\u0000",lines=String(t||"").replace(/\{([а-яё]+)\}/gi,(m,k)=>{k=k.toLowerCase();
+  return Object.prototype.hasOwnProperty.call(v,k)?(String(v[k]??"").trim()||E):m}).split("\n");
+ const out=[];
+ for(let i=0;i<lines.length;i++){
+  let l=lines[i].replace(new RegExp(",\\s*"+E+"(?=\\s*[!.?,])","g"),"");
+  if(l.includes(E)){
+   if(!l.replace(new RegExp(E,"g"),"").trim()){if(out.length&&/:\s*$/.test(out[out.length-1]))out.pop();continue}
+   l=l.replace(new RegExp("[^.!?]*"+E+"[^.!?]*[.!?]?\\s*","g"),"").trimEnd();if(!l.trim())continue
+  }
+  out.push(l)
+ }
+ return out.join("\n").replace(/\n{3,}/g,"\n\n").trim()
+}
+
 // The server's answer in words the engineer understands.
 function explain(status,body,fallback){
  const fields=body&&body.data&&typeof body.data==="object"?body.data:{};
@@ -213,18 +243,42 @@ function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects,app
    const what=g.whole!==false&&!(g.sections||[]).length?"весь объект":SECTIONS.filter(s=>(g.sections||[]).includes(s.key)).map(s=>s.name).join(", ");
    return"• "+name+" — "+what+(g.canEdit?" (просмотр и изменение)":" (только просмотр)")}).join("\n")
  };
- async function letter({email,name,role,password,grants,again}){
-  const from=load().user;
-  const text=[
-   (name?"Здравствуйте, "+name+"!":"Здравствуйте!"),"",
-   again?"Вам выдан новый пароль для входа в программу IR Project.":"Вам открыт доступ в программу IR Project (ТОО «А-Темир Строй»)"+(from?.name?", доступ выдал администратор "+from.name:"")+".","",
-   "Логин: "+email,"Пароль: "+password,"Роль: "+(ROLES[role]||ROLES.guest),"",
-   ...(grants&&grants.length?["Доступ:",objectNames(grants),""]:[]),
-   "Как войти: откройте IR Project, нажмите на профиль вверху справа → «Войти», введите почту и пароль.",
-   "Пароль можно сменить там же: профиль → «Сменить пароль».","",
-   "Это письмо отправлено программой IR Project. Не пересылайте его — в нём ваш пароль."].join("\n");
-  try{await mail.send({to:email,subject:again?"IR Project: новый пароль":"IR Project: доступ в программу",text,noCopy:true});return{mailed:true}}
+ // The letter is the administrator's own template (the engineer, 10.11.2026 «письмо инженеру шаблон где поменять? сделай
+ // возможность редактирования»): kept on this computer in server-account.json, fields in braces are filled for each person.
+ async function letter({email,name,role,password,grants,again,to}){
+  const from=load().user,t=template()[again?"again":"invite"];
+  const v={"имя":name||"","почта":email,"пароль":password,"роль":ROLES[role]||ROLES.guest,"сайт":server(),
+   "объекты":grants&&grants.length?objectNames(grants):"","администратор":from?.name||from?.email||""};
+  try{await mail.send({to:to||email,subject:fill(t.subject,v),text:fill(t.text,v),noCopy:true});return{mailed:true}}
   catch(e){return{mailed:false,mailError:String(e?.message||e)}}
+ }
+ const template=()=>{const own=load().letters||{};const out={};
+  for(const k of Object.keys(LETTERS))out[k]={subject:own[k]?.subject||LETTERS[k].subject,text:own[k]?.text||LETTERS[k].text,own:Boolean(own[k])};
+  return out};
+ function letterTemplate(){requireAdmin();return{templates:template(),defaults:LETTERS,fields:LETTER_FIELDS}}
+ function setLetterTemplate({kind,subject,text,reset}={}){
+  requireAdmin();if(!LETTERS[kind])throw Error("Неизвестное письмо");
+  const d=load(),own={...(d.letters||{})};
+  if(reset)delete own[kind];
+  else{
+   subject=String(subject||"").trim().slice(0,300);text=String(text||"").replace(/\r\n/g,"\n").trim().slice(0,20000);
+   if(!subject)throw Error("Впишите тему письма");
+   for(const f of["почта","пароль"])if(!text.includes("{"+f+"}"))throw Error("В тексте нужно поле {"+f+"} — без него человек не узнает, как войти");
+   own[kind]={subject,text}
+  }
+  store({...d,letters:own});return letterTemplate()
+ }
+ function previewLetter({kind,subject,text}={}){
+  const t=template()[kind]||template().invite,from=load().user;
+  const v={"имя":"Иванов Иван","почта":"name@site.kz","пароль":"Пример7Пароль","роль":ROLES.pto,"сайт":server(),
+   "объекты":"• Объект для примера — весь объект (просмотр и изменение)","администратор":from?.name||from?.email||""};
+  return{subject:fill(subject??t.subject,v),text:fill(text??t.text,v)}
+ }
+ async function testLetter({kind,subject,text}={}){
+  requireAdmin();const me=load().user;if(!me?.email)throw Error("Войдите в программу");
+  const p=previewLetter({kind,subject,text});
+  try{await mail.send({to:me.email,subject:"Проверка: "+p.subject,text:p.text,noCopy:true});return{mailed:true,to:me.email}}
+  catch(e){throw Error("Письмо не ушло: "+String(e?.message||e))}
  }
  async function invite({email,name,role,grants}={}){
   requireAdmin();
@@ -256,7 +310,7 @@ function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects,app
   requireAdmin();if(!id)throw Error("Не выбран человек");if(id===load().user?.id)throw Error("Себя удалить нельзя");
   await api(`/api/collections/users/records/${id}`,{method:"DELETE"});return{ok:true}
  }
- return{info,login,refresh,logout,changePassword,setName,people,invite,update,resetPassword,remove,heartbeat,isAdmin,api}
+ return{info,login,refresh,logout,changePassword,setName,people,invite,update,resetPassword,remove,heartbeat,isAdmin,api,letterTemplate,setLetterTemplate,previewLetter,testLetter}
 }
 
-module.exports={createServerAccount,generatePassword,explain,SECTIONS,ROLES,SERVER};
+module.exports={createServerAccount,generatePassword,explain,fill,LETTERS,SECTIONS,ROLES,SERVER};

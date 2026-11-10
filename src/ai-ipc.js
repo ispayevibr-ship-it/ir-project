@@ -218,7 +218,7 @@ handle("ai-montage:journal-add",(_e,{objectId,elementId,comment,objectName,actio
  accountCall("info",()=>account.info());accountCall("login",v=>account.login(v));accountCall("refresh",()=>account.refresh());
  accountCall("logout",()=>account.logout());accountCall("password",v=>account.changePassword(v));accountCall("name",v=>account.setName(v));
  accountCall("people",()=>account.people());accountCall("invite",v=>account.invite(v));accountCall("update",v=>account.update(v));
- accountCall("reset",v=>account.resetPassword(v));accountCall("remove",v=>account.remove(v));
+ accountCall("reset",v=>account.resetPassword(v));accountCall("letter-get",()=>account.letterTemplate());accountCall("letter-set",v=>account.setLetterTemplate(v));accountCall("letter-preview",v=>account.previewLetter(v));accountCall("letter-test",v=>account.testLetter(v));accountCall("remove",v=>account.remove(v));
  accountCall("objects",()=>database.listObjects().map(o=>({id:o.id,name:o.name,status:o.status})));
 accountCall("ping",async()=>{const t=Date.now();await account.api("/api/health",{auth:false});return{ok:true,ms:Date.now()-t}});
 accountCall("open-site",({path}={})=>{const p=path==="/_/"?"/_/":"/";return shell.openExternal("https://a-ts.kz"+p)});

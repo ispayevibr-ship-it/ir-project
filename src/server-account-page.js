@@ -53,7 +53,8 @@
 .ir-acc-tools{display:flex;gap:8px;align-items:center}.ir-acc-tools .grow{flex:1}
 .ir-acc-st:empty{display:none}
 .ir-acc-bar-p{height:8px;border-radius:5px;background:#dfe8f0;overflow:hidden}.ir-acc-bar-p i{display:block;height:100%;width:0;background:#176dc1;border-radius:5px;transition:width .4s}
-.ir-acc-site[open]{display:flex;flex-direction:column;overflow:hidden}.ir-acc-site>*{flex:none}.ir-acc-site .ir-acc-body{flex:1 1 auto;min-height:0;overflow:auto}
+.ir-acc-site[open],.ir-acc-scroll[open]{display:flex;flex-direction:column;overflow:hidden}.ir-acc-site>*,.ir-acc-scroll>*{flex:none}.ir-acc-site .ir-acc-body{flex:1 1 auto;min-height:0;overflow:auto}
+.ir-acc-scroll>form{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}.ir-acc-scroll form>.ir-acc-body{flex:1 1 auto;min-height:0;overflow:auto}.ir-acc-scroll form>.ir-acc-foot{flex:none}
 .ir-acc-card{display:grid;gap:6px;padding:12px 14px;border:1px solid #dbe5ee;border-radius:10px;background:#fff}
 .ir-acc-line{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;line-height:19px}.ir-acc-line b{flex:none;min-width:122px}
 .ir-acc-line i{flex:none;width:9px;height:9px;margin-top:5px;border-radius:50%;background:#aab8c4}
@@ -99,6 +100,15 @@
 .ir-acc-menu button.danger{color:#b4321f}
 .ir-acc-note{font-size:12.5px;color:#4d6a80;line-height:1.45}
 .ir-acc-bar{position:fixed;z-index:9999;left:50%;bottom:18px;transform:translateX(-50%);display:flex;gap:10px;align-items:center;padding:10px 12px 10px 16px;border-radius:12px;background:#fff;border:1px solid #c9d8e4;box-shadow:0 12px 32px rgba(8,28,48,.22);font:13px/1.4 "Segoe UI",system-ui,Arial,sans-serif;color:#1d3247}
+.ir-acc-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.ir-acc-letter textarea{box-sizing:border-box;width:100%;min-height:160px;padding:9px 11px;border:1px solid #c9d8e4;border-radius:8px;background:#fff;color:#1d3247;font:13px/1.5 "Segoe UI",system-ui,Arial,sans-serif;resize:vertical}
+.ir-acc-fields{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px;color:#4d6a80}
+.ir-acc-chip{height:26px;padding:0 9px;border:1px solid #c9d8e4;border-radius:13px;background:#fff;color:#1d4f75;font:12px/1 "Segoe UI",system-ui,Arial,sans-serif;cursor:pointer}
+.ir-acc-chip:hover{background:#e8f1fa;border-color:#8fb8dc}
+.ir-acc-prev{border:1px solid #d9e4ee;border-radius:10px;background:#fff;padding:8px 12px}
+.ir-acc-prev summary{cursor:pointer;font-weight:650;color:#1d4f75}
+.ir-acc-prev-s{margin-top:8px;font-weight:650}
+.ir-acc-prev pre{margin:6px 0 0;white-space:pre-wrap;font:13px/1.5 "Segoe UI",system-ui,Arial,sans-serif;color:#1d3247}
 @media (max-width:640px){.ir-acc-row{grid-template-columns:1fr}.ir-acc-person{grid-template-columns:1fr}.ir-acc-person .acts{justify-content:flex-start}}`;
  const style=doc=>{if(!doc.getElementById(STYLE_ID)){const s=doc.createElement("style");s.id=STYLE_ID;s.textContent=CSS;doc.head.appendChild(s)}};
  const dialog=(doc,cls,html)=>{style(doc);const d=doc.createElement("dialog");d.className="ir-acc "+(cls||"");d.innerHTML=html;doc.body.appendChild(d);d.showModal();
@@ -193,7 +203,7 @@
   if(!st0?.signedIn){if(await login(doc))return panel(doc);return}
   if(st0.user.role!=="admin"){alert("Панель администратора — только для администратора.");return}
   const d=dialog(doc,"wide",head("Панель администратора","Кто входит в программу и что видит. Сервер проверяет права сам: человек получает только свои объекты и разделы.")+
-   `<div class="ir-acc-body"><div data-mail></div><div class="ir-acc-tools"><button type="button" class="ir-acc-btn main" data-add><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Дать доступ инженеру</span></button><span class="grow"></span><span class="ir-acc-count" data-count></span><button type="button" class="ir-acc-btn" data-reload>Обновить</button></div>
+   `<div class="ir-acc-body"><div data-mail></div><div class="ir-acc-tools"><button type="button" class="ir-acc-btn main" data-add><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Дать доступ инженеру</span></button><button type="button" class="ir-acc-btn" data-letter title="Текст письма, которое получает человек">Шаблон письма</button><span class="grow"></span><span class="ir-acc-count" data-count></span><button type="button" class="ir-acc-btn" data-reload>Обновить</button></div>
    <div class="ir-acc-st" data-st>Загружаем…</div><div class="ir-acc-people" data-list></div></div>
    <div class="ir-acc-foot"><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Закрыть</button></div>`);
   const st=d.querySelector("[data-st]"),list=d.querySelector("[data-list]");
@@ -222,11 +232,47 @@
    catch(e){st.className="ir-acc-st err";st.textContent=errText(e)}
   };
   d.querySelector("[data-reload]").onclick=load;
+  d.querySelector("[data-letter]").onclick=()=>letterEditor(d);
   // after the letter — back in the panel, the result above the list
   d.querySelector("[data-add]").onclick=()=>editor(d,{objects}).then(r=>{if(!r)return;load().then(()=>{if(r.note){st.className="ir-acc-st ok";st.textContent=r.note}})});
   // who is in the program — renewed every minute while the panel is open
   const timer=setInterval(()=>{if(!d.open){clearInterval(timer);return}if(d.ownerDocument.querySelectorAll("dialog.ir-acc[open]").length===1)void load()},60e3);
   mailNote();load()
+ }
+
+ // The letter's template (the engineer, 10.11.2026 «письмо инженеру шаблон где поменять? сделай возможность
+ // редактирования»): two letters — access given and a new password; fields in braces, preview, test to oneself, default.
+ async function letterEditor(parent){
+  let data;try{data=await call("ai-settings:server-letter-get")}catch(e){alert(errText(e));return}
+  const NAMES={invite:"Доступ в программу",again:"Новый пароль"};
+  const d=dialog(parent.ownerDocument,"wide ir-acc-scroll",head("Шаблон письма","Письмо, которое человек получает, когда вы даёте доступ или новый пароль. Слова в фигурных скобках программа заменит сама.")+
+   `<form><div class="ir-acc-body ir-acc-letter">
+    <div class="ir-acc-tabs">${Object.keys(NAMES).map((k,i)=>`<button type="button" class="ir-acc-btn small${i?"":" main"}" data-kind="${k}">${NAMES[k]}</button>`).join("")}</div>
+    <label>Тема<input name="subject" maxlength="300"></label>
+    <label>Текст<textarea name="text" rows="10" spellcheck="true"></textarea></label>
+    <div class="ir-acc-fields">Вставить: ${data.fields.map(([k,t])=>`<button type="button" class="ir-acc-chip" data-field="${esc(k)}" title="${esc(t)}">{${esc(k)}}</button>`).join("")}</div>
+    <div class="ir-acc-note">{пароль} и {почта} обязательны. Пустое поле убирается вместе со своей фразой: без имени — «Здравствуйте!».</div>
+    <details class="ir-acc-prev" open><summary>Предпросмотр</summary><div class="ir-acc-prev-s" data-ps></div><pre data-pt></pre></details>
+    <div class="ir-acc-st" data-st></div></div>
+   <div class="ir-acc-foot"><button type="button" class="ir-acc-btn link" data-def>Сбросить по умолчанию</button><span class="grow"></span><button type="button" class="ir-acc-btn" data-test>Отправить тест себе</button><button type="button" class="ir-acc-btn" data-close>Закрыть</button><button type="submit" class="ir-acc-btn main" data-go>Сохранить</button></div></form>`);
+  const f=d.querySelector("form"),st=d.querySelector("[data-st]");let kind="invite";
+  const draft={};
+  const show=()=>{const t=draft[kind]||data.templates[kind];f.subject.value=t.subject;f.text.value=t.text;
+   d.querySelectorAll("[data-kind]").forEach(b=>b.classList.toggle("main",b.dataset.kind===kind));preview()};
+  const keep=()=>{draft[kind]={subject:f.subject.value,text:f.text.value}};
+  let pt=0;const preview=()=>{clearTimeout(pt);pt=setTimeout(async()=>{try{const p=await call("ai-settings:server-letter-preview",{kind,subject:f.subject.value,text:f.text.value});
+   d.querySelector("[data-ps]").textContent="Тема: "+p.subject;d.querySelector("[data-pt]").textContent=p.text}catch{}},250)};
+  f.subject.oninput=f.text.oninput=()=>{keep();preview()};
+  d.querySelectorAll("[data-kind]").forEach(b=>b.onclick=()=>{keep();kind=b.dataset.kind;st.textContent="";show()});
+  d.querySelectorAll("[data-field]").forEach(b=>b.onclick=()=>{const ta=f.text,v="{"+b.dataset.field+"}",a=ta.selectionStart??ta.value.length,z=ta.selectionEnd??a;
+   ta.value=ta.value.slice(0,a)+v+ta.value.slice(z);ta.focus();ta.selectionStart=ta.selectionEnd=a+v.length;keep();preview()});
+  const ok=t=>{st.className="ir-acc-st ok";st.textContent=t},bad=e=>{st.className="ir-acc-st err";st.textContent=errText(e)};
+  f.onsubmit=async ev=>{ev.preventDefault();try{data=await call("ai-settings:server-letter-set",{kind,subject:f.subject.value,text:f.text.value});delete draft[kind];show();ok("Сохранено. Следующие письма «"+NAMES[kind]+"» уйдут с этим текстом.")}catch(e){bad(e)}};
+  d.querySelector("[data-def]").onclick=async()=>{if(!confirm("Вернуть стандартный текст письма «"+NAMES[kind]+"»?"))return;
+   try{data=await call("ai-settings:server-letter-set",{kind,reset:true});delete draft[kind];show();ok("Вернули стандартный текст.")}catch(e){bad(e)}};
+  d.querySelector("[data-test]").onclick=async()=>{st.className="ir-acc-st";st.textContent="Отправляем…";
+   try{const r=await call("ai-settings:server-letter-test",{kind,subject:f.subject.value,text:f.text.value});ok("Проверочное письмо отправлено на "+r.to+" (с примером вместо настоящих данных).")}catch(e){bad(e)}};
+  show();f.text.focus()
  }
  // The password is shown only when the letter could not go — once, to be passed on by the administrator himself.
  function shown(parent,email,password,why){
