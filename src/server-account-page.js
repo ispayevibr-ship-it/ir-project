@@ -109,6 +109,14 @@
 .ir-acc-prev summary{cursor:pointer;font-weight:650;color:#1d4f75}
 .ir-acc-prev-s{margin-top:8px;font-weight:650}
 .ir-acc-prev pre{margin:6px 0 0;white-space:pre-wrap;font:13px/1.5 "Segoe UI",system-ui,Arial,sans-serif;color:#1d3247}
+.ir-acc-site-list{display:grid;gap:6px}
+.ir-acc-site-obj{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 12px;border:1px solid #d9e4ee;border-radius:10px;background:#fff;cursor:pointer}
+.ir-acc-site-obj.on{border-color:#8fb8dc;background:#f7fbff}
+.ir-acc-site-obj input{width:16px;height:16px;margin:0}
+.ir-acc-site-obj b{display:block;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ir-acc-site-obj small{display:block;color:#5b7a92;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ir-acc-site-tag{padding:1px 8px;border-radius:20px;background:#eef2f5;color:#5b6b78;font-size:10.5px;font-weight:700;white-space:nowrap}
+.ir-acc-site-tag.on{background:#e3f4ea;color:#1f7a4c}
 @media (max-width:640px){.ir-acc-row{grid-template-columns:1fr}.ir-acc-person{grid-template-columns:1fr}.ir-acc-person .acts{justify-content:flex-start}}`;
  const style=doc=>{if(!doc.getElementById(STYLE_ID)){const s=doc.createElement("style");s.id=STYLE_ID;s.textContent=CSS;doc.head.appendChild(s)}};
  const dialog=(doc,cls,html)=>{style(doc);const d=doc.createElement("dialog");d.className="ir-acc "+(cls||"");d.innerHTML=html;doc.body.appendChild(d);d.showModal();
@@ -203,7 +211,7 @@
   if(!st0?.signedIn){if(await login(doc))return panel(doc);return}
   if(st0.user.role!=="admin"){alert("Панель администратора — только для администратора.");return}
   const d=dialog(doc,"wide",head("Панель администратора","Кто входит в программу и что видит. Сервер проверяет права сам: человек получает только свои объекты и разделы.")+
-   `<div class="ir-acc-body"><div data-mail></div><div class="ir-acc-tools"><button type="button" class="ir-acc-btn main" data-add><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Дать доступ инженеру</span></button><button type="button" class="ir-acc-btn" data-letter title="Текст письма, которое получает человек">Шаблон письма</button><span class="grow"></span><span class="ir-acc-count" data-count></span><button type="button" class="ir-acc-btn" data-reload>Обновить</button></div>
+   `<div class="ir-acc-body"><div data-mail></div><div class="ir-acc-tools"><button type="button" class="ir-acc-btn main" data-add><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Дать доступ инженеру</span></button><button type="button" class="ir-acc-btn" data-letter title="Текст письма, которое получает человек">Шаблон письма</button><button type="button" class="ir-acc-btn" data-site title="Какие объекты показывает сайт компании">Объекты на сайте</button><span class="grow"></span><span class="ir-acc-count" data-count></span><button type="button" class="ir-acc-btn" data-reload>Обновить</button></div>
    <div class="ir-acc-st" data-st>Загружаем…</div><div class="ir-acc-people" data-list></div></div>
    <div class="ir-acc-foot"><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Закрыть</button></div>`);
   const st=d.querySelector("[data-st]"),list=d.querySelector("[data-list]");
@@ -233,6 +241,7 @@
   };
   d.querySelector("[data-reload]").onclick=load;
   d.querySelector("[data-letter]").onclick=()=>letterEditor(d);
+  d.querySelector("[data-site]").onclick=()=>siteObjects(d);
   // after the letter — back in the panel, the result above the list
   d.querySelector("[data-add]").onclick=()=>editor(d,{objects}).then(r=>{if(!r)return;load().then(()=>{if(r.note){st.className="ir-acc-st ok";st.textContent=r.note}})});
   // who is in the program — renewed every minute while the panel is open
@@ -273,6 +282,84 @@
   d.querySelector("[data-test]").onclick=async()=>{st.className="ir-acc-st";st.textContent="Отправляем…";
    try{const r=await call("ai-settings:server-letter-test",{kind,subject:f.subject.value,text:f.text.value});ok("Проверочное письмо отправлено на "+r.to+" (с примером вместо настоящих данных).")}catch(e){bad(e)}};
   show();f.text.focus()
+ }
+ // ---- Объекты на сайте a-ts.kz (the engineer, 10.11.2026 «в панели администратора сделаем отправить на сайт объекты
+ // (я выбираю какие), и на сайте вся информация автоматически обновляется (общий тоннаж смонтированный фирмой, общий
+ // объем и тд)»). The object as the program shows it → main process (src/site-objects.js) → the server → the site.
+ const sarr=v=>Array.isArray(v)?v:[];
+ const snum=v=>{const n=Number(String(v??"").trim().replace(/\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};
+ const snorm=v=>String(v??"").trim().toLowerCase().replace(/\s+/g," ");
+ // the same counts as the object's overview (object-overview-top-stats.js): mounted — by the daily reports, the plan —
+ // by the marks list or the planned volume of the work type
+ const markTotal=x=>{const d=x?.data||x||{},raw=d.total_value??d.total_volume;if(raw!==undefined&&raw!==null&&String(raw).trim()!=="")return snum(raw);return snum(d.qty??d.count)*snum(d.unit_volume??d.volume_one)};
+ const reportVolume=w=>{const raw=w?.volume??w?.total_volume,q=snum(w?.qty??w?.count??w?.quantity),hasMark=Boolean(String(w?.mark_id||w?.mark||"").trim());if(raw!==undefined&&raw!==null&&String(raw).trim()!==""){const v=snum(raw);return v||(!hasMark?q:0)}const uv=snum(w?.unit_volume??w?.volume_one);return uv?q*uv:(!hasMark?q:0)};
+ async function siteObjectData(o,sort){
+  const sec=k=>irProject.data.forObject(o.id).section(k).list().catch(()=>[]);
+  const [meta,photos,archive,workTypes,marks,reports]=await Promise.all(["object-meta","photos","archive","work-types","marks","reports"].map(sec));
+  const pic=t=>{const d=photos.find(x=>x.record_type===t||x.data?.photo_type===t)?.data;return String(d?.file_path||d?.file||"")};
+  const cover=pic("cover"),banner=pic("banner");
+  // the years as the card shows them (year of start and of end — archive-objects.js), else the text of the years
+  const yy=t=>(String(meta.find(r=>r.record_type===t)?.data?.value||"").match(/\d{4}/g)||[]);
+  let [ys]=yy("object_year_start"),[ye]=yy("object_year_end");if(!ys&&!ye){const all=yy("object_years");ys=all[0];ye=all.length>1?all[all.length-1]:""}
+  let years=ys&&ye&&ys!==ye?ys+"–"+ye:ys||ye||"",works=[],gallery=[];
+  if(meta.some(r=>r.record_type==="object_kind"&&r.data?.value==="archive")){
+   works=archive.filter(r=>r.record_type==="work").sort((a,b)=>(snum(a.data?.order)-snum(b.data?.order))||Number(a.id)-Number(b.id))
+    .map(r=>{const d=r.data||{};return{name:d.name||r.title||"",unit:d.unit||"",volume:snum(d.volume),plan:snum(d.volume),note:d.note||""}});
+   gallery=archive.filter(r=>r.record_type==="photo").sort((a,b)=>Number(a.id)-Number(b.id)).map(r=>String(r.data?.file_path||""))
+  }else{
+   const facts=new Map(),plans=new Map(),dates=[];
+   for(const r of marks){const id=String(r.data?.work_type_id||"");if(id)plans.set(id,(plans.get(id)||0)+markTotal(r))}
+   for(const raw of reports){const d=raw.data||{},date=String(d.date||d.report_date||"").slice(0,10);if(/^\d{4}/.test(date))dates.push(date);
+    for(const w of sarr(d.items).length?d.items:sarr(d.works)){const id=String(w.work_type_id||"");if(!id||w.accounting_type==="service"||w.is_service===true||snorm(w.unit)==="услуга")continue;
+     const v=reportVolume(w);if(v>0)facts.set(id,(facts.get(id)||0)+v)}}
+   works=workTypes.map(r=>{const d=r.data||{},id=String(r.id);if(d.accounting_type==="service"||snorm(d.unit)==="услуга")return null;
+    return{name:d.work_type||r.title||"",unit:d.unit||"",volume:facts.get(id)||0,plan:plans.get(id)||snum(d.planned_volume??d.plan_volume)}}).filter(w=>w&&w.name&&(w.volume>0||w.plan>0));
+   dates.sort();if(!years&&dates.length){const a=dates[0].slice(0,4),b=dates[dates.length-1].slice(0,4);years=a===b?a:a+"–"+b}
+   // the photos of the daily reports, the newest first
+   const byDate=reports.map(r=>r.data||{}).sort((a,b)=>String(b.date||b.report_date||"").localeCompare(String(a.date||a.report_date||"")));
+   for(const d of byDate)for(const p of sarr(d.photos))if(p)gallery.push(String(p))
+  }
+  return{rid:Number(o.id),name:o.name||"",customer:o.customer||"",general_contractor:o.general_contractor||"",address:o.address||"",
+   status:o.status||"",years,works,cover:cover||banner,photos:[...(cover&&banner?[banner]:[]),...gallery].filter(Boolean).slice(0,30),sort}
+ }
+ async function siteObjects(parent){
+  const d=dialog(parent.ownerDocument,"wide ir-acc-site",head("Объекты на сайте","Отметьте объекты, которые показывает сайт компании. Итоги на сайте (тоннаж, площади, число объектов и заказчиков) считаются сами по отправленным объектам.")+
+   `<div class="ir-acc-body"><div class="ir-acc-tools"><button type="button" class="ir-acc-btn small" data-all>Все завершённые</button><button type="button" class="ir-acc-btn small" data-none>Снять все</button><span class="grow"></span><span class="ir-acc-count" data-count></span></div>
+   <div class="ir-acc-help">На сайт уходят: название, заказчик, генподрядчик, адрес, статус, годы, виды работ с объёмами (у объекта в работе — смонтировано по ежедневным отчётам), фото объекта и до 30 фотографий. Финансы, письма, акты, схемы и отчёты не уходят. Объект, с которого снята отметка, после отправки исчезает с сайта.</div>
+   <div class="ir-acc-st" data-st>Загружаем…</div><div class="ir-acc-site-list" data-list></div></div>
+   <div class="ir-acc-foot"><button type="button" class="ir-acc-btn link" data-open>Открыть сайт</button><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Закрыть</button><button type="button" class="ir-acc-btn main" data-go>Отправить на сайт</button></div>`);
+  const st=d.querySelector("[data-st]"),list=d.querySelector("[data-list]"),go=d.querySelector("[data-go]");
+  const ok=t=>{st.className="ir-acc-st ok";st.textContent=t},bad=e=>{st.className="ir-acc-st err";st.textContent=errText(e)};
+  let objects=[],onSite=new Set();
+  const count=()=>{const n=list.querySelectorAll("input:checked").length;d.querySelector("[data-count]").textContent="Отмечено: "+n+" из "+objects.length;go.textContent=n?"Отправить на сайт ("+n+")":"Убрать все объекты с сайта";
+   list.querySelectorAll(".ir-acc-site-obj").forEach(l=>l.classList.toggle("on",l.querySelector("input").checked))};
+  try{
+   const [site,all]=await Promise.all([call("ai-settings:server-site-objects"),irProject.data.objects.list()]);
+   onSite=new Set(sarr(site?.objects).map(x=>Number(x.rid)));objects=sarr(all);
+   st.textContent=onSite.size?"Сейчас на сайте: "+onSite.size+".":"Сейчас на сайте объектов нет.";st.className="ir-acc-st";
+   list.innerHTML=objects.map(o=>`<label class="ir-acc-site-obj" data-id="${esc(o.id)}"><input type="checkbox" ${onSite.has(Number(o.id))?"checked":""}><span><b>${esc(o.name)}</b><small>${esc([o.customer,o.address].filter(Boolean).join(" · ")||"—")}</small></span><span class="ir-acc-site-tag ${onSite.has(Number(o.id))?"on":""}">${onSite.has(Number(o.id))?"на сайте · ":""}${esc(o.status||"")}</span></label>`).join("")||'<div class="ir-acc-help">В программе пока нет объектов.</div>';
+   list.querySelectorAll("input").forEach(i=>i.onchange=count);count()
+  }catch(e){bad(e);go.disabled=true}
+  d.querySelector("[data-all]").onclick=()=>{list.querySelectorAll(".ir-acc-site-obj").forEach(l=>{const o=objects.find(x=>String(x.id)===l.dataset.id);if(/заверш/i.test(o?.status||""))l.querySelector("input").checked=true});count()};
+  d.querySelector("[data-none]").onclick=()=>{list.querySelectorAll("input").forEach(i=>i.checked=false);count()};
+  d.querySelector("[data-open]").onclick=()=>call("ai-settings:server-open-site",{}).catch(bad);
+  go.onclick=async()=>{
+   const ids=[...list.querySelectorAll(".ir-acc-site-obj")].filter(l=>l.querySelector("input").checked).map(l=>l.dataset.id);
+   if(!ids.length&&!confirm("Убрать с сайта все объекты?"))return;
+   go.disabled=true;st.className="ir-acc-st";st.textContent="Собираем данные объектов…";
+   let timer=0;
+   try{
+    const chosen=[];for(const [i,id] of ids.entries()){const o=objects.find(x=>String(x.id)===id);if(o)chosen.push(await siteObjectData(o,i+1))}
+    timer=setInterval(async()=>{try{const s=await call("ai-settings:server-site-status");if(s.running)st.textContent="Отправляем на сайт: "+s.done+" из "+s.total+(s.name?" — "+s.name:"")+"…"}catch{}},800);
+    st.textContent="Отправляем на сайт… Фотографии уменьшаются и уходят на сервер — это может занять несколько минут.";
+    const r=await call("ai-settings:server-site-publish",{objects:chosen});
+    clearInterval(timer);
+    onSite=new Set(chosen.map(o=>o.rid));
+    list.querySelectorAll(".ir-acc-site-obj").forEach(l=>{const t=l.querySelector(".ir-acc-site-tag"),o=objects.find(x=>String(x.id)===l.dataset.id),on=onSite.has(Number(l.dataset.id));t.classList.toggle("on",on);t.textContent=(on?"на сайте · ":"")+(o?.status||"")});
+    ok("Готово. На сайте "+r.sent+" "+(r.sent%10===1&&r.sent%100!==11?"объект":r.sent%10>=2&&r.sent%10<=4&&(r.sent%100<10||r.sent%100>=20)?"объекта":"объектов")+(r.removed?", убрано: "+r.removed:"")+". Сайт a-ts.kz уже показывает их и пересчитал итоги.")
+   }catch(e){clearInterval(timer);bad(e)}
+   go.disabled=false;count()
+  };
  }
  // The password is shown only when the letter could not go — once, to be passed on by the administrator himself.
  function shown(parent,email,password,why){

@@ -1144,20 +1144,22 @@
     // всегда при выгрузке»)
     '<div class="ir-export-options-list">'+items.map(x=>'<label><input type="checkbox" data-export-key="'+esc(x.key)+'"'+(x.key==="finance"?"":" checked")+'><span>'+esc(workLabel(x.name))+(x.key==="finance"?' <small>(по умолчанию выключен)</small>':"")+'</span></label>').join("")+
     '<div class="ir-export-options-flag"><label><input type="checkbox" data-under-contractor><span>Под флагом Генподрядчика</span></label><p>Не показывать название и логотип нашей компании в выгруженном отчёте. По умолчанию выключено.</p></div></div>'+
-    '<div class="ir-export-options-foot"><button type="button" data-export-cancel>Отмена</button><button type="button" class="ir-export-save" data-export-confirm>Выгрузить HTML</button></div>';
+    '<div class="ir-export-options-foot"><button type="button" data-export-cancel>Отмена</button><button type="button" data-export-link title="Отчёт на сервере компании: ссылку можно отправить заказчику — откроется в браузере и на телефоне, без программы">Поделиться ссылкой</button><button type="button" class="ir-export-save" data-export-confirm>Выгрузить HTML</button></div>';
    document.body.append(dlg);
    const checks=[...dlg.querySelectorAll("input[data-export-key]")],ok=dlg.querySelector("[data-export-confirm]");
-   const refresh=()=>{const n=checks.filter(x=>x.checked).length;ok.disabled=n===0;dlg.querySelector("[data-export-count]").textContent="Выбрано: "+n+" из "+checks.length};
+   const refresh=()=>{const n=checks.filter(x=>x.checked).length;ok.disabled=n===0;dlg.querySelector("[data-export-link]").disabled=n===0;dlg.querySelector("[data-export-count]").textContent="Выбрано: "+n+" из "+checks.length};
    let result=null;
    dlg.addEventListener("close",()=>{dlg.remove();resolve(result)},{once:true});
    dlg.querySelector("[data-export-all]").addEventListener("click",()=>{checks.forEach(x=>x.checked=true);refresh()});
    dlg.querySelector("[data-export-none]").addEventListener("click",()=>{checks.forEach(x=>x.checked=false);refresh()});
    dlg.querySelector("[data-export-cancel]").addEventListener("click",()=>dlg.close());
-   ok.addEventListener("click",()=>{
+   const pick=share=>{
     if(!checks.some(x=>x.checked))return;
-    result={overview:checks.find(x=>x.dataset.exportKey==="overview")?.checked===true,keys:keys.filter(key=>checks.some(x=>x.dataset.exportKey===key&&x.checked)),underContractor:dlg.querySelector("[data-under-contractor]").checked===true};
+    result={overview:checks.find(x=>x.dataset.exportKey==="overview")?.checked===true,keys:keys.filter(key=>checks.some(x=>x.dataset.exportKey===key&&x.checked)),underContractor:dlg.querySelector("[data-under-contractor]").checked===true,share};
     dlg.close()
-   });
+   };
+   ok.addEventListener("click",()=>pick(false));
+   const linkBtn=dlg.querySelector("[data-export-link]");linkBtn.addEventListener("click",()=>pick(true));
    dlg.addEventListener("change",refresh);
    refresh();dlg.showModal()
   })
@@ -1177,6 +1179,31 @@
    quiet(v,text){at=Math.max(at,Math.min(1,v));bar.style.width=Math.max(2,at*100).toFixed(1)+"%";pct.textContent=Math.round(at*100)+"%";if(text)what.textContent=text},
    done(){box.remove()}
   }
+ }
+ // The link to the report on the company's server (the engineer, 10.11.2026 «Отчет по объекту ссылкой»): copy, open,
+ // delete. One link per object — the next «Поделиться ссылкой» puts the new report under the same link.
+ const linkError=e=>String(e?.message||e).replace(/^Error invoking remote method '[^']+': (Error: )?/,"");
+ function showReportLink(objectId,r){
+  const link=r&&r.link;if(!link)throw Error("Сервер не вернул ссылку");
+  const dlg=document.createElement("dialog");dlg.className="ir-export-options ir-export-link";
+  dlg.innerHTML='<style>dialog.ir-export-link{height:auto!important}.ir-export-link .body{padding:16px 22px;display:grid;gap:10px}.ir-export-link input{width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid #cfdde8;border-radius:8px;font:13px monospace;color:#204861;background:#f5f9fc}.ir-export-link p{margin:0;font-size:12.5px;line-height:1.5;color:#55707f}.ir-export-link .ok{color:#1e7a46;font-weight:700}.ir-export-link .danger{color:#b42318!important;border-color:#f1c4bf!important}</style>'+
+   '<div class="ir-export-options-head"><h2>Отчёт по ссылке</h2><p>'+(r.updated?"Отчёт обновлён — ссылка прежняя, отправлять заново не нужно.":"Ссылка готова — отправьте её заказчику или руководителю.")+'</p></div>'+
+   '<div class="body"><input readonly data-link-url value="'+esc(link.url)+'"><p>Открывается в браузере на компьютере и телефоне, без программы и без входа. Видит отчёт любой, у кого есть ссылка, — только просмотр. В отчёте то, что вы выбрали сейчас; чтобы обновить, снова нажмите «Поделиться ссылкой».</p><p data-link-note></p></div>'+
+   '<div class="ir-export-options-foot"><button type="button" class="danger" data-link-remove>Удалить ссылку</button><button type="button" data-link-open>Открыть</button><button type="button" data-link-close>Закрыть</button><button type="button" class="ir-export-save" data-link-copy>Копировать ссылку</button></div>';
+  document.body.append(dlg);
+  const note=dlg.querySelector("[data-link-note]"),input=dlg.querySelector("[data-link-url]");
+  const copy=async()=>{try{await navigator.clipboard.writeText(link.url)}catch(_e){input.select();document.execCommand("copy")}note.className="ok";note.textContent="Ссылка скопирована — вставьте её в WhatsApp, Telegram или письмо."};
+  dlg.querySelector("[data-link-copy]").onclick=copy;
+  dlg.querySelector("[data-link-open]").onclick=()=>irProject.ai.invoke("ai-settings:server-open-link",{url:link.url}).catch(e=>{note.className="";note.textContent=linkError(e)});
+  dlg.querySelector("[data-link-close]").onclick=()=>dlg.close();
+  dlg.querySelector("[data-link-remove]").onclick=async ev=>{
+   if(!confirm("Удалить ссылку? Она сразу перестанет открываться у всех, кому вы её отправили."))return;
+   ev.currentTarget.disabled=true;
+   try{await irProject.ai.invoke("ai-settings:server-report-unshare",{objectId});note.className="";note.textContent="Ссылка удалена: отчёт по ней больше не открывается.";input.value="";dlg.querySelector("[data-link-copy]").disabled=true;dlg.querySelector("[data-link-open]").disabled=true}
+   catch(e){note.className="";note.textContent="Не удалено: "+linkError(e);ev.currentTarget.disabled=false}
+  };
+  dlg.addEventListener("close",()=>dlg.remove(),{once:true});
+  dlg.showModal();copy()
  }
  async function exportObject(objectId){
   const id=String(objectId);
@@ -2024,6 +2051,11 @@
    if(selection.underContractor)html=redactCompanyIdentity(html,companyHeader.ownName);
    const name=safeFile(reportName);
    const fileName=selection.underContractor?redactCompanyIdentity(name,companyHeader.ownName).trim()||"Объект":name;
+   if(selection.share){
+    await bar.step(.96,"Отправка отчёта на сервер компании");
+    const r=await irProject.ai.invoke("ai-settings:server-report-share",{objectId:id,objectName:object.name||object.short_name||"",title:reportName,html});
+    bar.done();bar=null;showReportLink(id,r);return true
+   }
    await bar.step(.96,"Сохранение файла");
    const result=await irProject.reportExport.html(html,fileName+".html");
    if(result&&typeof window.irProjectNotice==="function")window.irProjectNotice("HTML-отчёт объекта сохранён. Файл доступен только для просмотра.","success");

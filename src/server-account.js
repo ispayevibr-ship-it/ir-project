@@ -116,13 +116,24 @@ function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects,app
  // Files on the server (the photos of the objects — server-sync.js): sending as a form with the file, taking back
  // through a short file token (works for protected and open file fields alike).
  // `extra`: more files of other fields [{field,name,buffer}] (a chat message to the administrator with its pictures).
- async function upload(collection,fields,name,buffer,extra=[]){
+ // `collection` may be "<name>/records/<id>" with method "PATCH": a record's file replaced (a report by a link).
+ async function upload(collection,fields,name,buffer,extra=[],method="POST"){
   const t=token();if(!t)throw Error("Войдите в программу (почта и пароль)");
   const form=new FormData();for(const [k,v] of Object.entries(fields||{}))form.append(k,typeof v==="object"&&v!==null?JSON.stringify(v):String(v));
   if(buffer)form.append("file",new Blob([buffer]),name);
   for(const f of extra||[])form.append(f.field,new Blob([f.buffer],{type:f.type||"application/octet-stream"}),f.name);
   let res;
-  try{res=await fetch(server()+`/api/collections/${collection}/records`,{method:"POST",headers:{Authorization:t},body:form,signal:AbortSignal.timeout(120000)})}
+  try{res=await fetch(server()+`/api/collections/${/\/records\//.test(collection)?collection:collection+"/records"}`,{method:method==="PATCH"?"PATCH":"POST",headers:{Authorization:t},body:form,signal:AbortSignal.timeout(300000)})}
+  catch(e){throw Error("Нет связи с сервером — проверьте интернет")}
+  const text=await res.text();let data=null;try{data=text?JSON.parse(text):null}catch{}
+  if(!res.ok){const e=Error(explain(res.status,data));e.status=res.status;e.data=data;throw e}
+  return data
+ }
+ // A request with a form (files and fields — the objects of the site, src/site-objects.js), any method.
+ async function form(method,p,body,timeout=300000){
+  const t=token();if(!t)throw Error("Войдите в программу (почта и пароль)");
+  let res;
+  try{res=await fetch(server()+p,{method,headers:{Authorization:t},body,signal:AbortSignal.timeout(timeout)})}
   catch(e){throw Error("Нет связи с сервером — проверьте интернет")}
   const text=await res.text();let data=null;try{data=text?JSON.parse(text):null}catch{}
   if(!res.ok){const e=Error(explain(res.status,data));e.status=res.status;e.data=data;throw e}
@@ -333,7 +344,7 @@ function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects,app
   requireAdmin();if(!id)throw Error("Не выбран человек");if(id===load().user?.id)throw Error("Себя удалить нельзя");
   await api(`/api/collections/users/records/${id}`,{method:"DELETE"});return{ok:true}
  }
- return{info,login,refresh,logout,changePassword,setName,people,invite,update,resetPassword,remove,heartbeat,isAdmin,api,upload,download,list,letterTemplate,setLetterTemplate,previewLetter,testLetter}
+ return{info,login,refresh,logout,changePassword,setName,people,invite,update,resetPassword,remove,heartbeat,isAdmin,api,upload,form,download,list,letterTemplate,setLetterTemplate,previewLetter,testLetter}
 }
 
 module.exports={createServerAccount,generatePassword,explain,fill,LETTERS,SECTIONS,ROLES,SERVER};

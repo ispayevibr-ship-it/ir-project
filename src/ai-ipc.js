@@ -238,6 +238,13 @@ handle("ai-montage:journal-add",(_e,{objectId,elementId,comment,objectName,actio
  accountCall("objects",()=>database.listObjects().map(o=>({id:o.id,name:o.name,status:o.status})));
 accountCall("share-get",()=>github.shareInfo());accountCall("share-set",({on}={})=>github.setShare(on));
 accountCall("share-send",()=>github.push({reason:"вручную"}).then(()=>github.shareInfo()));
+// Объекты на сайте a-ts.kz (просьба инженера 10.11.2026): администратор выбирает объекты, сайт считает итоги сам (src/site-objects.js).
+const siteObjects=require("./site-objects").createSiteObjects({account,getUserDataPath,nativeImage:require("electron").nativeImage});
+accountCall("site-objects",()=>siteObjects.info());accountCall("site-publish",v=>siteObjects.publish(v));accountCall("site-status",()=>siteObjects.status());
+// Отчёт по объекту ссылкой (src/report-links.js): тот же HTML-отчёт — на сервер, ссылка https://a-ts.kz/r/…
+const reportLinks=require("./report-links").createReportLinks({account:()=>account});
+accountCall("report-link",v=>reportLinks.info(v));accountCall("report-share",v=>reportLinks.share(v));accountCall("report-unshare",v=>reportLinks.remove(v));
+accountCall("open-link",({url}={})=>{const u=String(url||"");if(!/^https:\/\/[a-z0-9.-]+\/r\/[A-Za-z0-9_-]{32}$/.test(u))throw Error("Это не ссылка на отчёт");return shell.openExternal(u)});
 accountCall("ping",async()=>{const t=Date.now();await account.api("/api/health",{auth:false});return{ok:true,ms:Date.now()-t}});
 accountCall("open-site",({path}={})=>{const p=path==="/_/"?"/_/":"/";return shell.openExternal("https://a-ts.kz"+p)});
  // Синхронизация базы программы через сервер (src/server-sync.js): изменения уходят и приходят сами, раз в несколько секунд.
