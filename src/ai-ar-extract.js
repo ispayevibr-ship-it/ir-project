@@ -596,12 +596,14 @@ function leaderLabels(texts,segments,isPos,taken=[]){
   const y=shelf.a.y,x0=Math.min(shelf.a.x,shelf.b.x),x1=Math.max(shelf.a.x,shelf.b.x);
   // (on past the text one way only, ending with it the other way: a line under a label written in a panel runs on both)
   if(t.x-x0>8&&x1-t.x-w>3||x1-t.x-w>8&&t.x-x0>3)continue;
-  let at=t.x-x0>8?{x:x0,y}:x1-t.x-w>8?{x:x1,y}:null;
+  let at=t.x-x0>8?{x:x0,y}:x1-t.x-w>8?{x:x1,y}:null,lead=null;
   if(!at)for(const e of [{x:x0,y},{x:x1,y}]){const l=segments.find(q=>q!==shelf&&(near(q.a,e.x,e.y)||near(q.b,e.x,e.y))&&Math.abs(q.a.y-q.b.y)>3&&Math.hypot(q.a.x-q.b.x,q.a.y-q.b.y)>=8);
-   if(l){at=near(l.a,e.x,e.y)?l.b:l.a;break}}
+   if(l){at=near(l.a,e.x,e.y)?l.b:l.a;const d=Math.hypot(at.x-e.x,at.y-e.y);lead={x:(at.x-e.x)/d,y:(at.y-e.y)/d};break}}
   if(!at)continue;
-  // (a point of the label's width, not the text — a cut piece may be narrower than it)
-  out.push({...t,str:s,x:at.x-.5,width:1,y:at.y+(t.size||8)*.36,leader:true})
+  // (a point of the label's width, not the text — a cut piece may be narrower than it; the way the leader comes to it:
+  // its dot drawn on the very line of the piece's edge — ИР-71535 АР ч.2 л.8 Пс-137 on the lower edge of its row — is
+  // the piece the leader goes into)
+  out.push({...t,str:s,x:at.x-.5,width:1,y:at.y+(t.size||8)*.36,leader:true,...(lead?{lead}:{})})
  }
  return out
 }
@@ -896,12 +898,18 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
   const u=xpt=>{let k=0;for(let i=1;i<bubbles.length;i++)if(Math.abs(bubbles[i].pt-xpt)<Math.abs(bubbles[k].pt-xpt))k=i;return Math.round(canon(left[k]+(xpt-bubbles[k].pt)*hs)/5)*5};
   const z=ypt=>Math.round((f.a+f.b*ypt)/5)*5;
   const win=3000/scale,panels=[];
-  for(const t of own){
+  // (labels in the panels first, then those on leaders: a piece is checked against the panels of its view — its floor,
+  // a panel already labelled there, the length of its position)
+  for(const t of [...own.filter(t=>!t.leader),...own.filter(t=>t.leader)]){
    // A rectangle of the size the specification gives the position (either way round: a panel may lie), ±40 mm.
    const kinds=sizes.get(String(t.str).trim()),sized=kinds?rc=>{const w=(rc.r-rc.l)*hs,h=(rc.bottom-rc.top)*scale;
     return kinds.some(q=>Math.abs(q.width_mm-w)<=40&&Math.abs(q.length_mm-h)<=40||Math.abs(q.length_mm-w)<=40&&Math.abs(q.width_mm-h)<=40)}:null;
    // Of the size first: drawn round it, by its sides, by its joints and the lines across it; then the nearest outline.
-   const b=textBox(t),first=edgesAround(b,horiz,scale,slopes,sized);
+   // (a label on a leader: its point, not the text's height round it — the dot sits on the piece 2–3 pt over the line of
+   // the floor, ИР-71535 АР ч.2 л.6 Пс-84, Пс-88: with the height of the text the floor fell inside and the piece ran
+   // down to the dimension line under it)
+   const b0=textBox(t),px=b0.cx+(t.lead?t.lead.x*.8:0),py=b0.cy+(t.lead?t.lead.y*.8:0);
+   const b=t.leader?{...b0,x0:px,x1:px,cx:px,y0:py,y1:py,cy:py}:b0,first=edgesAround(b,horiz,scale,slopes,sized);
    let rect=(sketch&&columnAround(b,runs,horiz,numbers,hs,scale,kinds?.[0]||null,slopes,extension))||(sized&&((first&&sized(first)?first:null)||sidesAround(b,horiz,vert,scale,sized,slopes)||sizedAround(b,vert,horiz,scale,kinds,numbers)))||
     first||sidesAround(b,horiz,vert,scale,null,slopes)||jointsAround(b,vert,horiz,numbers,win);
    if(!rect)continue
@@ -917,11 +925,29 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
      const joint=runs.some(v=>v.x>g0+.3&&v.x<g1-.3&&v.y0<=b.cy&&v.y1>=b.cy);
      const hatched=diag.filter(q=>Math.min(q.a.x,q.b.x)>=g0-.3&&Math.max(q.a.x,q.b.x)<=g1+.3&&Math.min(q.a.y,q.b.y)>=y0&&Math.max(q.a.y,q.b.y)<=y1).length>=3;
      if(joint||hatched)rect=narrow}}
+   if(t.leader&&sketch&&rect.column){
+    // A piece runs down no further than the floor its view's panels stand on: one side of it an extension line going on
+    // to the dimensions under the view (ИР-71535 АР ч.2 л.6 «по ряду Ж» Пс-84 down to −1,730).
+    const floor=panels.reduce((m,p)=>p.leader?m:Math.max(m,p.rect.bottom),-Infinity);
+    if(floor>-Infinity&&rect.bottom>floor+300/scale&&(floor-rect.top)*scale>=250)rect={...rect,bottom:floor};
+    // A piece wider over a step (cut round the thicker base of the wall it meets — л.6 «по ряду К», «по ряду Л» Пс-84,
+    // Пс-88 270 wide under +2,000 by the concrete, some 620 over it): one side of its column ends at the step, from
+    // there a line goes off the piece to the side going on up — the piece is one, to the top of that side.
+    const side=x=>runs.filter(v=>Math.abs(v.x-x)<=.3&&v.y0<=b.cy&&v.y1>=b.cy).sort((p,q)=>p.y0-q.y0)[0],L=side(rect.l),R=side(rect.r);
+    const short=L&&R?(L.y0>R.y0+500/scale?L:R.y0>L.y0+500/scale?R:null):null;
+    if(short){const out=short===R?1:-1,x=short.x,y=short.y0;
+     const step=runs.filter(v=>(v.x-x)*out>.3&&Math.abs(v.x-x)*hs<=1300&&Math.abs(v.y1-y)<=1.5&&(y-v.y0)*scale>=500&&
+      horiz.some(h=>Math.abs(h.y-y)<=1&&h.x0<=Math.min(x,v.x)+1&&h.x1>=Math.max(x,v.x)-1)).sort((p,q)=>Math.abs(p.x-x)-Math.abs(q.x-x))[0];
+     const l=Math.min(rect.l,step?step.x:rect.l),r=Math.max(rect.r,step?step.x:rect.r);
+     if(step&&(r-l)*hs<=1300&&(rect.bottom-step.y0)*scale>=250){const {topCut,...rest}=rect;rect={...rest,l,r,top:step.y0}}}}
    const u0=u(rect.l),u1=u(rect.r);
    // (a label on a leader: a panel or a piece of one — not wider than a panel —, not one labelled of its own)
    // (a piece cut along its length: not wider than the panel, as long as its table gives it or as the panels of its
    // position in the view are drawn — «по фасаду 3-1» Пс-110 5640 against 5800 of the table)
-   const pieceOk=q=>{const w=(rect.r-rect.l)*hs,h=(rect.bottom-rect.top)*scale,long=v=>Math.abs(v-q.length_mm)<=60||panels.some(o=>!o.leader&&o.mark===String(t.str).trim()&&Math.abs(o.z1-o.z0-v)<=60);
+   // (under the slope of a roof cut on site along it — л.4 «по ряду 010» Пс-45 of 690 at А, 4785 long, 4686 at its higher
+   // side under the slope —: up to 300 shorter at its higher side)
+   const pieceOk=q=>{const w=(rect.r-rect.l)*hs,h=(rect.bottom-Math.min(rect.top,rect.topCut?Math.min(rect.topCut.l,rect.topCut.r):rect.top))*scale,
+    long=v=>Math.abs(v-q.length_mm)<=60||rect.topCut&&v<=q.length_mm+60&&v>=q.length_mm-300||panels.some(o=>!o.leader&&o.mark===String(t.str).trim()&&Math.abs(o.z1-o.z0-v)<=60);
     return w<=q.width_mm+40&&long(h)||h<=q.width_mm+40&&long(w)};
    if(t.leader&&(Math.abs(u1-u0)>1250||kinds&&!kinds.some(pieceOk)||panels.some(p=>Math.min(p.rect.r,rect.r)-Math.max(p.rect.l,rect.l)>(rect.r-rect.l)*.5&&Math.min(p.rect.bottom,rect.bottom)-Math.max(p.rect.top,rect.top)>(rect.bottom-rect.top)*.5)))continue;
    // The cut of a panel under a slope: the heights of its lower edge at the ends, in the order along the wall.
