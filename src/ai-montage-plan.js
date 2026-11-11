@@ -682,8 +682,36 @@ function arScheme(pages,opts={}){
  const sizeOf=(mark,w,h)=>{const list=spec.get(mark)||[];
   return list.find(q=>Math.abs(q.width_mm-w)<=40&&Math.abs(q.length_mm-h)<=40||Math.abs(q.length_mm-w)<=40&&Math.abs(q.width_mm-h)<=40)||list[0]||null};
  const placements=[],warnings=[],named=views.some(v=>v.row);
+ // Axes of a building beside the new one on the plans of the АР that show both (ИР-71535 АР ч.1 л.10: the shop ММА, its
+ // «1»…«3» in a column at the left edge, «А»…«К/1» in the row of our «01»…«010» — src/ai-ar-extract.js planAxes): their
+ // places on the grid from the axes of the grid on the same plan (a line fitted through them, the bubbles off it by more
+ // than 150 mm left out — «02» crowded by «01» and «К»), both ways at one scale. A line of them that does not agree with
+ // one met before (a small plan beside at another place) is not taken.
+ const foreign={x:new Map(),y:new Map(),sheet:{}};
+ const robust=q=>{q=q.slice();for(;;){if(q.length<3)return null;const n=q.length,mx=q.reduce((t,a)=>t+a[0],0)/n,my=q.reduce((t,a)=>t+a[1],0)/n,sxx=q.reduce((t,a)=>t+(a[0]-mx)**2,0);if(!sxx)return null;
+  const b=q.reduce((t,a)=>t+(a[0]-mx)*(a[1]-my),0)/sxx,a0=my-b*mx,off=q.map(a=>Math.abs(a0+b*a[0]-a[1])),k=off.indexOf(Math.max(...off));if(off[k]<=150)return{a:a0,b,lo:Math.min(...q.map(a=>a[0])),hi:Math.max(...q.map(a=>a[0]))};q.splice(k,1)}};
+ for(const p of ar){const A=p.ar.axes;if(!A)continue;
+  const best=(lines,map)=>lines.map(l=>({l,f:robust(l.items.filter(i=>map.has(i.name)).map(i=>[i.pt,map.get(i.name)]))})).filter(o=>o.f).sort((a,b)=>(b.f.hi-b.f.lo)-(a.f.hi-a.f.lo))[0]||null;
+  const fx=best(A.rows,px),fy=best(A.cols,py);if(!fx||!fy||Math.abs(Math.abs(fx.f.b)-Math.abs(fy.f.b))>Math.abs(fx.f.b)*.03)continue;
+  // (within the plan: a column of them between the ends of the row of the grid with its other bubbles — the axes of the
+  // building beside run on along it —, 300 pt beyond; a row — so along the column)
+  const ext=o=>({lo:Math.min(...o.l.items.map(i=>i.pt))-300,hi:Math.max(...o.l.items.map(i=>i.pt))+300});
+  for(const [lines,map,f,cross,key] of [[A.rows,px,fx.f,ext(fy),"x"],[A.cols,py,fy.f,ext(fx),"y"]]){
+   for(const l of lines.slice().sort((a,b)=>b.items.length-a.items.length)){
+    if(l.at<cross.lo||l.at>cross.hi)continue;
+    const got=l.items.filter(i=>!map.has(i.name)).map(i=>[i.name,Math.round(f.a+f.b*i.pt)]);if(!got.length)continue;
+    if(got.some(([n,v])=>foreign[key].has(n)&&Math.abs(foreign[key].get(n)-v)>300))continue;
+    for(const [n,v] of got)if(!foreign[key].has(n)){foreign[key].set(n,v);foreign.sheet[key+n]=p.pdfPage||p.page}
+   }
+  }
+ }
+ // A view whose bubbles are all axes of that building (no row of ours in its title — «по фасаду 3-1» on «3», «2В»): a wall
+ // of that building, placed after the walls of ours (where they end against it).
+ const alien=v=>{if(v.row||!v.axes.length)return null;for(const k of ["y","x"])if(v.axes.every(a=>foreign[k].has(a.name)&&!(k==="x"?px:py).has(a.name)))return k;return null};
+ const later=[];
  for(const v of views){
   const name=v.title?"«"+v.title+"» (лист "+v.sheet+")":"Фасад на листе "+v.sheet;
+  if(alien(v)){later.push(v);continue}
   // (a view titled without a row — «по фасаду 3-1», «в нише въезда … см. лист АР-16» — among views of rows: its wall is
   // not named)
   if(named&&v.title&&!v.row){warnings.push(name+": ряд стены в названии не указан — не поставлена");continue}
@@ -720,6 +748,43 @@ function arScheme(pages,opts={}){
     axis_x:v.numbered?"":axis[0],axis_y:v.numbered?axis[0]:"",sheet:String(v.sheet),sheet_point_pt:p.pt,
     notes:["Раскладка панелей АР, лист "+v.sheet+(q?" · "+q.name+(q.ral?" · RAL "+q.ral+(q.ral_inside?"/"+q.ral_inside:""):""):" · позиции нет в спецификации панелей"),
      ...(p.cut?["Низ панели по скату кровли: "+p.cut.join(" → ")]:[]),...(p.top?["Верх по скату кровли (обрезать по месту): "+p.top.join(" → ")]:[]),...(differs?["Размер по чертежу "+Math.round(w)+"×"+Math.round(h)+", по спецификации "+q.width_mm+"×"+q.length_mm+" — проверьте"]:[])]})
+  }
+ }
+ // The wall of the building beside (ИР-71535 АР ч.2 л.5 «по фасаду 3-1»: Пс-110, Пс-111, Пс-113 on the shop ММА, where its
+ // old panels come off up to +8,000 — АР ч.1 л.9; the engineer 11.11.2026: «Ставить на стену ММА»): along its axes as the
+ // plans put them on the grid; across, on the line of its axes of the other way outside the grid nearest to it (its row
+ // «К» west of «01»), its outer face where the walls of ours across it end against it (their pieces of 240 at the
+ // hatched wall of the shop), else on that axis. Its steel is not in the КМ of the set: said in the note.
+ for(const v of later){
+  const name="«"+v.title+"» (лист "+v.sheet+")",k=alien(v),along=foreign[k],acrossMap=k==="y"?foreign.x:foreign.y,grid=k==="y"?px:py;
+  const a1=v.axes[0],a2=v.axes[v.axes.length-1],s=v.axes.length>=2?(along.get(a2.name)-along.get(a1.name))/(a2.mm-a1.mm):1;
+  if(!(Math.abs(Math.abs(s)-1)<=.03)){warnings.push(name+": оси здания рядом по плану ("+v.axes.map(a=>a.name+" "+along.get(a.name)).join(", ")+") не сходятся с размерами вида — не поставлена");continue}
+  const dir=Math.sign(s),pos=u=>along.get(a1.name)+dir*(u-a1.mm);
+  const lo=Math.min(...grid.values()),hi=Math.max(...grid.values());
+  const out=[...acrossMap].filter(([,v])=>v<lo-100||v>hi+100).sort((p,q)=>Math.min(Math.abs(p[1]-lo),Math.abs(p[1]-hi))-Math.min(Math.abs(q[1]-lo),Math.abs(q[1]-hi)))[0];
+  if(!out){warnings.push(name+": оси здания рядом поперёк стены на планах не найдены — не поставлена");continue}
+  const west=out[1]<lo,span=v.panels.map(p=>[pos(p.u0),pos(p.u1)]).flat(),y0=Math.min(...span)-1500,y1=Math.max(...span)+1500;
+  // (the ends of the walls of ours across it, toward it, between its axis and 1,5 m inside the grid)
+  const ends=placements.filter(p=>p.type_key==="sandwich_wall"&&p.view&&!later.includes(p.view)&&(k==="y"?p.y_mm===p.y2_mm&&p.y_mm>=y0&&p.y_mm<=y1:p.x_mm===p.x2_mm&&p.x_mm>=y0&&p.x_mm<=y1))
+   .map(p=>{const e=k==="y"?[p.x_mm,p.x2_mm]:[p.y_mm,p.y2_mm];return west?Math.min(...e):Math.max(...e)}).filter(e=>west?e>=out[1]-50&&e<=lo+1500:e<=out[1]+50&&e>=hi-1500);
+  const face=ends.length?(west?Math.min(...ends):Math.max(...ends)):out[1],side=west?-1:1;
+  const near=[...grid].reduce((b,a)=>Math.abs(a[1]-face)<Math.abs(b[1]-face)?a:b)[0],where=(k==="y"?"по ряду ":"по оси ")+out[0]+" здания рядом";
+  for(const p of v.panels){
+   if(spec.size&&!spec.has(p.mark)){warnings.push(p.mark+" (лист "+v.sheet+"): нет в спецификациях панелей — не поставлена");continue}
+   const w=p.u1-p.u0,h=p.z1-p.z0,q=sizeOf(p.mark,w,h),t=q?.thickness_mm||150;
+   if(p.leader&&q&&!(w<=q.width_mm+40&&h<=q.length_mm+60||h<=q.width_mm+40&&w<=q.length_mm+60)){warnings.push(p.mark+" (лист "+v.sheet+"): по выноске — контур "+Math.round(w)+"×"+Math.round(h)+" больше панели "+q.width_mm+"×"+q.length_mm+" — не поставлена");continue}
+   const line=Math.round(face+side*t/2),e0=Math.round(Math.min(pos(p.u0),pos(p.u1))),e1=Math.round(Math.max(pos(p.u0),pos(p.u1)));
+   const differs=q&&!(Math.abs(q.width_mm-w)<=40&&Math.abs(q.length_mm-h)<=40||Math.abs(q.length_mm-w)<=40&&Math.abs(q.width_mm-h)<=40);
+   placements.push({mark:p.mark,name:"Сэндвич-панель стеновая"+(q?.name?" "+q.name:""),type_key:"sandwich_wall",scheme_group:"cladding",geometry_type:"beam",
+    fitting_type:"panel",diameter_mm:Math.max(1,Math.round(h)),
+    layout:{panel:"wall",thickness_mm:t,...(q?.ral?{ral:q.ral}:{}),...(q?.ral_inside?{ral_inside:q.ral_inside}:{}),...(q?.code?{code:q.code}:{}),width_mm:Math.round(w),existing:true},
+    ...(k==="y"?{x_mm:line,y_mm:e0,x2_mm:line,y2_mm:e1}:{x_mm:e0,y_mm:line,x2_mm:e1,y2_mm:line}),
+    z0_mm:p.z0,z1_mm:p.z0,levels_from:"раскладка панелей АР",confidence:"medium",section:"АР",view:v,line,source_page:v.page,source_file:v.file,
+    axis_x:k==="y"?near:"",axis_y:k==="y"?"":near,sheet:String(v.sheet),sheet_point_pt:p.pt,
+    notes:["Раскладка панелей АР, лист "+v.sheet+(q?" · "+q.name+(q.ral?" · RAL "+q.ral+(q.ral_inside?"/"+q.ral_inside:""):""):" · позиции нет в спецификации панелей"),
+     "На стене существующего здания рядом: "+where+"; оси "+v.axes.map(a=>a.name).join(", ")+" — по плану АР, лист "+foreign.sheet[k+a1.name]+(ends.length?"; наружная грань — где к ней примыкают наши стены":"; по оси здания — примыкания наших стен не найдено, проверьте"),
+     "Ригели здания рядом, на которых держится панель, в КМ комплекта не показаны",
+     ...(differs?["Размер по чертежу "+Math.round(w)+"×"+Math.round(h)+", по спецификации "+q.width_mm+"×"+q.length_mm+" — проверьте"]:[])]})
   }
  }
  // The panels of a layout stand edge to edge (the lock of a sandwich panel): a gap of up to 100 mm between a panel and

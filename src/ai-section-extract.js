@@ -109,7 +109,9 @@ const LOOK_AXIS={A:"А",B:"В",C:"С",E:"Е",H:"Н",K:"К",M:"М",O:"О",P:"Р",
 // «08», «O8» and «О8» are one axis (the plans read them so too).
 const cyrAxis=str=>String(str).trim().replace(/\s+/g,"").replace(/[ABCEHKMOPTX]/g,c=>LOOK_AXIS[c]).replace(/^[О0](?=\d)/u,"О");
 // min: the fewest bubbles of a row (3; the small views of a layout of panels show two — «О8 О10» of a wall along К).
-function bubbleRows(texts,segments,min=3){
+// wide: also the axes of an existing building, «2В», «1А» (a letter after the number) and «К/1» (a letter with a number
+// under it) — ИР-71535 АР ч.1 л.10, the plan with the axes of the shop ММА beside the new grid, ч.2 л.5 «по фасаду 3-1».
+function bubbleRows(texts,segments,min=3,wide=false){
  // Only labels drawn in a circle are axis bubbles; dimension numbers nearby are not.
  const short=segments.filter(s=>Math.hypot(s.a.x-s.b.x,s.a.y-s.b.y)<=9);
  // The ring round the label: its centre and radius (from its strokes' ends), or null. A bubble's ring holds its label
@@ -127,7 +129,7 @@ function bubbleRows(texts,segments,min=3){
  };
  const rows=[];
  for(let t of texts){
-  const ring=Math.abs(t.angle||0)<10&&/^(?:[А-ЯЁ]?\s*\d{1,2}(?:\s*\/\s*\d{1,2})?|[А-ЯЁ])$/u.test(cyrAxis(t.str))?ringed(t):null;if(!ring)continue;
+  const ring=Math.abs(t.angle||0)<10&&(/^(?:[А-ЯЁ]?\s*\d{1,2}(?:\s*\/\s*\d{1,2})?|[А-ЯЁ])$/u.test(cyrAxis(t.str))||wide&&/^(?:\d{1,2}[А-ЯЁ]|[А-ЯЁ]\s*\/\s*\d{1,2})$/u.test(cyrAxis(t.str)))?ringed(t):null;if(!ring)continue;
   // Latin lookalikes in CAD exports («O3» for «О3») name the same axis as on the plans.
   t={...t,str:cyrAxis(t.str)};
   t={...t,ring};

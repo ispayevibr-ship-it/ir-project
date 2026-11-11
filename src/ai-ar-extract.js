@@ -365,7 +365,9 @@ const axisRank=n=>{const m=/(\d+)(?:\/(\d+))?/.exec(String(n));return m?Number(m
 const ownerOf=rows=>(x,y)=>{
  const near=rows.filter(r=>r.y>y&&r.y-y<1300&&x>=r.x0-260&&x<=r.x1+260).sort((a,b)=>a.y-b.y),out=r=>Math.max(0,r.x0-x,x-r.x1)>30;
  const best=near[0]||null;if(!best||!out(best))return best;
- return near.find(r=>r.y-best.y<100&&!out(r))||best};
+ // (off the nearest row, between the bubbles of a row a little lower — ИР-71535 АР ч.2 л.5: «Пс-111» of «по фасаду
+ // 3-1» on «3», «2В» 200 pt under it, 230 pt left of the bubbles of «по ряду К, в осях 01-03» 44 pt under it)
+ return near.find(r=>r.y-best.y<100&&!out(r))||near.find(r=>r.y-best.y<300&&r.items?.length>=2&&x>=r.x0&&x<=r.x1+(r.items.at(-1).width||0))||best};
 // Rows of axis bubbles only: names that do not repeat, all numbers or all letters, in their order along the row (sizes of
 // windows in circles, «24 26 21 18», or marks of nodes, «54 54 54», are not axes and would take the labels above them).
 const axisRows=(texts,segments)=>bubbleRows(texts,segments).filter(r=>{const n=r.items.slice().sort((a,b)=>a.x-b.x).map(t=>String(t.str).trim().toUpperCase()),k=n.map(axisRank);
@@ -623,7 +625,7 @@ function arrowWay(two,segments){
 // building, «по фасаду 3-1» on «3», «2В») keeps the labels over it from the view beside it, and makes no view.
 const viewRows=(texts,segments)=>{
  const out=[],name=t=>String(t.str).trim().toUpperCase();
- for(const r of bubbleRows(texts,segments,1)){
+ for(const r of bubbleRows(texts,segments,1,true)){
   if(r.items.length===1){out.push({...r,lone:true});continue}
   let cur=[];
   const flush=()=>{if(cur.length)out.push({...r,items:cur,x0:cur[0].x,x1:cur[cur.length-1].x,x:(cur[0].x+cur[cur.length-1].x)/2,...(cur.length<2?{lone:true}:{})});cur=[]};
@@ -818,6 +820,8 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
  }
  const numbers=texts.filter(t=>/^\d{2,5}$/.test(String(t.str).trim()));
  const runs=sketch?columnRuns(vert):[];
+ // (strokes neither upright nor level: the hatching of a section)
+ const diag=sketch?segments.filter(q=>Math.abs(q.a.x-q.b.x)>.3&&Math.abs(q.a.y-q.b.y)>.3):[];
  // (an extension line of a dimension — from an opening to its dimension line, overshooting it by a few pt, a tick where
  // they cross — across a column whose joints run on through it: not the end of its panel; ИР-71535 АР ч.2 л.8, ряд Б: the
  // lines of ОВ 900×900 at +17,300 and +18,195 to the chain «3400 · 3570» ended the two panels Пс-127 right of it at
@@ -849,6 +853,15 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
   if(sketch)stemLevels(levels,horiz,vert);else{const offset=levelOffset(levels,horiz);levels.forEach(l=>{l.y+=offset})}
   found.push({row,own,region,levels,f:fit(levels)})
  }
+ // A level mark the view that took it does not agree with (off its scale by more than 200 mm), within reach of another
+ // view whose marks it fits at that scale: that view's (ИР-71535 АР ч.2 л.5: «+4,020», «+2,120» left of «по ряду 03, в
+ // осях К-Л», their shelves running on to its wall, 140 pt right of the bubbles of «по фасаду 3-1» and nearer under them).
+ if(sketch)for(const v of found){if(!v.f)continue;let moved=false;
+  for(const l of v.levels.slice()){if(Math.abs(v.f.a+v.f.b*l.y-l.mm)<=200)continue;
+   for(const w of found){if(w===v||!(w.row.y>l.y&&w.row.y-l.y<1300&&l.x>=w.row.x0-260&&l.x<=w.row.x1+260))continue;
+    const g=fit([...w.levels,l]);if(!g||g.residual>80||Math.abs(g.b-v.f.b)>Math.abs(v.f.b)*.05||Math.abs(g.a+g.b*l.y-l.mm)>60)continue;
+    v.levels.splice(v.levels.indexOf(l),1);w.levels.push(l);w.f=g;moved=true;break}}
+  if(moved)v.f=fit(v.levels)||v.f}
  // Marks of openings drawn under their line («+7,450» under the head of a window) can make two scales agree as well:
  // the scale of the other views of the sheet decides (a facade is drawn at one scale both ways).
  const sure=found.filter(v=>v.f).map(v=>v.f.b).sort((x,y)=>x-y);
@@ -889,12 +902,28 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
     return kinds.some(q=>Math.abs(q.width_mm-w)<=40&&Math.abs(q.length_mm-h)<=40||Math.abs(q.length_mm-w)<=40&&Math.abs(q.width_mm-h)<=40)}:null;
    // Of the size first: drawn round it, by its sides, by its joints and the lines across it; then the nearest outline.
    const b=textBox(t),first=edgesAround(b,horiz,scale,slopes,sized);
-   const rect=(sketch&&columnAround(b,runs,horiz,numbers,hs,scale,kinds?.[0]||null,slopes,extension))||(sized&&((first&&sized(first)?first:null)||sidesAround(b,horiz,vert,scale,sized,slopes)||sizedAround(b,vert,horiz,scale,kinds,numbers)))||
+   let rect=(sketch&&columnAround(b,runs,horiz,numbers,hs,scale,kinds?.[0]||null,slopes,extension))||(sized&&((first&&sized(first)?first:null)||sidesAround(b,horiz,vert,scale,sized,slopes)||sizedAround(b,vert,horiz,scale,kinds,numbers)))||
     first||sidesAround(b,horiz,vert,scale,null,slopes)||jointsAround(b,vert,horiz,numbers,win);
    if(!rect)continue
+   // A label on a leader marks a piece cut on site: its column as drawn, not widened to the panel's width over a joint
+   // or a hatched strip beside it (ИР-71535 АР ч.2 л.5: «по фасаду 3-1» Пс-110 of 320 beside the hatched section,
+   // Пс-113 of 600 beside a strip of 180; «по ряду В, в осях 02-03» Пс-64, Пс-66 of 240 at the wall of the shop ММА;
+   // л.4 «по ряду 010» Пс-39 of 490). Widened over nothing — an edge read on a dimension line (Пс-57 under a window, its
+   // «880» drawn inside it) — it stays a panel.
+   if(t.leader&&sketch&&rect.column&&kinds?.[0]){
+    const narrow=columnAround(b,runs,horiz,numbers,hs,scale,{length_mm:kinds[0].length_mm},slopes,extension);
+    if(narrow&&(narrow.l>rect.l+.3||narrow.r<rect.r-.3)){
+     const [g0,g1]=narrow.l>rect.l+.3?[rect.l,narrow.l]:[narrow.r,rect.r],y0=Math.min(rect.top,narrow.top)-1,y1=Math.max(rect.bottom,narrow.bottom)+1;
+     const joint=runs.some(v=>v.x>g0+.3&&v.x<g1-.3&&v.y0<=b.cy&&v.y1>=b.cy);
+     const hatched=diag.filter(q=>Math.min(q.a.x,q.b.x)>=g0-.3&&Math.max(q.a.x,q.b.x)<=g1+.3&&Math.min(q.a.y,q.b.y)>=y0&&Math.max(q.a.y,q.b.y)<=y1).length>=3;
+     if(joint||hatched)rect=narrow}}
    const u0=u(rect.l),u1=u(rect.r);
    // (a label on a leader: a panel or a piece of one — not wider than a panel —, not one labelled of its own)
-   if(t.leader&&(Math.abs(u1-u0)>1250||sized&&!sized(rect)||panels.some(p=>Math.min(p.rect.r,rect.r)-Math.max(p.rect.l,rect.l)>(rect.r-rect.l)*.5&&Math.min(p.rect.bottom,rect.bottom)-Math.max(p.rect.top,rect.top)>(rect.bottom-rect.top)*.5)))continue;
+   // (a piece cut along its length: not wider than the panel, as long as its table gives it or as the panels of its
+   // position in the view are drawn — «по фасаду 3-1» Пс-110 5640 against 5800 of the table)
+   const pieceOk=q=>{const w=(rect.r-rect.l)*hs,h=(rect.bottom-rect.top)*scale,long=v=>Math.abs(v-q.length_mm)<=60||panels.some(o=>!o.leader&&o.mark===String(t.str).trim()&&Math.abs(o.z1-o.z0-v)<=60);
+    return w<=q.width_mm+40&&long(h)||h<=q.width_mm+40&&long(w)};
+   if(t.leader&&(Math.abs(u1-u0)>1250||kinds&&!kinds.some(pieceOk)||panels.some(p=>Math.min(p.rect.r,rect.r)-Math.max(p.rect.l,rect.l)>(rect.r-rect.l)*.5&&Math.min(p.rect.bottom,rect.bottom)-Math.max(p.rect.top,rect.top)>(rect.bottom-rect.top)*.5)))continue;
    // The cut of a panel under a slope: the heights of its lower edge at the ends, in the order along the wall.
    const cut=rect.cut?(u0<=u1?[z(rect.cut.l),z(rect.cut.r)]:[z(rect.cut.r),z(rect.cut.l)]):null;
    // (the top under a slope: its heights at the ends, in the order along the wall)
@@ -1194,12 +1223,28 @@ function sillSpec(texts){
  if(boards.length)out.boards=boards;
  return out
 }
+// The axes of a plan of the АР, both ways: rows of bubbles (their places along the sheet — the axes across it) and
+// columns (their heights). A plan may show beside the new grid the axes of a building it adjoins (ИР-71535 АР ч.1 л.10:
+// the shop ММА, «1»…«3» in a column at the left edge across our «01»…«010», «А»…«К/1» in the row of ours): src/ai-montage-
+// plan.js puts them on the grid by the axes of the grid on the same plan. A name twice in a line is no axis of it.
+function planAxes({segments=[],texts=[]}={}){
+ if(!texts.some(t=>horizontalText(t)&&/^\s*Планы?\s/u.test(String(t.str))))return null;
+ // (the bubbles of the axes are written larger than the numbers of the rooms in circles — 12.9 against 10.7 pt on л.10)
+ const all=bubbleRows(texts,segments,1,true).flatMap(r=>r.items).filter(t=>t.ring),sizes=all.map(t=>t.size||0).sort((a,b)=>b-a),big=sizes[0]||0;
+ const items=all.filter(t=>(t.size||0)>=big*.92);
+ const lines=key=>{const out=[];for(const t of items.slice().sort((a,b)=>a.ring[key]-b.ring[key])){const l=out.find(o=>Math.abs(o.at-t.ring[key])<=3);if(l)l.items.push(t);else out.push({at:t.ring[key],items:[t]})}
+  return out.map(l=>{const n=new Map();for(const t of l.items)n.set(t.str,(n.get(t.str)||0)+1);
+   const own=l.items.filter(t=>n.get(t.str)===1);return{at:Math.round(l.at*10)/10,items:own.map(t=>({name:String(t.str).trim().toUpperCase(),pt:Math.round((key==="y"?t.ring.x:t.ring.y)*10)/10}))}}).filter(l=>l.items.length>=4)};
+ const rows=lines("y"),cols=lines("x");
+ return rows.length&&cols.length?{rows,cols}:null
+}
 function extractArchitecture(geometry){
  const texts=geometry?.texts||[];
  const spec=(()=>{const a=panelSpec(texts);if(a.length)return a;const s=sketchSpec(texts);return s.length?s:layoutSpec(texts)})(),fills=fillSpec(texts),views=panelViews(geometry||{},spec),facades=fillViews(geometry||{});
  if(fills.length)fillSketches(geometry||{},fills);
  const finish=facadeFinish(texts),sills=sillSpec(texts);
- const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{})};
+ const axes=planAxes(geometry||{});
+ const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{}),...(axes?{axes}:{})};
  return panels.length||fills.length||views.length||Object.keys(extra).length?{panels,fills,views,...extra}:null
 }
-module.exports={facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
+module.exports={planAxes,facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
