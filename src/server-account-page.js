@@ -354,9 +354,13 @@
  }
  const STATUS_TAG=st=>/заверш/i.test(st)?"done":/подгот/i.test(st)?"prep":"work";
  const objWord=n=>n%10===1&&n%100!==11?"объект":n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?"объекта":"объектов";
- // The notification when the sending ends: a card in the corner of the program (stays while the window is closed) and
- // the system notification of Windows.
+ // The notification when the sending ends — one, not two on top of each other (the engineer, 11.11.2026 «их 2 друг на
+ // друга накладываются»): the program in front — a card in its corner; the program behind other windows or rolled
+ // down — the system notification of Windows only.
  function toast(doc,{title,text,error,site}){
+  const front=(()=>{try{return doc.visibilityState!=="hidden"&&doc.hasFocus()}catch{return true}})();
+  if(!front){try{if(typeof Notification!=="undefined"&&Notification.permission!=="denied"){const show=()=>new Notification("IR Project — "+title,{body:text,silent:false});
+   if(Notification.permission==="granted")return void show();Notification.requestPermission().then(p=>{if(p==="granted")show()}).catch(()=>{});return}}catch{}}
   style(doc);doc.querySelectorAll(".ir-toast").forEach(t=>t.remove());
   const t=doc.createElement("div");t.className="ir-toast"+(error?" err":"");t.setAttribute("role","status");
   t.innerHTML=`<div class="grow"><b>${esc(title)}</b><p>${esc(text)}</p>${site?'<div class="acts"><button type="button" class="ir-acc-btn small" data-open>Открыть сайт</button></div>':""}</div><button type="button" aria-label="Закрыть" data-x>✕</button>`;
@@ -366,8 +370,6 @@
   const close=()=>t.remove();t.querySelector("[data-x]").onclick=close;
   t.querySelector("[data-open]")?.addEventListener("click",()=>{call("ai-settings:server-open-site",{}).catch(()=>{});close()});
   setTimeout(close,error?20000:12000);
-  try{if(typeof Notification!=="undefined"&&Notification.permission!=="denied"){const show=()=>new Notification("IR Project — "+title,{body:text,silent:false});
-   if(Notification.permission==="granted")show();else Notification.requestPermission().then(p=>{if(p==="granted")show()}).catch(()=>{})}}catch{}
  }
  let siteSending=false;
  async function siteObjects(parent){

@@ -42,6 +42,9 @@
 .arch-table .arch-del button,.arch-photo-del{display:inline-grid;place-items:center;width:28px;height:28px;padding:0;border:1px solid #f0d2d2;border-radius:7px;background:#fff;color:#d14343;cursor:pointer}
 .arch-table .arch-del button svg,.arch-photo-del svg{width:15px;height:15px}
 .arch-empty-row td{padding:22px 12px;text-align:center;color:#8696a1}
+.arch-summary textarea{display:block;box-sizing:border-box;width:calc(100% - 28px);margin:12px 14px 0;min-height:84px;padding:8px 10px;border:1px solid #dbe4ea;border-radius:8px;background:#fff;color:#17364d;font:12px/1.5 inherit;font-family:inherit;resize:vertical}
+.arch-summary textarea:focus{outline:none;border-color:#7fb2e5;box-shadow:0 0 0 3px rgba(23,105,224,.12)}
+.arch-summary-text{padding:12px 14px;color:#41596a;font-size:12px;line-height:1.55;white-space:pre-line}
 .arch-hint{margin:0;padding:8px 14px 12px;color:#8a99a3;font-size:9px}
 .arch-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;padding:12px}
 .arch-gallery .object-photos-empty{grid-column:1/-1;border:0;min-height:120px}

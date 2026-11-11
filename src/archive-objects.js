@@ -45,12 +45,46 @@
   await put(YEARS.start,"Год начала",start);await put(YEARS.end,"Год завершения",end);
   await put(YEARS.both,"Годы работ",start&&end&&start!==end?start+"–"+end:start||end);
  }
+ // Краткая характеристика объекта (просьба инженера 11.11.2026 «добавь к завершённому объекту краткую характеристику
+ // объекта. Текстовое поле»): запись object-meta «object_summary», data.value — текст до 2000 знаков.
+ const SUMMARY="object_summary",SUMMARY_MAX=2000;
+ const summaryOf=rows=>String(rows.find(r=>r.record_type===SUMMARY)?.data?.value||"");
+ async function getSummary(id){return summaryOf(await api(id,"object-meta").list().catch(()=>[]))}
+ async function setSummary(id,text){
+  const value=String(text??"").replace(/\r\n?/g,"\n").replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim().slice(0,SUMMARY_MAX);
+  const rows=await api(id,"object-meta").list().catch(()=>[]),r=rows.find(x=>x.record_type===SUMMARY);
+  const body={record_type:SUMMARY,title:"Краткая характеристика",data:{entity_type:SUMMARY,value}};
+  if(!value){if(r)await api(id,"object-meta").remove(r.id);return value}
+  if(!r)await api(id,"object-meta").create(body);else if(String(r.data?.value||"")!==value)await api(id,"object-meta").update(r.id,body);
+  return value
+ }
  const ru=(n,one,few,many)=>{const a=Math.abs(n)%100,b=a%10;return a>10&&a<20?many:b===1?one:b>=2&&b<=4?few:many};
  const num=v=>{const n=Number(String(v??"").replace(/\s/g,"").replace(",","."));return Number.isFinite(n)?n:NaN};
  const fmt=v=>{const n=num(v);return Number.isFinite(n)?n.toLocaleString("ru-RU",{maximumFractionDigits:3}):String(v??"")};
  const svg=p=>`<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
  const I={edit:svg('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13 7 4 4"/>'),pin:svg('<path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/>'),check:svg('<path d="m5 12 4 4L19 6"/>'),trash:svg('<path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13"/>'),plus:svg('<path d="M12 5v14M5 12h14"/>'),cal:svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>')};
 
+ // Единица измерения словом — по числу (просьба инженера 11.11.2026 «делай склонения: 1 услуга, 2 услуги, 5 услуг»);
+ // сокращения (т, м², шт, компл.) остаются как есть.
+ const UNIT_WORDS=[["услуга","услуги","услуг"],["штука","штуки","штук"],["комплект","комплекта","комплектов"],["объект","объекта","объектов"],
+  ["единица","единицы","единиц"],["рейс","рейса","рейсов"],["машина","машины","машин"],["смена","смены","смен"],["час","часа","часов"],
+  ["день","дня","дней"],["сутки","суток","суток"],["позиция","позиции","позиций"],["узел","узла","узлов"],["место","места","мест"],["этаж","этажа","этажей"],
+  ["марка","марки","марок"],["элемент","элемента","элементов"],["лист","листа","листов"],["секция","секции","секций"],["панель","панели","панелей"],
+  ["окно","окна","окон"],["дверь","двери","дверей"],["блок","блока","блоков"],["конструкция","конструкции","конструкций"],["тонна","тонны","тонн"],
+  ["метр","метра","метров"],["человек","человека","человек"],["точка","точки","точек"],["опора","опоры","опор"],["колонна","колонны","колонн"],
+  ["балка","балки","балок"],["ферма","фермы","ферм"],["резервуар","резервуара","резервуаров"],["здание","здания","зданий"],["пролёт","пролёта","пролётов"],
+  ["пролет","пролета","пролетов"],["кран","крана","кранов"],["агрегат","агрегата","агрегатов"],["аппарат","аппарата","аппаратов"],["емкость","емкости","емкостей"],
+  ["ёмкость","ёмкости","ёмкостей"],["рулон","рулона","рулонов"],["пакет","пакета","пакетов"],["установка","установки","установок"]];
+ const UNIT_FORMS=new Map();for(const f of UNIT_WORDS)for(const w of f)if(!UNIT_FORMS.has(w))UNIT_FORMS.set(w,f);
+ UNIT_FORMS.set("услуг",UNIT_WORDS[0]);UNIT_FORMS.set("усл",UNIT_WORDS[0]);UNIT_FORMS.set("усл.",UNIT_WORDS[0]);
+ function unitWord(n,unit){
+  const u=String(unit??"").trim(),f=UNIT_FORMS.get(u.toLowerCase());if(!f)return u;
+  const v=Math.abs(Number(n));let w;
+  if(!Number.isFinite(v))w=f[2];else if(!Number.isInteger(v))w=f[1];
+  else{const a=v%100,b=v%10;w=a>10&&a<20?f[2]:b===1?f[0]:b>=2&&b<=4?f[1]:f[2]}
+  return u[0]&&u[0]!==u[0].toLowerCase()?w[0].toUpperCase()+w.slice(1):w
+ }
+ const totalLabel=u=>UNIT_FORMS.has(String(u).trim().toLowerCase())?"Всего "+unitWord(5,u).toLowerCase():"Всего, "+u;
  // Объёмы одной единицы складываются в итог («465 т», «14 900 м²»).
  function totals(works){const m=new Map();for(const w of works){const u=String(w.unit||"").trim(),n=num(w.volume);if(!u||!Number.isFinite(n))continue;m.set(u,(m.get(u)||0)+n)}return[...m].map(([u,n])=>({unit:u,value:n}))}
 
@@ -59,7 +93,7 @@
   const o=await irProject.data.objects.get(id);if(!o){location.hash="/objects";return}
   document.body.classList.remove("ir-object-overview");document.body.classList.add("ir-archive-object");
   const [rows,metaRows]=await Promise.all([api(id,SECTION).list().catch(()=>[]),api(id,"object-meta").list().catch(()=>[])]);
-  const yrs=yearsOf(metaRows),years=yrs.text;
+  const yrs=yearsOf(metaRows),years=yrs.text,summary=summaryOf(metaRows);
   const works=rows.filter(r=>r.record_type==="work").sort((a,b)=>(Number(a.data?.order)||0)-(Number(b.data?.order)||0)||Number(a.id)-Number(b.id));
   const photos=rows.filter(r=>r.record_type==="photo").sort((a,b)=>Number(a.id)-Number(b.id));
   let bannerUrl="",coverUrl="";
@@ -71,7 +105,8 @@
   const gallery=photos.length?photos.map((p,i)=>photoSrc[i]?`<div class="arch-photo"><button type="button" class="object-photo-tile" data-photo-src="${esc(photoSrc[i])}" data-photo-number="${i+1}"><img src="${esc(photoSrc[i])}" alt="Фото ${i+1}" loading="lazy"><span>Фото ${i+1}</span></button>${edit?`<button type="button" class="arch-photo-del" data-del-photo="${esc(p.id)}" title="Удалить фото" aria-label="Удалить фото">${I.trash}</button>`:""}</div>`:"").join(""):`<div class="object-photos-empty"><b>Фотографий пока нет</b>${edit?"<span>Нажмите «Добавить фото».</span>":""}</div>`;
   app.innerHTML=`<div class="arch-page">
 <section class="object-overview-hero arch-hero" data-object-id="${esc(id)}">${bg?`<div class="object-overview-hero-bg" style="background-image:linear-gradient(180deg,rgba(10,17,27,.05),rgba(10,17,27,.35)),url(&quot;${bg}&quot;)"></div>`:""}<div class="object-hero-shade"></div><div class="object-hero-content"><div class="object-hero-top"><div class="object-hero-copy"><div class="object-hero-breadcrumbs"><button type="button" data-arch-objects>Объекты</button><span>›</span><span>${esc(o.name)}</span></div><h1>${esc(o.name)}</h1><div class="object-hero-contract"><span><b>Заказчик:</b> ${esc(o.customer||"—")}</span><span><b>Генподрядчик:</b> ${esc(o.general_contractor||"—")}</span></div></div><div class="object-hero-actions">${edit?`<button type="button" class="object-hero-action" data-arch-edit>${I.edit}<span>Редактировать</span></button>`:""}</div></div><div class="object-hero-info"><div class="object-hero-status done">${I.check}<span>Завершён</span></div><div class="object-hero-info-item arch-years">${I.cal}<div><b>${yrs.start||yrs.end?`${esc(yrs.start||"—")} — ${esc(yrs.end||"—")}`:"Не указаны"}</b><span>Годы начала и завершения</span></div></div><div class="object-hero-info-item location">${I.pin}<div><b>${esc(o.address||"Адрес не указан")}</b><span>Расположение объекта</span></div></div></div></div></section>
-${sums.length?`<div class="arch-totals">${sums.map(s=>`<div><b>${esc(fmt(s.value))} ${esc(s.unit)}</b><span>Всего, ${esc(s.unit)}</span></div>`).join("")}</div>`:""}
+${sums.length?`<div class="arch-totals">${sums.map(s=>`<div><b>${esc(fmt(s.value))} ${esc(unitWord(s.value,s.unit))}</b><span>${esc(totalLabel(s.unit))}</span></div>`).join("")}</div>`:""}
+${edit||summary?`<section class="arch-card arch-summary"><div class="arch-card-head"><div><h2>Краткая характеристика объекта</h2><p>${edit?"Что это за объект: назначение, размеры, конструкции, особенности":"Об объекте"}</p></div></div>${edit?`<textarea data-summary maxlength="${SUMMARY_MAX}" rows="4" placeholder="Например: производственный цех 72×24 м, каркас из стальных колонн и ферм, кровля и стены из сэндвич-панелей, мостовой кран 10 т.">${esc(summary)}</textarea><p class="arch-hint">Сохраняется само, когда вы выходите из поля.</p>`:`<div class="arch-summary-text">${esc(summary)}</div>`}</section>`:""}
 <section class="arch-card"><div class="arch-card-head"><div><h2>Виды работ и объёмы</h2><p>${works.length} ${ru(works.length,"вид","вида","видов")} работ</p></div>${edit?`<button type="button" class="arch-add" data-add-work>${I.plus}<span>Добавить вид работ</span></button>`:""}</div><div class="arch-table-wrap"><table class="arch-table"><thead><tr><th>№</th><th>Вид работ</th><th>Ед.</th><th>Объём</th>${edit?"<th></th>":""}</tr></thead><tbody>${workRows}</tbody></table></div>${edit&&works.length?'<p class="arch-hint">Изменения сохраняются сами, когда вы выходите из поля.</p>':""}</section>
 <section class="arch-card"><div class="arch-card-head"><div><h2>Фотографии объекта</h2><p>${photos.length} фото</p></div>${edit?`<button type="button" class="arch-add" data-add-photo>${I.plus}<span>Добавить фото</span></button>`:""}</div><div class="arch-gallery">${gallery}</div></section>
 </div><div class="object-photo-lightbox" id="archLightbox" hidden><button type="button" class="object-photo-lightbox-close" id="archLightboxClose">×</button><div class="object-photo-lightbox-meta" id="archLightboxMeta"></div><img id="archLightboxImg" alt="Фото объекта"></div>${typeof formHtml==="function"?formHtml():""}`;
@@ -82,13 +117,14 @@ ${sums.length?`<div class="arch-totals">${sums.map(s=>`<div><b>${esc(fmt(s.value
   q("[data-arch-objects]").onclick=()=>location.hash="/objects";
   const fd=document.getElementById("formDialog");
   q("[data-arch-edit]")?.addEventListener("click",async()=>{if(typeof window.openObjectForm==="function"){await window.openObjectForm(id);fd?.addEventListener("close",()=>setTimeout(()=>{if(location.hash.replace(/^#/,"")===`/objects/object/${id}`)(typeof objectPage==="function"?objectPage:page)(id)},50),{once:true})}});
+  q("[data-summary]")?.addEventListener("change",async e=>{const t=e.target;try{t.value=await setSummary(id,t.value)}catch(err){console.error("summary",err)}});
   q("[data-add-work]")?.addEventListener("click",async()=>{await api(id,SECTION).create({record_type:"work",title:"",data:{name:"",unit:"",volume:"",order:works.length+1}});await again();const inputs=qa('tr[data-work] input[data-f="name"]');inputs[inputs.length-1]?.focus()});
   qa("tr[data-work]").forEach(tr=>{
    const w=works.find(x=>String(x.id)===tr.dataset.work);if(!w)return;
    tr.querySelectorAll("input[data-f]").forEach(inp=>inp.addEventListener("change",async()=>{
     const d={...(w.data||{})};d[inp.dataset.f]=inp.value.trim();w.data=d;
     await api(id,SECTION).update(w.id,{record_type:"work",title:d.name||"",data:d});
-    if(inp.dataset.f!=="name"){const box=q(".arch-totals"),s=totals(works.map(x=>x.data||{}));const html=s.map(t=>`<div><b>${esc(fmt(t.value))} ${esc(t.unit)}</b><span>Всего, ${esc(t.unit)}</span></div>`).join("");if(box)box.innerHTML=html;else if(html)q(".arch-hero").insertAdjacentHTML("afterend",`<div class="arch-totals">${html}</div>`)}
+    if(inp.dataset.f!=="name"){const box=q(".arch-totals"),s=totals(works.map(x=>x.data||{}));const html=s.map(t=>`<div><b>${esc(fmt(t.value))} ${esc(unitWord(t.value,t.unit))}</b><span>${esc(totalLabel(t.unit))}</span></div>`).join("");if(box)box.innerHTML=html;else if(html)q(".arch-hero").insertAdjacentHTML("afterend",`<div class="arch-totals">${html}</div>`)}
    }));
   });
   qa("[data-del-work]").forEach(b=>b.onclick=async()=>{const w=works.find(x=>String(x.id)===b.dataset.delWork);const name=w?.data?.name||"";if(name&&!confirm(`Удалить вид работ «${name}»?`))return;await api(id,SECTION).remove(b.dataset.delWork);again()});
@@ -108,6 +144,6 @@ ${sums.length?`<div class="arch-totals">${sums.map(s=>`<div><b>${esc(fmt(s.value
   if(await isArchive(m[1]))location.replace(`#/objects/object/${m[1]}`);
  }
  window.addEventListener("hashchange",guard);
- window.irArchive={isArchive,setArchive,getYears,setYears,page,known,SECTION,KIND};
+ window.irArchive={unitWord,isArchive,setArchive,getYears,setYears,getSummary,setSummary,page,known,SECTION,KIND};
  if(window.irProject)guard();
 })();
