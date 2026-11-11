@@ -180,18 +180,28 @@ function layoutLabel(str,byPos,byDigits,turned=true){
 }
 
 // «ОСвп-П-1160х3530» and «ДБН 2080х1280»: height×width; «О-П (6000 х 3600)»: width×height as drawn; gates
-// «ВМ П Р С Г К 3600-4000»: height-width.
+// «ВМ П Р С Г К 3600-4000»: height-width. A table of openings headed «Размер проема, мм. (b x h)» («ш х в», «ширина х
+// высота») and a size marked «3000 х 2800( h )» — width×height (ИР-71535 АР ч.1 л.12: «В-1 10740 х 10930» is a gate
+// 10740 wide; read as height×width it was found nowhere on the facades). The row is read from its label on: the
+// nearest size is its own (a table beside it on the same line is another one).
+const WIDTH_FIRST=/\(?\s*(?:b\s*[хx×]\s*h|ш\s*[хx×]\s*в|ширина\s*[хx×]\s*высота)\s*\)?/iu;
 function fillSpec(texts){
  const out=[];
+ const heads=texts.filter(t=>horizontalText(t)&&WIDTH_FIRST.test(String(t.str)));
+ const widthFirst=o=>heads.some(t=>t.y<o.y&&o.y-t.y<1500&&o.x<t.x+(t.width||0)+40&&o.x+(o.width||0)>t.x-40&&
+  !texts.some(q=>q!==t&&q.y>t.y+4&&q.y<o.y-4&&Math.abs(q.x-t.x)<40&&/Марка|Наименование|Обозначение/u.test(String(q.str))));
  for(const p of texts){
   const str=String(p.str).trim(),m=/^(ОК|Д|В|ВР|ДВ)-(\d{1,3}[а-я]?)$/u.exec(str);if(!m||!horizontalText(p))continue;
   const kind=m[1]==="ОК"?"window":m[1]==="Д"||m[1]==="ДВ"?"door":"gate";
-  const row=rowOf(texts,p,480);let w=0,h=0,name="";
+  const row=rowOf(texts,p,480).sort((a,b)=>a.x-b.x);let w=0,h=0,name="";
   for(const o of row){
    const s=String(o.str),br=/\(\s*(\d{3,5})\s*[хx×]\s*(\d{3,5})\s*\)/u.exec(s),hw=/(\d{3,5})\s*[хx×]\s*(\d{3,5})/u.exec(s),gate=/^В[МР]\s.*?(\d{3,5})\s*-\s*(\d{3,5})$/u.exec(s);
    if(br){w=Number(br[1]);h=Number(br[2]);name=s.trim();break}
    if(gate){h=Number(gate[1]);w=Number(gate[2]);name=s.trim();break}
-   if(hw&&!/ГОСТ/u.test(s)){h=Number(hw[1]);w=Number(hw[2]);name=s.trim();break}
+   if(hw&&!/ГОСТ/u.test(s)){
+    const wh=/\d\s*\(\s*h\s*\)/iu.test(s)||widthFirst(o);
+    if(wh){w=Number(hw[1]);h=Number(hw[2])}else{h=Number(hw[1]);w=Number(hw[2])}
+    name=s.trim();break}
   }
   if(!w||!h)continue;
   const count=row.filter(o=>/^\d{1,3}$/.test(String(o.str).trim())).sort((a,b)=>a.x-b.x).find(o=>o.x>p.x+200);
@@ -573,6 +583,40 @@ function stemLevels(levels,horiz,vert){
  }
  return levels
 }
+// A label written on a shelf with a leader from it: «Пс -106» (spaced so, as the leaders of the sheet are). The shelf
+// under the text; the leader from an end of it to its point — or the shelf drawn on past the text to it.
+function leaderLabels(texts,segments,isPos,taken=[]){
+ const out=[],near=(p,x,y)=>Math.abs(p.x-x)<=1&&Math.abs(p.y-y)<=1;
+ for(const t of texts){
+  const s=String(t.str).replace(/\s+/g,"");if(!horizontalText(t)||!SKETCH_POS.test(s)||!isPos(s)||taken.includes(t))continue;
+  const w=t.width||0,shelf=segments.find(q=>Math.abs(q.a.y-q.b.y)<=.3&&Math.abs(q.a.y-t.y-1.3)<=2.5&&Math.min(q.a.x,q.b.x)<=t.x+3&&Math.max(q.a.x,q.b.x)>=t.x+w-3);
+  if(!shelf)continue;
+  const y=shelf.a.y,x0=Math.min(shelf.a.x,shelf.b.x),x1=Math.max(shelf.a.x,shelf.b.x);
+  // (on past the text one way only, ending with it the other way: a line under a label written in a panel runs on both)
+  if(t.x-x0>8&&x1-t.x-w>3||x1-t.x-w>8&&t.x-x0>3)continue;
+  let at=t.x-x0>8?{x:x0,y}:x1-t.x-w>8?{x:x1,y}:null;
+  if(!at)for(const e of [{x:x0,y},{x:x1,y}]){const l=segments.find(q=>q!==shelf&&(near(q.a,e.x,e.y)||near(q.b,e.x,e.y))&&Math.abs(q.a.y-q.b.y)>3&&Math.hypot(q.a.x-q.b.x,q.a.y-q.b.y)>=8);
+   if(l){at=near(l.a,e.x,e.y)?l.b:l.a;break}}
+  if(!at)continue;
+  // (a point of the label's width, not the text — a cut piece may be narrower than it)
+  out.push({...t,str:s,x:at.x-.5,width:1,y:at.y+(t.size||8)*.36,leader:true})
+ }
+ return out
+}
+// An arrow from the ring of one bubble to the ring of the other, its head at the other (two strokes back from its tip):
+// the bubble it starts from and whether the axes go down along the sheet (the way of «03 → 04» drawn to the left).
+function arrowWay(two,segments){
+ const [a,b]=two,ya=(a.ring.y+b.ring.y)/2;
+ const shaft=segments.find(s=>Math.abs(s.a.y-s.b.y)<=.6&&Math.abs((s.a.y+s.b.y)/2-ya)<=Math.max(a.ring.r,b.ring.r)*.5&&
+  Math.abs(Math.min(s.a.x,s.b.x)-(a.ring.x+a.ring.r))<=2&&Math.abs(Math.max(s.a.x,s.b.x)-(b.ring.x-b.ring.r))<=2);
+ if(!shaft)return null;
+ const y=(shaft.a.y+shaft.b.y)/2,x0=Math.min(shaft.a.x,shaft.b.x),x1=Math.max(shaft.a.x,shaft.b.x);
+ const head=x=>segments.filter(s=>{const [p,q]=Math.abs(s.a.x-x)<=.6&&Math.abs(s.a.y-y)<=.6?[s.a,s.b]:Math.abs(s.b.x-x)<=.6&&Math.abs(s.b.y-y)<=.6?[s.b,s.a]:[null,null];
+  return p&&Math.abs(q.y-y)>=.4&&Math.abs(q.x-x)>=2&&Math.abs(q.x-x)<=14&&(q.x-x)*(x0+x1-2*x)>0}).length>=2;
+ const toB=head(x1),toA=head(x0);if(toB===toA)return null;
+ const from=toB?a:b,to=toB?b:a;
+ return{from,to,reversed:Math.sign(to.pt-from.pt)*Math.sign(axisRank(to.name)-axisRank(from.name))<0}
+}
 // Rows of bubbles of a layout of panels by sketches (ИР-71535 АР ч.2 л.6): small views side by side at one height make
 // one row of bubbles («О8 О10 О8 О10 О10 О8» — the walls along Г, К and Л, two bubbles each) — split where a name comes
 // again, the kind changes or the order turns; a view may show two bubbles only. A bubble alone (a view of another
@@ -734,7 +778,10 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
  // (a sheet of a layout without its table — the table is on the next sheet: the same labels)
  if(spec.some(p=>p.sketch)||!labels.length){const wall=new Set(spec.filter(p=>p.sketch&&!p.roof).map(p=>p.pos)),roof=new Set(spec.filter(p=>p.roof).map(p=>p.pos));
   const mixed=texts.filter(t=>{const s=String(t.str).trim(),m=horizontalText(t)&&SKETCH_POS.exec(s);return m&&!rowsOf.has(t)&&!roof.has(s)&&(wall.has(s)||/^П[НС]$/u.test(m[1].toUpperCase()))});
-  if(spec.some(p=>p.sketch)||mixed.length>=4)labels=mixed}
+  // Labels on leaders («Пс -106» on a shelf under the axes of «по ряду 08, в осях Б-А», its line going up to a cut piece
+  // of a panel past axis А; «Пс -84», «Пс -102.1» beside their views — ИР-71535 АР ч.2 л.6): the label at the end of its
+  // leader, as if written there.
+  if(spec.some(p=>p.sketch)||mixed.length>=4)labels=[...mixed,...leaderLabels(texts,segments,s=>!roof.has(s)&&(wall.has(s)||/^П[НС]-/u.test(s.replace(/^Пс/u,"ПС"))),mixed)]}
  // A layout by columns: its labels, upright or turned, as the positions of its table.
  if(spec.some(p=>p.layout)){
   // A position read whole on the facades at least twice whose row the OCR of the table lost («С704», «Р380»): its length
@@ -791,7 +838,9 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
  for(const row of rows){
   if(row.lone)continue;
   const own=labels.filter(t=>{const b=textBox(t);return owner(b.cx,b.cy)===row});
-  if(own.length<4)continue;
+  // (a layout by sketches: a view of a piece of a wall titled of its own may hold two panels — ИР-71535 АР ч.2 л.5 «по
+  // ряду К, в осях 03-04», Пс-112 ×2)
+  if(own.length<4&&!(sketch&&own.length&&viewTitle(texts,row,Math.min(...own.map(t=>textBox(t).y0)))))continue;
   const region=texts.filter(t=>{const b=textBox(t);return owner(b.cx,b.cy)===row});
   // (a number with a point and no sign is an area or a sum read by OCR — «37х1190= 44.030» —, not a level mark)
   const levels=region.filter(t=>horizontalText(t)&&!/^\d{1,2}\.\d{3}$/.test(String(t.str).trim())).map(t=>({mm:levelOf(t.str),y:t.y,x:t.x,w:t.width||0,s:t.size||0})).filter(l=>l.mm!==null);
@@ -813,8 +862,12 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
  for(const v of found){
   const {row,own,region,levels}=v,f=v.f||(sure.length?fit(levels,sure[sure.length>>1]):null);if(!f)continue;
   const scale=Math.abs(f.b);
-  const bubbles=row.items.map(t=>({name:String(t.str).trim().toUpperCase(),pt:t.x+(t.width||0)/2})).sort((a,b)=>a.pt-b.pt);
+  let bubbles=row.items.map(t=>({name:String(t.str).trim().toUpperCase(),pt:t.x+(t.width||0)/2,ring:t.ring})).sort((a,b)=>a.pt-b.pt);
   if(new Set(bubbles.map(b=>b.name)).size!==bubbles.length||new Set(bubbles.map(b=>numbered(b.name))).size!==1)continue;
+  // Two bubbles joined by an arrow, «03 → 04» (ИР-71535 АР ч.2 л.5, «по ряду К, в осях 03-04»): the one it starts from
+  // is the axis the panels are measured from, the other only the way along the wall — drawn beside it, not at its place.
+  const arrow=bubbles.length===2&&bubbles.every(b=>b.ring)?arrowWay(bubbles,segments):null;
+  if(arrow)bubbles=[arrow.from];
   const dims=region.filter(t=>/^\d{3,5}$/.test(String(t.str).trim())).map(t=>Number(t.str));
   // Along the wall the scale of the dimensions between the bubbles: a facade drawn lower than its length (ГПЭС
   // «Раскладка сэндвич-панелей», ряд Ж: heights at 1:31.8, lengths at 1:35.3) is read at each scale its own way.
@@ -825,8 +878,8 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
    // (not another scale altogether: dimensions of the panels, «1000 1000», fit any two bubbles at a sixth of it)
    return best&&best.n>=Math.max(2,(bubbles.length-1)/2)&&best.s>scale/1.5&&best.s<scale*1.5?best.s:scale})();
   const left=along(bubbles,dims,hs),total=left[left.length-1];
-  const reversed=axisRank(bubbles[0].name)>axisRank(bubbles[bubbles.length-1].name);
-  const canon=m=>reversed?total-m:m;
+  const reversed=arrow?arrow.reversed:axisRank(bubbles[0].name)>axisRank(bubbles[bubbles.length-1].name);
+  const canon=m=>arrow?(reversed?-m:m):reversed?total-m:m;
   const u=xpt=>{let k=0;for(let i=1;i<bubbles.length;i++)if(Math.abs(bubbles[i].pt-xpt)<Math.abs(bubbles[k].pt-xpt))k=i;return Math.round(canon(left[k]+(xpt-bubbles[k].pt)*hs)/5)*5};
   const z=ypt=>Math.round((f.a+f.b*ypt)/5)*5;
   const win=3000/scale,panels=[];
@@ -840,11 +893,13 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
     first||sidesAround(b,horiz,vert,scale,null,slopes)||jointsAround(b,vert,horiz,numbers,win);
    if(!rect)continue
    const u0=u(rect.l),u1=u(rect.r);
+   // (a label on a leader: a panel or a piece of one — not wider than a panel —, not one labelled of its own)
+   if(t.leader&&(Math.abs(u1-u0)>1250||sized&&!sized(rect)||panels.some(p=>Math.min(p.rect.r,rect.r)-Math.max(p.rect.l,rect.l)>(rect.r-rect.l)*.5&&Math.min(p.rect.bottom,rect.bottom)-Math.max(p.rect.top,rect.top)>(rect.bottom-rect.top)*.5)))continue;
    // The cut of a panel under a slope: the heights of its lower edge at the ends, in the order along the wall.
    const cut=rect.cut?(u0<=u1?[z(rect.cut.l),z(rect.cut.r)]:[z(rect.cut.r),z(rect.cut.l)]):null;
    // (the top under a slope: its heights at the ends, in the order along the wall)
    const topCut=rect.topCut?(u0<=u1?[z(rect.topCut.l),z(rect.topCut.r)]:[z(rect.topCut.r),z(rect.topCut.l)]):null;
-   panels.push({...(t.cands?{cands:t.cands}:{}),mark:String(t.str).trim(),u0:Math.min(u0,u1),u1:Math.max(u0,u1),z0:z(rect.bottom),z1:z(rect.top),...(cut?{cut}:{}),...(topCut?{top:topCut}:{}),pt:{x:Math.round(b.cx),y:Math.round(b.cy)},rect})
+   panels.push({...(t.cands?{cands:t.cands}:{}),...(t.leader?{leader:true}:{}),mark:String(t.str).trim(),u0:Math.min(u0,u1),u1:Math.max(u0,u1),z0:z(rect.bottom),z1:z(rect.top),...(cut?{cut}:{}),...(topCut?{top:topCut}:{}),pt:{x:Math.round(b.cx),y:Math.round(b.cy)},rect})
   }
   // (a layout by sketches: a label of another view over this row — «по фасаду 3-1» beside «по ряду К, в осях 01-03»,
   // ИР-71535 АР ч.2 л.5 — lies off its axes, past the 3 m a wall runs on beyond its last axis)
@@ -913,19 +968,46 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
 // drawn near it (a top and a bottom of one extent and the sides between them), in the frame of its view; the plan picks
 // the one of the size of the block its table gives.
 const FILL=/^(ОК|Д|В|ВР|ДВ)-(\d{1,3}[а-я]?)$/u;
+// The rows of bubbles of facades. A facade of the extension drawn on with the end of the building beside it shows both
+// in one row (ИР-71535 АР ч.1 л.15 «Фасад 01-010»: «А Е К» of the old building, then «О1 … О10»; an axis of the old one
+// in between, «О1/2», out of the order): the run of numbers or of letters of four and more, in their order along the
+// row without the few that break it, is a row of its own.
+function facadeRows(texts,segments){
+ const ok=axisRows(texts,segments),out=[...ok];
+ for(const r of bubbleRows(texts,segments)){
+  if(ok.includes(r))continue;
+  const items=r.items.slice().sort((a,b)=>a.x-b.x),runs=[];
+  for(const t of items){const k=numbered(String(t.str).trim());if(!runs.length||runs[runs.length-1].k!==k)runs.push({k,list:[]});runs[runs.length-1].list.push(t)}
+  for(const run of runs){
+   if(run.list.length<4)continue;
+   const rank=run.list.map(t=>axisRank(String(t.str).trim().toUpperCase()));
+   // the longest run in order (up or down) of the row; of two as long, the one with fewer axes «1/2» (of the old building)
+   let best=[],bestW=0;const wt=rank.map(v=>Number.isInteger(v)?1:.99);
+   for(const dir of [1,-1]){const len=wt.slice(),prev=rank.map(()=>-1);
+    for(let i=0;i<rank.length;i++)for(let j=0;j<i;j++)if(dir*(rank[i]-rank[j])>0&&len[j]+wt[i]>len[i]+1e-9){len[i]=len[j]+wt[i];prev[i]=j}
+    let i=len.indexOf(Math.max(...len));const keep=[],w=len[i];while(i>=0){keep.unshift(run.list[i]);i=prev[i]}
+    if(w>bestW+1e-9){best=keep;bestW=w}}
+   const names=best.map(t=>String(t.str).trim().toUpperCase());
+   if(best.length<4||best.length<run.list.length*.8||new Set(names).size!==names.length)continue;
+   const x0=Math.min(...best.map(t=>t.x)),x1=Math.max(...best.map(t=>t.x));
+   out.push({...r,items:best,x0,x1,x:(x0+x1)/2})
+  }
+ }
+ return out
+}
 function fillViews({segments=[],texts=[]}={}){
  const inTable=t=>texts.some(o=>o!==t&&Math.abs(o.y-t.y)<3&&o.x>t.x&&o.x<t.x+520&&/ГОСТ|\d{3,5}\s*[хx×-]\s*\d{3,5}/u.test(String(o.str)));
  const labels=texts.filter(t=>horizontalText(t)&&FILL.test(String(t.str).trim())&&!inTable(t));
  if(labels.length<3)return[];
- const rows=axisRows(texts,segments);if(!rows.length)return[];
+ const rows=facadeRows(texts,segments);if(!rows.length)return[];
  const owner=ownerOf(rows);
  const box=labels.map(textBox),near=(x,y,d)=>box.some(b=>Math.abs(b.cx-x)<d&&Math.abs(b.cy-y)<d);
  const horiz=[],vert=[],lines=[];
  for(const s of segments){
   const dx=Math.abs(s.a.x-s.b.x),dy=Math.abs(s.a.y-s.b.y);
   if(dy<=.3&&dx>=3)lines.push({y:(s.a.y+s.b.y)/2,x0:Math.min(s.a.x,s.b.x),x1:Math.max(s.a.x,s.b.x)});
-  if(dy<=.3&&dx>=8&&near((s.a.x+s.b.x)/2,s.a.y,200))horiz.push({y:(s.a.y+s.b.y)/2,x0:Math.min(s.a.x,s.b.x),x1:Math.max(s.a.x,s.b.x)});
-  else if(dx<=.3&&dy>=8&&near(s.a.x,(s.a.y+s.b.y)/2,260))vert.push({x:(s.a.x+s.b.x)/2,y0:Math.min(s.a.y,s.b.y),y1:Math.max(s.a.y,s.b.y)})
+  if(dy<=.3&&dx>=8&&near((s.a.x+s.b.x)/2,s.a.y,360))horiz.push({y:(s.a.y+s.b.y)/2,x0:Math.min(s.a.x,s.b.x),x1:Math.max(s.a.x,s.b.x)});
+  else if(dx<=.3&&dy>=8&&near(s.a.x,(s.a.y+s.b.y)/2,360))vert.push({x:(s.a.x+s.b.x)/2,y0:Math.min(s.a.y,s.b.y),y1:Math.max(s.a.y,s.b.y)})
  }
  const found=[];
  for(const row of rows){
@@ -942,15 +1024,17 @@ function fillViews({segments=[],texts=[]}={}){
   const scale=Math.abs(f.b);
   const bubbles=row.items.map(t=>({name:String(t.str).trim().toUpperCase(),pt:t.x+(t.width||0)/2})).sort((a,b)=>a.pt-b.pt);
   if(new Set(bubbles.map(b=>b.name)).size!==bubbles.length||new Set(bubbles.map(b=>numbered(b.name))).size!==1)continue;
-  const dims=region.filter(t=>/^\d{3,5}$/.test(String(t.str).trim())).map(t=>Number(t.str));
+  // (a bubble «010» read as plain text is no dimension)
+  const dims=region.filter(t=>/^[1-9]\d{2,4}$/.test(String(t.str).trim())).map(t=>Number(t.str));
   if(dims.length&&!sameScale(bubbles,dims,scale))continue;
   const left=along(bubbles,dims,scale),total=left[left.length-1];
   const reversed=axisRank(bubbles[0].name)>axisRank(bubbles[bubbles.length-1].name),canon=m=>reversed?total-m:m;
   const u=xpt=>{let k=0;for(let i=1;i<bubbles.length;i++)if(Math.abs(bubbles[i].pt-xpt)<Math.abs(bubbles[k].pt-xpt))k=i;return Math.round(canon(left[k]+(xpt-bubbles[k].pt)*scale)/5)*5};
   const z=ypt=>Math.round((f.a+f.b*ypt)/5)*5;
-  const reach=4000/scale,fills=[];
+  // (a gate 10740×10930 has its label at its foot, a strip of windows 19200 long — ИР-71535 АР ч.1 л.15, 17)
+  const reach=4000/scale,up=12000/scale,fills=[];
   for(const t of own){
-   const b=textBox(t),hs=horiz.filter(h=>Math.abs(h.y-b.cy)<reach&&h.x1>b.cx-reach&&h.x0<b.cx+reach&&(h.x1-h.x0)*scale>=400&&(h.x1-h.x0)*scale<=8000);
+   const b=box[labels.indexOf(t)],hs=horiz.filter(h=>Math.abs(h.y-b.cy)<up&&h.x1>b.cx-reach&&h.x0<b.cx+reach&&(h.x1-h.x0)*scale>=400&&(h.x1-h.x0)*scale<=20000);
    // A side down from the top to the bottom; a railing or a stair drawn in front may break it for a fifth of its height.
    const side=(x,top,bottom)=>{let need=top,gap=0;for(const q of vert.filter(q=>Math.abs(q.x-x)<=.6&&q.y1>top&&q.y0<bottom).sort((p,q)=>p.y0-q.y0)){if(q.y0>need+1)gap+=q.y0-need;need=Math.max(need,q.y1)}
     return gap+Math.max(0,bottom-need)<=(bottom-top)*.2};
@@ -958,10 +1042,12 @@ function fillViews({segments=[],texts=[]}={}){
    for(let i=0;i<hs.length;i++)for(let j=0;j<hs.length;j++){
     // The top and the bottom of one extent, or one of them a part of a longer line (a gate behind a platform stands on
     // its deck, a window under the line of a canopy).
-    const a=hs[i],c=hs[j],h=(c.y-a.y)*scale;if(h<400||h>5000)continue;
+    const a=hs[i],c=hs[j],h=(c.y-a.y)*scale;if(h<400||h>12000)continue;
     const same=Math.abs(a.x0-c.x0)<=.6&&Math.abs(a.x1-c.x1)<=.6,n=same?a:c.x0<=a.x0+.6&&c.x1>=a.x1-.6?a:a.x0<=c.x0+.6&&a.x1>=c.x1-.6?c:null;if(!n)continue;
     if(rects.some(r=>Math.abs(r.l-n.x0)<.3&&Math.abs(r.r-n.x1)<.3&&Math.abs(r.top-a.y)<.3&&Math.abs(r.bottom-c.y)<.3))continue;
     if(!side(n.x0,a.y,c.y)||!side(n.x1,a.y,c.y))continue;
+    // (a rectangle round the label of another block is no block: windows one over another and the lines between them)
+    if(box.some(o=>o!==b&&o.cx>n.x0+.5&&o.cx<n.x1-.5&&o.cy>a.y+.5&&o.cy<c.y-.5))continue;
     const dx=Math.max(0,n.x0-b.cx,b.cx-n.x1),dy=Math.max(0,a.y-b.cy,b.cy-c.y);
     rects.push({l:n.x0,r:n.x1,top:a.y,bottom:c.y,d:Math.hypot(dx,dy)+(same?0:.5)})
    }
@@ -1116,4 +1202,4 @@ function extractArchitecture(geometry){
  const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{})};
  return panels.length||fills.length||views.length||Object.keys(extra).length?{panels,fills,views,...extra}:null
 }
-module.exports={extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
+module.exports={facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};

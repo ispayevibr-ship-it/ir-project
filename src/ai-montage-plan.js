@@ -703,6 +703,9 @@ function arScheme(pages,opts={}){
    // With tables of panels in the set, a label they do not know is not a panel.
    if(spec.size&&!spec.has(p.mark)){warnings.push(p.mark+" (лист "+v.sheet+"): нет в спецификациях панелей — не поставлена");continue}
    const w=p.u1-p.u0,h=p.z1-p.z0,q=sizeOf(p.mark,w,h),t=q?.thickness_mm||150;
+   // (a label on a leader — src/ai-ar-extract.js leaderLabels — takes a piece of its panel, cut on site: not larger than
+   // the panel its table gives; a column of the wall between joints longer than that is not it)
+   if(p.leader&&q&&!(w<=q.width_mm+40&&h<=q.length_mm+60||h<=q.width_mm+40&&w<=q.length_mm+60)){warnings.push(p.mark+" (лист "+v.sheet+"): по выноске — контур "+Math.round(w)+"×"+Math.round(h)+" больше панели "+q.width_mm+"×"+q.length_mm+" — не поставлена");continue}
    // The panel's middle plane: half its thickness inside the outer face; on the axis of its row — outside it (the side
    // the view is seen from).
    const across0=Math.round(row?face+(low?-t/2:t/2):face+(low?t/2:-t/2)),a=p.u0+off,b=p.u1+off;
@@ -807,12 +810,19 @@ let loose=0;
     const f=blocks.get(x.mark);if(!f){unknown.set(x.mark,(unknown.get(x.mark)||0)+1);continue}
     if(off===null){lost.push(x.mark+" (лист "+fv.sheet+")");continue}
     const shapes=[[0,0],...(f.kind==="window"?[[40,40]]:f.kind==="door"?[[40,20],[40,40]]:[[40,20]])];
-    // Of the rectangles of its size, the nearest to the label not taken by another label.
+    // Of the rectangles of its size, the nearest to the label not taken by another label. A gate is drawn by its leaf on
+    // the floor: up to 300 narrower and 700 lower than the opening its table gives for mounting (ИР-71535 АР ч.1 л.16:
+    // В-2 «4000 х 5570» drawn 3760×5210, В-3 «4000 х 4200» — 3770×3940).
     let best=null;
     for(const r of x.rects){const w=r[1]-r[0],h=r[3]-r[2];if(taken.has(Math.round((r[0]+r[1])/2/100)+"|"+Math.round((r[2]+r[3])/2/100)+"|"+fv.numbered+fv.reversed))continue;
-     const far=Math.hypot(Math.max(0,r[0]-x.u,x.u-r[1]),Math.max(0,r[2]-x.z,x.z-r[3]));
+     // (not one far from its label: the label stands at its block, over it or under it)
+     const far=Math.hypot(Math.max(0,r[0]-x.u,x.u-r[1]),Math.max(0,r[2]-x.z,x.z-r[3]));if(far>2500)continue;
      for(const [dw,dh] of shapes){const ew=Math.abs(w-f.width_mm-dw),eh=Math.abs(h-f.height_mm-dh);if(ew>60||eh>60)continue;
-      const score=far+ew+eh+(dw||dh?10:0);if(!best||score<best.score)best={r,score}}}
+      const score=far+ew+eh+(dw||dh?10:0);if(!best||score<best.score)best={r,score}}
+     // (a door by its block: 1000×2100 drawn 935×2065 — л.15, 17)
+     if(f.kind!=="window"&&Math.abs(r[2])<=300){const lw=f.width_mm-w,lh=f.height_mm-h,gate=f.kind==="gate";
+      if(lw>=-60&&lw<=(gate?300:120)&&lh>=-60&&lh<=(gate?700:150)){const score=far+Math.abs(lw)+Math.abs(lh)*.5+100;if(!best||score<best.score)best={r,score}}}}
+
     // A door or a gate whose foot a stair or a platform in front hides: by its width and its head.
     let byHead=null;
     if(!best&&f.kind!=="window")for(const r of x.rects){const ew=Math.abs(r[1]-r[0]-f.width_mm),ew2=Math.abs(r[1]-r[0]-f.width_mm-40);
@@ -821,12 +831,19 @@ let loose=0;
     {const q=(best||byHead).r;taken.add(Math.round((q[0]+q[1])/2/100)+"|"+Math.round((q[2]+q[3])/2/100)+"|"+fv.numbered+fv.reversed)}
     const r=(best||byHead).r,uc=(r[0]+r[1])/2+off,a=Math.round(uc-f.width_mm/2),b=a+f.width_mm;
     let z=byHead?Math.round(r[3]-f.height_mm-(Math.abs(r[1]-r[0]-f.width_mm-40)<Math.abs(r[1]-r[0]-f.width_mm)?20:0)):f.kind==="window"?Math.round((r[2]+r[3]-f.height_mm)/2):r[2];if(Math.abs(z)<=30)z=0;
-    const zc=z+f.height_mm/2;let wall=null,wd=Infinity;
-    for(const w of walls){if(w.v.numbered!==fv.numbered||w.v.reversed!==fv.reversed)continue;
-     for(const p of w.v.panels){const d=Math.hypot(Math.max(0,p.u0+w.off-uc,uc-(p.u1+w.off)),Math.max(0,p.z0-zc,zc-p.z1));if(d<wd){wd=d;wall=w}}}
+    // (the wall whose panels come nearest the block: a gate 10,7 m high has them over it and beside it, not at its middle;
+    // of two as near — an extension in front of the building — the front one, the wall the facade looks at: ИР-71535
+    // АР ч.1 л.16 «Фасад А-Н» shows the windows of the wall on О10 under those of the gable on О8 behind it)
+    let wall=null,wd=Infinity;const near=[];
+    for(const w of walls){if(w.v.numbered!==fv.numbered||w.v.reversed!==fv.reversed)continue;let dw=Infinity;
+     for(const p of w.v.panels){const d=Math.hypot(Math.max(0,p.u0+w.off-b,a-(p.u1+w.off)),Math.max(0,p.z0-z-f.height_mm,z-p.z1));if(d<dw)dw=d}
+     near.push({w,d:dw});if(dw<wd){wd=dw;wall=w}}
+    {const low=fv.numbered!==fv.reversed,front=w=>(low?-1:1)*(w.list[0].line||0);
+     const tie=near.filter(q=>q.d<=wd+300&&q.w.list[0].line!=null).sort((p,q)=>front(q.w)-front(p.w))[0];if(tie){wall=tie.w;wd=tie.d}}
     if(!wall||wd>3000){lost.push(x.mark+" (лист "+fv.sheet+", стены этой стороны нет в раскладке)");continue}
     used.set(f.pos,(used.get(f.pos)||0)+1);
-    fillOf(f,fv.numbered,fv.reversed,a,b,z,wall.list[0],fv,["Фасад АР, лист "+fv.sheet+": "+f.pos+" "+f.width_mm+"×"+f.height_mm+" ("+f.name+")",...(byHead?["Низ закрыт на фасаде лестницей или площадкой — поставлен по верху, проверьте"]:[])],(used.get(f.pos)||0)>(f.count||1));
+    // (a table of openings without the number of each — «Ведомость проемов» — counts nothing: as many as the facades show)
+    fillOf(f,fv.numbered,fv.reversed,a,b,z,wall.list[0],fv,["Фасад АР, лист "+fv.sheet+": "+f.pos+" "+f.width_mm+"×"+f.height_mm+" ("+f.name+")",...(byHead?["Низ закрыт на фасаде лестницей или площадкой — поставлен по верху, проверьте"]:[])],f.count!=null&&(used.get(f.pos)||0)>f.count);
     cutHoles(fv.numbered,a,b,z,z+f.height_mm,wall.list)
    }
   }
@@ -834,7 +851,7 @@ let loose=0;
   if(unknown.size)warnings.push("На фасадах есть позиции, которых нет в спецификациях окон, дверей и ворот: "+[...unknown].map(([k,n])=>k+(n>1?" ×"+n:"")).join(", "));
   // What the tables count and the facades do not show: inner doors and gates (in the partitions), or not found.
   const fewer=[],inner=[];
-  for(const f of blocks.values()){const n=used.get(f.pos)||0,k=f.count||1;if(n>=k)continue;(n?fewer:inner).push(f.pos+(n?" "+n+" из "+k:" ×"+k))}
+  for(const f of blocks.values()){const n=used.get(f.pos)||0,k=f.count||1;if(n>=k||f.count==null&&n)continue;(n?fewer:inner).push(f.pos+(n?" "+n+" из "+k:f.count==null?"":" ×"+k))}
   if(fewer.length)warnings.push("На фасадах меньше, чем по спецификации: "+fewer.join(", "));
   if(inner.length)warnings.push("Нет на фасадах (внутренние, в перегородках) — пока не поставлены: "+inner.join(", "));
  }
