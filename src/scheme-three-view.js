@@ -5510,6 +5510,25 @@ window.irThreeSchemeView=(function(){
       best=Math.max(best,face)});
      if(best>=1&&best<=700)ext[k]=-best/1000});
     if(ext[0]||ext[1])panelExt.set(r.id,ext)
+   });
+   // The gable trim of a roof (lay.trim "gable": a leg down, a leg across over the roof) over a wall moved out to the
+   // outer face of the frame (wallLines): its leg down outside that wall's face, not in it (ИР-71535 Пк-6 at О7/1: the
+   // edge of the roof at 55996, the wall 55975…56095 — the leg 150 mm down went 100 mm into Пс-28 along 48 m).
+   list.forEach(function(c){
+    if(c.ft!=="trim"||!c.id||!c.lay||c.lay.trim!=="gable"||!Array.isArray(c.lay.legs))return;
+    var lg=c.lay.legs.filter(function(q){return Array.isArray(q)&&Math.abs(number(q[2]))<.1&&Math.hypot(number(q[0]),number(q[1]))>.5})[0];if(!lg)return;
+    var pp=memberPoints(c),a=fromWorld(pp[0]),b=fromWorld(pp[1]),L=Math.hypot(b.x-a.x,b.y-a.y);if(L<300)return;
+    var ux=(b.x-a.x)/L,uy=(b.y-a.y)/L,hl=Math.hypot(number(lg[0]),number(lg[1])),ox=-number(lg[0])/hl,oy=-number(lg[1])/hl;
+    if(Math.abs(ox*ux+oy*uy)>.1)return;
+    var move=0;
+    walls.forEach(function(w){
+     if(Math.abs(w.u.x*uy-w.u.y*ux)>.05)return;
+     var off=(w.a.x-a.x)*ox+(w.a.y-a.y)*oy;if(Math.abs(off)>400)return;
+     var s0=(w.a.x-a.x)*ux+(w.a.y-a.y)*uy,s1=s0+w.L*(w.u.x*ux+w.u.y*uy);if(Math.max(s0,s1)<0||Math.min(s0,s1)>L)return;
+     var sm=Math.max(0,Math.min(L,(s0+s1)/2)),zt=a.z+(b.z-a.z)*sm/L;if(w.top<zt-700||w.top>zt+150)return;
+     move=Math.max(move,off+w.t/2+1)});
+    if(move<1||move>300)return;
+    var v=toWorld(ox*move,oy*move,0).sub(toWorld(0,0,0)),sh=lineShift.get(String(c.id));lineShift.set(String(c.id),sh?sh.clone().add(v):v)
    })
   }
   var panelExt=new Map();
@@ -5595,22 +5614,41 @@ window.irThreeSchemeView=(function(){
     fit.forEach(function(f){
      var s=f.mid.dot(g.u),o=f.mid.dot(g.n)-g.d;if(s<g.s0||s>g.s1||f.y1<g.y0||f.y0>g.y1||Math.abs(o)<.3||Math.abs(o)>9)return;near[o>0?0:1]++
     });
-    if(near[0]===near[1])return;
-    var out=near[0]<near[1]?1:-1,need=0;
+    // (the girts of the wall — horizontal members of the fahwerk along it within 1 m — carry the panels: their side is the
+    // outside whatever else stands within 9 m; ИР-71535 О3: Рр □180 west of the columns К4, К5 at 390 mm, the annex
+    // О1–О3 on that side with more members — the wall went east, through the bracing Св1 and against the girts)
+    var girt=[0,0];
     fit.forEach(function(f){
-     var dir=f.b.clone().sub(f.a),len=dir.length();
-     if(!f.col){if(len<.05)return;dir.divideScalar(len);if(Math.abs(dir.dot(g.n))>.2)return}
-     var s=f.mid.dot(g.u);if(s<g.s0-.05||s>g.s1+.05||f.y1<g.y0||f.y0>g.y1)return;
-     var o=(f.mid.dot(g.n)-g.d)*out;if(o>1||o<-1.5)return;
-     // (its section across the wall: a column by its turn — h along plan y; a member along the wall — its width; an angle
-     // its whole leg)
-     var nx=Math.abs(g.n.x),nz=Math.abs(g.n.z),hs=f.hs,ext;
-     if(f.col){var turned=Math.abs(Math.sin(f.turn))>.7;ext=(turned?hs.h:hs.b)*nx+(turned?hs.b:hs.h)*nz;
-      // (and its base plate, when its foot is within the height of the wall — a post on a beam of the wall)
-      if(f.y0>=g.y0&&f.y0<=g.y1){var bs=baseSize(f.c);ext=Math.max(ext,(turned?bs.pd:bs.pw)/2*nx+(turned?bs.pw:bs.pd)/2*nz)}}
-     else ext=String(f.c.profile_name||f.c.profileName||"").match(/^(L|∟|Уголок|Уг\.?)/i)?2*hs.b:hs.b;
-     need=Math.max(need,o+ext+.005+g.t/2)
+     if(f.col||role(f.c)!=="fahwerk"||Math.abs(f.a.y-f.b.y)>.05)return;var dv=f.b.clone().sub(f.a),ln=dv.length();if(ln<.5||Math.abs(dv.dot(g.n))/ln>.2)return;
+     var s=f.mid.dot(g.u),o=f.mid.dot(g.n)-g.d;if(s<g.s0-.5||s>g.s1+.5||f.y1<g.y0||f.y0>g.y1||Math.abs(o)<.05||Math.abs(o)>1)return;girt[o>0?0:1]++;girt[o>0?2:3]=Math.max(girt[o>0?2:3]||0,Math.abs(o))
     });
+    // (and the wall on their outer face: what stands farther out than the girts — a column of the annex 1 m off — is not of
+    // this wall)
+    var byNear=near[0]===near[1]?0:near[0]<near[1]?1:-1;
+    // (how far out the wall goes on the side out: past the outer face of every member of the frame there within 1 m;
+    // lim — only those no farther out than it, the girts' outer face; clash — a column farther out it would stand in)
+    var reach=function(out,lim){var need=0,cols=[];
+     fit.forEach(function(f){
+      var dir=f.b.clone().sub(f.a),len=dir.length();
+      if(!f.col){if(len<.05)return;dir.divideScalar(len);if(Math.abs(dir.dot(g.n))>.2)return}
+      var s=f.mid.dot(g.u);if(s<g.s0-.05||s>g.s1+.05||f.y1<g.y0||f.y0>g.y1)return;
+      var o=(f.mid.dot(g.n)-g.d)*out;if(o>1.5||o<-1.5)return;
+      // (its section across the wall: a column by its turn — h along plan y; a member along the wall — its width; an angle
+      // its whole leg)
+      var nx=Math.abs(g.n.x),nz=Math.abs(g.n.z),hs=f.hs,ext;
+      if(f.col){var turned=Math.abs(Math.sin(f.turn))>.7;ext=(turned?hs.h:hs.b)*nx+(turned?hs.b:hs.h)*nz;
+       // (and its base plate, when its foot is within the height of the wall — a post on a beam of the wall)
+       if(f.y0>=g.y0&&f.y0<=g.y1){var bs=baseSize(f.c);ext=Math.max(ext,(turned?bs.pd:bs.pw)/2*nx+(turned?bs.pw:bs.pd)/2*nz)}}
+      else ext=String(f.c.profile_name||f.c.profileName||"").match(/^(L|∟|Уголок|Уг\.?)/i)?2*hs.b:hs.b;
+      if(o>1||lim!==null&&o>lim+.05){if(f.col)cols.push([o-ext,o+ext]);return}
+      need=Math.max(need,o+ext+.005+g.t/2)
+     });
+     return{need:need,clash:cols.some(function(r){return r[0]<need+g.t/2&&r[1]>need-g.t/2})}};
+    // (the girts' side, unless the wall on their outer face would stand in a column farther out — row К of the annex
+    // О1–О3: its column К1 600 mm past the girts of the shop — then as by the members within 9 m)
+    var out=0,need=0;
+    if(girt[0]!==girt[1]&&(!girt[0]||!girt[1])){var go=girt[0]?1:-1,gr=reach(go,girt[0]?girt[2]:girt[3]);if(!gr.clash){out=go;need=gr.need}}
+    if(!out){if(!byNear)return;out=byNear;need=reach(out,null).need}
     if(need<.002||need>1.2)return;
     g.shift=g.n.clone().multiplyScalar(out*need);linesMoved++;
     g.panels.forEach(function(id){lineShift.set(id,g.shift);lineMoved.set(id,need)})
@@ -5626,6 +5664,61 @@ window.irThreeSchemeView=(function(){
      if(sh)lineShift.set(String(c.id),sh);return}
     var g=lines.find(on);
     if(g)lineShift.set(String(c.id),g.shift)
+   })
+  }
+  // A gate in a niche (lay.niche — src/ai-ar-extract.js nicheSpec; ИР-71535 АР ч.2 л.18 «Ниши ворот В 1 по рядам Б, Л»,
+  // разрезы 3-3, 4-4, 6-6): it stands in the depth of the niche, its outer face on the outer face of the steel over it (the
+  // gate beam Бп1 I40Ш2 — 570 mm in from the face of the wall), the sides and the «потолок» of the niche from the wall to
+  // the gate lined with panels (addOpening). nicheDepth — from the inner face of the wall to the face of the gate, m.
+  var nicheDepth=new Map();
+  function gateNiches(list){
+   nicheDepth.clear();
+   var steel=list.filter(function(c){return !c.ft&&c.id&&c.geometryType==="beam"&&!c.truss});
+   var cols=list.filter(function(c){return !c.ft&&c.id&&c.geometryType==="column"});
+   list.forEach(function(c){
+    if(c.ft!=="gate"||!c.id||!c.lay||!c.lay.niche||!Array.isArray(c.lay.outside))return;
+    var p=memberPoints(c),a=p[0],b=p[p.length-1],u=new T.Vector3(b.x-a.x,0,b.z-a.z),L=u.length();if(L<.5)return;u.divideScalar(L);
+    var out=toWorld(number(c.lay.outside[0])*1000,number(c.lay.outside[1])*1000,0).sub(toWorld(0,0,0));out.y=0;if(out.lengthSq()<1e-9)return;out.normalize();
+    var t=Math.max(.05,(number(c.lay.thickness_mm)||120)/1000),top=a.y+Math.max(.3,(number(c.fd)||1000)/1000),face=a.dot(out)+t/2,s0=a.dot(u),best=null,cross=null,held=false;
+    steel.forEach(function(m){
+     var q=memberPoints(m),qa=q[0],qb=q[q.length-1],dv=qb.clone().sub(qa),ln=dv.length();if(ln<.5||Math.abs(qa.y-qb.y)>.05)return;
+     if(Math.abs(dv.dot(u))/ln<.98)return;
+     var m0=Math.min(qa.dot(u),qb.dot(u))-s0,m1=Math.max(qa.dot(u),qb.dot(u))-s0,over=Math.min(m1,L)-Math.max(m0,0);if(over<=.002)return;
+     var hs=halfSection(m),angle=/^(L|∟|Уголок|Уг\.?)/i.test(String(m.profile_name||m.profileName||"")),ext=angle?2*hs.b:hs.b,bottom=qa.y-hs.h;
+     var d=face-(qa.dot(out)+ext);if(d>1.5||qa.dot(out)-ext>face+.05)return;
+     // (the beam over the gate — the face of the niche; a member along the wall within the height of the gate — a strut
+     // across the opening (Рп1 L90×8 on +6,700 between the columns of the gate, КМ1 л.8), a girt ending past the edge of
+     // the gate — the whole gate clear of it, of a strut's gussets at the columns too (180 mm past its angle))
+     // (a girt of the wall itself right on the head of the gate — Рн □180 by О10 10 mm over В-2 — the gate is in the wall,
+     // its niche outside the steel (АР л.19, железобетонные стенки): it stays)
+     if(bottom>=top-.05&&bottom<=top+.6){if(role(m)==="fahwerk"&&bottom<top+.25&&over>=L*.5)held=true;if(over>=L*.5&&d>=t+.05&&(best===null||d<best))best=d}
+     else if(qa.y+hs.h>a.y&&bottom<top){var dc=d-t-(angle?.18:.005);if(cross===null||dc<cross)cross=dc}
+    });
+    if(best===null||held)return;if(cross!==null&&cross<best)best=cross;if(best<t+.05)return;
+    // (the panels of the niche of the colour of the wall round the gate)
+    var mid=a.clone().add(b).multiplyScalar(.5),ral="",rd=Infinity;
+    list.forEach(function(w){if(w.ft!=="panel"||!w.lay||w.lay.panel!=="wall"||!ralOf(w))return;var wp=memberPoints(w),wm=wp[0].clone().add(wp[wp.length-1]).multiplyScalar(.5);wm.y=mid.y;var dd=wm.distanceTo(mid);if(dd<rd){rd=dd;ral=ralOf(w)}});
+    // (the columns at the ends of the gate: the gate between their faces — a gate read 8–30 mm off the middle of its bay
+    // goes into the flange of a column once in the depth of the niche —; the sides of the niche beside them, clear of the
+    // column and of the seats of the girts on it, 150 mm each side of its axis — АР л.18: 275 from the axes to the faces
+    // of the sides, the gate behind them)
+    var ends=[0,L],faces=[-Infinity,Infinity],gf=face-best;
+    cols.forEach(function(m){
+     var q=memberPoints(m),qa=q[0],qb=q[q.length-1];if(qb.y<top-.3||qa.y>a.y+.3)return;
+     var hs=halfSection(m),turned=Math.abs(Math.sin(branchTurn.get(String(m.id))||0))>.7,A=turned?hs.h:hs.b,B=turned?hs.b:hs.h;
+     var along=A*Math.abs(u.x)+B*Math.abs(u.z),across=A*Math.abs(out.x)+B*Math.abs(out.z);
+     var cu=qa.dot(u)-s0,co=qa.dot(out);if(co+across<gf-t-1||co-across>face+.05)return;
+     var ext=Math.max(along,.15)+.005;
+     if(cu<.3&&cu>-.8){ends[0]=Math.max(ends[0],cu+ext);faces[0]=Math.max(faces[0],cu+along)}
+     if(cu>L-.3&&cu<L+.8){ends[1]=Math.min(ends[1],cu-ext);faces[1]=Math.min(faces[1],cu-along)}
+    });
+    var du=0;
+    if(isFinite(faces[0])&&isFinite(faces[1])&&faces[1]-faces[0]>=L+.004){if(faces[0]>-.002||faces[1]<L+.002)du=(faces[0]+faces[1]-L)/2}
+    else if(faces[0]>0&&faces[0]<.05&&faces[1]===Infinity)du=faces[0]+.002;
+    else if(faces[1]<L&&faces[1]>L-.05&&faces[0]===-Infinity)du=faces[1]-.002-L;
+    if(ends[1]-ends[0]<L*.5)ends=[0,L];
+    var sh=out.clone().multiplyScalar(-best).add(u.clone().multiplyScalar(du)),was=lineShift.get(String(c.id));lineShift.set(String(c.id),was?was.clone().add(sh):sh);
+    nicheDepth.set(String(c.id),{d:best-t,ral:rd<L?ral:"",u0:ends[0]-du,u1:ends[1]-du})
    })
   }
   // Steel does not pass through a sandwich panel (the engineer, 28.10.2026: «металлоконструкции выходят сквозь
@@ -5913,7 +6006,7 @@ window.irThreeSchemeView=(function(){
    allMeshes=[];plateCells.clear();platesN=0;boltList=[];seatIndex=null;webGus=[];webTraps=[];cleatRibs=[];footRibFree.clear();dataById.clear();meshesById.clear();failures=0;weldList=[];weldRun++;conventional.clear();drillCache.clear();upperCache.clear();seatCache.clear();boltNear.clear();boltNearN=0;
    labels.forEach(function(l){l.el.remove()});labels=[];
    elems=Array.isArray(list)?list:[];deckPairs.clear();deckRects=null;deckCols=null;bridgeList=null;bridgePlates=[];
-   strutGus.length=0;ribGus.length=0;slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);beamEndNodes(elems);ribsUnderPlates(elems);ribStruts(elems);underChords(elems);purlinNodes(elems);seatLevels(elems);purlinTilts(elems);chordSeats(elems);restLifts(elems);ridgeMiters(elems);guardLines(elems);roofSeats(elems);guardFeet(elems);postFeet(elems);stubTops(elems);guardRails(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);wallUnderRoof(elems);trimCorners(elems);bracePlanes(elems);roofCones(elems);ladderStringers(elems);stairStringers(elems);landingChannels(elems);toeBoards(elems);flightPosts(elems);guardBraces(elems);wallRings(elems);guardJoints(elems);
+   strutGus.length=0;ribGus.length=0;slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);beamEndNodes(elems);ribsUnderPlates(elems);ribStruts(elems);underChords(elems);purlinNodes(elems);seatLevels(elems);purlinTilts(elems);chordSeats(elems);restLifts(elems);ridgeMiters(elems);guardLines(elems);roofSeats(elems);guardFeet(elems);postFeet(elems);stubTops(elems);guardRails(elems);wallLines(elems);gateNiches(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);wallUnderRoof(elems);trimCorners(elems);bracePlanes(elems);roofCones(elems);ladderStringers(elems);stairStringers(elems);landingChannels(elems);toeBoards(elems);flightPosts(elems);guardBraces(elems);wallRings(elems);guardJoints(elems);
    // (the posts with no conditional plate of their own before the members: a column on a member stands on its plate)
    platelessPosts();
    var host=jointHosts(elems);findCrossings(elems,host);
@@ -9413,6 +9506,12 @@ window.irThreeSchemeView=(function(){
    };
    var pin=function(r,h,x,y,s,m){var g=new T.CylinderGeometry(r,r,h,10),mesh=new T.Mesh(g,m||hardwareMat);mesh.position.copy(foot).add(new T.Vector3(x,y,s*sg).applyQuaternion(q));mesh.userData.fixed=true;mesh.userData.small=true;parts.push(mesh)};
    var X=function(u){return u-L/2},mm=function(v){return number(v)/1000};
+   // (in a niche — gateNiches: its sides and «потолок» from the inner face of the wall to the face of the gate, panels of
+   // the thickness of the wall)
+   var niche=kind==="gate"&&nicheDepth.get(String(c.id));
+   if(niche&&niche.d>.1){var nm=niche.ral?fixedMaterial(ralColor(niche.ral)):mat,nd=niche.d-.05,ns=t/2+.05+nd/2;
+    var n0=number(niche.u0),n1=number(niche.u1)||L;
+    box(t,H+t,nd,X(n0+t/2),(H+t)/2,ns,nm);box(t,H+t,nd,X(n1-t/2),(H+t)/2,ns,nm);box(n1-n0-2*t,t,nd,X((n0+n1)/2),H+t/2,ns,nm)}
    // The side to the right of one standing on the face `face` (+1 outside, -1 inside) looking at the block: +1 — its end.
    var rightOf=function(face){var look=out.clone().multiplyScalar(-face),r=new T.Vector3().crossVectors(look,up);return r.dot(along)>=0?1:-1};
    // A frame or a leaf less its holes ([from, to along, from, to over the foot], m): its solid pieces.
@@ -9491,7 +9590,10 @@ window.irThreeSchemeView=(function(){
     }
     else{
      var cuts2=Array.isArray(lay.joints)&&lay.joints.length?lay.joints.map(mm).filter(function(u){return u>.3&&u<L-.3}):L>1.5?[L/2]:[];
-     var ed=[0].concat(cuts2,[L]),wk=Array.isArray(lay.wicket)&&lay.wicket.length===4?lay.wicket.map(mm):null;
+     // (leaves in the plane of the frame — no «В»/«С» of its mounting —: inside its posts and under its head, 5 mm clear;
+     // over the whole width they went 40 mm into the posts and the head, ИР-71535 В-1…В-6)
+     var inF=mount?0:gf+.005,HL=mount?H:H-gf-.005;
+     var ed=[inF].concat(cuts2,[L-inF]),wk=Array.isArray(lay.wicket)&&lay.wicket.length===4?lay.wicket.map(mm):null;
      if(!wk&&(has("К")||has("Кл")||has("Кпр"))&&ed.length>2){
       // Without its scheme: a wicket 900 × 2000 in the left leaf («Кпр» — the right one) as seen from outside, at its
       // meeting edge.
@@ -9501,11 +9603,11 @@ window.irThreeSchemeView=(function(){
      for(var g=0;g+1<ed.length;g++){
       var a=ed[g]+(g?.004:0),b=ed[g+1]-(g+2<ed.length?.004:0),lw=b-a,cx=X((a+b)/2),own2=wk&&wk[0]>=a-.01&&wk[1]<=b+.01;
       // The leaf: its steel frame of tubes round the sheet; a wicket cut in it with its own frame.
-      var holes=[[a+.06,b-.06,.06,H-.06]];
-      solid(a,b,0,H,holes,lt2,leafS);
-      solid(a+.06,b-.06,.06,H-.06,own2?[[wk[0],wk[1],wk[2],Math.min(H-.07,wk[3])]]:[],lt2*.5,leafS);
+      var holes=[[a+.06,b-.06,.06,HL-.06]];
+      solid(a,b,0,HL,holes,lt2,leafS);
+      solid(a+.06,b-.06,.06,HL-.06,own2?[[wk[0],wk[1],wk[2],Math.min(HL-.07,wk[3])]]:[],lt2*.5,leafS);
       if(own2){
-       var wx0=wk[0],wx1=wk[1],wz0=wk[2],wz1=Math.min(H-.07,wk[3]),ww=wx1-wx0,wh=wz1-wz0;
+       var wx0=wk[0],wx1=wk[1],wz0=wk[2],wz1=Math.min(HL-.07,wk[3]),ww=wx1-wx0,wh=wz1-wz0;
        solid(wx0+.006,wx1-.006,wz0+.006,wz1-.006,[[wx0+.05,wx1-.05,wz0+.05,wz1-.05]],lt2,leafS);
        box(ww-.1,wh-.1,lt2*.5,X((wx0+wx1)/2),(wz0+wz1)/2,leafS);
        // Its handle at the edge toward the meeting of the leaves, its hinges at the other.
@@ -9514,7 +9616,7 @@ window.irThreeSchemeView=(function(){
        [wz0+.25,wz1-.25].forEach(function(y){pin(.012,.12,hinge,y,leafS+(mount||1)*(lt2/2+.012))})
       }
       // Hinges at the outer edge of the leaf, on the face it hangs on.
-      var hx2=X(g===0?a+.02:b-.02),hs2=(mount||1)*(Math.abs(leafS)+lt2/2+.02);
+      var hx2=X(g===0?a+.02:b-.02),hs2=(mount||1)*(Math.abs(leafS)+lt2/2+.0225);
       [.4,H-.5].concat(H>2.2?[H/2]:[]).forEach(function(y){pin(.022,.16,hx2,y,hs2)})
      }
      // The handles at the meeting of the leaves, a vertical bar on each face.

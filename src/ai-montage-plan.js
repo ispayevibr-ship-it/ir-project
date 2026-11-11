@@ -727,10 +727,15 @@ function arScheme(pages,opts={}){
    if(face===null){face=pos.get(low?first:last);warnings.push(name+": положение стены по фасадам поперёк не найдено — поставлен по оси "+(low?first:last))}
   }
   const axis=row?[row,face]:[...pos].reduce((b,a)=>Math.abs(a[1]-face)<Math.abs(b[1]-face)?a:b);
-  for(const p of v.panels){
+  for(let p of v.panels){
    // With tables of panels in the set, a label they do not know is not a panel.
    if(spec.size&&!spec.has(p.mark)){warnings.push(p.mark+" (лист "+v.sheet+"): нет в спецификациях панелей — не поставлена");continue}
-   const w=p.u1-p.u0,h=p.z1-p.z0,q=sizeOf(p.mark,w,h),t=q?.thickness_mm||150;
+   let w=p.u1-p.u0,h=p.z1-p.z0,q=sizeOf(p.mark,w,h),t=q?.thickness_mm||150,footAt=null;
+   // A column drawn longer than its table's length with a line across it where that length ends (ИР-71535 АР ч.2 л.9
+   // ряд Л: Пс-143, Пс-144 of 9480 by the gates В-1 drawn from +11,500 down to the floor — the line +2,020 the top of the
+   // concrete wall of the niche, the extension line of «2100»): its foot on that line, the top as drawn.
+   if(q&&!p.leader&&!p.cut&&!p.top&&Array.isArray(p.across)&&Math.abs(q.width_mm-w)<=40&&h>q.length_mm+300){
+    const z=p.across.find(y=>Math.abs(p.z1-y-q.length_mm)<=60);if(z!==undefined){p={...p,z0:z};h=p.z1-p.z0;footAt=z}}
    // (a label on a leader — src/ai-ar-extract.js leaderLabels — takes a piece of its panel, cut on site: not larger than
    // the panel its table gives; a column of the wall between joints longer than that is not it)
    if(p.leader&&q&&!(w<=q.width_mm+40&&h<=q.length_mm+60||h<=q.width_mm+40&&w<=q.length_mm+60)){warnings.push(p.mark+" (лист "+v.sheet+"): по выноске — контур "+Math.round(w)+"×"+Math.round(h)+" больше панели "+q.width_mm+"×"+q.length_mm+" — не поставлена");continue}
@@ -747,6 +752,7 @@ function arScheme(pages,opts={}){
     z0_mm:p.z0,z1_mm:p.z0,levels_from:"раскладка панелей АР",confidence:q&&!differs?"high":"medium",section:"АР",view:v,line:across0,side:low?-1:1,source_page:v.page,source_file:v.file,
     axis_x:v.numbered?"":axis[0],axis_y:v.numbered?axis[0]:"",sheet:String(v.sheet),sheet_point_pt:p.pt,
     notes:["Раскладка панелей АР, лист "+v.sheet+(q?" · "+q.name+(q.ral?" · RAL "+q.ral+(q.ral_inside?"/"+q.ral_inside:""):""):" · позиции нет в спецификации панелей"),
+     ...(footAt!==null?["Низ на линии "+(footAt<0?"−":"+")+(Math.abs(footAt)/1000).toFixed(3).replace(".",",")+" — по длине спецификации "+q.length_mm+" (на виде контур до низа стены)"]:[]),
      ...(p.cut?["Низ панели по скату кровли: "+p.cut.join(" → ")]:[]),...(p.top?["Верх по скату кровли (обрезать по месту): "+p.top.join(" → ")]:[]),...(differs?["Размер по чертежу "+Math.round(w)+"×"+Math.round(h)+", по спецификации "+q.width_mm+"×"+q.length_mm+" — проверьте"]:[])]})
   }
  }
@@ -975,6 +981,15 @@ let loose=0;
   }
  }
  if(loose)warnings.push("Проёмов без подходящего окна, двери или ворот в спецификациях: "+loose+" (вентрешётки, проёмы под оборудование) — не заполнены");
+ // The gates in niches (src/ai-ar-extract.js nicheSpec, «Ниши ворот В 1 по рядам Б , Л»): of those marks, in the wall of
+ // those rows — layout.niche; the 3D sets the gate in the depth of the niche at the face of the steel over it, the sides and
+ // the «потолок» of the niche lined with panels (scheme-three-view.js gateNiches).
+ {const rowAt=(n,map)=>{n=String(n).toUpperCase();if(map.has(n))return map.get(n);const d=(/\d+(?:\/\d+)?/.exec(n)||[])[0];if(!d)return null;const k=d.replace(/^0+(?=\d)/,"");
+   for(const [a,mm] of map){const ad=(/\d+(?:\/\d+)?/.exec(a)||[])[0];if(ad&&ad.replace(/^0+(?=\d)/,"")===k&&a.replace(/[\d\/]/g,"").length<=1&&(n.replace(/[\d\/]/g,"")===""||a.startsWith(n.replace(/[\d\/]/g,""))))return mm}return null};
+  for(const p of ar)for(const n of p.ar.niches||[])for(const g of placements){
+   if(g.type_key!=="gate"||!n.marks.includes(g.mark)||g.layout?.niche)continue;const along=g.y_mm===g.y2_mm,line=along?g.y_mm:g.x_mm;
+   const row=n.rows.find(r=>{const mm=rowAt(r,along?py:px);return mm!==null&&Math.abs(mm-line)<=1500});if(!row)continue;
+   g.layout.niche=true;g.notes.push("В нише ворот по ряду "+row+" (АР, лист "+(p.pdfPage||p.page)+"): в глубине ниши, откосы и «потолок» ниши из панелей")}}
  // Roofs of the layouts (roofPlans of src/ai-ar-extract.js): on the grid by their bubbles (an axis the grid lacks —
  // «О1/1» — at the scale of the other way, in its order), each panel along the slope over its band, its ends at the
  // heights the marks of the eaves and the ridge give there (between them along the slope).

@@ -980,7 +980,14 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
    const cut=rect.cut?(u0<=u1?[z(rect.cut.l),z(rect.cut.r)]:[z(rect.cut.r),z(rect.cut.l)]):null;
    // (the top under a slope: its heights at the ends, in the order along the wall)
    const topCut=rect.topCut?(u0<=u1?[z(rect.topCut.l),z(rect.topCut.r)]:[z(rect.topCut.r),z(rect.topCut.l)]):null;
-   panels.push({...(t.cands?{cands:t.cands}:{}),...(t.leader?{leader:true}:{}),mark:String(t.str).trim(),u0:Math.min(u0,u1),u1:Math.max(u0,u1),z0:z(rect.bottom),z1:z(rect.top),...(cut?{cut}:{}),...(topCut?{top:topCut}:{}),pt:{x:Math.round(b.cx),y:Math.round(b.cy)},rect})
+   // (the lines across its column between its top and its foot — a dimension's extension line too: the foot of a panel
+   // standing on a concrete wall drawn on to the floor beside the opening of a gate, ИР-71535 АР ч.2 л.9 ряд Л Пс-143, Пс-144
+   // over the niche of В-1 — the plan takes the one its table's length gives, src/ai-montage-plan.js)
+   // (pieces of one line with breaks of up to 2 pt at the edge of the opening — 562,9 and on from 564,7 — are one)
+   const coversCol=y=>{const ps=horiz.filter(h=>Math.abs(h.y-y)<=.3&&h.x1>rect.l-1&&h.x0<rect.r+1).sort((a,b)=>a.x0-b.x0);let x=rect.l+1;
+    for(const h of ps){if(h.x0>x+2)return false;x=Math.max(x,h.x1);if(x>=rect.r-1)return true}return false};
+   const across=rect.column?[...new Set(horiz.filter(h=>h.y>rect.top+.5&&h.y<rect.bottom-.5&&h.x1>rect.l&&h.x0<rect.r).map(h=>Math.round(h.y*10)/10))].filter(coversCol).map(z).sort((a,b)=>a-b).slice(0,8):[];
+   panels.push({...(t.cands?{cands:t.cands}:{}),...(t.leader?{leader:true}:{}),...(across.length?{across}:{}),mark:String(t.str).trim(),u0:Math.min(u0,u1),u1:Math.max(u0,u1),z0:z(rect.bottom),z1:z(rect.top),...(cut?{cut}:{}),...(topCut?{top:topCut}:{}),pt:{x:Math.round(b.cx),y:Math.round(b.cy)},rect})
   }
   // (a layout by sketches: a label of another view over this row — «по фасаду 3-1» beside «по ряду К, в осях 01-03»,
   // ИР-71535 АР ч.2 л.5 — lies off its axes, past the 3 m a wall runs on beyond its last axis)
@@ -1325,14 +1332,28 @@ function trimSpec(texts){
    out.push({pos:c[0],count:num,unit:/^шт/u.test(c[u])?"шт":"п.м",...(sh?{sheet_t_mm:Number(sh[1].replace(",",".")),sheet_w_mm:Number(sh[2]),length_mm:Number(sh[3])}:{})})}}
  return{trims:out,names}
 }
+// The niches of gates («Ниши ворот В 1 по рядам Б , Л ( вид в плане )», «Ниши ворот В 2, В 3 по ряду 010»; ИР-71535 АР
+// ч.2 л.18, л.19): the gate stands in the depth of its niche, at the face of the steel over it, the sides and the
+// «потолок» of the niche lined with panels («Примыкание сэндвич панелей "потолка" ниши») — the gates of these marks in
+// these rows. A mark «В 1» is «В-1»; a row «010» — «О10» read without its letter.
+function nicheSpec(texts){
+ const out=[],seen=new Set();
+ for(const t of texts){
+  const s=String(t.str||"").replace(/\s+/g," ");const m=/Ниш[аи]\s+(?:ворот|въезда)\s+(.+?)\s+по\s+ряд(?:у|ам)\s+(.+?)(?:\(|\.|$)/iu.exec(s);if(!m)continue;
+  const marks=[...m[1].matchAll(/([ВBД])\s*-?\s*(\d+[а-я]?)/giu)].map(x=>x[1].toUpperCase().replace("B","В")+"-"+x[2]);
+  const rows=m[2].split(/[,;и\s]+/u).map(x=>x.trim()).filter(x=>/^[А-ЯЁA-Z]?\d*(?:\/\d+)?$/u.test(x)&&x).map(x=>x.toUpperCase());
+  const key=marks.join()+"|"+rows.join();if(!marks.length||!rows.length||seen.has(key))continue;seen.add(key);out.push({marks,rows})
+ }
+ return out
+}
 function extractArchitecture(geometry){
  const texts=geometry?.texts||[];
  const spec=(()=>{const a=panelSpec(texts);if(a.length)return a;const s=sketchSpec(texts);return s.length?s:layoutSpec(texts)})(),fills=fillSpec(texts),views=panelViews(geometry||{},spec),facades=fillViews(geometry||{});
  if(fills.length)fillSketches(geometry||{},fills);
  const finish=facadeFinish(texts),sills=sillSpec(texts);
  const axes=planAxes(geometry||{});
- const tr=trimSpec(texts);
- const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{}),...(axes?{axes}:{}),...(tr.trims.length?{trims:tr.trims}:{}),...(tr.names.length?{trimNames:tr.names}:{})};
+ const tr=trimSpec(texts),niches=nicheSpec(texts);
+ const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{}),...(axes?{axes}:{}),...(tr.trims.length?{trims:tr.trims}:{}),...(tr.names.length?{trimNames:tr.names}:{}),...(niches.length?{niches}:{})};
  return panels.length||fills.length||views.length||Object.keys(extra).length?{panels,fills,views,...extra}:null
 }
-module.exports={trimSpec,trimKind,planAxes,facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
+module.exports={nicheSpec,trimSpec,trimKind,planAxes,facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
