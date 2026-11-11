@@ -151,6 +151,7 @@
   // (a member that crossed a wall of sandwich panels: drawn to the panel, what was past it named — not hidden)
   // (a wall of panels moved out onto the outer face of the frame: by how much, from the line of the facades of the АР)
   if(num(m.line_mm)>0)out.push("стена поставлена по наружной грани каркаса — на "+fmt(m.line_mm)+" мм наружу от линии по фасадам АР");
+  if(num(m.roof_mm))out.push("кровельная панель уложена на прогоны каркаса — "+(num(m.roof_mm)>0?"поднята":"опущена")+" на "+fmt(Math.abs(num(m.roof_mm)))+" мм от отметок плана кровли АР");
   // (a railing post in a column: not drawn — the column holds the rails there)
   if(m.col_post)out.push("стойка ограждения стоит на оси колонны "+m.col_post+" — в 3D не рисуется: здесь поручни крепятся к колонне");
   // (a post of the framing standing on a girder: welded to it, no base and no anchors — by the angle its sheet gives)

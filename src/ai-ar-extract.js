@@ -298,7 +298,7 @@ function columnRuns(vert,gap=.2){
 // With the size its table gives (size: width × length, mm): a side that is the edge of an opening in it (a hole for a beam,
 // a duct) gives way to the joint a panel's width off, and a panel the opening's edge would end goes on to its length where
 // its joints do — the opening is a hole in it, not its end.
-function columnAround(b,runs,horiz,numbers,hs,scale,size=null,slopes=[]){
+function columnAround(b,runs,horiz,numbers,hs,scale,size=null,slopes=[],ext=null){
  const cross=runs.filter(v=>v.y0<=b.cy&&v.y1>=b.cy);
  let l=cross.filter(v=>v.x<b.x0-.3).sort((p,q)=>q.x-p.x)[0],r=cross.filter(v=>v.x>b.x1+.3).sort((p,q)=>p.x-q.x)[0];
  if(!l||!r)return null;
@@ -308,7 +308,8 @@ function columnAround(b,runs,horiz,numbers,hs,scale,size=null,slopes=[]){
   if(r2&&r2.x>b.x1)r=r2;else if(l2&&l2.x<b.x0)l=l2;
  }
  const w=(r.x-l.x)*hs;if(w<150||w>1300)return null;
- const spans=h=>h.x0<=l.x+1&&h.x1>=r.x-1&&!dimensionLine(h,numbers);
+ // (an extension line of a dimension the joints run on through is not its end — ext, panelViews)
+ const spans=h=>h.x0<=l.x+1&&h.x1>=r.x-1&&!dimensionLine(h,numbers)&&!(ext&&ext.has(h)&&[l,r].every(v=>v.y0<h.y-1&&v.y1>h.y+1));
  const over=horiz.filter(h=>h.y<b.y0-.3&&spans(h)).sort((p,q)=>q.y-p.y)[0],under=horiz.filter(h=>h.y>b.y1+.3&&spans(h)).sort((p,q)=>p.y-q.y)[0];
  // (a joint broken by small holes on it — openings for the beams of the roof drawn across it —: on through the gaps,
  // up to where the other joint goes)
@@ -454,11 +455,13 @@ function roofPlans({segments=[],texts=[]}={}){
    const bs=list.map(w.box),lx0=Math.min(...bs.map(b=>b.x0))-30,lx1=Math.max(...bs.map(b=>b.x1))+30,ly0=Math.min(...bs.map(b=>b.y0))-700,ly1=Math.max(...bs.map(b=>b.y1))+700;
    // The lines across the roof: dashes and lines at one height covering most of the width of its labels.
    const byY=new Map();for(const h of w.cross){if(h.x1<lx0||h.x0>lx1||h.y<ly0||h.y>ly1)continue;const k=Math.round(h.y*2);if(!byY.has(k))byY.set(k,[]);byY.get(k).push(h)}
-   const tiers=[];
+   const tiers=[],hidden=new Set();
    for(const [k,hs] of byY){
     const all=[...hs,...(byY.get(k-1)||[]),...(byY.get(k+1)||[])].map(h=>[Math.max(lx0,h.x0),Math.min(lx1,h.x1)]).filter(q=>q[1]>q[0]).sort((a,b)=>a[0]-b[0]);
     let cov=0,at=lx0;for(const [a,b] of all){const c=Math.max(at,a);if(b>c)cov+=b-c;at=Math.max(at,b)}
-    if(cov>=(lx1-lx0)*.6&&!tiers.some(y=>Math.abs(y-k/2)<=.6))tiers.push(k/2)
+    if(cov>=(lx1-lx0)*.6&&!tiers.some(y=>Math.abs(y-k/2)<=.6)){tiers.push(k/2);
+     // (a hidden line: dashes only, none a tenth as long as the roof is wide)
+     if(all.length>=6&&all.every(q=>q[1]-q[0]<=(lx1-lx0)*.1))hidden.add(k/2)}
    }
    tiers.sort((a,b)=>a-b);
    // (a strip's label may stand off its start — the edge of a wall beside it, «Пк-15» 40 pt from it)
@@ -488,8 +491,26 @@ function roofPlans({segments=[],texts=[]}={}){
      let c=0,at=l.x;for(const [p,q] of w.cross.filter(h=>Math.abs(h.y-e)<=.8&&h.x1>l.x&&h.x0<r.x).map(h=>[Math.max(l.x,h.x0),Math.min(r.x,h.x1)]).sort((m,n)=>m[0]-n[0])){const g=Math.max(at,p);if(q>g)c+=q-g;at=Math.max(at,q)}
      return c>=(r.x-l.x)*.6?e:y};
     a0=reach(a0,-1);a1=reach(a1,1);
-    panels.push({mark:String(t.str).trim(),...(w.flip?{x0:a0,x1:a1,y0:l.x,y1:r.x,dir:"x"}:{x0:l.x,x1:r.x,y0:a0,y1:a1,dir:"y"}),pt:{x:Math.round(textBox(t).cx),y:Math.round(textBox(t).cy)}})
+    panels.push({mark:String(t.str).trim(),a0,a1,l:l.x,r:r.x,pt:{x:Math.round(textBox(t).cx),y:Math.round(textBox(t).cy)}})
    }
+   // A joint of two tiers lapped (ИР-71535 АР ч.2 л.21 «в осях 03-08 - Б-Л»: a solid line and a dashed one 7 pt — 250 mm —
+   // past it, over the purlin П1 of КМ1 under the joint; the panels stopped at them, a gap of 250 mm across the whole roof,
+   // each panel 250 mm shorter than its table — Пк-6 12530, Пк-1 12550): the band whose edge is the solid line runs on
+   // under the next panel to the hidden line (the joint over the purlin); the band whose edge is the hidden line laps the
+   // outer sheet of its panel over the next one to the solid line (lap, pt, at a0 and at a1). With no band past it (л.22
+   // «08-010 - Б-Ж»: the dashed line of the wall 2,5 pt — 90 mm — short of the eaves, Пк-16 9550 by its table) the band
+   // at the hidden line runs on to the solid one, the edge of the roof. Within 10 pt.
+   const isHidden=y=>[...hidden].some(q=>Math.abs(q-y)<=.6),isTier=y=>tiers.some(q=>Math.abs(q-y)<=.6);
+   const beyond=(p,y,s)=>panels.some(q=>q!==p&&Math.min(q.r,p.r)-Math.max(q.l,p.l)>(p.r-p.l)*.5&&(s>0?Math.abs(q.a0-y)<=.6:Math.abs(q.a1-y)<=.6));
+   for(const p of panels){p.lap=[0,0];
+    for(const [k,s] of [[0,-1],[1,1]]){const e=k?p.a1:p.a0;if(!isTier(e))continue;
+     const past=tiers.filter(y=>(y-e)*s>.6&&(y-e)*s<=10).sort((m,n)=>Math.abs(m-e)-Math.abs(n-e));
+     if(isHidden(e)){const sol=past.find(y=>!isHidden(y));if(sol===undefined)continue;
+      if(beyond(p,sol,s))p.lap[k]=Math.round(Math.abs(sol-e)*10)/10;else p[k?"b1":"b0"]=sol}
+     else{const hid=past.find(y=>isHidden(y));if(hid!==undefined&&beyond(p,hid,s))p[k?"b1":"b0"]=hid}}}
+   for(let i=0;i<panels.length;i++){const p=panels[i],a0=p.b0??p.a0,a1=p.b1??p.a1;
+    // (the band as drawn, before that: its table decides — src/ai-montage-plan.js)
+    panels[i]={mark:p.mark,...(w.flip?{x0:a0,x1:a1,y0:p.l,y1:p.r,dir:"x"}:{x0:p.l,x1:p.r,y0:a0,y1:a1,dir:"y"}),pt:p.pt,...(p.lap[0]||p.lap[1]?{lap:p.lap}:{}),...(a0!==p.a0||a1!==p.a1?{drawn:[p.a0,p.a1]}:{})}}
    if(!best||panels.length>best.panels.length)best={w,tiers,panels,lost}
   }
   if(!best.panels.length)continue;
@@ -750,6 +771,22 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
  }
  const numbers=texts.filter(t=>/^\d{2,5}$/.test(String(t.str).trim()));
  const runs=sketch?columnRuns(vert):[];
+ // (an extension line of a dimension — from an opening to its dimension line, overshooting it by a few pt, a tick where
+ // they cross — across a column whose joints run on through it: not the end of its panel; ИР-71535 АР ч.2 л.8, ряд Б: the
+ // lines of ОВ 900×900 at +17,300 and +18,195 to the chain «3400 · 3570» ended the two panels Пс-127 right of it at
+ // +17,300 and nothing stood over them up to +21,745 — the table of their sizes is on л.10, so the length of the position
+ // did not take them on) — columnAround
+ // (its tick as long as the size of the numbers wants it: 10 pt at «3400» of л.8)
+ const marks=segments.filter(q=>{const dx=Math.abs(q.a.x-q.b.x),dy=Math.abs(q.a.y-q.b.y),l=Math.hypot(dx,dy);return dx>.3&&dy>.3&&dy/dx>.5&&dy/dx<2&&l>.8&&l<14});
+ // (from a corner of the opening: its other end 0,3…3 pt off the end of a side no longer than an opening is high —
+ // 100 pt, 3,5 m at 1:100 —, the edge of the opening at that height running from it the other way; a line of a tier
+ // starts at the end of the wall)
+ const extension=new Set();
+ for(const h of horiz)for(const end of [h.x1,h.x0]){const sg=end===h.x1?1:-1,start=sg>0?h.x0:h.x1;
+  const v=vert.find(q=>h.y>=q.y0-1&&h.y<=q.y1+1&&(end-q.x)*sg>=.5&&(end-q.x)*sg<=6);
+  if(!v||!marks.some(t=>Math.abs((t.a.x+t.b.x)/2-v.x)<=1.5&&Math.abs((t.a.y+t.b.y)/2-h.y)<=1.5))continue;
+  if(vert.some(q=>(start-q.x)*sg>=.3&&(start-q.x)*sg<=3&&q.y1-q.y0<=100&&(Math.abs(q.y0-h.y)<=.6||Math.abs(q.y1-h.y)<=.6)&&
+   horiz.some(e=>e!==h&&Math.abs(e.y-h.y)<=.6&&(sg>0?Math.abs(e.x1-q.x)<=.6&&e.x0<q.x-1:Math.abs(e.x0-q.x)<=.6&&e.x1>q.x+1)))){extension.add(h);break}}
  const views=[],found=[];
  for(const row of rows){
   if(row.lone)continue;
@@ -799,7 +836,7 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
     return kinds.some(q=>Math.abs(q.width_mm-w)<=40&&Math.abs(q.length_mm-h)<=40||Math.abs(q.length_mm-w)<=40&&Math.abs(q.width_mm-h)<=40)}:null;
    // Of the size first: drawn round it, by its sides, by its joints and the lines across it; then the nearest outline.
    const b=textBox(t),first=edgesAround(b,horiz,scale,slopes,sized);
-   const rect=(sketch&&columnAround(b,runs,horiz,numbers,hs,scale,kinds?.[0]||null,slopes))||(sized&&((first&&sized(first)?first:null)||sidesAround(b,horiz,vert,scale,sized,slopes)||sizedAround(b,vert,horiz,scale,kinds,numbers)))||
+   const rect=(sketch&&columnAround(b,runs,horiz,numbers,hs,scale,kinds?.[0]||null,slopes,extension))||(sized&&((first&&sized(first)?first:null)||sidesAround(b,horiz,vert,scale,sized,slopes)||sizedAround(b,vert,horiz,scale,kinds,numbers)))||
     first||sidesAround(b,horiz,vert,scale,null,slopes)||jointsAround(b,vert,horiz,numbers,win);
    if(!rect)continue
    const u0=u(rect.l),u1=u(rect.r);

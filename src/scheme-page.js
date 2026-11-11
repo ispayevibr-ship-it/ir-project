@@ -425,7 +425,9 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  // element not fully determined is placed all the same, pale, as «предварительно» — the engineer edits it afterwards.
  const INSTANCE_STATUS={confirmed:"подтверждено",computed:"вычислено",partial:"определено частично",ambiguous:"неоднозначно",conflict:"конфликт данных",not_found:"нет в новом анализе"};
  const isPreliminary=c=>c?.preliminary===true;
- const sectionOfRecord=c=>String(c?.source_section||(c?.import_batch?"КМД":"Вручную"));
+ // (placed from a scheme checked by the engineer — a set of КМ — the elements were all «КМД», 11.11.2026 «почему кмд? если
+ // чертежи были км»: the sheet of the element tells — «КМ1 л.8» is КМ)
+ const sectionOfRecord=c=>{const s=String(c?.source_section||(c?.import_batch?"КМД":"Вручную"));return s==="КМД"&&/^\s*КМ\d*(?![\dД])/u.test(String(c?.source_sheet||""))?"КМ":s};
  const sectionsPresent=()=>{const m=new Map();for(const c of records()){const k=sectionOfRecord(c);m.set(k,(m.get(k)||0)+1)}return[...m].sort((a,b)=>["КМ","КМД","АР","ТХ","Вручную"].indexOf(a[0])-["КМ","КМД","АР","ТХ","Вручную"].indexOf(b[0]))};
  const isShown=c=>{if(hiddenGroups.has(recordMarkGroup(c).key))return false;if(hiddenSections.size&&hiddenSections.has(sectionOfRecord(c)))return false;if(confFilter==="sure"&&isPreliminary(c)||confFilter==="prelim"&&!isPreliminary(c))return false;if(statusFilter!=="all"&&effectiveStatus(c)!==statusFilter)return false;const start=num(c.z0_mm),end=num(c.end_z_mm??c.z1_mm??8400),mid=geometry(c)==="bent"?num(c.mid_z_mm):start,lo=Math.min(start,end,mid),hi=Math.max(start,end,mid),min=String(levelMin).trim()===""?null:Number(levelMin),max=String(levelMax).trim()===""?null:Number(levelMax);if(min!==null&&Number.isFinite(min)&&hi<min)return false;if(max!==null&&Number.isFinite(max)&&lo>max)return false;return true};
  const columns=()=>records().filter(isShown).map(c=>({...c,...coord(c),status:effectiveStatus(c)}));
@@ -988,7 +990,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   const top=c.geometryType==="column"||c.geometryType==="shell"||c.geometryType==="plate"?n?.z1:n?.end_z??n?.z1;
   const diffs=n?[["X",c.x,n.x],["Y",c.y,n.y],["низ",c.z0,n.z0],["верх",c.z2,top]].filter(r=>r[2]!==undefined&&r[2]!==null&&Number.isFinite(Number(r[2]))&&Math.abs(num(r[1])-num(r[2]))>5).map(r=>r[0]+" "+fmt(r[2])+" мм"):[];
   if(n?.mark&&String(n.mark).trim().toLowerCase()!==String(c.mark||"").trim().toLowerCase())diffs.unshift("марка "+String(n.mark));
-  return`<div class="scheme-instance ${isPreliminary(c)?"preliminary":""}"><b>По чертежам: ${esc(INSTANCE_STATUS[st]||"—")}${isPreliminary(c)?" · предварительно":""}</b>${c.source_section?`<small>Раздел: ${esc(c.source_section)}${c.source_import_doc?" · "+esc(c.source_import_doc):""}</small>`:""}${reasons.map(r=>`<small>• ${esc(r)}</small>`).join("")}${n?`<small>Ваша правка сохранена. Новый анализ чертежей: ${diffs.length?esc(diffs.join(", ")):"то же, что у вас"}.</small>`:""}${from.length?`<details><summary>Откуда данные</summary>${from.map(r=>`<small>${esc(r[0])}: ${esc(String(r[1]))}</small>`).join("")}</details>`:""}</div>`
+  return`<div class="scheme-instance ${isPreliminary(c)?"preliminary":""}"><b>По чертежам: ${esc(INSTANCE_STATUS[st]||"—")}${isPreliminary(c)?" · предварительно":""}</b>${c.source_section?`<small>Раздел: ${esc(sectionOfRecord(c))}${c.source_import_doc?" · "+esc(c.source_import_doc):""}</small>`:""}${reasons.map(r=>`<small>• ${esc(r)}</small>`).join("")}${n?`<small>Ваша правка сохранена. Новый анализ чертежей: ${diffs.length?esc(diffs.join(", ")):"то же, что у вас"}.</small>`:""}${from.length?`<details><summary>Откуда данные</summary>${from.map(r=>`<small>${esc(r[0])}: ${esc(String(r[1]))}</small>`).join("")}</details>`:""}</div>`
  }
  // The permanent fasteners and the holes of the member's assembly sheet («Ведомость постоянных метизов», «Все отверстия
  // Ø23, кроме оговоренных»): the engineer, 25.10.2026, «где метизы? выдай метизы и отверстия».
@@ -1086,7 +1088,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
     profile:profileShown(c),standard:String(c.profile_standard||""),section:sectionShown(c),steel:String(c.steel||""),joint:c.joint||null,status:c.status,
     status_label:statusText(c.status),status_title:progress?.total>0?"Статус по ведомости марок":"Статус задан вручную",
     x:c.x,y:c.y,x2:c.x2,y2:c.y2,z0:c.z0,z2:c.z2,mx:c.mx,my:c.my,mz:c.mz,r:c.r,ri:c.ri,sw:c.sw,ft:c.ft,
-    doc:String(c.source_import_doc||""),src_section:String(c.source_section||""),src_sheet:String(c.source_sheet||""),src_file:String(c.source_file||""),instance_status:String(c.instance_status||""),preliminary:isPreliminary(c),
+    doc:String(c.source_import_doc||""),src_section:c.source_section?sectionOfRecord(c):"",src_sheet:String(c.source_sheet||""),src_file:String(c.source_file||""),instance_status:String(c.instance_status||""),preliminary:isPreliminary(c),
     reasons:Array.isArray(c.instance_reasons)?c.instance_reasons.map(String):[],sources:c.param_sources&&typeof c.param_sources==="object"?c.param_sources:null,
     pdf_new:c.pdf_new&&typeof c.pdf_new==="object"?c.pdf_new:null,check_note:String(c.check_note||""),manual:!c.import_batch,
     confirmed:c.engineer_confirmed&&typeof c.engineer_confirmed==="object"?c.engineer_confirmed:null,edited:Boolean(c.engineer_edited)};

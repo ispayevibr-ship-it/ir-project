@@ -886,25 +886,36 @@ let loose=0;
   const marks=r.levels.map(l=>({at:l.dir==="x"?X(l.at):Y(l.at),mm:l.mm})).sort((p,q)=>p.at-q.at).filter((m,i,l)=>!i||Math.abs(m.at-l[i-1].at)>50||Math.abs(m.mm-l[i-1].mm)>30);
   if(!marks.length||marks.some((m,i)=>i&&Math.abs(m.at-marks[i-1].at)<=50)){warnings.push(name+": "+(marks.length?"отметки ската противоречат друг другу":"отметки ската не прочитаны")+" — панелей не поставлено "+r.panels.length);continue}
   const zAt=v=>{if(marks.length===1)return marks[0].mm;let i=marks.findIndex(m=>m.at>=v);if(i<=0)i=i<0?marks.length-1:1;const a=marks[i-1],b=marks[i];return a.mm+(b.mm-a.mm)*(v-a.at)/(b.at-a.at)};
-  for(const p of r.panels){
+  for(let p of r.panels){
    const q=(spec.get(p.mark)||[])[0];
    if(spec.size&&!q){warnings.push(p.mark+" (лист "+r.sheet+"): нет в спецификациях панелей — не поставлена");continue}
+   // (a band run on at a lapped joint — roofPlans —: as drawn when its table gives the length it had so; ИР-71535 л.21
+   // Пк-9, Пк-10 12210 at the openings of the eaves stop at the solid line, Пк-6 12530 beside them run on to the dashed one)
+   const along=p.dir!=="x",len=(a,b)=>{const u=along?Math.abs(Y(b)-Y(a)):Math.abs(X(b)-X(a)),z=Math.abs(zAt(along?Y(b):X(b))-zAt(along?Y(a):X(a)));return Math.hypot(u,z)};
+   if(p.drawn&&q?.length_mm){const now=along?len(p.y0,p.y1):len(p.x0,p.x1),was=len(p.drawn[0],p.drawn[1]);
+    if(Math.abs(was-q.length_mm)+100<Math.abs(now-q.length_mm))p=along?{...p,y0:p.drawn[0],y1:p.drawn[1]}:{...p,x0:p.drawn[0],x1:p.drawn[1]}}
    const xa=X(p.x0),xb=X(p.x1),ya=Y(p.y0),yb=Y(p.y1),alongY=p.dir!=="x";
    const st=alongY?[(xa+xb)/2,Math.min(ya,yb)]:[Math.min(xa,xb),(ya+yb)/2],en=alongY?[(xa+xb)/2,Math.max(ya,yb)]:[Math.max(xa,xb),(ya+yb)/2],w=alongY?Math.abs(xb-xa):Math.abs(yb-ya);
-   const za=zAt(alongY?st[1]:st[0]),zb=zAt(alongY?en[1]:en[0]),L=Math.hypot(en[0]-st[0],en[1]-st[1],zb-za),t=q?.thickness_mm||150,off=q&&Math.abs(L-q.length_mm)>450;
+   const za=zAt(alongY?st[1]:st[0]),zb=zAt(alongY?en[1]:en[0]),L=Math.hypot(en[0]-st[0],en[1]-st[1],zb-za),t=q?.thickness_mm||150;
    // (the openings of the plan in it — roofOpenings —: its holes along it from its start, on the slope, and across from
    // its middle line, + to the left looking from its start, mm)
    const pl=Math.hypot(en[0]-st[0],en[1]-st[1])||1,ex=(en[0]-st[0])/pl,ey=(en[1]-st[1])/pl;
+   // (a lapped joint — roofPlans —: the outer sheet of the panel on past its end over the next one, mm on the slope, at
+   // its start and its end)
+   const lapMm=(k,at)=>p.lap&&p.lap[k]>0?Math.round(Math.abs(alongY?Y(at)-Y(at+(k?1:-1)*p.lap[k]):X(at)-X(at+(k?1:-1)*p.lap[k]))*L/pl):0;
+   const la=alongY?[lapMm(0,p.y0),lapMm(1,p.y1)]:[lapMm(0,p.x0),lapMm(1,p.x1)],first=alongY?ya<=yb:xa<=xb,lap=first?la:[la[1],la[0]];
+   const off=q&&Math.abs(L+lap[0]+lap[1]-q.length_mm)>450;
    const holes=(r.openings||[]).map(o=>{const a0=Math.max(o.x0,p.x0),a1=Math.min(o.x1,p.x1),b0=Math.max(o.y0,p.y0),b1=Math.min(o.y1,p.y1);if(a1-a0<.3||b1-b0<.3)return null;
     const c=[[a0,b0],[a1,b0],[a0,b1],[a1,b1]].map(([x,y])=>{const dx=X(x)-st[0],dy=Y(y)-st[1];return[(dx*ex+dy*ey)*L/pl,-dx*ey+dy*ex]}),u=c.map(v=>v[0]),v=c.map(v=>v[1]);
     return[Math.round(Math.max(0,Math.min(...u))),Math.round(Math.min(L,Math.max(...u))),Math.round(Math.max(-w/2,Math.min(...v))),Math.round(Math.min(w/2,Math.max(...v)))]}).filter(h=>h&&h[1]-h[0]>=50&&h[3]-h[2]>=50);
    placements.push({mark:p.mark,name:"Сэндвич-панель кровельная"+(q?.name?" "+q.name:""),type_key:"sandwich_roof",scheme_group:"cladding",geometry_type:"beam",
     fitting_type:"panel",diameter_mm:Math.max(1,Math.round(w)),
-    layout:{panel:"roof",thickness_mm:t,...(q?.ral?{ral:q.ral}:{}),...(q?.ral_inside?{ral_inside:q.ral_inside}:{}),width_mm:Math.round(w),...(holes.length?{holes}:{})},
+    layout:{panel:"roof",thickness_mm:t,...(q?.ral?{ral:q.ral}:{}),...(q?.ral_inside?{ral_inside:q.ral_inside}:{}),width_mm:Math.round(w),...(holes.length?{holes}:{}),...(lap[0]||lap[1]?{lap}:{})},
     x_mm:Math.round(st[0]),y_mm:Math.round(st[1]),x2_mm:Math.round(en[0]),y2_mm:Math.round(en[1]),z0_mm:Math.round(za),z1_mm:Math.round(zb),
     levels_from:"раскладка кровельных панелей АР",confidence:q&&!off?"high":"medium",section:"АР",source_page:r.page,source_file:r.file,axis_x:near(px,(st[0]+en[0])/2),axis_y:near(py,(st[1]+en[1])/2),sheet:String(r.sheet),sheet_point_pt:p.pt,
     notes:["Раскладка кровельных панелей АР, лист "+r.sheet+(q?" · "+q.name+(q.ral?" · RAL "+q.ral:""):" · позиции нет в спецификации панелей"),"Скат по отметкам листа: "+Math.round(za)+" → "+Math.round(zb),
-     ...(off?["Длина по чертежу "+Math.round(L)+", по спецификации "+q.length_mm+" — проверьте"]:[]),
+     ...(lap[0]||lap[1]?["Нахлёст наружного листа на соседнюю панель "+(lap[0]||lap[1])+" мм: стык над прогоном — штриховая линия плана, край листа — сплошная; длина панели с нахлёстом "+Math.round(L+lap[0]+lap[1])]:[]),
+     ...(off?["Длина по чертежу "+Math.round(L+lap[0]+lap[1])+", по спецификации "+q.length_mm+" — проверьте"]:[]),
      ...holes.map(h=>"Отверстие в панели по плану: "+(h[1]-h[0])+" × "+(h[3]-h[2])+" мм, в "+h[0]+" мм от начала")]})
   }
   if(r.unplaced)warnings.push(name+": контур не найден у панелей "+r.unplaced)
@@ -928,10 +939,19 @@ function verifiedScheme(ai){
  const g=v.grid||{},ax=(g.axes_x||[]).map(String),ay=(g.axes_y||[]).map(String);
  const sx=(g.x_spans_mm||g.spans_x_mm||[]).map(Number),sy=(g.y_spans_mm||g.spans_y_mm||[]).map(Number);
  const fx=Math.max(1000,...v.elements.map(e=>Math.max(e.x_mm||0,e.x2_mm||0)+(e.radius_mm||0))),fy=Math.max(1000,...v.elements.map(e=>Math.max(e.y_mm||0,e.y2_mm||0)+(e.radius_mm||0)));
- const ok=ax.length>=2&&ay.length>=2&&sx.length===ax.length-1&&sy.length===ay.length-1;
+ const ok=ax.length>=2&&ay.length>=2&&sx.length===ax.length-1&&sy.length===ay.length-1,secOf=sectionOfSet(v);
  return{kind:"verified",title:"Проверенная схема"+(v.title?" · "+v.title:""),at:v.at,axesX:ok?ax:["1","2"],axesY:ok?ay:["А","Б"],spansX:ok?sx:[fx],spansY:ok?sy:[fy],
   // Joints are kept once per sheet (verified.joints) and named by the elements.
-  placements:withNodes(v,v.elements.map(e=>({...e,...(typeof e.joint==="string"?{joint:v.joints?.[e.joint]||undefined}:{}),levels_from:"проверено инженером",confidence:"high",notes:["Как в проверенной инженером схеме"]}))),warnings:[]}
+  placements:withNodes(v,v.elements.map(e=>({...e,...(typeof e.joint==="string"?{joint:v.joints?.[e.joint]||undefined}:{}),...(e.section?{}:secOf(e)),levels_from:"проверено инженером",confidence:"high",notes:["Как в проверенной инженером схеме"]}))),warnings:[]}
+}
+// The section of the drawings of an element of a checked scheme — by its sheet («КМ1 л.8» is КМ, not КМД: the layers of
+// the 3D showed the whole КМ of ИР-71535 as «КМД 5445», the engineer 11.11.2026 «почему кмд? если чертежи были км»); one
+// without a sheet — the section of most of the set.
+function sheetSection(s){const t=String(s||"").trim();return/^АР/u.test(t)?"АР":/^ТХ/u.test(t)?"ТХ":/^КМД/u.test(t)?"КМД":/^КМ\d*(?![\dД])/u.test(t)?"КМ":""}
+function sectionOfSet(v){
+ const n=new Map();for(const e of v.elements){const s=sheetSection(e.sheet);if(s)n.set(s,(n.get(s)||0)+1)}
+ const most=[...n].sort((a,b)=>b[1]-a[1])[0]?.[0]||"";
+ return e=>{const s=sheetSection(e.sheet)||most;return s?{section:s}:{}}
 }
 // The nodes of the drawings checked for this set (verified.nodes / node_rules), each element its own.
 function withNodes(v,list){require("./ai-node-specs").attachNodes(list,v.nodes,v.node_rules);return list}
