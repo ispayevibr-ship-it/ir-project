@@ -1314,6 +1314,35 @@ function planAxes({segments=[],texts=[]}={}){
  const rows=lines("y"),cols=lines("x");
  return rows.length&&cols.length?{rows,cols}:null
 }
+// Doors, gates and windows of the plan (ИР-71535 АР ч.1 л.10 «План на отм. 0,000»: Д-1…Д-7, В-4, В-5, В-7, ОК-3 in the
+// partitions, shown on no facade): each label «Д-4» with its point, the way it is written (along its wall) and the gaps
+// in the wall lines beside it — the openings — on that side: the line of the wall (its faces, pt across) and the gaps
+// along it. The plan places them by its axes (src/ai-montage-plan.js). Only within the axes of the plan (planAxes): the
+// small plans beside it and the tables are not it.
+function planOpenings({segments=[],texts=[]}={},axes){
+ if(!axes)return[];
+ const xs=axes.rows.flatMap(r=>r.items.map(i=>i.pt)),ys=axes.cols.flatMap(c=>c.items.map(i=>i.pt));
+ const box={x0:Math.min(...xs)-20,x1:Math.max(...xs)+20,y0:Math.min(...ys)-20,y1:Math.max(...ys)+20};
+ const H=[],V=[];
+ for(const g of segments){const dx=Math.abs(g.a.x-g.b.x),dy=Math.abs(g.a.y-g.b.y);
+  if(dy<=.3&&dx>=1.5)H.push({at:(g.a.y+g.b.y)/2,lo:Math.min(g.a.x,g.b.x),hi:Math.max(g.a.x,g.b.x)});
+  else if(dx<=.3&&dy>=1.5)V.push({at:(g.a.x+g.b.x)/2,lo:Math.min(g.a.y,g.b.y),hi:Math.max(g.a.y,g.b.y)})}
+ const out=[];
+ for(const t of texts){const m=/^\s*(Д|В|ОК)\s*-\s*(\d{1,2}[а-я]?)\s*$/u.exec(String(t.str));if(!m)continue;
+  const b=textBox(t);if(b.cx<box.x0||b.cx>box.x1||b.cy<box.y0||b.cy>box.y1)continue;
+  const along=b.angle===0,lines=along?H:V,c=along?b.cx:b.cy,q=along?b.cy:b.cx;
+  // (the wall: the nearest line along the label within 14 pt across, running within 40 pt of it along; its other face
+  // 1…8 pt off — 100…400 mm at 1:50)
+  const near=lines.filter(l=>Math.abs(l.at-q)<=14&&l.lo<=c+40&&l.hi>=c-40&&l.hi-l.lo>=3).sort((p,r)=>Math.abs(p.at-q)-Math.abs(r.at-q))[0];
+  if(!near){out.push({mark:m[1]+"-"+m[2],x:Math.round(b.cx*10)/10,y:Math.round(b.cy*10)/10,along:along?"x":"y"});continue}
+  const twin=lines.filter(l=>l!==near&&Math.abs(l.at-near.at)>=1&&Math.abs(l.at-near.at)<=8&&l.lo<=c+40&&l.hi>=c-40&&l.hi-l.lo>=3).sort((p,r)=>Math.abs(Math.abs(p.at-near.at)-3)-Math.abs(Math.abs(r.at-near.at)-3))[0];
+  // (the gaps of that face within 60 pt of the label: between its pieces)
+  const ps=lines.filter(l=>Math.abs(l.at-near.at)<=.4&&l.hi>=c-80&&l.lo<=c+80).sort((p,r)=>p.lo-r.lo),gaps=[];
+  let end=null;for(const l of ps){if(end!==null&&l.lo-end>=3)gaps.push([Math.round(end*10)/10,Math.round(l.lo*10)/10]);end=end===null?l.hi:Math.max(end,l.hi)}
+  out.push({mark:m[1]+"-"+m[2],x:Math.round(b.cx*10)/10,y:Math.round(b.cy*10)/10,along:along?"x":"y",
+   wall:[Math.round(near.at*10)/10,...(twin?[Math.round(twin.at*10)/10]:[])],gaps:gaps.filter(g=>g[1]>=c-60&&g[0]<=c+60)})}
+ return out
+}
 // The trims of the cladding (нащельники, фасонные элементы — ИР-71535 АР ч.2 л.14–18, ч.1 л.12–14): the table
 // «Спецификация к схемам расположения элементов» (поз., the sheet «БТ-ПН-О-0,5 х 500 х 2000» they are bent of, the
 // number of pieces) and the labels «Поз. 32 Угловой элемент из оцинкованной кровельной стали» of the nodes — the name
@@ -1369,8 +1398,8 @@ function extractArchitecture(geometry){
  if(fills.length)fillSketches(geometry||{},fills);
  const finish=facadeFinish(texts),sills=sillSpec(texts);
  const axes=planAxes(geometry||{});
- const tr=trimSpec(texts),niches=nicheSpec(texts);
- const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{}),...(axes?{axes}:{}),...(tr.trims.length?{trims:tr.trims}:{}),...(tr.names.length?{trimNames:tr.names}:{}),...(niches.length?{niches}:{})};
+ const tr=trimSpec(texts),niches=nicheSpec(texts),planFills=planOpenings(geometry||{},axes);
+ const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{}),...(axes?{axes}:{}),...(tr.trims.length?{trims:tr.trims}:{}),...(tr.names.length?{trimNames:tr.names}:{}),...(niches.length?{niches}:{}),...(planFills.length?{planFills}:{})};
  return panels.length||fills.length||views.length||Object.keys(extra).length?{panels,fills,views,...extra}:null
 }
-module.exports={nicheSpec,trimSpec,trimKind,planAxes,facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
+module.exports={planOpenings,nicheSpec,trimSpec,trimKind,planAxes,facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};

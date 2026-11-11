@@ -5481,7 +5481,17 @@ window.irThreeSchemeView=(function(){
     var tp=Array.isArray(c.lay.top)&&c.lay.top.length===2?[Math.min(z0+h,number(c.lay.top[0])),Math.min(z0+h,number(c.lay.top[1]))]:[z0+h,z0+h];
     var cap=[[a.x-ux*(pe[0]*1000-1),a.y-uy*(pe[0]*1000-1)],[b.x+ux*(pe[1]*1000-1),b.y+uy*(pe[1]*1000-1)]].map(function(E,k){var low=null;
      [-t,0,t].forEach(function(o){var zb=under(E[0]-uy*o,E[1]+ux*o,tp[k]);if(zb!==null&&(low===null||zb<low))low=zb});return low});
-    if(cap[0]===null&&cap[1]===null)return;
+    // (one end past the roof — Пс-62 by О3 on past the end of Пк-6, Пс-97 of row А past the edge of Пк-18, Пс-5 by О7/1
+    // under the narrow strip Пк-16 —: the roof found along the wall from that end, its underside there held to the end)
+    if(cap[0]===null&&cap[1]===null){
+     var mid=null;for(var f=1;f<20&&mid===null;f++){var X=a.x+(b.x-a.x)*f/20,Y=a.y+(b.y-a.y)*f/20,Zt=tp[0]+(tp[1]-tp[0])*f/20;
+      [-t,0,t].forEach(function(o){var zb=under(X-uy*o,Y+ux*o,Zt);if(zb!==null&&(mid===null||zb<mid))mid=zb})}
+     if(mid===null)return;cap=[mid,mid]}
+    else if(cap[0]===null||cap[1]===null){var k0=cap[0]===null?0:1,near=null,fn=1;
+     for(var g=1;g<20&&near===null;g++){var fr=k0===0?g/20:1-g/20,X2=a.x+(b.x-a.x)*fr,Y2=a.y+(b.y-a.y)*fr,Z2=tp[0]+(tp[1]-tp[0])*fr;
+      [-t,0,t].forEach(function(o){var zb=under(X2-uy*o,Y2+ux*o,Z2);if(zb!==null&&(near===null||zb<near))near=zb});fn=1-g/20}
+     // (the slope of the underside carried on to the end, not above the roof found)
+     cap[k0]=near===null?cap[1-k0]:Math.min(near,cap[1-k0]+(near-cap[1-k0])/Math.max(.05,fn))}
     // (12 mm under the roof: the roof seated on the purlins and tilted, its underside at the outer face of the wall a few mm
     // lower than at the points taken — Пк-15 over Пс-39 by О10 3 mm in; the seal fills it)
     var nt=[cap[0]===null?tp[0]:Math.min(tp[0],cap[0]-12),cap[1]===null?tp[1]:Math.min(tp[1],cap[1]-12)];
@@ -5627,6 +5637,23 @@ window.irThreeSchemeView=(function(){
     var p=memberPoints(c),a=p[0],b=p[p.length-1],hs=halfSection(c),col=c.geometryType==="column";
     return{c:c,a:a,b:b,col:col,hs:hs,turn:branchTurn.get(String(c.id))||0,mid:a.clone().add(b).multiplyScalar(.5),y0:Math.min(a.y,b.y),y1:Math.max(a.y,b.y)}
    });
+   var reachOf=function(g,out,lim){var need=0,cols=[];
+     fit.forEach(function(f){
+      var dir=f.b.clone().sub(f.a),len=dir.length();
+      if(!f.col){if(len<.05)return;dir.divideScalar(len);if(Math.abs(dir.dot(g.n))>.2)return}
+      var s=f.mid.dot(g.u);if(s<g.s0-.05||s>g.s1+.05||f.y1<g.y0||f.y0>g.y1)return;
+      var o=(f.mid.dot(g.n)-g.d)*out;if(o>1.5||o<-1.5)return;
+      // (its section across the wall: a column by its turn — h along plan y; a member along the wall — its width; an angle
+      // its whole leg)
+      var nx=Math.abs(g.n.x),nz=Math.abs(g.n.z),hs=f.hs,ext;
+      if(f.col){var turned=Math.abs(Math.sin(f.turn))>.7;ext=(turned?hs.h:hs.b)*nx+(turned?hs.b:hs.h)*nz;
+       // (and its base plate, when its foot is within the height of the wall — a post on a beam of the wall)
+       if(f.y0>=g.y0&&f.y0<=g.y1){var bs=baseSize(f.c);ext=Math.max(ext,(turned?bs.pd:bs.pw)/2*nx+(turned?bs.pw:bs.pd)/2*nz)}}
+      else ext=String(f.c.profile_name||f.c.profileName||"").match(/^(L|∟|Уголок|Уг\.?)/i)?2*hs.b:hs.b;
+      if(o>1||lim!==null&&o>lim+.05){if(f.col)cols.push([o-ext,o+ext]);return}
+      need=Math.max(need,o+ext+.005+g.t/2)
+     });
+     return{need:need,clash:cols.some(function(r){return r[0]<need+g.t/2&&r[1]>need-g.t/2})}};
    lines.forEach(function(g){
     // (the outside: the side with fewer members of the frame within 9 m, along the wall and over its height)
     var near=[0,0];
@@ -5646,23 +5673,7 @@ window.irThreeSchemeView=(function(){
     var byNear=near[0]===near[1]?0:near[0]<near[1]?1:-1;
     // (how far out the wall goes on the side out: past the outer face of every member of the frame there within 1 m;
     // lim — only those no farther out than it, the girts' outer face; clash — a column farther out it would stand in)
-    var reach=function(out,lim){var need=0,cols=[];
-     fit.forEach(function(f){
-      var dir=f.b.clone().sub(f.a),len=dir.length();
-      if(!f.col){if(len<.05)return;dir.divideScalar(len);if(Math.abs(dir.dot(g.n))>.2)return}
-      var s=f.mid.dot(g.u);if(s<g.s0-.05||s>g.s1+.05||f.y1<g.y0||f.y0>g.y1)return;
-      var o=(f.mid.dot(g.n)-g.d)*out;if(o>1.5||o<-1.5)return;
-      // (its section across the wall: a column by its turn — h along plan y; a member along the wall — its width; an angle
-      // its whole leg)
-      var nx=Math.abs(g.n.x),nz=Math.abs(g.n.z),hs=f.hs,ext;
-      if(f.col){var turned=Math.abs(Math.sin(f.turn))>.7;ext=(turned?hs.h:hs.b)*nx+(turned?hs.b:hs.h)*nz;
-       // (and its base plate, when its foot is within the height of the wall — a post on a beam of the wall)
-       if(f.y0>=g.y0&&f.y0<=g.y1){var bs=baseSize(f.c);ext=Math.max(ext,(turned?bs.pd:bs.pw)/2*nx+(turned?bs.pw:bs.pd)/2*nz)}}
-      else ext=String(f.c.profile_name||f.c.profileName||"").match(/^(L|∟|Уголок|Уг\.?)/i)?2*hs.b:hs.b;
-      if(o>1||lim!==null&&o>lim+.05){if(f.col)cols.push([o-ext,o+ext]);return}
-      need=Math.max(need,o+ext+.005+g.t/2)
-     });
-     return{need:need,clash:cols.some(function(r){return r[0]<need+g.t/2&&r[1]>need-g.t/2})}};
+    var reach=function(out,lim){return reachOf(g,out,lim)};
     // (the girts' side, unless the wall on their outer face would stand in a column farther out — row К of the annex
     // О1–О3: its column К1 600 mm past the girts of the shop — then as by the members within 9 m)
     var out=0,need=0;
@@ -5682,7 +5693,20 @@ window.irThreeSchemeView=(function(){
     if(kindT==="corner"){var sh=null,used=[];lines.forEach(function(l){if(!on(l)||used.some(function(u){return Math.abs(u.x*l.u.z-u.z*l.u.x)<.02}))return;used.push(l.u);sh=sh?sh.clone().add(l.shift):l.shift.clone()});
      if(sh)lineShift.set(String(c.id),sh);return}
     var g=lines.find(on);
-    if(g)lineShift.set(String(c.id),g.shift)
+    if(g)lineShift.set(String(c.id),g.shift);
+    // (a door, a gate, a window of a partition by the plan (lay.plan — src/ai-montage-plan.js, АР ч.1 л.10) on no wall of
+    // panels: the plan gives the middle of the wall, where its frame stands — ИР-71535 ОК-3, В-4 in the posts Ст and girts
+    // Рц1, Рн by О7; Д-1 in Ст1, Р1 of О1–О3: off the frame to its nearer face, up to 400 mm, not into a column farther out;
+    // its box with the frame of the block and the hinges past it — 70 mm more than the wall; the base of a door post Ст1
+    // with its foot 100 mm under the floor counted — its plate 420 mm across)
+    else if(c.lay&&c.lay.plan){
+     var u=new T.Vector3(p[p.length-1].x-p[0].x,0,p[p.length-1].z-p[0].z),L=u.length();if(L<.1)return;u.divideScalar(L);
+     var n=new T.Vector3(-u.z,0,u.x),y0=Math.min(p[0].y,p[p.length-1].y);
+     var o={u:u,n:n,d:p[0].dot(n),s0:Math.min(p[0].dot(u),p[p.length-1].dot(u)),s1:Math.max(p[0].dot(u),p[p.length-1].dot(u)),y0:y0-.15,y1:y0+Math.max(.3,(number(c.fd)||2000)/1000),t:Math.max(.15,(number(c.lay.thickness_mm)||120)/1000+.07)};
+     var r1=reachOf(o,1,null),r2=reachOf(o,-1,null),pick=null;
+     [[1,r1],[-1,r2]].forEach(function(q){if(q[1].clash||q[1].need>.4)return;if(!pick||q[1].need<pick[1].need)pick=q});
+     if(pick&&pick[1].need>.002)lineShift.set(String(c.id),n.clone().multiplyScalar(pick[0]*pick[1].need))
+    }
    })
   }
   // A gate in a niche (lay.niche — src/ai-ar-extract.js nicheSpec; ИР-71535 АР ч.2 л.18 «Ниши ворот В 1 по рядам Б, Л»,

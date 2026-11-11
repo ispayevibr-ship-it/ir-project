@@ -687,12 +687,13 @@ function arScheme(pages,opts={}){
  // places on the grid from the axes of the grid on the same plan (a line fitted through them, the bubbles off it by more
  // than 150 mm left out — «02» crowded by «01» and «К»), both ways at one scale. A line of them that does not agree with
  // one met before (a small plan beside at another place) is not taken.
- const foreign={x:new Map(),y:new Map(),sheet:{}};
+ const foreign={x:new Map(),y:new Map(),sheet:{}},planFit=new Map();
  const robust=q=>{q=q.slice();for(;;){if(q.length<3)return null;const n=q.length,mx=q.reduce((t,a)=>t+a[0],0)/n,my=q.reduce((t,a)=>t+a[1],0)/n,sxx=q.reduce((t,a)=>t+(a[0]-mx)**2,0);if(!sxx)return null;
   const b=q.reduce((t,a)=>t+(a[0]-mx)*(a[1]-my),0)/sxx,a0=my-b*mx,off=q.map(a=>Math.abs(a0+b*a[0]-a[1])),k=off.indexOf(Math.max(...off));if(off[k]<=150)return{a:a0,b,lo:Math.min(...q.map(a=>a[0])),hi:Math.max(...q.map(a=>a[0]))};q.splice(k,1)}};
  for(const p of ar){const A=p.ar.axes;if(!A)continue;
   const best=(lines,map)=>lines.map(l=>({l,f:robust(l.items.filter(i=>map.has(i.name)).map(i=>[i.pt,map.get(i.name)]))})).filter(o=>o.f).sort((a,b)=>(b.f.hi-b.f.lo)-(a.f.hi-a.f.lo))[0]||null;
   const fx=best(A.rows,px),fy=best(A.cols,py);if(!fx||!fy||Math.abs(Math.abs(fx.f.b)-Math.abs(fy.f.b))>Math.abs(fx.f.b)*.03)continue;
+  planFit.set(p,{fx:fx.f,fy:fy.f});
   // (within the plan: a column of them between the ends of the row of the grid with its other bubbles — the axes of the
   // building beside run on along it —, 300 pt beyond; a row — so along the column)
   const ext=o=>({lo:Math.min(...o.l.items.map(i=>i.pt))-300,hi:Math.max(...o.l.items.map(i=>i.pt))+300});
@@ -830,6 +831,18 @@ function arScheme(pages,opts={}){
    if(next.length){const g=Math.min(...next);if(v.numbered)p.x2_mm+=g;else p.y2_mm+=g;p.layout.width_mm+=g;p.notes.push("Край продлён на "+g+" мм до соседней панели (шов без зазора)")}
   }
  }
+ // A panel of the upper tier over one whose top is cut along a slope (ИР-71535 АР ч.2 л.6 ряд Ж: Пс-79…Пс-83 up to
+ // +7,445…+6,745 by the slope, Пс-89 over them drawn from a flat line inside that slope — 30 mm of one in the other): its
+ // foot follows that top — the joint of the tiers is the sloped line, the upper panel cut along it.
+ for(const v of views){
+  const list=placements.filter(p=>p.view===v),lo=p=>v.numbered?Math.min(p.x_mm,p.x2_mm):Math.min(p.y_mm,p.y2_mm),hi=p=>v.numbered?Math.max(p.x_mm,p.x2_mm):Math.max(p.y_mm,p.y2_mm);
+  for(const p of list){if(p.layout.cut||p.layout.top&&Math.abs(p.layout.top[0]-p.layout.top[1])<1)continue;
+   const q=list.find(q=>q!==p&&Array.isArray(q.layout.top)&&Math.abs(q.layout.top[0]-q.layout.top[1])>=20&&Math.min(hi(p),hi(q))-Math.max(lo(p),lo(q))>=(hi(p)-lo(p))*.8&&
+    p.z0_mm>=Math.min(...q.layout.top)-150&&p.z0_mm<=Math.max(...q.layout.top)+150&&q.z0_mm<p.z0_mm);
+   if(!q)continue;const top=p.z0_mm+p.diameter_mm,z0=Math.min(...q.layout.top);
+   p.layout.cut=q.layout.top.slice();p.z0_mm=p.z1_mm=z0;p.diameter_mm=Math.max(1,top-z0);
+   p.notes.push("Низ по скошенному верху панели под ней ("+q.mark+"): "+q.layout.top.join(" → "))}
+ }
  // (an opening its note puts at another level than the view draws it — src/ai-ar-extract.js noteLevels)
  const lv=mm=>(mm<0?"−":"+")+(Math.abs(mm)/1000).toFixed(3).replace(".",",");
  for(const v of views)for(const o of v.openings||[]){const at=(v.title||"схема раскладки")+" (лист "+v.sheet+"), отверстие "+(o.u1-o.u0)+"×"+(o.z1-o.z0);
@@ -883,7 +896,7 @@ let loose=0;
  const fillOf=(f,numbered,reversed,a,b,z,wall,src,notes,over)=>{const sheet=src.sheet;
   const line=wall.line,t=wall.layout?.thickness_mm||150;
   placements.push({mark:f.pos,name:{window:"Окно",door:"Дверь",gate:"Ворота"}[f.kind]+" "+f.name,type_key:f.kind,scheme_group:"openings",geometry_type:"beam",
-   fitting_type:f.kind,diameter_mm:f.height_mm,layout:fillLayout(f,numbered,reversed,t),
+   fitting_type:f.kind,diameter_mm:f.height_mm,layout:{...fillLayout(f,numbered,reversed,t),...(wall.plan?{plan:true}:{})},
    ...(numbered?{x_mm:Math.round(a),y_mm:line,x2_mm:Math.round(b),y2_mm:line}:{x_mm:line,y_mm:Math.round(a),x2_mm:line,y2_mm:Math.round(b)}),
    z0_mm:z,z1_mm:z,levels_from:"фасады АР",confidence:over?"low":"high",section:"АР",axis_x:wall.axis_x,axis_y:wall.axis_y,sheet:String(sheet),source_page:src.page,source_file:src.file,
    notes:[...notes,...(over?["Таких по спецификации "+(f.count||1)+" — этот сверх, проверьте"]:[])]})
@@ -974,7 +987,27 @@ let loose=0;
   const fewer=[],inner=[];
   for(const f of blocks.values()){const n=used.get(f.pos)||0,k=f.count||1;if(n>=k||f.count==null&&n)continue;(n?fewer:inner).push(f.pos+(n?" "+n+" из "+k:f.count==null?"":" ×"+k))}
   if(fewer.length)warnings.push("На фасадах меньше, чем по спецификации: "+fewer.join(", "));
-  if(inner.length)warnings.push("Нет на фасадах (внутренние, в перегородках) — пока не поставлены: "+inner.join(", "));
+  // The inner ones by the plan (ИР-71535 АР ч.1 л.10, src/ai-ar-extract.js planOpenings): at its label, in the line of the
+  // wall it is written along (the middle of its faces), in the gap of that wall of its width nearest the label — else at
+  // the label; a door, a gate on the floor, a window at 900 (not on the plan — said). As many as the table counts (a table
+  // without the number of each — «Ведомость проемов» — as many as the plan shows).
+  const byPlan=[],still=[];
+  for(const f of blocks.values()){if(used.get(f.pos))continue;let n=0;const k=f.count||Infinity;
+   for(const p of ar){const fit=planFit.get(p);if(!fit)continue;
+    for(const o of p.ar.planFills||[]){if(o.mark!==f.pos||n>=k||!o.wall)continue;
+     const alongX=o.along==="x",fa=alongX?fit.fx:fit.fy,fc=alongX?fit.fy:fit.fx,sc=Math.abs(fa.b);
+     const mid=o.wall.length>1?(o.wall[0]+o.wall[1])/2:o.wall[0],t=o.wall.length>1?Math.max(80,Math.round(Math.abs(o.wall[0]-o.wall[1])*Math.abs(fc.b))):120;
+     const c=alongX?o.x:o.y,gap=(o.gaps||[]).map(g=>({g,w:(g[1]-g[0])*sc})).filter(q=>q.w>=f.width_mm-150&&q.w<=f.width_mm+400).sort((p,q)=>Math.abs((p.g[0]+p.g[1])/2-c)-Math.abs((q.g[0]+q.g[1])/2-c))[0];
+     const uc=fa.a+fa.b*(gap?(gap.g[0]+gap.g[1])/2:c),line=Math.round(fc.a+fc.b*mid),a=Math.round(uc-f.width_mm/2),z=f.kind==="window"?900:0;
+     fillOf(f,alongX,false,a,a+f.width_mm,z,{line,layout:{thickness_mm:t},axis_x:"",axis_y:"",plan:true},{sheet:p.pdfPage||p.page,page:p.page,file:p.sourceName||""},
+      ["План АР, лист "+(p.pdfPage||p.page)+": "+f.pos+" "+f.width_mm+"×"+f.height_mm+" ("+f.name+") — внутренний, в перегородке"+(gap?", по проёму стены":", у надписи — проём на плане не найден, проверьте"),
+       ...(f.kind==="window"?["Низ окна на +0,900 — на плане отметки нет, проверьте"]:[])],false);
+     n++}}
+   if(n){used.set(f.pos,n);byPlan.push(f.pos+(n<k&&k<Infinity?" "+n+" из "+k:n>1?" ×"+n:""))}
+   else if(inner.some(x=>x.startsWith(f.pos+" ")||x===f.pos))still.push(f.pos)}
+  if(byPlan.length)warnings.push("Внутренние двери, ворота, окна поставлены по плану: "+byPlan.join(", "));
+  if(inner.length&&still.length)warnings.push("Нет на фасадах и на плане (внутренние) — не поставлены: "+still.join(", "));
+  else if(inner.length&&!byPlan.length)warnings.push("Нет на фасадах (внутренние, в перегородках) — пока не поставлены: "+inner.join(", "));
  }
  else for(const v of views){
   const off=shift(v);if(off===null)continue;
