@@ -2027,6 +2027,23 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   }catch(error){alert("Не удалось выгрузить схему: "+String(error?.message||error))}
   finally{if(btn){btn.disabled=false;btn.textContent=old}}
  }
+ // The montage scheme by a link (the engineer, 11.11.2026 «как получить ссылку на монтажную схему?» — «добавь»): the page
+ // of the «HTML» button goes to the company's server (src/report-links.js, kind "scheme" — a link of its own per object,
+ // the report's link apart); the dialog — the report's one (src/object-export-html.js, irReportLinkDialog).
+ async function shareSchemeLink(btn){
+  if(!window.irSchemeHtmlExport){alert("Выгрузка схемы недоступна — обновите программу.");return}
+  const old=btn?.textContent;if(btn){btn.disabled=true;btn.textContent="Отправка…"}
+  try{
+   const data=await exportSchemeData();
+   if(!data){alert("На схеме нет элементов для ссылки.");return}
+   const html=await window.irSchemeHtmlExport.build(data);
+   const r=await irProject.ai.invoke("ai-settings:server-report-share",{objectId:data.objectId,objectName:data.object.name,title:"Монтажная схема, "+(data.object.name||"Объект"),html,kind:"scheme"});
+   if(typeof window.irReportLinkDialog!=="function"&&typeof window.irLazy==="function")await window.irLazy("export").catch(()=>null);
+   if(typeof window.irReportLinkDialog==="function")window.irReportLinkDialog(data.objectId,r,"scheme");
+   else if(r?.link?.url){try{await navigator.clipboard.writeText(r.link.url)}catch(_e){}alert("Ссылка на монтажную схему скопирована:\n"+r.link.url)}
+  }catch(error){alert("Не удалось сделать ссылку: "+String(error?.message||error).replace(/^Error invoking remote method '[^']+': (Error: )?/,""))}
+  finally{if(btn){btn.disabled=false;btn.textContent=old}}
+ }
  let pickerCollator=null;
  function pickerRecords(){
   // (one comparer for the whole list: the comparison of strings with options built a new one at each of the ~60 000 comparisons of
@@ -2936,7 +2953,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    <div class="scheme-workspace ${sidePanelOpen?"":"side-off"}">
     <section class="scheme-stage scheme-three-stage ${previewFullscreen?"scheme-preview-fullscreen":""}" id="schemePreviewStage" aria-label="Предпросмотр монтажной схемы" data-scheme-background="${currentBackground()}" data-scheme-contrast="${backgroundIsDark()?"dark":"light"}" style="--scheme-custom-background:${currentCustomBackground()}">
      <div class="scheme-stage-toolbar"><div class="scheme-preview-title"><b>Монтажная схема · ${esc(activeGroup().label)}</b><span>${s.total} элементов · 3D</span></div>
-      <div class="scheme-toolbar-actions"><button type="button" id="schemeExportHtml" class="scheme-fullscreen-toggle" title="Выгрузить монтажную схему в HTML: 3D, фильтры, карточки элементов — без редактирования">⇩ HTML</button><button type="button" id="schemeFullscreenToggle" class="scheme-fullscreen-toggle" title="${previewFullscreen?"Закрыть полноэкранный просмотр":"Предпросмотр схемы на весь экран"}">${previewFullscreen?"✕ Закрыть":"⛶ На весь экран"}</button><button type="button" id="schemeBackgroundToggle" class="scheme-background-toggle" aria-pressed="${backgroundIsDark()}" title="${backgroundIsDark()?"Светлый фон":"Тёмный фон"}" aria-label="${backgroundIsDark()?"Светлый фон":"Тёмный фон"}">${backgroundIcon()}</button><button type="button" id="schemeToggleLabels" class="${labelsVisible?"on":""}" title="Показать марки элементов">Подписи</button><button type="button" id="schemeToggleDimensions" class="${dimensionsVisible?"on":""}" title="Показать межосевые размеры сетки">Размеры</button></div>
+      <div class="scheme-toolbar-actions"><button type="button" id="schemeExportHtml" class="scheme-fullscreen-toggle" title="Выгрузить монтажную схему в HTML: 3D, фильтры, карточки элементов — без редактирования">⇩ HTML</button><button type="button" id="schemeShareLink" class="scheme-fullscreen-toggle" title="Ссылка на эту монтажную схему: открывается в браузере и на телефоне без программы — только просмотр">🔗 Ссылка</button><button type="button" id="schemeFullscreenToggle" class="scheme-fullscreen-toggle" title="${previewFullscreen?"Закрыть полноэкранный просмотр":"Предпросмотр схемы на весь экран"}">${previewFullscreen?"✕ Закрыть":"⛶ На весь экран"}</button><button type="button" id="schemeBackgroundToggle" class="scheme-background-toggle" aria-pressed="${backgroundIsDark()}" title="${backgroundIsDark()?"Светлый фон":"Тёмный фон"}" aria-label="${backgroundIsDark()?"Светлый фон":"Тёмный фон"}">${backgroundIcon()}</button><button type="button" id="schemeToggleLabels" class="${labelsVisible?"on":""}" title="Показать марки элементов">Подписи</button><button type="button" id="schemeToggleDimensions" class="${dimensionsVisible?"on":""}" title="Показать межосевые размеры сетки">Размеры</button></div>
      </div>
      <div class="scheme-canvas" id="schemeCanvas"></div>
      ${emptyOverlay}
@@ -2973,6 +2990,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    renderScene({steps:true})
   });
   document.getElementById("schemeExportHtml")?.addEventListener("click",e=>exportSchemeHtml(e.currentTarget));
+  document.getElementById("schemeShareLink")?.addEventListener("click",e=>shareSchemeLink(e.currentTarget));
   document.getElementById("schemeFullscreenToggle")?.addEventListener("click",()=>previewFullscreen?leaveSchemeFullscreen():enterSchemeFullscreen());
   document.getElementById("schemeBackgroundToggle")?.addEventListener("click",()=>applySchemeBackground(currentBackground()==="dark"?"standard":"dark"));
   // Annotation switches only update the existing 3D model; WebGL is not recreated.

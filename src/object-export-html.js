@@ -1183,12 +1183,14 @@
  // The link to the report on the company's server (the engineer, 10.11.2026 «Отчет по объекту ссылкой»): copy, open,
  // delete. One link per object — the next «Поделиться ссылкой» puts the new report under the same link.
  const linkError=e=>String(e?.message||e).replace(/^Error invoking remote method '[^']+': (Error: )?/,"");
- function showReportLink(objectId,r){
+ // (kind "scheme" — the montage scheme alone, the «🔗 Ссылка» button of the scheme window, 11.11.2026: its own link)
+ function showReportLink(objectId,r,kind){
   const link=r&&r.link;if(!link)throw Error("Сервер не вернул ссылку");
+  const sch=kind==="scheme",what=sch?"схему":"отчёт",again=sch?"«🔗 Ссылка» на схеме":"«Поделиться ссылкой»";
   const dlg=document.createElement("dialog");dlg.className="ir-export-options ir-export-link";
   dlg.innerHTML='<style>dialog.ir-export-link{height:auto!important}.ir-export-link .body{padding:16px 22px;display:grid;gap:10px}.ir-export-link input{width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid #cfdde8;border-radius:8px;font:13px monospace;color:#204861;background:#f5f9fc}.ir-export-link p{margin:0;font-size:12.5px;line-height:1.5;color:#55707f}.ir-export-link .ok{color:#1e7a46;font-weight:700}.ir-export-link .danger{color:#b42318!important;border-color:#f1c4bf!important}</style>'+
-   '<div class="ir-export-options-head"><h2>Отчёт по ссылке</h2><p>'+(r.updated?"Отчёт обновлён — ссылка прежняя, отправлять заново не нужно.":"Ссылка готова — отправьте её заказчику или руководителю.")+'</p></div>'+
-   '<div class="body"><input readonly data-link-url value="'+esc(link.url)+'"><p>Открывается в браузере на компьютере и телефоне, без программы и без входа. Видит отчёт любой, у кого есть ссылка, — только просмотр. В отчёте то, что вы выбрали сейчас; чтобы обновить, снова нажмите «Поделиться ссылкой».</p><p data-link-note></p></div>'+
+   '<div class="ir-export-options-head"><h2>'+(sch?"Монтажная схема по ссылке":"Отчёт по ссылке")+'</h2><p>'+(r.updated?(sch?"Схема обновлена":"Отчёт обновлён")+" — ссылка прежняя, отправлять заново не нужно.":"Ссылка готова — отправьте её заказчику или руководителю.")+'</p></div>'+
+   '<div class="body"><input readonly data-link-url value="'+esc(link.url)+'"><p>Открывается в браузере на компьютере и телефоне, без программы и без входа. Видит '+what+' любой, у кого есть ссылка, — только просмотр. '+(sch?"Схема — как сейчас на экране (выгрузка «HTML»); ссылка на отчёт по объекту — своя, отдельно.":"В отчёте то, что вы выбрали сейчас.")+' Чтобы обновить, снова нажмите '+again+'.</p><p data-link-note></p></div>'+
    '<div class="ir-export-options-foot"><button type="button" class="danger" data-link-remove>Удалить ссылку</button><button type="button" data-link-open>Открыть</button><button type="button" data-link-close>Закрыть</button><button type="button" class="ir-export-save" data-link-copy>Копировать ссылку</button></div>';
   document.body.append(dlg);
   const note=dlg.querySelector("[data-link-note]"),input=dlg.querySelector("[data-link-url]");
@@ -1199,12 +1201,13 @@
   dlg.querySelector("[data-link-remove]").onclick=async ev=>{
    if(!confirm("Удалить ссылку? Она сразу перестанет открываться у всех, кому вы её отправили."))return;
    ev.currentTarget.disabled=true;
-   try{await irProject.ai.invoke("ai-settings:server-report-unshare",{objectId});note.className="";note.textContent="Ссылка удалена: отчёт по ней больше не открывается.";input.value="";dlg.querySelector("[data-link-copy]").disabled=true;dlg.querySelector("[data-link-open]").disabled=true}
+   try{await irProject.ai.invoke("ai-settings:server-report-unshare",{objectId,kind:sch?"scheme":undefined});note.className="";note.textContent="Ссылка удалена: "+(sch?"схема":"отчёт")+" по ней больше не открывается.";input.value="";dlg.querySelector("[data-link-copy]").disabled=true;dlg.querySelector("[data-link-open]").disabled=true}
    catch(e){note.className="";note.textContent="Не удалено: "+linkError(e);ev.currentTarget.disabled=false}
   };
   dlg.addEventListener("close",()=>dlg.remove(),{once:true});
   dlg.showModal();copy()
  }
+ window.irReportLinkDialog=showReportLink;
  async function exportObject(objectId){
   const id=String(objectId);
   if(!/^\d+$/.test(id))throw Error("Неверный ID объекта.");
