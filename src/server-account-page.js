@@ -350,7 +350,7 @@
    for(const d of byDate)for(const p of sarr(d.photos))if(p)gallery.push(String(p))
   }
   return{rid:Number(o.id),name:o.name||"",customer:o.customer||"",general_contractor:o.general_contractor||"",address:o.address||"",
-   summary:String(meta.find(r=>r.record_type==="object_summary")?.data?.value||""),status:o.status||"",years,works,cover:cover||banner,photos:gallery.filter(f=>f&&f!==cover&&f!==banner).slice(0,30),sort}
+   summary:String(meta.find(r=>r.record_type==="object_summary")?.data?.value||""),status:o.status||"",years,works,cover:cover||banner,photos:gallery.filter(f=>f&&f!==cover&&f!==banner).slice(0,30),skip:[cover,banner].filter(Boolean),sort}
  }
  const STATUS_TAG=st=>/заверш/i.test(st)?"done":/подгот/i.test(st)?"prep":"work";
  const objWord=n=>n%10===1&&n%100!==11?"объект":n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?"объекта":"объектов";

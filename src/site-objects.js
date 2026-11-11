@@ -30,7 +30,7 @@ function clean(list){
   const photos=[...new Set((Array.isArray(o.photos)?o.photos:[]).map(p=>String(p||"")).filter(Boolean))];
   out.push({rid,name:clip(o.name,300)||"Объект",customer:clip(o.customer,300),general_contractor:clip(o.general_contractor,300),
    address:clip(o.address,300),summary:String(o.summary??"").replace(/\r\n?/g,"\n").replace(/[^\S\n]+/g," ").replace(/ *\n */g,"\n").replace(/\n{3,}/g,"\n\n").trim().slice(0,2000),status:clip(o.status,50),years:clip(o.years,50),works,cover:String(o.cover||""),
-   photos:photos.filter(p=>p!==String(o.cover||"")).slice(0,MAX_PHOTOS),sort:Number.isInteger(o.sort)?o.sort:i+1})
+   photos:photos.filter(p=>p!==String(o.cover||"")).slice(0,MAX_PHOTOS),skip:(Array.isArray(o.skip)?o.skip:[]).map(p=>String(p||"")).filter(Boolean).slice(0,4),sort:Number.isInteger(o.sort)?o.sort:i+1})
  }
  return out
 }
@@ -59,6 +59,13 @@ function createSiteObjects({account,getUserDataPath,nativeImage=null}){
  async function current(){return account.list(COLL,"fields=id,rid,name,status,photo_key,updated&sort=sort")}
  async function info(){requireAdmin();const rows=await current();return{objects:rows.map(r=>({id:r.id,rid:r.rid,name:r.name,status:r.status,updated:r.updated}))}}
  const status=()=>({...state});
+ // Обложка и баннер объекта не идут в фото, даже если та же картинка лежит в фото копией под другим именем
+ // (просьба инженера 11.11.2026 «баннер объекта почему-то тоже в галерее фото»): сравнение по содержимому файла.
+ const digest=file=>{try{return usable(file)?crypto.createHash("sha1").update(fs.readFileSync(file)).digest("hex"):""}catch{return""}};
+ function withoutCover(o){
+  const same=new Set([o.cover,...o.skip].map(digest).filter(Boolean));if(!same.size)return o;
+  return{...o,photos:o.photos.filter(f=>!same.has(digest(f)))}
+ }
 
  async function sendOne(o,have){
   const key=photoKey(o);
@@ -82,7 +89,7 @@ function createSiteObjects({account,getUserDataPath,nativeImage=null}){
  async function publish({objects}={}){
   requireAdmin();
   if(state.running)throw Error("Отправка уже идёт — подождите");
-  const want=clean(objects);
+  const want=clean(objects).map(withoutCover);
   state={running:true,done:0,total:want.length,name:"",error:"",units:want.reduce((n,o)=>n+1+(o.cover?1:0)+o.photos.length,0),unitsDone:0,photo:0,photos:0};
   try{
    const rows=await current(),byRid=new Map(rows.map(r=>[Number(r.rid),r]));
