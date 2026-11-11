@@ -681,7 +681,7 @@ function arScheme(pages,opts={}){
   if(num)for(const n of map.keys())if((/\d+(?:\/\d+)?/.exec(n)||[])[0]===v.row)return n;return null};
  const sizeOf=(mark,w,h)=>{const list=spec.get(mark)||[];
   return list.find(q=>Math.abs(q.width_mm-w)<=40&&Math.abs(q.length_mm-h)<=40||Math.abs(q.length_mm-w)<=40&&Math.abs(q.width_mm-h)<=40)||list[0]||null};
- const placements=[],warnings=[],named=views.some(v=>v.row);
+ const placements=[],warnings=[],named=views.some(v=>v.row),grownSet=new WeakSet();
  // Axes of a building beside the new one on the plans of the АР that show both (ИР-71535 АР ч.1 л.10: the shop ММА, its
  // «1»…«3» in a column at the left edge, «А»…«К/1» in the row of our «01»…«010» — src/ai-ar-extract.js planAxes): their
  // places on the grid from the axes of the grid on the same plan (a line fitted through them, the bubbles off it by more
@@ -736,6 +736,12 @@ function arScheme(pages,opts={}){
    // concrete wall of the niche, the extension line of «2100»): its foot on that line, the top as drawn.
    if(q&&!p.leader&&!p.cut&&!p.top&&Array.isArray(p.across)&&Math.abs(q.width_mm-w)<=40&&h>q.length_mm+300){
     const z=p.across.find(y=>Math.abs(p.z1-y-q.length_mm)<=60);if(z!==undefined){p={...p,z0:z};h=p.z1-p.z0;footAt=z}}
+   // A column cut short by an opening over it (ИР-71535 АР ч.2 л.8 ряд Б Пс-116 at 44345 drawn −0,080…+2,375 under a window,
+   // л.9 ряд Л two of them up to +3,105 and +0,990 — the table on another sheet, 11580): the panel goes on to its table's
+   // length where its neighbours of that position end, the opening a hole in it (the facade cuts it — cutHoles).
+   let grown=false;
+   const mate=q&&!p.leader&&!p.cut&&w<=q.width_mm+40&&q.length_mm>h+300?v.panels.find(o=>o!==p&&o.mark===p.mark&&Math.abs(o.z0-p.z0)<=60&&Math.abs(o.z1-p.z0-q.length_mm)<=60):null;
+   if(mate){const {top:_t,...rest}=p;p={...rest,z1:mate.z1};h=p.z1-p.z0;grown=true}
    // (a label on a leader — src/ai-ar-extract.js leaderLabels — takes a piece of its panel, cut on site: not larger than
    // the panel its table gives; a column of the wall between joints longer than that is not it)
    if(p.leader&&q&&!(w<=q.width_mm+40&&h<=q.length_mm+60||h<=q.width_mm+40&&w<=q.length_mm+60)){warnings.push(p.mark+" (лист "+v.sheet+"): по выноске — контур "+Math.round(w)+"×"+Math.round(h)+" больше панели "+q.width_mm+"×"+q.length_mm+" — не поставлена");continue}
@@ -753,7 +759,9 @@ function arScheme(pages,opts={}){
     axis_x:v.numbered?"":axis[0],axis_y:v.numbered?axis[0]:"",sheet:String(v.sheet),sheet_point_pt:p.pt,
     notes:["Раскладка панелей АР, лист "+v.sheet+(q?" · "+q.name+(q.ral?" · RAL "+q.ral+(q.ral_inside?"/"+q.ral_inside:""):""):" · позиции нет в спецификации панелей"),
      ...(footAt!==null?["Низ на линии "+(footAt<0?"−":"+")+(Math.abs(footAt)/1000).toFixed(3).replace(".",",")+" — по длине спецификации "+q.length_mm+" (на виде контур до низа стены)"]:[]),
+     ...(grown?["Столбец на виде обрезан проёмом — панель на всю длину спецификации "+q.length_mm+", проём вырезается"]:[]),
      ...(p.cut?["Низ панели по скату кровли: "+p.cut.join(" → ")]:[]),...(p.top?["Верх по скату кровли (обрезать по месту): "+p.top.join(" → ")]:[]),...(differs?["Размер по чертежу "+Math.round(w)+"×"+Math.round(h)+", по спецификации "+q.width_mm+"×"+q.length_mm+" — проверьте"]:[])]})
+   if(grown)grownSet.add(placements[placements.length-1]);
   }
  }
  // The wall of the building beside (ИР-71535 АР ч.2 л.5 «по фасаду 3-1»: Пс-110, Пс-111, Пс-113 on the shop ММА, where its
@@ -815,7 +823,8 @@ function arScheme(pages,opts={}){
  for(const v of views){
   const list=placements.filter(p=>p.view===v),lo=p=>v.numbered?p.x_mm:p.y_mm,hi=p=>v.numbered?p.x2_mm:p.y2_mm,top=p=>p.z0_mm+p.diameter_mm;
   for(const p of list){
-   const up=list.filter(q=>q!==p&&Math.min(hi(q),hi(p))-Math.max(lo(q),lo(p))>=100&&q.z0_mm-top(p)>0&&q.z0_mm-top(p)<=100).map(q=>q.z0_mm-top(p));
+   // (a column grown over its opening — its top where its neighbours end: not up to a panel of the next band beside the opening)
+   const up=grownSet.has(p)?[]:list.filter(q=>q!==p&&Math.min(hi(q),hi(p))-Math.max(lo(q),lo(p))>=100&&q.z0_mm-top(p)>0&&q.z0_mm-top(p)<=100).map(q=>q.z0_mm-top(p));
    if(up.length){const g=Math.min(...up);p.diameter_mm+=g;p.notes.push("Верх поднят на "+g+" мм до панели над ней (шов без зазора)")}
    const next=list.filter(q=>q!==p&&Math.min(top(q),top(p))-Math.max(q.z0_mm,p.z0_mm)>=100&&lo(q)-hi(p)>0&&lo(q)-hi(p)<=100).map(q=>lo(q)-hi(p));
    if(next.length){const g=Math.min(...next);if(v.numbered)p.x2_mm+=g;else p.y2_mm+=g;p.layout.width_mm+=g;p.notes.push("Край продлён на "+g+" мм до соседней панели (шов без зазора)")}
@@ -894,7 +903,12 @@ let loose=0;
    else if(oz>=20&&ou<60){if(q.lo<a)right=Math.max(right,q.hi-a);else left=Math.max(left,b-q.lo)}}
   // (a door or a gate on the floor stays on it: the panel over it is cut)
   const dz=floor?0:up&&!down?up:down&&!up?-down:0,du=right&&!left?right:left&&!right?-left:0;
-  for(const [u,w] of [[du,dz],[0,dz],[du,0]]){if(!u&&!w)continue;const o=into(a+u,b+u,z+w,z+w+H);if(!o.thin&&o.deep<=now.deep)return{a:a+u,b:b+u,z:z+w,moved:[u,w]}}
+  let best=null;
+  for(const [u,w] of [[du,dz],[0,dz],[du,0]]){if(!u&&!w)continue;const o=into(a+u,b+u,z+w,z+w+H);if(o.deep>now.deep)continue;if(!o.thin)return{a:a+u,b:b+u,z:z+w,moved:[u,w]};
+   if(!best||o.thin<best.thin)best={thin:o.thin,u,w}}
+  // (none clear of every panel: the move that leaves it in the fewest — ОК-5 of ряд Б 7 mm into the 20 panels under it and
+  // 53 mm into Пс-124 at its end: up the 7 mm, the panel at the end gets its hole)
+  if(best&&best.thin<now.thin)return{a:a+best.u,b:b+best.u,z:z+best.w,moved:[best.u,best.w]};
   return{a,b,z}
  };
  const cutHoles=(numbered,a,b,z0,z1,list)=>{
@@ -902,7 +916,8 @@ let loose=0;
    if(p.layout.cut)continue;
    const p0=numbered?p.x_mm:p.y_mm,p1=numbered?p.x2_mm:p.y2_mm,lo=Math.min(p0,p1),hi=Math.max(p0,p1),pz0=p.z0_mm,pz1=p.z0_mm+p.diameter_mm;
    const h0=Math.max(a,lo),h1=Math.min(b,hi),v0=Math.max(z0,pz0),v1=Math.min(z1,pz1);
-   if(h1-h0<20||v1-v0<20)continue;
+   // (a door on the floor 10 mm into the panel over it — Д-3 of О10 up to +1,990, the panels from +1,980 —: that panel's hole too)
+   if(h1-h0<20||v1-v0<2)continue;
    (p.layout.holes||(p.layout.holes=[])).push([Math.round(h0-lo),Math.round(h1-lo),Math.round(v0-pz0),Math.round(v1-pz0)])
   }
  };
