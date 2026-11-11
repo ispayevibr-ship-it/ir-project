@@ -5458,7 +5458,7 @@ window.irThreeSchemeView=(function(){
   // both faces of it: a top square to the slope goes along it.
   var wallCap=new Map();
   function wallUnderRoof(list){
-   wallCap.clear();var roofs=[],cells=new Map(),C=4000;
+   wallCap.clear();roofSide.clear();var roofs=[],cells=new Map(),C=4000;
    list.forEach(function(c){
     if(c.ft!=="panel"||!c.id||!c.lay||c.lay.panel!=="roof")return;
     var pp=memberPoints(c),a=fromWorld(pp[0]),b=fromWorld(pp[1]),L=Math.hypot(b.x-a.x,b.y-a.y);if(L<300)return;
@@ -5482,7 +5482,9 @@ window.irThreeSchemeView=(function(){
     var cap=[[a.x-ux*(pe[0]*1000-1),a.y-uy*(pe[0]*1000-1)],[b.x+ux*(pe[1]*1000-1),b.y+uy*(pe[1]*1000-1)]].map(function(E,k){var low=null;
      [-t,0,t].forEach(function(o){var zb=under(E[0]-uy*o,E[1]+ux*o,tp[k]);if(zb!==null&&(low===null||zb<low))low=zb});return low});
     if(cap[0]===null&&cap[1]===null)return;
-    var nt=[cap[0]===null?tp[0]:Math.min(tp[0],cap[0]),cap[1]===null?tp[1]:Math.min(tp[1],cap[1])];
+    // (12 mm under the roof: the roof seated on the purlins and tilted, its underside at the outer face of the wall a few mm
+    // lower than at the points taken — Пк-15 over Пс-39 by О10 3 mm in; the seal fills it)
+    var nt=[cap[0]===null?tp[0]:Math.min(tp[0],cap[0]-12),cap[1]===null?tp[1]:Math.min(tp[1],cap[1]-12)];
     if(tp[0]-nt[0]<.5&&tp[1]-nt[1]<.5)return;
     wallCap.set(id,nt)
    });
@@ -5502,14 +5504,30 @@ window.irThreeSchemeView=(function(){
      var E=e[0],d=e[1],best=0;
      walls.forEach(function(w){
       var cr=d.x*w.u.y-d.y*w.u.x;if(Math.abs(cr)<.87)return;
-      var tc=((w.a.x-E.x)*w.u.y-(w.a.y-E.y)*w.u.x)/cr;if(tc<-w.t||tc>600)return;
+      // (up to 1,5 m in: the roof of an annex read on past the wall of the shop rising over it — Пк-12 through Пс-5.1 by О7/1)
+      var tc=((w.a.x-E.x)*w.u.y-(w.a.y-E.y)*w.u.x)/cr;if(tc<-w.t||tc>1500)return;
       var face=tc+w.t/2/Math.abs(cr);if(face<1)return;
       // (across the roof panel's width, the wall there: its line within the panel's strip, the roof between its foot and top)
       var X=E.x+d.x*tc,Y=E.y+d.y*tc,sw=(X-w.a.x)*w.u.x+(Y-w.a.y)*w.u.y;if(sw<-r.w/2||sw>w.L+r.w/2)return;
       var zr=r.a.z+(r.b.z-r.a.z)*(k?r.L-tc:tc)/r.L;if(w.z0>zr||w.top<zr+r.t+50)return;
       best=Math.max(best,face)});
-     if(best>=1&&best<=700)ext[k]=-best/1000});
-    if(ext[0]||ext[1])panelExt.set(r.id,ext)
+     // (3 mm clear of the face: the tilted end of the panel — Пк-12…14 at Пс-70 by О8 1,6–1,8 mm in)
+     // (and the tilt of the panel's end: its thickness times the slope)
+     if(best>=1&&best<=1600)ext[k]=-(best+3+r.t*Math.abs(r.b.z-r.a.z)/r.L)/1000});
+    if(ext[0]||ext[1])panelExt.set(r.id,ext);
+    // The side of a roof panel along a wall going on up past it (ИР-71535 Пк-15 under Пс-89 by row Е: the wall above the
+    // roof of the annex on the outer face of its girts, 170 mm over the edge of the last strip — the strip under the
+    // wall's foot along 12 m): the strip up to the face of the wall, 3 mm clear — roofSide, mm across from its line.
+    var lo=-r.w/2,hi=r.w/2;
+    walls.forEach(function(w){
+     if(Math.abs(w.u.x*r.u.y-w.u.y*r.u.x)>.05)return;
+     var sw=(w.a.x-r.a.x)*-r.u.y+(w.a.y-r.a.y)*r.u.x;if(Math.abs(sw)>r.w/2+w.t/2||Math.abs(sw)<r.w/4)return;
+     var u0=(w.a.x-r.a.x)*r.u.x+(w.a.y-r.a.y)*r.u.y,u1=u0+w.L*(w.u.x*r.u.x+w.u.y*r.u.y),m0=Math.max(0,Math.min(u0,u1)),m1=Math.min(r.L,Math.max(u0,u1));if(m1-m0<100)return;
+     // (and a wall whose middle is past the strip, its inner face a little over it, its top over the roof's underside —
+     // Пк-6 over Пс-31 by О7/1 21 mm, Пк-18 over Пс-42 by О10 33 mm: the wall on the outer face of its girts)
+     var zt=r.a.z+(r.b.z-r.a.z)*((m0+m1)/2)/r.L+r.t,edge=Math.abs(sw)>r.w/2&&w.top>zt-r.t+5;if(w.z0>zt-5||w.top<zt+50&&!edge)return;
+     if(sw>0)hi=Math.min(hi,sw-w.t/2-3);else lo=Math.max(lo,sw+w.t/2+3)});
+    if(hi-lo>=100&&(lo>-r.w/2+.5||hi<r.w/2-.5))roofSide.set(r.id,[lo,hi])
    });
    // The gable trim of a roof (lay.trim "gable": a leg down, a leg across over the roof) over a wall moved out to the
    // outer face of the frame (wallLines): its leg down outside that wall's face, not in it (ИР-71535 Пк-6 at О7/1: the
@@ -5531,6 +5549,7 @@ window.irThreeSchemeView=(function(){
     var v=toWorld(ox*move,oy*move,0).sub(toWorld(0,0,0)),sh=lineShift.get(String(c.id));lineShift.set(String(c.id),sh?sh.clone().add(v):v)
    })
   }
+  var roofSide=new Map();
   var panelExt=new Map();
   function panelCorners(list){
    panelExt.clear();var walls=[],cells=new Map(),C=3000;
@@ -9318,7 +9337,12 @@ window.irThreeSchemeView=(function(){
     else if(c.ft==="panel"){
      var rh=c.lay&&Array.isArray(c.lay.holes)?c.lay.holes.filter(function(o){return Array.isArray(o)&&o.length===4}).map(function(o){return[number(o[0])/1000+p0,number(o[1])/1000+p0,number(o[2])/1000+pw/2,number(o[3])/1000+pw/2]}):[];
      if(rh.length)wallPieces(0,len,pw,rh).forEach(function(r){if(r[1]-r[0]>.001&&r[3]-r[2]>.001)put(new T.BoxGeometry(r[3]-r[2],pt,r[1]-r[0]),new T.Vector3((r[2]+r[3])/2-pw/2,pt/2,(r[0]+r[1])/2-len/2))});
-     else put(new T.BoxGeometry(pw,pt,gl),new T.Vector3(0,pt/2,0));
+     else{
+      // (its side up to the face of a wall going on up along it — wallUnderRoof, roofSide)
+      var rs=roofSide.get(id),rx=0,rw=pw;
+      if(rs){var pa=fromWorld(start),pb=fromWorld(end),pl=Math.hypot(pb.x-pa.x,pb.y-pa.y)||1,sv=toWorld(-(pb.y-pa.y)/pl*1000,(pb.x-pa.x)/pl*1000,0).sub(toWorld(0,0,0)).normalize(),lx=new T.Vector3(1,0,0).applyQuaternion(q);
+       rw=Math.max(.1,(rs[1]-rs[0])/1000);rx=(lx.dot(sv)<0?-1:1)*(rs[0]+rs[1])/2000}
+      put(new T.BoxGeometry(rw,pt,gl),new T.Vector3(rx,pt/2,0))}
      // (a lapped joint: the outer sheet on past its end over the next panel — lay.lap, mm at the start and the end, roofPlans)
      var lp=c.lay&&Array.isArray(c.lay.lap)?c.lay.lap:null;
      if(lp)[0,1].forEach(function(k){var l=number(lp[k])/1000;if(l>.005)put(new T.BoxGeometry(pw,.002,l),new T.Vector3(0,pt+.001,k?gl/2+l/2:-gl/2-l/2))})}

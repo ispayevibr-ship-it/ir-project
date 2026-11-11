@@ -2056,7 +2056,7 @@
    const fileName=selection.underContractor?redactCompanyIdentity(name,companyHeader.ownName).trim()||"Объект":name;
    if(selection.share){
     await bar.step(.96,"Отправка отчёта на сервер компании");
-    const r=await irProject.ai.invoke("ai-settings:server-report-share",{objectId:id,objectName:object.name||object.short_name||"",title:reportName,html});
+    const r=await irProject.ai.invoke("ai-settings:server-report-share",{objectId:id,objectName:object.name||object.short_name||"",label:object.short_name||object.name||"",title:reportName,html});
     bar.done();bar=null;showReportLink(id,r);return true
    }
    await bar.step(.96,"Сохранение файла");

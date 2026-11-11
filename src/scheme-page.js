@@ -838,7 +838,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   // All the work types together: the exported page can show each apart, as the scheme does.
   const workCounts=new Map();for(const c of list){const w=workCounts.get(c.work)||{id:c.work,label:c.work?String(liveWorks.get(c.work).work_type||"Без названия")+(liveWorks.get(c.work).project_code?" · "+liveWorks.get(c.work).project_code:""):"Без вида работ",count:0};w.count++;workCounts.set(c.work,w)}
   const currentWork=frameMode?null:enabledWorks().find(w=>w.id===activeWorkId);
-  return{objectId:oid,object:{name:String(object.name||object.title||""),address:String(object.address||"")},title:activeGroup()?.label||"Все",
+  return{objectId:oid,object:{name:String(object.name||object.title||""),short:String(object.short_name||""),address:String(object.address||"")},title:activeGroup()?.label||"Все",
     axesX:[...axesX],axesY:[...axesY],spanX,spanY,gridDirX,gridDirY,gridX:Object.fromEntries(axisXPos),gridY:Object.fromEntries(axisYPos),background:currentBackground(),
     elements:list,groups:[...counts.values()].sort((a,b)=>b.count-a.count),summary:statusCounts(),
     work:frameMode?(workCounts.size>1?"Все виды работ":""):currentWork?currentWork.name+(currentWork.code?" · "+currentWork.code:""):"",works:frameMode&&workCounts.size>1?[...workCounts.values()].sort((a,b)=>b.count-a.count):[]}
@@ -864,7 +864,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    const data=await exportSchemeData();
    if(!data){alert("На схеме нет элементов для ссылки.");return}
    const html=await window.irSchemeHtmlExport.build(data);
-   const r=await irProject.ai.invoke("ai-settings:server-report-share",{objectId:data.objectId,objectName:data.object.name,title:"Монтажная схема, "+(data.object.name||"Объект"),html,kind:"scheme"});
+   const r=await irProject.ai.invoke("ai-settings:server-report-share",{objectId:data.objectId,objectName:data.object.name,label:data.object.short||data.object.name,title:"Монтажная схема, "+(data.object.name||"Объект"),html,kind:"scheme"});
    if(typeof window.irReportLinkDialog!=="function"&&typeof window.irLazy==="function")await window.irLazy("export").catch(()=>null);
    if(typeof window.irReportLinkDialog==="function")window.irReportLinkDialog(data.objectId,r,"scheme");
    else if(r?.link?.url){try{await navigator.clipboard.writeText(r.link.url)}catch(_e){}alert("Ссылка на монтажную схему скопирована:\n"+r.link.url)}
