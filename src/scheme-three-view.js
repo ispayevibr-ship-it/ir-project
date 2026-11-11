@@ -686,7 +686,7 @@ window.irThreeSchemeView=(function(){
    // (a wall of panels, its windows and trims: on the outer face of the frame — wallLines)
    var ws=m.ft&&lineShift&&lineShift.get(String(m.id||""));if(ws){start.add(ws);end.add(ws)}
    // (a roof panel on the steel under it — roofSeats)
-   var rsf=m.ft==="panel"&&typeof roofShift!=="undefined"&&roofShift&&roofShift.get(String(m.id||""));if(rsf){start.add(rsf[0]);end.add(rsf[1])}
+   var rsf=(m.ft==="panel"||m.ft==="trim")&&typeof roofShift!=="undefined"&&roofShift&&roofShift.get(String(m.id||""));if(rsf){start.add(rsf[0]);end.add(rsf[1])}
    // (a rail of a roof guard where the frames of its posts hold it — guardRails)
    var gs=railShift&&railShift.get(String(m.id||""));if(gs){start.add(gs[0]);end.add(gs[1])}
    // (a strut on the bearing ribs of the beams' ends over the columns: into the plane of the ribs, its flat leg 20 mm
@@ -4345,6 +4345,30 @@ window.irThreeSchemeView=(function(){
      if(!best||gap<best.gap)best={gap:gap,d:[q.d[0]+(q.d[1]-q.d[0])*s0/M,q.d[0]+(q.d[1]-q.d[0])*s1/M]}});
     if(!best)return;
     roofShift.set(String(c.id),[new T.Vector3(0,best.d[0]/1000,0),new T.Vector3(0,best.d[1]/1000,0)]);roofMoved.set(String(c.id),Math.round((best.d[0]+best.d[1])/2))
+   });
+   // (a trim of a roof of the АР — the ridge, the free edge, the edge at a wall: lay.trim, arTrims — with the panels it
+   // lies on: along it every metre by the panel moved under it there, the ridge by the higher of its two; straight through
+   // them as they go, touching the highest — by its ends only the ridge of 48 m stood 135 mm over the panels between)
+   var moved=list.filter(function(c){return c.ft==="panel"&&c.id&&roofShift.has(String(c.id))});if(!moved.length)return;
+   list.forEach(function(c){
+    var k=c.ft==="trim"&&c.id&&c.lay&&c.lay.trim;if(k!=="ridge"&&k!=="gable"&&k!=="abutment")return;
+    // (the panel under it there: its top as laid within 400 mm of the trim — not the lower roof beside the edge)
+    var at=function(X,Y,Z){var best=null;
+     moved.forEach(function(o){
+      var bx=number(o.x),by=number(o.y),M=Math.hypot(number(o.x2)-bx,number(o.y2)-by);if(M<500)return;
+      var vx=(number(o.x2)-bx)/M,vy=(number(o.y2)-by)/M,u=(X-bx)*vx+(Y-by)*vy,s=Math.abs((X-bx)*-vy+(Y-by)*vx),w=Math.max(300,number(o.fd)||1000);
+      if(u<-300||u>M+300||s>w/2+300)return;
+      var f=Math.max(0,Math.min(1,u/M)),top=number(o.z0)+(number(o.z2)-number(o.z0))*f+Math.max(40,number(o.lay&&o.lay.thickness_mm)||120),dz=Math.abs(top-Z);if(dz>400)return;
+      var sh=roofShift.get(String(o.id)),d=sh[0].y+(sh[1].y-sh[0].y)*f,g=Math.max(0,s-w/2)+dz;
+      if(!best||(k==="ridge"?d>best.d:g<best.g))best={d:d,g:g}});
+     return best?best.d:null};
+    var ax=number(c.x),ay=number(c.y),bx=number(c.x2),by=number(c.y2),az=number(c.z0),bz=number(c.z2),n=Math.max(1,Math.ceil(Math.hypot(bx-ax,by-ay)/1000)),pts=[];
+    for(var i=0;i<=n;i++){var d=at(ax+(bx-ax)*i/n,ay+(by-ay)*i/n,az+(bz-az)*i/n);if(d!=null)pts.push([i/n,d])}
+    if(!pts.length)return;
+    var a=pts[0][1],b=0;
+    if(pts.length>=2){var mf=0,md=0;pts.forEach(function(q){mf+=q[0]/pts.length;md+=q[1]/pts.length});var sf=0,sd=0;pts.forEach(function(q){sf+=(q[0]-mf)*(q[0]-mf);sd+=(q[0]-mf)*(q[1]-md)});b=sf>1e-9?sd/sf:0;a=md-b*mf}
+    var up=-Infinity;pts.forEach(function(q){up=Math.max(up,q[1]-(a+b*q[0]))});a+=up;
+    roofShift.set(String(c.id),[new T.Vector3(0,a,0),new T.Vector3(0,a+b,0)])
    })
   }
   // (the top face of a roof panel as laid — roofSeats —, as a top across it: for what lies on the panel, guardFeet)
@@ -5455,6 +5479,25 @@ window.irThreeSchemeView=(function(){
     if(ext[0]||ext[1])panelExt.set(w.id,ext)
    })
   }
+  // ---- An отлив at the foot of a wall of the АР (lay.trim plinth, arTrims) runs to the corner trim of that wall: both at
+  // the outer faces, the corner moved with both walls moved out from the frame (wallLines) — the отлив of the wall across
+  // stopped 200 mm short of it, the layouts' overshoot past the other wall. By its ends (m): [at the start, at the end].
+  var trimExt=new Map();
+  function trimCorners(list){
+   trimExt.clear();var corners=[];
+   list.forEach(function(c){if(c.ft==="trim"&&c.id&&c.lay&&c.lay.trim==="corner")corners.push(memberPoints(c)[0])});
+   if(!corners.length)return;
+   list.forEach(function(c){
+    if(c.ft!=="trim"||!c.id||!c.lay||c.lay.trim!=="plinth")return;
+    var p=memberPoints(c),u=new T.Vector3(p[1].x-p[0].x,0,p[1].z-p[0].z),L=u.length();if(L<.1)return;u.divideScalar(L);
+    var ext=[0,0];
+    [[p[0],-1],[p[1],1]].forEach(function(e,k){var best=null;
+     corners.forEach(function(q){var dx=q.x-e[0].x,dz=q.z-e[0].z,s=dx*u.x+dz*u.z,o=Math.abs(-dx*u.z+dz*u.x);
+      if(o>.3||Math.abs(s)>1.2||q.y>e[0].y+.3)return;var x=s*e[1];if(best===null||Math.abs(x)<Math.abs(best))best=x});
+     if(best!==null&&Math.abs(best)>.001)ext[k]=best});
+    if(ext[0]||ext[1])trimExt.set(String(c.id),ext)
+   })
+  }
   // ---- A wall of sandwich panels hangs on the outer face of the frame (the engineer, 28.10.2026, ГПЭС: «почти все
   // распорки выходят сквозь сэндвич-панели», «вот балка торчит из сэндвич-панели»): the line of a wall read from the
   // facades of the АР is where its panels end; where the facades across end at the axis, the panels stood with their outer
@@ -5511,11 +5554,16 @@ window.irThreeSchemeView=(function(){
     g.shift=g.n.clone().multiplyScalar(out*need);linesMoved++;
     g.panels.forEach(function(id){lineShift.set(id,g.shift);lineMoved.set(id,need)})
    });
-   // (the windows, doors, gates and trims of a wall moved: with it)
+   // (the windows, doors, gates and trims of a wall moved: with it; a corner trim of the АР (lay.trim, arTrims) on the
+   // outer faces of two walls — by both; a trim of a roof stays with the roof)
    list.forEach(function(c){
     if(!c.id||!(c.ft==="window"||c.ft==="door"||c.ft==="gate"||c.ft==="trim"))return;
+    var kindT=c.lay&&c.lay.trim;if(kindT==="ridge"||kindT==="gable"||kindT==="abutment")return;
     var p=memberPoints(c),m=p[0].clone().add(p[p.length-1]).multiplyScalar(.5);
-    var g=lines.find(function(l){if(!l.shift)return false;var s=m.dot(l.u);return s>=l.s0-.3&&s<=l.s1+.3&&Math.abs(m.dot(l.n)-l.d)<=l.t/2+.15&&m.y>=l.y0-.3&&m.y<=l.y1+.3});
+    var on=function(l){if(!l.shift)return false;var s=m.dot(l.u);return s>=l.s0-.3&&s<=l.s1+.3&&Math.abs(m.dot(l.n)-l.d)<=l.t/2+.15&&m.y>=l.y0-.3&&m.y<=l.y1+.3};
+    if(kindT==="corner"){var sh=null,used=[];lines.forEach(function(l){if(!on(l)||used.some(function(u){return Math.abs(u.x*l.u.z-u.z*l.u.x)<.02}))return;used.push(l.u);sh=sh?sh.clone().add(l.shift):l.shift.clone()});
+     if(sh)lineShift.set(String(c.id),sh);return}
+    var g=lines.find(on);
     if(g)lineShift.set(String(c.id),g.shift)
    })
   }
@@ -5804,7 +5852,7 @@ window.irThreeSchemeView=(function(){
    allMeshes=[];plateCells.clear();platesN=0;boltList=[];seatIndex=null;webGus=[];webTraps=[];cleatRibs=[];footRibFree.clear();dataById.clear();meshesById.clear();failures=0;weldList=[];weldRun++;conventional.clear();drillCache.clear();upperCache.clear();seatCache.clear();boltNear.clear();boltNearN=0;
    labels.forEach(function(l){l.el.remove()});labels=[];
    elems=Array.isArray(list)?list:[];deckPairs.clear();deckRects=null;deckCols=null;bridgeList=null;bridgePlates=[];
-   strutGus.length=0;ribGus.length=0;slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);beamEndNodes(elems);ribsUnderPlates(elems);ribStruts(elems);underChords(elems);purlinNodes(elems);seatLevels(elems);purlinTilts(elems);chordSeats(elems);restLifts(elems);ridgeMiters(elems);guardLines(elems);roofSeats(elems);guardFeet(elems);postFeet(elems);stubTops(elems);guardRails(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);bracePlanes(elems);roofCones(elems);ladderStringers(elems);stairStringers(elems);landingChannels(elems);toeBoards(elems);flightPosts(elems);guardBraces(elems);wallRings(elems);guardJoints(elems);
+   strutGus.length=0;ribGus.length=0;slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);beamEndNodes(elems);ribsUnderPlates(elems);ribStruts(elems);underChords(elems);purlinNodes(elems);seatLevels(elems);purlinTilts(elems);chordSeats(elems);restLifts(elems);ridgeMiters(elems);guardLines(elems);roofSeats(elems);guardFeet(elems);postFeet(elems);stubTops(elems);guardRails(elems);wallLines(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);trimCorners(elems);bracePlanes(elems);roofCones(elems);ladderStringers(elems);stairStringers(elems);landingChannels(elems);toeBoards(elems);flightPosts(elems);guardBraces(elems);wallRings(elems);guardJoints(elems);
    // (the posts with no conditional plate of their own before the members: a column on a member stands on its plate)
    platelessPosts();
    var host=jointHosts(elems);findCrossings(elems,host);
@@ -9079,6 +9127,7 @@ window.irThreeSchemeView=(function(){
     // (a wall at a corner: run on to the outer face of the other or stopped at its inner face — panelCorners)
     var pe=c.ft==="panel"?panelExt.get(id):null,p0=pe?pe[0]:0;
     if(pe){start=start.clone().sub(dir.clone().multiplyScalar(pe[0]));end=end.clone().add(dir.clone().multiplyScalar(pe[1]));len+=pe[0]+pe[1];gl=len}
+    var tx=c.ft==="trim"?trimExt.get(id):null;if(tx){start=start.clone().sub(dir.clone().multiplyScalar(tx[0]));end=end.clone().add(dir.clone().multiplyScalar(tx[1]));len+=tx[0]+tx[1]}
     var holed=c.ft==="panel"&&c.lay&&c.lay.panel==="wall"?(Array.isArray(c.lay.holes)?c.lay.holes.map(function(o){return[number(o[0])/1000,number(o[1])/1000,number(o[2])/1000,number(o[3])/1000]}):[]).map(function(o){return[o[0]+p0,o[1]+p0,o[2],o[3]]}):[];
     if(!holed.length)holed=null;
     var z0=number(c.z0),tops=tp?[Math.min(pw,(number(tp[0])-z0)/1000),Math.min(pw,(number(tp[1])-z0)/1000)]:null;
@@ -9116,6 +9165,22 @@ window.irThreeSchemeView=(function(){
      // (a lapped joint: the outer sheet on past its end over the next panel — lay.lap, mm at the start and the end, roofPlans)
      var lp=c.lay&&Array.isArray(c.lay.lap)?c.lay.lap:null;
      if(lp)[0,1].forEach(function(k){var l=number(lp[k])/1000;if(l>.005)put(new T.BoxGeometry(pw,.002,l),new T.Vector3(0,pt+.001,k?gl/2+l/2:-gl/2-l/2))})}
+    // A trim of the АР by its shelves (lay.legs: [dx, dy, dz, mm] from its line in the scheme's axes — arTrims of
+    // src/ai-montage-plan.js: an angle on the outer faces of a corner, an отлив up the wall and out, a ridge over both
+    // slopes): each a sheet 1.5 mm thick along the whole trim; without them two shelves of fd as before.
+    else if(c.lay&&Array.isArray(c.lay.legs)&&c.lay.legs.length){
+     var o0=toWorld(0,0,0);
+     c.lay.legs.forEach(function(lg){
+      if(!Array.isArray(lg)||lg.length<4)return;
+      // (square to the trim: a shelf hanging down from the sloped edge of a roof — its part along the edge left out; the
+      // basis right-handed — shelf, its thickness, the trim —, else the turn is no rotation and the shelf lay flat)
+      var ld=toWorld(number(lg[0])*1000,number(lg[1])*1000,number(lg[2])*1000).sub(o0);ld.sub(dir.clone().multiplyScalar(ld.dot(dir)));if(ld.lengthSq()<1e-9)return;ld.normalize();
+      var ll=Math.max(.02,Math.min(.6,number(lg[3])/1000)),nv=new T.Vector3().crossVectors(dir,ld);if(nv.lengthSq()<1e-9)return;nv.normalize();
+      var lq=new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(ld,nv,dir.clone()));
+      var lm=new T.Mesh(new T.BoxGeometry(ll,.0015,len),baseMaterial(c));lm.quaternion.copy(lq);
+      lm.position.copy(start).add(end).multiplyScalar(.5).add(ld.clone().multiplyScalar(ll/2));pm.push(lm)
+     })
+    }
     else{var leg=Math.max(.04,Math.min(.4,(number(c.fd)||100)/1000));put(new T.BoxGeometry(leg,.008,len),new T.Vector3(leg/2,0,0));put(new T.BoxGeometry(.008,leg,len),new T.Vector3(0,leg/2,0))}
     if(c.ft==="panel"&&c.lay&&c.lay.panel==="wall"&&c.lay.width_mm)wallSeams(len,pw,cut?[(number(cut[0])-number(c.z0))/1000,(number(cut[1])-number(c.z0))/1000]:[0,0],holed||[],tops).forEach(function(r){
      var sm=new T.Mesh(shared("plate:box",function(){return new T.BoxGeometry(1,1,1)}),jointMat);sm.quaternion.copy(q);sm.scale.set(pt+.006,r[2]-r[1],.005);
