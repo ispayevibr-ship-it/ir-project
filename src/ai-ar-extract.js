@@ -299,6 +299,32 @@ function jointsAround(b,vert,horiz,numbers,win){
 // joints left and right of the label from its foot to its top; the nearest line along the wall over and under the label
 // that runs across the whole column closes it sooner. Under the slope of a roof the top is where each joint ends (topCut).
 // (gap: the longest break bridged — a dashed line is one run)
+// Level lines of the sheet as drawn on in one: a joint of panels drawn in pieces — on through the outline of a hatched
+// section of a wall beside it, on as the sill of a window — is one line (ИР-71535 АР ч.2 л.5: the joint +11,500 of the
+// last column at the shop ММА, 327–495 and on 495–501 over the hatching; л.9 ряд Л: +11,500 up to the ribbon window
+// and on as its sill — the column found no joint, two labels in it, Пс-59 and Пс-66, Пс-147 and Пс-116, each the
+// whole height, one panel in the other).
+// Only pieces end to end at an upright line (the edge of the hatching, of the window) — not two lines over each other,
+// the bottom of a grille and the extension line of its dimension (л.9 ряд Л: Пс-117 cut at +2,900 so).
+function levelRuns(horiz,vert,gap=.2){
+ const runs=horiz.map(h=>({...h})),at=(x,y)=>vert.some(v=>Math.abs(v.x-x)<=.3&&v.y0<=y+.3&&v.y1>=y-.3);
+ for(let more=true;more;){more=false;
+  for(const p of runs)for(const q of runs){if(p===q||p.gone||q.gone||Math.abs(p.y-q.y)>.3||Math.abs(q.x0-p.x1)>gap||!at((p.x1+q.x0)/2,p.y))continue;
+   p.x1=q.x1;q.gone=true;more=true}}
+ return runs.filter(r=>!r.gone)
+}
+// Which of the two: the joints as drawn (horiz) or with the pieces joined (joins). The joined lines only where the
+// column as drawn is wrong — of the length its table gives, the one nearer it by more than 20 mm; with no table on the
+// sheet, only where another label of the view stands in the same column (two panels one in the other). Joined
+// everywhere they cut sound panels short: ИР-71535 АР ч.2 л.8 Пс-127 at the bottom of ОВ 1050×1050 (+17,295, 3395 of
+// 7850), л.6 по рядам К, Л the tops of Пс-72…79 200–400 mm low.
+function columnPick(b,t,own,runs,horiz,joins,numbers,hs,scale,size,slopes,ext){
+ const a=columnAround(b,runs,horiz,numbers,hs,scale,size,slopes,ext),j=columnAround(b,runs,joins,numbers,hs,scale,size,slopes,ext);
+ if(!a||!j||(a.top===j.top&&a.bottom===j.bottom))return a||j;
+ if(size?.length_mm){const off=r=>Math.abs((r.bottom-r.top)*scale-size.length_mm);return off(j)<off(a)-20?j:a}
+ const inside=own.some(o=>{if(o===t)return false;const q=textBox(o);return q.cx>a.l&&q.cx<a.r&&q.cy>a.top&&q.cy<a.bottom&&(q.cy<j.top||q.cy>j.bottom)});
+ return inside?j:a
+}
 function columnRuns(vert,gap=.2){
  const runs=[];
  for(const v of vert.slice().sort((a,b)=>a.x-b.x||a.y0-b.y0)){const p=runs.find(q=>Math.abs(q.x-v.x)<=.3&&v.y0<=q.y1+gap&&v.y1>=q.y0-gap);
@@ -821,7 +847,7 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
   else if(dx>=3&&dy/dx<.35){const [p,q]=s.a.x<s.b.x?[s.a,s.b]:[s.b,s.a];slopes.push({x0:p.x,x1:q.x,ya:p.y,yb:q.y})}
  }
  const numbers=texts.filter(t=>/^\d{2,5}$/.test(String(t.str).trim()));
- const runs=sketch?columnRuns(vert):[];
+ const runs=sketch?columnRuns(vert):[],joins=sketch?levelRuns(horiz,vert):[];
  // (strokes neither upright nor level: the hatching of a section)
  const diag=sketch?segments.filter(q=>Math.abs(q.a.x-q.b.x)>.3&&Math.abs(q.a.y-q.b.y)>.3):[];
  // (an extension line of a dimension — from an opening to its dimension line, overshooting it by a few pt, a tick where
@@ -910,7 +936,7 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
    // down to the dimension line under it)
    const b0=textBox(t),px=b0.cx+(t.lead?t.lead.x*.8:0),py=b0.cy+(t.lead?t.lead.y*.8:0);
    const b=t.leader?{...b0,x0:px,x1:px,cx:px,y0:py,y1:py,cy:py}:b0,first=edgesAround(b,horiz,scale,slopes,sized);
-   let rect=(sketch&&columnAround(b,runs,horiz,numbers,hs,scale,kinds?.[0]||null,slopes,extension))||(sized&&((first&&sized(first)?first:null)||sidesAround(b,horiz,vert,scale,sized,slopes)||sizedAround(b,vert,horiz,scale,kinds,numbers)))||
+   let rect=(sketch&&columnPick(b,t,own,runs,horiz,joins,numbers,hs,scale,kinds?.[0]||null,slopes,extension))||(sized&&((first&&sized(first)?first:null)||sidesAround(b,horiz,vert,scale,sized,slopes)||sizedAround(b,vert,horiz,scale,kinds,numbers)))||
     first||sidesAround(b,horiz,vert,scale,null,slopes)||jointsAround(b,vert,horiz,numbers,win);
    if(!rect)continue
    // A label on a leader marks a piece cut on site: its column as drawn, not widened to the panel's width over a joint
@@ -919,7 +945,7 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
    // л.4 «по ряду 010» Пс-39 of 490). Widened over nothing — an edge read on a dimension line (Пс-57 under a window, its
    // «880» drawn inside it) — it stays a panel.
    if(t.leader&&sketch&&rect.column&&kinds?.[0]){
-    const narrow=columnAround(b,runs,horiz,numbers,hs,scale,{length_mm:kinds[0].length_mm},slopes,extension);
+    const narrow=columnPick(b,t,own,runs,horiz,joins,numbers,hs,scale,{length_mm:kinds[0].length_mm},slopes,extension);
     if(narrow&&(narrow.l>rect.l+.3||narrow.r<rect.r-.3)){
      const [g0,g1]=narrow.l>rect.l+.3?[rect.l,narrow.l]:[narrow.r,rect.r],y0=Math.min(rect.top,narrow.top)-1,y1=Math.max(rect.bottom,narrow.bottom)+1;
      const joint=runs.some(v=>v.x>g0+.3&&v.x<g1-.3&&v.y0<=b.cy&&v.y1>=b.cy);

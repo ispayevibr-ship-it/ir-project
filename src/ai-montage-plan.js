@@ -787,6 +787,21 @@ function arScheme(pages,opts={}){
      ...(differs?["Размер по чертежу "+Math.round(w)+"×"+Math.round(h)+", по спецификации "+q.width_mm+"×"+q.length_mm+" — проверьте"]:[])]})
   }
  }
+ // The same panels drawn in two views of one wall (ИР-71535 АР ч.2 л.5: «по ряду К, в осях 01-03» draws on two Пс-112
+ // past 03 that «по ряду К, в осях 03-04» draws too — placed 75 mm apart, one in the other): of the two the panel of
+ // the view whose title's axes it stands between; the other is left out, said.
+ {const named=v=>{const m=/в\s+осях\s+([0-9А-ЯЁA-Z]+(?:\/\d+)?)\s*[-–—]\s*([0-9А-ЯЁA-Z]+(?:\/\d+)?)/iu.exec(v.title||"");if(!m)return null;
+   const map=v.numbered?px:py,at=n=>{n=n.toUpperCase();if(map.has(n))return map.get(n);if(/^\d/.test(n)){n=n.replace(/^0+(?=\d)/,"");for(const [k,mm] of map)if((/\d+(?:\/\d+)?/.exec(k)||[])[0]===n)return mm}return null};
+   const a=at(m[1]),b=at(m[2]);return a===null||b===null?null:[Math.min(a,b),Math.max(a,b)]};
+  const inside=p=>{const r=named(p.view);if(!r)return null;const m=((p.view.numbered?p.x_mm+p.x2_mm:p.y_mm+p.y2_mm))/2;return m>=r[0]-100&&m<=r[1]+100};
+  const walls=placements.filter(p=>p.type_key==="sandwich_wall"&&p.view&&!later.includes(p.view)),gone=new Set();
+  for(const p of walls)for(const q of walls){
+   if(p===q||p.view===q.view||gone.has(p)||gone.has(q)||p.view.numbered!==q.view.numbered||Math.abs(p.line-q.line)>100)continue;
+   const lo=e=>p.view.numbered?Math.min(e.x_mm,e.x2_mm):Math.min(e.y_mm,e.y2_mm),hi=e=>p.view.numbered?Math.max(e.x_mm,e.x2_mm):Math.max(e.y_mm,e.y2_mm);
+   const ou=Math.min(hi(p),hi(q))-Math.max(lo(p),lo(q)),oz=Math.min(p.z0_mm+p.diameter_mm,q.z0_mm+q.diameter_mm)-Math.max(p.z0_mm,q.z0_mm);
+   if(ou<Math.min(hi(p)-lo(p),hi(q)-lo(q))*.5||oz<Math.min(p.diameter_mm,q.diameter_mm)*.5)continue;
+   if(inside(p)===false&&inside(q)===true){gone.add(p);warnings.push(p.mark+" (лист "+p.sheet+", «"+p.view.title+"»): за осями вида, то же место — на виде «"+q.view.title+"» — не поставлена второй раз")}}
+  if(gone.size)for(let i=placements.length-1;i>=0;i--)if(gone.has(placements[i]))placements.splice(i,1)}
  // The panels of a layout stand edge to edge (the lock of a sandwich panel): a gap of up to 100 mm between a panel and
  // the next one along the wall or over it is a misreading of the sheet (ПН-2 of 7070 read 6995 high under ПН-30 — a slit
  // of 70 mm seen through, the engineer 27.10.2026 «там не должно быть просветов»): the panel is drawn up to its neighbour.
@@ -858,6 +873,24 @@ let loose=0;
    z0_mm:z,z1_mm:z,levels_from:"фасады АР",confidence:over?"low":"high",section:"АР",axis_x:wall.axis_x,axis_y:wall.axis_y,sheet:String(sheet),source_page:src.page,source_file:src.file,
    notes:[...notes,...(over?["Таких по спецификации "+(f.count||1)+" — этот сверх, проверьте"]:[])]})
  };
+ // A block whose edge goes a little into a panel of its wall (ИР-71535 АР ч.1 л.15–17: ОК-5 by the middle of its
+ // rectangle on the facade at +11,490 — the panels of the layout end under it at +11,500, 10 mm of the window in Пс-137
+ // along all its 19,2 m; ОК-4 13 mm in the panel beside it): moved, up to 60 mm, into the opening the panels leave —
+ // the layout draws the opening it is mounted in —, when that puts it in no other panel; else the panels get its hole.
+ const seatBlock=(numbered,a,b,z,H,list,floor=false)=>{
+  const bs=list.filter(p=>!p.layout.cut&&!p.layout.top).map(p=>{const p0=numbered?p.x_mm:p.y_mm,p1=numbered?p.x2_mm:p.y2_mm;return{lo:Math.min(p0,p1),hi:Math.max(p0,p1),z0:p.z0_mm,z1:p.z0_mm+p.diameter_mm}});
+  // (the panels it goes into: thin — less than 60 mm one way —, deep — the hole of a panel it stands in, cut round it)
+  const into=(a,b,z0,z1)=>{let thin=0,deep=0;for(const q of bs){const ou=Math.min(b,q.hi)-Math.max(a,q.lo),oz=Math.min(z1,q.z1)-Math.max(z0,q.z0);if(ou>1&&oz>1){if(ou<60||oz<60)thin++;else deep++}}return{thin,deep}};
+  const now=into(a,b,z,z+H);if(!now.thin)return{a,b,z};
+  let up=0,down=0,right=0,left=0;
+  for(const q of bs){const ou=Math.min(b,q.hi)-Math.max(a,q.lo),oz=Math.min(z+H,q.z1)-Math.max(z,q.z0);if(ou<=1||oz<=1)continue;
+   if(ou>=20&&oz<60){if(q.z0<z)up=Math.max(up,q.z1-z);else down=Math.max(down,z+H-q.z0)}
+   else if(oz>=20&&ou<60){if(q.lo<a)right=Math.max(right,q.hi-a);else left=Math.max(left,b-q.lo)}}
+  // (a door or a gate on the floor stays on it: the panel over it is cut)
+  const dz=floor?0:up&&!down?up:down&&!up?-down:0,du=right&&!left?right:left&&!right?-left:0;
+  for(const [u,w] of [[du,dz],[0,dz],[du,0]]){if(!u&&!w)continue;const o=into(a+u,b+u,z+w,z+w+H);if(!o.thin&&o.deep<=now.deep)return{a:a+u,b:b+u,z:z+w,moved:[u,w]}}
+  return{a,b,z}
+ };
  const cutHoles=(numbered,a,b,z0,z1,list)=>{
   for(const p of list){
    if(p.layout.cut)continue;
@@ -894,7 +927,7 @@ let loose=0;
      if(Math.min(ew,ew2)<=60&&r[3]-r[2]>=f.height_mm-60){byHead={r};break}}
     if(!best&&!byHead){lost.push(x.mark+" (лист "+fv.sheet+")");continue}
     {const q=(best||byHead).r;taken.add(Math.round((q[0]+q[1])/2/100)+"|"+Math.round((q[2]+q[3])/2/100)+"|"+fv.numbered+fv.reversed)}
-    const r=(best||byHead).r,uc=(r[0]+r[1])/2+off,a=Math.round(uc-f.width_mm/2),b=a+f.width_mm;
+    const r=(best||byHead).r,uc=(r[0]+r[1])/2+off;let a=Math.round(uc-f.width_mm/2),b=a+f.width_mm;
     let z=byHead?Math.round(r[3]-f.height_mm-(Math.abs(r[1]-r[0]-f.width_mm-40)<Math.abs(r[1]-r[0]-f.width_mm)?20:0)):f.kind==="window"?Math.round((r[2]+r[3]-f.height_mm)/2):r[2];if(Math.abs(z)<=30)z=0;
     // (the wall whose panels come nearest the block: a gate 10,7 m high has them over it and beside it, not at its middle;
     // of two as near — an extension in front of the building — the front one, the wall the facade looks at: ИР-71535
@@ -907,8 +940,10 @@ let loose=0;
      const tie=near.filter(q=>q.d<=wd+300&&q.w.list[0].line!=null).sort((p,q)=>front(q.w)-front(p.w))[0];if(tie){wall=tie.w;wd=tie.d}}
     if(!wall||wd>3000){lost.push(x.mark+" (лист "+fv.sheet+", стены этой стороны нет в раскладке)");continue}
     used.set(f.pos,(used.get(f.pos)||0)+1);
+    const seat=seatBlock(fv.numbered,a,b,z,f.height_mm,wall.list,f.kind!=="window"&&z<=300);({a,b,z}=seat);
     // (a table of openings without the number of each — «Ведомость проемов» — counts nothing: as many as the facades show)
-    fillOf(f,fv.numbered,fv.reversed,a,b,z,wall.list[0],fv,["Фасад АР, лист "+fv.sheet+": "+f.pos+" "+f.width_mm+"×"+f.height_mm+" ("+f.name+")",...(byHead?["Низ закрыт на фасаде лестницей или площадкой — поставлен по верху, проверьте"]:[])],f.count!=null&&(used.get(f.pos)||0)>f.count);
+    fillOf(f,fv.numbered,fv.reversed,a,b,z,wall.list[0],fv,["Фасад АР, лист "+fv.sheet+": "+f.pos+" "+f.width_mm+"×"+f.height_mm+" ("+f.name+")",...(byHead?["Низ закрыт на фасаде лестницей или площадкой — поставлен по верху, проверьте"]:[]),
+     ...(seat.moved?["Сдвинут в проём раскладки панелей"+(seat.moved[1]?" на "+Math.abs(seat.moved[1])+" мм "+(seat.moved[1]>0?"вверх":"вниз"):"")+(seat.moved[0]?(seat.moved[1]?" и":"")+" на "+Math.abs(seat.moved[0])+" мм вдоль стены":"")]:[])],f.count!=null&&(used.get(f.pos)||0)>f.count);
     cutHoles(fv.numbered,a,b,z,z+f.height_mm,wall.list)
    }
   }
