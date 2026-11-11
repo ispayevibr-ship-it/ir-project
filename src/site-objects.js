@@ -29,7 +29,7 @@ function clean(list){
    volume:Math.round(numberOf(w?.volume)*1000)/1000,plan:Math.round(numberOf(w?.plan)*1000)/1000,note:clip(w?.note,400)})).filter(w=>w.name);
   const photos=[...new Set((Array.isArray(o.photos)?o.photos:[]).map(p=>String(p||"")).filter(Boolean))];
   out.push({rid,name:clip(o.name,300)||"Объект",customer:clip(o.customer,300),general_contractor:clip(o.general_contractor,300),
-   address:clip(o.address,300),status:clip(o.status,50),years:clip(o.years,50),works,cover:String(o.cover||""),
+   address:clip(o.address,300),summary:String(o.summary??"").replace(/\r\n?/g,"\n").replace(/[^\S\n]+/g," ").replace(/ *\n */g,"\n").replace(/\n{3,}/g,"\n\n").trim().slice(0,2000),status:clip(o.status,50),years:clip(o.years,50),works,cover:String(o.cover||""),
    photos:photos.filter(p=>p!==String(o.cover||"")).slice(0,MAX_PHOTOS),sort:Number.isInteger(o.sort)?o.sort:i+1})
  }
  return out
@@ -62,7 +62,7 @@ function createSiteObjects({account,getUserDataPath,nativeImage=null}){
 
  async function sendOne(o,have){
   const key=photoKey(o);
-  const fields={rid:o.rid,name:o.name,customer:o.customer,general_contractor:o.general_contractor,address:o.address,
+  const fields={rid:o.rid,name:o.name,customer:o.customer,general_contractor:o.general_contractor,address:o.address,summary:o.summary,
    status:o.status,years:o.years,works:o.works,sort:o.sort,photo_key:key};
   if(have&&have.photo_key===key){state.unitsDone+=(o.cover?1:0)+o.photos.length;return account.api(`/api/collections/${COLL}/records/${have.id}`,{method:"PATCH",body:fields})}
   const form=new FormData();
