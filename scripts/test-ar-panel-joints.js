@@ -21,7 +21,7 @@ assert.equal(first.z0_mm+first.diameter_mm,3060,"drawn up to the panel over it")
 assert.equal(second.x2_mm,2430,"a gap of 1200 is an opening: left");assert.equal(over.z0_mm,3060);assert.equal(far.x_mm,3630);
 // The 3D: no gap of 12 mm between the panels of a layout; the joints (wallSeams) in the joint colour; no holes for steel.
 const view=fs.readFileSync(__dirname+"/../src/scheme-three-view.js","utf8");
-assert.ok(!/len-\.012/.test(view),"no gap between panels");assert.match(view,/var gl=len,cut=/);
+assert.ok(!/len-\.012/.test(view),"no gap between panels");assert.match(view,/,gl=len,cut=/);
 assert.match(view,/function wallSeams\(len,H,feet,holes,tops\)/);assert.match(view,/new T\.Mesh\(shared\("plate:box",function\(\)\{return new T\.BoxGeometry\(1,1,1\)\}\),jointMat\);sm\.quaternion\.copy\(q\);sm\.scale\.set\(pt\+\.006/);
 assert.match(view,/function wallCuts\(list\)/);assert.match(view,/seatOnTops\(elems\);hangTies\(elems\);[^\n]*seatLevels\(elems\);[^\n]*wallLines\(elems\);gateNiches\(elems\);wallCuts\(elems\);/);
 assert.ok(!/wallHoles/.test(view),"a panel is whole: steel stops at it");

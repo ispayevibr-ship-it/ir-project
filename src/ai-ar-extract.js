@@ -207,6 +207,39 @@ function fillSpec(texts){
   const count=row.filter(o=>/^\d{1,3}$/.test(String(o.str).trim())).sort((a,b)=>a.x-b.x).find(o=>o.x>p.x+200);
   out.push({pos:str,kind,width_mm:w,height_mm:h,name,count:count?Number(count.str):null})
  }
+ // (what the block is — its lines in the column «Наименование» of the specification: the kind of a gate)
+ const kinds=fillKinds(texts);
+ for(const f of out){const k=kinds.get(f.pos);if(k)Object.assign(f,k)}
+ return out
+}
+// The name of a block of an opening in the specification («Спецификация к схемам расположения элементов заполнения
+// проемов», ИР-71535 АР ч.1 л.12): beside its mark the first line starting with «Ворота», «Дверь», «Окно», «Блок»,
+// «Противопожарные» (the nearest mark to its left on the row is its own — the table of sizes beside has its marks), the
+// lines under it at the same left edge down to the next mark's. A gate's kind by it — «тканевые вертикального подъема»
+// (Crawford VL3016: a curtain on its guides, the drum over it), «секционные», «откатные», «распашные» —, its wicket
+// («с калиткой», «с врезной калиткой»; not «без врезной калитки»), the side a sliding one goes («сдвиг вправо»). The 3D
+// draws each kind as it is made (the engineer, 11.11.2026: «Ворота прорисуй, как они сделаны посмотри»).
+function fillKinds(texts){
+ const out=new Map(),flat=texts.filter(t=>horizontalText(t));
+ const marks=flat.filter(t=>/^(ОК|Д|В|ВР|ДВ)-\d{1,3}[а-я]?$/u.test(String(t.str).trim()));
+ const firsts=flat.filter(t=>/^(Ворота|Дверь|Двери|Двер\S*|Окно|Блок|Витраж|Противопожарн\S*)\s/u.test(String(t.str).trim()));
+ for(const p of marks){
+  const pos=String(p.str).trim();if(out.has(pos))continue;
+  // (the mark nearest to its left on its row is this one: the table of sizes beside it has its own marks)
+  const first=firsts.filter(t=>t.x>p.x+20&&t.x<p.x+600&&Math.abs(t.y-p.y)<=14&&!marks.some(m=>m!==p&&m.x>p.x+5&&m.x<t.x&&Math.abs(m.y-t.y)<=40)).sort((a,b)=>Math.abs(a.y-p.y)-Math.abs(b.y-p.y))[0];if(!first)continue;
+  const lines=[first];
+  for(;;){const last=lines[lines.length-1],nx=flat.filter(t=>Math.abs(t.x-first.x)<=3&&t.y>last.y+2&&t.y<=last.y+(last.size||10)*1.8).sort((a,b)=>a.y-b.y)[0];
+   if(!nx||firsts.includes(nx)||lines.length>12||marks.some(m=>m!==p&&Math.abs(m.x-p.x)<=30&&m.y>last.y-4&&m.y<=nx.y+8))break;lines.push(nx)}
+  const text=lines.map(t=>String(t.str).trim()).join(" ").replace(/\s+/g," ").replace(/\s+,/g,","),low=text.toLowerCase(),o={spec:text,title:String(first.str).trim().replace(/\s+,/g,",").replace(/[\s,]+$/u,"")};
+  if(/ворота/u.test(low)){
+   const cl=/в\s+свету\s*(\d+(?:,\d+)?)\s*[хx×]\s*(\d+(?:,\d+)?)/u.exec(low);if(cl)o.clear_mm=[Math.round(parseFloat(cl[1].replace(",","."))*1000),Math.round(parseFloat(cl[2].replace(",","."))*1000)];
+   o.gate=/тканев/u.test(low)?"fabric":/секцион/u.test(low)?"sectional":/откатн/u.test(low)?"sliding":/распашн/u.test(low)?"swing":/подъ[её]мн/u.test(low)?"sectional":"";
+   if(!o.gate)delete o.gate;
+   if(/калитк/u.test(low)&&!/без\s+(врезной\s+)?калитк/u.test(low))o.wicket=true;
+   const sl=/сдвиг\s+(вправо|влево)/u.exec(low);if(sl)o.slide=sl[1]==="вправо"?"right":"left"
+  }
+  out.set(pos,o)
+ }
  return out
 }
 
@@ -1402,4 +1435,4 @@ function extractArchitecture(geometry){
  const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{}),...(axes?{axes}:{}),...(tr.trims.length?{trims:tr.trims}:{}),...(tr.names.length?{trimNames:tr.names}:{}),...(niches.length?{niches}:{}),...(planFills.length?{planFills}:{})};
  return panels.length||fills.length||views.length||Object.keys(extra).length?{panels,fills,views,...extra}:null
 }
-module.exports={planOpenings,nicheSpec,trimSpec,trimKind,planAxes,facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
+module.exports={fillKinds,planOpenings,nicheSpec,trimSpec,trimKind,planAxes,facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
