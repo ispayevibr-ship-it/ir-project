@@ -109,6 +109,12 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
  const fastenersExcel=require("./fasteners-excel"),senderWindow=e=>require("electron").BrowserWindow.fromWebContents(e.sender)||getWindow();
  handle("ai-settings:fasteners-excel",e=>fastenersExcel.select(dialog,senderWindow(e)));
  handle("ai-settings:fasteners-example",e=>fastenersExcel.saveExample(dialog,senderWindow(e)));
+ // The strip under the buttons of the window in the colour of the shade of an open window (src/ir-dialog-guard.js).
+ handle("ai-settings:window-overlay",(e,{color,symbolColor,reset}={})=>{
+  const w=require("electron").BrowserWindow.fromWebContents(e.sender);if(!w||w.isDestroyed()||typeof w.setTitleBarOverlay!=="function")return false;
+  const ok=v=>/^#[0-9a-f]{6}$/i.test(String(v||""));
+  try{w.setTitleBarOverlay(reset||!ok(color)?{color:"#f7f7f7",symbolColor:"#1f2937"}:{color,symbolColor:ok(symbolColor)?symbolColor:"#1f2937"});return true}catch{return false}
+ });
  handle("ai-settings:refocus",(e,{force}={})=>refocus(require("electron").BrowserWindow.fromWebContents(e.sender),e.sender,force===true));
  handle("ai-engine:status",()=>engine.status());
  handle("ai-engine:start",()=>engine.start());

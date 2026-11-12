@@ -115,4 +115,27 @@
   if(topFocused())return;
   refocus(event.target?.closest?.("input,textarea,select,[contenteditable]")||null,false)
  },true);
+ // The buttons of the window (minimize, maximize, close) are drawn by Windows over the page and are not darkened by
+ // the shade of an open window of the program — they looked apart from the program (the engineer, 12.11.2026: «почему
+ // скрыть на все закрыть перекрывает так? как будто отдельно от всей программы идут»). While a window with a shade is
+ // open in the tab host, the strip under those buttons takes the colour of the shade (ai-settings:window-overlay).
+ if(window.top===window&&document.documentElement){
+  const BASE=[247,247,247];let last="";
+  const shade=()=>{
+   let col=null;
+   for(const d of document.querySelectorAll("dialog[open]")){
+    try{if(!d.matches(":modal"))continue}catch{continue}
+    const m=String(getComputedStyle(d,"::backdrop").backgroundColor||"").match(/rgba?\(([^)]+)\)/);if(!m)continue;
+    const [r,g,b,a=1]=m[1].split(/[\s,\/]+/).filter(Boolean).map(Number);if(!(a>0))continue;
+    col=(col||BASE).map((v,i)=>Math.round([r,g,b][i]*a+v*(1-a)))
+   }
+   const key=col?col.join(","):"";if(key===last)return;last=key;
+   const hex=c=>"#"+c.map(v=>Math.max(0,Math.min(255,v)).toString(16).padStart(2,"0")).join("");
+   const light=col?(.299*col[0]+.587*col[1]+.114*col[2])>140:true;
+   try{const p=window.irProject?.ai?.invoke?.("ai-settings:window-overlay",col?{color:hex(col),symbolColor:light?"#1f2937":"#eef2f6"}:{reset:true});p?.catch?.(()=>{})}catch{}
+  };
+  let queued=false;
+  new MutationObserver(()=>{if(queued)return;queued=true;setTimeout(()=>{queued=false;shade()},0)})
+   .observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:["open"]});
+ }
 })();
