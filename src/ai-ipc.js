@@ -249,7 +249,9 @@ accountCall("ping",async()=>{const t=Date.now();await account.api("/api/health",
 accountCall("open-site",({path}={})=>{const p=path==="/_/"?"/_/":"/";return shell.openExternal("https://a-ts.kz"+p)});
  // Синхронизация базы программы через сервер (src/server-sync.js): изменения уходят и приходят сами, раз в несколько секунд.
  let sync=null;
- try{sync=require("./server-sync").createServerSync({dbFile:()=>require("node:path").join(getUserDataPath(),"ir-project.db"),account,getUserDataPath})}
+ // (the company card taken from the server — the windows paint the new name and logo at once: src/company-profile.js listens to it)
+ const companyChanged=()=>{try{for(const w of require("electron").BrowserWindow.getAllWindows())w.webContents.executeJavaScript('window.dispatchEvent(new StorageEvent("storage",{key:"ir-company-profile-updated"}))').catch(()=>{})}catch{}};
+ try{sync=require("./server-sync").createServerSync({dbFile:()=>require("node:path").join(getUserDataPath(),"ir-project.db"),account,getUserDataPath,onCompany:companyChanged})}
  catch(e){console.error("IR sync:",e)}
  const syncCall=(name,fn)=>accountCall("sync-"+name,v=>{if(!sync)throw Error("Синхронизация недоступна в этой версии программы — нужен установщик");return fn(v)});
  syncCall("info",()=>sync.info());syncCall("enable",()=>sync.enable());syncCall("disable",()=>sync.disable());

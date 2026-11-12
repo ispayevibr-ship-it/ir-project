@@ -64,7 +64,7 @@ CREATE INDEX IF NOT EXISTS idx_sync_outbox_row ON sync_outbox(tbl,rid);
 CREATE TABLE IF NOT EXISTS sync_map(tbl TEXT NOT NULL,rid INTEGER NOT NULL,sid TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(tbl,rid));
 CREATE TABLE IF NOT EXISTS sync_files(rel TEXT PRIMARY KEY,state TEXT NOT NULL,object_rid INTEGER,section_key TEXT,tries INTEGER NOT NULL DEFAULT 0,at TEXT DEFAULT CURRENT_TIMESTAMP);`;
 
-function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("node:sqlite").DatabaseSync,timers=true,now=()=>Date.now()}){
+function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("node:sqlite").DatabaseSync,timers=true,now=()=>Date.now(),onCompany=null}){
  let db=null;
  const open=()=>{if(!db){db=new DatabaseSync(dbFile());db.exec("PRAGMA busy_timeout=8000");db.exec("PRAGMA foreign_keys=OFF");db.exec(SCHEMA)}return db};
  const getState=k=>{try{return open().prepare("SELECT v FROM sync_state WHERE k=?").get(k)?.v??""}catch{return""}};
@@ -323,6 +323,65 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
   return changed
  }
 
+ // ---- the company card: name and logo (the engineer, 12.11.2026 «логотип фирмы не переносится когда другой пользователь
+ // заходит под своим логином») ----
+ // The card lives in company-profile.json of the computer (src/company-store.js), the logo — a picture in images/. The
+ // administrator's card goes to the server collection «meta» (key "company_profile", the logo inline as data:…;
+ // everyone signed in reads it, only the administrator writes — pb_migrations/1762690000_ir_access.js); every other
+ // computer takes it into its own company-profile.json and the windows paint it at once (onCompany).
+ // The last card sent or taken is remembered by its sum: a card changed here goes up (administrator), a newer one on
+ // the server comes down; a computer that has not exchanged yet takes the server's card first, so a second computer
+ // of the administrator with an old card does not send it over the real one.
+ const COMPANY_KEY="company_profile",COMPANY_RID=1;
+ const LOGO_RE=/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
+ const companyFile=()=>path.join(userBase(),"company-profile.json");
+ const sumOf=c=>require("node:crypto").createHash("sha1").update(String(c.name||"")+"\n"+String(c.logo||"")).digest("hex");
+ function localCompany(){
+  let p={};try{p=JSON.parse(fs.readFileSync(companyFile(),"utf8"))||{}}catch{}
+  let logo="";
+  try{const f=String(p.logo||"");if(f&&fs.existsSync(f)){const ext=path.extname(f).toLowerCase();logo="data:"+(ext===".png"?"image/png":ext===".webp"?"image/webp":"image/jpeg")+";base64,"+fs.readFileSync(f).toString("base64")}}catch{}
+  return{name:String(p.name||"").trim(),logo,file:String(p.logo||"")}
+ }
+ function takeCompany(row,here){
+  const name=String(row.name||"").trim().slice(0,300),logo=LOGO_RE.test(String(row.logo||""))&&String(row.logo).length<8e6?String(row.logo):"";
+  let file="";
+  if(logo){
+   const m=/^data:image\/(png|jpeg|webp)/.exec(logo),ext=m[1]==="jpeg"?".jpg":"."+m[1];
+   const dir=path.join(userBase(),"images");fs.mkdirSync(dir,{recursive:true});
+   file=path.join(dir,"company-logo-"+sumOf({logo}).slice(0,12)+ext);
+   if(!fs.existsSync(file)){const tmp=file+".part";fs.writeFileSync(tmp,Buffer.from(logo.slice(logo.indexOf(",")+1),"base64"));fs.renameSync(tmp,file)}
+  }
+  const tmp=companyFile()+".part";fs.writeFileSync(tmp,JSON.stringify({name,logo:file},null,2),"utf8");fs.renameSync(tmp,companyFile());
+  // the earlier logo taken from the server is not needed any more (a logo chosen here by hand is left alone)
+  if(here.file&&here.file!==file&&/^company-logo-[0-9a-f]{12}\.(png|jpg|webp)$/.test(path.basename(here.file))){try{fs.rmSync(here.file,{force:true})}catch{}}
+  status.companyAt=new Date(now()).toISOString();
+  try{onCompany?.({name,logo:file})}catch{}
+ }
+ async function companyExchange(){
+  if(!userBase()||!account.info().signedIn)return"";
+  const r=await account.api(`/api/collections/meta/records?perPage=1&filter=${encodeURIComponent(`key="${COMPANY_KEY}"`)}`);
+  const it=r?.items?.[0]||null,srv=it&&it.row&&typeof it.row==="object"&&!it.deleted?it.row:null;
+  const last=getState("company_sum"),here=localCompany(),hereSum=sumOf(here);
+  const admin=account.info().user?.role==="admin";
+  if(admin&&hereSum!==last&&(last||!srv)&&(here.name||here.logo)){
+   const row={name:here.name,logo:here.logo};
+   if(it)await account.api(`/api/collections/meta/records/${it.id}`,{method:"PATCH",body:{row,deleted:false}});
+   else await account.api("/api/collections/meta/records",{method:"POST",body:{rid:COMPANY_RID,key:COMPANY_KEY,row,device:Number(getState("range"))||0}});
+   setState("company_sum",hereSum);return"sent"
+  }
+  if(srv){
+   const srvSum=sumOf({name:String(srv.name||"").trim(),logo:String(srv.logo||"")});
+   if(srvSum!==last){if(srvSum!==hereSum)takeCompany(srv,here);setState("company_sum",srvSum);return srvSum!==hereSum?"taken":""}
+  }
+  return""
+ }
+ let lastCompany=0;
+ function companyTick(force){
+  if(!force&&now()-lastCompany<60e3)return;
+  lastCompany=now();
+  serial(companyExchange).catch(e=>{status.companyError=String(e?.message||e)})
+ }
+
  // ---- the loop ----
  // one exchange at a time: a timer and a button must not send the same row twice
  let chain=Promise.resolve();
@@ -331,6 +390,8 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
  let running=false,again=false,lastPull=0,timer=null;
  async function cycle({force=false}={}){
   if(running){again=true;return}
+  // (the company card goes and comes for everyone signed in, even with the exchange of the base turned off)
+  try{if(account.info().signedIn)companyTick(force)}catch{}
   if(!enabled())return;
   if(!account.info().signedIn){status.state="signed-out";return}
   running=true;
@@ -345,6 +406,6 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
  function kick(){setTimeout(()=>void cycle(),50)}
  if(timers){timer=setInterval(()=>void cycle(),5e3);timer.unref?.();setTimeout(()=>void cycle(),8e3).unref?.()}
  function close(){if(timer)clearInterval(timer);try{db?.close()}catch{}db=null}
- return{info,enable,disable,uploadAll,cycle,push,pull,close,LOCAL_ONLY}
+ return{info,enable,disable,uploadAll,cycle,push,pull,close,companyExchange:()=>serial(companyExchange),LOCAL_ONLY}
 }
 module.exports={createServerSync,LOCAL_ONLY,RANGE,triggersSql,relOf,imagesIn,localizeJson};
