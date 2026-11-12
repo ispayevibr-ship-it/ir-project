@@ -4637,9 +4637,20 @@ window.irThreeSchemeView=(function irThreeModule(){
    line.forEach(function(w){
     var c=w.c;
     // (the plinth: a wall panel, a door from the floor — АР ч.2 л.8: низ −0,080, уровень земли −0,250 — stand on the concrete of КЖ; without it the bases of the columns are seen under the wall)
-    if((c.ft==="panel"||c.ft==="door")&&w.y0>-.6&&w.y0<.6){var pt=Math.max(.04,(number(c.lay&&c.lay.thickness_mm)||120)/1000),pb=-PLINTH_FOOT/1000;if(w.y0-pb>.05){
+    if((c.ft==="panel"||c.ft==="door")&&!(c.ft==="door"&&c.lay&&c.lay.plan)&&w.y0>-.6&&w.y0<.6){var pt=Math.max(.04,(number(c.lay&&c.lay.thickness_mm)||120)/1000),pb=-PLINTH_FOOT/1000;if(w.y0-pb>.05){
      var pm=new T.Mesh(new T.BoxGeometry(w.L,w.y0-pb,pt),concreteMat);pm.position.copy(w.a).add(w.u.clone().multiplyScalar(w.L/2));pm.position.y=(w.y0+pb)/2;pm.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(w.u,new T.Vector3(0,1,0),new T.Vector3().crossVectors(w.u,new T.Vector3(0,1,0))));
      pm.userData.memberId=String(c.id);pm.userData.fixed=true;pm.userData.footing=true;pm.userData.masonry=true;pm.userData.plinth=true;steel.add(pm);allMeshes.push(pm)}}
+    // (a cut-out of a panel from its foot to +1,5…2,6 at its end with no door, gate or window in it — the concrete wall of a
+    // gate niche goes on under it, clad as under the panels beside: ИР-71535 row Л, Пс-116 by Пс-124, an open hole 730×2080)
+    if(c.ft==="panel"&&w.y0<1.5)(Array.isArray(c.lay.holes)?c.lay.holes:[]).forEach(function(o){
+     var s0=number(o[0])/1000,s1=number(o[1])/1000,h0=w.y0+number(o[2])/1000,h1=w.y0+number(o[3])/1000;
+     if(number(o[2])>300||h1<1.5||h1>2.6||s1-s0<.2||!(s0<=.005||s1>=w.L-.005))return;
+     if(line.some(function(q){if(q.c.ft==="panel"||Math.abs(q.u.dot(w.u))<.98)return false;var d=q.a.clone().sub(w.a);d.y=0;if(Math.abs(d.x*w.u.z-d.z*w.u.x)>.4)return false;
+      var a0=q.a.clone().sub(w.a).setY(0).dot(w.u),a1=q.b.clone().sub(w.a).setY(0).dot(w.u);return Math.min(Math.max(a0,a1),s1)-Math.max(Math.min(a0,a1),s0)>.1&&Math.min(q.y1,h1)-Math.max(q.y0,h0)>.1}))return;
+     var sk=(meshesById.get(String(c.id))||[]).filter(function(m){return m.isMesh&&!m.userData.seam})[0],tt=Math.max(.04,(number(c.lay.thickness_mm)||120)/1000),up2=new T.Vector3(0,1,0);
+     var cm=new T.Mesh(new T.BoxGeometry(s1-s0,h1-h0,tt),sk?sk.material:concreteMat);cm.userData.clad=true;
+     cm.position.copy(w.a).add(w.u.clone().multiplyScalar((s0+s1)/2));cm.position.y=(h0+h1)/2;cm.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(w.u,up2,new T.Vector3().crossVectors(w.u,up2)));
+     cm.userData.memberId=String(c.id);cm.userData.fixed=true;cm.userData.footing=true;cm.userData.masonry=true;steel.add(cm);allMeshes.push(cm)});
     if(c.ft!=="panel"||w.y0<1.5||w.y0>2.6)return;
     var iv=[[0,w.L]],cut=function(s0,s1){var out=[];iv.forEach(function(q){if(s1<=q[0]||s0>=q[1]){out.push(q);return}if(s0>q[0])out.push([q[0],s0]);if(s1<q[1])out.push([s1,q[1]])});iv=out};
     (Array.isArray(c.lay.holes)?c.lay.holes:[]).forEach(function(o){if(number(o[2])<=10&&number(o[3])>=300)cut(number(o[0])/1000,number(o[1])/1000)});
@@ -6294,7 +6305,14 @@ window.irThreeSchemeView=(function irThreeModule(){
    walls.forEach(function(w){
     var ext=[0,0];
     [[w.a,{x:-w.u.x,y:-w.u.y}],[w.b,w.u]].forEach(function(e,k){
-     var E=e[0],out=e[1],best=null,seen=new Set();
+     var E=e[0],out=e[1],best=null,seen=new Set(),goesOn=false;
+     // (the wall going on past that end — a panel of its line standing on from there at its heights: no corner of it, a
+     // wall across meets it along its length; Пс-116 of row Л by the wall of О8 was cut 40 mm short of its neighbour,
+     // a slit from the plinth to +11,500)
+     for(var i0=Math.floor(E.x/C)-1;i0<=Math.floor(E.x/C)+1;i0++)for(var j0=Math.floor(E.y/C)-1;j0<=Math.floor(E.y/C)+1;j0++)(cells.get(i0+","+j0)||[]).forEach(function(v){
+      if(v===w||goesOn||Math.abs(w.u.x*v.u.y-w.u.y*v.u.x)>.02||Math.min(w.z1,v.z1)-Math.max(w.z0,v.z0)<Math.min(1000,(w.z1-w.z0)*.5))return;
+      [v.a,v.b].forEach(function(Q,qi){var O=qi?v.a:v.b,g=(Q.x-E.x)*out.x+(Q.y-E.y)*out.y,of=Math.abs((Q.x-E.x)*out.y-(Q.y-E.y)*out.x);if(of<=30&&Math.abs(g)<=30&&(O.x-E.x)*out.x+(O.y-E.y)*out.y>100)goesOn=true})});
+     if(goesOn)return;
      for(var i=Math.floor(E.x/C)-1;i<=Math.floor(E.x/C)+1;i++)for(var j=Math.floor(E.y/C)-1;j<=Math.floor(E.y/C)+1;j++)(cells.get(i+","+j)||[]).forEach(function(v){
       if(v===w||seen.has(v))return;seen.add(v);
       var cr=w.u.x*v.u.y-w.u.y*v.u.x;if(Math.abs(cr)<.87||Math.min(w.z1,v.z1)-Math.max(w.z0,v.z0)<100)return;
@@ -6330,10 +6348,14 @@ window.irThreeSchemeView=(function irThreeModule(){
       if(v===w||seen.has(v))return;seen.add(v);
       // (a neighbour of its own tier: the same top within 30 mm, the foot within 300 — a panel under a sloped roof or
       // beside one of another tier is narrow for what stands in the gap: a roof, a purlin, a post went into the wider one)
-      if(Math.abs(w.u.x*v.u.y-w.u.y*v.u.x)>.02||Math.abs(w.z1-v.z1)>30||Math.abs(foot-v.z0)>300)return;
+      if(Math.abs(w.u.x*v.u.y-w.u.y*v.u.x)>.02||Math.abs(w.z1-v.z1)>30)return;
       [v.a,v.b].forEach(function(Q,qi){var g=(Q.x-E.x)*out.x+(Q.y-E.y)*out.y,off=Math.abs((Q.x-E.x)*out.y-(Q.y-E.y)*out.x),O=qi?v.a:v.b;
        // (its near end: the other one farther out)
-       if(off>30||(O.x-E.x)*out.x+(O.y-E.y)*out.y<g)return;if(!best||Math.abs(g)<Math.abs(best.g))best={g:g,v:v,qi:qi}})});
+       if(off>30||(O.x-E.x)*out.x+(O.y-E.y)*out.y<g)return;
+       // (its foot at that end: over its own cut-out from the foot there — Пс-99 over the door Д-8 beside Пс-100 of the tier over the door, a slit of 150 mm)
+       var vh=0;v.holes.forEach(function(o){if(number(o[2])>10)return;if(qi===0?number(o[0])<=5:number(o[1])>=v.L-5)vh=Math.max(vh,number(o[3]))});
+       if(Math.abs(foot-v.z0)>300&&Math.abs(foot-v.z0-vh)>300)return;
+       if(!best||Math.abs(g)<Math.abs(best.g))best={g:g,v:v,qi:qi}})});
      if(!best||best.g<15||best.g>600||best.g>room||taken.has(best.v.id+":"+best.qi))return;
      var G0={x:E.x,y:E.y},G1={x:E.x+out.x*best.g,y:E.y+out.y*best.g};
      if(opens.some(function(o){if(Math.min(o.z1,w.z1)-Math.max(o.z0,foot)<50)return false;var ux=out.x,uy=out.y,s0=(o.a.x-G0.x)*ux+(o.a.y-G0.y)*uy,s1=(o.b.x-G0.x)*ux+(o.b.y-G0.y)*uy,of=Math.abs((o.a.x-G0.x)*uy-(o.a.y-G0.y)*ux);
@@ -10314,6 +10336,20 @@ window.irThreeSchemeView=(function irThreeModule(){
    var r=Object.keys(n).sort(function(a,b){return n[b]-n[a]})[0]||"",col=r?ralColor(r):0x8e9399,k=kind+col;
    return buildingMats[k]||(buildingMats[k]=new T.MeshStandardMaterial({color:col,roughness:.9,metalness:0,side:T.DoubleSide,flatShading:true,transparent:true,opacity:.8,depthWrite:false}))
   }
+  // A wall or a partition of the plan of the АР an inner door stands in (lay.partition, ai-montage-plan.js planWalls: its
+  // line from start to end, its thickness, its height c.fd, the holes of its doors [from, to, foot, head] along it and up
+  // from its foot): plain grey boxes around the holes. Conditional — no steel, out of the check of metal (footing).
+  function planPartition(c,id,start,end){
+   var b=c.lay&&c.lay.partition;if(!b)return;var dir=end.clone().sub(start);dir.y=0;var len=dir.length();if(len<.2)return;dir.normalize();
+   var t=Math.max(.08,number(b.thickness_mm)/1000),h=Math.max(.5,number(c.fd)/1000),ang=Math.atan2(-dir.z,dir.x);
+   var holes=(Array.isArray(b.holes)?b.holes:[]).map(function(o){return[Math.max(0,number(o[0])/1000),Math.min(len,number(o[1])/1000),Math.max(0,number(o[2])/1000),Math.min(h,number(o[3])/1000)]}).filter(function(o){return o[1]-o[0]>.05&&o[3]-o[2]>.05}).sort(function(p,q){return p[0]-q[0]});
+   if(!meshesById.has(id))meshesById.set(id,[]);
+   var box=function(a0,a1,z0,z1){if(a1-a0<.02||z1-z0<.02)return;var m=new T.Mesh(new T.BoxGeometry(a1-a0,z1-z0,t),partitionMat||(partitionMat=new T.MeshStandardMaterial({color:0xb9bdc2,roughness:.95})));
+    m.position.copy(start).add(dir.clone().multiplyScalar((a0+a1)/2));m.position.y=start.y+(z0+z1)/2;m.rotation.y=ang;
+    m.userData.memberId=id;m.userData.fixed=true;m.userData.footing=true;m.userData.partition=true;steel.add(m);allMeshes.push(m);meshesById.get(id).push(m)};
+   var at=0;holes.forEach(function(o){box(at,o[0],0,h);box(o[0],o[1],0,o[2]);box(o[0],o[1],o[3],h);at=Math.max(at,o[1])});box(at,len,0,h);
+  }
+  var partitionMat=null;
   function existingBuilding(c,id){
    var b=c.lay&&c.lay.building;if(!b||!b.parts||!b.across)return;
    var wallMat=buildingMat("wall"),roofMat=buildingMat("roof");
@@ -10383,6 +10419,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   }
   function addFitting(c,id,start,end){
    if(c.ft==="building"){existingBuilding(c,id);return}
+   if(c.ft==="partition"){planPartition(c,id,start,end);return}
    var dir=end.clone().sub(start),len=dir.length();dir.normalize();
    if(c.ft==="flight"||c.ft==="ladder"){addStair(c,id,start,end);return}
    // A railing along its line (a stair's, ГОСТ 23120: 1,0 m over the treads or the deck — c.fd its height): posts

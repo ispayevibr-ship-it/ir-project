@@ -402,7 +402,7 @@ window.irSchemePage=async function(objectId,opts){
  // A window, a door, a gate — its block, height × width as its mark writes them; a sandwich panel — its thickness.
 const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?"Ширина "+Math.round(c.fd):""):
  c.ft==="window"||c.ft==="door"||c.ft==="gate"?"Блок "+(c.fd>0?Math.round(c.fd)+"×"+Math.round(num(c.lay?.width_mm)||Math.hypot(c.x2-c.x,c.y2-c.y))+" (высота × ширина)":""):
- c.ft==="panel"?"Сэндвич-панель"+(num(c.lay?.thickness_mm)>0?" "+Math.round(num(c.lay.thickness_mm))+" мм":""):c.ft==="trim"?"Фасонный элемент":c.ft==="building"?"Существующее здание (условно)":
+ c.ft==="panel"?"Сэндвич-панель"+(num(c.lay?.thickness_mm)>0?" "+Math.round(num(c.lay.thickness_mm))+" мм":""):c.ft==="trim"?"Фасонный элемент":c.ft==="building"?"Существующее здание (условно)":c.ft==="partition"?"Стена, перегородка (условно)"+(num(c.lay?.partition?.thickness_mm)>0?" "+Math.round(num(c.lay.partition.thickness_mm))+" мм":""):
  c.ft&&c.ft!=="ring"&&c.ft!=="railing"?"Труба"+(c.fd>0?" Ø"+Math.round(c.fd):""):"";
  const SHAPE_SECTION={ibeam:"Двутавр",channel:"Швеллер",angle:"Уголок",round:"Труба",plate:"Лист",shell:"Лист (обечайка)",ring:"Лист (кольцо)",rail:"Уголок (ограждение)",stair:"Швеллер (косоур марша)",truss:"Ферма",frame:"Рама",box:"Короб",manhole:"Труба с крышкой (люк)",hatch:"Труба с крышкой (люк)",valve:"Труба с клапаном",foam:"Пеногенератор",sensor:"Труба",nozzle:"Труба",rod:"Стержень",panel:"Сэндвич-панель",trim:"Гнутый элемент (нащельник, планка)"};
  // The section of an element without a profile read from the drawings: what the catalog says it is made of

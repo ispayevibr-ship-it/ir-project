@@ -769,6 +769,32 @@ function arScheme(pages,opts={}){
    if(!mate&&q&&!p.leader&&!p.cut&&!p.top&&w<=q.width_mm+40&&q.length_mm>h+300){
     const z=p.z1-q.length_mm,side=v.panels.find(o=>o!==p&&Math.abs(o.z1-p.z1)<=60&&Math.abs(o.z0-z)<=60&&(Math.abs(o.u1-p.u0)<=60||Math.abs(o.u0-p.u1)<=60));
     if(side){const f0=p.z0,{holes:hs,...rest}=p,keep=(hs||[]).filter(o=>!(o[2]>=f0-60&&o[3]<=f0+300));p={...rest,z0:side.z0,...(keep.length?{holes:keep}:{})};h=p.z1-p.z0;grownDown=true}}
+   // A column read from the level of its label up (ИР-71535 АР ч.2 л.4 ряд О10, Пс-37 by the gates В-2, В-3: the label at
+   // the top of the gate, +5,490, beside the labels of the row over the gate — the column stood +5,490…+12,670, 5,5 m
+   // over the wall, a hole of 1,0×5,5 m by the gate): a column of its table's length whose top is a metre and more over
+   // the column beside it, that one of the same length from its foot — it stands where that one does.
+   let movedDown=false;
+   if(!mate&&!grownDown&&q&&!p.leader&&!p.cut&&!p.top&&w<=q.width_mm+40&&Math.abs(h-q.length_mm)<=60){
+    const side=v.panels.find(o=>o!==p&&o.z1<=p.z1-1000&&o.z0<=p.z0-1000&&Math.abs(o.z1-o.z0-q.length_mm)<=120&&(Math.abs(o.u1-p.u0)<=60||Math.abs(o.u0-p.u1)<=60));
+    if(side){const {holes:_h,...rest}=p;p={...rest,z0:side.z1-q.length_mm,z1:side.z1};h=p.z1-p.z0;movedDown=true}}
+   // (the same the other way — Пс-48.1 by the gate В-3 of row О10, read −0,250…+4,400 under a wall of +6,670 with its
+   // pair Пс-47 across the gate +2,020…+6,670 over the concrete wall of the niche: a hole of 0,84×2,1 m by the gate —:
+   // the top of the column beside a metre and more over it, its table's length down from there is where another column
+   // of the view with that top stands)
+   let movedUp=false;
+   if(!mate&&!grownDown&&!movedDown&&q&&!p.leader&&!p.cut&&!p.top&&w<=q.width_mm+40&&Math.abs(h-q.length_mm)<=60){
+    const side=v.panels.find(o=>o!==p&&o.z1>=p.z1+1000&&(Math.abs(o.u1-p.u0)<=60||Math.abs(o.u0-p.u1)<=60)&&v.panels.some(m=>m!==p&&m!==o&&Math.abs(m.z1-o.z1)<=60&&Math.abs(m.z0-(o.z1-q.length_mm))<=60));
+    if(side){const {holes:_h,...rest}=p;p={...rest,z0:side.z1-q.length_mm,z1:side.z1};h=p.z1-p.z0;movedUp=true}}
+   // The foot of a column read at the ground line (ИР-71535 АР ч.2 л.4, 8: «−0,250» — the ground — under the foot of the
+   // wall «−0,080»; Пс-36 of row О10 stood −0,250…+6,930, a slit of 170 mm under the window over it, Пс-116 of row Б
+   // 11765 for its table's 11580): the column beside stands 100…300 mm higher — with its table's length from there the
+   // column ends where that one does (moved up), or its top stays and the foot comes up to it.
+   let footUp=0;
+   if(!mate&&!grownDown&&!movedDown&&!movedUp&&q&&!p.leader&&!p.cut&&w<=q.width_mm+40){
+    const side=v.panels.find(o=>o!==p&&o.z0-p.z0>=100&&o.z0-p.z0<=300&&(Math.abs(o.u1-p.u0)<=60||Math.abs(o.u0-p.u1)<=60));
+    if(side){const d=side.z0-p.z0,lift=hs=>(hs||[]).map(o=>[o[0],o[1],Math.max(0,o[2]-d),o[3]-d]).filter(o=>o[3]-o[2]>=10);
+     if(!p.top&&Math.abs(h-q.length_mm)<=60&&Math.abs(side.z1-p.z1-d)<=60){p={...p,z0:p.z0+d,z1:p.z1+d};footUp=d}
+     else if(Math.abs(h-d-q.length_mm)<=60){const hs=lift(p.holes),{holes:_h,...rest}=p;p={...rest,z0:p.z0+d,...(hs.length?{holes:hs}:{})};h=p.z1-p.z0;footUp=d}}}
    // (a label on a leader — src/ai-ar-extract.js leaderLabels — takes a piece of its panel, cut on site: not larger than
    // the panel its table gives; a column of the wall between joints longer than that is not it)
    if(p.leader&&q&&!(w<=q.width_mm+40&&h<=q.length_mm+60||h<=q.width_mm+40&&w<=q.length_mm+60)){warnings.push(p.mark+" (лист "+v.sheet+"): по выноске — контур "+Math.round(w)+"×"+Math.round(h)+" больше панели "+q.width_mm+"×"+q.length_mm+" — не поставлена");continue}
@@ -787,6 +813,9 @@ function arScheme(pages,opts={}){
     notes:["Раскладка панелей АР, лист "+v.sheet+(q?" · "+q.name+(q.ral?" · RAL "+q.ral+(q.ral_inside?"/"+q.ral_inside:""):""):" · позиции нет в спецификации панелей"),
      ...(footAt!==null?["Низ на линии "+(footAt<0?"−":"+")+(Math.abs(footAt)/1000).toFixed(3).replace(".",",")+" — по длине спецификации "+q.length_mm+" (на виде контур до низа стены)"]:[]),
      ...(grown?["Столбец на виде обрезан проёмом — панель на всю длину спецификации "+q.length_mm+", проём вырезается"]:[]),
+     ...(footUp?["Низ столбца на виде — по линии земли; панель по длине спецификации "+q.length_mm+" мм — от низа соседнего столбца, на "+footUp+" мм выше"]:[]),
+     ...(movedUp?["Подпись столбца на виде — ниже панели; панель по длине спецификации "+q.length_mm+" мм — под верхом соседнего столбца, над бетонной стенкой"]:[]),
+     ...(movedDown?["Подпись столбца на виде — у верха проёма рядом; панель по длине спецификации "+q.length_mm+" мм — на высоте соседнего столбца"]:[]),
      ...(grownDown?["Низ столбца на виде — по линии над дверью; панель на всю длину спецификации "+q.length_mm+", до низа соседней, проём вырезается"]:[]),
      ...(p.cut?["Низ панели по скату кровли: "+p.cut.join(" → ")]:[]),...(p.top?["Верх по скату кровли (обрезать по месту): "+p.top.join(" → ")]:[]),...(differs?["Размер по чертежу "+Math.round(w)+"×"+Math.round(h)+", по спецификации "+q.width_mm+"×"+q.length_mm+" — проверьте"]:[])]})
    if(grown)grownSet.add(placements[placements.length-1]);
@@ -1088,7 +1117,7 @@ let loose=0;
   // wall it is written along (the middle of its faces), in the gap of that wall of its width nearest the label — else at
   // the label; a door, a gate on the floor, a window at 900 (not on the plan — said). As many as the table counts (a table
   // without the number of each — «Ведомость проемов» — as many as the plan shows).
-  const byPlan=[],still=[];
+  const byPlan=[],still=[],planWalls=[];
   // (a mark the facades placed fewer of than its table counts: the rest by the plan too, where none of that mark stands
   // within 2,5 m — the door of a partition, a gate of a wall without a layout of panels)
   const placedAt=pos=>placements.filter(q=>q.mark===pos&&/^(?:window|door|gate)$/.test(q.type_key)).map(q=>[(q.x_mm+q.x2_mm)/2,(q.y_mm+q.y2_mm)/2]);
@@ -1116,10 +1145,36 @@ let loose=0;
      fillOf(f,alongX,false,a,a+f.width_mm,z,{line,layout:{thickness_mm:pd?120:inWall?(inWall[0].layout.thickness_mm||120):t},axis_x:"",axis_y:"",...(pd||inWall?{}:{plan:true})},{sheet:p.pdfPage||p.page,page:p.page,file:p.sourceName||""},
       ["План АР, лист "+(p.pdfPage||p.page)+": "+f.pos+" "+f.width_mm+"×"+f.height_mm+" ("+f.name+") — внутренний, в перегородке"+(gap?", по проёму стены":", у надписи — проём на плане не найден, проверьте"),
        ...(f.kind==="window"?["Низ окна на +0,900 — на плане отметки нет, проверьте"]:[])],false);
+     // (the wall of the plan it stands in — planOpenings `run` —, where no panels of ours stand on that line)
+     if(!pd&&!inWall&&o.run){const r0=fa.a+fa.b*o.run[0],r1=fa.a+fa.b*o.run[1];
+      planWalls.push({alongX,line,a:Math.round(Math.min(r0,r1,a)),b:Math.round(Math.max(r0,r1,a+f.width_mm)),t:Math.min(400,Math.max(100,t)),hole:[a,a+f.width_mm,z,z+f.height_mm],mark:f.pos,sheet:p.pdfPage||p.page,page:p.page,file:p.sourceName||""})}
      n++}}
    if(n){used.set(f.pos,had+n);byPlan.push(f.pos+(n<k&&k<Infinity?" "+n+" из "+k:n>1?" ×"+n:""))}
    else if(inner.some(x=>x.startsWith(f.pos+" ")||x===f.pos))still.push(f.pos)}
   if(byPlan.length)warnings.push("Внутренние двери, ворота, окна поставлены по плану: "+byPlan.join(", "));
+  // The walls and partitions of the plan those doors stand in (ИР-71535 АР ч.1 л.10: the partition П-1 of gas blocks, the
+  // existing walls of the shop by the doors Д-2, Д-6, the gates В-4, В-5, В-7 — the doors stood alone on the floor): the
+  // run of the wall's face on the plan, its thickness between its faces, 3 m high for want of a section (said), under
+  // the panels of ours over it; the doors of one wall cut their holes in it. Not where panels of ours stand along that
+  // line within 0,9 m (the 3D draws the concrete under them itself). Conditional, no metal, not in the works.
+  {const W=[];
+   for(const w of planWalls.sort((p,q)=>p.a-q.a)){if(w.b-w.a>40000)continue;
+    const m=W.find(q=>q.alongX===w.alongX&&Math.abs(q.line-w.line)<=150&&w.a<=q.b+300&&w.b>=q.a-300);
+    if(m){m.a=Math.min(m.a,w.a);m.b=Math.max(m.b,w.b);m.t=Math.max(m.t,w.t);m.holes.push(w.hole);m.marks.push(w.mark)}else W.push({...w,holes:[w.hole],marks:[w.mark]})}
+   let made=0;
+   for(const w of W){const X=w.alongX;
+    const near=placements.filter(q=>q.type_key==="sandwich_wall"&&(X?q.y_mm===q.y2_mm:q.x_mm===q.x2_mm)&&Math.abs((X?q.y_mm:q.x_mm)-w.line)<=900&&
+      Math.min(Math.max(X?q.x_mm:q.y_mm,X?q.x2_mm:q.y2_mm),w.b)-Math.max(Math.min(X?q.x_mm:q.y_mm,X?q.x2_mm:q.y2_mm),w.a)>=200);
+    // (a run no longer than its openings is no wall found — the gate В-3 of the brick extension the 3D walls itself)
+    if(near.length||w.b-w.a-w.holes.reduce((t,h)=>t+h[1]-h[0],0)<500)continue;
+    const z0=Math.min(...w.holes.map(h=>h[2])),top=Math.max(z0+3000,...w.holes.map(h=>h[3]+300));
+    placements.push({mark:"Стена",name:"Стена, перегородка по плану АР (условно)",type_key:"partition_wall",scheme_group:"cladding",geometry_type:"beam",fitting_type:"partition",diameter_mm:top-z0,
+     layout:{partition:{thickness_mm:w.t,holes:w.holes.map(h=>[h[0]-w.a,h[1]-w.a,h[2]-z0,h[3]-z0])}},
+     ...(X?{x_mm:w.a,y_mm:w.line,x2_mm:w.b,y2_mm:w.line}:{x_mm:w.line,y_mm:w.a,x2_mm:w.line,y2_mm:w.b}),z0_mm:z0,z1_mm:z0,
+     levels_from:"план АР",confidence:"low",section:"АР",axis_x:"",axis_y:"",sheet:String(w.sheet),source_page:w.page,source_file:w.file,
+     notes:["Стена, перегородка по плану АР, лист "+w.sheet+" — условно: не металл, в монтаж не входит; в ней "+[...new Set(w.marks)].join(", "),
+      "Длина по линии стены на плане "+(w.b-w.a)+" мм, толщина "+w.t+" мм; высота 3 м условно — разреза по ней нет"]});made++}
+   if(made)warnings.push("Стены и перегородки у внутренних дверей и ворот по плану АР показаны условно: "+made+" (высота 3 м — разреза нет)")}
   // (marks on a fragment of the plan beside it, outside its axes — planOpenings `fragment`: counted, said, not placed)
   const frag=new Map();for(const p of ar)for(const o of p.ar.planFills||[])if(o.fragment&&blocks.has(o.mark))frag.set(o.mark,(frag.get(o.mark)||0)+1);
   if(frag.size){warnings.push("На фрагменте плана АР (отдельный чертёж рядом с планом, вне его осей) — не поставлены: "+[...frag].map(([m,n])=>m+(n>1?" ×"+n:"")).join(", ")+"; фрагмент к осям здания не привязан");
@@ -1330,18 +1385,47 @@ function arTrims(placements,spec=[],nodes=[]){
   // (where the outer faces meet: the 3D runs one wall on to the outer face of the other and stops that one at its inner
   // face — panelCorners —, whatever the layouts overshoot)
   const P=[face(B),face(A)],key=R(P[0]/50)+":"+R(P[1]/50)+":"+R(zlo/100);if(seen.has(key))continue;seen.add(key);
-  A.ends[dA>0?0:1]=P[0];B.ends[dB>0?0:1]=P[1];
-  if(add("corner",nearA[0].ral||nearB[0].ral,[P[0],P[1],zlo],[P[0],P[1],zhi],[[dA,0,0,100],[0,dB,0,100]],
-   (outer?"Наружный":"Внутренний")+" угол стен — по раскладкам панелей АР; угловой элемент на наружных гранях обеих стен"))corners++}
+  A.ends[dA>0?0:1]=P[0];B.ends[dB>0?0:1]=P[1]}
+ // The corner trims — by the height (the engineer, 12.11.2026 «нащельники ещё все перепроверь»: ИР-71535 the corners of the
+ // shop at О8 over the roofs of the annex had none — the walls of rows Б and Л go on below into the annex, their lines
+ // do not end there): the walls taken band by band between the feet and tops of the panels, the runs of a band, their
+ // ends meeting as above; the bands of one corner one over another are one trim.
+ // (a window, a door, a gate in the wall is no end of it)
+ {const zs=[...new Set(walls.flatMap(w=>[w.z0,w.z1]))].sort((p,q)=>p-q),found=new Map();
+  const fills=placements.filter(p=>["window","door","gate"].includes(p.fitting_type)&&(p.y_mm===p.y2_mm||p.x_mm===p.x2_mm)).map(p=>{const x=p.y_mm===p.y2_mm;
+   return{x,line:x?p.y_mm:p.x_mm,a:Math.min(x?p.x_mm:p.y_mm,x?p.x2_mm:p.y2_mm),b:Math.max(x?p.x_mm:p.y_mm,x?p.x2_mm:p.y2_mm),z0:num(p.z0_mm),z1:num(p.z0_mm)+num(p.diameter_mm),fill:true}});
+  for(let i=1;i<zs.length;i++){const lo=zs[i-1],hi=zs[i];if(hi-lo<5)continue;const h=(lo+hi)/2,rb=[],all=[];
+   for(const list of groups.values()){let cur=null;const L0=list[0],row=[...list,...fills.filter(f=>f.x===L0.x&&Math.abs(f.line-L0.line)<=200)].filter(w=>w.z0<=h&&w.z1>=h).sort((p,q)=>p.a-q.a);
+    for(const w of row){if(cur&&w.a-cur.b<=80){cur.b=Math.max(cur.b,w.b);if(!w.fill&&!cur.wall)Object.assign(cur,{wall:true,side:w.side,t:w.t,ral:w.ral})}
+     else all.push(cur={x:L0.x,line:L0.line,side:w.side,t:w.t,a:w.a,b:w.b,ral:w.ral,wall:!w.fill})}}
+   rb.push(...all.filter(o=>o.wall));
+   for(const A of rb)if(A.x)for(const B of rb)if(!B.x)for(const [ea,dA] of [[A.a,1],[A.b,-1]])for(const [eb,dB] of [[B.a,1],[B.b,-1]]){
+    const oA=(B.line-ea)*dA,oB=(A.line-eb)*dB;if(oA<-600||oA>1200||oB<-600||oB>1200)continue;
+    const outer=A.side===-dB&&B.side===-dA,inner=A.side===dB&&B.side===dA;if(!outer&&!inner)continue;
+    // (the wall going on 1,5 m and less past that end — a hole in it, a panel not read, not its end)
+    const on=(W,e,d)=>all.some(o=>o!==W&&o.x===W.x&&Math.abs(o.line-W.line)<=200&&(d>0?o.b<=e&&e-o.b<=1500:o.a>=e&&o.a-e<=1500));if(on(A,ea,dA)||on(B,eb,dB))continue;
+    const P=[face(B),face(A)],key=R(P[0]/50)+":"+R(P[1]/50)+":"+dA+":"+dB;let l=found.get(key);if(!l)found.set(key,l=[]);
+    const last=l[l.length-1];if(last&&lo-last.hi<=150)last.hi=hi;else l.push({lo,hi,P,dA,dB,outer,ral:A.ral||B.ral})}}
+  for(const l of found.values())for(const c of l){if(c.hi-c.lo<300)continue;
+   if(add("corner",c.ral,[c.P[0],c.P[1],c.lo],[c.P[0],c.P[1],c.hi],[[c.dA,0,0,100],[0,c.dB,0,100]],
+    (c.outer?"Наружный":"Внутренний")+" угол стен — по раскладкам панелей АР; угловой элемент на наружных гранях обеих стен"))corners++}}
  // The foot of the walls standing on the ground (not over a lower roof — under +0,700): an отлив along it, on to the corner.
  let plinth=0,foot=0;
  for(const r of runs){const list=r.panels.filter(w=>w.z0<=700).sort((p,q)=>p.a-q.a);let seg=null;const segs=[];
   for(const w of list){if(seg&&w.a-seg.b<=80&&Math.abs(w.z0-seg.z)<=40)seg.b=Math.max(seg.b,w.b);else segs.push(seg={a:w.a,b:w.b,z:w.z0,ral:w.ral})}
   // (at a corner: to the corner trim — the outer face of the wall across, short of the layout's overshoot past it or on to it)
+  // (a wall of panels inside the building — walls of ours along it on both sides —: by the pieces of the segment, the wall
+  // of a row going on from the shop into the annex is outside before it and inside in it)
+  const beside=(u,d)=>runs.some(o=>o!==r&&o.x===r.x&&(o.line-r.line)*d>1000&&o.a-100<=u&&o.b+100>=u&&o.panels.some(w=>w.z0<=700)),inside=u=>beside(u,1)&&beside(u,-1);
+  for(const s0 of [...segs]){const cuts=[...new Set(runs.filter(o=>o!==r&&o.x===r.x).flatMap(o=>[o.a,o.b]).filter(u=>u>s0.a+500&&u<s0.b-500))].sort((p,q)=>p-q);if(!cuts.length){s0.inner=inside((s0.a+s0.b)/2);continue}
+   const pts=[s0.a,...cuts,s0.b],parts=[];for(let i=1;i<pts.length;i++){const inn=inside((pts[i-1]+pts[i])/2),last=parts[parts.length-1];if(last&&last.inner===inn)last.b=pts[i];else parts.push({...s0,a:pts[i-1],b:pts[i],inner:inn})}
+   segs.splice(segs.indexOf(s0),1,...parts)}
   for(const s of segs){const a=Math.abs(s.a-r.a)<=1&&r.ends[0]!=null?r.ends[0]:s.a,b=Math.abs(s.b-r.b)<=1&&r.ends[1]!=null?r.ends[1]:s.b,f=face(r);
    const P=r.x?[[a,f,s.z],[b,f,s.z]]:[[f,a,s.z],[f,b,s.z]],n=r.x?[0,r.side,0]:[r.side,0,0];
    // (a partition of panels inside stands on the floor on a rolled angle bolted to it — узел 34: no отлив there)
-   const prt=r.panels.some(w=>w.p.partition);
+   // (so does a wall of panels inside the building: ИР-71535 the walls of rows Г, Ж, К inside the annex О8–О10 had the
+   // plinth отлив of an outer wall)
+   const prt=r.panels.some(w=>w.p.partition)||s.inner;
    // (at a door of the partition the angle stops 100 short of the gap — the door post stands there)
    if(prt){const gap=(o,e)=>[o.a,o.b].some(v=>Math.abs(v-e)>=600&&Math.abs(v-e)<=1700)&&!(o.a<e&&o.b>e),door=e=>segs.some(o=>o!==s&&gap(o,e))||runs.some(o=>o!==r&&o.x===r.x&&Math.abs(o.line-r.line)<=20&&gap(o,e));
     for(const k of [0,1]){const e=k?s.b:s.a;if(Math.abs(e-(k?b:a))<=1&&door(e))P[k][r.x?0:1]+=k?-100:100}

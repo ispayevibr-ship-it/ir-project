@@ -1409,8 +1409,17 @@ function planOpenings({segments=[],texts=[]}={},axes){
   // frame line 2076,8 was taken for a face)
   const longs=lines.filter(l=>Math.abs(l.at-q)<=20&&l.hi-l.lo>=25&&l.lo<=c+60&&l.hi>=c-60).sort((p,r)=>Math.abs(p.at-q)-Math.abs(r.at-q));
   const body=longs.length?longs.filter(l=>Math.abs(l.at-longs[0].at)<=10).map(l=>l.at):[];
+  // (how far that wall runs: the pieces of its face in one line with the nearest, joined over breaks of up to 4 pt and over
+  // the gap of this opening — the wall the door stands in, to draw it: the engineer, 12.11.2026 «тут тоже какие-то двери
+  // и перегородки» — inner doors stood alone on the floor)
+  const runOf=at=>{const face=lines.filter(l=>Math.abs(l.at-at)<=.4&&l.hi-l.lo>=3).sort((p,r)=>p.lo-r.lo),runs=[];
+   for(const l of face){const r=runs[runs.length-1];if(r&&l.lo-r[1]<=4)r[1]=Math.max(r[1],l.hi);else runs.push([l.lo,l.hi])}
+   const side=runs.filter(r=>r[1]>=c-70&&r[0]<=c+70),run=side.length?[Math.round(Math.min(...side.map(r=>r[0]))*10)/10,Math.round(Math.max(...side.map(r=>r[1]))*10)/10]:null;
+   return run&&run[1]-run[0]>=20?run:null};
+  // (the nearest line a short stroke of the door frame — the nearest of the long lines of the wall's body)
+  const run=runOf(near.at)||(body.length?runOf(body.reduce((b,v)=>Math.abs(v-near.at)<Math.abs(b-near.at)?v:b)):null);
   out.push({mark:m[1]+"-"+m[2],x:Math.round(b.cx*10)/10,y:Math.round(b.cy*10)/10,along:along?"x":"y",
-   wall:[Math.round(near.at*10)/10,...(twin?[Math.round(twin.at*10)/10]:[])],...(body.length>1&&Math.max(...body)-Math.min(...body)>=2?{body:[Math.round(Math.min(...body)*10)/10,Math.round(Math.max(...body)*10)/10]}:{}),gaps:gaps.filter(g=>g[1]>=c-60&&g[0]<=c+60)})}
+   wall:[Math.round(near.at*10)/10,...(twin?[Math.round(twin.at*10)/10]:[])],...(body.length>1&&Math.max(...body)-Math.min(...body)>=2?{body:[Math.round(Math.min(...body)*10)/10,Math.round(Math.max(...body)*10)/10]}:{}),gaps:gaps.filter(g=>g[1]>=c-60&&g[0]<=c+60),...(run?{run}:{})})}
  return out
 }
 // The nodes of the trims (ИР-71535 АР ч.2 л.14–18): the number of a node large in a bubble with the sheet it is called
