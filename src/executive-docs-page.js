@@ -14,7 +14,7 @@
  const X=window.irExecDocs;if(!X)return;
  const esc=v=>String(v??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
  const arr=v=>Array.isArray(v)?v:[];
- const canEdit=()=>window.irAccess?window.irAccess.canEdit("reports"):false;
+ const canEdit=()=>window.irAccess?window.irAccess.canEdit("executive-docs"):false;
  const call=(channel,payload)=>window.irProject?.ai?.invoke?irProject.ai.invoke(channel,payload):Promise.reject(Error("Нет связи с программой"));
  const today=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
  const DOC_KINDS=["Сертификат качества","Паспорт качества","Сертификат соответствия","Декларация о соответствии","Протокол испытаний"];

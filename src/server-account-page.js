@@ -148,7 +148,27 @@
 @keyframes irToast{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
 @media (max-width:640px){.ir-so-obj{grid-template-columns:20px minmax(0,1fr)}.ir-so-tags{grid-column:2;justify-content:flex-start}}
 @media (max-width:640px){.ir-acc-row{grid-template-columns:1fr}.ir-acc-person{grid-template-columns:1fr}.ir-acc-person .acts{justify-content:flex-start}}`;
- const style=doc=>{if(!doc.getElementById(STYLE_ID)){const s=doc.createElement("style");s.id=STYLE_ID;s.textContent=CSS;doc.head.appendChild(s)}};
+ const ROLE_CSS=`.ir-roles{display:grid;grid-template-columns:210px 1fr;gap:16px;min-height:380px}
+.ir-roles-list{display:flex;flex-direction:column;gap:6px;border-right:1px solid #e1e9ef;padding-right:14px}
+.ir-roles-list button.r{display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;padding:9px 11px;border:1px solid #d7e2ea;border-radius:9px;background:#fff;font:inherit;font-size:13px;color:#16324a;cursor:pointer}
+.ir-roles-list button.r:hover{background:#f2f7fb}.ir-roles-list button.r.on{background:#1769e0;border-color:#1769e0;color:#fff}
+.ir-roles-list button.r small{font-size:11px;opacity:.75}
+.ir-roles-edit label.n{display:block;font-size:11.5px;font-weight:600;color:#3c5568;margin-bottom:10px}
+.ir-roles-edit label.n input{display:block;width:100%;margin-top:4px}
+.ir-roles-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.ir-roles-tbl th{text-align:left;font-size:11px;font-weight:650;color:#5c7285;text-transform:uppercase;letter-spacing:.03em;padding:6px 6px;border-bottom:1px solid #e1e9ef}
+.ir-roles-tbl td{padding:5px 6px;border-bottom:1px solid #eef3f7}
+.ir-seg{display:inline-flex;border:1px solid #d0dce6;border-radius:8px;overflow:hidden}
+.ir-seg button{border:0;background:#fff;padding:5px 10px;font:inherit;font-size:12px;color:#33495c;cursor:pointer}
+.ir-seg button+button{border-left:1px solid #d0dce6}
+.ir-seg button.on[data-v=edit]{background:#e3f4e8;color:#17663a;font-weight:650}
+.ir-seg button.on[data-v=view]{background:#e6f0fa;color:#1d4f75;font-weight:650}
+.ir-seg button.on[data-v=none]{background:#f6e7e7;color:#8a2a2a;font-weight:650}
+.ir-seg button:disabled{cursor:default;opacity:.7}
+.ir-roles-acts{display:flex;flex-direction:column;gap:6px;margin:14px 0 4px}
+.ir-roles-sub{font-size:11.5px;font-weight:600;color:#3c5568;margin:14px 0 6px}
+@media (max-width:720px){.ir-roles{grid-template-columns:1fr}.ir-roles-list{border-right:0;padding-right:0;flex-direction:row;flex-wrap:wrap}}`;
+ const style=doc=>{if(!doc.getElementById(STYLE_ID)){const s=doc.createElement("style");s.id=STYLE_ID;s.textContent=CSS+ROLE_CSS;doc.head.appendChild(s)}};
  const dialog=(doc,cls,html)=>{style(doc);const d=doc.createElement("dialog");d.className="ir-acc "+(cls||"");d.innerHTML=html;doc.body.appendChild(d);d.showModal();
   d.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>d.close());d.addEventListener("close",()=>d.remove(),{once:true});return d};
  const head=(title,text)=>`<div class="ir-acc-head"><div><small>IR PROJECT · СЕРВЕР КОМПАНИИ</small><h2>${esc(title)}</h2>${text?`<p>${esc(text)}</p>`:""}</div><button type="button" class="ir-acc-x" data-close aria-label="Закрыть">✕</button></div>`;
@@ -158,6 +178,8 @@
   state=info||state;
   const u=state?.signedIn?state.user:null;
   if(u&&window.irAccess?.setRole){const want=LOCAL_ROLE[u.role]||"guest";if(irAccess.role()!==want)irAccess.setRole(want)}
+  // права роли (Панель администратора → «Роли и права»): разделы и действия в окнах программы
+  try{window.irAccess?.setPerms?.(u?u.perms||null:null)}catch{}
   const label=u?(u.name||u.email.split("@")[0])+" · "+u.roleName.replace(/ \(.*\)$/,""):"Войти";
   try{localStorage.setItem("ir-account-label",label)}catch{}
   for(const doc of docs()){
@@ -241,7 +263,7 @@
   if(!st0?.signedIn){if(await login(doc))return panel(doc);return}
   if(st0.user.role!=="admin"){alert("Панель администратора — только для администратора.");return}
   const d=dialog(doc,"wide",head("Панель администратора","Кто входит в программу и что видит. Сервер проверяет права сам: человек получает только свои объекты и разделы.")+
-   `<div class="ir-acc-body"><div data-mail></div><div class="ir-acc-tools"><button type="button" class="ir-acc-btn main" data-add><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Дать доступ инженеру</span></button><button type="button" class="ir-acc-btn" data-letter title="Текст письма, которое получает человек">Шаблон письма</button><button type="button" class="ir-acc-btn" data-site title="Какие объекты показывает сайт компании">Объекты на сайте</button><span class="grow"></span><span class="ir-acc-count" data-count></span><button type="button" class="ir-acc-btn" data-reload>Обновить</button></div>
+   `<div class="ir-acc-body"><div data-mail></div><div class="ir-acc-tools"><button type="button" class="ir-acc-btn main" data-add><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Дать доступ инженеру</span></button><button type="button" class="ir-acc-btn" data-roles title="Названия ролей и что каждая может: разделы, новые объекты, удаление, выгрузка">Роли и права</button><button type="button" class="ir-acc-btn" data-letter title="Текст письма, которое получает человек">Шаблон письма</button><button type="button" class="ir-acc-btn" data-site title="Какие объекты показывает сайт компании">Объекты на сайте</button><span class="grow"></span><span class="ir-acc-count" data-count></span><button type="button" class="ir-acc-btn" data-reload>Обновить</button></div>
    <div class="ir-acc-st" data-st>Загружаем…</div><div class="ir-acc-people" data-list></div></div>
    <div class="ir-acc-foot"><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Закрыть</button></div>`);
   const st=d.querySelector("[data-st]"),list=d.querySelector("[data-list]");
@@ -271,12 +293,55 @@
   };
   d.querySelector("[data-reload]").onclick=load;
   d.querySelector("[data-letter]").onclick=()=>letterEditor(d);
+  d.querySelector("[data-roles]").onclick=()=>rolesEditor(d).then(r=>{if(!r)return;info().then(()=>load()).then(()=>{st.className="ir-acc-st ok";st.textContent=r.note})});
   d.querySelector("[data-site]").onclick=()=>siteObjects(d);
   // after the letter — back in the panel, the result above the list
   d.querySelector("[data-add]").onclick=()=>editor(d,{objects}).then(r=>{if(!r)return;load().then(()=>{if(r.note){st.className="ir-acc-st ok";st.textContent=r.note}})});
   // who is in the program — renewed every minute while the panel is open
   const timer=setInterval(()=>{if(!d.open){clearInterval(timer);return}if(d.ownerDocument.querySelectorAll("dialog.ir-acc[open]").length===1)void load()},60e3);
   mailNote();load()
+ }
+
+ // «Роли и права» (просьба инженера 12.11.2026 «сделай систему прав настройки прямо в программе, чтобы администратор
+ // решал кому какие права и название Администратор, Инженер и тд тоже мог менять»): роли слева, справа — название,
+ // по каждому разделу «Изменяет / Просмотр / Скрыт» и действия. Хранится на сервере (server-account.js, roles_config).
+ async function rolesEditor(parent){
+  let data;try{data=await call("ai-settings:server-roles-get")}catch(e){alert(errText(e));return null}
+  const LV=[["edit","Изменяет"],["view","Просмотр"],["none","Скрыт"]];
+  const roles=data.roles.map(r=>JSON.parse(JSON.stringify(r)));
+  let cur=roles.find(r=>r.id!=="admin")?.id||roles[0].id,seq=0;
+  return new Promise(resolve=>{
+   let result=null;
+   const d=dialog(parent.ownerDocument,"wide ir-acc-scroll",head("Роли и права","Названия ролей и что каждая может. Объекты человеку по-прежнему отмечаются в «Доступ»; роль решает, что он делает в разделах.")+
+    `<div class="ir-acc-body"><div class="ir-roles"><div class="ir-roles-list" data-list></div><div class="ir-roles-edit" data-edit></div></div><div class="ir-acc-st" data-st></div></div>
+    <div class="ir-acc-foot"><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Отмена</button><button type="button" class="ir-acc-btn main" data-go>Сохранить</button></div>`);
+   d.addEventListener("close",()=>resolve(result),{once:true});
+   const listEl=d.querySelector("[data-list]"),edit=d.querySelector("[data-edit]"),st=d.querySelector("[data-st]");
+   const role=()=>roles.find(r=>r.id===cur);
+   const paintList=()=>{listEl.innerHTML=roles.map(r=>`<button type="button" class="r ${r.id===cur?"on":""}" data-id="${esc(r.id)}"><span>${esc(r.name||"Без названия")}</span>${r.id==="admin"?"<small>все права</small>":r.builtin?"":"<small>своя</small>"}</button>`).join("")+
+    `<button type="button" class="ir-acc-btn small" data-new style="margin-top:6px">＋ Новая роль</button>`;
+    listEl.querySelectorAll("button.r").forEach(b=>b.onclick=()=>{cur=b.dataset.id;paint()});
+    listEl.querySelector("[data-new]").onclick=()=>{const base=role()&&role().id!=="admin"?role():roles.find(r=>r.id==="foreman");
+     const r={id:"new"+(++seq),name:"Новая роль",sections:{...base.sections},actions:{...base.actions}};roles.push(r);cur=r.id;paint();edit.querySelector("[data-name]").select()}};
+   const paintEdit=()=>{const r=role(),admin=r.id==="admin";
+    edit.innerHTML=`<label class="n">Название роли<input data-name maxlength="60" value="${esc(r.name)}"></label>
+     ${admin?'<div class="ir-acc-help">У администратора все права: все объекты и разделы, люди и доступы, роли, сайт. Здесь меняется только название.</div>':`
+     <table class="ir-roles-tbl"><thead><tr><th>Раздел объекта</th><th>Право</th></tr></thead><tbody>${data.sections.map(s=>`<tr><td>${esc(s.name)}</td><td><span class="ir-seg" data-sec="${esc(s.key)}">${LV.map(([v,t])=>`<button type="button" data-v="${v}" class="${r.sections[s.key]===v?"on":""}">${t}</button>`).join("")}</span></td></tr>`).join("")}</tbody></table>
+     <div class="ir-roles-sub">Действия</div><div class="ir-roles-acts">${data.actions.map(a=>`<label class="ir-acc-check"><input type="checkbox" data-act="${esc(a.key)}" ${r.actions[a.key]?"checked":""}><span>${esc(a.name)}</span></label>`).join("")}</div>
+     <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button type="button" class="ir-acc-btn small" data-all="edit">Всё изменяет</button><button type="button" class="ir-acc-btn small" data-all="view">Всё только просмотр</button>${r.builtin?"":'<span class="grow"></span><button type="button" class="ir-acc-btn small danger" data-del>Удалить роль</button>'}</div>`}`;
+    const nm=edit.querySelector("[data-name]");nm.oninput=()=>{r.name=nm.value;const b=[...listEl.querySelectorAll("button.r")].find(x=>x.dataset.id===r.id)?.querySelector("span");if(b)b.textContent=nm.value||"Без названия"};
+    edit.querySelectorAll(".ir-seg").forEach(seg=>seg.querySelectorAll("button").forEach(b=>b.onclick=()=>{r.sections[seg.dataset.sec]=b.dataset.v;seg.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b))}));
+    edit.querySelectorAll("[data-act]").forEach(c=>c.onchange=()=>{r.actions[c.dataset.act]=c.checked});
+    edit.querySelectorAll("[data-all]").forEach(b=>b.onclick=()=>{for(const s of data.sections)r.sections[s.key]=b.dataset.all;paintEdit()});
+    edit.querySelector("[data-del]")?.addEventListener("click",()=>{if(!confirm("Удалить роль «"+r.name+"»?"))return;roles.splice(roles.indexOf(r),1);cur=roles.find(x=>x.id!=="admin").id;paint()})};
+   const paint=()=>{paintList();paintEdit()};
+   paint();
+   d.querySelector("[data-go]").onclick=async()=>{
+    const go=d.querySelector("[data-go]");go.disabled=true;st.className="ir-acc-st";st.textContent="Сохраняем…";
+    try{const r=await call("ai-settings:server-roles-set",{roles:roles.map(r=>({...r,id:/^new\d+$/.test(r.id)?"":r.id}))});
+     result={note:"Роли сохранены."+(r.changed?.length?" Права на сервере обновлены: "+r.changed.join(", ")+".":"")+" У других людей новые права — при следующей проверке входа (до 30 минут) или после перезапуска программы."};d.close()}
+    catch(e){st.className="ir-acc-st err";st.textContent=errText(e)}finally{go.disabled=false}};
+  })
  }
 
  // The letter's template (the engineer, 10.11.2026 «письмо инженеру шаблон где поменять? сделай возможность
@@ -462,18 +527,18 @@
    const d=dialog(doc,"wide",head(person?"Доступ: "+(person.name||person.email):"Дать доступ инженеру",person?person.email:"Человек получит письмо: логин — почта, пароль — созданный программой (потом сменит сам).")+
     `<form><div class="ir-acc-body"><div class="ir-acc-row"><label>Почта${person?"":" (логин)"}<input name="email" type="email" value="${esc(person?.email||"")}" ${person?"disabled":"required"} placeholder="name@site.kz"></label>
     <label>Имя<input name="name" value="${esc(person?.name||"")}" placeholder="Фамилия Имя"></label></div>
-    <label>Роль<select name="role">${Object.entries(roles).map(([k,v])=>`<option value="${k}" ${(person?.role||"foreman")===k?"selected":""}>${esc(v)}</option>`).join("")}</select></label>
+    <label>Роль<select name="role">${Object.entries(roles).map(([k,v])=>`<option value="${k}" ${(person?.roleId||person?.role||"foreman")===k?"selected":""}>${esc(v)}</option>`).join("")}</select></label>
     <div class="ir-acc-help" data-rolehelp></div>
     <div data-objs><div style="font-size:11.5px;font-weight:600;color:#3c5568;margin-bottom:6px">Объекты, которые человек видит</div><div class="ir-acc-objs">${objects.map(objHtml).join("")||'<div class="ir-acc-help">В программе пока нет объектов.</div>'}</div></div>
     <div class="ir-acc-st" data-st></div></div>
     <div class="ir-acc-foot"><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Отмена</button><button type="submit" class="ir-acc-btn main" data-go>${person?"Сохранить":"Дать доступ и отправить письмо"}</button></div></form>`);
    d.addEventListener("close",()=>resolve(changed),{once:true});
    const f=d.querySelector("form"),st=d.querySelector("[data-st]"),go=d.querySelector("[data-go]");
-   const roleHelp=()=>{const r=f.role.value;d.querySelector("[data-rolehelp]").textContent=
+   const roleHelp=()=>{const r=(state.roleList||[]).find(x=>x.id===f.role.value)?.level||f.role.value;d.querySelector("[data-rolehelp]").textContent=
     r==="admin"?"Администратор видит и меняет всё и раздаёт доступ другим.":
-    r==="pto"?"Инженер ПТО: видит и меняет отмеченные объекты, может заводить новые объекты (свои видит сразу).":
-    r==="foreman"?"Прораб: видит отмеченные объекты и разделы; менять — где отмечено «Может изменять».":
-    "Гость: только смотрит отмеченное, ничего не меняет.";
+    r==="pto"?"Видит отмеченные объекты, может заводить новые (свои видит сразу); что меняет в разделах — по правам роли («Роли и права»).":
+    r==="foreman"?"Видит отмеченные объекты и разделы; меняет — где отмечено «Может изменять» и где разрешает роль («Роли и права»).":
+    "Только смотрит отмеченное, ничего не меняет.";
     d.querySelector("[data-objs]").hidden=r==="admin";d.querySelectorAll("[data-edit]").forEach(x=>{x.disabled=r==="guest";if(r==="guest")x.checked=false})};
    f.role.onchange=roleHelp;roleHelp();
    d.querySelectorAll(".ir-acc-obj").forEach(box=>{

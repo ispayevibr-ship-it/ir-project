@@ -167,7 +167,7 @@
   if(!c.page)c.page=(document.querySelector("h1,h2")?.textContent||document.title||"").trim().slice(0,120);
   c.route=location.hash||"";
   // Who writes: the profile of the program (Администратор, Инженер ПТО, Гость).
-  try{const r=window.irAccess&&window.irAccess.role&&window.irAccess.role();if(r)c.user={admin:"Администратор",engineer:"Инженер ПТО",guest:"Гость"}[r]||r}catch(_e){}
+  try{const r=window.irAccess&&window.irAccess.role&&window.irAccess.role();if(r)c.user=(window.irAccess.perms&&window.irAccess.perms()?.name)||{admin:"Администратор",engineer:"Инженер ПТО",guest:"Гость"}[r]||r}catch(_e){}
   if(dropElement)delete c.element;
   return c
  }

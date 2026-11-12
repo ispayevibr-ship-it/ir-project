@@ -234,7 +234,7 @@ handle("ai-montage:journal-add",(_e,{objectId,elementId,comment,objectName,actio
  accountCall("info",()=>account.info());accountCall("login",v=>account.login(v));accountCall("refresh",()=>account.refresh());
  accountCall("logout",()=>account.logout());accountCall("password",v=>account.changePassword(v));accountCall("name",v=>account.setName(v));
  accountCall("people",()=>account.people());accountCall("invite",v=>account.invite(v));accountCall("update",v=>account.update(v));
- accountCall("reset",v=>account.resetPassword(v));accountCall("letter-get",()=>account.letterTemplate());accountCall("letter-set",v=>account.setLetterTemplate(v));accountCall("letter-preview",v=>account.previewLetter(v));accountCall("letter-test",v=>account.testLetter(v));accountCall("remove",v=>account.remove(v));
+ accountCall("reset",v=>account.resetPassword(v));accountCall("letter-get",()=>account.letterTemplate());accountCall("letter-set",v=>account.setLetterTemplate(v));accountCall("letter-preview",v=>account.previewLetter(v));accountCall("letter-test",v=>account.testLetter(v));accountCall("remove",v=>account.remove(v));accountCall("roles-get",()=>account.rolesGet());accountCall("roles-set",v=>account.rolesSet(v));
  accountCall("objects",()=>database.listObjects().map(o=>({id:o.id,name:o.name,status:o.status})));
 accountCall("share-get",()=>github.shareInfo());accountCall("share-set",({on}={})=>github.setShare(on));
 accountCall("share-send",()=>github.push({reason:"вручную"}).then(()=>github.shareInfo()));

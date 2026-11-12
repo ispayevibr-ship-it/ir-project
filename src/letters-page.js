@@ -11,7 +11,7 @@
  const L=window.irLetters;if(!L)return;
  const esc=v=>String(v??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
  const arr=v=>Array.isArray(v)?v:[];
- const canEdit=()=>window.irAccess?window.irAccess.canEdit("reports"):false;
+ const canEdit=()=>window.irAccess?window.irAccess.canEdit("letters"):false;
  const call=(channel,payload)=>window.irProject?.ai?.invoke?irProject.ai.invoke(channel,payload):Promise.reject(Error("Нет связи с программой"));
  const errText=e=>/No handler|не зарегистр/i.test(String(e?.message||e))?"Почта и выгрузка писем заработают после перезапуска программы (обновление уже установлено): закройте IR Project и откройте снова.":String(e?.message||e).replace(/^Error invoking remote method '[^']+': (Error: )?/,"");
  const today=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
