@@ -772,6 +772,9 @@ window.irThreeSchemeView=(function irThreeModule(){
   // drawn once more over the batch (`overlay`), the base and cap details near the camera in their own group.
   var steel=new T.Group(),batches=new T.Group(),overlay=new T.Group(),detailGroup=new T.Group(),equipment=new T.Group();scene.add(batches,overlay,detailGroup,equipment);
   var ground=new T.Group();scene.add(ground);
+  // (the words on the existing building — buildingTexts: drawn as they are, not merged with the model — the merging keeps
+  // no pictures —, each shown while its block is)
+  var bTexts=new T.Group();scene.add(bTexts);
   var dims=new T.Group();scene.add(dims);
   var helpers=new T.Group();scene.add(helpers);
   // The places of the hidden pieces are not counted again at every picture: the anchors of the bases far from the camera
@@ -9710,28 +9713,83 @@ window.irThreeSchemeView=(function irThreeModule(){
   // 11.11.2026, again 12.11: «существующее здание показать одним элементом на схеме»): one grey block by the plan of the
   // roof of the АР — each part (lay.building.parts: along from a0 to a1, its eaves and its ridge on the line ridge_at) a
   // prism of its section across between the axes of the building (lay.building.across), flat-shaded. Not steel and
-  // not mounted: out of the check of metal (footing), its colour not by status.
-  var buildingMat=null;
+  // not mounted: out of the check of metal (footing), its colour not by status. Seen through by 20 % (the engineer,
+  // 12.11.2026: «старое здание прозрачным сделай на 20%») — opacity .8, not written in the depth: the steel behind it shows.
+  // Its colours (the engineer, 12.11.2026: «фасад голубым (или какой там ral), кровлю тоже по ral»): the walls by the
+  // RAL most of the wall panels of the АР have, the roof by that of the roof panels (ИР-71535: RAL 5012, RAL 5002); grey
+  // where the АР gives none.
+  var buildingMats={};
+  function buildingMat(kind){
+   var n={};elems.forEach(function(c){if(c.ft==="panel"&&c.lay&&c.lay.panel===kind){var r=ralOf(c);if(r)n[r]=(n[r]||0)+1}});
+   var r=Object.keys(n).sort(function(a,b){return n[b]-n[a]})[0]||"",col=r?ralColor(r):0x8e9399,k=kind+col;
+   return buildingMats[k]||(buildingMats[k]=new T.MeshStandardMaterial({color:col,roughness:.9,metalness:0,side:T.DoubleSide,flatShading:true,transparent:true,opacity:.8,depthWrite:false}))
+  }
   function existingBuilding(c,id){
    var b=c.lay&&c.lay.building;if(!b||!b.parts||!b.across)return;
-   if(!buildingMat)buildingMat=new T.MeshStandardMaterial({color:0x8e9399,roughness:.95,metalness:0,side:T.DoubleSide,flatShading:true})
-   var c0=number(b.across[0]),c1=number(b.across[1]),alongX=b.along!=="y",top=0,mid=null;
+   var wallMat=buildingMat("wall"),roofMat=buildingMat("roof");
+   var c0=number(b.across[0]),c1=number(b.across[1]),alongX=b.along!=="y";
    var P=function(a,u,z){return alongX?toWorld(a,u,z):toWorld(u,a,z)};
    if(!meshesById.has(id))meshesById.set(id,[]);
+   var put=function(pos,mat){if(!pos.length)return;var geo=new T.BufferGeometry();geo.setAttribute("position",new T.Float32BufferAttribute(pos,3));geo.computeVertexNormals();
+    var m=new T.Mesh(geo,mat);m.userData.memberId=id;m.userData.fixed=true;m.userData.footing=true;m.userData.building=true;
+    steel.add(m);allMeshes.push(m);meshesById.get(id).push(m)};
    b.parts.forEach(function(q){
     var a0=number(q.a0),a1=number(q.a1),ev=number(q.eaves),rg=Math.max(ev,number(q.ridge)),ra=q.ridge_at!==undefined?Math.max(c0,Math.min(c1,number(q.ridge_at))):(c0+c1)/2;
     if(Math.abs(a1-a0)<500||c1-c0<500||ev<=0)return;
-    var sec=rg>ev+20?[[c0,0],[c1,0],[c1,ev],[ra,rg],[c0,ev]]:[[c0,0],[c1,0],[c1,ev],[c0,ev]],n=sec.length,pos=[];
+    var sec=rg>ev+20?[[c0,0],[c1,0],[c1,ev],[ra,rg],[c0,ev]]:[[c0,0],[c1,0],[c1,ev],[c0,ev]],n=sec.length,walls=[],roof=[];
     var A=sec.map(function(s){return P(a0,s[0],s[1])}),B=sec.map(function(s){return P(a1,s[0],s[1])});
-    var tri=function(p,q2,r){pos.push(p.x,p.y,p.z,q2.x,q2.y,q2.z,r.x,r.y,r.z)};
-    for(var i=1;i+1<n;i++){tri(A[0],A[i],A[i+1]);tri(B[0],B[i+1],B[i])}
-    for(var k=0;k<n;k++){var k2=(k+1)%n;tri(A[k],B[k],B[k2]);tri(A[k],B[k2],A[k2])}
-    var geo=new T.BufferGeometry();geo.setAttribute("position",new T.Float32BufferAttribute(pos,3));geo.computeVertexNormals();
-    var m=new T.Mesh(geo,buildingMat);m.userData.memberId=id;m.userData.fixed=true;m.userData.footing=true;m.userData.building=true;
-    steel.add(m);allMeshes.push(m);meshesById.get(id).push(m);
-    if(rg>top){top=rg;mid=P((a0+a1)/2,ra,rg)}
+    var tri=function(pos,p,q2,r){pos.push(p.x,p.y,p.z,q2.x,q2.y,q2.z,r.x,r.y,r.z)};
+    for(var i=1;i+1<n;i++){tri(walls,A[0],A[i],A[i+1]);tri(walls,B[0],B[i+1],B[i])}
+    // (the sides of the prism: from the eaves up — the roof; the bottom — none, it stands on the ground)
+    for(var k=0;k<n;k++){var k2=(k+1)%n,top=sec[k][1]>0&&sec[k2][1]>0&&k>=2,bottom=sec[k][1]===0&&sec[k2][1]===0;if(bottom)continue;var pos=top?roof:walls;
+     tri(pos,A[k],B[k],B[k2]);tri(pos,A[k],B[k2],A[k2])}
+    put(walls,wallMat);put(roof,roofMat);
    });
-   if(mid){mid.y+=.6;var el=document.createElement("span");el.className="ir-three-member-label";el.textContent=c.mark||c.title||"";labelLayer.appendChild(el);labels.push({el:el,pos:mid,id:id})}
+  }
+  // The words on the block itself (the engineer, 12.11.2026: «прям на здание в схеме … на кровле и по бокам написать этот
+  // текст»): «Существующее здание цеха ММА» on each slope of the roof, on the long walls and on the gable ends of each
+  // part — flat on the face, 5 cm out of it, read from outside (from above on the roof: the top of the letters to the
+  // ridge), the height of the letters by the face: at most a third of it, the line within the face, at most 4 m. Made
+  // after the model (lowerGround) — the model kept on the disk holds no pictures —, apart from the merged model (bTexts),
+  // hidden with the block, not picked. White letters with a dark edge: read on the light RAL of the walls and the dark of the roof.
+  var bTextMat={};
+  function buildingTextMat(t){
+   if(bTextMat[t])return bTextMat[t];
+   var cv=document.createElement("canvas"),g=cv.getContext("2d"),f="bold 96px Arial, sans-serif";g.font=f;var w=Math.ceil(g.measureText(t).width)+48;
+   cv.width=w;cv.height=136;g=cv.getContext("2d");g.font=f;g.textAlign="center";g.textBaseline="middle";g.lineJoin="round";g.lineWidth=10;g.strokeStyle="rgba(20,26,32,.85)";g.strokeText(t,w/2,70);g.fillStyle="#ffffff";g.fillText(t,w/2,70);
+   var tx=new T.CanvasTexture(cv);tx.anisotropy=4;
+   return bTextMat[t]={m:new T.MeshBasicMaterial({map:tx,transparent:true,depthWrite:false,side:T.FrontSide}),k:w/136}
+  }
+  function buildingTexts(){
+   bTexts.children.slice().forEach(function(m){bTexts.remove(m);m.geometry.dispose()});
+   elems.forEach(function(c){
+    if(c.ft!=="building"||!c.lay||!c.lay.building)return;var b=c.lay.building,host=(meshesById.get(String(c.id))||[]).filter(function(m){return m.isMesh&&m.userData.building})[0];
+    if(!host||!b.parts||!b.across)return;
+    var txt=buildingLabel(c),tm=buildingTextMat(txt),up=new T.Vector3(0,1,0),c0=number(b.across[0]),c1=number(b.across[1]),alongX=b.along!=="y";
+    var P=function(a,u,z){return alongX?toWorld(a,u,z):toWorld(u,a,z)};
+    var face=function(o,Y,N,W,H){
+     var h=Math.min(H/3,W*.9/tm.k,4);if(h<.3)return;var X=new T.Vector3().crossVectors(Y,N).normalize();
+     var m=new T.Mesh(new T.PlaneGeometry(h*tm.k,h),tm.m);m.position.copy(o).add(N.clone().multiplyScalar(.05));m.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(X,Y,N));
+     m.userData.fixed=true;m.userData.footing=true;m.userData.buildingText=true;m.userData.host=host;m.raycast=function(){};m.renderOrder=3;bTexts.add(m)};
+    b.parts.forEach(function(q){
+     var a0=number(q.a0),a1=number(q.a1),ev=number(q.eaves),rg=Math.max(ev,number(q.ridge)),ra=q.ridge_at!==undefined?Math.max(c0,Math.min(c1,number(q.ridge_at))):(c0+c1)/2;
+     if(Math.abs(a1-a0)<500||c1-c0<500||ev<=0)return;
+     var am=(a0+a1)/2,cm=(c0+c1)/2,L=Math.abs(a1-a0)/1000,D=(c1-c0)/1000;
+     [c0,c1].forEach(function(cc){var o=P(am,cc,ev/2),N=o.clone().sub(P(am,cm,ev/2)).setY(0).normalize();face(o,up,N,L,ev/1000)});
+     [a0,a1].forEach(function(aa){var o=P(aa,cm,ev/2),N=o.clone().sub(P(am,cm,ev/2)).setY(0).normalize();face(o,up,N,D,ev/1000)});
+     var slopes=rg>ev+20?[[c0,ev,ra,rg],[c1,ev,ra,rg]]:[[c0,ev,c1,ev]];
+     slopes.forEach(function(s){
+      var p0=P(am,s[0],s[1]),p1=P(am,s[2],s[3]),Y=p1.clone().sub(p0),S=Y.length();if(S<.5)return;Y.divideScalar(S);
+      var A=P(a1,s[0],s[1]).sub(P(a0,s[0],s[1])).normalize(),N=new T.Vector3().crossVectors(A,Y).normalize();if(N.y<0)N.negate();
+      face(p0.clone().lerp(p1,.5),Y,N,L,S)})
+    })
+   })
+  }
+  // (the label of the block: the words of the plan, «Существующее здание цеха ММА» — the engineer, 12.11.2026 — without
+  // the note «(существующее, условно)» of the name; a name without them — «Существующее здание» and the mark)
+  function buildingLabel(c){
+   var n=String(c.mark_name||c.title||"").replace(/\s*\([^()]*\)\s*$/,"").trim();
+   return/существующ/i.test(n)?n:"Существующее здание"+(c.mark?" "+c.mark:"")
   }
   function addFitting(c,id,start,end){
    if(c.ft==="building"){existingBuilding(c,id);return}
@@ -10387,6 +10445,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    return boxMatrix.copy(m.matrixWorld).multiply(new T.Matrix4().makeTranslation(boxCentre.x,boxCentre.y,boxCentre.z)).scale(boxSize)
   }
   function rebatch(queue){
+   bTexts.children.forEach(function(m){m.visible=!!(m.userData.host&&m.userData.host.visible)});
    batches.children.slice().forEach(function(b){batches.remove(b);b.geometry.dispose()});weldCells.forEach(function(cell){cell.meshes=null});
    steel.updateMatrixWorld(true);if(!unitBox)unitBox=new T.BoxGeometry(1,1,1);
    var groups=new Map();
@@ -11587,7 +11646,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   // Footings below ±0.000 (bases at −0.600): the floor, the grid and the dimensions go down to the lowest member,
   // so that bases and their plates stay above the floor.
   function lowerGround(){
-   buildDucts();porchSheets();eaveGutters();
+   buildDucts();porchSheets();eaveGutters();buildingTexts();
    var low=0;elems.forEach(function(c){var z=Math.min(number(c.z0),c.geometryType==="column"?number(c.z0):number(c.z2));if(z<low)low=z});
    var y=Math.min(0,low/1000+.12);ground.position.y=y;dims.position.y=y
   }
