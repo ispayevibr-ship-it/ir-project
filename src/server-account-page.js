@@ -133,6 +133,14 @@
 .ir-so-tag.done{background:#eef2f5;color:#4f6272}.ir-so-tag.work{background:#e3eefb;color:#1d5c99}.ir-so-tag.prep{background:#fdf1dc;color:#8a5a0b}
 .ir-so-tag.site{background:#e2f4ea;color:#1b7448}.ir-so-tag.site::before{content:"";display:inline-block;width:6px;height:6px;margin-right:5px;border-radius:50%;background:#22a35a;vertical-align:1px}
 .ir-so-del{height:24px;padding:0 9px;border:1px solid #efc9c3;border-radius:20px;background:#fff;color:#b4321f;font:inherit;font-size:11px;font-weight:650;cursor:pointer;white-space:nowrap}.ir-so-del:hover{background:#fdecea;border-color:#e59a8f}.ir-so-del:disabled{opacity:.5;cursor:default}
+.ir-so-hero{height:24px;padding:0 9px;border:1px solid #cfdbe5;border-radius:20px;background:#fff;color:#2d4a63;font:inherit;font-size:11px;font-weight:650;cursor:pointer;white-space:nowrap}.ir-so-hero:hover{background:#f1f6fb;border-color:#a9c6df}.ir-so-hero.on{background:#fff6e0;border-color:#e6c46a;color:#7a5506}
+.ir-hero-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;max-height:60vh;overflow:auto;padding:2px}
+.ir-hero-ph{position:relative;display:grid;grid-template-rows:120px auto;border:2px solid #d9e4ee;border-radius:11px;overflow:hidden;background:#fff;cursor:pointer}
+.ir-hero-ph.on{border-color:#d9a520;box-shadow:0 0 0 2px #f6e2a6}
+.ir-hero-ph img{width:100%;height:120px;object-fit:cover;display:block}.ir-hero-no{display:grid;place-items:center;height:120px;color:#8a9aa8;font-size:12px;background:#f2f5f8}
+.ir-hero-mark{display:flex;gap:7px;align-items:center;padding:8px 10px;font-size:12px;font-weight:600;color:#2d4a63}.ir-hero-mark input{width:16px;height:16px;margin:0;accent-color:#c7920f}
+.ir-hero-cov{position:absolute;top:6px;left:6px;padding:2px 8px;border-radius:20px;background:#0f2233cc;color:#fff;font-size:10.5px;font-weight:650}
+.ir-hero-n{font-size:12.5px;color:#4d6a80}
 .ir-so-empty{padding:22px;text-align:center;color:#7b8f9f;border:1px dashed #cfdbe5;border-radius:11px;background:#fff}
 .ir-so-prog{display:grid;gap:6px;padding:12px 14px;border:1px solid #cfe0ef;border-radius:11px;background:#fff}
 .ir-so-prog .row{display:flex;gap:10px;justify-content:space-between;font-size:12.5px;color:#3c5568}.ir-so-prog .row b{color:#1d3247}
@@ -415,7 +423,35 @@
    for(const d of byDate)for(const p of sarr(d.photos))if(p)gallery.push(String(p))
   }
   return{rid:Number(o.id),name:o.name||"",customer:o.customer||"",general_contractor:o.general_contractor||"",address:o.address||"",
-   summary:String(meta.find(r=>r.record_type==="object_summary")?.data?.value||""),status:o.status||"",years,works,cover:cover||banner,photos:gallery.filter(f=>f&&f!==cover&&f!==banner).slice(0,30),skip:[cover,banner].filter(Boolean),sort}
+   summary:String(meta.find(r=>r.record_type==="object_summary")?.data?.value||""),status:o.status||"",years,works,cover:cover||banner,photos:gallery.filter(f=>f&&f!==cover&&f!==banner).slice(0,30),skip:[cover,banner].filter(Boolean),hero:heroOf(meta),sort}
+ }
+ // Фото «в шапку сайта» (просьба инженера 12.11.2026 «на каждую фотку можно ставить метку Выводить в шапке сайта»):
+ // запись object-meta «site_hero_photos», data.files — пути отмеченных фото. Уходит с объектом на сайт (site-objects.js).
+ const HERO="site_hero_photos";
+ const heroOf=meta=>sarr(meta.find(r=>r.record_type===HERO)?.data?.files).map(String).filter(Boolean);
+ async function setHero(id,files){
+  const api=irProject.data.forObject(id).section("object-meta"),rows=await api.list().catch(()=>[]),r=rows.find(x=>x.record_type===HERO);
+  const body={record_type:HERO,title:"Фото в шапку сайта",data:{entity_type:HERO,files}};
+  if(!files.length){if(r)await api.remove(r.id);return}
+  if(!r)await api.create(body);else await api.update(r.id,body)
+ }
+ async function heroPicker(parent,o,done){
+  const doc=parent.ownerDocument||document;
+  const d=dialog(doc,"wide ir-acc-hero",head("Фото в шапку сайта",o.name||"Объект")+
+   `<div class="ir-acc-body"><div class="ir-acc-help">Отметьте фото, которые сайт a-ts.kz показывает в шапке — в мозаике первого экрана. Если ни у одного объекта нет отметок, сайт берёт случайные фото. Отметки уходят на сайт кнопкой «Отправить на сайт».</div>
+   <div class="ir-hero-grid" data-grid><div class="ir-so-empty">Загружаем фото…</div></div></div>
+   <div class="ir-acc-foot"><span data-n class="ir-hero-n"></span><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Отмена</button><button type="button" class="ir-acc-btn main" data-save>Сохранить</button></div>`);
+  const grid=d.querySelector("[data-grid]"),cnt=d.querySelector("[data-n]");
+  let data,marked;
+  try{data=await siteObjectData(o,0);marked=new Set(data.hero)}catch(e){grid.innerHTML=`<div class="ir-so-empty">${esc(errText(e))}</div>`;return}
+  const files=[data.cover,...data.photos].filter(Boolean);
+  const drawN=()=>{cnt.textContent=marked.size?"В шапке: "+marked.size+" из "+files.length:"Фото: "+files.length+", в шапку не отмечено"};
+  if(!files.length){grid.innerHTML=`<div class="ir-so-empty">У объекта пока нет фото</div>`;d.querySelector("[data-save]").disabled=true;drawN();return}
+  const src=await Promise.all(files.map(f=>irProject.images?.read?irProject.images.read(f).catch(()=>""):Promise.resolve("")));
+  grid.innerHTML=files.map((f,i)=>`<label class="ir-hero-ph${marked.has(f)?" on":""}" data-i="${i}">${src[i]?`<img src="${esc(src[i])}" alt="" loading="lazy">`:'<span class="ir-hero-no">нет файла</span>'}<span class="ir-hero-mark"><input type="checkbox" ${marked.has(f)?"checked":""}> Выводить в шапке сайта</span>${f===data.cover?'<span class="ir-hero-cov">обложка</span>':""}</label>`).join("");
+  grid.querySelectorAll(".ir-hero-ph").forEach(l=>{const i=l.querySelector("input"),f=files[Number(l.dataset.i)];i.onchange=()=>{if(i.checked)marked.add(f);else marked.delete(f);l.classList.toggle("on",i.checked);drawN()}});
+  drawN();
+  d.querySelector("[data-save]").onclick=async()=>{try{await setHero(o.id,files.filter(f=>marked.has(f)));done?.(marked.size);d.close()}catch(e){cnt.textContent=errText(e)}};
  }
  const STATUS_TAG=st=>/заверш/i.test(st)?"done":/подгот/i.test(st)?"prep":"work";
  const objWord=n=>n%10===1&&n%100!==11?"объект":n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?"объекта":"объектов";
@@ -450,7 +486,7 @@
    <div class="ir-acc-foot"><button type="button" class="ir-acc-btn link" data-open>Открыть сайт a-ts.kz</button><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Закрыть</button><button type="button" class="ir-acc-btn main" data-go>Отправить на сайт</button></div>`);
   const $=q=>d.querySelector(q),st=$("[data-st]"),list=$("[data-list]"),go=$("[data-go]"),prog=$("[data-prog]");
   const bad=e=>{st.className="ir-acc-st err";st.textContent=errText(e)};
-  let objects=[],onSite=new Set(),chosen=new Set(),tab="all",q="";
+  let objects=[],onSite=new Set(),chosen=new Set(),tab="all",q="",heroN=new Map();
   const TABS=[["all","Все"],["done","Завершённые"],["work","В работе"],["prep","Подготовка"],["site","На сайте"]];
   const match=o=>(tab==="all"||(tab==="site"?onSite.has(Number(o.id)):STATUS_TAG(o.status||"")===tab))&&(!q||[o.name,o.customer,o.address].join(" ").toLowerCase().includes(q));
   const shown=()=>objects.filter(match);
@@ -461,7 +497,7 @@
   const draw=()=>{
    drawTabs();drawCount();const rows=shown();
    list.innerHTML=rows.map(o=>{const id=Number(o.id),on=chosen.has(id),tag=STATUS_TAG(o.status||"");
-    return`<label class="ir-so-obj${on?" on":""}" data-id="${id}" title="${esc(o.name)}"><input type="checkbox" ${on?"checked":""}><span class="t"><b>${esc(o.name)}</b><small>${esc([o.customer,o.address].filter(Boolean).join(" · ")||"—")}</small></span><span class="ir-so-tags">${onSite.has(id)?'<span class="ir-so-tag site">на сайте</span><button type="button" class="ir-so-del" data-del title="Убрать этот объект с сайта сейчас">Удалить с сайта</button>':""}<span class="ir-so-tag ${tag}">${esc(o.status||"—")}</span></span></label>`}).join("")||
+    return`<label class="ir-so-obj${on?" on":""}" data-id="${id}" title="${esc(o.name)}"><input type="checkbox" ${on?"checked":""}><span class="t"><b>${esc(o.name)}</b><small>${esc([o.customer,o.address].filter(Boolean).join(" · ")||"—")}</small></span><span class="ir-so-tags"><button type="button" class="ir-so-hero${heroN.get(id)?" on":""}" data-hero title="Отметить фото этого объекта для шапки сайта">Фото в шапку${heroN.get(id)?" · "+heroN.get(id):""}</button>${onSite.has(id)?'<span class="ir-so-tag site">на сайте</span><button type="button" class="ir-so-del" data-del title="Убрать этот объект с сайта сейчас">Удалить с сайта</button>':""}<span class="ir-so-tag ${tag}">${esc(o.status||"—")}</span></span></label>`}).join("")||
     `<div class="ir-so-empty">${objects.length?"Ничего не найдено":"В программе пока нет объектов"}</div>`;
    list.querySelectorAll("[data-del]").forEach(b=>b.onclick=async e=>{e.preventDefault();e.stopPropagation();
     const l=b.closest(".ir-so-obj"),id=Number(l.dataset.id),o=objects.find(x=>Number(x.id)===id);
@@ -470,12 +506,17 @@
     try{await call("ai-settings:server-site-remove",{rids:[id]});onSite.delete(id);chosen.delete(id);draw();
      toast(doc,{title:"Объект удалён с сайта",text:"«"+(o?.name||"")+"» больше не показывается на a-ts.kz, итоги сайта пересчитаны.",site:true})}
     catch(err){bad(err);b.disabled=false;b.textContent="Удалить с сайта"}});
+   list.querySelectorAll("[data-hero]").forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();
+    const id=Number(b.closest(".ir-so-obj").dataset.id),o=objects.find(x=>Number(x.id)===id);
+    if(o)heroPicker(d,o,n=>{heroN.set(id,n);draw()})});
    list.querySelectorAll(".ir-so-obj").forEach(l=>{const i=l.querySelector("input");i.onchange=()=>{const id=Number(l.dataset.id);if(i.checked)chosen.add(id);else chosen.delete(id);l.classList.toggle("on",i.checked);drawCount()}})
   };
   try{
    const [site,all]=await Promise.all([call("ai-settings:server-site-objects"),irProject.data.objects.list()]);
    onSite=new Set(sarr(site?.objects).map(x=>Number(x.rid)));objects=sarr(all);
-   chosen=new Set([...onSite].filter(id=>objects.some(o=>Number(o.id)===id)));draw()
+   chosen=new Set([...onSite].filter(id=>objects.some(o=>Number(o.id)===id)));draw();
+   // сколько фото каждого объекта отмечено в шапку — на кнопке строки
+   Promise.all(objects.map(async o=>{const m=await irProject.data.forObject(o.id).section("object-meta").list().catch(()=>[]);const n=heroOf(m).length;if(n)heroN.set(Number(o.id),n)})).then(()=>{if(d.isConnected)draw()})
   }catch(e){bad(e);go.disabled=true;list.innerHTML=""}
   $("[data-q]").oninput=e=>{q=e.target.value.trim().toLowerCase();draw()};
   $("[data-tabs]").onclick=e=>{const b=e.target.closest("[data-tab]");if(b){tab=b.dataset.tab;draw()}};

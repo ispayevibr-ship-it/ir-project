@@ -9,6 +9,9 @@
  * collection `site_objects` (server/pb_migrations/1762800000_ir_site_objects.js) as the administrator signed in:
  * the site is exactly the chosen list — an object taken off the list is taken off the site. Photos are made smaller
  * (≤1600 px, JPEG) and sent again only when they changed (photo_key). The site sums the totals itself.
+ * Фото «в шапку сайта» (просьба инженера 12.11.2026 «на каждую фотку можно ставить метку Выводить в шапке сайта»):
+ * отмеченные фото (и обложка) уходят файлом с именем «hero-…» — сервер хранит его как «hero_…», сайт по этому имени
+ * ставит их в мозаику первого экрана. Без новой колонки на сервере. Метка меняется — фото уходят заново (photo_key).
  */
 const fs=require("node:fs");
 const path=require("node:path");
@@ -28,9 +31,11 @@ function clean(list){
   const works=(Array.isArray(o.works)?o.works:[]).slice(0,60).map(w=>({name:clip(w?.name,200),unit:clip(w?.unit,20),
    volume:Math.round(numberOf(w?.volume)*1000)/1000,plan:Math.round(numberOf(w?.plan)*1000)/1000,note:clip(w?.note,400)})).filter(w=>w.name);
   const photos=[...new Set((Array.isArray(o.photos)?o.photos:[]).map(p=>String(p||"")).filter(Boolean))];
+  const hero=[...new Set((Array.isArray(o.hero)?o.hero:[]).map(p=>String(p||"")).filter(Boolean))];
   out.push({rid,name:clip(o.name,300)||"Объект",customer:clip(o.customer,300),general_contractor:clip(o.general_contractor,300),
    address:clip(o.address,300),summary:String(o.summary??"").replace(/\r\n?/g,"\n").replace(/[^\S\n]+/g," ").replace(/ *\n */g,"\n").replace(/\n{3,}/g,"\n\n").trim().slice(0,2000),status:clip(o.status,50),years:clip(o.years,50),works,cover:String(o.cover||""),
-   photos:photos.filter(p=>p!==String(o.cover||"")).slice(0,MAX_PHOTOS),skip:(Array.isArray(o.skip)?o.skip:[]).map(p=>String(p||"")).filter(Boolean).slice(0,4),sort:Number.isInteger(o.sort)?o.sort:i+1})
+   photos:photos.filter(p=>p!==String(o.cover||"")).slice(0,MAX_PHOTOS),skip:(Array.isArray(o.skip)?o.skip:[]).map(p=>String(p||"")).filter(Boolean).slice(0,4),sort:Number.isInteger(o.sort)?o.sort:i+1});
+  const last=out[out.length-1];last.hero=hero.filter(p=>p===last.cover||last.photos.includes(p))
  }
  return out
 }
@@ -53,7 +58,8 @@ function createSiteObjects({account,getUserDataPath,nativeImage=null}){
  // the photos as they are now: their places, sizes and times — a new key means «send the photos again»
  function photoKey(o){
   const h=crypto.createHash("sha1");
-  for(const f of [o.cover,...o.photos]){if(!f)continue;h.update(f);try{const s=fs.statSync(f);h.update(":"+s.size+":"+s.mtimeMs)}catch{h.update(":-")}h.update("|")}
+  const hero=new Set(o.hero||[]);
+  for(const f of [o.cover,...o.photos]){if(!f)continue;h.update(f);try{const s=fs.statSync(f);h.update(":"+s.size+":"+s.mtimeMs)}catch{h.update(":-")}h.update(hero.has(f)?"|hero|":"|")}
   return h.digest("hex").slice(0,40)
  }
  async function current(){return account.list(COLL,"fields=id,rid,name,status,photo_key,updated&sort=sort")}
@@ -64,7 +70,8 @@ function createSiteObjects({account,getUserDataPath,nativeImage=null}){
  const digest=file=>{try{return usable(file)?crypto.createHash("sha1").update(fs.readFileSync(file)).digest("hex"):""}catch{return""}};
  function withoutCover(o){
   const same=new Set([o.cover,...o.skip].map(digest).filter(Boolean));if(!same.size)return o;
-  return{...o,photos:o.photos.filter(f=>!same.has(digest(f)))}
+  const photos=o.photos.filter(f=>!same.has(digest(f)));
+  return{...o,photos,hero:(o.hero||[]).filter(f=>f===o.cover||photos.includes(f))}
  }
 
  async function sendOne(o,have){
@@ -76,12 +83,13 @@ function createSiteObjects({account,getUserDataPath,nativeImage=null}){
   for(const [k,v] of Object.entries(fields))form.append(k,typeof v==="object"?JSON.stringify(v):String(v));
   // the progress for the window: every photo made smaller is one step, the sending of the object — one more
   state.photo=0;state.photos=(o.cover?1:0)+o.photos.length;
+  const hero=new Set(o.hero||[]);
   const step=()=>{state.photo++;state.unitsDone++};
-  if(o.cover&&usable(o.cover))form.append("cover",new Blob([picture(o.cover)],{type:"image/jpeg"}),"cover.jpg");
+  if(o.cover&&usable(o.cover))form.append("cover",new Blob([picture(o.cover)],{type:"image/jpeg"}),hero.has(o.cover)?"hero-cover.jpg":"cover.jpg");
   else form.append("cover","");
   if(o.cover)step();
   let n=0;
-  for(const f of o.photos){if(usable(f))try{form.append("photos",new Blob([picture(f)],{type:"image/jpeg"}),`photo-${++n}.jpg`)}catch{}step();await new Promise(r=>setImmediate(r))}
+  for(const f of o.photos){if(usable(f))try{const b=picture(f);form.append("photos",new Blob([b],{type:"image/jpeg"}),`${hero.has(f)?"hero":"photo"}-${++n}.jpg`)}catch{}step();await new Promise(r=>setImmediate(r))}
   if(!n)form.append("photos","");
   return have?account.form("PATCH",`/api/collections/${COLL}/records/${have.id}`,form):account.form("POST",`/api/collections/${COLL}/records`,form)
  }
