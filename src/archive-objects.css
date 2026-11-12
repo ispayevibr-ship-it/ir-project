@@ -83,6 +83,10 @@
 .arch-btn.primary:hover{background:#125cc7}
 .arch-btn.danger{border-color:#f0d2d2;color:#c0392b}
 .arch-btn.danger:hover{background:#fdf1f1;border-color:#e6b3b3}
+/* 1.12.105: «Готово» в ряд с соседними — общие стили кнопок .primary программы (высота, тень, отступы) не действуют
+   (инженер 12.11.2026: «кнопка в программе кривит») */
+.arch-head-actions{align-items:center}
+.arch-head-actions .arch-btn{box-sizing:border-box;height:32px!important;min-height:32px!important;margin:0!important;padding:0 12px!important;font-size:12px!important;line-height:1!important;box-shadow:none!important;transform:none!important;border-radius:8px!important}
 /* сведения отдельными блоками со значком (12.11.2026: «слишком сплошняком все. сделай блоками») */
 .arch-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:14px 0 0}
 .arch-facts>div{display:flex;align-items:flex-start;gap:10px;min-width:0;padding:11px 12px;border:1px solid #e1e9ef;border-radius:10px;background:#f7fafc}
