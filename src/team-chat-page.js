@@ -99,12 +99,18 @@
  }
 
  // one window of the chat for all the tabs: it lives in the tab host's document
- const shown=()=>{try{const d=host().__irTeamChatDialog;return d&&d.isConnected?d:null}catch{return null}};
+ // A window left from a tab that was closed or reloaded (its code is gone: the window cannot be closed or updated, and
+ // the icon then did nothing — the engineer, 12.11.2026: «нажимаю на иконку чата и ничего») is taken away and opened anew.
+ const TOKEN=Math.random();try{window.__irTeamChatToken=TOKEN}catch{}
+ const shown=()=>{try{const h=host(),d=h.__irTeamChatDialog;if(!d)return null;
+  let alive=false;try{alive=!!d._owner&&d._owner.__irTeamChatToken===d._token}catch{}
+  if(d.isConnected&&d.open&&alive)return d;
+  try{if(d.open)d.close()}catch{}try{d.remove()}catch{}h.__irTeamChatDialog=null;return null}catch{return null}};
  function open(doc,{conv}={}){
   doc=doc||host().document;
   const openDialog=shown();if(openDialog){if(conv)openDialog._pick?.(conv);return openDialog}
   style(doc);
-  const d=doc.createElement("dialog");d.className="ir-tc";
+  const d=doc.createElement("dialog");d.className="ir-tc";d._owner=window;d._token=TOKEN;
   d.innerHTML=`<div class="ir-tc-head"><div><small>IR PROJECT · СЕРВЕР КОМПАНИИ</small><h2 data-head>Чат компании</h2></div><button type="button" class="ir-tc-x" data-close aria-label="Закрыть">✕</button></div>
    <div class="ir-tc-main"><div class="ir-tc-side"><input type="search" data-find placeholder="Поиск сотрудника"><div data-people></div></div>
    <div class="ir-tc-conv"><div class="ir-tc-ch" data-title></div><div class="ir-tc-list" data-list><div class="ir-tc-empty">Загрузка…</div></div>
@@ -115,6 +121,7 @@
     <input type="file" data-file multiple hidden></div>
     <div class="ir-tc-note" data-note>Сообщения хранятся 3 месяца. Личное сообщение видят только двое.</div></div></div></div>`;
   doc.body.appendChild(d);d.showModal();try{host().__irTeamChatDialog=d}catch{}
+  d.addEventListener("close",()=>{try{d.remove()}catch{}try{if(host().__irTeamChatDialog===d)host().__irTeamChatDialog=null}catch{}},{once:true});
   const $=s=>d.querySelector(s);
   // «Чат — <название компании>» (просьба инженера 12.11.2026), название — из профиля компании
   const head=async()=>{try{const n=String((await irProject.company.get())?.name||"").trim();d.querySelector("[data-head]").textContent=n?`Чат — ${n}`:"Чат компании"}catch{}};

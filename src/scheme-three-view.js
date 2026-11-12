@@ -1340,6 +1340,11 @@ window.irThreeSchemeView=(function irThreeModule(){
     var it={id:String(c.id),a:p[0],u:u,L:L,col:role(c)==="columns"};lines.push(it);
     // (a strut of the bottom chords' bracing: upright, its plate across the truss — chordStrut)
     if(chordStrut(c)&&Math.abs(u.y)<.05){var sn=u.clone().cross(new T.Vector3(0,1,0));if(sn.lengthSq()>1e-6){bracePlane.set(it.id,sn.normalize());upright.add(it.id)}}
+    // (a level strut on an upright gusset by its node — joint.upright: Рп1 L90×8 along the columns at +6,700, КМ1 л.18 узлы
+    // 8, 11, разрезы 13-13, 15-15: the gusset t16 С345 upright on the column, in the line of the strut, 5 bolts М20 through
+    // the upright leg, 60 apart; with no brace crossing it to give a plane it lay on a level plate with no bolt — the
+    // engineer, КМ3.docx 12.11.2026, remark 12: «неверный узел крепления»)
+    else if(c.joint&&c.joint.upright===true&&Math.abs(u.y)<.05){var sn2=u.clone().cross(new T.Vector3(0,1,0));if(sn2.lengthSq()>1e-6){bracePlane.set(it.id,sn2.normalize());upright.add(it.id)}}
     // (a pair «┬» hung at an end under the top flange of a rolled beam — flangeAt: its gusset welded under the flange —: in
     // the plane of that flange, the beam's top — across the beam level, along it its slope. Рс-2 2L125×8 along О9 at
     // +5,900 under Б2 I50Ш1 falling 10 %, КМ2 л.12 узел 38: in the plane of the ends of the braces there — their ends
@@ -2852,6 +2857,11 @@ window.irThreeSchemeView=(function irThreeModule(){
      // line past the cut at the node —, welded to the chord along it)
      var us=-1e3;g.cuts.forEach(function(rz){var det=du*rz[1]-dv*rz[0];if(rz[3]==="rise"&&Math.abs(det)>1e-6)us=Math.max(us,(kc*rz[1]-dv*rz[2])/det+.1)});
      if(us>-1e3){g.pts.push([us,wA]);g.pts.push([us,wB])}}}
+   // (not under the bent plates of a column the truss rests on there — chordSeatParts, КМ1 л.22 узел 40: they hold the
+   // lying legs of the chord to 315 mm from the web each side; the conventional plate of the brace from past them)
+   if(!g.seatCut){g.seatCut=true;chordSeat.forEach(function(q){var O=toWorld(q.px,q.py,q.top),r=g.o.clone().sub(O);r.y=0;if(r.length()>1)return;
+    var A=toWorld(q.px+q.ux*1000,q.py+q.uy*1000,q.top).sub(O).normalize();if(A.dot(d)<0)A.negate();
+    g.cuts.push([g.eu.dot(A),g.ev.dot(A),(chordSeatHw(q.c)+325)/1000-g.o.clone().sub(O).dot(A),"seat"])})}
    var hull=cutAll(hull2(g.pts));
    if(hull.length>=3){var sh=new T.Shape();hull.forEach(function(p,i){i?sh.lineTo(p[0],p[1]):sh.moveTo(p[0],p[1])});sh.closePath();
     var hg=new T.ExtrudeGeometry(sh,{depth:gt,bevelEnabled:false,curveSegments:1});hg.translate(0,0,-gt/2);if(g.geo)g.geo.dispose();g.geo=hg;g.mesh.geometry=hg}
@@ -3980,7 +3990,7 @@ window.irThreeSchemeView=(function irThreeModule(){
     }
     // A steep brace (a portal leg, a brace of a tall bay) ends 60 mm off the face, inside its gusset: the plate runs from
     // the face past 400 mm of the brace — a gusset placed by its middle left the end of a steep leg hanging below it.
-    var end=Math.min(face+Math.max(.06/hl,over+.02),L*.45),run=.4,h0=face*hl,h1,dy=Math.abs(d.y),gh=Math.max(.3,run*dy+.15),gy;
+    var er0=dia?endRow(c,dia):[],end=Math.min(face+Math.max(.06/hl,over+.02),L*.45),run=Array.isArray((c.joint||{}).end_bolts_mm)&&er0.length?er0[er0.length-1]+.05:.4,h0=face*hl,h1,dy=Math.abs(d.y),gh=Math.max(.3,run*dy+.15),gy;
     // (short of the node of braces at its other end — the upper branch of the portal bracing Вс2, КМ3 л.27 разрез 2-2,
     // 0,75 m from the knee to the top of К1: the plate there 400 mm along it went 6 mm into the plate of the knee; that one
     // reaches at most 450 mm along each brace)
@@ -4076,7 +4086,8 @@ window.irThreeSchemeView=(function irThreeModule(){
     // gusset and one leg from the middle of the gusset for both — of 2L90×8 Свф1, Свк3, Св1 the head stood in the far leg,
     // 596 bolts: «метиз не может торчать в металле»)
     var rk3=dia&&riskShift(c,v,side,dia),ang3=dia&&braceAngle(c,v),one3=ang3&&!backToBack(ang3)?ang3.X.clone().multiplyScalar(legT(c)/2):null;
-    if(dia&&!ownBolts)boltRow(dia).forEach(function(s){var q=E0.clone().add(d.clone().multiplyScalar(end+s));if(rk3)q.add(rk3);if(one3)q.add(one3);addBolt(c,q,side,dia,gt+(backToBack(ang3)?2*legT(c):legT(c)))})
+    // (as its node gives them — joint.end_bolts_mm: Рп1, 5 bolts 60 apart from 50 off its end, КМ1 л.18 узел 8)
+    if(dia&&!ownBolts)endRow(c,dia).forEach(function(s){var q=E0.clone().add(d.clone().multiplyScalar(end+s));if(rk3)q.add(rk3);if(one3)q.add(one3);addBolt(c,q,side,dia,gt+(backToBack(ang3)?2*legT(c):legT(c)))})
    });
    // (a girder on seats between two faces: as long as its sheet, in the middle between them — ГПЭС К16 4070 between the
    // tubes of К26 and К27, 4090 apart: 10 mm off each)
@@ -5482,9 +5493,39 @@ window.irThreeSchemeView=(function irThreeModule(){
   // КМ1 л.19 узел 19, разрез 24-24: the top of К3 under the chord, joined to it by bent plates t8 and angles L125×10 on
   // bolts M24. Its top at the chord's underside less its conditional cap: the cap under the legs, not in them (chordTop,
   // mm). Drawn only: the scheme keeps its levels. (And a column given up through the truss resting on it — see below.)
-  var chordTop=new Map();
+  var chordTop=new Map(),chordSeat=new Map();
+  // The node of a column under the bottom chord of a truss resting on it — КМ1 л.22 узел 40, разрез 28-28 (К5 of the end
+  // wall under Фс2, О3/В and О3/К): the top of the column 80 mm under the chord, no cap; two angles L125×10 × 280 on the
+  // web, one each side, their lying legs at the top; four bent plates t8 × 100 — one under each angle of the chord each
+  // side of the web: 100 on the leg of the angle from 25 off the axis, 90 up, 100 under the lying leg of the chord —, a
+  // bolt М24 кл. 8.8 in each flat, 60 between the plates. Drawn with a conditional cap 60 under the chord and nothing
+  // between (the engineer, КМ3.docx 12.11.2026, remark 19: «неверный узел опирания на колонну»).
+  function chordSeatHw(c){var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);return(sec&&number(sec.s)>0?number(sec.s):25)/2}
+  function chordSeatParts(c){
+   var q=chordSeat.get(String(c.id)),id=String(c.id);if(!q)return;
+   var tr=q.t.truss,cs=q.cs,T0=q.top,O=toWorld(q.px,q.py,T0),e=toWorld(q.px+q.ux*1000,q.py+q.uy*1000,T0).sub(O).normalize(),up=new T.Vector3(0,1,0),n=new T.Vector3().crossVectors(e,up).normalize();
+   var hw=chordSeatHw(c),gt=trussGussetT(q.t)*1000,ax=angleAxis(cs),tl=number(cs.t)||10;
+   // (the underside of the lying legs of the chord d mm along the truss from the web)
+   var under=function(d){var x=q.xs+d/q.kk,z=null;tr.members.forEach(function(m){if(m[4]!=="bottom")return;var x0=number(m[0]),x1=number(m[2]);if(x1!==x0&&x>=Math.min(x0,x1)-1e-6&&x<=Math.max(x0,x1)+1e-6)z=number(m[1])+(number(m[3])-number(m[1]))*(x-x0)/(x1-x0)});
+    return z===null?null:number(tr.base_mm)+z-ax};
+   var P=function(d,z,w){return O.clone().add(e.clone().multiplyScalar(d/1000)).add(up.clone().multiplyScalar((z-T0)/1000)).add(n.clone().multiplyScalar((w||0)/1000))};
+   var bc={id:id,joint:{cls:"8.8"}},La=280,a0=hw+25,a1=a0+100,a2=a1+90,a3=a2+100;
+   [-1,1].forEach(function(sg){
+    if(under(sg*a2)===null||under(sg*a3)===null)return;
+    keepPart(partTag(plateBox(c,P(sg*(hw+5),T0-62.5),e,up,n,.01,.125,La/1000),"уголок опирания фермы","L125×10"),id);
+    keepPart(partTag(plateBox(c,P(sg*(hw+10+57.5),T0-5),e,up,n,.115,.01,La/1000),"уголок опирания фермы","L125×10"),id);
+    // (each bent plate one piece: its outline in the plane of the truss, 100 across)
+    [-1,1].forEach(function(j){var w=j*(gt/2+22+50),z2=under(sg*a2)-8,z3=under(sg*a3)-8,B=T0,o6=P(0,T0,w-50);
+     var pts=[[sg*a0,B],[sg*a1,B],[sg*a2,z2],[sg*a3,z3],[sg*a3,z3+8],[sg*a2,z2+8],[sg*a1,B+8],[sg*a0,B+8]],sh=new T.Shape();
+     pts.forEach(function(q2,i){i?sh.lineTo(q2[0]/1000,(q2[1]-T0)/1000):sh.moveTo(q2[0]/1000,(q2[1]-T0)/1000)});sh.closePath();
+     var geo=new T.ExtrudeGeometry(sh,{depth:.1,bevelEnabled:false,curveSegments:1});geo.applyMatrix4(new T.Matrix4().makeBasis(e,up,n).setPosition(o6));
+     keepPart(partTag(new T.Mesh(geo,baseMaterial(c)),"гнутая пластина опирания фермы","−8×100"),id);
+     var sl=(z3-z2)/(sg*(a3-a2)),nu=up.clone().sub(e.clone().multiplyScalar(sl)).normalize();
+     addBolt(bc,P(sg*(a0+50),T0-1,w),up,.024,.018,"node");
+     addBolt(bc,P(sg*(a2+50),(z2+z3)/2+8+(tl-8)/2,w),nu,.024,(8+tl)/1000,"node")})})
+  }
   function chordTops(list,cells,C){
-   chordTop.clear();
+   chordTop.clear();chordSeat.clear();
    list.forEach(function(t){var tr=t.truss;if(!t.id||!tr||!Array.isArray(tr.members)||tr.panel||slight(t))return;
     var a={x:number(t.x),y:number(t.y)},b={x:number(t.x2),y:number(t.y2)};if(tr.flip){var q=a;a=b;b=q}
     var L=Math.hypot(b.x-a.x,b.y-a.y);if(L<1000)return;
@@ -5507,7 +5548,10 @@ window.irThreeSchemeView=(function irThreeModule(){
      // bent plates t8 and the angles L125×10 between, the top 80 mm under the chord —: under the chord so, not through it,
      // 24 clashes)
      var thr=top>zc+100;if(top<=under-1||thr&&(!inside||top>zc+4000))return;
-     var id=String(c.id),v=under-(thr?80:20);if(v>number(c.z0)+300&&(!chordTop.has(id)||v<chordTop.get(id)))chordTop.set(id,v)
+     // (the column the truss rests on — no cap on it, its top 80 under the chord, the angles and the bent plates of the
+     // node between: chordSeatParts)
+     var id=String(c.id),v=under-(thr?80:20);if(v>number(c.z0)+300&&(!chordTop.has(id)||v<chordTop.get(id))){chordTop.set(id,v);
+      if(thr)chordSeat.set(id,{t:t,c:c,px:a.x+ux*al,py:a.y+uy*al,ux:ux,uy:uy,xs:xs,kk:kk,top:under-80,cs:cs});else chordSeat.delete(id)}
     })
    })
   }
@@ -6801,7 +6845,7 @@ window.irThreeSchemeView=(function irThreeModule(){
     // Tank fittings are drawn as what they are: a pipe of their own diameter with a flange, a hatch with a cover,
     // a valve body, a foam generator, a lightning rod.
     if(c.ft&&c.ft!=="ring"&&p.length===2&&dist(p[0],p[1])>.005){addFitting(c,id,p[0],p[1]);return}
-    if(c.truss&&Array.isArray(c.truss.members)&&c.truss.members.length&&addTruss(c,id)){host.parts(c,meshesById.get(id));return}
+    if(c.truss&&Array.isArray(c.truss.members)&&c.truss.members.length&&addTruss(c,id)){chordSeat.forEach(function(q){if(String(q.t.id)===id)chordSeatParts(q.c)});host.parts(c,meshesById.get(id));return}
     if(c.column&&Array.isArray(c.column.members)&&c.column.members.length&&addColumnLattice(c,id)){host.parts(c,meshesById.get(id));return}
     if(c.lay&&(c.lay.lattice||c.lay.bars)&&addSpaceFrame(c,id)){host.parts(c,meshesById.get(id));return}
     if(latticeAt.has(id)&&branchLattice(c,id,latticeAt.get(id)))return;
@@ -8266,7 +8310,7 @@ window.irThreeSchemeView=(function irThreeModule(){
     if(ov&&capCrowded(col.c,at,bw+ov,hh+ov,branchTurn.get(String(col.c.id))||0))ov=0;
     // (none on a post with no base — noBase: welded at its ends; a post 42 mm high on a beam, the porch Кр2 «1» □80×4, had
     // the node of its top — the ends of the ridge beam over it — on its foot and a cap there inside its body)
-    if(!noBase(col.c)&&!underDeck.has(String(col.c.id))&&!underFlatGirt(col.c)&&!endCuts(col.c).some(function(e){return e.end===1})&&!capOf(col.c)&&!(col.c.base&&col.c.base.step&&number(col.c.base.step.top_mm)>0)){var cap=new T.Mesh(shared("cap:"+bw+":"+hh+":"+ov,function(){return new T.BoxGeometry(bw+ov,.02,hh+ov)}),plateMat);cap.position.y=.01;var tc=n.kind==="top"&&seatTilt.get(String(col.c.id));if(tc){var tn=seatNormal(tc.e.b);cap.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),tn);cap.position.copy(tn.multiplyScalar(.01))}
+    if(!noBase(col.c)&&!chordSeat.has(String(col.c.id))&&!underDeck.has(String(col.c.id))&&!underFlatGirt(col.c)&&!endCuts(col.c).some(function(e){return e.end===1})&&!capOf(col.c)&&!(col.c.base&&col.c.base.step&&number(col.c.base.step.top_mm)>0)){var cap=new T.Mesh(shared("cap:"+bw+":"+hh+":"+ov,function(){return new T.BoxGeometry(bw+ov,.02,hh+ov)}),plateMat);cap.position.y=.01;var tc=n.kind==="top"&&seatTilt.get(String(col.c.id));if(tc){var tn=seatNormal(tc.e.b);cap.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),tn);cap.position.copy(tn.multiplyScalar(.01))}
      // (turned as the column is: on the door post Ст1 гн.[160×80×5 at 90° it lay 120 × 200 across the section 160 × 80)
      else if(branchTurn.get(String(col.c.id)))cap.quaternion.setFromAxisAngle(boltY,branchTurn.get(String(col.c.id)));g.add(cap)}
    }
