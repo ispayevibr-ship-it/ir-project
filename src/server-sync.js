@@ -296,8 +296,21 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
   }catch(e){try{setState("applying","0")}catch{}d.exec("ROLLBACK");throw e}
   return n
  }
+ // Доступ, выданный позже (просьба инженера 12.11.2026 «инженеру дал доступ в завершённые ранее объекты, а у него
+ // они не подгрузились»): забираются только строки, изменённые после прошлого обмена, а строки старого объекта не
+ // меняются от того, что человеку открыли доступ. Поэтому набор своих строк доступа (`access`: объект и раздел)
+ // сверяется при каждом обмене; изменился — обмен идёт с начала: сервер отдаёт все видимые строки, а забираются
+ // только те, которых здесь нет или они старее (по номеру версии).
+ async function accessChanged(){
+  const u=account.info().user;if(!u||u.role==="admin")return null;
+  const rows=await account.list("access",`filter=${encodeURIComponent(`user='${u.id}'`)}`);
+  const sig=u.id+":"+rows.map(a=>a.object_rid+"|"+(a.section_key||"")).sort().join(",");
+  return sig!==getState("access_sig")?sig:null
+ }
  async function pullNow(){
   let changed=0;
+  let sig=null;try{sig=await accessChanged()}catch{}
+  if(sig)for(const {coll} of TABLES)setState("since_"+coll,"");
   for(const {table,coll} of TABLES){
    const since=getState("since_"+coll);
    const filter=since?`&filter=${encodeURIComponent(`updated>="${since}"`)}`:"";
@@ -319,6 +332,7 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
    }
    if(last&&last!==since)setState("since_"+coll,last)
   }
+  if(sig)setState("access_sig",sig);
   if(changed)status.changedAt=now();
   return changed
  }
