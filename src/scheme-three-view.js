@@ -53,6 +53,8 @@ window.irThreeSchemeView=(function(){
  // Not mounted — steel as it is, silver (the engineer, 27.10.2026: «не смонтированные металлоконструкции сделай цветом
  // металла, серебристый такой, чтобы не сливался с фоном»; the light grey #B7BDC4 of the report of 25.10.2026 merged
  // with the light backgrounds): darker than any light background, with the sheen of metal (plannedMetal below).
+ // the notes badge: a drawn «i» in a circle instead of the «ⓘ» letter (the engineer, 12.11.2026: «иконку знака вопроса и шрифт»)
+ var NOTE_ICON='<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.6" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="7.25" y="7" width="1.5" height="4.6" rx=".75" fill="currentColor"/><circle cx="8" cy="4.9" r=".95" fill="currentColor"/></svg>';
  var statusColors={mounted:[0x159b65,"Смонтировано"],partial:[0xe09b00,"Частично"],planned:[0x9ea8b4,"Не смонтировано"]};
  // On the dark background the steel not mounted is dark grey metal (the engineer, 06.11.2026: «при темном фоне сделай
  // металлоконструкции другого цвета», then «не голубым … серым», then «темно серым сделай»): applyBackground puts it into statusColors.planned and the metal material.
@@ -737,7 +739,8 @@ window.irThreeSchemeView=(function(){
    '<div class="ir-three-legend" id="irThreeLegend"></div>'+
    '<aside class="ir-three-place" id="irThreePlace" hidden></aside>'+
    '<aside class="ir-three-place ir-three-node" id="irThreeNode" hidden></aside>'+
-   '<div class="ir-three-footer">ЛКМ — вращение · ПКМ или нажатое колесо — сдвиг · колесо — к точке под курсором · двойной щелчок — центр вращения · W A S D / стрелки — движение, Q E — вниз и вверх, Shift — быстрее · Esc — отмена</div></div>';
+   // (no hints of the mouse and keys under the scheme — the engineer, 12.11.2026 «внизу подсказки убери»; the report puts its statuses there)
+   '<div class="ir-three-footer" hidden style="display:none"></div></div>';
   var root=host.querySelector(".ir-three-root"),viewport=root.querySelector("#irThreeViewport"),
    axisLayer=root.querySelector("#irThreeAxisLayer"),labelLayer=root.querySelector("#irThreeLabelLayer"),
    cursor=root.querySelector("#irThreeCursor"),legend=root.querySelector("#irThreeLegend"),placePanel=root.querySelector("#irThreePlace");
@@ -747,7 +750,7 @@ window.irThreeSchemeView=(function(){
   if(P.report){var conf=root.querySelector('#irThreeColors option[value="confidence"]');if(conf)conf.remove();if(P.colorMode==="confidence")P.colorMode="status"}
   // (under the scheme of the report only the colours of the montage; how to move is in «Помощь по 3D» of the page —
   // the engineer, 03.11.2026: «Внизу оставь подсказки только Серый цвет - не смонтировано, зеленый - смонтировано»)
-  if(P.report){var foot=root.querySelector(".ir-three-footer");if(foot)foot.innerHTML='<span class="ir-three-st"><i style="background:#9ea8b4"></i>Серый — не смонтировано</span><span class="ir-three-st"><i style="background:#159b65"></i>Зелёный — смонтировано</span>'}
+  if(P.report){var foot=root.querySelector(".ir-three-footer");if(foot){foot.hidden=false;foot.style.display=""}if(foot)foot.innerHTML='<span class="ir-three-st"><i style="background:#9ea8b4"></i>Серый — не смонтировано</span><span class="ir-three-st"><i style="background:#159b65"></i>Зелёный — смонтировано</span>'}
   var scene=new T.Scene();
   var camera=new T.PerspectiveCamera(42,1,.08,3000);
   // Without the graphics card (Windows draws WebGL by the processor: SwiftShader, «Basic Render») the picture is made
@@ -4377,16 +4380,27 @@ window.irThreeSchemeView=(function(){
    elems.forEach(function(c){var nm=String(c.mark_name||c.title||""),m=/Крыльцо\s+(Кр\d+[^—]*?)\s*—\s*(прогон|балка конька)/i.exec(nm);if(!m||c.geometryType==="column")return;(byPorch[m[1]]=byPorch[m[1]]||[]).push(c)});
    Object.keys(byPorch).forEach(function(k){
     var ls=byPorch[k];if(ls.length<2)return;
-    var A0=memberPoints(ls[0]),a=A0[A0.length-1].clone().sub(A0[0]);a.y=0;if(a.lengthSq()<1e-6)return;a.normalize();var v=new T.Vector3(-a.z,0,a.x);
-    var lines=ls.map(function(c){var q=memberPoints(c),h=(halfSection(c)||{h:.04}).h||.04,P=q[0].clone(),Q=q[q.length-1].clone();
-     if(Q.clone().sub(P).dot(a)<0){var t=P;P=Q;Q=t}P.y+=h;Q.y+=h;return{P:P,Q:Q,o:P.dot(v),id:String(c.id)}}).sort(function(x,y){return x.o-y.o});
-    var s0=Math.min.apply(null,lines.map(function(l){return l.P.dot(a)}))-.1,s1=Math.max.apply(null,lines.map(function(l){return l.Q.dot(a)}))+.1;
-    var at=function(l,sv){var L=l.Q.dot(a)-l.P.dot(a),t=L>1e-6?(sv-l.P.dot(a))/L:0;return l.P.clone().lerp(l.Q,t)};
+    // (the direction most of their length runs along; only the lines along it — a purlin across, short or upright would stretch the
+    // sheet far past the porch)
+    var dirOf=function(c){var q=memberPoints(c),d=q[q.length-1].clone().sub(q[0]);d.y=0;return d};
+    var par=function(c,d){var e=dirOf(c),L=e.length(),M=d.length();return L>.3&&M>1e-6&&Math.abs(e.dot(d))/(L*M)>.95},wt=function(c){var d=dirOf(c);return ls.reduce(function(s,x){return s+(par(x,d)?dirOf(x).length():0)},0)},lng=ls.slice().sort(function(x,y){return wt(y)-wt(x)})[0],a=dirOf(lng);if(a.lengthSq()<.09)return;a.normalize();var v=new T.Vector3(-a.z,0,a.x);
+    ls=ls.filter(function(c){var d=dirOf(c),L=d.length();return L>.3&&Math.abs(d.dot(a))/L>.95});if(ls.length<2)return;
+    // (the lines at one offset across — a purlin in two pieces broken at the ridge — are one line of points along a)
+    var segs=ls.map(function(c){var q=memberPoints(c),h=(halfSection(c)||{h:.04}).h||.04;return{pts:[q[0],q[q.length-1]].map(function(p){var r=p.clone();r.y+=h;return r}),o:q[0].dot(v),id:String(c.id)}}).sort(function(x,y){return x.o-y.o});
+    var lines=[];segs.forEach(function(g){var l=lines[lines.length-1];if(l&&Math.abs(g.o-l.o)<.05){l.pts=l.pts.concat(g.pts)}else lines.push({o:g.o,id:g.id,pts:g.pts.slice()})});
+    lines.forEach(function(l){l.pts.sort(function(x,y){return x.dot(a)-y.dot(a)});var u=[];l.pts.forEach(function(p){var w=u[u.length-1];if(w&&Math.abs(p.dot(a)-w.dot(a))<.01){w.y=Math.max(w.y,p.y)}else u.push(p.clone())});l.pts=u});
+    lines=lines.filter(function(l){return l.pts.length>1});if(lines.length<2)return;
+    var s0=Math.min.apply(null,lines.map(function(l){return l.pts[0].dot(a)}))-.1,s1=Math.max.apply(null,lines.map(function(l){return l.pts[l.pts.length-1].dot(a)}))+.1;
+    // (a point of the line at sv along a: inside its pieces, or on from its end piece — no farther than 300 mm)
+    var at=function(l,sv){var P=l.pts,n=P.length,k=0;while(k<n-2&&P[k+1].dot(a)<sv)k++;var A=P[k],B=P[k+1],L=B.dot(a)-A.dot(a),lo=-.3/Math.max(L,1e-6),hi=1+.3/Math.max(L,1e-6),t=L>1e-6?Math.max(lo,Math.min(hi,(sv-A.dot(a))/L)):0;return A.clone().lerp(B,t)};
     if(!sheetMat)sheetMat=new T.MeshStandardMaterial({color:0xaab4be,metalness:.5,roughness:.5,side:T.DoubleSide});
     var pos=[],quad=function(p1,p2,p3,p4){[p1,p2,p3,p1,p3,p4].forEach(function(p){pos.push(p.x,p.y+.002,p.z)})};
-    var ext=function(l,dir){var o=lines[dir>0?lines.length-1:0],n=lines[dir>0?lines.length-2:1],d=o.P.clone().sub(n.P),dv=d.dot(v)||1e-6;return{P:o.P.clone().add(d.clone().multiplyScalar(.1/Math.abs(dv))),Q:o.Q.clone().add(o.Q.clone().sub(n.Q).multiplyScalar(.1/Math.abs(dv))),o:0}};
-    var all=[ext(null,-1)].concat(lines,[ext(null,1)]);
-    for(var i=0;i+1<all.length;i++){var l1=all[i],l2=all[i+1];quad(at(l1,s0),at(l1,s1),at(l2,s1),at(l2,s0))}
+    // (100 mm past the outer lines, level across)
+    var ext=function(dir){var o=lines[dir>0?lines.length-1:0],sh=v.clone().multiplyScalar(.1*dir);return{o:o.o+.1*dir,id:o.id,pts:o.pts.map(function(p){return p.clone().add(sh)})}};
+    var all=[ext(-1)].concat(lines,[ext(1)]);
+    // (the pieces of the sheet between the lines: at the ends and at every break of a line)
+    var cuts=[s0,s1];lines.forEach(function(l){l.pts.forEach(function(p){var sv=p.dot(a);if(sv>s0+.01&&sv<s1-.01)cuts.push(sv)})});cuts.sort(function(x,y){return x-y});
+    for(var i=0;i+1<all.length;i++){var l1=all[i],l2=all[i+1];for(var ci=0;ci+1<cuts.length;ci++){var c0=cuts[ci],c1=cuts[ci+1];if(c1-c0<.005)continue;quad(at(l1,c0),at(l1,c1),at(l2,c1),at(l2,c0))}}
     var geo=new T.BufferGeometry();geo.setAttribute("position",new T.Float32BufferAttribute(pos,3));geo.computeVertexNormals();
     var m=new T.Mesh(geo,sheetMat);m.userData.memberId=lines[0].id;m.userData.fixed=true;m.userData.footing=true;m.userData.sheet=true;steel.add(m);allMeshes.push(m);
     // (the ribs along the slope, every 200 mm)
@@ -7779,7 +7793,7 @@ window.irThreeSchemeView=(function(){
    nodeMeshes.forEach(function(m){var n=m.userData.node;m.visible=!explode&&(nodeVisible(n,cam)||n===selectedNode);
     if(m.visible){var k=Math.max(.35,Math.min(6,m.position.distanceTo(cam)*.045))*(n===selectedNode?1.6:1)*Math.min(1.5,.85+n.members.length*.08);m.scale.set(k,k,k)}});
    // (the anchors of the bases as near as the bolt sets: a mesh each, they were 900 drawings of the picture at 45 m)
-   details.forEach(function(d){d.group.visible=showDetails&&d.group.position.distanceTo(cam)<(light?12:25)})
+   details.forEach(function(d){d.group.visible=showDetails&&(!phone||d.group.position.distanceTo(cam)<12)})
   }
   function hitNode(){
    var hits=raycaster.intersectObjects(nodeMeshes.filter(function(m){return m.visible}),false);
@@ -7797,6 +7811,9 @@ window.irThreeSchemeView=(function(){
     st.textContent=".ir-three-root .ir-three-toolbar{right:auto;max-width:calc(100% - 22px);flex-wrap:nowrap;gap:5px;padding:4px 5px;background:#fffffff2}"+
      ".ir-three-root .ir-three-toolbar .ir-three-views{flex-wrap:nowrap;padding:2px;gap:2px}.ir-three-root .ir-three-toolbar button,.ir-three-root .ir-three-toolbar select{min-height:28px;padding:3px 9px;white-space:nowrap}"+
      ".ir-three-root .ir-three-toolbar .ir-three-count{margin-left:4px;white-space:nowrap}"+
+     ".ir-three-root .ir-three-toolbar .ir-three-notes{display:inline-flex;align-items:center;gap:5px;min-height:26px;padding:0 8px;border-radius:7px;border:1px solid #d6e2ec;background:#f6f9fc;color:#4d6b80;font-size:11px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}"+
+     ".ir-three-root .ir-three-toolbar .ir-three-notes[hidden]{display:none}.ir-three-root .ir-three-toolbar .ir-three-notes svg{width:14px;height:14px;flex:none}"+
+     ".ir-three-root.dark .ir-three-toolbar .ir-three-notes{background:#1f2a36;border-color:#2b3744;color:#cfe1f3}"+
      ".ir-three-more{display:inline-flex;align-items:center;gap:5px;font-weight:700}.ir-three-more b{font-weight:400;font-size:9px;color:#7891a3}.ir-three-more[aria-expanded=true]{background:#eaf3ff;border-color:#9dc2ed;color:#1769e0}"+
      ".ir-three-opts{position:absolute;z-index:9;display:grid;gap:7px;min-width:220px;padding:10px 12px;background:#fff;border:1px solid #d7e5f0;border-radius:10px;box-shadow:0 10px 26px rgba(20,45,70,.18)}.ir-three-opts[hidden]{display:none}"+
      ".ir-three-opts select{width:100%;min-height:30px;border:1px solid #cfdde8;border-radius:7px;background:#fff;color:#21445e;padding:4px 8px;font:inherit;font-size:12px;font-weight:600}.ir-three-root.dark .ir-three-opts select{background:#1f2a36;border-color:#2b3744;color:#e6ebf1}.ir-three-opts .ir-three-check{margin:0;font-size:11px}"+
@@ -7816,14 +7833,14 @@ window.irThreeSchemeView=(function(){
    var m={};allElems.forEach(function(c){var k=secOf(c);m[k]=(m[k]||0)+1});
    var keys=Object.keys(m).sort(function(a,b){var i=SEC_ORDER.indexOf(a),j=SEC_ORDER.indexOf(b);return(i<0?99:i)-(j<0?99:j)||(a<b?-1:1)});
    box.hidden=keys.length<2;if(keys.length<2){box.innerHTML="";return}
-   box.innerHTML=keys.map(function(k){var off=secOff.has(k);return'<button type="button" data-sec="'+escapeHtml(k)+'" class="'+(off?"off":"on")+'" aria-pressed="'+(!off)+'" title="'+(off?"Показать":"Скрыть")+" раздел "+escapeHtml(k)+'">'+escapeHtml(k)+' <small>'+m[k]+'</small></button>'}).join("");
+   box.innerHTML=keys.map(function(k){var off=secOff.has(k);return'<button type="button" data-sec="'+escapeHtml(k)+'" class="'+(off?"off":"on")+'" aria-pressed="'+(!off)+'" title="'+(off?"Показать":"Скрыть")+" раздел "+escapeHtml(k)+'">'+escapeHtml(k)+'<small>'+m[k]+'</small></button>'}).join("");
    [].forEach.call(box.querySelectorAll("[data-sec]"),function(b){b.onclick=function(e){e.stopPropagation();var k=b.getAttribute("data-sec");if(secOff.has(k))secOff.delete(k);else secOff.add(k);
     var next={};for(var f in P)next[f]=P[f];next.elements=allElems;update(next)}})
   }
   (function(){if(document.getElementById("irThreeSecsCss"))return;var st=document.createElement("style");st.id="irThreeSecsCss";
-   st.textContent=".ir-three-secs{display:inline-flex;gap:4px;align-items:center;flex-wrap:wrap}.ir-three-secs[hidden]{display:none}"+
-    ".ir-three-secs button{min-height:26px;padding:2px 8px;border-radius:7px;border:1px solid #bed2e6;background:#eef5fd;color:#2b5f8f;font:inherit;font-size:11px;font-weight:800;cursor:pointer}"+
-    ".ir-three-secs button small{font-size:9px;font-weight:650;opacity:.8}.ir-three-secs button.off{border-color:#d9e2e9;background:#f5f7f9;color:#8b9da9;text-decoration:line-through}"+
+   st.textContent=".ir-three-secs{display:inline-flex;gap:4px;align-items:center;flex-wrap:nowrap;flex:none}.ir-three-secs button{white-space:nowrap}.ir-three-secs[hidden]{display:none}"+
+    ".ir-three-secs button{display:inline-flex;align-items:center;gap:6px;min-height:26px;padding:2px 9px;border-radius:7px;border:1px solid #bed2e6;background:#eef5fd;color:#2b5f8f;font:inherit;font-size:11px;font-weight:800;line-height:1;cursor:pointer}"+
+    ".ir-three-secs button small{font:inherit;font-size:10.5px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:0;opacity:.7}.ir-three-secs button.off{border-color:#d9e2e9;background:#f5f7f9;color:#8b9da9;text-decoration:line-through}"+
     ".ir-three-root.dark .ir-three-secs button{background:#1f2a36;border-color:#2b3744;color:#cfe1f3}.ir-three-root.dark .ir-three-secs button.off{color:#6d7c8a;background:#18212b}";
    document.head.appendChild(st)})();
   paintSecs();
@@ -9903,9 +9920,9 @@ window.irThreeSchemeView=(function(){
     }
     else if(sect){
      // Sections across, their joints; the guides at the sides and the tracks under the roof inside.
-     var ns=Math.max(4,Math.round(H/.55)),sh=(H-gf)/ns,si2=-(t/2+.04);
-     for(var k=0;k<ns;k++)box(L-2*gf,sh-.006,.045,0,k*sh+sh/2,si2);
-     [gf/2,L-gf/2].forEach(function(u){box(.07,H-.14,.06,X(u),(H-.14)/2,si2-.01);box(.06,.06,Math.min(H,4),X(u),H-.1,-(t/2+Math.min(H,4)/2),hardwareMat)});
+     var ns=Math.max(4,Math.round(H/.55)),sh=(H-gf)/ns,tb=Math.max(t/2,gd/2)+.001,si2=-(tb+.04),gi=Math.max(gf,gf/2+.037);
+     for(var k=0;k<ns;k++)box(L-2*gi,sh-.006,.045,0,k*sh+sh/2,si2);
+     [gf/2,L-gf/2].forEach(function(u){box(.07,H-.14,.06,X(u),(H-.14)/2,si2-.01);box(.06,.06,Math.min(H,4),X(u),H-.1,-(tb+Math.min(H,4)/2),hardwareMat)});
      box(.3,.05,.03,0,.3,si2-.04,hardwareMat,true);
      // (a wicket in the sections — «с калиткой»: its frame 900 × 2000 at the middle, its handle)
      if(lay.wicket_spec){var wk0=L/2-.45;solid(wk0,wk0+.9,.02,2.02,[[wk0+.05,wk0+.85,.07,1.97]],.04,si2-.05);box(.04,.18,.012,X(wk0+.8),1.0,si2-.08,hardwareMat,true)}
@@ -10032,8 +10049,12 @@ window.irThreeSchemeView=(function(){
    // nor «сечение условное: 24» — the engineer the same day, a picture of the panel with only it left; in the window as in
    // the export, where it was taken off before)
    var countNotes=[failures?"без геометрии: "+failures:"",wallCut.size?"за стеной обрезано: "+wallCut.size:"",linesMoved?"стен по наружной грани каркаса: "+linesMoved:"",masonryN?"кровля на каменных стенах (стены условно): "+masonryN:"",ductN?"воздуховоды в отверстиях АР (условно): "+ductN:"",porchN?"профлист крылец: "+porchN:""].filter(Boolean);
-   root.querySelector("#irThreeCount").textContent=countNotes.join(" · ");root.querySelector("#irThreeCount").hidden=!countNotes.length;
-   root.querySelector("#irThreeCount").title=conventional.size?"Профиль этих элементов не найден в справочнике сортаментов (или не указан) — сечение нарисовано условно, не по размерам":"Сечения нарисованы по справочнику сортаментов";
+   // (the notes not written out on the bar — six of them stretched it over the whole window and put the buttons of the
+   // sections one on another: the engineer, 12.11.2026 «это что за мишанина сверху, поправь»; a small «ⓘ N», the notes
+   // themselves in its hint, a line each)
+   var countEl=root.querySelector("#irThreeCount");countEl.classList.add("ir-three-notes");countEl.innerHTML=countNotes.length?NOTE_ICON+"<span>"+countNotes.length+"</span>":"";countEl.hidden=!countNotes.length;
+   countEl.style.cursor="help";countEl.setAttribute("aria-label","Примечания к схеме: "+countNotes.join("; "));
+   countEl.title="Нарисовано не так, как задано:\n"+countNotes.join("\n")+(conventional.size?"\n\nПрофиль части элементов не найден в справочнике сортаментов (или не указан) — сечение нарисовано условно, не по размерам":"");
    paintLegend();
    if(apart)setExplode(apart.n,apart.s)};
    if(queue){rebatch(queue);queue.push({w:0,text:"Цвета и сборка модели",run:materialsRest});return}
@@ -10238,7 +10259,11 @@ window.irThreeSchemeView=(function(){
    // the heaviest part of a picture close up; the bolt sets of at most 3 cells made in a picture, the rest in the next
    // ones — flying in, the sets of a dozen cells at once held the window: «из-за чего может подвисать схема?», 03.11.2026)
    // (a phone: nearer still — its detailed cells made as the camera comes near and let go far off, lazyCells)
-   var near=phone?8:light?22:45,bolts=phone?5:light?8:18,lines=phone?8:light?16:45,made=0,more=false;
+   // (a computer: always the full picture — every piece, outline, bolt and seam at any distance, nothing appears or goes as the
+   // camera comes near: the engineer, 12.11.2026 «убери эту прорисовку когда приближаешь, путаница сильнейшая из-за нее —
+   // пусть всегда показывается прорисованным»; the bolt sets and seams are made a few cells a picture until all are there
+   // and then kept; a phone keeps its near cells only — all of them at once ran its browser out of memory, 06.11.2026)
+   var near=phone?8:Infinity,bolts=phone?5:Infinity,lines=phone?8:Infinity,made=0,more=false;
    batches.children.forEach(function(b){
     if(b.userData.lod==="bolt"||b.userData.lod==="weld"||b.userData.lazy)return;
     var s=b.geometry.boundingSphere,d=s?Math.max(0,cam.distanceTo(s.center)-s.radius):0;
@@ -10433,7 +10458,8 @@ window.irThreeSchemeView=(function(){
    }).join("")+(rows.length>shown.length?'<span class="more">ещё '+(rows.length-shown.length)+'</span>':"")+
     (prelimCount()?'<span title="Экземпляры, определённые по чертежам не полностью: расставлены и показаны бледно. Причина — в карточке элемента."><i style="background:#c9d3dd;opacity:.6;outline:1px dashed #6f7f8f"></i>Предварительно <small>'+prelimCount()+'</small></span>':"")+
     (cranes.length&&showDetails?'<span data-crane style="cursor:pointer;font-weight:700" title="Краны и тали нарисованы условно (в КМ их нет): по рельсам и подкрановым путям. Щелчок — показать следующий"><i style="background:#ff6a00"></i>Краны (условно) <small>'+cranes.length+'</small></span>':"");
-   legend.hidden=!rows.length&&!(cranes.length&&showDetails)
+   // the engineer, 12.11.2026: «не смонтировано, RAL и т. д. тоже убери» — the colour legend over the scheme is not shown
+   legend.hidden=true;legend.style.display="none"
   }
   function applyBackground(){
    var choice=P.background||"standard",color=choice==="custom"&&P.backgroundColor?new T.Color(P.backgroundColor).getHex():backgrounds[choice]||backgrounds.standard;
