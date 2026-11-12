@@ -1094,6 +1094,32 @@ let loose=0;
   }
  }
  if(loose)warnings.push("Проёмов без подходящего окна, двери или ворот в спецификациях: "+loose+" (вентрешётки, проёмы под оборудование) — не заполнены");
+ // A panel over (or under) an opening stands in the same columns as the panels below it (ИР-71535 АР ч.2 л.2, О8: over
+ // the windows ОК-4 Пс-24, Пс-24, Пс-20, Пс-20 — four full columns as Пс-33 under the window; read 860, 835, 785 wide —
+ // slits of 140…215 mm over the windows, steel seen through): an edge of a panel short of the edge of the column below or
+ // above it by up to 300 mm, with nothing of its own band in between, is drawn to that column's edge.
+ const holes=placements.filter(o=>/^(window|door|gate)$/.test(o.type_key||"")&&o.diameter_mm>0);
+ for(const v of views){
+  const list=placements.filter(p=>p.view===v),lo=p=>v.numbered?p.x_mm:p.y_mm,hi=p=>v.numbered?p.x2_mm:p.y2_mm,top=p=>p.z0_mm+p.diameter_mm;
+  for(const p of list){
+   const w=hi(p)-lo(p);if(w<200)continue;
+   const col=list.filter(q=>q!==p&&(top(q)<=p.z0_mm+60||q.z0_mm>=top(p)-60)&&Math.min(hi(q),hi(p))-Math.max(lo(q),lo(p))>=w*.5)
+    .sort((a,b)=>Math.min(Math.abs(p.z0_mm-top(a)),Math.abs(a.z0_mm-top(p)))-Math.min(Math.abs(p.z0_mm-top(b)),Math.abs(b.z0_mm-top(p))))[0];
+   if(!col)continue;
+   const band=q=>q!==p&&Math.min(top(q),top(p))-Math.max(q.z0_mm,p.z0_mm)>=100;
+   // (nor into a window, a door, a gate of that wall — Пс-124 of row Б at the end of the band of windows ОК-5)
+   const shut=(u0,u1)=>holes.some(o=>Math.abs((v.numbered?o.y_mm:o.x_mm)-p.line)<=300&&Math.min(o.z0_mm+o.diameter_mm,top(p))-Math.max(o.z0_mm,p.z0_mm)>=50&&
+    Math.min(u1,Math.max(v.numbered?o.x_mm:o.y_mm,v.numbered?o.x2_mm:o.y2_mm))-Math.max(u0,Math.min(v.numbered?o.x_mm:o.y_mm,v.numbered?o.x2_mm:o.y2_mm))>2);
+   // (nor up to a panel with the hole of a door or a gate (from the floor) by that edge — its jamb is the opening's: ряд Б Пс-116 at the door by О8)
+   const jamb=(u,side)=>list.some(q=>band(q)&&Math.abs((side>0?lo(q):hi(q))-u)<=10&&(q.layout?.holes||[]).some(h=>h[2]<=300&&(side>0?h[0]<=300:h[1]>=(q.layout.width_mm||hi(q)-lo(q))-300)));
+   const gh=hi(col)-hi(p),gl=lo(p)-lo(col);
+   if(gh>5&&gh<=300&&!shut(hi(p),hi(col))&&!jamb(hi(col),1)&&!list.some(q=>band(q)&&lo(q)<hi(col)-5&&hi(q)>hi(p)+5)){if(v.numbered)p.x2_mm+=gh;else p.y2_mm+=gh;p.layout.width_mm+=gh;p.notes.push("Край продлён на "+gh+" мм — по столбцу панелей "+(col.z0_mm<p.z0_mm?"под":"над")+" ней")}
+   if(gl>5&&gl<=300&&!shut(lo(col),lo(p))&&!jamb(lo(col),-1)&&!list.some(q=>band(q)&&hi(q)>lo(col)+5&&lo(q)<lo(p)-5)){if(v.numbered)p.x_mm-=gl;else p.y_mm-=gl;p.layout.width_mm+=gl;p.notes.push("Край продлён на "+gl+" мм — по столбцу панелей "+(col.z0_mm<p.z0_mm?"под":"над")+" ней")}
+   // (now of the size of its specification — the «проверьте» of the size read off the sheet goes)
+   if(gh>5||gl>5)p.notes=p.notes.filter(n=>{const m=/^Размер по чертежу (\d+)×(\d+), по спецификации (\d+)×(\d+)/.exec(n);
+    return!m||!(Math.abs(p.layout.width_mm-m[3])<=40&&Math.abs(m[2]-m[4])<=40||Math.abs(p.layout.width_mm-m[4])<=40&&Math.abs(m[2]-m[3])<=40)});
+  }
+ }
  // The gates in niches (src/ai-ar-extract.js nicheSpec, «Ниши ворот В 1 по рядам Б , Л»): of those marks, in the wall of
  // those rows — layout.niche; the 3D sets the gate in the depth of the niche at the face of the steel over it, the sides and
  // the «потолок» of the niche lined with panels (scheme-three-view.js gateNiches).
