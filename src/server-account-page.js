@@ -313,9 +313,9 @@
   return new Promise(resolve=>{
    let result=null;
    const d=dialog(parent.ownerDocument,"wide ir-acc-scroll",head("Роли и права","Названия ролей и что каждая может. Объекты человеку по-прежнему отмечаются в «Доступ»; роль решает, что он делает в разделах.")+
-    `<div class="ir-acc-body"><div class="ir-roles"><div class="ir-roles-list" data-list></div><div class="ir-roles-edit" data-edit></div></div><div class="ir-acc-st" data-st></div></div>
-    <div class="ir-acc-foot"><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Отмена</button><button type="button" class="ir-acc-btn main" data-go>Сохранить</button></div>`);
-   d.addEventListener("close",()=>resolve(result),{once:true});
+    `<form data-rolesform><div class="ir-acc-body"><div class="ir-roles"><div class="ir-roles-list" data-list></div><div class="ir-roles-edit" data-edit></div></div><div class="ir-acc-st" data-st></div></div>
+    <div class="ir-acc-foot"><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Отмена</button><button type="button" class="ir-acc-btn main" data-go>Сохранить</button></div></form>`);
+   d.addEventListener("close",()=>resolve(result),{once:true});d.querySelector("[data-rolesform]").onsubmit=e=>e.preventDefault();
    const listEl=d.querySelector("[data-list]"),edit=d.querySelector("[data-edit]"),st=d.querySelector("[data-st]");
    const role=()=>roles.find(r=>r.id===cur);
    const paintList=()=>{listEl.innerHTML=roles.map(r=>`<button type="button" class="r ${r.id===cur?"on":""}" data-id="${esc(r.id)}"><span>${esc(r.name||"Без названия")}</span>${r.id==="admin"?"<small>все права</small>":r.builtin?"":"<small>своя</small>"}</button>`).join("")+
