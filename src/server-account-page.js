@@ -271,7 +271,7 @@
   if(!st0?.signedIn){if(await login(doc))return panel(doc);return}
   if(st0.user.role!=="admin"){alert("Панель администратора — только для администратора.");return}
   const d=dialog(doc,"wide",head("Панель администратора","Кто входит в программу и что видит. Сервер проверяет права сам: человек получает только свои объекты и разделы.")+
-   `<div class="ir-acc-body"><div data-mail></div><div class="ir-acc-tools"><button type="button" class="ir-acc-btn main" data-add><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Дать доступ инженеру</span></button><button type="button" class="ir-acc-btn" data-roles title="Названия ролей и что каждая может: разделы, новые объекты, удаление, выгрузка">Роли и права</button><button type="button" class="ir-acc-btn" data-letter title="Текст письма, которое получает человек">Шаблон письма</button><button type="button" class="ir-acc-btn" data-site title="Какие объекты показывает сайт компании">Объекты на сайте</button><span class="grow"></span><span class="ir-acc-count" data-count></span><button type="button" class="ir-acc-btn" data-reload>Обновить</button></div>
+   `<div class="ir-acc-body"><div data-mail></div><div class="ir-acc-tools"><button type="button" class="ir-acc-btn main" data-add><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Дать доступ</span></button><button type="button" class="ir-acc-btn" data-roles title="Названия ролей и что каждая может: разделы, новые объекты, удаление, выгрузка"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg><span>Роли и права</span></button><button type="button" class="ir-acc-btn" data-site title="Какие объекты показывает сайт компании"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><span>Сайт</span></button><span class="grow"></span><span class="ir-acc-count" data-count></span><button type="button" class="ir-acc-btn" data-reload><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.8-4"/><path d="M4 4v5h5"/><path d="M4 13a8 8 0 0 0 14.8 4"/><path d="M20 20v-5h-5"/></svg><span>Обновить</span></button></div>
    <div class="ir-acc-st" data-st>Загружаем…</div><div class="ir-acc-people" data-list></div></div>
    <div class="ir-acc-foot"><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Закрыть</button></div>`);
   const st=d.querySelector("[data-st]"),list=d.querySelector("[data-list]");
@@ -300,7 +300,6 @@
    catch(e){st.className="ir-acc-st err";st.textContent=errText(e)}
   };
   d.querySelector("[data-reload]").onclick=load;
-  d.querySelector("[data-letter]").onclick=()=>letterEditor(d);
   d.querySelector("[data-roles]").onclick=()=>rolesEditor(d).then(r=>{if(!r)return;info().then(()=>load()).then(()=>{st.className="ir-acc-st ok";st.textContent=r.note})});
   d.querySelector("[data-site]").onclick=()=>siteObjects(d);
   // after the letter — back in the panel, the result above the list
@@ -322,7 +321,9 @@
    let result=null;
    const d=dialog(parent.ownerDocument,"wide ir-acc-scroll",head("Роли и права","Названия ролей и что каждая может. Объекты человеку по-прежнему отмечаются в «Доступ»; роль решает, что он делает в разделах.")+
     `<form data-rolesform><div class="ir-acc-body"><div class="ir-roles"><div class="ir-roles-list" data-list></div><div class="ir-roles-edit" data-edit></div></div><div class="ir-acc-st" data-st></div></div>
-    <div class="ir-acc-foot"><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Отмена</button><button type="button" class="ir-acc-btn main" data-go>Сохранить</button></div></form>`);
+    <div class="ir-acc-foot"><button type="button" class="ir-acc-btn" data-letter title="Текст письма, которое человек получает с доступом или новым паролем"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg><span>Шаблон письма</span></button><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Отмена</button><button type="button" class="ir-acc-btn main" data-go>Сохранить</button></div></form>`);
+   // «Шаблон письма» — здесь, в «Роли и права» (просьба инженера 12.11.2026 «Шаблон письма перенеси в роли и права»)
+   d.querySelector("[data-letter]").onclick=()=>letterEditor(d);
    d.addEventListener("close",()=>resolve(result),{once:true});d.querySelector("[data-rolesform]").onsubmit=e=>e.preventDefault();
    const listEl=d.querySelector("[data-list]"),edit=d.querySelector("[data-edit]"),st=d.querySelector("[data-st]");
    const role=()=>roles.find(r=>r.id===cur);
@@ -475,7 +476,7 @@
  let siteSending=false;
  async function siteObjects(parent){
   const doc=parent?.ownerDocument||document;
-  const d=dialog(doc,"wide ir-acc-so",head("Объекты на сайте","Отметьте объекты, которые показывает сайт компании a-ts.kz. Итоги на сайте считаются сами по отправленным объектам.")+
+  const d=dialog(doc,"wide ir-acc-so",head("Сайт","Отметьте объекты, которые показывает сайт компании a-ts.kz. Итоги на сайте считаются сами по отправленным объектам.")+
    `<div class="ir-acc-body">
     <div class="ir-so-bar"><input type="search" data-q placeholder="Поиск по названию, заказчику, адресу"><div class="ir-so-tabs" data-tabs></div></div>
     <div class="ir-so-sum"><span data-onsite></span><span class="grow"></span><button type="button" class="ir-acc-btn small" data-all>Отметить показанные</button><button type="button" class="ir-acc-btn small" data-none>Снять все</button></div>
@@ -565,7 +566,7 @@
     <div class="ir-acc-secs" ${whole?"hidden":""}>${sections.map(s=>`<label class="ir-acc-check"><input type="checkbox" value="${esc(s.key)}" ${g&&!g.whole&&g.sections.includes(s.key)?"checked":""}><span>${esc(s.name)}</span></label>`).join("")}</div></div></div>`};
   return new Promise(resolve=>{
    let changed=null;
-   const d=dialog(doc,"wide",head(person?"Доступ: "+(person.name||person.email):"Дать доступ инженеру",person?person.email:"Человек получит письмо: логин — почта, пароль — созданный программой (потом сменит сам).")+
+   const d=dialog(doc,"wide",head(person?"Доступ: "+(person.name||person.email):"Дать доступ",person?person.email:"Человек получит письмо: логин — почта, пароль — созданный программой (потом сменит сам).")+
     `<form><div class="ir-acc-body"><div class="ir-acc-row"><label>Почта${person?"":" (логин)"}<input name="email" type="email" value="${esc(person?.email||"")}" ${person?"disabled":"required"} placeholder="name@site.kz"></label>
     <label>Имя<input name="name" value="${esc(person?.name||"")}" placeholder="Фамилия Имя"></label></div>
     <label>Роль<select name="role">${Object.entries(roles).map(([k,v])=>`<option value="${k}" ${(person?.roleId||person?.role||"foreman")===k?"selected":""}>${esc(v)}</option>`).join("")}</select></label>
@@ -678,7 +679,7 @@
      <h3>Администратор — один раз</h3>
      <ol>
       <li>Войдите: значок профиля вверху справа → почта и пароль.</li>
-      <li>Дайте доступ людям: профиль → <b>Панель администратора</b> → <b>«Дать доступ инженеру»</b> — почта, имя, роль, объекты и разделы («изменяет» или «просмотр»). Логин и пароль уйдут письмом (нужна почта в Настройках → «Почта»).</li>
+      <li>Дайте доступ людям: профиль → <b>Панель администратора</b> → <b>«Дать доступ»</b> — почта, имя, роль, объекты и разделы («изменяет» или «просмотр»). Логин и пароль уйдут письмом (нужна почта в Настройках → «Почта»).</li>
       <li>Отправьте свою базу на сервер: профиль → <b>Синхронизация</b> → <b>«Отправить мою базу на сервер»</b>. Перед отправкой рядом с базой сохранится копия. Это делается один раз, с главного компьютера.</li>
      </ol>
      <h3>Инженер — на своём компьютере</h3>

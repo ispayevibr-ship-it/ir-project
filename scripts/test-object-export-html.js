@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/object-export-html.js","utf8");
 assert(hero.includes("data-hero-export-html"),"export entry available in object header menu");
 assert(hero.includes("window.irObjectHtmlExport?.save"),"export action connected");
 assert(runtime.includes("data-hero-export-html"),"bundled runtime updated");
-assert(html.includes('object-export-html.js?v=1127700'),"source loaded after runtime");
+assert(Number((/object-export-html\.js\?v=(\d+)/.exec(html)||[])[1])>=1129600,"source loaded after runtime (fresh copy)");
 assert(source.includes("cloneNode(true)"),"overview snapshot captured");
 assert(source.includes("extractOverviewPreviews(copy,keys)"),"overview cards move into corresponding sections");
 assert(source.includes('.object-overview-reports > .oor2-card,.object-overview-marks-wrap > .object-overview-marks-card,.object-overview-deliveries-wrap > .ood-deliveries'),"duplicate reports, photos, marks, invoices are removed from overview");
@@ -132,7 +132,7 @@ assert(!source.includes("if(!/^\\\\d+$/.test(id))"),"escaped digit matcher would
 assert(source.includes("if(String(activeHero?.dataset.objectId||\"\")!==id)"),"avoid exporting another object after navigation");
 assert(source.includes("ir-styles.css"),"all current component styles embedded");
 assert(source.includes("Content-Security-Policy"),"standalone report does not execute code");
-assert(source.includes("function chooseExportSections(keys,nav)"),"configurable section dialog exists");
+assert(source.includes("function chooseExportSections(keys,nav,noContractor)"),"configurable section dialog exists");
 assert(source.includes('dlg.showModal()'),"native export options dialog opens");
 assert(source.includes('Выбрать все')&&source.includes('Снять все'),"select/deselect all controls exist");
 assert(source.includes('if(!selection)return false;'),"cancel never starts saving");
@@ -354,7 +354,7 @@ assert(source.includes('underContractor?Promise.resolve(""):readLogo(String(prof
 assert(source.includes('hero.insertAdjacentHTML("afterend",headerMarkup)'),"participants follow the main photo banner");
 assert(source.includes('copy.querySelector(".ir-export-companies")'),"company header kept when overview is excluded");
 assert(source.includes('<input type="checkbox" data-under-contractor>'),"flag is off by default");
-assert(source.includes('underContractor:dlg.querySelector("[data-under-contractor]").checked===true'),"export receives checked contractor flag");
+assert(source.includes('underContractor:!noContractor&&dlg.querySelector("[data-under-contractor]").checked===true'),"export receives checked contractor flag");
 assert(source.includes('if(selection.underContractor)html=redactCompanyIdentity(html,companyHeader.ownName)'),"own company name is redacted throughout HTML output");
 assert(source.includes('redactCompanyIdentity(name,companyHeader.ownName)'),"own company is also excluded from filename");
 assert(source.includes('.ir-export-companies-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))'),"company roles occupy balanced columns");
@@ -402,6 +402,9 @@ assert(source.includes('@media(max-height:540px){.ir-export-options-head{padding
 const dialogStart=source.indexOf("dlg.innerHTML="),dialogEnd=source.indexOf("document.body.append(dlg)",dialogStart);
 const dialogMarkup=source.slice(dialogStart,dialogEnd);
 assert(dialogMarkup.includes('data-under-contractor'),"contractor flag remains selectable");
+// нет генподрядчика (12.11.2026 «если поле генподрядчик не заполненно, его нигде не выводим»): ни карточки, ни флага
+assert(source.includes('...(String(parties.contractorName||"").trim()?[{tone:"contractor"'),"no contractor card without a name");
+assert(dialogMarkup.includes("(noContractor?'</div>':"),"no contractor flag without a contractor");
 assert(dialogMarkup.indexOf('ir-export-options-list')<dialogMarkup.indexOf('ir-export-options-flag'),"contractor flag follows section choices");
 assert(dialogMarkup.includes('</p></div></div>'),"contractor flag belongs to scrollable content");
 assert(dialogMarkup.indexOf('ir-export-options-flag')<dialogMarkup.indexOf('ir-export-options-foot'),"fixed export buttons remain below the scrollable content");

@@ -752,10 +752,11 @@
  function companyHeaderHtml(parties){
   const cards=[
    {tone:"customer",role:"Заказчик",name:parties.customerName,logo:parties.customerLogo},
-   {tone:"contractor",role:"Генподрядчик",name:parties.contractorName,logo:parties.contractorLogo},
-   ...(!parties.underContractor?[{tone:"own",role:"Исполнитель",name:parties.ownName,logo:parties.ownLogo}]:[])
+   // нет генподрядчика (поле пустое) — его карточки нет (просьба инженера 12.11.2026)
+   ...(String(parties.contractorName||"").trim()?[{tone:"contractor",role:"Генподрядчик",name:parties.contractorName,logo:parties.contractorLogo}]:[]),
+   ...(!(parties.underContractor&&String(parties.contractorName||"").trim())?[{tone:"own",role:"Исполнитель",name:parties.ownName,logo:parties.ownLogo}]:[])
   ];
-  return'<section class="ir-export-companies'+(cards.length===2?' ir-export-companies-two':'')+'" aria-label="Участники строительства"><div class="ir-export-companies-grid">'+cards.map(p=>{
+  return'<section class="ir-export-companies'+(cards.length===2?' ir-export-companies-two':cards.length===1?' ir-export-companies-one':'')+'" aria-label="Участники строительства"><div class="ir-export-companies-grid">'+cards.map(p=>{
    const img=p.logo?'<img src="'+esc(p.logo)+'" alt="Логотип: '+esc(p.role)+'">':'<span class="ir-export-company-no-logo">Логотип не указан</span>';
    return'<article class="ir-export-company-card ir-export-company-'+p.tone+'"><div class="ir-export-company-logo">'+img+'</div><div class="ir-export-company-meta"><div class="ir-export-company-role">'+esc(p.role)+'</div><div class="ir-export-company-name">'+esc(p.name||"Не указано")+'</div></div></article>'
   }).join("")+'</div></section>'
@@ -1110,7 +1111,7 @@
   return {overview:copy.innerHTML,preview}
  }
 
- function chooseExportSections(keys,nav){
+ function chooseExportSections(keys,nav,noContractor){
   const names=new Map([...nav?.querySelectorAll("button[data-key]")||[]].map(b=>[b.dataset.key,b.querySelector(".nav-label")?.textContent?.trim()||labels[b.dataset.key]||b.dataset.key]));
   if(!document.getElementById("ir-export-options-style")){
    const st=document.createElement("style");st.id="ir-export-options-style";
@@ -1143,7 +1144,7 @@
     // («Финансы» unchecked at every opening — put in only by hand: the engineer, 06.11.2026 «раздел финансы выключен
     // всегда при выгрузке»)
     '<div class="ir-export-options-list">'+items.map(x=>'<label><input type="checkbox" data-export-key="'+esc(x.key)+'"'+(x.key==="finance"?"":" checked")+'><span>'+esc(workLabel(x.name))+(x.key==="finance"?' <small>(по умолчанию выключен)</small>':"")+'</span></label>').join("")+
-    '<div class="ir-export-options-flag"><label><input type="checkbox" data-under-contractor><span>Под флагом Генподрядчика</span></label><p>Не показывать название и логотип нашей компании в выгруженном отчёте. По умолчанию выключено.</p></div></div>'+
+    (noContractor?'</div>':'<div class="ir-export-options-flag"><label><input type="checkbox" data-under-contractor><span>Под флагом Генподрядчика</span></label><p>Не показывать название и логотип нашей компании в выгруженном отчёте. По умолчанию выключено.</p></div></div>')+
     '<div class="ir-export-options-foot"><button type="button" data-export-cancel>Отмена</button><button type="button" data-export-link title="Отчёт на сервере компании: ссылку можно отправить заказчику — откроется в браузере и на телефоне, без программы">Поделиться ссылкой</button><button type="button" class="ir-export-save" data-export-confirm>Выгрузить HTML</button></div>';
    document.body.append(dlg);
    const checks=[...dlg.querySelectorAll("input[data-export-key]")],ok=dlg.querySelector("[data-export-confirm]");
@@ -1155,7 +1156,7 @@
    dlg.querySelector("[data-export-cancel]").addEventListener("click",()=>dlg.close());
    const pick=share=>{
     if(!checks.some(x=>x.checked))return;
-    result={overview:checks.find(x=>x.dataset.exportKey==="overview")?.checked===true,keys:keys.filter(key=>checks.some(x=>x.dataset.exportKey===key&&x.checked)),underContractor:dlg.querySelector("[data-under-contractor]").checked===true,share};
+    result={overview:checks.find(x=>x.dataset.exportKey==="overview")?.checked===true,keys:keys.filter(key=>checks.some(x=>x.dataset.exportKey===key&&x.checked)),underContractor:!noContractor&&dlg.querySelector("[data-under-contractor]").checked===true,share};
     dlg.close()
    };
    ok.addEventListener("click",()=>pick(false));
@@ -1221,7 +1222,7 @@
    const visibleKeys=nav?[...nav.querySelectorAll("button[data-key]")].filter(b=>!b.disabled&&b.dataset.key!=="overview").map(b=>b.dataset.key):[];
    // (the trash is never in the report — not offered, not shown: the engineer, 06.11.2026 «корзина не выводится никогда»)
    const availableKeys=[...new Set(visibleKeys.length?visibleKeys:sections.filter(s=>s.enabled).map(s=>s.section_key))].filter(key=>key!=="trash");
-  const selection=await chooseExportSections(availableKeys,nav);
+  const selection=await chooseExportSections(availableKeys,nav,!String(object?.general_contractor||"").trim());
   if(!selection)return false;
   const keys=selection.keys;
    bar=exportProgress();await bar.step(.03,"Логотипы и сведения о компаниях");
