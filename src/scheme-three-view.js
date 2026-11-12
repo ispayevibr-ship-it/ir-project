@@ -4452,9 +4452,9 @@ window.irThreeSchemeView=(function irThreeModule(){
   // Up to 2,5 m wide: the valley of node 40 АР ч.1 л.6 (АР-27) at the east wall О10 of the annex О8–О10 — the roof Пк-16
   // 10 % ends at 65,531, the wall with its parapet stands at 67,210, between them the flat gutter with funnels, i=0,5 %
   // (the plan of the roof ч.1 л.5); with 1,2 m it stayed an open slot of 1,68 m (the engineer's section, 12.11.2026).
-  var gutterN=0,gutterMat=null,guttered=new Set();
+  var gutterN=0,gutterMat=null,guttered=new Set(),overflowN=0;
   function eaveGutters(){
-   gutterN=0;guttered.clear();var walls=[],capped=new Set(),runs=[];
+   gutterN=0;guttered.clear();var walls=[],capped=new Set(),runs=[],ends=[];
    elems.forEach(function(c){if(c.ft!=="panel"||!c.id||!c.lay||c.lay.panel!=="wall")return;var ms=(meshesById.get(String(c.id))||[]).filter(function(m){return m.isMesh&&!m.userData.seam});if(!ms.length)return;
     var p=memberPoints(c),u=new T.Vector3(p[1].x-p[0].x,0,p[1].z-p[0].z),L=u.length();if(L<.1)return;u.divideScalar(L);
     var b=new T.Box3();ms.forEach(function(m){b.expandByObject(m)});walls.push({id:String(c.id),u:u,n:new T.Vector3(-u.z,0,u.x),b:b,o:p[0]})});
@@ -4480,8 +4480,58 @@ window.irThreeSchemeView=(function irThreeModule(){
     put(id,.002,lo.y-yb,w,mid(.001,(yb+lo.y)/2),h,up,side);
     put(id,.002,.3,w,mid(g-.003,yb+.15),h,up,side);
     gutterN++;guttered.add(id);
-    runs.push({q:best.q,s0:lo.clone().sub(best.q.o).dot(best.q.u)-w/2,s1:lo.clone().sub(best.q.o).dot(best.q.u)+w/2,y:lo.y})
+    runs.push({q:best.q,s0:lo.clone().sub(best.q.o).dot(best.q.u)-w/2,s1:lo.clone().sub(best.q.o).dot(best.q.u)+w/2,y:lo.y});
+    ends.push({id:id,lo:lo,hi:hi,h:h,side:side,w:w,t:t,g:g,yb:yb,run:run})
    });
+   // The overflow from the higher roof (ИР-71535 АР ч.1 л.11, 14, 15, 17: «На данном участке предусмотреть систему перелива
+   // с участка более высокой кровли посредством желоба организованного наружного водостока … в водоприемный желоб
+   // внутреннего водостока по ряду Б (Л); водосточный желоб с торца кровельной панели закрепить по уклону кровли. Общая
+   // длина желоба … 6,2 м»): the free gable side of a roof whose eave ends in the inner gutter — no roof panel beyond that
+   // side, no wall over it — gets the gutter 185 on the end face of its panel along the slope, from the eave up to where a
+   // lower roof lies under that edge, less than 4 m down (the annex О1–О3 from row В and to row К: 5,96 m by plan, 6,1 m along the 20 % slope),
+   // and a short outlet into the inner gutter at the eave. Not steel of the КМ — out of the check of metal (footing).
+   overflowN=0;
+   if(ends.length){
+    var roofs=[];elems.forEach(function(c){if(c.ft!=="panel"||!c.id||!c.lay||c.lay.panel!=="roof")return;var ms=(meshesById.get(String(c.id))||[]).filter(function(m){return m.isMesh&&!m.userData.seam&&!m.userData.gutter});if(!ms.length)return;
+     var b=new T.Box3();ms.forEach(function(m){b.expandByObject(m)});var p=memberPoints(c),dh=new T.Vector3(p[1].x-p[0].x,0,p[1].z-p[0].z),rn=dh.length();if(rn<.1)return;dh.divideScalar(rn);
+     // (the height of its surface over a point of the plan — along its slope)
+     roofs.push({id:String(c.id),b:b,at:function(v){var a=Math.max(0,Math.min(rn,v.clone().sub(p[0]).dot(dh)));return p[0].y+(p[1].y-p[0].y)*a/rn}})});
+    // (the existing building next door — a roof ending at it is not free)
+    var blds=[];elems.forEach(function(c){if(c.ft!=="building")return;(meshesById.get(String(c.id))||[]).forEach(function(m){if(m.isMesh&&m.userData.building)blds.push(new T.Box3().setFromObject(m))})});
+    var inXZ=function(b,v,e){return v.x>b.min.x-e&&v.x<b.max.x+e&&v.z>b.min.z-e&&v.z<b.max.z+e};
+    var ofMat=drainMat||(drainMat=new T.MeshStandardMaterial({color:ralColor("5012")!==undefined?ralColor("5012"):0x7aa6c8,metalness:.3,roughness:.55}));
+    ends.forEach(function(r){
+     var up=new T.Vector3(0,1,0),d=r.hi.clone().sub(r.lo),L0=d.length();if(L0<1)return;d.normalize();var k=(r.lo.y-r.hi.y)/r.run;
+     [-1,1].forEach(function(sg){
+      var out=r.side.clone().multiplyScalar(sg),edge=function(a){var v=r.lo.clone().add(r.h.clone().multiplyScalar(-a)).add(out.clone().multiplyScalar(r.w/2));v.y=r.lo.y+a*k*-1;return v};
+      // (another roof panel past that side at mid-slope — not a gable)
+      var m=edge(r.run/2),past=m.clone().add(out.clone().multiplyScalar(.3));
+      if(roofs.some(function(q){return q.id!==r.id&&inXZ(q.b,past,0)&&Math.abs(q.at(past)-m.y)<.3})||blds.some(function(b){return inXZ(b,past,.05)}))return;
+      // (a wall rising over that edge — the roof ends at a wall, not free)
+      if(walls.some(function(q){return inXZ(q.b,past,.05)&&q.b.max.y>m.y+r.t+.1&&q.b.min.y<m.y}))return;
+      // (from the eave up while no lower roof lies under the edge within 1,5 m out)
+      var a=0,step=.25;for(;a<r.run-.05;a+=step){var e=edge(a+step/2),lower=false;
+       for(var o=.2;o<=1.5&&!lower;o+=.3){var v=e.clone().add(out.clone().multiplyScalar(o));lower=roofs.some(function(q){if(q.id===r.id||!inXZ(q.b,v,0))return false;var y=q.at(v);return y<e.y-.2&&y>e.y-4})}
+       if(lower)break}
+      // (no lower roof met before the top — the gable stands free its whole length, over a wall: no overflow there,
+      // the gables О8 and О1, the annex roofs' own gables)
+      if(a<1||a>r.run-.3)return;
+      var W=.185,D=.12,t=.0006,L=a/Math.abs(Math.cos(Math.atan(k))),c0=edge(0).add(out.clone().multiplyScalar(.01+W/2)),c1=edge(a).add(out.clone().multiplyScalar(.01+W/2));
+      c0.y+=r.t-.03;c1.y+=r.t-.03;var X=c1.clone().sub(c0).normalize(),Y=new T.Vector3().crossVectors(out,X).normalize();if(Y.y<0)Y.negate();var Z=new T.Vector3().crossVectors(X,Y);
+      var box=function(w,h,dd,at){var g=new T.Mesh(new T.BoxGeometry(w,h,dd),ofMat);g.position.copy(at);g.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(X,Y,Z));
+       g.userData.memberId=r.id;g.userData.fixed=true;g.userData.footing=true;g.userData.sheet=true;g.userData.drain=true;g.userData.overflow=true;steel.add(g);allMeshes.push(g);(meshesById.get(r.id)||meshesById.set(r.id,[]).get(r.id)).push(g)};
+      var mid=c0.clone().add(c1).multiplyScalar(.5);
+      box(L,t,W,mid.clone().add(Y.clone().multiplyScalar(-D)));
+      [-1,1].forEach(function(z){box(L,D,t,mid.clone().add(Y.clone().multiplyScalar(-D/2)).add(Z.clone().multiplyScalar(z*W/2)))});
+      box(t,D,W,c1.clone().add(Y.clone().multiplyScalar(-D/2)));
+      // (the outlet at the eave: down and in, into the inner gutter under the end of the panel)
+      var o0=c0.clone().add(Y.clone().multiplyScalar(-D)),o1=r.lo.clone().add(r.h.clone().multiplyScalar(Math.min(.15,r.g/2))).add(out.clone().multiplyScalar(r.w/2-.15));o1.y=r.yb+.12;
+      var dv=o1.clone().sub(o0),Lp=dv.length();if(Lp>.02){var p=new T.Mesh(new T.CylinderGeometry(.05,.05,Lp,12),ofMat);p.position.copy(o0).add(o1).multiplyScalar(.5);p.quaternion.setFromUnitVectors(up,dv.normalize());
+       p.userData.memberId=r.id;p.userData.fixed=true;p.userData.footing=true;p.userData.sheet=true;p.userData.drain=true;p.userData.overflow=true;steel.add(p);allMeshes.push(p);(meshesById.get(r.id)||meshesById.set(r.id,[]).get(r.id)).push(p)}
+      overflowN++
+     })
+    })
+   }
    // (the cap over every panel of that wall along the gutters — the panels of the wall and of the roof are not one for one)
    walls.forEach(function(q){
     if(capped.has(q.id))return;var bb=q.b,a=bb.min.clone().sub(q.o).dot(q.u),b=bb.max.clone().sub(q.o).dot(q.u),s0=Math.min(a,b),s1=Math.max(a,b),mid=bb.getCenter(new T.Vector3());
@@ -5791,7 +5841,8 @@ window.irThreeSchemeView=(function irThreeModule(){
     // О6/2 row Б: the tops in steps of 50–300 mm under Пк-6 — the request of the engineer 11.11.2026 «сэндвич должен ровно
     // обрезаться … кровельный сэндвич лежит поверх стенового»)
     var tq=Array.isArray(c.lay.top)&&c.lay.top.length===2?[Math.min(z0+h,number(c.lay.top[0])),Math.min(z0+h,number(c.lay.top[1]))]:[z0+h,z0+h];
-    var up=[[a.x,a.y],[b.x,b.y]].map(function(E,k){var low=null;[-t,0,t].forEach(function(o){var zb=under(E[0]-uy*o,E[1]+ux*o,tq[k],true);if(zb!==null&&(low===null||zb<low))low=zb});return low});
+    var probe=stepWalls.has(id)?[-t-150,-t,0,t,t+150]:[-t,0,t];
+    var up=[[a.x,a.y],[b.x,b.y]].map(function(E,k){var low=null;probe.forEach(function(o){var zb=under(E[0]-uy*o,E[1]+ux*o,tq[k],true);if(zb!==null&&(low===null||zb<low))low=zb});return low});
     if(up[0]!==null&&up[1]!==null&&(up[0]-12>tq[0]+.5||up[1]-12>tq[1]+.5)){
      var hi=Math.max(up[0],up[1])-12,lo=Math.min(tq[0],tq[1]);
      var blocked=inWall.some(function(q){if(q.id===id)return false;
@@ -5853,13 +5904,17 @@ window.irThreeSchemeView=(function irThreeModule(){
     var lo=-r.w/2,hi=r.w/2;
     walls.forEach(function(w){
      if(Math.abs(w.u.x*r.u.y-w.u.y*r.u.x)>.05)return;
-     var sw=(w.a.x-r.a.x)*-r.u.y+(w.a.y-r.a.y)*r.u.x;if(Math.abs(sw)>r.w/2+w.t/2||Math.abs(sw)<r.w/4)return;
+     var sw=(w.a.x-r.a.x)*-r.u.y+(w.a.y-r.a.y)*r.u.x;if(Math.abs(sw)>r.w/2+w.t/2+300||Math.abs(sw)<r.w/4)return;
      var u0=(w.a.x-r.a.x)*r.u.x+(w.a.y-r.a.y)*r.u.y,u1=u0+w.L*(w.u.x*r.u.x+w.u.y*r.u.y),m0=Math.max(0,Math.min(u0,u1)),m1=Math.min(r.L,Math.max(u0,u1));if(m1-m0<100)return;
+     // (a wall under the roof just past the side of its last strip, its top at the roof's underside — the step wall over
+     // the annex О1–О3 by the roof plan of the АР, under the edge of the higher roof: the strip on over the wall to its
+     // outer face, «обрезать по месту»; the wall left 130 mm out of the roof and the slot over its top open)
+     if(Math.abs(sw)>r.w/2+w.t/2){var zu=r.a.z+(r.b.z-r.a.z)*((m0+m1)/2)/r.L;if(stepWalls.has(w.id)&&w.top>zu-80&&w.top<zu+20){if(sw>0)hi=Math.max(hi,sw+w.t/2);else lo=Math.min(lo,sw-w.t/2)}return}
      // (and a wall whose middle is past the strip, its inner face a little over it, its top over the roof's underside —
      // Пк-6 over Пс-31 by О7/1 21 mm, Пк-18 over Пс-42 by О10 33 mm: the wall on the outer face of its girts)
      var zt=r.a.z+(r.b.z-r.a.z)*((m0+m1)/2)/r.L+r.t,edge=Math.abs(sw)>r.w/2&&w.top>zt-r.t+5;if(w.z0>zt-5||w.top<zt+50&&!edge)return;
      if(sw>0)hi=Math.min(hi,sw-w.t/2-3);else lo=Math.max(lo,sw+w.t/2+3)});
-    if(hi-lo>=100&&(lo>-r.w/2+.5||hi<r.w/2-.5))roofSide.set(r.id,[lo,hi])
+    if(hi-lo>=100&&(lo>-r.w/2+.5||hi<r.w/2-.5||lo<-r.w/2-.5||hi>r.w/2+.5))roofSide.set(r.id,[lo,hi])
    });
    // The gable trim of a roof (lay.trim "gable": a leg down, a leg across over the roof) over a wall moved out to the
    // outer face of the frame (wallLines): its leg down outside that wall's face, not in it (ИР-71535 Пк-6 at О7/1: the
@@ -5944,10 +5999,10 @@ window.irThreeSchemeView=(function irThreeModule(){
   // that facade — columns, posts, fahwerk, girders, struts, ties and beams along it, within its length and height, up to
   // 1 m out of it; the outside is the side with fewer members of the frame. Its windows, doors, gates and trims go with
   // it. Nothing is written to the scheme: the line moved is named in the card of the panel (lineMoved, mm).
-  var lineShift=new Map(),lineMoved=new Map(),linesMoved=0,footRaise=new Map();
+  var lineShift=new Map(),lineMoved=new Map(),linesMoved=0,footRaise=new Map(),stepWalls=new Set();
   var FRAME={columns:1,fahwerk:1,posts:1,girders:1,spacers:1,ties:1,beams:1};
   function wallLines(list){
-   lineShift.clear();lineMoved.clear();linesMoved=0;footRaise.clear();
+   lineShift.clear();lineMoved.clear();linesMoved=0;footRaise.clear();stepWalls.clear();
    var lines=[],frame=[],stops=[],roofs=[];
    list.forEach(function(c){
     if(c.ft==="panel"&&c.id&&c.lay&&c.lay.panel==="wall"){
@@ -5961,7 +6016,7 @@ window.irThreeSchemeView=(function irThreeModule(){
     }
     else if(!c.ft&&c.id&&!c.truss&&FRAME[role(c)]&&["column","beam","brace","bent"].indexOf(c.geometryType)>=0)frame.push(c)
     else if(!c.ft&&c.id&&!c.truss&&["column","beam","brace"].indexOf(c.geometryType)>=0)stops.push(c)
-    else if(c.ft==="panel"&&c.id&&c.lay&&c.lay.panel==="roof")roofs.push(memberPoints(c))
+    else if(c.ft==="panel"&&c.id&&c.lay&&c.lay.panel==="roof"){var rp=memberPoints(c);rp.w=Math.max(.3,(number(c.fd)||1000)/1000);roofs.push(rp)}
    });
    if(!lines.length||!frame.length)return;
    var fitOf=function(c){
@@ -6060,6 +6115,46 @@ window.irThreeSchemeView=(function irThreeModule(){
     g.shift=g.n.clone().multiplyScalar(out*need);linesMoved++;
     g.panels.forEach(function(id){lineShift.set(id,g.shift);lineMoved.set(id,need)})
    });
+   // (the wall of a step over a lower roof — АР ч.1 л.11 plan of the roofs, ИР-71535 О3 over the annex О1–О3, rows В–К:
+   // the thick line of the wall with the posts of Огк1 at 7850 from О1, under the edge of the higher roof — its purlins П1
+   // to 7880, the brackets of the ladder Л3 КМ3 л.18 to 7880 — and the panels of the lower roof up to it; the wall stood on
+   // the axis О3 with the girts below, 1,2 m inside the edge, and the strip between the end of the lower roof and the wall
+   // stood open into the building under the overhang): a panel of a wall whose foot is at a lower roof that ends 0,2…1,6 m
+   // out of it, under a higher roof running at least as far out over its top, stands with its outer face at the end of
+   // that lower roof. Only those panels — the tiers below on their girts stay.)
+   var stepMoved=[];
+   var rOff=function(rp,g){var a=rp[0],b=rp[rp.length-1],m=a.clone().add(b).multiplyScalar(.5),o=m.dot(g.n)-g.d;
+     var dv=new T.Vector3(b.x-a.x,0,b.z-a.z),L=dv.length();if(L<.1||Math.abs(dv.dot(g.n))/L>.1)return null;
+     var sa=a.dot(g.u),sb=b.dot(g.u);return{o:o,w:rp.w,s0:Math.min(sa,sb),s1:Math.max(sa,sb),y:function(sv){var k=Math.max(0,Math.min(1,(sv-sa)/((sb-sa)||1)));return a.y+(b.y-a.y)*k}}};
+   lines.forEach(function(g){
+    (g.spans||[]).forEach(function(sp){
+     var sh=lineShift.get(sp.id),d=g.d+(sh?sh.dot(g.n):0),sm=(sp.s0+sp.s1)/2,gg={u:g.u,n:g.n,d:d},best=null;
+     roofs.forEach(function(rp){var r=rOff(rp,gg);if(!r||sm<r.s0-.05||sm>r.s1+.05)return;
+      [1,-1].forEach(function(out){var near=r.o*out-r.w/2,far=r.o*out+r.w/2,y=r.y(sm);
+       // (the lower roof: on that side, ending 0,2…1,6 m out, its surface at the panel's foot)
+       if(near>g.t/2+.2&&near<g.t/2+1.6&&Math.abs(y-sp.y0)<.6&&(!best||near<best.near))best={out:out,near:near,r:r}})});
+     if(!best)return;
+     var top=sp.y1,cover=roofs.some(function(rp){var r=rOff(rp,gg);if(!r||sm<r.s0-.05||sm>r.s1+.05)return false;var far=r.o*best.out+r.w/2,y=r.y(sm);
+      return y>top-.6&&y<top+1.6&&far>=best.near-.15&&r.o*best.out-r.w/2<g.t/2});
+     if(!cover)return;
+     var mv=best.near-g.t/2-.003;
+     lineShift.set(sp.id,(sh?sh.clone():new T.Vector3()).add(g.n.clone().multiplyScalar(best.out*mv)));lineMoved.set(sp.id,(lineMoved.get(sp.id)||0)+mv);linesMoved++
+     // (its foot over the steel of the lower roof it crosses — the purlins П1 and the end truss Ф-1 of the annex run on to
+     // 8100, under the wall: the panel from the top of that steel, as cut on the site)
+     var d2=d+best.out*mv,rise=null;
+     fit.concat(stopFit).forEach(function(f){if(f.col)return;
+      var oa=f.a.dot(g.n)-d2,ob=f.b.dot(g.n)-d2,ks=[0,1];if(oa*ob<0)ks.push(oa/(oa-ob));
+      for(var j=0;j<ks.length;j++){var q=f.a.clone().lerp(f.b,ks[j]),o=Math.abs(q.dot(g.n)-d2),sv=q.dot(g.u);
+       if(o>g.t/2+f.hs.b||sv<sp.s0-.02||sv>sp.s1+.02)continue;var tp=q.y+f.hs.h;if(tp<sp.y0-.6||tp>sp.y0+.6)continue;rise=Math.max(rise===null?-1e9:rise,tp-best.r.y(sv))}});
+     stepMoved.push({g:g,sp:sp,r:best.r,off:rise});stepWalls.add(sp.id)
+    })
+   });
+   // (the foot along the slope of the lower roof — the top line of its purlins, the highest over the surface of the roof
+   // where the wall crosses them, 12 mm clear: the panels of the tier stepped by the АР leave no triangles open over the
+   // roof; footRaise [start, end], lay.cut)
+   var offs={};stepMoved.forEach(function(a){if(a.off!==null){var k=lines.indexOf(a.g);offs[k]=Math.max(offs[k]===undefined?-1e9:offs[k],a.off)}});
+   stepMoved.forEach(function(a){var off=offs[lines.indexOf(a.g)];if(off===undefined)return;var c=list.find(function(q){return String(q.id)===a.sp.id});if(!c)return;
+    var p=memberPoints(c),ya=a.r.y(p[0].dot(a.g.u))+off+.012,yb=a.r.y(p[p.length-1].dot(a.g.u))+off+.012;footRaise.set(a.sp.id,[Math.round(ya*1000),Math.round(yb*1000)])});
    // (the windows, doors, gates and trims of a wall moved: with it; a corner trim of the АР (lay.trim, arTrims) on the
    // outer faces of two walls — by both; a trim of a roof stays with the roof)
    list.forEach(function(c){
@@ -9965,7 +10060,7 @@ window.irThreeSchemeView=(function irThreeModule(){
     // (lay.cut: the heights of its lower edge at its start and end).
     // A gable panel under the slope of its roof is cut along it on the site («Обрезать по месту»): lay.top — the heights
     // of its top at its start and end (ИР-71535 АР ч.2, ряд 08).
-    var fr=c.ft==="panel"?footRaise.get(id):null,gl=len,cut=c.lay&&Array.isArray(c.lay.cut)&&c.lay.cut.length===2?c.lay.cut.map(function(v){return fr?Math.max(number(v),fr):v}):fr?[fr,fr]:null,tp=c.lay&&Array.isArray(c.lay.top)&&c.lay.top.length===2?c.lay.top:null;
+    var fr=c.ft==="panel"?footRaise.get(id):null,gl=len,cut=Array.isArray(fr)?fr:c.lay&&Array.isArray(c.lay.cut)&&c.lay.cut.length===2?c.lay.cut.map(function(v){return fr?Math.max(number(v),fr):v}):fr?[fr,fr]:null,tp=c.lay&&Array.isArray(c.lay.top)&&c.lay.top.length===2?c.lay.top:null;
     // (a wall at a corner: run on to the outer face of the other or stopped at its inner face — panelCorners)
     var pe=c.ft==="panel"?panelExt.get(id):null,p0=pe?pe[0]:0;
     if(pe){start=start.clone().sub(dir.clone().multiplyScalar(pe[0]));end=end.clone().add(dir.clone().multiplyScalar(pe[1]));len+=pe[0]+pe[1];gl=len}
@@ -11461,9 +11556,9 @@ window.irThreeSchemeView=(function irThreeModule(){
   // catalog — another key: the full building, as before. The cranes, the nodes, the details, the colours and the welds
   // are made anew each time (they are quick). Not on a phone (memory), not in a file opened from the disk (each such file
   // a store of its own — nothing to come back to). Anything the store cannot keep — the full building, as before.
-  var MC_VARS="dataById meshesById labels failures conventional branchTurn latticeAt stepUnder rungLine stringerCuts bracePlane slopeEnds deckPairs deckRects deckCols plateCells platesN boltList endPlanes underDrop underAt strutGus supColList purlinAt purlinPlane purlinCaps footRibFree ribOver hangDrop chordSeatList ridgeMiter guardMiter guardPlate guardCut purlinTops roofTops roofShift roofMoved masonryN ductPieces postLine railShift toeRuns guardMoved flangeAt lapEnds nodeShift ribStrut ribShift ribGus seatTop seatEnd seats heldEnds seatTilt copeWebs chordTop deckHoles guardLift underDeck postAtCol deckInfo wallCap roofSide panelExt trimExt lineShift lineMoved linesMoved footRaise wallClip wallCut crossCut crossPlates pedestals postOnBeam stubCut plateless plateOn webGus webTraps cleatRibs bridgeList bridgePlates seatIndex".split(" ");
-  function mcGet(){return{dataById:dataById,meshesById:meshesById,labels:labels,failures:failures,conventional:conventional,branchTurn:branchTurn,latticeAt:latticeAt,stepUnder:stepUnder,rungLine:rungLine,stringerCuts:stringerCuts,bracePlane:bracePlane,slopeEnds:slopeEnds,deckPairs:deckPairs,deckRects:deckRects,deckCols:deckCols,plateCells:plateCells,platesN:platesN,boltList:boltList,endPlanes:endPlanes,underDrop:underDrop,underAt:underAt,strutGus:strutGus,supColList:supColList,purlinAt:purlinAt,purlinPlane:purlinPlane,purlinCaps:purlinCaps,footRibFree:footRibFree,ribOver:ribOver,hangDrop:hangDrop,chordSeatList:chordSeatList,ridgeMiter:ridgeMiter,guardMiter:guardMiter,guardPlate:guardPlate,guardCut:guardCut,purlinTops:purlinTops,roofTops:roofTops,roofShift:roofShift,roofMoved:roofMoved,masonryN:masonryN,ductPieces:ductPieces,postLine:postLine,railShift:railShift,toeRuns:toeRuns,guardMoved:guardMoved,flangeAt:flangeAt,lapEnds:lapEnds,nodeShift:nodeShift,ribStrut:ribStrut,ribShift:ribShift,ribGus:ribGus,seatTop:seatTop,seatEnd:seatEnd,seats:seats,heldEnds:heldEnds,seatTilt:seatTilt,copeWebs:copeWebs,chordTop:chordTop,deckHoles:deckHoles,guardLift:guardLift,underDeck:underDeck,postAtCol:postAtCol,deckInfo:deckInfo,wallCap:wallCap,roofSide:roofSide,panelExt:panelExt,trimExt:trimExt,lineShift:lineShift,lineMoved:lineMoved,linesMoved:linesMoved,footRaise:footRaise,wallClip:wallClip,wallCut:wallCut,crossCut:crossCut,crossPlates:crossPlates,pedestals:pedestals,postOnBeam:postOnBeam,stubCut:stubCut,plateless:plateless,plateOn:plateOn,webGus:webGus,webTraps:webTraps,cleatRibs:cleatRibs,bridgeList:bridgeList,bridgePlates:bridgePlates,seatIndex:seatIndex}}
-  function mcSet(o){dataById=o.dataById;meshesById=o.meshesById;labels=o.labels;failures=o.failures;conventional=o.conventional;branchTurn=o.branchTurn;latticeAt=o.latticeAt;stepUnder=o.stepUnder;rungLine=o.rungLine;stringerCuts=o.stringerCuts;bracePlane=o.bracePlane;slopeEnds=o.slopeEnds;deckPairs=o.deckPairs;deckRects=o.deckRects;deckCols=o.deckCols;plateCells=o.plateCells;platesN=o.platesN;boltList=o.boltList;endPlanes=o.endPlanes;underDrop=o.underDrop;underAt=o.underAt;strutGus=o.strutGus;supColList=o.supColList;purlinAt=o.purlinAt;purlinPlane=o.purlinPlane;purlinCaps=o.purlinCaps;footRibFree=o.footRibFree;ribOver=o.ribOver;hangDrop=o.hangDrop;chordSeatList=o.chordSeatList;ridgeMiter=o.ridgeMiter;guardMiter=o.guardMiter;guardPlate=o.guardPlate;guardCut=o.guardCut;purlinTops=o.purlinTops;roofTops=o.roofTops;roofShift=o.roofShift;roofMoved=o.roofMoved;masonryN=o.masonryN;ductPieces=o.ductPieces;postLine=o.postLine;railShift=o.railShift;toeRuns=o.toeRuns;guardMoved=o.guardMoved;flangeAt=o.flangeAt;lapEnds=o.lapEnds;nodeShift=o.nodeShift;ribStrut=o.ribStrut;ribShift=o.ribShift;ribGus=o.ribGus;seatTop=o.seatTop;seatEnd=o.seatEnd;seats=o.seats;heldEnds=o.heldEnds;seatTilt=o.seatTilt;copeWebs=o.copeWebs;chordTop=o.chordTop;deckHoles=o.deckHoles;guardLift=o.guardLift;underDeck=o.underDeck;postAtCol=o.postAtCol;deckInfo=o.deckInfo;wallCap=o.wallCap;roofSide=o.roofSide;panelExt=o.panelExt;trimExt=o.trimExt;lineShift=o.lineShift;lineMoved=o.lineMoved;linesMoved=o.linesMoved;footRaise=o.footRaise;wallClip=o.wallClip;wallCut=o.wallCut;crossCut=o.crossCut;crossPlates=o.crossPlates;pedestals=o.pedestals;postOnBeam=o.postOnBeam;stubCut=o.stubCut;plateless=o.plateless;plateOn=o.plateOn;webGus=o.webGus;webTraps=o.webTraps;cleatRibs=o.cleatRibs;bridgeList=o.bridgeList;bridgePlates=o.bridgePlates;seatIndex=o.seatIndex}
+  var MC_VARS="dataById meshesById labels failures conventional branchTurn latticeAt stepUnder rungLine stringerCuts bracePlane slopeEnds deckPairs deckRects deckCols plateCells platesN boltList endPlanes underDrop underAt strutGus supColList purlinAt purlinPlane purlinCaps footRibFree ribOver hangDrop chordSeatList ridgeMiter guardMiter guardPlate guardCut purlinTops roofTops roofShift roofMoved masonryN ductPieces postLine railShift toeRuns guardMoved flangeAt lapEnds nodeShift ribStrut ribShift ribGus seatTop seatEnd seats heldEnds seatTilt copeWebs chordTop deckHoles guardLift underDeck postAtCol deckInfo wallCap roofSide panelExt trimExt lineShift lineMoved linesMoved footRaise stepWalls wallClip wallCut crossCut crossPlates pedestals postOnBeam stubCut plateless plateOn webGus webTraps cleatRibs bridgeList bridgePlates seatIndex".split(" ");
+  function mcGet(){return{dataById:dataById,meshesById:meshesById,labels:labels,failures:failures,conventional:conventional,branchTurn:branchTurn,latticeAt:latticeAt,stepUnder:stepUnder,rungLine:rungLine,stringerCuts:stringerCuts,bracePlane:bracePlane,slopeEnds:slopeEnds,deckPairs:deckPairs,deckRects:deckRects,deckCols:deckCols,plateCells:plateCells,platesN:platesN,boltList:boltList,endPlanes:endPlanes,underDrop:underDrop,underAt:underAt,strutGus:strutGus,supColList:supColList,purlinAt:purlinAt,purlinPlane:purlinPlane,purlinCaps:purlinCaps,footRibFree:footRibFree,ribOver:ribOver,hangDrop:hangDrop,chordSeatList:chordSeatList,ridgeMiter:ridgeMiter,guardMiter:guardMiter,guardPlate:guardPlate,guardCut:guardCut,purlinTops:purlinTops,roofTops:roofTops,roofShift:roofShift,roofMoved:roofMoved,masonryN:masonryN,ductPieces:ductPieces,postLine:postLine,railShift:railShift,toeRuns:toeRuns,guardMoved:guardMoved,flangeAt:flangeAt,lapEnds:lapEnds,nodeShift:nodeShift,ribStrut:ribStrut,ribShift:ribShift,ribGus:ribGus,seatTop:seatTop,seatEnd:seatEnd,seats:seats,heldEnds:heldEnds,seatTilt:seatTilt,copeWebs:copeWebs,chordTop:chordTop,deckHoles:deckHoles,guardLift:guardLift,underDeck:underDeck,postAtCol:postAtCol,deckInfo:deckInfo,wallCap:wallCap,roofSide:roofSide,panelExt:panelExt,trimExt:trimExt,lineShift:lineShift,lineMoved:lineMoved,linesMoved:linesMoved,footRaise:footRaise,stepWalls:stepWalls,wallClip:wallClip,wallCut:wallCut,crossCut:crossCut,crossPlates:crossPlates,pedestals:pedestals,postOnBeam:postOnBeam,stubCut:stubCut,plateless:plateless,plateOn:plateOn,webGus:webGus,webTraps:webTraps,cleatRibs:cleatRibs,bridgeList:bridgeList,bridgePlates:bridgePlates,seatIndex:seatIndex}}
+  function mcSet(o){dataById=o.dataById;meshesById=o.meshesById;labels=o.labels;failures=o.failures;conventional=o.conventional;branchTurn=o.branchTurn;latticeAt=o.latticeAt;stepUnder=o.stepUnder;rungLine=o.rungLine;stringerCuts=o.stringerCuts;bracePlane=o.bracePlane;slopeEnds=o.slopeEnds;deckPairs=o.deckPairs;deckRects=o.deckRects;deckCols=o.deckCols;plateCells=o.plateCells;platesN=o.platesN;boltList=o.boltList;endPlanes=o.endPlanes;underDrop=o.underDrop;underAt=o.underAt;strutGus=o.strutGus;supColList=o.supColList;purlinAt=o.purlinAt;purlinPlane=o.purlinPlane;purlinCaps=o.purlinCaps;footRibFree=o.footRibFree;ribOver=o.ribOver;hangDrop=o.hangDrop;chordSeatList=o.chordSeatList;ridgeMiter=o.ridgeMiter;guardMiter=o.guardMiter;guardPlate=o.guardPlate;guardCut=o.guardCut;purlinTops=o.purlinTops;roofTops=o.roofTops;roofShift=o.roofShift;roofMoved=o.roofMoved;masonryN=o.masonryN;ductPieces=o.ductPieces;postLine=o.postLine;railShift=o.railShift;toeRuns=o.toeRuns;guardMoved=o.guardMoved;flangeAt=o.flangeAt;lapEnds=o.lapEnds;nodeShift=o.nodeShift;ribStrut=o.ribStrut;ribShift=o.ribShift;ribGus=o.ribGus;seatTop=o.seatTop;seatEnd=o.seatEnd;seats=o.seats;heldEnds=o.heldEnds;seatTilt=o.seatTilt;copeWebs=o.copeWebs;chordTop=o.chordTop;deckHoles=o.deckHoles;guardLift=o.guardLift;underDeck=o.underDeck;postAtCol=o.postAtCol;deckInfo=o.deckInfo;wallCap=o.wallCap;roofSide=o.roofSide;panelExt=o.panelExt;trimExt=o.trimExt;lineShift=o.lineShift;lineMoved=o.lineMoved;linesMoved=o.linesMoved;footRaise=o.footRaise;stepWalls=o.stepWalls||new Set();wallClip=o.wallClip;wallCut=o.wallCut;crossCut=o.crossCut;crossPlates=o.crossPlates;pedestals=o.pedestals;postOnBeam=o.postOnBeam;stubCut=o.stubCut;plateless=o.plateless;plateOn=o.plateOn;webGus=o.webGus;webTraps=o.webTraps;cleatRibs=o.cleatRibs;bridgeList=o.bridgeList;bridgePlates=o.bridgePlates;seatIndex=o.seatIndex}
   function mcNamed(){return{axisMaterial:axisMaterial,boltMat:boltMat,boltPickMat:boltPickMat,concreteMat:concreteMat,craneMat:craneMat,darkFloorMaterial:darkFloorMaterial,deckMat:deckMat,dimMaterial:dimMaterial,ductMat:ductMat,edgeMat:edgeMat,floorMaterial:floorMaterial,glassMat:glassMat,gratingMat:gratingMat,guardMat:guardMat,hardwareMat:hardwareMat,hoistMat:hoistMat,holeMat:holeMat,hoverMat:hoverMat,jointMat:jointMat,markerMat:markerMat,openingGlass:openingGlass,plateMat:plateMat,pointMat:pointMat,previewMat:previewMat,railMat:railMat,selectedMat:selectedMat,sheetMat:sheetMat,silverMat:silverMat,stripeMat:stripeMat,tankMaterial:tankMaterial,weldMat:weldMat,wheelMat:wheelMat,yellowMat:yellowMat}}
   var MC_KEYED={mats:mats,shellMats:shellMats,roofMats:roofMats,fixedMats:fixedMats,partMats:partMats};
   var MC_DB="ir-scheme-models",MC_STORE="m",MC_KEEP=4,mcCode=null;

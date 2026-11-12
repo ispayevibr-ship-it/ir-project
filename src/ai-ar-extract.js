@@ -555,9 +555,14 @@ function roofPlans({segments=[],texts=[]}={}){
     const b=bs[i];
     // (the line the label stands at, within tol of it; the band runs from it past the label to the next line)
     const near=tiers.filter(y=>y>=b.y0-tol&&y<=b.y1+tol).sort((p,q)=>Math.min(Math.abs(p-b.y0),Math.abs(p-b.y1))-Math.min(Math.abs(q-b.y0),Math.abs(q-b.y1)))[0];
-    const far=near===undefined?undefined:near>=b.cy?tiers.filter(y=>y<b.y0-5).sort((p,q)=>q-p)[0]:tiers.filter(y=>y>b.y1+5).sort((p,q)=>p-q)[0];
+    let far=near===undefined?undefined:near>=b.cy?tiers.filter(y=>y<b.y0-5).sort((p,q)=>q-p)[0]:tiers.filter(y=>y>b.y1+5).sort((p,q)=>p-q)[0],nr=near;
+    // (a label standing inside its band, off both lines — ИР-71535 АР ч.2 л.11 «в осях 03-08 - Б-Л»: the first strip by
+    // О3 at row Б, its end hatched «обрезать по месту», its «Пк-6» on the leader of «линия примыкания стены» 150 pt over
+    // the row of the others: the strip lost, the edge of the roof 1 m inside the wall from row Б to Г — the band between
+    // the lines over and under it)
+    if(near===undefined){const up=tiers.filter(y=>y<b.y0-5).sort((p,q)=>q-p)[0],dn=tiers.filter(y=>y>b.y1+5).sort((p,q)=>p-q)[0];if(up!==undefined&&dn!==undefined){nr=up;far=dn}}
     if(far===undefined){lost++;continue}
-    let a0=Math.min(near,far),a1=Math.max(near,far);
+    let a0=Math.min(nr,far),a1=Math.max(nr,far);
     // (the sides of the strip run along at least half its band, pieces broken at an opening counted together — not a
     // dimension line or the side of an opening in it: л.21 «3350» from an opening ОВ 700×900 across the label Пк-2
     // took 290 mm of the strip)
