@@ -4452,9 +4452,9 @@ window.irThreeSchemeView=(function irThreeModule(){
   // Up to 2,5 m wide: the valley of node 40 АР ч.1 л.6 (АР-27) at the east wall О10 of the annex О8–О10 — the roof Пк-16
   // 10 % ends at 65,531, the wall with its parapet stands at 67,210, between them the flat gutter with funnels, i=0,5 %
   // (the plan of the roof ч.1 л.5); with 1,2 m it stayed an open slot of 1,68 m (the engineer's section, 12.11.2026).
-  var gutterN=0,gutterMat=null;
+  var gutterN=0,gutterMat=null,guttered=new Set();
   function eaveGutters(){
-   gutterN=0;var walls=[],capped=new Set(),runs=[];
+   gutterN=0;guttered.clear();var walls=[],capped=new Set(),runs=[];
    elems.forEach(function(c){if(c.ft!=="panel"||!c.id||!c.lay||c.lay.panel!=="wall")return;var ms=(meshesById.get(String(c.id))||[]).filter(function(m){return m.isMesh&&!m.userData.seam});if(!ms.length)return;
     var p=memberPoints(c),u=new T.Vector3(p[1].x-p[0].x,0,p[1].z-p[0].z),L=u.length();if(L<.1)return;u.divideScalar(L);
     var b=new T.Box3();ms.forEach(function(m){b.expandByObject(m)});walls.push({id:String(c.id),u:u,n:new T.Vector3(-u.z,0,u.x),b:b,o:p[0]})});
@@ -4479,7 +4479,7 @@ window.irThreeSchemeView=(function irThreeModule(){
     put(id,g,.002,w,mid(g/2,yb),h,up,side);
     put(id,.002,lo.y-yb,w,mid(.001,(yb+lo.y)/2),h,up,side);
     put(id,.002,.3,w,mid(g-.003,yb+.15),h,up,side);
-    gutterN++;
+    gutterN++;guttered.add(id);
     runs.push({q:best.q,s0:lo.clone().sub(best.q.o).dot(best.q.u)-w/2,s1:lo.clone().sub(best.q.o).dot(best.q.u)+w/2,y:lo.y})
    });
    // (the cap over every panel of that wall along the gutters — the panels of the wall and of the roof are not one for one)
@@ -4490,6 +4490,72 @@ window.irThreeSchemeView=(function irThreeModule(){
     var up=new T.Vector3(0,1,0),wt=Math.abs(bb.max.clone().sub(bb.min).dot(q.n)),span=s1-s0,cm=mid.clone();cm.y=bb.max.y;
     put(q.id,span,.0008,wt+.1,cm.clone().add(new T.Vector3(0,.0004,0)),q.u,up,q.n);
     [-1,1].forEach(function(sg){put(q.id,span,.1,.0008,cm.clone().add(q.n.clone().multiplyScalar(sg*(wt/2+.0504))).add(new T.Vector3(0,-.05+.0008,0)),q.u,up,q.n)})
+   })
+  }
+  // The outer drains of the low roofs (ИР-71535 АР ч.1 л.11 plan of the roofs, л.15–17 facades, л.16 notes п.3: «водосточная
+  // система "МП ПРОЕКТ 185*150" от фирмы "МеталПрофиль" в сборе», RAL 5012 — поз. 12 of the table of facade finishes):
+  // 3.1 annex О8–О10 rows Ж–Н — 1 funnel, height 6,5 m, gutter 27,1 m (roof Пк-12…15 10 % to О10, eave +6,785);
+  // 3.2 annex О8–О10 rows А–Б — 1 funnel, 4,5 m, gutter 13,0 m (Пк-18 to row А, eave +4,685, funnel 6000 from О8);
+  // 3.3 brick annex 01–01/1 rows А–В — 5,7 m, gutter 10,7 m (Пк-17 20 % to the west, eave +5,960, funnel at 5580).
+  // Each free low eave of the roof panels (not ending at a higher wall — that is the inner gutter of eaveGutters) up to
+  // +10,0 (higher roofs drain inside, the funnels of ВК): the gutter 185 along the whole eave under the panels' ends, end
+  // caps, one funnel in the middle of the run, the pipe Ø150 down the wall to the outlet at the ground. Not steel of the КМ —
+  // out of the check of metal (footing).
+  var drainN=0,drainMat=null;
+  function roofDrains(){
+   drainN=0;var runs=[],walls=[];
+   elems.forEach(function(c){if(c.ft!=="panel"||!c.id||!c.lay||c.lay.panel!=="wall")return;var ms=(meshesById.get(String(c.id))||[]).filter(function(m){return m.isMesh&&!m.userData.seam});if(!ms.length)return;
+    var b=new T.Box3();ms.forEach(function(m){b.expandByObject(m)});walls.push(b)});
+   elems.forEach(function(c){
+    if(c.ft!=="panel"||!c.id||!c.lay||c.lay.panel!=="roof"||guttered.has(String(c.id)))return;
+    var ms=(meshesById.get(String(c.id))||[]).filter(function(m){return m.isMesh&&!m.userData.seam});if(!ms.length)return;
+    var p=memberPoints(c),lo=p[0].y<p[1].y?p[0]:p[1],hi=lo===p[0]?p[1]:p[0],h=new T.Vector3(lo.x-hi.x,0,lo.z-hi.z),run=h.length();if(run<.5||hi.y-lo.y<.05||lo.y>10)return;h.divideScalar(run);
+    var bb=new T.Box3();ms.forEach(function(m){bb.expandByObject(m)});
+    var side=new T.Vector3(-h.z,0,h.x),cs=[bb.min,bb.max],e=-1e9,s0=1e9,s1=-1e9;
+    for(var i=0;i<8;i++){var v=new T.Vector3(cs[i&1].x,0,cs[(i>>1)&1].z);if(i>3)continue;e=Math.max(e,v.dot(h));s0=Math.min(s0,v.dot(side));s1=Math.max(s1,v.dot(side))}
+    // (a higher wall right past the eave — not free)
+    var tip=h.clone().multiplyScalar(e+.15).add(side.clone().multiplyScalar((s0+s1)/2));
+    if(walls.some(function(w){return tip.x>w.min.x-.05&&tip.x<w.max.x+.05&&tip.z>w.min.z-.05&&tip.z<w.max.z+.05&&w.max.y>bb.min.y+.3}))return;
+    runs.push({h:h,side:side,e:e,y:bb.min.y,s0:s0,s1:s1,id:String(c.id)});
+   });
+   // (one run per eave: the panels in any order, the same slope, the eave line within 100, the underside within 150)
+   runs.sort(function(a,b){return a.s0-b.s0});
+   var merged=[];
+   runs.forEach(function(q){var r=null;merged.some(function(m){if(m.h.dot(q.h)>.99&&Math.abs(m.e-q.e)<.1&&Math.abs(m.y-q.y)<.15&&q.s0<m.s1+.3&&q.s1>m.s0-.3){r=m;return true}return false});
+    if(!r)merged.push(q);else{r.s0=Math.min(r.s0,q.s0);r.s1=Math.max(r.s1,q.s1);r.e=Math.max(r.e,q.e);r.y=Math.min(r.y,q.y)}});
+   runs=merged.filter(function(r){return r.s1-r.s0>=2});
+   if(!runs.length)return;
+   if(!drainMat)drainMat=new T.MeshStandardMaterial({color:ralColor("5012")!==undefined?ralColor("5012"):0x7aa6c8,metalness:.3,roughness:.55});
+   var up=new T.Vector3(0,1,0);
+   var add=function(id,geo,at,X,Y,Z){var m=new T.Mesh(geo,drainMat);m.position.copy(at);m.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(X,Y,Z));
+    m.userData.memberId=id;m.userData.fixed=true;m.userData.footing=true;m.userData.sheet=true;m.userData.drain=true;steel.add(m);allMeshes.push(m);(meshesById.get(id)||meshesById.set(id,[]).get(id)).push(m);return m};
+   var pipe=function(id,a,b,r){var d=b.clone().sub(a),L=d.length();if(L<.01)return;var m=new T.Mesh(new T.CylinderGeometry(r,r,L,16),drainMat);m.position.copy(a).add(b).multiplyScalar(.5);m.quaternion.setFromUnitVectors(up,d.normalize());
+    m.userData.memberId=id;m.userData.fixed=true;m.userData.footing=true;m.userData.sheet=true;m.userData.drain=true;steel.add(m);allMeshes.push(m);(meshesById.get(id)||meshesById.set(id,[]).get(id)).push(m)};
+   runs.forEach(function(r){
+    var W=.185,D=.12,t=.0006,L=r.s1-r.s0,top=r.y+.03,cx=r.e+W/2-.04,sm=(r.s0+r.s1)/2;
+    var at=function(along,s,y){var v=r.h.clone().multiplyScalar(along).add(r.side.clone().multiplyScalar(s));v.y=y;return v};
+    // (the gutter: bottom, two sides, the outer side 20 lower, the end caps)
+    add(r.id,new T.BoxGeometry(W,t,L),at(cx,sm,top-D),r.h,up,r.side);
+    add(r.id,new T.BoxGeometry(t,D,L),at(cx-W/2,sm,top-D/2),r.h,up,r.side);
+    add(r.id,new T.BoxGeometry(t,D-.02,L),at(cx+W/2,sm,top-D/2-.01),r.h,up,r.side);
+    [r.s0,r.s1].forEach(function(s){add(r.id,new T.BoxGeometry(W,D,t),at(cx,s,top-D/2),r.h,up,r.side)});
+    // (a long gutter — over 15 m: the funnel at the axis of the frame nearest to the middle, within a quarter of the run, the
+    // pipe along the column — АР ч.1 л.11, 3.1: the funnel at row К, the middle is 2,5 m off and over the porch Кр)
+    if(L>15){var best=null;
+     if(Math.abs(r.side.x)>.9)axesX.forEach(function(n){var v=toWorld(number(gridX[n]),0,0).x*r.side.x;if(v>r.s0+L/4&&v<r.s1-L/4&&(best===null||Math.abs(v-sm)<Math.abs(best-sm)))best=v});
+     if(Math.abs(r.side.z)>.9)axesY.forEach(function(n){var v=toWorld(0,number(gridY[n]),0).z*r.side.z;if(v>r.s0+L/4&&v<r.s1-L/4&&(best===null||Math.abs(v-sm)<Math.abs(best-sm)))best=v});
+     if(best!==null)sm=best}
+    // (the wall under the eave: the pipe 50 off its outer face)
+    var wf=null,probe=at(cx,sm,r.y-1);
+    walls.forEach(function(w){if(probe.y<w.min.y||probe.y>w.max.y)return;var sv=[w.min,w.max];var a=-1e9,b=1e9,u0=1e9,u1=-1e9;
+     for(var i=0;i<4;i++){var v=new T.Vector3(sv[i&1].x,0,sv[(i>>1)&1].z);a=Math.max(a,v.dot(r.h));b=Math.min(b,v.dot(r.h));u0=Math.min(u0,v.dot(r.side));u1=Math.max(u1,v.dot(r.side))}
+     if(sm<u0-.05||sm>u1+.05||a>r.e+.05||a<r.e-1.5)return;if(wf===null||a>wf)wf=a});
+    var R=.075,px=wf===null?cx:Math.min(cx,wf+R+.05),y0=top-D,yg=Math.max(.05,Math.min(.25,y0-1));
+    pipe(r.id,at(cx,sm,y0),at(cx,sm,y0-.08),R*.9);
+    pipe(r.id,at(cx,sm,y0-.08),at(px,sm,y0-.08-Math.max(.1,cx-px)),R);
+    pipe(r.id,at(px,sm,y0-.08-Math.max(.1,cx-px)),at(px,sm,yg+.25),R);
+    pipe(r.id,at(px,sm,yg+.25),at(px+.25,sm,yg),R);
+    drainN++
    })
   }
   function buildDucts(){
@@ -11649,7 +11715,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   // Footings below ±0.000 (bases at −0.600): the floor, the grid and the dimensions go down to the lowest member,
   // so that bases and their plates stay above the floor.
   function lowerGround(){
-   buildDucts();porchSheets();eaveGutters();buildingTexts();
+   buildDucts();porchSheets();eaveGutters();roofDrains();buildingTexts();
    var low=0;elems.forEach(function(c){var z=Math.min(number(c.z0),c.geometryType==="column"?number(c.z0):number(c.z2));if(z<low)low=z});
    var y=Math.min(0,low/1000+.12);ground.position.y=y;dims.position.y=y
   }
