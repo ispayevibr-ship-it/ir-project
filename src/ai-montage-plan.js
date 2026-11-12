@@ -1042,6 +1042,11 @@ let loose=0;
    if(!best||o.thin<best.thin)best={thin:o.thin,u,w}}
   // (none clear of every panel: the move that leaves it in the fewest — ОК-5 of ряд Б 7 mm into the 20 panels under it and
   // 53 mm into Пс-124 at its end: up the 7 mm, the panel at the end gets its hole)
+  // (a door on the floor a little wider than the opening the panels leave — ИР-71535 Д-3 of row О10, 1000 in an opening
+  // of 995: it stood 55 mm in the panel on one side and 50 mm short of the panel on the other, a slit from the floor to
+  // its head — the engineer, 12.11.2026: «щели смотри везде» —: to the edge of that opening, the panel on the other side cut by the 5 mm left)
+  if(floor&&du){let e=0;for(const q of bs){const ou=Math.min(b+du,q.hi)-Math.max(a+du,q.lo),oz=Math.min(z+H,q.z1)-Math.max(z,q.z0);if(ou>1&&ou<60&&oz>=20)e=Math.max(e,ou)}
+   if(e<=10&&Math.abs(du)<=60&&into(a+du,b+du,z,z+H).deep<=now.deep)return{a:a+du,b:b+du,z,moved:[du,0]}}
   if(best&&best.thin<now.thin)return{a:a+best.u,b:b+best.u,z:z+best.w,moved:[best.u,best.w]};
   return{a,b,z}
  };
@@ -1051,7 +1056,8 @@ let loose=0;
    const p0=numbered?p.x_mm:p.y_mm,p1=numbered?p.x2_mm:p.y2_mm,lo=Math.min(p0,p1),hi=Math.max(p0,p1),pz0=p.z0_mm,pz1=p.z0_mm+p.diameter_mm;
    const h0=Math.max(a,lo),h1=Math.min(b,hi),v0=Math.max(z0,pz0),v1=Math.min(z1,pz1);
    // (a door on the floor 10 mm into the panel over it — Д-3 of О10 up to +1,990, the panels from +1,980 —: that panel's hole too)
-   if(h1-h0<20||v1-v0<2)continue;
+   // (… 5 mm into the panel beside it — the door of 1000 in an opening of 995 —: that panel's too)
+   if(h1-h0<2||v1-v0<2)continue;
    (p.layout.holes||(p.layout.holes=[])).push([Math.round(h0-lo),Math.round(h1-lo),Math.round(v0-pz0),Math.round(v1-pz0)])
   }
  };
