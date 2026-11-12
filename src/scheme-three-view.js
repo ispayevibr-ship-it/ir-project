@@ -3709,9 +3709,10 @@ window.irThreeSchemeView=(function irThreeModule(){
      if(hc0&&hc0.X)bp.forEach(function(P){if(hc0(P)||!onPlate(P,dia))return;
       for(var s6=.002;s6<=.2;s6+=.002){var Q=[P.clone().add(hc0.X.clone().multiplyScalar(s6)),P.clone().sub(hc0.X.clone().multiplyScalar(s6))].filter(function(Q){return hc0(Q)&&onPlate(Q,1.5*dia)})[0];
        if(Q){P.copy(Q);return}}});
-     // (flush with the top of the beam — a deck, a purlin lies on it — and 40 mm below it)
+     // (flush with the top of the beam — a deck, a purlin lies on it — and 40 mm below it; of a girt lying flat in a wall —
+     // as wide as the girt: 10 mm past its face it stood 5 mm in the panels on it, Р1 at Ст1 of the frame О1–О3 КМ3 л.27)
      var ep=new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(c));
-     ep.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(side0,up0,d0));ep.scale.set(hs.b*2+.02,hs.h*2+.04,.016);ep.position.copy(at0).sub(up0.clone().multiplyScalar(.02));parts.push(ep);
+     ep.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(side0,up0,d0));ep.scale.set(hs.b*2+(c.flat?0:.02),hs.h*2+.04,.016);ep.position.copy(at0).sub(up0.clone().multiplyScalar(.02));parts.push(ep);
      // (a beam cut in the plane of the face — sloped, Б1 I60Ш1 1:10 at К7 —: its end on the plate's outer face, welded to
      // it; at the face it went the plate's 16 mm through it — the engineer, 03.11.2026, «металл торчит из металла»)
      if(fp&&Math.abs(fp.n.y)<.9)endPlanes.set(id+":"+k,{P:fp.P.clone().add(d0.clone().multiplyScalar(.016)),n:fp.n.clone()});
@@ -4411,6 +4412,18 @@ window.irThreeSchemeView=(function irThreeModule(){
   // engineer, 11.11.2026: «Нижний навес (кровля) точно есть в ар? Изучи, на чем держится не пойму»). Drawn conditionally,
   // grey concrete, 300 thick round the panels under their edges (the ends 300 in from the panels' ends — the eaves), the
   // top under the roof, the foot at −0,100; not steel — not in the check of metal through metal (footing), not a member.
+  // Their face (АР recheck 12.11.2026): the АР clads these walls with a profiled sheet of the colour of the wall panels —
+  // ИР-71535 АР ч.1 л.9 «Профилированный лист НС 44-1000×0,8 RAL 5012, стены, 223,0 м²», the ventilated facade of the
+  // annex 01–01/1 (nodes 8–11, 14–18 of ч.2 л.15, 16) — the wall stood grey concrete beside the blue building. Drawn in
+  // the RAL most of the wall panels of the АР have; grey where the АР gives none.
+  var masonryMat=null;
+  function masonrySkin(){
+   if(masonryMat)return masonryMat;
+   var n={};elems.forEach(function(c){if(c.ft==="panel"&&c.lay&&c.lay.panel==="wall"){var r=ralOf(c);if(r)n[r]=(n[r]||0)+1}});
+   var r=Object.keys(n).sort(function(a,b){return n[b]-n[a]})[0]||"";
+   masonryMat=r&&ralColor(r)!==undefined?new T.MeshStandardMaterial({color:ralColor(r),metalness:.3,roughness:.55,side:T.DoubleSide}):concreteMat;
+   return masonryMat
+  }
   function masonryWalls(loose){
    var groups=[];
    loose.forEach(function(c){
@@ -4448,7 +4461,7 @@ window.irThreeSchemeView=(function irThreeModule(){
       var F=[[0,2,1],[0,3,2],[4,5,6],[4,6,7],[0,1,5],[0,5,4],[1,2,6],[1,6,5],[2,3,7],[2,7,6],[3,0,4],[3,4,7]],pos=[];
       F.forEach(function(q){q.forEach(function(k){pos.push(P[k].x,P[k].y,P[k].z)})});
       var geo=new T.BufferGeometry();geo.setAttribute("position",new T.Float32BufferAttribute(pos,3));geo.computeVertexNormals();
-      var m=new T.Mesh(geo,concreteMat);m.material.side=T.DoubleSide;m.userData.memberId=String(f.c.id);m.userData.fixed=true;m.userData.footing=true;m.userData.masonry=true;
+      var m=new T.Mesh(geo,masonrySkin());m.material.side=T.DoubleSide;m.userData.memberId=String(f.c.id);m.userData.fixed=true;m.userData.footing=true;m.userData.masonry=true;m.userData.clad=true;
       steel.add(m);allMeshes.push(m)};
      var a0=r.s0+t,a1=r.s1-t;if(a1-a0<1000)return;
      wall(a0,a0+t,r.v0,r.v1);wall(a1-t,a1,r.v0,r.v1);wall(a0+t,a1-t,r.v0,r.v0+t);wall(a0+t,a1-t,r.v1-t,r.v1);
@@ -4850,7 +4863,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   }
   function roofSeats(list){
    roofShift.clear();roofMoved.clear();
-   masonryN=0;ductPieces=[];
+   masonryN=0;masonryMat=null;ductPieces=[];
    var tops=null,pur=new Set(),seated=[],loose=[];
    list.forEach(function(c){
     if(c.ft!=="panel"||!c.id||!c.lay||c.lay.panel!=="roof")return;
@@ -8530,10 +8543,13 @@ window.irThreeSchemeView=(function irThreeModule(){
   // its joint says so, {flanges:"down"} — on the angle ОС of the column. The other flat channels lie as before, flanges
   // up (Р1 of the frame О1–О3 on КМ3 л.27 is «⊔»: one mark, two sheets, two sketches).
   function flangesDown(c){if(!c||!c.flat||!c.joint||c.joint.flanges!=="down")return false;var s=sectionOf(c.profile_name||c.profileName,c.profile_standard);return Boolean(s&&s.shape==="channel")}
+  // (a channel lying flat either way — flanges up too, КМ3 л.27 «⊔» of the frame О1–О3: the post Ст1 of the door right
+  // under its web; the cap plate 200 wide stood 15 mm in the panels on the girts)
+  function flatChannel(c){if(!c||!c.flat)return false;var s=sectionOf(c.profile_name||c.profileName,c.profile_standard);return Boolean(s&&s.shape==="channel")}
   function underFlatGirt(c){
    var id=String(c.id||"");if(underFlat.has(id))return underFlat.get(id);
    var P=toWorld(number(c.x),number(c.y),number(c.z2)),hit=elems.some(function(g){
-    if(!flangesDown(g)||g.geometryType!=="beam"||g===c)return false;
+    if(!flatChannel(g)||g.geometryType!=="beam"||g===c)return false;
     var a=toWorld(number(g.x),number(g.y),number(g.z0)),b=toWorld(number(g.x2),number(g.y2),number(g.z0)),ab=b.clone().sub(a);ab.y=0;var L=ab.length();if(L<.1)return false;
     var ap=P.clone().sub(a);ap.y=0;var t=ap.dot(ab)/(L*L);if(t<-.02||t>1.02)return false;var off=ap.sub(ab.multiplyScalar(t)).length(),hs=turnedHalf(g);
     return off<hs.b&&Math.abs(a.y-hs.h-P.y)<.03});

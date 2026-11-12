@@ -782,7 +782,7 @@ function arScheme(pages,opts={}){
      // The openings the layout draws in it (a grille, a gate in its corner): its holes, along it from its start and up from its foot.
      ...(p.holes?.length?{holes:p.holes.map(o=>[Math.round(o[0]),Math.round(o[1]),Math.round(o[2]-p.z0),Math.round(o[3]-p.z0)])}:{})},
     ...(v.numbered?{x_mm:a,y_mm:across0,x2_mm:b,y2_mm:across0}:{x_mm:across0,y_mm:a,x2_mm:across0,y2_mm:b}),
-    z0_mm:p.z0,z1_mm:p.z0,levels_from:"раскладка панелей АР",confidence:q&&!differs?"high":"medium",section:"АР",view:v,line:across0,side:low?-1:1,source_page:v.page,source_file:v.file,
+    z0_mm:p.z0,z1_mm:p.z0,levels_from:"раскладка панелей АР",confidence:q&&!differs?"high":"medium",section:"АР",view:v,line:across0,side:low?-1:1,...(part?{partition:true}:{}),source_page:v.page,source_file:v.file,
     axis_x:v.numbered?"":axis[0],axis_y:v.numbered?axis[0]:"",sheet:String(v.sheet),sheet_point_pt:p.pt,
     notes:["Раскладка панелей АР, лист "+v.sheet+(q?" · "+q.name+(q.ral?" · RAL "+q.ral+(q.ral_inside?"/"+q.ral_inside:""):""):" · позиции нет в спецификации панелей"),
      ...(footAt!==null?["Низ на линии "+(footAt<0?"−":"+")+(Math.abs(footAt)/1000).toFixed(3).replace(".",",")+" — по длине спецификации "+q.length_mm+" (на виде контур до низа стены)"]:[]),
@@ -1120,6 +1120,10 @@ let loose=0;
    if(n){used.set(f.pos,had+n);byPlan.push(f.pos+(n<k&&k<Infinity?" "+n+" из "+k:n>1?" ×"+n:""))}
    else if(inner.some(x=>x.startsWith(f.pos+" ")||x===f.pos))still.push(f.pos)}
   if(byPlan.length)warnings.push("Внутренние двери, ворота, окна поставлены по плану: "+byPlan.join(", "));
+  // (marks on a fragment of the plan beside it, outside its axes — planOpenings `fragment`: counted, said, not placed)
+  const frag=new Map();for(const p of ar)for(const o of p.ar.planFills||[])if(o.fragment&&blocks.has(o.mark))frag.set(o.mark,(frag.get(o.mark)||0)+1);
+  if(frag.size){warnings.push("На фрагменте плана АР (отдельный чертёж рядом с планом, вне его осей) — не поставлены: "+[...frag].map(([m,n])=>m+(n>1?" ×"+n:"")).join(", ")+"; фрагмент к осям здания не привязан");
+   for(const m of frag.keys()){const i=still.indexOf(m);if(i>=0)still.splice(i,1)}}
   if(inner.length&&still.length)warnings.push("Нет на фасадах и на плане (внутренние) — не поставлены: "+still.join(", "));
   else if(inner.length&&!byPlan.length)warnings.push("Нет на фасадах (внутренние, в перегородках) — пока не поставлены: "+inner.join(", "));
  }
@@ -1241,9 +1245,10 @@ let loose=0;
   if(r.unplaced)warnings.push(name+": контур не найден у панелей "+r.unplaced)
  }
  // The trims where the panels meet (нащельники — arTrims), named by the positions of the АР that fit their kind.
- const trimSpecs=new Map(),trimNames=new Map();
- for(const p of ar){for(const t of p.ar.trims||[])if(!trimSpecs.has(t.pos))trimSpecs.set(t.pos,{...t,sheet:p.pdfPage||p.page});for(const n of p.ar.trimNames||[])if(!trimNames.has(n.pos))trimNames.set(n.pos,n.name)}
- const tr=arTrims(placements,[...trimSpecs.values()].map(t=>({...t,name:trimNames.get(t.pos)||""})));
+ const trimSpecs=new Map(),trimNames=new Map(),trimNodes=[];
+ for(const p of ar){for(const t of p.ar.trims||[])if(!trimSpecs.has(t.pos))trimSpecs.set(t.pos,{...t,sheet:p.pdfPage||p.page});for(const n of p.ar.trimNames||[])if(!trimNames.has(n.pos))trimNames.set(n.pos,n.name);
+  for(const n of p.ar.trimNodes||[])trimNodes.push({...n,sheet:p.sheet?.block?.sheet||null,page:p.pdfPage||p.page})}
+ const tr=arTrims(placements,[...trimSpecs.values()].map(t=>({...t,name:trimNames.get(t.pos)||""})),trimNodes);
  placements.push(...tr.placements);warnings.push(...tr.warnings);
  for(const p of placements){delete p.view;delete p.line;delete p.side}
  const cuts=all.filter(v=>v.section).map(v=>v.section);
@@ -1262,16 +1267,42 @@ let loose=0;
 // shelves (layout.legs: [dx, dy, dz, mm] from its line, scheme axes) on the faces it covers, 2 mm off them. The positions
 // of the specifications of the АР that fit its kind by name and their pieces of 2 m — in its notes; the length placed
 // against them — in the warnings (the nodes of the АР are not tied to the places on the views yet).
-function arTrims(placements,spec=[]){
+function arTrims(placements,spec=[],nodes=[]){
  const out=[],warnings=[],R=Math.round,num=v=>Number(v)||0;
  const KIND={corner:["trim_corner","Нащельник угловой"],plinth:["trim_plinth","Отлив цокольный"],reveal:["trim_opening","Откос проёма"],sill:["trim_sill","Отлив оконный"],
-  ridge:["trim_ridge","Коньковый элемент"],gable:["trim_gable","Торцевая планка кровли"],abutment:["trim_abutment","Примыкание кровли к стене"]};
+  foot:["trim_start","Уголок низа перегородки"],ridge:["trim_ridge","Коньковый элемент"],gable:["trim_gable","Торцевая планка кровли"],abutment:["trim_abutment","Примыкание кровли к стене"]};
  // (the positions of the АР of a kind by their names: «Угловой элемент», «Отлив», «Откос», «Стыковочный элемент», «Нащельник»)
  const {trimKind}=require("./ai-ar-extract");
  const posOf=kinds=>spec.filter(t=>t.unit==="шт"&&kinds.includes(trimKind(t.name)));
- const POS={corner:posOf(["corner"]),plinth:posOf(["sill"]),reveal:posOf(["reveal","corner"]),sill:posOf(["sill"]),ridge:posOf(["joint"]),gable:posOf(["corner","joint","cap"]),abutment:posOf(["corner"])};
- const posNote=k=>{const l=POS[k];if(!l.length)return"Позиции нащельников в спецификациях АР не найдены — показан по стыку панелей";
-  return"По спецификациям АР — "+l.map(t=>"поз. "+t.pos+(t.name?" «"+t.name.replace(/\s+из\s+оцинкован\S*\s+кровельн\S*\s+стали\.?/u,"")+"»":"")+" "+t.count+" шт. по "+R((t.length_mm||2000)/1000)+" м").join(", ")+"; узлы АР к месту на видах не привязаны — проверьте позицию"};
+ // The nodes of the АР (trimNodes: the positions written at a node and what stands in it) name the positions of a place:
+ // the corner of walls — a corner element of a node with wall panels only (no gate, concrete, roof); the plinth — an
+ // отлив of a node with a concrete wall; under a window — an отлив of a node with a window and no concrete; the ridge —
+ // a joint element of a node of roof panels with two slopes; the gable edge — a corner trim of a node of roof and wall
+ // panels; the roof against a wall — the node with a parapet, an existing building or concrete. Two positions next to
+ // each other with one count (поз. 35 and 36, 31 шт. each) are one set of one node. Without nodes — by the name alone.
+ const NN=nodes.map(n=>({...n,pos:[...n.pos]})),specOf=p=>spec.find(t=>t.pos===p);
+ for(const n of NN)for(const p of [...n.pos]){const t=specOf(p);if(!t||t.unit!=="шт")continue;
+  for(const q of spec)if(q.unit==="шт"&&q.count===t.count&&q.sheet===t.sheet&&Math.abs(parseInt(q.pos)-parseInt(p))===1&&trimKind(q.name)===trimKind(t.name)&&!n.pos.includes(q.pos))n.pos.push(q.pos)}
+ const has=(n,...c)=>c.every(k=>n.ctx.includes(k)),none=(n,...c)=>!c.some(k=>n.ctx.includes(k)),tied={},nodeOf={};
+ const pick=(k,kinds,ok,bad)=>{const l=posOf(kinds);if(!NN.length)return l;
+  const at=t=>NN.filter(n=>n.pos.includes(t.pos)),hit=l.filter(t=>at(t).some(ok)),clean=bad?hit.filter(t=>!at(t).some(bad)):hit,r=clean.length?clean:hit;
+  if(!r.length)return l;tied[k]=true;for(const t of r)nodeOf[k+":"+t.pos]=at(t).filter(ok);return r};
+ const rev=posOf(["reveal"]);
+ const POS={corner:pick("corner",["corner"],n=>has(n,"wall")&&none(n,"gate","concrete","window","roof","existing"),n=>!none(n,"gate","concrete","roof")),
+  plinth:pick("plinth",["sill"],n=>has(n,"concrete")&&none(n,"roof","gate"),n=>has(n,"roof")),
+  reveal:rev.length?rev:pick("reveal",["corner"],n=>has(n,"window")),
+  sill:pick("sill",["sill"],n=>has(n,"window")&&none(n,"concrete"),n=>has(n,"concrete")),
+  ridge:pick("ridge",["joint"],n=>has(n,"roof","two_slopes")),
+  foot:spec.filter(t=>trimKind(t.name)==="angle"),
+  gable:NN.length?pick("gable",["corner"],n=>has(n,"roof","wall")&&none(n,"parapet","eave","two_slopes","existing","concrete")):posOf(["corner","joint","cap"]),
+  abutment:NN.length?pick("abutment",["corner","parapet","joint"],n=>has(n,"roof")&&!none(n,"parapet","existing","concrete")):posOf(["corner"])};
+ // (the node of roof and wall panels with the most pieces is the free edge of the roof — the others of them are the roof
+ // against a wall going on up: ИР-71535 поз. 37, 83 шт., узел 29 and поз. 40, 21 шт., узел 30)
+ if(tied.gable&&POS.gable.length>1){const top=[...POS.gable].sort((p,q)=>q.count-p.count)[0],rest=POS.gable.filter(t=>t!==top);POS.gable=[top];
+  for(const t of rest)if(!POS.abutment.includes(t)){POS.abutment.push(t);nodeOf["abutment:"+t.pos]=nodeOf["gable:"+t.pos];tied.abutment=true}}
+ const posNote=k=>{const l=POS[k];if(k==="foot"){const t=l[0],n=NN.filter(n=>n.pos.includes(t.pos));return"По спецификации АР — поз. "+t.pos+" «"+t.name+"» "+String(t.count).replace(".",",")+" "+(t.unit==="шт"?"шт.":"п.м")+(n.length?" (уз"+(n.length>1?"лы ":"ел ")+n.map(n=>n.node).join(", ")+")":"")}if(!l.length)return"Позиции нащельников в спецификациях АР не найдены — показан по стыку панелей";
+  const nd=t=>{const a=nodeOf[k+":"+t.pos]||[];return a.length?" (уз"+(a.length>1?"лы ":"ел ")+[...new Set(a.map(n=>n.node))].join(", ")+(a[0].sheet?", лист "+[...new Set(a.map(n=>n.sheet))].join(", "):"")+")":""};
+  return(tied[k]?"По узлам АР — ":"По спецификациям АР — ")+l.map(t=>"поз. "+t.pos+(t.name?" «"+t.name.replace(/\s+из\s+оцинкован\S*\s+кровельн\S*\s+стали\s*\.?/u,"")+"»":"")+nd(t)+" "+t.count+" шт. по "+R((t.length_mm||2000)/1000)+" м").join(", ")+(tied[k]||k==="reveal"&&rev.length?"":"; узел АР для этого места не найден — проверьте позицию")};
  const add=(kind,ral,a,b,legs,note,extra={})=>{const [type,name]=KIND[kind];const lng=Math.hypot(b[0]-a[0],b[1]-a[1],b[2]-a[2]);if(lng<100)return;
   out.push({mark:"Нщ",name,type_key:type,scheme_group:"trims",geometry_type:"beam",fitting_type:"trim",diameter_mm:R(Math.max(...legs.map(l=>l[3]))),
    layout:{trim:kind,legs:legs.map(l=>{const n=Math.hypot(l[0],l[1],l[2])||1;return[+(l[0]/n).toFixed(4),+(l[1]/n).toFixed(4),+(l[2]/n).toFixed(4),R(l[3])]}),...(ral?{ral}:{}),length_mm:R(lng)},
@@ -1303,12 +1334,18 @@ function arTrims(placements,spec=[]){
   if(add("corner",nearA[0].ral||nearB[0].ral,[P[0],P[1],zlo],[P[0],P[1],zhi],[[dA,0,0,100],[0,dB,0,100]],
    (outer?"Наружный":"Внутренний")+" угол стен — по раскладкам панелей АР; угловой элемент на наружных гранях обеих стен"))corners++}
  // The foot of the walls standing on the ground (not over a lower roof — under +0,700): an отлив along it, on to the corner.
- let plinth=0;
+ let plinth=0,foot=0;
  for(const r of runs){const list=r.panels.filter(w=>w.z0<=700).sort((p,q)=>p.a-q.a);let seg=null;const segs=[];
   for(const w of list){if(seg&&w.a-seg.b<=80&&Math.abs(w.z0-seg.z)<=40)seg.b=Math.max(seg.b,w.b);else segs.push(seg={a:w.a,b:w.b,z:w.z0,ral:w.ral})}
   // (at a corner: to the corner trim — the outer face of the wall across, short of the layout's overshoot past it or on to it)
   for(const s of segs){const a=Math.abs(s.a-r.a)<=1&&r.ends[0]!=null?r.ends[0]:s.a,b=Math.abs(s.b-r.b)<=1&&r.ends[1]!=null?r.ends[1]:s.b,f=face(r);
    const P=r.x?[[a,f,s.z],[b,f,s.z]]:[[f,a,s.z],[f,b,s.z]],n=r.x?[0,r.side,0]:[r.side,0,0];
+   // (a partition of panels inside stands on the floor on a rolled angle bolted to it — узел 34: no отлив there)
+   const prt=r.panels.some(w=>w.p.partition);
+   // (at a door of the partition the angle stops 100 short of the gap — the door post stands there)
+   if(prt){const gap=(o,e)=>[o.a,o.b].some(v=>Math.abs(v-e)>=600&&Math.abs(v-e)<=1700)&&!(o.a<e&&o.b>e),door=e=>segs.some(o=>o!==s&&gap(o,e))||runs.some(o=>o!==r&&o.x===r.x&&Math.abs(o.line-r.line)<=20&&gap(o,e));
+    for(const k of [0,1]){const e=k?s.b:s.a;if(Math.abs(e-(k?b:a))<=1&&door(e))P[k][r.x?0:1]+=k?-100:100}
+    if(POS.foot.length){const L=Number(/L(\d+)/u.exec(POS.foot[0].name)?.[1])||75;foot+=add("foot","",P[0],P[1],[[0,0,1,L],[...n,L]],"Низ перегородки из панелей на "+s.z+" — уголок к полу на анкерных болтах, по узлу АР")||0}continue}
    plinth+=add("plinth",s.ral,P[0],P[1],[[0,0,1,100],[...n,50]],"Низ стены на "+s.z+" — по раскладке панелей АР")||0}}
  // Openings in the walls of panels: откосы on the sides and over the head, an отлив under a window.
  let reveal=0,sills=0;
@@ -1358,10 +1395,10 @@ function arTrims(placements,spec=[]){
     for(const x of pe){const p=x.p,lift=p.t+2,A=[p.H[0]+p.u[0]*x.s*p.w/2,p.H[1]+p.u[1]*x.s*p.w/2,p.H[2]+lift],B=[p.L[0]+p.u[0]*x.s*p.w/2,p.L[1]+p.u[1]*x.s*p.w/2,p.L[2]+lift];
      const l=add(m.kind,m.ral,A,B,m.legs,m.note)||0;if(m.kind==="gable")gable+=l;else abut+=l}}}}
  const sum=(k,v)=>v?KIND[k][1]+" "+(v/1000).toFixed(1)+" м":"";
- const placed={corner:out.filter(p=>p.type_key==="trim_corner").reduce((t,p)=>t+p.layout.length_mm,0),plinth,reveal,sill:sills,ridge,gable,abutment:abut};
+ const placed={corner:out.filter(p=>p.type_key==="trim_corner").reduce((t,p)=>t+p.layout.length_mm,0),plinth,foot,reveal,sill:sills,ridge,gable,abutment:abut};
  if(out.length){const specM=k=>POS[k].reduce((t,q)=>t+q.count*(q.length_mm||2000),0);
   warnings.push("Нащельники по стыкам панелей АР: "+Object.entries(placed).map(([k,v])=>sum(k,v)).filter(Boolean).join(", ")+
-   (spec.length?"; по спецификациям АР угловых "+(specM("corner")/1000).toFixed(0)+" м, отливов "+(specM("sill")/1000).toFixed(0)+" м, откосов "+(POS.reveal.filter(t=>trimKind(t.name)==="reveal").reduce((t,q)=>t+q.count*(q.length_mm||2000),0)/1000).toFixed(0)+" м, стыковочных и нащельников "+(specM("ridge")/1000).toFixed(0)+" м (по 2 м с нахлёстом)":"")+" — узлы АР к местам на видах пока не привязаны, проверьте")}
+   (spec.length?"; по спецификациям АР угловых "+(specM("corner")/1000).toFixed(0)+" м, отливов "+(specM("sill")/1000).toFixed(0)+" м, откосов "+(POS.reveal.filter(t=>trimKind(t.name)==="reveal").reduce((t,q)=>t+q.count*(q.length_mm||2000),0)/1000).toFixed(0)+" м, стыковочных и нащельников "+(specM("ridge")/1000).toFixed(0)+" м (по 2 м с нахлёстом)":"")+(NN.length?" — позиции по узлам АР, где узел найден":" — узлы АР к местам на видах пока не привязаны, проверьте"))}
  return{placements:out,warnings}
 }
 // Architecture and technology drawings are reference for the frame: their schemes are off unless ticked.

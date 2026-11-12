@@ -1391,7 +1391,10 @@ function planOpenings({segments=[],texts=[]}={},axes){
   else if(dx<=.3&&dy>=1.5)V.push({at:(g.a.x+g.b.x)/2,lo:Math.min(g.a.y,g.b.y),hi:Math.max(g.a.y,g.b.y)})}
  const out=[];
  for(const t of texts){const m=/^\s*(Д|В|ОК)\s*-\s*(\d{1,2}[а-я]?)\s*$/u.exec(String(t.str));if(!m)continue;
-  const b=textBox(t);if(b.cx<box.x0||b.cx>box.x1||b.cy<box.y0||b.cy>box.y1)continue;
+  const b=textBox(t);
+  // (a mark outside the axes of the plan — on a fragment drawn beside it at its own scale, ИР-71535 ч.1 л.10 «Фрагмент
+  // плана на отм. −0,050» with Д-5 and two Д-1 of the washrooms: said, not placed — no wall, no place on the grid)
+  if(b.cx<box.x0||b.cx>box.x1||b.cy<box.y0||b.cy>box.y1){if(b.cx<box.x0-60||b.cx>box.x1+60||b.cy<box.y0-60||b.cy>box.y1+60)out.push({mark:m[1]+"-"+m[2],x:Math.round(b.cx*10)/10,y:Math.round(b.cy*10)/10,fragment:true});continue}
   const along=b.angle===0,lines=along?H:V,c=along?b.cx:b.cy,q=along?b.cy:b.cx;
   // (the wall: the nearest line along the label within 14 pt across, running within 40 pt of it along; its other face
   // 1…8 pt off — 100…400 mm at 1:50)
@@ -1410,6 +1413,29 @@ function planOpenings({segments=[],texts=[]}={},axes){
    wall:[Math.round(near.at*10)/10,...(twin?[Math.round(twin.at*10)/10]:[])],...(body.length>1&&Math.max(...body)-Math.min(...body)>=2?{body:[Math.round(Math.min(...body)*10)/10,Math.round(Math.max(...body)*10)/10]}:{}),gaps:gaps.filter(g=>g[1]>=c-60&&g[0]<=c+60)})}
  return out
 }
+// The nodes of the trims (ИР-71535 АР ч.2 л.14–18): the number of a node large in a bubble with the sheet it is called
+// on under it; the «Поз. N» written at the node and the words of what stands in it (окно, ворота, железобетонная стена,
+// кровельная панель, парапет, водосток, два уклона — the ridge) — which position goes to which place of the building.
+// A label is of a node only when that node is clearly the nearest over it (0,7 of the way to the next one).
+function trimNodes(texts){
+ const flat=(texts||[]).filter(t=>Math.abs(t.angle||0)<10),num=t=>/^\d{1,2}$/u.test(String(t.str).trim());
+ const big=flat.filter(t=>num(t)&&t.size>=14),nodes=[];
+ for(const b of big){const s=big.find(q=>q!==b&&Math.abs(q.x-b.x)<8&&q.y-b.y>10&&q.y-b.y<24&&Math.abs(q.size-b.size)<1);if(s)nodes.push({node:String(b.str).trim(),on:String(s.str).trim(),x:b.x,y:b.y,pos:[],words:[]})}
+ if(!nodes.length)return[];
+ // (the sketches of the positions with «Поз. N» as large as the bubbles — the legend beside the table, no node)
+ const legend=Math.min(...flat.filter(t=>/^Поз/u.test(String(t.str).trim())&&t.size>=14).map(t=>t.x),Infinity);
+ const own=t=>{const c=nodes.filter(n=>n.y<t.y+25).map(n=>({n,d:Math.hypot(t.x+(t.width||0)/2-n.x,t.y-n.y)})).sort((p,q)=>p.d-q.d);
+  return c.length&&(c.length<2||c[0].d<.7*c[1].d)?c[0].n:null};
+ for(const t of flat){const s=String(t.str).trim();if(t.size>=14||t.x>=legend-40)continue;
+  const m=/^Поз\s*\.?\s*(\d{1,3})\s*([а-яa]?)(?![\d])/u.exec(s),n=own(t);if(!n)continue;
+  if(m){let pos=m[1]+m[2];const tail=/^Поз\s*\.?\s*\d{1,3}\s+(а)(?:\s|$)/u.exec(s);if(tail&&!m[2])pos+=tail[1];if(!n.pos.includes(pos))n.pos.push(pos)}
+  else n.words.push(s)}
+ return nodes.filter(n=>n.pos.length).map(({x,y,words,...n})=>{const w=words.join(" | ").toLowerCase(),c=[];
+  if(/оконн|окна(?![а-яё])/u.test(w))c.push("window");if(/ворот/u.test(w))c.push("gate");if(/железобетонн|фундамент|отмостк|бортов/u.test(w))c.push("concrete");
+  if(/кровельная\s+сэндвич|прогон/u.test(w))c.push("roof");if(/стеновая\s+сэндвич|стеновой|колонна/u.test(w))c.push("wall");if(/парапет/u.test(w))c.push("parapet");
+  if(/водосток|ж[её]лоб/u.test(w))c.push("eave");if(/существующ/u.test(w))c.push("existing");
+  if((w.match(/\d+,\d\s*%/gu)||[]).length>1)c.push("two_slopes");
+  return{...n,ctx:c}})}
 // The trims of the cladding (нащельники, фасонные элементы — ИР-71535 АР ч.2 л.14–18, ч.1 л.12–14): the table
 // «Спецификация к схемам расположения элементов» (поз., the sheet «БТ-ПН-О-0,5 х 500 х 2000» they are bent of, the
 // number of pieces) and the labels «Поз. 32 Угловой элемент из оцинкованной кровельной стали» of the nodes — the name
@@ -1417,7 +1443,7 @@ function planOpenings({segments=[],texts=[]}={},axes){
 // (нащельник, стыковочный элемент), gutter.
 function trimKind(name){const s=String(name||"").toLowerCase();
  return/желоб|ж[её]лоб/u.test(s)?(/обрамлени/u.test(s)?"gutter_trim":"gutter"):/углов/u.test(s)?"corner":/накрывк/u.test(s)?(/парапет|парпет/u.test(s)?"parapet":"cap"):
-  /откос/u.test(s)?"reveal":/отлив/u.test(s)?"sill":/стыковоч/u.test(s)?"joint":/нащельник|фасонн/u.test(s)?"joint":/костыл|опорн\S*\s+элемент/u.test(s)?"support":null}
+  /откос/u.test(s)?"reveal":/отлив/u.test(s)?"sill":/стыковоч/u.test(s)?"joint":/нащельник|фасонн/u.test(s)?"joint":/костыл|опорн\S*\s+элемент/u.test(s)?"support":/^уголок\s+l\s*\d/u.test(s)?"angle":null}
 function trimSpec(texts){
  const flat=texts.filter(t=>Math.abs(t.angle||0)<10),names=[];
  for(const t of flat){const m=/^Поз\s*\.?\s*(\d{1,3})\s*([а-яa]?)(?![\d])\s*(.*)$/u.exec(String(t.str).trim());if(!m)continue;
@@ -1428,6 +1454,8 @@ function trimSpec(texts){
   const tail=/^(\d|а)(?:\s+(?=[А-ЯЁ,(])|$)/u.exec(rest);if(tail&&!m[2]){pos+=tail[1];rest=rest.slice(tail[0].length).replace(/^[,\s]+/,"")}
   if(!/[а-яё]{3}/iu.test(rest)){const nx=flat.filter(q=>q!==t&&q.y>t.y&&q.y-t.y<16&&q.x>=t.x-60&&q.x<=t.x+(t.width||40)).sort((p,q)=>p.y-q.y)[0];rest=nx?String(nx.str).replace(/^[,\s]+/,"").trim():""}
   // (insulation laid with it — «( по периметру желоба ) ППС 35» — is no trim)
+  // (a rolled angle of the nodes — «Поз. 43, L 75 х 5» along the foot of a partition of panels, узел 34)
+  const ang=/^L\s*(\d{2,3})\s*[хx]\s*(\d{1,2})(?![\d,.])/u.exec(m[3].replace(/^[,\s]+/,""));if(ang){names.push({pos,name:"Уголок L"+ang[1]+"×"+ang[2]});continue}
   if(/ППС|утеплител|минеральн|вата/iu.test(rest)||/^\(/u.test(rest))continue;
   if(/[а-яё]{3}/iu.test(rest)&&trimKind(rest))names.push({pos,name:rest.replace(/\s+/g," ").replace(/\s*,\s*$/,"").slice(0,120)})}
  const out=[],title=flat.find(t=>/Спецификация\s+к\s+схемам\s+расположения\s+элементов/iu.test(String(t.str)));
@@ -1478,9 +1506,9 @@ function extractArchitecture(geometry){
  if(fills.length)fillSketches(geometry||{},fills);
  const finish=facadeFinish(texts),sills=sillSpec(texts);
  const axes=planAxes(geometry||{});
- const tr=trimSpec(texts),niches=nicheSpec(texts),planFills=planOpenings(geometry||{},axes);
+ const tr=trimSpec(texts),trNodes=trimNodes(texts),niches=nicheSpec(texts),planFills=planOpenings(geometry||{},axes);
  const existing=axes?existingPlan(geometry||{}):null;
- const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{}),...(axes?{axes}:{}),...(tr.trims.length?{trims:tr.trims}:{}),...(tr.names.length?{trimNames:tr.names}:{}),...(niches.length?{niches}:{}),...(planFills.length?{planFills}:{}),...(existing?{existing}:{})};
+ const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{}),...(axes?{axes}:{}),...(tr.trims.length?{trims:tr.trims}:{}),...(tr.names.length?{trimNames:tr.names}:{}),...(trNodes.length?{trimNodes:trNodes}:{}),...(niches.length?{niches}:{}),...(planFills.length?{planFills}:{}),...(existing?{existing}:{})};
  return panels.length||fills.length||views.length||Object.keys(extra).length?{panels,fills,views,...extra}:null
 }
-module.exports={existingPlan,fillKinds,splitJoinedMarks,planOpenings,nicheSpec,trimSpec,trimKind,planAxes,facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
+module.exports={existingPlan,fillKinds,splitJoinedMarks,planOpenings,nicheSpec,trimSpec,trimNodes,trimKind,planAxes,facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
