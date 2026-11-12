@@ -4439,6 +4439,53 @@ window.irThreeSchemeView=(function irThreeModule(){
     porchN++
    })
   }
+  // The inner gutter at the eaves of a roof that ends short of a higher wall (ИР-71535 АР ч.1 л.7 узел 41, rows Л and Б:
+  // the roof panel Пк-6 ends 560 mm and more inside the wall, the wall goes up past it to +21,750 — «Линия примыкания стены
+  // снизу» on the plan of the roof; the engineer 12.11.2026: «изучи момент стыка сэндвича кровли и стенового сэндвича»):
+  // between the lower end of each roof panel and the inner face of the wall across its slope (200…1200 mm, the wall's top
+  // over the roof's end) a gutter of sheet steel t2 (поз. 60, 61): its bottom 210 under the underside of the roof's end, the
+  // inner side up to the roof, the outer side 300 up the wall; the top of that wall covered (поз. 58, накрывка t0,8 — over
+  // the wall and 50 past it, its sides 100 down). Galvanized grey, not steel of the КМ — out of the check of metal (footing).
+  var gutterN=0,gutterMat=null;
+  function eaveGutters(){
+   gutterN=0;var walls=[],capped=new Set(),runs=[];
+   elems.forEach(function(c){if(c.ft!=="panel"||!c.id||!c.lay||c.lay.panel!=="wall")return;var ms=(meshesById.get(String(c.id))||[]).filter(function(m){return m.isMesh&&!m.userData.seam});if(!ms.length)return;
+    var p=memberPoints(c),u=new T.Vector3(p[1].x-p[0].x,0,p[1].z-p[0].z),L=u.length();if(L<.1)return;u.divideScalar(L);
+    var b=new T.Box3();ms.forEach(function(m){b.expandByObject(m)});walls.push({id:String(c.id),u:u,n:new T.Vector3(-u.z,0,u.x),b:b,o:p[0]})});
+   if(!walls.length)return;
+   if(!gutterMat)gutterMat=new T.MeshStandardMaterial({color:0xb4bcc4,metalness:.5,roughness:.5});
+   var put=function(id,w,h,d,at,X,Y,Z){var m=new T.Mesh(new T.BoxGeometry(w,h,d),gutterMat);m.position.copy(at);m.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(X,Y,Z));
+    m.userData.memberId=id;m.userData.fixed=true;m.userData.footing=true;m.userData.sheet=true;m.userData.gutter=true;steel.add(m);allMeshes.push(m);(meshesById.get(id)||meshesById.set(id,[]).get(id)).push(m)};
+   elems.forEach(function(c){
+    if(c.ft!=="panel"||!c.id||!c.lay||c.lay.panel!=="roof")return;
+    var p=memberPoints(c),lo=p[0].y<p[1].y?p[0]:p[1],hi=lo===p[0]?p[1]:p[0],h=new T.Vector3(lo.x-hi.x,0,lo.z-hi.z),run=h.length();if(run<.5||hi.y-lo.y<.05)return;h.divideScalar(run);
+    var w=Math.max(.3,(number(c.fd)||1000)/1000),t=Math.max(.04,(number(c.lay.thickness_mm)||120)/1000),best=null;
+    walls.forEach(function(q){
+     if(Math.abs(q.n.dot(h))<.97)return;var bb=q.b,s=lo.clone().sub(q.o).dot(q.u),s0=bb.min.clone().sub(q.o).dot(q.u),s1=bb.max.clone().sub(q.o).dot(q.u);
+     if(s<Math.min(s0,s1)-.05||s>Math.max(s0,s1)+.05)return;
+     // (the inner face: the face of its box toward the roof)
+     var faces=[bb.min.clone(),bb.max.clone()].map(function(v){return v.clone().sub(lo).dot(h)}),g=Math.min(faces[0],faces[1]);
+     if(g<.2||g>1.2||bb.max.y<lo.y+t+.03||bb.min.y>lo.y-.3)return;
+     if(!best||g<best.g)best={q:q,g:g,face:Math.min(faces[0],faces[1]),back:Math.max(faces[0],faces[1])}});
+    if(!best)return;
+    var id=String(c.id),up=new T.Vector3(0,1,0),side=new T.Vector3().crossVectors(h,up).normalize(),yb=lo.y-.21,g=best.g;
+    var mid=function(along,y){var v=lo.clone().add(h.clone().multiplyScalar(along));v.y=y;return v};
+    put(id,g,.002,w,mid(g/2,yb),h,up,side);
+    put(id,.002,lo.y-yb,w,mid(.001,(yb+lo.y)/2),h,up,side);
+    put(id,.002,.3,w,mid(g-.003,yb+.15),h,up,side);
+    gutterN++;
+    runs.push({q:best.q,s0:lo.clone().sub(best.q.o).dot(best.q.u)-w/2,s1:lo.clone().sub(best.q.o).dot(best.q.u)+w/2,y:lo.y})
+   });
+   // (the cap over every panel of that wall along the gutters — the panels of the wall and of the roof are not one for one)
+   walls.forEach(function(q){
+    if(capped.has(q.id))return;var bb=q.b,a=bb.min.clone().sub(q.o).dot(q.u),b=bb.max.clone().sub(q.o).dot(q.u),s0=Math.min(a,b),s1=Math.max(a,b),mid=bb.getCenter(new T.Vector3());
+    if(!runs.some(function(r){return Math.abs(r.q.n.dot(q.n))>.99&&Math.abs(mid.clone().sub(r.q.b.getCenter(new T.Vector3())).dot(r.q.n))<.03&&s1>r.s0-.3&&s0<r.s1+.3&&bb.max.y>r.y+.1&&bb.max.y<r.y+1.5}))return;
+    capped.add(q.id);
+    var up=new T.Vector3(0,1,0),wt=Math.abs(bb.max.clone().sub(bb.min).dot(q.n)),span=s1-s0,cm=mid.clone();cm.y=bb.max.y;
+    put(q.id,span,.0008,wt+.1,cm.clone().add(new T.Vector3(0,.0004,0)),q.u,up,q.n);
+    [-1,1].forEach(function(sg){put(q.id,span,.1,.0008,cm.clone().add(q.n.clone().multiplyScalar(sg*(wt/2+.0504))).add(new T.Vector3(0,-.05+.0008,0)),q.u,up,q.n)})
+   })
+  }
   function buildDucts(){
    ductN=0;var list=ductPieces.slice(),groups=[];
    list.forEach(function(p){
@@ -11540,7 +11587,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   // Footings below ±0.000 (bases at −0.600): the floor, the grid and the dimensions go down to the lowest member,
   // so that bases and their plates stay above the floor.
   function lowerGround(){
-   buildDucts();porchSheets();
+   buildDucts();porchSheets();eaveGutters();
    var low=0;elems.forEach(function(c){var z=Math.min(number(c.z0),c.geometryType==="column"?number(c.z0):number(c.z2));if(z<low)low=z});
    var y=Math.min(0,low/1000+.12);ground.position.y=y;dims.position.y=y
   }

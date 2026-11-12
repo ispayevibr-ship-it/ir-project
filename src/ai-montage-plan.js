@@ -845,6 +845,11 @@ function arScheme(pages,opts={}){
     let at=Math.round(fc.a+fc.b*ry);const ax=acr.filter(v=>Math.abs(v-at)<=1500).sort((p,q)=>Math.abs(p-at)-Math.abs(q-at))[0];if(ax!==undefined)at=ax;
     parts.push({a0:mmAt.get(from),a1:mmAt.get(to),eaves,ridge,...(ridge>eaves?{ridge_at:Math.max(c0,Math.min(c1,at))}:{})});from=to});
    const ok=parts.filter(q=>q.a0!==undefined&&q.a1!==undefined&&Math.abs(q.a1-q.a0)>=1000);if(!ok.length)break;
+   // (its wall toward the grid where the panels of the АР on it are — «по фасаду 3-1», Пс-110…Пс-113 at x 160…280: the shop's
+   // wall outside its axis «К», its roof on the plan up to «01» —, the inner face of those panels; within 2,5 m of the axis)
+   const skin=placements.filter(q=>q.layout?.existing&&(k==="x"?q.x_mm===q.x2_mm:q.y_mm===q.y2_mm)).map(q=>(k==="x"?q.x_mm:q.y_mm)+out*(q.layout.thickness_mm||0)/2)
+    .filter(v=>(v-ok[0].a0)*-out>=0&&(v-ok[0].a0)*-out<=2500);
+   if(skin.length)ok[0].a0=Math.round(out<0?Math.min(...skin):Math.max(...skin));
    const far=ok[ok.length-1].a1,near=ok[0].a0,mid=Math.round((c0+c1)/2),name=(/[А-ЯЁA-Z]{2,}[^\s]*$/u.exec(lab.str)||[])[0]||"Здание рядом";
    const fmt=v=>"+"+(v/1000).toFixed(3).replace(".",",");
    placements.push({mark:name,name:lab.str+" (существующее, условно)",type_key:"existing_building",scheme_group:"cladding",geometry_type:"beam",fitting_type:"building",
