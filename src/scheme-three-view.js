@@ -4445,10 +4445,13 @@ window.irThreeSchemeView=(function irThreeModule(){
   // The inner gutter at the eaves of a roof that ends short of a higher wall (ИР-71535 АР ч.1 л.7 узел 41, rows Л and Б:
   // the roof panel Пк-6 ends 560 mm and more inside the wall, the wall goes up past it to +21,750 — «Линия примыкания стены
   // снизу» on the plan of the roof; the engineer 12.11.2026: «изучи момент стыка сэндвича кровли и стенового сэндвича»):
-  // between the lower end of each roof panel and the inner face of the wall across its slope (200…1200 mm, the wall's top
+  // between the lower end of each roof panel and the inner face of the wall across its slope (200…2500 mm, the wall's top
   // over the roof's end) a gutter of sheet steel t2 (поз. 60, 61): its bottom 210 under the underside of the roof's end, the
   // inner side up to the roof, the outer side 300 up the wall; the top of that wall covered (поз. 58, накрывка t0,8 — over
   // the wall and 50 past it, its sides 100 down). Galvanized grey, not steel of the КМ — out of the check of metal (footing).
+  // Up to 2,5 m wide: the valley of node 40 АР ч.1 л.6 (АР-27) at the east wall О10 of the annex О8–О10 — the roof Пк-16
+  // 10 % ends at 65,531, the wall with its parapet stands at 67,210, between them the flat gutter with funnels, i=0,5 %
+  // (the plan of the roof ч.1 л.5); with 1,2 m it stayed an open slot of 1,68 m (the engineer's section, 12.11.2026).
   var gutterN=0,gutterMat=null;
   function eaveGutters(){
    gutterN=0;var walls=[],capped=new Set(),runs=[];
@@ -4468,7 +4471,7 @@ window.irThreeSchemeView=(function irThreeModule(){
      if(s<Math.min(s0,s1)-.05||s>Math.max(s0,s1)+.05)return;
      // (the inner face: the face of its box toward the roof)
      var faces=[bb.min.clone(),bb.max.clone()].map(function(v){return v.clone().sub(lo).dot(h)}),g=Math.min(faces[0],faces[1]);
-     if(g<.2||g>1.2||bb.max.y<lo.y+t+.03||bb.min.y>lo.y-.3)return;
+     if(g<.2||g>2.5||bb.max.y<lo.y+t+.03||bb.min.y>lo.y-.3)return;
      if(!best||g<best.g)best={q:q,g:g,face:Math.min(faces[0],faces[1]),back:Math.max(faces[0],faces[1])}});
     if(!best)return;
     var id=String(c.id),up=new T.Vector3(0,1,0),side=new T.Vector3().crossVectors(h,up).normalize(),yb=lo.y-.21,g=best.g;
