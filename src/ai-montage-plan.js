@@ -802,6 +802,61 @@ function arScheme(pages,opts={}){
      ...(differs?["Размер по чертежу "+Math.round(w)+"×"+Math.round(h)+", по спецификации "+q.width_mm+"×"+q.length_mm+" — проверьте"]:[])]})
   }
  }
+ // The building beside itself (ИР-71535 АР ч.1 л.5 «План кровли»: «Существующее здание цеха ММА» west of «01» — the
+ // engineer 11.11.2026, again 12.11: «существующее здание показать одним элементом на схеме»; src/ai-ar-extract.js
+ // existingPlan): one block, not steel. Along — from its axis next to the grid (the tick of the chain of dimensions under the
+ // plan nearest the grid on its side, «К» 850 from «01») out, by the numbers of the chain where it is broken («72000» in 190
+ // pt), by the scale elsewhere; across — between its axes of the other way placed by the plans (rows «3»…«1»). Its roofs by
+ // the marks over them: each group of marks a part — the eaves the lowest, the ridge the highest, on the line of the ridge
+ // mark; parts meet at the tick of the chain next to the nearer group («И1»: +20,080/+24,200 from «К» to «И1», +12,000/
+ // +15,850 on to «А»). One element for the set.
+ for(const p of ar){
+  const ex=p.ar.existing,fit=planFit.get(p);if(!ex||!fit||placements.some(q=>q.type_key==="existing_building"))continue;
+  const sheet=p.pdfPage||p.page,lab=ex.label;
+  for(const k of ["x","y"]){
+   const fa=k==="x"?fit.fx:fit.fy,fc=k==="x"?fit.fy:fit.fx,grid=k==="x"?px:py,across=k==="x"?foreign.y:foreign.x;
+   const pt=mm=>(mm-fa.a)/fa.b,e0=pt(Math.min(...grid.values())),e1=pt(Math.max(...grid.values())),lo=Math.min(e0,e1),hi=Math.max(e0,e1),lp=k==="x"?lab.x:lab.y;
+   if(lp>=lo&&lp<=hi)continue;
+   const out=lp<lo?-1:1,beyond=v=>out<0?v<lo-1:v>hi+1;
+   // (a chain along this way — horizontal for x —: the one with the most ticks beyond the grid on the building's side)
+   const chains=(ex.chains||[]).filter(c=>(k==="x")===!c.vertical).map(c=>({c,n:c.ticks.filter(beyond).length})).filter(o=>o.n>=2).sort((a,b)=>b.n-a.n);
+   if(!chains.length){warnings.push("«"+lab.str+"» (лист "+sheet+"): цепочки размеров здания на плане нет — не показано");break}
+   const ch=chains[0].c,ts=ch.ticks.filter(beyond).sort((a,b)=>out<0?b-a:a-b),sc=Math.abs(fa.b);
+   const mmAt=new Map([[ts[0],Math.round(fa.a+fa.b*ts[0])]]);
+   // (a number between the ticks — not shorter than drawn: a break shortens the drawing, never lengthens it; «850» written
+   // left of its 12 pt over «И1»…«К» of 330 pt is not it)
+   for(let i=1;i<ts.length;i++){const a=Math.min(ts[i-1],ts[i]),b=Math.max(ts[i-1],ts[i]),raw=(b-a)*sc,d=ch.dims.filter(o=>o.x>a&&o.x<b&&o.v>=raw*.9).sort((p,q)=>Math.abs(p.x-(a+b)/2)-Math.abs(q.x-(a+b)/2));
+    const len=d.length?d[0].v:Math.round(raw/5)*5;mmAt.set(ts[i],mmAt.get(ts[i-1])+out*(fa.b>0?1:-1)*len)}
+   // (across: between its axes of the other way on the plans, else between the marks)
+   // (an axis «А/1» of the grid's own — between «А» and «Б», not in the grid — is not the building's)
+   const acr=[...across].filter(([n])=>!(k==="x"?py:px).has(String(n).split("/")[0])).map(([,v])=>v);
+   const lv=(ex.levels||[]).filter(l=>out<0?l.x1<ts[0]:l.x0>ts[0]).filter(l=>out<0?l.x0>ts[ts.length-1]-40:l.x1<ts[ts.length-1]+40);
+   if(acr.length<2||!lv.length){warnings.push("«"+lab.str+"» (лист "+sheet+"): "+(acr.length<2?"оси здания поперёк на планах не найдены":"отметок его кровли на плане нет")+" — не показано");break}
+   const c0=Math.min(...acr),c1=Math.max(...acr);
+   const groups0=[];for(const l of lv.slice().sort((a,b)=>out<0?b.x0-a.x0:a.x0-b.x0)){const m=(l.x0+l.x1)/2,g=groups0[groups0.length-1];if(g&&Math.abs(m-g.m)<=60){g.list.push(l);g.m=(g.m*(g.list.length-1)+m)/g.list.length}else groups0.push({m,list:[l]})}
+   // (a roof is marked at its eaves and its ridge: a lone mark beside — «+20,410» of the roof of ours crowded over the axis
+   // «К» — is not a part of it)
+   const groups=groups0.length>1?groups0.filter(g=>g.list.length>=2):groups0;if(!groups.length)break;
+   const parts=[];let from=ts[0];
+   groups.forEach((g,i)=>{const nx=groups[i+1];let to=ts[ts.length-1];
+    if(nx){const mid=ts.filter(x=>out<0?x<g.m&&x>nx.m:x>g.m&&x<nx.m);to=mid.length?mid[0]:ts.find(x=>out<0?x<g.m:x>g.m)||to}
+    const vs=g.list.map(l=>l.v),eaves=Math.min(...vs),ridge=Math.max(...vs),top=g.list.filter(l=>l.v===ridge),ry=top.reduce((s,l)=>s+l.y,0)/top.length;
+    // (on its axis of that way the plans place — «2», the text a little over its line)
+    let at=Math.round(fc.a+fc.b*ry);const ax=acr.filter(v=>Math.abs(v-at)<=1500).sort((p,q)=>Math.abs(p-at)-Math.abs(q-at))[0];if(ax!==undefined)at=ax;
+    parts.push({a0:mmAt.get(from),a1:mmAt.get(to),eaves,ridge,...(ridge>eaves?{ridge_at:Math.max(c0,Math.min(c1,at))}:{})});from=to});
+   const ok=parts.filter(q=>q.a0!==undefined&&q.a1!==undefined&&Math.abs(q.a1-q.a0)>=1000);if(!ok.length)break;
+   const far=ok[ok.length-1].a1,near=ok[0].a0,mid=Math.round((c0+c1)/2),name=(/[А-ЯЁA-Z]{2,}[^\s]*$/u.exec(lab.str)||[])[0]||"Здание рядом";
+   const fmt=v=>"+"+(v/1000).toFixed(3).replace(".",",");
+   placements.push({mark:name,name:lab.str+" (существующее, условно)",type_key:"existing_building",scheme_group:"cladding",geometry_type:"beam",fitting_type:"building",
+    diameter_mm:Math.max(...ok.map(q=>q.ridge)),layout:{building:{along:k,parts:ok,across:[Math.round(c0),Math.round(c1)]}},
+    ...(k==="x"?{x_mm:far,y_mm:mid,x2_mm:near,y2_mm:mid}:{x_mm:mid,y_mm:far,x2_mm:mid,y2_mm:near}),z0_mm:0,z1_mm:0,
+    levels_from:"план кровли АР",confidence:"medium",section:"АР",axis_x:"",axis_y:"",sheet:String(sheet),source_page:p.page,source_file:p.sourceName||"",
+    notes:["Существующее здание рядом — одним блоком, условно (не металл, в монтаж не входит); план АР, лист "+sheet,
+     "Части: "+ok.map(q=>"от "+q.a0+" до "+q.a1+" мм по "+(k==="x"?"X":"Y")+" — карниз "+fmt(q.eaves)+(q.ridge>q.eaves?", конёк "+fmt(q.ridge):"")).join("; "),
+     "Поперёк — между осями здания по планам ("+Math.round(c0)+"…"+Math.round(c1)+" мм)"]});
+   break
+  }
+ }
  // The same panels drawn in two views of one wall (ИР-71535 АР ч.2 л.5: «по ряду К, в осях 01-03» draws on two Пс-112
  // past 03 that «по ряду К, в осях 03-04» draws too — placed 75 mm apart, one in the other): of the two the panel of
  // the view whose title's axes it stands between; the other is left out, said.

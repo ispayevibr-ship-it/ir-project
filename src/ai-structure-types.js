@@ -99,6 +99,9 @@ const TYPES=[
  // from the eave to the ridge, its width across. Trims lie along their line of installation.
  T("sandwich_wall","Стеновая сэндвич-панель","cladding","beam","panel",[],/стенов\S*\s+(?:сэндвич|тр[её]хслойн|панел)|(?:сэндвич|тр[её]хслойн)\S*\s*-?\s*панел\S*\s+(?:\S+\s+)?стен|панел\S*\s+стенов/iu,{needs:"АР",fitting:"panel"}),
  T("sandwich_roof","Кровельная сэндвич-панель","cladding","beam","panel",[],/кровельн\S*\s+(?:сэндвич|тр[её]хслойн|панел)|(?:сэндвич|тр[её]хслойн)\S*\s*-?\s*панел\S*\s+(?:\S+\s+)?(?:кровл|кровел|покрыти)|панел\S*\s+(?:кровл|покрыти)/iu,{needs:"АР",fitting:"panel"}),
+ // The building beside the new one (ИР-71535 «Существующее здание цеха ММА» on the plan of the roof of the АР): one block for
+ // orientation, not steel, not mounted — src/ai-montage-plan.js, scheme-three-view.js existingBuildings.
+ T("existing_building","Существующее здание рядом (условно)","cladding","beam","building",[],/существующ\S*\s+здани/iu,{needs:"АР",fitting:"building"}),
  T("trim_corner","Нащельник угловой (наружный, внутренний)","trims","beam","trim",[],/углов\S*\s+нащельник|нащельник\S*\s+(?:\S+\s+)?углов|(?:наружн|внешн|внутренн)\S*\s+(?:угл\S*\s+)?(?:нащельник|доборн)/iu,{needs:"АР",fitting:"trim"}),
  T("trim_joint","Нащельник стыка (вертикальный, горизонтальный)","trims","beam","trim",[],/нащельник\S*\s+(?:\S+\s+)?стык|стыков\S*\s+нащельник|(?:вертикальн|горизонтальн)\S*\s+нащельник/iu,{needs:"АР",fitting:"trim"}),
  T("trim_plinth","Цокольная планка","trims","beam","trim",[],/цокол\S*\s+(?:планк|отлив|нащельник|элемент|доборн|профил)|(?:планк|отлив|нащельник)\S*\s+(?:\S+\s+)?цокол/iu,{needs:"АР",fitting:"trim"}),

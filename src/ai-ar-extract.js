@@ -1339,13 +1339,37 @@ function sillSpec(texts){
 function planAxes({segments=[],texts=[]}={}){
  if(!texts.some(t=>horizontalText(t)&&/^\s*Планы?\s/u.test(String(t.str))))return null;
  // (the bubbles of the axes are written larger than the numbers of the rooms in circles — 12.9 against 10.7 pt on л.10)
- const all=bubbleRows(texts,segments,1,true).flatMap(r=>r.items).filter(t=>t.ring),sizes=all.map(t=>t.size||0).sort((a,b)=>b-a),big=sizes[0]||0;
+ // (the largest size three bubbles share: a mark of a section in a larger circle — «6» of 17.2 pt on the plan of the roof ч.1
+ // л.5 — is not the size of the axes)
+ const all=bubbleRows(texts,segments,1,true).flatMap(r=>r.items).filter(t=>t.ring),sizes=all.map(t=>t.size||0).sort((a,b)=>b-a),
+  big=sizes.find(s=>sizes.filter(o=>Math.abs(o-s)<=s*.03).length>=3)||sizes[0]||0;
  const items=all.filter(t=>(t.size||0)>=big*.92);
  const lines=key=>{const out=[];for(const t of items.slice().sort((a,b)=>a.ring[key]-b.ring[key])){const l=out.find(o=>Math.abs(o.at-t.ring[key])<=3);if(l)l.items.push(t);else out.push({at:t.ring[key],items:[t]})}
   return out.map(l=>{const n=new Map();for(const t of l.items)n.set(t.str,(n.get(t.str)||0)+1);
    const own=l.items.filter(t=>n.get(t.str)===1);return{at:Math.round(l.at*10)/10,items:own.map(t=>({name:String(t.str).trim().toUpperCase(),pt:Math.round((key==="y"?t.ring.x:t.ring.y)*10)/10}))}}).filter(l=>l.items.length>=4)};
  const rows=lines("y"),cols=lines("x");
  return rows.length&&cols.length?{rows,cols}:null
+}
+// A building beside the new one on a plan (ИР-71535 АР ч.1 л.5 «План кровли»: «Существующее здание цеха ММА» west of «01»,
+// its roof drawn with breaks — «72000» twice in 190 pt): the label, the level marks of its roofs («+12,000», «15,850»,
+// «+20,080», «+24,200» — the eaves at its outer rows, the ridge on the middle one) and the chains of dimensions under the
+// plan (the ticks — short strokes at 45° on one line — and the numbers between them): src/ai-montage-plan.js puts the
+// building on the grid by its axes, the lengths through the breaks by the numbers, as one block (the engineer, 11.11.2026:
+// «существующее здание показать одним элементом на схеме»).
+function existingPlan({segments=[],texts=[]}={}){
+ // (its roofs on the plan of the roof only: the plan of the floor names it too — ч.1 л.4, marks of floors there)
+ if(!texts.some(t=>horizontalText(t)&&/^\s*План\s+кровл/iu.test(String(t.str))))return null;
+ const label=texts.find(t=>horizontalText(t)&&/существующ\S*\s+здани/iu.test(String(t.str)));if(!label)return null;
+ const levels=texts.filter(t=>horizontalText(t)&&/^\s*[+−-]?\d{1,2},\d{3}\s*$/u.test(String(t.str))).map(t=>{const s=String(t.str).trim(),v=Math.round(Number(s.replace(/[+−-]/u,"").replace(",","."))*1000);
+  return{v:/^[−-]/u.test(s)?-v:v,x0:Math.round(t.x*10)/10,x1:Math.round((t.x+(t.width||0))*10)/10,y:Math.round(t.y*10)/10}});
+ const ticks=[];for(const s of segments){const dx=s.b.x-s.a.x,dy=s.b.y-s.a.y,L=Math.hypot(dx,dy);if(L<4||L>20||Math.abs(Math.abs(dx)-Math.abs(dy))>L*.15)continue;
+  ticks.push({x:(s.a.x+s.b.x)/2,y:(s.a.y+s.b.y)/2})}
+ const rows=[];for(const k of ticks.sort((a,b)=>a.y-b.y)){const r=rows.find(o=>Math.abs(o.y-k.y)<=1);if(r)r.xs.push(k.x);else rows.push({y:k.y,xs:[k.x]})}
+ const nums=texts.filter(t=>horizontalText(t)&&/^\s*\d{3,6}\s*$/.test(String(t.str)));
+ const chains=rows.map(r=>{const xs=[...new Set(r.xs.map(x=>Math.round(x*10)/10))].sort((a,b)=>a-b).filter((x,i,a)=>!i||x-a[i-1]>1.5);
+  const dims=nums.filter(t=>t.y<=r.y+1&&t.y>=r.y-14).map(t=>({v:Number(String(t.str).trim()),x:Math.round((t.x+(t.width||0)/2)*10)/10}));
+  return{y:Math.round(r.y*10)/10,ticks:xs,dims}}).filter(c=>c.ticks.length>=2&&c.dims.length);
+ return{label:{str:String(label.str).trim(),x:Math.round(label.x),y:Math.round(label.y)},levels,chains}
 }
 // Doors, gates and windows of the plan (ИР-71535 АР ч.1 л.10 «План на отм. 0,000»: Д-1…Д-7, В-4, В-5, В-7, ОК-3 in the
 // partitions, shown on no facade): each label «Д-4» with its point, the way it is written (along its wall) and the gaps
@@ -1432,7 +1456,8 @@ function extractArchitecture(geometry){
  const finish=facadeFinish(texts),sills=sillSpec(texts);
  const axes=planAxes(geometry||{});
  const tr=trimSpec(texts),niches=nicheSpec(texts),planFills=planOpenings(geometry||{},axes);
- const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{}),...(axes?{axes}:{}),...(tr.trims.length?{trims:tr.trims}:{}),...(tr.names.length?{trimNames:tr.names}:{}),...(niches.length?{niches}:{}),...(planFills.length?{planFills}:{})};
+ const existing=axes?existingPlan(geometry||{}):null;
+ const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{}),...(axes?{axes}:{}),...(tr.trims.length?{trims:tr.trims}:{}),...(tr.names.length?{trimNames:tr.names}:{}),...(niches.length?{niches}:{}),...(planFills.length?{planFills}:{}),...(existing?{existing}:{})};
  return panels.length||fills.length||views.length||Object.keys(extra).length?{panels,fills,views,...extra}:null
 }
-module.exports={fillKinds,planOpenings,nicheSpec,trimSpec,trimKind,planAxes,facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
+module.exports={existingPlan,fillKinds,planOpenings,nicheSpec,trimSpec,trimKind,planAxes,facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
