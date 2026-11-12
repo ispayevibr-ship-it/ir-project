@@ -55,3 +55,24 @@
 .arch-photo:hover .arch-photo-del{opacity:1}
 @media(max-width:700px){.arch-card-head{align-items:flex-start;flex-direction:column}.arch-gallery{grid-template-columns:repeat(2,1fr)}.arch-photo-del{opacity:1}}
 .archive-years{display:none;grid-template-columns:1fr 1fr;gap:13px;margin:4px 0 2px}#objectForm.is-archive .archive-years{display:grid}.arch-years{min-width:200px}
+/* Шапка карточки без баннера (12.11.2026): название, «Завершён», сведения строкой, «Редактировать» и «Удалить» справа */
+.arch-head{padding:14px 16px}
+.arch-head-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.arch-head-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.arch-head h1{margin:0;color:#17364d;font-size:20px;line-height:1.25;font-weight:700}
+.arch-status{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 10px;border-radius:999px;background:#e8f6ec;color:#1f7a3d;font-size:11px;font-weight:650}
+.arch-status svg{width:13px;height:13px}
+.arch-head-actions{display:flex;gap:8px;flex-wrap:wrap}
+.arch-btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid #d5e0e7;border-radius:8px;background:#fff;color:#365267;font-size:12px;font-weight:650;cursor:pointer}
+.arch-btn svg{width:15px;height:15px}
+.arch-btn:hover{background:#f3f7fa;border-color:#bfd0dc}
+.arch-btn.primary{border-color:#1769e0;background:#1769e0;color:#fff}
+.arch-btn.primary:hover{background:#125cc7}
+.arch-btn.danger{border-color:#f0d2d2;color:#c0392b}
+.arch-btn.danger:hover{background:#fdf1f1;border-color:#e6b3b3}
+.arch-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px 18px;margin:12px 0 0}
+.arch-facts div{min-width:0}
+.arch-facts dt{color:#87919f;font-size:10px;margin:0 0 3px}
+.arch-facts dd{margin:0;color:#17364d;font-size:13px;font-weight:600;overflow-wrap:anywhere}
+.arch-edit-note{padding:10px 0 0}
+body.ir-archive-object.ir-object-topnav #app{padding-top:12px}

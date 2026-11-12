@@ -89,23 +89,25 @@
  // Объёмы одной единицы складываются в итог («465 т», «14 900 м²»).
  function totals(works){const m=new Map();for(const w of works){const u=String(w.unit||"").trim(),n=num(w.volume);if(!u||!Number.isFinite(n))continue;m.set(u,(m.get(u)||0)+n)}return[...m].map(([u,n])=>({unit:u,value:n}))}
 
- async function page(id){
+ // Карточка открывается для просмотра; поля появляются по «Редактировать» (просьба инженера 12.11.2026: «информацию
+ // покажи без редактирования с кнопкой редактирования и удаления»). keep — перерисовка в том же режиме.
+ const editing=new Set();
+ async function page(id,keep){
   const app=document.getElementById("app");
+  if(!keep)editing.delete(String(id));
   const o=await irProject.data.objects.get(id);if(!o){location.hash="/objects";return}
-  document.body.classList.remove("ir-object-overview");document.body.classList.add("ir-archive-object");
+  // Без левого меню и баннера: меню объекта полосой сверху, как на монтажной схеме (просьба инженера 12.11.2026).
+  document.body.classList.remove("ir-object-overview");document.body.classList.add("ir-archive-object","ir-object-topnav");
   const [rows,metaRows]=await Promise.all([api(id,SECTION).list().catch(()=>[]),api(id,"object-meta").list().catch(()=>[])]);
   const yrs=yearsOf(metaRows),years=yrs.text,summary=summaryOf(metaRows);
   const works=rows.filter(r=>r.record_type==="work").sort((a,b)=>(Number(a.data?.order)||0)-(Number(b.data?.order)||0)||Number(a.id)-Number(b.id));
   const photos=rows.filter(r=>r.record_type==="photo").sort((a,b)=>Number(a.id)-Number(b.id));
-  let bannerUrl="",coverUrl="";
-  try{const map=typeof objectPhotoMap==="function"?await objectPhotoMap(id):{};if(map.banner?.data?.file_path)bannerUrl=await irProject.images.read(map.banner.data.file_path).catch(()=>"");if(map.cover?.data?.file_path)coverUrl=await irProject.images.read(map.cover.data.file_path).catch(()=>"")}catch{}
   const photoSrc=await Promise.all(photos.map(p=>irProject.images.read(p.data?.file_path||"").catch(()=>"")));
-  const edit=canEdit(),sums=totals(works.map(w=>w.data||{}));
-  const bg=bannerUrl||coverUrl;
+  const may=canEdit(),edit=may&&editing.has(String(id)),sums=totals(works.map(w=>w.data||{}));
   const workRows=works.length?works.map((w,i)=>{const d=w.data||{};return `<tr data-work="${esc(w.id)}"><td class="arch-n">${i+1}</td><td>${edit?`<input data-f="name" value="${esc(d.name||w.title||"")}" placeholder="Вид работ"><input data-f="note" class="arch-note-input" value="${esc(d.note||"")}" placeholder="Состав работ (необязательно)">`:`<b>${esc(d.name||w.title||"")}</b>${d.note?`<small>${esc(d.note)}</small>`:""}`}</td><td class="arch-unit">${edit?`<input data-f="unit" value="${esc(d.unit||"")}" placeholder="т, м², шт">`:esc(d.unit||"")}</td><td class="arch-vol">${edit?`<input data-f="volume" value="${esc(d.volume??"")}" inputmode="decimal" placeholder="0">`:esc(fmt(d.volume))}</td>${edit?`<td class="arch-del"><button type="button" data-del-work="${esc(w.id)}" title="Удалить строку" aria-label="Удалить строку">${I.trash}</button></td>`:""}</tr>`}).join(""):`<tr class="arch-empty-row"><td colspan="${edit?5:4}">Виды работ ещё не указаны${edit?" — нажмите «Добавить вид работ»":""}.</td></tr>`;
   const gallery=photos.length?photos.map((p,i)=>photoSrc[i]?`<div class="arch-photo"><button type="button" class="object-photo-tile" data-photo-src="${esc(photoSrc[i])}" data-photo-number="${i+1}"><img src="${esc(photoSrc[i])}" alt="Фото ${i+1}" loading="lazy"><span>Фото ${i+1}</span></button>${edit?`<button type="button" class="arch-photo-del" data-del-photo="${esc(p.id)}" title="Удалить фото" aria-label="Удалить фото">${I.trash}</button>`:""}</div>`:"").join(""):`<div class="object-photos-empty"><b>Фотографий пока нет</b>${edit?"<span>Нажмите «Добавить фото».</span>":""}</div>`;
   app.innerHTML=`<div class="arch-page">
-<section class="object-overview-hero arch-hero" data-object-id="${esc(id)}">${bg?`<div class="object-overview-hero-bg" style="background-image:linear-gradient(180deg,rgba(10,17,27,.05),rgba(10,17,27,.35)),url(&quot;${bg}&quot;)"></div>`:""}<div class="object-hero-shade"></div><div class="object-hero-content"><div class="object-hero-top"><div class="object-hero-copy"><div class="object-hero-breadcrumbs"><button type="button" data-arch-objects>Объекты</button><span>›</span><span>${esc(o.name)}</span></div><h1>${esc(o.name)}</h1><div class="object-hero-contract"><span><b>Заказчик:</b> ${esc(o.customer||"—")}</span><span><b>Генподрядчик:</b> ${esc(o.general_contractor||"—")}</span></div></div><div class="object-hero-actions">${edit?`<button type="button" class="object-hero-action" data-arch-edit>${I.edit}<span>Редактировать</span></button>`:""}</div></div><div class="object-hero-info"><div class="object-hero-status done">${I.check}<span>Завершён</span></div><div class="object-hero-info-item arch-years">${I.cal}<div><b>${yrs.start&&yrs.end&&yrs.start!==yrs.end?`${esc(yrs.start)} — ${esc(yrs.end)}`:esc(yrs.start||yrs.end||"Не указаны")}</b><span>${yrs.start&&yrs.end&&yrs.start!==yrs.end||!(yrs.start||yrs.end)?"Годы начала и завершения":"Год работ"}</span></div></div><div class="object-hero-info-item location">${I.pin}<div><b>${esc(o.address||"Адрес не указан")}</b><span>Расположение объекта</span></div></div></div></div></section>
+<section class="arch-card arch-hero arch-head" data-object-id="${esc(id)}"><div class="arch-head-top"><div class="arch-head-title"><h1>${esc(o.name)}</h1><span class="arch-status">${I.check}<span>Завершён</span></span></div>${may?`<div class="arch-head-actions">${edit?`<button type="button" class="arch-btn" data-arch-form>${I.edit}<span>Данные объекта</span></button><button type="button" class="arch-btn primary" data-arch-done>${I.check}<span>Готово</span></button>`:`<button type="button" class="arch-btn" data-arch-edit>${I.edit}<span>Редактировать</span></button>`}<button type="button" class="arch-btn danger" data-arch-delete>${I.trash}<span>Удалить</span></button></div>`:""}</div><dl class="arch-facts"><div><dt>Заказчик</dt><dd>${esc(o.customer||"—")}</dd></div><div><dt>Генподрядчик</dt><dd>${esc(o.general_contractor||"—")}</dd></div><div><dt>${yrs.start&&yrs.end&&yrs.start!==yrs.end||!(yrs.start||yrs.end)?"Годы работ":"Год работ"}</dt><dd>${yrs.start&&yrs.end&&yrs.start!==yrs.end?`${esc(yrs.start)} — ${esc(yrs.end)}`:esc(yrs.start||yrs.end||"Не указаны")}</dd></div><div><dt>Адрес</dt><dd>${esc(o.address||"Не указан")}</dd></div></dl>${edit?'<p class="arch-hint arch-edit-note">Редактирование: поля ниже сохраняются сами. «Данные объекта» — название, заказчик, адрес, годы, обложка.</p>':""}</section>
 ${sums.length?`<div class="arch-totals">${sums.map(s=>`<div><b>${esc(fmt(s.value))} ${esc(unitWord(s.value,s.unit))}</b><span>${esc(totalLabel(s.unit))}</span></div>`).join("")}</div>`:""}
 <section class="arch-card"><div class="arch-card-head"><div><h2>Виды работ и объёмы</h2><p>${works.length} ${ru(works.length,"вид","вида","видов")} работ</p></div>${edit?`<button type="button" class="arch-add" data-add-work>${I.plus}<span>Добавить вид работ</span></button>`:""}</div><div class="arch-table-wrap"><table class="arch-table"><thead><tr><th>№</th><th>Вид работ</th><th>Ед.</th><th>Объём</th>${edit?"<th></th>":""}</tr></thead><tbody>${workRows}</tbody></table></div>${edit&&works.length?'<p class="arch-hint">Изменения сохраняются сами, когда вы выходите из поля.</p>':""}</section>
 ${edit||summary?`<section class="arch-card arch-summary"><div class="arch-card-head"><div><h2>Краткая характеристика объекта</h2><p>${edit?"Что это за объект: назначение, размеры, конструкции, особенности":"Об объекте"}</p></div></div>${edit?`<textarea data-summary maxlength="${SUMMARY_MAX}" rows="4" placeholder="Например: производственный цех 72×24 м, каркас из стальных колонн и ферм, кровля и стены из сэндвич-панелей, мостовой кран 10 т.">${esc(summary)}</textarea><p class="arch-hint">Сохраняется само, когда вы выходите из поля.</p>`:`<div class="arch-summary-text">${esc(summary)}</div>`}</section>`:""}
@@ -114,10 +116,15 @@ ${edit||summary?`<section class="arch-card arch-summary"><div class="arch-card-h
   try{if(typeof refreshVersion==="function")refreshVersion()}catch{}
   try{if(typeof setupObjectForm==="function")setupObjectForm()}catch(e){console.error("archive form",e)}
   const q=s=>app.querySelector(s),qa=s=>[...app.querySelectorAll(s)];
-  const again=()=>page(id);
-  q("[data-arch-objects]").onclick=()=>location.hash="/objects";
+  const again=()=>page(id,true);
   const fd=document.getElementById("formDialog");
-  q("[data-arch-edit]")?.addEventListener("click",async()=>{if(typeof window.openObjectForm==="function"){await window.openObjectForm(id);fd?.addEventListener("close",()=>setTimeout(()=>{if(location.hash.replace(/^#/,"")===`/objects/object/${id}`)(typeof objectPage==="function"?objectPage:page)(id)},50),{once:true})}});
+  q("[data-arch-edit]")?.addEventListener("click",()=>{editing.add(String(id));page(id,true)});
+  q("[data-arch-done]")?.addEventListener("click",()=>{editing.delete(String(id));page(id,true)});
+  q("[data-arch-form]")?.addEventListener("click",async()=>{if(typeof window.openObjectForm==="function"){await window.openObjectForm(id);fd?.addEventListener("close",()=>setTimeout(()=>{if(location.hash.replace(/^#/,"")===`/objects/object/${id}`)page(id,true)},50),{once:true})}});
+  // Удаление — как у объекта в списке: в «Удалённые объекты», восстановить можно 7 дней.
+  q("[data-arch-delete]")?.addEventListener("click",async()=>{
+   if(!confirm(`Удалить объект «${o.name}»?\n\nОн попадёт в «Удалённые объекты» на странице объектов — восстановить можно в течение 7 дней.`))return;
+   await irProject.data.objects.remove(id);editing.delete(String(id));known.delete(String(id));location.hash="/objects"});
   q("[data-summary]")?.addEventListener("change",async e=>{const t=e.target;try{t.value=await setSummary(id,t.value)}catch(err){console.error("summary",err)}});
   q("[data-add-work]")?.addEventListener("click",async()=>{await api(id,SECTION).create({record_type:"work",title:"",data:{name:"",unit:"",volume:"",order:works.length+1}});await again();const inputs=qa('tr[data-work] input[data-f="name"]');inputs[inputs.length-1]?.focus()});
   qa("tr[data-work]").forEach(tr=>{
