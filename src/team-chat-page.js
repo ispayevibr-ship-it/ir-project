@@ -38,6 +38,8 @@
 .ir-tc-p{display:flex;align-items:center;gap:9px;width:100%;padding:8px 9px;border:0;border-radius:9px;background:none;color:#1d3247;font:inherit;text-align:left;cursor:pointer}
 .ir-tc-p:hover{background:#eef5fb}.ir-tc-p.on{background:#dcebf8}
 .ir-tc-av{flex:none;display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:#e1ecf5;color:#1d4f75;font-weight:700;font-size:12px}
+.ir-tc-av{position:relative}.ir-tc-av i{position:absolute;right:-1px;bottom:-1px;width:11px;height:11px;border-radius:50%;border:2px solid #fff;background:#b3bfca;box-sizing:border-box}.ir-tc-av i.on{background:#1f9d55}
+.ir-tc-ch small.on{color:#1f9d55}
 .ir-tc-av svg{width:17px;height:17px}.ir-tc-p.all .ir-tc-av{background:#176dc1;color:#fff}
 .ir-tc-pn{flex:1;min-width:0}.ir-tc-pn b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ir-tc-pn small{display:block;color:#6b8294;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ir-tc-n{flex:none;min-width:19px;height:19px;padding:0 5px;border-radius:10px;background:#d93025;color:#fff;font-size:11px;font-weight:700;line-height:19px;text-align:center}
@@ -132,6 +134,13 @@
   const say=(t,err)=>{note.textContent=t;note.className="ir-tc-note"+(err?" err":"")};
   const base="Сообщения хранятся 3 месяца. Личное сообщение видят только двое.";
   const nameOf=id=>id==="all"?"Все сотрудники":(v?.people||[]).find(p=>p.id===id)?.name||"Сотрудник";
+  // «в сети» (the engineer, 12.11.2026): the program touches the server every 2 minutes while it is open
+  const seenOf=id=>{const t=Date.parse((v?.people||[]).find(p=>p.id===id)?.seen||"");return isNaN(t)?0:t};
+  const isOn=id=>{const t=seenOf(id);return t>0&&Date.now()-t<5*60e3};
+  const seenText=id=>{const t=seenOf(id);if(!t)return"";if(isOn(id))return"в сети";
+   const d=new Date(t),n=new Date(),hm=d.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});
+   const day=x=>new Date(x.getFullYear(),x.getMonth(),x.getDate()).getTime(),diff=Math.round((day(n)-day(d))/864e5);
+   return"был(а) "+(diff===0?"в "+hm:diff===1?"вчера в "+hm:d.toLocaleDateString("ru-RU",{day:"numeric",month:"long"}))};
   const last=k=>{let m=null;for(const x of v.messages)if(convOf(x,v.me.id)===k)m=x;return m};
   function drawPeople(){
    if(!v?.signedIn)return;
@@ -140,7 +149,7 @@
    const order=keys.slice(1).sort((a,b)=>{const x=last(a)?.at||"",y=last(b)?.at||"";return x===y?nameOf(a).localeCompare(nameOf(b),"ru"):x<y?1:-1});
    peopleBox.innerHTML=[...(keys[0]==="all"?["all"]:[]),...order].map(k=>{const m=last(k),n=v.unread[k]||0;
     const sub=m?(m.author===v.me.id?"Вы: ":k==="all"?(m.name||"")+": ":"")+(m.text||(m.files.length?"📎 файл":"")):k==="all"?"Сообщение увидят все":"";
-    return`<button type="button" class="ir-tc-p${k==="all"?" all":""}${k===cur?" on":""}" data-k="${esc(k)}"><span class="ir-tc-av">${k==="all"?ALL:esc(initials(nameOf(k)))}</span>
+    return`<button type="button" class="ir-tc-p${k==="all"?" all":""}${k===cur?" on":""}" data-k="${esc(k)}"><span class="ir-tc-av">${k==="all"?ALL:esc(initials(nameOf(k)))+(seenOf(k)?`<i class="${isOn(k)?"on":""}" title="${esc(seenText(k))}"></i>`:"")}</span>
      <span class="ir-tc-pn"><b>${esc(nameOf(k))}</b>${sub?`<small>${esc(sub.slice(0,80))}</small>`:""}</span>${n?`<span class="ir-tc-n">${n>99?"99+":n}</span>`:""}</button>`}).join("")||'<div class="ir-tc-empty">Никого не найдено</div>'
   }
   // ✓ — доставлено (сообщение на сервере), ✓✓ синие — прочитано: в личной переписке — получателем, в общей — хотя бы
@@ -156,7 +165,7 @@
    if(!v?.signedIn)return;
    const msgs=v.messages.filter(m=>convOf(m,v.me.id)===cur);
    const sig=cur+"|"+msgs.length+"|"+(msgs[msgs.length-1]?.id||"")+"|"+(v.reads||[]).map(x=>x.user+x.conv+x.at).join(",");
-   title.innerHTML=esc(nameOf(cur))+`<small>${cur==="all"?"сообщения видят все сотрудники":"личная переписка"}</small>`;
+   title.innerHTML=esc(nameOf(cur))+(cur==="all"?"<small>сообщения видят все сотрудники</small>":seenText(cur)?`<small class="${isOn(cur)?"on":""}">${esc(seenText(cur))}</small>`:"<small>личная переписка</small>");
    text.placeholder=cur==="all"?"Сообщение всем… (Enter — отправить, Shift+Enter — новая строка)":"Сообщение для «"+nameOf(cur)+"»… (Enter — отправить)";
    if(sig===drawn&&!force)return;drawn=sig;
    const atEnd=list.scrollHeight-list.scrollTop-list.clientHeight<60||force;

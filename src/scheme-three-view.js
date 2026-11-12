@@ -4772,11 +4772,11 @@ window.irThreeSchemeView=(function irThreeModule(){
   function roofSeats(list){
    roofShift.clear();roofMoved.clear();
    masonryN=0;ductPieces=[];
-   var tops=null,seated=[],loose=[];
+   var tops=null,pur=new Set(),seated=[],loose=[];
    list.forEach(function(c){
     if(c.ft!=="panel"||!c.id||!c.lay||c.lay.panel!=="roof")return;
     var ax=number(c.x),ay=number(c.y),L=Math.hypot(number(c.x2)-ax,number(c.y2)-ay);if(L<500)return;
-    if(!tops)tops=levelTops(list);if(!tops.length)return;
+    if(!tops){tops=levelTops(list);pur=new Set(purlinTops.map(function(t){return t.id}))}if(!tops.length)return;
     var ux=(number(c.x2)-ax)/L,uy=(number(c.y2)-ay)/L,w=Math.max(300,number(c.fd)||1000),z0=number(c.z0),z1=number(c.z2),pts=[];
     tops.forEach(function(t){
      var mx=t.ax+t.sx,my=t.ay+t.sy,cr=ux*t.uy-uy*t.ux;if(Math.abs(cr)<.5)return;
@@ -4789,8 +4789,17 @@ window.irThreeSchemeView=(function irThreeModule(){
      // edge — on the middle the edge went 13 mm into the panel, ИР-71535 П1 I25Б1 under Пк-6)
      var du=(t.b||0)/Math.abs(cr);
      [u-du,u+du].forEach(function(v){var X=ax+ux*v,Y=ay+uy*v,r=t.z+t.k*((X-mx)*t.wx+(Y-my)*t.wy)-(z0+(z1-z0)*v/L);
-      if(r>=-600&&r<=400)pts.push([v,r])})});
+      if(r>=-600&&r<=400)pts.push([v,r,pur.has(t.id)])})});
     if(!pts.length){loose.push(c);return}
+    // (its plane through the tops it lies on only — those within 200 mm under the highest: a wall's girt 500 mm under the
+    // lower end of the roof of the annex О8–О10, Ро □ under Пк-15, tilted the fit, and twice where two girts meet under one
+    // strip — every sixth strip stood 105 mm over its neighbours at the upper end; the engineer, 12.11.2026: «кровля вся
+    // кривая»)
+    // (on its purlins where it has them: a beam or a girt under their lowest top does not carry it — Рр 300 mm under the
+    // upper end of Пк-12 beside Пк-15 left a step of 100 mm between the two; within 100 mm under it it stays — the eave's
+    // girt Ро under Пк-18 of the canopy at rows А–Б, on which that panel's lower end lies)
+    var pmin=Infinity;pts.forEach(function(q){if(q[2])pmin=Math.min(pmin,q[1])});if(pmin<Infinity)pts=pts.filter(function(q){return q[2]||q[1]>=pmin-100});
+    var rmx=-Infinity;pts.forEach(function(q){rmx=Math.max(rmx,q[1])});pts=pts.filter(function(q){return q[1]>=rmx-200});
     var a=0,b=0,n=pts.length;
     if(n>=2){var mu=0,mr=0;pts.forEach(function(q){mu+=q[0]/n;mr+=q[1]/n});var su=0,sr=0;pts.forEach(function(q){su+=(q[0]-mu)*(q[0]-mu);sr+=(q[0]-mu)*(q[1]-mr)});b=su>1e4?sr/su:0;a=mr-b*mu}
     var up=-Infinity;pts.forEach(function(q){up=Math.max(up,q[1]-(a+b*q[0]))});a+=up;

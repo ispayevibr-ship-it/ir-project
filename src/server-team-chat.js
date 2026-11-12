@@ -35,8 +35,8 @@ function createTeamChat({account,getUserDataPath,now=()=>Date.now()}){
 
  let team=null,teamAt=0;
  async function people(){
-  if(team&&now()-teamAt<10*60e3)return team;
-  try{const r=await api("/api/ir/team");team=(Array.isArray(r)?r:[]).map(p=>({id:String(p.id),name:String(p.name||""),role:String(p.role||"")}));teamAt=now()}
+  if(team&&now()-teamAt<60e3)return team;
+  try{const r=await api("/api/ir/team");team=(Array.isArray(r)?r:[]).map(p=>({id:String(p.id),name:String(p.name||""),role:String(p.role||""),seen:iso(p.seen||"")}));teamAt=now();view.dirty=true}
   catch(e){if(!team)throw e}
   return team
  }
