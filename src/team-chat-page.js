@@ -105,7 +105,7 @@
   const openDialog=shown();if(openDialog){if(conv)openDialog._pick?.(conv);return openDialog}
   style(doc);
   const d=doc.createElement("dialog");d.className="ir-tc";
-  d.innerHTML=`<div class="ir-tc-head"><div><small>IR PROJECT · СЕРВЕР КОМПАНИИ</small><h2>Чат компании</h2></div><button type="button" class="ir-tc-x" data-close aria-label="Закрыть">✕</button></div>
+  d.innerHTML=`<div class="ir-tc-head"><div><small>IR PROJECT · СЕРВЕР КОМПАНИИ</small><h2 data-head>Чат компании</h2></div><button type="button" class="ir-tc-x" data-close aria-label="Закрыть">✕</button></div>
    <div class="ir-tc-main"><div class="ir-tc-side"><input type="search" data-find placeholder="Поиск сотрудника"><div data-people></div></div>
    <div class="ir-tc-conv"><div class="ir-tc-ch" data-title></div><div class="ir-tc-list" data-list><div class="ir-tc-empty">Загрузка…</div></div>
    <div class="ir-tc-foot"><div class="ir-tc-att" data-att hidden></div><div class="ir-tc-row">
@@ -116,6 +116,10 @@
     <div class="ir-tc-note" data-note>Сообщения хранятся 3 месяца. Личное сообщение видят только двое.</div></div></div></div>`;
   doc.body.appendChild(d);d.showModal();try{host().__irTeamChatDialog=d}catch{}
   const $=s=>d.querySelector(s);
+  // «Чат — <название компании>» (просьба инженера 12.11.2026), название — из профиля компании
+  const head=async()=>{try{const n=String((await irProject.company.get())?.name||"").trim();d.querySelector("[data-head]").textContent=n?`Чат — ${n}`:"Чат компании"}catch{}};
+  void head();const onCo=()=>void head();
+  try{doc.defaultView.addEventListener("ir-company-profile-updated",onCo);d.addEventListener("close",()=>doc.defaultView.removeEventListener("ir-company-profile-updated",onCo))}catch{}
   const list=$("[data-list]"),peopleBox=$("[data-people]"),title=$("[data-title]"),text=$("[data-text]"),note=$("[data-note]"),att=$("[data-att]"),fileIn=$("[data-file]"),send=$("[data-send]"),find=$("[data-find]");
   let v=null,cur=conv||"all",files=[],timer=0,drawn="";
   const say=(t,err)=>{note.textContent=t;note.className="ir-tc-note"+(err?" err":"")};
