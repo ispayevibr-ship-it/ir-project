@@ -1254,9 +1254,11 @@ function arTrims(placements,spec=[]){
  for(let i=0;i<roofs.length;i++){const p=roofs[i];
   for(let j=i+1;j<roofs.length;j++){const q=roofs[j];
    if(p.d[0]*q.d[0]+p.d[1]*q.d[1]>-.9||Math.hypot(p.H[0]-q.H[0],p.H[1]-q.H[1])>500||Math.abs(p.H[2]-q.H[2])>150)continue;
-   // (along the ridge one way for all its pairs: u with x ≥ 0; its line at the offset off along the normal n)
+   // (along the ridge one way for all its pairs: u with x ≥ 0; its line at the offset off along the normal n; one ridge
+   // by its height too — ИР-71535: the ridge of the annex О1–О3 at +24,210 and the high one at +26,800 on one line «Е»
+   // merged into one cap at +26,920 over both, 2,6 m in the air over the annex)
    const C=[(p.H[0]+q.H[0])/2,(p.H[1]+q.H[1])/2],z=Math.max(p.H[2],q.H[2])+Math.max(p.t,q.t),u=p.u[0]<-1e-6||Math.abs(p.u[0])<=1e-6&&p.u[1]<0?[-p.u[0],-p.u[1]]:p.u,n=[-u[1],u[0]];
-   const along=C[0]*u[0]+C[1]*u[1],off=C[0]*n[0]+C[1]*n[1],key="r"+R(Math.atan2(u[1],u[0])*100)+":"+R(off/100);
+   const along=C[0]*u[0]+C[1]*u[1],off=C[0]*n[0]+C[1]*n[1],key="r"+R(Math.atan2(u[1],u[0])*100)+":"+R(off/100)+":"+R(z/200);
    keep("ridge",key,u,along-p.w/2,along+p.w/2,z,[[p.d[0],p.d[1],p.dz,250],[q.d[0],q.d[1],q.dz,250]],p.ral||q.ral,"Конёк двух скатов — по раскладкам кровельных панелей АР");merge.get(key).off=off}
   // (the long edges of a panel with no panel beside it: the end of the roof — or a wall rising over it there)
   for(const s of [1,-1]){
