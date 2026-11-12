@@ -16,6 +16,12 @@ const AUTO_WORK="Монтаж металлоконструкций (из PDF)";
 // it stands upright in one reading or leans along the face of a tapering mast in the next. The engineer, 31.10.2026,
 // mast ПМС-18,4: «это что за лестница?» — Т-23 and П-16А of an earlier answer had stayed beside Т23 and П16А of the
 // checked scheme, marked «нет в новом анализе», a ladder through the mast and a column inside its lattice.
+// The same element found again by a new recognition is not written again — only the number of the reading would change,
+// and every written record goes to the company server (the engineer, 12.11.2026: «каждый раз отправляет все элементы
+// в бд? при новом распознование?»). The keys are compared in any order; the number of the reading is not compared.
+const stableJson=v=>Array.isArray(v)?"["+v.map(stableJson).join(",")+"]":v&&typeof v==="object"?"{"+Object.keys(v).filter(k=>v[k]!==undefined).sort().map(k=>JSON.stringify(k)+":"+stableJson(v[k])).join(",")+"}":JSON.stringify(v===undefined?null:v);
+const withoutBatch=d=>{const o={...(d||{})};delete o.import_batch;if(o.pdf_new&&typeof o.pdf_new==="object"){o.pdf_new={...o.pdf_new};delete o.pdf_new.batch}return o};
+const sameElement=(a,b)=>stableJson(withoutBatch(a))===stableJson(withoutBatch(b));
 function sameElementKey(mark,geometry,fitting){
  const g=String(geometry||"column");
  return normMark(mark).replace(/(\p{L})[-‐‑–—](?=\d)/gu,"$1")+"|"+(fitting==="ladder"?"ladder":g==="bent"?"beam":g)
@@ -946,6 +952,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
      const next={...before,...fresh,pdf_new:{batch,x:p.x,y:p.y,x2:p.data.absolute_x2_mm,y2:p.data.absolute_y2_mm,z0:p.data.z0_mm,z1:p.data.z1_mm,end_z:p.data.end_z_mm,
       mark:p.data.mark,type_name:p.data.type_name,source:p.data.source_import_doc},instance_status:"confirmed",preliminary:false,instance_reasons:undefined,missing_in_analysis:undefined,engineer_edited:change?true:before.engineer_edited};
      for(const k of Object.keys(next))if(next[k]===undefined)delete next[k];
+     if(sameElement(before,next)){keptEdited.push(before.mark||old.title);if(change)carried.push({id:String(old.id),origin:change.before});return}
      if(database.updateEntity(oid,"scheme",old.id,{record_type:old.record_type||"scheme_column",title:old.title,data:next})){
       updated.push({id:old.id,record_type:old.record_type,title:old.title,data:before});keptEdited.push(before.mark||old.title);if(change)carried.push({id:String(old.id),origin:change.before})
      }
@@ -955,6 +962,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
     const next={...before,...p.data,status:before.status||"planned",position:before.position||old.title,
      mark_id:p.data.mark_id||before.mark_id||"",work_type_id:p.data.work_type_id||before.work_type_id||"",pdf_new:undefined};
     for(const k of Object.keys(next))if(next[k]===undefined)delete next[k];
+    if(sameElement(before,next))return;
     if(database.updateEntity(oid,"scheme",old.id,{record_type:old.record_type||"scheme_column",title:old.title,data:next}))updated.push({id:old.id,record_type:old.record_type,title:old.title,data:before});
     return
    }
@@ -1151,4 +1159,4 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
  }
  return{latest,documentSheets,analyze,control,process,skipAI,preview,place,undo,clearScheme,restoreScheme,schemeSnapshot,elementCard,placedInfo};
 }
-module.exports={createMontage,SCHEMA,SYSTEM,mergeParts,mergeMarks,sameElementKey};
+module.exports={sameElement,createMontage,SCHEMA,SYSTEM,mergeParts,mergeMarks,sameElementKey};

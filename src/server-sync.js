@@ -50,11 +50,16 @@ function localizeJson(json,base){
 const fileRid=rel=>parseInt(require("node:crypto").createHash("sha1").update(rel).digest("hex").slice(0,12),16);
 const FILES_PER_CYCLE=12;
 
+// A record written again with the same content is not sent again (the engineer, 12.11.2026: «каждый раз отправляет все
+// элементы в бд? при новом распознование?» — after every recognition all 6 600 elements went to the server).
+const SAME={object_records:"OLD.data_json IS NEW.data_json AND OLD.title IS NEW.title AND OLD.record_type IS NEW.record_type AND OLD.parent_id IS NEW.parent_id AND OLD.section_key IS NEW.section_key AND OLD.object_id IS NEW.object_id"};
+// v2 of the update trigger (1.12.107): installed bases with the old one get it replaced once
+const TRIGGER_V="2";
 function triggersSql(){
  const quiet="(SELECT v FROM sync_state WHERE k='applying') IS NOT '1'";
  return TABLES.map(({table})=>[
   `CREATE TRIGGER IF NOT EXISTS sync_${table}_ins AFTER INSERT ON ${table} WHEN ${quiet} BEGIN INSERT INTO sync_outbox(tbl,rid) VALUES('${table}',NEW.id); END;`,
-  `CREATE TRIGGER IF NOT EXISTS sync_${table}_upd AFTER UPDATE ON ${table} WHEN ${quiet} BEGIN INSERT INTO sync_outbox(tbl,rid) VALUES('${table}',NEW.id); END;`,
+  `CREATE TRIGGER IF NOT EXISTS sync_${table}_upd AFTER UPDATE ON ${table} WHEN ${quiet}${SAME[table]?` AND NOT (${SAME[table]})`:""} BEGIN INSERT INTO sync_outbox(tbl,rid) VALUES('${table}',NEW.id); END;`,
   `CREATE TRIGGER IF NOT EXISTS sync_${table}_del AFTER DELETE ON ${table} WHEN ${quiet} BEGIN INSERT INTO sync_outbox(tbl,rid) VALUES('${table}',OLD.id); END;`,
  ].join("\n")).join("\n")
 }
@@ -66,7 +71,14 @@ CREATE TABLE IF NOT EXISTS sync_files(rel TEXT PRIMARY KEY,state TEXT NOT NULL,o
 
 function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("node:sqlite").DatabaseSync,timers=true,now=()=>Date.now(),onCompany=null}){
  let db=null;
- const open=()=>{if(!db){db=new DatabaseSync(dbFile());db.exec("PRAGMA busy_timeout=8000");db.exec("PRAGMA foreign_keys=OFF");db.exec(SCHEMA)}return db};
+ const open=()=>{if(!db){db=new DatabaseSync(dbFile());db.exec("PRAGMA busy_timeout=8000");db.exec("PRAGMA foreign_keys=OFF");db.exec(SCHEMA);upgradeTriggers()}return db};
+ function upgradeTriggers(){try{
+  const v=db.prepare("SELECT v FROM sync_state WHERE k='triggers'").get()?.v;if(v===TRIGGER_V)return;
+  const on=db.prepare("SELECT v FROM sync_state WHERE k='enabled'").get()?.v==="1";
+  for(const {table} of TABLES)db.exec(`DROP TRIGGER IF EXISTS sync_${table}_upd`);
+  if(on)db.exec(triggersSql());
+  db.prepare("INSERT INTO sync_state(k,v) VALUES('triggers',?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").run(TRIGGER_V)
+ }catch(e){console.warn("IR Project sync triggers:",e.message)}}
  const getState=k=>{try{return open().prepare("SELECT v FROM sync_state WHERE k=?").get(k)?.v??""}catch{return""}};
  const setState=(k,v)=>open().prepare("INSERT INTO sync_state(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").run(k,String(v));
  const status={state:"off",error:"",lastAt:"",changedAt:0,progress:null,rejected:0,rejectedWhy:""};
