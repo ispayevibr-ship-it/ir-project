@@ -16,6 +16,9 @@ function register(deps){
  }
 }
 function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:nativeDialog,shell,database,getWindow,checkAdmin:checkAdminPassword}){
+ // Windows names the notification by the program's id: without it the header reads "electron.app.IR Project".
+ // The installer's shortcut carries appId com.irproject.app (package.json), so the header becomes "IR Project".
+ try{if(process.platform==="win32")require("electron").app.setAppUserModelId("com.irproject.app")}catch(_){}
  // Administrator: signed in to the server as administrator (src/server-account.js) or confirmed by the old password.
  const checkAdmin=e=>{if(account?.isAdmin?.())return;checkAdminPassword(e)};
  // Windows: after a native window (a question, a file dialog) the page takes no keys until the program is minimized and
