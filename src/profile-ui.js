@@ -56,6 +56,7 @@
   const linkIcon=shape=>'<svg viewBox="0 0 24 24" aria-hidden="true">'+shape+'</svg>';
   const claudeMark=linkIcon('<path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4"/>');
   const syncMark=linkIcon('<path d="M20 12a8 8 0 0 1-13.7 5.7M4 12a8 8 0 0 1 13.7-5.7"/><path d="M18 3v4h-4M6 21v-4h4"/>');
+  const chatMark=linkIcon('<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.5-4.9A8 8 0 1 1 21 12z"/><path d="M8.5 10.5h7M8.5 13.5h4.5"/>');
   const gitMark=linkIcon('<path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>');
   const siteIcon=menuIcon('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>');
   const mailIcon=menuIcon('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>');
@@ -65,7 +66,8 @@
    '<span id="programLinks" class="program-links" role="group" aria-label="Подключения">'+
    '<button type="button" class="program-link" data-link="claude" data-state="unknown" title="Claude: проверяем…" aria-label="Claude: проверяем…">'+claudeMark+'<i class="program-link-dot" aria-hidden="true"></i></button>'+
    '<button type="button" class="program-link" data-link="github" data-state="unknown" title="GitHub: проверяем…" aria-label="GitHub: проверяем…">'+gitMark+'<i class="program-link-dot" aria-hidden="true"></i></button>'+
-   '<button type="button" class="program-link" data-link="sync" data-state="unknown" title="Синхронизация: проверяем…" aria-label="Синхронизация: проверяем…">'+syncMark+'<i class="program-link-dot" aria-hidden="true"></i></button></span>'+
+   '<button type="button" class="program-link" data-link="sync" data-state="unknown" title="Синхронизация: проверяем…" aria-label="Синхронизация: проверяем…">'+syncMark+'<i class="program-link-dot" aria-hidden="true"></i></button>'+
+   '<button type="button" class="program-link" data-link="chat" data-state="on" title="Чат компании" aria-label="Чат компании">'+chatMark+'</button></span>'+
    '<div id="programSettingsMenu" class="program-settings-menu" hidden role="group" aria-label="Настройки программы">'+
    '<div class="program-settings-menu-head"><div class="program-settings-menu-title">Настройки</div><small>IR Project</small></div>'+
    '<div class="program-settings-menu-items">'+
@@ -248,6 +250,8 @@
    }catch(e){mark("sync","unknown","Синхронизация недоступна — "+String(e?.message||e).replace(/^Error invoking remote method '[^']+': (Error: )?/,""))}
   };
   links.onclick=e=>{
+   // the shared chat of the company (src/team-chat-page.js, the engineer 12.11.2026)
+   if(e.target.closest?.('[data-link="chat"]')){const c=window.irTeamChat;if(c?.open){let doc=document;try{doc=window.top.document||document}catch{}c.open(doc)}else alert("Чат компании заработает после перезапуска программы.");return}
    if(e.target.closest?.('[data-link="sync"]')){const a=window.irServerAccount;if(a?.syncDialog){const d=a.syncDialog(p.ownerDocument);d?.addEventListener?.("close",()=>void checkSync(),{once:true})}else void checkSync();return}
    void checkLinks()};
   void checkSync();

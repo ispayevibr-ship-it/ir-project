@@ -250,6 +250,32 @@ accountCall("report-link",v=>reportLinks.info(v));accountCall("report-share",v=>
 accountCall("open-link",({url}={})=>{const u=String(url||"");if(!/^https:\/\/[a-z0-9.-]+\/r\/[A-Za-z0-9_-]{32}$/.test(u))throw Error("Это не ссылка на отчёт");return shell.openExternal(u)});
 accountCall("ping",async()=>{const t=Date.now();await account.api("/api/health",{auth:false});return{ok:true,ms:Date.now()-t}});
 accountCall("open-site",({path}={})=>{const p=path==="/_/"?"/_/":"/";return shell.openExternal("https://a-ts.kz"+p)});
+ // Общий чат компании (src/server-team-chat.js, просьба инженера 12.11.2026): всем или одному сотруднику, 3 месяца.
+ const teamChat=require("./server-team-chat").createTeamChat({account:()=>account,getUserDataPath});
+ accountCall("chat-unread",v=>teamChat.unread(v));accountCall("chat-view",v=>teamChat.view(v));accountCall("chat-seen",v=>teamChat.seen(v));
+ accountCall("chat-send",v=>teamChat.send(v));accountCall("chat-remove",v=>teamChat.remove(v));
+ accountCall("chat-file",async v=>{const b=await teamChat.fileData(v);return new Uint8Array(b.buffer,b.byteOffset,b.byteLength)});
+ accountCall("chat-save",async({id,name}={})=>{
+  const b=await teamChat.fileData({id,name}),r=await dialog.showSaveDialog(getWindow(),{defaultPath:teamChat.plain(name)});
+  if(r.canceled||!r.filePath)return{saved:false};require("node:fs").writeFileSync(r.filePath,b);return{saved:true,path:r.filePath}});
+ accountCall("chat-open-file",async({id,name}={})=>{
+  const fs=require("node:fs"),p=require("node:path"),dir=p.join(require("node:os").tmpdir(),"ir-team-chat");fs.mkdirSync(dir,{recursive:true});
+  const f=p.join(dir,teamChat.plain(name));fs.writeFileSync(f,await teamChat.fileData({id,name}));const e=await shell.openPath(f);if(e)throw Error(e);return{ok:true}});
+ // Every 20 s: new messages; when the program is behind other windows — a notification of Windows, a click opens the chat.
+ const chatNotices=new Set();
+ const chatTick=async()=>{
+  let r;try{r=await teamChat.refresh({maxAge:15e3})}catch{return}
+  const fresh=(r?.fresh||[]).filter(m=>m.author!==account?.info?.()?.user?.id);if(!fresh.length)return;
+  const {Notification,BrowserWindow}=require("electron"),win=getWindow();
+  for(const w of BrowserWindow.getAllWindows())try{w.webContents.send("ai-settings:server-chat-new",{count:fresh.length})}catch{}
+  if(!Notification.isSupported()||win&&!win.isDestroyed()&&win.isFocused())return;
+  const m=fresh[fresh.length-1],more=fresh.length>1?` (+${fresh.length-1})`:"";
+  const n=new Notification({title:"Чат: "+(m.name||"сотрудник")+(m.to?" — вам":" — всем")+more,body:String(m.text||(m.files.length?"📎 файл":"")).slice(0,300)});
+  chatNotices.add(n);const done=()=>chatNotices.delete(n);
+  n.on("click",()=>{done();const w=getWindow();if(!w||w.isDestroyed())return;if(w.isMinimized())w.restore();refocus(w,null,true);w.webContents.send("ai-settings:server-chat-open",{conv:m.to?m.author:"all"})});
+  n.on("close",done);n.show()
+ };
+ setTimeout(()=>{void chatTick();setInterval(()=>void chatTick(),20e3).unref?.()},15e3).unref?.();
  // Синхронизация базы программы через сервер (src/server-sync.js): изменения уходят и приходят сами, раз в несколько секунд.
  let sync=null;
  // (the company card taken from the server — the windows paint the new name and logo at once: src/company-profile.js listens to it)
