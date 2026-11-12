@@ -1401,8 +1401,13 @@ function planOpenings({segments=[],texts=[]}={},axes){
   // (the gaps of that face within 60 pt of the label: between its pieces)
   const ps=lines.filter(l=>Math.abs(l.at-near.at)<=.4&&l.hi>=c-80&&l.lo<=c+80).sort((p,r)=>p.lo-r.lo),gaps=[];
   let end=null;for(const l of ps){if(end!==null&&l.lo-end>=3)gaps.push([Math.round(end*10)/10,Math.round(l.lo*10)/10]);end=end===null?l.hi:Math.max(end,l.hi)}
+  // (the faces of the wall itself: its long lines — 25 pt and more — within 10 pt of the nearest of them; a door frame or
+  // a leaf drawn beside is short. ИР-71535 ч.1 л.10 the partition П-1 of 280 at «Д-1»: 2080,3 · 2084,8 · 2088,2 — the
+  // frame line 2076,8 was taken for a face)
+  const longs=lines.filter(l=>Math.abs(l.at-q)<=20&&l.hi-l.lo>=25&&l.lo<=c+60&&l.hi>=c-60).sort((p,r)=>Math.abs(p.at-q)-Math.abs(r.at-q));
+  const body=longs.length?longs.filter(l=>Math.abs(l.at-longs[0].at)<=10).map(l=>l.at):[];
   out.push({mark:m[1]+"-"+m[2],x:Math.round(b.cx*10)/10,y:Math.round(b.cy*10)/10,along:along?"x":"y",
-   wall:[Math.round(near.at*10)/10,...(twin?[Math.round(twin.at*10)/10]:[])],gaps:gaps.filter(g=>g[1]>=c-60&&g[0]<=c+60)})}
+   wall:[Math.round(near.at*10)/10,...(twin?[Math.round(twin.at*10)/10]:[])],...(body.length>1&&Math.max(...body)-Math.min(...body)>=2?{body:[Math.round(Math.min(...body)*10)/10,Math.round(Math.max(...body)*10)/10]}:{}),gaps:gaps.filter(g=>g[1]>=c-60&&g[0]<=c+60)})}
  return out
 }
 // The trims of the cladding (нащельники, фасонные элементы — ИР-71535 АР ч.2 л.14–18, ч.1 л.12–14): the table
@@ -1454,7 +1459,20 @@ function nicheSpec(texts){
  }
  return out
 }
+// Several marks of panels in one item of text («Пс-112 Пс-112» — two labels typed as one line over two columns of a
+// layout: ИР-71535 АР ч.2 л.5 ряд О3, л.4 Пс-46.1, л.6 Пс-102 — the columns under it stayed without a mark, 2+2 panels of
+// the specification not placed): each mark its own item, at its share of the width.
+const JOINED_POS=/^П[А-ЯЁа-яё]{0,2}-\d{1,3}(?:\.\d{1,2})?(?:\s+П[А-ЯЁа-яё]{0,2}-\d{1,3}(?:\.\d{1,2})?)+$/u;
+function splitJoinedMarks(texts){
+ const out=[];
+ for(const t of texts){const s=String(t?.str??"").trim();
+  if(!JOINED_POS.test(s)||Math.abs(Number(t.angle)||0)>1||!(Number(t.width)>0)){out.push(t);continue}
+  const parts=s.split(/\s+/u),per=Number(t.width)/s.length;let at=0;
+  for(const q of parts){const i=s.indexOf(q,at);out.push({...t,str:q,x:t.x+i*per,width:q.length*per});at=i+q.length}}
+ return out;
+}
 function extractArchitecture(geometry){
+ if(geometry&&Array.isArray(geometry.texts)&&geometry.texts.some(t=>JOINED_POS.test(String(t?.str??"").trim())))geometry={...geometry,texts:splitJoinedMarks(geometry.texts)};
  const texts=geometry?.texts||[];
  const spec=(()=>{const a=panelSpec(texts);if(a.length)return a;const s=sketchSpec(texts);return s.length?s:layoutSpec(texts)})(),fills=fillSpec(texts),views=panelViews(geometry||{},spec),facades=fillViews(geometry||{});
  if(fills.length)fillSketches(geometry||{},fills);
@@ -1465,4 +1483,4 @@ function extractArchitecture(geometry){
  const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{}),...(axes?{axes}:{}),...(tr.trims.length?{trims:tr.trims}:{}),...(tr.names.length?{trimNames:tr.names}:{}),...(niches.length?{niches}:{}),...(planFills.length?{planFills}:{}),...(existing?{existing}:{})};
  return panels.length||fills.length||views.length||Object.keys(extra).length?{panels,fills,views,...extra}:null
 }
-module.exports={existingPlan,fillKinds,planOpenings,nicheSpec,trimSpec,trimKind,planAxes,facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
+module.exports={existingPlan,fillKinds,splitJoinedMarks,planOpenings,nicheSpec,trimSpec,trimKind,planAxes,facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};

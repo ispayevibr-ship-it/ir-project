@@ -709,7 +709,7 @@ function arScheme(pages,opts={}){
  // A view whose bubbles are all axes of that building (no row of ours in its title — «по фасаду 3-1» on «3», «2В»): a wall
  // of that building, placed after the walls of ours (where they end against it).
  const alien=v=>{if(v.row||!v.axes.length)return null;for(const k of ["y","x"])if(v.axes.every(a=>foreign[k].has(a.name)&&!(k==="x"?px:py).has(a.name)))return k;return null};
- const later=[];
+ const later=[],partDoors=new Map(),partViews=new Set();
  for(const v of views){
   const name=v.title?"«"+v.title+"» (лист "+v.sheet+")":"Фасад на листе "+v.sheet;
   if(alien(v)){later.push(v);continue}
@@ -727,6 +727,24 @@ function arScheme(pages,opts={}){
    face=across.length?(low?Math.min(...across.map(p=>p.u0)):Math.max(...across.map(p=>p.u1))):null;
    if(face===null){face=pos.get(low?first:last);warnings.push(name+": положение стены по фасадам поперёк не найдено — поставлен по оси "+(low?first:last))}
   }
+  // A partition titled by the row it runs along, standing off that axis (ИР-71535 АР ч.2 л.5 «по ряду К, в осях 01–03» and
+  // «по ряду 03, в осях К–Л» with Пс-112 — the partitions П-1 of the room in the shop, 3,4 m off «К» and 1,9 m off «03» by
+  // the plan ч.1 л.10; on the axes they stood in the beams Б1 and in the wall of the corner, two panels lost): the view has
+  // a door gap at the floor, and a door of the plan (planOpenings) stands in that gap along it, in a wall 0,3…5 m off the
+  // axis — the wall goes on that line of the plan, the door of the plan with it.
+  let part=null;
+  if(row&&face!==null&&v.panels.length){
+   const fl=Math.min(...v.panels.map(p=>p.z0)),cols=v.panels.filter(p=>p.z0<=fl+300).map(p=>[p.u0+off,p.u1+off]).sort((a,b)=>a[0]-b[0]),gaps=[];
+   for(let i=1;i<cols.length;i++){const g=cols[i][0]-cols[i-1][1];if(g>=700&&g<=1600)gaps.push([cols[i-1][1],cols[i][0]])}
+   if(gaps.length)for(const p of ar){const fit=planFit.get(p);if(!fit)continue;
+    for(const o of p.ar.planFills||[]){if(!o.wall||!/^Д/u.test(o.mark)||(o.along==="x")!==!!v.numbered)continue;
+     const alongX=o.along==="x",fa=alongX?fit.fx:fit.fy,fc=alongX?fit.fy:fit.fx,c=alongX?o.x:o.y;
+     const mid=o.body?(o.body[0]+o.body[1])/2:o.wall.length>1?(o.wall[0]+o.wall[1])/2:o.wall[0],line=Math.round(fc.a+fc.b*mid),d=Math.abs(line-face);if(d<300||d>5000)continue;
+     const hit=[c,...(o.gaps||[]).map(g=>(g[0]+g[1])/2)].map(q=>fa.a+fa.b*q).map(u=>gaps.find(g=>u>=g[0]-150&&u<=g[1]+150)).find(Boolean);
+     if(hit&&(!part||d<part.d)){const um=(hit[0]+hit[1])/2,over=v.panels.filter(q=>q.z0>fl+1000&&q.u0+off<=um&&q.u1+off>=um).sort((a,b)=>a.z0-b.z0)[0];
+      part={line,d,o,uc:um,floor:fl,top:over?over.z0:null,sheet:p.pdfPage||p.page}}}}
+   if(part){partDoors.set(part.o,part);partViews.add(v);warnings.push(name+": перегородка — по плану АР (лист "+part.sheet+") стоит в "+part.d+" мм от оси "+row+", у двери "+part.o.mark+" — поставлена по плану")}
+  }
   const axis=row?[row,face]:[...pos].reduce((b,a)=>Math.abs(a[1]-face)<Math.abs(b[1]-face)?a:b);
   for(let p of v.panels){
    // With tables of panels in the set, a label they do not know is not a panel.
@@ -743,12 +761,20 @@ function arScheme(pages,opts={}){
    let grown=false;
    const mate=q&&!p.leader&&!p.cut&&w<=q.width_mm+40&&q.length_mm>h+300?v.panels.find(o=>o!==p&&o.mark===p.mark&&Math.abs(o.z0-p.z0)<=60&&Math.abs(o.z1-p.z0-q.length_mm)<=60):null;
    if(mate){const {top:_t,...rest}=p;p={...rest,z1:mate.z1};h=p.z1-p.z0;grown=true}
+   // The same from below: a column drawn from a line over a door in it (ИР-71535 АР ч.2 л.8 ряд Б Пс-122 by «Д-3» — foot
+   // read at +1,780 by the mark «+1,980», the table 10,60 m² = the whole 11580 less the door corner): its table's length
+   // down from its top ends where the column beside it stands with the same top — the panel goes down to there, the door
+   // a hole in it (cutHoles); the «holes» read at the false foot are not its.
+   let grownDown=false;
+   if(!mate&&q&&!p.leader&&!p.cut&&!p.top&&w<=q.width_mm+40&&q.length_mm>h+300){
+    const z=p.z1-q.length_mm,side=v.panels.find(o=>o!==p&&Math.abs(o.z1-p.z1)<=60&&Math.abs(o.z0-z)<=60&&(Math.abs(o.u1-p.u0)<=60||Math.abs(o.u0-p.u1)<=60));
+    if(side){const f0=p.z0,{holes:hs,...rest}=p,keep=(hs||[]).filter(o=>!(o[2]>=f0-60&&o[3]<=f0+300));p={...rest,z0:side.z0,...(keep.length?{holes:keep}:{})};h=p.z1-p.z0;grownDown=true}}
    // (a label on a leader — src/ai-ar-extract.js leaderLabels — takes a piece of its panel, cut on site: not larger than
    // the panel its table gives; a column of the wall between joints longer than that is not it)
    if(p.leader&&q&&!(w<=q.width_mm+40&&h<=q.length_mm+60||h<=q.width_mm+40&&w<=q.length_mm+60)){warnings.push(p.mark+" (лист "+v.sheet+"): по выноске — контур "+Math.round(w)+"×"+Math.round(h)+" больше панели "+q.width_mm+"×"+q.length_mm+" — не поставлена");continue}
    // The panel's middle plane: half its thickness inside the outer face; on the axis of its row — outside it (the side
    // the view is seen from).
-   const across0=Math.round(row?face+(low?-t/2:t/2):face+(low?t/2:-t/2)),a=p.u0+off,b=p.u1+off;
+   const across0=part?part.line:Math.round(row?face+(low?-t/2:t/2):face+(low?t/2:-t/2)),a=p.u0+off,b=p.u1+off;
    const differs=q&&!(Math.abs(q.width_mm-w)<=40&&Math.abs(q.length_mm-h)<=40||Math.abs(q.length_mm-w)<=40&&Math.abs(q.width_mm-h)<=40||(p.cut||p.top)&&Math.abs(q.width_mm-w)<=40&&h<=q.length_mm+40);
    placements.push({mark:p.mark,name:"Сэндвич-панель стеновая"+(q?.name?" "+q.name:""),type_key:"sandwich_wall",scheme_group:"cladding",geometry_type:"beam",
     fitting_type:"panel",diameter_mm:Math.max(1,Math.round(h)),
@@ -761,6 +787,7 @@ function arScheme(pages,opts={}){
     notes:["Раскладка панелей АР, лист "+v.sheet+(q?" · "+q.name+(q.ral?" · RAL "+q.ral+(q.ral_inside?"/"+q.ral_inside:""):""):" · позиции нет в спецификации панелей"),
      ...(footAt!==null?["Низ на линии "+(footAt<0?"−":"+")+(Math.abs(footAt)/1000).toFixed(3).replace(".",",")+" — по длине спецификации "+q.length_mm+" (на виде контур до низа стены)"]:[]),
      ...(grown?["Столбец на виде обрезан проёмом — панель на всю длину спецификации "+q.length_mm+", проём вырезается"]:[]),
+     ...(grownDown?["Низ столбца на виде — по линии над дверью; панель на всю длину спецификации "+q.length_mm+", до низа соседней, проём вырезается"]:[]),
      ...(p.cut?["Низ панели по скату кровли: "+p.cut.join(" → ")]:[]),...(p.top?["Верх по скату кровли (обрезать по месту): "+p.top.join(" → ")]:[]),...(differs?["Размер по чертежу "+Math.round(w)+"×"+Math.round(h)+", по спецификации "+q.width_mm+"×"+q.length_mm+" — проверьте"]:[])]})
    if(grown)grownSet.add(placements[placements.length-1]);
   }
@@ -1032,12 +1059,17 @@ let loose=0;
     // of two as near — an extension in front of the building — the front one, the wall the facade looks at: ИР-71535
     // АР ч.1 л.16 «Фасад А-Н» shows the windows of the wall on О10 under those of the gable on О8 behind it)
     let wall=null,wd=Infinity;const near=[];
-    for(const w of walls){if(w.v.numbered!==fv.numbered||w.v.reversed!==fv.reversed)continue;let dw=Infinity;
+    // (a partition inside — put by the plan off its axis — is not a wall a facade shows: ИР-71535 the gate В-3 of the brick
+    // extension, л.15, went into the partition П-1 of 4,1 m behind it, in the beams Б1 over it)
+    for(const w of walls){if(w.v.numbered!==fv.numbered||w.v.reversed!==fv.reversed||partViews.has(w.v))continue;let dw=Infinity;
      for(const p of w.v.panels){const d=Math.hypot(Math.max(0,p.u0+w.off-b,a-(p.u1+w.off)),Math.max(0,p.z0-z-f.height_mm,z-p.z1));if(d<dw)dw=d}
      near.push({w,d:dw});if(dw<wd){wd=dw;wall=w}}
     {const low=fv.numbered!==fv.reversed,front=w=>(low?-1:1)*(w.list[0].line||0);
      const tie=near.filter(q=>q.d<=wd+300&&q.w.list[0].line!=null).sort((p,q)=>front(q.w)-front(p.w))[0];if(tie){wall=tie.w;wd=tie.d}}
     if(!wall||wd>3000){lost.push(x.mark+" (лист "+fv.sheet+", стены этой стороны нет в раскладке)");continue}
+    // (off the end of the nearest wall of panels, its mark on the plan in a wall of its own — the gate В-3 of the brick
+    // extension 2,2 m beyond the wall of row Б: left to the plan below, not hung in the air on that wall's line)
+    if(wd>600&&ar.some(p=>planFit.get(p)&&(p.ar.planFills||[]).some(o=>o.mark===f.pos&&o.wall)))continue;
     used.set(f.pos,(used.get(f.pos)||0)+1);
     const seat=seatBlock(fv.numbered,a,b,z,f.height_mm,wall.list,f.kind!=="window"&&z<=300);({a,b,z}=seat);
     // (a table of openings without the number of each — «Ведомость проемов» — counts nothing: as many as the facades show)
@@ -1057,18 +1089,35 @@ let loose=0;
   // the label; a door, a gate on the floor, a window at 900 (not on the plan — said). As many as the table counts (a table
   // without the number of each — «Ведомость проемов» — as many as the plan shows).
   const byPlan=[],still=[];
-  for(const f of blocks.values()){if(used.get(f.pos))continue;let n=0;const k=f.count||Infinity;
+  // (a mark the facades placed fewer of than its table counts: the rest by the plan too, where none of that mark stands
+  // within 2,5 m — the door of a partition, a gate of a wall without a layout of panels)
+  const placedAt=pos=>placements.filter(q=>q.mark===pos&&/^(?:window|door|gate)$/.test(q.type_key)).map(q=>[(q.x_mm+q.x2_mm)/2,(q.y_mm+q.y2_mm)/2]);
+  for(const f of blocks.values()){const had=used.get(f.pos)||0;let n=0;const k=(f.count||Infinity)-had,there=had?placedAt(f.pos):[];
    for(const p of ar){const fit=planFit.get(p);if(!fit)continue;
     for(const o of p.ar.planFills||[]){if(o.mark!==f.pos||n>=k||!o.wall)continue;
      const alongX=o.along==="x",fa=alongX?fit.fx:fit.fy,fc=alongX?fit.fy:fit.fx,sc=Math.abs(fa.b);
+     if(had&&!partDoors.has(o)){const pu=fa.a+fa.b*(alongX?o.x:o.y),pl=fc.a+fc.b*o.wall[0],pt=alongX?[pu,pl]:[pl,pu];if(there.some(q=>Math.hypot(q[0]-pt[0],q[1]-pt[1])<=2500))continue;there.push(pt)}
      const mid=o.wall.length>1?(o.wall[0]+o.wall[1])/2:o.wall[0],t=o.wall.length>1?Math.max(80,Math.round(Math.abs(o.wall[0]-o.wall[1])*Math.abs(fc.b))):120;
      const c=alongX?o.x:o.y,gap=(o.gaps||[]).map(g=>({g,w:(g[1]-g[0])*sc})).filter(q=>q.w>=f.width_mm-150&&q.w<=f.width_mm+400).sort((p,q)=>Math.abs((p.g[0]+p.g[1])/2-c)-Math.abs((q.g[0]+q.g[1])/2-c))[0];
-     const uc=fa.a+fa.b*(gap?(gap.g[0]+gap.g[1])/2:c),line=Math.round(fc.a+fc.b*mid),a=Math.round(uc-f.width_mm/2),z=f.kind==="window"?900:0;
-     fillOf(f,alongX,false,a,a+f.width_mm,z,{line,layout:{thickness_mm:t},axis_x:"",axis_y:"",plan:true},{sheet:p.pdfPage||p.page,page:p.page,file:p.sourceName||""},
+     const pd=partDoors.get(o),uc=pd?pd.uc:fa.a+fa.b*(gap?(gap.g[0]+gap.g[1])/2:c),a=Math.round(uc-f.width_mm/2);let line=pd?pd.line:Math.round(fc.a+fc.b*mid),z=pd?(pd.top!==null?Math.min(pd.top-f.height_mm,pd.floor+60):pd.floor):f.kind==="window"?900:0;
+     // (a door of the plan in a wall of panels the facades do not show — ИР-71535 Д-3, Д-1 in the wall on О8 between the
+     // shop and the extension, panels Пс-70, Пс-1: on the line of those panels, its hole cut in them — it stood through them)
+     let inWall=null;
+     if(!pd){const own=placements.filter(q=>q.type_key==="sandwich_wall"&&(alongX?q.y_mm===q.y2_mm:q.x_mm===q.x2_mm)&&Math.abs((alongX?q.y_mm:q.x_mm)-line)<=400&&
+       Math.min(Math.max(alongX?q.x_mm:q.y_mm,alongX?q.x2_mm:q.y2_mm),a+f.width_mm)-Math.max(Math.min(alongX?q.x_mm:q.y_mm,alongX?q.x2_mm:q.y2_mm),a)>=20&&q.z0_mm<=z+f.height_mm-200&&q.z0_mm+q.diameter_mm>=z+200);
+      if(own.length){inWall=own;line=alongX?own[0].y_mm:own[0].x_mm;const foot=Math.min(...own.map(q=>q.z0_mm));if(z<foot&&foot-z<=150)z=foot;cutHoles(alongX,a,a+f.width_mm,z,z+f.height_mm,own)}}
+     // (under panels that start a little under its head — Д-1 of 2100 in the masonry under Пс-1 from +2,020 on О8: the
+     // floor there is under 0,000, the door down so that its head is at their foot; the panels within 0,9 m across —
+     // the 3D moves them onto their girts)
+     if(!pd&&!inWall){const over=placements.filter(q=>q.type_key==="sandwich_wall"&&(alongX?q.y_mm===q.y2_mm:q.x_mm===q.x2_mm)&&Math.abs((alongX?q.y_mm:q.x_mm)-line)<=900&&
+       Math.min(Math.max(alongX?q.x_mm:q.y_mm,alongX?q.x2_mm:q.y2_mm),a+f.width_mm)-Math.max(Math.min(alongX?q.x_mm:q.y_mm,alongX?q.x2_mm:q.y2_mm),a)>=20&&q.z0_mm<z+f.height_mm&&q.z0_mm>=z+f.height_mm-150);
+      if(over.length)z=Math.min(...over.map(q=>q.z0_mm))-f.height_mm}
+     // (the door of a partition put by its view: in the wall of panels like a door of a facade — not «plan»)
+     fillOf(f,alongX,false,a,a+f.width_mm,z,{line,layout:{thickness_mm:pd?120:inWall?(inWall[0].layout.thickness_mm||120):t},axis_x:"",axis_y:"",...(pd||inWall?{}:{plan:true})},{sheet:p.pdfPage||p.page,page:p.page,file:p.sourceName||""},
       ["План АР, лист "+(p.pdfPage||p.page)+": "+f.pos+" "+f.width_mm+"×"+f.height_mm+" ("+f.name+") — внутренний, в перегородке"+(gap?", по проёму стены":", у надписи — проём на плане не найден, проверьте"),
        ...(f.kind==="window"?["Низ окна на +0,900 — на плане отметки нет, проверьте"]:[])],false);
      n++}}
-   if(n){used.set(f.pos,n);byPlan.push(f.pos+(n<k&&k<Infinity?" "+n+" из "+k:n>1?" ×"+n:""))}
+   if(n){used.set(f.pos,had+n);byPlan.push(f.pos+(n<k&&k<Infinity?" "+n+" из "+k:n>1?" ×"+n:""))}
    else if(inner.some(x=>x.startsWith(f.pos+" ")||x===f.pos))still.push(f.pos)}
   if(byPlan.length)warnings.push("Внутренние двери, ворота, окна поставлены по плану: "+byPlan.join(", "));
   if(inner.length&&still.length)warnings.push("Нет на фасадах и на плане (внутренние) — не поставлены: "+still.join(", "));
