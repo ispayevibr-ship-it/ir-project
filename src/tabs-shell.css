@@ -319,6 +319,8 @@ body{min-width:0}
 .profile-panel .program-link svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .profile-panel .program-link:hover{background:#edf6ff;border-color:#9bc3e6;color:#1769e0}
 .profile-panel .program-link-dot{position:absolute;right:-3px;bottom:-3px;width:10px;height:10px;border-radius:50%;border:2px solid #fff;background:#a7b4c0;box-sizing:border-box}
+.profile-panel .program-link-count{position:absolute;top:-6px;right:-6px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#d93025;color:#fff;font:700 10.5px/17px "Segoe UI",system-ui,sans-serif;text-align:center;box-sizing:border-box;pointer-events:none;z-index:1}
+.profile-panel .program-link-count[hidden]{display:none}
 .profile-panel .program-link[data-state="on"] .program-link-dot{background:#1f9d55}
 .profile-panel .program-link[data-state="off"] .program-link-dot{background:#d93025}
 .profile-panel .program-link[data-state="busy"] .program-link-dot{background:#1769e0}

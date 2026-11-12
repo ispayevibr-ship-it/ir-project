@@ -227,7 +227,8 @@
 
  // The count on the icons of all the open tabs (each tab is a frame with its own profile panel).
  function paint(win,n){
-  try{for(const b of win.document.querySelectorAll('[data-link="chat"]')){let c=b.querySelector(".program-link-count");
+  try{const bs=win.document.querySelectorAll('[data-link="chat"]');if(bs.length)style(win.document);
+   for(const b of bs){let c=b.querySelector(".program-link-count");
    if(!c){c=win.document.createElement("b");c.className="program-link-count";b.appendChild(c)}
    c.hidden=!n;c.textContent=n>99?"99+":String(n);b.dataset.state=n?"busy":"on";
    const t=n?`Чат компании: непрочитанных ${n}`:"Чат компании";b.title=t;b.setAttribute("aria-label",t)}}catch{}

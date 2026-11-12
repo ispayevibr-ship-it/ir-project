@@ -5643,6 +5643,9 @@ window.irThreeSchemeView=(function irThreeModule(){
      var dot=function(o){return o.d.x*e.d.x+o.d.y*e.d.y};
      var first=through.concat(ends.filter(function(o,j){return j<i&&Math.abs(dot(o))<.3}))[0];
      var t=first?halfSection(first.b).b*1000+10:ends.some(function(o){return o!==e&&dot(o)<-.9})?10:-(Math.abs(e.d.x)*hs.x+Math.abs(e.d.y)*hs.z)*1000;
+     // (a girder with its end rib by the sheet — joint.bearing.rib_mm, girderSeat: its body ends at the rib, the rib
+     // between it and the gap at the column's axis)
+     var gb=bearingOf(e.b);if(gb&&gb.rt>0&&!first)t=gb.gap+gb.rt*1000;
      var fx=e.foot.x+e.d.x*((cx-e.foot.x)*e.d.x+(cy-e.foot.y)*e.d.y),fy=e.foot.y+e.d.y*((cx-e.foot.x)*e.d.x+(cy-e.foot.y)*e.d.y);
      e.at={x:fx+e.d.x*t,y:fy+e.d.y*t};e.bolts=first||t===10?{x:fx+e.d.x*(t+60),y:fy+e.d.y*(t+60)}:{x:fx,y:fy};
      var bid=String(e.b.id),arr=seatEnd.get(bid)||[null,null];arr[e.end]=e.at;seatEnd.set(bid,arr)
@@ -5669,6 +5672,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    var b=e.b,sec=sectionOf(b.profile_name||b.profileName,b.profile_standard);if(!sec||sec.shape!=="ibeam")return;
    var h=sec.h/1000,w=sec.b/1000,tf=sec.t/1000,tw=sec.s/1000,at=toWorld(e.bolts.x,e.bolts.y,e.zb),dir=toWorld(e.bolts.x+e.d.x,e.bolts.y+e.d.y,e.zb).sub(at).normalize(),up=new T.Vector3(0,1,0),side=dir.clone().cross(up).normalize();
    if(b.joint&&b.joint.seat&&typeof b.joint.seat==="object"){finSeat(k,e,b.joint.seat,sec,at,dir,up,side,parts);return}
+   if(bearingOf(b)){girderSeat(k,e,bearingOf(b),sec,parts);return}
    var dia=boltDia(b)||boltDia(k.c),bottom=at.y-h/2,cp=capOf(k.c);
    // (under a sloped beam: the bolt from its bottom where it is — the depth upright × √(1 + k²) — down through the cap, as
    // thick there as from that bottom to the cap's bottom: along the slope (seatTilt) or level under the lowest bottom)
@@ -5744,6 +5748,45 @@ window.irThreeSchemeView=(function irThreeModule(){
     if(copeWebs.some(function(w){var x=rb.clone().intersect(w.b);return!x.isEmpty()&&Math.min(x.max.x-x.min.x,x.max.y-x.min.y,x.max.z-x.min.z)>.001}))return;
     rib.userData.small=true;parts.push(partTag(rib,"опорное ребро балки"))
    })
+  }
+  // The bearing of a crane girder on the cap of its column by its sheet (ИР КМ1 л.27 «Балки подкрановые Бкр1», узлы А, Б,
+  // разрезы 3-3, 4-4; серия 1.426.2-7 вып. 5) — joint.bearing {rib_mm [t, width], drop_mm, pad_mm [t, along, across],
+  // washer_mm [t, side], gap_mm, bolt, cls}. Not the conventional seat (thin ribs between the flanges, the bolts through
+  // the air): the engineer, 12.11.2026, КМ3.docx замечание 15 — the girder hung 40 mm over the cap, nothing under it.
+  // At an end over the column: the end rib −t25×360 closes the girder's end and goes drop_mm below its bottom flange,
+  // its planed end on the cap — the girder bears by it; the bottom flange stays drop_mm over the cap, the bolts М30
+  // through it and the cap's holes on its side, a square washer t14 □60 under each head. Over a column the girder
+  // goes on across: the pad −t40 between the bottom flange and the cap, the bolts through the three, the ribs t25
+  // either side of the web over the column's axis.
+  function bearingOf(b){
+   var g=b&&b.joint&&typeof b.joint==="object"&&b.joint.bearing;if(!g||typeof g!=="object")return null;
+   var rm=Array.isArray(g.rib_mm)?g.rib_mm:[],pm=Array.isArray(g.pad_mm)?g.pad_mm:[],wm=Array.isArray(g.washer_mm)?g.washer_mm:[];
+   return{g:g,rt:number(rm[0])/1000,rw:number(rm[1])/1000,drop:number(g.drop_mm)/1000,gap:number(g.gap_mm)||10,pt:number(pm[0])/1000,pl:number(pm[1])/1000,pw:number(pm[2])/1000,wt:number(wm[0])/1000,ws:number(wm[1])/1000}
+  }
+  function girderSeat(k,e,gb,sec,parts){
+   var b=e.b,g=gb.g,h=sec.h/1000,tw=sec.s/1000,tf=sec.t/1000,tb=(number(sec.t1)>0?sec.t1:sec.t)/1000,up=new T.Vector3(0,1,0);
+   var ax=toWorld(e.foot.x,e.foot.y,e.zb),dir=toWorld(e.foot.x+e.d.x,e.foot.y+e.d.y,e.zb).sub(ax).normalize(),side=dir.clone().cross(up).normalize();
+   var co=toWorld(k.c.x,k.c.y,e.zb),A=ax.clone().add(dir.clone().multiplyScalar(co.clone().sub(ax).dot(dir))),bottom=A.y-h/2,top=A.y+h/2,cp=capOf(k.c),end=e.end>=0;
+   var capTop=cp?toWorld(k.c.x,k.c.y,k.c.z2).y:bottom-gb.drop,low=Math.max(0,bottom-capTop),sn=function(t,st){return"t"+Math.round(t*1000)+(st?" "+st:"")};
+   if(low>.2)return;
+   if(end&&gb.rt>0&&gb.rw>0){
+    // (the end rib: from the girder's top to the cap, in the gap the body left — seats: t = gap + its thickness)
+    var rib=plateBox(b,A.clone().add(dir.clone().multiplyScalar(gb.gap/1000+gb.rt/2)).setY((top+bottom-low)/2),dir,up,side,gb.rt,h+low,gb.rw);
+    rib.userData.plate=true;parts.push(partTag(rib,"опорное ребро подкрановой балки",sn(gb.rt,g.rib_steel)+", ширина "+Math.round(gb.rw*1000)))
+   }
+   if(!end){
+    if(gb.pt>0&&low>.001){var pad=plateBox(b,A.clone().setY(bottom-low/2),dir,up,side,gb.pl||.3,low,gb.pw||sec.b/1000);pad.userData.plate=true;parts.push(partTag(pad,"опорная плита подкрановой балки",sn(low,g.pad_steel)))}
+    if(gb.rt>0&&gb.rw>0)[-1,1].forEach(function(q){var w=Math.max(.03,gb.rw/2-tw/2),rb=plateBox(b,A.clone().add(side.clone().multiplyScalar(q*(tw/2+w/2))).setY((bottom+tb+top-tf)/2),dir,up,side,gb.rt,h-tf-tb,w);
+     rb.userData.plate=true;parts.push(partTag(rb,"опорное ребро подкрановой балки",sn(gb.rt,g.rib_steel)))})
+   }
+   // (the bolts only in the holes of the cap: on the girder's side at its end, all of them under a girder going on)
+   if(!cp||!cp.holes.length)return;
+   var m=/(\d{2})/.exec(String(g.bolt||"")),hd=cp.d*1000,dm=m&&(!(hd>0)||number(m[1])<=hd)?number(m[1]):hd>3?hd-3:0;if(!(dm>0))return;
+   var o=toWorld(k.c.x,k.c.y,k.c.z2),lo=o.y-cp.t,wt=gb.wt>0&&gb.ws>0?gb.wt:0,grip=bottom+tb+wt-lo,bc={id:b.id,joint:{bolt:g.bolt,cls:g.cls||"",set:b.joint.set}},bw=(number(sec.b1)>0?sec.b1:sec.b)/2000;
+   cp.holes.forEach(function(q){var v=cp.L.clone().multiplyScalar(number(q[0])/1000).add(cp.C.clone().multiplyScalar(number(q[1])/1000));
+    if(end&&v.dot(dir)<=gb.gap/1000+gb.rt+dm/2000)return;if(Math.abs(v.dot(side))>bw-dm/2000-.005||Math.abs(v.dot(side))<tw/2+dm/2000)return;
+    if(wt){var ws=plateBox(b,new T.Vector3(o.x+v.x,bottom+tb+wt/2,o.z+v.z),dir,up,side,gb.ws,wt,gb.ws);ws.userData.plate=true;ws.userData.small=true;parts.push(partTag(ws,"шайба квадратная",sn(wt,g.washer_steel)+" □"+Math.round(gb.ws*1000)))}
+    addBolt(bc,new T.Vector3(o.x+v.x,lo+grip/2,o.z+v.z),up,dm/1000,grip)})
   }
   // The seat of a purlin over a column by its node (ИР КМ1 л.16 узел 1, разрез 1-1; л.18 узел 5: the two П1 I25Б1 at
   // the ridge, 100 mm either side of row Е, over the columns К2, К6). Not the conventional seat — the ribs in its web and
