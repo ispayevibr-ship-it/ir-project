@@ -44,7 +44,20 @@
 .arch-empty-row td{padding:22px 12px;text-align:center;color:#8696a1}
 .arch-summary textarea{display:block;box-sizing:border-box;width:calc(100% - 28px);margin:12px 14px 0;min-height:84px;padding:8px 10px;border:1px solid #dbe4ea;border-radius:8px;background:#fff;color:#17364d;font:12px/1.5 inherit;font-family:inherit;resize:vertical}
 .arch-summary textarea:focus{outline:none;border-color:#7fb2e5;box-shadow:0 0 0 3px rgba(23,105,224,.12)}
-.arch-summary-text{padding:12px 14px;color:#41596a;font-size:12px;line-height:1.55;white-space:pre-line}
+.arch-summary-text{padding:12px 14px;color:#41596a;font-size:12px;line-height:1.55}
+.arch-summary-text>:first-child{margin-top:0}.arch-summary-text>:last-child{margin-bottom:0}
+.arch-summary-text p{margin:0 0 8px}.arch-summary-text h3{margin:12px 0 6px;color:#17364d;font-size:14px;font-weight:700}
+.arch-summary-text ul,.arch-summary-text ol{margin:0 0 8px;padding-left:22px}.arch-summary-text li{margin:2px 0}
+/* редактор краткой характеристики: жирный, курсив, заголовок, списки */
+.arch-rte{margin:12px 14px 0;border:1px solid #dbe4ea;border-radius:8px;background:#fff;overflow:hidden}
+.arch-rte:focus-within{border-color:#7fb2e5;box-shadow:0 0 0 3px rgba(23,105,224,.12)}
+.arch-rte-bar{display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:5px 6px;border-bottom:1px solid #e7edf1;background:#f8fafb}
+.arch-rte-bar button{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:28px;padding:0 9px;border:1px solid transparent;border-radius:6px;background:none;color:#365267;font-size:12px;cursor:pointer}
+.arch-rte-bar button:hover{background:#eef3f7;border-color:#d5e0e7}
+.arch-rte-bar button.on{background:#e6f0fa;border-color:#b9d3ee;color:#1769e0}
+.arch-rte-sep{width:1px;height:18px;margin:0 4px;background:#d8e1e7}
+.arch-rte-text{min-height:96px;outline:none}
+.arch-rte-text.empty:before{content:attr(data-placeholder);color:#9aa8b2;pointer-events:none}
 .arch-hint{margin:0;padding:8px 14px 12px;color:#8a99a3;font-size:9px}
 .arch-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;padding:12px}
 .arch-gallery .object-photos-empty{grid-column:1/-1;border:0;min-height:120px}
@@ -70,9 +83,12 @@
 .arch-btn.primary:hover{background:#125cc7}
 .arch-btn.danger{border-color:#f0d2d2;color:#c0392b}
 .arch-btn.danger:hover{background:#fdf1f1;border-color:#e6b3b3}
-.arch-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px 18px;margin:12px 0 0}
-.arch-facts div{min-width:0}
-.arch-facts dt{color:#87919f;font-size:10px;margin:0 0 3px}
-.arch-facts dd{margin:0;color:#17364d;font-size:13px;font-weight:600;overflow-wrap:anywhere}
+/* сведения отдельными блоками со значком (12.11.2026: «слишком сплошняком все. сделай блоками») */
+.arch-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:14px 0 0}
+.arch-facts>div{display:flex;align-items:flex-start;gap:10px;min-width:0;padding:11px 12px;border:1px solid #e1e9ef;border-radius:10px;background:#f7fafc}
+.arch-facts>div>svg{flex:0 0 auto;width:30px;height:30px;padding:6px;box-sizing:border-box;border-radius:8px;background:#e6f0fa;color:#1769e0}
+.arch-facts>div>span{display:block;min-width:0}
+.arch-facts dt{color:#87919f;font-size:10px;margin:1px 0 3px}
+.arch-facts dd{margin:0;color:#17364d;font-size:12.5px;font-weight:600;line-height:1.35;overflow-wrap:anywhere}
 .arch-edit-note{padding:10px 0 0}
 body.ir-archive-object.ir-object-topnav #app{padding-top:12px}
