@@ -19,6 +19,9 @@
  const CLIP='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.1-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>';
  const SEND='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg>';
  const ALL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>';
+ const TICK='<svg viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 6.5 5 10l6.5-8"/></svg>';
+ const TICKS='<svg viewBox="0 0 20 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 6.5 5 10l6.5-8"/><path d="m9 9.2.8.8 6.5-8"/></svg>';
+ const TRASH='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>';
  const CSS=`.program-link-count{position:absolute;top:-6px;right:-6px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#d93025;color:#fff;font:700 10.5px/17px "Segoe UI",system-ui,sans-serif;text-align:center;box-sizing:border-box;pointer-events:none}
 .program-link-count[hidden]{display:none}
 .ir-tc{inset:0;margin:auto;box-sizing:border-box;width:min(1040px,97vw);height:min(760px,92vh);padding:0;border:0;border-radius:16px;background:#f3f6fa;color:#1d3247;box-shadow:0 30px 90px rgba(8,28,48,.45);font:13px/1.5 "Segoe UI",system-ui,Arial,sans-serif;overflow:hidden}
@@ -45,8 +48,10 @@
 .ir-tc-m{max-width:72%;align-self:flex-start;padding:7px 11px 6px;border-radius:12px 12px 12px 4px;background:#fff;border:1px solid #dfe8ef;white-space:pre-wrap;word-wrap:break-word;position:relative}
 .ir-tc-m.mine{align-self:flex-end;border-radius:12px 12px 4px 12px;background:#d9ecfd;border-color:#c3def6}
 .ir-tc-m .who{display:block;font-size:11.5px;font-weight:700;color:#176dc1;margin-bottom:1px}
-.ir-tc-m .at{display:block;text-align:right;font-size:10.5px;color:#7d93a3;margin-top:2px}
-.ir-tc-m .del{position:absolute;top:2px;right:4px;border:0;background:none;color:#9aabb8;cursor:pointer;font-size:13px;opacity:0}.ir-tc-m:hover .del{opacity:1}.ir-tc-m .del:hover{color:#b4321f}
+.ir-tc-m .at{display:flex;justify-content:flex-end;align-items:center;gap:5px;font-size:10.5px;color:#7d93a3;margin-top:2px;white-space:nowrap}
+.ir-tc-m .st{display:inline-flex;color:#8aa0b0}.ir-tc-m .st svg{height:11px;width:auto}.ir-tc-m .st.read{color:#1f8ff0}
+.ir-tc-m .del{display:inline-grid;place-items:center;width:20px;height:20px;margin-right:auto;padding:0;border:0;border-radius:5px;background:none;color:#9aabb8;cursor:pointer;opacity:.45}.ir-tc-m .del svg{width:13px;height:13px}
+.ir-tc-m:hover .del{opacity:1}.ir-tc-m .del:hover{color:#b4321f;background:rgba(180,50,31,.08)}
 .ir-tc-img{display:block;max-width:280px;max-height:220px;min-width:80px;min-height:60px;margin:4px 0;border-radius:8px;background:#eef3f7;cursor:zoom-in;object-fit:cover}
 .ir-tc-file{display:inline-flex;align-items:center;gap:6px;margin:4px 6px 0 0;padding:5px 10px;border:1px solid #c9d8e4;border-radius:8px;background:#fff;color:#1d4f75;font:inherit;font-size:12px;cursor:pointer}.ir-tc-file:hover{background:#e8f1fa}
 .ir-tc-empty{margin:auto;color:#6b8294;text-align:center}
@@ -127,10 +132,19 @@
     return`<button type="button" class="ir-tc-p${k==="all"?" all":""}${k===cur?" on":""}" data-k="${esc(k)}"><span class="ir-tc-av">${k==="all"?ALL:esc(initials(nameOf(k)))}</span>
      <span class="ir-tc-pn"><b>${esc(nameOf(k))}</b>${sub?`<small>${esc(sub.slice(0,80))}</small>`:""}</span>${n?`<span class="ir-tc-n">${n>99?"99+":n}</span>`:""}</button>`}).join("")||'<div class="ir-tc-empty">Никого не найдено</div>'
   }
+  // ✓ — доставлено (сообщение на сервере), ✓✓ синие — прочитано: в личной переписке — получателем, в общей — хотя бы
+  // одним сотрудником (в подсказке — кто прочитал)
+  function status(m){
+   const reads=v.reads||[];
+   if(m.to){const r=reads.some(x=>x.user===m.to&&x.conv===v.me.id&&x.at>=m.at);
+    return r?`<span class="st read" title="Прочитано">${TICKS}</span>`:`<span class="st" title="Доставлено">${TICK}</span>`}
+   const who=reads.filter(x=>x.conv==="all"&&x.user!==v.me.id&&x.at>=m.at).map(x=>nameOf(x.user));
+   return who.length?`<span class="st read" title="Прочитали: ${esc(who.join(", "))}">${TICKS}</span>`:`<span class="st" title="Доставлено, ещё никто не прочитал">${TICK}</span>`
+  }
   function drawList(force){
    if(!v?.signedIn)return;
    const msgs=v.messages.filter(m=>convOf(m,v.me.id)===cur);
-   const sig=cur+"|"+msgs.length+"|"+(msgs[msgs.length-1]?.id||"");
+   const sig=cur+"|"+msgs.length+"|"+(msgs[msgs.length-1]?.id||"")+"|"+(v.reads||[]).map(x=>x.user+x.conv+x.at).join(",");
    title.innerHTML=esc(nameOf(cur))+`<small>${cur==="all"?"сообщения видят все сотрудники":"личная переписка"}</small>`;
    text.placeholder=cur==="all"?"Сообщение всем… (Enter — отправить, Shift+Enter — новая строка)":"Сообщение для «"+nameOf(cur)+"»… (Enter — отправить)";
    if(sig===drawn&&!force)return;drawn=sig;
@@ -139,7 +153,8 @@
    list.innerHTML=msgs.length?msgs.map(m=>{const dd=day(m.at),mine=m.author===v.me.id;
     const head=dd!==lastDay?`<div class="ir-tc-day">${esc(dd)}</div>`:"";lastDay=dd;
     const fl=m.files.map(n=>isImg(n)?`<img class="ir-tc-img" data-img="${esc(m.id)}" data-name="${esc(n)}" alt="${esc(plain(n))}">`:`<button type="button" class="ir-tc-file" data-fid="${esc(m.id)}" data-name="${esc(n)}" title="Открыть (с Ctrl — сохранить)">📎 ${esc(plain(n))}</button>`).join("");
-    return head+`<div class="ir-tc-m${mine?" mine":""}">${!mine&&cur==="all"?`<span class="who">${esc(m.name||"сотрудник")}</span>`:""}${(mine||v.admin)?`<button type="button" class="del" data-del="${esc(m.id)}" title="Удалить сообщение">✕</button>`:""}${esc(m.text)}${fl?`<div>${fl}</div>`:""}<span class="at">${esc(time(m.at))}</span></div>`}).join("")
+    const del=(mine||v.admin)?`<button type="button" class="del" data-del="${esc(m.id)}" title="Удалить сообщение у всех" aria-label="Удалить">${TRASH}</button>`:"";
+    return head+`<div class="ir-tc-m${mine?" mine":""}">${!mine&&cur==="all"?`<span class="who">${esc(m.name||"сотрудник")}</span>`:""}${esc(m.text)}${fl?`<div>${fl}</div>`:""}<span class="at">${del}${esc(time(m.at))}${mine?status(m):""}</span></div>`}).join("")
     :`<div class="ir-tc-empty">${cur==="all"?"Здесь пока пусто. Напишите первое сообщение всем.":"Переписки с этим сотрудником пока нет."}</div>`;
    for(const img of list.querySelectorAll("img[data-img]"))imageUrl(img.dataset.img,img.dataset.name).then(u=>{img.src=u}).catch(()=>{img.alt="Фото не загрузилось"});
    if(atEnd)list.scrollTop=list.scrollHeight;

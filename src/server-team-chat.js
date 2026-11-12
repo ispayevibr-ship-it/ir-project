@@ -29,7 +29,7 @@ function createTeamChat({account,getUserDataPath,now=()=>Date.now()}){
  const api=(p,o)=>acc().api(p,o);
 
  // the messages of another person signed in on this computer are not shown: the cache belongs to one account
- const own=()=>{const d=load(),u=me();if(!u)return null;if(d.user!==u.id){data={user:u.id,messages:[],seen:{},since:""};store()}return data};
+ const own=()=>{const d=load(),u=me();if(!u)return null;if(d.user!==u.id){data={user:u.id,messages:[],seen:{},since:""};store();reads=[];readsSig=""}return data};
  const shape=r=>({id:r.id,author:r.author,name:r.author_name||"",to:r.to||"",text:r.text||"",files:Array.isArray(r.files)?r.files:[],at:iso(r.created)});
  const convOf=(m,uid)=>!m.to?"all":m.author===uid?m.to:m.author;
 
@@ -41,7 +41,31 @@ function createTeamChat({account,getUserDataPath,now=()=>Date.now()}){
   return team
  }
 
- let rev=0,fetchedAt=0,checkedAt=0,busy=null,error="";
+ let rev=0,fetchedAt=0,checkedAt=0,readsAt=0,busy=null,error="";
+ // «прочитано» (server collection team_chat_seen, migration 1762950000): up to what time each person read each
+ // conversation. Own lines from another computer move the read marks here too. Without the collection on the server —
+ // nothing, the chat works without the marks.
+ let reads=[],readsSig="";
+ async function pullReads(){
+  const d=own(),u=me();if(!d||!u)return false;
+  let list;try{list=await acc().list("team_chat_seen","")}catch(e){if(e?.status===404)return false;throw e}
+  reads=list.map(r=>({id:r.id,user:r.user,conv:r.conv,at:iso(r.seen_at)}));
+  let changed=false;
+  for(const r of reads)if(r.user===u.id&&r.at>(d.seen[r.conv]||"")){d.seen[r.conv]=r.at;changed=true}
+  if(changed)store();
+  const sig=reads.map(r=>r.user+r.conv+r.at).sort().join("|");
+  if(sig!==readsSig){readsSig=sig;return true}
+  return changed
+ }
+ async function pushRead(conv,at){
+  const u=me();if(!u)return;
+  const mine=reads.find(r=>r.user===u.id&&r.conv===conv);
+  try{
+   if(mine){if(mine.at>=at)return;await api(`/api/collections/team_chat_seen/records/${mine.id}`,{method:"PATCH",body:{seen_at:at}});mine.at=at;return}
+   const r=await api("/api/collections/team_chat_seen/records",{method:"POST",body:{user:u.id,conv,seen_at:at}});
+   reads.push({id:r.id,user:u.id,conv,at})
+  }catch(e){if(e?.status===400&&!mine){readsAt=0;try{await pullReads();const m=reads.find(r=>r.user===u.id&&r.conv===conv);if(m&&m.at<at)await api(`/api/collections/team_chat_seen/records/${m.id}`,{method:"PATCH",body:{seen_at:at}})}catch{}}}
+ }
  // New messages from the server (by the time written; nothing is edited). Every 5 minutes: the ones deleted there go.
  function refresh({maxAge=0}={}){
   const d=own();if(!d)return Promise.resolve({fresh:[]});
@@ -64,6 +88,7 @@ function createTeamChat({account,getUserDataPath,now=()=>Date.now()}){
      checkedAt=now()
     }
     d.messages.sort((a,b)=>a.at<b.at?-1:a.at>b.at?1:0);
+    if(now()-readsAt>(maxAge>5000?maxAge:5000)){readsAt=now();try{if(await pullReads())changed=true}catch{}}
     if(changed){rev++;store()}
     fetchedAt=now();error=""
    }catch(e){error=String(e?.message||e)}
@@ -92,12 +117,13 @@ function createTeamChat({account,getUserDataPath,now=()=>Date.now()}){
   if(known!=null&&Number(known)===rev&&!view.dirty)return{same:true,rev,error};
   view.dirty=false;
   return{signedIn:true,me:{id:u.id,name:u.name||u.email||""},admin:u.role==="admin",rev,people:list.filter(p=>p.id!==u.id),
-   messages:d.messages,unread:unreadBy(d,u.id),seen:d.seen,error,keepDays:90}
+   messages:d.messages,unread:unreadBy(d,u.id),seen:d.seen,reads:reads.map(r=>({user:r.user,conv:r.conv,at:r.at})),error,keepDays:90}
  }
  function seen({conv}={}){
   const d=own();if(!d)return null;const k=String(conv||"all");
   const last=d.messages.reduce((a,m)=>convOf(m,me()?.id)===k&&m.at>a?m.at:a,d.seen[k]||"");
   if(last!==d.seen[k]){d.seen[k]=last;store();view.dirty=true}
+  if(last)void pushRead(k,last);
   return{ok:true}
  }
  async function send({to="",text="",files=[]}={}){
