@@ -737,7 +737,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    '<select id="irThreeNodes" data-native-select="1" aria-label="Узлы" title="Маркеры узлов: опоры колонн, оголовки, концы балок"><option value="sel">Узлы: у выбранного</option><option value="all">Узлы: все</option><option value="open">Узлы: несмонтированные</option><option value="off">Узлы: скрыть</option></select>'+
    '<label class="ir-three-check" title="Опорные плиты, анкеры и оголовки вблизи, краны на путях — условно, не по КМД"><input type="checkbox" id="irThreeDetails" checked> Детали</label>'+
    '<label class="ir-three-check" title="Строка в углу схемы: кадров в секунду, треугольников и команд видеокарте за кадр, время кадра, болтов в кадре"><input type="checkbox" id="irThreeStats"> Счётчик</label>'+
-   '<label class="ir-three-check" title="Все болты в кадре со всеми фасками и гранями на любом расстоянии, блеск серебристой стали, обе стороны граней, повышенная чёткость. Выключено — мелкие на экране болты рисуются проще, вблизи всегда полные, сталь без отражений; так легче видеокарте"><input type="checkbox" id="irThreeBest"> Максимальное качество</label>'+
+   '<label class="ir-three-check" title="Все болты в кадре со всеми фасками и гранями на любом расстоянии, блеск серебристой стали, обе стороны граней, повышенная чёткость. Выключено — мелкие на экране болты рисуются проще, вблизи всегда полные, сталь без отражений; так легче видеокарте"><input type="checkbox" id="irThreeBest"> Максимальное качество схемы</label>'+
    '</div>'+
    '<div id="irThreeCopyHint" class="ir-three-copy-hint" hidden>Щёлкните новое начало конструкции на плоскости X/Y. <button id="irThreeCancelCopy" type="button">Отмена</button></div>'+
    '<div class="ir-three-viewport" id="irThreeViewport" role="img" aria-label="Интерактивная 3D модель металлического каркаса"></div>'+
@@ -5043,8 +5043,6 @@ window.irThreeSchemeView=(function irThreeModule(){
    var up=new T.Vector3(0,1,0);
    var add=function(id,geo,at,X,Y,Z){var m=new T.Mesh(geo,drainMat);m.position.copy(at);m.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(X,Y,Z));
     m.userData.memberId=id;m.userData.fixed=true;m.userData.footing=true;m.userData.sheet=true;m.userData.drain=true;steel.add(m);allMeshes.push(m);(meshesById.get(id)||meshesById.set(id,[]).get(id)).push(m);return m};
-   var pipe=function(id,a,b,r){var d=b.clone().sub(a),L=d.length();if(L<.01)return;var m=new T.Mesh(new T.CylinderGeometry(r,r,L,16),drainMat);m.position.copy(a).add(b).multiplyScalar(.5);m.quaternion.setFromUnitVectors(up,d.normalize());
-    m.userData.memberId=id;m.userData.fixed=true;m.userData.footing=true;m.userData.sheet=true;m.userData.drain=true;steel.add(m);allMeshes.push(m);(meshesById.get(id)||meshesById.set(id,[]).get(id)).push(m)};
    runs.forEach(function(r){
     var W=.185,D=.12,t=.0006,L=r.s1-r.s0,top=r.y+.03,cx=r.e+W/2-.04,sm=(r.s0+r.s1)/2;
     var at=function(along,s,y){var v=r.h.clone().multiplyScalar(along).add(r.side.clone().multiplyScalar(s));v.y=y;return v};
@@ -5065,10 +5063,21 @@ window.irThreeSchemeView=(function irThreeModule(){
      for(var i=0;i<4;i++){var v=new T.Vector3(sv[i&1].x,0,sv[(i>>1)&1].z);a=Math.max(a,v.dot(r.h));b=Math.min(b,v.dot(r.h));u0=Math.min(u0,v.dot(r.side));u1=Math.max(u1,v.dot(r.side))}
      if(sm<u0-.05||sm>u1+.05||a>r.e+.05||a<r.e-1.5)return;if(wf===null||a>wf)wf=a});
     var R=.075,px=wf===null?cx:Math.min(cx,wf+R+.05),y0=top-D,yg=Math.max(.05,Math.min(.25,y0-1));
-    pipe(r.id,at(cx,sm,y0),at(cx,sm,y0-.08),R*.9);
-    pipe(r.id,at(cx,sm,y0-.08),at(px,sm,y0-.08-Math.max(.1,cx-px)),R);
-    pipe(r.id,at(px,sm,y0-.08-Math.max(.1,cx-px)),at(px,sm,yg+.25),R);
-    pipe(r.id,at(px,sm,yg+.25),at(px+.25,sm,yg),R);
+    // As a pipe is made — the engineer, 13.11.2026: «прорисуй нормально трубу сливную» (straight pieces met at angles
+    // with gaps, Пк-12 at О8/Н): the funnel a cone from the gutter's bottom, one tube with round bends — the offset to
+    // the wall under 45°, down along it, the outlet —, clamps to the wall every 1,8 m.
+    var fy=y0-.12,ob=Math.max(.1,cx-px),A=at(cx,sm,fy),B=at(px,sm,fy-ob),C=at(px,sm,yg+.25),E=at(px+.25,sm,yg);
+    var fm=new T.Mesh(new T.CylinderGeometry(R*1.6,R,.12,20,1,true),drainMat);fm.position.copy(at(cx,sm,y0-.06));fm.userData.memberId=r.id;fm.userData.fixed=true;fm.userData.footing=true;fm.userData.sheet=true;fm.userData.drain=true;steel.add(fm);allMeshes.push(fm);(meshesById.get(r.id)||meshesById.set(r.id,[]).get(r.id)).push(fm);
+    var path=new T.CurvePath(),pts=[A,B,C,E],cur=A.clone();
+    for(var k=1;k<pts.length;k++){var P=pts[k];if(k===pts.length-1){if(P.distanceTo(cur)>.005)path.add(new T.LineCurve3(cur.clone(),P.clone()));break}
+     var din=P.clone().sub(pts[k-1]),dout=pts[k+1].clone().sub(P),li=din.length(),lo2=dout.length();if(li<.005){continue}
+     var rr=Math.min(.12,li/2,lo2/2),p1=P.clone().sub(din.normalize().multiplyScalar(rr)),p2=P.clone().add(dout.normalize().multiplyScalar(rr));
+     if(p1.distanceTo(cur)>.005)path.add(new T.LineCurve3(cur.clone(),p1));if(rr>.005&&din.dot(dout)<.9999)path.add(new T.QuadraticBezierCurve3(p1.clone(),P.clone(),p2.clone()));else path.add(new T.LineCurve3(p1.clone(),p2.clone()));cur=p2}
+    if(path.curves.length){var tm=new T.Mesh(new T.TubeGeometry(path,Math.min(480,Math.max(48,Math.round(path.getLength()*24))),R,16,false),drainMat);
+     tm.userData.memberId=r.id;tm.userData.fixed=true;tm.userData.footing=true;tm.userData.sheet=true;tm.userData.drain=true;steel.add(tm);allMeshes.push(tm);(meshesById.get(r.id)||meshesById.set(r.id,[]).get(r.id)).push(tm)}
+    if(wf!==null&&px-R-wf>.01)for(var cy=C.y+.4;cy<B.y-.3;cy+=1.8){
+     add(r.id,new T.TorusGeometry(R+.004,.006,6,20),at(px,sm,cy),r.h,r.side,up.clone().negate());
+     add(r.id,new T.BoxGeometry(px-R-wf,.025,.004),at((wf+px-R)/2,sm,cy),r.h,up,r.side)}
     drainN++
    })
   }
@@ -10939,7 +10948,10 @@ window.irThreeSchemeView=(function irThreeModule(){
     var tx=c.ft==="trim"?trimExt.get(id):null;if(tx){start=start.clone().sub(dir.clone().multiplyScalar(tx[0]));end=end.clone().add(dir.clone().multiplyScalar(tx[1]));len+=tx[0]+tx[1]}
     var holed=c.ft==="panel"&&c.lay&&c.lay.panel==="wall"?(Array.isArray(c.lay.holes)?c.lay.holes.map(function(o){return[number(o[0])/1000,number(o[1])/1000,number(o[2])/1000,number(o[3])/1000]}):[]).map(function(o){/* (a cut-out at the end of the panel goes on into its run-on — panelCorners) */var Lw=Math.hypot(number(c.x2)-number(c.x),number(c.y2)-number(c.y))/1000;return[o[0]<=.005?0:o[0]+p0,o[1]>=Lw-.005?o[1]+p0+(pe?pe[1]:0):o[1]+p0,o[2],o[3]]}):[];
     if(!holed.length)holed=null;
-    if(holed)holed.forEach(function(o){var mid=start.clone().add(end).multiplyScalar(.5);ductPieces.push({id:id,roof:false,pt:pt,w:o[1]-o[0],h:o[3]-o[2],
+    // (a cut-out from the top or the foot of the panel — the roof panel passing through the wall to its eave, ИР-71535
+    // Пс-35 of row О10 at Ж under Пк-15, АР ч.2 л.4 —, is not an opening ОВ: no edging round it — the engineer,
+    // 13.11.2026: «там точно этот вырез (отверстие есть?)»)
+    if(holed)holed.forEach(function(o){if(o[2]<=.005||o[3]*1000>=number(c.fd)-5)return;var mid=start.clone().add(end).multiplyScalar(.5);ductPieces.push({id:id,roof:false,pt:pt,w:o[1]-o[0],h:o[3]-o[2],
      c:mid.add(new T.Vector3(0,(o[2]+o[3])/2,(o[0]+o[1])/2-len/2).applyQuaternion(q)),n:new T.Vector3(1,0,0).applyQuaternion(q),a:new T.Vector3(0,0,1).applyQuaternion(q),up:new T.Vector3(0,1,0).applyQuaternion(q)})});
     var z0=number(c.z0),tops=tp?[Math.min(pw,(number(tp[0])-z0)/1000),Math.min(pw,(number(tp[1])-z0)/1000)]:null;
     // (under the eaves of a roof of panels: the top at its underside — wallUnderRoof)

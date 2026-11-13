@@ -1053,7 +1053,20 @@ let loose=0;
  // rectangle on the facade at +11,490 — the panels of the layout end under it at +11,500, 10 mm of the window in Пс-137
  // along all its 19,2 m; ОК-4 13 mm in the panel beside it): moved, up to 60 mm, into the opening the panels leave —
  // the layout draws the opening it is mounted in —, when that puts it in no other panel; else the panels get its hole.
+ // A window at the end of its wall's run — ИР-71535 ОК-4 of row О10 at +7,100 by Ж, 4000 at 32268…36268 while the
+ // panels over it end at 36230 (beyond, the step wall and the lower roof): 38 mm and its reveal in the air — the
+ // engineer, 13.11.2026: «откос вообще стоит где попало» —: no further than the panels over its head, up to 100 mm;
+ // the panel at its other end gets its hole.
  const seatBlock=(numbered,a,b,z,H,list,floor=false)=>{
+  const res=seatBlock0(numbered,a,b,z,H,list,floor);if(floor)return res;
+  const head=list.filter(p=>!p.layout.cut).map(p=>{const p0=numbered?p.x_mm:p.y_mm,p1=numbered?p.x2_mm:p.y2_mm;return{lo:Math.min(p0,p1),hi:Math.max(p0,p1),z0:p.z0_mm}})
+   .filter(q=>Math.abs(q.z0-(res.z+H))<=60&&Math.min(res.b,q.hi)-Math.max(res.a,q.lo)>1);
+  if(!head.length)return res;
+  const lo=Math.min(...head.map(q=>q.lo)),hi=Math.max(...head.map(q=>q.hi)),over=res.b-hi,under=lo-res.a;
+  const u=over>1&&over<=100&&under<=1?-over:under>1&&under<=100&&over<=1?under:0;if(!u)return res;
+  const mv=res.moved?[res.moved[0]+u,res.moved[1]]:[u,0];return{a:res.a+u,b:res.b+u,z:res.z,moved:mv}
+ };
+ const seatBlock0=(numbered,a,b,z,H,list,floor=false)=>{
   const bs=list.filter(p=>!p.layout.cut&&!p.layout.top).map(p=>{const p0=numbered?p.x_mm:p.y_mm,p1=numbered?p.x2_mm:p.y2_mm;return{lo:Math.min(p0,p1),hi:Math.max(p0,p1),z0:p.z0_mm,z1:p.z0_mm+p.diameter_mm}});
   // (the panels it goes into: thin — less than 60 mm one way —, deep — the hole of a panel it stands in, cut round it)
   const into=(a,b,z0,z1)=>{let thin=0,deep=0;for(const q of bs){const ou=Math.min(b,q.hi)-Math.max(a,q.lo),oz=Math.min(z1,q.z1)-Math.max(z0,q.z0);if(ou>1&&oz>1){if(ou<60||oz<60)thin++;else deep++}}return{thin,deep}};

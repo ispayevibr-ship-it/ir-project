@@ -373,15 +373,24 @@ function columnAround(b,runs,horiz,numbers,hs,scale,size=null,slopes=[],ext=null
  // (a label written from its joint — its box up to 0,3 pt over the line, ИР-71535 АР ч.2 л.8 ряд Б Пс-116 at 1497 pt —: that
  // joint may be its side; a vertical dimension line — «1000 920 2060» by the window there, its numbers along it — is not
  // a joint. With the width its table gives, of the readings the one nearest that width.)
- const dimV=v=>v.y1-v.y0<200&&numbers.some(t=>{const q=textBox(t);return q.angle!==0&&Math.abs(q.cx-v.x)<=7&&q.cy>=v.y0&&q.cy<=v.y1});
- const pick=(tol,skipDim)=>{const f=list=>{const ok=skipDim?list.filter(v=>!dimV(v)):list;return ok.length?ok:list};
-  return[f(cross.filter(v=>v.x<b.x0-tol)).sort((p,q)=>q.x-p.x)[0],f(cross.filter(v=>v.x>b.x1+tol)).sort((p,q)=>p.x-q.x)[0]]};
+ // (a long one too when two or more of its numbers stand along it — ИР-71535 АР ч.2 л.8 ряд Б: «2400», «650» on the line of
+ // the opening ОК-5 by the gate В-1, run on the full height; the label with its leader in that column took it for a joint,
+ // Пс-127 and Пс-137 of 540 instead of 995, a slot of 455 from the gate to the parapet — the engineer, 13.11.2026:
+ // «почему тут не закрыто сэндвичем?»)
+ const dimV=v=>{const on=numbers.filter(t=>{const q=textBox(t);if(q.angle===0||q.cy<v.y0||q.cy>v.y1)return false;
+  // (the number stands on its line by its baseline — turned 90°, its right side; a joint 5 mm off its other side is not that line)
+  if(Math.abs(q.angle-90)<1)return v.x-q.x1>=-1&&v.x-q.x1<=3.5;if(Math.abs(q.angle-270)<1||Math.abs(q.angle+90)<1)return q.x0-v.x>=-1&&q.x0-v.x<=3.5;return Math.abs(q.cx-v.x)<=7});return on.length>0&&(v.y1-v.y0<200||on.length>=2)};
+ // (past a dimension line, a joint ending up to 4 pt short of the label's middle — the point of a leader at the foot of its
+ // band, Пс-137 under ОК-5 at the second gate of ряд Б — is still its side)
+ const near4=runs.filter(v=>v.y0<=b.cy+4&&v.y1>=b.cy-4);
+ const pick=(tol,skipDim)=>{const f=list=>{const ok=skipDim?list.filter(v=>!dimV(v)):list;return ok.length?ok:list};const cr=skipDim?near4:cross;
+  return[f(cr.filter(v=>v.x<b.x0-tol)).sort((p,q)=>q.x-p.x)[0],f(cr.filter(v=>v.x>b.x1+tol)).sort((p,q)=>p.x-q.x)[0]]};
  let [l,r]=pick(.3,false);
  if(size?.width_mm){const off=([a,c])=>a&&c?Math.abs((c.x-a.x)*hs-size.width_mm):Infinity;let best=[l,r];
   for(const c of [pick(-.3,false),pick(.3,true),pick(-.3,true)])if(off(c)<off(best)-40)best=c;[l,r]=best}
  // (no table on the sheet: a reading not of a panel's width, 150…1300 mm, gives way to one that is)
  else{const fits=([a,c])=>a&&c&&(c.x-a.x)*hs>=150&&(c.x-a.x)*hs<=1300;
-  if(!fits([l,r])){const c=[pick(.3,true),pick(-.3,true),pick(-.3,false)].find(fits);if(c)[l,r]=c}}
+  if(!fits([l,r])||[l,r].some(v=>v&&dimV(v))){const c=[pick(.3,true),pick(-.3,true),pick(-.3,false)].find(fits);if(c)[l,r]=c}}
  if(!l||!r)return null;
  if(size?.width_mm&&Math.abs((r.x-l.x)*hs-size.width_mm)>40){
   const reach=v=>v.y0<=b.cy+size.length_mm/scale&&v.y1>=b.cy-size.length_mm/scale;
