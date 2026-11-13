@@ -131,18 +131,21 @@
  const spot=(()=>{try{const v=JSON.parse(localStorage.getItem(PLACE)||"{}");return v&&typeof v==="object"?v:{}}catch(_e){return{}}})();
  const keep=()=>{try{localStorage.setItem(PLACE,JSON.stringify(spot))}catch(_e){}};
  const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+ // (the window without its scroll bars: counted by innerWidth, a button at the right side stood half under the bar of the
+ // page — the engineer's picture, 13.11.2026 «иконка чата криво показывается»)
+ const viewW=()=>Math.min(innerWidth,document.documentElement.clientWidth||innerWidth),viewH=()=>Math.min(innerHeight,document.documentElement.clientHeight||innerHeight);
  function put(box,x,y){
   if(!innerWidth||!innerHeight||!Number.isFinite(x)||!Number.isFinite(y))return;
-  box.style.left=clamp(x,4,innerWidth-box.offsetWidth-4)+"px";box.style.top=clamp(y,4,innerHeight-box.offsetHeight-4)+"px";box.style.right=box.style.bottom="auto"
+  box.style.left=clamp(x,4,viewW()-box.offsetWidth-4)+"px";box.style.top=clamp(y,4,viewH()-box.offsetHeight-4)+"px";box.style.right=box.style.bottom="auto"
  }
  // A dragged place is kept from the nearest sides of the window (the engineer, 13.11.2026: «чат кнопка … чтобы всегда
  // был в одном месте даже при малом окне»): kept from the left top corner, a button put at the right bottom of a large
  // window stood somewhere else in a small one and at the corner again only by the clamp. `r`, `b` — from the right and
  // the bottom side; a place of an older version (x, y only) is read as before.
- function putAt(box,p){put(box,p.r!==undefined?innerWidth-box.offsetWidth-p.r:p.x,p.b!==undefined?innerHeight-box.offsetHeight-p.b:p.y)}
+ function putAt(box,p){put(box,p.r!==undefined?viewW()-box.offsetWidth-p.r:p.x,p.b!==undefined?viewH()-box.offsetHeight-p.b:p.y)}
  function spotOf(box){
   const r=box.getBoundingClientRect(),o={x:r.left,y:r.top};
-  if(r.left+r.width/2>innerWidth/2)o.r=Math.max(4,innerWidth-r.right);if(r.top+r.height/2>innerHeight/2)o.b=Math.max(4,innerHeight-r.bottom);o.v=2;return o
+  if(r.left+r.width/2>viewW()/2)o.r=Math.max(4,viewW()-r.right);if(r.top+r.height/2>viewH()/2)o.b=Math.max(4,viewH()-r.bottom);o.v=3;return o
  }
  // Above the button, or below it, on the side of the window the button is on; beside it when neither has room.
  function byButton(box){
@@ -154,7 +157,7 @@
  }
  function follow(){if(!panel.hidden&&!spot.panel)byButton(panel);if(!toast.hidden)byButton(toast)}
  function arrange(){
-  if(spot.fab&&!fab.hidden){putAt(fab,spot.fab);if(!spot.fab.v){spot.fab=spotOf(fab);keep()}}
+  if(spot.fab&&!fab.hidden){putAt(fab,spot.fab);if(!(spot.fab.v>=3)){spot.fab=spotOf(fab);keep()}}
   if(spot.panel&&!panel.hidden)putAt(panel,spot.panel);
   follow()
  }

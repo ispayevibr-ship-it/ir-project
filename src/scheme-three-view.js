@@ -7,6 +7,13 @@
 window.irThreeSchemeView=(function irThreeModule(){
  // the text of this module — a part of the key of the model kept on the disk (mcCodeKey)
  function MODULE_TEXT(){return MODULE_TEXT.t||(MODULE_TEXT.t=String(irThreeModule))}
+ // The number of the building of the model: the model kept on the disk (mcLoad) is taken again while this number, the
+ // data of the sections and the scheme itself are the same — not thrown away by every change of this file (a pack of
+ // schemes that changed the page of the nodes or the memory built the whole model anew; the engineer, 13.11.2026 «как
+ // ускорить построение схемы?» — «да»). It is raised by scripts/scheme-model-digest.js, never by hand: the script builds
+ // the checked schemes with this file and raises the number when what would be kept for any of them differs from the
+ // record (knowledge/quality/model-digest.json); scripts/scheme-pack.js refuses a pack made without it.
+ var MODEL_BUILD=1;
  var token=0,active=null,loadPromise=null,cameraMemory={};
  // Bundled with the app (works offline); the CDN is only a fallback for an incomplete hot update.
  var sources=[
@@ -12104,8 +12111,15 @@ window.irThreeSchemeView=(function irThreeModule(){
   controls.screenSpacePanning=true;controls.minDistance=.05;controls.maxDistance=radius*5;
   // The centre of rotation stays by the building: moved by the hand (right button) past one and a half sizes of the
   // model, it and the camera are brought back together — the view direction kept (13.11.2026, the same request).
-  function keepNear(){var t=controls.target,o=t.distanceTo(center),lim=radius*1.5;if(o<=lim)return;
-   var back=center.clone().sub(t).multiplyScalar((o-lim)/o);t.add(back);camera.position.add(back)}
+  // (13.11.2026, the engineer's picture — the model in a corner of an empty window: «схема сильно уходит в бок … чтобы
+  // камера не уходила за пределы сетки плюс несколько шагов»: the centre of the picture stays over the grid and three of
+  // its steps around it, not within one and a half sizes of the model; in height — from below the floor to above the top)
+  var gridStep=function(n,L){return n>1?L/(n-1):L},edge=Math.max(6,3*Math.max(gridStep((P.axesX||[]).length,X),gridStep((P.axesY||[]).length,Y)));
+  edge=Math.min(edge,Math.max(12,.5*Math.max(X,Y)));
+  function keepNear(){var t=controls.target,top=number(P.maxZ||10000)/1000+edge,
+    x=Math.max(-edge,Math.min(X+edge,t.x)),y=Math.max(-edge,Math.min(top,t.y)),z=Math.max(-edge,Math.min(Y+edge,t.z));
+   if(x===t.x&&y===t.y&&z===t.z)return;
+   var back=new T.Vector3(x-t.x,y-t.y,z-t.z);t.add(back);camera.position.add(back)}
   controls.addEventListener("change",keepNear);controls.addEventListener("change",function(){statsMoved=performance.now()});
   // The pressed wheel moves the model like the right button, as in AutoCAD and Tekla: by default it flew the camera
   // straight away from the model, a twentieth farther every step of the mouse — 114 m to 438 m in a finger's move (the
@@ -12765,7 +12779,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   function mcHash(s,h){h=h||2166136261;for(var i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
   function mcCodeKey(){
    if(mcCode!==null)return mcCode;
-   try{var parts=[String(T.REVISION),String(phone),String(CELL),MODULE_TEXT()];
+   try{var parts=[String(T.REVISION),String(phone),String(CELL),"build:"+MODEL_BUILD];
     ["irSchemeSections","irSchemeFasteners","irSchemeJointKb","irStructureTypes","irJointCatalog"].forEach(function(n){var v=window[n];try{parts.push(n+":"+(v===undefined?"-":JSON.stringify(v,function(k,x){return typeof x==="function"?String(x).length:x})))}catch(e){parts.push(n+":?")}});
     var h1=0,h2=0;parts.forEach(function(p){h1=mcHash(p,h1||2166136261);h2=mcHash(p.length+"|"+p.slice(-4096),h2||5381)});mcCode=h1.toString(36)+"."+h2.toString(36)}
    catch(e){mcCode=""}
@@ -12961,8 +12975,10 @@ window.irThreeSchemeView=(function irThreeModule(){
    var total=0,did=0,k,sigNow=built;for(k in BUILD_W)total+=BUILD_W[k];
    var queue=[{w:BUILD_W.prepare,text:cached?"Модель с диска":"Примыкания и узлы элементов",run:function(){
     if(cached&&mcRestore(list,cached)){did+=BUILD_W.members+BUILD_W.seats+BUILD_W.after;mcFrom="disk";return}
-    mcFrom="built";var before=cached!==undefined&&mcEnabled()?mcMemberText(list):null,sub=[];buildMembers(list,sub);
-    if(before)sub.push({w:0,text:"Сохранение модели",run:function(){mcSnap=mcCapture(list,before)}});
+    mcFrom="built";var digest=typeof window.__irModelDigest==="function",before=digest||cached!==undefined&&mcEnabled()?mcMemberText(list):null,sub=[];buildMembers(list,sub);
+    if(before)sub.push({w:0,text:"Сохранение модели",run:function(){mcSnap=mcCapture(list,before);
+     // (the stand: what would be kept, for its sum — scripts/scheme-model-digest.js)
+     if(digest){try{window.__irModelDigest(mcSnap,mcWhy)}catch(e){}if(!(cached!==undefined&&mcEnabled()))mcSnap=null}}});
     queue.unshift.apply(queue,sub)}},
     {w:BUILD_W.cranes,text:"Краны и отметки",run:function(){buildCranes();buildTankDims();buildLevels();}},
     {w:BUILD_W.nodes,text:"Узлы",run:buildNodes},
@@ -12996,7 +13012,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   function shown(){
    dims.visible=Boolean(P.showDimensions);
    var memory=cameraMemory[memoryKey];
-   if(memory){camera.position.copy(memory.position);controls.target.copy(memory.target);camera.up.copy(memory.up);controls.update()}
+   if(memory){camera.position.copy(memory.position);controls.target.copy(memory.target);camera.up.copy(memory.up);keepNear();controls.update()}
    else setView("iso");
    showLight();frame()
   }
