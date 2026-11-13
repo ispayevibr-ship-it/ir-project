@@ -64,7 +64,7 @@
 .ir-tc-btn{flex:none;display:grid;place-items:center;width:38px;height:38px;border:1px solid #c9d8e4;border-radius:10px;background:#fff;color:#1d4f75;cursor:pointer}.ir-tc-btn svg{width:18px;height:18px}.ir-tc-btn:hover{background:#e8f1fa}
 .ir-tc-btn.main{background:#176dc1;border-color:#176dc1;color:#fff}.ir-tc-btn.main:hover{background:#0f5aa3}.ir-tc-btn:disabled{opacity:.5;cursor:default}
 .ir-tc-note{margin-top:5px;font-size:11px;color:#7d93a3}.ir-tc-note.err{color:#b4321f}
-.ir-tc-zoom{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;background:rgba(6,20,34,.85);cursor:zoom-out}.ir-tc-zoom img{max-width:94vw;max-height:94vh;border-radius:6px}
+.ir-tc-zoom{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;background:rgba(6,20,34,.85);cursor:zoom-out}.ir-tc-zoom img{max-width:94vw;max-height:94vh;border-radius:6px}.ir-tc-pic{position:relative;display:inline-block;max-width:100%}.ir-tc-dl{position:absolute;right:8px;bottom:10px;width:32px;height:32px;display:grid;place-items:center;padding:0;border:0;border-radius:50%;background:rgba(10,24,40,.62);color:#fff;cursor:pointer;opacity:.85}.ir-tc-dl:hover{opacity:1;background:rgba(10,24,40,.85)}.ir-tc-zoom-save{position:fixed;right:22px;bottom:22px;width:44px;height:44px}
 .ir-tc-drop{outline:3px dashed #176dc1;outline-offset:-8px}`;
  const style=doc=>{if(doc.getElementById("ir-team-chat-style"))return;const s=doc.createElement("style");s.id="ir-team-chat-style";s.textContent=CSS;doc.head.appendChild(s)};
  style(document);
@@ -130,6 +130,7 @@
   void head();const onCo=()=>void head();
   try{doc.defaultView.addEventListener("ir-company-profile-updated",onCo);d.addEventListener("close",()=>doc.defaultView.removeEventListener("ir-company-profile-updated",onCo))}catch{}
   const list=$("[data-list]"),peopleBox=$("[data-people]"),title=$("[data-title]"),text=$("[data-text]"),note=$("[data-note]"),att=$("[data-att]"),fileIn=$("[data-file]"),send=$("[data-send]"),find=$("[data-find]");
+  const DL_ICON='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>';
   let v=null,cur=conv||"all",files=[],timer=0,drawn="";
   const say=(t,err)=>{note.textContent=t;note.className="ir-tc-note"+(err?" err":"")};
   const base="Сообщения хранятся 3 месяца. Личное сообщение видят только двое.";
@@ -172,7 +173,7 @@
    let lastDay="";
    list.innerHTML=msgs.length?msgs.map(m=>{const dd=day(m.at),mine=m.author===v.me.id;
     const head=dd!==lastDay?`<div class="ir-tc-day">${esc(dd)}</div>`:"";lastDay=dd;
-    const fl=m.files.map(n=>isImg(n)?`<img class="ir-tc-img" data-img="${esc(m.id)}" data-name="${esc(n)}" alt="${esc(plain(n))}">`:`<button type="button" class="ir-tc-file" data-fid="${esc(m.id)}" data-name="${esc(n)}" title="Открыть (с Ctrl — сохранить)">📎 ${esc(plain(n))}</button>`).join("");
+    const fl=m.files.map(n=>isImg(n)?`<span class="ir-tc-pic"><img class="ir-tc-img" data-img="${esc(m.id)}" data-name="${esc(n)}" alt="${esc(plain(n))}"><button type="button" class="ir-tc-dl" data-dl="${esc(m.id)}" data-name="${esc(n)}" title="Скачать" aria-label="Скачать">${DL_ICON}</button></span>`:`<button type="button" class="ir-tc-file" data-fid="${esc(m.id)}" data-name="${esc(n)}" title="Открыть (с Ctrl — сохранить)">📎 ${esc(plain(n))}</button>`).join("");
     const del=(mine||v.admin)?`<button type="button" class="del" data-del="${esc(m.id)}" title="Удалить сообщение у всех" aria-label="Удалить">${TRASH}</button>`:"";
     return head+`<div class="ir-tc-m${mine?" mine":""}">${!mine&&cur==="all"?`<span class="who">${esc(m.name||"сотрудник")}</span>`:""}${esc(m.text)}${fl?`<div>${fl}</div>`:""}<span class="at">${del}${esc(time(m.at))}${mine?status(m):""}</span></div>`}).join("")
     :`<div class="ir-tc-empty">${cur==="all"?"Здесь пока пусто. Напишите первое сообщение всем.":"Переписки с этим сотрудником пока нет."}</div>`;
@@ -218,8 +219,16 @@
   send.onclick=go;
   text.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();void go()}});
   list.onclick=async e=>{
+   const dl=e.target.closest("[data-dl]");
+   if(dl){try{const r=await call("ai-settings:server-chat-save",{id:dl.dataset.dl,name:dl.dataset.name});if(r?.saved)say("Сохранено: "+r.path)}catch(err){say(errText(err),true)}return}
    const img=e.target.closest("img[data-img]");
-   if(img&&img.src){const z=doc.createElement("div");z.className="ir-tc-zoom";z.innerHTML=`<img src="${img.src}" alt="">`;z.onclick=()=>z.remove();d.appendChild(z);return}
+   if(img&&img.src){
+    // (a picture of the chat can be saved to the computer — the engineer, 13.11.2026: «картинки из чата между
+    // пользователями давай возможность скачивать»: «Скачать» under the opened picture, or a click with Ctrl)
+    const save=async()=>{try{const r=await call("ai-settings:server-chat-save",{id:img.dataset.img,name:img.dataset.name});if(r?.saved)say("Сохранено: "+r.path)}catch(err){say(errText(err),true)}};
+    if(e.ctrlKey){void save();return}
+    const z=doc.createElement("div");z.className="ir-tc-zoom";z.innerHTML=`<img src="${img.src}" alt=""><button type="button" class="ir-tc-dl ir-tc-zoom-save" data-save title="Скачать" aria-label="Скачать">${DL_ICON}</button>`;
+    z.onclick=ev=>{if(ev.target.closest("[data-save]")){void save();return}z.remove()};d.appendChild(z);return}
    const f=e.target.closest("[data-fid]");
    if(f){try{if(e.ctrlKey){const r=await call("ai-settings:server-chat-save",{id:f.dataset.fid,name:f.dataset.name});if(r?.saved)say("Сохранено: "+r.path)}
     else{say("Открываю файл…");await call("ai-settings:server-chat-open-file",{id:f.dataset.fid,name:f.dataset.name});say(base)}}catch(err){say(errText(err),true)}return}
