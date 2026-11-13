@@ -684,9 +684,13 @@ function leaderLabels(texts,segments,isPos,taken=[]){
   const y=shelf.a.y,x0=Math.min(shelf.a.x,shelf.b.x),x1=Math.max(shelf.a.x,shelf.b.x);
   // (on past the text one way only, ending with it the other way: a line under a label written in a panel runs on both)
   if(t.x-x0>8&&x1-t.x-w>3||x1-t.x-w>8&&t.x-x0>3)continue;
-  let at=t.x-x0>8?{x:x0,y}:x1-t.x-w>8?{x:x1,y}:null,lead=null;
-  if(!at)for(const e of [{x:x0,y},{x:x1,y}]){const l=segments.find(q=>q!==shelf&&(near(q.a,e.x,e.y)||near(q.b,e.x,e.y))&&Math.abs(q.a.y-q.b.y)>3&&Math.hypot(q.a.x-q.b.x,q.a.y-q.b.y)>=8);
+  // (the shelf drawn on past the text and a leader from that end of it — ИР-71535 АР ч.2 л.4 «Пс -34» by О10/Ж, its shelf
+  // 20 pt longer than the text, the leader on up to the cut piece by the wall of the step: the point of the leader, not
+  // the end of the shelf)
+  const past=t.x-x0>8?{x:x0,y}:x1-t.x-w>8?{x:x1,y}:null;let at=null,lead=null;
+  for(const e of past?[past]:[{x:x0,y},{x:x1,y}]){const l=segments.find(q=>q!==shelf&&(near(q.a,e.x,e.y)||near(q.b,e.x,e.y))&&Math.abs(q.a.y-q.b.y)>3&&Math.hypot(q.a.x-q.b.x,q.a.y-q.b.y)>=8);
    if(l){at=near(l.a,e.x,e.y)?l.b:l.a;const d=Math.hypot(at.x-e.x,at.y-e.y);lead={x:(at.x-e.x)/d,y:(at.y-e.y)/d};break}}
+  if(!at)at=past;
   if(!at)continue;
   // (a point of the label's width, not the text — a cut piece may be narrower than it; the way the leader comes to it:
   // its dot drawn on the very line of the piece's edge — ИР-71535 АР ч.2 л.8 Пс-137 on the lower edge of its row — is
