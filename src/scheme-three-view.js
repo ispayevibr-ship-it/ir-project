@@ -680,6 +680,10 @@ window.irThreeSchemeView=(function irThreeModule(){
  }
  function createViewer(host,props,key){
   var T=window.THREE,P=props;
+  // Three.js r186 (1.12.119, the engineer, 13.11.2026 «обновить three.js»; r147 before): colours and light are counted as
+  // with r147 — the hex of a colour as it was given (no sRGB → linear), the picture out in sRGB, the light without the
+  // «physical» division by π —, so the scheme looks the same with either library (a pack of schemes runs on both).
+  var NEW3=Number(T.REVISION)>=152,LIGHT_K=Number(T.REVISION)>=155?Math.PI:1;if(NEW3&&T.ColorManagement)T.ColorManagement.enabled=false;
   var allElems=P.elements||[],secOff=SEC_OFF[String(P.objectId||"")+"|"+key]||(SEC_OFF[String(P.objectId||"")+"|"+key]=new Set());
   function secFilter(){P.elements=secOff.size?allElems.filter(function(c){return!secOff.has(secOf(c))}):allElems}
   secFilter();
@@ -764,11 +768,11 @@ window.irThreeSchemeView=(function irThreeModule(){
   // A phone or a tablet (a finger, a small screen): its browser gives a page far less memory than a computer (lod).
   var phone=false;try{phone=Boolean(window.matchMedia&&window.matchMedia("(pointer: coarse)").matches&&Math.min(screen.width,screen.height)<=1100)}catch(e){}
   var renderer=new T.WebGLRenderer({antialias:!light,powerPreference:"high-performance"});renderer.localClippingEnabled=true;
-  renderer.setPixelRatio(light?.75:Math.min(window.devicePixelRatio||1,1.5));renderer.outputEncoding=T.sRGBEncoding;
+  renderer.setPixelRatio(light?.75:Math.min(window.devicePixelRatio||1,1.5));if(NEW3)renderer.outputColorSpace=T.SRGBColorSpace;else renderer.outputEncoding=T.sRGBEncoding;
   viewport.appendChild(renderer.domElement);
-  scene.add(new T.HemisphereLight(0xffffff,0x7a94b3,.95));
-  var sun=new T.DirectionalLight(0xffffff,1.05);sun.position.set(-35,72,48);scene.add(sun);
-  var fill=new T.DirectionalLight(0xc8dfff,.35);fill.position.set(45,26,-38);scene.add(fill);
+  scene.add(new T.HemisphereLight(0xffffff,0x7a94b3,.95*LIGHT_K));
+  var sun=new T.DirectionalLight(0xffffff,1.05*LIGHT_K);sun.position.set(-35,72,48);scene.add(sun);
+  var fill=new T.DirectionalLight(0xc8dfff,.35*LIGHT_K);fill.position.set(45,26,-38);scene.add(fill);
   // The members are kept apart from the scene (`steel`) for picking and highlighting; the screen draws them merged into one
   // mesh per material (`batches`) — thousands of separate draws stalled the window. The selected and hovered member are
   // drawn once more over the batch (`overlay`), the base and cap details near the camera in their own group.
@@ -11474,7 +11478,7 @@ window.irThreeSchemeView=(function irThreeModule(){
      // (by squares of 40 m: a square out of the picture is not drawn — partsView; the engineer, 13.11.2026 «давай делай»)
      var e=m.matrixWorld.elements,kc=k+"|"+Math.floor(e[12]/40)+","+Math.floor(e[14]/40);
      m.__inst=true;var g=inst.get(kc);if(!g)inst.set(kc,g={geo:m.geometry,mat:m.material,list:[]});g.list.push(m)});
-    inst.forEach(function(g){var im=new T.InstancedMesh(g.geo,g.mat,g.list.length),box=new T.Box3(),gs=g.geo.boundingSphere||(g.geo.computeBoundingSphere(),g.geo.boundingSphere),c=new T.Vector3(),sc=0;
+    inst.forEach(function(g){var im=new T.InstancedMesh(g.geo,g.mat,g.list.length);im.frustumCulled=false;var box=new T.Box3(),gs=g.geo.boundingSphere||(g.geo.computeBoundingSphere(),g.geo.boundingSphere),c=new T.Vector3(),sc=0;
      g.list.forEach(function(m,i){im.setMatrixAt(i,m.matrixWorld);c.copy(gs.center).applyMatrix4(m.matrixWorld);box.expandByPoint(c);sc=Math.max(sc,m.matrixWorld.getMaxScaleOnAxis())});
      var sph=box.getBoundingSphere(new T.Sphere());sph.radius+=gs.radius*sc;
      im.instanceMatrix.needsUpdate=true;im.matrixAutoUpdate=false;im.userData.lod="fine";im.userData.instanced=true;im.userData.sphere=sph;batches.add(im)})}
@@ -11555,7 +11559,7 @@ window.irThreeSchemeView=(function irThreeModule(){
     P[1].forEach(function(x,i){var mat=x.washer?washerMats[cell.cls]:boltMats[cell.cls],k=x.geometry.uuid+"|"+mat.uuid,g=groups.get(k);if(!g)groups.set(k,g={geos:[P[0][i].geometry,x.geometry,P[2][i].geometry],mat:mat,list:[]});g.list.push(x.matrixWorld)})});
    cell.size=size;cell.levels=[[],[],[]];cell.meshes=[];cell.shown=-1;
    groups.forEach(function(g){var at=new T.InstancedBufferAttribute(new Float32Array(16*g.list.length),16);g.list.forEach(function(e,i){e.toArray(at.array,16*i)});
-    [0,1,2].forEach(function(lv){var m=new T.InstancedMesh(g.geos[lv],g.mat,g.list.length);m.instanceMatrix=at;m.matrixAutoUpdate=false;m.visible=false;m.userData.lod="bolt";m.userData.instanced=true;m.userData.level=lv;batches.add(m);cell.meshes.push(m);cell.levels[lv].push(m)})});
+    [0,1,2].forEach(function(lv){var m=new T.InstancedMesh(g.geos[lv],g.mat,g.list.length);m.frustumCulled=false;m.instanceMatrix=at;m.matrixAutoUpdate=false;m.visible=false;m.userData.lod="bolt";m.userData.instanced=true;m.userData.level=lv;batches.add(m);cell.meshes.push(m);cell.levels[lv].push(m)})});
   }
   // Which bolts are drawn and how finely, each picture (the engineer, 13.11.2026: «а если не рисовать болты вне кадра?»,
   // «а в общем виде зачем показывать все 3,2 млн?» — «давай первое»): a cell out of the picture — none of its bolts (its
