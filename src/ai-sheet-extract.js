@@ -60,7 +60,26 @@ function stampOf(texts,w,h,med){
  // («Подкрановая балка Ф131») is still its name.
  if(!stampNames(name.join(" ")).length)name.push(...box.filter(t=>!/^\d+\.\s/u.test(t.str)&&t.str.length<70&&!name.includes(t.str)&&stampNames(t.str).length).sort((a,b)=>a.y-b.y).map(t=>t.str));
  const block=stampBlock(texts,w,h,code);
- return{code,name:name.join(" · "),...(Object.keys(block).length?{block}:{})}
+ // The cell of the sheet's name by the stamp's form (ГОСТ 21.101, form 3): left of the column «Стадия», below the row of
+ // its value, beside the organisation — the object's name is above, the signatures left. ИР-71535: the name read «Формат
+ // А1», «( КАЗ Минералз Бозшаколь )», «Сечение» on 120 of 146 sheets (13.11.2026, the check of all sheets of the set).
+ const cell=nameCell(texts,w,h);
+ return{code,name:cell||name.join(" · "),...(Object.keys(block).length?{block}:{})}
+}
+function nameCell(texts,w,h){
+ // (a line set letter by letter — КМ2 л.7: «С», «х», «е», «м», «а» each its own text — glued back by the gaps first)
+ const glued=[];texts.filter(t=>t.x>w-760&&t.y>h-320&&horizontal(t)).sort((a,b)=>a.y-b.y||a.x-b.x).forEach(t=>{if(glued.some(q=>q.str===String(t.str)&&Math.abs(q.x-t.x)<.5&&Math.abs(q.y-t.y)<.5))return;
+  const n=String(t.str).trim().length,g=glued.find(q=>(n<=3||q.last<=3)&&Math.abs(q.y-t.y)<2&&t.x>=q.x&&t.x-q.end<Math.max(1.5,(t.size||8)*.3)&&t.x-q.end>-(t.size||8)*.5);
+  const end=t.x+(t.width||String(t.str).length*(t.size||8)*.5);if(g){g.str+=(t.x-g.end>(t.size||8)*.15?" ":"")+t.str;g.end=Math.max(g.end,end);g.width=g.end-g.x;g.last=String(t.str).trim().length}else glued.push({...t,str:String(t.str),end,last:String(t.str).trim().length})});
+ const box=glued,stage=box.find(t=>plainOf(t)==="Стадия");if(!stage)return"";
+ const value=box.filter(t=>t!==stage&&t.y>stage.y+5&&t.y<stage.y+42&&Math.abs(centreOf(t)-centreOf(stage))<Math.max(18,(stage.width||20)*.75)&&/^[А-ЯЁA-Z]{1,4}$/u.test(String(t.str).trim())).sort((a,b)=>a.y-b.y)[0];
+ const top=value?value.y+6:stage.y+16;
+ // (a surname of a signature row — «Разработал Ляпунова» — is no part of the name)
+ const sig=box.filter(t=>/Разраб|Провер|контр|ГИП|Утв|Нач\s?\.|Исполн|Выполн/u.test(t.str)),signed=t=>!/\s/u.test(String(t.str).trim())&&sig.some(q=>Math.abs(q.y-t.y)<5&&t.x>q.x&&t.x-q.x<150);
+ const lines=box.filter(t=>{const c=centreOf(t);return!signed(t)&&c<stage.x-4&&c>stage.x-340&&t.y>top&&t.y<stage.y+100&&!/^[\d\s.,]*$/u.test(t.str)&&
+  !/Копировал|Формат|^\s*ТОО|^\s*ООО|^\s*АО\s|Изм\s?\.|Разраб|Провер|Н\s?\.\s?контр|ГИП|Утв|Подп|№\s?док|Инв\s?\.|Взам/u.test(t.str)}).sort((a,b)=>a.y-b.y||a.x-b.x);
+ const text=lines.map(t=>String(t.str).trim()).join(" ").replace(/\s+/gu," ").trim();
+ return text.length>=8&&/[А-ЯЁа-яё]{3}/u.test(text)?text:""
 }
 // The cells of the stamp (ГОСТ 21.101, forms 3–6), each value under its own label: «Стадия», «Лист», «Листов»; the
 // change rows above the line «Изм. Кол.уч. Лист №док. Подп. Дата» (number or «Нов.», «Зам.», document, date); the

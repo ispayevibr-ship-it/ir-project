@@ -31,7 +31,9 @@ const WORDS=/[А-ЯЁа-яё]{3,}/u;
 // Sheet references, sheet formats, numbers of notes, dates; steels, thicknesses and profiled sheets.
 const REF=/^(?:[AА][0-4]|[МM]\d+(?:\.\d+)*|(?:КМД?|КЖ|АР|ТХ)[\s\-]?\d.*|л\.\s?\S+|\d{1,2}\.|\(\S+\))$/u,DATE=/^\d{2}\.\d{2}\.\d{2,4}$/u;
 const STEEL=/^(?:Ст\d|С\d{3}|09Г2С|10ХСНД|t\s?\d|[НС]\d{2}-\d{3,4}-)/u;
-const keyOf=m=>String(m||"").trim().replace(/\s+/gu,"").replace(/ё/gu,"е");
+// (Latin letters that look Cyrillic — «O4» of the axes of КМ1 ИР-71535 against «О4» of its scheme, «C345» — one key)
+const LOOK={A:"А",B:"В",C:"С",E:"Е",H:"Н",K:"К",M:"М",O:"О",P:"Р",T:"Т",X:"Х",Y:"У",a:"а",c:"с",e:"е",o:"о",p:"р",x:"х",y:"у"};
+const keyOf=m=>String(m||"").trim().replace(/\s+/gu,"").replace(/ё/gu,"е").replace(/[ABCEHKMOPTXYaceopxy](?=[^A-Za-z]|$)/gu,c=>LOOK[c]);
 const near=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const inBox=(c,b,pad)=>c.x>=b.x0-pad&&c.x<=b.x1+pad&&c.y>=b.y0-pad&&c.y<=b.y1+pad;
 const levelMm=s=>{const v=Number(String(s).replace(/\s/gu,"").replace("−","-").replace("±","").replace(",","."));return Number.isFinite(v)?Math.round(v*1000):null};
@@ -95,7 +97,8 @@ function auditSheet(geometry,page){
   if(CUT.test(str)||/^(?:[А-ЯЁ]|\d{1,2})$/u.test(str)&&k===null){items.cuts.push({text:str,scheme:k});continue}
   if(ALONG.test(str)){items.along.push({text:str,scheme:k});continue}
   const lv=LEVEL.exec(str);
-  if(lv&&(/отм|верх|низ|^[+\-−±]/iu.test(str)||str===lv[1])){
+  // (a level inside a sentence of the notes — «За условную отметку 0,000 принят…» — is the note's, read in the whole text)
+  if(lv&&str.length<=40&&(/отм|верх|низ|^[+\-−±]/iu.test(str)||str===lv[1])){
    const v=levelMm(lv[1]),used=v!==null&&hasValue([...levelsUsed],v,1);
    items.levels.push({text:str,mm:v,used,scheme:k});
    if(!used)missed.push({kind:"level",text:str,scheme:k,at:at(t),why:k!==null?"отметка не попала в высоты элементов схемы":"отметка на виде или разрезе вне схем — ни к чему не отнесена"});continue
@@ -108,6 +111,8 @@ function auditSheet(geometry,page){
   // (a colour «RAL5012» and a position of a table «Поз.23» are no marks of elements: on the АР of ИР-71535 they were 77 of
   // 82 «misses» — the colours of the panels the АР reader takes from its own tables)
   if(/^(?:RAL|РАЛ)\d{4}$/iu.test(mk)||/^Поз\.?\d/u.test(mk))continue;
+  // (steel «C345» in Latin, concrete «F150», «W6», primer «ГФ021» — no marks of elements)
+  if(/^[CС]\d{3}(?:-\d)?$/u.test(mk)||/^[FW]\d{1,3}$/u.test(mk)||/^ГФ\d{3}$/u.test(mk))continue;
   if(MARK.test(str)&&!notMark(mk,aMarks)&&!/^\d/u.test(mk)&&!/^[AА][0-4]$/u.test(mk)&&!/^С(?:235|245|255|275|285|345|355|375|390|440|590)$/u.test(mk)){pending.push({t,str,mk,c,k});continue}
   if(DIM.test(str)){
    const v=Number(str.replace(/[^\d]/gu,"")),d=dimOf.get(t);

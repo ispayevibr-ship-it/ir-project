@@ -11850,9 +11850,28 @@ window.irThreeSchemeView=(function irThreeModule(){
    pointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);
    raycaster.setFromCamera(pointer,camera)
   }
+  // The nearest member under the pointer: the spheres of the pieces first, in one pass, then the faces of only those the
+  // ray meets, nearest first, until the next sphere starts past the hit found. The same hit as asking every piece's faces
+  // (raycaster.intersectObjects over 25 000 pieces of ИР-71535 — 13 ms a move of the mouse, most of a picture at 60 a
+  // second: the engineer, 13.11.2026, on making the scheme faster — «начинай»); about 1 ms.
+  // (the spheres in the world kept with the list they were taken from — rayTargets is made anew with every change of the
+  // model, refreshMaterials; a piece moved moves only by a new model)
+  var pickSphere=new T.Sphere(),pickList=[],pickOf=null,pickN=-1,pickS=null;
+  function rayFirst(list){
+   if(pickOf!==list||pickN!==list.length){pickOf=list;pickN=list.length;pickS=new Float32Array(4*list.length);
+    for(var i=0;i<list.length;i++){var m=list[i],g=m.geometry;if(!g||!g.attributes||!g.attributes.position){pickS[4*i+3]=-1;continue}if(!g.boundingSphere)g.computeBoundingSphere();
+     m.updateMatrixWorld();pickSphere.copy(g.boundingSphere).applyMatrix4(m.matrixWorld);pickS[4*i]=pickSphere.center.x;pickS[4*i+1]=pickSphere.center.y;pickS[4*i+2]=pickSphere.center.z;pickS[4*i+3]=pickSphere.radius}}
+   var ray=raycaster.ray,ox=ray.origin.x,oy=ray.origin.y,oz=ray.origin.z,dx=ray.direction.x,dy=ray.direction.y,dz=ray.direction.z,S=pickS,cand=pickList;cand.length=0;
+   for(i=0;i<list.length;i++){var r=S[4*i+3];if(r<0)continue;var cx=S[4*i]-ox,cy=S[4*i+1]-oy,cz=S[4*i+2]-oz,tc=cx*dx+cy*dy+cz*dz;
+    if(tc+r<0||cx*cx+cy*cy+cz*cz-tc*tc>r*r)continue;cand.push({t:tc-r,m:list[i]})}
+   cand.sort(function(a,b){return a.t-b.t});var best=null,out=[];
+   for(var k=0;k<cand.length;k++){if(best&&cand[k].t>best.distance)break;out.length=0;cand[k].m.raycast(raycaster,out);
+    for(var j=0;j<out.length;j++)if(!best||out[j].distance<best.distance)best=out[j]}
+   cand.length=0;return best
+  }
   function hitMember(){
-   var hits=raycaster.intersectObjects(rayTargets,false);
-   return hits[0]?{id:hits[0].object.userData.memberId,point:hits[0].point,d:hits[0].distance}:null
+   var h=rayFirst(rayTargets);
+   return h?{id:h.object.userData.memberId,point:h.point,d:h.distance}:null
   }
   // ---- Copy a member to another place on the ground plane.
   function reportCopyError(message){

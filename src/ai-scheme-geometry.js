@@ -28,8 +28,16 @@ async function readPageTexts(page,viewport=page.getViewport({scale:1})){
 const GLYPH={"\uf056":"∟","\uf058":"I","\uf059":"[","\uf04d":"□"};
 const SPACED_MARK=/^([А-ЯЁ]{1,3}|[А-ЯЁ][а-яё]{1,2})\s+(\d{1,3}(?:\s*[-.]\s*\d{1,3})?)$/u;
 const NOT_SPACED=/^(?:С|C|Поз|Ось|См|Изм|Кол|Отм|Шаг|Вид|Тип|Ряд|Лит|Ст|Бк|КМ|КЖ|АР|ТХ|Гр|Кл|Кат|Ед|Шт|Ф)$/u;
+// Russian written in Windows-1251 and read as Latin-1 — «ÒÎÎ «Ïðîåêòíî…» on the title sheets of ИР-71535 (13.11.2026):
+// turned back into Cyrillic when the text is made of those letters.
+const CP1251="ЂЃ‚ѓ„…†‡€‰Љ‹ЊЌЋЏђ‘’“”•–—\u0098™љ›њќћџ\u00a0ЎўЈ¤Ґ¦§Ё©Є«¬\u00ad®Ї°±Ііґµ¶·ё№є»јЅѕї";
+function cp1251(s){
+ const hi=(s.match(/[\u00c0-\u00ff]/gu)||[]).length,letters=(s.match(/[A-Za-z\u00c0-\u00ff]/gu)||[]).length;
+ if(hi<2||hi<letters*.6||/[\u0400-\u04ff]/u.test(s))return s;
+ return[...s].map(c=>{const k=c.charCodeAt(0);return k>=0xc0&&k<=0xff?String.fromCharCode(0x410+k-0xc0):k>=0x80&&k<0xc0?CP1251[k-0x80]||c:c}).join("")
+}
 function plainText(str){
- let s=String(str).replace(/[\uf056\uf058\uf059\uf04d]/g,c=>GLYPH[c]).trim();
+ let s=cp1251(String(str)).replace(/[\uf056\uf058\uf059\uf04d]/g,c=>GLYPH[c]).trim();
  const m=SPACED_MARK.exec(s);
  if(m&&!NOT_SPACED.test(m[1]))s=m[1]+m[2].replace(/\s+/g,"");
  return s
