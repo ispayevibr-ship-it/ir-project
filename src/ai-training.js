@@ -114,15 +114,25 @@ function createTraining({database,getUserDataPath,base=null}){
  // Corrections of the latest placement of each set: compared with the scheme as it is now.
  function corrections(oid){
   const rows=database.listEntity(oid,"scheme").filter(r=>!isGrid(r)),byId=new Map(rows.map(r=>[String(r.id),r]));
-  const latest=new Map();for(const p of placements(oid))latest.set(p.data?.set?.id||p.data?.batch,p);
+  const all=placements(oid),latest=new Map();for(const p of all)latest.set(p.data?.set?.id||p.data?.batch,p);
+  // Every state the program itself put an element in, by any placement of any set of files. An element standing as one
+  // of them is not changed by the engineer: a placement of other files (КМ3 with АР after КМ3 alone) moved it, and the
+  // older placement still holds the older state (the engineer, 13.11.2026, chat: «нет одного уголка будто верхнего
+  // загругленного» — the ladder Л2 moved by the data of 12.11 counted as moved by him, and his «changes» were kept:
+  // the next placements left the parts of the old ladder as they were and did not draw the new ones).
+  const states=new Map();for(const p of all)for(const e of p.data?.elements||[])if(e?.id&&e.origin){if(!states.has(e.id))states.set(e.id,[]);states.get(e.id).push(e.origin)}
+  const placedSo=(id,now)=>(states.get(id)||[]).some(o=>!diff(o,now).length);
+  // (an element of several placements is one correction: under the last placement that holds it)
+  const lastOf=new Map();for(const p of all)for(const e of p.data?.elements||[])if(e?.id)lastOf.set(e.id,p);
   const out=[];
   for(const p of latest.values()){
    const d=p.data||{},placedIds=new Set((d.elements||[]).map(e=>e.id));
    for(const e of d.elements||[]){
     const r=byId.get(e.id);
+    if(lastOf.get(e.id)!==p)continue;
     if(!r){out.push({kind:["deleted"],set:d.set,batch:d.batch,before:e.origin,after:null});continue}
     const now=originOf(r.data||{}),k=diff(e.origin,now);
-    if(k.length)out.push({kind:k,id:e.id,set:d.set,batch:d.batch,before:e.origin,after:now,mounted:r.data?.status==="mounted"})
+    if(k.length&&!placedSo(e.id,now))out.push({kind:k,id:e.id,set:d.set,batch:d.batch,before:e.origin,after:now,mounted:r.data?.status==="mounted"})
    }
    // Elements the engineer added after this placement: what the recognition missed.
    for(const r of rows)if(!r.data?.import_batch&&!placedIds.has(String(r.id))&&String(r.created_at||"").replace("T"," ").slice(0,19)>=String(d.at||"").replace("T"," ").slice(0,19))

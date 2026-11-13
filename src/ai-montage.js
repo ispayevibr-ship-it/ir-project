@@ -26,6 +26,34 @@ function sameElementKey(mark,geometry,fitting){
  const g=String(geometry||"column");
  return normMark(mark).replace(/(\p{L})[-‐‑–—](?=\d)/gu,"$1")+"|"+(fitting==="ladder"?"ladder":g==="bent"?"beam":g)
 }
+// The new elements against those placed before (matchPlaced: payloads {mark, geometry, data}, imported records, the
+// engineer's changes by id): the same mark and kind, the same part of the drawing first, nearest by start, end and levels.
+function matchPlaced(payloads,imported,edited=new Map()){
+ const pairs=[],sameKey=new Map();
+ // An element whose mark the engineer changed is found by the mark it was placed with, at either of its positions.
+ const keyed=(k,j)=>{if(!sameKey.has(k))sameKey.set(k,[]);if(!sameKey.get(k).includes(j))sameKey.get(k).push(j)};
+ imported.forEach((r,j)=>{const d=r.data||{},was=edited.get(String(r.id))?.before;keyed(sameElementKey(d.mark,d.geometry_type,d.fitting_type),j);if(was?.mark)keyed(sameElementKey(was.mark,d.geometry_type,d.fitting_type),j)});
+ // The distance of two states of an element: start, end and both levels — the parts of one mark (a ladder: its
+ // stringers, rungs, hoops, the bent top of its guard) share the start in plan, by the start alone a rung took the place
+ // of the bent top (the engineer, 13.11.2026, chat: «нет одного уголка будто верхнего загругленного»). The part of the
+ // drawing of the same name goes first (the name of the drawing, not of his register: all parts of a row share that).
+ const num=v=>v===null||v===undefined||v===""?null:Number(v);
+ const gap=(a,b)=>{const end=a.x2!==null&&b.x2!==null&&Number.isFinite(a.x2)&&Number.isFinite(b.x2)?Math.hypot(a.x2-b.x2,a.y2-b.y2):0;
+  return Math.hypot(a.x-b.x,a.y-b.y)+end+(a.z0!==null&&b.z0!==null?Math.abs(a.z0-b.z0):0)+(a.z1!==null&&b.z1!==null?Math.abs(a.z1-b.z1):0)};
+ const stateOf=d=>({x:num(d.absolute_x_mm),y:num(d.absolute_y_mm),x2:num(d.absolute_x2_mm),y2:num(d.absolute_y2_mm),z0:num(d.z0_mm),z1:num(d.end_z_mm??d.z1_mm)});
+ const partName=d=>normMark(String(d?.param_sources?.name_other||"").replace(/\s+—\s+чертёж$/u,"")||d?.mark_name||"");
+ payloads.forEach((p,i)=>(sameKey.get(sameElementKey(p.mark,p.geometry,p.data.fitting_type))||[]).forEach(j=>{
+  const r=imported[j],was=edited.get(String(r.id))?.before,now=stateOf(p.data);
+  const d=Math.min(gap(stateOf(r.data),now),was?gap({x:num(was.x),y:num(was.y),x2:num(was.x2),y2:num(was.y2),z0:num(was.z0),z1:num(was.z1)},now):Infinity);
+  pairs.push({i,j,d,other:partName(r.data)===partName(p.data)?0:1,gone:r.data?.missing_in_analysis?1:0})
+ }));
+ // At the same distance the element the last reading found goes before one it no longer found (a leftover of an older
+ // answer standing on the same place).
+ pairs.sort((a,b)=>a.other-b.other||a.d-b.d||a.gone-b.gone);
+ const matchOf=new Map(),taken=new Set();
+ for(const q of pairs)if(!matchOf.has(q.i)&&!taken.has(q.j)){matchOf.set(q.i,q.j);taken.add(q.j)}
+ return{matchOf,taken}
+}
 // A name for a mark the drawings do not name: what the element is (the scheme page groups marks by their names).
 const KIND_NAME={columns:"Колонна",fahwerk:"Стойка фахверка",posts:"Стойка",ties:"Связь",beams:"Балка",girders:"Ригель",purlins:"Прогон",spacers:"Распорка",
  trusses:"Ферма",roof:"Элемент крыши",nozzles:"Патрубок",tanks:"Стенка резервуара",bottom:"Днище",stairs:"Лестница",platforms:"Площадка",guards:"Ограждение",
@@ -920,20 +948,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   // The same mark and kind, nearest first: that is the same element drawn again (sameElementKey: with or without a dash
   // in the mark, a ladder upright or leaning).
   // Looked up by mark and kind: 4000 new against 4000 placed before, each with each, held the program for 16 s.
-  const pairs=[],sameKey=new Map();
-  // An element whose mark the engineer changed is found by the mark it was placed with, at either of its positions.
-  const keyed=(k,j)=>{if(!sameKey.has(k))sameKey.set(k,[]);if(!sameKey.get(k).includes(j))sameKey.get(k).push(j)};
-  imported.forEach((r,j)=>{const d=r.data||{},was=edited.get(String(r.id))?.before;keyed(sameElementKey(d.mark,d.geometry_type,d.fitting_type),j);if(was?.mark)keyed(sameElementKey(was.mark,d.geometry_type,d.fitting_type),j)});
-  payloads.forEach((p,i)=>(sameKey.get(sameElementKey(p.mark,p.geometry,p.data.fitting_type))||[]).forEach(j=>{
-   const r=imported[j],was=edited.get(String(r.id))?.before;
-   const d=Math.min(Math.hypot(Number(r.data.absolute_x_mm)-p.x,Number(r.data.absolute_y_mm)-p.y),was?Math.hypot(Number(was.x)-p.x,Number(was.y)-p.y):Infinity);
-   pairs.push({i,j,d,gone:r.data?.missing_in_analysis?1:0})
-  }));
-  // At the same distance the element the last reading found goes before one it no longer found (a leftover of an older
-  // answer standing on the same place).
-  pairs.sort((a,b)=>a.d-b.d||a.gone-b.gone);
-  const matchOf=new Map(),taken=new Set();
-  for(const q of pairs)if(!matchOf.has(q.i)&&!taken.has(q.j)){matchOf.set(q.i,q.j);taken.add(q.j)}
+  const {matchOf,taken}=matchPlaced(payloads,imported,edited);
   if(gridMode==="created")database.createEntity(oid,"scheme",{record_type:"scheme_grid",title:"Сетка осей",data:{entity_type:"grid",...plan.grid,import_batch:batch}});
   if(gridMode==="replaced"){
    previousGrid=gridRow.data;
@@ -959,7 +974,9 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
      return
     }
     // Status, mounting data and the position name stay with the element.
-    const next={...before,...p.data,status:before.status||"planned",position:before.position||old.title,
+    // (not changed by him: no mark of his change stays — src/ai-training.js corrections, a move by a placement of other
+    // files is not his — else «Убрать «нет в анализе»» and the card would keep treating it as his)
+    const next={...before,...p.data,engineer_edited:undefined,status:before.status||"planned",position:before.position||old.title,
      mark_id:p.data.mark_id||before.mark_id||"",work_type_id:p.data.work_type_id||before.work_type_id||"",pdf_new:undefined};
     for(const k of Object.keys(next))if(next[k]===undefined)delete next[k];
     if(sameElement(before,next))return;
@@ -977,8 +994,10 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    // Changed or confirmed by the engineer: his element, left as it is.
    if(change){carried.push({id:String(r.id),origin:change.before});return}
    if(before.engineer_confirmed)return;
-   if(before.missing_in_analysis){stillMissing.push(before.mark||r.title);return}
-   const next={...before,missing_in_analysis:batch,instance_status:"not_found",instance_reasons:["нет в новом анализе чертежей — проверьте, удалите вручную, если конструкции нет"],preliminary:true};
+   if(before.missing_in_analysis){stillMissing.push(before.mark||r.title);
+    if(before.engineer_edited){const next={...before};delete next.engineer_edited;database.updateEntity(oid,"scheme",r.id,{record_type:r.record_type||"scheme_column",title:r.title,data:next})}
+    return}
+   const next={...before,engineer_edited:undefined,missing_in_analysis:batch,instance_status:"not_found",instance_reasons:["нет в новом анализе чертежей — проверьте, удалите вручную, если конструкции нет"],preliminary:true};
    if(database.updateEntity(oid,"scheme",r.id,{record_type:r.record_type||"scheme_column",title:r.title,data:next})){updated.push({id:r.id,record_type:r.record_type,title:r.title,data:before});missingNow.push(before.mark||r.title)}
   });
   });
@@ -1159,4 +1178,4 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
  }
  return{latest,documentSheets,analyze,control,process,skipAI,preview,place,undo,clearScheme,restoreScheme,schemeSnapshot,elementCard,placedInfo};
 }
-module.exports={sameElement,createMontage,SCHEMA,SYSTEM,mergeParts,mergeMarks,sameElementKey};
+module.exports={sameElement,createMontage,SCHEMA,SYSTEM,mergeParts,mergeMarks,sameElementKey,matchPlaced};
