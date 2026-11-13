@@ -158,12 +158,14 @@ function viewsOf(items,segments,W=0,H=0){
  const titles=items.filter(t=>{const n=named(t);if(n)t.title=n;return Boolean(n)});
  if(!titles.length)return[];
  const sizeOf=t=>t.h;
- const views=titles.map(t=>({title:t.title,at:{x:Math.round(t.c.x),y:Math.round(t.c.y)},t,plates:new Set(),profiles:new Set(),steel:new Set(),refs:new Set(),bolts:new Set(),welds:new Set(),positions:new Set(),marks:new Set(),levels:new Set(),dims:new Set(),text:[]}));
+ const views=titles.map(t=>({title:t.title,at:{x:Math.round(t.c.x),y:Math.round(t.c.y)},t,b:{x0:t.c.x,y0:t.c.y-t.h,x1:t.c.x,y1:t.c.y},plates:new Set(),profiles:new Set(),steel:new Set(),refs:new Set(),bolts:new Set(),welds:new Set(),positions:new Set(),marks:new Set(),levels:new Set(),dims:new Set(),text:[]}));
  const owner=c=>{let best=null,score=Infinity;
   for(const v of views){const t=v.t,dy=c.y-t.c.y;if(dy<-sizeOf(t)*1.5)continue;const dx=Math.abs(c.x-t.c.x),s=Math.max(0,dy)+dx*.7+(dy<0?-dy*3:0);if(s<score&&s<900){score=s;best=v}}
   return best};
  for(const t of items){
   if(titles.includes(t)||stamp(t))continue;const v=owner(t.c);if(!v)continue;const s=t.str;
+  // (the frame of the view by its labels — the piece of the sheet a picture of the node is cut from, 1.12.140)
+  v.b.x0=Math.min(v.b.x0,t.c.x);v.b.x1=Math.max(v.b.x1,t.c.x);v.b.y0=Math.min(v.b.y0,t.c.y);v.b.y1=Math.max(v.b.y1,t.c.y);
   if(/^(?:С|C)\s?\d{3}(?:-\d)?$/u.test(s)){v.steel.add(s.replace(/\s/gu,"").replace(/^C/u,"С"));continue}
   if(/^(?:КМД?|АР|ТХ|КЖ)\s?\d*\s?-\s?\d{1,3}$|^(?:см\.\s*)?л(?:ист)?\.?\s*(?:КМД?|АР)?\s?\d/iu.test(s)){v.refs.add(s);continue}
   if(PLATE.test(s))v.plates.add(s);
@@ -175,7 +177,7 @@ function viewsOf(items,segments,W=0,H=0){
   else if(MARK.test(s)&&!PLATE.test(s)&&!pr&&!b)v.marks.add(s);
   else if(!PLATE.test(s)&&!pr&&!b&&!WELD.test(s)&&v.text.length<60&&wordy(s))v.text.push(s.slice(0,160))
  }
- return views.map(v=>{const o={title:v.title,at:v.at};
+ return views.map(v=>{const o={title:v.title,at:v.at,box:{x0:Math.round(v.b.x0),y0:Math.round(v.b.y0),x1:Math.round(v.b.x1),y1:Math.round(v.b.y1)}};
   for(const k of ["plates","profiles","steel","bolts","welds","positions","marks","levels","dims","refs"])if(v[k].size)o[k]=[...v[k]].slice(0,80);
   if(v.text.length)o.text=v.text;return o})
 }

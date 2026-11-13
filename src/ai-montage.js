@@ -1207,6 +1207,27 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   let verified=false;try{verified=Boolean(checkedResult(data)?.verified?.elements?.length)}catch{}
   return{draftId:row.id,placedAt:at&&Number.isFinite(at.getTime())?at.toISOString():"",verified}
  }
- return{latest,documentSheets,analyze,control,process,skipAI,preview,place,undo,clearScheme,restoreScheme,schemeSnapshot,elementCard,placedInfo};
+ // Where a node of the drawings is drawn on its sheet (the 3D page «Узлы и стыки», the engineer 13.11.2026 «снимок данного
+ // узла стыка с чертежа … чисто узла»): «Узел 16» of «КМ1 л.19» in the newest analysis — its file, sheet of the PDF and
+ // the piece of the sheet (0–1) around the view: by the frame of its labels (details.views[].box) or, in an analysis
+ // made before the frame was kept, below and beside its title.
+ function nodeView(id,{sheet="",title=""}={}){
+  const oid=object(id),row=lastDraft(oid);if(!row)return null;
+  const m=/^(.*?)\s*л\.\s*(\d{1,3})\s*$/u.exec(String(sheet||"").trim());if(!m||!title)return null;
+  const vol=m[1].trim().toLowerCase(),sh=m[2];
+  for(const p of row.data?.pages||[]){
+   if(String(p.sourceName||"").replace(/\.pdf$/iu,"").trim().toLowerCase()!==vol)continue;
+   if(String(p.sheet?.stamp?.block?.sheet||"").trim()!==sh)continue;
+   const nk=t=>String(t||"").toLowerCase().replace(/ё/gu,"е").replace(/^(узел|разрез|сечение|вид)\s*/u,"").replace(/[\s\-–—.]+/gu,"");const views=p.details?.views||[];const v=views.find(x=>x.title===title)||views.find(x=>nk(x.title)===nk(title)&&nk(x.title));const W=Number(p.widthPt)||0,H=Number(p.heightPt)||0;
+   if(!v||!W||!H||!p.documentId||p.turn)return null;
+   const b=v.box||{x0:v.at.x-W*.11,y0:v.at.y-H*.03,x1:v.at.x+W*.11,y1:v.at.y+H*.25};
+   const pad=Math.max(W,H)*.012,cl=x=>Math.max(0,Math.min(1,x));
+   const x=cl((b.x0-pad)/W),y=cl((b.y0-pad)/H),x1=cl((b.x1+pad)/W),y1=cl((b.y1+pad)/H);
+   if(x1-x<.02||y1-y<.02)return null;
+   return{documentId:p.documentId,page:p.pdfPage||p.page,region:{x,y,width:x1-x,height:y1-y},source:(p.sourceName||"PDF")+", лист "+sh,sha:String(((row.data?.source?.documents||[]).find(s=>String(s.documentId)===String(p.documentId))||{}).sha256||""),analysis:row.id}
+  }
+  return null
+ }
+ return{latest,documentSheets,analyze,control,process,skipAI,preview,place,undo,clearScheme,restoreScheme,schemeSnapshot,elementCard,placedInfo,nodeView};
 }
 module.exports={sameElement,createMontage,SCHEMA,SYSTEM,mergeParts,mergeMarks,sameElementKey,matchPlaced};

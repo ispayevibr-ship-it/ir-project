@@ -13351,6 +13351,41 @@ window.irThreeSchemeView=(function irThreeModule(){
   // it not drawn; for the steel without the panels of the АР in front of it), how it is joined, the sheet of the drawing,
   // and its places: a click flies the 3D there. Nothing in the scheme changes; the same in the exported scheme and report.
   var jointsEl=null,jointsSec="",jointsShots=new Map(),jointsQueue=[],jointsRaf=0,jointsBuilt="",jointsList=null;
+  // Снимки узлов с листов чертежей (1.12.140, инженер 13.11.2026 «снимок данного узла стыка с чертежа … чисто узла»):
+  // программа вырезает вид узла с листа (src/ai-node-crops.js) и хранит в базе; в выгрузке — готовые снимки (P.nodeCrops).
+  var cropShots=new Map(),cropsAsked=false,cropBusy=false;
+  var cropLive=function(){return Boolean(!P.report&&window.irProject&&window.irProject.ai&&typeof window.irProject.ai.invoke==="function"&&P.objectId&&!/^export:/.test(String(P.objectId)))};
+  var cropInvoke=function(ch,v){return cropLive()?window.irProject.ai.invoke(ch,v):null};
+  // «КМ3 л.9, узлы 3, 4, 5, разрезы а-а, б-б; л.11» → [{sheet:"КМ3 л.9",title:"Узел 3"}, …] (до 3), и виды узлов, вызванные схемой (joint.node_views)
+  function nodeRefs(list){
+   var out=[],seen=new Set(),push=function(sheet,title){sheet=String(sheet||"").replace(/\s+/g," ").trim();title=String(title||"").trim();var k=sheet+"|"+title;if(!sheet||!title||seen.has(k)||out.length>=3)return;seen.add(k);out.push({sheet:sheet,title:title,key:k})};
+   list.forEach(function(c){var j=c&&c.joint;if(!j)return;
+    (Array.isArray(j.node_views)?j.node_views:[]).forEach(function(v){if(v&&/^(Узел|Разрез)/.test(String(v.title||"")))push(v.sheet,v.title)});
+    var vol="";String(j.sheet||"").split(";").forEach(function(part){
+     var m=/^\s*((?:КМД?|АР|ТХ)\s?\d*)\s/.exec(part);if(m)vol=m[1].replace(/\s+/g,"");var sh=/л\.\s*(\d{1,3})/.exec(part);if(!sh||!vol||/общие данные/i.test(part))return;var sheet=vol+" л."+sh[1];
+     var nd=/узл\S*\s+([\d.,\sи]+)/i.exec(part);if(nd)(nd[1].match(/\d+(?:\.\d+)?/g)||[]).forEach(function(x){push(sheet,"Узел "+x)});
+     var rz=/разрез\S*\s+((?:[\dА-Яа-яЁё]{1,3}\s?-\s?[\dА-Яа-яЁё]{1,3}[,\sи]*)+)/i.exec(part);if(rz)(rz[1].match(/[\dА-Яа-яЁё]{1,3}\s?-\s?[\dА-Яа-яЁё]{1,3}/g)||[]).forEach(function(x){push(sheet,"Разрез "+x.replace(/\s/g,""))})
+    })});
+   return out
+  }
+  function cropsLoad(){
+   if(cropsAsked)return;cropsAsked=true;
+   var put=function(map){Object.keys(map||{}).forEach(function(k){var v=map[k];if(v&&v.url)cropShots.set(k,v.url)});cropsPaint()};
+   if(P.nodeCrops)return put(P.nodeCrops);
+   var q=cropInvoke("ai-documents:node-crops",{objectId:Number(P.objectId)});if(q)q.then(function(m){put(m);cropsNext()},function(){})
+  }
+  function cropsPaint(){if(!jointsEl)return;jointsEl.querySelectorAll("[data-crop]").forEach(function(img){var k=img.getAttribute("data-crop");if(!cropShots.has(k))return;var u=cropShots.get(k),f=img.closest("figure");
+   if(u){if(img.getAttribute("src")!==u)img.src=u;img.classList.remove("wait")}else if(f)f.hidden=true})}
+  // по одному, сначала видимые на экране карточки
+  function cropsNext(){
+   if(cropBusy||!jointsEl||jointsEl.hidden||!cropsAsked)return;
+   var body=jointsEl.querySelector(".ir-joints-body"),view=body?body.getBoundingClientRect():null,imgs=[].slice.call(jointsEl.querySelectorAll("[data-crop]")).filter(function(i){return!cropShots.has(i.getAttribute("data-crop"))});
+   if(!imgs.length)return;
+   var vis=imgs.find(function(i){var r=i.getBoundingClientRect();return view&&r.bottom>view.top-100&&r.top<view.bottom+300})||imgs[0],k=vis.getAttribute("data-crop"),i=k.lastIndexOf("|");
+   var q=cropInvoke("ai-documents:node-crop",{objectId:Number(P.objectId),sheet:k.slice(0,i),title:k.slice(i+1)});
+   if(!q){imgs.forEach(function(x){cropShots.set(x.getAttribute("data-crop"),null)});cropsPaint();return}
+   cropBusy=true;q.then(function(r){cropShots.set(k,r&&r.url||null)},function(){cropShots.set(k,null)}).then(function(){cropBusy=false;cropsPaint();setTimeout(cropsNext,30)})
+  }
   var TRIM_NAMES={plinth:"Цокольный отлив",corner:"Угловой нащельник",tier:"Стык ярусов панелей",gable:"Торцевая планка",sill:"Отлив окна",reveal:"Откос проёма",abutment:"Примыкание кровли к стене",existing:"Примыкание к существующему зданию",eave:"Карнизная планка",ridge:"Коньковый элемент",gutter:"Накрывка у желоба",cap:"Накрывка парапета",foot:"Уголок по низу перегородки"};
   var OPEN_NAMES={window:"Окно в стене",door:"Дверь в стене",gate:"Ворота в стене"};
   // A comment to a node (the engineer, 13.11.2026): who may change the scheme writes it; it goes into the chat of the
@@ -13371,7 +13406,7 @@ window.irThreeSchemeView=(function irThreeModule(){
     var sec=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a]||SEC_ORDER.indexOf(a)-SEC_ORDER.indexOf(b)})[0]||"Вручную";
     var parts=[...new Set(n.members.map(function(m){var r=jointRole(m.role);return(m.c.mark||kindNames[m.c.geometryType]||"элемент")+(r?" ("+r+")":"")}))].sort();
     var name=kindName(n),key="n|"+name+"|"+parts.join("+")+"|"+(n.fix||"");
-    add(sec,key,{type:{key:key,name:name,parts:parts,fix:n.fix==="bolt"?"на болтах":"на сварке",ref:jointSheet(n.members.map(function(m){return m.c})),steel:true},
+    add(sec,key,{type:{key:key,name:name,parts:parts,fix:n.fix==="bolt"?"на болтах":"на сварке",ref:jointSheet(n.members.map(function(m){return m.c})),refs:nodeRefs(n.members.map(function(m){return m.c})),steel:true},
      place:{node:n.id,at:toWorld(n.x,n.y,n.z),where:axisOf(n.x,n.y)+", отм. "+(n.z>=0?"+":"")+(n.z/1000).toFixed(3).replace(".",","),status:n.status}})
    });
    elems.forEach(function(c){
@@ -13380,7 +13415,7 @@ window.irThreeSchemeView=(function irThreeModule(){
     var kind=ft==="trim"?String(c.lay&&c.lay.trim||""):ft,pos=c.lay&&c.lay.shape&&c.lay.shape.pos;
     var name=ft==="trim"?(TRIM_NAMES[kind]||"Фасонный элемент"):OPEN_NAMES[ft],mark=String(c.mark||"");
     var key="a|"+ft+"|"+kind+"|"+(pos||"")+"|"+mark;
-    add("АР",key,{type:{key:key,name:name+(pos?" · поз. "+pos:""),parts:[mark+(c.profile?" "+c.profile:"")].filter(Boolean),fix:ft==="trim"?"на саморезах к панелям":"в проёме стены",ref:jointSheet([c]),steel:false,open:ft!=="trim"},
+    add("АР",key,{type:{key:key,name:name+(pos?" · поз. "+pos:""),parts:[mark+(c.profile?" "+c.profile:"")].filter(Boolean),fix:ft==="trim"?"на саморезах к панелям":"в проёме стены",ref:jointSheet([c]),refs:nodeRefs([c]),steel:false,open:ft!=="trim"},
      place:{id:String(c.id),at:at,along:along,where:axisOf((number(c.x)+number(c.x2||c.x))/2,(number(c.y)+number(c.y2||c.y))/2),status:c.status||"planned"}})
    });
    var out={},rank=function(t){return t.open?1:0};bySec.forEach(function(g,sec){out[sec]=[...g.values()].sort(function(a,b){return rank(a)-rank(b)||(a.name<b.name?-1:a.name>b.name?1:b.places.length-a.places.length)})});
@@ -13436,7 +13471,7 @@ window.irThreeSchemeView=(function irThreeModule(){
     '</div><button type="button" class="ir-joints-close" data-joint-close title="Вернуться к 3D" aria-label="Закрыть">✕</button></div>'+
     '<div class="ir-joints-body">'+(list.length?'<p class="ir-joints-sum">'+escapeHtml(jointsSec)+': '+jointsWord(list.length,["вид","вида","видов"])+' узлов и стыков, всего мест — '+total+'. Картинка — первое место, вырезанное из 3D; щёлкните место, чтобы перейти к нему на схеме.</p><div class="ir-joints-grid">'+
      list.map(function(t,i){var url=jointsShots.get(t.key),head=i===0||list[i-1].name!==t.name?t.name:"",n=head?list.filter(function(x){return x.name===head}):null;
-      return(head?'<h3 class="ir-joints-kind">'+escapeHtml(head)+' <small>'+jointsWord(n.length,["вид","вида","видов"])+', мест '+n.reduce(function(s,x){return s+x.places.length},0)+'</small></h3>':"")+'<article class="ir-joint"><img alt="" data-joint-img="'+escapeHtml(t.key)+'" class="'+(url?"":url===null?"none":"wait")+'"'+(url?' src="'+url+'"':"")+'><div class="ir-joint-text"><b>'+escapeHtml(t.name)+'</b>'+
+      return(head?'<h3 class="ir-joints-kind">'+escapeHtml(head)+' <small>'+jointsWord(n.length,["вид","вида","видов"])+', мест '+n.reduce(function(s,x){return s+x.places.length},0)+'</small></h3>':"")+'<article class="ir-joint"><img alt="" data-joint-img="'+escapeHtml(t.key)+'" class="'+(url?"":url===null?"none":"wait")+'"'+(url?' src="'+url+'"':"")+'>'+((t.refs||[]).length&&(P.nodeCrops||cropLive())?'<div class="ir-joint-draw">'+t.refs.slice(0,2).map(function(r){var u=cropShots.get(r.key);return'<figure'+(u===null?' hidden':'')+'><img alt="" data-crop="'+escapeHtml(r.key)+'" class="'+(u?"":"wait")+'"'+(u?' src="'+u+'"':"")+'><figcaption>С чертежа: '+escapeHtml(r.sheet+" · "+r.title)+'</figcaption></figure>'}).join("")+'</div>':"")+'<div class="ir-joint-text"><b>'+escapeHtml(t.name)+'</b>'+
        (t.parts.length?'<span>'+escapeHtml(t.parts.join(" + "))+'</span>':"")+'<span class="ir-joint-fix">'+escapeHtml(t.fix)+(t.ref?' · '+escapeHtml(t.ref.sheet):"")+'</span>'+
        (t.ref&&t.ref.text?'<span class="ir-joint-note">'+escapeHtml(t.ref.text.slice(0,180))+'</span>':"")+
        '<details><summary>Мест: '+t.places.length+'</summary><ul>'+t.places.slice(0,300).map(function(p,i){return'<li><button type="button" data-joint-go="'+escapeHtml(t.key)+'" data-i="'+i+'">'+escapeHtml(p.where||"—")+'</button><em>'+escapeHtml(st[p.status]||"")+'</em></li>'}).join("")+(t.places.length>300?'<li>… ещё '+(t.places.length-300)+'</li>':"")+'</ul></details>'+
@@ -13448,6 +13483,8 @@ window.irThreeSchemeView=(function irThreeModule(){
     jointsOpen(false);if(p.node)openNode(p.node);else if(p.id){choose(p.id);focus(p.id)}}});
    jointsEl.querySelectorAll("[data-joint-note]").forEach(function(b){b.onclick=function(){var t=list.find(function(x){return x.key===b.getAttribute("data-joint-note")});if(!t)return;var p=t.places[0];
     commentAbout(t.name+(t.parts.length?" — "+t.parts.join(" + "):""),p.where,[t.fix,t.ref&&t.ref.sheet,"мест "+t.places.length].filter(Boolean).join(" · "),p,t.steel)}});
+   cropsLoad();cropsPaint();if(!cropLive())jointsEl.querySelectorAll("[data-crop]").forEach(function(i){if(!cropShots.has(i.getAttribute("data-crop"))){var f=i.closest("figure");if(f)f.hidden=true}});setTimeout(cropsNext,50);
+   var jb=jointsEl.querySelector(".ir-joints-body");if(jb)jb.onscroll=function(){if(!cropBusy)cropsNext()};
    jointsQueue=list.filter(function(t){return!jointsShots.has(t.key)}).map(function(t){return{t:t}});
    if(jointsQueue.length&&!jointsRaf)jointsRaf=requestAnimationFrame(jointsPump)
   }
@@ -13469,6 +13506,8 @@ window.irThreeSchemeView=(function irThreeModule(){
     ".ir-joint{background:#fff;border:1px solid #d6e0e8;border-radius:9px;overflow:hidden;display:flex;flex-direction:column}"+
     ".ir-joint img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:#e6edf3}.ir-joint img.wait{background:linear-gradient(90deg,#e6edf3,#f3f7fa,#e6edf3);background-size:200% 100%;animation:irJointWait 1.2s linear infinite}"+
     ".ir-joint img.none{visibility:hidden;height:0;aspect-ratio:auto}@keyframes irJointWait{to{background-position:-200% 0}}"+
+    ".ir-joint-draw{display:flex;gap:4px;padding:4px 4px 0;background:#fff}.ir-joint-draw figure{margin:0;flex:1;min-width:0;display:flex;flex-direction:column}.ir-joint-draw figure[hidden]{display:none}.ir-joint-draw img{display:block;width:100%;aspect-ratio:4/3;object-fit:contain;background:#fff;border:1px solid #e1e8ee;border-radius:5px}.ir-joint-draw figcaption{font-size:10.5px;color:#6a7b88;padding:2px 2px 0}"+
+    ".ir-three-root.dark .ir-joint-draw{background:#1d2733}.ir-three-root.dark .ir-joint-draw figcaption{color:#a9b8c5}"+
     ".ir-joint-text{display:flex;flex-direction:column;gap:3px;padding:8px 10px 10px}.ir-joint-text b{font-size:13px}.ir-joint-fix{color:#4b5d6b}.ir-joint-note{color:#6a7b88;font-size:11.5px}"+
     ".ir-joint details summary{cursor:pointer;color:#2b5f8f;font-weight:700;margin-top:2px}.ir-joint ul{list-style:none;margin:4px 0 0;padding:0;max-height:160px;overflow:auto}"+
     ".ir-joint li{display:flex;gap:8px;align-items:baseline}.ir-joint li button{border:0;background:none;color:#2b5f8f;font:inherit;padding:1px 0;cursor:pointer;text-align:left}.ir-joint li button:hover{text-decoration:underline}.ir-joint li em{color:#8a99a5;font-style:normal;font-size:11px}"+

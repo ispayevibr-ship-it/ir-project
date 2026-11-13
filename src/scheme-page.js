@@ -838,7 +838,9 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   // All the work types together: the exported page can show each apart, as the scheme does.
   const workCounts=new Map();for(const c of list){const w=workCounts.get(c.work)||{id:c.work,label:c.work?String(liveWorks.get(c.work).work_type||"Без названия")+(liveWorks.get(c.work).project_code?" · "+liveWorks.get(c.work).project_code:""):"Без вида работ",count:0};w.count++;workCounts.set(c.work,w)}
   const currentWork=frameMode?null:enabledWorks().find(w=>w.id===activeWorkId);
-  return{objectId:oid,object:{name:String(object.name||object.title||""),short:String(object.short_name||""),address:String(object.address||"")},title:activeGroup()?.label||"Все",
+  // (снимки узлов с листов чертежей, уже сделанные, — в выгрузку и отчёт: страница «Узлы и стыки» показывает их там же, 1.12.140)
+  let nodeCrops=null;try{nodeCrops=await irProject.ai?.invoke?.("ai-documents:node-crops",{objectId:oid})||null}catch(_error){nodeCrops=null}
+  return{objectId:oid,nodeCrops,object:{name:String(object.name||object.title||""),short:String(object.short_name||""),address:String(object.address||"")},title:activeGroup()?.label||"Все",
     axesX:[...axesX],axesY:[...axesY],spanX,spanY,gridDirX,gridDirY,gridX:Object.fromEntries(axisXPos),gridY:Object.fromEntries(axisYPos),background:currentBackground(),
     elements:list,groups:[...counts.values()].sort((a,b)=>b.count-a.count),summary:statusCounts(),
     work:frameMode?(workCounts.size>1?"Все виды работ":""):currentWork?currentWork.name+(currentWork.code?" · "+currentWork.code:""):"",works:frameMode&&workCounts.size>1?[...workCounts.values()].sort((a,b)=>b.count-a.count):[]}

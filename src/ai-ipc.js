@@ -104,6 +104,10 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
  handle("ai-documents:set-work-types",(_e,{objectId,items})=>documents.setWorkTypes(objectId,items));
  handle("ai-documents:set-excluded",(_e,{objectId,id,pages})=>documents.setExcluded(objectId,id,pages));
  handle("ai-documents:sheets",(_e,{objectId,id})=>montage.documentSheets(objectId,id));
+ // Снимки узлов с листов чертежей для страницы «Узлы и стыки» (src/ai-node-crops.js, 1.12.140).
+ const nodeCrops=require("./ai-node-crops").createNodeCrops({database,renderer:raster,montage,getUserDataPath});
+ handle("ai-documents:node-crops",(_e,{objectId})=>nodeCrops.list(objectId));
+ handle("ai-documents:node-crop",(_e,{objectId,sheet,title})=>nodeCrops.crop(objectId,{sheet,title}));
  handle("ai-documents:purge-info",(_e,{objectId})=>({...documents.purgeInfo(objectId),admin:Boolean(account?.isAdmin?.())||!account?.info?.()?.signedIn}));
  handle("ai-documents:purge-object",(e,{objectId})=>{checkAdmin(e);return documents.purge(objectId)});
  handle("ai-documents:preview",(_e,{objectId,id,page})=>raster.preview(objectId,id,page));
