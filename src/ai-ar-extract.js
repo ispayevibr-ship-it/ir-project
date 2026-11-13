@@ -1543,6 +1543,46 @@ function fixtureShapes(segments,texts,inside,k){
   out.push({kind,x:Math.round((g.x0+g.x1)/2*10)/10,y:Math.round((g.y0+g.y1)/2*10)/10,back:side.n,width_mm:Math.round(width),depth_mm:Math.round(depth)})}
  return out
 }
+// The covering of the floor by colours on the plan of the floors (ИР-71535 АР ч.2 л.29 «План типов полов и внутренней
+// отделки стен и перегородок»; the engineer, 13.11.2026: «он не в км должен быть, а в АР»): the coloured areas of the
+// sheet (geometry.fills, src/ai-scheme-geometry.js) within the axes of the plan, each by the line of «Условные
+// обозначения …» whose sample has its colour — «RAL 3020 - красный, площадь покрытия 651,63 м2» → 3020, «бесцветный» →
+// grey; an area of a colour the legend lacks is not a covering. Points of the plan; null — no such plan or no legend.
+function planFloor({fills=[],texts=[]}={},axes){
+ if(!axes||!fills.length||!texts.some(t=>/^\s*План\s+(?:типов\s+)?пол(?:ов|а)(?:\s|$)/iu.test(String(t.str))))return null;
+ const xs=axes.rows.flatMap(r=>r.items.map(i=>i.pt)),ys=axes.cols.flatMap(c=>c.items.map(i=>i.pt));if(xs.length<2||ys.length<2)return null;
+ const box={x0:Math.min(...xs)-60,x1:Math.max(...xs)+60,y0:Math.min(...ys)-60,y1:Math.max(...ys)+60};
+ const inP=f=>f.box[0]>=box.x0&&f.box[2]<=box.x1&&f.box[1]>=box.y0&&f.box[3]<=box.y1;
+ const keys=new Map(),legend=[];
+ for(const t of texts){const s=String(t.str);if(!/площадь\s+покрытия|^\s*-?\s*бесцветн/iu.test(s))continue;
+  const k=(ralCodes(s)[0]||"").replace(/\D/g,"")||(/бесцветн/iu.test(s)?"grey":"");if(!k)continue;
+  const sw=fills.filter(f=>!inP(f)&&f.box[2]<=t.x+2&&f.box[2]>=t.x-90&&t.y>=f.box[1]-3&&t.y<=f.box[3]+6&&f.box[2]-f.box[0]<=120&&f.box[3]-f.box[1]<=80).sort((a,b)=>b.box[2]-a.box[2])[0];
+  if(!sw)continue;if(!keys.has(sw.c))keys.set(sw.c,k);
+  const a=/площадь\s+покрытия\s+(\d+(?:[,.]\d+)?)/iu.exec(s);legend.push({key:k,text:s.replace(/^\s*-\s*/u,"").replace(/\s+/g," ").trim().slice(0,120),...(a?{area_m2:Number(a[1].replace(",","."))}:{})})}
+ if(!keys.size)return null;
+ const areas=fills.filter(f=>inP(f)&&keys.has(f.c)).map(f=>({key:keys.get(f.c),rings:f.rings}));
+ return areas.length?{areas,legend}:null
+}
+// The coloured areas of a plan in cells (planFloor on the grid — src/ai-montage-plan.js): polys [{key, q: [[x, y]…]}], mm;
+// a cell of C mm is of the area its middle lies in, a later area over an earlier; the cells of one colour of a row in
+// runs, equal runs of the rows after merged — [key, x0, y0, x1, y1], mm.
+function floorZones(polys,C=150){
+ if(!polys.length)return[];
+ const X0=Math.floor(Math.min(...polys.flatMap(o=>o.q.map(v=>v[0])))/C),Y0=Math.floor(Math.min(...polys.flatMap(o=>o.q.map(v=>v[1])))/C),X1=Math.ceil(Math.max(...polys.flatMap(o=>o.q.map(v=>v[0])))/C),Y1=Math.ceil(Math.max(...polys.flatMap(o=>o.q.map(v=>v[1])))/C);
+ const W=X1-X0,H=Y1-Y0;if(W<=0||H<=0||W*H>4e6)return[];
+ const keys=[...new Set(polys.map(o=>o.key))],cell=new Uint8Array(W*H);
+ for(const o of polys){const k=keys.indexOf(o.key)+1,ys=o.q.map(v=>v[1]),j0=Math.max(0,Math.floor(Math.min(...ys)/C)-Y0),j1=Math.min(H-1,Math.ceil(Math.max(...ys)/C)-Y0);
+  for(let j=j0;j<=j1;j++){const y=(j+Y0+.5)*C,xs=[];
+   for(let i=0;i<o.q.length;i++){const a=o.q[i],b=o.q[(i+1)%o.q.length];if(a[1]<=y!==b[1]<=y)xs.push(a[0]+(y-a[1])*(b[0]-a[0])/(b[1]-a[1]))}
+   xs.sort((a,b)=>a-b);
+   for(let n=0;n+1<xs.length;n+=2)for(let i=Math.max(0,Math.ceil(xs[n]/C-.5)-X0);i<W&&(i+X0+.5)*C<xs[n+1];i++)cell[j*W+i]=k}}
+ const zones=[],open=new Map();
+ for(let j=0;j<=H;j++){const now=new Map();
+  if(j<H)for(let i=0;i<W;){const k=cell[j*W+i];if(!k){i++;continue}let e=i;while(e<W&&cell[j*W+e]===k)e++;const id=k+":"+i+":"+e;now.set(id,open.get(id)||{k,i,e,j});i=e}
+  for(const [id,z] of open)if(!now.has(id))zones.push([keys[z.k-1],(z.i+X0)*C,(z.j+Y0)*C,(z.e+X0)*C,(j+Y0)*C]);
+  open.clear();for(const [id,z] of now)open.set(id,z)}
+ return zones
+}
 // The fixtures of the plan (fixtureShapes) — those of the plan itself and of a fragment beside it laid on the plan
 // (fragmentMap: the fragment's in place of the plan's own where it lies, drawn larger there). Points of the plan.
 function planFixtures({segments=[],texts=[]}={},axes){
@@ -1776,8 +1816,9 @@ function extractArchitecture(geometry){
  const finish=facadeFinish(texts),sills=sillSpec(texts);
  const axes=planAxes(geometry||{});
  const tr=trimSpec(texts),trNodes=trimNodes(texts),niches=nicheSpec(texts),planFills=planOpenings(geometry||{},axes),planFix=planFills.length?planFixtures(geometry||{},axes):[],planSl=planFills.length?planSlabs(geometry||{},axes):[],planBands=planFills.length?planWalls(geometry||{},axes):[];
+ const floor=axes?planFloor(geometry||{},axes):null;
  const existing=axes?existingPlan(geometry||{}):null;
- const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{}),...(axes?{axes}:{}),...(tr.trims.length?{trims:tr.trims}:{}),...(tr.names.length?{trimNames:tr.names}:{}),...(trNodes.length?{trimNodes:trNodes}:{}),...(niches.length?{niches}:{}),...(planFills.length?{planFills}:{}),...(planFix.length?{planFixtures:planFix}:{}),...(planSl.length?{planSlabs:planSl}:{}),...(planBands.length?{planWalls:planBands}:{}),...(existing?{existing}:{})};
+ const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{}),...(axes?{axes}:{}),...(tr.trims.length?{trims:tr.trims}:{}),...(tr.names.length?{trimNames:tr.names}:{}),...(trNodes.length?{trimNodes:trNodes}:{}),...(niches.length?{niches}:{}),...(planFills.length?{planFills}:{}),...(planFix.length?{planFixtures:planFix}:{}),...(planSl.length?{planSlabs:planSl}:{}),...(planBands.length?{planWalls:planBands}:{}),...(existing?{existing}:{}),...(floor?{planFloor:floor}:{})};
  return panels.length||fills.length||views.length||Object.keys(extra).length?{panels,fills,views,...extra}:null
 }
-module.exports={existingPlan,planWalls,planFixtures,planSlabs,fixtureShapes,dimScale,fragmentMap,fillKinds,splitJoinedMarks,planOpenings,nicheSpec,trimSpec,trimNodes,trimKind,planAxes,facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
+module.exports={planFloor,floorZones,existingPlan,planWalls,planFixtures,planSlabs,fixtureShapes,dimScale,fragmentMap,fillKinds,splitJoinedMarks,planOpenings,nicheSpec,trimSpec,trimNodes,trimKind,planAxes,facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};

@@ -7,7 +7,7 @@
 const {markCode}=require("./ai-kmd-rules");
 const ST=require("./ai-structure-types");
 const {stampNames}=require("./ai-sheet-extract");
-const {ralCodes}=require("./ai-ar-extract");
+const {ralCodes,floorZones}=require("./ai-ar-extract");
 // Groups of the montage scheme: the catalog of structure types (src/ai-structure-types.js).
 const GROUPS=Object.fromEntries(ST.GROUPS.map(g=>[g.key,g.label]));
 const FITTING_TYPE={deck:"platform",weld:"weld",bolt:"bolt",manhole:"manhole",hatch:"roof_hatch",valve:"valve",foam:"foam",sensor:"instrument",rod:"lightning",nozzle:"nozzle",ring:"tank_ring",railing:"railing",flight:"stair_flight",ladder:"ladder",panel:"sandwich",trim:"trim"};
@@ -1253,6 +1253,23 @@ let loose=0;
      layout:{slab:{thickness_mm:sl.t,width_mm:sl.y1-sl.y0}},x_mm:sl.x0,y_mm:Math.round((sl.y0+sl.y1)/2),x2_mm:sl.x1,y2_mm:Math.round((sl.y0+sl.y1)/2),z0_mm:sl.level,z1_mm:sl.level,
      levels_from:"план АР",confidence:"medium",section:"АР",axis_x:"",axis_y:"",sheet:String(p.pdfPage||p.page),source_page:p.page,source_file:p.sourceName||"",
      notes:["Плита перекрытия по плану АР, верх +"+(sl.level/1000).toFixed(3).replace(".",",")+"; толщина 200 мм условно (по КЖ); не металл, в монтаж не входит","В плане "+(sl.x1-sl.x0)+" × "+(sl.y1-sl.y0)+" мм"]})}}
+  // The floor by the plan of the floors of the АР (src/ai-ar-extract.js planFloor: ИР-71535 АР ч.2 л.29; the engineer,
+  // 13.11.2026 «он не в км должен быть, а в АР»): one element of the АР — the coloured areas of the sheet on the grid, in
+  // cells of 150 mm (a cell is of the area its middle lies in, a later area over an earlier), the cells of one colour
+  // merged into rectangles — layout.floor.zones [colour, x0, y0, x1, y1], mm. Not steel, not mounted.
+  for(const p of ar){const fit=planFit.get(p),fl=p.ar.planFloor;if(!fit||!fl||placements.some(q=>q.type_key==="floor_finish"))continue;
+   const C=150,keys=[...new Set(fl.areas.map(a=>a.key))],polys=fl.areas.flatMap(a=>a.rings.map(r=>{const q=[];for(let i=0;i+1<r.length;i+=2)q.push([fit.fx.a+fit.fx.b*r[i],fit.fy.a+fit.fy.b*r[i+1]]);return{key:a.key,q}})).filter(o=>o.q.length>=3);
+   if(!polys.length)continue;
+   const zones=floorZones(polys,C);
+   if(!zones.length)continue;
+   const x0=Math.min(...zones.map(z=>z[1])),x1=Math.max(...zones.map(z=>z[3])),y0=Math.min(...zones.map(z=>z[2])),y1=Math.max(...zones.map(z=>z[4])),area={};
+   zones.forEach(z=>{area[z[0]]=(area[z[0]]||0)+(z[3]-z[1])*(z[4]-z[2])/1e6});
+   const colors=Object.fromEntries(keys.map(k=>[k,k==="grey"?"бесцветное покрытие":"RAL "+k]));
+   placements.push({mark:"Пол",name:"Пол по плану полов АР (покрытие по цветам)",type_key:"floor_finish",scheme_group:"cladding",geometry_type:"beam",fitting_type:"floor",diameter_mm:y1-y0,
+    layout:{floor:{level_mm:0,thickness_mm:200,cell_mm:C,colors,zones}},x_mm:x0,y_mm:Math.round((y0+y1)/2),x2_mm:x1,y2_mm:Math.round((y0+y1)/2),z0_mm:0,z1_mm:0,
+    levels_from:"план полов АР",confidence:"medium",section:"АР",axis_x:"",axis_y:"",sheet:String(p.pdfPage||p.page),source_page:p.page,source_file:p.sourceName||"",
+    notes:["Покрытие пола по цветам условных обозначений плана полов АР, клетками 150 мм; верх ±0,000; не металл, в монтаж не входит","Площади, м²: "+keys.filter(k=>area[k]).map(k=>(k==="grey"?"бесцветное":k)+" — "+Math.round(area[k])).join(", ")]});
+   warnings.push("Пол по плану полов АР: "+zones.length+" зон покрытия по цветам")}
   if(slabs.length)warnings.push("Перекрытия помещений по плану АР: "+slabs.map(q=>"+"+(q.level/1000).toFixed(3).replace(".",",")).join(", "));
   const slabOver=(X,line,a,b)=>slabs.find(q=>{const [l0,l1,s0,s1]=X?[q.y0,q.y1,q.x0,q.x1]:[q.x0,q.x1,q.y0,q.y1],m=(a+b)/2;return line>=l0-300&&line<=l1+300&&m>=s0-300&&m<=s1+300});
   {const W=[];
