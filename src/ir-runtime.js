@@ -4867,6 +4867,7 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
    try{
     const saved=await irProject.backup.create();
     if(saved===true){
+     try{localStorage.setItem("irBackupDone",new Date().toDateString())}catch{}
      const message="База данных успешно выгружена в выбранную папку.";
      if(typeof irProjectNotice==="function")irProjectNotice(message,"success");
      else alert(message)
@@ -4944,6 +4945,41 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
    if(typeof open!=="function"){alert("Редактор профиля компании временно недоступен.");return}
    await open();
   };
+  // The administrator is reminded of the backup copy of the base every day at 17:00 of the computer (the engineer,
+  // 13.11.2026: «каждый вечер Администратору (мне) например в 17:00 приходит уведомление не забудьте сделать резервную
+  // копию базы, пока так»): once a day, not after a copy made today; «Напомнить через час» puts it off. The tabs of the
+  // program are pages of their own — one of them shows it (a lock, then the day written down).
+  const REMIND_HOUR=17;
+  function backupReminder(){
+   const doc=document,d=doc.createElement("dialog");d.className="ir-backup-remind";
+   d.style.cssText="border:0;border-radius:14px;padding:22px 24px;max-width:420px;box-shadow:0 18px 60px rgba(15,30,50,.35);font:14px/1.45 Inter,'Segoe UI',Arial,sans-serif;color:#18202b";
+   d.innerHTML='<b style="display:block;font-size:17px;margin-bottom:8px">Резервная копия базы</b><p style="margin:0 0 16px">Не забудьте сделать резервную копию базы данных. Сохраните файл на другой диск или флешку.</p>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button type="button" data-later style="padding:8px 14px;border:1px solid #c9d3de;border-radius:8px;background:#fff;cursor:pointer">Напомнить через час</button>'+
+    '<button type="button" data-skip style="padding:8px 14px;border:1px solid #c9d3de;border-radius:8px;background:#fff;cursor:pointer">Не сегодня</button>'+
+    '<button type="button" data-make style="padding:8px 14px;border:0;border-radius:8px;background:#1f6fb2;color:#fff;cursor:pointer">Сделать копию сейчас</button></div>';
+   doc.body.appendChild(d);const close=()=>{try{d.close()}catch{}d.remove()};
+   d.querySelector("[data-later]").onclick=()=>{try{localStorage.setItem("irBackupSnooze",String(Date.now()+36e5));localStorage.removeItem("irBackupRemind")}catch{}close()};
+   d.querySelector("[data-skip]").onclick=close;
+   d.querySelector("[data-make]").onclick=()=>{close();backupButton.onclick()};
+   try{d.showModal()}catch{d.setAttribute("open","")}
+   // the program behind other windows — the notification of Windows too
+   try{const front=doc.visibilityState!=="hidden"&&doc.hasFocus(),ai=window.irProject&&window.irProject.ai;
+    if(!front&&ai&&ai.invoke)ai.invoke("ai-montage:chat-notify",{title:"IR Project — резервная копия базы",body:"Не забудьте сделать резервную копию базы данных.",route:""}).catch(()=>{})}catch{}
+  }
+  function backupRemindDue(now){
+   if(irAccess.role()!=="admin"||now.getHours()<REMIND_HOUR)return false;
+   // (the page of a tab that is not the open one stays silent: its window would not be seen)
+   try{const f=window.frameElement;if(f&&!f.getClientRects().length)return false}catch{}
+   const day=now.toDateString();let L;try{L=localStorage}catch{return false}
+   if(L.getItem("irBackupDone")===day||L.getItem("irBackupRemind")===day)return false;
+   return!(Number(L.getItem("irBackupSnooze"))>now.getTime())
+  }
+  function backupRemindTick(){
+   if(!backupRemindDue(new Date()))return;
+   const show=()=>{const now=new Date();if(!backupRemindDue(now))return;try{localStorage.setItem("irBackupRemind",now.toDateString())}catch{return}backupReminder()};
+   if(navigator.locks&&navigator.locks.request)navigator.locks.request("ir-backup-remind",{ifAvailable:true},lock=>{if(lock)show()}).catch(()=>{});else show()
+  }
+  setTimeout(backupRemindTick,20000+Math.random()*5000);setInterval(backupRemindTick,60000);
   apply()
  }
  function permissions(){if(irAccess.role()!=="admin"){alert("Настройки доступа изменяет только администратор.");return}const current=irAccess.engineer();const d=document.createElement("dialog");d.className="permissions-dialog";d.innerHTML=`<h2>Доступ инженера ПТО</h2><p>Отметьте разделы, которые инженер ПТО может изменять. Остальные доступны только для просмотра.</p><div class="permission-list">${irAccess.KEYS.map(k=>`<label><input type="checkbox" data-perm="${k}" ${current[k]?"checked":""}>${sectionNames[k]}</label>`).join("")}</div><div class="actions"><button id="permClose">Готово</button></div>`;document.body.appendChild(d);d.querySelectorAll("[data-perm]").forEach(x=>x.onchange=()=>irAccess.setEngineer(x.dataset.perm,x.checked));d.querySelector("#permClose").onclick=()=>{d.close();d.remove()};d.showModal()}

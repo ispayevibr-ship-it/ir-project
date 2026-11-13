@@ -11463,7 +11463,10 @@ window.irThreeSchemeView=(function irThreeModule(){
    var el=document.createElement("span");el.className="ir-three-member-label";el.textContent=c.mark||c.title||"";
    labelLayer.appendChild(el);labels.push({el:el,pos:top,id:id})
   }
+  // (the panels cut round the steel once a build, when every part of it is in the model — panelSteelCuts)
+  var cutsDue=false;
   function refreshMaterials(queue){
+   if(cutsDue){cutsDue=false;try{panelSteelCuts()}catch(e){if(window.console)console.warn("panelSteelCuts",e&&e.stack||e)}}
    // (queue — the merging by cells later, by steps: buildSteps)
    // A node taken apart is put together again over the new colours.
    var apart=explode&&{n:explode.node,s:explode.s};clearExplode();
@@ -12917,10 +12920,81 @@ window.irThreeSchemeView=(function irThreeModule(){
     if(sh.lengthSq()>1e-10)ms.concat((meshesById.get(String(c.id))||[]).filter(function(m){return ms.indexOf(m)<0})).forEach(function(m){m.position.add(sh);m.updateMatrixWorld(true)})
    })
   }
+  // Steel through a sandwich panel: the panel is cut round it (АР ч.2 л.2: «Отверстия для пропуска балок покрытия … После
+  // монтажа отверстия запенить») — a beam, a girt, a brace, a post going through the wall or into it: a hole through the
+  // panel where it goes through, a notch as deep as it goes in where it only goes in (a post at the face, a beam lying
+  // in the wall), 10 mm round it, 5 mm deeper. Each box piece of a panel against the surface of each steel part near it
+  // (its triangles clipped by the box): the boxes of the panel left round the holes. The engineer, 13.11.2026: «есть
+  // моменты где металлоконструкции торчат из сэндвича, там должен быть или вырез или не должна так металлоконструкция
+  // торчать». A sloped piece (cut along a roof) stays whole.
+  function panelSteelCuts(){
+   var AR_FT={panel:1,trim:1,door:1,window:1,gate:1,opening:1,partition:1,fixture:1,slab:1,building:1},panelCutsN=0,t0=performance.now();
+   var C=2,cells=new Map(),key=function(i,j,k){return i+","+j+","+k},panels=[],box=new T.Box3();
+   // (every mesh of the model, not only the members' list)
+   // (and the details of the bases and caps of the nodes — kept apart, drawn merged: mergeDetails)
+   var every=new Set(allMeshes);scene.traverse(function(m){if(m.isMesh)every.add(m)});details.forEach(function(d){if(d.node)d.group.traverse(function(m){if(m.isMesh)every.add(m)})});
+   var inAll=new Set(allMeshes);every.forEach(function(m){if(!inAll.has(m)&&dataById.get(String((m.userData||{}).memberId))&&dataById.get(String(m.userData.memberId)).ft==="panel")return;
+    var u=m.userData||{};if(!m.isMesh||m.isInstancedMesh||!m.parent||u.memberId==null||u.weld||u.seam||u.footing||u.hole||u.anchor||u.node||u.lod||u.edges||u.shell)return;
+    var c=dataById.get(String(u.memberId));if(!c||!m.geometry||!m.geometry.attributes||!m.geometry.attributes.position)return;
+    if(c.ft==="panel"){if(m.geometry.attributes.position.count===24&&Math.abs(m.scale.x-1)+Math.abs(m.scale.y-1)+Math.abs(m.scale.z-1)<1e-6)panels.push(m);return}
+    if(AR_FT[c.ft]||c.source_section==="АР")return;
+    m.updateWorldMatrix(true,false);box.setFromObject(m);if(box.isEmpty())return;
+    var b=[box.min.x,box.min.y,box.min.z,box.max.x,box.max.y,box.max.z],o={m:m,b:b};
+    for(var i=Math.floor(b[0]/C);i<=Math.floor(b[3]/C);i++)for(var j=Math.floor(b[1]/C);j<=Math.floor(b[4]/C);j++)for(var k=Math.floor(b[2]/C);k<=Math.floor(b[5]/C);k++){
+     var kk=key(i,j,k);if(!cells.has(kk))cells.set(kk,[]);cells.get(kk).push(o)}});
+   if(!panels.length||!cells.size){root.setAttribute("data-panel-cuts","0");return}
+   var inv=new T.Matrix4(),M=new T.Matrix4(),v=new T.Vector3();
+   // the polygon (a list of [x,y,z]) clipped by the box ±h
+   var clip=function(poly,h){for(var ax=0;ax<3;ax++)for(var sg=-1;sg<=1;sg+=2){var out=[],lim=h[ax];
+     for(var i=0;i<poly.length;i++){var P=poly[i],Q=poly[(i+1)%poly.length],dp=sg*P[ax]-lim,dq=sg*Q[ax]-lim;
+      if(dp<=0)out.push(P);if(dp<0&&dq>0||dp>0&&dq<0){var f=dp/(dp-dq);out.push([P[0]+(Q[0]-P[0])*f,P[1]+(Q[1]-P[1])*f,P[2]+(Q[2]-P[2])*f])}}
+     poly=out;if(!poly.length)return poly}return poly};
+   panels.forEach(function(pm){
+    var g=pm.geometry;if(!g.boundingBox)g.computeBoundingBox();var gb=g.boundingBox;
+    var h=[(gb.max.x-gb.min.x)/2,(gb.max.y-gb.min.y)/2,(gb.max.z-gb.min.z)/2],c0=[(gb.max.x+gb.min.x)/2,(gb.max.y+gb.min.y)/2,(gb.max.z+gb.min.z)/2];
+    if(Math.max(Math.abs(c0[0]),Math.abs(c0[1]),Math.abs(c0[2]))>1e-6)return;
+    var th=h[0]<=h[1]&&h[0]<=h[2]?0:h[1]<=h[2]?1:2;if(h[th]>.2)return;
+    pm.updateWorldMatrix(true,false);box.setFromObject(pm);inv.copy(pm.matrixWorld).invert();
+    var seen=new Set(),holes=[];
+    for(var i=Math.floor(box.min.x/C);i<=Math.floor(box.max.x/C);i++)for(var j=Math.floor(box.min.y/C);j<=Math.floor(box.max.y/C);j++)for(var k=Math.floor(box.min.z/C);k<=Math.floor(box.max.z/C);k++)(cells.get(key(i,j,k))||[]).forEach(function(o){
+     if(seen.has(o))return;seen.add(o);var b=o.b;
+     if(b[0]>box.max.x||b[3]<box.min.x||b[1]>box.max.y||b[4]<box.min.y||b[2]>box.max.z||b[5]<box.min.z)return;
+     var sg=o.m.geometry,ps=sg.attributes.position,ix=sg.index,n=ix?ix.count:ps.count,L=[];M.multiplyMatrices(inv,o.m.matrixWorld);
+     for(var q=0;q<ps.count;q++){v.set(ps.getX(q),ps.getY(q),ps.getZ(q)).applyMatrix4(M);L.push([v.x,v.y,v.z])}
+     // (the surface 1.5 mm and less in the panel — a touch, not a clash: the box of the panel 1.5 mm smaller for it)
+     var hh=h.map(function(x){return Math.max(0,x-.0015)}),lo=[1e9,1e9,1e9],hi=[-1e9,-1e9,-1e9],any=false;
+     for(var t=0;t+2<n;t+=3){var a=ix?ix.getX(t):t,bb=ix?ix.getX(t+1):t+1,cc=ix?ix.getX(t+2):t+2,P=clip([L[a],L[bb],L[cc]],hh);
+      P.forEach(function(p){any=true;for(var d=0;d<3;d++){if(p[d]<lo[d])lo[d]=p[d];if(p[d]>hi[d])hi[d]=p[d]}})}
+     if(!any)return;
+     for(var d=0;d<3;d++){var e=d===th?.005:.01;lo[d]-=e;hi[d]+=e}
+     // (the most of the thickness, or within 5 mm of the far face: a hole through)
+     if(hi[th]-lo[th]>1.4*h[th]||lo[th]<-h[th]+.005)lo[th]=-h[th]-.001;if(hi[th]>h[th]-.005||hi[th]-lo[th]>1.4*h[th])hi[th]=h[th]+.001;
+     holes.push([lo,hi])});
+    if(!holes.length)return;
+    var pieces=[[[-h[0],-h[1],-h[2]],[h[0],h[1],h[2]]]];
+    holes.forEach(function(H){var next=[];pieces.forEach(function(p){
+     if(H[0][0]>=p[1][0]||H[1][0]<=p[0][0]||H[0][1]>=p[1][1]||H[1][1]<=p[0][1]||H[0][2]>=p[1][2]||H[1][2]<=p[0][2]){next.push(p);return}
+     var a=[p[0].slice(),p[1].slice()];
+     for(var d=0;d<3;d++){
+      if(H[0][d]>a[0][d]){var lo=a[0].slice(),hi=a[1].slice();hi[d]=H[0][d];next.push([lo,hi]);a[0][d]=H[0][d]}
+      if(H[1][d]<a[1][d]){var lo2=a[0].slice(),hi2=a[1].slice();lo2[d]=H[1][d];next.push([lo2,hi2]);a[1][d]=H[1][d]}}
+     });pieces=next});
+    pieces=pieces.filter(function(p){return p[1][0]-p[0][0]>.001&&p[1][1]-p[0][1]>.001&&p[1][2]-p[0][2]>.001});
+    var parent=pm.parent,ai=allMeshes.indexOf(pm),list=meshesById.get(String(pm.userData.memberId))||[],li=list.indexOf(pm),made=[];
+    pieces.forEach(function(p){var m=new T.Mesh(new T.BoxGeometry(p[1][0]-p[0][0],p[1][1]-p[0][1],p[1][2]-p[0][2]),pm.material);
+     m.quaternion.copy(pm.quaternion);m.position.copy(pm.position).add(new T.Vector3((p[0][0]+p[1][0])/2,(p[0][1]+p[1][1])/2,(p[0][2]+p[1][2])/2).applyQuaternion(pm.quaternion));
+     m.userData=Object.assign({},pm.userData,{steelCut:true});parent.add(m);made.push(m)});
+    parent.remove(pm);if(pm.geometry)pm.geometry.dispose();
+    if(ai>=0)allMeshes.splice.apply(allMeshes,[ai,1].concat(made));else Array.prototype.push.apply(allMeshes,made);
+    if(li>=0)list.splice.apply(list,[li,1].concat(made));
+    panelCutsN+=holes.length});
+   root.setAttribute("data-panel-cuts",panelCutsN+"/"+Math.round(performance.now()-t0)+"ms")
+  }
   function lowerGround(){
    buildDucts();porchSheets();lapSheets();plinthClear();gableClear();try{seatTrims()}catch(e){if(window.console)console.warn("seatTrims",e&&e.stack||e)}eaveGutters();plinthWalls();roofDrains();buildingTexts();
    var low=0;elems.forEach(function(c){var z=Math.min(number(c.z0),c.geometryType==="column"?number(c.z0):number(c.z2));if(z<low)low=z});
-   var y=Math.min(0,low/1000+.12);ground.position.y=y;dims.position.y=y
+   var y=Math.min(0,low/1000+.12);ground.position.y=y;dims.position.y=y;
+   cutsDue=true
   }
   function nodeList(){return nodes.map(function(n){return{id:n.id,kind:n.kind,name:kindName(n),status:n.status,x:n.x,y:n.y,z:n.z,axes:axisOf(n.x,n.y),
    members:n.members.map(function(m){return{id:String(m.c.id),mark:m.c.mark||"",role:m.role,status:m.c.status||"planned"}})}})}
