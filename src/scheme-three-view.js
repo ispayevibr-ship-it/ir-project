@@ -922,6 +922,10 @@ window.irThreeSchemeView=(function irThreeModule(){
   var selectedMat=new T.MeshStandardMaterial({color:0xffd21a,emissive:0x6b5200,emissiveIntensity:.35,metalness:.25,roughness:.42,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-4});
   var selectedGhost=new T.MeshBasicMaterial({color:0xffc400,transparent:true,opacity:.38,depthTest:false,depthWrite:false});
   var hoverMat=new T.MeshStandardMaterial({color:0xffad1c,emissive:0x59410e,emissiveIntensity:.10,metalness:.22,roughness:.45,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-4});
+  // (the member under the cursor pale through what is in front of it, as the selected one: a wall panel behind a nearer
+  // wall of the same colour showed yellow only above it — the engineer, 13.11.2026 «при наведение не выделяется элемент,
+  // только сэндвич сверху … много так в местах»; the selected one through see-through panels too — hoverGhost)
+  var hoverGhost=new T.MeshBasicMaterial({color:0xffad1c,transparent:true,opacity:.26,depthTest:false,depthWrite:false});
   var zAxis=new T.Vector3(0,0,1),failures=0,conventional=new Set();
   function baseColor(c){
    if(colorMode==="status"){var at=arTint(c);if(at!==null)return at;return(statusColors[c.status]||statusColors.planned)[0]}
@@ -2795,6 +2799,8 @@ window.irThreeSchemeView=(function irThreeModule(){
    // (x from the web's face out to the cleat's side; s from E along d)
    if(cope&&y1-y0>=.04){put(-tw/2,tw/2,sf+.01,cope.t,y1-y0,ym,"стенка с подрезкой полок","");var cw=parts[parts.length-1];cw.updateMatrixWorld(true);copeWebs.push({id:String(c.id),b:new T.Box3().setFromObject(cw)})}
    put(tw/2,tw/2+cl.t,sf,sf+cl.long,len,cm,"уголок крепления",cl.angle);put(tw/2+cl.t,tw/2+cl.short,sf,sf+cl.t,len,cm,"уголок крепления",cl.angle);
+   // (no conditional seat rib in the cleat at that end — the rib of Б1 I35Ш1 of the frame О1–О3 at К1 went 4.5 mm into it)
+   parts.slice(-2).forEach(function(m){m.updateMatrixWorld(true);copeWebs.push({id:String(c.id),b:new T.Box3().setFromObject(m)})});
    var sb=sf+(cl.bolt>cl.gap&&cl.bolt<cl.long?cl.bolt:Math.min(cl.long-1.5*dia,Math.max(.01+2*dia,cl.long*.55)));
    for(var i=0;i<n;i++)addBolt(c,at(sb,xw+side*cl.t/2,cm+(i-(n-1)/2)*pitch),XX.clone().multiplyScalar(side),dia,tw+cl.t)
   }
@@ -7152,6 +7158,15 @@ window.irThreeSchemeView=(function irThreeModule(){
       // the annex О1–О3 under the wall of the step by О3, the engineer, 13.11.2026, «что за кусок прогона? он должен быть
       // целиком же»)
       if(z<2*hs.h+.05&&stepWalls.has(w.id)&&(keep>0?Math.max(da,db):-Math.min(da,db))<(keep>0?-Math.min(da,db):Math.max(da,db)))return;
+      // (a member of the frame — 100 mm deep or more — that would keep under a quarter of itself: it passes through that
+      // wall — an inner wall, the side of its columns guessed wrong —, it is whole, the panel is cut round it
+      // (panelSteelCuts); cut, the roof beam Б3 of the annex А–Б by О8 lost 5,1 of its 6,2 m to the
+      // panel Пс-116 of row Б, its gusset with Рс-3 and Сг-1 hung in the air — the engineer, 13.11.2026, «вот это что
+      // в воздухе висит?»)
+      var fa=Math.abs(da)/(Math.abs(da)+Math.abs(db)),kept=((da>0?1:-1)===keep?fa:1-fa);
+      // (what it would keep a stub under 300 mm — the end of the member just past the wall — the stub goes, the member
+      // stops at that face: П1 I25Б1 of the main roof by О3 kept its 60 mm in the wall of the step and lost 48 m)
+      if(kept<.25&&Math.max(hs.h,hs.b)>=.05){if(kept*M<.3)keep=-keep;else return}
       (wallClip.get(String(c.id))||wallClip.set(String(c.id),[]).get(String(c.id))).push({X:X,n:w.n.clone().multiplyScalar(keep),gap:gap})
      })
     }
@@ -11983,7 +11998,7 @@ window.irThreeSchemeView=(function irThreeModule(){
      var mat=s[1],p=!i&&parts?meshPos(m,parts):null;
      if(!i&&parts)mat=litPart!==null&&p!==litPart?partMat("#d3dae0"):p!==null&&parts.color[p]?partMat(parts.color[p]):s[1];
      var o=new T.Mesh(m.geometry,mat);o.matrixAutoUpdate=false;o.matrix.copy(m.matrixWorld);overlay.add(o);
-     if(!i&&!m.userData.hole&&!(m.material&&m.material.transparent)){var gh=new T.Mesh(m.geometry,selectedGhost);gh.matrixAutoUpdate=false;gh.matrix.copy(m.matrixWorld);gh.renderOrder=20;overlay.add(gh)}})
+     if(!m.userData.hole){var gh=new T.Mesh(m.geometry,i?hoverGhost:selectedGhost);gh.matrixAutoUpdate=false;gh.matrix.copy(m.matrixWorld);gh.renderOrder=20;overlay.add(gh)}})
    });
    clearCallouts();if(parts)putCallouts(selected,parts);
    if(typeof document!=="undefined")document.querySelectorAll("[data-ec-pos]").forEach(function(r){r.classList.toggle("on",litPart!==null&&r.getAttribute("data-ec-pos")===litPart)});
@@ -12985,6 +13000,73 @@ window.irThreeSchemeView=(function irThreeModule(){
     ps.needsUpdate=true;g.computeBoundingBox();g.computeBoundingSphere();m.geometry=g;m.userData.plumbed=true;n++});
    root.setAttribute("data-trim-plumb",String(n))
   }
+  // ---- What is left open or doubled in the walls of the АР as drawn (chat 13.11.2026).
+  // 1. A hole over a panel between the panels beside it («про эти щели уже раз 5 точно говорил» — ИР-71535 О10 by Н: over
+  //    Пс-47 and Пс-48 beside the gate В-2 the columns end at +4,4, the tier Пс-56 over the gate starts beside them, the
+  //    wall to +6,67 on both sides — the layout read without the panels over them): the column of a panel up to the lower
+  //    of the tops of the panels touching it on both sides (or to the foot of the panel over it), less the windows, doors
+  //    and gates there, closed with the facing of that panel, flush. One column wide, up to 4 m. Not steel.
+  function wallGapFills(){
+   var box=function(id,f){var b=new T.Box3();(meshesById.get(id)||[]).forEach(function(m){if(m.isMesh&&m.parent&&f(m)){m.updateMatrixWorld(true);b.expandByObject(m)}});return b.isEmpty()?null:b};
+   var rects=[];elems.forEach(function(c){if(!c.id)return;var id=String(c.id);
+    if(c.ft==="panel"&&c.lay&&c.lay.panel==="wall"){var b=box(id,function(m){return !m.userData.seam&&!m.userData.masonry});if(b)rects.push({id:id,b:b,p:true,c:c})}
+    else if(c.ft==="window"||c.ft==="door"||c.ft==="gate"){var b2=box(id,function(m){return !m.userData.small});if(b2)rects.push({id:id,b:b2,p:false})}});
+   var made=0;
+   rects.forEach(function(P){
+    if(!P.p)return;var b=P.b,ax=b.max.x-b.min.x>b.max.z-b.min.z?"x":"z",tx=ax==="x"?"z":"x",W=b.max[ax]-b.min[ax],t=Math.min(.25,b.max[tx]-b.min[tx]);if(W<.3||W>1.35)return;
+    var mid=(b.min[tx]+b.max[tx])/2,top=b.max.y,a0=b.min[ax],a1=b.max[ax];
+    // (a panel cut by a gate through its whole height stands as a strip: its column is the panel as laid out)
+    var np=memberPoints(P.c);if(np.length>1){var n0=Math.min(np[0][ax],np[1][ax]),n1=Math.max(np[0][ax],np[1][ax]);if(n1-n0<=1.35&&n0<=a0+.02&&n1>=a1-.02&&n1-n0>W+.05){a0=Math.min(a0,n0);a1=Math.max(a1,n1)}}
+    var line=rects.filter(function(q){if(q===P)return false;var qb=q.b;if(Math.abs((qb.min[tx]+qb.max[tx])/2-mid)>(q.p?.08:.6))return false;return !q.p||qb.max[ax]-qb.min[ax]>qb.max[tx]-qb.min[tx]});
+    var side=function(at){var h=-Infinity;line.forEach(function(q){if(!q.p)return;var qb=q.b;if(Math.min(Math.abs(qb.min[ax]-at),Math.abs(qb.max[ax]-at))>.08||Math.min(qb.max[ax],a1)-Math.max(qb.min[ax],a0)>.08)return;if(qb.max.y>top+.3&&qb.max.y>h)h=qb.max.y});return h};
+    var hi=Math.min(side(a0),side(a1));if(!(hi>top+.05))return;
+    line.forEach(function(q){if(!q.p)return;var qb=q.b;if(Math.min(qb.max[ax],a1)-Math.max(qb.min[ax],a0)<.08||qb.min.y<top-.05)return;if(qb.min.y<hi)hi=qb.min.y});
+    if(hi-top<.05||hi-top>4)return;
+    var left=[[a0,a1,top,hi]];
+    line.forEach(function(q){var qb=q.b,q0=qb.min[ax],q1=qb.max[ax],y0=qb.min.y,y1=qb.max.y,next=[];
+     left.forEach(function(r){if(q1<=r[0]+.01||q0>=r[1]-.01||y1<=r[2]+.01||y0>=r[3]-.01){next.push(r);return}
+      if(q0>r[0]+.01)next.push([r[0],q0,r[2],r[3]]);if(q1<r[1]-.01)next.push([q1,r[1],r[2],r[3]]);
+      var m0=Math.max(r[0],q0),m1=Math.min(r[1],q1);if(y0>r[2]+.01)next.push([m0,m1,r[2],y0]);if(y1<r[3]-.01)next.push([m0,m1,y1,r[3]])});
+     left=next});
+    var sk=(meshesById.get(P.id)||[]).filter(function(m){return m.isMesh&&!m.userData.seam})[0];if(!sk)return;
+    left.forEach(function(r){var w=r[1]-r[0],h=r[3]-r[2];if(w<.03||h<.03)return;
+     var m=new T.Mesh(new T.BoxGeometry(ax==="x"?w:t,h,ax==="x"?t:w),sk.material);m.position.set(ax==="x"?(r[0]+r[1])/2:mid,(r[2]+r[3])/2,ax==="x"?mid:(r[0]+r[1])/2);
+     m.userData.memberId=P.id;m.userData.fixed=true;m.userData.footing=true;m.userData.masonry=true;m.userData.clad=true;steel.add(m);allMeshes.push(m);made++})});
+   root.setAttribute("data-wall-fills",String(made))
+  }
+  // 2. A corner trim (lay.trim corner) ending short of the top of the walls it covers («нащельник не до конца верха» — О8/Н,
+  //    to +7,555 by the specification, the walls to the roof at +8,2): on up to the lower of the tops of the walls of the
+  //    two directions at it, up to 2,5 m.
+  function cornerTrimTops(){
+   var wl=[];elems.forEach(function(c){if(!c.id||c.ft!=="panel"||!c.lay||c.lay.panel!=="wall")return;var b=new T.Box3();(meshesById.get(String(c.id))||[]).forEach(function(m){if(m.isMesh&&m.parent&&!m.userData.seam){m.updateMatrixWorld(true);b.expandByObject(m)}});if(!b.isEmpty())wl.push(b)});
+   elems.forEach(function(c){if(c.ft!=="trim"||!c.id||!c.lay||c.lay.trim!=="corner")return;var id=String(c.id);
+    var ms=(meshesById.get(id)||[]).filter(function(m){return m.isMesh&&m.parent&&m.geometry&&m.geometry.parameters&&m.geometry.parameters.depth!==undefined&&!m.userData.seam&&!m.userData.edges});if(!ms.length)return;
+    var B=new T.Box3();ms.forEach(function(m){m.updateMatrixWorld(true);B.expandByObject(m)});var cx=(B.min.x+B.max.x)/2,cz=(B.min.z+B.max.z)/2,top=B.max.y,tops={x:-Infinity,z:-Infinity};
+    wl.forEach(function(b){var dx=Math.max(b.min.x-cx,0,cx-b.max.x),dz=Math.max(b.min.z-cz,0,cz-b.max.z);if(Math.hypot(dx,dz)>.25||b.max.y<B.min.y+.5)return;var ax=b.max.x-b.min.x>b.max.z-b.min.z?"x":"z";if(b.max.y>tops[ax])tops[ax]=b.max.y});
+    var want=Math.min(tops.x,tops.z),ext=want-top;if(!(ext>.05&&ext<2.5))return;
+    ms.forEach(function(m){var q=m.geometry.parameters,zc=new T.Vector3(0,0,1).applyQuaternion(m.quaternion);if(Math.abs(zc.y)<.9)return;
+     var n=new T.Mesh(new T.BoxGeometry(q.width,q.height,ext),m.material);n.quaternion.copy(m.quaternion);n.position.copy(m.position).add(zc.multiplyScalar((zc.y>0?1:-1)*(q.depth/2+ext/2)));
+     n.userData=Object.assign({},m.userData);steel.add(n);allMeshes.push(n);meshesById.get(id).push(n)})})
+  }
+  // 3. The trim of the joint of two tiers of a wall (lay.trim tier) where the roof against that wall covers the joint
+  //    («почему показан и нащельник и примыкание» — О8/Б at +15,4, the roof Пк-16 of the annex against the wall at +15,49
+  //    falling away): not drawn along the abutment trim within 0,3 m of its height — the abutment covers the joint.
+  function tierUnderAbutment(){
+   var ab=[];elems.forEach(function(c){if(c.ft!=="trim"||!c.id||!c.lay||!/^(?:abutment|existing)$/.test(String(c.lay.trim)))return;
+    (meshesById.get(String(c.id))||[]).forEach(function(m){if(!m.isMesh||!m.parent||!m.geometry||!m.geometry.parameters||m.geometry.parameters.depth===undefined)return;m.updateMatrixWorld(true);
+     ab.push({c:m.getWorldPosition(new T.Vector3()),d:new T.Vector3(0,0,1).applyQuaternion(m.quaternion).normalize(),L:m.geometry.parameters.depth})})});
+   if(!ab.length)return;
+   elems.forEach(function(c){if(c.ft!=="trim"||!c.id||!c.lay||c.lay.trim!=="tier")return;var id=String(c.id),list=meshesById.get(id)||[];
+    list.slice().forEach(function(m){if(!m.isMesh||!m.parent||!m.geometry||!m.geometry.parameters||m.geometry.parameters.depth===undefined||m.userData.plumbed)return;
+     var q=m.geometry.parameters,L=q.depth,d=new T.Vector3(0,0,1).applyQuaternion(m.quaternion).normalize(),runs=[],cur=null,hid=false,st=.25,n=Math.max(1,Math.ceil(L/st));
+     for(var i=0;i<n;i++){var s0=-L/2+i*L/n,s1=s0+L/n,pt=m.position.clone().add(d.clone().multiplyScalar((s0+s1)/2));
+      var under=ab.some(function(a){var v=pt.clone().sub(a.c),t=v.dot(a.d);if(Math.abs(t)>a.L/2)return false;var r=v.sub(a.d.clone().multiplyScalar(t));return Math.hypot(r.x,r.z)<.35&&Math.abs(r.y)<.3});
+      if(under){hid=true;cur=null}else if(cur)cur[1]=s1;else runs.push(cur=[s0,s1])}
+     if(!hid)return;
+     runs.forEach(function(r){if(r[1]-r[0]<.3)return;var k=new T.Mesh(new T.BoxGeometry(q.width,q.height,r[1]-r[0]),m.material);k.quaternion.copy(m.quaternion);k.position.copy(m.position).add(d.clone().multiplyScalar((r[0]+r[1])/2));
+      k.userData=Object.assign({},m.userData);steel.add(k);allMeshes.push(k);list.push(k)});
+     if(m.parent)m.parent.remove(m);var ai=allMeshes.indexOf(m);if(ai>=0)allMeshes.splice(ai,1);var li=list.indexOf(m);if(li>=0)list.splice(li,1)})})
+  }
   function abutOverGutters(){
    var gs=[];allMeshes.forEach(function(m){if(m.userData&&m.userData.gutter&&m.parent){m.updateMatrixWorld(true);gs.push(new T.Box3().setFromObject(m))}});
    abutMoved.forEach(function(ms){var b=new T.Box3();ms.forEach(function(m){m.updateMatrixWorld(true);b.union(new T.Box3().setFromObject(m))});var top=null;
@@ -13114,7 +13196,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    root.setAttribute("data-panel-cuts",panelCutsN+"/"+Math.round(performance.now()-t0)+"ms")
   }
   function lowerGround(){
-   buildDucts();porchSheets();lapSheets();plinthClear();try{trimPlumbEnds()}catch(e){if(window.console)console.warn("trimPlumbEnds",e&&e.stack||e)}gableClear();try{seatTrims()}catch(e){if(window.console)console.warn("seatTrims",e&&e.stack||e)}eaveGutters();abutOverGutters();plinthWalls();roofDrains();buildingTexts();
+   buildDucts();porchSheets();lapSheets();plinthClear();try{trimPlumbEnds()}catch(e){if(window.console)console.warn("trimPlumbEnds",e&&e.stack||e)}gableClear();try{seatTrims()}catch(e){if(window.console)console.warn("seatTrims",e&&e.stack||e)}eaveGutters();abutOverGutters();plinthWalls();[wallGapFills,cornerTrimTops,tierUnderAbutment].forEach(function(f){try{f()}catch(e){if(window.console)console.warn(f.name,e&&e.stack||e)}});roofDrains();buildingTexts();
    var low=0;elems.forEach(function(c){var z=Math.min(number(c.z0),c.geometryType==="column"?number(c.z0):number(c.z2));if(z<low)low=z});
    var y=Math.min(0,low/1000+.12);ground.position.y=y;dims.position.y=y;
    cutsDue=true
@@ -13194,7 +13276,7 @@ window.irThreeSchemeView=(function irThreeModule(){
     window.removeEventListener("blur",releaseKeys);
     controls.dispose();clearNodes();clearCallouts();partMats.forEach(function(m){m.dispose()});nodeGeo.dispose();weldNodeGeo.dispose();nodeMats.forEach(function(m){m.dispose()});boltMat.dispose();plateMat.dispose();concreteMat.dispose();craneMat.dispose();[stripeMat,yellowMat,railMat,deckMat,guardMat].forEach(function(m){m.dispose()});hoistMat.dispose();wheelMat.dispose();glassMat.dispose();openingGlass.dispose();hardwareMat.dispose();silverMat.dispose();fixedMats.forEach(function(m){m.dispose()});boltMats["8.8"].dispose();boltMats["5.8"].dispose();washerMats["8.8"].dispose();washerMats["5.8"].dispose();boltPickMat.dispose();
     meshGeo.forEach(function(g){g.dispose()});mats.forEach(function(m){m.dispose()});if(metalEnv)metalEnv.dispose();shellMats.forEach(function(m){m.dispose()});roofMats.forEach(function(m){m.dispose()});
-    [selectedMat,selectedGhost,hoverMat,axisMaterial,dimMaterial,floorMaterial,darkFloorMaterial,markerMat,pointMat,previewMat].forEach(function(m){m.dispose()});
+    [selectedMat,selectedGhost,hoverGhost,hoverMat,axisMaterial,dimMaterial,floorMaterial,darkFloorMaterial,markerMat,pointMat,previewMat].forEach(function(m){m.dispose()});
     var cached=new Set(meshGeo.values());
     [scene,steel].forEach(function(top){top.traverse(function(obj){if(obj.geometry&&obj.geometry.dispose&&!cached.has(obj.geometry))obj.geometry.dispose()})});
     renderer.dispose();renderer.forceContextLoss?.();
