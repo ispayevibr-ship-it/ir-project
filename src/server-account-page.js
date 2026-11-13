@@ -424,7 +424,7 @@
    for(const d of byDate)for(const p of sarr(d.photos))if(p)gallery.push(String(p))
   }
   return{rid:Number(o.id),name:o.name||"",customer:o.customer||"",general_contractor:o.general_contractor||"",address:o.address||"",
-   summary:String(meta.find(r=>r.record_type==="object_summary")?.data?.value||""),status:o.status||"",years,works,cover:cover||banner,photos:gallery.filter(f=>f&&f!==cover&&f!==banner).slice(0,30),skip:[cover,banner].filter(Boolean),hero:heroOf(meta),sort}
+   summary:String(meta.find(r=>r.record_type==="object_summary")?.data?.value||""),status:o.status||"",years,works,cover:cover||banner,photos:[...new Set(gallery.filter(f=>f&&f!==cover&&f!==banner))],skip:[cover,banner].filter(Boolean),hero:heroOf(meta),sort}
  }
  // Фото «в шапку сайта» (просьба инженера 12.11.2026 «на каждую фотку можно ставить метку Выводить в шапке сайта»):
  // запись object-meta «site_hero_photos», data.files — пути отмеченных фото. Уходит с объектом на сайт (site-objects.js).

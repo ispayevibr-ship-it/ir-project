@@ -18,8 +18,12 @@ const path=require("node:path");
 const crypto=require("node:crypto");
 
 const COLL="site_objects";
-const MAX_PHOTOS=30;
+// (60 — столько держит поле photos на сервере; было 30: у объекта с 43 фото на выбор «в шапку» и на сайт шли не все —
+// инженер 13.11.2026 «не все фото дает на выбор»)
+const MAX_PHOTOS=60;
 const MAX_SIDE=1600;
+// the photos within the limit, in their order; the ones marked «в шапку» are kept whatever their place
+const limit=(photos,hero)=>{if(photos.length<=MAX_PHOTOS)return photos;const keep=new Set(photos.filter(p=>hero.includes(p)).slice(0,MAX_PHOTOS));for(const p of photos){if(keep.size>=MAX_PHOTOS)break;keep.add(p)}return photos.filter(p=>keep.has(p))};
 const clip=(v,n)=>String(v??"").replace(/\s+/g," ").trim().slice(0,n);
 const numberOf=v=>{const n=Number(String(v??"").replace(/\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};
 
@@ -34,7 +38,7 @@ function clean(list){
   const hero=[...new Set((Array.isArray(o.hero)?o.hero:[]).map(p=>String(p||"")).filter(Boolean))];
   out.push({rid,name:clip(o.name,300)||"Объект",customer:clip(o.customer,300),general_contractor:clip(o.general_contractor,300),
    address:clip(o.address,300),summary:String(o.summary??"").replace(/\r\n?/g,"\n").replace(/[^\S\n]+/g," ").replace(/ *\n */g,"\n").replace(/\n{3,}/g,"\n\n").trim().slice(0,2000),status:clip(o.status,50),years:clip(o.years,50),works,cover:String(o.cover||""),
-   photos:photos.filter(p=>p!==String(o.cover||"")).slice(0,MAX_PHOTOS),skip:(Array.isArray(o.skip)?o.skip:[]).map(p=>String(p||"")).filter(Boolean).slice(0,4),sort:Number.isInteger(o.sort)?o.sort:i+1});
+   photos:limit(photos.filter(p=>p!==String(o.cover||"")),hero),skip:(Array.isArray(o.skip)?o.skip:[]).map(p=>String(p||"")).filter(Boolean).slice(0,4),sort:Number.isInteger(o.sort)?o.sort:i+1});
   const last=out[out.length-1];last.hero=hero.filter(p=>p===last.cover||last.photos.includes(p))
  }
  return out
