@@ -654,6 +654,33 @@ function fromDrawing(c,pl){
  if(c.info.page||!(Number(pl?.source_page)>0))return{page:c.info.page,file:c.info.file,sheet:c.info.sheet};
  return{page:Number(pl.source_page),file:pl.source_file||"",sheet:String(pl.sheet||pl.source_page)}
 }
+// The hatched wall of the plan (src/ai-ar-extract.js planWalls) an inner door, gate of the plan stands in, when the line
+// next to its label is not that wall's (a dimension line, the leaf of a sliding gate drawn beside it): an end of the wall
+// within 450 mm of an end of the opening [a, b], its line within 1 m of the one taken — the nearest; null if none.
+function snapBand(bands,alongX,fa,fc,line,a,b){
+ let best=null;
+ for(const w of bands||[]){if((w.along==="x")!==alongX||!Array.isArray(w.wall)||!Array.isArray(w.run))continue;
+  const w1=w.wall.length>1?w.wall[1]:w.wall[0],bl=fc.a+fc.b*(w.wall[0]+w1)/2,bt=Math.abs(w1-w.wall[0])*Math.abs(fc.b),dl=Math.abs(bl-line);
+  if(dl>1000||bt<60)continue;
+  const r0=fa.a+fa.b*w.run[0],r1=fa.a+fa.b*w.run[1],lo=Math.min(r0,r1),hi=Math.max(r0,r1);
+  if(lo<a+100&&hi>b-100)continue;
+  if(Math.min(Math.abs(lo-b),Math.abs(hi-a))>450)continue;
+  if(!best||dl<best.dl)best={dl,line:Math.round(bl),t:Math.round(bt)}}
+ return best&&best.dl>=40?best:null
+}
+// The run a wall of panels leaves open under it over an opening (the panels whose foot is at its head): on their line,
+// the opening centred in that run when it is as long as the opening (−300…+600 mm); null otherwise.
+function overRun(over,placements,alongX,a,b,w){
+ // (all the panels of those lines whose foot is at the head of those over it — the run is longer than the opening's span)
+ const byLine=new Map(),lines=new Map();for(const q of over){const l=alongX?q.y_mm:q.x_mm;lines.set(l,Math.min(lines.get(l)??Infinity,q.z0_mm))}
+ for(const q of placements||[]){if(q.type_key!=="sandwich_wall"||(alongX?q.y_mm!==q.y2_mm:q.x_mm!==q.x2_mm))continue;const l=alongX?q.y_mm:q.x_mm;if(!lines.has(l)||Math.abs(q.z0_mm-lines.get(l))>150)continue;(byLine.get(l)||byLine.set(l,[]).get(l)).push(q)}
+ let best=null;
+ for(const [l,qs] of byLine){const iv=qs.map(q=>{const u=alongX?[q.x_mm,q.x2_mm]:[q.y_mm,q.y2_mm];return[Math.min(...u),Math.max(...u)]}).sort((p,r)=>p[0]-r[0]),runs=[];
+  for(const v of iv){const r=runs[runs.length-1];if(r&&v[0]-r[1]<=60)r[1]=Math.max(r[1],v[1]);else runs.push([v[0],v[1]])}
+  for(const r of runs){const len=r[1]-r[0];if(len<w-300||len>w+600||r[1]<a-1500||r[0]>b+1500)continue;
+   const c=(r[0]+r[1])/2,d=Math.abs(c-(a+b)/2);if(!best||d<best.d)best={d,line:l,a:Math.round(c-w/2),t:Number(qs[0].layout&&qs[0].layout.thickness_mm)||120}}}
+ return best
+}
 function arScheme(pages,opts={}){
  const ar=pages.filter(p=>p.docType==="АР"&&p.ar);if(!ar.length)return null;
  const spec=new Map();for(const p of ar)for(const s of p.ar.panels||[]){if(!spec.has(s.pos))spec.set(s.pos,[]);spec.get(s.pos).push(s)}
@@ -1132,9 +1159,15 @@ let loose=0;
     for(const o of p.ar.planFills||[]){if(o.mark!==f.pos||n>=k||!o.wall)continue;
      const alongX=o.along==="x",fa=alongX?fit.fx:fit.fy,fc=alongX?fit.fy:fit.fx,sc=Math.abs(fa.b);
      if(had&&!partDoors.has(o)){const pu=fa.a+fa.b*(alongX?o.x:o.y),pl=fc.a+fc.b*o.wall[0],pt=alongX?[pu,pl]:[pl,pu];if(there.some(q=>Math.hypot(q[0]-pt[0],q[1]-pt[1])<=2500))continue;there.push(pt)}
-     const mid=o.wall.length>1?(o.wall[0]+o.wall[1])/2:o.wall[0],t=o.wall.length>1?Math.max(80,Math.round(Math.abs(o.wall[0]-o.wall[1])*Math.abs(fc.b))):120;
+     const mid=o.wall.length>1?(o.wall[0]+o.wall[1])/2:o.wall[0];let t=o.wall.length>1?Math.max(80,Math.round(Math.abs(o.wall[0]-o.wall[1])*Math.abs(fc.b))):120;
      const c=alongX?o.x:o.y,gap=(o.gaps||[]).map(g=>({g,w:(g[1]-g[0])*sc})).filter(q=>q.w>=f.width_mm-150&&q.w<=f.width_mm+400).sort((p,q)=>Math.abs((p.g[0]+p.g[1])/2-c)-Math.abs((q.g[0]+q.g[1])/2-c))[0];
-     const pd=partDoors.get(o),uc=pd?pd.uc:fa.a+fa.b*(gap?(gap.g[0]+gap.g[1])/2:c),a=Math.round(uc-f.width_mm/2);let line=pd?pd.line:Math.round(fc.a+fc.b*mid),z=pd?(pd.top!==null?Math.min(pd.top-f.height_mm,pd.floor+60):pd.floor):f.kind==="window"?900:0;
+     const pd=partDoors.get(o),uc=pd?pd.uc:fa.a+fa.b*(gap?(gap.g[0]+gap.g[1])/2:c);let a=Math.round(uc-f.width_mm/2),line=pd?pd.line:Math.round(fc.a+fc.b*mid),z=pd?(pd.top!==null?Math.min(pd.top-f.height_mm,pd.floor+60):pd.floor):f.kind==="window"?900:0;
+     // (the hatched wall of the plan whose end meets the gap — ИР-71535 АР ч.1 л.10 В-5 by a dimension line 0,7 m off the wall,
+     // В-7 by its sliding leaf drawn beside the wall 0,2 m off; the engineer, 13.11.2026 «двери чуть вперед вытащить надо»,
+     // «здесь явно тоже не правильно стоит»: the line nearest the label is not always the wall's. The opening goes on the
+     // line of that wall, its thickness, when an end of the wall comes within 450 mm of an end of the opening and its line
+     // within 1 m — the nearest such; `snapBand`)
+     if(!pd){const sb=snapBand(p.ar.planWalls,alongX,fa,fc,line,a,a+f.width_mm);if(sb){line=sb.line;t=sb.t}}
      // (a door of the plan in a wall of panels the facades do not show — ИР-71535 Д-3, Д-1 in the wall on О8 between the
      // shop and the extension, panels Пс-70, Пс-1: on the line of those panels, its hole cut in them — it stood through them)
      let inWall=null;
@@ -1146,7 +1179,11 @@ let loose=0;
      // the 3D moves them onto their girts)
      if(!pd&&!inWall){const over=placements.filter(q=>q.type_key==="sandwich_wall"&&(alongX?q.y_mm===q.y2_mm:q.x_mm===q.x2_mm)&&Math.abs((alongX?q.y_mm:q.x_mm)-line)<=900&&
        Math.min(Math.max(alongX?q.x_mm:q.y_mm,alongX?q.x2_mm:q.y2_mm),a+f.width_mm)-Math.max(Math.min(alongX?q.x_mm:q.y_mm,alongX?q.x2_mm:q.y2_mm),a)>=20&&q.z0_mm<z+f.height_mm&&q.z0_mm>=z+f.height_mm-150);
-      if(over.length)z=Math.min(...over.map(q=>q.z0_mm))-f.height_mm}
+      if(over.length){z=Math.min(...over.map(q=>q.z0_mm))-f.height_mm;
+       // (and in that wall: on the line of those panels, along in the run they leave open under them — ИР-71535 В-4 of
+       // 3600 under Пс-113 from +3,585 in the wall of panels on О1: it stood 0,6 m off that wall, 1,4 m along, at its label,
+       // alone on the floor; the engineer, 13.11.2026 «ворота явно не в той позиции»)
+       const on=overRun(over,placements,alongX,a,a+f.width_mm,f.width_mm);if(on){line=on.line;a=on.a;t=Math.max(80,on.t)}}}
      // (the door of a partition put by its view: in the wall of panels like a door of a facade — not «plan»)
      fillOf(f,alongX,false,a,a+f.width_mm,z,{line,layout:{thickness_mm:pd?120:inWall?(inWall[0].layout.thickness_mm||120):t},axis_x:"",axis_y:"",...(pd||inWall?{}:{plan:true})},{sheet:p.pdfPage||p.page,page:p.page,file:p.sourceName||""},
       ["План АР, лист "+(p.pdfPage||p.page)+": "+f.pos+" "+f.width_mm+"×"+f.height_mm+" ("+f.name+") — внутренний, в перегородке"+(gap?", по проёму стены":", у надписи — проём на плане не найден, проверьте"),
@@ -2653,4 +2690,4 @@ function seatTrusses(elements,catalog){
   e.note=[e.note,"Ферма по геометрической схеме"+(moved?", отметка низа — как у соседних ферм":"")+" — проверьте"].filter(Boolean).join("; ")
  }
 }
-module.exports={arScheme,arTrims,frameProfiles,depthOf,instanceStatus,sheetNodes,jointNote,platesBySpec,gussetsBySpec,gussetHoles,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces,trimGuardPosts,sectionOutliers,roofProfiles,roofLine,roofOnColumns,purlinsOnBeams,hangTracks,relevelNeighbours,oneLadder};
+module.exports={arScheme,snapBand,overRun,arTrims,frameProfiles,depthOf,instanceStatus,sheetNodes,jointNote,platesBySpec,gussetsBySpec,gussetHoles,typeFor,deckFrames,sectionHeight,seatFramed,seatColumnLattices,seatWallRails,buildPlan,buildCatalog,markKey,scopeOf,volumeOf,mergeGrids,groupFor,normMark,GROUPS,cumulative,seatBases,seatOnChords,raiseVerticalBraces,trimGuardPosts,sectionOutliers,roofProfiles,roofLine,roofOnColumns,purlinsOnBeams,hangTracks,relevelNeighbours,oneLadder};

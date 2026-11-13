@@ -32,11 +32,11 @@
  async function now(objectId){
   if(!objectId||busy)return;busy=true;
   try{
-   const up=window.irProject?.updater;
+   const up=window.irProject?.updater;listen();
    if(up?.check){show("Проверяю обновление программы…");
     let r=null;try{r=await up.check()}catch(_e){}
     const remote=String(r?.updateInfo?.version||""),local=String(await up.version?.().catch(()=>"")||"");
-    if(remote&&local&&remote!==local&&newer(remote,local)){show("Скачиваю обновление программы "+remote+"…");await up.download();
+    if(remote&&local&&remote!==local&&newer(remote,local)){downloading=remote;show("Скачиваю обновление программы "+remote+"…");progress(0,0);try{await up.download()}finally{downloading=""}
      show("Программа обновлена до "+remote+" — перезапускаю, затем схема откроется с новым пакетом");try{sessionStorage.setItem("ir-scheme-updates-done","Программа обновлена до "+remote)}catch(_e){}
      setTimeout(()=>up.install(),1200);return}}
    show("Проверяю пакет схем и данные чертежей…");
@@ -50,6 +50,26 @@
    setTimeout(()=>{if(bar&&!busy&&bar.dataset.kind!=="update")hide()},6000)
   }catch(error){show("Не обновлено: "+clean(error),"Повторить",()=>{hide();now(objectId)})}
   finally{busy=false}
+ }
+ // The line of the download of the program (the engineer, 13.11.2026: «линию загрузки добавить? чтобы понимать сколько
+ // ждать»): the main process sends «update:status» only to the window of the tabs (this page is in its frame), so the
+ // events are taken from there — the size of the update from «available», the bytes done from «progress».
+ let downloading="",totalBytes=0,listening=false;
+ function listen(){
+  if(listening)return;let top=null;try{top=window.top!==window?window.top.irProject:null}catch(_e){}
+  const up=top?.updater?.onStatus?top.updater:window.irProject?.updater;if(!up?.onStatus)return;listening=true;
+  up.onStatus(info=>{if(!info)return;if(info.type==="available")totalBytes=Math.max(0,Number(info.size)||0);
+   else if(info.type==="progress"&&downloading){const done=Math.max(0,Number(info.transferred)||0);
+    progress(totalBytes>0?Math.min(100,Math.round(done/totalBytes*100)):Math.max(0,Math.min(100,Number(info.percent)||0)),done)}})
+ }
+ const mb=n=>(n/1048576).toFixed(n<10485760?1:0).replace(".",",");
+ function progress(pct,done){
+  if(!bar?.querySelector)return;let w=bar.querySelector(".scheme-updates-progress");
+  if(!w){w=document.createElement("div");w.className="scheme-updates-progress";w.style.cssText="flex-basis:100%;order:9;display:flex;gap:8px;align-items:center";
+   w.innerHTML='<div style="flex:1;height:6px;border-radius:3px;background:#374151;overflow:hidden"><div class="fill" style="height:100%;width:0;background:#22c55e;transition:width .2s"></div></div><span class="pct" style="min-width:110px;text-align:right;font-variant-numeric:tabular-nums"></span>';
+   bar.style.flexWrap="wrap";bar.appendChild(w)}
+  w.querySelector(".fill").style.width=pct+"%";
+  w.querySelector(".pct").textContent=pct+" %"+(done?" · "+mb(done)+(totalBytes?" из "+mb(totalBytes):"")+" МБ":"")
  }
  function newer(a,b){const A=String(a).split(".").map(Number),B=String(b).split(".").map(Number);for(let i=0;i<Math.max(A.length,B.length);i++){const d=(A[i]||0)-(B[i]||0);if(d)return d>0}return false}
  function show(text,button,onClick){

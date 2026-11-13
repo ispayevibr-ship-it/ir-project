@@ -732,6 +732,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    '<label class="ir-three-check"><input type="checkbox" id="irThreeAxes" checked> Оси</label>'+
    '<select id="irThreeNodes" data-native-select="1" aria-label="Узлы" title="Маркеры узлов: опоры колонн, оголовки, концы балок"><option value="sel">Узлы: у выбранного</option><option value="all">Узлы: все</option><option value="open">Узлы: несмонтированные</option><option value="off">Узлы: скрыть</option></select>'+
    '<label class="ir-three-check" title="Опорные плиты, анкеры и оголовки вблизи, краны на путях — условно, не по КМД"><input type="checkbox" id="irThreeDetails" checked> Детали</label>'+
+   '<label class="ir-three-check" title="Строка в углу схемы: кадров в секунду, треугольников и команд видеокарте за кадр, время кадра, болтов в кадре"><input type="checkbox" id="irThreeStats"> Счётчик</label>'+
    '<label class="ir-three-check" title="Все болты в кадре со всеми фасками и гранями на любом расстоянии. Выключено — мелкие на экране болты рисуются проще, вблизи всегда полные; так легче видеокарте"><input type="checkbox" id="irThreeBest"> Максимальное качество</label>'+
    '</div>'+
    '<div id="irThreeCopyHint" class="ir-three-copy-hint" hidden>Щёлкните новое начало конструкции на плоскости X/Y. <button id="irThreeCancelCopy" type="button">Отмена</button></div>'+
@@ -1218,9 +1219,14 @@ window.irThreeSchemeView=(function irThreeModule(){
      list.forEach(function(o){if(o===L.a||o===L.b||!o.id||o.geometryType!=="column"||String(o.mark||"")!==String(L.a.mark||""))return;
       var v=toWorld(o.x,o.y,0).sub(pa),off=v.dot(n);if(Math.abs(off)<.2||Math.abs(off)>2||v.dot(u)<-.3||v.dot(u)>pb.clone().sub(pa).dot(u)+.3)return;if(!best||Math.abs(off)<Math.abs(best))best=off});
      w=best!==null&&best<0?n.negate():n;lead=null}
+    // (the leg of the leading post in the plane of the frame away from the other post — the stringer of Л3 by КМ3 л.18, its
+    // leg outward —: the top bent with that leg on the outer side of the bend, the other post its mirror; bent with the leg
+    // inward the top met the stringer crooked, its leg on the other side — the engineer, 13.11.2026, «это что за стык такой
+    // кривой»)
+    L.out=false;if(lead){var to2=lead===L.a?u:u.clone().negate();L.out=legsOf(branchTurn.get(String(lead.id))).some(function(l){return l.dot(to2)<-.7})}
     L.w=w.clone();
-    if(lead!==L.a)branchTurn.set(String(L.a.id),turnFor(u,w));
-    if(lead!==L.b)branchTurn.set(String(L.b.id),turnFor(u.clone().negate(),w))
+    if(lead!==L.a)branchTurn.set(String(L.a.id),L.out?turnFor(u.clone().negate(),w):turnFor(u,w));
+    if(lead!==L.b)branchTurn.set(String(L.b.id),L.out?turnFor(u,w):turnFor(u.clone().negate(),w))
    });
    frameAt.forEach(function(L,id){
     var m=null;list.some(function(o){if(String(o.id)===id){m=o;return true}return false});var q=m&&memberPoints(m);if(!q||q.length!==2)return;
@@ -1245,6 +1251,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    if(rb){for(i=k;i>=0;i--){f=Math.PI/2*i/k;add(pb.clone().sub(u.clone().multiplyScalar(rb*(1-Math.cos(f)))).setY(yb+rb*Math.sin(f)),u.clone().multiplyScalar(-Math.cos(f)).sub(up.clone().multiplyScalar(Math.sin(f))))}}
    else add(pb.clone().sub(u.clone().multiplyScalar(lb)).setY(top),up.clone().negate());
    // (the section at a point: the heel, along the outer leg — w —, round the inner side, along the leg in the plane — n)
+   if(L.out)path.forEach(function(q){q.n=q.n.clone().negate()});
    var ring=function(q){var at=function(a,b){return q.P.clone().add(q.n.clone().multiplyScalar(a)).add(w.clone().multiplyScalar(b))};
     return[at(0,0),at(0,lb),at(t,lb),at(t,t),at(lb,t),at(lb,0)]},rings=path.map(ring),pos=[],idx=[];
    var put=function(v){pos.push(v.x,v.y,v.z);return pos.length/3-1};
@@ -3446,6 +3453,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   // (the ends of the members by plan cells of 0.5 m, made once for the members of a building: each point looked for among
   // all 6600 members of ИР-71535 took half a second of the opening; the same ends, in the same order)
   var endCells=null,endFor=null,endN=-1;
+  var bpFor=null,bpMade=new Set();
   function endsNear(P){
    if(endFor!==elems||endN!==elems.length){endFor=elems;endN=elems.length;endCells=new Map();
     elems.forEach(function(m,i){[[m.x,m.y,m.z0,m.x2,m.y2,m.z2],[m.x2,m.y2,m.z2,m.x,m.y,m.z0]].forEach(function(q,k){var A=toWorld(number(q[0]),number(q[1]),number(q[2]));
@@ -4141,8 +4149,12 @@ window.irThreeSchemeView=(function irThreeModule(){
     // went one into the other, 3 mm; where its bolts stay on it, 2 bolt diameters in from its edge)
     var fit=function(){h1=Math.max(h0+Math.min(.3,run+.05),(end+run)*hl+.05);gy=E0.y+d.y*(end+run/2);
      var hm=(L/2-.002)*hl;if(h1>hm&&hm>h0+.1&&L/2-.002>=end+7.5*(dia||.02))h1=hm;
-     // (at the bottom of a beam — a strut under a cantilever, ИР КМ3 л.15 узел 13 — its top edge on the face, not 15 mm into it)
-     if(hit.n&&Math.abs(hit.n.y)>.9){var fy=E0.y+d.y*face;gy=d.y<0?Math.min(gy,fy-gh/2):Math.max(gy,fy+gh/2)}};
+     // (at the bottom of a beam — a strut under a cantilever, ИР КМ3 л.15 узел 13 — its top edge on the face, not 15 mm into it;
+     // on the top of a beam — the lower node of the vertical bracing Свк2 2L160×10 on the brake beam Тб1, КМ1 л.15 —: its
+     // bottom edge on the flange, welded to it, up past the end of the brace. Steep there — 59° at О7–О8 —, the plate by the
+     // middle of the brace's end stood 76 mm over the flange, both gussets of the «V» in the air: the engineer, 13.11.2026,
+     // «почему в воздухе?»)
+     if(hit.n&&Math.abs(hit.n.y)>.9){var fy=E0.y+d.y*face;if(d.y<0){var hi=fy,lo=Math.min(gy-gh/2,fy-.15)}else{lo=fy;hi=Math.max(gy+gh/2,fy+.15)}gh=hi-lo;gy=(lo+hi)/2}};
     // (where a plate of another member is drawn at that face — the support table and rib of a truss at a column, Св1 at К4
     // under Фс2: the gusset and the end of the brace went through them — the end goes on along the brace by 50 mm at a
     // time, at most 1 m, till the gusset and the last 300 mm of the brace are clear of them; never clear, as it was)
@@ -4167,6 +4179,24 @@ window.irThreeSchemeView=(function irThreeModule(){
     // there comes up at 15° to the corner of К1 and Б1 (разрез 8-8, geometric scheme), its top clear of the beam 600 mm
     // from the column)
     if(stuck()){var e1=end,lm=Math.min(L*.45,end+.7);while(end+.01<=lm){end+=.01;if(!stuck())break}if(stuck())end=e1;fit()}
+    // (a steep brace on the top of a beam on the upright plate of its node — КМ1 л.19 узел 16, разрез 20-20: the «V» of Свк2
+    // 2L160×10 on Тб1 —, joint.beam_plate: the plate t16 С345 840 × 150 welded to the flange, the gusset of the braces
+    // against it from the flange up, 8 bolts М24-5.8 at 90 in oval holes 60 × 23 across both, 75 over the flange; the ends
+    // of the angles 50 mm over the plate. Once at the node, both braces of the «V» coming to it)
+    var bpj=(c.joint||{}).beam_plate;
+    if(bpj&&typeof bpj==="object"&&!real&&!hit.col&&hit.n&&hit.n.y>.9&&d.y>.3){
+     var bpT=number(bpj.t_mm||16)/1000,bpH=number(bpj.h_mm||150)/1000,bpL=number(bpj.l_mm||840)/1000,bpN=Math.max(1,Math.round(number(bpj.bolts||8))),bpP=number(bpj.pitch_mm||90)/1000,bpU=number(bpj.up_mm||75)/1000,bpD=(function(){var m=/(\d{2})/.exec(String(bpj.bolt||"М24"));return m?number(m[1])/1000:.024})();
+     var fy0=E0.y+d.y*face,top0=fy0+bpH,low=function(){var P6=E0.clone().add(d.clone().multiplyScalar(end)),w6=v.clone().multiplyScalar(.31),bx=k?pieceBox(c,P6.clone().sub(w6),P6):pieceBox(c,P6,P6.clone().add(w6));if(!bx)return Infinity;var m6=Infinity;
+      for(var a=0;a<2;a++)for(var b=0;b<2;b++)for(var u=0;u<2;u++){var Q=bx.o.clone().add(bx.U.clone().multiplyScalar(u?.31:0)).add(bx.X.clone().multiplyScalar(a?bx.x1:bx.x0)).add(bx.Y.clone().multiplyScalar(b?bx.y1:bx.y0));m6=Math.min(m6,Q.y)}return m6};
+     var lim6=Math.min(L*.45,end+.6);while(end+.005<=lim6&&low()<top0+.05)end+=.005;fit();
+     if(bpFor!==elems){bpFor=elems;bpMade=new Set()}
+     var bpKey=Math.round(E0.x*100)+","+Math.round(E0.z*100)+","+Math.round(fy0*100);
+     if(!bpMade.has(bpKey)){bpMade.add(bpKey);
+      var bpS=bpj.side_sign===-1?-1:1,bpO=E0.clone().add(side.clone().multiplyScalar(bpS*(gt/2+bpT/2)));bpO.y=fy0+bpH/2;
+      var bpm=new T.Mesh(shared("gusset",function(){return new T.BoxGeometry(1,1,1)}),baseMaterial(c));
+      bpm.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(hd,up,side));bpm.scale.set(bpL,bpH,bpT);bpm.position.copy(bpO);bpm.userData.plate=true;
+      parts.push(partTag(bpm,"лист узла","−"+Math.round(bpT*1000)+"×"+Math.round(bpH*1000)+"×"+Math.round(bpL*1000)+(bpj.steel?" "+bpj.steel:"")));
+      for(var bi=0;bi<bpN;bi++){var bq=E0.clone().add(hd.clone().multiplyScalar((bi-(bpN-1)/2)*bpP));bq.y=fy0+bpU;bq.add(side.clone().multiplyScalar(bpS*bpT/2));addBolt(c,bq,side.clone().multiplyScalar(bpS),bpD,gt+bpT)}}}
     out[k]=E0.clone().add(d.clone().multiplyScalar(end));
     g.scale.set(h1-h0,gh,gt);
     g.position.copy(E0).add(hd.clone().multiplyScalar((h0+h1)/2));g.position.y=gy;
@@ -6447,19 +6477,26 @@ window.irThreeSchemeView=(function irThreeModule(){
    roofs.forEach(function(r){
     var ext=[0,0];
     [[r.a,r.u],[r.b,{x:-r.u.x,y:-r.u.y}]].forEach(function(e,k){
-     var E=e[0],d=e[1],best=0;
+     var E=e[0],d=e[1],best=0,back=-Infinity;
      walls.forEach(function(w){
       var cr=d.x*w.u.y-d.y*w.u.x;if(Math.abs(cr)<.87)return;
       // (up to 1,5 m in: the roof of an annex read on past the wall of the shop rising over it — Пк-12 through Пс-5.1 by О7/1)
-      var tc=((w.a.x-E.x)*w.u.y-(w.a.y-E.y)*w.u.x)/cr;if(tc<-w.t||tc>1500)return;
-      var face=tc+w.t/2/Math.abs(cr);if(face<1)return;
+      var tc=((w.a.x-E.x)*w.u.y-(w.a.y-E.y)*w.u.x)/cr;if(tc<-w.t-300||tc>1500)return;
+      var face=tc+w.t/2/Math.abs(cr);
       // (across the roof panel's width, the wall there: its line within the panel's strip, the roof between its foot and top)
       var X=E.x+d.x*tc,Y=E.y+d.y*tc,sw=(X-w.a.x)*w.u.x+(Y-w.a.y)*w.u.y;if(sw<-r.w/2||sw>w.L+r.w/2)return;
-      var zr=r.a.z+(r.b.z-r.a.z)*(k?r.L-tc:tc)/r.L;if(w.z0>zr||w.top<zr+r.t+50)return;
+      var zr=r.a.z+(r.b.z-r.a.z)*(k?r.L-tc:tc)/r.L;if(w.top<zr+r.t+50)return;
+      // (a wall a little short of the end — the face of the shop's wall on О8 moved out to its girts, 60 mm short of the
+      // top of the annex roof Пк-16 along 32 m, a slot down into the annex: the engineer, 13.11.2026 «почему тут щель между
+      // стеной большого здания и крышей маленького?» — the end on up to that face, ≤ 300 mm)
+      if(face<1){if(face>-300&&w.z0<=zr+r.t)back=Math.max(back,face);return}
+      if(w.z0>zr)return;
       best=Math.max(best,face)});
      // (3 mm clear of the face: the tilted end of the panel — Пк-12…14 at Пс-70 by О8 1,6–1,8 mm in)
      // (and the tilt of the panel's end: its thickness times the slope)
-     if(best>=1&&best<=1600)ext[k]=-(best+3+r.t*Math.abs(r.b.z-r.a.z)/r.L)/1000});
+     var tilt=r.t*Math.abs(r.b.z-r.a.z)/r.L;
+     if(best>=1&&best<=1600)ext[k]=-(best+3+tilt)/1000;
+     else if(!best&&back>-Infinity&&-back-3-tilt>=5)ext[k]=(-back-3-tilt)/1000});
     if(ext[0]||ext[1])panelExt.set(r.id,ext);
     // The side of a roof panel along a wall going on up past it (ИР-71535 Пк-15 under Пс-89 by row Е: the wall above the
     // roof of the annex on the outer face of its girts, 170 mm over the edge of the last strip — the strip under the
@@ -11434,9 +11471,13 @@ window.irThreeSchemeView=(function irThreeModule(){
    if(!phone){var uses=new Map(),det=new T.Matrix4();
     allMeshes.forEach(function(m){if(!m.visible||m.userData.small)return;var k=m.geometry.uuid+"|"+m.material.uuid;uses.set(k,(uses.get(k)||0)+1)});
     allMeshes.forEach(function(m){m.__inst=false;if(!m.visible||m.userData.small||Array.isArray(m.material))return;var k=m.geometry.uuid+"|"+m.material.uuid;if(uses.get(k)<4||m.matrixWorld.determinant()<=0)return;
-     m.__inst=true;var g=inst.get(k);if(!g)inst.set(k,g={geo:m.geometry,mat:m.material,list:[]});g.list.push(m)});
-    inst.forEach(function(g){var im=new T.InstancedMesh(g.geo,g.mat,g.list.length);g.list.forEach(function(m,i){im.setMatrixAt(i,m.matrixWorld)});
-     im.instanceMatrix.needsUpdate=true;im.matrixAutoUpdate=false;im.userData.lod="fine";im.userData.instanced=true;batches.add(im)})}
+     // (by squares of 40 m: a square out of the picture is not drawn — partsView; the engineer, 13.11.2026 «давай делай»)
+     var e=m.matrixWorld.elements,kc=k+"|"+Math.floor(e[12]/40)+","+Math.floor(e[14]/40);
+     m.__inst=true;var g=inst.get(kc);if(!g)inst.set(kc,g={geo:m.geometry,mat:m.material,list:[]});g.list.push(m)});
+    inst.forEach(function(g){var im=new T.InstancedMesh(g.geo,g.mat,g.list.length),box=new T.Box3(),gs=g.geo.boundingSphere||(g.geo.computeBoundingSphere(),g.geo.boundingSphere),c=new T.Vector3(),sc=0;
+     g.list.forEach(function(m,i){im.setMatrixAt(i,m.matrixWorld);c.copy(gs.center).applyMatrix4(m.matrixWorld);box.expandByPoint(c);sc=Math.max(sc,m.matrixWorld.getMaxScaleOnAxis())});
+     var sph=box.getBoundingSphere(new T.Sphere());sph.radius+=gs.radius*sc;
+     im.instanceMatrix.needsUpdate=true;im.matrixAutoUpdate=false;im.userData.lod="fine";im.userData.instanced=true;im.userData.sphere=sph;batches.add(im)})}
    var batchCell=function(byMat,k){
     var small=k[0]==="s",lined=[],lazy=phone&&!small?{parts:[],sphere:null,meshes:null}:null,sp=new T.Box3();
     byMat.forEach(function(list,mat){
@@ -11529,6 +11570,20 @@ window.irThreeSchemeView=(function irThreeModule(){
    boltCells.forEach(function(cell){if(!cell.meshes||!cell.levels)return;var lv=-1;
     if(cell.on){boltSphere.set(cell.centre,cell.radius);if(boltFrustum.intersectsSphere(boltSphere)){var d=Math.max(.05,cam.distanceTo(cell.centre)-cell.radius),px=cell.size*focal/d;lv=boltBest||px>=30?0:px>=8?1:2}}
     if(lv===cell.shown)return;cell.shown=lv;cell.levels.forEach(function(l,i){l.forEach(function(m){m.visible=i===lv})})});
+   // (the pieces of one shape, by squares — rebatch: a square out of the picture not drawn, as the bolts)
+   batches.children.forEach(function(m){var sp=m.userData.sphere;if(sp&&m.isInstancedMesh&&m.userData.lod==="fine")m.visible=boltFrustum.intersectsSphere(sp)});
+  }
+  // The counter of «Вид ▾» (the engineer, 13.11.2026 «давай делай»): pictures a second, triangles and drawings of the last
+  // picture, the time the program took to make it, the bolts in it.
+  var statsOn=false,statsEl=null,statsTimes=[],statsMs=0;
+  function paintStats(){
+   if(!statsOn){if(statsEl)statsEl.hidden=true;return}
+   if(!statsEl){statsEl=document.createElement("div");statsEl.className="ir-three-stats";statsEl.style.cssText="position:absolute;left:8px;bottom:8px;z-index:5;padding:3px 8px;border-radius:6px;background:rgba(20,24,30,.72);color:#fff;font:12px/1.4 system-ui,sans-serif;pointer-events:none;white-space:nowrap";
+    if(getComputedStyle(viewport).position==="static")viewport.style.position="relative";viewport.appendChild(statsEl)}
+   statsEl.hidden=false;var now=performance.now();statsTimes.push(now);while(statsTimes.length&&now-statsTimes[0]>1000)statsTimes.shift();
+   var info=renderer.info.render,b=0;boltCells.forEach(function(c){if(c.shown>=0)b+=c.list.length});
+   var mln=function(x){return x>=1e6?(x/1e6).toFixed(1).replace(".",",")+" млн":Math.round(x/1e3)+" тыс."};
+   statsEl.textContent=statsTimes.length+" кадров/с · "+mln(info.triangles)+" треугольников · "+info.calls+" команд · кадр "+statsMs.toFixed(1).replace(".",",")+" мс · болтов в кадре "+b;
   }
   // The detailed picture of a cell on a phone (rebatch, lazyCells): its pieces by material and their outlines.
   var lazyCells=[];
@@ -12178,6 +12233,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    var to=k.along?k.at.clone().add(k.along.clone().multiplyScalar(d)).add(new T.Vector3(0,-2.5,0)):k.at.clone().add(camera.position.clone().sub(controls.target).normalize().multiplyScalar(d));
    flight={from:controls.target.clone(),to:k.at.clone(),camFrom:camera.position.clone(),camTo:to,t:0,ms:850,st:performance.now()};invalidate()
   };
+  root.querySelector("#irThreeStats").onchange=function(e){statsOn=e.target.checked;statsTimes=[];if(!statsOn)paintStats();invalidate(1100)};
   root.querySelector("#irThreeBest").onchange=function(e){boltBest=e.target.checked;boltCells.forEach(function(c){c.shown=-2});invalidate()};
   root.querySelector("#irThreeDetails").onchange=function(e){showDetails=e.target.checked;equipment.visible=showDetails;paintLegend();
    pedestals.forEach(function(m){m.visible=showDetails});rebatch()};
@@ -12362,7 +12418,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    dirty=false;camRange();
    // (the camera placed before the labels are: they were put by the camera of the picture before and trailed the model
    // by a frame in a turn)
-   camera.updateMatrixWorld();
+   camera.updateMatrixWorld();var frameAt=performance.now();
    var w=viewport.clientWidth,h=viewport.clientHeight;
    paintTags(w,h);paintLabels(w,h);paintCallouts(w,h);paintNodesFrame();lod();boltView(h);
    // The outlines of the steel, the bolts and the welds stay in every picture, the camera turning or not: hidden while the
@@ -12371,6 +12427,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    var nowMs=performance.now();if(flight||held.size)movedAt=nowMs;
    bare=false;
    renderer.render(scene,camera);drew=true;
+   statsMs=performance.now()-frameAt;paintStats();if(statsOn)needUntil=Math.max(needUntil,performance.now()+1100);
    if(!firstPaint){firstPaint=true;P.onFirstPaint&&P.onFirstPaint()}
   }
   // The members are rebuilt only when they changed: choosing a member or a toggle on the page only repaints.
