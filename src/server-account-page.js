@@ -134,12 +134,17 @@
 .ir-so-tag.site{background:#e2f4ea;color:#1b7448}.ir-so-tag.site::before{content:"";display:inline-block;width:6px;height:6px;margin-right:5px;border-radius:50%;background:#22a35a;vertical-align:1px}
 .ir-so-del{height:24px;padding:0 9px;border:1px solid #efc9c3;border-radius:20px;background:#fff;color:#b4321f;font:inherit;font-size:11px;font-weight:650;cursor:pointer;white-space:nowrap}.ir-so-del:hover{background:#fdecea;border-color:#e59a8f}.ir-so-del:disabled{opacity:.5;cursor:default}
 .ir-so-hero{height:24px;padding:0 9px;border:1px solid #cfdbe5;border-radius:20px;background:#fff;color:#2d4a63;font:inherit;font-size:11px;font-weight:650;cursor:pointer;white-space:nowrap}.ir-so-hero:hover{background:#f1f6fb;border-color:#a9c6df}.ir-so-hero.on{background:#fff6e0;border-color:#e6c46a;color:#7a5506}
-.ir-hero-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;max-height:60vh;overflow:auto;padding:2px}
-.ir-hero-ph{position:relative;display:grid;grid-template-rows:120px auto;border:2px solid #d9e4ee;border-radius:11px;overflow:hidden;background:#fff;cursor:pointer}
-.ir-hero-ph.on{border-color:#d9a520;box-shadow:0 0 0 2px #f6e2a6}
-.ir-hero-ph img{width:100%;height:120px;object-fit:cover;display:block}.ir-hero-no{display:grid;place-items:center;height:120px;color:#8a9aa8;font-size:12px;background:#f2f5f8}
-.ir-hero-mark{display:flex;gap:7px;align-items:center;padding:8px 10px;font-size:12px;font-weight:600;color:#2d4a63}.ir-hero-mark input{width:16px;height:16px;margin:0;accent-color:#c7920f}
-.ir-hero-cov{position:absolute;top:6px;left:6px;padding:2px 8px;border-radius:20px;background:#0f2233cc;color:#fff;font-size:10.5px;font-weight:650}
+.ir-hero-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));grid-auto-rows:max-content;align-content:start;gap:12px;max-height:62vh;overflow:auto;padding:4px}
+.ir-hero-ph{position:relative;display:flex;flex-direction:column;min-height:max-content;border:2px solid #d9e4ee;border-radius:12px;overflow:hidden;background:#fff;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.ir-hero-ph:hover{border-color:#a9c6df}
+.ir-hero-ph.on{border-color:#d9a520;box-shadow:0 0 0 3px #f6e2a6}
+.ir-hero-ph img,.ir-hero-no{flex:none;width:100%;aspect-ratio:4/3;height:auto;object-fit:cover;display:block;background:#eef2f5}
+.ir-hero-no{display:grid;place-items:center;color:#8a9aa8;font-size:12px}
+.ir-hero-mark{flex:none;display:flex;gap:8px;align-items:center;padding:8px 10px;font-size:12px;font-weight:600;color:#4d6a80;border-top:1px solid #e6edf3;white-space:nowrap}
+.ir-hero-ph.on .ir-hero-mark{background:#fff6e0;color:#7a5506;border-top-color:#f0d98f}
+.ir-hero-mark input{width:17px;height:17px;margin:0;flex:none;accent-color:#c7920f;cursor:pointer}
+.ir-hero-ph.on::after{content:"✓";position:absolute;top:8px;right:8px;width:26px;height:26px;display:grid;place-items:center;border-radius:50%;background:#d9a520;color:#fff;font-size:15px;font-weight:800;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.ir-hero-cov{position:absolute;top:8px;left:8px;padding:2px 9px;border-radius:20px;background:#0f2233cc;color:#fff;font-size:10.5px;font-weight:650}
 .ir-hero-n{font-size:12.5px;color:#4d6a80}
 .ir-so-empty{padding:22px;text-align:center;color:#7b8f9f;border:1px dashed #cfdbe5;border-radius:11px;background:#fff}
 .ir-so-prog{display:grid;gap:6px;padding:12px 14px;border:1px solid #cfe0ef;border-radius:11px;background:#fff}
@@ -449,7 +454,7 @@
   const drawN=()=>{cnt.textContent=marked.size?"В шапке: "+marked.size+" из "+files.length:"Фото: "+files.length+", в шапку не отмечено"};
   if(!files.length){grid.innerHTML=`<div class="ir-so-empty">У объекта пока нет фото</div>`;d.querySelector("[data-save]").disabled=true;drawN();return}
   const src=await Promise.all(files.map(f=>irProject.images?.read?irProject.images.read(f).catch(()=>""):Promise.resolve("")));
-  grid.innerHTML=files.map((f,i)=>`<label class="ir-hero-ph${marked.has(f)?" on":""}" data-i="${i}">${src[i]?`<img src="${esc(src[i])}" alt="" loading="lazy">`:'<span class="ir-hero-no">нет файла</span>'}<span class="ir-hero-mark"><input type="checkbox" ${marked.has(f)?"checked":""}> Выводить в шапке сайта</span>${f===data.cover?'<span class="ir-hero-cov">обложка</span>':""}</label>`).join("");
+  grid.innerHTML=files.map((f,i)=>`<label class="ir-hero-ph${marked.has(f)?" on":""}" data-i="${i}">${src[i]?`<img src="${esc(src[i])}" alt="" loading="lazy">`:'<span class="ir-hero-no">нет файла</span>'}<span class="ir-hero-mark"><input type="checkbox" ${marked.has(f)?"checked":""}> В шапку сайта</span>${f===data.cover?'<span class="ir-hero-cov">обложка</span>':""}</label>`).join("");
   grid.querySelectorAll(".ir-hero-ph").forEach(l=>{const i=l.querySelector("input"),f=files[Number(l.dataset.i)];i.onchange=()=>{if(i.checked)marked.add(f);else marked.delete(f);l.classList.toggle("on",i.checked);drawN()}});
   drawN();
   d.querySelector("[data-save]").onclick=async()=>{try{await setHero(o.id,files.filter(f=>marked.has(f)));done?.(marked.size);d.close()}catch(e){cnt.textContent=errText(e)}};
