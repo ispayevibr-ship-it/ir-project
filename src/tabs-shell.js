@@ -518,6 +518,14 @@
  async function saveAndInstall(){
   if(updateBusy)return;
   updateBusy=true;updateButtons([]);updateText.textContent="Сохраняем изменения во вкладках…";
+  const left=await saveDrafts(),dirty=[...frames.values()].filter(tab=>tab.dirty);
+  updateBusy=false;
+  if(!left.length){dirty.forEach(tab=>{tab.dirty=false;tab.dirtyForms=null});renderTabBar();restartNow();return}
+  updateText.textContent="Не удалось сохранить: "+left.map(tab=>"«"+tab.title+"»").join(", ")+". Откройте вкладку, проверьте поля и сохраните — или перезапустите без этих изменений.";
+  updateButtons([["Позже",false,closeUpdate],["Перезапустить без сохранения",true,()=>{left.forEach(tab=>{tab.dirty=false;tab.dirtyForms=null});renderTabBar();restartNow()}]])
+ }
+ // (the changed forms of every tab sent; the tabs that could not be saved come back)
+ async function saveDrafts(){
   const dirty=[...frames.values()].filter(tab=>tab.dirty);
   for(const tab of dirty){
    for(const form of [...(tab.dirtyForms||[])]){
@@ -528,11 +536,7 @@
   }
   const saved=tab=>!tab.dirty||!tab.dirtyForms||[...tab.dirtyForms].every(form=>!form.isConnected);
   for(let waited=0;waited<8000&&!dirty.every(saved);waited+=250)await new Promise(r=>setTimeout(r,250));
-  updateBusy=false;
-  const left=dirty.filter(tab=>!saved(tab));
-  if(!left.length){dirty.forEach(tab=>{tab.dirty=false;tab.dirtyForms=null});renderTabBar();restartNow();return}
-  updateText.textContent="Не удалось сохранить: "+left.map(tab=>"«"+tab.title+"»").join(", ")+". Откройте вкладку, проверьте поля и сохраните — или перезапустите без этих изменений.";
-  updateButtons([["Позже",false,closeUpdate],["Перезапустить без сохранения",true,()=>{left.forEach(tab=>{tab.dirty=false;tab.dirtyForms=null});renderTabBar();restartNow()}]])
+  return dirty.filter(tab=>!saved(tab))
  }
  async function restartNow(){
   if(updateBusy)return;
@@ -724,12 +728,25 @@
  window.addEventListener("beforeunload",event=>{
   if(![...frames.values()].some(openDraft))return;
   event.preventDefault();event.returnValue="";
-  if(closeAsked)return;closeAsked=true;
-  setTimeout(()=>{
-   const yes=confirm("Есть несохранённые изменения. Закрыть программу без сохранения?");closeAsked=false;
-   if(yes){frames.forEach(t=>{t.dirty=false;t.dirtyForms=null});window.close()}
-  },0);
+  if(closeAsked||updateBusy)return;closeAsked=true;setTimeout(askClose,0);
  });
+ // («Сохранить и закрыть» — the engineer, 13.11.2026: «лучше сделай так, сохранить и закрыть?»: each changed form is sent
+ // as its own «Сохранить» sends it, as before a restart for an update — saveDrafts; then the window closes. What could
+ // not be saved is named, and the window stays.)
+ function askClose(){
+  const names=[...frames.values()].filter(openDraft).map(t=>"«"+t.title+"»").join(", ");
+  const done=()=>{closeAsked=false;updateDialog.removeEventListener("close",done)};updateDialog.addEventListener("close",done);
+  const shut=()=>{frames.forEach(t=>{t.dirty=false;t.dirtyForms=null});closeAsked=false;window.close()};
+  updateProgress.hidden=true;updateTransfer.hidden=true;
+  setUpdate("Закрыть программу","Есть несохранённые изменения: "+names+". Сохранить их и закрыть программу?");
+  updateButtons([["Отмена",false,closeUpdate],["Закрыть без сохранения",false,shut],["Сохранить и закрыть",true,async()=>{
+   if(updateBusy)return;updateBusy=true;updateButtons([]);updateText.textContent="Сохраняем изменения во вкладках…";
+   const left=(await saveDrafts()).filter(openDraft);updateBusy=false;
+   if(!left.length){shut();return}
+   updateText.textContent="Не удалось сохранить: "+left.map(t=>"«"+t.title+"»").join(", ")+". Откройте вкладку, проверьте поля и сохраните — или закройте без этих изменений.";
+   updateButtons([["Отмена",false,closeUpdate],["Закрыть без сохранения",true,shut]])}]]);
+  showUpdateDialog()
+ }
  // Keep route storage current, without reloading hidden iframe documents.
  window.addEventListener("focus",()=>{
   const active=frames.get(activeId);
