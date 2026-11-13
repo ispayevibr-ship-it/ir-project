@@ -10,6 +10,7 @@ const {joinSplitTexts}=require("./ai-scheme-geometry");
 const {ocrPage,ocrImages,readCells,tableRules,readTableCells,SHEAR,dropLettering,createOcrWorker,sheetTurn,turnGeometry,ringsOf,readRings,shelvesOf,readShelves}=require("./ai-ocr");
 const {extractTank}=require("./ai-tank-extract");
 const {auditSheet,sheetText}=require("./ai-sheet-audit");
+const {sheetDetails}=require("./ai-sheet-details");
 const {extractTrusses}=require("./ai-truss-extract");
 const {extractBaseDetails}=require("./ai-base-extract");
 const {extractColumnDetails}=require("./ai-column-extract");
@@ -167,7 +168,10 @@ setInterval(()=>parentPort.postMessage({type:"alive"}),20000).unref();
    // The levels written along the rows of axes of its sections (the slope of a roof), filled by extractSections.
    const profiles={};
    // Read by OCR or not at all, such a sheet also goes to Claude as an image.
-   results.push({page:n,widthPt:geometry.widthPt,heightPt:geometry.heightPt,schemes:result.schemes,context:pageContext(geometry.texts),noText,ocr,...(ocrError?{ocrError}:{}),...(geometry.cut?{cut:geometry.cut}:{}),...(geometry.turn?{turn:geometry.turn}:{}),
+   // Everything else of the sheet by rules — notes and requirements, tables, views of nodes, sketches of flashings (the
+   // engineer, 13.11.2026: «измени правила чтобы все брал по листам всем, без разницы км, кмд, ар, тх»).
+   const ctx=pageContext(geometry.texts);let details=null;try{details=sheetDetails(geometry,ctx.blocks)}catch(error){details={error:String(error?.message||error).slice(0,200)}}
+   results.push({page:n,widthPt:geometry.widthPt,heightPt:geometry.heightPt,schemes:result.schemes,context:ctx,details,noText,ocr,...(ocrError?{ocrError}:{}),...(geometry.cut?{cut:geometry.cut}:{}),...(geometry.turn?{turn:geometry.turn}:{}),
     sheet:extractSheet(geometry),sections:extractSections(geometry,profiles),sectionProfiles:profiles.profiles||[],tank:extractTank(geometry),trusses:extractTrusses(geometry),baseDetails:extractBaseDetails(geometry),columnDetails:extractColumnDetails(geometry),railOffsets:extractRailOffsets(geometry),levelMarks:levelMarksOf(geometry),ar:extractArchitecture(geometry),ms:Date.now()-started});
    // The check of the sheet (the engineer's hard rule of 02.11.2026): every label of it against what was taken from it.
    {const p=results[results.length-1];try{p.audit=auditSheet(geometry,p)}catch(error){p.audit={error:String(error?.message||error).slice(0,200)}}p.ms=Date.now()-started}

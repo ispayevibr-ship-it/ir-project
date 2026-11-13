@@ -10,6 +10,7 @@ const ST=require("./ai-structure-types");
 const {buildPlan,buildCatalog,markKey,normMark,cumulative,volumeOf}=require("./ai-montage-plan");
 const {createProjectKnowledge,cardsFromPages,gradeOf}=require("./ai-project-kb");
 const AUDIT=require("./ai-sheet-audit");
+const DETAILS=require("./ai-sheet-details");
 const AUTO_WORK="Монтаж металлоконструкций (из PDF)";
 // One element read again by a new placement: the same mark — with or without a dash between its letters and number
 // (Т-23 and Т23, П-16А and П16А: Claude writes either, the sheets too) — and the same kind; a ladder is a ladder whether
@@ -63,7 +64,7 @@ const KIND_NAME={columns:"Колонна",fahwerk:"Стойка фахверка
 // What a new reading of the drawings brings even to an element the engineer changed or confirmed: the details of its
 // node and its make (from the sheets), not its position, mark, levels or profile.
 const DRAWING_DETAILS=["joint","truss","nodes","base","column","parts","plates","cuts","drill","place","bevels","cross"];
-const ANALYZER="2026-11-13.3";
+const ANALYZER="2026-11-13.4";
 // АР (architecture) and ТХ (technology) sheets are read for context: Claude places what of them is mounted.
 // (КМД — one kind: the program tells its montage and assembly sheets apart, sheet by sheet — kmdSheetType; the two old
 // kinds of a file are still read, as the engineer's hint for its sheets that say nothing)
@@ -542,6 +543,8 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   const out=[head];let size=head.length,cut=0;
   for(const x of b){const line="("+x.x+","+x.y+") "+x.text;if(size+line.length>FULL_TEXT){cut++;continue}size+=line.length+1;out.push(line)}
   if(cut)out.push("… не вошло блоков: "+cut+" — они видны на частях листа (картинки)");
+  // (what the rules took of it — requirements, tables, nodes, flashings —, src/ai-sheet-details.js)
+  try{for(const l of DETAILS.detailLines(p.details))out.push(l)}catch{}
   return out
  }
  // Only this request: the schemes on its sheets.

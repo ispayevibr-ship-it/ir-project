@@ -1377,7 +1377,10 @@ let loose=0;
  const trimSpecs=new Map(),trimNames=new Map(),trimNodes=[];
  for(const p of ar){for(const t of p.ar.trims||[])if(!trimSpecs.has(t.pos))trimSpecs.set(t.pos,{...t,sheet:p.pdfPage||p.page});for(const n of p.ar.trimNames||[])if(!trimNames.has(n.pos))trimNames.set(n.pos,n.name);
   for(const n of p.ar.trimNodes||[])trimNodes.push({...n,sheet:p.sheet?.block?.sheet||null,page:p.pdfPage||p.page})}
- const tr=arTrims(placements,[...trimSpecs.values()].map(t=>({...t,name:trimNames.get(t.pos)||""})),trimNodes);
+ // (the sketches of the flashings «Схемы фасонных элементов поз. N» — their legs and bends by the outline and its dimensions,
+ // src/ai-sheet-details.js — go with the trims of their positions)
+ const sketches=new Map();for(const p of pages||[])for(const t of p.details?.trims||[])if(t.legs_mm&&!sketches.has(String(t.pos)))sketches.set(String(t.pos),{pos:String(t.pos),legs_mm:t.legs_mm,bends_deg:t.bends_deg,developed_mm:t.developed_mm,sheet:p.pdfPage||p.page});
+ const tr=arTrims(placements,[...trimSpecs.values()].map(t=>({...t,name:trimNames.get(t.pos)||""})),trimNodes,sketches);
  placements.push(...tr.placements);warnings.push(...tr.warnings);
  for(const p of placements){delete p.view;delete p.line;delete p.side}
  const cuts=all.filter(v=>v.section).map(v=>v.section);
@@ -1396,7 +1399,7 @@ let loose=0;
 // shelves (layout.legs: [dx, dy, dz, mm] from its line, scheme axes) on the faces it covers, 2 mm off them. The positions
 // of the specifications of the АР that fit its kind by name and their pieces of 2 m — in its notes; the length placed
 // against them — in the warnings (the nodes of the АР are not tied to the places on the views yet).
-function arTrims(placements,spec=[],nodes=[]){
+function arTrims(placements,spec=[],nodes=[],sketches=new Map()){
  const out=[],warnings=[],R=Math.round,num=v=>Number(v)||0;
  const KIND={corner:["trim_corner","Нащельник угловой"],plinth:["trim_plinth","Отлив цокольный"],reveal:["trim_opening","Откос проёма"],sill:["trim_sill","Отлив оконный"],
   foot:["trim_start","Уголок низа перегородки"],ridge:["trim_ridge","Коньковый элемент"],gable:["trim_gable","Торцевая планка кровли"],abutment:["trim_abutment","Примыкание кровли к стене"]};
@@ -1432,11 +1435,15 @@ function arTrims(placements,spec=[],nodes=[]){
  const posNote=k=>{const l=POS[k];if(k==="foot"){const t=l[0],n=NN.filter(n=>n.pos.includes(t.pos));return"По спецификации АР — поз. "+t.pos+" «"+t.name+"» "+String(t.count).replace(".",",")+" "+(t.unit==="шт"?"шт.":"п.м")+(n.length?" (уз"+(n.length>1?"лы ":"ел ")+n.map(n=>n.node).join(", ")+")":"")}if(!l.length)return"Позиции нащельников в спецификациях АР не найдены — показан по стыку панелей";
   const nd=t=>{const a=nodeOf[k+":"+t.pos]||[];return a.length?" (уз"+(a.length>1?"лы ":"ел ")+[...new Set(a.map(n=>n.node))].join(", ")+(a[0].sheet?", лист "+[...new Set(a.map(n=>n.sheet))].join(", "):"")+")":""};
   return(tied[k]?"По узлам АР — ":"По спецификациям АР — ")+l.map(t=>"поз. "+t.pos+(t.name?" «"+t.name.replace(/\s+из\s+оцинкован\S*\s+кровельн\S*\s+стали\s*\.?/u,"")+"»":"")+nd(t)+" "+t.count+" шт. по "+R((t.length_mm||2000)/1000)+" м").join(", ")+(tied[k]||k==="reveal"&&rev.length?"":"; узел АР для этого места не найден — проверьте позицию")};
+ // (the sketch of the first position of its kind that has one: legs and bends of the flashing as drawn)
+ const shapeOf=k=>{for(const t of POS[k]||[]){const sk=sketches.get(String(t.pos));if(sk)return sk}return null};
+ const shapeNote=k=>{const sk=shapeOf(k);return sk?["Эскиз поз. "+sk.pos+" (лист "+sk.sheet+"): полки "+sk.legs_mm.join(" / ")+" мм, гибы "+sk.bends_deg.map(d=>Math.abs(d)+"°").join(", ")+", развёртка "+sk.developed_mm+" мм"]:[]};
  const add=(kind,ral,a,b,legs,note,extra={})=>{const [type,name]=KIND[kind];const lng=Math.hypot(b[0]-a[0],b[1]-a[1],b[2]-a[2]);if(lng<100)return;
   out.push({mark:"Нщ",name,type_key:type,scheme_group:"trims",geometry_type:"beam",fitting_type:"trim",diameter_mm:R(Math.max(...legs.map(l=>l[3]))),
    layout:{trim:kind,legs:legs.map(l=>{const n=Math.hypot(l[0],l[1],l[2])||1;return[+(l[0]/n).toFixed(4),+(l[1]/n).toFixed(4),+(l[2]/n).toFixed(4),R(l[3])]}),...(ral?{ral}:{}),length_mm:R(lng)},
    x_mm:R(a[0]),y_mm:R(a[1]),x2_mm:R(b[0]),y2_mm:R(b[1]),z0_mm:R(a[2]),z1_mm:R(b[2]),end_z_mm:R(b[2]),levels_from:"стыки сэндвич-панелей АР",confidence:"medium",section:"АР",
-   notes:[note,posNote(kind)],...extra});
+   notes:[note,posNote(kind),...shapeNote(kind)],...extra});
+  const sk=shapeOf(kind);if(sk)out[out.length-1].layout.shape={pos:sk.pos,legs_mm:sk.legs_mm,bends_deg:sk.bends_deg,developed_mm:sk.developed_mm};
   return lng};
  // Walls: runs of panels on one line, one side.
  const walls=placements.filter(p=>p.type_key==="sandwich_wall"&&p.side&&!p.layout?.existing).map(p=>{const x=p.y_mm===p.y2_mm;
@@ -1600,8 +1607,21 @@ function buildPlan(draft,ai=null,heights={},opts={}){
  const kmdMounting=(draft.pages||[]).some(p=>p.docType==="КМД монтажные"&&(p.schemes||[]).some(s=>!s.error));
  // Joints of a scheme: its own sheet's notes, else the notes of the volume («все неоговоренные болты М20»).
  const sheetJoint=new Map(),fileJoint=new Map();
- for(const p of draft.pages||[]){const j=jointNote(p.context?.text),named=sheetNodes(p.context?.text);if(!j&&!named.length)continue;
-  sheetJoint.set(p.page,{...(j||{bolt:null,cls:null,weld:false,text:""}),...(named.length?{named}:{}),sheet:(p.sourceName||"")+" стр. "+(p.pdfPage||p.page)});
+ // (the notes of a sheet whole — src/ai-sheet-details.js, 13.11.2026 «чтобы все брал по листам всем» —: «все неоговоренные
+ // болты М20» further than the first 2500 characters of a large sheet was not read; the titles of its views as well)
+ const notesOf=p=>{const n=(p.details?.notes||[]).map(x=>(x.n?x.n+". ":"")+x.text).join(" ");return(n?n+" ":"")+(p.context?.text||"")};
+ const titlesOf=p=>(p.details?.views||[]).map(v=>v.title).join(". ");
+ // The views of nodes of every sheet — «Узел 16» of КМ1 л.19 with its plates, profiles, bolts, welds, steel (details) —:
+ // a scheme that calls a node out «16 (л.19)» gives its members what that node is made of.
+ const nodeViews=new Map();
+ for(const p of draft.pages||[]){const sh=String(p.sheet?.stamp?.block?.sheet||"").trim();if(!sh)continue;
+  for(const v of p.details?.views||[]){if(!/^Узел|^Разрез/u.test(v.title)||!(v.plates||v.profiles||v.bolts||v.welds))continue;
+   nodeViews.set((p.sourceName||"")+"|"+sh+"|"+v.title,{title:v.title,sheet:(p.sourceName||"").replace(/\.pdf$/iu,"")+" л."+sh,
+    ...Object.fromEntries(["plates","profiles","steel","bolts","welds"].filter(k=>v[k]).map(k=>[k,v[k].slice(0,12)]))})}}
+ const calledOut=p=>{const out=[];for(const r of p.audit?.nodes||[]){if(r.title)continue;const sh=(/(\d{1,3})(?!.*\d)/u.exec(String(r.sheet||""))||[])[1];
+  const v=sh&&nodeViews.get((p.sourceName||"")+"|"+sh+"|Узел "+r.node);if(v&&!out.includes(v))out.push(v)}return out.slice(0,8)};
+ for(const p of draft.pages||[]){const j=jointNote(notesOf(p)),named=sheetNodes([p.context?.text||"",titlesOf(p)].join(" ")),views=calledOut(p);if(!j&&!named.length&&!views.length)continue;
+  sheetJoint.set(p.page,{...(j||{bolt:null,cls:null,weld:false,text:""}),...(named.length?{named}:{}),...(views.length?{node_views:views}:{}),sheet:(p.sourceName||"")+" стр. "+(p.pdfPage||p.page)});
   if(j&&/неоговоренные/.test(j.text)&&!fileJoint.has(p.sourceName))fileJoint.set(p.sourceName,{...j,sheet:sheetJoint.get(p.page).sheet})}
  // A sheet that names its nodes but not its bolts takes the bolts of the volume's notes.
  const joints=info=>{if(!info)return null;const s=sheetJoint.get(info.page),f=fileJoint.get(info.file);return s&&!s.text&&f?{...f,named:s.named}:s||f||null};
@@ -2004,7 +2024,12 @@ function buildPlan(draft,ai=null,heights={},opts={}){
  seatWallRails(unique,merged,catalog);
  deckFrames(unique);
  for(const e of unique){const st=instanceStatus(e);e.instance_status=st.status;if(st.reasons.length)e.instance_reasons=st.reasons}
- return{grid:merged.grid,posX:merged.posX,posY:merged.posY,elements:unique,skipped,schemes:schemeInfo,problems,ready:unique.length>0,catalog}
+ // What the notes of the set require (steel, bolts, welding, welds, coating, fire, corrosion, loads, norms), each value with
+ // the sheets it is written on — src/ai-sheet-details.js
+ const requirements={};
+ for(const p of draft.pages||[])for(const [k,list] of Object.entries(p.details?.requirements||{})){const to=requirements[k]||(requirements[k]=[]);
+  for(const x of list){const sheet=(p.sourceName||"").replace(/\.pdf$/iu,"")+" стр. "+(p.pdfPage||p.page);let r=to.find(y=>y.value===x.value);if(!r){r={value:x.value,text:(x.text||[])[0]||"",sheets:[]};to.push(r)}if(r.sheets.length<6&&!r.sheets.includes(sheet))r.sheets.push(sheet)}}
+ return{grid:merged.grid,posX:merged.posX,posY:merged.posY,elements:unique,skipped,schemes:schemeInfo,problems,ready:unique.length>0,catalog,requirements}
 }
 // The status of a placed element (ТЗ монтажных схем п. 24). «Подтверждено» — the engineer checked it; «вычислено» —
 // its place and levels come from the drawings (scheme, section, the mark's sheet, notes, Claude reading the sheet);

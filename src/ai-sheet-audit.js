@@ -155,7 +155,10 @@ function auditSheet(geometry,page){
  const count=list=>({total:list.length,used:list.filter(i=>i.used===true).length});
  // (every label of the sheet goes to Claude in its whole text — `sheetText`, 13.11.2026: the notes, tables and words not
  // taken by a rule are read there; `read` — labels of the sheet, all)
- const counts={texts:texts.length,read:texts.length,notes:items.notes.length,marks:count(items.marks),axes:count(items.axes),dims:count(items.dims.filter(d=>d.used!==null)),levels:count(items.levels),
+ // (a label in no scheme, but on a view of the sheet — a node, a section, a sketch —: kept in the details of that view by
+ // rules, src/ai-sheet-details.js, 13.11.2026 «чтобы все брал по листам всем»; still told to Claude to place or explain)
+ let kept=0;if(page?.details&&!page.details.error){const {viewOfLabel}=require("./ai-sheet-details");for(const m of missed){const v=viewOfLabel(page.details,m.text);if(v){m.kept=v;kept++}}}
+ const counts={texts:texts.length,read:texts.length,kept,notes:items.notes.length,marks:count(items.marks),axes:count(items.axes),dims:count(items.dims.filter(d=>d.used!==null)),levels:count(items.levels),
   nodes:items.nodes.length,cuts:items.cuts.length,unknown:items.unknown.length,missed:missed.length};
  return{counts,missed:missed.slice(0,400),nodes:items.nodes.slice(0,200),unknown:[...new Set(items.unknown.map(u=>u.text))].slice(0,80),...(markIndex?{markIndex}:{})}
 }
@@ -236,7 +239,7 @@ function promptLines(page,limit=60){
  const name={mark:"марка",axis:"ось",dim:"размер",level:"отметка"};
  const lines=["СВЕРКА ПРОГРАММЫ, лист page="+page.page+": на листе есть, в найденное не попало "+a.missed.length+" — каждое разместить (elements) или объяснить в summary, почему не ставится:"];
  const order={mark:0,level:1,axis:2,dim:3},list=[...a.missed].sort((x,y)=>(order[x.kind]??9)-(order[y.kind]??9));
- for(const m of list.slice(0,limit))lines.push("— "+name[m.kind]+" «"+m.text+"»"+(m.scheme!==null&&m.scheme!==undefined?" (схема index="+m.scheme+")":"")+(m.axes?" у осей "+m.axes:"")+": "+m.why);
+ for(const m of list.slice(0,limit))lines.push("— "+name[m.kind]+" «"+m.text+"»"+(m.scheme!==null&&m.scheme!==undefined?" (схема index="+m.scheme+")":"")+(m.axes?" у осей "+m.axes:"")+": "+m.why+(m.kept?" (правилами взято в сведения вида «"+m.kept+"»)":""));
  if(a.missed.length>limit)lines.push("… ещё "+(a.missed.length-limit));
  if(a.unknown?.length)lines.push("Надписи, которые программа не опознала (проверь, что это): "+a.unknown.slice(0,40).join(" · "));
  const refs=(a.nodes||[]).filter(n=>!n.title);
