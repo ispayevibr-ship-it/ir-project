@@ -1214,12 +1214,14 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
  function nodeView(id,{sheet="",title=""}={}){
   const oid=object(id),row=lastDraft(oid);if(!row)return null;
   const m=/^(.*?)\s*л\.\s*(\d{1,3})\s*$/u.exec(String(sheet||"").trim());if(!m||!title)return null;
-  // («КМ3» узла — это файл «ИР-71535.00-05.2025-01-КМ3.pdf»: имя файла кончается обозначением тома; до 1.12.145
-  // сравнивалось целиком и снимок не находился ни у одного узла — инженер 13.11.2026 «снимок с чертежа ни в одном не увидел»)
-  const flat=t=>String(t||"").toLowerCase().replace(/\.pdf$/u,"").replace(/ё/gu,"е").replace(/[^a-zа-я0-9]+/gu,"");
-  const vol=flat(m[1]),sh=m[2];if(!vol)return null;
+  // («КМ3» узла — это файл «ИР-71535.00-05.2025-01-КМ3 100,89т.pdf»: обозначение тома стоит в имени файла отдельным
+  // словом, после него может идти тоннаж; до 1.12.145 имя сравнивалось целиком, в 1.12.146 — по окончанию, и снимок не
+  // находился ни у одного узла — инженер 13.11.2026 «снимок с чертежа ни в одном не увидел»)
+  const flat=t=>String(t||"").toLowerCase().replace(/\.pdf$/u,"").replace(/ё/gu,"е");
+  const volRe=t=>{const c=[...flat(t).replace(/[^a-zа-я0-9]+/gu,"")];return c.length?new RegExp("(?<![a-zа-я])"+c.join("[^a-zа-я0-9]*")+"(?![0-9])","u"):null};
+  const vol=volRe(m[1]),sh=m[2];if(!vol)return null;
   for(const p of row.data?.pages||[]){
-   const src=flat(p.sourceName);if(src!==vol&&!(src.endsWith(vol)&&!/[a-zа-я]/u.test(src.slice(-vol.length-1,-vol.length))))continue;
+   if(!vol.test(flat(p.sourceName)))continue;
    if(String(p.sheet?.stamp?.block?.sheet||"").trim()!==sh)continue;
    const nk=t=>String(t||"").toLowerCase().replace(/ё/gu,"е").replace(/^(узел|разрез|сечение|вид)\s*/u,"").replace(/[\s\-–—.]+/gu,"");const views=p.details?.views||[];const v=views.find(x=>x.title===title)||views.find(x=>nk(x.title)===nk(title)&&nk(x.title));const W=Number(p.widthPt)||0,H=Number(p.heightPt)||0;
    if(!v||!W||!H||!p.documentId||p.turn)return null;

@@ -13,7 +13,7 @@ window.irThreeSchemeView=(function irThreeModule(){
  // ускорить построение схемы?» — «да»). It is raised by scripts/scheme-model-digest.js, never by hand: the script builds
  // the checked schemes with this file and raises the number when what would be kept for any of them differs from the
  // record (knowledge/quality/model-digest.json); scripts/scheme-pack.js refuses a pack made without it.
- var MODEL_BUILD=8;
+ var MODEL_BUILD=9;
  var token=0,active=null,loadPromise=null,cameraMemory={};
  // Bundled with the app (works offline); the CDN is only a fallback for an incomplete hot update.
  var sources=[
@@ -9372,7 +9372,10 @@ window.irThreeSchemeView=(function irThreeModule(){
      add(o.geometry,o.material,o.matrixWorld,v,true)})});
    // (the footing under a base stays where it is, clipped as the steel: the anchor rods stand in it — without it they hung
    // in the air under the column lifted off, «а причем тут фундаментные болты? где там фундамент?», 03.11.2026)
-   if(n.kind==="base")pedestals.forEach(function(o){if(o.visible&&near(o))add(o.geometry,o.material,o.matrixWorld,zero,true)});
+   // (the footing of this base only — the box of a footing over the node itself; the footings of the columns standing
+   // near were drawn too, the engineer, 13.11.2026: «все в кучу показывается»)
+   var under=function(o){var g=o.geometry;if(!g.boundingBox)g.computeBoundingBox();var bb=g.boundingBox.clone().applyMatrix4(o.matrixWorld);return C.x>=bb.min.x-.05&&C.x<=bb.max.x+.05&&C.z>=bb.min.z-.05&&C.z<=bb.max.z+.05};
+   if(n.kind==="base"){var own=pedestals.filter(function(o){return o.visible&&near(o)&&under(o)});(own.length?own:pedestals.filter(function(o){return o.visible&&near(o)})).forEach(function(o){add(o.geometry,o.material,o.matrixWorld,zero,true)})}
    var detail=details.find(function(d){return d.node===n});
    if(detail){detail.group.updateMatrixWorld(true);var col=n.members.find(function(m){return m.c.geometryType==="column"}),cv=col&&movers.get(String(col.c.id))||zero,nut=up.clone().multiplyScalar(Math.min(D*.5,.16));// (the nuts and washers of the anchor bolts just off the tops of their rods, each over its own: lifted half the spread they hung apart from them and the engineer did not see the bolts in them — 03.11.2026, «шпиль какой-то, где болт?»)
     detail.group.children.forEach(function(o){add(o.geometry,o.material,o.matrixWorld,o.userData.anchor==="rod"?zero:o.userData.anchor==="nut"?nut:cv,o.userData.anchor!=="nut")})}
@@ -11208,7 +11211,7 @@ window.irThreeSchemeView=(function irThreeModule(){
       // basis right-handed — shelf, its thickness, the trim —, else the turn is no rotation and the shelf lay flat)
       var ld=toWorld(number(lg[0])*1000,number(lg[1])*1000,number(lg[2])*1000).sub(o0);ld.sub(dir.clone().multiplyScalar(ld.dot(dir)));if(ld.lengthSq()<1e-9)return;ld.normalize();
       if(c.lay.trim==="gable"&&Math.abs(ld.y)<.5)gableOut.set(id,ld.clone().negate());
-      strips.push({ld:ld,ll:Math.max(.02,Math.min(.6,number(lg[3])/1000)),lk:lk,off:null})});
+      strips.push({ld:ld,ll:Math.max(.02,Math.min(.6,number(lg[3])/1000)),lk:lk,off:null,ln:strips.length?2:3})});
      // (by the sketch of its position on the sheet — lay.shape, «Схемы фасонных элементов»: every shelf and rib of it)
      var prof=mit?null:trimProfile(c.lay,strips);
      var drawStrips=function(list,into){list.forEach(function(st){var ld=st.ld,ll=st.ll,lk=st.lk,nv=new T.Vector3().crossVectors(dir,ld);if(nv.lengthSq()<1e-9)return;nv.normalize();
@@ -11220,7 +11223,7 @@ window.irThreeSchemeView=(function irThreeModule(){
        if(mit&&lk===(c.lay.trim==="sill"?2:1)){var mp=lg0.attributes.position;
         for(var mi=0;mi<mp.count;mi++){if(mp.getX(mi)<0)continue;var mz=mp.getZ(mi);if(mz<0&&mit[0]&&r[0]<.001){mp.setZ(mi,mz-ll);mitred=true}else if(mz>0&&mit[1]&&r[1]>len-.001){mp.setZ(mi,mz+ll);mitred=true}}
         if(mitred){mp.needsUpdate=true;lg0.computeVertexNormals();lg0.computeBoundingBox();lg0.computeBoundingSphere()}}
-       var lm=new T.Mesh(lg0,baseMaterial(c));if(mitred)lm.userData.mitred={ll:ll,L:r[1]-r[0],e:[mit[0]&&r[0]<.001,mit[1]&&r[1]>len-.001]};lm.quaternion.copy(lq);
+       var lm=new T.Mesh(lg0,baseMaterial(c));if(mitred)lm.userData.mitred={ll:ll,L:r[1]-r[0],e:[mit[0]&&r[0]<.001,mit[1]&&r[1]>len-.001]};lm.userData.tl=st.ln||0;lm.quaternion.copy(lq);
        lm.position.copy(start).add(dir.clone().multiplyScalar((r[0]+r[1])/2)).add(ld.clone().multiplyScalar(ll/2));if(st.off){lm.position.add(st.off);lm.userData.profile=true}if(c.lay.trim==="plinth"||c.lay.trim==="reveal")lm.userData.cutRound=true;
        // (a trim along a slope: its ends cut plumb, two meeting at the ridge on one plane — trimPlumbEnds)
        if(/^(?:gable|abutment|existing|cap)$/.test(String(c.lay.trim))&&Math.abs(dir.y)>.01)lm.userData.plumb={ll:ll,L:r[1]-r[0],e:[r[0]<.001,r[1]>len-.001],kind:String(c.lay.trim)};into.push(lm)})
@@ -11709,8 +11712,18 @@ window.irThreeSchemeView=(function irThreeModule(){
   // (13.11.2026 «сделай очертания края нащельников и тд более видными»: the trims of the panels outlined too — a trim of the
   // colour of its wall was lost on it; the panels themselves still by their joints)
   var edgeCache=new WeakMap(),edgeMat=new T.LineBasicMaterial({color:0x0c1217,transparent:true,opacity:.82,depthWrite:false});
-  function edgesOf(g){
-   var e=edgeCache.get(g);if(!e){var eg=new T.EdgesGeometry(g,28);e=eg.attributes.position.array;eg.dispose();edgeCache.set(g,e)}
+  // (14.11.2026 «только 3 угла покажи с очертаниями», «даже не 3 угла, а начало, угол, конец»: a trim of the panels by
+  // three lines along it — the free edge of its first shelf, its bend, the free edge of its last shelf —, not every edge of
+  // every shelf and of its cut ends: userData.tl of a shelf — 1 the line at its start across, 2 at its end)
+  function trimLines(g,tl){
+   var ps=g.attributes.position,n=ps.count,lo=1e9,hi=-1e9,i,r=[];for(i=0;i<n;i++){var x=ps.getX(i);if(x<lo)lo=x;if(x>hi)hi=x}
+   [[1,lo],[2,hi]].forEach(function(q){if(!(tl&q[0]))return;var a=-1,b=-1;for(i=0;i<n;i++){if(Math.abs(ps.getX(i)-q[1])>1e-5||ps.getY(i)<0)continue;if(a<0||ps.getZ(i)<ps.getZ(a))a=i;if(b<0||ps.getZ(i)>ps.getZ(b))b=i}
+    if(a>=0&&b!==a)r.push(ps.getX(a),ps.getY(a),ps.getZ(a),ps.getX(b),ps.getY(b),ps.getZ(b))});
+   return new Float32Array(r)
+  }
+  function edgesOf(g,m){
+   var e=edgeCache.get(g);if(!e){var tl=m&&m.userData.tl;
+    if(tl!==undefined&&g.attributes.position.count===24)e=trimLines(g,tl);else{var eg=new T.EdgesGeometry(g,28);e=eg.attributes.position.array;eg.dispose()}edgeCache.set(g,e)}
    return e
   }
   function outlined(m){
@@ -11718,9 +11731,9 @@ window.irThreeSchemeView=(function irThreeModule(){
    return!(u.hole||u.footing||u.shell||u.roof||u.grating||u.weld||m.material&&m.material.transparent||c.ft==="panel")
   }
   function mergeEdges(list){
-   var n=0;list.forEach(function(m){n+=edgesOf(m.geometry).length});if(!n)return null;
+   var n=0;list.forEach(function(m){n+=edgesOf(m.geometry,m).length});if(!n)return null;
    var pos=new Float32Array(n),v=0,p=new T.Vector3();
-   list.forEach(function(m){var a=edgesOf(m.geometry),E=m.matrixWorld.elements;for(var k=0;k<a.length;k+=3){
+   list.forEach(function(m){var a=edgesOf(m.geometry,m),E=m.matrixWorld.elements;for(var k=0;k<a.length;k+=3){
     var x=a[k],y=a[k+1],z=a[k+2],w=1/(E[3]*x+E[7]*y+E[11]*z+E[15]);
     pos[v++]=(E[0]*x+E[4]*y+E[8]*z+E[12])*w;pos[v++]=(E[1]*x+E[5]*y+E[9]*z+E[13])*w;pos[v++]=(E[2]*x+E[6]*y+E[10]*z+E[14])*w}});
    var bg=new T.BufferGeometry();bg.setAttribute("position",new T.BufferAttribute(pos,3));bg.computeBoundingSphere();
@@ -13094,7 +13107,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   var abutMoved=[];
   // A trim drawn by its sketch (trimProfile) with a shelf of it in a panel or in steel — wider than the two bare shelves, it
   // ran into the roof of an annex at the corner, into the plate of a guard on the ridge — goes back to the two shelves:
-  // points of every strip of it, each 50 mm along and three across, against the pieces near it — in the box of a piece in its own
+  // points of every strip of it, each 50 mm along and 30 mm across, against the pieces near it — in the box of a piece in its own
   // axes and inside its faces (inMesh). (ИР-71535: угловой у О10/Н × кровля пристройки, конёк × пластины Огк1 — 20 пересечений.)
   // (a point inside a closed piece: a ray from it crosses its faces an odd number of times — in the axes of the piece)
   function inMesh(g,p){
@@ -13115,10 +13128,10 @@ window.irThreeSchemeView=(function irThreeModule(){
     var hit=mine.some(function(m){m.updateMatrixWorld(true);var g=m.geometry.parameters;if(!g)return false;if(!m.geometry.boundingSphere)m.geometry.computeBoundingSphere();
      sp.copy(m.geometry.boundingSphere).applyMatrix4(m.matrixWorld);
      var near=others.filter(function(o){return String(o.m.userData.memberId)!==id&&o.s.center.distanceTo(sp.center)<o.s.radius+sp.radius});if(!near.length)return false;
-     // (two points 1,2 mm off its two faces: a strip lying on a face has one of them out)
-     var pts=[],nz=Math.max(2,Math.ceil(g.depth/.05));for(var k=0;k<=nz;k++)[-.45,0,.45].forEach(function(f){pts.push([new T.Vector3(g.width*f,.0012,(g.depth-.006)*(k/nz-.5)).applyMatrix4(m.matrixWorld),new T.Vector3(g.width*f,-.0012,(g.depth-.006)*(k/nz-.5)).applyMatrix4(m.matrixWorld)])});
+     // (two points 0,5 mm off its middle to its two faces: a strip lying on a face has one of them out)
+     var pts=[],nz=Math.max(2,Math.ceil(g.depth/.05));var acr=[];for(var w=Math.max(2,Math.ceil(g.width/.03)),wi=0;wi<=w;wi++)acr.push(.94*(wi/w-.5));for(var k=0;k<=nz;k++)acr.forEach(function(f){pts.push([new T.Vector3(g.width*f,.0005,(g.depth-.006)*(k/nz-.5)).applyMatrix4(m.matrixWorld),new T.Vector3(g.width*f,-.0005,(g.depth-.006)*(k/nz-.5)).applyMatrix4(m.matrixWorld)])});
      // (and at its corners as they are now — an end cut plumb runs on past its box, trimPlumbEnds)
-     var vp=m.geometry.attributes.position;for(k=0;k<vp.count;k++){var vx=vp.getX(k)*.9,vz=vp.getZ(k);vz-=(vz>0?1:-1)*.003;pts.push([new T.Vector3(vx,.0012,vz).applyMatrix4(m.matrixWorld),new T.Vector3(vx,-.0012,vz).applyMatrix4(m.matrixWorld)])}
+     var vp=m.geometry.attributes.position;for(k=0;k<vp.count;k++){var vx=vp.getX(k)*.9,vz=vp.getZ(k);vz-=(vz>0?1:-1)*.003;pts.push([new T.Vector3(vx,.0005,vz).applyMatrix4(m.matrixWorld),new T.Vector3(vx,-.0005,vz).applyMatrix4(m.matrixWorld)])}
      return near.some(function(o){var bb=o.m.geometry.boundingBox;if(bb.max.x-bb.min.x<.003||bb.max.y-bb.min.y<.003||bb.max.z-bb.min.z<.003)return false;inv.copy(o.m.matrixWorld).invert();
       return pts.some(function(q2){return q2.every(function(q){p.copy(q).applyMatrix4(inv);return p.x>bb.min.x&&p.x<bb.max.x&&p.y>bb.min.y&&p.y<bb.max.y&&p.z>bb.min.z&&p.z<bb.max.z&&inMesh(o.m.geometry,p)})})})});
     if(!hit)return;n++;
@@ -13148,8 +13161,8 @@ window.irThreeSchemeView=(function irThreeModule(){
    var pts=[[0,0]],h=0;L.forEach(function(v,i){if(i)h+=B[i-1]*Math.PI/180;var p=pts[pts.length-1];pts.push([p[0]+v*Math.cos(h),p[1]+v*Math.sin(h)])});
    var n=pts.length-1,wrap=function(a){while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a};
    var out=function(e1,e2,org,rot,mir){var q=pts.map(function(p){var x=p[0]-org[0],y=(p[1]-org[1])*(mir?-1:1);return [x*Math.cos(rot)-y*Math.sin(rot),x*Math.sin(rot)+y*Math.cos(rot)]});return q};
-   var to3=function(q,e1,e2,sx,sy){var r=[];for(var i=0;i<q.length-1;i++){var a=q[i],b=q[i+1],d=e1.clone().multiplyScalar(b[0]-a[0]).add(e2.clone().multiplyScalar(b[1]-a[1])),l=d.length();if(l<1)continue;
-     r.push({ld:d.normalize(),ll:l/1000,lk:-1,off:e1.clone().multiplyScalar((a[0]+sx)/1000).add(e2.clone().multiplyScalar((a[1]+sy)/1000))})}return r};
+   var to3=function(q,e1,e2,sx,sy,kc){var r=[];for(var i=0;i<q.length-1;i++){var a=q[i],b=q[i+1],d=e1.clone().multiplyScalar(b[0]-a[0]).add(e2.clone().multiplyScalar(b[1]-a[1])),l=d.length();if(l<1)continue;
+     r.push({ld:d.normalize(),ll:l/1000,lk:-1,ln:i===kc?1:0,off:e1.clone().multiplyScalar((a[0]+sx)/1000).add(e2.clone().multiplyScalar((a[1]+sy)/1000))})}if(r.length){r[0].ln|=1;r[r.length-1].ln|=2}return r};
    var e1=gen[0].ld.clone(),e2=gen[1].ld.clone().sub(e1.clone().multiplyScalar(gen[1].ld.dot(e1)));if(e2.lengthSq()<1e-4)return null;e2.normalize();
    var th=Math.acos(Math.max(-1,Math.min(1,gen[0].ld.dot(gen[1].ld)))),best=null;
    for(var k=1;k<n;k++)[0,1].forEach(function(sw){var A=[pts[0][0]-pts[k][0],pts[0][1]-pts[k][1]],Bv=[pts[n][0]-pts[k][0],pts[n][1]-pts[k][1]];if(sw){var t=A;A=Bv;Bv=t}
@@ -13173,7 +13186,7 @@ window.irThreeSchemeView=(function irThreeModule(){
     while(K>1&&sl(0)<=30&&inW(q[0],0)){q.shift();K--}
     var d0=0,d1=0;q.forEach(function(p,i){var d=D(p);if(cc){if(on0(i))d0=Math.min(d0,d[0]);if(best.sw?i<=K:i>=K)d1=Math.min(d1,d[1]);return}
      if(!(d[0]>0&&d[1]>0))return;if(on0(i))d0=Math.max(d0,d[0]);if(best.sw?i<=K:i>=K)d1=Math.max(d1,d[1])});
-    return to3(q,e1,e2,-cs*d0/sn-d1/sn,-d0)}
+    return to3(q,e1,e2,-cs*d0/sn-d1/sn,-d0,K)}
    // (nearly straight: along the longer shelf)
    var tot=L.reduce(function(a,b){return a+b},0),ch=Math.hypot(pts[n][0],pts[n][1]);if(ch<.8*tot)return null;
    var m=gen[0].ll>=gen[1].ll?0:1,g1=gen[m].ld.clone(),g2=gen[1-m].ld.clone().sub(g1.clone().multiplyScalar(gen[1-m].ld.dot(g1)));if(g2.lengthSq()<1e-4)return null;g2.normalize();
@@ -13647,7 +13660,16 @@ window.irThreeSchemeView=(function irThreeModule(){
    camera.position.copy(c).add(dir.multiplyScalar(dist));camera.near=.05;camera.far=dist+R*4;camera.lookAt(c);camera.updateProjectionMatrix();camera.updateMatrixWorld();
    off.forEach(function(o){o.visible=false});renderer.clippingPlanes=planes;boltView(ch);
    var arOff=t.steel?batches.children.filter(function(o){return o.userData.ar&&o.visible}):[];arOff.forEach(function(o){o.visible=false});
+   // A node of the steel — its own members only, cut to the box, with their plates, bolts and the footing of a base
+   // (the pieces of «Разбор узла», buildExplode), nothing of what merely stands near: the engineer, 13.11.2026 «такой показ
+   // узлов это безобразие, так как все в кучу показывается». The rest of the scene is not drawn for the picture.
+   var ex=null,rest=[];
+   if(t.steel&&pl.node&&!explode){var nd=nodes.find(function(x){return x.id===pl.node});
+    if(nd){try{if(live&&live.ex){ex=live.ex;ex.pieces.forEach(function(p){explodeGroup.add(p.o)})}else{ex=buildExplode(nd);if(live)live.ex=ex}}catch(e){ex=null;explodeGroup.children.slice().forEach(function(o){explodeGroup.remove(o)})}}}
+   if(ex){ex.clips.forEach(function(k){if(!k.planes)return;k.planes[0].constant=R-c.x;k.planes[1].constant=c.x+R;k.planes[2].constant=R-c.y;k.planes[3].constant=c.y+R;k.planes[4].constant=R-c.z;k.planes[5].constant=c.z+R});
+    rest=scene.children.filter(function(o){return o.visible&&!o.isLight&&!o.isCamera&&o!==explodeGroup});rest.forEach(function(o){o.visible=false});renderer.clippingPlanes=[]}
    renderer.render(scene,camera);arOff.forEach(function(o){o.visible=true});
+   if(ex){rest.forEach(function(o){o.visible=true});ex.pieces.forEach(function(p){explodeGroup.remove(p.o)});if(!live)ex.made.forEach(function(m){m.dispose()})}
    var g=live?live.canvas:document.createElement("canvas");if(!live){g.width=cw;g.height=ch}g.getContext("2d").drawImage(cv,0,0,cw,ch,0,0,cw,ch);
    renderer.clippingPlanes=[];hidden.forEach(function(mt){mt.visible=true});off.forEach(function(o){o.visible=true});
    camera.position.copy(keep.pos);camera.quaternion.copy(keep.q);camera.near=keep.near;camera.far=keep.far;
@@ -13708,9 +13730,9 @@ window.irThreeSchemeView=(function irThreeModule(){
   function jointZoom(url,text,t){
    var old=jointsEl&&jointsEl.querySelector(".ir-joint-zoom");if(old)old.remove();if(!(url||t)||!jointsEl)return;
    var z=document.createElement("div");z.className="ir-joint-zoom";z.setAttribute("role","dialog");z.setAttribute("aria-label",t?"Узел в 3D":"Картинка крупно");z.tabIndex=-1;
-   var shut=function(){z.remove();invalidate()};
+   var shut=function(){z.remove();if(z.__live&&z.__live.ex){z.__live.ex.made.forEach(function(m){m.dispose()});z.__live.ex=null}invalidate()};
    if(t){
-    jointLiveEl=z;var cvs=document.createElement("canvas"),live={canvas:cvs,zoom:1},raf=0,hint=document.createElement("span");
+    jointLiveEl=z;var cvs=document.createElement("canvas"),live={canvas:cvs,zoom:1},raf=0,hint=document.createElement("span");z.__live=live;
     var fit=function(){var bw=Math.max(200,jointsEl.clientWidth-28),bh=Math.max(150,jointsEl.clientHeight-90),w=Math.min(bw,bh*4/3),h=w*3/4,k=Math.min(light?1:Math.max(1,window.devicePixelRatio||1),1920/w);
      cvs.style.width=Math.round(w)+"px";cvs.style.height=Math.round(h)+"px";cvs.width=Math.round(w*k);cvs.height=Math.round(h*k)};
     var draw=function(){raf=0;if(!z.isConnected)return;try{jointShot(t,true,live)}catch(e){}},ask=function(){if(!raf)raf=requestAnimationFrame(draw)};
