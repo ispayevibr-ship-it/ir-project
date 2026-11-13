@@ -45,6 +45,7 @@
  .irc-q{margin:0 0 8px;padding:6px 8px;border-left:3px solid #d97706;border-radius:6px;background:#fff7e6;color:#7a4b00;font-size:12.5px;cursor:pointer}
  .irc-q b{display:block;font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#b45309;margin-bottom:2px}.irc-q small{display:block;margin-top:2px;color:#92400e}
  .irc-msg.irc-flash{box-shadow:0 0 0 2px #f59e0b}
+ .irc-msg.irc-new{border-color:#16a34a;box-shadow:0 0 0 1px #16a34a}
  /* A button of an answer (31.10.2026: «если его нет удали»): the program does it on the montage scheme when pressed. */
  .irc-acts{display:flex;flex-direction:column;gap:4px;margin-top:6px}
  .irc-acts button{align-self:flex-start;border:1px solid #b91c1c;background:#fff;color:#b91c1c;border-radius:6px;padding:4px 10px;font:inherit;font-size:12.5px;cursor:pointer}
@@ -239,13 +240,15 @@
   if(panel.hidden)return;
   if(onInbox){linkBox.hidden=true;paintInbox();return}
   const atEnd=list.scrollHeight-list.scrollTop-list.clientHeight<40;
+  // (an answer stands under its own question — ai-chat.js merged —, a new one outlined until seen)
+  const news=new Set(Array.isArray(state.news)?state.news:[]);
   list.innerHTML=state.messages.length?state.messages.map(m=>{
    const e=m.context&&m.context.element,asked=m.from!=="user"&&m.reply_to?state.messages.find(x=>x.from==="user"&&x.id===m.reply_to):null,ae=asked&&asked.context&&asked.context.element,said=asked?String(asked.text||"").replace(/\s+/g," ").trim():"";
    const meta=m.from==="user"?(m.answered?"<span>Есть ответ</span>":m.state==="error"?'<span class="err">Не отправлено: '+esc(m.error||"")+'</span><button type="button" data-retry="'+esc(m.id)+'">Повторить</button>':
-    m.state==="waiting"?"<span>Ждёт отправки — уйдёт само</span>":m.state==="sending"?"<span>Отправляется…</span>":"<span>"+(m.answered?"Отправлено · есть ответ":m.via==="admin"?"Отправлено администратору":"Отправлено Claude")+"</span>"):
+    m.state==="waiting"?"<span>Ждёт отправки — уйдёт само</span>":m.state==="sending"?"<span>Отправляется…</span>":"<span>"+(m.answered?"Отправлено · есть ответ":m.via==="admin"?"Доставлено администратору · ждёт ответа":"Доставлено Claude · ждёт ответа")+"</span>"):
     m.from==="admin"?"<span>Администратор"+(m.author?" · "+esc(m.author):"")+"</span>":
     "<span>Claude"+(m.via==="admin"?" (передал администратор)":"")+(m.version?" · обновление "+esc(m.version):"")+"</span>";
-   return'<div class="irc-msg '+(m.from==="user"?"user":"claude")+'" data-mid="'+esc(m.id)+'">'+(asked?'<div class="irc-q" data-goto="'+esc(asked.id)+'" title="Показать вопрос в чате"><b>Вопрос</b>'+esc(said.length>280?said.slice(0,280)+"…":said)+(ae?"<small>Элемент: "+esc([ae.mark,ae.name].filter(Boolean).join(" · "))+"</small>":"")+"</div>":"")+(m.from==="user"?"<p>"+esc(m.text).replace(/\n/g,"<br>")+"</p>":md(m.text))+
+   return'<div class="irc-msg '+(m.from==="user"?"user":"claude")+(news.has(m.id)?" irc-new":"")+'" data-mid="'+esc(m.id)+'">'+(asked?'<div class="irc-q" data-goto="'+esc(asked.id)+'" title="Показать вопрос в чате"><b>Вопрос</b>'+esc(said.length>280?said.slice(0,280)+"…":said)+(ae?"<small>Элемент: "+esc([ae.mark,ae.name].filter(Boolean).join(" · "))+"</small>":"")+"</div>":"")+(m.from==="user"?"<p>"+esc(m.text).replace(/\n/g,"<br>")+"</p>":md(m.text))+
     (e?'<div class="irc-ctxline">Элемент: '+esc([e.mark,e.name].filter(Boolean).join(" · "))+'</div>':"")+
     (m.from!=="user"&&Array.isArray(m.actions)&&m.actions.length?'<div class="irc-acts">'+m.actions.map((a,i)=>{const k=m.id+"|"+i,st=acted.get(k);
      return'<button type="button" data-act="'+esc(k)+'"'+(st&&st.busy?" disabled":"")+'>'+esc(a.label||"Удалить со схемы")+"</button>"+(st&&st.text?"<small>"+esc(st.text)+"</small>":"")}).join("")+"</div>":"")+
@@ -254,7 +257,9 @@
   }).join(""):'<div class="irc-empty">'+(va?"Напишите, что не так на схеме или в программе. К сообщению приложится снимок экрана и выбранный на схеме элемент. Сообщение получит администратор: он ответит сам или передаст Claude, ответ придёт сюда.":"Напишите, что не так на схеме или в программе. К сообщению приложится снимок экрана и выбранный на схеме элемент; Claude исправит и пришлёт сюда отчёт.")+'</div>';
   const stick=atEnd||busy;
   list.querySelectorAll("img[data-shot]").forEach(img=>{img.onload=()=>{if(stick)list.scrollTop=list.scrollHeight};if(img.src)return;const id=img.dataset.shot;invoke("ai-montage:chat-shot",{id}).then(u=>{if(u){shots.set(id,u);img.src=u}}).catch(()=>{})});
-  if(stick)list.scrollTop=list.scrollHeight
+  if(stick)list.scrollTop=list.scrollHeight;
+  // (a new answer under an earlier question: shown, not left above the end of the list)
+  const first=!busy&&news.size?list.querySelector(".irc-new"):null;if(first&&!panel.hidden&&first!==list.lastElementChild)first.scrollIntoView({block:"nearest"})
  }
  // (an answer without the engineers' messages — the send of the chat — keeps those already shown)
  const take=v=>{if(v&&Array.isArray(v.messages)){state=!("inbox" in v)&&state.inbox?{...v,inbox:state.inbox}:v;paint()}return v};
@@ -282,7 +287,8 @@
    return
   }
   if(!state.unread)return;
-  const news=state.messages.filter(m=>m.from!=="user").slice(-state.unread).filter(m=>!done.has(m.id));
+  const ids=Array.isArray(state.news)?state.news:null;
+  const news=(ids?ids.map(id=>state.messages.find(m=>m.id===id)).filter(Boolean):state.messages.filter(m=>m.from!=="user").slice(-state.unread)).filter(m=>!done.has(m.id));
   if(!news.length)return;
   news.forEach(m=>done.add(m.id));try{localStorage.setItem(TOLD,JSON.stringify([...done].slice(-300)))}catch(_e){}
   const last=news[news.length-1],asked=state.messages.find(m=>m.id===last.reply_to),route=String(asked?.context?.route||"");

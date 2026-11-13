@@ -85,12 +85,26 @@ function createChat({getUserDataPath,safeStorage,fetch:doFetch=globalThis.fetch,
    if(have.has(a.id)||twin)continue;have.add(a.id);list.push(a)
   }
   for(const m of list)if(m.from!=="user"&&m.reply_to)seenReply.add(m.reply_to);
-  list.sort((x,y)=>String(x.at).localeCompare(String(y.at)));
-  return list.map(m=>m.from==="user"&&seenReply.has(m.id)?{...m,answered:true}:m)
+  // The order (the engineer, 13.11.2026: «мои вопросы показываются до ответа … я задаю вопрос, а он ставится до ответов
+  // клода»): an answer by the time it came to this computer, not by the time written in it — Claude's clock and this
+  // computer's differ —, under its own question; a question by the time it was asked, so a new one is always the last.
+  // (the first time — the answers already there keep their own time, up to now)
+  const first=!d.arrived,arrived=d.arrived||(d.arrived={}),stamp=new Date(now()).toISOString();
+  for(const m of list)if(m.from!=="user"&&!arrived[m.id]){const t=String(m.at||"");arrived[m.id]=first&&t&&t<stamp?t:stamp;d.arrivedNew=true}
+  const key=m=>m.from==="user"?String(m.at||""):arrived[m.id]||String(m.at||"");
+  const byKey=(x,y)=>key(x).localeCompare(key(y));
+  const blocks=list.filter(m=>m.from==="user"||!mine.has(m.reply_to)).sort(byKey).map(m=>[m]);
+  const under=new Map(blocks.filter(b=>b[0].from==="user").map(b=>[b[0].id,b]));
+  list.filter(m=>m.from!=="user"&&mine.has(m.reply_to)).sort(byKey).forEach(m=>under.get(m.reply_to).push(m));
+  return blocks.flat().map(m=>m.from==="user"?(seenReply.has(m.id)?{...m,answered:true}:m):{...m,arrived:key(m)})
  }
+ // what came after the last seen one, by the time it came (the answers stand under their questions, not at the end)
+ const keyOf=m=>m?(m.from==="user"?String(m.at||""):String(m.arrived||m.at||"")):"";
+ const fresh=(messages,seen)=>{const k=keyOf(messages.find(m=>m.id===seen));return messages.filter(m=>m.from!=="user"&&keyOf(m)>k).sort((x,y)=>keyOf(x).localeCompare(keyOf(y)))};
  function view(d){
-  const messages=merged(d),i=messages.findIndex(m=>m.id===d.seen);
-  return{messages:messages.map(({context,...m})=>({...m,context:context||null})),unread:messages.slice(i+1).filter(m=>m.from!=="user").length,link:link()}
+  const messages=merged(d),news=fresh(messages,d.seen);
+  if(d.arrivedNew){delete d.arrivedNew;try{const x=read();x.arrived={...(x.arrived||{}),...d.arrived};write(x)}catch{}}
+  return{messages:messages.map(({context,...m})=>({...m,context:context||null})),unread:news.length,news:news.map(m=>m.id),link:link()}
  }
  // The screenshot taken just before sending (the chat panel hidden), kept with the message.
  function keepShot(jpg){const id="s"+Date.now().toString(36)+crypto.randomBytes(3).toString("hex");fs.mkdirSync(dir(),{recursive:true});fs.writeFileSync(shotFile(id),jpg);return id}
@@ -148,7 +162,7 @@ function createChat({getUserDataPath,safeStorage,fetch:doFetch=globalThis.fetch,
  // Photos the engineer adds from the computer (an example, a photo from the site): kept like the screenshot, up to 6.
  async function send({text:body,context,shotId,photoIds,relay}={}){
   body=String(body||"").trim().slice(0,8000);if(!body)throw Error("Пустое сообщение");
-  const d=read(),m={id:"m"+Date.now().toString(36)+crypto.randomBytes(2).toString("hex"),from:"user",at:new Date().toISOString(),text:body,
+  const d=read(),m={id:"m"+Date.now().toString(36)+crypto.randomBytes(2).toString("hex"),from:"user",at:new Date(now()).toISOString(),text:body,
    context:context&&typeof context==="object"?JSON.parse(JSON.stringify(context)):null,shot:shotId&&fs.existsSync(shotFile(shotId))?shotId:"",version:version(),state:"sending"};
   const photos=(Array.isArray(photoIds)?photoIds:[]).map(String).filter(p=>/^s[a-z0-9]+$/i.test(p)&&fs.existsSync(shotFile(p))).slice(0,6);
   if(photos.length)m.photos=photos;
@@ -205,7 +219,7 @@ function createChat({getUserDataPath,safeStorage,fetch:doFetch=globalThis.fetch,
   }
   return view(read())
  }
- function markSeen(){const d=read(),all=merged(d),last=all[all.length-1];if(last){d.seen=last.id;write(d)}return view(d)}
+ function markSeen(){const d=read(),all=merged(d).slice().sort((x,y)=>keyOf(x).localeCompare(keyOf(y))),last=all[all.length-1];if(last){d.seen=last.id;write(d)}return view(d)}
  // The journal of fixes for the «Журнал» page: every entry of the update, newest first.
  function journal(){const j=json(journalFile());return{entries:(Array.isArray(j?.entries)?j.entries:[]).filter(e=>e&&e.id).slice().sort((a,b)=>String(b.at).localeCompare(String(a.at)))}}
  return{list,send,retry,sync,markSeen,keepShot,shot,link,setLink,clearLink,journal,text}
