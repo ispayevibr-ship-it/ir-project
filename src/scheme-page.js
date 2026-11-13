@@ -1463,7 +1463,12 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    if(!pool.length){err.textContent="Для выбранной сетки нет подходящих марок.";err.hidden=false;return}
    const m=pool.find(x=>x.id===String(fd.get("mark_id")||""));
    if(!m){err.textContent="Выберите доступную марку из ведомости.";err.hidden=false;return}
-   try{rows=await schemeApi.list()}catch(error){err.textContent="Не удалось проверить остатки по схеме: "+String(error?.message||error);err.hidden=false;return}
+   // (one record read, not the whole scheme: the list of 8 thousand elements with their nodes was read from the base
+   // twice at every saving, the window stood still meanwhile — the engineer, 14.11.2026 «почему долго сохраняется»)
+   try{
+    if(id&&typeof schemeApi.get==="function"){const fresh=await schemeApi.get(id);if(fresh?.id!=null)rememberSavedSchemeRecord(fresh);else rows=await schemeApi.list()}
+    else if(!Array.isArray(rows)||!rows.length)rows=await schemeApi.list()
+   }catch(error){err.textContent="Не удалось проверить остатки по схеме: "+String(error?.message||error);err.hidden=false;return}
    if(!markAvailable(m,id)){const quota=markPlacement(m);err.textContent="Марка "+(m.mark||m.title)+" полностью размещена: "+quota.placed+" из "+quota.total+" шт. Добавление невозможно.";err.hidden=false;return}
    const axisX=String(fd.get("axis_x")||targetGrid.axesX[0]),axisY=String(fd.get("axis_y")||targetGrid.axesY[0]),dx=num(fd.get("offset_x_mm")),dy=num(fd.get("offset_y_mm")),x=num(targetGrid.xPos.get(axisX))+dx,y=num(targetGrid.yPos.get(axisY))+dy;
    const kind=String(fd.get("geometry_type")||"column"),point=pointGeometry(kind),z0=num(fd.get("z0_mm")),z1=num(fd.get("z1_mm"));
@@ -1515,7 +1520,10 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
     // Edited elevations must be read back from the authoritative saved record
     // before refreshing the in-place 3D renderer. Otherwise an older local
     // snapshot can remain on screen until the entire page is reloaded.
-    if(id||!merged){
+    // (an edited element is read back alone — the authoritative record, not the whole list)
+    let reread=false;
+    if(id&&typeof schemeApi.get==="function"){try{const back=await schemeApi.get(id);reread=back?.id!=null&&back.data!=null&&rememberSavedSchemeRecord(back)}catch{reread=false}}
+    if(id&&!reread||!merged){
      try{
       const latest=await schemeApi.list();
       if(Array.isArray(latest))rows=latest;

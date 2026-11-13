@@ -11762,7 +11762,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   function rebatch(queue){
    if(details.length)mergeDetails();
    bTexts.children.forEach(function(m){m.visible=!!(m.userData.host&&m.userData.host.visible)});
-   batches.children.slice().forEach(function(b){batches.remove(b);if(b.isInstancedMesh)b.dispose();else b.geometry.dispose()});weldCells.forEach(function(cell){cell.meshes=null});
+   batches.children.slice().forEach(function(b){batches.remove(b);if(b.isInstancedMesh||b.isBatchedMesh)b.dispose();else b.geometry.dispose()});weldCells.forEach(function(cell){cell.meshes=null});
    steel.updateMatrixWorld(true);if(!unitBox)unitBox=new T.BoxGeometry(1,1,1);
    var groups=new Map();
    // (the pieces of the АР in sets of their own — "|a": the picture of a node of the steel is drawn without them,
@@ -11786,9 +11786,26 @@ window.irThreeSchemeView=(function irThreeModule(){
    // were 2.5 mln points of ИР-71535; the engineer, 13.11.2026 «откуда миллионы?» — they look the same. A mirrored piece
    // is merged as before: its faces would turn inside out)
    var inst=new Map();
-   if(!phone){var uses=new Map(),det=new T.Matrix4();
+   // (the steel of one colour in one set of the graphics card — BatchedMesh of three.js r186: each shape kept once, a
+   // piece — its place; the pieces out of the picture are left out by the set itself. 690 sets of like pieces and 349
+   // merged cells of the engineer's ИР-71535 were as many draws a picture; now a draw or a few for a colour — the
+   // engineer, 13.11.2026 «Собрать всю сталь в несколько общих наборов» — «да». Not the see-through (they are drawn
+   // from the far to the near), not the mirrored, not a phone; a program with the older three.js — as before)
+   var batched=!phone&&NEW3&&typeof T.BatchedMesh==="function";
+   allMeshes.forEach(function(m){m.__inst=false});
+   if(batched){var sets=new Map();
+    allMeshes.forEach(function(m){var mt=m.material,g=m.geometry;if(!m.visible||m.userData.small||Array.isArray(mt)||!mt||mt.transparent||!g||!g.attributes||!g.attributes.position||!g.attributes.normal||m.matrixWorld.determinant()<=0)return;
+     var e=m.matrixWorld.elements,k=mt.uuid+"|"+(g.index?"i":"n")+"|"+Object.keys(g.attributes).sort().join(",")+"|"+Math.floor(e[12]/20)+","+Math.floor(e[14]/20)+(m.__ar?"|a":""),st=sets.get(k);if(!st)sets.set(k,st={mat:mt,list:[],geos:new Map(),nv:0,ni:0,ar:!!m.__ar});
+     if(!st.geos.has(g)){st.geos.set(g,-1);st.nv+=g.attributes.position.count;st.ni+=g.index?g.index.count:0}
+     st.list.push(m);m.__inst=true});
+    sets.forEach(function(st){
+     try{var bm=new T.BatchedMesh(st.list.length,st.nv,Math.max(1,st.ni),st.mat);bm.sortObjects=false;bm.perObjectFrustumCulled=false;bm.matrixAutoUpdate=false;
+      st.list.forEach(function(m){var gid=st.geos.get(m.geometry);if(gid<0){gid=bm.addGeometry(m.geometry);st.geos.set(m.geometry,gid)}bm.setMatrixAt(bm.addInstance(gid),m.matrixWorld)});
+      bm.computeBoundingBox();bm.computeBoundingSphere();bm.userData.lod="fine";bm.userData.instanced=true;bm.userData.batched=true;if(st.ar)bm.userData.ar=true;batches.add(bm)}
+     catch(e){st.list.forEach(function(m){m.__inst=false})}})}
+   if(!phone&&!batched){var uses=new Map(),det=new T.Matrix4();
     allMeshes.forEach(function(m){if(!m.visible||m.userData.small)return;var k=m.geometry.uuid+"|"+m.material.uuid;uses.set(k,(uses.get(k)||0)+1)});
-    allMeshes.forEach(function(m){m.__inst=false;if(!m.visible||m.userData.small||Array.isArray(m.material))return;var k=m.geometry.uuid+"|"+m.material.uuid;if(uses.get(k)<4||m.matrixWorld.determinant()<=0)return;
+    allMeshes.forEach(function(m){if(!m.visible||m.userData.small||Array.isArray(m.material))return;var k=m.geometry.uuid+"|"+m.material.uuid;if(uses.get(k)<4||m.matrixWorld.determinant()<=0)return;
      // (by squares of 40 m: a square out of the picture is not drawn — partsView; the engineer, 13.11.2026 «давай делай»)
      var e=m.matrixWorld.elements,kc=k+"|"+Math.floor(e[12]/40)+","+Math.floor(e[14]/40)+(m.__ar?"|a":"");
      m.__inst=true;var g=inst.get(kc);if(!g)inst.set(kc,g={geo:m.geometry,mat:m.material,list:[],ar:!!m.__ar});g.list.push(m)});
