@@ -172,11 +172,11 @@ function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects,app
  const person=r=>{if(!r)return null;const lv=r.role||"guest",ro=roleOf(r.id,lv);
   return{id:r.id,email:r.email||"",name:r.full_name||"",role:lv,roleId:ro.id,roleName:ro.name,perms:permsOf(ro,lv),verified:Boolean(r.verified),created:r.created||""}};
 
- async function api(p,{method="GET",body,auth=true}={}){
+ async function api(p,{method="GET",body,auth=true,timeout=20000}={}){
   const headers={"content-type":"application/json"};
   if(auth){const t=token();if(!t)throw Error("Войдите в программу (почта и пароль)");headers.Authorization=t}
   let res;
-  try{res=await fetch(server()+p,{method,headers,body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(20000)})}
+  try{res=await fetch(server()+p,{method,headers,body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(timeout)})}
   catch(e){throw Error("Нет связи с сервером — проверьте интернет")}
   const text=await res.text();let data=null;try{data=text?JSON.parse(text):null}catch{}
   if(!res.ok){
@@ -211,10 +211,10 @@ function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects,app
   if(!res.ok){const e=Error(explain(res.status,data));e.status=res.status;e.data=data;throw e}
   return data
  }
- async function download(collection,id,name){
+ async function download(collection,id,name,timeout=120000){
   const ft=await api("/api/files/token",{method:"POST"});
   let res;
-  try{res=await fetch(server()+`/api/files/${collection}/${id}/${encodeURIComponent(name)}?token=${encodeURIComponent(ft?.token||"")}`,{headers:{Authorization:token()},signal:AbortSignal.timeout(120000)})}
+  try{res=await fetch(server()+`/api/files/${collection}/${id}/${encodeURIComponent(name)}?token=${encodeURIComponent(ft?.token||"")}`,{headers:{Authorization:token()},signal:AbortSignal.timeout(timeout)})}
   catch(e){throw Error("Нет связи с сервером — проверьте интернет")}
   if(!res.ok){const e=Error("Сервер не отдал файл: "+res.status);e.status=res.status;throw e}
   return Buffer.from(await res.arrayBuffer())

@@ -31,7 +31,7 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
    ext:String(data.extension||""),size:Number(data.size)||0,
    sha256:String(data.sha256||""),addedAt:row.created_at,exists,
    pages:Number(data.page_count)||null,excluded:Array.isArray(data.excluded_pages)?data.excluded_pages:[],
-   workTypeId:workIds(data)[0]||"",workTypeIds:workIds(data),status:"Не распознано"}
+   workTypeId:workIds(data)[0]||"",workTypeIds:workIds(data),status:exists?"Не распознано":"Загружается с сервера"}
  }
  function setKinds(id,items){
   id=objectId(id);
@@ -85,9 +85,17 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
    data:{...row.data,page_count:list.length,sheets:{sha256:row.data?.sha256||"",list}}});
   return list
  }
- function list(id){
+ // Чертежи общие для всех компьютеров через сервер (1.12.139, src/server-sync.js): один и тот же файл, загруженный на
+ // двух компьютерах до обмена, — один чертёж в списке (по сумме и размеру; остаётся тот, чей файл уже здесь, затем
+ // старший по номеру). {all:true} — все строки (разборы ссылаются на номер своего чертежа).
+ function list(id,{all=false}={}){
   id=objectId(id);
-  return database.listEntity(id,"ai-documents").filter(x=>x.record_type==="document").map(x=>publicRow(id,x))
+  const rows=database.listEntity(id,"ai-documents").filter(x=>x.record_type==="document").map(x=>publicRow(id,x));
+  if(all)return rows;
+  const best=new Map();
+  for(const r of rows){const k=r.sha256?r.sha256+"|"+r.size:"id"+r.id,b=best.get(k);if(!b||(r.exists&&!b.exists)||(r.exists===b.exists&&r.id<b.id))best.set(k,r)}
+  const keep=new Set([...best.values()].map(r=>r.id));
+  return rows.filter(r=>keep.has(r.id))
  }
  function fingerprint(file){return new Promise((resolve,reject)=>{
   const hash=crypto.createHash("sha256"),stream=fs.createReadStream(file);
@@ -195,6 +203,27 @@ function createStore({getUserDataPath,dialog,shell,database,getWindow=()=>undefi
   return{buffer,source:{documentId:row.id,name:row.data.original_name,
     sha256,kind:row.data.kind,bytes:buffer.length,format:"PDF"}}
  }
- return{list,select,setKinds,setWorkTypes,setExcluded,sheets,saveSheets,open,remove,deleteObjectFiles,readForAnalysis,readForPdfIndex};
+ // Завершённый объект (просьба инженера 13.11.2026 «после того, как статус объекта становится завершен, удаляются
+ // чертежи и разборы. Остается только схема»): чертежи с их файлами и разборы Claude — одной пачкой в корзину на 30 дней;
+ // удаление уходит на сервер и на другие компьютеры, сервер хранит файлы те же 30 дней. Схема, отметки монтажа,
+ // отчёты, картинки узлов остаются.
+ const PURGE=["ai-documents","ai-scheme-draft"];
+ function purgeInfo(id){
+  id=objectId(id);
+  const docs=database.listEntity(id,"ai-documents").filter(x=>x.record_type==="document");
+  const drafts=database.listEntity(id,"ai-scheme-draft").length;
+  let bytes=0;for(const d of docs){try{bytes+=fs.statSync(safeFile(id,d.data?.stored_name)).size}catch{}}
+  const o=database.getObject(id);
+  return{objectId:id,status:String(o?.status||""),documents:docs.length,analyses:drafts,bytes}
+ }
+ function purge(id){
+  id=objectId(id);
+  if(!trash?.deleteSections)throw Error("Корзина недоступна — обновите программу");
+  const fileOf=row=>{if(row.section_key!=="ai-documents")return[];let d={};try{d=JSON.parse(row.data_json||"{}")}catch{}
+   try{const f=safeFile(id,d.stored_name);return fs.existsSync(f)&&!fs.lstatSync(f).isSymbolicLink()?[f]:[]}catch{return[]}};
+  const r=trash.deleteSections(id,PURGE,{title:"Чертежи и разборы завершённого объекта",info:{keep_days:30},files:fileOf});
+  return{removed:r.removed,batch:r.batch,...purgeInfo(id)}
+ }
+ return{purgeInfo,purge,list,select,setKinds,setWorkTypes,setExcluded,sheets,saveSheets,open,remove,deleteObjectFiles,readForAnalysis,readForPdfIndex};
 }
 module.exports={createStore,EXTENSIONS,MAX_FILE_BYTES,KINDS};

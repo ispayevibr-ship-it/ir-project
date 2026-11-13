@@ -8,6 +8,8 @@
  * одной транзакции, на отдельном соединении с файлом базы (как src/ai-db-batch.js). Запись корзины — «пачка»: одно
  * действие инженера (несколько удалений одного раздела подряд в течение нескольких секунд — одна пачка, например
  * «Удалить все Б1»). Пачка хранится 7 дней, потом стирается сама вместе со своими файлами.
+ * Чертежи и разборы завершённого объекта (просьба инженера 13.11.2026 «после того, как статус объекта становится завершен,
+ * удаляются чертежи и разборы») — одной пачкой на 30 дней (info.keep_days, `deleteSections`).
  * Восстановление возвращает строки с их прежними номерами (на них ссылаются схема, отчёты, журнал), файлы — на место.
  * Файлы фото и актов, которые окно удаляет вместе с записью, не стираются сразу: стираются через те же 7 дней, чтобы
  * восстановленный отчёт был с фото.
@@ -22,6 +24,8 @@ const SECTION_NAMES={scheme:"Монтажная схема",marks:"Ведомо�
  "acted-days":"Актированные дни",penalties:"Штрафы",finance:"Финансы",letters:"Исходящие письма","executive-docs":"Исполнительная документация",
  "ai-documents":"Чертежи (ИИ-распознавание)"};
 const sectionName=k=>SECTION_NAMES[k]||k;
+// срок пачки: свой (info.keep_days, до 90) или общий 7 дней
+const keepMs=b=>{let d=0;try{d=Number(JSON.parse(b.info_json||"{}").keep_days)||0}catch{d=0}return(d>0?Math.min(d,90):KEEP_DAYS)*864e5};
 // Короткое имя записи для списка корзины: марка элемента, номер отчёта, заголовок.
 function label(row){
  let d={};try{d=JSON.parse(row.data_json||"{}")||{}}catch{d={}}
@@ -103,6 +107,27 @@ function createTrash({getUserDataPath,now=()=>Date.now()}){
    })
   })
  }
+ // Все записи нескольких разделов объекта — одной пачкой (чертежи и разборы завершённого объекта); files(row) — файлы
+ // записи, они уезжают в корзину и возвращаются с ней.
+ function deleteSections(objectId,sections,{title="",info=null,files=null}={}){
+  const oid=Number(objectId),list=(sections||[]).map(String);
+  const r=run(db=>{
+   if(!db.prepare("SELECT id FROM objects WHERE id=?").get(oid))throw Error("Object not found");
+   const ph=list.map(()=>"?").join(",");
+   const rows=db.prepare(`SELECT * FROM object_records WHERE object_id=? AND section_key IN (${ph}) ORDER BY id`).all(oid,...list);
+   if(!rows.length)return{removed:0,batch:null,rows};
+   return tx(db,()=>{
+    const ins=db.prepare("INSERT INTO trash_batches(object_id,object_name,kind,section_key,title,count,deleted_at,info_json) VALUES(?,?,?,?,?,0,?,?)")
+     .run(oid,objectName(db,oid),"sections",list[0]||"",String(title||""),iso(now()),JSON.stringify(info||{}));
+    const batch=Number(ins.lastInsertRowid);copyRecords(db,batch,rows.map(x=>x.id));
+    const del=db.prepare("DELETE FROM object_records WHERE object_id=? AND id=?");let removed=0;
+    for(const x of rows)removed+=Number(del.run(oid,x.id).changes)||0;
+    return{removed,batch,rows}
+   })
+  });
+  if(r.batch&&typeof files==="function")for(const row of r.rows){for(const f of files(row)||[])try{keepFile(r.batch,f)}catch(e){console.warn("IR Project trash file:",e.message)}}
+  return{removed:r.removed,batch:r.batch}
+ }
  // Только копия (удалит вызывающий): очистка схемы и отмена расстановки удаляют сами, в своей транзакции.
  function capture(objectId,section,ids,{title="",kind="records",info=null}={}){
   const oid=Number(objectId);
@@ -154,7 +179,7 @@ function createTrash({getUserDataPath,now=()=>Date.now()}){
   const info=parseInfo(b);delete info.last_at;
   const t=Date.parse(b.deleted_at);
   return{id:b.id,objectId:b.object_id,objectName:b.object_name,kind:b.kind,section:b.section_key,sectionName:b.kind==="object"?"Объект":sectionName(b.section_key),
-   title:b.title,count:b.count,deletedAt:b.deleted_at,expiresAt:iso(t+KEEP_MS),items,info}
+   title:b.title,count:b.count,deletedAt:b.deleted_at,expiresAt:iso(t+keepMs(b)),items,info}
  }
  function list({objectId=null,section="",kind=""}={}){
   purge();
@@ -172,7 +197,7 @@ function createTrash({getUserDataPath,now=()=>Date.now()}){
   const id=Number(batchId);
   const out=run(db=>{
    const b=db.prepare("SELECT * FROM trash_batches WHERE id=?").get(id);
-   if(!b)throw Error("Этой записи в корзине уже нет (восстановлена или прошло 7 дней)");
+   if(!b)throw Error("Этой записи в корзине уже нет (восстановлена или прошёл срок хранения)");
    return tx(db,()=>{
     db.exec("PRAGMA defer_foreign_keys=ON");
     if(b.kind==="object"){
@@ -223,17 +248,17 @@ function createTrash({getUserDataPath,now=()=>Date.now()}){
   const t=now();if(!force&&t-lastPurge<60e3)return 0;lastPurge=t;
   const edge=iso(t-KEEP_MS);
   const r=run(db=>{
-   const old=db.prepare("SELECT id FROM trash_batches WHERE deleted_at<?").all(edge).map(x=>x.id);
-   const files=db.prepare("SELECT * FROM trash_files WHERE removed_at<?").all(edge);
+   const old=db.prepare("SELECT id,deleted_at,info_json FROM trash_batches WHERE deleted_at<?").all(edge).filter(b=>Date.parse(b.deleted_at)<t-keepMs(b)).map(x=>x.id);
+   const files=db.prepare("SELECT * FROM trash_files WHERE removed_at<? AND batch_id IS NULL").all(edge);
    if(!old.length&&!files.length)return{old,files};
    tx(db,()=>{for(const id of old){for(const tb of["trash_records","trash_rows","trash_files"])db.prepare(`DELETE FROM ${tb} WHERE batch_id=?`).run(id);db.prepare("DELETE FROM trash_batches WHERE id=?").run(id)}
-    db.prepare("DELETE FROM trash_files WHERE removed_at<?").run(edge)});
+    db.prepare("DELETE FROM trash_files WHERE removed_at<? AND batch_id IS NULL").run(edge)});
    return{old,files}
   });
   for(const f of r.files)if(!f.batch_id){const p=insideUserData(f.original);if(p)try{fs.rmSync(p,{force:true})}catch(_e){}}
   for(const id of r.old)try{fs.rmSync(path.join(filesRoot(),String(id)),{recursive:true,force:true})}catch(_e){}
   return r.old.length
  }
- return{deleteRecords,capture,deleteObject,keepFile,deferFile,list,restore,drop,setInfo,purge,KEEP_DAYS}
+ return{deleteRecords,deleteSections,capture,deleteObject,keepFile,deferFile,list,restore,drop,setInfo,purge,KEEP_DAYS}
 }
 module.exports={createTrash,KEEP_DAYS,label};

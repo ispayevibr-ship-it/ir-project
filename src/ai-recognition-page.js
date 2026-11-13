@@ -16,7 +16,7 @@ window.irAiRecognitionPage=async function(objectId){
  const canEdit=!!window.irAccess?.canEdit?.("ai-recognition");
  const TABS=[["drawings","Чертежи"],["analyze","Анализ"],["claude","Обработка Claude"],["place","Монтажная схема"],["journal","Журнал"]];
  const tabKey="ir-ms-tab-"+id;
- let object,pdfs=[],picked=new Set(),view=null,engine=null,busy="",error="",heights={},progress="",filter="";
+ let object,coming=0,pdfs=[],picked=new Set(),view=null,engine=null,busy="",error="",heights={},progress="",filter="";
  // A run of this object in the program (analysis or Claude) and the engineer's pause or stop of it (ai-montage:control).
  let ctl={step:"",state:"idle"};
  // The engineer's comment to Claude for this analysis: null until edited, then the typed text (saved with the run).
@@ -37,7 +37,7 @@ window.irAiRecognitionPage=async function(objectId){
   app.innerHTML='<div class="ir-ms"><div class="ir-ms-error">Эта установка IR Project не содержит модуля «Монтажная схема из PDF». Установите новую версию программы.</div></div>';return
  }
  const alive=()=>location.hash===route;
- const setPdfs=list=>{pdfs=list.filter(x=>x.ext===".pdf"&&x.exists);if(!pdfs.some(d=>String(d.id)===String(selected)))selected=pdfs[0]?.id??null};
+ const setPdfs=list=>{pdfs=list.filter(x=>x.ext===".pdf"&&x.exists);coming=list.filter(x=>x.ext===".pdf"&&!x.exists).length;if(!pdfs.some(d=>String(d.id)===String(selected)))selected=pdfs[0]?.id??null};
  async function load(){
   const jobs=[bridge.list(id).then(setPdfs).catch(()=>{pdfs=[]}),
    montage.latest(id).then(v=>{view=v}).catch(e=>{error=String(e.message||e)})];
@@ -159,6 +159,7 @@ window.irAiRecognitionPage=async function(objectId){
     '<td>'+(canEdit?'<button class="link" data-ms-remove="'+d.id+'" title="Удалить из IR Project AI">✕</button>':'')+'</td></tr>').join(""):
     '<tr><td colspan="6" class="muted">Загрузите PDF чертежей: КМ, КМД, АР, ТХ. Монтажные и сборочные листы КМД программа различает сама.</td></tr>')+'</tbody></table></div>'+
    '<p class="ir-ms-note">'+(missing?'<b class="bad">Без типа: '+missing+'</b> · ':'')+Object.entries(counts).map(([k,v])=>esc(k)+' — '+v).join(" · ")+'</p>'+
+   (coming?'<p class="ir-ms-note">Ещё '+coming+' — загружается с сервера: чертежи общие для всех компьютеров, файл приходит при обмене с сайтом.</p>':'')+
    (pdfs.length?'<p class="ir-ms-note">'+(works.length?'Вид работ — под каким видом работ объекта элементы чертежа встанут в монтажную схему (там можно смотреть все виды вместе или каждый отдельно). Чертежу можно дать несколько видов работ (справа, над листами): окна, панели, двери и ворота разойдутся по ним сами. Не выбран — «Монтаж металлоконструкций (из PDF)».':'У объекта нет видов работ: элементы встанут под «Монтаж металлоконструкций (из PDF)». Свои виды работ добавляются в разделе «Виды работ».')+'</p>':'')+'</div>';
   let sheets='<div class="ir-ms-pane ir-ms-sheets"><p class="muted">Выберите файл слева.</p></div>';
   if(doc){

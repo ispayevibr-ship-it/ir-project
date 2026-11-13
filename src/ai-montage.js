@@ -371,7 +371,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
  }
  // Sheets of one PDF with their stamp names, for choosing what to analyse.
  async function documentSheets(id,documentId){
-  const oid=object(id),doc=documents.list(oid).find(d=>String(d.id)===String(documentId));
+  const oid=object(id),doc=documents.list(oid,{all:true}).find(d=>String(d.id)===String(documentId));
   if(!doc)throw Error("Чертёж не найден");
   let list=documents.sheets(oid,doc.id);
   if(!list){const result=await drafts.sheets(oid,doc.id);list=documents.saveSheets(oid,doc.id,result.sheets.map(p=>({page:p.page,name:p.name||p.title||"",code:p.code||""})))}
@@ -815,7 +815,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   // A drawing with several work types (АР: windows, sandwich panels, doors and gates): each element goes to the one that
   // names its kind (ST.workTypeFor).
   const works=new Map(database.listEntity(oid,"work-types").map(w=>[String(w.id),w]));
-  const docWork=new Map(documents.list(oid).map(d=>[String(d.id),(Array.isArray(d.workTypeIds)&&d.workTypeIds.length?d.workTypeIds:[d.workTypeId]).map(x=>String(x||"")).filter(x=>works.has(x))]));
+  const docWork=new Map(documents.list(oid,{all:true}).map(d=>[String(d.id),(Array.isArray(d.workTypeIds)&&d.workTypeIds.length?d.workTypeIds:[d.workTypeId]).map(x=>String(x||"")).filter(x=>works.has(x))]));
   const sourceDocs=(data.source?.documents||[]).map(x=>({name:String(x.name||""),work:docWork.get(String(x.documentId))||[]}));
   const common=sourceDocs.length&&sourceDocs.every(x=>x.work.length&&x.work.join(",")===sourceDocs[0].work.join(","))?sourceDocs[0].work:[];
   const pick=(e,list)=>ST.workTypeFor(e,list.map(id=>({id,name:works.get(id)?.data?.work_type||works.get(id)?.title||""})));

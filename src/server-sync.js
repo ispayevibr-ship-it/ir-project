@@ -10,8 +10,11 @@
  * A row is known everywhere by its number (rid = id in the program). So that two computers never make two different
  * rows with one number, each database takes its own range of numbers once: range N — from N·10⁹ (the rows that were
  * here before, the administrator's database, are below 10⁹).
- * Not sent (heavy, made again on each computer — «Распознавание делает каждый пк»): the analyses of the drawings, the
- * training placements, the snapshots of the scheme, the list of PDF files, the processing log.
+ * Not sent (made again on each computer): the training placements, the snapshots of the scheme, the processing log.
+ * The drawings and their analyses go too (1.12.139, the engineer 13.11.2026 «чертежи на сервер грузить, чтобы у всех
+ * отображались одни и те же чертежи»): the row of a drawing (section ai-documents) carries its file name, the file
+ * goes to the collection «files» as «ir-project-ai/objects/<объект>/<имя>»; the analyses (ai-scheme-draft, ~9 MB) go
+ * once they have not changed for 90 s, and come down one by one.
  * Deleted rows are marked deleted on the server — nothing is lost there (the history keeps every previous state).
  */
 const fs=require("node:fs");
@@ -19,7 +22,20 @@ const path=require("node:path");
 const os=require("node:os");
 
 const RANGE=1e9;
-const LOCAL_ONLY=new Set(["ai-training","ai-scheme-draft","scheme-snapshots","ai-documents","ai-project-log"]);
+const LOCAL_ONLY=new Set(["ai-training","scheme-snapshots","ai-project-log"]);
+// heavy rows: sent when settled, taken one by one, longer waiting for the answer
+const HEAVY=new Set(["ai-scheme-draft"]);
+const DOCS="ai-documents";
+const SAFE_DOC=/^[a-f0-9]{32}\.(pdf|dxf|dwg|png|jpg|jpeg|tif|tiff)$/i;
+// the place of a drawing's file inside the program's folder, the same on every computer (an object keeps its number)
+function docRel(row){
+ if(!row||row.section_key!==DOCS||row.record_type!=="document")return"";
+ let d=null;try{d=typeof row.data_json==="string"?JSON.parse(row.data_json):row.data}catch{d=null}
+ const name=String(d?.stored_name||""),oid=Number(row.object_id);
+ return SAFE_DOC.test(name)&&Number.isSafeInteger(oid)&&oid>0?`ir-project-ai/objects/${oid}/${name}`:""
+}
+function docInfo(row){let d=null;try{d=JSON.parse(row.data_json||"{}")}catch{d=null}return{sha:String(d?.sha256||""),size:Number(d?.size)||0}}
+function filesOf(row){const out=imagesIn(row?.data_json);const r=docRel(row);if(r)out.add(r);return out}
 const TABLES=[
  {table:"objects",coll:"objects",fields:r=>({row:r})},
  {table:"object_sections",coll:"sections",fields:r=>({object_rid:r.object_id,section_key:r.section_key,row:r})},
@@ -48,7 +64,7 @@ function localizeJson(json,base){
  data=walk(data);return changed?JSON.stringify(data):json
 }
 const fileRid=rel=>parseInt(require("node:crypto").createHash("sha1").update(rel).digest("hex").slice(0,12),16);
-const FILES_PER_CYCLE=12;
+const FILES_PER_CYCLE=12,BYTES_PER_CYCLE=48*1048576;
 
 // A record written again with the same content is not sent again (the engineer, 12.11.2026: «каждый раз отправляет все
 // элементы в бд? при новом распознование?» — after every recognition all 6 600 elements went to the server).
@@ -91,7 +107,7 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
  // a sent row: its pictures that the server has not got yet are put in the queue
  function queueUploads(row){
   if(!row||!userBase()||typeof account.upload!=="function")return;
-  for(const rel of imagesIn(row.data_json)){
+  for(const rel of filesOf(row)){
    const st=fileState(rel)?.state;
    if(st==="up"||st==="down")continue;
    if(fs.existsSync(path.join(userBase(),...rel.split("/"))))setFile(rel,"send",Number(row.object_id),row.section_key)
@@ -101,10 +117,12 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
  async function sendFiles(){
   if(!userBase()||typeof account.upload!=="function")return 0;
   const list=open().prepare("SELECT rel,object_rid,section_key FROM sync_files WHERE state='send' ORDER BY at LIMIT ?").all(FILES_PER_CYCLE);
-  let n=0;
+  let n=0,bytes=0;
   for(const f of list){
+   if(bytes>=BYTES_PER_CYCLE)break;
    const file=path.join(userBase(),...f.rel.split("/"));
    if(!fs.existsSync(file)){open().prepare("DELETE FROM sync_files WHERE rel=?").run(f.rel);continue}
+   try{bytes+=fs.statSync(file).size}catch{}
    try{
     if(!await findFile(f.rel)){
      try{await account.upload("files",{rid:fileRid(f.rel),path:f.rel,object_rid:Number(f.object_rid)||0,section_key:f.section_key||"",device:Number(getState("range"))||0},path.basename(file),fs.readFileSync(file))}
@@ -122,14 +140,15 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
  async function takeFiles(){
   if(!userBase()||typeof account.download!=="function")return 0;
   const list=open().prepare("SELECT rel FROM sync_files WHERE state='need' AND tries<20 ORDER BY tries,at LIMIT ?").all(FILES_PER_CYCLE);
-  let n=0;
+  let n=0,bytes=0;
   for(const {rel} of list){
+   if(bytes>=BYTES_PER_CYCLE)break;
    const file=path.join(userBase(),...rel.split("/"));
    if(fs.existsSync(file)){setFile(rel,"down");continue}
    try{
     const it=await findFile(rel);
     if(!it?.file){open().prepare("UPDATE sync_files SET tries=tries+1 WHERE rel=?").run(rel);continue}
-    const buf=await account.download("files",it.id,it.file);
+    const buf=await account.download("files",it.id,it.file,rel.startsWith("ir-project-ai/")?1800000:undefined);bytes+=buf.length;
     fs.mkdirSync(path.dirname(file),{recursive:true});const tmp=file+".part";fs.writeFileSync(tmp,buf);fs.renameSync(tmp,file);
     setFile(rel,"down");n++
    }catch(e){
@@ -147,6 +166,25 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
   const rows=open().prepare(`SELECT object_id,section_key,data_json FROM object_records WHERE section_key NOT IN (${ph}) AND data_json LIKE '%images%'`).all(...LOCAL_ONLY);
   for(const r of rows)queueUploads(r);
   setState("files_backfill","1")
+ }
+ // once (1.12.139): the drawings and the analyses of this database that never went (they were kept here only). After the
+ // first taking from the server, so a drawing another computer has sent already (the same file — by its sum) is not
+ // sent a second time; of the analyses — the two newest of each object (the program keeps two).
+ function queueOldDocs(){
+  if(getState("docs_backfill")==="1"||getState("pulled")!=="1")return;
+  const d=open();
+  const sent=new Set(d.prepare("SELECT rid FROM sync_map WHERE tbl='object_records'").all().map(r=>Number(r.rid)));
+  const docs=d.prepare("SELECT id,object_id,section_key,record_type,data_json FROM object_records WHERE section_key=? AND record_type='document' ORDER BY id").all(DOCS);
+  const have=new Set(docs.filter(r=>sent.has(Number(r.id))).map(r=>{const i=docInfo(r);return r.object_id+"|"+i.sha+"|"+i.size}));
+  const ins=d.prepare("INSERT INTO sync_outbox(tbl,rid) VALUES('object_records',?)");
+  d.exec("BEGIN");
+  try{
+   for(const r of docs){if(sent.has(Number(r.id)))continue;const i=docInfo(r),k=r.object_id+"|"+i.sha+"|"+i.size;if(i.sha&&have.has(k))continue;have.add(k);ins.run(r.id)}
+   const drafts=d.prepare("SELECT id,object_id FROM object_records WHERE section_key='ai-scheme-draft' AND record_type='pdf_scheme_draft' ORDER BY id DESC").all();
+   const per={};for(const r of drafts){per[r.object_id]=(per[r.object_id]||0)+1;if(per[r.object_id]<=2&&!sent.has(Number(r.id)))ins.run(r.id)}
+   d.prepare("INSERT INTO sync_state(k,v) VALUES('docs_backfill','1') ON CONFLICT(k) DO UPDATE SET v='1'").run();
+   d.exec("COMMIT")
+  }catch(e){d.exec("ROLLBACK");throw e}
  }
  const filesPending=()=>{try{return open().prepare("SELECT SUM(state='send') up,SUM(state='need' AND tries<20) down FROM sync_files").get()}catch{return{up:0,down:0}}};
 
@@ -197,8 +235,9 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
   try{
    d.exec("INSERT INTO sync_outbox(tbl,rid) SELECT 'objects',id FROM objects ORDER BY id");
    d.exec("INSERT INTO sync_outbox(tbl,rid) SELECT 'object_sections',id FROM object_sections ORDER BY id");
-   const ph=[...LOCAL_ONLY].map(()=>"?").join(",");
-   d.prepare(`INSERT INTO sync_outbox(tbl,rid) SELECT 'object_records',id FROM object_records WHERE section_key NOT IN (${ph}) ORDER BY id`).run(...LOCAL_ONLY);
+   // (the drawings and the analyses — queueOldDocs, after the first taking, without twins and old analyses)
+   const skip=[...LOCAL_ONLY,...HEAVY,DOCS],ph=skip.map(()=>"?").join(",");
+   d.prepare(`INSERT INTO sync_outbox(tbl,rid) SELECT 'object_records',id FROM object_records WHERE section_key NOT IN (${ph}) ORDER BY id`).run(...skip);
    d.exec("COMMIT")
   }catch(e){d.exec("ROLLBACK");throw e}
   setState("uploaded",new Date().toISOString());
@@ -229,11 +268,12 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
   let body;
   if(local){const row=plain(local);if(JSON.stringify(row).length>MAX_ROW)return"big";body={...t.fields(row),deleted:false,device:Number(getState("range"))||0}}
   else body={deleted:true};
-  const patch=id=>account.api(`/api/collections/${t.coll}/records/${id}`,{method:"PATCH",body});
+  const timeout=local&&HEAVY.has(local.section_key)?300000:undefined;
+  const patch=id=>account.api(`/api/collections/${t.coll}/records/${id}`,{method:"PATCH",body,timeout});
   let r;
   if(sid)r=await patch(sid);
   else{
-   try{r=await account.api(`/api/collections/${t.coll}/records`,{method:"POST",body:{rid:Number(rid),...body}})}
+   try{r=await account.api(`/api/collections/${t.coll}/records`,{method:"POST",body:{rid:Number(rid),...body},timeout})}
    catch(e){
     // the row is already there (an earlier sending reached the server, the answer did not come back) — change it instead
     if(e.status!==400||!e.data?.data?.rid)throw e;
@@ -248,7 +288,10 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
  async function pushNow(){
   const d=open();
   for(;;){
-   const batch=d.prepare("SELECT tbl,rid,MAX(seq) seq FROM sync_outbox GROUP BY tbl,rid ORDER BY MIN(seq) LIMIT 60").all();
+   // an analysis still being written (the steps of the recognition change it) waits until it has rested 90 s
+   const batch=d.prepare(`SELECT o.tbl,o.rid,MAX(o.seq) seq FROM sync_outbox o LEFT JOIN object_records r ON o.tbl='object_records' AND r.id=o.rid
+    WHERE NOT COALESCE(r.section_key IN (${[...HEAVY].map(()=>"?").join(",")}) AND r.updated_at>datetime('now','-90 seconds'),0)
+    GROUP BY o.tbl,o.rid ORDER BY MIN(o.seq) LIMIT 60`).all(...HEAVY);
    if(!batch.length)break;
    status.state="sending";
    // the objects before their sections and records (the server gives the rights by the object)
@@ -275,7 +318,7 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
 
  // ---- receiving ----
  function applyRows(table,items){
-  const d=open(),cols=colsOf(table);
+  const d=open(),cols=colsOf(table),gone=[];
   let n=0;
   d.exec("BEGIN");
   try{
@@ -286,12 +329,21 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
     if(d.prepare("SELECT 1 FROM sync_outbox WHERE tbl=? AND rid=? LIMIT 1").get(table,rid))continue;
     if(it.deleted){
      if(table==="objects"){d.prepare("DELETE FROM object_records WHERE object_id=?").run(rid);d.prepare("DELETE FROM object_sections WHERE object_id=?").run(rid)}
+     // a drawing removed on another computer: its file goes here too (the server keeps it 30 days for the trash there)
+     if(table==="object_records"&&userBase()){const old=d.prepare("SELECT * FROM object_records WHERE id=?").get(rid);const rel=docRel(old);if(rel)gone.push(rel)}
      d.prepare(`DELETE FROM ${table} WHERE id=?`).run(rid)
     }else{
      const row=it.row&&typeof it.row==="object"?it.row:null;if(!row)continue;
      if(table==="object_records"&&LOCAL_ONLY.has(row.section_key))continue;
      if(table==="object_records"&&typeof row.data_json==="string"&&userBase()){
       for(const rel of imagesIn(row.data_json)){const st=fileState(rel)?.state;if(st!=="up"&&st!=="down"&&!fs.existsSync(path.join(userBase(),...rel.split("/"))))setFile(rel,"need",Number(row.object_id),row.section_key)}
+      const dr=docRel({...row,object_id:row.object_id});
+      if(dr&&!fs.existsSync(path.join(userBase(),...dr.split("/")))){
+       // the same file here already (loaded on this computer too) — a copy instead of taking it from the server
+       const i=docInfo(row),twin=i.sha?d.prepare("SELECT * FROM object_records WHERE object_id=? AND section_key=? AND record_type='document' AND id<>? AND data_json LIKE ?").all(Number(row.object_id),DOCS,rid,"%"+i.sha+"%").map(docRel).map(r=>r&&path.join(userBase(),...r.split("/"))).find(f=>f&&fs.existsSync(f)):null;
+       if(twin){try{const to=path.join(userBase(),...dr.split("/"));fs.mkdirSync(path.dirname(to),{recursive:true});fs.copyFileSync(twin,to);setFile(dr,"down")}catch{setFile(dr,"need",Number(row.object_id),DOCS)}}
+       else setFile(dr,"need",Number(row.object_id),DOCS)
+      }
       row.data_json=localizeJson(row.data_json,userBase())
      }
      const keys=cols.filter(c=>c!=="id"&&row[c]!==undefined);
@@ -306,6 +358,7 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
    fixSequences();
    d.exec("COMMIT")
   }catch(e){try{setState("applying","0")}catch{}d.exec("ROLLBACK");throw e}
+  for(const rel of gone){try{fs.rmSync(path.join(userBase(),...rel.split("/")),{force:true});d.prepare("DELETE FROM sync_files WHERE rel=?").run(rel)}catch{}}
   return n
  }
  // Доступ, выданный позже (просьба инженера 12.11.2026 «инженеру дал доступ в завершённые ранее объекты, а у него
@@ -326,12 +379,12 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
   for(const {table,coll} of TABLES){
    const since=getState("since_"+coll);
    const filter=since?`&filter=${encodeURIComponent(`updated>="${since}"`)}`:"";
-   let last=since,need=[];
+   let last=since,need=[],heavy=[];
    for(let page=1;page<500;page++){
-    const r=await account.api(`/api/collections/${coll}/records?perPage=500&page=${page}&sort=updated,id&fields=id,rid,version,updated${filter}`);
+    const r=await account.api(`/api/collections/${coll}/records?perPage=500&page=${page}&sort=updated,id&fields=id,rid,version,updated${coll==="records"?",section_key":""}${filter}`);
     for(const it of r?.items||[]){
      const m=mapOf(table,Number(it.rid));
-     if(!(m&&m.sid===it.id&&Number(m.version)>=Number(it.version)))need.push(it.id);
+     if(!(m&&m.sid===it.id&&Number(m.version)>=Number(it.version)))(HEAVY.has(it.section_key)?heavy:need).push(it.id);
      if(it.updated>last)last=it.updated
     }
     if(!r||page>=r.totalPages)break
@@ -342,9 +395,14 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
     const items=(r?.items||[]).sort((a,b)=>Number(a.rid)-Number(b.rid));
     changed+=applyRows(table,items)
    }
+   for(const id of heavy){
+    const it=await account.api(`/api/collections/${coll}/records/${id}`,{timeout:300000}).catch(e=>{if(e.status===404)return null;throw e});
+    if(it)changed+=applyRows(table,[it])
+   }
    if(last&&last!==since)setState("since_"+coll,last)
   }
   if(sig)setState("access_sig",sig);
+  if(getState("pulled")!=="1")setState("pulled","1");
   if(changed)status.changedAt=now();
   return changed
  }
@@ -424,7 +482,7 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
   try{
    await push();
    if(force||now()-lastPull>15e3||again){await pull();lastPull=now()}
-   await serial(async()=>{queueOldFiles();await sendFiles();await takeFiles()});
+   await serial(async()=>{queueOldFiles();try{queueOldDocs()}catch(e){console.warn("IR Project sync docs:",e.message)}await sendFiles();await takeFiles()});
    status.state="idle";status.error="";status.lastAt=new Date(now()).toISOString()
   }catch(e){status.state=e.status?"error":"offline";status.error=String(e.message||e)}
   finally{running=false;if(again){again=false;setTimeout(()=>void cycle(),500)}}
@@ -434,4 +492,4 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
  function close(){if(timer)clearInterval(timer);try{db?.close()}catch{}db=null}
  return{info,enable,disable,uploadAll,cycle,push,pull,close,companyExchange:()=>serial(companyExchange),LOCAL_ONLY}
 }
-module.exports={createServerSync,LOCAL_ONLY,RANGE,triggersSql,relOf,imagesIn,localizeJson};
+module.exports={createServerSync,LOCAL_ONLY,HEAVY,RANGE,triggersSql,relOf,imagesIn,localizeJson,docRel};
