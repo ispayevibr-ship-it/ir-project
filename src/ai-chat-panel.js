@@ -59,10 +59,15 @@
  /* The page styles every input as a field: the box of «Приложить снимок экрана» is a plain checkbox again. */
  .irc-row label input[type=checkbox]{appearance:auto!important;-webkit-appearance:checkbox!important;width:16px!important;height:16px!important;min-width:16px!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;box-shadow:none!important;flex:0 0 16px;accent-color:#1d4ed8;cursor:pointer}
  .irc-row button{border:0;border-radius:8px;background:#1d4ed8;color:#fff;padding:7px 14px;font-weight:600;cursor:pointer}.irc-row button:disabled{opacity:.55;cursor:default}
- .irc-row .irc-attach{background:#fff;color:#1d4ed8;border:1px solid #9db7ef;padding:6px 10px;font-weight:600;display:inline-flex;align-items:center;gap:6px}.irc-attach svg{width:17px;height:17px;flex:0 0 17px}.irc-row .irc-attach:hover{background:#eef4ff}
- .irc-photos{display:flex;gap:6px;flex-wrap:wrap}.irc-photos[hidden]{display:none}
- .irc-photos span{position:relative;width:56px;height:56px;border-radius:6px;overflow:hidden;border:1px solid #cfd8e3;background:#f6f8fb}
+ .irc-row .irc-attach{background:#fff;color:#1d4ed8;border:1px solid #9db7ef;padding:6px 10px;font-weight:600;display:inline-flex;align-items:center;gap:6px}.irc-attach svg{width:17px;height:17px;flex:0 0 17px}.irc-row .irc-attach{white-space:nowrap}.irc-row .irc-attach:hover{background:#eef4ff}
+ .irc-photos{display:flex;flex-direction:column;gap:6px;max-height:42vh;overflow:auto}.irc-photos[hidden]{display:none}
+ .irc-photos>b{font-size:12px;color:#44515e;font-weight:600}
+ .irc-photos .irc-pic{display:flex;gap:8px;align-items:flex-start}
+ .irc-photos .irc-pic textarea{width:100%;box-sizing:border-box;min-height:56px;height:56px;font-size:12.5px;padding:5px 7px;resize:vertical}
+ .irc-photos .irc-pic small{display:block;color:#5b6b7b;font-size:11px;margin-top:2px}
+ .irc-photos span{position:relative;flex:0 0 72px;width:72px;height:56px;border-radius:6px;overflow:hidden;border:1px solid #cfd8e3;background:#f6f8fb;cursor:zoom-in}
  .irc-photos img{width:100%;height:100%;object-fit:cover;display:block}
+ .irc-photos i{position:absolute;left:2px;bottom:2px;background:rgba(15,35,80,.75);color:#fff;font:600 10px/14px system-ui;padding:0 4px;border-radius:4px;font-style:normal}
  .irc-photos button{position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:9px;border:0;background:rgba(15,35,80,.7);color:#fff;font-size:12px;line-height:18px;padding:0;cursor:pointer}
  .irc-panel.irc-drop{outline:3px dashed #1d4ed8;outline-offset:-6px}
  .irc-toast{position:fixed;right:18px;bottom:84px;z-index:2147483102;width:min(340px,calc(100vw - 36px));background:#fff;border:1px solid #c9daf8;border-left:4px solid #1d4ed8;border-radius:10px;box-shadow:0 12px 32px rgba(15,35,80,.25);padding:10px 12px;font:13px/1.45 system-ui,"Segoe UI",sans-serif;color:#1f2933;display:flex;flex-direction:column;gap:6px}
@@ -101,16 +106,20 @@
  <div class="irc-tabs" hidden><button type="button" data-tab="claude" class="on">Claude</button><button type="button" data-tab="inbox">Инженеры<b></b></button></div>
  <div class="irc-note"></div><div class="irc-list"></div><div class="irc-inbox" hidden></div>
  <form class="irc-form"><div class="irc-ctx" hidden><span></span><button type="button" title="Не прикладывать элемент">×</button></div>
- <textarea placeholder="Что не так или что сделать? Например: «у колонны К7 нет базы». Фото можно вставить сюда (Ctrl+V) или перетащить."></textarea>
+ <textarea placeholder="Что не так или что сделать? Например: «у колонны К7 нет базы». Несколько мест: напишите про первое и нажмите «＋ Снимок», поверните схему, напишите про следующее и снова «＋ Снимок» — потом «Отправить», всё уйдёт одним сообщением. Фото можно вставить сюда (Ctrl+V) или перетащить."></textarea>
  <div class="irc-photos" hidden></div>
- <div class="irc-row"><label><input type="checkbox" checked> Приложить снимок экрана</label><button type="button" class="irc-attach" title="Приложить фото или картинку с компьютера (до 6)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><circle cx="8.8" cy="10" r="1.7"/><path d="M21 15.5l-4.8-4.8L7.5 19.5"/></svg>Фото</button><input type="file" accept="image/*" multiple hidden><button type="submit">Отправить</button></div></form>`;
+ <div class="irc-row"><label><input type="checkbox" checked> Приложить снимок экрана</label><button type="button" class="irc-attach" data-snap title="Снять схему сейчас и положить снимок в сообщение с текстом из поля как комментарием. Можно собрать до 12 снимков, потом «Отправить» — всё уйдёт одним сообщением">＋ Снимок</button><button type="button" class="irc-attach" data-photo title="Приложить фото или картинку с компьютера"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><circle cx="8.8" cy="10" r="1.7"/><path d="M21 15.5l-4.8-4.8L7.5 19.5"/></svg>Фото</button><input type="file" accept="image/*" multiple hidden><button type="submit">Отправить</button></div></form>`;
  const toast=document.createElement("div");toast.className="irc-toast";toast.hidden=true;toast.setAttribute("role","status");
  toast.innerHTML='<b>Ответ в чате</b><span></span><div><button type="button" class="alt" data-later>Позже</button><button type="button" data-open>Открыть чат</button></div>';
  document.body.append(fab,panel,toast);
  const list=panel.querySelector(".irc-list"),note=panel.querySelector(".irc-note"),form=panel.querySelector("form"),area=form.querySelector("textarea"),withShot=form.querySelector("input[type=checkbox]"),sendBtn=form.querySelector("[type=submit]"),ctxBox=form.querySelector(".irc-ctx");
  const photoBox=form.querySelector(".irc-photos"),photoInput=form.querySelector("input[type=file]");
- // Photos chosen for the next message: kept by the main process at once, shown here until sent.
- let photos=[];
+ // The pictures of the next message — screenshots collected with «＋ Снимок» (each with its comment and the element
+ // selected then) and photos from the computer: kept by the main process at once, shown here until sent, the list kept
+ // in the window's storage (a closed panel, another tab or a restart of the program do not lose it).
+ const DRAFT="irc-draft",MAX_PICS=12;
+ let photos=(()=>{try{const v=JSON.parse(localStorage.getItem(DRAFT)||"[]");return Array.isArray(v)?v.filter(p=>p&&/^s[a-z0-9]+$/i.test(String(p.id))).slice(0,MAX_PICS).map(p=>({id:String(p.id),note:String(p.note||""),kind:p.kind==="shot"?"shot":"photo",el:p.el&&typeof p.el==="object"?p.el:null,url:""})):[]}catch(_e){return[]}})();
+ const keepDraft=()=>{try{photos.length?localStorage.setItem(DRAFT,JSON.stringify(photos.map(({url,...p})=>p))):localStorage.removeItem(DRAFT)}catch(_e){}};
  let state={messages:[],unread:0,link:null},dropElement=false,busy=false,timer=null,relink=false;
  const acted=new Map();
  const linkBox=panel.querySelector(".irc-link"),keyInput=linkBox.querySelector("[data-key]"),urlInput=linkBox.querySelector("[data-url]");
@@ -319,30 +328,51 @@
   if(show){toast.hidden=true;area.focus();sync()}
  }
  // ---- Photos from the computer: any picture the window can read becomes a JPEG of at most 2000 px.
+ const elText=e=>e?[e.mark,e.name].filter(Boolean).join(" · ")+(e.axes?" · оси "+e.axes:""):"";
  function paintPhotos(){
-  photoBox.hidden=!photos.length;
-  photoBox.innerHTML=photos.map((p,i)=>'<span><img alt="фото '+(i+1)+'" src="'+p.url+'"><button type="button" data-unphoto="'+i+'" title="Убрать фото">×</button></span>').join("")
+  photoBox.hidden=!photos.length;keepDraft();
+  photoBox.innerHTML=photos.length?'<b>В сообщении '+photos.length+' из '+MAX_PICS+' — уйдёт по «Отправить»</b>'+photos.map((p,i)=>'<div class="irc-pic"><span data-zoom="'+i+'"><img alt="снимок '+(i+1)+'"'+(p.url?' src="'+esc(p.url)+'"':"")+'><i>'+(i+1)+'</i><button type="button" data-unphoto="'+i+'" title="Убрать из сообщения">×</button></span><div style="flex:1"><textarea data-note="'+i+'" placeholder="Комментарий к снимку '+(i+1)+'">'+esc(p.note)+'</textarea>'+(p.el?"<small>Элемент: "+esc(elText(p.el))+"</small>":"")+'</div></div>').join(""):"";
+  photos.forEach((p,i)=>{if(p.url)return;invoke("ai-montage:chat-shot",{id:p.id}).then(u=>{if(u){p.url=u;const img=photoBox.querySelector('[data-zoom="'+i+'"] img');if(img)img.src=u}}).catch(()=>{})})
  }
  async function addPhotos(files){
   const images=[...files||[]].filter(f=>/^image\//.test(f.type));
   if(!images.length)return;
-  if(photos.length+images.length>6)alert("К одному сообщению — до 6 фото.");
-  for(const f of images.slice(0,Math.max(0,6-photos.length))){
+  if(photos.length+images.length>MAX_PICS)alert("К одному сообщению — до "+MAX_PICS+" снимков и фото.");
+  for(const f of images.slice(0,Math.max(0,MAX_PICS-photos.length))){
    try{
     const bmp=await createImageBitmap(f),k=Math.min(1,2000/Math.max(bmp.width,bmp.height)),c=document.createElement("canvas");
     c.width=Math.max(1,Math.round(bmp.width*k));c.height=Math.max(1,Math.round(bmp.height*k));
     const g=c.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,c.width,c.height);g.drawImage(bmp,0,0,c.width,c.height);bmp.close?.();
     const blob=await new Promise((ok,no)=>c.toBlob(b=>b?ok(b):no(Error("не удалось сжать")),"image/jpeg",0.85));
     const r=await invoke("ai-montage:chat-photo",{data:new Uint8Array(await blob.arrayBuffer())});
-    if(r?.photoId)photos.push({id:r.photoId,url:URL.createObjectURL(blob)})
+    if(r?.photoId)photos.push({id:r.photoId,url:URL.createObjectURL(blob),note:"",kind:"photo",el:null})
    }catch(e){alert("Фото «"+f.name+"» не добавлено: "+(e.message||e))}
   }
   paintPhotos()
  }
- const dropPhotos=()=>{for(const p of photos)URL.revokeObjectURL(p.url);photos=[];paintPhotos()};
- form.querySelector(".irc-attach").onclick=()=>photoInput.click();
+ const unurl=p=>{if(p&&/^blob:/.test(p.url))URL.revokeObjectURL(p.url)};
+ const dropPhotos=()=>{photos.forEach(unurl);photos=[];paintPhotos()};
+ form.querySelector("[data-photo]").onclick=()=>photoInput.click();
+ // «＋ Снимок»: the scheme as it is now goes into the message with the text of the field as its comment; the field is
+ // emptied for the next place. Nothing is sent until «Отправить».
+ const snapBtn=form.querySelector("[data-snap]");
+ snapBtn.onclick=async()=>{
+  if(busy)return;if(photos.length>=MAX_PICS){alert("К одному сообщению — до "+MAX_PICS+" снимков. Отправьте это сообщение и начните следующее.");return}
+  snapBtn.disabled=true;
+  try{
+   const el=context().element||null;let id="";
+   document.documentElement.classList.add("irc-hide");await frames(3);
+   try{id=(await invoke("ai-montage:chat-shot-take",{rect:shotRect()})).shotId||""}finally{document.documentElement.classList.remove("irc-hide")}
+   if(!id)throw Error("снимок не получился");
+   photos.push({id,url:"",note:area.value.trim(),kind:"shot",el:el?{mark:el.mark,name:el.name,axes:el.axes,z:el.z,x:el.x,y:el.y,id:el.id}:null});area.value="";paintPhotos();
+   photoBox.scrollTop=photoBox.scrollHeight;area.focus()
+  }catch(e){alert("Снимок не добавлен: "+(e.message||e))}finally{snapBtn.disabled=false}
+ };
+ photoBox.addEventListener("input",ev=>{const t=ev.target.closest("[data-note]");if(t&&photos[Number(t.dataset.note)]){photos[Number(t.dataset.note)].note=t.value;keepDraft()}});
+ photoBox.addEventListener("click",ev=>{if(ev.target.closest("[data-unphoto]"))return;const z=ev.target.closest("[data-zoom] img");if(z&&z.src){const d=document.createElement("div");d.className="irc-zoom";d.innerHTML='<img alt="">';d.querySelector("img").src=z.src;d.onclick=()=>d.remove();document.body.appendChild(d)}});
  photoInput.onchange=()=>{addPhotos(photoInput.files);photoInput.value=""};
- photoBox.addEventListener("click",ev=>{const b=ev.target.closest("[data-unphoto]");if(!b)return;const [p]=photos.splice(Number(b.dataset.unphoto),1);if(p)URL.revokeObjectURL(p.url);paintPhotos()});
+ photoBox.addEventListener("click",ev=>{const b=ev.target.closest("[data-unphoto]");if(!b)return;const [p]=photos.splice(Number(b.dataset.unphoto),1);unurl(p);paintPhotos()});
+ if(photos.length)paintPhotos();
  area.addEventListener("paste",ev=>{const files=[...(ev.clipboardData?.files||[])].filter(f=>/^image\//.test(f.type));if(files.length){ev.preventDefault();addPhotos(files)}});
  panel.addEventListener("dragover",ev=>{if([...(ev.dataTransfer?.types||[])].includes("Files")){ev.preventDefault();panel.classList.add("irc-drop")}});
  panel.addEventListener("dragleave",ev=>{if(!panel.contains(ev.relatedTarget))panel.classList.remove("irc-drop")});
@@ -379,18 +409,24 @@
  };
  const frames=n=>new Promise(r=>{const f=()=>--n<=0?setTimeout(r,120):requestAnimationFrame(f);requestAnimationFrame(f)});
  form.addEventListener("submit",async ev=>{
-  ev.preventDefault();const text=area.value.trim()||(photos.length?"Фото с компьютера":"");if(!text||busy)return;
+  ev.preventDefault();
+  // The collected pictures: one message — the common comment, then «Снимок N — comment (element)» of each.
+  const drafted=photos.some(p=>p.kind==="shot"||p.note);
+  const general=area.value.trim();
+  const text=drafted?[general,...photos.map((p,i)=>"Снимок "+(i+1)+(p.kind==="photo"?" (фото с компьютера)":"")+" — "+(p.note.trim()||"без комментария")+(p.el?" [Элемент: "+[elText(p.el),p.el.z?"отм. "+p.el.z:"",p.el.x!==undefined&&p.el.x!==""?"X "+p.el.x+" Y "+p.el.y:"",p.el.id?"id "+p.el.id:""].filter(Boolean).join(" · ")+"]":""))].filter(Boolean).join("\n\n"):general||(photos.length?"Фото с компьютера":"");
+  if(!text||busy)return;
   busy=true;sendBtn.disabled=true;
   try{
    const ctx=context();let shotId="";
+   // (with collected screenshots no other one is taken: the engineer chose what to show)
    // The panel and the button leave the window for the screenshot (hidden by visibility, the button «Отправить» still
    // came out on it). Only the montage scheme is taken, not the whole program (the engineer, 25.10.2026): the stage of
    // the scheme with its picture and bar, within the window; without it on the page — the whole window.
-   if(withShot.checked){document.documentElement.classList.add("irc-hide");await frames(3);
+   if(withShot.checked&&!drafted){document.documentElement.classList.add("irc-hide");await frames(3);
     try{shotId=(await invoke("ai-montage:chat-shot-take",{rect:shotRect()})).shotId||""}catch(_e){shotId=""}finally{document.documentElement.classList.remove("irc-hide")}}
    state.messages=state.messages.concat([{id:"local",from:"user",text,at:new Date().toISOString(),state:"sending",context:ctx}]);paint();area.value="";
-   take(await invoke("ai-montage:chat-send",{text,context:ctx,shotId,photoIds:photos.map(p=>p.id)}));dropElement=false;dropPhotos();paintContext()
-  }catch(e){alert("Сообщение не отправлено: "+(e.message||e));area.value=area.value||text}
+   take(await invoke("ai-montage:chat-send",{text,context:ctx,shotId,photoIds:photos.map(p=>p.id),draft:drafted}));dropElement=false;dropPhotos();paintContext()
+  }catch(e){alert("Сообщение не отправлено: "+(e.message||e));area.value=area.value||general||(drafted?"":text)}
   finally{busy=false;sendBtn.disabled=false;paint()}
  });
  // The selected element follows the scheme while the panel is open.

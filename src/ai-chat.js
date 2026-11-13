@@ -128,7 +128,7 @@ function createChat({getUserDataPath,safeStorage,fetch:doFetch=globalThis.fetch,
    "",m.text,"",
    ...lineOf(m.context),
    ...(m.shot?["Снимок экрана: %APPDATA%\\ir-project\\ai-learned\\chat\\"+m.shot+".jpg (на этом компьютере)"]:[]),
-   ...(m.photos||[]).map((p,i)=>"Фото с компьютера "+(i+1)+": %APPDATA%\\ir-project\\ai-learned\\chat\\"+p+".jpg"),
+   ...(m.photos||[]).map((p,i)=>(m.draft?"Снимок ":"Фото с компьютера ")+(i+1)+": %APPDATA%\\ir-project\\ai-learned\\chat\\"+p+".jpg"),
    "Ответ — в файл %APPDATA%\\ir-project\\ai-learned\\chat\\claude.json (reply_to: "+m.id+")"].join("\n").slice(0,60000)
  }
  async function deliver(m){
@@ -143,7 +143,7 @@ function createChat({getUserDataPath,safeStorage,fetch:doFetch=globalThis.fetch,
    }
    // Without both: to the administrators through the company's server, with the same pictures.
    if(adminReady()&&!adminSelf()){
-    const images=[];for(const p of[m.shot,...(m.photos||[])].filter(Boolean))try{images.push(fs.readFileSync(shotFile(p)))}catch{}
+    const images=[];for(const p of[m.shot,...(m.photos||[])].filter(Boolean).slice(0,7))try{images.push(fs.readFileSync(shotFile(p)))}catch{}
     try{await admin.post({localId:m.id,text:m.text,context:m.context,images});return{via:"admin"}}
     catch(e){throw Error("Нет связи с сервером компании — "+String(e.message||e))}
    }
@@ -159,13 +159,18 @@ function createChat({getUserDataPath,safeStorage,fetch:doFetch=globalThis.fetch,
   if(r.status===429)throw Error("Слишком много сообщений за час (до 30) — отправьте позже кнопкой «Повторить»");
   throw Error("claude.ai ответил "+r.status+(detail?": "+detail:""))
  }
- // Photos the engineer adds from the computer (an example, a photo from the site): kept like the screenshot, up to 6.
- async function send({text:body,context,shotId,photoIds,relay}={}){
-  body=String(body||"").trim().slice(0,8000);if(!body)throw Error("Пустое сообщение");
+ // Photos the engineer adds from the computer (an example, a photo from the site): kept like the screenshot. Up to 12
+ // pictures in one message — the screenshots collected one by one, each with its comment, and the photos (the engineer,
+ // 13.11.2026: «много собрать скриншотов и комментарий к ним и только после этого отправка одним сообщением»); to the
+ // administrator's chat the first 7 (the server's limit). draft: the pictures are the numbered «Снимок N» of the text.
+ const MAX_PICS=12;
+ async function send({text:body,context,shotId,photoIds,relay,draft}={}){
+  body=String(body||"").trim().slice(0,draft?20000:8000);if(!body)throw Error("Пустое сообщение");
   const d=read(),m={id:"m"+Date.now().toString(36)+crypto.randomBytes(2).toString("hex"),from:"user",at:new Date(now()).toISOString(),text:body,
    context:context&&typeof context==="object"?JSON.parse(JSON.stringify(context)):null,shot:shotId&&fs.existsSync(shotFile(shotId))?shotId:"",version:version(),state:"sending"};
-  const photos=(Array.isArray(photoIds)?photoIds:[]).map(String).filter(p=>/^s[a-z0-9]+$/i.test(p)&&fs.existsSync(shotFile(p))).slice(0,6);
+  const photos=(Array.isArray(photoIds)?photoIds:[]).map(String).filter(p=>/^s[a-z0-9]+$/i.test(p)&&fs.existsSync(shotFile(p))).slice(0,MAX_PICS-(m.shot?1:0));
   if(photos.length)m.photos=photos;
+  if(draft&&photos.length)m.draft=true;
   // a message of an engineer the administrator passes on: Claude's answer goes back to him (src/server-relay.js)
   if(relay&&typeof relay==="object"&&/^[a-z0-9]{5,40}$/i.test(String(relay.record||"")))m.relay={record:String(relay.record)};
   d.messages.push(m);d.seen=m.id;write(d);
