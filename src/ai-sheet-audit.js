@@ -84,7 +84,7 @@ function auditSheet(geometry,page){
  const axesAt=c=>{const vx=bubbles.filter(b=>Math.abs(b.y-c.y)>Math.abs(b.x-c.x));const v=[...vx].sort((a,b)=>Math.abs(a.x-c.x)-Math.abs(b.x-c.x))[0],h=bubbles.filter(b=>Math.abs(b.x-c.x)>=Math.abs(b.y-c.y)).sort((a,b)=>Math.abs(a.y-c.y)-Math.abs(b.y-c.y))[0];
   return[v?.name,h?.name].filter(Boolean).join("/")};
  const at=t=>{const c=textFrame(t).c;return{x:Math.round(c.x*10)/10,y:Math.round(c.y*10)/10}};
- const pending=[];
+ const pending=[];let arJson=null;const arText=()=>arJson||(arJson=JSON.stringify(page?.ar||{}));
  for(const t of texts){
   const str=String(t.str).trim(),c=textFrame(t).c,k=where(c);
   if(bubbleTexts.has(t)){const used=bubblesNamed.has(keyOf(str));items.axes.push({text:str,used});if(!used&&k!==null)missed.push({kind:"axis",text:str,scheme:k,at:at(t),why:"ось в кружке не вошла в сетку схемы"});continue}
@@ -101,6 +101,10 @@ function auditSheet(geometry,page){
    if(!used)missed.push({kind:"level",text:str,scheme:k,at:at(t),why:k!==null?"отметка не попала в высоты элементов схемы":"отметка на виде или разрезе вне схем — ни к чему не отнесена"});continue
   }
   const mk=keyOf(str);
+  // (a mark of a door, gate, window, partition with a hyphen «Д-2», «В-6», «ОК-4», «П-1» — the АР reader takes it from its
+  // plans and tables: read when the АР of the sheet has it; on ИР-71535 АР ч.1 л.10 they stood «unknown», 13.11.2026)
+  if(/^[А-ЯЁ]{1,3}-\d{1,3}[а-я]?$/u.test(mk)&&!/^(?:АР|КМД?|КЖ|ТХ|ОВ|ВК|ЭМ|ЭО|ГП|АС|КР|ПЗ)-/u.test(mk)&&page?.ar){const used=arText().includes('"'+mk+'"')||usedMarks.has(mk)||sheetMarks.has(mk);items.marks.push({text:str,used,scheme:k});
+   if(!used)missed.push({kind:"mark",text:mk,scheme:k,at:at(t),axes:axesAt(c),why:"марка проёма или перегородки АР на листе — в найденном её нет"});continue}
   // (a colour «RAL5012» and a position of a table «Поз.23» are no marks of elements: on the АР of ИР-71535 they were 77 of
   // 82 «misses» — the colours of the panels the АР reader takes from its own tables)
   if(/^(?:RAL|РАЛ)\d{4}$/iu.test(mk)||/^Поз\.?\d/u.test(mk))continue;
@@ -144,9 +148,55 @@ function auditSheet(geometry,page){
     why:(pool[x.k].get(x.mk)||[]).length?"марка подписана на схеме ещё раз, а элемент найден реже":"марка на схеме, элемент не найден (выноска или линия элемента не прочитаны)"})}
  }
  const count=list=>({total:list.length,used:list.filter(i=>i.used===true).length});
- const counts={texts:texts.length,marks:count(items.marks),axes:count(items.axes),dims:count(items.dims.filter(d=>d.used!==null)),levels:count(items.levels),
+ // (every label of the sheet goes to Claude in its whole text — `sheetText`, 13.11.2026: the notes, tables and words not
+ // taken by a rule are read there; `read` — labels of the sheet, all)
+ const counts={texts:texts.length,read:texts.length,notes:items.notes.length,marks:count(items.marks),axes:count(items.axes),dims:count(items.dims.filter(d=>d.used!==null)),levels:count(items.levels),
   nodes:items.nodes.length,cuts:items.cuts.length,unknown:items.unknown.length,missed:missed.length};
  return{counts,missed:missed.slice(0,400),nodes:items.nodes.slice(0,200),unknown:[...new Set(items.unknown.map(u=>u.text))].slice(0,80),...(markIndex?{markIndex}:{})}
+}
+
+// The whole text of a sheet for Claude (the engineer, 13.11.2026: «1 страница без разницы чего АР, КМД, КМ, ТХ — при анализе
+// должно читаться все с этого листа, абсолютно все»): every label, none left out, gathered into blocks by place — a note,
+// a table, a legend, a label of the plan — each block with its point on the sheet, its rows top down, the cells of a row
+// apart « | ». Until 1.12.117 Claude got 300 characters of a sheet with schemes (of ~15 000 on АР ч.1 л.10 of ИР-71535)
+// and its picture 1800 px wide — the text of a large sheet unreadable in it.
+function sheetText(texts){
+ const list=(texts||[]).map(t=>{const str=String(t?.str||"").replace(/\s+/gu," ").trim();if(!str)return null;const f=textFrame(t),h=Math.max(1,Number(t.size)||8);
+  const ang=((Number(t.angle)||0)%360+360)%360,vert=Math.abs(ang-90)<20||Math.abs(ang-270)<20;
+  // along the text: its own axis; a vertical one is read as turned
+  const w=Math.max(h*.5,f.w),half=vert?{x:h*.6,y:w/2}:{x:w/2,y:h*.6};
+  return{str,c:f.c,h,vert,x0:f.c.x-half.x,x1:f.c.x+half.x,y0:f.c.y-half.y,y1:f.c.y+half.y}}).filter(Boolean);
+ // Blocks: labels whose boxes come within a text height of each other (a cell grid of a table, lines of a note).
+ const parent=list.map((_,i)=>i),find=i=>{while(parent[i]!==i)i=parent[i]=parent[parent[i]];return i};
+ const cell=60,grid=new Map();list.forEach((t,i)=>{const ex=t.vert?1.2*t.h:10*t.h,ey=t.vert?10*t.h:1.2*t.h;for(let gx=Math.floor((t.x0-ex)/cell);gx<=Math.floor((t.x1+ex)/cell);gx++)for(let gy=Math.floor((t.y0-ey)/cell);gy<=Math.floor((t.y1+ey)/cell);gy++){const k=gx+","+gy;if(!grid.has(k))grid.set(k,[]);grid.get(k).push(i)}});
+ const seen=new Set();
+ for(const ids of grid.values())for(let a=0;a<ids.length;a++)for(let b=a+1;b<ids.length;b++){const i=ids[a],j=ids[b],key=i<j?i+":"+j:j+":"+i;if(seen.has(key))continue;seen.add(key);
+  const p=list[i],q=list[j];if(p.vert!==q.vert)continue;const h=Math.min(p.h,q.h),gap=h*1.2;
+  // (cells of one row of a table: on one line up to 10 text heights apart)
+  const row=p.vert?Math.abs(p.c.x-q.c.x)<h*.6&&p.y0-10*h<=q.y1&&q.y0-10*h<=p.y1:Math.abs(p.c.y-q.c.y)<h*.6&&p.x0-10*h<=q.x1&&q.x0-10*h<=p.x1;
+  if(row||p.x0-gap<=q.x1&&q.x0-gap<=p.x1&&p.y0-gap<=q.y1&&q.y0-gap<=p.y1)parent[find(i)]=find(j)}
+ const blocks=new Map();list.forEach((t,i)=>{const r=find(i);if(!blocks.has(r))blocks.set(r,[]);blocks.get(r).push(t)});
+ const out=[];
+ for(const b of blocks.values()){
+  const vert=b[0].vert,across=t=>vert?t.c.x:t.c.y,along=t=>vert?-t.c.y:t.c.x;
+  b.sort((p,q)=>across(p)-across(q));const rows=[];
+  for(const t of b){const r=rows[rows.length-1];if(r&&Math.abs(across(t)-r.at)<=Math.min(t.h,r.h)*.55){r.items.push(t);r.at=(r.at*(r.items.length-1)+across(t))/r.items.length}else rows.push({at:across(t),h:t.h,items:[t]})}
+  const lines=rows.map(r=>{r.items.sort((p,q)=>along(p)-along(q));let s="",end=null;for(const t of r.items){const st=vert?-t.y1:t.x0;if(end!==null)s+=st-end>t.h*1.5?" | ":" ";s+=t.str;end=vert?-t.y0:t.x1}return s});
+  const x=Math.min(...b.map(t=>t.x0)),y=Math.min(...b.map(t=>t.y0));
+  out.push({x:Math.round(x),y:Math.round(y),n:b.length,text:lines.join(" / ")})
+ }
+ // top down, left to right by bands of the sheet
+ out.sort((p,q)=>Math.floor(p.y/60)-Math.floor(q.y/60)||p.x-q.x);
+ return out
+}
+// The sheet's picture in parts at a readable scale: a sheet larger than A2 (its long side over 2000 pt) in tiles of up to
+// 1300 pt with 4 % overlap, each rendered at 1800 px — ~1,4 px a point, a label of 3 pt is 4 px.
+function sheetTiles(widthPt,heightPt,side=1300){
+ const W=Number(widthPt)||0,H=Number(heightPt)||0;if(Math.max(W,H)<=2000)return[];
+ const nx=Math.max(1,Math.ceil(W/side)),ny=Math.max(1,Math.ceil(H/side)),ov=.04,out=[];
+ for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const x=Math.max(0,i/nx-ov/2),y=Math.max(0,j/ny-ov/2),x1=Math.min(1,(i+1)/nx+ov/2),y1=Math.min(1,(j+1)/ny+ov/2);
+  out.push({x:+x.toFixed(4),y:+y.toFixed(4),width:+(x1-x).toFixed(4),height:+(y1-y).toFixed(4),label:"часть "+(j*nx+i+1)+" из "+nx*ny+" (ряд "+(j+1)+", колонка "+(i+1)+")"})}
+ return out
 }
 
 // Set-level check of the node callouts: the sheet of each «1 (М1.11)» is in the set, and a «Узел 1» is read on it.
@@ -189,4 +239,4 @@ function promptLines(page,limit=60){
  return lines
 }
 
-module.exports={auditSheet,auditNodes,planMisses,promptLines,NODE_REF,NODE_TITLE};
+module.exports={auditSheet,auditNodes,planMisses,promptLines,sheetText,sheetTiles,NODE_REF,NODE_TITLE};

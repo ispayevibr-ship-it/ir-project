@@ -9,7 +9,7 @@ const {importPdfjs,requireCanvas,pdfWasm}=require("./ai-packages");
 const {joinSplitTexts}=require("./ai-scheme-geometry");
 const {ocrPage,ocrImages,readCells,tableRules,readTableCells,SHEAR,dropLettering,createOcrWorker,sheetTurn,turnGeometry,ringsOf,readRings,shelvesOf,readShelves}=require("./ai-ocr");
 const {extractTank}=require("./ai-tank-extract");
-const {auditSheet}=require("./ai-sheet-audit");
+const {auditSheet,sheetText}=require("./ai-sheet-audit");
 const {extractTrusses}=require("./ai-truss-extract");
 const {extractBaseDetails}=require("./ai-base-extract");
 const {extractColumnDetails}=require("./ai-column-extract");
@@ -28,7 +28,9 @@ function pageContext(texts){
  const strings=texts.map(t=>t.str);
  const titles=[...new Set(strings.filter(s=>/^(Схема|Разрез|Сечение|Узел|Ведомость|Спецификация|Вид|Фасад|План|Общий вид)(?![а-яё])/iu.test(s)))].slice(0,40);
  const levels=[...new Set(strings.filter(s=>/^[+\-−±]?\d{1,2}[,.]\d{3}$/.test(s)))].slice(0,60);
- return{titles,levels,text:strings.join(" ").slice(0,2500)}
+ // (the whole text by blocks for Claude — every label of the sheet, 13.11.2026; `text` stays the short line of the set's list)
+ let blocks=[];try{blocks=sheetText(texts)}catch{}
+ return{titles,levels,text:strings.join(" ").slice(0,2500),blocks,labels:strings.filter(s=>String(s||"").trim()).length}
 }
 // The engineer's pause (src/ai-scheme-draft.js, gate): the next sheet waits for «Продолжить»; a stop ends the worker
 // from outside, the sheets sent so far are kept.

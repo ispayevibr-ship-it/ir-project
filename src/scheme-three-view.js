@@ -732,6 +732,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    '<label class="ir-three-check"><input type="checkbox" id="irThreeAxes" checked> Оси</label>'+
    '<select id="irThreeNodes" data-native-select="1" aria-label="Узлы" title="Маркеры узлов: опоры колонн, оголовки, концы балок"><option value="sel">Узлы: у выбранного</option><option value="all">Узлы: все</option><option value="open">Узлы: несмонтированные</option><option value="off">Узлы: скрыть</option></select>'+
    '<label class="ir-three-check" title="Опорные плиты, анкеры и оголовки вблизи, краны на путях — условно, не по КМД"><input type="checkbox" id="irThreeDetails" checked> Детали</label>'+
+   '<label class="ir-three-check" title="Все болты в кадре со всеми фасками и гранями на любом расстоянии. Выключено — мелкие на экране болты рисуются проще, вблизи всегда полные; так легче видеокарте"><input type="checkbox" id="irThreeBest"> Максимальное качество</label>'+
    '</div>'+
    '<div id="irThreeCopyHint" class="ir-three-copy-hint" hidden>Щёлкните новое начало конструкции на плоскости X/Y. <button id="irThreeCancelCopy" type="button">Отмена</button></div>'+
    '<div class="ir-three-viewport" id="irThreeViewport" role="img" aria-label="Интерактивная 3D модель металлического каркаса"></div>'+
@@ -1852,8 +1853,10 @@ window.irThreeSchemeView=(function irThreeModule(){
   var boltY=new T.Vector3(0,1,0);
   // A hexagon of a head or a nut, S across its flats, h high from 0 up; its edges chamfered at 30° from a circle 0.95 S
   // across at the top (top) and the bottom (bottom); through it a hole of radius `hole` (a nut).
-  function hexGeo(S,h,top,bottom,hole){
-   var M=3,N=6*M,R=S/2,r0=.95*R,tan=Math.tan(Math.PI/6),pos=[],nor=[],idx=[];
+  // (each side of the hexagon one face, not three: the chamfer cut at the corners as before — a head 30 triangles, a nut
+  // 60, was 90 and 180; the engineer, 13.11.2026, on the bolts drawn — 73 % of the picture: «давай вариант 1»)
+  function hexGeo(S,h,top,bottom,hole,faces){
+   var M=faces||1,N=6*M,R=S/2,r0=.95*R,tan=Math.tan(Math.PI/6),pos=[],nor=[],idx=[];
    var v=function(x,y,z,n){pos.push(x,y,z);nor.push(n[0],n[1],n[2]);return pos.length/3-1};
    var tri=function(a,b,c,n){var A=[pos[a*3],pos[a*3+1],pos[a*3+2]],B=[pos[b*3],pos[b*3+1],pos[b*3+2]],C=[pos[c*3],pos[c*3+1],pos[c*3+2]];
     var u=[B[0]-A[0],B[1]-A[1],B[2]-A[2]],w=[C[0]-A[0],C[1]-A[1],C[2]-A[2]],f=[u[1]*w[2]-u[2]*w[1],u[2]*w[0]-u[0]*w[2],u[0]*w[1]-u[1]*w[0]];
@@ -1876,8 +1879,8 @@ window.irThreeSchemeView=(function irThreeModule(){
    return g
   }
   // A washer: a ring of radii ri, ro, s thick from 0 up (its bore hidden by the shank).
-  function washerGeo(ri,ro,s){
-   var N=20,pos=[],nor=[],idx=[],v=function(x,y,z,n){pos.push(x,y,z);nor.push(n[0],n[1],n[2]);return pos.length/3-1};
+  function washerGeo(ri,ro,s,sides){
+   var N=sides||12,pos=[],nor=[],idx=[],v=function(x,y,z,n){pos.push(x,y,z);nor.push(n[0],n[1],n[2]);return pos.length/3-1};
    for(var i=0;i<N;i++){var a=i/N*2*Math.PI,b=(i+1)/N*2*Math.PI,ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(b),sb=Math.sin(b);
     var t=[v(ro*ca,s,ro*sa,[0,1,0]),v(ro*cb,s,ro*sb,[0,1,0]),v(ri*cb,s,ri*sb,[0,1,0]),v(ri*ca,s,ri*sa,[0,1,0])];idx.push(t[0],t[2],t[1],t[0],t[3],t[2]);
     var d=[v(ro*ca,0,ro*sa,[0,-1,0]),v(ro*cb,0,ro*sb,[0,-1,0]),v(ri*cb,0,ri*sb,[0,-1,0]),v(ri*ca,0,ri*sa,[0,-1,0])];idx.push(d[0],d[1],d[2],d[0],d[2],d[3]);
@@ -1887,22 +1890,32 @@ window.irThreeSchemeView=(function irThreeModule(){
   }
   // The end of the thread out past the nut, three pitches from 0 up: its turns (crest d/2, root 0.54 p in), its end
   // chamfered to the root.
-  function threadGeo(d,p){
+  function threadGeo(d,p,sides){
+   // (round 8 faces, was 14 — 128 triangles, was 224; «давай вариант 1», 13.11.2026)
    var pts=[],rc=d/2,rr=d/2-.54*p,n=3;
    for(var k=0;k<=2*n;k++)pts.push(new T.Vector2(k%2?rr:rc,k*p/2));
    pts.push(new T.Vector2(rr,n*p+.35*p),new T.Vector2(0,n*p+.35*p));
-   return new T.LatheGeometry(pts,14)
+   return new T.LatheGeometry(pts,sides||8)
   }
+  // A plain hexagon, S across its flats, h high from 0 up — the far picture of a head or a nut (boltParts, level 2).
+  function hexPlain(S,h){var g=new T.CylinderGeometry(S/Math.sqrt(3),S/Math.sqrt(3),h,6,1,false);g.rotateY(Math.PI/2);g.translate(0,h/2,0);g=g.toNonIndexed();g.computeVertexNormals();return g}
+  // The end of the thread out past the nut, far: a plain cylinder chamfered at its end.
+  function threadPlain(d,p){return new T.LatheGeometry([new T.Vector2(d/2,0),new T.Vector2(d/2,3*p),new T.Vector2(d/2-.54*p,3.35*p),new T.Vector2(0,3.35*p)],6)}
   // The parts of a set placed: {geometry, matrixWorld, washer (its material), nut (on the nut's side: apart in a node
   // taken apart)}.
-  function boltParts(b){
+  // lv — how finely (the engineer, 13.11.2026, «давай первое»: on the whole view a bolt is a few points of the screen and
+  // its chamfers cost the graphics card for nothing): 0 — every face and chamfer (a set М20 with two nuts 956 triangles),
+  // 1 — fewer faces, the chamfers kept (438, pack №192; the default: the node taken apart, the anchors, the highlight),
+  // 2 — a plain hexagon, washer and thread (about 100). The same places and sizes at every level; boltView chooses.
+  function boltParts(b,lv){
+   if(lv==null)lv=1;var sfx=lv===1?"":":lv"+lv;
    var u=b.axis,q=new T.Quaternion().setFromUnitVectors(boltY,u),qd=new T.Quaternion().setFromUnitVectors(boltY,u.clone().negate()),set=boltSet(Math.round(b.d*1000)),out=[],g=b.grip,one=new T.Vector3(1,1,1);
    var put=function(geo,along,quat,scale,o){out.push({geometry:geo,matrixWorld:new T.Matrix4().compose(b.at.clone().add(u.clone().multiplyScalar(along)),quat,scale||one),washer:Boolean(o&&o.washer),nut:Boolean(o&&o.nut)})};
-   var rod=shared("bolt:rod",function(){return new T.CylinderGeometry(1,1,1,12,1,true)});
+   var rod=shared("bolt:rod"+sfx,function(){return new T.CylinderGeometry(1,1,1,[12,8,6][lv],1,true)});
    if(!set){put(shared("bolt:hex",function(){return new T.CylinderGeometry(1,1,1,6)}),0,q,new T.Vector3(b.d*.95,g+b.d*1.6,b.d*.95));return out}
    var key=":"+Math.round(b.d*1e4)+":"+Math.round(set.S*1e5),p=set.p||b.d*.15,hw=b.washers>1?set.s:0,nw=set.s,nuts=b.nuts*set.m;
-   var head=shared("bolt:head"+key,function(){return hexGeo(set.S,set.k,true,false,0)}),nut=shared("bolt:nut"+key,function(){return hexGeo(set.nS,set.m,true,true,b.d/2)});
-   var washer=shared("bolt:washer"+key,function(){return washerGeo(b.d/2,set.d2/2,set.s)}),thread=shared("bolt:thread"+key+":"+Math.round(p*1e5),function(){return threadGeo(b.d,p)});
+   var head=shared("bolt:head"+key+sfx,function(){return lv===2?hexPlain(set.S,set.k):hexGeo(set.S,set.k,true,false,0,lv?1:3)}),nut=shared("bolt:nut"+key+sfx,function(){return lv===2?hexPlain(set.nS,set.m):hexGeo(set.nS,set.m,true,true,b.d/2,lv?1:3)});
+   var washer=shared("bolt:washer"+key+sfx,function(){return washerGeo(b.d/2,set.d2/2,set.s,[20,12,8][lv])}),thread=shared("bolt:thread"+key+":"+Math.round(p*1e5)+sfx,function(){return lv===2?threadPlain(b.d,p):threadGeo(b.d,p,lv?8:14)});
    if(hw)put(washer,g/2,q,null,{washer:true});
    put(head,g/2+hw,q);
    put(rod,(g/2+hw-g/2-nw-nuts)/2,q,new T.Vector3(b.d/2,g+hw+nw+nuts,b.d/2));
@@ -4691,25 +4704,33 @@ window.irThreeSchemeView=(function irThreeModule(){
    var trims=[];gableOut.forEach(function(out,id){var ms=(meshesById.get(id)||[]).filter(function(m){return m.isMesh&&m.parent&&!m.userData.seam&&!m.userData.edges&&m.geometry&&m.geometry.parameters&&m.geometry.parameters.width!==undefined});if(!ms.length)return;
     var area=new T.Box3();ms.forEach(function(m){m.updateMatrixWorld(true);area.union(new T.Box3().setFromObject(m))});area.expandByScalar(.01);trims.push({id:id,out:out,ms:ms,area:area})});
    if(!trims.length)return;
-   var obs=[];steelMeshes(function(o,mid){var oc=dataById.get(mid);if(!oc||oc.ft==="panel"||oc.ft==="trim"||oc.ft==="building")return;var b=new T.Box3().setFromObject(o);if(trims.some(function(t){return b.intersectsBox(t.area)}))obs.push(b)});
+   // (a fire ladder over the edge — Л2 on the gable О8 at the ridge, КМ3 л.17: the trim is put first, the ladder over it — the
+   // trim runs on whole under it, not cut round; the engineer, chat 13.11.2026 «сначала торцевая планка, потом сверху
+   // лестница, торцевая планка под лестницей остается»)
+   var ladder=function(oc){return/^Л\d/u.test(String(oc.mark||""))||/лестниц/iu.test(String(oc.mark_name||oc.title||""))&&/пожарн|вертикальн/iu.test(String(oc.mark_name||oc.title||""))};
+   var lift=new Map(),obs=[];steelMeshes(function(o,mid){var oc=dataById.get(mid);if(!oc||oc.ft==="panel"||oc.ft==="trim"||oc.ft==="building")return;var b=new T.Box3().setFromObject(o);if(oc&&ladder(oc)){b.ladder=true;b.mid=mid}if(trims.some(function(t){return b.intersectsBox(t.area)}))obs.push(b)});
    trims.forEach(function(t){
     var need=0,hit=new Set(),local=function(m,b){var inv=new T.Matrix4().copy(m.matrixWorld).invert(),lo=new T.Vector3(Infinity,Infinity,Infinity),hi=new T.Vector3(-Infinity,-Infinity,-Infinity);
      [b.min.x,b.max.x].forEach(function(X){[b.min.y,b.max.y].forEach(function(Y){[b.min.z,b.max.z].forEach(function(Z){var l=new T.Vector3(X,Y,Z).applyMatrix4(inv);lo.min(l);hi.max(l)})})});return[lo,hi]};
     obs.forEach(function(b){if(!b.intersectsBox(t.area))return;
      t.ms.forEach(function(m){var g=m.geometry.parameters,r=local(m,b),lo=r[0],hi=r[1];
-      if(hi.x<=-g.width/2||lo.x>=g.width/2||hi.y<=-g.height/2||lo.y>=g.height/2||hi.z<=-g.depth/2||lo.z>=g.depth/2)return;hit.add(m);
+      if(hi.x<=-g.width/2||lo.x>=g.width/2||hi.y<=-g.height/2||lo.y>=g.height/2||hi.z<=-g.depth/2||lo.z>=g.depth/2)return;if(!b.ladder)hit.add(m);
       var po=-Infinity;[b.min.x,b.max.x].forEach(function(X){[b.min.y,b.max.y].forEach(function(Y){[b.min.z,b.max.z].forEach(function(Z){po=Math.max(po,new T.Vector3(X,Y,Z).dot(t.out))})})});
       var pm=Infinity;[-1,1].forEach(function(a){[-1,1].forEach(function(b2){[-1,1].forEach(function(c2){pm=Math.min(pm,new T.Vector3(a*g.width/2,b2*g.height/2,c2*g.depth/2).applyMatrix4(m.matrixWorld).dot(t.out))})})});
-      need=Math.max(need,po-pm+.001)})});
+      // (a ladder part lying on the trim a few mm into it — the platform deck over the edge: the trim out by that, under
+      // it; one deeper — a stringer across — does not cut the trim, the trim runs on under the ladder)
+      var nd=po-pm+.001;if(b.ladder){var tb=new T.Box3().setFromObject(m),dy=tb.max.y-b.min.y+.0005;if(b.min.y>tb.min.y&&dy>0&&dy<.015)lift.set(b.mid,Math.max(lift.get(b.mid)||0,dy));if(nd>=.06)return}need=Math.max(need,nd)})});
     if(need<=0)return;
     if(need<.06){t.ms.forEach(function(m){m.position.add(t.out.clone().multiplyScalar(need));m.updateMatrixWorld(true)});return}
     // (the steel run on past the edge — the purlins over the end of the panels: the leg down left out where they cross it,
     // cut round them on the site)
     var list=meshesById.get(t.id);
     hit.forEach(function(m){var g=m.geometry.parameters,gaps=[];
-     obs.forEach(function(b){var r=local(m,b),lo=r[0],hi=r[1];if(hi.x<=-g.width/2||lo.x>=g.width/2||hi.y<=-g.height/2||lo.y>=g.height/2||hi.z<=-g.depth/2||lo.z>=g.depth/2)return;gaps.push([lo.z-.003,hi.z+.003])});
+     obs.forEach(function(b){if(b.ladder)return;var r=local(m,b),lo=r[0],hi=r[1];if(hi.x<=-g.width/2||lo.x>=g.width/2||hi.y<=-g.height/2||lo.y>=g.height/2||hi.z<=-g.depth/2||lo.z>=g.depth/2)return;gaps.push([lo.z-.003,hi.z+.003])});
      cutPieces(m,gaps,list)})
-   })
+   });
+   // (the ladder's platform lying a few mm into the trim at the ridge — lifted onto its top, the ladder over the trim)
+   if(lift.size){var dy=0;lift.forEach(function(v){dy=Math.max(dy,v)});lift.forEach(function(v,mid){(meshesById.get(mid)||[]).forEach(function(o){o.position.y+=dy;o.updateMatrixWorld(true)})})}
   }
   // (a thin sheet left out on [from, to] along its length — local z — the pieces in its place)
   function cutPieces(m,gaps,list){
@@ -7924,7 +7945,7 @@ window.irThreeSchemeView=(function irThreeModule(){
     if(st){var key=":"+Math.round(d*1e4)+":"+Math.round(st.S*1e5),pt=st.p||d*.15,up=st.s+st.m,th=3.35*pt;
      ap.push([shared("bolt:washer"+key,function(){return washerGeo(d/2,st.d2/2,st.s)}),0,washerMats["5.8"],"nut"],[shared("bolt:nut"+key,function(){return hexGeo(st.nS,st.m,true,true,d/2)}),st.s,boltMat,"nut"],
       [shared("bolt:thread"+key+":"+Math.round(pt*1e5),function(){return threadGeo(d,pt)}),up,boltMat,"rod"]);
-     var rod=new T.Mesh(shared("bolt:rod",function(){return new T.CylinderGeometry(1,1,1,12,1,true)}),boltMat);rod.scale.set(d/2,La-th,d/2);rod.position.copy(A).add(new T.Vector3(0,up-(La-th)/2,0));rod.userData.anchor="rod";ap.push(rod)}
+     var rod=new T.Mesh(shared("bolt:rod",function(){return new T.CylinderGeometry(1,1,1,8,1,true)}),boltMat);rod.scale.set(d/2,La-th,d/2);rod.position.copy(A).add(new T.Vector3(0,up-(La-th)/2,0));rod.userData.anchor="rod";ap.push(rod)}
     else{var rd=new T.Mesh(shared("rod:"+d,function(){return new T.CylinderGeometry(d/2,d/2,1,10)}),boltMat);rd.scale.y=La;rd.position.copy(A).add(new T.Vector3(0,d*1.2-La/2,0));rd.userData.anchor="rod";ap.push(rd);
      ap.push([shared("nut:"+d,function(){return new T.CylinderGeometry(d*.92,d*.92,d*.8,6)}),d*.4,boltMat,"nut"])}
     ap.forEach(function(o){var m=o;if(Array.isArray(o)){m=new T.Mesh(o[0],o[2]);m.position.copy(A);m.position.y+=o[1];m.userData.anchor=o[3]}
@@ -8816,7 +8837,7 @@ window.irThreeSchemeView=(function irThreeModule(){
      var key=":"+Math.round(dia*1e4)+":"+Math.round(st.S*1e5),pt=st.p||dia*.15,top=st.s+2*st.m;
      var nutG=shared("bolt:nut"+key,function(){return hexGeo(st.nS,st.m,true,true,dia/2)}),wG=shared("bolt:washer"+key,function(){return washerGeo(dia/2,st.d2/2,st.s)}),thG=shared("bolt:thread"+key+":"+Math.round(pt*1e5),function(){return threadGeo(dia,pt)});
      var low=onMember?fl+st.s+st.m+.005:.1;
-     var shank=new T.Mesh(shared("bolt:rod",function(){return new T.CylinderGeometry(1,1,1,12,1,true)}),boltMat);shank.scale.set(dia/2,lift0+top+low,dia/2);shank.position.set(ax,(lift0+top-low)/2,az);shank.userData.anchor="rod";g.add(shank);
+     var shank=new T.Mesh(shared("bolt:rod",function(){return new T.CylinderGeometry(1,1,1,8,1,true)}),boltMat);shank.scale.set(dia/2,lift0+top+low,dia/2);shank.position.set(ax,(lift0+top-low)/2,az);shank.userData.anchor="rod";g.add(shank);
      [[wG,lift0,washerMats["5.8"]],[nutG,lift0+st.s,boltMat],[nutG,lift0+st.s+st.m,boltMat]].concat(onMember?[[wG,-fl-st.s,washerMats["5.8"]],[nutG,-fl-st.s-st.m,boltMat]]:[]).forEach(function(o){var m=new T.Mesh(o[0],o[2]);m.position.set(ax,o[1],az);m.userData.anchor="nut";g.add(m)});
      var th=new T.Mesh(thG,boltMat);th.position.set(ax,lift0+top,az);th.userData.anchor="rod";g.add(th)
     }
@@ -9069,7 +9090,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   }
   function hitBolt(){
    var best=null,ray=raycaster.ray;
-   boltList.forEach(function(b){if(!b.cell||!b.cell.meshes||!b.cell.meshes[0].visible)return;var q=boltEnds(b),d2=ray.distanceSqToSegment(q.a,q.e,rayAt,segAt),t=ray.origin.distanceTo(rayAt),r=Math.max(q.r,t*.004);
+   boltList.forEach(function(b){if(!b.cell||!b.cell.meshes||!b.cell.on)return;var q=boltEnds(b),d2=ray.distanceSqToSegment(q.a,q.e,rayAt,segAt),t=ray.origin.distanceTo(rayAt),r=Math.max(q.r,t*.004);
     if(d2<=r*r&&(!best||t<best.d))best={b:b,d:t}});
    return best
   }
@@ -11488,9 +11509,26 @@ window.irThreeSchemeView=(function irThreeModule(){
    // its place and turn, not copied into the cell: 7.6 mln points of the 9 800 bolts of ИР-71535 were half the model, the
    // window of the program 4.9 GB; the engineer, 13.11.2026 «как то по другому прорисовывать можем, чтобы меньше памяти
    // съедало?» — the bolts look the same)
-   var groups=new Map();cell.list.forEach(function(b){boltParts(b).forEach(function(x){var mat=x.washer?washerMats[cell.cls]:boltMats[cell.cls],k=x.geometry.uuid+"|"+mat.uuid,g=groups.get(k);if(!g)groups.set(k,g={geo:x.geometry,mat:mat,list:[]});g.list.push(x.matrixWorld)})});
-   cell.meshes=[];groups.forEach(function(g){var m=new T.InstancedMesh(g.geo,g.mat,g.list.length);g.list.forEach(function(e,i){m.setMatrixAt(i,e)});
-    m.instanceMatrix.needsUpdate=true;m.matrixAutoUpdate=false;m.userData.lod="bolt";m.userData.instanced=true;batches.add(m);cell.meshes.push(m)})
+   // (three levels of the same sets — boltParts lv 0, 1, 2 —, one list of places for all three: boltView shows one)
+   var groups=new Map(),size=0;cell.list.forEach(function(b){var P=[0,1,2].map(function(lv){return boltParts(b,lv)}),set=boltSet(Math.round(b.d*1000));size=Math.max(size,set?set.S:b.d*1.6);
+    P[1].forEach(function(x,i){var mat=x.washer?washerMats[cell.cls]:boltMats[cell.cls],k=x.geometry.uuid+"|"+mat.uuid,g=groups.get(k);if(!g)groups.set(k,g={geos:[P[0][i].geometry,x.geometry,P[2][i].geometry],mat:mat,list:[]});g.list.push(x.matrixWorld)})});
+   cell.size=size;cell.levels=[[],[],[]];cell.meshes=[];cell.shown=-1;
+   groups.forEach(function(g){var at=new T.InstancedBufferAttribute(new Float32Array(16*g.list.length),16);g.list.forEach(function(e,i){e.toArray(at.array,16*i)});
+    [0,1,2].forEach(function(lv){var m=new T.InstancedMesh(g.geos[lv],g.mat,g.list.length);m.instanceMatrix=at;m.matrixAutoUpdate=false;m.visible=false;m.userData.lod="bolt";m.userData.instanced=true;m.userData.level=lv;batches.add(m);cell.meshes.push(m);cell.levels[lv].push(m)})});
+  }
+  // Which bolts are drawn and how finely, each picture (the engineer, 13.11.2026: «а если не рисовать болты вне кадра?»,
+  // «а в общем виде зачем показывать все 3,2 млн?» — «давай первое»): a cell out of the picture — none of its bolts (its
+  // sphere holds every set of it: a bolt seen at the edge is always drawn); in it — by how large its biggest head is on the
+  // screen at its nearest point: 30 points and more every face (lv 0), 8 to 30 fewer faces (lv 1), less — plain (lv 2). No
+  // bolt goes: only its faces change, at a size the eye does not tell them apart. «Максимальное качество» in «Вид ▾» —
+  // every bolt in the picture at level 0.
+  var boltFrustum=new T.Frustum(),boltPV=new T.Matrix4(),boltSphere=new T.Sphere(),boltBest=false;
+  function boltView(h){
+   boltPV.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);boltFrustum.setFromProjectionMatrix(boltPV);
+   var focal=h/2/Math.tan(camera.fov*Math.PI/360),cam=camera.position;
+   boltCells.forEach(function(cell){if(!cell.meshes||!cell.levels)return;var lv=-1;
+    if(cell.on){boltSphere.set(cell.centre,cell.radius);if(boltFrustum.intersectsSphere(boltSphere)){var d=Math.max(.05,cam.distanceTo(cell.centre)-cell.radius),px=cell.size*focal/d;lv=boltBest||px>=30?0:px>=8?1:2}}
+    if(lv===cell.shown)return;cell.shown=lv;cell.levels.forEach(function(l,i){l.forEach(function(m){m.visible=i===lv})})});
   }
   // The detailed picture of a cell on a phone (rebatch, lazyCells): its pieces by material and their outlines.
   var lazyCells=[];
@@ -11549,8 +11587,8 @@ window.irThreeSchemeView=(function irThreeModule(){
     if(d<near){if(!cell.meshes){if(made>=3){more=true;return}made++;buildLazyCell(cell)}cell.meshes.forEach(function(m){var s=m.geometry.boundingSphere,dm=s?Math.max(0,cam.distanceTo(s.center)-s.radius):0;m.visible=dm<(m.userData.edges?lines:near)})}
     else if(cell.meshes){if(d>1.5*near)dropLazyCell(cell);else cell.meshes.forEach(function(m){m.visible=false})}});
    boltCells.forEach(function(cell){var d=Math.max(0,cam.distanceTo(cell.centre)-cell.radius);
-    if(d<bolts){if(!cell.meshes){if(made>=3){more=true;return}made++;buildBoltCell(cell)}cell.meshes.forEach(function(m){m.visible=true})}
-    else if(cell.meshes){if(d>2*bolts)dropBoltCell(cell);else cell.meshes.forEach(function(m){m.visible=false})}});
+    if(d<bolts){if(!cell.meshes){if(made>=3){more=true;return}made++;buildBoltCell(cell)}cell.on=true}
+    else if(cell.meshes){cell.on=false;if(d>2*bolts)dropBoltCell(cell);else{cell.shown=-1;cell.meshes.forEach(function(m){m.visible=false})}}});
    var welds=0;weldCells.forEach(function(cell){var d=Math.max(0,cam.distanceTo(cell.centre)-cell.radius);
     if(d<seams){if(!cell.meshes){if(welds>=6){more=true;return}welds++;buildWeldCell(cell)}cell.meshes[0].visible=true}
     else if(cell.meshes){if(d>2*seams)dropBoltCell(cell);else cell.meshes[0].visible=false}});
@@ -12121,6 +12159,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    var to=k.along?k.at.clone().add(k.along.clone().multiplyScalar(d)).add(new T.Vector3(0,-2.5,0)):k.at.clone().add(camera.position.clone().sub(controls.target).normalize().multiplyScalar(d));
    flight={from:controls.target.clone(),to:k.at.clone(),camFrom:camera.position.clone(),camTo:to,t:0,ms:850,st:performance.now()};invalidate()
   };
+  root.querySelector("#irThreeBest").onchange=function(e){boltBest=e.target.checked;boltCells.forEach(function(c){c.shown=-2});invalidate()};
   root.querySelector("#irThreeDetails").onchange=function(e){showDetails=e.target.checked;equipment.visible=showDetails;paintLegend();
    pedestals.forEach(function(m){m.visible=showDetails});rebatch()};
   function resize(){
@@ -12306,7 +12345,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    // by a frame in a turn)
    camera.updateMatrixWorld();
    var w=viewport.clientWidth,h=viewport.clientHeight;
-   paintTags(w,h);paintLabels(w,h);paintCallouts(w,h);paintNodesFrame();lod();
+   paintTags(w,h);paintLabels(w,h);paintCallouts(w,h);paintNodesFrame();lod();boltView(h);
    // The outlines of the steel, the bolts and the welds stay in every picture, the camera turning or not: hidden while the
    // camera moved and put back after it stopped (pack №111), the scheme blinked at every turn (the engineer, 06.11.2026:
    // «это моргание в монтажной схеме меня раздражает»). A slow graphics card draws fewer pixels instead (goLight).
