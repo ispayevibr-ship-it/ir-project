@@ -145,7 +145,7 @@
 .ir-hero-mark input{width:17px;height:17px;margin:0;flex:none;accent-color:#c7920f;cursor:pointer}
 .ir-hero-ph.on::after{content:"✓";position:absolute;top:8px;right:8px;width:26px;height:26px;display:grid;place-items:center;border-radius:50%;background:#d9a520;color:#fff;font-size:15px;font-weight:800;box-shadow:0 1px 4px rgba(0,0,0,.3)}
 .ir-hero-cov{position:absolute;top:8px;left:8px;padding:2px 9px;border-radius:20px;background:#0f2233cc;color:#fff;font-size:10.5px;font-weight:650}
-.ir-hero-txt{display:grid;gap:5px;margin:0 0 12px}.ir-hero-txt b{font-size:12.5px;font-weight:650;color:#2d4a63}.ir-hero-txt textarea{font:inherit;font-size:13.5px;padding:8px 11px;border:1px solid #cfdbe5;border-radius:9px;resize:vertical;min-height:44px;color:#1d3247}.ir-hero-txt textarea:focus{outline:none;border-color:#7fb0dc;box-shadow:0 0 0 3px #d9e9f8}.ir-hero-txt small{font-size:11.5px;color:#6a8396}
+.ir-hero-ttx{display:none;margin:0 8px 8px;font:inherit;font-size:12.5px;line-height:1.35;padding:6px 9px;border:1px solid #e6c46a;border-radius:8px;resize:vertical;min-height:40px;color:#1d3247;background:#fff;cursor:text}.ir-hero-ph.on .ir-hero-ttx{display:block}.ir-hero-ph.on .ir-hero-ttx:focus{outline:none;border-color:#c7920f;box-shadow:0 0 0 3px #f6e2a6}.ir-hero-ph.on{background:#fff6e0}
 .ir-hero-n{font-size:12.5px;color:#4d6a80}
 .ir-so-empty{padding:22px;text-align:center;color:#7b8f9f;border:1px dashed #cfdbe5;border-radius:11px;background:#fff}
 .ir-so-prog{display:grid;gap:6px;padding:12px 14px;border:1px solid #cfe0ef;border-radius:11px;background:#fff}
@@ -430,38 +430,38 @@
    for(const d of byDate)for(const p of sarr(d.photos))if(p)gallery.push(String(p))
   }
   return{rid:Number(o.id),name:o.name||"",customer:o.customer||"",general_contractor:o.general_contractor||"",address:o.address||"",
-   summary:String(meta.find(r=>r.record_type==="object_summary")?.data?.value||""),status:o.status||"",years,works,cover:cover||banner,photos:[...new Set(gallery.filter(f=>f&&f!==cover&&f!==banner))],skip:[cover,banner].filter(Boolean),hero:heroOf(meta),hero_text:heroTextOf(meta),sort}
+   summary:String(meta.find(r=>r.record_type==="object_summary")?.data?.value||""),status:o.status||"",years,works,cover:cover||banner,photos:[...new Set(gallery.filter(f=>f&&f!==cover&&f!==banner))],skip:[cover,banner].filter(Boolean),hero:heroOf(meta),hero_texts:heroTextsOf(meta),sort}
  }
  // Фото «в шапку сайта» (просьба инженера 12.11.2026 «на каждую фотку можно ставить метку Выводить в шапке сайта»):
  // запись object-meta «site_hero_photos», data.files — пути отмеченных фото. Уходит с объектом на сайт (site-objects.js).
  const HERO="site_hero_photos";
  const heroOf=meta=>sarr(meta.find(r=>r.record_type===HERO)?.data?.files).map(String).filter(Boolean);
- // «Текст на сайте» (просьба инженера 13.11.2026): заполнен — сайт пишет на большом фото название, текст и годы; пуст — название
- const heroTextOf=meta=>String(meta.find(r=>r.record_type===HERO)?.data?.text||"").replace(/\s+/g," ").trim().slice(0,300);
- async function setHero(id,files,text=""){
+ // Текст у каждого фото «в шапку» (просьба инженера 13.11.2026 «текст нужно для каждого фото, у которого галочка на шапку
+ // сайта»): data.texts — {путь: текст}. Заполнен — сайт пишет на фото название объекта, текст и годы; пуст — только название.
+ const heroTextsOf=meta=>{const t=meta.find(r=>r.record_type===HERO)?.data?.texts,out={};if(t&&typeof t==="object")for(const [k,v] of Object.entries(t)){const s=String(v||"").replace(/\s+/g," ").trim().slice(0,300);if(s)out[k]=s}return out};
+ async function setHero(id,files,texts={}){
   const api=irProject.data.forObject(id).section("object-meta"),rows=await api.list().catch(()=>[]),r=rows.find(x=>x.record_type===HERO);
-  const body={record_type:HERO,title:"Фото в шапку сайта",data:{entity_type:HERO,files,text}};
-  if(!files.length&&!text){if(r)await api.remove(r.id);return}
+  const body={record_type:HERO,title:"Фото в шапку сайта",data:{entity_type:HERO,files,texts}};
+  if(!files.length){if(r)await api.remove(r.id);return}
   if(!r)await api.create(body);else await api.update(r.id,body)
  }
  async function heroPicker(parent,o,done){
   const doc=parent.ownerDocument||document;
   const d=dialog(doc,"wide ir-acc-hero",head("Фото в шапку сайта",o.name||"Объект")+
-   `<div class="ir-acc-body"><div class="ir-acc-help">Отметьте фото, которые сайт a-ts.kz показывает в шапке — большими фото первого экрана. Если ни у одного объекта нет отметок, сайт берёт случайные фото. Отметки и текст уходят на сайт кнопкой «Отправить на сайт».</div>
-   <label class="ir-hero-txt"><b>Текст на сайте</b><textarea data-text maxlength="300" rows="2" placeholder="Например: монтаж каркаса 1 200 т и сэндвич-панелей 8 400 м²"></textarea><small>Заполнено — на фото: название объекта, этот текст и годы работ. Пусто — только название объекта.</small></label>
+   `<div class="ir-acc-body"><div class="ir-acc-help">Отметьте фото, которые сайт a-ts.kz показывает в шапке — большими фото первого экрана. Если ни у одного объекта нет отметок, сайт берёт случайные фото. У отмеченного фото — поле «Текст на сайте»: заполнено — на фото название объекта, этот текст и годы работ; пусто — только название. Отметки и тексты уходят на сайт кнопкой «Отправить на сайт».</div>
    <div class="ir-hero-grid" data-grid><div class="ir-so-empty">Загружаем фото…</div></div></div>
    <div class="ir-acc-foot"><span data-n class="ir-hero-n"></span><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Отмена</button><button type="button" class="ir-acc-btn main" data-save>Сохранить</button></div>`);
   const grid=d.querySelector("[data-grid]"),cnt=d.querySelector("[data-n]");
   let data,marked;
-  const txt=d.querySelector("[data-text]");
-  try{data=await siteObjectData(o,0);marked=new Set(data.hero);txt.value=data.hero_text||""}catch(e){grid.innerHTML=`<div class="ir-so-empty">${esc(errText(e))}</div>`;return}
+  let texts={};
+  try{data=await siteObjectData(o,0);marked=new Set(data.hero);texts={...data.hero_texts}}catch(e){grid.innerHTML=`<div class="ir-so-empty">${esc(errText(e))}</div>`;return}
   const files=[data.cover,...data.photos].filter(Boolean);
   const drawN=()=>{cnt.textContent=marked.size?"В шапке: "+marked.size+" из "+files.length:"Фото: "+files.length+", в шапку не отмечено"};
-  d.querySelector("[data-save]").onclick=async()=>{try{await setHero(o.id,files.filter(f=>marked.has(f)),txt.value.replace(/\s+/g," ").trim().slice(0,300));done?.(marked.size);d.close()}catch(e){cnt.textContent=errText(e)}};
+  d.querySelector("[data-save]").onclick=async()=>{try{const keep=files.filter(f=>marked.has(f)),tx={};for(const f of keep){const t=String(texts[f]||"").replace(/\s+/g," ").trim().slice(0,300);if(t)tx[f]=t}await setHero(o.id,keep,tx);done?.(marked.size);d.close()}catch(e){cnt.textContent=errText(e)}};
   if(!files.length){grid.innerHTML=`<div class="ir-so-empty">У объекта пока нет фото</div>`;drawN();return}
   const src=await Promise.all(files.map(f=>irProject.images?.read?irProject.images.read(f).catch(()=>""):Promise.resolve("")));
-  grid.innerHTML=files.map((f,i)=>`<label class="ir-hero-ph${marked.has(f)?" on":""}" data-i="${i}">${src[i]?`<img src="${esc(src[i])}" alt="" loading="lazy">`:'<span class="ir-hero-no">нет файла</span>'}<span class="ir-hero-mark"><input type="checkbox" ${marked.has(f)?"checked":""}> В шапку сайта</span>${f===data.cover?'<span class="ir-hero-cov">обложка</span>':""}</label>`).join("");
-  grid.querySelectorAll(".ir-hero-ph").forEach(l=>{const i=l.querySelector("input"),f=files[Number(l.dataset.i)];i.onchange=()=>{if(i.checked)marked.add(f);else marked.delete(f);l.classList.toggle("on",i.checked);drawN()}});
+  grid.innerHTML=files.map((f,i)=>`<label class="ir-hero-ph${marked.has(f)?" on":""}" data-i="${i}">${src[i]?`<img src="${esc(src[i])}" alt="" loading="lazy">`:'<span class="ir-hero-no">нет файла</span>'}<span class="ir-hero-mark"><input type="checkbox" ${marked.has(f)?"checked":""}> В шапку сайта</span><textarea class="ir-hero-ttx" data-t rows="2" maxlength="300" placeholder="Текст на сайте (необязательно)">${esc(texts[f]||"")}</textarea>${f===data.cover?'<span class="ir-hero-cov">обложка</span>':""}</label>`).join("");
+  grid.querySelectorAll(".ir-hero-ph").forEach(l=>{const i=l.querySelector("input"),f=files[Number(l.dataset.i)];i.onchange=()=>{if(i.checked)marked.add(f);else marked.delete(f);l.classList.toggle("on",i.checked);drawN();if(i.checked)l.querySelector("[data-t]").focus()};const t=l.querySelector("[data-t]");t.oninput=()=>{texts[f]=t.value}});
   drawN();
  }
  const STATUS_TAG=st=>/заверш/i.test(st)?"done":/подгот/i.test(st)?"prep":"work";
