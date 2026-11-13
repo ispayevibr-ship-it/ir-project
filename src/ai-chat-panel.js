@@ -131,12 +131,16 @@
  const spot=(()=>{try{const v=JSON.parse(localStorage.getItem(PLACE)||"{}");return v&&typeof v==="object"?v:{}}catch(_e){return{}}})();
  const keep=()=>{try{localStorage.setItem(PLACE,JSON.stringify(spot))}catch(_e){}};
  const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+ const FAB_EDGE=18;
  // (the window without its scroll bars: counted by innerWidth, a button at the right side stood half under the bar of the
  // page — the engineer's picture, 13.11.2026 «иконка чата криво показывается»)
  const viewW=()=>Math.min(innerWidth,document.documentElement.clientWidth||innerWidth),viewH=()=>Math.min(innerHeight,document.documentElement.clientHeight||innerHeight);
  function put(box,x,y){
   if(!innerWidth||!innerHeight||!Number.isFinite(x)||!Number.isFinite(y))return;
-  box.style.left=clamp(x,4,viewW()-box.offsetWidth-4)+"px";box.style.top=clamp(y,4,viewH()-box.offsetHeight-4)+"px";box.style.right=box.style.bottom="auto"
+  // (the button not closer than 18 points to a side of the window — the engineer, 13.11.2026: «сделай отступ для кнопки
+  // чата снизу и справа»; the panel and the note — 4)
+  const e=box===fab?FAB_EDGE:4;
+  box.style.left=clamp(x,e,viewW()-box.offsetWidth-e)+"px";box.style.top=clamp(y,e,viewH()-box.offsetHeight-e)+"px";box.style.right=box.style.bottom="auto"
  }
  // A dragged place is kept from the nearest sides of the window (the engineer, 13.11.2026: «чат кнопка … чтобы всегда
  // был в одном месте даже при малом окне»): kept from the left top corner, a button put at the right bottom of a large
