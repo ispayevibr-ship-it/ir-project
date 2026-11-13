@@ -1463,7 +1463,7 @@ let loose=0;
   for(const n of p.ar.trimNodes||[])trimNodes.push({...n,sheet:p.sheet?.block?.sheet||null,page:p.pdfPage||p.page})}
  // (the sketches of the flashings «Схемы фасонных элементов поз. N» — their legs and bends by the outline and its dimensions,
  // src/ai-sheet-details.js — go with the trims of their positions)
- const sketches=new Map();for(const p of pages||[])for(const t of p.details?.trims||[])if(t.legs_mm&&!sketches.has(String(t.pos)))sketches.set(String(t.pos),{pos:String(t.pos),legs_mm:t.legs_mm,bends_deg:t.bends_deg,developed_mm:t.developed_mm,sheet:p.pdfPage||p.page});
+ const sketches=new Map();for(const p of pages||[])for(const t of p.details?.trims||[])if(t.legs_mm&&!sketches.has(String(t.pos)))sketches.set(String(t.pos),{pos:String(t.pos),legs_mm:t.legs_mm,bends_deg:t.bends_deg,developed_mm:t.developed_mm,...(t.ral?{ral:t.ral}:{}),sheet:p.pdfPage||p.page});
  const tr=arTrims(placements,[...trimSpecs.values()].map(t=>({...t,name:trimNames.get(t.pos)||""})),trimNodes,sketches);
  placements.push(...tr.placements);warnings.push(...tr.warnings);
  for(const p of placements){delete p.view;delete p.line;delete p.side}
@@ -1534,14 +1534,21 @@ function arTrims(placements,spec=[],nodes=[],sketches=new Map()){
   const nd=t=>{const a=nodeOf[k+":"+t.pos]||[];return a.length?" (уз"+(a.length>1?"лы ":"ел ")+[...new Set(a.map(n=>n.node))].join(", ")+(a[0].sheet?", лист "+[...new Set(a.map(n=>n.sheet))].join(", "):"")+")":""};
   return(tied[k]?"По узлам АР — ":"По спецификациям АР — ")+l.map(t=>"поз. "+t.pos+(t.name?" «"+t.name.replace(/\s+из\s+оцинкован\S*\s+кровельн\S*\s+стали\s*\.?/u,"")+"»":"")+nd(t)+" "+t.count+" шт. по "+R((t.length_mm||2000)/1000)+" м").join(", ")+(tied[k]||k==="reveal"&&rev.length?"":"; узел АР для этого места не найден — проверьте позицию")};
  // (the sketch of the first position of its kind that has one: legs and bends of the flashing as drawn)
- const shapeOf=k=>{for(const t of POS[k]||[]){const sk=sketches.get(String(t.pos));if(sk)return sk}return null};
+ // (of several positions of a kind — the sketch of the one of a node without a concrete wall, the trims here are on walls of
+ // panels, and not the position another kind has alone: ИР-71535 the roof against a wall took поз. 22 of the node of the
+ // concrete building with a profiled sheet, not поз. 39 of узел 30; поз. 38 there is the cap of the parapet)
+ const shapeOf=k=>{const alone=new Set(Object.entries(POS).filter(([q,l])=>q!==k&&l.length===1).map(([,l])=>l[0].pos));
+  const rank=t=>((nodeOf[k+":"+t.pos]||[]).some(n=>n.ctx.includes("concrete"))?2:0)+(alone.has(t.pos)?1:0);
+  for(const t of [...(POS[k]||[])].sort((p,q)=>rank(p)-rank(q))){const sk=sketches.get(String(t.pos));if(sk)return sk}return null};
  const shapeNote=k=>{const sk=shapeOf(k);return sk?["Эскиз поз. "+sk.pos+" (лист "+sk.sheet+"): полки "+sk.legs_mm.join(" / ")+" мм, гибы "+sk.bends_deg.map(d=>Math.abs(d)+"°").join(", ")+", развёртка "+sk.developed_mm+" мм"]:[]};
  const add=(kind,ral,a,b,legs,note,extra={})=>{const [type,name]=KIND[kind];const lng=Math.hypot(b[0]-a[0],b[1]-a[1],b[2]-a[2]);if(lng<100)return;
   out.push({mark:"Нщ",name,type_key:type,scheme_group:"trims",geometry_type:"beam",fitting_type:"trim",diameter_mm:R(Math.max(...legs.map(l=>l[3]))),
    layout:{trim:kind,legs:legs.map(l=>{const n=Math.hypot(l[0],l[1],l[2])||1;return[+(l[0]/n).toFixed(4),+(l[1]/n).toFixed(4),+(l[2]/n).toFixed(4),R(l[3])]}),...(ral?{ral}:{}),length_mm:R(lng)},
    x_mm:R(a[0]),y_mm:R(a[1]),x2_mm:R(b[0]),y2_mm:R(b[1]),z0_mm:R(a[2]),z1_mm:R(b[2]),end_z_mm:R(b[2]),levels_from:"стыки сэндвич-панелей АР",confidence:"medium",section:"АР",
    notes:[note,posNote(kind),...shapeNote(kind)],...extra});
-  const sk=shapeOf(kind);if(sk)out[out.length-1].layout.shape={pos:sk.pos,legs_mm:sk.legs_mm,bends_deg:sk.bends_deg,developed_mm:sk.developed_mm};
+  const sk=shapeOf(kind);if(sk){out[out.length-1].layout.shape={pos:sk.pos,legs_mm:sk.legs_mm,bends_deg:sk.bends_deg,developed_mm:sk.developed_mm};
+   // (the colour written at the sketch of the position — «RAL 5002» with an arrow to its face: the cap of a parapet is of the roof's)
+   if(sk.ral)out[out.length-1].layout.ral=sk.ral}
   return lng};
  // Walls: runs of panels on one line, one side.
  const walls=placements.filter(p=>p.type_key==="sandwich_wall"&&p.side&&!p.layout?.existing).map(p=>{const x=p.y_mm===p.y2_mm;

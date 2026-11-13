@@ -203,24 +203,59 @@ function trimsOf(items,segments){
   while(left.length&&chains.length<12){
    const start=left.find(s=>deg.get(key(s.a))===1||deg.get(key(s.b))===1)||left[0];
    let cur=deg.get(key(start.a))===1?start.a:start.b;const pts=[cur];
-   while(left.length){const i=left.findIndex(s=>Math.hypot(s.a.x-cur.x,s.a.y-cur.y)<1.5||Math.hypot(s.b.x-cur.x,s.b.y-cur.y)<1.5);if(i<0)break;
+   while(left.length){const i=left.findIndex(s=>Math.hypot(s.a.x-cur.x,s.a.y-cur.y)<1.5||Math.hypot(s.b.x-cur.x,s.b.y-cur.y)<1.5);
+    if(i<0){
+     // (a shelf ending on the middle of another line — a standing fold: the sheet goes to the nearer end of that line and
+     // back along all of it; ИР-71535 АР ч.2 л.27 поз. 37 — 230, up 55, down 340; л.28 поз. 48)
+     const j=left.findIndex(s=>{const L=Math.hypot(s.b.x-s.a.x,s.b.y-s.a.y);if(L<6)return false;const t=((cur.x-s.a.x)*(s.b.x-s.a.x)+(cur.y-s.a.y)*(s.b.y-s.a.y))/(L*L);
+      return t>.04&&t<.96&&Math.hypot(s.a.x+(s.b.x-s.a.x)*t-cur.x,s.a.y+(s.b.y-s.a.y)*t-cur.y)<1.2});
+     // (a fold of the sheet back on itself drawn as two lines beside each other, up to 4 pt apart, not joined at the top:
+     // the next line starts beside the end and goes back — поз. 37, the fold of 55 and the 340 down, 2,7 pt apart)
+     if(j<0&&pts.length>=2){const p=pts[pts.length-2],dx=cur.x-p.x,dy=cur.y-p.y,dl=Math.hypot(dx,dy)||1;
+      const f=left.findIndex(s=>[[s.a,s.b],[s.b,s.a]].some(([n,o])=>{const g=Math.hypot(n.x-cur.x,n.y-cur.y),L=Math.hypot(o.x-n.x,o.y-n.y);return g<4&&L>2&&((o.x-n.x)*dx+(o.y-n.y)*dy)/(L*dl)<-.95}));
+      if(f>=0){const s=left.splice(f,1)[0],n=Math.hypot(s.a.x-cur.x,s.a.y-cur.y)<4&&((s.b.x-s.a.x)*dx+(s.b.y-s.a.y)*dy)<0?s.a:s.b,o=n===s.a?s.b:s.a;pts.push(n,o);cur=o;continue}}
+     if(j<0||pts.length<2)break;const s=left.splice(j,1)[0],da=Math.hypot(s.a.x-cur.x,s.a.y-cur.y),db=Math.hypot(s.b.x-cur.x,s.b.y-cur.y),near=da<=db?s.a:s.b,far=da<=db?s.b:s.a;
+     pts.push(near,far);cur=far;continue}
     const s=left.splice(i,1)[0];cur=Math.hypot(s.a.x-cur.x,s.a.y-cur.y)<1.5?s.b:s.a;
-    // (a straight run of pieces is one leg)
-    const n=pts.length;if(n>=2){const p=pts[n-2],q=pts[n-1],cr=(q.x-p.x)*(cur.y-q.y)-(q.y-p.y)*(cur.x-q.x);if(Math.abs(cr)<.5*Math.hypot(q.x-p.x,q.y-p.y)){pts[n-1]=cur;continue}}
+    // (a straight run of pieces is one leg — going on, not back)
+    const n=pts.length;if(n>=2){const p=pts[n-2],q=pts[n-1],cr=(q.x-p.x)*(cur.y-q.y)-(q.y-p.y)*(cur.x-q.x),on=(q.x-p.x)*(cur.x-q.x)+(q.y-p.y)*(cur.y-q.y);if(on>0&&Math.abs(cr)<.5*Math.hypot(q.x-p.x,q.y-p.y)){pts[n-1]=cur;continue}}
     pts.push(cur)}
    if(left.includes(start))left.splice(left.indexOf(start),1);
    if(pts.length>=2)chains.push(pts)}
+  // (a standing fold drawn as three lines at one point — the shelf, the fold up and the rest of the fold down in one line:
+  // the chain that took the fold as its end and the chain going on from that point are one sheet — the shelf, up the fold,
+  // back down all of it; поз. 37: 230, 55 up, 340 down, 25)
+  for(let a=0;a<chains.length;a++)for(let b=0;b<chains.length;b++){if(a===b)continue;let M=chains[a],C=chains[b];if(M.length<3||C.length<2)continue;
+   const at=(p,q)=>Math.hypot(p.x-q.x,p.y-q.y)<1.5;
+   for(const rm of [0,1]){const m=rm?[...M].reverse():M,J=m[m.length-2],tip=m[m.length-1];
+    for(const rc of [0,1]){const c=rc?[...C].reverse():C;if(!at(c[0],J))continue;
+     const ux=tip.x-J.x,uy=tip.y-J.y,vx=c[1].x-J.x,vy=c[1].y-J.y,lu=Math.hypot(ux,uy),lv=Math.hypot(vx,vy);
+     if(!(lu>0&&lv>lu)||ux*vx+uy*vy>=0||Math.abs(ux*vy-uy*vx)>.08*lu*lv)continue;
+     chains[a]=[...m,...c.slice(1)];chains.splice(b,1);a=-1;b=chains.length;break}
+    if(a<0)break}}
   const fit=pts=>{const legs=[];for(let i=1;i<pts.length;i++)legs.push(Math.hypot(pts[i].x-pts[i-1].x,pts[i].y-pts[i-1].y));
    // (the scale: the one most legs agree with a dimension written on it, ±8 %)
-   let k=null,hits=0;for(const L of legs)for(const d of dims){if(!(L>0&&d.v>0))continue;const c=d.v/L;const n=legs.filter(x=>dims.some(e=>Math.abs(x*c-e.v)<=e.v*.08)).length;if(n>hits){hits=n;k=c}}
+   // (each dimension written once is one leg's: two legs of 90 are not two of the «10» of a hem — поз. 33 read 10 + 10)
+   // (of two scales with as many legs agreeing — the one whose agreeing dimensions are greater: the shelves, not the hems)
+   const count=c=>{const used=new Set();let n=0,sum=0;for(const x of legs){const j=dims.findIndex((e,i)=>!used.has(i)&&Math.abs(x*c-e.v)<=e.v*.08);if(j>=0){used.add(j);n++;sum+=dims[j].v}}return[n,sum]};
+   // (the longest shelf is always dimensioned: a scale by it first — ribs drawn larger than to scale with the hems beside them
+   // agreed with more dimensions than the shelves did, поз. 5, 6 of л.24 read 280 for 50)
+   let k=null,hits=0,total=0;const long=Math.max(...legs,0);
+   for(const set of [[long],legs]){for(const L of set)for(const d of dims){if(!(L>0&&d.v>0))continue;const c=d.v/L;const [n,sum]=count(c);if(n>hits||(n===hits&&sum>total)){hits=n;total=sum;k=c}}
+    if(hits>=Math.min(2,legs.length))break;k=null;hits=0;total=0}
+   // (two shelves and two dimensions, drawn out of scale: the longer one the greater — поз. 30, 180 × 55)
+   if(hits<2&&legs.length===2&&dims.length===2&&legs[0]>0&&legs[1]>0&&dims[0].v!==dims[1].v)return{pts,legs,k:null,hits:2,pair:legs[0]>=legs[1]===dims[0].v>=dims[1].v?[dims[0].v,dims[1].v]:[dims[1].v,dims[0].v],len:legs[0]+legs[1]};
    return{pts,legs,k,hits,len:legs.reduce((a,b)=>a+b,0)}};
   const best=chains.map(fit).sort((p,q)=>q.hits-p.hits||q.len-p.len)[0]||{pts:[],legs:[],k:null,hits:0};
   const pts=best.pts,legsPt=best.legs;let k=best.k;
   if(best.hits<Math.min(2,legsPt.length))k=null;
+  if(best.pair)k=1;
   // (each leg that agrees takes that dimension)
-  const legsMm=k?legsPt.map(x=>{const v=x*k,d=dims.find(e=>Math.abs(v-e.v)<=e.v*.08);return d?d.v:Math.round(v)}):null;
+  const legsMm=best.pair?best.pair:k?legsPt.map(x=>{const v=x*k,d=dims.find(e=>Math.abs(v-e.v)<=e.v*.08);return d?d.v:Math.round(v)}):null;
   const bends=[];for(let i=2;i<pts.length;i++){const a=Math.atan2(pts[i-1].y-pts[i-2].y,pts[i-1].x-pts[i-2].x),b=Math.atan2(pts[i].y-pts[i-1].y,pts[i].x-pts[i-1].x);let d=(b-a)*180/Math.PI;while(d>180)d-=360;while(d<-180)d+=360;bends.push(Math.round(d))}
-  return{pos,label:l.str,dims:dims.map(d=>d.v),...(k?{legs_mm:legsMm,bends_deg:bends,developed_mm:legsMm.reduce((a,b)=>a+b,0)}:{legs_pt:legsPt.map(x=>Math.round(x))}),...(notes.length?{notes:notes.slice(0,6)}:{})}
+  // (the colour of its face: «RAL 5012» beside the sketch)
+  const ralT=items.filter(t=>/^RAL\s*\d{4}$/iu.test(t.str.trim())&&ownerOf(t.c)===l).sort((p,q)=>Math.hypot(p.c.x-l.c.x,p.c.y-l.c.y)-Math.hypot(q.c.x-l.c.x,q.c.y-l.c.y))[0],ral=ralT?/(\d{4})/u.exec(ralT.str)[1]:"";
+  return{pos,label:l.str,...(ral?{ral}:{}),dims:dims.map(d=>d.v),...(k?{legs_mm:legsMm,bends_deg:bends,developed_mm:legsMm.reduce((a,b)=>a+b,0)}:{legs_pt:legsPt.map(x=>Math.round(x))}),...(notes.length?{notes:notes.slice(0,6)}:{})}
  }).filter(x=>x.dims.length||x.legs_mm||x.legs_pt?.length)
 }
 
