@@ -101,7 +101,7 @@ const TYPES=[
  T("sandwich_roof","Кровельная сэндвич-панель","cladding","beam","panel",[],/кровельн\S*\s+(?:сэндвич|тр[её]хслойн|панел)|(?:сэндвич|тр[её]хслойн)\S*\s*-?\s*панел\S*\s+(?:\S+\s+)?(?:кровл|кровел|покрыти)|панел\S*\s+(?:кровл|покрыти)/iu,{needs:"АР",fitting:"panel"}),
  // The building beside the new one (ИР-71535 «Существующее здание цеха ММА» on the plan of the roof of the АР): one block for
  // orientation, not steel, not mounted — src/ai-montage-plan.js, scheme-three-view.js existingBuildings.
- T("partition_wall","Стена, перегородка по плану АР (условно)","cladding","beam","partition",[],/^(?:стена|перегородк\S*)[,\s]+(?:перегородк\S*\s+)?по\s+плану/iu,{needs:"АР",fitting:"partition"}),
+ T("partition_wall","Стена, перегородка по плану АР","cladding","beam","partition",[],/^(?:стена|перегородк\S*)[,\s]+(?:перегородк\S*\s+)?по\s+плану/iu,{needs:"АР",fitting:"partition"}),
  T("existing_building","Существующее здание рядом (условно)","cladding","beam","building",[],/существующ\S*\s+здани/iu,{needs:"АР",fitting:"building"}),
  T("trim_corner","Нащельник угловой (наружный, внутренний)","trims","beam","trim",[],/углов\S*\s+нащельник|нащельник\S*\s+(?:\S+\s+)?углов|(?:наружн|внешн|внутренн)\S*\s+(?:угл\S*\s+)?(?:нащельник|доборн)/iu,{needs:"АР",fitting:"trim"}),
  T("trim_joint","Нащельник стыка (вертикальный, горизонтальный)","trims","beam","trim",[],/нащельник\S*\s+(?:\S+\s+)?стык|стыков\S*\s+нащельник|(?:вертикальн|горизонтальн)\S*\s+нащельник/iu,{needs:"АР",fitting:"trim"}),

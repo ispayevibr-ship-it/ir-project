@@ -1163,24 +1163,55 @@ let loose=0;
   // run of the wall's face on the plan, its thickness between its faces, 3 m high for want of a section (said), under
   // the panels of ours over it; the doors of one wall cut their holes in it. Not where panels of ours stand along that
   // line within 0,9 m (the 3D draws the concrete under them itself). Conditional, no metal, not in the works.
+  // The walls and partitions of the plan whole (src/ai-ar-extract.js planWalls — the hatched bands of the plan; the
+  // engineer, 13.11.2026 «почему перегородки условно не пойму? если по АР точно показаны», «что за дверь без стены?»): each
+  // on the grid by the fit of the plan, within the grid (1 m beyond its outer axes — the building beside: its own block);
+  // a piece no longer than three of its thickness and shorter than 900 mm — a column, a step — is no wall. The doors of
+  // the plan join the wall they stand in (the same line, within 150 mm).
+  {const gx=[...px.values()],gy=[...py.values()],gb={x0:Math.min(...gx)-1000,x1:Math.max(...gx)+1000,y0:Math.min(...gy)-1000,y1:Math.max(...gy)+1000};
+   for(const p of ar){const fit=planFit.get(p);if(!fit)continue;
+    for(const o of p.ar.planWalls||[]){const alongX=o.along==="x",fa=alongX?fit.fx:fit.fy,fc=alongX?fit.fy:fit.fx;
+     const t=Math.round(Math.abs(o.wall[1]-o.wall[0])*Math.abs(fc.b)),line=Math.round(fc.a+fc.b*(o.wall[0]+o.wall[1])/2),r0=fa.a+fa.b*o.run[0],r1=fa.a+fa.b*o.run[1];
+     const a=Math.round(Math.min(r0,r1)),b=Math.round(Math.max(r0,r1));if(b-a<900&&b-a<3*t||b-a<400)continue;
+     const [x0,x1,y0,y1]=alongX?[a,b,line,line]:[line,line,a,b];if(x1<gb.x0||x0>gb.x1||y1<gb.y0||y0>gb.y1)continue;
+     planWalls.push({alongX,line,a,b,t:Math.min(420,Math.max(60,t)),hole:null,mark:null,whole:true,sheet:p.pdfPage||p.page,page:p.page,file:p.sourceName||""})}}}
   {const W=[];
-   for(const w of planWalls.sort((p,q)=>p.a-q.a)){if(w.b-w.a>40000)continue;
+   for(const w of planWalls.sort((p,q)=>p.a-q.a)){if(!w.whole&&w.b-w.a>40000)continue;
     const m=W.find(q=>q.alongX===w.alongX&&Math.abs(q.line-w.line)<=150&&w.a<=q.b+300&&w.b>=q.a-300);
-    if(m){m.a=Math.min(m.a,w.a);m.b=Math.max(m.b,w.b);m.t=Math.max(m.t,w.t);m.holes.push(w.hole);m.marks.push(w.mark)}else W.push({...w,holes:[w.hole],marks:[w.mark]})}
-   let made=0;
-   for(const w of W){const X=w.alongX;
-    const near=placements.filter(q=>q.type_key==="sandwich_wall"&&(X?q.y_mm===q.y2_mm:q.x_mm===q.x2_mm)&&Math.abs((X?q.y_mm:q.x_mm)-w.line)<=900&&
-      Math.min(Math.max(X?q.x_mm:q.y_mm,X?q.x2_mm:q.y2_mm),w.b)-Math.max(Math.min(X?q.x_mm:q.y_mm,X?q.x2_mm:q.y2_mm),w.a)>=200);
-    // (a run no longer than its openings is no wall found — the gate В-3 of the brick extension the 3D walls itself)
-    if(near.length||w.b-w.a-w.holes.reduce((t,h)=>t+h[1]-h[0],0)<500)continue;
-    const z0=Math.min(...w.holes.map(h=>h[2])),top=Math.max(z0+3000,...w.holes.map(h=>h[3]+300));
-    placements.push({mark:"Стена",name:"Стена, перегородка по плану АР (условно)",type_key:"partition_wall",scheme_group:"cladding",geometry_type:"beam",fitting_type:"partition",diameter_mm:top-z0,
-     layout:{partition:{thickness_mm:w.t,holes:w.holes.map(h=>[h[0]-w.a,h[1]-w.a,h[2]-z0,h[3]-z0])}},
-     ...(X?{x_mm:w.a,y_mm:w.line,x2_mm:w.b,y2_mm:w.line}:{x_mm:w.line,y_mm:w.a,x2_mm:w.line,y2_mm:w.b}),z0_mm:z0,z1_mm:z0,
-     levels_from:"план АР",confidence:"low",section:"АР",axis_x:"",axis_y:"",sheet:String(w.sheet),source_page:w.page,source_file:w.file,
-     notes:["Стена, перегородка по плану АР, лист "+w.sheet+" — условно: не металл, в монтаж не входит; в ней "+[...new Set(w.marks)].join(", "),
-      "Длина по линии стены на плане "+(w.b-w.a)+" мм, толщина "+w.t+" мм; высота 3 м условно — разреза по ней нет"]});made++}
-   if(made)warnings.push("Стены и перегородки у внутренних дверей и ворот по плану АР показаны условно: "+made+" (высота 3 м — разреза нет)")}
+    if(m){m.a=Math.min(m.a,w.a);m.b=Math.max(m.b,w.b);if(w.whole&&!m.whole){m.line=w.line;m.t=w.t;m.whole=true}else if(!w.whole&&!m.whole)m.t=Math.max(m.t,w.t);if(w.hole){m.holes.push(w.hole);m.marks.push(w.mark)}}
+    else W.push({...w,holes:w.hole?[w.hole]:[],marks:w.mark?[w.mark]:[]})}
+   let made=0,whole=0;
+   const span=(q,X)=>[Math.min(X?q.x_mm:q.y_mm,X?q.x2_mm:q.y2_mm),Math.max(X?q.x_mm:q.y_mm,X?q.x2_mm:q.y2_mm)];
+   for(const w0 of W){const X=w0.alongX;
+    // (the panels of ours along that line take their part of it — the 3D draws the concrete under them itself; the rest of
+    // the wall stays: a wall of the plan running on past the end of a wall of panels — Д-2 by О8/Г)
+    const onLine=placements.filter(q=>q.type_key==="sandwich_wall"&&(X?q.y_mm===q.y2_mm:q.x_mm===q.x2_mm)&&Math.abs((X?q.y_mm:q.x_mm)-w0.line)<=(w0.whole?600:900));
+    // (panels from high up — Пс-6 on О8 from +3,520 over the concrete wall of the plan with Д-2 — leave the wall under them,
+    // up to their foot; panels from up to +2,6 have the concrete under them drawn by the 3D itself — plinthWalls)
+    const cover=onLine.filter(q=>!w0.whole||q.z0_mm<=2600).map(q=>span(q,X)).sort((p,q)=>p[0]-q[0]),high=w0.whole?onLine.filter(q=>q.z0_mm>2600).map(q=>[...span(q,X),q.z0_mm]):[];
+    let pieces=[[w0.a,w0.b]];for(const c of cover)pieces=pieces.flatMap(r=>c[1]<=r[0]+100||c[0]>=r[1]-100?[r]:[[r[0],c[0]],[c[1],r[1]]].filter(q=>q[1]-q[0]>=200));
+    // (a whole wall: the doors, gates, windows put on its line cut their holes — those put by the facades or by the
+    // views of the partitions too)
+    const opens=w0.whole?placements.filter(q=>/^(?:door|gate|window)$/.test(q.type_key)&&(X?q.y_mm===q.y2_mm:q.x_mm===q.x2_mm)&&Math.abs((X?q.y_mm:q.x_mm)-w0.line)<=Math.max(150,w0.t/2+100))
+     .map(q=>{const r=span(q,X);return[r[0],r[1],q.z0_mm,q.z0_mm+(Number(q.diameter_mm)||2100)]}):[];
+    if(high.length)pieces=pieces.flatMap(([a,b])=>{const cuts=[a,b,...high.flatMap(h=>[h[0],h[1]]).filter(v=>v>a+200&&v<b-200)].sort((p,q)=>p-q),out=[];
+     for(let i=0;i+1<cuts.length;i++){const lo=cuts[i],hi=cuts[i+1];if(hi-lo<1)continue;const c=high.filter(h=>Math.min(h[1],hi)-Math.max(h[0],lo)>=1).map(h=>h[2]),cap=c.length?Math.min(...c):null,r=out[out.length-1];
+      if(r&&r[2]===cap)r[1]=hi;else out.push([lo,hi,cap])}
+     return out});
+    for(const [a,b,pcap] of pieces){
+     const holes=[...w0.holes,...opens].filter(h=>h[1]>a+20&&h[0]<b-20).filter((h,k,l)=>l.findIndex(o=>Math.abs(o[0]-h[0])<50&&Math.abs(o[1]-h[1])<50)===k);
+     // (a run no longer than its openings is no wall found — the gate В-3 of the brick extension the 3D walls itself)
+     if(b-a-holes.reduce((t,h)=>t+Math.min(b,h[1])-Math.max(a,h[0]),0)<500)continue;
+     if(!w0.whole&&cover.some(c=>Math.min(c[1],b)-Math.max(c[0],a)>=200))continue;
+     const z0=holes.length?Math.min(0,...holes.map(h=>h[2])):0,cap=pcap!=null?[pcap]:[],top=cap.length?Math.max(z0+500,Math.min(...cap)):Math.max(z0+3000,...holes.map(h=>h[3]+300));
+     const marks=[...new Set([...w0.marks,...placements.filter(q=>/^(?:door|gate|window)$/.test(q.type_key)&&opens.length).filter(q=>{const r=span(q,X);return Math.abs((X?q.y_mm:q.x_mm)-w0.line)<=Math.max(150,w0.t/2+100)&&r[1]>a+20&&r[0]<b-20}).map(q=>q.mark)])];
+     placements.push({mark:"Стена",name:"Стена, перегородка по плану АР",type_key:"partition_wall",scheme_group:"cladding",geometry_type:"beam",fitting_type:"partition",diameter_mm:top-z0,
+      layout:{partition:{thickness_mm:w0.t,holes:holes.map(h=>[Math.max(0,h[0]-a),Math.min(b,h[1])-a,h[2]-z0,Math.min(top,h[3])-z0])}},
+      ...(X?{x_mm:a,y_mm:w0.line,x2_mm:b,y2_mm:w0.line}:{x_mm:w0.line,y_mm:a,x2_mm:w0.line,y2_mm:b}),z0_mm:z0,z1_mm:z0,
+      levels_from:"план АР",confidence:w0.whole?"medium":"low",section:"АР",axis_x:"",axis_y:"",sheet:String(w0.sheet),source_page:w0.page,source_file:w0.file,
+      notes:["Стена, перегородка по плану АР, лист "+w0.sheet+(w0.whole?" — по линиям и штриховке плана целиком":" — у двери")+"; не металл, в монтаж не входит"+(marks.length?"; в ней "+marks.join(", "):""),
+       "Длина по линии стены на плане "+(b-a)+" мм, толщина "+w0.t+" мм; "+(cap.length?"верх под панелями стены, +"+(top/1000).toFixed(3).replace(".",","):"высота 3 м условно — разреза по ней нет")]});made++;if(w0.whole)whole++}}
+   if(made)warnings.push("Стены и перегородки по плану АР: "+made+(whole?", по линиям плана целиком — "+whole:"")+" (высота 3 м — разреза нет)")}
   // (marks on a fragment of the plan beside it, outside its axes — planOpenings `fragment`: counted, said, not placed)
   const frag=new Map();for(const p of ar)for(const o of p.ar.planFills||[])if(o.fragment&&blocks.has(o.mark))frag.set(o.mark,(frag.get(o.mark)||0)+1);
   if(frag.size){warnings.push("На фрагменте плана АР (отдельный чертёж рядом с планом, вне его осей) — не поставлены: "+[...frag].map(([m,n])=>m+(n>1?" ×"+n:"")).join(", ")+"; фрагмент к осям здания не привязан");

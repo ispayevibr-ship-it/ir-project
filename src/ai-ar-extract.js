@@ -1422,6 +1422,44 @@ function planOpenings({segments=[],texts=[]}={},axes){
    wall:[Math.round(near.at*10)/10,...(twin?[Math.round(twin.at*10)/10]:[])],...(body.length>1&&Math.max(...body)-Math.min(...body)>=2?{body:[Math.round(Math.min(...body)*10)/10,Math.round(Math.max(...body)*10)/10]}:{}),gaps:gaps.filter(g=>g[1]>=c-60&&g[0]<=c+60),...(run?{run}:{})})}
  return out
 }
+// The walls and partitions of the plan themselves (ИР-71535 АР ч.1 л.10 «План на отм. 0,000»; the engineer, 13.11.2026 «почему
+// перегородки условно не пойму? если по АР точно показаны» — only pieces by the doors were drawn): a wall on a plan is a
+// band between two long lines along it, 1,5…12 pt apart (50…420 mm at 1:100 … 1:50), filled with its hatching — the
+// strokes across or at a slant inside it (brick, gas blocks, sandwich panels, concrete); a dimension line, a beam, a channel
+// in the floor (its band wider) are not hatched. The hatched part of the band is the wall; one band of the faces of a wall
+// split by an inner line counts once (the outer faces). Only within the axes of the plan; the small plans beside it — out.
+function planWalls({segments=[]}={},axes){
+ if(!axes)return[];
+ const xs=axes.rows.flatMap(r=>r.items.map(i=>i.pt)),ys=axes.cols.flatMap(c=>c.items.map(i=>i.pt));
+ const box={x0:Math.min(...xs)-20,x1:Math.max(...xs)+20,y0:Math.min(...ys)-20,y1:Math.max(...ys)+20};
+ const H=[],V=[],D=[];
+ for(const g of segments){const dx=Math.abs(g.a.x-g.b.x),dy=Math.abs(g.a.y-g.b.y),L=Math.hypot(dx,dy);
+  if(dy<=.3&&dx>=1.5)H.push({at:(g.a.y+g.b.y)/2,lo:Math.min(g.a.x,g.b.x),hi:Math.max(g.a.x,g.b.x)});
+  else if(dx<=.3&&dy>=1.5)V.push({at:(g.a.x+g.b.x)/2,lo:Math.min(g.a.y,g.b.y),hi:Math.max(g.a.y,g.b.y)});
+  else if(L>=.8&&L<=16&&dx>=.25*L&&dy>=.25*L){const mx=(g.a.x+g.b.x)/2,my=(g.a.y+g.b.y)/2;
+   if(mx>=box.x0&&mx<=box.x1&&my>=box.y0&&my<=box.y1)D.push({mx,my,x0:Math.min(g.a.x,g.b.x),x1:Math.max(g.a.x,g.b.x),y0:Math.min(g.a.y,g.b.y),y1:Math.max(g.a.y,g.b.y)})}}
+ if(!D.length)return[];
+ const C=4,cell=new Map();for(const d of D){const k=Math.floor(d.mx/C)+","+Math.floor(d.my/C);if(!cell.has(k))cell.set(k,[]);cell.get(k).push(d)}
+ const inside=(x0,x1,y0,y1)=>{const o=[];for(let i=Math.floor(x0/C);i<=Math.floor(x1/C);i++)for(let j=Math.floor(y0/C);j<=Math.floor(y1/C);j++)for(const d of cell.get(i+","+j)||[])if(d.mx>=x0&&d.mx<=x1&&d.my>=y0&&d.my<=y1)o.push(d);return o};
+ const out=[];
+ for(const [L,X] of [[H,true],[V,false]]){
+  // (the lines of one place joined over breaks of up to 1 pt — a face drawn in pieces —, 15 pt and longer, within the box)
+  const by=new Map();for(const l of L){const k=Math.round(l.at*5)/5;if(!by.has(k))by.set(k,[]);by.get(k).push(l)}
+  const R=[];for(const [k,ls] of by){ls.sort((a,b)=>a.lo-b.lo);let r=null;for(const l of ls){if(r&&l.lo-r.hi<=1)r.hi=Math.max(r.hi,l.hi);else{r={at:k,lo:l.lo,hi:l.hi};R.push(r)}}}
+  const runs=R.filter(r=>r.hi-r.lo>=15&&(X?r.at>box.y0&&r.at<box.y1&&r.hi>box.x0&&r.lo<box.x1:r.at>box.x0&&r.at<box.x1&&r.hi>box.y0&&r.lo<box.y1)).sort((a,b)=>a.at-b.at);
+  const bands=[];
+  for(let i=0;i<runs.length;i++)for(let j=i+1;j<runs.length;j++){const a=runs[i],b=runs[j],d=b.at-a.at;if(d<1.5)continue;if(d>12)break;
+   const lo=Math.max(a.lo,b.lo),hi=Math.min(a.hi,b.hi);if(hi-lo<15)continue;
+   const ds=X?inside(lo,hi,a.at+.3,b.at-.3):inside(a.at+.3,b.at-.3,lo,hi),iv=ds.map(q=>X?[q.x0,q.x1]:[q.y0,q.y1]).sort((p,q)=>p[0]-q[0]),pc=[];
+   for(const v of iv){const r=pc[pc.length-1];if(r&&v[0]-r[1]<=3)r[1]=Math.max(r[1],v[1]);else pc.push([v[0],v[1]])}
+   for(const r of pc)if(r[1]-r[0]>=12)bands.push({a:a.at,b:b.at,lo:Math.max(lo,r[0]),hi:Math.min(hi,r[1])})}
+  // (bands of one wall — its faces and a line inside — one, by the outer faces)
+  const W=[];for(const q of bands.sort((p,r)=>p.lo-r.lo)){
+   const m=W.find(w=>q.a<=w.b+.3&&q.b>=w.a-.3&&Math.max(w.b,q.b)-Math.min(w.a,q.a)<=12&&q.lo<=w.hi+3&&q.hi>=w.lo-3);
+   if(m){m.a=Math.min(m.a,q.a);m.b=Math.max(m.b,q.b);m.lo=Math.min(m.lo,q.lo);m.hi=Math.max(m.hi,q.hi)}else W.push({...q})}
+  for(const w of W)out.push({along:X?"x":"y",wall:[Math.round(w.a*10)/10,Math.round(w.b*10)/10],run:[Math.round(w.lo*10)/10,Math.round(w.hi*10)/10]})}
+ return out
+}
 // The nodes of the trims (ИР-71535 АР ч.2 л.14–18): the number of a node large in a bubble with the sheet it is called
 // on under it; the «Поз. N» written at the node and the words of what stands in it (окно, ворота, железобетонная стена,
 // кровельная панель, парапет, водосток, два уклона — the ridge) — which position goes to which place of the building.
@@ -1515,9 +1553,9 @@ function extractArchitecture(geometry){
  if(fills.length)fillSketches(geometry||{},fills);
  const finish=facadeFinish(texts),sills=sillSpec(texts);
  const axes=planAxes(geometry||{});
- const tr=trimSpec(texts),trNodes=trimNodes(texts),niches=nicheSpec(texts),planFills=planOpenings(geometry||{},axes);
+ const tr=trimSpec(texts),trNodes=trimNodes(texts),niches=nicheSpec(texts),planFills=planOpenings(geometry||{},axes),planBands=planFills.length?planWalls(geometry||{},axes):[];
  const existing=axes?existingPlan(geometry||{}):null;
- const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{}),...(axes?{axes}:{}),...(tr.trims.length?{trims:tr.trims}:{}),...(tr.names.length?{trimNames:tr.names}:{}),...(trNodes.length?{trimNodes:trNodes}:{}),...(niches.length?{niches}:{}),...(planFills.length?{planFills}:{}),...(existing?{existing}:{})};
+ const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{}),...(axes?{axes}:{}),...(tr.trims.length?{trims:tr.trims}:{}),...(tr.names.length?{trimNames:tr.names}:{}),...(trNodes.length?{trimNodes:trNodes}:{}),...(niches.length?{niches}:{}),...(planFills.length?{planFills}:{}),...(planBands.length?{planWalls:planBands}:{}),...(existing?{existing}:{})};
  return panels.length||fills.length||views.length||Object.keys(extra).length?{panels,fills,views,...extra}:null
 }
-module.exports={existingPlan,fillKinds,splitJoinedMarks,planOpenings,nicheSpec,trimSpec,trimNodes,trimKind,planAxes,facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
+module.exports={existingPlan,planWalls,fillKinds,splitJoinedMarks,planOpenings,nicheSpec,trimSpec,trimNodes,trimKind,planAxes,facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
