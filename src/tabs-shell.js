@@ -237,9 +237,33 @@
   armTabTimeout(tab);
   tab.frame.src="./index.html?tabContent=1#"+cleanRoute(tab.route)
  }
+ // A tab not looked at for 15 minutes is put to sleep: its page is let go with its memory, its address kept — a click on
+ // it loads it anew, as a tab restored at the start of the program (the engineer, 13.11.2026: «чтобы так много не кушало
+ // памяти» — «делай 1 и 2»; every hidden tab held its whole page, up to 12 of them). Not a tab with a form being filled or
+ // a window open in it, nor the recognition page (its steps run from the page).
+ const TAB_SLEEP=15*60000;
+ function sleepTab(tab){
+  try{const actual=tab.frame.contentWindow?.location.hash.slice(1);if(routeValid(actual))tab.route=actual}catch{}
+  clearTabWait(tab);tab.profilePanel?.remove();tab.profilePanel=null;
+  tab.started=false;tab.ready=false;tab.loadError=false;tab.dirty=false;tab.dirtyForms=null;tab.asleep=true;
+  tab.frame.src="about:blank";save()
+ }
+ function sleepIdleTabs(){
+  const now=Date.now();
+  for(const [id,tab] of frames){
+   if(id===activeId||!tab.started||!tab.leftAt||now-tab.leftAt<TAB_SLEEP||tab.dirty)continue;
+   if(/\/ai-recognition(\/|$)/.test(tab.route))continue;
+   try{const d=tab.frame.contentDocument;if(!d||d.querySelector("dialog[open],[aria-busy='true']"))continue;
+    const actual=tab.frame.contentWindow.location.hash;if(/\/ai-recognition(\/|$)/.test(actual))continue}catch{continue}
+   sleepTab(tab)
+  }
+ }
+ setInterval(sleepIdleTabs,60000);
  function selectTab(id){
   if(!frames.has(id))return;
   const wasActive=activeId===id;
+  if(!wasActive){const prev=frames.get(activeId);if(prev)prev.leftAt=Date.now()}
+  frames.get(id).asleep=false;
   activeId=id;
   for(const [key,tab] of frames){
    const selected=key===id;

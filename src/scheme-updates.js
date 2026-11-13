@@ -71,6 +71,20 @@
   w.querySelector(".fill").style.width=pct+"%";
   w.querySelector(".pct").textContent=pct+" %"+(done?" · "+mb(done)+(totalBytes?" из "+mb(totalBytes):"")+" МБ":"")
  }
+ // The line of the placement again (the engineer, 13.11.2026: «добавь тоже какое-нибудь полосу загрузки с процентами»):
+ // the placement runs in the main process at one go and tells nothing on the way, so the percent is by the time — how
+ // long the last placement of this object took (kept in the window; 25 s the first time): up to 95 % by that time, then
+ // slowly to 99 %, 100 % when it is done; the time taken kept for the next.
+ function placing(objectId){
+  try{return placeLine(objectId)}catch(_e){return()=>{}}
+ }
+ function placeLine(objectId){
+  const key="ir-scheme-place-ms-"+objectId,t0=Date.now();let want=25000;try{want=Math.max(3000,Number(localStorage.getItem(key))||25000)}catch(_e){}
+  const tick=()=>{const t=Date.now()-t0,pct=t<want?Math.round(95*t/want):Math.min(99,95+Math.floor((t-want)/Math.max(2000,want/4)));progress(pct,0);
+   const left=Math.max(0,Math.round((want-t)/1000)),el=bar?.querySelector(".scheme-updates-progress .pct");if(el)el.textContent=pct+" %"+(t<want?" · ещё ≈ "+left+" с":" · почти готово")};
+  tick();const iv=setInterval(tick,250);
+  return()=>{clearInterval(iv);progress(100,0);try{localStorage.setItem(key,String(Date.now()-t0))}catch(_e){}}
+ }
  function newer(a,b){const A=String(a).split(".").map(Number),B=String(b).split(".").map(Number);for(let i=0;i<Math.max(A.length,B.length);i++){const d=(A[i]||0)-(B[i]||0);if(d)return d>0}return false}
  function show(text,button,onClick){
   if(!bar){
@@ -88,7 +102,7 @@
  async function refresh(objectId,needPlace){
   if(busy)return;busy=true;
   try{
-   if(needPlace){show("Расставляю схему заново по новым данным чертежей…");const r=await ask(objectId,"apply");
+   if(needPlace){show("Расставляю схему заново по новым данным чертежей…");const stop=placing(objectId);let r=null;try{r=await ask(objectId,"apply")}finally{stop()}
     const p=r?.placed;try{sessionStorage.setItem("ir-scheme-updates-done",p?"Схема обновлена: новых "+(p.created||0)+", обновлено "+(p.updated||0)+(p.keptMounted?", смонтированные сохранены":""):"Схема обновлена")}catch(_e){}}
    else{try{sessionStorage.setItem("ir-scheme-updates-done","3D-вид схемы обновлён")}catch(_e){}}
    location.reload()

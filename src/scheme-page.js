@@ -883,7 +883,11 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  }
  function pickerOptionText(c){const progress=markProgress(linkedMark(c));return [c.mark||"Без марки",c.axisX+"/"+c.axisY,"X "+fmt(c.x),"Y "+fmt(c.y),progress?.total>0?fmt(progress.mounted)+"/"+fmt(progress.total)+" смонт.":"Статус вручную","#"+c.id].join(" · ")}
  function pickerOptions(found){
-  return '<option value="">Выберите размещённый элемент…</option>'+found.map(c=>'<option value="'+esc(c.id)+'" '+(c.id===selectedId?'selected':'')+'>'+esc(pickerOptionText(c))+'</option>').join("")
+  // (the first 200 and the chosen one: 6783 options were made anew at every drawing of the panel — the engineer,
+  // 13.11.2026: «чтобы так много не кушало памяти»; the search narrows the list)
+  const MAX=200,shown=found.slice(0,MAX),sel=selectedId&&!shown.some(c=>c.id===selectedId)?found.find(c=>c.id===selectedId):null;if(sel)shown.unshift(sel);
+  return '<option value="">Выберите размещённый элемент…</option>'+shown.map(c=>'<option value="'+esc(c.id)+'" '+(c.id===selectedId?'selected':'')+'>'+esc(pickerOptionText(c))+'</option>').join("")+
+   (found.length>shown.length?'<option value="" disabled>… ещё '+(found.length-shown.length)+' — уточните поиск</option>':'')
  }
  function pickerRows(found){
   const overlapping=new Map();
