@@ -135,6 +135,15 @@
   if(!innerWidth||!innerHeight||!Number.isFinite(x)||!Number.isFinite(y))return;
   box.style.left=clamp(x,4,innerWidth-box.offsetWidth-4)+"px";box.style.top=clamp(y,4,innerHeight-box.offsetHeight-4)+"px";box.style.right=box.style.bottom="auto"
  }
+ // A dragged place is kept from the nearest sides of the window (the engineer, 13.11.2026: «чат кнопка … чтобы всегда
+ // был в одном месте даже при малом окне»): kept from the left top corner, a button put at the right bottom of a large
+ // window stood somewhere else in a small one and at the corner again only by the clamp. `r`, `b` — from the right and
+ // the bottom side; a place of an older version (x, y only) is read as before.
+ function putAt(box,p){put(box,p.r!==undefined?innerWidth-box.offsetWidth-p.r:p.x,p.b!==undefined?innerHeight-box.offsetHeight-p.b:p.y)}
+ function spotOf(box){
+  const r=box.getBoundingClientRect(),o={x:r.left,y:r.top};
+  if(r.left+r.width/2>innerWidth/2)o.r=Math.max(4,innerWidth-r.right);if(r.top+r.height/2>innerHeight/2)o.b=Math.max(4,innerHeight-r.bottom);o.v=2;return o
+ }
  // Above the button, or below it, on the side of the window the button is on; beside it when neither has room.
  function byButton(box){
   if(fab.hidden){box.style.left=box.style.top=box.style.right=box.style.bottom="";return}
@@ -145,8 +154,8 @@
  }
  function follow(){if(!panel.hidden&&!spot.panel)byButton(panel);if(!toast.hidden)byButton(toast)}
  function arrange(){
-  if(spot.fab&&!fab.hidden)put(fab,spot.fab.x,spot.fab.y);
-  if(spot.panel&&!panel.hidden)put(panel,spot.panel.x,spot.panel.y);
+  if(spot.fab&&!fab.hidden){putAt(fab,spot.fab);if(!spot.fab.v){spot.fab=spotOf(fab);keep()}}
+  if(spot.panel&&!panel.hidden)putAt(panel,spot.panel);
   follow()
  }
  let draggedAt=0;
@@ -161,7 +170,7 @@
    const up=()=>{
     handle.removeEventListener("pointermove",move);handle.removeEventListener("pointerup",up);handle.removeEventListener("pointercancel",up);
     box.classList.remove("irc-moving");if(!moved)return;
-    draggedAt=Date.now();spot[name]={x:parseFloat(box.style.left),y:parseFloat(box.style.top)};keep()
+    draggedAt=Date.now();spot[name]=spotOf(box);keep()
    };
    try{handle.setPointerCapture(ev.pointerId)}catch(_e){}
    handle.addEventListener("pointermove",move);handle.addEventListener("pointerup",up);handle.addEventListener("pointercancel",up)

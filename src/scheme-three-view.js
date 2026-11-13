@@ -772,6 +772,9 @@ window.irThreeSchemeView=(function irThreeModule(){
   var renderer=new T.WebGLRenderer({antialias:!light,powerPreference:"high-performance"});renderer.localClippingEnabled=true;
   renderer.setPixelRatio(light?.75:1);if(NEW3)renderer.outputColorSpace=T.SRGBColorSpace;else renderer.outputEncoding=T.sRGBEncoding;
   viewport.appendChild(renderer.domElement);
+  // (the graphics context lost and given back — a driver reset: the batches let their numbers go after the upload, gpuOnly —
+  // made again from the pieces before the next picture)
+  renderer.domElement.addEventListener("webglcontextrestored",function gpuLost(){try{rebatch();invalidate()}catch(e){}});
   scene.add(new T.HemisphereLight(0xffffff,0x7a94b3,.95*LIGHT_K));
   var sun=new T.DirectionalLight(0xffffff,1.05*LIGHT_K);sun.position.set(-35,72,48);scene.add(sun);
   var fill=new T.DirectionalLight(0xc8dfff,.35*LIGHT_K);fill.position.set(45,26,-38);scene.add(fill);
@@ -8954,7 +8957,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    details.forEach(function(d){if(!shown(d.node))return;var g=d.group;g.updateMatrixWorld(true);
     if(g.children.some(function(o){return!o.isMesh||o.isInstancedMesh||!o.geometry||!o.geometry.attributes.position||Array.isArray(o.material)})){detailGroup.add(g);return}
     g.children.forEach(function(o){var l=byMat.get(o.material);if(!l)byMat.set(o.material,l=[]);l.push(o)})});
-   byMat.forEach(function(list,mat){for(var i=0;i<list.length;i+=4000){var bm=merge(list.slice(i,i+4000),function(m){return m.geometry},function(m){return m.matrixWorld},mat);bm.userData.detailMerged=true;all.add(bm)}});
+   byMat.forEach(function(list,mat){for(var i=0;i<list.length;i+=4000){var bm=gpuOnly(merge(list.slice(i,i+4000),function(m){return m.geometry},function(m){return m.matrixWorld},mat));bm.userData.detailMerged=true;all.add(bm)}});
    if(all.children.length){detailGroup.add(all);details.push({group:all,node:null})}
   }
   // A cap w × d (m, along the section's b and h, turned by a) at the top at: in a column beside standing past that level.
@@ -11597,6 +11600,15 @@ window.irThreeSchemeView=(function irThreeModule(){
   // whose graphics card is not used drew one picture for seconds — the program and the whole computer stood.
   var boltCells=[],weldCells=[],weldList=[];
   var CELL=phone?7.5:15,unitBox=null,boxMatrix=new T.Matrix4(),boxCentre=new T.Vector3(),boxSize=new T.Vector3();
+  // The numbers of a merged piece of the picture handed to the graphics card and let go in the program: the batches
+  // (the cells of steel, their boxes and outlines) are made again from the pieces at each rebatch and read by nothing
+  // after their first picture — their copy in the program held some 80 MB of ИР-71535 for nothing (the engineer,
+  // 13.11.2026, on «каждая деталь хранится дважды» — «Делай»). Their box and sphere counted first: a box of an object
+  // (Box3.setFromObject) and the culling read those, not the numbers. A lost and restored graphics context — the
+  // batches made again from the pieces (gpuLost).
+  var gpuDrop=function(){this.array=null};
+  function gpuOnly(m){var g=m.geometry;if(!g)return m;if(!g.boundingBox)g.computeBoundingBox();if(!g.boundingSphere)g.computeBoundingSphere();
+   for(var k in g.attributes)if(g.attributes[k].onUpload)g.attributes[k].onUpload(gpuDrop);if(g.index&&g.index.onUpload)g.index.onUpload(gpuDrop);g.userData.gpuOnly=true;return m}
   function merge(list,geoOf,matOf,mat){
    var nv=0,ni=0,p=new T.Vector3(),nm=new T.Matrix3();
    list.forEach(function(m){var g=geoOf(m),c=g.attributes.position.count;nv+=c;ni+=g.index?g.index.count:c});
@@ -11701,15 +11713,15 @@ window.irThreeSchemeView=(function irThreeModule(){
     byMat.forEach(function(list,mat){
      list.forEach(function(m){if(outlined(m))lined.push(m)});
      if(lazy)lazy.parts.push([list,mat]);
-     else{var own=list.filter(function(m){return!m.__inst});if(own.length){var fine=merge(own,function(m){return m.geometry},function(m){return m.matrixWorld},mat);fine.userData.lod=small?"small":"fine";batches.add(fine)}}
+     else{var own=list.filter(function(m){return!m.__inst});if(own.length){var fine=gpuOnly(merge(own,function(m){return m.geometry},function(m){return m.matrixWorld},mat));fine.userData.lod=small?"small":"fine";batches.add(fine)}}
      // (the boxes of the far picture only where it is drawn — a phone; a computer always draws the full one, pack №144)
      if(small||!phone)return;
-     var box=merge(list,coarse,coarseMatrix,mat);box.userData.lod="coarse";box.visible=false;batches.add(box);
+     var box=gpuOnly(merge(list,coarse,coarseMatrix,mat));box.userData.lod="coarse";box.visible=false;batches.add(box);
      if(lazy){if(!box.geometry.boundingBox)box.geometry.computeBoundingBox();sp.union(box.geometry.boundingBox)}
     });
     if(lazy){lazy.lined=lined;lazy.sphere=sp.getBoundingSphere(new T.Sphere());lazyCells.push(lazy);return}
     // (its outlines with its pieces: shown and hidden with them, lod)
-    var edges=lined.length?mergeEdges(lined):null;if(edges){edges.userData.lod=small?"small":"fine";edges.userData.edges=true;batches.add(edges)}
+    var edges=lined.length?mergeEdges(lined):null;if(edges){gpuOnly(edges);edges.userData.lod=small?"small":"fine";edges.userData.edges=true;batches.add(edges)}
    };
    if(!queue){groups.forEach(batchCell);lodAt=null;invalidate();return}
    // (by steps: the cells a tenth at a time — BUILD_W.materials, the share of the colours and the merging)
@@ -11829,8 +11841,8 @@ window.irThreeSchemeView=(function irThreeModule(){
   // The detailed picture of a cell on a phone (rebatch, lazyCells): its pieces by material and their outlines.
   var lazyCells=[];
   function buildLazyCell(cell){
-   cell.meshes=cell.parts.map(function(p){var m=merge(p[0],function(x){return x.geometry},function(x){return x.matrixWorld},p[1]);m.userData.lod="fine";m.userData.lazy=true;batches.add(m);return m});
-   var e=cell.lined.length?mergeEdges(cell.lined):null;if(e){e.userData.lod="fine";e.userData.edges=true;e.userData.lazy=true;batches.add(e);cell.meshes.push(e)}
+   cell.meshes=cell.parts.map(function(p){var m=gpuOnly(merge(p[0],function(x){return x.geometry},function(x){return x.matrixWorld},p[1]));m.userData.lod="fine";m.userData.lazy=true;batches.add(m);return m});
+   var e=cell.lined.length?mergeEdges(cell.lined):null;if(e){gpuOnly(e);e.userData.lod="fine";e.userData.edges=true;e.userData.lazy=true;batches.add(e);cell.meshes.push(e)}
   }
   function dropLazyCell(cell){cell.meshes.forEach(function(m){batches.remove(m);m.geometry.dispose()});cell.meshes=null}
   function dropBoltCell(cell){cell.meshes.forEach(function(m){batches.remove(m);if(m.isInstancedMesh)m.dispose();else m.geometry.dispose()});cell.meshes=null}
@@ -11858,7 +11870,7 @@ window.irThreeSchemeView=(function irThreeModule(){
      quad(put(P[0],P[1],P[2],nx,ny,nz),put(Q[0],Q[1],Q[2],nx,ny,nz),put(R[0],R[1],R[2],nx,ny,nz),put(S[0],S[1],S[2],nx,ny,nz))});
     [0,1].forEach(function(e){var g=e?1:-1,E=ends[e];quad(put(E[0][0],E[0][1],E[0][2],w.dx*g,w.dy*g,w.dz*g),put(E[1][0],E[1][1],E[1][2],w.dx*g,w.dy*g,w.dz*g),put(E[2][0],E[2][1],E[2][2],w.dx*g,w.dy*g,w.dz*g),put(E[3][0],E[3][1],E[3][2],w.dx*g,w.dy*g,w.dz*g))})});
    var g=new T.BufferGeometry();g.setAttribute("position",new T.BufferAttribute(pos,3));g.setAttribute("normal",new T.BufferAttribute(nor,3));g.setIndex(new T.BufferAttribute(idx,1));g.computeBoundingSphere();
-   var m=new T.Mesh(g,weldMat);m.userData.lod="weld";m.matrixAutoUpdate=false;batches.add(m);cell.meshes=[m]
+   var m=gpuOnly(new T.Mesh(g,weldMat));m.userData.lod="weld";m.matrixAutoUpdate=false;batches.add(m);cell.meshes=[m]
   }
   function lod(){
    var cam=camera.position;if(lodAt&&lodAt.distanceToSquared(cam)<.25)return;lodAt=cam.clone();
