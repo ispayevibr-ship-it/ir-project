@@ -9190,26 +9190,20 @@ window.irThreeSchemeView=(function irThreeModule(){
     }).join("")+'</div>'+
     jointHtml(n)+typeHtml(n)+
     (missing.length?'<p class="ir-three-node-wait">Ждёт монтажа: <b>'+escapeHtml([...new Set(missing.map(function(m){return m.c.mark||"—"}))].join(", "))+'</b></p>':'<p class="ir-three-node-ok">Все элементы узла смонтированы.</p>')+
-    baseHtml(n)+
-    (n.kind==="step"?'<p class="ir-three-place-note">'+escapeHtml("Уступ колонны: верхняя часть приварена к траверсе над ветвями — опорной плиты и анкеров здесь нет. Плиты траверсы — по листу"+(stepSheet(n)?" "+stepSheet(n):"")+".")+'</p>':"")+
-    (n.kind==="base"||n.kind==="top"?'<p class="ir-three-place-note">'+(n.kind==="top"?(n.members.some(function(m){return m.c.geometryType==="column"&&seatTop.has(String(m.c.id))})?
-     "Опирание сверху: балка лежит на плите оголовка колонны, нижний пояс на болтах к плите, над опорой — пара опорных рёбер. Плита (t=20), рёбра и места болтов показаны условно — по узлам КМД.":
-     "Плита оголовка показана условно — размеры не из КМД."):
-     (baseOf(n)&&baseOf(n).anchors?"Число и диаметр анкеров — с листа базы; плита и рёбра показаны условно.":"Плита и анкеры на модели показаны условно — размеры не из КМД.")+
-     (n.z<=300?" Фундамент под базой — условно, по КЖ.":""))+'</p>':"");
+    baseHtml(n);
    nodePanel.querySelector('[data-node="close"]').onclick=function(){selectedNode=null;paintNode()};
    var more=nodePanel.querySelector('[data-node="more"]');if(more)more.onclick=function(){nodeMin=!nodeMin;paintNode()};
    nodePanel.querySelectorAll("[data-node-member]").forEach(function(b){b.onclick=function(){choose(b.dataset.nodeMember)}});
    var range=nodePanel.querySelector('[data-node="explode"]');range.oninput=function(){setExplode(n,number(range.value)/100)}
   }
   // How the members of the node are joined, as the notes of their sheets say (bolts, their class, mounting welds).
+  // (short, the engineer, 13.11.2026: «тоже лишняя информация, сократи гораздо» — what is joined and by which sheet,
+  // the bolt set; no notes on what is conventional, no extracts of the catalog)
   function jointHtml(n){
    var seen=new Map();n.members.forEach(function(m){var j=m.c.joint;if(j&&j.text){var k=j.text+"|"+(j.sheet||"");if(!seen.has(k))seen.set(k,{j:j,marks:[]});seen.get(k).marks.push(m.c.mark||"—")}});
-   if(!seen.size)return'<p class="ir-three-place-note">Соединение: на листах элементов болты не указаны — смотрите узлы КМД.</p>';
+   if(!seen.size)return"";
    return'<div class="ir-three-node-base"><b>Соединение</b>'+[...seen.values()].map(function(x){
-    return'<span>'+escapeHtml([...new Set(x.marks)].join(", ")+": "+x.j.text)+'</span>'+(x.j.sheet?'<small>'+escapeHtml("по указаниям "+x.j.sheet)+'</small>':"")+boltHtml(x.j)}).join("")+
-    '<em>Число и места болтов на модели условные — по узлам КМД; комплект болта — по ГОСТ. Болты связей на фасонках стоят по наименьшим расстояниям СП 16.13330 (табл. 40): от торца 2,5d, шаг 3d.'+
-    (n.members.some(function(m){return m.c.joint&&m.c.joint.gusset_mm})?"":" Фасонки показаны толщиной 12 мм условно — на листах толщина фасонок не указана.")+'</em></div>'
+    return'<span>'+escapeHtml([...new Set(x.marks)].join(", ")+": "+x.j.text)+'</span>'+(x.j.sheet?'<small>'+escapeHtml(x.j.sheet)+'</small>':"")+boltHtml(x.j)}).join("")+'</div>'
   }
   // The type of the node by the catalog of 1000 joints: chosen by what meets there (a column base, a beam end at a
   // column or on a beam, a joint of members), the nodes the sheets name first. Only a hint: the scheme is not changed.
@@ -9224,19 +9218,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   function typeHtml(n){
    if(!jointKb)return"";
    var q=nodeQuery(n),k=jointKb.card(q);if(!k)return"";
-   var cut=function(t,len){t=String(t||"");return t.length>len?t.slice(0,len-1)+"…":t};
-   var list=function(title,items,max){items=(items||[]).filter(Boolean).slice(0,max);return items.length?'<small>'+escapeHtml(title+": "+items.map(function(x){return cut(x,200)}).join("; "))+'</small>':""};
-   var named=q.named.filter(function(x){return x.group===k.group||(x.joints||[]).some(function(j){return j.group===k.group})});
-   return'<div class="ir-three-node-base ir-three-node-type"><b>Тип узла по справочнику</b>'+
-    '<span>'+escapeHtml(k.group+" · "+k.group_name)+': <b>'+escapeHtml(k.name)+'</b></span>'+
-    (k.rows.length?'<small>'+escapeHtml("Ближайшие по перечню: "+k.rows.map(function(r){return r.code+" «"+cut(r.name,90)+"»"}).join("; "))+'</small>':"")+
-    '<small>'+escapeHtml("Способ: "+k.method+"; работа узла: "+k.behaviour)+' · <i class="kb-st '+escapeHtml(k.status)+'">'+escapeHtml(k.status_text)+'</i></small>'+
-    list("Состав",k.parts,4)+(k.drawing?'<small>'+escapeHtml("На чертеже: "+cut(k.drawing,220))+'</small>':"")+
-    (k.placement?'<small>'+escapeHtml("Расстановка: "+cut(k.placement,220))+'</small>':"")+list("Правила",k.rules,3)+list("Нормы",k.norms,3)+
-    (k.note?'<small>'+escapeHtml("Замечание: "+cut(k.note,220))+'</small>':"")+
-    (named.length?'<small>'+escapeHtml("На листе: "+named.slice(0,3).map(function(x){var j=(x.joints||[])[0];return x.label+(x.title?" «"+x.title+"»":"")+(j?" — похоже на "+j.code+" «"+cut(j.name,80)+"»":"")}).join("; "))+'</small>':"")+
-    (k.others.length?'<small>'+escapeHtml("Может быть и: "+k.others.slice(0,3).map(function(o){return o.name+" ("+o.status_text+")"}).join("; "))+'</small>':"")+
-    '<em>Тип выбран по тому, какие элементы сходятся в узле; проверьте по узлу КМД. Справочник ничего не меняет в схеме.</em></div>'
+   return'<div class="ir-three-node-base ir-three-node-type"><span>Тип узла: <b>'+escapeHtml(k.name)+'</b></span></div>'
   }
   // The bolt set drawn, with the sizes from the standards.
   function boltHtml(j){
@@ -12710,6 +12692,8 @@ window.irThreeSchemeView=(function irThreeModule(){
    if(awaySince){awaySince=0;lastTime=time||0;resize()}
    // (not a picture of a model half built: its steps go on — buildSteps)
    if(building)return;
+   // (the node in its enlarged window is over the 3D and is drawn by the same renderer — jointZoom)
+   if(jointLiveEl&&jointLiveEl.isConnected)return;
    var gap=(time||0)-lastTime,dt=Math.min(.1,Math.max(0,gap/1000));lastTime=time||0;
    // The frame after a picture came late: that picture took that long.
    if(drew&&!light&&gap>250&&performance.now()-rebuiltAt>1500){if(++slow>=3)goLight()}else if(drew)slow=0;drew=false;
@@ -13426,7 +13410,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   // kind and mark. Each type — a picture of its first place cut out of the model itself (a box about it, what is outside
   // it not drawn; for the steel without the panels of the АР in front of it), how it is joined, the sheet of the drawing,
   // and its places: a click flies the 3D there. Nothing in the scheme changes; the same in the exported scheme and report.
-  var jointsEl=null,jointsSec="",jointsShots=new Map(),jointsQueue=[],jointsRaf=0,jointsBuilt="",jointsList=null;
+  var jointLiveEl=null,jointsEl=null,jointsSec="",jointsShots=new Map(),jointsQueue=[],jointsRaf=0,jointsBuilt="",jointsList=null;
   // Снимки узлов с листов чертежей (1.12.140, инженер 13.11.2026 «снимок данного узла стыка с чертежа … чисто узла»):
   // программа вырезает вид узла с листа (src/ai-node-crops.js) и хранит в базе; в выгрузке — готовые снимки (P.nodeCrops).
   var cropShots=new Map(),cropsAsked=false,cropBusy=false;
@@ -13438,7 +13422,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    list.forEach(function(c){var j=c&&c.joint;if(!j)return;
     (Array.isArray(j.node_views)?j.node_views:[]).forEach(function(v){if(v&&/^(Узел|Разрез)/.test(String(v.title||"")))push(v.sheet,v.title)});
     var vol="";String(j.sheet||"").split(";").forEach(function(part){
-     var m=/^\s*((?:КМД?|АР|ТХ)\s?\d*)\s/.exec(part);if(m)vol=m[1].replace(/\s+/g,"");var sh=/л\.\s*(\d{1,3})/.exec(part);if(!sh||!vol||/общие данные/i.test(part))return;var sheet=vol+" л."+sh[1];
+     var m=/(?:^|[^А-Яа-яЁёA-Za-z])((?:КМД?|АР|ТХ)\s?\d*(?:\s?ч\.\s?\d+)?)[\s,]/.exec(part);if(m)vol=m[1].replace(/\s+/g,"");var sh=/л\.\s*(\d{1,3})/.exec(part);if(!sh||!vol||/общие данные/i.test(part))return;var sheet=vol+" л."+sh[1];
      var nd=/узл\S*\s+([\d.,\sи]+)/i.exec(part);if(nd)(nd[1].match(/\d+(?:\.\d+)?/g)||[]).forEach(function(x){push(sheet,"Узел "+x)});
      var rz=/разрез\S*\s+((?:[\dА-Яа-яЁё]{1,3}\s?-\s?[\dА-Яа-яЁё]{1,3}[,\sи]*)+)/i.exec(part);if(rz)(rz[1].match(/[\dА-Яа-яЁё]{1,3}\s?-\s?[\dА-Яа-яЁё]{1,3}/g)||[]).forEach(function(x){push(sheet,"Разрез "+x.replace(/\s/g,""))})
     })});
@@ -13502,16 +13486,21 @@ window.irThreeSchemeView=(function irThreeModule(){
   // 3D itself, the middle of it copied, then the 3D drawn back as it was.
   // The picture is drawn in its own size, not cut out of the window's (the engineer, 13.11.2026: «качество узла сделай
   // максимальное», «при нажатие фото увеличивается»): 640 × 480 for a card, 1920 × 1440 for the enlarged one (big).
-  function jointShot(t,big){
+  // live — the node itself in the enlarged window (the engineer, 13.11.2026: «мы можем вместо картинок выводить 3д?»):
+  // {az, el — the turn about the node, zoom, canvas — where it is drawn}; the first call sets az and el of the picture.
+  function jointShot(t,big,live){
    var pl=t.places[0],c=pl.at,R=t.steel?1.3:Math.min(2.6,Math.max(1,pl.along?pl.along.length()/2*(t.open?.75:0)+.1:1)),box=new T.Box3().setFromObject(steel),mid=box.getCenter(new T.Vector3());
    var out=c.clone().sub(mid).setY(0);if(out.lengthSq()<1e-6)out.set(1,0,1);out.normalize();if(t.steel)out.negate();
    var side=new T.Vector3(-out.z,0,out.x),dir=out.clone().add(side.multiplyScalar(t.steel?.7:.5));
    if(pl.along&&pl.along.lengthSq()>1e-6){var a=pl.along.clone().normalize();if(Math.abs(a.y)<.9)dir.add(a.multiplyScalar(.6))}
    var top=box.max.y-c.y<(box.max.y-box.min.y)*.15;dir.setY(0).normalize().setY(t.steel&&top?-.45:.5).normalize();
+   var zoom=1;
+   if(live){if(live.az===undefined){live.az=Math.atan2(dir.x,dir.z);live.el=Math.asin(Math.max(-1,Math.min(1,dir.y)))}
+    zoom=live.zoom||1;dir.set(Math.sin(live.az)*Math.cos(live.el),Math.sin(live.el),Math.cos(live.az)*Math.cos(live.el));R*=Math.max(1,zoom)}
    var cv=renderer.domElement;if(cv.width<40||cv.height<40)return null;
-   var ratio=renderer.getPixelRatio(),cw=light?(big?1280:480):(big?1920:640),ch=cw*3/4;
+   var ratio=renderer.getPixelRatio(),cw=live?live.canvas.width:light?(big?1280:480):(big?1920:640),ch=live?live.canvas.height:cw*3/4;
    renderer.setPixelRatio(1);renderer.setSize(cw,ch,false);camera.aspect=cw/ch;
-   var cropW=cw,cropH=ch,tanH=Math.tan(camera.fov*Math.PI/360),dist=R*1.55/tanH;
+   var cropW=cw,cropH=ch,tanH=Math.tan(camera.fov*Math.PI/360),dist=R*Math.min(1,zoom)*1.55/tanH;
    var keep={pos:camera.position.clone(),q:camera.quaternion.clone(),near:camera.near,far:camera.far},hidden=[];
    // (no floor, grid, dimensions, markers or labels in the picture)
    var off=[ground,dims,levelDims,tankDims,helpers,overlay,bTexts].filter(function(o){return o.visible});
@@ -13523,10 +13512,12 @@ window.irThreeSchemeView=(function irThreeModule(){
    off.forEach(function(o){o.visible=false});renderer.clippingPlanes=planes;boltView(ch);
    var arOff=t.steel?batches.children.filter(function(o){return o.userData.ar&&o.visible}):[];arOff.forEach(function(o){o.visible=false});
    renderer.render(scene,camera);arOff.forEach(function(o){o.visible=true});
-   var g=document.createElement("canvas");g.width=cw;g.height=ch;g.getContext("2d").drawImage(cv,0,0,cw,ch,0,0,cw,ch);
+   var g=live?live.canvas:document.createElement("canvas");if(!live){g.width=cw;g.height=ch}g.getContext("2d").drawImage(cv,0,0,cw,ch,0,0,cw,ch);
    renderer.clippingPlanes=[];hidden.forEach(function(mt){mt.visible=true});off.forEach(function(o){o.visible=true});
    camera.position.copy(keep.pos);camera.quaternion.copy(keep.q);camera.near=keep.near;camera.far=keep.far;
    renderer.setPixelRatio(ratio);resize();camera.updateMatrixWorld();
+   // (the window of the node is over the 3D: the 3D itself is drawn anew when that window is shut)
+   if(live){invalidate();return true}
    boltView(renderer.domElement.height);renderer.render(scene,camera);invalidate();
    try{return g.toDataURL("image/jpeg",big?.93:.88)}catch(e){return null}
   }
@@ -13551,7 +13542,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    jointsEl.innerHTML='<div class="ir-joints-head"><b>Узлы и стыки</b><div class="ir-joints-tabs" role="tablist">'+
     secs.map(function(s){var l=jointsList[s]||[];return'<button type="button" role="tab" data-joint-sec="'+escapeHtml(s)+'" class="'+(s===jointsSec?"on":"")+'" aria-selected="'+(s===jointsSec)+'">'+escapeHtml(s)+'<small>'+l.length+'</small></button>'}).join("")+
     '</div><button type="button" class="ir-joints-close" data-joint-close title="Вернуться к 3D" aria-label="Закрыть">✕</button></div>'+
-    '<div class="ir-joints-body">'+(list.length?'<p class="ir-joints-sum">'+escapeHtml(jointsSec)+': '+jointsWord(list.length,["вид","вида","видов"])+' узлов и стыков, всего мест — '+total+'. Картинка — первое место, вырезанное из 3D; щёлкните картинку — она откроется крупно, щёлкните место — переход к нему на схеме.</p><div class="ir-joints-grid">'+
+    '<div class="ir-joints-body">'+(list.length?'<p class="ir-joints-sum">'+escapeHtml(jointsSec)+': '+jointsWord(list.length,["вид","вида","видов"])+' узлов и стыков, всего мест — '+total+'. Картинка — первое место, вырезанное из 3D; щёлкните картинку — узел откроется в 3D, его можно крутить; щёлкните место — переход к нему на схеме.</p><div class="ir-joints-grid">'+
      list.map(function(t,i){var url=jointsShots.get(t.key),head=i===0||list[i-1].name!==t.name?t.name:"",n=head?list.filter(function(x){return x.name===head}):null;
       // (a kind of one type has no line of its own — its name is on the card: the АР was one card to a row, down the page,
       // the engineer, 13.11.2026: «в ар вообще один узел показывается в ряд вниз»)
@@ -13569,19 +13560,37 @@ window.irThreeSchemeView=(function irThreeModule(){
     commentAbout(t.name+(t.parts.length?" — "+t.parts.join(" + "):""),p.where,[t.fix,t.ref&&t.ref.sheet,"мест "+t.places.length].filter(Boolean).join(" · "),p,t.steel)}});
    // (a click on a picture — it enlarged: the node drawn anew in full size, the view of the drawing as kept)
    jointsEl.querySelector(".ir-joints-body").onclick=function(e){var img=e.target&&e.target.closest?e.target.closest(".ir-joint img"):null;if(!img||!img.getAttribute("src"))return;
-    var k=img.getAttribute("data-joint-img"),t=k?list.find(function(x){return x.key===k}):null,cap=img.closest("figure"),url=null;
-    if(t){try{url=jointShot(t,true)}catch(err){url=null}}
-    jointZoom(url||img.getAttribute("src"),t?t.name+(t.parts.length?" — "+t.parts.join(" + "):""):cap&&cap.querySelector("figcaption")?cap.querySelector("figcaption").textContent:"")};
+    var k=img.getAttribute("data-joint-img"),t=k?list.find(function(x){return x.key===k}):null,cap=img.closest("figure");
+    jointZoom(img.getAttribute("src"),t?t.name+(t.parts.length?" — "+t.parts.join(" + "):""):cap&&cap.querySelector("figcaption")?cap.querySelector("figcaption").textContent:"",t)};
    cropsLoad();cropsPaint();if(!cropLive())jointsEl.querySelectorAll("[data-crop]").forEach(function(i){if(!cropShots.has(i.getAttribute("data-crop"))){var f=i.closest("figure");if(f)f.hidden=true}});setTimeout(cropsNext,50);
    var jb=jointsEl.querySelector(".ir-joints-body");if(jb)jb.onscroll=function(){if(!cropBusy)cropsNext()};
    jointsQueue=list.filter(function(t){return!jointsShots.has(t.key)}).map(function(t){return{t:t}});
    if(jointsQueue.length&&!jointsRaf)jointsRaf=requestAnimationFrame(jointsPump)
   }
-  function jointZoom(url,text){
-   var old=jointsEl&&jointsEl.querySelector(".ir-joint-zoom");if(old)old.remove();if(!url||!jointsEl)return;
-   var z=document.createElement("div");z.className="ir-joint-zoom";z.setAttribute("role","dialog");z.setAttribute("aria-label","Картинка крупно");z.tabIndex=-1;
-   var im=document.createElement("img");im.alt="";im.src=url;z.appendChild(im);if(text){var sp=document.createElement("span");sp.textContent=text;z.appendChild(sp)}
-   z.onclick=function(){z.remove()};z.onkeydown=function(e){if(e.key==="Escape"){e.stopPropagation();z.remove()}};jointsEl.appendChild(z);try{z.focus()}catch(e){}
+  // The enlarged window: a view of the drawing — its picture; a node — the node itself in 3D, turned by the mouse or a
+  // finger, the wheel nearer and farther (a wider piece of the model about it). A click outside it or Esc shuts it.
+  function jointZoom(url,text,t){
+   var old=jointsEl&&jointsEl.querySelector(".ir-joint-zoom");if(old)old.remove();if(!(url||t)||!jointsEl)return;
+   var z=document.createElement("div");z.className="ir-joint-zoom";z.setAttribute("role","dialog");z.setAttribute("aria-label",t?"Узел в 3D":"Картинка крупно");z.tabIndex=-1;
+   var shut=function(){z.remove();invalidate()};
+   if(t){
+    jointLiveEl=z;var cvs=document.createElement("canvas"),live={canvas:cvs,zoom:1},raf=0,hint=document.createElement("span");
+    var fit=function(){var bw=Math.max(200,jointsEl.clientWidth-28),bh=Math.max(150,jointsEl.clientHeight-90),w=Math.min(bw,bh*4/3),h=w*3/4,k=Math.min(light?1:Math.max(1,window.devicePixelRatio||1),1920/w);
+     cvs.style.width=Math.round(w)+"px";cvs.style.height=Math.round(h)+"px";cvs.width=Math.round(w*k);cvs.height=Math.round(h*k)};
+    var draw=function(){raf=0;if(!z.isConnected)return;try{jointShot(t,true,live)}catch(e){}},ask=function(){if(!raf)raf=requestAnimationFrame(draw)};
+    var drag=null;cvs.style.cursor="grab";cvs.style.touchAction="none";
+    cvs.onpointerdown=function(e){drag={x:e.clientX,y:e.clientY};try{cvs.setPointerCapture(e.pointerId)}catch(err){}cvs.style.cursor="grabbing";e.preventDefault()};
+    cvs.onpointermove=function(e){if(!drag)return;live.az-=(e.clientX-drag.x)*.008;live.el=Math.max(-1.45,Math.min(1.45,live.el+(e.clientY-drag.y)*.008));drag={x:e.clientX,y:e.clientY};ask()};
+    cvs.onpointerup=cvs.onpointercancel=function(){drag=null;cvs.style.cursor="grab"};
+    cvs.onwheel=function(e){e.preventDefault();live.zoom=Math.max(.25,Math.min(4,live.zoom*(e.deltaY>0?1.12:1/1.12)));ask()};
+    cvs.onclick=function(e){e.stopPropagation()};
+    z.appendChild(cvs);if(text){var sp=document.createElement("span");sp.textContent=text;z.appendChild(sp)}
+    hint.className="hint";hint.textContent="Крутите мышью, колесо — ближе и дальше. Закрыть — щелчок мимо или Esc.";z.appendChild(hint);
+    z.onclick=shut;z.onkeydown=function(e){if(e.key==="Escape"){e.stopPropagation();shut()}};jointsEl.appendChild(z);fit();draw();try{z.focus()}catch(e){}
+    return
+   }
+   var im=document.createElement("img");im.alt="";im.src=url;z.appendChild(im);if(text){var sp2=document.createElement("span");sp2.textContent=text;z.appendChild(sp2)}
+   z.onclick=shut;z.onkeydown=function(e){if(e.key==="Escape"){e.stopPropagation();shut()}};jointsEl.appendChild(z);try{z.focus()}catch(e){}
   }
   function jointsOpen(on){
    if(!jointsEl){jointsEl=document.createElement("section");jointsEl.className="ir-joints";jointsEl.hidden=true;jointsEl.setAttribute("aria-label","Узлы и стыки");root.appendChild(jointsEl)}
@@ -13598,7 +13607,7 @@ window.irThreeSchemeView=(function irThreeModule(){
     ".ir-joints-close{width:30px;height:30px;border-radius:7px;border:1px solid #c9d8e5;background:#fff;color:#173f5b;font-size:14px;cursor:pointer}"+
     ".ir-joints-body{overflow:auto;padding:12px;flex:1;min-height:0}.ir-joints-sum{margin:0 0 10px;color:#4b5d6b}.ir-joints-empty{color:#4b5d6b}"+
     ".ir-joints-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}.ir-joints-kind{grid-column:1/-1;margin:8px 0 0;font-size:13.5px}.ir-joints-kind small{font-weight:500;color:#6a7b88}.ir-joints-gap{grid-column:1/-1;height:0;border-top:1px solid #d6e0e8;margin:4px 0}"+
-    ".ir-joint img[src]{cursor:zoom-in}.ir-joint-zoom{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:14px;background:rgba(12,20,28,.86);cursor:zoom-out}.ir-joint-zoom img{max-width:100%;max-height:calc(100% - 34px);object-fit:contain;background:#fff;border-radius:8px}.ir-joint-zoom span{color:#fff;font-size:13px;font-weight:700;text-align:center}"+
+    ".ir-joint img[src]{cursor:zoom-in}.ir-joint-zoom{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:14px;background:rgba(12,20,28,.86);cursor:zoom-out}.ir-joint-zoom img{max-width:100%;max-height:calc(100% - 34px);object-fit:contain;background:#fff;border-radius:8px}.ir-joint-zoom canvas{display:block;border-radius:8px;background:#e6edf3;cursor:grab}.ir-joint-zoom span.hint{font-weight:500;font-size:11.5px;opacity:.8}.ir-joint-zoom span{color:#fff;font-size:13px;font-weight:700;text-align:center}"+
     ".ir-joint{background:#fff;border:1px solid #d6e0e8;border-radius:9px;overflow:hidden;display:flex;flex-direction:column}"+
     ".ir-joint img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:#e6edf3}.ir-joint img.wait{background:linear-gradient(90deg,#e6edf3,#f3f7fa,#e6edf3);background-size:200% 100%;animation:irJointWait 1.2s linear infinite}"+
     ".ir-joint img.none{visibility:hidden;height:0;aspect-ratio:auto}@keyframes irJointWait{to{background-position:-200% 0}}"+
