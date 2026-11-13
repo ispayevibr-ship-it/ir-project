@@ -45,7 +45,11 @@ function createChat({getUserDataPath,safeStorage,fetch:doFetch=globalThis.fetch,
  const journalFile=()=>appDir===APP_KNOWLEDGE?require("./ai-knowledge-dirs").file("chat/journal.json"):path.join(appDir,"journal.json");
  const viaGithub=()=>{try{return Boolean(github?.chatReady?.())}catch{return false}};
  const adminReady=()=>{try{return Boolean(admin?.ready?.())}catch{return false}};
- function link(){const t=target(),d=json(linkFile())||{},key=Boolean(d.key&&t.fire_url),gh=viaGithub(),va=!key&&!gh&&adminReady();return{connected:key||gh||va,github:gh,viaAdmin:va,hasKey:Boolean(d.key),fireUrl:t.fire_url||"",own:Boolean(t.own),task:t.task||"Чат IR Project",page:t.page||"https://claude.ai/code/routines",since:d.at||""}}
+ // The administrator himself does not write to the administrators: while GitHub is out his message waits and goes to Claude
+ // when it is back (sync). On 12.11.2026 eight messages of the administrator's own computer went to «Чат с
+ // администратором» while GitHub was out and nobody passed them on — «после обработки чатом … ничего не меняется».
+ const adminSelf=()=>{try{return Boolean(admin?.isAdmin?.())}catch{return false}};
+ function link(){const t=target(),d=json(linkFile())||{},key=Boolean(d.key&&t.fire_url),gh=viaGithub(),va=!key&&!gh&&adminReady()&&!adminSelf();return{connected:key||gh||va,github:gh,viaAdmin:va,hasKey:Boolean(d.key),fireUrl:t.fire_url||"",own:Boolean(t.own),task:t.task||"Чат IR Project",page:t.page||"https://claude.ai/code/routines",since:d.at||""}}
  // Claude's answers: from the chat branch, the file Claude wrote onto this computer and the journal of the update, once each.
  const branchFile=()=>path.join(dir(),"claude-branch.json");
  const adminFile=()=>path.join(dir(),"admin-replies.json");
@@ -124,11 +128,12 @@ function createChat({getUserDataPath,safeStorage,fetch:doFetch=globalThis.fetch,
     catch(e){throw Error("Нет связи с GitHub — "+String(e.message||e))}
    }
    // Without both: to the administrators through the company's server, with the same pictures.
-   if(adminReady()){
+   if(adminReady()&&!adminSelf()){
     const images=[];for(const p of[m.shot,...(m.photos||[])].filter(Boolean))try{images.push(fs.readFileSync(shotFile(p)))}catch{}
     try{await admin.post({localId:m.id,text:m.text,context:m.context,images});return{via:"admin"}}
     catch(e){throw Error("Нет связи с сервером компании — "+String(e.message||e))}
    }
+   if(adminReady()&&adminSelf()){const y=Error("Нет связи с GitHub — сообщение уйдёт Claude само, когда связь появится");y.code="no-key";throw y}
    const x=Error("Чат не подключён: войдите в программу (профиль → «Войти») — сообщения пойдут администратору; или администратор указывает ключ GitHub в настройках ИИ");x.code="no-key";throw x
   }
   let r;
@@ -188,6 +193,12 @@ function createChat({getUserDataPath,safeStorage,fetch:doFetch=globalThis.fetch,
    try{const t=target(),a=await github.chatAnswers({repo:t.github_repo,branch:t.github_branch});if(a&&Array.isArray(a.messages)){fs.mkdirSync(dir(),{recursive:true});fs.writeFileSync(branchFile(),JSON.stringify(a),"utf8")}}catch{}
   }
   if(link().connected&&!sending){
+   // (a message that went to the administrators while GitHub was out and nobody answered it in 14 days: once more to
+   // Claude by GitHub or the task's key when they are back — rerouted)
+   const lk=link();
+   if(!lk.viaAdmin){const d=read(),old=now()-14*86400e3;let n=0;
+    merged(d).forEach(m=>{if(m.from!=="user"||m.answered||m.via!=="admin"||m.rerouted||m.relay||!(Date.parse(m.at)>old))return;const x=d.messages.find(y=>y.id===m.id);if(x){x.state="waiting";x.rerouted=new Date(now()).toISOString();delete x.via;n++}});
+    if(n)write(d)}
    const waiting=merged(read()).filter(m=>m.from==="user"&&!m.answered&&m.state==="waiting");
    if(waiting.length)sending=(async()=>{for(const m of waiting)await finish(m.id)})().finally(()=>{sending=null});
    if(sending)await sending

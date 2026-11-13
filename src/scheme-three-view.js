@@ -5555,14 +5555,21 @@ window.irThreeSchemeView=(function irThreeModule(){
    if(!st.length)return;
    list.forEach(function(c){
     if(!c.id||c.ft||c.geometryType!=="column"||guardOf(c))return;var sec=sectionOf(c.profile_name||c.profileName,c.profile_standard);if(!sec||sec.shape!=="round"||sec.h>80)return;
-    var F=toWorld(c.x,c.y,c.z0),r=sec.h/2000;
-    st.some(function(S){var px=F.x-S.a.x,pz=F.z-S.a.z,u=(px*S.d.x+pz*S.d.z)/S.hz,w=Math.abs(px*S.d.z-pz*S.d.x)/S.hz;
+    var F=toWorld(c.x,c.y,c.z0),r=sec.h/2000,hits=[];
+    st.forEach(function(S){var px=F.x-S.a.x,pz=F.z-S.a.z,u=(px*S.d.x+pz*S.d.z)/S.hz,w=Math.abs(px*S.d.z-pz*S.d.x)/S.hz;
      // (and at an end of a gentle one — the first post of the walkway's guard at the end of Б1 [16 1:10 (КМ3 л.47):
      // its foot at the beam's axis, 3.9 mm in its top flange; a flight's post at its end stands on the landing)
      var gentle=Math.abs(S.d.y)<.15;if((u<r&&!(gentle&&u>=-r))||(u>S.L*S.hz-r&&!(gentle&&u<=S.L*S.hz+r))||w+r>S.b)return false;
      var axis=S.a.y+S.d.y*Math.max(0,Math.min(S.L*S.hz,u))/S.hz,cs=S.hz,top=axis+S.h/cs;if(F.y<axis-S.h/cs-.02||F.y>top+.03)return false;
-     var up=new T.Vector3(0,1,0),n=up.clone().sub(S.d.clone().multiplyScalar(S.d.y)).normalize(),P=new T.Vector3(F.x,top,F.z);
-     guardLift.set(String(c.id),top-F.y);endPlanes.set(String(c.id)+":0",{P:P,n:n});return true})})
+     hits.push({S:S,top:top,edge:top+Math.abs(S.d.y)/S.hz*r})});
+    if(!hits.length)return;
+    // (at the crease of two such members meeting end to end — the walkway Б1 [16 of КМ3 л.47 over the gutter, 9700 down,
+    // 1400 up the counter-slope, the post of its guard on the joint: cut along the one, it stood 3 mm in the top of the
+    // other —: its foot level, at the highest top under it)
+    var S=hits[0].S,top=hits[0].top,up=new T.Vector3(0,1,0),n=up.clone().sub(S.d.clone().multiplyScalar(S.d.y)).normalize();
+    if(hits.length>1){top=Math.max.apply(null,hits.map(function(h){return h.edge}));n=up}
+    var P=new T.Vector3(F.x,top,F.z);
+    guardLift.set(String(c.id),top-F.y);endPlanes.set(String(c.id)+":0",{P:P,n:n})})
   }
   var flangeAt=new Map(),lapEnds=new Map();
   function hangTies(list){
@@ -7037,6 +7044,11 @@ window.irThreeSchemeView=(function irThreeModule(){
       // (kept: the side of the frame, else of the longer part; the end that far off the face that the corners of its
       // section are clear)
       var keep=inner(w)||(Math.abs(da)>=Math.abs(db)?(da>0?1:-1):(db>0?1:-1)),r=Math.max(hs.h,hs.b),gap=w.t/2+.005+r*Math.sqrt(Math.max(0,1-sn*sn));
+      // (a member at the foot of a wall of a step of the roof — within its own depth over the bottom of the panel — that
+      // would keep only its shorter part: the wall stands on the roof over it, it is not cut; cut to the frame side it lost all but its last 94 mm: П1 of
+      // the annex О1–О3 under the wall of the step by О3, the engineer, 13.11.2026, «что за кусок прогона? он должен быть
+      // целиком же»)
+      if(z<2*hs.h+.05&&stepWalls.has(w.id)&&(keep>0?Math.max(da,db):-Math.min(da,db))<(keep>0?-Math.min(da,db):Math.max(da,db)))return;
       (wallClip.get(String(c.id))||wallClip.set(String(c.id),[]).get(String(c.id))).push({X:X,n:w.n.clone().multiplyScalar(keep),gap:gap})
      })
     }

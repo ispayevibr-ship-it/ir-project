@@ -186,6 +186,6 @@ function createRelay({account,engine,getUserDataPath,chat=()=>null,computer=()=>
   })().finally(()=>{ticking=null});
   return ticking
  }
- return{engine:wrapped,viaAdmin,work,jobsInfo,setJobs,chat:{ready:chatReady,post,replies},inbox,inboxSeen,image,answer,forward,passBack,tick}
+ return{engine:wrapped,viaAdmin,work,jobsInfo,setJobs,chat:{ready:chatReady,isAdmin,post,replies},inbox,inboxSeen,image,answer,forward,passBack,tick}
 }
 module.exports={createRelay};
