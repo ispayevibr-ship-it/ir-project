@@ -413,7 +413,7 @@
   // The collected pictures: one message — the common comment, then «Снимок N — comment (element)» of each.
   const drafted=photos.some(p=>p.kind==="shot"||p.note);
   const general=area.value.trim();
-  const text=drafted?[general,...photos.map((p,i)=>"Снимок "+(i+1)+(p.kind==="photo"?" (фото с компьютера)":"")+" — "+(p.note.trim()||"без комментария")+(p.el?" [Элемент: "+[elText(p.el),p.el.z?"отм. "+p.el.z:"",p.el.x!==undefined&&p.el.x!==""?"X "+p.el.x+" Y "+p.el.y:"",p.el.id?"id "+p.el.id:""].filter(Boolean).join(" · ")+"]":""))].filter(Boolean).join("\n\n"):general||(photos.length?"Фото с компьютера":"");
+  const text=drafted?[general,...photos.map((p,i)=>"Снимок "+(i+1)+(p.kind==="photo"?" (фото с компьютера)":p.kind==="node"?" (узел из 3D)":"")+" — "+(p.note.trim()||"без комментария")+(p.el?" [Элемент: "+[elText(p.el),p.el.z?"отм. "+p.el.z:"",p.el.x!==undefined&&p.el.x!==""?"X "+p.el.x+" Y "+p.el.y:"",p.el.id?"id "+p.el.id:""].filter(Boolean).join(" · ")+"]":""))].filter(Boolean).join("\n\n"):general||(photos.length?"Фото с компьютера":"");
   if(!text||busy)return;
   busy=true;sendBtn.disabled=true;
   try{
@@ -432,5 +432,18 @@
  // The selected element follows the scheme while the panel is open.
  document.addEventListener("click",()=>{if(!panel.hidden)setTimeout(paintContext,50)},true);
  invoke("ai-montage:chat-list").then(take).catch(()=>{});schedule();setTimeout(sync,4000);
- window.irChatPanel={open:()=>open(true),sync};
+ // A comment to a node of the montage scheme (the engineer, 13.11.2026: «добавь к узлу комментарий от тех, у кого есть право
+ // изменять … приходит ко мне в чат … я отправляю в Клод»): the scheme gives the node — what it is, where, its picture
+ // from the 3D —; the picture goes into the message with the node as its note, the field asks for the comment. It goes the
+ // way of every message: Claude of this computer, or the administrator when it has none («Передать Claude»).
+ async function about(o){
+  o=o||{};open(true);
+  if(o.image&&photos.length<MAX_PICS){try{
+   const blob=await (await fetch(o.image)).blob(),r=await invoke("ai-montage:chat-photo",{data:new Uint8Array(await blob.arrayBuffer())});
+   if(r?.photoId){photos.push({id:r.photoId,url:URL.createObjectURL(blob),note:String(o.note||o.title||""),kind:"node",el:null});paintPhotos()}
+  }catch(e){alert("Снимок узла не добавлен: "+(e.message||e))}}
+  if(o.text&&!area.value.trim())area.value=String(o.text);
+  area.focus();try{area.setSelectionRange(area.value.length,area.value.length)}catch(_e){}
+ }
+ window.irChatPanel={open:()=>open(true),sync,about};
 })();

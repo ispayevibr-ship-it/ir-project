@@ -9153,6 +9153,7 @@ window.irThreeSchemeView=(function irThreeModule(){
     (compact?'<button type="button" class="ir-three-node-more" data-node="more" aria-expanded="'+(!nodeMin)+'">'+(nodeMin?"Сведения ▴":"Свернуть ▾")+'</button>':"")+
     '<button type="button" data-node="close" title="Закрыть">×</button></div>'+
     '<div class="ir-three-node-meta"><span>Оси <b>'+escapeHtml(axisOf(n.x,n.y))+'</b></span><span>Отм. <b>'+level(n.z)+'</b></span><span class="st '+n.status+'">'+st[n.status]+'</span><span class="fix '+n.fix+'">'+(n.fix==="bolt"?"● на метизах":"▲ сварной")+'</span></div>'+
+    (canComment()?'<button type="button" class="ir-three-node-note" data-node="comment" title="Комментарий к узлу уйдёт в чат: Claude или администратору">Комментарий к узлу</button>':"")+
     '<label class="ir-three-node-explode" title="Элементы узла расходятся с того, на чём держатся; болты и гайки — в зазоре по своей оси; остальная схема бледнеет. Схема при этом не меняется.">Разбор узла'+
     '<input type="range" min="0" max="100" step="1" value="'+Math.round((explode&&explode.node===n?explode.s:0)*100)+'" data-node="explode" aria-label="Разбор узла"></label>'+
     '<div class="ir-three-node-list">'+n.members.map(function(m){
@@ -9299,6 +9300,8 @@ window.irThreeSchemeView=(function irThreeModule(){
     '<p class="ir-three-place-note">'+escapeHtml(whence+" "+made)+'</p>'+
     (c.mark?'<div class="ir-three-node-list"><button type="button" data-node-member="'+escapeHtml(b.id)+'"><i class="'+(c.status==="mounted"?"mounted":c.status==="partial"?"partial":"planned")+'"></i><b>'+escapeHtml(c.mark)+'</b><span>'+escapeHtml(c.mark_name||c.type_name||"")+'</span><small>'+escapeHtml(c.profile_name||c.profileName||"")+'</small></button></div>':"");
    nodePanel.querySelector('[data-node="close"]').onclick=function(){nodePanel.hidden=true;clearBoltPick()};
+   var nb=nodePanel.querySelector('[data-node="comment"]');if(nb)nb.onclick=function(){var marks=[...new Set(n.members.map(function(m){return m.c.mark}).filter(Boolean))];
+    commentAbout(n.id+" · "+kindName(n)+(marks.length?" — "+marks.join(" + "):""),"оси "+axisOf(n.x,n.y)+", отм. "+level(n.z),n.fix==="bolt"?"на болтах":"на сварке",{at:toWorld(n.x,n.y,n.z)},true)};
    nodePanel.querySelectorAll("[data-node-member]").forEach(function(x){x.onclick=function(){clearBoltPick();choose(x.dataset.nodeMember)}});
    boltParts(b).forEach(function(x){var m=new T.Mesh(x.geometry,boltPickMat);m.matrixAutoUpdate=false;m.matrix.copy(x.matrixWorld);boltPick.add(m)});
    paintNodesFrame();invalidate()
@@ -13350,6 +13353,14 @@ window.irThreeSchemeView=(function irThreeModule(){
   var jointsEl=null,jointsSec="",jointsShots=new Map(),jointsQueue=[],jointsRaf=0,jointsBuilt="",jointsList=null;
   var TRIM_NAMES={plinth:"Цокольный отлив",corner:"Угловой нащельник",tier:"Стык ярусов панелей",gable:"Торцевая планка",sill:"Отлив окна",reveal:"Откос проёма",abutment:"Примыкание кровли к стене",existing:"Примыкание к существующему зданию",eave:"Карнизная планка",ridge:"Коньковый элемент",gutter:"Накрывка у желоба",cap:"Накрывка парапета",foot:"Уголок по низу перегородки"};
   var OPEN_NAMES={window:"Окно в стене",door:"Дверь в стене",gate:"Ворота в стене"};
+  // A comment to a node (the engineer, 13.11.2026): who may change the scheme writes it; it goes into the chat of the
+  // program with the node and its picture — Claude of the computer, or the administrator who passes it on.
+  function canComment(){return Boolean(P.canEdit&&!P.report&&window.irChatPanel&&typeof window.irChatPanel.about==="function")}
+  function commentAbout(title,where,extra,place,steelOnes){
+   var url=null;try{url=jointShot({places:[place],steel:steelOnes})}catch(e){url=null}
+   var note=[title,where,extra].filter(Boolean).join(" · ");
+   window.irChatPanel.about({image:url,note:note,title:note,text:"Комментарий к узлу «"+title+"»"+(where?" ("+where+")":"")+": "})
+  }
   function jointsWord(n,w){var a=n%10,b=n%100;return n+" "+(a===1&&b!==11?w[0]:a>=2&&a<=4&&(b<12||b>14)?w[1]:w[2])}
   function jointRole(r){r=String(r||"");return/^(начало|конец)$/.test(r)?"":r}
   function jointSheet(list){for(var i=0;i<list.length;i++){var j=list[i].joint;if(j&&j.sheet&&!/общие данные/i.test(j.sheet))return{sheet:String(j.sheet),text:String(j.text||"")}}return null}
@@ -13429,12 +13440,14 @@ window.irThreeSchemeView=(function irThreeModule(){
        (t.parts.length?'<span>'+escapeHtml(t.parts.join(" + "))+'</span>':"")+'<span class="ir-joint-fix">'+escapeHtml(t.fix)+(t.ref?' · '+escapeHtml(t.ref.sheet):"")+'</span>'+
        (t.ref&&t.ref.text?'<span class="ir-joint-note">'+escapeHtml(t.ref.text.slice(0,180))+'</span>':"")+
        '<details><summary>Мест: '+t.places.length+'</summary><ul>'+t.places.slice(0,300).map(function(p,i){return'<li><button type="button" data-joint-go="'+escapeHtml(t.key)+'" data-i="'+i+'">'+escapeHtml(p.where||"—")+'</button><em>'+escapeHtml(st[p.status]||"")+'</em></li>'}).join("")+(t.places.length>300?'<li>… ещё '+(t.places.length-300)+'</li>':"")+'</ul></details>'+
-       '<button type="button" class="ir-joint-show" data-joint-go="'+escapeHtml(t.key)+'" data-i="0">Показать на схеме</button></div></article>'}).join("")+'</div>':
+       '<div class="ir-joint-acts"><button type="button" class="ir-joint-show" data-joint-go="'+escapeHtml(t.key)+'" data-i="0">Показать на схеме</button>'+(canComment()?'<button type="button" class="ir-joint-show" data-joint-note="'+escapeHtml(t.key)+'" title="Комментарий к этому узлу уйдёт в чат: Claude или администратору">Комментарий</button>':"")+'</div></div></article>'}).join("")+'</div>':
      '<p class="ir-joints-empty">'+(jointsSec==="АР"?"В схеме нет фасонных элементов и проёмов АР.":"В схеме нет элементов раздела "+escapeHtml(jointsSec)+": узлов и стыков нет.")+(secOff.has(jointsSec)?" Раздел скрыт кнопкой на панели 3D.":"")+'</p>')+'</div>';
    jointsEl.querySelectorAll("[data-joint-sec]").forEach(function(b){b.onclick=function(){jointsSec=b.getAttribute("data-joint-sec");jointsPaint()}});
    jointsEl.querySelector("[data-joint-close]").onclick=function(){jointsOpen(false)};
    jointsEl.querySelectorAll("[data-joint-go]").forEach(function(b){b.onclick=function(){var t=list.find(function(x){return x.key===b.getAttribute("data-joint-go")}),p=t&&t.places[Number(b.getAttribute("data-i"))||0];if(!p)return;
     jointsOpen(false);if(p.node)openNode(p.node);else if(p.id){choose(p.id);focus(p.id)}}});
+   jointsEl.querySelectorAll("[data-joint-note]").forEach(function(b){b.onclick=function(){var t=list.find(function(x){return x.key===b.getAttribute("data-joint-note")});if(!t)return;var p=t.places[0];
+    commentAbout(t.name+(t.parts.length?" — "+t.parts.join(" + "):""),p.where,[t.fix,t.ref&&t.ref.sheet,"мест "+t.places.length].filter(Boolean).join(" · "),p,t.steel)}});
    jointsQueue=list.filter(function(t){return!jointsShots.has(t.key)}).map(function(t){return{t:t}});
    if(jointsQueue.length&&!jointsRaf)jointsRaf=requestAnimationFrame(jointsPump)
   }
@@ -13459,7 +13472,7 @@ window.irThreeSchemeView=(function irThreeModule(){
     ".ir-joint-text{display:flex;flex-direction:column;gap:3px;padding:8px 10px 10px}.ir-joint-text b{font-size:13px}.ir-joint-fix{color:#4b5d6b}.ir-joint-note{color:#6a7b88;font-size:11.5px}"+
     ".ir-joint details summary{cursor:pointer;color:#2b5f8f;font-weight:700;margin-top:2px}.ir-joint ul{list-style:none;margin:4px 0 0;padding:0;max-height:160px;overflow:auto}"+
     ".ir-joint li{display:flex;gap:8px;align-items:baseline}.ir-joint li button{border:0;background:none;color:#2b5f8f;font:inherit;padding:1px 0;cursor:pointer;text-align:left}.ir-joint li button:hover{text-decoration:underline}.ir-joint li em{color:#8a99a5;font-style:normal;font-size:11px}"+
-    ".ir-joint-show{margin-top:6px;align-self:flex-start;min-height:26px;padding:2px 10px;border-radius:7px;border:1px solid #c9d8e5;background:#f3f8fc;color:#173f5b;font:inherit;font-weight:800;cursor:pointer}"+
+    ".ir-joint-acts{display:flex;gap:6px;flex-wrap:wrap}.ir-three-node-note{display:block;margin:0 0 8px;min-height:26px;padding:2px 10px;border-radius:7px;border:1px solid #c9d8e5;background:#f3f8fc;color:#173f5b;font:inherit;font-size:12px;font-weight:800;cursor:pointer}.ir-three-root.dark .ir-three-node-note{background:#1f2a36;border-color:#2b3744;color:#cfe1f3}.ir-joint-show{margin-top:6px;align-self:flex-start;min-height:26px;padding:2px 10px;border-radius:7px;border:1px solid #c9d8e5;background:#f3f8fc;color:#173f5b;font:inherit;font-weight:800;cursor:pointer}"+
     ".ir-three-root.dark .ir-joints{background:#151d26;color:#e6ebf1}.ir-three-root.dark .ir-joints-head,.ir-three-root.dark .ir-joint{background:#1d2733;border-color:#2b3744}"+
     ".ir-three-root.dark .ir-joints-tabs button,.ir-three-root.dark .ir-joint-show,.ir-three-root.dark .ir-joints-close{background:#1f2a36;border-color:#2b3744;color:#cfe1f3}.ir-three-root.dark .ir-joints-tabs button.on{background:#3d78b0;color:#fff}"+
     ".ir-three-root.dark .ir-joint-fix,.ir-three-root.dark .ir-joints-sum,.ir-three-root.dark .ir-joints-empty{color:#a9b8c5}.ir-three-root.dark .ir-joint li button,.ir-three-root.dark .ir-joint details summary{color:#8cc0ef}";
