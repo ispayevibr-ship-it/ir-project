@@ -107,6 +107,7 @@ const TYPES=[
  T("sanitary_fixture","Санитарный прибор по плану АР","cladding","beam","fixture",[],/^(?:унитаз|писсуар|умывальник|мойка)\S*(?:\s+по\s+плану)?/iu,{needs:"АР",fitting:"fixture"}),
  // A slab over rooms on a plan of the АР («План перекрытия помещений на отм. +3,500», ИР-71535 ч.1 л.10): concrete, for
  // orientation — src/ai-montage-plan.js, scheme-three-view.js floorSlab.
+ T("floor_finish","Пол по плану полов АР (покрытие)","cladding","beam","floor",[],/^пол\S*\s+(?:цеха\s+)?по\s+плану\s+полов/iu,{needs:"АР",fitting:"floor"}),
  T("floor_slab","Плита перекрытия по плану АР","cladding","beam","slab",[],/^плита\s+перекрыти\S*\s+по\s+плану/iu,{needs:"АР",fitting:"slab"}),
  T("existing_building","Существующее здание рядом (условно)","cladding","beam","building",[],/существующ\S*\s+здани/iu,{needs:"АР",fitting:"building"}),
  T("trim_corner","Нащельник угловой (наружный, внутренний)","trims","beam","trim",[],/углов\S*\s+нащельник|нащельник\S*\s+(?:\S+\s+)?углов|(?:наружн|внешн|внутренн)\S*\s+(?:угл\S*\s+)?(?:нащельник|доборн)/iu,{needs:"АР",fitting:"trim"}),

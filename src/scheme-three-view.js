@@ -726,6 +726,8 @@ window.irThreeSchemeView=(function irThreeModule(){
    // a white band over the whole width wrapping «Добавить элемент» under it: the engineer, 06.11.2026 «переделай это,
    // раздражает»; the list itself — .ir-three-opts after the bar, placed under the button: toolsMenu)
    '<button type="button" class="ir-three-more" id="irThreeMore" aria-haspopup="true" aria-expanded="false" aria-controls="irThreeOpts" title="Цвет, сетка, оси, узлы, детали"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>Вид</span><b aria-hidden="true">▾</b></button>'+
+   // (the nodes and joints of every section with their pictures — jointsOpen; the engineer, 13.11.2026)
+   '<button type="button" class="ir-three-more" id="irThreeJoints" aria-pressed="false" title="Все узлы и стыки по разделам КМ, КМД, АР, ТХ — как выглядит каждый"><span>Узлы и стыки</span></button>'+
    '<span class="ir-three-secs" id="irThreeSecs" role="group" aria-label="Разделы чертежей" title="Показать или скрыть раздел чертежей: АР, КМ, КМД…"></span>'+
    '<span class="ir-three-count" id="irThreeCount"></span><span class="ir-three-count" id="irThreeLight" hidden title="Окно рисует 3D без видеокарты (процессором): сечения и болты показаны только вблизи, края без сглаживания. Включите видеокарту для программы в настройках Windows («Графика» → высокая производительность) или обновите её драйвер.">· упрощённый показ: видеокарта не используется</span>'+
    (P.canEdit?'<button class="ir-three-add" id="irThreeAdd" title="Добавить элемент">＋ Элемент</button>':"")+'</div>'+
@@ -10856,6 +10858,27 @@ window.irThreeSchemeView=(function irThreeModule(){
    var m=new T.Mesh(new T.BoxGeometry(L,t,W),slabMat);m.position.copy(start).add(dir.clone().multiplyScalar(L/2));m.position.y=start.y-t/2;m.rotation.y=Math.atan2(-dir.z,dir.x);
    m.userData.memberId=id;m.userData.fixed=true;m.userData.footing=true;m.userData.slab=true;steel.add(m);allMeshes.push(m);
    if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(m)}
+  // The floor of the shop by the plan of the floors of the АР (ИР-71535 АР ч.2 л.29 «План типов полов …», the set's
+  // `floor_finish`): one element, its colours by the legend of the sheet — lay.floor.zones [colour, x0, y0, x1, y1] mm on the
+  // grid, the cells of 150 mm read off the sheet, merged; one mesh with the colour at its points, its top at the level
+  // (2 mm over it, out of the ground). Not steel: out of the check (footing).
+  // (the engineer, 13.11.2026 «нарисуй полы из АР, чтобы более понятно было, одним элементом»)
+  var FLOOR_RGB={"3020":0xb3262a,"5005":0x23457a,"6018":0x3c7a3a,"9003":0xf1efe8,"1016":0xe6c93a,grey:0xa9adb0};
+  var floorMats=new Map();
+  function floorFinish(c,id){
+   var f=c.lay&&c.lay.floor||{},zs=Array.isArray(f.zones)?f.zones:[];if(!zs.length)return;
+   var y=number(f.level_mm)/1000+.002,by=new Map();
+   zs.forEach(function(z){if(!Array.isArray(z)||z.length<5)return;var a=toWorld(number(z[1]),number(z[2]),0),b=toWorld(number(z[3]),number(z[4]),0);
+    var x0=Math.min(a.x,b.x),x1=Math.max(a.x,b.x),z0=Math.min(a.z,b.z),z1=Math.max(a.z,b.z);if(x1-x0<1e-3||z1-z0<1e-3)return;
+    var k=FLOOR_RGB[String(z[0])]!==undefined?String(z[0]):"grey";if(!by.has(k))by.set(k,[]);var q=by.get(k),n=q.length/3;
+    q.push(x0,y,z0,x1,y,z0,x1,y,z1,x0,y,z1)});
+   if(!meshesById.has(id))meshesById.set(id,[]);
+   // (one mesh a colour, the element one: the merging of the picture goes by the material)
+   by.forEach(function(pos,k){var idx=[];for(var n=0;n<pos.length/3;n+=4)idx.push(n,n+2,n+1,n,n+3,n+2);
+    var g=new T.BufferGeometry();g.setAttribute("position",new T.Float32BufferAttribute(pos,3));g.setIndex(idx);g.computeVertexNormals();
+    if(!floorMats.has(k))floorMats.set(k,new T.MeshStandardMaterial({color:FLOOR_RGB[k],roughness:.85,metalness:0,side:T.DoubleSide,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1}));
+    var m=new T.Mesh(g,floorMats.get(k));m.userData.memberId=id;m.userData.fixed=true;m.userData.footing=true;m.userData.floor=k;steel.add(m);allMeshes.push(m);meshesById.get(id).push(m)})
+  }
   var fixtureMat=null;
   function sanitaryFixture(c,id,start,end){
    var f=c.lay&&c.lay.fixture||{},dir=end.clone().sub(start);dir.y=0;var D=dir.length();if(D<.1)return;dir.normalize();
@@ -10956,6 +10979,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    if(c.ft==="partition"){planPartition(c,id,start,end);return}
    if(c.ft==="fixture"){sanitaryFixture(c,id,start,end);return}
    if(c.ft==="slab"){floorSlab(c,id,start,end);return}
+   if(c.ft==="floor"){floorFinish(c,id);return}
    var dir=end.clone().sub(start),len=dir.length();dir.normalize();
    if(c.ft==="flight"||c.ft==="ladder"){addStair(c,id,start,end);return}
    // A railing along its line (a stair's, ГОСТ 23120: 1,0 m over the treads or the deck — c.fd its height): posts
@@ -13051,6 +13075,121 @@ window.irThreeSchemeView=(function irThreeModule(){
   // 3. The trim of the joint of two tiers of a wall (lay.trim tier) where the roof against that wall covers the joint
   //    («почему показан и нащельник и примыкание» — О8/Б at +15,4, the roof Пк-16 of the annex against the wall at +15,49
   //    falling away): not drawn along the abutment trim within 0,3 m of its height — the abutment covers the joint.
+  // ---- The roof against a wall where the wall rises over it and no abutment was read: the end of a high wall turning over
+  // the lower roof (ИР-71535 О8/Л — the wall of row Л of the shop between the high wall of О8 and the gable of the annex,
+  // 1.2 m over the roof of О8–О10 with nothing at its foot, the abutment of the high wall 0.6 m short of its corner; chat of
+  // the program 13.11.2026 «нет примыкания к стене»). Along each face of a wall of panels over a roof panel, by steps of
+  // 0.25 m: the top of the roof 80 mm out of the face (a ray down), the wall 150 mm over it and below it — not covered by an
+  // abutment within 0.25 m — a piece of the abutment of the АР it goes on from (an end within 1 m), its two legs: up the wall,
+  // out on the roof.
+  function abutMissing(){
+   var ab=[],legs=[];elems.forEach(function(c){if(c.ft!=="trim"||!c.id||!c.lay)return;var own=/^(?:abutment|existing)$/.test(String(c.lay.trim));
+    (meshesById.get(String(c.id))||[]).forEach(function(m){if(!m.isMesh||!m.parent||!m.geometry||!m.visible)return;m.updateMatrixWorld(true);
+     var b=new T.Box3().setFromObject(m);if(b.max.y-b.min.y<.8)legs.push(b);if(own&&m.geometry.parameters&&m.geometry.parameters.depth!==undefined)ab.push({id:String(c.id),m:m,b:b})})});
+   // (an eave's gutter or cap against the wall — eaveGutters — is its trim, no abutment there)
+   allMeshes.forEach(function(m){if(m.parent&&m.userData&&(m.userData.gutter||m.userData.cap)){m.updateMatrixWorld(true);legs.push(new T.Box3().setFromObject(m))}});
+   if(!ab.length)return;
+   var roofs=[],walls=[];elems.forEach(function(c){if(c.ft!=="panel"||!c.id||!c.lay)return;(meshesById.get(String(c.id))||[]).forEach(function(m){if(!m.isMesh||!m.parent||m.userData.seam||m.userData.edges||!m.visible)return;m.updateMatrixWorld(true);
+    if(c.lay.panel==="roof")roofs.push(m);else if(c.lay.panel==="wall")walls.push(new T.Box3().setFromObject(m))})});
+   if(!roofs.length||!walls.length)return;
+   var rc=new T.Raycaster(),down=new T.Vector3(0,-1,0),hits=[],made=0,LEG=.15;
+   var roofAt=function(x,z,y){rc.set(new T.Vector3(x,y+3,z),down);rc.far=40;hits.length=0;var best=null;
+    roofs.forEach(function(m){var b=m.__rb||(m.__rb=new T.Box3().setFromObject(m));if(x<b.min.x||x>b.max.x||z<b.min.z||z>b.max.z)return;m.raycast(rc,hits)});
+    hits.forEach(function(h){if(h.point.y<y+2.5&&(best===null||h.point.y>best))best=h.point.y});
+    // (the top of the panel, not its underside under the limit: the faces of one panel 0.3 m and closer)
+    if(best!==null)for(var go=true;go;){go=false;hits.forEach(function(h){if(h.point.y>best+1e-4&&h.point.y<=best+.3){best=h.point.y;go=true}})}return best};
+   var covered=function(x,y,z,A){var tx=A==="x"?.05:.25,tz=A==="x"?.25:.05;return legs.some(function(b){return x>b.min.x-tx&&x<b.max.x+tx&&z>b.min.z-tz&&z<b.max.z+tz&&y>b.min.y-.3&&y<b.max.y+.3})};
+   var add=[];
+   walls.forEach(function(w){var A=w.max.x-w.min.x>=w.max.z-w.min.z?"x":"z",N=A==="x"?"z":"x";if(w.max[N]-w.min[N]>.4||w.max[A]-w.min[A]<.3)return;
+    [-1,1].forEach(function(sd){var f=sd<0?w.min[N]:w.max[N],o=f+sd*.08,n=Math.max(1,Math.round((w.max[A]-w.min[A])/.25)),run=null;
+     for(var i=0;i<=n;i++){var a=w.min[A]+(w.max[A]-w.min[A])*Math.min(1,Math.max(0,(i===0?.02:i===n?n-.02:i)/n)),x=A==="x"?a:o,z=A==="x"?o:a;
+      var hy=roofAt(x,z,w.max.y-.5-2.5),ok=hy!==null&&w.min.y<hy+.06&&w.max.y>hy+.5&&!covered(A==="x"?a:f,hy+.07,A==="x"?f:a,A)&&
+       !walls.some(function(v){return v!==w&&x>v.min.x&&x<v.max.x&&z>v.min.z&&z<v.max.z&&v.max.y>hy+.05&&v.min.y<hy});
+      if(ok){if(run&&Math.abs(hy-run.y1)<.06){run.a1=a;run.y1=hy}else{if(run)add.push(run);run={A:A,N:N,f:f,sd:sd,a0:a,a1:a,y0:hy,y1:hy,w:w}}}else if(run){add.push(run);run=null}}
+     if(run)add.push(run)})});
+   // (a run to the end of its panel or to the face of the wall across at the corner — the steps of 0.25 m stopped short)
+   var inWall=function(r,a){var x=r.A==="x"?a:r.f+r.sd*.08,z=r.A==="x"?r.f+r.sd*.08:a;return walls.some(function(v){return v!==r.w&&x>v.min.x&&x<v.max.x&&z>v.min.z&&z<v.max.z&&v.max.y>r.y0+.05&&v.min.y<r.y0+.06})};
+   add.forEach(function(r){var e0=r.w.min[r.A],e1=r.w.max[r.A];if(r.a0-e0<.3){var a=r.a0;while(a-.02>=e0&&!inWall(r,a-.02))a-=.02;r.a0=a}if(e1-r.a1<.3){var b=r.a1;while(b+.02<=e1&&!inWall(r,b+.02))b+=.02;r.a1=b}});
+   // (the runs of the panels of one face, a metre each, one piece)
+   add.sort(function(p,q){return p.A<q.A?-1:p.A>q.A?1:p.sd-q.sd||p.f-q.f||p.a0-q.a0});
+   add=add.reduce(function(o,r){var l=o[o.length-1];if(l&&l.A===r.A&&l.sd===r.sd&&Math.abs(l.f-r.f)<.01&&r.a0-l.a1<.3&&Math.abs(r.y0-l.y1)<.06){l.a1=Math.max(l.a1,r.a1);l.y1=r.y1}else o.push(Object.assign({},r));return o},[]);
+   // (its top on the roof at the ends across the whole shelf — the roof's slope across — and not into the steel at it: the
+   // girts and the plates of the guard on the roof — the run broken there)
+   var steelB=[];allMeshes.forEach(function(m){if(!m.parent||!m.visible||!m.isMesh||m.userData.building||m.userData.seam||m.userData.edges)return;var c=dataById.get(String(m.userData.memberId));if(!c||c.scheme_group==="cladding"||c.ft==="trim"||c.ft==="panel")return;
+    var b=m.__sb||(m.updateMatrixWorld(true),m.__sb=new T.Box3().setFromObject(m));if(b.max.x-b.min.x<30&&b.max.z-b.min.z<30)steelB.push(b)});
+   var topAt=function(r,a){var t=null;[.01,.08,.15].forEach(function(o){var x=r.A==="x"?a:r.f+r.sd*o,z=r.A==="x"?r.f+r.sd*o:a,h=roofAt(x,z,r.y0-2.2);if(h!==null&&(t===null||h>t))t=h});return t};
+   var pieces=[];add.forEach(function(r){if(r.a1-r.a0<.2)return;var n=Math.max(1,Math.ceil((r.a1-r.a0)/.05)),cur=null;
+    for(var i=0;i<=n;i++){var a=r.a0+(r.a1-r.a0)*i/n,y=r.y0+(r.y1-r.y0)*i/n,lo=new T.Vector3(),hi=new T.Vector3();lo[r.A]=a-.026;hi[r.A]=a+.026;lo[r.N]=Math.min(r.f,r.f+r.sd*.16);hi[r.N]=Math.max(r.f,r.f+r.sd*.16);lo.y=y-.01;hi.y=y+.17;
+     var bx=new T.Box3(lo,hi),hit=steelB.some(function(b){return b.intersectsBox(bx)});
+     if(!hit){if(cur){cur.a1=a}else pieces.push(cur=Object.assign({},r,{a0:a,a1:a}))}else cur=null}});
+   // (by pieces of up to a metre, each on the roof at its ends: over a ridge or a break of the roof the straight line between
+   // the far ends went into it)
+   pieces=pieces.reduce(function(o,r){var n=Math.max(1,Math.ceil((r.a1-r.a0-1e-6)/1));for(var i=0;i<n;i++)o.push(Object.assign({},r,{a0:r.a0+(r.a1-r.a0)*i/n,a1:r.a0+(r.a1-r.a0)*(i+1)/n}));return o},[]);
+   pieces.forEach(function(r){var t0=topAt(r,r.a0+.002),t1=topAt(r,r.a1-.002),tm=topAt(r,(r.a0+r.a1)/2);if(t0!==null)r.y0=t0+.003;if(t1!==null)r.y1=t1+.003;
+    if(tm!==null&&t0!==null&&t1!==null){var lift=tm+.003-(r.y0+r.y1)/2;if(lift>0){r.y0+=lift;r.y1+=lift}}});
+   allMeshes.forEach(function(m){delete m.__sb});
+   // (no roof over it: a wall under the edge of a higher roof — the step over О1–О3 — is not a roof against a wall there)
+   var roofOver=function(r){var hit=false;[r.a0+.02,(r.a0+r.a1)/2,r.a1-.02].forEach(function(a){var x=r.A==="x"?a:r.f+r.sd*.08,z=r.A==="x"?r.f+r.sd*.08:a,y=r.y0+(r.y1-r.y0)*(a-r.a0)/Math.max(1e-6,r.a1-r.a0);
+    rc.set(new T.Vector3(x,y+40,z),down);rc.far=60;hits.length=0;roofs.forEach(function(m){var b=m.__rb||(m.__rb=new T.Box3().setFromObject(m));if(x<b.min.x||x>b.max.x||z<b.min.z||z>b.max.z)return;m.raycast(rc,hits)});
+    if(hits.some(function(h){return h.point.y>y+.012}))hit=true});return hit};
+   pieces=pieces.filter(function(r){return!roofOver(r)});
+   pieces.forEach(function(r){if(r.a1-r.a0<.05)return;
+    var p0=new T.Vector3(),p1=new T.Vector3();p0[r.A]=r.a0;p1[r.A]=r.a1;p0[r.N]=p1[r.N]=r.f;p0.y=r.y0;p1.y=r.y1;var mid=p0.clone().add(p1).multiplyScalar(.5);
+    // (only on from an abutment of the АР — round the corner of its wall, on to its end: within 1 m of one end of the run)
+    var near=null,dn=1;ab.forEach(function(q){var d=Math.min(q.b.distanceToPoint(p0),q.b.distanceToPoint(p1));if(d<dn){dn=d;near=q}});if(!near)return;
+    var dir=p1.clone().sub(p0),L=dir.length();dir.normalize();var out=new T.Vector3();out[r.N]=r.sd;
+    var up=new T.Vector3().crossVectors(dir,out).normalize();if(up.y<0)up.negate();out=new T.Vector3().crossVectors(up,dir).normalize();if(out[r.N]*r.sd<0)out.negate();
+    var q=new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(out,up,dir));
+    if(new T.Matrix4().makeBasis(out,up,dir).determinant()<0)q.setFromRotationMatrix(new T.Matrix4().makeBasis(out.clone().negate(),up,dir));
+    var list=meshesById.get(near.id);if(!list)meshesById.set(near.id,list=[]);
+    [[.001,LEG,mid.clone().add(up.clone().multiplyScalar(LEG/2+.002)).add(out.clone().multiplyScalar(.0005))],[LEG,.001,mid.clone().add(out.clone().multiplyScalar(LEG/2+.001)).add(up.clone().multiplyScalar(.002))]].forEach(function(g){
+     var k=new T.Mesh(new T.BoxGeometry(g[0],g[1],L),near.m.material);k.quaternion.copy(q);k.position.copy(g[2]);
+     k.userData=Object.assign({},near.m.userData,{abutAdded:true});delete k.userData.plumb;steel.add(k);k.updateMatrixWorld(true);allMeshes.push(k);list.push(k);legs.push(new T.Box3().setFromObject(k))});
+    made++});
+   roofs.forEach(function(m){delete m.__rb});
+   if(made&&root)root.setAttribute("data-abut-added",String(made))
+  }
+  // Toilet cubicles П-2 of the washroom by the АР (ИР-71535 АР ч.1 л.10 «Фрагмент плана на отм. −0,050»: «перегородка
+  // сантехническая из HPL пластика, толщиной 12 мм, на основе каркаса из … алюминия … Перегородки и двери принять высотой
+  // 1800 мм, с просветом 200 мм, от уровня пола. Общая высота перегородок 2000 мм»; кабины 800 через 30, глубиной 1500 от
+  // стены, двери 700 и стойка 50 на фасаде кабины). The plan gives them only by their lines, the scheme has the toilets
+  // (`sanitary_fixture` toilet): two and more toilets in a row at one wall, 0,6…1,3 m apart — a cubicle each: a panel
+  // between neighbours halfway, panels at the ends unless a partition of the plan stands there, the front 1,5 m from the
+  // wall — an aluminium post 50, the door 700 closed, the rest a panel. Panels 12 mm, 0,2…2,0 m; posts 0…2,0 m.
+  // Not steel (footing), the parts of each cubicle with its toilet. (the engineer, 13.11.2026 «перегородки все перепроверь»)
+  function toiletCubicles(){
+   var ts=[];elems.forEach(function(c){if(c.ft!=="fixture"||!c.id||!(c.lay&&c.lay.fixture&&c.lay.fixture.kind==="toilet"))return;var id=String(c.id);
+    if(!(meshesById.get(id)||[]).some(function(m){return m.parent}))return;var q=memberPoints(c),f=q[0],b=q[1],d=b.clone().sub(f);d.y=0;if(d.length()<.2)return;d.normalize();ts.push({id:id,f:f,b:b,d:d})});
+   if(ts.length<2)return 0;
+   var hpl=new T.MeshStandardMaterial({color:0xd9d3c7,roughness:.6,metalness:0}),door=new T.MeshStandardMaterial({color:0xc9c0b0,roughness:.55,metalness:0}),
+       alu=new T.MeshStandardMaterial({color:0xbfc4c9,roughness:.4,metalness:.5}),parts=[];
+   (function(){var a=[];ts.forEach(function(t){if(t.used)return;var g=[t];t.used=true;ts.forEach(function(o){if(o.used||o.d.dot(t.d)<.95)return;if(Math.abs(o.b.clone().sub(t.b).dot(t.d))>.15)return;o.used=true;g.push(o)});a.push(g)});
+    a.forEach(function(g){if(g.length<2)return;var d=g[0].d,A=new T.Vector3(-d.z,0,d.x),o=g[0].b.clone(),wall=0;g.forEach(function(t){wall+=t.b.clone().sub(o).dot(d)/g.length});
+     g.forEach(function(t){t.u=t.b.clone().sub(o).dot(A)});g.sort(function(p,q){return p.u-q.u});
+     var run=[g[0]];var close=function(){if(run.length>=2)parts.push({run:run,d:d,A:A,o:o.clone().add(d.clone().multiplyScalar(wall))});};
+     for(var i=1;i<g.length;i++){var gap=g[i].u-g[i-1].u;if(gap>=.6&&gap<=1.3)run.push(g[i]);else{close();run=[g[i]]}}close()})})();
+   if(!parts.length)return 0;
+   var walls=[];allMeshes.forEach(function(m){if(m.userData.partition&&m.parent){m.updateMatrixWorld(true);walls.push(new T.Box3().setFromObject(m))}});
+   var made=0,y0=0,put=function(id,mat,o,d,A,u0,u1,v0,v1,h0,h1){
+    var L=u1-u0,D=v1-v0;if(L<.005||D<.005)return;var m=new T.Mesh(new T.BoxGeometry(L,h1-h0,D),mat);
+    m.position.copy(o).add(A.clone().multiplyScalar((u0+u1)/2)).add(d.clone().multiplyScalar(-(v0+v1)/2));m.position.y=y0+(h0+h1)/2;m.rotation.y=Math.atan2(-A.z,A.x);
+    m.userData.memberId=id;m.userData.fixed=true;m.userData.footing=true;m.userData.cubicle=true;steel.add(m);allMeshes.push(m);(meshesById.get(id)||meshesById.set(id,[]).get(id)).push(m);made++};
+   parts.forEach(function(P){var r=P.run,d=P.d,A=P.A,o=P.o,DEP=1.5,t=.012,n=r.length,cuts=[];y0=r[0].f.y;
+    for(var i=0;i<=n;i++){var u=i===0?r[0].u-(r[1].u-r[0].u)/2:i===n?r[n-1].u+(r[n-1].u-r[n-2].u)/2:(r[i-1].u+r[i].u)/2;cuts.push(u)}
+    // (an end at a partition of the plan: the panel is the partition, the front up to its face)
+    var atWall=function(u,s){var p=o.clone().add(A.clone().multiplyScalar(u)).add(d.clone().multiplyScalar(-DEP/2));p.y=y0+1;
+     for(var k=0;k<walls.length;k++){var w=walls[k];for(var e=0;e<=.35;e+=.01){var q=p.clone().add(A.clone().multiplyScalar(s*e));if(w.containsPoint(q))return u+s*e}}return null};
+    var e0=atWall(cuts[0],-1),e1=atWall(cuts[n],1);
+    cuts.forEach(function(u,i){if((i===0&&e0!=null)||(i===n&&e1!=null))return;var id=r[Math.min(i,n-1)].id;
+     put(id,hpl,o,d,A,u-t/2,u+t/2,.03,DEP-.03,.2,2.0);put(id,alu,o,d,A,u-.015,u+.015,DEP-.03,DEP+.02,0,2.0)});
+    var lo=e0!=null?e0:cuts[0]-t/2,hi=e1!=null?e1:cuts[n]+t/2;
+    for(var j=0;j<n;j++){var id=r[j].id,a=j===0?lo:cuts[j]+.015,b=j===n-1?hi:cuts[j+1]-.015,dw=Math.min(.7,b-a-.05);
+     put(id,alu,o,d,A,a,a+.05,DEP-.02,DEP+.02,0,2.0);
+     put(id,door,o,d,A,a+.05+.003,a+.05+dw-.003,DEP-t/2,DEP+t/2,.2,2.0);
+     if(b-(a+.05+dw)>.01)put(id,hpl,o,d,A,a+.05+dw,b,DEP-t/2,DEP+t/2,.2,2.0)}
+    put(r[0].id,alu,o,d,A,lo,hi,DEP-.02,DEP+.02,1.97,2.0)});
+   return made
+  }
   function tierUnderAbutment(){
    var ab=[];elems.forEach(function(c){if(c.ft!=="trim"||!c.id||!c.lay||!/^(?:abutment|existing)$/.test(String(c.lay.trim)))return;
     (meshesById.get(String(c.id))||[]).forEach(function(m){if(!m.isMesh||!m.parent||!m.geometry||!m.geometry.parameters||m.geometry.parameters.depth===undefined)return;m.updateMatrixWorld(true);
@@ -13196,11 +13335,135 @@ window.irThreeSchemeView=(function irThreeModule(){
    root.setAttribute("data-panel-cuts",panelCutsN+"/"+Math.round(performance.now()-t0)+"ms")
   }
   function lowerGround(){
-   buildDucts();porchSheets();lapSheets();plinthClear();try{trimPlumbEnds()}catch(e){if(window.console)console.warn("trimPlumbEnds",e&&e.stack||e)}gableClear();try{seatTrims()}catch(e){if(window.console)console.warn("seatTrims",e&&e.stack||e)}eaveGutters();abutOverGutters();plinthWalls();[wallGapFills,cornerTrimTops,tierUnderAbutment].forEach(function(f){try{f()}catch(e){if(window.console)console.warn(f.name,e&&e.stack||e)}});roofDrains();buildingTexts();
+   buildDucts();porchSheets();lapSheets();plinthClear();try{trimPlumbEnds()}catch(e){if(window.console)console.warn("trimPlumbEnds",e&&e.stack||e)}gableClear();try{seatTrims()}catch(e){if(window.console)console.warn("seatTrims",e&&e.stack||e)}eaveGutters();abutOverGutters();plinthWalls();[wallGapFills,cornerTrimTops,abutMissing,tierUnderAbutment,toiletCubicles].forEach(function(f){try{f()}catch(e){if(window.console)console.warn(f.name,e&&e.stack||e)}});roofDrains();buildingTexts();
    var low=0;elems.forEach(function(c){var z=Math.min(number(c.z0),c.geometryType==="column"?number(c.z0):number(c.z2));if(z<low)low=z});
    var y=Math.min(0,low/1000+.12);ground.position.y=y;dims.position.y=y;
    cutsDue=true
   }
+  // ---- «Узлы и стыки» (the engineer, 13.11.2026: «в монтажной схеме … отдельную подстраницу, в которой ты покажешь, как
+  // выглядит каждый стык, монтажный узел. Отдельно КМД, АР, ТХ … КМ … перечисляешь узлы, стыки и показываешь, как они
+  // выглядят»): a page over the 3D, by the sections of the drawings. The nodes of the steel (as the markers: a base, a
+  // top, a beam on a beam…) of one kind and of the same marks are one type; the trims and the openings of the АР by their
+  // kind and mark. Each type — a picture of its first place cut out of the model itself (a box about it, what is outside
+  // it not drawn; for the steel without the panels of the АР in front of it), how it is joined, the sheet of the drawing,
+  // and its places: a click flies the 3D there. Nothing in the scheme changes; the same in the exported scheme and report.
+  var jointsEl=null,jointsSec="",jointsShots=new Map(),jointsQueue=[],jointsRaf=0,jointsBuilt="",jointsList=null;
+  var TRIM_NAMES={plinth:"Цокольный отлив",corner:"Угловой нащельник",tier:"Стык ярусов панелей",gable:"Торцевая планка",sill:"Отлив окна",reveal:"Откос проёма",abutment:"Примыкание кровли к стене",existing:"Примыкание к существующему зданию",eave:"Карнизная планка",ridge:"Коньковый элемент",gutter:"Накрывка у желоба",cap:"Накрывка парапета",foot:"Уголок по низу перегородки"};
+  var OPEN_NAMES={window:"Окно в стене",door:"Дверь в стене",gate:"Ворота в стене"};
+  function jointsWord(n,w){var a=n%10,b=n%100;return n+" "+(a===1&&b!==11?w[0]:a>=2&&a<=4&&(b<12||b>14)?w[1]:w[2])}
+  function jointRole(r){r=String(r||"");return/^(начало|конец)$/.test(r)?"":r}
+  function jointSheet(list){for(var i=0;i<list.length;i++){var j=list[i].joint;if(j&&j.sheet&&!/общие данные/i.test(j.sheet))return{sheet:String(j.sheet),text:String(j.text||"")}}return null}
+  function jointGroups(){
+   var bySec=new Map(),add=function(sec,key,item){var g=bySec.get(sec);if(!g)bySec.set(sec,g=new Map());var t=g.get(key);if(!t)g.set(key,t=Object.assign({places:[]},item.type));t.places.push(item.place)};
+   nodes.forEach(function(n){
+    var cnt={};n.members.forEach(function(m){var s=secOf(m.c);cnt[s]=(cnt[s]||0)+1});
+    var sec=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a]||SEC_ORDER.indexOf(a)-SEC_ORDER.indexOf(b)})[0]||"Вручную";
+    var parts=[...new Set(n.members.map(function(m){var r=jointRole(m.role);return(m.c.mark||kindNames[m.c.geometryType]||"элемент")+(r?" ("+r+")":"")}))].sort();
+    var name=kindName(n),key="n|"+name+"|"+parts.join("+")+"|"+(n.fix||"");
+    add(sec,key,{type:{key:key,name:name,parts:parts,fix:n.fix==="bolt"?"на болтах":"на сварке",ref:jointSheet(n.members.map(function(m){return m.c})),steel:true},
+     place:{node:n.id,at:toWorld(n.x,n.y,n.z),where:axisOf(n.x,n.y)+", отм. "+(n.z>=0?"+":"")+(n.z/1000).toFixed(3).replace(".",","),status:n.status}})
+   });
+   elems.forEach(function(c){
+    var ft=String(c.ft||"");if(!c.id||!(ft==="trim"||OPEN_NAMES[ft]))return;
+    var p=memberPoints(c),at=p[0].clone().add(p[p.length-1]).multiplyScalar(.5),along=p[p.length-1].clone().sub(p[0]);
+    var kind=ft==="trim"?String(c.lay&&c.lay.trim||""):ft,pos=c.lay&&c.lay.shape&&c.lay.shape.pos;
+    var name=ft==="trim"?(TRIM_NAMES[kind]||"Фасонный элемент"):OPEN_NAMES[ft],mark=String(c.mark||"");
+    var key="a|"+ft+"|"+kind+"|"+(pos||"")+"|"+mark;
+    add("АР",key,{type:{key:key,name:name+(pos?" · поз. "+pos:""),parts:[mark+(c.profile?" "+c.profile:"")].filter(Boolean),fix:ft==="trim"?"на саморезах к панелям":"в проёме стены",ref:jointSheet([c]),steel:false,open:ft!=="trim"},
+     place:{id:String(c.id),at:at,along:along,where:axisOf((number(c.x)+number(c.x2||c.x))/2,(number(c.y)+number(c.y2||c.y))/2),status:c.status||"planned"}})
+   });
+   var out={},rank=function(t){return t.open?1:0};bySec.forEach(function(g,sec){out[sec]=[...g.values()].sort(function(a,b){return rank(a)-rank(b)||(a.name<b.name?-1:a.name>b.name?1:b.places.length-a.places.length)})});
+   return out
+  }
+  // The picture of a place: the camera onto it from inside the building (the steel; from below near the top of the model,
+  // a roof over it) or from outside (the АР), the model drawn in a box of 2,6 m (2 m) about it only, on the picture of the
+  // 3D itself, the middle of it copied, then the 3D drawn back as it was.
+  function jointShot(t){
+   var pl=t.places[0],c=pl.at,R=t.steel?1.3:Math.min(2.6,Math.max(1,pl.along?pl.along.length()/2*(t.open?.75:0)+.1:1)),box=new T.Box3().setFromObject(steel),mid=box.getCenter(new T.Vector3());
+   var out=c.clone().sub(mid).setY(0);if(out.lengthSq()<1e-6)out.set(1,0,1);out.normalize();if(t.steel)out.negate();
+   var side=new T.Vector3(-out.z,0,out.x),dir=out.clone().add(side.multiplyScalar(t.steel?.7:.5));
+   if(pl.along&&pl.along.lengthSq()>1e-6){var a=pl.along.clone().normalize();if(Math.abs(a.y)<.9)dir.add(a.multiplyScalar(.6))}
+   var top=box.max.y-c.y<(box.max.y-box.min.y)*.15;dir.setY(0).normalize().setY(t.steel&&top?-.45:.5).normalize();
+   var cv=renderer.domElement,cw=cv.width,ch=cv.height;if(cw<40||ch<40)return null;
+   var cropW=Math.min(cw,ch*4/3),cropH=cropW*3/4,tanH=Math.tan(camera.fov*Math.PI/360)*cropH/ch,dist=R*1.55/tanH;
+   var keep={pos:camera.position.clone(),q:camera.quaternion.clone(),near:camera.near,far:camera.far},hidden=[];
+   // (no floor, grid, dimensions, markers or labels in the picture)
+   var off=[ground,dims,levelDims,tankDims,helpers,overlay,bTexts].filter(function(o){return o.visible});
+   if(t.steel){var ar=new Set(),other=new Set();allMeshes.forEach(function(m){var e=dataById.get(String(m.userData.memberId));(e&&secOf(e)==="АР"?ar:other).add(m.material)});
+    Object.keys(buildingMats).forEach(function(k){ar.add(buildingMats[k])});
+    ar.forEach(function(mt){if(mt&&!Array.isArray(mt)&&mt.visible&&!other.has(mt)){mt.visible=false;hidden.push(mt)}})}
+   var planes=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]].map(function(a){var nv=new T.Vector3(-a[0],-a[1],-a[2]);return new T.Plane(nv,R+nv.dot(c)*-1)});
+   camera.position.copy(c).add(dir.multiplyScalar(dist));camera.near=.05;camera.far=dist+R*4;camera.lookAt(c);camera.updateProjectionMatrix();camera.updateMatrixWorld();
+   off.forEach(function(o){o.visible=false});renderer.clippingPlanes=planes;boltView(ch);
+   renderer.render(scene,camera);
+   var g=document.createElement("canvas");g.width=360;g.height=270;g.getContext("2d").drawImage(cv,(cw-cropW)/2,(ch-cropH)/2,cropW,cropH,0,0,360,270);
+   renderer.clippingPlanes=[];hidden.forEach(function(mt){mt.visible=true});off.forEach(function(o){o.visible=true});
+   camera.position.copy(keep.pos);camera.quaternion.copy(keep.q);camera.near=keep.near;camera.far=keep.far;camera.updateProjectionMatrix();camera.updateMatrixWorld();
+   boltView(ch);renderer.render(scene,camera);invalidate();
+   try{return g.toDataURL("image/jpeg",.86)}catch(e){return null}
+  }
+  function jointsPump(){
+   jointsRaf=0;if(!jointsEl||jointsEl.hidden||building)return;
+   var t0=performance.now();
+   var body=jointsEl.querySelector(".ir-joints-body"),view=body?body.getBoundingClientRect():null;
+   // (the cards on the screen first, then the rest in their order)
+   var seen=function(it){var img=jointsEl.querySelector('[data-joint-img="'+CSS.escape(it.t.key)+'"]');if(!img||!view)return false;var r=img.getBoundingClientRect();return r.bottom>view.top-200&&r.top<view.bottom+400};
+   while(jointsQueue.length&&performance.now()-t0<60){var k=jointsQueue.findIndex(seen);var it=jointsQueue.splice(k<0?0:k,1)[0];if(jointsShots.has(it.t.key))continue;
+    var url=jointShot(it.t);jointsShots.set(it.t.key,url);
+    var img=jointsEl.querySelector('[data-joint-img="'+CSS.escape(it.t.key)+'"]');if(img){if(url){img.src=url;img.classList.remove("wait")}else img.classList.add("none")}}
+   if(jointsQueue.length)jointsRaf=requestAnimationFrame(jointsPump)
+  }
+  function jointsPaint(){
+   if(!jointsEl)return;
+   if(jointsBuilt!==built||!jointsList){jointsBuilt=built;jointsShots.clear();jointsList=jointGroups()}
+   var secs=SEC_ORDER.filter(function(s){return s!=="Вручную"}).concat(Object.keys(jointsList).filter(function(s){return SEC_ORDER.indexOf(s)<0||s==="Вручную"&&jointsList[s]}));
+   if(!jointsSec||secs.indexOf(jointsSec)<0)jointsSec=secs.find(function(s){return jointsList[s]&&jointsList[s].length})||secs[0];
+   var list=jointsList[jointsSec]||[],total=list.reduce(function(s,t){return s+t.places.length},0);
+   var st={mounted:"смонтирован",partial:"частично",planned:"не смонтирован"};
+   jointsEl.innerHTML='<div class="ir-joints-head"><b>Узлы и стыки</b><div class="ir-joints-tabs" role="tablist">'+
+    secs.map(function(s){var l=jointsList[s]||[];return'<button type="button" role="tab" data-joint-sec="'+escapeHtml(s)+'" class="'+(s===jointsSec?"on":"")+'" aria-selected="'+(s===jointsSec)+'">'+escapeHtml(s)+'<small>'+l.length+'</small></button>'}).join("")+
+    '</div><button type="button" class="ir-joints-close" data-joint-close title="Вернуться к 3D" aria-label="Закрыть">✕</button></div>'+
+    '<div class="ir-joints-body">'+(list.length?'<p class="ir-joints-sum">'+escapeHtml(jointsSec)+': '+jointsWord(list.length,["вид","вида","видов"])+' узлов и стыков, всего мест — '+total+'. Картинка — первое место, вырезанное из 3D; щёлкните место, чтобы перейти к нему на схеме.</p><div class="ir-joints-grid">'+
+     list.map(function(t,i){var url=jointsShots.get(t.key),head=i===0||list[i-1].name!==t.name?t.name:"",n=head?list.filter(function(x){return x.name===head}):null;
+      return(head?'<h3 class="ir-joints-kind">'+escapeHtml(head)+' <small>'+jointsWord(n.length,["вид","вида","видов"])+', мест '+n.reduce(function(s,x){return s+x.places.length},0)+'</small></h3>':"")+'<article class="ir-joint"><img alt="" data-joint-img="'+escapeHtml(t.key)+'" class="'+(url?"":url===null?"none":"wait")+'"'+(url?' src="'+url+'"':"")+'><div class="ir-joint-text"><b>'+escapeHtml(t.name)+'</b>'+
+       (t.parts.length?'<span>'+escapeHtml(t.parts.join(" + "))+'</span>':"")+'<span class="ir-joint-fix">'+escapeHtml(t.fix)+(t.ref?' · '+escapeHtml(t.ref.sheet):"")+'</span>'+
+       (t.ref&&t.ref.text?'<span class="ir-joint-note">'+escapeHtml(t.ref.text.slice(0,180))+'</span>':"")+
+       '<details><summary>Мест: '+t.places.length+'</summary><ul>'+t.places.slice(0,300).map(function(p,i){return'<li><button type="button" data-joint-go="'+escapeHtml(t.key)+'" data-i="'+i+'">'+escapeHtml(p.where||"—")+'</button><em>'+escapeHtml(st[p.status]||"")+'</em></li>'}).join("")+(t.places.length>300?'<li>… ещё '+(t.places.length-300)+'</li>':"")+'</ul></details>'+
+       '<button type="button" class="ir-joint-show" data-joint-go="'+escapeHtml(t.key)+'" data-i="0">Показать на схеме</button></div></article>'}).join("")+'</div>':
+     '<p class="ir-joints-empty">'+(jointsSec==="АР"?"В схеме нет фасонных элементов и проёмов АР.":"В схеме нет элементов раздела "+escapeHtml(jointsSec)+": узлов и стыков нет.")+(secOff.has(jointsSec)?" Раздел скрыт кнопкой на панели 3D.":"")+'</p>')+'</div>';
+   jointsEl.querySelectorAll("[data-joint-sec]").forEach(function(b){b.onclick=function(){jointsSec=b.getAttribute("data-joint-sec");jointsPaint()}});
+   jointsEl.querySelector("[data-joint-close]").onclick=function(){jointsOpen(false)};
+   jointsEl.querySelectorAll("[data-joint-go]").forEach(function(b){b.onclick=function(){var t=list.find(function(x){return x.key===b.getAttribute("data-joint-go")}),p=t&&t.places[Number(b.getAttribute("data-i"))||0];if(!p)return;
+    jointsOpen(false);if(p.node)openNode(p.node);else if(p.id){choose(p.id);focus(p.id)}}});
+   jointsQueue=list.filter(function(t){return!jointsShots.has(t.key)}).map(function(t){return{t:t}});
+   if(jointsQueue.length&&!jointsRaf)jointsRaf=requestAnimationFrame(jointsPump)
+  }
+  function jointsOpen(on){
+   if(!jointsEl){jointsEl=document.createElement("section");jointsEl.className="ir-joints";jointsEl.hidden=true;jointsEl.setAttribute("aria-label","Узлы и стыки");root.appendChild(jointsEl)}
+   var btn=root.querySelector("#irThreeJoints");if(btn){btn.classList.toggle("active",!!on);btn.setAttribute("aria-pressed",String(!!on))}
+   jointsEl.hidden=!on;if(!on){jointsQueue=[];invalidate();return}
+   var bar=root.querySelector(".ir-three-toolbar");jointsEl.style.top=(bar?bar.offsetTop+bar.offsetHeight:0)+"px";jointsPaint()
+  }
+  (function(){var b=root.querySelector("#irThreeJoints");if(b)b.onclick=function(e){e.stopPropagation();jointsOpen(!jointsEl||jointsEl.hidden)};
+   if(document.getElementById("irJointsCss"))return;var s=document.createElement("style");s.id="irJointsCss";
+   s.textContent=".ir-joints{position:absolute;left:0;right:0;bottom:0;z-index:30;display:flex;flex-direction:column;background:#f4f7fa;color:#1d2b36;font-size:12.5px}.ir-joints[hidden]{display:none}"+
+    ".ir-joints-head{display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #d6e0e8;background:#fff;flex:none}.ir-joints-head>b{font-size:14px}"+
+    ".ir-joints-tabs{display:flex;gap:4px;flex-wrap:wrap;flex:1}.ir-joints-tabs button{display:inline-flex;gap:6px;align-items:center;min-height:28px;padding:2px 11px;border-radius:7px;border:1px solid #c9d8e5;background:#f3f8fc;color:#2b5f8f;font:inherit;font-weight:800;cursor:pointer}"+
+    ".ir-joints-tabs button small{font-weight:600;opacity:.7}.ir-joints-tabs button.on{background:#2b5f8f;border-color:#2b5f8f;color:#fff}"+
+    ".ir-joints-close{width:30px;height:30px;border-radius:7px;border:1px solid #c9d8e5;background:#fff;color:#173f5b;font-size:14px;cursor:pointer}"+
+    ".ir-joints-body{overflow:auto;padding:12px;flex:1;min-height:0}.ir-joints-sum{margin:0 0 10px;color:#4b5d6b}.ir-joints-empty{color:#4b5d6b}"+
+    ".ir-joints-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}.ir-joints-kind{grid-column:1/-1;margin:8px 0 0;font-size:13.5px}.ir-joints-kind small{font-weight:500;color:#6a7b88}"+
+    ".ir-joint{background:#fff;border:1px solid #d6e0e8;border-radius:9px;overflow:hidden;display:flex;flex-direction:column}"+
+    ".ir-joint img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:#e6edf3}.ir-joint img.wait{background:linear-gradient(90deg,#e6edf3,#f3f7fa,#e6edf3);background-size:200% 100%;animation:irJointWait 1.2s linear infinite}"+
+    ".ir-joint img.none{visibility:hidden;height:0;aspect-ratio:auto}@keyframes irJointWait{to{background-position:-200% 0}}"+
+    ".ir-joint-text{display:flex;flex-direction:column;gap:3px;padding:8px 10px 10px}.ir-joint-text b{font-size:13px}.ir-joint-fix{color:#4b5d6b}.ir-joint-note{color:#6a7b88;font-size:11.5px}"+
+    ".ir-joint details summary{cursor:pointer;color:#2b5f8f;font-weight:700;margin-top:2px}.ir-joint ul{list-style:none;margin:4px 0 0;padding:0;max-height:160px;overflow:auto}"+
+    ".ir-joint li{display:flex;gap:8px;align-items:baseline}.ir-joint li button{border:0;background:none;color:#2b5f8f;font:inherit;padding:1px 0;cursor:pointer;text-align:left}.ir-joint li button:hover{text-decoration:underline}.ir-joint li em{color:#8a99a5;font-style:normal;font-size:11px}"+
+    ".ir-joint-show{margin-top:6px;align-self:flex-start;min-height:26px;padding:2px 10px;border-radius:7px;border:1px solid #c9d8e5;background:#f3f8fc;color:#173f5b;font:inherit;font-weight:800;cursor:pointer}"+
+    ".ir-three-root.dark .ir-joints{background:#151d26;color:#e6ebf1}.ir-three-root.dark .ir-joints-head,.ir-three-root.dark .ir-joint{background:#1d2733;border-color:#2b3744}"+
+    ".ir-three-root.dark .ir-joints-tabs button,.ir-three-root.dark .ir-joint-show,.ir-three-root.dark .ir-joints-close{background:#1f2a36;border-color:#2b3744;color:#cfe1f3}.ir-three-root.dark .ir-joints-tabs button.on{background:#3d78b0;color:#fff}"+
+    ".ir-three-root.dark .ir-joint-fix,.ir-three-root.dark .ir-joints-sum,.ir-three-root.dark .ir-joints-empty{color:#a9b8c5}.ir-three-root.dark .ir-joint li button,.ir-three-root.dark .ir-joint details summary{color:#8cc0ef}";
+   document.head.appendChild(s)})();
   function nodeList(){return nodes.map(function(n){return{id:n.id,kind:n.kind,name:kindName(n),status:n.status,x:n.x,y:n.y,z:n.z,axes:axisOf(n.x,n.y),
    members:n.members.map(function(m){return{id:String(m.c.id),mark:m.c.mark||"",role:m.role,status:m.c.status||"planned"}})}})}
   function openNode(id){var n=nodes.find(function(x){return x.id===id});if(n)chooseNode(n);return Boolean(n)}
