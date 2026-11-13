@@ -6764,6 +6764,24 @@ window.irThreeSchemeView=(function irThreeModule(){
      var sa=w.a.clone().sub(p[0]).dot(u),sb=w.b.clone().sub(p[0]).dot(u),lo=Math.min(sa,sb),hi=Math.max(sa,sb);if(hi<0||lo>L)return;gaps.push([lo-.003,hi+.003])});
     if(c.lay.trim!=="cap"&&c.lay.trim!=="gutter")posts.forEach(function(q){if(q.y0>yh+.01||q.y1<yl-.01)return;var d=q.p.clone().sub(p[0]),o=Math.abs(-d.x*u.z+d.z*u.x),sm=d.x*u.x+d.z*u.z;if(o>q.r+.25||sm<-q.r||sm>L+q.r)return;gaps.push([sm-q.r-.005,sm+q.r+.005])});
     if(gaps.length)trimGaps.set(String(c.id),gaps)
+   });
+   // (the ends of a gable trim, a cap of a parapet, a roof against a wall: to the face of the higher wall across they meet,
+   // and a cap with none there to the end of the wall it lies on — ИР-71535 the gable of the roof of О8–О10 by row Н and the
+   // cap of the parapet by О8/Л stopped 0,1…0,3 m short of the corner; the engineer, chat 13.11.2026 «торцевая планка
+   // должна до конца доходить», «накрывка парапета тоже должна до конца доходить»)
+   list.forEach(function(c){
+    if(c.ft!=="trim"||!c.id||!c.lay||!/^(?:gable|cap|gutter)$/.test(String(c.lay.trim))||trimExt.has(String(c.id)))return;
+    var p=memberPoints(c),q0=p[0],q1=p[p.length-1],u=new T.Vector3(q1.x-q0.x,0,q1.z-q0.z),L=u.length();if(L<.3)return;u.divideScalar(L);
+    var capK=/^(?:cap|gutter)$/.test(c.lay.trim),ext=[0,0];
+    [[q0,u.clone().negate()],[q1,u]].forEach(function(e,k){var pe=e[0],dir=e[1],best=null;
+     across.forEach(function(w){if(Math.abs(w.u.dot(u))>.1||w.y>pe.y+.05||w.top<pe.y+.1)return;var Lw=w.b.clone().sub(w.a).setY(0).length(),sw=pe.clone().sub(w.a).setY(0).dot(w.u);if(sw<-.05||sw>Lw+.05)return;
+      var cen=w.a.clone().add(w.b).multiplyScalar(.5),f=cen.clone().sub(pe).setY(0).dot(dir)-w.t/2;if(f<-.6||f>1)return;if(best===null||Math.abs(f)<Math.abs(best))best=f});
+     if(best!==null){ext[k]=best-.002;return}
+     if(!capK)return;var far=null;
+     across.forEach(function(w){if(Math.abs(w.u.dot(u))<.9||Math.abs(w.top-pe.y)>.25)return;var nn=new T.Vector3(-u.z,0,u.x),o=Math.abs(w.a.clone().sub(pe).setY(0).dot(nn));if(o>w.t/2+.15)return;
+      var f=Math.max(w.a.clone().sub(pe).setY(0).dot(dir),w.b.clone().sub(pe).setY(0).dot(dir));if(f<-.3||f>.6)return;if(far===null||f>far)far=f});
+     if(far!==null)ext[k]=far});
+    if(Math.abs(ext[0])>.003||Math.abs(ext[1])>.003)trimExt.set(String(c.id),ext)
    })
   }
   // ---- A wall of sandwich panels hangs on the outer face of the frame (the engineer, 28.10.2026, ГПЭС: «почти все
@@ -10755,6 +10773,36 @@ window.irThreeSchemeView=(function irThreeModule(){
    var at=0;holes.forEach(function(o){box(at,o[0],0,h);box(o[0],o[1],0,o[2]);box(o[0],o[1],o[3],h);at=Math.max(at,o[1])});box(at,len,0,h);
   }
   var partitionMat=null;
+  // A sanitary fixture of the plan of the АР (src/ai-montage-plan.js `sanitary_fixture`: ИР-71535 ч.1 л.10 the washroom by
+  // О8 — toilets, urinals, washbasins, a sink): white, on the floor, its back at the wall — start its front, end its back,
+  // c.fd its width. A toilet — the bowl (an oval 0,4 m high) and the cistern at the wall up to 0,8 m; an urinal — on the
+  // wall from 0,35 to 0,95 m; a washbasin — the bowl at 0,8 m on its pedestal; a sink — a cabinet 0,85 m with its top.
+  // Not steel: out of the check of the clashes (userData.footing), as a partition.
+  // A slab over rooms of the plan of the АР (src/ai-montage-plan.js `floor_slab`, «План перекрытия помещений на отм. +3,500»):
+  // concrete grey, its top at the level, start…end along it, c.fd across, lay.slab.thickness_mm thick. Not steel (footing).
+  var slabMat=null;
+  function floorSlab(c,id,start,end){
+   var dir=end.clone().sub(start);dir.y=0;var L=dir.length();if(L<.2)return;dir.normalize();
+   var W=Math.max(.2,number(c.fd)/1000),t=Math.max(.05,number(c.lay&&c.lay.slab&&c.lay.slab.thickness_mm||200)/1000);
+   slabMat=slabMat||new T.MeshStandardMaterial({color:0xaeb3b8,roughness:.95});
+   var m=new T.Mesh(new T.BoxGeometry(L,t,W),slabMat);m.position.copy(start).add(dir.clone().multiplyScalar(L/2));m.position.y=start.y-t/2;m.rotation.y=Math.atan2(-dir.z,dir.x);
+   m.userData.memberId=id;m.userData.fixed=true;m.userData.footing=true;m.userData.slab=true;steel.add(m);allMeshes.push(m);
+   if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(m)}
+  var fixtureMat=null;
+  function sanitaryFixture(c,id,start,end){
+   var f=c.lay&&c.lay.fixture||{},dir=end.clone().sub(start);dir.y=0;var D=dir.length();if(D<.1)return;dir.normalize();
+   var W=Math.max(.2,number(c.fd)/1000),ang=Math.atan2(-dir.z,dir.x),y0=start.y;
+   fixtureMat=fixtureMat||new T.MeshStandardMaterial({color:0xf4f6f8,roughness:.35,metalness:0});
+   if(!meshesById.has(id))meshesById.set(id,[]);
+   var put=function(geo,u,z,rot){var m=new T.Mesh(geo,fixtureMat);m.position.copy(start).add(dir.clone().multiplyScalar(u));m.position.y=y0+z;m.rotation.y=ang+(rot||0);
+    m.userData.memberId=id;m.userData.fixed=true;m.userData.footing=true;m.userData.fixture=true;steel.add(m);allMeshes.push(m);meshesById.get(id).push(m)};
+   var oval=function(rx,rz,h){var g=new T.CylinderGeometry(.5,.5,h,28);g.scale(rx*2,1,rz*2);return g};
+   var k=f.kind||"toilet";
+   if(k==="toilet"){var cd=Math.min(.2,D*.3),bd=D-cd;put(oval(bd/2,W*.42,.4),bd/2,.2);put(new T.BoxGeometry(cd,.4,W*.9),D-cd/2,.6)}
+   else if(k==="urinal")put(oval(D/2,W/2,.6),D/2,.65);
+   else if(k==="washbasin"){put(oval(D/2,W/2,.15),D/2,.75);put(new T.CylinderGeometry(.08,.1,.68,16),D*.65,.34)}
+   else{put(new T.BoxGeometry(D,.85,W),D/2,.425)}
+  }
   // The width of the block: lay.building.across are the axes of the existing building; its walls stand outside them, as
   // ours do. A wall of the new building, in line with the block, that ends at the end face of the block (within 800 mm)
   // up to 1 m outside those axes — the block is as wide as the outer face of that wall: the wall ends at the wall of the
@@ -10838,6 +10886,8 @@ window.irThreeSchemeView=(function irThreeModule(){
   function addFitting(c,id,start,end){
    if(c.ft==="building"){existingBuilding(c,id);return}
    if(c.ft==="partition"){planPartition(c,id,start,end);return}
+   if(c.ft==="fixture"){sanitaryFixture(c,id,start,end);return}
+   if(c.ft==="slab"){floorSlab(c,id,start,end);return}
    var dir=end.clone().sub(start),len=dir.length();dir.normalize();
    if(c.ft==="flight"||c.ft==="ladder"){addStair(c,id,start,end);return}
    // A railing along its line (a stair's, ГОСТ 23120: 1,0 m over the treads or the deck — c.fd its height): posts
@@ -11618,14 +11668,21 @@ window.irThreeSchemeView=(function irThreeModule(){
    // (three levels of the same sets — boltParts lv 0, 1, 2 —, one list of places for all three: boltView shows one)
    var groups=new Map(),size=0;cell.list.forEach(function(b){var P=[0,1,2].map(function(lv){return boltParts(b,lv)}),set=boltSet(Math.round(b.d*1000));size=Math.max(size,set?set.S:b.d*1.6);
     P[1].forEach(function(x,i){var mat=x.washer?washerMats[cell.cls]:boltMats[cell.cls],k=x.geometry.uuid+"|"+mat.uuid,g=groups.get(k);if(!g)groups.set(k,g={geos:[P[0][i].geometry,x.geometry,P[2][i].geometry],mat:mat,list:[]});g.list.push(x.matrixWorld)})});
-   cell.size=size;cell.levels=[[],[],[]];cell.meshes=[];cell.shown=-1;
+   // (a fourth level — the engineer, 13.11.2026 «Давай 4б»: a bolt under 3 points of the screen is one hexagonal prism over
+   // head, washers, shank and nut, 24 triangles instead of ~150 — the same dot to the eye; no bolt goes)
+   var dots=new Map();cell.list.forEach(function(b){var st=boltSet(Math.round(b.d*1000)),g=b.grip,hw=st&&b.washers>1?st.s:0,top=st?g/2+hw+st.k:g/2+b.d*.8,bot=st?-g/2-st.s-b.nuts*st.m:-g/2-b.d*.8,r=st?st.S*.55:b.d*.95;
+    var mat=boltMats[cell.cls],d=dots.get(mat.uuid);if(!d)dots.set(mat.uuid,d={mat:mat,list:[]});
+    d.list.push(new T.Matrix4().compose(b.at.clone().add(b.axis.clone().multiplyScalar((top+bot)/2)),new T.Quaternion().setFromUnitVectors(boltY,b.axis),new T.Vector3(r,top-bot,r)))});
+   cell.size=size;cell.levels=[[],[],[],[]];cell.meshes=[];cell.shown=-1;
+   var dotGeo=shared("bolt:dot",function(){return new T.CylinderGeometry(1,1,1,6)});
+   dots.forEach(function(d){var m=new T.InstancedMesh(dotGeo,d.mat,d.list.length);d.list.forEach(function(e,i){m.setMatrixAt(i,e)});m.frustumCulled=false;m.matrixAutoUpdate=false;m.visible=false;m.userData.lod="bolt";m.userData.instanced=true;m.userData.level=3;batches.add(m);cell.meshes.push(m);cell.levels[3].push(m)});
    groups.forEach(function(g){var at=new T.InstancedBufferAttribute(new Float32Array(16*g.list.length),16);g.list.forEach(function(e,i){e.toArray(at.array,16*i)});
     [0,1,2].forEach(function(lv){var m=new T.InstancedMesh(g.geos[lv],g.mat,g.list.length);m.frustumCulled=false;m.instanceMatrix=at;m.matrixAutoUpdate=false;m.visible=false;m.userData.lod="bolt";m.userData.instanced=true;m.userData.level=lv;batches.add(m);cell.meshes.push(m);cell.levels[lv].push(m)})});
   }
   // Which bolts are drawn and how finely, each picture (the engineer, 13.11.2026: «а если не рисовать болты вне кадра?»,
   // «а в общем виде зачем показывать все 3,2 млн?» — «давай первое»): a cell out of the picture — none of its bolts (its
   // sphere holds every set of it: a bolt seen at the edge is always drawn); in it — by how large its biggest head is on the
-  // screen at its nearest point: 30 points and more every face (lv 0), 8 to 30 fewer faces (lv 1), less — plain (lv 2). No
+  // screen at its nearest point: 30 points and more every face (lv 0), 8 to 30 fewer faces (lv 1), 3 to 8 plain (lv 2), less — one prism (lv 3). No
   // bolt goes: only its faces change, at a size the eye does not tell them apart. «Максимальное качество» in «Вид ▾» —
   // every bolt in the picture at level 0.
   var boltFrustum=new T.Frustum(),boltPV=new T.Matrix4(),boltSphere=new T.Sphere(),boltBest=false;
@@ -11633,7 +11690,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    boltPV.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);boltFrustum.setFromProjectionMatrix(boltPV);
    var focal=h/2/Math.tan(camera.fov*Math.PI/360),cam=camera.position;
    boltCells.forEach(function(cell){if(!cell.meshes||!cell.levels)return;var lv=-1;
-    if(cell.on){boltSphere.set(cell.centre,cell.radius);if(boltFrustum.intersectsSphere(boltSphere)){var d=Math.max(.05,cam.distanceTo(cell.centre)-cell.radius),px=cell.size*focal/d;lv=boltBest||px>=30?0:px>=8?1:2}}
+    if(cell.on){boltSphere.set(cell.centre,cell.radius);if(boltFrustum.intersectsSphere(boltSphere)){var d=Math.max(.05,cam.distanceTo(cell.centre)-cell.radius),px=cell.size*focal/d;lv=boltBest||px>=30?0:px>=8?1:px>=3?2:3}}
     if(lv===cell.shown)return;cell.shown=lv;cell.levels.forEach(function(l,i){l.forEach(function(m){m.visible=i===lv})})});
    // (the pieces of one shape, by squares — rebatch: a square out of the picture not drawn, as the bolts)
    batches.children.forEach(function(m){var sp=m.userData.sphere;if(sp&&m.isInstancedMesh&&m.userData.lod==="fine")m.visible=boltFrustum.intersectsSphere(sp)});
@@ -11641,14 +11698,24 @@ window.irThreeSchemeView=(function irThreeModule(){
   // The counter of «Вид ▾» (the engineer, 13.11.2026 «давай делай»): pictures a second, triangles and drawings of the last
   // picture, the time the program took to make it, the bolts in it.
   var statsOn=false,statsEl=null,statsTimes=[],statsMs=0;
+  // (the time of the graphics card itself — the engineer, 13.11.2026: «кадр … мс» was the program's time only; the card
+  // measures its own time of each picture, read a few pictures later, averaged over a second; «—» where it cannot)
+  var gpuExt,gpuWait=[],gpuTimes=[];
+  function gpuBegin(){var gl=renderer.getContext();if(gpuExt===undefined)gpuExt=(gl.getExtension&&gl.createQuery&&gl.getExtension("EXT_disjoint_timer_query_webgl2"))||null;
+   if(!gpuExt||gpuWait.length>4)return null;var q=gl.createQuery();gl.beginQuery(gpuExt.TIME_ELAPSED_EXT,q);return q}
+  function gpuEnd(q){var gl=renderer.getContext();gl.endQuery(gpuExt.TIME_ELAPSED_EXT);gpuWait.push(q)}
+  function gpuRead(){if(!gpuExt)return null;var gl=renderer.getContext(),now=performance.now(),off=gl.getParameter(gpuExt.GPU_DISJOINT_EXT);
+   while(gpuWait.length&&gl.getQueryParameter(gpuWait[0],gl.QUERY_RESULT_AVAILABLE)){var q=gpuWait.shift();if(!off)gpuTimes.push([now,gl.getQueryParameter(q,gl.QUERY_RESULT)/1e6]);gl.deleteQuery(q)}
+   while(gpuTimes.length&&now-gpuTimes[0][0]>1000)gpuTimes.shift();if(!gpuTimes.length)return null;
+   return gpuTimes.reduce(function(a,t){return a+t[1]},0)/gpuTimes.length}
   function paintStats(){
    if(!statsOn){if(statsEl)statsEl.hidden=true;return}
    if(!statsEl){statsEl=document.createElement("div");statsEl.className="ir-three-stats";statsEl.style.cssText="position:absolute;left:8px;bottom:8px;z-index:5;padding:3px 8px;border-radius:6px;background:rgba(20,24,30,.72);color:#fff;font:12px/1.4 system-ui,sans-serif;pointer-events:none;white-space:nowrap";
     if(getComputedStyle(viewport).position==="static")viewport.style.position="relative";viewport.appendChild(statsEl)}
    statsEl.hidden=false;var now=performance.now();statsTimes.push(now);while(statsTimes.length&&now-statsTimes[0]>1000)statsTimes.shift();
-   var info=renderer.info.render,b=0;boltCells.forEach(function(c){if(c.shown>=0)b+=c.list.length});
+   var info=renderer.info.render,b=0,gpuMs=gpuRead();boltCells.forEach(function(c){if(c.shown>=0)b+=c.list.length});
    var mln=function(x){return x>=1e6?(x/1e6).toFixed(1).replace(".",",")+" млн":Math.round(x/1e3)+" тыс."};
-   statsEl.textContent=statsTimes.length+" кадров/с · "+mln(info.triangles)+" треугольников · "+info.calls+" команд · кадр "+statsMs.toFixed(1).replace(".",",")+" мс · болтов в кадре "+b;
+   statsEl.textContent=statsTimes.length+" кадров/с · "+mln(info.triangles)+" треугольников · "+info.calls+" команд · кадр "+statsMs.toFixed(1).replace(".",",")+" мс · видеокарта "+(gpuMs==null?"—":gpuMs.toFixed(1).replace(".",",")+" мс")+" · болтов в кадре "+b;
   }
   // The detailed picture of a cell on a phone (rebatch, lazyCells): its pieces by material and their outlines.
   var lazyCells=[];
@@ -11912,6 +11979,11 @@ window.irThreeSchemeView=(function irThreeModule(){
   var radius=Math.max(24,Math.hypot(X,Y)*.95),controls=new T.OrbitControls(camera,renderer.domElement);
   controls.target.copy(center);controls.enableDamping=true;controls.dampingFactor=.2;controls.rotateSpeed=.6;
   controls.screenSpacePanning=true;controls.minDistance=.05;controls.maxDistance=radius*5;
+  // The centre of rotation stays by the building: moved by the hand (right button) past one and a half sizes of the
+  // model, it and the camera are brought back together — the view direction kept (13.11.2026, the same request).
+  function keepNear(){var t=controls.target,o=t.distanceTo(center),lim=radius*1.5;if(o<=lim)return;
+   var back=center.clone().sub(t).multiplyScalar((o-lim)/o);t.add(back);camera.position.add(back)}
+  controls.addEventListener("change",keepNear);
   // The pressed wheel moves the model like the right button, as in AutoCAD and Tekla: by default it flew the camera
   // straight away from the model, a twentieth farther every step of the mouse — 114 m to 438 m in a finger's move (the
   // engineer, 25.10.2026: «если держать кнопку мышки и пытаться прокрутить схему, то улетает далеко прямо»).
@@ -12377,6 +12449,11 @@ window.irThreeSchemeView=(function irThreeModule(){
    if(wheelAt.p&&now-wheelAt.t<250&&Math.hypot(e.clientX-wheelAt.x,e.clientY-wheelAt.y)<4)p=wheelAt.p;
    else{p=workPoint(e);wheelAt={x:e.clientX,y:e.clientY,t:now,p:p}}
    wheelAt.t=now;
+   // Away from the model (the wheel back), the camera goes back along its own line of sight about the centre of
+   // rotation, not about the point under the cursor: every notch moved the centre too, away from the cursor's point, and
+   // a few notches carried the camera and the centre off the building — far and hard to bring back (the engineer,
+   // 13.11.2026: «будто далеко камеру уводит и тяжело обратно вернуть»). Nearer — toward the cursor, as before.
+   if(e.deltaY>0)p=controls.target.clone();
    // One event of a fast wheel or a touchpad is no more than about two notches.
    var dy=Math.max(-240,Math.min(240,e.deltaY*(e.deltaMode===1?33:e.deltaMode===2?400:1)));
    var k=Math.pow(1.0015,dy),cam=camera.position;
@@ -12388,15 +12465,15 @@ window.irThreeSchemeView=(function irThreeModule(){
    // the camera and the centre move on together along the cursor's ray to 0,4 m past the face, the view direction kept,
    // and the next notch looks for the next face beyond.
    if(k<1&&next.distanceTo(p)<.3){passThrough(p);return}
-   if(k>1&&next.distanceTo(controls.target)>controls.maxDistance)return;
-   controls.target.copy(p.clone().add(controls.target.clone().sub(p).multiplyScalar(k)));cam.copy(next);invalidate(700)
+   if(k>1&&(next.distanceTo(controls.target)>controls.maxDistance||next.distanceTo(center)>radius*3))return;
+   controls.target.copy(p.clone().add(controls.target.clone().sub(p).multiplyScalar(k)));cam.copy(next);keepNear();invalidate(700)
   }
   function passThrough(p){
    var cam=camera.position,dir=p.clone().sub(cam);if(dir.lengthSq()<1e-8)dir=controls.target.clone().sub(cam);
    dir.normalize();var shift=dir.clone().multiplyScalar(cam.distanceTo(p)+.4),look=controls.target.clone().sub(cam);
    cam.add(shift);controls.target.add(shift);
    if(look.length()<1)controls.target.copy(cam).add(look.lengthSq()>1e-8?look.normalize():dir);
-   wheelAt.p=null;wheelAt.t=0;invalidate(700)
+   keepNear();wheelAt.p=null;wheelAt.t=0;invalidate(700)
   }
   // The wheel over the bars laid on the picture (the tools, the legend, the hints) turns the model too: it scrolled the
   // page under them, and the whole picture jumped up and down between the turns of the model (the engineer, 25.10.2026:
@@ -12493,7 +12570,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    bare=false;
    // (materials of a new model or one taken from the disk — in the look of «Максимальное качество» on or off)
    if(mats.size!==lookSize){lookSize=mats.size;applyLook()}
-   renderer.render(scene,camera);drew=true;
+   var gq=statsOn?gpuBegin():null;renderer.render(scene,camera);drew=true;if(gq)gpuEnd(gq);
    statsMs=performance.now()-frameAt;paintStats();if(statsOn)needUntil=Math.max(needUntil,performance.now()+1100);
    if(!firstPaint){firstPaint=true;P.onFirstPaint&&P.onFirstPaint()}
   }

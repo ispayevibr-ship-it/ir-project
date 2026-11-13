@@ -1399,17 +1399,32 @@ function planOpenings({segments=[],texts=[]}={},axes){
  for(const g of segments){const dx=Math.abs(g.a.x-g.b.x),dy=Math.abs(g.a.y-g.b.y);
   if(dy<=.3&&dx>=1.5)H.push({at:(g.a.y+g.b.y)/2,lo:Math.min(g.a.x,g.b.x),hi:Math.max(g.a.x,g.b.x)});
   else if(dx<=.3&&dy>=1.5)V.push({at:(g.a.x+g.b.x)/2,lo:Math.min(g.a.y,g.b.y),hi:Math.max(g.a.y,g.b.y)})}
- const out=[];
+ const out=[],frags=[];
  for(const t of texts){const m=/^\s*(Д|В|ОК|ВтА)\s*-\s*(\d{1,2}[а-я]?)\s*$/u.exec(String(t.str));if(!m)continue;
   const b=textBox(t);
   // (a mark outside the axes of the plan — on a fragment drawn beside it at its own scale, ИР-71535 ч.1 л.10 «Фрагмент
-  // плана на отм. −0,050» with Д-5 and two Д-1 of the washrooms: said, not placed — no wall, no place on the grid)
-  if(b.cx<box.x0||b.cx>box.x1||b.cy<box.y0||b.cy>box.y1){if(b.cx<box.x0-60||b.cx>box.x1+60||b.cy<box.y0-60||b.cy>box.y1+60)out.push({mark:m[1]+"-"+m[2],x:Math.round(b.cx*10)/10,y:Math.round(b.cy*10)/10,fragment:true});continue}
+  // плана на отм. −0,050» with Д-5 and two Д-1 of the washrooms: brought onto the plan below — fragmentMap)
+  if(b.cx<box.x0||b.cx>box.x1||b.cy<box.y0||b.cy>box.y1){if(b.cx<box.x0-60||b.cx>box.x1+60||b.cy<box.y0-60||b.cy>box.y1+60)frags.push({mark:m[1]+"-"+m[2],b});continue}
+  seat(m[1]+"-"+m[2],b)}
+ // (the fragment: the same doors are drawn on the plan without their marks, at its scale — the fragment is laid on the
+ // plan by an axis it shares with it, its scale against the plan's by the dimensions, and the place along by its own lines
+ // on the plan's; the mark then stands there and finds its wall and its gap as on the plan. Not laid — said, not placed)
+ if(frags.length){const map=fragmentMap({segments,texts},axes,box,frags.map(f=>f.b));
+  for(const f of frags){if(!map){out.push({mark:f.mark,x:Math.round(f.b.cx*10)/10,y:Math.round(f.b.cy*10)/10,fragment:true});continue}
+   const q=map(f.b.cx,f.b.cy);seat(f.mark,{...f.b,cx:q.x,cy:q.y},{fragment:[Math.round(f.b.cx*10)/10,Math.round(f.b.cy*10)/10]})}}
+ return out;
+ function seat(mark,b,extra){
   const along=b.angle===0,lines=along?H:V,c=along?b.cx:b.cy,q=along?b.cy:b.cx;
   // (the wall: the nearest line along the label within 14 pt across, running within 40 pt of it along; its other face
   // 1…8 pt off — 100…400 mm at 1:50)
-  const near=lines.filter(l=>Math.abs(l.at-q)<=14&&l.lo<=c+40&&l.hi>=c-40&&l.hi-l.lo>=3).sort((p,r)=>Math.abs(p.at-q)-Math.abs(r.at-q))[0];
-  if(!near){out.push({mark:m[1]+"-"+m[2],x:Math.round(b.cx*10)/10,y:Math.round(b.cy*10)/10,along:along?"x":"y"});continue}
+  // (a mark brought from a fragment stands only near its wall, not by it as written: the nearest line with a gap of a door
+  // — 8…60 pt between its pieces, 600 mm and more at 1:200 — within 40 pt; ИР-71535 л.10 the lower Д-1 of the washrooms by the corner strokes of the
+  // outer wall)
+  const cand=lines.filter(l=>Math.abs(l.at-q)<=14&&l.lo<=c+40&&l.hi>=c-40&&l.hi-l.lo>=3).sort((p,r)=>Math.abs(p.at-q)-Math.abs(r.at-q));
+  const gapped=l=>{const ps=lines.filter(o=>Math.abs(o.at-l.at)<=.4&&o.hi>=c-80&&o.lo<=c+80).sort((p,r)=>p.lo-r.lo);let end=null;
+   for(const o of ps){if(end!==null&&o.lo-end>=8&&o.lo-end<=60&&o.lo>=c-40&&end<=c+40)return true;end=end===null?o.hi:Math.max(end,o.hi)}return false};
+  const near=(extra&&extra.fragment?cand.find(gapped):null)||cand[0];
+  if(!near){out.push({mark,x:Math.round(b.cx*10)/10,y:Math.round(b.cy*10)/10,along:along?"x":"y",...(extra||{})});return}
   const twin=lines.filter(l=>l!==near&&Math.abs(l.at-near.at)>=1&&Math.abs(l.at-near.at)<=8&&l.lo<=c+40&&l.hi>=c-40&&l.hi-l.lo>=3).sort((p,r)=>Math.abs(Math.abs(p.at-near.at)-3)-Math.abs(Math.abs(r.at-near.at)-3))[0];
   // (the gaps of that face within 60 pt of the label: between its pieces)
   const ps=lines.filter(l=>Math.abs(l.at-near.at)<=.4&&l.hi>=c-80&&l.lo<=c+80).sort((p,r)=>p.lo-r.lo),gaps=[];
@@ -1428,9 +1443,202 @@ function planOpenings({segments=[],texts=[]}={},axes){
    return run&&run[1]-run[0]>=20?run:null};
   // (the nearest line a short stroke of the door frame — the nearest of the long lines of the wall's body)
   const run=runOf(near.at)||(body.length?runOf(body.reduce((b,v)=>Math.abs(v-near.at)<Math.abs(b-near.at)?v:b)):null);
-  out.push({mark:m[1]+"-"+m[2],x:Math.round(b.cx*10)/10,y:Math.round(b.cy*10)/10,along:along?"x":"y",
+  out.push({mark,x:Math.round(b.cx*10)/10,y:Math.round(b.cy*10)/10,along:along?"x":"y",...(extra||{}),
    wall:[Math.round(near.at*10)/10,...(twin?[Math.round(twin.at*10)/10]:[])],...(body.length>1&&Math.max(...body)-Math.min(...body)>=2?{body:[Math.round(Math.min(...body)*10)/10,Math.round(Math.max(...body)*10)/10]}:{}),gaps:gaps.filter(g=>g[1]>=c-60&&g[0]<=c+60),...(run?{run}:{})})}
+}
+// The scale of a drawing by its dimensions (millimetres in a point): of the dimension lines within it — the ticks, short
+// strokes at 45° on one line, and a number between two of them — the ratio of the number to their span, the commonest
+// half-millimetre and the mean of its ratios (ИР-71535 АР ч.1 л.10: the plan 35,3 — 1:100, its fragment 17,6 — 1:50).
+function dimScale(segments,texts,inside){const ticks=[];for(const s of segments){const dx=s.b.x-s.a.x,dy=s.b.y-s.a.y,L=Math.hypot(dx,dy);if(L<3||L>20||Math.abs(Math.abs(dx)-Math.abs(dy))>L*.15)continue;
+   const x=(s.a.x+s.b.x)/2,y=(s.a.y+s.b.y)/2;if(inside(x,y))ticks.push({x,y})}
+  const rows=[];for(const k of ticks.sort((a,b)=>a.y-b.y)){const r=rows.find(o=>Math.abs(o.y-k.y)<=1);if(r)r.xs.push(k.x);else rows.push({y:k.y,xs:[k.x]})}
+  const nums=texts.filter(t=>horizontalText(t)&&/^\s*\d{2,6}\s*$/.test(String(t.str))&&inside(t.x,t.y)),votes=new Map();
+  for(const r of rows){const xs=[...new Set(r.xs.map(x=>Math.round(x*10)/10))].sort((a,b)=>a-b);
+   for(let i=1;i<xs.length;i++){const d=xs[i]-xs[i-1],c=(xs[i]+xs[i-1])/2;if(d<4)continue;
+    const n=nums.find(t=>Math.abs(t.x+(t.width||0)/2-c)<d/2&&t.y<=r.y+1&&t.y>=r.y-10);if(!n)continue;
+    const q=Number(String(n.str).trim())/d,v=Math.round(q*2)/2;if(v>=5){if(!votes.has(v))votes.set(v,[]);votes.get(v).push(q)}}}
+  // (and the upright chains — the numbers written along them, to the left: a small plan with its sizes up the side,
+  // «План перекрытия помещений на отм. +3,500» of л.10)
+  const cols=[];for(const k of ticks.slice().sort((a,b)=>a.x-b.x)){const r=cols.find(o=>Math.abs(o.x-k.x)<=1);if(r)r.ys.push(k.y);else cols.push({x:k.x,ys:[k.y]})}
+  const up=texts.filter(t=>!horizontalText(t)&&/^\s*\d{2,6}\s*$/.test(String(t.str))&&inside(t.x,t.y)).map(t=>({t,b:textBox(t)}));
+  for(const r of cols){const ys=[...new Set(r.ys.map(y=>Math.round(y*10)/10))].sort((a,b)=>a-b);
+   for(let i=1;i<ys.length;i++){const d=ys[i]-ys[i-1],c=(ys[i]+ys[i-1])/2;if(d<4)continue;
+    const n=up.find(o=>Math.abs(o.b.cy-c)<d/2&&o.b.cx<=r.x+1&&o.b.cx>=r.x-10);if(!n)continue;
+    const q=Number(String(n.t.str).trim())/d,v=Math.round(q*2)/2;if(v>=5){if(!votes.has(v))votes.set(v,[]);votes.get(v).push(q)}}}
+  // (the commonest half-millimetre, then the mean of its ratios — 35,3 on л.10, not 35,5)
+  const best=[...votes].sort((a,b)=>b[1].length-a[1].length)[0];return best&&best[1].length>=3?best[1].reduce((a,b)=>a+b,0)/best[1].length:null
+}
+// Sanitary fixtures of a plan (ИР-71535 АР ч.1 л.10 «Фрагмент плана на отм. −0,050»: the washroom by О8 — 3 washbasins on
+// its wall, 4 urinals, 4 toilets in their cubicles, a sink; the general data: «4 унитаза, 4 писсуара и 3 умывальника»; the
+// engineer, 13.11.2026 «Унитазы, раковины … что-то из этого есть?»): each is drawn as an outline of curves — arcs broken
+// into strokes of a few points — with the straight edges of its back. Taken: the thin strokes up to 35 pt joined end to
+// end into one outline of 12 strokes and more, 250…1000 mm across and 220 mm and more the other way, not a circle (the
+// bubbles of the nodes and the rooms, a mark of a text in them), the outlines lying over one another — one fixture. Its
+// back — a line of a wall (1,5 m and more, or 600 mm and more and 0,7 pt thick) along its side within 400 mm (a toilet stands off it by its cistern); its depth — off that wall, its width —
+// along. A toilet deeper than wide by a tenth (449 × 307), a washbasin a third wider than deep (601 × 400), an urinal wider
+// a little (377 × 322), a square one a sink (398 × 398). k — the millimetres in a point of that drawing.
+function fixtureShapes(segments,texts,inside,k){
+ if(!k)return[];
+ const S=segments.filter(g=>{const L=Math.hypot(g.b.x-g.a.x,g.b.y-g.a.y);return L>.05&&L<35&&(g.w||0)<.6&&inside((g.a.x+g.b.x)/2,(g.a.y+g.b.y)/2)});
+ const key=q=>Math.round(q.x*5)+","+Math.round(q.y*5),adj=new Map();
+ S.forEach((g,i)=>{for(const q of [g.a,g.b]){const kk=key(q);if(!adj.has(kk))adj.set(kk,[]);adj.get(kk).push(i)}});
+ const seen=new Set(),shapes=[];
+ for(let i=0;i<S.length;i++){if(seen.has(i))continue;const st=[i],ch=[];seen.add(i);
+  while(st.length){const j=st.pop();ch.push(j);for(const q of [S[j].a,S[j].b])for(const n of adj.get(key(q))||[])if(!seen.has(n)){seen.add(n);st.push(n)}}
+  const pts=ch.flatMap(j=>[S[j].a,S[j].b]),xs=pts.map(q=>q.x),ys=pts.map(q=>q.y);
+  const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys),w=(x1-x0)*k,h=(y1-y0)*k;
+  shapes.push({n:ch.length,x0,x1,y0,y1,w,h,pts,box:ch.length>=4&&ch.every(j=>Math.abs(S[j].a.x-S[j].b.x)<=.3||Math.abs(S[j].a.y-S[j].b.y)<=.3)})}
+ // (a circle or an arc of one — a bubble, its part cut by a line, the swing of a door: all its points within 4 % of the
+ // circle fitted to them — least squares)
+ const circle=c=>{const P=c.pts,n=P.length;let sx=0,sy=0;for(const q of P){sx+=q.x;sy+=q.y}const mx=sx/n,my=sy/n;
+  let suu=0,svv=0,suv=0,suuu=0,svvv=0,suvv=0,svuu=0;for(const q of P){const u=q.x-mx,v=q.y-my;suu+=u*u;svv+=v*v;suv+=u*v;suuu+=u*u*u;svvv+=v*v*v;suvv+=u*v*v;svuu+=v*u*u}
+  const det=suu*svv-suv*suv;if(Math.abs(det)<1e-9)return false;const a=(suuu+suvv)/2,b=(svvv+svuu)/2,uc=(a*svv-b*suv)/det,vc=(b*suu-a*suv)/det;
+  const R=Math.sqrt(uc*uc+vc*vc+(suu+svv)/n);if(!(R>0&&P.every(q=>Math.abs(Math.hypot(q.x-mx-uc,q.y-my-vc)-R)<=R*.04)))return false;
+  // (a whole circle, or an arc whose centre is at its edge or beyond — a half of a bubble, a quarter of a swing; an urinal
+  // drawn as more than a half of a circle against its wall keeps its centre inside)
+  const X=mx+uc,Y=my+vc,W=c.x1-c.x0,H=c.y1-c.y0;return Math.abs(W-H)<=Math.max(W,H)*.04||X<c.x0+W*.1||X>c.x1-W*.1||Y<c.y0+H*.1||Y>c.y1-H*.1};
+ const seeds=shapes.filter(c=>c.n>=12&&Math.max(c.w,c.h)>=250&&Math.max(c.w,c.h)<=1000&&Math.min(c.w,c.h)>=220&&!circle(c));
+ const parts=shapes.filter(c=>Math.min(c.w,c.h)>=100&&Math.max(c.w,c.h)<=1000&&Math.max(c.w,c.h)<=Math.min(c.w,c.h)*3&&!circle(c));
+ const over=(a,b)=>Math.min(a.x1,b.x1)-Math.max(a.x0,b.x0)>0&&Math.min(a.y1,b.y1)-Math.max(a.y0,b.y0)>0;
+ const groups=[];
+ for(const c of seeds.sort((a,b)=>b.w*b.h-a.w*a.h)){const g=groups.find(o=>over(o,c));if(g){g.x0=Math.min(g.x0,c.x0);g.x1=Math.max(g.x1,c.x1);g.y0=Math.min(g.y0,c.y0);g.y1=Math.max(g.y1,c.y1);g.pts.push(...c.pts)}else groups.push({x0:c.x0,x1:c.x1,y0:c.y0,y1:c.y1,pts:c.pts.slice()})}
+ // (a part of it — mostly within it: a leaf of a cubicle door swinging over a toilet is not)
+ const within=(g,c)=>(Math.min(c.x1,g.x1)-Math.max(c.x0,g.x0))*(Math.min(c.y1,g.y1)-Math.max(c.y0,g.y0))>=(c.x1-c.x0)*(c.y1-c.y0)*.6;
+ for(const g of groups)for(const c of parts)if(over(g,c)&&within(g,c)&&(c.x1-c.x0)*(c.y1-c.y0)<=(g.x1-g.x0)*(g.y1-g.y0)*1.2){g.x0=Math.min(g.x0,c.x0);g.x1=Math.max(g.x1,c.x1);g.y0=Math.min(g.y0,c.y0);g.y1=Math.max(g.y1,c.y1)}
+ // (the cistern of a toilet drawn apart beside its bowl — a box of straight strokes within 100 mm of the outline, beside it on half of its side)
+ for(const g of groups)for(const c of parts){if(!c.box||over(g,c))continue;const gx=Math.max(c.x0-g.x1,g.x0-c.x1),gy=Math.max(c.y0-g.y1,g.y0-c.y1),lim=100/k;
+  const sideX=gx>=0&&gx<=lim&&Math.min(c.y1,g.y1)-Math.max(c.y0,g.y0)>=(c.y1-c.y0)*.5,sideY=gy>=0&&gy<=lim&&Math.min(c.x1,g.x1)-Math.max(c.x0,g.x0)>=(c.x1-c.x0)*.5;
+  if((sideX||sideY)&&(c.x1-c.x0)*(c.y1-c.y0)<=(g.x1-g.x0)*(g.y1-g.y0)*.8){g.x0=Math.min(g.x0,c.x0);g.x1=Math.max(g.x1,c.x1);g.y0=Math.min(g.y0,c.y0);g.y1=Math.max(g.y1,c.y1)}}
+ // (a mark of text inside — a bubble, a stamp; not a fixture)
+ const named=g=>texts.some(t=>{const b=textBox(t);return b.cx>g.x0&&b.cx<g.x1&&b.cy>g.y0&&b.cy<g.y1&&/[0-9A-Za-zА-Яа-я]/u.test(String(t.str))});
+ const walls=segments.filter(g=>((g.w||0)>=.7&&Math.hypot(g.b.x-g.a.x,g.b.y-g.a.y)*k>=600||Math.hypot(g.b.x-g.a.x,g.b.y-g.a.y)*k>=1500)&&(Math.abs(g.a.x-g.b.x)<=.3||Math.abs(g.a.y-g.b.y)<=.3));
+ const out=[];
+
+ // (crossed by a line of a wall — a bubble on a corner; a slanted straight stroke in it of 40 % of its size — the leaf of a
+ // door with its swing)
+ const crossed=g=>{const ix0=g.x0+(g.x1-g.x0)*.15,ix1=g.x1-(g.x1-g.x0)*.15,iy0=g.y0+(g.y1-g.y0)*.15,iy1=g.y1-(g.y1-g.y0)*.15;
+  return walls.some(l=>Math.abs(l.a.y-l.b.y)<=.3?l.a.y>iy0&&l.a.y<iy1&&Math.min(l.a.x,l.b.x)<ix1&&Math.max(l.a.x,l.b.x)>ix0:l.a.x>ix0&&l.a.x<ix1&&Math.min(l.a.y,l.b.y)<iy1&&Math.max(l.a.y,l.b.y)>iy0)};
+ const leaf=g=>{const m=Math.max(g.x1-g.x0,g.y1-g.y0)*.4;return segments.some(l=>{const dx=Math.abs(l.b.x-l.a.x),dy=Math.abs(l.b.y-l.a.y);
+  return dx>.3&&dy>.3&&Math.hypot(dx,dy)>=m&&Math.min(l.a.x,l.b.x)>=g.x0-.5&&Math.max(l.a.x,l.b.x)<=g.x1+.5&&Math.min(l.a.y,l.b.y)>=g.y0-.5&&Math.max(l.a.y,l.b.y)<=g.y1+.5})};
+ for(const g of groups){if(named(g)||circle(g)||crossed(g)||leaf(g))continue;const tol=400/k;
+  const dist=n=>{const o=n[0]==="y"?"h":"v",at=n==="y-"?g.y0:n==="y+"?g.y1:n==="x-"?g.x0:g.x1;
+   const d=walls.filter(l=>o==="h"?Math.abs(l.a.y-l.b.y)<=.3&&Math.min(Math.max(l.a.x,l.b.x),g.x1)-Math.max(Math.min(l.a.x,l.b.x),g.x0)>=(g.x1-g.x0)*.5:Math.abs(l.a.x-l.b.x)<=.3&&Math.min(Math.max(l.a.y,l.b.y),g.y1)-Math.max(Math.min(l.a.y,l.b.y),g.y0)>=(g.y1-g.y0)*.5)
+    .map(l=>o==="h"?(n==="y-"?at-l.a.y:l.a.y-at):(n==="x-"?at-l.a.x:l.a.x-at)).filter(v=>v>=-1&&v<=tol);
+   return d.length?Math.min(...d):Infinity};
+  // (its own straight back — the cistern of a toilet, the back of a washbasin: the side of the outline with straight strokes
+  // along it on 40 % of it and more; an outline longer one way by a fifth — at one of its short ends (a toilet); else the
+  // side nearest a wall. A wall within 400 mm of the back always — a fixture stands at a wall)
+  const on=(n)=>{const h=n[0]==="y",at=n==="y-"?g.y0:n==="y+"?g.y1:n==="x-"?g.x0:g.x1,len=h?g.x1-g.x0:g.y1-g.y0;
+   return segments.filter(l=>(l.w||0)<.6&&(h?Math.abs(l.a.y-l.b.y)<=.3&&Math.abs(l.a.y-at)<=1&&Math.min(l.a.x,l.b.x)>=g.x0-.5&&Math.max(l.a.x,l.b.x)<=g.x1+.5:Math.abs(l.a.x-l.b.x)<=.3&&Math.abs(l.a.x-at)<=1&&Math.min(l.a.y,l.b.y)>=g.y0-.5&&Math.max(l.a.y,l.b.y)<=g.y1+.5))
+    .reduce((t,l)=>t+Math.hypot(l.b.x-l.a.x,l.b.y-l.a.y),0)/len};
+  const W=g.x1-g.x0,Hh=g.y1-g.y0,all=["y-","y+","x-","x+"].map(n=>({n,f:on(n),d:dist(n)}));
+  const straight=all.slice().sort((p,q)=>q.f-p.f)[0];
+  let side=null;
+  if(straight.f>=.4)side=straight;
+  else if(Math.max(W,Hh)>=Math.min(W,Hh)*1.2){const ends=all.filter(o=>W>Hh?o.n[0]==="x":o.n[0]==="y").sort((p,q)=>p.d-q.d);side=ends[0]}
+  else side=all.slice().sort((p,q)=>p.d-q.d)[0];
+  if(!side||side.d===Infinity)continue;
+  const across=side.n[0]==="x",depth=(across?g.x1-g.x0:g.y1-g.y0)*k,width=(across?g.y1-g.y0:g.x1-g.x0)*k;
+  const kind=depth>=width*1.1?"toilet":width>=depth*1.3?"washbasin":width>=depth*1.05?"urinal":"sink";
+  out.push({kind,x:Math.round((g.x0+g.x1)/2*10)/10,y:Math.round((g.y0+g.y1)/2*10)/10,back:side.n,width_mm:Math.round(width),depth_mm:Math.round(depth)})}
  return out
+}
+// The fixtures of the plan (fixtureShapes) — those of the plan itself and of a fragment beside it laid on the plan
+// (fragmentMap: the fragment's in place of the plan's own where it lies, drawn larger there). Points of the plan.
+function planFixtures({segments=[],texts=[]}={},axes){
+ if(!axes)return[];
+ const xs=axes.rows.flatMap(r=>r.items.map(i=>i.pt)),ys=axes.cols.flatMap(c=>c.items.map(i=>i.pt));
+ const box={x0:Math.min(...xs)-20,x1:Math.max(...xs)+20,y0:Math.min(...ys)-20,y1:Math.max(...ys)+20};
+ const inP=(x,y)=>x>=box.x0&&x<=box.x1&&y>=box.y0&&y<=box.y1;
+ let own=fixtureShapes(segments,texts,inP,dimScale(segments,texts,inP));
+ // (a fragment: under its title «Фрагмент плана …» outside the plan, not the stamp — 600 pt down, 300 pt each way)
+ const H=Math.max(...segments.map(g=>Math.max(g.a.y,g.b.y)),0);
+ for(const t of texts){if(!horizontalText(t)||!/^\s*Фрагмент\s+плана/iu.test(String(t.str)))continue;const b=textBox(t);if(inP(b.cx,b.cy)||b.cy>H-150)continue;
+  const inF=(x,y)=>!inP(x,y)&&x>=b.cx-300&&x<=b.cx+300&&y>=b.cy&&y<=b.cy+600;
+  const f=fixtureShapes(segments,texts,inF,dimScale(segments,texts,inF));if(!f.length)continue;
+  const map=fragmentMap({segments,texts},axes,box,f.map(o=>({cx:o.x,cy:o.y})));if(!map)continue;
+  const m=f.map(o=>{const q=map(o.x,o.y);return{...o,x:Math.round(q.x*10)/10,y:Math.round(q.y*10)/10,fragment:[o.x,o.y]}});
+  const lo={x:Math.min(...m.map(o=>o.x))-15,X:Math.max(...m.map(o=>o.x))+15,y:Math.min(...m.map(o=>o.y))-15,Y:Math.max(...m.map(o=>o.y))+15};
+  own=own.filter(o=>o.x<lo.x||o.x>lo.X||o.y<lo.y||o.y>lo.Y).concat(m)}
+ return own
+}
+// The slabs over rooms (ИР-71535 АР ч.1 л.10 «План перекрытия помещений на отм. +3,500» — the washroom by О8 between
+// «Б» and «В», «… +4,250» — rooms by the цех ММА; «Плита перекрытия см. листы КМ 3-25, КЖ»): under each such title the mark
+// of its level in a box («+3,500»), the room it covers — the faces of its walls nearest the mark on the four sides (lines
+// 40 pt and longer, 0,8 pt thick and thicker — the dashed lines of the slab's parts are not), laid on the plan by
+// fragmentMap (an axis both name, the lines on the plan's). {level_mm, rect:[x0,y0,x1,y1] — points of the plan}.
+function planSlabs({segments=[],texts=[]}={},axes){
+ if(!axes)return[];
+ const xs=axes.rows.flatMap(r=>r.items.map(i=>i.pt)),ys=axes.cols.flatMap(c=>c.items.map(i=>i.pt));
+ const box={x0:Math.min(...xs)-20,x1:Math.max(...xs)+20,y0:Math.min(...ys)-20,y1:Math.max(...ys)+20};
+ const inP=(x,y)=>x>=box.x0&&x<=box.x1&&y>=box.y0&&y<=box.y1,out=[];
+ for(const t of texts){if(!horizontalText(t))continue;const m=/^\s*План\s+перекрытия\s+помещений\s+на\s+отм\s*\.?\s*([+−-]?\d+,\d{3})/iu.exec(String(t.str));if(!m)continue;
+  const tb=textBox(t);if(inP(tb.cx,tb.cy))continue;const lv=m[1].replace(/[+−-]/u,"").replace(/\s/g,"");
+  const lab=texts.filter(q=>String(q.str).replace(/\s/g,"").replace(/^\+/,"")===lv).map(q=>textBox(q)).filter(q=>q.cy>tb.cy&&q.cy<tb.cy+450&&Math.abs(q.cx-tb.cx)<400).sort((a,b)=>Math.hypot(a.cx-tb.cx,a.cy-tb.cy)-Math.hypot(b.cx-tb.cx,b.cy-tb.cy))[0];
+  if(!lab)continue;const cx=lab.cx,cy=lab.cy;
+  const thick=segments.filter(g=>(g.w||0)>=.8);
+  const vs=thick.filter(g=>Math.abs(g.a.x-g.b.x)<=.3&&Math.abs(g.a.y-g.b.y)>=40&&Math.min(g.a.y,g.b.y)<cy&&Math.max(g.a.y,g.b.y)>cy).map(g=>g.a.x);
+  const hs=thick.filter(g=>Math.abs(g.a.y-g.b.y)<=.3&&Math.abs(g.a.x-g.b.x)>=40&&Math.min(g.a.x,g.b.x)<cx&&Math.max(g.a.x,g.b.x)>cx).map(g=>g.a.y);
+  const l=Math.max(...vs.filter(x=>x<cx-5)),r=Math.min(...vs.filter(x=>x>cx+5)),u=Math.max(...hs.filter(y=>y<cy-3)),d=Math.min(...hs.filter(y=>y>cy+3));
+  if(![l,r,u,d].every(Number.isFinite)||r-l>400||d-u>400)continue;
+  const map=fragmentMap({segments,texts},axes,box,[{cx,cy},{cx:l,cy:u},{cx:r,cy:d}]);if(!map)continue;
+  const a=map(l,u),b=map(r,d),level=Math.round(Number(lv.replace(",","."))*1000)*(/^\s*[−-]/u.test(m[1])?-1:1);
+  out.push({level_mm:level,rect:[Math.round(Math.min(a.x,b.x)*10)/10,Math.round(Math.min(a.y,b.y)*10)/10,Math.round(Math.max(a.x,b.x)*10)/10,Math.round(Math.max(a.y,b.y)*10)/10],plan:[Math.round(l*10)/10,Math.round(u*10)/10,Math.round(r*10)/10,Math.round(d*10)/10]})}
+ return out
+}
+// A fragment of a plan drawn beside it at its own scale (ИР-71535 АР ч.1 л.10 «Фрагмент плана на отм. −0,050», 1:50, beside
+// the plan of 1:100): the way from its points to the plan's — x' = X + (x − x0)·k. k — the plan's millimetres in a point
+// against the fragment's, each the commonest ratio of a dimension number to the span of its ticks; the axis both name
+// (a bubble of the fragment, «08» = «О8») — one coordinate; the other — where the fragment's long lines, so scaled, lie on
+// the plan's own most (the same partitions drawn there without marks): on л.10 167 of 345 lines. null — no shared axis,
+// no scale, or fewer than a fifth of its lines found.
+function fragmentMap({segments=[],texts=[]}={},axes,box,points){
+ if(!axes||!points.length)return null;
+ const fx0=Math.min(...points.map(p=>p.cx))-120,fx1=Math.max(...points.map(p=>p.cx))+120,fy0=Math.min(...points.map(p=>p.cy))-120,fy1=Math.max(...points.map(p=>p.cy))+120;
+ const inF=(x,y)=>x>=fx0&&x<=fx1&&y>=fy0&&y<=fy1,inP=(x,y)=>x>=box.x0&&x<=box.x1&&y>=box.y0&&y<=box.y1;
+ const sF=dimScale(segments,texts,inF),sP=dimScale(segments,texts,inP);if(!sP)return null;const k=(sF||sP)/sP;// (no sizes of its own — the plan's scale; kept only when its lines lie on the plan's)
+
+ // (the shared axis: a bubble of the fragment — the size of the plan's — named as an axis of the plan)
+ // (the size of the plan's bubbles: the texts of its axes at their places — the numbers of the rooms in circles, 10,7 pt
+ // against 12,9, are not axes: «3» of a room on the fragment)
+ const sizes=[];for(const r of axes.rows)for(const i of r.items){const t=texts.find(t=>String(t.str).trim().toUpperCase()===i.name&&Math.abs(textBox(t).cx-i.pt)<=6&&Math.abs(textBox(t).cy-r.at)<=12);if(t&&t.size)sizes.push(t.size)}
+ for(const c of axes.cols)for(const i of c.items){const t=texts.find(t=>String(t.str).trim().toUpperCase()===i.name&&Math.abs(textBox(t).cy-i.pt)<=6&&Math.abs(textBox(t).cx-c.at)<=12);if(t&&t.size)sizes.push(t.size)}
+ sizes.sort((a,b)=>a-b);const size=sizes.length?sizes[sizes.length>>1]:0;
+ const name=s=>String(s).trim().toUpperCase().replace(/^0(?=\d)/,"О");
+ const rowsBy=new Map(axes.rows.flatMap(r=>r.items).map(i=>[i.name,i.pt])),colsBy=new Map(axes.cols.flatMap(c=>c.items).map(i=>[i.name,i.pt]));
+ // (every bubble beside the fragment, not the plan's own — 100 pt about its axes — named as an axis of the plan; the one
+ // whose lay finds the most lines wins: a mark of a node in a circle of the same size, «Б», may share a name)
+ const anchors=[];
+ for(const t of texts){if(!horizontalText(t)||size&&(t.size||0)<size*.92)continue;const b=textBox(t);
+  if(b.cx>=box.x0-100&&b.cx<=box.x1+100&&b.cy>=box.y0-100&&b.cy<=box.y1+100)continue;if(b.cx<fx0-60||b.cx>fx1+60||b.cy<fy0-60||b.cy>fy1+100)continue;
+  const n=name(t.str);let an=null;if(rowsBy.has(n)&&!colsBy.has(n))an={key:"x",f:b.cx,p:rowsBy.get(n)};else if(colsBy.has(n)&&!rowsBy.has(n))an={key:"y",f:b.cy,p:colsBy.get(n)};if(!an)continue;
+  // (the axis line itself under the bubble: the long dashes within 3 pt of its centre)
+  const ax=segments.filter(s=>an.key==="x"?Math.abs(s.a.x-s.b.x)<=.3&&Math.abs((s.a.x+s.b.x)/2-an.f)<=3&&Math.abs(s.a.y-s.b.y)>=8:Math.abs(s.a.y-s.b.y)<=.3&&Math.abs((s.a.y+s.b.y)/2-an.f)<=3&&Math.abs(s.a.x-s.b.x)>=8);
+  if(ax.length){const v=ax.map(s=>an.key==="x"?(s.a.x+s.b.x)/2:(s.a.y+s.b.y)/2).sort((a,b)=>a-b);an.f=v[v.length>>1]}
+  if(!anchors.some(o=>o.key===an.key&&Math.abs(o.f-an.f)<1&&o.p===an.p))anchors.push(an)}
+ if(!anchors.length)return null;
+ const H=[],V=[];
+ for(const s of segments){const dx=Math.abs(s.a.x-s.b.x),dy=Math.abs(s.a.y-s.b.y),mx=(s.a.x+s.b.x)/2,my=(s.a.y+s.b.y)/2;
+  if(dy<=.3&&dx>=8)H.push({at:my,lo:Math.min(s.a.x,s.b.x),hi:Math.max(s.a.x,s.b.x),f:inF(mx,my),p:inP(mx,my)});
+  else if(dx<=.3&&dy>=8)V.push({at:mx,lo:Math.min(s.a.y,s.b.y),hi:Math.max(s.a.y,s.b.y),f:inF(mx,my),p:inP(mx,my)})}
+ const fH=H.filter(l=>l.f),fV=V.filter(l=>l.f),pH=H.filter(l=>l.p),pV=V.filter(l=>l.p);if(fH.length+fV.length<10)return null;
+ const idx=ls=>{const m=new Map();for(const l of ls){const key=Math.round(l.at);for(const q of [key-1,key,key+1]){if(!m.has(q))m.set(q,[]);m.get(q).push(l)}}return m};
+ const iH=idx(pH),iV=idx(pV);
+ const hit=(ix,at,lo,hi)=>(ix.get(Math.round(at))||[]).some(m=>Math.abs(m.at-at)<=.5&&Math.min(m.hi,hi)-Math.max(m.lo,lo)>=(hi-lo)*.5);
+ const fx=points[0].cx,fy=points[0].cy;
+ const score=(X,Y)=>{let n=0;const tx=x=>X+(x-fx)*k,ty=y=>Y+(y-fy)*k;
+  for(const l of fH)if(hit(iH,ty(l.at),tx(l.lo),tx(l.hi)))n++;for(const l of fV)if(hit(iV,tx(l.at),ty(l.lo),ty(l.hi)))n++;return n};
+ // (the free coordinate over the plan's span, the fixed one ±6 pt; then finer)
+ let best={n:-1};
+ for(const anchor of anchors){const fixed=anchor.p+(anchor.key==="x"?(fx-anchor.f):(fy-anchor.f))*k;
+  const [lo,hi]=anchor.key==="x"?[box.y0,box.y1]:[box.x0,box.x1];let b0={n:-1};
+  for(let v=lo;v<=hi;v+=2)for(let d=-6;d<=6;d+=2){const X=anchor.key==="x"?fixed+d:v,Y=anchor.key==="x"?v:fixed+d,n=score(X,Y);if(n>b0.n)b0={n,X,Y}}
+  if(b0.n>best.n)best=b0}
+ // (then by the point about the best, then a quarter)
+ {const c0={...best};for(let a=-2;a<=2;a+=1)for(let c=-2;c<=2;c+=1){const X=c0.X+a,Y=c0.Y+c,n=score(X,Y);if(n>best.n)best={n,X,Y}}}
+ for(let a=-1;a<=1;a+=.25)for(let c=-1;c<=1;c+=.25){const X=best.X+a,Y=best.Y+c,n=score(X,Y);if(n>best.n)best={n,X,Y}}
+ if(best.n<(fH.length+fV.length)/5)return null;
+ return(x,y)=>({x:best.X+(x-fx)*k,y:best.Y+(y-fy)*k})
 }
 // The walls and partitions of the plan themselves (ИР-71535 АР ч.1 л.10 «План на отм. 0,000»; the engineer, 13.11.2026 «почему
 // перегородки условно не пойму? если по АР точно показаны» — only pieces by the doors were drawn): a wall on a plan is a
@@ -1567,9 +1775,9 @@ function extractArchitecture(geometry){
  if(fills.length)fillSketches(geometry||{},fills);
  const finish=facadeFinish(texts),sills=sillSpec(texts);
  const axes=planAxes(geometry||{});
- const tr=trimSpec(texts),trNodes=trimNodes(texts),niches=nicheSpec(texts),planFills=planOpenings(geometry||{},axes),planBands=planFills.length?planWalls(geometry||{},axes):[];
+ const tr=trimSpec(texts),trNodes=trimNodes(texts),niches=nicheSpec(texts),planFills=planOpenings(geometry||{},axes),planFix=planFills.length?planFixtures(geometry||{},axes):[],planSl=planFills.length?planSlabs(geometry||{},axes):[],planBands=planFills.length?planWalls(geometry||{},axes):[];
  const existing=axes?existingPlan(geometry||{}):null;
- const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{}),...(axes?{axes}:{}),...(tr.trims.length?{trims:tr.trims}:{}),...(tr.names.length?{trimNames:tr.names}:{}),...(trNodes.length?{trimNodes:trNodes}:{}),...(niches.length?{niches}:{}),...(planFills.length?{planFills}:{}),...(planBands.length?{planWalls:planBands}:{}),...(existing?{existing}:{})};
+ const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{}),...(axes?{axes}:{}),...(tr.trims.length?{trims:tr.trims}:{}),...(tr.names.length?{trimNames:tr.names}:{}),...(trNodes.length?{trimNodes:trNodes}:{}),...(niches.length?{niches}:{}),...(planFills.length?{planFills}:{}),...(planFix.length?{planFixtures:planFix}:{}),...(planSl.length?{planSlabs:planSl}:{}),...(planBands.length?{planWalls:planBands}:{}),...(existing?{existing}:{})};
  return panels.length||fills.length||views.length||Object.keys(extra).length?{panels,fills,views,...extra}:null
 }
-module.exports={existingPlan,planWalls,fillKinds,splitJoinedMarks,planOpenings,nicheSpec,trimSpec,trimNodes,trimKind,planAxes,facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
+module.exports={existingPlan,planWalls,planFixtures,planSlabs,fixtureShapes,dimScale,fragmentMap,fillKinds,splitJoinedMarks,planOpenings,nicheSpec,trimSpec,trimNodes,trimKind,planAxes,facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};

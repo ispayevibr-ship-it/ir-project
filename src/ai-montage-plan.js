@@ -1241,6 +1241,20 @@ let loose=0;
      const a=Math.round(Math.min(r0,r1)),b=Math.round(Math.max(r0,r1));if(b-a<900&&b-a<3*t||b-a<400)continue;
      const [x0,x1,y0,y1]=alongX?[a,b,line,line]:[line,line,a,b];if(x1<gb.x0||x0>gb.x1||y1<gb.y0||y0>gb.y1)continue;
      planWalls.push({alongX,line,a,b,t:Math.min(420,Math.max(60,t)),hole:null,mark:null,whole:true,sheet:p.pdfPage||p.page,page:p.page,file:p.sourceName||""})}}}
+  // The slabs over rooms (src/ai-ar-extract.js planSlabs: ИР-71535 АР ч.1 л.10 «План перекрытия помещений на отм. +3,500»
+  // over the washroom by О8, «+4,250» over the rooms by О1 — «Плита перекрытия см. листы КМ 3-25, КЖ»): a concrete slab of
+  // 200 mm (its thickness is in the КЖ) with its top at the level, over the room on the grid; the walls of the plan under it
+  // go up to its underside (the engineer, 13.11.2026 «перегородки … щели есть» — 3 m by default under a slab of +3,5…4,25).
+  const slabs=[];
+  for(const p of ar){const fit=planFit.get(p);if(!fit)continue;
+   for(const o of p.ar.planSlabs||[]){const xa=fit.fx.a+fit.fx.b*o.rect[0],xb=fit.fx.a+fit.fx.b*o.rect[2],ya=fit.fy.a+fit.fy.b*o.rect[1],yb=fit.fy.a+fit.fy.b*o.rect[3];
+    const sl={x0:Math.round(Math.min(xa,xb)),x1:Math.round(Math.max(xa,xb)),y0:Math.round(Math.min(ya,yb)),y1:Math.round(Math.max(ya,yb)),level:o.level_mm,t:200};slabs.push(sl);
+    placements.push({mark:"Плита",name:"Плита перекрытия по плану АР",type_key:"floor_slab",scheme_group:"cladding",geometry_type:"beam",fitting_type:"slab",diameter_mm:sl.y1-sl.y0,
+     layout:{slab:{thickness_mm:sl.t,width_mm:sl.y1-sl.y0}},x_mm:sl.x0,y_mm:Math.round((sl.y0+sl.y1)/2),x2_mm:sl.x1,y2_mm:Math.round((sl.y0+sl.y1)/2),z0_mm:sl.level,z1_mm:sl.level,
+     levels_from:"план АР",confidence:"medium",section:"АР",axis_x:"",axis_y:"",sheet:String(p.pdfPage||p.page),source_page:p.page,source_file:p.sourceName||"",
+     notes:["Плита перекрытия по плану АР, верх +"+(sl.level/1000).toFixed(3).replace(".",",")+"; толщина 200 мм условно (по КЖ); не металл, в монтаж не входит","В плане "+(sl.x1-sl.x0)+" × "+(sl.y1-sl.y0)+" мм"]})}}
+  if(slabs.length)warnings.push("Перекрытия помещений по плану АР: "+slabs.map(q=>"+"+(q.level/1000).toFixed(3).replace(".",",")).join(", "));
+  const slabOver=(X,line,a,b)=>slabs.find(q=>{const [l0,l1,s0,s1]=X?[q.y0,q.y1,q.x0,q.x1]:[q.x0,q.x1,q.y0,q.y1],m=(a+b)/2;return line>=l0-300&&line<=l1+300&&m>=s0-300&&m<=s1+300});
   {const W=[];
    for(const w of planWalls.sort((p,q)=>p.a-q.a)){if(!w.whole&&w.b-w.a>40000)continue;
     const m=W.find(q=>q.alongX===w.alongX&&Math.abs(q.line-w.line)<=150&&w.a<=q.b+300&&w.b>=q.a-300);
@@ -1269,17 +1283,39 @@ let loose=0;
      // (a run no longer than its openings is no wall found — the gate В-3 of the brick extension the 3D walls itself)
      if(b-a-holes.reduce((t,h)=>t+Math.min(b,h[1])-Math.max(a,h[0]),0)<500)continue;
      if(!w0.whole&&cover.some(c=>Math.min(c[1],b)-Math.max(c[0],a)>=200))continue;
-     const z0=holes.length?Math.min(0,...holes.map(h=>h[2])):0,cap=pcap!=null?[pcap]:[],top=cap.length?Math.max(z0+500,Math.min(...cap)):Math.max(z0+3000,...holes.map(h=>h[3]+300));
+     const z0=holes.length?Math.min(0,...holes.map(h=>h[2])):0,slab=slabOver(X,w0.line,a,b),cap=pcap!=null?[pcap]:slab?[slab.level-slab.t]:[],top=cap.length?Math.max(z0+500,Math.min(...cap)):Math.max(z0+3000,...holes.map(h=>h[3]+300));
      const marks=[...new Set([...w0.marks,...placements.filter(q=>/^(?:door|gate|window)$/.test(q.type_key)&&opens.length).filter(q=>{const r=span(q,X);return Math.abs((X?q.y_mm:q.x_mm)-w0.line)<=Math.max(150,w0.t/2+100)&&r[1]>a+20&&r[0]<b-20}).map(q=>q.mark)])];
      placements.push({mark:"Стена",name:"Стена, перегородка по плану АР",type_key:"partition_wall",scheme_group:"cladding",geometry_type:"beam",fitting_type:"partition",diameter_mm:top-z0,
       layout:{partition:{thickness_mm:w0.t,holes:holes.map(h=>[Math.max(0,h[0]-a),Math.min(b,h[1])-a,h[2]-z0,Math.min(top,h[3])-z0])}},
       ...(X?{x_mm:a,y_mm:w0.line,x2_mm:b,y2_mm:w0.line}:{x_mm:w0.line,y_mm:a,x2_mm:w0.line,y2_mm:b}),z0_mm:z0,z1_mm:z0,
       levels_from:"план АР",confidence:w0.whole?"medium":"low",section:"АР",axis_x:"",axis_y:"",sheet:String(w0.sheet),source_page:w0.page,source_file:w0.file,
       notes:["Стена, перегородка по плану АР, лист "+w0.sheet+(w0.whole?" — по линиям и штриховке плана целиком":" — у двери")+"; не металл, в монтаж не входит"+(marks.length?"; в ней "+marks.join(", "):""),
-       "Длина по линии стены на плане "+(b-a)+" мм, толщина "+w0.t+" мм; "+(cap.length?"верх под панелями стены, +"+(top/1000).toFixed(3).replace(".",","):"высота 3 м условно — разреза по ней нет")]});made++;if(w0.whole)whole++}}
+       "Длина по линии стены на плане "+(b-a)+" мм, толщина "+w0.t+" мм; "+(cap.length?(slab&&pcap==null?"верх под плитой перекрытия, +":"верх под панелями стены, +")+(top/1000).toFixed(3).replace(".",","):"высота 3 м условно — разреза по ней нет")]});made++;if(w0.whole)whole++}}
    if(made)warnings.push("Стены и перегородки по плану АР: "+made+(whole?", по линиям плана целиком — "+whole:"")+" (высота 3 м — разреза нет)")}
-  // (marks on a fragment of the plan beside it, outside its axes — planOpenings `fragment`: counted, said, not placed)
-  const frag=new Map();for(const p of ar)for(const o of p.ar.planFills||[])if(o.fragment&&blocks.has(o.mark))frag.set(o.mark,(frag.get(o.mark)||0)+1);
+  // Sanitary fixtures of the plan (src/ai-ar-extract.js planFixtures: ИР-71535 АР ч.1 л.10, the washroom by О8 from its
+  // fragment — 3 washbasins, 4 urinals, 4 toilets; the engineer, 13.11.2026 «Унитазы, раковины … что-то из этого есть?»):
+  // each a line from its front to its back at the wall, its width across; on the floor. Not steel, not mounted.
+  {const names={toilet:"Унитаз",urinal:"Писсуар",washbasin:"Умывальник",sink:"Мойка"},count=new Map();
+   for(const p of ar){const fit=planFit.get(p);if(!fit)continue;
+    for(const o of p.ar.planFixtures||[]){const X=fit.fx.a+fit.fx.b*o.x,Y=fit.fy.a+fit.fy.b*o.y,ax=o.back[0]==="x";
+     const sg=(o.back[1]==="+"?1:-1)*Math.sign(ax?fit.fx.b:fit.fy.b),hd=o.depth_mm/2;
+     let f=ax?[X-sg*hd,Y]:[X,Y-sg*hd],b=ax?[X+sg*hd,Y]:[X,Y+sg*hd];
+     // (not into the wall behind it: the wall of the plan drawn there — a partition along its back within 400 mm, its face
+     // on this side; a fixture of the fragment came 100 mm into П-3 of the washroom)
+     {const k=ax?0:1,wl=placements.filter(q=>q.type_key==="partition_wall"&&(ax?q.x_mm===q.x2_mm:q.y_mm===q.y2_mm)&&Math.abs((ax?q.x_mm:q.y_mm)-b[k])<=400&&
+       Math.min(ax?q.y_mm:q.x_mm,ax?q.y2_mm:q.x2_mm)<=(ax?Y:X)&&Math.max(ax?q.y_mm:q.x_mm,ax?q.y2_mm:q.x2_mm)>=(ax?Y:X))
+       .map(q=>(ax?q.x_mm:q.y_mm)-sg*((q.layout?.partition?.thickness_mm)||120)/2).filter(fc=>sg*(b[k]-fc)>0&&sg*(fc-f[k])>0).sort((p,q)=>sg*(p-q))[0];
+      if(wl!=null){const d=wl-b[k];f[k]+=d;b[k]+=d}}
+     const name=names[o.kind]||"Санитарный прибор";count.set(name,(count.get(name)||0)+1);
+     placements.push({mark:name,name:name+" по плану АР",type_key:"sanitary_fixture",scheme_group:"cladding",geometry_type:"beam",fitting_type:"fixture",
+      diameter_mm:o.width_mm,layout:{fixture:{kind:o.kind,width_mm:o.width_mm,depth_mm:o.depth_mm}},
+      x_mm:Math.round(f[0]),y_mm:Math.round(f[1]),x2_mm:Math.round(b[0]),y2_mm:Math.round(b[1]),z0_mm:0,z1_mm:0,
+      levels_from:"план АР",confidence:"medium",section:"АР",axis_x:"",axis_y:"",sheet:String(p.pdfPage||p.page),source_page:p.page,source_file:p.sourceName||"",
+      notes:[name+" по плану АР"+(o.fragment?" (фрагмент плана, перенесён на план по оси и линиям)":"")+"; не металл, в монтаж не входит","Ширина "+o.width_mm+" мм, вылет от стены "+o.depth_mm+" мм"]})}}
+   if(count.size)warnings.push("Санитарные приборы по плану АР: "+[...count].map(([m,n])=>m+" ×"+n).join(", "))}
+  // (marks on a fragment of the plan beside it, outside its axes, that could not be laid on the plan — planOpenings
+  // `fragment` without its wall: counted, said, not placed; laid ones stand above as the plan's own)
+  const frag=new Map();for(const p of ar)for(const o of p.ar.planFills||[])if(o.fragment&&!o.wall&&blocks.has(o.mark))frag.set(o.mark,(frag.get(o.mark)||0)+1);
   if(frag.size){warnings.push("На фрагменте плана АР (отдельный чертёж рядом с планом, вне его осей) — не поставлены: "+[...frag].map(([m,n])=>m+(n>1?" ×"+n:"")).join(", ")+"; фрагмент к осям здания не привязан");
    for(const m of frag.keys()){const i=still.indexOf(m);if(i>=0)still.splice(i,1)}}
   if(inner.length&&still.length)warnings.push("Нет на фасадах и на плане (внутренние) — не поставлены: "+still.join(", "));

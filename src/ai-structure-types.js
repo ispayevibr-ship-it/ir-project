@@ -102,6 +102,12 @@ const TYPES=[
  // The building beside the new one (ИР-71535 «Существующее здание цеха ММА» on the plan of the roof of the АР): one block for
  // orientation, not steel, not mounted — src/ai-montage-plan.js, scheme-three-view.js existingBuildings.
  T("partition_wall","Стена, перегородка по плану АР","cladding","beam","partition",[],/^(?:стена|перегородк\S*)[,\s]+(?:перегородк\S*\s+)?по\s+плану/iu,{needs:"АР",fitting:"partition"}),
+ // Sanitary fixtures of a plan of the АР (toilets, urinals, washbasins, sinks — ИР-71535 ч.1 л.10 fragment of the washroom):
+ // for orientation, not steel, not mounted — src/ai-montage-plan.js, scheme-three-view.js sanitaryFixture.
+ T("sanitary_fixture","Санитарный прибор по плану АР","cladding","beam","fixture",[],/^(?:унитаз|писсуар|умывальник|мойка)\S*(?:\s+по\s+плану)?/iu,{needs:"АР",fitting:"fixture"}),
+ // A slab over rooms on a plan of the АР («План перекрытия помещений на отм. +3,500», ИР-71535 ч.1 л.10): concrete, for
+ // orientation — src/ai-montage-plan.js, scheme-three-view.js floorSlab.
+ T("floor_slab","Плита перекрытия по плану АР","cladding","beam","slab",[],/^плита\s+перекрыти\S*\s+по\s+плану/iu,{needs:"АР",fitting:"slab"}),
  T("existing_building","Существующее здание рядом (условно)","cladding","beam","building",[],/существующ\S*\s+здани/iu,{needs:"АР",fitting:"building"}),
  T("trim_corner","Нащельник угловой (наружный, внутренний)","trims","beam","trim",[],/углов\S*\s+нащельник|нащельник\S*\s+(?:\S+\s+)?углов|(?:наружн|внешн|внутренн)\S*\s+(?:угл\S*\s+)?(?:нащельник|доборн)/iu,{needs:"АР",fitting:"trim"}),
  T("trim_joint","Нащельник стыка (вертикальный, горизонтальный)","trims","beam","trim",[],/нащельник\S*\s+(?:\S+\s+)?стык|стыков\S*\s+нащельник|(?:вертикальн|горизонтальн)\S*\s+нащельник/iu,{needs:"АР",fitting:"trim"}),
