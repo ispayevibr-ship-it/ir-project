@@ -262,6 +262,12 @@
   }
   save();notify("Вкладка: "+frames.get(id).title)
  }
+ // The chat of the montage scheme keeps its own draft and holds nothing to save: a message typed there marked the tab
+ // «unsaved», and the window then refused to close without a word (the engineer, 13.11.2026: «не всегда срабатывает кнопка
+ // закрыть программу … именно в монтажной схеме»). Nor does a form that is gone or shut with its window (openDraft).
+ function draftForm(target){const f=target.closest("form");return f&&!f.matches(".irc-form,[data-view-form]")?f:null}
+ function openDraft(t){if(!t.dirty)return false;if(!t.dirtyForms||!t.dirtyForms.size)return true;
+  return[...t.dirtyForms].some(f=>{try{return f.isConnected&&f.getClientRects().length>0}catch{return false}})}
  function markDirty(id){const t=frames.get(id);if(t&&!t.dirty){t.dirty=true;renderTabBar()}}
 
  // Electron/Chromium iframe keyboard focus can drift from DOM input focus
@@ -309,11 +315,11 @@
   child.document.addEventListener("input",e=>{
    const target=e.target;
    if(!target?.closest)return;
-   if(target.closest('form')&&!target.matches('input[type="search"],input[type="hidden"]')){markDirty(tab.id);(tab.dirtyForms||(tab.dirtyForms=new Set())).add(target.closest('form'))}
+   if(draftForm(target)&&!target.matches('input[type="search"],input[type="hidden"]')){markDirty(tab.id);(tab.dirtyForms||(tab.dirtyForms=new Set())).add(target.closest('form'))}
   },true);
   child.document.addEventListener("change",e=>{
    const target=e.target;
-   if(target?.closest?.("form")&&!target.matches('input[type="search"]')){markDirty(tab.id);(tab.dirtyForms||(tab.dirtyForms=new Set())).add(target.closest("form"))}
+   if(target?.closest&&draftForm(target)&&!target.matches('input[type="search"]')){markDirty(tab.id);(tab.dirtyForms||(tab.dirtyForms=new Set())).add(target.closest("form"))}
   },true);
   // A real click inside an editor restores the native iframe keyboard target.
   // This also handles an input that visually has focus but accepts no keys.
@@ -713,8 +719,16 @@
  }
  if(!order.length)createTab("/objects");
  restoring=false;save();
+ // (the window is kept open over unsaved changes — and asks: a refusal without a question looked like a dead button)
+ let closeAsked=false;
  window.addEventListener("beforeunload",event=>{
-  if([...frames.values()].some(t=>t.dirty)){event.preventDefault();event.returnValue=""}
+  if(![...frames.values()].some(openDraft))return;
+  event.preventDefault();event.returnValue="";
+  if(closeAsked)return;closeAsked=true;
+  setTimeout(()=>{
+   const yes=confirm("Есть несохранённые изменения. Закрыть программу без сохранения?");closeAsked=false;
+   if(yes){frames.forEach(t=>{t.dirty=false;t.dirtyForms=null});window.close()}
+  },0);
  });
  // Keep route storage current, without reloading hidden iframe documents.
  window.addEventListener("focus",()=>{
