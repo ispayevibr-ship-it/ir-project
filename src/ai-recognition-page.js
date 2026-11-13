@@ -336,7 +336,7 @@ window.irAiRecognitionPage=async function(objectId){
   const placed=view?.placed,plan=view?.plan;let body="";
   if(!view)body='<p class="muted">Сначала выполните анализ.</p>';
   else if(!aiDone())body='<p class="muted">Сначала обработайте листы через Claude или выберите «Продолжить без ИИ» на странице «Обработка Claude».</p>';
-  else if(busy==="place")body=wait("Расставляем элементы…");
+  else if(busy==="place")body=wait("Сверяем элементы со схемой: меняются только новые и изменившиеся…");
   else if(placed){
    const gridText={created:"сетка осей создана",replaced:"сетка осей заменена",kept:"ваша сетка осей сохранена (она главная), элементы привязаны по названиям осей"}[placed.gridMode]||"";
    // The result in short lines and figures (the engineer, 13.11.2026, of the one paragraph before: «тут такая каша,
@@ -348,13 +348,14 @@ window.irAiRecognitionPage=async function(objectId){
    body='<div class="ir-ms-card ok"><p class="ir-ms-head">Расстановка выполнена</p><div class="ir-ms-tiles">'+
     tile(placed.created,"новых элементов")+
     tile(placed.updated||0,"обновлено","поправлены координаты и отметки")+
+    (placed.same!=null?tile(placed.same,"без изменений","такие же, как на схеме — не перезаписаны и на сервер не отправлены"):'')+
     (placed.linked?tile(placed.linked,"связано с ведомостью"):'')+
     (placed.keptEdited?tile(placed.keptEdited,"ваших правок сохранено","новое чтение чертежей — в карточке элемента"):'')+
     (placed.preliminary?tile(placed.preliminary,"предварительно","определены не полностью, на схеме бледные"):'')+
     (placed.missing?tile(placed.missing,"нет в новом анализе","оставлены на схеме и помечены"):'')+
     '</div>'+
-    (placed.statuses?'<p class="muted">Состояние элементов: '+Object.entries(placed.statuses).map(([k,v])=>esc(ST[k]||k)+' '+v).join(', ')+'</p>':'')+
-    (placed.byWork?.length?'<p>По видам работ: '+placed.byWork.map(w=>'«'+esc(w.name)+'» — '+w.count).join(', ')+'</p>':'')+
+    (placed.statuses?'<p class="muted">Состояние всех элементов схемы по чертежам: '+Object.entries(placed.statuses).map(([k,v])=>esc(ST[k]||k)+' '+v).join(', ')+'</p>':'')+
+    (placed.byWork?.length?'<p>Всего на схеме по видам работ: '+placed.byWork.map(w=>'«'+esc(w.name)+'» — '+w.count).join(', ')+'</p>':'')+
     (gridText?'<p>Оси: '+esc(gridText)+'</p>':'')+
     (placed.removed?'<p>Удалено прежних: '+placed.removed+'</p>':'')+(placed.keptMounted?'<p>Смонтированные оставлены: '+placed.keptMounted+'</p>':'')+
     (placed.missing?'<p>Нет в новом анализе: <b>'+placed.missing+'</b> — оставлены на схеме и помечены. Если такой конструкции нет, удалите вручную.</p>':'')+
@@ -379,8 +380,8 @@ window.irAiRecognitionPage=async function(objectId){
      '<td><input type="number" step="1" data-ms-z0="'+esc(s.key)+'" value="'+esc(h.z0_mm)+'" '+(h.place?'':'disabled')+'></td>'+
      '<td><input type="number" step="1" data-ms-z1="'+esc(s.key)+'" value="'+esc(h.z1_mm)+'" '+(h.place?'':'disabled')+'></td></tr>'}).join("")+'</tbody></table></div>'+
     (plan.problems.length?'<ul class="ir-ms-problems">'+plan.problems.map(p=>'<li>'+esc(p)+'</li>').join("")+'</ul>':'')+
-    '<p class="ir-ms-result">Будет расставлено: <b>'+plan.elements+'</b>'+Object.entries(plan.groups).map(([k,v])=>' · '+esc(k)+' '+v).join("")+'</p>'+
-    '<p class="muted">Прежняя расстановка из PDF заменяется: те же марки получают новые координаты и отметки (статус монтажа сохраняется), исчезнувшие марки удаляются. Элементы, добавленные вручную, не трогаются. Марок, которых нет в ведомости, программа добавит её сама (вид работ «Монтаж металлоконструкций (из PDF)»), сетку осей — тоже, если её нет.</p>'+
+    '<p class="ir-ms-result">Элементов по чертежам: <b>'+plan.elements+'</b>'+Object.entries(plan.groups).map(([k,v])=>' · '+esc(k)+' '+v).join("")+'</p>'+
+    '<p class="muted">Программа сверит их со схемой: новые добавит, изменит только те, у которых по чертежам изменились координаты, отметки или узлы, одинаковые не трогает (статус монтажа сохраняется), исчезнувшие марки удаляются. Элементы, добавленные вручную, не трогаются. Марок, которых нет в ведомости, программа добавит её сама (вид работ «Монтаж металлоконструкций (из PDF)»), сетку осей — тоже, если её нет.</p>'+
     '<div class="ir-ms-row"><button class="primary big" data-ms-placeit '+(busy||!plan.ready||!canEdit?'disabled':'')+'>Расставить на монтажной схеме</button>'+clearButton()+'</div>'+
     skippedHtml(plan.skipped,plan.skippedCount)
   }

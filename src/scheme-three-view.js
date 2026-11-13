@@ -736,7 +736,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    '<label class="ir-three-check"><input type="checkbox" id="irThreeAxes" checked> Оси</label>'+
    '<select id="irThreeNodes" data-native-select="1" aria-label="Узлы" title="Маркеры узлов: опоры колонн, оголовки, концы балок"><option value="sel">Узлы: у выбранного</option><option value="all">Узлы: все</option><option value="open">Узлы: несмонтированные</option><option value="off">Узлы: скрыть</option></select>'+
    '<label class="ir-three-check" title="Опорные плиты, анкеры и оголовки вблизи, краны на путях — условно, не по КМД"><input type="checkbox" id="irThreeDetails" checked> Детали</label>'+
-   '<label class="ir-three-check" title="Строка в углу схемы: кадров в секунду, треугольников и команд видеокарте за кадр, время кадра, болтов в кадре"><input type="checkbox" id="irThreeStats"> Счётчик</label>'+
+   '<label class="ir-three-check" title="Строка в углу схемы: кадров в секунду, треугольников и команд видеокарте за кадр, время кадра, болтов в поле зрения (и тех, что закрыты стенами)"><input type="checkbox" id="irThreeStats"> Счётчик</label>'+
    '<label class="ir-three-check" title="Все болты в кадре со всеми фасками и гранями на любом расстоянии, блеск серебристой стали, обе стороны граней, повышенная чёткость. Выключено — мелкие на экране болты рисуются проще, вблизи всегда полные, сталь без отражений; так легче видеокарте"><input type="checkbox" id="irThreeBest"> Максимальное качество схемы</label>'+
    '</div>'+
    '<div id="irThreeCopyHint" class="ir-three-copy-hint" hidden>Щёлкните новое начало конструкции на плоскости X/Y. <button id="irThreeCancelCopy" type="button">Отмена</button></div>'+
@@ -11718,7 +11718,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    statsEl.hidden=false;var now=performance.now();statsTimes.push(now);while(statsTimes.length&&now-statsTimes[0]>1000)statsTimes.shift();
    var info=renderer.info.render,b=0,gpuMs=gpuRead();boltCells.forEach(function(c){if(c.shown>=0)b+=c.list.length});
    var mln=function(x){return x>=1e6?(x/1e6).toFixed(1).replace(".",",")+" млн":Math.round(x/1e3)+" тыс."};
-   statsEl.textContent=statsTimes.length+" кадров/с · "+mln(info.triangles)+" треугольников · "+info.calls+" команд · кадр "+statsMs.toFixed(1).replace(".",",")+" мс · видеокарта "+(gpuMs==null?"—":gpuMs.toFixed(1).replace(".",",")+" мс")+" · болтов в кадре "+b;
+   statsEl.textContent=statsTimes.length+" кадров/с · "+mln(info.triangles)+" треугольников · "+info.calls+" команд · кадр "+statsMs.toFixed(1).replace(".",",")+" мс · видеокарта "+(gpuMs==null?"—":gpuMs.toFixed(1).replace(".",",")+" мс")+" · болтов в поле зрения, с закрытыми стенами, "+b;
   }
   // The detailed picture of a cell on a phone (rebatch, lazyCells): its pieces by material and their outlines.
   var lazyCells=[];
