@@ -114,3 +114,8 @@ body.ir-object-route:not(.ir-object-overview) #app>.ir-ms{box-sizing:border-box;
 .ir-ms-chip button.link{padding:0 2px;font-size:11px}
 .ir-ms-works{font-size:11.5px;color:#173f5b;white-space:nowrap}.ir-ms-works b{color:#2563eb}
 .ir-ms-split{margin:0 0 8px}
+.ir-ms-head{font-weight:700;font-size:13px}
+.ir-ms-tiles{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 10px}
+.ir-ms-tile{min-width:120px;padding:8px 12px;border:1px solid #cfe6d8;border-radius:8px;background:#fff;display:flex;flex-direction:column;gap:2px}
+.ir-ms-tile b{font-size:18px;font-variant-numeric:tabular-nums}.ir-ms-tile span{font-size:11.5px;color:#55687a}
+.ir-ms-fold{margin:2px 0 8px}.ir-ms-fold summary{cursor:pointer;color:#1f6fb2;font-size:12px}.ir-ms-fold .ir-ms-scroll{max-height:260px;margin-top:6px}

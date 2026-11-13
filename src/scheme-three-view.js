@@ -737,7 +737,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    '<select id="irThreeNodes" data-native-select="1" aria-label="Узлы" title="Маркеры узлов: опоры колонн, оголовки, концы балок"><option value="sel">Узлы: у выбранного</option><option value="all">Узлы: все</option><option value="open">Узлы: несмонтированные</option><option value="off">Узлы: скрыть</option></select>'+
    '<label class="ir-three-check" title="Опорные плиты, анкеры и оголовки вблизи, краны на путях — условно, не по КМД"><input type="checkbox" id="irThreeDetails" checked> Детали</label>'+
    '<label class="ir-three-check" title="Строка в углу схемы: кадров в секунду, треугольников и команд видеокарте за кадр, время кадра, болтов в кадре"><input type="checkbox" id="irThreeStats"> Счётчик</label>'+
-   '<label class="ir-three-check" title="Все болты в кадре со всеми фасками и гранями на любом расстоянии. Выключено — мелкие на экране болты рисуются проще, вблизи всегда полные; так легче видеокарте"><input type="checkbox" id="irThreeBest"> Максимальное качество</label>'+
+   '<label class="ir-three-check" title="Все болты в кадре со всеми фасками и гранями на любом расстоянии, блеск серебристой стали, обе стороны граней, повышенная чёткость. Выключено — мелкие на экране болты рисуются проще, вблизи всегда полные, сталь без отражений; так легче видеокарте"><input type="checkbox" id="irThreeBest"> Максимальное качество</label>'+
    '</div>'+
    '<div id="irThreeCopyHint" class="ir-three-copy-hint" hidden>Щёлкните новое начало конструкции на плоскости X/Y. <button id="irThreeCancelCopy" type="button">Отмена</button></div>'+
    '<div class="ir-three-viewport" id="irThreeViewport" role="img" aria-label="Интерактивная 3D модель металлического каркаса"></div>'+
@@ -768,7 +768,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   // A phone or a tablet (a finger, a small screen): its browser gives a page far less memory than a computer (lod).
   var phone=false;try{phone=Boolean(window.matchMedia&&window.matchMedia("(pointer: coarse)").matches&&Math.min(screen.width,screen.height)<=1100)}catch(e){}
   var renderer=new T.WebGLRenderer({antialias:!light,powerPreference:"high-performance"});renderer.localClippingEnabled=true;
-  renderer.setPixelRatio(light?.75:Math.min(window.devicePixelRatio||1,1.5));if(NEW3)renderer.outputColorSpace=T.SRGBColorSpace;else renderer.outputEncoding=T.sRGBEncoding;
+  renderer.setPixelRatio(light?.75:1);if(NEW3)renderer.outputColorSpace=T.SRGBColorSpace;else renderer.outputEncoding=T.sRGBEncoding;
   viewport.appendChild(renderer.domElement);
   scene.add(new T.HemisphereLight(0xffffff,0x7a94b3,.95*LIGHT_K));
   var sun=new T.DirectionalLight(0xffffff,1.05*LIGHT_K);sun.position.set(-35,72,48);scene.add(sun);
@@ -940,7 +940,9 @@ window.irThreeSchemeView=(function irThreeModule(){
   // windows — what polished steel reflects. Once per view; without it (an old video card) the steel is matt.
   var metalEnv=null;
   function metalMap(){
-   if(metalEnv!==null)return metalEnv||null;
+   // (the texture of the reflection, not its render target: the second call gave the target — the steel of a model
+   // taken from the disk was dark)
+   if(metalEnv!==null)return metalEnv?metalEnv.texture:null;
    metalEnv=false;
    try{
     var room=new T.Scene(),geo=new T.SphereGeometry(10,32,16),pos=geo.attributes.position,cols=[],col=new T.Color();
@@ -961,13 +963,24 @@ window.irThreeSchemeView=(function irThreeModule(){
   // On the dark background the steel not mounted is matte, without the sheen of metal (the engineer, 06.11.2026:
   // «блеск убери в темной версии»); on the light one — the silver with its sheen, as before.
   var darkBg=false;
+  // A lighter picture for the video card (the engineer, 13.11.2026 «делай»: «у нас тени или блики есть? которые можем
+  // убрать»): without «Максимальное качество» in «Вид ▾» the silver steel has no reflection of the room (the
+  // video card counts every point of steel several times simpler), the solid members are drawn by their outer faces
+  // only (their inner side is never seen) and the picture at one point a pixel; with it — the sheen, both faces and
+  // up to 1.5 points a pixel, as before. On the dark background the steel is matte anyway.
+  var bestLook=false,lookSize=-1;
   function steelLook(m){
-   if(!m)return;var want=darkBg?"matte":"sheen";if(m.userData.look===want)return;
-   if(!m.userData.sheen)m.userData.sheen={metalness:m.metalness,roughness:m.roughness,envMap:m.envMap,envMapIntensity:m.envMapIntensity};
-   var o=m.userData.sheen;
-   if(darkBg){m.metalness=.05;m.roughness=.85;m.envMap=null;m.envMapIntensity=0}
-   else{m.metalness=o.metalness;m.roughness=o.roughness;m.envMap=o.envMap;m.envMapIntensity=o.envMapIntensity}
+   if(!m)return;var want=darkBg?"matte":bestLook&&metalMap()?"sheen":"plain";if(m.userData.look===want)return;
+   if(want==="matte"){m.metalness=.05;m.roughness=.85;m.envMap=null;m.envMapIntensity=0}
+   else if(want==="sheen"){m.metalness=.85;m.roughness=.3;m.envMap=metalMap();m.envMapIntensity=1.15}
+   else{m.metalness=.35;m.roughness=.42;m.envMap=null;m.envMapIntensity=1}
    m.userData.look=want;m.needsUpdate=true
+  }
+  // (both faces only where a face can be seen from behind: see-through and with «Максимальное качество»)
+  function lookSide(m){if(!m||m.transparent)return;var sd=bestLook?T.DoubleSide:T.FrontSide;if(m.side!==sd){m.side=sd;m.needsUpdate=true}}
+  function applyLook(){
+   mats.forEach(lookSide);steelLook(mats.get("metal"));
+   if(!light){var r=bestLook?Math.min(window.devicePixelRatio||1,1.5):1;if(renderer.getPixelRatio()!==r){renderer.setPixelRatio(r);if(typeof resize==="function")resize()}}
   }
   // (the sandwich panels, trims, windows, doors of the АР not mounted: in the colour of their RAL, not the grey of the steel —
   // the engineer 11.11.2026: «сэндвич панели другим цветом давай сделаем, а то тяжело, сливается все»)
@@ -976,10 +989,10 @@ window.irThreeSchemeView=(function irThreeModule(){
   function baseMaterial(c){
    var color=baseColor(c),metal=plannedMetal(c),key=metal?"metal":ghostOf(c)?"p"+color:color;
    if(!mats.has(key)){
-    var env=metal?metalMap():null;
-    mats.set(key,metal?new T.MeshStandardMaterial(env?{color:color,metalness:.85,roughness:.3,envMap:env,envMapIntensity:1.15,side:T.DoubleSide,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1}:{color:color,metalness:.35,roughness:.42,side:T.DoubleSide,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1}):
+    var env=metal&&bestLook?metalMap():null,side=bestLook?T.DoubleSide:T.FrontSide;
+    mats.set(key,metal?new T.MeshStandardMaterial(env?{color:color,metalness:.85,roughness:.3,envMap:env,envMapIntensity:1.15,side:side,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1}:{color:color,metalness:.35,roughness:.42,side:side,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1}):
      ghostOf(c)?new T.MeshStandardMaterial({color:color,metalness:.05,roughness:.8,side:T.DoubleSide,transparent:true,opacity:.36,depthWrite:false}):
-     new T.MeshStandardMaterial({color:color,metalness:.13,roughness:.64,side:T.DoubleSide,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1}))
+     new T.MeshStandardMaterial({color:color,metalness:.13,roughness:.64,side:side,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1}))
    }
    if(key==="metal")steelLook(mats.get(key));
    return mats.get(key)
@@ -9219,7 +9232,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    // beams 12 m long; the bolts are drawn whole.
    var clipFor=function(v){var k=v.x+","+v.y+","+v.z;if(!clips.has(k))clips.set(k,{v:v,mats:new Map(),planes:[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]].map(function(a){return new T.Plane(new T.Vector3(a[0],a[1],a[2]),0)})});return clips.get(k)};
    var solid=function(m,clip){var k=clip?clip.mats:clips;if(!clip){if(!clips.bolt)clips.bolt=new Map();k=clips.bolt}
-    if(!k.has(m)){var c=m.clone();if(clip)c.clippingPlanes=clip.planes;k.set(m,c);made.push(c)}return k.get(m)};
+    if(!k.has(m)){var c=m.clone();if(clip){c.clippingPlanes=clip.planes;c.side=T.DoubleSide}k.set(m,c);made.push(c)}return k.get(m)};
    var near=function(o){var g=o.geometry;if(!g.boundingBox)g.computeBoundingBox();return g.boundingBox.clone().applyMatrix4(o.matrixWorld).distanceToPoint(C)<=R};
    // (each piece outlined in dark lines and drawn over the pale scheme: the node stands out, not blurred into the rest —
    // the engineer, 03.11.2026: «акцент можем больше сделать именно на узле что разбирается и собирается, а то как-то
@@ -12274,7 +12287,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    flight={from:controls.target.clone(),to:k.at.clone(),camFrom:camera.position.clone(),camTo:to,t:0,ms:850,st:performance.now()};invalidate()
   };
   root.querySelector("#irThreeStats").onchange=function(e){statsOn=e.target.checked;statsTimes=[];if(!statsOn)paintStats();invalidate(1100)};
-  root.querySelector("#irThreeBest").onchange=function(e){boltBest=e.target.checked;boltCells.forEach(function(c){c.shown=-2});invalidate()};
+  root.querySelector("#irThreeBest").onchange=function(e){boltBest=bestLook=e.target.checked;applyLook();boltCells.forEach(function(c){c.shown=-2});invalidate()};
   root.querySelector("#irThreeDetails").onchange=function(e){showDetails=e.target.checked;equipment.visible=showDetails;paintLegend();
    pedestals.forEach(function(m){m.visible=showDetails});rebatch()};
   function resize(){
@@ -12466,6 +12479,8 @@ window.irThreeSchemeView=(function irThreeModule(){
    // «это моргание в монтажной схеме меня раздражает»). A slow graphics card draws fewer pixels instead (goLight).
    var nowMs=performance.now();if(flight||held.size)movedAt=nowMs;
    bare=false;
+   // (materials of a new model or one taken from the disk — in the look of «Максимальное качество» on or off)
+   if(mats.size!==lookSize){lookSize=mats.size;applyLook()}
    renderer.render(scene,camera);drew=true;
    statsMs=performance.now()-frameAt;paintStats();if(statsOn)needUntil=Math.max(needUntil,performance.now()+1100);
    if(!firstPaint){firstPaint=true;P.onFirstPaint&&P.onFirstPaint()}

@@ -923,7 +923,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   // makes one from the drawings. They go under a work type of their own ("из PDF"), so that a register the engineer
   // loaded is never mixed with them; quantity is the larger of "Требуется" and the number placed, mass from the sheets.
   // Everything below is written in one transaction (src/ai-db-batch.js): all of it or nothing.
-  const createdMarks=[],enabled=[],movedMarks=[];let createdWork=null,previousGrid=null,created=0;const updated=[],removed=[],kept=[],keptEdited=[],missingNow=[],stillMissing=[],carried=[];
+  const createdMarks=[],createdNames=[],enabled=[],movedMarks=[];let createdWork=null,previousGrid=null,created=0;const updated=[],removed=[],kept=[],keptEdited=[],missingNow=[],stillMissing=[],carried=[];
   writes(database=>{
   const missing=payloads.filter(p=>!p.data.mark_id);
   if(missing.length){
@@ -960,7 +960,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
      project_code:wd.project_code||"",unit:"тн",mark:list[0].mark,name:list[0].data.mark_name||e.name||e.type_name||KIND_NAME[list[0].data.scheme_group]||KIND_NAME[list[0].geometry]||"",qty,unit_volume:unitT,total_value:Math.round(qty*unitT*1000)/1000,
      mounted:0,received:0,profile:cat?.profile||e.profile||"",length_mm:cat?.length_mm??null,mass_kg:cat?.mass_kg??null,...(vol?{volume:vol,note:"марка тома "+vol}:{}),ai_created:true,import_batch:batch}});
     if(!row)continue;
-    createdMarks.push(row.id);
+    createdMarks.push(row.id);createdNames.push({mark:list[0].mark,name:row.data.name||"",work:wd.work_type||AUTO_WORK,qty});
     for(const p of list){p.data.mark_id=String(row.id);p.data.work_type_id=String(work.id);p.data.mark_name=row.data.name}
    }
   }
@@ -1038,7 +1038,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   const byWork=[...perWork].map(([wid,count])=>({id:wid,name:wid?workName(wid):"без вида работ",count})).sort((a,b)=>b.count-a.count);
   const preliminary=payloads.filter(p=>p.data.preliminary).length,statuses={};for(const p of payloads)statuses[p.data.instance_status]=(statuses[p.data.instance_status]||0)+1;
   const result={batch,created,updated:updated.length-keptEdited.length-missingNow.length,removed:removed.length,keptMounted:kept.length,keptEdited:keptEdited.length,missing:missingNow.length+stillMissing.length,
-   preliminary,statuses,gridDiffs:gridDiffs.slice(0,40),linked,qtyDiffs:qtyDiffs.slice(0,200),marksCreated:createdMarks.length,marksMoved:movedMarks.length,notInRegister:notInRegister.length,notInRegisterMarks:[...new Set(notInRegister)].slice(0,100),removedByYou:removedByHim.length,removedByYouMarks:[...new Set(removedByHim)].slice(0,100),registerMissing:registerMissing.slice(0,200),workCreated:Boolean(createdWork),byWork,skippedCount:skipped.length,skipped:skipped.slice(0,300),gridMode,at:new Date().toISOString()};
+   preliminary,statuses,gridDiffs:gridDiffs.slice(0,40),linked,qtyDiffs:qtyDiffs.slice(0,200),marksCreated:createdMarks.length,marksCreatedList:createdNames.slice(0,60),marksMoved:movedMarks.length,notInRegister:notInRegister.length,notInRegisterMarks:[...new Set(notInRegister)].slice(0,100),removedByYou:removedByHim.length,removedByYouMarks:[...new Set(removedByHim)].slice(0,100),registerMissing:registerMissing.slice(0,200),workCreated:Boolean(createdWork),byWork,skippedCount:skipped.length,skipped:skipped.slice(0,300),gridMode,at:new Date().toISOString()};
   // What was placed, element by element: the engineer's later changes become corrections (src/ai-training.js).
   try{training?.recordPlacement?.(oid,{batch,draftId,source:data.source,carried})}catch(error){console.error("IR Project: training",error)}
   const after=draftRow(oid,draftId);

@@ -339,17 +339,35 @@ window.irAiRecognitionPage=async function(objectId){
   else if(busy==="place")body=wait("Расставляем элементы…");
   else if(placed){
    const gridText={created:"сетка осей создана",replaced:"сетка осей заменена",kept:"ваша сетка осей сохранена (она главная), элементы привязаны по названиям осей"}[placed.gridMode]||"";
-   body='<div class="ir-ms-card ok"><p>Новых элементов: <b>'+placed.created+'</b>'+(placed.updated?' · обновлено (координаты и отметки): <b>'+placed.updated+'</b>':'')+(placed.removed?' · удалено прежних: '+placed.removed:'')+
-    (placed.keptMounted?' · смонтированные оставлены: '+placed.keptMounted:'')+(placed.linked?' · с ведомостью связано '+placed.linked:'')+(placed.qtyDiffs?.length?' · <b>количество не как в ведомости программы</b> (она главнее): '+placed.qtyDiffs.slice(0,12).map(d=>esc(d.mark)+' — в ведомости '+d.register+', на схемах '+d.placed).join('; ')+(placed.qtyDiffs.length>12?' …':''):'')+(placed.marksCreated?' · в ведомость добавлено марок: '+placed.marksCreated+(placed.workCreated?' (вид работ «Монтаж металлоконструкций (из PDF)»)':''):'')+(placed.byWork?.length>1||placed.byWork?.[0]&&!placed.workCreated?' · по видам работ: '+placed.byWork.map(w=>'«'+esc(w.name)+'» '+w.count).join(', '):'')+' · '+esc(gridText)+(placed.skippedCount?' · пропущено '+placed.skippedCount:'')+'</p>'+
-    // Rules of 24.10.2026: nothing is deleted or overwritten — the engineer's changes stay, what the new reading lacks is
-    // marked; everything read is placed, the not fully determined pale («предварительно»).
-    (placed.keptEdited?'<p>Ваши правки оставлены: <b>'+placed.keptEdited+'</b> (новое чтение чертежей — в карточке элемента)</p>':'')+
-    // The register the engineer gave (31.10.2026): only its rows are placed, nothing is added to it.
-    (placed.notInRegister?'<p>Нет в вашей ведомости марок — не расставлено: <b>'+placed.notInRegister+'</b> ('+esc((placed.notInRegisterMarks||[]).slice(0,12).join(', '))+((placed.notInRegisterMarks||[]).length>12?'…':'')+'). Ведомость не изменена: расставляется только то, что в ней есть.</p>':'')+
-    (placed.registerMissing?.length?'<p class="ir-ms-error">Из вашей ведомости не найдено на чертежах: <b>'+placed.registerMissing.length+'</b> — '+esc(placed.registerMissing.slice(0,12).map(m=>m.mark+(m.qty?' ('+m.qty+' шт.)':'')).join('; '))+(placed.registerMissing.length>12?' …':'')+'</p>':'')+
-    (placed.missing?'<p>Нет в новом анализе: <b>'+placed.missing+'</b> — оставлены на схеме и помечены; удалите вручную, если конструкции нет</p>':'')+
-    (placed.preliminary?'<p>Предварительно (определены не полностью, на схеме бледные): <b>'+placed.preliminary+'</b>'+(placed.statuses?' · '+Object.entries(placed.statuses).map(([k,v])=>esc(({confirmed:"подтверждено",computed:"вычислено",partial:"частично",ambiguous:"неоднозначно",conflict:"конфликт",not_found:"нет в анализе"})[k]||k)+' '+v).join(', '):'')+'</p>':'')+
-    (placed.gridDiffs?.length?'<p class="ir-ms-error">Ваша сетка осей отличается от PDF: '+esc(placed.gridDiffs.slice(0,8).join('; '))+(placed.gridDiffs.length>8?'…':'')+'</p>':'')+'</div>'+
+   // The result in short lines and figures (the engineer, 13.11.2026, of the one paragraph before: «тут такая каша,
+   // ничего не понятно»): tiles of the figures, a line each for the rest, the long lists folded under a click.
+   const tile=(n,t,hint)=>'<div class="ir-ms-tile"'+(hint?' title="'+esc(hint)+'"':'')+'><b>'+n+'</b><span>'+esc(t)+'</span></div>';
+   const ST={confirmed:"подтверждено",computed:"вычислено",partial:"частично",ambiguous:"неоднозначно",conflict:"конфликт",not_found:"нет в анализе"};
+   const fold=(title,inner)=>'<details class="ir-ms-fold"><summary>'+title+'</summary>'+inner+'</details>';
+   const qd=placed.qtyDiffs||[],mc=placed.marksCreatedList||[];
+   body='<div class="ir-ms-card ok"><p class="ir-ms-head">Расстановка выполнена</p><div class="ir-ms-tiles">'+
+    tile(placed.created,"новых элементов")+
+    tile(placed.updated||0,"обновлено","поправлены координаты и отметки")+
+    (placed.linked?tile(placed.linked,"связано с ведомостью"):'')+
+    (placed.keptEdited?tile(placed.keptEdited,"ваших правок сохранено","новое чтение чертежей — в карточке элемента"):'')+
+    (placed.preliminary?tile(placed.preliminary,"предварительно","определены не полностью, на схеме бледные"):'')+
+    (placed.missing?tile(placed.missing,"нет в новом анализе","оставлены на схеме и помечены"):'')+
+    '</div>'+
+    (placed.statuses?'<p class="muted">Состояние элементов: '+Object.entries(placed.statuses).map(([k,v])=>esc(ST[k]||k)+' '+v).join(', ')+'</p>':'')+
+    (placed.byWork?.length?'<p>По видам работ: '+placed.byWork.map(w=>'«'+esc(w.name)+'» — '+w.count).join(', ')+'</p>':'')+
+    (gridText?'<p>Оси: '+esc(gridText)+'</p>':'')+
+    (placed.removed?'<p>Удалено прежних: '+placed.removed+'</p>':'')+(placed.keptMounted?'<p>Смонтированные оставлены: '+placed.keptMounted+'</p>':'')+
+    (placed.missing?'<p>Нет в новом анализе: <b>'+placed.missing+'</b> — оставлены на схеме и помечены. Если такой конструкции нет, удалите вручную.</p>':'')+
+    (placed.marksCreated?'<p>Новые строки ведомости: <b>'+placed.marksCreated+'</b> — только в видах работ, где своей ведомости у вас ещё не было'+(placed.workCreated?' (вид работ «Монтаж металлоконструкций (из PDF)»)':'')+'.</p>'+
+     (mc.length?fold('Какие марки добавлены',table(["Марка","Название","Вид работ","Шт."],mc.map(m=>'<tr><td>'+esc(m.mark)+'</td><td>'+esc(m.name)+'</td><td>'+esc(m.work)+'</td><td>'+(m.qty||"")+'</td></tr>'))):''):'')+
+    (placed.notInRegister?'<p>Нет в вашей ведомости — не расставлено: <b>'+placed.notInRegister+'</b>. Ведомость не изменена.</p>'+
+     ((placed.notInRegisterMarks||[]).length?fold('Какие марки',(placed.notInRegisterMarks||[]).map(esc).join(', ')):''):'')+
+    (qd.length?'<p><b>Количество не как в вашей ведомости: '+qd.length+(qd.length===1?' марка':qd.length<5?' марки':' марок')+'</b> (главная — ваша ведомость).</p>'+
+     fold('Показать по маркам',table(["Марка","В ведомости","На схемах"],qd.map(d=>'<tr><td>'+esc(d.mark)+'</td><td>'+d.register+'</td><td>'+d.placed+'</td></tr>'))):'')+
+    (placed.registerMissing?.length?'<p class="ir-ms-error">Из вашей ведомости не найдено на чертежах: <b>'+placed.registerMissing.length+'</b></p>'+
+     fold('Какие марки',table(["Марка","Шт."],placed.registerMissing.map(m=>'<tr><td>'+esc(m.mark)+'</td><td>'+(m.qty||"")+'</td></tr>'))):'')+
+    (placed.gridDiffs?.length?'<p class="ir-ms-error">Ваша сетка осей отличается от PDF: '+placed.gridDiffs.length+'</p>'+fold('Показать',esc(placed.gridDiffs.join('; '))):'')+
+    (placed.skippedCount?'<p class="muted">Пропущено элементов: '+placed.skippedCount+' — список ниже.</p>':'')+'</div>'+
     '<div class="ir-ms-row"><button class="primary" data-ms-open>Открыть монтажную схему</button><button data-ms-placeit '+(busy||!plan?.ready||!canEdit?'disabled':'')+'>Расставить заново</button><button data-ms-undo '+(busy||!canEdit?'disabled':'')+'>Отменить расстановку</button>'+clearButton()+'</div>'+
     skippedHtml(placed.skipped,placed.skippedCount)+editsCard()
   }else{
