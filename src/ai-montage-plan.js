@@ -1312,9 +1312,11 @@ let loose=0;
   // Sanitary fixtures of the plan (src/ai-ar-extract.js planFixtures: ИР-71535 АР ч.1 л.10, the washroom by О8 from its
   // fragment — 3 washbasins, 4 urinals, 4 toilets; the engineer, 13.11.2026 «Унитазы, раковины … что-то из этого есть?»):
   // each a line from its front to its back at the wall, its width across; on the floor. Not steel, not mounted.
-  {const names={toilet:"Унитаз",urinal:"Писсуар",washbasin:"Умывальник",sink:"Мойка"},count=new Map();
+  {const FIXTURES_PLACED=false,names={toilet:"Унитаз",urinal:"Писсуар",washbasin:"Умывальник",sink:"Мойка"},count=new Map();
    for(const p of ar){const fit=planFit.get(p);if(!fit)continue;
-    for(const o of p.ar.planFixtures||[]){const X=fit.fx.a+fit.fx.b*o.x,Y=fit.fy.a+fit.fy.b*o.y,ax=o.back[0]==="x";
+    // (not placed — the engineer, 13.11.2026: «убери унитазы, кабинки, раковины и тд, только стены, сэндвич, нащельники,
+    // двери, окна, перегородки»; read off the sheet as before, FIXTURES_PLACED)
+    for(const o of FIXTURES_PLACED?p.ar.planFixtures||[]:[]){const X=fit.fx.a+fit.fx.b*o.x,Y=fit.fy.a+fit.fy.b*o.y,ax=o.back[0]==="x";
      const sg=(o.back[1]==="+"?1:-1)*Math.sign(ax?fit.fx.b:fit.fy.b),hd=o.depth_mm/2;
      let f=ax?[X-sg*hd,Y]:[X,Y-sg*hd],b=ax?[X+sg*hd,Y]:[X,Y+sg*hd];
      // (not into the wall behind it: the wall of the plan drawn there — a partition along its back within 400 mm, its face
