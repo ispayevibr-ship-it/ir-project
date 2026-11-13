@@ -1085,7 +1085,7 @@ let loose=0;
    // (a door on the floor 10 mm into the panel over it — Д-3 of О10 up to +1,990, the panels from +1,980 —: that panel's hole too)
    // (… 5 mm into the panel beside it — the door of 1000 in an opening of 995 —: that panel's too)
    if(h1-h0<2||v1-v0<2)continue;
-   (p.layout.holes||(p.layout.holes=[])).push([Math.round(h0-lo),Math.round(h1-lo),Math.round(v0-pz0),Math.round(v1-pz0)])
+   const hl=[Math.round(h0-lo),Math.round(h1-lo),Math.round(v0-pz0),Math.round(v1-pz0)],hs=p.layout.holes||(p.layout.holes=[]);if(!hs.some(o=>o.every((v,i)=>v===hl[i])))hs.push(hl)
   }
  };
  if(facades.length){
@@ -1161,7 +1161,19 @@ let loose=0;
      if(had&&!partDoors.has(o)){const pu=fa.a+fa.b*(alongX?o.x:o.y),pl=fc.a+fc.b*o.wall[0],pt=alongX?[pu,pl]:[pl,pu];if(there.some(q=>Math.hypot(q[0]-pt[0],q[1]-pt[1])<=2500))continue;there.push(pt)}
      const mid=o.wall.length>1?(o.wall[0]+o.wall[1])/2:o.wall[0];let t=o.wall.length>1?Math.max(80,Math.round(Math.abs(o.wall[0]-o.wall[1])*Math.abs(fc.b))):120;
      const c=alongX?o.x:o.y,gap=(o.gaps||[]).map(g=>({g,w:(g[1]-g[0])*sc})).filter(q=>q.w>=f.width_mm-150&&q.w<=f.width_mm+400).sort((p,q)=>Math.abs((p.g[0]+p.g[1])/2-c)-Math.abs((q.g[0]+q.g[1])/2-c))[0];
-     const pd=partDoors.get(o),uc=pd?pd.uc:fa.a+fa.b*(gap?(gap.g[0]+gap.g[1])/2:c);let a=Math.round(uc-f.width_mm/2),line=pd?pd.line:Math.round(fc.a+fc.b*mid),z=pd?(pd.top!==null?Math.min(pd.top-f.height_mm,pd.floor+60):pd.floor):f.kind==="window"?900:0;
+     const pd=partDoors.get(o),uc=pd?pd.uc:fa.a+fa.b*(gap?(gap.g[0]+gap.g[1])/2:c);let a=Math.round(uc-f.width_mm/2),line=pd?pd.line:Math.round(fc.a+fc.b*mid),z=pd?(pd.top!==null?Math.min(pd.top-f.height_mm,pd.floor+60):pd.floor):f.kind==="window"&&!/^Вт/u.test(f.pos||"")?900:0;
+     // (its head at the foot of the wall panels over it starting a little under it — ВтА-1 of 2980 under Пс-97 from +2,900,
+     // the floor there −0,080: its head reveal went 80 mm into them)
+     {const hd=placements.filter(q=>q.type_key==="sandwich_wall"&&(alongX?q.y_mm===q.y2_mm:q.x_mm===q.x2_mm)&&Math.abs((alongX?q.y_mm:q.x_mm)-line)<=200&&
+       Math.min(Math.max(alongX?q.x_mm:q.y_mm,alongX?q.x2_mm:q.y2_mm),a+f.width_mm)-Math.max(Math.min(alongX?q.x_mm:q.y_mm,alongX?q.x2_mm:q.y2_mm),a)>=20&&q.z0_mm>z+300&&q.z0_mm<z+f.height_mm&&q.z0_mm>=z+f.height_mm-150).map(q=>q.z0_mm);
+      if(hd.length)z=Math.min(...hd)-f.height_mm;
+      // (and clear of a panel of that wall standing whole beside it — ВтА-1 read 674 mm into Пс-96 by its label: along to its edge, up to 1 m)
+      if(hd.length){const span=q=>{const u=alongX?[q.x_mm,q.x2_mm]:[q.y_mm,q.y2_mm];return[Math.min(...u),Math.max(...u)]};
+       const whole=placements.filter(q=>q.type_key==="sandwich_wall"&&(alongX?q.y_mm===q.y2_mm:q.x_mm===q.x2_mm)&&Math.abs((alongX?q.y_mm:q.x_mm)-line)<=200&&q.z0_mm<=z+100&&q.z0_mm+q.diameter_mm>=z+f.height_mm-100).map(span);
+       for(const [lo,hi] of whole){const b=a+f.width_mm;if(lo<b&&hi>b&&lo>a&&b-lo<=1000)a=lo-f.width_mm;else if(hi>a&&lo<a&&hi<b&&hi-a<=1000)a=hi}
+       // (the panels of that wall over the opening and beside it — their holes for it, as in a wall of a facade)
+       const mine=placements.filter(q=>q.type_key==="sandwich_wall"&&(alongX?q.y_mm===q.y2_mm:q.x_mm===q.x2_mm)&&Math.abs((alongX?q.y_mm:q.x_mm)-line)<=200&&(()=>{const [lo,hi]=span(q);return Math.min(hi,a+f.width_mm)-Math.max(lo,a)>=5})()&&q.z0_mm<z+f.height_mm);
+       if(mine.length)cutHoles(alongX,a,a+f.width_mm,z,z+f.height_mm,mine)}}
      // (the hatched wall of the plan whose end meets the gap — ИР-71535 АР ч.1 л.10 В-5 by a dimension line 0,7 m off the wall,
      // В-7 by its sliding leaf drawn beside the wall 0,2 m off; the engineer, 13.11.2026 «двери чуть вперед вытащить надо»,
      // «здесь явно тоже не правильно стоит»: the line nearest the label is not always the wall's. The opening goes on the
@@ -1173,7 +1185,11 @@ let loose=0;
      let inWall=null;
      if(!pd){const own=placements.filter(q=>q.type_key==="sandwich_wall"&&(alongX?q.y_mm===q.y2_mm:q.x_mm===q.x2_mm)&&Math.abs((alongX?q.y_mm:q.x_mm)-line)<=400&&
        Math.min(Math.max(alongX?q.x_mm:q.y_mm,alongX?q.x2_mm:q.y2_mm),a+f.width_mm)-Math.max(Math.min(alongX?q.x_mm:q.y_mm,alongX?q.x2_mm:q.y2_mm),a)>=20&&q.z0_mm<=z+f.height_mm-200&&q.z0_mm+q.diameter_mm>=z+200);
-      if(own.length){inWall=own;line=alongX?own[0].y_mm:own[0].x_mm;const foot=Math.min(...own.map(q=>q.z0_mm));if(z<foot&&foot-z<=150)z=foot;cutHoles(alongX,a,a+f.width_mm,z,z+f.height_mm,own)}}
+      if(own.length){inWall=own;line=alongX?own[0].y_mm:own[0].x_mm;const foot=Math.min(...own.map(q=>q.z0_mm));if(z<foot&&foot-z<=150)z=foot;
+       // (its head at the foot of the panels over it when they start a little under it — ВтА-1 of 2980 under Пс-97 from
+       // +2,900 on the floor of −0,080 by О9: its head reveal went 80 mm into them)
+       {const ab=own.filter(q=>q.z0_mm>z+300&&q.z0_mm<z+f.height_mm&&q.z0_mm>=z+f.height_mm-150).map(q=>q.z0_mm);if(ab.length&&Math.min(...ab)-f.height_mm>=foot-150)z=Math.min(...ab)-f.height_mm}
+       cutHoles(alongX,a,a+f.width_mm,z,z+f.height_mm,own)}}
      // (under panels that start a little under its head — Д-1 of 2100 in the masonry under Пс-1 from +2,020 on О8: the
      // floor there is under 0,000, the door down so that its head is at their foot; the panels within 0,9 m across —
      // the 3D moves them onto their girts)
@@ -1187,7 +1203,7 @@ let loose=0;
      // (the door of a partition put by its view: in the wall of panels like a door of a facade — not «plan»)
      fillOf(f,alongX,false,a,a+f.width_mm,z,{line,layout:{thickness_mm:pd?120:inWall?(inWall[0].layout.thickness_mm||120):t},axis_x:"",axis_y:"",...(pd||inWall?{}:{plan:true})},{sheet:p.pdfPage||p.page,page:p.page,file:p.sourceName||""},
       ["План АР, лист "+(p.pdfPage||p.page)+": "+f.pos+" "+f.width_mm+"×"+f.height_mm+" ("+f.name+") — внутренний, в перегородке"+(gap?", по проёму стены":", у надписи — проём на плане не найден, проверьте"),
-       ...(f.kind==="window"?["Низ окна на +0,900 — на плане отметки нет, проверьте"]:[])],false);
+       ...(f.kind==="window"&&!/^Вт/u.test(f.pos||"")?["Низ окна на +0,900 — на плане отметки нет, проверьте"]:/^Вт/u.test(f.pos||"")?["Витраж с дверью — от пола (ведомость заполнения проёмов АР)"]:[])],false);
      // (the wall of the plan it stands in — planOpenings `run` —, where no panels of ours stand on that line)
      if(!pd&&!inWall&&o.run){const r0=fa.a+fa.b*o.run[0],r1=fa.a+fa.b*o.run[1];
       planWalls.push({alongX,line,a:Math.round(Math.min(r0,r1,a)),b:Math.round(Math.max(r0,r1,a+f.width_mm)),t:Math.min(400,Math.max(100,t)),hole:[a,a+f.width_mm,z,z+f.height_mm],mark:f.pos,sheet:p.pdfPage||p.page,page:p.page,file:p.sourceName||""})}
@@ -1402,7 +1418,9 @@ let loose=0;
 function arTrims(placements,spec=[],nodes=[],sketches=new Map()){
  const out=[],warnings=[],R=Math.round,num=v=>Number(v)||0;
  const KIND={corner:["trim_corner","Нащельник угловой"],plinth:["trim_plinth","Отлив цокольный"],reveal:["trim_opening","Откос проёма"],sill:["trim_sill","Отлив оконный"],
-  foot:["trim_start","Уголок низа перегородки"],ridge:["trim_ridge","Коньковый элемент"],gable:["trim_gable","Торцевая планка кровли"],abutment:["trim_abutment","Примыкание кровли к стене"]};
+  foot:["trim_start","Уголок низа перегородки"],ridge:["trim_ridge","Коньковый элемент"],gable:["trim_gable","Торцевая планка кровли"],abutment:["trim_abutment","Примыкание кровли к стене"],
+  tier:["trim_joint","Нащельник стыка ярусов стены"],eave:["trim_eaves","Карнизный стыковочный элемент"],cap:["trim_parapet","Накрывка парапета"],support:["trim_sill","Опорный элемент окна"],
+  existing:["trim_abutment","Примыкание к существующему зданию"],gutter:["trim_parapet","Накрывка парапета у внутреннего желоба"]};
  // (the positions of the АР of a kind by their names: «Угловой элемент», «Отлив», «Откос», «Стыковочный элемент», «Нащельник»)
  const {trimKind}=require("./ai-ar-extract");
  const posOf=kinds=>spec.filter(t=>t.unit==="шт"&&kinds.includes(trimKind(t.name)));
@@ -1427,12 +1445,24 @@ function arTrims(placements,spec=[],nodes=[],sketches=new Map()){
   ridge:pick("ridge",["joint"],n=>has(n,"roof","two_slopes")),
   foot:spec.filter(t=>trimKind(t.name)==="angle"),
   gable:NN.length?pick("gable",["corner"],n=>has(n,"roof","wall")&&none(n,"parapet","eave","two_slopes","existing","concrete")):posOf(["corner","joint","cap"]),
-  abutment:NN.length?pick("abutment",["corner","parapet","joint"],n=>has(n,"roof")&&!none(n,"parapet","existing","concrete")):posOf(["corner"])};
+  abutment:NN.length?pick("abutment",["corner","parapet","joint"],n=>has(n,"roof")&&!none(n,"parapet","existing","concrete")):posOf(["corner"]),
+  // (the horizontal joint of two panels one over another — узел 23 «Срез стеновой панели», поз. 31 нащельник; the eave
+  // of a roof over a wall with an outer gutter — узел 26, поз. 33, 34; the top of a wall rising over its roof — узел 30,
+  // поз. 38 накрывка парапета; our wall or roof against the panels of the existing building — узлы 31, 32, поз. 41, 42,
+  // 46; under and over a window on the girt — узлы 20, 21, поз. 29 опорный элемент, a strip −1000×230×5 by the metre)
+  tier:pick("tier",["joint"],n=>has(n,"wall")&&none(n,"roof","eave","window","existing","concrete","gate")),
+  eave:pick("eave",["joint"],n=>has(n,"eave")&&none(n,"two_slopes"),n=>has(n,"concrete")),
+  cap:pick("cap",["parapet"],n=>has(n,"parapet")),
+  existing:pick("existing",["joint","cap","corner"],n=>has(n,"existing")),
+  support:spec.filter(t=>trimKind(t.name)==="support"&&/окн/u.test(t.name)),
+  // (the eave of the high roof behind the low parapet of its wall — узел 41 АР ч.1 л.7: накрывка парапета, отлив, the
+  // inner gutter and its frame, поз. 58–61, of the sheet of the gutters)
+  gutter:(()=>{const g=spec.filter(t=>/^gutter/.test(trimKind(t.name)||"")),sh=new Set(g.map(t=>t.sheet));return[...spec.filter(t=>sh.has(t.sheet)&&["parapet","sill"].includes(trimKind(t.name))&&!g.includes(t)),...g]})()};
  // (the node of roof and wall panels with the most pieces is the free edge of the roof — the others of them are the roof
  // against a wall going on up: ИР-71535 поз. 37, 83 шт., узел 29 and поз. 40, 21 шт., узел 30)
  if(tied.gable&&POS.gable.length>1){const top=[...POS.gable].sort((p,q)=>q.count-p.count)[0],rest=POS.gable.filter(t=>t!==top);POS.gable=[top];
   for(const t of rest)if(!POS.abutment.includes(t)){POS.abutment.push(t);nodeOf["abutment:"+t.pos]=nodeOf["gable:"+t.pos];tied.abutment=true}}
- const posNote=k=>{const l=POS[k];if(k==="foot"){const t=l[0],n=NN.filter(n=>n.pos.includes(t.pos));return"По спецификации АР — поз. "+t.pos+" «"+t.name+"» "+String(t.count).replace(".",",")+" "+(t.unit==="шт"?"шт.":"п.м")+(n.length?" (уз"+(n.length>1?"лы ":"ел ")+n.map(n=>n.node).join(", ")+")":"")}if(!l.length)return"Позиции нащельников в спецификациях АР не найдены — показан по стыку панелей";
+ const posNote=k=>{const l=POS[k];if(k==="foot"||k==="support"&&l.length&&l[0].unit!=="шт"){const t=l[0],n=NN.filter(n=>n.pos.includes(t.pos));return"По спецификации АР — поз. "+t.pos+" «"+t.name+"» "+String(t.count).replace(".",",")+" "+(t.unit==="шт"?"шт.":"п.м")+(n.length?" (уз"+(n.length>1?"лы ":"ел ")+n.map(n=>n.node).join(", ")+")":"")}if(!l.length)return"Позиции нащельников в спецификациях АР не найдены — показан по стыку панелей";
   const nd=t=>{const a=nodeOf[k+":"+t.pos]||[];return a.length?" (уз"+(a.length>1?"лы ":"ел ")+[...new Set(a.map(n=>n.node))].join(", ")+(a[0].sheet?", лист "+[...new Set(a.map(n=>n.sheet))].join(", "):"")+")":""};
   return(tied[k]?"По узлам АР — ":"По спецификациям АР — ")+l.map(t=>"поз. "+t.pos+(t.name?" «"+t.name.replace(/\s+из\s+оцинкован\S*\s+кровельн\S*\s+стали\s*\.?/u,"")+"»":"")+nd(t)+" "+t.count+" шт. по "+R((t.length_mm||2000)/1000)+" м").join(", ")+(tied[k]||k==="reveal"&&rev.length?"":"; узел АР для этого места не найден — проверьте позицию")};
  // (the sketch of the first position of its kind that has one: legs and bends of the flashing as drawn)
@@ -1448,6 +1478,9 @@ function arTrims(placements,spec=[],nodes=[],sketches=new Map()){
  // Walls: runs of panels on one line, one side.
  const walls=placements.filter(p=>p.type_key==="sandwich_wall"&&p.side&&!p.layout?.existing).map(p=>{const x=p.y_mm===p.y2_mm;
   return{p,x,line:x?p.y_mm:p.x_mm,a:Math.min(x?p.x_mm:p.y_mm,x?p.x2_mm:p.y2_mm),b:Math.max(x?p.x_mm:p.y_mm,x?p.x2_mm:p.y2_mm),z0:num(p.z0_mm),z1:num(p.z0_mm)+num(p.diameter_mm),t:num(p.layout?.thickness_mm)||150,side:p.side,ral:p.layout?.ral||""}});
+ // (the panels on the walls of the existing building beside — their own layouts, «по фасаду 3-1»)
+ const EW=placements.filter(p=>p.type_key==="sandwich_wall"&&p.layout?.existing).map(p=>{const x=p.y_mm===p.y2_mm;
+  return{x,line:x?p.y_mm:p.x_mm,a:Math.min(x?p.x_mm:p.y_mm,x?p.x2_mm:p.y2_mm),b:Math.max(x?p.x_mm:p.y_mm,x?p.x2_mm:p.y2_mm),z0:num(p.z0_mm),z1:num(p.z0_mm)+num(p.diameter_mm),t:num(p.layout?.thickness_mm)||120,existing:true}});
  const groups=new Map();for(const w of walls){const k=(w.x?"x":"y")+R(w.line/10)+":"+w.side;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(w)}
  const runs=[];
  for(const list of groups.values()){list.sort((p,q)=>p.a-q.a);let cur=null;
@@ -1526,7 +1559,7 @@ function arTrims(placements,spec=[],nodes=[],sketches=new Map()){
  const roofs=placements.filter(p=>p.type_key==="sandwich_roof").map(p=>{const S=[num(p.x_mm),num(p.y_mm),num(p.z0_mm)],E=[num(p.x2_mm),num(p.y2_mm),num(p.z1_mm)];
   const [H,L]=E[2]>=S[2]?[E,S]:[S,E],hl=Math.hypot(L[0]-H[0],L[1]-H[1])||1,d=[(L[0]-H[0])/hl,(L[1]-H[1])/hl];
   return{p,H,L,d,u:[-d[1],d[0]],dz:(L[2]-H[2])/hl,w:num(p.layout?.width_mm)||num(p.diameter_mm)||1000,t:num(p.layout?.thickness_mm)||150,ral:p.layout?.ral||""}});
- const merge=new Map();let ridge=0,gable=0,abut=0;
+ const merge=new Map();let ridge=0,gable=0,abut=0,exist=0;
  const keep=(kind,key,dir,from,to,z,legs,ral,note)=>{if(!merge.has(key))merge.set(key,{kind,dir,list:[],z,legs,ral,note});merge.get(key).list.push([from,to])};
  for(let i=0;i<roofs.length;i++){const p=roofs[i];
   for(let j=i+1;j<roofs.length;j++){const q=roofs[j];
@@ -1541,16 +1574,21 @@ function arTrims(placements,spec=[],nodes=[],sketches=new Map()){
   for(const s of [1,-1]){
    const mid=[(p.H[0]+p.L[0])/2,(p.H[1]+p.L[1])/2];
    const beside=roofs.some(q=>q!==p&&p.d[0]*q.d[0]+p.d[1]*q.d[1]>.98&&(()=>{const qm=[(q.H[0]+q.L[0])/2,(q.H[1]+q.L[1])/2],o=(qm[0]-mid[0])*p.u[0]+(qm[1]-mid[1])*p.u[1],a=(qm[0]-mid[0])*p.d[0]+(qm[1]-mid[1])*p.d[1];
-    return o*s>0&&Math.abs(Math.abs(o)-(p.w+q.w)/2)<=150&&Math.abs(a)<Math.hypot(p.L[0]-p.H[0],p.L[1]-p.H[1])})());
+    // (one roof by its height too: the annex О1–О3 beside the high roof at О3 is 2,5 m lower — a step, not a neighbour)
+    return o*s>0&&Math.abs(Math.abs(o)-(p.w+q.w)/2)<=150&&Math.abs(a)<Math.hypot(p.L[0]-p.H[0],p.L[1]-p.H[1])&&Math.abs((q.H[2]+q.L[2])/2-(p.H[2]+p.L[2])/2)<=600})());
    if(beside)continue;
    const e=[mid[0]+p.u[0]*s*p.w/2,mid[1]+p.u[1]*s*p.w/2],hl=Math.hypot(p.L[0]-p.H[0],p.L[1]-p.H[1]);
    // a wall along the edge rising over the roof there: the roof abuts it
-   const zm=(p.H[2]+p.L[2])/2+p.t,wall=walls.some(w=>{const along=w.x?[1,0]:[0,1];if(Math.abs(along[0]*p.d[0]+along[1]*p.d[1])<.98)return false;
-    const off=w.x?e[1]:e[0];if(Math.abs(w.line-off)>w.t/2+400)return false;const u=w.x?e[0]:e[1];return w.a<=u+hl/2&&w.b>=u-hl/2&&w.z1>zm+200&&w.z0<zm});
-   const off=e[0]*p.u[0]+e[1]*p.u[1],kind=wall?"abutment":"gable",key=kind+R(Math.atan2(Math.abs(p.d[1]),Math.abs(p.d[0]))*100)+":"+R(off/50)+":"+s;
+   const zm=(p.H[2]+p.L[2])/2+p.t,wall=[...walls,...EW].find(w=>{const along=w.x?[1,0]:[0,1];if(Math.abs(along[0]*p.d[0]+along[1]*p.d[1])<.98)return false;
+    const off=w.x?e[1]:e[0];if(Math.abs(w.line-off)>w.t/2+1300)return false;const u=w.x?e[0]:e[1];const top=Array.isArray(w.p?.layout?.top)?Math.max(...w.p.layout.top.map(num)):w.z1;if(!(w.a<=u+hl/2&&w.b>=u-hl/2))return false;
+    // (the roof's own height at the panel of the wall, not its middle: the gable of the high roof under its slope is no wall over it)
+    const mid=Math.max(w.a,Math.min(w.b,u)),hc=w.x?p.H[0]:p.H[1],da=w.x?p.d[0]:p.d[1],at=Math.max(0,Math.min(hl,(((w.a+w.b)/2)-hc)*da)),zr=p.H[2]+p.dz*at+p.t;
+    return mid!=null&&top>zr+200&&w.z0<zr+800});
+   // (a wall over the roof only from its top up — the step at О3 over the annex: its panels stand on the roof)
+   const off=e[0]*p.u[0]+e[1]*p.u[1],kind=wall?(wall.existing&&POS.existing.length?"existing":"abutment"):"gable",key=kind+R(Math.atan2(Math.abs(p.d[1]),Math.abs(p.d[0]))*100)+":"+R(off/50)+":"+s;
    const legs=wall?[[0,0,1,150],[-p.u[0]*s,-p.u[1]*s,0,120]]:[[0,0,-1,150],[-p.u[0]*s,-p.u[1]*s,0,120]];
    const a0=p.H[0]*p.d[0]+p.H[1]*p.d[1],a1=p.L[0]*p.d[0]+p.L[1]*p.d[1];
-   keep(kind,key,p.d,Math.min(a0,a1),Math.max(a0,a1),null,legs,p.ral,wall?"Край кровли у стены, поднимающейся над ней — по раскладкам панелей АР":"Свободный край кровли — по раскладке кровельных панелей АР");
+   keep(kind,key,p.d,Math.min(a0,a1),Math.max(a0,a1),null,legs,p.ral,kind==="existing"?"Край кровли у стены существующего здания — по раскладкам АР":wall?"Край кровли у стены, поднимающейся над ней — по раскладкам панелей АР":"Свободный край кровли — по раскладке кровельных панелей АР");
    const m=merge.get(key);(m.ends||(m.ends=[])).push({p,s,e,off})}}
  for(const m of merge.values()){m.list.sort((a,b)=>a[0]-b[0]);const segs=[];for(const [a,b] of m.list){const l=segs.at(-1);if(l&&a-l[1]<=100)l[1]=Math.max(l[1],b);else segs.push([a,b])}
   for(const [a,b] of segs){
@@ -1558,9 +1596,69 @@ function arTrims(placements,spec=[],nodes=[],sketches=new Map()){
     ridge+=add("ridge",m.ral,[c[0]+u[0]*a,c[1]+u[1]*a,m.z],[c[0]+u[0]*b,c[1]+u[1]*b,m.z],m.legs,m.note)||0}
    else{const pe=m.ends.filter(x=>{const a0=x.p.H[0]*x.p.d[0]+x.p.H[1]*x.p.d[1],a1=x.p.L[0]*x.p.d[0]+x.p.L[1]*x.p.d[1];return Math.min(a0,a1)>=a-1&&Math.max(a0,a1)<=b+1});
     for(const x of pe){const p=x.p,lift=p.t+2,A=[p.H[0]+p.u[0]*x.s*p.w/2,p.H[1]+p.u[1]*x.s*p.w/2,p.H[2]+lift],B=[p.L[0]+p.u[0]*x.s*p.w/2,p.L[1]+p.u[1]*x.s*p.w/2,p.L[2]+lift];
-     const l=add(m.kind,m.ral,A,B,m.legs,m.note)||0;if(m.kind==="gable")gable+=l;else abut+=l}}}}
+     const l=add(m.kind,m.ral,A,B,m.legs,m.note)||0;if(m.kind==="gable")gable+=l;else if(m.kind==="existing")exist+=l;else abut+=l}}}}
+ // (the 2D extras of the walls and roofs: where a point of the plan lies on a roof and how high its top is there)
+ const roofAt=(x,y,pad)=>{let z=null;for(const r of roofs){const v=[x-r.H[0],y-r.H[1]],a=v[0]*r.d[0]+v[1]*r.d[1],o=v[0]*r.u[0]+v[1]*r.u[1],hl=Math.hypot(r.L[0]-r.H[0],r.L[1]-r.H[1]);
+  if(a<-pad||a>hl+pad||Math.abs(o)>r.w/2+pad)continue;const zz=r.H[2]+r.dz*Math.max(0,Math.min(hl,a))+r.t;if(z==null||zz>z)z=zz}return z};
+ const flat=w=>!w.p.layout?.top&&!w.p.layout?.cut;
+ // Tiers: a panel standing on the top of another in the same column — a нащельник along the joint on the outer face.
+ let tier=0;
+ if(POS.tier.length){const segs=new Map();
+  for(const w of walls){if(!flat(w))continue;const up=walls.find(q=>q!==w&&q.x===w.x&&q.side===w.side&&Math.abs(q.line-w.line)<=30&&Math.abs(q.z0-w.z1)<=80&&Math.min(q.b,w.b)-Math.max(q.a,w.a)>=.5*Math.min(q.b-q.a,w.b-w.a));if(!up)continue;
+   const k=(w.x?"x":"y")+R(w.line/20)+":"+w.side+":"+R(w.z1/40);if(!segs.has(k))segs.set(k,{w,z:w.z1,list:[]});segs.get(k).list.push([Math.max(w.a,up.a),Math.min(w.b,up.b)])}
+  for(const g of segs.values()){g.list.sort((p,q)=>p[0]-q[0]);const m=[];for(const [a,b] of g.list){const l=m.at(-1);if(l&&a-l[1]<=80)l[1]=Math.max(l[1],b);else m.push([a,b])}
+   const w=g.w,f=w.line+w.side*(w.t/2+2),n=w.x?[0,w.side,0]:[w.side,0,0];
+   for(const [a,b] of m)tier+=add("tier",w.ral,w.x?[a,f,g.z]:[f,a,g.z],w.x?[b,f,g.z]:[f,b,g.z],[[0,0,1,140],[...n,30]],"Стык ярусов стеновых панелей на "+R(g.z)+" — по раскладке АР")||0}}
+ // Eaves and roof ends: the low end of a roof over a wall stopping under it — the eave; an end of a roof at a wall rising
+ // over it — the roof against the wall (узлы 30, 36), at the panels of the existing building — its junction.
+ let eave=0,gut=0;const ewalls=EW;
+ {const ends=new Map();
+  for(const r of roofs){const hl=Math.hypot(r.L[0]-r.H[0],r.L[1]-r.H[1]);if(Math.abs(r.d[0])>.2&&Math.abs(r.d[1])>.2)continue;
+   for(const [E,sg] of [[r.H,-1],[r.L,1]]){const ez=E[2],along=Math.abs(r.d[0])>.5?"y":"x";
+    // (the walls across the slope: along X when the roof falls along Y)
+    const cand=[...walls,...ewalls].filter(w=>(w.x?"x":"y")===along).map(w=>{const ec=w.x?E[1]:E[0],uc=w.x?E[0]:E[1],past=(ec-w.line)*sg*(Math.abs(r.d[0])>.5?Math.sign(r.d[0]):Math.sign(r.d[1]));
+     return{w,past,cov:Math.min(w.b,uc+r.w/2)-Math.max(w.a,uc-r.w/2)}}).filter(c=>c.cov>=.5*r.w&&c.past>=-(c.w.t/2+1000)&&c.past<=900);
+    const hi=cand.filter(c=>c.w.z1>ez+r.t+300&&c.w.z0<ez+r.t+800&&c.past<=c.w.t/2+1000).sort((p,q)=>Math.abs(p.past)-Math.abs(q.past))[0];
+    const lo=sg>0&&!hi?cand.filter(c=>c.w.z1<=ez+200&&c.w.z1>=ez-900&&!c.w.existing).sort((p,q)=>Math.abs(p.past)-Math.abs(q.past))[0]:null;
+    const c=hi||lo;if(!c)continue;const kind=hi?(c.w.existing?"existing":"abutment"):c.w.z1>=ez-200&&ez>10000?"gutter":"eave";if(!POS[kind].length&&kind!=="abutment")continue;
+    if(kind==="gutter"){const key="g:"+(c.w.x?"x":"y")+R(c.w.line/100)+":"+R(ez/500);if(!ends.has(key))ends.set(key,{kind,z:c.w.z1+2,E:c.w.x?[0,c.w.line]:[c.w.line,0],r,w:c.w,list:[]});
+     const C=c.w.x?E[0]:E[1];ends.get(key).list.push([C-r.w/2,C+r.w/2]);continue}
+    const lift=kind==="eave"?0:r.t+2,dirIn=[-r.d[0]*sg,-r.d[1]*sg],uc=Math.abs(r.u[0])>.5?0:1,key=kind+":"+(c.w.x?"x":"y")+R(c.w.line/20)+":"+R((ez+lift)/40)+":"+sg;
+    if(!ends.has(key))ends.set(key,{kind,z:ez+lift,E,r,sg,dirIn,list:[]});const C=E[uc];ends.get(key).list.push([C-r.w/2,C+r.w/2])}}
+  for(const g of ends.values()){g.list.sort((p,q)=>p[0]-q[0]);const m=[];for(const [a,b] of g.list){const l=m.at(-1);if(l&&a-l[1]<=150)l[1]=Math.max(l[1],b);else m.push([a,b])}
+   const uc=g.w?(g.w.x?0:1):Math.abs(g.r.u[0])>.5?0:1,P=(v)=>uc===0?[v,g.E[1],g.z]:[g.E[0],v,g.z];
+   if(g.kind==="gutter"){const w=g.w,lg=w.x?[[0,1,0,w.t/2+60],[0,-1,0,w.t/2+60]]:[[1,0,0,w.t/2+60],[-1,0,0,w.t/2+60]];
+    for(const [a,b] of m)gut+=add("gutter",w.ral,P(a),P(b),lg,"Карниз высокой кровли за парапетом стены — внутренний желоб по узлу 41 АР (желоб в 3D — по стене и концу кровли)")||0;continue}
+   const legs=g.kind==="eave"?[[0,0,-1,100],[-g.dirIn[0],-g.dirIn[1],0,100]]:[[0,0,1,150],[g.dirIn[0],g.dirIn[1],0,150]];
+   const note=g.kind==="eave"?"Карниз кровли над стеной — по раскладкам панелей АР, узел с наружным водостоком":g.kind==="existing"?"Конец кровли у стены существующего здания — по раскладкам АР":"Конец кровли у стены, поднимающейся над ней — по раскладкам панелей АР";
+   for(const [a,b] of m){const l=add(g.kind,g.r.ral,P(a),P(b),legs,note)||0;if(g.kind==="eave")eave+=l;else if(g.kind==="existing")exist+=l;else abut+=l}}}
+ // Our wall ending at the panels of the existing building (узел 31) — a нащельник up the joint.
+ if(POS.existing.length)for(const r of runs)for(const [e,k] of [[r.a,0],[r.b,1]]){if(r.ends[k]!=null)continue;
+  const ex=ewalls.find(w=>w.x!==r.x&&Math.abs(w.line-e)<=w.t/2+400&&w.a-200<=r.line&&w.b+200>=r.line);if(!ex)continue;
+  const near=r.panels.filter(w=>Math.min(Math.abs(w.a-e),Math.abs(w.b-e))<=1200),z0=Math.min(...near.map(w=>w.z0)),z1=Math.max(...near.map(w=>w.z1)),f=face(r);
+  const at=z=>r.x?[e,f,z]:[f,e,z],al=r.x?[k?1:-1,0,0]:[0,k?1:-1,0],n=r.x?[0,r.side,0]:[r.side,0,0];
+  exist+=add("existing",r.panels[0].ral,at(z0),at(z1),[[...n,30],[...al,160]],"Конец стены у панелей существующего здания — по раскладкам АР")||0}
+ // The free top of a wall — no panel over it, no roof over it: the накрывка (парапет).
+ let cap=0;
+ if(POS.cap.length){const segs=new Map();
+  for(const w of walls){if(!flat(w))continue;if(walls.some(q=>q!==w&&q.x===w.x&&Math.abs(q.line-w.line)<=30&&Math.abs(q.z0-w.z1)<=150&&Math.min(q.b,w.b)-Math.max(q.a,w.a)>100))continue;
+   const m=(w.a+w.b)/2,pt=w.x?[m,w.line]:[w.line,m],rz=roofAt(pt[0],pt[1],w.t+300);if(rz!=null&&rz>=w.z1-400)continue;
+   // (and no roof running up to it on either side lower down: a wall over nothing is a fence, not a parapet)
+   const side=s=>{const q=w.x?[m,w.line+s*600]:[w.line+s*600,m],z=roofAt(q[0],q[1],50);return z!=null&&z<w.z1&&z>w.z1-3000};if(!side(1)&&!side(-1))continue;
+   const k=(w.x?"x":"y")+R(w.line/20)+":"+R(w.z1/40);if(!segs.has(k))segs.set(k,{w,list:[]});segs.get(k).list.push([w.a,w.b])}
+  for(const g of segs.values()){g.list.sort((p,q)=>p[0]-q[0]);const m=[];for(const [a,b] of g.list){const l=m.at(-1);if(l&&a-l[1]<=80)l[1]=Math.max(l[1],b);else m.push([a,b])}
+   const w=g.w,z=w.z1+2;for(const [a,b] of m)cap+=add("cap",w.ral,w.x?[a,w.line,z]:[w.line,a,z],w.x?[b,w.line,z]:[w.line,b,z],(w.x?[[0,1,0,w.t/2+40],[0,-1,0,w.t/2+40]]:[[1,0,0,w.t/2+40],[-1,0,0,w.t/2+40]]),"Верх стены над кровлей — накрывка парапета по узлу АР")||0}}
+ // The strip under and over a window on the girt (поз. 29 — п.м).
+ // (drawn as a note of the отлив of its window: a strip 5 mm in the wall under the frame, inside the girt — not apart in 3D)
+ let support=0;const supNote=POS.support.length?" и опорный элемент поз. "+POS.support[0].pos+" — полоса "+(/[−-]\s*\d+\s*[хx×]\s*\d+\s*[хx×]\s*\d+/u.exec(POS.support[0].name||"")||["−1000×230×5"])[0]+" по низу и верху окна, к ригелю":"";
+ for(const p of out)if(p.layout.trim==="sill"&&p.opening&&supNote){p.notes.push("По узлам 20, 21 АР"+supNote);support+=2*p.layout.length_mm}
+ if(false)for(const o of placements.filter(p=>p.type_key==="window")){const x=o.y_mm===o.y2_mm,line=x?o.y_mm:o.x_mm,a=Math.min(x?o.x_mm:o.y_mm,x?o.x2_mm:o.y2_mm),b=Math.max(x?o.x_mm:o.y_mm,x?o.x2_mm:o.y2_mm);
+  const r=runs.find(r=>r.x===x&&Math.abs(r.line-line)<=5&&a>=r.a-100&&b<=r.b+100)||runs.find(r=>r.x===x&&Math.abs(r.line-line)<=300&&Math.min(r.b,b)-Math.max(r.a,a)>0);if(!r)continue;// (inside the inner face of the panels, on the girt: the panels under and over the window come up to it)
+  const n=x?[0,-r.side,0]:[-r.side,0,0],z=num(o.z0_mm),h=num(o.diameter_mm),f=r.line-r.side*(r.t/2+2);
+  const at=(u,zz)=>x?[u,f,zz]:[f,u,zz];
+  for(const zz of [z,z+h])support+=add("support","",at(a,zz),at(b,zz),[[...n,230],[0,0,zz>z?-1:1,5]],"Опорный элемент окна "+o.mark+" — полоса к ригелю, по узлам АР",{opening:o.mark})||0}
  const sum=(k,v)=>v?KIND[k][1]+" "+(v/1000).toFixed(1)+" м":"";
- const placed={corner:out.filter(p=>p.type_key==="trim_corner").reduce((t,p)=>t+p.layout.length_mm,0),plinth,foot,reveal,sill:sills,ridge,gable,abutment:abut};
+ const placed={corner:out.filter(p=>p.type_key==="trim_corner").reduce((t,p)=>t+p.layout.length_mm,0),plinth,foot,reveal,sill:sills,ridge,gable,abutment:abut,tier,eave,cap,existing:exist,support,gutter:gut};
  if(out.length){const specM=k=>POS[k].reduce((t,q)=>t+q.count*(q.length_mm||2000),0);
   warnings.push("Нащельники по стыкам панелей АР: "+Object.entries(placed).map(([k,v])=>sum(k,v)).filter(Boolean).join(", ")+
    (spec.length?"; по спецификациям АР угловых "+(specM("corner")/1000).toFixed(0)+" м, отливов "+(specM("sill")/1000).toFixed(0)+" м, откосов "+(POS.reveal.filter(t=>trimKind(t.name)==="reveal").reduce((t,q)=>t+q.count*(q.length_mm||2000),0)/1000).toFixed(0)+" м, стыковочных и нащельников "+(specM("ridge")/1000).toFixed(0)+" м (по 2 м с нахлёстом)":"")+(NN.length?" — позиции по узлам АР, где узел найден":" — узлы АР к местам на видах пока не привязаны, проверьте"))}

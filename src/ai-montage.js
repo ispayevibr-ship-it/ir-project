@@ -64,7 +64,7 @@ const KIND_NAME={columns:"Колонна",fahwerk:"Стойка фахверка
 // What a new reading of the drawings brings even to an element the engineer changed or confirmed: the details of its
 // node and its make (from the sheets), not its position, mark, levels or profile.
 const DRAWING_DETAILS=["joint","truss","nodes","base","column","parts","plates","cuts","drill","place","bevels","cross"];
-const ANALYZER="2026-11-13.4";
+const ANALYZER="2026-11-13.5";
 // АР (architecture) and ТХ (technology) sheets are read for context: Claude places what of them is mounted.
 // (КМД — one kind: the program tells its montage and assembly sheets apart, sheet by sheet — kmdSheetType; the two old
 // kinds of a file are still read, as the engineer's hint for its sheets that say nothing)

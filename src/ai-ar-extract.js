@@ -191,8 +191,9 @@ function fillSpec(texts){
  const widthFirst=o=>heads.some(t=>t.y<o.y&&o.y-t.y<1500&&o.x<t.x+(t.width||0)+40&&o.x+(o.width||0)>t.x-40&&
   !texts.some(q=>q!==t&&q.y>t.y+4&&q.y<o.y-4&&Math.abs(q.x-t.x)<40&&/Марка|Наименование|Обозначение/u.test(String(q.str))));
  for(const p of texts){
-  const str=String(p.str).trim(),m=/^(ОК|Д|В|ВР|ДВ)-(\d{1,3}[а-я]?)$/u.exec(str);if(!m||!horizontalText(p))continue;
-  const kind=m[1]==="ОК"?"window":m[1]==="Д"||m[1]==="ДВ"?"door":"gate";
+  // (a stained-glass wall «ВтА-1» — витраж of aluminium profiles, a window with a door: ИР-71535 ч.1 л.12, was left out)
+  const str=String(p.str).trim(),m=/^(ОК|Д|В|ВР|ДВ|ВтА|Вт)-(\d{1,3}[а-я]?)$/u.exec(str);if(!m||!horizontalText(p))continue;
+  const kind=m[1]==="ОК"||/^Вт/u.test(m[1])?"window":m[1]==="Д"||m[1]==="ДВ"?"door":"gate";
   const row=rowOf(texts,p,480).sort((a,b)=>a.x-b.x);let w=0,h=0,name="";
   for(const o of row){
    const s=String(o.str),br=/\(\s*(\d{3,5})\s*[хx×]\s*(\d{3,5})\s*\)/u.exec(s),hw=/(\d{3,5})\s*[хx×]\s*(\d{3,5})/u.exec(s),gate=/^В[МР]\s.*?(\d{3,5})\s*-\s*(\d{3,5})$/u.exec(s);
@@ -1390,7 +1391,7 @@ function planOpenings({segments=[],texts=[]}={},axes){
   if(dy<=.3&&dx>=1.5)H.push({at:(g.a.y+g.b.y)/2,lo:Math.min(g.a.x,g.b.x),hi:Math.max(g.a.x,g.b.x)});
   else if(dx<=.3&&dy>=1.5)V.push({at:(g.a.x+g.b.x)/2,lo:Math.min(g.a.y,g.b.y),hi:Math.max(g.a.y,g.b.y)})}
  const out=[];
- for(const t of texts){const m=/^\s*(Д|В|ОК)\s*-\s*(\d{1,2}[а-я]?)\s*$/u.exec(String(t.str));if(!m)continue;
+ for(const t of texts){const m=/^\s*(Д|В|ОК|ВтА)\s*-\s*(\d{1,2}[а-я]?)\s*$/u.exec(String(t.str));if(!m)continue;
   const b=textBox(t);
   // (a mark outside the axes of the plan — on a fragment drawn beside it at its own scale, ИР-71535 ч.1 л.10 «Фрагмент
   // плана на отм. −0,050» with Д-5 and two Д-1 of the washrooms: said, not placed — no wall, no place on the grid)
@@ -1475,7 +1476,9 @@ function trimNodes(texts){
   return c.length&&(c.length<2||c[0].d<.7*c[1].d)?c[0].n:null};
  for(const t of flat){const s=String(t.str).trim();if(t.size>=14||t.x>=legend-40)continue;
   const m=/^Поз\s*\.?\s*(\d{1,3})\s*([а-яa]?)(?![\d])/u.exec(s),n=own(t);if(!n)continue;
-  if(m){let pos=m[1]+m[2];const tail=/^Поз\s*\.?\s*\d{1,3}\s+(а)(?:\s|$)/u.exec(s);if(tail&&!m[2])pos+=tail[1];if(!n.pos.includes(pos))n.pos.push(pos)}
+  if(m){let pos=m[1]+m[2];const tail=/^Поз\s*\.?\s*\d{1,3}\s+(а)(?:\s|$)/u.exec(s);if(tail&&!m[2])pos+=tail[1];
+   // («Поз .4 1» — поз. 41 read with a gap between its digits: ИР-71535 АР ч.2 л.18 узлы 31, 32, 34 had «поз. 4»)
+   const two=/^Поз\s*\.?\s*(\d)\s(\d)(?:\s|$)/u.exec(s);if(two&&!m[2])pos=two[1]+two[2];if(!n.pos.includes(pos))n.pos.push(pos)}
   else n.words.push(s)}
  return nodes.filter(n=>n.pos.length).map(({x,y,words,...n})=>{const w=words.join(" | ").toLowerCase(),c=[];
   if(/оконн|окна(?![а-яё])/u.test(w))c.push("window");if(/ворот/u.test(w))c.push("gate");if(/железобетонн|фундамент|отмостк|бортов/u.test(w))c.push("concrete");
@@ -1499,7 +1502,9 @@ function trimSpec(texts){
   if(!rest){const nx=flat.find(q=>q!==t&&Math.abs(q.y-t.y)<2&&q.x>=t.x+(t.width||0)-1&&q.x-t.x-(t.width||0)<8);if(nx)rest=String(nx.str).trim()}
   // («Поз . 4» with «1 Нащельник…», «Поз . 5» with «а Угловой…»: the number read apart from its last sign)
   const tail=/^(\d|а)(?:\s+(?=[А-ЯЁ,(])|$)/u.exec(rest);if(tail&&!m[2]){pos+=tail[1];rest=rest.slice(tail[0].length).replace(/^[,\s]+/,"")}
-  if(!/[а-яё]{3}/iu.test(rest)){const nx=flat.filter(q=>q!==t&&q.y>t.y&&q.y-t.y<16&&q.x>=t.x-60&&q.x<=t.x+(t.width||40)).sort((p,q)=>p.y-q.y)[0];rest=nx?String(nx.str).replace(/^[,\s]+/,"").trim():""}
+  // (or a line under it reaching across it, longer to the left — «Поз .31» over «Нащельник из оцинкованной кровельной
+  // стали» of узел 23: ИР-71535 поз. 31, 48, 49 had no name, so no place)
+  if(!/[а-яё]{3}/iu.test(rest)){const nx=flat.filter(q=>q!==t&&q.y>t.y&&q.y-t.y<16&&!/^Поз/u.test(String(q.str).trim())&&(q.x>=t.x-60&&q.x<=t.x+(t.width||40)||q.x<=t.x+(t.width||0)+10&&q.x+(q.width||0)>=t.x-10)).sort((p,q)=>p.y-q.y)[0];rest=nx?String(nx.str).replace(/^[,\s]+/,"").trim():""}
   // (insulation laid with it — «( по периметру желоба ) ППС 35» — is no trim)
   // (a rolled angle of the nodes — «Поз. 43, L 75 х 5» along the foot of a partition of panels, узел 34)
   const ang=/^L\s*(\d{2,3})\s*[хx]\s*(\d{1,2})(?![\d,.])/u.exec(m[3].replace(/^[,\s]+/,""));if(ang){names.push({pos,name:"Уголок L"+ang[1]+"×"+ang[2]});continue}
