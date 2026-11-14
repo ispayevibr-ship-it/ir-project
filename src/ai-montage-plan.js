@@ -1546,6 +1546,8 @@ function arTrims(placements,spec=[],nodes=[],sketches=new Map()){
    layout:{trim:kind,legs:legs.map(l=>{const n=Math.hypot(l[0],l[1],l[2])||1;return[+(l[0]/n).toFixed(4),+(l[1]/n).toFixed(4),+(l[2]/n).toFixed(4),R(l[3])]}),...(ral?{ral}:{}),length_mm:R(lng)},
    x_mm:R(a[0]),y_mm:R(a[1]),x2_mm:R(b[0]),y2_mm:R(b[1]),z0_mm:R(a[2]),z1_mm:R(b[2]),end_z_mm:R(b[2]),levels_from:"стыки сэндвич-панелей АР",confidence:"medium",section:"АР",
    notes:[note,posNote(kind),...shapeNote(kind)],...extra});
+  // (the pieces of the position: «…х 2000» of the specification, laid with a lap of 100 — the 3D marks their joints)
+  {const t=(POS[kind]||[])[0],pc=t&&num(t.length_mm)||2000,p=out[out.length-1];if(t){p.layout.piece_mm=pc;if(lng>pc)p.notes.push("Кусками по "+R(pc)+" мм с нахлёстом 100 мм — "+Math.ceil((lng-100)/(pc-100))+" шт.")}}
   const sk=shapeOf(kind);if(sk){out[out.length-1].layout.shape={pos:sk.pos,legs_mm:sk.legs_mm,bends_deg:sk.bends_deg,developed_mm:sk.developed_mm};
    // (the colour written at the sketch of the position — «RAL 5002» with an arrow to its face: the cap of a parapet is of the roof's)
    if(sk.ral)out[out.length-1].layout.ral=sk.ral}
@@ -1651,6 +1653,15 @@ function arTrims(placements,spec=[],nodes=[],sketches=new Map()){
   // and sides of the windows, the doors and the gates without a niche — 308 m; with the four gates В-1 in niches the plan
   // had 130 m more)
   if(o.type_key==="gate"&&o.layout?.niche)continue;
+  if(around&&o.type_key==="door"){const f2=f-r.side*(r.t+4),in2=(u,zz)=>x?[u,f2,zz]:[f2,u,zz],la=al.map(v=>-v),ex={opening:o.mark};
+   // (a door in a wall of panels — «Оконный блок (дверной блок)» of узлы 20–22 л.17: the откос поз. 30 inside as at a
+   // window, 180 along the post and the girt, and outside, from the frame out and 55 on the face; no отлив — the count of
+   // поз. 28 is the windows' alone; told by the count of поз. 30: 160 pieces of 2 m with a lap — 304 m — are the откосы of
+   // the windows inside (181 m), of the doors on both sides (2 × 58 m) and of the gates without a niche (8 m))
+   for(const [P,Q,lg,w] of [[at(a,z),at(a,z+h),la,"Откос"],[at(b,z),at(b,z+h),al,"Откос"],[at(a,z+h),at(b,z+h),[0,0,1],"Верхний откос"]])reveal+=add("reveal",ral,P,Q,[[...inn,45],[...lg,55]],w+" двери "+o.mark+" снаружи — по узлам 21, 22 АР (дверной блок)",ex)||0;
+   reveal+=(add("reveal",ral,in2(a,z),in2(a,z+h),[[...inn,180],[...la,55]],"Откос двери "+o.mark+" изнутри — по узлу 22 АР (дверной блок)",{...ex,inner:true})||0)+
+    (add("reveal",ral,in2(b,z),in2(b,z+h),[[...inn,180],[...al,55]],"Откос двери "+o.mark+" изнутри — по узлу 22 АР (дверной блок)",{...ex,inner:true})||0)+
+    (add("reveal",ral,in2(a,z+h),in2(b,z+h),[[...inn,180],[0,0,1,55]],"Верхний откос двери "+o.mark+" изнутри — по узлу 21 АР (дверной блок)",{...ex,inner:true})||0);continue}
   if(around&&o.type_key==="window"){const f2=f-r.side*(r.t+4),in2=(u,zz)=>x?[u,f2,zz]:[f2,u,zz],la=al.map(v=>-v),ex={opening:o.mark};
    // (outside: the strips of the отлив at the sides and over the head — drawn as a frame of the opening, mitred with the отлив under)
    for(const [P,Q,lg,w] of [[at(a,z),at(a,z+h),la,"сбоку"],[at(b,z),at(b,z+h),al,"сбоку"],[at(a,z+h),at(b,z+h),[0,0,1],"над окном"]]){const l=add("sill",ral,P,Q,[[...inn,45],[...lg,100]],"Отлив "+w+" окна "+o.mark+" снаружи, полоса 100 на грани панели — по узлам 21, 22 АР",ex);if(l){asSill();sills+=l}}

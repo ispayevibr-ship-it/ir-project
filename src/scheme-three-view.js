@@ -13,7 +13,7 @@ window.irThreeSchemeView=(function irThreeModule(){
  // ускорить построение схемы?» — «да»). It is raised by scripts/scheme-model-digest.js, never by hand: the script builds
  // the checked schemes with this file and raises the number when what would be kept for any of them differs from the
  // record (knowledge/quality/model-digest.json); scripts/scheme-pack.js refuses a pack made without it.
- var MODEL_BUILD=20;
+ var MODEL_BUILD=21;
  var token=0,active=null,loadPromise=null,cameraMemory={};
  // Bundled with the app (works offline); the CDN is only a fallback for an incomplete hot update.
  var sources=[
@@ -9038,6 +9038,13 @@ window.irThreeSchemeView=(function irThreeModule(){
     var s=w.L/3,at=toWorld(w.a.x+w.u.x*s,w.a.y+w.u.y*s,w.z-(w.h||300)/2),dir=toWorld(w.a.x+w.u.x*(s+1000),w.a.y+w.u.y*(s+1000),0).sub(toWorld(w.a.x+w.u.x*s,w.a.y+w.u.y*s,0));
     craneNo=cranes.length;hoist(at,dir,1.6);cranes.push({at:at.clone(),size:4,kind:"hoist",runs:[w.c],on:"Низ пути",z:Math.round(w.z-(w.h||300)/2)})
    });
+   // (the parts of a crane of one material — one piece: each box, wheel and rope was a command to the graphics of its
+   // own, 377 of the 1055 a frame on the engineer's scheme for 9 thousand triangles; the name of a part — by the
+   // triangle hit, `parts`. The engineer, 14.11.2026: «Как можем еще облегчить 3д схему? Не теряя качество»)
+   (function(){var by=new Map();equipment.children.slice().forEach(function(m){if(!m.isMesh||Array.isArray(m.material))return;m.updateMatrix();var k=m.userData.crane+"|"+m.material.uuid,l=by.get(k);if(!l)by.set(k,l=[]);l.push(m)});
+    by.forEach(function(l){if(l.length<2)return;var g=merge(l,function(m){return m.geometry},function(m){return m.matrix},l[0].material),at=0,parts=[];
+     l.forEach(function(m){var n=(m.geometry.index?m.geometry.index.count:m.geometry.attributes.position.count)/3;at+=n;var last=parts[parts.length-1];if(last&&last[1]===m.userData.part)last[0]=at;else parts.push([at,m.userData.part]);equipment.remove(m);m.geometry.dispose()});
+     g.userData.crane=l[0].userData.crane;g.userData.part=l[0].userData.part;g.userData.parts=parts;equipment.add(g)})})();
    equipment.visible=showDetails
   }
   // ---- Nodes: where members meet — column bases and tops, beam ends at a column or on another beam, joints of
@@ -9476,11 +9483,12 @@ window.irThreeSchemeView=(function irThreeModule(){
     (b.note?'<em>'+escapeHtml(b.note)+'</em>':"")+
     '<small>'+escapeHtml([b.scheme?"схема баз: "+b.scheme:"",b.sheet?"лист базы: "+b.sheet:""].filter(Boolean).join("; "))+'</small></div>'
   }
+  function cranePart(h){var ps=h.object.userData.parts;if(!ps||h.faceIndex==null)return h.object.userData.part;for(var i=0;i<ps.length;i++)if(h.faceIndex<ps[i][0])return ps[i][1];return h.object.userData.part}
   // A crane's card: what the part is, that the crane is drawn conventionally, the runways it stands on.
   function hitCrane(){
    if(!equipment.visible||!equipment.children.length)return null;
    var h=raycaster.intersectObjects(equipment.children,false)[0];
-   return h&&cranes[h.object.userData.crane]?{k:cranes[h.object.userData.crane],part:h.object.userData.part,d:h.distance}:null
+   return h&&cranes[h.object.userData.crane]?{k:cranes[h.object.userData.crane],part:cranePart(h),d:h.distance}:null
   }
   function showCrane(hit){
    selectedNode=null;clearExplode();var k=hit.k,runs=k.runs.filter(Boolean);
@@ -11466,7 +11474,7 @@ window.irThreeSchemeView=(function irThreeModule(){
        if(mit&&lk===(c.lay.trim==="sill"?2:1)){var mp=lg0.attributes.position;
         for(var mi=0;mi<mp.count;mi++){if(mp.getX(mi)<0)continue;var mz=mp.getZ(mi);if(mz<0&&mit[0]&&r[0]<.001){mp.setZ(mi,mz-ll);mitred=true}else if(mz>0&&mit[1]&&r[1]>len-.001){mp.setZ(mi,mz+ll);mitred=true}}
         if(mitred){mp.needsUpdate=true;lg0.computeVertexNormals();lg0.computeBoundingBox();lg0.computeBoundingSphere()}}
-       var lm=new T.Mesh(lg0,baseMaterial(c));if(mitred)lm.userData.mitred={ll:ll,L:r[1]-r[0],e:[mit[0]&&r[0]<.001,mit[1]&&r[1]>len-.001]};lm.userData.tl=st.ln||0;lm.quaternion.copy(lq);
+       var lm=new T.Mesh(lg0,baseMaterial(c));if(mitred)lm.userData.mitred={ll:ll,L:r[1]-r[0],e:[mit[0]&&r[0]<.001,mit[1]&&r[1]>len-.001]};lm.userData.tl=st.ln||0;lm.userData.tjo={s:start.clone(),d:dir.clone(),len:len,piece:number(c.lay.piece_mm),down:dir.y<-.05};lm.quaternion.copy(lq);
        lm.position.copy(start).add(dir.clone().multiplyScalar((r[0]+r[1])/2)).add(ld.clone().multiplyScalar(ll/2));if(st.off){lm.position.add(st.off);lm.userData.profile=true}if(c.lay.trim==="plinth"||c.lay.trim==="reveal")lm.userData.cutRound=true;
        // (a trim along a slope: its ends cut plumb, two meeting at the ridge on one plane — trimPlumbEnds)
        if(/^(?:gable|abutment|existing|cap)$/.test(String(c.lay.trim))&&Math.abs(dir.y)>.01)lm.userData.plumb={ll:ll,L:r[1]-r[0],e:[r[0]<.001,r[1]>len-.001],kind:String(c.lay.trim)};into.push(lm)})
@@ -11975,15 +11983,23 @@ window.irThreeSchemeView=(function irThreeModule(){
   // (14.11.2026 «только 3 угла покажи с очертаниями», «даже не 3 угла, а начало, угол, конец»: a trim of the panels by
   // three lines along it — the free edge of its first shelf, its bend, the free edge of its last shelf —, not every edge of
   // every shelf and of its cut ends: userData.tl of a shelf — 1 the line at its start across, 2 at its end)
-  function trimLines(g,tl){
+  function trimLines(g,tl,m){
    var ps=g.attributes.position,n=ps.count,lo=1e9,hi=-1e9,i,r=[];for(i=0;i<n;i++){var x=ps.getX(i);if(x<lo)lo=x;if(x>hi)hi=x}
    [[1,lo],[2,hi]].forEach(function(q){if(!(tl&q[0]))return;var a=-1,b=-1;for(i=0;i<n;i++){if(Math.abs(ps.getX(i)-q[1])>1e-5||ps.getY(i)<0)continue;if(a<0||ps.getZ(i)<ps.getZ(a))a=i;if(b<0||ps.getZ(i)>ps.getZ(b))b=i}
     if(a>=0&&b!==a)r.push(ps.getX(a),ps.getY(a),ps.getZ(a),ps.getX(b),ps.getY(b),ps.getZ(b))});
+   // (the pieces of a trim — 2 m each with a lap of 100, the upper over the lower: the edge of the next piece across the
+   // shelf at every joint, counted from the low end of the trim — userData.tjo of the shelf: the start of the trim, its
+   // direction, length and the length of a piece; found from where the shelf is now, after every cut and move of it;
+   // the engineer's rule trims-by-drawing-and-overlap, 14.11.2026)
+   var o=m&&m.userData.tjo;
+   if(o){var step=(o.piece>300?o.piece:2000)/1000-.1,zl=1e9,zh=-1e9,yt=-1e9,k,u;for(i=0;i<n;i++){var z=ps.getZ(i),y=ps.getY(i);if(z<zl)zl=z;if(z>zh)zh=z;if(y>yt)yt=y}
+    var zd=new T.Vector3(0,0,1).applyQuaternion(m.quaternion),sg=zd.dot(o.d)<0?-1:1,uc=m.position.clone().sub(o.s).dot(o.d);
+    if(step>.2&&o.len>step+.15)for(k=1;k*step<o.len-.15&&k<400;k++){u=o.down?o.len-k*step:k*step;var zz=(u-uc)*sg;if(zz>zl+.03&&zz<zh-.03)r.push(lo,yt,zz,hi,yt,zz)}}
    return new Float32Array(r)
   }
   function edgesOf(g,m){
    var e=edgeCache.get(g);if(!e){var tl=m&&m.userData.tl;
-    if(tl!==undefined&&g.attributes.position.count===24)e=trimLines(g,tl);else{var eg=new T.EdgesGeometry(g,28);e=eg.attributes.position.array;eg.dispose()}edgeCache.set(g,e)}
+    if(tl!==undefined&&g.attributes.position.count===24)e=trimLines(g,tl,m);else{var eg=new T.EdgesGeometry(g,28);e=eg.attributes.position.array;eg.dispose()}edgeCache.set(g,e)}
    return e
   }
   function outlined(m){
@@ -12018,7 +12034,12 @@ window.irThreeSchemeView=(function irThreeModule(){
    var groups=new Map();
    // (the pieces of the АР in sets of their own — "|a": the picture of a node of the steel is drawn without them,
    // jointShot; they wear the colour of the steel too, so the colour alone does not tell them apart)
-   allMeshes.forEach(function(m){if(!m.visible)return;m.__ar=arPiece(m);var e=m.matrixWorld.elements,k=(m.userData.small?"s":"m")+"|"+Math.floor(e[12]/CELL)+","+Math.floor(e[14]/CELL)+(m.__ar?"|a":"");
+   // (a computer draws the small pieces always, as the rest — pack №144 —: in the same cell and the same set as them, not
+   // in a cell of their own: 110 merged cells of small pieces and 42 of their outlines a frame on the engineer's scheme;
+   // a phone keeps them apart, they are drawn there only near. The engineer, 14.11.2026: «Как можем еще облегчить 3д
+   // схему? Не теряя качество», «Продолжи»)
+   var smallApart=phone;
+   allMeshes.forEach(function(m){if(!m.visible)return;m.__ar=arPiece(m);var e=m.matrixWorld.elements,k=(smallApart&&m.userData.small?"s":"m")+"|"+Math.floor(e[12]/CELL)+","+Math.floor(e[14]/CELL)+(m.__ar?"|a":"");
     var byMat=groups.get(k);if(!byMat)groups.set(k,byMat=new Map());var l=byMat.get(m.material);if(!l)byMat.set(m.material,l=[]);l.push(m)});
    // The bolt sets of the cell, by class: made when the camera comes near (lod).
    var seen=function(id){var l=meshesById.get(id);return!l||l.some(function(m){return m.visible})};
@@ -12054,10 +12075,14 @@ window.irThreeSchemeView=(function irThreeModule(){
    // engineer, 13.11.2026 «Собрать всю сталь в несколько общих наборов» — «да». Not the see-through (they are drawn
    // from the far to the near), not the mirrored, not a phone; a program with the older three.js — as before)
    var batched=!phone&&NEW3&&typeof T.BatchedMesh==="function";
+   // (the АР in squares of 60 m, not 20: its panels and trims are many colours of few triangles — 151 sets of 90 thousand
+   // triangles a frame on the engineer's scheme; a square left out of the picture saved next to nothing. The engineer,
+   // 14.11.2026: «Продолжи»)
+   var AR_SET=60;
    allMeshes.forEach(function(m){m.__inst=false});
    if(batched){var sets=new Map();
-    allMeshes.forEach(function(m){var mt=m.material,g=m.geometry;if(!m.visible||m.userData.small||Array.isArray(mt)||!mt||mt.transparent||!g||!g.attributes||!g.attributes.position||!g.attributes.normal||m.matrixWorld.determinant()<=0)return;
-     var e=m.matrixWorld.elements,k=mt.uuid+"|"+(g.index?"i":"n")+"|"+Object.keys(g.attributes).sort().join(",")+"|"+Math.floor(e[12]/20)+","+Math.floor(e[14]/20)+(m.__ar?"|a":""),st=sets.get(k);if(!st)sets.set(k,st={mat:mt,list:[],geos:new Map(),nv:0,ni:0,ar:!!m.__ar});
+    allMeshes.forEach(function(m){var mt=m.material,g=m.geometry;if(!m.visible||smallApart&&m.userData.small||Array.isArray(mt)||!mt||mt.transparent||!g||!g.attributes||!g.attributes.position||!g.attributes.normal||m.matrixWorld.determinant()<=0)return;
+     var e=m.matrixWorld.elements,k=mt.uuid+"|"+(g.index?"i":"n")+"|"+Object.keys(g.attributes).sort().join(",")+"|"+(m.__ar?Math.floor(e[12]/AR_SET)+","+Math.floor(e[14]/AR_SET)+"|a":Math.floor(e[12]/20)+","+Math.floor(e[14]/20)),st=sets.get(k);if(!st)sets.set(k,st={mat:mt,list:[],geos:new Map(),nv:0,ni:0,ar:!!m.__ar});
      if(!st.geos.has(g)){st.geos.set(g,-1);st.nv+=g.attributes.position.count;st.ni+=g.index?g.index.count:0}
      st.list.push(m);m.__inst=true});
     sets.forEach(function(st){
@@ -13652,7 +13677,7 @@ window.irThreeSchemeView=(function irThreeModule(){
      [[new T.Vector3(-c.sg,0,0),new T.Vector3(0,0,c.s2),3],[new T.Vector3(0,0,-c.s2),new T.Vector3(c.sg,0,0),2]].forEach(function(q){var ld=q[0],out=q[1],nv=new T.Vector3().crossVectors(up,ld).normalize();
       var m=new T.Mesh(new T.BoxGeometry(.1,.0015,h),mat);m.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(ld,nv,up));
       m.position.set(c.fq,ym,c.fp).add(ld.clone().multiplyScalar(.05)).add(out.clone().multiplyScalar(.00085));
-      m.userData.memberId=id;m.userData.tl=q[2];m.userData.cornerAdded=true;m.userData.fixed=true;m.userData.clad=true;steel.add(m);m.updateMatrixWorld(true);allMeshes.push(m);legs.push(m)});made++})});
+      m.userData.memberId=id;m.userData.tl=q[2];m.userData.tjo={s:new T.Vector3(c.fq,ym-h/2,c.fp),d:up.clone(),len:h,piece:0,down:false};m.userData.cornerAdded=true;m.userData.fixed=true;m.userData.clad=true;steel.add(m);m.updateMatrixWorld(true);allMeshes.push(m);legs.push(m)});made++})});
    // (c) The trim along the top of a wall — the gable trim, the cap of a parapet — covers the top of the corner trim (the
    //     engineer, 14.11.2026: «торцевая планка должна сверху закрывать угловой нащельник»): a shelf of a corner trim ends
    //     at the lower edge of the shelf of that trim lying on the same face over it, not drawn through it.
