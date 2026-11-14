@@ -18,7 +18,7 @@ assert.ok(view.includes("face=Math.min(hit.t,L*.4),cut=Math.min(face+(brace?Math
 // Braces: the plane of the gussets from the braces it crosses or meets (a bracing in a roof slope lies in the slope),
 // the angles beside the gusset (a pair either side of it), the halves of a crossing clear of each other's edges.
 assert.match(view,/function bracePlanes\(list\)\{/);assert.match(view,/function braceAngle\(c,u\)\{/);
-assert.ok(view.includes("seatOnTops(elems);hangTies(elems);beamEndNodes(elems);ribsUnderPlates(elems);ribStruts(elems);underChords(elems);purlinNodes(elems);seatLevels(elems);purlinTilts(elems);chordSeats(elems);restLifts(elems);ridgeMiters(elems);guardLines(elems);roofSeats(elems);guardFeet(elems);postFeet(elems);stubTops(elems);guardRails(elems);wallLines(elems);gateNiches(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);wallUnderRoof(elems);trimCorners(elems);bracePlanes(elems);"),"planes known before the members are drawn");
+assert.ok(view.includes("seatOnTops(elems);hangTies(elems);standBraces(elems);beamEndNodes(elems);ribsUnderPlates(elems);ribStruts(elems);underChords(elems);purlinNodes(elems);seatLevels(elems);purlinTilts(elems);chordSeats(elems);restLifts(elems);ridgeMiters(elems);guardLines(elems);roofSeats(elems);guardFeet(elems);postFeet(elems);stubTops(elems);guardRails(elems);wallLines(elems);gateNiches(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);wallUnderRoof(elems);trimCorners(elems);bracePlanes(elems);"),"planes known before the members are drawn");
 assert.ok(view.includes("function planeWidth(c){")&&view.includes("+(cut?planeWidth(cut)*cs/sin:0)+.03"),"the halves of a crossing clear of each other");
 // Beams crossing in the middle: the lower one is cut round the one running through (no node gusset for those).
 assert.ok(view.includes("crossCut.get(cut.id).push({at:P,n:cut.U.clone().cross(thr.U).normalize(),g:g,through:thr.c,plain:true,body:thr,host:host})"),"a plain crossing splits the lower");
@@ -37,7 +37,7 @@ assert.match(view,/function deckCuts\(list\)\{/);assert.ok(view.includes("deckHo
 // face; a wall ending at the side of another stops at its face.
 const number=v=>{const n=Number(v);return Number.isFinite(n)?n:0};
 // (the ends of a wall as memberPoints gives them — a wall moved onto the outer face of the frame with them; plan mm here)
-const pc=new Function("number","memberPoints","fromWorld",view.match(/var panelExt=new Map\(\);\n  function panelCorners\(list\)\{[\s\S]*?\n  \}\n/)[0]+";return {panelCorners,panelExt}")(number,c=>[{x:c.x,y:c.y,z:0},{x:c.x2,y:c.y2,z:0}],v=>v);
+const pc=new Function("number","memberPoints","fromWorld","var elems=[];"+view.match(/var panelExt=new Map\(\);\n(?:  var [^\n]*\n)*  function panelCorners\(list\)\{[\s\S]*?\n  \}\n/)[0]+";return {panelCorners,panelExt}").bind(null)(number,c=>[{x:c.x,y:c.y,z:0},{x:c.x2,y:c.y2,z:0}],v=>v);
 const wall=(id,x,y,x2,y2)=>({id,ft:"panel",x,y,x2,y2,z0:0,fd:3000,lay:{panel:"wall",thickness_mm:150}});
 pc.panelCorners([wall("A",0,0,6000,0),wall("1",0,0,0,6000),wall("T",3000,0,3000,6000)]);
 assert.deepEqual(pc.panelExt.get("A"),[.075,0],"along X: on to the outer face");
@@ -75,7 +75,7 @@ assert.ok(view.includes("branchTurns(elems);seatOnTops(elems);"),"branches turne
 assert.ok(!/setFromUnitVectors\(zAxis,(u|d|v)\),(sec|X|hs0)/.test(view)&&!view.includes("var q=new T.Quaternion().setFromUnitVectors(zAxis,d),X="),"every section basis by bodyQuat");
 assert.ok(view.includes("mesh.quaternion.copy(bodyQuat(c,points[1].clone().sub(points[0]).normalize()))")&&view.includes("plate.quaternion.copy(turn)"),"the body and its base plate turned");
 function W(x,y,z){this.x=x;this.y=y;this.z=z}W.prototype.sub=function(v){return new W(this.x-v.x,this.y-v.y,this.z-v.z)};
-const bt=new Function("nameOf","number","toWorld","halfSection","latticed","sectionOf",view.match(/var branchTurn=new Map\(\),latticeAt=new Map\(\),stepUnder=new Map\(\);\n  function branchTurns\(list\)\{[\s\S]*?\n  \}\n/)[0]+";return{branchTurns,branchTurn,latticeAt}")(require("./lib-view-name-of.js"),number,(x,y,z)=>new W(number(x)/1000,number(z)/1000,(63200-number(y))/1000),()=>({b:.15,h:.2}),c=>Boolean(c.column&&c.column.members&&c.column.members.length||c.lay&&(c.lay.lattice||c.lay.bars)),()=>null);
+const bt=new Function("nameOf","number","toWorld","halfSection","latticed","sectionOf","var archAt=new Map(),frameAt=new Map();"+view.match(/var branchTurn=new Map\(\),latticeAt=new Map\(\),stepUnder=new Map\(\);\n  function branchTurns\(list\)\{[\s\S]*?\n  \}\n/)[0]+";return{branchTurns,branchTurn,latticeAt}")(require("./lib-view-name-of.js"),number,(x,y,z)=>new W(number(x)/1000,number(z)/1000,(63200-number(y))/1000),()=>({b:.15,h:.2}),c=>Boolean(c.column&&c.column.members&&c.column.members.length||c.lay&&(c.lay.lattice||c.lay.bars)),()=>null);
 const br=(id,y,name)=>({id,mark:"К1",geometryType:"column",x:14150,y,z0:-600,z2:13240,mark_name:name});
 bt.branchTurns([br(2,5850,"Колонна К1 — наружная ветвь, О4/Б"),br(3,7100,"Колонна К1 — подкрановая ветвь, О4/Б"),br(4,5950,"Колонна К1 — надкрановая часть I50Ш3, О4/Б")]);
 assert.deepEqual([...bt.branchTurn].map(([k,v])=>[k,+v.toFixed(4)]),[["2",1.5708],["3",-1.5708]],"the two branches turned to each other, the upper part not");

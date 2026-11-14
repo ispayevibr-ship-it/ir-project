@@ -46,7 +46,7 @@ assert(exp.includes(".ec-parts{width:100%")&&src("src/scheme-page.css").includes
 // «кнопка приблизить не всегда приближает, бывает отдаляет»: twice its size and 6 m at least flew back from a node).
 const view0=src("src/scheme-three-view.js");
 assert(view0.includes("var LOOKS={top:[0,1,.002],bottom:[0,-1,.002],front:[0,0,1],back:[0,0,-1],left:[-1,0,0],right:[1,0,0],iso:[.78,.5,.92]};")&&
- view0.includes("update:update,focus:focus,look:look,")&&view0.includes('look:function(id,side){return call("look",id,side)},'),"the sides of a member, in the program and the export");
+ /update:update,[^\n]{0,160}focus:focus,look:look,/.test(view0)&&view0.includes('look:function(id,side){return call("look",id,side)},'),"the sides of a member, in the program and the export");
 assert(src("src/scheme-page.css").includes(".ec-looks{")&&src("src/scheme-export-html.js").includes(".ec-looks{"),"their buttons styled");
 assert(view0.includes("now=camera.position.distanceTo(c),dist=now>fit?fit:Math.max(.3,now*.5);")&&!view0.includes("size=Math.max(6,box.getSize(new T.Vector3()).length()*2.2)"),"zoom in, never out");
 for(const [now,fit] of [[40,8],[3,8],[.5,8]]){const dist=now>fit?fit:Math.max(.3,now*.5);assert(dist<now,"closer from "+now)}

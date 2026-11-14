@@ -1599,7 +1599,10 @@ function arTrims(placements,spec=[],nodes=[],sketches=new Map()){
    if(add("corner",c.ral,[c.P[0],c.P[1],c.lo],[c.P[0],c.P[1],c.hi],[[c.dA,0,0,100],[0,c.dB,0,100]],
     (c.outer?"Наружный":"Внутренний")+" угол стен — по раскладкам панелей АР; угловой элемент на наружных гранях обеих стен"))corners++}}
  // The foot of the walls standing on the ground (not over a lower roof — under +0,700): an отлив along it, on to the corner.
- let plinth=0,foot=0;
+ // (the отлив of the foot is put only if the specification of the АР has it for that length: ИР-71535 поз. 1 «Отлив» is
+ // 5 pieces of 2 m — the отлив under the windows over the concrete wall, узел 4 ч.2 л.14 —, the foot of the panels in the
+ // nodes has no отлив; the plan put 26 of them, some 400 m, round the whole building. Under a third of the length — none.)
+ let plinth=0,foot=0;const plq=[];
  for(const r of runs){const list=r.panels.filter(w=>w.z0<=700).sort((p,q)=>p.a-q.a);let seg=null;const segs=[];
   for(const w of list){if(seg&&w.a-seg.b<=80&&Math.abs(w.z0-seg.z)<=40)seg.b=Math.max(seg.b,w.b);else segs.push(seg={a:w.a,b:w.b,z:w.z0,ral:w.ral})}
   // (at a corner: to the corner trim — the outer face of the wall across, short of the layout's overshoot past it or on to it)
@@ -1619,7 +1622,10 @@ function arTrims(placements,spec=[],nodes=[],sketches=new Map()){
    if(prt){const gap=(o,e)=>[o.a,o.b].some(v=>Math.abs(v-e)>=600&&Math.abs(v-e)<=1700)&&!(o.a<e&&o.b>e),door=e=>segs.some(o=>o!==s&&gap(o,e))||runs.some(o=>o!==r&&o.x===r.x&&Math.abs(o.line-r.line)<=20&&gap(o,e));
     for(const k of [0,1]){const e=k?s.b:s.a;if(Math.abs(e-(k?b:a))<=1&&door(e))P[k][r.x?0:1]+=k?-100:100}
     if(POS.foot.length){const L=Number(/L(\d+)/u.exec(POS.foot[0].name)?.[1])||75;foot+=add("foot","",P[0],P[1],[[0,0,1,L],[...n,L]],"Низ перегородки из панелей на "+s.z+" — уголок к полу на анкерных болтах, по узлу АР")||0}continue}
-   plinth+=add("plinth",s.ral,P[0],P[1],[[0,0,1,100],[...n,50]],"Низ стены на "+s.z+" — по раскладке панелей АР")||0}}
+   plq.push([s.ral,P[0],P[1],[[0,0,1,100],[...n,50]],"Низ стены на "+s.z+" — по раскладке панелей АР"])}}
+ {const need=plq.reduce((t,q)=>t+Math.hypot(q[2][0]-q[1][0],q[2][1]-q[1][1]),0),have=POS.plinth.reduce((t,q)=>t+num(q.count)*(q.length_mm||2000),0);
+  if(POS.plinth.length&&need>have*3)warnings.push("Цокольный отлив по низу стен из панелей не поставлен: низ стен — "+(need/1000).toFixed(0)+" м, отлива по спецификации АР — "+(have/1000).toFixed(0)+" м (поз. "+POS.plinth.map(t=>t.pos).join(", ")+"); в узлах АР этот отлив стоит не по низу панелей");
+  else for(const q of plq)plinth+=add("plinth",...q)||0}
  // Openings in the walls of panels: откосы on the sides and over the head, an отлив under a window.
  let reveal=0,sills=0;
  for(const o of placements.filter(p=>/^(?:window|door|gate)$/.test(p.type_key))){const x=o.y_mm===o.y2_mm,line=x?o.y_mm:o.x_mm,a=Math.min(x?o.x_mm:o.y_mm,x?o.x2_mm:o.y2_mm),b=Math.max(x?o.x_mm:o.y_mm,x?o.x2_mm:o.y2_mm);
