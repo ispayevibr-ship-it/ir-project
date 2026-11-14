@@ -1211,8 +1211,51 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
  // узла стыка с чертежа … чисто узла»): «Узел 16» of «КМ1 л.19» in the newest analysis — its file, sheet of the PDF and
  // the piece of the sheet (0–1) around the view: by the frame of its labels (details.views[].box) or, in an analysis
  // made before the frame was kept, below and beside its title.
+ // Узел АР по «поз. 32 (corner)» или «(window)»: листы с узлами фасонных элементов (ar.trimNodes — номер узла, позиции у
+ // него, что в нём стоит) и виды листа с позициями (details.views). Сначала узел с этой позицией и подходящим составом,
+ // затем с позицией, без позиции — по составу.
+ const AR_CTX={corner:["wall"],tier:["wall"],plinth:["concrete"],sill:["window"],reveal:["window","gate"],window:["window"],gate:["gate"],gable:["roof"],eave:["roof","eave"],ridge:["two_slopes","roof"],abutment:["roof","wall"],existing:["existing"],cap:["parapet"],gutter:["eave","parapet"]};
+ function arNode(row,title){
+  const m=/^(?:поз\.\s*(\d{1,3}[а-яa]?)\s*)?\(([a-z_]+)\)$/u.exec(String(title||"").trim());if(!m)return null;
+  const pos=m[1]||"",want=AR_CTX[m[2]]||[];let best=null;
+  for(const p of row.data?.pages||[]){
+   const sh=String(p.sheet?.stamp?.block?.sheet||"").trim(),views=p.details?.views||[];
+   const cand=[];
+   for(const n of p.ar?.trimNodes||[])cand.push({title:"Узел "+n.node,on:String(n.on||""),pos:n.pos||[],ctx:n.ctx||[]});
+   for(const v of views)if(/^Узел\s/u.test(String(v.title||""))&&(v.positions||[]).length&&!cand.some(c=>c.title===v.title))cand.push({title:v.title,pos:v.positions.map(String),ctx:[]});
+   for(const c of cand){
+    if(!views.some(v=>v.title===c.title))continue;
+    const hasPos=Boolean(pos)&&c.pos.includes(pos),ctx=want.filter(w=>c.ctx.includes(w)).length;
+    if(pos?!hasPos:!ctx)continue;
+    const score=(hasPos?10:0)+ctx*2-(c.pos.length>4?1:0);
+    if(!best||score>best.score)best={score,page:p,title:c.title,on:c.on||"",sheet:sh}
+   }
+  }
+  return best
+ }
+ // (узел АР назван числом в кружке, под ним того же размера номер листа, где он вызван; сам узел нарисован под
+ // кружком. Рамка узла — клетка между соседними кружками: по сторонам до середины к соседу в том же ряду, вниз до
+ // следующего ряда кружков. Надписи «Поз. N» разбор листа считает заголовками, поэтому рамка по надписям не годится.)
+ function viewOn(row,p,title,sh,on=""){
+  const views=p.details?.views||[],v=views.find(x=>x.title===title&&x.at),W=Number(p.widthPt)||0,H=Number(p.heightPt)||0;
+  if(!v||!W||!H||!p.documentId||p.turn)return null;
+  const bubble=x=>/^Узел\s+\d{1,3}[а-я]?$/u.test(String(x.title||""))&&x.at;
+  const pair=x=>x!==v&&Math.abs(x.at.x-v.at.x)<14&&Math.abs(x.at.y-v.at.y)<34;
+  const others=views.filter(x=>bubble(x)&&x!==v&&!pair(x));
+  const row_=others.filter(x=>Math.abs(x.at.y-v.at.y)<H*.07),L=row_.filter(x=>x.at.x<v.at.x).map(x=>x.at.x),R=row_.filter(x=>x.at.x>v.at.x).map(x=>x.at.x);
+  const b={x0:L.length?(Math.max(...L)+v.at.x)/2:v.at.x-W*.2,x1:R.length?(Math.min(...R)+v.at.x)/2:v.at.x+W*.2,y0:v.at.y-H*.035,y1:v.at.y+H*.45};
+  const below=others.filter(x=>x.at.y>v.at.y+H*.07&&x.at.x>b.x0&&x.at.x<b.x1).map(x=>x.at.y);if(below.length)b.y1=Math.min(...below)-H*.035;
+  // (штамп листа — справа внизу — не узел)
+  if(b.x1>W-540&&b.y1>H-170&&v.at.y<H-200)b.y1=Math.min(b.y1,H-170);
+  const cl=x=>Math.max(0,Math.min(1,x)),x=cl(b.x0/W),y=cl(b.y0/H),x1=cl(b.x1/W),y1=cl(b.y1/H);
+  if(x1-x<.02||y1-y<.02)return null;
+  return{documentId:p.documentId,page:p.pdfPage||p.page,region:{x,y,width:x1-x,height:y1-y},source:(p.sourceName||"PDF")+", лист "+sh+" · "+title,sha:String(((row.data?.source?.documents||[]).find(s=>String(s.documentId)===String(p.documentId))||{}).sha256||""),analysis:row.id}
+ }
  function nodeView(id,{sheet="",title=""}={}){
   const oid=object(id),row=lastDraft(oid);if(!row)return null;
+  // (узел АР: у фасонного элемента и проёма своего узла нет — он ищется по позиции, написанной у узла на листе, или по
+  // тому, что в узле стоит; инженер 14.11.2026 «Ар узлы посмотри … чертеж не видел ни в одном месте»)
+  if(String(sheet||"").trim()==="АР"){const a=arNode(row,title);if(!a)return null;return viewOn(row,a.page,a.title,a.sheet,a.on)}
   const m=/^(.*?)\s*л\.\s*(\d{1,3})\s*$/u.exec(String(sheet||"").trim());if(!m||!title)return null;
   // («КМ3» узла — это файл «ИР-71535.00-05.2025-01-КМ3 100,89т.pdf»: обозначение тома стоит в имени файла отдельным
   // словом, после него может идти тоннаж; до 1.12.145 имя сравнивалось целиком, в 1.12.146 — по окончанию, и снимок не
