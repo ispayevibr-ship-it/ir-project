@@ -278,14 +278,17 @@ function extend(list){
 // kind: by its type, else by its group; words: how a work type of the object names that kind; along: the kind whose
 // work type takes it when none of the drawing names it (the trims go with the panels, the sheeting too).
 const WORK_KINDS=[
- {key:"windows",label:"окна, витражи",types:["window"],words:/окон|окн[аоы]|витраж|светопрозрачн/iu},
- {key:"doors",label:"двери",types:["door"],words:/двер/iu},
- {key:"gates",label:"ворота",types:["gate"],words:/ворот/iu},
- {key:"panels",label:"сэндвич-панели",types:["sandwich","sandwich_wall","sandwich_roof"],groups:["cladding"],words:/сэндвич|панел|ограждающ|обшивк|трёхслойн|трехслойн/iu},
+ {key:"windows",label:"окна, витражи",types:["window"],words:/(?:^|[^а-яё])окон|(?:^|[^а-яё])окн[аоы]|витраж|светопрозрачн/iu,along:"arch"},
+ {key:"doors",label:"двери",types:["door"],words:/двер/iu,along:"arch"},
+ {key:"gates",label:"ворота",types:["gate"],words:/ворот/iu,along:"arch"},
+ {key:"panels",label:"сэндвич-панели",types:["sandwich","sandwich_wall","sandwich_roof"],groups:["cladding"],words:/сэндвич|панел|ограждающ|обшивк|трёхслойн|трехслойн/iu,along:"arch"},
  {key:"sheeting",label:"профнастил",types:["sheeting"],words:/профнастил|профлист|кровл/iu,along:"panels"},
  {key:"trims",label:"нащельники, доборные элементы",groups:["trims"],words:/нащельник|доборн|фасонн\S*\s+(?:элем|издел)/iu,along:"panels"},
  // an opening whose kind is not known: a work type of openings of any kind
- {key:"openings",label:"",groups:["openings"],words:/окон|окн[аоы]|витраж|двер|ворот|про[её]м/iu},
+ {key:"openings",label:"",groups:["openings"],words:/(?:^|[^а-яё])окон|(?:^|[^а-яё])окн[аоы]|витраж|двер|ворот|про[её]м/iu,along:"arch"},
+ // what the АР gives, when no work type names its kind: the work type of the architecture («Архитектурные решения»)
+ // and not the first one of the drawing (ИР-71535, 14.11.2026: the trims of the АР went to «КМ1»)
+ {key:"arch",label:"",words:/архитектурн|(?:^|[^а-яё])ар(?![а-яё])/iu},
  {key:"steel",label:"металлоконструкции",words:/металлоконструкц|металлокаркас|каркас|(?:^|[^а-яё])(?:мк|кмд?)(?![а-яё])/iu}
 ];
 const workKindByKey=new Map(WORK_KINDS.map(k=>[k.key,k]));

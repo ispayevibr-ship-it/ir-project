@@ -64,7 +64,7 @@ const KIND_NAME={columns:"Колонна",fahwerk:"Стойка фахверка
 // What a new reading of the drawings brings even to an element the engineer changed or confirmed: the details of its
 // node and its make (from the sheets), not its position, mark, levels or profile.
 const DRAWING_DETAILS=["joint","truss","nodes","base","column","parts","plates","cuts","drill","place","bevels","cross"];
-const ANALYZER="2026-11-14.8";
+const ANALYZER="2026-11-14.9";
 // АР (architecture) and ТХ (technology) sheets are read for context: Claude places what of them is mounted.
 // (КМД — one kind: the program tells its montage and assembly sheets apart, sheet by sheet — kmdSheetType; the two old
 // kinds of a file are still read, as the engineer's hint for its sheets that say nothing)
@@ -840,6 +840,12 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    const vol=/^КМ\d/u.test(e.doc||"")?e.doc:volumeOfName(e.source_sheet);
    const byVol=vol?sourceDocs.filter(x=>volumeOfName(x.name)===vol):[];if(byVol.length===1)return pick(e,byVol[0].work);
    const byFile=sourceDocs.filter(x=>x.name&&x.name===e.file);if(byFile.length===1)return pick(e,byFile[0].work);
+   // No sheet of its own (the trims of the АР made from the joints of its panels, «база знаний»): the work types of the
+   // drawings of its section (АР, ТХ) — not the first steel work type of a mixed set (ИР-71535, the engineer
+   // 14.11.2026: «почему-то ты часть ар перенес в км» — 287 фасонных элементов АР стояли в виде работ КМ1).
+   const sec=sectionOf(e);
+   if(sec==="АР"||sec==="ТХ"){const ws=[...new Set((data.pages||[]).filter(p=>String(p.docType||"")===sec).flatMap(p=>docWork.get(String(p.documentId||""))||[]))];if(ws.length)return pick(e,ws)}
+   if(sec==="АР"||sec==="ТХ"){const ws=[...new Set(sourceDocs.filter(x=>new RegExp("(?:^|[^А-ЯЁа-яё])"+sec+"(?![А-ЯЁа-яё])","u").test(x.name)).flatMap(x=>x.work))];if(ws.length)return pick(e,ws)}
    return pick(e,common)
   };
   const near=(r,e)=>{const d=r.data||{};return normMark(d.mark)===normMark(e.mark)&&Math.abs(Number(d.absolute_x_mm)-e.x)<250&&Math.abs(Number(d.absolute_y_mm)-e.y)<250&&Math.abs(Number(d.z0_mm)-e.z0_mm)<250};
@@ -860,6 +866,12 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
    let named=work?all.filter(m=>String(m.work_type_id||"")===work):all,byCode=false;
    if(his){
     touched.add(work);const found=inGiven(his,e);named=found.rows;byCode=found.code;
+    // An element with no sheet of its own (the trims of the АР) not in his rows of its work type: his row of another
+    // work type of the drawings, as before, or the rows the program made for it under another of them — they move here.
+    if(!named.length&&!(e0.page>0)){const alt=inGiven(givenAll,e);
+     if(alt.rows.length){named=alt.rows;byCode=alt.code}
+     else{const own=all.filter(m=>m.ai_created===true&&!(Number(m.mounted)>0)&&drawingWorks.has(String(m.work_type_id||""))&&String(m.work_type_id||"")!==work);
+      for(const o of own){if(!moved.has(o.id))moved.set(o.id,{from:String(o.work_type_id||""),to:work});o.work_type_id=work}named=own}}
     if(!named.length){notInRegister.push(e.mark);skipped.push({mark:e.mark,page:e.page,reason:"Нет в ведомости марок вида работ «"+workTitle(work)+"» — ведомость задана вами, в неё ничего не добавляется",register:true});return}
    }else if(locked){
     const found=inGiven(givenAll,e);named=found.rows;byCode=found.code;
