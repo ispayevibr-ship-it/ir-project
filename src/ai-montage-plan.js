@@ -1623,15 +1623,37 @@ function arTrims(placements,spec=[],nodes=[],sketches=new Map()){
     for(const k of [0,1]){const e=k?s.b:s.a;if(Math.abs(e-(k?b:a))<=1&&door(e))P[k][r.x?0:1]+=k?-100:100}
     if(POS.foot.length){const L=Number(/L(\d+)/u.exec(POS.foot[0].name)?.[1])||75;foot+=add("foot","",P[0],P[1],[[0,0,1,L],[...n,L]],"Низ перегородки из панелей на "+s.z+" — уголок к полу на анкерных болтах, по узлу АР")||0}continue}
    plq.push([s.ral,P[0],P[1],[[0,0,1,100],[...n,50]],"Низ стены на "+s.z+" — по раскладке панелей АР"])}}
- {const need=plq.reduce((t,q)=>t+Math.hypot(q[2][0]-q[1][0],q[2][1]-q[1][1]),0),have=POS.plinth.reduce((t,q)=>t+num(q.count)*(q.length_mm||2000),0);
-  if(POS.plinth.length&&need>have*3)warnings.push("Цокольный отлив по низу стен из панелей не поставлен: низ стен — "+(need/1000).toFixed(0)+" м, отлива по спецификации АР — "+(have/1000).toFixed(0)+" м (поз. "+POS.plinth.map(t=>t.pos).join(", ")+"); в узлах АР этот отлив стоит не по низу панелей");
+ {const need=plq.reduce((t,q)=>t+Math.hypot(q[2][0]-q[1][0],q[2][1]-q[1][1]),0),
+  // (an отлив every node of which is at a window — over the top of the cladding of a concrete wall under the frame, узлы 1,
+  // 2, 3 of ИР-71535 АР ч.2 л.14, поз. 1 and 4 — is no flashing of the foot of a wall: not in the length to place by;
+  // with поз. 4, 35 pieces, the 26 flashings of the foot stayed after 1.12.153)
+  footPos=POS.plinth.filter(q=>{const nd=nodeOf["plinth:"+q.pos]||[];return!nd.length||nd.some(n=>!n.ctx.includes("window"))}),have=footPos.reduce((t,q)=>t+num(q.count)*(q.length_mm||2000),0);
+  if(POS.plinth.length&&need>have*3)warnings.push("Цокольный отлив по низу стен из панелей не поставлен: низ стен — "+(need/1000).toFixed(0)+" м, отлива по спецификации АР — "+(have/1000).toFixed(0)+" м (поз. "+(footPos.map(t=>t.pos).join(", ")||"нет")+"); в узлах АР этот отлив стоит не по низу панелей");
   else for(const q of plq)plinth+=add("plinth",...q)||0}
  // Openings in the walls of panels: откосы on the sides and over the head, an отлив under a window.
  let reveal=0,sills=0;
+ // (a window by its nodes — ИР-71535 АР ч.2 л.17 узлы 20, 21, 22: the «отлив» поз. 28 runs round the window outside on all
+ // four sides — from the frame out and 100 on the face of the panels, under the window down the face —, the «откос»
+ // поз. 30 lines the head and the sides inside, 180 along the girt and the post; told by the count: the отлив of the
+ // specification covers the perimeter of the windows — 167 pieces of 2 m with a lap of 100 for 317 m there —, not their
+ // sills alone; the engineer, 14.11.2026 «Рисовка как стало почти везде не правильно», «Сравнивай с ар чертежами бозшаколя».
+ // Without such a count — as before: a reveal of the thickness of the wall with a shelf of 60 on the face, an отлив under)
+ const winRun=o=>{const x=o.y_mm===o.y2_mm,line=x?o.y_mm:o.x_mm,a=Math.min(x?o.x_mm:o.y_mm,x?o.x2_mm:o.y2_mm),b=Math.max(x?o.x_mm:o.y_mm,x?o.x2_mm:o.y2_mm);return num(o.diameter_mm)>=300&&runs.some(r=>r.x===x&&Math.abs(r.line-line)<=5&&a>=r.a-100&&b<=r.b+100)?2*(b-a)+2*num(o.diameter_mm):0};
+ const winPer=placements.filter(p=>p.type_key==="window").reduce((t,o)=>t+winRun(o),0),sillHave=POS.sill.reduce((t,q)=>t+num(q.count)*(q.length_mm||2000),0);
+ const around=winPer>0&&rev.length>0&&POS.sill.length>0&&sillHave>=winPer*.85;
+ const asSill=()=>{const p=out[out.length-1];p.layout.trim="reveal"};
  for(const o of placements.filter(p=>/^(?:window|door|gate)$/.test(p.type_key))){const x=o.y_mm===o.y2_mm,line=x?o.y_mm:o.x_mm,a=Math.min(x?o.x_mm:o.y_mm,x?o.x2_mm:o.y2_mm),b=Math.max(x?o.x_mm:o.y_mm,x?o.x2_mm:o.y2_mm);
   const r=runs.find(r=>r.x===x&&Math.abs(r.line-line)<=5&&a>=r.a-100&&b<=r.b+100);if(!r)continue;
   const f=face(r),n=x?[0,r.side,0]:[r.side,0,0],inn=n.map(v=>-v),z=num(o.z0_mm),h=num(o.diameter_mm),ral=r.panels[0].ral;if(h<300)continue;
   const at=(u,zz)=>x?[u,f,zz]:[f,u,zz],al=x?[1,0,0]:[0,1,0],what=o.type_key==="window"?"окна":o.type_key==="door"?"двери":"ворот";
+  if(around&&o.type_key==="window"){const f2=f-r.side*(r.t+4),in2=(u,zz)=>x?[u,f2,zz]:[f2,u,zz],la=al.map(v=>-v),ex={opening:o.mark};
+   // (outside: the strips of the отлив at the sides and over the head — drawn as a frame of the opening, mitred with the отлив under)
+   for(const [P,Q,lg,w] of [[at(a,z),at(a,z+h),la,"сбоку"],[at(b,z),at(b,z+h),al,"сбоку"],[at(a,z+h),at(b,z+h),[0,0,1],"над окном"]]){const l=add("sill",ral,P,Q,[[...inn,45],[...lg,100]],"Отлив "+w+" окна "+o.mark+" снаружи, полоса 100 на грани панели — по узлам 21, 22 АР",ex);if(l){asSill();sills+=l}}
+   sills+=add("sill",ral,at(a,z),at(b,z),[[...inn,45],[...n,30],[0,0,-1,100]],"Отлив под окном "+o.mark+" — из-под рамы по срезу панели и вниз по грани, по узлу 20 АР",ex)||0;
+   // (inside: the откос along the girt over the head and the posts at the sides)
+   reveal+=(add("reveal",ral,in2(a,z),in2(a,z+h),[[...inn,180],[...la,55]],"Откос окна "+o.mark+" изнутри — по узлу 22 АР",{...ex,inner:true})||0)+
+    (add("reveal",ral,in2(b,z),in2(b,z+h),[[...inn,180],[...al,55]],"Откос окна "+o.mark+" изнутри — по узлу 22 АР",{...ex,inner:true})||0)+
+    (add("reveal",ral,in2(a,z+h),in2(b,z+h),[[...inn,180],[0,0,1,55]],"Верхний откос окна "+o.mark+" изнутри — по узлу 21 АР",{...ex,inner:true})||0);continue}
   reveal+=(add("reveal",ral,at(a,z),at(a,z+h),[[...inn,r.t],[...al.map(v=>-v),60]],"Откос "+what+" "+o.mark+" — по проёму в раскладке АР",{opening:o.mark})||0)+
    (add("reveal",ral,at(b,z),at(b,z+h),[[...inn,r.t],[...al,60]],"Откос "+what+" "+o.mark+" — по проёму в раскладке АР",{opening:o.mark})||0)+
    (add("reveal",ral,at(a,z+h),at(b,z+h),[[...inn,r.t],[0,0,1,60]],"Верхний откос "+what+" "+o.mark+" — по проёму в раскладке АР",{opening:o.mark})||0);
@@ -1732,7 +1754,7 @@ function arTrims(placements,spec=[],nodes=[],sketches=new Map()){
  // The strip under and over a window on the girt (поз. 29 — п.м).
  // (drawn as a note of the отлив of its window: a strip 5 mm in the wall under the frame, inside the girt — not apart in 3D)
  let support=0;const supNote=POS.support.length?" и опорный элемент поз. "+POS.support[0].pos+" — полоса "+(/[−-]\s*\d+\s*[хx×]\s*\d+\s*[хx×]\s*\d+/u.exec(POS.support[0].name||"")||["−1000×230×5"])[0]+" по низу и верху окна, к ригелю":"";
- for(const p of out)if(p.layout.trim==="sill"&&p.opening&&supNote){p.notes.push("По узлам 20, 21 АР"+supNote);support+=2*p.layout.length_mm}
+ for(const p of out)if(p.layout.trim==="sill"&&p.opening&&supNote&&Math.abs(num(p.z0_mm)-num(p.z1_mm))<1){p.notes.push("По узлам 20, 21 АР"+supNote);support+=2*p.layout.length_mm}
  if(false)for(const o of placements.filter(p=>p.type_key==="window")){const x=o.y_mm===o.y2_mm,line=x?o.y_mm:o.x_mm,a=Math.min(x?o.x_mm:o.y_mm,x?o.x2_mm:o.y2_mm),b=Math.max(x?o.x_mm:o.y_mm,x?o.x2_mm:o.y2_mm);
   const r=runs.find(r=>r.x===x&&Math.abs(r.line-line)<=5&&a>=r.a-100&&b<=r.b+100)||runs.find(r=>r.x===x&&Math.abs(r.line-line)<=300&&Math.min(r.b,b)-Math.max(r.a,a)>0);if(!r)continue;// (inside the inner face of the panels, on the girt: the panels under and over the window come up to it)
   const n=x?[0,-r.side,0]:[-r.side,0,0],z=num(o.z0_mm),h=num(o.diameter_mm),f=r.line-r.side*(r.t/2+2);

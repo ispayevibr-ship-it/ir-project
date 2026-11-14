@@ -11441,6 +11441,10 @@ window.irThreeSchemeView=(function irThreeModule(){
       var rvFoot=dir.y>0?start:start.clone().add(dir.clone().multiplyScalar(len)),rvSill=sillEnds.some(function(q){return q.distanceTo(rvFoot)<.03});
       mit=Math.abs(dir.y)>.9?(dir.y>0?[rvSill,true]:[true,rvSill]):[true,true]}
      else if(c.lay.trim==="sill"&&legsOf.length===2&&Math.abs(dir.y)<.1&&sillEnds.some(function(q){return q.distanceTo(start)<.03})){mit=[true,true];legsOf=legsOf.concat([[0,0,-1,number(legsOf[1][3])||60]])}
+     // (the отлив of a window by its node — узел 20 АР ч.2 л.17, поз. 28: from under the frame out over the cut top of the
+     // panel and down its face, the shelf down the face given by the plan — the third of lay.legs; mitred with the strips
+     // of the same position on the face at the sides)
+     else if(c.lay.trim==="sill"&&legsOf.length===3&&Math.abs(dir.y)<.1&&number(legsOf[2][2])<-.9&&sillEnds.some(function(q){return q.distanceTo(start)<.03}))mit=[true,true];
      // (two angles of the foot at an outer corner — footMit of trimCorners)
      else if(c.lay.trim==="foot"&&footMit.has(id)){var fm=footMit.get(id);mit=[fm[0],fm[1]];if(fm[2]!==null&&Math.abs(fm[2]-start.y)<.05){start=start.clone();start.y=fm[2];end=end.clone();end.y=fm[2]}}
      var strips=[];
