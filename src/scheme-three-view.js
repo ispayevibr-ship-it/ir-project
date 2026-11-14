@@ -7191,7 +7191,7 @@ window.irThreeSchemeView=(function irThreeModule(){
     var kindT=c.lay&&c.lay.trim;if(kindT==="ridge"||kindT==="gable"||kindT==="abutment")return;
     var p=memberPoints(c),m=p[0].clone().add(p[p.length-1]).multiplyScalar(.5);
     var on=function(l){if(!l.shift)return false;var s=m.dot(l.u);return s>=l.s0-.3&&s<=l.s1+.3&&Math.abs(m.dot(l.n)-l.d)<=l.t/2+.15&&m.y>=l.y0-.3&&m.y<=l.y1+.3};
-    if(kindT==="corner"){var sh=null,used=[];lines.slice().reverse().forEach(function(l){if(!on(l)||used.some(function(u){return Math.abs(u.x*l.u.z-u.z*l.u.x)<.02}))return;used.push(l.u);sh=sh?sh.clone().add(l.shift):l.shift.clone()});
+    if(kindT==="corner"||kindT==="corner_in"){var sh=null,used=[];lines.slice().reverse().forEach(function(l){if(!on(l)||used.some(function(u){return Math.abs(u.x*l.u.z-u.z*l.u.x)<.02}))return;used.push(l.u);sh=sh?sh.clone().add(l.shift):l.shift.clone()});
      if(sh)lineShift.set(String(c.id),sh);return}
     // (a run moved on its own — after the whole line in the list — first)
     var g=lines.slice().reverse().find(on);
@@ -13729,7 +13729,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    var tops=[];elems.forEach(function(c){if(c.ft!=="trim"||!c.id||!c.lay||!/^(?:gable|cap)$/.test(String(c.lay.trim)))return;(meshesById.get(String(c.id))||[]).forEach(function(m){if(m.isMesh&&m.parent&&m.visible&&!m.userData.edges){m.updateMatrixWorld(true);tops.push(m)}})});
    var cutN=0;if(tops.length){var rc=new T.Raycaster(),zc=new T.Vector3(),ac=new T.Vector3();
     var vert=[];allMeshes.forEach(function(m){var u=m.userData||{},c=dataById.get(String(u.memberId));if(!m.isMesh||!m.parent||u.edges||!m.geometry||!m.geometry.parameters||m.geometry.parameters.depth===undefined)return;
-     if(!(u.cornerAdded||c&&c.ft==="trim"&&c.lay&&c.lay.trim==="corner"))return;zc.set(0,0,1).applyQuaternion(m.quaternion);if(Math.abs(zc.y)>.99)vert.push(m)});
+     if(!(u.cornerAdded||c&&c.ft==="trim"&&c.lay&&(c.lay.trim==="corner"||c.lay.trim==="corner_in")))return;zc.set(0,0,1).applyQuaternion(m.quaternion);if(Math.abs(zc.y)>.99)vert.push(m)});
     vert.forEach(function(m){var q=m.geometry.parameters,L=q.depth;if(L<.2)return;ac.set(0,1,0).applyQuaternion(m.quaternion).normalize();if(Math.abs(ac.y)>.1)return;
      var top=m.position.y+L/2,low=top,o=new T.Vector3();
      for(var d=.005;d<Math.min(.6,L-.1);d+=.01){var y=top-d,hit=false;
@@ -13745,7 +13745,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    //     corner — the walls' layouts overshooting each other — is not drawn.
    var extN=0;(function(){var vb=new Map(),zd=new T.Vector3();
     allMeshes.forEach(function(m){var u=m.userData||{},c=dataById.get(String(u.memberId));if(!m.isMesh||!m.parent||u.edges||!m.geometry||!m.geometry.parameters||m.geometry.parameters.depth===undefined)return;
-     if(!(u.cornerAdded||c&&c.ft==="trim"&&c.lay&&c.lay.trim==="corner"))return;zd.set(0,0,1).applyQuaternion(m.quaternion);if(Math.abs(zd.y)<.99)return;m.updateMatrixWorld(true);
+     if(!(u.cornerAdded||c&&c.ft==="trim"&&c.lay&&(c.lay.trim==="corner"||c.lay.trim==="corner_in")))return;zd.set(0,0,1).applyQuaternion(m.quaternion);if(Math.abs(zd.y)<.99)return;m.updateMatrixWorld(true);
      var k=(u.cornerAdded?"+":"")+String(u.memberId),b=new T.Box3().setFromObject(m),o=vb.get(k);if(o)o.union(b);else vb.set(k,b)});
     var boxes=Array.from(vb.values()),ops=[];
     elems.forEach(function(c){if(!c.id||!/^(?:window|door|gate)$/.test(String(c.ft)))return;var b=new T.Box3();(meshesById.get(String(c.id))||[]).forEach(function(m){if(m.isMesh&&m.parent){m.updateMatrixWorld(true);b.expandByObject(m)}});if(!b.isEmpty())ops.push(b)});
@@ -13954,7 +13954,7 @@ window.irThreeSchemeView=(function irThreeModule(){
     if(c.ft==="trim"&&c.lay&&/^(?:gable|eave|cap|plinth)$/.test(String(c.lay.trim))){var hl=Math.hypot(d.x,d.z);if(hl<.3)return;
      var ps=m.geometry.attributes.position,W=[],v=new T.Vector3();for(var i=0;i<ps.count;i++){v.fromBufferAttribute(ps,i);var z=v.z;W.push({w:v.clone().applyMatrix4(m.matrixWorld),s:z>0?1:-1})}
      roof.push({m:m,id:String(c.id),kind:String(c.lay.trim),d:d,h:new T.Vector3(d.x/hl,0,d.z/hl),sl:d.y/hl,W:W})}
-    else if(Math.abs(d.y)>.95&&(m.userData.cornerAdded||(c.ft==="trim"&&c.lay&&c.lay.trim==="corner")))ups.push({m:m,id:String(c.id),d:d})});
+    else if(Math.abs(d.y)>.95&&(m.userData.cornerAdded||(c.ft==="trim"&&c.lay&&(c.lay.trim==="corner"||c.lay.trim==="corner_in"))))ups.push({m:m,id:String(c.id),d:d})});
    // (0) A filler of a wall (cornerClose, wallGapFills) under a roof panel passing over it ends under that panel (О8/А of
    //     the annex: the filler of Пс-97 to the face of the wall across stood 0,2 m up through the roof at its eave).
    var rfs=[],rcU=new T.Raycaster(),upV=new T.Vector3(0,1,0),nFill=0;elems.forEach(function(c){if(c.ft!=="panel"||!c.id||!c.lay||c.lay.panel!=="roof")return;(meshesById.get(String(c.id))||[]).forEach(function(m){if(m.isMesh&&m.parent&&!m.userData.seam&&!m.userData.edges&&!m.userData.drain&&m.geometry&&m.geometry.attributes.position&&m.geometry.attributes.position.array){m.updateMatrixWorld(true);rfs.push(m)}})});
@@ -13962,6 +13962,11 @@ window.irThreeSchemeView=(function irThreeModule(){
     var q=m.geometry.parameters,B=new T.Box3().setFromObject(m),h=B.max.y-B.min.y;if(h<.4||Math.max(q.width,q.depth)>1.4)return;var low=Infinity;
     [[.5,.5],[.1,.1],[.9,.1],[.1,.9],[.9,.9]].forEach(function(f){rcU.set(new T.Vector3(B.min.x+(B.max.x-B.min.x)*f[0],B.min.y+.3,B.min.z+(B.max.z-B.min.z)*f[1]),upV);rcU.far=h-.3+.02;var hs=rcU.intersectObjects(rfs,false);if(hs.length&&hs[0].point.y<low)low=hs[0].point.y});
     if(!(low<B.max.y-.01))return;var c=B.max.y-low+.003;m.geometry=new T.BoxGeometry(q.width,q.height-c,q.depth);m.position.y-=c/2;m.updateMatrixWorld(true);nFill++});
+   // (0b) The inner angle of an outer corner (corner_in, узел 24) — inside, under the roof lying on the walls: ends under
+   //     the roof panel over it (ИР-71535 О8/Н, О10/Н of the annex, 50 mm into Пк-18).
+   ups.forEach(function(U){var c=by.get(U.id);if(!c||!c.lay||c.lay.trim!=="corner_in"||!rfs.length)return;var m=U.m,q=m.geometry.parameters,B=new T.Box3().setFromObject(m),h=B.max.y-B.min.y,low=Infinity;if(h<.4)return;
+    [[.5,.5],[.1,.1],[.9,.1],[.1,.9],[.9,.9]].forEach(function(f){rcU.set(new T.Vector3(B.min.x+(B.max.x-B.min.x)*f[0],B.min.y+.3,B.min.z+(B.max.z-B.min.z)*f[1]),upV);rcU.far=h-.3+.02;var hs=rcU.intersectObjects(rfs,false);if(hs.length&&hs[0].point.y<low)low=hs[0].point.y});
+    if(!(low<B.max.y-.003))return;var cc=B.max.y-low+.003;if(q.depth-cc<.05)return;m.geometry=new T.BoxGeometry(q.width,q.height,q.depth-cc);m.position.y-=(U.d.y>0?1:-1)*cc/2;m.updateMatrixWorld(true);nFill++});
    if(!roof.length)return;
    // (1)
    var cut=[];

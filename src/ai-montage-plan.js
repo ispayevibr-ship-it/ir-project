@@ -1464,7 +1464,7 @@ let loose=0;
  // (the sketches of the flashings «Схемы фасонных элементов поз. N» — their legs and bends by the outline and its dimensions,
  // src/ai-sheet-details.js — go with the trims of their positions)
  const sketches=new Map();for(const p of pages||[])for(const t of p.details?.trims||[])if(t.legs_mm&&!sketches.has(String(t.pos)))sketches.set(String(t.pos),{pos:String(t.pos),legs_mm:t.legs_mm,bends_deg:t.bends_deg,developed_mm:t.developed_mm,...(t.ral?{ral:t.ral}:{}),sheet:p.pdfPage||p.page});
- const tr=arTrims(placements,[...trimSpecs.values()].map(t=>({...t,name:trimNames.get(t.pos)||""})),trimNodes,sketches);
+ const tr=arTrims(placements,[...trimSpecs.values()].map(t=>({...t,name:trimNames.get(t.pos)||""})),trimNodes,sketches,opts.grid?.placements||[]);
  placements.push(...tr.placements);warnings.push(...tr.warnings);
  for(const p of placements){delete p.view;delete p.line;delete p.side}
  const cuts=all.filter(v=>v.section).map(v=>v.section);
@@ -1483,9 +1483,9 @@ let loose=0;
 // shelves (layout.legs: [dx, dy, dz, mm] from its line, scheme axes) on the faces it covers, 2 mm off them. The positions
 // of the specifications of the АР that fit its kind by name and their pieces of 2 m — in its notes; the length placed
 // against them — in the warnings (the nodes of the АР are not tied to the places on the views yet).
-function arTrims(placements,spec=[],nodes=[],sketches=new Map()){
+function arTrims(placements,spec=[],nodes=[],sketches=new Map(),steel=[]){
  const out=[],warnings=[],R=Math.round,num=v=>Number(v)||0;
- const KIND={corner:["trim_corner","Нащельник угловой"],plinth:["trim_plinth","Отлив цокольный"],reveal:["trim_opening","Откос проёма"],sill:["trim_sill","Отлив оконный"],
+ const KIND={corner:["trim_corner","Нащельник угловой"],corner_in:["trim_corner","Угловой элемент внутренний"],plinth:["trim_plinth","Отлив цокольный"],reveal:["trim_opening","Откос проёма"],sill:["trim_sill","Отлив оконный"],
   foot:["trim_start","Уголок низа перегородки"],ridge:["trim_ridge","Коньковый элемент"],gable:["trim_gable","Торцевая планка кровли"],abutment:["trim_abutment","Примыкание кровли к стене"],
   tier:["trim_joint","Нащельник стыка ярусов стены"],eave:["trim_eaves","Карнизный стыковочный элемент"],cap:["trim_parapet","Накрывка парапета"],support:["trim_sill","Опорный элемент окна"],
   existing:["trim_abutment","Примыкание к существующему зданию"],gutter:["trim_parapet","Накрывка парапета у внутреннего желоба"]};
@@ -1530,6 +1530,12 @@ function arTrims(placements,spec=[],nodes=[],sketches=new Map()){
  // against a wall going on up: ИР-71535 поз. 37, 83 шт., узел 29 and поз. 40, 21 шт., узел 30)
  if(tied.gable&&POS.gable.length>1){const top=[...POS.gable].sort((p,q)=>q.count-p.count)[0],rest=POS.gable.filter(t=>t!==top);POS.gable=[top];
   for(const t of rest)if(!POS.abutment.includes(t)){POS.abutment.push(t);nodeOf["abutment:"+t.pos]=nodeOf["gable:"+t.pos];tied.abutment=true}}
+ // (the inside of an outer corner — узел 24 АР ч.2 л.17: поз. 32 on the outer faces, поз. 6 «Угловой элемент» 50×50 in the
+ // corner of the inner faces; two corner positions of the node — the one of smaller shelves by its sketch is the inner,
+ // ИР-71535 поз. 6 was not drawn at all; the engineer, 14.11.2026 «Дальше что?» — «угловые нащельники»)
+ {const sz=t=>{const k=sketches.get(String(t.pos));return k?Math.max(...k.legs_mm):0},c0=(POS.corner||[]).map(t=>t.pos),cn=NN.filter(n=>n.pos.some(p=>c0.includes(p))),l=[...(POS.corner||[]),...spec.filter(t=>!c0.includes(t.pos)&&t.unit==="шт"&&trimKind(t.name)==="corner"&&cn.some(n=>n.pos.includes(t.pos)))].filter(t=>sz(t)>0);
+  if(l.length>=2){const inn=[...l].sort((p,q)=>sz(p)-sz(q))[0];if(sz(inn)<sz([...l].sort((p,q)=>sz(q)-sz(p))[0])){POS.corner_in=[inn];POS.corner=POS.corner.filter(t=>t!==inn);tied.corner_in=true;nodeOf["corner_in:"+inn.pos]=cn.filter(n=>n.pos.includes(inn.pos))}}
+  if(!POS.corner_in)POS.corner_in=[]}
  const posNote=k=>{const l=POS[k];if(k==="foot"||k==="support"&&l.length&&l[0].unit!=="шт"){const t=l[0],n=NN.filter(n=>n.pos.includes(t.pos));return"По спецификации АР — поз. "+t.pos+" «"+t.name+"» "+String(t.count).replace(".",",")+" "+(t.unit==="шт"?"шт.":"п.м")+(n.length?" (уз"+(n.length>1?"лы ":"ел ")+n.map(n=>n.node).join(", ")+")":"")}if(!l.length)return"Позиции нащельников в спецификациях АР не найдены — показан по стыку панелей";
   const nd=t=>{const a=nodeOf[k+":"+t.pos]||[];return a.length?" (уз"+(a.length>1?"лы ":"ел ")+[...new Set(a.map(n=>n.node))].join(", ")+(a[0].sheet?", лист "+[...new Set(a.map(n=>n.sheet))].join(", "):"")+")":""};
   return(tied[k]?"По узлам АР — ":"По спецификациям АР — ")+l.map(t=>"поз. "+t.pos+(t.name?" «"+t.name.replace(/\s+из\s+оцинкован\S*\s+кровельн\S*\s+стали\s*\.?/u,"")+"»":"")+nd(t)+" "+t.count+" шт. по "+R((t.length_mm||2000)/1000)+" м").join(", ")+(tied[k]||k==="reveal"&&rev.length?"":"; узел АР для этого места не найден — проверьте позицию")};
@@ -1564,7 +1570,7 @@ function arTrims(placements,spec=[],nodes=[],sketches=new Map()){
   for(const w of list){if(cur&&w.a-cur.b<=80){cur.b=Math.max(cur.b,w.b);cur.panels.push(w)}else runs.push(cur={x:w.x,line:w.line,side:w.side,t:w.t,a:w.a,b:w.b,panels:[w],ends:[null,null]})}}
  const face=r=>r.line+r.side*(r.t/2+2);
  // Corners: an end of a run along X at the line of a run along Y, and an end of that one at the line of this one.
- const seen=new Set();let corners=0;
+ const seen=new Set();let corners=0,cornersIn=0;
  for(const A of runs.filter(r=>r.x))for(const B of runs.filter(r=>!r.x))for(const [ea,dA] of [[A.a,1],[A.b,-1]])for(const [eb,dB] of [[B.a,1],[B.b,-1]]){
   // (a wall runs on past the line of the other to its outer face and beyond — the corner of the layouts, узел 24 — or
   // stops at its inner face: from 600 short of the other's line to 1200 past it)
@@ -1596,10 +1602,13 @@ function arTrims(placements,spec=[],nodes=[],sketches=new Map()){
     // (the wall going on 1,5 m and less past that end — a hole in it, a panel not read, not its end)
     const on=(W,e,d)=>all.some(o=>o!==W&&o.x===W.x&&Math.abs(o.line-W.line)<=200&&(d>0?o.b<=e&&e-o.b<=1500:o.a>=e&&o.a-e<=1500));if(on(A,ea,dA)||on(B,eb,dB))continue;
     const P=[face(B),face(A)],key=R(P[0]/50)+":"+R(P[1]/50)+":"+dA+":"+dB;let l=found.get(key);if(!l)found.set(key,l=[]);
-    const last=l[l.length-1];if(last&&lo-last.hi<=150)last.hi=hi;else l.push({lo,hi,P,dA,dB,outer,ral:A.ral||B.ral})}}
+    const last=l[l.length-1];if(last&&lo-last.hi<=150)last.hi=hi;else l.push({lo,hi,P,dA,dB,outer,tA:A.t,tB:B.t,ral:A.ral||B.ral})}}
   for(const l of found.values())for(const c of l){if(c.hi-c.lo<300)continue;
    if(add("corner",c.ral,[c.P[0],c.P[1],c.lo],[c.P[0],c.P[1],c.hi],[[c.dA,0,0,100],[0,c.dB,0,100]],
-    (c.outer?"Наружный":"Внутренний")+" угол стен — по раскладкам панелей АР; угловой элемент на наружных гранях обеих стен"))corners++}}
+    (c.outer?"Наружный":"Внутренний")+" угол стен — по раскладкам панелей АР; угловой элемент на наружных гранях обеих стен"))corners++;
+   // (inside the outer corner: the angle in the corner of the inner faces, the shelves along them — узел 24)
+   if(c.outer&&POS.corner_in.length){const Q=[c.P[0]+c.dA*((c.tB||120)+4),c.P[1]+c.dB*((c.tA||120)+4)],w=Math.max(...(shapeOf("corner_in")?.legs_mm||[50]));
+    if(add("corner_in",c.ral,[Q[0],Q[1],c.lo],[Q[0],Q[1],c.hi],[[c.dA,0,0,w],[0,c.dB,0,w]],"Наружный угол стен изнутри — угловой элемент в углу внутренних граней, по узлу 24 АР",{inner:true}))cornersIn++}}}
  // The foot of the walls standing on the ground (not over a lower roof — under +0,700): an отлив along it, on to the corner.
  // (the отлив of the foot is put only if the specification of the АР has it for that length: ИР-71535 поз. 1 «Отлив» is
  // 5 pieces of 2 m — the отлив under the windows over the concrete wall, узел 4 ч.2 л.14 —, the foot of the panels in the
@@ -1670,10 +1679,17 @@ function arTrims(placements,spec=[],nodes=[],sketches=new Map()){
    // (outside: the strips of the отлив at the sides and over the head — drawn as a frame of the opening, mitred with the отлив under)
    for(const [P,Q,lg,w] of [[at(a,z),at(a,z+h),la,"сбоку"],[at(b,z),at(b,z+h),al,"сбоку"],[at(a,z+h),at(b,z+h),[0,0,1],"над окном"]]){const l=add("sill",ral,P,Q,[[...inn,45],[...lg,100]],"Отлив "+w+" окна "+o.mark+" снаружи, полоса 100 на грани панели — по узлам 21, 22 АР",ex);if(l){asSill();sills+=l}}
    sills+=add("sill",ral,at(a,z),at(b,z),[[...inn,45],[...n,30],[0,0,-1,100]],"Отлив под окном "+o.mark+" — из-под рамы по срезу панели и вниз по грани, по узлу 20 АР",ex)||0;
-   // (inside: the откос along the girt over the head and the posts at the sides)
-   reveal+=(add("reveal",ral,in2(a,z),in2(a,z+h),[[...inn,180],[...la,55]],"Откос окна "+o.mark+" изнутри — по узлу 22 АР",{...ex,inner:true})||0)+
-    (add("reveal",ral,in2(b,z),in2(b,z+h),[[...inn,180],[...al,55]],"Откос окна "+o.mark+" изнутри — по узлу 22 АР",{...ex,inner:true})||0)+
-    (add("reveal",ral,in2(a,z+h),in2(b,z+h),[[...inn,180],[0,0,1,55]],"Верхний откос окна "+o.mark+" изнутри — по узлу 21 АР",{...ex,inner:true})||0);continue}
+   // (inside: the откос along the girt over the head and the posts at the sides, 180 — where the КМ has that steel there:
+   // a post by the side of the window, a girt at its head, up to 1 m off the line of the panels of the sheet (the 3D
+   // moves the wall on to the face of its girts — wallLines); where it has none — the ends of the ribbons ОК-5 of rows Б
+   // and Л between the columns, ОК-3, ВтА-1 — across the jamb from the inner face out to the frame, as at a door: the fin
+   // of 180 stood free in the room; the engineer, 14.11.2026 «ты не перепутал угол», «Так обрамление двери не должно быть»)
+   const sx=e=>[num(e.x_mm),num(e.y_mm),num(e.x2_mm??e.x_mm)||num(e.x_mm),num(e.y2_mm??e.y_mm)||num(e.y_mm),num(e.z0_mm),num(e.z1_mm??e.z0_mm)||num(e.z0_mm)];
+   const post=u=>steel.some(e=>{const [X1,Y1,X2,Y2,Z0,Z1]=sx(e);if(Math.abs(X1-X2)>30||Math.abs(Y1-Y2)>30)return false;const l=x?Y1:X1,v=x?X1:Y1;return Math.abs(l-line)<=1000&&Math.abs(v-u)<=250&&Math.min(Z0,Z1)<=z+h-200&&Math.max(Z0,Z1)>=z+200});
+   const girt=()=>steel.some(e=>{const [X1,Y1,X2,Y2,Z0,Z1]=sx(e);if(x?Math.abs(Y1-Y2)>30||Math.abs(X1-X2)<300:Math.abs(X1-X2)>30||Math.abs(Y1-Y2)<300)return false;if(Math.abs(Z0-Z1)>100)return false;const l=x?Y1:X1,u0=Math.min(x?X1:Y1,x?X2:Y2),u1=Math.max(x?X1:Y1,x?X2:Y2);return Math.abs(l-line)<=1000&&u1>=a+100&&u0<=b-100&&Math.abs((Z0+Z1)/2-(z+h))<=400});
+   const dj=Math.max(30,r.t-45),jl="изнутри — по торцу проёма от внутренней грани до рамы (у проёма нет стойки, ригеля)";
+   const ins=(P,Q,lg,steelHere,w,node)=>add("reveal",ral,P,Q,steelHere?[[...inn,180],[...lg,55]]:[[...n,dj],[...lg,55]],w+" окна "+o.mark+(steelHere?" изнутри — по узлу "+node+" АР, по стойке и ригелю":" "+jl),{...ex,inner:true,...(steelHere?{}:{jamb:true})})||0;
+   reveal+=ins(in2(a,z),in2(a,z+h),la,post(a),"Откос",22)+ins(in2(b,z),in2(b,z+h),al,post(b),"Откос",22)+ins(in2(a,z+h),in2(b,z+h),[0,0,1],girt(),"Верхний откос",21);continue}
   reveal+=(add("reveal",ral,at(a,z),at(a,z+h),[[...inn,r.t],[...al.map(v=>-v),60]],"Откос "+what+" "+o.mark+" — по проёму в раскладке АР",{opening:o.mark})||0)+
    (add("reveal",ral,at(b,z),at(b,z+h),[[...inn,r.t],[...al,60]],"Откос "+what+" "+o.mark+" — по проёму в раскладке АР",{opening:o.mark})||0)+
    (add("reveal",ral,at(a,z+h),at(b,z+h),[[...inn,r.t],[0,0,1,60]],"Верхний откос "+what+" "+o.mark+" — по проёму в раскладке АР",{opening:o.mark})||0);
