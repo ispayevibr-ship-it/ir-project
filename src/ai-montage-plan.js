@@ -1646,6 +1646,11 @@ function arTrims(placements,spec=[],nodes=[],sketches=new Map()){
   const r=runs.find(r=>r.x===x&&Math.abs(r.line-line)<=5&&a>=r.a-100&&b<=r.b+100);if(!r)continue;
   const f=face(r),n=x?[0,r.side,0]:[r.side,0,0],inn=n.map(v=>-v),z=num(o.z0_mm),h=num(o.diameter_mm),ral=r.panels[0].ral;if(h<300)continue;
   const at=(u,zz)=>x?[u,f,zz]:[f,u,zz],al=x?[1,0,0]:[0,1,0],what=o.type_key==="window"?"окна":o.type_key==="door"?"двери":"ворот";
+  // (a gate in a niche has no откос: the edges of its niche are closed by the angles of the niche — поз. 5, 5а, 6, 7 of
+  // узел 4 АР ч.2 л.14, drawn with the niche in the 3D; told by the count too: the откос поз. 30, 160 pieces, is the heads
+  // and sides of the windows, the doors and the gates without a niche — 308 m; with the four gates В-1 in niches the plan
+  // had 130 m more)
+  if(o.type_key==="gate"&&o.layout?.niche)continue;
   if(around&&o.type_key==="window"){const f2=f-r.side*(r.t+4),in2=(u,zz)=>x?[u,f2,zz]:[f2,u,zz],la=al.map(v=>-v),ex={opening:o.mark};
    // (outside: the strips of the отлив at the sides and over the head — drawn as a frame of the opening, mitred with the отлив under)
    for(const [P,Q,lg,w] of [[at(a,z),at(a,z+h),la,"сбоку"],[at(b,z),at(b,z+h),al,"сбоку"],[at(a,z+h),at(b,z+h),[0,0,1],"над окном"]]){const l=add("sill",ral,P,Q,[[...inn,45],[...lg,100]],"Отлив "+w+" окна "+o.mark+" снаружи, полоса 100 на грани панели — по узлам 21, 22 АР",ex);if(l){asSill();sills+=l}}
