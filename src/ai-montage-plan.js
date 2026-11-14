@@ -1609,6 +1609,18 @@ function arTrims(placements,spec=[],nodes=[],sketches=new Map(),steel=[]){
    // (inside the outer corner: the angle in the corner of the inner faces, the shelves along them — узел 24)
    if(c.outer&&POS.corner_in.length){const Q=[c.P[0]+c.dA*((c.tB||120)+4),c.P[1]+c.dB*((c.tA||120)+4)],w=Math.max(...(shapeOf("corner_in")?.legs_mm||[50]));
     if(add("corner_in",c.ral,[Q[0],Q[1],c.lo],[Q[0],Q[1],c.hi],[[c.dA,0,0,w],[0,c.dB,0,w]],"Наружный угол стен изнутри — угловой элемент в углу внутренних граней, по узлу 24 АР",{inner:true}))cornersIn++}}}
+ // The wall of panels running out from the outer face of another wall going on past it — узел 27 АР ч.2 л.17 (the wall of
+ // an annex, a step against the wall of the shop): поз. 6 «Угловой элемент» in both corners of the T, its shelves along the
+ // face of the wall going on and along the wall running out; by the height of both at the junction.
+ if(POS.corner_in.length){const w=Math.max(...(shapeOf("corner_in")?.legs_mm||[50])),seenT=new Set();
+  for(const A of runs)for(const B of runs){if(A.x===B.x)continue;const fB=face(B);
+   for(const [ea,dA] of [[A.a,1],[A.b,-1]]){if(dA!==B.side)continue;const o=(ea-B.line)*B.side;if(o<-B.t-100||o>B.t/2+600)continue;
+    if(A.line<B.a+200||A.line>B.b-200)continue;
+    const nA=A.panels.filter(p=>Math.min(Math.abs(p.a-ea),Math.abs(p.b-ea))<=1200),nB=B.panels.filter(p=>p.a<=A.line+200&&p.b>=A.line-200);if(!nA.length||!nB.length)continue;
+    const lo=Math.max(Math.min(...nA.map(p=>p.z0)),Math.min(...nB.map(p=>p.z0))),hi=Math.min(Math.max(...nA.map(p=>p.z1)),Math.max(...nB.map(p=>p.z1)));if(hi-lo<300)continue;
+    const key=R(fB/50)+":"+R(A.line/50)+":"+R(lo/100);if(seenT.has(key))continue;seenT.add(key);
+    for(const sg of [-1,1]){const u=A.line+sg*(A.t/2+4),P=B.x?[u,fB]:[fB,u],legs=B.x?[[sg,0,0,w],[0,B.side,0,w]]:[[0,sg,0,w],[B.side,0,0,w]];
+     if(add("corner_in",A.ral||B.ral||(A.panels[0]&&A.panels[0].ral),[P[0],P[1],lo],[P[0],P[1],hi],legs,"Примыкание стены к наружной грани стены — угловой элемент в углу, по узлу 27 АР",{tee:true}))cornersIn++}}}}
  // The foot of the walls standing on the ground (not over a lower roof — under +0,700): an отлив along it, on to the corner.
  // (the отлив of the foot is put only if the specification of the АР has it for that length: ИР-71535 поз. 1 «Отлив» is
  // 5 pieces of 2 m — the отлив under the windows over the concrete wall, узел 4 ч.2 л.14 —, the foot of the panels in the
