@@ -1659,9 +1659,13 @@ function arTrims(placements,spec=[],nodes=[],sketches=new Map()){
    // поз. 28 is the windows' alone; told by the count of поз. 30: 160 pieces of 2 m with a lap — 304 m — are the откосы of
    // the windows inside (181 m), of the doors on both sides (2 × 58 m) and of the gates without a niche (8 m))
    for(const [P,Q,lg,w] of [[at(a,z),at(a,z+h),la,"Откос"],[at(b,z),at(b,z+h),al,"Откос"],[at(a,z+h),at(b,z+h),[0,0,1],"Верхний откос"]])reveal+=add("reveal",ral,P,Q,[[...inn,45],[...lg,55]],w+" двери "+o.mark+" снаружи — по узлам 21, 22 АР (дверной блок)",ex)||0;
-   reveal+=(add("reveal",ral,in2(a,z),in2(a,z+h),[[...inn,180],[...la,55]],"Откос двери "+o.mark+" изнутри — по узлу 22 АР (дверной блок)",{...ex,inner:true})||0)+
-    (add("reveal",ral,in2(b,z),in2(b,z+h),[[...inn,180],[...al,55]],"Откос двери "+o.mark+" изнутри — по узлу 22 АР (дверной блок)",{...ex,inner:true})||0)+
-    (add("reveal",ral,in2(a,z+h),in2(b,z+h),[[...inn,180],[0,0,1,55]],"Верхний откос двери "+o.mark+" изнутри — по узлу 21 АР (дверной блок)",{...ex,inner:true})||0);continue}
+   // (inside — across the jamb from the inner face out to the frame, not 180 into the room: a door has no girt or post
+   // round it to line, the fins stood free in the room; the engineer, 14.11.2026 «после где двери ерунда какая то, ты не
+   // перепутал угол»)
+   const dj=Math.max(30,r.t-45);
+   reveal+=(add("reveal",ral,in2(a,z),in2(a,z+h),[[...n,dj],[...la,55]],"Откос двери "+o.mark+" изнутри — по узлу 22 АР (дверной блок), от внутренней грани до коробки",{...ex,inner:true})||0)+
+    (add("reveal",ral,in2(b,z),in2(b,z+h),[[...n,dj],[...al,55]],"Откос двери "+o.mark+" изнутри — по узлу 22 АР (дверной блок), от внутренней грани до коробки",{...ex,inner:true})||0)+
+    (add("reveal",ral,in2(a,z+h),in2(b,z+h),[[...n,dj],[0,0,1,55]],"Верхний откос двери "+o.mark+" изнутри — по узлу 21 АР (дверной блок), от внутренней грани до коробки",{...ex,inner:true})||0);continue}
   if(around&&o.type_key==="window"){const f2=f-r.side*(r.t+4),in2=(u,zz)=>x?[u,f2,zz]:[f2,u,zz],la=al.map(v=>-v),ex={opening:o.mark};
    // (outside: the strips of the отлив at the sides and over the head — drawn as a frame of the opening, mitred with the отлив under)
    for(const [P,Q,lg,w] of [[at(a,z),at(a,z+h),la,"сбоку"],[at(b,z),at(b,z+h),al,"сбоку"],[at(a,z+h),at(b,z+h),[0,0,1],"над окном"]]){const l=add("sill",ral,P,Q,[[...inn,45],[...lg,100]],"Отлив "+w+" окна "+o.mark+" снаружи, полоса 100 на грани панели — по узлам 21, 22 АР",ex);if(l){asSill();sills+=l}}

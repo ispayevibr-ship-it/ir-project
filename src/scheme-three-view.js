@@ -11931,6 +11931,23 @@ window.irThreeSchemeView=(function irThreeModule(){
   // (Box3.setFromObject) and the culling read those, not the numbers. A lost and restored graphics context — the
   // batches made again from the pieces (gpuLost).
   var gpuDrop=function(){this.array=null};
+  // (the numbers of the triangles of a set of steel let go as the rest, but leaving an empty list of their kind: a set
+  // whose pieces change their form far and near — steelFar — asks the kind of the numbers, 2 or 4 bytes, then)
+  var keepKind=function(){this.array=new this.array.constructor(0)};
+  // A piece of steel far off — its section less than FAR_PX points of the screen — drawn as the box around it, 12
+  // triangles, not its full form of 40…300: an angle, a channel, a tube of 2 points look the same; near — the full form
+  // again. As the example of three.js the engineer showed, 14.11.2026: «…webgl_batch_lod_bvh … не виснет и качество
+  // идеальное» — «Да, как в примере». Not with «Максимальное качество схемы», not the АР, not a phone.
+  var FAR_PX=2.5;
+  function tris(g){return(g.index?g.index.count:g.attributes.position.count)/3}
+  function farBox(g,keys,ix){if(!g.boundingBox)g.computeBoundingBox();var bb=g.boundingBox,z=new T.Vector3(),c=new T.Vector3();bb.getSize(z);bb.getCenter(c);
+   var b=new T.BoxGeometry(Math.max(z.x,1e-4),Math.max(z.y,1e-4),Math.max(z.z,1e-4));b.translate(c.x,c.y,c.z);
+   Object.keys(b.attributes).forEach(function(k){if(keys.indexOf(k)<0)b.deleteAttribute(k)});
+   if(keys.some(function(k){var a=b.attributes[k],o=g.attributes[k];return!a||!o||a.itemSize!==o.itemSize||o.normalized||!(o.array instanceof Float32Array)}))return null;
+   if(!ix)b=b.toNonIndexed();return b}
+  // (the section of a piece — the middle of its three sizes, in metres of the model)
+  function farSize(m){var bb=m.geometry.boundingBox,e=m.matrixWorld.elements,z=bb.max.clone().sub(bb.min);
+   var d=[z.x*Math.hypot(e[0],e[1],e[2]),z.y*Math.hypot(e[4],e[5],e[6]),z.z*Math.hypot(e[8],e[9],e[10])].sort(function(a,b){return a-b});return d[1]}
   function gpuOnly(m){var g=m.geometry;if(!g)return m;if(!g.boundingBox)g.computeBoundingBox();if(!g.boundingSphere)g.computeBoundingSphere();
    var by=0;for(var k in g.attributes){var ga=g.attributes[k];if(ga.array)by+=ga.array.byteLength;if(ga.onUpload)ga.onUpload(gpuDrop)}if(g.index){if(g.index.array)by+=g.index.array.byteLength;if(g.index.onUpload)g.index.onUpload(gpuDrop)}g.userData.bytes=by;g.userData.gpuOnly=true;return m}
   // The numbers of a merged piece in the short form: a normal — three whole numbers of a byte each (−127…127, read by
@@ -12009,15 +12026,27 @@ window.irThreeSchemeView=(function irThreeModule(){
    if((u.gutter||u.drain)&&!(m.material&&m.material.transparent))return true;
    return!(u.hole||u.footing||u.shell||u.roof||u.grating||u.weld||m.material&&m.material.transparent||c.ft==="panel"&&!u.cornerAdded)
   }
-  function mergeEdges(list){
-   var n=0;list.forEach(function(m){n+=edgesOf(m.geometry,m).length});if(!n)return null;
+  function mergeEdges(list,boxed){
+   var ed=function(m){return boxed&&boxed.has(m)?longEdges(m):edgesOf(m.geometry,m)};
+   var n=0;list.forEach(function(m){n+=ed(m).length});if(!n)return null;
    var pos=new Float32Array(n),v=0,p=new T.Vector3();
-   list.forEach(function(m){var a=edgesOf(m.geometry,m),E=m.matrixWorld.elements;for(var k=0;k<a.length;k+=3){
+   list.forEach(function(m){var a=ed(m),E=m.matrixWorld.elements;for(var k=0;k<a.length;k+=3){
     var x=a[k],y=a[k+1],z=a[k+2],w=1/(E[3]*x+E[7]*y+E[11]*z+E[15]);
     pos[v++]=(E[0]*x+E[4]*y+E[8]*z+E[12])*w;pos[v++]=(E[1]*x+E[5]*y+E[9]*z+E[13])*w;pos[v++]=(E[2]*x+E[6]*y+E[10]*z+E[14])*w}});
    var bg=new T.BufferGeometry();bg.setAttribute("position",new T.BufferAttribute(pos,3));bg.computeBoundingSphere();
    var l=new T.LineSegments(bg,edgeMat);l.matrixAutoUpdate=false;l.renderOrder=1;return l
   }
+  // The outline of a piece far off (farEdges): its own lines along its length only — the lines of its ends, a point on the
+  // screen, left out; a tube had no lines along it and has none (a box around it made the railings dark).
+  function longEdges(m){var a=edgesOf(m.geometry,m),e=m.matrixWorld.elements,sx=Math.hypot(e[0],e[1],e[2]),sy=Math.hypot(e[4],e[5],e[6]),sz=Math.hypot(e[8],e[9],e[10]),z=m.geometry.boundingBox.max.clone().sub(m.geometry.boundingBox.min),
+   cut=.3*Math.max(z.x*sx,z.y*sy,z.z*sz),r=[];
+   for(var k=0;k<a.length;k+=6){var dx=(a[k+3]-a[k])*sx,dy=(a[k+4]-a[k+1])*sy,dz=(a[k+5]-a[k+2])*sz;if(dx*dx+dy*dy+dz*dz>=cut*cut)for(var j=0;j<6;j++)r.push(a[k+j])}return r}
+  // The outlines of a cell far off: a piece of a section under FAR_S — its lines along its length only, not the 30…80 of
+  // its ends too (an angle, a channel of 2 points look the same); the larger — all their own. Shown instead of the full outlines while FAR_S
+  // is less than FAR_PX points on the screen (boltView) — the engineer, 14.11.2026 «Да, как в примере».
+  var FAR_S=.2;
+  function farEdges(list){var bx=new Set();list.forEach(function(m){var g=m.geometry;if(!g.boundingBox)g.computeBoundingBox();if(farSize(m)<FAR_S)bx.add(m)});
+   return bx.size?mergeEdges(list,bx):null}
   // The box of a member in its own axes: the section's extent along its length.
   function coarse(m){var g=m.geometry;return g.index&&g.index.count<=36||!g.index&&g.attributes.position.count<=36?g:unitBox}
   function coarseMatrix(m){
@@ -12082,13 +12111,16 @@ window.irThreeSchemeView=(function irThreeModule(){
    allMeshes.forEach(function(m){m.__inst=false});
    if(batched){var sets=new Map();
     allMeshes.forEach(function(m){var mt=m.material,g=m.geometry;if(!m.visible||smallApart&&m.userData.small||Array.isArray(mt)||!mt||mt.transparent||!g||!g.attributes||!g.attributes.position||!g.attributes.normal||m.matrixWorld.determinant()<=0)return;
-     var e=m.matrixWorld.elements,k=mt.uuid+"|"+(g.index?"i":"n")+"|"+Object.keys(g.attributes).sort().join(",")+"|"+(m.__ar?Math.floor(e[12]/AR_SET)+","+Math.floor(e[14]/AR_SET)+"|a":Math.floor(e[12]/20)+","+Math.floor(e[14]/20)),st=sets.get(k);if(!st)sets.set(k,st={mat:mt,list:[],geos:new Map(),nv:0,ni:0,ar:!!m.__ar});
-     if(!st.geos.has(g)){st.geos.set(g,-1);st.nv+=g.attributes.position.count;st.ni+=g.index?g.index.count:0}
+     var e=m.matrixWorld.elements,k=mt.uuid+"|"+(g.index?"i":"n")+"|"+Object.keys(g.attributes).sort().join(",")+"|"+(m.__ar?Math.floor(e[12]/AR_SET)+","+Math.floor(e[14]/AR_SET)+"|a":Math.floor(e[12]/20)+","+Math.floor(e[14]/20)),st=sets.get(k);if(!st)sets.set(k,st={mat:mt,list:[],geos:new Map(),nv:0,ni:0,ar:!!m.__ar,keys:Object.keys(g.attributes),ix:!!g.index,far:new Map()});
+     if(!st.geos.has(g)){st.geos.set(g,-1);st.nv+=g.attributes.position.count;st.ni+=g.index?g.index.count:0;
+      var fb=!st.ar&&tris(g)>18?farBox(g,st.keys,st.ix):null;if(fb){st.far.set(g,fb);st.nv+=fb.attributes.position.count;st.ni+=fb.index?fb.index.count:0}}
      st.list.push(m);m.__inst=true});
     sets.forEach(function(st){
      try{var bm=new T.BatchedMesh(st.list.length,st.nv,Math.max(1,st.ni),st.mat);bm.sortObjects=false;bm.perObjectFrustumCulled=false;bm.matrixAutoUpdate=false;
-      st.list.forEach(function(m){var gid=st.geos.get(m.geometry);if(gid<0){gid=bm.addGeometry(m.geometry);st.geos.set(m.geometry,gid)}bm.setMatrixAt(bm.addInstance(gid),m.matrixWorld)});
-      bm.computeBoundingBox();bm.computeBoundingSphere();if(bm.geometry&&bm.geometry.attributes.normal&&!bm.geometry.attributes.normal.normalized)bm.geometry.setAttribute("normal",shortNormal(bm.geometry.attributes.normal));gpuOnly(bm);bm.userData.lod="fine";bm.userData.instanced=true;bm.userData.batched=true;if(st.ar)bm.userData.ar=true;batches.add(bm)}
+      var far=[],ids=new Map();
+      st.list.forEach(function(m){var gid=st.geos.get(m.geometry);if(gid<0){gid=bm.addGeometry(m.geometry);st.geos.set(m.geometry,gid)}var id=bm.addInstance(gid);bm.setMatrixAt(id,m.matrixWorld);
+       var fb=st.far.get(m.geometry);if(!fb)return;if(!ids.has(fb))ids.set(fb,bm.addGeometry(fb));far.push([id,farSize(m),gid,ids.get(fb)])});
+      bm.computeBoundingBox();bm.computeBoundingSphere();if(bm.geometry&&bm.geometry.attributes.normal&&!bm.geometry.attributes.normal.normalized)bm.geometry.setAttribute("normal",shortNormal(bm.geometry.attributes.normal));gpuOnly(bm);if(far.length){if(bm.geometry.index)bm.geometry.index.onUpload(keepKind);far.sort(function(a,b){return b[1]-a[1]});bm.userData.far=far;bm.userData.farN=0}bm.userData.lod="fine";bm.userData.instanced=true;bm.userData.batched=true;if(st.ar)bm.userData.ar=true;batches.add(bm)}
      catch(e){st.list.forEach(function(m){m.__inst=false})}})}
    if(!phone&&!batched){var uses=new Map(),det=new T.Matrix4();
     allMeshes.forEach(function(m){if(!m.visible||m.userData.small)return;var k=m.geometry.uuid+"|"+m.material.uuid;uses.set(k,(uses.get(k)||0)+1)});
@@ -12113,7 +12145,8 @@ window.irThreeSchemeView=(function irThreeModule(){
     });
     if(lazy){lazy.lined=lined;lazy.sphere=sp.getBoundingSphere(new T.Sphere());lazyCells.push(lazy);return}
     // (its outlines with its pieces: shown and hidden with them, lod)
-    var edges=lined.length?mergeEdges(lined):null;if(edges){gpuOnly(edges);edges.userData.lod=small?"small":"fine";edges.userData.edges=true;if(arSet)edges.userData.ar=true;batches.add(edges)}
+    var edges=lined.length?mergeEdges(lined):null;if(edges){gpuOnly(edges);edges.userData.lod=small?"small":"fine";edges.userData.edges=true;if(arSet)edges.userData.ar=true;batches.add(edges);
+     var tw=!phone&&!small&&!arSet?farEdges(lined):null;if(tw){gpuOnly(tw);tw.userData.lod=edges.userData.lod;tw.userData.edges=true;tw.userData.twinOf=edges;tw.visible=false;edges.userData.twin=tw;batches.add(tw)}}
    };
    if(!queue){groups.forEach(batchCell);lodAt=null;invalidate();return}
    // (by steps: the cells a tenth at a time — BUILD_W.materials, the share of the colours and the merging)
@@ -12199,6 +12232,18 @@ window.irThreeSchemeView=(function irThreeModule(){
    boltCells.forEach(function(cell){if(!cell.meshes||!cell.levels)return;var lv=-1;
     if(cell.on){boltSphere.set(cell.centre,cell.radius);if(boltFrustum.intersectsSphere(boltSphere)){var d=Math.max(.05,cam.distanceTo(cell.centre)-cell.radius),px=cell.size*focal/d;lv=boltBest||px>=30?0:px>=8?1:px>=3?2:3}}
     if(lv===cell.shown)return;cell.shown=lv;cell.levels.forEach(function(l,i){l.forEach(function(m){m.visible=i===lv})})});
+   // (the seams of a cell whose largest leg is less than FAR_PX points — not drawn: a seam of a point and less is not seen,
+   // as the steel far off; the engineer, 14.11.2026 «Да, как в примере»)
+   weldCells.forEach(function(cell){if(!cell.meshes||!cell.meshes[0])return;var m=cell.meshes[0];if(!m.visible&&!m.userData.far)return;
+    var d=Math.max(.05,cam.distanceTo(cell.centre)-cell.radius),far=!boltBest&&cell.leg*focal/d<FAR_PX;if(far){if(m.visible){m.visible=false;m.userData.far=true}}else if(m.userData.far){m.visible=true;m.userData.far=false}});
+   // (the outlines of a cell far off — of the boxes of its small pieces; only a cell shown is switched — farEdges)
+   batches.children.forEach(function(m){var tw=m.userData.twin;if(!tw||!m.visible&&!tw.visible)return;var sp=m.geometry.boundingSphere,d=Math.max(.05,sp?cam.distanceTo(sp.center)-sp.radius:0),far=!boltBest&&FAR_S*focal/d<FAR_PX;m.visible=!far;tw.visible=far});
+   // (the steel far off — a box, near — its form; only the pieces whose state changes are touched — steelFar)
+   batches.children.forEach(function(m){var f=m.userData.far;if(!f)return;var n=0;
+    if(!boltBest){var sp=m.boundingSphere;if(sp&&!boltFrustum.intersectsSphere(sp))return;var cut=FAR_PX*Math.max(.05,sp?cam.distanceTo(sp.center)-sp.radius:0)/focal,lo=0,hi=f.length;
+     while(lo<hi){var md=(lo+hi)>>1;if(f[md][1]<cut)hi=md;else lo=md+1}n=f.length-lo}
+    var was=m.userData.farN;if(n===was)return;
+    for(var i=Math.min(n,was);i<Math.max(n,was);i++){var r=f[f.length-1-i];m.setGeometryIdAt(r[0],i<n?r[3]:r[2])}m.userData.farN=n});
    // (the pieces of one shape, by squares — rebatch: a square out of the picture not drawn, as the bolts)
    batches.children.forEach(function(m){var sp=m.userData.sphere;if(sp&&m.isInstancedMesh&&m.userData.lod==="fine")m.visible=boltFrustum.intersectsSphere(sp);
     // (the screws of the panels: a phone — within 20 m, as its bolts)
@@ -12248,7 +12293,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    weldList.forEach(function(w){if(!seen(w.id))return;var mx=w.x+w.dx*w.L/2,mz=w.z+w.dz*w.L/2,k=Math.floor(mx/CELL)+","+Math.floor(mz/CELL);if(!wcs.has(k))wcs.set(k,{list:[],meshes:null});wcs.get(k).list.push(w)});
    wcs.forEach(function(cell){var c=new T.Vector3(),r=0,m=new T.Vector3();
     cell.list.forEach(function(w){c.x+=w.x+w.dx*w.L/2;c.y+=w.y+w.dy*w.L/2;c.z+=w.z+w.dz*w.L/2});c.multiplyScalar(1/cell.list.length);
-    cell.list.forEach(function(w){m.set(w.x+w.dx*w.L/2,w.y+w.dy*w.L/2,w.z+w.dz*w.L/2);r=Math.max(r,m.distanceTo(c)+w.L/2)});cell.centre=c;cell.radius=r+.01;weldCells.push(cell)});
+    cell.list.forEach(function(w){m.set(w.x+w.dx*w.L/2,w.y+w.dy*w.L/2,w.z+w.dz*w.L/2);r=Math.max(r,m.distanceTo(c)+w.L/2)});cell.centre=c;cell.radius=r+.01;cell.leg=cell.list.reduce(function(a,w){return Math.max(a,w.s)},0);weldCells.push(cell)});
   }
   // The seams of a cell in one mesh: each a fillet — its two faces out from the steel (from the end of one leg over the
   // swell of the seam to the end of the other) and its two ends, its legs along a and b, s long; the faces on the steel
@@ -12281,7 +12326,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    // 7 mln points on ИР-71535; the bolt sets alone are as heavy again — on a phone within 20 m of the camera)
    var near=Infinity,bolts=phone?20:Infinity,seams=Infinity,lines=Infinity,made=0,more=false;
    batches.children.forEach(function(b){
-    if(b.userData.lod==="bolt"||b.userData.instanced||b.userData.lod==="weld"||b.userData.lazy)return;
+    if(b.userData.lod==="bolt"||b.userData.instanced||b.userData.lod==="weld"||b.userData.lazy||b.userData.twinOf)return;if(b.userData.twin)b.userData.twin.visible=false;
     var s=b.geometry.boundingSphere,d=s?Math.max(0,cam.distanceTo(s.center)-s.radius):0;
     b.visible=b.userData.lod==="small"?d<(b.userData.edges?Math.min(bolts,lines):bolts):b.userData.lod==="coarse"?d>=near:d<(b.userData.edges?lines:near);
    });
