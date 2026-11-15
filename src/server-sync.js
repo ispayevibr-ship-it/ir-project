@@ -25,6 +25,7 @@ const RANGE=1e9;
 const LOCAL_ONLY=new Set(["ai-training","scheme-snapshots","ai-project-log"]);
 // heavy rows: sent when settled, taken one by one, longer waiting for the answer
 const HEAVY=new Set(["ai-scheme-draft"]);
+const PULL_PAGE=100;
 const DOCS="ai-documents";
 const SAFE_DOC=/^[a-f0-9]{32}\.(pdf|dxf|dwg|png|jpg|jpeg|tif|tiff)$/i;
 // the place of a drawing's file inside the program's folder, the same on every computer (an object keeps its number)
@@ -378,16 +379,26 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
   if(sig)for(const {coll} of TABLES)setState("since_"+coll,"");
   for(const {table,coll} of TABLES){
    const since=getState("since_"+coll);
-   const filter=since?`&filter=${encodeURIComponent(`updated>="${since}"`)}`:"";
+   // Список изменённых — порциями по 100 без подсчёта всего числа, тяжёлые записи (разбор ~9 МБ) отдельным списком:
+   // сервер выбирает строки целиком, и страница из 500 с тяжёлыми не укладывалась в его 30 с (15.11.2026, обмен
+   // стоял с 08:04 — «context deadline exceeded» в журнале сервера на page=2).
+   const heavyF=[...HEAVY].map(k=>`section_key="${k}"`).join("||");
+   const parts=coll==="records"?[`section_key!="${[...HEAVY][0]}"`,heavyF]:[""];
    let last=since,need=[],heavy=[];
-   for(let page=1;page<500;page++){
-    const r=await account.api(`/api/collections/${coll}/records?perPage=500&page=${page}&sort=updated,id&fields=id,rid,version,updated${coll==="records"?",section_key":""}${filter}`,{timeout:60000});
-    for(const it of r?.items||[]){
-     const m=mapOf(table,Number(it.rid));
-     if(!(m&&m.sid===it.id&&Number(m.version)>=Number(it.version)))(HEAVY.has(it.section_key)?heavy:need).push(it.id);
-     if(it.updated>last)last=it.updated
+   for(const part of parts){
+    const f=[since?`updated>="${since}"`:"",part].filter(Boolean).map(x=>part&&since?`(${x})`:x).join("&&");
+    const filter=f?`&filter=${encodeURIComponent(f)}`:"";
+    const per=part===heavyF?10:PULL_PAGE;
+    for(let page=1;page<5000;page++){
+     const r=await account.api(`/api/collections/${coll}/records?perPage=${per}&page=${page}&skipTotal=1&sort=updated,id&fields=id,rid,version,updated${coll==="records"?",section_key":""}${filter}`,{timeout:60000});
+     const items=r?.items||[];
+     for(const it of items){
+      const m=mapOf(table,Number(it.rid));
+      if(!(m&&m.sid===it.id&&Number(m.version)>=Number(it.version)))(HEAVY.has(it.section_key)?heavy:need).push(it.id);
+      if(it.updated>last)last=it.updated
+     }
+     if(items.length<per)break
     }
-    if(!r||page>=r.totalPages)break
    }
    for(let i=0;i<need.length;i+=40){
     const ids=need.slice(i,i+40),f=ids.map(id=>`id='${id}'`).join("||");
