@@ -232,6 +232,11 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
  const learned=data=>knowledge?{typeOfMark:knowledge.resolver([data.source?.name||"",...(data.source?.documents||[]).map(d=>d.name)].join(" "))}:{};
  if(!database||!documents||!drafts||!renderer||!engine)throw Error("Montage needs drafts, renderer and engine");
  const object=id=>{const n=Number(id);if(!Number.isSafeInteger(n)||n<1||!database.getObject(n))throw Error("Объект не найден");return n};
+ // Запрет к редактированию схемы (src/scheme-page.js, запись object-meta «scheme_lock»; просьба инженера 15.11.2026
+ // «нельзя вносить в схему никаких изменений пока не снимут запрет (даже автоматически она не меняется)»): расстановка,
+ // её отмена, очистка, «Вернуть», просьбы чата и восстановление из корзины схему не трогают.
+ const schemeLock=oid=>{try{return database.listEntity(oid,"object-meta").find(r=>r.record_type==="scheme_lock"&&r.data?.value===true)||null}catch(_e){return null}};
+ const assertUnlocked=id=>{const oid=object(id),l=schemeLock(oid);if(l)throw Error("Монтажная схема запрещена к редактированию"+(l.data?.by?" ("+l.data.by+")":"")+" — изменения не вносятся. Снять запрет: кнопка «Разрешить редактирование» на схеме.");return oid};
  // The project knowledge base of the object: mark cards with the sheet of every value, processing log.
  const project=createProjectKnowledge({database});
  const draftRow=(oid,draftId)=>{
@@ -761,7 +766,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
  const fromPdf=r=>Boolean(r.data?.import_batch);
  const mounted=r=>{const st=String(r.data?.status||"planned");return st!=="planned"&&st!==""};
  function place(id,draftId,heights){
-  const oid=object(id),row=draftRow(oid,draftId),data=row.data||{};
+  const oid=assertUnlocked(id),row=draftRow(oid,draftId),data=row.data||{};
   const plan=buildPlan(data,checkedResult(data),heights||data.heights||{},learned(data));
   if(!plan.ready)throw Error(plan.problems.join("; ")||"Нет элементов для расстановки");
   const scheme=database.listEntity(oid,"scheme");
@@ -1077,7 +1082,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   return view(oid,draftRow(oid,draftId))
  }
  function undo(id,draftId){
-  const oid=object(id),row=draftRow(oid,draftId),placed=row.data?.placed;
+  const oid=assertUnlocked(id),row=draftRow(oid,draftId),placed=row.data?.placed;
   if(!placed?.batch)throw Error("Расстановка не найдена");
   const restored=new Set((placed.undo?.updated||[]).map(u=>String(u.id)));
   let removed=0,marksRemoved=0;
@@ -1127,7 +1132,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
  // все предварительное») — those of ids that are still preliminary, not mounted; each the program placed is kept as
  // deleted by the engineer (src/ai-training.js removedMany), so a later placement does not put it back; «Вернуть» forgets it.
  function clearScheme(id,{grid=false,missing=false,ids=null,preliminary=false}={}){
-  const oid=object(id),rows=database.listEntity(oid,"scheme"),asked=Array.isArray(ids)?new Set(ids.map(String)):null;
+  const oid=assertUnlocked(id),rows=database.listEntity(oid,"scheme"),asked=Array.isArray(ids)?new Set(ids.map(String)):null;
   const targets=preliminary?rows.filter(r=>isElement(r)&&r.data?.preliminary===true&&(!asked||asked.has(String(r.id)))&&!mounted(r)):
    asked?rows.filter(r=>isElement(r)&&asked.has(String(r.id))&&!mounted(r)):
    missing?rows.filter(r=>isElement(r)&&fromPdf(r)&&r.data?.missing_in_analysis&&!mounted(r)&&!r.data?.engineer_edited):rows.filter(r=>isElement(r)||grid&&isGrid(r));
@@ -1154,7 +1159,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   return last?{id:last.id,at:last.data?.at,count:(last.data?.records||[]).filter(r=>r.record_type!=="scheme_grid").length,grid:Boolean(last.data?.grid),missing:Boolean(last.data?.missing),chat:Boolean(last.data?.chat),prelim:Boolean(last.data?.prelim)}:null
  }
  function restoreScheme(id){
-  const oid=object(id),last=database.listEntity(oid,SNAPSHOTS).sort((a,b)=>String(b.data?.at).localeCompare(String(a.data?.at)))[0];
+  const oid=assertUnlocked(id),last=database.listEntity(oid,SNAPSHOTS).sort((a,b)=>String(b.data?.at).localeCompare(String(a.data?.at)))[0];
   if(!last)throw Error("Нет сохранённой копии схемы");
   const rows=database.listEntity(oid,"scheme"),records=last.data?.records||[];
   // A grid made after the clearing gives way to the saved one.
@@ -1297,6 +1302,6 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   }
   return null
  }
- return{latest,documentSheets,analyze,control,process,skipAI,preview,place,undo,clearScheme,restoreScheme,schemeSnapshot,elementCard,placedInfo,nodeView};
+ return{latest,documentSheets,analyze,control,process,skipAI,preview,place,undo,clearScheme,restoreScheme,schemeSnapshot,elementCard,placedInfo,nodeView,assertUnlocked,schemeLocked:id=>Boolean(schemeLock(object(id)))};
 }
 module.exports={sameElement,createMontage,SCHEMA,SYSTEM,mergeParts,mergeMarks,sameElementKey,matchPlaced};

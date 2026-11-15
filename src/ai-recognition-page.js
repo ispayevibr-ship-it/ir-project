@@ -14,6 +14,10 @@ window.irAiRecognitionPage=async function(objectId){
  const mm=v=>Number(v||0).toLocaleString("ru-RU");
  const bridge=irProject.aiDocuments,montage=irProject.aiMontage,runtime=irProject.aiEngine;
  const canEdit=!!window.irAccess?.canEdit?.("ai-recognition");
+ // (the scheme under its lock — «Запретить к редактированию» on the scheme, object-meta «scheme_lock»: nothing is placed,
+ // undone or cleared; the main process refuses it too — assertUnlocked in ai-montage.js)
+ let locked=null;
+ const readLock=()=>irProject.data.forObject(id).section("object-meta").list().then(r=>{locked=(Array.isArray(r)?r:[]).find(x=>x.record_type==="scheme_lock"&&x.data?.value===true)||null}).catch(()=>{locked=null});
  const TABS=[["drawings","Чертежи"],["analyze","Анализ"],["claude","Обработка Claude"],["place","Монтажная схема"],["journal","Журнал"]];
  const tabKey="ir-ms-tab-"+id;
  let object,coming=0,pdfs=[],picked=new Set(),view=null,engine=null,busy="",error="",heights={},progress="",filter="";
@@ -42,7 +46,7 @@ window.irAiRecognitionPage=async function(objectId){
   const jobs=[bridge.list(id).then(setPdfs).catch(()=>{pdfs=[]}),
    montage.latest(id).then(v=>{view=v}).catch(e=>{error=String(e.message||e)})];
   if(runtime)jobs.push(runtime.status().then(v=>{engine=v}).catch(()=>{engine=null}));
-  jobs.push(loadKnowledge(),loadWorks(),invoke("ai-montage:control",{objectId:id,action:"status"}).then(r=>{ctl=r||ctl}).catch(()=>{}));
+  jobs.push(readLock(),loadKnowledge(),loadWorks(),invoke("ai-montage:control",{objectId:id,action:"status"}).then(r=>{ctl=r||ctl}).catch(()=>{}));
   await Promise.all(jobs);
   syncHeights();
   if(alive()){render();loadSheets(selected)}
@@ -284,7 +288,7 @@ window.irAiRecognitionPage=async function(objectId){
   return'<details class="ir-ms-skipped"><summary>Не расставлено: '+count+'</summary><ul>'+(list||[]).map(s=>'<li>'+esc(s.mark)+' · лист '+s.page+(s.file?' ('+esc(s.file)+')':'')+' — '+esc(s.reason)+'</li>').join("")+'</ul></details>'
  }
  // Clearing goes through the generic AI channel (installer 1.8.1 and later).
- const clearButton=()=>irProject.ai?.invoke?'<button class="link" data-ms-clear '+(busy||!canEdit?'disabled':'')+'>Очистить монтажную схему</button>':"";
+ const clearButton=()=>irProject.ai?.invoke?'<button class="link" data-ms-clear '+(busy||!canEdit||locked?'disabled':'')+'>Очистить монтажную схему</button>':"";
  async function clearScheme(){
   if(!confirm("Удалить все элементы монтажной схемы? Сетка осей останется. Копия сохранится — её можно вернуть на странице монтажной схемы."))return;
   await run("clear",async()=>{const r=await irProject.ai.invoke("ai-montage:clear-scheme",{objectId:id});alert("Удалено элементов: "+r.removed)})
@@ -370,7 +374,7 @@ window.irAiRecognitionPage=async function(objectId){
      fold('Какие марки',table(["Марка","Шт."],placed.registerMissing.map(m=>'<tr><td>'+esc(m.mark)+'</td><td>'+(m.qty||"")+'</td></tr>'))):'')+
     (placed.gridDiffs?.length?'<p class="ir-ms-error">Ваша сетка осей отличается от PDF: '+placed.gridDiffs.length+'</p>'+fold('Показать',esc(placed.gridDiffs.join('; '))):'')+
     (placed.skippedCount?'<p class="muted">Пропущено элементов: '+placed.skippedCount+' — список ниже.</p>':'')+'</div>'+
-    '<div class="ir-ms-row"><button class="primary" data-ms-open>Открыть монтажную схему</button><button data-ms-placeit '+(busy||!plan?.ready||!canEdit?'disabled':'')+'>Расставить заново</button><button data-ms-undo '+(busy||!canEdit?'disabled':'')+'>Отменить расстановку</button>'+clearButton()+'</div>'+
+    '<div class="ir-ms-row"><button class="primary" data-ms-open>Открыть монтажную схему</button><button data-ms-placeit '+(busy||!plan?.ready||!canEdit||locked?'disabled':'')+'>Расставить заново</button><button data-ms-undo '+(busy||!canEdit||locked?'disabled':'')+'>Отменить расстановку</button>'+clearButton()+'</div>'+
     skippedHtml(placed.skipped,placed.skippedCount)+editsCard()
   }else{
    const g=plan.grid;
@@ -383,9 +387,10 @@ window.irAiRecognitionPage=async function(objectId){
     (plan.problems.length?'<ul class="ir-ms-problems">'+plan.problems.map(p=>'<li>'+esc(p)+'</li>').join("")+'</ul>':'')+
     '<p class="ir-ms-result">Элементов по чертежам: <b>'+plan.elements+'</b>'+Object.entries(plan.groups).map(([k,v])=>' · '+esc(k)+' '+v).join("")+'</p>'+
     '<p class="muted">Программа сверит их со схемой: новые добавит, изменит только те, у которых по чертежам изменились координаты, отметки или узлы, одинаковые не трогает (статус монтажа сохраняется), исчезнувшие марки удаляются. Элементы, добавленные вручную, не трогаются. Марок, которых нет в ведомости, программа добавит её сама (вид работ «Монтаж металлоконструкций (из PDF)»), сетку осей — тоже, если её нет.</p>'+
-    '<div class="ir-ms-row"><button class="primary big" data-ms-placeit '+(busy||!plan.ready||!canEdit?'disabled':'')+'>Расставить на монтажной схеме</button>'+clearButton()+'</div>'+
+    '<div class="ir-ms-row"><button class="primary big" data-ms-placeit '+(busy||!plan.ready||!canEdit||locked?'disabled':'')+'>Расставить на монтажной схеме</button>'+clearButton()+'</div>'+
     skippedHtml(plan.skipped,plan.skippedCount)
   }
+  if(locked)body='<div class="ir-ms-card warn"><b>🔒 Схема запрещена к редактированию</b><p>'+(locked.data?.by?esc(locked.data.by)+'. ':'')+'Расстановка, её отмена и очистка не выполняются, пока запрет не снимут кнопкой «Разрешить редактирование» на схеме.</p></div>'+body;
   return'<div class="ir-ms-page">'+body+'</div>'
  }
 

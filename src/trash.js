@@ -193,11 +193,13 @@ function createTrash({getUserDataPath,now=()=>Date.now()}){
   db.prepare(`INSERT INTO ${tbl}(${keys.join(",")}) VALUES(${keys.map(()=>"?").join(",")})`).run(...keys.map(k=>row[k]))
  }
  // Восстановить пачку: строки с прежними номерами (занятый номер — новый), разделы и строка объекта, файлы на место.
- function restore(batchId){
+ // (guard(batch) — before anything is put back: the scheme of an object under its lock, ai-ipc.js)
+ function restore(batchId,{guard=null}={}){
   const id=Number(batchId);
   const out=run(db=>{
    const b=db.prepare("SELECT * FROM trash_batches WHERE id=?").get(id);
    if(!b)throw Error("Этой записи в корзине уже нет (восстановлена или прошёл срок хранения)");
+   if(typeof guard==="function")guard(b);
    return tx(db,()=>{
     db.exec("PRAGMA defer_foreign_keys=ON");
     if(b.kind==="object"){

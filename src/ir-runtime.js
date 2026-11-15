@@ -1273,9 +1273,19 @@ window.irSchemePage=async function(objectId,opts){
  if(location.hash!==requestedRoute){loading.cancel();return}
  if(!object){loading.cancel();if(!headless)location.hash="/objects";return}
  loading.progress(.04,"Читаем элементы схемы из базы");
- const canEdit=()=>window.irAccess?window.irAccess.canEdit("scheme"):false;
  const esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
  const arr=v=>Array.isArray(v)?v:[];
+ // Запрет к редактированию (просьба инженера 15.11.2026: «кнопку Запретить к редактированию, после этого нельзя вносить
+ // в схему никаких изменений пока не снимут запрет (даже автоматически она не меняется)»): запись object-meta
+ // «scheme_lock» объекта, data.value=true, кто и когда. Пока она есть, схема только для просмотра: ни правок, ни
+ // расстановки и повторной расстановки, ни очистки, ни «Вернуть», ни восстановления из корзины — их запрещает и
+ // главный процесс (assertUnlocked в ai-montage.js). Запись идёт на сервер с остальными данными объекта — запрет у всех.
+ const metaApi=root.section("object-meta"),LOCK="scheme_lock";
+ let lockRow=null;
+ const readLock=async()=>{try{lockRow=arr(await metaApi.list()).find(r=>r.record_type===LOCK&&r.data?.value===true)||null}catch{lockRow=null}return lockRow};
+ const mayEdit=()=>window.irAccess?window.irAccess.canEdit("scheme"):false;
+ const canEdit=()=>mayEdit()&&!lockRow;
+ await readLock();
  const num=v=>{const n=Number(String(v??"").trim().replace(/\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};
  // (one number format for the page: toLocaleString with options builds a new one at each call — several thousand
  // elements of the list cost a third of a second of the opening)
@@ -2879,6 +2889,27 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  // Elements a later placement no longer found («нет в новом анализе»): leftovers of an older reading (the engineer,
  // 31.10.2026, mast ПМС-18,4: «это что за лестница?», «стойки нет по чертежам»). Mounted ones and those he changed stay.
  const leftovers=()=>allRecords().filter(r=>r.missing_in_analysis&&r.import_batch&&(!r.status||r.status==="planned")&&!r.engineer_edited);
+ // Запретить / разрешить редактирование схемы: запись «scheme_lock» объекта (см. readLock).
+ async function toggleLock(){
+  if(!mayEdit())return;
+  const btn=document.getElementById("schemeLock");if(btn)btn.disabled=true;
+  try{
+   await readLock();
+   if(lockRow){
+    if(!confirm("Снять запрет? Схему снова можно будет менять вручную и расстановкой по чертежам.")){restoreKeyboardAfterConfirm();if(btn)btn.disabled=false;return}
+    restoreKeyboardAfterConfirm();
+    await metaApi.remove(lockRow.id);lockRow=null
+   }else{
+    if(!confirm("Запретить изменения схемы? Пока запрет не снимут, в схему ничего не вносится: ни вручную, ни расстановкой по чертежам, ни автоматически.")){restoreKeyboardAfterConfirm();if(btn)btn.disabled=false;return}
+    restoreKeyboardAfterConfirm();
+    const who=(()=>{try{const st=window.irServerAccount?.state?.(),u=st?.signedIn?st.user:null;return String(u?.name||"")||{admin:"администратор",engineer:"инженер"}[window.irAccess?.role?.()]||""}catch{return""}})();
+    await metaApi.create({record_type:LOCK,title:"Запрет к редактированию схемы",data:{entity_type:LOCK,value:true,at:new Date().toISOString(),...(who?{by:who}:{})}});
+    await readLock()
+   }
+   try{irProject.dataCache?.forget?.()}catch{}
+   draw()
+  }catch(error){if(btn)btn.disabled=false;alert("Не удалось изменить запрет: "+String(error?.message||error).replace(/^Error invoking remote method '[^']+': (Error: )?/,""))}
+ }
  async function clearMissing(){
   if(!canEdit())return;
   const n=leftovers().length;if(!n)return;
@@ -2937,9 +2968,12 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   // (the shown elements once for the drawing: each listing of them took the coordinates of all of them again)
   const shownNow=columns();
   if(selectedId&&!shownNow.some(c=>c.id===selectedId))selectedId="";
-  const s=stats(),mp=statusCounts(),works=enabledWorks(),currentWork=works.find(w=>w.id===activeWorkId)||null,workOptions='<option value="__frame__" '+(frameMode?'selected':'')+'>Все виды работ вместе</option>'+works.map(w=>'<option value="'+esc(w.id)+'" '+(!frameMode&&w.id===activeWorkId?'selected':'')+'>'+esc(w.name)+(w.code?' · '+esc(w.code):'')+'</option>').join(""),groupOptions=schemeGroups().map(g=>`<option value="${esc(g.key)}" ${g.key===activeScheme?"selected":""}>${esc(g.label)} · ${g.marks} марок · ${g.placed} элементов</option>`).join(""),editActions=canEdit()?`<button type="button" class="scheme-grid-button" id="schemeGridConfig">⚙ Параметры сетки</button>${irProject.ai?.invoke?`<button type="button" class="scheme-grid-button danger" id="schemeClear" ${s.total?"":"disabled"} title="Удалить все элементы схемы; копия сохраняется">Очистить схему</button>${prelimLive().length?`<button type="button" class="scheme-grid-button danger" id="schemeClearPrelim" title="Удалить все предварительные элементы — определённые по чертежам не полностью (бледные). Смонтированные остаются. Следующая расстановка их заново не ставит. Копия сохраняется — их можно вернуть кнопкой «Вернуть».">Удалить все предварительные (${prelimLive().length})</button>`:""}${leftovers().length?`<button type="button" class="scheme-grid-button danger" id="schemeClearMissing" title="Удалить элементы, которых нет в новом анализе чертежей, — остатки прежних расстановок. Смонтированные и изменённые вами остаются. Копия сохраняется — их можно вернуть кнопкой «Вернуть».">Убрать «нет в анализе» (${leftovers().length})</button>`:""}${schemeSnapshot?`<button type="button" class="scheme-grid-button" id="schemeRestore" title="Вернуть элементы, удалённые очисткой ${esc(new Date(schemeSnapshot.at).toLocaleString("ru-RU"))}">↺ Вернуть (${schemeSnapshot.count})</button>`:""}${`<button type="button" class="scheme-grid-button" id="schemeTrash" title="Удалённое со схемы за последние 7 дней: элементы, марки целиком, сетки, очистки — можно вернуть">🗑 Удалённые${schemeTrashCount?" ("+schemeTrashCount+")":""}</button>`}`:""}${!frameMode&&activeWorkId?`<button type="button" class="scheme-grid-button" id="schemeNewView">＋ Добавить сетку</button>${activeView()?`<button type="button" class="scheme-grid-button" id="schemeEditView">Изменить</button><button type="button" class="scheme-grid-button danger" id="schemeDeleteView">Удалить сетку</button>`:""}`:""}`:"",emptyOverlay=activeWorkId?(s.total?"":`<div class="scheme-empty-overlay"><b>Схема пока пустая</b><span>Нажмите «Добавить элемент» и выберите марку для этой монтажной схемы${window.irAiRecognitionPage?" или загрузите чертежи в «ИИ-распознавание»":""}.</span></div>`):`<div class="scheme-empty-overlay"><b>Монтажная схема не включена</b><span>Откройте «Виды работ» и включите галочку «Нужна монтажная схема» у нужного вида работ.</span></div>`;
+  const s=stats(),mp=statusCounts(),works=enabledWorks(),currentWork=works.find(w=>w.id===activeWorkId)||null,workOptions='<option value="__frame__" '+(frameMode?'selected':'')+'>Все виды работ вместе</option>'+works.map(w=>'<option value="'+esc(w.id)+'" '+(!frameMode&&w.id===activeWorkId?'selected':'')+'>'+esc(w.name)+(w.code?' · '+esc(w.code):'')+'</option>').join(""),groupOptions=schemeGroups().map(g=>`<option value="${esc(g.key)}" ${g.key===activeScheme?"selected":""}>${esc(g.label)} · ${g.marks} марок · ${g.placed} элементов</option>`).join(""),editActions=canEdit()?`<button type="button" class="scheme-grid-button" id="schemeGridConfig">⚙ Параметры сетки</button>${irProject.ai?.invoke?`<button type="button" class="scheme-grid-button danger" id="schemeClear" ${s.total?"":"disabled"} title="Удалить все элементы схемы; копия сохраняется">Очистить схему</button>${prelimLive().length?`<button type="button" class="scheme-grid-button danger" id="schemeClearPrelim" title="Удалить все предварительные элементы — определённые по чертежам не полностью (бледные). Смонтированные остаются. Следующая расстановка их заново не ставит. Копия сохраняется — их можно вернуть кнопкой «Вернуть».">Удалить все предварительные (${prelimLive().length})</button>`:""}${leftovers().length?`<button type="button" class="scheme-grid-button danger" id="schemeClearMissing" title="Удалить элементы, которых нет в новом анализе чертежей, — остатки прежних расстановок. Смонтированные и изменённые вами остаются. Копия сохраняется — их можно вернуть кнопкой «Вернуть».">Убрать «нет в анализе» (${leftovers().length})</button>`:""}${schemeSnapshot?`<button type="button" class="scheme-grid-button" id="schemeRestore" title="Вернуть элементы, удалённые очисткой ${esc(new Date(schemeSnapshot.at).toLocaleString("ru-RU"))}">↺ Вернуть (${schemeSnapshot.count})</button>`:""}${`<button type="button" class="scheme-grid-button" id="schemeTrash" title="Удалённое со схемы за последние 7 дней: элементы, марки целиком, сетки, очистки — можно вернуть">🗑 Удалённые${schemeTrashCount?" ("+schemeTrashCount+")":""}</button>`}`:""}${!frameMode&&activeWorkId?`<button type="button" class="scheme-grid-button" id="schemeNewView">＋ Добавить сетку</button>${activeView()?`<button type="button" class="scheme-grid-button" id="schemeEditView">Изменить</button><button type="button" class="scheme-grid-button danger" id="schemeDeleteView">Удалить сетку</button>`:""}`:""}`:"",lockWho=lockRow?[lockRow.data?.by,lockRow.data?.at?new Date(lockRow.data.at).toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):""].filter(Boolean).join(", "):"",
+   lockAction=mayEdit()?(lockRow?`<button type="button" class="scheme-grid-button scheme-lock-button on" id="schemeLock" aria-pressed="true" title="Снять запрет: схему снова можно менять вручную и расстановкой по чертежам">🔓 Разрешить редактирование</button>`:`<button type="button" class="scheme-grid-button scheme-lock-button" id="schemeLock" aria-pressed="false" title="Запретить любые изменения схемы — вручную, расстановкой по чертежам и автоматически — пока запрет не снимут">🔒 Запретить к редактированию</button>`):"",
+   lockBanner=lockRow?`<div class="scheme-lock-banner" role="status">🔒 <b>Схема запрещена к редактированию</b>${lockWho?`<span>${esc(lockWho)}</span>`:""}<small>Изменения вручную, расстановка по чертежам и автоматические изменения не вносятся, пока запрет не снимут.</small></div>`:"",
+   emptyOverlay=activeWorkId?(s.total?"":`<div class="scheme-empty-overlay"><b>Схема пока пустая</b><span>Нажмите «Добавить элемент» и выберите марку для этой монтажной схемы${window.irAiRecognitionPage?" или загрузите чертежи в «ИИ-распознавание»":""}.</span></div>`):`<div class="scheme-empty-overlay"><b>Монтажная схема не включена</b><span>Откройте «Виды работ» и включите галочку «Нужна монтажная схема» у нужного вида работ.</span></div>`;
   app.innerHTML=`<div class="scheme-page">
-   <div class="scheme-head"><button class="back" id="schemeBack">← Назад</button><div><h1>Монтажная схема</h1><p>${esc(object.name||"")}${frameMode?"":currentWork?` · ${esc(currentWork.name)}`:""} · ${esc(activeGroup().label)}</p></div><div class="scheme-head-actions">${window.irAiRecognitionPage?`<a class="scheme-grid-button scheme-ai-button" id="schemeAiRecognition" href="#/objects/object/${esc(oid)}/ai-recognition" title="Загрузить чертежи КМ / КМД / АР и расставить элементы на этой схеме">ИИ-распознавание</a>`:""}<label class="scheme-type-select-wrap work"><span>Режим / вид работ</span><select id="schemeWorkSelect">${workOptions}</select></label><label class="scheme-type-select-wrap"><span>Схема</span><select id="schemeTypeSelect" ${frameMode||activeWorkId?"":"disabled"}>${groupOptions}</select></label>${editActions}</div></div>
+   <div class="scheme-head"><button class="back" id="schemeBack">← Назад</button><div><h1>Монтажная схема</h1><p>${esc(object.name||"")}${frameMode?"":currentWork?` · ${esc(currentWork.name)}`:""} · ${esc(activeGroup().label)}</p></div><div class="scheme-head-actions">${window.irAiRecognitionPage?`<a class="scheme-grid-button scheme-ai-button" id="schemeAiRecognition" href="#/objects/object/${esc(oid)}/ai-recognition" title="Загрузить чертежи КМ / КМД / АР и расставить элементы на этой схеме">ИИ-распознавание</a>`:""}<label class="scheme-type-select-wrap work"><span>Режим / вид работ</span><select id="schemeWorkSelect">${workOptions}</select></label><label class="scheme-type-select-wrap"><span>Схема</span><select id="schemeTypeSelect" ${frameMode||activeWorkId?"":"disabled"}>${groupOptions}</select></label>${editActions}${lockAction}</div></div>${lockBanner}
    <details class="scheme-data" id="schemeDataPanel" ${dataPanelOpen?"open":""}><summary><b>Данные схемы</b><small>оси ${fmt(spanX)} × ${fmt(spanY)} мм · на схеме ${s.total} · готовность ${mp.pct}% · смонтировано ${fmt(mp.mounted)} из ${fmt(mp.total)} шт.</small><span class="scheme-data-act"><i class="when-open">Скрыть</i><i class="when-closed">Показать</i></span></summary>
    <div class="scheme-summary">
     <div><span>Оси ${esc(axesX[0])}–${esc(axesX.at(-1))}</span><b>${fmt(spanX)} мм</b><small>${gridDirX==="ltr"?"Слева направо":"Справа налево"}: ${esc(axesX[0])} → ${esc(axesX.at(-1))} · ${gridXSpans.length} пролётов</small></div>
@@ -3028,6 +3062,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   document.getElementById("schemeTrash")?.addEventListener("click",openSchemeTrash);
   document.getElementById("schemeClearMissing")?.addEventListener("click",clearMissing);
   document.getElementById("schemeClearPrelim")?.addEventListener("click",clearPreliminary);
+  document.getElementById("schemeLock")?.addEventListener("click",toggleLock);
   renderScene();renderDetails();bindGridEditor();bindEditor();bindViewManager()
  }
  await loadSnapshot();

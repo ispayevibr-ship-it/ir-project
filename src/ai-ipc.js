@@ -327,7 +327,8 @@ accountCall("open-site",({path}={})=>{const p=path==="/_/"?"/_/":"/";return shel
  // ai-settings (кэш окна не сбрасывается), восстановление — ai-montage (окно перечитывает данные).
  handle("ai-settings:trash-list",(_e,{objectId,section,kind}={})=>trash.list({objectId:objectId==null||objectId===""?null:objectId,section:String(section||""),kind:String(kind||"")}));
  handle("ai-montage:trash-restore",(_e,{id}={})=>{
-  const r=trash.restore(id);
+  // (the scheme under its lock — «Запретить к редактированию» — is not restored into: assertUnlocked)
+  const r=trash.restore(id,{guard:b=>{if(b.section_key==="scheme"&&b.object_id&&b.kind!=="object")montage.assertUnlocked(b.object_id)}});
   // Очистка схемы держит ещё и свою копию для кнопки «Вернуть»: восстановленное из корзины она больше не вернёт.
   const snap=r.batch?.info?.snapshot;
   if(snap)try{database.deleteEntity(Number(r.batch.objectId),"scheme-snapshots",Number(snap))}catch(_e){}

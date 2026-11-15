@@ -4029,6 +4029,26 @@
    "sources": [
     "meganorm-57837-2017"
    ]
+  },
+  {
+   "id": "ibeam-asm2093-КХБ-526",
+   "designation": "Двутавр КХБ-526",
+   "standard": "СТО АСЧМ 20-93",
+   "type": "КХБ",
+   "h_mm": 526.0,
+   "b_mm": 300.0,
+   "s_mm": 22.0,
+   "t_mm": 35.5,
+   "r_mm": 26.0,
+   "flange_slope": false,
+   "A_cm2": 318.9,
+   "mass_kg_m": 250.3,
+   "shape3d": "ibeam",
+   "status": "confirmed",
+   "sources": [
+    "engineer-2026-11-15-elsort-khb-526"
+   ],
+   "note": "инженер 15.11.2026: elsort.ru dvutavr/20-93/khb-526 — h 526, b 300, s 22, t 35,5…36, 250,3 кг/м, 318,9 см²; спецификация КМ2 л.1: И КХБ-526 15 503,6 кг на 2 × 30,97 м = 250,3 кг/м"
   }
  ]
 }
