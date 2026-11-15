@@ -13,7 +13,7 @@ window.irThreeSchemeView=(function irThreeModule(){
  // ускорить построение схемы?» — «да»). It is raised by scripts/scheme-model-digest.js, never by hand: the script builds
  // the checked schemes with this file and raises the number when what would be kept for any of them differs from the
  // record (knowledge/quality/model-digest.json); scripts/scheme-pack.js refuses a pack made without it.
- var MODEL_BUILD=32;
+ var MODEL_BUILD=33;
  var token=0,active=null,loadPromise=null,cameraMemory={};
  // Bundled with the app (works offline); the CDN is only a fallback for an incomplete hot update.
  var sources=[
@@ -13450,7 +13450,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   function resize(){
    if(!root.isConnected)return;
    var w=Math.max(250,viewport.clientWidth),h=Math.max(300,viewport.clientHeight);
-   renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();invalidate()
+   barBottom=null;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();invalidate()
   }
   var observer=window.ResizeObserver?new ResizeObserver(resize):null;
   if(observer)observer.observe(viewport);
@@ -13466,6 +13466,15 @@ window.irThreeSchemeView=(function irThreeModule(){
    if(Math.abs(dz)>Y*.1)tagSide.x=dz>0?1:0;if(Math.abs(dx)>X*.1)tagSide.z=dx>0?1:0;
    ["x","z"].forEach(function(k){dimSides[k].forEach(function(g,i){if(g)g.visible=tagSide[k]===i})})
   }
+  // The panel of buttons lies over the top of the view: a label under it or cut by the edge above it is not shown —
+  // half an elevation «…,080» peeped over «Общий вид» (the engineer, 15.11.2026 «это что?»). Its bottom is read again
+  // when the view changes size (the panel wraps in a narrow window).
+  var barBottom=null;
+  function barTop(){
+   if(barBottom===null){var b=root.querySelector(".ir-three-toolbar"),r=b&&b.getBoundingClientRect(),q=viewport.getBoundingClientRect();
+    barBottom=r&&r.height?Math.max(0,r.bottom-q.top):0}
+   return barBottom
+  }
   var tagRank={axes:0,tank:-1,levels:-1,dims:3};
   function paintTags(w,h){
    var taken=[];sideNow();
@@ -13475,7 +13484,7 @@ window.irThreeSchemeView=(function irThreeModule(){
     var on=t.group==="tank"||t.group==="levels"?true:t.group==="axes"?showAxes&&showGrid:P.showDimensions&&showGrid;
     if(on&&t.side!=null&&t.side!==tagSide[t.dir])on=false;
     if(!on){t.el.hidden=true;return}
-    var p=project(t.pos,w,h),hide=!p.inside||p.x<10||p.x>w-10||p.y<10||p.y>h-10;
+    var p=project(t.pos,w,h),hide=!p.inside||p.x<10||p.x>w-10||p.y<barTop()+12||p.y>h-10;
     if(!hide){
      p.hw=t.group==="axes"?11+Math.max(0,t.el.textContent.length-2)*3:8+t.el.textContent.length*3.2;p.hh=t.group==="axes"?10:8;
      var k=t.el.hidden?1.35:1;
@@ -13502,7 +13511,7 @@ window.irThreeSchemeView=(function irThreeModule(){
     var v=l.pos,cw=e[3]*v.x+e[7]*v.y+e[11]*v.z+e[15];
     if(!(cw>0)){showLabel(l,false);continue}
     var nz=(e[2]*v.x+e[6]*v.y+e[10]*v.z+e[14])/cw,px=((e[0]*v.x+e[4]*v.y+e[8]*v.z+e[12])/cw*.5+.5)*w,py=(-(e[1]*v.x+e[5]*v.y+e[9]*v.z+e[13])/cw*.5+.5)*h;
-    if(!(nz<1&&nz>-1)||px<6||px>w-6||py<6||py>h-6){showLabel(l,false);continue}
+    if(!(nz<1&&nz>-1)||px<6||px>w-6||py<barTop()+8||py>h-6){showLabel(l,false);continue}
     var k=Math.floor(px/58)+":"+Math.floor(py/18);
     if(cells.has(k)&&l.id!==selected){showLabel(l,false);continue}
     cells.add(k);shown++;showLabel(l,true);

@@ -127,7 +127,8 @@ const TYPES=[
  T("door","Дверь","openings","column","frame",["Д","ДН"],/двер/iu),
  T("window","Окно, витраж","openings","column","frame",["ОК"],/окн[оа]|витраж/iu),
  // Tanks: the wall, the bottom, the roof and the equipment (ГОСТ 31385, ГОСТ Р 52910)
- T("tank_wall","Стенка резервуара","tanks","shell","shell",[],/стенк\S*(?:\s+резервуар)?|пояс\S*\s+стенк/iu),
+ // «стенкой вдоль пути», «к стенке» — how a member stands, not a tank wall (упор У1 КМ1 л.28 стал «Стенкой резервуара»).
+ T("tank_wall","Стенка резервуара","tanks","shell","shell",[],/стенк(?!ой|ою|е(?![\p{L}])|у(?![\p{L}]))\S*(?:\s+резервуар)?|пояс\S*\s+стенк/iu),
  // Vessels on supports (чан, сгуститель, бункер, ёмкость с конусом): the wall of segments, the cone below it, posts and
  // their struts, the toothed weir at the top, the small parts of the segment joints.
  T("vessel_shell","Сегмент (обечайка) стенки чана, ёмкости","tanks","shell","shell",[],/сегмент|обечайк/iu),
