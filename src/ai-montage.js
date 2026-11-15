@@ -64,7 +64,7 @@ const KIND_NAME={columns:"Колонна",fahwerk:"Стойка фахверка
 // What a new reading of the drawings brings even to an element the engineer changed or confirmed: the details of its
 // node and its make (from the sheets), not its position, mark, levels or profile.
 const DRAWING_DETAILS=["joint","truss","nodes","base","column","parts","plates","cuts","drill","place","bevels","cross"];
-const ANALYZER="2026-11-14.9";
+const ANALYZER="2026-11-15.1";
 // АР (architecture) and ТХ (technology) sheets are read for context: Claude places what of them is mounted.
 // (КМД — one kind: the program tells its montage and assembly sheets apart, sheet by sheet — kmdSheetType; the two old
 // kinds of a file are still read, as the engineer's hint for its sheets that say nothing)
@@ -853,6 +853,9 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   // The nodes Claude wrote down from their sheets: to the joint of each of their marks, where the element has no value of
   // its own (one checked by the engineer keeps his); the reference of the node over «общие данные».
   const nodeJoint=nodeJoints(data.ai?.result?.nodes);
+  // The rows made earlier for marks the engineer allowed to add (register_add): the program's own rows of the mark under
+  // the work type — not made again at every placement; a mark he took out of the register is not made again.
+  const addRows=(e,work)=>goneMarks.has(normMark(e.mark))?[]:(byName.get(normMark(e.mark))||[]).filter(m=>m.ai_created===true&&String(m.work_type_id||"")===String(work||""));
   plan.elements.forEach(e00=>{
    const e0=withNode(e00,nodeJoint);
    let e=e0;const x=mapX(e.x_mm),y=mapY(e.y_mm),x2=e.x2_mm===undefined?undefined:mapX(e.x2_mm),y2=e.y2_mm===undefined?undefined:mapY(e.y2_mm);
@@ -872,10 +875,14 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
      if(alt.rows.length){named=alt.rows;byCode=alt.code}
      else{const own=all.filter(m=>m.ai_created===true&&!(Number(m.mounted)>0)&&drawingWorks.has(String(m.work_type_id||""))&&String(m.work_type_id||"")!==work);
       for(const o of own){if(!moved.has(o.id))moved.set(o.id,{from:String(o.work_type_id||""),to:work});o.work_type_id=work}named=own}}
-    if(!named.length){notInRegister.push(e.mark);skipped.push({mark:e.mark,page:e.page,reason:"Нет в ведомости марок вида работ «"+workTitle(work)+"» — ведомость задана вами, в неё ничего не добавляется",register:true});return}
+    // (a mark the engineer allowed to add to his register — the set's register_add, his words: КМ1 «б», Бл2, the
+    // engineer 15.11.2026 «Да меняй ведомость как надо»: a row is made under the work type of its drawing)
+    if(!named.length&&e0.register_add)named=addRows(e0,work);
+    if(!named.length&&!(e0.register_add&&!goneMarks.has(normMark(e.mark)))){notInRegister.push(e.mark);skipped.push({mark:e.mark,page:e.page,reason:"Нет в ведомости марок вида работ «"+workTitle(work)+"» — ведомость задана вами, в неё ничего не добавляется",register:true});return}
    }else if(locked){
     const found=inGiven(givenAll,e);named=found.rows;byCode=found.code;
-    if(!named.length){notInRegister.push(e.mark);skipped.push({mark:e.mark,page:e.page,reason:"Нет в ведомости марок — ведомость задана вами, в неё ничего не добавляется",register:true});return}
+    if(!named.length&&e0.register_add&&work)named=addRows(e0,work);
+    if(!named.length&&!(e0.register_add&&work&&!goneMarks.has(normMark(e.mark)))){notInRegister.push(e.mark);skipped.push({mark:e.mark,page:e.page,reason:"Нет в ведомости марок — ведомость задана вами, в неё ничего не добавляется",register:true});return}
    }else if(work&&!named.length){
     const own=all.filter(m=>m.ai_created===true&&!(Number(m.mounted)>0)&&drawingWorks.has(String(m.work_type_id||""))&&(!vol||!m.volume||m.volume===vol));
     if(own.length===1){if(!moved.has(own[0].id))moved.set(own[0].id,{from:String(own[0].work_type_id||""),to:work});own[0].work_type_id=work;named=own}
@@ -905,7 +912,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
     ...(mark?.name?{name:"ведомость марок программы",...(e.name&&e.name!==mark.name?{name_other:e.name+" — чертёж"}:{})}:{})};
    const mid={absolute_mid_x_mm:mx,absolute_mid_y_mm:my,mid_z_mm:bent?e.mid_z_mm:undefined,mid_axis_x:midX?.[0],mid_axis_y:midY?.[0],
     mid_offset_x_mm:bent?mx-midX[1]:undefined,mid_offset_y_mm:bent?my-midY[1]:undefined};
-   payloads.push({x,y,mark:e.mark,volume:vol,geometry:e.geometry_type,work,data:{entity_type:"column",
+   payloads.push({x,y,mark:e.mark,volume:vol,geometry:e.geometry_type,work,...(e0.register_add&&!mark?{add:String(e0.register_add),kg:Number(e0.register_kg)||0}:{}),data:{entity_type:"column",
     // Linked by the code of a position (his row «Сэндвич-панель» / «Р825»): the element keeps its code as the mark.
     mark_id:mark?mark.id:"",mark:mark&&!byCode?(mark.mark||mark.title):e.mark,
     mark_name:mark&&byCode?(normMark(mark.name)===normMark(e.mark)?mark.mark||mark.title:mark.name)||e.name||"":mark?.name||e.name||"",work_type_id:mark?String(mark.work_type_id||""):work,
@@ -967,10 +974,12 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
     // The list of the volume knows the mark once: with the mark split by sheets its count and mass go only to the
     // row of the same profile.
     const cat0=plan.catalog?.get?.(markKey(e.doc||"КМД",list[0].mark)),cat=split.get(key.split("|").slice(0,3).join("|"))>1&&cat0?.profile&&cat0.profile!==e.profile?null:cat0;
-    const qty=Math.max(list.length,Number(cat?.count)||0),unitT=cat?.mass_kg>0?Math.round(cat.mass_kg)/1000:0;
+    const qty=Math.max(list.length,Number(cat?.count)||0),kgs=list.reduce((a,p)=>a+(Number(p.kg)||0),0);
+    // (a mark added by his leave — register_add — with no list of its volume: the mass of a piece from the set, register_kg)
+    const unitT=cat?.mass_kg>0?Math.round(cat.mass_kg)/1000:kgs>0?Math.round(kgs/list.length*10)/10000:0;
     const row=database.createEntity(oid,"marks",{record_type:"item",title:list[0].mark,data:{work_type_id:String(work.id),work_type:wd.work_type||AUTO_WORK,
      project_code:wd.project_code||"",unit:"тн",mark:list[0].mark,name:list[0].data.mark_name||e.name||e.type_name||KIND_NAME[list[0].data.scheme_group]||KIND_NAME[list[0].geometry]||"",qty,unit_volume:unitT,total_value:Math.round(qty*unitT*1000)/1000,
-     mounted:0,received:0,profile:cat?.profile||e.profile||"",length_mm:cat?.length_mm??null,mass_kg:cat?.mass_kg??null,...(vol?{volume:vol,note:"марка тома "+vol}:{}),ai_created:true,import_batch:batch}});
+     mounted:0,received:0,profile:cat?.profile||e.profile||"",length_mm:cat?.length_mm??null,mass_kg:cat?.mass_kg??null,...(vol?{volume:vol,note:"марка тома "+vol}:{}),...(list[0].add?{note:list[0].add,register_add:true}:{}),ai_created:true,import_batch:batch}});
     if(!row)continue;
     createdMarks.push(row.id);createdNames.push({mark:list[0].mark,name:row.data.name||"",work:wd.work_type||AUTO_WORK,qty});
     for(const p of list){p.data.mark_id=String(row.id);p.data.work_type_id=String(work.id);p.data.mark_name=row.data.name}
