@@ -785,7 +785,9 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   window.irThreeSchemeView.render(box,{
    objectId:oid,axesX:[...axesX],axesY:[...axesY],spanX,spanY,gridDirX,gridDirY,
    gridX:Object.fromEntries(axisXPos),gridY:Object.fromEntries(axisYPos),
-   elements:members.map(c=>({...c,scheme_group:recordMarkGroup(c).key,role:recordRole(c)})),
+   elements:members.map(c=>({...c,scheme_group:recordMarkGroup(c).key,role:recordRole(c),work:recordWorkId(c)||(frameMode?"":String(activeWorkId||""))})),
+   // (the work types with their names: the page «Ведомость металла» of the 3D — a tab to each, beside its specification КМ)
+   works:enabledWorks().map(w=>({id:w.id,label:w.name+(w.code?" · "+w.code:"")})),
    selected:selectedId,
    maxZ:members.reduce((m,c)=>Math.max(m,num(c.z0),num(c.z2),num(c.mz)),0),
    colorMode:schemeColorMode,showLabels:labelsVisible,showDimensions:dimensionsVisible,

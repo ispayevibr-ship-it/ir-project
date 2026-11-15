@@ -195,7 +195,7 @@
    var els=shown();
    window.irThreeSchemeView.render($("stage3d"),{objectId:"export:"+D.objectId,axesX:D.axesX,axesY:D.axesY,spanX:D.spanX,spanY:D.spanY,gridDirX:D.gridDirX,gridDirY:D.gridDirY,
     gridX:D.gridX,gridY:D.gridY,elements:els,selected:S.sel,maxZ:els.reduce(function(m,c){return Math.max(m,c.z0,c.z2,c.mz||0)},0),
-    colorMode:S.color,showLabels:S.labels,showDimensions:S.dims,background:S.bg,canEdit:false,marks:[],report:true,nodeCrops:D.nodeCrops||null,
+    colorMode:S.color,showLabels:S.labels,showDimensions:S.dims,background:S.bg,canEdit:false,marks:[],report:true,nodeCrops:D.nodeCrops||null,specs:D.specs||[],works:D.works||[],work:D.work||"",
     onColorModeChange:function(m){S.color=m;draw3d()},onSelect:function(id){S.sel=String(id||"");details();list()},onFirstPaint:firstPaint,onProgress:building});
    $("cnt").textContent=els.length+" из "+D.elements.length
   }
@@ -510,6 +510,10 @@
   libs.fasteners=window.irThreeSchemeView&&window.irThreeSchemeView.fastenerRows?await window.irThreeSchemeView.fastenerRows().catch(function(){return[]}):[];
   // The catalog of joints: the node card of the exported scheme names the type of the node as the program does.
   libs.jointKb=window.irThreeSchemeView&&window.irThreeSchemeView.jointKbRows?await window.irThreeSchemeView.jointKbRows().catch(function(){return null}):null;
+  // The specifications of the КМ of these work types for the page «Ведомость металла» (knowledge/specs-km.json; the
+  // engineer, 15.11.2026 «вкладку с металлом как в км ведомости … из схемы и рядом из км ведомости»).
+  if(!Array.isArray(d.specs))try{var sp=await fetch("../knowledge/specs-km.json").then(function(r){return r.ok?r.json():null}),nc=function(v){return String(v||"").replace(/\s+/g,"").replace(/[.\-–_]/g,"").toUpperCase()},labs=(d.works||[]).map(function(w){return nc(w.label)}).concat([nc(d.work)]);
+   d.specs=(sp&&sp.records||[]).filter(function(r){return labs.some(function(l){return l&&l.indexOf(nc(r.code))>=0})})}catch(_e){d.specs=[]}
   try{libs.packed=await gzip64(payload(d,libs))}catch(_e){libs.packed=""}
   return page(d,libs)
  }

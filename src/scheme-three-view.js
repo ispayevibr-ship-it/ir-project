@@ -738,6 +738,8 @@ window.irThreeSchemeView=(function irThreeModule(){
    '<button type="button" class="ir-three-more" id="irThreeMore" aria-haspopup="true" aria-expanded="false" aria-controls="irThreeOpts" title="Цвет, сетка, оси, узлы, детали"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>Вид</span><b aria-hidden="true">▾</b></button>'+
    // (the nodes and joints of every section with their pictures — jointsOpen; the engineer, 13.11.2026)
    '<button type="button" class="ir-three-more" id="irThreeJoints" aria-pressed="false" title="Все узлы и стыки по разделам КМ, КМД, АР, ТХ — как выглядит каждый"><span>Узлы и стыки</span></button>'+
+   // (the metal of the scheme beside the specification of the КМ, by work type — metalOpen; the engineer, 15.11.2026)
+   '<button type="button" class="ir-three-more" id="irThreeMetal" aria-pressed="false" title="Металл схемы по профилям рядом со спецификацией металлопроката КМ — для каждого вида работ"><span>Ведомость металла</span></button>'+
    '<span class="ir-three-secs" id="irThreeSecs" role="group" aria-label="Разделы чертежей" title="Показать или скрыть раздел чертежей: АР, КМ, КМД…"></span>'+
    '<span class="ir-three-count" id="irThreeCount"></span><span class="ir-three-count ir-three-notes" id="irThreeSum" hidden></span><span class="ir-three-count" id="irThreeLight" hidden title="Окно рисует 3D без видеокарты (процессором): сечения и болты показаны только вблизи, края без сглаживания. Включите видеокарту для программы в настройках Windows («Графика» → высокая производительность) или обновите её драйвер.">· упрощённый показ: видеокарта не используется</span>'+
    (P.canEdit?'<button class="ir-three-add" id="irThreeAdd" title="Добавить элемент">＋ Элемент</button>':"")+'</div>'+
@@ -13625,6 +13627,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    // (the page «Узлы и стыки» and the window of a node over the 3D: the wheel there is theirs, not the scheme's — the
    // engineer, 14.11.2026 «когда крутишь стык или узел, то сзади монтажная схема тоже крутиться»)
    if(jointsEl&&!jointsEl.hidden&&jointsEl.contains(e.target)){if(jointLiveEl&&jointLiveEl.isConnected)e.preventDefault();return}
+   if(metalEl&&!metalEl.hidden&&metalEl.contains(e.target))return;
    for(var n=e.target;n&&n!==root;n=n.parentElement){
     if(/^(SELECT|TEXTAREA|DIALOG)$/.test(n.tagName))return;
     var oy=getComputedStyle(n).overflowY;if((oy==="auto"||oy==="scroll")&&n.scrollHeight>n.clientHeight+1)return
@@ -15496,6 +15499,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   function jointsOpen(on){
    if(!jointsEl){jointsEl=document.createElement("section");jointsEl.className="ir-joints";jointsEl.hidden=true;jointsEl.setAttribute("aria-label","Узлы и стыки");root.appendChild(jointsEl)}
    var btn=root.querySelector("#irThreeJoints");if(btn){btn.classList.toggle("active",!!on);btn.setAttribute("aria-pressed",String(!!on))}
+   if(on&&metalEl&&!metalEl.hidden)metalOpen(false);
    jointsEl.hidden=!on;if(!on){jointsQueue=[];invalidate();return}
    var bar=root.querySelector(".ir-three-toolbar");jointsEl.style.top=(bar?bar.offsetTop+bar.offsetHeight:0)+"px";jointsPaint()
   }
@@ -15521,6 +15525,142 @@ window.irThreeSchemeView=(function irThreeModule(){
     ".ir-three-root.dark .ir-joints{background:#151d26;color:#e6ebf1}.ir-three-root.dark .ir-joints-head,.ir-three-root.dark .ir-joint{background:#1d2733;border-color:#2b3744}"+
     ".ir-three-root.dark .ir-joints-tabs button,.ir-three-root.dark .ir-joint-show,.ir-three-root.dark .ir-joints-close{background:#1f2a36;border-color:#2b3744;color:#cfe1f3}.ir-three-root.dark .ir-joints-tabs button.on{background:#3d78b0;color:#fff}"+
     ".ir-three-root.dark .ir-joint-fix,.ir-three-root.dark .ir-joints-sum,.ir-three-root.dark .ir-joints-empty{color:#a9b8c5}.ir-three-root.dark .ir-joint li button,.ir-three-root.dark .ir-joint details summary{color:#8cc0ef}";
+   document.head.appendChild(s)})();
+  // ---- The metal of the scheme as the specification of the КМ shows it, beside that specification (the engineer,
+  // 15.11.2026: «Сделай как узлы и стыки вкладку с металлом как в км ведомости показывается, только из схемы и рядом
+  // из км ведомости, для каждого вида работ своя ведомость металла»). A page over the 3D like «Узлы и стыки»: a tab to
+  // each work type; the rows by the kind of profile and its size, as the «Спецификация металлопроката» of the drawing
+  // (knowledge/specs-km.json — the tables of the sheets as printed); the scheme counted as the totals of the bar
+  // (schemeTotals): a rolled section by its mass of a metre × the length, a welded one by its plates, the plates, gussets
+  // and ribs by their volume as drawn with the thickness of each, a deck by its mass of a square metre. Bolts, nuts,
+  // anchors and welds not counted, as in the specification (its 1 % of welds and 3 % of the КМД are not in it either).
+  var metalEl=null,metalWork="",specList=null,specAsked=false,metalBuilt="",metalRows=null;
+  function specsLoad(){
+   if(specAsked)return;specAsked=true;
+   if(Array.isArray(P.specs)){specList=P.specs;return}
+   if(typeof fetch!=="function"){specList=[];return}
+   fetch("../knowledge/specs-km.json").then(function(r){return r.ok?r.json():null}).then(function(d){specList=d&&Array.isArray(d.records)?d.records:[];if(metalEl&&!metalEl.hidden)metalPaint()}).catch(function(){specList=[];if(metalEl&&!metalEl.hidden)metalPaint()})
+  }
+  var T_STD=[2,2.5,3,4,5,6,8,10,12,14,16,18,20,22,25,27,28,30,32,36,40,44,45,50,56,60];
+  function snapT(mm){var b=T_STD.reduce(function(a,t){return Math.abs(t-mm)<Math.abs(a-mm)?t:a},T_STD[0]);return Math.abs(b-mm)<=Math.max(.6,b*.12)?b:Math.round(mm)}
+  // The key of a profile both sides share: «2L125×10» → «L125×10» (the pair counted twice by its mass of a metre),
+  // «Тр.∅32x3» → «Ø32×3», «I КХБ-526» → «КХБ-526», «−150×4» → «−4», «ПВ 510» → «ПВ510».
+  function metalKey(s){
+   s=String(s||"").replace(/\s+/g,"").replace(/[хХxX*]/g,"×").replace(/,/g,".").replace(/[∅ø]/g,"Ø").replace(/^2(?=[L∟\[])/,"").replace(/^∟/,"L").replace(/^Тр\.?/i,"");
+   var m;
+   if(/риф/i.test(s)){m=/(\d+(?:\.\d+)?)/.exec(s);return"−"+(m?m[1]:"?")+" риф."}
+   if(/^ПВ/i.test(s))return"ПВ"+s.replace(/\D/g,"");
+   if(/настил|решет/i.test(s))return"настил";
+   if((m=/^[−-](\d+(?:\.\d+)?)×(\d+(?:\.\d+)?)$/.exec(s)))return"−"+snapT(Math.min(+m[1],+m[2]));
+   if((m=/^[−-]t?(\d+(?:\.\d+)?)$/.exec(s)))return"−"+snapT(+m[1]);
+   s=s.replace(/^(?:I|І|Двутавр)?КХБ/i,"КХБ").replace(/^І/,"I").replace(/^Гн\.?\[/i,"гн.[").replace(/^(Ø\d+)\.0$/,"$1");
+   return s
+  }
+  function metalKind(k){
+   return/^(?:I|КХБ)/.test(k)?"Двутавры":/^гн\.\[/.test(k)?"Швеллеры гнутые":/^\[/.test(k)?"Швеллеры":/^L\d+(?:\.\d+)?×\d+(?:\.\d+)?×/.test(k)?"Уголки неравнополочные":/^L/.test(k)?"Уголки равнополочные":
+    /^□/.test(k)?"Профили гнутые замкнутые":/^Ø.*×/.test(k)?"Трубы":/^Ø/.test(k)?"Круг":/риф/.test(k)?"Листы рифлёные":/^−/.test(k)?"Прокат листовой":/^ПВ/.test(k)?"Листы просечно-вытяжные":
+    /^Р\d/.test(k)?"Рельсы":/^настил/.test(k)?"Настил решётчатый":/^профлист/.test(k)?"Профлист":"Прочее"
+  }
+  function plateMm(m){
+   var g=m.geometry;if(!g)return 0;if(!g.boundingBox)g.computeBoundingBox();var b=g.boundingBox,s=new T.Vector3(),q=new T.Quaternion(),p=new T.Vector3();
+   m.updateWorldMatrix(true,false);m.matrixWorld.decompose(p,q,s);
+   var d=[(b.max.x-b.min.x)*Math.abs(s.x),(b.max.y-b.min.y)*Math.abs(s.y),(b.max.z-b.min.z)*Math.abs(s.z)].sort(function(a,c){return a-c});
+   return d[0]*1000
+  }
+  // The metal of the scheme by work type and key: {work: {key: kg}}; «−?» — a part of no plate shape (thicker than
+  // 60 mm across), «?…» — a section not in the tables, by its volume.
+  function metalOf(){
+   var out={},seen=new Set();
+   var skip=function(m){return!m||!m.isMesh||seen.has(m)||m.userData.hole||m.userData.anchor||m.userData.footing||m.userData.wood||m.userData.weld||m.userData.seam||m.userData.edges||m.userData.bolt||m.userData.nut||m.material===concreteMat};
+   elems.forEach(function(c){if(!c||c.id===undefined||c.id===null)return;var ft=c.ft||"";if(ft!==""&&ft!=="deck")return;
+    var id=String(c.id),w=String(c.work||""),list=meshesById.get(id)||[],to=out[w]||(out[w]={}),add=function(k,kg){if(kg>0)to[k]=(to[k]||0)+kg};
+    var pn=String(c.profile_name||c.profileName||"");
+    if(ft==="deck"){list.forEach(function(m){if(!skip(m))seen.add(m)});var dp=memberPoints(c),dl=0;for(var dk=1;dk<dp.length;dk++)dl+=dp[dk].distanceTo(dp[dk-1]);add(pn?metalKey(pn):"настил",dl*deckWidth(c)*deckKgm2(c));return}
+    var sec=sectionOf(pn,c.profile_standard),kgm=sec&&number(sec.kgm)*(/^\s*2\s*[L∟\[]/.test(pn)?2:1),bodyV=0,hasBody=false,parts=[];
+    list.forEach(function(m){if(skip(m))return;seen.add(m);var v=volumeOf(m);if(m.userData.body){bodyV+=v;hasBody=true}else parts.push([m,v])});
+    // (a part tagged with its section — a bar of a truss or a lattice, a strip — goes to that section; a plate by its thickness)
+    var sheet=function(){parts.forEach(function(q){var ps=q[0].userData.part&&q[0].userData.part.s,pk=ps?metalKey(ps):"";if(pk&&metalKind(pk)!=="Прочее"){add(pk,q[1]*7850);return}
+     var t=plateMm(q[0]);add(t>0&&t<=60?"−"+snapT(t):"−?",q[1]*7850)})};
+    if(!hasBody&&!(kgm>0)){sheet();return}
+    if(kgm>0&&!conventional.has(id)){var p=memberPoints(c),L=0;for(var k=1;k<p.length;k++)L+=p[k].distanceTo(p[k-1]);add(metalKey(pn),L>0?kgm*L:bodyV*7850)}
+    else if(sec&&sec.shape==="ibeam"&&/сварное/.test(sec.std||"")){
+     // (a welded section: its flanges and the web, each sheet by its thickness — the specification has them so)
+     var t1=number(sec.t1)||number(sec.t),b1=number(sec.b1)||number(sec.b),pl=[[number(sec.t),number(sec.b)],[t1,b1],[number(sec.s),number(sec.h)-number(sec.t)-t1]],A=pl.reduce(function(a,x){return a+x[0]*x[1]},0);
+     if(A>0)pl.forEach(function(x){add("−"+snapT(x[0]),bodyV*7850*x[0]*x[1]/A)});else add("?"+pn,bodyV*7850)}
+    else if(sec&&sec.shape==="plate")add("−"+snapT(number(sec.t)),bodyV*7850);
+    else{var k0=metalKey(pn);add(pn&&metalKind(k0)!=="Прочее"?k0:"?"+(pn||"без сечения"),bodyV*7850)}
+    sheet()});
+   return out
+  }
+  function workVolume(label){var m=/(КМД?\s*\d*|АР|ТХ)\s*(?:\(.*\))?\s*$/.exec(String(label||""));return m?m[1].replace(/\s+/g,""):""}
+  function normCode(s){return String(s||"").replace(/\s+/g,"").replace(/[.\-–_]/g,"").toUpperCase().replace(/K/g,"К").replace(/M/g,"М")}
+  function specFor(label,ids){
+   var L=normCode(label),list=specList||[],hit=list.filter(function(r){return r.code&&L.indexOf(normCode(r.code))>=0});
+   if(!hit.length){var files=new Map();elems.forEach(function(c){if(ids.has(String(c.work||""))&&c.source_file)files.set(normCode(c.source_file),1)});
+    hit=list.filter(function(r){var n=normCode(r.code);var f=false;files.forEach(function(v,k){if(k.indexOf(n)>=0)f=true});return f})}
+   return hit
+  }
+  function metalWorks(){
+   var by=metalOf(),works=(P.works||[]).map(function(w){return{id:String(w.id),label:String(w.label||w.name||"")}}),known=new Set(works.map(function(w){return w.id}));
+   Object.keys(by).forEach(function(id){if(!known.has(id)){works.push({id:id,label:id===""?(P.work||"Без вида работ"):"Вид работ "+id});known.add(id)}});
+   return works.map(function(w){var rows=by[w.id]||{},kg=Object.keys(rows).reduce(function(s,k){return s+rows[k]},0),sp=specFor(w.label,new Set([w.id]));
+    var vol=workVolume(w.label)||(sp[0]&&sp[0].volume)||"",short=vol||String(w.label).split("·")[0].trim()||"Без вида работ";
+    return{id:w.id,label:w.label,short:short,rows:rows,kg:kg,specs:sp}}).filter(function(w){return w.kg>0||w.specs.length}).sort(function(a,b){return a.short.localeCompare(b.short,"ru",{numeric:true})})
+  }
+  function metalTable(w){
+   var t3=function(v){return v==null?"—":(Math.round(v*1000)/1000).toLocaleString("ru-RU",{minimumFractionDigits:3,maximumFractionDigits:3})};
+   var groups=[],byKind=new Map(),used=new Set(),specT=0,printed=0;
+   w.specs.forEach(function(r){printed+=number(r.total_t);(r.groups||[]).forEach(function(g){
+    var kind=g.rows&&g.rows[0]?metalKind(g.rows[0].key):"Прочее",G=byKind.get(kind+"|"+g.name)||null;
+    if(!G){G={name:g.name,kind:kind,rows:new Map()};groups.push(G);byKind.set(kind+"|"+g.name,G);if(!byKind.has(kind))byKind.set(kind,G)}
+    (g.rows||[]).forEach(function(x){var R=G.rows.get(x.key)||{key:x.key,steel:[],km:0,notes:[]};if(x.steel&&R.steel.indexOf(x.steel)<0)R.steel.push(x.steel);R.km+=number(x.t);specT+=number(x.t);if(x.note)R.notes.push(x.note);G.rows.set(x.key,R)})})});
+   Object.keys(w.rows).forEach(function(k){var kind=/^\?/.test(k)?"Прочее":metalKind(k),G=null;
+    groups.forEach(function(g){if(!G&&g.rows.has(k))G=g});if(!G)G=byKind.get(kind);
+    if(!G){G={name:kind+(w.specs.length?" — нет в спецификации":""),kind:kind,rows:new Map()};groups.push(G);byKind.set(kind,G)}
+    var R=G.rows.get(k)||{key:k,steel:[],km:null,notes:[]};R.sc=(R.sc||0)+w.rows[k]/1000;G.rows.set(k,R)});
+   var sumS=0,sumK=0,html='<table class="ir-metal-t"><thead><tr><th>Профиль</th><th>Сталь по КМ</th><th>По схеме, т</th><th>По КМ, т</th><th>Разница, т</th></tr></thead><tbody>';
+   groups.forEach(function(G){var gs=0,gk=0,rows=[...G.rows.values()];
+    html+='<tr class="g"><td colspan="5">'+escapeHtml(G.name)+'</td></tr>';
+    rows.forEach(function(R){var s=R.sc||0,k=R.km,d=k==null?s:s-k,cl=Math.abs(d)<.0005?"eq":d<0?"lo":"hi";gs+=s;gk+=k||0;
+     var name=R.key==="−?"?"Детали без формы листа (по 3D)":/^\?/.test(R.key)?R.key.slice(1)+" — сечения нет в сортаменте (по 3D)":R.key;
+     html+='<tr class="'+cl+'"><td>'+escapeHtml(name)+(R.notes.length?'<small title="'+escapeHtml(R.notes.join("; "))+'"> ⚠ '+escapeHtml(R.notes.join("; "))+'</small>':"")+'</td><td>'+escapeHtml(R.steel.join(", "))+'</td><td>'+(s?t3(s):"—")+'</td><td>'+(k==null?"нет":t3(k))+'</td><td class="d">'+(Math.abs(d)<.0005?"0":(d>0?"+":"−")+t3(Math.abs(d)))+'</td></tr>'});
+    sumS+=gs;sumK+=gk;var gd=gs-gk;
+    html+='<tr class="s"><td colspan="2">Итого '+escapeHtml(G.kind.toLowerCase())+'</td><td>'+t3(gs)+'</td><td>'+t3(gk)+'</td><td class="d">'+(Math.abs(gd)<.0005?"0":(gd>0?"+":"−")+t3(Math.abs(gd)))+'</td></tr>'});
+   var td=sumS-sumK;
+   html+='</tbody><tfoot><tr><td colspan="2">Всего металла</td><td>'+t3(sumS)+'</td><td>'+(w.specs.length?t3(sumK):"—")+'</td><td class="d">'+(w.specs.length?(Math.abs(td)<.0005?"0":(td>0?"+":"−")+t3(Math.abs(td))):"")+'</td></tr></tfoot></table>';
+   var note=w.specs.map(function(r){return escapeHtml(r.title+" "+r.code+", "+r.sheet)+(Math.abs(number(r.total_t)-specT)>.0005&&w.specs.length===1?' — итог листа '+t3(r.total_t)+' т'+(r.note?": "+escapeHtml(r.note):""):"")}).join("; ");
+   return{html:html,s:sumS,k:sumK,note:note}
+  }
+  function metalPaint(){
+   if(!metalEl)return;specsLoad();
+   if(metalBuilt!==built||!metalRows){metalBuilt=built;metalRows=specList?metalWorks():null}
+   if(!metalRows){metalEl.innerHTML='<div class="ir-joints-head"><b>Ведомость металла</b><span style="flex:1"></span><button type="button" class="ir-joints-close" data-metal-close aria-label="Закрыть">✕</button></div><div class="ir-joints-body"><p class="ir-joints-sum">Загрузка спецификаций…</p></div>';
+    metalEl.querySelector("[data-metal-close]").onclick=function(){metalOpen(false)};metalBuilt="";return}
+   var list=metalRows;if(!metalWork||!list.some(function(w){return w.id===metalWork}))metalWork=list[0]?list[0].id:"";
+   var w=list.find(function(x){return x.id===metalWork}),tb=w?metalTable(w):null;
+   metalEl.innerHTML='<div class="ir-joints-head"><b>Ведомость металла</b><div class="ir-joints-tabs" role="tablist">'+
+    list.map(function(x){return'<button type="button" role="tab" data-metal-work="'+escapeHtml(x.id)+'" class="'+(x.id===metalWork?"on":"")+'" aria-selected="'+(x.id===metalWork)+'" title="'+escapeHtml(x.label)+'">'+escapeHtml(x.short)+'<small>'+(x.kg/1000).toLocaleString("ru-RU",{maximumFractionDigits:1})+' т</small></button>'}).join("")+
+    '</div><button type="button" class="ir-joints-close" data-metal-close title="Вернуться к 3D" aria-label="Закрыть">✕</button></div><div class="ir-joints-body">'+
+    (w?'<p class="ir-joints-sum"><b>'+escapeHtml(w.label)+'</b>. По схеме '+(tb.s).toLocaleString("ru-RU",{minimumFractionDigits:3,maximumFractionDigits:3})+' т'+(w.specs.length?', по КМ '+tb.k.toLocaleString("ru-RU",{minimumFractionDigits:3,maximumFractionDigits:3})+' т ('+tb.note+')':'. Спецификации металлопроката этого вида работ в программе нет — показана только схема')+'. Схема: профиль — масса метра по сортаменту × длина, сварное сечение — его листы, пластины, фасонки, рёбра — по 3D с их толщиной, настил — по массе 1 м²; без болтов, гаек, анкеров и швов. КМ: без 1 % сварных швов и 3 % КМД. Считаются показанные элементы — фильтры схемы действуют.</p>'+tb.html:
+     '<p class="ir-joints-empty">В схеме нет металла.</p>')+'</div>';
+   metalEl.querySelectorAll("[data-metal-work]").forEach(function(b){b.onclick=function(){metalWork=b.getAttribute("data-metal-work");metalPaint()}});
+   metalEl.querySelector("[data-metal-close]").onclick=function(){metalOpen(false)}
+  }
+  function metalOpen(on){
+   if(!metalEl){metalEl=document.createElement("section");metalEl.className="ir-joints ir-metal";metalEl.hidden=true;metalEl.setAttribute("aria-label","Ведомость металла");root.appendChild(metalEl)}
+   if(on&&jointsEl&&!jointsEl.hidden)jointsOpen(false);
+   var btn=root.querySelector("#irThreeMetal");if(btn){btn.classList.toggle("active",!!on);btn.setAttribute("aria-pressed",String(!!on))}
+   metalEl.hidden=!on;if(!on){invalidate();return}
+   var bar=root.querySelector(".ir-three-toolbar");metalEl.style.top=(bar?bar.offsetTop+bar.offsetHeight:0)+"px";metalPaint()
+  }
+  (function(){var b=root.querySelector("#irThreeMetal");if(b)b.onclick=function(e){e.stopPropagation();metalOpen(!metalEl||metalEl.hidden)};
+   if(document.getElementById("irMetalCss"))return;var s=document.createElement("style");s.id="irMetalCss";
+   s.textContent=".ir-metal-t{border-collapse:collapse;min-width:620px;width:100%;max-width:980px;background:#fff;font-variant-numeric:tabular-nums}.ir-metal-t th,.ir-metal-t td{border:1px solid #d6e0e8;padding:4px 8px;text-align:right;white-space:nowrap}"+
+    ".ir-metal-t th:first-child,.ir-metal-t td:first-child,.ir-metal-t th:nth-child(2),.ir-metal-t td:nth-child(2){text-align:left}.ir-metal-t td:first-child{white-space:normal}.ir-metal-t thead th{background:#eef3f8;position:sticky;top:-12px}"+
+    ".ir-metal-t tr.g td{background:#f3f8fc;font-weight:800;text-align:left;color:#173f5b}.ir-metal-t tr.s td{font-weight:700;background:#fafcfe}.ir-metal-t tfoot td{font-weight:800;background:#eef3f8}"+
+    ".ir-metal-t tr.lo td.d{color:#b3261e}.ir-metal-t tr.hi td.d{color:#9a5b00}.ir-metal-t tr.eq td.d{color:#2e7d32}.ir-metal-t small{color:#9a5b00;font-weight:500}"+
+    ".ir-three-root.dark .ir-metal-t{background:#1d2733}.ir-three-root.dark .ir-metal-t th,.ir-three-root.dark .ir-metal-t td{border-color:#2b3744}.ir-three-root.dark .ir-metal-t thead th,.ir-three-root.dark .ir-metal-t tfoot td,.ir-three-root.dark .ir-metal-t tr.g td{background:#223040;color:#e6ebf1}.ir-three-root.dark .ir-metal-t tr.s td{background:#1a2430}"+
+    ".ir-three-root.dark .ir-metal-t tr.lo td.d{color:#ff8a80}.ir-three-root.dark .ir-metal-t tr.hi td.d{color:#ffcc80}.ir-three-root.dark .ir-metal-t tr.eq td.d{color:#81c784}";
    document.head.appendChild(s)})();
   function nodeList(){return nodes.map(function(n){return{id:n.id,kind:n.kind,name:kindName(n),status:n.status,x:n.x,y:n.y,z:n.z,axes:axisOf(n.x,n.y),
    members:n.members.map(function(m){return{id:String(m.c.id),mark:m.c.mark||"",role:m.role,status:m.c.status||"planned"}})}})}
