@@ -634,7 +634,8 @@
   if(!s.enabled)return["","Выключена. Данные этого компьютера никуда не уходят."];
   const p=sent(s);
   const part=p?`${p.pct}% — отправлено ${num(p.done)} из ${num(p.total)}`:"";
-  if(s.state==="offline")return["err",`Нет связи с сервером. Изменения ждут на этом компьютере${s.pending?" ("+num(s.pending)+")":""} и уйдут сами.`];
+  if(s.state==="offline"){const why=String(s.error||"").replace(/^Нет связи с сервером\s*—\s*/,"");return["err",`Нет связи с сервером${why?": "+why:""}. Изменения ждут на этом компьютере${s.pending?" ("+num(s.pending)+")":""} и уйдут сами.`]}
+  if(s.state==="local")return["err","Обмен остановился из-за ошибки в программе (сервер ни при чём): "+(s.error||"ошибка")+". Пришлите этот текст в чат."];
   if(s.state==="error")return["err","Сервер не принял: "+(s.error||"ошибка")+(part?"\n"+part:"")];
   if(s.state==="signed-out")return["err","Войдите в программу — без входа обмен остановлен."];
   if(p)return["",(s.progress?"Отправляется база: ":"Отправляются изменения: ")+part];

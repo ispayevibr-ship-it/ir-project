@@ -381,7 +381,7 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
    const filter=since?`&filter=${encodeURIComponent(`updated>="${since}"`)}`:"";
    let last=since,need=[],heavy=[];
    for(let page=1;page<500;page++){
-    const r=await account.api(`/api/collections/${coll}/records?perPage=500&page=${page}&sort=updated,id&fields=id,rid,version,updated${coll==="records"?",section_key":""}${filter}`);
+    const r=await account.api(`/api/collections/${coll}/records?perPage=500&page=${page}&sort=updated,id&fields=id,rid,version,updated${coll==="records"?",section_key":""}${filter}`,{timeout:60000});
     for(const it of r?.items||[]){
      const m=mapOf(table,Number(it.rid));
      if(!(m&&m.sid===it.id&&Number(m.version)>=Number(it.version)))(HEAVY.has(it.section_key)?heavy:need).push(it.id);
@@ -391,7 +391,7 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
    }
    for(let i=0;i<need.length;i+=40){
     const ids=need.slice(i,i+40),f=ids.map(id=>`id='${id}'`).join("||");
-    const r=await account.api(`/api/collections/${coll}/records?perPage=40&filter=${encodeURIComponent(f)}`);
+    const r=await account.api(`/api/collections/${coll}/records?perPage=40&filter=${encodeURIComponent(f)}`,{timeout:120000});
     const items=(r?.items||[]).sort((a,b)=>Number(a.rid)-Number(b.rid));
     changed+=applyRows(table,items)
    }
@@ -484,7 +484,11 @@ function createServerSync({dbFile,account,getUserDataPath,DatabaseSync=require("
    if(force||now()-lastPull>15e3||again){await pull();lastPull=now()}
    await serial(async()=>{queueOldFiles();try{queueOldDocs()}catch(e){console.warn("IR Project sync docs:",e.message)}await sendFiles();await takeFiles()});
    status.state="idle";status.error="";status.lastAt=new Date(now()).toISOString()
-  }catch(e){status.state=e.status?"error":"offline";status.error=String(e.message||e)}
+  }catch(e){
+   // «Нет связи» — только когда до сервера правда не достучались; ошибка внутри программы показывается своими словами
+   status.state=e.status?"error":e.net?"offline":"local";status.error=String(e.message||e);
+   if(!e.status&&!e.net)console.warn("IR Project sync:",e?.stack||e)
+  }
   finally{running=false;if(again){again=false;setTimeout(()=>void cycle(),500)}}
  }
  function kick(){setTimeout(()=>void cycle(),50)}

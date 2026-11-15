@@ -4936,7 +4936,8 @@ const m=location.hash.match(/^#\/objects\/object\/(\d+)\/?$/);if(m)setTimeout(()
     const y=await ai.invoke("ai-settings:server-sync-info"),n=v=>Number(v||0).toLocaleString("ru-RU");
     const last=y?.lastAt?" · последний обмен "+when(y.lastAt):"";
     if(!y?.enabled)mark("sync","unknown","Синхронизация выключена — нажмите, чтобы включить");
-    else if(y.state==="offline")mark("sync","off","Синхронизация: нет связи с сервером"+(y.pending?" · ждут отправки: "+n(y.pending):"")+last);
+    else if(y.state==="offline")mark("sync","off","Синхронизация: нет связи с сервером"+(y.error?" ("+String(y.error).replace(/^Нет связи с сервером\s*—\s*/,"")+")":"")+(y.pending?" · ждут отправки: "+n(y.pending):"")+last);
+    else if(y.state==="local")mark("sync","off","Синхронизация: ошибка в программе — "+(y.error||"ошибка")+last);
     else if(y.state==="signed-out")mark("sync","off","Синхронизация: войдите в программу");
     else if(y.state==="error")mark("sync","off","Синхронизация: сервер не принял — "+(y.error||"ошибка")+last);
     else if(y.pending||y.progress||y.state==="sending")mark("sync","busy","Синхронизация: идёт обмен"+(y.pending?" · ждут отправки: "+n(y.pending):""));

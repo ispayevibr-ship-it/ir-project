@@ -172,13 +172,27 @@ function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects,app
  const person=r=>{if(!r)return null;const lv=r.role||"guest",ro=roleOf(r.id,lv);
   return{id:r.id,email:r.email||"",name:r.full_name||"",role:lv,roleId:ro.id,roleName:ro.name,perms:permsOf(ro,lv),verified:Boolean(r.verified),created:r.created||""}};
 
+ // Ошибка сети с настоящей причиной (15.11.2026: окно писало «Нет связи», а сервер работал — причина не была видна).
+ // net:true — до сервера не дошли или он не успел ответить; всё остальное синхронизация считает ошибкой, а не обрывом связи.
+ function netError(e){
+  const c=e?.cause||{},code=String(c.code||e?.code||""),name=String(e?.name||"");
+  let why;
+  if(name==="TimeoutError"||/timeout|aborted/i.test(String(e?.message||""))&&!code)why="сервер не успел ответить (долго готовит данные)";
+  else if(/ENOTFOUND|EAI_AGAIN/.test(code))why="адрес сервера не найден — проверьте интернет";
+  else if(/ECONNREFUSED/.test(code))why="сервер отказал в подключении";
+  else if(/ECONNRESET|UND_ERR_SOCKET|EPIPE/.test(code))why="соединение оборвалось";
+  else if(/ETIMEDOUT|UND_ERR_CONNECT_TIMEOUT/.test(code))why="нет ответа от сервера — проверьте интернет";
+  else if(/CERT|SSL|TLS/i.test(code+String(c.message||"")))why="ошибка защищённого соединения (https)";
+  else why="проверьте интернет"+(code?" ("+code+")":c.message?" ("+String(c.message).slice(0,80)+")":"");
+  const err=Error("Нет связи с сервером — "+why);err.net=true;err.timeout=name==="TimeoutError";err.code=code;return err
+ }
  async function api(p,{method="GET",body,auth=true,timeout=20000}={}){
   const headers={"content-type":"application/json"};
   if(auth){const t=token();if(!t)throw Error("Войдите в программу (почта и пароль)");headers.Authorization=t}
   let res;
   try{res=await fetch(server()+p,{method,headers,body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(timeout)})}
-  catch(e){throw Error("Нет связи с сервером — проверьте интернет")}
-  const text=await res.text();let data=null;try{data=text?JSON.parse(text):null}catch{}
+  catch(e){throw netError(e)}
+  let text;try{text=await res.text()}catch(e){throw netError(e)}let data=null;try{data=text?JSON.parse(text):null}catch{}
   if(!res.ok){
    if(res.status===401&&auth){const d=load();delete d.token;store(d)}
    const e=Error(explain(res.status,data));e.status=res.status;e.data=data;throw e
@@ -196,8 +210,8 @@ function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects,app
   for(const f of extra||[])form.append(f.field,new Blob([f.buffer],{type:f.type||"application/octet-stream"}),f.name);
   let res;
   try{res=await fetch(server()+`/api/collections/${/\/records\//.test(collection)?collection:collection+"/records"}`,{method:method==="PATCH"?"PATCH":"POST",headers:{Authorization:t},body:form,signal:AbortSignal.timeout(300000)})}
-  catch(e){throw Error("Нет связи с сервером — проверьте интернет")}
-  const text=await res.text();let data=null;try{data=text?JSON.parse(text):null}catch{}
+  catch(e){throw netError(e)}
+  let text;try{text=await res.text()}catch(e){throw netError(e)}let data=null;try{data=text?JSON.parse(text):null}catch{}
   if(!res.ok){const e=Error(explain(res.status,data));e.status=res.status;e.data=data;throw e}
   return data
  }
@@ -206,8 +220,8 @@ function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects,app
   const t=token();if(!t)throw Error("Войдите в программу (почта и пароль)");
   let res;
   try{res=await fetch(server()+p,{method,headers:{Authorization:t},body,signal:AbortSignal.timeout(timeout)})}
-  catch(e){throw Error("Нет связи с сервером — проверьте интернет")}
-  const text=await res.text();let data=null;try{data=text?JSON.parse(text):null}catch{}
+  catch(e){throw netError(e)}
+  let text;try{text=await res.text()}catch(e){throw netError(e)}let data=null;try{data=text?JSON.parse(text):null}catch{}
   if(!res.ok){const e=Error(explain(res.status,data));e.status=res.status;e.data=data;throw e}
   return data
  }
@@ -215,9 +229,9 @@ function createServerAccount({getUserDataPath,safeStorage,fetch,mail,objects,app
   const ft=await api("/api/files/token",{method:"POST"});
   let res;
   try{res=await fetch(server()+`/api/files/${collection}/${id}/${encodeURIComponent(name)}?token=${encodeURIComponent(ft?.token||"")}`,{headers:{Authorization:token()},signal:AbortSignal.timeout(timeout)})}
-  catch(e){throw Error("Нет связи с сервером — проверьте интернет")}
+  catch(e){throw netError(e)}
   if(!res.ok){const e=Error("Сервер не отдал файл: "+res.status);e.status=res.status;throw e}
-  return Buffer.from(await res.arrayBuffer())
+  try{return Buffer.from(await res.arrayBuffer())}catch(e){throw netError(e)}
  }
  const list=async(collection,query="")=>{
   const out=[];
