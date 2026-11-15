@@ -1297,7 +1297,7 @@ window.irSchemePage=async function(objectId,opts){
  let dataPanelOpen=true;try{dataPanelOpen=localStorage.getItem("ir-scheme-data-open")!=="0"}catch(e){}
  // and the panel on the right (the placed elements, the chosen one): folded to a narrow strip, the 3D wider («также правую сторону»).
  let sidePanelOpen=true;try{sidePanelOpen=localStorage.getItem("ir-scheme-side-open")!=="0"}catch(e){}
- let frameMode=true,selectedId="",activeWorkId="",activeScheme="all",rows=[],markRows=[],workRows=[],gridXSpans=[],gridYSpans=[],spanX=targetSpanX,spanY=targetSpanY,axisXPos=new Map(),axisYPos=new Map(),labelsVisible=false,dimensionsVisible=false,hiddenGroups=new Set(),hiddenSections=new Set(),confFilter="all",statusFilter="all",levelMin="",levelMax="",layersPanelOpen=false,elementSearch="",pickerScrollTop=0,previewFullscreen=false,previewNativeFullscreen=false,previewOriginalOverflow="";
+ let specsKm=null,frameMode=true,selectedId="",activeWorkId="",activeScheme="all",rows=[],markRows=[],workRows=[],gridXSpans=[],gridYSpans=[],spanX=targetSpanX,spanY=targetSpanY,axisXPos=new Map(),axisYPos=new Map(),labelsVisible=false,dimensionsVisible=false,hiddenGroups=new Set(),hiddenSections=new Set(),confFilter="all",statusFilter="all",levelMin="",levelMax="",layersPanelOpen=false,elementSearch="",pickerScrollTop=0,previewFullscreen=false,previewNativeFullscreen=false,previewOriginalOverflow="";
 
  // Shared view state: neither the 2D plan nor 3D owns a separate data model.
  // The scheme opens coloured by montage (the engineer, 25.10.2026: «по стандарту первым вывод делай монтаж в схеме»); a
@@ -1965,12 +1965,15 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
     selectedId="";refreshAfterMemberChange();restoreKeyboardAfterConfirm()
    }catch(error){alert("Не удалось удалить элемент: "+String(error?.message||error))}
   };
+  // (the specifications of the КМ for the page «Ведомость металла» — once; the 3D drawn again when they come)
+  if(specsKm===null){specsKm=[];Promise.resolve(irProject.ai?.invoke?.("ai-documents:specs-km")).then(r=>{if(Array.isArray(r)&&r.length){specsKm=r;window.irThreeSchemeView?.setSpecs?.(r)}}).catch(()=>{})}
   window.irThreeSchemeView.render(box,{
    objectId:oid,axesX:[...axesX],axesY:[...axesY],spanX,spanY,gridDirX,gridDirY,
    gridX:Object.fromEntries(axisXPos),gridY:Object.fromEntries(axisYPos),
    elements:members.map(c=>({...c,scheme_group:recordMarkGroup(c).key,role:recordRole(c),work:recordWorkId(c)||(frameMode?"":String(activeWorkId||""))})),
    // (the work types with their names: the page «Ведомость металла» of the 3D — a tab to each, beside its specification КМ)
    works:enabledWorks().map(w=>({id:w.id,label:w.name+(w.code?" · "+w.code:"")})),
+   specs:specsKm,
    selected:selectedId,
    maxZ:members.reduce((m,c)=>Math.max(m,num(c.z0),num(c.z2),num(c.mz)),0),
    colorMode:schemeColorMode,showLabels:labelsVisible,showDimensions:dimensionsVisible,
@@ -2035,7 +2038,10 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   const currentWork=frameMode?null:enabledWorks().find(w=>w.id===activeWorkId);
   // (снимки узлов с листов чертежей, уже сделанные, — в выгрузку и отчёт: страница «Узлы и стыки» показывает их там же, 1.12.140)
   let nodeCrops=null;try{nodeCrops=await irProject.ai?.invoke?.("ai-documents:node-crops",{objectId:oid})||null}catch(_error){nodeCrops=null}
-  return{objectId:oid,nodeCrops,object:{name:String(object.name||object.title||""),short:String(object.short_name||""),address:String(object.address||"")},title:activeGroup()?.label||"Все",
+  // (the specifications of the КМ of these work types — the page «Ведомость металла» of the exported scheme and the report)
+  let specs=[];try{const all=await irProject.ai?.invoke?.("ai-documents:specs-km"),nc=v=>String(v||"").replace(/\s+/g,"").replace(/[.\-–_]/g,"").toUpperCase(),labs=[...workCounts.values()].map(w=>nc(w.label));
+   specs=(Array.isArray(all)?all:[]).filter(r=>labs.some(l=>l&&l.indexOf(nc(r.code))>=0))}catch(_error){specs=[]}
+  return{objectId:oid,nodeCrops,specs,object:{name:String(object.name||object.title||""),short:String(object.short_name||""),address:String(object.address||"")},title:activeGroup()?.label||"Все",
     axesX:[...axesX],axesY:[...axesY],spanX,spanY,gridDirX,gridDirY,gridX:Object.fromEntries(axisXPos),gridY:Object.fromEntries(axisYPos),background:currentBackground(),
     elements:list,groups:[...counts.values()].sort((a,b)=>b.count-a.count),summary:statusCounts(),
     work:frameMode?(workCounts.size>1?"Все виды работ":""):currentWork?currentWork.name+(currentWork.code?" · "+currentWork.code:""):"",works:frameMode&&workCounts.size>1?[...workCounts.values()].sort((a,b)=>b.count-a.count):[]}

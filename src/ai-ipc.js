@@ -107,6 +107,9 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
  // Снимки узлов с листов чертежей для страницы «Узлы и стыки» (src/ai-node-crops.js, 1.12.140).
  const nodeCrops=require("./ai-node-crops").createNodeCrops({database,renderer:raster,montage,getUserDataPath});
  handle("ai-documents:node-crops",(_e,{objectId})=>nodeCrops.list(objectId));
+ // Спецификации металлопроката КМ для страницы «Ведомость металла» 3D (knowledge/specs-km.json — данные чертежей, приходят из
+ // закрытого хранилища в userData/knowledge-data; инженер 15.11.2026 «из схемы и рядом из км ведомости», 1.12.166).
+ handle("ai-documents:specs-km",()=>{try{const d=JSON.parse(require("node:fs").readFileSync(require("./ai-knowledge-dirs").file("specs-km.json"),"utf8"));return Array.isArray(d?.records)?d.records:[]}catch{return[]}});
  handle("ai-documents:node-crop",(_e,{objectId,sheet,title})=>nodeCrops.crop(objectId,{sheet,title}));
  handle("ai-documents:purge-info",(_e,{objectId})=>({...documents.purgeInfo(objectId),admin:Boolean(account?.isAdmin?.())||!account?.info?.()?.signedIn}));
  handle("ai-documents:purge-object",(e,{objectId})=>{checkAdmin(e);return documents.purge(objectId)});

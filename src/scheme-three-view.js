@@ -15602,7 +15602,8 @@ window.irThreeSchemeView=(function irThreeModule(){
   }
   function metalWorks(){
    var by=metalOf(),works=(P.works||[]).map(function(w){return{id:String(w.id),label:String(w.label||w.name||"")}}),known=new Set(works.map(function(w){return w.id}));
-   Object.keys(by).forEach(function(id){if(!known.has(id)){works.push({id:id,label:id===""?(P.work||"Без вида работ"):"Вид работ "+id});known.add(id)}});
+   var only=Object.keys(by).filter(function(id){return!known.has(id)}).length===1&&!works.length;
+   Object.keys(by).forEach(function(id){if(!known.has(id)){works.push({id:id,label:only&&P.work?String(P.work):id===""?(P.work||"Без вида работ"):"Вид работ "+id});known.add(id)}});
    return works.map(function(w){var rows=by[w.id]||{},kg=Object.keys(rows).reduce(function(s,k){return s+rows[k]},0),sp=specFor(w.label,new Set([w.id]));
     var vol=workVolume(w.label)||(sp[0]&&sp[0].volume)||"",short=vol||String(w.label).split("·")[0].trim()||"Без вида работ";
     return{id:w.id,label:w.label,short:short,rows:rows,kg:kg,specs:sp}}).filter(function(w){return w.kg>0||w.specs.length}).sort(function(a,b){return a.short.localeCompare(b.short,"ru",{numeric:true})})
@@ -15722,7 +15723,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    try{out.parts=e.enc(derivedParts)}catch(x){out.parts="!"}
    return JSON.stringify(out).replace(/,"id":\d+/g,"").replace(/\{"R":\d+\}/g,'"R"').replace(/\{"MT":\d+\}/g,'"MT"').replace(/\{"G":\d+\}/g,'"G"').replace(/\{"T":"[A-Za-z0-9]+","b":\d+\}/g,'"B"')
   }
-  return{host:host,key:key,root:root,bolts:boltsForCheck,update:update,modelText:modelText,camAt:function(){return camera.position.toArray().concat(controls.target.toArray())},focus:focus,look:look,startCopy:startCopy,startPlacement:startPlacement,nodes:nodeList,openNode:openNode,snapshots:snapshots,card:card,lightPart:lightPart,
+  return{host:host,key:key,root:root,bolts:boltsForCheck,update:update,setSpecs:function(r){specList=Array.isArray(r)?r:[];specAsked=true;metalRows=null;if(metalEl&&!metalEl.hidden)metalPaint()},modelText:modelText,camAt:function(){return camera.position.toArray().concat(controls.target.toArray())},focus:focus,look:look,startCopy:startCopy,startPlacement:startPlacement,nodes:nodeList,openNode:openNode,snapshots:snapshots,card:card,lightPart:lightPart,
    dispose:function(){
     cameraMemory[memoryKey]={position:camera.position.clone(),target:controls.target.clone(),up:camera.up.clone()};
     alive=false;clearExplode();cancelCopy();cancelPlacement();if(raf)cancelAnimationFrame(raf);if(awayTimer)clearTimeout(awayTimer);
@@ -15754,6 +15755,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   look:function(id,side){return call("look",id,side)},
   startCopy:function(id){return call("startCopy",id)},
   startPlacement:function(){return call("startPlacement")},
+  setSpecs:function(r){return call("setSpecs",r)},
   nodes:function(){return call("nodes")||[]},
   openNode:function(id){return call("openNode",id)},
   card:function(id){return call("card",id)||null},
