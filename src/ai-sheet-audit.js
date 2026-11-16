@@ -219,6 +219,13 @@ function auditSheet(geometry,page){
   if(/^[А-ЯЁ\d\/]{1,4}(?:\s?[-–]\s?[А-ЯЁ\d\/]{1,4}){2,3}(?:\s?;\s?[А-ЯЁ\d\/]{1,4}(?:\s?[-–]\s?[А-ЯЁ\d\/]{1,4}){2,3})*$/u.test(str)){items.notes.push({text:str,axes:true});continue}
   // (a range of a size cut on site «20-40*» — the gap at the wall, АР ч.2 л.12)
   if(/^\d{1,4}\s?[-–]\s?\d{1,4}\*$/u.test(str)){items.notes.push({text:str,range:true});continue}
+  // (a chain of equal sizes «3*1000» — three panels of 1000 — under a layout of АР, ч.2 л.5 ИР-71535: tied by the view's own
+  //  positions — the run of the chain or one of its steps)
+  const chain=/^(\d{1,2})\s?[*×xх]\s?(\d{2,5})$/u.exec(str);
+  if(chain){const n=Number(chain[1]),step=Number(chain[2]),w=arViewAt(c),tol=Math.max(10,n*step*.004);const used=w?hasValue(w.u(),n*step,tol)||hasValue(w.z(),n*step,tol)||hasValue(w.u(),step,10)||hasValue(w.z(),step,10):null;
+   items.dims.push({text:str,mm:n*step,used,scheme:k,chain:true});if(used===false)missed.push({kind:"dim",text:str,scheme:k,at:at(t),why:"цепочка размеров не привязана к панелям и проёмам вида"});continue}
+  // (the name of an axis of an АР view written without its circle found — «2В» of the existing workshop on the facade 3-1, л.5)
+  if(page?.ar&&/^[А-ЯЁA-Z\d\/]{1,4}$/u.test(str)&&arText().includes('{"name":"'+str+'"')){items.axes.push({text:str,used:true});continue}
   items.unknown.push({text:str,scheme:k,at:at(t)})
  }
  // Marks: each label paired with an element of its scheme placed from it (the element keeps the label's point), then
@@ -251,9 +258,23 @@ function auditSheet(geometry,page){
  // (a label in no scheme, but on a view of the sheet — a node, a section, a sketch —: kept in the details of that view by
  // rules, src/ai-sheet-details.js, 13.11.2026 «чтобы все брал по листам всем»; still told to Claude to place or explain)
  let kept=0;if(page?.details&&!page.details.error){const {viewOfLabel}=require("./ai-sheet-details");for(const m of missed){const v=viewOfLabel(page.details,m.text);if(v){m.kept=v;kept++}}}
+ // Slips of the drawing itself — the sheet against itself, not the program against the sheet (АР ч.2 л.5 ИР-71535, инженер
+ // 16.11.2026): a row of the panel table whose area is not its length × width, whose total is not area × count, whose mass is
+ // not of its area; the «Итого» against the rows; the panels of the layouts against the table, mark by mark.
+ const drawing=[];const f2=v=>String(Math.round(v*100)/100).replace(".",",");
+ for(const r of page?.ar?.panels||[]){
+  if(r.length_slip)drawing.push({text:r.pos,why:"площадь «"+f2(r.length_slip.area_m2)+"» не равна длине "+r.length_mm+" × ширине "+r.width_mm+" = "+f2(r.length_slip.by_length_m2)+" м²"+(r.length_slip.copied_from?" — площадь, масса и общая площадь строки "+r.length_slip.copied_from:"")});
+  if(r.area_slip)drawing.push({text:r.pos,why:"площадь «"+f2(r.area_slip.area_m2)+"» не по длине "+r.length_mm+" — по длине и общей площади "+f2(r.area_slip.by_length_m2)+" м²"});
+  if(r.total_slip)drawing.push({text:r.pos,why:"общая площадь «"+f2(r.total_m2)+"» не равна площади × кол. = "+f2(r.total_slip.area_x_count_m2)+" м²"});
+  if(r.mass_slip)drawing.push({text:r.pos,why:"масса «"+f2(r.mass_kg)+"» кг — "+f2(r.mass_slip.row_kg_m2)+" кг/м² при "+f2(r.mass_slip.kg_m2)+" у панелей этого вида: масса панели "+f2(r.mass_slip.mass_of_m2)+" м²"})}
+ // (a table running over two sheets — «Итого» of the whole under its end, the rows of this sheet only — is not checked here)
+ for(const t of (page?.ar?.panelTotals||[]).filter(t=>!t.panels||!t.rows_panels||t.panels===t.rows_panels)){
+  if(t.total_m2&&Math.abs(t.total_m2-t.rows_m2)>.05)drawing.push({text:"Итого "+f2(t.total_m2)+" м²",why:"сумма строк площадь × кол. "+f2(t.rows_m2)+(t.rows_written_m2!==undefined&&Math.abs(t.total_m2-t.rows_written_m2)<=.05?", сумма столбца «общая площадь» как написан — "+f2(t.rows_written_m2)+": «Итого» сложено по нему":"")});
+  if(t.panels&&t.rows_panels&&t.panels!==t.rows_panels)drawing.push({text:"Итого "+t.panels+" панелей",why:"по строкам "+t.rows_panels})}
+ for(const d of page?.ar?.layoutCheck?.diff||[])drawing.push({text:d.mark,why:"на схемах раскладки листа "+d.layout+", в таблице листа "+d.spec});
  const counts={texts:texts.length,read:texts.length,kept,notes:items.notes.length,marks:count(items.marks),axes:count(items.axes),dims:count(items.dims.filter(d=>d.used!==null)),levels:count(items.levels),
-  nodes:items.nodes.length,cuts:items.cuts.length,unknown:items.unknown.length,missed:missed.length};
- return{counts,missed:missed.slice(0,400),nodes:items.nodes.slice(0,200),unknown:[...new Set(items.unknown.map(u=>u.text))].slice(0,80),...(markIndex?{markIndex}:{})}
+  nodes:items.nodes.length,cuts:items.cuts.length,unknown:items.unknown.length,missed:missed.length,drawing:drawing.length,...(page?.ar?.layoutCheck?{layout:{marks:page.ar.layoutCheck.marks,same:page.ar.layoutCheck.same}}:{})};
+ return{counts,missed:missed.slice(0,400),nodes:items.nodes.slice(0,200),unknown:[...new Set(items.unknown.map(u=>u.text))].slice(0,80),...(drawing.length?{drawing}:{}),...(markIndex?{markIndex}:{})}
 }
 
 // The whole text of a sheet for Claude (the engineer, 13.11.2026: «1 страница без разницы чего АР, КМД, КМ, ТХ — при анализе
@@ -328,12 +349,13 @@ function planMisses(pages,elements,norm=keyOf){
 
 // The misses of one sheet for Claude: each to be placed (elements) or explained (summary).
 function promptLines(page,limit=60){
- const a=page?.audit;if(!a||!a.missed?.length&&!a.unknown?.length)return[];
+ const a=page?.audit;if(!a||!a.missed?.length&&!a.unknown?.length&&!a.drawing?.length)return[];
  const name={mark:"марка",axis:"ось",dim:"размер",level:"отметка"};
  const lines=["СВЕРКА ПРОГРАММЫ, лист page="+page.page+": на листе есть, в найденное не попало "+a.missed.length+" — каждое разместить (elements) или объяснить в summary, почему не ставится:"];
  const order={mark:0,level:1,axis:2,dim:3},list=[...a.missed].sort((x,y)=>(order[x.kind]??9)-(order[y.kind]??9));
  for(const m of list.slice(0,limit))lines.push("— "+name[m.kind]+" «"+m.text+"»"+(m.scheme!==null&&m.scheme!==undefined?" (схема index="+m.scheme+")":"")+(m.axes?" у осей "+m.axes:"")+": "+m.why+(m.kept?" (правилами взято в сведения вида «"+m.kept+"»)":""));
  if(a.missed.length>limit)lines.push("… ещё "+(a.missed.length-limit));
+ if(a.drawing?.length)lines.push("Расхождения самого чертежа (лист сам с собой; в сводке сказать инженеру, взять как написано): "+a.drawing.map(d=>d.text+" — "+d.why).join("; "));
  if(a.unknown?.length)lines.push("Надписи, которые программа не опознала (проверь, что это): "+a.unknown.slice(0,40).join(" · "));
  const refs=(a.nodes||[]).filter(n=>!n.title);
  if(refs.length)lines.push("Выноски узлов на листе: "+refs.slice(0,40).map(n=>"узел "+n.node+" (лист "+n.sheet+")"+(n.axes?" у осей "+n.axes:"")).join("; "));

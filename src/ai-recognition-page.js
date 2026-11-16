@@ -459,7 +459,8 @@ window.irAiRecognitionPage=async function(objectId){
    (au.nodes.length?'<details><summary>Выноски узлов: '+au.nodes.length+(au.nodesMissing?' — листа узла нет в комплекте: '+au.nodesMissing:'')+'</summary>'+table(["Узел","Лист узла","Где выноска","У осей","Проверка"],au.nodes.map(n=>'<tr class="'+(n.state==="no-sheet"?'warn':'')+'"><td>'+esc(n.node)+'</td><td>'+esc(n.sheet)+'</td><td>лист '+n.page+'</td><td>'+esc(n.axes||"—")+'</td><td>'+(n.state==="found"?'узел найден на листе':n.state==="no-title"?'лист есть, заголовок «Узел '+esc(n.node)+'» не прочитан':'лист узла не загружен')+'</td></tr>'))+'</details>':'')+
    (au.sheets.length?'<details><summary>Пропуски по листам ('+au.missed+')</summary>'+au.sheets.map(p=>'<p><b>Лист '+p.page+'</b> '+esc(p.file)+', стр. '+p.sheet+' — пропусков '+p.missed.length+'</p>'+
     table(["Что","Надпись","У осей","Почему"],p.missed.map(m=>'<tr><td>'+esc(KIND[m.kind]||m.kind)+'</td><td><b>'+esc(m.text)+'</b></td><td>'+esc(m.axes||"")+'</td><td><small>'+esc(m.why)+'</small></td></tr>'))+
-    (p.unknown.length?'<p class="muted">Не опознано: '+esc(p.unknown.join(" · "))+'</p>':'')).join("")+'</details>':'')):'';
+    (p.unknown.length?'<p class="muted">Не опознано: '+esc(p.unknown.join(" · "))+'</p>':'')+
+    ((p.drawing||[]).length?'<p><b>Расхождения самого чертежа</b> (лист сам с собой — взято как написано):</p>'+table(["Что","Расхождение"],p.drawing.map(d=>'<tr class="warn"><td><b>'+esc(d.text)+'</b></td><td><small>'+esc(d.why)+'</small></td></tr>')):'')).join("")+'</details>':'')):'';
   const markRows=marks.slice(0,1500).map(c=>{
    const short=c.count&&c.planned&&c.planned<c.count,over=c.count&&c.planned>c.count;
    return'<tr class="'+(over?'bad':short?'warn':'')+'"><td><b>'+esc(c.mark)+'</b></td><td>'+cell(c.doc)+'</td><td>'+cell(c.profile)+(c.steel?' <small>'+esc(c.steel)+'</small>':'')+'</td><td>'+cell(c.length_mm)+'</td>'+
