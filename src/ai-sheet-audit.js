@@ -254,6 +254,20 @@ function auditSheet(geometry,page){
    missed.push({kind:"mark",text:x.mk,scheme:x.k,at:{x:Math.round(target.x*10)/10,y:Math.round(target.y*10)/10},axes:axesAt(target),
     why:(pool[x.k].get(x.mk)||[]).length?"марка подписана на схеме ещё раз, а элемент найден реже":"марка на схеме, элемент не найден (выноска или линия элемента не прочитаны)"})}
  }
+ // The cut of the panels under one slope one straight line (the engineer, 16.11.2026: «Обрезаешь сэндвич не ровно», АР ч.2
+ // л.6): of two panels side by side in one tier, one cut along a slope, the tops at their joint at one height and, both cut,
+ // at one slope — a step or a kink there is the program's (a ridge or a valley, the slopes the other way, is not).
+ for(const v of page?.ar?.views||[]){const ps=(v.panels||[]).filter(p=>Number.isFinite(p.u0)&&Number.isFinite(p.u1)&&Number.isFinite(p.z1));
+  for(const a of ps)for(const b of ps){if(a===b||Math.abs(a.u1-b.u0)>10||Math.abs(a.z0-b.z0)>60||!(a.top||b.top))continue;
+   const ha=a.top?a.top[1]:a.z1,hb=b.top?b.top[0]:b.z1,sa=a.top?(a.top[1]-a.top[0])/(a.u1-a.u0):0,sb=b.top?(b.top[1]-b.top[0])/(b.u1-b.u0):0;
+   if(a.top&&b.top&&sa*sb<0)continue;
+   // (a panel of the same position drawn whole beside its cut one — its height the cut one's highest: the end strip of a
+   //  gable past its axis, ряд 03 л.5 Пс-62 at −850 and 47850 — is the drawing's)
+   const whole=(f,c)=>!f.top&&c.top&&f.mark===c.mark&&Math.abs(f.z1-Math.max(...c.top))<=15;
+   if(whole(a,b)||whole(b,a)||a.flatEnd||b.flatEnd)continue;
+   const step=Math.abs(ha-hb),kink=a.top&&b.top&&a.u1-a.u0>=500&&b.u1-b.u0>=500&&Math.abs(sa-sb)>.015;
+   if(step>15&&step<=700||kink)missed.push({kind:"top",text:a.mark+" / "+b.mark,scheme:null,at:{u:a.u1,z:Math.max(ha,hb)},
+    why:(v.title||"вид")+": "+(step>15?"верх по скату ступенькой "+step+" мм у "+a.u1:"уклон верха "+Math.round(sa*1000)/10+" % и "+Math.round(sb*1000)/10+" % у "+a.u1)})}}
  const count=list=>({total:list.length,used:list.filter(i=>i.used===true).length});
  // (every label of the sheet goes to Claude in its whole text — `sheetText`, 13.11.2026: the notes, tables and words not
  // taken by a rule are read there; `read` — labels of the sheet, all)

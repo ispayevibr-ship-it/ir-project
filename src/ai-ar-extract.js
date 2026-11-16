@@ -410,6 +410,68 @@ function columnRuns(vert,gap=.2){
 // With the size its table gives (size: width × length, mm): a side that is the edge of an opening in it (a hole for a beam,
 // a duct) gives way to the joint a panel's width off, and a panel the opening's edge would end goes on to its length where
 // its joints do — the opening is a hole in it, not its end.
+// The pieces of a sloped line in one line (a roof drawn between its purlins, the joint of two tiers): one line each,
+// by least squares over the pieces' ends weighted by their length.
+function slopeLines(slopes){
+ const segs=slopes.filter(q=>q.x1-q.x0>=3).map(q=>({...q,k:(q.yb-q.ya)/(q.x1-q.x0)})).filter(q=>Math.abs(q.k)>=.03&&Math.abs(q.k)<=.3).sort((a,b)=>a.x0-b.x0),groups=[];
+ const fit=g=>{let sw=0,sx=0,sy=0,sxx=0,sxy=0;for(const q of g.segs){const w=q.x1-q.x0;for(const [x,y] of [[q.x0,q.ya],[q.x1,q.yb]]){sw+=w;sx+=w*x;sy+=w*y;sxx+=w*x*x;sxy+=w*x*y}}
+  const d=sw*sxx-sx*sx;g.k=d?(sw*sxy-sx*sy)/d:g.segs[0].k;g.c=(sy-g.k*sx)/sw;g.x0=Math.min(...g.segs.map(q=>q.x0));g.x1=Math.max(...g.segs.map(q=>q.x1));g.len=g.segs.reduce((m,q)=>m+q.x1-q.x0,0)};
+ for(const q of segs){
+  const g=groups.find(g=>Math.abs(g.k-q.k)<=.015&&q.x0-g.x1<=60&&q.x0>=g.x0-.5&&Math.abs(g.k*q.x0+g.c-q.ya)<=.6&&Math.abs(g.k*q.x1+g.c-q.yb)<=.6);
+  if(g){g.segs.push(q);fit(g)}else{const n={segs:[q]};fit(n);groups.push(n)}}
+ return groups.filter(g=>g.len>=15).map(g=>({k:g.k,c:g.c,x0:g.x0,x1:g.x1,len:g.len,y:x=>g.k*x+g.c}))
+}
+function slopeTops(panels,slopes,runs,scale,z,u){
+ // (not the slash of an opening's mark — a stroke across a hole of 650, ряд А Пс-103: a line of a roof or a tier runs on
+ // over panels, 1,4 m and more)
+ const lines=slopeLines(slopes).filter(L=>L.len>=40);
+ // (a roof drawn thick: its line where the joints under it end — the cut of the panels —, not the other stroke of it)
+ for(const L of lines){const d=runs.filter(v=>v.x>=L.x0-.5&&v.x<=L.x1+.5&&Math.abs(v.y0-L.y(v.x))<=2&&v.y1-v.y0>=250/scale).map(v=>v.y0-L.y(v.x)).sort((a,b)=>a-b);
+  if(d.length>=3){const m=d[d.length>>1];L.c+=m;L.y=x=>L.k*x+L.c}}if(!lines.length)return;
+ const reach=700/scale;
+ for(let pass=0,moved=true;moved&&pass<6;pass++){moved=false;
+ for(const p of panels){const R=p.rect;if(!R)continue;const w=R.r-R.l;
+  const curL=R.topCut?R.topCut.l:R.top,curR=R.topCut?R.topCut.r:R.top;
+  const over=panels.filter(o=>o!==p&&o.rect&&Math.min(o.rect.r,R.r)-Math.max(o.rect.l,R.l)>w*.5&&o.rect.bottom<=Math.min(curL,curR)+1.5);
+  const cands=lines.filter(L=>L.x0<=R.r-w*.3&&L.x1>=R.l+w*.3).filter(L=>{
+   const yl=L.y(R.l),yr=L.y(R.r);
+   // (over the top, or on it already up to 0,8 pt off — a step to straighten —, and well over the foot)
+   // (or flat at the line's higher end: drawn up to where it meets the slope at its higher side — ряд Л Пс-75 at the wall
+   //  flat at +7,860, ряд Ж Пс-89 by the valley flat at 14295, ряд 09 Пс-105, Пс-104 the teeth of a saw —, cut along it)
+   const flatHigh=!R.topCut&&Math.abs(R.top-Math.min(yl,yr))<=1.5;
+   if(Math.min(curL-yl,curR-yr)<-.8&&!flatHigh||Math.min(curL-yl,curR-yr)>reach)return false;
+   if(Math.max(yl,yr)>R.bottom-250/scale)return false;
+   // (nothing between: no panel over it whose foot is under the line)
+   if(over.some(o=>o.rect.bottom>Math.max(L.y(o.rect.l),L.y(o.rect.r))+1.5))return false;
+   const side=x=>runs.some(v=>Math.abs(v.x-x)<=.4&&v.y1>Math.max(yl,yr)&&v.y0<=L.y(x)+2&&v.y0>=L.y(x)-15);
+   const stands=over.some(o=>[o.rect.l,o.rect.r].some(x=>x>=R.l-.5&&x<=R.r+.5&&Math.abs(o.rect.bottom-L.y(x))<=1.5)||o.rect.cut);
+   // (or a panel beside it, joint to joint, already cut along it: the end ones at the wall — ряд Н Пс-71, О9 Пс-106 —, by
+   //  a column not read as one)
+   const beside=panels.some(o=>o!==p&&o.rect&&o.rect.topCut&&(Math.abs(o.rect.r-R.l)<=300/scale||Math.abs(o.rect.l-R.r)<=300/scale)&&[o.rect.l,o.rect.r].every((x,i)=>Math.abs((i?o.rect.topCut.r:o.rect.topCut.l)-L.y(x))<=1));
+   return (R.column&&(side(R.l)||side(R.r)||stands))||beside});
+  if(!cands.length)continue;
+  // (the nearest over it)
+  // (of two strokes of one line a little apart — the roof drawn thick, up to 1,5 pt —, the longer: one line for the row)
+  cands.sort((a,b)=>(b.y(R.l)+b.y(R.r))-(a.y(R.l)+a.y(R.r)));
+  const m=(cands[0].y(R.l)+cands[0].y(R.r))/2,L=cands.filter(c=>m-(c.y(R.l)+c.y(R.r))/2<=1.5).sort((a,b)=>b.len-a.len)[0];
+  const tl=L.y(R.l),tr=L.y(R.r);
+  if(Math.abs(tl-curL)<=.05&&Math.abs(tr-curR)<=.05)continue;
+  R.top=Math.min(tl,tr);R.topCut={l:tl,r:tr};R.slopeLine=true;
+    // (the heights at the ends in the order along the wall: a view drawn reversed runs the other way)
+  p.z1=z(R.top);const a=z(tl),b=z(tr);p.top=u(R.l)<=u(R.r)?[a,b]:[b,a];
+  p.slopeLine=true;moved=true}}
+ // (a panel flat beside a cut one with no line of the slope over it — the slope ends short of it: the end strip past the
+ //  last axis, its own length in the table — АР ч.2 л.2 ряд 08 Пс-32 6350, л.5 ряд 03 Пс-62 —: drawn so, told to the audit)
+ for(const p of panels){const R=p.rect;if(!R||R.topCut)continue;const w=R.r-R.l;
+  if(!panels.some(o=>o!==p&&o.rect&&o.rect.topCut&&Math.abs(o.z0-p.z0)<=60&&(Math.abs(o.rect.r-R.l)<=300/scale||Math.abs(o.rect.l-R.r)<=300/scale)))continue;
+  if(!lines.some(L=>L.x0<=R.r-w*.3&&L.x1>=R.l+w*.3&&Math.abs(Math.min(L.y(R.l),L.y(R.r))-R.top)<=reach))p.flatEnd=true}
+ // One joint between tiers: the foot of the upper panel on the line the lower one is cut along (ряд Ж, Пс-89 over 8730…12350
+ // stood on the level line of +7,140 over the joint falling to 6690)
+ for(const q of panels){const Q=q.rect;if(!Q||!Q.topCut||Q.r-Q.l<1)continue;const k=(Q.topCut.r-Q.topCut.l)/(Q.r-Q.l),L={y:x=>Q.topCut.l+k*(x-Q.l)};
+  for(const p of panels){const R=p.rect;if(p===q||!R||Math.min(R.r,Q.r)-Math.max(R.l,Q.l)<(Q.r-Q.l)*.5)continue;
+   const foot=Math.max(L.y(R.l),L.y(R.r));if(R.bottom>foot+.8||R.bottom<Math.min(L.y(R.l),L.y(R.r))-400/scale||R.top>=foot-250/scale)continue;
+   if(Math.abs(R.bottom-foot)<=.3)continue;R.bottom=foot;p.z0=z(foot);p.footLine=true}}
+}
 function columnAround(b,runs,horiz,numbers,hs,scale,size=null,slopes=[],ext=null){
  const cross=runs.filter(v=>v.y0<=b.cy&&v.y1>=b.cy);
  // (a label written from its joint — its box up to 0,3 pt over the line, ИР-71535 АР ч.2 л.8 ряд Б Пс-116 at 1497 pt —: that
@@ -820,7 +882,7 @@ const viewRows=(texts,segments)=>{
 // the panels, joined along the wall where they share their top and bottom; then cut down to its own sides, the lines
 // that start at its top and go down its height (pieces of panels beside it without a label are not the opening). Under
 // a panel cut along a lower roof is that roof, not an opening. One whose bottom is the foot of the wall starts there.
-function openingRects(panels,vert,horiz,scale,u,z,numbers=[],texts=[],ticks=[],segments=[]){
+function openingRects(panels,vert,horiz,scale,u,z,numbers=[],texts=[],ticks=[],segments=[],ext=new Set()){
  if(panels.length<4)return[];
  const rects=panels.map(p=>p.rect),xs=[];
  for(const v of rects.flatMap(r=>[r.l,r.r]).sort((a,b)=>a-b))if(!xs.length||v-xs[xs.length-1]>.4)xs.push(v);
@@ -877,7 +939,7 @@ function openingRects(panels,vert,horiz,scale,u,z,numbers=[],texts=[],ticks=[],s
  // holes) — is not a line of the wall, unless it starts at a side of the opening (its top drawn on to the dimension: л.9
  // ряд Л, «ОВ 500 х 300» and «300»).
  const from=h=>{for(const v of vert){if(h.y<v.y0-1||h.y>v.y1+1)continue;if(h.x1-v.x>=.5&&h.x1-v.x<=6)return h.x0;if(v.x-h.x0>=.5&&v.x-h.x0<=6)return h.x1}return null};
- const plain=(l,r)=>h=>{if(noted(h))return true;const f=from(h);return f!==null&&Math.abs(f-l)>1&&Math.abs(f-r)>1};
+ const plain=(l,r)=>h=>{if(noted(h)||ext.has(h))return true;const f=from(h);return f!==null&&Math.abs(f-l)>1&&Math.abs(f-r)>1};
  const slants=segments.filter(q=>Math.abs(q.a.x-q.b.x)>.3&&Math.abs(q.a.y-q.b.y)>.3);
  const slashIn=(l,r,t,b)=>t<b&&slants.some(q=>[q.a,q.b].every(p=>p.x>=l-.3&&p.x<=r+.3&&p.y>=t-.3&&p.y<=b+.3)&&Math.abs(q.a.y-q.b.y)>=(b-t)*.5);
  for(let i=0;i<vs.length;i++){
@@ -1255,6 +1317,14 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
    const across=rect.column?[...new Set(horiz.filter(h=>h.y>rect.top+.5&&h.y<rect.bottom-.5&&h.x1>rect.l&&h.x0<rect.r).map(h=>Math.round(h.y*10)/10))].filter(coversCol).map(z).sort((a,b)=>a-b).slice(0,8):[];
    panels.push({...(t.cands?{cands:t.cands}:{}),...(t.leader?{leader:true}:{}),...(across.length?{across}:{}),mark:String(t.str).trim(),u0:Math.min(u0,u1),u1:Math.max(u0,u1),z0:z(rect.bottom),z1:z(rect.top),...(cut?{cut}:{}),...(topCut?{top:topCut}:{}),pt:{x:Math.round(b.cx),y:Math.round(b.cy)},rect})
   }
+  // One straight cut per slope (ИР-71535 АР ч.2 л.6, the engineer 16.11.2026: «Обрезаешь сэндвич не ровно»): the line of a
+  // roof or of the joint of two tiers is drawn in pieces between the purlins; its pieces in one line are one line, and every
+  // panel under it is cut along it — the end ones at the wall too (ряд К Пс-72 under the slope stopped at the extension
+  // lines of +7,345, +7,545; ряд Н Пс-71, Пс-73, Пс-76 flat at +7,555; ряд Ж the lower tier flat at +7,345 under the joint
+  // the upper Пс-89 stand on, 7765…7465; ряд К steps of 20–25 mm at 3730, 9730, 8 % instead of 10 %). A panel takes the
+  // line when it lies over its top up to 700 mm, nothing between, and a joint of its column ends on it or the panel over it
+  // stands on it.
+  if(sketch&&panels.length)slopeTops(panels,slopes,runs,scale,z,u);
   // (a layout by sketches: a label of another view over this row — «по фасаду 3-1» beside «по ряду К, в осях 01-03»,
   // ИР-71535 АР ч.2 л.5 — lies off its axes, past the 3 m a wall runs on beyond its last axis)
   if(sketch)for(let i=panels.length-1;i>=0;i--)if(panels[i].u1<-3000||panels[i].u0>total+3000)panels.splice(i,1);
@@ -1305,13 +1375,22 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
    ...(title?{title:String(title.str).replace(/\s+/g," ").trim()}:{}),...(wallRow?{row:wallRow}:{}),
    bbox:{x0:row.x0-260,x1:row.x1+260,y1:row.y},levels:[...new Set(levels.map(l=>l.mm))].sort((a,b)=>a-b),
    ...(()=>{const top0=Math.min(...panels.map(p=>p.rect.top));
-    const rects=openingRects(panels,vert,horiz,scale,u,z,numbers,region,ticks,segments),bumpers=(rects.bumpers||[]).map(({at,...o})=>o);
+    const rects=openingRects(panels,vert,horiz,scale,u,z,numbers,region,ticks,segments,extension),bumpers=(rects.bumpers||[]).map(({at,...o})=>o);
     let openings=noteLevels(rects,texts,segments,{scale,u,z,inView:q=>q.x>=row.x0-15&&q.x<=row.x1+15&&q.y>=top0-5&&q.y<=row.y+5});
     // (a layout's wall whose foot follows a slope — ГПЭС ряд Ж, +5,260 at the ends, +5,950 in the middle —: what lies under
     // its panels down to the lowest foot is the slope, not openings)
     if(spec.some(p=>p.layout)){const col=new Map();for(const p of panels){const k=Math.round(p.u0/100);col.set(k,Math.min(col.get(k)??Infinity,p.z0))}
      const feet=[...col.values()],lo=Math.min(...feet);if(feet.filter(f=>f>lo+50).length>feet.length/2){const foot=z(Math.max(...panels.map(p=>p.rect.bottom)));openings=openings.filter(o=>o.z0>foot+5)}}
     openings=openings.map(({at,...o})=>o);
+    // (one opening split by a cell under 150 mm — the extension lines of «555» and «200 / 800» running up through the ribbon
+    // window +11,500…+13,900 over the second gate of ряд Б, АР ч.2 л.8 у осей О6/2–О7, made «panels» 35 and 145 mm wide
+    // between three openings —: neighbours at the same levels with such a gap and no panel in it are one)
+    {const ok=[...openings].sort((a,b)=>a.u0-b.u0),out=[];
+     for(const o of ok){const q=out.find(q=>o.u0-q.u1>=0&&o.u0-q.u1<150&&Math.abs(o.z0-q.z0)<=20&&Math.abs(o.z1-q.z1)<=20&&!!o.base===!!q.base&&!o.steps&&!q.steps&&
+       !panels.some(p=>p.u1>q.u1+5&&p.u0<o.u0-5&&p.z1>Math.max(o.z0,q.z0)+5&&p.z0<Math.min(o.z1,q.z1)-5));
+      if(q){q.u1=o.u1;continue}
+      out.push({...o})}
+     if(out.length<openings.length)openings=out}
     // (a corner cut, not an opening: a rectangle at the top of its panel column, out to the panel's side, nothing over it —
     // ИР-71535 АР ч.2 л.14 ряд 010 у оси Ж: Пс-35 at the step of the high wall ends at +6,670 beside the 455 of Пс-34, open
     // to +7,100; it read as a window 545×430, engineer 16.11.2026 «вот здесь полностью вырез, а не рамка»): the panel is
