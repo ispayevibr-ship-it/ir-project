@@ -1081,7 +1081,11 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
  for(const h of horiz)for(const end of [h.x1,h.x0]){const sg=end===h.x1?1:-1,start=sg>0?h.x0:h.x1;
   const v=vert.find(q=>h.y>=q.y0-1&&h.y<=q.y1+1&&(end-q.x)*sg>=.5&&(end-q.x)*sg<=6);
   if(!v||!marks.some(t=>Math.abs((t.a.x+t.b.x)/2-v.x)<=1.5&&Math.abs((t.a.y+t.b.y)/2-h.y)<=1.5))continue;
-  if(vert.some(q=>(start-q.x)*sg>=.3&&(start-q.x)*sg<=3&&q.y1-q.y0<=100&&(Math.abs(q.y0-h.y)<=.6||Math.abs(q.y1-h.y)<=.6)&&
+  // (or, a short line — up to 100 pt, from an opening to its dimension line beside it —, starting up to 1 pt inside that side:
+  //  л.6 ряд К, the line of ОВ 450×350 at +6,400 from 0,6 pt left of the opening's edge to «350» — the first Пс-78 right of
+  //  it ended there, 6480 instead of 7820, nothing over it up to the slope —, to the short dimension line of that opening;
+  //  not a line to the long chain along the wall, which is the joint of tiers there too: л.9 ряд Л +11,520 by the ribbon window)
+  if(vert.some(q=>(start-q.x)*sg>=(h.x1-h.x0<=100&&v.y1-v.y0<=100?-1:.3)&&(start-q.x)*sg<=3&&q.y1-q.y0<=100&&(Math.abs(q.y0-h.y)<=.6||Math.abs(q.y1-h.y)<=.6)&&
    horiz.some(e=>e!==h&&Math.abs(e.y-h.y)<=.6&&(sg>0?Math.abs(e.x1-q.x)<=.6&&e.x0<q.x-1:Math.abs(e.x0-q.x)<=.6&&e.x1>q.x+1)))){extension.add(h);break}}
  // (the shelf of a level mark «+3,600» or of a note «См. п.п. 12» over the panels — a short line with its text sitting on
  // it — is no joint across a column: ИР-71535 АР ч.2 л.4 ряд 010, Пс-44 and Пс-42 by ОВ 300×300 took the shelves of

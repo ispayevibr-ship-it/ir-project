@@ -217,6 +217,8 @@ function auditSheet(geometry,page){
   //  ИР-71535 «Схема раскладки кровельных панелей в осях К-03 - В-К»)
   if(/^[~≈]\s?\d{3,6}$/u.test(str)){items.notes.push({text:str,approx:true});continue}
   if(/^[А-ЯЁ\d\/]{1,4}(?:\s?[-–]\s?[А-ЯЁ\d\/]{1,4}){2,3}(?:\s?;\s?[А-ЯЁ\d\/]{1,4}(?:\s?[-–]\s?[А-ЯЁ\d\/]{1,4}){2,3})*$/u.test(str)){items.notes.push({text:str,axes:true});continue}
+  // (a sheet reference written apart from its «см.» — «л . 16», АР ч.2 л.6 under a note at ряд К)
+  if(/^л\s?\.\s?\d{1,3}$/u.test(str)){items.notes.push({text:str,ref:true});continue}
   // (a range of a size cut on site «20-40*» — the gap at the wall, АР ч.2 л.12)
   if(/^\d{1,4}\s?[-–]\s?\d{1,4}\*$/u.test(str)){items.notes.push({text:str,range:true});continue}
   // (a chain of equal sizes «3*1000» — three panels of 1000 — under a layout of АР, ч.2 л.5 ИР-71535: tied by the view's own
