@@ -107,6 +107,7 @@ function auditSheet(geometry,page){
   return[v?.name,h?.name].filter(Boolean).join("/")};
  const at=t=>{const c=textFrame(t).c;return{x:Math.round(c.x*10)/10,y:Math.round(c.y*10)/10}};
  const pending=[];let arJson=null;const arText=()=>arJson||(arJson=JSON.stringify(page?.ar||{}));
+ const inNiche=(t,key,v)=>{const c=at(t);return (page?.ar?.niches||[]).some(n=>(n.views||[]).some(w=>w.box&&c.x>=w.box.x0-12&&c.x<=w.box.x1+12&&c.y>=w.box.y0-12&&c.y<=w.box.y1+12&&(w[key]||[]).includes(v)))};
  let arSet=null;const arNums=()=>arSet||(arSet=new Set([...arText().matchAll(/"(?:area_m2|mass_kg|total_m2|total_kg|rows_m2|rows_kg|count|panels)":(\d+(?:\.\d+)?)/gu)].map(m=>Math.round(Number(m[1])*100))));
  // (a number in a circle that is the number of a node titled on the sheet — «Узел 40» — and no axis of a scheme: the mark
  // of that node on a section, not an axis; АР ч.1 л.12 ИР-71535, the circle «40» on the section 1-1 at the gutter)
@@ -127,7 +128,7 @@ function auditSheet(geometry,page){
   // placed by that sheet; АР ч.1 л.13 ИР-71535, the crane platform of КМ3 л.17 on the section 2-2)
   if(lv&&/см\s*\.?\s*л(?:ист)?\.?\s*(?:КМД?|АР|КЖ|ТХ|ОВ|ВК|ЭМ)/iu.test(str)){items.notes.push({text:str,scheme:k,ref:true});continue}
   if(lv&&str.length<=40&&(/отм|верх|низ|^[+\-−±]/iu.test(str)||str===lv[1])){
-   const v=levelMm(lv[1]),used=v!==null&&hasValue([...levelsUsed],v,1);
+   const v=levelMm(lv[1]),used=v!==null&&(hasValue([...levelsUsed],v,1)||inNiche(t,"levels_mm",v));
    items.levels.push({text:str,mm:v,used,scheme:k});
    if(!used)missed.push({kind:"level",text:str,scheme:k,at:at(t),why:k!==null?"отметка не попала в высоты элементов схемы":"отметка на виде или разрезе вне схем — ни к чему не отнесена"});continue
   }
@@ -162,11 +163,16 @@ function auditSheet(geometry,page){
    if(!used&&v<=1000&&schemes[k].roof){const bb=schemes[k].bbox,run=bb?(d.flat?bb.y1-bb.y0:bb.x1-bb.x0):0;
     const along=X=>segments.reduce((a,q)=>{const ok=d.flat?Math.abs(q.a.x-X)<=.4&&Math.abs(q.b.x-X)<=.4:Math.abs(q.a.y-X)<=.4&&Math.abs(q.b.y-X)<=.4;return ok?a+Math.abs(d.flat?q.a.y-q.b.y:q.a.x-q.b.x):a},0);
     const la=along(d.lo),lb=along(d.hi);if(run>0&&Math.max(la,lb)>=run*.5&&Math.min(la,lb)>=3)used=true}
+   // (a size on a view of a gate niche — its plan, its sections — read with the niche: АР ч.2 л.8 ИР-71535 «740», «640»…)
+   if(!used&&inNiche(t,"dims_mm",v))used=true;
    items.dims.push({text:str,mm:v,used,scheme:k,...(broken?{broken:true}:{}),...(slip?{sheet_slip:true,measured_mm:slip.measured_mm}:{})});
    if(!used)missed.push({kind:"dim",text:str,scheme:k,at:at(t),why:"размер не привязан: нет такого расстояния между осями, линиями и элементами схемы"});continue
   }
   if(PROFILE.test(str)||STEEL.test(str)){items.profiles.push({text:str,scheme:k});continue}
   if(REF.test(str)||DATE.test(str)){items.notes.push({text:str});continue}
+  // (an approximate level «~+14,400» — the top of a wall under a slope written about: АР ч.2 л.8 ИР-71535 —, a note, the panels
+  //  of the view give the height)
+  if(/^[~≈]\s?[+\-−]?\d{1,2}[,.]\d{3}$/u.test(str)){items.notes.push({text:str,approx:true});continue}
   // (the stamp and the heads of tables: the stage «РП», the code of the set, units «м2», «ед.кг», «шт.», «по RAL», «см.п.п.1»,
   //  the panel series «Prisma» — АР ч.2 л.3 ИР-71535)
   if(/^(?:РП|П|Р|ЭП|м2|м3|м|кг|т|шт\.?|ед\.?\s?кг|по\s?RAL|[сС]м\s?\.?\s?п\s?\.?\s?п\s?\.?\s?\d+(?:[.,]\s?\d+)*|Prisma|Ур\.\s?[зч]\.(?:\s?п\.)?|\d{1,2}\s?[хx×]\s?\d{3,5}|\d{1,2}(?:[.,]\d)?\s?%|[А-ЯЁ]{2,3}-\d{3,6}(?:\.\d{2}-\d{2}\.\d{4}-\d{2})?-[А-ЯЁ]{2,3}.*)$/u.test(str)){items.notes.push({text:str});continue}

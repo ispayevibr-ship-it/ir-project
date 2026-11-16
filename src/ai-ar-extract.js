@@ -971,6 +971,9 @@ function noteLevels(openings,texts,segments,draw){
    }
    if(!o||Math.abs(o.u1-o.u0-n.w)>60||Math.abs(o.z1-o.z0-n.h)>60)continue;
    if(Math.abs(o.z0-n.lv)>30){if(marked(o))o.note_z0=n.lv;else{const h=o.z1-o.z0;o.drawn_z0=o.z0;o.z0=n.lv;o.z1=n.lv+h}}
+   // (measured within 30 mm of the note: the note's figures — its bottom and its height —, not the drawing read off by a
+   //  few mm: АР ч.2 л.8 ОВ 250×250 «отм. низа +2,600», marks +2,600 / +2,850 beside it, read 2595…2845)
+   else if(o.z0!==n.lv&&Math.abs(o.z1-o.z0-n.h)<=30){o.z0=n.lv;o.z1=n.lv+n.h}
    o.noted=true;break
   }
  }
@@ -1187,6 +1190,20 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
    const pieceOk=q=>{const w=(rect.r-rect.l)*hs,h=(rect.bottom-Math.min(rect.top,rect.topCut?Math.min(rect.topCut.l,rect.topCut.r):rect.top))*scale,
     long=v=>Math.abs(v-q.length_mm)<=60||rect.topCut&&v<=q.length_mm+60&&v>=q.length_mm-300||panels.some(o=>!o.leader&&o.mark===String(t.str).trim()&&Math.abs(o.z1-o.z0-v)<=60);
     return w<=q.width_mm+40&&long(h)||h<=q.width_mm+40&&long(w)};
+   // (a piece on a leader in the column of a labelled panel, the column split by a dimension — ticks inside it at one x,
+   // over and under each other at least half the column apart — and the leader's dot on a line across its part: the piece is that part from the line up to
+   // the next line across it, the panel the other part. ИР-71535 АР ч.2 л.9 ряд Л: «Пс -156» at the gate of О4/1–О4/2,
+   // 495 of the column of Пс-144 over +2,020 by the opening, «505» over it the rest of Пс-144)
+   if(t.leader&&sketch&&rect.column&&!kinds){const host=panels.find(p=>!p.leader&&p.rect.column&&p.rect.l<=b.cx&&p.rect.r>=b.cx&&p.rect.top<b.cy&&p.rect.bottom>b.cy);
+    if(host){const H=host.rect,tx=[...new Set(marks.filter(q=>{const x=(q.a.x+q.b.x)/2;return x>H.l+2&&x<H.r-2}).map(q=>Math.round((q.a.x+q.b.x))/2))];
+     const split=tx.filter(x=>marks.filter(q=>Math.abs((q.a.x+q.b.x)/2-x)<=.6).map(q=>(q.a.y+q.b.y)/2).reduce((m,y,i,a)=>Math.max(m,...a.map(o=>Math.abs(o-y))),0)>=(H.bottom-H.top)*.5).sort((a,c)=>Math.abs(a-b.cx)-Math.abs(c-b.cx))[0];
+     if(split!==undefined&&Math.abs(split-b.cx)>=.5){const [l,r]=b.cx<split?[H.l,split]:[split,H.r];
+      const cov=h=>h.x0<=l+1&&h.x1>=r-1;
+      const foot=horiz.filter(h=>cov(h)&&h.y>=b.cy-6&&h.y<=b.cy+4).sort((a,c)=>Math.abs(a.y-b.cy)-Math.abs(c.y-b.cy))[0];
+      const head=foot&&horiz.filter(h=>cov(h)&&h.y<foot.y-250/scale&&h.y>=H.top-.5).sort((a,c)=>c.y-a.y)[0];
+      if(foot&&head&&(r-l)*hs>=150){const pu0=u(l),pu1=u(r);
+       panels.push({leader:true,split:true,mark:String(t.str).trim(),u0:Math.min(pu0,pu1),u1:Math.max(pu0,pu1),z0:z(foot.y),z1:z(head.y),pt:{x:Math.round(px),y:Math.round(py)},rect:{l,r,top:head.y,bottom:foot.y}});
+       const hu0=u(b.cx<split?split:H.l),hu1=u(b.cx<split?H.r:split);host.u0=Math.min(hu0,hu1);host.u1=Math.max(hu0,hu1);host.rect={...H,...(b.cx<split?{l:split}:{r:split})};continue}}}}
    if(t.leader&&(Math.abs(u1-u0)>1250||kinds&&!kinds.some(pieceOk)||panels.some(p=>Math.min(p.rect.r,rect.r)-Math.max(p.rect.l,rect.l)>(rect.r-rect.l)*.5&&Math.min(p.rect.bottom,rect.bottom)-Math.max(p.rect.top,rect.top)>(rect.bottom-rect.top)*.5)))continue;
    // The cut of a panel under a slope: the heights of its lower edge at the ends, in the order along the wall.
    const cut=rect.cut?(u0<=u1?[z(rect.cut.l),z(rect.cut.r)]:[z(rect.cut.r),z(rect.cut.l)]):null;
@@ -2002,6 +2019,41 @@ function splitJoinedMarks(texts){
   for(const q of parts){const i=s.indexOf(q,at);out.push({...t,str:q,x:t.x+(i+.5)*per,width:Math.max(per,(q.length-1)*per)});at=i+q.length}}
  return out;
 }
+// The views of a gate niche (ИР-71535 АР ч.2 л.8 «Ниши ворот В 1 по рядам Б, Л (вид в плане)» and its sections 1-1…6-6;
+// инженер 16.11.2026 «Дальше» — лист читается весь): the plan under its title — its sizes (740 the side wall, 1000, 640…)
+// and the marks of the cuts on it («1», «3», «4», «5» the views reader takes for nodes); the sections of those cuts and the
+// sections that name the niche («вид на "потолок" ниши снизу») — their levels (+2,060 the top of the concrete walls under
+// the panels, +7,100 / +7,120 the «потолок», +10,710 the top) and sizes (5040, 3570, 570…). Kept with the niche.
+function nicheViews(geometry,niches){
+ const texts=geometry?.texts||[];if(!niches.length)return;
+ const {viewsOf,frameOf}=require("./ai-sheet-details");
+ const views=viewsOf(texts.map(frameOf).filter(t=>t.str),geometry.segments,Number(geometry.widthPt)||0,Number(geometry.heightPt)||0);
+ const mm=s=>{const v=Number(String(s).replace(/[~≈]/gu,"").replace(/[−–]/gu,"-").replace(",","."));return Number.isFinite(v)?Math.round(v*1000):null};
+ for(const n of niches){
+  // (the title over the plan — of several such texts (the name of the sheet in the stamp too) the one with the cuts under it)
+  const heads=texts.filter(t=>{const m=/Ниш[аи]\s+(?:ворот|въезда)\s+(.+?)\s+по\s+ряд/iu.exec(String(t.str||"").replace(/\s+/g," "));return m&&n.marks.some(k=>m[1].replace(/\s+/g,"").replace("B","В").includes(k.replace("-","")))});
+  const under=h=>views.filter(v=>/^Узел\s/u.test(v.title)&&v.at.y>h.y&&v.at.y-h.y<450&&Math.abs(v.at.x-h.x)<700);
+  const head=heads.sort((a,b)=>under(b).length-under(a).length)[0];if(!head)continue;
+  const plan=under(head);
+  const cuts=new Set(plan.map(v=>v.title.replace(/^Узел\s+/u,"")));
+  const secs=views.filter(v=>{const m=/^Разрез\s+(\S+?)-\S+$/u.exec(v.title);return m&&(cuts.has(m[1])||(v.text||[]).some(x=>/ниш/iu.test(x)))});
+  // (a section signed only «3-3 (для В 3)» — not a view title for viewsOf: its piece of the sheet under the sign, levels in it)
+  const lvRe=/^[~≈]?[+\-−]\d+,\d{3}$/u;
+  for(const t of texts){const m=/^(\d+)\s*-\s*\1\s*\(\s*для\s+([ВB])\s*-?\s*(\d+)\s*\)$/u.exec(String(t.str||"").trim());if(!m||!n.marks.includes("В-"+m[3])||secs.some(v=>v.title.startsWith("Разрез "+m[1]+"-"+m[1]+" ")))continue;
+   const box={x0:Math.round(t.x-40),y0:Math.round(t.y-10),x1:Math.round(t.x+180),y1:Math.round(t.y+330)};
+   const inB=x=>{const c=textBox(x);const cx=(c.x0+c.x1)/2,cy=(c.y0+c.y1)/2;return cx>=box.x0&&cx<=box.x1&&cy>=box.y0&&cy<=box.y1};
+   secs.push({title:"Разрез "+m[1]+"-"+m[1]+" (для В-"+m[3]+")",box,levels:texts.filter(x=>inB(x)&&lvRe.test(String(x.str).trim())).map(x=>String(x.str).trim()),dims:texts.filter(x=>inB(x)&&/^\d{2,5}$/u.test(String(x.str).trim())).map(x=>Number(String(x.str).trim()))})}
+  if(!plan.length&&!secs.length)continue;
+  const dims=v=>[...new Set((v.dims||[]).map(Number).filter(x=>x>0))],levels=v=>[...new Set((v.levels||[]).map(mm).filter(x=>x!==null))];
+  // (the plan as one view: the piece of the sheet under its title its cuts stand in)
+  const pb=plan.length?{x0:Math.round(Math.min(head.x-60,...plan.map(v=>v.box.x0))-40),y0:Math.round(head.y),x1:Math.round(Math.max(...plan.map(v=>v.box.x1))+60),y1:Math.round(Math.max(...plan.map(v=>v.box.y1))+40)}:null;
+  const pd=pb?[...new Set(texts.filter(t=>{const c=textBox(t);const x=(c.x0+c.x1)/2,y=(c.y0+c.y1)/2;return x>=pb.x0&&x<=pb.x1&&y>=pb.y0&&y<=pb.y1&&/^\d{2,5}$/u.test(String(t.str).trim())}).map(t=>Number(String(t.str).trim())))]:[];
+  n.views=[...(pb?[{view:"план",box:pb,dims_mm:pd}]:[]),...secs.map(v=>({view:v.title.replace(/^Разрез\s+/u,""),box:v.box,...(levels(v).length?{levels_mm:levels(v)}:{}),dims_mm:dims(v)}))];
+  const own=secs.filter(v=>/\(для /u.test(v.title)),lv=[...new Set((own.length&&n.marks.length===1?own:secs).flatMap(levels))].filter(x=>x>500).sort((a,b)=>a-b);
+  if(lv.length){n.wall_top_mm=lv[0];n.top_mm=lv[lv.length-1];const c=lv.filter((x,i)=>i&&x-lv[i-1]<=50);if(c.length){const hi=c[0],lo=lv[lv.indexOf(hi)-1];n.ceiling_mm=[lo,hi]}}
+ }
+}
+
 function extractArchitecture(geometry){
  if(geometry&&Array.isArray(geometry.texts)&&geometry.texts.some(t=>JOINED_POS.test(String(t?.str??"").trim())))geometry={...geometry,texts:splitJoinedMarks(geometry.texts)};
  const texts=geometry?.texts||[];
@@ -2010,7 +2062,7 @@ function extractArchitecture(geometry){
  if(fills.length)fillLevels(geometry||{},fills);
  const finish=facadeFinish(texts),sills=sillSpec(texts);
  const axes=planAxes(geometry||{});
- const tr=trimSpec(texts),trNodes=trimNodes(texts),niches=nicheSpec(texts),planFills=planOpenings(geometry||{},axes),planFix=planFills.length?planFixtures(geometry||{},axes):[],planSl=planFills.length?planSlabs(geometry||{},axes):[],planBands=planFills.length?planWalls(geometry||{},axes):[];
+ const tr=trimSpec(texts),trNodes=trimNodes(texts),niches=nicheSpec(texts),_nv=nicheViews(geometry||{},niches),planFills=planOpenings(geometry||{},axes),planFix=planFills.length?planFixtures(geometry||{},axes):[],planSl=planFills.length?planSlabs(geometry||{},axes):[],planBands=planFills.length?planWalls(geometry||{},axes):[];
  const floor=axes?planFloor(geometry||{},axes):null;
  const existing=axes?existingPlan(geometry||{}):null,funnels=axes?roofFunnels(geometry||{}):[];
  const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(spec.totals?{panelTotals:spec.totals}:{}),...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{}),...(axes?{axes}:{}),...(tr.trims.length?{trims:tr.trims}:{}),...(tr.names.length?{trimNames:tr.names}:{}),...(trNodes.length?{trimNodes:trNodes}:{}),...(niches.length?{niches}:{}),...(planFills.length?{planFills}:{}),...(planFix.length?{planFixtures:planFix}:{}),...(planSl.length?{planSlabs:planSl}:{}),...(planBands.length?{planWalls:planBands}:{}),...(existing?{existing}:{}),...(funnels.length?{roofFunnels:funnels}:{}),...(floor?{planFloor:floor}:{})};
