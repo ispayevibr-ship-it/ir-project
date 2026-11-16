@@ -2110,7 +2110,7 @@ function buildPlan(draft,ai=null,heights={},opts={}){
     x_mm:x,y_mm:y,x2_mm:point?undefined:x2,y2_mm:point?undefined:y2,...(geometry==="shell"||geometry==="plate"?{radius_mm:pl.radius_mm,inner_radius_mm:pl.inner_radius_mm,shell_open:pl.shell_open,...(pl.cone_rise_mm?{cone_rise_mm:pl.cone_rise_mm}:{}),...(pl.sector_deg>0?{sector_start_deg:pl.sector_start_deg,sector_deg:pl.sector_deg}:{})}:{}),...(pl.fitting_type?{fitting_type:pl.fitting_type,diameter_mm:pl.diameter_mm}:{}),...(pl.layout&&typeof pl.layout==="object"?{layout:pl.layout}:{}),
     z0_mm:geometry==="beam"&&!drawn&&!flightLevel?z1:z0,z1_mm:z1,group,group_label:GROUPS[group],
     // A verified scheme carries its own profiles and truss lattices.
-    profile:pl.profile||cat?.profile||"",profile_standard:pl.profile?"":cat?.profile_standard||"",...(pl.steel||cat?.steel?{steel:pl.steel||cat.steel}:{}),...(pl.truss?{truss:pl.truss.kind==="frame"&&(cat?.profile||cat?.parts?.rows?.length)?{...pl.truss,members:frameProfiles(pl.truss.members,cat)}:pl.truss}:{}),...(pl.nodes?{nodes:pl.nodes}:{}),...(pl.base&&typeof pl.base==="object"?{base:pl.base}:{}),...(Number(pl.rotation_deg)?{rotation_deg:Number(pl.rotation_deg)}:{}),...(pl.flat?{flat:true}:{}),...(pl.register_add?{register_add:String(pl.register_add).slice(0,300)}:{}),...(pl.register_kg>0?{register_kg:Number(pl.register_kg)}:{}),...(pl.joint||joints(c.info)||cat?.fasteners?{joint:withFasteners(pl.joint||joints(c.info),cat?.fasteners)}:{}),...(cat?.drill?{drill:cat.drill}:{}),...(cat?.cuts?{cuts:cat.cuts}:{}),...(cat?.parts?{parts:cat.parts}:{}),...(cat?.plates?{plates:cat.plates}:{}),...(cat?.place?{place:cat.place}:{}),...(cat?.bevels?{bevels:cat.bevels}:{}),doc:scopeOf(c.info.docType,catalog.multi?c.info.volume:""),length_mm:cat?.length_mm??null,levels:own?"Claude":local?local.from:"схема",...(!own&&local?.zeroBase?{z0_assumed:true}:{}),
+    profile:pl.profile||cat?.profile||"",profile_standard:pl.profile?"":cat?.profile_standard||"",...(pl.steel||cat?.steel?{steel:pl.steel||cat.steel}:{}),...(pl.truss?{truss:pl.truss.kind==="frame"&&(cat?.profile||cat?.parts?.rows?.length)?{...pl.truss,members:frameProfiles(pl.truss.members,cat)}:pl.truss}:{}),...(pl.nodes?{nodes:pl.nodes}:{}),...(pl.base&&typeof pl.base==="object"?{base:pl.base}:{}),...(Number(pl.rotation_deg)?{rotation_deg:Number(pl.rotation_deg)}:{}),...(pl.flat?{flat:true}:{}),...(pl.register_add?{register_add:String(pl.register_add).slice(0,300)}:{}),...(pl.register_kg>0?{register_kg:Number(pl.register_kg)}:{}),...(pl.deck?{deck:String(pl.deck).slice(0,80)}:{}),...(pl.joint||joints(c.info)||cat?.fasteners?{joint:withFasteners(pl.joint||joints(c.info),cat?.fasteners)}:{}),...(cat?.drill?{drill:cat.drill}:{}),...(cat?.cuts?{cuts:cat.cuts}:{}),...(cat?.parts?{parts:cat.parts}:{}),...(cat?.plates?{plates:cat.plates}:{}),...(cat?.place?{place:cat.place}:{}),...(cat?.bevels?{bevels:cat.bevels}:{}),doc:scopeOf(c.info.docType,catalog.multi?c.info.volume:""),length_mm:cat?.length_mm??null,levels:own?"Claude":local?local.from:"схема",...(!own&&local?.zeroBase?{z0_assumed:true}:{}),
     ...fromDrawing(c,pl),...(!c.info.page&&pl.sheet?{source_sheet:String(pl.sheet)}:{}),...(pl.section?{section:pl.section}:{}),scheme:c.info.title,confidence:pl.confidence,note:[...(pl.notes||[]),change?.note,...guess].filter(Boolean).join("; ")})
   });
   // Bracing and secondary members meet the beams of the same plan: their ends take those beams' levels.
@@ -2778,14 +2778,20 @@ function deckFrames(elements){
    const last=rows[rows.length-1];if(last&&last.j===j&&last.i1===i-1&&last.r===c.r){last.x1=c.x1;last.i1=i}else rows.push({j,i0:i,i1:i,x0:c.x0,x1:c.x1,y0:c.y0,y1:c.y1,r:c.r,b:c.b})}
   const rects=[];
   for(const r of rows){const up=rects.find(q=>q.x0===r.x0&&q.x1===r.x1&&q.j1===r.j-1&&q.r===r.r);if(up){up.y1=r.y1;up.j1=r.j}else rects.push({...r,j1:r.j})}
+  // The deck's material by the drawing: the deck its beams name («deck» — the ведомость элементов of the platform, КМ3
+  // л.24, л.25 «Н2 ПВ 510» of the crane platforms +16,100 and +9,500), else the deck of the same structure (its treads:
+  // «…, марш — ступень С1 — ПВ 510»); without either — a grating, as before (the engineer 16.11.2026 «решётчатый
+  // настил … ты этот считал?»: the crane platforms were drawn and weighed as grating, 1,37 t of 3,28).
+  const strucOf=e=>String(e.name||"").split(/\s+—\s+|,\s/)[0].trim(),deckOf=new Map();
+  for(const d of decks)if(d.profile&&!deckOf.has(strucOf(d)))deckOf.set(strucOf(d),d.profile);
   for(const r of rects){
-   const w=r.x1-r.x0,h=r.y1-r.y0,alongX=w>=h,src=r.b,group=src.group==="stairs"?"stairs":"platforms";
+   const w=r.x1-r.x0,h=r.y1-r.y0,alongX=w>=h,src=r.b,group=src.group==="stairs"?"stairs":"platforms",dp=String(src.deck||deckOf.get(strucOf(src))||"");
    const name=String(src.name||"Площадка").replace(/\s+—.*$/,"").replace(/,\s*площадка$/,"")+(group==="stairs"?", площадка — настил":" — настил");
    added.push({...src,key:(src.key||"deck")+"-n"+added.length,mark:"Настил",name,type_key:group==="stairs"?"stair_landing":"platform",type_name:group==="stairs"?"Площадка лестницы":"Площадка",
-    geometry_type:"beam",fitting_type:"deck",group,group_label:group==="stairs"?"Лестницы":"Площадки",profile:"",profile_standard:"",
+    geometry_type:"beam",fitting_type:"deck",group,group_label:group==="stairs"?"Лестницы":"Площадки",profile:dp,profile_standard:"",
     x_mm:alongX?r.x0:(r.x0+r.x1)/2,y_mm:alongX?(r.y0+r.y1)/2:r.y0,x2_mm:alongX?r.x1:(r.x0+r.x1)/2,y2_mm:alongX?(r.y0+r.y1)/2:r.y1,diameter_mm:Math.round(alongX?h:w),
     z0_mm:Math.round(L.top),z1_mm:Math.round(L.top),length_mm:Math.round(Math.max(w,h)),confidence:"low",
-    note:"Настил по раме балок площадки (на верх балок) — марка настила по чертежу не прочитана, проверьте"})
+    note:dp?"Настил "+dp+" по раме балок площадки (на верх балок) — по ведомости элементов площадки или её ступеням":"Настил по раме балок площадки (на верх балок) — марка настила по чертежу не прочитана, проверьте"})
   }
  }
  elements.push(...added);

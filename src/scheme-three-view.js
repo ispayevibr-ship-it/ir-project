@@ -13,7 +13,7 @@ window.irThreeSchemeView=(function irThreeModule(){
  // ускорить построение схемы?» — «да»). It is raised by scripts/scheme-model-digest.js, never by hand: the script builds
  // the checked schemes with this file and raises the number when what would be kept for any of them differs from the
  // record (knowledge/quality/model-digest.json); scripts/scheme-pack.js refuses a pack made without it.
- var MODEL_BUILD=42;
+ var MODEL_BUILD=43;
  var token=0,active=null,loadPromise=null,cameraMemory={};
  // Bundled with the app (works offline); the CDN is only a fallback for an incomplete hot update.
  var sources=[
@@ -7851,6 +7851,10 @@ window.irThreeSchemeView=(function irThreeModule(){
    allMeshes=[];plateCells.clear();platesN=0;boltList=[];seatIndex=null;webGus=[];webTraps=[];cleatRibs=[];footRibFree.clear();dataById.clear();meshesById.clear();failures=0;weldList=[];weldRun++;conventional.clear();drillCache.clear();upperCache.clear();seatCache.clear();boltNear.clear();boltNearN=0;
    labels.forEach(function(l){l.el.remove()});labels=[];
    elems=Array.isArray(list)?list:[];
+   // (a deck of a platform's frame with no material — «Настил» the placement adds — of the material its beams name or the
+   // deck of the same structure has: the crane platforms +16,100 and +9,500, КМ3 л.24, л.25 «Н2 ПВ 510», drawn and weighed
+   // as grating — the engineer 16.11.2026 «решётчатый настил … ты этот считал?»; deckOwn)
+   elems=deckOwn(elems);
    // (the bars of the lattices of two-plane braces — no pass of the braces sees them; drawn after the members, latticeBarPart)
    var latticeBars=elems.filter(latticeBar);if(latticeBars.length)elems=elems.filter(function(c){return!latticeBar(c)});
    // (a narrow wall panel — up to 0,5 m — that a roof of another part crosses at its height: it ends at the edge of that
@@ -8554,6 +8558,10 @@ window.irThreeSchemeView=(function irThreeModule(){
   // (a welded grating «Настил сварной 34.3×101.6/30×3» — as high as its bearing bars, 30)
   // (an expanded sheet «ПВ 510» of ГОСТ 8706-78 — its overall thickness S after stretching, knowledge/global/sheets.json:
   // the treads С1 of the stair of the crane platform +16,100, КМ3 л.24 — drawn 40, a tread of 20.5 stood 20 over its step)
+  function deckOwn(list){
+   var st=function(c){return String(c&&(c.mark_name||c.title||c.name)||"").split(/\s+—\s+|,\s/)[0].trim()},by=new Map();
+   list.forEach(function(c){if(!c)return;var k=st(c),p=c.ft==="deck"?String(c.profile_name||""):String(c.deck||"");if(p&&k&&(!by.has(k)||c.deck))by.set(k,p)});
+   return list.map(function(c){if(!c||c.ft!=="deck"||c.profile_name||String(c.mark||"")!=="Настил")return c;var p=c.deck||by.get(st(c));if(!p)return c;var n=Object.assign({},c);n.profile_name=p;return n})}
   function deckThick(c){var s=String(c.profile_name||c.profileName||""),m=/^\s*[−-]?\s*(?:Риф\.?|Ромб\.?|Чеч\.?)?\s*(\d+(?:[.,]\d+)?)\s*(?:мм)?\s*$/i.exec(s),g=/\/\s*(\d{2,3})\s*[×xх]\s*\d/.exec(s),pv=/ПВЛ?\s*-?\s*(\d{3})(?!\d)/i.exec(s),S={"406":12.7,"506":13,"508":16.8,"510":20.5,"606":13.4,"608":17.1,"610":20.8},t=m?number(m[1].replace(",","."))/1000:pv&&S[pv[1]]?S[pv[1]]/1000:g?number(g[1])/1000:0;return t>=.002&&t<=.06?t:.04}
   // A deck as wide as its record (a tread of a stair, С1 800×250: 250; not less than 100 mm).
   // The mass of 1 m² of a deck (schemeTotals; drawn as a solid slab, by its volume the decks of КМ3 came to 80 t against
