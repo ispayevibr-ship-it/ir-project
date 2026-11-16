@@ -1496,7 +1496,7 @@ let loose=0;
  }
  // The trims where the panels meet (нащельники — arTrims), named by the positions of the АР that fit their kind.
  const trimSpecs=new Map(),trimNames=new Map(),trimNodes=[];
- for(const p of ar){for(const t of p.ar.trims||[])if(!trimSpecs.has(t.pos))trimSpecs.set(t.pos,{...t,sheet:p.pdfPage||p.page});for(const n of p.ar.trimNames||[])if(!trimNames.has(n.pos))trimNames.set(n.pos,n.name);
+ for(const p of ar){for(const t of p.ar.trims||[])if(!t.insulation&&!trimSpecs.has(t.pos))trimSpecs.set(t.pos,{...t,sheet:p.pdfPage||p.page});for(const n of p.ar.trimNames||[])if(!trimNames.has(n.pos))trimNames.set(n.pos,n.name);
   for(const n of p.ar.trimNodes||[])trimNodes.push({...n,sheet:p.sheet?.block?.sheet||null,page:p.pdfPage||p.page})}
  // (the sketches of the flashings «Схемы фасонных элементов поз. N» — their legs and bends by the outline and its dimensions,
  // src/ai-sheet-details.js — go with the trims of their positions)

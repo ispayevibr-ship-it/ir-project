@@ -473,7 +473,12 @@ function slopeTops(panels,slopes,runs,scale,z,u){
    if(Math.abs(R.bottom-foot)<=.3)continue;R.bottom=foot;p.z0=z(foot);p.footLine=true}}
 }
 function columnAround(b,runs,horiz,numbers,hs,scale,size=null,slopes=[],ext=null){
- const cross=runs.filter(v=>v.y0<=b.cy&&v.y1>=b.cy);
+ // (a stepped outline drawn in a panel — the abutment of a wall cut round a jog, a thick line going up from the floor, a step
+ // of up to 300 mm across and on up from there, nothing over the step on its line (teeth of an edge go on over it) —: not a joint. ИР-71535 АР ч.2 л.6 ряд 09 у оси А: the end Пс-106 560* of
+ // −370…190 read −370…0 to that line, a white strip of 190 left — the engineer 16.11.2026)
+ const stepped=v=>horiz.some(h=>Math.abs(h.y-v.y0)<=.5&&h.x1-h.x0<=300/hs&&h.x1-h.x0>=1&&[[h.x0,h.x1],[h.x1,h.x0]].some(([a,c])=>Math.abs(a-v.x)<=.5&&(c-v.x)*(b.cx-c)>0&&
+  runs.some(q=>Math.abs(q.x-c)<=.5&&Math.abs(q.y1-h.y)<=.5&&q.y0<h.y-1)))&&!runs.some(q=>Math.abs(q.x-v.x)<=.5&&q.y1<v.y0-.5&&q.y1>v.y0-2000/scale)&&runs.some(q=>q!==v&&Math.abs(q.x-v.x)*hs<=1300&&q.y0<v.y0-500/scale&&q.y1>=b.cy&&q.y0<=b.cy);
+ const cross=runs.filter(v=>v.y0<=b.cy&&v.y1>=b.cy&&!stepped(v));
  // (a label written from its joint — its box up to 0,3 pt over the line, ИР-71535 АР ч.2 л.8 ряд Б Пс-116 at 1497 pt —: that
  // joint may be its side; a vertical dimension line — «1000 920 2060» by the window there, its numbers along it — is not
  // a joint. With the width its table gives, of the readings the one nearest that width.)
@@ -483,7 +488,11 @@ function columnAround(b,runs,horiz,numbers,hs,scale,size=null,slopes=[],ext=null
  // «почему тут не закрыто сэндвичем?»)
  const dimV=v=>{const on=numbers.filter(t=>{const q=textBox(t);if(q.angle===0||q.cy<v.y0||q.cy>v.y1)return false;
   // (the number stands on its line by its baseline — turned 90°, its right side; a joint 5 mm off its other side is not that line)
-  if(Math.abs(q.angle-90)<1)return v.x-q.x1>=-1&&v.x-q.x1<=3.5;if(Math.abs(q.angle-270)<1||Math.abs(q.angle+90)<1)return q.x0-v.x>=-1&&q.x0-v.x<=3.5;return Math.abs(q.cx-v.x)<=7});return on.length>0&&(v.y1-v.y0<200||on.length>=2)};
+  if(Math.abs(q.angle-90)<1)return v.x-q.x1>=-1&&v.x-q.x1<=3.5;if(Math.abs(q.angle-270)<1||Math.abs(q.angle+90)<1)return q.x0-v.x>=-1&&q.x0-v.x<=3.5;return Math.abs(q.cx-v.x)<=7});
+  // (one number on a long line with the ticks of a dimension at both its ends: «9520» of ряд Б л.8 from the window band down
+  //  to the door's +1,980 by the joint of Пс-122 — the panel read 850 wide to it, a white strip of 150 beside)
+  const tk=ext?.marks,ticked=tk&&[v.y0,v.y1].every(y=>tk.some(t=>{const cy=(t.a.y+t.b.y)/2;return Math.abs((t.a.x+t.b.x)/2-v.x)<=1.5&&Math.abs(cy-y)<=8&&cy>=v.y0-.5&&cy<=v.y1+.5}));
+  return on.length>0&&(v.y1-v.y0<200||on.length>=2||ticked)};
  // (past a dimension line, a joint ending up to 4 pt short of the label's middle — the point of a leader at the foot of its
  // band, Пс-137 under ОК-5 at the second gate of ряд Б — is still its side)
  const near4=runs.filter(v=>v.y0<=b.cy+4&&v.y1>=b.cy-4);
@@ -950,8 +959,20 @@ function openingRects(panels,vert,horiz,scale,u,z,numbers=[],texts=[],ticks=[],s
    // roof beams over each axis В–К at +14,260 on АР ч.2 л.2 ИР-71535, on the joint of two panels)
    if(B.x-A.x<380/scale&&!(B.x-A.x>=100/scale&&slashIn(A.x,B.x,Math.max(A.y0,B.y0),Math.min(A.y1,B.y1))))continue;
    const l=A.x,r=B.x,top=Math.max(A.y0,B.y0),bottom=Math.min(A.y1,B.y1);
-   if((bottom-top)*scale<300||cover(top,l,r,plain(l,r))<.9||!(Math.abs(bottom-foot)<=1.5||cover(bottom,l,r,plain(l,r))>=.9))continue;
-   const within=joined.filter(v=>v.x>l+.5&&v.x<r-.5&&v.y1>top&&v.y0<bottom&&!sized(v));
+   // (its bottom the foot of the wall, of the lowest panel or of the panels it is cut in — a wall standing lower at one end,
+   // Пс-116 of ряд Б at the gate from −0,250, the door of +1,980 at −0,080)
+   const onFoot=Math.abs(bottom-foot)<=1.5||rects.some(q=>Math.min(q.r,r)-Math.max(q.l,l)>(r-l)*.3&&Math.abs(q.bottom-bottom)<=1.5&&q.top<top-1);
+   if((bottom-top)*scale<300||cover(top,l,r,plain(l,r))<.9||!(onFoot||cover(bottom,l,r,plain(l,r))>=.9))continue;
+   // (an extension line of a dimension under the wall drawn on through it from its top — the joint of the panels over a door
+   // down to the dimension row: ИР-71535 АР ч.2 л.8 ряд Б, the door of 1000 at +1,980 between О7 and О8, the joint of Пс-121
+   // and Пс-122 run on through it to «1000» — the door was put on the «580» beside it — is not a line through it)
+   const extThrough=v=>Math.abs(v.y0-top)<=1.5&&v.y1>bottom+3&&ticks.some(t=>[t.a,t.b].some(p=>Math.abs(p.x-v.x)<=.5&&Math.abs(p.y-v.y1)<=6));
+   const within=joined.filter(v=>v.x>l+.5&&v.x<r-.5&&v.y1>top&&v.y0<bottom&&!sized(v)&&!extThrough(v));
+   // (a side running on over its top — a joint of the panels — with the top line going on past it: the line the joint
+   // crosses, not a corner — the extension of the door's top to its level mark «+1,980», the panel beside it no opening)
+   const passes=(v,d)=>(top-v.y0)*scale>100&&horiz.some(h=>Math.abs(h.y-top)<=.6&&h.x0<=v.x-.5*d-(d<0?3:0)&&h.x1>=v.x+(d>0?3:0)&&(d>0?h.x1>v.x+3:h.x0<v.x-3)&&
+    marks.some(b=>Math.abs((b.y0+b.y1)/2-top)<=15&&(d>0?b.x0-h.x1:h.x0-b.x1)>=-8&&(d>0?b.x0-h.x1:h.x0-b.x1)<=15));
+   if(passes(A,-1)||passes(B,1))continue;
    // (a joint over it may run on past its top up to 100 mm — л.8 ряд Б, ОВ 1050×1050 at +19,070)
    if(within.some(v=>v.y0<top-1&&v.y1>top+Math.max(1,100/scale)))continue;
    // Lines through it drawn in pieces (a joint of the tiers panel by panel) as much as whole ones.
@@ -969,7 +990,9 @@ function openingRects(panels,vert,horiz,scale,u,z,numbers=[],texts=[],ticks=[],s
    const o={l,r,top,bottom,inner:true},held=q=>q.l>=l-1&&q.r<=r+1&&q.top>=top-1&&q.bottom<=bottom+1;
    const k=out.findIndex(q=>!held(q)&&q.l<r-1&&q.r>l+1&&q.top<bottom-1&&q.bottom>top+1);
    if(k<0){for(let n=out.length-1;n>=0;n--)if(held(out[n]))out.splice(n,1);out.push(o)}
-   else if(r-l<out[k].r-out[k].l)out[k]=o;
+   // (over a gap under a panel read too short — its foot on a line of the door's leaf, Пс-122 at 1780 over the door of
+   // +1,980 —: the closed rectangle drawn)
+   else if(r-l<out[k].r-out[k].l||!out[k].inner&&o.l<out[k].l-1)out[k]=o;
    break
   }
  }
@@ -1150,7 +1173,7 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
  // (from a corner of the opening: its other end 0,3…3 pt off the end of a side no longer than an opening is high —
  // 100 pt, 3,5 m at 1:100 —, the edge of the opening at that height running from it the other way; a line of a tier
  // starts at the end of the wall)
- const extension=new Set();
+ const extension=new Set();extension.marks=marks;
  for(const h of horiz)for(const end of [h.x1,h.x0]){const sg=end===h.x1?1:-1,start=sg>0?h.x0:h.x1;
   const v=vert.find(q=>h.y>=q.y0-1&&h.y<=q.y1+1&&(end-q.x)*sg>=.5&&(end-q.x)*sg<=6);
   if(!v||!marks.some(t=>Math.abs((t.a.x+t.b.x)/2-v.x)<=1.5&&Math.abs((t.a.y+t.b.y)/2-h.y)<=1.5))continue;
@@ -1391,6 +1414,22 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
       if(q){q.u1=o.u1;continue}
       out.push({...o})}
      if(out.length<openings.length)openings=out}
+    // (a panel beside an opening wider over it than at its height — Пс-124 of ряд Б л.8 at the window band +11,500…+13,900:
+    // 1000 from 44360 over the band, 800 from 44555 at it, «200 / 800» under it — read at its band height only: a white
+    // strip of 195 over the band, the band short of its edge at 44555, engineer 16.11.2026): its side at the band's height
+    // drawn up to the band's top only, the panel over the band ending short of it — the panel goes on to that one's side
+    // over the band, cut round the opening; the opening to the side drawn)
+    const besides=[];
+    for(const o of openings){if(o.base)continue;
+     for(const d of [1,-1]){const edge=d>0?o.u1:o.u0;
+      const q=panels.find(q=>q.rect&&Math.abs(q.z0-o.z1)<=30&&Math.abs((d>0?q.u1:q.u0)-edge)<=5);if(!q)continue;
+      const p=panels.find(p=>p!==q&&p.rect&&(d>0?p.u0-edge:edge-p.u1)>=50&&(d>0?p.u0-edge:edge-p.u1)<=300&&p.z0<=o.z0+30&&p.z1>=o.z1+250&&p.z0<o.z1-250);if(!p)continue;
+      const gap=d>0?[edge,p.u0]:[p.u1,edge];
+      if(panels.some(r=>r!==p&&Math.min(r.u1,gap[1])-Math.max(r.u0,gap[0])>10&&r.z1>o.z1+10&&r.z0<p.z1-10))continue;
+      const x=d>0?p.rect.l:p.rect.r,yt=q.rect.bottom;
+      if(vert.some(v=>Math.abs(v.x-x)<=.4&&v.y0<yt-3&&v.y1>yt-3))continue;
+      if(d>0){o.u1=p.u0;p.u0=q.u1;p.rect={...p.rect,l:q.rect.r}}else{o.u0=p.u1;p.u1=q.u0;p.rect={...p.rect,r:q.rect.l}}
+      besides.push({u0:gap[0],u1:gap[1],z0:Math.max(o.z0,p.z0),z1:o.z1,notch:true,inner:true});p.overOpening=true}}
     // (a corner cut, not an opening: a rectangle at the top of its panel column, out to the panel's side, nothing over it —
     // ИР-71535 АР ч.2 л.14 ряд 010 у оси Ж: Пс-35 at the step of the high wall ends at +6,670 beside the 455 of Пс-34, open
     // to +7,100; it read as a window 545×430, engineer 16.11.2026 «вот здесь полностью вырез, а не рамка»): the panel is
@@ -1398,7 +1437,7 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
     const notches=openings.filter(o=>{if(o.base)return false;const own=panels.filter(p=>Math.min(p.u1,o.u1)-Math.max(p.u0,o.u0)>10&&p.z0<o.z1-10&&p.z1>o.z0+10);
      return own.length>0&&own.every(p=>Math.abs(p.z1-o.z1)<=30&&(Math.abs(p.u1-o.u1)<=5||Math.abs(p.u0-o.u0)<=5))&&!panels.some(p=>Math.min(p.u1,o.u1)-Math.max(p.u0,o.u0)>10&&p.z0>=o.z1-30&&p.z0<=o.z1+60)});
     if(notches.length)openings=openings.filter(o=>!notches.includes(o));
-    return{panels:holesOf(panels.map(({rect,...p})=>p),[...openings,...notches.map(o=>({...o,notch:true})),...bumpers.map(b=>({...b,step:true}))]),openings,...(bumpers.length?{bumpers}:{})}})(),unplaced:own.length-panels.filter(p=>!p.byJoints).length})
+    return{panels:holesOf(panels.map(({rect,...p})=>p),[...openings,...besides,...notches.map(o=>({...o,notch:true})),...bumpers.map(b=>({...b,step:true}))]),openings,...(bumpers.length?{bumpers}:{})}})(),unplaced:own.length-panels.filter(p=>!p.byJoints).length})
  }
  // A piece of a wall drawn on beyond its view (row 010: «М», «Н» a little lower than «А»…«Л», ИР-71535 АР ч.2 л.4) is
  // of the view titled beside it, at the height of its bubbles, of the same kind and with axes of its own.
@@ -2076,6 +2115,8 @@ function trimNodes(texts){
 function trimKind(name){const s=String(name||"").toLowerCase();
  return/желоб|ж[её]лоб/u.test(s)?(/обрамлени/u.test(s)?"gutter_trim":"gutter"):/углов/u.test(s)?"corner":/накрывк/u.test(s)?(/парапет|парпет/u.test(s)?"parapet":"cap"):
   /откос/u.test(s)?"reveal":/отлив/u.test(s)?"sill":/стыковоч/u.test(s)?"joint":/нащельник|фасонн/u.test(s)?"joint":/костыл|опорн\S*\s+элемент/u.test(s)?"support":/^уголок\s+l\s*\d/u.test(s)?"angle":null}
+const UNIT_RE=/^(?:шт|п\.?\s*м|м\s?2|м\s?3|м²|м³|кг|т)\.?$/u;
+const unitOf=v=>{v=String(v).replace(/\s|\./gu,"");return/^шт/u.test(v)?"шт":/^п/u.test(v)?"п.м":/^м(2|²)/u.test(v)?"м2":/^м(3|³)/u.test(v)?"м3":v};
 function trimSpec(texts){
  const flat=texts.filter(t=>Math.abs(t.angle||0)<10),names=[];
  for(const t of flat){const m=/^Поз\s*\.?\s*(\d{1,3})\s*([а-яa]?)(?![\d])\s*(.*)$/u.exec(String(t.str).trim());if(!m)continue;
@@ -2097,14 +2138,34 @@ function trimSpec(texts){
   const rows=[];for(const t of T){let r=rows.find(r=>Math.abs(r.y-t.y)<3.5);if(!r)rows.push(r={y:t.y,c:[]});r.c.push(t)}
   rows.forEach(r=>r.c.sort((p,q)=>p.x-q.x));
   const kol=T.find(t=>/^Кол\.?$/u.test(String(t.str).trim()));
+  // (a row of two lines: its quantities a line over and under its position, apart — «1023,8 м2» over and «61,42 м3» under
+  //  «2 … Утеплитель ППС 35 …», АР ч.2 л.14 —: given to the nearest row with a position and no unit of its own, up to 16 pt — «63,6 · 0,561 · п.м» of the mesh
+  //  поз. 45 of three lines, л.18)
+  const isPos=r=>/^\d{1,3}[а-яa]?$/u.test(String(r.c[0]?.str||"").trim());
+  for(const r of rows){if(isPos(r))continue;const rc=r.c.map(t=>String(t.str).trim()),k=rc.findIndex(v=>UNIT_RE.test(v));if(k<1)continue;const nums=rc.slice(0,k).map(v=>Number(v.replace(/\s/gu,"").replace(",","."))).filter(v=>v>0);if(!nums.length)continue;const n=nums[0],mass=nums.length>1?nums[1]:null;
+   const host=rows.filter(o=>isPos(o)&&Math.abs(o.y-r.y)<=16&&!o.c.some(t=>UNIT_RE.test(String(t.str).trim()))).sort((a,b)=>Math.abs(a.y-r.y)-Math.abs(b.y-r.y))[0];if(host)(host.extra||(host.extra=[])).push({count:n,unit:unitOf(rc[k]),...(mass?{mass}:{}),d:Math.abs(host.y-r.y)})}
   for(let i=0;i<rows.length;i++){const c=rows[i].c.map(t=>String(t.str).trim());if(!/^\d{1,3}[а-яa]?$/u.test(c[0]||""))continue;
-   const u=c.findIndex(v=>/^(?:шт|п\.?\s*м)\.?$/u.test(v));if(u<1)continue;
+   const u=c.findIndex(v=>UNIT_RE.test(v));
+   if(u<1&&rows[i].extra){const ex=rows[i].extra.sort((a,b)=>a.d-b.d),q={pos:c[0],count:ex[0].count,unit:ex[0].unit,...(ex[0].mass?{mass_kg:ex[0].mass}:{})};for(const m of ex){if(m.unit==="м2")q.area_m2=m.count;if(m.unit==="м3")q.volume_m3=m.count}
+    if(/ППС|утеплител/iu.test(c.join(" ")))q.insulation=true;out.push(q);continue}
+   if(u<1)continue;
    // (the number in the column «Кол.», not the mass of a piece after it: «277,0 · 3,06 · п.м.»)
    const cells=rows[i].c.slice(1,u).filter(t=>Number(String(t.str).trim().replace(",","."))>0),at=kol?cells.sort((p,q)=>Math.abs(p.x-kol.x)-Math.abs(q.x-kol.x))[0]:cells.at(-1);
-   const num=at?Number(String(at.str).trim().replace(",",".")):0;if(!(num>0))continue;
+   // (or the number at the end of the name before the unit, read as one text with it: «… ГОСТ 15588-2014 61,42» · «м3»)
+   const tailNum=!at?/\s(\d{1,5}[,.]\d{1,3})$/u.exec(String(rows[i].c[u-1]?.str||"").trim()):null;
+   const num=at?Number(String(at.str).trim().replace(",",".")):tailNum?Number(tailNum[1].replace(",",".")):0;if(!(num>0))continue;
    // (the sheet it is bent of on the row over its number: «БТ-ПН-О-0,5 х 500 х 2000 ГОСТ 19904-90»)
    const above=rows.slice(Math.max(0,i-2),i).flatMap(r=>r.c).map(t=>String(t.str)).join(" "),sh=/(\d+[,.]\d+)\s*[хx]\s*(\d{2,4})\s*[хx]\s*(\d{3,5})/u.exec(above);
-   out.push({pos:c[0],count:num,unit:/^шт/u.test(c[u])?"шт":"п.м",...(sh?{sheet_t_mm:Number(sh[1].replace(",",".")),sheet_w_mm:Number(sh[2]),length_mm:Number(sh[3])}:{})})}}
+   // (the mass of one after the number, before the unit: «123,0 · 40,0 · шт.» — бортовой камень БР 100.20.8, АР ч.2 л.14)
+   const mass=at&&rows[i].c.slice(1,u).filter(t=>t!==at&&t.x>at.x&&Number(String(t.str).trim().replace(",","."))>0)[0];
+   // (a second quantity of the row written a line over or under it, number and unit apart from its position: «1023,8 м2»
+   //  over «61,42 м3» of the insulation ППС 35 of поз. 2 — area and volume)
+   const more=[];for(const r of rows){if(r===rows[i]||Math.abs(r.y-rows[i].y)>12)continue;const rc=r.c.map(t=>String(t.str).trim());if(/^\d{1,3}[а-яa]?$/u.test(rc[0]||"")&&rows.some(o=>o!==r&&Math.abs(o.y-r.y)<Math.abs(rows[i].y-r.y)))continue;
+    const k=rc.findIndex(v=>UNIT_RE.test(v));if(k<1||/^\d{1,3}[а-яa]?$/u.test(rc[0]||"")&&k>1)continue;const n=Number(rc[k-1].replace(/\s/gu,"").replace(",","."));if(n>0)more.push({count:n,unit:unitOf(rc[k])})}
+   const unit=unitOf(c[u]),q={pos:c[0],count:num,unit,...(mass?{mass_kg:Number(String(mass.str).trim().replace(",","."))}:{}),...(sh?{sheet_t_mm:Number(sh[1].replace(",",".")),sheet_w_mm:Number(sh[2]),length_mm:Number(sh[3])}:{})};
+   for(const m of [{count:num,unit},...more]){if(m.unit==="м2")q.area_m2=m.count;if(m.unit==="м3")q.volume_m3=m.count}
+   const name=rows[i].c.slice(1,u).map(t=>String(t.str)).join(" ");if(/ППС|утеплител/iu.test(name))q.insulation=true;
+   out.push(q)}}
  return{trims:out,names}
 }
 // The niches of gates («Ниши ворот В 1 по рядам Б , Л ( вид в плане )», «Ниши ворот В 2, В 3 по ряду 010»; ИР-71535 АР

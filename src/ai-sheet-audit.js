@@ -136,9 +136,11 @@ function auditSheet(geometry,page){
  const at=t=>{const c=textFrame(t).c;return{x:Math.round(c.x*10)/10,y:Math.round(c.y*10)/10}};
  const pending=[];let arJson=null;const arText=()=>arJson||(arJson=JSON.stringify(page?.ar||{}));
  const inNiche=(t,key,v)=>{const c=at(t);return (page?.ar?.niches||[]).some(n=>(n.views||[]).some(w=>w.box&&c.x>=w.box.x0-12&&c.x<=w.box.x1+12&&c.y>=w.box.y0-12&&c.y<=w.box.y1+12&&(w[key]||[]).includes(v)))};
- let arSet=null;const arNums=()=>arSet||(arSet=new Set([...arText().matchAll(/"(?:area_m2|mass_kg|total_m2|total_kg|rows_m2|rows_kg|count|panels)":(\d+(?:\.\d+)?)/gu)].map(m=>Math.round(Number(m[1])*100))));
+ let arSet=null;const arNums=()=>arSet||(arSet=new Set([...arText().matchAll(/"(?:area_m2|mass_kg|total_m2|total_kg|rows_m2|rows_kg|count|panels|volume_m3)":(\d+(?:\.\d+)?)/gu)].map(m=>Math.round(Number(m[1])*100))));
  // (a number in a circle that is the number of a node titled on the sheet — «Узел 40» — and no axis of a scheme: the mark
  // of that node on a section, not an axis; АР ч.1 л.12 ИР-71535, the circle «40» on the section 1-1 at the gutter)
+ // (a label taken into a view of the sheet — a node, a section, a sketch — by src/ai-sheet-details.js)
+ const inView=(t,key,str)=>{const c=textFrame(t).c;return (page?.details?.views||[]).some(w=>w.box&&c.x>=w.box.x0-8&&c.x<=w.box.x1+8&&c.y>=w.box.y0-8&&c.y<=w.box.y1+8&&(w[key]||[]).some(x=>x===str||String(x).replace(/\s/gu,"")===str.replace(/\s/gu,"")))};
  const titledNodes=new Set(texts.map(t=>NODE_TITLE.exec(String(t.str).trim())).filter(Boolean).map(m=>m[1]));
  for(const t of texts){
   const str=String(t.str).trim(),c=textFrame(t).c,k=where(c);
@@ -155,8 +157,13 @@ function auditSheet(geometry,page){
   // (a level that sends to another sheet — «на отм. +16,100, см. лист КМ 3-17» — is a reference: what stands there is
   // placed by that sheet; АР ч.1 л.13 ИР-71535, the crane platform of КМ3 л.17 on the section 2-2)
   if(lv&&/см\s*\.?\s*л(?:ист)?\.?\s*(?:КМД?|АР|КЖ|ТХ|ОВ|ВК|ЭМ)/iu.test(str)){items.notes.push({text:str,scheme:k,ref:true});continue}
+  // (a bare number with three decimals that is a number of a table the АР reader took — the mass of one «0,134» kg of the
+  //  anchor поз. 44, АР ч.2 л.18 —, not a level)
+  if(lv&&str===lv[1]&&page?.ar&&arNums().has(Math.round(Number(str.replace(",","."))*100))&&/,\d{3}$/u.test(str)){const x=Number(str.replace(",","."));if((page.ar.trims||[]).some(q=>q.mass_kg===x)){items.notes.push({text:str,ar:true});continue}}
   if(lv&&str.length<=40&&(/отм|верх|низ|^[+\-−±]/iu.test(str)||str===lv[1])){
-   const v=levelMm(lv[1]),used=v!==null&&(hasValue([...levelsUsed],v,1)||inNiche(t,"levels_mm",v));
+   // (or written on a node or a section of the sheet and taken into its details — ИР-71535 АР ч.2 л.14–л.18, the levels of
+   //  nodes 1, 2, 5: the node's own, nothing in a scheme to tie them to)
+   const v=levelMm(lv[1]),used=v!==null&&(hasValue([...levelsUsed],v,1)||inNiche(t,"levels_mm",v))||inView(t,"levels",str);
    items.levels.push({text:str,mm:v,used,scheme:k});
    if(!used)missed.push({kind:"level",text:str,scheme:k,at:at(t),why:k!==null?"отметка не попала в высоты элементов схемы":"отметка на виде или разрезе вне схем — ни к чему не отнесена"});continue
   }
@@ -204,7 +211,7 @@ function auditSheet(geometry,page){
   if(/^[~≈]\s?[+\-−]?\d{1,2}[,.]\d{3}$/u.test(str)){items.notes.push({text:str,approx:true});continue}
   // (the stamp and the heads of tables: the stage «РП», the code of the set, units «м2», «ед.кг», «шт.», «по RAL», «см.п.п.1»,
   //  the panel series «Prisma» — АР ч.2 л.3 ИР-71535)
-  if(/^(?:РП|П|Р|ЭП|м2|м3|м|кг|т|шт\.?|ед\.?\s?кг|по\s?RAL|[сС]м\s?\.?\s?п\s?\.?\s?п\s?\.?\s?\d+(?:[.,]\s?\d+)*|Prisma|Ур\.\s?[зч]\.(?:\s?п\.)?|\d{1,2}\s?[хx×]\s?\d{3,5}|\d{1,2}(?:[.,]\d)?\s?%|[А-ЯЁ]{2,3}-\d{3,6}(?:\.\d{2}-\d{2}\.\d{4}-\d{2})?-[А-ЯЁ]{2,3}.*)$/u.test(str)){items.notes.push({text:str});continue}
+  if(/^(?:РП|П|Р|ЭП|м2|м3|м|кг|т|шт\.?|ед\.?\s?кг\.?|ОЦ|по\s?RAL|[сС]м\s?\.?\s?п\s?\.?\s?п\s?\.?\s?\d+(?:[.,]\s?\d+)*|Prisma|Ур\.\s?[зч]\.(?:\s?п\.)?|\d{1,2}\s?[хx×]\s?\d{3,5}|\d{1,2}(?:[.,]\d)?\s?%|[А-ЯЁ]{2,3}-\d{3,6}(?:\.\d{2}-\d{2}\.\d{4}-\d{2})?-[А-ЯЁ]{2,3}.*)$/u.test(str)){items.notes.push({text:str});continue}
   if(/^\d{1,6}(?:\s+\d{1,6})+$/u.test(str)){items.dims.push({text:str,used:null,scheme:k});continue}
   if(WORDS.test(str)){items.notes.push({text:str});continue}
   if(/^[\s\-–—_.,:;()\[\]{}|/\\*!°"«»'`~=+<>]+$/u.test(str))continue;
@@ -216,6 +223,17 @@ function auditSheet(geometry,page){
   // (an approximate size «~10000» and the axes of a title written apart from its words «К -03 - В -К» — АР ч.2 л.11
   //  ИР-71535 «Схема раскладки кровельных панелей в осях К-03 - В-К»)
   if(/^[~≈]\s?\d{3,6}$/u.test(str)){items.notes.push({text:str,approx:true});continue}
+  // (АР nodes: the layers of a wall «- 120 мм.», references «см. КЖ-28 … 36», «см. КМ 1-7», «см. АС-6, 7», the angles of bends
+  //  «95°», the sizes of fixings «~42», «х 20», «t=0,8 мм», «∅4,8», a slope «i=10%» — kept in the node by the details)
+  {const D=require("./ai-sheet-details"),q=str.replace(/[\s.,;)\-]+$/u,"");if(D.LAYER.test(str)||D.ANGLE.test(q)||D.SIZE.test(q)||D.REF_TO.test(str)||D.SIZE.test(str)){items.notes.push({text:str,view:true});continue}
+   // (pieces of a note broken over lines: «мм.», «4 мм.», «на 100 мм.», «мм.) -»; a size range «180-190», «40-50»; the number
+   //  of a standard split off «9467-75,», «10144-89)», «ТУ 5762-005-…»; the unit «п.м.»)
+   const rg=/^(\d{1,4})\s?[-–]\s?(\d{1,4})$/u.exec(q);
+   if(/^(?:на\s)?(?:\d+(?:[,.]\d+)?\s?)?мм(?:\s?\.)?(?:\s?\))?(?:\s?-)?$/u.test(str.trim())||rg&&Number(rg[2])>Number(rg[1])&&q.length<=9||/^\d{4,5}-\d{2}$/u.test(q)||/^(?:ТУ|ГОСТ|СТО|СП|СН|ОСТ)\s/u.test(str)||/^п\s?\.?\s?м\s?\.?$/u.test(str)){items.notes.push({text:str,piece:true});continue}}
+  // (the axes of a node in their circles read as one text «04/2 06/2 06/1 04/1»)
+  if(/^(?:[А-ЯЁ\d]{1,3}\/\d{1,2}\s+){1,}[А-ЯЁ\d]{1,3}\/\d{1,2}$/u.test(str)){items.notes.push({text:str,axes:true});continue}
+  // (a position of the spec table with a letter «5а» — a row of ar.trims)
+  if(/^\d{1,3}[а-я]$/u.test(str)&&(page?.ar?.trims||[]).some(q=>q.pos===str)){items.notes.push({text:str,pos:true});continue}
   if(/^[А-ЯЁ\d\/]{1,4}(?:\s?[-–]\s?[А-ЯЁ\d\/]{1,4}){2,3}(?:\s?;\s?[А-ЯЁ\d\/]{1,4}(?:\s?[-–]\s?[А-ЯЁ\d\/]{1,4}){2,3})*$/u.test(str)){items.notes.push({text:str,axes:true});continue}
   // (a sheet reference written apart from its «см.» — «л . 16», АР ч.2 л.6 under a note at ряд К)
   if(/^л\s?\.\s?\d{1,3}$/u.test(str)){items.notes.push({text:str,ref:true});continue}

@@ -17,6 +17,9 @@
    - counts: how many labels of the sheet went where (none left out). */
 
 const LEVEL=/^[~≈]?[+\-−±]?\d{1,2}[,.]\d{3}$/u;
+const LAYER=/^-\s*\d{1,4}\s*мм\s*\.?$/u,ANGLE=/^\d{1,3}\s?°$/u;
+const SIZE=/^(?:[~≈]\s?\d{1,4}(?:[,.]\d)?|[хx×]\s?\d{1,4}|t\s?=\s?\d+(?:[,.]\d+)?\s?мм\.?|[∅Ø]\s?\d+(?:[,.]\d+)?(?:\s?[хx×]\s?\d+)?|i\s?=\s?\d+(?:[,.]\d+)?\s?%)$/u;
+const REF_TO=/^(?:см\s*\.?\s*)?(?:КМД?|АР|ТХ|КЖ|АС|ОВ|ВК|ЭМ)\s?\d*\s?-\s?\d{1,3}(?:\s*(?:\.\s?\.\s?\.|…|,|-)\s*\d{1,3})*\s*\.?$/iu;
 const DIM=/^[~≈]?\d{2,6}(?:[,.]\d)?\*?$/u;
 const MARK=/^[А-ЯЁA-Z][А-ЯЁа-яёA-Za-z]{0,4}[-\s]?\d{1,3}(?:[.\-]\d{1,2})?[а-яa-z]?$/u;
 const AXIS=/^(?:[А-ЯЁ]\d?|\d{1,2}[а-я]?|0\d{1,2}(?:\/\d)?)$/u;
@@ -183,7 +186,14 @@ function viewsOf(items,segments,W=0,H=0){
  // (a «Поз. 58», «Узел 7» of the ordinary label height on a sheet whose views are titled larger — a leader's label in a
  // view, not a view: ИР-71535 АР ч.1 л.13 — «Поз. 56…61» in node 41, «Узел 7 см. лист АР-25» in section 2-2)
  const tMax=Math.max(0,...items.filter(t=>TITLE.test(t.str)&&!stamp(t)).map(t=>t.h)),leader=t=>TITLE.test(t.str)&&t.h<=med*1.1&&t.h<tMax*.75;
- const titles=items.filter(t=>{if(stamp(t)||leader(t))return false;const n=named(t);if(n)t.title=n;return Boolean(n)});
+ let titles=items.filter(t=>{if(stamp(t)||leader(t))return false;const n=named(t);if(n)t.title=n;return Boolean(n)});
+ // (a node's circle «N / лист»: the number under the line is the sheet the node is drawn on, not a view of its own — ИР-71535
+ // АР ч.2 л.14–л.18, «Узел 8», «Узел 9», «Узел 4» of 0 dimensions under each circle, the frames shifted: «Узел 9» of л.14 over
+ // the drawing of node 6)
+ const sheetOf=new Map();
+ titles=titles.filter(t=>{if(!/^\d{1,3}$/u.test(t.str))return true;
+  const up=titles.find(u=>u!==t&&/^\d{1,3}[а-я]?$/u.test(u.str)&&Math.abs(u.c.x-t.c.x)<=Math.max(u.h,t.h)*1.2&&t.c.y-u.c.y>=Math.max(u.h,t.h)*.6&&t.c.y-u.c.y<=Math.max(u.h,t.h)*2.6);
+  if(!up)return true;sheetOf.set(up,t.str);return false});
  if(!titles.length)return[];
  // (tables: a grid of four and more lines ending at one right edge one under another up to 60 pt apart (a header of two lines — 42 pt), crossed by lines across (not the frame of the sheet) —
  // their cells and the title just over them are the table's, not of the view beside it: the spec of поз. 58–61 by node 41)
@@ -196,7 +206,7 @@ function viewsOf(items,segments,W=0,H=0){
    for(const l of ls.slice(1)){const last=run[run.length-1];if(l.y-last.y<.5)continue;if(l.y-last.y<=60)run.push(l);else{close();run=[l]}}close()}}
  const inTable=c=>tables.some(b=>c.x>=b.x0-2&&c.x<=b.x1+2&&c.y>=b.y0-2&&c.y<=b.y1+2),tableTitle=t=>tables.some(b=>t.c.x>b.x0&&t.c.x<b.x1&&t.c.y<b.y0&&t.c.y>b.y0-t.h*4);
  const sizeOf=t=>t.h;
- const views=titles.map(t=>({title:t.title,at:{x:Math.round(t.c.x),y:Math.round(t.c.y)},t,b:{x0:t.c.x,y0:t.c.y-t.h,x1:t.c.x,y1:t.c.y},plates:new Set(),profiles:new Set(),steel:new Set(),refs:new Set(),bolts:new Set(),welds:new Set(),positions:new Set(),marks:new Set(),levels:new Set(),dims:new Set(),nodes:new Set(),text:[]}));
+ const views=titles.map(t=>({sheet:sheetOf.get(t)||null,title:t.title,at:{x:Math.round(t.c.x),y:Math.round(t.c.y)},t,b:{x0:t.c.x,y0:t.c.y-t.h,x1:t.c.x,y1:t.c.y},plates:new Set(),profiles:new Set(),steel:new Set(),refs:new Set(),bolts:new Set(),welds:new Set(),positions:new Set(),marks:new Set(),levels:new Set(),dims:new Set(),nodes:new Set(),layers:new Set(),angles:new Set(),sizes:new Set(),text:[]}));
  // (the picture of each view: the lines joined end to end into drawings; a view's drawing — the largest one starting just
  // under or beside its title; a label inside one view's drawing (and its leaders, 40 pt round) is that view's — the axes
  // «Л», «М» of section 2-2 are not of node 41 though nearer its circle, ИР-71535 АР ч.1 л.13)
@@ -209,7 +219,11 @@ function viewsOf(items,segments,W=0,H=0){
   const big=[...comp.values()].filter(b=>b.n>=20&&(!W||!H||(b.x1-b.x0)*(b.y1-b.y0)<W*H*.5)),area=b=>(b.x1-b.x0)*(b.y1-b.y0);
   for(const v of views){const t=v.t,h=t.h;if(/^Поз/iu.test(v.title))continue;
    // (under the title up to 6 heights, or round a circle of a node up to 3; a sketch «Поз. N» — by its label, as before)
-   const seed=big.filter(b=>b.x0<t.c.x+h*12&&b.x1>t.c.x-h*12&&b.y0<t.c.y+h*6&&b.y1>t.c.y-h*.5&&b.y0>t.c.y-h*3).sort((p,q)=>area(q)-area(p))[0];
+   // (a drawing nearer another view's title is that one's — node 21 of АР ч.2 л.17 took the drawing of node 20 beside it)
+   const cand=big.filter(b=>b.x0<t.c.x+h*12&&b.x1>t.c.x-h*12&&b.y0<t.c.y+h*6&&b.y1>t.c.y-h*.5&&b.y0>t.c.y-h*3).sort((p,q)=>area(q)-area(p));
+   const d2=(o,b)=>{const x=Math.max(b.x0,Math.min(b.x1,o.c.x)),y=Math.max(b.y0,Math.min(b.y1,o.c.y));return Math.hypot(x-o.c.x,y-o.c.y)};
+   const mine=cand.filter(b=>!views.some(o=>o!==v&&!/^Поз/iu.test(o.title)&&d2(o.t,b)<d2(t,b)-h));
+   const seed=(mine.length?mine:cand)[0];
    if(seed)frames.set(v,{...seed})}
   // (a drawing in pieces — the railing over node 41 not joined to the node: pieces touching the frame, 6 pt round,
   // out of it by 120 pt at most, join it; the stamp and the sketch of поз. 61 beside it — not)
@@ -238,7 +252,12 @@ function viewsOf(items,segments,W=0,H=0){
   // (the frame of the view by its labels — the piece of the sheet a picture of the node is cut from, 1.12.140)
   v.b.x0=Math.min(v.b.x0,t.c.x);v.b.x1=Math.max(v.b.x1,t.c.x);v.b.y0=Math.min(v.b.y0,t.c.y);v.b.y1=Math.max(v.b.y1,t.c.y);
   if(/^(?:С|C)\s?\d{3}(?:-\d)?$/u.test(s)){v.steel.add(s.replace(/\s/gu,"").replace(/^C/u,"С"));continue}
-  if(/^(?:КМД?|АР|ТХ|КЖ)\s?\d*\s?-\s?\d{1,3}$|^(?:см\.\s*)?л(?:ист)?\.?\s*(?:КМД?|АР)?\s?\d/iu.test(s)){v.refs.add(s);continue}
+  if(/^(?:КМД?|АР|ТХ|КЖ)\s?\d*\s?-\s?\d{1,3}$|^(?:см\.\s*)?л(?:ист)?\.?\s*(?:КМД?|АР)?\s?\d/iu.test(s)||REF_TO.test(s)){v.refs.add(s);continue}
+  // (АР nodes, ИР-71535 АР ч.2 л.14–л.18: the layers of a wall «- 120 мм.», «- 200 мм.» under their names, the angles of the
+  //  bends «95°», «107°», the sizes of a fixing «~42», «х 20», «t=0,8 мм», «∅4,8», a slope «i=10%» — all the node's)
+  if(LAYER.test(s)){v.layers.add(s.replace(/[\s.]+$/u,"").replace(/^-\s*/u,""));continue}
+  if(ANGLE.test(s)){v.angles.add(s.replace(/\s/gu,""));continue}
+  if(SIZE.test(s)){v.sizes.add(s.replace(/\s+/gu," "));continue}
   if(PLATE.test(s))v.plates.add(s);
   const pr=PROFILE.exec(" "+s);if(pr)v.profiles.add(pr[1].trim());
   const b=BOLT.exec(s);if(b&&!/кл\.?\s*$/iu.test(s))v.bolts.add(s.length<=40?s:b[1].replace(/\s/gu,""));
@@ -250,8 +269,8 @@ function viewsOf(items,segments,W=0,H=0){
   else if(MARK.test(s)&&!PLATE.test(s)&&!pr&&!b)v.marks.add(s);
   else if(!PLATE.test(s)&&!pr&&!b&&(!WELD.test(s)||glued)&&v.text.length<60&&wordy(s))v.text.push(s.slice(0,160))
  }
- return views.map(v=>{const o={title:v.title,at:v.at,box:{x0:Math.round(v.b.x0),y0:Math.round(v.b.y0),x1:Math.round(v.b.x1),y1:Math.round(v.b.y1)}};
-  for(const k of ["plates","profiles","steel","bolts","welds","positions","marks","levels","dims","refs","nodes"])if(v[k].size)o[k]=[...v[k]].slice(0,80);
+ return views.map(v=>{const o={title:v.title,...(v.sheet?{sheet:v.sheet}:{}),at:v.at,box:{x0:Math.round(v.b.x0),y0:Math.round(v.b.y0),x1:Math.round(v.b.x1),y1:Math.round(v.b.y1)}};
+  for(const k of ["plates","profiles","steel","bolts","welds","positions","marks","levels","dims","refs","nodes","layers","angles","sizes"])if(v[k].size)o[k]=[...v[k]].slice(0,80);
   if(v.text.length)o.text=v.text;return o})
 }
 
@@ -259,7 +278,8 @@ function viewsOf(items,segments,W=0,H=0){
 // scaled by the dimensions written on it (their sum against the outline's length).
 function trimsOf(items,segments){
  if(!items.some(t=>/фасонн\S*\s+элемент|нащельник|Схемы\s+фасонных/iu.test(t.str)))return[];
- const labels=items.filter(t=>/^Поз\s*\.?\s*\d{1,3}\s*$/iu.test(t.str));if(!labels.length)return[];
+ // (a position with a letter «Поз. 5 а» — its own sketch beside «Поз. 5», АР ч.2 л.14)
+ const labels=items.filter(t=>/^Поз\s*\.?\s*\d{1,3}\s*[а-я]?\s*$/iu.test(t.str));if(!labels.length)return[];
  const big=Math.max(...labels.map(l=>l.h)),sketch=labels.filter(l=>l.h>=big*.9);
  const near=c=>{let best=null,score=Infinity;for(const l of sketch){const dy=c.y-l.c.y;if(dy<-l.h*.5)continue;const s=dy+Math.abs(c.x-l.c.x)*.8;if(s<score&&s<l.h*18){score=s;best=l}}return best};
  const thick=(segments||[]).filter(s=>Number(s.w)>=1&&Math.hypot(s.a.x-s.b.x,s.a.y-s.b.y)<600);
@@ -280,7 +300,7 @@ function trimsOf(items,segments){
   if(mine.length)spans.set(l,{x0:Math.min(...mine.map(r=>r[0])),x1:Math.max(...mine.map(r=>r[1])),y0:l.c.y-l.h,y1})}
  const ownerOf=c=>{for(const [l,b] of spans)if(c.x>=b.x0-45&&c.x<=b.x1+45&&c.y>=b.y0&&c.y<=b.y1)return l;return near(c)};
  return sketch.map(l=>{
-  const pos=Number(/(\d{1,3})/u.exec(l.str)[1]);
+  const pm=/(\d{1,3})\s*([а-я]?)\s*$/u.exec(l.str),pos=pm[2]?pm[1]+pm[2]:Number(pm[1]);
   const dims=items.filter(t=>DIM.test(t.str)&&ownerOf(t.c)===l).map(t=>({v:Number(t.str.replace(/[~≈*]/gu,"").replace(",",".")),c:t.c}));
   const notes=items.filter(t=>wordy(t.str)>=2&&ownerOf(t.c)===l&&t!==l&&Math.hypot(t.c.x-l.c.x,t.c.y-l.c.y)<l.h*10).map(t=>t.str);
   const segs=thick.filter(s=>{const m={x:(s.a.x+s.b.x)/2,y:(s.a.y+s.b.y)/2};return ownerOf(m)===l&&Math.hypot(s.a.x-s.b.x,s.a.y-s.b.y)>.8});
@@ -381,7 +401,7 @@ function sheetDetails(geometry,blocks){
 // still kept — in the details of its view).
 function viewOfLabel(details,text){
  const s=String(text||"").trim();if(!s)return null;
- for(const v of details?.views||[])for(const k of ["levels","dims","marks","positions","plates","profiles","bolts"])if((v[k]||[]).includes(s))return v.title;
+ for(const v of details?.views||[])for(const k of ["levels","dims","marks","positions","plates","profiles","bolts","refs","layers","angles","sizes"])if((v[k]||[]).includes(s))return v.title;
  return null
 }
 
@@ -399,4 +419,4 @@ function detailLines(details){
  return out
 }
 
-module.exports={sheetDetails,viewOfLabel,detailLines,requirementsOf,notesOf,paragraphsOf,linesOf,tablesOf,trimsOf,viewsOf,kindOfTable,frameOf};
+module.exports={LAYER,ANGLE,SIZE,REF_TO,sheetDetails,viewOfLabel,detailLines,requirementsOf,notesOf,paragraphsOf,linesOf,tablesOf,trimsOf,viewsOf,kindOfTable,frameOf};
