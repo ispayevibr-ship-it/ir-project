@@ -13,7 +13,7 @@ window.irThreeSchemeView=(function irThreeModule(){
  // ускорить построение схемы?» — «да»). It is raised by scripts/scheme-model-digest.js, never by hand: the script builds
  // the checked schemes with this file and raises the number when what would be kept for any of them differs from the
  // record (knowledge/quality/model-digest.json); scripts/scheme-pack.js refuses a pack made without it.
- var MODEL_BUILD=45;
+ var MODEL_BUILD=46;
  var token=0,active=null,loadPromise=null,cameraMemory={};
  // Bundled with the app (works offline); the CDN is only a fallback for an incomplete hot update.
  var sources=[
@@ -10221,6 +10221,7 @@ window.irThreeSchemeView=(function irThreeModule(){
     else if(sec)put(realGeometry(T,meshGeo,sec),false);
     else{var key="truss-bar",bar=meshGeo.get(key);if(!bar){bar=new T.BoxGeometry(.08,.08,1);bar.translate(0,0,.5);meshGeo.set(key,bar)}put(bar,false)}
     if(planes)[0,1].forEach(function(k){var pl=planes.get(mi+":"+k);if(pl)for(var j=n0;j<parts.length;j++)planeEnd(parts[j],k,pl.P,pl.n)})
+    if(parts.length>n0)(parts.first||(parts.first={}))[mi]=parts[n0]
    });
    return parts
   }
@@ -11686,6 +11687,37 @@ window.irThreeSchemeView=(function irThreeModule(){
     var geo=new T.ExtrudeGeometry(sh,{depth:gt,bevelEnabled:false});geo.translate(0,0,-gt/2);geo.applyMatrix4(place);
     var mesh=partTag(new T.Mesh(geo,baseMaterial(c)),"фасонка узла");mesh.userData.gusset=true;parts.push(mesh)
    });
+   // Spacers between the angles of its pairs (СП 16.13330 п. 7.2.2: a pair of angles is tied by spacers, no farther apart than
+   // 40 i of one angle in a compressed member, 80 i in a tensile one — the bottom chord; i about the axis along the spacer,
+   // 0,308 of its leg), between the gussets of the nodes, as thick as the gussets, 60 mm along the member, the leg + 20 mm
+   // across — 10 mm past the heel and the toe. No КМД of the trusses: the engineer, 16.11.2026, «По усилиям КМ1» — by the
+   // forces of КМ1 л.13 the gussets are no larger than drawn; the spacers of the pairs were missing in every truss.
+   (function(){
+    var inP=function(P,g){var c=false;for(var i=0,j=g.length-1;i<g.length;j=i++){var a=g[i],b=g[j];if((a[1]>P[1])!==(b[1]>P[1])&&P[0]<(b[0]-a[0])*(P[1]-a[1])/(b[1]-a[1])+a[0])c=!c}return c};
+    var gl=nodes.gussets.concat((nodes.topGussets||[]).reduce(function(a,b){return a.concat(b||[])},[]));
+    nodes.members.forEach(function(m,mi){
+     var pr=String(m[5]||"");if(!/^\d/.test(pr)||m[7]==="cross"||m[7]==="cross-r"||m[7]==="turn")return;
+     var sec=sectionOf("∟"+pr);if(!sec||sec.shape!=="angle"||sec.bent)return;
+     var x0=number(m[0]),z0=number(m[1]),x1=number(m[2]),z1=number(m[3]),L=Math.hypot(x1-x0,z1-z0);if(L<300)return;
+     var ux=(x1-x0)/L,uz=(z1-z0)/L,h=number(sec.h)||number(sec.b);
+     // (across: the leg in the plane as the angle is drawn — its mesh, the box of its section along its y)
+     var me=parts.first&&parts.first[mi];if(!me)return;var gb=me.geometry.boundingBox||(me.geometry.computeBoundingBox(),me.geometry.boundingBox);
+     var Yw=new T.Vector3(0,1,0).applyQuaternion(me.quaternion),y0=gb.min.y*me.scale.y,y1=gb.max.y*me.scale.y,lo=Math.min(y0,y1)*1000,hi=Math.max(y0,y1)*1000;
+     var Pm=me.position.clone().sub(o),bx=Pm.dot(ex)/ex.lengthSq()*1000,bz=Pm.dot(ez)/ez.lengthSq()*1000,dl=(bx-x0)*(-uz)+(bz-z0)*ux;
+     var nx=Yw.dot(ex)/ex.length(),nz=Yw.dot(ez)/ez.length(),nl=Math.hypot(nx,nz);if(nl<.5)return;nx/=nl;nz/=nl;
+     var sgn=nx*(-uz)+nz*ux;lo+=dl*sgn;hi+=dl*sgn
+     var a=(m[4]==="bottom"?80:40)*.308*h,free=[],run=null;
+     for(var q=0;q<=L;q+=10){var P=[x0+ux*q,z0+uz*q],cov=gl.some(function(g){return inP(P,g)});if(!cov){if(!run)run=[q,q];run[1]=q}else if(run){free.push(run);run=null}}
+     if(run)free.push(run);
+     free.forEach(function(r){var Lf=r[1]-r[0];if(Lf<a)return;var n=Math.ceil(Lf/a)-1;
+      for(var k=1;k<=n;k++){var q=r[0]+Lf*k/(n+1),cx=x0+ux*q+nx*(lo+hi)/2,cz=z0+uz*q+nz*(lo+hi)/2;
+       // (none where another member of the truss comes near — a post across a chord, the next panel of a chord at its bend)
+       if(nodes.members.some(function(o){if(o===m)return false;var px=number(o[0]),pz=number(o[1]),qx=number(o[2])-px,qz=number(o[3])-pz,l2=qx*qx+qz*qz;if(l2<1)return false;
+        var f=Math.max(0,Math.min(1,((cx-px)*qx+(cz-pz)*qz)/l2)),ps=sectionOf("∟"+String(o[5]||"")),ho=ps?number(ps.h)||number(ps.b)||100:100;
+        return Math.hypot(px+qx*f-cx,pz+qz*f-cz)<ho+(hi-lo)/2+40}))continue;
+       var w6=number(m[6]),C=at(cx,cz,w6),D=at(cx+ux*1000,cz+uz*1000,w6).sub(C).normalize(),N=at(cx+nx*1000,cz+nz*1000,w6).sub(C).normalize();
+       var mesh=partTag(plateBox(c,C,D,N,D.clone().cross(N),.06,(hi-lo+20)/1000,gt),"прокладка","−"+Math.round(gt*1000)+"×60×"+Math.round(hi-lo+20));parts.push(mesh)}})
+    })})();
    parts.forEach(function(mesh){mesh.userData.memberId=id;steel.add(mesh);allMeshes.push(mesh);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh)});
    ends.forEach(function(e,i){if(e)trussSupport(c,id,e,i?xb:xa,i?-1:1,members,at,ex.clone().normalize(),nrm,spec(i),nodes.topGussets&&nodes.topGussets[i])});
    if(pn)panelPlates(c,id,pn,nodes.members,span,at,nrm,gt);
