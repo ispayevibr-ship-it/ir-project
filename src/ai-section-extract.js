@@ -16,7 +16,10 @@ const skipMark=(mark,aMarks)=>NOT_MARK.test(mark)||notMark(mark,aMarks)&&/^А\d/
 const SECTION=/^(?:Разрез\s+)?(\d{1,2}(?:\.\d)?|[А-ЯЁA-Zа-яёa-z])\s*[-–—]\s*(\d{1,2}(?:\.\d)?|[А-ЯЁA-Zа-яёa-z])(?:\s*\([^)]{1,20}\))?$/u;
 // A level mark may carry a note: "+4,875 ось", "-0,400 низ оп.пл.", "+9,595 низ прогона".
 const LEVEL_MARK=/^([+\-−±]?\d{1,2}[,.]\d{3})(?:\s*[а-яё][а-яё.\s]{0,30})?$/iu;
-const levelOf=str=>{const m=LEVEL_MARK.exec(String(str).trim());return m?levelMm(m[1].replace("−","-").replace("±","")):null};
+// (a level without its comma «+3600» beside «+4,685», «+1,980» of the column — АР ч.1 л.16 ИР-71535: +3,600, the bottom
+//  of ОВ 300×300 noted «отм. низа +3,600»; read as mm, flagged as a slip of the sheet)
+const LEVEL_NOCOMMA=/^\+(\d{4,5})$/u;
+const levelOf=str=>{const t=String(str).trim(),m=LEVEL_MARK.exec(t);if(m)return levelMm(m[1].replace("−","-").replace("±",""));const n=LEVEL_NOCOMMA.exec(t);return n?Number(n[1]):null};
 const LEVEL_IN=/([+\-−]?\d{1,2}[,.]\d{3})/u;
 const SNAP=150,ROUND=10;
 
@@ -120,6 +123,9 @@ function ownerOf(titles,x,y){
 
 // Without readable titles (drawn as lines) a section is the area above its row of axis bubbles.
 const LOOK_AXIS={A:"А",B:"В",C:"С",E:"Е",H:"Н",K:"К",M:"М",O:"О",P:"Р",T:"Т",X:"Х"};
+// (axes of the building beside typed in Latin among Cyrillic ones — «I», «I1», «I2», «J» of the workshop ММА on АР ч.1
+// л.15, л.17 ИР-71535 between «Е» and «К»: И, И1, И2 and Й by their order (Latin I/J for И/Й, as ISO 9 writes them))
+const otherAxisName=str=>String(str).trim().replace(/\s+/g,"").replace(/^[ABCEHIJKMPTX](?=\d|\/|$)/u,c=>({I:"И",J:"Й"})[c]||LOOK_AXIS[c]);
 // «08», «O8» and «О8» are one axis (the plans read them so too).
 const cyrAxis=str=>String(str).trim().replace(/\s+/g,"").replace(/[ABCEHKMOPTX]/g,c=>LOOK_AXIS[c]).replace(/^[О0](?=\d)/u,"О");
 // min: the fewest bubbles of a row (3; the small views of a layout of panels show two — «О8 О10» of a wall along К).
@@ -749,7 +755,7 @@ function extractSectionViews({segments=[],texts=[]}={},page=1,taken=[]){
   const axes=bubbles.map((b,i)=>({name:b.name,mm:canon(left[i])})).sort((a,b)=>a.mm-b.mm);
   const along=xpt=>{let k=0;for(let i=1;i<bubbles.length;i++)if(Math.abs(bubbles[i].pt-xpt)<Math.abs(bubbles[k].pt-xpt))k=i;return Math.round(canon(left[k]+(xpt-bubbles[k].pt)*scale)/10)*10};
   const byAxis=xpt=>bubbles.reduce((p,b)=>Math.abs(b.pt-xpt)<Math.abs(p.pt-xpt)?b:p).name;
-  const lv=levels.map(l=>({z_mm:l.mm,text:l.str,u_mm:along(l.x+l.w/2),axis:byAxis(l.x+l.w/2),pt:{x:Math.round(l.x),y:Math.round(l.y)}})).sort((a,b)=>a.z_mm-b.z_mm||a.u_mm-b.u_mm);
+  const lv=levels.map(l=>({z_mm:l.mm,...(LEVEL_NOCOMMA.test(l.str||"")?{sheet_slip:"без запятой"}:{}),text:l.str,u_mm:along(l.x+l.w/2),axis:byAxis(l.x+l.w/2),pt:{x:Math.round(l.x),y:Math.round(l.y)}})).sort((a,b)=>a.z_mm-b.z_mm||a.u_mm-b.u_mm);
   const names=axes.map(a=>a.name),spans=axes.slice(1).map((a,i)=>a.mm-axes[i].mm);
   const xs=region.map(t=>textBox(t)),y0=Math.min(title.y-20,...xs.map(b=>b.y0));
   // (the sizes of the section — of the panels, the parapet, the gutter, drawn and written: a size whose line measures it at
@@ -775,10 +781,10 @@ function extractSectionViews({segments=[],texts=[]}={},page=1,taken=[]){
   const bbox={x0:Math.min(row.x0,...levels.map(l=>l.x))-60,x1:Math.max(row.x1,...levels.map(l=>l.x+l.w))+60,y0,y1:row.y+20};
   // (the drawing of the section itself — panels cut and seen, callouts, the downpipe, openings, circles of nodes —
   // `ai-section-lines.js`; АР ч.1 л.13 ИР-71535, 16.11.2026)
-  let lines={};try{lines=sectionLines({segments,texts},{box:bbox,scale,along,zAt:y=>Math.round((fz.a+fz.b*y)/10)*10,zRange:[Math.min(...levels.map(l=>l.mm)),Math.max(...levels.map(l=>l.mm))]})}catch{lines={}}
+  let lines={};try{lines=sectionLines({segments,texts},{box:bbox,scale,along,zAt:y=>Math.round((fz.a+fz.b*y)/10)*10,zRange:[Math.min(...levels.map(l=>l.mm)),Math.max(...levels.map(l=>l.mm))],facade:!!title.facade,uRange:[Math.min(...axes.map(a=>a.mm))-1000,Math.max(...axes.map(a=>a.mm))+1000]})}catch{lines={}}
   out.push({kind:"section",title:title.str,section:title.name,page,bbox,
    scaleMmPerPt:Math.round(scale*1000)/1000,axesX:names,axesY:[],spansX:spans,spansY:[],sizeX:axes[axes.length-1].mm,sizeY:0,
-   levels:lv,dims:sizes,...(beside.length||alien.length?{otherAxes:[...beside.map(r=>r.items.map(t=>({name:String(t.str).trim(),u_mm:along(t.x+(t.width||0)/2)}))),...(alien.length?[alien.map(b=>({name:b.name,u_mm:along(b.pt)}))]:[])]}:{}),...(title.facade?{facade:title.name}:{}),...(Object.values(lines).some(v=>v&&v.length)?{lines}:{}),placements:[],warnings:[(title.facade?"Фасад":"Разрез")+" без элементов: оси и отметки — для высот, расстановка по планам",...slips]})
+   levels:lv,dims:sizes,...(beside.length||alien.length?{otherAxes:[...beside.map(r=>{const cyr=r.items.some(t=>/[А-ЯЁ]/u.test(t.str));return r.items.map(t=>({name:cyr?otherAxisName(t.str):String(t.str).trim(),u_mm:along(t.x+(t.width||0)/2)}))}),...(alien.length?[alien.map(b=>({name:alien.some(o=>/[А-ЯЁ]/u.test(o.name))?otherAxisName(b.name):b.name,u_mm:along(b.pt)}))]:[])]}:{}),...(title.facade?{facade:title.name}:{}),...(Object.values(lines).some(v=>v&&v.length)?{lines}:{}),placements:[],warnings:[(title.facade?"Фасад":"Разрез")+" без элементов: оси и отметки — для высот, расстановка по планам",...slips]})
  }
  return out
 }

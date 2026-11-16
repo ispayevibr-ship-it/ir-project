@@ -1336,12 +1336,25 @@ function fillViews({segments=[],texts=[]}={}){
     if(!side(n.x0,a.y,c.y)||!side(n.x1,a.y,c.y))continue;
     // (a rectangle round the label of another block is no block: windows one over another and the lines between them)
     if(box.some(o=>o!==b&&o.cx>n.x0+.5&&o.cx<n.x1-.5&&o.cy>a.y+.5&&o.cy<c.y-.5))continue;
-    const dx=Math.max(0,n.x0-b.cx,b.cx-n.x1),dy=Math.max(0,a.y-b.cy,b.cy-c.y);
-    rects.push({l:n.x0,r:n.x1,top:a.y,bottom:c.y,d:Math.hypot(dx,dy)+(same?0:.5)})
+    // (the label stands at an edge of its block — over a window, under a gate: the distance to the nearer of its top and
+    //  bottom; a block round the label is the wall between two windows one over another — ИР-71535 АР ч.1 л.16 «ОК-4»
+    //  at +8,500 over the window 7090…8290 inside 8290…11510 between the windows; tie — the larger, the outer frame)
+    const dx=Math.max(0,n.x0-b.cx,b.cx-n.x1),inside=b.cy>a.y&&b.cy<c.y,dy=Math.min(Math.abs(a.y-b.cy),Math.abs(b.cy-c.y));
+    rects.push({l:n.x0,r:n.x1,top:a.y,bottom:c.y,d:Math.hypot(dx,dy)+(same?0:.5)+(inside&&!dx?3:0),h:c.y-a.y})
    }
    rects.sort((p,q)=>p.d-q.d);
-   fills.push({mark:String(t.str).trim(),u:u(b.cx),z:z(b.cy),rects:rects.slice(0,60).map(r=>{const p=u(r.l),q=u(r.r);return[Math.min(p,q),Math.max(p,q),z(r.bottom),z(r.top)]})})
+   const mm=r=>{const p=u(r.l),q=u(r.r);return[Math.min(p,q),Math.max(p,q),z(r.bottom),z(r.top)]};
+   fills.push({mark:String(t.str).trim(),u:u(b.cx),z:z(b.cy),...(rects.length?{rect:mm(rects[0])}:{}),rects:rects.slice(0,60).map(mm)})
   }
+  // (one block of a mark is one size: of the frames round each label the one whose size the other labels of the mark
+  //  share most — ОК-4 ten times on АР ч.1 л.16, 4000×1200, not the strip of wall over a gate it stands on; Д-3 940×2070)
+  const fit2=(r,q)=>Math.abs(r[1]-r[0]-(q[1]-q[0]))<=60&&Math.abs(r[3]-r[2]-(q[3]-q[2]))<=60;
+  for(const f of fills){const mates=fills.filter(g=>g!==f&&g.mark===f.mark);if(!mates.length||!f.rects.length)continue;
+   // (a tie — the size every label of the mark ranks nearest: the frames by their rank round each label, summed)
+   const rank=(g,r)=>{const i=g.rects.findIndex(q=>fit2(r,q));return i<0?60:i};
+   const cand=f.rects.slice(0,20).map((r,i)=>({r,n:mates.filter(g=>g.rects.some(q=>fit2(r,q))).length,k:i+mates.reduce((a,g)=>a+rank(g,r),0)}));
+   const bn=Math.max(...cand.map(c=>c.n));if(bn<=0)continue;
+   f.rect=cand.filter(c=>c.n===bn).sort((p,q)=>p.k-q.k)[0].r}
   views.push({axes:bubbles.map((bb,i)=>({name:bb.name,mm:canon(left[i])})).sort((a,b)=>a.mm-b.mm),numbered:numbered(bubbles[0].name),reversed,scaleMmPerPt:Math.round(scale*1000)/1000,fills})
  }
  return views

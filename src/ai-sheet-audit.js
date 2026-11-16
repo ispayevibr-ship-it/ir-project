@@ -78,7 +78,7 @@ function auditSheet(geometry,page){
  for(const k of ["trusses","baseDetails","columnDetails","sections"])for(const m of JSON.stringify(page?.[k]||[]).match(/"mark":"([^"]+)"/gu)||[])usedMarks.add(keyOf(m.slice(8,-1)));
  // (a bubble «01» read with a digit is the axis «О1» of the grid, «I» is «И»: АР ч.1 л.5 ИР-71535, ten axes of the grid
  // counted as misses; the axes of the other grid of the sheet — the existing building beside — are read too)
- const axisKey=m=>keyOf(m).replace(/^[0O](?=\d)/u,"О").replace(/^I(?=\d|\/|$)/u,"И");
+ const axisKey=m=>keyOf(m).replace(/^[0O](?=\d)/u,"О").replace(/^I(?=\d|\/|$)/u,"И").replace(/^J(?=\d|\/|$)/u,"Й");
  const bubblesNamed=new Set(schemes.flatMap(s=>[...(s.axesX||[]),...(s.axesY||[]),...(Array.isArray(s.otherAxes)?s.otherAxes.flat():s.otherAxes?.axes||[]).map(a=>a.name)]).map(axisKey));
  const levelsUsed=numbersIn([schemes.map(s=>[s.levelNotes,s.title,(s.levels||[]).map(l=>l.z_mm),(s.roof?.levels||[]).map(l=>l.z_mm),(s.placements||[]).map(p=>[p.z0_mm,p.z1_mm,p.z_mm]),(s.lines?.openings||[]).map(o=>o.bottom_mm)]),page?.sections,page?.sectionProfiles,
   (page?.sheet?.views||[]).map(v=>[v.z0_mm,v.z1_mm]),page?.trusses,page?.columnDetails,page?.baseDetails,page?.tank,page?.ar]);
@@ -118,7 +118,7 @@ function auditSheet(geometry,page){
   const title=NODE_TITLE.exec(str);if(title){items.nodes.push({text:str,node:title[1],title:true,scheme:k});continue}
   if(CUT.test(str)||/^(?:[А-ЯЁ]|\d{1,2})$/u.test(str)&&k===null){items.cuts.push({text:str,scheme:k});continue}
   if(ALONG.test(str)){items.along.push({text:str,scheme:k});continue}
-  const lv=LEVEL.exec(str);
+  const lv=LEVEL.exec(str)||(/^\+\d{4,5}$/u.test(str)?[str,(Number(str.slice(1))/1000).toFixed(3)]:null);
   // (a level inside a sentence of the notes — «За условную отметку 0,000 принят…» — is the note's, read in the whole text)
   // (a level that sends to another sheet — «на отм. +16,100, см. лист КМ 3-17» — is a reference: what stands there is
   // placed by that sheet; АР ч.1 л.13 ИР-71535, the crane platform of КМ3 л.17 on the section 2-2)

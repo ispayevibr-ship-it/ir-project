@@ -65,29 +65,43 @@ function calloutsOf(texts,segments,box,along,zAt){
   .filter(t=>t.str&&t.ang<5&&t.x1>box.x0-250&&t.x0<box.x1+250&&t.y>box.y0-250&&t.y<box.y1+250);
  const H=segments.filter(s=>Math.abs(s.a.y-s.b.y)<.3&&Math.abs(s.a.x-s.b.x)>=4);
  const inside=(p,b)=>p.x>=b.x0&&p.x<=b.x1&&p.y>=b.y0&&p.y<=b.y1,near=(p,q,d=1.6)=>Math.hypot(p.x-q.x,p.y-q.y)<=d;
+ const shelfOf=t=>H.find(s=>{const y=s.a.y,x0=Math.min(s.a.x,s.b.x),x1=Math.max(s.a.x,s.b.x);return y>t.y-.5&&y<t.y+t.h*.7&&Math.min(x1,t.x1)-Math.max(x0,t.x0)>=(t.x1-t.x0)*.5});
+ const shelfEnds=[];for(const t of T){if(!/[А-Яа-яЁё]{3,}/u.test(t.str))continue;const sh=shelfOf(t);if(sh)shelfEnds.push({s:sh,p:sh.a},{s:sh,p:sh.b})}
  const out=[],taken=new Set();
  for(const t of T){
   if(taken.has(t)||!/[А-Яа-яЁё]{3,}/u.test(t.str))continue;
   // (the shelf: under the label within its height, under most of it)
-  const shelf=H.find(s=>{const y=s.a.y,x0=Math.min(s.a.x,s.b.x),x1=Math.max(s.a.x,s.b.x);return y>t.y-.5&&y<t.y+t.h*.7&&Math.min(x1,t.x1)-Math.max(x0,t.x0)>=(t.x1-t.x0)*.5});
+  const shelf=shelfOf(t);
   if(!shelf)continue;
-  const ends=[shelf.a,shelf.b];let leader=null,from=null;
-  for(const e of ends){const s=segments.find(q=>q!==shelf&&Math.abs(q.a.y-q.b.y)>=.5&&len(q)>=4&&(near(q.a,e)||near(q.b,e)));if(s){leader=s;from=near(s.a,e)?s.a:s.b;break}}
-  if(!leader)continue;
+  // (every leader from the ends of the shelf: one label for two openings — «Отверстие ОВ 900 х 900(h). отм.низа +17,300»
+  // of the facade 010-01 on АР ч.1 л.17 ИР-71535 with two leaders, to the openings at О5–О6 and at О6/1)
+  const leaders=[];
+  // (a leader at the end of the shelf of another label beside is that label's — the shelves of «Отверстие ВК 200 х 200(h).»
+  // and «Отверстие ОВ 700 х 1000(h).» at О5 on л.17 meet end to end: each takes the leader nearest its own end)
+  for(const e of [shelf.a,shelf.b])for(const s of segments)if(s!==shelf&&Math.abs(s.a.y-s.b.y)>=.5&&len(s)>=4&&(near(s.a,e)||near(s.b,e))){
+   const from=near(s.a,e)?s.a:s.b,d=Math.hypot(from.x-e.x,from.y-e.y);
+   if(shelfEnds.some(f=>f.s!==shelf&&Math.hypot(from.x-f.p.x,from.y-f.p.y)<d-.05))continue;
+   leaders.push({leader:s,from})}
+  if(!leaders.length)continue;
+  // (the second line of the label under the shelf — «см. лист КМ 3-44»;
+  // it starts under the label and is no label of its own on its own shelf — «Отверстие ОВ 700 х 1000(h).» beside
+  // «Отверстие ВК 200 х 200(h).» at О4/2 of the facade 010-01 on АР ч.1 л.17 ИР-71535 is the next callout, not its line)
+  const below=T.filter(o=>o!==t&&o.y>shelf.a.y&&o.y<shelf.a.y+o.h*1.8&&o.x0<t.x1-2&&Math.min(o.x1,t.x1+20)-Math.max(o.x0,t.x0-20)>0&&!(KINDS.some(([,re])=>re.test(o.str))&&shelfOf(o))).sort((p,q)=>p.y-q.y);
+  const lines=[t.str];for(const o of below.slice(0,2)){lines.push(o.str);taken.add(o)}taken.add(t);
+  const text=lines.join(" "),ref=(/см\s*\.?\s*\S.*$/iu.exec(text)||[])[0];
+  const kind=(KINDS.find(([,re])=>re.test(t.str))||KINDS.find(([,re])=>re.test(text))||["note"])[0];
+  const seen=[];
+  for(const {leader,from} of leaders){
   // (the leader to its end: pieces going on in one line)
   let cur=near(leader.a,from)?leader.b:leader.a,dir={x:cur.x-from.x,y:cur.y-from.y};
   for(let k=0;k<6;k++){const L=Math.hypot(dir.x,dir.y)||1;const nx=segments.find(q=>{if(!(near(q.a,cur,.8)||near(q.b,cur,.8)))return false;const o=near(q.a,cur,.8)?q.b:q.a,v={x:o.x-cur.x,y:o.y-cur.y},l=Math.hypot(v.x,v.y);return l>1&&(v.x*dir.x+v.y*dir.y)/(l*L)>.995});
    if(!nx)break;const o=near(nx.a,cur,.8)?nx.b:nx.a;dir={x:o.x-cur.x,y:o.y-cur.y};cur=o}
-  // (the second line of the label under the shelf — «см. лист КМ 3-44»)
-  const below=T.filter(o=>o!==t&&o.y>shelf.a.y&&o.y<shelf.a.y+o.h*1.8&&Math.min(o.x1,t.x1+20)-Math.max(o.x0,t.x0-20)>0).sort((p,q)=>p.y-q.y);
-  const lines=[t.str];for(const o of below.slice(0,2)){lines.push(o.str);taken.add(o)}taken.add(t);
-  const text=lines.join(" "),ref=(/см\s*\.?\s*\S.*$/iu.exec(text)||[])[0];
-  const kind=(KINDS.find(([,re])=>re.test(t.str))||KINDS.find(([,re])=>re.test(text))||["note"])[0];
-  if(!inside(cur,box))continue;
+  if(!inside(cur,box)||seen.some(p=>near(p,cur,3)))continue;seen.push(cur);
   const c={kind,text:text.slice(0,200),...(ref?{ref:ref.replace(/\s+/gu," ").trim()}:{}),u_mm:along(cur.x),z_mm:zAt(cur.y),pt:{x:Math.round(cur.x),y:Math.round(cur.y)}};
   if(kind==="opening"){const m=/(\d{2,4})\s*[хxX×]\s*(\d{2,4})/u.exec(text),lv=/низа\s*([+\-−]?\d{1,2}[,.]\d{3})/iu.exec(text);if(m){c.w_mm=Number(m[1]);c.h_mm=Number(m[2])}if(lv)c.bottom_mm=Math.round(Number(lv[1].replace(/[−]/u,"-").replace(",","."))*1000)}
   const nd=/(?:узел|узлу|узла|узлы)\s*(\d{1,3})/iu.exec(t.str);if(kind==="node"&&nd)c.node=nd[1];
-  out.push(c)}
+  if(leaders.length>1)c.leaders=leaders.length;
+  out.push(c)}}
  return out
 }
 
@@ -111,7 +125,7 @@ function pipesOf(segments,callouts,scale,along,zAt,ptOf){
 
 // Faces of panels seen beyond the cut (not hatched): a frame of two horizontal lines and parallel uprights between them
 // at one pitch — the panels' joints; ИР-71535 АР ч.1 л.13 разрез 2-2 — the annex at Н–Л up to +8,740.
-function seenPanels(segments,box,scale,along,zAt,zr=[-Infinity,Infinity]){
+function seenPanels(segments,box,scale,along,zAt,zr=[-Infinity,Infinity],facade=false,ur=[-Infinity,Infinity]){
  const V=segments.filter(s=>Math.abs(s.a.x-s.b.x)<.3&&len(s)>=15&&s.a.x>box.x0&&s.a.x<box.x1).map(s=>({x:s.a.x,y0:Math.min(s.a.y,s.b.y),y1:Math.max(s.a.y,s.b.y)}));
  // (uprights of one height in a row: same top and bottom ±1 pt, at least 4, the pitch even ±8 %)
  const groups=new Map();for(const v of V){const k=Math.round(v.y0)+":"+Math.round(v.y1);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(v)}
@@ -124,16 +138,87 @@ function seenPanels(segments,box,scale,along,zAt,zr=[-Infinity,Infinity]){
   const y0=g[0].y0,y1=g[0].y1;
   // (higher than 1,5 m, within the levels of the section: the posts of a railing (1 m) and the drawings beside are not)
   if((y1-y0)*scale<1500||zAt(y1)<zr[0]-500||zAt(y0)>zr[1]+500)continue;
-  out.push({kind:"seen_panels",u0_mm:along(xs[0]),u1_mm:along(xs[xs.length-1]),z0_mm:zAt(y1),z1_mm:zAt(y0),pitch_mm:r10(med*scale),joints_u_mm:xs.map(along)})}
+  out.push({kind:"seen_panels",u0_mm:along(xs[0]),u1_mm:along(xs[xs.length-1]),z0_mm:zAt(y1),z1_mm:zAt(y0),pitch_mm:r10(med*scale),joints_u_mm:xs.map(along)});
+  for(const v of g)v.used=true}
+ // (joints of one foot or one head and tops of their own: a gable under the slopes of a roof — each joint up to the slope;
+ //  a tier broken by windows and gates — АР ч.1 л.16 ИР-71535, фасад А–Н: the wall Ж–Л over +7,100, the annexes А–Б, Л–Н)
+ //  (only on a facade: in a section such uprights are frames of windows and walls beside — АР ч.1 л.12 разрез 1-1)
+ for(const end of facade?["y1","y0"]:[]){
+  const left=V.filter(v=>!v.used&&(v.y1-v.y0)*scale>=1000&&zAt(v.y1)>=zr[0]-500&&zAt(v.y0)<=zr[1]+500),by=new Map();
+  for(const v of left){const k=Math.round(v[end]);if(!by.has(k))by.set(k,[]);by.get(k).push(v)}
+  for(const g0 of by.values()){
+   const g=g0.filter(v=>!v.used).sort((a,b)=>a.x-b.x),xs=[],top=new Map();
+   for(const v of g){const x=Math.round(v.x*2)/2;if(!xs.length||x-xs[xs.length-1]>.4){xs.push(x);top.set(x,v)}else if(v.y1-v.y0>top.get(xs[xs.length-1]).y1-top.get(xs[xs.length-1]).y0)top.set(xs[xs.length-1],v)}
+   if(xs.length<4)continue;
+   // (runs of an even pitch of a panel, 300…1600 mm: another step — a window, a gate, a frame — closes a run)
+   let run=[xs[0]],med=0;const flush=()=>{if(run.length>=4){const vs=run.map(x=>top.get(x)),z0=Math.min(...vs.map(v=>zAt(v.y1))),tops=vs.map(v=>zAt(v.y0));
+     out.push({kind:"seen_panels",u0_mm:along(run[0]),u1_mm:along(run[run.length-1]),z0_mm:z0,z1_mm:Math.max(...tops),pitch_mm:r10(med*scale),joints_u_mm:run.map(along),
+      ...(Math.max(...tops)-Math.min(...tops)>100?{tops_mm:tops}:{}),...(end==="y0"?{by:"top"}:{})});for(const v of vs)v.used=true}run=[]};
+   for(let i=1;i<xs.length;i++){const st=xs[i]-xs[i-1];
+    if(run.length===1&&st*scale>=300&&st*scale<=1600){med=st;run.push(xs[i])}else if(run.length>1&&Math.abs(st-med)<=med*.08)run.push(xs[i]);else{flush();run=[xs[i]];med=0}}
+   flush()}
+ }
+ // (joints between two slopes — both ends on a straight line each, the foot on a lower roof and the head under a higher
+ //  one: the wall of the annex О8–О10 between its roofs +8,1 and +15,4 on АР ч.1 л.17 ИР-71535, фасад 010-01)
+ if(facade){
+  // (at least 2 m — mullions of windows are shorter; within the own axes — the existing building beside is not ours; at the
+  //  pitch of the panels found above ±8 %)
+  const pit=out.map(o=>o.pitch_mm).sort((a,b)=>a-b),P=pit.length?pit[pit.length>>1]:0;
+  const left=V.filter(v=>!v.used&&(v.y1-v.y0)*scale>=2000&&zAt(v.y1)>=zr[0]-500&&zAt(v.y0)<=zr[1]+500&&along(v.x)>=Math.min(ur[0],ur[1])&&along(v.x)<=Math.max(ur[0],ur[1])).sort((a,b)=>a.x-b.x),xs=[];
+  for(const v of left){const x=Math.round(v.x*2)/2;if(!xs.length||x-xs[xs.length-1].x>.4)xs.push({x,v});else if(v.y1-v.y0>xs[xs.length-1].v.y1-xs[xs.length-1].v.y0)xs[xs.length-1]={x,v}}
+  // (a chain of one pitch, the uprights of something else between its joints skipped — the bottom joint of the lower wall
+  //  and the stile of the ladder П1 between the joints of the annex wall on л.17)
+  let run=[],med=0;
+  // (each end within 200 mm of the straight line fitted through the run: a joint ends at a gutter or a node mark a bit off)
+  const line=(k)=>{const n=run.length,mx=run.reduce((a,r)=>a+r.x,0)/n,my=run.reduce((a,r)=>a+r.v[k],0)/n,sxx=run.reduce((a,r)=>a+(r.x-mx)**2,0)||1,b=run.reduce((a,r)=>a+(r.x-mx)*(r.v[k]-my),0)/sxx;
+   return run.every(r=>Math.abs(my+b*(r.x-mx)-r.v[k])*scale<=200)};
+  const done=new Set();
+  for(let i=0;i<xs.length;i++){if(done.has(xs[i]))continue;
+   for(let j=i+1;j<xs.length&&(xs[j].x-xs[i].x)*scale<=1600;j++){if(done.has(xs[j]))continue;med=xs[j].x-xs[i].x;if(med*scale<300||P&&Math.abs(med*scale-P)>P*.08)continue;
+    run=[xs[i],xs[j]];
+    for(let k=j+1;k<xs.length&&xs[k].x-run[run.length-1].x<=med*1.08;k++){const st=xs[k].x-run[run.length-1].x;if(!done.has(xs[k])&&Math.abs(st-med)<=med*.08){run.push(xs[k]);if(run.length>=4&&!(line("y0")&&line("y1"))){run.pop();break}}}
+    // (few others between: a hatch of masonry is dense uprights — the annex 01–01/1 on the facade л.15 is no wall of panels)
+    const between=xs.filter(r=>r.x>run[0].x&&r.x<run[run.length-1].x&&!run.includes(r)).length;
+    if(run.length>=4&&between<=Math.max(1,run.length*.3)&&line("y0")&&line("y1")){const vs=run.map(r=>r.v),bots=vs.map(v=>zAt(v.y1)),tops=vs.map(v=>zAt(v.y0));
+     out.push({kind:"seen_panels",u0_mm:along(run[0].x),u1_mm:along(run[run.length-1].x),z0_mm:Math.min(...bots),z1_mm:Math.max(...tops),pitch_mm:r10(med*scale),joints_u_mm:run.map(r=>along(r.x)),
+      tops_mm:tops,bottoms_mm:bots,by:"slopes"});for(const r of run){r.v.used=true;done.add(r)}break}}}}
  return out
 }
 
-function sectionLines({segments=[],texts=[]},{box,scale,along,zAt,zRange}){
- if(!box||!(scale>0))return{};
- const panels=panelBands(segments,box,scale,along,zAt),callouts=calloutsOf(texts,segments,box,along,zAt),pipes=pipesOf(segments,callouts,scale,along,zAt),seen=seenPanels(segments,box,scale,along,zAt,zRange);
- const nodes=callouts.filter(c=>c.kind==="node"&&c.node).map(c=>({node:c.node,...(c.ref?{ref:c.ref}:{}),u_mm:c.u_mm,z_mm:c.z_mm}));
- const openings=callouts.filter(c=>c.kind==="opening").map(c=>({u_mm:c.u_mm,z_mm:c.z_mm,...(c.w_mm?{w_mm:c.w_mm,h_mm:c.h_mm}:{}),...(c.bottom_mm!==undefined?{bottom_mm:c.bottom_mm}:{}),text:c.text}));
- return{panels,seen,pipes,openings,nodes,callouts}
+// The roof outline of a facade (АР ч.1 л.16 ИР-71535, фасад А–Н): its slopes — thick lines 1…60 %, at least 2 m along;
+// the ridge where two slopes meet at their high ends; the railing — thin lines along a slope 200…1200 mm over it, its
+// posts up to it; the eave — a short level line at the low end of a slope (the gutter under the overhang, +21,750).
+function roofOutline(segments,box,scale,along,zAt){
+ const inBox=q=>q.x>=box.x0-5&&q.x<=box.x1+5&&q.y>=box.y0-5&&q.y<=box.y1+5;
+ const sl=segments.filter(s=>inBox(s.a)&&inBox(s.b)&&(s.w||0)>=1.2).map(s=>{const [p,q]=s.a.y>s.b.y?[s.a,s.b]:[s.b,s.a];return{lo:p,hi:q,dx:Math.abs(q.x-p.x),dy:p.y-q.y}})
+  .filter(s=>s.dx*scale>=2000&&s.dy>.3&&s.dy/s.dx>=.01&&s.dy/s.dx<=.6);
+ const out=[],slopes=[];
+ for(const s of sl){const u0=along(s.lo.x),u1=along(s.hi.x);if(slopes.some(o=>Math.abs(o.u0_mm-u0)<100&&Math.abs(o.u1_mm-u1)<100))continue;
+  slopes.push({kind:"roof_slope",u0_mm:u0,z0_mm:zAt(s.lo.y),u1_mm:u1,z1_mm:zAt(s.hi.y),slope_pct:Math.round(s.dy/s.dx*1000)/10,s})}
+ for(const o of slopes){const {s,...r}=o;out.push(r)}
+ for(let i=0;i<slopes.length;i++)for(let j=i+1;j<slopes.length;j++){const a=slopes[i],b=slopes[j];
+  if(Math.sign(a.u1_mm-a.u0_mm)===Math.sign(b.u1_mm-b.u0_mm))continue;
+  if(Math.abs(a.u1_mm-b.u1_mm)<=1500&&Math.abs(a.z1_mm-b.z1_mm)<=300)out.push({kind:"ridge",u_mm:r10((a.u1_mm+b.u1_mm)/2),z_mm:Math.max(a.z1_mm,b.z1_mm)})}
+ const lineZ=(o,x)=>{const t=(x-o.s.lo.x)/(o.s.hi.x-o.s.lo.x);return o.s.lo.y+(o.s.hi.y-o.s.lo.y)*t};
+ for(const o of slopes){const k=(o.s.hi.y-o.s.lo.y)/(o.s.hi.x-o.s.lo.x),xa=Math.min(o.s.lo.x,o.s.hi.x),xb=Math.max(o.s.lo.x,o.s.hi.x);
+  const rails=segments.filter(q=>(q.w||0)<1.2&&Math.abs(q.b.x-q.a.x)>=(xb-xa)*.4&&Math.abs((q.b.y-q.a.y)/(q.b.x-q.a.x)-k)<=.01).map(q=>{const xm=(q.a.x+q.b.x)/2,ym=(q.a.y+q.b.y)/2;return{q,h:(lineZ(o,xm)-ym)*scale}}).filter(r=>r.h>=200&&r.h<=1200);
+  if(!rails.length)continue;const top=Math.max(...rails.map(r=>r.h));
+  const posts=segments.filter(q=>Math.abs(q.a.x-q.b.x)<.3&&q.a.x>=xa-2&&q.a.x<=xb+2&&Math.abs(Math.max(q.a.y,q.b.y)-lineZ(o,q.a.x))*scale<=150&&Math.abs(Math.abs(q.a.y-q.b.y)*scale-top)<=150).length;
+  out.push({kind:"railing",u0_mm:o.u0_mm,u1_mm:o.u1_mm,h_mm:r10(top),rails:rails.length,...(posts?{posts}:{})})}
+ for(const o of slopes){const lo=o.s.lo;
+  const e=segments.find(q=>Math.abs(q.a.y-q.b.y)<.3&&Math.abs(q.a.x-q.b.x)*scale>=200&&Math.abs(q.a.x-q.b.x)*scale<=2000&&Math.abs(q.a.y-lo.y)*scale<=250&&
+   [q.a,q.b].some(p=>Math.abs(p.x-lo.x)*scale<=150));
+  if(e)out.push({kind:"eave",u0_mm:Math.min(along(e.a.x),along(e.b.x)),u1_mm:Math.max(along(e.a.x),along(e.b.x)),z_mm:zAt(e.a.y)})}
+ return out
 }
 
-module.exports={sectionLines,panelBands,calloutsOf,pipesOf,seenPanels};
+function sectionLines({segments=[],texts=[]},{box,scale,along,zAt,zRange,facade=false,uRange}){
+ if(!box||!(scale>0))return{};
+ const panels=panelBands(segments,box,scale,along,zAt),callouts=calloutsOf(texts,segments,box,along,zAt),pipes=pipesOf(segments,callouts,scale,along,zAt),seen=seenPanels(segments,box,scale,along,zAt,zRange,facade,uRange);
+ const nodes=callouts.filter(c=>c.kind==="node"&&c.node).map(c=>({node:c.node,...(c.ref?{ref:c.ref}:{}),u_mm:c.u_mm,z_mm:c.z_mm}));
+ const openings=callouts.filter(c=>c.kind==="opening").map(c=>({u_mm:c.u_mm,z_mm:c.z_mm,...(c.w_mm?{w_mm:c.w_mm,h_mm:c.h_mm}:{}),...(c.bottom_mm!==undefined?{bottom_mm:c.bottom_mm}:{}),text:c.text}));
+ const roof=facade?roofOutline(segments,box,scale,along,zAt):[];
+ return{panels,seen,pipes,openings,nodes,callouts,...(roof.length?{roof}:{})}
+}
+
+module.exports={sectionLines,panelBands,calloutsOf,pipesOf,seenPanels,roofOutline};

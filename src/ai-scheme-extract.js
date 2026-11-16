@@ -11,12 +11,13 @@
 const AXIS_LABEL=/^(?:[А-ЯЁA-Z]{0,2}\d{1,3}[а-яa-z]?|[А-ЯЁA-Z]{1,2})(?:\/\d{1,2})?$/u;
 // "O4" typed with a Latin O and "04" typed with a zero are the same axis "О4".
 // (a Latin letter that looks Cyrillic in an axis name — «I», «I1» of the axes И, И1 of the existing building on АР ч.1 л.5
-// ИР-71535, «B», «K» exported from CAD —: the Cyrillic axis; «I» is И: there is no Latin axis on a Russian drawing)
-const AXIS_LOOK={A:"А",B:"В",C:"С",E:"Е",H:"Н",I:"И",K:"К",M:"М",P:"Р",T:"Т",X:"Х"};
+// ИР-71535, «B», «K» exported from CAD —: the Cyrillic axis; «I» is И, «J» is Й (between И2 and К on the plan АР ч.1 л.10,
+// as ISO 9 writes them): there is no Latin axis on a Russian drawing)
+const AXIS_LOOK={A:"А",B:"В",C:"С",E:"Е",H:"Н",I:"И",J:"Й",K:"К",M:"М",P:"Р",T:"Т",X:"Х"};
 const {roofPlan}=require("./ai-roof-plan");
 const axisName=str=>String(str).trim().replace(/^[OО0](?=\d)/u,"О");
 // (only on a sheet whose axes are Cyrillic: a grid of Latin axes «A», «B», «C» stays Latin)
-const cyrAxis=s=>String(s).replace(/^[ABCEHIKMPTX]{1,2}(?=\d|\/|$)/u,m=>[...m].map(c=>AXIS_LOOK[c]).join(""));
+const cyrAxis=s=>String(s).replace(/^[ABCEHIJKMPTX]{1,2}(?=\d|\/|$)/u,m=>[...m].map(c=>AXIS_LOOK[c]).join(""));
 // Upper-case codes ("СВ3") and mixed-case ones ("Сгф3", "Фс1").
 const MARK_LABEL=/^([А-ЯЁA-Z]{1,3}|[А-ЯЁA-Z][а-яё]{1,2})(\d{1,4})(?:[-.]\d{1,3})?[а-я]?$/u;
 // Sheet references (М1.4) and section names are not shipping marks.
