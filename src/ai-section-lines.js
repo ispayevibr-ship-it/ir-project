@@ -226,7 +226,16 @@ function seenPanels(segments,box,scale,along,zAt,zr=[-Infinity,Infinity],facade=
     const inside=V.some(v=>{const u=along(v.x);return u>p0+50&&u<p1-50&&zAt(v.y1)>a-30&&zAt(v.y0)<b2+30})||
      H.some(h=>{const z=zAt(h.y);return z>a+60&&z<b2-60&&along(h.x0)<p1-50&&along(h.x1)>p0+50});
     if(!inside&&!out.some(o=>o.by==="pier"&&Math.abs(o.u0_mm-p0)<50&&Math.abs(o.z0_mm-a)<50)){const mid=[...new Set(VO.filter(v=>{const u=along(v.x);return u>p0+50&&u<p1-50&&zAt(v.y1)<=a+30&&zAt(v.y0)>=b2-30}).map(v=>r10(along(v.x))))].sort((x,y)=>x-y);
-     out.push({kind:"seen_panels",u0_mm:p0,u1_mm:p1,z0_mm:a,z1_mm:b2,pitch_mm:L.pitch_mm,joints_u_mm:[p0,...mid,p1],by:"pier"})}}}}
+     out.push({kind:"seen_panels",u0_mm:p0,u1_mm:p1,z0_mm:a,z1_mm:b2,pitch_mm:L.pitch_mm,joints_u_mm:[p0,...mid,p1],by:"pier"})}}}
+  // (one panel without a joint of its own between the ends of two strips of the same height — 0,5…1,2 pitch apart, nothing
+  //  else there: under the upper ОК-4 left of the ladder П1 at +15,4…+17,3, right of it from +18,5 to the roof, by the door
+  //  Д-3 at Б up to +7,1 — АР ч.1 л.16)
+  const strips=out.slice(),gaps=[];
+  for(const A of strips)for(const B of strips){if(A===B)continue;const aj=A.joints_u_mm,bj=B.joints_u_mm,g0=Math.max(...aj),g1=Math.min(...bj),P=A.pitch_mm;
+   if(g1-g0<P*.5||g1-g0>P*1.2)continue;const z0=Math.max(A.z0_mm,B.z0_mm),z1=Math.min(A.z1_mm,B.z1_mm);if(z1-z0<1000)continue;
+   if(strips.some(o=>Math.min(z1,o.z1_mm)-Math.max(z0,o.z0_mm)>500&&Math.min(g1,Math.max(...o.joints_u_mm))-Math.max(g0,Math.min(...o.joints_u_mm))>100))continue;
+   if(!gaps.some(o=>Math.abs(o.u0_mm-g0)<50&&Math.min(z1,o.z1_mm)-Math.max(z0,o.z0_mm)>500))gaps.push({kind:"seen_panels",u0_mm:g0,u1_mm:g1,z0_mm:z0,z1_mm:z1,pitch_mm:P,joints_u_mm:[g0,g1],by:"gap"})}
+  out.push(...gaps)}
  return out
 }
 
