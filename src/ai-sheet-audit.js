@@ -29,7 +29,7 @@ const ALONG=/^по\s?(?:оси\s?|ряду\s?)?([А-ЯЁA-Z]{0,2}\d{0,3})$/u;
 const PROFILE=/(?:^|[^А-ЯЁа-яё])(?:\d{2,4}\s?[хx×]\s?\d{1,3}|[IШБКД]\d{2}|∟|□|Тр\.?|Гн\.?|L\d|⌀|Ø|\d{2,3}[БКШ]\d)/u;
 const WORDS=/[А-ЯЁа-яё]{3,}/u;
 // Sheet references, sheet formats, numbers of notes, dates; steels, thicknesses and profiled sheets.
-const REF=/^(?:[AА][0-4]|[МM]\d+(?:\.\d+)*|(?:КМД?|КЖ|АР|ТХ)[\s\-]?\d.*|л\.\s?\S+|\d{1,2}\.|\(\S+\))$/u,DATE=/^\d{2}\.\d{2}\.\d{2,4}$/u;
+const REF=/^(?:[AА][0-4]|[МM]\d+(?:\.\d+)*|(?:КМД?|КЖ|АР|ТХ)[\s\-]?\d.*|л\.\s?\S+|\d{1,2}\.|\(\S+\))$/u,DATE=/^(?:\d{2}\.\s?)?\d{2}\.\s?\d{2,4}$/u;
 const STEEL=/^(?:Ст\d|С\d{3}|09Г2С|10ХСНД|t\s?\d|[НС]\d{2}-\d{3,4}-)/u;
 // (Latin letters that look Cyrillic — «O4» of the axes of КМ1 ИР-71535 against «О4» of its scheme, «C345» — one key)
 const LOOK={A:"А",B:"В",C:"С",E:"Е",H:"Н",K:"К",M:"М",O:"О",P:"Р",T:"Т",X:"Х",Y:"У",a:"а",c:"с",e:"е",o:"о",p:"р",x:"х",y:"у"};
@@ -107,6 +107,7 @@ function auditSheet(geometry,page){
   return[v?.name,h?.name].filter(Boolean).join("/")};
  const at=t=>{const c=textFrame(t).c;return{x:Math.round(c.x*10)/10,y:Math.round(c.y*10)/10}};
  const pending=[];let arJson=null;const arText=()=>arJson||(arJson=JSON.stringify(page?.ar||{}));
+ let arSet=null;const arNums=()=>arSet||(arSet=new Set([...arText().matchAll(/"(?:area_m2|mass_kg|total_m2|total_kg|rows_m2|rows_kg|count|panels)":(\d+(?:\.\d+)?)/gu)].map(m=>Math.round(Number(m[1])*100))));
  // (a number in a circle that is the number of a node titled on the sheet — «Узел 40» — and no axis of a scheme: the mark
  // of that node on a section, not an axis; АР ч.1 л.12 ИР-71535, the circle «40» on the section 1-1 at the gutter)
  const titledNodes=new Set(texts.map(t=>NODE_TITLE.exec(String(t.str).trim())).filter(Boolean).map(m=>m[1]));
@@ -166,9 +167,15 @@ function auditSheet(geometry,page){
   }
   if(PROFILE.test(str)||STEEL.test(str)){items.profiles.push({text:str,scheme:k});continue}
   if(REF.test(str)||DATE.test(str)){items.notes.push({text:str});continue}
+  // (the stamp and the heads of tables: the stage «РП», the code of the set, units «м2», «ед.кг», «шт.», «по RAL», «см.п.п.1»,
+  //  the panel series «Prisma» — АР ч.2 л.3 ИР-71535)
+  if(/^(?:РП|П|Р|ЭП|м2|м3|м|кг|т|шт\.?|ед\.?\s?кг|по\s?RAL|[сС]м\s?\.?\s?п\s?\.?\s?п\s?\.?\s?\d+(?:[.,]\s?\d+)*|Prisma|Ур\.\s?[зч]\.(?:\s?п\.)?|\d{1,2}\s?[хx×]\s?\d{3,5}|\d{1,2}(?:[.,]\d)?\s?%|[А-ЯЁ]{2,3}-\d{3,6}(?:\.\d{2}-\d{2}\.\d{4}-\d{2})?-[А-ЯЁ]{2,3}.*)$/u.test(str)){items.notes.push({text:str});continue}
   if(/^\d{1,6}(?:\s+\d{1,6})+$/u.test(str)){items.dims.push({text:str,used:null,scheme:k});continue}
   if(WORDS.test(str)){items.notes.push({text:str});continue}
   if(/^[\s\-–—_.,:;()\[\]{}|/\\*!°"«»'`~=+<>]+$/u.test(str))continue;
+  // (a number cell of a panel table — area, mass of one, total area, the «Итого» — taken by the АР reader: АР ч.2 л.3
+  //  ИР-71535 «258,50», «24 188,27» stood among the unknowns, 101 of them; инженер 16.11.2026)
+  if(/^\d{1,3}(?:\s?\d{3})*(?:[.,]\d{1,3})?$/u.test(str)&&page?.ar){const v=Number(str.replace(/\s/gu,"").replace(",","."));if(arNums().has(Math.round(v*100))){items.notes.push({text:str,ar:true});continue}}
   items.unknown.push({text:str,scheme:k,at:at(t)})
  }
  // Marks: each label paired with an element of its scheme placed from it (the element keeps the label's point), then

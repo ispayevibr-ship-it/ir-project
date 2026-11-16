@@ -232,9 +232,12 @@ function seenPanels(segments,box,scale,along,zAt,zr=[-Infinity,Infinity],facade=
   //  Д-3 at Б up to +7,1 — АР ч.1 л.16)
   const strips=out.slice(),gaps=[];
   for(const A of strips)for(const B of strips){if(A===B)continue;const aj=A.joints_u_mm,bj=B.joints_u_mm,g0=Math.max(...aj),g1=Math.min(...bj),P=A.pitch_mm;
-   if(g1-g0<P*.5||g1-g0>P*1.2)continue;const z0=Math.max(A.z0_mm,B.z0_mm),z1=Math.min(A.z1_mm,B.z1_mm);if(z1-z0<1000)continue;
+   if(g1-g0<P*.5||g1-g0>P*2.2)continue;const z0=Math.max(A.z0_mm,B.z0_mm),z1=Math.min(A.z1_mm,B.z1_mm);if(z1-z0<1000)continue;
+   // (two panels — a joint between them of the gap's height: right of П1 under the upper ОК-4 at +15,4…+17,3 on л.16)
+   const mid=g1-g0>P*1.2?[...new Set(VO.filter(v=>{const u=along(v.x),va=zAt(v.y1),vb=zAt(v.y0);return u>g0+P*.4&&u<g1-P*.4&&Math.min(z1,vb)-Math.max(z0,va)>=(z1-z0)*.6}).map(v=>r10(along(v.x))))]:[];
+   if(g1-g0>P*1.2&&!mid.length)continue;
    if(strips.some(o=>Math.min(z1,o.z1_mm)-Math.max(z0,o.z0_mm)>500&&Math.min(g1,Math.max(...o.joints_u_mm))-Math.max(g0,Math.min(...o.joints_u_mm))>100))continue;
-   if(!gaps.some(o=>Math.abs(o.u0_mm-g0)<50&&Math.min(z1,o.z1_mm)-Math.max(z0,o.z0_mm)>500))gaps.push({kind:"seen_panels",u0_mm:g0,u1_mm:g1,z0_mm:z0,z1_mm:z1,pitch_mm:P,joints_u_mm:[g0,g1],by:"gap"})}
+   if(!gaps.some(o=>Math.abs(o.u0_mm-g0)<50&&Math.min(z1,o.z1_mm)-Math.max(z0,o.z0_mm)>500))gaps.push({kind:"seen_panels",u0_mm:g0,u1_mm:g1,z0_mm:z0,z1_mm:z1,pitch_mm:P,joints_u_mm:[g0,...mid.sort((x,y)=>x-y),g1],by:"gap"})}
   out.push(...gaps)}
  return out
 }
@@ -266,13 +269,96 @@ function roofOutline(segments,box,scale,along,zAt){
  return out
 }
 
+// Seen strips cut to the wall outline (инженер 16.11.2026, АР ч.1 л.16, 17): a strip whose top stands above a roof slope over it
+// ends at the slope — the wall stops under the roof (пристройка А–Б at Б: the wall ends at its roof +4,7…+5,3; strips under the
+// main slopes; the annex at О10 under its upper roof 14,39→15,37). Not when panel joints go on above the slope up to the strip
+// top (a wall behind a lower roof). Past the slope's end the top holds the slope's end level, unless a wall line rises there
+// (the high end of a lean-to against a taller wall) — then the top stays. Result: top_mm [[u,z]…] along the strip.
+function clipSeenToRoof(seen,roof,segments,along,zAt,scale){
+ const S=roof.filter(r=>r.kind==="roof_slope").map(r=>({a:Math.min(r.u0_mm,r.u1_mm),b:Math.max(r.u0_mm,r.u1_mm),z:u=>r.z0_mm+(r.z1_mm-r.z0_mm)*(u-r.u0_mm)/(r.u1_mm-r.u0_mm),hiU:r.u1_mm,loU:r.u0_mm}));
+ // the ridge between the high ends of two slopes is roof too: level at the ridge
+ for(const g of roof.filter(r=>r.kind==="ridge")){const hs=S.filter(o=>Math.abs(o.hiU-g.u_mm)<=1500);if(hs.length<2)continue;
+  const a=Math.min(...hs.map(o=>o.hiU)),b=Math.max(...hs.map(o=>o.hiU));if(b-a>1)S.push({a,b,z:()=>g.z_mm,hiU:b,loU:a,ridge:true})}
+ if(!S.length)return;
+ const V=segments.filter(q=>Math.abs(q.a.x-q.b.x)<.3&&Math.abs(q.a.y-q.b.y)*scale>=500).map(q=>({u:along(q.a.x),lo:zAt(Math.max(q.a.y,q.b.y)),hi:zAt(Math.min(q.a.y,q.b.y))}));
+ const H=segments.filter(q=>Math.abs(q.a.y-q.b.y)<.3&&Math.abs(q.a.x-q.b.x)*scale>=300).map(q=>({z:zAt(q.a.y),u0:Math.min(along(q.a.x),along(q.b.x)),u1:Math.max(along(q.a.x),along(q.b.x))}));
+ for(const s of seen){const js=s.joints_u_mm,ua=Math.min(...js),ub=Math.max(...js);let cut=[];
+  for(const r of S){if(r.ridge)continue;const a=Math.max(ua,r.a),b=Math.min(ub,r.b);if(b-a<300)continue;
+   const za=r.z(a),zb=r.z(b);if(Math.min(za,zb)<s.z0_mm+300)continue;
+   if(Math.min(za,zb)>s.z1_mm-100){// the strip top stands under the slope: the joints go on up to the roof — the strip follows it
+    if(Math.min(za,zb)-s.z1_mm>1500)continue;
+    if(H.some(h=>h.z>s.z1_mm+100&&h.z<Math.min(r.z(Math.max(a,Math.min(b,h.u0))),r.z(Math.max(a,Math.min(b,h.u1))))-100&&Math.min(b,h.u1)-Math.max(a,h.u0)>=(b-a)*.5))continue;
+    if(!V.some(v=>v.u>=a-50&&v.u<=b+50&&v.hi>=r.z(v.u)-250&&v.lo<=s.z1_mm+100))continue;
+    cut.push({r,a,b,up:true});continue}
+   if(V.some(v=>v.u>a+150&&v.u<b-150&&Math.abs(v.hi-s.z1_mm)<=200&&v.lo>r.z(v.u)+150))continue;
+   // the slope crosses the strip top: where it stands above, joints up to it mean the strip follows the slope all along
+   const up=V.some(v=>v.u>=a-50&&v.u<=b+50&&r.z(v.u)>s.z1_mm+100&&v.hi>=r.z(v.u)-250&&v.lo<=s.z1_mm+100);
+   cut.push({r,a,b,...(up?{up:true}:{})})}
+  if(!cut.length)continue;
+  for(const r of S.filter(o=>o.ridge)){const a=Math.max(ua,r.a),b=Math.min(ub,r.b);if(b-a<1)continue;
+   if(cut.filter(c=>Math.abs(c.r.hiU-r.a)<=1||Math.abs(c.r.hiU-r.b)<=1).length)cut.push({r,a,b,ridge:true})}
+  const pts=new Set([ua,ub]);for(const c of cut){pts.add(c.a);pts.add(c.b);if(c.up)continue;const {r}=c,k=(r.z(c.b)-r.z(c.a))/(c.b-c.a);
+   if(Math.abs(k)>1e-9){const u=c.a+(s.z1_mm-r.z(c.a))/k;if(u>c.a&&u<c.b)pts.add(u)}}
+  const us=[...pts].sort((x,y)=>x-y);
+  const zOf=u=>{const rg=cut.find(c=>c.ridge&&u>=c.a&&u<=c.b);if(rg)return rg.r.z(u);let z=s.z1_mm;for(const c of cut){const {r}=c;if(c.ridge)continue;
+    if(u>=c.a&&u<=c.b){if(c.up)return Math.max(s.z0_mm,r.z(u));z=Math.min(z,r.z(u))}
+    else{const end=u<c.a?r.a:r.b;if(Math.abs((u<c.a?c.a:c.b)-end)>1)continue;// the strip goes on past the slope's end
+     const zEnd=r.z(end),rises=V.some(v=>Math.abs(v.u-end)<=150&&v.lo<=zEnd+200&&v.hi>=zEnd+1000);
+     if(!rises)z=c.up?zEnd:Math.min(z,zEnd)}}
+   return Math.max(s.z0_mm,z)};
+  // each piece between break points is straight; a wall rising past a slope's end leaves a step there
+  const out=[];for(let i=0;i+1<us.length;i++){const p=us[i],q=us[i+1];out.push([r10(p),r10(zOf(p+.5))],[r10(q),r10(zOf(q-.5))])}
+  s.top_mm=out.filter((p,i,a)=>!i||p[0]!==a[i-1][0]||p[1]!==a[i-1][1]);s.z1_mm=Math.max(...s.top_mm.map(p=>p[1]));s.cut_by="roof";
+  const at=u=>{let z=null;for(let i=0;i+1<s.top_mm.length;i++){const [p,zp]=s.top_mm[i],[q,zq]=s.top_mm[i+1];if(u<p-1||u>q+1)continue;const v=q-p>1?zp+(zq-zp)*(u-p)/(q-p):Math.max(zp,zq);z=z===null?v:Math.max(z,v)}return r10(z===null?s.z1_mm:z)};
+  s.tops_mm=js.map(at)}
+}
+
+// A gap between a strip and the strip above it (инженер 16.11.2026, АР ч.1 л.17 у О2–О3 у перелива, +20,42…+21,76): when neither
+// strip's edge is drawn along the gap and no level line crosses it, the wall goes on — one strip between them.
+function fillStripGapsUp(seen,segments,along,zAt,scale){
+ const H=segments.filter(q=>Math.abs(q.a.y-q.b.y)<.3&&Math.abs(q.a.x-q.b.x)*scale>=300).map(q=>({z:zAt(q.a.y),u0:Math.min(along(q.a.x),along(q.b.x)),u1:Math.max(along(q.a.x),along(q.b.x))}));
+ const span=s=>[Math.min(...s.joints_u_mm),Math.max(...s.joints_u_mm)],add=[];
+ const drawn=(z,a,b,tol)=>{let cov=0;for(const h of H)if(Math.abs(h.z-z)<=tol)cov+=Math.max(0,Math.min(b,h.u1)-Math.max(a,h.u0));return cov>=(b-a)*.5};
+ for(const A of seen)for(const B of seen){if(A===B)continue;const g=B.z0_mm-A.z1_mm;if(g<300||g>2500)continue;
+  const [a0,a1]=span(A),[b0,b1]=span(B),u0=Math.max(a0,b0),u1=Math.min(a1,b1);if(u1-u0<500)continue;
+  if(A.top_mm||B.top_mm)continue;
+  if(seen.concat(add).some(o=>{const [o0,o1]=span(o);return o!==A&&o!==B&&o0<u1-100&&o1>u0+100&&o.z0_mm<B.z0_mm-100&&o.z1_mm>A.z1_mm+100}))continue;
+  if(drawn(A.z1_mm,u0,u1,60)||drawn(B.z0_mm,u0,u1,60))continue;
+  if(H.some(h=>h.z>A.z1_mm+100&&h.z<B.z0_mm-100&&Math.min(u1,h.u1)-Math.max(u0,h.u0)>=(u1-u0)*.5))continue;
+  const js=[...new Set([u0,...A.joints_u_mm].filter(u=>u>=u0&&u<=u1).concat([u1]))].sort((x,y)=>x-y);
+  add.push({kind:"seen_panels",u0_mm:u0,u1_mm:u1,z0_mm:A.z1_mm,z1_mm:B.z0_mm,pitch_mm:A.pitch_mm||B.pitch_mm,joints_u_mm:js,by:"gap"})}
+ seen.push(...add)
+}
+
+// Fire stairs on a facade (инженер 16.11.2026, для сверки с КМ3): the callout «пожарная лестница тип П1 см. лист КМ3-13» points at
+// the ladder; its rails and cage — thin upright lines within 1,2 m of the point that reach its level — give where it stands,
+// its bottom and its top. Thick lines (wall outlines) and downpipes are not the ladder.
+function stairsOf(callouts,segments,pipes,seen,along,zAt,scale){
+ const V=segments.filter(q=>Math.abs(q.a.x-q.b.x)<.3&&(q.w||0)<1.2&&Math.abs(q.a.y-q.b.y)*scale>=300).map(q=>({u:along(q.a.x),lo:zAt(Math.max(q.a.y,q.b.y)),hi:zAt(Math.min(q.a.y,q.b.y))}));
+ // a joint of panels the facade reads is wall, not ladder
+ const joint=v=>seen.some(t=>v.lo>=Math.min(t.z0_mm,t.z1_mm)-200&&v.hi<=Math.max(t.z1_mm,...(t.tops_mm||[]))+200&&t.joints_u_mm.some(j=>Math.abs(j-v.u)<=40));
+ const out=[];
+ for(const c of callouts.filter(c=>c.kind==="stair")){
+  const m=/тип\s*П\s*(\d)/i.exec(c.text),ref=(c.ref||"").replace(/\s+/g,"").replace(/^см\.?лист/i,"");
+  let R=V.filter(v=>v.hi-v.lo>=1000&&Math.abs(v.u-c.u_mm)<=1200&&v.lo<=c.z_mm+300&&v.hi>=c.z_mm-300&&!pipes.some(p=>Math.abs(p.u_mm-v.u)<=(p.d_mm||150)&&v.lo>=p.z0_mm-300&&v.hi<=p.z1_mm+300)&&!joint(v));
+  if(!R.length)continue;
+  // the lines running on from those found, end to end and side by side (the rails below the cage)
+  const lo0=Math.min(...R.map(v=>v.lo)),u0=Math.min(...R.map(v=>v.u)),u1=Math.max(...R.map(v=>v.u));let lo=lo0,hi=Math.max(...R.map(v=>v.hi)),grew=true;
+  while(grew){grew=false;for(const v of V)if(R.some(r=>Math.abs(r.u-v.u)<=10)&&!joint(v)&&v.hi>=lo-100&&v.lo<lo-1&&v.hi<=hi+100){lo=v.lo;grew=true}}
+  out.push({kind:"fire_stair",...(m?{type:"П"+m[1]}:{}),...(ref?{ref}:{}),u0_mm:r10(u0),u1_mm:r10(u1),z0_mm:r10(lo),z1_mm:r10(hi),text:c.text})}
+ return out
+}
+
 function sectionLines({segments=[],texts=[]},{box,scale,along,zAt,zRange,facade=false,uRange}){
  if(!box||!(scale>0))return{};
  const panels=panelBands(segments,box,scale,along,zAt),callouts=calloutsOf(texts,segments,box,along,zAt),pipes=pipesOf(segments,callouts,scale,along,zAt),seen=seenPanels(segments,box,scale,along,zAt,zRange,facade,uRange);
  const nodes=callouts.filter(c=>c.kind==="node"&&c.node).map(c=>({node:c.node,...(c.ref?{ref:c.ref}:{}),u_mm:c.u_mm,z_mm:c.z_mm}));
  const openings=callouts.filter(c=>c.kind==="opening").map(c=>({u_mm:c.u_mm,z_mm:c.z_mm,...(c.w_mm?{w_mm:c.w_mm,h_mm:c.h_mm}:{}),...(c.bottom_mm!==undefined?{bottom_mm:c.bottom_mm}:{}),text:c.text}));
  const roof=facade?roofOutline(segments,box,scale,along,zAt):[];
- return{panels,seen,pipes,openings,nodes,callouts,...(roof.length?{roof}:{})}
+ if(facade&&roof.length)clipSeenToRoof(seen,roof,segments,along,zAt,scale);
+ if(facade)fillStripGapsUp(seen,segments,along,zAt,scale);
+ const stairs=facade?stairsOf(callouts,segments,pipes,seen,along,zAt,scale):[];
+ return{panels,seen,pipes,openings,nodes,callouts,...(roof.length?{roof}:{}),...(stairs.length?{stairs}:{})}
 }
 
-module.exports={sectionLines,panelBands,calloutsOf,pipesOf,seenPanels,roofOutline};
+module.exports={sectionLines,panelBands,calloutsOf,pipesOf,seenPanels,roofOutline,stairsOf};

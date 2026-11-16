@@ -134,13 +134,16 @@ const sketchDesignation=str=>{const s=String(str||"").replace(/\s+/g,""),m=/ТС
  if(!m)return null;const c=[...s.matchAll(/(?:ПРМ|ПЭ|ПВДФ|PE|PVDF)?-\d{2}-(\d{4})-0[.,]\d/gu)].map(x=>x[1]);
  return{thickness_mm:Number(m[1]),width_mm:Number(m[2]),name:s.replace(/\(.*$/u,""),rals:c}};
 function sketchSpec(texts){
- const out=[];
+ const out=[],num=v=>Number(String(v).replace(/\s/gu,"").replace(",","."));
  for(const head of texts.filter(t=>horizontalText(t)&&/^Эскиз$/u.test(String(t.str).trim()))){
   const hdr=texts.filter(t=>horizontalText(t)&&Math.abs(t.y-head.y)<20&&Math.abs(t.x-head.x)<900);
   const markH=hdr.filter(t=>/^Марка/u.test(String(t.str))&&t.x<head.x).sort((a,b)=>b.x-a.x)[0];
   const areaH=hdr.filter(t=>/^Площадь/u.test(String(t.str))&&t.x>head.x).sort((a,b)=>a.x-b.x)[0];
   const countH=hdr.filter(t=>/^Кол/u.test(String(t.str))&&t.x>head.x).sort((a,b)=>a.x-b.x)[0];
   const colours=hdr.filter(t=>/^Цвет/u.test(String(t.str))&&t.x>head.x).sort((a,b)=>a.x-b.x).slice(0,2);
+  // («Масса ед., кг» and «Общая площадь, м2» of the row — АР ч.2 л.3 ИР-71535, инженер 16.11.2026)
+  const massH=hdr.filter(t=>/^Масса/u.test(String(t.str))&&t.x>head.x).sort((a,b)=>a.x-b.x)[0];
+  const totalH=hdr.filter(t=>/^Общая/u.test(String(t.str))&&t.x>head.x&&(!colours[0]||t.x<colours[0].x)).sort((a,b)=>a.x-b.x)[0];
   if(!markH||!areaH)continue;
   const title=texts.filter(t=>/Спецификация.*панел/iu.test(String(t.str))&&t.y<head.y&&head.y-t.y<90&&Math.abs(t.x-head.x)<700).sort((a,b)=>b.y-a.y)[0];
   const roof=/кровельн/iu.test(String(title?.str||""));
@@ -152,6 +155,10 @@ function sketchSpec(texts){
    const band=texts.filter(o=>o!==m&&o.y>=y0&&o.y<y1&&o.x>markH.x+20&&o.x<areaH.x+700),line=band.filter(o=>Math.abs(o.y-m.y)<4);
    const at=(x,re,tol)=>line.filter(o=>re.test(String(o.str).trim())&&Math.abs(o.x-x)<tol).sort((a,b)=>Math.abs(a.x-x)-Math.abs(b.x-x))[0];
    const area=at(areaH.x,/^\d+[.,]\d+$/,40),count=countH?at(countH.x,/^\d{1,4}$/,30):null;
+   const mass=massH?at(massH.x,/^\d+[.,]\d+$/,30):null;
+   // (the total area of the row as written; it should be its area × count — where not, a slip of the sheet kept beside it:
+   //  АР ч.2 л.3 ИР-71535 Пс-8 11,24 × 3 «77,32», Пс-10 9,97 × 2 «19,64»; «Итого» 1078,87 is the sum of area × count)
+   const whole=totalH?at(totalH.x,/^\d+[.,]\d+$/,35):null,want=area&&count?Math.round(num(area.str)*Number(count.str)*100)/100:null;
    const des=band.filter(o=>o.x<areaH.x&&sketchDesignation(o.str)).sort((a,b)=>Math.abs(a.x-markH.x)-Math.abs(b.x-markH.x))[0],d=des?sketchDesignation(des.str):prev?.d||null;
    const ral=colours.map(c=>{const own=band.filter(o=>Math.abs(o.x-c.x)<30).flatMap(o=>ralCodes(o.str));return own[0]||""});
    const rals=[ral[0]||(d&&des?d.rals[0]:"")||prev?.ral[0]||"",ral[1]||(d&&des?d.rals[1]:"")||prev?.ral[1]||""];
@@ -163,8 +170,17 @@ function sketchSpec(texts){
    const mm=SKETCH_POS.exec(String(m.str).trim());
    out.push({at:m,pos:String(m.str).trim(),kind:mm[1].toUpperCase(),length_mm:length,width_mm:width,thickness_mm:d?.thickness_mm||0,ral:rals[0]||rals[1]||"",
     ...(rals[1]&&rals[1]!==rals[0]?{ral_inside:rals[1]}:{}),count:count?Number(count.str):null,name:d?.name||"",table:String(title?.str||"").trim(),
-    ...(sq?{area_m2:sq}:{}),sketch:true,...(roof?{roof:true}:{})})
-  })
+    ...(sq?{area_m2:sq}:{}),...(mass?{mass_kg:num(mass.str)}:{}),...(whole?{total_m2:num(whole.str),...(want!==null&&Math.abs(num(whole.str)-want)>.06?{total_slip:{area_x_count_m2:want}}:{})}:{}),sketch:true,...(roof?{roof:true}:{})})
+  });
+  // «Итого:» under the table — «Общая площадь панелей (м2)», «Общая проектная масса панелей … (кг.)», «108 панелей»: the totals
+  // of the whole spec (a table may run over two sheets — «(окончание)»): kept to check the sum of the rows against
+  const below=texts.filter(t=>horizontalText(t)&&t.y>(marks.length?marks[marks.length-1].y:head.y)&&t.y-(marks.length?marks[marks.length-1].y:head.y)<120&&Math.abs(t.x-head.x)<900);
+  const val=(re,col)=>{const lab=below.find(t=>re.test(String(t.str)));if(!lab)return null;
+   const v=below.filter(t=>Math.abs(t.y-lab.y)<9&&t.x>lab.x+200&&/^\d{1,3}(?:\s?\d{3})*[.,]\d{1,3}$/u.test(String(t.str).trim())).sort((a,b)=>col?Math.abs(a.x-col.x)-Math.abs(b.x-col.x):a.x-b.x)[0];return v?num(v.str):null};
+  const tA=val(/Общая\s+площадь\s+панелей/iu,totalH),tM=val(/Общая\s+(?:проектная\s+)?масса/iu,massH),tN=below.map(t=>/^(\d{1,4})\s*панел/iu.exec(String(t.str).trim())).find(Boolean);
+  if(tA||tM||tN){const own=out.filter(r=>r.table===String(title?.str||"").trim());
+   out.totals=(out.totals||[]).concat([{table:String(title?.str||"").trim(),...(roof?{roof:true}:{}),...(tA?{total_m2:tA}:{}),...(tM?{total_kg:tM}:{}),...(tN?{panels:Number(tN[1])}:{}),
+    rows:own.length,rows_m2:Math.round(own.reduce((a,r)=>a+(r.area_m2||0)*(r.count||0),0)*100)/100,rows_kg:Math.round(own.reduce((a,r)=>a+(r.mass_kg||0)*(r.count||0),0)*100)/100,rows_panels:own.reduce((a,r)=>a+(r.count||0),0)}])}
  }
  return out
 }
@@ -1997,7 +2013,7 @@ function extractArchitecture(geometry){
  const tr=trimSpec(texts),trNodes=trimNodes(texts),niches=nicheSpec(texts),planFills=planOpenings(geometry||{},axes),planFix=planFills.length?planFixtures(geometry||{},axes):[],planSl=planFills.length?planSlabs(geometry||{},axes):[],planBands=planFills.length?planWalls(geometry||{},axes):[];
  const floor=axes?planFloor(geometry||{},axes):null;
  const existing=axes?existingPlan(geometry||{}):null,funnels=axes?roofFunnels(geometry||{}):[];
- const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{}),...(axes?{axes}:{}),...(tr.trims.length?{trims:tr.trims}:{}),...(tr.names.length?{trimNames:tr.names}:{}),...(trNodes.length?{trimNodes:trNodes}:{}),...(niches.length?{niches}:{}),...(planFills.length?{planFills}:{}),...(planFix.length?{planFixtures:planFix}:{}),...(planSl.length?{planSlabs:planSl}:{}),...(planBands.length?{planWalls:planBands}:{}),...(existing?{existing}:{}),...(funnels.length?{roofFunnels:funnels}:{}),...(floor?{planFloor:floor}:{})};
+ const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(spec.totals?{panelTotals:spec.totals}:{}),...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{}),...(axes?{axes}:{}),...(tr.trims.length?{trims:tr.trims}:{}),...(tr.names.length?{trimNames:tr.names}:{}),...(trNodes.length?{trimNodes:trNodes}:{}),...(niches.length?{niches}:{}),...(planFills.length?{planFills}:{}),...(planFix.length?{planFixtures:planFix}:{}),...(planSl.length?{planSlabs:planSl}:{}),...(planBands.length?{planWalls:planBands}:{}),...(existing?{existing}:{}),...(funnels.length?{roofFunnels:funnels}:{}),...(floor?{planFloor:floor}:{})};
  return panels.length||fills.length||views.length||Object.keys(extra).length?{panels,fills,views,...extra}:null
 }
 module.exports={planFloor,floorZones,existingPlan,roofFunnels,planWalls,planFixtures,planSlabs,fixtureShapes,dimScale,fragmentMap,fillKinds,splitJoinedMarks,planOpenings,nicheSpec,trimSpec,trimNodes,trimKind,planAxes,facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
