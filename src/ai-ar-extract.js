@@ -420,7 +420,12 @@ function columnAround(b,runs,horiz,numbers,hs,scale,size=null,slopes=[],ext=null
  let bottom=Math.max(bl,br),top=Math.min(tl,tr);
  if(size?.length_mm&&Math.abs((bottom-Math.min(tl,tr))*scale-size.length_mm)>60&&Math.abs(tl-tr)<=.8){
   const L=size.length_mm/scale,tol=60/scale,up=bottom-L,down=top+L;
-  if(Math.min(l0,r0)<=up+tol&&Math.max(l0,r0)<=bottom-L*.5){top=up;tl=tr=up}
+  // (from the top when a line meets the column at its length down and none at its length up — a panel over the step of
+  // an opening, the step's line only part way across it: ИР-71535 АР ч.2 л.14 ряд 010, Пс-47 and Пс-48 by the gate at М–Н
+  // stood from the ground to +4,400 instead of +2,020…+6,670)
+  const lineAt=y=>horiz.some(h=>Math.abs(h.y-y)<=tol&&h.x1>l.x+.5&&h.x0<r.x-.5);
+  if(lineAt(down)&&!lineAt(up)&&Math.max(l1,r1)>=down-tol){bottom=down}
+  else if(Math.min(l0,r0)<=up+tol&&Math.max(l0,r0)<=bottom-L*.5){top=up;tl=tr=up}
   else if(Math.max(l1,r1)>=down-tol){bottom=down}
  }
  if((bottom-top)*scale<250)return null;
@@ -784,8 +789,33 @@ function openingRects(panels,vert,horiz,scale,u,z,numbers=[],texts=[],ticks=[]){
   const o=merged.find(o=>Math.abs(o.r-c.l)<=.4&&Math.abs(o.top-c.top)<=.8&&Math.abs(o.bottom-c.bottom)<=.8);
   if(o)o.r=c.r;else merged.push({...c})
  }
+ // An opening in two steps — a wide lower part and a narrower upper one over it, no line down between the columns
+ // (ИР-71535 АР ч.2 л.14 ряд 010, М–Н: the gate В-2 4030 wide up to +5,490 between two wheel bumpers «Колесоотбойники —
+ // сэндвич-панель» of the facade up to +2,020, 5000×2100 drawn round them; the panels Пс-47 and Пс-48 stand on the
+ // bumpers, cut 520 wide by the gate): the opening between the sides of the upper part — the lines from its top down to
+ // the lower part's top — from the foot; what is left of the lower part beside it, the bumpers.
+ const cov=(list,a,b)=>{let t=0,need=a;for(const [p,q] of list.sort((x,y)=>x[0]-y[0])){const c=Math.max(need,p),d=Math.min(b,q);if(d>c)t+=d-c;need=Math.max(need,d)}return t};
+ const steps=[],bumps=[];
+ for(const c of merged.slice().sort((a,b)=>a.l-b.l)){const g=steps.find(g=>Math.abs(g[g.length-1].r-c.l)<=.4&&Math.abs(g[0].bottom-c.bottom)<=.8);if(g)g.push(c);else steps.push([c])}
+ for(const g of steps){
+  if(g.length<2)continue;const low=Math.max(...g.map(c=>c.top)),hi=g.filter(c=>c.top<low-1);if(!hi.length)continue;
+  const bottom=g[0].bottom;
+  if(g.slice(1).some(c=>cov(vert.filter(v=>Math.abs(v.x-c.l)<=.4).map(v=>[v.y0,v.y1]),low,bottom)>(bottom-low)/2))continue;
+  const L=g[0].l,R=g[g.length-1].r,top=Math.min(...hi.map(c=>c.top));
+  // (a side drawn in pieces — broken at a line across the panel beside it — as one)
+  const runs=[];for(const v of vert.filter(v=>v.x>=L-.5&&v.x<=R+.5&&v.y1>=top-1.5&&v.y0<=low+1.5).sort((p,q)=>p.x-q.x||p.y0-q.y0)){const o=runs.find(o=>Math.abs(o.x-v.x)<=1&&v.y0<=o.y1+.5);if(o)o.y1=Math.max(o.y1,v.y1);else runs.push({...v})}
+  // (a jog of up to 1 pt in it — л.14 ряд 010 at И–К, 30 mm —; its line may run on down past the lower top as the
+  // extension of a dimension)
+  const sides=uniq(runs.filter(v=>Math.abs(v.y0-top)<=1.5&&v.y1>=low-1.5).map(v=>v.x));
+  if(sides.length<2||(sides[sides.length-1]-sides[0])*scale<400||!horiz.some(h=>Math.abs(h.y-low)<=.6&&h.x1>L&&h.x0<R))continue;
+  const a=sides[0],b=sides[sides.length-1];
+  for(const c of g)merged.splice(merged.indexOf(c),1);
+  merged.push({l:a,r:b,top,bottom,step:true});
+  for(const [p,q] of [[L,a],[b,R]])if((q-p)*scale>=100)bumps.push({l:p,r:q,top:low,bottom});
+ }
  const out=[];
  for(const o of merged){
+  if(o.step){out.push(o);continue}
   // The sides of the opening start at its top (hatching of the pieces beside it runs on up past it).
   const h=o.bottom-o.top,sides=uniq(vert.filter(v=>v.x>=o.l-.5&&v.x<=o.r+.5&&Math.abs(v.y0-o.top)<=1.5&&v.y1>=o.bottom-h*.1).map(v=>v.x));
   if(sides.length>=2&&(sides[sides.length-1]-sides[0])*scale>=400)out.push({...o,l:sides[0],r:sides[sides.length-1]});
@@ -852,7 +882,9 @@ function openingRects(panels,vert,horiz,scale,u,z,numbers=[],texts=[],ticks=[]){
    break
   }
  }
- return out.map(o=>{const a=u(o.l),b=u(o.r);return{u0:Math.min(a,b),u1:Math.max(a,b),z0:z(o.bottom),z1:z(o.top),base:Math.abs(o.bottom-foot)<=1.5,...(o.inner?{inner:true}:{}),at:{l:o.l,r:o.r,top:o.top,bottom:o.bottom}}}).sort((p,q)=>p.u0-q.u0||p.z0-q.z0)
+ const res=out.map(o=>{const a=u(o.l),b=u(o.r);return{u0:Math.min(a,b),u1:Math.max(a,b),z0:z(o.bottom),z1:z(o.top),base:Math.abs(o.bottom-foot)<=1.5,...(o.inner?{inner:true}:{}),...(o.step?{step:true}:{}),at:{l:o.l,r:o.r,top:o.top,bottom:o.bottom}}}).sort((p,q)=>p.u0-q.u0||p.z0-q.z0);
+ res.bumpers=bumps.map(o=>{const a=u(o.l),b=u(o.r);return{u0:Math.min(a,b),u1:Math.max(a,b),z0:z(o.bottom),z1:z(o.top),at:{l:o.l,r:o.r,top:o.top,bottom:o.bottom}}});
+ return res
 }
 // The note of an opening with its leader to it — «Отверстие ОВ 1050 х 1050(h).» and «отм .низа +19,070» under it (ИР-71535
 // АР ч.2 л.8 ряд Б: drawn with its bottom at +17,300 beside the two «ОВ 900 х 900» at +17,300) —: an opening of the note's
@@ -908,7 +940,7 @@ function noteLevels(openings,texts,segments,draw){
 // Openings inside a panel drawn whole are holes of that panel (along it from its start, and up).
 function holesOf(panels,openings){
  for(const p of panels){
-  const holes=openings.filter(o=>o.u0>=p.u0-20&&o.u1<=p.u1+20&&o.z0>=p.z0-20&&o.z1<=p.z1+20&&o.u1-o.u0<p.u1-p.u0-20||o.inner&&o.u0<p.u1-20&&o.u1>p.u0+20&&o.z0<p.z1-20&&o.z1>p.z0+20)
+  const holes=openings.filter(o=>o.u0>=p.u0-20&&o.u1<=p.u1+20&&o.z0>=p.z0-20&&o.z1<=p.z1+20&&o.u1-o.u0<p.u1-p.u0-20||(o.inner||o.step)&&o.u0<p.u1-20&&o.u1>p.u0+20&&o.z0<p.z1-20&&o.z1>p.z0+20)
    .map(o=>[Math.max(0,o.u0-p.u0),Math.min(p.u1-p.u0,o.u1-p.u0),Math.max(p.z0,o.z0),Math.min(p.z1,o.z1)]);
   if(holes.length)p.holes=holes
  }
@@ -1038,7 +1070,13 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
  for(const v of found){
   const {row,own,region,levels}=v,f=v.f||(sure.length?fit(levels,sure[sure.length>>1]):null);if(!f)continue;
   const scale=Math.abs(f.b);
-  let bubbles=row.items.map(t=>({name:String(t.str).trim().toUpperCase(),pt:t.x+(t.width||0)/2,ring:t.ring})).sort((a,b)=>a.pt-b.pt);
+  // (and on the axis line that leaves the ring upwards, when there is one within 1,5 pt of its centre)
+  const axisAt=t=>{const c=t.x+(t.width||0)/2,R=t.ring;if(!R||Math.abs(R.x-c)>(R.r||6))return c;
+   const top=R.y-(R.r||6),ln=segments.filter(q=>Math.abs(q.a.x-q.b.x)<=.2&&Math.abs(q.a.x-R.x)<=1.5&&Math.min(q.a.y,q.b.y)<top-2&&Math.max(q.a.y,q.b.y)>=top-40).sort((p,q)=>Math.abs(p.a.x-R.x)-Math.abs(q.a.x-R.x))[0];
+   return ln?ln.a.x:R.x};
+  // (the axis at the centre of its ring, not of its letter — the width of a glyph is a guess: ИР-71535 АР ч.2 л.14 ряд 010,
+  // «Н» 1,4 pt off its line, the panels at Н at 6050 instead of 6000)
+  let bubbles=row.items.map(t=>({name:String(t.str).trim().toUpperCase(),pt:axisAt(t),ring:t.ring})).sort((a,b)=>a.pt-b.pt);
   if(new Set(bubbles.map(b=>b.name)).size!==bubbles.length||new Set(bubbles.map(b=>numbered(b.name))).size!==1)continue;
   // Two bubbles joined by an arrow, «03 → 04» (ИР-71535 АР ч.2 л.5, «по ряду К, в осях 03-04»): the one it starts from
   // is the axis the panels are measured from, the other only the way along the wall — drawn beside it, not at its place.
@@ -1174,13 +1212,14 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
    ...(title?{title:String(title.str).replace(/\s+/g," ").trim()}:{}),...(wallRow?{row:wallRow}:{}),
    bbox:{x0:row.x0-260,x1:row.x1+260,y1:row.y},levels:[...new Set(levels.map(l=>l.mm))].sort((a,b)=>a-b),
    ...(()=>{const top0=Math.min(...panels.map(p=>p.rect.top));
-    let openings=noteLevels(openingRects(panels,vert,horiz,scale,u,z,numbers,region,ticks),texts,segments,{scale,u,z,inView:q=>q.x>=row.x0-15&&q.x<=row.x1+15&&q.y>=top0-5&&q.y<=row.y+5});
+    const rects=openingRects(panels,vert,horiz,scale,u,z,numbers,region,ticks),bumpers=(rects.bumpers||[]).map(({at,...o})=>o);
+    let openings=noteLevels(rects,texts,segments,{scale,u,z,inView:q=>q.x>=row.x0-15&&q.x<=row.x1+15&&q.y>=top0-5&&q.y<=row.y+5});
     // (a layout's wall whose foot follows a slope — ГПЭС ряд Ж, +5,260 at the ends, +5,950 in the middle —: what lies under
     // its panels down to the lowest foot is the slope, not openings)
     if(spec.some(p=>p.layout)){const col=new Map();for(const p of panels){const k=Math.round(p.u0/100);col.set(k,Math.min(col.get(k)??Infinity,p.z0))}
      const feet=[...col.values()],lo=Math.min(...feet);if(feet.filter(f=>f>lo+50).length>feet.length/2){const foot=z(Math.max(...panels.map(p=>p.rect.bottom)));openings=openings.filter(o=>o.z0>foot+5)}}
     openings=openings.map(({at,...o})=>o);
-    return{panels:holesOf(panels.map(({rect,...p})=>p),openings),openings}})(),unplaced:own.length-panels.filter(p=>!p.byJoints).length})
+    return{panels:holesOf(panels.map(({rect,...p})=>p),openings),openings,...(bumpers.length?{bumpers}:{})}})(),unplaced:own.length-panels.filter(p=>!p.byJoints).length})
  }
  // A piece of a wall drawn on beyond its view (row 010: «М», «Н» a little lower than «А»…«Л», ИР-71535 АР ч.2 л.4) is
  // of the view titled beside it, at the height of its bubbles, of the same kind and with axes of its own.

@@ -847,6 +847,18 @@ function arScheme(pages,opts={}){
      ...(p.cut?["Низ панели по скату кровли: "+p.cut.join(" → ")]:[]),...(p.top?["Верх по скату кровли (обрезать по месту): "+p.top.join(" → ")]:[]),...(differs?["Размер по чертежу "+Math.round(w)+"×"+Math.round(h)+", по спецификации "+q.width_mm+"×"+q.length_mm+" — проверьте"]:[])]})
    if(grown)grownSet.add(placements[placements.length-1]);
   }
+  // Wheel bumpers beside a gate in two steps (ИР-71535 АР ч.2 л.14 ряд 010, М–Н, gate В-2: «Колесоотбойники —
+  // сэндвич-панель RAL 5012, см. ТХ» of the facade, поз. 11 — the lower part of the opening 5000×2100 beside the gate
+  // 4030 wide; the panels Пс-47, Пс-48 stand on them): a piece of sandwich panel in the plane of the wall, its size as drawn.
+  for(const o of v.bumpers||[]){
+   const t=sizeOf(v.panels[0]?.mark,0,0)?.thickness_mm||150,across0=part?part.line:Math.round(row?face+(low?-t/2:t/2):face+(low?t/2:-t/2)),a=o.u0+off,b=o.u1+off;
+   placements.push({mark:"Колесоотбойник",name:"Колесоотбойник — сэндвич-панель",type_key:"sandwich_wall",scheme_group:"cladding",geometry_type:"beam",
+    fitting_type:"panel",diameter_mm:Math.max(1,o.z1-o.z0),layout:{panel:"wall",thickness_mm:t,ral:"5012",width_mm:o.u1-o.u0,bumper:true},
+    ...(v.numbered?{x_mm:a,y_mm:across0,x2_mm:b,y2_mm:across0}:{x_mm:across0,y_mm:a,x2_mm:across0,y2_mm:b}),
+    z0_mm:o.z0,z1_mm:o.z0,levels_from:"раскладка панелей АР",confidence:"medium",section:"АР",view:v,line:across0,side:low?-1:1,source_page:v.page,source_file:v.file,
+    axis_x:v.numbered?"":axis[0],axis_y:v.numbered?axis[0]:"",sheet:String(v.sheet),
+    notes:["Колесоотбойник у ворот по раскладке АР, лист "+v.sheet+": "+(o.u1-o.u0)+"×"+(o.z1-o.z0)+" — нижняя часть проёма рядом с воротами; сэндвич-панель RAL 5012 по ведомости отделки фасада (поз. 11, «см. ТХ» — раздела ТХ нет, размер по раскладке)"]});
+  }
  }
  // The wall of the building beside (ИР-71535 АР ч.2 л.5 «по фасаду 3-1»: Пс-110, Пс-111, Пс-113 on the shop ММА, where its
  // old panels come off up to +8,000 — АР ч.1 л.9; the engineer 11.11.2026: «Ставить на стену ММА»): along its axes as the
