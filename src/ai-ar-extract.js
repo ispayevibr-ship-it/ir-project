@@ -775,7 +775,7 @@ const viewRows=(texts,segments)=>{
 // the panels, joined along the wall where they share their top and bottom; then cut down to its own sides, the lines
 // that start at its top and go down its height (pieces of panels beside it without a label are not the opening). Under
 // a panel cut along a lower roof is that roof, not an opening. One whose bottom is the foot of the wall starts there.
-function openingRects(panels,vert,horiz,scale,u,z,numbers=[],texts=[],ticks=[]){
+function openingRects(panels,vert,horiz,scale,u,z,numbers=[],texts=[],ticks=[],segments=[]){
  if(panels.length<4)return[];
  const rects=panels.map(p=>p.rect),xs=[];
  for(const v of rects.flatMap(r=>[r.l,r.r]).sort((a,b)=>a-b))if(!xs.length||v-xs[xs.length-1]>.4)xs.push(v);
@@ -833,10 +833,15 @@ function openingRects(panels,vert,horiz,scale,u,z,numbers=[],texts=[],ticks=[]){
  // ряд Л, «ОВ 500 х 300» and «300»).
  const from=h=>{for(const v of vert){if(h.y<v.y0-1||h.y>v.y1+1)continue;if(h.x1-v.x>=.5&&h.x1-v.x<=6)return h.x0;if(v.x-h.x0>=.5&&v.x-h.x0<=6)return h.x1}return null};
  const plain=(l,r)=>h=>{if(noted(h))return true;const f=from(h);return f!==null&&Math.abs(f-l)>1&&Math.abs(f-r)>1};
+ const slants=segments.filter(q=>Math.abs(q.a.x-q.b.x)>.3&&Math.abs(q.a.y-q.b.y)>.3);
+ const slashIn=(l,r,t,b)=>t<b&&slants.some(q=>[q.a,q.b].every(p=>p.x>=l-.3&&p.x<=r+.3&&p.y>=t-.3&&p.y<=b+.3)&&Math.abs(q.a.y-q.b.y)>=(b-t)*.5);
  for(let i=0;i<vs.length;i++){
   const A=vs[i];
   for(let j=i+1;j<vs.length&&vs[j].x-A.x<=6500/scale;j++){
-   const B=vs[j];if(B.x-A.x<380/scale||sized(A)||sized(B))continue;
+   const B=vs[j];if(sized(A)||sized(B))continue;
+   // (narrower than 380 mm only with the mark of a hole in it — a slanted line from a corner: the holes 340×630 for the
+   // roof beams over each axis В–К at +14,260 on АР ч.2 л.2 ИР-71535, on the joint of two panels)
+   if(B.x-A.x<380/scale&&!(B.x-A.x>=100/scale&&slashIn(A.x,B.x,Math.max(A.y0,B.y0),Math.min(A.y1,B.y1))))continue;
    const l=A.x,r=B.x,top=Math.max(A.y0,B.y0),bottom=Math.min(A.y1,B.y1);
    if((bottom-top)*scale<300||cover(top,l,r,plain(l,r))<.9||!(Math.abs(bottom-foot)<=1.5||cover(bottom,l,r,plain(l,r))>=.9))continue;
    const within=joined.filter(v=>v.x>l+.5&&v.x<r-.5&&v.y1>top&&v.y0<bottom&&!sized(v));
@@ -1230,7 +1235,7 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
    ...(title?{title:String(title.str).replace(/\s+/g," ").trim()}:{}),...(wallRow?{row:wallRow}:{}),
    bbox:{x0:row.x0-260,x1:row.x1+260,y1:row.y},levels:[...new Set(levels.map(l=>l.mm))].sort((a,b)=>a-b),
    ...(()=>{const top0=Math.min(...panels.map(p=>p.rect.top));
-    const rects=openingRects(panels,vert,horiz,scale,u,z,numbers,region,ticks),bumpers=(rects.bumpers||[]).map(({at,...o})=>o);
+    const rects=openingRects(panels,vert,horiz,scale,u,z,numbers,region,ticks,segments),bumpers=(rects.bumpers||[]).map(({at,...o})=>o);
     let openings=noteLevels(rects,texts,segments,{scale,u,z,inView:q=>q.x>=row.x0-15&&q.x<=row.x1+15&&q.y>=top0-5&&q.y<=row.y+5});
     // (a layout's wall whose foot follows a slope — ГПЭС ряд Ж, +5,260 at the ends, +5,950 in the middle —: what lies under
     // its panels down to the lowest foot is the slope, not openings)

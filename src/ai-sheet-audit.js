@@ -79,7 +79,9 @@ function auditSheet(geometry,page){
  // (a bubble «01» read with a digit is the axis «О1» of the grid, «I» is «И»: АР ч.1 л.5 ИР-71535, ten axes of the grid
  // counted as misses; the axes of the other grid of the sheet — the existing building beside — are read too)
  const axisKey=m=>keyOf(m).replace(/^[0O](?=\d)/u,"О").replace(/^I(?=\d|\/|$)/u,"И").replace(/^J(?=\d|\/|$)/u,"Й");
- const bubblesNamed=new Set(schemes.flatMap(s=>[...(s.axesX||[]),...(s.axesY||[]),...(Array.isArray(s.otherAxes)?s.otherAxes.flat():s.otherAxes?.axes||[]).map(a=>a.name)]).map(axisKey));
+ // (and the axes of the АР layouts of walls — «Б»…«Л» of the layout along row 08 on АР ч.2 л.2 ИР-71535)
+ const bubblesNamed=new Set([...schemes.flatMap(s=>[...(s.axesX||[]),...(s.axesY||[]),...(Array.isArray(s.otherAxes)?s.otherAxes.flat():s.otherAxes?.axes||[]).map(a=>a.name)]),
+  ...(page?.ar?.views||[]).flatMap(v=>[...(v.axes||[]).map(a=>a.name),v.row].filter(Boolean))].map(axisKey));
  const levelsUsed=numbersIn([schemes.map(s=>[s.levelNotes,s.title,(s.levels||[]).map(l=>l.z_mm),(s.roof?.levels||[]).map(l=>l.z_mm),(s.placements||[]).map(p=>[p.z0_mm,p.z1_mm,p.z_mm]),(s.lines?.openings||[]).map(o=>o.bottom_mm)]),page?.sections,page?.sectionProfiles,
   (page?.sheet?.views||[]).map(v=>[v.z0_mm,v.z1_mm]),page?.trusses,page?.columnDetails,page?.baseDetails,page?.tank,page?.ar]);
  for(const s of schemes)for(const m of String(s.title||"").match(/[+\-−]?\d{1,3}[,.]\d{3}/gu)||[]){const v=levelMm(m);if(v!==null)levelsUsed.add(v)}
@@ -131,7 +133,7 @@ function auditSheet(geometry,page){
   const mk=keyOf(str);
   // (a mark of a door, gate, window, partition with a hyphen «Д-2», «В-6», «ОК-4», «П-1» — the АР reader takes it from its
   // plans and tables: read when the АР of the sheet has it; on ИР-71535 АР ч.1 л.10 they stood «unknown», 13.11.2026)
-  if(/^[А-ЯЁ]{1,3}-\d{1,3}[а-я]?$/u.test(mk)&&!/^(?:АР|КМД?|КЖ|ТХ|ОВ|ВК|ЭМ|ЭО|ГП|АС|КР|ПЗ)-/u.test(mk)&&page?.ar){const used=arText().includes('"'+mk+'"')||usedMarks.has(mk)||sheetMarks.has(mk);items.marks.push({text:str,used,scheme:k});
+  if(/^[А-ЯЁ](?:[А-ЯЁ]{0,2}|[а-яё]{1,2})-\d{1,3}(?:\.\d{1,2})?[а-я]?$/u.test(mk)&&!/^(?:АР|КМД?|КЖ|ТХ|ОВ|ВК|ЭМ|ЭО|ГП|АС|КР|ПЗ)-/u.test(mk)&&page?.ar){const used=arText().includes('"'+mk+'"')||usedMarks.has(mk)||sheetMarks.has(mk);items.marks.push({text:str,used,scheme:k});
    if(!used)missed.push({kind:"mark",text:mk,scheme:k,at:at(t),axes:axesAt(c),why:"марка проёма или перегородки АР на листе — в найденном её нет"});continue}
   // (a colour «RAL5012» and a position of a table «Поз.23» are no marks of elements: on the АР of ИР-71535 they were 77 of
   // 82 «misses» — the colours of the panels the АР reader takes from its own tables)

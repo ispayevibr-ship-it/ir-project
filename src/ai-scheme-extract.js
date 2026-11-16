@@ -424,6 +424,9 @@ function framedGroups(titles,texts,segments,claimed){
  const out=[];
  for(const t of titles){
   if(claimed.has(t))continue;
+  // (a layout of wall panels or a facade is drawn on its own row of axes, read by the АР reader — no plan without axes:
+  // «Схема раскладки стеновых панелей по ряду 08» on АР ч.2 л.2 ИР-71535 made a scheme «▯1», «▯2» of a 28 pt frame)
+  if(/раскладк|стенов\S*\s+панел|сэндвич|фасад|развертк|развёртк/iu.test(String(t.str||"")))continue;
   const b=textBox(t);
   const row=titles.filter(o=>o!==t&&Math.abs(textBox(o).cy-b.cy)<60).map(o=>textBox(o).cx);
   const left=Math.max(b.cx-320,...row.filter(x=>x<b.cx).map(x=>(x+b.cx)/2)),right=Math.min(b.cx+320,...row.filter(x=>x>b.cx).map(x=>(x+b.cx)/2));

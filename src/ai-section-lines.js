@@ -181,7 +181,27 @@ function seenPanels(segments,box,scale,along,zAt,zr=[-Infinity,Infinity],facade=
     const between=xs.filter(r=>r.x>run[0].x&&r.x<run[run.length-1].x&&!run.includes(r)).length;
     if(run.length>=4&&between<=Math.max(1,run.length*.3)&&line("y0")&&line("y1")){const vs=run.map(r=>r.v),bots=vs.map(v=>zAt(v.y1)),tops=vs.map(v=>zAt(v.y0));
      out.push({kind:"seen_panels",u0_mm:along(run[0].x),u1_mm:along(run[run.length-1].x),z0_mm:Math.min(...bots),z1_mm:Math.max(...tops),pitch_mm:r10(med*scale),joints_u_mm:run.map(r=>along(r.x)),
-      tops_mm:tops,bottoms_mm:bots,by:"slopes"});for(const r of run){r.v.used=true;done.add(r)}break}}}}
+      tops_mm:tops,bottoms_mm:bots,by:"slopes"});for(const r of run){r.v.used=true;done.add(r)}break}}}
+  // (the strip at the edge of a facade from the last joint to the outline of the wall — a part of a panel, no joint of its
+  //  own: the wall of the main building at О8 between the annex roof +8,1 and +21,750 by the ladder П1 and the bottom of the
+  //  annex at О10 by the downpipe on АР ч.1 л.17 ИР-71535; the ends of the tiers on л.16. The outline: an upright at least
+  //  2 m along the band, over half its height, farther than a quarter and not over 2,2 pitches from the end joint, within
+  //  the own axes; no joint of another band between. A joint of the next band is an outline too: the strip 280 mm between
+  //  the annex and the main wall at О8 on л.17)
+  const bands=out.filter(o=>o.joints_u_mm.length>=4),allJ=out.flatMap(o=>o.joints_u_mm),edges=[];
+  for(const b of bands){const P=b.pitch_mm,js=b.joints_u_mm,lo=Math.min(...js),hi=Math.max(...js),zb0=b.z0_mm,zb1=b.z1_mm;
+   for(const [end,dir] of [[lo,-1],[hi,1]]){let best=null;
+    for(const v of V){const u=along(v.x),d=(u-end)*dir;if(d<Math.max(100,P*.1)||d>P*2.2||u<Math.min(ur[0],ur[1])||u>Math.max(ur[0],ur[1]))continue;
+     // (the outline lies within the height of the band: a downpipe from the roof above or a ladder going higher is not it)
+     const va=zAt(v.y1),vb=zAt(v.y0),nb=out.some(o=>o!==b&&Math.min(zb1,o.z1_mm)-Math.max(zb0,o.z0_mm)>500&&o.joints_u_mm.some(j=>Math.abs(j-u)<30));if(!nb&&(va<zb0-300||vb>zb1+300))continue;
+     const z0=Math.max(zb0,va),z1=Math.min(zb1,vb);if(z1-z0<2000||z1-z0<(zb1-zb0)*.5)continue;
+     if(out.some(o=>o!==b&&Math.min(z1,o.z1_mm)-Math.max(z0,o.z0_mm)>500&&o.joints_u_mm.some(j=>(j-end)*dir>50&&(u-j)*dir>50)))continue;
+     const c={u,d,z0,z1};(best=best||[]).push(c)}
+    if(!best)continue;best.sort((a,b)=>a.d-b.d);const far=best[best.length-1],js2=[end];
+    // (the uprights of the same kind before the outline are joints of the strip — two panels at the edge of the annex at О10)
+    for(const c of best)if(c.d-(js2.length>1?(js2[js2.length-1]-end)*dir:0)>=P*.25||c===far){if(c===far&&js2.length>1&&(c.u-js2[js2.length-1])*dir<P*.25)js2.pop();js2.push(c.u)}
+    if(!edges.some(e=>Math.abs(e.u-far.u)<50&&Math.abs(e.end-end)<50)){edges.push({...far,end,P,js:[...new Set(js2)]})}}}
+  for(const e of edges)out.push({kind:"seen_panels",u0_mm:e.end,u1_mm:e.u,z0_mm:e.z0,z1_mm:e.z1,pitch_mm:e.P,joints_u_mm:e.js,by:"edge"})}
  return out
 }
 
