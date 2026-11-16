@@ -171,9 +171,11 @@ function bubbleRows(texts,segments,min=3,wide=false){
  return rows.filter(r=>r.items.length>=min).map((r,i)=>({name:"по осям "+r.items.sort((a,b)=>a.x-b.x).map(t=>t.str).slice(0,1)+"–"+r.items.at(-1).str+" №"+(i+1),
   x:(r.x0+r.x1)/2,y:r.y,x0:r.x0,x1:r.x1,items:r.items,below:true}))
 }
-function ownerBelow(rows,x,y){
- let best=null;
- for(const r of rows)if(r.y>y&&r.y-y<1300&&x>=r.x0-260&&x<=r.x1+260&&(!best||r.y<best.y))best=r;
+// (byGap: a row under the text across first — the levels «+8,140», «+6,820» right of «О10» of 5-5 on АР ч.1 л.14, the
+// row «А», «Б» of 6-6 beside it 35 pt higher and 250 pt off — then the nearest down)
+function ownerBelow(rows,x,y,byGap=false){
+ let best=null;const gap=r=>x<r.x0?r.x0-x:x>r.x1?x-r.x1:0;
+ for(const r of rows)if(r.y>y&&r.y-y<1300&&x>=r.x0-260&&x<=r.x1+260&&(!best||(byGap&&gap(r)!==gap(best)?gap(r)<gap(best):r.y<best.y)))best=r;
  return best
 }
 // sink (optional): sink.profiles gets the levels written along each row of axes (see below).
@@ -685,7 +687,9 @@ function sectionTitles(texts){
 function extractSectionViews({segments=[],texts=[]}={},page=1,taken=[]){
  const titles=sectionTitles(texts);if(!titles.length)return[];
  // (the bubbles of the next building drawn in the same row — «К/1», a Latin «J» of its grid — are read with ours)
- const rows=bubbleRows(texts,segments,3,true);if(!rows.length)return[];
+ // (a section across a narrow annex has two bubbles only — 6-6 of АР ч.1 л.14 ИР-71535 «А», «Б» under it: rows of two are
+ // taken when the size between them is written there, checked below)
+ const rows=bubbleRows(texts,segments,2,true);if(!rows.length)return[];
  for(const r of rows){const ring=r.items[0]?.ring;if(!ring)continue;
   for(const t of texts){const str=String(t.str).trim();if(!/^[A-Z]$/.test(str)||Math.abs(t.y-r.y)>4||t.x<r.x0-600||t.x>r.x1+600||r.items.some(u=>u.str===str))continue;
    const cx=t.x+(t.width||0)/2,cy=t.y-(t.size||8)*.36,round=segments.filter(s=>{const d1=Math.hypot(s.a.x-cx,s.a.y-cy),d2=Math.hypot(s.b.x-cx,s.b.y-cy);return Math.abs(d1-ring.r)<2.5&&Math.abs(d2-ring.r)<2.5}).length;
@@ -696,22 +700,29 @@ function extractSectionViews({segments=[],texts=[]}={},page=1,taken=[]){
   // (the row under the title nearest to it across first, then down: two sections side by side — 3-3 and 4-4 of АР ч.1
   // л.13 ИР-71535 — each takes its own row, a row is a section's once; was the first row below for both)
   const gap=r=>{const c=title.x+(title.width||0)/2;return c<r.x0?r.x0-c:c>r.x1?c-r.x1:0};
-  const row=rows.filter(r=>r.y>title.y&&r.y-title.y<1300&&r.items.length>=3&&title.x>=r.x0-600&&title.x<=r.x1+600&&!used.has(r)).sort((a,b)=>gap(a)-gap(b)||a.y-b.y)[0];
+  // (a row drawn inside the section above its own, within the span of it — the axes «1В», «2», «2А», «2В» of the shop ММА
+  // in 7-7 of АР ч.1 л.14 over «Н»…«А» — is the building beside, not the section's row)
+  let cand=rows.filter(r=>r.y>title.y&&r.y-title.y<1300&&r.items.length>=2&&title.x>=r.x0-600&&title.x<=r.x1+600&&!used.has(r));
+  const inside=(r,q)=>q!==r&&q.items.length>r.items.length&&q.y>r.y&&q.y-r.y<200&&r.x0>=q.x0-5&&r.x1<=q.x1+5;
+  const row=cand.filter(r=>!cand.some(q=>inside(r,q))).sort((a,b)=>gap(a)-gap(b)||a.y-b.y)[0];
   if(!row||taken.some(s=>s.bbox&&Math.abs((s.bbox.y1||0)-row.y)<2))continue;
   used.add(row);
-  const region=texts.filter(t=>{const b=textBox(t);return ownerBelow(rows,b.cx,b.cy)===row&&b.cy>title.y-20&&b.cx>=row.x0-700&&b.cx<=row.x1+700});
+  // (the texts over the row beside — its sizes «6050», the levels of its rooms — are the section's too)
+  const beside=rows.filter(r=>inside(r,row));for(const r of beside)used.add(r);
+  const region=texts.filter(t=>{const b=textBox(t),o=ownerBelow(rows,b.cx,b.cy,true);return (o===row||beside.includes(o))&&b.cy>title.y-20&&b.cx>=row.x0-700&&b.cx<=row.x1+700});
   const levels=region.filter(t=>Math.abs(t.angle||0)<10).map(t=>({mm:levelOf(t.str),y:t.y,x:t.x,w:t.width||0,s:t.size,str:String(t.str).trim()})).filter(l=>l.mm!==null);
   if(levels.length<2)continue;
   placeLevels(levels,horiz,segments);
   const f=fit(levels);
   const bubbles=row.items.map(t=>({name:String(t.str).trim().toUpperCase(),pt:t.x+(t.width||0)/2})).sort((a,b)=>a.pt-b.pt);
-  if(bubbles.length<3||new Set(bubbles.map(b=>b.name)).size!==bubbles.length)continue;
+  if(bubbles.length<2||new Set(bubbles.map(b=>b.name)).size!==bubbles.length)continue;
   const dims=region.filter(t=>Math.abs(t.angle||0)<10&&/^\d{3,5}$/.test(String(t.str).trim())).map(t=>Number(t.str));
   // The scale: the levels' fit when there is one, else the commonest ratio of a span between bubbles to a written size.
   let scale=f?Math.abs(f.b):0;
   if(!scale){const r=[];for(let i=1;i<bubbles.length;i++){const d=bubbles[i].pt-bubbles[i-1].pt;for(const v of dims)r.push(v/d)}
    r.sort((a,b)=>a-b);let best=0,n=0;for(const v of r){const k=r.filter(o=>Math.abs(o/v-1)<=.03).length;if(k>n){n=k;best=v}}scale=best}
   if(!scale)continue;
+  if(bubbles.length===2&&!(f&&dims.some(v=>Math.abs((bubbles[1].pt-bubbles[0].pt)*scale-v)<=v*.03)))continue;
   const left=[0];
   for(let i=1;i<bubbles.length;i++){const raw=(bubbles[i].pt-bubbles[i-1].pt)*scale,near=dims.filter(d=>Math.abs(d-raw)<=raw*.06).sort((a,b)=>Math.abs(a-raw)-Math.abs(b-raw))[0];
    left.push(left[i-1]+(near||Math.round(raw/50)*50))}
@@ -733,15 +744,22 @@ function extractSectionViews({segments=[],texts=[]}={},page=1,taken=[]){
    // is kept as broken: what lies beyond the section, shortened on the sheet)
    .map(d=>{const len=(d.hi-d.lo)*scale,b0=bubbles[0].pt,b1=bubbles[bubbles.length-1].pt;
     if(len>0&&Math.abs(len-d.v)<=Math.max(30,d.v*.05))return d;
-    if(d.flat&&len>0&&len<d.v*.8&&(d.hi>b1+2||d.lo<b0-2))return{...d,broken:true};return null}).filter(Boolean)
-   .map(d=>d.flat?{mm:d.v,u0_mm:along(d.lo),u1_mm:along(d.hi),...(d.broken?{broken:true}:{})}:{mm:d.v,z0_mm:Math.round((fz.a+fz.b*d.hi)/10)*10,z1_mm:Math.round((fz.a+fz.b*d.lo)/10)*10})}catch{sizes=[]}
+    if(d.flat&&len>0&&len<d.v*.8&&(d.hi>b1+2||d.lo<b0-2))return{...d,broken:true};
+    // (a size up written off its line, both ends on level marks of the section — «3600» of 5-5 on АР ч.1 л.14 between
+    // «+5,350» and «−0,250»: 5600 by the marks and by the line — a slip of the sheet: kept as written, with what it measures)
+    if(!d.flat&&len>0){const zA=fz.a+fz.b*d.hi,zB=fz.a+fz.b*d.lo,lv=z=>levels.filter(l=>Math.abs(l.mm-z)<=160);
+     let best=null;for(const A of lv(zA))for(const B of lv(zB)){const e=Math.abs(Math.abs(B.mm-A.mm)-len);if(A!==B&&(!best||e<best.e))best={e,A,B}}
+     if(best&&best.e<=Math.max(30,len*.02))return{...d,typo:Math.abs(best.B.mm-best.A.mm),zs:[best.A.mm,best.B.mm].sort((p,q)=>p-q)}}
+    return null}).filter(Boolean)
+   .map(d=>d.flat?{mm:d.v,u0_mm:along(d.lo),u1_mm:along(d.hi),...(d.broken?{broken:true}:{})}:{mm:d.v,z0_mm:d.zs?d.zs[0]:Math.round((fz.a+fz.b*d.hi)/10)*10,z1_mm:d.zs?d.zs[1]:Math.round((fz.a+fz.b*d.lo)/10)*10,...(d.typo?{sheet_slip:true,measured_mm:d.typo}:{})})}catch{sizes=[]}
+  const slips=sizes.filter(d=>d.sheet_slip).map(d=>"Размер «"+d.mm+"» на листе между отметками "+d.z0_mm+" и "+d.z1_mm+" — по отметкам и по линии "+d.measured_mm+" (опечатка листа)");
   const bbox={x0:Math.min(row.x0,...levels.map(l=>l.x))-60,x1:Math.max(row.x1,...levels.map(l=>l.x+l.w))+60,y0,y1:row.y+20};
   // (the drawing of the section itself — panels cut and seen, callouts, the downpipe, openings, circles of nodes —
   // `ai-section-lines.js`; АР ч.1 л.13 ИР-71535, 16.11.2026)
   let lines={};try{lines=sectionLines({segments,texts},{box:bbox,scale,along,zAt:y=>Math.round((fz.a+fz.b*y)/10)*10,zRange:[Math.min(...levels.map(l=>l.mm)),Math.max(...levels.map(l=>l.mm))]})}catch{lines={}}
   out.push({kind:"section",title:title.str,section:title.name,page,bbox,
    scaleMmPerPt:Math.round(scale*1000)/1000,axesX:names,axesY:[],spansX:spans,spansY:[],sizeX:axes[axes.length-1].mm,sizeY:0,
-   levels:lv,dims:sizes,...(Object.values(lines).some(v=>v&&v.length)?{lines}:{}),placements:[],warnings:["Разрез без элементов: оси и отметки — для высот, расстановка по планам"]})
+   levels:lv,dims:sizes,...(beside.length?{otherAxes:beside.map(r=>r.items.map(t=>({name:String(t.str).trim(),u_mm:along(t.x+(t.width||0)/2)})))}:{}),...(Object.values(lines).some(v=>v&&v.length)?{lines}:{}),placements:[],warnings:["Разрез без элементов: оси и отметки — для высот, расстановка по планам",...slips]})
  }
  return out
 }

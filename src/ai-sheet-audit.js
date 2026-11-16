@@ -152,13 +152,14 @@ function auditSheet(geometry,page){
    if(!used){const w=arViewAt(c);if(w)used=hasValue(d.flat?w.u():w.z(),v,tol)}
    // (a size kept by the section with its place — measured at the section's scale, src/ai-section-extract.js)
    if(!used&&schemes[k].kind==="section")used=(schemes[k].dims||[]).some(x=>Math.abs(x.mm-v)<=tol)
+   const slip=schemes[k]?.kind==="section"&&(schemes[k].dims||[]).find(x=>x.sheet_slip&&Math.abs(x.mm-v)<=tol);
    // (a short offset of an edge from an axis — one end of the size on an axis line run across the plan, the other on a line
    // drawn by it: АР ч.1 л.5 ИР-71535 «370» of the roof edge at each axis О2…О8 and «400» at the axis К of ММА — the edge is
    // drawn, not an element of the scheme; tied as its offset from that axis)
    if(!used&&v<=1000&&schemes[k].roof){const bb=schemes[k].bbox,run=bb?(d.flat?bb.y1-bb.y0:bb.x1-bb.x0):0;
     const along=X=>segments.reduce((a,q)=>{const ok=d.flat?Math.abs(q.a.x-X)<=.4&&Math.abs(q.b.x-X)<=.4:Math.abs(q.a.y-X)<=.4&&Math.abs(q.b.y-X)<=.4;return ok?a+Math.abs(d.flat?q.a.y-q.b.y:q.a.x-q.b.x):a},0);
     const la=along(d.lo),lb=along(d.hi);if(run>0&&Math.max(la,lb)>=run*.5&&Math.min(la,lb)>=3)used=true}
-   items.dims.push({text:str,mm:v,used,scheme:k,...(broken?{broken:true}:{})});
+   items.dims.push({text:str,mm:v,used,scheme:k,...(broken?{broken:true}:{}),...(slip?{sheet_slip:true,measured_mm:slip.measured_mm}:{})});
    if(!used)missed.push({kind:"dim",text:str,scheme:k,at:at(t),why:"размер не привязан: нет такого расстояния между осями, линиями и элементами схемы"});continue
   }
   if(PROFILE.test(str)||STEEL.test(str)){items.profiles.push({text:str,scheme:k});continue}
