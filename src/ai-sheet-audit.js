@@ -142,8 +142,21 @@ function auditSheet(geometry,page){
  // (a label taken into a view of the sheet — a node, a section, a sketch — by src/ai-sheet-details.js)
  const inView=(t,key,str)=>{const c=textFrame(t).c;return (page?.details?.views||[]).some(w=>w.box&&c.x>=w.box.x0-8&&c.x<=w.box.x1+8&&c.y>=w.box.y0-8&&c.y<=w.box.y1+8&&(w[key]||[]).some(x=>x===str||String(x).replace(/\s/gu,"")===str.replace(/\s/gu,"")))};
  const titledNodes=new Set(texts.map(t=>NODE_TITLE.exec(String(t.str).trim())).filter(Boolean).map(m=>m[1]));
+ // (a floor plan of АР — src/ai-floor-plan.js, АР ч.2 л.19 ИР-71535: the explication of floors, the finishes of rooms, the
+ //  colour legend and the kinds of finishes read whole as tables; on the plan the numbers in triangles (floor types), in
+ //  rhombi over their heights (finishes), the levels of the floors and the rooms in their circles — each taken by a sign)
+ const fp=page?.ar?.floorPlan,fpBoxes=fp?["explication","finishSchedule","colourLegend","finishKinds"].map(k=>fp[k]?.box).filter(Boolean):[];
+ const fpRead=(t,str)=>{if(!fp)return null;const c=textFrame(t).c,s=str.replace(/\s+/gu," ");
+  if(fpBoxes.some(b=>inBox(c,b,1)))return "table";
+  for(const q of fp.signs||[]){const nearIt=Math.abs(q.x-c.x)<=4&&Math.abs(q.y-c.y)<=4;
+   if(nearIt&&(q.type===s||q.level===s))return q.kind;
+   if(q.kind==="finish"&&q.height&&q.height.replace(/\s+/gu," ")===s&&q.box&&c.x>=q.box.x0&&c.x<=q.box.x1&&c.y>q.y&&c.y<=q.box.y1+1)return "finish"}
+  if((fp.slopes||[]).some(q=>q.text===s&&Math.abs(q.x-c.x)<=20&&Math.abs(q.y-c.y)<=20))return "slope";
+  if((fp.rooms||[]).some(r=>r.n===s&&Math.abs(r.x-c.x)<=6&&Math.abs(r.y-c.y)<=6))return "room";
+  return null};
  for(const t of texts){
   const str=String(t.str).trim(),c=textFrame(t).c,k=where(c);
+  {const f=fpRead(t,str);if(f){items.notes.push({text:str,floor:f});continue}}
   if(bubbleTexts.has(t)&&/^\d{1,3}$/u.test(str)&&titledNodes.has(str)&&!bubblesNamed.has(axisKey(str))){items.nodes.push({text:str,node:str,mark:true,scheme:k});continue}
   if(bubbleTexts.has(t)){const used=bubblesNamed.has(axisKey(str));items.axes.push({text:str,used});if(!used&&k!==null)missed.push({kind:"axis",text:str,scheme:k,at:at(t),why:"ось в кружке не вошла в сетку схемы"});continue}
   const node=NODE_REF.exec(str);
@@ -201,6 +214,14 @@ function auditSheet(geometry,page){
     const la=along(d.lo),lb=along(d.hi);if(run>0&&Math.max(la,lb)>=run*.5&&Math.min(la,lb)>=3)used=true}
    // (a size on a view of a gate niche — its plan, its sections — read with the niche: АР ч.2 л.8 ИР-71535 «740», «640»…)
    if(!used&&inNiche(t,"dims_mm",v))used=true;
+   // (a size on a floor plan of АР — the walls, partitions, pits of the plan not elements of a scheme —: tied when it measures
+   //  its value at the plan's scale between its ticks, its own pair or two ticks along its line — «250» of the gap at the wall
+   //  under a line run up to the number, АР ч.2 л.19 ИР-71535)
+   if(!used&&fp&&schemes[k].scaleMmPerPt>0){const sc=schemes[k].scaleMmPerPt,tl=Math.max(10,v*.005);
+    if(Math.abs((d.hi-d.lo)*sc-v)<=tl)used=true;
+    else if(Number.isFinite(d.line)){const L=d.line,f=Math.min(d.from??d.lo,d.lo)-2,e=Math.max(d.to??d.hi,d.hi)+2;
+     const ticks=segments.filter(q=>{const a=d.flat?[q.a.y,q.b.y]:[q.a.x,q.b.x],b=d.flat?[q.a.x,q.b.x]:[q.a.y,q.b.y];return Math.min(...a)<L-1.5&&Math.max(...a)>L+1.5&&Math.abs(a[0]-a[1])<=8&&Math.abs(b[0]-b[1])>=1.5&&Math.abs(b[0]-b[1])<=8&&(b[0]+b[1])/2>=f&&(b[0]+b[1])/2<=e}).map(q=>d.flat?(q.a.x+q.b.x)/2:(q.a.y+q.b.y)/2);
+     used=ticks.some(x=>ticks.some(y=>y>x&&Math.abs((y-x)*sc-v)<=tl))}}
    items.dims.push({text:str,mm:v,used,scheme:k,...(broken?{broken:true}:{}),...(slip?{sheet_slip:true,measured_mm:slip.measured_mm}:{}),...(roofSlip?{sheet_slip:true,measured_mm:roofSlip}:{})});
    if(!used)missed.push({kind:"dim",text:str,scheme:k,at:at(t),why:"размер не привязан: нет такого расстояния между осями, линиями и элементами схемы"});continue
   }
