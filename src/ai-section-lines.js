@@ -185,23 +185,48 @@ function seenPanels(segments,box,scale,along,zAt,zr=[-Infinity,Infinity],facade=
   // (the strip at the edge of a facade from the last joint to the outline of the wall — a part of a panel, no joint of its
   //  own: the wall of the main building at О8 between the annex roof +8,1 and +21,750 by the ladder П1 and the bottom of the
   //  annex at О10 by the downpipe on АР ч.1 л.17 ИР-71535; the ends of the tiers on л.16. The outline: an upright at least
-  //  2 m along the band, over half its height, farther than a quarter and not over 2,2 pitches from the end joint, within
+  //  2 m along the band, 0,3 of its height (below), farther than a quarter and not over 2,2 pitches from the end joint, within
   //  the own axes; no joint of another band between. A joint of the next band is an outline too: the strip 280 mm between
   //  the annex and the main wall at О8 on л.17)
+  //  (an outline drawn in pieces — the frame of the gate В-3 at И on л.16 from 0 to +2,060 and on to +3,980 — is one upright;
+  //  pieces of the dashed lines of
+  //  the axes under the ground are not; over 2 m and 0,3 of the band: beside a door or a gate the strip is lower than the band — Д-3 at Е–Ж on л.16; a band over
+  //  an opening, under 3 m, takes the outline down to its foot — the pier at Н right of the gate В-2 on л.16)
+  const foot=Math.min(...out.map(o=>o.z0_mm)),VO=[];for(const v of [...V].filter(v=>zAt(v.y0)>foot+10).sort((a,b)=>a.x-b.x||a.y0-b.y0)){const o=VO.find(o=>Math.abs(o.x-v.x)<.3&&v.y0<=o.y1+50/scale&&v.y1>=o.y0-50/scale);
+   if(o){o.y0=Math.min(o.y0,v.y0);o.y1=Math.max(o.y1,v.y1)}else VO.push({...v})}
   const bands=out.filter(o=>o.joints_u_mm.length>=4),allJ=out.flatMap(o=>o.joints_u_mm),edges=[];
   for(const b of bands){const P=b.pitch_mm,js=b.joints_u_mm,lo=Math.min(...js),hi=Math.max(...js),zb0=b.z0_mm,zb1=b.z1_mm;
    for(const [end,dir] of [[lo,-1],[hi,1]]){let best=null;
-    for(const v of V){const u=along(v.x),d=(u-end)*dir;if(d<Math.max(100,P*.1)||d>P*2.2||u<Math.min(ur[0],ur[1])||u>Math.max(ur[0],ur[1]))continue;
+    for(const v of VO.concat(V)){const u=along(v.x),d=(u-end)*dir;if(d<Math.max(100,P*.1)||d>P*2.2||u<Math.min(ur[0],ur[1])||u>Math.max(ur[0],ur[1]))continue;
      // (the outline lies within the height of the band: a downpipe from the roof above or a ladder going higher is not it)
-     const va=zAt(v.y1),vb=zAt(v.y0),nb=out.some(o=>o!==b&&Math.min(zb1,o.z1_mm)-Math.max(zb0,o.z0_mm)>500&&o.joints_u_mm.some(j=>Math.abs(j-u)<30));if(!nb&&(va<zb0-300||vb>zb1+300))continue;
-     const z0=Math.max(zb0,va),z1=Math.min(zb1,vb);if(z1-z0<2000||z1-z0<(zb1-zb0)*.5)continue;
+     const va=zAt(v.y1),vb=zAt(v.y0),nb=out.some(o=>o!==b&&Math.min(zb1,o.z1_mm)-Math.max(zb0,o.z0_mm)>500&&o.joints_u_mm.some(j=>Math.abs(j-u)<30));const low=zb1-zb0<3000&&va<zb0-300;
+     // (an outline going on above the band as a joint of the band over it ends at the band — the pier at Н on л.16)
+     const vb2=vb>zb1+300&&out.some(o=>o!==b&&Math.abs(o.z0_mm-zb1)<=300&&o.joints_u_mm.some(j=>Math.abs(j-u)<30))?zb1:vb;
+     if(!nb&&((va<zb0-300&&!low)||vb2>zb1+300))continue;
+     const z0=low?va:Math.max(zb0,va),z1=Math.min(zb1,vb2);if(z1-z0<2000||z1-z0<(zb1-zb0)*.3)continue;
      if(out.some(o=>o!==b&&Math.min(z1,o.z1_mm)-Math.max(z0,o.z0_mm)>500&&o.joints_u_mm.some(j=>(j-end)*dir>50&&(u-j)*dir>50)))continue;
      const c={u,d,z0,z1};(best=best||[]).push(c)}
-    if(!best)continue;best.sort((a,b)=>a.d-b.d);const far=best[best.length-1],js2=[end];
+    // (the farthest outline over 0,6 of the band, else the farthest at all: the ladder П1 beyond the wall at О8 on л.17 is
+    //  lower than the wall; the annex А–Б on л.16 is low by itself)
+    if(!best)continue;best.sort((a,b)=>a.d-b.d);const tall=best.filter(c=>c.z1-c.z0>=(zb1-zb0)*.6),far=(tall.length?tall:best).at(-1),js2=[end];best=best.filter(c=>c.d<=far.d);
     // (the uprights of the same kind before the outline are joints of the strip — two panels at the edge of the annex at О10)
     for(const c of best)if(c.d-(js2.length>1?(js2[js2.length-1]-end)*dir:0)>=P*.25||c===far){if(c===far&&js2.length>1&&(c.u-js2[js2.length-1])*dir<P*.25)js2.pop();js2.push(c.u)}
     if(!edges.some(e=>Math.abs(e.u-far.u)<50&&Math.abs(e.end-end)<50)){edges.push({...far,end,P,js:[...new Set(js2)]})}}}
-  for(const e of edges)out.push({kind:"seen_panels",u0_mm:e.end,u1_mm:e.u,z0_mm:e.z0,z1_mm:e.z1,pitch_mm:e.P,joints_u_mm:e.js,by:"edge"})}
+  for(const e of edges)out.push({kind:"seen_panels",u0_mm:e.end,u1_mm:e.u,z0_mm:e.z0,z1_mm:e.z1,pitch_mm:e.P,joints_u_mm:e.js,by:"edge"});
+  // (the piers between the windows of a band of windows: a band under it and a band over it, the gap between them up to 3 m;
+  //  the outer frames — uprights from the top of the lower band to the foot of the upper one; between two frames with
+  //  nothing inside — a pier of wall, with the inner lines of the frame — a window: ОК-4 at +7,100…+8,300 on АР ч.1 л.16)
+  //  (and no horizontal line inside beyond 60 mm from its ends — a flashing at the foot of a pier is; the sash of a ribbon of windows with mullions at every panel, О8–О10 on л.15)
+  const H=segments.filter(q=>Math.abs(q.a.y-q.b.y)<.3&&Math.abs(q.a.x-q.b.x)>2&&q.a.x>box.x0-5&&q.a.x<box.x1+5).map(q=>{const l=Math.min(along(q.a.x),along(q.b.x))===along(q.a.x);return {y:q.a.y,x0:l?q.a.x:q.b.x,x1:l?q.b.x:q.a.x}}).map(h=>along(h.x0)<=along(h.x1)?h:{y:h.y,x0:h.x1,x1:h.x0});
+  for(const L of bands)for(const U of bands){if(U===L)continue;const a=L.z1_mm,b2=U.z0_mm;if(b2-a<300||b2-a>3000)continue;
+   const u0=Math.max(Math.min(...L.joints_u_mm),Math.min(...U.joints_u_mm)),u1=Math.min(Math.max(...L.joints_u_mm),Math.max(...U.joints_u_mm));if(u1-u0<1000)continue;
+   const F=[];for(const v of VO){const u=along(v.x);if(u<u0-50||u>u1+50||Math.abs(zAt(v.y1)-a)>30||Math.abs(zAt(v.y0)-b2)>30)continue;if(!F.some(f=>Math.abs(f-u)<50))F.push(u)}
+   F.sort((x,y)=>x-y);
+   for(let i=0;i+1<F.length;i++){const p0=F[i],p1=F[i+1];if(p1-p0<200)continue;
+    const inside=V.some(v=>{const u=along(v.x);return u>p0+50&&u<p1-50&&zAt(v.y1)>a-30&&zAt(v.y0)<b2+30})||
+     H.some(h=>{const z=zAt(h.y);return z>a+60&&z<b2-60&&along(h.x0)<p1-50&&along(h.x1)>p0+50});
+    if(!inside&&!out.some(o=>o.by==="pier"&&Math.abs(o.u0_mm-p0)<50&&Math.abs(o.z0_mm-a)<50)){const mid=[...new Set(VO.filter(v=>{const u=along(v.x);return u>p0+50&&u<p1-50&&zAt(v.y1)<=a+30&&zAt(v.y0)>=b2-30}).map(v=>r10(along(v.x))))].sort((x,y)=>x-y);
+     out.push({kind:"seen_panels",u0_mm:p0,u1_mm:p1,z0_mm:a,z1_mm:b2,pitch_mm:L.pitch_mm,joints_u_mm:[p0,...mid,p1],by:"pier"})}}}}
  return out
 }
 
