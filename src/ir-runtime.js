@@ -2044,7 +2044,8 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   let nodeCrops=null;try{nodeCrops=await irProject.ai?.invoke?.("ai-documents:node-crops",{objectId:oid})||null}catch(_error){nodeCrops=null}
   // (the specifications of the КМ of these work types — the page «Ведомость металла» of the exported scheme and the report)
   let specs=[];try{const all=await irProject.ai?.invoke?.("ai-documents:specs-km"),nc=v=>String(v||"").replace(/\s+/g,"").replace(/[.\-–_]/g,"").toUpperCase(),labs=[...workCounts.values()].map(w=>nc(w.label));
-   specs=(Array.isArray(all)?all:[]).filter(r=>labs.some(l=>l&&l.indexOf(nc(r.code))>=0))}catch(_error){specs=[]}
+   // (all of them: the 3D finds the one of each work type — by the code in its name, the files or the volume of its sheets)
+   specs=Array.isArray(all)?all:[];void labs}catch(_error){specs=[]}
   return{objectId:oid,nodeCrops,specs,object:{name:String(object.name||object.title||""),short:String(object.short_name||""),address:String(object.address||"")},title:activeGroup()?.label||"Все",
     axesX:[...axesX],axesY:[...axesY],spanX,spanY,gridDirX,gridDirY,gridX:Object.fromEntries(axisXPos),gridY:Object.fromEntries(axisYPos),background:currentBackground(),
     elements:list,groups:[...counts.values()].sort((a,b)=>b.count-a.count),summary:statusCounts(),
