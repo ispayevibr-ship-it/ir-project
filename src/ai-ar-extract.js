@@ -1233,7 +1233,14 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
     if(spec.some(p=>p.layout)){const col=new Map();for(const p of panels){const k=Math.round(p.u0/100);col.set(k,Math.min(col.get(k)??Infinity,p.z0))}
      const feet=[...col.values()],lo=Math.min(...feet);if(feet.filter(f=>f>lo+50).length>feet.length/2){const foot=z(Math.max(...panels.map(p=>p.rect.bottom)));openings=openings.filter(o=>o.z0>foot+5)}}
     openings=openings.map(({at,...o})=>o);
-    return{panels:holesOf(panels.map(({rect,...p})=>p),[...openings,...bumpers.map(b=>({...b,step:true}))]),openings,...(bumpers.length?{bumpers}:{})}})(),unplaced:own.length-panels.filter(p=>!p.byJoints).length})
+    // (a corner cut, not an opening: a rectangle at the top of its panel column, out to the panel's side, nothing over it —
+    // ИР-71535 АР ч.2 л.14 ряд 010 у оси Ж: Пс-35 at the step of the high wall ends at +6,670 beside the 455 of Пс-34, open
+    // to +7,100; it read as a window 545×430, engineer 16.11.2026 «вот здесь полностью вырез, а не рамка»): the panel is
+    // cut, no window there)
+    const notches=openings.filter(o=>{if(o.base)return false;const own=panels.filter(p=>Math.min(p.u1,o.u1)-Math.max(p.u0,o.u0)>10&&p.z0<o.z1-10&&p.z1>o.z0+10);
+     return own.length>0&&own.every(p=>Math.abs(p.z1-o.z1)<=30&&(Math.abs(p.u1-o.u1)<=5||Math.abs(p.u0-o.u0)<=5))&&!panels.some(p=>Math.min(p.u1,o.u1)-Math.max(p.u0,o.u0)>10&&p.z0>=o.z1-30&&p.z0<=o.z1+60)});
+    if(notches.length)openings=openings.filter(o=>!notches.includes(o));
+    return{panels:holesOf(panels.map(({rect,...p})=>p),[...openings,...notches.map(o=>({...o,notch:true})),...bumpers.map(b=>({...b,step:true}))]),openings,...(bumpers.length?{bumpers}:{})}})(),unplaced:own.length-panels.filter(p=>!p.byJoints).length})
  }
  // A piece of a wall drawn on beyond its view (row 010: «М», «Н» a little lower than «А»…«Л», ИР-71535 АР ч.2 л.4) is
  // of the view titled beside it, at the height of its bubbles, of the same kind and with axes of its own.
