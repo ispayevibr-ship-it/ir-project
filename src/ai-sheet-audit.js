@@ -92,6 +92,34 @@ function auditSheet(geometry,page){
   return{v,top:tops.length?Math.min(...tops):v.bbox.y1-400,
    u:()=>U||(U=pairs(new Set([...(v.axes||[]).map(a=>a.mm),...v.panels.flatMap(p=>[p.u0,p.u1]),...(v.openings||[]).flatMap(o=>[o.u0,o.u1])]))),
    z:()=>Z||(Z=pairs(new Set([...(v.levels||[]),...v.panels.flatMap(p=>[p.z0,p.z1]),...(v.openings||[]).flatMap(o=>[o.z0,o.z1])])))}});
+ // (a layout of roof panels of АР — the panels, openings, axes and level lines of the plan in points of the sheet —: a size
+ //  is tied when it measures its value at the plan's scale (1000 mm a panel's width) from one of them, or runs from end to
+ //  end of a panel — its length along the slope; АР ч.2 л.11 ИР-71535 «12550» of the strips, «5460», «3510» from the axes to
+ //  the openings, «1190», «300», «250» of the edges at the walls)
+ const arRoofs=(page?.ar?.roofs||[]).filter(r=>Array.isArray(r.panels)&&r.panels.length>=4).map(r=>{
+   const xs=[...r.panels.flatMap(p=>[p.x0,p.x1]),...(r.openings||[]).flatMap(o=>[o.x0,o.x1]),...(r.xAxes||[]).map(a=>a.pt),...(r.levels||[]).filter(l=>l.dir==="x").map(l=>l.at)].filter(Number.isFinite),
+    ys=[...r.panels.flatMap(p=>[p.y0,p.y1]),...(r.openings||[]).flatMap(o=>[o.y0,o.y1]),...(r.yAxes||[]).map(a=>a.pt),...(r.levels||[]).filter(l=>l.dir==="y").map(l=>l.at)].filter(Number.isFinite);
+   const w=r.panels.map(p=>Math.min(Math.abs(p.x1-p.x0),Math.abs(p.y1-p.y0))).sort((a,b)=>a-b)[r.panels.length>>1];
+   return w>0?{r,xs,ys,scale:1000/w,box:{x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)}}:null}).filter(Boolean);
+ const arRoofTie=(c,d,v)=>{for(const R of arRoofs){if(!inBox(c,R.box,160)||!Number.isFinite(d.lo)||!Number.isFinite(d.hi))continue;
+   const lo=Math.min(d.lo,d.hi),hi=Math.max(d.lo,d.hi),len=hi-lo,m=len*R.scale,fits=Math.abs(m-v)<=Math.max(20,v*.015);
+   // (the end of a panel lapped by the next tier — «12530» of Пк-6 up to where Пк-1 lies on it, 7 pt short of its own end)
+   const laps=R.r.panels.filter(p=>Array.isArray(p.lap)).flatMap(p=>d.flat?[]:[Math.min(p.y0,p.y1)-p.lap[0],Math.max(p.y0,p.y1)+p.lap[1]]);
+   const P=[...(d.flat?R.xs:R.ys),...laps],on=x=>P.some(p=>Math.abs(p-x)<=1.5);
+   if((on(lo)||on(hi))&&fits)return true;
+   const pe=(a,b)=>Math.abs(a-b)<=1.5||Math.abs(a-b)<=10&&laps.some(q=>Math.abs(q-b)<=1.5);
+   if(R.r.panels.some(p=>(d.flat?p.dir==="x":p.dir!=="x")&&pe(d.flat?Math.min(p.x0,p.x1):Math.min(p.y0,p.y1),lo)&&pe(d.flat?Math.max(p.x0,p.x1):Math.max(p.y0,p.y1),hi)))return true;
+   // (an offset between two lines drawn across the plan — the edge and the line of the wall at the eaves, «300» past «1190»)
+   const drawn=y=>segments.reduce((a,q)=>{const ok=d.flat?Math.abs(q.a.x-y)<=.4&&Math.abs(q.b.x-y)<=.4:Math.abs(q.a.y-y)<=.4&&Math.abs(q.b.y-y)<=.4;return ok?a+Math.abs(d.flat?q.a.y-q.b.y:q.a.x-q.b.x):a},0);
+   if(fits&&v<=1500&&drawn(lo)>=30&&drawn(hi)>=30)return true;
+   // (a short offset at the end of a chain whose own ticks merge with its neighbour's — «80» from the line of the wall to the
+   //  edge of Пк-17 under «1100», АР ч.2 л.12): a point of the plan by an end and a drawn line that far from it
+   if(v<=300&&P.some(p=>[lo,hi].some(e=>Math.abs(p-e)<=3)&&[p-v/R.scale,p+v/R.scale].some(y=>Math.abs(y-p)>=1&&drawn(y)>=30)))return true;
+   // (a slip of the sheet: both ends on the plan's lines, the size drawn to the value of the same sizes beside it but one
+   //  digit written otherwise — «4510» from О4/1 to the opening where the three others read «3510»)
+   const t=String(v),r=[0,-1,1,-2,2].map(k=>String(Math.round(m/10)*10+k*10)).find(r=>r.length===t.length&&[...t].filter((ch,k)=>ch!==r[k]).length===1);
+   if(on(lo)&&on(hi)&&r&&Math.abs(Number(r)-v)>=100)return{slip:Number(r)}}
+  return false};
  const arViewAt=c=>arViews.filter(w=>c.x>=w.v.bbox.x0&&c.x<=w.v.bbox.x1&&c.y<=w.v.bbox.y1+40&&c.y>=w.top-250).sort((p,q)=>(p.v.bbox.y1-c.y)-(q.v.bbox.y1-c.y))[0];
  const pos=schemes.map(positions),dims=(()=>{try{return dimensionsOf(texts,segments)}catch{return[]}})(),dimOf=new Map(dims.map(d=>[d.text,d]));
  // Placements of each scheme by mark, to pair each label with the element it named.
@@ -154,6 +182,7 @@ function auditSheet(geometry,page){
    // (a size on a wall layout of АР — the panels, openings and doors of the view along the wall (u) and up (z) —: tied by
    // the view's own positions; АР ч.2 л.16 ИР-71535 «4660», «3580», «620» of the openings and panels of ряд Ж — 38 «unbound»)
    if(!used){const w=arViewAt(c);if(w)used=hasValue(d.flat?w.u():w.z(),v,tol)}
+   let roofSlip=null;if(!used){const rt=arRoofTie(c,d,v);if(rt){used=true;if(rt.slip)roofSlip=rt.slip}}
    // (a size kept by the section with its place — measured at the section's scale, src/ai-section-extract.js)
    if(!used&&schemes[k].kind==="section")used=(schemes[k].dims||[]).some(x=>Math.abs(x.mm-v)<=tol)
    const slip=schemes[k]?.kind==="section"&&(schemes[k].dims||[]).find(x=>x.sheet_slip&&Math.abs(x.mm-v)<=tol);
@@ -165,7 +194,7 @@ function auditSheet(geometry,page){
     const la=along(d.lo),lb=along(d.hi);if(run>0&&Math.max(la,lb)>=run*.5&&Math.min(la,lb)>=3)used=true}
    // (a size on a view of a gate niche — its plan, its sections — read with the niche: АР ч.2 л.8 ИР-71535 «740», «640»…)
    if(!used&&inNiche(t,"dims_mm",v))used=true;
-   items.dims.push({text:str,mm:v,used,scheme:k,...(broken?{broken:true}:{}),...(slip?{sheet_slip:true,measured_mm:slip.measured_mm}:{})});
+   items.dims.push({text:str,mm:v,used,scheme:k,...(broken?{broken:true}:{}),...(slip?{sheet_slip:true,measured_mm:slip.measured_mm}:{}),...(roofSlip?{sheet_slip:true,measured_mm:roofSlip}:{})});
    if(!used)missed.push({kind:"dim",text:str,scheme:k,at:at(t),why:"размер не привязан: нет такого расстояния между осями, линиями и элементами схемы"});continue
   }
   if(PROFILE.test(str)||STEEL.test(str)){items.profiles.push({text:str,scheme:k});continue}
@@ -182,6 +211,14 @@ function auditSheet(geometry,page){
   // (a number cell of a panel table — area, mass of one, total area, the «Итого» — taken by the АР reader: АР ч.2 л.3
   //  ИР-71535 «258,50», «24 188,27» stood among the unknowns, 101 of them; инженер 16.11.2026)
   if(/^\d{1,3}(?:\s?\d{3})*(?:[.,]\d{1,3})?$/u.test(str)&&page?.ar){const v=Number(str.replace(/\s/gu,"").replace(",","."));if(arNums().has(Math.round(v*100))){items.notes.push({text:str,ar:true});continue}}
+  // (two labels in one text «Пс-46.1 Пс-46.1» — two panels side by side, АР ч.2 л.4: read when the АР has each)
+  if(page?.ar&&/\s/u.test(str)){const parts=str.split(/\s+/u).map(keyOf);if(parts.length>=2&&parts.every(m=>/^[А-ЯЁ][а-яёА-ЯЁ]{0,2}-\d/u.test(m)&&arText().includes('"'+m+'"'))){items.marks.push({text:str,used:true,scheme:k,joined:true});continue}}
+  // (an approximate size «~10000» and the axes of a title written apart from its words «К -03 - В -К» — АР ч.2 л.11
+  //  ИР-71535 «Схема раскладки кровельных панелей в осях К-03 - В-К»)
+  if(/^[~≈]\s?\d{3,6}$/u.test(str)){items.notes.push({text:str,approx:true});continue}
+  if(/^[А-ЯЁ\d\/]{1,4}(?:\s?[-–]\s?[А-ЯЁ\d\/]{1,4}){2,3}(?:\s?;\s?[А-ЯЁ\d\/]{1,4}(?:\s?[-–]\s?[А-ЯЁ\d\/]{1,4}){2,3})*$/u.test(str)){items.notes.push({text:str,axes:true});continue}
+  // (a range of a size cut on site «20-40*» — the gap at the wall, АР ч.2 л.12)
+  if(/^\d{1,4}\s?[-–]\s?\d{1,4}\*$/u.test(str)){items.notes.push({text:str,range:true});continue}
   items.unknown.push({text:str,scheme:k,at:at(t)})
  }
  // Marks: each label paired with an element of its scheme placed from it (the element keeps the label's point), then

@@ -158,6 +158,8 @@ function sketchSpec(texts){
    const mass=massH?at(massH.x,/^\d+[.,]\d+$/,30):null;
    // (the total area of the row as written; it should be its area × count — where not, a slip of the sheet kept beside it:
    //  АР ч.2 л.3 ИР-71535 Пс-8 11,24 × 3 «77,32», Пс-10 9,97 × 2 «19,64»; «Итого» 1078,87 is the sum of area × count)
+   // (or the area is the slip: the row's total over its count is the length of its sketch × the width, its area not — АР ч.2
+   //  л.4 Пс-46.1 «4,69» copied from Пс-46 at 4360 long, «13,08» for 3: the total is taken, the area flagged — area_slip)
    const whole=totalH?at(totalH.x,/^\d+[.,]\d+$/,35):null,want=area&&count?Math.round(num(area.str)*Number(count.str)*100)/100:null;
    const des=band.filter(o=>o.x<areaH.x&&sketchDesignation(o.str)).sort((a,b)=>Math.abs(a.x-markH.x)-Math.abs(b.x-markH.x))[0],d=des?sketchDesignation(des.str):prev?.d||null;
    const ral=colours.map(c=>{const own=band.filter(o=>Math.abs(o.x-c.x)<30).flatMap(o=>ralCodes(o.str));return own[0]||""});
@@ -170,7 +172,7 @@ function sketchSpec(texts){
    const mm=SKETCH_POS.exec(String(m.str).trim());
    out.push({at:m,pos:String(m.str).trim(),kind:mm[1].toUpperCase(),length_mm:length,width_mm:width,thickness_mm:d?.thickness_mm||0,ral:rals[0]||rals[1]||"",
     ...(rals[1]&&rals[1]!==rals[0]?{ral_inside:rals[1]}:{}),count:count?Number(count.str):null,name:d?.name||"",table:String(title?.str||"").trim(),
-    ...(sq?{area_m2:sq}:{}),...(mass?{mass_kg:num(mass.str)}:{}),...(whole?{total_m2:num(whole.str),...(want!==null&&Math.abs(num(whole.str)-want)>.06?{total_slip:{area_x_count_m2:want}}:{})}:{}),sketch:true,...(roof?{roof:true}:{})})
+    ...(sq?{area_m2:sq}:{}),...(mass?{mass_kg:num(mass.str)}:{}),...(whole?{total_m2:num(whole.str),...(want!==null&&Math.abs(num(whole.str)-want)>.06?((lw,per)=>Math.abs(per-lw)<=.02&&Math.abs(sq-lw)>.02?{area_slip:{area_m2:sq,by_length_m2:Math.round(per*100)/100}}:{total_slip:{area_x_count_m2:want}})(length*width/1e6,num(whole.str)/Number(count.str)):{})}:{}),sketch:true,...(roof?{roof:true}:{})})
   });
   // «Итого:» under the table — «Общая площадь панелей (м2)», «Общая проектная масса панелей … (кг.)», «108 панелей»: the totals
   // of the whole spec (a table may run over two sheets — «(окончание)»): kept to check the sum of the rows against
@@ -180,7 +182,7 @@ function sketchSpec(texts){
   const tA=val(/Общая\s+площадь\s+панелей/iu,totalH),tM=val(/Общая\s+(?:проектная\s+)?масса/iu,massH),tN=below.map(t=>/^(\d{1,4})\s*панел/iu.exec(String(t.str).trim())).find(Boolean);
   if(tA||tM||tN){const own=out.filter(r=>r.table===String(title?.str||"").trim());
    out.totals=(out.totals||[]).concat([{table:String(title?.str||"").trim(),...(roof?{roof:true}:{}),...(tA?{total_m2:tA}:{}),...(tM?{total_kg:tM}:{}),...(tN?{panels:Number(tN[1])}:{}),
-    rows:own.length,rows_m2:Math.round(own.reduce((a,r)=>a+(r.area_m2||0)*(r.count||0),0)*100)/100,rows_kg:Math.round(own.reduce((a,r)=>a+(r.mass_kg||0)*(r.count||0),0)*100)/100,rows_panels:own.reduce((a,r)=>a+(r.count||0),0)}])}
+    rows:own.length,rows_m2:Math.round(own.reduce((a,r)=>a+(r.area_slip?r.total_m2:(r.area_m2||0)*(r.count||0)),0)*100)/100,rows_kg:Math.round(own.reduce((a,r)=>a+(r.mass_kg||0)*(r.count||0),0)*100)/100,rows_panels:own.reduce((a,r)=>a+(r.count||0),0)}])}
  }
  return out
 }
@@ -672,11 +674,14 @@ function roofPlans({segments=[],texts=[]}={}){
   // Levels at the line across nearest their text («~» — approximate — read as written).
   const levels=[];
   for(const t of texts){
-   // (a plan of strips writes its marks upright along its edges: the line nearest the text's foot)
-   const str=String(t.str).trim().replace(/^~\s*/,"");if(horizontalText(t)===best.w.flip||!/^[+\-−±]\d{1,2}[,.]\d{3}$/u.test(str))continue;
+   // (a plan of strips writes its marks upright along its edges: the line nearest the text's foot; one without its sign —
+  //  «8,700» at the edge of the annex О8–О10 by Н, АР ч.2 л.12 — is above zero)
+   const str=String(t.str).trim().replace(/^~\s*/,"");if(horizontalText(t)===best.w.flip||!/^[+\-−±]?\d{1,2}[,.]\d{3}$/u.test(str))continue;
    if(t.x<v.box.x0-150||t.x>v.box.x1+60||t.y<v.box.y0-100||t.y>v.box.y1)continue;
    const mm=levelOf(str),c=best.w.flip?t.x:t.y;if(mm===null)continue;
-   const at=best.tiers.filter(y=>Math.abs(y-c)<=25).sort((p,q)=>Math.abs(p-c)-Math.abs(q-c))[0];if(at!==undefined)levels.push({mm,at,dir:best.w.flip?"x":"y"})
+   const at=best.tiers.filter(y=>Math.abs(y-c)<=25).sort((p,q)=>Math.abs(p-c)-Math.abs(q-c))[0];if(at!==undefined){levels.push({mm,at,dir:best.w.flip?"x":"y"});continue}
+   // (by an edge of the plan, no line across near it — the top of the wall at that edge: kept where it is written)
+   const e0=best.w.flip?v.box.x0:v.box.y0,e1=best.w.flip?v.box.x1:v.box.y1;if(Math.min(Math.abs(c-e0),Math.abs(c-e1))<=60)levels.push({mm,at:Math.round(c*10)/10,dir:best.w.flip?"x":"y",edge:true})
   }
   const title=titles.filter(q=>q.y<v.box.y0+150&&q.x+(q.width||0)>v.box.x0-100&&q.x<v.box.x1+100).sort((p,q)=>q.y-p.y)[0];
   out.push({...(title?{title:String(title.str).replace(/\s+/g," ").trim()}:{}),xAxes:v.row.map(q=>({name:name(q),pt:Math.round(mid(q)*10)/10})),
