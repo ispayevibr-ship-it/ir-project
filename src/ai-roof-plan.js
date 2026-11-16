@@ -125,9 +125,37 @@ function roofPlan({texts=[],segments=[],bbox,toX,toY,target}){
   const nd=/узл[уа]?\s+(\d{1,3})|Узел\s+(\d{1,3})/iu.exec(s);if(kind[0]==="node"&&nd)it.node=nd[1]||nd[2];
   items.push(it)
  }
+ // The lines of the roof guards: small squares (posts, 1,2…2,8 pt — 1,8 pt at 1:200 on АР ч.1 л.5) three and more in a
+ // row at a steady step (the step of the posts, ~1000 mm), on one line across; each run from its first post to its last
+ // — in mm of the grid, with the number of posts and the step. The engineer, 16.11.2026: «а ограждения?» — the callouts
+ // «Ограждение кровли» point at two places only, the line itself shows where the guard runs.
+ const guards=roofGuards(segments,inPlan).map(r=>({x0_mm:toX(r.a.x),y0_mm:toY(r.a.y),x1_mm:toX(r.b.x),y1_mm:toY(r.b.y),posts:r.n,
+  step_mm:Math.round(Math.hypot(toX(r.b.x)-toX(r.a.x),toY(r.b.y)-toY(r.a.y))/Math.max(1,r.n-1))}));
  // Levels on the plan: the roof's level at its point.
  const levels=texts.filter(t=>inPlan(t)&&LEVEL.test(str(t))).map(t=>({z_mm:level(str(t)),...mm(t)})).filter(l=>l.z_mm!==null);
- return{tables,openings,slopes,items,levels}
+ return{tables,openings,slopes,items,levels,...(guards.length?{guards}:{})}
 }
 
-module.exports={roofPlan,readTable};
+// The posts of the guards: squares of 1,2…2,8 pt — two sides across of one length at that distance (a side may be drawn in
+// two pieces: by its pair across), and their runs — on one line (±0,6 pt), three and more, the step within 0,6…1,6 of
+// the run's middle step, a gap over 1,6 steps ends the run.
+function roofGuards(segments,inside=()=>true){
+ const len=s=>Math.hypot(s.a.x-s.b.x,s.a.y-s.b.y),sq=[];
+ for(const hz of [true,false]){const B=s=>hz?s.a.y:s.a.x,L=s=>hz?[Math.min(s.a.x,s.b.x),Math.max(s.a.x,s.b.x)]:[Math.min(s.a.y,s.b.y),Math.max(s.a.y,s.b.y)];
+  const P=segments.filter(s=>(hz?Math.abs(s.a.y-s.b.y):Math.abs(s.a.x-s.b.x))<.2&&len(s)>=1.2&&len(s)<=2.8);
+  const by=new Map();for(const s of P){const k=Math.round(B(s));if(!by.has(k))by.set(k,[]);by.get(k).push(s)}
+  for(const s of P){const [l0,l1]=L(s),w=l1-l0,b=B(s);let o=null;
+   for(const d of [-1,0,1]){o=(by.get(Math.round(b+w)+d)||[]).find(t=>t!==s&&Math.abs(L(t)[0]-l0)<.3&&Math.abs(L(t)[1]-l1)<.3&&Math.abs(B(t)-b-w)<.4);if(o)break}
+   if(!o)continue;const c=hz?{x:(l0+l1)/2,y:b+w/2}:{x:b+w/2,y:(l0+l1)/2};
+   if(inside(c)&&!sq.some(q=>Math.hypot(q.x-c.x,q.y-c.y)<.6))sq.push(c)}}
+ const runs=[];
+ for(const hz of [true,false]){const K=q=>hz?q.y:q.x,A=q=>hz?q.x:q.y,lines=[];
+  for(const q of sq){const l=lines.find(l=>Math.abs(l.k-K(q))<=.6);if(l)l.q.push(q);else lines.push({k:K(q),q:[q]})}
+  for(const l of lines){if(l.q.length<3)continue;l.q.sort((a,b)=>A(a)-A(b));
+   const st=l.q.slice(1).map((q,i)=>A(q)-A(l.q[i])).sort((a,b)=>a-b),mid=st[Math.floor(st.length/2)];if(!(mid>=4))continue;
+   let cur=[l.q[0]];const flush=()=>{if(cur.length>=3)runs.push({a:cur[0],b:cur[cur.length-1],n:cur.length});cur=[]};
+   for(let i=1;i<l.q.length;i++){const d=A(l.q[i])-A(l.q[i-1]);if(d>mid*1.6)flush();else if(d<mid*.6)continue;cur.push(l.q[i])}flush()}}
+ return runs
+}
+
+module.exports={roofPlan,readTable,roofGuards};

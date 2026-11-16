@@ -13,7 +13,7 @@ window.irThreeSchemeView=(function irThreeModule(){
  // ускорить построение схемы?» — «да»). It is raised by scripts/scheme-model-digest.js, never by hand: the script builds
  // the checked schemes with this file and raises the number when what would be kept for any of them differs from the
  // record (knowledge/quality/model-digest.json); scripts/scheme-pack.js refuses a pack made without it.
- var MODEL_BUILD=49;
+ var MODEL_BUILD=51;
  var token=0,active=null,loadPromise=null,cameraMemory={};
  // Bundled with the app (works offline); the CDN is only a fallback for an incomplete hot update.
  var sources=[
@@ -12103,7 +12103,10 @@ window.irThreeSchemeView=(function irThreeModule(){
     // (a cut-out from the top or the foot of the panel — the roof panel passing through the wall to its eave, ИР-71535
     // Пс-35 of row О10 at Ж under Пк-15, АР ч.2 л.4 —, is not an opening ОВ: no edging round it — the engineer,
     // 13.11.2026: «там точно этот вырез (отверстие есть?)»)
-    if(holed)holed.forEach(function(o){if(o[2]<=.005||o[3]*1000>=number(c.fd)-5)return;var mid=start.clone().add(end).multiplyScalar(.5);ductPieces.push({id:id,roof:false,pt:pt,w:o[1]-o[0],h:o[3]-o[2],
+    // (within 40 mm of the top or 30 of the foot is to it: the panel 20 mm longer than its column by the specification — ИР-71535
+    // Пс-35 of row 010 at Ж, 7200 at a cut-out to +7,100 of a column to +7,100, АР ч.2 л.14 — had a frame round its corner;
+    // the engineer, 16.11.2026: «вот здесь полностью вырез, а не рамка», «анализ сделал, отверстие так и стоит»)
+    if(holed)holed.forEach(function(o){if(o[2]<=.03||o[3]*1000>=number(c.fd)-40)return;var mid=start.clone().add(end).multiplyScalar(.5);ductPieces.push({id:id,roof:false,pt:pt,w:o[1]-o[0],h:o[3]-o[2],
      c:mid.add(new T.Vector3(0,(o[2]+o[3])/2,(o[0]+o[1])/2-len/2).applyQuaternion(q)),n:new T.Vector3(1,0,0).applyQuaternion(q),a:new T.Vector3(0,0,1).applyQuaternion(q),up:new T.Vector3(0,1,0).applyQuaternion(q)})});
     var z0=number(c.z0),tops=tp?[Math.min(pw,(number(tp[0])-z0)/1000),Math.min(pw,(number(tp[1])-z0)/1000)]:null;
     // (under the eaves of a roof of panels: the top at its underside — wallUnderRoof)
