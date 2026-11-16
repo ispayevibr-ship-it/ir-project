@@ -86,6 +86,19 @@ function placeLevels(levels,horiz,segments=[]){
     if(!best||d<best.d)best={d,y:tip.y,x:tip.x}
    }
   }
+  // (a mark without the triangle — a tick across the stem at the height, the shelf with the text at the stem's other end:
+  //  АР ч.1 л.13 ИР-71535 4-4, «+6,820» with its shelf above the tick, «+5,900» on the left with it below; one offset for
+  //  all put them 400 mm apart and the section's heights off by it)
+  if(!best)for(const s of stems){
+   if(s.a.x<l.x-reach||s.a.x>l.x+l.w+reach||Math.abs(s.a.y-s.b.y)>45)continue;
+   for(const [e,tip] of [[s.a,s.b],[s.b,s.a]]){
+    if(Math.abs(e.y-l.y)>4)continue;
+    const shelf=horiz.some(h=>Math.abs(h.y-e.y)<=.5&&h.x0<=e.x+.5&&h.x1>=e.x-.5&&h.x1-h.x0>=l.w*.6&&h.x0<=l.x+l.w&&h.x1>=l.x);
+    const tick=horiz.some(h=>Math.abs(h.y-tip.y)<=.5&&h.x0<tip.x-3&&h.x1>tip.x+3&&h.x1-h.x0<=60);
+    if(!shelf||!tick)continue;const d=Math.min(Math.abs(s.a.x-l.x),Math.abs(s.a.x-l.x-l.w));
+    if(!best||d<best.d)best={d,y:tip.y,x:tip.x}
+   }
+  }
   if(best){l.y=best.y;l.tip=true;l.tx=best.x}else l.y+=offset
  }
  return levels
