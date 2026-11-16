@@ -48,6 +48,8 @@ function positions(s){
  for(const a of s.otherAxes?.axes||[])if(Number.isFinite(a.mm))(a.orient==="V"?xs:ys).add(a.mm);
  for(const o of s.roof?.openings||[]){xs.add(o.x0_mm);xs.add(o.x1_mm);ys.add(o.y0_mm);ys.add(o.y1_mm)}
  for(const o of s.roof?.items||[]){xs.add(o.x_mm);ys.add(o.y_mm)}
+ // (a section's levels: the sizes of its chains up the height — АР ч.1 л.12 «Разрез 1-1» — are the distances between them)
+ for(const l of s.levels||[])if(Number.isFinite(l.z_mm))ys.add(l.z_mm);
  for(const e of s.placements||[]){for(const v of [e.x_mm,e.x2_mm])if(Number.isFinite(v))xs.add(v);for(const v of [e.y_mm,e.y2_mm])if(Number.isFinite(v))ys.add(v);
   for(const v of [e.length_mm,e.diameter_mm,e.width_mm,e.dx_mm,e.dy_mm])if(Number.isFinite(v)&&v>0)xs.add(v),ys.add(v)}
  const diffs=set=>{const a=[...set].slice(0,600),out=new Set();for(let i=0;i<a.length;i++)for(let j=i+1;j<a.length;j++)out.add(Math.abs(a[i]-a[j]));return[...out]};
@@ -78,7 +80,7 @@ function auditSheet(geometry,page){
  // counted as misses; the axes of the other grid of the sheet — the existing building beside — are read too)
  const axisKey=m=>keyOf(m).replace(/^[0O](?=\d)/u,"О").replace(/^I(?=\d|\/|$)/u,"И");
  const bubblesNamed=new Set(schemes.flatMap(s=>[...(s.axesX||[]),...(s.axesY||[]),...(s.otherAxes?.axes||[]).map(a=>a.name)]).map(axisKey));
- const levelsUsed=numbersIn([schemes.map(s=>[s.levelNotes,s.title,(s.roof?.levels||[]).map(l=>l.z_mm),(s.placements||[]).map(p=>[p.z0_mm,p.z1_mm,p.z_mm])]),page?.sections,page?.sectionProfiles,
+ const levelsUsed=numbersIn([schemes.map(s=>[s.levelNotes,s.title,(s.levels||[]).map(l=>l.z_mm),(s.roof?.levels||[]).map(l=>l.z_mm),(s.placements||[]).map(p=>[p.z0_mm,p.z1_mm,p.z_mm])]),page?.sections,page?.sectionProfiles,
   (page?.sheet?.views||[]).map(v=>[v.z0_mm,v.z1_mm]),page?.trusses,page?.columnDetails,page?.baseDetails,page?.tank,page?.ar]);
  for(const s of schemes)for(const m of String(s.title||"").match(/[+\-−]?\d{1,3}[,.]\d{3}/gu)||[]){const v=levelMm(m);if(v!==null)levelsUsed.add(v)}
  // The wall layouts of АР on the sheet: their positions along (axes, panels, openings) and up (levels, panels, openings),
@@ -103,8 +105,12 @@ function auditSheet(geometry,page){
   return[v?.name,h?.name].filter(Boolean).join("/")};
  const at=t=>{const c=textFrame(t).c;return{x:Math.round(c.x*10)/10,y:Math.round(c.y*10)/10}};
  const pending=[];let arJson=null;const arText=()=>arJson||(arJson=JSON.stringify(page?.ar||{}));
+ // (a number in a circle that is the number of a node titled on the sheet — «Узел 40» — and no axis of a scheme: the mark
+ // of that node on a section, not an axis; АР ч.1 л.12 ИР-71535, the circle «40» on the section 1-1 at the gutter)
+ const titledNodes=new Set(texts.map(t=>NODE_TITLE.exec(String(t.str).trim())).filter(Boolean).map(m=>m[1]));
  for(const t of texts){
   const str=String(t.str).trim(),c=textFrame(t).c,k=where(c);
+  if(bubbleTexts.has(t)&&/^\d{1,3}$/u.test(str)&&titledNodes.has(str)&&!bubblesNamed.has(axisKey(str))){items.nodes.push({text:str,node:str,mark:true,scheme:k});continue}
   if(bubbleTexts.has(t)){const used=bubblesNamed.has(axisKey(str));items.axes.push({text:str,used});if(!used&&k!==null)missed.push({kind:"axis",text:str,scheme:k,at:at(t),why:"ось в кружке не вошла в сетку схемы"});continue}
   const node=NODE_REF.exec(str);
   if(node){let target=c;try{const tg=leaderTarget(t,segments,index,new Set(),lines());if(tg?.leader)target={x:tg.x,y:tg.y}}catch{}

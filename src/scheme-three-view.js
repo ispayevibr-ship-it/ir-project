@@ -698,7 +698,14 @@ window.irThreeSchemeView=(function irThreeModule(){
   // «physical» division by π —, so the scheme looks the same with either library (a pack of schemes runs on both).
   var NEW3=Number(T.REVISION)>=152,LIGHT_K=Number(T.REVISION)>=155?Math.PI:1;if(NEW3&&T.ColorManagement)T.ColorManagement.enabled=false;
   var allElems=P.elements||[],secOff=SEC_OFF[String(P.objectId||"")+"|"+key]||(SEC_OFF[String(P.objectId||"")+"|"+key]=new Set());
-  function secFilter(){P.elements=secOff.size?allElems.filter(function(c){return!secOff.has(secOf(c))}):allElems}
+  // (a section switched off — АР / КМ … on the bar — is hidden, not left out of the build: the model is built of all
+  // the members, and the meshes of the hidden section are made invisible — `secShow` in `rebatch`. Built without the
+  // steel, the АР lost the girts, purlins and columns it stands on, and a part of its panels went with them — the
+  // engineer, 16.11.2026: «почему пропало часть ар когда км выключил?», «ты уже проверял и опять все тоже самое»)
+  var secHid=new Set();
+  function secFilter(){P.elements=allElems;secHid=new Set();if(secOff.size)allElems.forEach(function(c){if(c&&c.id!=null&&secOff.has(secOf(c)))secHid.add(String(c.id))})}
+  function secHidden(id){return secHid.size>0&&id!=null&&secHid.has(String(id))}
+  function secShow(){allMeshes.forEach(function(m){var h=secHidden(m.userData.memberId);if(h){if(m.visible){m.visible=false;m.userData.secHid=true}}else if(m.userData.secHid){m.visible=true;delete m.userData.secHid}})}
   secFilter();
   var spanX=number(P.spanX),spanY=number(P.spanY),X=spanX/1000,Y=spanY/1000;
   var axesX=P.axesX||[],axesY=P.axesY||[],gridX=P.gridX||{},gridY=P.gridY||{};
@@ -5279,7 +5286,7 @@ window.irThreeSchemeView=(function irThreeModule(){
     // (the existing building next door — a roof ending at it is not free)
     var blds=[];elems.forEach(function(c){if(c.ft!=="building")return;(meshesById.get(String(c.id))||[]).forEach(function(m){if(m.isMesh&&m.userData.building)blds.push(new T.Box3().setFromObject(m))})});
     var inXZ=function(b,v,e){return v.x>b.min.x-e&&v.x<b.max.x+e&&v.z>b.min.z-e&&v.z<b.max.z+e};
-    var ofMat=drainMat||(drainMat=new T.MeshStandardMaterial({color:ralColor("5012")!==undefined?ralColor("5012"):0x7aa6c8,metalness:.3,roughness:.55}));
+    var ofMat=drainMat||(drainMat=drainMaterial());
     ends.forEach(function(r){
      var up=new T.Vector3(0,1,0),d=r.hi.clone().sub(r.lo),L0=d.length();if(L0<1)return;d.normalize();var k=(r.lo.y-r.hi.y)/r.run;
      [-1,1].forEach(function(sg){
@@ -5355,6 +5362,11 @@ window.irThreeSchemeView=(function irThreeModule(){
   // caps, one funnel in the middle of the run, the pipe Ø150 down the wall to the outlet at the ground. Not steel of the КМ —
   // out of the check of metal (footing).
   var drainN=0,drainMat=null;
+  // (the gutter and its pipe a step ahead in depth of the trims (−1): a trim is pulled forward against the panel it lies
+  // on, and seen from afar — a step of the depth is centimetres there — the eave trim of the roof (поз. 33), whose lip goes
+  // down into the gutter, came out over the gutter: near the gutter was open, from afar covered with the roof's colour —
+  // the engineer, 16.11.2026: «почему вблизи один вид, отдаляешь другой»)
+  function drainMaterial(){return new T.MeshStandardMaterial({color:ralColor("5012")!==undefined?ralColor("5012"):0x7aa6c8,metalness:.3,roughness:.55,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2})}
   var gutterTrimEnds=0;
   function roofDrains(){
    drainN=0;gutterTrimEnds=0;var runs=[],walls=[];
@@ -5388,7 +5400,7 @@ window.irThreeSchemeView=(function irThreeModule(){
      if(a1<r.e-.3||a0>r.e+.3||b.max.y<r.y-.4||b.min.y>r.y+.2||u1<r.s0||u0>r.s1)return;
      if(u0<lo&&r.s0-u0<.3)lo=u0-.003;if(u1>hi&&u1-r.s1<.3)hi=u1+.003});
     if(lo<r.s0||hi>r.s1)gutterTrimEnds++;r.s0=lo;r.s1=hi});
-   if(!drainMat)drainMat=new T.MeshStandardMaterial({color:ralColor("5012")!==undefined?ralColor("5012"):0x7aa6c8,metalness:.3,roughness:.55});
+   if(!drainMat)drainMat=drainMaterial();
    var up=new T.Vector3(0,1,0);
    var add=function(id,geo,at,X,Y,Z){var m=new T.Mesh(geo,drainMat);m.position.copy(at);m.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(X,Y,Z));
     m.userData.memberId=id;m.userData.fixed=true;m.userData.footing=true;m.userData.sheet=true;m.userData.drain=true;steel.add(m);allMeshes.push(m);(meshesById.get(id)||meshesById.set(id,[]).get(id)).push(m);return m};
@@ -9754,7 +9766,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   function mergeDetails(){
    details=details.filter(function(d){if(d.node)return true;detailGroup.remove(d.group);d.group.children.forEach(function(m){m.geometry.dispose()});return false});
    details.forEach(function(d){if(d.group.parent===detailGroup)detailGroup.remove(d.group)});
-   var shown=function(n){var col=n.members.find(function(m){return m.c.geometryType==="column"});if(!col)return true;var l=meshesById.get(String(col.c.id));return!l||l.some(function(m){return m.visible})};
+   var shown=function(n){if(secHid.size&&n.members.length&&n.members.every(function(m){return secHidden(m.c.id)}))return false;var col=n.members.find(function(m){return m.c.geometryType==="column"});if(!col)return true;var l=meshesById.get(String(col.c.id));return!l||l.some(function(m){return m.visible})};
    var byMat=new Map(),all=new T.Group();
    details.forEach(function(d){if(!shown(d.node))return;var g=d.group;g.updateMatrixWorld(true);
     if(g.children.some(function(o){return!o.isMesh||o.isInstancedMesh||!o.geometry||!o.geometry.attributes.position||Array.isArray(o.material)})){detailGroup.add(g);return}
@@ -9877,6 +9889,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   // By default only the nodes of the selected member are marked (all of them at once hid the frame behind markers).
   function nodeVisible(n,cam){
    if(nodeMode==="off")return false;
+   if(secHid.size&&n.members.every(function(m){return secHidden(m.c.id)}))return false;
    if(nodeMode==="sel")return Boolean(selected)&&n.members.some(function(m){return String(m.c.id)===selected});
    if(nodeMode==="open"&&n.status==="mounted")return false;
    return n.kind==="base"||n.kind==="top"||n.mesh.position.distanceTo(cam)<60
@@ -9929,7 +9942,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    box.hidden=keys.length<2;if(keys.length<2){box.innerHTML="";return}
    box.innerHTML=keys.map(function(k){var off=secOff.has(k);return'<button type="button" data-sec="'+escapeHtml(k)+'" class="'+(off?"off":"on")+'" aria-pressed="'+(!off)+'" title="'+(off?"Показать":"Скрыть")+" раздел "+escapeHtml(k)+'">'+escapeHtml(k)+'<small>'+m[k]+'</small></button>'}).join("");
    [].forEach.call(box.querySelectorAll("[data-sec]"),function(b){b.onclick=function(e){e.stopPropagation();var k=b.getAttribute("data-sec");if(secOff.has(k))secOff.delete(k);else secOff.add(k);
-    var next={};for(var f in P)next[f]=P[f];next.elements=allElems;update(next)}})
+    secFilter();paintSecs();rebatch();lit=null;paintHighlight();paintSum();invalidate()}})
   }
   (function(){if(document.getElementById("irThreeSecsCss"))return;var st=document.createElement("style");st.id="irThreeSecsCss";
    st.textContent=".ir-three-secs{display:inline-flex;gap:4px;align-items:center;flex-wrap:nowrap;flex:none}.ir-three-secs button{white-space:nowrap}.ir-three-secs[hidden]{display:none}"+
@@ -12803,6 +12816,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   }
   function arPiece(m){var u=m.userData,e=dataById.get(String(u.memberId));return e?secOf(e)==="АР":!!(u.masonry||u.clad||u.plinth||u.drain||u.duct||u.counter||u.gutter)}
   function rebatch(queue){
+   secShow();
    if(details.length)mergeDetails();
    bTexts.children.forEach(function(m){m.visible=!!(m.userData.host&&m.userData.host.visible)});
    batches.children.slice().forEach(function(b){batches.remove(b);if(b.isInstancedMesh||b.isBatchedMesh)b.dispose();else b.geometry.dispose()});weldCells.forEach(function(cell){cell.meshes=null});
@@ -13286,7 +13300,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   function schemeTotals(){
    var prof=0,sheet=0,cond=0,sv=0,sa=0,wa=0,wv=0,pn=0,tl=0,tn=0,tp=0,seen=new Set(),box=new T.Box3(),bb=new T.Box3();
    var skip=function(m){return!m||!m.isMesh||seen.has(m)||m.userData.hole||m.userData.anchor||m.userData.footing||m.userData.wood||m.userData.weld||m.userData.seam||m.userData.edges||m.userData.bolt||m.userData.nut||m.material===concreteMat};
-   elems.forEach(function(c){if(!c||c.id===undefined||c.id===null)return;var id=String(c.id),ft=c.ft||"",list=meshesById.get(id)||[];
+   elems.forEach(function(c){if(!c||c.id===undefined||c.id===null||secHidden(c.id))return;var id=String(c.id),ft=c.ft||"",list=meshesById.get(id)||[];
     if(ft==="deck"){list.forEach(function(m){if(!skip(m))seen.add(m)});var dp=memberPoints(c),dl=0;for(var dk=1;dk<dp.length;dk++)dl+=dp[dk].distanceTo(dp[dk-1]);sheet+=dl*deckWidth(c)*deckKgm2(c);return}
     if(ft===""){
      // (the rolled section by its mass of a metre × the length of the member — as the specification of the КМ counts it;
@@ -13432,7 +13446,7 @@ window.irThreeSchemeView=(function irThreeModule(){
      m.updateMatrixWorld();pickSphere.copy(g.boundingSphere).applyMatrix4(m.matrixWorld);pickS[4*i]=pickSphere.center.x;pickS[4*i+1]=pickSphere.center.y;pickS[4*i+2]=pickSphere.center.z;pickS[4*i+3]=pickSphere.radius}}
    var ray=raycaster.ray,ox=ray.origin.x,oy=ray.origin.y,oz=ray.origin.z,dx=ray.direction.x,dy=ray.direction.y,dz=ray.direction.z,S=pickS,cand=pickList;cand.length=0;
    for(i=0;i<list.length;i++){var r=S[4*i+3];if(r<0)continue;var cx=S[4*i]-ox,cy=S[4*i+1]-oy,cz=S[4*i+2]-oz,tc=cx*dx+cy*dy+cz*dz;
-    if(tc+r<0||cx*cx+cy*cy+cz*cz-tc*tc>r*r)continue;if(!floorOn&&list[i].userData&&list[i].userData.floor)continue;cand.push({t:tc-r,m:list[i]})}
+    if(tc+r<0||cx*cx+cy*cy+cz*cz-tc*tc>r*r)continue;if(!floorOn&&list[i].userData&&list[i].userData.floor)continue;if(list[i].userData&&list[i].userData.secHid)continue;cand.push({t:tc-r,m:list[i]})}
    cand.sort(function(a,b){return a.t-b.t});var best=null,out=[];
    for(var k=0;k<cand.length;k++){if(best&&cand[k].t>best.distance)break;out.length=0;cand[k].m.raycast(raycaster,out);
     for(var j=0;j<out.length;j++)if(!best||out[j].distance<best.distance)best=out[j]}
@@ -13812,7 +13826,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    // (a node taken apart: the marks of its own members only — the marks of the whole scheme around it hid it)
    var only=explode?new Set(explode.node.members.map(function(m){return String(m.c.id)})):null;
    for(var i=0;i<order.length;i++){
-    var l=order[i].l;if(shown>=160||only&&!only.has(String(l.id))){showLabel(l,false);continue}
+    var l=order[i].l;if(shown>=160||only&&!only.has(String(l.id))||secHidden(l.id)){showLabel(l,false);continue}
     var v=l.pos,cw=e[3]*v.x+e[7]*v.y+e[11]*v.z+e[15];
     if(!(cw>0)){showLabel(l,false);continue}
     var nz=(e[2]*v.x+e[6]*v.y+e[10]*v.z+e[14])/cw,px=((e[0]*v.x+e[4]*v.y+e[8]*v.z+e[12])/cw*.5+.5)*w,py=(-(e[1]*v.x+e[5]*v.y+e[9]*v.z+e[13])/cw*.5+.5)*h;

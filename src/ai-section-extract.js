@@ -655,4 +655,59 @@ function extractElevations({segments=[],texts=[]}={},page=1){
  }
  return schemes
 }
-module.exports={extractSections,extractElevations,schemeNotes,nearbySchemeNotes,elevationTitles,bubbleRows,levelOf,levelOffset,placeLevels,fit,thickEnds};
+// A section across the building titled «Разрез 1-1» (ИР-71535 АР ч.1 л.12): no row of its own in the title — the cut is on
+// the plans —, its bubbles under it (the numbered axes О2…О10 and the row of the next building, «К»), its level marks at
+// the heights of the floors, roofs, crane rails, openings. Read as a view of its own: the axes with their positions (spans
+// by the dimensions written under them) and every level with where it stands along them — its heights reach the scheme
+// with the sheet (`kind: "section"`, no members: it places nothing, the plans do). The engineer, 16.11.2026 (через
+// координатора): «разрез 1-1 не превращён в схему: 14 осей и все отметки ни к чему не привязаны».
+function sectionTitles(texts){
+ const out=[];
+ for(const t of texts){const m=/^Разрез\s+(\d{1,2}|[А-ЯЁ])\s*[-–]\s*(\d{1,2}|[А-ЯЁ])\s*$/u.exec(String(t.str).trim());
+  if(!m||m[1]!==m[2]||Math.abs(t.angle||0)>=10)continue;
+  out.push({str:String(t.str).trim(),name:m[1]+"-"+m[2],x:t.x+(t.width||0)/2,y:t.y})}
+ return out
+}
+function extractSectionViews({segments=[],texts=[]}={},page=1,taken=[]){
+ const titles=sectionTitles(texts);if(!titles.length)return[];
+ // (the bubbles of the next building drawn in the same row — «К/1», a Latin «J» of its grid — are read with ours)
+ const rows=bubbleRows(texts,segments,3,true);if(!rows.length)return[];
+ for(const r of rows){const ring=r.items[0]?.ring;if(!ring)continue;
+  for(const t of texts){const str=String(t.str).trim();if(!/^[A-Z]$/.test(str)||Math.abs(t.y-r.y)>4||t.x<r.x0-600||t.x>r.x1+600||r.items.some(u=>u.str===str))continue;
+   const cx=t.x+(t.width||0)/2,cy=t.y-(t.size||8)*.36,round=segments.filter(s=>{const d1=Math.hypot(s.a.x-cx,s.a.y-cy),d2=Math.hypot(s.b.x-cx,s.b.y-cy);return Math.abs(d1-ring.r)<2.5&&Math.abs(d2-ring.r)<2.5}).length;
+   if(round>=8){r.items.push({...t,str,ring:{x:cx,y:cy,r:ring.r}});r.x0=Math.min(r.x0,t.x);r.x1=Math.max(r.x1,t.x)}}}
+ const horiz=segments.filter(s=>Math.abs(s.a.y-s.b.y)<=.3&&Math.abs(s.a.x-s.b.x)>=3).map(s=>({y:s.a.y,x0:Math.min(s.a.x,s.b.x),x1:Math.max(s.a.x,s.b.x)}));
+ const out=[];
+ for(const title of titles){
+  const row=rows.filter(r=>r.y>title.y&&r.y-title.y<1300&&r.items.length>=3&&title.x>=r.x0-600&&title.x<=r.x1+600).sort((a,b)=>a.y-b.y)[0];
+  if(!row||taken.some(s=>s.bbox&&Math.abs((s.bbox.y1||0)-row.y)<2))continue;
+  const region=texts.filter(t=>{const b=textBox(t);return ownerBelow(rows,b.cx,b.cy)===row&&b.cy>title.y-20&&b.cx>=row.x0-700&&b.cx<=row.x1+700});
+  const levels=region.filter(t=>Math.abs(t.angle||0)<10).map(t=>({mm:levelOf(t.str),y:t.y,x:t.x,w:t.width||0,s:t.size,str:String(t.str).trim()})).filter(l=>l.mm!==null);
+  if(levels.length<2)continue;
+  placeLevels(levels,horiz,segments);
+  const f=fit(levels);
+  const bubbles=row.items.map(t=>({name:String(t.str).trim().toUpperCase(),pt:t.x+(t.width||0)/2})).sort((a,b)=>a.pt-b.pt);
+  if(bubbles.length<3||new Set(bubbles.map(b=>b.name)).size!==bubbles.length)continue;
+  const dims=region.filter(t=>Math.abs(t.angle||0)<10&&/^\d{3,5}$/.test(String(t.str).trim())).map(t=>Number(t.str));
+  // The scale: the levels' fit when there is one, else the commonest ratio of a span between bubbles to a written size.
+  let scale=f?Math.abs(f.b):0;
+  if(!scale){const r=[];for(let i=1;i<bubbles.length;i++){const d=bubbles[i].pt-bubbles[i-1].pt;for(const v of dims)r.push(v/d)}
+   r.sort((a,b)=>a-b);let best=0,n=0;for(const v of r){const k=r.filter(o=>Math.abs(o/v-1)<=.03).length;if(k>n){n=k;best=v}}scale=best}
+  if(!scale)continue;
+  const left=[0];
+  for(let i=1;i<bubbles.length;i++){const raw=(bubbles[i].pt-bubbles[i-1].pt)*scale,near=dims.filter(d=>Math.abs(d-raw)<=raw*.06).sort((a,b)=>Math.abs(a-raw)-Math.abs(b-raw))[0];
+   left.push(left[i-1]+(near||Math.round(raw/50)*50))}
+  const nb=bubbles.filter(b=>numbered(b.name)).length>=2?bubbles.filter(b=>numbered(b.name)):bubbles,reversed=axisRank(nb[0].name)>axisRank(nb[nb.length-1].name),total=left[left.length-1],canon=m=>reversed?total-m:m;
+  const axes=bubbles.map((b,i)=>({name:b.name,mm:canon(left[i])})).sort((a,b)=>a.mm-b.mm);
+  const along=xpt=>{let k=0;for(let i=1;i<bubbles.length;i++)if(Math.abs(bubbles[i].pt-xpt)<Math.abs(bubbles[k].pt-xpt))k=i;return Math.round(canon(left[k]+(xpt-bubbles[k].pt)*scale)/10)*10};
+  const byAxis=xpt=>bubbles.reduce((p,b)=>Math.abs(b.pt-xpt)<Math.abs(p.pt-xpt)?b:p).name;
+  const lv=levels.map(l=>({z_mm:l.mm,text:l.str,u_mm:along(l.x+l.w/2),axis:byAxis(l.x+l.w/2),pt:{x:Math.round(l.x),y:Math.round(l.y)}})).sort((a,b)=>a.z_mm-b.z_mm||a.u_mm-b.u_mm);
+  const names=axes.map(a=>a.name),spans=axes.slice(1).map((a,i)=>a.mm-axes[i].mm);
+  const xs=region.map(t=>textBox(t)),y0=Math.min(title.y-20,...xs.map(b=>b.y0));
+  out.push({kind:"section",title:title.str,section:title.name,page,bbox:{x0:Math.min(row.x0,...levels.map(l=>l.x))-60,x1:Math.max(row.x1,...levels.map(l=>l.x+l.w))+60,y0,y1:row.y+20},
+   scaleMmPerPt:Math.round(scale*1000)/1000,axesX:names,axesY:[],spansX:spans,spansY:[],sizeX:axes[axes.length-1].mm,sizeY:0,
+   levels:lv,placements:[],warnings:["Разрез без элементов: оси и отметки — для высот, расстановка по планам"]})
+ }
+ return out
+}
+module.exports={extractSections,extractElevations,extractSectionViews,sectionTitles,schemeNotes,nearbySchemeNotes,elevationTitles,bubbleRows,levelOf,levelOffset,placeLevels,fit,thickEnds};

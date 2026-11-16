@@ -4,7 +4,7 @@ const {parentPort,workerData}=require("node:worker_threads");
 const {readPageGeometry,readPageTexts}=require("./ai-scheme-geometry");
 const {extractScheme}=require("./ai-scheme-extract");
 const {extractSheet,sheetStamp,specCells,cellAccept,specPictures,specGrid,regrid,gridTexts}=require("./ai-sheet-extract");
-const {extractSections,extractElevations,schemeNotes,nearbySchemeNotes}=require("./ai-section-extract");
+const {extractSections,extractElevations,extractSectionViews,schemeNotes,nearbySchemeNotes}=require("./ai-section-extract");
 const {importPdfjs,requireCanvas,pdfWasm}=require("./ai-packages");
 const {joinSplitTexts}=require("./ai-scheme-geometry");
 const {ocrPage,ocrImages,readCells,tableRules,readTableCells,SHEAR,dropLettering,createOcrWorker,sheetTurn,turnGeometry,ringsOf,readRings,shelvesOf,readShelves}=require("./ai-ocr");
@@ -165,6 +165,8 @@ setInterval(()=>parentPort.postMessage({type:"alive"}),20000).unref();
    for(const s of result.schemes){const notes=schemeNotes(geometry.texts,s.bbox,s.title);if(notes.notes.length||notes.z0_mm!==null||notes.z1_mm!==null)s.levelNotes=notes}
    // Levels written only on the views beside a plan (all alike): the levels of its members.
    nearbySchemeNotes(geometry.texts,result.schemes);
+   // A section «Разрез 1-1» without a row of its own: its axes and levels as a view that places nothing (АР ч.1 л.12).
+   result.schemes.push(...extractSectionViews(geometry,n,result.schemes));
    // The levels written along the rows of axes of its sections (the slope of a roof), filled by extractSections.
    const profiles={};
    // Read by OCR or not at all, such a sheet also goes to Claude as an image.

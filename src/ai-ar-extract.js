@@ -194,7 +194,11 @@ function fillSpec(texts){
   // (a stained-glass wall «ВтА-1» — витраж of aluminium profiles, a window with a door: ИР-71535 ч.1 л.12, was left out)
   const str=String(p.str).trim(),m=/^(ОК|Д|В|ВР|ДВ|ВтА|Вт)-(\d{1,3}[а-я]?)$/u.exec(str);if(!m||!horizontalText(p))continue;
   const kind=m[1]==="ОК"||/^Вт/u.test(m[1])?"window":m[1]==="Д"||m[1]==="ДВ"?"door":"gate";
-  const row=rowOf(texts,p,480).sort((a,b)=>a.x-b.x);let w=0,h=0,name="";
+  // (a cell of two lines — «Окно … одинарный» over «ВАК СПО 3330 х 1960» — sits 5 points off the mark's line: the row
+  // taken wider, when the strict one has no size; ОК-3 of АР ч.1 л.12 ИР-71535 was left out of the window schemes)
+  const sized=list=>list.some(o=>/\d{3,5}\s*[хx×]\s*\d{3,5}/u.test(String(o.str))&&!/ГОСТ/u.test(String(o.str)));
+  let row=rowOf(texts,p,480);if(!sized(row)){const wide=texts.filter(o=>o!==p&&horizontalText(o)&&Math.abs(o.y-p.y)<=8&&o.x>p.x&&o.x-p.x<=480);if(sized(wide))row=wide}
+  row=row.sort((a,b)=>a.x-b.x);let w=0,h=0,name="";
   for(const o of row){
    const s=String(o.str),br=/\(\s*(\d{3,5})\s*[хx×]\s*(\d{3,5})\s*\)/u.exec(s),hw=/(\d{3,5})\s*[хx×]\s*(\d{3,5})/u.exec(s),gate=/^В[МР]\s.*?(\d{3,5})\s*-\s*(\d{3,5})$/u.exec(s);
    if(br){w=Number(br[1]);h=Number(br[2]);name=s.trim();break}
@@ -1349,6 +1353,29 @@ function fillViews({segments=[],texts=[]}={}){
 // from: at its handle (turn — hinged at the other side), at the top (tilt — hinged at its foot); both — «ПОТ» (ГОСТ
 // 23166: «с поворотом створки вокруг вертикальной и нижней крайних осей»). Millimetres from the lower left corner of
 // the block as drawn. The engineer, 27.10.2026: «Окна и ворота сделай в 3д нормальное отображение».
+// The level marks of the schemes of the blocks (ИР-71535 АР ч.1 л.12 «Схемы заполнения оконных и витражного проемов»): at the
+// right of each scheme its head mark at the top of the block («+3,100», a few points under the label's line) and its sill
+// mark under it on the same stem («+0,800»); a block set at several heights carries a column of them (ОК-4: «+5,480»,
+// «+8,300», «+10,520», «+18,500» over «+4,280», «+7,100», «+10,320», «+17,300»). Each fill of that mark gets them —
+// `levels: {top_mm, bottom_mm}`; they stuck to the nearest heading before («Поз.20», «Узел 40»). The engineer, 16.11.2026
+// (через координатора): «отметки схем окон прилипают к ближайшему заголовку».
+function fillLevels({texts=[]}={},fills=[]){
+ const want=new Set(fills.filter(f=>f.kind==="window"||f.kind==="door"||f.kind==="gate").map(f=>f.pos));
+ const labels=texts.filter(t=>horizontalText(t)&&want.has(String(t.str).trim())&&!rowOf(texts,t,480).some(o=>/ГОСТ|\d{3,5}\s*[хx×-]\s*\d{3,5}/u.test(String(o.str)))).map(t=>({t,pos:String(t.str).trim(),b:textBox(t)}));
+ if(!labels.length)return;
+ const marks=texts.filter(t=>horizontalText(t)&&String(t.str).trim().length<=10&&levelOf(String(t.str).trim())!==null).map(t=>({mm:levelOf(String(t.str).trim()),b:textBox(t)}));
+ const heads=[];
+ for(const m of marks){
+  const own=labels.filter(l=>l.b.cx<m.b.x0&&m.b.cy-l.b.cy>=-20&&m.b.cy-l.b.cy<=60&&m.b.x0-l.b.cx<=700).sort((p,q)=>(m.b.x0-p.b.cx)-(m.b.x0-q.b.cx))[0];
+  if(own)heads.push({...m,own})
+ }
+ const by=new Map();for(const h of heads){if(!by.has(h.own))by.set(h.own,{top:[],bottom:[]});by.get(h.own).top.push(h)}
+ for(const m of marks){if(heads.includes(m)||heads.some(h=>h.b===m.b))continue;
+  const h=heads.filter(h=>m.b.cy>h.b.cy+20&&m.b.cy-h.b.cy<=420&&Math.abs(m.b.cx-h.b.cx)<=90).sort((p,q)=>(m.b.cy-p.b.cy)+Math.abs(m.b.cx-p.b.cx)-((m.b.cy-q.b.cy)+Math.abs(m.b.cx-q.b.cx)))[0];
+  if(h)by.get(h.own).bottom.push(m)}
+ for(const [l,v] of by){const top=[...new Set(v.top.map(m=>m.mm))].sort((a,b)=>a-b),bottom=[...new Set(v.bottom.map(m=>m.mm))].sort((a,b)=>a-b);
+  for(const f of fills)if(f.pos===l.pos)f.levels={top_mm:top,bottom_mm:bottom}}
+}
 function fillSketches({segments=[],texts=[]}={},fills=[]){
  const want=new Map(fills.filter(f=>f.width_mm&&f.height_mm).map(f=>[f.pos,f]));
  const labels=texts.filter(t=>horizontalText(t)&&want.has(String(t.str).trim())&&!rowOf(texts,t,480).some(o=>/ГОСТ|\d{3,5}\s*[хx×-]\s*\d{3,5}/u.test(String(o.str))));
@@ -1946,6 +1973,7 @@ function extractArchitecture(geometry){
  const texts=geometry?.texts||[];
  const spec=(()=>{const a=panelSpec(texts);if(a.length)return a;const s=sketchSpec(texts);return s.length?s:layoutSpec(texts)})(),fills=fillSpec(texts),views=panelViews(geometry||{},spec),facades=fillViews(geometry||{});
  if(fills.length)fillSketches(geometry||{},fills);
+ if(fills.length)fillLevels(geometry||{},fills);
  const finish=facadeFinish(texts),sills=sillSpec(texts);
  const axes=planAxes(geometry||{});
  const tr=trimSpec(texts),trNodes=trimNodes(texts),niches=nicheSpec(texts),planFills=planOpenings(geometry||{},axes),planFix=planFills.length?planFixtures(geometry||{},axes):[],planSl=planFills.length?planSlabs(geometry||{},axes):[],planBands=planFills.length?planWalls(geometry||{},axes):[];
