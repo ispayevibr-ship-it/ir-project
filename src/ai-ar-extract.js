@@ -467,6 +467,33 @@ const titleRow=str=>{
  const m=/по\s+ряду\s+([А-ЯЁ]|\d{1,3}(?:\/\d{1,2})?)\s*(?=[,.;]|\s+в\s|$)/iu.exec(String(str).replace(/\s+/g," ").trim());if(!m)return null;
  const n=m[1].toUpperCase();return /^\d/.test(n)?n.replace(/^0+(?=\d)/,""):n
 };
+// Funnels of the inner drain on the plan of the roof (ИР-71535 АР ч.1 л.11 «План кровли»: «Воронка внутреннего
+// организованного водостока, см. лист ВК-2.1» — in each gutter a dashed square with two circles in it, the inner one
+// Ø 2,5 pt, 180 mm at 1:200; four in each gutter of the main shop by rows Б and Л, one in each of the annex О1–О3, one in
+// the gutter of the annex О8–О10 at row Г; the engineer, 16.11.2026 «чет я вижу по крайнемере 4 воронки с каждой
+// стороны»): every closed circle of short strokes on the sheet — its points round one centre (within 8 % of the middle
+// radius once strokes touching it are let go), in 11 of 12 directions. Points of the sheet; the scheme keeps those of the
+// size of a funnel and puts them in their gutters (src/ai-montage-plan.js, src/scheme-three-view.js innerFunnels).
+function roofFunnels({segments=[],texts=[]}={}){
+ if(!texts.some(t=>horizontalText(t)&&/^\s*План\s+кровл/iu.test(String(t.str))))return[];
+ const S=segments.filter(s=>Math.hypot(s.b.x-s.a.x,s.b.y-s.a.y)<1.5);
+ const key=p=>Math.round(p.x*20)+","+Math.round(p.y*20),adj=new Map();
+ S.forEach((s,i)=>{for(const k of [key(s.a),key(s.b)]){if(!adj.has(k))adj.set(k,[]);adj.get(k).push(i)}});
+ const used=new Uint8Array(S.length),out=[];
+ for(let i=0;i<S.length;i++){
+  if(used[i])continue;const st=[i],ids=[];used[i]=1;
+  while(st.length){const j=st.pop();ids.push(j);for(const k of [key(S[j].a),key(S[j].b)])for(const n of adj.get(k))if(!used[n]){used[n]=1;st.push(n)}}
+  if(ids.length<12||ids.length>400)continue;
+  const P=ids.flatMap(j=>[S[j].a,S[j].b]);let Q=P,cx=0,cy=0;
+  for(let it=0;it<3&&Q.length>=20;it++){cx=0;cy=0;for(const q of Q){cx+=q.x;cy+=q.y}cx/=Q.length;cy/=Q.length;
+   const r=Q.map(q=>Math.hypot(q.x-cx,q.y-cy)).sort((a,b)=>a-b),md=r[r.length>>1];Q=Q.filter(q=>Math.abs(Math.hypot(q.x-cx,q.y-cy)-md)<md*.08)}
+  if(Q.length<20||Q.length<P.length*.6)continue;
+  cx=0;cy=0;for(const q of Q){cx+=q.x;cy+=q.y}cx/=Q.length;cy/=Q.length;
+  const R=Q.reduce((a,q)=>a+Math.hypot(q.x-cx,q.y-cy),0)/Q.length;if(R<.3||R>6)continue;
+  if(new Set(Q.map(q=>(Math.round(Math.atan2(q.y-cy,q.x-cx)/(Math.PI/6))+12)%12)).size<11)continue;
+  out.push({x:Math.round(cx*100)/100,y:Math.round(cy*100)/100,r:Math.round(R*100)/100})}
+ return out
+}
 // Roofs of a layout by sketches (ИР-71535 АР ч.2 л.21, 22: «Схема раскладки кровельных панелей в осях 03-08 - Б-Л»): a
 // plan — its numbered axes in a row under it, its lettered ones in a column at its left; the panels in columns between
 // their joints and in bands between the lines across the whole roof (the eaves, the joints of the tiers — dashed —, the
@@ -1821,8 +1848,8 @@ function extractArchitecture(geometry){
  const axes=planAxes(geometry||{});
  const tr=trimSpec(texts),trNodes=trimNodes(texts),niches=nicheSpec(texts),planFills=planOpenings(geometry||{},axes),planFix=planFills.length?planFixtures(geometry||{},axes):[],planSl=planFills.length?planSlabs(geometry||{},axes):[],planBands=planFills.length?planWalls(geometry||{},axes):[];
  const floor=axes?planFloor(geometry||{},axes):null;
- const existing=axes?existingPlan(geometry||{}):null;
- const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{}),...(axes?{axes}:{}),...(tr.trims.length?{trims:tr.trims}:{}),...(tr.names.length?{trimNames:tr.names}:{}),...(trNodes.length?{trimNodes:trNodes}:{}),...(niches.length?{niches}:{}),...(planFills.length?{planFills}:{}),...(planFix.length?{planFixtures:planFix}:{}),...(planSl.length?{planSlabs:planSl}:{}),...(planBands.length?{planWalls:planBands}:{}),...(existing?{existing}:{}),...(floor?{planFloor:floor}:{})};
+ const existing=axes?existingPlan(geometry||{}):null,funnels=axes?roofFunnels(geometry||{}):[];
+ const roofs=roofPlans(geometry||{}),panels=spec.map(({at,...p})=>p),extra={...(facades.length?{facades}:{}),...(finish.length?{finish}:{}),...(Object.keys(sills).length?{sills}:{}),...(roofs.length?{roofs}:{}),...(axes?{axes}:{}),...(tr.trims.length?{trims:tr.trims}:{}),...(tr.names.length?{trimNames:tr.names}:{}),...(trNodes.length?{trimNodes:trNodes}:{}),...(niches.length?{niches}:{}),...(planFills.length?{planFills}:{}),...(planFix.length?{planFixtures:planFix}:{}),...(planSl.length?{planSlabs:planSl}:{}),...(planBands.length?{planWalls:planBands}:{}),...(existing?{existing}:{}),...(funnels.length?{roofFunnels:funnels}:{}),...(floor?{planFloor:floor}:{})};
  return panels.length||fills.length||views.length||Object.keys(extra).length?{panels,fills,views,...extra}:null
 }
-module.exports={planFloor,floorZones,existingPlan,planWalls,planFixtures,planSlabs,fixtureShapes,dimScale,fragmentMap,fillKinds,splitJoinedMarks,planOpenings,nicheSpec,trimSpec,trimNodes,trimKind,planAxes,facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};
+module.exports={planFloor,floorZones,existingPlan,roofFunnels,planWalls,planFixtures,planSlabs,fixtureShapes,dimScale,fragmentMap,fillKinds,splitJoinedMarks,planOpenings,nicheSpec,trimSpec,trimNodes,trimKind,planAxes,facadeRows,arrowWay,leaderLabels,extractArchitecture,roofPlans,roofOpenings,openingRects,noteLevels,stemLevels,titleRow,viewRows,panelSpec,sketchSpec,layoutSpec,layoutLabel,fillSpec,panelViews,fillViews,fillSketches,facadeFinish,sillSpec,ralCodes};

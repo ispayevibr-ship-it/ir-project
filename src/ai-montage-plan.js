@@ -945,6 +945,20 @@ function arScheme(pages,opts={}){
    break
   }
  }
+ // Funnels of the inner drain from the plan of the roof (src/ai-ar-extract.js roofFunnels: ИР-71535 АР ч.1 л.11 — the inner
+ // circle of the sign, Ø 180 mm; the engineer, 16.11.2026 «чет я вижу по крайнемере 4 воронки с каждой стороны»): each a
+ // point of the plan on the grid; the circles of that size only — 160…220 mm across (the pipes of the outer drain, Ø 150, and
+ // the bubbles are not). Placed at the level of the roof by the 3D in their gutters (src/scheme-three-view.js
+ // innerFunnels). Not steel, not mounted.
+ {let made=0;const seen=[];
+  for(const p of ar){const fit=planFit.get(p);if(!fit||!(p.ar.roofFunnels||[]).length)continue;const sc=(Math.abs(fit.fx.b)+Math.abs(fit.fy.b))/2;
+   for(const o of p.ar.roofFunnels){const d=2*o.r*sc;if(d<160||d>220)continue;
+    const X=Math.round(fit.fx.a+fit.fx.b*o.x),Y=Math.round(fit.fy.a+fit.fy.b*o.y);if(seen.some(q=>Math.hypot(q[0]-X,q[1]-Y)<300))continue;seen.push([X,Y]);
+    placements.push({mark:"Воронка",name:"Воронка внутреннего водостока по плану кровли АР",type_key:"roof_funnel",scheme_group:"cladding",geometry_type:"beam",fitting_type:"funnel",
+     diameter_mm:Math.round(d),layout:{funnel:{d_mm:Math.round(d)}},x_mm:X,y_mm:Y,x2_mm:X,y2_mm:Y,z0_mm:0,z1_mm:0,
+     levels_from:"план кровли АР",confidence:"medium",section:"АР",axis_x:"",axis_y:"",sheet:String(p.pdfPage||p.page),source_page:p.page,source_file:p.sourceName||"",
+     notes:["Воронка внутреннего организованного водостока по плану кровли АР, лист "+(p.pdfPage||p.page)+" (ВК — по разделу ВК); в 3D — в своём желобе","Не металл, в монтаж металлоконструкций не входит"]});made++}}
+  if(made)warnings.push("Воронки внутреннего водостока по плану кровли АР: "+made)}
  // The same panels drawn in two views of one wall (ИР-71535 АР ч.2 л.5: «по ряду К, в осях 01-03» draws on two Пс-112
  // past 03 that «по ряду К, в осях 03-04» draws too — placed 75 mm apart, one in the other): of the two the panel of
  // the view whose title's axes it stands between; the other is left out, said.

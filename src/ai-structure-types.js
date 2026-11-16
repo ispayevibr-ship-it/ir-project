@@ -105,6 +105,7 @@ const TYPES=[
  // Sanitary fixtures of a plan of the АР (toilets, urinals, washbasins, sinks — ИР-71535 ч.1 л.10 fragment of the washroom):
  // for orientation, not steel, not mounted — src/ai-montage-plan.js, scheme-three-view.js sanitaryFixture.
  T("sanitary_fixture","Санитарный прибор по плану АР","cladding","beam","fixture",[],/^(?:унитаз|писсуар|умывальник|мойка)\S*(?:\s+по\s+плану)?/iu,{needs:"АР",fitting:"fixture"}),
+ T("roof_funnel","Воронка внутреннего водостока по плану кровли АР","cladding","beam","funnel",[],/^воронк\S*(?:\s+внутренн\S*)?(?:\s+водосток\S*)?/iu,{needs:"АР",fitting:"funnel"}),
  // A slab over rooms on a plan of the АР («План перекрытия помещений на отм. +3,500», ИР-71535 ч.1 л.10): concrete, for
  // orientation — src/ai-montage-plan.js, scheme-three-view.js floorSlab.
  T("floor_finish","Пол по плану полов АР (покрытие)","cladding","beam","floor",[],/^пол\S*\s+(?:цеха\s+)?по\s+плану\s+полов/iu,{needs:"АР",fitting:"floor"}),

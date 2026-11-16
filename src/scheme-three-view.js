@@ -13,7 +13,7 @@ window.irThreeSchemeView=(function irThreeModule(){
  // ускорить построение схемы?» — «да»). It is raised by scripts/scheme-model-digest.js, never by hand: the script builds
  // the checked schemes with this file and raises the number when what would be kept for any of them differs from the
  // record (knowledge/quality/model-digest.json); scripts/scheme-pack.js refuses a pack made without it.
- var MODEL_BUILD=48;
+ var MODEL_BUILD=49;
  var token=0,active=null,loadPromise=null,cameraMemory={};
  // Bundled with the app (works offline); the CDN is only a fallback for an incomplete hot update.
  var sources=[
@@ -5238,20 +5238,31 @@ window.irThreeSchemeView=(function irThreeModule(){
     for(var i=0;i<gr.length;i++)for(var j=i+1;j<gr.length;j++){var A=gr[i],B=gr[j];if(A.h.dot(B.h)>.99&&Math.abs(A.a-B.a)<.1&&Math.abs(A.yb-B.yb)<.15&&B.s0<A.s1+.3&&B.s1>A.s0-.3){A.s0=Math.min(A.s0,B.s0);A.s1=Math.max(A.s1,B.s1);A.yb=Math.min(A.yb,B.yb);A.list=A.list.concat(B.list);gr.splice(j,1);j=i}}
     if(!gr.length){root.setAttribute("data-inner-funnels","0");return}
     if(!funnelMat)funnelMat=new T.MeshStandardMaterial({color:0x4a5560,metalness:.5,roughness:.5});
-    gr.forEach(function(r){var L=r.s1-r.s0;if(L<6)return;var n=Math.max(1,Math.ceil(L/36)),along=r.a+(r.g>=1.2?(COUNTER_GUTTER/1000+.1)/2:r.g/2);
+    // (the funnels of the plan of the roof — АР ч.1 л.11, the engineer 16.11.2026 «по крайнемере 4 воронки с каждой
+    // стороны»: in the gutter they stand in — across within half of it and 0,6 m, along within it —, each at its place along;
+    // a gutter with none of them — one per 36 m, as before; the funnel of the plan is the element picked)
+    var planF=[];elems.forEach(function(c){if(c.ft!=="funnel"||!c.id)return;planF.push({p:toWorld(number(c.x),number(c.y),0),id:String(c.id),c:c})});
+    var planUsed=0;
+    gr.forEach(function(r){var L=r.s1-r.s0;if(L<6&&!planF.length)return;var n=Math.max(1,Math.ceil(L/36)),along=r.a+(r.g>=1.2?(COUNTER_GUTTER/1000+.1)/2:r.g/2);
+     var gw=r.g>=1.2?COUNTER_GUTTER/1000+.1:r.g;
+     var mine=planF.filter(function(f){return Math.abs(f.p.dot(r.h)-along)<gw/2+.6&&f.p.dot(r.side)>r.s0-.2&&f.p.dot(r.side)<r.s1+.2});
+     if(!mine.length&&L<6)return;
+     if(mine.length)n=mine.length;
      for(var k=0;k<n;k++){var p0=r.s0+L*k/n,p1=r.s0+L*(k+1)/n,sm=(p0+p1)/2,best=null,q=(p1-p0)/4;
+      if(mine.length){var fs=mine[k],half=Math.min(.18,gw/2);sm=Math.max(r.s0+half,Math.min(r.s1-half,fs.p.dot(r.side)));planUsed++}else{
       var near=function(v){if(v>p0+q&&v<p1-q&&(best===null||Math.abs(v-sm)<Math.abs(best-sm)-.01))best=v};
       if(Math.abs(r.side.x)>.9)axesX.forEach(function(nm){near(toWorld(number(gridX[nm]),0,0).x*r.side.x)});
       if(Math.abs(r.side.z)>.9)axesY.slice().sort(function(u,v){return number(gridY[u])-number(gridY[v])}).forEach(function(nm){near(toWorld(0,number(gridY[nm]),0).z*r.side.z)});
-      if(best!==null)sm=best;
+      if(best!==null)sm=best}
       var own=r.list[0];r.list.forEach(function(e){if(Math.abs(e.lo.dot(e.side)-sm)<Math.abs(own.lo.dot(own.side)-sm))own=e});
+      if(mine.length)own={id:mine[k].id};
       // (the flange inside the gutter: no wider than its bottom — 0,36 went through the sides of the narrow gutter of 0,31)
       var fw=Math.min(.36,(r.g>=1.2?COUNTER_GUTTER/1000+.1:r.g)-.012);
       var at=function(y){var v=r.h.clone().multiplyScalar(along).add(r.side.clone().multiplyScalar(sm));v.y=y;return v};
       [[new T.BoxGeometry(fw,.004,fw),r.yb+.003],[new T.CylinderGeometry(.09,.05,.1,20,1,true),r.yb-.05],[new T.SphereGeometry(.1,16,8,0,Math.PI*2,0,Math.PI/2),r.yb+.005],[new T.CylinderGeometry(.05,.05,.6,16,1,true),r.yb-.4]].forEach(function(g){
        var m=new T.Mesh(g[0],funnelMat);m.position.copy(at(g[1]));m.userData.memberId=own.id;m.userData.fixed=true;m.userData.footing=true;m.userData.sheet=true;m.userData.drain=true;m.userData.funnel=true;steel.add(m);allMeshes.push(m);(meshesById.get(own.id)||meshesById.set(own.id,[]).get(own.id)).push(m)});
       fn++}});
-    root.setAttribute("data-inner-funnels",String(fn))})();
+    root.setAttribute("data-inner-funnels",String(fn)+"/"+String(planUsed)+"/"+String(planF.length))})();
    // The overflow from the higher roof (ИР-71535 АР ч.1 л.11, 14, 15, 17: «На данном участке предусмотреть систему перелива
    // с участка более высокой кровли посредством желоба организованного наружного водостока … в водоприемный желоб
    // внутреннего водостока по ряду Б (Л); водосточный желоб с торца кровельной панели закрепить по уклону кровли. Общая
@@ -11882,6 +11893,46 @@ window.irThreeSchemeView=(function irThreeModule(){
      tri(pos,A[k],B[k],B[k2]);tri(pos,A[k],B[k2],A[k2])}
     put(walls,wallMat);put(roof,roofMat);
    });
+   buildingGuards(c,id);
+  }
+  // The guard of the roof of the building beside, as the plan of the roof draws it (ИР-71535 АР ч.1 л.11: the lines of
+  // posts of the guard along both eaves of the shop ММА, +20,080 and +12,000, go on from the guards of our roof over the
+  // joint at «01» without a break, and along its far gable at «А»; at the joint itself — none, the roof goes on; the engineer,
+  // 16.11.2026 «в переходе на существующее не вижу ограждения в моменте стыка», «на существующем тоже ограждения
+  // прорисуй»): on a pitched part (ridge over the eaves — not the rooms under our roof), 200 mm in from the eaves — the line
+  // of ours (Огк1 of the annex О1–О3 at 12303 and 48109, the building 12102…48300) —, along its far gable 200 mm in; posts
+  // at most 1 m apart, the rail at 600 and the bar at 300 over the roof, as Огк1 of КМ3 л.48. Conditional, as the block
+  // (not steel, out of the check, picked as the block) — guardN, the count in data-building-guard.
+  var guardMatB=null,guardN=0;
+  function buildingGuards(c,id){
+   var b=c.lay.building,a0s=b.parts.map(function(q){return number(q.a0)}),alongX=b.along!=="y";
+   var u0=number(b.across[0])+200,u1=number(b.across[1])-200;if(u1-u0<1000)return;
+   var P=function(a,u,z){return alongX?toWorld(a,u,z):toWorld(u,a,z)};
+   var pos=[],tmp=new T.Vector3(),M=new T.Matrix4(),Q=new T.Quaternion(),Y=new T.Vector3(0,1,0);
+   var rod=function(p,q,r){var d=q.clone().sub(p),L=d.length();if(L<.01)return;var g=new T.CylinderGeometry(r,r,L,6,1,true).toNonIndexed();
+    Q.setFromUnitVectors(Y,d.divideScalar(L));M.compose(p.clone().add(q).multiplyScalar(.5),Q,tmp.set(1,1,1));g.applyMatrix4(M);
+    var a=g.attributes.position.array;for(var i=0;i<a.length;i++)pos.push(a[i]);g.dispose()};
+   // (a run of the guard: the roof under it by the points of the run in mm — a, u, z of the roof)
+   var run=function(pts){var n=pts.length;if(n<2)return;
+    var at=function(s,dz){var q=pts[s];return P(q[0],q[1],q[2]+dz)};
+    for(var k=0;k+1<n;k++){var A=pts[k],B=pts[k+1],L=Math.hypot(B[0]-A[0],B[1]-A[1]),m=Math.max(1,Math.ceil(L/1000));
+     for(var j=k?1:0;j<=m;j++){var t=j/m,a=A[0]+(B[0]-A[0])*t,u=A[1]+(B[1]-A[1])*t,z=A[2]+(B[2]-A[2])*t;rod(P(a,u,z),P(a,u,z+600),.012);guardN++}
+     rod(at(k,600),at(k+1,600),.009);rod(at(k,300),at(k+1,300),.009)}};
+   b.parts.forEach(function(q,i){
+    var a0=number(q.a0),a1=number(q.a1),ev=number(q.eaves),rg=number(q.ridge),c0=number(b.across[0]),c1=number(b.across[1]);
+    if(!(rg>ev+20)||Math.abs(a1-a0)<1000)return;
+    var ra=q.ridge_at!==undefined?Math.max(c0,Math.min(c1,number(q.ridge_at))):(c0+c1)/2;
+    var zr=function(u){return u<=ra?ev+(rg-ev)*(u-c0)/Math.max(1,ra-c0):ev+(rg-ev)*(c1-u)/Math.max(1,c1-ra)};
+    [u0,u1].forEach(function(u){run([[a0,u,zr(u)],[a1,u,zr(u)]])});
+    // (its far gable: the end of the last part, where no part goes on)
+    var far=a0s.indexOf(a1)<0&&i===b.parts.length-1;
+    if(far){var ag=a1+(a0>a1?200:-200);run([[ag,u0,zr(u0)],[ag,ra,rg],[ag,u1,zr(u1)]])}});
+   if(!pos.length)return;
+   if(!guardMatB)guardMatB=new T.MeshStandardMaterial({color:0x7f878f,metalness:.4,roughness:.6});
+   var geo=new T.BufferGeometry();geo.setAttribute("position",new T.Float32BufferAttribute(pos,3));geo.computeVertexNormals();
+   var m=new T.Mesh(geo,guardMatB);m.userData.memberId=id;m.userData.fixed=true;m.userData.footing=true;m.userData.building=true;m.userData.buildingGuard=true;
+   steel.add(m);allMeshes.push(m);meshesById.get(id).push(m);
+   if(root)root.setAttribute("data-building-guard",String(guardN))
   }
   // The words on the block itself (the engineer, 12.11.2026: «прям на здание в схеме … на кровле и по бокам написать этот
   // текст»): «Существующее здание цеха ММА» on each slope of the roof, on the long walls and on the gable ends of each
@@ -11934,6 +11985,8 @@ window.irThreeSchemeView=(function irThreeModule(){
    // (sanitary fixtures are not drawn — the engineer, 13.11.2026: «убери унитазы, кабинки, раковины и тд»; those placed
    // before stay in the list until the next placement, FIXTURES_SHOWN)
    if(c.ft==="fixture"){if(FIXTURES_SHOWN)sanitaryFixture(c,id,start,end);return}
+   // (a funnel of the plan of the roof is drawn in its gutter by innerFunnels, not here)
+   if(c.ft==="funnel")return;
    if(c.ft==="slab"){floorSlab(c,id,start,end);return}
    if(c.ft==="floor"){floorFinish(c,id);return}
    var dir=end.clone().sub(start),len=dir.length();dir.normalize();
