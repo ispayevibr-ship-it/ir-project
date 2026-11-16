@@ -141,6 +141,23 @@ function auditSheet(geometry,page){
  // of that node on a section, not an axis; АР ч.1 л.12 ИР-71535, the circle «40» on the section 1-1 at the gutter)
  // (a label taken into a view of the sheet — a node, a section, a sketch — by src/ai-sheet-details.js)
  const inView=(t,key,str)=>{const c=textFrame(t).c;return (page?.details?.views||[]).some(w=>w.box&&c.x>=w.box.x0-8&&c.x<=w.box.x1+8&&c.y>=w.box.y0-8&&c.y<=w.box.y1+8&&(w[key]||[]).some(x=>x===str||String(x).replace(/\s/gu,"")===str.replace(/\s/gu,"")))};
+ // (the words of a note broken into pieces by the drawing — «г», «не», «в», «на», «III А , с», «№165)» — and the rows of the
+ //  stamp: a piece on one line with others, close together, the line holding words — read in the line; the whole full run
+ //  of ИР-71535 17.11.2026: of 7 650 «unknowns» ~2 000 were such pieces of the notes and the stamps of КМ1–КМ3)
+ let lineOf=null;const proseLine=t=>{if(!lineOf){lineOf=new Map();const H=t=>Math.max(1,Number(t.size)||8),list=texts.map(t=>{const f=textFrame(t),a=((Number(t.angle)||0)%360+360)%360;return{t,c:f.c,w:f.w,h:H(t),v:Math.abs(a-90)<20||Math.abs(a-270)<20}});
+   const rows=new Map();for(const q of list){const k=(q.v?"v":"h")+Math.round((q.v?q.c.x:q.c.y)/3);if(!rows.has(k))rows.set(k,[]);rows.get(k).push(q)}
+   for(const q of list){const near=[];for(const d of [-1,0,1]){const k=(q.v?"v":"h")+(Math.round((q.v?q.c.x:q.c.y)/3)+d);for(const o of rows.get(k)||[])if(o!==q&&Math.abs((q.v?o.c.x-q.c.x:o.c.y-q.c.y))<=q.h*.45&&Math.abs((q.v?o.c.y-q.c.y:o.c.x-q.c.x))<=(o.w+q.w)/2+2.5*q.h)near.push(o)}
+    const words=near.reduce((a,o)=>a+(String(o.t.str).match(/[А-ЯЁа-яёA-Za-z]{3,}/gu)||[]).length,0);lineOf.set(q.t,words)}}
+  return (lineOf.get(t)||0)>=2};
+ // (a cell of a ruled table — a number, a letter, a code with the lines of its cell round it and the row line going on over
+ //  other cells: the tables of loads, steel, bolts, masses of КМ, given to Claude by rows)
+ let hz=null,vt=null;const tableCell=c=>{if(!hz){hz=segments.filter(q=>Math.abs(q.a.y-q.b.y)<.3&&Math.abs(q.a.x-q.b.x)>4);vt=segments.filter(q=>Math.abs(q.a.x-q.b.x)<.3&&Math.abs(q.a.y-q.b.y)>4)}
+  const over=hz.filter(q=>Math.min(q.a.x,q.b.x)<=c.x&&Math.max(q.a.x,q.b.x)>=c.x&&q.a.y<c.y&&c.y-q.a.y<=40).sort((p,q)=>q.a.y-p.a.y)[0],under=hz.filter(q=>Math.min(q.a.x,q.b.x)<=c.x&&Math.max(q.a.x,q.b.x)>=c.x&&q.a.y>c.y&&q.a.y-c.y<=40).sort((p,q)=>p.a.y-q.a.y)[0];
+  if(!over||!under)return false;const y0=over.a.y,y1=under.a.y;
+  const sides=vt.filter(q=>Math.min(q.a.y,q.b.y)<=y0+.5&&Math.max(q.a.y,q.b.y)>=y1-.5);const L=sides.filter(q=>q.a.x<c.x).sort((p,q)=>q.a.x-p.a.x)[0],R=sides.filter(q=>q.a.x>c.x).sort((p,q)=>p.a.x-q.a.x)[0];
+  if(!L||!R||R.a.x-L.a.x>400)return false;
+  const ox0=Math.min(over.a.x,over.b.x),ox1=Math.max(over.a.x,over.b.x),more=sides.filter(q=>q!==L&&q!==R&&q.a.x>=ox0-.5&&q.a.x<=ox1+.5).length;
+  return more>=1||ox1-ox0>(R.a.x-L.a.x)*2.5};
  const titledNodes=new Set(texts.map(t=>NODE_TITLE.exec(String(t.str).trim())).filter(Boolean).map(m=>m[1]));
  // (a floor plan of АР — src/ai-floor-plan.js, АР ч.2 л.19 ИР-71535: the explication of floors, the finishes of rooms, the
  //  colour legend and the kinds of finishes read whole as tables; on the plan the numbers in triangles (floor types), in
@@ -190,6 +207,11 @@ function auditSheet(geometry,page){
   if(/^(?:RAL|РАЛ)\d{4}$/iu.test(mk)||/^Поз\.?\d/u.test(mk))continue;
   // (steel «C345» in Latin, concrete «F150», «W6», primer «ГФ021» — no marks of elements)
   if(/^[CС]\d{3}(?:-\d)?$/u.test(mk)||/^[FW]\d{1,3}$/u.test(mk)||/^ГФ\d{3}$/u.test(mk))continue;
+  // (a mark with a hyphen of КМ «Рс-1», «Сг-10», «Св-3», «Ф-1» written «Рс -1» — paired with its element like any mark)
+  if(!page?.ar&&/^(?:[А-ЯЁ]{1,3}|[А-ЯЁ][а-яё]{1,2})-\d{1,3}(?:\.\d{1,2})?[а-я]?$/u.test(mk)&&!/^(?:АР|КМД?|КЖ|ТХ|ОВ|ВК|ЭМ|ЭО|ГП|АС|КР|ПЗ|ИР|СП|СН)-/u.test(mk)&&!notMark(mk,aMarks)){pending.push({t,str,mk,c,k});continue}
+  // (a mark of letters only or small letters «Рр», «Ро», «а», «б», «р1», «б 1» — the girts, posts, braces of the frames of
+  //  КМ1 л.30, КМ3 —: read when an element of a scheme or a list of the sheet has it)
+  if(/^(?:[А-ЯЁ][а-яё]{0,2}|[а-яё]{1,2})\d{0,2}$/u.test(mk)&&(usedMarks.has(mk)||sheetMarks.has(mk))){items.marks.push({text:str,used:true,scheme:k,letters:true});continue}
   if(MARK.test(str)&&!notMark(mk,aMarks)&&!/^\d/u.test(mk)&&!/^[AА][0-4]$/u.test(mk)&&!/^С(?:235|245|255|275|285|345|355|375|390|440|590)$/u.test(mk)){pending.push({t,str,mk,c,k});continue}
   if(DIM.test(str)){
    const v=Number(str.replace(/[^\d]/gu,"")),d=dimOf.get(t);
@@ -226,6 +248,20 @@ function auditSheet(geometry,page){
    if(!used)missed.push({kind:"dim",text:str,scheme:k,at:at(t),why:"размер не привязан: нет такого расстояния между осями, линиями и элементами схемы"});continue
   }
   if(PROFILE.test(str)||STEEL.test(str)){items.profiles.push({text:str,scheme:k});continue}
+  // (the bolts «М 24-8.8», «М20-5.8,», their class «кл . С 25», «8.8,»; profiles written apart «35 Ш 1», «20 К 1», «[16 П»,
+  //  «[16П/С245», «┐┌» of a pair of angles, «∅33 мм»; profiled sheet «Н 60-845-0.8»; steel «( С 245)», «С 345,»; a plate
+  //  «t=10», a radius «R=350», a slope «i=0.1», a count «2 шт .»; a base type «Бк 7» drawn on its own sheet)
+  {const q=str.replace(/[\s,;.)]+$/u,"").replace(/^\(\s?/u,"");
+   if(/^[МM]\s?\d{2}(?:\s?-\s?\d{1,2}\.\d)?$/u.test(q)||/^кл\s?\.?\s?(?:прочн\.?\s?)?[СC]?\s?\d{1,2}(?:\.\d)?$/u.test(q)||/^\d{1,2}\.\d$/u.test(q)&&/^(?:4\.6|5\.6|5\.8|8\.8|10\.9)/u.test(q)){items.profiles.push({text:str,scheme:k,bolt:true});continue}
+   if(/^\d{2}\s?[БКШУПД]\s?\d$/u.test(q)||/^\[\s?\d{1,2}(?:\s?[ПУ])?(?:\s?\/\s?[СC]\s?\d{3})?$/u.test(q)||/^[┐┌┘└]{2}$/u.test(q)||/^[∅Ø⌀]\s?\d{1,3}(?:\s?мм)?$/u.test(q)||/^[НСН]\s?\d{2,3}-\d{3,4}-\d[.,]\d$/u.test(q)||/^[СC]\s?\d{3}(?:-\d)?$/u.test(q)){items.profiles.push({text:str,scheme:k});continue}
+   if(/^t\s?=\s?\d{1,3}(?:[,.]\d)?(?:\s?мм)?$/u.test(q)||/^R\s?=\s?\d{1,5}$/u.test(q)||/^i\s?=\s?\d+(?:[,.]\d+)?\s?%?$/u.test(q)||/^\d{1,4}\s?шт$/u.test(q)||/^\/?\s?\d{1,4}\s?шт\.?\s?\/?$/u.test(str.trim())||/^Бк\s?\d{1,2}$/u.test(q)||/^см\s?\.?\s?[А-ЯЁ]{2}/u.test(q)){items.notes.push({text:str,note:true});continue}
+   const eq=/^(\d{1,2})\s?[хx×*]\s?(\d{2,5})\s?=\s?(\d{3,6})$/u.exec(q);if(eq&&Number(eq[1])*Number(eq[2])===Number(eq[3])){items.notes.push({text:str,chain:true});continue}}
+  // (a plate by its thickness «-t44», «- 30», «- 12,0 х 57,0»; a bolt or an anchor «М24х170», «1.1.М30х900.09Г2С-4»)
+  if(/^[-–]\s?(?:t\s?)?\d{1,3}(?:[,.]\d{1,2})?(?:\s?[хx×]\s?\d{1,4}(?:[,.]\d{1,2})?)?$/u.test(str)&&!/^[-–]\s?\d[,.]\d{3}$/u.test(str)&&(/t|[хx×]/u.test(str)||/^[-–]\s?\d{1,3}$/u.test(str))){items.profiles.push({text:str,scheme:k,plate:true});continue}
+  if(/^(?:\d\.\d\.)?[МM]\d{2}\s?[хx×]\s?\d{2,4}/u.test(str)){items.profiles.push({text:str,scheme:k,bolt:true});continue}
+  // (the code of the set in the stamp «ИР-71535.00-05.2025-01-», and its line in Latin-1 of a font without Cyrillic)
+  if(/^ИР\s?-\s?\d{5}/u.test(str)){items.notes.push({text:str,stamp:true});continue}
+  if((str.match(/[\u00C0-\u00FF]/gu)||[]).length>=Math.max(2,str.replace(/[\s\d\W]/gu,"").length*.4)){items.notes.push({text:str,stamp:true,latin1:true});continue}
   if(REF.test(str)||DATE.test(str)){items.notes.push({text:str});continue}
   // (an approximate level «~+14,400» — the top of a wall under a slope written about: АР ч.2 л.8 ИР-71535 —, a note, the panels
   //  of the view give the height)
@@ -267,13 +303,17 @@ function auditSheet(geometry,page){
    items.dims.push({text:str,mm:n*step,used,scheme:k,chain:true});if(used===false)missed.push({kind:"dim",text:str,scheme:k,at:at(t),why:"цепочка размеров не привязана к панелям и проёмам вида"});continue}
   // (the name of an axis of an АР view written without its circle found — «2В» of the existing workshop on the facade 3-1, л.5)
   if(page?.ar&&/^[А-ЯЁA-Z\d\/]{1,4}$/u.test(str)&&arText().includes('{"name":"'+str+'"')){items.axes.push({text:str,used:true});continue}
+  if(proseLine(t)){items.notes.push({text:str,prose:true});continue}
+  if(tableCell(c)){items.notes.push({text:str,cell:true});continue}
   items.unknown.push({text:str,scheme:k,at:at(t)})
  }
  // Marks: each label paired with an element of its scheme placed from it (the element keeps the label's point), then
  // by count; a label outside the schemes is read when a view, list or table of the sheet has it.
  const wide=t=>Math.max(30,Number(t.width)||0);
  for(const x of pending){
-  if(x.k===null){const used=sheetMarks.has(x.mk)||usedMarks.has(x.mk);items.marks.push({text:x.str,used,scheme:null});
+  // (or a mark on a node or a section of the sheet, taken into that view with its plates, bolts, sizes — the members that
+  //  meet in the node, src/ai-sheet-details.js: КМ2 л.12 «Б2, К3, Рс-1, П1» of the section 3-3)
+  if(x.k===null){const used=sheetMarks.has(x.mk)||usedMarks.has(x.mk)||inView(x.t,"marks",x.str)||inView(x.t,"marks",x.mk);items.marks.push({text:x.str,used,scheme:null});
    if(!used)missed.push({kind:"mark",text:x.mk,scheme:null,at:at(x.t),axes:"",why:"марка на виде или разрезе вне схем — элемент с листа не взят"});continue}
   const list=pool[x.k].get(x.mk)||[];
   let hit=list.find(e=>!e.taken&&e.p.sheet_point_pt&&near(e.p.sheet_point_pt,x.c)<=wide(x.t));
@@ -334,7 +374,7 @@ function auditSheet(geometry,page){
  for(const d of page?.ar?.layoutCheck?.diff||[])drawing.push({text:d.mark,why:"на схемах раскладки листа "+d.layout+", в таблице листа "+d.spec});
  const counts={texts:texts.length,read:texts.length,kept,notes:items.notes.length,marks:count(items.marks),axes:count(items.axes),dims:count(items.dims.filter(d=>d.used!==null)),levels:count(items.levels),
   nodes:items.nodes.length,cuts:items.cuts.length,unknown:items.unknown.length,missed:missed.length,drawing:drawing.length,...(page?.ar?.layoutCheck?{layout:{marks:page.ar.layoutCheck.marks,same:page.ar.layoutCheck.same}}:{})};
- return{counts,missed:missed.slice(0,400),nodes:items.nodes.slice(0,200),unknown:[...new Set(items.unknown.map(u=>u.text))].slice(0,80),...(drawing.length?{drawing}:{}),...(markIndex?{markIndex}:{})}
+ return{counts,missed:missed.slice(0,400),nodes:items.nodes.slice(0,200),unknown:[...new Set(items.unknown.map(u=>u.text))].slice(0,80),...(drawing.length?{drawing}:{}),...(markIndex?{markIndex}:{}),...(process.env.IR_AUDIT_ALL?{unknownAt:items.unknown,missedAll:missed}:{})}
 }
 
 // The whole text of a sheet for Claude (the engineer, 13.11.2026: «1 страница без разницы чего АР, КМД, КМ, ТХ — при анализе
