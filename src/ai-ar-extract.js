@@ -399,7 +399,10 @@ function columnAround(b,runs,horiz,numbers,hs,scale,size=null,slopes=[],ext=null
  }
  const w=(r.x-l.x)*hs;if(w<150||w>1300)return null;
  // (an extension line of a dimension the joints run on through is not its end — ext, panelViews)
- const spans=h=>h.x0<=l.x+1&&h.x1>=r.x-1&&!dimensionLine(h,numbers)&&!(ext&&ext.has(h)&&[l,r].every(v=>v.y0<h.y-1&&v.y1>h.y+1));
+ // (a joined line — the joins list — is the extension line it holds when that piece alone spans the column: л.14 ряд 010,
+ // the leading line of «+3,600» joined to the bottom of ОВ 300×300)
+ const isExt=h=>ext.has(h)||[...ext].some(e=>Math.abs(e.y-h.y)<=.3&&e.x0>=h.x0-.5&&e.x1<=h.x1+.5&&e.x0<=l.x+1&&e.x1>=r.x-1);
+ const spans=h=>h.x0<=l.x+1&&h.x1>=r.x-1&&!dimensionLine(h,numbers)&&!(ext&&isExt(h)&&[l,r].every(v=>v.y0<h.y-1&&v.y1>h.y+1));
  const over=horiz.filter(h=>h.y<b.y0-.3&&spans(h)).sort((p,q)=>q.y-p.y)[0],under=horiz.filter(h=>h.y>b.y1+.3&&spans(h)).sort((p,q)=>p.y-q.y)[0];
  // (a joint broken by small holes on it — openings for the beams of the roof drawn across it —: on through the gaps,
  // up to where the other joint goes)
@@ -988,6 +991,16 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
   if(!v||!marks.some(t=>Math.abs((t.a.x+t.b.x)/2-v.x)<=1.5&&Math.abs((t.a.y+t.b.y)/2-h.y)<=1.5))continue;
   if(vert.some(q=>(start-q.x)*sg>=.3&&(start-q.x)*sg<=3&&q.y1-q.y0<=100&&(Math.abs(q.y0-h.y)<=.6||Math.abs(q.y1-h.y)<=.6)&&
    horiz.some(e=>e!==h&&Math.abs(e.y-h.y)<=.6&&(sg>0?Math.abs(e.x1-q.x)<=.6&&e.x0<q.x-1:Math.abs(e.x0-q.x)<=.6&&e.x1>q.x+1)))){extension.add(h);break}}
+ // (the shelf of a level mark «+3,600» or of a note «См. п.п. 12» over the panels — a short line with its text sitting on
+ // it — is no joint across a column: ИР-71535 АР ч.2 л.4 ряд 010, Пс-44 and Пс-42 by ОВ 300×300 took the shelves of
+ // «+3,600» and of the note for joints, lost the top cut under the slope +4,535 → +5,105, the cut stepped — the engineer,
+ // 16.11.2026: «линия обреза четкая по чертежу, а у тебя кусками»)
+ const shelfTexts=texts.filter(q=>horizontalText(q)&&!/^П[скр]\s*-?\s*\d/u.test(String(q.str).trim())&&(/^[+\-−±]?\d{1,2}[,.]\d{3}$/u.test(String(q.str).trim())||/[А-ЯЁа-яё]{2}/u.test(String(q.str)))).map(q=>({q,b:textBox(q)}));
+ for(const h of horiz)if(shelfTexts.some(({b:q})=>q.y1<=h.y+.5&&q.y1>=h.y-4.5&&q.cx>=h.x0-2&&q.cx<=h.x1+2&&(h.x1-h.x0)<=(q.x1-q.x0)+40))extension.add(h);
+ // the leading line of a level mark — from the object to the mark's tip, its end over the mark's shelf a few pt below or
+ // above (ИР-71535 АР ч.2 л.14 ряд 010: the bottom of the opening ОВ 300×300 led to «+3,600» cut Пс-42 flat at 3600)
+ const levelShelves=horiz.filter(h=>extension.has(h)&&shelfTexts.some(({q,b})=>/^[+\-−±]?\d{1,2}[,.]\d{3}$/u.test(String(q.str).trim())&&Math.abs(b.y1-h.y)<=4.5&&b.cx>=h.x0-2&&b.cx<=h.x1+2));
+ for(const h of horiz)if(!extension.has(h)&&h.x1-h.x0<=60&&levelShelves.some(s=>{const d=Math.abs(s.y-h.y);return d>=2&&d<=16&&[h.x0,h.x1].some(x=>x>=s.x0-1&&x<=s.x1+1)}))extension.add(h);
  const views=[],found=[];
  for(const row of rows){
   if(row.lone)continue;
