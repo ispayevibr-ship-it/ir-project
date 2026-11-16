@@ -13,7 +13,7 @@ window.irThreeSchemeView=(function irThreeModule(){
  // ускорить построение схемы?» — «да»). It is raised by scripts/scheme-model-digest.js, never by hand: the script builds
  // the checked schemes with this file and raises the number when what would be kept for any of them differs from the
  // record (knowledge/quality/model-digest.json); scripts/scheme-pack.js refuses a pack made without it.
- var MODEL_BUILD=35;
+ var MODEL_BUILD=36;
  var token=0,active=null,loadPromise=null,cameraMemory={};
  // Bundled with the app (works offline); the CDN is only a fallback for an incomplete hot update.
  var sources=[
@@ -199,6 +199,9 @@ window.irThreeSchemeView=(function irThreeModule(){
  }
  function readSection(text,standard){
   var t=String(text||"").replace(/\s+/g,"").replace(/[хХ×*]/g,"x").replace(/,/g,"."),m,r;
+  // (the letter Х of «КХБ» is not a sign of sizes: «I КХБ-526» was read as «IКxБ-526» and the way Б4 drawn by the
+  // fallback section, 80 kg/m instead of 250,3 — the engineer, 16.11.2026: «перепроверь весь металл, не хватает»)
+  t=t.replace(/К[xX]Б/g,"КХБ");
   // The box sign of a font read as a letter: «Тр.r140х4», «Трубаr140х4» are «Тр.□140х4» (src/ai-sheet-extract.js profileWords);
   // read as «3» before three digits too: «Тр.3120х5» is «Тр.□120х5» (no tube is 3120 across — it was drawn so, through the walls).
   t=t.replace(/^(Тр\.?|Гн\.?|Труба(?:профильная)?)(?:[rгзо0](?=\d{2,3}x)|3(?=\d{3}x))/i,function(s,a){return(/^Труба/i.test(a)?"Тр.":a)+"□"});
@@ -13062,7 +13065,9 @@ window.irThreeSchemeView=(function irThreeModule(){
    // (the engineer, 15.11.2026: «все не вмещается. КМ - вес тн, АР - без обреза м2 (обрез м2), фасанное можешь убрать вообще» —
    // the trims only in the hint)
    if(s.tl>0){tip.push("Фасонные элементы: "+fmt(s.tl)+" м, "+s.tn+" линий, "+s.tp+" шт по 2 м с нахлёстом 100 мм")}
-   el.textContent=parts.join(" · ");el.hidden=!parts.length;el.title="Итого по схеме (видимые виды работ):\n"+tip.join("\n");el.setAttribute("aria-label","Итого: "+parts.join(", "));
+   // the chip itself is not shown — the metal goes to the page «Ведомость металла» (the engineer, 16.11.2026: «убери» on the
+   // chip «КМ … т · АР … м²»); the totals stay in data-sum for the checks
+   el.textContent=parts.join(" · ");el.hidden=true;el.title="Итого по схеме (видимые виды работ):\n"+tip.join("\n");el.setAttribute("aria-label","Итого: "+parts.join(", "));
    root.setAttribute("data-sum",[Math.round(s.kg),Math.round(s.prof),Math.round(s.sheet),Math.round(s.wa),Math.round(s.sa),Math.round(s.tl),s.tp].join("/"))
   }
   function paintLegend(){
@@ -15546,12 +15551,16 @@ window.irThreeSchemeView=(function irThreeModule(){
   // The key of a profile both sides share: «2L125×10» → «L125×10» (the pair counted twice by its mass of a metre),
   // «Тр.∅32x3» → «Ø32×3», «I КХБ-526» → «КХБ-526», «−150×4» → «−4», «ПВ 510» → «ПВ510».
   function metalKey(s){
-   s=String(s||"").replace(/\s+/g,"").replace(/[хХxX*]/g,"×").replace(/,/g,".").replace(/[∅ø]/g,"Ø").replace(/^2(?=[L∟\[])/,"").replace(/^∟/,"L").replace(/^Тр\.?/i,"");
+   s=String(s||"").replace(/\s+/g,"").replace(/[хХxX*]/g,"×").replace(/,/g,".").replace(/[∅ø]/g,"Ø").replace(/^2(?=[L∟\[])/,"").replace(/^∟/,"L").replace(/^Тр\.?/i,"");s=s.replace(/К×Б/g,"КХБ");
+   // (the grade of steel glued to the name — «[16ПС245», «−14С255» — is not part of the profile)
+   s=s.replace(/(?:ВСт3\w*|С\d{3}\w?)$/,"");
    var m;
    if(/риф/i.test(s)){m=/(\d+(?:\.\d+)?)/.exec(s);return"−"+(m?m[1]:"?")+" риф."}
    if(/^ПВ/i.test(s))return"ПВ"+s.replace(/\D/g,"");
    if(/настил|решет/i.test(s))return"настил";
    if((m=/^[−-](\d+(?:\.\d+)?)×(\d+(?:\.\d+)?)$/.exec(s)))return"−"+snapT(Math.min(+m[1],+m[2]));
+   // (a plate with its sizes «−45×780×1080» — the thickness first)
+   if((m=/^[−-]t?(\d+(?:\.\d+)?)×\d+(?:\.\d+)?×\d+(?:\.\d+)?$/.exec(s)))return"−"+snapT(+m[1]);
    if((m=/^[−-]t?(\d+(?:\.\d+)?)$/.exec(s)))return"−"+snapT(+m[1]);
    s=s.replace(/^(?:I|І|Двутавр)?КХБ/i,"КХБ").replace(/^І/,"I").replace(/^Гн\.?\[/i,"гн.[").replace(/^(Ø\d+)\.0$/,"$1");
    return s
@@ -15569,11 +15578,11 @@ window.irThreeSchemeView=(function irThreeModule(){
   }
   // The metal of the scheme by work type and key: {work: {key: kg}}; «−?» — a part of no plate shape (thicker than
   // 60 mm across), «?…» — a section not in the tables, by its volume.
-  function metalOf(){
+  function metalOf(det){
    var out={},seen=new Set();
    var skip=function(m){return!m||!m.isMesh||seen.has(m)||m.userData.hole||m.userData.anchor||m.userData.footing||m.userData.wood||m.userData.weld||m.userData.seam||m.userData.edges||m.userData.bolt||m.userData.nut||m.material===concreteMat};
    elems.forEach(function(c){if(!c||c.id===undefined||c.id===null)return;var ft=c.ft||"";if(ft!==""&&ft!=="deck")return;
-    var id=String(c.id),w=String(c.work||""),list=meshesById.get(id)||[],to=out[w]||(out[w]={}),add=function(k,kg){if(kg>0)to[k]=(to[k]||0)+kg};
+    var id=String(c.id),w=String(c.work||""),list=meshesById.get(id)||[],to=out[w]||(out[w]={}),add=function(k,kg){if(kg>0){to[k]=(to[k]||0)+kg;if(det)det.push([w,id,String(c.mark||c.name||""),k,kg])}};
     var pn=String(c.profile_name||c.profileName||"");
     if(ft==="deck"){list.forEach(function(m){if(!skip(m))seen.add(m)});var dp=memberPoints(c),dl=0;for(var dk=1;dk<dp.length;dk++)dl+=dp[dk].distanceTo(dp[dk-1]);add(pn?metalKey(pn):"настил",dl*deckWidth(c)*deckKgm2(c));return}
     var sec=sectionOf(pn,c.profile_standard),kgm=sec&&number(sec.kgm)*(/^\s*2\s*[L∟\[]/.test(pn)?2:1),bodyV=0,hasBody=false,parts=[];
@@ -15642,7 +15651,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    metalEl.innerHTML='<div class="ir-joints-head"><b>Ведомость металла</b><div class="ir-joints-tabs" role="tablist">'+
     list.map(function(x){return'<button type="button" role="tab" data-metal-work="'+escapeHtml(x.id)+'" class="'+(x.id===metalWork?"on":"")+'" aria-selected="'+(x.id===metalWork)+'" title="'+escapeHtml(x.label)+'">'+escapeHtml(x.short)+'<small>'+(x.kg/1000).toLocaleString("ru-RU",{maximumFractionDigits:1})+' т</small></button>'}).join("")+
     '</div><button type="button" class="ir-joints-close" data-metal-close title="Вернуться к 3D" aria-label="Закрыть">✕</button></div><div class="ir-joints-body">'+
-    (w?'<p class="ir-joints-sum"><b>'+escapeHtml(w.label)+'</b>. По схеме '+(tb.s).toLocaleString("ru-RU",{minimumFractionDigits:3,maximumFractionDigits:3})+' т'+(w.specs.length?', по КМ '+tb.k.toLocaleString("ru-RU",{minimumFractionDigits:3,maximumFractionDigits:3})+' т ('+tb.note+')':'. Спецификации металлопроката этого вида работ в программе нет — показана только схема')+'. Схема: профиль — масса метра по сортаменту × длина, сварное сечение — его листы, пластины, фасонки, рёбра — по 3D с их толщиной, настил — по массе 1 м²; без болтов, гаек, анкеров и швов. КМ: без 1 % сварных швов и 3 % КМД. Считаются показанные элементы — фильтры схемы действуют.</p>'+tb.html:
+    (w?'<p class="ir-joints-sum"><b>'+escapeHtml(w.label)+'</b> — по схеме '+tb.s.toLocaleString("ru-RU",{minimumFractionDigits:3,maximumFractionDigits:3})+' т'+(w.specs.length?', по КМ '+tb.k.toLocaleString("ru-RU",{minimumFractionDigits:3,maximumFractionDigits:3})+' т':', спецификации КМ нет')+'</p>'+tb.html:
      '<p class="ir-joints-empty">В схеме нет металла.</p>')+'</div>';
    metalEl.querySelectorAll("[data-metal-work]").forEach(function(b){b.onclick=function(){metalWork=b.getAttribute("data-metal-work");metalPaint()}});
    metalEl.querySelector("[data-metal-close]").onclick=function(){metalOpen(false)}
@@ -15652,6 +15661,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    if(on&&jointsEl&&!jointsEl.hidden)jointsOpen(false);
    var btn=root.querySelector("#irThreeMetal");if(btn){btn.classList.toggle("active",!!on);btn.setAttribute("aria-pressed",String(!!on))}
    metalEl.hidden=!on;if(!on){invalidate();return}
+   if((!specList||!specList.length)&&typeof window!=="undefined"&&window.irSchemeSpecsReload)try{window.irSchemeSpecsReload()}catch(_e){}
    var bar=root.querySelector(".ir-three-toolbar");metalEl.style.top=(bar?bar.offsetTop+bar.offsetHeight:0)+"px";metalPaint()
   }
   (function(){var b=root.querySelector("#irThreeMetal");if(b)b.onclick=function(e){e.stopPropagation();metalOpen(!metalEl||metalEl.hidden)};
@@ -15723,7 +15733,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    try{out.parts=e.enc(derivedParts)}catch(x){out.parts="!"}
    return JSON.stringify(out).replace(/,"id":\d+/g,"").replace(/\{"R":\d+\}/g,'"R"').replace(/\{"MT":\d+\}/g,'"MT"').replace(/\{"G":\d+\}/g,'"G"').replace(/\{"T":"[A-Za-z0-9]+","b":\d+\}/g,'"B"')
   }
-  return{host:host,key:key,root:root,bolts:boltsForCheck,update:update,setSpecs:function(r){specList=Array.isArray(r)?r:[];specAsked=true;metalRows=null;if(metalEl&&!metalEl.hidden)metalPaint()},modelText:modelText,camAt:function(){return camera.position.toArray().concat(controls.target.toArray())},focus:focus,look:look,startCopy:startCopy,startPlacement:startPlacement,nodes:nodeList,openNode:openNode,snapshots:snapshots,card:card,lightPart:lightPart,
+  return{host:host,key:key,root:root,bolts:boltsForCheck,update:update,metalDetail:function(){var d=[];metalOf(d);return d},setSpecs:function(r){specList=Array.isArray(r)?r:[];specAsked=true;metalRows=null;if(metalEl&&!metalEl.hidden)metalPaint()},modelText:modelText,camAt:function(){return camera.position.toArray().concat(controls.target.toArray())},focus:focus,look:look,startCopy:startCopy,startPlacement:startPlacement,nodes:nodeList,openNode:openNode,snapshots:snapshots,card:card,lightPart:lightPart,
    dispose:function(){
     cameraMemory[memoryKey]={position:camera.position.clone(),target:controls.target.clone(),up:camera.up.clone()};
     alive=false;clearExplode();cancelCopy();cancelPlacement();if(raf)cancelAnimationFrame(raf);if(awayTimer)clearTimeout(awayTimer);
@@ -15756,6 +15766,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   startCopy:function(id){return call("startCopy",id)},
   startPlacement:function(){return call("startPlacement")},
   setSpecs:function(r){return call("setSpecs",r)},
+  metalDetail:function(){return call("metalDetail")},
   nodes:function(){return call("nodes")||[]},
   openNode:function(id){return call("openNode",id)},
   card:function(id){return call("card",id)||null},
