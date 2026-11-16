@@ -189,12 +189,19 @@ function sketchSpec(texts){
   for(const r of out)if(r.length_slip){const o=out.find(q=>q!==r&&q.area_m2===r.area_m2&&q.mass_kg===r.mass_kg&&q.count===r.count&&!q.length_slip);if(o)r.length_slip.copied_from=o.pos}
   // «Итого:» under the table — «Общая площадь панелей (м2)», «Общая проектная масса панелей … (кг.)», «108 панелей»: the totals
   // of the whole spec (a table may run over two sheets — «(окончание)»): kept to check the sum of the rows against
-  const below=texts.filter(t=>horizontalText(t)&&t.y>(marks.length?marks[marks.length-1].y:head.y)&&t.y-(marks.length?marks[marks.length-1].y:head.y)<120&&Math.abs(t.x-head.x)<900);
+  // (within the table's own columns, from «Марка» to past its last head, and up to 200 pt under its last row — the rows of
+  // «Итого» are 45 pt high at the end of «(окончание)», АР ч.2 л.10: 1 554,56 m², 34 853,24 kg, «215 панелей» 124…150 pt
+  // under the last mark and 940 pt right of «Эскиз», read nowhere)
+  const lastY=marks.length?marks[marks.length-1].y:head.y,right=Math.max(...hdr.map(t=>t.x+(t.width||0)))+150;
+  const below=texts.filter(t=>horizontalText(t)&&t.y>lastY&&t.y-lastY<200&&t.x>=markH.x-20&&t.x<=right);
   const val=(re,col)=>{const lab=below.find(t=>re.test(String(t.str)));if(!lab)return null;
    const v=below.filter(t=>Math.abs(t.y-lab.y)<9&&t.x>lab.x+200&&/^\d{1,3}(?:\s?\d{3})*[.,]\d{1,3}$/u.test(String(t.str).trim())).sort((a,b)=>col?Math.abs(a.x-col.x)-Math.abs(b.x-col.x):a.x-b.x)[0];return v?num(v.str):null};
   const tA=val(/Общая\s+площадь\s+панелей/iu,totalH),tM=val(/Общая\s+(?:проектная\s+)?масса/iu,massH),tN=below.map(t=>/^(\d{1,4})\s*панел/iu.exec(String(t.str).trim())).find(Boolean);
-  if(tA||tM||tN){const own=out.filter(r=>r.table===String(title?.str||"").trim());
-   out.totals=(out.totals||[]).concat([{table:String(title?.str||"").trim(),...(roof?{roof:true}:{}),...(tA?{total_m2:tA}:{}),...(tM?{total_kg:tM}:{}),...(tN?{panels:Number(tN[1])}:{}),
+  // (the end of a table whose start stands on the same sheet — «(начало)» and «(окончание)» side by side, АР ч.2 л.10 —:
+  // its «Итого» is of both)
+  if(tA||tM||tN){const tt=String(title?.str||"").trim(),start=tt.replace(/\(\s*окончание\s*\)/iu,"(начало)");
+   const own=out.filter(r=>r.table===tt||(start!==tt&&r.table===start));
+   out.totals=(out.totals||[]).concat([{table:tt,...(roof?{roof:true}:{}),...(own.some(r=>r.table===start&&start!==tt)?{whole:true}:{}),...(tA?{total_m2:tA}:{}),...(tM?{total_kg:tM}:{}),...(tN?{panels:Number(tN[1])}:{}),
     rows:own.length,rows_m2:Math.round(own.reduce((a,r)=>a+(r.area_slip?r.total_m2:(r.area_m2||0)*(r.count||0)),0)*100)/100,rows_written_m2:Math.round(own.reduce((a,r)=>a+(r.total_m2??(r.area_m2||0)*(r.count||0)),0)*100)/100,rows_kg:Math.round(own.reduce((a,r)=>a+(r.mass_kg||0)*(r.count||0),0)*100)/100,rows_panels:own.reduce((a,r)=>a+(r.count||0),0)}])}
  }
  return out
@@ -450,7 +457,11 @@ function columnAround(b,runs,horiz,numbers,hs,scale,size=null,slopes=[],ext=null
  // (under the slope of a roof: the top where the line of the roof crosses each joint — the piece over it is cut off on
  // the site, «Обрезать по месту»)
  const yAt=(s,x)=>s.ya+(s.yb-s.ya)*(x-s.x0)/(s.x1-s.x0);
- const roof=slopes.filter(s=>s.x0<=l.x+1&&s.x1>=r.x-1&&yAt(s,(l.x+r.x)/2)<b.y0&&yAt(s,(l.x+r.x)/2)>Math.min(tl,tr)-.5).sort((p,q)=>yAt(q,(l.x+r.x)/2)-yAt(p,(l.x+r.x)/2))[0];
+ const roof=slopes.filter(s=>s.x0<=l.x+1&&s.x1>=r.x-1&&yAt(s,(l.x+r.x)/2)<b.y0&&yAt(s,(l.x+r.x)/2)>Math.min(tl,tr)-.5
+  // (where a joint of the column ends on it or a little over it — up to 15 pt, the joints of a gable stepping up under its
+  //  slope, л.5 ряд 03 —: not a leader of a note crossing the column, its joints running on far over it: АР ч.2 л.8 ряд Б
+  //  у О8, л.9 ряд Л у О4 — the leaders to ОВ 250×250 and ОВ 350×350 cut Пс-116 at +2,375 and +990)
+  &&[[l0,l.x],[r0,r.x]].some(([y,x])=>y-yAt(s,x)<=2&&y-yAt(s,x)>=-15)).sort((p,q)=>yAt(q,(l.x+r.x)/2)-yAt(p,(l.x+r.x)/2))[0];
  if(roof){tl=Math.max(tl,yAt(roof,l.x));tr=Math.max(tr,yAt(roof,r.x))}
  let bottom=Math.max(bl,br),top=Math.min(tl,tr);
  if(size?.length_mm&&Math.abs((bottom-Math.min(tl,tr))*scale-size.length_mm)>60&&Math.abs(tl-tr)<=.8){
@@ -1086,7 +1097,11 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
   //  it ended there, 6480 instead of 7820, nothing over it up to the slope —, to the short dimension line of that opening;
   //  not a line to the long chain along the wall, which is the joint of tiers there too: л.9 ряд Л +11,520 by the ribbon window)
   if(vert.some(q=>(start-q.x)*sg>=(h.x1-h.x0<=100&&v.y1-v.y0<=100?-1:.3)&&(start-q.x)*sg<=3&&q.y1-q.y0<=100&&(Math.abs(q.y0-h.y)<=.6||Math.abs(q.y1-h.y)<=.6)&&
-   horiz.some(e=>e!==h&&Math.abs(e.y-h.y)<=.6&&(sg>0?Math.abs(e.x1-q.x)<=.6&&e.x0<q.x-1:Math.abs(e.x0-q.x)<=.6&&e.x1>q.x+1)))){extension.add(h);break}}
+   horiz.some(e=>e!==h&&Math.abs(e.y-h.y)<=.6&&(sg>0?Math.abs(e.x1-q.x)<=.6&&e.x0<q.x-1:Math.abs(e.x0-q.x)<=.6&&e.x1>q.x+1)))){extension.add(h);break}
+  // (or, short, starting inside a small opening on its edge — over the bottom of ОВ 250×250, л.8 ряд Б у О8, from 1,8 pt in
+  //  to «2680»: Пс-116 ended at +2,595 there, a hole over it up to +11,515)
+  const side=x=>vert.some(q=>Math.abs(q.x-x)<=.6&&q.y1-q.y0<=100&&(Math.abs(q.y0-h.y)<=.6||Math.abs(q.y1-h.y)<=.6));
+  if(h.x1-h.x0<=100&&v.y1-v.y0<=100&&horiz.some(e=>e!==h&&Math.abs(e.y-h.y)<=.6&&e.x1-e.x0<=40&&start>=e.x0-.5&&start<=e.x1+.5&&(end-(sg>0?e.x1:e.x0))*sg>5&&side(e.x0)&&side(e.x1))){extension.add(h);break}}
  // (the shelf of a level mark «+3,600» or of a note «См. п.п. 12» over the panels — a short line with its text sitting on
  // it — is no joint across a column: ИР-71535 АР ч.2 л.4 ряд 010, Пс-44 and Пс-42 by ОВ 300×300 took the shelves of
  // «+3,600» and of the note for joints, lost the top cut under the slope +4,535 → +5,105, the cut stepped — the engineer,
@@ -2065,6 +2080,14 @@ function nicheViews(geometry,niches){
    const box={x0:Math.round(t.x-40),y0:Math.round(t.y-10),x1:Math.round(t.x+180),y1:Math.round(t.y+330)};
    const inB=x=>{const c=textBox(x);const cx=(c.x0+c.x1)/2,cy=(c.y0+c.y1)/2;return cx>=box.x0&&cx<=box.x1&&cy>=box.y0&&cy<=box.y1};
    secs.push({title:"Разрез "+m[1]+"-"+m[1]+" (для В-"+m[3]+")",box,levels:texts.filter(x=>inB(x)&&lvRe.test(String(x.str).trim())).map(x=>String(x.str).trim()),dims:texts.filter(x=>inB(x)&&/^\d{2,5}$/u.test(String(x.str).trim())).map(x=>Number(String(x.str).trim()))})}
+  // (a section whose frame took only its title — «1-1» of В-1, л.8: no size, no level —: the piece under its title up to the
+  // next view right of it, as for «для В 3»; its 730 / 640 / 20, 2140 and +2,060 / −0,080 / −0,250)
+  for(const v of secs){if((v.dims||[]).length||(v.levels||[]).length||!v.at)continue;
+   const nx=Math.min(v.at.x+200,...views.filter(o=>o!==v&&o.box&&o.box.x0>v.at.x+20&&o.box.y0<v.at.y+240&&o.box.y1>v.at.y).map(o=>o.box.x0-5));
+   const box={x0:Math.round(v.at.x-90),y0:Math.round(v.at.y-10),x1:Math.round(nx),y1:Math.round(v.at.y+230)};
+   const inB=x=>{const c=textBox(x);const cx=(c.x0+c.x1)/2,cy=(c.y0+c.y1)/2;return cx>=box.x0&&cx<=box.x1&&cy>=box.y0&&cy<=box.y1};
+   const lv=texts.filter(x=>inB(x)&&lvRe.test(String(x.str).trim())).map(x=>String(x.str).trim()),dm=texts.filter(x=>inB(x)&&/^\d{2,5}$/u.test(String(x.str).trim())).map(x=>Number(String(x.str).trim()));
+   if(lv.length||dm.length){v.box=box;v.levels=lv;v.dims=dm}}
   if(!plan.length&&!secs.length)continue;
   const dims=v=>[...new Set((v.dims||[]).map(Number).filter(x=>x>0))],levels=v=>[...new Set((v.levels||[]).map(mm).filter(x=>x!==null))];
   // (the plan as one view: the piece of the sheet under its title its cuts stand in)

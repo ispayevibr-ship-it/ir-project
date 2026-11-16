@@ -270,9 +270,14 @@ function auditSheet(geometry,page){
   if(r.total_slip)drawing.push({text:r.pos,why:"общая площадь «"+f2(r.total_m2)+"» не равна площади × кол. = "+f2(r.total_slip.area_x_count_m2)+" м²"});
   if(r.mass_slip)drawing.push({text:r.pos,why:"масса «"+f2(r.mass_kg)+"» кг — "+f2(r.mass_slip.row_kg_m2)+" кг/м² при "+f2(r.mass_slip.kg_m2)+" у панелей этого вида: масса панели "+f2(r.mass_slip.mass_of_m2)+" м²"})}
  // (a table running over two sheets — «Итого» of the whole under its end, the rows of this sheet only — is not checked here)
- for(const t of (page?.ar?.panelTotals||[]).filter(t=>!t.panels||!t.rows_panels||t.panels===t.rows_panels)){
+ // (its start on the same sheet — whole — it is: АР ч.2 л.10)
+ for(const t of (page?.ar?.panelTotals||[]).filter(t=>t.whole||!t.panels||!t.rows_panels||t.panels===t.rows_panels)){
   if(t.total_m2&&Math.abs(t.total_m2-t.rows_m2)>.05)drawing.push({text:"Итого "+f2(t.total_m2)+" м²",why:"сумма строк площадь × кол. "+f2(t.rows_m2)+(t.rows_written_m2!==undefined&&Math.abs(t.total_m2-t.rows_written_m2)<=.05?", сумма столбца «общая площадь» как написан — "+f2(t.rows_written_m2)+": «Итого» сложено по нему":"")});
-  if(t.panels&&t.rows_panels&&t.panels!==t.rows_panels)drawing.push({text:"Итого "+t.panels+" панелей",why:"по строкам "+t.rows_panels})}
+  if(t.panels&&t.rows_panels&&t.panels!==t.rows_panels)drawing.push({text:"Итого "+t.panels+" панелей",why:"по строкам "+t.rows_panels});
+  // (the mass: «Итого» of the masses of the rows, or the area of «Итого» × the mass of 1 m² of the note — 22,42 kg, л.10;
+  //  not the rounding of the masses of the rows, up to 0,2 % — л.4 12 173,16 at 12 174,88)
+  if(t.total_kg&&t.rows_kg&&Math.abs(t.total_kg-t.rows_kg)>Math.max(1,t.total_kg*.002)){const k=t.total_m2?t.total_kg/t.total_m2:0;
+   drawing.push({text:"Итого "+f2(t.total_kg)+" кг",why:"сумма строк масса × кол. "+f2(t.rows_kg)+(k&&Math.abs(k*100-Math.round(k*100))<.02?", «Итого» = общая площадь "+f2(t.total_m2)+" × "+f2(k)+" кг/м²":"")})}}
  for(const d of page?.ar?.layoutCheck?.diff||[])drawing.push({text:d.mark,why:"на схемах раскладки листа "+d.layout+", в таблице листа "+d.spec});
  const counts={texts:texts.length,read:texts.length,kept,notes:items.notes.length,marks:count(items.marks),axes:count(items.axes),dims:count(items.dims.filter(d=>d.used!==null)),levels:count(items.levels),
   nodes:items.nodes.length,cuts:items.cuts.length,unknown:items.unknown.length,missed:missed.length,drawing:drawing.length,...(page?.ar?.layoutCheck?{layout:{marks:page.ar.layoutCheck.marks,same:page.ar.layoutCheck.same}}:{})};
