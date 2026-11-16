@@ -60,7 +60,9 @@ const KINDS=[["opening",/отверсти|проём|проем|\bотв\b\.?/iu
  ["foundation",/плита\s+основан|фундамент/iu],["node",/^(?:по\s+)?(?:узел|узлу|узла)\s*\d/iu]];
 function calloutsOf(texts,segments,box,along,zAt){
  const T=texts.map(t=>({str:String(t.str||"").replace(/\s+/gu," ").trim(),x0:t.x,x1:t.x+(t.width||0),y:t.y,h:Number(t.size)||8,ang:Math.abs(t.angle||0)}))
-  .filter(t=>t.str&&t.ang<5&&t.x1>box.x0&&t.x0<box.x1&&t.y>box.y0&&t.y<box.y1);
+  // (a label may stand outside the view, under its row of axes — the openings ОВ 500×500, 700×1000, ВК 200×200 of the
+  // facade 01-010 on АР ч.1 л.15 ИР-71535 —: it is the view's when its leader ends inside it, checked below)
+  .filter(t=>t.str&&t.ang<5&&t.x1>box.x0-250&&t.x0<box.x1+250&&t.y>box.y0-250&&t.y<box.y1+250);
  const H=segments.filter(s=>Math.abs(s.a.y-s.b.y)<.3&&Math.abs(s.a.x-s.b.x)>=4);
  const inside=(p,b)=>p.x>=b.x0&&p.x<=b.x1&&p.y>=b.y0&&p.y<=b.y1,near=(p,q,d=1.6)=>Math.hypot(p.x-q.x,p.y-q.y)<=d;
  const out=[],taken=new Set();
@@ -117,6 +119,8 @@ function seenPanels(segments,box,scale,along,zAt,zr=[-Infinity,Infinity]){
  for(const g of groups.values()){if(g.length<4)continue;g.sort((a,b)=>a.x-b.x);const xs=[...new Set(g.map(v=>Math.round(v.x*2)/2))];if(xs.length<4)continue;
   const steps=xs.slice(1).map((x,i)=>x-xs[i]),med=[...steps].sort((a,b)=>a-b)[steps.length>>1];
   const even=steps.filter(s=>Math.abs(s-med)<=med*.08).length;if(even<3||even<steps.length*.6||med*scale<300||med*scale>1600)continue;
+  // (two uprights 20 mm apart are a post of a railing or a porch, not a joint of panels — porch at О9–О10 on the facade л.15)
+  if(steps.some(s=>s*scale<100))continue;
   const y0=g[0].y0,y1=g[0].y1;
   // (higher than 1,5 m, within the levels of the section: the posts of a railing (1 m) and the drawings beside are not)
   if((y1-y0)*scale<1500||zAt(y1)<zr[0]-500||zAt(y0)>zr[1]+500)continue;

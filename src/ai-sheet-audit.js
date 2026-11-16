@@ -79,8 +79,8 @@ function auditSheet(geometry,page){
  // (a bubble «01» read with a digit is the axis «О1» of the grid, «I» is «И»: АР ч.1 л.5 ИР-71535, ten axes of the grid
  // counted as misses; the axes of the other grid of the sheet — the existing building beside — are read too)
  const axisKey=m=>keyOf(m).replace(/^[0O](?=\d)/u,"О").replace(/^I(?=\d|\/|$)/u,"И");
- const bubblesNamed=new Set(schemes.flatMap(s=>[...(s.axesX||[]),...(s.axesY||[]),...(s.otherAxes?.axes||[]).map(a=>a.name)]).map(axisKey));
- const levelsUsed=numbersIn([schemes.map(s=>[s.levelNotes,s.title,(s.levels||[]).map(l=>l.z_mm),(s.roof?.levels||[]).map(l=>l.z_mm),(s.placements||[]).map(p=>[p.z0_mm,p.z1_mm,p.z_mm])]),page?.sections,page?.sectionProfiles,
+ const bubblesNamed=new Set(schemes.flatMap(s=>[...(s.axesX||[]),...(s.axesY||[]),...(Array.isArray(s.otherAxes)?s.otherAxes.flat():s.otherAxes?.axes||[]).map(a=>a.name)]).map(axisKey));
+ const levelsUsed=numbersIn([schemes.map(s=>[s.levelNotes,s.title,(s.levels||[]).map(l=>l.z_mm),(s.roof?.levels||[]).map(l=>l.z_mm),(s.placements||[]).map(p=>[p.z0_mm,p.z1_mm,p.z_mm]),(s.lines?.openings||[]).map(o=>o.bottom_mm)]),page?.sections,page?.sectionProfiles,
   (page?.sheet?.views||[]).map(v=>[v.z0_mm,v.z1_mm]),page?.trusses,page?.columnDetails,page?.baseDetails,page?.tank,page?.ar]);
  for(const s of schemes)for(const m of String(s.title||"").match(/[+\-−]?\d{1,3}[,.]\d{3}/gu)||[]){const v=levelMm(m);if(v!==null)levelsUsed.add(v)}
  // The wall layouts of АР on the sheet: their positions along (axes, panels, openings) and up (levels, panels, openings),

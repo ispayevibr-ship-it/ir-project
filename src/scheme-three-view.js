@@ -13,7 +13,7 @@ window.irThreeSchemeView=(function irThreeModule(){
  // ускорить построение схемы?» — «да»). It is raised by scripts/scheme-model-digest.js, never by hand: the script builds
  // the checked schemes with this file and raises the number when what would be kept for any of them differs from the
  // record (knowledge/quality/model-digest.json); scripts/scheme-pack.js refuses a pack made without it.
- var MODEL_BUILD=51;
+ var MODEL_BUILD=52;
  var token=0,active=null,loadPromise=null,cameraMemory={};
  // Bundled with the app (works offline); the CDN is only a fallback for an incomplete hot update.
  var sources=[
@@ -4783,7 +4783,7 @@ window.irThreeSchemeView=(function irThreeModule(){
      // (… the part of it under the roof stays under the roof, only the part past the roof's edge goes up to those panels:
      // the whole of it risen stood 0,4 m over the roof on its last 600 mm, the gable trim through it — the engineer,
      // 14.11.2026 «тут торцевая сквозь стену проходит»)
-     var wall=function(sa,sb,va,vb,up){
+     var wall=function(sa,sb,va,vb,up,only){
       var ov=up||over(sa,sb,va,vb);
       if(ov&&!up){var parts=[];if(ov.sb>r.s1+1)parts.push([Math.max(ov.sa,r.s1),ov.sb,ov.va,ov.vb]);if(ov.sa<r.s0-1)parts.push([ov.sa,Math.min(ov.sb,r.s0),ov.va,ov.vb]);
        // (the part beside the roof runs on to the outer face of the wall risen at the roof's end: the walls stand 300 mm in
@@ -4792,6 +4792,7 @@ window.irThreeSchemeView=(function irThreeModule(){
        var qa=ov.sa,qb=ov.sb;if(ends){if(ends[1]&&qb>=a1-t-1)qb=Math.max(qb,ends[1].sb);if(ends[0]&&qa<=a0+t+1)qa=Math.min(qa,ends[0].sa)}
        if(ov.vb>r.v1+1)parts.push([qa,qb,Math.max(ov.va,r.v1),ov.vb]);if(ov.va<r.v0-1)parts.push([qa,qb,ov.va,Math.min(ov.vb,r.v0)]);
        if(parts.length){parts.forEach(function(q){wall(q[0],q[1],q[2],q[3],ov)});ov=null}}
+      if(only)return;
       if(ov&&!up){sa=ov.sa;sb=ov.sb;va=ov.va;vb=ov.vb}var zt=function(sv){return ov?ov.z:zAt(Math.max(r.s0,Math.min(r.s1,sv)))};
       var P=[at(sa,va,zb),at(sb,va,zb),at(sb,vb,zb),at(sa,vb,zb),at(sa,va,zt(sa)),at(sb,va,zt(sb)),at(sb,vb,zt(sb)),at(sa,vb,zt(sa))];
       var F=[[0,2,1],[0,3,2],[4,5,6],[4,6,7],[0,1,5],[0,5,4],[1,2,6],[1,6,5],[2,3,7],[2,7,6],[3,0,4],[3,4,7]],pos=[];
@@ -4800,7 +4801,21 @@ window.irThreeSchemeView=(function irThreeModule(){
       var m=new T.Mesh(geo,masonrySkin());m.material.side=T.DoubleSide;m.userData.memberId=String(f.c.id);m.userData.fixed=true;m.userData.footing=true;m.userData.masonry=true;m.userData.clad=true;
       steel.add(m);allMeshes.push(m)};
      var a0=r.s0+t,a1=r.s1-t;if(a1-a0<1000)return;var ends=null;
-     wall(a0,a0+t,r.v0,r.v1);wall(a1-t,a1,r.v0,r.v1);ends=[over(a0,a0+t,r.v0,r.v1),over(a1-t,a1,r.v0,r.v1)];wall(a0+t,a1-t,r.v0,r.v0+t);wall(a0+t,a1-t,r.v1-t,r.v1);
+     // (a side whose wall the plan of the АР draws — the brick wall by 01/1 of the annex 01–01/1, ИР-71535 АР ч.1 л.10 —:
+     // no second, conventional wall under the roof 0,3 m in from its edge, only what rises past the roof; it stood
+     // 0,4 m inside the room beside the wall of the plan — found by the section 3-3 of АР ч.1 л.14, 16.11.2026)
+     // (only a wall of the plan apart from the conventional one: one where it stands is the same wall — О1 of 01–01/1)
+     // (the pieces of one side add up — the wall by 01/1 is two pieces either side of its door; half the side covered)
+     var len={s0:0,s1:0,v0:0,v1:0},cov={},apart=function(c,hw,lo,hi){return c+hw<lo-10||c-hw>hi+10};
+     elems.forEach(function(c){var b=c&&c.ft==="partition"&&c.lay&&c.lay.partition;if(!b||b.off)return;var hw=Math.max(80,number(b.thickness_mm))/2;
+      var p1=[(number(c.x)-g.ax)*g.ux+(number(c.y)-g.ay)*g.uy,(number(c.x)-g.ax)*-g.uy+(number(c.y)-g.ay)*g.ux],p2=[(number(c.x2)-g.ax)*g.ux+(number(c.y2)-g.ay)*g.uy,(number(c.x2)-g.ax)*-g.uy+(number(c.y2)-g.ay)*g.ux];
+      if(!isFinite(p1[0]+p1[1]+p2[0]+p2[1]))return;
+      if(Math.abs(p1[1]-p2[1])<50){var v=(p1[1]+p2[1])/2,o=Math.min(Math.max(p1[0],p2[0]),r.s1)-Math.max(Math.min(p1[0],p2[0]),r.s0);if(o<=0)return;
+       if(Math.abs(v-r.v0)<=700&&v<r.v0+t&&apart(v,hw,r.v0,r.v0+t))len.v0+=o;if(Math.abs(v-r.v1)<=700&&v>r.v1-t&&apart(v,hw,r.v1-t,r.v1))len.v1+=o}
+      else if(Math.abs(p1[0]-p2[0])<50){var sv=(p1[0]+p2[0])/2,o2=Math.min(Math.max(p1[1],p2[1]),r.v1)-Math.max(Math.min(p1[1],p2[1]),r.v0);if(o2<=0)return;
+       if(Math.abs(sv-r.s0)<=700&&sv<r.s0+2*t&&apart(sv,hw,a0,a0+t))len.s0+=o2;if(Math.abs(sv-r.s1)<=700&&sv>r.s1-2*t&&apart(sv,hw,a1-t,a1))len.s1+=o2}});
+     cov.s0=len.s0>=(r.v1-r.v0)*.5;cov.s1=len.s1>=(r.v1-r.v0)*.5;cov.v0=len.v0>=(r.s1-r.s0)*.5;cov.v1=len.v1>=(r.s1-r.s0)*.5;
+     wall(a0,a0+t,r.v0,r.v1,null,cov.s0);wall(a1-t,a1,r.v0,r.v1,null,cov.s1);ends=[over(a0,a0+t,r.v0,r.v1),over(a1-t,a1,r.v0,r.v1)];wall(a0+t,a1-t,r.v0,r.v0+t,null,cov.v0);wall(a0+t,a1-t,r.v1-t,r.v1,null,cov.v1);
      // The walls of the plan of the АР along the sides of that roof are the same masonry walls (ИР-71535 АР ч.1 л.10 the
      // annex 01–01/1: brick 300 mm with the gate В-3 and the door, the roof between them): the wall of the plan in the
      // colour of the masonry, the masonry over it from its top up to the roof — to the top of the roof where it stands

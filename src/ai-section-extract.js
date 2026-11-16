@@ -585,7 +585,13 @@ function extractElevations({segments=[],texts=[]}={},page=1){
   const scale=Math.abs(f.b),values=[...new Set(levels.map(l=>l.mm))];
   const toZ=y=>{const v=f.a+f.b*y,near=values.reduce((p,c)=>Math.abs(c-v)<Math.abs(p-v)?c:p);return Math.abs(near-v)<=SNAP?near:Math.round(v/ROUND)*ROUND};
   // Axis positions: bubble centres, spans corrected to the dimensions written under them.
-  const bubbles=row.items.map(t=>({name:String(t.str).trim().toUpperCase(),pt:t.x+(t.width||0)/2})).sort((a,b)=>a.pt-b.pt);
+  let bubbles=row.items.map(t=>({name:String(t.str).trim().toUpperCase(),pt:t.x+(t.width||0)/2})).sort((a,b)=>a.pt-b.pt),alien=[];
+  // (a facade: its own axes — of the family of the ends of its title, between them; the rest of the row is the building
+  // beside: «A», «E», «I», «I1», «I2», «J», «К», «К/1» of the shop ММА by «О1»…«О10» on АР ч.1 л.15)
+  if(title.facade){const fam=n=>{const m=/^([^0-9]*)(\d+)(?:\/(\d+))?$/.exec(String(n).replace(/^0(?=\d)/,"О").replace(/^O/,"О").toUpperCase());return m?{p:m[1],v:Number(m[2])+(m[3]?Number(m[3])/100:0)}:null};
+   const e0=fam(title.facade[0]),e1=fam(title.facade[1]);
+   if(e0&&e1&&e0.p===e1.p){const lo=Math.min(e0.v,e1.v),hi=Math.max(e0.v,e1.v)+.99,own=b=>{const f=fam(b.name);return f&&f.p===e0.p&&f.v>=lo&&f.v<=hi};
+    alien=bubbles.filter(b=>!own(b));bubbles=bubbles.filter(own)}}
   if(bubbles.length<2||new Set(bubbles.map(b=>b.name)).size!==bubbles.length)continue;
   // Along a lettered row the axes are numbered, and the other way round: a row of mixed or same-kind bubbles is a
   // detail view («… фонтанчику в осях Б / О4»), not the elevation of that row.
@@ -682,6 +688,13 @@ function sectionTitles(texts){
  for(const t of texts){const m=/^Разрез\s+(\d{1,2}|[А-ЯЁ])\s*[-–]\s*(\d{1,2}|[А-ЯЁ])\s*$/u.exec(String(t.str).trim());
   if(!m||m[1]!==m[2]||Math.abs(t.angle||0)>=10)continue;
   out.push({str:String(t.str).trim(),name:m[1]+"-"+m[2],x:t.x+(t.width||0)/2,y:t.y})}
+ // A facade drawn as a view with its row of axes and its level marks — «Фасад 01-010 пристроенный к существующему
+ // зданию ММА в осях А-К,1» of АР ч.1 л.15 ИР-71535 — is read the way a section is: its ends name the axes of the row
+ // that are its own; the bubbles of the building beside it in that row go to `otherAxes`. (the title over the view only:
+ // the large one, the copy in the stamp has no row under it)
+ for(const t of texts){const m=/^Фасад\s+([0-9OОА-ЯЁA-Z][0-9/]*)\s*[-–]\s*([0-9OОА-ЯЁA-Z][0-9/]*)(\s|$)/u.exec(String(t.str).trim());
+  if(!m||m[1]===m[2]||Math.abs(t.angle||0)>=10)continue;
+  out.push({str:String(t.str).trim(),name:m[1]+"-"+m[2],facade:[m[1],m[2]],x:t.x+(t.width||0)/2,y:t.y})}
  return out
 }
 function extractSectionViews({segments=[],texts=[]}={},page=1,taken=[]){
@@ -691,7 +704,7 @@ function extractSectionViews({segments=[],texts=[]}={},page=1,taken=[]){
  // taken when the size between them is written there, checked below)
  const rows=bubbleRows(texts,segments,2,true);if(!rows.length)return[];
  for(const r of rows){const ring=r.items[0]?.ring;if(!ring)continue;
-  for(const t of texts){const str=String(t.str).trim();if(!/^[A-Z]$/.test(str)||Math.abs(t.y-r.y)>4||t.x<r.x0-600||t.x>r.x1+600||r.items.some(u=>u.str===str))continue;
+  for(const t of texts){const str=String(t.str).trim();if(!/^[A-Z]\d?$/.test(str)||Math.abs(t.y-r.y)>4||t.x<r.x0-600||t.x>r.x1+600||r.items.some(u=>u.str===str||Math.abs(u.x-t.x)<3))continue;
    const cx=t.x+(t.width||0)/2,cy=t.y-(t.size||8)*.36,round=segments.filter(s=>{const d1=Math.hypot(s.a.x-cx,s.a.y-cy),d2=Math.hypot(s.b.x-cx,s.b.y-cy);return Math.abs(d1-ring.r)<2.5&&Math.abs(d2-ring.r)<2.5}).length;
    if(round>=8){r.items.push({...t,str,ring:{x:cx,y:cy,r:ring.r}});r.x0=Math.min(r.x0,t.x);r.x1=Math.max(r.x1,t.x)}}}
  const horiz=segments.filter(s=>Math.abs(s.a.y-s.b.y)<=.3&&Math.abs(s.a.x-s.b.x)>=3).map(s=>({y:s.a.y,x0:Math.min(s.a.x,s.b.x),x1:Math.max(s.a.x,s.b.x)}));
@@ -714,7 +727,13 @@ function extractSectionViews({segments=[],texts=[]}={},page=1,taken=[]){
   if(levels.length<2)continue;
   placeLevels(levels,horiz,segments);
   const f=fit(levels);
-  const bubbles=row.items.map(t=>({name:String(t.str).trim().toUpperCase(),pt:t.x+(t.width||0)/2})).sort((a,b)=>a.pt-b.pt);
+  let bubbles=row.items.map(t=>({name:String(t.str).trim().toUpperCase(),pt:t.x+(t.width||0)/2})).sort((a,b)=>a.pt-b.pt),alien=[];
+  // (a facade: its own axes — of the family of the ends of its title, between them; the rest of the row is the building
+  // beside: «A», «E», «I», «I1», «I2», «J», «К», «К/1» of the shop ММА by «О1»…«О10» on АР ч.1 л.15)
+  if(title.facade){const fam=n=>{const m=/^([^0-9]*)(\d+)(?:\/(\d+))?$/.exec(String(n).replace(/^0(?=\d)/,"О").replace(/^O/,"О").toUpperCase());return m?{p:m[1],v:Number(m[2])+(m[3]?Number(m[3])/100:0)}:null};
+   const e0=fam(title.facade[0]),e1=fam(title.facade[1]);
+   if(e0&&e1&&e0.p===e1.p){const lo=Math.min(e0.v,e1.v),hi=Math.max(e0.v,e1.v)+.99,own=b=>{const f=fam(b.name);return f&&f.p===e0.p&&f.v>=lo&&f.v<=hi};
+    alien=bubbles.filter(b=>!own(b));bubbles=bubbles.filter(own)}}
   if(bubbles.length<2||new Set(bubbles.map(b=>b.name)).size!==bubbles.length)continue;
   const dims=region.filter(t=>Math.abs(t.angle||0)<10&&/^\d{3,5}$/.test(String(t.str).trim())).map(t=>Number(t.str));
   // The scale: the levels' fit when there is one, else the commonest ratio of a span between bubbles to a written size.
@@ -759,7 +778,7 @@ function extractSectionViews({segments=[],texts=[]}={},page=1,taken=[]){
   let lines={};try{lines=sectionLines({segments,texts},{box:bbox,scale,along,zAt:y=>Math.round((fz.a+fz.b*y)/10)*10,zRange:[Math.min(...levels.map(l=>l.mm)),Math.max(...levels.map(l=>l.mm))]})}catch{lines={}}
   out.push({kind:"section",title:title.str,section:title.name,page,bbox,
    scaleMmPerPt:Math.round(scale*1000)/1000,axesX:names,axesY:[],spansX:spans,spansY:[],sizeX:axes[axes.length-1].mm,sizeY:0,
-   levels:lv,dims:sizes,...(beside.length?{otherAxes:beside.map(r=>r.items.map(t=>({name:String(t.str).trim(),u_mm:along(t.x+(t.width||0)/2)})))}:{}),...(Object.values(lines).some(v=>v&&v.length)?{lines}:{}),placements:[],warnings:["Разрез без элементов: оси и отметки — для высот, расстановка по планам",...slips]})
+   levels:lv,dims:sizes,...(beside.length||alien.length?{otherAxes:[...beside.map(r=>r.items.map(t=>({name:String(t.str).trim(),u_mm:along(t.x+(t.width||0)/2)}))),...(alien.length?[alien.map(b=>({name:b.name,u_mm:along(b.pt)}))]:[])]}:{}),...(title.facade?{facade:title.name}:{}),...(Object.values(lines).some(v=>v&&v.length)?{lines}:{}),placements:[],warnings:[(title.facade?"Фасад":"Разрез")+" без элементов: оси и отметки — для высот, расстановка по планам",...slips]})
  }
  return out
 }

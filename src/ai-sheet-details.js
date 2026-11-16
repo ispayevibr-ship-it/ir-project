@@ -113,6 +113,9 @@ function requirementsOf(notes){
 // Tables: blocks of the sheet with rows of cells (sheetText: rows « / », cells « | »).
 function kindOfTable(text){
  const t=String(text);
+ // (the «Ведомость отделки фасадов» of АР — element, finish, RAL, colour: «Масляная покраска», «… с заводским полимерным
+ // покрытием» are not the steel of a spec; АР ч.1 л.15 ИР-71535 was read as «steel»)
+ if(/вид\s+отделки/iu.test(t)&&/RAL|цвет/iu.test(t))return"finish";
  if(/масса|вес\b|кг|т\s*\|/iu.test(t)&&/профил|сортамент|марка\s+стал|наименование\s+проф|ГОСТ|прокат/iu.test(t))return"steel";
  if(/(?:^|[\s|])[NQM]\s*(?:,|\(|\|)|усили|нагрузк|реакци|кН/u.test(t)&&/кН|кН[·*]м|т[·*]м|тс/u.test(t))return"loads";
  if(/тип\s+пола|экспликац\S*\s+пол|покрыти\S*\s+пол|пол\S*\s+тип/iu.test(t))return"floors";
@@ -130,6 +133,27 @@ function steelRow(cells){
  const nums=cells.map(c=>String(c).trim()).filter(c=>/^\d+(?:[,.]\d+)?$/u.test(c)).map(c=>Number(c.replace(",",".")));
  return prof||grade?{profile:prof.trim(),steel:grade.replace(/\s/gu,""),numbers:nums.slice(-4)}:null
 }
+// The rows of a finish table: a row from its number «1», «2» … on; a row without a number before a numbered one — the start
+// of the next element's name («Стальные конструкции» + «ограждений кровли и лестниц»), after it — the rest of its own
+// («НС 44-1000 х 0,8 …», «ультрамарин»). Each: element, finish, RAL, colour, reference, area.
+function finishRows(rows){
+ const out=[];let pre=[],cur=null;
+ for(const r of rows){const c=r.map(x=>String(x).trim()).filter(Boolean);if(!c.length)continue;
+  if(/^\d{1,2}$/.test(c[0])){if(cur)out.push(cur);
+   const s=c.slice(1).join(" "),ral=(/RAL\s*\d{4}/u.exec(s)||[])[0]||"",ref=(/см\s*\.?\s*[А-ЯA-Z]{2,3}(?![А-Яа-яA-Za-z])(?:\s*-\s*\d+(?:\s*\.{3}\s*\d+)?)?/u.exec(s)||[])[0]||"";
+   const area=c.slice(1).find(x=>/^\d+(?:[,.]\d+)?$/u.test(x));
+   cur={n:Number(c[0]),element:[...pre,c[1]||""].join(" ").replace(/\s+/gu," ").trim(),text:s,...(ral?{ral:ral.replace(/\s+/u," ")}:{}),...(ref?{ref:ref.replace(/\s+/gu," ")}:{}),...(area?{area_m2:Number(area.replace(",","."))}:{})};
+   // (the colour — the words after the last RAL, reference or area of the row: «Светло синий», «Рапсово -желтый»)
+   {let k=0;for(const re of [/RAL\s*\d{4}/gu,/см\s*\.?\s*[А-ЯA-Z]{2,3}(?![А-Яа-яA-Za-z])(?:\s*-\s*\d+(?:\s*\.{3}\s*\d+)?)?/gu,/\d+[,.]\d+/gu]){let m;while((m=re.exec(s)))k=Math.max(k,m.index+m[0].length)}
+    const col=s.slice(k).replace(/\s+/gu," ").trim();if(k&&/^[А-ЯЁ][а-яё]/u.test(col)&&col.length<40)cur.color=col}
+   pre=[];continue}
+  if(!cur){continue}
+  // (a line after the row — the rest of its finish or colour; a line followed by a numbered row starts its name)
+  const next=rows[rows.indexOf(r)+1];if(next&&/^\d{1,2}$/.test(String(next[0]||"").trim())&&!/RAL|ГОСТ/u.test(c.join(" "))&&/^[А-ЯЁ]/u.test(c[0])){pre.push(c.join(" "));continue}
+  if(cur.color&&c.length===1&&/^[а-яё]/u.test(c[0]))cur.color+=" "+c[0];else cur.text+=" "+c.join(" ")}
+ if(cur)out.push(cur);
+ return out
+}
 function tablesOf(blocks){
  const out=[];
  for(const b of blocks||[]){
@@ -138,6 +162,7 @@ function tablesOf(blocks){
   const kind=kindOfTable(b.text);
   const tab={at:{x:b.x,y:b.y},kind,head:rows[0].slice(0,20),rows:rows.slice(1,240).map(r=>r.slice(0,20))};
   if(kind==="steel"){const st=tab.rows.map(steelRow).filter(Boolean);if(st.length)tab.steel=st.slice(0,200)}
+  if(kind==="finish"){const f=finishRows(tab.rows);if(f.length)tab.finish=f}
   out.push(tab)
  }
  return out.slice(0,80)

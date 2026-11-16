@@ -686,6 +686,17 @@ function arScheme(pages,opts={}){
  const spec=new Map();for(const p of ar)for(const s of p.ar.panels||[]){if(!spec.has(s.pos))spec.set(s.pos,[]);spec.get(s.pos).push(s)}
  const all=ar.flatMap(p=>(p.ar.views||[]).map(v=>({...v,page:p.page,sheet:p.pdfPage||p.page,file:p.sourceName||""})));
  const views=all.filter(v=>!v.section&&v.panels.length);
+ // An opening its note puts at another level than the layout draws it, and a facade of the АР draws and labels it at the
+ // drawn level (ИР-71535 ОВ 1050×1050: АР ч.2 л.8 ряд Б — выноска «+19,070», нарисовано на +17,300; фасад 01-010 АР ч.1
+ // л.15 — «отм. низа +17,300», рядом 900×900 на +17,300): two of three say the drawn level — the hole is cut there.
+ const facadeHoles=pages.filter(p=>p.docType==="АР").flatMap(p=>(p.schemes||[]).filter(s=>s.facade).map(s=>({s,sheet:p.pdfPage||p.page,list:s.lines?.openings||[]})));
+ for(const v of views)for(const o of v.openings||[]){if(o.drawn_z0==null)continue;const w=o.u1-o.u0,h=o.z1-o.z0;
+  const same=z=>facadeHoles.find(f=>f.list.some(q=>Math.abs(q.w_mm-w)<=60&&Math.abs(q.h_mm-h)<=60&&Math.abs(q.bottom_mm-z)<=30));
+  const f=same(o.drawn_z0);if(!f||same(o.z0))continue;
+  const z0=o.z0,z1=o.z1,d=o.drawn_z0-z0;
+  // (the panels' holes of the view are cut at the note's level: moved with the opening)
+  for(const pn of v.panels)if(pn.holes?.length)pn.holes=pn.holes.map(q=>Math.abs(q[2]-z0)<=5&&Math.abs(q[3]-z1)<=5&&Math.min(pn.u0,pn.u1)+q[1]>o.u0-5&&Math.min(pn.u0,pn.u1)+q[0]<o.u1+5?[q[0],q[1],q[2]+d,q[3]+d,...q.slice(4)]:q);
+  o.note_z0=z0;o.z0=o.drawn_z0;o.z1=z1+d;o.by_facade="Фасад "+f.s.facade+" (лист "+f.sheet+")";delete o.drawn_z0}
  // The grid: the checked one, else the view with the most axes of each kind; the others joined on by an axis they share.
  const px=new Map(),py=new Map(),g=opts.grid;
  if(g?.axesX?.length>=2&&g?.axesY?.length>=2){g.axesX.forEach((n,i)=>px.set(String(n),cumulative(g.spansX)[i]));g.axesY.forEach((n,i)=>py.set(String(n),cumulative(g.spansY)[i]))}
@@ -1016,7 +1027,7 @@ function arScheme(pages,opts={}){
  const lv=mm=>(mm<0?"−":"+")+(Math.abs(mm)/1000).toFixed(3).replace(".",",");
  for(const v of views)for(const o of v.openings||[]){const at=(v.title||"схема раскладки")+" (лист "+v.sheet+"), отверстие "+(o.u1-o.u0)+"×"+(o.z1-o.z0);
   if(o.drawn_z0!=null)warnings.push(at+": по выноске отм. низа "+lv(o.z0)+", на виде нарисовано на "+lv(o.drawn_z0)+" — вырезано по выноске, проверьте");
-  if(o.note_z0!=null)warnings.push(at+": на виде отметка низа "+lv(o.z0)+", в выноске "+lv(o.note_z0)+" — вырезано по виду, проверьте")}
+  if(o.note_z0!=null)warnings.push(at+": на виде отметка низа "+lv(o.z0)+", в выноске "+lv(o.note_z0)+" — вырезано по виду"+(o.by_facade?" (так же на "+o.by_facade+")":", проверьте"))}
  // Windows, doors and gates in the openings of the walls: the block of its table whose size fits the opening (a window
  // block is 40 smaller than its opening, a door 40 narrower; one at the foot of the wall stands on ±0,000). Outer doors
  // («ДБН», «ДСН») first; each position as many times as its table counts, then again with a note.
