@@ -856,7 +856,26 @@ function openingRects(panels,vert,horiz,scale,u,z,numbers=[],texts=[],ticks=[]){
 // size goes to the level the note writes; the level it was drawn at is kept for the warning. A level mark at its bottom
 // on the view (л.9 ряд Л: «+4,800» and «4880» at «ОВ 500 х 300», the note «+3,400») — the view stays, the note is kept.
 const OPENING_NOTE=/Отверсти[еяй]\s+[А-ЯA-Z]{0,3}\s*(\d{2,5})\s*[хxХX×]\s*(\d{2,5})/u,LOW=/низа\s*([+\-−±]?\d{1,2}[,.]\d{3})/u;
-function noteLevels(openings,texts,segments){
+// (an opening smaller than the search of rectangles takes — «ОВ 300 х 300(h). отм .низа +3,600» by «ОВ 650 х 550» on
+// ряд 08 Б–А of АР ч.2 л.16, two «ОВ 250 х 250» at +6,100 on ряд 9 К–Л, «ОВ 300 х 300» at axis А of АР ч.2 л.4 ИР-71535;
+// inspector 16.11.2026 «а почему не все читает? допиши» —: its note's leader ends at a corner or on a side of a small
+// box of the note's size; the box is the opening, at the note's level)
+function boxAt(q,w,h,segments){
+ const at=p=>segments.filter(s=>Math.hypot(s.a.x-p.x,s.a.y-p.y)<=1.5||Math.hypot(s.b.x-p.x,s.b.y-p.y)<=1.5).map(s=>Math.hypot(s.a.x-p.x,s.a.y-p.y)<=1.5?{p:s.a,q:s.b}:{p:s.b,q:s.a});
+ const fit=(v,want)=>Math.abs(v-want)<=Math.max(1.5,want*.25);
+ const corner=p=>{const e=at(p),H=e.find(o=>Math.abs(o.q.y-o.p.y)<=.5&&(fit(Math.abs(o.q.x-o.p.x),w)||fit(Math.abs(o.q.x-o.p.x),h))),V=e.find(o=>Math.abs(o.q.x-o.p.x)<=.5&&(fit(Math.abs(o.q.y-o.p.y),h)||fit(Math.abs(o.q.y-o.p.y),w)));
+  return H&&V?{l:Math.min(p.x,H.q.x),r:Math.max(p.x,H.q.x),top:Math.min(p.y,V.q.y),bottom:Math.max(p.y,V.q.y)}:null};
+ let box=corner(q);if(box)return box;
+ // on a side: the side through the point, the box from an end of it
+ for(const s of segments){
+  const vert=Math.abs(s.a.x-s.b.x)<=.5,horz=Math.abs(s.a.y-s.b.y)<=.5;if(!vert&&!horz)continue;
+  const on=vert?Math.abs(s.a.x-q.x)<=.6&&q.y>=Math.min(s.a.y,s.b.y)-.5&&q.y<=Math.max(s.a.y,s.b.y)+.5:Math.abs(s.a.y-q.y)<=.6&&q.x>=Math.min(s.a.x,s.b.x)-.5&&q.x<=Math.max(s.a.x,s.b.x)+.5;
+  if(!on)continue;const len=Math.hypot(s.a.x-s.b.x,s.a.y-s.b.y);if(!fit(len,vert?h:w)&&!fit(len,vert?w:h))continue;
+  for(const e of [s.a,s.b]){box=corner(e);if(box)return box}
+ }
+ return null
+}
+function noteLevels(openings,texts,segments,draw){
  const notes=texts.filter(t=>horizontalText(t)&&OPENING_NOTE.test(String(t.str))).map(t=>{
   const m=OPENING_NOTE.exec(String(t.str)),b=textBox(t);let low=LOW.exec(String(t.str));
   if(!low){const u=texts.filter(q=>q!==t&&horizontalText(q)&&LOW.test(String(q.str))).map(q=>({q,b:textBox(q)})).filter(o=>o.b.y0>=b.y1-2&&o.b.y0-b.y1<=18&&o.b.x1>=b.x0&&o.b.x0<=b.x1+30).sort((p,q)=>p.b.y0-q.b.y0)[0];if(u)low=LOW.exec(String(u.q.str))}
@@ -866,10 +885,17 @@ function noteLevels(openings,texts,segments){
  const marked=o=>marks.some(m=>Math.abs(m.mm-o.z0)<=30&&m.b.x1>=o.at.l-60&&m.b.x0<=o.at.r+60&&Math.abs(m.b.y1-o.at.bottom)<=12);
  const on=(o,p)=>p.x>=o.at.l-2&&p.x<=o.at.r+2&&p.y>=o.at.top-2&&p.y<=o.at.bottom+2;
  for(const n of notes){
-  const near=p=>p.x>=n.b.x0-15&&p.x<=n.b.x1+15&&p.y>=n.b.y0-3&&p.y<=n.b.y1+8;
+  // (the shelf runs on past the note up to 20 pt: «ОВ 250 х 250» of ряд 9, АР ч.2 л.16, its leader from 16 pt past)
+  const near=p=>p.x>=n.b.x0-20&&p.x<=n.b.x1+20&&p.y>=n.b.y0-3&&p.y<=n.b.y1+8;
   for(const s of segments){
    const [p,q]=near(s.a)?[s.a,s.b]:near(s.b)?[s.b,s.a]:[null,null];if(!p||Math.hypot(q.x-p.x,q.y-p.y)<20)continue;
-   const o=openings.find(o=>o.at&&on(o,q));if(!o||Math.abs(o.u1-o.u0-n.w)>60||Math.abs(o.z1-o.z0-n.h)>60)continue;
+   let o=openings.find(o=>o.at&&on(o,q));
+   if(!o&&draw&&draw.inView(q)){
+    const bx=boxAt(q,n.w/draw.scale,n.h/draw.scale,segments);
+    if(bx){const a=draw.u(bx.l),b=draw.u(bx.r);o={u0:Math.min(a,b),u1:Math.max(a,b),z0:draw.z(bx.bottom),z1:draw.z(bx.top),base:false,inner:true,by_note:true,at:bx};
+     if(!openings.some(p=>p.at&&Math.abs(p.at.l-bx.l)<1&&Math.abs(p.at.top-bx.top)<1))openings.push(o);else o=null}
+   }
+   if(!o||Math.abs(o.u1-o.u0-n.w)>60||Math.abs(o.z1-o.z0-n.h)>60)continue;
    if(Math.abs(o.z0-n.lv)>30){if(marked(o))o.note_z0=n.lv;else{const h=o.z1-o.z0;o.drawn_z0=o.z0;o.z0=n.lv;o.z1=n.lv+h}}
    o.noted=true;break
   }
@@ -1134,7 +1160,8 @@ function panelViews({segments=[],texts=[],paint=[]}={},spec=[]){
   views.push({axes,numbered:numbered(bubbles[0].name),reversed,...(cut?{section:String(cut.str).replace(/\s+/g,"")}:{}),scaleMmPerPt:Math.round(scale*1000)/1000,
    ...(title?{title:String(title.str).replace(/\s+/g," ").trim()}:{}),...(wallRow?{row:wallRow}:{}),
    bbox:{x0:row.x0-260,x1:row.x1+260,y1:row.y},levels:[...new Set(levels.map(l=>l.mm))].sort((a,b)=>a-b),
-   ...(()=>{let openings=noteLevels(openingRects(panels,vert,horiz,scale,u,z,numbers,region,ticks),texts,segments);
+   ...(()=>{const top0=Math.min(...panels.map(p=>p.rect.top));
+    let openings=noteLevels(openingRects(panels,vert,horiz,scale,u,z,numbers,region,ticks),texts,segments,{scale,u,z,inView:q=>q.x>=row.x0-15&&q.x<=row.x1+15&&q.y>=top0-5&&q.y<=row.y+5});
     // (a layout's wall whose foot follows a slope — ГПЭС ряд Ж, +5,260 at the ends, +5,950 in the middle —: what lies under
     // its panels down to the lowest foot is the slope, not openings)
     if(spec.some(p=>p.layout)){const col=new Map();for(const p of panels){const k=Math.round(p.u0/100);col.set(k,Math.min(col.get(k)??Infinity,p.z0))}

@@ -10,7 +10,13 @@
 // Axis names: "12", "4а", "Б", "Л/1", "О3", "О6/2" (an extension of the building numbered after axis О).
 const AXIS_LABEL=/^(?:[А-ЯЁA-Z]{0,2}\d{1,3}[а-яa-z]?|[А-ЯЁA-Z]{1,2})(?:\/\d{1,2})?$/u;
 // "O4" typed with a Latin O and "04" typed with a zero are the same axis "О4".
+// (a Latin letter that looks Cyrillic in an axis name — «I», «I1» of the axes И, И1 of the existing building on АР ч.1 л.5
+// ИР-71535, «B», «K» exported from CAD —: the Cyrillic axis; «I» is И: there is no Latin axis on a Russian drawing)
+const AXIS_LOOK={A:"А",B:"В",C:"С",E:"Е",H:"Н",I:"И",K:"К",M:"М",P:"Р",T:"Т",X:"Х"};
+const {roofPlan}=require("./ai-roof-plan");
 const axisName=str=>String(str).trim().replace(/^[OО0](?=\d)/u,"О");
+// (only on a sheet whose axes are Cyrillic: a grid of Latin axes «A», «B», «C» stays Latin)
+const cyrAxis=s=>String(s).replace(/^[ABCEHIKMPTX]{1,2}(?=\d|\/|$)/u,m=>[...m].map(c=>AXIS_LOOK[c]).join(""));
 // Upper-case codes ("СВ3") and mixed-case ones ("Сгф3", "Фс1").
 const MARK_LABEL=/^([А-ЯЁA-Z]{1,3}|[А-ЯЁA-Z][а-яё]{1,2})(\d{1,4})(?:[-.]\d{1,3})?[а-я]?$/u;
 // Sheet references (М1.4) and section names are not shipping marks.
@@ -162,8 +168,9 @@ function axisFromBubble(b,segments){
 // (ГОСТ 21.101: no Ё, З, Й, О, Х, Ц, Ч, Щ, Ъ, Ы, Ь), a fraction just after its letter or number.
 const AXIS_SEQ="АБВГДЕЖИКЛМНПРСТУФШЭЮЯ";
 function axisRank(name){
- const n=/^(\D*?)(\d+)(?:\/(\d{1,2}))?$/u.exec(name);if(n)return{p:n[1],v:Number(n[2])+(n[3]?Number(n[3])/100:0)};
+ // (a letter's fraction «А/1» is the letter's, not a number with the prefix «А/»: Б between А/1 and В, АР ч.1 л.5 ИР-71535)
  const l=/^([А-ЯЁA-Z])(?:\/(\d{1,2}))?$/u.exec(name),k=l?AXIS_SEQ.indexOf(l[1]):-1;
+ const n=k<0&&/^(\D*?)(\d+)(?:\/(\d{1,2}))?$/u.exec(name);if(n)return{p:n[1],v:Number(n[2])+(n[3]?Number(n[3])/100:0)};
  return k>=0?{p:"#",v:k+(l[2]?Number(l[2])/100:0)}:null
 }
 
@@ -1093,7 +1100,11 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
   // Only a bubble with the tick of its axis at its edge (355-11: a stroke of 4 pt under «6»): a bubble with no stroke
   // of its own is of another view or stands off its place (a КМ set, sheet 44: «О2» 180 mm off, its line 38 pt away).
   const c=orient==="V"?b.x:b.y,along=orient==="V"?b.y:b.x;
-  if(!segments.some(s=>{const [p,q,u,v]=orient==="V"?[s.a.x,s.b.x,s.a.y,s.b.y]:[s.a.y,s.b.y,s.a.x,s.b.x];
+  // (or a bubble crowded against its neighbour of the row — Б 1000 mm from А/1 on АР ч.1 л.5 ИР-71535 at 1:200, the two rings
+  // pushed apart by 22 pt, no line or tick of Б drawn at all —: CAD leaves out the line of an axis too near another; its
+  // place is by the written sizes of its bays, below)
+  const crowded=row.some(r=>Math.hypot(r.o.x-b.x,r.o.y-b.y)<=b.r*2.2);
+  if(!crowded&&!segments.some(s=>{const [p,q,u,v]=orient==="V"?[s.a.x,s.b.x,s.a.y,s.b.y]:[s.a.y,s.b.y,s.a.x,s.b.x];
    const d=[Math.abs(u-along),Math.abs(v-along)];return Math.abs(p-q)<=0.3&&Math.abs(p-c)<=1.5&&Math.min(...d)>=b.r-1&&Math.min(...d)<=b.r+5&&Math.abs(u-v)>=1.5}))return;
   found[i]={name:b.name,orient,pos:orient==="V"?b.x:b.y,span:[Math.max(...spans.map(x=>x[0])),Math.min(...spans.map(x=>x[1]))],bubbles:[b],drawn:false}
  });
@@ -1123,6 +1134,19 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
   const vAxes=oneName(group.filter(a=>a.orient==="V")).sort((a,b)=>a.pos-b.pos);
   // Y in millimetres grows upwards, so the lowest line on the sheet is first.
   const hAxes=oneName(group.filter(a=>a.orient==="H")).sort((a,b)=>b.pos-a.pos);
+  // One grid names each direction one way: numbers, letters or numbers with a prefix («О1»…«О10»). Axes of another family
+  // across the same lines are of another grid — the existing building beside (АР ч.1 л.5 ИР-71535: «И», «И1» of the
+  // workshop ММА among «О1»…«О10»; they gave the first two bays 3725 and 24150 and moved О1 off zero). They are kept as
+  // the other grid of the sheet (otherAxes, below), not as bays of this one. An unknown name never splits.
+  if(bubbles.some(b=>/[А-ЯЁ]/u.test(b.name)))for(const a of [...vAxes,...hAxes]){const n=cyrAxis(a.name);if(n!==a.name){a.name=n}}
+  const apart=[];
+  for(const list of [vAxes,hAxes]){
+   const fam=a=>{const r=axisRank(a.name);if(!r)return null;return r.p==="#"||(r.p.length===1&&r.p!=="О"&&AXIS_SEQ.includes(r.p))?"letter":r.p===""?"num":"p"+r.p};
+   const c=new Map();for(const a of list){const f=fam(a);if(f)c.set(f,(c.get(f)||0)+1)}
+   const [top,n]=[...c].sort((p,q)=>q[1]-p[1])[0]||[];
+   if(!(n>=3))continue;
+   for(let i=list.length-1;i>=0;i--){const f=fam(list[i]);if(f&&f!==top&&c.get(f)*2<=n)apart.push(...list.splice(i,1))}
+  }
   for(const list of [vAxes,hAxes]){
    const names=list.map(a=>a.name);
    if(new Set(names).size!==names.length)warnings.push("Повторяющиеся названия осей: "+names.join(", "))
@@ -1231,7 +1255,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    if(Math.abs(s.a.y-s.b.y)<=0.3){const l=gridY.find(l=>Math.abs(l.pt-s.a.y)<0.8);if(l)axisSegs.add(i);if(l&&(l.name||gridY.some(n=>n.name&&Math.abs(n.pt-s.a.y)<0.8)))namedSegs.add(i)}
   });
   const snap=Math.max(6,250/scale);
-  const title=group.framed?String(group.framed.title.str).trim():titleFor(titles,bbox),titleKind=sheetKind(title);
+  let title=group.framed?String(group.framed.title.str).trim():titleFor(titles,bbox);const titleKind=sheetKind(title);
   // A ladder's own plan («Схема расположения элементов пожарной лестницы в осях И/6», a view by two axes).
   const ladderPlan=group.local&&/стремянк|(?:пожарн|внутренн|вертикальн|наружн)\S*\s+лестниц/iu.test(title||"");
   // A point not on a grid line is placed at the nearest dimensioned position.
@@ -1664,7 +1688,37 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
   // A structure found by its outline is placed by it: the mark read as a member line beside it is dropped.
   if(footprints.length){const drawn=new Set(footprints.map(f=>f.mark).filter(Boolean));for(let i=placements.length-1;i>=0;i--)if(drawn.has(placements[i].mark))placements.splice(i,1);
    placements.push(...footprintPlacements(footprints,page))}
-  schemes.push({title,bbox,scaleMmPerPt:Math.round(scale*1000)/1000,...(calibration?{calibration}:{}),
+  // The other grid of the sheet: axes in bubbles inside the plan that are not this grid's — another family split off above,
+  // a grid too small to be a plan, a bubble with no line of its own (the existing workshop ММА beside ИР-71535 on АР ч.1
+  // л.5: «А», «Е», «И», «И1», «К» along, «1», «2», «3» across — dropped before, one grid a sheet). Each at its place in
+  // this grid's millimetres, with the label of the existing building when the plan names one: the АР reader ties the
+  // neighbour's plan to ours by them (planAxes), the sheet check counts them as read.
+  const mine=new Set([...vAxes,...hAxes].flatMap(a=>[a.name,a.alias].filter(Boolean)));
+  const others=[];
+  const inPlan=p=>p.x>=bbox.x0-150&&p.x<=bbox.x1+150&&p.y>=bbox.y0-150&&p.y<=bbox.y1+150;
+  // (a bubble outside the plan's box in line with a bubble of the grid or of the other grid — «А» of ММА far left on the row of
+  // О1…О10, «1», «2», «3» at the rows К, Е, В — is the other grid's too)
+  const near1=[...vAxes,...hAxes].flatMap(a=>a.bubbles||[]).filter(Boolean);
+  const lined=b=>near1.some(o=>Math.abs(o.y-b.y)<=4||Math.abs(o.x-b.x)<=4);
+  for(const b of bubbles){
+   if(!inPlan(b)&&!lined(b))continue;
+   if((mine.has(b.name)||mine.has(cyrAxis(b.name)))&&[...vAxes,...hAxes].some(a=>(a.bubbles||[]).some(o=>Math.hypot(o.x-b.x,o.y-b.y)<2)))continue;
+   const ax=axes.find(a=>(a.bubbles||[]).some(o=>Math.hypot(o.x-b.x,o.y-b.y)<2));
+   let orient=ax?.orient;
+   if(!orient){const col=bubbles.filter(o=>o!==b&&Math.abs(o.x-b.x)<=2).length,row=bubbles.filter(o=>o!==b&&Math.abs(o.y-b.y)<=2).length;if(!col&&!row)continue;orient=row>=col?"V":"H"}
+   const pt=ax?ax.pos:orient==="V"?b.x:b.y;
+   if(others.some(o=>(o.name===b.name||o.name===cyrAxis(b.name))&&o.orient===orient&&Math.abs(o.pt-pt)<3))continue;
+   others.push({name:bubbles.some(o=>/[А-ЯЁ]/u.test(o.name))?cyrAxis(b.name):b.name,orient,pt,mm:orient==="V"?toX(pt):toY(pt),...(ax?{}:{bubble_only:true})});
+  }
+  const neighbour=texts.find(u=>/Существующ\S*\s+здани/iu.test(String(u.str||""))&&inPlan(u));
+  const otherAxes=others.length?{...(neighbour?{of:String(neighbour.str).trim()}:{}),axes:others.map(({pt,...o})=>o)}:null;
+  // A plan of an АР roof: its title «План кровли» over the grid (no «Схема …» title), and all of the plan besides the grid —
+  // tables, openings, slopes, elements by leaders, levels (src/ai-roof-plan.js).
+  const planTitle=/^Схема без названия/u.test(title||"")?texts.find(u=>/^План\s+кровли/iu.test(String(u.str||"").trim())&&u.x>=bbox.x0-40&&u.x<=bbox.x1&&u.y>=bbox.y0-120&&u.y<=bbox.y1):null;
+  if(planTitle)title=String(planTitle.str).trim();
+  let roof=null;
+  if(!group.local&&/^План\s+кровли/iu.test(title||"")){try{roof=roofPlan({texts,segments,bbox,toX,toY,target:t=>leaderTarget(t,segments,index,axisSegs,lines)})}catch(e){warnings.push("План кровли: "+e.message)}}
+  schemes.push({title,bbox,scaleMmPerPt:Math.round(scale*1000)/1000,...(calibration?{calibration}:{}),...(otherAxes?{otherAxes}:{}),...(roof?{roof}:{}),
    axesX:vAxes.map(a=>a.name),axesY:hAxes.map(a=>a.name),spansX:sx.spans,spansY:sy.spans,
    sizeX:xMm[xMm.length-1],sizeY:yMm[yMm.length-1],
    secondaryX:linesX.filter(l=>!l.name).map(l=>l.mm),secondaryY:linesY.filter(l=>!l.name).map(l=>l.mm),

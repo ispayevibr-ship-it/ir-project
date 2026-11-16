@@ -43,6 +43,11 @@ const levelMm=s=>{const v=Number(String(s).replace(/\s/gu,"").replace("−","-")
 function positions(s){
  const cum=a=>a.reduce((acc,v)=>{acc.push(acc[acc.length-1]+Number(v||0));return acc},[0]);
  const xs=new Set([...cum(s.spansX||[]),...(s.secondaryX||[])]),ys=new Set([...cum(s.spansY||[]),...(s.secondaryY||[])]);
+ // (the other grid of the sheet, the openings and the points of the elements of a roof plan: sizes from them — «5460»,
+ // «3350» of the openings 3, «3725» between И and И1 of ММА on АР ч.1 л.5 — are tied too)
+ for(const a of s.otherAxes?.axes||[])if(Number.isFinite(a.mm))(a.orient==="V"?xs:ys).add(a.mm);
+ for(const o of s.roof?.openings||[]){xs.add(o.x0_mm);xs.add(o.x1_mm);ys.add(o.y0_mm);ys.add(o.y1_mm)}
+ for(const o of s.roof?.items||[]){xs.add(o.x_mm);ys.add(o.y_mm)}
  for(const e of s.placements||[]){for(const v of [e.x_mm,e.x2_mm])if(Number.isFinite(v))xs.add(v);for(const v of [e.y_mm,e.y2_mm])if(Number.isFinite(v))ys.add(v);
   for(const v of [e.length_mm,e.diameter_mm,e.width_mm,e.dx_mm,e.dy_mm])if(Number.isFinite(v)&&v>0)xs.add(v),ys.add(v)}
  const diffs=set=>{const a=[...set].slice(0,600),out=new Set();for(let i=0;i<a.length;i++)for(let j=i+1;j<a.length;j++)out.add(Math.abs(a[i]-a[j]));return[...out]};
@@ -69,10 +74,21 @@ function auditSheet(geometry,page){
   ...(page?.sheet?.spec||[]).map(r=>r.mark)].filter(Boolean).map(keyOf));
  const usedMarks=new Set(schemes.flatMap(s=>(s.placements||[]).map(p=>keyOf(p.mark))));
  for(const k of ["trusses","baseDetails","columnDetails","sections"])for(const m of JSON.stringify(page?.[k]||[]).match(/"mark":"([^"]+)"/gu)||[])usedMarks.add(keyOf(m.slice(8,-1)));
- const bubblesNamed=new Set(schemes.flatMap(s=>[...(s.axesX||[]),...(s.axesY||[])]).map(keyOf));
- const levelsUsed=numbersIn([schemes.map(s=>[s.levelNotes,s.title,(s.placements||[]).map(p=>[p.z0_mm,p.z1_mm,p.z_mm])]),page?.sections,page?.sectionProfiles,
+ // (a bubble «01» read with a digit is the axis «О1» of the grid, «I» is «И»: АР ч.1 л.5 ИР-71535, ten axes of the grid
+ // counted as misses; the axes of the other grid of the sheet — the existing building beside — are read too)
+ const axisKey=m=>keyOf(m).replace(/^[0O](?=\d)/u,"О").replace(/^I(?=\d|\/|$)/u,"И");
+ const bubblesNamed=new Set(schemes.flatMap(s=>[...(s.axesX||[]),...(s.axesY||[]),...(s.otherAxes?.axes||[]).map(a=>a.name)]).map(axisKey));
+ const levelsUsed=numbersIn([schemes.map(s=>[s.levelNotes,s.title,(s.roof?.levels||[]).map(l=>l.z_mm),(s.placements||[]).map(p=>[p.z0_mm,p.z1_mm,p.z_mm])]),page?.sections,page?.sectionProfiles,
   (page?.sheet?.views||[]).map(v=>[v.z0_mm,v.z1_mm]),page?.trusses,page?.columnDetails,page?.baseDetails,page?.tank,page?.ar]);
  for(const s of schemes)for(const m of String(s.title||"").match(/[+\-−]?\d{1,3}[,.]\d{3}/gu)||[]){const v=levelMm(m);if(v!==null)levelsUsed.add(v)}
+ // The wall layouts of АР on the sheet: their positions along (axes, panels, openings) and up (levels, panels, openings),
+ // every distance between two of them; a text belongs to the view whose row line is the nearest under it.
+ const pairs=set=>{const a=[...set].filter(Number.isFinite).slice(0,500),out=[];for(let i=0;i<a.length;i++)for(let j=i+1;j<a.length;j++)out.push(Math.abs(a[i]-a[j]));return out};
+ const arViews=(page?.ar?.views||[]).filter(v=>v?.bbox&&Array.isArray(v.panels)).map(v=>{let U=null,Z=null;const tops=v.panels.map(p=>p.pt?.y).filter(Number.isFinite);
+  return{v,top:tops.length?Math.min(...tops):v.bbox.y1-400,
+   u:()=>U||(U=pairs(new Set([...(v.axes||[]).map(a=>a.mm),...v.panels.flatMap(p=>[p.u0,p.u1]),...(v.openings||[]).flatMap(o=>[o.u0,o.u1])]))),
+   z:()=>Z||(Z=pairs(new Set([...(v.levels||[]),...v.panels.flatMap(p=>[p.z0,p.z1]),...(v.openings||[]).flatMap(o=>[o.z0,o.z1])])))}});
+ const arViewAt=c=>arViews.filter(w=>c.x>=w.v.bbox.x0&&c.x<=w.v.bbox.x1&&c.y<=w.v.bbox.y1+40&&c.y>=w.top-250).sort((p,q)=>(p.v.bbox.y1-c.y)-(q.v.bbox.y1-c.y))[0];
  const pos=schemes.map(positions),dims=(()=>{try{return dimensionsOf(texts,segments)}catch{return[]}})(),dimOf=new Map(dims.map(d=>[d.text,d]));
  // Placements of each scheme by mark, to pair each label with the element it named.
  const pool=schemes.map(s=>{const m=new Map();for(const p of s.placements||[]){const k=keyOf(p.mark);if(!m.has(k))m.set(k,[]);m.get(k).push({p,taken:false})}return m});
@@ -89,7 +105,7 @@ function auditSheet(geometry,page){
  const pending=[];let arJson=null;const arText=()=>arJson||(arJson=JSON.stringify(page?.ar||{}));
  for(const t of texts){
   const str=String(t.str).trim(),c=textFrame(t).c,k=where(c);
-  if(bubbleTexts.has(t)){const used=bubblesNamed.has(keyOf(str));items.axes.push({text:str,used});if(!used&&k!==null)missed.push({kind:"axis",text:str,scheme:k,at:at(t),why:"ось в кружке не вошла в сетку схемы"});continue}
+  if(bubbleTexts.has(t)){const used=bubblesNamed.has(axisKey(str));items.axes.push({text:str,used});if(!used&&k!==null)missed.push({kind:"axis",text:str,scheme:k,at:at(t),why:"ось в кружке не вошла в сетку схемы"});continue}
   const node=NODE_REF.exec(str);
   if(node){let target=c;try{const tg=leaderTarget(t,segments,index,new Set(),lines());if(tg?.leader)target={x:tg.x,y:tg.y}}catch{}
    items.nodes.push({text:str,node:node[1],sheet:node[2].replace(/\s/gu,""),scheme:k,axes:axesAt(target),at:{x:Math.round(target.x*10)/10,y:Math.round(target.y*10)/10}});continue}
@@ -117,8 +133,15 @@ function auditSheet(geometry,page){
   if(DIM.test(str)){
    const v=Number(str.replace(/[^\d]/gu,"")),d=dimOf.get(t);
    if(!d||k===null||v<10){items.dims.push({text:str,used:null,scheme:k});continue}
-   const p=pos[k],tol=Math.max(10,v*0.004),used=hasValue(p.all,v,tol)||hasValue(d.flat?p.x:p.y,v,tol);
-   items.dims.push({text:str,mm:v,used,scheme:k});
+   const p=pos[k],tol=Math.max(10,v*0.004);let used=hasValue(p.all,v,tol)||hasValue(d.flat?p.x:p.y,v,tol);
+   // (a size over twice the whole plan — «171000», «239000» of the existing workshop on АР ч.1 л.5, written on a broken
+   // dimension line — is the overall size of what lies beyond the plan: read as such, nothing on the plan to tie it to)
+   const whole=Math.max(schemes[k].sizeX||0,schemes[k].sizeY||0),broken=!used&&whole>0&&v>whole*2&&(d.hi-d.lo)*(schemes[k].scaleMmPerPt||0)<v*.5;
+   if(broken)used=true;
+   // (a size on a wall layout of АР — the panels, openings and doors of the view along the wall (u) and up (z) —: tied by
+   // the view's own positions; АР ч.2 л.16 ИР-71535 «4660», «3580», «620» of the openings and panels of ряд Ж — 38 «unbound»)
+   if(!used){const w=arViewAt(c);if(w)used=hasValue(d.flat?w.u():w.z(),v,tol)}
+   items.dims.push({text:str,mm:v,used,scheme:k,...(broken?{broken:true}:{})});
    if(!used)missed.push({kind:"dim",text:str,scheme:k,at:at(t),why:"размер не привязан: нет такого расстояния между осями, линиями и элементами схемы"});continue
   }
   if(PROFILE.test(str)||STEEL.test(str)){items.profiles.push({text:str,scheme:k});continue}
