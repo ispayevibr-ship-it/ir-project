@@ -50,8 +50,12 @@ function positions(s){
  for(const o of s.roof?.items||[]){xs.add(o.x_mm);ys.add(o.y_mm)}
  // (a section's levels: the sizes of its chains up the height — АР ч.1 л.12 «Разрез 1-1» — are the distances between them)
  for(const l of s.levels||[])if(Number.isFinite(l.z_mm))ys.add(l.z_mm);
+ // (the bases of a plan of bases: their points and the edges of their plates drawn round the columns)
+ for(const b of s.bases||[]){for(const v of [b.x_mm,b.plate_mm?.x0_mm,b.plate_mm?.x1_mm])if(Number.isFinite(v))xs.add(v);for(const v of [b.y_mm,b.plate_mm?.y0_mm,b.plate_mm?.y1_mm])if(Number.isFinite(v))ys.add(v)}
  for(const e of s.placements||[]){for(const v of [e.x_mm,e.x2_mm])if(Number.isFinite(v))xs.add(v);for(const v of [e.y_mm,e.y2_mm])if(Number.isFinite(v))ys.add(v);
   for(const v of [e.length_mm,e.diameter_mm,e.width_mm,e.dx_mm,e.dy_mm])if(Number.isFinite(v)&&v>0)xs.add(v),ys.add(v)}
+ // (an elevation — a wall unfolded along its axis —: along the wall the elements' places y_mm, up — their heights z_mm)
+ if(s.kind==="elevation"){for(const e of s.placements||[]){for(const v of [e.y_mm,e.y2_mm])if(Number.isFinite(v))xs.add(v);for(const v of [e.z0_mm,e.z1_mm,e.z_mm])if(Number.isFinite(v))ys.add(v)}}
  const diffs=set=>{const a=[...set].slice(0,600),out=new Set();for(let i=0;i<a.length;i++)for(let j=i+1;j<a.length;j++)out.add(Math.abs(a[i]-a[j]));return[...out]};
  return{x:diffs(xs),y:diffs(ys),all:[...(s.spansX||[]),...(s.spansY||[]),s.sizeX,s.sizeY].filter(Number.isFinite)}
 }
@@ -151,6 +155,7 @@ function auditSheet(geometry,page){
   return (lineOf.get(t)||0)>=2};
  // (a cell of a ruled table — a number, a letter, a code with the lines of its cell round it and the row line going on over
  //  other cells: the tables of loads, steel, bolts, masses of КМ, given to Claude by rows)
+ let cellTexts=null,titleS=null;const sheetTitle=()=>titleS??(titleS=String(page?.sheet?.stamp?.name||"")+" "+schemes.map(s=>s.title||"").join(" "));
  let hz=null,vt=null;const tableCell=c=>{if(!hz){hz=segments.filter(q=>Math.abs(q.a.y-q.b.y)<.3&&Math.abs(q.a.x-q.b.x)>4);vt=segments.filter(q=>Math.abs(q.a.x-q.b.x)<.3&&Math.abs(q.a.y-q.b.y)>4)}
   const over=hz.filter(q=>Math.min(q.a.x,q.b.x)<=c.x&&Math.max(q.a.x,q.b.x)>=c.x&&q.a.y<c.y&&c.y-q.a.y<=40).sort((p,q)=>q.a.y-p.a.y)[0],under=hz.filter(q=>Math.min(q.a.x,q.b.x)<=c.x&&Math.max(q.a.x,q.b.x)>=c.x&&q.a.y>c.y&&q.a.y-c.y<=40).sort((p,q)=>p.a.y-q.a.y)[0];
   if(!over||!under)return false;const y0=over.a.y,y1=under.a.y;
@@ -190,6 +195,9 @@ function auditSheet(geometry,page){
   // (a bare number with three decimals that is a number of a table the АР reader took — the mass of one «0,134» kg of the
   //  anchor поз. 44, АР ч.2 л.18 —, not a level)
   if(lv&&str===lv[1]&&page?.ar&&arNums().has(Math.round(Number(str.replace(",","."))*100))&&/,\d{3}$/u.test(str)){const x=Number(str.replace(",","."));if((page.ar.trims||[]).some(q=>q.mass_kg===x)){items.notes.push({text:str,ar:true});continue}}
+  // (a level in a sentence of the notes outside the schemes — «относительную отметку 0,000», «+18,980 м , по оси Е»,
+  //  «до отм . -0,200.» — the note's, read in its line)
+  if(lv&&k===null&&(/[А-ЯЁа-яё]{4,}/u.test(str.replace(/отм/giu,""))||proseLine(t))){items.notes.push({text:str,level:true});continue}
   if(lv&&str.length<=40&&(/отм|верх|низ|^[+\-−±]/iu.test(str)||str===lv[1])){
    // (or written on a node or a section of the sheet and taken into its details — ИР-71535 АР ч.2 л.14–л.18, the levels of
    //  nodes 1, 2, 5: the node's own, nothing in a scheme to tie them to)
@@ -236,6 +244,9 @@ function auditSheet(geometry,page){
     const la=along(d.lo),lb=along(d.hi);if(run>0&&Math.max(la,lb)>=run*.5&&Math.min(la,lb)>=3)used=true}
    // (a size on a view of a gate niche — its plan, its sections — read with the niche: АР ч.2 л.8 ИР-71535 «740», «640»…)
    if(!used&&inNiche(t,"dims_mm",v))used=true;
+   // (a size of a node or a section drawn inside the scheme's frame — the sections 1-1…7-7 of the girts at the edge of the
+   //  elevations of КМ1 л.30 —, taken into that view with its plates and bolts by src/ai-sheet-details.js)
+   if(!used&&inView(t,"dims",str))used=true;
    // (a size on a floor plan of АР — the walls, partitions, pits of the plan not elements of a scheme —: tied when it measures
    //  its value at the plan's scale between its ticks, its own pair or two ticks along its line — «250» of the gap at the wall
    //  under a line run up to the number, АР ч.2 л.19 ИР-71535)
@@ -303,6 +314,18 @@ function auditSheet(geometry,page){
    items.dims.push({text:str,mm:n*step,used,scheme:k,chain:true});if(used===false)missed.push({kind:"dim",text:str,scheme:k,at:at(t),why:"цепочка размеров не привязана к панелям и проёмам вида"});continue}
   // (the name of an axis of an АР view written without its circle found — «2В» of the existing workshop on the facade 3-1, л.5)
   if(page?.ar&&/^[А-ЯЁA-Z\d\/]{1,4}$/u.test(str)&&arText().includes('{"name":"'+str+'"')){items.axes.push({text:str,used:true});continue}
+  // (a letter or a position on a leader «а», «б», «в», «р1» that is a row of a table of the sheet — the parts of the column
+  //  К1 in «Марка элемента», КМ1 л.26 —: the part of that row)
+  if(/^[а-яё]{1,2}\s?\d{0,2}$/u.test(str)&&!tableCell(c)){if(!cellTexts){cellTexts=new Set();for(const o of texts){const q=String(o.str).trim();if(/^[а-яё]{1,2}\s?\d{0,2}$/u.test(q)&&tableCell(textFrame(o).c))cellTexts.add(q.replace(/\s/gu,""))}}
+   if(cellTexts.has(str.replace(/\s/gu,""))){items.notes.push({text:str,part:true});continue}}
+  // (the forces of a geometric scheme of a truss or a brace «+27,90», «-0,40», «0,00» written on its members)
+  if(/^[+\-−]?\d{1,3}[,.]\d{1,2}$/u.test(str)&&k!==null&&/Геометрическ/iu.test(schemes[k]?.title||"")){items.notes.push({text:str,force:true});continue}
+  if(/^[+\-−]?\d{1,3}[,.]\d{2}$/u.test(str)&&/Геометрическ/iu.test(sheetTitle())){items.notes.push({text:str,force:true});continue}
+  // (the names of standards split off «РК», «СП», «EN»; the axes of a note «О 4/», «О 8/ Б -Л», «08-010/ Б -Ж»)
+  if(/^(?:РК|СП|СН|EN|ЕН|ГОСТ|СТ|ТУ|ISO|СНиП)$/u.test(str)||/^[ОO0]?\s?\d{1,3}(?:\s?-\s?[ОO0]?\s?\d{1,3})?\s?\/(?:\s?[А-ЯЁ]\d?(?:\s?[-,]\s?[А-ЯЁ]\d?)*)?\s?\.?$/u.test(str)){items.notes.push({text:str,note:true});continue}
+  // (pieces of a chain «3 х» «50=150», a lone «х»; a text of a symbol font — the welds of КМ3 л.47 — in control codes)
+  if(/^(?:\d{1,2}\s?)?[хx×]$/u.test(str)||/^\d{1,3}\s?[хx×]$/u.test(str)||/^(\d{2,4})=(\d{3,5})$/u.test(str)&&Number(str.split("=")[1])%Number(str.split("=")[0])===0){items.notes.push({text:str,chain:true});continue}
+  if(/[\u0000-\u001f\u01c4-\u01cc\u023c]/u.test(str)){items.notes.push({text:str,symbol:true});continue}
   if(proseLine(t)){items.notes.push({text:str,prose:true});continue}
   if(tableCell(c)){items.notes.push({text:str,cell:true});continue}
   items.unknown.push({text:str,scheme:k,at:at(t)})
@@ -313,6 +336,8 @@ function auditSheet(geometry,page){
  for(const x of pending){
   // (or a mark on a node or a section of the sheet, taken into that view with its plates, bolts, sizes — the members that
   //  meet in the node, src/ai-sheet-details.js: КМ2 л.12 «Б2, К3, Рс-1, П1» of the section 3-3)
+  // (the column under the end of a truss on its geometric scheme «К2», «К4», «Фп1» — the support named, КМ1 л.14)
+  if(x.k===null&&/Геометрическ/iu.test(sheetTitle())&&/^(?:К|Фп|Ст|Кф)\d/u.test(x.mk)){items.marks.push({text:x.str,used:true,scheme:null,support:true});continue}
   if(x.k===null){const used=sheetMarks.has(x.mk)||usedMarks.has(x.mk)||inView(x.t,"marks",x.str)||inView(x.t,"marks",x.mk);items.marks.push({text:x.str,used,scheme:null});
    if(!used)missed.push({kind:"mark",text:x.mk,scheme:null,at:at(x.t),axes:"",why:"марка на виде или разрезе вне схем — элемент с листа не взят"});continue}
   const list=pool[x.k].get(x.mk)||[];

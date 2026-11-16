@@ -1400,7 +1400,18 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
     const fx=lx?lx.mm:freeX(target.x).mm,fy=ly?ly.mm:freeY(target.y).mm;
     const named=(lines2,v)=>lines2.filter(l=>l.name).sort((a,b)=>Math.abs(a.pt-v)-Math.abs(b.pt-v))[0];
     const ax=named(linesX,target.x),ay=named(linesY,target.y);if(!ax||!ay)continue;
-    bases.push({mark,x_mm:fx,y_mm:fy,axis_x:ax.name,axis_y:ay.name,dx_mm:fx-ax.mm,dy_mm:fy-ay.mm,page,
+    // (the plate of the base as drawn round its column on the plan — the outermost closed rectangle round the point, up to
+    //  2 m: КМ1 л.4 ИР-71535, «540» from the axis to the edge of the plate 1080 of Бк1, «335» of Бк3 — its sizes tie there)
+    const plate=(()=>{const cx=lx?lx.pt:target.x,cy=ly?ly.pt:target.y,R=2000/Math.max(1,scale),hz=[],vt=[];
+     for(const q of segments){const dx=Math.abs(q.a.x-q.b.x),dy=Math.abs(q.a.y-q.b.y);
+      if(dy<.3&&dx>2&&Math.abs(q.a.y-cy)<=R&&Math.min(q.a.x,q.b.x)<=cx&&Math.max(q.a.x,q.b.x)>=cx)hz.push({y:q.a.y,x0:Math.min(q.a.x,q.b.x),x1:Math.max(q.a.x,q.b.x)});
+      else if(dx<.3&&dy>2&&Math.abs(q.a.x-cx)<=R)vt.push({x:q.a.x,y0:Math.min(q.a.y,q.b.y),y1:Math.max(q.a.y,q.b.y)})}
+     let best=null;for(const t of hz.filter(h=>h.y<cy))for(const u of hz.filter(h=>h.y>cy)){if(Math.abs(t.x0-u.x0)>1||Math.abs(t.x1-u.x1)>1||t.x1-t.x0>2*R||u.y-t.y>2*R)continue;
+      const side=x=>vt.some(v=>Math.abs(v.x-x)<=1&&v.y0<=t.y+1&&v.y1>=u.y-1);if(!side(t.x0)||!side(t.x1))continue;
+      const area=(t.x1-t.x0)*(u.y-t.y);if(!best||area>best.area)best={area,x0:Math.min(t.x0,u.x0),x1:Math.max(t.x1,u.x1),y0:t.y,y1:u.y}}
+     if(!best||best.x1-best.x0<3||best.y1-best.y0<3)return null;
+     return{x0_mm:toX(best.x0),x1_mm:toX(best.x1),y0_mm:toY(best.y1),y1_mm:toY(best.y0)}})();
+    bases.push({mark,x_mm:fx,y_mm:fy,axis_x:ax.name,axis_y:ay.name,dx_mm:fx-ax.mm,dy_mm:fy-ay.mm,page,...(plate?{plate_mm:plate}:{}),
      sheet_point_pt:{x:Math.round(target.x*10)/10,y:Math.round(target.y*10)/10}});
     continue
    }
