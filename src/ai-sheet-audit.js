@@ -120,6 +120,9 @@ function auditSheet(geometry,page){
   if(ALONG.test(str)){items.along.push({text:str,scheme:k});continue}
   const lv=LEVEL.exec(str);
   // (a level inside a sentence of the notes — «За условную отметку 0,000 принят…» — is the note's, read in the whole text)
+  // (a level that sends to another sheet — «на отм. +16,100, см. лист КМ 3-17» — is a reference: what stands there is
+  // placed by that sheet; АР ч.1 л.13 ИР-71535, the crane platform of КМ3 л.17 on the section 2-2)
+  if(lv&&/см\s*\.?\s*л(?:ист)?\.?\s*(?:КМД?|АР|КЖ|ТХ|ОВ|ВК|ЭМ)/iu.test(str)){items.notes.push({text:str,scheme:k,ref:true});continue}
   if(lv&&str.length<=40&&(/отм|верх|низ|^[+\-−±]/iu.test(str)||str===lv[1])){
    const v=levelMm(lv[1]),used=v!==null&&hasValue([...levelsUsed],v,1);
    items.levels.push({text:str,mm:v,used,scheme:k});
@@ -147,6 +150,8 @@ function auditSheet(geometry,page){
    // (a size on a wall layout of АР — the panels, openings and doors of the view along the wall (u) and up (z) —: tied by
    // the view's own positions; АР ч.2 л.16 ИР-71535 «4660», «3580», «620» of the openings and panels of ряд Ж — 38 «unbound»)
    if(!used){const w=arViewAt(c);if(w)used=hasValue(d.flat?w.u():w.z(),v,tol)}
+   // (a size kept by the section with its place — measured at the section's scale, src/ai-section-extract.js)
+   if(!used&&schemes[k].kind==="section")used=(schemes[k].dims||[]).some(x=>Math.abs(x.mm-v)<=tol)
    // (a short offset of an edge from an axis — one end of the size on an axis line run across the plan, the other on a line
    // drawn by it: АР ч.1 л.5 ИР-71535 «370» of the roof edge at each axis О2…О8 and «400» at the axis К of ММА — the edge is
    // drawn, not an element of the scheme; tied as its offset from that axis)

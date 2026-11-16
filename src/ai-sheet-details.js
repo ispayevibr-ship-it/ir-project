@@ -16,7 +16,7 @@
    - title: the large lettering of a title sheet;
    - counts: how many labels of the sheet went where (none left out). */
 
-const LEVEL=/^[+\-−±]?\d{1,2}[,.]\d{3}$/u;
+const LEVEL=/^[~≈]?[+\-−±]?\d{1,2}[,.]\d{3}$/u;
 const DIM=/^[~≈]?\d{2,6}(?:[,.]\d)?\*?$/u;
 const MARK=/^[А-ЯЁA-Z][А-ЯЁа-яёA-Za-z]{0,4}[-\s]?\d{1,3}(?:[.\-]\d{1,2})?[а-яa-z]?$/u;
 const AXIS=/^(?:[А-ЯЁ]\d?|\d{1,2}[а-я]?|0\d{1,2}(?:\/\d)?)$/u;
@@ -155,15 +155,61 @@ function viewsOf(items,segments,W=0,H=0){
   if(/^\d{1,3}[а-я]?$/u.test(t.str))return"Узел "+t.str;
   if(/^(?:\d{1,2}[а-я]?\s*-\s*\d{1,2}[а-я]?|[А-ЯЁ]\s*-\s*[А-ЯЁ])$/u.test(t.str))return"Разрез "+t.str.replace(/\s+/gu,"");
   return null};
- const titles=items.filter(t=>{const n=named(t);if(n)t.title=n;return Boolean(n)});
+ // (a «Поз. 58», «Узел 7» of the ordinary label height on a sheet whose views are titled larger — a leader's label in a
+ // view, not a view: ИР-71535 АР ч.1 л.13 — «Поз. 56…61» in node 41, «Узел 7 см. лист АР-25» in section 2-2)
+ const tMax=Math.max(0,...items.filter(t=>TITLE.test(t.str)&&!stamp(t)).map(t=>t.h)),leader=t=>TITLE.test(t.str)&&t.h<=med*1.1&&t.h<tMax*.75;
+ const titles=items.filter(t=>{if(stamp(t)||leader(t))return false;const n=named(t);if(n)t.title=n;return Boolean(n)});
  if(!titles.length)return[];
+ // (tables: a grid of four and more lines ending at one right edge one under another up to 60 pt apart (a header of two lines — 42 pt), crossed by lines across (not the frame of the sheet) —
+ // their cells and the title just over them are the table's, not of the view beside it: the spec of поз. 58–61 by node 41)
+ const tables=[];{const hz=new Map();
+  for(const sg of segments||[]){const dx=Math.abs(sg.a.x-sg.b.x),dy=Math.abs(sg.a.y-sg.b.y);if(dy>.5||dx<120||W&&dx>W*.45)continue;const x0=Math.min(sg.a.x,sg.b.x),x1=Math.max(sg.a.x,sg.b.x),k=Math.round(x1/3);if(!hz.has(k))hz.set(k,[]);hz.get(k).push({x0,x1,y:sg.a.y})}
+  for(const ls of hz.values()){if(ls.length<4)continue;ls.sort((a,b)=>a.y-b.y);let run=[ls[0]];
+   const close=()=>{if(run.length>=4){const x0=Math.min(...run.map(l=>l.x0)),x1=Math.max(...run.map(l=>l.x1)),y0=run[0].y,y1=run[run.length-1].y;
+     const across=(segments||[]).filter(sg=>Math.abs(sg.a.x-sg.b.x)<.5&&sg.a.x>x0+2&&sg.a.x<x1-2&&Math.min(sg.a.y,sg.b.y)<y0+(y1-y0)*.5&&Math.max(sg.a.y,sg.b.y)>y0+(y1-y0)*.5).length;
+     if(across>=2)tables.push({x0,x1,y0,y1})}};
+   for(const l of ls.slice(1)){const last=run[run.length-1];if(l.y-last.y<.5)continue;if(l.y-last.y<=60)run.push(l);else{close();run=[l]}}close()}}
+ const inTable=c=>tables.some(b=>c.x>=b.x0-2&&c.x<=b.x1+2&&c.y>=b.y0-2&&c.y<=b.y1+2),tableTitle=t=>tables.some(b=>t.c.x>b.x0&&t.c.x<b.x1&&t.c.y<b.y0&&t.c.y>b.y0-t.h*4);
  const sizeOf=t=>t.h;
- const views=titles.map(t=>({title:t.title,at:{x:Math.round(t.c.x),y:Math.round(t.c.y)},t,b:{x0:t.c.x,y0:t.c.y-t.h,x1:t.c.x,y1:t.c.y},plates:new Set(),profiles:new Set(),steel:new Set(),refs:new Set(),bolts:new Set(),welds:new Set(),positions:new Set(),marks:new Set(),levels:new Set(),dims:new Set(),text:[]}));
- const owner=c=>{let best=null,score=Infinity;
-  for(const v of views){const t=v.t,dy=c.y-t.c.y;if(dy<-sizeOf(t)*1.5)continue;const dx=Math.abs(c.x-t.c.x),s=Math.max(0,dy)+dx*.7+(dy<0?-dy*3:0);if(s<score&&s<900){score=s;best=v}}
+ const views=titles.map(t=>({title:t.title,at:{x:Math.round(t.c.x),y:Math.round(t.c.y)},t,b:{x0:t.c.x,y0:t.c.y-t.h,x1:t.c.x,y1:t.c.y},plates:new Set(),profiles:new Set(),steel:new Set(),refs:new Set(),bolts:new Set(),welds:new Set(),positions:new Set(),marks:new Set(),levels:new Set(),dims:new Set(),nodes:new Set(),text:[]}));
+ // (the picture of each view: the lines joined end to end into drawings; a view's drawing — the largest one starting just
+ // under or beside its title; a label inside one view's drawing (and its leaders, 40 pt round) is that view's — the axes
+ // «Л», «М» of section 2-2 are not of node 41 though nearer its circle, ИР-71535 АР ч.1 л.13)
+ const frames=new Map();{
+  const segs=(segments||[]).filter(sg=>{const L=Math.hypot(sg.a.x-sg.b.x,sg.a.y-sg.b.y);return L>.3&&(!W||L<W*.45)});
+  const par=segs.map((_,i)=>i),find=i=>{while(par[i]!==i)i=par[i]=par[par[i]];return i},grid=new Map(),K=p=>Math.round(p.x/2)+","+Math.round(p.y/2);
+  segs.forEach((sg,i)=>{for(const p of [sg.a,sg.b]){const gx=Math.round(p.x/2),gy=Math.round(p.y/2);for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){const k=(gx+dx)+","+(gy+dy),o=grid.get(k);if(o!==undefined)par[find(i)]=find(o)}grid.set(K(p),i)}});
+  const comp=new Map();segs.forEach((sg,i)=>{const r=find(i);let b=comp.get(r);if(!b)comp.set(r,b={x0:Infinity,y0:Infinity,x1:-Infinity,y1:-Infinity,n:0});b.n++;
+   for(const p of [sg.a,sg.b]){b.x0=Math.min(b.x0,p.x);b.y0=Math.min(b.y0,p.y);b.x1=Math.max(b.x1,p.x);b.y1=Math.max(b.y1,p.y)}});
+  const big=[...comp.values()].filter(b=>b.n>=20&&(!W||!H||(b.x1-b.x0)*(b.y1-b.y0)<W*H*.5)),area=b=>(b.x1-b.x0)*(b.y1-b.y0);
+  for(const v of views){const t=v.t,h=t.h;if(/^Поз/iu.test(v.title))continue;
+   // (under the title up to 6 heights, or round a circle of a node up to 3; a sketch «Поз. N» — by its label, as before)
+   const seed=big.filter(b=>b.x0<t.c.x+h*12&&b.x1>t.c.x-h*12&&b.y0<t.c.y+h*6&&b.y1>t.c.y-h*.5&&b.y0>t.c.y-h*3).sort((p,q)=>area(q)-area(p))[0];
+   if(seed)frames.set(v,{...seed})}
+  // (a drawing in pieces — the railing over node 41 not joined to the node: pieces touching the frame, 6 pt round,
+  // out of it by 120 pt at most, join it; the stamp and the sketch of поз. 61 beside it — not)
+  const seeds=new Set([...frames.values()]),all=[...comp.values()].filter(b=>b.n>=3&&(!W||!H||(b.x1-b.x0)*(b.y1-b.y0)<W*H*.5));
+  for(const f of frames.values())for(let pass=0;pass<3;pass++){let grew=false;
+   for(const b of all){if(b.x0>=f.x0&&b.x1<=f.x1&&b.y0>=f.y0&&b.y1<=f.y1)continue;if(b.x0>f.x1+6||b.x1<f.x0-6||b.y0>f.y1+6||b.y1<f.y0-6)continue;
+    const out=Math.max(0,f.x0-b.x0)+Math.max(0,b.x1-f.x1)+Math.max(0,f.y0-b.y0)+Math.max(0,b.y1-f.y1);
+    if(out>120||area(b)>area(f)*2||[...seeds].some(o=>o!==f&&b.x0<o.x1&&b.x1>o.x0&&b.y0<o.y1&&b.y1>o.y0))continue;
+    f.x0=Math.min(f.x0,b.x0);f.y0=Math.min(f.y0,b.y0);f.x1=Math.max(f.x1,b.x1);f.y1=Math.max(f.y1,b.y1);grew=true}
+   if(!grew)break}}
+ const inF=(b,c,pad)=>c.x>=b.x0-pad&&c.x<=b.x1+pad&&c.y>=b.y0-pad&&c.y<=b.y1+pad;
+ const owner=c=>{
+  const inside=views.filter(v=>frames.has(v)&&inF(frames.get(v),c,8)).sort((p,q)=>{const a=frames.get(p),b=frames.get(q);return(a.x1-a.x0)*(a.y1-a.y0)-(b.x1-b.x0)*(b.y1-b.y0)});
+  if(inside.length)return inside[0];
+  let best=null,score=Infinity;
+  for(const v of views){const t=v.t,dy=c.y-t.c.y;if(dy<-sizeOf(t)*1.5)continue;
+   // (a view with a drawing: its labels within 250 pt of it, over its title only in it — the axis «Е» of section 2-2
+   // over the circle of node 41)
+   const f=frames.get(v);if(f&&(!inF(f,c,250)||dy<0&&!inF(f,c,45)))continue;
+   const dx=Math.abs(c.x-t.c.x),s=Math.max(0,dy)+dx*.7+(dy<0?-dy*3:0);if(s<score&&s<900){score=s;best=v}}
   return best};
  for(const t of items){
-  if(titles.includes(t)||stamp(t))continue;const v=owner(t.c);if(!v)continue;const s=t.str;
+  if(titles.includes(t)||stamp(t)||inTable(t.c)||tableTitle(t))continue;const v=owner(t.c);if(!v)continue;const s=t.str;
+  if(leader(t)){const m=/^Узел\s*(\d{1,3}[а-я]?)/iu.exec(s);if(m)v.nodes.add(m[1]);else{const p=POS.exec(s);if(p)v.positions.add(p[1]||p[2])}
+   v.b.x0=Math.min(v.b.x0,t.c.x);v.b.x1=Math.max(v.b.x1,t.c.x);v.b.y0=Math.min(v.b.y0,t.c.y);v.b.y1=Math.max(v.b.y1,t.c.y);continue}
   // (the frame of the view by its labels — the piece of the sheet a picture of the node is cut from, 1.12.140)
   v.b.x0=Math.min(v.b.x0,t.c.x);v.b.x1=Math.max(v.b.x1,t.c.x);v.b.y0=Math.min(v.b.y0,t.c.y);v.b.y1=Math.max(v.b.y1,t.c.y);
   if(/^(?:С|C)\s?\d{3}(?:-\d)?$/u.test(s)){v.steel.add(s.replace(/\s/gu,"").replace(/^C/u,"С"));continue}
@@ -171,14 +217,16 @@ function viewsOf(items,segments,W=0,H=0){
   if(PLATE.test(s))v.plates.add(s);
   const pr=PROFILE.exec(" "+s);if(pr)v.profiles.add(pr[1].trim());
   const b=BOLT.exec(s);if(b&&!/кл\.?\s*$/iu.test(s))v.bolts.add(s.length<=40?s:b[1].replace(/\s/gu,""));
-  if(WELD.test(s))v.welds.add(s.slice(0,40));
+  // (a «по контуру» under «Клей герметик» — the glue's line, not a weld: АР ч.1 л.13 node 41)
+  const glued=/^по\s+контуру/iu.test(s)&&items.some(o=>o!==t&&/клей|герметик|мастик|уплотнит|лент/iu.test(o.str)&&Math.abs(o.c.x-t.c.x)<80&&t.c.y-o.c.y>0&&t.c.y-o.c.y<t.h*2);
+  if(WELD.test(s)&&!glued)v.welds.add(s.slice(0,40));
   if(LEVEL.test(s))v.levels.add(s);else if(DIM.test(s))v.dims.add(s);
   else if(/поз/iu.test(s)){const m=POS.exec(s);if(m)v.positions.add(m[1]||m[2])}
   else if(MARK.test(s)&&!PLATE.test(s)&&!pr&&!b)v.marks.add(s);
-  else if(!PLATE.test(s)&&!pr&&!b&&!WELD.test(s)&&v.text.length<60&&wordy(s))v.text.push(s.slice(0,160))
+  else if(!PLATE.test(s)&&!pr&&!b&&(!WELD.test(s)||glued)&&v.text.length<60&&wordy(s))v.text.push(s.slice(0,160))
  }
  return views.map(v=>{const o={title:v.title,at:v.at,box:{x0:Math.round(v.b.x0),y0:Math.round(v.b.y0),x1:Math.round(v.b.x1),y1:Math.round(v.b.y1)}};
-  for(const k of ["plates","profiles","steel","bolts","welds","positions","marks","levels","dims","refs"])if(v[k].size)o[k]=[...v[k]].slice(0,80);
+  for(const k of ["plates","profiles","steel","bolts","welds","positions","marks","levels","dims","refs","nodes"])if(v[k].size)o[k]=[...v[k]].slice(0,80);
   if(v.text.length)o.text=v.text;return o})
 }
 
@@ -188,8 +236,24 @@ function trimsOf(items,segments){
  if(!items.some(t=>/фасонн\S*\s+элемент|нащельник|Схемы\s+фасонных/iu.test(t.str)))return[];
  const labels=items.filter(t=>/^Поз\s*\.?\s*\d{1,3}\s*$/iu.test(t.str));if(!labels.length)return[];
  const big=Math.max(...labels.map(l=>l.h)),sketch=labels.filter(l=>l.h>=big*.9);
- const ownerOf=c=>{let best=null,score=Infinity;for(const l of sketch){const dy=c.y-l.c.y;if(dy<-l.h*.5)continue;const s=dy+Math.abs(c.x-l.c.x)*.8;if(s<score&&s<l.h*18){score=s;best=l}}return best};
- const thick=(segments||[]).filter(s=>Number(s.w)>=1);
+ const near=c=>{let best=null,score=Infinity;for(const l of sketch){const dy=c.y-l.c.y;if(dy<-l.h*.5)continue;const s=dy+Math.abs(c.x-l.c.x)*.8;if(s<score&&s<l.h*18){score=s;best=l}}return best};
+ const thick=(segments||[]).filter(s=>Number(s.w)>=1&&Math.hypot(s.a.x-s.b.x,s.a.y-s.b.y)<600);
+ // (the span of each sketch: the thick lines under its row of labels (not the frame of the sheet, 600 pt and longer), in runs along the sheet parted by 25 pt and more —
+ // a label belongs to the sketch whose run it stands over; a wide sketch's dimensions far from its label are its own:
+ // ИР-71535 АР ч.1 л.13 поз. 61 — 1000 mm of sheet, its 50, 50, 20 at the left end nearer the label of поз. 60)
+ const spans=new Map();
+ for(const l of sketch){const row=sketch.filter(o=>Math.abs(o.c.y-l.c.y)<l.h*2),below=sketch.filter(o=>o.c.y>l.c.y+l.h*2).map(o=>o.c.y),y1=below.length?Math.min(...below)-l.h:l.c.y+l.h*14;
+  const xs=thick.filter(s=>{const my=(s.a.y+s.b.y)/2;return my>l.c.y&&my<y1}).map(s=>[Math.min(s.a.x,s.b.x),Math.max(s.a.x,s.b.x)]).sort((a,b)=>a[0]-b[0]);
+  const runs=[];for(const [a,b] of xs){const r=runs[runs.length-1];if(r&&a<=r[1]+25)r[1]=Math.max(r[1],b);else runs.push([a,b])}
+  // (the run under the label, or the nearest; a run under another label of the row is that one's)
+  // (a run under no label — beside the label's run up to 60 pt; the stamp further on is not a sketch)
+  const under=r=>row.filter(o=>o.c.x>=r[0]-10&&o.c.x<=r[1]+10);
+  let mine=runs.filter(r=>under(r).includes(l));
+  if(!mine.length){const free=runs.filter(r=>!under(r).length).sort((p,q)=>Math.abs((p[0]+p[1])/2-l.c.x)-Math.abs((q[0]+q[1])/2-l.c.x));if(free.length&&row.every(o=>Math.abs(o.c.x-(free[0][0]+free[0][1])/2)>=Math.abs(l.c.x-(free[0][0]+free[0][1])/2)))mine=[free[0]]}
+  for(let grew=true;grew&&mine.length;){grew=false;const a=Math.min(...mine.map(r=>r[0])),b=Math.max(...mine.map(r=>r[1]));
+   for(const r of runs)if(!mine.includes(r)&&!under(r).length&&(r[0]-b<60&&r[0]>b||a-r[1]<60&&r[1]<a)){mine.push(r);grew=true}}
+  if(mine.length)spans.set(l,{x0:Math.min(...mine.map(r=>r[0])),x1:Math.max(...mine.map(r=>r[1])),y0:l.c.y-l.h,y1})}
+ const ownerOf=c=>{for(const [l,b] of spans)if(c.x>=b.x0-45&&c.x<=b.x1+45&&c.y>=b.y0&&c.y<=b.y1)return l;return near(c)};
  return sketch.map(l=>{
   const pos=Number(/(\d{1,3})/u.exec(l.str)[1]);
   const dims=items.filter(t=>DIM.test(t.str)&&ownerOf(t.c)===l).map(t=>({v:Number(t.str.replace(/[~≈*]/gu,"").replace(",",".")),c:t.c}));
@@ -251,7 +315,19 @@ function trimsOf(items,segments){
   if(best.hits<Math.min(2,legsPt.length))k=null;
   if(best.pair)k=1;
   // (each leg that agrees takes that dimension)
-  const legsMm=best.pair?best.pair:k?legsPt.map(x=>{const v=x*k,d=dims.find(e=>Math.abs(v-e.v)<=e.v*.08);return d?d.v:Math.round(v)}):null;
+  let legsMm=best.pair?best.pair:null;
+  if(!legsMm&&k){
+   const used=new Set(),hit=legsPt.map(()=>-1);
+   const md=i=>({x:(pts[i].x+pts[i+1].x)/2,y:(pts[i].y+pts[i+1].y)/2});
+   // (each dimension to the leg nearest its label: a leg it agrees with (±8 %) by the distance, one drawn out of scale
+   // (its half to one and a half) by twice the distance — ИР-71535 АР ч.1 л.13 поз. 61: the «15» of the hem beside it,
+   // drawn as 12, not the step of 20 drawn as 15 further on; the «20» of the step beside it)
+   const pairs=[];dims.forEach((e,n)=>legsPt.forEach((x,i)=>{const v=x*k,m=md(i),d=Math.hypot(m.x-e.c.x,m.y-e.c.y);
+    if(Math.abs(v-e.v)<=e.v*.08)pairs.push([d,n,i]);else if(v>=e.v*.5&&v<=e.v*1.5&&d<100)pairs.push([d*2,n,i])}));
+   pairs.sort((a,b)=>a[0]-b[0]);for(const [,n,i] of pairs)if(!used.has(n)&&hit[i]<0){used.add(n);hit[i]=n}
+   legsMm=legsPt.map((x,i)=>hit[i]>=0?dims[hit[i]].v:null);
+   // (a leg drawn as long as one that has its dimension, ±10 % — the same: the two steps of поз. 61)
+   legsMm=legsMm.map((v,i)=>{if(v!==null)return v;const tw=legsPt.findIndex((y,j)=>legsMm[j]!==null&&Math.abs(y-legsPt[i])<=Math.max(.6,legsPt[i]*.1));return tw>=0?legsMm[tw]:Math.round(legsPt[i]*k)})}
   const bends=[];for(let i=2;i<pts.length;i++){const a=Math.atan2(pts[i-1].y-pts[i-2].y,pts[i-1].x-pts[i-2].x),b=Math.atan2(pts[i].y-pts[i-1].y,pts[i].x-pts[i-1].x);let d=(b-a)*180/Math.PI;while(d>180)d-=360;while(d<-180)d+=360;bends.push(Math.round(d))}
   // (the colour of its face: «RAL 5012» beside the sketch)
   const ralT=items.filter(t=>/^RAL\s*\d{4}$/iu.test(t.str.trim())&&ownerOf(t.c)===l).sort((p,q)=>Math.hypot(p.c.x-l.c.x,p.c.y-l.c.y)-Math.hypot(q.c.x-l.c.x,q.c.y-l.c.y))[0],ral=ralT?/(\d{4})/u.exec(ralT.str)[1]:"";
