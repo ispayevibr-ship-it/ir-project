@@ -225,9 +225,13 @@ const SCALES=[1,2,2.5,4,5,10,15,20,25,40,50,75,100,150,200,250,300,400,500,800,1
 // The scale of a view tied to one axis each way, from its dimensions: the dimension line just under a horizontal
 // number (or beside a vertical one) and the extension lines crossing it nearest to the number on each side.
 function dimensionsOf(texts,segments){
- const H=[],V=[],ticks=[],short=[];
+ const H=[],V=[],ticks=[],short=[],stubH=[],stubV=[];
  for(const q of segments){
   const dx=Math.abs(q.a.x-q.b.x),dy=Math.abs(q.a.y-q.b.y);
+  // (a stub of a dimension line between two ticks of a short size — 5…6 pt, ИР-71535 АР ч.1 л.5 «370», «400» —: no line
+  // of its own, it joins the pieces either side into one)
+  if(dy<0.3&&dx>=3&&dx<8)stubH.push({c:(q.a.y+q.b.y)/2,lo:Math.min(q.a.x,q.b.x),hi:Math.max(q.a.x,q.b.x)});
+  else if(dx<0.3&&dy>=3&&dy<4)stubV.push({c:(q.a.x+q.b.x)/2,lo:Math.min(q.a.y,q.b.y),hi:Math.max(q.a.y,q.b.y)});
   if(dy<0.3&&dx>=8)H.push({c:(q.a.y+q.b.y)/2,lo:Math.min(q.a.x,q.b.x),hi:Math.max(q.a.x,q.b.x)});
   else if(dx<0.3&&dy>=4)V.push({c:(q.a.x+q.b.x)/2,lo:Math.min(q.a.y,q.b.y),hi:Math.max(q.a.y,q.b.y)});
   // The ticks of the ends of dimensions: short strokes at 45° across the dimension line.
@@ -247,7 +251,7 @@ function dimensionsOf(texts,segments){
  // middle one).
  const joined=list=>{const out=[];for(const l of list.sort((a,b)=>a.c-b.c||a.lo-b.lo)){const p=out[out.length-1];
   if(p&&Math.abs(p.c-l.c)<0.05&&l.lo<=p.hi+0.5){p.hi=Math.max(p.hi,l.hi)}else out.push({...l})}return out};
- H.splice(0,H.length,...joined(H));V.splice(0,V.length,...joined(V));
+ H.splice(0,H.length,...joined(H.concat(stubH)).filter(l=>l.hi-l.lo>=8));V.splice(0,V.length,...joined(V.concat(stubV)).filter(l=>l.hi-l.lo>=4));
  const out=[];
  for(const t of texts){
   const v=numberValue(t.str);if(!(v>=50))continue;
@@ -258,12 +262,19 @@ function dimensionsOf(texts,segments){
   // it is the size's. A short size is written past the end of its line, over its end.
   const band=along.filter(l=>l.c>=base+0.3&&l.c<=base+Math.max(4,(Number(t.size)||0)*0.4)),[u0,u1]=flat?[b.x0,b.x1]:[b.y0,b.y1];
   const longest=list=>list.reduce((p,l)=>!p||l.hi-l.lo>p.hi-p.lo?l:p,null);
-  let line=longest(band.filter(l=>l.lo<=at&&l.hi>=at))||longest(band.filter(l=>l.lo<=u1&&l.hi>=u0));
+  let line=longest(band.filter(l=>l.lo<=at&&l.hi>=at))||longest(band.filter(l=>l.lo<=u1&&l.hi>=u0)),shelf=0;
   // A dimension line broken where its number is — in the break of a view drawn with the middle left out (ГПЭС К36:
   // «7350» in a gap of 300 pt of its line): the two pieces on one line either side of it, the nearest.
   if(!line){
    const z=Number(t.size)||10,left=band.filter(l=>l.hi<=u0+2&&u0-l.hi<=z*15).sort((a,b)=>b.hi-a.hi);
-   for(const l of left){const r=band.filter(q=>Math.abs(q.c-l.c)<=0.3&&q.lo>=u1-2&&q.lo-u1<=z*15).sort((a,b)=>a.lo-b.lo)[0];if(r){line={c:l.c,lo:l.lo,hi:r.hi};break}}
+   // (not a piece that carries a number of its own — the shelf of the next short size, АР ч.1 л.5: «370 370» over the
+   // ends of two short sizes either side, the first took both shelves for one line of 5630)
+   const owned=l=>texts.some(q=>q!==t&&numberValue(q.str)>=10&&(()=>{const qb=textBox(q);if(qb.angle!==b.angle)return false;const qa=flat?qb.cx:qb.cy,qs=flat?qb.y1:qb.x1;return qa>=l.lo&&qa<=l.hi&&l.c>=qs+0.3&&l.c<=qs+Math.max(4,(Number(q.size)||0)*0.4)})());
+   for(const l of left){if(owned(l))continue;const r=band.filter(q=>Math.abs(q.c-l.c)<=0.3&&q.lo>=u1-2&&q.lo-u1<=z*15&&!owned(q)).sort((a,b)=>a.lo-b.lo)[0];if(r){line={c:l.c,lo:l.lo,hi:r.hi};break}}
+   // (a short size written a little past the end of its shelf — the shelf ends 1…1.5 of the number's height before it, АР
+   // ч.1 л.5 «370» over the gutter —: that shelf is its line, the size beyond its far end)
+   if(!line){const l=band.filter(l=>l.hi<=u0+0.5&&u0-l.hi<=z*1.5&&!owned(l)).sort((a,b)=>b.hi-a.hi)[0],r=band.filter(q=>q.lo>=u1-0.5&&q.lo-u1<=z*1.5&&!owned(q)).sort((a,b)=>a.lo-b.lo)[0];
+    const p=l&&(!r||u0-l.hi<=r.lo-u1)?l:r;if(p){line=p;shelf=p===l?1:-1}}
   }
   if(!line)continue;
   const ext=across.filter(e=>e.lo<=line.c+3&&e.hi>=line.c-3&&e.c>=line.lo-1&&e.c<=line.hi+1).map(e=>e.c);
@@ -284,7 +295,8 @@ function dimensionsOf(texts,segments){
    if(Math.abs(q0-t0)<=2||Math.abs(q1-t1)<=2)e=dir>0?Math.max(e,q1):Math.min(e,q0)}return e};
   // (a dot on its line under it — the shelf run on past it to its label, «60 для К158» —: a size written past its span)
   const dot=dots.some(k=>Math.abs((flat?k.y:k.x)-line.c)<=1.5&&(flat?k.x:k.y)>=t0-2&&(flat?k.x:k.y)<=t1+2);
-  if(!Number.isFinite(hi)){const below=[...new Set(ext.filter(c=>c<at).map(c=>Math.round(c*10)/10))].sort((a,b)=>b-a);if(below.length>=2&&(t0-below[0]<=gap||line.lo<=below[0]+0.5&&(dot||line.hi>=tm&&(line.hi<=t1+end||line.hi<=label(1)+end)))){hi=below[0];lo=below[1];past=1}}
+  if(shelf>0&&!Number.isFinite(hi)||shelf<0&&!Number.isFinite(lo)){const e=[...new Set(ext.filter(c=>shelf>0?c<at:c>at).map(c=>Math.round(c*10)/10))].sort((a,b)=>shelf>0?b-a:a-b);if(e.length>=2){lo=Math.min(e[0],e[1]);hi=Math.max(e[0],e[1]);past=shelf}}
+  else if(!Number.isFinite(hi)){const below=[...new Set(ext.filter(c=>c<at).map(c=>Math.round(c*10)/10))].sort((a,b)=>b-a);if(below.length>=2&&(t0-below[0]<=gap||line.lo<=below[0]+0.5&&(dot||line.hi>=tm&&(line.hi<=t1+end||line.hi<=label(1)+end)))){hi=below[0];lo=below[1];past=1}}
   else if(!Number.isFinite(lo)){const above=[...new Set(ext.filter(c=>c>at).map(c=>Math.round(c*10)/10))].sort((a,b)=>a-b);if(above.length>=2&&(above[0]-t1<=gap||line.hi>=above[0]-0.5&&(dot||line.lo<=tm&&(line.lo>=t0-end||line.lo>=label(-1)-end)))){lo=above[0];hi=above[1];past=-1}}
   // The ticks on the line mark the ends of its dimensions: an extension line of another dimension crossing an overall
   // one has none there (ГПЭС К17а: «4320» over «60 4215 45» took the extension lines of the chain for its ends).
