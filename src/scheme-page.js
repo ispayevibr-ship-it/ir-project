@@ -754,7 +754,9 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  // Спецификации КМ для «Ведомости металла»: данные приходят из закрытого хранилища через 15 с после запуска и раз в час —
  // схема, открытая раньше, спрашивает ещё раз (через 20 с, 1, 3, 10 мин и при открытии вкладки), а не остаётся без них.
  let specsTry=0,specsBusy=false;
- function specsReload(){if(specsBusy||specsKm?.length)return;specsBusy=true;Promise.resolve(irProject.ai?.invoke?.("ai-documents:specs-km")).then(r=>{if(Array.isArray(r)&&r.length){specsKm=r;window.irThreeSchemeView?.setSpecs?.(r)}else if(specsTry<4)setTimeout(specsReload,[2e4,6e4,18e4,6e5][specsTry++])}).catch(()=>{}).finally(()=>{specsBusy=false})}
+ // (already here — given to the 3D again: it was built before they came, with the empty list of then; the engineer,
+ // 16.11.2026, «спецификации КМ нет» in every tab, the file on the computer)
+ function specsReload(){if(specsKm?.length){window.irThreeSchemeView?.setSpecs?.(specsKm);return}if(specsBusy)return;specsBusy=true;Promise.resolve(irProject.ai?.invoke?.("ai-documents:specs-km")).then(r=>{if(Array.isArray(r)&&r.length){specsKm=r;window.irThreeSchemeView?.setSpecs?.(r)}else if(specsTry<4)setTimeout(specsReload,[2e4,6e4,18e4,6e5][specsTry++])}).catch(()=>{if(specsTry<4)setTimeout(specsReload,[2e4,6e4,18e4,6e5][specsTry++])}).finally(()=>{specsBusy=false})}
  function renderScene(opts){
   const box=document.getElementById("schemeCanvas");if(!box)return;
   // (the 3D is loaded when the scheme opens, not in every tab — src/lazy-modules.js)
